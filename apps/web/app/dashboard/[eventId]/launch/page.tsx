@@ -1,4 +1,5 @@
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
+import { resolveStdBackground, stdFollowsTheme } from '@/lib/std-backgrounds';
 import Link from 'next/link';
 import { studioHubHref } from '@/lib/studio-hub';
 import { guestsMaySeeSeatsFor } from '@/lib/guests-may-see-seats';
@@ -56,6 +57,8 @@ import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { MakerRsvpCanvas } from './_components/maker-page';
 /* ⚡ Loads when Details › RSVP is opened — never with the Maker (`details-lazy.tsx`). */
 import { MakerRsvpSettings, MakerRsvpStage } from './_components/details-lazy';
+import { celebrationColours } from '@/lib/rsvp-celebration';
+import { boardSwatches } from '@/lib/mood-board-palette-set';
 import OurStoryEditorPage from '../website/our-story/page';
 import CoupleSchedulePage from '../schedule/page';
 import CoupleSeatingPage from '../seating/page';
@@ -79,7 +82,7 @@ import { hasOwnLook } from '@/lib/theme-own-look';
 import { detailsItemApplies, detailsItemFor, makerHasWork, makerToolFor, schedulePieces, type DetailsItemKey } from '@/lib/maker-details-items';
 import { guidedPlanFromFacts, isUnfinished, parseGuideParam } from '@/lib/details-guided-flow';
 import { parentsOffered } from '@/lib/details-your-event';
-import { countSetupGuests, guidedFactsFrom, guidedPresent, hubSetupFactsFrom, readGuidedPlan, setupRoundFor, type SetupScheduleBlock } from './_components/details-guided-progress';
+import { countSetupGuests, guidedFactsFrom, readBackgroundChosen, guidedPresent, hubSetupFactsFrom, readGuidedPlan, setupRoundFor, type SetupScheduleBlock } from './_components/details-guided-progress';
 import { hubSetupApplies, hubSetupGuestsHref, type HubSetupFacts } from '@/lib/hub-setup-steps';
 import { formatBlockTime } from '@/lib/schedule';
 import { isCoordinatorP3Enabled } from '@/lib/coordinator-broadcasts-server';
@@ -93,10 +96,13 @@ import { parentGuestsForEvent, printInputsVersion, printOwnsPro, printThemeFor, 
 import { printPreviewVersion } from '@/lib/print-preview-cache';
 import { printDraftOf } from '@/lib/ceremony-time';
 import { updateSpecialMessage } from '../website/special-message/actions';
-import { fetchEgiftMethods } from '@/lib/egift';
+import { fetchEgiftMethods, isPabuyaPublicRouteEnabled, readEgiftMethods } from '@/lib/egift';
+import { HubSavesImmediately } from '../website/_components/hub-draft-field';
+// ⚡ Through the lazy stand-in — never the manager's own module (the Maker's first-load budget).
+import { PabuyaManager } from './_components/details-lazy';
 import { formatFor, parsePrintDetails, storyHasMoments } from '@/lib/print-pieces';
 import { printStoryChapters } from '@/lib/love-story-moments';
-import { passCardsZipFileNameOf } from '@/lib/pass-card';
+import { passCardDesignFrom, passCardsZipFileNameOf } from '@/lib/pass-card';
 import { isHostMemberType } from '@/app/[slug]/_lib/host-scope';
 import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.server';
 import { fetchGuestsByEventMeasured } from '@/lib/guests';
@@ -124,6 +130,9 @@ import { formatPhp } from '@/lib/orders';
 import { hubNamedGuestPreviewEnabled } from '@/lib/hub-named-guest-flag';
 import { asViewed, viewAsFreeSwitch } from '@/lib/view-as-free.server';
 import { planMyselfOn } from '@/lib/plan-myself';
+import { makerStagesStudioEnabled } from '@/lib/maker-stages-studio-flag';
+import { studioTiles, type StudioTileModel } from '@/lib/studio-tiles';
+import { yourEventLabel } from '@/lib/details-your-event';
 
 // ⭐ THE ONLY SURFACE THAT MAY DECLARE THIS NAME (owner ruling 2026-09-02 —
 // "if it is the same then adjust"). `/website` wore `title: 'Event Hub'` too
@@ -1033,8 +1042,18 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
   /* ✍ The Details items' own editors — ONE set, drawn by Details and by the
      stage's inspector when a fact is tapped there (`detailsFactEditors`). */
   let factEditors: Partial<Record<DetailsItemKey, ReactNode>> = {};
+  /* 🧭 THE NEW MAKER — "Stages | Studio" (owner 2026-10-06; plan
+     `EVENT_HUB_MAKER_STAGES_STUDIO_BUILD_PLAN_2026-10-06.md` PR 1): ON for the
+     flag, or for an internal viewer (the reading View-as-free already made), and
+     only where there is work. The ONE place it is decided — `MakerShell` is handed
+     the boolean, and Studio's tiles are built only while it is on. */
+  const stagesStudio = hasWork && makerStagesStudioEnabled({ internal: freeSwitch.offered });
+  let studio: { tiles: StudioTileModel[] } | null = null;
   if (hasWork) {
     const printAdmin = createAdminClient();
+    /* 🎁 Started beside the reads below, awaited where the E-Gifts field is built. */
+    const egiftAllP = readEgiftMethods(supabase, eventId);
+    const egiftVisibilityP = supabase.from('events').select('landing_page_visibility').eq('event_id', eventId).maybeSingle();
     const [printEvent, printPro, rsvpHosts, printParents, egifts, printInputs, sampleVersion, feelRes, storyLiveRes, scheduleRes, announceOn] = await Promise.all([
       readPrintEvent(printAdmin, eventId),
       printOwnsPro(eventId),
@@ -1049,7 +1068,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         .then((id) => (id ? printInputsVersion(id) : null))
         .catch(() => null),
       // 💡 The onboarding feel — the gallery's "Suggested for you" label only; + the own-look columns (a re-tap of the current theme hands them back).
-      printAdmin.from('events').select('mood_feel_key, site_bg_color, site_button_color, site_font_key').eq('event_id', eventId).maybeSingle(),
+      printAdmin.from('events').select('mood_feel_key, site_bg_color, site_button_color, site_font_key, std_background').eq('event_id', eventId).maybeSingle(),
       // 💌 The live Love Story (the draft, read below, wins) — Details › Love Story.
       supabase.from('events').select('love_story').eq('event_id', eventId).maybeSingle(),
       // 🗓 The schedule's moments — Details › Schedule's ✓ and its pieces (a refused read says so, never "0").
@@ -1098,12 +1117,15 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       let draftedEvents: Record<string, unknown> = {};
       // 🏛 The venue cards' source and photo, drafted (owner 2026-10-04: venues wait for Apply).
       let draftedVenue: unknown = null;
+      // 🖼 The drafted Look › Background (the hero row's `main`) — the guided Look step's "done" reads it.
+      let draftedMain: unknown = undefined;
       // 🔳 The QR look being edited — drafted over live (owner 2026-09-29, "yes to all 3").
       let qrPrefs: unknown = printEvent.style_preferences;
       try {
         const d = await readHubDraft(supabase, eventId);
         if (d) draftedEvents = d.events as Record<string, unknown>;
         if (d) draftedVenue = d.widgets.venue_map?.venue ?? null;
+        if (d && d.widgets.hero && 'main' in d.widgets.hero) draftedMain = d.widgets.hero.main ?? null;
         if (d && 'invite_theme' in d.events) themeSaved = d.events.invite_theme;
         if (d && 'love_story' in d.events) storyRaw = d.events.love_story;
         if (d && 'style_preferences' in d.events) qrPrefs = d.events.style_preferences;
@@ -1121,6 +1143,14 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
          Details count from (\`readGuidedPlan\`) — handed this page's own reads so
          it repeats none of them, and left running beside the rest of the page;
          awaited only where the guide is drawn. */
+      /* 🎞 The film's background as the couple is editing it — the draft's, else
+         live (`undefined` = unreadable: no "Same as theme" line is offered). */
+      const filmBackgroundRead: unknown =
+        'std_background' in draftedEvents
+          ? draftedEvents.std_background
+          : feelRes.error
+            ? undefined
+            : ((feelRes.data as { std_background?: unknown } | null)?.std_background ?? null);
       const sharedPlanP = readGuidedPlan({
         supabase,
         admin: printAdmin,
@@ -1149,6 +1179,57 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
          "THE PLAN ADAPTS TO EVERY EVENT TYPE — BUILT IN, NOT BOLTED ON"). An
          unreadable profile is the generic one — never a wedding. */
       const detailsProfile = await resolveProfile(printEvent.event_type ?? '').catch(() => GENERIC_PROFILE);
+      /* 🎁 E-GIFTS, IN PLACE (owner 2026-10-06, "EVENT DETAILS IS REBUILT": "Give
+         details: where you will receive egifts and the complete details"): the
+         E-Gifts page's OWN manager — every method (shown and hidden), read through
+         the couple's client exactly as that page reads it — drawn in the Your
+         event form under "Accept gifts?". It writes live, as it always has. */
+      const egiftManager = await (async () => {
+        const [{ methods: all, read }, chrome] = await Promise.all([egiftAllP, egiftVisibilityP]);
+        if (chrome.error) logQueryError('LaunchPage.egiftChrome', chrome.error, { event_id: eventId }, 'graceful_degrade');
+        /* A refused read is SAID — never "no methods yet" with an add form under it. */
+        if (!read) {
+          return (
+            <p role="alert" className="text-sm text-terracotta-700" data-details-egifts-failed="">
+              Your gift details could not be read just now. Nothing was changed — please reopen this in a moment.
+            </p>
+          );
+        }
+        const row = (chrome.data ?? null) as { landing_page_visibility: string | null } | null;
+        const words = eventWordsFromProfile(detailsProfile);
+        const qrDisplayUrls: Record<string, string> = {};
+        for (const m of all) if (m.qr_r2_key && m.qrDisplayUrl) qrDisplayUrls[m.qr_r2_key] = m.qrDisplayUrl;
+        return (
+          <>
+          {/* The E-Gifts page's own writes — live, and said so (the thank-you beside it is too). */}
+          <HubSavesImmediately />
+          <PabuyaManager
+            eventId={eventId}
+            /* The preview's heading reads "E-Gifts for <the organizer word>" here — this
+               page reads no name it does not need (`the-controller-wires-what-it-measured`). */
+            coupleName={null}
+            organizerPossessive={words.theOrganizerPossessive}
+            theOrganizer={words.theOrganizer}
+            slug={printEvent.slug}
+            visibility={row?.landing_page_visibility ?? null}
+            eventWasRead={row !== null}
+            publicRouteEnabled={isPabuyaPublicRouteEnabled()}
+            initialMethods={all.map((m) => ({
+              egift_method_id: m.egift_method_id,
+              method_kind: m.method_kind,
+              label: m.label,
+              account_name: m.account_name,
+              handle: m.handle,
+              qr_r2_key: m.qr_r2_key,
+              note: m.note,
+              is_enabled: m.is_enabled,
+              qrDisplayUrl: m.qrDisplayUrl,
+            }))}
+            qrDisplayUrls={qrDisplayUrls}
+          />
+          </>
+        );
+      })();
       const themes = pickableInviteThemes();
       /* 🖨 THE COUPLE'S OWN PRINTS, folded in from Prints & Tickets (owner
          2026-09-28: "1 fold prints and tickets into details") — drawn in the
@@ -1169,7 +1250,11 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         /* The Our Story poster prints the Love Story — the same read the print uses. */
         storyEmpty: !storyHasMoments(printStoryChapters(printEvent.love_story)),
         /* 🎫 The pass guests save — its saved look and the couple's zip's name. */
-        passDesign: stored.passDesign,
+        /* …the DRAFTED look when the draft holds one (owner Q7 2026-10-02: it waits for Apply). */
+        passDesign:
+          typeof draftedEvents.print_details === 'object' && draftedEvents.print_details && 'pass_design' in draftedEvents.print_details
+            ? passCardDesignFrom((draftedEvents.print_details as { pass_design?: unknown }).pass_design)
+            : stored.passDesign,
         /* 🖼 The Our Story poster's own photo (owner 2026-09-29). */
         posterPhoto: stored.posterPhoto ?? null,
         passCardsZip: passCardsZipFileNameOf(printEvent),
@@ -1328,6 +1413,9 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
                   }
             }
             replyByFallback={resolveReplyBy({ deadline: null, eventDate: printEvent.event_date })?.date ?? null}
+            /* 🎉 When yes's Celebration ▾ — its ◆ marks ask the SAME measured
+               Pro the QR look asks (`printPro`); its previews wear the board. */
+            celebration={{ ownsPro: printPro, colours: celebrationColours(boardSwatches(printEvent.role_palette)) }}
           />
         );
       }
@@ -1381,6 +1469,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         // 🪑 The Seat plan row's own done (its door) — read above, never re-read.
         // 🪑 Done = ARRANGED (a guest seated), never "guests can see it".
         seatPlanArranged: seatPlan ? (seatPlan.seated === null ? null : seatPlan.seated > 0) : undefined,
+        backgroundChosen: await readBackgroundChosen(printAdmin, eventId, draftedMain),
       });
       const sharedPlan = await sharedPlanP;
       /* 🖼 The cover photo itself — what the guided cover step shows behind its
@@ -1412,6 +1501,21 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
           replyBy: deadlineRes.error ? undefined : ((deadlineRes.data?.guest_list_edit_deadline as string | null) ?? null),
           guests: mayReadGuestList ? await countSetupGuests(printAdmin, eventId) : null,
         });
+      }
+      /* 🗂 STUDIO'S TILES — their ✓ / Missing from the SAME facts the rows above read
+         (`guided`, the setup's reply-by, the seat counts, the E-Gifts manager's own read). */
+      if (stagesStudio) {
+        const gifts = await egiftAllP;
+        studio = {
+          tiles: studioTiles({
+            facts: guided,
+            setup: setupFacts,
+            giftMethods: gifts.read ? gifts.methods.filter((m) => m.is_enabled).length : null,
+            seat: seatPlan ? { tables: seatPlan.tables, seated: seatPlan.seated } : null,
+            offered: (item) => (item === 'seating' ? seatPlan !== null : item === 'rsvp' ? rsvpItem !== null : detailsItemApplies(item, eventContext)),
+            marchLabel: yourEvent ? yourEventLabel('march', yourEvent.kind) : undefined,
+          }),
+        };
       }
       const guidedPresentHere = guidedPresent({
         yourEvent: yourEvent ? { kind: yourEvent.kind, namesWritable: yourEvent.names !== null } : null,
@@ -1523,6 +1627,11 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
               // Never on the Maker's very first visit — its own welcome is showing.
               tour: !firstVisit,
               chosen: guided.themeChosen,
+              /* 🎞 The film keeps a background of its own (draft over live) — Theme
+                 then offers "Same as theme" (owner, live walk 2026-10-05). Only
+                 where the type has the film at all. */
+              filmOwnBackground: mayShowStdFilm && filmBackgroundRead !== undefined && !stdFollowsTheme(filmBackgroundRead),
+              filmLegibility: resolveStdBackground(filmBackgroundRead).legibility ?? 'auto',
               // The look they set themselves (draft over live) — a re-tap of the current theme hands it back.
               ownLook: hasOwnLook(feelRes.data as Record<string, unknown> | null, draftedEvents),
               /* 🎨 THE MOOD BOARD PALETTE IS THE PRIORITY (owner 2026-10-05): an
@@ -1577,6 +1686,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
             })()}
             hasPalette={guided.palette}
             hasGifts={egifts.length > 0}
+            egiftManager={egiftManager}
             flash={one(search.print_saved) ? 'saved' : one(search.print_error) ? 'error' : null}
             stamp={String(Date.now())}
             eventContext={eventContext}
@@ -1668,6 +1778,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
          where the work area is the editor — a coordinator has nothing to draft. */
       applySlot={hasWork ? <HubDraftDock eventId={eventId} saveError={one(search.draft_error)} /> : null}
       viewAsFree={freeSwitch.offered ? { on: freeSwitch.on } : null}
+      stagesStudio={stagesStudio}
+      studio={studio}
       /* Who Details is for, in the event type's own words (a coordinator is told
          why it is shut) — `EventWords`, never a typed "couple". */
       theHost={eventWordsFromProfile(await resolveProfileByEvent(eventId)).theHost}

@@ -55,26 +55,31 @@ export type CustomColumnKey = `${typeof CUSTOM_COLUMN_KEY_PREFIX}${string}`;
 export type RenderOrderKey = EditorialOrderKey | CustomColumnKey;
 
 /**
- * Canonical default order of the REORDERABLE content sections — the exact run
- * they render in today (fromTheCouple + song excluded: those pin to the end). A
+ * Canonical default order of the REORDERABLE content sections — the run they
+ * render in when the couple never arranged them (fromTheCouple + song excluded:
+ * those pin to the end). A
  * saved draft_json.sectionOrder reorders WITHIN this set; unknown/missing keys
  * append in this default order so an older editorial (no sectionOrder) or a new
  * key added later never drops a section.
  */
 export const EDITORIAL_ORDERABLE_KEYS: ReadonlyArray<EditorialOrderKey> = [
   'chapters',
+  // 📑 Owner 2026-10-05 (DECISION_LOG "APPROVED — EVERY GUEST PAGE'S DEFAULT
+  // SECTION ORDER"): the gallery and the film come up right after the chapters
+  // — "Were you there?" follows the film (`lib/post-event-scenes.ts`) — and the
+  // guests' voices follow them.
+  'gallery',
+  'watchFilm',
   'kwento',
   // Owner, 2026-08-21: challenge answers "have their own column". Placed beside
   // the other two guest voices — Kwento's whispers and the Letters — because
   // that is what it is: the guests talking, in their own words.
   'challengeAnswers',
   'guestColumns',
-  'gallery',
   'seating',
   'fromVendors',
   'entourage',
   'liveWall',
-  'watchFilm',
   'reviews',
   'poweredBy',
   'vendorsWeLoved',

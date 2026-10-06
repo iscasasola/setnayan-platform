@@ -449,7 +449,7 @@ export function RsvpWidget({
               surface="rsvp_confirmation"
               eventId={eventId}
               eventPublicId={eventPublicId}
-              headline="Planning your own celebration?"
+              headline="Planning your own event?"
               sub="Start free on Setnayan — no card needed."
             />
           )}

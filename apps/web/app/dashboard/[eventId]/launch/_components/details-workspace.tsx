@@ -2,8 +2,8 @@
 
 import { formatCount } from '@/lib/format-number';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Check, ChevronUp } from 'lucide-react';
-import { detailsItemLayout, type DetailsItemKey, type DetailsItemModel } from '@/lib/maker-details-items';
+import { Check } from 'lucide-react';
+import { detailsItemLayout, detailsLtSection, groupOfItemSafe, type DetailsItemKey, type DetailsItemModel } from '@/lib/maker-details-items';
 import {
   GUIDE_PARAM,
   backScreen,
@@ -27,13 +27,14 @@ import { GuideTop, WhatsLeftDoor, hasUnsavedEdits } from './details-guide-top';
 import type { PrintField } from '@/lib/print-layout';
 import { DetailsTapContext, PRINT_FIELD_INPUT } from './details-tap';
 import { DetailsPieceContext, DetailsSelectContext, type DetailsPieces } from './details-go';
-import { useMaker } from './maker-context';
 import { useSameFieldDoors } from './same-field';
-import { MAKER_TOUCH_EVENT, leaveAsks, newStepTouch, noteTouch, touchOrigin, type StepTouch } from '@/lib/guided-step-touch';
+import { MAKER_TOUCH_EVENT, leaveAsks, newStepTouch, noteStepTouch, touchOrigin, type StepTouch } from '@/lib/guided-step-touch';
 import { BeforeWeStartScreen, GuideFoot, GuideHead, GuideLinkScreen, GuideReady, StagePicker, StageStepPreview, StepBackground } from './details-lazy';
 import { GUIDED_FLOW_TITLE, guidedStepBody } from '@/lib/guided-step-layout';
-import { MAKER_PHONE_PANEL_CAP } from '@/lib/maker-phone-room';
-import { MakerHalfSheet, SheetGrip, SheetScrim } from './maker-sheet';
+import { MAKER_LT_TOOL } from '@/lib/maker-phone-room';
+import { MakerHalfSheet } from './maker-sheet';
+import { useMaker, useMakerTool } from './maker-context';
+import { IntoLowerThird, LOWER_THIRD_TILE, LOWER_THIRD_TILE_ON, LOWER_THIRD_TILE_PART, LOWER_THIRD_TILE_PLAIN } from './maker-lower-third';
 import { SheetSections } from './sheet-sections';
 
 /** `DetailsItemModel` (`lib/maker-details-items.ts`) plus its small picture. */
@@ -44,7 +45,44 @@ export type DetailsNavItem = DetailsItemModel & {
   panelLabel?: string;
 };
 
-export type DetailsNavGroup = { key: string; label: string; items: DetailsNavItem[] };
+export type DetailsNavGroup = {
+  key: string;
+  label: string;
+  items: DetailsNavItem[];
+  /** 🗂 ONE row in the list ("Your event"); picking it shows every item's editor, one under the other (owner 2026-10-06). */
+  form?: true;
+  /** Present (the guided flow and old addresses open them) but never a row of the list. */
+  hidden?: true;
+};
+
+/**
+ * 🗂 THE LIST AS IT IS DRAWN (owner 2026-10-06, "EVENT DETAILS IS REBUILT"): a
+ * hidden group draws no rows; a form group draws ONE row — named by the group,
+ * keyed by the item showing (else its first), so a press keeps the field in view.
+ * Pure, so a test holds it.
+ */
+export function detailsListGroups(groups: readonly DetailsNavGroup[], selected: DetailsItemKey): DetailsNavGroup[] {
+  return groups
+    .filter((g) => !g.hidden && g.items.length > 0)
+    .map((g) => {
+      if (!g.form) return g;
+      const on = g.items.find((i) => i.key === selected) ?? g.items[0]!;
+      const row: DetailsNavItem = {
+        key: on.key,
+        group: g.items[0]!.group,
+        label: g.label,
+        sub: g.items.map((i) => i.label).join(' · '),
+        icon: g.items[0]!.icon,
+        ...(g.items.every((i) => i.done !== undefined) ? { done: g.items.every((i) => i.done) } : {}),
+      };
+      return { ...g, items: [row] };
+    });
+}
+
+/** The form group an item belongs to, or null. */
+export function formGroupOf(groups: readonly DetailsNavGroup[], key: DetailsItemKey): DetailsNavGroup | null {
+  return groups.find((g) => g.form && g.items.some((i) => i.key === key)) ?? null;
+}
 
 /**
  * THE DETAILS PAGE WEARS THE MAKER'S THREE COLUMNS (owner 2026-09-28, verbatim:
@@ -105,12 +143,11 @@ export type DetailsNavGroup = { key: string; label: string; items: DetailsNavIte
  * pressing on the dimmed part will go back to the main screen"*; the approved
  * phone layout, frames G/I of `prototypes/maker_in_four_2026-09-30_fable.html`).
  * Under `lg` the body fills everything between the Maker's two bars, and:
- *   · the editor is a BOTTOM SHEET over the dimmed page (`SheetScrim` ·
- *     `SheetGrip`, `maker-sheet.tsx`), capped so the dimmed page keeps ≥ 55%
- *     (`lib/maker-phone-room.ts`). Its one header row is the item's name and
- *     ONE dropdown — the other items here and the item's own sections (what the
- *     navigator strip held). A door (Look · Event Details · Prints) opens it;
- *     shut, an "Edit" chip on the page opens it again;
+ *   · 🧰 since 2026-10-05 (the owner's lower third) the items are the Maker's
+ *     lower-third NAVIGATOR's tiles and the picked item's editor is a TOOL of
+ *     the lower third (`MAKER_LT_TOOL`, `useMakerTool`) — never a sheet over
+ *     the page. Its one header row is ONE dropdown — the other items here and
+ *     the item's own sections;
  *   · the guided flow's progress ("Finish · 9 of 20") is ONE button in the
  *     sheet's header — never a chip floating over the page — and opens "Which
  *     stage do you want ready?"; in the flow it is the step sheet's own ▾ line.
@@ -148,7 +185,14 @@ export function DetailsWorkspace({
   pieces = {},
   guide = null,
   coverUrl = null,
+  bodyAlias = {},
 }: {
+  /**
+   * 🖼 Items that SHARE another item's picture (owner 2026-10-06: Background ·
+   * Colours · Font · Music each show the couple's own page — ONE frame, the
+   * whole Look's, never four). Key → the item whose body it shows.
+   */
+  bodyAlias?: Partial<Record<DetailsItemKey, DetailsItemKey>>;
   /** 🖼 The couple's cover photo (drafted over live, signed) — what the cover step shows behind its sheet. */
   coverUrl?: string | null;
   /** 🪜 The guided "What's left" (Details part 5); null = the navigator only (the lab without it). */
@@ -172,7 +216,15 @@ export function DetailsWorkspace({
   const maker = useMaker();
   /* The Maker's word wins when it names one of these items (a door elsewhere
      in the Maker asked for it); otherwise the page's own pick. */
-  const asked = maker?.detailsItem && items.some((i) => i.key === maker.detailsItem) ? maker.detailsItem : null;
+  /* 🗂 A door that names an item this event does not draw (a birthday's Love
+     Story) lands on the first item of that item's group that it does. */
+  const asked = (() => {
+    const k = maker?.detailsItem;
+    if (!k) return null;
+    if (items.some((i) => i.key === k)) return k;
+    const g = groups.find((x) => x.key === groupOfItemSafe(k));
+    return g && !g.hidden ? (g.items[0]?.key ?? null) : null;
+  })();
   const [own, setOwn] = useState<DetailsItemKey>(first);
   const selected = asked ?? own;
   const [visited, setVisited] = useState<ReadonlySet<DetailsItemKey>>(() => new Set([first]));
@@ -181,7 +233,9 @@ export function DetailsWorkspace({
   /* 📱 The editor sheet: opened by a door (`MakerState.detailsDoor`), a tap on the
      page, the Edit chip, or a step picked — never on its own (the page shows clean). */
   const door = maker?.detailsDoor ?? 0;
-  const [sheetOpen, setSheetOpen] = useState(door > 0);
+  /* In the lower third (a phone) a mount never opens the tool: Theme · Details ·
+     Prints land on their navigator, and only a door pressed WHILE mounted opens it. */
+  const [sheetOpen, setSheetOpen] = useState(() => door > 0 && !maker?.lowerThird);
   const lastDoor = useRef(door);
   useEffect(() => {
     if (door === lastDoor.current) return;
@@ -205,12 +259,22 @@ export function DetailsWorkspace({
     }),
     [pieceMap],
   );
-  /* 🎨 LOOK IS ITS PANEL (owner 2026-10-02, `lib/maker-look-sections.ts`): on a
-     phone, opening Look opens its sheet over the couple's page — never a closed
-     handle reading "Theme" alone. */
+  /* 🎨 LOOK IS ITS PANEL (owner 2026-10-02, `lib/maker-look-sections.ts`): opening
+     Look opens its panel — never a closed handle reading "Theme" alone. In the
+     Maker's lower third (a phone, 2026-10-05) Theme lands on its NAVIGATOR like
+     every pick, and the Theme tile opens the panel. */
   useEffect(() => {
-    if (selected === 'theme') setSheetOpen(true);
+    if (selected === 'theme' && !window.matchMedia('(max-width: 1023.98px)').matches) setSheetOpen(true);
   }, [selected]);
+  /* 🚶 THE MARCH'S LOWER THIRD IS ITS "NOT WALKING" TRAY (owner, live iPhone
+     2026-10-06: *"we want a scroll-less screen there. Just show screen for those
+     not added or will not walk the isle"*): opening the Wedding March opens its
+     tray where the navigator was — the one exception to "a mount lands on the
+     navigator", because the tray is half of the march, not a separate editor. */
+  const marchHere = selected === 'march';
+  useEffect(() => {
+    if (marchHere) setSheetOpen(true);
+  }, [marchHere]);
   const editorRef = useRef<HTMLDivElement>(null);
   const navRef = useRef<HTMLOListElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -236,6 +300,32 @@ export function DetailsWorkspace({
   const [stepKey, setStepKey] = useState<GuidedStepKey | null>(entry?.kind === 'step' ? entry.step : null);
   /** Next (or any move) found unsaved typing here: where it was going. */
   const [unsavedTo, setUnsavedTo] = useState<GuidedScreen | null>(null);
+  /* 🎨 LOOK OPENS THE LOOK TOOLS (owner 2026-10-05: a press of Look landed on
+     the guided flow's stage list). Each opening of Look is counted by the Maker
+     (`lookVisit`) and ANSWERED ONCE (`takeLookVisit` — a later mount of this
+     page, through Details or a jump, never replays it): this visit leaves the
+     flow's screens for the Look item. Not remembered: the next door into the
+     flow still opens it. */
+  const lookVisit = maker?.lookVisit ?? 0;
+  const takeLookVisit = maker?.takeLookVisit;
+  useEffect(() => {
+    if (!lookVisit || !takeLookVisit?.(lookVisit)) return;
+    setMode('all');
+    setPane(null);
+    setUnsavedTo(null);
+  }, [lookVisit, takeLookVisit]);
+  /* 🗓 A DOOR THAT NAMES ONE ITEM OPENS THAT ITEM (owner 2026-10-06, a tapped
+     schedule moment landed on "Which stage do you want ready?"): this page mounts
+     fresh for it, on the flow's screen the server chose for a plain landing — so
+     the visit (`openDetailsItem`, answered once) leaves the flow for the item. */
+  const itemVisit = maker?.itemVisit ?? 0;
+  const takeItemVisit = maker?.takeItemVisit;
+  useEffect(() => {
+    if (!itemVisit || !takeItemVisit?.(itemVisit)) return;
+    setMode('all');
+    setPane(null);
+    setUnsavedTo(null);
+  }, [itemVisit, takeItemVisit]);
   const pickedStep = plan && stepKey ? stepOf(plan, stepKey) : null;
   const pieceHere = pieceMap[selected] ?? null;
   const stepHere = plan
@@ -261,6 +351,16 @@ export function DetailsWorkspace({
     setGuideTitle?.(guideTitle);
   }, [setGuideTitle, guideTitle]);
   useEffect(() => () => setGuideTitle?.(null), [setGuideTitle]);
+  /* 🧰 THE GUIDE OWNS THE LOWER THIRD (owner 2026-10-05, live at 375: the stage
+     picker on the page AND Theme's navigator below it — two things at once).
+     While the flow shows a screen of its own (the picker, Before we start, a
+     Ready screen) the lower third draws nothing of an item's: only the menu. */
+  const setGuideBare = maker?.setGuideBare;
+  const guideBare = at !== null && at.kind !== 'step';
+  useEffect(() => {
+    setGuideBare?.(guideBare);
+  }, [setGuideBare, guideBare]);
+  useEffect(() => () => setGuideBare?.(false), [setGuideBare]);
   const modeKey = maker?.eventId ? `sn-details-mode:${maker.eventId}` : null;
   const remember = (m: 'guided' | 'all') => {
     try {
@@ -335,8 +435,9 @@ export function DetailsWorkspace({
     const note = (e: Event) => {
       // A pick in the one dropdown's list (portalled to <body>) is its button's.
       const t = touchOrigin(e.target, document);
-      if (!(t instanceof Node) || !stepScopesOf(rootRef.current, items).some((sc) => sc.contains(t))) return;
-      noteTouch(touchRef.current, e);
+      if (!(t instanceof Node)) return;
+      // A control that writes live (the March order, Reply by) is saved as it changes — never a change to ask about.
+      noteStepTouch(touchRef.current, e, t, stepScopesOf(rootRef.current, items).find((sc) => sc.contains(t)) ?? null);
     };
     const kinds = ['input', 'change', 'click', MAKER_TOUCH_EVENT];
     for (const k of kinds) document.addEventListener(k, note, true);
@@ -397,7 +498,16 @@ export function DetailsWorkspace({
   const navGroups: DetailsNavGroup[] =
     guidedOn && stepHere
       ? [{ key: 'step', label: stepHere.title, items: items.filter((i) => stepHere.items.includes(i.key)) }]
-      : groups;
+      : detailsListGroups(groups, selected);
+  /* 🗂 "Your event" is ONE form (owner 2026-10-06): in the list, its items' editors show one under the other. */
+  const formGroup = guidedOn ? null : formGroupOf(groups, selected);
+  const formKeys: ReadonlySet<DetailsItemKey> = new Set(formGroup?.items.map((i) => i.key) ?? []);
+  const showsEditor = (k: DetailsItemKey) => k === selected || formKeys.has(k);
+  const shownLabel = formGroup?.label ?? current.label;
+  const bodyOf = (k: DetailsItemKey): DetailsItemKey => bodyAlias[k] ?? k;
+  const bodyShown = (k: DetailsItemKey) => bodyOf(selected) === k;
+  /* The shared picture is named by the item showing ("Colours"), never its owner's ("Look"). */
+  const bodyLabel = (i: DetailsNavItem) => (i.key === selected ? i.label : current.label);
   const showNav = !guidedOn || (!onPane && (navGroups[0]!.items.length > 1 || Boolean(pieces[selected])));
   /* 📱 In the flow the editor is the step's HALF SHEET (`MakerHalfSheet`); in All items, the sheet over the dimmed page. */
   const stepSheet = mode === 'guided' && plan !== null;
@@ -421,13 +531,76 @@ export function DetailsWorkspace({
       // 🪜 The flow rides in the address too (`?guide=1` / `?guide=ready-2`), so a reload lands back in it.
       if (guideAddr) url.searchParams.set(GUIDE_PARAM, guideAddr);
       else url.searchParams.delete(GUIDE_PARAM);
-      window.history.replaceState(window.history.state, '', url);
+      /* 🔑 `null`, NEVER `window.history.state` (owner 2026-10-06: Auto arrange
+         landed on "Which stage do you want ready?"). Next's own entry carries
+         `__NA`, and Next IGNORES a replaceState that carries it — so the router
+         kept the landing address (`/launch`, no item) while the bar showed this
+         one: every save re-rendered the page AT THE LANDING (the address bar
+         snapped back to it) and the next reload or remount opened the flow's
+         stage list. With `null` Next hears the address (it copies its own
+         state in) and a save, a refresh or a reload stays on this item. */
+      window.history.replaceState(null, '', url);
     } catch {
       /* the address is a convenience; the page works without it */
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `maker` changes on every Maker render; only the item matters
   }, [selected, tellMaker, guideAddr]);
   const layout = detailsItemLayout(selected);
+
+  /* 🧰 THE LOWER THIRD (phone, owner 2026-10-05): this page's items are its
+     NAVIGATOR's tiles — Look's under Theme, the prints under Settings › Prints,
+     the rest under Details — and the picked item's editor is its TOOL. */
+  const allItemsSheet = sheetOpen && !(mode === 'guided' && plan !== null) && layout !== 'whole';
+  useMakerTool(allItemsSheet, {
+    key: `details:${selected}`,
+    name: shownLabel,
+    close: () => setSheetOpen(false),
+  });
+  const setLtWhere = maker?.setLtWhere;
+  useEffect(() => {
+    setLtWhere?.(shownLabel);
+  }, [setLtWhere, shownLabel]);
+  useEffect(() => () => setLtWhere?.(null), [setLtWhere]);
+  /* The navigator lists the items of the picked item's part of the list (Look's,
+     Story & plans', Your event's one form, the prints) — a jump to another item
+     (a Look tile → the address) moves the lower third's pick with it. */
+  const ltNav = maker?.ltNav ?? null;
+  const ltSection = (k: DetailsItemKey) => detailsLtSection(k);
+  const here = ltSection(selected);
+  const ltTiles = ltNav ? (
+    <IntoLowerThird to={ltNav}>
+          {detailsListGroups(groups, selected)
+            .flatMap((g) => g.items)
+            .filter((i) => ltSection(i.key) === here)
+            .map((i) => {
+              const on = i.key === selected || (formKeys.has(i.key) && formKeys.has(selected));
+              return (
+              <button
+                key={i.key}
+                type="button"
+                data-lt-tile={`details:${i.key}`}
+                data-lt-group="details"
+                aria-pressed={on}
+                onClick={() => {
+                  select(i.key);
+                  setSheetOpen(true);
+                }}
+                className={`${LOWER_THIRD_TILE} ${LOWER_THIRD_TILE_PLAIN} ${on ? LOWER_THIRD_TILE_ON : ''}`}
+              >
+                <span className="relative flex min-h-0 flex-1 items-center justify-center text-ink/75">
+                  <span className="inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg bg-cream ring-1 ring-ink/10">{i.icon}</span>
+                  {i.done ? (
+                    <span aria-label="Done" className="absolute right-2 top-2 inline-flex h-4 w-4 items-center justify-center rounded-full bg-success-700 text-white">
+                      <Check aria-hidden className="h-2.5 w-2.5" strokeWidth={3} />
+                    </span>
+                  ) : null}
+                </span>
+                <span className="block w-full truncate border-t border-ink/10 px-1 py-1.5 text-center text-[11.5px] font-semibold text-ink">{i.label}</span>
+              </button>
+              );
+            })}
+    </IntoLowerThird>
+  ) : null;
 
   /* 🚪 One field, two doors: a fact drawn in two items is one value (part 2b). */
   useSameFieldDoors();
@@ -454,17 +627,41 @@ export function DetailsWorkspace({
     }, 60);
   }, [selected]);
 
+  /* 🗂 A door that names one field of the Your event form (an old `?item=date`, a
+     fact tapped on a stage) brings THAT field into view — by scrolling the
+     editor column only, never `scrollIntoView` (it would scroll the Maker too). */
+  const formAt = formGroup ? selected : null;
+  useEffect(() => {
+    if (!formAt || !sheetOpenOrDesk()) return;
+    const id = window.requestAnimationFrame(() => {
+      const box = editorRef.current;
+      const el = box?.querySelector<HTMLElement>(`[data-details-editor="${formAt}"]`);
+      if (!box || !el) return;
+      box.scrollTop += el.getBoundingClientRect().top - box.getBoundingClientRect().top - 8;
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [formAt, sheetOpen]);
+
   /** Every item's editor — all mounted, the picked one shown (`hidden` never unmounts: a hidden field still posts). */
   const editorsBody = (whole: boolean) => (
     <div
       ref={editorRef}
       hidden={whole}
-      className={`min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-2 ${
-        whole ? 'hidden' : stepSheet || sheetOpen ? '' : 'hidden lg:block'
-      }`}
+      className={`min-h-0 flex-1 overscroll-contain ${
+        /* 🚶 The march's tray never scrolls: it fills the room and fits its names to it. */
+        marchHere ? 'flex flex-col overflow-hidden px-2 pb-2 pt-1 lg:px-3 lg:pt-3' : 'overflow-y-auto px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-2'
+      } ${whole ? 'hidden' : stepSheet || sheetOpen ? '' : 'hidden lg:block'}`}
     >
       {items.map((i) => (
-        <div key={i.key} hidden={i.key !== selected} data-details-editor={i.key} className={i.key !== selected ? 'hidden' : 'flex flex-col gap-3'}>
+        <div
+          key={i.key}
+          hidden={!showsEditor(i.key)}
+          data-details-editor={i.key}
+          data-details-form-field={formKeys.has(i.key) ? '' : undefined}
+          className={!showsEditor(i.key) ? 'hidden' : i.key === 'march' ? 'flex min-h-0 flex-1 flex-col' : `flex flex-col gap-3${formKeys.has(i.key) && i.key !== formGroup?.items[0]?.key ? ' border-t border-ink/10 pt-4' : ''}`}
+        >
+          {/* 🗂 In the Your event form each field is named — the list's row is the form's. */}
+          {formKeys.has(i.key) ? <h3 className="text-[15px] font-semibold text-ink" data-details-form-heading={i.key}>{i.label}</h3> : null}
           {/* A server-made editor arrives as a lazy client reference — keyed, so it is
               never an unkeyed child beside the cover step's background (React's key check;
               the dev badge's "1 Issue" on every Maker screen, 2026-10-05). */}
@@ -511,49 +708,39 @@ export function DetailsWorkspace({
               The items' own pictures step aside — hidden, never unmounted. The
               frame ends where the sheet begins, so the part shown is never under it. */}
           {stagePreviewed && stepBody ? (
-            <div className="flex min-h-0 flex-1 flex-col pb-[calc(45dvh-104px)] lg:hidden" data-guided-step-preview={stepBody.kind}>
+            /* The page ends where the lower third begins — the step's tool is IN it, never over the page. */
+            <div className="flex min-h-0 flex-1 flex-col lg:hidden" data-guided-step-preview={stepBody.kind}>
               <StageStepPreview body={stepBody} coverUrl={coverUrl} />
             </div>
           ) : null}
-          {/* 📱 The editor, shut: one chip on the page opens it again (never a strip). */}
-          {!sheetOpen && !stepSheet && layout !== 'whole' ? (
-            <button
-              type="button"
-              data-details-edit-chip=""
-              onClick={() => setSheetOpen(true)}
-              className="sn-press absolute bottom-3 left-1/2 z-10 inline-flex min-h-11 -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full bg-ink px-4 text-[14px] font-semibold text-cream shadow-lg lg:hidden"
-            >
-              {current.panelLabel ?? `Edit · ${current.label}`}
-              <ChevronUp aria-hidden className="h-4 w-4" />
-            </button>
-          ) : null}
+          {/* 📱 The editor opens from the lower third's tiles — no chip floats over the page. */}
           <div
             className={`${layout === 'flow' ? 'mx-auto flex w-full max-w-4xl flex-col gap-4' : 'flex min-h-0 flex-1 flex-col'} ${stagePreviewed ? 'max-lg:hidden' : ''}`}
           >
-            {items.map((i) =>
-              visited.has(i.key) || i.key === selected ? (
+            {items.filter((i) => !bodyAlias[i.key]).map((i) =>
+              [...visited].some((v) => bodyOf(v) === i.key) || bodyShown(i.key) ? (
                 <div
                   key={i.key}
-                  hidden={i.key !== selected}
+                  hidden={!bodyShown(i.key)}
                   data-details-body-item={i.key}
                   /* 🔑 `hidden` AND no display class when hidden: Tailwind's `flex` beats
                      the attribute's display:none, and every item would show at once. */
                   className={
-                    i.key !== selected ? 'hidden' : detailsItemLayout(i.key) === 'flow' ? 'flex flex-col gap-4' : 'flex min-h-0 flex-1 flex-col'
+                    !bodyShown(i.key) ? 'hidden' : detailsItemLayout(i.key) === 'flow' ? 'flex flex-col gap-4' : 'flex min-h-0 flex-1 flex-col'
                   }
                 >
-                  {guidedOn && stepHere && i.key === selected ? (
+                  {guidedOn && stepHere && bodyShown(i.key) ? (
                     /* 🪜 In the flow: the step's round, its name, where it shows — plain words.
                        📱 On a phone these live only in the guide's sheet. */
                     <div data-details-guide-head-wrap="" className="hidden lg:contents">
-                      <GuideHead step={stepHere} roundTitle={roundName(plan!, walking!)} itemLabel={i.label} compact={detailsItemLayout(i.key) !== 'flow'} />
+                      <GuideHead step={stepHere} roundTitle={roundName(plan!, walking!)} itemLabel={bodyLabel(i)} compact={detailsItemLayout(i.key) !== 'flow'} />
                     </div>
                   ) : detailsItemLayout(i.key) === 'flow' ? (
                     <header className="flex flex-col gap-0.5">
                       <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
                         {groups.find((g) => g.items.some((x) => x.key === i.key))?.label}
                       </p>
-                      <h2 className="font-serif text-2xl text-ink">{i.label}</h2>
+                      <h2 className="font-serif text-2xl text-ink">{bodyLabel(i)}</h2>
                       {i.usedOn?.length ? (
                         <p className="text-xs text-ink/60" data-details-used-on={i.key}>
                           Used on {i.usedOn.join(' · ')}
@@ -563,7 +750,7 @@ export function DetailsWorkspace({
                   ) : (
                     /* A page that moved in keeps its room: one line, not a masthead. */
                     <header className="flex shrink-0 flex-wrap items-baseline gap-x-2 px-4 pb-1 pt-2.5 sm:px-6">
-                      <h2 className="font-serif text-lg text-ink">{i.label}</h2>
+                      <h2 className="font-serif text-lg text-ink">{bodyLabel(i)}</h2>
                       {i.usedOn?.length ? (
                         <p className="text-xs text-ink/60" data-details-used-on={i.key}>
                           Used on {i.usedOn.join(' · ')}
@@ -574,6 +761,21 @@ export function DetailsWorkspace({
                   {/* A server-made body can arrive as a lazy client reference; one keyed
                      fragment keeps it out of the header's list (React's key check). */}
                   <Fragment key="body">{bodies[i.key] ?? null}</Fragment>
+                  {/* 🚶 THE GUIDED FLOW GOES ON FROM THE END OF THE MARCH (phone): its lower
+                      third is the tray, so Back · Skip for now · Next sit after the last walk —
+                      scrolled to, never over the names. The desk keeps its foot below. */}
+                  {i.key === 'march' && plan && at?.kind === 'step' && i.key === selected ? (
+                    <div data-march-guide-foot="" className="mt-2 lg:hidden">
+                      <GuideFoot
+                        onBack={backScreen(plan, at) ? () => move(backScreen(plan, at), 'back') : null}
+                        onSkip={skipScreen(plan, at) ? () => move(skipScreen(plan, at), 'skip') : null}
+                        onNext={nextScreen(plan, at) ? () => move(nextScreen(plan, at), 'next') : null}
+                        warning={unsavedTo !== null ? askKind : null}
+                        onKeepEditing={() => setUnsavedTo(null)}
+                        onGoAnyway={() => unsavedTo && goTo(unsavedTo)}
+                      />
+                    </div>
+                  ) : null}
                 </div>
               ) : null,
             )}
@@ -664,9 +866,14 @@ export function DetailsWorkspace({
             /* 📱 ONE slim header (owner, live iPhone test 2026-10-05): the step ▾ —
                "Save the Date · 3 of 6 ▾", All items inside it — · Peek · ×. No
                second line, no stage eyebrow, no repeated title. */
-            head={at?.kind === 'step' && stepHere ? <GuideTop plan={plan!} at={at} onPick={(to) => move(to)} onAllItems={allItems} inSheet /> : null}
+            /* 🚶 Never over the march's tray (owner: no "Invitation · 9 of 12" there). */
+            head={at?.kind === 'step' && stepHere && !marchHere ? <GuideTop plan={plan!} at={at} onPick={(to) => move(to)} onAllItems={allItems} inSheet /> : null}
             /* Each step opens at half — a sheet dragged up comes back down on Next. */
             restOn={stepHere?.key ?? null}
+            /* 🧰 Only a STEP's sheet is drawn in the lower third (the picker, Before
+               we start and a Ready screen draw none — see below), so only a step
+               folds it: never a column naming a tool that is not on screen. */
+            tool={at?.kind === 'step'}
             /* A desk keeps its column; with no step open (the picker, Before we start,
                a Ready screen) the sheet is not drawn on a phone either — its editors
                stay mounted under it. */
@@ -693,7 +900,8 @@ export function DetailsWorkspace({
             ) : null}
             {/* Every step's field is IN its sheet — the Logo's answer included (owner 2026-10-05). */}
             {editorsBody(false)}
-            {at?.kind === 'step' ? (
+            {/* 🚶 Not under the march: its Back · Skip · Next are at the END of the march (below). */}
+            {at?.kind === 'step' && !marchHere ? (
               <div data-details-guide-foot-sheet="" className="contents lg:hidden">
                 <GuideFoot
                   onBack={backScreen(plan!, at) ? () => move(backScreen(plan!, at), 'back') : null}
@@ -708,7 +916,7 @@ export function DetailsWorkspace({
           </MakerHalfSheet>
         ) : (
         <aside
-          aria-label={`${current.label} — edit`}
+          aria-label={`${shownLabel} — edit`}
           data-details-editor-panel=""
           data-phone-chrome="panel"
           data-open={sheetOpen ? '' : undefined}
@@ -717,16 +925,16 @@ export function DetailsWorkspace({
              unmounted, so every other item's fields still post. */
           hidden={layout === 'whole'}
           className={`order-3 ${layout === 'whole' ? 'hidden' : 'flex'} min-h-0 shrink-0 flex-col border-ink/10 bg-cream lg:static lg:max-h-none lg:w-[360px] lg:border-l ${
-            /* 📱 A bottom sheet over the dimmed page; the dimmed page keeps ≥ 55% (`lib/maker-phone-room.ts`). */
-            sheetOpen
-              ? `max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:z-30 max-lg:rounded-t-3xl max-lg:shadow-[0_-18px_40px_-24px_rgba(30,26,18,.5)] ${MAKER_PHONE_PANEL_CAP}`
-              : 'max-lg:hidden'
+            /* 📱 A TOOL of the lower third (owner 2026-10-05): over it, beside the
+               column that names it — never over the page. */
+            sheetOpen ? MAKER_LT_TOOL : 'max-lg:hidden'
           }`}
         >
-          {/* 📱 The sheet's top: the grip (tap or drag down closes), then ONE header row. */}
-          <SheetGrip onClose={() => setSheetOpen(false)} />
-          <div className="flex shrink-0 items-center gap-2 px-4 pb-1 lg:hidden" data-details-sheet-head="">
-            <p className="min-w-0 truncate text-[15px] font-semibold text-ink">{current.panelLabel ?? current.label}</p>
+          {/* 📱 ONE header row: the setup's progress and the item's sections — its name is the column's. */}
+          <div
+            className={`${marchHere ? 'hidden' : 'flex'} shrink-0 items-center gap-2 px-3 pb-1 pt-2 lg:hidden`}
+            data-details-sheet-head=""
+          >
             {/* 🧭 The setup's progress lives HERE, in the sheet's header — never a chip floating
                 over the page (it covered the page's own header line, 2026-10-04 at 375 px).
                 In the flow it is the step sheet's own ▾ line (`GuideTop`). */}
@@ -745,15 +953,15 @@ export function DetailsWorkspace({
               selected={selected}
               onPick={select}
               pieces={pieces[selected] ?? null}
-              current={pieceLabels[selected]?.[pieceMap[selected] ?? ''] ?? null}
+              /* A hidden item (no row of its own) and the Your event form name themselves. */
+              current={pieceLabels[selected]?.[pieceMap[selected] ?? ''] ?? shownLabel}
             />
           </div>
-          <p className="hidden px-4 pt-4 font-serif text-lg text-ink lg:block">{current.panelLabel ?? current.label}</p>
+          <p className="hidden px-4 pt-4 font-serif text-lg text-ink lg:block">{formGroup ? formGroup.label : (current.panelLabel ?? current.label)}</p>
           {editorsBody(false)}
         </aside>
         )}
-        {/* 📱 The dimmed page behind an open sheet — a tap on it goes back to the page. (The step's half sheet leaves the page live.) */}
-        {sheetOpen && !stepSheet && layout !== 'whole' ? <SheetScrim onClose={() => setSheetOpen(false)} /> : null}
+        {ltTiles}
       </div>
       {/* 🗂 The flow's other screens — the stage picker, a stage's Before we start, its Ready screen. */}
       {plan && at?.kind === 'stages' ? <StagePicker plan={plan} onPick={pickStage} initial={walk} /> : null}
@@ -798,4 +1006,9 @@ export function DetailsWorkspace({
       </DetailsSelectContext.Provider>
     </DetailsTapContext.Provider>
   );
+}
+
+/** The editor column is on screen: a desk always draws it; a phone only while its tool is open (the scroll waits for it). */
+function sheetOpenOrDesk(): boolean {
+  return typeof window !== 'undefined' && (!window.matchMedia('(max-width: 1023.98px)').matches || document.querySelector('[data-details-editor-panel][data-open]') !== null);
 }

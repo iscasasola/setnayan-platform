@@ -194,7 +194,7 @@ test('4 · Me holds the name, the plus-ones, and Save — mounted INTO the one #
   // One #site-me: Me is a SLOT in GuestHubBar's section, never a second one.
   // (📱 `asTab` — the same section is the Me TAB on a tabbed page, owner 2026-09-30.)
   assert.match(HUBBAR, /<section id="site-me" className=\{asTab \? 'scroll-mt-6' : 'mt-12 scroll-mt-6'\}>\s*\{meSlot \?/);
-  assert.match(PAGE, /meSlot=\{meSlot\}/);
+  assert.match(PAGE, /meSlot=\{meSlotFor\(replyHref\)\}/); // Me as a function of the reply rule (an-unreplied-guest-is-asked-to-reply-first.test.ts)
   assert.match(PAGE, /yourGuestsFor\(admin, \{ event_id: event\.event_id, slug: event\.slug \}, guest\.guest_id,/);
 });
 

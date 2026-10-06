@@ -1,6 +1,8 @@
 'use client';
 
-import { SheetGrip, SheetScrim } from './maker-sheet';
+import { useMaker, useMakerTool } from './maker-context';
+import { IntoLowerThird, LOWER_THIRD_TILE, LOWER_THIRD_TILE_ON, LOWER_THIRD_TILE_PLAIN } from './maker-lower-third';
+import { MAKER_LT_TOOL } from '@/lib/maker-phone-room';
 import { makerSave } from '@/lib/maker-refresh';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -218,6 +220,9 @@ export function MakerLogoDoor({
   const [layers, setLayers] = useState<LogoLayer[]>(() => openingLayers(opening));
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sheet, setSheet] = useState<'layers' | 'tools' | null>(null);
+  /* 🧰 On a phone the logo's two panels are TOOLS of the Maker's lower third
+     (owner 2026-10-05, "approve"), opened from its tiles — never sheets over the logo. */
+  const ltNav = useMaker()?.ltNav ?? null;
   const [playKey, setPlayKey] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -231,6 +236,11 @@ export function MakerLogoDoor({
   const strokeRef = useRef<Array<{ x: number; y: number }>>([]);
 
   const selected = layers.find((l) => l.id === selectedId) ?? null;
+  useMakerTool(Boolean(ltNav) && sheet !== null, {
+    key: `logo:${sheet}`,
+    name: sheet === 'layers' ? 'Layers' : selected ? (selected.kind === 'text' ? 'Text' : selected.name) : 'Layer',
+    close: () => setSheet(null),
+  });
   const composed = useMemo(() => composeLogoSvg(layers.filter((l) => l.body)), [layers]);
   /* Text layers wait for their face; until every layer has its shapes the logo
      is not "as it stands", so no touch can take a baseline from it. */
@@ -593,16 +603,13 @@ export function MakerLogoDoor({
       data-logo-save={save.kind}
     >
       {/* ══ LEFT · THE LAYERS ══ */}
-      {/* 📱 The dimmed page behind an open sheet — a tap on it goes back to the logo. */}
-      {sheet ? <SheetScrim onClose={() => setSheet(null)} /> : null}
       <aside
         aria-label="Logo layers"
         data-logo-navigator=""
         data-phone-chrome="panel"
-        className={`${sheet === 'layers' ? 'flex' : 'hidden'} sn-glass-bare fixed inset-x-0 bottom-0 z-30 max-lg:max-h-[calc(45dvh-52px)] flex-col rounded-t-3xl lg:static lg:z-auto lg:flex lg:max-h-none lg:w-64 lg:shrink-0 lg:rounded-none lg:border-r lg:border-ink/10`}
+        className={`${sheet === 'layers' ? 'flex' : 'hidden'} sn-glass-bare flex-col ${MAKER_LT_TOOL} lg:static lg:z-auto lg:flex lg:max-h-none lg:w-64 lg:shrink-0 lg:rounded-none lg:border-r lg:border-ink/10`}
       >
-        <SheetGrip onClose={() => setSheet(null)} />
-        <SheetHead title="Layers" onClose={() => setSheet(null)} />
+        <SheetHead title="Layers" />
         <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-contain px-2 pb-3">
           {topFirst.length === 0 ? <p className="px-2 py-3 text-[13px] text-ink/60">Add text, an image or a frame.</p> : null}
           <ol className="flex flex-col gap-1" aria-label="Top of the stack first">
@@ -808,24 +815,34 @@ export function MakerLogoDoor({
             {playing ? 'Edit' : 'Play'}
           </button>
         </div>
-        {/* 📱 Phone: the two sheets open from here, in the thumb. */}
-        <div className="mt-2 flex w-full max-w-sm gap-2 lg:hidden">
-          <button
-            type="button"
-            onClick={() => setSheet('layers')}
-            className="sn-press inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-full bg-ink/5 text-[13px] font-semibold text-ink"
-          >
-            <Layers aria-hidden className="h-4 w-4" /> Layers
-          </button>
-          <button
-            type="button"
-            disabled={!selected}
-            onClick={() => setSheet('tools')}
-            className="sn-press inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-full bg-ink/5 text-[13px] font-semibold text-ink disabled:opacity-50"
-          >
-            <SlidersHorizontal aria-hidden className="h-4 w-4" /> {selected ? `Edit ${selected.kind === 'text' ? 'text' : selected.name}` : 'Pick a layer'}
-          </button>
-        </div>
+        {/* 📱 Phone: the two panels open from the lower third's tiles, in the thumb. */}
+        <IntoLowerThird to={ltNav}>
+          <span className={ltNav ? 'contents' : 'mt-2 flex w-full max-w-sm gap-2 lg:hidden'}>
+            {([
+              { key: 'layers', label: 'Layers', icon: <Layers aria-hidden className="h-5 w-5" />, disabled: false },
+              {
+                key: 'tools',
+                label: selected ? `Edit ${selected.kind === 'text' ? 'text' : selected.name}` : 'Pick a layer',
+                icon: <SlidersHorizontal aria-hidden className="h-5 w-5" />,
+                disabled: !selected,
+              },
+            ] as const).map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                data-lt-tile={`logo:${t.key}`}
+                data-lt-group="logo"
+                aria-pressed={sheet === t.key}
+                disabled={t.disabled}
+                onClick={() => setSheet(t.key)}
+                className={`${LOWER_THIRD_TILE} ${LOWER_THIRD_TILE_PLAIN} ${sheet === t.key ? LOWER_THIRD_TILE_ON : ''} disabled:opacity-50`}
+              >
+                <span className="flex min-h-0 flex-1 items-center justify-center text-ink/75">{t.icon}</span>
+                <span className="block w-full truncate border-t border-ink/10 px-1 py-1.5 text-center text-[11.5px] font-semibold text-ink">{t.label}</span>
+              </button>
+            ))}
+          </span>
+        </IntoLowerThird>
       </div>
 
       {/* ══ RIGHT · THE SELECTED LAYER'S TOOLS ══ */}
@@ -833,10 +850,9 @@ export function MakerLogoDoor({
         aria-label="Layer tools"
         data-logo-tools=""
         data-phone-chrome="panel"
-        className={`${sheet === 'tools' ? 'flex' : 'hidden'} sn-glass-bare fixed inset-x-0 bottom-0 z-30 max-lg:max-h-[calc(45dvh-52px)] flex-col rounded-t-3xl lg:static lg:z-auto lg:flex lg:max-h-none lg:w-80 lg:shrink-0 lg:rounded-none lg:border-l lg:border-ink/10`}
+        className={`${sheet === 'tools' ? 'flex' : 'hidden'} sn-glass-bare flex-col ${MAKER_LT_TOOL} lg:static lg:z-auto lg:flex lg:max-h-none lg:w-80 lg:shrink-0 lg:rounded-none lg:border-l lg:border-ink/10`}
       >
-        <SheetGrip onClose={() => setSheet(null)} />
-        <SheetHead title={selected ? (selected.kind === 'text' ? 'Text' : selected.name) : 'Layer'} onClose={() => setSheet(null)} />
+        <SheetHead title={selected ? (selected.kind === 'text' ? 'Text' : selected.name) : 'Layer'} />
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-3 pb-6 pt-1">
           {!selected ? (
             <p className="text-[13px] text-ink/60">Pick a layer on the left, or tap one on the logo.</p>
@@ -1077,18 +1093,11 @@ function LayerTools({
 
 /* ── small parts ─────────────────────────────────────────────────────────── */
 
-function SheetHead({ title, onClose }: { title: string; onClose: () => void }) {
+/** A panel's title — the desktop's; on a phone the lower third's column names the panel and closes it. */
+function SheetHead({ title }: { title: string }) {
   return (
-    <div className="flex items-center gap-2 px-4 pb-2 pt-3">
+    <div className="hidden items-center gap-2 px-4 pb-2 pt-3 lg:flex">
       <p className="min-w-0 flex-1 truncate font-serif text-lg text-ink">{title}</p>
-      <button
-        type="button"
-        onClick={onClose}
-        aria-label={`Close ${title}`}
-        className="sn-press inline-flex h-10 w-10 items-center justify-center rounded-full bg-ink/5 text-ink/70 hover:bg-ink/10 lg:hidden"
-      >
-        <X aria-hidden className="h-4 w-4" />
-      </button>
     </div>
   );
 }

@@ -27,6 +27,8 @@ import {
   canvasLookFacets,
   hubDraftCountedChanges,
   planHubDraftApply,
+  printDetailsKeysChanged,
+  rsvpAskFreePartMoves,
   type CanvasFacetGroup,
   type HubDraftChangeLine,
   type HubDraftEventColumn,
@@ -37,6 +39,9 @@ import {
 import { postEventItemLabel } from '@/lib/post-event-draft';
 import { INVITE_THEMES } from '@/lib/invite-themes';
 import { seededTheme } from '@/lib/theme-colours';
+import { sanitizeRsvpAskConfig } from '@/lib/rsvp-ask';
+import { RSVP_CELEBRATION_LABEL, RSVP_CELEBRATION_NAME, readCelebrationKey } from '@/lib/rsvp-celebration';
+import { PASS_CARD_WORDS } from '@/lib/pass-card';
 
 const LOOK = 'Look';
 /** The toolbar's Event Details (`MAKER_DETAILS_LABEL`, launch/_components/maker-bar.ts). */
@@ -48,7 +53,7 @@ const DETAILS = 'Event Details';
  * (the compiler refuses it) — never a "Something changed".
  */
 export const HUB_DRAFT_EVENT_PLACE: Record<HubDraftEventColumn, { place: string; what: string }> = {
-  invite_theme: { place: LOOK, what: LOOK_SECTION_LABEL.theme },
+  invite_theme: { place: LOOK, what: 'Theme' },
   // 🎨 Named with the theme it came from — "Mood Board · Colours from Cyber Neon" (`hubDraftChangePlace`).
   role_palette: { place: 'Mood Board', what: 'Colours' },
   site_art_direction: { place: LOOK, what: 'Candlelight' },
@@ -65,6 +70,7 @@ export const HUB_DRAFT_EVENT_PLACE: Record<HubDraftEventColumn, { place: string;
   rsvp_ask_config: { place: 'RSVP', what: 'What you ask your guests' },
   std_reveal_template: { place: 'Save the Date', what: 'Reveal' },
   std_reveal_effects: { place: 'Save the Date', what: 'Reveal effects' },
+  std_background: { place: 'Save the Date', what: 'Film background' },
   reveal_stages: { place: 'Save the Date', what: 'Where the reveal plays' },
   monogram_custom_svg: { place: 'Logo', what: 'Your logo' },
   monogram_studio_config: { place: 'Logo', what: 'Design' },
@@ -141,6 +147,24 @@ export function hubDraftChangePlace(item: HubDraftItem, live: HubLiveState): { p
       if (item.column === 'role_palette') {
         const from = seededTheme(item.value);
         return { place: 'Mood Board', what: from ? `Colours from ${INVITE_THEMES[from].name}` : 'Colours' };
+      }
+      /* 🎫 The drafted print settings say WHICH one moved — the ticket style is
+         the Guest's ticket's, the name style Event Details'. */
+      if (item.column === 'print_details') {
+        const keys = printDetailsKeysChanged(live.events.print_details, item.value);
+        if (keys.length === 1 && keys[0] === 'pass_design') return { place: "Guest's ticket", what: PASS_CARD_WORDS.style };
+        if (keys.length === 2) return { place: DETAILS, what: `Name style, ${PASS_CARD_WORDS.style}` };
+      }
+      /* 🎉 The When yes celebration is NAMED at Apply (owner 2026-10-06):
+         "RSVP · Celebration · Confetti" — with the RSVP's other edits beside it
+         when they moved too. */
+      if (item.column === 'rsvp_ask_config') {
+        const liveConfig = live.events.rsvp_ask_config ?? null;
+        const to = readCelebrationKey(sanitizeRsvpAskConfig(item.value));
+        if (to !== readCelebrationKey(sanitizeRsvpAskConfig(liveConfig))) {
+          const pick = `${RSVP_CELEBRATION_LABEL} · ${RSVP_CELEBRATION_NAME[to]}`;
+          return { place: 'RSVP', what: rsvpAskFreePartMoves(liveConfig, item.value) ? `${HUB_DRAFT_EVENT_PLACE.rsvp_ask_config.what}, ${pick}` : pick };
+        }
       }
       return HUB_DRAFT_EVENT_PLACE[item.column];
     }

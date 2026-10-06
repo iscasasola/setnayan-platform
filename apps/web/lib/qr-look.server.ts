@@ -5,6 +5,7 @@ import { HERO_MONOGRAM_COLUMNS } from '@/lib/hero-monogram-data';
 import { getPrimaryColor, PALETTE_ORDER, sanitizeRolePalette } from '@/lib/mood-board';
 import { resolveMonogram } from '@/lib/monogram';
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
+import { overlayHubDraftEvent, type HubDraftEvents } from '@/lib/hub-draft';
 import {
   FREE_QR_LOOK,
   qrInkChoices,
@@ -108,6 +109,30 @@ export function qrLookFromRow(row: QrLookRow | null | undefined, ownsPro: boolea
     }),
     logoSvg: resolveEventMonogramSvg(row, { ink }),
   });
+}
+
+/**
+ * 💾 THE HOST'S DRAFTED LOOK — for a Maker PREVIEW only, never for a file that
+ * is saved or printed and never for a guest. When the draft holds a QR look
+ * (`style_preferences`, written by `updateQrStyle`), the code is drawn with it
+ * laid over the live row and worn as Pro would wear it: the host sees what
+ * they are trying before paying, and Pro decides only at Apply (owner
+ * 2026-09-29, #6113). Null when the draft holds no QR look — the caller then
+ * draws the live look (`resolveEventQrLook`).
+ *
+ * ONE rule for every Maker preview of a code: the event QR beside the address
+ * (`/api/website/qr/[slug]?draft=1`), the Guest QR codes sheet and every set
+ * piece's corner QR and pass (`/api/hub-print/[piece]` with `draft=`). Before
+ * 2026-10-06 only the first followed the draft — the owner changed the style
+ * and asked why the guest QR codes had not changed.
+ */
+export function qrLookForHostDraft(
+  liveRow: QrLookRow | null | undefined,
+  draftEvents: HubDraftEvents | null | undefined,
+): QrLook | null {
+  if (!liveRow || !draftEvents || !('style_preferences' in draftEvents)) return null;
+  const shown = overlayHubDraftEvent(liveRow as Record<string, unknown>, { events: draftEvents, widgets: {} });
+  return qrLookFromRow(shown as QrLookRow, true);
 }
 
 /** Pure half for the controls — the choices a couple may pick from. */

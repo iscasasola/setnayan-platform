@@ -22,6 +22,7 @@ import { checkInGuest, checkTicketLive, undoCheckIn, type CheckinMethod, type Ti
 import { DOOR_WORDS } from '@/lib/request-key';
 import Link from 'next/link';
 import { formatCount } from '@/lib/format-number';
+import { tableWords } from '@/lib/table-words';
 
 export type DeskGuest = {
   guestId: string;
@@ -453,7 +454,7 @@ export function CheckinDesk({
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-medium text-ink">{g.name}</span>
                       <span className="block truncate text-xs text-ink/50">
-                        {g.tableLabel ? `Table · ${g.tableLabel}` : 'No table yet'}
+                        {g.tableLabel ? tableWords(g.tableLabel) : 'No table yet'}
                       </span>
                     </span>
                     {at ? (
@@ -555,7 +556,7 @@ export function CheckinDesk({
               <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-ink/5 px-2.5 py-1 font-medium text-ink/80">
                   <Utensils className="h-3.5 w-3.5" />
-                  {selected.tableLabel ? `Table · ${selected.tableLabel}` : 'No table assigned'}
+                  {selected.tableLabel ? tableWords(selected.tableLabel) : 'No table assigned'}
                 </span>
                 {selected.plusOneName ? (
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-ink/5 px-2.5 py-1 text-ink/70">
@@ -619,7 +620,7 @@ export function CheckinDesk({
                   <span className="block truncate text-sm text-ink">{guest.name}</span>
                   <span className="block text-xs text-ink/50">
                     {timeLabel(at)}
-                    {guest.tableLabel ? ` · Table ${guest.tableLabel}` : ''}
+                    {guest.tableLabel ? ` · ${tableWords(guest.tableLabel)}` : ''}
                   </span>
                 </span>
                 <button

@@ -1,9 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { eventWordsFromProfile } from '@/app/[slug]/_lib/event-words';
-import { loadEntourage } from '@/app/[slug]/_lib/loaders';
+import { loadMarch } from '@/app/[slug]/_lib/loaders';
+import { ENTOURAGE_ROLES } from '@/lib/entourage';
 import { baziBirthDataEnabled } from '@/lib/bazi-birthdata';
 import { isChineseWedding } from '@/lib/chinese-wedding';
-import { peopleLabels, splitStoredName } from '@/lib/details-your-event';
+import { parentsOffered, peopleLabels, splitStoredName } from '@/lib/details-your-event';
 import { loadVenueBookings, resolveEventVenues } from '@/lib/event-venues';
 import { resolveProfile, resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import type { EventDatePrecision } from '@/lib/events';
@@ -98,12 +99,15 @@ export async function readYourEventFacts({
     if (drafted && c in drafted) (row as Record<string, unknown>)[c] = drafted[c];
   }
 
-  const [profile, roleSet, bookings, groups] = await Promise.all([
+  const [profile, roleSet, bookings, march] = await Promise.all([
     resolveProfile(row.event_type ?? 'wedding'),
     resolveRoleSetForEvent(eventId),
     loadVenueBookings(admin, eventId, draftedVenue ?? undefined),
-    loadEntourage(admin, eventId),
+    /* 🚶 The march as the maker draws it — the couple's sides too, and the
+       "Not walking" tray beside it (owner 2026-10-06). */
+    loadMarch(admin, eventId),
   ]);
+  const groups = march.walking;
   const words = eventWordsFromProfile(profile);
   const kind = { words, offeredRoles: roleSet.offeredRoles };
 
@@ -121,7 +125,10 @@ export async function readYourEventFacts({
      always offered (owner 2026-09-29, "yes to all 4", item 3). */
   const nameWritable = people === null || namesWritable;
   const venues = resolveEventVenues(bookings, row);
-  const marchLines = groups.reduce((n, g) => n + g.rows.length, 0);
+  /* Walks with an entourage member in them — the couple alone is not "a march
+     arranged" (the step's ✓ and its "N lines" mean the entourage, as before). */
+  const printed = new Set<string>(ENTOURAGE_ROLES);
+  const marchLines = groups.reduce((n, g) => n + g.rows.filter((r) => r.some((p) => p !== null && printed.has(p.role))).length, 0);
 
   return {
     row,
@@ -130,6 +137,8 @@ export async function readYourEventFacts({
     precision,
     bookings,
     groups,
+    /** 🚶 The "Not walking" tray, built like the march; null = unread (never "nobody"). */
+    notWalking: march.out,
     venues,
     people,
     chinese,
@@ -141,7 +150,12 @@ export async function readYourEventFacts({
       date: { value: row.event_date, dayPrecise: precision === 'day' },
       venueCount: venues.length,
       parentCount,
-      hostCount,
+      /* 👪 THE INVITATION'S HOSTS ARE ITS PARENTS (owner, live walk 2026-10-05:
+         the step showed "Ana & Marco · wedding planner external · <email>" — a
+         dashboard co-host account, not a person the invitation names). Where the
+         type prints parents, only they count; a collaborator account never makes
+         the step "set". A type without parents keeps its Kindly-reply host. */
+      hostCount: parentsOffered(kind) ? 0 : hostCount,
       marchLines,
     },
   };

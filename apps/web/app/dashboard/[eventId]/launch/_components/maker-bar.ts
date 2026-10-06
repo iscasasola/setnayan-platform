@@ -34,8 +34,29 @@ import type { MakerDevice } from './maker-context';
  *     through the Maker's context (`MakerState.previewMenu`).
  *   · Apply's first tap opens the Apply sheet; only its labelled Apply publishes.
  */
-export const MAKER_TOOLBAR = ['exit', 'page', 'look', 'details', 'undo', 'preview', 'apply'] as const;
+/* 🗂 ONE "Event Details" button (owner 2026-10-06, DECISION_LOG "EVENT DETAILS IS
+   REBUILT: ONE BUTTON…"): the separate Look chip is gone — its items head the
+   Event Details list (the Look group). */
+export const MAKER_TOOLBAR = ['exit', 'page', 'details', 'undo', 'preview', 'apply'] as const;
 export type MakerToolbarItem = (typeof MAKER_TOOLBAR)[number];
+
+/**
+ * 🧭 THE NEW MAKER'S TOP NAV — a PHONE's, behind `makerStagesStudioEnabled`
+ * (owner 2026-10-06: *"studio, will have the same top nav, but a different
+ * approach on the 10 studio pages"*; plan `EVENT_HUB_MAKER_STAGES_STUDIO_BUILD_PLAN_2026-10-06.md`
+ * PR 1, prototype `maker_two_dropdowns_owner_wireframe_2026-10-06_fable.html`):
+ *
+ *     ✕ Exit · Stages | Studio · ↺ Undo · ✓ Apply (n)
+ *
+ * `side` is ONE `ISegmented` (sections = one segmented control, INTERACTION_RULES
+ * §8). No Page ▾, no Event Details, no 👁 Preview on this list — the stage ▾
+ * lives in the lower third, Studio's tools on its home, and ▶ Play joins the
+ * lower third in a later PR. A desktop keeps `MAKER_TOOLBAR` this round; with
+ * the flag off every width does. Held by `lib/maker-stages-studio-ships-dark.test.ts`.
+ */
+export const MAKER_TOOLBAR_STAGES_STUDIO = ['exit', 'side', 'undo', 'apply'] as const;
+export type MakerSide = 'stages' | 'studio';
+export const MAKER_SIDE_LABEL: Record<MakerSide, string> = { stages: 'Stages', studio: 'Studio' };
 
 /**
  * The Maker's door into the event's facts. "Your info" RETIRED as a name
@@ -49,33 +70,35 @@ export const MAKER_PRINTS_LABEL = 'Prints';
 export const MAKER_PAGE_MENU_LABEL = 'Page';
 
 /**
- * 🚪 THREE DOORS, ONE PAGE. Look, Details and Prints (Page ▾ › Prints) each open
- * the Maker's one Details page (`maker-details.tsx`), on their own part of it:
+ * 🚪 TWO DOORS, ONE PAGE (one since 2026-10-06 on the bar). Event Details and
+ * Prints (Settings › Prints / Page ▾ › Prints) each open the Maker's one Details
+ * page (`maker-details.tsx`):
  *
- *   · Look    — the Look group (Theme · Mood Board · Logo · Hero · Reveal);
- *   · Prints  — the printed set (`isPrintsItem`);
- *   · Details — everything else: the event's facts, words, story and plans.
+ *   · Details — the whole list: Look · Story & plans · Your event · Prints;
+ *   · Prints  — the same page, on the printed set (`isPrintsItem`).
  *
- * Never a second page and never a second form: the door only says where it
- * opens. Exactly one of the three wears the highlight — the one whose part the
- * open item belongs to (`makerOpenTool`).
+ * 'look' remains a way in (a tour opens the Look group) — never a highlight.
  */
 export type MakerDoor = 'look' | 'details' | 'prints';
 
-const LOOK_KEYS: readonly DetailsItemKey[] = DETAILS_ITEM_GROUPS.find((g) => g.group === 'look')?.keys ?? [];
+const LOOK_KEYS: readonly DetailsItemKey[] = [...(DETAILS_ITEM_GROUPS.find((g) => g.group === 'look')?.keys ?? []), 'theme'];
 const EVENT_KEYS: readonly DetailsItemKey[] = DETAILS_ITEM_GROUPS.find((g) => g.group === 'event')?.keys ?? [];
 
-/** Where a fresh press of Details opens: the first of the event's facts (the names). */
+/** The first of the event's facts (the names) — the Your event form's first field. */
 export const DETAILS_FACTS_FIRST: DetailsItemKey = EVENT_KEYS[0] ?? DETAILS_FIRST_ITEM;
 
 export function isLookItem(key: unknown): boolean {
   return typeof key === 'string' && (LOOK_KEYS as readonly string[]).includes(key);
 }
 
-/** Which door's part an item of Details belongs to. */
+/**
+ * Which door's part an item of Details belongs to. Since 2026-10-06 there is no
+ * Look door of its own: a Look item is Event Details' (its first group). The
+ * 'look' door survives only as a way IN (a tour's last slide opens the Look
+ * group) — it is never the door an item is on.
+ */
 export function makerDoorOf(item: string | null | undefined): MakerDoor {
   if (isPrintsItem(item)) return 'prints';
-  if (isLookItem(item)) return 'look';
   return 'details';
 }
 
@@ -90,11 +113,11 @@ export function makerLookDoor(detailsItem: DetailsItemKey | null | undefined): D
 }
 
 /**
- * 🗂 Details opens on the item the couple is on — but never on a print or a
- * Look item (those are Prints' and Look's), else on the first fact.
+ * 🗂 Event Details opens on the item the couple is on — but never on a print
+ * (those are Prints'), else on the list's first row (Background).
  */
 export function makerDetailsDoor(detailsItem: DetailsItemKey | null | undefined): DetailsItemKey {
-  return detailsItem && makerDoorOf(detailsItem) === 'details' ? detailsItem : DETAILS_FACTS_FIRST;
+  return detailsItem && makerDoorOf(detailsItem) === 'details' ? detailsItem : DETAILS_FIRST_ITEM;
 }
 
 /** THE PRESS of Look, Details or Prints — one reducer, so the shell and its test run the same code. */
@@ -408,4 +431,20 @@ export function makerViewToggle(shown: MakerDevice): MakerDevice {
 /** A remembered view (sessionStorage) — only a real one is put back. */
 export function isMakerDevice(value: unknown): value is MakerDevice {
   return value === 'desktop' || value === 'phone' || value === 'both';
+}
+
+/**
+ * 🎨 EACH OPENING OF LOOK IS ANSWERED ONCE (owner 2026-10-05: Look opens the Look
+ * tools, never the guided flow's stage list). The Maker counts the openings
+ * (`lookVisit`); Event Details asks this taker whether a count is new before it
+ * leaves the flow — so a later mount of Details (through the Details door, or a
+ * jump) never replays an old Look visit. Pure, so a test holds it.
+ */
+export function lookVisitTaker(): (n: number) => boolean {
+  let taken = 0;
+  return (n) => {
+    if (n <= taken) return false;
+    taken = n;
+    return true;
+  };
 }

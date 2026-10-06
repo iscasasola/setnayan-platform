@@ -7,7 +7,6 @@ import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { REVEAL_STAGE_CHOICES } from '@/lib/reveal-stages';
 import { canvasKeyOfSelection } from '@/lib/maker-selection';
 import { CanvasStaysOnThePage } from '../../website/editor/_components/maker-canvas-guard';
-import { ISeg, ISegmented } from '../../website/editor/_components/inspector-kit';
 import { MakerPageFrame, MakerPageSwitch } from './maker-page';
 import { MAKER_PLAY_SCENE_EVENT } from './maker-play-menu';
 import { useMaker } from './maker-context';
@@ -64,34 +63,54 @@ const WORD: Record<LookPageKey, string> = { logo: 'Logo', hero: 'hero', reveal: 
 /**
  * 🎨 LOOK IS ONE PANEL (owner, live iPhone test 2026-10-02 — tracker f40;
  * `lib/maker-look-sections.ts`; design `maker_in_four_2026-09-30_fable.html`
- * frame E): Theme · Background · Font · Colours · Buttons (2026-10-04), in
- * that order, in the one editor the toolbar's Look opens. The theme pick is
- * handed in (the server builds it); the others are the rows the work area built
- * (`MakerLookPages.look`), moved here — the same controls, the same fields,
- * into the draft. A section the event does not offer (the store shell's Main
- * background) is simply absent; one that has not arrived SAYS so.
+ * frame E): Background · Font · Colours · Buttons, in that order, in the one
+ * editor the toolbar's Look opens. 🚫 No Theme section since 2026-10-05
+ * (DECISION_LOG "THEMES ARE REPLACED BY THREE DIRECT GLOBAL SETTINGS"): every
+ * theme's moving loop is a choice under Background instead. The sections are
+ * the rows the work area built (`MakerLookPages.look`), moved here — the same
+ * controls, the same fields, into the draft. A section the event does not offer
+ * (the store shell's Main background) is simply absent; one that has not
+ * arrived SAYS so. `filmLine` (the Save the Date film's "Same as the Event Hub")
+ * sits under Background, the ground it hands the film back to.
  */
-export function LookPanel({ theme }: { theme: ReactNode }) {
+export function LookPanel({
+  filmLine = null,
+  sections = LOOK_SECTIONS,
+  item,
+}: {
+  filmLine?: ReactNode;
+  sections?: readonly LookSection[];
+  /**
+   * 🔑 ONE MOUNT OF EACH CONTROL (review 2026-10-06): the whole Look (`theme`) and
+   * Background · Colours · Font · Music draw the SAME registered nodes — mounted
+   * twice they would hold two states and two on-open measurements. Named, a
+   * panel draws only while its item is the one open in the Maker.
+   */
+  item?: string;
+}) {
   const maker = useMaker();
   const look = maker?.lookPages?.look ?? null;
   const late = useLate(Boolean(look));
-  const of = (k: Exclude<LookSection, 'theme'>): ReactNode =>
+  if (item && maker && maker.detailsItem !== item) return null;
+  const of = (k: LookSection): ReactNode =>
     !look ? null : k === 'colours' ? (look.colours || look.palette ? <>{look.colours}{look.palette}</> : null) : (look[k] ?? null);
+  /* 🗂 Never a blank panel (owner 2026-10-06): a section this event does not offer says so in one line. */
+  if (look && sections.every((k) => !of(k))) {
+    return (
+      <p className="text-sm text-ink/70" data-look-panel-empty={sections.join(' ')}>
+        Nothing to set here for this event.
+      </p>
+    );
+  }
   return (
-    <div data-look-panel="" className="flex flex-col gap-5">
-      {LOOK_SECTIONS.map((k) => {
-        if (k === 'theme') {
-          return (
-            <section key={k} data-look-section={k} className="flex flex-col gap-2">
-              {theme}
-            </section>
-          );
-        }
+    <div data-look-panel={sections.length === LOOK_SECTIONS.length ? '' : sections.join(' ')} className="flex flex-col gap-5">
+      {sections.map((k, i) => {
         const node = of(k);
         if (look && !node) return null;
         return (
-          <section key={k} data-look-section={k} className="flex flex-col gap-2 border-t border-ink/10 pt-4">
-            <h3 className="text-[15px] font-semibold text-ink">{LOOK_SECTION_LABEL[k]}</h3>
+          <section key={k} data-look-section={k} className={`flex flex-col gap-2${i > 0 ? ' border-t border-ink/10 pt-4' : ''}`}>
+            {/* One section alone is named by its item's row — no second heading. */}
+            {sections.length > 1 ? <h3 className="text-[15px] font-semibold text-ink">{LOOK_SECTION_LABEL[k]}</h3> : null}
             {node ??
               (late ? (
                 <p role="alert" className="text-sm text-terracotta-700" data-look-section-failed={k}>
@@ -102,6 +121,7 @@ export function LookPanel({ theme }: { theme: ReactNode }) {
                   Opening…
                 </p>
               ))}
+            {k === 'background' ? filmLine : null}
           </section>
         );
       })}
@@ -113,31 +133,14 @@ export function LookPanel({ theme }: { theme: ReactNode }) {
  * 🖼 LOOK'S BODY IS THE COUPLE'S OWN PAGE (owner 2026-10-02: on a phone the
  * Look panel is a sheet that leaves the top half of the page visible, so a
  * change shows as it is made). The page they are editing — the stage the Maker
- * is on, its draft, through the host-only canvas door — fills the body; the
- * sample gallery of every theme (`MakerThemeGallery`, the 2026-09-28 quick
- * preview) is one switch away — THE one segmented control (`ISegmented`, the
- * chosen segment in Setnayan wine; DECISION_LOG 2026-10-04 "ONE SEGMENTED
- * CONTROL FOR SECTIONS, ACROSS THE APP"), never a pill row of its own.
+ * is on, its draft, through the host-only canvas door — fills the body. The
+ * "All themes" sample gallery that sat one switch away is gone with the theme
+ * pick (2026-10-05).
  */
-export function DetailsLookPageBody({ gallery }: { gallery: ReactNode }) {
-  const [view, setView] = useState<'page' | 'themes'>('page');
+export function DetailsLookPageBody() {
   return (
-    <div className="flex min-h-0 flex-1 flex-col" data-details-look-body={view}>
-      <div className="flex w-full shrink-0 px-4 pb-2 sm:px-6 lg:max-w-md" data-look-view-switch="">
-        <ISegmented label="What the page shows">
-          <ISeg tone="wine" on={view === 'page'} onClick={() => setView('page')} data="look-view-page">
-            Your page
-          </ISeg>
-          <ISeg tone="wine" on={view === 'themes'} onClick={() => setView('themes')} data="look-view-themes">
-            All themes
-          </ISeg>
-        </ISegmented>
-      </div>
-      {view === 'page' ? (
-        <DetailsLookBody item="look" />
-      ) : (
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6 sm:px-6">{gallery}</div>
-      )}
+    <div className="flex min-h-0 flex-1 flex-col" data-details-look-body="page">
+      <DetailsLookBody item="look" />
     </div>
   );
 }
@@ -294,7 +297,8 @@ function LookFrame({ item }: { item: Exclude<LookPageKey, 'logo'> }) {
         ? `${look.publicLandingUrl}?phase=${maker.stage}&editor=1${picked ? `&theme=${encodeURIComponent(picked)}` : ''}`
         : null
       : makerPageCanvasSrc(look.publicLandingUrl, item, maker.stage, { revealStage });
-  const frameKey = `${item}:${src}:${maker.renderStamp}`;
+  /* 🖼 The PAGE only — a Maker render re-renders it in place (`refreshOn`), never a new frame. */
+  const frameKey = `${item}:${src}`;
   const showing = maker.selection?.kind === 'tool' && maker.selection.key === 'details' && maker.detailsItem === item;
 
   /* ▶ "Play this scene" — only while this item is the one showing. */
@@ -349,14 +353,14 @@ function LookFrame({ item }: { item: Exclude<LookPageKey, 'logo'> }) {
       {maker.device === 'both' ? (
         <div className="flex min-h-0 flex-1 flex-row gap-2" data-details-look-both="">
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-            <MakerPageFrame src={src} title={`${title} — desktop`} device="desktop" frameKey={frameKey} frameRef={frameRef} onShown={setShownKey} />
+            <MakerPageFrame src={src} title={`${title} — desktop`} device="desktop" frameKey={frameKey} refreshOn={maker.renderStamp} frameRef={frameRef} onShown={setShownKey} />
           </div>
           <div className="flex min-h-0 w-[min(460px,40%)] shrink-0 flex-col">
-            <MakerPageFrame src={src} title={`${title} — phone`} device="phone" frameKey={`${frameKey}:phone`} />
+            <MakerPageFrame src={src} title={`${title} — phone`} device="phone" frameKey={`${frameKey}:phone`} refreshOn={maker.renderStamp} />
           </div>
         </div>
       ) : (
-        <MakerPageFrame src={src} title={title} device={maker.device} frameKey={frameKey} frameRef={frameRef} onShown={setShownKey} />
+        <MakerPageFrame src={src} title={title} device={maker.device} frameKey={frameKey} refreshOn={maker.renderStamp} frameRef={frameRef} onShown={setShownKey} />
       )}
       <CanvasStaysOnThePage
         frameRef={frameRef}
@@ -401,7 +405,7 @@ export function StageStepPreview({ body, coverUrl = null }: { body: GuidedStepBo
   }
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-guided-step-body={body.kind}>
-      <MakerPageFrame src={src} title="Your page, as guests will see it" device="phone" frameKey={`step:${src}:${maker.renderStamp}`} />
+      <MakerPageFrame src={src} title="Your page, as guests will see it" device="phone" frameKey={`step:${src}`} refreshOn={maker.renderStamp} />
     </div>
   );
 }

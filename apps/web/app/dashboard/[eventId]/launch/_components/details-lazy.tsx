@@ -70,6 +70,11 @@ export const PabuyaMessageEditor = dynamic(
   () => import(/* webpackChunkName: "maker-details" */ '../../pabuya/_components/pabuya-message-editor').then((m) => m.PabuyaMessageEditor),
   { loading: SlotRows },
 );
+/* 🎁 The E-Gifts page's own manager — the Your event form's E-Gifts field (2026-10-06). */
+export const PabuyaManager = dynamic(
+  () => import(/* webpackChunkName: "maker-details" */ '../../pabuya/_components/pabuya-manager').then((m) => m.PabuyaManager),
+  { loading: SlotRows },
+);
 
 /* ── The prints (Invitation set · For the day · Download) ─────────────────── */
 export const PrintPreview = dynamic(() => import(/* webpackChunkName: "maker-details" */ './print-preview').then((m) => m.PrintPreview), { loading: SlotFill });
@@ -90,9 +95,7 @@ export const OneNameEditor = dynamic(() => import(/* webpackChunkName: "maker-de
 export const DateEditor = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-your-event').then((m) => m.DateEditor), { loading: SlotRows });
 export const DateBody = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-your-event').then((m) => m.DateBody), { loading: SlotFill });
 export const VenuesEditor = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-your-event').then((m) => m.VenuesEditor), { loading: SlotRows });
-export const MarchPieces = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-march').then((m) => m.MarchPieces), { loading: SlotNone });
-export const MarchAisleFocus = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-march').then((m) => m.MarchAisleFocus), { loading: SlotFill });
-export const MarchControls = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-march').then((m) => m.MarchControls), { loading: SlotRows });
+export const MarchMaker = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-march').then((m) => m.MarchMaker), { loading: SlotFill });
 export const PeoplePieces = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-people').then((m) => m.PeoplePieces), { loading: SlotNone });
 export const PeopleBody = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-people').then((m) => m.PeopleBody), { loading: SlotFill });
 export const PeopleControls = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-people').then((m) => m.PeopleControls), { loading: SlotRows });
@@ -156,3 +159,15 @@ export const BeforeWeStartScreen = dynamic(() => import(/* webpackChunkName: "ma
 /* ── The Look (Logo · Reveal — the pages the work area hands in) ─────────── */
 export const MakerLogoDoor = dynamic(() => import(/* webpackChunkName: "maker-details" */ './maker-logo').then((m) => m.MakerLogoDoor), { loading: SlotFill });
 export const MakerRevealPicker = dynamic(() => import(/* webpackChunkName: "maker-details" */ './maker-reveal').then((m) => m.MakerRevealPicker), { loading: SlotRows });
+
+/* ── 🧭 The new Maker's own chrome (owner 2026-10-06, `makerStagesStudioEnabled`) — Stages | Studio, Studio's
+   home and its Tool ▾ row, the grab handle, the one bottom sheet. Drawn only while the new Maker is on, so none
+   of it is in the Maker's first load (`scripts/check-maker-js-budget.mjs`); warmed at idle with the rest. ── */
+export const StudioSideSwitch = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.StudioSideSwitch), {
+  loading: () => <span aria-hidden className="block h-11 w-full rounded-lg bg-ink/[0.06]" />,
+});
+export const StudioToolMenu = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.StudioToolMenu), { loading: SlotButton });
+export const StudioToolRow = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.StudioToolRow), { loading: SlotNone });
+export const StudioCover = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.StudioCover), { loading: SlotFill });
+export const LowerThirdGrab = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.LowerThirdGrab), { loading: SlotNone });
+export const MakerSheet = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.MakerSheet), { loading: SlotNone });

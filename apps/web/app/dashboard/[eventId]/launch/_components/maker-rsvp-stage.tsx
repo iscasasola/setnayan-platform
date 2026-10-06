@@ -1,9 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, type ComponentProps } from 'react';
-import { PickMenu } from '../../website/editor/_components/pick-menu';
+import { IntoLowerThird, LOWER_THIRD_TILE, LOWER_THIRD_TILE_ON, LOWER_THIRD_TILE_PART } from './maker-lower-third';
 import { MakerPage } from './maker-page';
-import { MakerRsvpSettings } from './maker-rsvp-ask';
+import { MakerRsvpSettings, type CelebrationInputs } from './maker-rsvp-ask';
 import { useMaker } from './maker-context';
 import type { RsvpAskConfig, RsvpWordKey } from '@/lib/rsvp-ask';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
@@ -21,13 +21,33 @@ import {
   rsvpWordBridgeKey,
   type RsvpStageScene,
 } from '@/lib/rsvp-stage';
+import {
+  RSVP_CELEBRATE_EVENT,
+  RSVP_CELEBRATE_MESSAGE,
+  isRsvpCelebration,
+  readCelebrationKey,
+  type RsvpCelebration,
+} from '@/lib/rsvp-celebration';
+
+/**
+ * 🧰 THE RSVP'S THREE SCREENS AS THE LOWER THIRD'S PARTS (owner 2026-10-05,
+ * frame 6: *"on RSVP there is the RSVP, when yes, when no"*) — the shipped
+ * screens (`RSVP_STAGE_SCENES`), each tile titled in his words.
+ */
+const RSVP_STAGE_TILE: Record<RsvpStageScene, { label: string; caption: string }> = {
+  /* 📑 The titles the owner approved (2026-10-05): RSVP form · When yes · When
+     no. Each caption says what the screen is, never the title again. */
+  form: { label: 'RSVP form', caption: 'Their reply' },
+  thanks: { label: 'When yes', caption: 'The thank-you' },
+  decline: { label: 'When no', caption: 'Can’t come' },
+};
 
 /**
  * 🗳 THE RSVP STAGE — the Maker's stage between Save the Date and Invitation
  * (owner 2026-09-30, DECISION_LOG "THE MAKER RE-PLAN…" and "RE-PLAN
  * REVISIONS…"). The Maker's three parts, like every stage:
  *
- *   LEFT   the scenes — 1 RSVP · 2 After they submit · 3 When they decline;
+ *   LEFT   the scenes — 1 RSVP form · 2 When yes · 3 When no;
  *   MIDDLE the REAL guest page for that scene, drawn for a SAMPLE guest in the
  *          canvas (`rsvpStageCanvasSrc` — `?editor=1`, host-verified; no real
  *          guest is read or written);
@@ -58,7 +78,14 @@ export function MakerRsvpStage({
   frameSrc,
   draftAction,
   replyByAction,
+  celebration,
 }: {
+  /**
+   * 🎉 The When yes Celebration's inputs, measured by the launch page — Event
+   * Hub Pro (its ◆ marks) and the Mood Board's colours (its previews) — handed
+   * through to the panel, which draws the mark (`CelebrationPick`).
+   */
+  celebration?: CelebrationInputs;
   /** The dev lab only (`/dev/rsvp-stage-lab`): its own frames and saves, to measure the stage without a sign-in. */
   frameSrc?: (scene: RsvpStageScene) => string | null;
   draftAction?: ComponentProps<typeof MakerRsvpSettings>['draftAction'];
@@ -75,6 +102,14 @@ export function MakerRsvpStage({
 }) {
   const maker = useMaker();
   const [scene, setScene] = useState<RsvpStageScene>('form');
+  /* 📱 The screen's controls, opened by its tile in the lower third. */
+  const [controlsOpen, setControlsOpen] = useState(false);
+  /* "Where you are" says the screen on show. */
+  const setLtWhere = maker?.setLtWhere;
+  useEffect(() => {
+    setLtWhere?.(RSVP_STAGE_TILE[scene].label);
+  }, [setLtWhere, scene]);
+  useEffect(() => () => setLtWhere?.(null), [setLtWhere]);
   /* Each scene's frame is loaded the first time it is shown, then kept. */
   const [opened, setOpened] = useState<ReadonlySet<RsvpStageScene>>(() => new Set(['form']));
   const frames = useRef<Partial<Record<RsvpStageScene, HTMLIFrameElement | null>>>({});
@@ -104,6 +139,20 @@ export function MakerRsvpStage({
     for (const f of Object.values(frames.current)) post(f);
   }, [post]);
 
+  /* 🎉 THE WHEN YES CELEBRATION, PLAYED ON THE PAGE (owner 2026-10-06): a pick
+     in Celebration ▾, "Play it again", or opening the When yes scene asks the
+     thank-you frame to play the pick once (`when-yes-celebration.tsx`). */
+  const serverConfig = useRef(current);
+  serverConfig.current = current;
+  const celebrate = useCallback((kind?: RsvpCelebration) => {
+    const win = frames.current.thanks?.contentWindow;
+    if (!win) return;
+    const pick = kind ?? readCelebrationKey(latest.current ?? serverConfig.current);
+    win.postMessage({ source: RSVP_BRIDGE_SOURCE, t: RSVP_CELEBRATE_MESSAGE, kind: pick }, window.location.origin);
+  }, []);
+  const sceneNow = useRef<RsvpStageScene>('form');
+  const readyPlayed = useRef(new WeakSet<HTMLIFrameElement>());
+
   /* A word tapped on the canvas: its scene, then its box. */
   const openWordField = useCallback((bridgeKey: string) => {
     const key = bridgeKey.replace(/^rsvp:/, '') as RsvpWordKey | 'reply-by';
@@ -111,6 +160,7 @@ export function MakerRsvpStage({
       (RSVP_SCENE_WORDS[s] as readonly string[]).includes(key),
     );
     if (owner) setScene(owner);
+    setControlsOpen(true);
     window.setTimeout(() => {
       const box =
         key === 'reply-by'
@@ -136,18 +186,39 @@ export function MakerRsvpStage({
       if (!d || d.source !== RSVP_SITE_SOURCE) return;
       const from = Object.values(frames.current).find((f) => f?.contentWindow === e.source);
       if (!from) return;
-      if (d.t === 'rsvpReady') post(from);
+      if (d.t === 'rsvpReady') {
+        post(from);
+        /* The When yes frame plays its pick the FIRST time it is ready — a later
+           reload of the same frame (a Maker refresh) does not replay it. */
+        if (from === frames.current.thanks && sceneNow.current === 'thanks' && !readyPlayed.current.has(from)) {
+          readyPlayed.current.add(from);
+          celebrate();
+        }
+      }
       if (d.t === 'rsvpEdit' && typeof d.key === 'string') openWordField(d.key);
+    };
+    const onCelebrate = (e: Event) => {
+      const kind = (e as CustomEvent<{ kind?: unknown }>).detail?.kind;
+      if (isRsvpCelebration(kind)) celebrate(kind);
     };
     window.addEventListener(RSVP_PREVIEW_EVENT, onPreview);
     window.addEventListener(RSVP_REPLY_BY_EVENT, onReplyBy);
+    window.addEventListener(RSVP_CELEBRATE_EVENT, onCelebrate);
     window.addEventListener('message', onMessage);
     return () => {
       window.removeEventListener(RSVP_PREVIEW_EVENT, onPreview);
       window.removeEventListener(RSVP_REPLY_BY_EVENT, onReplyBy);
+      window.removeEventListener(RSVP_CELEBRATE_EVENT, onCelebrate);
       window.removeEventListener('message', onMessage);
     };
-  }, [post, postAll, openWordField]);
+  }, [post, postAll, openWordField, celebrate]);
+
+  /* Opening the When yes scene plays its pick (a frame already loaded; a new
+     one plays on its `rsvpReady`, above). */
+  useEffect(() => {
+    sceneNow.current = scene;
+    if (scene === 'thanks') celebrate();
+  }, [scene, celebrate]);
 
   const pick = (next: RsvpStageScene) => {
     setScene(next);
@@ -181,15 +252,33 @@ export function MakerRsvpStage({
         ))}
       </nav>
       <div className="flex min-h-0 flex-1 flex-col">
-        <div className="flex shrink-0 justify-center px-2 pt-2 lg:hidden">
-          <PickMenu
-            label="RSVP scene"
-            dataAttr="data-rsvp-stage-scene-pick"
-            value={scene}
-            options={RSVP_STAGE_SCENES.map((s, i) => ({ key: s.key, label: `${i + 1} · ${s.label}` }))}
-            onPick={(key) => pick(key as RsvpStageScene)}
-          />
-        </div>
+        {/* 📱 The three screens are the lower third's tiles; a tile opens its controls there. */}
+        {maker?.ltNav ? (
+          <IntoLowerThird to={maker.ltNav}>
+            {RSVP_STAGE_SCENES.map((s) => (
+              <button
+                key={s.key}
+                type="button"
+                data-lt-tile={`rsvp:${s.key}`}
+                data-lt-group="rsvp"
+                data-rsvp-stage-scene-tile={s.key}
+                aria-pressed={scene === s.key}
+                onClick={() => {
+                  pick(s.key);
+                  setControlsOpen(true);
+                }}
+                className={`${LOWER_THIRD_TILE} ${LOWER_THIRD_TILE_PART} ${scene === s.key ? LOWER_THIRD_TILE_ON : ''}`}
+              >
+                <span className="flex min-h-0 flex-1 items-center justify-center px-1.5 text-center text-[12.5px] font-semibold leading-tight text-ink">
+                  {RSVP_STAGE_TILE[s.key].label}
+                </span>
+                <span className="block w-full truncate border-t border-ink/10 px-1 py-1.5 text-center text-[11.5px] text-ink/65">
+                  {RSVP_STAGE_TILE[s.key].caption}
+                </span>
+              </button>
+            ))}
+          </IntoLowerThird>
+        ) : null}
         {/* MIDDLE — the guest's page, one frame per scene visited, kept. */}
         <div className="relative flex min-h-0 flex-1 items-stretch justify-center px-2 py-2 lg:px-6 lg:pb-5 lg:pt-4">
           {RSVP_STAGE_SCENES.filter((s) => opened.has(s.key)).map((s) => (
@@ -221,10 +310,14 @@ export function MakerRsvpStage({
     <div className="flex h-full min-h-0 w-full flex-1 flex-col" data-rsvp-stage={scene}>
       <MakerPage
         pageKey="rsvp-page"
+        open={controlsOpen}
+        onOpenChange={setControlsOpen}
+        toolName={RSVP_STAGE_TILE[scene].label}
         page={page}
         controls={
           <>
-            <p className="px-1 text-[13px] font-semibold text-ink/70" data-rsvp-stage-scene-title="">
+            {/* The desktop's title — on a phone the lower third's column names the screen. */}
+            <p className="hidden px-1 text-[13px] font-semibold text-ink/70 lg:block" data-rsvp-stage-scene-title="">
               Scene {RSVP_STAGE_SCENES.indexOf(sceneMeta) + 1} · {sceneMeta.label}
             </p>
             <MakerRsvpSettings
@@ -239,6 +332,7 @@ export function MakerRsvpStage({
               replyByFallback={replyByFallback}
               draftAction={draftAction}
               replyByAction={replyByAction}
+              celebration={celebration ? { ...celebration, storeShell: maker?.storeShell ?? false } : undefined}
             />
           </>
         }

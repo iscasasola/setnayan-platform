@@ -462,12 +462,13 @@ test('S7 · wiring: the page mounts the cutter when a scene has runs; the select
 
 /* ── P ──────────────────────────────────────────────────────────────────── */
 
-test('P · a scene run\'s FONT is Pro at Apply; its colour and size go live free', () => {
+test('P · a scene run\'s FONT, colour and size all go live free (font free since 2026-10-06)', () => {
   const live: HubLiveState = { events: {}, widgets: [widget('our_love_story', {})] };
   const font = mergeHubDraft(emptyHubDraft(), {
     widgets: { our_love_story: { canvas: { elements: { heading: anchored([{ start: 0, end: 3, font: FONT }], 'Our story') } } } },
   });
-  assert.equal(planHubDraftApply(font, live, false).refused.length, 1, 'a free couple applied a scene run\'s font');
+  // 🔤 Owner 2026-10-06 ("EVENT DETAILS IS REBUILT": font on a single part is FREE) — a run's font too.
+  assert.equal(planHubDraftApply(font, live, false).refused.length, 0, 'a scene run\'s font was held as Pro');
   assert.equal(planHubDraftApply(font, live, true).refused.length, 0, 'with Pro it goes live');
   const free = mergeHubDraft(emptyHubDraft(), {
     widgets: { our_love_story: { canvas: { elements: { heading: anchored([{ start: 0, end: 3, color: '#8a1c2b', size: 120 }], 'Our story') } } } },

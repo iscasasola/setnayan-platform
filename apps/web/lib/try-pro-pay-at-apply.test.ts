@@ -72,9 +72,10 @@ function triedDraft(): HubDraft {
   let d = emptyHubDraft();
   // Pro: a theme, the Event Hub typeface. Free: the background colour.
   d = mergeHubDraft(d, { events: { invite_theme: 'velvet', site_font_key: 'cormorant', site_bg_color: '#112233' } });
-  // Pro: a font on the hero's names — beside a FREE colour on the same part.
+  // Pro: an animation on the hero's names — beside a FREE colour and a FREE font
+  // (a part's font is free since 2026-10-06) on the same part.
   d = mergeHubDraft(d, {
-    widgets: { hero: { canvas: { elements: { names: { font: 'cormorant', color: '#aa3344' } } } as HubSectionCanvas } },
+    widgets: { hero: { canvas: { elements: { names: { font: 'cormorant', color: '#aa3344', motion: { in: 'rise' } } } } as HubSectionCanvas } },
   });
   // Pro: how the Schedule moves (a preset + a hand-over into the next scene).
   d = mergeHubDraft(d, { widgets: { schedule: { canvas: { preset: 'cinematic', transition: 'scrub' } as HubSectionCanvas } } });
@@ -138,12 +139,13 @@ test('2 · Apply for a free couple writes only free changes — every Pro effect
       assert.ok(!(item.widgetType === 'custom_1' && item.field === 'is_visible' && item.value === true), 'a scene of their own went live');
     }
   }
-  // The free colour on the SAME part as the Pro font still goes live (#6075's split).
+  // The free colour AND the free font on the SAME part as the Pro animation still go live (#6075's split).
   const hero = plan.apply.find((i) => i.kind === 'widget' && i.widgetType === 'hero' && i.field === 'canvas');
   assert.ok(hero, 'the free half of the hero canvas is not applied');
   const names = (hero!.value as HubSectionCanvas).elements?.names;
-  assert.equal(names?.color, '#aa3344', 'the free colour was held with the Pro font');
-  assert.equal(names?.font, undefined, 'the Pro font leaked through the free half');
+  assert.equal(names?.color, '#aa3344', 'the free colour was held with the Pro animation');
+  assert.equal(names?.font, 'cormorant', 'the free font was held as Pro (it is free since 2026-10-06)');
+  assert.equal(names?.motion, undefined, 'the Pro animation leaked through the free half');
   // The background colour is free and goes live.
   assert.ok(plan.apply.some((i) => i.kind === 'event' && i.column === 'site_bg_color'));
 
@@ -163,12 +165,13 @@ test('3 · the Apply sheet lists exactly the Pro effects the draft holds — by 
   console.log(`[try-pro] sheet: ${lines.join(' | ')}`);
   assert.deepEqual(lines.sort(), [
     'Added scene · Photo left, words right',
+    'Animation · Names on the Hero',
     'Animation · Schedule',
-    'Font · Names on the Hero',
     'Photo background · Countdown',
     'Theme · Luxe',
     'Transition · Schedule',
-    'Typeface · Whole Event Hub',
+    // 🆓 'Typeface · Whole Event Hub' left this list 2026-10-05 — the font is free
+    // ("Colors, and Fonts are all free"); the draft still holds it, Apply writes it.
   ]);
   // Never a free change: the background colour and the part's colour are not named.
   assert.ok(!lines.some((l) => /colour|color/i.test(l)), 'a free colour is named as Pro');
@@ -177,16 +180,36 @@ test('3 · the Apply sheet lists exactly the Pro effects the draft holds — by 
     assert.ok(e.jump, `${hubProEffectLine(e)} cannot be jumped to`);
     assert.ok(e.remove, `${hubProEffectLine(e)} cannot be removed`);
   }
-  const font = effects.find((e) => e.what === 'Font')!;
-  assert.deepEqual(font.jump, {
+  assert.ok(!effects.some((e) => e.what === 'Font'), 'a part’s font is named as Pro (it is free since 2026-10-06)');
+  const anim = effects.find((e) => e.what === 'Animation' && /Names/.test(e.where))!;
+  assert.deepEqual(anim.jump, {
     kind: 'scene',
     widgetId: 'W-HERO',
     widgetType: 'hero',
-    tab: 'format',
+    tab: 'animate',
     element: 'names',
-    stages: font.jump && font.jump.kind === 'scene' ? font.jump.stages : [],
+    stages: anim.jump && anim.jump.kind === 'scene' ? anim.jump.stages : [],
     fixed: 'hero',
   });
+});
+
+test('3 · a moving background of ours is Event Hub Pro — named at Apply, taken off alone; the colour alone is free', () => {
+  // Owner 2026-10-05 (DECISION_LOG "THEMES ARE REPLACED BY THREE DIRECT GLOBAL
+  // SETTINGS"): *"pick our animated loop background"* is paid; a colour is free.
+  const loop = mergeHubDraft(emptyHubDraft(), { widgets: { hero: { main: { ground: 'loop', loop: 'velvet' } } } });
+  const effects = hubDraftProEffects(loop, LIVE, false);
+  assert.deepEqual(effects.map(hubProEffectLine), ['Moving background · Behind every scene'], 'a moving background is not asked for at Apply');
+  assert.deepEqual(effects[0]!.jump, { kind: 'look' }, '"Go to" does not open Look');
+  assert.equal(planHubDraftApply(mergeHubDraft(loop, effects[0]!.remove!), LIVE, false).refused.length, 0, 'Remove left the loop in the draft');
+  assert.deepEqual(hubDraftProEffects(loop, LIVE, true), [], 'an owning couple is asked to pay for a loop');
+  // Just the colour — and the page's own loop as it always was — stay free.
+  for (const main of [{ ground: 'none' }, { ground: 'theme' }] as const) {
+    const d = mergeHubDraft(emptyHubDraft(), { widgets: { hero: { main } } });
+    assert.equal(planHubDraftApply(d, LIVE, false).refused.length, 0, `${main.ground} is held as Pro`);
+  }
+  // A font of their own is free too.
+  const face = mergeHubDraft(emptyHubDraft(), { events: { site_font_key: 'cinzel' } });
+  assert.equal(planHubDraftApply(face, LIVE, false).refused.length, 0, 'the font is held as Pro');
 });
 
 test('3 · one source: no Pro effect named for an owning couple, and none once the plan refuses nothing', () => {

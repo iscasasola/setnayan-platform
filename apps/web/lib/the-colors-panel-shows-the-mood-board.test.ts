@@ -97,10 +97,11 @@ test('the effect chips preview in the resolved colour, and none is disabled whil
   }
 });
 
-test('with no Mood Board palette the wells show the theme’s own colours', async () => {
+test('with no Mood Board palette the wells show the default colours', async () => {
   const html = await panel(null);
   assert.equal(well(html, 'page').bg, INVITE_THEMES.house.palette.canvas.toLowerCase());
-  assert.equal(well(html, 'page').label, 'From your theme');
+  // "From your theme" until 2026-10-05 — a couple no longer picks a theme; it is the page's default.
+  assert.equal(well(html, 'page').label, 'Default');
   assert.equal(well(html, 'buttons').bg, INVITE_THEMES.house.palette.accent.toLowerCase());
   assert.doesNotMatch(html, /#f4ecdd/i);
 });

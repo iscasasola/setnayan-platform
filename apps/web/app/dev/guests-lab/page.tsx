@@ -17,6 +17,10 @@
  *   ?part=head      Guests title + round + + ⋯ (tap ⋯ for the Guest list sheet)
  *   ?part=card      a guest's card (Daniel Ramos) — tap Invite or ⋯
  *   ?part=host      the bride's card — a host, ⋯ only
+ *   ?part=rows      the Guest list ROWS, on maria-and-jose's real roster shape
+ *                   (its 32 names, roles, sides and table names, read
+ *                   2026-10-05) — "Sweetheart Table", "Table 9",
+ *                   "Principal Sponsors 1"; &by=seat groups by table
  *   &low=1          push the card's ticket row to the bottom of a short phone
  *                   (375×667), where a menu has no room under it
  */
@@ -36,6 +40,8 @@ import { GuestInviteCell } from '@/app/dashboard/[eventId]/guests/_components/gu
 import { GuestMoreMenu, GuestTicketThumb } from '@/app/dashboard/[eventId]/guests/_components/guest-ticket-parts';
 import type { GuestCardData } from '@/app/dashboard/[eventId]/guests/_components/guest-card-data';
 import type { GuestRow } from '@/lib/guests';
+import { GuestListMultiselect } from '@/app/dashboard/[eventId]/guests/_components/guest-list-multiselect';
+import type { ArrangeKey } from '@/lib/roster-arrangement';
 
 const EVENT = '00000000-0000-4000-8000-000000000000';
 
@@ -134,6 +140,7 @@ function cardData(g: GuestRow, isCouple: boolean): GuestCardData {
     recordedAt: null,
     access: null,
     canManageAccess: true,
+    offersThisIsMe: false,
     nameLinked: false,
     linkedAccount: null,
     profileName: null,
@@ -143,6 +150,48 @@ function cardData(g: GuestRow, isCouple: boolean): GuestCardData {
     groupChoices: null,
   } as unknown as GuestCardData;
 }
+
+/**
+ * maria-and-jose's roster, as it is in production (read 2026-10-05): first and
+ * last name, role, side, reply and the name of the table they sit at. Copied,
+ * not invented — the row defects only show on the couple's own table names.
+ * (Daniel Ramos is the event's best man — `best_man`; a `best_woman` stands in
+ * exactly the same place and row.)
+ */
+const MJ_ROSTER: ReadonlyArray<[string, string, GuestRow['role'], GuestRow['side'], string]> = [
+  ['Maria', 'Santos', 'bride', 'bride', 'Sweetheart Table'],
+  ['Jose', 'Dela Cruz', 'groom', 'groom', 'Sweetheart Table'],
+  ['Andrea', 'Flores', 'maid_of_honor', 'bride', 'Entourage'],
+  ['Daniel', 'Ramos', 'best_man', 'groom', 'Entourage'],
+  ['Sofia', 'Navarro', 'bridesmaid', 'bride', 'Entourage'],
+  ['Gabriel', 'Castillo', 'groomsman', 'groom', 'Entourage'],
+  ['Antonio', 'Bautista', 'principal_sponsor_ninong', 'bride', 'Principal Sponsors 1'],
+  ['Eduardo', 'Reyes', 'principal_sponsor_ninong', 'bride', 'Principal Sponsors 1'],
+  ['Lourdes', 'Bautista', 'principal_sponsor_ninang', 'bride', 'Principal Sponsors 1'],
+  ['Corazon', 'Reyes', 'principal_sponsor_ninang', 'bride', 'Principal Sponsors 1'],
+  ['Fernando', 'Villanueva', 'principal_sponsor_ninong', 'groom', 'Principal Sponsors 2'],
+  ['Ramon', 'Aquino', 'principal_sponsor_ninong', 'groom', 'Principal Sponsors 2'],
+  ['Teresita', 'Aquino', 'principal_sponsor_ninang', 'groom', 'Principal Sponsors 2'],
+  ['Imelda', 'Villanueva', 'principal_sponsor_ninang', 'groom', 'Principal Sponsors 2'],
+  ['Rosa', 'Santos', 'guest', 'bride', 'Family of the Bride'],
+  ['Divina', 'Mercado', 'guest', 'bride', 'Family of the Bride'],
+  ['Carlo', 'Santos', 'guest', 'bride', 'Family of the Bride'],
+  ['Angela', 'Santos', 'guest', 'bride', 'Family of the Bride'],
+  ['Manuel', 'Santos', 'guest', 'bride', 'Family of the Bride'],
+  ['Patricia', 'Dela Cruz', 'guest', 'groom', 'Family of the Groom'],
+  ['Rodrigo', 'Dela Cruz', 'guest', 'groom', 'Family of the Groom'],
+  ['Estrella', 'Dela Cruz', 'guest', 'groom', 'Family of the Groom'],
+  ['Miguel', 'Dela Cruz', 'guest', 'groom', 'Family of the Groom'],
+  ['Benigno', 'Garcia', 'guest', 'groom', 'Family of the Groom'],
+  ['Joana', 'Cruz', 'guest', 'bride', 'Friends — Barkada'],
+  ['Paolo', 'Mendoza', 'guest', 'groom', 'Friends — Barkada'],
+  ['Bianca', 'Lim', 'guest', 'bride', 'Friends — Barkada'],
+  ['Marco', 'Tan', 'guest', 'groom', 'Friends — Barkada'],
+  ['Nena', 'Villar', 'guest', 'bride', 'Table 9'],
+  ['Tomas', 'Villar', 'guest', 'bride', 'Table 9'],
+  ['Cita', 'Ramos', 'guest', 'groom', 'Table 9'],
+  ['Efren', 'Ramos', 'guest', 'groom', 'Table 9'],
+];
 
 /** A stand-in bottom bar, in the REAL anchored dock (z-30, outside <main>). */
 function DockStandIn() {
@@ -221,6 +270,53 @@ export default async function GuestsLabPage({
                   MoreMenu={GuestMoreMenu}
                 />
               </div>
+            </div>
+          </div>
+        </main>
+        <DockStandIn />
+      </div>
+    );
+  }
+
+  if (part === 'rows') {
+    const roster = MJ_ROSTER.map(([first, last, role, side], i) =>
+      guest({
+        guest_id: `g-mj-${i}`,
+        public_id: `S89G-LABMJ${String(i).padStart(5, '0')}`,
+        first_name: first,
+        last_name: last,
+        role,
+        side,
+        group_category: 'family',
+      }),
+    );
+    const seatByGuest = Object.fromEntries(
+      MJ_ROSTER.map(([, , , , table], i) => [`g-mj-${i}`, { placed: table, suggested: null }]),
+    );
+    const tables = [...new Set(MJ_ROSTER.map((r) => r[4]))].map((label, i) => ({ tableId: `t-${i}`, label }));
+    const grouping: ArrangeKey[] = sp.by === 'seat' ? ['seat'] : ['role'];
+    return (
+      <div className="sn-ambient min-h-screen">
+        <main className="sn-vt-page">
+          <div data-shell-main>
+            <div className="sn-page-enter">
+              <section className="flex flex-col gap-4 px-4 py-6" data-lab-rows="">
+                <GuestListMultiselect
+                  eventId={EVENT}
+                  guests={roster}
+                  palette={{}}
+                  groups={[]}
+                  groupMemberships={{}}
+                  currentGroupId={null}
+                  selfJoinIds={[]}
+                  seatByGuest={seatByGuest}
+                  photoDisplayUrls={{}}
+                  accountFaceByGuest={{}}
+                  grouping={grouping}
+                  sort="importance"
+                  tables={tables}
+                />
+              </section>
             </div>
           </div>
         </main>

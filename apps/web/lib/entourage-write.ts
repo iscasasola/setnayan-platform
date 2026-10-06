@@ -3,10 +3,11 @@
  *
  * ⚠ NO `import 'server-only'`, DELIBERATELY. It would be true — this file
  * builds a Supabase server client and nothing else may — but it is not
- * importable from `tsx --test`, and `lib/a-pair-walks-as-one-line.test.ts`
- * reaches this module transitively (test → panel → actions → here) to execute
- * `printedGroupsForView`. `lib/capture-credit-pure.ts` records the same trade
- * in the other direction. The boundary is held by construction instead: the
+ * importable from `tsx --test`, and tests reach the two action files that
+ * import it (the walking-order panel that first needed this was retired on
+ * 2026-10-06; adding the import now is its own change, with its own run of the
+ * suite). `lib/capture-credit-pure.ts` records the same trade in the other
+ * direction. The boundary is held by construction instead: the
  * only importers are the two `'use server'` action files, and this module's
  * exports take a Supabase client, which no client component can produce.
  *
@@ -40,12 +41,13 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import {
   ENTOURAGE_COLUMNS,
-  ENTOURAGE_GROUP_KEYS,
+  MARCH_GROUP_KEYS,
   entourageLines,
   type EntourageGuestRow,
   type EntourageRow,
 } from '@/lib/entourage';
 import type { MarchResult } from '@/lib/march-result';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 export type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -70,21 +72,46 @@ export async function readMarchLines(
   | { ok: true; supabase: SupabaseServerClient; lines: EntourageRow[] }
   | { ok: false; reason: string }
 > {
-  if (!ENTOURAGE_GROUP_KEYS.includes(groupKey)) {
+  // 🚶 The march's own sections too (the couple's sides, owner 2026-10-06) — every key `entourageLines` knows.
+  if (!MARCH_GROUP_KEYS.includes(groupKey)) {
     return { ok: false, reason: 'That part of the entourage does not exist.' };
   }
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from('guests')
-    .select(ENTOURAGE_COLUMNS)
-    .eq('event_id', eventId)
-    .is('deleted_at', null);
-  if (error) return { ok: false, reason: MARCH_READ_FAILED };
+  const [{ data, error }, tray] = await Promise.all([
+    supabase.from('guests').select(ENTOURAGE_COLUMNS).eq('event_id', eventId).is('deleted_at', null),
+    readNotWalking(supabase, eventId),
+  ]);
+  // 🚶 Unread "Not walking" is NOT "nobody is out": a move against a march that
+  // might hold people who do not walk is refused, never guessed.
+  if (error || !tray) return { ok: false, reason: MARCH_READ_FAILED };
   return {
     ok: true,
     supabase,
-    lines: entourageLines((data ?? []) as EntourageGuestRow[], groupKey),
+    lines: entourageLines(walkersOf((data ?? []) as EntourageGuestRow[], tray), groupKey),
   };
+}
+
+/**
+ * 🚶 The "Not walking" tray (owner 2026-10-06, `march_not_walking`): the guest
+ * ids that do not walk, or null when the read failed (never an empty set — an
+ * unread tray would put everyone back in the march).
+ */
+export async function readNotWalking(
+  supabase: { from: SupabaseServerClient['from'] },
+  eventId: string,
+): Promise<Set<string> | null> {
+  const { data, error } = await supabase.from('march_not_walking').select('guest_id').eq('event_id', eventId);
+  if (error) {
+    // Recorded, then refused by the caller in words (MARCH_READ_FAILED) — never read as "nobody".
+    logQueryError('readNotWalking', error, { event_id: eventId }, 'graceful_degrade');
+    return null;
+  }
+  return new Set(((data ?? []) as Array<{ guest_id: string }>).map((r) => r.guest_id));
+}
+
+/** The rows that walk — the WALKING ORDER's read; a print never filters (their role still prints). */
+export function walkersOf<T extends { guest_id?: string | null }>(rows: readonly T[], out: ReadonlySet<string>): T[] {
+  return out.size === 0 ? [...rows] : rows.filter((r) => !r.guest_id || !out.has(r.guest_id));
 }
 
 /**

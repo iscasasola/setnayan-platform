@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, type ComponentType, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, type ComponentType, type ReactNode } from 'react';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import type { DetailsItemKey } from '@/lib/maker-details-items';
 import type { HubElementKey } from '@/lib/element-style';
@@ -90,6 +90,26 @@ export type MakerState = {
    */
   detailsDoor?: number;
   /**
+   * 🎨 Counts each opening of Look (a door press, or Theme in the lower third).
+   * Look opens the Look tools DIRECTLY, never the guided flow's stage list
+   * (owner 2026-10-05) — `details-workspace.tsx` answers it. Optional.
+   */
+  lookVisit?: number;
+  /** Answer a Look visit ONCE: true the first time it is asked for `n`, false after. */
+  takeLookVisit?: (n: number) => boolean;
+  /**
+   * 🗓 A door that names ONE item (a schedule moment tapped on the canvas, the
+   * couple's mark, Page ▾'s story): Details opens ON that item, never on the
+   * guided flow's stage list (owner 2026-10-06, "why do i jump here when i
+   * tried to tap on the schedule"). Sets `detailsItem` and counts the visit
+   * (`itemVisit`), which `details-workspace.tsx` answers ONCE, like `lookVisit`.
+   * `setDetailsItem` alone is a report, never a door. Optional.
+   */
+  openDetailsItem?: (key: DetailsItemKey) => void;
+  itemVisit?: number;
+  /** Answer an item visit ONCE: true the first time it is asked for `n`, false after. */
+  takeItemVisit?: (n: number) => boolean;
+  /**
    * 🏷 THE GUIDED FLOW'S ONE TITLE (owner 2026-10-05: the bar flipped between
    * "Look" and "Event Details" inside one stage). While "Finish your Event Hub"
    * is on screen, Details names what it is on — the stage being walked ("Save
@@ -98,6 +118,8 @@ export type MakerState = {
    */
   guideTitle?: string | null;
   setGuideTitle?: (title: string | null) => void;
+  /** 🧰 The guided flow shows a screen of its own (not a step): the lower third keeps only its menu. */
+  setGuideBare?: (on: boolean) => void;
   /** 🎨 The Look pages the work area moved into Details — see `MakerLookPages`. */
   lookPages?: MakerLookPages | null;
   setLookPages?: (next: MakerLookPages | null) => void;
@@ -134,7 +156,67 @@ export type MakerState = {
   /** ↺ Restore, as the draft bar registers it — Page ▾ › Restore runs it. */
   draft?: MakerDraftDoor | null;
   setDraft?: (next: MakerDraftDoor | null) => void;
+  /**
+   * 🧰 THE LOWER THIRD (owner 2026-10-05, *"all tools can only reside on the
+   * thumb area / lower third"*; `maker-lower-third.tsx`). On a phone every
+   * editor opens IN it: the one open says so here (`useMakerTool`), and the
+   * lower third folds its menu and navigator into the left column — the
+   * tool's name, ‹ › and × — while the tool takes the rest. Optional.
+   */
+  tool?: MakerTool | null;
+  /** The lower third is on (a phone, < lg) — tools register only then; a desktop keeps its columns. */
+  lowerThird?: boolean;
+  setTool?: (next: MakerTool | null | ((cur: MakerTool | null) => MakerTool | null)) => void;
+  /**
+   * 🧭 The lower third's NAVIGATOR (phone): the layer on screen draws its own
+   * tiles into it (the stage's scenes, Details' items, the RSVP screens) with
+   * `createPortal` — one navigator, each tile still its own layer's button.
+   */
+  ltNav?: HTMLElement | null;
+  /** 🖼 The canvas's Event Bar switch, registered by the work area — Settings' tile. */
+  eventBar?: MakerEventBar | null;
+  setEventBar?: (next: MakerEventBar | null) => void;
+  /** 🏷 The part on screen, in the layer's own words ("RSVP form", "Names") — the lower third's "where you are" and the top line. */
+  setLtWhere?: (words: string | null) => void;
 };
+
+/** The canvas's Event Bar: the stage's own guest bars over the slide, on or off. */
+export type MakerEventBar = { on: boolean; toggle: () => void };
+
+/** One tool open in the lower third — its name and how it closes; ‹ › when it has its own steps. */
+export type MakerTool = {
+  key: string;
+  name: string;
+  close: () => void;
+  /** ‹ › between this tool's own neighbours (a part's parts). Absent: the navigator's tiles. */
+  step?: { prev: (() => void) | null; next: (() => void) | null };
+};
+
+/**
+ * 🧰 Say "this tool is open" to the lower third while `open` holds. The last
+ * one opened is the one the left column names; closing clears only its own.
+ */
+export function useMakerTool(open: boolean, tool: MakerTool): void {
+  const maker = useContext(MakerContext);
+  const setTool = maker?.lowerThird ? maker.setTool : undefined;
+  const ref = useRef(tool);
+  ref.current = tool;
+  const { key, name } = tool;
+  const hasPrev = Boolean(tool.step?.prev);
+  const hasNext = Boolean(tool.step?.next);
+  useEffect(() => {
+    if (!setTool || !open) return;
+    setTool({
+      key,
+      name,
+      close: () => ref.current.close(),
+      ...(ref.current.step
+        ? { step: { prev: hasPrev ? () => ref.current.step?.prev?.() : null, next: hasNext ? () => ref.current.step?.next?.() : null } }
+        : {}),
+    });
+    return () => setTool((cur) => (cur?.key === key ? null : cur));
+  }, [setTool, open, key, name, hasPrev, hasNext]);
+}
 
 /** What the work area reports about the stage it shows (see `MakerState.guestPages`). */
 export type MakerGuestPagesReport = {
@@ -181,6 +263,8 @@ export type MakerLookPages = {
     palette: ReactNode | null;
     /** 🔘 Look › Buttons — Shape · Fill · Colour (owner 2026-10-04). */
     buttons?: ReactNode | null;
+    /** 🎵 Look › Music — the work area's own Music row (on/off · song · tap to play), moved whole (owner 2026-10-06). */
+    music?: ReactNode | null;
   } | null;
   /** The Reveal's settings: play it, its fine-tune, where it plays (the RIGHT column). */
   reveal: ReactNode | null;

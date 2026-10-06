@@ -169,14 +169,15 @@ export function ColorsPanel({
   const typeface = (
     <fieldset className={part === 'font' ? undefined : 'mt-3 border-t border-dashed border-ink/10 pt-3'}>
       <legend className="sr-only">Typeface</legend>
-      <p className="inline-flex items-center gap-1.5 text-[0.72rem] font-semibold text-ink/80">Typeface{mark}</p>
+      {/* 🆓 FREE since 2026-10-05 (owner: "Colors, and Fonts are all free") — no ◆. */}
+      <p className="inline-flex items-center gap-1.5 text-[0.72rem] font-semibold text-ink/80">Typeface</p>
       <FontPick
         eventId={eventId}
         label="Typeface"
         name="site_font_key"
         dataAttr="data-site-font"
         value={sanitizeHubFontKey(fontKey)}
-        lead="The theme’s own"
+        lead="Default"
         className="mt-1.5 min-h-11 w-full justify-between border border-ink/15"
       />
     </fieldset>
@@ -194,11 +195,7 @@ export function ColorsPanel({
       {/* ✍ Every change drafts itself — no Save button (INTERACTION_RULES §8). */}
       <DraftsAsYouGo />
       {part === 'font' ? (
-        proLocked ? (
-          proLock
-        ) : (
-          typeface
-        )
+        typeface
       ) : (
       <>
       {/* 🌈 THE BACKGROUND — one colour, one effect (owner 2026-09-25). One
@@ -282,7 +279,7 @@ function ButtonColourField({
 }) {
   const [hex, setHex] = useState<string>(defaultValue ?? '');
   const fallback = moodBoard?.buttons ?? themeOwnColours(themeId).buttons;
-  const unsetLabel = moodBoard ? 'From your Mood Board' : 'From your theme';
+  const unsetLabel = moodBoard ? 'From your Mood Board' : 'Default';
   return (
     <div data-button-colour-field="">
       <p className="mb-1 text-[0.7rem] font-semibold text-ink/60">Buttons</p>
@@ -346,7 +343,7 @@ function BackgroundField({
      the guest page's own resolver), else the theme's. Never a fixed cream. */
   const resolved = moodBoard?.background ?? themeGround;
   const previewBase = hex || resolved;
-  const unsetLabel = moodBoard ? 'From your Mood Board' : 'From your theme';
+  const unsetLabel = moodBoard ? 'From your Mood Board' : 'Default';
   const look = effect === 'plain' ? null : ombreLook(theme, { shape: effect, base: previewBase });
 
   return (

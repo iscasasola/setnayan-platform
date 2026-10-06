@@ -2,8 +2,8 @@
 
 import Link from 'next/link';
 import {
-  ACCESS_LEVEL_LABEL,
   accessNote,
+  accessWordFor,
   type GuestAccessState,
 } from '@/lib/guest-access';
 import { peopleWithAccessHref } from '@/lib/people-with-access-href';
@@ -43,7 +43,8 @@ export function GuestAccessCell({
   /** 'phone' draws the chip-sized word the phone's one sub-line has room for. */
   size?: 'row' | 'phone';
 }) {
-  const word = ACCESS_LEVEL_LABEL[state.level];
+  // The creator is the Host; a chosen co-host is a Co-host (lib/guest-access).
+  const word = accessWordFor(state);
   const waiting = state.level !== 'none' && !state.live;
   const phone = size === 'phone';
   // A phone's one sub-line does not spend a chip on "None" for every guest.

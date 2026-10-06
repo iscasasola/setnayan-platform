@@ -1,6 +1,8 @@
 import { Fragment, isValidElement } from 'react';
 import Link from 'next/link';
-import { actionOpensReply, resolveArrivalAction } from '@/lib/arrival-action';
+import { watchLiveOccasion } from '@/lib/watch-live-occasion';
+import { daysToGo } from '@/lib/countdown-target';
+import { actionOpensReply, meLeadsWithReply, REPLY_SHEET_ANCHOR, resolveArrivalAction } from '@/lib/arrival-action';
 import { PASS_CARD_ROUTE } from '@/lib/pass-card';
 import { manilaToday } from '@/lib/std-views';
 import { ArrivalActionRow } from './arrival-action';
@@ -28,7 +30,6 @@ import { saveAttendedVendorAction, submitRsvp } from '../actions';
 import { joinEventAction } from '@/app/join/[eventId]/actions';
 import { GuestChecklist } from './guest-checklist';
 import { guestChecklistItems } from '../_lib/guest-checklist-facts';
-import { daysUntil } from '@/lib/guest-checklist';
 import { ScheduleWidget } from './schedule-widget';
 import { TeaCeremonyCard } from './tea-ceremony-card';
 import { dressRiteOf, isChineseWedding } from '@/lib/chinese-wedding';
@@ -93,7 +94,7 @@ import {
 import { resolveRevealEffects } from '@/lib/std-reveal-effects';
 import { type StdBackground } from '@/lib/std-backgrounds';
 import { defaultInvitationLaunchIso } from '@/lib/save-the-date-content';
-import { OurStory } from './our-story';
+import { OurStory, storyTabHasChapter } from './our-story';
 import { HubShell } from './hub/hub-shell';
 import { DayDirections } from './day-directions';
 import {
@@ -167,7 +168,7 @@ import { placeCardName } from '@/lib/formal-name';
 import { HubSceneRuns } from './hub-scene-runs';
 import { heroDesignOf } from '@/lib/hero-design';
 import { heroCanvasOf } from '../_lib/hero-design-of';
-import { makerDayPartsOn, makerDrawsEmpty, widgetsGuestsMeet } from '@/lib/maker-scene-list';
+import { makerDayPartsOn, makerDrawsEmpty, widgetsGuestsMeet, type MakerDayPartPlace } from '@/lib/maker-scene-list';
 import { stageShowsEntourage } from '@/lib/stage-scenes';
 import { sceneBoundTextOf } from '@/lib/details-bound';
 import { MakerGuestScenes } from './maker-guest-scenes';
@@ -470,8 +471,13 @@ type SiteBodyProps = {
    * section GuestHubBar draws below the page otherwise (`GuestMeSection`). On a
    * tabbed page it is a tab like the others, so it sits INSIDE the page's column
    * rather than under its closing footer. Null everywhere else.
+   *
+   * ✉ A FUNCTION when page.tsx needs the page's answer to "does Me lead with
+   * the reply?" (`meLeadsWithReply`) — the reply sheet's gate is the plan this
+   * body resolves, so the body asks once and hands the answer down rather than
+   * page.tsx re-deriving the plan.
    */
-  meSection?: React.ReactNode;
+  meSection?: React.ReactNode | ((me: { replyHref: string | null }) => React.ReactNode);
   /**
    * 👁 SEE AS ▾ (PR-10, owner 2026-10-04) — the Maker's canvas drawn as a SAMPLE
    * viewer (page.tsx `resolveSampleViewer`, verified host + `?editor=1` only):
@@ -680,6 +686,8 @@ export async function SiteBody({
     event,
     viewerIsHost,
     signed: canvasMediaUrls,
+    // 🎞 A moving background tried in the draft shows on the host's own canvas (verified host only).
+    tryOn: isEditorCanvas,
   });
   // 🖼 The guest's own bars (header + tab bar): everywhere but the Maker's
   // canvas, and in the canvas only when its "Guest bars" switch is on. In the
@@ -1369,10 +1377,12 @@ export async function SiteBody({
       // 🔴 THE OWNER SAW THIS ONE: a Story tab on a seven-year-old's birthday.
       // The love story is wedding-by-nature — it asks how the two of them met,
       // and a type with no two people has no answer.
+      // 📖 …and only once there is a chapter to land on (`storyTabHasChapter`):
+      // open-browse no longer draws it empty — `{}` read as a story.
       story:
         weddingOnly.love_story &&
         bodyRenders &&
-        (plan.openBrowse || Boolean(event.love_story)),
+        storyTabHasChapter(event.love_story, storySceneShown),
       // "Gallery" = the live photo wall ON THE DAY (the livestream is a separate
       // concern) and the recap's own photo run AFTER it. Two different sections
       // in two different phases, one tab — which is what a guest coming back the
@@ -1420,6 +1430,26 @@ export async function SiteBody({
       </HubScenes>
     );
     const publicWidgetNodes = sceneNodes(detailsSceneList);
+    /* 🎨 THE DAY'S OWN PARTS — the Maker's canvas only, never a guest: a
+       stand-in for each part a guest meets as their own (their table, their
+       photos) or only once it happens (a message, a stream), so the couple can
+       tap it and pick its style. Same list, same order, same places as the
+       navigator (`makerDayPartsOn`): before the stage's sections, right after
+       them, or after the entourage. */
+    const makerDayStandIns = (place: MakerDayPartPlace) =>
+      isMakerCanvas
+        ? makerDayPartsOn(pageStage, place).map((part) => (
+            <Fragment key={part}>
+              {makerMark(`f:${part}`)}
+              <MakerDayPartStandIn
+                part={part as Exclude<FixedStyleScene, 'entourage'>}
+                styleName={
+                  sceneStylesOn(part, pageStage, event.event_type).find((st) => st.id === fixedStyle(part as FixedStyleScene))?.name ?? null
+                }
+              />
+            </Fragment>
+          ))
+        : null;
     // Task #13 — day-of-mode badge surfaces to public-landing viewers too so a
     // guest at the venue without a session cookie still sees "happening now".
     // ONE "Happening now" (owner 2026-10-05: it showed twice, overlapping the
@@ -1889,6 +1919,7 @@ export async function SiteBody({
                 />
               </div>
             )) : null}
+            {makerDayStandIns('before')}
             {group(scenesTab, plan.openBrowse ? (
               // Open-browse Details — always present so the tab is never dead:
               // event-level facts (the anonymous event_details variant — §5.10),
@@ -1917,6 +1948,8 @@ export async function SiteBody({
               </section>
             ) : null)}
 
+            {makerDayStandIns('after')}
+
             {/* THE ENTOURAGE — under Details, never a sixth tab (owner ruling
                 2026-09-14). Its own anchor so the couple can link straight at
                 it; no slot, so `_lib/site-nav.ts`'s five-slot budget is
@@ -1928,24 +1961,7 @@ export async function SiteBody({
                 working for old links, it just isn't linked from here. */}
             {group(scenesTab, stageShowsEntourage(pageStage) ? <EntourageSection groups={entourage} id="site-entourage" sceneStyle={entourageStyle} /> : null)}
 
-            {/* 🎨 THE DAY'S OWN PARTS — the Maker's canvas only, never a guest:
-                a stand-in for each part a guest meets as their own (their
-                table, their photos) or only once it happens (a message, a
-                stream), so the couple can tap it and pick its style. Same list,
-                same order as the navigator (`makerDayPartsOn`). */}
-            {isMakerCanvas
-              ? makerDayPartsOn(pageStage).map((part) => (
-                  <Fragment key={part}>
-                    {makerMark(`f:${part}`)}
-                    <MakerDayPartStandIn
-                      part={part as Exclude<FixedStyleScene, 'entourage'>}
-                      styleName={
-                        sceneStylesOn(part, pageStage, event.event_type).find((st) => st.id === fixedStyle(part as FixedStyleScene))?.name ?? null
-                      }
-                    />
-                  </Fragment>
-                ))
-              : null}
+            {makerDayStandIns('last')}
 
             {/* Our Story — the couple's love story on the run-up paths (rsvp/event).
                 The normal body only renders pre-event (STD + editorial are separate
@@ -1983,7 +1999,7 @@ export async function SiteBody({
             <div className="rounded-2xl border border-ink/10 bg-white/70 px-6 py-8 text-center shadow-sm">
               <p className="font-serif text-lg text-ink">You&rsquo;re the host</p>
               <p className="mx-auto mt-1 max-w-sm text-sm text-ink/60">
-                You don&rsquo;t need an invitation to your own {clientWords.occasion}. Guests
+                You don&rsquo;t need an invitation to your own {watchLiveOccasion(clientWords.occasion)}. Guests
                 who open their personal link see their greeting, seat and RSVP in this spot.
               </p>
             </div>
@@ -2152,7 +2168,8 @@ export async function SiteBody({
     const menuSections = {
       details: guestBodyRenders && detailsSceneList.length > 0,
       // A type with no two people has no love story (same gate as the public page).
-      story: weddingOnly.love_story && guestBodyRenders && Boolean(event.love_story),
+      // …and only once there is a chapter to land on (`storyTabHasChapter`).
+      story: weddingOnly.love_story && guestBodyRenders && storyTabHasChapter(event.love_story, storySceneShown),
       // "Gallery" = the live photo wall on the day (mirrors the LiveWallBlock
       // gate below), the recap's photo run after it. A guest's own "photos of
       // you" strip is deliberately NOT a third answer: it closes with the
@@ -2510,7 +2527,13 @@ export async function SiteBody({
               initialTicks={g.checklist.ticks}
               readFailed={g.checklist.readFailed}
               save={submitRsvp.bind(null, event.event_id, guest.guest_id)}
-              daysLeft={daysUntil({ eventDate: event.event_date, today: manilaToday() })}
+              /* 🔢 The countdown's own rule (`daysToGo`): whole days of real
+                 time left, so this never reads a day more than the countdown
+                 tile beside it. On the eve and the day it draws no number. */
+              daysLeft={(() => {
+                const left = daysToGo(event.event_date, eventTzForDay, Date.now());
+                return left?.kind === 'days' ? left.days : null;
+              })()}
               dateLabel={event.event_date ? formatEventDate(event.event_date) : null}
             />
           ) : null}
@@ -3207,7 +3230,17 @@ export async function SiteBody({
             GuestTicket (page.tsx), never a Maker-only twin. */}
         {tabs.on || sampleViewer !== null ? group('me', (
           <div data-me-stage="" className={`mx-auto w-full ${PLATE} space-y-12 px-4`}>
-            {meSection}
+            {typeof meSection === 'function'
+              ? meSection({
+                  replyHref: meLeadsWithReply({
+                    action: arrivalAction,
+                    replyOpen: plan.rsvpShouldRender,
+                    isPlusOne: Boolean(guest.plus_one_of_guest_id),
+                  })
+                    ? `#${REPLY_SHEET_ANCHOR}`
+                    : null,
+                })
+              : meSection}
             {guest.photo_source === 'selfie' ? (
               <FaceDataNotice eventId={event.event_id} guestId={guest.guest_id} />
             ) : null}
@@ -3344,8 +3377,10 @@ export async function SiteBody({
       hubTheme={hubLook.theme}
       /* 🌈 An ombré is painted by the layout's paper (draft-overlaid for the
          host's canvas, since `event` is the overlaid row) — the shell leaves
-         its opaque paper off for it, Classic included. */
-      ownGround={isOmbreValue(event.site_bg_color)}
+         its opaque paper off for it, Classic included — and for any Main
+         background layer (a moving background of ours can sit under
+         Classic since 2026-10-05), or that layer would be painted over. */
+      ownGround={isOmbreValue(event.site_bg_color) || mainGroundLayer !== null}
       backdrop={backdrop}
       fullBleed={plan.fullBleed}
       editorCanvas={!showGuestBars}

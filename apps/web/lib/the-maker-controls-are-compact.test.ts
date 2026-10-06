@@ -61,7 +61,8 @@ test('B · the Maker lists the greeting, the pass and the RSVP right after the n
 test('B · each has a panel that is never blank — where it comes from, or its editor', () => {
   assert.match(fixedScenePanel('greeting').source?.text ?? '', /each guest sees their own/i);
   assert.match(fixedScenePanel('pass').source?.text ?? '', /each guest sees their own/i);
-  assert.equal(fixedScenePanel('rsvp').button, 'Open RSVP editor');
+  // No "Open … editor" button any more (owner 2026-10-05): the RSVP is its own stage in the lower third's menu.
+  assert.equal('button' in fixedScenePanel('rsvp'), false);
 });
 
 test('B · the canvas draws them as "Your guest", with no sample content, and only in the Maker', async () => {

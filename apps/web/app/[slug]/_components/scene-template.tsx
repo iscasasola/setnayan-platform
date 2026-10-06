@@ -36,6 +36,9 @@ export type SceneFacts = {
   monogram: string | null;
   /** Whole days until the day, or null when past / no date / solemn (12). */
   daysToGo: number | null;
+  /** 🔢 "Tomorrow" / "Today" at the end — the countdown's own words
+   *  (`daysToGo`, lib/countdown-target.ts) instead of a number. Absent: none. */
+  dayWord?: 'Tomorrow' | 'Today' | null;
   /** The shipped special message (11 Letter, when the scene has no words of its own). */
   specialMessage: string | null;
   /** Love-story milestones (24 Timeline, when the scene has no blocks of its own). */
@@ -155,7 +158,7 @@ export function renderScene(input: SceneRenderInput): ReactElement | null {
       if (t.layout === 'number' && display) {
         parts.push(
           <p key="c" className="hub-tpl-p">
-            {title || (facts.daysToGo === 1 ? 'day to go' : facts.daysToGo === 0 ? 'The day is here' : 'days to go')}
+            {title || (facts.dayWord ? 'is the day' : facts.daysToGo === 1 ? 'day to go' : facts.daysToGo === 0 ? 'The day is here' : 'days to go')}
           </p>,
         );
       } else if (body) {
@@ -215,6 +218,7 @@ function displayText(t: SceneTemplate, facts: SceneFacts, title: string): string
   if (t.builtOn === 'names') return title || facts.names;
   if (t.builtOn === 'monogram') return facts.monogram;
   if (t.builtOn === 'countdown') {
+    if (facts.dayWord) return facts.dayWord;
     return facts.daysToGo === null ? null : facts.daysToGo === 0 ? '0' : String(facts.daysToGo);
   }
   return null;

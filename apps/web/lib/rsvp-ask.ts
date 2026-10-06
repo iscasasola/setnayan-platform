@@ -29,6 +29,8 @@
  * without editing this file's own type.
  */
 
+import { isRsvpCelebration, readCelebrationKey, type RsvpCelebration } from './rsvp-celebration';
+
 export const RSVP_ASK_FIELDS = ['plus_ones', 'meal', 'dietary', 'song_request', 'note', 'mobile'] as const;
 export type RsvpAskField = (typeof RSVP_ASK_FIELDS)[number];
 
@@ -110,6 +112,15 @@ export type RsvpAskConfig = Partial<Record<RsvpAskField, boolean>> & {
    * `RSVP_WORD_KEYS`.
    */
   words?: RsvpWords;
+  /**
+   * 🎉 THE WHEN YES CELEBRATION (owner 2026-10-06, DECISION_LOG '"WHEN YES"
+   * GETS A CELEBRATION (PRO)'): None · Confetti · Fireworks · Petals ·
+   * Sparklers, played ONCE as an attending guest's thank-you appears. Stored
+   * beside the When yes words; absent = None (`readRsvpCelebration`). The four
+   * effects are Event Hub Pro — Apply holds them without it
+   * (`eventItemIsPro`, lib/hub-draft.ts). See `lib/rsvp-celebration.ts`.
+   */
+  celebration?: RsvpCelebration;
 };
 
 /**
@@ -241,6 +252,12 @@ export function sanitizeRsvpAskConfig(raw: unknown): RsvpAskConfig {
       if (typeof value === 'boolean') out.approveEach = value;
       continue;
     }
+    if (key === 'celebration') {
+      // A known pick only; None is stored as itself so a Pro couple's "back to
+      // None" is a change the draft can carry.
+      if (isRsvpCelebration(value)) out.celebration = value;
+      continue;
+    }
     if (key === 'words') {
       const words = sanitizeRsvpWords(value);
       if (Object.keys(words).length > 0) out.words = words;
@@ -329,6 +346,11 @@ export function rsvpAskConfigOnGoingPublic(input: {
   const current = sanitizeRsvpAskConfig(input.rawConfig);
   if (current.whoCanRsvp === 'anyone') return null;
   return { ...current, whoCanRsvp: 'anyone' };
+}
+
+/** 🎉 The When yes celebration — absent, malformed or unknown reads as None. */
+export function readRsvpCelebration(raw: unknown): RsvpCelebration {
+  return readCelebrationKey(sanitizeRsvpAskConfig(raw));
 }
 
 /** "Ask one question at a time" — absent reads as OFF (one scrolling page). */

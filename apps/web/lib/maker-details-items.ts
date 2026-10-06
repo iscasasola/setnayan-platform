@@ -79,7 +79,17 @@ export type PlanItemKey = 'plan-myself';
  */
 export type AnswerItemKey = 'papic' | 'gifts';
 export const ANSWER_ITEM_KEYS: readonly AnswerItemKey[] = ['papic', 'gifts'];
-export type DetailsItemKey = 'theme' | LookItemKey | EventItemKey | AnswerItemKey | SeatPlanItemKey | PlanItemKey | HubItemKey | WordsItemKey | StoryItemKey | PrintSetKey | FreePrintKey | DownloadItemKey;
+/**
+ * 🎨 THE LOOK'S OWN SECTIONS AS ITEMS (owner 2026-10-06, DECISION_LOG "APPROVED —
+ * EVENT DETAILS IS REBUILT: ONE BUTTON, OWN-EDITOR ITEMS, ONE 'YOUR EVENT' FORM"):
+ * Background · Colours · Font · Music each a row of the Look group. Each opens
+ * the SAME Look panel (`LookPanel`) on its one section — never a second control.
+ * `theme` stays an item (hidden from the list) — the whole panel the guided
+ * "Look" step and an old `?item=theme` open.
+ */
+export type LookSectionItemKey = 'background' | 'colours' | 'font' | 'music';
+export const LOOK_SECTION_ITEM_KEYS: readonly LookSectionItemKey[] = ['background', 'colours', 'font', 'music'];
+export type DetailsItemKey = 'theme' | LookSectionItemKey | LookItemKey | EventItemKey | AnswerItemKey | SeatPlanItemKey | PlanItemKey | HubItemKey | WordsItemKey | StoryItemKey | PrintSetKey | FreePrintKey | DownloadItemKey;
 
 export const HUB_ITEM_KEYS: readonly HubItemKey[] = ['address', 'qr'];
 /** The Look after Theme, in the owner's order: Theme · Mood Board · Logo · Hero · Reveal. */
@@ -108,13 +118,43 @@ export const FREE_PRINT_KEYS: readonly FreePrintKey[] = [
  * Reveal); part 2 adds its items to its rows (and their bodies and editors) —
  * nothing else moves. A group with no items yet is simply not drawn.
  */
-export type DetailsItemGroup = 'look' | 'event' | 'words' | 'story' | 'hub' | 'set' | 'day' | 'download';
-export const DETAILS_ITEM_GROUPS: ReadonlyArray<{ group: DetailsItemGroup; label: string; keys: readonly DetailsItemKey[] }> = [
-  { group: 'look', label: 'Look', keys: ['theme', ...LOOK_ITEM_KEYS] },
-  { group: 'event', label: 'Your event', keys: [...EVENT_ITEM_KEYS, ...ANSWER_ITEM_KEYS, 'plan-myself', 'seating'] },
-  { group: 'words', label: 'Words', keys: WORDS_ITEM_KEYS },
-  { group: 'story', label: 'Story & plans', keys: STORY_ITEM_KEYS },
-  { group: 'hub', label: 'Your Event Hub', keys: HUB_ITEM_KEYS },
+export type DetailsItemGroup = 'look' | 'story' | 'event' | 'elsewhere' | 'set' | 'day' | 'download';
+/**
+ * 🗂 THE LIST, AS THE OWNER APPROVED IT (2026-10-06, "EVENT DETAILS IS REBUILT"):
+ *
+ *   Look          — Background · Colours · Font · Music · Mood Board · Logo · Cover page · Reveal
+ *   Story & plans — the items with an editor of their own: Wedding March (it holds
+ *                   Parents & hosts too) · Love Story · Schedule · Seat plan
+ *   Your event    — ONE scrolling form (`form: true` — one row; its items' editors
+ *                   drawn one under the other): Event Name · Date · Venue · E-Gifts
+ *                   (with the thank-you message) · Opening Line · Special Message ·
+ *                   Event Hub Address · QR Code settings
+ *   Prints        — the invitation set, the prints for the day, the download (unchanged)
+ *
+ * `elsewhere` (`hidden: true`) holds items that are PRESENT — the guided flow's
+ * steps and old addresses still open them — but are not rows of the list: the
+ * whole Look panel (`theme`), and the items that moved out to their own homes
+ * (Parents & hosts → the Wedding March; Photos from guests → The Day; Plan it
+ * myself → the event's Settings; Kindly reply · RSVP → the RSVP stage).
+ */
+export const DETAILS_ITEM_GROUPS: ReadonlyArray<{
+  group: DetailsItemGroup;
+  label: string;
+  keys: readonly DetailsItemKey[];
+  /** One row in the list; picking it shows every item's editor, one under the other. */
+  form?: true;
+  /** Present (the guided flow and old addresses open them) but never a row of the list. */
+  hidden?: true;
+}> = [
+  { group: 'look', label: 'Look', keys: [...LOOK_SECTION_ITEM_KEYS, ...LOOK_ITEM_KEYS] },
+  { group: 'story', label: 'Story & plans', keys: ['march', 'love-story', 'schedule', 'seating'] },
+  {
+    group: 'event',
+    label: 'Your event',
+    keys: ['names', 'date', 'venues', 'gifts', 'thank-you', 'opening-line', 'special-message', 'address', 'qr'],
+    form: true,
+  },
+  { group: 'elsewhere', label: 'Elsewhere', keys: ['theme', 'parents', 'papic', 'plan-myself', 'kindly-reply', 'rsvp'], hidden: true },
   { group: 'set', label: 'Invitation set', keys: PRINT_SET_KEYS },
   { group: 'day', label: 'For the day', keys: FREE_PRINT_KEYS },
   { group: 'download', label: 'Download the set', keys: ['download'] },
@@ -126,9 +166,9 @@ export function isDetailsItemKey(v: unknown): v is DetailsItemKey {
   return typeof v === 'string' && (DETAILS_ITEM_KEYS as readonly string[]).includes(v);
 }
 
-/** Details opens on its first item — Theme, the first choice (owner-approved
- *  prototype); an old Prints & Tickets link on the first print. */
-export const DETAILS_FIRST_ITEM: DetailsItemKey = 'theme';
+/** Details opens on its first item — Background, the Look's first row (owner
+ *  2026-10-06); an old Prints & Tickets link on the first print. */
+export const DETAILS_FIRST_ITEM: DetailsItemKey = 'background';
 export const DETAILS_FIRST_PRINT: DetailsItemKey = PRINT_SET_KEYS[0];
 
 /**
@@ -194,7 +234,7 @@ export function detailsItemFor(search: {
 }): DetailsItemKey {
   if (isDetailsItemKey(search.item)) return search.item;
   if (search.menuFlash) return 'menu';
-  if (search.printTheme) return 'theme';
+  if (search.printTheme) return 'background';
   const moved = movedPageItem(search.tool);
   if (moved) return moved;
   return search.tool === 'prints' ? DETAILS_FIRST_PRINT : DETAILS_FIRST_ITEM;
@@ -218,6 +258,10 @@ const ITEM_LAYOUT: Partial<Record<DetailsItemKey, DetailsItemLayout>> = {
   /* 🎨 Look (2026-10-02, `lib/maker-look-sections.ts`): the couple's own page
      fills the body, so every Look change shows on it; Look is the right column. */
   theme: 'fill',
+  background: 'fill',
+  colours: 'fill',
+  font: 'fill',
+  music: 'fill',
   hero: 'fill',
   reveal: 'fill',
   logo: 'whole',
@@ -315,11 +359,13 @@ export function detailsItemApplies(key: DetailsItemKey, ctx: DetailsItemContext)
 export function detailsNavigatorKeys(
   ctx: DetailsItemContext,
   present: ReadonlySet<DetailsItemKey>,
-): Array<{ group: DetailsItemGroup; label: string; keys: DetailsItemKey[] }> {
+): Array<{ group: DetailsItemGroup; label: string; keys: DetailsItemKey[]; form?: true; hidden?: true }> {
   return DETAILS_ITEM_GROUPS.map((g) => ({
     group: g.group,
     label: g.label,
     keys: g.keys.filter((k) => present.has(k) && detailsItemApplies(k, ctx)),
+    ...(g.form ? { form: true as const } : {}),
+    ...(g.hidden ? { hidden: true as const } : {}),
   })).filter((g) => g.keys.length > 0);
 }
 
@@ -337,6 +383,35 @@ export function detailsSwitchesFor(ctx: DetailsItemContext): { parents: boolean 
 export function groupOfItem(key: DetailsItemKey): DetailsItemGroup {
   return DETAILS_ITEM_GROUPS.find((g) => g.keys.includes(key))!.group;
 }
+
+/** The group an item (or any string) is in — null for a key no group holds. */
+export function groupOfItemSafe(key: string): DetailsItemGroup | null {
+  return DETAILS_ITEM_GROUPS.find((g) => (g.keys as readonly string[]).includes(key))?.group ?? null;
+}
+
+/**
+ * 🧰 The part of the list a phone's lower-third navigator shows for an item
+ * (owner 2026-10-06): Look · Story & plans · Your event · Prints. The prints'
+ * three groups are ONE part (Settings › Prints); an item that left the list
+ * (`elsewhere`) shows with Your event.
+ */
+export type DetailsLtSection = 'look' | 'story' | 'event' | 'prints';
+export function detailsLtSection(key: string): DetailsLtSection {
+  // The whole Look panel is the Look's; Parents & hosts are held by the march (Story & plans).
+  if (key === 'theme') return 'look';
+  if (key === 'parents') return 'story';
+  const g = groupOfItemSafe(key);
+  if (g === 'set' || g === 'day' || g === 'download') return 'prints';
+  if (g === 'look' || g === 'story') return g;
+  return 'event';
+}
+/** The first item of a part of the list — where the phone's menu opens it. */
+export const DETAILS_LT_SECTION_FIRST: Readonly<Record<DetailsLtSection, DetailsItemKey>> = {
+  look: 'background',
+  story: 'march',
+  event: 'names',
+  prints: DETAILS_FIRST_PRINT,
+};
 
 /** The address of one item — every link into Details names its item this way. */
 export function detailsItemHref(eventId: string, item: DetailsItemKey, extra = ''): string {

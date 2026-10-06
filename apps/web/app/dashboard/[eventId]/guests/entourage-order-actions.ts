@@ -49,7 +49,7 @@ import {
   revalidateMarch,
   writeLineOrder,
 } from '@/lib/entourage-write';
-import { defaultLineOrder, type EntourageRow } from '@/lib/entourage';
+import type { EntourageRow } from '@/lib/entourage';
 import type { MarchResult } from '@/lib/march-result';
 
 /**
@@ -106,29 +106,7 @@ export async function setEntourageLineOrder(
   return result;
 }
 
-/**
- * Hand one printed GROUP's order back to the default — role order, then surname.
- *
- * Without this, a couple who drags once can never get back to "no opinion" —
- * the default they were happy with becomes unreachable.
- *
- * 🚶 SINCE 2026-10-01 THE ORDER IS THE WALKS' OWN (`march_walks`), so "no
- * opinion" is written rather than cleared: the section's walks are renumbered
- * in the default order by the SAME write every move uses. Who walks with whom
- * is kept — Reset hands back the order, never the pairs.
- */
-export async function clearEntourageOrder(
-  eventId: string,
-  groupKey: string,
-): Promise<MarchResult> {
-  const read = await readMarchLines(eventId, groupKey);
-  if (!read.ok) return read;
-  const { supabase, lines } = read;
-  if (lines.length === 0) return { ok: true, written: 0 };
-
-  const result = await writeLineOrder(supabase, eventId, defaultLineOrder(lines, groupKey));
-  if (!result.ok) return { ok: false, reason: 'That reset did not go through — nothing was changed.' };
-
-  await revalidateMarch(eventId);
-  return result;
-}
+/* (`clearEntourageOrder` — the panel's per-section Reset — was retired with the
+   walking-order panel on 2026-10-06: an uncalled server action is a live
+   endpoint. Undo in the drag maker hands back a move; `defaultLineOrder` in
+   lib/entourage.ts still knows the default should a Reset come back.) */

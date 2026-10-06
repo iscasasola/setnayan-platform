@@ -1,4 +1,6 @@
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
+import { PlanMyselfSwitch } from '../launch/_components/plan-myself';
+import { planMyselfOn } from '@/lib/plan-myself';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
@@ -167,7 +169,7 @@ export default async function EventDetailsPage({
         'date_window_start, date_window_end, estimated_pax, venue_setting, ceremony_venue_setting, ' +
         'guest_list_edit_deadline, adaptive_pricing_mode, monogram_text, invite_theme, role_palette, ' +
         'site_font_key, site_button_style, site_button_color, site_bg_music_r2_key, site_bg_music_enabled, landing_page_hero_image_url, ' +
-        'setnayan_ai_active, rsvp_ask_config, love_story, dress_code_config, special_message, ' +
+        'setnayan_ai_active, planning_mode, rsvp_ask_config, love_story, dress_code_config, special_message, ' +
         'std_film_ceremony_name, std_film_venue_name, venue_name, ' +
         // 🗂 The onboarding's last answers, each in its own column (owner 2026-10-02).
         'papic_on, gifts_on, logo_wanted, cover_photo_wanted',
@@ -494,7 +496,7 @@ export default async function EventDetailsPage({
 
   /* 📁 Each fold's one line on the phone — built from its own rows' values. */
   const summary: Record<RecordGroupKey, string> = {
-    looks: foldSummary([proRead.ok ? theme.name : null, headingFont, mainColours.length > 0 ? `${mainColours.length} colours` : null, buttons]),
+    looks: foldSummary([headingFont, mainColours.length > 0 ? `${mainColours.length} colours` : null, buttons]),
     works: foldSummary([
       getIn.value,
       guestsReply ? (questions.length > 1 ? questions.slice(1).join(', ') : null) : null,
@@ -566,7 +568,6 @@ export default async function EventDetailsPage({
         {/* ══ HOW IT LOOKS ══ */}
         <RecordFold group="looks" title={groupTitle('looks')} summary={summary.looks} recordHref={record}>
           <Section k="look" titled={false}>
-            <Row row="theme" fact="theme" label="Theme" value={proRead.ok ? theme.name : COULD_NOT_LOAD} open={opens('theme')} record={record} waiting={waiting('invite_theme')} />
             <Row
               row="fonts"
               fact="fonts"
@@ -920,6 +921,12 @@ export default async function EventDetailsPage({
           <Section k="services" open={{ href: studioHubHref(eventId), label: 'Open Services' }}>
             <Row fact="services" label="Event Hub Pro" value={proRead.ok ? (ownsPro ? 'Active' : 'Not added') : COULD_NOT_LOAD} />
             <Row label="Setnayan AI" value={e.setnayan_ai_active === true ? 'Active' : 'Not added'} />
+            {/* 🙋 PLAN IT MYSELF lives here, in the event's settings (owner 2026-10-06,
+                DECISION_LOG "EVENT DETAILS IS REBUILT": it left the Maker). The SAME
+                switch and the same one store (`events.planning_mode`, `setPlanningMode`). */}
+            <div className="py-2" data-details-plan-myself="">
+              <PlanMyselfSwitch eventId={eventId} on={planMyselfOn(typeof e.planning_mode === 'string' ? e.planning_mode : null)} />
+            </div>
             <Row
               money
               label="Papic"

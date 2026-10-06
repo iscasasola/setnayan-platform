@@ -147,7 +147,7 @@ export function formatInviteDate(
  */
 export function inviteEventPhrase(facts: InviteEventFacts, voice: InviteVoice = 'hosts'): string {
   const hosts = (facts.hostsName ?? '').trim();
-  const word = (facts.eventWord ?? '').trim() || 'celebration';
+  const word = (facts.eventWord ?? '').trim() || 'event';
   const hasWord = hosts.toLowerCase().includes(word.toLowerCase());
   if (facts.solemn) {
     if (!hosts) return `the ${word}`;

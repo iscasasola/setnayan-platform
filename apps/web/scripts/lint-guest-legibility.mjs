@@ -44,7 +44,7 @@ const BASELINE_PATH = join(WEB_ROOT, '.guest-legibility-baseline.json');
 // join/claim flow (`app/join`). [slug]/_components is covered by the [slug] walk.
 const SCAN_DIRS = ['app/[slug]', 'app/join'];
 // Guest-facing components that live in the SHARED tree (not under [slug]).
-const EXTRA_FILES = ['app/_components/save-photo-button.tsx', 'app/_components/wayfinding-map.tsx'];
+const EXTRA_FILES = ['app/_components/save-photo-button.tsx', 'app/_components/wayfinding-map.tsx', 'app/_components/door/door-shell.tsx'];
 
 const SCAN_EXTENSIONS = new Set(['.tsx', '.ts']);
 const MAX_PX = 11; // flag text-[<=11px]; 12px / text-xs and up are allowed

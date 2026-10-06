@@ -19,6 +19,9 @@ import {
   Link2,
   Mail,
   MailCheck,
+  Music,
+  Type,
+  Paintbrush,
   MessageSquareText,
   MailOpen,
   PanelTop,
@@ -44,11 +47,13 @@ import { PaidMark } from '@/app/_components/paid-mark';
 import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
 import type { StoredQrStyle } from '@/lib/qr-look';
 import { MiniTour } from '@/app/_components/mini-tour';
-import { MakerThemeGallery, MakerThemeMenu, ThemePickProvider } from './maker-theme-picker';
+import { ThemePickProvider } from './maker-theme-picker';
+import { FilmFollowsTheme } from './film-follows-theme';
 import type { ThemeTile } from '@/lib/maker-theme-tiles';
 import type { UpdateQrStyleResult } from '../qr-look-actions';
 import {
   LOOK_ITEM_KEYS,
+  LOOK_SECTION_ITEM_KEYS,
   RSVP_PIECES,
   STORY_ITEM_KEYS,
   WORDS_ITEM_KEYS,
@@ -62,6 +67,7 @@ import {
   type DetailsItemModel,
   type EventItemKey,
   type LookItemKey,
+  type LookSectionItemKey,
   type StoryItemKey,
   type WordsItemKey,
 } from '@/lib/maker-details-items';
@@ -83,11 +89,11 @@ import {
   ScheduleSlots,
   SpecialMessageField,
 } from './details-lazy';
+import { LOOK_ITEM_SECTIONS } from '@/lib/maker-look-sections';
 import { MoodBoardPieces } from '../../studio/mood-board/_components/mood-board-parts';
 import { ItemPieces } from './details-piece';
 import { DetailsGoTo } from './details-go';
 import { yourEventParts, type YourEventInput } from './details-your-event-parts';
-import { themeStillSrc } from '@/lib/theme-sample-stills';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { SeatPlanSlot } from '../../seating/_components/seat-plan-slots';
 import { DetailsWorkspace, type DetailsNavGroup } from './details-workspace';
@@ -205,6 +211,10 @@ export type MakerDetailsProps = {
     tour: boolean;
     /** The couple has chosen a theme (saved or drafted) — the item's "done". */
     chosen: boolean;
+    /** 🎞 The Save the Date film keeps a background of its own (draft over live) — Theme offers "Same as theme". */
+    filmOwnBackground?: boolean;
+    /** …and its Readability, kept when it follows the theme. */
+    filmLegibility?: 'auto' | 'lighten' | 'darken';
     /** They wear their own page colour, button colour or typeface (`hasOwnLook`) — re-tapping the current theme hands it back. */
     ownLook?: boolean;
     /** 🎨 Every theme's colours as a palette — only while the Mood Board has none (`ThemePickProvider`). */
@@ -223,6 +233,12 @@ export type MakerDetailsProps = {
   specialMessage: string | null;
   hasPalette: boolean;
   hasGifts: boolean;
+  /**
+   * 🎁 The E-Gifts page's own manager — where gifts are received, with their
+   * complete details — drawn under "Accept gifts?" in the Your event form (owner
+   * 2026-10-06). Built by the launch page; absent in the lab.
+   */
+  egiftManager?: ReactNode;
   /** ✍ `detailsFactEditors(…)` — the SAME nodes the stage's inspector shows for a tapped fact. */
   facts: Partial<Record<DetailsItemKey, ReactNode>>;
   /** 💌 Love Story, moved whole: the scrapbook page (its picture). Null = not this type. `moments` null = unread. */
@@ -444,7 +460,7 @@ export function MakerDetails(props: MakerDetailsProps) {
   // ⭕ The plate follows the code (owner 2026-09-30): a round code sits on a round plate.
   // The plate WRAPS the picture rather than clipping it, so a code drawn square still shows whole.
   const qrPlate = qr.style.shape === 'circle' ? ' rounded-full' : '';
-  const free = freePrintParts(eventId, slug);
+  const free = freePrintParts(eventId, slug, prints);
   const save = <SaveWords />;
   /* 🗓 Your event (part 2a) — its rows, bodies and editors (`details-your-event-parts.tsx`). */
   const ye = props.yourEvent ? yourEventParts({ eventId, input: props.yourEvent, prints, parents, hosts }) : null;
@@ -454,7 +470,6 @@ export function MakerDetails(props: MakerDetailsProps) {
   const coverA = props.answers ? coverAnswer(eventId, props.answers) : null;
 
   /* ══ THE NAVIGATOR — groups are data (`DETAILS_ITEM_GROUPS`) ══ */
-  const still = themeStillSrc(theme.current);
   /* Each item's model (`DetailsItemModel`): done and used-on are derived from
      data that already exists — part 1 fills them for its own items. */
   const menuDone = menu.saved.some((m) => m.dishes.length > 0) || menu.caterer.some((m) => m.dishes.length > 0);
@@ -462,7 +477,8 @@ export function MakerDetails(props: MakerDetailsProps) {
     const yeRow = ye?.rows[k as EventItemKey];
     if (yeRow) return yeRow;
     const apRow = ap.rows[k as AnswerItemKey];
-    if (apRow) return apRow;
+    /* 🎁 In the Your event form the gifts field is "E-Gifts" (owner 2026-10-06); the question is its picker's label. */
+    if (apRow) return k === 'gifts' ? { ...apRow, label: 'E-Gifts' } : apRow;
     if (k === 'seating') return seatPlanRow(seatPlan);
     if (k === 'plan-myself') {
       return { label: PLAN_MYSELF_LABEL, sub: planMyselfSub(props.planMyself?.on ?? null), icon: <Hand aria-hidden className="h-4 w-4" strokeWidth={1.75} /> };
@@ -474,19 +490,22 @@ export function MakerDetails(props: MakerDetailsProps) {
       if (k === 'hero' && coverA?.sub) return { ...row, sub: coverA.sub };
       return row;
     }
+    if ((LOOK_SECTION_ITEM_KEYS as readonly string[]).includes(k)) {
+      /* 🎨 Background · Colours · Font · Music — each the Look panel on its own
+         section(s) (owner 2026-10-06, "EVENT DETAILS IS REBUILT"). */
+      return lookSectionRow(k as LookSectionItemKey, theme.chosen);
+    }
     if (k === 'theme') {
+      /* 🎨 The Look item (its key stays `theme` — addresses and the guided flow
+         name it; the couple never reads it): Background · Font · Colours ·
+         Buttons, no theme to pick since 2026-10-05. */
       return {
-        label: 'Theme',
-        sub: 'Background · font · colours',
+        label: 'Look',
+        sub: 'Background · font · colours · buttons',
         panelLabel: 'Look',
         done: theme.chosen,
         usedOn: ['every stage', 'every print'],
-        icon: still ? (
-          // eslint-disable-next-line @next/next/no-img-element -- the committed still of the couple's theme on the sample
-          <img src={still} alt="" className="h-full w-full object-cover object-top" />
-        ) : (
-          <Palette aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-        ),
+        icon: <Palette aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
       };
     }
     if (k === 'address') {
@@ -527,12 +546,25 @@ export function MakerDetails(props: MakerDetailsProps) {
     ...(schedule ? (['schedule'] as const) : []),
     ...(rsvp ? (['rsvp'] as const) : []),
   ];
-  const present = new Set<DetailsItemKey>(['theme', ...(look ? LOOK_ITEM_KEYS : []), ...(ye?.keys ?? []), ...ap.keys, ...(seatPlan ? (['seating'] as const) : []), ...(props.planMyself ? (['plan-myself'] as const) : []), 'address', 'qr', 'download', ...WORDS_ITEM_KEYS, ...storyPresent, ...PRINT_SET_KEYS, ...free.map((f) => f.key)]);
-  const groups: DetailsNavGroup[] = detailsNavigatorKeys(eventContext, present).map((g) => ({
-    key: g.group,
-    label: g.label,
-    items: g.keys.map((k) => ({ key: k, group: g.group, ...labelOf(k) })),
-  }));
+  const present = new Set<DetailsItemKey>(['theme', ...LOOK_SECTION_ITEM_KEYS, ...(look ? LOOK_ITEM_KEYS : []), ...(ye?.keys ?? []), ...ap.keys, ...(seatPlan ? (['seating'] as const) : []), ...(props.planMyself ? (['plan-myself'] as const) : []), 'address', 'qr', 'download', ...WORDS_ITEM_KEYS, ...storyPresent, ...PRINT_SET_KEYS, ...free.map((f) => f.key)]);
+  /* 👪 Where the type prints no parents (a birthday, a wake), "Hosts" has no march to
+     live in — it is the last field of the Your event form instead (review 2026-10-06). */
+  const hostsInForm = props.yourEvent ? !parentsOffered(props.yourEvent.kind) : !switches.parents;
+  const groups: DetailsNavGroup[] = detailsNavigatorKeys(eventContext, present).map((g) => {
+    const keys =
+      hostsInForm && g.group === 'event' && present.has('parents')
+        ? [...g.keys, 'parents' as const]
+        : hostsInForm && g.group === 'elsewhere'
+          ? g.keys.filter((k) => k !== 'parents')
+          : g.keys;
+    return {
+      key: g.group,
+      label: g.label,
+      items: keys.map((k) => ({ key: k, group: g.group, ...labelOf(k) })),
+      ...(g.form ? { form: true as const } : {}),
+      ...(g.hidden ? { hidden: true as const } : {}),
+    };
+  });
 
   /* ══ 🪜 WHAT'S LEFT — the guided flow over these very rows ══ */
   const doneFacts = props.guide?.doneFacts ?? null;
@@ -585,25 +617,10 @@ export function MakerDetails(props: MakerDetailsProps) {
 
   /* ══ BODIES — each item's picture ══ */
   const bodies: Partial<Record<DetailsItemKey, ReactNode>> = {
-    /* 🖼 Look's body is the couple's own page (every Look change shows on it);
-       the sample gallery of every theme is one switch away (2026-10-02). */
-    theme: (
-      <>
-        <DetailsLookPageBody
-          gallery={
-            <MakerThemeGallery
-              themes={theme.themes}
-              ownsPro={theme.ownsPro}
-              storeShell={theme.storeShell}
-              suggested={theme.suggested}
-              sampleVersion={theme.sampleVersion}
-              posters={theme.posters}
-            />
-          }
-        />
-        {theme.tour ? <MiniTour tourKey="customer_theme_picker_v1" storeShell={theme.storeShell} /> : null}
-      </>
-    ),
+    /* 🖼 Look's body is the couple's own page (every Look change shows on it).
+       No theme gallery since 2026-10-05 — a couple no longer picks a theme
+       (DECISION_LOG "THEMES ARE REPLACED BY THREE DIRECT GLOBAL SETTINGS"). */
+    theme: <DetailsLookPageBody />,
     address: (
       <section
         data-details-page-address=""
@@ -647,11 +664,7 @@ export function MakerDetails(props: MakerDetailsProps) {
           Your QR code
           {qrMark ? <PaidMark state={qrMark} label={paidMarkLabel(qrMark, 'Event Hub Pro')} text="Event Hub Pro" size="xs" /> : null}
         </p>
-        <div className="w-full max-w-md">
-          <QrLookControls eventId={eventId} ownsPro={qr.ownsPro} storeShell={qr.storeShell} style={qr.style} inks={qr.inks} action={qrStyleAction} />
-        </div>
-        {/* Waits for the theme's tour, so two never stack on one first visit. */}
-        {theme.tour ? <MiniTour tourKey="customer_pro_qr_v1" storeShell={qr.storeShell} after="customer_theme_picker_v1" /> : null}
+        {theme.tour ? <MiniTour tourKey="customer_pro_qr_v1" storeShell={qr.storeShell} /> : null}
       </section>
     ),
     download: <PrintSetBody input={prints} />,
@@ -750,6 +763,8 @@ export function MakerDetails(props: MakerDetailsProps) {
   /* ✍ The two print-only words — each ONE field in two doors (its Words item
      and its print's switch), posting through the print words form. */
   const openingLine = <OpeningLineField initial={stored.openingLine} form={WORDS_FORM} titled={false} />;
+  /* 🎞 Under Look › Background, only while the Save the Date film keeps a background of its own. */
+  const filmLine = theme.filmOwnBackground ? <FilmFollowsTheme eventId={eventId} legibility={theme.filmLegibility} /> : null;
   const kindlyReply = <KindlyReplyField hosts={hosts} choice={replyChoice} manual={stored.rsvp?.kind === 'manual' ? stored.rsvp.text : ''} />;
   const printsOn = (piece: PrintSetKey) => (
     <p className="text-xs text-ink/60">
@@ -757,8 +772,12 @@ export function MakerDetails(props: MakerDetailsProps) {
     </p>
   );
   const editors: Partial<Record<DetailsItemKey, ReactNode>> = {
-    /* 🎨 LOOK IS ONE PANEL — Theme · Background · Font · Colours (`lib/maker-look-sections.ts`). */
-    theme: <LookPanel theme={<MakerThemeMenu themes={theme.themes} ownsPro={theme.ownsPro} storeShell={theme.storeShell} />} />,
+    /* 🎨 LOOK IS ONE PANEL — Background · Font · Colours · Buttons (`lib/maker-look-sections.ts`). */
+    theme: <LookPanel filmLine={filmLine} item="theme" />,
+    background: <LookPanel filmLine={filmLine} sections={LOOK_ITEM_SECTIONS.background} item="background" />,
+    colours: <LookPanel sections={LOOK_ITEM_SECTIONS.colours} item="colours" />,
+    font: <LookPanel sections={LOOK_ITEM_SECTIONS.font} item="font" />,
+    music: <LookPanel sections={LOOK_ITEM_SECTIONS.music} item="music" />,
     /* ── Your Event Hub address — the one place it is edited (owner: "Add the
        slug to details"). The shipped SlugField: 3–32 characters, live
        availability, old links forward. ── */
@@ -770,6 +789,8 @@ export function MakerDetails(props: MakerDetailsProps) {
     ),
     qr: (
       <div className="flex flex-col gap-1">
+        {/* 🗂 QR Code settings — Shape · Pattern · Colour, a field of the Your event form (owner 2026-10-06). */}
+        <QrLookControls eventId={eventId} ownsPro={qr.ownsPro} storeShell={qr.storeShell} style={qr.style} inks={qr.inks} action={qrStyleAction} />
         <p className="text-xs text-ink/60">
           {qr.ownsPro
             ? 'Your logo sits in the centre of every guest QR. Its shape, pattern and colour are under the code.'
@@ -933,6 +954,15 @@ export function MakerDetails(props: MakerDetailsProps) {
   if (logoA) editors.logo = logoA.node;
   if (ye) Object.assign(editors, ye.editors);
   Object.assign(editors, ap.editors);
+  /* 🎁 E-Gifts: the answer, then where gifts are received and their details — in place, never a link. */
+  if (editors.gifts && props.egiftManager) {
+    editors.gifts = (
+      <div className="flex flex-col gap-3" data-details-egifts="">
+        {editors.gifts}
+        <div data-details-egift-manager="">{props.egiftManager}</div>
+      </div>
+    );
+  }
   /* 🪑 The seat plan's right part is its guests — the editor draws them here. */
   if (seatPlan) editors.seating = <SeatPlanSlot name="guests" className="flex flex-col" />;
   /* 🙋 Plan it myself — what the help is (middle), the one switch (right). */
@@ -956,6 +986,8 @@ export function MakerDetails(props: MakerDetailsProps) {
         initial={startItem}
         guide={guide}
         coverUrl={props.coverUrl ?? null}
+        /* 🖼 Background · Colours · Font · Music show the ONE page the whole Look shows. */
+        bodyAlias={{ background: 'theme', colours: 'theme', font: 'theme', music: 'theme' }}
         /* 🧩 Each moved tool's pieces, in the navigator (DECISION_LOG "A TOOL
            MOVED INTO THE MAKER IS REBUILT INTO THE THREE PARTS"). */
         pieces={{
@@ -1040,7 +1072,8 @@ function lookLabel(
       };
     case 'hero':
       return {
-        label: 'Hero',
+        /* "Cover page" (owner 2026-10-06) — the guest's first screen; never "Hero". */
+        label: 'Cover page',
         done: look.heroDone,
         usedOn: look.heroOn,
         icon: <PanelTop aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
@@ -1052,6 +1085,21 @@ function lookLabel(
         usedOn: look.revealOn,
         icon: <MailOpen aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
       };
+  }
+}
+
+/** 🎨 A Look section's row (owner 2026-10-06): plain words, its own small glyph. */
+function lookSectionRow(k: LookSectionItemKey, chosen: boolean): Omit<DetailsItemModel, 'key' | 'group'> & { icon: ReactNode } {
+  const icon = { className: 'h-4 w-4', strokeWidth: 1.75, 'aria-hidden': true } as const;
+  switch (k) {
+    case 'background':
+      return { label: 'Background', sub: 'A colour, a moving background or your own photo', done: chosen, usedOn: ['every stage'], icon: <ImageIcon {...icon} /> };
+    case 'colours':
+      return { label: 'Colours', sub: 'Page · text · buttons', usedOn: ['every stage', 'every print'], icon: <Paintbrush {...icon} /> };
+    case 'font':
+      return { label: 'Font', usedOn: ['every stage', 'every print'], icon: <Type {...icon} /> };
+    case 'music':
+      return { label: 'Music', sub: 'On or off · the song', usedOn: ['every stage'], icon: <Music {...icon} /> };
   }
 }
 

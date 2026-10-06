@@ -1,36 +1,23 @@
 /**
  * the-maker-keeps-the-page-on-a-phone.test.ts — ON A PHONE THE PAGE IS THE
- * SCREEN (owner, live iPhone test 2026-10-02: *"the screen is too clumped, not
- * much space to work on"*, then *"this is too clumped. find a way to make this
- * look cleaner for mobile mode. Also dim the negative space so they know it is a
- * pop up and pressing on the dimmed part will go back to the main screen"*; the
- * approved phone layout, frames G/I of `prototypes/maker_in_four_2026-09-30_fable.html`).
+ * SCREEN, AND EVERY TOOL LIVES IN THE LOWER THIRD (owner, live iPhone test
+ * 2026-10-02: *"the screen is too clumped, not much space to work on"*;
+ * 2026-10-05: *"all tools can only reside on the thumb area / lower third"* →
+ * *"approve"* of `prototypes/maker_lower_third_interactive_2026-10-05_fable.html`).
  *
  * The rule and its numbers are `lib/maker-phone-room.ts`. Measured on RENDERS
- * (the Maker shell, Event Details with and without its sheet, the part sheet,
- * the RSVP stage's controls) — every visible `data-phone-chrome` piece added up
- * from the phone height its own classes declare — at 390 × 844 and 375 × 667,
- * against the VISIBLE height (the Maker is `100dvh`; the caps are `dvh`). Three
- * sheets live inside very large modules (the scene sheet in `editor-shell.tsx`,
- * the logo studio's two), and are read from their source tags — the same
- * classes, the same sum. A step of the guided flow is the HALF sheet (PR-2),
- * measured from its render.
+ * (the Maker shell, Event Details with and without its editor, the part sheet,
+ * the RSVP stage's controls, the scene sheet) — every visible
+ * `data-phone-chrome` piece added up from the phone height its own classes
+ * declare — at 390 × 844 and 375 × 667. The logo studio's two panels live in a
+ * very large module and are read from their source tags — the same classes.
  *
- *   · NO sheet open: the page takes everything between the two bars — nothing
- *     but the top bar and the bottom bar is chrome, and nothing is dimmed;
- *   · a sheet open: it covers the bottom bar, the page above it is DIMMED, and
- *     top bar + sheet ≤ 45% — the dimmed page keeps ≥ 55%; one sheet at a time;
- *   · a tap on the dimmed page closes the sheet;
- *   · no pill rows in a sheet on a phone — a set of choices is one dropdown;
- *   · each bar is ONE row at 375 px: ‹ Exit · the stage · ↶ Undo · 👁 Preview ·
- *     ✓ Apply on top; Page ▾ · Look · Event Details at the bottom (frame G as
- *     the owner rearranged it on 2026-10-04 — Undo beside Apply, ⋯ → Preview,
- *     *"apply icon · undo icon · exit icon"*) — every bar button a 44 px target
- *     with its name, every word fits its button;
- *   · the scene sheet is the HALF sheet (`MakerHalfSheet`): it rests at half,
- *     and its page is live, not dimmed (owner 2026-10-04 — the change is seen
- *     live, and a tap on another element must reach the canvas;
- *     `lib/a-phone-sheet-opens-at-half.test.ts`);
+ *   · three zones: the top bar (52 px), the page, the lower third
+ *     (`MAKER_LT_HEIGHT`) — the page keeps ≥ 55% with or without a tool open;
+ *   · a tool opens INSIDE the lower third (`MAKER_LT_TOOL`): never over the
+ *     page, never dimming it, ≥ 300 px wide at 375; one at a time;
+ *   · the top bar is ONE row at 375 px: ✕ Exit · the screen · ↶ Undo ·
+ *     👁 Preview · ✓ Apply — every bar button a 44 px target with its name;
  *   · the Maker is sized to the VISIBLE screen: `100dvh`, never `vh`.
  */
 import test from 'node:test';
@@ -45,11 +32,12 @@ import { buildGuidedPlan, type GuidedItem } from './details-guided-flow';
 import {
   MAKER_BAR_PHONE,
   MAKER_BAR_PHONE_GAP_PX,
-  MAKER_BAR_PHONE_PAD_PX,
   MAKER_BAR_PHONE_SIDE_PX,
-  MAKER_BAR_PHONE_WORD_PX,
-  MAKER_PHONE_PANEL_CAP,
+  MAKER_LT_TOOL,
+  MAKER_LT_TOOL_MIN_PX,
+  MAKER_PHONE_BAR_PX,
   MAKER_PHONE_VIEWPORTS,
+  makerLtHeightPx,
   MAKER_PREVIEW_MIN_SHARE,
   hiddenOnPhone,
   phoneChromeIn,
@@ -149,7 +137,7 @@ function sourceChrome(rel: string, marker: string): PhoneChrome {
   const tag = src.slice(tagStart, src.indexOf('>', src.indexOf('className=', at)) + 1);
   const cls = /className=\{?[`"]([^`"]*)[`"]/.exec(tag)?.[1] ?? '';
   const open = cls
-    .replace(/\$\{MAKER_PHONE_PANEL_CAP\}/g, MAKER_PHONE_PANEL_CAP)
+    .replace(/\$\{MAKER_LT_TOOL\}/g, MAKER_LT_TOOL)
     .replace(/\$\{[^}]*\?\s*'([^']*)'\s*:\s*'[^']*'\s*\}/g, '$1')
     .replace(/\$\{[^}]*\}/g, '');
   assert.match(tag, /data-phone-chrome="panel"/, `${rel}: the sheet no longer says it is phone chrome`);
@@ -216,8 +204,13 @@ const STATES: State[] = [
     sheet: true,
     chrome: async () => {
       const { MakerHalfSheet } = await import(`../${L}/maker-sheet`);
+      const { MakerContext } = await import(`../${L}/maker-context`);
       const html = renderToStaticMarkup(
-        React.createElement(MakerHalfSheet, { label: 'Inspector', title: 'Scene', target: 'scene:1', onClose: () => {} }, 'rows'),
+        React.createElement(
+          MakerContext.Provider,
+          { value: { eventId: 'e1' } as never },
+          React.createElement(MakerHalfSheet, { label: 'Inspector', title: 'Scene', target: 'scene:1', onClose: () => {} }, 'rows'),
+        ),
       );
       return [...(await barsOnly()), ...phoneChromeIn(html)];
     },
@@ -227,43 +220,37 @@ const STATES: State[] = [
 ];
 
 for (const state of STATES) {
-  test(`📱 ${state.name}: the page keeps ${state.sheet ? '≥ 55%' : 'everything between the bars'}`, async () => {
+  test(`📱 ${state.name}: the page keeps ${state.sheet ? '≥ 55% — the tool is IN the lower third' : 'everything between the top bar and the lower third'}`, async () => {
     const all = (await state.chrome()).filter((c) => !hiddenOnPhone(c.classes));
     assert.ok(all.some((c) => c.kind === 'bar'), 'the top bar was not found — it no longer says it is phone chrome');
     const panels = all.filter((c) => c.kind === 'panel');
-    assert.ok(panels.length <= 1, `${panels.length} sheets show at once on a phone: ${panels.map((p) => p.label).join(' · ')}`);
+    assert.ok(panels.length <= 1, `${panels.length} tools show at once on a phone: ${panels.map((p) => p.label).join(' · ')}`);
+    assert.equal(all.filter((c) => c.kind === 'strip').length, 0, 'a strip sits over the page — the navigator is the lower third’s');
+    if (state.html) assert.doesNotMatch(await state.html(), /data-sheet-scrim=""/, 'the page is dimmed — a tool never covers it');
     if (!state.sheet) {
-      assert.equal(panels.length, 0, `a sheet shows with none opened: ${panels.map((p) => p.label).join(' · ')}`);
-      const strips = all.filter((c) => c.kind === 'strip');
-      assert.equal(strips.length, 0, `a strip sits between the bars with no sheet open: ${strips.map((s) => s.label).join(' · ')}`);
-      assert.ok(all.some((c) => c.kind === 'bottom'), 'the bottom bar was not found');
-      if (state.html) assert.doesNotMatch(await state.html(), /data-sheet-scrim=""/, 'the page is dimmed with no sheet open');
+      assert.equal(panels.length, 0, `a tool shows with none opened: ${panels.map((p) => p.label).join(' · ')}`);
       return;
     }
-    assert.equal(panels.length, 1, 'no sheet was found open');
-    // An open sheet covers the bottom bar; what counts is the top bar and the sheet.
-    const counted = all.filter((c) => c.kind !== 'bottom');
+    assert.equal(panels.length, 1, 'no tool was found open');
+    const tool = panels[0]!;
+    // 🧰 IN the lower third, right of the column — never over the page.
+    for (const t of MAKER_LT_TOOL.split(' ')) assert.ok(tool.classes.split(/\s+/).includes(t), `${tool.label} is not a lower-third tool — it lacks ${t}`);
+    const left = Number(/max-lg:left-\[(\d+)px\]/.exec(tool.classes)?.[1]);
+    assert.ok(375 - left - 4 >= MAKER_LT_TOOL_MIN_PX, `${tool.label} is ${375 - left - 4} px wide at 375 — under ${MAKER_LT_TOOL_MIN_PX}`);
     for (const { width, height } of MAKER_PHONE_VIEWPORTS) {
-      let used = 0;
-      for (const c of counted) {
-        const px = phoneHeightPx(c.classes, height);
-        assert.ok(px !== null, `${c.label} (${c.kind}) declares no phone height — give it a fixed height or a cap from lib/maker-phone-room.ts`);
-        used += px;
-      }
-      const share = (height - used) / height;
-      assert.ok(
-        share >= MAKER_PREVIEW_MIN_SHARE - 1e-9,
-        `${width}×${height}: the dimmed page keeps ${(share * 100).toFixed(1)}% (${Math.round(height - used)} px) — ${counted
-          .map((c) => `${c.label} ${Math.round(phoneHeightPx(c.classes, height) ?? 0)}`)
-          .join(' + ')}`,
-      );
+      const lt = makerLtHeightPx(height);
+      const px = phoneHeightPx(tool.classes, height);
+      assert.ok(px !== null && px <= lt, `${width}×${height}: ${tool.label} is ${px} px — taller than the lower third (${lt} px)`);
+      const share = (height - MAKER_PHONE_BAR_PX - lt) / height;
+      assert.ok(share >= MAKER_PREVIEW_MIN_SHARE - 1e-9, `${width}×${height}: the page keeps ${(share * 100).toFixed(1)}%`);
     }
-    if (state.html) assert.match(await state.html(), /data-sheet-scrim=""/, 'an open sheet does not dim the page behind it');
   });
 }
 
 test('the measuring is honest: a percentage cap is unread, a hidden piece is not counted', () => {
   assert.equal(phoneHeightPx('max-h-[70%]', 844), null, 'a % cap is relative to its holder — it must not pass as a phone height');
+  assert.equal(phoneHeightPx(MAKER_LT_TOOL, 844), 236 - 8, 'the lower third at 844 is 236 px, a tool 8 px less');
+  assert.equal(phoneHeightPx(MAKER_LT_TOOL, 667), 216 - 8, 'the lower third at 667 is 216 px, a tool 8 px less');
   assert.equal(phoneHeightPx('max-lg:max-h-[calc(45dvh-52px)] lg:max-h-none', 844), 0.45 * 844 - 52);
   assert.equal(phoneHeightPx('max-md:h-[52px] md:h-12', 667), 52);
   assert.equal(phoneHeightPx('max-md:h-[calc(52px+env(safe-area-inset-bottom))]', 667), 52);
@@ -272,32 +259,27 @@ test('the measuring is honest: a percentage cap is unread, a hidden piece is not
   assert.equal(hiddenOnPhone('flex lg:hidden'), false);
 });
 
-/* ── THE DIMMED PAGE CLOSES THE SHEET ────────────────────────────────────── */
+/* ── NOTHING DIMS THE PAGE: EVERY TOOL IS THE LOWER THIRD'S ────────────── */
 
-test('🌗 a tap on the dimmed page closes the sheet — every Maker sheet has its scrim and grip', async () => {
-  const { SheetScrim } = await import(`../${L}/maker-sheet`);
-  let closed = 0;
-  const el = SheetScrim({ onClose: () => (closed += 1) }) as React.ReactElement<{ onClick: () => void; className: string }>;
-  el.props.onClick();
-  assert.equal(closed, 1, 'a tap on the dimmed page does not close the sheet');
-  assert.match(el.props.className, /\bbg-ink\/40\b/, 'the page behind a sheet is not dimmed');
-  assert.match(el.props.className, /\blg:hidden\b/, 'the scrim covers the desktop too');
-  assert.match(el.props.className, /\btop-\[52px\]/, 'the scrim covers the top bar — Apply must stay in reach');
-  // Each sheet wires its own close to the scrim AND the grip.
-  const wiring: Array<[string, RegExp]> = [
-    [`${L}/details-workspace.tsx`, /<SheetScrim onClose=\{\(\) => setSheetOpen\(false\)\} \/>/],
-    [`${L}/details-workspace.tsx`, /<SheetGrip onClose=\{\(\) => setSheetOpen\(false\)\} \/>/],
-    // 📱 The PART sheet has no scrim since 2026-10-04 (owner: a tap on the canvas
-    // folds it, a tap on another part switches it — `lib/element-sheet-state.ts`);
-    // its grip folds it to the bar. Held in `element-sheet-state.test.ts`.
-    [`${E}/element-sheet.tsx`, /<SheetGrip onClose=\{onCollapse \?\? onClose\} \/>/],
-    [`${L}/maker-page.tsx`, /<SheetScrim onClose=\{\(\) => setOpen\(false\)\} \/>[\s\S]*<SheetGrip onClose=\{\(\) => setOpen\(false\)\} \/>/],
-    [`${L}/maker-logo.tsx`, /\{sheet \? <SheetScrim onClose=\{\(\) => setSheet\(null\)\} \/> : null\}/],
+test('🧰 every Maker tool sits in the lower third — none dims the page or floats over it', () => {
+  // The scrim and the grip are gone with the sheets over the page.
+  assert.doesNotMatch(stripComments(read(`${L}/maker-sheet.tsx`)), /export function Sheet(?:Scrim|Grip)\b/, 'a scrim or a grip is back');
+  const tools: Array<[string, RegExp]> = [
+    [`${L}/details-workspace.tsx`, /sheetOpen \? MAKER_LT_TOOL : 'max-lg:hidden'/],
+    [`${E}/element-sheet.tsx`, /\$\{MAKER_LT_TOOL\}/],
+    [`${L}/maker-page.tsx`, /open \? MAKER_LT_TOOL : 'max-lg:hidden'/],
+    [`${L}/maker-logo.tsx`, /data-logo-navigator=""[\s\S]{0,200}\$\{MAKER_LT_TOOL\}/],
+    [`${L}/maker-logo.tsx`, /data-logo-tools=""[\s\S]{0,200}\$\{MAKER_LT_TOOL\}/],
+    [`${L}/maker-sheet.tsx`, /if \(inMaker\) \{[\s\S]{0,400}\$\{MAKER_LT_TOOL\}/],
+    [`${L}/maker-shell.tsx`, /function MoreSheet[\s\S]*?\$\{MAKER_LT_TOOL\}/],
   ];
-  for (const [file, re] of wiring) assert.match(stripComments(read(file)), re, `${file}: a sheet lost its dimmed-page close or its grip`);
-  // The scene sheet is the HALF sheet instead: a live page, a grip that drags, a slim bar (owner 2026-10-04).
+  for (const [file, re] of tools) assert.match(stripComments(read(file)), re, `${file}: a tool is not in the lower third`);
+  // Each says the lower third has it open — the column names it and closes it.
+  for (const file of [`${L}/details-workspace.tsx`, `${E}/element-sheet.tsx`, `${L}/maker-page.tsx`, `${L}/maker-logo.tsx`, `${L}/maker-sheet.tsx`, `${L}/maker-shell.tsx`]) {
+    assert.match(stripComments(read(file)), /useMakerTool\(/, `${file}: a tool does not tell the lower third it is open`);
+  }
+  // The scene sheet is the Maker's half sheet, in its lower-third shape.
   assert.match(stripComments(read(`${E}/editor-shell.tsx`)), /<MakerHalfSheet\s+label="Inspector"/, 'the scene sheet is no longer the half sheet');
-  // …and so is a step of the guided flow (PR-2): the page live above it, × back to the stages.
   assert.match(stripComments(read(`${L}/details-workspace.tsx`)), /<MakerHalfSheet\s+label="What’s left"[\s\S]{0,400}onClose=\{\(\) => move\(\{ kind: 'stages' \}\)\}/, 'a step of the flow is no longer the half sheet');
 });
 
@@ -378,25 +360,24 @@ function fitsOneRow(row: ReturnType<typeof barRow>, need: string[], where: strin
     const w = pxOf(i.classes);
     assert.ok(w !== null, `${i.label} declares no phone width — the ${where} bar cannot be measured`);
     used += w;
-    if (['Look', 'Event Details'].includes(i.label)) {
-      const word = i.label.length * MAKER_BAR_PHONE_WORD_PX * 0.6 + 2 * MAKER_BAR_PHONE_PAD_PX;
-      assert.ok(word <= w, `"${i.label}" needs ${Math.ceil(word)} px on a phone but its button is ${w} px — the word would be cut`);
-    }
   }
   assert.ok(used <= 375, `the ${where} bar needs ${used} px at least — more than 375, so it wraps or overflows`);
 }
 
-test('📏 each bar is ONE row at 375 px — ‹ Exit · stage · ↶ Undo · 👁 Preview · ✓ Apply on top; Page ▾ · Look · Event Details at the bottom', async () => {
+test('📏 the top bar is ONE row at 375 px — ✕ Exit · the screen · ↶ Undo · 👁 Preview · ✓ Apply; the old bottom bar is gone', async () => {
   const html = await shell(null);
   const top = barRow(html, '<header', '</header>');
-  // Frame G as the owner rearranged it, 2026-10-04 (Undo beside Apply · ⋯ → Preview · icons).
   fitsOneRow(top, ['Exit', 'Stage', 'Undo', 'Preview', 'Apply'], 'top');
-  assert.match(top.head, /max-md:h-\[52px\]/, 'the top bar is no longer one 52 px row');
-  const bottom = barRow(html, '<nav aria-label="Maker tools"', '</nav>');
-  fitsOneRow(bottom, ['Page', 'Look', 'Event Details'], 'bottom');
-  assert.match(top.head + html.slice(html.indexOf('<header'), html.indexOf('</header>')), /as a guest sees it/, 'the top bar does not name the stage the way frame G does');
-  assert.match(bottom.head, /env\(safe-area-inset-bottom\)/, 'the bottom bar does not respect the phone’s bottom safe area');
-  assert.doesNotMatch(html.slice(html.indexOf('<nav aria-label="Maker tools"')), /data-maker-tool="apply-phone"/, 'Apply is in the bottom bar again — it sits beside Undo');
+  assert.match(top.head, /max-lg:h-\[52px\]/, 'the top bar is no longer one 52 px row');
+  // 🧰 The bottom bar (Page ▾ · Look · Event Details) is REPLACED by the lower third (owner 2026-10-05).
+  assert.doesNotMatch(html, /aria-label="Maker tools"|data-maker-bottom-bar=""/, 'the old bottom bar is back');
+  const lt = /<section\b[^>]*data-maker-lower-third=""[^>]*>/.exec(html)?.[0] ?? '';
+  assert.ok(lt, 'the lower third is not drawn');
+  assert.match(lt, /env\(safe-area-inset-bottom\)/, 'the lower third does not respect the phone’s bottom safe area');
+  // 🏷 The screen you are on (owner 2026-10-05, "RSVP · When yes"): the stage and its page — never "as a guest sees it".
+  const header = html.slice(html.indexOf('<header'), html.indexOf('</header>'));
+  assert.match(header, /data-maker-screen-label=""[^>]*>Invitation · Welcome</, 'the top bar does not name the screen the couple is on');
+  assert.doesNotMatch(header, /as a guest sees it/, 'the cut-off "as a guest sees it" is back on the top bar');
   // The draft bar draws Undo and Apply with exactly these phone props (the stub above is its copy).
   const bar = read('app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx');
   assert.match(bar, /bar="icon"\s*phone=\{\{ width: MAKER_BAR_PHONE\.undoTop \}\}/, 'the draft bar’s Undo is not the bar’s 44 px icon');

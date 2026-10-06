@@ -39,6 +39,8 @@ import {
   readGuestsGetIn,
 } from '@/lib/who-can-reply';
 import { formatCount } from '@/lib/format-number';
+import { readCelebrationKey, type RsvpCelebration } from '@/lib/rsvp-celebration';
+import { CelebrationPick } from './celebration-pick';
 
 /**
  * THE RSVP PAGE'S CONTROLS — the Maker's own RSVP page (guest pathway brief
@@ -74,6 +76,14 @@ import { formatCount } from '@/lib/format-number';
  * `attending` is not a row — the owner's own list marks it "always on, not
  * switchable" — so it is drawn as a fixed line, never a switch.
  */
+/** 🎉 What the When yes Celebration needs from the launch page (`CelebrationPick`). */
+export type CelebrationInputs = {
+  /** Event Hub Pro, as measured for this event. */
+  ownsPro: boolean;
+  /** The Mood Board's colours (`celebrationColours`). */
+  colours: readonly string[];
+};
+
 export function MakerRsvpSettings({
   eventId,
   current,
@@ -86,7 +96,14 @@ export function MakerRsvpSettings({
   replyByFallback = null,
   draftAction = hubDraftAction,
   replyByAction = updatePaxSettings,
+  celebration,
 }: {
+  /**
+   * 🎉 THE WHEN YES CELEBRATION (owner 2026-10-06) — only the stage's When yes
+   * scene draws it: the measured Pro entitlement and the shell (for its ◆ marks
+   * and whether it is shown at all) and the Mood Board's colours (its previews).
+   */
+  celebration?: CelebrationInputs & { storeShell: boolean };
   /** The draft save — `hubDraftAction`; the dev lab (`/dev/rsvp-stage-lab`) hands in its own to measure. */
   draftAction?: typeof hubDraftAction;
   /** The reply-by save — `updatePaxSettings`; the dev lab hands in its own. */
@@ -322,6 +339,19 @@ export function MakerRsvpSettings({
               ? 'What a guest sees right after they say yes — with their Digital tickets under it.'
               : 'What a guest sees after they say they can’t come.'}
           </p>
+          {/* 🎉 Celebration ▾ — When yes only, FIRST (the prototype's panel opens on it); drafted in the same one object
+              (None is stored as no key, so picking it back is no change). */}
+          {scene === 'thanks' && celebration ? (
+            <CelebrationPick
+              value={readCelebrationKey(local)}
+              ownsPro={celebration.ownsPro}
+              storeShell={celebration.storeShell}
+              colours={celebration.colours}
+              onPick={(next: RsvpCelebration) =>
+                save({ celebration: next === 'none' ? undefined : next }, `“Celebration”`)
+              }
+            />
+          ) : null}
           {wordRows}
           <p className="text-xs text-ink/60">Type {'{name}'} and each guest sees their own name.</p>
           {drafted || newest.current > 0 ? <DraftNote /> : null}
@@ -738,7 +768,7 @@ function LiveReplyByField({
     })();
   };
   return (
-    <div className="flex flex-col gap-1.5" data-reply-by-field="live">
+    <div className="flex flex-col gap-1.5" data-reply-by-field="live" data-writes-live="">
       {shown ? (
         <p className="flex flex-wrap items-baseline gap-x-2">
           <span className="text-base font-semibold text-ink" data-reply-by={shown}>

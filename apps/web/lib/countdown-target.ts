@@ -62,3 +62,71 @@ export function countdownTargetMs(
   const t = new Date(raw).getTime();
   return Number.isFinite(t) ? t : null;
 }
+
+/** One day, in milliseconds. */
+const DAY_MS = 86_400_000;
+
+/** What the countdown reads at one instant. */
+export type CountdownReading = { days: number; hours: number; minutes: number; seconds: number; isPast: boolean };
+
+/**
+ * 🔢 THE COUNTDOWN IS NEVER FALSE (controller, 2026-10-05, after the walk on
+ * maria-and-jose found Details reading 67 days and Home "68 days to go"). Its
+ * four tiles are the real time left to the start of the day in the event's zone
+ * (`countdownTargetMs`, Manila fallback): whole days, then hours, minutes and
+ * seconds — 67 d 12 h 42 m on 5 Oct at 11:18 for a 12 Dec wedding, which is
+ * exactly what is left. Home says the same number (`daysToGo` below).
+ *
+ * Pure (both instants passed in) so a test can walk every hour of a day.
+ */
+export function countdownReading(targetMs: number, nowMs: number): CountdownReading {
+  const ms = targetMs - nowMs;
+  if (ms <= 0) return { days: 0, hours: 0, minutes: 0, seconds: 0, isPast: true };
+  return {
+    days: Math.floor(ms / DAY_MS),
+    hours: Math.floor((ms % DAY_MS) / 3_600_000),
+    minutes: Math.floor((ms % 3_600_000) / 60_000),
+    seconds: Math.floor((ms % 60_000) / 1000),
+    isPast: false,
+  };
+}
+
+/** Days to go, in words a person says — the ONE rule Home and the countdown share. */
+export type DaysToGo =
+  | { kind: 'days'; days: number }
+  | { kind: 'tomorrow' }
+  | { kind: 'today' }
+  | { kind: 'past'; daysAgo: number };
+
+/** `YYYY-MM-DD` of an instant, in `tz`. */
+function dayIn(tz: string, ms: number): string {
+  return new Date(ms).toLocaleDateString('en-CA', { timeZone: tz });
+}
+
+/**
+ * 🔢 ONE RULE FOR "DAYS TO GO" — whole days of REAL time left to the start of
+ * the event's day, in its zone (Manila when it has none): the same number as
+ * the countdown's Days tile (`countdownReading`), so the two never disagree and
+ * neither is ever more than the time that is actually left. At the end it says
+ * what a person says — "Tomorrow" on the day before (the calendar day after
+ * today is the event's), "Today" on the day itself — rather than "0 days".
+ *
+ * Null when the date cannot be anchored (no countdown beats a wrong one).
+ */
+export function daysToGo(
+  eventDate: string | null | undefined,
+  tz: string | null | undefined,
+  nowMs: number,
+): DaysToGo | null {
+  const zone = tz || DEFAULT_EVENT_TZ;
+  const target = countdownTargetMs(eventDate, zone);
+  if (target === null) return null;
+  const eventDay = dayIn(zone, target);
+  const today = dayIn(zone, nowMs);
+  const utc = (d: string) => Date.UTC(Number(d.slice(0, 4)), Number(d.slice(5, 7)) - 1, Number(d.slice(8, 10)));
+  const calendar = Math.round((utc(eventDay) - utc(today)) / DAY_MS);
+  if (calendar < 0) return { kind: 'past', daysAgo: -calendar };
+  if (calendar === 0) return { kind: 'today' };
+  if (calendar === 1) return { kind: 'tomorrow' };
+  return { kind: 'days', days: countdownReading(target, nowMs).days };
+}

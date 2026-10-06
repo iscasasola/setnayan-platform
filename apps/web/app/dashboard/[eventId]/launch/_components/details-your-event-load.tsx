@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { dateDisplayOf, marchOffered, yourEventDateLabel } from '@/lib/details-your-event';
+import { dateDisplayOf, yourEventDateLabel } from '@/lib/details-your-event';
 import { VENUE_ROLE_LABEL, type VenueSlotKey } from '@/lib/event-venues';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { siteMediaServeRef } from '@/lib/site-media-ref';
@@ -7,14 +7,11 @@ import { getConfirmedVendorCount } from '@/lib/events';
 import { buildScheduleMatrix, schedulePicksFromVendors, type ScheduleMatrix } from '@/lib/schedule-matrix';
 import { fetchEventVendors } from '@/lib/vendors';
 import { ChineseSpecialistNudge } from '../../date-selection/_components/chinese-specialist-nudge';
-import { EntourageOrderPanel } from '../../guests/_components/entourage-order-panel';
 import type { YourEventInput } from './details-your-event-parts';
 import type { VenueSlot } from './details-your-event';
-import type { MarchSectionData, MarchSlotData } from './details-march';
-import { roleLabel, type EntourageGroup } from '@/lib/entourage';
-import { joinersFor, swapsFor } from '@/lib/march-moves';
+import { marchSections, marchTray, printedSectionOrder } from '@/lib/march-sections';
 import { readYourEventFacts } from './details-your-event-facts';
-import { loadEventNameStyle } from '@/app/[slug]/_lib/loaders';
+import { loadEntourageSectionOrder, loadEventNameStyle } from '@/app/[slug]/_lib/loaders';
 import { nameStyleOfPrintDetails } from '@/lib/name-style';
 import { coord } from '@/lib/event-venues';
 import { readLiveCeremonyTime } from '@/lib/ceremony-time.server';
@@ -53,13 +50,15 @@ export async function loadYourEvent({
   /** 🏛 The draft's Venue-scene card choices — the venues are shown as drafted. */
   draftedVenue?: unknown;
 }): Promise<YourEventInput | null> {
-  const [base, confirmedVendorCount, nameStyle, liveCeremonyTime] = await Promise.all([
+  const [base, confirmedVendorCount, nameStyle, liveCeremonyTime, savedSections] = await Promise.all([
     readYourEventFacts({ admin, eventId, parentCount, hostCount, drafted, draftedVenue }),
     getConfirmedVendorCount(supabase, eventId).catch(() => 0),
     // 🔤 The Name style ▾ under the Names (owner 2026-09-30) — the same cached read the entourage uses.
     loadEventNameStyle(admin, eventId),
     // 🕒 The Schedule's Ceremony start (owner 2026-10-04) — unread is "none yet", never a guess written back.
     readLiveCeremonyTime(admin, eventId).catch(() => null),
+    // 🚶 The section order the march's header drag steps through (the same cached read the entourage uses).
+    loadEntourageSectionOrder(admin, eventId),
   ]);
   const ceremonyTime =
     drafted && typeof drafted.ceremony_time === 'string' ? drafted.ceremony_time : liveCeremonyTime;
@@ -67,7 +66,7 @@ export async function loadYourEvent({
      "in event hub maker will only take effect when pressed apply"). */
   const shownNameStyle = drafted && 'print_details' in drafted ? nameStyleOfPrintDetails(drafted.print_details) : nameStyle;
   if (!base) return null;
-  const { row, words, kind, precision, bookings, groups, venues, people, chinese, namesWritable } = base;
+  const { row, words, kind, precision, bookings, groups, notWalking, venues, people, chinese, namesWritable } = base;
   const [a, b] = base.names;
 
   // The shipped Find your date's own read — the couple's suppliers against the days considered.
@@ -178,7 +177,10 @@ export async function loadYourEvent({
     },
     march: {
       sections: marchSections(groups),
-      panel: marchOffered(kind) ? <EntourageOrderPanel eventId={eventId} view="all" /> : null,
+      // A section whose people are all in the tray still prints — it is still a step the header drag passes.
+      printed: printedSectionOrder([...groups, ...(notWalking ?? [])], savedSections),
+      // 🚶 The "Not walking" tray; null = it could not be read (said, never drawn as empty).
+      out: notWalking ? marchTray(notWalking) : null,
     },
   };
 }
@@ -197,44 +199,3 @@ const RECEPTION_COLUMNS = {
   lng: 'venue_longitude',
 } as const;
 
-/**
- * The march as the three parts need it: every section and line in walking
- * order (`buildEntourage`'s — the invitation's), each cell's moves asked of
- * `lib/march-moves.ts` here on the server — the rule the actions ask again
- * before they write (as the Guest list panel's `slotFor` does).
- */
-export function marchSections(groups: readonly EntourageGroup[]): MarchSectionData[] {
-  let step = 0;
-  return groups.map((g) => ({
-    key: g.key,
-    label: g.label,
-    lines: g.rows.map((row, i) => {
-      step += 1;
-      const slot = (c: 0 | 1): MarchSlotData => {
-        const half = row[c];
-        if (half) {
-          return {
-            kind: 'name',
-            id: half.id ?? '',
-            name: half.name,
-            role: roleLabel(half.role, g.names),
-            swapWith: half.id ? swapsFor(g.rows, g.key, half.id) : [],
-          };
-        }
-        const anchor = row[c === 0 ? 1 : 0];
-        return {
-          kind: 'empty',
-          anchorId: anchor?.id ?? '',
-          anchorName: anchor?.name ?? '',
-          joiners: anchor?.id ? joinersFor(g.rows, g.key, anchor.id) : [],
-        };
-      };
-      return {
-        leadId: row[0]?.id ?? row[1]?.id ?? `${g.key}-${i}`,
-        label: row.filter((p) => p !== null).map((p) => p!.name).join(' and '),
-        step,
-        slots: [slot(0), slot(1)] as [MarchSlotData, MarchSlotData],
-      };
-    }),
-  }));
-}

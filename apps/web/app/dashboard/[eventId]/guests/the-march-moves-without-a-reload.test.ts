@@ -66,35 +66,26 @@ test('every Wedding March move RETURNS its verdict, so the island can say it', (
   }
 });
 
-test('the march controls are buttons, not forms — a form action reloads the page', () => {
-  for (const file of [
-    ['_components', 'walking-order-lines.tsx'],
-    ['_components', 'entourage-order-panel.tsx'],
-    ['_components', 'march-button.tsx'],
-  ] as const) {
-    const src = read(...file);
-    assert.doesNotMatch(
-      src,
-      /<form\b/,
-      `${file.join('/')} builds a <form> again — its action posts and redirects, and the couple loses their place`,
-    );
-  }
+/* 🚶 2026-10-06: the march's controls are the drag maker now (the ↑↓ panel, its
+   island and its button were retired) — the same properties, held on it. */
+const MAKER = stripComments(
+  readFileSync(join(process.cwd(), 'app', 'dashboard', '[eventId]', 'launch', '_components', 'details-march.tsx'), 'utf8'),
+);
+
+test('the march maker posts no form — a form action reloads the page', () => {
+  assert.doesNotMatch(MAKER, /<form\b/, 'the march maker builds a <form> again — its action posts and redirects, and the couple loses their place');
+  assert.match(MAKER, /await makerSave\(/, 'the march maker no longer saves in place');
 });
 
 test('a refusal reaches the RENDER, not just a live region', () => {
   // 🔑 The reason used to travel as `?error=<sentence>` through a page load.
-  // Returned-and-dropped would be worse than that, not better: the move would
-  // simply appear not to happen. Both surfaces that run an action must draw it.
-  for (const [file, state] of [
-    [['_components', 'walking-order-lines.tsx'], 'problem'],
-    [['_components', 'march-button.tsx'], 'problem'],
-  ] as const) {
-    const src = read(...file);
-    assert.match(src, new RegExp(`set${state[0]!.toUpperCase()}${state.slice(1)}\\(result\\.reason\\)`),
-      `${file.join('/')} never stores the refused reason`);
-    assert.match(src, new RegExp(`\\{${state}\\}`), `${file.join('/')} stores the reason and never draws it`);
-    assert.match(src, /role="status"/, `${file.join('/')} draws the reason with nothing to announce it`);
-  }
+  // Returned-and-dropped would be worse: the move would simply appear not to happen.
+  assert.match(MAKER, /say\(\{ said: landed > 0 \? partly\(r\.reason\) : r\.reason, undo: null, before: null, refused: true \}\)/, 'a refused step is not said');
+  assert.match(MAKER, /setMine\(null\);\s*say\(\{ said: landed > 0/, 'a refused step is said but the drop stays drawn');
+  // Half a move is never reported as "nothing was changed".
+  assert.match(MAKER, /Part of the move was saved/);
+  assert.match(MAKER, /\{toast\.said\}/, 'the reason is stored and never drawn');
+  assert.match(MAKER, /role="status"/, 'the reason is drawn with nothing to announce it');
 });
 
 test('the order write is ONE round trip, not one per person', () => {
@@ -111,26 +102,16 @@ test('the order write is ONE round trip, not one per person', () => {
   );
 });
 
-test('the island owns its arrows — never handed them down by index', () => {
+test('every drop is bound to NAMES, never to a position on screen', () => {
   /*
-    🪤 The arrows used to be built in the panel, one <form> each, and drawn by
-    the island as `children[i]` — `i` from the island's OPTIMISTIC order while
-    the array was in the SERVER's order. They agree until a move is in flight,
-    which is exactly when somebody is tapping, and in that window every arrow
-    below the moved line was bound to whoever used to stand at its position.
+    🪤 The panel's arrows were once drawn by the island as `children[i]` — `i` from
+    the OPTIMISTIC order while the array was in the SERVER's — so every arrow
+    below a line in flight was bound to whoever USED to stand there. The maker
+    binds every drop zone to a guest id and every order to the walks' lead ids.
   */
-  const island = read('_components', 'walking-order-lines.tsx');
-  assert.doesNotMatch(island, /children\[/, 'the island indexes a children array again');
-  assert.doesNotMatch(
-    island,
-    /children: React\.ReactNode\[\]/,
-    'the island takes an array of controls again',
-  );
-  assert.match(island, /function MoveArrow\(/, 'the island no longer draws its own arrows');
-
-  const panel = read('_components', 'entourage-order-panel.tsx');
-  const open = panel.indexOf('<WalkingOrderLines');
-  assert.ok(open > -1, 'the panel no longer mounts the island');
-  const mount = panel.slice(open, panel.indexOf('>', panel.indexOf('}))}', open)) + 1);
-  assert.doesNotMatch(mount, /<MoveButton/, 'the panel passes move controls into the island again');
+  assert.doesNotMatch(MAKER, /children\[/, 'the maker indexes a children array');
+  assert.match(MAKER, /const zone = `name\|\$\{p\.id\}`;/, 'a name drop zone is not bound to the guest');
+  assert.match(MAKER, /data-march-drag=\{`walk\|\$\{sec\.key\}\|\$\{lead\}`\}/, 'a walk is not dragged by its lead');
+  const plan = stripComments(readFileSync(join(process.cwd(), 'lib', 'march-drag.ts'), 'utf8'));
+  assert.match(plan, /leads: rows\.map\(leadOf\)/, 'an order step is sent as positions, not names');
 });

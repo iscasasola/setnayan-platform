@@ -4,6 +4,7 @@ import {
   type ComponentType,
 } from 'react';
 import Link from 'next/link';
+import { daysToGo } from '@/lib/countdown-target';
 import { redirect } from 'next/navigation';
 import {
   Store,
@@ -1990,11 +1991,16 @@ function deriveEventView(
     [dateLabel, place].filter(Boolean).join(' · ') || 'Date to be set';
   // WHAT'S NEXT — a plain-language countdown. Past dates fall through to the
   // finished / status branches.
+  // 🔢 "N days to go" is the countdown's own rule (`daysToGo`, Manila — the
+  // clock `todayISO` is in): whole days of real time left, never a day more.
+  const left = days != null && days > 1 ? daysToGo(event.event_date, null, Date.now()) : null;
   const countdown =
     days == null
       ? null
       : days > 1
-        ? `${days} days to go`
+        ? left?.kind === 'days'
+          ? `${left.days} ${left.days === 1 ? 'day' : 'days'} to go`
+          : null
         : days === 1
           ? 'Tomorrow'
           : days === 0

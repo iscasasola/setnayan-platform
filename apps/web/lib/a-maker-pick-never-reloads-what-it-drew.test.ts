@@ -227,8 +227,10 @@ test('the shell holds every kind the bridge draws, and compares the scene order 
   // A scene background: laid, then HELD — released ONLY when the pick changes who
   // draws the box, which the bridge cannot paint (`no-background-drops-the-card.test.ts`).
   const bg = SHELL.slice(SHELL.indexOf('<SceneBackgroundRow'), SHELL.indexOf('/>', SHELL.indexOf('<SceneBackgroundRow')));
-  assert.match(bg, /onSaving=\{\(canvases, redrawsBox\) => \{\s*if \(redrawsBox\) \{\s*releaseCanvas\(\);\s*return;\s*\}\s*canvasHold\.current = holdChange\(/);
-  assert.equal((bg.match(/releaseCanvas\(\)/g) ?? []).length, 1, 'a background the bridge laid must not reload the canvas — only a box change may');
+  // 🖼 2026-10-06: a box change is HELD too — the row saves it with `makerRedrawSave`
+  // and the canvas redraws itself in place (`a-style-pick-redraws-the-canvas-in-place.test.ts`).
+  assert.match(bg, /onSaving=\{\(canvases\) => \{[\s\S]*?canvasHold\.current = holdChange\(/);
+  assert.equal((bg.match(/releaseCanvas\(\)/g) ?? []).length, 0, 'a background pick never reloads the canvas — a box change is redrawn in place');
   // A scene taken off the page: hidden by the bridge, held without it.
   const hide = SHELL.slice(SHELL.indexOf('const hideOnCanvas = '), SHELL.indexOf('const post = ('));
   assert.match(hide, /t: 'sceneShow', key, shown: false/);

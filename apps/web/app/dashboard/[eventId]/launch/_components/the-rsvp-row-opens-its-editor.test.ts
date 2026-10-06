@@ -120,7 +120,9 @@ test('a tap on the row reaches `select` — on a desk (the navigator) and on a p
   const sheet = read('sheet-sections.tsx');
   const row = sheet.slice(sheet.indexOf('role="menuitemradio"') - 200, sheet.indexOf('role="menuitemradio"') + 200);
   assert.match(row, /onClick=\{\(\) => onPick\(i\.key\)\}/, 'a row in the phone dropdown no longer picks its item');
-  assert.match(ws, /data-details-editor=\{i\.key\} className=\{i\.key !== selected \? 'hidden'/, 'the editor no longer follows the pick');
+  // 🗂 2026-10-06: the editor follows the pick — or, in the Your event form, every field of it shows (`showsEditor`).
+  assert.match(ws, /const showsEditor = \(k: DetailsItemKey\) => k === selected \|\| formKeys\.has\(k\);/, 'the editor no longer follows the pick');
+  assert.match(ws, /data-details-editor=\{i\.key\}[\s\S]{0,200}className=\{!showsEditor\(i\.key\) \? 'hidden'/, 'the editor no longer follows the pick');
 });
 
 test('the RSVP item’s editor IS `MakerRsvpSettings` (maker-rsvp-ask.tsx), and the launch page always hands it in', () => {

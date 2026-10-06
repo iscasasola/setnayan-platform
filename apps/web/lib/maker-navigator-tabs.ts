@@ -69,11 +69,12 @@ export function anchorOfTile(tileKey: string, day = false): (typeof PAGE_ANCHOR_
   if (day) return dayAnchorOfTile(tileKey);
   if (tileKey === 'f:story' || tileKey === 'w:our_love_story') return 'story';
   // 🏠 The Invitation's Welcome page (owner 2026-09-30, `lib/invitation-welcome.ts`):
-  // the guest's look, the couple's Reminders and E-Gifts sit under Welcome — the
-  // page's first tab, anchor `home` — not under Details.
-  if (tileKey === 'f:look' || tileKey === 'f:gifts' || tileKey === 'w:what_to_bring') return 'home';
+  // the guest's look and E-Gifts sit under Welcome — the page's first tab, anchor
+  // `home`. 🎒 What to bring is Details' since 2026-10-06 (after Dress code, before
+  // the Entourage) — the `w:` rule below files it there.
+  if (tileKey === 'f:look' || tileKey === 'f:gifts') return 'home';
   if (tileKey === 'f:entourage' || tileKey.startsWith('w:')) return 'details';
-  // 🎨 The day's own parts stand right after the entourage (`MAKER_DAY_PARTS`).
+  // 🎨 The Invitation's announcement stands after the entourage (`MAKER_DAY_PARTS`).
   if (['f:announcements', 'f:find_your_seat', 'f:live_hub', 'f:photos_of_you'].includes(tileKey)) return 'details';
   // f:film · f:hero · f:editorial · p:<post event scene>
   return 'home';
@@ -137,8 +138,8 @@ export function tabOfTile(tabs: readonly NavigatorTab[], tileKey: string): Navig
  * only jumps to its group.
  *
  * Returns EVERY tile key, in order, each with the header to draw before it
- * (the first tile of each tab) — the caller maps over this, so it cannot drop
- * a tile.
+ * (the first tile of each run of one tab) — the caller maps over this, so it
+ * cannot drop a tile.
  */
 export type NavigatorRow = { key: string; header: { key: string; label: string } | null };
 
@@ -146,11 +147,17 @@ export function navigatorRows(
   tabs: readonly NavigatorTab[] | null,
   tileKeysInPageOrder: readonly string[],
 ): NavigatorRow[] {
-  const headed = new Set<string>();
+  /* 📑 A header wherever the tab CHANGES, not only the first time a tab
+     appears. The Day's approved order (owner 2026-10-05) runs Live → Welcome
+     (find your seat) → Live (schedule · venue · camera) → Gallery (photos of
+     you) → Live (entourage): headed once, the schedule was listed under
+     "Welcome" and the entourage under "Gallery". A returning tab is headed
+     again, so every scene sits under the tab a guest meets it on. */
+  let previous: string | null = null;
   return tileKeysInPageOrder.map((key) => {
     const tab = tabs ? tabOfTile(tabs, key) : null;
-    if (!tab || headed.has(tab.key)) return { key, header: null };
-    headed.add(tab.key);
+    if (!tab || tab.key === previous) return { key, header: null };
+    previous = tab.key;
     return { key, header: { key: tab.key, label: tab.label } };
   });
 }

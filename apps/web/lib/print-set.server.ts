@@ -24,7 +24,7 @@ import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
 import { themeColours } from '@/lib/theme-colours';
 import { buildEventLandingUrl, renderEventLandingQrPng, renderInvitationQrPng } from '@/lib/qr';
 import type { QrLook } from '@/lib/qr-look';
-import { resolveEventQrLook } from '@/lib/qr-look.server';
+import { qrLookForHostDraft, resolveEventQrLook } from '@/lib/qr-look.server';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { printPreviewVersion } from '@/lib/print-preview-cache';
 import { blocksWithDraftedCeremony } from '@/lib/ceremony-time';
@@ -75,7 +75,7 @@ import { isPlaceholderSeat } from '@/lib/extra-seats';
 // select whose columns it can read. It carries the hero's columns
 // (HERO_EVENT_COLUMNS, asserted below) so resolveHero() sees what it needs.
 const EVENT_COLUMNS =
-  'event_id, display_name, event_type, event_date, slug, invite_theme, venue_name, venue_address, std_film_ceremony_name, std_film_venue_name, dress_code_config, role_palette, print_details, pabuya_message, special_message, love_story, landing_page_hero_image_url, landing_page_hero_video_r2_key, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, rsvp_ask_config, style_preferences, role_names, papic_on, gifts_on, logo_wanted, cover_photo_wanted';
+  'event_id, display_name, event_type, event_date, slug, invite_theme, site_bg_color, site_button_color, site_button_style, site_font_key, venue_name, venue_address, std_film_ceremony_name, std_film_venue_name, dress_code_config, role_palette, print_details, pabuya_message, special_message, love_story, landing_page_hero_image_url, landing_page_hero_video_r2_key, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, rsvp_ask_config, style_preferences, role_names, papic_on, gifts_on, logo_wanted, cover_photo_wanted';
 
 for (const c of HERO_EVENT_COLUMNS) {
   if (!EVENT_COLUMNS.includes(c)) throw new Error(`print-set: EVENT_COLUMNS is missing the hero column ${c}`);
@@ -88,6 +88,11 @@ export type PrintEventRow = {
   event_date: string | null;
   slug: string | null;
   invite_theme: string | null;
+  /** 🎨 The Look's own choices (Colours · Buttons · Font) — the guided Look step's "done" reads them (2026-10-05). */
+  site_bg_color?: string | null;
+  site_button_color?: string | null;
+  site_button_style?: string | null;
+  site_font_key?: string | null;
   venue_name: string | null;
   venue_address: string | null;
   std_film_ceremony_name: string | null;
@@ -670,7 +675,9 @@ export async function loadPrintSet(
   // The look every code on this set wears (lib/qr-look.ts): the Setnayan mark
   // for a free event, the couple's own logo · shape · pattern · ink for Pro.
   // Resolved once, here, so the corner QR and every guest pass agree.
-  const qrLook = await resolveEventQrLook(admin, eventId, event);
+  // 💾 On the Maker's preview (a `draft` was handed in) a drafted QR look is the
+  // one drawn, as the event QR beside the address draws it (`qrLookForHostDraft`).
+  const qrLook = qrLookForHostDraft(liveEvent, draft) ?? (await resolveEventQrLook(admin, eventId, event));
 
   let hasEventQr = false;
   if (opts.withEventQr !== false && event.slug) {

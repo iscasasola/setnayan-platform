@@ -55,12 +55,12 @@ test('a wedding shows all five, in the navigator’s order, in the “Your event
   assert.equal(yourEventLabel('parents', WEDDING), 'Parents & hosts');
   assert.deepEqual(peopleLabels(WEDDING_PROFILE.terminology.personA, WEDDING_PROFILE.terminology.personB), ['Bride', 'Groom']);
   const group = DETAILS_ITEM_GROUPS.find((g) => g.group === 'event')!;
-  // …then Your info's answers (owner 2026-10-02, "EVERY ANSWER … LIVES IN EVENT
-  // DETAILS": Event settings · Photos from guests · Gifts), then Plan it myself
-  // (owner 2026-10-02, tracker d4 — `plan-it-myself-is-one-switch.test.ts`),
-  // then the Seat plan, last (Details part 4 — its own rule,
-  // `the-seat-plan-moves-into-details.test.ts`).
-  assert.deepEqual([...group.keys], ['names', 'date', 'venues', 'parents', 'march', 'papic', 'gifts', 'plan-myself', 'seating']);
+  // 🗂 2026-10-06 ("EVENT DETAILS IS REBUILT"): Your event is ONE form — Event
+  // Name · Date · Venue · E-Gifts (with the thank-you) · Opening Line · Special
+  // Message · Event Hub Address · QR. The march (holding Parents & hosts) and
+  // the Seat plan are Story & plans' — items with an editor of their own.
+  assert.deepEqual([...group.keys], ['names', 'date', 'venues', 'gifts', 'thank-you', 'opening-line', 'special-message', 'address', 'qr']);
+  assert.equal(group.form, true);
 });
 
 for (const [name, kind] of NON_WEDDINGS) {
@@ -70,7 +70,8 @@ for (const [name, kind] of NON_WEDDINGS) {
     assert.ok(!parentsOffered(kind) && !marchOffered(kind));
     // ONE name (owner 2026-09-29, "yes to all 4") — never a two-name box.
     assert.deepEqual(items, ['names', 'date', 'venues', 'parents']);
-    assert.equal(yourEventLabel('names', kind), 'Name');
+    // "Event Name", never "Name"/"Names" (owner 2026-10-06) — the event's name, for every type.
+    assert.equal(yourEventLabel('names', kind), 'Event Name');
     const said = [
       ...items.map((k) => yourEventLabel(k, kind)),
       ...items.flatMap((k) => yourEventUsedOn(k, kind)),
@@ -158,13 +159,20 @@ test('no typed wedding word in the Your event editors and parts', () => {
 });
 
 test('the march reads ONE order: the invitation’s, The Entourage card’s, the panel’s', () => {
-  assert.match(LOAD, /loadEntourage\(admin, eventId\)/, 'the aisle reads the invitation’s own loader');
-  assert.match(LOAD, /<EntourageOrderPanel eventId=\{eventId\} view="all" \/>/, 'the order list is the shipped Guest list panel, moved in whole');
+  // 🚶 The march reads the invitation's own loader, in its march form (the couple's sides too, owner 2026-10-06).
+  // (Since 2026-10-06 its own read beside the invitation's — the "Not walking" tray rides with it — built by the SAME builder.)
+  assert.match(LOAD, /loadMarch\(admin, eventId\)/, 'the march maker reads the march loader');
+  assert.match(read('app/[slug]/_lib/loaders.ts'), /buildEntourage\(these, order, names, style, \{ march: true \}\)/, 'the march is not the invitation’s builder');
+  assert.match(LOAD, /sections: marchSections\(groups\)/, 'the maker is not handed the march the loader read');
+  assert.match(read('lib/march-sections.ts'), /export function marchSections\(groups: readonly EntourageGroup\[\]\): MarchSection\[\]/);
   const loaders = read('app/[slug]/_lib/loaders.ts');
-  assert.match(loaders, /return buildEntourage\(\s*\(data \?\? \[\]\) as EntourageGuestRow\[\],\s*await loadEntourageSectionOrder\(admin, eventId\),/);
+  // (The rows carry the "Not walking" mark since 2026-10-06 — a mark only the walking order reads; the ORDER argument is unchanged.)
+  assert.match(loaders, /return buildEntourage\(\s*\(\(data \?\? \[\]\) as EntourageGuestRow\[\]\)\.map\([^\n]*not_walking: true[^\n]*\),\s*await loadEntourageSectionOrder\(admin, eventId\),/);
   // (+ the couple's role words since 2026-09-30 — words only, the ORDER argument is unchanged.)
   assert.match(read('lib/print-set.server.ts'), /buildEntourage\(rows, await loadEntourageSectionOrder\(admin, eventId\)(, names(, style)?)?\)/);
-  assert.match(read('app/dashboard/[eventId]/guests/_components/entourage-order-panel.tsx'), /orderedGroupKeys\(savedSections\)[\s\S]*?entourageLines\(rows, key\)/);
+  // The maker's sections follow the couple's own section order — the printed one, the couple's sides in their place.
+  assert.match(read('lib/entourage.ts'), /export function marchGroupKeys\(saved\?: readonly string\[\] \| null\): string\[\] \{\s*const middle = orderedGroupKeys\(saved\)/);
+  assert.match(read('lib/entourage.ts'), /opts\?\.march \? marchGroupKeys\(sectionOrder\) : orderedGroupKeys\(sectionOrder\)/);
   // The guest's own line is built from the same groups the section prints.
   const body = read('app/[slug]/_components/site-body.tsx');
   assert.match(body, /marchPlace=\{isMakerCanvas \? null : marchPlaceOf\(entourage, guest\?\.guest_id\)\}/);
@@ -174,7 +182,7 @@ test('the march reads ONE order: the invitation’s, The Entourage card’s, the
   assert.match(dress, /\{mine \|\| march \? \(/, 'a walker with no outfit line still gets the panel');
 });
 
-test('"Leave the other side blank" happens IN PLACE — the Guest list’s own unpair, no navigation', () => {
+test('walking alone (a name dragged out of its pair) happens IN PLACE — the Guest list’s own unpair, no navigation', () => {
   const actions = read('app/dashboard/[eventId]/guests/pair-actions.ts');
   const unpair = actions.slice(actions.indexOf('export async function unpairGuestAction('));
   assert.match(unpair, /const inPlace = mode === 'in-place';/);
@@ -184,8 +192,8 @@ test('"Leave the other side blank" happens IN PLACE — the Guest list’s own u
   // The Maker calls that same action, through the Maker's one refresh.
   const march = read(`${L}details-march.tsx`);
   assert.match(march, /import \{ unpairGuestAction \} from '\.\.\/\.\.\/guests\/pair-actions';/);
-  assert.match(march, /await unpairGuestAction\(eventId, pairIds\[0\]!, 'in-place'\);/);
-  assert.match(march, /Leave the other side blank/);
+  // 🚶 Since 2026-10-06 a name dragged out of its pair splits it: the same action, in place.
+  assert.match(march, /await unpairGuestAction\(eventId, step\.guest, 'in-place'\);/);
   // …and the Guest list's rows no longer offer it at all (owner 2026-09-30:
   // "walks with" lives only in the Maker's Wedding March).
   const roster = read('app/dashboard/[eventId]/guests/_components/guest-list-multiselect.tsx');

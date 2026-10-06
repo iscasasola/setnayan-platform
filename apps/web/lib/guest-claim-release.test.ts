@@ -108,12 +108,19 @@ test('the couple actually has a button, and it is not a nested form', () => {
     form, which is a structural fact, not a phrasing.
   */
   assert.match(p, /<form action=\{releaseAction\}/, 'the release needs a form of its own');
+  // ⤷ 2026-10-04: the card has more than one release form now ("This is me"
+  // rides the same door, up in the ticket section), so EVERY one is checked to
+  // sit outside the autosave form's span — not merely the first one found.
+  const openAutosave = p.indexOf('<AutosaveForm');
   const closeAutosave = p.indexOf('</AutosaveForm>');
-  const releaseForm = p.indexOf('<form action={releaseAction}');
-  assert.ok(closeAutosave > -1, 'the autosave form is gone — re-derive this check');
-  assert.ok(
-    releaseForm > closeAutosave,
-    'the release form is nested inside the autosave form — the repo lints against that, ' +
-      'and a nested form posts the wrong action',
-  );
+  assert.ok(openAutosave > -1 && closeAutosave > openAutosave, 'the autosave form is gone — re-derive this check');
+  const releaseForms = [...p.matchAll(/<form action=\{releaseAction\}/g)].map((m) => m.index ?? -1);
+  assert.ok(releaseForms.length > 0);
+  for (const at of releaseForms) {
+    assert.ok(
+      at < openAutosave || at > closeAutosave,
+      'a release form is nested inside the autosave form — the repo lints against that, ' +
+        'and a nested form posts the wrong action',
+    );
+  }
 });

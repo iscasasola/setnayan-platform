@@ -1,10 +1,11 @@
 'use client';
 
-import { useRef, useState, type MutableRefObject, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type MutableRefObject, type ReactNode } from 'react';
+import { CANVAS_REFRESH_MESSAGE, MAKER_CANVAS_REDRAW_EVENT } from '@/lib/maker-refresh';
 import { BufferedCanvasFrame } from '../../website/editor/_components/buffered-canvas-frame';
 import { MAKER_PAGE_TITLE, type MakerPageKey } from '@/lib/maker-made-once-pages';
-import { MAKER_PHONE_PANEL_CAP } from '@/lib/maker-phone-room';
-import { SheetGrip, SheetScrim } from './maker-sheet';
+import { MAKER_LT_TOOL } from '@/lib/maker-phone-room';
+import { useMakerTool } from './maker-context';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 
 /**
@@ -21,12 +22,11 @@ import { PickMenu } from '../../website/editor/_components/pick-menu';
  *     the page, never `fixed` over it — a strip, not a sheet).
  *
  * 📱 PHONE FIRST (owner 2026-09-25: *"99% of the viewers will use the phone"*).
- * On a phone the page sits on top and the controls in a strip under it, both in
- * the flow. The strip is capped so the bar + it take at most 45% of the screen
- * (`MAKER_PHONE_PANEL_CAP`, lib/maker-phone-room.ts — owner 2026-10-02: *"the
- * screen is too clumped"*); it no longer grows while typing — a focused field is
- * brought into view instead, and the Maker shell itself follows the on-screen
- * keyboard (`visualViewport`, `maker-shell.tsx`).
+ * On a phone the page fills the workspace and its controls are a TOOL of the
+ * Maker's lower third (owner 2026-10-05, "approve": `MAKER_LT_TOOL`,
+ * `useMakerTool`) — opened from the lower third's tiles, never a sheet over the
+ * page; a focused field is brought into view, and the Maker shell itself
+ * follows the on-screen keyboard (`visualViewport`, `maker-shell.tsx`).
  *
  * ⛔ NOT A DIALOG. No `role="dialog"`, no portal, no backdrop, no focus trap:
  * the bar stays live above it, and picking a stage puts the stage back.
@@ -41,9 +41,17 @@ export function MakerPage({
   page,
   controls = null,
   initiallyOpen = false,
+  open: openProp,
+  onOpenChange,
+  toolName,
 }: {
-  /** 📱 Open the controls' sheet at once on a phone (a door that names them). */
+  /** 📱 Open the controls at once on a phone (a door that names them). */
   initiallyOpen?: boolean;
+  /** 📱 The controls' open state, held by the page's owner (the lower third's tiles open them). */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /** The lower third's column names the open controls by this (else the page's title). */
+  toolName?: string;
   pageKey: MakerPageKey;
   /** The item's own page — the body. */
   page: ReactNode;
@@ -55,7 +63,15 @@ export function MakerPage({
   /* 📱 On a phone the controls are a bottom sheet over the dimmed page (owner
      2026-10-02: "dim the negative space … pressing on the dimmed part will go
      back"); shut, one chip on the page opens them. The desktop keeps its column. */
-  const [open, setOpen] = useState(initiallyOpen);
+  const [ownOpen, setOwnOpen] = useState(initiallyOpen);
+  const open = openProp ?? ownOpen;
+  const setOpen = (next: boolean) => {
+    setOwnOpen(next);
+    onOpenChange?.(next);
+  };
+  /* 🧰 On a phone the controls are a TOOL of the lower third (owner 2026-10-05,
+     "approve") — the column names them and closes them; nothing over the page. */
+  useMakerTool(Boolean(controls) && open, { key: `page:${pageKey}`, name: toolName ?? title, close: () => setOpen(false) });
   return (
     <div data-maker-page={pageKey} className="flex h-full min-h-0 w-full flex-1 flex-col lg:flex-row">
       <section
@@ -64,18 +80,7 @@ export function MakerPage({
         className="relative order-1 flex min-h-0 flex-1 flex-col"
       >
         {page}
-        {controls && !open ? (
-          <button
-            type="button"
-            data-maker-page-edit=""
-            onClick={() => setOpen(true)}
-            className="sn-press absolute bottom-3 left-1/2 z-10 inline-flex min-h-11 -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full bg-ink px-4 text-[14px] font-semibold text-cream shadow-lg lg:hidden"
-          >
-            Edit · {title}
-          </button>
-        ) : null}
       </section>
-      {controls && open ? <SheetScrim onClose={() => setOpen(false)} /> : null}
       {controls ? (
         <aside
           aria-label={`${title} — controls`}
@@ -88,13 +93,11 @@ export function MakerPage({
             window.setTimeout(() => t.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300);
           }}
           className={`order-2 flex min-h-0 shrink-0 flex-col border-ink/10 bg-cream lg:static lg:flex lg:max-h-none lg:w-[360px] lg:border-l ${
-            open
-              ? `max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:z-30 max-lg:rounded-t-3xl max-lg:shadow-[0_-18px_40px_-24px_rgba(30,26,18,.5)] ${MAKER_PHONE_PANEL_CAP}`
-              : 'max-lg:hidden'
+            open ? MAKER_LT_TOOL : 'max-lg:hidden'
           }`}
         >
-          <SheetGrip onClose={() => setOpen(false)} />
-          <div className="flex items-center gap-2 px-4 pt-1 lg:pt-3">
+          {/* The title is the desktop's — on a phone the lower third's column names the controls. */}
+          <div className="hidden items-center gap-2 px-4 pt-3 lg:flex">
             <p className="min-w-0 flex-1 truncate font-serif text-lg text-ink">{title}</p>
           </div>
           <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-3 pb-6 pt-2">
@@ -118,34 +121,79 @@ export function MakerPage({
  * loads behind the page on screen and takes its place once ready
  * (`BufferedCanvasFrame`, the stage canvas's own mechanism — not a second one).
  * A different page (`src`) is a different group, so it still swaps at once.
+ *
+ * 🖼 AND A SAVE NEVER RESETS THE PAGE (owner 2026-10-06, live: *"When i change
+ * palette style it still resets the page"*). A buffered swap still mounted a
+ * NEW document for every Maker render — the page loaded from the top, its
+ * cover first, and the couple lost Dress code. Now `frameKey` names the PAGE
+ * only, and a Maker render (`refreshOn`) or a redrawn pick
+ * (`MAKER_CANVAS_REDRAW_EVENT`) asks the page shown to re-render ITSELF, in
+ * place (`CANVAS_REFRESH_MESSAGE` → the bridge's `router.refresh()`): the same
+ * document, the same scroll, the same section. A page with no bridge to ask
+ * (it never said `ready`) is loaded again behind, as before.
  */
 export function MakerPageFrame({
   src,
   title,
   device,
   frameKey,
+  refreshOn,
   frameRef,
   onShown,
 }: {
   src: string;
   title: string;
   device: 'desktop' | 'phone';
+  /** The PAGE this frame shows — never a render stamp (that is `refreshOn`). */
   frameKey: string;
+  /** Moves with every Maker render (`maker.renderStamp`): the page re-renders in place. */
+  refreshOn?: string;
   frameRef?: MutableRefObject<HTMLIFrameElement | null>;
   /** The frame now shown (the canvas guard re-attaches to it). */
   onShown?: (key: string) => void;
 }) {
   const ownRef = useRef<HTMLIFrameElement | null>(null);
   const loadingRef = useRef<Window | null>(null);
+  const shownRef = frameRef ?? ownRef;
+  /** Frames whose page has a bridge that answers `refresh` (it said `ready`). */
+  const bridged = useRef(new WeakSet<MessageEventSource>());
+  /** A page with no bridge is loaded again — the old way — under a new key. */
+  const [reload, setReload] = useState(0);
+  const refreshInPlace = useRef(() => {});
+  refreshInPlace.current = () => {
+    const w = shownRef.current?.contentWindow ?? null;
+    if (w && bridged.current.has(w)) w.postMessage(CANVAS_REFRESH_MESSAGE, window.location.origin);
+    else setReload((n) => n + 1);
+  };
+  useEffect(() => {
+    const onReady = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin || !event.source) return;
+      const data = event.data as { source?: string; t?: string } | null;
+      if (data && data.source === 'setnayan-site' && data.t === 'ready') bridged.current.add(event.source);
+    };
+    const onRedraw = () => refreshInPlace.current();
+    window.addEventListener('message', onReady);
+    window.addEventListener(MAKER_CANVAS_REDRAW_EVENT, onRedraw);
+    return () => {
+      window.removeEventListener('message', onReady);
+      window.removeEventListener(MAKER_CANVAS_REDRAW_EVENT, onRedraw);
+    };
+  }, []);
+  const lastRefresh = useRef(refreshOn);
+  useEffect(() => {
+    if (refreshOn === undefined || lastRefresh.current === refreshOn) return;
+    lastRefresh.current = refreshOn;
+    refreshInPlace.current();
+  }, [refreshOn]);
   return (
     <div className="flex min-h-0 flex-1 flex-col items-center justify-center bg-[radial-gradient(120%_90%_at_50%_0%,rgba(203,167,102,.10),transparent_60%)] px-2 py-2 lg:px-6 lg:pb-5 lg:pt-4">
       <BufferedCanvasFrame
-        frameKey={frameKey}
+        frameKey={`${frameKey}:${reload}`}
         group={src}
         src={src}
         title={title}
         pageFrame
-        frameRef={frameRef ?? ownRef}
+        frameRef={shownRef}
         loadingRef={loadingRef}
         anchorKey={() => null}
         onShown={(key) => onShown?.(key)}
@@ -221,7 +269,8 @@ export function MakerRsvpCanvas({
         src={replied ? repliedSrc : questionsSrc}
         title={replied ? 'After a guest replies' : 'Your RSVP questions'}
         device="phone"
-        frameKey={`rsvp:${replied ? 'replied' : 'questions'}:${stamp}`}
+        frameKey={`rsvp:${replied ? 'replied' : 'questions'}`}
+        refreshOn={stamp}
       />
     </div>
   );

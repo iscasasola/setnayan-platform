@@ -180,12 +180,14 @@ test('2b·2 · a custom background colour is the paper card\'s ground — the hu
   assert.match(shelves([card({ paper: paperOf(poster(), ombre) })]), /background-image:/);
 });
 
-test('2b·3 · a custom main background image (Pro) is the card\'s picture — never on Classic', () => {
+test('2b·3 · a custom main background image (Pro) is the card\'s picture — on Classic too since 2026-10-06', () => {
   const MAIN = 'r2://setnayan-media/events/E1/main-background/p.jpg';
   const own = { main: { kind: 'photo', media: MAIN } };
   const resolved = guestMainGround('velvet', true, own, { landing_page_hero_image_url: null });
   assert.equal(resolved?.stillRef, MAIN, 'the hub\'s main background was not resolved');
-  assert.equal(guestMainGround('house', true, own, {}), null, 'Classic showed a main background');
+  // The Classic "no photo or video" rule is dropped (owner 2026-10-06) — a Pro owner's own photo shows; a free couple's never.
+  assert.equal(guestMainGround('house', true, own, {})?.stillRef, MAIN, 'Classic with Pro lost its own main background');
+  assert.equal(guestMainGround('house', false, own, {}), null, 'a free couple on Classic showed Pro media');
   assert.equal(guestMainGround('galeriya', false, own, {}), null, 'a free couple showed Pro media');
   const SIGNED = 'https://r2.example/main-background/p.jpg';
   const html = shelves([card({ scene: { kind: 'photo', src: SIGNED, ground: 'main', legibility: null }, paper: paperOf(poster()) })]);

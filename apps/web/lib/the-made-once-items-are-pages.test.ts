@@ -51,13 +51,14 @@ test('Details is the bar’s one made-once item; Logo, Hero and Reveal are items
   // 🗂 OPTION B (owner 2026-09-28; DECISION_LOG "OPTION B — EVERYTHING MADE ONCE
   // LIVES IN DETAILS; THE TOP MENU IS THE FOUR STAGES + DETAILS"): the bar's
   // made-once group is Details alone, and the pages moved into it.
-  // ✂ THE MAKER IN 4 (2026-10-02): the bar's doors into Details are Look and Details (Prints is Page ▾'s since 2026-10-04) —
-  // each a DOOR into the one Details page, never a page of its own; Logo/Hero/Reveal are not on the bar.
+  // ✂ THE MAKER IN 4 (2026-10-02): the bar's door into Details (Prints is Page ▾'s since 2026-10-04) —
+  // a DOOR into the one Details page, never a page of its own; Logo/Hero/Reveal are not on the bar.
+  // 🗂 ONE button since 2026-10-06 ("EVENT DETAILS IS REBUILT"): the Look chip is gone.
   const { MAKER_TOOLBAR, makerPressDoor } = await import(`../${L}/maker-bar`);
   assert.deepEqual(
     (MAKER_TOOLBAR as readonly string[]).filter((k) => !['exit', 'page', 'undo', 'preview', 'apply'].includes(k)),
-    ['look', 'details'],
-    'the bar holds a made-once door besides Look and Details again',
+    ['details'],
+    'the bar holds a made-once door besides Event Details again',
   );
   for (const door of ['look', 'details', 'prints'] as const) {
     assert.equal(makerPressDoor({ detailsItem: null }, door).selectedTool, 'details', `${door} opens a page of its own`);
@@ -268,7 +269,7 @@ test('Details renders as a page in the Maker’s body, not a layer of its own', 
   // The ⋯ sheet is the only dialog in the shell, and it is shut.
   const dialogs = html.match(/role="dialog"/g) ?? [];
   assert.equal(dialogs.length, 1, 'only the ⋯ sheet is a dialog');
-  assert.match(html, /<div hidden="" class="absolute inset-0 z-40">/, 'and the ⋯ sheet is shut');
+  assert.match(html, /<div hidden="" class="lg:absolute lg:inset-0 lg:z-40">/, 'and the ⋯ sheet is shut');
 });
 
 test('Love Story: Our Love Story is the body, and a moment is added and edited IN PLACE', () => {

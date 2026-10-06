@@ -50,6 +50,8 @@ import { inviteReplyPath } from '@/lib/invite-arrival';
 import { LANDING_OPEN_PARAM, LANDING_OPEN_VALUE } from '@/lib/guest-landing';
 import { checklistShows, sanitizeTicks, type ChecklistKey } from '@/lib/guest-checklist';
 import { manilaToday } from '@/lib/std-views';
+import { meLeadsWithReply, REPLY_SHEET_ANCHOR, resolveArrivalAction } from '@/lib/arrival-action';
+import { rsvpReplyOpen } from '@/lib/site-body-plan';
 import { cookies } from 'next/headers';
 import { RSVP_TERMS_COOKIE, rsvpTermsCarried } from '@/lib/terms-agreement';
 import { yourGuestsFor } from './_lib/plus-one-seats.server';
@@ -1574,18 +1576,21 @@ async function InvitationBody({
              host's own preview (the sample has no ticket session). */
           meSection={
             widgetShouldRender(widgetByType(widgets, 'qr_card')) ? (
-              <GuestMeSection
-                meSlot={
-                  <GuestTicket
-                    state={sampleTicketState(seeAs)}
-                    name={sampleName}
-                    invitationUrl={SIMULATED_GUEST_INVITATION_TEXT}
-                    src={sampleTicketSrc(event.event_id)}
-                  />
-                }
-                galleryCount={0}
-                asTab
-              />
+              ({ replyHref }: { replyHref: string | null }) => (
+                <GuestMeSection
+                  meSlot={
+                    <GuestTicket
+                      state={sampleTicketState(seeAs)}
+                      name={sampleName}
+                      invitationUrl={SIMULATED_GUEST_INVITATION_TEXT}
+                      src={sampleTicketSrc(event.event_id)}
+                      replyHref={replyHref}
+                    />
+                  }
+                  galleryCount={0}
+                  asTab
+                />
+              )
             ) : null
           }
         />
@@ -1895,7 +1900,13 @@ async function InvitationBody({
     !isEditorCanvas && viewerAccount?.id && account.kind === 'linked'
       ? await seatNameOfferFor(admin, viewerAccount.id, event.event_id, guest.guest_id)
       : null;
-  const meSlot = isEditorCanvas ? null : (
+  // Read before the slot is built: the slot is a function now (Me's answer to
+  // "lead with the reply?" comes from the body), and a function cannot await.
+  const meUserAgent = (await headers()).get('user-agent');
+  const meTermsCarried = rsvpTermsCarried((await cookies()).get(RSVP_TERMS_COOKIE)?.value);
+  // ✉ `replyHref` — set when Me leads with the reply (`meLeadsWithReply`,
+  // decided in SiteBody from the plan it resolves): the ticket waits for a Yes.
+  const meSlotFor = (replyHref: string | null) => isEditorCanvas ? null : (
     <>
     {/* 🎫 THE DIGITAL TICKET — first on Me, and only on Me (owner 2026-09-30).
         Follows the couple's own "QR card" switch, as the pass on Home did; with
@@ -1907,6 +1918,7 @@ async function InvitationBody({
           state={passCard}
           name={guest.display_name?.trim() || `${guest.first_name ?? ''} ${guest.last_name ?? ''}`.trim() || 'You'}
           invitationUrl={invitationUrl}
+          replyHref={replyHref}
         />
       </div>
     ) : null}
@@ -1925,14 +1937,14 @@ async function InvitationBody({
       askMeal={resolveRsvpAsk(event.rsvp_ask_config).meal}
       askDietary={resolveRsvpAsk(event.rsvp_ask_config).dietary}
       askPlusOnes={resolveRsvpAsk(event.rsvp_ask_config).plus_ones}
-      eventName={event.display_name ?? 'the celebration'}
+      eventName={event.display_name ?? 'the event'}
       guests={myGuests.guests}
       passes={myGuests.passes}
       passCards={passCardHrefs}
       account={account}
       personalLink={invitationUrl}
-      userAgent={(await headers()).get('user-agent')}
-      termsCarried={rsvpTermsCarried((await cookies()).get(RSVP_TERMS_COOKIE)?.value)}
+      userAgent={meUserAgent}
+      termsCarried={meTermsCarried}
       inviteFacts={{
         hostsName: event.display_name ?? null,
         eventWord: eventTypeProfile.terminology.eventWord,
@@ -1958,6 +1970,29 @@ async function InvitationBody({
       }
     />
     </>
+  );
+  // ✉ A PAGE WITHOUT TABS hands Me to `GuestHubBar` (below), where SiteBody's
+  // answer cannot reach — so the same rule is asked here, from the same two
+  // facts: the page's one action (`resolveArrivalAction`) and the plan's own
+  // reply-sheet gate (`rsvpReplyOpen`, what `plan.rsvpShouldRender` is).
+  const meSlot = meSlotFor(
+    meLeadsWithReply({
+      action: resolveArrivalAction({
+        slug: event.slug ?? slug,
+        rsvpStatus: guest.rsvp_status,
+        eventDate: event.event_date,
+        today: manilaToday(),
+      }),
+      replyOpen: rsvpReplyOpen({
+        widgets,
+        openBrowse: Boolean((event as { website_open_browse?: boolean | null }).website_open_browse),
+        phasesEnabled,
+        lifecyclePhase,
+      }),
+      isPlusOne: Boolean(guest.plus_one_of_guest_id),
+    })
+      ? `#${REPLY_SHEET_ANCHOR}`
+      : null,
   );
 
   /* 📱 EACH TAB ITS OWN PAGE (owner 2026-09-30) — on the Invitation and The
@@ -2022,7 +2057,9 @@ async function InvitationBody({
         })}
         meSection={
           guestPageTabbed ? (
-            <GuestMeSection meSlot={meSlot} photosHref={photosLeftThePage ? `/papic/me/${guest.qr_token}` : null} galleryCount={galleryCountHere} asTab />
+            ({ replyHref }: { replyHref: string | null }) => (
+              <GuestMeSection meSlot={meSlotFor(replyHref)} photosHref={photosLeftThePage ? `/papic/me/${guest.qr_token}` : null} galleryCount={galleryCountHere} asTab />
+            )
           ) : null
         }
       />

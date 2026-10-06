@@ -1,6 +1,18 @@
 /**
- * the-look-is-one-panel.test.ts — LOOK = THEME · BACKGROUND · FONT · COLOURS,
- * IN THAT ORDER, IN ONE PANEL — AND NOWHERE ELSE.
+ * the-look-is-one-panel.test.ts — LOOK = BACKGROUND · COLOURS · BUTTONS · FONT ·
+ * MUSIC, IN THAT ORDER, IN ONE PANEL — AND NOWHERE ELSE. NO THEME TO PICK.
+ *
+ * 🗂 2026-10-06 (DECISION_LOG "EVENT DETAILS IS REBUILT"): the owner's Look is
+ * Background · Colours · Font · Music — each ALSO a row of Event Details' list,
+ * opening this same panel on its own section(s) (`LOOK_ITEM_SECTIONS`; Buttons
+ * rides with Colours). Music moved in from the old "Music and backdrop".
+ *
+ * 🚫 2026-10-05 (DECISION_LOG "THEMES ARE REPLACED BY THREE DIRECT GLOBAL
+ * SETTINGS", owner: *"instead of having a theme, we can let them just pick a
+ * background. and pick a font, color, button style"*): the Theme section and
+ * the "All themes" gallery left Look; every theme's loop became a choice under
+ * Background (Moving background ◆). The checks below hold the NEW rule — and
+ * hold that no theme picker comes back.
  *
  * Owner, live iPhone test 2026-10-02 (tracker f40): the toolbar's Look showed
  * the theme and then the Hero — no background, no font, no colours. The hero
@@ -11,11 +23,11 @@
  * it here is too hidden"*. Design: `maker_in_four_2026-09-30_fable.html` frame E.
  *
  * Held here, each where it can be EXECUTED:
- *   (1) RENDER — the panel draws the four sections in `LOOK_SECTIONS` order,
+ *   (1) RENDER — the panel draws its sections in `LOOK_SECTIONS` order,
  *       each with the control the work area registered (palette under Colours,
  *       with no caption under it — owner 2026-10-05);
  *   (2) the Look door's item mounts that panel, and its body is the couple's
- *       own page (a change shows as it is made), the theme gallery one switch away;
+ *       own page (a change shows as it is made) — no theme gallery, no theme menu;
  *   (3) MOVED, NOT COPIED — the same rows the editor page always built, and
  *       their old places (the hero's page, the 🎨 panel, the Dress code
  *       scene's Style) no longer hold them; an old `?open=` lands on Look;
@@ -68,7 +80,7 @@ async function paintPanel(look: unknown) {
     setLookPages: noop,
   };
   return renderToStaticMarkup(
-    React.createElement(MakerContext.Provider, { value }, React.createElement(LookPanel, { theme: stub('theme-menu') })),
+    React.createElement(MakerContext.Provider, { value }, React.createElement(LookPanel, { filmLine: stub('film-line') })),
   );
 }
 
@@ -76,57 +88,104 @@ const sectionsOf = (html: string) => [...html.matchAll(/data-look-section="([a-z
 
 /* ── (1) the render ───────────────────────────────────────────────────── */
 
-test('(1) Look draws Theme · Background · Font · Colours · Buttons, in that order, each with its own control', async () => {
-  assert.deepEqual([...LOOK_SECTIONS], ['theme', 'background', 'font', 'colours', 'buttons']);
+test('(1) Look draws Background · Colours · Buttons · Font · Music, in that order, each with its own control — no Theme', async () => {
+  assert.deepEqual([...LOOK_SECTIONS], ['background', 'colours', 'buttons', 'font', 'music']);
   const html = await paintPanel({
     background: stub('main-background'),
     font: stub('font-pick'),
     colours: stub('page-and-buttons'),
     palette: stub('palette-look'),
     buttons: stub('buttons-look'),
+    music: stub('music'),
   });
-  assert.deepEqual(sectionsOf(html), ['theme', 'background', 'font', 'colours', 'buttons'], 'the sections are out of order');
+  assert.deepEqual(sectionsOf(html), ['background', 'colours', 'buttons', 'font', 'music'], 'the sections are out of order');
+  assert.doesNotMatch(html, />Theme</, 'a Theme heading came back');
   // Each control sits in ITS section — sliced between one section's mark and the next.
   const at = (k: string) => html.indexOf(`data-look-section="${k}"`);
   const inSection = (k: string, next: string | null, what: string) => {
     const part = html.slice(at(k), next ? at(next) : undefined);
     assert.match(part, new RegExp(`data-stub="${what}"`), `${what} is not in ${k}`);
   };
-  inSection('theme', 'background', 'theme-menu');
-  inSection('background', 'font', 'main-background');
-  inSection('font', 'colours', 'font-pick');
+  inSection('background', 'colours', 'main-background');
+  // 🎞 The film's "Same as the Event Hub" sits under Background, the ground it hands back to.
+  inSection('background', 'colours', 'film-line');
   inSection('colours', 'buttons', 'page-and-buttons');
   inSection('colours', 'buttons', 'palette-look');
-  inSection('buttons', null, 'buttons-look');
+  inSection('buttons', 'font', 'buttons-look');
+  inSection('font', 'music', 'font-pick');
+  inSection('music', null, 'music');
   // The palette sits AFTER the page and button colours.
   assert.ok(html.indexOf('data-stub="palette-look"') > html.indexOf('data-stub="page-and-buttons"'));
-  for (const label of ['Background', 'Font', 'Colours', 'Buttons']) assert.match(html, new RegExp(`>${label}</h3>`), `no "${label}" heading`);
+  for (const label of ['Background', 'Colours', 'Buttons', 'Font', 'Music']) assert.match(html, new RegExp(`>${label}</h3>`), `no "${label}" heading`);
 });
 
 test('(1) a section the event does not offer is absent; one that has not arrived SAYS it is opening', async () => {
   // The store shell builds no Main background row: Look has no Background section — never an empty heading.
-  const shell = await paintPanel({ background: null, font: stub('font-pick'), colours: stub('page-and-buttons'), palette: null, buttons: stub('buttons-look') });
-  assert.deepEqual(sectionsOf(shell), ['theme', 'font', 'colours', 'buttons']);
+  const shell = await paintPanel({ background: null, font: stub('font-pick'), colours: stub('page-and-buttons'), palette: null, buttons: stub('buttons-look'), music: null });
+  assert.deepEqual(sectionsOf(shell), ['colours', 'buttons', 'font']);
   // Before the work area registered anything: every section is drawn, waiting — never blank.
   const early = await paintPanel(undefined);
-  assert.deepEqual(sectionsOf(early), ['theme', 'background', 'font', 'colours', 'buttons']);
-  assert.equal((early.match(/data-look-section-waiting=/g) ?? []).length, 4);
+  assert.deepEqual(sectionsOf(early), ['background', 'colours', 'buttons', 'font', 'music']);
+  assert.equal((early.match(/data-look-section-waiting=/g) ?? []).length, 5);
+});
+
+test('(1b) each Look row of Event Details opens the panel on ITS section(s) — and never a blank panel', async () => {
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { MakerContext } = await import(`../${L}/maker-context`);
+  const { LookPanel } = await import(`../${L}/details-look-pages`);
+  const { LOOK_ITEM_SECTIONS } = await import('./maker-look-sections');
+  const look = { background: stub('main-background'), font: stub('font-pick'), colours: stub('page-and-buttons'), palette: null, buttons: stub('buttons-look'), music: null };
+  const paint = (sections: readonly string[]) =>
+    renderToStaticMarkup(
+      React.createElement(
+        MakerContext.Provider,
+        { value: { lookPages: { logo: null, hero: null, reveal: null, revealOptions: null, heroParts: null, revealStages: [], publicLandingUrl: '/a', look } } },
+        React.createElement(LookPanel, { sections }),
+      ),
+    );
+  assert.deepEqual(sectionsOf(paint(LOOK_ITEM_SECTIONS.colours)), ['colours', 'buttons']);
+  assert.deepEqual(sectionsOf(paint(LOOK_ITEM_SECTIONS.font)), ['font']);
+  // Music not offered: ONE line, never an empty panel (owner 2026-10-06).
+  const music = paint(LOOK_ITEM_SECTIONS.music);
+  assert.deepEqual(sectionsOf(music), []);
+  assert.match(music, /data-look-panel-empty="music"[^>]*>Nothing to set here for this event\.</);
+  // 🔑 ONE mount of each control: a named panel draws only while its item is open.
+  const named = (item: string, open: string) =>
+    renderToStaticMarkup(
+      React.createElement(
+        MakerContext.Provider,
+        { value: { detailsItem: open, lookPages: { logo: null, hero: null, reveal: null, revealOptions: null, heroParts: null, revealStages: [], publicLandingUrl: '/a', look } } },
+        React.createElement(LookPanel, { sections: LOOK_ITEM_SECTIONS.font, item }),
+      ),
+    );
+  assert.equal(named('font', 'colours'), '', 'a Look control is mounted twice (its item is not open)');
+  assert.deepEqual(sectionsOf(named('font', 'font')), ['font']);
+  const { detailsLtSection } = await import('./maker-details-items');
+  assert.equal(detailsLtSection('theme'), 'look', 'the whole Look lights Your event on a phone');
+  assert.equal(detailsLtSection('parents'), 'story');
+  const details = read(`${L}/maker-details.tsx`);
+  for (const k of ['background', 'colours', 'font', 'music']) {
+    assert.match(details, new RegExp(`${k}: <LookPanel [^>]*sections=\\{LOOK_ITEM_SECTIONS\\.${k}\\} item="${k}" />`), `the ${k} row does not open its section`);
+  }
 });
 
 /* ── (2) the Look door's item ─────────────────────────────────────────── */
 
 test('(2) the Look item mounts the one panel, and its body is the couple’s own page', () => {
   const details = read(`${L}/maker-details.tsx`);
-  assert.match(details, /theme: <LookPanel theme=\{<MakerThemeMenu /, 'the Look item does not mount the one panel');
-  assert.match(details, /<DetailsLookPageBody\s+gallery=\{\s*<MakerThemeGallery/, 'the theme gallery is not one switch away');
+  assert.match(details, /theme: <LookPanel filmLine=\{filmLine\} item="theme" \/>,/, 'the Look item does not mount the one panel');
+  assert.match(details, /theme: <DetailsLookPageBody \/>,/, 'the Look body is not the couple’s own page');
+  // 🚫 No theme picker anywhere in the Maker's Look (2026-10-05).
+  assert.doesNotMatch(details, /<MakerThemeMenu\b|<MakerThemeGallery\b/, 'a theme picker came back into the Maker');
   assert.match(details, /panelLabel: 'Look'/, 'the phone sheet does not say "Look"');
   const pages = read(`${L}/details-look-pages.tsx`);
   // The body: the page being edited, through the canvas door, on the Maker's stage.
   // …wearing the theme being picked, at the tap (`theme=`, owner 2026-10-05: the page drew Classic under a Cyber Neon pick).
   assert.match(pages, /item === 'look'\s*\?\s*look\.publicLandingUrl\s*\?\s*`\$\{look\.publicLandingUrl\}\?phase=\$\{maker\.stage\}&editor=1\$\{picked \? `&theme=\$\{encodeURIComponent\(picked\)\}` : ''\}`/);
-  assert.match(pages, /view === 'page' \? \(\s*<DetailsLookBody item="look" \/>/, 'the page is not what Look shows first');
-  // On a phone, opening Look opens its sheet.
-  assert.match(read(`${L}/details-workspace.tsx`), /if \(selected === 'theme'\) setSheetOpen\(true\);/);
+  assert.match(pages, /data-details-look-body="page">\s*<DetailsLookBody item="look" \/>/, 'the page is not what Look shows');
+  assert.doesNotMatch(pages, /All themes/, 'the "All themes" switch came back');
+  // On a desktop, opening Look opens its panel; on a phone Theme lands on the lower third's navigator and its tile opens it (2026-10-05).
+  assert.match(read(`${L}/details-workspace.tsx`), /if \(selected === 'theme' && !window\.matchMedia\('\(max-width: 1023\.98px\)'\)\.matches\) setSheetOpen\(true\);/);
 });
 
 /* ── (3) moved, not copied ────────────────────────────────────────────── */
@@ -138,10 +197,11 @@ test('(3) the SAME rows move into Look, and their old places no longer hold them
     assert.ok(isLookRow(row));
   }
   assert.match(work, /look: \{\s*background: backgroundNode,\s*font: fontNode,\s*colours: coloursNode,\s*palette:/);
-  assert.match(work, /buttons: buttonsNode,\s*\},\s*\}\);/, 'Look › Buttons is not the row the page built');
-  // The 🎨 button's panel: the song and the backdrop, nothing that moved.
+  assert.match(work, /buttons: buttonsNode,\s*music: musicNode,\s*\},\s*\}\);/, 'Look › Buttons / Music is not the row the page built');
+  // The 🎵 panel: the song alone — "backdrop" dropped (owner 2026-10-06, Background covers it).
   const mainRows = /const MAIN_ROWS = (\[[^\]]*\]);/.exec(work)?.[1];
-  assert.equal(mainRows, "['music', 'backdrop']", 'the 🎨 panel still holds a Look row');
+  assert.equal(mainRows, "['music']", 'the Music panel still holds the backdrop or a Look row');
+  assert.match(work, /\? 'Music'/, 'the panel is still called "Music and backdrop"');
   // The hero no longer carries the Main background.
   assert.match(work, /hero: madeOnce\?\.hero \?\? null,/);
   assert.doesNotMatch(work, /mainBackgroundRow/);
@@ -200,5 +260,5 @@ test('(5) Apply’s "Go to" for the theme, the background, the font and the colo
   assert.match(fx, /what: 'Theme', [^\n]*jump: \{ kind: 'look' \}/);
   assert.doesNotMatch(fx, /kind: 'row', key: 'colors'|kind: 'main'/, 'a jump still opens an old place');
   const bar = read('app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx');
-  assert.match(bar, /if \(j\.kind === 'look'\) \{[\s\S]*?setDetailsItem\?\.\('theme'\);\s*maker\.select\(\{ kind: 'tool', key: 'details' \}\);/);
+  assert.match(bar, /if \(j\.kind === 'look'\) \{[\s\S]*?setDetailsItem\)?\?\.\('theme'\);\s*maker\.select\(\{ kind: 'tool', key: 'details' \}\);/);
 });

@@ -1,7 +1,7 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { guestAccessState, type GuestAccessState, type SeatRow } from '@/lib/guest-access';
+import { creatorGuestIds, guestAccessState, type GuestAccessState, type SeatRow } from '@/lib/guest-access';
 
 /**
  * Every guest's Access on one event, keyed by guest_id — ONE read for the whole
@@ -29,7 +29,7 @@ export async function loadGuestAccessMap(
       .order('created_at', { ascending: true }),
     admin
       .from('event_members')
-      .select('user_id')
+      .select('user_id, guest_id')
       .eq('event_id', eventId)
       .eq('member_type', 'couple')
       .eq('joined_via', 'created_event'),
@@ -51,10 +51,11 @@ export async function loadGuestAccessMap(
     seatByGuest.set(row.guest_id, row);
   }
 
-  // Which guest rows are the creator's own: their row carries the person record
-  // the creator's account claimed (the creator has no member link to a row).
-  const creatorIds = [...new Set((creatorsRes.data ?? []).map((c) => (c as { user_id: string }).user_id))];
-  const creatorGuests = new Set<string>();
+  // Which guest rows are the creator's own: the row their membership holds, or
+  // the row carrying the person record their account claimed (creatorGuestIds).
+  const creators = (creatorsRes.data ?? []) as { user_id: string; guest_id: string | null }[];
+  const creatorIds = [...new Set(creators.map((c) => c.user_id))];
+  const personRows: string[] = [];
   if (creatorIds.length > 0) {
     const { data: people, error: peopleError } = await admin
       .from('people')
@@ -72,8 +73,9 @@ export async function loadGuestAccessMap(
       logQueryError('loadGuestAccessMap.creator', peopleError ?? rowsError, { eventId }, 'graceful_degrade');
       return null;
     }
-    for (const r of rows ?? []) creatorGuests.add((r as { guest_id: string }).guest_id);
+    for (const r of rows ?? []) personRows.push((r as { guest_id: string }).guest_id);
   }
+  const creatorGuests = creatorGuestIds({ creators, rowsOfCreatorPersons: personRows });
 
   const out = new Map<string, GuestAccessState>();
   for (const g of guests) {

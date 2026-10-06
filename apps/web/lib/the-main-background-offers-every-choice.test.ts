@@ -98,21 +98,55 @@ test('2 · "None" hides the theme\'s loop and poster with the SAME switch the he
 
 /* ── 3 · THE PANEL IS ONE LIST OF FOUR ───────────────────────────────────── */
 
-test('3 · the Maker offers the theme\'s own · same as my hero · Upload media · None — every one tappable', () => {
+test('3 · the Maker offers a moving background ◆ · same as my hero · Upload media · Just the colour — every one tappable', () => {
+  // 🎞 2026-10-05 (DECISION_LOG "THEMES ARE REPLACED BY THREE DIRECT GLOBAL
+  // SETTINGS"): "the theme's own" became MOVING BACKGROUNDS — every shipped
+  // loop in ONE dropdown, picked on its own, never the theme's fonts/colours.
   const panel = read(PANEL);
   const comp = panel.slice(panel.indexOf('export function MainBackgroundPanel'));
-  for (const source of ['theme', 'hero', 'own', 'none']) {
-    assert.match(comp, new RegExp(`'data-main-ground-source': '${source}'`), `the ${source} choice is drawn`);
+  // 🧭 ONE DROPDOWN since 2026-10-06 (controller sweep; owner rule "any set of choices is a dropdown"):
+  // every loop under "Moving background", then Same as my hero · Upload media, then Just the colour.
+  assert.match(comp, /<PickMenu\s+label="Behind every scene"[\s\S]*?options=\{\[\s*\.\.\.loops\.map\(/, 'the choices are not ONE dropdown');
+  for (const key of ['src:hero', 'src:media', 'src:none']) {
+    assert.match(comp, new RegExp(`key: '${key}'`), `the ${key} choice is not a row of the dropdown`);
   }
-  // 🎞 By a name you can picture (owner 2026-09-29, OWNER ANSWERS (11)) — "Luxe chandeliers".
-  assert.match(comp, /label=\{themeBackgroundName\(themeId\)\}/, 'the theme\'s background is not named by its picture-able name');
-  assert.match(comp, /label="None — just the colour"/);
-  assert.match(comp, /save\(\{ ground: 'theme' \}/, 'the theme\'s own is a stored choice');
+  assert.match(comp, /group: 'Moving background'/);
+  assert.doesNotMatch(comp, /<Choice\s+on=\{choice === '(hero|media|none)'\}/, 'a background choice is a button again (a pill stack)');
+  // 🎞 By a name you can picture (owner 2026-09-29, OWNER ANSWERS (11)) — "Luxe chandeliers", built on the server.
+  const page = read('app/dashboard/[eventId]/website/editor/page.tsx');
+  assert.match(page, /loops=\{hubMovingBackgroundIds\(\)\.map\(\(id\) => \(\{\s*id,\s*name: themeBackgroundName\(id\),/, 'a loop is not named by its picture-able name');
+  assert.match(comp, /label: 'Just the colour'/);
+  // The page's own loop stays the stored choice it always was (nothing a couple had becomes a charge); any other is a loop of ours.
+  assert.match(comp, /id === themeId \? \{ ground: 'theme' \} : \{ ground: 'loop', loop: id \}/, 'a loop pick is not a stored choice');
   assert.match(comp, /save\(\{ ground: 'none' \}/, 'none is a stored choice — the loop can be turned off');
   // The loop is never forced: only "Same as my hero" can be unavailable (no hero photo), never None or Upload.
-  const noneBtn = comp.slice(comp.indexOf("'data-main-ground-source': 'none'") - 200, comp.indexOf("'data-main-ground-source': 'none'"));
-  assert.match(noneBtn, /disabled=\{pending\}/, 'None is always available');
+  const noneRow = comp.slice(comp.indexOf("key: 'src:none'"), comp.indexOf("key: 'src:none'") + 120);
+  assert.ok(noneRow.length > 20 && !/disabledNote/.test(noneRow), 'None is always available');
+  const uploadRow = comp.slice(comp.indexOf("key: 'src:media'"), comp.indexOf("key: 'src:none'"));
+  assert.ok(!/disabledNote/.test(uploadRow), 'Upload is always available');
+  assert.doesNotMatch(comp, /Pick another theme/, 'no "go pick a theme" dead end — a couple no longer picks one');
   assert.doesNotMatch(comp, /Your hero is the written invitation card, so .* own background stays behind your scenes/, 'the forced-loop note is gone');
+});
+
+test('3c · a moving background stores ONLY a shipped loop, and the guest page draws it through the one gated mount', async () => {
+  const { sanitizeHubMainGround, hubMovingBackgroundIds, isHubMainLoop } = await import('./hub-canvas');
+  const { INVITE_THEMES } = await import('./invite-themes');
+  const ids = hubMovingBackgroundIds();
+  assert.ok(ids.length >= 9, `anti-vacuity: ${ids.length} loops`);
+  assert.ok(!ids.includes('house'), 'Classic has no loop to offer');
+  for (const id of ids) assert.ok(INVITE_THEMES[id].media, `${id} is offered with no loop`);
+  assert.deepEqual(sanitizeHubMainGround({ ground: 'loop', loop: 'velvet' }), { ground: 'loop', loop: 'velvet' });
+  assert.equal(sanitizeHubMainGround({ ground: 'loop', loop: 'house' }), null, 'a theme with no loop is stored as a loop');
+  assert.equal(sanitizeHubMainGround({ ground: 'loop', loop: 'not-a-theme' }), null);
+  assert.equal(sanitizeHubMainGround({ ground: 'loop' }), null);
+  assert.ok(isHubMainLoop({ ground: 'loop', loop: 'cyber' }) && !isHubMainLoop({ ground: 'theme' }));
+  const layer = read('app/[slug]/_lib/main-ground-layer.tsx');
+  assert.match(layer, /const loop = isHubMainLoop\(main\) \? movingBackground\(main\.loop\) : null;/);
+  // Only the loop is drawn — never the loop theme's fonts or colours: the page's own theme dresses the veil.
+  assert.match(layer, /const adaptive = resolveAdaptiveTheme\(dressedTheme\(theme, event\.role_palette\), mainGround\.tint\);/);
+  assert.match(layer, /tint: \{ match: false, frame: \[media\.samples\.light, media\.samples\.dark\] \}/, 'a loop recolours the page');
+  // The host's canvas tries it before Pro; a guest never passes `tryOn`.
+  assert.match(read('app/[slug]/_components/site-body.tsx'), /tryOn: isEditorCanvas,/);
 });
 
 test('3b · Upload media is the scene picker\'s pictures, the ready-made scenes and the in-place upload', () => {

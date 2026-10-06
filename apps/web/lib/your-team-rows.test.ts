@@ -42,7 +42,7 @@ test('booked + deposit due → Pay, to the deposit card', () => {
   const r = teamRowOf(facts({ status: 'contracted', depositStep: 'due' }), CTX)!;
   assert.equal(r.group, 'booked');
   assert.equal(r.pill.text, 'Booked');
-  assert.equal(r.next, 'pay your first payment');
+  assert.equal(r.next, 'make your first payment');
   assert.deepEqual(r.action, {
     kind: 'pay',
     label: 'Pay',
@@ -195,4 +195,16 @@ test('initials for the logo square', () => {
   assert.equal(initialsOf('Kusina ni Tita'), 'KT');
   assert.equal(initialsOf('DJ'), 'DJ');
   assert.equal(initialsOf('  '), '·');
+});
+
+test('a payment is MADE, never "paid" — no "pay your first payment" on the Suppliers tab', async () => {
+  // Owner, live on maria-and-jose (2026-10-05): "Next: pay your first payment"
+  // → "Next: make your first payment". "Pay … payment" says the verb twice.
+  const { readFileSync, readdirSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const dir = join(process.cwd(), 'app', 'dashboard', '[eventId]', 'vendors', '_components');
+  const files = [join(process.cwd(), 'lib', 'your-team-rows.ts'), ...readdirSync(dir).filter((f) => f.endsWith('.tsx')).map((f) => join(dir, f))];
+  assert.ok(files.length > 5, 'the Suppliers components moved — re-anchor this guard');
+  const offenders = files.filter((f) => /\bpay your first payment\b/i.test(readFileSync(f, 'utf8')));
+  assert.deepEqual(offenders, [], 'say "make your first payment"');
 });

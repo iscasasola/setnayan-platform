@@ -41,6 +41,7 @@
  */
 
 import { createAdminClient } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/server';
 import { requireHostMembership } from '@/lib/host-gate';
 import {
   MARCH_READ_FAILED,
@@ -50,6 +51,7 @@ import {
 } from '@/lib/entourage-write';
 import {
   ENTOURAGE_COLUMNS,
+  MARCH_ROLES,
   entourageLines,
   orderedGroupKeys,
   type EntourageGuestRow,
@@ -113,9 +115,55 @@ export async function swapEntouragePlaces(
   return { ok: true, written: 2 };
 }
 
+/**
+ * 🚶 Into or out of the "Not walking" tray (owner 2026-10-06: *"Just show screen
+ * for those not added or will not walk the isle."*). `walks: false` — they do
+ * not walk (their walk row goes; a walk-mate keeps the walk, alone);
+ * `walks: true` — they walk again, unplaced, until a move places them.
+ *
+ * Read fresh and refused in words: only a person holding a march role, and
+ * never the groom or the bride (they always walk). One SQL call
+ * (`set_march_walking`), which answers 1 only when the person now stands where
+ * asked — a zero-row write is success-shaped, so the count is read, never assumed.
+ * Writes no guest row and no chair.
+ */
+export async function setMarchWalking(eventId: string, guestId: string, walks: boolean): Promise<MarchResult> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('guests')
+    .select('role, extra_roles')
+    .eq('event_id', eventId)
+    .eq('guest_id', guestId)
+    .is('deleted_at', null)
+    .maybeSingle();
+  if (error) return { ok: false, reason: MARCH_READ_FAILED };
+  const g = data as { role: string | null; extra_roles: string[] | null } | null;
+  const roles = g ? [g.role, ...(g.extra_roles ?? [])] : [];
+  if (!g || !roles.some((r) => r && (MARCH_ROLES as readonly string[]).includes(r))) {
+    return { ok: false, reason: 'That person has no part in the march — give them a role on their guest card first.' };
+  }
+  if (!walks && roles.some((r) => r === 'groom' || r === 'bride')) {
+    return { ok: false, reason: 'The couple always walk — they stay in the march.' };
+  }
+  const { data: n, error: rpcError } = await supabase.rpc('set_march_walking', {
+    p_event_id: eventId,
+    p_guest_id: guestId,
+    p_walks: walks,
+  });
+  if (rpcError || n !== 1) return { ok: false, reason: 'That did not go through — nothing was changed.' };
+  await revalidateMarch(eventId);
+  return { ok: true, written: 1 };
+}
+
 /* ── SECTIONS ──────────────────────────────────────────────────────────────
  * ⚖ Owner 2026-09-21: *"we should be able to arrange the parents, immediate
  * family and other roles and modify its sequence."*
+ *
+ * 🚶 2026-10-06: the march maker moves a whole section by dragging its HEADER
+ * (`lib/march-drag.ts` `planSectionDrop` — one `moveEntourageSection` step per
+ * place it passes, the same rule `nextSectionOrder` the server asks), and puts
+ * the built-in order back with one line ("Default order") → `resetEntourageSections`.
+ * (The walking-order panel that first called these was retired that day.)
  *
  * The order is one per-event value, `events.entourage_section_order`, read by
  * the invitation through `orderedGroupKeys`. It is written with the admin

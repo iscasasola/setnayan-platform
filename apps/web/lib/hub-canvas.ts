@@ -38,6 +38,7 @@
  */
 
 import { siteMediaServeRef } from '@/lib/site-media-ref';
+import { INVITE_THEME_IDS, INVITE_THEMES, isInviteThemeId, type InviteThemeId } from '@/lib/invite-themes';
 import { hubAutoSpeed, hubTransition, type HubAutoSpeed, type HubTransition } from '@/lib/hub-scenes';
 import { SCENE_MAX_SLOTS, sceneTemplateId, type SceneTemplateId } from '@/lib/scene-templates';
 import { sanitizeSceneStyleId } from '@/lib/scene-style-id';
@@ -1278,7 +1279,24 @@ export type HubMainOwn = {
  *   · `none`  — NO picture and NO loop: just the Background colour.
  * Both are free (taking media down never costs anything).
  */
-export type HubMainChoice = { ground: 'theme' | 'none' };
+export type HubMainChoice = { ground: 'theme' | 'none' } | HubMainLoop;
+
+/**
+ * 🎞 A MOVING BACKGROUND — one of Setnayan's own animated loops, picked on its
+ * own (owner 2026-10-05, DECISION_LOG "THEMES ARE REPLACED BY THREE DIRECT
+ * GLOBAL SETTINGS": *"we already have the background and will just add the
+ * animated background as an additional option"*). `loop` names the shipped
+ * theme whose loop it is (`INVITE_THEMES[loop].media`) — ONLY the loop: the
+ * fonts and colours stay the couple's own. Event Hub Pro (◆, *"pick our
+ * animated loop background"* is paid): tried free in the draft, asked at Apply,
+ * drawn for guests only while the event owns Event Hub Pro.
+ */
+export type HubMainLoop = { ground: 'loop'; loop: InviteThemeId };
+
+/** The themes whose loop may be picked as a moving background — every shipped theme that has one, in THE one theme order (`INVITE_THEME_IDS`). */
+export function hubMovingBackgroundIds(): InviteThemeId[] {
+  return INVITE_THEME_IDS.filter((id) => INVITE_THEMES[id].media !== null && INVITE_THEMES[id].ready);
+}
 
 export type HubMainGround = HubMainFollow | HubMainOwn | HubMainChoice;
 
@@ -1296,6 +1314,11 @@ export function isHubMainChoice(m: HubMainGround | null | undefined): m is HubMa
   return Boolean(m && 'ground' in m);
 }
 
+/** A moving background of our own (`{ ground: 'loop', loop }`). */
+export function isHubMainLoop(m: HubMainGround | null | undefined): m is HubMainLoop {
+  return Boolean(m && 'ground' in m && m.ground === 'loop');
+}
+
 /** Anything → a Main background, or null. Drops rather than repairs. */
 export function sanitizeHubMainGround(raw: unknown): HubMainGround | null {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
@@ -1306,6 +1329,12 @@ export function sanitizeHubMainGround(raw: unknown): HubMainGround | null {
     return of && tint ? { follow: 'hero', of, tint } : null;
   }
   if (src.ground === 'theme' || src.ground === 'none') return { ground: src.ground };
+  if (src.ground === 'loop') {
+    // Only a shipped theme that HAS a loop — anything else is dropped, never guessed.
+    return isInviteThemeId(src.loop) && INVITE_THEMES[src.loop].media && INVITE_THEMES[src.loop].ready
+      ? { ground: 'loop', loop: src.loop }
+      : null;
+  }
   const media = hubMediaRef(src.media);
   if (!media || (src.kind !== 'photo' && src.kind !== 'snippet')) return null;
   const out: HubMainOwn = { kind: src.kind, media };

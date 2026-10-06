@@ -26,6 +26,7 @@ import { makerStageList, MAKER_FIXED_LABEL, type MakerFixedKey, type MakerStageI
 import {
   canvasKeyOfSelection,
   fixedScenePanel,
+  MAKER_FIXED_IN_PLACE,
   selectionForCanvasKey,
   selectionForTile,
   tileIsSelected,
@@ -124,9 +125,16 @@ test('1 · the navigator lists EVERY scene the canvas binds, in canvas order', (
   console.log(`  canvas binds ${bound.length} · navigator lists ${rows.length}`);
   assert.equal(rows.length, bound.length, 'the navigator must list as many scenes as the canvas binds');
   assert.deepEqual(rows.map((r) => r.key), bound, 'in the canvas order');
-  // the tabs are HEADERS: each tab that holds scenes heads its first one, once
+  // the tabs are HEADERS: every RUN of one tab's scenes is headed by that tab
+  // (owner 2026-10-05 — a tab the list comes back to is headed again, so the
+  // Invitation's Details resumes under "Details" after Our Love Story, never
+  // under "Story")
   const headers = rows.filter((r) => r.header).map((r) => r.header!.label);
-  assert.deepEqual(headers, tabs.filter((t) => t.tiles.length > 0).map((t) => t.label));
+  const runs = keys
+    .map((k) => tabs.find((t) => t.tiles.includes(k))!.label)
+    .filter((label, i, all) => i === 0 || all[i - 1] !== label);
+  assert.deepEqual(headers, runs);
+  for (const t of tabs.filter((tab) => tab.tiles.length > 0)) assert.ok(headers.includes(t.label), `${t.label} heads its scenes`);
 });
 
 test('1 · SOURCE: the shell draws every row — no tab filter survives', () => {
@@ -149,7 +157,8 @@ test('2 · a navigator tap sets the selection, and every selection opens a panel
   }
   for (const k of Object.keys(MAKER_FIXED_LABEL) as MakerFixedKey[]) {
     const p = fixedScenePanel(k);
-    assert.ok(p.line.trim().length > 0, `${k}: the panel has no line`);
+    // ✋ A scene edited in place (the names and date, owner 2026-10-05) carries no line — its parts are styled from the page.
+    if (!MAKER_FIXED_IN_PLACE.includes(k)) assert.ok(p.line.trim().length > 0, `${k}: the panel has no line`);
     assert.ok(p.tool || p.source, `${k}: the panel offers neither a workspace nor where its content comes from`);
   }
   // SOURCE: the tile's tap goes through the one mapper, and the inspector draws the fixed panel
@@ -192,19 +201,16 @@ test('🛑 a tap only SELECTS — no tile or canvas tap leaves the stage (owner:
   for (const h of handlers) {
     assert.doesNotMatch(h, /kind: 'tool'|setStage|router\.|location\.|window\.open/, `a navigator tap leaves the stage: ${h.trim().slice(0, 80)}`);
   }
-  // The ONE way out is the panel's own button, in the owner's words.
+  // 🧰 NO WAY OUT AT ALL (owner 2026-10-05: *"each scene and setting must be
+  // there and not links. editing should be on the actual tool thirds"*): a
+  // fixed scene's editor is drawn IN its panel — the Reveal's controls, Post
+  // Event's rows, the Love Story's fact — and no "Open … editor" button is left.
   const hero = fixedScenePanel('hero');
-  assert.equal(hero.line, 'This scene is made in the Hero editor.');
-  assert.equal(hero.button, 'Open Hero editor');
-  assert.equal(fixedScenePanel('story').button, 'Open Love Story editor');
-  assert.equal(fixedScenePanel('entourage').button, null, 'the entourage has no editor — it says where it comes from');
-  // ONE deliberate button opens a page: "Open … editor". The Main panel's
-  // "Change in Details" beside the theme's name is gone (owner 2026-10-02,
-  // tracker f40): the theme, background, font and colours are all the
-  // toolbar's Look now (`lib/maker-look-sections.ts`) — never a link to it.
-  assert.equal((SHELL.match(/onOpenTool\(/g) ?? []).length, 1, 'a new path opens a page');
+  assert.equal(hero.line, '');
+  assert.equal('button' in hero, false, 'a fixed panel offers a go-elsewhere button again');
+  assert.doesNotMatch(SHELL, /onOpenTool\(|data-maker-open-editor/, 'an "Open … editor" button is back in the scene sheet');
+  assert.match(SHELL, /f\.tool === 'reveal'\s*\? \(madeOnce\?\.reveal \?\? null\)/, 'the Reveal is not edited in place');
   assert.doesNotMatch(SHELL, /<ThemePanel\b/, 'the 🎨 panel links out to the theme again');
-  assert.match(SHELL, /data-maker-open-editor=\{f\.tool\}\s+onClick=\{\(\) => onOpenTool\(f\.tool!\)\}/);
 });
 
 test('D · the desktop column never scrolls sideways — its ⓘ bubbles are held to its width', () => {
@@ -212,7 +218,8 @@ test('D · the desktop column never scrolls sideways — its ⓘ bubbles are hel
   // 314px of scrollable width (each closed bubble is 18rem), and focus or
   // scrollIntoView slid it left, clipping every label. With it: 168 = 168.
   // (a template since 2026-10-05: the phone strip's own rule, `MAKER_STRIP_PHONE`, leads it)
-  const ol = /<ol ref=\{setNavList\} className=(?:"([^"]+)"|\{`([^`]+)`\})/.exec(SHELL)?.slice(1).find(Boolean);
+  // (its ref is the desktop's since 2026-10-05 — on a phone the tiles are the lower third's, `IntoLowerThird`)
+  const ol = /<ol ref=\{ltNav \? undefined : setNavList\} className=(?:"([^"]+)"|\{`([^`]+)`\})/.exec(SHELL)?.slice(1).find(Boolean);
   assert.ok(ol, 'the navigator list moved — re-anchor this test');
   assert.match(ol, /lg:overflow-x-hidden/);
   assert.match(ol, /lg:\[&_\.sn-tip\]:max-w-\[calc\(var\(--maker-nav-w\)-2rem\)\]/, 'a tooltip wider than the column makes it scroll sideways');

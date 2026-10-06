@@ -3062,6 +3062,7 @@ html.dark {
     display: inline-flex;
     align-items: baseline;
     gap: 0.6em;
+    max-width: 100%;
   }
   /* The № numeral and the ✦ star — decorative by construction (they are
      aria-hidden, so a screen reader never reads them) and therefore free to
@@ -3069,6 +3070,16 @@ html.dark {
   .sn-editorial .pahina-eyebrow > [aria-hidden='true'] {
     color: rgb(var(--color-gild));
   }
+  /* 🔤 THE WORDS TAKE THE WIDTH THEY NEED; THE RULE GIVES WAY (owner, live at
+     375 px 2026-10-06: "E- / GIFTS", "OUR / LOVE / STORY", "A NOTE / FROM US").
+     MEASURED in the Maker lab at 375: an eyebrow box sized itself to its words
+     alone (a flex-basis counts for nothing in the box's own width), then the
+     rule — 3.5rem that could not shrink — took that room from the words, so
+     "Our love story" stood one word a line and "E-Gifts" broke at its hyphen,
+     in a 327 px column. Now the rule is a WIDTH (so the box counts it) that
+     shrinks to nothing first, and the words never shrink: they wrap only past
+     the column's own width (`max-width`), and then at a space.
+     `lib/an-eyebrow-keeps-its-words.test.ts` holds it. */
   /* `--pahina-rule-len` is themed (Event Hub themes, 2026-09-22); the fallback
      IS today's value. ⚠ THIS NOTE IS OUTSIDE THE RULE ON PURPOSE —
      `the-invitation-tells-the-truth.test.ts` asserts `--color-gild` appears
@@ -3076,10 +3087,16 @@ html.dark {
      braces pushes it past that window. Keep prose about this rule out here. */
   .sn-editorial .pahina-eyebrow::after {
     content: '';
-    flex: 0 0 var(--pahina-rule-len, 3.5rem);
+    flex: 0 1 auto;
     height: 1px;
     align-self: center;
     background: rgb(var(--color-gild) / 0.55);
+    width: var(--pahina-rule-len, 3.5rem);
+    min-width: 0;
+  }
+  .sn-editorial .pahina-eyebrow > span:not([aria-hidden='true']) {
+    flex: 0 0 auto;
+    max-width: 100%;
   }
   .sn-editorial .pahina-plate {
     /* 🔴 owner 2026-09-25 bg-colour fix, found by screenshot: a plate keeps
@@ -4207,6 +4224,31 @@ html.dark {
 [data-hub-btn-paint] .button-primary:hover,
 [data-hub-btn-paint] [data-arrival-action] a.bg-mulberry:hover {
   background-color: var(--hub-btn-hover);
+}
+/* 🔘 THE TAPPED ANSWER FILLS, THE OTHER GOES PLAIN (owner 2026-10-06, DECISION_LOG
+   '"WHEN YES" GETS A CELEBRATION (PRO)': "the tapped answer fills with the Look ›
+   Buttons colour, the other goes plain — no separate colour setting"). With no
+   Buttons choice the picked answer wears the page's OWN button pair — the one an
+   unpainted `.button-primary` ("Send my reply") wears, never a stray ink — and on
+   a door that carries the couple's action colour, that colour. A host's Buttons
+   choice (`[data-hub-btn-paint]`, below) still wins: same weight, later.
+   Once an answer is picked, the other one is a plain outline. */
+.rsvp-form [data-rsvp-answer]:has(:checked) {
+  background-color: rgb(var(--color-mulberry));
+  color: rgb(var(--color-cream));
+  --tw-ring-color: rgb(var(--color-mulberry));
+}
+:where([data-door-action]) .rsvp-form [data-rsvp-answer]:has(:checked) {
+  background-color: var(--door-action);
+  color: var(--door-action-label);
+  --tw-ring-color: var(--door-action);
+}
+.rsvp-form fieldset:has(:checked) [data-rsvp-answer]:not(:has(:checked)) {
+  background-color: transparent;
+  color: rgb(var(--color-ink) / 0.7);
+  /* One plain outline for every answer style — the reply card's ring and the
+     question style's tinted pill (which has no ring) alike. */
+  box-shadow: inset 0 0 0 1.5px rgb(var(--color-ink) / 0.3);
 }
 [data-hub-btn-paint] [data-rsvp-answer]:has(:checked) {
   background-color: var(--hub-btn-solid);

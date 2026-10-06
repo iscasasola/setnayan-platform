@@ -12,6 +12,7 @@ import { HUB_ELEMENT_LABEL, withElementChoice, type HubElementKey } from '@/lib/
 import { HUB_FORMAT_DEFAULT } from '@/lib/hub-date-formats';
 import { formatChoices, formatWords, isTypeCaretPart, withTypedFormat, withTypedWords, wordingLines } from '@/lib/type-in-place';
 import { PickMenu } from './pick-menu';
+import { IRow } from './inspector-kit';
 import { elementPreview, refusedChoiceWords } from './element-preview';
 import type { ElementDraftAction } from './element-sheet';
 import type { TypeStart } from '@/lib/hub-part-words';
@@ -73,6 +74,24 @@ import { nameStyleDraftPatch } from '@/lib/name-style-save';
  * part's own sheet; Hide is that part's own show/hide on its scene's canvas.
  */
 type TypeSession = TypeStart;
+/** The fields this bar writes on a part — a refusal puts back only these. */
+const TYPE_BAR_FIELDS = ['word', 'format', 'hidden'] as const;
+/** `now`, with `el`'s own fields (`TYPE_BAR_FIELDS`) as `from` has them. */
+function withOwnFieldsFrom(now: HubSectionCanvas, from: HubSectionCanvas, el: HubElementKey): HubSectionCanvas {
+  const part: Record<string, unknown> = { ...(now.elements?.[el] ?? {}) };
+  const was = (from.elements?.[el] ?? {}) as Record<string, unknown>;
+  for (const f of TYPE_BAR_FIELDS) {
+    if (was[f] === undefined) delete part[f];
+    else part[f] = was[f];
+  }
+  const elements = { ...(now.elements ?? {}) } as Record<string, unknown>;
+  if (Object.keys(part).length) elements[el] = part;
+  else delete elements[el];
+  const next: HubSectionCanvas = { ...now };
+  if (Object.keys(elements).length) next.elements = elements as HubSectionCanvas['elements'];
+  else delete next.elements;
+  return next;
+}
 /** The draft save every change the bar makes goes through — the hero's canvas, or the names. */
 async function saveDraft(draftAction: ElementDraftAction, eventId: string, patch: HubDraftPatch) {
   const fd = new FormData();
@@ -110,6 +129,14 @@ export type TypeBarProps = {
   onSaving: (widgetType: string, canvas: HubSectionCanvas) => void;
   onStyle: () => void;
   onClose: () => void;
+  /**
+   * 🧰 A PHONE: no floating bar (owner 2026-10-05, the lower third approved —
+   * one tap on a part opens ITS tools). The bar's rows are drawn INSIDE the
+   * part's own Text tools, in `slot` (null while another tab is on — the bar
+   * stays mounted, so every keystroke is still heard and written). Style is
+   * the tools themselves, Hide is Arrange's row, Done is the column's ×.
+   */
+  inline?: { slot: HTMLElement | null } | null;
 };
 
 export function TypeBar(p: TypeBarProps) {
@@ -143,14 +170,16 @@ export function TypeBar(p: TypeBarProps) {
       if (e.key === 'Escape') closeRef.current();
     };
     /* A tap outside the bar and outside a list it opened closes it (a tap in
-       the canvas is the canvas's own — `edit`, or a new `type`). */
+       the canvas is the canvas's own — `edit`, or a new `type`). Inline (a
+       phone), the bar lives as long as the part's tools it sits in. */
     const onDown = (e: PointerEvent) => {
       const t = e.target as Element | null;
       if (!t?.closest?.('[data-type-bar], [role="listbox"]')) closeRef.current();
     };
+    const inline = Boolean(p.inline);
     window.addEventListener('message', onMessage);
     window.addEventListener('keydown', onKey);
-    window.addEventListener('pointerdown', onDown, true);
+    if (!inline) window.addEventListener('pointerdown', onDown, true);
     // Letters typed while this bar loaded: the canvas says the words as they are now.
     from?.postMessage({ source: 'setnayan-editor', t: 'typeSync' }, origin);
     return () => {
@@ -250,8 +279,10 @@ export function TypeBar(p: TypeBarProps) {
         saved.current = next;
       },
       (reason) => {
-        /* ↩ Refused: the page, the Maker's copy and the hold go back — and it is said. */
-        const back = saved.current;
+        /* ↩ Refused: the page, the Maker's copy and the hold go back — and it is said.
+           Only what THIS bar writes (the part's words, format, show/hide) goes
+           back: a pick the part's tools made beside it (a phone) is kept. */
+        const back = withOwnFieldsFrom(draftedCanvasOr('hero', props.current.heroCanvas), saved.current, el);
         noteDraftedCanvas('hero', back, props.current.heroCanvas);
         props.current.onSaving('hero', back);
         lay(next, back, null);
@@ -517,13 +548,64 @@ export function TypeBar(p: TypeBarProps) {
     const r = session.rect;
     const partTop = box.top + r.top * box.scale;
     const partBottom = partTop + r.height * box.scale;
-    let top = partTop - h - 8;
-    if (top < vTop + 4) top = Math.min(partBottom + 8, vTop + vH - h - 4);
+    /* 🧰 On a phone the bar sits in the LOWER THIRD (owner 2026-10-05: "all tools
+       can only reside on the thumb area") — the foot of what is visible, just
+       above the keyboard — never over the page. A desktop keeps it by the words. */
+    const onPhone = window.innerWidth < 1024;
+    let top = onPhone ? vTop + vH - h - 6 : partTop - h - 8;
+    if (!onPhone && top < vTop + 4) top = Math.min(partBottom + 8, vTop + vH - h - 4);
     const mid = box.left + (r.left + r.width / 2) * box.scale;
-    const left = Math.max(8, Math.min(window.innerWidth - w - 8, mid - w / 2));
+    const left = onPhone ? 8 : Math.max(8, Math.min(window.innerWidth - w - 8, mid - w / 2));
     setAt((prev) => (prev && prev.top === top && prev.left === left ? prev : { top, left }));
   }, [session.rect, session.vw, session.source, tick]);
 
+  /* 🧰 A PHONE: the rows, inside the part's own Text tools — never over the page. */
+  if (p.inline) {
+    if (!p.inline.slot) return null;
+    return createPortal(
+      <div role="group" aria-label={`${field ? SCENE_FIELD_LABEL[field] : HUB_ELEMENT_LABEL[el]} — words`} data-type-bar={el} data-type-bar-inline="">
+        {nameChoices.length > 0 ? (
+          <IRow label="Wording" data="type-wording">
+            <PickMenu
+              label={`${HUB_ELEMENT_LABEL[el]} — name style`}
+              dataAttr="data-type-wording"
+              value={nameStyle}
+              options={nameChoices.map((c) => ({ key: c.key, label: c.example, hint: c.label }))}
+              onPick={pickNameStyle}
+            />
+          </IRow>
+        ) : lines.length > 0 ? (
+          <IRow label="Wording" data="type-wording">
+            <PickMenu
+              label={`${HUB_ELEMENT_LABEL[el]} — wording`}
+              dataAttr="data-type-wording"
+              value={words(current) || null}
+              buttonText={lines.includes(words(current)) ? undefined : 'Choose a line'}
+              options={lines.map((line, i) => ({ key: line, label: line, ...(i === 0 ? { hint: 'Automatic' } : {}) }))}
+              onPick={pickLine}
+            />
+          </IRow>
+        ) : null}
+        {formats.length > 0 ? (
+          <IRow label="Format" data="type-format">
+            <PickMenu
+              label={`${HUB_ELEMENT_LABEL[el]} — format`}
+              dataAttr="data-type-format"
+              value={style.format ?? HUB_FORMAT_DEFAULT}
+              options={formats}
+              onPick={pickFormat}
+            />
+          </IRow>
+        ) : null}
+        {error ? (
+          <p role="alert" className="py-2 text-[12px] font-semibold text-terracotta-700">
+            {error}
+          </p>
+        ) : null}
+      </div>,
+      p.inline.slot,
+    );
+  }
   const phone = typeof window !== 'undefined' && window.innerWidth < 1024;
   /* Portalled to <body>: a glass ancestor (`backdrop-filter`) would become the
      box `position: fixed` is measured from (PickMenu's own rule). */

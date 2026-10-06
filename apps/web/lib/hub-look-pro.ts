@@ -135,7 +135,10 @@ export function siteLookChange(
 ): LookChange {
   const candle = (v: string | null) => (v === 'candlelight' ? v : null);
   const changes: LookChange[] = [];
-  if (next.font !== undefined) changes.push(refChange(stored.font, next.font));
+  // 🔤 The font is FREE since 2026-10-05 ("Colors, and Fonts are all free") —
+  // carried in the signature so every caller keeps passing it, never compared.
+  void stored.font;
+  void next.font;
   if (next.magic !== undefined) changes.push(refChange(stored.magic, next.magic));
   if (next.art !== null) changes.push(refChange(candle(stored.art), candle(next.art)));
   return combineChanges(...changes);
@@ -227,8 +230,12 @@ export const HUB_CANVAS_LOOK_KEYS = [
  * `lib/free-vs-pro-redrawn.test.ts`, so a new field has to be placed on one side
  * on purpose rather than drifting to whichever the comparison forgot.
  */
-export const HUB_ELEMENT_PRO_FIELDS = ['font', 'motion'] as const;
+/* 🔤 FONT ON A SINGLE PART IS FREE (owner 2026-10-06, DECISION_LOG "EVENT DETAILS
+   IS REBUILT": *"font on a single part is FREE too"*) — like the page's own font
+   (2026-10-05). Only a part's MOTION stays Pro. */
+export const HUB_ELEMENT_PRO_FIELDS = ['motion'] as const;
 export const HUB_ELEMENT_FREE_FIELDS = [
+  'font',
   'color',
   'size',
   'weight',
@@ -242,8 +249,8 @@ export const HUB_ELEMENT_FREE_FIELDS = [
   // 🗓 How the date and the time are written (Format ▾, tap-to-type) — words, free.
   'format',
 ] as const;
-/** A run's own fields: only its font is Pro. */
-export const HUB_RUN_PRO_FIELDS = ['font'] as const;
+/** A run's own fields: none is Pro since 2026-10-06 (a run's font is free, like the part's). */
+export const HUB_RUN_PRO_FIELDS = [] as const;
 
 /** The motion subset — what "Reset how it moves" takes off. */
 export const HUB_CANVAS_MOTION_KEYS = [
@@ -283,7 +290,6 @@ export const HUB_LOOK_EVENT_COLUMNS = [
   'our_photos',
   'site_bg_music_r2_key',
   'rsvp_backdrop',
-  'site_font_key',
   'site_magic_traveller',
   'site_art_direction',
   'std_background',
@@ -319,8 +325,11 @@ export const HUB_WORDS_EVENT_COLUMNS = [
  * it be pro"* — the button colour joins it). A colour is not media — it is the
  * page we write, recoloured. 🔘 And Look › Buttons' shape + fill (2026-10-04,
  * `site_button_style`): a button's shape is design, which that same line frees.
+ * 🔤 And the FONT (owner 2026-10-05, DECISION_LOG "THEMES ARE REPLACED BY
+ * THREE DIRECT GLOBAL SETTINGS": *"Colors, and Fonts are all free"*): the
+ * paid tier is media and our moving backgrounds, never type.
  */
-export const HUB_FREE_LOOK_EVENT_COLUMNS = ['site_bg_color', 'site_button_color', 'site_button_style'] as const;
+export const HUB_FREE_LOOK_EVENT_COLUMNS = ['site_bg_color', 'site_button_color', 'site_button_style', 'site_font_key'] as const;
 
 /** Is this `events` column the page's look (Pro), a free colour, or words? */
 export function hubColumnKind(column: string): 'look' | 'free-look' | 'words' | 'other' {

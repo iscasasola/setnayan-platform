@@ -20,6 +20,7 @@ import { NotSharedWithYou } from '../_components/not-shared-with-you';
 import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
 
 import { getCurrentUser } from '@/lib/auth';
+import { startRead } from '@/lib/start-read';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { storeShellAllowsPaidFeature } from '@/lib/store-shell';
 import { createClient } from '@/lib/supabase/server';
@@ -214,6 +215,9 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     : 'shortlist';
   const user = await getCurrentUser();
   if (!user) redirect('/login');
+  // Read by the review-badge read, a function declaration that is STARTED early
+  // (see "STARTS AT ONCE") — TypeScript does not carry the narrowing above into it.
+  const viewerId = user.id;
 
   // Event-type backstop (0053): the vendor bench is the MARKETPLACE, and
   // `marketplace_enabled = false` is the column that encodes a vendor-free type.
@@ -344,6 +348,71 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     ? Math.round((new Date(eventDate).getTime() - Date.now()) / 86_400_000)
     : null;
 
+  // ─── EVERY INDEPENDENT READ BELOW STARTS AT ONCE ─────────────────────────
+  // ⚡ Owner 2026-10-05, live on maria-and-jose at 375 px: Suppliers sat on
+  // "Opening your suppliers" for ~6 s. Measured on prod the same day: the page's
+  // server payload took 1.3–2.2 s against ~0.9 s for Guests and ~1.0 s for
+  // Home, because after the gates above it waited on ~25 database trips ONE
+  // AFTER ANOTHER — the paywall flag, the store-shell check, the taxonomy, the
+  // plan-group scope, the build picks, the deposits, the review badges, the
+  // bench pins, the live headcount, the saved requests, the category
+  // decisions (three times), the unread counts and the saved plans — though
+  // none of them needs another's answer.
+  // Each is STARTED here (`startRead`) and awaited at the SAME place it always
+  // was, so every graceful-degrade branch below reads exactly as before; only
+  // the waiting overlaps. A read that needs an earlier answer (the same-date
+  // holds need the picks' marketplace ids; the standings need the bench) stays
+  // where it is.
+  // 🔒 Every read here starts AFTER the gates above: the delegate refusal, the
+  // review sweep, and the refused-team-read return.
+  // ⚠ ADD A NEW INDEPENDENT READ HERE AS ANOTHER STARTED PROMISE — a plain
+  // `await` further down puts a whole database trip back in front of the page
+  // (`suppliers-opens-fast.test.ts`).
+  const paywallRead = startRead(resolveSetnayanAiPaywallEnabled());
+  const storeShellRead = startRead(isStoreShellRequest());
+  const taxonomyRead = startRead(getTaxonomy());
+  const planGroupScopeRead = startRead(fetchPlanGroupScope(supabase));
+  const buildPicksRead = startRead(
+    supabase.from('event_build_picks').select('plan_group_id, vendor_id').eq('event_id', eventId),
+  );
+  const benchPinsRead = startRead(
+    supabase.from('event_bench_arrangement').select('tile, vendor_id, position').eq('event_id', eventId),
+  );
+  const allocationInputsRead =
+    ev?.estimated_budget_centavos != null || (ev?.budget_band != null && ev?.estimated_pax != null)
+      ? startRead(resolveAllocationInputs(supabase, eventId))
+      : null;
+  const livePaxRead = startRead(resolveLivePax(supabase, eventId));
+  const eventPrefsRead = startRead(getEventPreferences(supabase, eventId));
+  const unreadChatsRead = startRead(readUnreadChatCountsByThread(supabase, user.id));
+  const savedBuildsRead = isBudgetBuildEnabled()
+    ? startRead(
+        supabase
+          .from('budget_builds')
+          // created_at feeds the named-builds (BUILD_3STATE_ENABLED) column ordering;
+          // the .order('label') keeps the legacy A/B/C order untouched (named
+          // rows have label NULL → sorted client-side by sortSavedBuilds).
+          .select('build_id, label, title, budget_php, total_php, snapshot, created_at')
+          .eq('event_id', eventId)
+          .order('label'),
+      )
+    : null;
+  const decidedGroupsRead = isExploreReplanEnabled()
+    ? startRead(
+        supabase
+          .from('event_category_decisions')
+          .select('plan_group_id, tile')
+          .eq('event_id', eventId)
+          .in('decision', ['excluded', 'complete']),
+      )
+    : null;
+  // The four blocks below are declared further down, where their reasons are
+  // written; they are function declarations, so they can be STARTED here.
+  const depositStepsRead = startRead(readDepositSteps());
+  const reviewStatusRead = startRead(readReviewStatus());
+  const coveredTilesRead = startRead(readCoveredTiles());
+  const excludedTilesRead = startRead(readExcludedTiles());
+
   // Coordinator "propose a lock" (spec § 4) — pending proposals for the couple
   // to confirm. Only the couple sees the confirm strip (the money-adjacent
   // decision is theirs), and the whole mechanic is flag-gated. The page admits
@@ -466,7 +535,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // neither, so the no-budget path issues the queries it always did.
   if (ev?.estimated_budget_centavos != null || (ev?.budget_band != null && ev?.estimated_pax != null)) {
     try {
-      const alloc = await resolveAllocationInputs(supabase, eventId);
+      const alloc = await allocationInputsRead!;
       // Same explicit opt-in as the category-search overlay, so the page's %
       // and the overlay's % can never disagree about this couple's budget.
       const searchBudgetPhp = alloc.budgetPhp ?? alloc.estimatedBudgetPhp;
@@ -901,6 +970,11 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       cost_basis_pax: v.cost_basis_pax ?? null,
     };
   });
+  // ⚡ Started as soon as its one input exists, so it runs beside the
+  // same-date reads below instead of after them (see the "STARTS AT ONCE" block).
+  const marketPoolRead = startRead(
+    fetchActiveCategoryMarketPool(vendorRows, ev?.ceremony_type ?? null, ev?.venue_setting ?? null),
+  );
 
   // DIY parity (owner doctrine 2026-06-11): a manual vendor's host-authored
   // "also covers" links render through the SAME linked-services chips the
@@ -1090,11 +1164,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // Replace with the REAL count of marketplace-published vendors (verified +
   // coming_soon — what couples actually browse) across the couple's ACTIVE
   // categories. 0 on any failure → the recap shows 0, never fabricated.
-  const marketPoolCount = await fetchActiveCategoryMarketPool(
-    vendorRows,
-    ev?.ceremony_type ?? null,
-    ev?.venue_setting ?? null,
-  );
+  const marketPoolCount = await marketPoolRead;
 
   // Setnayan AI gate — an ENTITLEMENT STATE, not a toggle (owner 2026-07-15,
   // DECISION_LOG): the Merkado's per-surface Manual switch (SummaryAiToggle) is
@@ -1109,9 +1179,9 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // back; Your info › Plan it myself is that control now, for every host.
   // Paywall flag is DB-first/env-fallback (Integration Activation Console);
   // resolved once and threaded into both gates on this surface.
-  const paywallEnabled = await resolveSetnayanAiPaywallEnabled();
+  const paywallEnabled = await paywallRead;
   const aiGateOpts = { paywallEnabled };
-  const storeShell = await isStoreShellRequest();
+  const storeShell = await storeShellRead;
   // 🔒 A web-bought Sai does not light up in the App Store / Play Store shell
   // (guideline 3.1.3(b); lib/store-shell.ts) — unless the paywall is off and
   // Sai is free for everyone, in which case it is planning and stays.
@@ -1123,15 +1193,12 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // menus"): the 10 folder labels/order/slugs come from `service_categories`
   // via getTaxonomy(), so an /admin/taxonomy edit flows to every plan-builder
   // tab. Falls back to the TS constants on any read error (resolver-internal).
-  const taxonomy = await getTaxonomy();
+  const taxonomy = await taxonomyRead;
 
   // Build picks (Shortlist "Add to build" / Build "Pin") — plan_group_id →
   // pinned vendor_id. One per category; the model marks the matching pick
   // `isBuildPick` + exposes `buildPickVendorId`. Fails open (no picks) on error.
-  const { data: buildPickRows, error: buildPickRowsError } = await supabase
-    .from('event_build_picks')
-    .select('plan_group_id, vendor_id')
-    .eq('event_id', eventId);
+  const { data: buildPickRows, error: buildPickRowsError } = await buildPicksRead;
   // ⚠ the couple's OWN PICKS per plan group. `?? []` on a refused read makes every
   // ⚠ group look UNPICKED — their choices simply are not there. Same shape as the
   // ⚠ saved plans: not "nothing here", but "you did not choose", said to somebody
@@ -1154,7 +1221,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     // Only this event type's categories (Admin › Event type › Scope categories);
     // a wedding's list is unchanged, a birthday stops seeing Bridal car.
     eventType: ev?.event_type ?? null,
-    planGroupScope: await fetchPlanGroupScope(supabase),
+    planGroupScope: await planGroupScopeRead,
     estimatedBudgetCentavos: ev?.estimated_budget_centavos ?? null,
     daysUntilWedding,
     ceremonyType: ev?.ceremony_type ?? null,
@@ -1217,7 +1284,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // links to the deposit card. Couple's OWN session (RLS: their event). A
   // refused read becomes `unknown` for every row — never `due`, which would tell
   // a couple who already paid to pay again.
-  const depositStepByVendorId = await (async (): Promise<Map<string, DepositStep>> => {
+  const depositStepByVendorId = await depositStepsRead;
+  async function readDepositSteps(): Promise<Map<string, DepositStep>> {
     const m = new Map<string, DepositStep>();
     // ONLY `contracted` — the state the supplier's agree writes. `deposit_paid`
     // is already past it (the printed Locked-QR path promotes there without
@@ -1246,7 +1314,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     );
     for (const id of lockedIds) m.set(id, depositStepOf(byId.get(id) ?? null));
     return m;
-  })();
+  }
 
   // ── Review status badges (PR12: couple post-event review flow) ──────────
   // For completed vendors, determine whether to show "Leave a review" (open
@@ -1257,7 +1325,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // as the cheapest proxy. Window: 30d–365d after events.event_date (server-
   // enforced; the review page also enforces it on submit). Fail-soft: an
   // error here never blocks the page from rendering.
-  const reviewStatusByVendorId = await (async (): Promise<Map<string, VendorReviewStatus>> => {
+  const reviewStatusByVendorId = await reviewStatusRead;
+  async function readReviewStatus(): Promise<Map<string, VendorReviewStatus>> {
     const m = new Map<string, VendorReviewStatus>();
     try {
       // Candidates: any booking linked to a marketplace profile (the direct FK
@@ -1349,7 +1418,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         .from('vendor_reviews')
         .select('vendor_profile_id')
         .eq('event_id', eventId)
-        .eq('couple_user_id', user.id)
+        .eq('couple_user_id', viewerId)
         .in('vendor_profile_id', profileIds);
 
       // ⚠ A REFUSED READ HERE DENIES WORK THE COUPLE ALREADY DID. `?? []` makes
@@ -1380,7 +1449,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       console.error('[vendors] review status fetch failed:', e);
     }
     return m;
-  })();
+  }
 
   // `services` = the legacy plan-group accordion. Still the KILL-SWITCH fallback
   // (BUDGET_BUILD_ENABLED=false → `return services`) and the Summary/Build/Lock
@@ -1599,10 +1668,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // delete rows the couple cannot see.
   const benchArrangement: Record<string, { vendorId: string; position: number }[]> = {};
   {
-    const { data: pinRows, error: pinError } = await supabase
-      .from('event_bench_arrangement')
-      .select('tile, vendor_id, position')
-      .eq('event_id', eventId);
+    const { data: pinRows, error: pinError } = await benchPinsRead;
     if (pinError) {
       // A refused read and an empty table look identical through this API — say
       // which one this was, in the log, rather than letting the bench imply the
@@ -1738,7 +1804,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         nowMs: Date.now(),
         // One headcount for the whole bench — each card compares it with the
         // count that supplier was asked with ("Guest count changed", SUP-2).
-        livePax: await resolveLivePax(supabase, eventId),
+        livePax: await livePaxRead,
         vendors: contactable.map((v) => ({
           key: v.vendorId,
           vendorProfileId: v.marketplaceVendorId as string,
@@ -1773,7 +1839,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   const savedRequirementCanonicalByTile: Record<string, string> = await (async () => {
     const out: Record<string, string> = {};
     try {
-      const prefs = await getEventPreferences(supabase, eventId);
+      const prefs = await eventPrefsRead;
       const savedKeys = new Set(Object.keys(prefs));
       if (savedKeys.size === 0) return out;
       for (const folder of shortlistFolders) {
@@ -1797,7 +1863,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // with the group's `catalogTile`. Flag OFF → `{}` with no query at all, so
   // the bench renders byte-identically to pre-replan production. Fail-soft: a
   // read error degrades to the normal rails (the surface is unaffected).
-  const coveredByTile: Record<string, string> = await (async () => {
+  const coveredByTile: Record<string, string> = await coveredTilesRead;
+  async function readCoveredTiles(): Promise<Record<string, string>> {
     const out: Record<string, string> = {};
     if (!isExploreReplanEnabled()) return out;
     try {
@@ -1831,7 +1898,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       /* fail-soft — no "Covered" rows rather than a broken shortlist */
     }
     return out;
-  })();
+  }
 
   // Explore Replan slice C · the ADAPTIVE CATEGORY SET. Tile-grain
   // `event_category_decisions` rows (migration 20271016100000) carrying
@@ -1841,7 +1908,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // means no query at all and a byte-identical pre-replan bench. Fail-soft: a
   // read error degrades to "nothing excluded", which can only ever show MORE
   // categories, never hide one.
-  const excludedTiles: string[] = await (async () => {
+  const excludedTiles: string[] = await excludedTilesRead;
+  async function readExcludedTiles(): Promise<string[]> {
     if (!isExploreReplanEnabled()) return [];
     try {
       const { data, error: excludedError } = await supabase
@@ -1864,7 +1932,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     } catch {
       return [];
     }
-  })();
+  }
 
   // ── Desktop inspector selection (Merkado phase 3 · ≥xl) ──────────────────
   // Resolve `?inspect=v:<vendorId>` to a bench vendor ALREADY on this Shortlist,
@@ -1916,7 +1984,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // Couple RLS client + this user: `notifications` is user-scoped, and the
   // couple's chat notification carries `/dashboard/<eventId>/messages/<threadId>`
   // so the thread id is the last segment, same as the supplier's.
-  const unreadRead = await readUnreadChatCountsByThread(supabase, user.id);
+  const unreadRead = await unreadChatsRead;
 
   // ── YOUR TEAM, AS ROWS (owner-APPROVED phone design, 2026-10-01) ──────────
   // Booked first, one next step each. NO NEW READ AND NO NEW STATE: every fact
@@ -2087,14 +2155,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // exactly as before (zero production change — the alloc query is gated here so
   // it never runs unless the flag is on).
   if (isBudgetBuildEnabled()) {
-    const { data: savedBuildRows, error: savedBuildsError } = await supabase
-      .from('budget_builds')
-      // created_at feeds the named-builds (BUILD_3STATE_ENABLED) column ordering;
-      // the .order('label') below keeps the legacy A/B/C order untouched (named
-      // rows have label NULL → sorted client-side by sortSavedBuilds).
-      .select('build_id, label, title, budget_php, total_php, snapshot, created_at')
-      .eq('event_id', eventId)
-      .order('label');
+    // Started with the other independent reads at the top (`savedBuildsRead`).
+    const { data: savedBuildRows, error: savedBuildsError } = (await savedBuildsRead)!;
     // ⚠ A REFUSED READ HERE DOES NOT LOOK LIKE AN EMPTY LIST — IT LOOKS LIKE
     // DATA LOSS. These are the couple's OWN SAVED BUDGET PLANS. Supabase resolves
     // with `{ error }`, so a refused read arrived as null, `?? []` made it empty,
@@ -2315,13 +2377,9 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     // general licence.
     const decidedGroupIds: Set<string> = await (async () => {
       const out = new Set<string>();
-      if (!isExploreReplanEnabled()) return out;
+      if (!isExploreReplanEnabled() || !decidedGroupsRead) return out;
       try {
-        const { data, error: decidedError } = await supabase
-          .from('event_category_decisions')
-          .select('plan_group_id, tile')
-          .eq('event_id', eventId)
-          .in('decision', ['excluded', 'complete']);
+        const { data, error: decidedError } = await decidedGroupsRead;
         if (decidedError) {
           logQueryError(
             'CoupleVendorsPage.decidedGroups',

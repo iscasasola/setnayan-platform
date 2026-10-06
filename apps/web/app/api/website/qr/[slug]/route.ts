@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { QR_LOOK_COLUMNS, qrLookFromRow, resolveEventQrLook } from '@/lib/qr-look.server';
+import { QR_LOOK_COLUMNS, qrLookForHostDraft, resolveEventQrLook } from '@/lib/qr-look.server';
 import { getHostUserId } from '@/lib/host-gate';
 import { readHubDraftForHostPreview } from '@/lib/hub-draft-store';
-import { overlayHubDraftEvent } from '@/lib/hub-draft';
 import { renderEventLandingQrPng } from '@/lib/qr';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -61,10 +60,9 @@ export async function GET(
   let preview = false;
   if (draftAsked && (await getHostUserId(event.event_id).catch(() => null))) {
     const draft = await readHubDraftForHostPreview(supabase, event.event_id);
-    if (draft && 'style_preferences' in draft.events) {
-      look = qrLookFromRow(overlayHubDraftEvent(event as Record<string, unknown>, draft) as typeof event, true);
-      preview = true;
-    }
+    // The one rule every Maker preview of a code shares (`qrLookForHostDraft`).
+    look = draft ? qrLookForHostDraft(event, draft.events) : null;
+    preview = look !== null;
   }
   if (!look) look = await resolveEventQrLook(supabase, event.event_id, event);
 

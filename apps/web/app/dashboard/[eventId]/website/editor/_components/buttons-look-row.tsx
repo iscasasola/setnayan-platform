@@ -188,7 +188,7 @@ export function ButtonsLookRow({
           dataAttr="data-buttons-colour"
           className="min-w-0 flex-1"
           options={[
-            { key: THEME_KEY, label: 'Theme’s', preview: <Swatch hex={page.fill} /> },
+            { key: THEME_KEY, label: 'Default', preview: <Swatch hex={page.fill} /> },
             ...offers.map((o) => ({ key: o.hex, label: o.label, preview: <Swatch hex={o.hex} /> })),
           ]}
           onPick={pickColour}

@@ -36,6 +36,7 @@ import {
   ENTOURAGE_COLUMNS,
   ENTOURAGE_COUPLE_FIELDS,
   ENTOURAGE_ROLES,
+  MARCH_ROLES,
   type EntourageGroup,
   type EntourageGuestRow,
 } from '@/lib/entourage';
@@ -74,7 +75,7 @@ import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { displayUrlForStdBackground } from '@/lib/std-bg-image';
 import { siteMediaServeRef, siteMediaServeRefs } from '@/lib/site-media-ref';
-import { resolveStdBackground, realisticBgSrc, stdFilmBackground } from '@/lib/std-backgrounds';
+import { resolveStdBackground, realisticBgSrc, stdFilmBackground, stdFollowsTheme } from '@/lib/std-backgrounds';
 import { resolveHero } from '@/lib/event-hero';
 import { resolveStdMedia, stdVideoNeedsGrandfatherHeal } from '@/lib/std-media';
 import { loadStdNsfwVerdict, stdVideoServeUrls } from '@/lib/std-video-gate';
@@ -673,9 +674,10 @@ export const loadMedia = cache(
     // as the Mood Board palette dresses it (the same day's "THE MOOD BOARD
     // PALETTE IS THE PRIORITY", `themeColours`); picked → the couple's own.
     const stdBackground =
-      event.std_background === null || event.std_background === undefined
+      // …keeping the couple's Readability while it follows (`stdFollowTheme`).
+      stdFollowsTheme(event.std_background)
         ? stdFilmBackground(
-            null,
+            event.std_background,
             themeColours((await resolveHubTheme(event).catch(() => null))?.theme ?? 'house', event.role_palette).colours.canvas,
           )
         : resolveStdBackground(event.std_background);
@@ -1910,7 +1912,17 @@ export const loadEventNameStyle = cache(
 export const loadEntourage = cache(
   /* `nameStyle` — the host's DRAFTED style, for the Maker's canvas only (owner
      2026-10-01); absent = the style the event has live. */
-  async (admin: AdminClient, eventId: string, nameStyle?: NameStyle): Promise<EntourageGroup[]> => {
+  async (
+    admin: AdminClient,
+    eventId: string,
+    nameStyle?: NameStyle,
+  ): Promise<EntourageGroup[]> => {
+    const roles = ENTOURAGE_ROLES;
+    /* 🚶 Who is in the march's "Not walking" tray (owner 2026-10-06): they still
+       PRINT under their role — only the walking order ("You walk Nth",
+       `marchPlaceOf`) leaves them out. Unread → nobody marked (they print either way). */
+    // Started NOW (a query builder only runs when awaited), beside the guests read — never a serial round-trip.
+    const trayRead = Promise.resolve(admin.from('march_not_walking').select('guest_id').eq('event_id', eventId));
     const { data, error } = await admin
       .from('guests')
       /*
@@ -1946,18 +1958,67 @@ export const loadEntourage = cache(
         alone dropped exactly the people the couple went out of their way to
         mark, and the page would have looked correct while doing it.
       */
-      .or(
-        `role.in.(${ENTOURAGE_ROLES.join(',')}),extra_roles.ov.{${ENTOURAGE_ROLES.join(',')}}`,
-      );
+      .or(`role.in.(${roles.join(',')}),extra_roles.ov.{${roles.join(',')}}`);
     if (error) {
       logQueryError('loadEntourage', error, { event_id: eventId }, 'graceful_degrade');
       return [];
     }
+    const tray = await trayRead;
+    if (tray.error) logQueryError('loadEntourage tray', tray.error, { event_id: eventId }, 'graceful_degrade');
+    const out = new Set(((tray.data ?? []) as Array<{ guest_id: string }>).map((r) => r.guest_id));
     return buildEntourage(
-      (data ?? []) as EntourageGuestRow[],
+      ((data ?? []) as EntourageGuestRow[]).map((r) => (r.guest_id && out.has(r.guest_id) ? { ...r, not_walking: true } : r)),
       await loadEntourageSectionOrder(admin, eventId),
       await loadEventRoleNames(admin, eventId),
       nameStyle ?? (await loadEventNameStyle(admin, eventId)),
     );
+  },
+);
+
+/**
+ * 🚶 THE MAKER'S WEDDING MARCH (owner 2026-10-06) — never a public read.
+ *
+ * `walking`: everyone who walks, the couple and their sides too (`MARCH_ROLES`,
+ * built with `{ march: true }`), each with `guests.side` for their walk side.
+ * `out`: the "Not walking" tray (`march_not_walking`) built the same way —
+ * people with a role who do not walk; null when the tray could not be read
+ * (never "nobody": an unread tray must not look like an empty one).
+ *
+ * 🔑 What PRINTS is `loadEntourage` above, unchanged: a person in the tray still
+ * prints under their role — only the walking order leaves them out.
+ */
+export const loadMarch = cache(
+  async (
+    admin: AdminClient,
+    eventId: string,
+  ): Promise<{ walking: EntourageGroup[]; out: EntourageGroup[] | null }> => {
+    const roles = MARCH_ROLES;
+    const [guestRes, trayRes] = await Promise.all([
+      admin
+        .from('guests')
+        .select(`${ENTOURAGE_COLUMNS}, side`)
+        .eq('event_id', eventId)
+        .is('deleted_at', null)
+        .or(`role.in.(${roles.join(',')}),extra_roles.ov.{${roles.join(',')}}`),
+      admin.from('march_not_walking').select('guest_id').eq('event_id', eventId),
+    ]);
+    if (guestRes.error) {
+      logQueryError('loadMarch', guestRes.error, { event_id: eventId }, 'graceful_degrade');
+      return { walking: [], out: null };
+    }
+    if (trayRes.error) logQueryError('loadMarch tray', trayRes.error, { event_id: eventId }, 'graceful_degrade');
+    const outIds = trayRes.error ? null : new Set(((trayRes.data ?? []) as Array<{ guest_id: string }>).map((r) => r.guest_id));
+    const rows = (guestRes.data ?? []) as EntourageGuestRow[];
+    const [order, names, style] = await Promise.all([
+      loadEntourageSectionOrder(admin, eventId),
+      loadEventRoleNames(admin, eventId),
+      loadEventNameStyle(admin, eventId),
+    ]);
+    const build = (these: EntourageGuestRow[]) => buildEntourage(these, order, names, style, { march: true });
+    if (!outIds) return { walking: build(rows), out: null };
+    return {
+      walking: build(rows.filter((r) => !r.guest_id || !outIds.has(r.guest_id))),
+      out: build(rows.filter((r) => r.guest_id && outIds.has(r.guest_id))),
+    };
   },
 );

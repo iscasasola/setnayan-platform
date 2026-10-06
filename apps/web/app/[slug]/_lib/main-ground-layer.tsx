@@ -2,15 +2,16 @@ import 'server-only';
 
 import type { ReactNode } from 'react';
 import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
-import { hubMainGround, mainGroundIsNone } from '@/lib/hub-canvas';
+import { hubMainGround, isHubMainLoop, mainGroundIsNone, type ResolvedMainGround } from '@/lib/hub-canvas';
 import { heroGroundNeedsOwnership } from '@/lib/page-ground';
 import { guestMainGround } from '@/lib/guest-main-ground';
+import { mainGroundClipRefForGuests } from '@/lib/guest-hero-video';
 import { websiteProActiveFor } from './hub-look';
 import type { HeroEventInput } from '@/lib/event-hero';
 import { adaptiveThemeVars, resolveAdaptiveTheme } from '@/lib/adaptive-theme';
 import { dressedTheme } from '@/lib/theme-colours';
 import { siteMediaServeRef } from '@/lib/site-media-ref';
-import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { displayUrlForStoredAsset, publicUrlForStoredAsset } from '@/lib/uploads';
 import { MainGround, MainGroundNone } from '../_components/main-ground';
 
 /**
@@ -58,6 +59,7 @@ export async function mainGroundLayerFor({
   event,
   viewerIsHost,
   signed = {},
+  tryOn = false,
 }: {
   /** The theme `resolveHubTheme` answered — Pro ownership already decided. */
   theme: InviteThemeId;
@@ -67,7 +69,15 @@ export async function mainGroundLayerFor({
   viewerIsHost: boolean;
   /** Refs the caller already signed, so a ref is never signed twice. */
   signed?: Record<string, string>;
+  /**
+   * 🎞 The HOST's own canvas, wearing their draft (`hostDraft` non-null — a
+   * verified host on `?editor=1`, never a guest): a moving background they have
+   * not paid for yet is shown to them as it WOULD look (tried free, asked at
+   * Apply). Guests never pass it.
+   */
+  tryOn?: boolean;
 }): Promise<ReactNode> {
+  const main = hubMainGround(heroConfig);
   /* 🖼 "NONE — JUST THE COLOUR" (owner 2026-09-29, *"the background animated
      video cannot be unpicked"*): the theme's loop is switched off and nothing
      is laid over the Background colour. Free — no ownership read, any theme
@@ -80,13 +90,28 @@ export async function mainGroundLayerFor({
   const ownsPro = heroGroundNeedsOwnership(theme)
     ? await websiteProActiveFor(event.event_id).catch(() => false)
     : false;
+  /* 🎞 A MOVING BACKGROUND OF OURS (owner 2026-10-05, DECISION_LOG "THEMES ARE
+     REPLACED BY THREE DIRECT GLOBAL SETTINGS"): one of the shipped loops, picked
+     on its own — only the loop, never the theme's fonts or colours. Event Hub
+     Pro: drawn for a guest only while the event OWNS it (as viewed), and on the
+     host's own canvas as it WOULD look (`tryOn`); without it the page falls
+     through to what it drew before (the theme's own ground). On ANY theme —
+     Classic included: the shell drops its opaque paper whenever a layer is
+     drawn here (`site-body.tsx` `ownGround`). Setnayan's own public art, so its
+     URLs are the public ones, never signed. The veil is measured over the
+     loop's own lightest and darkest clusters (`media.samples`) with the page's
+     inks — the same legibility rule an uploaded clip gets (`tint.match` off:
+     a loop never recolours the page). */
+  const loop = isHubMainLoop(main) ? movingBackground(main.loop) : null;
+  const loopShows = loop ? tryOn || (await websiteProActiveFor(event.event_id).catch(() => false)) : false;
+  const urls = loop && loopShows ? { ...signed, ...loop.urls } : signed;
   // The ONE answer to "what is behind the event", shared with Discover's card.
-  const mainGround = guestMainGround(theme, ownsPro, heroConfig, event);
+  const mainGround = loop && loopShows ? loop.ground : guestMainGround(theme, ownsPro, heroConfig, event);
   if (mainGround) {
     // 🎨 Measured on the theme as the Mood Board dresses it (`dressedTheme`, 2026-10-05).
     const adaptive = resolveAdaptiveTheme(dressedTheme(theme, event.role_palette), mainGround.tint);
     const sign = async (ref: string | null) =>
-      ref ? (signed[ref] ?? (await displayUrlForStoredAsset(siteMediaServeRef(ref)))) : null;
+      ref ? (urls[ref] ?? (await displayUrlForStoredAsset(siteMediaServeRef(ref)))) : null;
     const [still, clip] = await Promise.all([
       sign(mainGround.stillRef),
       sign(viewerIsHost ? mainGround.clipRef : mainGround.guestClipRef),
@@ -102,4 +127,39 @@ export async function mainGroundLayerFor({
     );
   }
   return null;
+}
+
+/**
+ * 🎞 One of our loops as a Main background — the same shape the couple's own
+ * clip resolves to (`ResolvedMainGround`), so the ONE mount above draws it. Its
+ * refs map to their PUBLIC URLs (our own art on the public bucket). Null when
+ * the theme has no loop or no public host is configured.
+ */
+function movingBackground(id: InviteThemeId): { ground: ResolvedMainGround; urls: Record<string, string> } | null {
+  const media = INVITE_THEMES[id]?.media ?? null;
+  if (!media) return null;
+  const at = (ref: string): string | null => {
+    try {
+      return publicUrlForStoredAsset(ref);
+    } catch {
+      return null;
+    }
+  };
+  const poster = at(media.poster);
+  const clip = at(media.loop);
+  if (!poster && !clip) return null;
+  const urls: Record<string, string> = {};
+  if (poster) urls[media.poster] = poster;
+  if (clip) urls[media.loop] = clip;
+  return {
+    ground: {
+      source: 'own',
+      stillRef: poster ? media.poster : null,
+      clipRef: clip ? media.loop : null,
+      // The SAME guest switch every Main-background clip meets (`mainGroundClipRefForGuests`) — closed, a guest gets the still.
+      guestClipRef: clip ? mainGroundClipRefForGuests(media.loop) : null,
+      tint: { match: false, frame: [media.samples.light, media.samples.dark] },
+    },
+    urls,
+  };
 }

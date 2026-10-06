@@ -27,7 +27,9 @@ import { resolveMonogram } from '@/lib/monogram';
 import { type StdLockup } from '@/app/[slug]/_components/save-the-date-film';
 import { resolveStdTheme } from '@/lib/std-themes';
 import { resolveRevealEffects } from '@/lib/std-reveal-effects';
-import { resolveStdBackground } from '@/lib/std-backgrounds';
+import { resolveStdBackground, stdFollowLegibility, stdFollowsTheme } from '@/lib/std-backgrounds';
+import { INVITE_THEMES } from '@/lib/invite-themes';
+import { resolveHubTheme } from '@/app/[slug]/_lib/hub-look';
 import { resolveStdMedia, stdNsfwDisplayStatus, stdVideoNeedsScreen } from '@/lib/std-media';
 import { loadStdNsfwVerdict } from '@/lib/std-video-gate';
 import { resolveStdFinalizedVenues } from '@/lib/std-venues';
@@ -100,7 +102,7 @@ export default async function SaveTheDatePage({ params }: Props) {
   const { data: event, error: eventError } = await supabase
     .from('events')
     .select(
-      'public_id, slug, display_name, event_date, venue_name, venue_address, ceremony_type, secondary_ceremony_type, love_story, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, monogram_motion_key, monogram_studio_config, role_palette, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_film_date, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, std_film_story, std_film_accent_hex, std_background, std_media, our_photos, site_bg_music_enabled, site_bg_music_r2_key, landing_page_hero_image_url, date_candidates, date_mode, landing_page_visibility, std_launched_at, scheduled_launch_at',
+      'public_id, slug, display_name, event_date, venue_name, venue_address, ceremony_type, secondary_ceremony_type, love_story, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, monogram_motion_key, monogram_studio_config, role_palette, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_film_date, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, std_film_story, std_film_accent_hex, std_background, invite_theme, std_media, our_photos, site_bg_music_enabled, site_bg_music_r2_key, landing_page_hero_image_url, date_candidates, date_mode, landing_page_visibility, std_launched_at, scheduled_launch_at',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -181,7 +183,21 @@ export default async function SaveTheDatePage({ params }: Props) {
   const chosenTemplate = coerceTemplate(event?.std_reveal_template);
   const themeId = resolveStdTheme(event?.std_theme);
   const effects = resolveRevealEffects(event?.std_reveal_effects);
-  const stdBackground = resolveStdBackground(event?.std_background, veilColor);
+  const stdFollows = stdFollowsTheme(event?.std_background);
+  // While it follows the theme, the Readability the couple kept rides on the picker's state.
+  const stdBackground = stdFollows
+    ? { ...resolveStdBackground(null, veilColor), legibility: stdFollowLegibility(event?.std_background) }
+    : resolveStdBackground(event?.std_background, veilColor);
+  /* 🎞 SAME AS THEME (owner 2026-10-05): with nothing of its own stored, the film
+     wears the Event Hub theme's canvas — the guest page's rule
+     (`stdFilmBackground`, app/[slug]/_lib/loaders.ts), so the preview here shows
+     what guests see, never the Mood Board veil. */
+  const stdFollowsThemeNow = stdFollows;
+  const themeCanvas =
+    INVITE_THEMES[
+      (await resolveHubTheme({ event_id: eventId, display_name: event?.display_name ?? null, invite_theme: event?.invite_theme ?? null }).catch(() => null))
+        ?.theme ?? 'house'
+    ]?.palette.canvas ?? null;
   const stdBackgroundUploadUrl =
     stdBackground.kind === 'upload'
       ? await displayUrlForStoredAsset(siteMediaServeRef(stdBackground.value))
@@ -533,6 +549,8 @@ export default async function SaveTheDatePage({ params }: Props) {
         initialRevealTemplate={chosenTemplate}
         initialEffects={effects}
         initialBackground={stdBackground}
+        initialFollowsTheme={stdFollowsThemeNow}
+        themeCanvas={themeCanvas}
         initialUploadUrl={stdBackgroundUploadUrl}
         initialMedia={stdMedia}
         initialNsfwStatus={stdNsfwStatus}

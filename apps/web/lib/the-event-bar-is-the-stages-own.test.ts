@@ -181,6 +181,8 @@ test('4 · SOURCE: one value draws the bar and feeds the navigator; the navigato
 test('5 · the canvas switch is called "Event Bar"', () => {
   const SHELL = read('../app/dashboard/[eventId]/website/editor/_components/editor-shell.tsx');
   assert.match(SHELL, /aria-label="Event Bar"/);
-  assert.match(SHELL, /<InfoTip label="Event Bar"/);
+  // 🚫 Its word, never an (i) note (owner 2026-10-05: the note floated over the tiles and could not be closed).
+  assert.match(SHELL, /data-maker-guest-bars-label=""[^>]*>\s*Event Bar\s*</);
+  assert.doesNotMatch(SHELL, /<InfoTip label="Event Bar"/);
   assert.doesNotMatch(SHELL, /aria-label="Guest bars"|label="Guest bars"/);
 });

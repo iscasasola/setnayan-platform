@@ -4,9 +4,9 @@
  * ServicesTakeover — the couple Services tab as a full-screen FOCUS MODE
  * takeover (Budget "Build"). Spec: `Budget_Build_Services_Takeover_2026-06-08.md`.
  *
- * Mirrors the Guests focus-mode shell (`guests/page.tsx`):
- *   - a `<style>` hides the global top bar on MOBILE only (desktop keeps it for
- *     the EventSwitcher + notifications; the takeover is full-screen on mobile).
+ * Mirrors the Guests shell (`guests/page.tsx`):
+ *   - the app's shared top bar stays at EVERY width (owner 2026-10-05 — it used
+ *     to be hidden below 1024 px here; see the note on the <section> below).
  *   - the global 5-tab bottom nav stays VISIBLE at the screen bottom
  *     (nav-everywhere 2026-06-13). On mobile the docked section sub-nav
  *     (`customer-section-subnav.tsx`, layout-mounted) is the section switcher.
@@ -153,14 +153,43 @@ export function ServicesTakeover({
   const [budgetOpen, setBudgetOpen] = useState(false);
   // ── THE FIND AREA (approved phone design, 2026-10-01) ─────────────────────
   // Below lg, the bench · picks · payments · plans sit behind "Find a supplier"
-  // so the team is the screen. NOTHING is unmounted — the grid is only
-  // `hidden` — and every door into it opens it: the button, every "Your planning" row (they
-  // all go through `goToSection`), the BB_TAB_EVENT bus, and a deep link
-  // (`initialFindOpen`). Desktop always shows it, below the team.
+  // so the team is the screen. Every door into it opens it: every "Your
+  // planning" row (they all go through `goToSection`), the BB_TAB_EVENT bus,
+  // and a deep link (`initialFindOpen`). Desktop always shows it, below the team.
   const [findOpen, setFindOpen] = useState(initialFindOpen);
   useEffect(() => {
     if (initialFindOpen) setFindOpen(true);
   }, [initialFindOpen]);
+  // ⚡ BUILT WHEN IT IS FIRST NEEDED, THEN KEPT (owner 2026-10-05: Suppliers sat
+  // on "Opening your suppliers" for ~6 s on a phone). Measured on
+  // maria-and-jose: the closed find area was 342 KB of the page's 365 KB of
+  // markup — a whole bench, Picks, Payments and Plans drawn, shipped and
+  // hydrated on a phone that shows NONE of it until a "Your planning" row is
+  // tapped. It is now rendered in the same render that opens it
+  // (`findRendered` reads `findOpen` directly — no extra effect hop), so
+  // `goToSection`'s next-frame scroll meets it exactly as it met the hidden
+  // area before; it stays mounted after that (its state survives, nothing is
+  // drawn twice), and it is mounted straight away on a computer, where it is
+  // always on screen (there it appears just after hydration). A deep link (`initialFindOpen`) renders it in the FIRST
+  // paint, so the bench's own mount-time scroll to the opened tile still works.
+  const [findMounted, setFindMounted] = useState(initialFindOpen);
+  useEffect(() => {
+    if (findOpen) setFindMounted(true);
+  }, [findOpen]);
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
+    const wide = window.matchMedia('(min-width: 1024px)');
+    if (wide.matches) {
+      setFindMounted(true);
+      return;
+    }
+    const onChange = (e: MediaQueryListEvent) => {
+      if (e.matches) setFindMounted(true);
+    };
+    wide.addEventListener?.('change', onChange);
+    return () => wide.removeEventListener?.('change', onChange);
+  }, []);
+  const findRendered = findOpen || findMounted;
 
   // Scroll a section into view + mirror ?tab= for refresh/deep-links.
   // Shared by the bus listener, the on-mount ?tab= adopt and "Find a supplier".
@@ -220,15 +249,16 @@ export function ServicesTakeover({
   }, [goToSection]);
 
   return (
-    <section
-      className="-mt-6 pt-[calc(env(safe-area-inset-top)+0.75rem)] lg:pt-0"
-      data-budget-build-takeover=""
-    >
-      {/* Hide the global top bar on MOBILE only — the takeover is full-screen
-          there. On desktop the top bar is the only host of the EventSwitcher +
-          notifications bell (no sidebar fallback), so keep it; the desktop tab
-          strip lives in the content area and won't collide. (Review 2026-06-09.) */}
-      <style>{`@media (max-width:1023px){.shell-topbar{display:none}}`}</style>
+    /* 🔴 THE APP'S TOP BAR STAYS ON SUPPLIERS (owner 2026-10-05, live on
+       maria-and-jose at 375 px: the bar — menu · search · messages · bell ·
+       account — was on every tab but this one). This section injected
+       `.shell-topbar{display:none}` below 1024 px under a 2026-06-09 review,
+       when the page was a full-screen "focus mode" takeover. It is not one any
+       more — it is a tab like Guests, which dropped the same hide on 2026-08-21
+       (`guests-keeps-the-shell-bar.test.ts`). The `-mt-6` + notch padding only
+       filled the hole the hidden bar left, so they went with it.
+       `suppliers-keeps-the-shell-bar.test.ts` stops it coming back. */
+    <section data-budget-build-takeover="">
 
       {/* ── B1 · PAGE IDENTITY ────────────────────────────────────────────────
           This page had NO <h1> at all (measured 2026-08-14: the only h1s under
@@ -279,6 +309,8 @@ export function ServicesTakeover({
       <PlanningList budgetHref={teamParts?.find((p) => p.key === 'budget')?.href} />
 
       <div id="team-find-area" data-find-area={findOpen ? 'open' : 'closed'} className={findOpen ? undefined : 'hidden lg:block'}>
+      {findRendered ? (
+      <>
 
       {/* Premium tier crest (S5) — shows only when Setnayan AI is active, marking
           the Marketplace as the couple's premium planning surface.
@@ -461,6 +493,8 @@ export function ServicesTakeover({
           </div>
         ) : null}
       </div>
+      </>
+      ) : null}
       </div>
     </section>
   );

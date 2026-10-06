@@ -130,7 +130,7 @@ export const GUIDED_STEPS: readonly StepDef[] = [
     title: 'Date & time',
     shows: (w) => (w.solemn ? 'Shows on your page and every print.' : 'Shows on your page, the countdown and every print.'),
   },
-  { key: 'theme', items: ['theme'], title: 'Theme', shows: () => 'The look of your whole Event Hub and every print.' },
+  { key: 'theme', items: ['theme'], title: 'Look', shows: () => 'The background, font and colours of your whole Event Hub and every print.' },
   { key: 'logo', items: ['logo'], title: 'Your logo', shows: () => 'On your page, in the centre of your QR code and on your prints.' },
   {
     key: 'hero',
@@ -153,8 +153,13 @@ export const GUIDED_STEPS: readonly StepDef[] = [
   {
     key: 'parents',
     items: ['parents'],
+    /* 👪 OPTIONAL, like the Love Story (review 2026-10-05): where the invitation
+       prints parents, only they count — a co-host account never does — and a
+       couple with none to list could otherwise never finish the stage. An
+       optional step never holds its stage open; adding a parent still ticks it. */
+    optional: true,
     title: (label) => label,
-    shows: (w) => (w.parentsOffered ? 'Parents show on your invitation. Hosts are who guests reply to.' : 'Hosts are who guests reply to.'),
+    shows: (w) => (w.parentsOffered ? 'Optional — the parents your invitation names.' : 'Optional — who guests reply to.'),
   },
   { key: 'march', items: ['march'], title: (label) => label, shows: () => 'Who walks, and in what order — on your invitation and The Entourage card.' },
   { key: 'colours', items: ['mood-board'], title: 'Your colours', shows: () => 'Your palette — on your cards, your QR code and what your suppliers see.' },
@@ -665,4 +670,21 @@ export function guidedPlanFromFacts(input: {
     items.push({ key, label, done: guidedItemDone(key, input.facts) });
   }
   return buildGuidedPlan(items, { solemn: input.ctx.solemn, parentsOffered: input.parentsOffered }, input.setup ?? null);
+}
+
+/**
+ * 🎨 Has the couple made ANY Look choice? (the guided Look step's "done").
+ * A value that is present and not empty counts; clearing one back to the
+ * default does not. Pure — exported for its test.
+ */
+export function lookChosen(f: {
+  theme: unknown;
+  bg: unknown;
+  font: unknown;
+  buttonColour: unknown;
+  buttonStyle: unknown;
+  background: boolean;
+}): boolean {
+  const set = (v: unknown) => v !== null && v !== undefined && v !== '';
+  return f.background || [f.theme, f.bg, f.font, f.buttonColour, f.buttonStyle].some(set);
 }

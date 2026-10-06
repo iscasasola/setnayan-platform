@@ -9,7 +9,8 @@
  * same way — `honour`'s sides in lib/entourage.ts.)
  */
 import { buildEntourage, type EntourageGuestRow } from '@/lib/entourage';
-import { marchSections, printedSectionOrder } from '@/lib/march-sections';
+import { marchSections, marchTray, printedSectionOrder } from '@/lib/march-sections';
+import { ownerShapedMarch } from '@/lib/march-owner-shape.fixture';
 
 type Row = [id: string, prefix: string | null, first: string, last: string, role: string, walk?: number, place?: number];
 
@@ -53,16 +54,33 @@ const ROWS: Row[] = [
   ['p35', null, 'Isabel', 'Ocampo', 'flower_girl', 20],
 ];
 
-export function labMarchSections() {
-  const rows: EntourageGuestRow[] = ROWS.map(([id, prefix, first, last, role, walk, place]) => ({
-    guest_id: id,
-    name_prefix: prefix,
-    first_name: first,
-    last_name: last,
-    role,
-    extra_roles: [],
-    march: typeof walk === 'number' ? { walk_no: walk, place_in_walk: place ?? 0 } : null,
-  }));
-  const groups = buildEntourage(rows, null, {}, undefined, { march: true });
-  return { sections: marchSections(groups), printed: printedSectionOrder(groups, null) };
+/** 🚶 Not walking in the lab (the tray): a groomsman, a flower girl, a principal sponsor. */
+const LAB_OUT = new Set(['p38', 'p35', 'p20']);
+/** Their guest side, as a couple would have set it — the aisle side follows it (`walkSideOf`). */
+const sideOf = (role: string): string => (role.startsWith('groom') ? 'groom' : role.startsWith('bride') ? 'bride' : 'both');
+
+/**
+ * `?shape=owner` — a march the shape of the owner's own event (45 walks · 80
+ * walking, `lib/march-owner-shape.fixture.ts`) with six people in the tray;
+ * otherwise maria-and-jose's couple + entourage with three.
+ */
+export function labMarchSections(shape?: string | null) {
+  const rows: EntourageGuestRow[] =
+    shape === 'owner'
+      ? ownerShapedMarch().map((r, i) => ({ ...r, side: sideOf(r.role ?? ''), ...(i % 13 === 7 ? { not_walking: true } : {}) }))
+      : ROWS.map(([id, prefix, first, last, role, walk, place]) => ({
+          guest_id: id,
+          name_prefix: prefix,
+          first_name: first,
+          last_name: last,
+          role,
+          side: sideOf(role),
+          extra_roles: [],
+          march: typeof walk === 'number' && !LAB_OUT.has(id) ? { walk_no: walk, place_in_walk: place ?? 0 } : null,
+          ...(LAB_OUT.has(id) ? { not_walking: true } : {}),
+        }));
+  const style = shape === 'owner' ? 'surname-first' : undefined;
+  const walking = buildEntourage(rows.filter((r) => !r.not_walking), null, {}, style, { march: true });
+  const out = buildEntourage(rows.filter((r) => r.not_walking), null, {}, style, { march: true });
+  return { sections: marchSections(walking), printed: printedSectionOrder([...walking, ...out], null), out: marchTray(out) };
 }

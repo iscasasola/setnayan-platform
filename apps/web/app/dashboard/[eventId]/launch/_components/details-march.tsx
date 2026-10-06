@@ -11,9 +11,11 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react';
+import { createPortal } from 'react-dom';
 import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { isMarchOnlyGroup } from '@/lib/entourage';
 import {
+  acrossTheAisle,
   keyTarget,
   leadOf,
   planMove,
@@ -22,13 +24,15 @@ import {
   sectionsMoved,
   readTarget,
   type MarchMove,
+  type MarchOut,
   type MarchSection,
   type MarchSource,
   type MarchStep,
 } from '@/lib/march-drag';
 import type { MarchResult } from '@/lib/march-result';
 import { setEntourageLineOrder } from '../../guests/entourage-order-actions';
-import { joinEntourageLine, moveEntourageSection, resetEntourageSections, swapEntouragePlaces } from '../../guests/march-actions';
+import { joinEntourageLine, moveEntourageSection, resetEntourageSections, setMarchWalking, swapEntouragePlaces } from '../../guests/march-actions';
+import { MarchTray } from './details-march-tray';
 import { unpairGuestAction } from '../../guests/pair-actions';
 import { HubSavesImmediately } from '../../website/_components/hub-draft-field';
 
@@ -91,6 +95,8 @@ async function callStep(eventId: string, step: MarchStep): Promise<MarchResult> 
       return moveEntourageSection(eventId, step.section, step.direction);
     case 'sections-default':
       return resetEntourageSections(eventId);
+    case 'walking':
+      return setMarchWalking(eventId, step.guest, step.walks);
     case 'unpair':
       /* "they walk alone, right behind it" — the Guest list's own unpair, in place
          (a refusal is THROWN in this mode; the catch below says it). */
@@ -111,8 +117,8 @@ type Drag = {
   dir: number;
 };
 
-/** What the maker shows: the walks, and the printed sections' saved order (what a header drag steps through). */
-type Shown = { sections: MarchSection[]; printed: string[] };
+/** What the maker shows: the walks, the printed sections' saved order (what a header drag steps through), the tray. */
+type Shown = { sections: MarchSection[]; printed: string[]; out: MarchOut[] };
 type Toast = { said: string; undo: MarchStep[] | null; before: Shown | null; refused?: boolean };
 
 const reduced = () => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -139,6 +145,8 @@ type MarchMakerProps = {
   sections: readonly MarchSection[];
   /** The printed sections with someone in them, in the saved order (`printedSectionOrder`). */
   printed?: readonly string[];
+  /** 🚶 The "Not walking" tray (`marchTray`); null = it could not be read. */
+  out?: readonly MarchOut[] | null;
   lab?: boolean;
 };
 
@@ -197,13 +205,30 @@ function MarchMakerBody({
   eventId,
   sections,
   printed = [],
+  out = [],
   lab = false,
 }: MarchMakerProps) {
   /* The drop, drawn before the server answers; null = the server's march. */
   const [mine, setMine] = useState<Shown | null>(null);
   const shown = mine?.sections ?? (sections as MarchSection[]);
   const shownPrinted = mine?.printed ?? (printed as string[]);
-  const anyone = shown.length > 0;
+  const outUnread = out === null;
+  const shownOut = mine?.out ?? ((out ?? []) as MarchOut[]);
+  const anyone = shown.length > 0 || shownOut.length > 0;
+  /* 🚶 THE TRAY LIVES IN THE EDITOR'S PLACE (owner 2026-10-06): the phone's lower
+     third, the desk's right panel — `MarchTraySlot`, which the march's editor is.
+     Drawn there through a portal, so it is still THIS maker: one state, one drag. */
+  const [slot, setSlot] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    let raf = 0;
+    const find = () => {
+      const el = document.querySelector<HTMLElement>('[data-march-tray-slot]');
+      if (el) setSlot(el);
+      else raf = requestAnimationFrame(find);
+    };
+    find();
+    return () => cancelAnimationFrame(raf);
+  }, []);
   const [lifted, setLifted] = useState<string | null>(null);
   const [over, setOver] = useState<{ zone: string; ok: boolean } | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
@@ -224,7 +249,7 @@ function MarchMakerBody({
      more of this burst is still on its way. */
   useEffect(() => {
     if (inFlight.current === 0) setMine(null);
-  }, [sections, printed]);
+  }, [sections, printed, out]);
 
   const say = useCallback((t: Toast | null) => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -290,13 +315,13 @@ function MarchMakerBody({
         say({ said: plan.reason, undo: null, before: null, refused: true });
         return;
       }
-      commit({ sections: plan.sections, printed: plan.printed }, plan.steps, {
+      commit({ sections: plan.sections, printed: plan.printed, out: plan.out ?? shownOut }, plan.steps, {
         said: plan.said,
         undo: plan.undo,
-        before: { sections: shown, printed: shownPrinted },
+        before: { sections: shown, printed: shownPrinted, out: shownOut },
       });
     },
-    [commit, say, shown, shownPrinted],
+    [commit, say, shown, shownPrinted, shownOut],
   );
 
   const undo = () => {
@@ -377,19 +402,34 @@ function MarchMakerBody({
   const upL = useRef((e: PointerEvent) => onUpRef.current(e));
   const cancelL = useRef(() => onCancelRef.current());
 
-  /** What the finger is over: a drop zone (a name, an empty spot, a gap), or the nearest gap in its section. */
+  /** Is this element the maker's — the march, its tray, or the tray's full list? */
+  const within = useCallback(
+    (el: Element | null) =>
+      Boolean(el && (root.current?.contains(el) || slot?.contains(el) || el.closest('[data-march-tray-sheet]'))),
+    [slot],
+  );
+
+  /** What the finger is over: a drop zone (a name, an empty spot, a gap, the tray), or the nearest gap in its section. */
   const hit = useCallback(
     (d: Drag) => {
       const box = root.current;
       if (!box) return;
       let zone: string | null = null;
       for (const el of document.elementsFromPoint(d.x, d.y)) {
-        if (!box.contains(el)) continue;
+        if (!within(el)) continue;
         const z = (el as HTMLElement).closest<HTMLElement>('[data-march-drop]');
-        // A walk lands only in a gap; a section only on a section's header; a name anywhere else.
+        // A walk lands only in a gap; a section only on a section's header; a name anywhere but a header;
+        // a tray name anywhere in the march (its role decides where it lands).
         const kind = z?.dataset.marchDrop?.split('|')[0];
-        const fits = d.source.kind === 'name' ? kind !== 'section' : d.source.kind === 'walk' ? kind === 'gap' : kind === 'section';
-        if (z && box.contains(z) && fits) {
+        const fits =
+          d.source.kind === 'name'
+            ? kind !== 'section'
+            : d.source.kind === 'out'
+              ? kind !== 'section' && kind !== 'tray'
+              : d.source.kind === 'walk'
+                ? kind === 'gap'
+                : kind === 'section';
+        if (z && within(z) && fits) {
           zone = z.dataset.marchDrop!;
           break;
         }
@@ -415,13 +455,14 @@ function MarchMakerBody({
           break;
         }
       }
-      const plan = zone ? planMove(shown, shownPrinted, d.source, readTarget(zone)!) : null;
+      const to = zone ? readTarget(zone) : null;
+      const plan = to ? planMove(shown, shownPrinted, d.source, to, shownOut) : null;
       const next = plan ? zone : null;
       if (next === target.current) return;
       target.current = next;
       setOver(next && plan ? { zone: next, ok: plan.ok } : null);
     },
-    [shown, shownPrinted],
+    [shown, shownPrinted, shownOut, within],
   );
 
   const stopAll = useCallback(() => {
@@ -522,12 +563,13 @@ function MarchMakerBody({
     const zone = target.current;
     target.current = null;
     setOver(null);
-    const plan = zone ? planMove(shown, shownPrinted, d.source, readTarget(zone)!) : null;
+    const to = zone ? readTarget(zone) : null;
+    const plan = to ? planMove(shown, shownPrinted, d.source, to, shownOut) : null;
     landing.current = { ghost: d.ghost, key: d.key };
     if (plan) run(plan);
     // Nowhere to go: one more paint, and the ghost settles back where it came from.
     else redraw((n) => n + 1);
-  }, [run, shown, shownPrinted, stopAll]);
+  }, [run, shown, shownPrinted, shownOut, stopAll]);
 
   const onCancel = useCallback(() => {
     const d = drag.current;
@@ -550,10 +592,11 @@ function MarchMakerBody({
   const onPointerDown = (e: ReactPointerEvent<HTMLElement>) => {
     if (e.button !== 0 || drag.current || pending.current) return;
     const el = (e.target as HTMLElement).closest<HTMLElement>('[data-march-drag]');
-    if (!el || !root.current?.contains(el)) return;
+    if (!el || !within(el)) return;
     const source = readSource(el.dataset.marchDrag);
     if (!source) return;
-    const key = source.kind === 'name' ? source.id : source.kind === 'walk' ? `walk:${source.lead}` : `section:${source.key}`;
+    const key =
+      source.kind === 'name' || source.kind === 'out' ? source.id : source.kind === 'walk' ? `walk:${source.lead}` : `section:${source.key}`;
     const touch = e.pointerType !== 'mouse';
     pending.current = { el, source, key, x: e.clientX, y: e.clientY, touch, pid: e.pointerId, timer: null };
     if (touch) pending.current.timer = setTimeout(() => lift(e.clientX, e.clientY), LONG_PRESS_MS);
@@ -573,6 +616,8 @@ function MarchMakerBody({
       if (drag.current) e.preventDefault();
     };
     box?.addEventListener('touchmove', block, { passive: false });
+    // The tray too: a drag that starts on a tray chip is a touch whose first target is in the slot.
+    slot?.addEventListener('touchmove', block, { passive: false });
     const move = moveL.current;
     const up = upL.current;
     const cancel = cancelL.current;
@@ -584,12 +629,13 @@ function MarchMakerBody({
       drag.current?.ghost.remove();
       drag.current = null;
       box?.removeEventListener('touchmove', block);
+      slot?.removeEventListener('touchmove', block);
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
       window.removeEventListener('pointercancel', cancel);
     };
-    // Re-attached when the maker first has someone to draw (the empty state has no root).
-  }, [anyone]);
+    // Re-attached when the maker first has someone to draw (the empty state has no root), and when the tray's slot is found.
+  }, [anyone, slot]);
   /** ⌨ The same drops, from the keyboard. */
   const onKeyDown = (e: ReactKeyboardEvent<HTMLElement>) => {
     const el = e.target as HTMLElement;
@@ -604,7 +650,8 @@ function MarchMakerBody({
       if (carried) {
         e.preventDefault();
         const zone = el.closest<HTMLElement>('[data-march-drop]')?.dataset.marchDrop;
-        const plan = zone ? planMove(shown, shownPrinted, carried.source, readTarget(zone)!) : null;
+        const to = zone ? readTarget(zone) : null;
+        const plan = to ? planMove(shown, shownPrinted, carried.source, to, shownOut) : null;
         setCarried(null);
         refocus.current = carried.key;
         if (plan) run(plan);
@@ -623,7 +670,7 @@ function MarchMakerBody({
     if (carried && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
       e.preventDefault();
       const to = keyTarget(shown, carried.source, e.key === 'ArrowUp' ? -1 : 1);
-      const plan = to ? planMove(shown, shownPrinted, carried.source, to) : null;
+      const plan = to ? planMove(shown, shownPrinted, carried.source, to, shownOut) : null;
       refocus.current = carried.key;
       if (plan) run(plan);
       setHeard(plan ? (plan.ok ? plan.said : plan.reason) : `${carried.name} cannot go further.`);
@@ -679,6 +726,17 @@ function MarchMakerBody({
         <span className="text-center">Left</span>
         <span className="text-center">Right</span>
       </div>
+      {shown.length === 0 ? (
+        /* Nobody walks yet, but the tray holds people: the whole march is where they land. */
+        <div
+          data-march-drop="gap|*|0"
+          className={`mt-3 flex min-h-24 items-center justify-center rounded-xl border-[1.5px] border-dashed px-4 text-center text-sm ${
+            over?.zone === 'gap|*|0' ? 'border-terracotta-700 text-terracotta-800' : 'border-ink/15 text-ink/55'
+          }`}
+        >
+          Drag a name here from Not walking.
+        </div>
+      ) : null}
       {shown.map((sec) => {
         /* 🚶 A section moves by dragging its HEADER — every one but the groom's
            side (always first) and the bride's (always last). */
@@ -709,6 +767,9 @@ function MarchMakerBody({
             step += 1;
             const lead = leadOf(row);
             const walkKey = `walk:${lead}`;
+            /* 🚶 Drawn across the aisle by role and side (owner 2026-10-06 — Ninong left,
+               Ninang right; the groom's crew left, the bride's right): `acrossTheAisle`. */
+            const laid = acrossTheAisle(row);
             return (
               <div key={lead || i} className="flex flex-col">
                 <div
@@ -729,7 +790,7 @@ function MarchMakerBody({
                     {step}
                   </span>
                   {[0, 1].map((c) => {
-                    const p = row[c as 0 | 1];
+                    const p = laid[c as 0 | 1];
                     if (p) {
                       const zone = `name|${p.id}`;
                       return (
@@ -756,7 +817,7 @@ function MarchMakerBody({
                         </div>
                       );
                     }
-                    const anchor = row[c === 0 ? 1 : 0];
+                    const anchor = laid[c === 0 ? 1 : 0];
                     const zone = `beside|${anchor?.id ?? ''}`;
                     return (
                       <div
@@ -792,6 +853,18 @@ function MarchMakerBody({
           Put the sections back in their usual order
         </button>
       ) : null}
+      {slot
+        ? createPortal(
+            <MarchTray
+              out={shownOut}
+              unread={outUnread && !mine}
+              lifted={lifted}
+              over={over?.zone === 'tray' ? over.ok : null}
+              carried={carried?.key ?? null}
+            />,
+            slot,
+          )
+        : null}
       <p aria-live="polite" className="sr-only" data-march-heard="">
         {heard}
       </p>

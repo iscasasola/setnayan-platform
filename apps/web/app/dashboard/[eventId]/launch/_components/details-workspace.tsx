@@ -216,6 +216,15 @@ export function DetailsWorkspace({
   useEffect(() => {
     if (selected === 'theme' && !window.matchMedia('(max-width: 1023.98px)').matches) setSheetOpen(true);
   }, [selected]);
+  /* 🚶 THE MARCH'S LOWER THIRD IS ITS "NOT WALKING" TRAY (owner, live iPhone
+     2026-10-06: *"we want a scroll-less screen there. Just show screen for those
+     not added or will not walk the isle"*): opening the Wedding March opens its
+     tray where the navigator was — the one exception to "a mount lands on the
+     navigator", because the tray is half of the march, not a separate editor. */
+  const marchHere = selected === 'march';
+  useEffect(() => {
+    if (marchHere) setSheetOpen(true);
+  }, [marchHere]);
   const editorRef = useRef<HTMLDivElement>(null);
   const navRef = useRef<HTMLOListElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -594,12 +603,18 @@ export function DetailsWorkspace({
     <div
       ref={editorRef}
       hidden={whole}
-      className={`min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-2 ${
-        whole ? 'hidden' : stepSheet || sheetOpen ? '' : 'hidden lg:block'
-      }`}
+      className={`min-h-0 flex-1 overscroll-contain ${
+        /* 🚶 The march's tray never scrolls: it fills the room and fits its names to it. */
+        marchHere ? 'flex flex-col overflow-hidden px-2 pb-2 pt-1 lg:px-3 lg:pt-3' : 'overflow-y-auto px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-2'
+      } ${whole ? 'hidden' : stepSheet || sheetOpen ? '' : 'hidden lg:block'}`}
     >
       {items.map((i) => (
-        <div key={i.key} hidden={i.key !== selected} data-details-editor={i.key} className={i.key !== selected ? 'hidden' : 'flex flex-col gap-3'}>
+        <div
+          key={i.key}
+          hidden={i.key !== selected}
+          data-details-editor={i.key}
+          className={i.key !== selected ? 'hidden' : i.key === 'march' ? 'flex min-h-0 flex-1 flex-col' : 'flex flex-col gap-3'}
+        >
           {/* A server-made editor arrives as a lazy client reference — keyed, so it is
               never an unkeyed child beside the cover step's background (React's key check;
               the dev badge's "1 Issue" on every Maker screen, 2026-10-05). */}
@@ -699,6 +714,21 @@ export function DetailsWorkspace({
                   {/* A server-made body can arrive as a lazy client reference; one keyed
                      fragment keeps it out of the header's list (React's key check). */}
                   <Fragment key="body">{bodies[i.key] ?? null}</Fragment>
+                  {/* 🚶 THE GUIDED FLOW GOES ON FROM THE END OF THE MARCH (phone): its lower
+                      third is the tray, so Back · Skip for now · Next sit after the last walk —
+                      scrolled to, never over the names. The desk keeps its foot below. */}
+                  {i.key === 'march' && plan && at?.kind === 'step' && i.key === selected ? (
+                    <div data-march-guide-foot="" className="mt-2 lg:hidden">
+                      <GuideFoot
+                        onBack={backScreen(plan, at) ? () => move(backScreen(plan, at), 'back') : null}
+                        onSkip={skipScreen(plan, at) ? () => move(skipScreen(plan, at), 'skip') : null}
+                        onNext={nextScreen(plan, at) ? () => move(nextScreen(plan, at), 'next') : null}
+                        warning={unsavedTo !== null ? askKind : null}
+                        onKeepEditing={() => setUnsavedTo(null)}
+                        onGoAnyway={() => unsavedTo && goTo(unsavedTo)}
+                      />
+                    </div>
+                  ) : null}
                 </div>
               ) : null,
             )}
@@ -789,7 +819,8 @@ export function DetailsWorkspace({
             /* 📱 ONE slim header (owner, live iPhone test 2026-10-05): the step ▾ —
                "Save the Date · 3 of 6 ▾", All items inside it — · Peek · ×. No
                second line, no stage eyebrow, no repeated title. */
-            head={at?.kind === 'step' && stepHere ? <GuideTop plan={plan!} at={at} onPick={(to) => move(to)} onAllItems={allItems} inSheet /> : null}
+            /* 🚶 Never over the march's tray (owner: no "Invitation · 9 of 12" there). */
+            head={at?.kind === 'step' && stepHere && !marchHere ? <GuideTop plan={plan!} at={at} onPick={(to) => move(to)} onAllItems={allItems} inSheet /> : null}
             /* Each step opens at half — a sheet dragged up comes back down on Next. */
             restOn={stepHere?.key ?? null}
             /* 🧰 Only a STEP's sheet is drawn in the lower third (the picker, Before
@@ -822,7 +853,8 @@ export function DetailsWorkspace({
             ) : null}
             {/* Every step's field is IN its sheet — the Logo's answer included (owner 2026-10-05). */}
             {editorsBody(false)}
-            {at?.kind === 'step' ? (
+            {/* 🚶 Not under the march: its Back · Skip · Next are at the END of the march (below). */}
+            {at?.kind === 'step' && !marchHere ? (
               <div data-details-guide-foot-sheet="" className="contents lg:hidden">
                 <GuideFoot
                   onBack={backScreen(plan!, at) ? () => move(backScreen(plan!, at), 'back') : null}
@@ -852,7 +884,10 @@ export function DetailsWorkspace({
           }`}
         >
           {/* 📱 ONE header row: the setup's progress and the item's sections — its name is the column's. */}
-          <div className="flex shrink-0 items-center gap-2 px-3 pb-1 pt-2 lg:hidden" data-details-sheet-head="">
+          <div
+            className={`${marchHere ? 'hidden' : 'flex'} shrink-0 items-center gap-2 px-3 pb-1 pt-2 lg:hidden`}
+            data-details-sheet-head=""
+          >
             {/* 🧭 The setup's progress lives HERE, in the sheet's header — never a chip floating
                 over the page (it covered the page's own header line, 2026-10-04 at 375 px).
                 In the flow it is the step sheet's own ▾ line (`GuideTop`). */}

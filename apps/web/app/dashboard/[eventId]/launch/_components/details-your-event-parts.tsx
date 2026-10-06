@@ -15,6 +15,7 @@ import {
 } from '@/lib/details-your-event';
 import type { VenueSlot } from './details-your-event';
 import type { MarchSectionData } from './details-march';
+import type { MarchOut } from '@/lib/march-drag';
 import type { HostPiece, PersonPiece } from './details-people';
 /* ⚡ Your event's editors and pictures load when Details is opened — never with the Maker (`details-lazy.tsx`). */
 import {
@@ -85,6 +86,8 @@ export type YourEventInput = {
     sections: readonly MarchSectionData[];
     /** The printed sections with someone in them, in the saved order (`printedSectionOrder`) — what a header drag steps through. */
     printed?: readonly string[];
+    /** 🚶 The "Not walking" tray (`marchTray`); null = it could not be read. */
+    out?: readonly MarchOut[] | null;
     /** The dev Maker lab only (`/dev/maker-lab`): the drags are drawn, never sent. */
     lab?: boolean;
   };
@@ -177,7 +180,15 @@ export function yourEventParts({
       />
     ),
     /* 🚶 The page IS the maker (drag the names) — the body on a phone, the middle on a desk. */
-    march: <MarchMaker eventId={eventId} sections={input.march.sections} printed={input.march.printed ?? []} lab={input.march.lab === true} />,
+    march: (
+      <MarchMaker
+        eventId={eventId}
+        sections={input.march.sections}
+        printed={input.march.printed ?? []}
+        out={input.march.out === undefined ? [] : input.march.out}
+        lab={input.march.lab === true}
+      />
+    ),
   };
 
   const editors: Partial<Record<EventItemKey, ReactNode>> = {
@@ -194,8 +205,10 @@ export function yourEventParts({
         add={<ParentCards eventId={eventId} parents={parents} />}
       />
     ),
-    /* What prints — The Entourage card, redrawn after each burst of moves. */
-    march: <PrintPieceBody input={prints} piece="entourage" />,
+    /* 🚶 The "Not walking" tray's place — the phone's lower third, the desk's right
+       panel (owner 2026-10-06). The maker draws the tray INTO it (one state, one drag).
+       No Entourage card here: owner, *"No need to show the pdf file."* */
+    march: <div data-march-tray-slot="" className="flex min-h-0 flex-1 flex-col" />,
   };
 
   /* 🧩 The tools' own pieces on the left (DECISION_LOG "A TOOL MOVED INTO THE

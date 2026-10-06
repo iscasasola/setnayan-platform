@@ -13,6 +13,7 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
+import { reportCrash } from '@/lib/telemetry/report-crash';
 import { isMarchOnlyGroup } from '@/lib/entourage';
 import {
   acrossTheAisle,
@@ -165,7 +166,7 @@ export class MarchBoundary extends Component<{ children: ReactNode }, { failed: 
     return { failed: true };
   }
   override componentDidCatch(error: Error): void {
-    void import('@/lib/telemetry/report-crash').then((m) => m.reportCrash(error, 'march')).catch(() => {});
+    reportCrash(error, 'march');
   }
   override render() {
     if (!this.state.failed) return this.props.children;

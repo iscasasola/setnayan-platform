@@ -25,12 +25,13 @@ import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
 import { markAnimationSwitchedOff } from '@/lib/monogram-studio-shared';
 import { plusOneSeatsFor } from '../../_lib/plus-one-seats.server';
 import { asksForHostCanvas } from '../../_lib/editor-canvas';
-import { loadHostMembership, loadHostPreviewDraft } from '../../_lib/loaders';
+import { loadHostMembership, loadHostPreviewDraft, loadWidgets } from '../../_lib/loaders';
 import { wearTheHub } from '../_lib/wear-the-hub';
 import { GuestLookScope } from '../../_components/guest-look-scope';
 import { lookScopeProps } from '../../_components/host-draft-look';
 import { getCurrentUser } from '@/lib/auth';
-import { overlayHubDraftEvent } from '@/lib/hub-draft';
+import { overlayHubDraftEvent, overlayHubDraftWidgets } from '@/lib/hub-draft';
+import { sceneStyleOfRow } from '@/lib/scene-style-of-row';
 import { rsvpCanvasGuestFor } from '@/lib/simulated-guest-preview';
 import { loadPreviewPerson } from '../../_lib/preview-person.server';
 
@@ -142,7 +143,7 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
     (!guest.first_name || String(guest.first_name).toLowerCase() === 'tba');
   if (isUnconfirmedTba) redirect(`/${home}/welcome`);
 
-  const [words, faceTagging, supabase, hub, seats, animationOwned] = await Promise.all([
+  const [words, faceTagging, supabase, hub, seats, animationOwned, replyStyle] = await Promise.all([
     eventWordsFor(event.event_type as string),
     resolveFaceTagging(admin, event.event_id as string),
     createClient(),
@@ -150,6 +151,13 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
     canvas ? Promise.resolve([]) : plusOneSeatsFor(admin, event.event_id as string, guest.guest_id as string),
     // The hero's own gate for a moving mark (`loadMedia` → `animatedMonogram`).
     eventAnimatedMonogramActive(admin, event.event_id as string).catch(() => false),
+    /* 🎨 THE REPLY CARD'S STYLE — the RSVP row's `canvas.style` (the couple's DRAFT on
+       the Maker's canvas), the SAME pick the Event Hub's own card wears (`site-body.tsx`).
+       This page passed none, so The question and The ticket never reached the reply page.
+       A row that could not be read draws the shipped card (`sceneStyleOfRow` → null). */
+    loadWidgets(admin, event.event_id as string)
+      .then((rows) => sceneStyleOfRow(overlayHubDraftWidgets(rows, hostDraft).find((w) => w.widget_type === 'rsvp'), 'rsvp', event.event_type as string))
+      .catch(() => null),
   ]);
   // ▶ The crest plays the couple's layered logo exactly when the Event Hub hero
   // would: the animation is owned AND not switched to "Use Static Image".
@@ -366,6 +374,7 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
           gate={gate.kind === 'ask' ? { missing: gate.missing, coupleMarked: gate.coupleMarked } : null}
           termsOnSend
           oneAtATime={askOneAtATime(event.rsvp_ask_config)}
+          sceneStyle={replyStyle}
           previewEveryQuestion={canvas}
           answerWords={readRsvpWords(event.rsvp_ask_config)}
         />

@@ -136,6 +136,8 @@ export const StageStepPreview = dynamic(() => import(/* webpackChunkName: "maker
 /* ── The stage editor's background controls (#6135): shown when Main or a scene is edited ── */
 export const MainBackgroundPanel = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/main-background-panel').then((m) => m.MainBackgroundPanel), { loading: SlotRows });
 export const HeroFrameSync = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/main-background-panel').then((m) => m.HeroFrameSync), { loading: SlotNone });
+/* 🎬 A scene's Animate tab — loaded when it first opens, never in the Maker's first load. */
+export const SceneAnimateTab = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/scene-animate-tab').then((m) => m.SceneAnimateTab), { loading: SlotRows });
 export const SceneBackgroundRow = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/scene-background-row').then((m) => m.SceneBackgroundRow), { loading: SlotRows });
 /* 🥗 …and the Main look's Colours panel and the Pro rows' locked panel (rd/maker-diet,
    2026-09-30): each draws only when its row is opened — "Main" and a Pro row are
@@ -171,6 +173,9 @@ export const StudioToolRow = dynamic(() => import(/* webpackChunkName: "maker-de
 export const StudioCover = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.StudioCover), { loading: SlotFill });
 export const LowerThirdGrab = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.LowerThirdGrab), { loading: SlotNone });
 export const MakerSheet = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.MakerSheet), { loading: SlotNone });
+/* 🎬 The new Maker's Stages panel (`stage-tools.tsx`: the stage ▾ with its pages, Style | Text | Animate, ▶,
+   the page's parts, swipe) — lazy like the rest of its chrome, never in the Maker's first load. */
+export const StageTools = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stage-tools').then((m) => m.StageTools), { loading: SlotFill });
 
 /* ── 🧭 The new Maker's Studio tools (owner 2026-10-06, plan PR 4 — `MakerDetails`'s `studio`): ONE stand-in for
    every piece (`StudioTool`'s `part`) — each stand-in is bytes in the Maker's first load. Drawn only while the new

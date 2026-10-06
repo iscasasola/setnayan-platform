@@ -280,6 +280,7 @@ const TOOL_FILES = [
   `${E}/element-sheet.tsx`,
   `${E}/part-inspector.tsx`,
   `${E}/scene-inspector.tsx`,
+  `${E}/scene-animate-tab.tsx`,
   `${E}/media-panels.tsx`,
   ...Object.keys(KNOWN_LINK_OUTS),
 ];

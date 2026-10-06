@@ -141,10 +141,10 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
       canvases={canvases}
       /* Moves with every render, as the real Maker's stamp does — a save's refresh reaches the canvas. */
       renderStamp={String(Date.now())}
-      /* 🧭 `?studio=1` — the new Maker on the lab's fixtures (no ✓ claimed: nothing was measured here). */
-      stagesStudio={sp.studio === '1'}
+      /* 🧭 `?studio=1` (or `?ss=1`) — the new Maker on the lab's fixtures (no ✓ claimed: nothing was measured here). */
+      stagesStudio={sp.studio === '1' || sp.ss === '1'}
       studio={
-        sp.studio === '1'
+        sp.studio === '1' || sp.ss === '1'
           ? {
               tiles: STUDIO_TILE_KEYS.map((key) => ({
                 key,

@@ -46,6 +46,7 @@ const NOT_A_TOOL: Record<string, string> = {
   '@sentry/nextjs': 'error reporting — loaded at idle by its own path (deferred-observability), not a panel',
   'lib/telemetry/fault-observer.ts': 'the Problems observer — installed at idle by deferred-observability on every page, nothing a person taps opens it; not a panel',
   'posthog-js': 'analytics — only after cookie consent, never preloaded',
+  'app/dashboard/[eventId]/website/hub-draft-actions.ts': 'the Event Hub draft\'s ONE server action (a reference, not a panel), reached by the Wedding March at its first drop (2026-10-06, the march waits for Apply) so opening the march reaches for no server door — and already in hand by then: `details-your-event.tsx`, warmed by the preloaded Details tool (`details-lazy`), imports it statically',
   'lib/celebration-engine.ts': 'the When yes celebration\'s canvas engine (owner 2026-10-06) — not a panel: it only draws the tiny previews inside the open Celebration ▾ list (the list itself is already loaded) and plays on the guest page frame, which fetches it as the frame opens',
   'lib/vendor-qr-guard-client.ts': 'runs on a file the couple picked (upload pipeline) — there is nothing to run before the pick',
   'lib/watermark.ts': 'runs on a file the couple picked (upload pipeline)',

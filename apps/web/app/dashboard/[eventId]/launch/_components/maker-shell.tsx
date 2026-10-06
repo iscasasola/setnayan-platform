@@ -42,7 +42,7 @@ import {
   type MakerSelection,
   type MakerState,
 } from './maker-context';
-import { DETAILS_LT_SECTION_FIRST, detailsLtSection, movedPageItem, type DetailsItemKey, type DetailsLtSection } from '@/lib/maker-details-items';
+import { DETAILS_FIRST_ITEM, DETAILS_LT_SECTION_FIRST, detailsLtSection, movedPageItem, type DetailsItemKey, type DetailsLtSection } from '@/lib/maker-details-items';
 import { makerGuestPages } from '@/lib/maker-guest-pages';
 import { SEE_AS, SEE_AS_EDITING, type SeeAs } from '@/lib/see-as';
 import { MakerTour } from './maker-tour';
@@ -457,7 +457,7 @@ export function MakerShell({
     selection?.kind === 'tool' && selection.key === 'rsvp-stage'
       ? RSVP_STAGE_KEY
       : doorShown
-        ? LT_PICK_OF_SECTION[detailsLtSection(detailsItem ?? '')]
+        ? LT_PICK_OF_SECTION[detailsLtSection(detailsItem ?? DETAILS_FIRST_ITEM)]
         : settingsOn
           ? 'settings'
           : stage;
@@ -713,6 +713,11 @@ export function MakerShell({
   const screenLabel = (() => {
     const head = guideTitle && (openDoor === 'look' || openDoor === 'details') ? (openStageWord ?? ltPickLabel) : ltPickLabel;
     const part = tool?.name ?? ltWhereWords;
+    /* ✂ THE LABEL FITS (controller sweep 2026-10-06: "Wedding Ma…", "Finish your Event
+       Hub · …"): inside Event Details the bar names the ITEM alone — the menu below
+       already says which part of the list it is; a stage keeps "Stage · page". */
+    // The guided flow names its stage alone (owner 2026-10-05, "ONE title per stage").
+    if (doorShown) return guideTitle ? head : part || head;
     return part && part !== head ? `${head} · ${part}` : head;
   })();
 

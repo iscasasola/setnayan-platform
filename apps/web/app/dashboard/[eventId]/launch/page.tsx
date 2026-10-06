@@ -98,7 +98,8 @@ import { printDraftOf } from '@/lib/ceremony-time';
 import { updateSpecialMessage } from '../website/special-message/actions';
 import { fetchEgiftMethods, isPabuyaPublicRouteEnabled, readEgiftMethods } from '@/lib/egift';
 import { HubSavesImmediately } from '../website/_components/hub-draft-field';
-import { PabuyaManager } from '../pabuya/_components/pabuya-manager';
+// ⚡ Through the lazy stand-in — never the manager's own module (the Maker's first-load budget).
+import { PabuyaManager } from './_components/details-lazy';
 import { formatFor, parsePrintDetails, storyHasMoments } from '@/lib/print-pieces';
 import { printStoryChapters } from '@/lib/love-story-moments';
 import { passCardDesignFrom, passCardsZipFileNameOf } from '@/lib/pass-card';

@@ -70,6 +70,11 @@ export const PabuyaMessageEditor = dynamic(
   () => import(/* webpackChunkName: "maker-details" */ '../../pabuya/_components/pabuya-message-editor').then((m) => m.PabuyaMessageEditor),
   { loading: SlotRows },
 );
+/* 🎁 The E-Gifts page's own manager — the Your event form's E-Gifts field (2026-10-06). */
+export const PabuyaManager = dynamic(
+  () => import(/* webpackChunkName: "maker-details" */ '../../pabuya/_components/pabuya-manager').then((m) => m.PabuyaManager),
+  { loading: SlotRows },
+);
 
 /* ── The prints (Invitation set · For the day · Download) ─────────────────── */
 export const PrintPreview = dynamic(() => import(/* webpackChunkName: "maker-details" */ './print-preview').then((m) => m.PrintPreview), { loading: SlotFill });

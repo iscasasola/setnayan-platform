@@ -193,7 +193,8 @@ test('Gifts No: the guest-facing gift reader returns nothing, and the gift page 
   const egift = read('lib/egift.ts');
   const fetcher = egift.slice(egift.indexOf('export async function fetchEgiftMethods'));
   assert.match(fetcher, /opts\.enabledOnly\s*\?\s*supabase\.from\('events'\)\.select\('gifts_on'\)/);
-  assert.match(fetcher, /!giftsAreOn\([\s\S]{0,80}?\.gifts_on\)\) \{\s*return \[\];/);
+  // (2026-10-06: the reader says whether it READ — `readEgiftMethods`; an explicit No is a read empty list.)
+  assert.match(fetcher, /!giftsAreOn\([\s\S]{0,80}?\.gifts_on\)\) \{\s*return \{ methods: \[\], read: true \};/);
   assert.match(read('app/[slug]/pabuya/page.tsx'), /if \(!giftsAreOn\(event\.gifts_on\)\) notFound\(\);/);
 });
 

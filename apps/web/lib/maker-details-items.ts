@@ -397,6 +397,9 @@ export function groupOfItemSafe(key: string): DetailsItemGroup | null {
  */
 export type DetailsLtSection = 'look' | 'story' | 'event' | 'prints';
 export function detailsLtSection(key: string): DetailsLtSection {
+  // The whole Look panel is the Look's; Parents & hosts are held by the march (Story & plans).
+  if (key === 'theme') return 'look';
+  if (key === 'parents') return 'story';
   const g = groupOfItemSafe(key);
   if (g === 'set' || g === 'day' || g === 'download') return 'prints';
   if (g === 'look' || g === 'story') return g;

@@ -547,13 +547,24 @@ export function MakerDetails(props: MakerDetailsProps) {
     ...(rsvp ? (['rsvp'] as const) : []),
   ];
   const present = new Set<DetailsItemKey>(['theme', ...LOOK_SECTION_ITEM_KEYS, ...(look ? LOOK_ITEM_KEYS : []), ...(ye?.keys ?? []), ...ap.keys, ...(seatPlan ? (['seating'] as const) : []), ...(props.planMyself ? (['plan-myself'] as const) : []), 'address', 'qr', 'download', ...WORDS_ITEM_KEYS, ...storyPresent, ...PRINT_SET_KEYS, ...free.map((f) => f.key)]);
-  const groups: DetailsNavGroup[] = detailsNavigatorKeys(eventContext, present).map((g) => ({
-    key: g.group,
-    label: g.label,
-    items: g.keys.map((k) => ({ key: k, group: g.group, ...labelOf(k) })),
-    ...(g.form ? { form: true as const } : {}),
-    ...(g.hidden ? { hidden: true as const } : {}),
-  }));
+  /* 👪 Where the type prints no parents (a birthday, a wake), "Hosts" has no march to
+     live in — it is the last field of the Your event form instead (review 2026-10-06). */
+  const hostsInForm = props.yourEvent ? !parentsOffered(props.yourEvent.kind) : !switches.parents;
+  const groups: DetailsNavGroup[] = detailsNavigatorKeys(eventContext, present).map((g) => {
+    const keys =
+      hostsInForm && g.group === 'event' && present.has('parents')
+        ? [...g.keys, 'parents' as const]
+        : hostsInForm && g.group === 'elsewhere'
+          ? g.keys.filter((k) => k !== 'parents')
+          : g.keys;
+    return {
+      key: g.group,
+      label: g.label,
+      items: keys.map((k) => ({ key: k, group: g.group, ...labelOf(k) })),
+      ...(g.form ? { form: true as const } : {}),
+      ...(g.hidden ? { hidden: true as const } : {}),
+    };
+  });
 
   /* ══ 🪜 WHAT'S LEFT — the guided flow over these very rows ══ */
   const doneFacts = props.guide?.doneFacts ?? null;
@@ -762,11 +773,11 @@ export function MakerDetails(props: MakerDetailsProps) {
   );
   const editors: Partial<Record<DetailsItemKey, ReactNode>> = {
     /* 🎨 LOOK IS ONE PANEL — Background · Font · Colours · Buttons (`lib/maker-look-sections.ts`). */
-    theme: <LookPanel filmLine={filmLine} />,
-    background: <LookPanel filmLine={filmLine} sections={LOOK_ITEM_SECTIONS.background} />,
-    colours: <LookPanel sections={LOOK_ITEM_SECTIONS.colours} />,
-    font: <LookPanel sections={LOOK_ITEM_SECTIONS.font} />,
-    music: <LookPanel sections={LOOK_ITEM_SECTIONS.music} />,
+    theme: <LookPanel filmLine={filmLine} item="theme" />,
+    background: <LookPanel filmLine={filmLine} sections={LOOK_ITEM_SECTIONS.background} item="background" />,
+    colours: <LookPanel sections={LOOK_ITEM_SECTIONS.colours} item="colours" />,
+    font: <LookPanel sections={LOOK_ITEM_SECTIONS.font} item="font" />,
+    music: <LookPanel sections={LOOK_ITEM_SECTIONS.music} item="music" />,
     /* ── Your Event Hub address — the one place it is edited (owner: "Add the
        slug to details"). The shipped SlugField: 3–32 characters, live
        availability, old links forward. ── */

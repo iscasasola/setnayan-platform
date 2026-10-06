@@ -12,7 +12,7 @@
  *     couple's plain colour (via `--color-cream`), or their ombré; and the
  *     theme's own loop over it;
  *   · `SiteBody` → `MainGround` — the couple's hero photo/video (or their
- *     explicit override) laid over everything, gated on `theme !== 'house'`;
+ *     explicit override) laid over everything, gated on `heroMayBePageGround` (Pro media);
  *   · `InvitationShell` — its own opaque paper, dropped when a ground exists.
  *
  * Three spellings of one decision is how a surface drifts: a new free theme,

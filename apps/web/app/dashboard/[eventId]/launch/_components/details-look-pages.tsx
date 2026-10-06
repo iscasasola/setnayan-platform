@@ -73,10 +73,25 @@ const WORD: Record<LookPageKey, string> = { logo: 'Logo', hero: 'hero', reveal: 
  * arrived SAYS so. `filmLine` (the Save the Date film's "Same as the Event Hub")
  * sits under Background, the ground it hands the film back to.
  */
-export function LookPanel({ filmLine = null, sections = LOOK_SECTIONS }: { filmLine?: ReactNode; sections?: readonly LookSection[] }) {
+export function LookPanel({
+  filmLine = null,
+  sections = LOOK_SECTIONS,
+  item,
+}: {
+  filmLine?: ReactNode;
+  sections?: readonly LookSection[];
+  /**
+   * 🔑 ONE MOUNT OF EACH CONTROL (review 2026-10-06): the whole Look (`theme`) and
+   * Background · Colours · Font · Music draw the SAME registered nodes — mounted
+   * twice they would hold two states and two on-open measurements. Named, a
+   * panel draws only while its item is the one open in the Maker.
+   */
+  item?: string;
+}) {
   const maker = useMaker();
   const look = maker?.lookPages?.look ?? null;
   const late = useLate(Boolean(look));
+  if (item && maker && maker.detailsItem !== item) return null;
   const of = (k: LookSection): ReactNode =>
     !look ? null : k === 'colours' ? (look.colours || look.palette ? <>{look.colours}{look.palette}</> : null) : (look[k] ?? null);
   /* 🗂 Never a blank panel (owner 2026-10-06): a section this event does not offer says so in one line. */

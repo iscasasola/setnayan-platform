@@ -631,7 +631,7 @@ export function DetailsWorkspace({
       box.scrollTop += el.getBoundingClientRect().top - box.getBoundingClientRect().top - 8;
     });
     return () => window.cancelAnimationFrame(id);
-  }, [formAt]);
+  }, [formAt, sheetOpen]);
 
   /** Every item's editor — all mounted, the picked one shown (`hidden` never unmounts: a hidden field still posts). */
   const editorsBody = (whole: boolean) => (
@@ -923,7 +923,8 @@ export function DetailsWorkspace({
               selected={selected}
               onPick={select}
               pieces={pieces[selected] ?? null}
-              current={pieceLabels[selected]?.[pieceMap[selected] ?? ''] ?? null}
+              /* A hidden item (no row of its own) and the Your event form name themselves. */
+              current={pieceLabels[selected]?.[pieceMap[selected] ?? ''] ?? shownLabel}
             />
           </div>
           <p className="hidden px-4 pt-4 font-serif text-lg text-ink lg:block">{formGroup ? formGroup.label : (current.panelLabel ?? current.label)}</p>

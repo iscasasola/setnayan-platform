@@ -96,7 +96,8 @@ import { parentGuestsForEvent, printInputsVersion, printOwnsPro, printThemeFor, 
 import { printPreviewVersion } from '@/lib/print-preview-cache';
 import { printDraftOf } from '@/lib/ceremony-time';
 import { updateSpecialMessage } from '../website/special-message/actions';
-import { fetchEgiftMethods, isPabuyaPublicRouteEnabled } from '@/lib/egift';
+import { fetchEgiftMethods, isPabuyaPublicRouteEnabled, readEgiftMethods } from '@/lib/egift';
+import { HubSavesImmediately } from '../website/_components/hub-draft-field';
 import { PabuyaManager } from '../pabuya/_components/pabuya-manager';
 import { formatFor, parsePrintDetails, storyHasMoments } from '@/lib/print-pieces';
 import { printStoryChapters } from '@/lib/love-story-moments';
@@ -1039,6 +1040,9 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
   let factEditors: Partial<Record<DetailsItemKey, ReactNode>> = {};
   if (hasWork) {
     const printAdmin = createAdminClient();
+    /* 🎁 Started beside the reads below, awaited where the E-Gifts field is built. */
+    const egiftAllP = readEgiftMethods(supabase, eventId);
+    const egiftVisibilityP = supabase.from('events').select('landing_page_visibility').eq('event_id', eventId).maybeSingle();
     const [printEvent, printPro, rsvpHosts, printParents, egifts, printInputs, sampleVersion, feelRes, storyLiveRes, scheduleRes, announceOn] = await Promise.all([
       readPrintEvent(printAdmin, eventId),
       printOwnsPro(eventId),
@@ -1170,19 +1174,29 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
          the couple's client exactly as that page reads it — drawn in the Your
          event form under "Accept gifts?". It writes live, as it always has. */
       const egiftManager = await (async () => {
-        const [all, chrome] = await Promise.all([
-          fetchEgiftMethods(supabase, eventId),
-          supabase.from('events').select('display_name, landing_page_visibility').eq('event_id', eventId).maybeSingle(),
-        ]);
+        const [{ methods: all, read }, chrome] = await Promise.all([egiftAllP, egiftVisibilityP]);
         if (chrome.error) logQueryError('LaunchPage.egiftChrome', chrome.error, { event_id: eventId }, 'graceful_degrade');
-        const row = (chrome.data ?? null) as { display_name: string | null; landing_page_visibility: string | null } | null;
+        /* A refused read is SAID — never "no methods yet" with an add form under it. */
+        if (!read) {
+          return (
+            <p role="alert" className="text-sm text-terracotta-700" data-details-egifts-failed="">
+              Your gift details could not be read just now. Nothing was changed — please reopen this in a moment.
+            </p>
+          );
+        }
+        const row = (chrome.data ?? null) as { landing_page_visibility: string | null } | null;
         const words = eventWordsFromProfile(detailsProfile);
         const qrDisplayUrls: Record<string, string> = {};
         for (const m of all) if (m.qr_r2_key && m.qrDisplayUrl) qrDisplayUrls[m.qr_r2_key] = m.qrDisplayUrl;
         return (
+          <>
+          {/* The E-Gifts page's own writes — live, and said so (the thank-you beside it is too). */}
+          <HubSavesImmediately />
           <PabuyaManager
             eventId={eventId}
-            coupleName={row?.display_name ?? null}
+            /* The preview's heading reads "E-Gifts for <the organizer word>" here — this
+               page reads no name it does not need (`the-controller-wires-what-it-measured`). */
+            coupleName={null}
             organizerPossessive={words.theOrganizerPossessive}
             theOrganizer={words.theOrganizer}
             slug={printEvent.slug}
@@ -1202,6 +1216,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
             }))}
             qrDisplayUrls={qrDisplayUrls}
           />
+          </>
         );
       })();
       const themes = pickableInviteThemes();

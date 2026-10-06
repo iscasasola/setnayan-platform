@@ -312,7 +312,8 @@ export function MainBackgroundPanel({
      photo/video ◆ for everyone): every choice is offered on every theme. Its
      STORED default still reads as the colour (Classic never measured a hero). */
   const stored = mainGroundChoice({ current, choosingMedia, followsHero: Boolean(follow), heroPhotoRef: hero.photoRef });
-  const choice = themeId === 'house' && stored === 'theme' ? 'none' : stored;
+  /* Classic never follows a hero (no measured follow) — an unstored hero default reads as the colour too. */
+  const choice = themeId === 'house' && (stored === 'theme' || (stored === 'hero' && !follow)) ? 'none' : stored;
   /* The loop on screen: the one picked, else (the default) the page's own. */
   const loopNow: InviteThemeId | null = isHubMainLoop(current)
     ? current.loop

@@ -149,9 +149,23 @@ test('(1b) each Look row of Event Details opens the panel on ITS section(s) — 
   const music = paint(LOOK_ITEM_SECTIONS.music);
   assert.deepEqual(sectionsOf(music), []);
   assert.match(music, /data-look-panel-empty="music"[^>]*>Nothing to set here for this event\.</);
+  // 🔑 ONE mount of each control: a named panel draws only while its item is open.
+  const named = (item: string, open: string) =>
+    renderToStaticMarkup(
+      React.createElement(
+        MakerContext.Provider,
+        { value: { detailsItem: open, lookPages: { logo: null, hero: null, reveal: null, revealOptions: null, heroParts: null, revealStages: [], publicLandingUrl: '/a', look } } },
+        React.createElement(LookPanel, { sections: LOOK_ITEM_SECTIONS.font, item }),
+      ),
+    );
+  assert.equal(named('font', 'colours'), '', 'a Look control is mounted twice (its item is not open)');
+  assert.deepEqual(sectionsOf(named('font', 'font')), ['font']);
+  const { detailsLtSection } = await import('./maker-details-items');
+  assert.equal(detailsLtSection('theme'), 'look', 'the whole Look lights Your event on a phone');
+  assert.equal(detailsLtSection('parents'), 'story');
   const details = read(`${L}/maker-details.tsx`);
   for (const k of ['background', 'colours', 'font', 'music']) {
-    assert.match(details, new RegExp(`${k}: <LookPanel [^>]*sections=\\{LOOK_ITEM_SECTIONS\\.${k}\\} />`), `the ${k} row does not open its section`);
+    assert.match(details, new RegExp(`${k}: <LookPanel [^>]*sections=\\{LOOK_ITEM_SECTIONS\\.${k}\\} item="${k}" />`), `the ${k} row does not open its section`);
   }
 });
 
@@ -159,7 +173,7 @@ test('(1b) each Look row of Event Details opens the panel on ITS section(s) — 
 
 test('(2) the Look item mounts the one panel, and its body is the couple’s own page', () => {
   const details = read(`${L}/maker-details.tsx`);
-  assert.match(details, /theme: <LookPanel filmLine=\{filmLine\} \/>,/, 'the Look item does not mount the one panel');
+  assert.match(details, /theme: <LookPanel filmLine=\{filmLine\} item="theme" \/>,/, 'the Look item does not mount the one panel');
   assert.match(details, /theme: <DetailsLookPageBody \/>,/, 'the Look body is not the couple’s own page');
   // 🚫 No theme picker anywhere in the Maker's Look (2026-10-05).
   assert.doesNotMatch(details, /<MakerThemeMenu\b|<MakerThemeGallery\b/, 'a theme picker came back into the Maker');

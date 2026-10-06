@@ -13,8 +13,9 @@
  *                    Details.
  *   2. `reminders` — the couple's own lines ("Arrive by 2:30", "Bring your
  *                    ticket"). NOT a new store: the shipped `what_to_bring` scene
- *                    (`events.what_to_bring`), written in the Maker in place and
- *                    called "Reminders" to guests.
+ *                    (`events.what_to_bring`). ⚠ Since 2026-10-06 ONLY The Day's
+ *                    Welcome draws it (`welcomePartsOnTheDay`); on the Invitation
+ *                    What to bring is a Details scene after Dress code.
  *   3. `gifts`     — the E-Gifts door, shown NOW rather than at the foot of the
  *                    page, whenever the couple has at least one gift method on.
  *

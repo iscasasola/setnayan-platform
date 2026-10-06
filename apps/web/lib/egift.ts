@@ -97,6 +97,19 @@ export async function fetchEgiftMethods(
   eventId: string,
   opts: { enabledOnly?: boolean } = {},
 ): Promise<EgiftMethodView[]> {
+  return (await readEgiftMethods(supabase, eventId, opts)).methods;
+}
+
+/**
+ * The same read, saying whether it was READ (owner 2026-10-06 Maker E-Gifts
+ * field): a refused read must never draw as "no methods yet" with an add form
+ * under it — the caller shows a could-not-load line instead.
+ */
+export async function readEgiftMethods(
+  supabase: SupabaseClient,
+  eventId: string,
+  opts: { enabledOnly?: boolean } = {},
+): Promise<{ methods: EgiftMethodView[]; read: boolean }> {
   let query = supabase
     .from('event_egift_methods')
     .select(SELECT_COLUMNS)
@@ -114,14 +127,14 @@ export async function fetchEgiftMethods(
       : Promise.resolve(null),
   ]);
 
-  if (error || !data) return [];
+  if (error || !data) return { methods: [], read: false };
   // An explicit No hides every method from guests at once; an unread switch makes no claim.
   if (giftsSwitch && !giftsSwitch.error && giftsSwitch.data && !giftsAreOn((giftsSwitch.data as { gifts_on?: unknown }).gifts_on)) {
-    return [];
+    return { methods: [], read: true };
   }
 
   const rows = data as unknown as EgiftMethodRow[];
-  return rows.map((row): EgiftMethodView => ({ ...row, qrDisplayUrl: qrUrlFor(row) }));
+  return { methods: rows.map((row): EgiftMethodView => ({ ...row, qrDisplayUrl: qrUrlFor(row) })), read: true };
 }
 
 /**

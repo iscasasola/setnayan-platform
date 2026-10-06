@@ -32,3 +32,14 @@ Brief: controller 2026-10-06 — the phone lower third under the Wedding March I
   hub draft; Apply writes through the same actions; remove HubSavesImmediately from the march.
 - PR #6380 (this branch) opened DRAFT, do-not-auto-merge. Weekly usage 93% at 10:15 PHT — PR 2 (drafted march) NOT started.
 - Pending when this was written: full unit suite run, Sonnet review findings (fix medium+), CI checks on #6379/#6380.
+
+## Status 2026-10-06 ~11:00 — handoff
+- #6380 head pushed: full unit suite run locally (7 stale guards found → re-pointed, all green), tsc 0, all blocking
+  guard scripts green, Sonnet review: medium findings fixed (slot re-found via MutationObserver, sheet drag, Undo order,
+  tray scroll target, parallel tray read). Open owner call: a non-walker's PRINT POSITION moves (role prints, pair does not).
+- Not done: guided-flow screenshot on phone (the Maker lab's guide has no march step; the render test
+  the-guided-steps-share-one-layout (1) covers it). Low review items: unread tray → read-only march; Space on "+N more".
+- NEXT SESSION: PR 2 "drafted march" (owner "Wait for apply"): branch off this one; every MarchStep (incl. 'walking')
+  becomes a hub-draft entry (find how non-events edits are drafted: lib/hub-draft.ts, hubDraftAction,
+  planHubDraftApply in hub-draft-actions.ts); Apply replays the steps through the shipped actions; remove
+  HubSavesImmediately + data-writes-live from details-march.tsx (and the (22) guard's opt-in count).

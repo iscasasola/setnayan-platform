@@ -19,7 +19,7 @@ import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
 import { InMakerReturnTo } from './in-maker-return-to';
 import { formatCount } from '@/lib/format-number';
-import { MomentOrderCards } from './moment-order-cards';
+import { MomentOrderCards } from './moment-order-cards-lazy';
 
 /**
  * OUR LOVE STORY — THE SCRAPBOOK (Event Hub Maker Phase 7).

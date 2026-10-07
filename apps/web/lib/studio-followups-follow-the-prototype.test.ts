@@ -165,7 +165,20 @@ test('2b · Studio › Love Story is the cards — one band per moment, opened i
     pickSlot: null,
     inMaker: true,
   };
-  const studio = await html(React.createElement(LoveStoryBook, { ...props, studio: true }));
+  /* The book draws the cards through a lazy stand-in (the Maker's first-load budget); the cards themselves: */
+  const book = await html(React.createElement(LoveStoryBook, { ...props, studio: true }));
+  assert.doesNotMatch(book, /id="love-story-title"|On our <i/, 'Studio still draws the scrapbook around the cards');
+  assert.match(read(`${STORY}/love-story-book.tsx`), /import \{ MomentOrderCards \} from '\.\/moment-order-cards-lazy';/, 'the cards are back in the Maker’s first load');
+  const { MomentOrderCards } = await import(`../${STORY}/moment-order-cards`);
+  const studio = await html(
+    React.createElement(MomentOrderCards, {
+      action: props.action,
+      moments: sortMoments(story),
+      mediaUrls: {},
+      sheet: { action: props.action, moments: story, partners: props.partners, ownsPro: false, storeShell: false, proHref: '/p', proPrice: null, eventId: 'ev-1', mediaUrls: {} },
+      add: { can: true },
+    }),
+  );
   assert.equal((studio.match(/data-studio-story-head="/g) ?? []).length, 3, 'not one card per moment');
   assert.match(studio, /2019[\s\S]*One umbrella[\s\S]*A rainy Tuesday in Katipunan\.[\s\S]*data-moment-grip="u"/, 'a card is not photo · year · title · first line · grip');
   assert.ok(sortMoments(story).map((m) => m.id).join() === 'u,s,d');

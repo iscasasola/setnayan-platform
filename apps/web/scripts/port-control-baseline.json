@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "33be3f779",
+  "generatedFromRef": "513630e9b",
   "routeCount": 428,
   "destinations": 949,
   "actions": 670,
-  "blocks": 5632,
+  "blocks": 5631,
   "routes": {
     "/": {
       "files": [
@@ -6803,7 +6803,6 @@
         "SpecialMessageQuote",
         "StageArrange",
         "StageItemMenu",
-        "StagePanelPart",
         "StagePicker",
         "StageStepPreview",
         "StageStyle",

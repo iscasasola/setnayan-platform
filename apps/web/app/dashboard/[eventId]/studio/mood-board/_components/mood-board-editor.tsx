@@ -1222,9 +1222,7 @@ export async function MoodBoardEditor({ eventId }: { eventId: string }) {
  * vendors, the two PDFs. Every part stays mounted inside ONE palette provider,
  * so the theme's main colours still derive the palette live (MB5).
  */
-export async function MoodBoardMakerBody({ eventId, studio = false }: { eventId: string; studio?: boolean }) {
-  /* 🧭 The new Maker draws Studio › Mood Board & Dress Code instead (plan PR 5) — handed `studio` by the launch page. */
-  if (studio) return <MoodBoardStudioBody eventId={eventId} />;
+export async function MoodBoardMakerBody({ eventId }: { eventId: string }) {
   const board = await buildMoodBoard(eventId, true);
   if (!board.ok) return <CouldNotLoad />;
   const { provider, parts } = board;
@@ -1246,9 +1244,7 @@ export async function MoodBoardMakerBody({ eventId, studio = false }: { eventId:
 }
 
 /** The RIGHT column: the picked part's controls, and the exports every part keeps at hand. */
-export async function MoodBoardMakerControls({ eventId, studio = false }: { eventId: string; studio?: boolean }) {
-  /* 🧭 Studio's tool is full screen — its controls are in it, none beside it. */
-  if (studio) return null;
+export async function MoodBoardMakerControls({ eventId }: { eventId: string }) {
   const board = await buildMoodBoard(eventId, true);
   if (!board.ok) return <CouldNotLoad />;
   const { parts } = board;
@@ -1318,7 +1314,8 @@ function studioAttireRows(tally: ReadonlyArray<{ role: GuestRole }>, config: Dre
   return out;
 }
 
-async function MoodBoardStudioBody({ eventId }: { eventId: string }) {
+/** 🧭 The new Maker's Studio › Mood Board & Dress Code — drawn by the launch page in place of `MoodBoardMakerBody` while it is on. */
+export async function MoodBoardStudioBody({ eventId }: { eventId: string }) {
   const board = await buildMoodBoard(eventId, true);
   if (!board.ok) return <CouldNotLoad />;
   const { studio } = board;

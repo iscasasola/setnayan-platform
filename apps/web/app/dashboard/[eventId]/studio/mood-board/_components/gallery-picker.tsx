@@ -86,7 +86,7 @@ export function GalleryPicker({
   slotKey,
   slotLabel,
   emptyPositions,
-  fetchAction,
+  fetchAction: fetchPage,
   applyAction,
   onSaved,
   onClose,
@@ -116,16 +116,23 @@ export function GalleryPicker({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
+  /* 🔍 The page read, with Studio's filters laid on it — never a limit (the server clamps). */
+  const fetchAction = useCallback(
+    (input: { slotKey: string; offset: number }) =>
+      fetchPage(
+        studio
+          ? { ...input, ...(q ? { q } : {}), ...(from !== 'everyone' ? { from } : {}), ...(near ? { near } : {}) }
+          : input,
+      ),
+    [fetchPage, studio, q, from, near],
+  );
+
   const loadPage = useCallback(
     async (offset: number) => {
       setLoading(true);
       setLoadError(false);
       try {
-        const page = await fetchAction(
-          studio
-            ? { slotKey, offset, ...(q ? { q } : {}), ...(from !== 'everyone' ? { from } : {}), ...(near ? { near } : {}) }
-            : { slotKey, offset },
-        );
+        const page = await fetchAction({ slotKey, offset });
         setTotal(page.total);
         setWithheld((prior) => (offset === 0 ? page.withheld : prior + page.withheld));
         setAssets((prior) => (offset === 0 ? page.assets : [...prior, ...page.assets]));
@@ -137,7 +144,7 @@ export function GalleryPicker({
         setLoading(false);
       }
     },
-    [fetchAction, slotKey, studio, q, from, near],
+    [fetchAction, slotKey],
   );
 
   useEffect(() => {
@@ -146,8 +153,8 @@ export function GalleryPicker({
 
   const free = emptyPositions.length > 0 ? emptyPositions[0]! : null;
   /* 🎨 "Matches my colours" keeps the loaded photos near the five — said as a count, never a silent shrink. */
-  const shown = studio && matchMine ? assets.filter((a) => photoMatchesColours(a.swatches, studio.mainFive)) : assets;
-  const hiddenByMatch = assets.length - shown.length;
+  const hiddenAsset = (a: GalleryAsset) => Boolean(studio && matchMine && !photoMatchesColours(a.swatches, studio.mainFive));
+  const hiddenByMatch = assets.filter(hiddenAsset).length;
 
   function save(asset: GalleryAsset) {
     if (pending || free === null) return;
@@ -291,7 +298,8 @@ export function GalleryPicker({
       ) : null}
 
       <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {shown.map((asset) => {
+        {assets.map((asset) => {
+          if (hiddenAsset(asset)) return null;
           const isSaving = savingId === asset.assetId && pending;
           const saved = savedIds.has(asset.assetId);
           return (

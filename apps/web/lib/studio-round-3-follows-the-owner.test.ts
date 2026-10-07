@@ -24,6 +24,23 @@
  * E-Gifts words switched off (chips drawn) → 4; "Same layout in 3D ↗" put back in the thumb-zone
  * tools → 5.
  *
+ *   4b · (owner, on the preview 2026-10-08: *only the pills became "Start from ▾"; the rest of the
+ *       old editor is still there*) E-Gifts' thank-you words in the Studio: NO box, the help behind
+ *       ⓘ, NO Save / Saved — the words go to the draft as they are typed, a refusal is said and the
+ *       words stay. The E-Gifts page keeps its editor.
+ *   8 · (owner: *"i cannot see it is blank"*; *"maybe show what it could look like with boxes?"*)
+ *       an EMPTY Love Story draws the real card arrangement in sample shapes under the three
+ *       chapters a story is anchored by; the first real moment replaces it. The Add-a-moment
+ *       sheet's helper lines sit behind ⓘ.
+ *
+ * 🛡 Sabotaged once each (2026-10-08, builder S3b), each red alone: the Studio words wrapped in
+ * `sn-tile` → 4b; the help paragraph drawn under the label → 4b; a "Saved" button under the box →
+ * 4b; the refusal `<p role="alert">` removed → 4b; `isTrusted` typing no longer calling `draft` →
+ * 4b; `<SampleStory />` removed from the empty state → 8; the sample's photo box drawn 48 px
+ * (not the card's) → 8; the sample drawn beside a real moment → 8; a year typed into a sample card
+ * → 8; the sample's chapters cut to two (off the three anchors) → 8; the sheet's "When" paragraph
+ * put back in the Studio → 8.
+ *
  * `globalThis.React` before the dynamic imports: tsx compiles JSX to the classic runtime here.
  */
 import test from 'node:test';
@@ -142,6 +159,70 @@ test('4 · E-Gifts "Your own words": the starting points are ONE "Start from ▾
   assert.ok(PABUYA_TEMPLATES.every((t) => page.includes(`>${t.name}</button>`)), 'the E-Gifts page lost its starting points');
 });
 
+/** What a person can READ on the screen: the markup without what sits behind an ⓘ, as words. */
+function seen(markup: string): string {
+  return markup
+    .replace(/<span[^>]*role="tooltip"[^>]*><span[^>]*>[\s\S]*?<\/span><\/span>/g, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+const words = (text: string) => text.split(/\s+/).filter(Boolean).length;
+
+test('4b · E-Gifts thank-you words in the Studio: no box, the help behind ⓘ, no Save — drafted as typed, a refusal said', async () => {
+  const mod = await import(`../${D}/pabuya/_components/pabuya-message-editor`);
+  const el = () => React.createElement(mod.PabuyaMessageEditor, { eventId: 'ev-1', initialMessage: 'Our own words.' });
+  const out = await inStudio(el());
+  const page = await html(el());
+
+  /* NO BOX — nothing in the Studio's editor is a tile, and its root draws no fill, edge or shadow. */
+  assert.doesNotMatch(out, /class="[^"]*\bsn-tile\b/, 'the Studio still draws the thank-you words in a tile');
+  const root = /^<div[^>]*class="([^"]*)"/.exec(out)?.[1] ?? 'missing';
+  assert.doesNotMatch(root, /\b(?:bg-|ring|shadow|border|rounded|p-\d|px-|py-)/, `the Studio’s thank-you editor is a box of its own (${root})`);
+  /* The words are a full-width row of their own, under the label row. */
+  assert.match(out, /<\/div><textarea[^>]*class="[^"]*\bw-full\b/, 'the words are not on a full-width row under the label');
+
+  /* THE HELP IS BEHIND ⓘ — what can be read is the label, the dropdown, the couple's words and the count; nothing else. */
+  assert.equal(seen(out), 'Your own words i Start from Our own words. 586 characters left', 'the Studio shows more (or less) than the label · Start from · the words · the count');
+  const tip = /role="tooltip"[^>]*><span[^>]*>([\s\S]*?)<\/span>/.exec(out)?.[1] ?? '';
+  const pageHelp = [...page.matchAll(/<p class="(?:max-w-prose|mt-2 text-xs)[^"]*">([\s\S]*?)<\/p>/g)].map((m) => m[1]!.replace(/<[^>]+>/g, '')).join(' ');
+  assert.ok(words(pageHelp) > 40, 'the E-Gifts page’s own help was not found to measure against');
+  assert.ok(words(tip) > 0 && words(tip) <= words(pageHelp) * 0.4, `the ⓘ is not at least 60% shorter than the help it replaces (${words(tip)} of ${words(pageHelp)} words)`);
+
+  /* NO SAVE, NO "SAVED" — every button is the ⓘ or the one dropdown. */
+  const buttons = [...out.matchAll(/<button\b[^>]*>/g)].map((m) => m[0]);
+  assert.equal(buttons.length, 2, 'the Studio’s thank-you editor has a button that is neither its ⓘ nor Start from ▾');
+  assert.ok(buttons.every((b) => /aria-describedby=|aria-haspopup="listbox"/.test(b)), 'a per-field button (Save / Saved?) is drawn in the Studio');
+  /* …and nothing says the words are live: they wait for ✓ Apply. */
+  assert.doesNotMatch(out, /data-hub-saves-immediately/, 'the drafted words still say “Guests see this right away”');
+
+  /* TYPED → THE DRAFT, on the Studio's own branch. */
+  const src = read(`${D}/pabuya/_components/pabuya-message-editor.tsx`);
+  const studio = src.slice(src.indexOf('function StudioThanks('), src.indexOf('function ShippedEditor('));
+  assert.ok(studio.length > 0, 'no Studio branch');
+  assert.match(studio, /onChange=\{\(e\) => \{\s*const words = type\(e\.target\.value\);\s*if \(e\.nativeEvent\.isTrusted\) draft\(words\);/, 'typing does not reach the draft');
+  assert.match(studio, /draft\(type\(t\.body\)\);/, 'a starting point picked is not drafted');
+  assert.match(studio, /makerLatestWrite\(THANKS_WRITE_KEY, \(\) => \{[\s\S]{0,260}fd\.set\(HUB_DRAFT_FIELD, '1'\);\s*return savePabuyaMessage\(fd\);/, 'the typed words are not sent into the DRAFT');
+  assert.match(studio, /if \(res\.ok\) \{\s*sayNotDrafted\(null\);\s*makerNeedsRender\(\);/, 'a drafted write does not move the ✓ Apply count');
+  assert.match(studio, /\}\s*sayNotDrafted\(\{ eventId, why: res\.error \}\);/, 'a refused write says nothing');
+
+  /* A REFUSAL IS SAID, in this event's editor only — and the words stay in the box. */
+  mod.sayNotDrafted({ eventId: 'ev-1', why: 'Could not save your message. Please try again.' });
+  try {
+    const refused = await inStudio(el());
+    assert.match(refused, /<p role="alert"[^>]*>These words are not in your draft yet\. Could not save your message\. Please try again\./, 'a refused draft write is not said');
+    assert.match(refused, /<textarea[^>]*>Our own words\.<\/textarea>/, 'a refusal threw the couple’s words away');
+    const other = await inStudio(React.createElement(mod.PabuyaMessageEditor, { eventId: 'ev-2', initialMessage: null }));
+    assert.doesNotMatch(other, /role="alert"/, 'one event’s refusal is said on another event');
+  } finally {
+    mod.sayNotDrafted(null);
+  }
+
+  /* The E-Gifts page keeps its editor: its tile, its help, its Save. */
+  assert.match(page, /^<section class="sn-tile/, 'the E-Gifts page lost its tile');
+  assert.match(page, /<button[^>]*class="button-primary"[^>]*>Saved<\/button>/, 'the E-Gifts page lost its Save');
+});
+
 test('5 · Seat plan: the map gets the space — one head row, tools in the thumb zone, the people a pull-up sheet', async () => {
   const P = await import(`../${SEAT}/seat-plan-phone`);
   const head = await html(React.createElement(P.StudioSeatPlanHead, { countLabel: '6 tables', more: React.createElement('p', null, 'more') }));
@@ -209,4 +290,58 @@ test('7 · Mood Board: Palette · Attire · Inspiration · Do’s & Don’ts; th
   const board = src.slice(src.indexOf('const slotBoard = '), src.indexOf('const bar = ('));
   assert.match(board, /onClick=\{\(\) => openUpload\(slot\.slotKey\)\}/, 'a board cannot take the couple’s own photo');
   assert.match(board, /setSheet\(\{ kind: 'browse', slot \}\)/, 'a board cannot search the suppliers’ photos');
+});
+
+test('8 · Love Story: an EMPTY story draws its real arrangement in sample shapes; the sheet’s help sits behind ⓘ', async () => {
+  const { MomentOrderCards } = await import(`../${D}/website/our-story/_components/moment-order-cards`);
+  const { LOVE_STORY_CHAPTER_LABEL, MOMENT_ANCHORS } = await import('./love-story-moments');
+  const action = async () => {};
+  const cards = (moments: readonly unknown[]) =>
+    inStudio(
+      React.createElement(MomentOrderCards as React.ComponentType<Record<string, unknown>>, {
+        action,
+        moments,
+        mediaUrls: {},
+        sheet: { action, moments, partners: ['Maria', 'Jose'], ownsPro: false, storeShell: false, proHref: '/p', proPrice: null, eventId: 'ev-1', mediaUrls: {} },
+        add: { can: true },
+      }),
+    );
+  const empty = await cards([]);
+  const one = await cards([{ id: 'u', chapter: 'met', date: { y: 2019 }, title: 'One umbrella', line: 'A rainy Tuesday.', order: 0, canvas: {} }]);
+
+  /* An empty story is not a blank page: one sample card under each chapter a story is anchored by. */
+  const sample = /<ol data-studio-story-sample=""[^>]*>[\s\S]*?<\/ol>/.exec(empty)?.[0] ?? '';
+  assert.ok(sample, 'an empty Love Story draws no sample layout (a blank page)');
+  assert.match(sample, /^<ol data-studio-story-sample="" aria-hidden="true" class="[^"]*pointer-events-none/, 'the sample is read out, or can be tapped');
+  assert.equal((sample.match(/<li data-studio-story-sample-card=/g) ?? []).length, MOMENT_ANCHORS.length, 'not one sample card per anchored chapter');
+  /* Unmistakably a sample: the only words are the three real chapter labels — no name, no year, no line of a moment. */
+  assert.equal(seen(sample), MOMENT_ANCHORS.map((a: keyof typeof LOVE_STORY_CHAPTER_LABEL) => LOVE_STORY_CHAPTER_LABEL[a]).join(' '), 'the sample carries words that are not the real chapter labels');
+  /* The REAL arrangement: the sample card's row, photo box and words column are the real card's own. */
+  const rowOf = (li: string) => /<div class="([^"]*)">/.exec(li)?.[1];
+  const realCard = /<li data-moment-card="u"[\s\S]*?<\/li>/.exec(one)?.[0] ?? '';
+  const sampleCard = /<li data-studio-story-sample-card="met"[\s\S]*?<\/li>/.exec(sample)?.[0] ?? '';
+  assert.ok(rowOf(realCard) && rowOf(realCard) === rowOf(sampleCard), 'the sample card is not laid out as a real card');
+  const box = (markup: string) => /class="(h-\d+ w-\d+ shrink-0 rounded-md)\b/.exec(markup)?.[1];
+  assert.ok(box(realCard) && box(realCard) === box(sampleCard), `the sample’s photo is not the card’s photo box (${box(sampleCard)} vs ${box(realCard)})`);
+  for (const shape of ['photo', 'year', 'title', 'line']) assert.ok(sampleCard.includes(`data-sample-shape="${shape}"`), `the sample card has no ${shape} shape`);
+  assert.match(sampleCard, /lucide-grip-vertical/, 'the sample card has no grip');
+  /* …and it is gone the moment one real moment exists. */
+  assert.doesNotMatch(one, /data-studio-story-sample/, 'the sample stays beside a real moment');
+  assert.match(one, /data-studio-story-head="u"/);
+  /* + Add a moment is unchanged, with or without a moment. */
+  for (const out of [empty, one]) assert.match(out, /class="[^"]*sn-glass-row[^"]*"><div class="contents"><button[^>]*>[\s\S]*?Add a moment/, 'the + Add a moment bar changed');
+
+  /* The Add-a-moment sheet, in the Studio: each helper line is behind an ⓘ beside its label — never a paragraph. */
+  const sheet = read(`${D}/website/our-story/_components/moment-sheet-studio.tsx`);
+  for (const label of ['When', 'This one is…']) {
+    assert.match(sheet, new RegExp(`\\{studio \\? \\(\\s*<legend>\\s*<InfoTip label="${label}" labelClassName=\\{eye\\}`), `“${label}” still draws its helper paragraph in the Studio`);
+  }
+  assert.match(sheet, /\{ownsPro && studio \? \(\s*<InfoTip label="Photos" labelClassName=\{eye\}/, 'Photos’ help is not behind an ⓘ in the Studio');
+  assert.match(sheet, /label=\{studio \? undefined : 'Photos'\}\s*help=\{studio \? undefined : /, 'the upload still draws its helper line in the Studio');
+  /* Every `quiet` helper paragraph left in the file is the shipped sheet's, or the chapter rule (a consequence, said). */
+  const studioBranches = [...sheet.matchAll(/\{studio \? \(([\s\S]*?)\) : \(/g)].map((m) => m[1]!).join('\n');
+  assert.doesNotMatch(studioBranches, /<p className=\{`mt-1 text-\[13px\] \$\{quiet\}`\}>/, 'a helper paragraph is drawn on a Studio branch of the sheet');
+  /* A field brought into view stops clear of the floating foot: 68 px of foot + the sheet's 16 px bottom padding = 84. */
+  const scrollMb = Number(/\bscroll-mb-(\d+)\b/.exec(/const field = studio\s*\?\s*'([^']+)'/.exec(sheet)?.[1] ?? '')?.[1] ?? 0) * 4;
+  assert.ok(scrollMb >= 84, `a focused field can stop under the foot (it keeps ${scrollMb} px clear of the sheet’s edge; the foot takes 84)`);
 });

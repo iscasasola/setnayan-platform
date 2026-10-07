@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, X } from 'lucide-react';
 import { FileUpload } from '@/app/_components/file-upload';
+import { InfoTip } from '@/app/_components/info-tip';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import {
@@ -33,6 +34,17 @@ import { PickMenu } from '../../editor/_components/pick-menu';
  * the Schedule's `Sheet`, one dropdown per set of choices, ✕ Not now · ✓ Keep this moment. Its own
  * file so it rides the LAZY Love Story cards chunk (`moment-order-cards-lazy.tsx`), never the
  * Maker's first load (507 KB, never raised). Same props, same form, same action.
+ *
+ * ⓘ In the Studio the three helper lines (Photos · When · This one is…) sit behind an ⓘ beside
+ * their label, each in well under half the words (owner 2026-10-08: no visible helper paragraphs).
+ * The upload's dashed drop zone is the shared `FileUpload`'s own and stays as it ships.
+ *
+ * 👣 The foot (✕ Not now · ✓ Keep this moment) is a glass row that FLOATS over the form as it
+ * scrolls, and is in the form's own flow — so at the end of the scroll it sits UNDER the last
+ * field, never on it (measured in the lab at 375 px: 20 px clear). A field the browser scrolls
+ * into view from below (focused while off the sheet) stops clear of it too — `scroll-mb-24` on the
+ * Studio's fields: the foot is 68 px and rides 16 px above the sheet's edge (the shared `Sheet`'s
+ * bottom padding), 84 in all. Mid-scroll the form passes UNDER the row — that is what a glass row is.
  */
 
 /**
@@ -229,7 +241,7 @@ export function MomentSheetStudio({
   }, [year, month, day, precision, anchor, moment, moments]);
 
   const field = studio
-    ? 'mt-1.5 min-h-11 w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-[15px] text-ink placeholder:text-ink/45 focus:border-ink/40 focus:outline-none'
+    ? 'mt-1.5 min-h-11 w-full scroll-mb-24 rounded-md border border-ink/15 bg-white px-3 py-2 text-[15px] text-ink placeholder:text-ink/45 focus:border-ink/40 focus:outline-none'
     : 'mt-1.5 w-full rounded-md border border-[color:var(--ls-rule)] bg-[color:var(--ls-surface)] px-3 py-2 text-[15px] text-[color:var(--ls-ink)] focus:border-[color:var(--ls-accent)] focus:outline-none';
   const eye = studio
     ? 'text-[10px] font-bold uppercase tracking-[0.16em] text-ink/55'
@@ -274,6 +286,11 @@ export function MomentSheetStudio({
 
               {/* Photos — Pro */}
               <div>
+                {ownsPro && studio ? (
+                  <InfoTip label="Photos" labelClassName={eye} align="start" className="mb-1.5">
+                    Up to four. A moment needs none.
+                  </InfoTip>
+                ) : null}
                 {ownsPro ? (
                   <FileUpload
                     bucket="media"
@@ -287,8 +304,8 @@ export function MomentSheetStudio({
                     currentValue={moment?.media ?? []}
                     initialDisplayUrls={mediaUrls}
                     variant="wide"
-                    label="Photos"
-                    help="Up to four photos. Words, dates and places are always free — a moment with no picture still counts."
+                    label={studio ? undefined : 'Photos'}
+                    help={studio ? undefined : 'Up to four photos. Words, dates and places are always free — a moment with no picture still counts.'}
                   />
                 ) : (
                   <div className="py-1">
@@ -300,10 +317,20 @@ export function MomentSheetStudio({
 
               {/* When */}
               <fieldset>
-                <legend className={eye}>When</legend>
-                <p className={`mt-1 text-[13px] ${quiet}`}>
-                  Only as exact as you remember. A year on its own is enough.
-                </p>
+                {studio ? (
+                  <legend>
+                    <InfoTip label="When" labelClassName={eye} align="start">
+                      A year alone is enough.
+                    </InfoTip>
+                  </legend>
+                ) : (
+                  <>
+                    <legend className={eye}>When</legend>
+                    <p className={`mt-1 text-[13px] ${quiet}`}>
+                      Only as exact as you remember. A year on its own is enough.
+                    </p>
+                  </>
+                )}
                 {studio ? (
                   <div className="mt-2">
                     <PickMenu
@@ -462,10 +489,20 @@ export function MomentSheetStudio({
 
               {/* This one is… */}
               <fieldset>
-                <legend className={eye}>This one is…</legend>
-                <p className={`mt-1 text-[13px] ${quiet}`}>
-                  Three moments anchor the chapters: how you met, when you became a couple and the yes. Everything else finds its chapter from its date.
-                </p>
+                {studio ? (
+                  <legend>
+                    <InfoTip label="This one is…" labelClassName={eye} align="start">
+                      Three anchor the chapters; the rest follow their dates.
+                    </InfoTip>
+                  </legend>
+                ) : (
+                  <>
+                    <legend className={eye}>This one is…</legend>
+                    <p className={`mt-1 text-[13px] ${quiet}`}>
+                      Three moments anchor the chapters: how you met, when you became a couple and the yes. Everything else finds its chapter from its date.
+                    </p>
+                  </>
+                )}
                 {studio ? (
                   <div className="mt-2">
                     <input type="hidden" name="anchor" value={anchor} />

@@ -102,15 +102,19 @@ test('1 · the Maker draws every place, filled or not, so the couple can fill it
   );
 });
 
-test('1 · What to bring stays on Details — right after Dress code, before the Entourage', async () => {
+test('1 · What to bring stays on Details — and sits AFTER the Entourage (owner 2026-10-07)', async () => {
   const rows = SET.scenes.map((t) => ({ widget_type: t }));
   const left = scenesLeftForDetails(rows, welcomeParts(SET)).map((w) => w.widget_type);
   assert.ok(left.includes('what_to_bring'), 'What to bring left Details again');
   assert.ok(left.includes('dress_code'), 'everyone’s palette must stay on Details');
-  // The default order: dress code, then what to bring — and the entourage is drawn after every scene.
-  const { STAGE_SCENES } = await import('./stage-scenes');
-  const inv = STAGE_SCENES.rsvp as readonly string[];
-  assert.equal(inv.indexOf('what_to_bring'), inv.indexOf('dress_code') + 1, 'What to bring is not right after Dress code');
+  // DECISION_LOG "SIX BUILD QUESTIONS SETTLED" (1): dress code → entourage → what to bring.
+  const { STAGE_SCENES, splitAroundEntourage } = await import('./stage-scenes');
+  const inv = STAGE_SCENES.rsvp.map((widget_type) => ({ widget_type }));
+  const { before, after } = splitAroundEntourage('rsvp', inv);
+  assert.deepEqual(after.map((w) => w.widget_type), ['what_to_bring'], 'What to bring is not after the Entourage');
+  assert.equal(before.at(-1)?.widget_type, 'dress_code', 'Dress code no longer closes the run before the Entourage');
+  // Only the Invitation moves it: The Day keeps its reminders on its Welcome.
+  assert.deepEqual(splitAroundEntourage('event', [{ widget_type: 'what_to_bring' }]).after, []);
 });
 
 test('1 · the Maker’s navigator files the look and E-Gifts under Welcome, What to bring under Details', () => {
@@ -210,7 +214,10 @@ test('3 · both trees mount the one Welcome section and ask the one rule', () =>
   // can take its own tab on a tabbed page — the list it draws is still
   // Welcome's leftovers: `detailsSceneList` is `detailsScenes` less that scene.)
   assert.match(BODY, /const renderScene = \(widget: \(typeof detailsScenes\)\[number\]\) => \(\s*<HideableWidgetRender/);
-  assert.match(BODY, /\{detailsSceneList\.map\(renderScene\)\}/);
+  // 🎒 …split around the entourage (owner 2026-10-07: What to bring sits after it).
+  assert.match(BODY, /const guestAround = splitAroundEntourage\(pageStage, detailsSceneList\);/);
+  assert.match(BODY, /\{guestAround\.before\.map\(renderScene\)\}/);
+  assert.match(BODY, /\{guestAround\.after\.map\(renderScene\)\}/);
   assert.match(BODY, /const detailsSceneList = storyScene \? detailsScenes\.filter\(\(w\) => w !== storyScene\) : detailsScenes;/);
   assert.match(BODY, /\{list\.map\(\(widget\) => \(\s*\/\*[\s\S]*?<PublicHideableWidget|\{list\.map\(\(widget\) => \(\s*<Fragment/);
   // this guest's own look is on Welcome, so Details shows everyone's

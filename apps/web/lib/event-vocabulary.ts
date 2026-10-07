@@ -28,13 +28,9 @@
  * changed what a person could find, and nothing could notice. So the index
  * reads the DATA, and `EVENT_TYPE_BADGE` is free to say whatever it likes.
  *
- * ⚠ THERE IS A THIRD COPY OF THE BADGE MAP AND THIS FILE CANNOT SEE IT.
- * `app/dashboard/(account)/samahan/[communityId]/page.tsx` declares its own
- * `EVENT_TYPE_BADGE` + `eventTypeBadge` + `shortDate`, with a comment calling
- * them module-private. That copy is NOT covered by the invariant below: a type
- * added there and nowhere else would render a badge that nothing can find.
- * Folding it in is a real cleanup and deliberately not bundled into this
- * behaviour change.
+ * The samahan events tab used to keep a THIRD copy of the badge map (module
+ * private, invisible to the invariant below). It now imports `eventTypeBadge`
+ * from here, so there is one map and the invariant covers every badge drawn.
  */
 
 /** `YYYY-MM-DD` split field-by-field, or null.
@@ -52,16 +48,20 @@ export function parseEventDate(iso: string | null): Date | null {
 }
 
 /**
- * event_type → short badge. Filipino term where one is well established
- * (kasal · binyag · kaarawan · anibersaryo), else an uppercased English label.
+ * event_type → short badge, in ENGLISH.
+ *
+ * Owner, 2026-10-07, on the Home card's "KASAL" chip: *"This should be
+ * English: Wedding"* (DECISION_LOG "EVENT-TYPE BADGES ARE ENGLISH"). The
+ * Filipino words stay SEARCHABLE — `EVENT_TYPE_TERMS` below carries both
+ * languages, and search reads the data, never this badge.
  */
 export const EVENT_TYPE_BADGE: Record<string, string> = {
-  wedding: 'KASAL',
-  christening: 'BINYAG',
-  baptism: 'BINYAG',
+  wedding: 'WEDDING',
+  christening: 'CHRISTENING',
+  baptism: 'BAPTISM',
   debut: 'DEBUT',
-  birthday: 'KAARAWAN',
-  anniversary: 'ANIBERSARYO',
+  birthday: 'BIRTHDAY',
+  anniversary: 'ANNIVERSARY',
   // Same as the fallback would print — listed so `tournament` can carry its
   // search words below (every TERMS key must have a BADGE, and vice versa).
   tournament: 'TOURNAMENT',
@@ -138,7 +138,7 @@ export function eventSearchTerms(
   ];
   return [
     ...typed,
-    // The badge too, so the Filipino word a person SEES on the card always
+    // The badge too, so the word a person SEES on the card always
     // finds it — even for a type nobody thought to map.
     eventTypeBadge(eventType).toLowerCase(),
     ...dateTerms(eventDate),

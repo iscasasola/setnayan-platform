@@ -57,6 +57,16 @@ type Props = {
    *  challenge-completion reward CTA. Server-resolved from the guest session;
    *  absent → no reward CTA renders. */
   storyHref?: string | null;
+  /**
+   * 🎛 THE CAMERA'S "CHALLENGES" LOOK (owner 2026-10-06, DECISION_LOG "THE
+   * CAMERA HAS ITS OWN THREE LAYOUTS": *"another layout is having the challenge
+   * more accessible"*): `'chips'` draws every challenge as a row of tappable
+   * chips just above the shutter — tap = Start (or Cancel), a done one greyed
+   * and tappable for a Retake. Same state, same endpoints, same consent tap and
+   * reward (the list opens under the chips after a completion, as it does
+   * here). `'list'` (default) is the shipped panel, unchanged.
+   */
+  layout?: 'list' | 'chips';
 };
 
 export function PapicChallengePanel({
@@ -64,6 +74,7 @@ export function PapicChallengePanel({
   lastCaptureKind,
   onArmedChange,
   storyHref,
+  layout = 'list',
 }: Props) {
   // Hard flag gate — no fetch, no render, nothing mounts until the owner flips it.
   if (!papicGamesEnabled()) return null;
@@ -73,6 +84,7 @@ export function PapicChallengePanel({
       lastCaptureKind={lastCaptureKind}
       onArmedChange={onArmedChange}
       storyHref={storyHref}
+      layout={layout}
     />
   );
 }
@@ -82,6 +94,7 @@ function ChallengePanelInner({
   lastCaptureKind,
   onArmedChange,
   storyHref,
+  layout = 'list',
 }: Props) {
   // Name the last shot: "photo" / "video" once taken, generic "shot" before.
   const shotNoun =
@@ -232,11 +245,10 @@ function ChallengePanelInner({
   const { done, total, allDone } = missionProgress(missions);
   const ordered = sortGuestMissions(missions);
 
-  return (
-    <section
-      className="mx-auto w-full max-w-sm rounded-xl border border-cream/15 bg-cream/5"
-      aria-label="Papic Challenges"
-    >
+  /* ⏸ The pause notice, the header toggle and the open list — one drawing each,
+     used by both layouts. */
+  const pauseNotice = (
+    <>
       {/* ⏸ THE PAUSE HAS TO REACH THE PIXEL, OR IT IS NOTHING. A guest who
           opens this during the vows must be told why nothing is being asked —
           otherwise the quiet reads as a broken app, and they go looking for a
@@ -252,37 +264,42 @@ function ChallengePanelInner({
           Keep taking photos; these come back in a moment.
         </p>
       ) : null}
+    </>
+  );
+  const header = (
       <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        className="flex w-full items-center justify-between gap-2 px-3.5 py-2.5 text-left"
-      >
-        <span className="inline-flex items-center gap-2 text-sm font-medium text-cream/90">
-          <Trophy aria-hidden className="h-4 w-4 shrink-0" strokeWidth={2} />
-          Papic Challenges
-        </span>
-        <span className="inline-flex items-center gap-2">
-          {armed ? (
-            <span className="rounded-full bg-terracotta/80 px-2 py-0.5 text-[11px] font-medium text-cream">
-              armed
-            </span>
-          ) : null}
-          <span
-            className={`rounded-full px-2 py-0.5 font-mono text-[11px] ${
-              allDone ? 'bg-mulberry/30 text-cream' : 'bg-cream/10 text-cream/70'
-            }`}
-          >
-            {formatCount(done)}/{formatCount(total)}
+      type="button"
+      onClick={() => setOpen((v) => !v)}
+      aria-expanded={open}
+      className="flex w-full items-center justify-between gap-2 px-3.5 py-2.5 text-left"
+    >
+      <span className="inline-flex items-center gap-2 text-sm font-medium text-cream/90">
+        <Trophy aria-hidden className="h-4 w-4 shrink-0" strokeWidth={2} />
+        Papic Challenges
+      </span>
+      <span className="inline-flex items-center gap-2">
+        {armed ? (
+          <span className="rounded-full bg-terracotta/80 px-2 py-0.5 text-[11px] font-medium text-cream">
+            armed
           </span>
-          <ChevronDown
-            aria-hidden
-            className={`h-4 w-4 text-cream/50 transition ${open ? 'rotate-180' : ''}`}
-            strokeWidth={2}
-          />
+        ) : null}
+        <span
+          className={`rounded-full px-2 py-0.5 font-mono text-[11px] ${
+            allDone ? 'bg-mulberry/30 text-cream' : 'bg-cream/10 text-cream/70'
+          }`}
+        >
+          {formatCount(done)}/{formatCount(total)}
         </span>
-      </button>
-
+        <ChevronDown
+          aria-hidden
+          className={`h-4 w-4 text-cream/50 transition ${open ? 'rotate-180' : ''}`}
+          strokeWidth={2}
+        />
+      </span>
+    </button>
+  );
+  const listBody = (
+    <>
       {open ? (
         <div className="space-y-2.5 px-3.5 pb-3.5">
           {allDone ? (
@@ -459,6 +476,62 @@ function ChallengePanelInner({
           {error ? <p className="text-xs text-terracotta">{error}</p> : null}
         </div>
       ) : null}
+    </>
+  );
+
+  if (layout === 'chips') {
+    return (
+      <section className="mx-auto w-full max-w-sm space-y-2" aria-label="Papic Challenges" data-challenge-chips="">
+      {pauseNotice}
+        <ul className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
+          {ordered.map((m) => {
+            const isArmed = armed?.missionId === m.mission_id;
+            return (
+              <li key={m.mission_id} className="shrink-0">
+                <button
+                  type="button"
+                  data-challenge-chip={m.completed ? 'done' : isArmed ? 'armed' : 'open'}
+                  onClick={() => (isArmed ? disarm() : arm(m, m.completed))}
+                  disabled={busyId === m.mission_id}
+                  aria-pressed={isArmed}
+                  className={`inline-flex min-h-[40px] max-w-[16rem] items-center gap-1.5 rounded-full px-3.5 text-xs font-medium transition disabled:opacity-40 ${
+                    isArmed
+                      ? 'bg-terracotta text-cream'
+                      : m.completed
+                        ? 'bg-cream/10 text-cream/40'
+                        : 'bg-cream/15 text-cream'
+                  }`}
+                >
+                  {m.completed ? (
+                    <Check aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={2.5} />
+                  ) : (
+                    <Trophy aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
+                  )}
+                  <span className="truncate">{m.prompt}</span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+        {open ? (
+          <div className="pt-1">
+            {header}
+            {listBody}
+          </div>
+        ) : null}
+        {error && !open ? <p className="text-xs text-terracotta">{error}</p> : null}
+      </section>
+    );
+  }
+
+  return (
+    <section
+      className="mx-auto w-full max-w-sm rounded-xl border border-cream/15 bg-cream/5"
+      aria-label="Papic Challenges"
+    >
+      {pauseNotice}
+      {header}
+      {listBody}
     </section>
   );
 }

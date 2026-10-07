@@ -2,6 +2,7 @@
 
 import { SwitchCamera } from 'lucide-react';
 import type { LensFactor } from '@/lib/use-papic-camera';
+import { cameraInkOn } from '@/lib/camera-look';
 
 // Papic · on-viewfinder camera controls (shared by seat + guest capture)
 //
@@ -19,6 +20,13 @@ type Props = {
   onSelectLens: (factor: LensFactor) => void;
   /** Re-acquiring (flip / lens swap) or camera not ready → freeze the controls. */
   disabled?: boolean;
+  /**
+   * 🎛 THE CAMERA'S "YOUR BRAND" LOOK (owner 2026-10-06): the pills in the
+   * theme's colour — the chosen lens pill filled with it, the flip icon drawn in
+   * it. Absent (Classic, Challenges, and every camera before the looks) = the
+   * neutral pills, exactly as shipped.
+   */
+  tint?: string | null;
 };
 
 function lensLabel(factor: LensFactor): string {
@@ -32,6 +40,7 @@ export function PapicCameraControls({
   lens,
   onSelectLens,
   disabled = false,
+  tint = null,
 }: Props) {
   const showLens = lensOptions.length > 1;
 
@@ -45,7 +54,7 @@ export function PapicCameraControls({
           aria-label="Flip camera"
           className="absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-full bg-ink/55 text-cream backdrop-blur-sm transition active:scale-95 disabled:opacity-50"
         >
-          <SwitchCamera aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+          <SwitchCamera aria-hidden className="h-5 w-5" strokeWidth={1.75} style={tint ? { color: tint } : undefined} />
         </button>
       )}
 
@@ -65,6 +74,7 @@ export function PapicCameraControls({
                 disabled={disabled}
                 aria-pressed={active}
                 aria-label={`${lensLabel(factor)} times zoom`}
+                style={active && tint ? { backgroundColor: tint, color: cameraInkOn(tint) } : undefined}
                 className={[
                   'flex h-9 min-w-9 items-center justify-center rounded-full px-2.5 text-sm font-semibold tabular-nums transition disabled:opacity-50',
                   active

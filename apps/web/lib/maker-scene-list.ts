@@ -54,7 +54,7 @@ import {
 import { postEventRunKey } from './post-event-draft';
 import { sanitizeHubCanvas } from './hub-canvas';
 import type { SceneTemplateId } from './scene-templates';
-import { stageShowsEntourage } from './stage-scenes';
+import { splitAroundEntourage, stageShowsEntourage } from './stage-scenes';
 import { welcomeParts } from './invitation-welcome';
 
 /** The sections that are always in their place on a stage — never dragged. */
@@ -622,12 +622,14 @@ export function makerStageList(input: MakerStageInput): MakerStageList {
     if (input.dayParts && plan.body === 'normal') for (const k of makerDayPartsOn(stage, place)) shown.push(fixed(k));
   };
   dayParts('before');
-  for (const w of drawable) {
-    if (!drawn.has(w.widget_id)) shown.push(sceneTile(w));
-  }
+  // 🎒 What to bring follows the entourage on the Invitation (`splitAroundEntourage`,
+  // owner 2026-10-07) — the guest page draws it there too.
+  const around = splitAroundEntourage(stage, drawable.filter((w) => !drawn.has(w.widget_id)));
+  for (const w of around.before) shown.push(sceneTile(w));
   dayParts('after');
   // The entourage is not the Save the Date's job (`STAGE_FIXED`).
   if (input.hasEntourage && stageShowsEntourage(stage)) shown.push(fixed('entourage'));
+  for (const w of around.after) shown.push(sceneTile(w));
   dayParts('last');
   // 📖 The page draws the love story ONCE (site-body `storySceneShown`): with the
   // "Our love story" scene on the page, the prose section is not drawn.

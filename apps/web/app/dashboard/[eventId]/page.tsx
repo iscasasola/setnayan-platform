@@ -56,6 +56,7 @@ import { DayOfModeGrid } from './_components/day-of-mode/grid';
 import { SetDateNudge } from './_components/set-date-nudge';
 import { readHomeGuide } from './_components/details-guide-home-card';
 import { HomeFirstScreen } from './_components/home-first-screen';
+import { homeCoverFor } from '@/lib/home-cover.server';
 import { DateChangeDoorway } from './_components/date-change-doorway';
 import { WhatsNextSheet } from './_components/whats-next-sheet';
 import { PapicReadyNudge } from './_components/papic-ready-nudge';
@@ -658,6 +659,9 @@ export default async function EventHomePage({
     .replace(/_/g, ' ')
     .replace(/\b\w/g, (c) => c.toUpperCase());
   const homeDateLabel = event.event_date ? formatEventDate(event.event_date as string) || null : null;
+  /* 🖼 The header wears the Event Hub's main background (owner 2026-10-07); a
+     refused read keeps today's colour, never a broken Home. */
+  const homeCover = await homeCoverFor(eventId).catch(() => null);
   const homeFirstScreen = (
     <HomeFirstScreen
       eventId={eventId}
@@ -672,6 +676,7 @@ export default async function EventHomePage({
       noReplyWaiting={facts.noReplyWaiting}
       money={facts.money}
       services={homeServiceRow}
+      ground={homeCover}
     />
   );
 

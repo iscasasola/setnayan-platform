@@ -6,17 +6,20 @@ import { actionOpensReply, meLeadsWithReply, REPLY_SHEET_ANCHOR, resolveArrivalA
 import { PASS_CARD_ROUTE } from '@/lib/pass-card';
 import { manilaToday } from '@/lib/std-views';
 import { ArrivalActionRow } from './arrival-action';
+import { GuestMeParts, ReplyCardRow } from './guest-me-parts';
+import { guestMeFacts, guestMePartsShown, readerIsListed, replyCardOf } from '@/lib/guest-me-parts';
+import { readGuestsGetIn } from '@/lib/who-can-reply';
 import { MapPin } from 'lucide-react';
 import { resolveDayOfLead } from '@/lib/day-of-lead';
 import { hasVenueContent } from '@/lib/website-section-content';
 import { firstVenue, receptionVenue, venueNamesLine } from '@/lib/event-venues';
 import { stdFilmPlaceLine } from '@/lib/venue-disclosure';
-import { formatEventDate } from '@/lib/events';
+import { formatEventDate, formatEventDateWithPrecision } from '@/lib/events';
 import type { ChapterOnThisDay } from '@/lib/chapters-on-this-day';
 // The event hub's sanctioned column widths — a page-level column outside the
 // four is a defect, and `measures.test.ts` counts them.
 import { PLATE } from '../_lib/measures';
-import { guestRoleLabel } from '@/lib/guests';
+import { guestRoleLabel, plusOneSeats } from '@/lib/guests';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { loadEventNameStyle, loadEventRoleNames } from '../_lib/loaders';
 import { DEFAULT_NAME_STYLE } from '@/lib/name-style';
@@ -39,7 +42,7 @@ import { GuestGuidedTour } from '@/app/_components/guest-guided-tour';
 import { guidedTourView } from '@/app/_components/guided-tour';
 import { type DayOfPhase } from '@/lib/day-of-mode';
 import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
-import { anyoneMayAskToJoin, oneQrLetsYouIn, readRsvpWords, resolveRsvpAsk } from '@/lib/rsvp-ask';
+import { anyoneMayAskToJoin, guestReplyBy, oneQrLetsYouIn, readRsvpWords, resolveRsvpAsk, todayYmd } from '@/lib/rsvp-ask';
 import { GuestPreload } from './guest-preload';
 import { PublicEventDayBar } from './public-event-day-bar';
 import { SiteMenuBar } from './site-menu-bar';
@@ -169,7 +172,7 @@ import { HubSceneRuns } from './hub-scene-runs';
 import { heroDesignOf } from '@/lib/hero-design';
 import { heroCanvasOf } from '../_lib/hero-design-of';
 import { makerDayPartsOn, makerDrawsEmpty, widgetsGuestsMeet, type MakerDayPartPlace } from '@/lib/maker-scene-list';
-import { stageShowsEntourage } from '@/lib/stage-scenes';
+import { splitAroundEntourage, stageShowsEntourage } from '@/lib/stage-scenes';
 import { sceneBoundTextOf } from '@/lib/details-bound';
 import { MakerGuestScenes } from './maker-guest-scenes';
 import { GuestWelcome } from './guest-welcome';
@@ -490,6 +493,16 @@ type SiteBodyProps = {
   sampleViewer?: SeeAs | null;
   /** 👁 The host's capability for the RIBBON alone while the body is drawn for a See as sample (page.tsx). Null: `ownerCapability`. */
   ribbonCapability?: OwnerCapability | null;
+  /**
+   * 🧭 THE NEW MAKER'S GUEST SIDE is on for this event (`guestStagesOn`,
+   * page.tsx — the Maker's own switch, or an internal host's event). On: the
+   * Reply card under the names and at the top of Me, and the four
+   * for-each-guest parts on Invitation › Me. Off (every real couple today):
+   * the page exactly as it was.
+   */
+  guestStages?: boolean;
+  /** 👤 The named companions on this guest's own seats ("Coming with you") — page.tsx's `yourGuestsFor` read. */
+  comingWith?: readonly string[];
 };
 
 export async function SiteBody({
@@ -542,6 +555,8 @@ export async function SiteBody({
   meSection = null,
   sampleViewer = null,
   ribbonCapability = null,
+  guestStages = false,
+  comingWith = [],
 }: SiteBodyProps) {
   // 🎨 SECTION BACKGROUNDS — signed ONCE for the whole page.
   // Every arranged section's `config_json.canvas.media` is an `r2://` ref, held
@@ -1429,7 +1444,10 @@ export async function SiteBody({
       ))}
       </HubScenes>
     );
-    const publicWidgetNodes = sceneNodes(detailsSceneList);
+    // 🎒 What to bring follows the entourage on the Invitation (owner 2026-10-07,
+    // `splitAroundEntourage`) — drawn right after the entourage mount below.
+    const detailsAround = splitAroundEntourage(pageStage, detailsSceneList);
+    const publicWidgetNodes = sceneNodes(detailsAround.before);
     /* 🎨 THE DAY'S OWN PARTS — the Maker's canvas only, never a guest: a
        stand-in for each part a guest meets as their own (their table, their
        photos) or only once it happens (a message, a stream), so the couple can
@@ -1960,6 +1978,7 @@ export async function SiteBody({
                 needed). Everyone shows inline; `/[slug]/everyone` keeps
                 working for old links, it just isn't linked from here. */}
             {group(scenesTab, stageShowsEntourage(pageStage) ? <EntourageSection groups={entourage} id="site-entourage" sceneStyle={entourageStyle} /> : null)}
+            {detailsAround.after.length > 0 ? group(scenesTab, <div className="sn-hub-cards mt-8 space-y-4">{sceneNodes(detailsAround.after)}</div>) : null}
 
             {makerDayStandIns('last')}
 
@@ -2139,6 +2158,53 @@ export async function SiteBody({
        this guest's look · the couple's Reminders · E-Gifts, after the reply.
        Reminders LEAVES Details for it; the dress code stays on Details as the
        everyone view, and this guest's own half moves to Welcome. */
+    /* 👤 INVITATION › ME — THE FOUR FOR-EACH-GUEST PARTS (owner 2026-10-06,
+       `lib/guest-me-parts.ts`): List only · Guests reply, a guest on the list,
+       and only the facts their own row carries. Drawn on the Invitation's Me
+       tab (a tabbed page — Me is a page of its own there). */
+    const meParts =
+      guestStages && pageStage === 'rsvp' && tabsOn && !isMakerCanvas
+        ? guestMePartsShown({
+            on: guestStages,
+            getIn: readGuestsGetIn(event.rsvp_ask_config),
+            listed: readerIsListed({ kind: 'guest', entrySource: (guest as { entry_source?: string | null }).entry_source ?? null }),
+            facts: guestMeFacts({
+              role: guest.role ?? null,
+              dressCodeConfig: event.dress_code_config ?? null,
+              rolePalette: event.role_palette,
+              roleNames,
+              comingWith,
+            }),
+          })
+        : [];
+    /* ✉ THE REPLY CARD (owner 2026-10-06) — the page's one action, in its three
+       reply states, said as a card: under the names on Welcome and at the top
+       of Me. Only where the reply sheet it opens is on the page. */
+    const replyBy = plan.guestListClosed
+      ? null
+      : guestReplyBy({ deadline: event.guest_list_edit_deadline ?? null, today: todayYmd() });
+    const replyCard =
+      guestStages && pageStage === 'rsvp' && plan.rsvpShouldRender && !isMakerCanvas
+        ? replyCardOf({
+            action: arrivalAction,
+            replyBy: replyBy ? formatEventDateWithPrecision(replyBy.date, 'day') || null : null,
+            seats: 1 + plusOneSeats(guest),
+            solemn: clientWords.solemn,
+          })
+        : null;
+    /* 👗 THIS GUEST'S OWN LOOK — read once, for the Welcome's "you" panel and
+       for Me's parts (one home per fact: when Me draws them, the Welcome's
+       look stands down — DECISION_LOG 2026-10-06 "'YOUR DETAILS' LIVES ON
+       INVITATION › ME"). */
+    const guestLook = {
+      config: event.dress_code_config ?? null,
+      ceremonyType: dressRiteOf(event),
+      genderSeparation: (event as { gender_separation?: string | null }).gender_separation ?? null,
+      guestRole: guest.role ?? null,
+      march: marchPlaceOf(entourage, guest.guest_id),
+      rolePalette: event.role_palette,
+      paletteLook: paletteLookOfRow(widgetByType(widgets, 'dress_code')),
+    };
     const welcome = welcomeParts({
       stage: pageStage,
       bodyNormal: plan.body === 'normal',
@@ -2326,13 +2392,15 @@ export async function SiteBody({
     );
     /** On the day the page's sections are Live's (owner 2026-09-30). */
     const scenesTab = pageStage === 'event' ? 'live' : 'details';
+    /** 🎒 What to bring follows the entourage on the Invitation (`splitAroundEntourage`). */
+    const guestAround = splitAroundEntourage(pageStage, detailsSceneList);
     /** One of the couple's scenes, as this guest reads it — for Details, and on
      *  a tabbed page for the love story scene on its own tab. */
     const renderScene = (widget: (typeof detailsScenes)[number]) => (
     <HideableWidgetRender
       key={widget.widget_id}
       widget={widget}
-      /* 🏠 This guest's own look is on Welcome; Details keeps everyone's. */
+      /* 🏠 This guest's own look is on Welcome (or on Me); Details keeps everyone's. */
       dressCodeGeneral={welcome.includes('look')}
       stage={pageStage}
       canvasMediaUrls={canvasMediaUrls}
@@ -2484,10 +2552,14 @@ export async function SiteBody({
             />
           ) : null}
 
+          {replyCard ? (
+            <ReplyCardRow card={replyCard} landed={Boolean(rsvpFlash && rsvpFlash.tone !== 'error')} />
+          ) : (
           <ArrivalActionRow
             action={arrivalAction}
             landed={Boolean(rsvpFlash && rsvpFlash.tone !== 'error')}
           />
+          )}
           </>, { chapters: true, className: 'space-y-12' })}
 
           {group('home', <>
@@ -2990,15 +3062,9 @@ export async function SiteBody({
               <GuestWelcome
                 parts={welcome}
                 words={clientWords}
-                look={{
-                  config: event.dress_code_config ?? null,
-                  ceremonyType: dressRiteOf(event),
-                  genderSeparation: (event as { gender_separation?: string | null }).gender_separation ?? null,
-                  guestRole: guest.role ?? null,
-                  march: marchPlaceOf(entourage, guest.guest_id),
-                  rolePalette: event.role_palette,
-                  paletteLook: paletteLookOfRow(widgetByType(widgets, 'dress_code')),
-                }}
+                /* 🏠 One home per fact: once Me draws this guest's role and
+                   outfit (`meParts`), the Welcome's look stands down. */
+                look={meParts.length > 0 ? null : guestLook}
                 reminders={
                   remindersScene ? (
                     <HideableWidgetRender
@@ -3117,8 +3183,8 @@ export async function SiteBody({
                   Pro (`proWatermarkHidden` is that read). See hub-scenes.tsx. */}
               {group(scenesTab, <>
               <div className="sn-hub-cards space-y-4">
-              <HubScenes widgets={detailsSceneList} scrubAllowed={proWatermarkHidden} stageMarks={stageAutoplayOn}>
-              {detailsSceneList.map(renderScene)}
+              <HubScenes widgets={guestAround.before} scrubAllowed={proWatermarkHidden} stageMarks={stageAutoplayOn}>
+              {guestAround.before.map(renderScene)}
               </HubScenes>
               </div>
 
@@ -3130,6 +3196,15 @@ export async function SiteBody({
 
                   No `previewHref` here either — see the anonymous mount above. */}
               {marchOnWelcome ? null : guestEntourage}
+              {/* 🎒 What to bring, after the entourage (owner 2026-10-07). No stage
+                  marks: only the Invitation splits, and the marks are the Save the Date's. */}
+              {guestAround.after.length > 0 ? (
+                <div className="sn-hub-cards space-y-4">
+                  <HubScenes widgets={guestAround.after} scrubAllowed={proWatermarkHidden}>
+                    {guestAround.after.map(renderScene)}
+                  </HubScenes>
+                </div>
+              ) : null}
               </>, { chapters: true, className: 'space-y-12', id: pageStage === 'event' ? undefined : SITE_MENU_ANCHORS.details })}
 
               {group('home', isLimitedPlusOne ? (
@@ -3230,6 +3305,20 @@ export async function SiteBody({
             GuestTicket (page.tsx), never a Maker-only twin. */}
         {tabs.on || sampleViewer !== null ? group('me', (
           <div data-me-stage="" className={`mx-auto w-full ${PLATE} space-y-12 px-4`}>
+            {/* ✉ The Reply card at the top of Me — once they have replied. Before
+                a reply, Me already leads with the one reply door (the ticket's
+                "Reply to the invitation", `meLeadsWithReply`); a second would be
+                the same door twice. */}
+            {replyCard && replyCard.kind !== 'ask' ? <ReplyCardRow card={replyCard} /> : null}
+            {/* 👤 Your role · What to wear · Arrive by · Coming with you. */}
+            {meParts.length > 0 ? (
+              <GuestMeParts
+                parts={meParts}
+                words={clientWords}
+                look={{ ...guestLook, roleNames }}
+                comingWith={comingWith}
+              />
+            ) : null}
             {typeof meSection === 'function'
               ? meSection({
                   replyHref: meLeadsWithReply({

@@ -137,3 +137,10 @@ test('swipe goes to the next part, and on into the next page', () => {
   assert.deepEqual(makerStepPart({ parts: ['schedule', 'venue'], at: 'schedule', pages, page: 'details', dir: -1 }), { page: 'home', part: null });
   assert.equal(makerStepPart({ parts: ['story'], at: 'story', pages: ['home'], page: 'home', dir: 1 }), null);
 });
+
+test('🏷 the film and the supplier thank-you parts wear their SHIPPED names', () => {
+  // Owner 2026-10-07 final fixes: the Maker names a part what the rest of the
+  // app already calls it — "Watch Live" (Panood) and "Supplier Stories".
+  assert.equal(MAKER_PARTS.film.label, 'Watch Live');
+  assert.equal(MAKER_PARTS.suppliers.label, 'Supplier Stories');
+});

@@ -232,3 +232,28 @@ export function stagePlacesAfterMove<T extends { widget_id: string }>(
 export function stageShowsEntourage(stage: LifecyclePhase): boolean {
   return STAGE_FIXED.entourage.includes(stage);
 }
+
+/**
+ * 🎒 The scenes a stage draws AFTER the entourage, not among its sections.
+ *
+ * Owner 2026-10-07, DECISION_LOG "SIX BUILD QUESTIONS SETTLED" (1): *What to
+ * bring sits AFTER Entourage* on Invitation › Details — Schedule · Venue ·
+ * Dress code · Wedding March · What to bring (the "FULL PASS" row stands).
+ * The Maker's page map (`MAKER_STAGE_PAGES`), the navigator/canvas list
+ * (`makerStageLists`) and the guest page (`site-body.tsx`, both trees) all
+ * read this ONE list, so the three cannot disagree about the order.
+ */
+export const STAGE_SCENES_AFTER_ENTOURAGE: Readonly<Partial<Record<LifecyclePhase, readonly WidgetType[]>>> = {
+  rsvp: ['what_to_bring'],
+};
+
+/** Splits a stage's drawn scenes around the entourage, each half in its own order. */
+export function splitAroundEntourage<T extends { widget_type: string }>(
+  stage: LifecyclePhase,
+  scenes: readonly T[],
+): { before: T[]; after: T[] } {
+  const late = stageShowsEntourage(stage) ? (STAGE_SCENES_AFTER_ENTOURAGE[stage] ?? []) : [];
+  if (late.length === 0) return { before: [...scenes], after: [] };
+  const isLate = (w: T) => (late as readonly string[]).includes(w.widget_type);
+  return { before: scenes.filter((w) => !isLate(w)), after: scenes.filter(isLate) };
+}

@@ -90,6 +90,12 @@ export type YourEventInput = {
     out?: readonly MarchOut[] | null;
     /** The dev Maker lab only (`/dev/maker-lab`): the drags are drawn, never sent. */
     lab?: boolean;
+    /**
+     * 🚶 The Event Hub draft could not be read, so the march's drafted moves are
+     * unknown — the maker says so (with Retry) instead of letting a drop plan
+     * against a march that is not the one the couple drafted.
+     */
+    draftUnread?: boolean;
   };
 };
 
@@ -187,6 +193,7 @@ export function yourEventParts({
         printed={input.march.printed ?? []}
         out={input.march.out === undefined ? [] : input.march.out}
         lab={input.march.lab === true}
+        draftUnread={input.march.draftUnread === true}
       />
     ),
   };

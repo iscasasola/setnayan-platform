@@ -465,14 +465,14 @@ test('(19) Skip goes to the VERY next screen — a link step (the guests’ name
   assert.match(ws, /\{plan && at\?\.kind === 'link' \? \(\s*<GuideLinkScreen/, 'the link screen is not drawn');
 });
 
-test('(20) a control that writes live says so plainly: "Guests see this right away" — the March order and Reply by included', () => {
+test('(20) a control that writes live says so plainly: "Guests see this right away" — Reply by included (the March waits for Apply)', () => {
   const field = read('app/dashboard/[eventId]/website/_components/hub-draft-field.tsx');
   assert.match(field, /export const HUB_LIVE_WORDS = 'Guests see this right away';/);
   assert.match(field, /<InfoTip label=\{HUB_LIVE_WORDS\}/, 'the live mark shows the plain words, not "Saves immediately"');
   assert.doesNotMatch(field, /['">]Saves immediately/, 'the old words are gone from the mark');
-  for (const f of [`${L}/details-march.tsx`, `${L}/maker-rsvp-ask.tsx`]) {
-    assert.match(read(f), /<HubSavesImmediately\b/, `${f} still says it writes live (owner: they stay instant)`);
-  }
+  assert.match(read(`${L}/maker-rsvp-ask.tsx`), /<HubSavesImmediately\b/, 'Reply by no longer says it writes live (owner: it stays instant)');
+  // 🚶 The Wedding March left the live writers on 2026-10-06 (owner: *"Wait for apply"*) — it drafts, and says nothing of the kind.
+  assert.doesNotMatch(read(`${L}/details-march.tsx`), /<HubSavesImmediately\b/, 'the march says it writes live, but it waits for Apply');
 });
 
 test('(21) every watch-live surface says "event" — the live card, the camera picker, the embed, the Facebook card', async () => {
@@ -539,9 +539,10 @@ test('(22) touch a field → Skip asks; open only → Skip goes — a custom pic
   // A field still unsaved asks on every way out.
   assert.equal(leaveOn(opened, 'next', true), 'unsaved');
 
-  // ⚡ AN INSTANT-SAVE CONTROL NEVER MAKES THE STEP "CHANGED" (owner: the March
-  // order and Reply by write live and say "Guests see this right away").
-  // The step's tree: its root; the March's block (opted in); the parent add form, which ALSO
+  // ⚡ AN INSTANT-SAVE CONTROL NEVER MAKES THE STEP "CHANGED" (owner: Reply by
+  // writes live and says "Guests see this right away"; the March did too until
+  // 2026-10-06, when it began to wait for Apply).
+  // The step's tree: its root; Reply by's block (opted in); the parent add form, which ALSO
   // carries the "Guests see this right away" mark beside its own Save — but did not opt in.
   const el = (attrs: string[], parent: unknown, extra: Record<string, unknown> = {}) => ({
     hasAttribute: (n: string) => attrs.includes(n),
@@ -550,21 +551,22 @@ test('(22) touch a field → Skip asks; open only → Skip goes — a custom pic
   });
   const root = el([], null);
   const liveBlock = el([T.WRITES_LIVE_ATTR], root);
-  const marchArrow = el([], liveBlock, { tagName: 'BUTTON', closest: (sel: string) => (sel.includes('aria-pressed') ? {} : null) });
+  const replyByPick = el([], liveBlock, { tagName: 'BUTTON', closest: (sel: string) => (sel.includes('aria-pressed') ? {} : null) });
   const addForm = el(['data-hub-saves-immediately'], root);
   const parentName = el([], addForm, { tagName: 'INPUT', name: 'first_name', id: '' });
-  const march = T.newStepTouch();
-  T.noteStepTouch(march, { type: 'click', isTrusted: true, target: marchArrow }, marchArrow, root);
-  assert.equal(leaveOn(march, 'skip'), null, 'moving the Wedding March then Skip asked "Skip anyway?" — it is already saved');
+  const replyBy = T.newStepTouch();
+  T.noteStepTouch(replyBy, { type: 'click', isTrusted: true, target: replyByPick }, replyByPick, root);
+  assert.equal(leaveOn(replyBy, 'skip'), null, 'changing Reply by then Skip asked "Skip anyway?" — it is already saved');
   const typed2 = T.newStepTouch();
   T.noteStepTouch(typed2, { type: 'input', isTrusted: true, target: parentName }, parentName, root);
   assert.equal(leaveOn(typed2, 'skip'), 'skip', 'a parent\'s name typed into the add form, then Skip, went on with no question — the name is lost');
   assert.equal(T.writesLive(parentName, root), false, 'the "Guests see this right away" mark exempts a form with its own Save');
-  assert.equal(T.writesLive(marchArrow, root), true);
-  // Only the two instant writers opt in.
+  assert.equal(T.writesLive(replyByPick, root), true);
+  // Only the one instant writer opts in.
   const optedIn = ['details-march.tsx', 'maker-rsvp-ask.tsx'].map((f) => (read(`${L}/${f}`).match(/data-writes-live=""/g) ?? []).length);
-  // (The march's two controls became ONE drag maker on 2026-10-06 — one opt-in, on its root.)
-  assert.deepEqual(optedIn, [1, 1], `the live opt-in moved: ${optedIn}`);
+  // (The march's two controls became ONE drag maker on 2026-10-06 — and the same day it began to wait
+  // for Apply (owner: *"Wait for apply"*), so it opts in no more: its drops are drafted, like every Maker edit.)
+  assert.deepEqual(optedIn, [0, 1], `the live opt-in moved: ${optedIn}`);
 
   // The foot says which question it is asking.
   const { GuideFoot } = await import(`../${L}/details-guide`);

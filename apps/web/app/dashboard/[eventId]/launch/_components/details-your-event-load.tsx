@@ -10,6 +10,7 @@ import { ChineseSpecialistNudge } from '../../date-selection/_components/chinese
 import type { YourEventInput } from './details-your-event-parts';
 import type { VenueSlot } from './details-your-event';
 import { marchSections, marchTray, printedSectionOrder } from '@/lib/march-sections';
+import { replayMarch, type MarchOut, type MarchSection, type MarchStep } from '@/lib/march-drag';
 import { readYourEventFacts } from './details-your-event-facts';
 import { loadEntourageSectionOrder, loadEventNameStyle } from '@/app/[slug]/_lib/loaders';
 import { nameStyleOfPrintDetails } from '@/lib/name-style';
@@ -35,6 +36,7 @@ export async function loadYourEvent({
   helpFirst = false,
   drafted,
   draftedVenue,
+  draftedMarch,
 }: {
   supabase: SupabaseClient;
   admin: SupabaseClient;
@@ -49,6 +51,12 @@ export async function loadYourEvent({
   drafted?: Record<string, unknown>;
   /** 🏛 The draft's Venue-scene card choices — the venues are shown as drafted. */
   draftedVenue?: unknown;
+  /**
+   * 🚶 The Wedding March's drafted moves — the march is shown as drafted. `null`
+   * = the draft could not be read (the maker says so); absent = this page does
+   * not draw the march.
+   */
+  draftedMarch?: MarchStep[][] | null;
 }): Promise<YourEventInput | null> {
   const [base, confirmedVendorCount, nameStyle, liveCeremonyTime, savedSections] = await Promise.all([
     readYourEventFacts({ admin, eventId, parentCount, hostCount, drafted, draftedVenue }),
@@ -175,14 +183,35 @@ export async function loadYourEvent({
       slots,
       city: mayShowStdFilm ? (row.std_film_venue_city ?? '') : null,
     },
-    march: {
-      sections: marchSections(groups),
-      // A section whose people are all in the tray still prints — it is still a step the header drag passes.
-      printed: printedSectionOrder([...groups, ...(notWalking ?? [])], savedSections),
-      // 🚶 The "Not walking" tray; null = it could not be read (said, never drawn as empty).
-      out: notWalking ? marchTray(notWalking) : null,
-    },
+    /* 🚶 …shown as DRAFTED (owner 2026-10-06, "Wait for apply"): the live march
+       with the couple's drafted moves laid on (`marchAsDrafted`). */
+    march: marchAsDrafted(
+      {
+        sections: marchSections(groups),
+        // A section whose people are all in the tray still prints — it is still a step the header drag passes.
+        printed: printedSectionOrder([...groups, ...(notWalking ?? [])], savedSections),
+        // 🚶 The "Not walking" tray; null = it could not be read (said, never drawn as empty).
+        out: notWalking ? marchTray(notWalking) : null,
+      },
+      draftedMarch,
+    ),
   };
+}
+
+/**
+ * 🚶 The march as the couple is arranging it: the live march (what guests see)
+ * with the draft's moves laid on, step by step, the way each shipped action
+ * leaves it (`replayMarch`). An unread draft is said — never drawn as "no moves",
+ * which would let the next drop plan against a march the couple did not draft.
+ */
+function marchAsDrafted(
+  live: { sections: MarchSection[]; printed: string[]; out: MarchOut[] | null },
+  drafted: MarchStep[][] | null | undefined,
+): YourEventInput['march'] {
+  if (drafted === null) return { ...live, draftUnread: true };
+  if (!drafted?.length) return live;
+  const shown = replayMarch({ sections: live.sections, printed: live.printed, out: live.out ?? [] }, drafted.flat());
+  return { sections: shown.sections, printed: shown.printed, out: live.out === null ? null : shown.out };
 }
 
 /** 📍 Where each venue card's own details draft into (`HUB_DRAFT_VENUE_COLUMNS`). */

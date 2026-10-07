@@ -32,6 +32,12 @@
  *   drop    — take ONE named Pro effect (`effect` = its id) off the draft —
  *             the Apply sheet's ×. Recomputed here from the stored draft.
  *
+ * 🚶 THE WEDDING MARCH WAITS FOR APPLY TOO (owner 2026-10-06, *"Wait for
+ * apply"*). A drop in the march maker is a `save` whose patch carries the drop's
+ * shipped march steps (`march`, added after the drafted ones; `marchUndo` takes
+ * the last back off). Apply replays every drafted step, in order, through the
+ * shipped march actions (`callMarchStep` → `runDraftedMarch`) — no new writer.
+ *
  * Address, who can view, what guests get and open browsing are NOT drafted —
  * they stay live (the build plan's rule), in `editor/actions.ts`. The NAMES
  * and the DATE typed in the Maker ARE (owner 2026-10-01, "wait for apply";
@@ -115,6 +121,8 @@ import { moveScheduleWithDate, placeCeremonyBlock } from '@/lib/ceremony-time.se
 import { exactDayOf } from '@/lib/schedule-datetime-local';
 import { isListedPlaceName } from '@/lib/listed-place';
 import { readVenueChoices, VENUE_CHOICES_KEY } from '@/lib/event-venues';
+import { MARCH_DRAFT_FULL_MESSAGE, MARCH_DRAFT_MAX_MOVES, runDraftedMarch } from '@/lib/march-draft';
+import { callMarchStep } from '../guests/march-step';
 
 const FORBIDDEN = 'Forbidden — only current hosts can edit this Event Hub.';
 
@@ -211,6 +219,12 @@ export async function hubDraftAction(
           live: { date: (liveDate?.event_date as string | null | undefined) ?? null, precision: liveDate?.event_date_precision },
         }));
         if (asked) return { ok: false, intent, error: asked.reason, clash: asked.clash };
+      }
+      /* 🚶 A drafted march holds a bounded number of moves (every Undo state
+         carries the list) — past it, the couple is told to Apply first, never
+         a move silently dropped by the draft's own reader. */
+      if (Array.isArray(patch.march) && (current.march?.length ?? 0) + patch.march.length > MARCH_DRAFT_MAX_MOVES) {
+        return { ok: false, intent, error: MARCH_DRAFT_FULL_MESSAGE };
       }
       const [, bar] = await Promise.all([
         writeHubDraft(supabase, eventId, mergeHubDraft(current, patch)),
@@ -818,7 +832,27 @@ export async function hubDraftAction(
       snapshot.sceneStyles = res.before ?? null;
     }
 
-    // 5 · The draft keeps only what was held back (and a record of this apply).
+    // 5 · 🚶 The Wedding March's drafted moves — replayed LAST, in the order
+    //     they were made, through the shipped march actions (`callMarchStep`):
+    //     each re-reads the march and asks its own "may it go there?". A
+    //     refusal ends the replay as it ended a burst in the maker: the steps
+    //     before it are live, the rest are dropped, and it is said by name. A
+    //     step that could not be SENT stays drafted with every step after it,
+    //     so Apply again finishes the march (and never repeats a made step).
+    for (const item of toWrite) {
+      if (item.kind !== 'march') continue;
+      const replay = await runDraftedMarch(item.value, (step) => callMarchStep(eventId, step));
+      if (replay.failed) {
+        await writeHubDraft(supabase, eventId, { ...current, march: replay.left, history: [] });
+        return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
+      }
+      if (replay.stopped) {
+        console.warn('[hub-draft] the march stopped at Apply:', replay.stopped);
+        held.push({ item, reason: 'march_stopped' });
+      }
+    }
+
+    // 6 · The draft keeps only what was held back (and a record of this apply).
     const remaining: HubDraftState = { events: {}, widgets: {} };
     for (const { item } of held) {
       if (item.kind === 'event') remaining.events[item.column] = item.value;
@@ -831,6 +865,8 @@ export async function hubDraftAction(
         }
       } else if (item.kind === 'fixed-style') {
         // A style pick is free and never held; nothing to keep.
+      } else if (item.kind === 'march') {
+        // 🚶 A march that stopped keeps nothing: what was still queued is dropped (said by name).
       } else if (item.field === 'canvas') {
         (remaining.widgets[item.widgetType] ??= {}).canvas = item.value as HubSectionCanvas | null;
       } else if (item.field === 'main') {

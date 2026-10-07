@@ -83,6 +83,8 @@ export function HomeFirstScreen({
   services,
   ground = null,
 }: HomeFirstScreenProps) {
+  /* Over the Event Hub's ground the pill takes the hub's ink (`currentColor`). */
+  const pillTone = `rounded-full border px-3 py-1.5 text-[12.5px] transition ${ground ? 'border-current hover:opacity-80' : 'border-cream/60 text-cream hover:bg-cream/10'}`;
   return (
     <section
       data-home-first-screen
@@ -117,7 +119,7 @@ export function HomeFirstScreen({
         <Link
           href={`/dashboard/${eventId}/details`}
           data-home-event-details
-          className={`sn-press relative shrink-0 rounded-full border px-3 py-1.5 text-[12.5px] transition ${ground ? 'border-current hover:opacity-80' : 'border-cream/60 text-cream hover:bg-cream/10'}`}
+          className={`sn-press relative shrink-0 ${pillTone}`}
         >
           Event Details
         </Link>

@@ -1978,10 +1978,8 @@ export const loadEntourage = cache(
     if (marchSteps?.length) {
       const savedOrder = await loadEntourageSectionOrder(admin, eventId);
       const marked = ((data ?? []) as EntourageGuestRow[]).map((r) => (r.guest_id && out.has(r.guest_id) ? { ...r, not_walking: true } : r));
-      const drafted = await draftedMarchPrint(admin, eventId, marked, savedOrder, marchSteps);
-      if (drafted) {
-        return buildEntourage(drafted.rows, drafted.sectionOrder, await loadEventRoleNames(admin, eventId), nameStyle ?? (await loadEventNameStyle(admin, eventId)));
-      }
+      const drafted = await draftedMarchPrint(admin, eventId, marked, savedOrder, marchSteps, nameStyle);
+      if (drafted) return drafted;
     }
     return buildEntourage(
       ((data ?? []) as EntourageGuestRow[]).map((r) => (r.guest_id && out.has(r.guest_id) ? { ...r, not_walking: true } : r)),
@@ -2040,14 +2038,15 @@ export const loadMarch = cache(
   },
 );
 
-/** 🚶 The printed rows with the host's drafted march moves laid on (the Maker's canvas only). */
+/** 🚶 The entourage printed with the host's drafted march moves laid on (the Maker's canvas only). */
 async function draftedMarchPrint(
   admin: AdminClient,
   eventId: string,
   rows: EntourageGuestRow[],
   savedOrder: string[] | null,
   steps: readonly MarchStep[],
-): Promise<{ rows: EntourageGuestRow[]; sectionOrder: string[] } | null> {
+  nameStyle?: NameStyle,
+): Promise<EntourageGroup[] | null> {
   const march = await loadMarch(admin, eventId);
   // An unread tray is never drawn as "nobody out" — the canvas keeps the live march.
   if (march.out === null) return null;
@@ -2056,5 +2055,12 @@ async function draftedMarchPrint(
     printed: printedSectionOrder([...march.walking, ...march.out], savedOrder),
     out: marchTray(march.out),
   };
-  return printedRowsAsDrafted(rows, replayMarch(live, steps));
+  const drafted = printedRowsAsDrafted(rows, replayMarch(live, steps));
+  // `sectionOrder` is the couple's saved order (`savedOrder`) with the drafted section moves laid on.
+  return buildEntourage(
+    drafted.rows,
+    drafted.sectionOrder,
+    await loadEventRoleNames(admin, eventId),
+    nameStyle ?? (await loadEventNameStyle(admin, eventId)),
+  );
 }

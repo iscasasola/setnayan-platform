@@ -54,6 +54,7 @@
 import type { HubElementKey } from './element-style';
 import type { HubStage } from './hub-canvas';
 import { RSVP_STAGE_KEY } from './rsvp-stage-shared';
+import { POST_EVENT_SCENE_NAMES } from './post-event-scene-names';
 
 /* ── the three tools ──────────────────────────────────────────────────────── */
 
@@ -130,6 +131,17 @@ export const MAKER_PART_KEYS = [
   'wishes',
   'suppliers',
   'film',
+  /* 🎞 THE NINE POST EVENT SCENES THE ＋ SHEET ADDS (PR 3, DECISION_LOG 2026-10-06
+     "POST EVENT: EVERY SHIPPED AUTO SCENE CAN BE ADDED") — not on a page by default. */
+  'road',
+  'watchlive',
+  'challenge',
+  'supstories',
+  'wall',
+  'said',
+  'beforeafter',
+  'song',
+  'next',
 ] as const;
 export type MakerPartKey = (typeof MAKER_PART_KEYS)[number];
 
@@ -274,6 +286,18 @@ export const MAKER_PARTS: Readonly<Record<MakerPartKey, MakerPartDef>> = {
   wishes: { label: 'Wishes', source: 'tool', canvas: 'p:wishes', layouts: scene('photo-notes') },
   suppliers: { label: 'With thanks to', source: 'tool', canvas: 'p:vendors', layouts: scene('supplier-stories') },
   film: { label: 'The film', source: 'tool', canvas: 'p:film', layouts: scene('live-stream') },
+  /* 🎞 The nine Post Event scenes the ＋ sheet adds — each by its SHIPPED name and
+     key (`lib/post-event-scenes.ts` `POST_EVENT_SCENE_NAMES`), never retyped; their
+     looks are Post Event's own (`post-event-style-resolve.ts`), not a scene's. */
+  road: { label: POST_EVENT_SCENE_NAMES.before!, source: 'tool', canvas: 'p:before', layouts: NONE },
+  watchlive: { label: POST_EVENT_SCENE_NAMES.film!, source: 'tool', canvas: 'p:film', layouts: NONE },
+  challenge: { label: POST_EVENT_SCENE_NAMES.asked!, source: 'tool', canvas: 'p:asked', layouts: NONE },
+  supstories: { label: POST_EVENT_SCENE_NAMES.vendors!, source: 'tool', canvas: 'p:vendors', layouts: NONE },
+  wall: { label: POST_EVENT_SCENE_NAMES.wall!, source: 'tool', canvas: 'p:wall', layouts: NONE },
+  said: { label: POST_EVENT_SCENE_NAMES.said!, source: 'tool', canvas: 'p:said', layouts: NONE },
+  beforeafter: { label: POST_EVENT_SCENE_NAMES.beforeAfter!, source: 'tool', canvas: 'p:beforeAfter', layouts: NONE },
+  song: { label: POST_EVENT_SCENE_NAMES.song!, source: 'tool', canvas: 'p:song', layouts: NONE },
+  next: { label: POST_EVENT_SCENE_NAMES.next!, source: 'tool', canvas: 'p:next', layouts: NONE },
 };
 
 /** A part's source, read. Throws on a string no part may carry — the test walks every part through it. */

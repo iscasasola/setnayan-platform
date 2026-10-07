@@ -38,6 +38,11 @@ export const PaletteLookCanvasRow = dynamic(
   () => import(/* webpackChunkName: "maker-details" */ './scene-style-row').then((m) => m.PaletteLookCanvasRow),
   { loading: SlotRows },
 );
+/* ⇔ Style › Arrange › Alignment — the new Maker's (its Text is three controls). */
+export const SceneAlignRow = dynamic(
+  () => import(/* webpackChunkName: "maker-details" */ './scene-style-row').then((m) => m.SceneAlignRow),
+  { loading: SlotRows },
+);
 export const FixedSceneStyleRow = dynamic(
   () => import(/* webpackChunkName: "maker-details" */ './fixed-scene-style-row').then((m) => m.FixedSceneStyleRow),
   { loading: SlotRows },

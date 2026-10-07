@@ -168,32 +168,25 @@ test('the phone has a door to the picker at all', () => {
     capture bar's own opener IS the phone's door — provided that head is not
     hidden on a phone again. Both halves are asserted: the opener, and the head.
   */
+  /*
+    ⤷ 2026-10-07 (Maker PR 4f — Guests › List and Map to the prototype): the
+    roster head is retired. The door is now the add sheet's ONE "Add another
+    way" dropdown, opened by the thumb row's ＋ Add and the page's + at every
+    width. Asserted: the sheet calls the picker's exported opener (never the
+    private event by hand), and the page mounts that sheet.
+  */
   const page = read('app', 'dashboard', '[eventId]', 'guests', 'page.tsx');
-  const headAt = page.indexOf('data-roster-head=""');
-  assert.notEqual(headAt, -1, 'The roster head lost its anchor — this guard is blind.');
-  const headTag = page.slice(page.lastIndexOf('<div', headAt), headAt);
-  assert.doesNotMatch(
-    headTag.replace(/\b(?:sm|md|lg|xl|2xl):[\w-]+/g, ''),
-    /\bhidden\b/,
-    'The roster head is hidden on a phone again — and with it the only door to the picker.',
-  );
-  const src = read(
-    'app', 'dashboard', '[eventId]', 'guests', '_components', 'capture-bar.tsx',
-  );
+  assert.match(page, /<AddGuestSheet\b/, 'The page no longer mounts the add sheet — the picker has no door.');
+  const src = read('app', 'dashboard', '[eventId]', 'guests', '_components', 'add-guest-sheet.tsx');
   assert.match(
     src,
-    /import \{ OpenAddFromPeopleButton \} from '\.\/add-from-people-sheet'/,
-    'The phone roster lost its import of the picker opener.',
+    /import \{ openAddFromPeople \} from '\.\/add-from-people-sheet'/,
+    'The add sheet lost its import of the picker opener.',
   );
-  assert.match(
-    src,
-    /<OpenAddFromPeopleButton/,
-    'The phone roster imports the opener but never renders it — which is the ' +
-      'same as not having it.',
-  );
+  assert.match(src, /openAddFromPeople\(\)/, 'The add sheet imports the opener but never calls it.');
   assert.ok(
     !/setnayan:add-from-people-open/.test(src),
-    'The phone roster hand-dispatches the sheet’s private open event. Import ' +
+    'The add sheet hand-dispatches the picker’s private open event. Import ' +
       'the opener instead, so the two cannot drift apart silently.',
   );
 });

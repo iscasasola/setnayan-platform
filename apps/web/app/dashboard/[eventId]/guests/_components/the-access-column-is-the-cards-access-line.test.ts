@@ -111,6 +111,9 @@ test('the "+Co-host" tag that trailed the role is gone — the column says it on
 
 test('the page reads every guest’s Access once and hands the list the map', () => {
   assert.equal((PAGE.match(/loadGuestAccessMap\(/g) ?? []).length, 1, 'the page reads Access more than once');
-  assert.match(PAGE, /<GuestListMultiselect[\s\S]*?\baccessByGuest=\{accessByGuest\}/, 'the list is not handed the Access map');
+  // Maker PR 4f: the list is GuestsScreen now; the word sits on each row.
+  assert.match(PAGE, /<GuestsScreen[\s\S]*?\baccessByGuest=\{accessByGuest\}/, 'the list is not handed the Access map');
+  const SCREEN = read('guests-screen.tsx');
+  assert.match(SCREEN, /<GuestAccessCell\b/, 'the list no longer shows each guest’s Access');
   assert.doesNotMatch(PAGE, /accessTagByGuest/, 'the page still builds the retired tag map');
 });

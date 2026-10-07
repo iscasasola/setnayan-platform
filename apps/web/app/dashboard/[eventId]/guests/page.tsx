@@ -2,7 +2,6 @@ import { eventNoun } from '@/lib/event-noun';
 import { guestMatchesSearch } from '@/lib/guest-search';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Link2, ArrowRight, Send, LayoutGrid, ListOrdered } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -12,8 +11,6 @@ import { publicEventPath, resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { sharedJoinLinkState } from '@/lib/shared-join-link';
 import {
   countsTowardEvent,
-  RSVP_ROW_WORDS,
-  computePaxProgress,
   fetchGroupMembershipsByEvent,
   fetchGuestGroupsByEvent,
   fetchGuestsByEventMeasured,
@@ -32,11 +29,9 @@ import {
 import {
   filterByRoleGroup,
   honoreeRank,
-  roleGroupLabel,
   roleGroupOf,
   ROLE_GROUP_LABELS,
   roleImportanceRank,
-  type RoleGroup,
 } from '@/lib/role-groups';
 import { loadRoleNames } from '@/lib/role-names.server';
 import type { RoleNames } from '@/lib/role-names';
@@ -58,7 +53,6 @@ import { readFinalizeState } from '@/lib/pax';
 import { FinalizeGuestListControl } from './_components/finalize-guest-list-control';
 import { eventHasSides, SIDELESS_SIDE } from '@/lib/guest-side-question';
 import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
-import { eventSkuActive } from '@/lib/entitlements';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { guestPhotoDisplayUrls } from '@/lib/uploads';
 import { accountPhotoRefsByGuest } from '@/lib/guest-account-photos';
@@ -66,18 +60,10 @@ import { accountNamesByGuest } from '@/lib/linked-profile-names';
 import { withProfileName } from '@/lib/formal-name';
 import { ROLE_SECTION_ORDER } from './_components/guest-list-multiselect';
 import { GuestsScreen } from './_components/guests-screen';
-import { AddDoors, CaptureBar } from './_components/capture-bar';
-import { bringerSeatsFrom } from '@/lib/extra-seats';
-import { FindAddRow } from './_components/find-add-row';
-import { RosterMeters } from './_components/roster-meters';
-import { RosterTabs } from './_components/roster-tabs';
+import { mapRootLabel } from '@/lib/guest-roster-view';
 import { InvitePanel } from './invite/_components/invite-panel';
 import { AddFromPeopleSheet } from './_components/add-from-people-sheet';
-import { GroupsSidebar } from './_components/groups-sidebar';
-import { RosterFilters, RosterSort } from './_components/roster-controls';
 import { QuickAddSheet } from './_components/quick-add-sheet';
-import { GuestsViewSwitcher } from './_components/view-switcher';
-import { GuestMindMap } from './_components/guest-mind-map';
 import { UndoToastHost } from './_components/undo-toast';
 import { GuestCardBody, GUEST_CARD_ERROR_COPY, guestCardEyebrow, guestCardReply } from './_components/guest-card-body';
 import { GuestInviteCell } from './_components/guest-invite-cell';
@@ -99,11 +85,9 @@ import type { GuestAccessState } from '@/lib/guest-access';
 import { MiniTour } from '@/app/_components/mini-tour';
 import { loadGuestHelperCard } from '@/lib/guest-helper-card.server';
 import { GuestHelperAccess } from './_components/guest-helper-access';
-import { GuestsPhoneMenu } from './_components/guests-phone-menu';
-import { PhoneShowPick } from './_components/phone-show-pick';
 import { quickAddTips } from '@/lib/quick-add-tips';
 import { tableWords } from '@/lib/table-words';
-import { AddGuestSheet, OpenAddGuestButton, OpenAddGuestTextButton } from './_components/add-guest-sheet';
+import { AddGuestSheet, OpenAddGuestTextButton } from './_components/add-guest-sheet';
 
 export const metadata = { title: 'Guests' };
 
@@ -353,10 +337,6 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   const supabase = await createClient();
   // The couple's own words for roles (owner 2026-09-30) — graceful: the usual words on a refusal.
   const roleNames = await loadRoleNames(supabase, eventId, 'GuestsPage.roleNames');
-  // The View lenses say the couple's word too ("Bride's Crew", not "Bridesmaids").
-  const viewFiltersNamed = viewFilters.map((f) =>
-    f.key === 'all' ? f : { ...f, label: roleGroupLabel(f.key as RoleGroup, roleNames) },
-  );
 
   /*
     ⚖ THE GUESTS · HOSTS · CHECK-IN PARTS ROW IS GONE (owner 2026-09-30,
@@ -705,6 +685,17 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // Auto-Arrange does. Falls back to suggestTableFor's default when no floor plan
   // row exists yet (undefined → the param default kicks in).
   const stage = floorPlan ? { x: floorPlan.stage_x, y: floorPlan.stage_y } : undefined;
+  // The Access column (owner 2026-09-28: co-hosts come from the guest list) —
+  // every guest's Access, TRUE by construction, from the live seats. ONE read
+  // for the whole list. A refused read (null) hands the roster NO states, so no
+  // word is drawn — never a list with every co-host silently reading "None".
+  // ⚠ Maker PR 4f keeps it on each row's meta line (the old table's column is
+  // retired with the table) — owner call 2026-10-07 still open.
+  const accessMap = await loadGuestAccessMap(
+    eventId,
+    guests.map((g) => ({ guest_id: g.guest_id, role: g.role })),
+  );
+  const accessByGuest: Record<string, GuestAccessState> = Object.fromEntries(accessMap ?? []);
   const seatByGuest: Record<string, { placed: string | null; suggested: string | null }> =
     Object.fromEntries(
       visible.map((g) => {
@@ -801,12 +792,6 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   const inspectedGuest = inspectId
     ? (guests.find((g) => g.guest_id === inspectId) ?? null)
     : null;
-  const groupLabelById = new Map(groups.map((g) => [g.group_id, g.label] as const));
-  const inspectedGroupLabels = inspectedGuest
-    ? (membershipsMap.get(inspectedGuest.guest_id) ?? [])
-        .map((id) => groupLabelById.get(id))
-        .filter((l): l is string => Boolean(l))
-    : [];
   /* THE CARD, not a quick view (2026-09-22). `?inspect=<guestId>` now server-
      renders the SAME `GuestCardBody` the standalone route renders — the QR,
      every editable field, and the remove path, in one panel that saves itself.
@@ -875,13 +860,6 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // The counts were worked out ONCE, with the read (`MeasuredGuests.stats`) — never
   // recounted here, so the meters, the counts line and the header cannot disagree.
   const stats = guestsRead.stats;
-  // Pax-target progress (Adaptive Pax Pricing Phase 2) — sure-attending vs the
-  // couple's minimum pax (events.estimated_pax). null when no target is set.
-  // Read-only here; the vendor-facing pushes land in later phases.
-  const paxProgress = computePaxProgress(
-    stats,
-    eventRow.data?.estimated_pax ?? null,
-  );
   // Finalize state: a READ. The list is final only when the host pressed
   // Finalize (owner 2026-09-30, "i must click a finalize to finalize it"); no
   // date closes it any more. See lib/guest-list-closed.ts.
@@ -937,9 +915,8 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         honoreeRank(a.role) - honoreeRank(b.role) ||
         sortCompare(a, b, 'importance', undefined, seatByGuest),
     );
-  // The map's centre: the celebrants' names ("Maria & Jose"), else the event word.
-  const honoreeNames = rosterAll.filter((g) => isHonoreeRole(g.role)).map((g) => g.first_name).filter(Boolean);
-  const mapRoot = honoreeNames.length ? honoreeNames.join(' & ') : eventWord.charAt(0).toUpperCase() + eventWord.slice(1);
+  // The map's centre: the celebrants' first names ("Maria & Jose"), else the event word.
+  const mapRoot = mapRootLabel(rosterAll, eventWord);
   const guestsScreen = (
     <GuestsScreen
       eventId={eventId}
@@ -953,6 +930,9 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       tableByGuest={tableByGuest}
       songsByGuest={songsByGuest}
       linkedGuestIds={linkedGuestIds}
+      accessByGuest={accessByGuest}
+      // Only a co-host changes Access — the same `couple` gate the card uses.
+      canManageAccess={viewer.isCouple}
       faceByGuest={faceByGuest}
       requests={pendingClaimsCount}
       rootLabel={mapRoot}

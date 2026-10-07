@@ -14,7 +14,7 @@
  * the way it shows on a phone.
  *
  *   ?part=notices   the Notifications list, scrolled under the account thumb bar
- *   ?part=head      Guests title + round + + ⋯ (tap ⋯ for the Guest list sheet)
+ *   ?part=head      (retired with the phone title + ⋯ — redirects to part=screen)
  *   ?part=card      a guest's card (Daniel Ramos) — tap Invite or ⋯
  *   ?part=host      the bride's card — a host, ⋯ only
  *   ?part=rows      the Guest list ROWS, on maria-and-jose's real roster shape
@@ -28,17 +28,12 @@
  *   &low=1          push the card's ticket row to the bottom of a short phone
  *                   (375×667), where a menu has no room under it
  */
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { NotificationsList } from '@/app/_components/notifications/notifications-list';
 import type { NotificationRow } from '@/lib/notifications';
 import { HomePillNav } from '@/app/dashboard/(launcher)/_components/home-pill-nav';
 import { BottomDock } from '@/app/_components/nav/bottom-nav';
-import { OpenAddGuestButton, AddGuestSheet } from '@/app/dashboard/[eventId]/guests/_components/add-guest-sheet';
-import { GuestsPhoneMenu } from '@/app/dashboard/[eventId]/guests/_components/guests-phone-menu';
-import { RosterSort } from '@/app/dashboard/[eventId]/guests/_components/roster-controls';
-import { RosterTabs } from '@/app/dashboard/[eventId]/guests/_components/roster-tabs';
-import { GuestsViewSwitcher } from '@/app/dashboard/[eventId]/guests/_components/view-switcher';
-import { AddDoors } from '@/app/dashboard/[eventId]/guests/_components/capture-bar';
+import { AddGuestSheet } from '@/app/dashboard/[eventId]/guests/_components/add-guest-sheet';
 import { GuestCardBody } from '@/app/dashboard/[eventId]/guests/_components/guest-card-body';
 import { GuestInviteCell } from '@/app/dashboard/[eventId]/guests/_components/guest-invite-cell';
 import { GuestMoreMenu, GuestTicketThumb } from '@/app/dashboard/[eventId]/guests/_components/guest-ticket-parts';
@@ -413,57 +408,7 @@ export default async function GuestsLabPage({
     );
   }
 
-  // part=head — the event layout's wrappers (`app/dashboard/[eventId]/layout.tsx`).
-  const rosterTabs = (
-    <RosterTabs
-      eventId={EVENT}
-      view="list"
-      finished={false}
-      hasJoinLink
-      viewSwitch={<GuestsViewSwitcher eventId={EVENT} active="list" search={{}} bare />}
-    />
-  );
-  return (
-    <div className="sn-ambient min-h-screen">
-      <main className="sn-vt-page">
-        <div data-shell-main>
-          <div className="sn-page-enter">
-            <section className="flex flex-col gap-4 px-4 py-6">
-              <div className="flex items-center justify-between gap-3" data-guests-phone-title="">
-                <span aria-hidden className="font-display text-2xl text-ink">
-                  Guests
-                </span>
-                <div className="flex items-center gap-2">
-                  <OpenAddGuestButton label="Add a guest" />
-                  <GuestsPhoneMenu
-                    sort={
-                      <RosterSort
-                        sorts={[
-                          { key: 'name', label: 'Name' },
-                          { key: 'side', label: 'Side' },
-                        ]}
-                        current="name"
-                      />
-                    }
-                    doors={rosterTabs}
-                    addDoors={<AddDoors eventId={EVENT} rows />}
-                  />
-                </div>
-              </div>
-              <p className="text-sm text-ink/60">Guests can reply until you finalize.</p>
-              <div className="hidden lg:block">{rosterTabs}</div>
-              {['Ana Cruz', 'Ben Reyes', 'Carla Lim', 'Dino Tan', 'Ella Go', 'Fe Uy', 'Gino Sy', 'Hana Ong', 'Ivy Chua', 'Jun Dy', 'Kat Yu', 'Leo Co'].map((who) => (
-                <div key={who} className="border-b border-ink/10 py-3 text-sm text-ink/70">
-                  {who}
-                </div>
-              ))}
-            </section>
-            {/* Inside the page, where the real Guest list mounts it. */}
-            <AddGuestSheet eventId={EVENT} defaultSide="both" />
-          </div>
-        </div>
-      </main>
-      <DockStandIn />
-    </div>
-  );
+  // part=head (the retired phone title + ⋯) now draws the Guests screen.
+  redirect('/dev/guests-lab?part=screen');
+
 }

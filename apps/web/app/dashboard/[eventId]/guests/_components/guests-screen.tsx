@@ -60,7 +60,6 @@ import {
   Star,
   Tag,
   User,
-  UserPlus,
   Users,
   X,
 } from 'lucide-react';
@@ -69,6 +68,7 @@ import { Count, Fill } from '@/components/count';
 import { PickMenu, type PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { useInspectorContext } from '@/app/_components/inspector/inspector-column';
 import { Sheet } from '@/app/_components/sheet';
+import { useToast } from '@/app/_components/toast/toast-provider';
 import {
   countsTowardEvent,
   guestDisplayName,
@@ -81,6 +81,7 @@ import {
   type GuestSide,
 } from '@/lib/guests';
 import { projectGuests } from '@/lib/guest-optimistic';
+import { isHonoreeRole } from '@/lib/role-groups';
 import {
   isToInvite,
   MAP_ARRANGE,
@@ -89,6 +90,7 @@ import {
   rosterSearchMatches,
   rosterSections,
   rowVerbsFor,
+  SEARCH_WAIT_MS,
   type MapArrange,
   type RosterFacts,
   type RosterView,
@@ -104,10 +106,10 @@ import { GuestListHasSidesContext } from './chip-editors';
 import { openAddGuest } from './add-guest-sheet';
 import { useRowState } from './use-row-state';
 import { GuestMapCanvas } from './guest-map-canvas';
+import { GuestAccessCell } from './guest-access-cell';
+import type { GuestAccessState } from '@/lib/guest-access';
 import styles from './guests-screen.module.css';
 
-/** The 250 ms wait — the shipped `GuestsTopSearch` debounce (rule 4). */
-export const SEARCH_WAIT_MS = 250;
 
 export type GuestsScreenProps = {
   eventId: string;
@@ -129,6 +131,10 @@ export type GuestsScreenProps = {
   songsByGuest: Record<string, string[]>;
   /** Guests an account holds (null = not measured). */
   linkedGuestIds: string[] | null;
+  /** guest_id → their Access (Host · Co-host · Limited helper), read once by the page. */
+  accessByGuest?: Record<string, GuestAccessState>;
+  /** Only a co-host's word is a door to People with access. */
+  canManageAccess?: boolean;
   /** guest_id → a face to draw. */
   faceByGuest: Record<string, string>;
   /** Requests to join waiting (from the event link). */
@@ -209,6 +215,8 @@ export function GuestsScreen(props: GuestsScreenProps) {
     tableByGuest,
     songsByGuest,
     linkedGuestIds,
+    accessByGuest,
+    canManageAccess = false,
     faceByGuest,
     requests,
     rootLabel,
@@ -218,6 +226,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
     empty,
   } = props;
   const router = useRouter();
+  const toast = useToast();
   const inspector = useInspectorContext();
   const roleNames = useRoleNames();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -273,8 +282,14 @@ export function GuestsScreen(props: GuestsScreenProps) {
 
   const sections = useMemo(() => rosterSections(visible, view, facts), [visible, view, facts]);
 
-  // Open sections: the celebrants and the first other section, as the prototype opens.
-  const [open, setOpen] = useState<Set<string>>(() => new Set(rosterSections(roster, 'role', facts).slice(0, 2).map((s) => s.key)));
+  // Open on arrival: the first section after the celebrants (the prototype's
+  // seeded state — Bride & Groom folded, VIP open). A new Sort opens the same.
+  const firstOpen = (view0: RosterView) => {
+    const secs = rosterSections(roster, view0, facts);
+    const first = secs.find((x) => !x.celebrants) ?? secs[0];
+    return new Set(first ? [first.key] : []);
+  };
+  const [open, setOpen] = useState<Set<string>>(() => firstOpen('role'));
   // A search opens every section that has a hit (G19 — a hit inside a folded
   // section was invisible, a failure that looked like "not found").
   const isOpen = (key: string) => (q ? true : open.has(key));
@@ -321,6 +336,21 @@ export function GuestsScreen(props: GuestsScreenProps) {
     const r = requestAnimationFrame(() => requestAnimationFrame(() => setBarOn(true)));
     return () => cancelAnimationFrame(r);
   }, [gview]);
+
+  // ── On a computer the thumb row spans the content column (the rail stays clear).
+  useEffect(() => {
+    const root = rootRef.current;
+    const col = root?.parentElement;
+    if (!root || !col) return;
+    const sync = () => {
+      const r = col.getBoundingClientRect();
+      root.style.setProperty('--gs-left', `${Math.max(0, r.left)}px`);
+      root.style.setProperty('--gs-right', `${Math.max(0, window.innerWidth - r.right)}px`);
+    };
+    sync();
+    window.addEventListener('resize', sync);
+    return () => window.removeEventListener('resize', sync);
+  }, []);
 
   // ── The sticky block's height → the pinned section header sits under it.
   useEffect(() => {
@@ -387,7 +417,8 @@ export function GuestsScreen(props: GuestsScreenProps) {
     total: counted.length,
     yes: counted.filter((g) => g.rsvp_status === 'attending').length,
     no: counted.filter((g) => g.rsvp_status === 'declined').length,
-    none: counted.filter((g) => g.rsvp_status === 'pending').length,
+    // "No reply" = invited and silent; a guest still to invite is counted under "to invite" (the prototype).
+    none: counted.filter((g) => g.rsvp_status === 'pending' && !isToInvite(g) && !isHonoreeRole(g.role)).length,
     toInvite: counted.filter((g) => isToInvite(g)).length,
   };
   const replied = stats.total ? Math.round(((stats.yes + stats.no) / stats.total) * 100) : 0;
@@ -427,7 +458,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
         onPick={(k) => {
           const next = k as RosterView;
           setView(next);
-          setOpen(new Set(rosterSections(roster, next, facts).slice(0, 2).map((s) => s.key)));
+          setOpen(firstOpen(next));
           window.scrollTo({ top: 0 });
         }}
       />
@@ -486,34 +517,32 @@ export function GuestsScreen(props: GuestsScreenProps) {
   if (gview === 'list' && selectMode) {
     thumb = (
       <div className={styles.thumb} data-fit-row="" data-thumb="select">
-        {invitable.length ? (
-          <ActionButton
-            tone="info"
-            main
-            icon={Mail}
-            label={`Invite ${selected.size}`}
-            href={`/dashboard/${eventId}/guests/send?ids=${invitable.map((g) => g.guest_id).join(',')}`}
-            className={styles.grow}
-            data-testid="bulk-invite"
-          />
-        ) : (
-          <ActionButton
-            tone="info"
-            main
-            icon={Mail}
-            label={`Invite ${selected.size}`}
-            disabled
-            className={styles.grow}
-            data-testid="bulk-invite"
-          />
-        )}
+        <ActionButton
+          tone="info"
+          main
+          icon={Mail}
+          label={`Invite ${selected.size}`}
+          className={styles.grow}
+          disabled={selected.size === 0}
+          onClick={() => {
+            // Invite N is the ONE run (`/guests/send`), with only the selected
+            // who still need theirs — never the couple, never the already sent.
+            if (invitable.length === 0) {
+              toast.info('Everyone selected is already invited');
+              return;
+            }
+            router.push(`/dashboard/${eventId}/guests/send?ids=${invitable.map((g) => g.guest_id).join(',')}`);
+          }}
+          data-testid="bulk-invite"
+        />
         <span className={styles.acts} data-fit-acts="">
-          <span data-pick="" data-bulk-set="">
+          <span data-pick="" data-bulk-set="" className={styles.pickIcon}>
+            <Tag aria-hidden strokeWidth={1.9} />
             <PickMenu
               label="Set for the selected"
               value={null}
               buttonText="Set…"
-              options={setOptions.map((o) => ({ ...o, icon: <Tag className="h-[18px] w-[18px]" strokeWidth={1.9} /> }))}
+              options={setOptions}
               onPick={(k) => {
                 if (selected.size === 0) return;
                 if (k === 'group:new') return setNewGroup(true);
@@ -580,7 +609,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
             <div className={styles.s}>From your event link — keep them, or link them to a name you already have.</div>
           </div>
           <span className={styles.acts} data-fit-acts="">
-            <ActionButton tone="brand" main icon={UserPlus} label="Review" href={`/dashboard/${eventId}/guests/claims`} />
+            <ActionButton tone="brand" main icon={User} label="Review" href={`/dashboard/${eventId}/guests/claims`} />
           </span>
         </div>
       ) : null}
@@ -627,11 +656,11 @@ export function GuestsScreen(props: GuestsScreenProps) {
                   · <Count value={sec.guests.length} id={`gs-n-${sec.key}`} />
                 </span>
                 {selectMode ? (
-                  <span className={styles.n} style={{ marginLeft: 'auto' }}>
+                  <span className={styles.note}>
                     {allSel ? 'all selected' : 'tap ○ to select all'}
                   </span>
                 ) : null}
-                <ChevronDown className={styles.chev} aria-hidden strokeWidth={1.9} width={18} height={18} />
+                <ChevronDown className={styles.chev} style={selectMode ? { marginLeft: 0, flex: '0 0 auto' } : { flex: '0 0 auto' }} aria-hidden strokeWidth={1.9} width={18} height={18} />
               </button>
             </div>
             <div className={styles.fold}>
@@ -647,6 +676,18 @@ export function GuestsScreen(props: GuestsScreenProps) {
                       picked={selected.has(g.guest_id)}
                       face={faceByGuest[g.guest_id]}
                       table={tableByGuest[g.guest_id] ?? null}
+                      access={
+                        accessByGuest?.[g.guest_id] ? (
+                          <GuestAccessCell
+                            eventId={eventId}
+                            guestId={g.guest_id}
+                            firstName={g.first_name}
+                            state={accessByGuest[g.guest_id]!}
+                            canManage={canManageAccess}
+                            size="phone"
+                          />
+                        ) : null
+                      }
                       verbs={rowVerbsFor(g, {
                         linked: linked ? linked.has(g.guest_id) : null,
                         chatHref: chatHrefFor?.(g.guest_id) ?? null,
@@ -793,6 +834,12 @@ export function GuestsScreen(props: GuestsScreenProps) {
 
 /* ═══ one guest row ═══ */
 
+/** The phone-size Access cell draws nothing for "None" — say nothing then. */
+function accessShown(node: ReactNode): boolean {
+  const el = node as { props?: { state?: GuestAccessState } } | null;
+  return Boolean(el?.props?.state && el.props.state.level !== 'none');
+}
+
 const PILL: Record<GuestRow['rsvp_status'], { cls: string; word: string }> = {
   attending: { cls: 'pillOk', word: `✓ ${RSVP_ROW_WORDS.attending}` },
   declined: { cls: 'pillMute', word: RSVP_ROW_WORDS.declined },
@@ -806,6 +853,7 @@ function GuestRowLine({
   picked,
   face,
   table,
+  access,
   verbs,
   chatHref,
   onOpen,
@@ -817,6 +865,8 @@ function GuestRowLine({
   picked: boolean;
   face?: string;
   table: string | null;
+  /** The Access word (Host · Co-host · Limited helper) — none for a plain guest. */
+  access: ReactNode;
   verbs: readonly ('message' | 'edit' | 'remove')[];
   chatHref: string | null;
   onOpen: (id: string, el: HTMLElement) => void;
@@ -868,6 +918,14 @@ function GuestRowLine({
           )}
         </div>
       </button>
+      {/* The Access word sits under the name, OUTSIDE the name's button — for a
+          co-host it is a link to People with access, and a link inside a button
+          is two controls in one. */}
+      {access && accessShown(access) && !g.passed_away ? (
+        <span className={styles.meta} style={{ gridColumn: 2, marginTop: -6 }} data-row-access="">
+          {access}
+        </span>
+      ) : null}
       {selectMode ? null : (
         <span className={styles.acts} data-fit-row="" data-row-acts="">
           {verbs.includes('message') && chatHref ? (

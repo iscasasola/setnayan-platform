@@ -332,12 +332,12 @@ test('⑫ every block under the title is one flex column with ONE gap — no per
   const tag = page.slice(page.lastIndexOf('<div', open), page.indexOf('>', open));
   assert.match(tag, /flex min-w-0 flex-col gap-4/, 'the blocks are not spaced by one gap');
   const blocks = page.slice(open, page.indexOf('<AddGuestSheet'));
-  for (const piece of ['data-requests-strip=""', '<FinalizeGuestListControl', 'data-roster-head=""']) {
+  // ⤷ Maker PR 4f: the requests row and the head moved into GuestsScreen.
+  for (const piece of ['<FinalizeGuestListControl', '{guestsScreen}']) {
     assert.ok(blocks.includes(piece), `${piece} is not one of the evenly spaced blocks`);
   }
   assert.match(page, /className="sn-col max-w-none flex flex-col gap-6" data-roster-full-width=""/, 'the title row has no step after it');
   assert.doesNotMatch(page.slice(page.indexOf('data-roster-full-width'), open), /space-y-/, 'per-element margins are back above the blocks');
-  assert.match(page, /<div className="gl-settle" data-roster-head="">/, 'the roster head brings its own spacing again');
 
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { AppRouterContext } = await import('next/dist/shared/lib/app-router-context.shared-runtime');
@@ -359,8 +359,6 @@ test('⑫ every block under the title is one flex column with ONE gap — no per
   for (const c of ['min-h-[44px]', 'rounded-full', 'w-full', 'sm:w-auto']) {
     assert.ok(button.includes(c), `the Finalize button lacks ${c}`);
   }
-  const filterRow = read('_components', 'find-add-row.tsx');
-  assert.doesNotMatch(filterRow, /border-ink\/\[0\.07\] py-/, 'the Filter row brings its own top padding again');
 });
 
 // ── ⑬ the row's ⋯ opens where it can be seen ────────────────────────────────

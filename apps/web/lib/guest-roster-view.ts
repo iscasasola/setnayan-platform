@@ -37,12 +37,14 @@ import { guestMatchesSearch, normalizeSearchText, type GuestSearchFacts } from '
 import {
   importanceGroupOf,
   isHonoreeRole,
-  ROLE_GROUP_LABELS,
+  roleGroupLabel,
   roleGroupOf,
-  sectionHeadingInTheirWords,
   type RoleGroup,
 } from '@/lib/role-groups';
 import type { RoleNames } from '@/lib/role-names';
+
+/** The 250 ms wait after the last key — the shipped `GuestsTopSearch` debounce (rule 4). */
+export const SEARCH_WAIT_MS = 250;
 
 /* ─── THE SORT (list) and THE ARRANGE (map) ─────────────────────────────── */
 
@@ -180,13 +182,13 @@ function roleBucket(g: GuestRow): RoleGroup | 'guest' {
 }
 
 function roleLabel(grp: RoleGroup | 'guest', names?: RoleNames | null): string {
-  return grp === 'guest' ? 'Guests' : sectionHeadingInTheirWords(ROLE_GROUP_LABELS[grp], names);
+  return grp === 'guest' ? 'Guests' : roleGroupLabel(grp, names);
 }
 
 /** The celebrants' heading — "Bride & Groom" at a wedding, "Celebrant" otherwise. */
 function celebrantLabel(g: GuestRow, names?: RoleNames | null): string {
   const grp = roleGroupOf(g.role);
-  return grp === 'guest' ? 'Celebrant' : sectionHeadingInTheirWords(ROLE_GROUP_LABELS[grp], names);
+  return grp === 'guest' ? 'Celebrant' : roleGroupLabel(grp, names);
 }
 
 function lastInitial(g: GuestRow): string {
@@ -305,10 +307,23 @@ export function mapTree(guests: readonly GuestRow[], arrange: MapArrange, facts:
   }));
 }
 
+/**
+ * The map's centre — the celebrants' first names, joined with "&"
+ * as the prototype draws ("Cale & Ice"); with no celebrant on the list, the
+ * event's word ("Birthday"). A HEADING for the map, never a guest row.
+ */
+export function mapRootLabel(guests: readonly Pick<GuestRow, 'role' | 'first_name'>[], eventWord: string): string {
+  const names = guests.filter((g) => isHonoreeRole(g.role)).map((g) => (g.first_name ?? '').trim()).filter(Boolean);
+  if (names.length) return names.join(' & ');
+  return eventWord.charAt(0).toUpperCase() + eventWord.slice(1);
+}
+
 /* ─── THE SEARCH UNDERSTANDS WORDS ──────────────────────────────────────── */
 
 const TO_INVITE_WORDS = ['to invite', 'not invited', 'uninvited', 'invite'];
 const INVITED_WORDS = ['invited', 'sent'];
+/** "No reply" means invited and silent — a guest still to invite is "to invite" (the prototype's split). */
+const NO_REPLY_WORDS = ['no reply', 'pending', 'not replied', 'no answer', 'waiting', 'awaiting'];
 const SIDE_WORDS: Record<string, GuestRow['side']> = {
   bride: 'bride',
   brides: 'bride',
@@ -321,7 +336,8 @@ const SIDE_WORDS: Record<string, GuestRow['side']> = {
 /**
  * Does `query` match this guest? Empty → yes.
  *
- *   · "to invite" / "invited" → the invite state (not on the guest row's words).
+ *   · "to invite" / "invited" → the invite state (not on the guest row's words);
+ *     "no reply" → invited and silent (a guest still to invite is not "no reply").
  *   · "bride" / "groom" (and "… side") → that side, plus the bride or groom themselves.
  *   · everything else → the ONE shipped matcher, `guestMatchesSearch`: every
  *     name part, the reply in every word for it ("attending", "no reply",
@@ -333,6 +349,7 @@ export function rosterSearchMatches(query: string, g: GuestRow, facts: RosterFac
   if (!q) return true;
   if (TO_INVITE_WORDS.includes(q)) return isToInvite(g);
   if (INVITED_WORDS.includes(q)) return Boolean(g.invitation_sent_at);
+  if (NO_REPLY_WORDS.includes(q)) return g.rsvp_status === 'pending' && !isToInvite(g) && !isHonoreeRole(g.role);
   if (facts.hasSides && SIDE_WORDS[q]) {
     const side = SIDE_WORDS[q]!;
     return g.side === side || g.side === 'both' || g.role === side;

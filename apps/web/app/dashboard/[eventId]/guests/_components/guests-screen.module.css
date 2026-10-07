@@ -14,7 +14,8 @@
   --gs-ink: rgb(var(--color-ink));
   --gs-mute: rgb(var(--color-ink) / 0.6);
   --gs-line: rgb(var(--color-ink) / 0.1);
-  --gs-paper: rgb(var(--color-cream));
+  /* the page ground (`.sn-ambient`), so the sticky pieces read as the page, not a white box */
+  --gs-paper: #f7f5f0;
   --gs-gild: var(--sn-gold-500, #a9834b);
   --gs-gild-soft: color-mix(in srgb, var(--sn-gold-500, #a9834b) 16%, transparent);
   --gs-brand: rgb(var(--color-mulberry));
@@ -26,9 +27,23 @@
      --gs-stick-h: this screen's own sticky block (segmented · counts · meter). */
   position: relative;
   min-width: 0;
+  /* The prototype's one 720 px column at every width; the map breaks out of it. */
+  max-width: 720px;
+  margin: 0 auto;
+  width: 100%;
+}
+.screen[data-guests-screen='map'] {
+  max-width: none;
 }
 
 /* ═══ the sticky block: segmented · counts · meter ═══ */
+:global(html.dark) .screen {
+  --gs-paper: #17160f;
+}
+/* The map has no background of its own (G39): the sticky block goes clear too. */
+.screen[data-guests-screen='map'] .stick {
+  background: transparent;
+}
 .stick {
   position: sticky;
   top: var(--gs-top, 0px);
@@ -131,6 +146,7 @@
 }
 .bar {
   width: 100%;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -150,6 +166,7 @@
   box-shadow: 0 1px 0 var(--gs-line);
 }
 .barWrap {
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -183,6 +200,10 @@ button.ico {
   animation: gs-popin 320ms var(--gs-ease);
 }
 .lab {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
   font-size: 11px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -190,6 +211,8 @@ button.ico {
   font-weight: 600;
 }
 .n {
+  white-space: nowrap;
+  flex: 0 0 auto;
   color: var(--gs-mute);
   font-size: 13px;
 }
@@ -366,7 +389,7 @@ button.ico {
 }
 [data-row-state='text'] .acts :global(.ab) svg,
 [data-row-state='text'] .thumb :global(.ab):not(.grow) svg,
-[data-row-state='text'] .thumb [data-pick] button > span:first-child {
+[data-row-state='text'] .thumb [data-pick] button > span:has(svg) {
   display: none;
 }
 [data-row-state='icon'] .acts :global(.ab),
@@ -376,7 +399,7 @@ button.ico {
 }
 [data-row-state='icon'] .acts :global(.ab .lbl),
 [data-row-state='icon'] .thumb :global(.ab):not(.grow) :global(.lbl),
-[data-row-state='icon'] .thumb [data-pick] button > span + span,
+[data-row-state='icon'] .thumb [data-pick] button > span:not(:has(svg)),
 [data-row-state='icon'] .thumb [data-pick] button > svg:last-child {
   display: none;
 }
@@ -413,8 +436,6 @@ button.ico {
     bottom: 16px;
     left: var(--gs-left, 0px);
     right: var(--gs-right, 0px);
-    max-width: 720px;
-    margin: 0 auto;
   }
 }
 .thumb {
@@ -442,7 +463,7 @@ button.ico {
    toned buttons keep their full colour (owner: "it still needs to have their
    button colors"). */
 .field,
-.thumb :global(.ab-neutral),
+.thumb :global(.ab-neutral:not(.ab-main)),
 .thumb [data-pick] button {
   background: color-mix(in srgb, rgb(var(--color-cream)) 62%, transparent);
   -webkit-backdrop-filter: blur(16px) saturate(1.3);
@@ -652,4 +673,47 @@ button.node {
   .chev {
     transition: none;
   }
+}
+
+/* Set… ▾ carries the tag icon the prototype draws (`ICO.tag`): PickMenu shows
+   only an option's icon, and Set… has no current option — so the icon sits in
+   the wrapper, over the button's left padding, and follows the row state. */
+.pickIcon {
+  position: relative;
+}
+.pickIcon > svg {
+  position: absolute;
+  left: 12px;
+  top: 11px;
+  width: 18px;
+  height: 18px;
+  pointer-events: none;
+  z-index: 1;
+  color: rgb(var(--color-ink) / 0.72);
+}
+.thumb .pickIcon button {
+  padding-left: 37px;
+}
+[data-row-state='text'] .thumb .pickIcon > svg {
+  display: none;
+}
+[data-row-state='text'] .thumb .pickIcon button {
+  padding-left: 12px;
+}
+[data-row-state='icon'] .thumb .pickIcon > svg {
+  left: 11px;
+}
+[data-row-state='icon'] .thumb .pickIcon button {
+  padding-left: 0;
+}
+
+/* Select mode's "tap ○ to select all" yields first — the chevron never leaves the row. */
+.note {
+  margin-left: auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--gs-mute);
+  font-size: 13px;
 }

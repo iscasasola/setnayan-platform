@@ -3011,12 +3011,23 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
   --sn-sh-float: 0 1px 2px rgba(40,34,24,.07), 0 10px 24px -12px rgba(30,26,18,.30),
                  0 30px 60px -30px rgba(30,26,18,.28);
   --sn-sh-panel: -2px 0 8px -4px rgba(30,26,18,.12), -30px 0 70px -30px rgba(30,26,18,.45);
+
+  /* The floating row's glass (`.sn-glass-row` — BUTTON_RULE_2026-10-07 Rule 7):
+     translucent paper ≈62 % over a 16 px blur. Its own pair, not
+     `--sn-glass-bg`/`--sn-glass-blur` (.5 · 22 px), because the rule names
+     these numbers; the edge reuses `--sn-glass-line`. */
+  --sn-glass-row-alpha: 62%;
+  --sn-glass-row-blur: blur(16px) saturate(1.3);
 }
 html.dark {
   /* Dark pairs ship with the tokens so they are not a trap for whoever turns
      dark mode on. Nothing sets `html.dark` today (light lock 2026-06-04). */
   --sn-canvas: #17160F;
   --sn-glass-bg-raised: rgba(30,34,41,.86);
+  /* The row's paper is `--color-cream` and its edge `--sn-glass-line`; both
+     flip under html.dark themselves, so dark keeps the same alpha and blur. */
+  --sn-glass-row-alpha: 62%;
+  --sn-glass-row-blur: blur(16px) saturate(1.3);
 }
 
 
@@ -4408,6 +4419,36 @@ html.dark {
   backdrop-filter: var(--sn-glass-blur);
   -webkit-backdrop-filter: var(--sn-glass-blur);
   box-shadow: var(--sn-sh-float);
+}
+
+/* `.sn-glass-row` — THE FLOATING ROW IS GLASS (BUTTON_RULE_2026-10-07_fable.md
+ * § Rule 7). Owner 2026-10-07: "the row with search add and buttons needs to
+ * blur the background with its color. not a opaque. must blur the content
+ * behind" → "apply this to all glass row".
+ *   · translucent paper (≈62 %) over `blur(16px) saturate(1.3)`, with the
+ *     -webkit- prefix, and a faint ink edge;
+ *   · NO shadow — a shadow reads as a box (owner);
+ *   · the blur is clipped to the row's own shape (Safari needs the mask);
+ *   · toned buttons inside keep their FULL colour — only the box and the
+ *     neutral controls (which sit transparent on it) are frosted.
+ * Every row that floats over scrolling content wears this one class; the
+ * shape (pill, top-rounded bar, edge-to-edge strip) stays the row's own.
+ * In @layer components so a breakpoint variant (`max-sm:sn-glass-row`) works
+ * and a row's own radius/padding utilities still apply. Held by
+ * `lib/floating-rows-are-glass.test.ts`. ⚠ `overflow:hidden` clips anything
+ * that opens OUT of the row — a row with an attached dropdown is not a
+ * candidate until that dropdown is portalled. */
+@layer components {
+  .sn-glass-row {
+    background: color-mix(in srgb, rgb(var(--color-cream)) var(--sn-glass-row-alpha), transparent);
+    border: 1px solid var(--sn-glass-line);
+    -webkit-backdrop-filter: var(--sn-glass-row-blur);
+    backdrop-filter: var(--sn-glass-row-blur);
+    box-shadow: none;
+    overflow: hidden;
+    isolation: isolate;
+    -webkit-mask-image: -webkit-radial-gradient(white, black);
+  }
 }
 
 /* `.sn-canvas-drift` — the brief's "barely-perceptible, slow-moving gradient".

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "05c9d9586",
+  "generatedFromRef": "68face629",
   "routeCount": 428,
   "destinations": 954,
   "actions": 671,
-  "blocks": 5687,
+  "blocks": 5691,
   "routes": {
     "/": {
       "files": [
@@ -7156,6 +7156,7 @@
         "EgiftActionResult",
         "Field",
         "FileUpload",
+        "HTMLTextAreaElement",
         "InfoTip",
         "ListPageSkeleton",
         "PabuyaCardList",
@@ -7163,7 +7164,9 @@
         "PabuyaMessageEditor",
         "PabuyaTrustNote",
         "PageMasthead",
-        "PickMenu"
+        "PickMenu",
+        "ShippedEditor",
+        "StudioThanks"
       ]
     },
     "/dashboard/[eventId]/paperwork": {
@@ -9509,6 +9512,7 @@
         "PickMenu",
         "Precision",
         "RefusalLine",
+        "SampleStory",
         "Sheet",
         "StoryChapterFields",
         "StoryFields",

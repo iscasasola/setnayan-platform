@@ -137,6 +137,7 @@ export const MAKER_PART_KEYS = [
   'herolink',
   'details',
   'spotlight',
+  'livehub',
   /* 🎞 THE NINE POST EVENT SCENES THE ＋ SHEET ADDS (PR 3, DECISION_LOG 2026-10-06
      "POST EVENT: EVERY SHIPPED AUTO SCENE CAN BE ADDED") — not on a page by default. */
   'road',
@@ -302,6 +303,8 @@ export const MAKER_PARTS: Readonly<Record<MakerPartKey, MakerPartDef>> = {
   details: { label: 'The details', source: 'supplier:date', canvas: 'f:details', layouts: scene('event_details') },
   /* The Day's "Happening now · Watch the event live →" card (`SpotlightCard`). */
   spotlight: { label: 'Happening now', source: 'tool', canvas: 'f:spotlight', layouts: NONE },
+  /* The Day's "Watch live · Live photo wall" part (`MakerDayPartStandIn` `live_hub`) — a tap on it picked nothing. */
+  livehub: { label: 'Live hub', source: 'tool', canvas: 'f:live_hub', layouts: scene('live_hub') },
   /* 🎞 The nine Post Event scenes the ＋ sheet adds — each by its SHIPPED name and
      key (`lib/post-event-scenes.ts` `POST_EVENT_SCENE_NAMES`), never retyped; their
      looks are Post Event's own (`post-event-style-resolve.ts`), not a scene's. */
@@ -368,7 +371,7 @@ export const MAKER_STAGE_PAGES: Readonly<Record<MakerStageKey, Readonly<Record<s
     me: ['rsvpcard', 'myrole', 'mywear', 'myarrive', 'myguests', 'seats'],
   },
   event: {
-    live: ['reveal', 'spotlight', 'announce', 'logo', 'ename', 'names', 'heroline', 'date', 'place', 'herolink', 'schedule'],
+    live: ['reveal', 'spotlight', 'announce', 'livehub', 'logo', 'ename', 'names', 'heroline', 'date', 'place', 'herolink', 'schedule'],
     home: ['venue', 'dress', 'march', 'bring'],
     camera: ['camera'],
     gallery: ['gallery', 'myphotos'],

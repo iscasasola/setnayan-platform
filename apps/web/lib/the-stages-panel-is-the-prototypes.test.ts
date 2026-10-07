@@ -376,3 +376,13 @@ test('the RSVP stage canvas never fills in or sends a reply — its fields are i
   /* …and even a sample that reached the action writes nothing. */
   assert.match(read('app/[slug]/invite/actions.ts'), /if \(guestId === SIMULATED_GUEST_ID\) \{/);
 });
+
+test('a tap on the day’s parts and on THE DETAILS picks them — every marked block is a selection AND a part', async () => {
+  /* Owner preview 08 Oct: announcements · live_hub · find_your_seat and the WHEN plate were bound but picked nothing. */
+  const { selectionForCanvasKey } = await import('./maker-selection');
+  const { makerPartOfCanvas } = await import('./maker-part-groups');
+  for (const key of ['f:announcements', 'f:live_hub', 'f:find_your_seat', 'f:photos_of_you', 'f:details', 'f:spotlight']) {
+    assert.ok(selectionForCanvasKey(key, []), `${key}: the work area selects it (its panel opens)`);
+    assert.ok(makerPartOfCanvas('event', key) ?? makerPartOfCanvas('rsvp', key), `${key}: the Stages panel has a part for it (its frame draws)`);
+  }
+});

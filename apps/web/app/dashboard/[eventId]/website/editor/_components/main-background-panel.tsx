@@ -431,49 +431,49 @@ export function MainBackgroundPanel({
      Studio › Look, prototype `lookBackground`) as the carousel of real pictures. */
   const groundValue = choice === 'theme' || choice === 'loop' ? (loopNow ?? null) : `src:${choice}`;
   const groundLoopOption = (l: MovingBackgroundOption): PickOption => ({
-              key: l.id,
-              label: l.name,
-              group: 'Moving background',
-              ...(l.stillUrl ? { thumb: l.stillUrl } : {}),
-              ...(proMark && !(l.id === themeId && INVITE_THEMES[themeId]?.tier === 'free')
-                ? { trail: { text: '◆', tone: 'muted' as const, label: 'Event Hub Pro' } }
-                : {}),
-            }));
+      key: l.id,
+      label: l.name,
+      group: 'Moving background',
+      ...(l.stillUrl ? { thumb: l.stillUrl } : {}),
+      ...(proMark && !(l.id === themeId && INVITE_THEMES[themeId]?.tier === 'free')
+        ? { trail: { text: '◆', tone: 'muted' as const, label: 'Event Hub Pro' } }
+        : {}),
+  });
   const groundOwnOptions: PickOption[] = [
-            /* "Same as my hero" follows a MEASURED hero (`HeroFrameSync`), which Classic never
-               runs (it would write on open) — so Classic offers its own upload, not the follow. */
-            ...(themeId === 'house'
-              ? []
-              : [{
-                  key: 'src:hero',
-                  label: 'Same as my hero',
-                  group: 'Your own',
-                  ...(hero.photoUrl ? { thumb: hero.photoUrl } : {}),
-                  ...(hero.photoRef ? {} : { disabledNote: 'add a hero photo first' }),
-                  ...(proMark ? { trail: { text: '◆', tone: 'muted' as const, label: 'Event Hub Pro' } } : {}),
-                }]),
-            {
-              key: 'src:media',
-              label: 'Upload media',
-              group: 'Your own',
-              ...(own && overrideStillUrl ? { thumb: overrideStillUrl } : {}),
-              ...(proMark ? { trail: { text: '◆', tone: 'muted' as const, label: 'Event Hub Pro' } } : {}),
-            },
-            { key: 'src:none', label: 'Just the colour', group: 'Plain' },
-            ];
+    /* "Same as my hero" follows a MEASURED hero (`HeroFrameSync`), which Classic never
+       runs (it would write on open) — so Classic offers its own upload, not the follow. */
+    ...(themeId === 'house'
+      ? []
+      : [{
+          key: 'src:hero',
+          label: 'Same as my hero',
+          group: 'Your own',
+          ...(hero.photoUrl ? { thumb: hero.photoUrl } : {}),
+          ...(hero.photoRef ? {} : { disabledNote: 'add a hero photo first' }),
+          ...(proMark ? { trail: { text: '◆', tone: 'muted' as const, label: 'Event Hub Pro' } } : {}),
+        }]),
+    {
+      key: 'src:media',
+      label: 'Upload media',
+      group: 'Your own',
+      ...(own && overrideStillUrl ? { thumb: overrideStillUrl } : {}),
+      ...(proMark ? { trail: { text: '◆', tone: 'muted' as const, label: 'Event Hub Pro' } } : {}),
+    },
+    { key: 'src:none', label: 'Just the colour', group: 'Plain' },
+  ];
   const groundOptions: PickOption[] = [...loops.map(groundLoopOption), ...groundOwnOptions];
   const pickGround = (k: string) => {
-            if (pending) return;
-            if (k === 'src:media') return setChoosingMedia(true);
-            setChoosingMedia(false);
-            if (k === 'src:hero') return save(null, 'Your background could not be changed. Please try again.');
-            if (k === 'src:none') return save({ ground: 'none' }, 'Your background could not be changed. Please try again.');
-            const id = loops.find((l) => l.id === k)?.id;
-            if (!id) return;
-            save(
-              id === themeId ? { ground: 'theme' } : { ground: 'loop', loop: id },
-              'Your background could not be changed. Please try again.',
-            );
+      if (pending) return;
+      if (k === 'src:media') return setChoosingMedia(true);
+      setChoosingMedia(false);
+      if (k === 'src:hero') return save(null, 'Your background could not be changed. Please try again.');
+      if (k === 'src:none') return save({ ground: 'none' }, 'Your background could not be changed. Please try again.');
+      const id = loops.find((l) => l.id === k)?.id;
+      if (!id) return;
+      save(
+        id === themeId ? { ground: 'theme' } : { ground: 'loop', loop: id },
+        'Your background could not be changed. Please try again.',
+      );
   };
   const studio = useMaker()?.stagesStudio === true;
 

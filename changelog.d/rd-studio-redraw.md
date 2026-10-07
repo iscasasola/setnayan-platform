@@ -43,9 +43,15 @@ Maker (`stagesStudio`); the shipped Maker renders as before.
 Held by `apps/web/lib/studio-screens-follow-the-prototype.test.ts` (rendered Tool row, home,
 opening line both ways, the Prints row both ways; the workspace's Look; the full-screen CSS).
 
-Not in this PR (deliberately): Schedule, Love Story, E-Gifts' registry and Look's stored extras are
-Builder S4c's (`rd/studio-missing-fields`, not yet pushed) — their data rows are left for it; Look ›
-Colours' five rows need S4c's "one main colour" field. The top nav's Stages | Studio toggle
-(side-by-side S5) and the Stages panel are Builder RD's.
+- **On top of step 4c (#6395, merged)**: E-Gifts' QR upload and Registry link sit in the same
+  white band as the four ways to give; Look › Colours' five colours are the prototype's `.lk-col`
+  pills (swatch · name · job · hex · ▾) over 4c's one-colour draft; Pattern · Focus · Blur · Shade
+  are the prototype's row dropdowns.
+
+Not in this PR: **Schedule and Love Story are NOT redrawn** — Studio opens the shipped Schedule rail
+(`ScheduleDay`) and the Love Story scrapbook, which only render against the database, so the lab
+cannot show them and no side-by-side was possible; they get the shared surface (warm page, edge to
+edge, green switches) only. The top nav's Stages | Studio toggle (side-by-side S5) and the Stages
+panel are Builder RD's. The Logo and Mood Board editors are lab stand-ins (no side-by-side).
 
 SPEC IMPACT: None — translates the approved prototype; no decision changes.

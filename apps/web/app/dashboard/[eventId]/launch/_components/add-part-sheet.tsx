@@ -190,6 +190,8 @@ function ownPlaceFields(ops: MakerPartOps, mv: Movable, where: 'above' | 'below'
 
 type Box = { top: number; left: number; width: number; height: number };
 /** A 44 px tap around each edge's small face (prototype `.addp` · `.grip` · `.delp`). */
+/** How far outside the part its frame is drawn — half a 44 px tap, so a ＋ on the frame never covers the part. */
+export const PART_PAD = 22;
 const EDGE_BTN = 'sn-press pointer-events-auto absolute inline-flex h-11 w-11 items-center justify-center rounded-full';
 const ADD_FACE =
   'inline-flex h-[26px] w-[26px] items-center justify-center rounded-full bg-[#C24E25] font-sans text-[18px] font-semibold leading-none text-white shadow-[0_0_0_3px_#fff,0_4px_10px_-4px_rgba(0,0,0,.4)]';
@@ -399,6 +401,9 @@ export function PartEdits({ stage, picked }: { stage: MakerStageKey; picked: Mak
   if (typeof document === 'undefined') return null;
   /* What just happened is said even once the part is let go (a move re-renders the page). */
   const edges = Boolean(picked && box);
+  /* The prototype pads a picked part (`.el.on{padding-block:18px}`) so ＋ sits ON the frame, never over its words:
+     the frame is drawn PART_PAD outside the part, and each 44 px tap lies wholly outside the part's box. */
+  const fr = box ? { top: box.top - PART_PAD, left: box.left, width: box.width, height: box.height + 2 * PART_PAD } : null;
   /* The prototype's chrome (`.el.on` · `.addp` · `.grip` · `.delp`): one outline with its soft halo and the part's
      name on its corner; ＋ 26 px on the middle of the top and bottom edges; the grip 30 × 22 on the right edge; 🗑 28 px
      on the top-right corner — each a 44 px tap around its face. Kept inside the screen. */
@@ -411,13 +416,13 @@ export function PartEdits({ stage, picked }: { stage: MakerStageKey; picked: Mak
           <div
             data-part-outline=""
             className="absolute rounded-lg shadow-[0_0_0_2px_#C24E25,0_0_0_7px_rgba(194,78,37,.14)]"
-            style={{ top: box.top, left: box.left, width: box.width, height: box.height, transform: drag ? `translateY(${drag.dy}px)` : undefined }}
+            style={{ top: fr!.top, left: fr!.left, width: fr!.width, height: fr!.height, transform: drag ? `translateY(${drag.dy}px)` : undefined }}
           />
           {drag ? null : (
             <span
               data-part-name=""
               className="absolute z-[1] rounded-sm bg-[#C24E25] px-[7px] py-[3px] font-sans text-[9px] font-bold uppercase leading-[1.2] tracking-[0.14em] text-white"
-              style={{ top: clampY(box.top) - 11, left: Math.max(2, box.left - 2) }}
+              style={{ top: clampY(fr!.top) - 11, left: Math.max(2, box.left - 2) }}
             >
               {label}
             </span>
@@ -426,11 +431,11 @@ export function PartEdits({ stage, picked }: { stage: MakerStageKey; picked: Mak
           {drag ? null : (
             <>
               {edgesOf.addAbove ? (
-                <button type="button" aria-label={`Add above ${label}`} data-part-add="above" onClick={() => setAdding('above')} className={EDGE_BTN} style={at(box.left + box.width / 2, clampY(box.top))}>
+                <button type="button" aria-label={`Add above ${label}`} data-part-add="above" onClick={() => setAdding('above')} className={EDGE_BTN} style={at(box.left + box.width / 2, clampY(fr!.top))}>
                   <span className={ADD_FACE}>+</span>
                 </button>
               ) : null}
-              <button type="button" aria-label={`Add below ${label}`} data-part-add="below" onClick={() => setAdding('below')} className={EDGE_BTN} style={at(box.left + box.width / 2, clampY(box.top + box.height))}>
+              <button type="button" aria-label={`Add below ${label}`} data-part-add="below" onClick={() => setAdding('below')} className={EDGE_BTN} style={at(box.left + box.width / 2, clampY(fr!.top + fr!.height))}>
                 <span className={ADD_FACE}>+</span>
               </button>
               {canRemove ? (
@@ -440,7 +445,7 @@ export function PartEdits({ stage, picked }: { stage: MakerStageKey; picked: Mak
                   data-part-remove=""
                   onClick={() => setRemoving(true)}
                   className={EDGE_BTN}
-                  style={at(box.left + box.width - 6, clampY(box.top))}
+                  style={at(box.left + box.width - 6, clampY(fr!.top))}
                 >
                   <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border-[1.5px] border-[#B3261E] bg-white text-[#B3261E] shadow-[0_2px_6px_-2px_rgba(0,0,0,.3)]">
                     <Trash2 aria-hidden className="h-[15px] w-[15px]" strokeWidth={2} />

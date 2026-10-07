@@ -43,6 +43,20 @@
 -- = shown — today's behaviour, no default, no backfill. Drafted in the Maker and
 -- written at Apply through the host's own session (lib/hub-draft.ts answers).
 --
+--
+-- ── 4. event_inspiration_assets.slot_key — Bridal bouquet · Centrepieces ────
+-- (controller 2026-10-07, step 4c addition; DECISION_LOG 2026-10-06 "MOOD BOARD
+-- PARTS ADDED: CEILING · BRIDAL BOUQUET · WALL · TUNNEL · STAGE · CENTREPIECES").
+-- Two of the owner's Mood Board parts had no slot to store a photo in. The
+-- CHECK is re-listed from its LATEST definition (20271198640000) under the SAME
+-- name (`…_slot_key_check_v3`, which a db test and the Ugat map name) with every
+-- value kept verbatim, plus `bridal_bouquet` and `centrepieces` (trades:
+-- florist; florist · stylist_decorator · catering — existing taxonomy tiles).
+-- The supplier gallery's twin gate (`moodboard_library_assets_supplier_gallery_shape`)
+-- is widened the same way. The app's vocabulary (`MOODBOARD_SLOT_KEYS`) and the
+-- cards follow once #6392 (which owns those files) has merged.
+-- Additive only: no stored row can be invalidated.
+--
 -- ── GRANTS on events (lint-events-column-grants) ────────────────────────────
 -- SELECT + UPDATE to `authenticated` for both; `anon` NOTHING — the guest page
 -- reads events through the service role (app/[slug]/_lib/loaders.ts). Then
@@ -87,6 +101,41 @@ ALTER TABLE public.events ADD COLUMN IF NOT EXISTS qr_shown BOOLEAN;
 COMMENT ON COLUMN public.events.qr_shown IS
   'Info › Your Event Hub › QR (owner 2026-10-07): FALSE hides the event QR from the prints and the '
   'guest page. NULL or TRUE = shown (today''s behaviour). Drafted in the Maker, written at Apply.';
+
+-- ── 4. Inspiration slots: Bridal bouquet · Centrepieces ─────────────────────
+ALTER TABLE public.event_inspiration_assets
+  DROP CONSTRAINT IF EXISTS event_inspiration_assets_slot_key_check_v3;
+ALTER TABLE public.event_inspiration_assets
+  ADD CONSTRAINT event_inspiration_assets_slot_key_check_v3
+  CHECK (slot_key IN (
+    'venue','tunnel','stage','table','ceiling','overall',
+    'backdrop','flowers','cocktail','reception_venue','cake',
+    'palette',
+    'groom','bride','principal_sponsor','entourage','parents','guests',
+    'bridal_bouquet','centrepieces'
+  ));
+
+-- …and the SUPPLIER GALLERY's gate (the third of the three, 20271202093185) —
+-- or a florist's bouquet photo is refused and that card's "Search ideas" is
+-- silently empty forever. Re-listed verbatim from its only definition, widened.
+ALTER TABLE public.moodboard_library_assets
+  DROP CONSTRAINT IF EXISTS moodboard_library_assets_supplier_gallery_shape;
+ALTER TABLE public.moodboard_library_assets
+  ADD CONSTRAINT moodboard_library_assets_supplier_gallery_shape
+  CHECK (
+    asset_type <> 'supplier_gallery'
+    OR (
+      vendor_profile_id IS NOT NULL
+      AND asset_subtype IN (
+        'venue','tunnel','stage','table','ceiling','overall',
+        'backdrop','flowers','cocktail','reception_venue','cake',
+        'palette',
+        'groom','bride','principal_sponsor','entourage','parents','guests',
+        'bridal_bouquet','centrepieces'
+      )
+      AND (approved_at IS NULL OR rights_warranted_at IS NOT NULL)
+    )
+  );
 
 GRANT SELECT (gift_registry_url) ON public.events TO authenticated;
 GRANT UPDATE (gift_registry_url) ON public.events TO authenticated;

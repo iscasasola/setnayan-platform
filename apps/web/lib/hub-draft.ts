@@ -148,7 +148,7 @@ import { celebrationDraftIsPro } from '@/lib/rsvp-celebration';
 import { resolveReturnTo } from '@/lib/editor-return';
 import type { HubProEffectView } from '@/lib/hub-pro-effects';
 import { INVITE_THEMES, isInviteThemeId, normalizeThemeId } from '@/lib/invite-themes';
-import { boardWithMainColours, mainColoursChanged, sanitizeMainColourDraft } from '@/lib/main-colours';
+import { boardWithMainColours, mainColoursChanged, paintedPaletteKey, sanitizeMainColourDraft, sanitizePaintedPalette } from '@/lib/main-colours';
 import { boardIsTheCouples, boardWithFill, sanitizeSeedPalette } from '@/lib/mood-board-palette-set';
 import { cleanDisplayName, cleanPersonName } from '@/lib/typed-names';
 import { NAME_STYLES, nameStyleOfPrintDetails } from '@/lib/name-style';
@@ -757,7 +757,8 @@ export function sanitizeHubDraftEventValue(
       return sanitizeHubButtonStyle(raw);
     // 🎨 A theme's own colours as the board's main colours — nothing else.
     case 'role_palette':
-      return sanitizeSeedPalette(raw);
+      // …or a board the couple PAINTED (the Mood Board's own sanitizer — step 4c, 2026-10-07).
+      return sanitizeSeedPalette(raw) ?? sanitizePaintedPalette(raw);
     // 🎨 One (or more) of the five main colours, by slot — `#RRGGBB` each.
     case 'main_colours':
       return sanitizeMainColourDraft(raw);
@@ -1115,7 +1116,9 @@ export function overlayHubDraftEvent<T extends Record<string, unknown>>(
   if ('role_palette' in draft.events) {
     const seed = sanitizeSeedPalette(draft.events.role_palette);
     // The fill lands as Apply lands it: the board's main colours replaced, nothing else (`boardWithFill`).
-    out.role_palette = (seed && boardWithFill(row.role_palette, seed)) ?? row.role_palette;
+    /* 🎨 …and a board the couple PAINTED in the Maker (step 4c) is the board, whole. */
+    const painted = seed ? undefined : sanitizePaintedPalette(draft.events.role_palette);
+    out.role_palette = painted ?? (seed && boardWithFill(row.role_palette, seed)) ?? row.role_palette;
   }
   /* 🎨 ONE MAIN COLOUR (Studio › Look › Colours): the drafted slots laid INTO the
      board's main colours — over the fill above, every other key kept. Not a column. */
@@ -1384,6 +1387,10 @@ export function eventColumnChange(column: HubDraftEventColumn, live: unknown, ne
       return refChange(said(live), said(next));
     }
     case 'role_palette': {
+      // 🎨 A PAINTED board (step 4c) is the couple's own edit: compared as the Mood Board reads it.
+      if (!sanitizeSeedPalette(next) && sanitizePaintedPalette(next)) {
+        return paintedPaletteKey(live) === paintedPaletteKey(next) ? 'none' : 'change';
+      }
       // 🎨 Never over a board the couple painted (the draft's fill is then
       // nothing); an empty or theme-written board takes the picked theme's.
       if (boardIsTheCouples(live)) return 'none';
@@ -2083,7 +2090,8 @@ export function planHubDraftApply(
      picked theme's; a Pro theme held at Apply holds its colours with it, or the
      live page would wear the held theme's colours under the theme it kept. */
   if (refused.some((i) => i.kind === 'event' && i.column === 'invite_theme')) {
-    const at = apply.findIndex((i) => i.kind === 'event' && i.column === 'role_palette');
+    // Only a theme's FILL shares its fate — a board the couple painted is theirs, whatever the theme.
+    const at = apply.findIndex((i) => i.kind === 'event' && i.column === 'role_palette' && Boolean(sanitizeSeedPalette(i.value)));
     if (at >= 0) refused.push(...apply.splice(at, 1));
   }
   const remaining: HubDraftState = { events: {}, widgets: {} };

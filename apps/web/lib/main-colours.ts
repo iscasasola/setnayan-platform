@@ -20,7 +20,8 @@
  * Pure. Imports the palette rules from `lib/mood-board-palette-set.ts` (Builder
  * P's file) and never changes them.
  */
-import { themeSeedPalette } from '@/lib/mood-board-palette-set';
+import { paletteIsSet, sanitizeSeedPalette, themeSeedPalette } from '@/lib/mood-board-palette-set';
+import { sanitizeRolePalette } from '@/lib/mood-board';
 import { isInviteThemeId, type InviteThemeId } from '@/lib/invite-themes';
 
 export const MAIN_COLOUR_SLOTS = [0, 1, 2, 3, 4] as const;
@@ -95,4 +96,28 @@ export function mainColoursChanged(live: unknown, draft: unknown): boolean {
   if (!d) return false;
   const l = live && typeof live === 'object' ? (live as Record<string, unknown>) : {};
   return Object.entries(d).some(([k, hex]) => (typeof l[k] === 'string' ? (l[k] as string).toUpperCase() : null) !== hex);
+}
+
+/**
+ * 🎨 A PAINTED MOOD BOARD IN THE DRAFT (controller 2026-10-07, step 4c addition:
+ * "the draft must hold a PAINTED five-colour palette … published by Apply through
+ * the existing palette write"). The Mood Board's own sanitizer
+ * (`sanitizeRolePalette`, the one `saveRolePalette` writes through) decides the
+ * shape — every role list a `#RRGGBB` list within its limit, room dressing,
+ * custom roles and touched roles validated — and it must hold a colour. A
+ * THEME'S SEED is not "painted": it keeps its own fill rule
+ * (`sanitizeSeedPalette` / `boardWithFill`), so the two never blur.
+ * Undefined = not a painted board (dropped, never repaired).
+ */
+export function sanitizePaintedPalette(raw: unknown): Record<string, unknown> | undefined {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+  if (sanitizeSeedPalette(raw)) return undefined;
+  const board = sanitizeRolePalette(raw) as Record<string, unknown>;
+  return paletteIsSet(board) ? board : undefined;
+}
+
+/** A painted board as compared: its sanitized form, keys in one order. */
+export function paintedPaletteKey(raw: unknown): string {
+  const b = raw && typeof raw === 'object' && !Array.isArray(raw) ? (sanitizeRolePalette(raw) as Record<string, unknown>) : {};
+  return JSON.stringify(Object.keys(b).sort().map((k) => [k, b[k]]));
 }

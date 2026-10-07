@@ -98,7 +98,7 @@ import {
   type HubDraftState,
 } from '@/lib/hub-draft';
 import { hubDraftBarAfterSave, readHubDraft, readHubLiveState, writeHubDraft } from '@/lib/hub-draft-store';
-import { boardWithMainColours, sanitizeMainColourDraft } from '@/lib/main-colours';
+import { boardWithMainColours, sanitizeMainColourDraft, sanitizePaintedPalette } from '@/lib/main-colours';
 import { sanitizeSeedPalette } from '@/lib/mood-board-palette-set';
 import { writePaletteFill, type PaletteFillClient } from '@/lib/palette-fill-write';
 import { HUB_DRAFT_BAR_FIELD } from '@/lib/maker-refresh';
@@ -689,7 +689,20 @@ export async function hubDraftAction(
          rows counted (`writePaletteFill`): never over a board the couple made,
          even one painted between the read and now. */
       const seed = sanitizeSeedPalette(paletteWrite);
-      const filled = seed ? await writePaletteFill(supabase as unknown as PaletteFillClient, eventId, paletteRead, seed) : { ok: true };
+      /* 🎨 A board the couple PAINTED (step 4c): the Mood Board's own write — the
+         sanitized board and its timestamp, the shape \`saveRolePalette\` writes —
+         on the couple's session, the row counted. */
+      const painted = seed ? undefined : sanitizePaintedPalette(paletteWrite);
+      const filled = seed
+        ? await writePaletteFill(supabase as unknown as PaletteFillClient, eventId, paletteRead, seed)
+        : painted
+          ? await supabase
+              .from('events')
+              .update({ role_palette: painted, mood_board_updated_at: new Date().toISOString() })
+              .eq('event_id', eventId)
+              .select('event_id')
+              .then(({ data, error }) => ({ ok: !error && Array.isArray(data) && data.length > 0 }))
+          : { ok: true };
       if (!filled.ok) {
         return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
       }

@@ -17,6 +17,7 @@
  *   · the wiring — each theme preview calls it, and no file in the Maker, the
  *     guest components or the print path reads a theme's colours around it.
  */
+import { sanitizeRolePalette } from './mood-board';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
@@ -185,10 +186,13 @@ test('the draft fills a board that is not the couple’s, refills a theme-filled
   assert.deepEqual(sanitizeHubDraftEventValue('role_palette', seed), seed);
   assert.deepEqual(sanitizeHubDraftEventValue('role_palette', { reception: [...seed.reception].reverse() }), seed, 'a seed in any order is that seed');
   assert.equal(sanitizeHubDraftEventValue('role_palette', null), undefined, 'the board is never cleared from the draft');
-  assert.equal(sanitizeHubDraftEventValue('role_palette', MARIA), undefined, 'only a theme seed is draftable');
-  assert.equal(sanitizeHubDraftEventValue('role_palette', { reception: ['#123456'] }), undefined, 'colours no theme writes are refused');
-  assert.equal(sanitizeHubDraftEventValue('role_palette', { reception: ['#FFF'] }), undefined);
-  assert.equal(sanitizeHubDraftEventValue('role_palette', { reception: Array(6).fill('#FFFFFF') }), undefined);
+  /* 🎨 STEP 4c (controller 2026-10-07): a board the couple PAINTED is draftable too —
+     through the Mood Board's own sanitizer (\`the-draft-holds-a-painted-palette.test.ts\`);
+     a theme seed keeps its fill rule, and a board with no valid colour is still refused. */
+  assert.deepEqual(sanitizeHubDraftEventValue('role_palette', MARIA), sanitizeRolePalette(MARIA), 'a painted board is held as the Mood Board reads it');
+  assert.deepEqual(sanitizeHubDraftEventValue('role_palette', { reception: ['#123456'] }), { reception: ['#123456'] }, 'colours no theme writes are a painted board');
+  assert.equal(sanitizeHubDraftEventValue('role_palette', { reception: ['#FFF'] }), undefined, 'no valid colour — no palette');
+  assert.equal(sanitizeHubDraftEventValue('role_palette', { reception: ['nope'] }), undefined);
 
   assert.equal(boardIsTheCouples(null), false);
   assert.equal(boardIsTheCouples(seed), false, 'a theme-filled board is still the theme’s (owner: "New theme refills them")');

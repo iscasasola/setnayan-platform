@@ -7738,6 +7738,19 @@ html.dark .ab.ab-main { color: #161513; }
 .home-doors { display: flex; gap: 8px; min-width: 0; }
 .home-doors > .ab { flex: 1 1 0; min-width: 0; justify-content: center; }
 .home-doors .ab.text-only svg { display: none; }
+.home-doors .ab.icon-only .lbl { display: none; }
+/* The prototype's neutral pill (`button.ic.t-neutral`): GREY FILLED — the muted tone's
+ * 9% wash, 45% border, muted word — one line, never wrapped. */
+.home-doors > .ab.ab-neutral {
+  --home-door: color-mix(in srgb, rgb(var(--color-ink)) 62%, rgb(var(--color-cream)));
+  height: 40px;
+  overflow: hidden;
+  white-space: nowrap;
+  color: var(--home-door);
+  border-color: color-mix(in srgb, var(--home-door) 45%, transparent);
+  background: color-mix(in srgb, var(--home-door) 9%, transparent);
+}
+.home-doors > .ab.icon-only { width: auto; padding: 0; }
 .home-nums { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 .home-tile {
   border: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent);

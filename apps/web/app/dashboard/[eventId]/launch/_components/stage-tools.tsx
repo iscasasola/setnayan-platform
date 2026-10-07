@@ -35,7 +35,7 @@ import {
 } from '@/lib/maker-stage-room';
 import { MAKER_LT_SIZE_KEY, MAKER_LT_TAP_PX } from '@/lib/maker-lt-size';
 import { fixedOfKey, fixedScenePanel } from '@/lib/maker-selection';
-import { makerStagePickedAttr, makerStageMayType } from '@/lib/maker-parts';
+import { makerPartStudioDoor, makerStagePickedAttr, makerStageMayType } from '@/lib/maker-parts';
 import { findMakerSection } from '@/app/[slug]/_components/maker-section-find';
 import { setStagePanelNow, setStageRevealColours, useStageRevealLook, type StageQuiet } from './stage-panel/store';
 import { revealStubHtml } from './stage-panel/reveal-picture';
@@ -136,8 +136,8 @@ export function StageTools({
   value: string;
   /** The shell's Page ▾ door (`pickPage`). */
   onPickPage: (key: string) => void;
-  /** Open a Studio tool in place — Style's quiet row (‹ in the top nav returns). */
-  onOpenStudio: (key: StudioTileKey) => void;
+  /** Open a Studio tool in place — Style's quiet row (‹ in the top nav returns). `from`: the part it was opened for. */
+  onOpenStudio: (key: StudioTileKey, from?: { label: string; focus: string | null }) => void;
   /** Suppliers, where the date and the venue are set. */
   suppliersHref: string;
   /** The panel's height (px) — null: the lower third's resting height. */
@@ -572,7 +572,12 @@ export function StageTools({
           small: to === 'info' ? (typed ? 'or tap the words ›' : 'Info ›') : 'Studio ›',
           open: () => {
             resumeAt = picked ? { stage: stageKey, page: shownPage, part: picked } : null;
-            onOpenStudio((to === 'info' ? 'info' : to) as StudioTileKey);
+            /* 🎯 The exact field (`makerPartStudioDoor`), and where to come back to — "Done · back to Names". */
+            const door = picked ? makerPartStudioDoor(picked) : null;
+            onOpenStudio((to === 'info' ? 'info' : to) as StudioTileKey, {
+              label: picked ? makerPartLabelOn(stageKey, picked) : 'the part',
+              focus: door?.focus ?? null,
+            });
           },
         };
       }

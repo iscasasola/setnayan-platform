@@ -1133,11 +1133,16 @@ export function MakerWork({
          A fixed scene opens its own panel beside the page — never a workspace
          that replaces the stage. */
       const picked = selectionForCanvasKey(data.key, scenes);
+      /* 🧭 THE NEW MAKER'S STAGES (phone): A TAP ON THE PAGE ONLY PICKS (owner 2026-10-07, "it should jump via this
+         and not the preview panel"; prototype: "Tapping a part never leaves the stage"). None of the doors below —
+         the words' Content, the Logo maker, a schedule moment's Details, a fact's editor — opens from a tap; the
+         part's Style bar ("Edit the … ›") is the one door. */
+      const stagesTap = stagesStudioRef.current && window.innerWidth < 1024;
       /* ✍ THE MAKER IS THE EDITOR (owner 2026-09-27: "this is the editor, so we
          can edit here"): a tap on a words scene's words — or anywhere on it
          while it is empty — opens its Content with the box focused
          (`lib/maker-scene-words.ts`), not the style sheet. */
-      if (picked?.kind === 'scene' && openWordsOnTap(data.key, data.el, (data as { empty?: unknown }).empty)) {
+      if (!stagesTap && picked?.kind === 'scene' && openWordsOnTap(data.key, data.el, (data as { empty?: unknown }).empty)) {
         setElementTarget(null);
         select?.({ ...picked, tab: 'content' });
         setWordsFocus({ key: data.key, n: Date.now() });
@@ -1152,7 +1157,7 @@ export function MakerWork({
          its studio on the page and its panels in the tools (a phone's lower
          third, a desktop's right column). Its size and motion stay one ‹ › away
          from the other parts. Nothing is written by opening it. */
-      if (data.key === 'f:hero' && data.el === 'mark' && select) {
+      if (!stagesTap && data.key === 'f:hero' && data.el === 'mark' && select) {
         setElementTarget(null);
         postToShownCanvases({ source: 'setnayan-editor', t: 'markEl', key: data.key, el: null });
         // The made-once Logo is Details' item now: the shell moves the pick there (`movedSelection`).
@@ -1160,7 +1165,7 @@ export function MakerWork({
         return;
       }
       const moment = (data as { moment?: unknown }).moment;
-      if (data.key === 'w:schedule' && typeof moment === 'string' && moment && openDetailsItemRef.current) {
+      if (!stagesTap && data.key === 'w:schedule' && typeof moment === 'string' && moment && openDetailsItemRef.current) {
         setElementTarget(null);
         openDetailsItemRef.current('schedule');
         select?.({ kind: 'tool', key: 'details' });
@@ -1169,7 +1174,7 @@ export function MakerWork({
       }
       /* ✍ A FACT tapped (`detailsItemForTap`): its Details editor, on the right. */
       const tapped = detailsItemForTap(data.key, data.el);
-      if (picked && tapped && factEditorsRef.current?.[tapped]) {
+      if (!stagesTap && picked && tapped && factEditorsRef.current?.[tapped]) {
         setElementTarget(null);
         select?.(picked.kind === 'scene' ? { ...picked, tab: 'content' } : picked);
         frameRef.current?.contentWindow?.postMessage(

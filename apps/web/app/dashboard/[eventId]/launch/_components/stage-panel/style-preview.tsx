@@ -1,14 +1,11 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useRef, useState, type ReactElement } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { buildTileDocument, type TileHead, type TileSnapshot } from '@/lib/maker-tile-preview';
-import { DEFAULT_EVENT_TZ } from '@/lib/schedule';
 import { readTileHead, snapshotSection } from '../../../website/editor/_components/scene-snapshot';
 import { findMakerSection } from '@/app/[slug]/_components/maker-section-find';
-import { CountdownWidget } from '@/app/[slug]/_components/countdown';
-import { SpecialMessageLetter, SpecialMessageQuote } from '@/app/[slug]/_components/special-message-styles';
-import { WhatToBringGiftLine, WhatToBringList } from '@/app/[slug]/_components/what-to-bring-styles';
+import { STYLE_RENDERERS, readFacts, type Facts } from './style-renderers';
 
 /**
  * 🖼 A STYLE'S REAL MINIATURE (owner 2026-10-07: *"should be a preview of the style
@@ -20,9 +17,8 @@ import { WhatToBringGiftLine, WhatToBringList } from '@/app/[slug]/_components/w
  *     script-less document carrying the canvas's stylesheets, theme scope and ground.
  *   · Every OTHER style is the SHIPPED style component (`app/[slug]/_components/*-styles`,
  *     imported, never copied) rendered with the part's real content read off the canvas
- *     (the countdown's own reading, the message's words), portalled into that same
- *     document in place of the part's card — so it wears the same theme, fonts and
- *     scene background as the page.
+ *     (the countdown's own reading, the message's words), portalled into a clean copy
+ *     of the canvas's document (its stylesheets, theme scope and fonts — `asMount`).
  *
  * A style with no client renderer here (`STYLE_RENDERERS`) is drawn from the canvas
  * when it is the current one, and otherwise as the part as it is now (dimmed) — see the
@@ -30,58 +26,15 @@ import { WhatToBringGiftLine, WhatToBringList } from '@/app/[slug]/_components/w
  * route's (Builder S6), and `frameSrc` takes it the day it exists.
  */
 
-type Facts = { targetIso: string | null; bare: boolean; text: string; signedBy: string | null };
 
-/** What a renderer needs, read off the live section. */
-function readFacts(section: HTMLElement): Facts {
-  const bare = section.querySelector('[data-scene-card="bare"]') !== null;
-  /* ⏱ The countdown's own reading (days · hours · mins · secs) → the venue's day, so every style counts to the SAME instant. */
-  let targetIso: string | null = null;
-  const nums = [...section.querySelectorAll('p')]
-    .map((p) => p.textContent?.trim() ?? '')
-    .filter((t) => /^\d{1,4}$/.test(t))
-    .map(Number);
-  if (nums.length >= 4) {
-    const [d, h, m, s] = nums as [number, number, number, number];
-    const at = Date.now() + (((d * 24 + h) * 60 + m) * 60 + s) * 1000 + 60_000;
-    try {
-      targetIso = new Intl.DateTimeFormat('en-CA', { timeZone: DEFAULT_EVENT_TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(at));
-    } catch {
-      targetIso = null;
-    }
-  }
-  const text = (section.querySelector('[data-el="body"], blockquote, p')?.textContent ?? '').trim();
-  return { targetIso, bare, text, signedBy: null };
-}
-
-/** Scene type → its shipped styles, drawn from the facts. Null: no client renderer for that style. */
-const STYLE_RENDERERS: Partial<Record<string, (style: string, f: Facts) => ReactElement | null>> = {
-  countdown: (style, f) => (f.targetIso ? <CountdownWidget targetIso={f.targetIso} bare={f.bare} sceneStyle={style === 'four-tiles' ? null : style} /> : null),
-  special_message: (style, f) =>
-    !f.text ? null : style === 'letter' ? <SpecialMessageLetter text={f.text} signedBy={f.signedBy} /> : style === 'quote' ? <SpecialMessageQuote text={f.text} /> : null,
-  what_to_bring: (style, f) => (!f.text ? null : style === 'list' ? <WhatToBringList text={f.text} /> : style === 'gift-line' ? <WhatToBringGiftLine text={f.text} /> : null),
-};
-
-/** The part's live section, its card swapped for a mount point the style is portalled into. */
-function withMount(snap: TileSnapshot): TileSnapshot {
-  try {
-    const doc = new DOMParser().parseFromString(`<div>${snap.section}</div>`, 'text/html');
-    const root = doc.body.firstElementChild!;
-    const card = root.querySelector('[data-scene-card], [data-scene-style]');
-    const mount = doc.createElement('div');
-    mount.setAttribute('data-sn-style-mount', '');
-    if (card) card.replaceWith(mount);
-    else {
-      const sec = root.firstElementChild;
-      if (sec) {
-        sec.innerHTML = '';
-        sec.appendChild(mount);
-      }
-    }
-    return { ...snap, section: root.innerHTML };
-  } catch {
-    return snap;
-  }
+/**
+ * A clean stage for a style the part does not wear: the canvas's own document (its stylesheets, the theme
+ * scope and fonts on the ancestors) holding ONLY a mount the style is portalled into — never the copied
+ * section, whose frame classes (a scene's reveal-on-scroll, its pinned height, a card swapped out from
+ * under it) left a style drawn into it blank on the owner's page (2026-10-07, "Big number" empty).
+ */
+function asMount(snap: TileSnapshot): TileSnapshot {
+  return { ...snap, section: '<div data-snm-root="" style="padding:12px 14px"><div data-sn-style-mount=""></div></div>' };
 }
 
 const SHOWN_FRAME = 'iframe[data-maker-canvas-frame="shown"]';
@@ -121,7 +74,7 @@ export function StylePreview({ canvasKey, sceneType, styleId, current }: { canva
   const [fit, setFit] = useState<{ k: number; x: number; y: number; h: number } | null>(null);
   /* The part alone, on the page's colour — the page's ground (a photo behind every scene) would fill the small card. */
   const head = live ? { ...live.head, grounds: [] } : null;
-  const srcDoc = live && head && mode ? buildTileDocument(head, mode === 'render' ? withMount(live.snap) : live.snap) : null;
+  const srcDoc = live && head && mode ? buildTileDocument(head, mode === 'render' ? asMount(live.snap) : live.snap) : null;
   const width = live?.snap.frameWidth ?? 375;
 
   /* Fit the copy's root into the card (contain, centred — `fillLayouts`). */
@@ -164,8 +117,13 @@ export function StylePreview({ canvasKey, sceneType, styleId, current }: { canva
   }, [srcDoc]);
   useEffect(() => {
     if (!mount) return;
+    /* The style draws its numbers after mount (the countdown reads its clock then) — measure once it has. */
     const t = window.setTimeout(measure, 120);
-    return () => window.clearTimeout(t);
+    const t2 = window.setTimeout(measure, 700);
+    return () => {
+      window.clearTimeout(t);
+      window.clearTimeout(t2);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mount]);
 

@@ -477,3 +477,24 @@ export function makerRevealEdges(isReveal: boolean): { grip: boolean; addAbove: 
 export function makerDropSlot(index: number, revealLeads: boolean): number {
   return revealLeads ? Math.max(1, index) : Math.max(0, index);
 }
+
+/**
+ * 🎯 THE STYLE BAR OPENS THE EXACT PLACE (owner 2026-10-07, verbatim: *"it should jump to whatever studio it
+ * goes and opens to the exact place where to edit it"*; prototype `editin:info:<field>`, `#item=info&focus=name`).
+ * The field a part's words live in, in its Studio editor — the SAME `data-same-field` door that editor draws
+ * (`same-field.ts`). Null: the editor opens at its top (the field has no door of its own yet — the countdown
+ * line, the greeting, the stage's title: `MAKER_INFO_DOORS`), or the part is the editor's whole subject
+ * (the Schedule, the March, E-Gifts …). Held by `lib/the-stages-panel-is-the-prototypes.test.ts`.
+ */
+export const MAKER_PART_FOCUS: Partial<Record<MakerPartKey, string>> = {
+  names: '[data-same-field="display_name"], [data-details-names] input',
+  opening: '[data-same-field="opening_line"]',
+  message: '[data-same-field="special_message"]',
+};
+
+/** Where a part's Style bar goes: its Studio tile, and the field focused there (or null). */
+export function makerPartStudioDoor(key: MakerPartKey): { tile: MakerStudioTool | 'info'; focus: string | null } | null {
+  const q = makerPartQuietRow(key);
+  if (!q || 'suppliers' in q.to) return null;
+  return { tile: q.to.studio, focus: MAKER_PART_FOCUS[key] ?? null };
+}

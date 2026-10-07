@@ -120,7 +120,8 @@ test('every layout card carries a rendered preview and only a short name — no 
 
 test('the preview renders the SHIPPED style components — never a text card', () => {
   const src = read(`${LAUNCH}/stage-panel/style-preview.tsx`);
-  assert.match(src, /from '@\/app\/\[slug\]\/_components\/countdown'/, 'the shipped countdown is the countdown’s miniature');
+  const renderers = read(`${LAUNCH}/stage-panel/style-renderers.tsx`);
+  assert.match(renderers, /from '@\/app\/\[slug\]\/_components\/countdown'/, 'the shipped countdown is the countdown’s miniature');
   assert.match(src, /buildTileDocument/, 'drawn in a copy of the canvas’s own document');
   assert.match(src, /<iframe/, 'a picture, not words');
 });
@@ -161,4 +162,51 @@ test('Rows ▾ writes the scene’s `sequence` — and Action carries no Parts r
   const act = animate.slice(animate.indexOf("phase === 'act' ?"), animate.indexOf(') : (\n        <>\n          {outAbout'));
   assert.ok(!/rows|Parts/.test(act), 'Action keeps Does ▾ and Timing ▾ only');
   assert.match(animate.slice(animate.indexOf("phase === 'in' ?"), animate.indexOf("phase === 'act' ?")), /small="Rows"/, 'Rows ▾ is Build in’s');
+});
+
+/* ── 6 · a tap on the page never leaves the stage ───────────────────────── */
+
+test('in Stages a canvas tap only picks — no door to Studio, Details, the Logo maker or a Content sheet', () => {
+  const src = read(`${EDITOR}/editor-shell.tsx`);
+  const at = src.indexOf("data.t !== 'edit' || typeof data.key !== 'string') return;");
+  const end = src.indexOf('window.addEventListener(\'message\', onMessage);', at);
+  const handler = src.slice(at, end);
+  assert.match(handler, /const stagesTap = stagesStudioRef\.current && window\.innerWidth < 1024;/);
+  /* Every branch that opens something other than the part itself is closed to a Stages tap. */
+  const doors = [
+    /if \(([^)]*)openWordsOnTap\(/,
+    /if \(([^)]*)data\.el === 'mark' && select\)/,
+    /if \(([^)]*)data\.key === 'w:schedule' && typeof moment === 'string'/,
+    /if \(([^)]*)factEditorsRef\.current\?\.\[tapped\]\)/,
+  ];
+  for (const d of doors) {
+    const m = d.exec(handler);
+    assert.ok(m, `the door ${d} is found`);
+    assert.match(m![1]!, /^!stagesTap && /, `a Stages tap opens it: ${d}`);
+  }
+  /* …and nothing else in the handler opens a tool or a Details item. */
+  const opens = handler.match(/select\??\.?\(\{ kind: 'tool'|openDetailsItemRef\.current\(/g) ?? [];
+  assert.equal(opens.length, 3, `the tool/Details doors are the guarded ones (${opens.length})`);
+});
+
+/* ── 7 · the Style bar opens the exact place, and Done comes back ───────── */
+
+test('every part with a Studio bar has a door; every focused field exists in the shipped editors', async () => {
+  const { MAKER_PART_KEYS, MAKER_PART_FOCUS, makerPartQuietRow, makerPartStudioDoor } = await import('./maker-parts');
+  const { execSync } = await import('node:child_process');
+  for (const k of MAKER_PART_KEYS) {
+    const q = makerPartQuietRow(k);
+    if (!q || 'suppliers' in q.to) continue;
+    const door = makerPartStudioDoor(k);
+    assert.ok(door, `${k}: its "Edit …" bar has a door`);
+  }
+  for (const [part, sel] of Object.entries(MAKER_PART_FOCUS)) {
+    const field = /data-same-field="([a-z_]+)"/.exec(sel!)?.[1];
+    assert.ok(field, `${part}: focuses a same-field door`);
+    const hits = execSync(`grep -rl 'data-same-field="${field}"' app --include=*.tsx`, { cwd: WEB }).toString().trim();
+    assert.ok(hits.length > 0, `${part}: no editor draws data-same-field="${field}"`);
+  }
+  const shell = read(`${LAUNCH}/maker-shell.tsx`);
+  assert.match(shell, /Done · back to \{studioFrom\.label\}/, 'the way back names the part');
+  assert.match(shell, /onDone=\{\(\) => \(studioFrom \? backToPart\(\) : pickSide\('studio'\)\)\}/, 'the top Done returns too');
 });

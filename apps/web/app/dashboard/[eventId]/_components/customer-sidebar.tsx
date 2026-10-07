@@ -56,6 +56,7 @@ import { isDayOfOpen } from '@/lib/guest-journey';
 import { SidebarSection } from '@/app/_components/nav/sidebar-section';
 import { SidebarItem } from '@/app/_components/nav/sidebar-item';
 import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
+import { navLineIcon } from '@/lib/nav-line-icon';
 import type { NavGroup } from '@/app/_components/nav/types';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
 // buildCustomerNavGroups + the lucide icon refs it consumes live in a
@@ -105,8 +106,10 @@ export function applyRegistry(
       const slotKey = SIDEBAR_SLOT_KEYS[item.key];
       const slot = slotKey ? navSlots[slotKey] : undefined;
       if (slot?.isHidden) return [];
+      // The five rows are LINE-ONLY (owner 2026-10-07, `navLineIcon`): the same
+      // icons as the phone bar; a mark, image or emoji falls back to the code icon.
       const resolved = slot
-        ? { ...item, label: slot.label, icon: navIconComponent(slot.icon) }
+        ? { ...item, label: slot.label, icon: navLineIcon(slot.icon, item.icon) }
         : item;
       if (!resolved.children?.length) return [resolved];
       const children = resolved.children.flatMap((child) => {

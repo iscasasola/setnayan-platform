@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { motionArrow, motionDirName, withMotionFx, type MotionDir, type MotionFx } from '@/lib/motion-effects';
 import { SP_DIR, SP_PANE, SP_ROW, SP_ROW_LABEL } from '@/lib/maker-stage-room';
 import type { PickOption } from '../../../website/editor/_components/pick-menu-types';
-import { About, Dd, Dir, Phases, Switch } from './kit';
+import { About, Dd, Dir, PanelSwitch, Phases } from './kit';
 import { useAnimatePhase, type AnimatePhase } from './store';
 
 /**
@@ -46,17 +46,17 @@ function EffectRows({ end, fx, onChange }: { end: 'in' | 'out'; fx: MotionFx | n
     <>
       <div className={SP_ROW} data-stage-effect={`${end}-fade`}>
         <span className={SP_ROW_LABEL}>Fade</span>
-        <Switch on={Boolean(fx?.fade)} label={`Fade ${verb}`} data={`${end}-fade`} onChange={(on) => set('fade', on)} />
+        <PanelSwitch on={Boolean(fx?.fade)} label={`Fade ${verb}`} data={`${end}-fade`} onChange={(on) => set('fade', on)} />
         <span className={right}>{fx?.fade ? note(end === 'in' ? 'Fades in' : 'Fades out') : note('Off')}</span>
       </div>
       <div className={SP_ROW} data-stage-effect={`${end}-blur`}>
         <span className={SP_ROW_LABEL}>Blur</span>
-        <Switch on={Boolean(fx?.blur)} label={`Blur ${verb}`} data={`${end}-blur`} onChange={(on) => set('blur', on)} />
+        <PanelSwitch on={Boolean(fx?.blur)} label={`Blur ${verb}`} data={`${end}-blur`} onChange={(on) => set('blur', on)} />
         <span className={right}>{fx?.blur ? note(end === 'in' ? 'Soft focus to sharp' : 'Soft focus as it leaves') : note('Off')}</span>
       </div>
       <div className={SP_ROW} data-stage-effect={`${end}-move`}>
         <span className={SP_ROW_LABEL}>Move</span>
-        <Switch on={Boolean(fx?.move)} label={`Move ${verb}`} data={`${end}-move`} onChange={(on) => set('move', on ? (fx?.move ?? FIRST_DIR[end]) : null)} />
+        <PanelSwitch on={Boolean(fx?.move)} label={`Move ${verb}`} data={`${end}-move`} onChange={(on) => set('move', on ? (fx?.move ?? FIRST_DIR[end]) : null)} />
         <span className={`${right} gap-1`}>
           {fx?.move
             ? DIRS[end].map((d) => <Dir key={d} on={fx.move === d} glyph={motionArrow(d, end)} label={motionDirName(d, end)} onPick={() => set('move', d)} />)
@@ -65,7 +65,7 @@ function EffectRows({ end, fx, onChange }: { end: 'in' | 'out'; fx: MotionFx | n
       </div>
       <div className={SP_ROW} data-stage-effect={`${end}-size`}>
         <span className={SP_ROW_LABEL}>Size</span>
-        <Switch on={Boolean(fx?.size)} label={`Size ${verb}`} data={`${end}-size`} onChange={(on) => set('size', on ? (fx?.size ?? 'grow') : null)} />
+        <PanelSwitch on={Boolean(fx?.size)} label={`Size ${verb}`} data={`${end}-size`} onChange={(on) => set('size', on ? (fx?.size ?? 'grow') : null)} />
         <span className={`${right} gap-1`}>
           {fx?.size
             ? (['grow', 'shrink'] as const).map((s) => (

@@ -23,6 +23,14 @@
  *                   "Principal Sponsors 1"; &by=seat groups by table
  *   &low=1          push the card's ticket row to the bottom of a short phone
  *                   (375×667), where a menu has no room under it
+ *   ?part=setup     Guests › Setup (2026-10-07) — the REAL `GuestSetupRows` on
+ *                   fixture data: &getin=list|personal|requests|one_qr_approve|one_qr,
+ *                   &hc=open|locked|off|unread. The Digital Pass is the shipped
+ *                   SAMPLE event's pass (`?sample=1`, the public sample door) —
+ *                   a lab has no event of its own. Saves go nowhere real: the
+ *                   fixture event id fails the host fence, and a refusal says so.
+ *   ?part=rsvp      the Maker's Studio › RSVP (`MakerRsvpSettings studio`) on the
+ *                   same fixture, so the two doors can be compared side by side
  */
 import { notFound } from 'next/navigation';
 import { NotificationsList } from '@/app/_components/notifications/notifications-list';
@@ -42,6 +50,10 @@ import type { GuestCardData } from '@/app/dashboard/[eventId]/guests/_components
 import type { GuestRow } from '@/lib/guests';
 import { GuestListMultiselect } from '@/app/dashboard/[eventId]/guests/_components/guest-list-multiselect';
 import type { ArrangeKey } from '@/lib/roster-arrangement';
+import { GuestSetupRows } from '@/app/dashboard/[eventId]/_components/guest-setup/guest-setup-rows';
+import { MakerRsvpSettings } from '@/app/dashboard/[eventId]/launch/_components/maker-rsvp-ask';
+import { guestsGetInPatch, isGuestsGetIn } from '@/lib/who-can-reply';
+import { renderStyledUrlQrSvg } from '@/lib/qr';
 
 const EVENT = '00000000-0000-4000-8000-000000000000';
 
@@ -270,6 +282,64 @@ export default async function GuestsLabPage({
                   MoreMenu={GuestMoreMenu}
                 />
               </div>
+            </div>
+          </div>
+        </main>
+        <DockStandIn />
+      </div>
+    );
+  }
+
+  if (part === 'setup' || part === 'rsvp') {
+    const getIn = isGuestsGetIn(sp.getin) ? sp.getin : 'list';
+    const config = { ...guestsGetInPatch(getIn), dietary: false, song_request: false, note: false };
+    const hc = typeof sp.hc === 'string' ? sp.hc : 'open';
+    const rosterTabs = (
+      <RosterTabs eventId={EVENT} view="share" finished={false} hasJoinLink viewSwitch={<GuestsViewSwitcher eventId={EVENT} active="list" search={{}} bare />} />
+    );
+    return (
+      <div className="sn-ambient min-h-screen">
+        <main className="sn-vt-page">
+          <div data-shell-main>
+            <div className="sn-page-enter">
+              <section className="mx-auto flex w-full max-w-[720px] flex-col gap-4 px-4 py-6" data-lab-setup={part}>
+                {part === 'setup' ? (
+                  <>
+                    {rosterTabs}
+                    <GuestSetupRows
+                      eventId={EVENT}
+                      config={config}
+                      drafted={false}
+                      reply={{ own: '2027-01-14', pricingMode: 'realtime', fallback: null }}
+                      toInvite={3}
+                      passSrc="https://setnayan.com/api/hub-print/pass?sample=1&mode=screen"
+                      oneLink={{
+                        url: 'https://setnayan.com/cale-ice/invite',
+                        qrSvg: await renderStyledUrlQrSvg('https://setnayan.com/cale-ice/invite', undefined, 240),
+                        notice: null,
+                      }}
+                      headcount={{
+                        show: hc !== 'off',
+                        mayFinalize: hc === 'open',
+                        locked: hc === 'locked',
+                        attending: 7,
+                        heads: 7,
+                        unread: hc === 'unread',
+                      }}
+                    />
+                  </>
+                ) : (
+                  <MakerRsvpSettings
+                    eventId={EVENT}
+                    studio
+                    current={config}
+                    drafted={false}
+                    replyBy={{ date: '2027-01-14', isDefault: false }}
+                    replyByOwn={{ deadline: '2027-01-14', pricingMode: 'realtime' }}
+                    requests={{ count: 0, list: null }}
+                  />
+                )}
+              </section>
             </div>
           </div>
         </main>

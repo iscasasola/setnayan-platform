@@ -389,7 +389,7 @@ function HeadcountRow({ eventId, view }: { eventId: string; view: HeadcountView 
               onClick={finalize}
               data-testid="setup-finalize-go"
             />
-            <ActionButton tone="neutral" icon={X} label={FINALIZE_SHEET.cancel} disabled={pending} onClick={() => setOpen(false)} />
+            <ActionButton tone="danger" icon={X} label={FINALIZE_SHEET.cancel} disabled={pending} onClick={() => setOpen(false)} />
           </div>
           {error ? (
             <p role="alert" className="text-[13px] text-terracotta-700">

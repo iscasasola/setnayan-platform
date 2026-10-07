@@ -21,6 +21,7 @@ import { guestMainGround } from '@/lib/guest-main-ground';
 import { mainGroundIsNone, hubMainGround } from '@/lib/hub-canvas';
 import { heroGroundNeedsOwnership, pageGround } from '@/lib/page-ground';
 import { siteMediaServeRef } from '@/lib/site-media-ref';
+import type { InviteThemeId } from '@/lib/invite-themes';
 import { resolveHubTheme, websiteProActiveFor } from '@/app/[slug]/_lib/hub-look';
 import { guestLookFrom, type EventShellRow } from '@/app/[slug]/_lib/loaders';
 import {
@@ -296,10 +297,10 @@ async function readHosts(
  * the two logo columns the paper card's mark is resolved from
  * (`resolveEventMonogramSvg` — custom, then uploaded; both read, always).
  */
-const COVER_COLUMNS =
+export const COVER_COLUMNS =
   'event_id, display_name, event_date, venue_name, event_type, monogram_text, monogram_color, invite_theme, std_background, landing_page_hero_image_url, landing_page_hero_video_r2_key, monogram_custom_svg, monogram_uploaded_svg, role_palette, site_bg_color, site_button_color, site_font_key, site_art_direction';
 
-type CoverRow = {
+export type CoverRow = {
   event_id: string;
   display_name: string | null;
   event_date: string | null;
@@ -381,92 +382,114 @@ async function dressCards(admin: Admin, cards: DiscoverEventCard[]): Promise<voi
   const papers = new Map<string, DiscoverPaper>();
   await Promise.all(
     ((data ?? []) as unknown as CoverRow[]).map(async (r) => {
-      const heroConfig = heroConfigById.get(r.event_id) ?? null;
-      // The theme the hub wears — the one gate (`resolveHubTheme`).
-      const hub = await resolveHubTheme({
-        event_id: r.event_id,
-        display_name: r.display_name,
-        invite_theme: r.invite_theme,
-        monogram_text: r.monogram_text,
-        monogram_color: r.monogram_color,
-        site_button_color: r.site_button_color,
-        event_type: r.event_type,
-      }).catch(() => null);
-
-      // 1 · THE MAIN BACKGROUND, as the guest's Event Hub draws it. Ownership
-      //     is read only where it can change the answer, as the page reads it.
-      if (hub) {
-        const ownsPro = heroGroundNeedsOwnership(hub.theme)
-          ? await websiteProActiveFor(r.event_id).catch(() => false)
-          : false;
-        const main = guestMainGround(hub.theme, ownsPro, heroConfig, r);
-        const mainSrc = main?.stillRef
-          ? renderableImageSrc(await displayUrlForStoredAsset(siteMediaServeRef(main.stillRef)).catch(() => null))
-          : null;
-        if (mainSrc) {
-          scenes.set(r.event_id, { kind: 'photo', src: mainSrc, ground: 'main', legibility: null });
-          return;
-        }
-      }
-
-      // The paper the hub paints: their colour or ombré (free). `proActive`
-      // only adds the Pro face (`proSiteVarsFor`), which the card never reads.
-      const look = hub ? guestLookFrom(r as unknown as EventShellRow, hub, false) : null;
-
-      // The column is host-writable; only a real image URL reaches an <img>.
-      const heroSrc = renderableImageSrc(
-        await displayUrlForStoredAsset(resolveHero(r).photoRef).catch(() => null),
-      );
-      const poster = await resolveEventPoster(
-        {
-          event_id: r.event_id,
-          display_name: r.display_name ?? '',
-          event_date: r.event_date,
-          venue_name: r.venue_name,
-          event_type: r.event_type ?? '',
-          monogram_text: r.monogram_text,
-          monogram_color: r.monogram_color,
-          invite_theme: r.invite_theme,
-          std_background: r.std_background,
-          role_palette: r.role_palette,
-        },
-        heroSrc,
-      ).catch(() => null);
-      let scene = sceneCoverFor(poster);
-      let paperPoster = poster?.kind === 'invitation' ? poster : null;
-      // 2 · NO THEME LOOP WHERE THE HUB DRAWS NONE — under an ombré
-      //     (`pageGround`) or "None — just the colour": the card is then the
-      //     invitation card, which `posterFor` words identically.
-      if (
-        poster &&
-        scene?.kind === 'theme' &&
-        hub &&
-        (mainGroundIsNone(hubMainGround(heroConfig)) ||
-          !pageGround({ theme: hub.theme, ombre: Boolean(look?.ombre), heroGround: false }).themeLoop)
-      ) {
-        scene = null;
-        paperPoster = { ...poster, kind: 'invitation', dark: false, photoSrc: null, ground: null, legibility: null };
-      }
-      if (scene) {
-        scenes.set(r.event_id, scene);
-      } else if (paperPoster) {
-        // SEC-3: both logo columns are host-writable — read through the gate.
-        const markSvg = resolveEventMonogramSvg(r);
-        papers.set(r.event_id, {
-          poster: paperPoster,
-          ground: paperGroundOf(look),
-          markText: resolveMonogram(r).text,
-          markSvg,
-          // A logo that does not move costs no read (`logoPlaysFor`).
-          markPlays: await logoPlaysFor(r.event_id, markSvg).catch(() => false),
-        });
-      }
+      const dressed = await dressEventCover(r, heroConfigById.get(r.event_id) ?? null);
+      if (dressed.scene) scenes.set(r.event_id, dressed.scene);
+      else if (dressed.paper) papers.set(r.event_id, dressed.paper);
     }),
   );
   for (const c of cards) {
     c.scene = scenes.get(c.key) ?? null;
     c.paper = papers.get(c.key) ?? null;
   }
+}
+
+/** What one event's cover wears — Discover's card and the event Home's header (owner 2026-10-07). */
+export type DressedEventCover = {
+  scene: DiscoverScene | null;
+  paper: DiscoverPaper | null;
+  /** The Main background's measured frame (`tint.frame`) when the scene IS it; [] = never measured. */
+  mainFrame: string[] | null;
+  /** The theme the hub wears (`resolveHubTheme`), or null when it could not be read. */
+  theme: InviteThemeId | null;
+};
+
+/**
+ * 🖼 ONE EVENT'S COVER, as the guest's Event Hub draws it — the body `dressCards`
+ * runs per card, lifted out so the event Home's header asks the SAME answer
+ * (owner 2026-10-07: *"i thought this will use the main background image of the
+ * event hub maker?"*) instead of a second resolver. Published values only: the
+ * event's columns and the live hero row's `config_json`.
+ */
+export async function dressEventCover(r: CoverRow, heroConfig: unknown): Promise<DressedEventCover> {
+  // The theme the hub wears — the one gate (`resolveHubTheme`).
+  const hub = await resolveHubTheme({
+    event_id: r.event_id,
+    display_name: r.display_name,
+    invite_theme: r.invite_theme,
+    monogram_text: r.monogram_text,
+    monogram_color: r.monogram_color,
+    site_button_color: r.site_button_color,
+    event_type: r.event_type,
+  }).catch(() => null);
+
+  // 1 · THE MAIN BACKGROUND, as the guest's Event Hub draws it. Ownership
+  //     is read only where it can change the answer, as the page reads it.
+  if (hub) {
+    const ownsPro = heroGroundNeedsOwnership(hub.theme)
+      ? await websiteProActiveFor(r.event_id).catch(() => false)
+      : false;
+    const main = guestMainGround(hub.theme, ownsPro, heroConfig, r);
+    const mainSrc = main?.stillRef
+      ? renderableImageSrc(await displayUrlForStoredAsset(siteMediaServeRef(main.stillRef)).catch(() => null))
+      : null;
+    if (mainSrc) {
+      return { scene: { kind: 'photo', src: mainSrc, ground: 'main', legibility: null }, paper: null, mainFrame: main?.tint?.frame ?? [], theme: hub.theme };
+    }
+  }
+
+  // The paper the hub paints: their colour or ombré (free). `proActive`
+  // only adds the Pro face (`proSiteVarsFor`), which the card never reads.
+  const look = hub ? guestLookFrom(r as unknown as EventShellRow, hub, false) : null;
+
+  // The column is host-writable; only a real image URL reaches an <img>.
+  const heroSrc = renderableImageSrc(
+    await displayUrlForStoredAsset(resolveHero(r).photoRef).catch(() => null),
+  );
+  const poster = await resolveEventPoster(
+    {
+      event_id: r.event_id,
+      display_name: r.display_name ?? '',
+      event_date: r.event_date,
+      venue_name: r.venue_name,
+      event_type: r.event_type ?? '',
+      monogram_text: r.monogram_text,
+      monogram_color: r.monogram_color,
+      invite_theme: r.invite_theme,
+      std_background: r.std_background,
+      role_palette: r.role_palette,
+    },
+    heroSrc,
+  ).catch(() => null);
+  let scene = sceneCoverFor(poster);
+  let paperPoster = poster?.kind === 'invitation' ? poster : null;
+  // 2 · NO THEME LOOP WHERE THE HUB DRAWS NONE — under an ombré
+  //     (`pageGround`) or "None — just the colour": the card is then the
+  //     invitation card, which `posterFor` words identically.
+  if (
+    poster &&
+    scene?.kind === 'theme' &&
+    hub &&
+    (mainGroundIsNone(hubMainGround(heroConfig)) ||
+      !pageGround({ theme: hub.theme, ombre: Boolean(look?.ombre), heroGround: false }).themeLoop)
+  ) {
+    scene = null;
+    paperPoster = { ...poster, kind: 'invitation', dark: false, photoSrc: null, ground: null, legibility: null };
+  }
+  if (scene) return { scene, paper: null, mainFrame: null, theme: hub?.theme ?? null };
+  if (paperPoster) {
+    // SEC-3: both logo columns are host-writable — read through the gate.
+    const markSvg = resolveEventMonogramSvg(r);
+    const paper: DiscoverPaper = {
+      poster: paperPoster,
+      ground: paperGroundOf(look),
+      markText: resolveMonogram(r).text,
+      markSvg,
+      // A logo that does not move costs no read (`logoPlaysFor`).
+      markPlays: await logoPlaysFor(r.event_id, markSvg).catch(() => false),
+    };
+    return { scene: null, paper, mainFrame: null, theme: hub?.theme ?? null };
+  }
+  return { scene: null, paper: null, mainFrame: null, theme: hub?.theme ?? null };
 }
 
 async function readTypeLabels(): Promise<Map<string, string>> {

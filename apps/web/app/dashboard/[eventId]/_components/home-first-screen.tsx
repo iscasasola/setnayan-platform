@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 import { NextCard } from '@/app/_components/next-card';
 import type { HomeNext, HomeNextKind, HomeService, HomeServiceKey } from '@/lib/home-first-screen';
+import type { HomeCover } from '@/lib/home-cover';
 import { completeTour } from '@/lib/tour-actions';
 import { HUB_SETUP_OFFER_TOUR } from '@/lib/tours';
 
@@ -66,6 +67,8 @@ export type HomeFirstScreenProps = {
   money: { paid: string; owing: string } | null;
   /** Papic · Setnayan AI with their status — already filtered (store shell, the Next card). */
   services: HomeService[];
+  /** 🖼 The Event Hub's main background under the name (`lib/home-cover.ts`); null = today's colour. */
+  ground?: HomeCover | null;
 };
 
 export function HomeFirstScreen({
@@ -78,6 +81,7 @@ export function HomeFirstScreen({
   noReplyWaiting,
   money,
   services,
+  ground = null,
 }: HomeFirstScreenProps) {
   return (
     <section
@@ -87,19 +91,33 @@ export function HomeFirstScreen({
     >
       {/* 📋 EVENT DETAILS sits beside the name, on the cover (owner 2026-10-01,
           "EVENT DETAILS LIVES ON EVENT HOME") — the one information-only sheet. */}
-      <div className="flex items-end justify-between gap-3 rounded-2xl bg-mulberry px-4 py-3 text-cream">
-        <div className="min-w-0">
+      {/* 🖼 …and it wears the Event Hub's main background (owner 2026-10-07), the
+          words in the hub's own measured ink over its veil (`lib/home-cover.ts`). */}
+      <div
+        data-home-cover={ground?.kind ?? 'colour'}
+        className={`relative flex items-end justify-between gap-3 overflow-hidden rounded-2xl px-4 py-3 ${ground ? '' : 'bg-mulberry text-cream'}`}
+        style={ground ? { background: ground.kind === 'paper' ? ground.background : undefined, color: ground.ink } : undefined}
+      >
+        {ground?.kind === 'image' ? (
+          <span aria-hidden className="absolute inset-0 block">
+            {/* A presigned R2 URL or the theme's public still — a plain <img>: the signing host is not in the next/image allowlist. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={ground.src} alt="" decoding="async" className="absolute inset-0 h-full w-full object-cover" />
+            <span className="absolute inset-0 block" style={{ background: ground.scrim }} />
+          </span>
+        ) : null}
+        <div className="relative min-w-0">
           {/* The page's one h1 (the "Kumusta…" hero that held it no longer draws under this
               screen). Screen-reader only: the name is drawn once, below, for the eye — and
               BEFORE the eyebrow, so `lint-page-masthead` does not read a label-over-h1. */}
           <h1 className="sr-only">{cover.name}</h1>
-          <p className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-cream/75">{cover.eyebrow}</p>
+          <p className={`font-mono text-[10.5px] uppercase tracking-[0.18em] ${ground ? '' : 'text-cream/75'}`}>{cover.eyebrow}</p>
           <p aria-hidden className="font-display text-[22px] leading-tight">{cover.name}</p>
         </div>
         <Link
           href={`/dashboard/${eventId}/details`}
           data-home-event-details
-          className="sn-press shrink-0 rounded-full border border-cream/60 px-3 py-1.5 text-[12.5px] text-cream transition hover:bg-cream/10"
+          className={`sn-press relative shrink-0 rounded-full border px-3 py-1.5 text-[12.5px] transition ${ground ? 'border-current hover:opacity-80' : 'border-cream/60 text-cream hover:bg-cream/10'}`}
         >
           Event Details
         </Link>

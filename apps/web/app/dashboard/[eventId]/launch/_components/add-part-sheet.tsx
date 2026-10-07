@@ -312,10 +312,10 @@ export function PartEdits({ stage, picked }: { stage: MakerStageKey; picked: Mak
     /* 🎭 Nothing lands above the Reveal: slot 0 (above it) becomes slot 1 — above the page's first other part. */
     const revealLeads = readRevealPart() !== null;
     const slot = makerDropSlot(revealLeads ? d.targets.indexOf(at.t) + (at.where === 'below' ? 2 : 1) : d.targets.indexOf(at.t) + (at.where === 'below' ? 1 : 0), revealLeads);
-    const to = revealLeads && slot === 1 && d.targets[0] ? { t: d.targets[0], where: 'above' as const } : at;
+    const dropAt = revealLeads && slot === 1 && d.targets[0] ? { t: d.targets[0], where: 'above' as const } : at;
     if (mv.kind === 'scene') {
       const shown = o.list.shown.flatMap((t) => (t.kind === 'scene' ? [t.widgetId] : []));
-      const delta = makerDropDelta({ fullOrder: o.fullOrder, shown, afterLastShown: o.afterLastShown, id: mv.id, target: to.t.id, where: to.where });
+      const delta = makerDropDelta({ fullOrder: o.fullOrder, shown, afterLastShown: o.afterLastShown, id: mv.id, target: dropAt.t.id, where: dropAt.where });
       if (delta !== 0) {
         setToast(`${label} moved`);
         o.move(mv.id, delta);
@@ -323,7 +323,7 @@ export function PartEdits({ stage, picked }: { stage: MakerStageKey; picked: Mak
     } else if (mv.kind === 'post-event' && mv.runKey && o.postEvent) {
       const run = postEventRun(o.postEvent);
       const from = run.indexOf(mv.runKey);
-      let to = run.indexOf(to.t.id) + (to.where === 'below' ? 1 : 0);
+      let to = run.indexOf(dropAt.t.id) + (dropAt.where === 'below' ? 1 : 0);
       if (from < 0 || to < 0) return;
       if (to > from) to -= 1;
       const draft = makerPostEventMoveDraft(o.postEvent, mv.scene, to - from);

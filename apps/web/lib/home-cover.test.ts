@@ -71,6 +71,10 @@ test('the Home header is drawn from it, and the page reads it from the PUBLISHED
   const page = stripComments(readFileSync(join(__dirname, '../app/dashboard/[eventId]/page.tsx'), 'utf8'));
   assert.match(page, /ground=\{homeCover\}/);
   const server = stripComments(readFileSync(join(__dirname, './home-cover.server.ts'), 'utf8'));
-  assert.doesNotMatch(server, /event_site_drafts|hubDraft/i, 'the Home header must never read an unapplied draft');
-  assert.match(server, /dressEventCover\(/, 'a second resolver — ask Discover’s own');
+  const disc = stripComments(readFileSync(join(__dirname, './discover-events.ts'), 'utf8'));
+  const reader = disc.slice(disc.indexOf('export async function readEventCover('), disc.indexOf('async function readTypeLabels('));
+  assert.ok(reader.length > 0, 'readEventCover moved — re-anchor this test');
+  assert.doesNotMatch(reader, /event_site_drafts|hubDraft|draft/i, 'the Home header must never read an unapplied draft');
+  assert.match(reader, /\.eq\('widget_type', 'hero'\)/, 'the LIVE hero row is no longer what is read');
+  assert.match(server, /readEventCover\(/, 'a second resolver — ask Discover’s own');
 });

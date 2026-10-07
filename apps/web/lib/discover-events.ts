@@ -297,10 +297,10 @@ async function readHosts(
  * the two logo columns the paper card's mark is resolved from
  * (`resolveEventMonogramSvg` — custom, then uploaded; both read, always).
  */
-export const COVER_COLUMNS =
+const COVER_COLUMNS =
   'event_id, display_name, event_date, venue_name, event_type, monogram_text, monogram_color, invite_theme, std_background, landing_page_hero_image_url, landing_page_hero_video_r2_key, monogram_custom_svg, monogram_uploaded_svg, role_palette, site_bg_color, site_button_color, site_font_key, site_art_direction';
 
-export type CoverRow = {
+type CoverRow = {
   event_id: string;
   display_name: string | null;
   event_date: string | null;
@@ -490,6 +490,27 @@ export async function dressEventCover(r: CoverRow, heroConfig: unknown): Promise
     return { scene: null, paper, mainFrame: null, theme: hub?.theme ?? null };
   }
   return { scene: null, paper: null, mainFrame: null, theme: hub?.theme ?? null };
+}
+
+/**
+ * One event's cover, read and dressed — the event Home's header (owner
+ * 2026-10-07). The PUBLISHED event columns and the LIVE hero row, exactly as
+ * `dressCards` reads them; null when the event row could not be read (the
+ * caller keeps today's colour). A refused hero read costs only the Main
+ * background, as on Discover.
+ */
+export async function readEventCover(admin: Admin, eventId: string): Promise<DressedEventCover | null> {
+  const [ev, hero] = await Promise.all([
+    admin.from('events').select(COVER_COLUMNS).eq('event_id', eventId).maybeSingle(),
+    admin.from('invitation_widgets').select('config_json').eq('event_id', eventId).eq('widget_type', 'hero').maybeSingle(),
+  ]);
+  if (ev.error || !ev.data) {
+    if (ev.error) logQueryError('event-cover.event', ev.error, { event_id: eventId }, 'graceful_degrade');
+    return null;
+  }
+  if (hero.error) logQueryError('event-cover.hero', hero.error, { event_id: eventId }, 'graceful_degrade');
+  const heroConfig = (hero.data as { config_json: unknown } | null)?.config_json ?? null;
+  return dressEventCover(ev.data as unknown as CoverRow, heroConfig);
 }
 
 async function readTypeLabels(): Promise<Map<string, string>> {

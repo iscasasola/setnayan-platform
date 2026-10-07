@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { CreditCard, X } from 'lucide-react';
 
 import {
@@ -96,6 +96,13 @@ export type ChoosePlanSheetProps = {
    * page still works on dev/preview without env-bound settings.
    */
   settings?: InlineCheckoutDrawerProps['settings'];
+  /**
+   * A different DOOR to the same sheet — e.g. a row on a page (corpus
+   * `MORE_MENU_PAGES_AUDIT_2026-10-07_fable.md`: Live Watch's "More cameras"
+   * row). Client callers only (a function cannot cross the server boundary).
+   * Omitted → the pill trigger below, byte-for-byte as before.
+   */
+  renderTrigger?: (open: () => void) => ReactNode;
 };
 
 const EMPTY_SETTINGS: InlineCheckoutDrawerProps['settings'] = {
@@ -117,6 +124,7 @@ export function ChoosePlanSheet({
   notice,
   acknowledgement,
   settings,
+  renderTrigger,
 }: ChoosePlanSheetProps) {
   const [open, setOpen] = useState(false);
   /**
@@ -141,6 +149,7 @@ export function ChoosePlanSheet({
 
   return (
     <>
+      {renderTrigger ? renderTrigger(() => setOpen(true)) : (
       <button
         type="button"
         onClick={() => setOpen(true)}
@@ -154,6 +163,7 @@ export function ChoosePlanSheet({
           </span>
         ) : null}
       </button>
+      )}
 
       {open ? (
         <div

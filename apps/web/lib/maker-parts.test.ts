@@ -125,7 +125,16 @@ test('every page lists real parts; every Studio source is a real Studio tile', (
 
 test('a tap names its part; only parts the page drew are tiles', () => {
   const present = new Set(['f:hero', 'w:countdown']);
-  assert.deepEqual(makerPartsTappable('save_the_date', 'home', present), ['logo', 'ename', 'names', 'date', 'place', 'countdown'] satisfies MakerPartKey[]);
+  /* 👆 2026-10-07 (owner: "every visible piece of the page must be a pickable part"): the cover's invite line and
+     link are parts too. A reader that does not list a section's parts is answered by the section… */
+  assert.deepEqual(makerPartsTappable('save_the_date', 'home', present), ['logo', 'ename', 'names', 'heroline', 'date', 'place', 'herolink', 'countdown'] satisfies MakerPartKey[]);
+  /* …and one that does offers only the parts the page drew. */
+  const drawn = new Set(['f:hero', 'f:hero|mark', 'f:hero|eyebrow', 'f:hero|names', 'f:hero|date', 'f:hero|venue', 'f:hero|link', 'w:countdown']);
+  assert.deepEqual(makerPartsTappable('save_the_date', 'home', drawn), ['logo', 'ename', 'names', 'date', 'place', 'herolink', 'countdown'] satisfies MakerPartKey[], 'no invite line drawn → no tile');
+  assert.equal(makerPartOfTap('rsvp', 'home', 'f:hero', 'line'), 'heroline', 'the invite line is its own part');
+  assert.equal(makerPartOfTap('rsvp', 'home', 'f:hero', 'link'), 'herolink', 'the link is its own part');
+  assert.equal(makerPartOfTap('rsvp', 'details', 'f:details', 'label'), 'details', 'THE DETAILS title and its plates are the Details block');
+  assert.equal(makerPartOfTap('event', 'live', 'f:spotlight', null), 'spotlight', 'the Happening-now card is a part');
   assert.equal(makerPartOfTap('save_the_date', 'home', 'f:hero', 'date'), 'date');
   assert.equal(makerPartOfTap('rsvp', 'details', 'w:dress_code', 'heading'), 'dress');
 });

@@ -132,13 +132,15 @@ test('the preview is the SHIPPED guest page drawing that style — never a text 
 /* ── 4 · the Reveal is locked first ──────────────────────────────────────── */
 
 test('picked, the Reveal shows no grip, no ＋ above and no 🗑 — its ＋ below stays; every other part keeps all four', () => {
-  assert.deepEqual(makerRevealEdges(true), { grip: false, addAbove: false, addBelow: true, remove: false });
+  /* Owner 2026-10-07: "also remove the (+) under the highlight" — the Reveal has NO ＋ at all now. */
+  assert.deepEqual(makerRevealEdges(true), { grip: false, addAbove: false, addBelow: false, remove: false });
   assert.deepEqual(makerRevealEdges(false), { grip: true, addAbove: true, addBelow: true, remove: true });
   const src = read(`${LAUNCH}/add-part-sheet.tsx`);
   assert.match(src, /const edgesOf = makerRevealEdges\(isReveal\);/);
   assert.match(src, /const canRemove = edgesOf\.remove &&/, '🗑 follows the lock');
   assert.match(src, /const canMove = edgesOf\.grip &&/, 'the grip follows the lock');
   assert.match(src, /\{edgesOf\.addAbove \? \(\s*<button type="button" aria-label=\{`Add above/, '＋ above follows the lock');
+  assert.match(src, /\{edgesOf\.addBelow && onEdge\(fr!\.top \+ fr!\.height\) \? \(\s*<button type="button" aria-label=\{`Add below/, '＋ below follows the lock');
 });
 
 test('a drop at slot 0 on a page the Reveal leads lands at slot 1', () => {
@@ -259,4 +261,118 @@ test('Arrange has no Order row, and every Arrange row carries its ⓘ (owner 202
   const row = read(`${EDITOR}/scene-style-row.tsx`);
   assert.match(row, /small="Alignment"[^>]*about="/, 'Alignment ▾ has its ⓘ');
   assert.match(row, /small="Spacing"[\s\S]{0,120}about="/, 'Spacing ▾ has its ⓘ');
+});
+
+/* ── 9 · ↑ ↓ ✕ on the frame; the frame never on a neighbour ─────────────── */
+
+test('↓ from part i picks part i+1 in the order the page DRAWS them, and keeps the tool open', async () => {
+  const { makerStepPart } = await import('./maker-parts');
+  const { partsInPageOrder } = await import('./maker-part-step');
+  /* Drawn order differs from the map's: the page put the date above the names. */
+  const tops: Record<string, number> = { logo: 10, date: 80, names: 140, place: 220 };
+  const ordered = partsInPageOrder(['logo', 'names', 'date', 'place', 'countdown'] as const, (k) => tops[k] ?? null);
+  assert.deepEqual(ordered, ['logo', 'date', 'names', 'place'], 'visual order; a part not drawn is left out');
+  const pages = ['home', 'details'];
+  assert.deepEqual(makerStepPart({ parts: ordered, at: 'date', pages, page: 'home', dir: 1 }), { page: 'home', part: 'names' });
+  assert.deepEqual(makerStepPart({ parts: ordered, at: 'date', pages, page: 'home', dir: -1 }), { page: 'home', part: 'logo' });
+  assert.deepEqual(makerStepPart({ parts: ordered, at: 'place', pages, page: 'home', dir: 1 }), { page: 'details', part: null }, 'the last part goes on to the next tab');
+  const tools = read(`${LAUNCH}/stage-tools.tsx`);
+  assert.match(tools, /const here = home === shownPage \? \(drawnHere\.length \? drawnHere : parts\) : tappableOn\(home\);/, 'the step walks the drawn order');
+  /* The tool is never touched by a step: `pickPart` asks for the SAME tool (`askTool(toolRef.current, k)`). */
+  assert.match(tools, /askTool\(toolRef\.current, k\);/);
+});
+
+test('the frame carries ↑ upper-left, ↓ lower-left and ✕ lower-right; keys, Esc and a tap on the ground work too', () => {
+  const edges = read(`${LAUNCH}/add-part-sheet.tsx`);
+  for (const [attr, label] of [['data-part-step="prev"', 'Previous part'], ['data-part-step="next"', 'Next part']] as const) {
+    const at = edges.indexOf(attr);
+    assert.ok(at > 0, `${attr} is drawn`);
+    assert.ok(edges.slice(at - 120, at).includes(`aria-label="${label}"`), `${attr} is "${label}"`);
+  }
+  assert.match(edges, /data-part-step="prev" onClick=\{onPrev\}[^>]*chipAt\(box\.left \+ 2, fr!\.top\)/, '↑ upper-left');
+  assert.match(edges, /data-part-step="next" onClick=\{onNext\}[^>]*chipAt\(box\.left \+ 2, fr!\.top \+ fr!\.height\)/, '↓ lower-left');
+  assert.match(edges, /data-part-deselect="" onClick=\{onClose\}[^>]*chipAt\(box\.left \+ box\.width - 2, fr!\.top \+ fr!\.height\)/, '✕ lower-right');
+  assert.match(edges, /const CHIP_BTN = '[^']*!h-8[^']*w-8/, 'a 32 px tap');
+  const tools = read(`${LAUNCH}/stage-tools.tsx`);
+  assert.match(tools, /onPrev=\{[^}]*step\(-1\)/);
+  assert.match(tools, /onNext=\{[^}]*step\(1\)/);
+  assert.match(tools, /onClose=\{deselect\}/);
+  assert.match(tools, /e\.key === 'ArrowDown' \|\| e\.key === 'ArrowUp'/);
+  assert.match(tools, /e\.key === 'Escape'\) deselect\(\)/);
+  assert.match(tools, /d\.t === 'tapOutside'\) deselectRef\.current\(\)/, 'a tap on the page’s ground lets go');
+});
+
+test('the frame and its ＋ stop in the gap — never on the neighbour’s words', async () => {
+  const { partFrameEdges } = await import('./maker-stage-room');
+  /* The Logo at 100–160, the eyebrow ending 12 px above it, the names 30 px below. */
+  const f = partFrameEdges({ top: 100, height: 60 }, 12, 30);
+  assert.ok(f.top >= 100 - 6 && f.top <= 100, `top edge in the gap's middle or nearer (${f.top})`);
+  assert.ok(f.top - f.tapAbove / 2 >= 100 - 12 - 26 / 2 - 0.001 || f.tapAbove === 26, '＋ above is only as tall as the gap allows');
+  assert.ok(f.bottom <= 160 + 15 && f.bottom >= 160, `bottom edge within the gap (${f.bottom})`);
+  assert.ok(f.tapBelow <= 30, `＋ below's tap ends where the names begin (${f.tapBelow})`);
+  const open = partFrameEdges({ top: 100, height: 60 }, null, null);
+  assert.deepEqual([open.top, open.bottom, open.tapAbove], [78, 182, 44], 'nothing beside it: the full pad and a 44 px tap');
+  const edges = read(`${LAUNCH}/add-part-sheet.tsx`);
+  assert.match(edges, /partFrameEdges\(box, box\.gapAbove \?\? null, box\.gapBelow \?\? null, PART_PAD\)/, 'the frame is drawn from the gaps');
+  assert.match(edges, /tapAt\(box\.left \+ box\.width \/ 2, fr!\.top, fe!\.tapAbove\)/);
+  assert.match(edges, /tapAt\(box\.left \+ box\.width \/ 2, fr!\.top \+ fr!\.height, fe!\.tapBelow\)/);
+});
+
+/* ── 10 · every visible piece is a part ─────────────────────────────────── */
+
+test('every piece the cover draws picks a part of its own (owner 2026-10-07: "every visible piece of the page must be a pickable part")', async () => {
+  const { HUB_HERO_ELEMENT_KEYS } = await import('./element-style');
+  const { MAKER_PARTS, MAKER_STAGE_PAGES, makerPartOfTap, HERO_EL_INSIDE } = await import('./maker-parts');
+  /* The one piece with no part yet — the cover photo's caption — is named here, so it stays visible as a gap. */
+  const GAPS = ['caption'];
+  for (const [stage, page] of [['save_the_date', 'home'], ['rsvp', 'home'], ['event', 'live']] as const) {
+    for (const el of HUB_HERO_ELEMENT_KEYS) {
+      if (GAPS.includes(el)) continue;
+      const k = makerPartOfTap(stage, page, 'f:hero', el);
+      assert.ok(k, `${stage} › ${page}: a tap on the cover's ${el} picks nothing`);
+      const want = HERO_EL_INSIDE[el] ?? el;
+      assert.equal(MAKER_PARTS[k!].el, want, `${stage} › ${page}: the cover's ${el} picks ${k}, not its own part`);
+      assert.ok((MAKER_STAGE_PAGES[stage] as Record<string, readonly string[]>)[page]!.includes(k!), `${k} is on ${stage} › ${page}`);
+    }
+  }
+  /* The two blocks that drew no marker — every tap on them was dead — now stand after one. */
+  const body = read('app/[slug]/_components/site-body.tsx');
+  assert.match(body, /\{makerMark\('f:details'\)\}\s*<PublicEventDetails/, 'THE DETAILS · WHEN · WHERE is a part');
+  assert.equal((body.match(/makerMark\('f:spotlight'\)/g) ?? []).length, 2, 'both Happening-now mounts are a part');
+  for (const [k, canvas] of [['details', 'f:details'], ['spotlight', 'f:spotlight']] as const) assert.equal(MAKER_PARTS[k].canvas, canvas);
+});
+
+test('the Reveal is FIRST on The Day › Live (and every page it leads) — before the Happening-now card, on the shown tab', async () => {
+  const { MAKER_STAGE_PAGES } = await import('./maker-parts');
+  for (const [stage, page] of [['save_the_date', 'home'], ['rsvp', 'home'], ['event', 'live']] as const) {
+    assert.equal((MAKER_STAGE_PAGES[stage] as Record<string, readonly string[]>)[page]![0], 'reveal', `${stage} › ${page} opens with the Reveal`);
+  }
+  const live = MAKER_STAGE_PAGES.event.live!;
+  assert.ok(live.indexOf('reveal') < live.indexOf('spotlight'), 'the Reveal comes before the Happening-now card');
+  const tools = read(`${LAUNCH}/stage-tools.tsx`);
+  assert.match(tools, /const first = \[\.\.\.doc\.querySelectorAll\('\[data-maker-section\]'\)\]\.find\(\(m\) => !m\.closest\('\[data-hub-tab\]\[hidden\]'\)\)/, 'drawn before the first SHOWN part');
+  assert.match(tools, /part\.nextElementSibling !== first\) \{\s*part\.remove\(\);/, 'a stub left lower down is moved back to the top');
+});
+
+test('the Reveal’s Look carries one switch per stage it can play on — the same drafted list Arrange writes', () => {
+  /* Owner 2026-10-07: "reveal will have a toggle for each stage it is at. to know where they want this to activate". */
+  const src = read(`${LAUNCH}/maker-reveal.tsx`);
+  assert.match(src, /data-reveal-stage-switches=""/);
+  assert.match(src, /\{REVEAL_STAGE_CHOICES\.map\(\(st\) => \([\s\S]{0,400}<PanelSwitch on=\{stages\.includes\(st\)\}[^>]*onChange=\{\(\) => toggleStage\(st\)\}/, 'each switch reads and writes the one stages list');
+  assert.match(src, /stages=\{stages\} toggleStage=\{toggleStage\}/, 'the Stages part is handed the picker’s own list and toggle');
+  assert.match(src, /const toggleStage = \(s: RevealStage\) => setStages\(revealStagesWith\(stages, s, !stages\.includes\(s\)\)\);/, 'one write: setStages');
+});
+
+test('the RSVP stage canvas never fills in or sends a reply — its fields are inert and a submit is stopped', () => {
+  /* Owner 2026-10-07: "it is the actual RSVP not an editing way". Nothing on this canvas may write an RSVP. */
+  const bridge = read('app/[slug]/_components/rsvp-canvas-bridge.tsx');
+  assert.match(bridge, /const INERT_FIELDS = 'input, textarea, select, label,/);
+  for (const ev of ['click', 'pointerdown', 'mousedown', 'keydown', 'beforeinput']) {
+    assert.match(bridge, new RegExp(`document\\.addEventListener\\('${ev}', on\\w+, true\\)`), `${ev} is caught on the canvas`);
+  }
+  assert.match(bridge, /const onSubmit = \(e: Event\) => \{\s*e\.preventDefault\(\);\s*e\.stopPropagation\(\);/, 'a submit is stopped before React reads it');
+  /* …and the bridge is only ever on the Maker's canvas: the reply page mounts it behind the host-verified `canvas`. */
+  assert.match(read('app/[slug]/invite/reply/page.tsx'), /\{canvas \? <RsvpCanvasBridge \/> : null\}/);
+  /* …and even a sample that reached the action writes nothing. */
+  assert.match(read('app/[slug]/invite/actions.ts'), /if \(guestId === SIMULATED_GUEST_ID\) \{/);
 });

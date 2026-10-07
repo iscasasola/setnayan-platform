@@ -45,7 +45,8 @@ import { MAKER_OPEN_PART_EVENT, MAKER_STAGE_PICK_EVENT, MAKER_STAGE_TOOL_EVENT, 
 import { makerPagePick, makerPageValue, makerStageLabel } from './maker-bar';
 import { StageItemMenu, type StagePageOption } from './stage-item-menu';
 /* ＋ ↕ 🗑 🎭 PR 3 — the part's edges, the ＋ sheet, the one confirm, the Reveal part (same lazy chunk). */
-import { PartEdits, RevealPartTools, RevealPlay, revealStageOf } from './add-part-sheet';
+import { PartEdits, RevealPartTools, RevealPlay, makerPartTopOnScreen, revealStageOf } from './add-part-sheet';
+import { partsInPageOrder } from '@/lib/maker-part-step';
 import { CameraPartTools, StagePlayStatus } from './details-lazy';
 
 import { makerPartLabelOn, makerPartOfCanvas, makerPartsWithAdded } from '@/lib/maker-part-groups';
@@ -102,7 +103,10 @@ function readPresent(): Set<string> {
     const doc = document.querySelector<HTMLIFrameElement>(SHOWN_FRAME)?.contentDocument;
     doc?.querySelectorAll('[data-maker-section]').forEach((m) => {
       const k = m.getAttribute('data-maker-section');
-      if (k) out.add(k);
+      if (!k) return;
+      out.add(k);
+      /* …and the parts that section drew (`canvas|el`), so a part it did not draw is never a tile. */
+      if (k === 'f:hero') findMakerSection(doc, k)?.querySelectorAll('[data-el]').forEach((p) => out.add(`${k}|${p.getAttribute('data-el')}`));
     });
     if (doc?.getElementById('site-entourage')) out.add('f:entourage');
     if (doc?.getElementById('site-story')) out.add('f:story');
@@ -325,6 +329,18 @@ export function StageTools({
     [askTool, rsvpOpen, screen],
   );
 
+  /* ── ↑ ↓ ✕ — the part above / below, and let go (owner 2026-10-07) ── */
+  const deselect = useCallback(() => {
+    setPicked(null);
+    openToolRef.current?.close();
+  }, []);
+  const deselectRef = useRef(deselect);
+  deselectRef.current = deselect;
+  /** The page's parts in their VISUAL order (measured on the canvas) — the order ↑ ↓ and the swipe walk. */
+  const ordered = useCallback(() => partsInPageOrder(parts, (k) => makerPartTopOnScreen(stageKey, k)), [parts, stageKey]);
+  const placeOf = picked ? ordered().indexOf(picked) : -1;
+  const isFirstPage = pages.findIndex((p) => p.key === shownPage) <= 0;
+  const isLastPage = pages.findIndex((p) => p.key === shownPage) >= pages.length - 1;
   /* A part tapped ON THE PAGE: the panel follows it (the work area has already opened its tools). */
   const where = useRef({ stageKey, shownPage });
   where.current = { stageKey, shownPage };
@@ -345,6 +361,8 @@ export function StageTools({
         if (makerStageMayType(attr, typeof d.key === 'string' ? d.key : '', typeof d.el === 'string' ? d.el : null)) setTyping(true);
       }
       else if (d.t === 'playDone') setPlaying(false);
+      /* A tap on the page's ground, between parts: let the picked part go (owner 2026-10-07). */
+      else if (d.t === 'tapOutside') deselectRef.current();
       else if (d.t === 'playSeq' && typeof d.phase === 'string') {
         const skipped = Array.isArray((d as { skipped?: unknown }).skipped)
           ? ((d as { skipped: unknown[] }).skipped.filter((x) => typeof x === 'string') as string[]).slice(0, 3)
@@ -425,7 +443,9 @@ export function StageTools({
         picked && !parts.includes(picked) && !rsvpOpen
           ? (pages.find((p) => tappableOn(p.key).includes(picked))?.key ?? shownPage)
           : shownPage;
-      const here = home === shownPage ? parts : tappableOn(home);
+      /* ↑ ↓ and the swipe walk the page in the order it is DRAWN (owner 2026-10-07: "the next element under it"). */
+      const drawnHere = home === shownPage ? ordered() : [];
+      const here = home === shownPage ? (drawnHere.length ? drawnHere : parts) : tappableOn(home);
       const r = makerStepPart({ parts: here, at: picked, pages: pages.map((p) => p.key), page: home, dir });
       if (!r) return;
       if (r.part) return pickPart(r.part);
@@ -435,7 +455,7 @@ export function StageTools({
         document.querySelector<HTMLElement>(`[data-rsvp-stage-scene="${r.page}"]`)?.click();
       } else onPickPage(makerPageValue(stage, r.page));
     },
-    [onPickPage, pages, parts, pickPart, picked, rsvpOpen, shownPage, stage, tappableOn],
+    [onPickPage, ordered, pages, parts, pickPart, picked, rsvpOpen, shownPage, stage, tappableOn],
   );
   /* The next page is on screen and its parts are read: pick its first (or, going back, its last). */
   useEffect(() => {
@@ -446,6 +466,21 @@ export function StageTools({
   }, [parts, pickPart]);
   const stepRef = useRef(step);
   stepRef.current = step;
+  /* ⌨ ↑ / ↓ step, Esc lets go — never while typing into a field or on the page. */
+  useEffect(() => {
+    if (!picked || typing) return;
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        step(e.key === 'ArrowDown' ? 1 : -1);
+      } else if (e.key === 'Escape') deselect();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [picked, typing, step, deselect]);
+
   useEffect(() => {
     let from: { x: number; y: number } | null = null;
     const down = (e: PointerEvent) => {
@@ -555,8 +590,14 @@ export function StageTools({
           part?.remove();
           return;
         }
+        /* 🎭 The Reveal is the FIRST thing on its page (DECISION_LOG 2026-10-06) — before every marked part, the
+           day's "Happening now" card included, and on the tab that is SHOWN (a tabbed canvas hides the others). */
+        const first = [...doc.querySelectorAll('[data-maker-section]')].find((m) => !m.closest('[data-hub-tab][hidden]')) ?? null;
+        if (part && first && part.nextElementSibling !== first) {
+          part.remove();
+          part = null;
+        }
         if (!part) {
-          const first = doc.querySelector('[data-maker-section]');
           if (!first?.parentElement) return;
           part = doc.createElement('section');
           part.setAttribute('data-maker-reveal-part', '');
@@ -798,7 +839,13 @@ export function StageTools({
       {open && cameraOpen ? <CameraPartTools /> : null}
       {revealPlaying && revealStage ? <RevealPlay stage={revealStage} onDone={() => setRevealPlaying(false)} /> : null}
       {/* ══ ＋ ↕ 🗑 — on the picked part's edges, over the page ══ */}
-      <PartEdits stage={stageKey} picked={open && !rsvpOpen && !cameraOpen ? picked : null} />
+      <PartEdits
+        stage={stageKey}
+        picked={open && !rsvpOpen && !cameraOpen ? picked : null}
+        onPrev={placeOf > 0 || (placeOf === 0 && !isFirstPage) ? () => step(-1) : null}
+        onNext={placeOf >= 0 && (placeOf < ordered().length - 1 || !isLastPage) ? () => step(1) : null}
+        onClose={deselect}
+      />
 
       {/* ══ THE GUEST'S TAB BAR, at the foot of the page preview — "You're editing · Invitation › Welcome" over it ══ */}
       {shellEl && !away

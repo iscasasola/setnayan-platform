@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { TILE_FREEZE_CSS } from '@/lib/maker-tile-preview';
 import { findMakerSection } from '@/app/[slug]/_components/maker-section-find';
+import { finishStreamedHtml } from './streamed-swap';
 
 /**
  * 🖼 A STYLE'S TRUE MINIATURE (owner 2026-10-07: *"should be a preview of the style
@@ -82,9 +83,14 @@ export function StylePreview({ canvasKey, sceneType, styleId, current }: { canva
         const d = frame.current?.contentDocument;
         const b = box.current;
         if (!d || !b || !d.body || d.location.href === 'about:blank') {
-          if (n > 100) window.clearInterval(id);
+          if (n > 300) {
+            window.clearInterval(id);
+            setEmpty(true);
+          }
           return;
         }
+        /* Script-less, the streamed page never moves its sections in — finish it from here. */
+        finishStreamedHtml(d);
         if (!d.querySelector('style[data-sn-mini]')) {
           const css = d.createElement('style');
           css.setAttribute('data-sn-mini', '');
@@ -94,8 +100,9 @@ export function StylePreview({ canvasKey, sceneType, styleId, current }: { canva
         const [key, el] = canvasKey.split('.');
         const section = findMakerSection(d, key!);
         const part = el ? (section?.querySelector<HTMLElement>(`[data-el="${el}"]`) ?? null) : section;
-        if (!part) {
-          if (n > 120) {
+        const drawn = part ? part.getBoundingClientRect() : null;
+        if (!part || !drawn || drawn.width < 1 || drawn.height < 1) {
+          if (n > 200) {
             window.clearInterval(id);
             setEmpty(true);
           }
@@ -103,7 +110,7 @@ export function StylePreview({ canvasKey, sceneType, styleId, current }: { canva
         }
         window.clearInterval(id);
         /* Fit the part's box into the card (contain, centred), a little room around it. */
-        const r = part.getBoundingClientRect();
+        const r = drawn;
         const pad = el ? 12 : 4;
         const w = Math.max(1, r.width + pad * 2);
         const h = Math.max(1, r.height + pad * 2);
@@ -142,6 +149,12 @@ export function StylePreview({ canvasKey, sceneType, styleId, current }: { canva
             transform: fit ? `translate(${fit.x}px, ${fit.y}px) scale(${fit.k})` : undefined,
           }}
         />
+      ) : null}
+      {/* Never a blank card: a quiet line while the page draws, and a plain one if it cannot. */}
+      {!fit ? (
+        <span data-style-preview-note="" className="absolute inset-0 grid place-items-center px-2 text-center text-[11px] leading-tight text-[var(--sp-ink2)]">
+          {empty ? 'Couldn’t draw this look' : 'Drawing…'}
+        </span>
       ) : null}
     </span>
   );

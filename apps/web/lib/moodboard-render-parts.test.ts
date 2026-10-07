@@ -202,7 +202,9 @@ test('no inspiration slot both feeds a room/people part AND becomes a place of i
 /* ── the join MB8 needs ──────────────────────────────────────────────────── */
 
 test('a part knows which inspiration uploads condition it', () => {
-  assert.deepEqual(inspirationSlotsForPart('room:tables'), ['table']);
+  // 💐 Centrepieces stand on the tables, the bouquet is the bride's (step 4c, 2026-10-07).
+  assert.deepEqual(inspirationSlotsForPart('room:tables'), ['table', 'centrepieces']);
+  assert.deepEqual(inspirationSlotsForPart('people:bride'), ['bridal_bouquet', 'bride']);
   assert.deepEqual(inspirationSlotsForPart('people:wedding_party'), ['entourage']);
   assert.deepEqual(inspirationSlotsForPart('people:guest'), ['guests']);
   assert.deepEqual(inspirationSlotsForPart('place:cake'), ['cake']);

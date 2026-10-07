@@ -151,10 +151,14 @@ const SLOT_ROLE: Record<MoodboardSlotKey, SlotRole> = {
   stage: { kind: 'alias_of_room', partId: 'stage' },
   ceiling: { kind: 'alias_of_room', partId: 'ceiling' },
   table: { kind: 'alias_of_room', partId: 'tables' },
+  // 💐 Centrepieces stand on the tables — the tables zone's references (step 4c).
+  centrepieces: { kind: 'alias_of_room', partId: 'tables' },
 
   // ── the same subject as an attire role ──
   groom: { kind: 'alias_of_people', paletteKey: 'groom' },
   bride: { kind: 'alias_of_people', paletteKey: 'bride' },
+  // 💐 The bouquet is the bride's — her references (step 4c).
+  bridal_bouquet: { kind: 'alias_of_people', paletteKey: 'bride' },
   principal_sponsor: { kind: 'alias_of_people', paletteKey: 'principal_sponsors' },
   entourage: { kind: 'alias_of_people', paletteKey: 'wedding_party' },
   parents: { kind: 'alias_of_people', paletteKey: 'parents_immediate_family' },

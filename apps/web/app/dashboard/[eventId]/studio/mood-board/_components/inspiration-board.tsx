@@ -104,6 +104,8 @@ const GROUPS: ReadonlyArray<{ title: string; slots: { k: string; label: string }
       { k: 'tunnel', label: 'Tunnel' },
       { k: 'cocktail', label: 'Cocktail hour' },
       { k: 'cake', label: 'Cake' },
+      { k: 'bridal_bouquet', label: 'Bridal bouquet' },
+      { k: 'centrepieces', label: 'Centrepieces' },
     ],
   },
   { title: 'Palette', slots: [{ k: 'palette', label: 'Palette source' }] },

@@ -24,7 +24,7 @@
 import type { WeddingTile } from './taxonomy';
 
 /**
- * 18 named slots. Grouped in the UI as Location feel (11) · Palette (1) ·
+ * 20 named slots. Grouped in the UI as Location feel (11) · Palette (1) ·
  * Dress codes (6) — see `_components/inspiration-board.tsx`.
  *
  * ⚠ `venue` is NOT renamed to `ceremony_venue`. Real rows carry that key from
@@ -41,6 +41,10 @@ export const MOODBOARD_SLOT_KEYS = [
   'flowers',
   'cocktail',
   'cake',
+  // 💐 Bridal bouquet · Centrepieces (owner 2026-10-06 "MOOD BOARD PARTS ADDED";
+  // slots made 2026-10-07, migration 20271265788160 — both DB gates widened).
+  'bridal_bouquet',
+  'centrepieces',
   'overall',
   'palette',
   'groom',

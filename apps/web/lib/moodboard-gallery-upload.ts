@@ -104,6 +104,8 @@ export const GALLERY_SLOT_LABEL: Readonly<
   flowers: 'Flowers',
   cocktail: 'Cocktail hour',
   cake: 'Cake',
+  bridal_bouquet: 'Bridal bouquet',
+  centrepieces: 'Centrepieces',
   overall: 'Overall styling',
   bride: 'Bridal gown / hair & make-up',
   groom: 'Groom’s attire',

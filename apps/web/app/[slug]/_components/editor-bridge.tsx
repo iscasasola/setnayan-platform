@@ -127,6 +127,19 @@ export function readMakerBar(doc: Document): unknown[] | null {
 
 /** Every section the canvas actually DREW, in page order — the navigator must equal this. */
 export function drawnMakerOrder(doc: Document): string[] {
+  /* 🧭 A tabbed Stages canvas draws each tab's groups and hides all but one: a scene on another tab is still
+     DRAWN (it is reached by switching tabs), so every group is shown for this one synchronous measure — no paint
+     happens in between — and put back. Never dropped from the navigator. */
+  const tucked = [...doc.querySelectorAll<HTMLElement>('[data-hub-tab][hidden]')];
+  tucked.forEach((g) => (g.hidden = false));
+  try {
+    return drawnOrderNow(doc);
+  } finally {
+    tucked.forEach((g) => (g.hidden = true));
+  }
+}
+
+function drawnOrderNow(doc: Document): string[] {
   const keys: string[] = [];
   const nodes = doc.querySelectorAll('[data-maker-section], #site-entourage, #site-story');
   nodes.forEach((n) => {
@@ -717,6 +730,19 @@ export function EditorBridge() {
         seqStop?.();
         seqStop = null;
         if (data.t === 'playStage') stage.start();
+        return;
+      }
+      if (data && data.source === 'setnayan-editor' && data.t === 'hubTab') {
+        /* 🧭 THE STAGES CANVAS'S TABS — each its own page, switched in place exactly as the guest's hub shell does
+           (`hub-shell.tsx` `showTab`): every group but the tab's is `hidden`, and the page starts at its top. */
+        const tab = (data as { tab?: unknown }).tab;
+        if (typeof tab !== 'string' || !tab) return;
+        const groups = document.querySelectorAll<HTMLElement>('[data-hub-tab]');
+        if (![...groups].some((g) => g.getAttribute('data-hub-tab') === tab)) return;
+        groups.forEach((g) => {
+          g.hidden = g.getAttribute('data-hub-tab') !== tab;
+        });
+        window.scrollTo({ top: 0, behavior: 'auto' });
         return;
       }
       if (!data || data.source !== 'setnayan-editor' || typeof data.key !== 'string') return;

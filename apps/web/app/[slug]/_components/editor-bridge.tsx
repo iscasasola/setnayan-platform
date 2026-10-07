@@ -746,7 +746,8 @@ export function EditorBridge() {
         /* 🧭 THE STAGES CANVAS'S TABS — each its own page, switched in place exactly as the guest's hub shell does
            (`hub-shell.tsx` `showTab`): every group but the tab's is `hidden`, and the page starts at its top —
            and STAYS there (`holdTop`): the Maker's page pick also asks for its first scene, which used to scroll
-           the fresh page down (owner 08 Oct: a tab "just jumps"). The Maker is told the tab that is on screen. */
+           the fresh page down (owner 2026-10-07: *"a bookmark on a single page that just jumps. this was not the
+           plan"*). The Maker is told the tab that is on screen. */
         const tab = (data as { tab?: unknown }).tab;
         if (typeof tab !== 'string' || !tab) return;
         /* 🔥 A stage warmed BEHIND the canvas is not on screen: a tab picked on the page in front is not for it

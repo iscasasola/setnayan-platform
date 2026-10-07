@@ -291,6 +291,12 @@ export function StageTools({
         const was = tabRef.current;
         if (was?.stage === stage && was.tab !== d.tab) window.setTimeout(() => from.postMessage({ source: 'setnayan-editor', t: 'hubTab', key: '', tab: was.tab, keep: true }, window.location.origin), 80);
         else setCanvasTab({ stage, tab: d.tab });
+        /* …and whatever came of it, the label ends on the tab the page really shows (a page that could not be put
+           back is never named as if it were on screen). */
+        window.setTimeout(() => {
+          const now = readCanvasTab(stage);
+          if (now) setCanvasTab((c) => (c?.stage === stage && c.tab === now ? c : { stage, tab: now }));
+        }, 500);
       }
     };
     window.addEventListener('message', onTab);

@@ -175,7 +175,7 @@ export function HomeFirstScreen({
     <section
       data-home-first-screen
       aria-label="Home"
-      className="mx-auto flex w-full max-w-xl flex-col gap-3 lg:max-w-3xl"
+      className="flex w-full flex-col gap-3"
     >
       {/* 📋 EVENT DETAILS sits beside the name, on the cover (owner 2026-10-01,
           "EVENT DETAILS LIVES ON EVENT HOME") — the one information-only sheet. */}
@@ -185,7 +185,12 @@ export function HomeFirstScreen({
         data-home-cover={ground?.kind ?? 'colour'}
         /* Full-bleed on a phone, under the top bar (the prototype's `.cover{margin:0 -16px}` —
            the event layout's gutter is px-4 / pt-3); a rounded band from `sm` up. */
-        className={`relative -mx-4 -mt-3 flex items-end justify-between gap-3 overflow-hidden px-4 pb-[18px] pt-[22px] sm:mx-0 sm:mt-0 sm:rounded-2xl ${ground ? '' : 'bg-mulberry text-cream'}`}
+        /* 📐 A FULL-WIDTH BAND AT EVERY WIDTH (owner 2026-10-07: "i thought this will be
+           changed to full width"): it cancels the event layout's own gutter (px-4 · sm:px-6 ·
+           lg:px-8, pt-3 · sm:pt-6) and pads by the same amount, so it runs edge to edge of
+           the content area, square-edged, with its words on the page's gutter. The cards
+           below keep their column (`data-home-column`). */
+        className={`relative -mx-4 -mt-3 flex items-end justify-between gap-3 overflow-hidden px-4 pb-[18px] pt-[22px] sm:-mx-6 sm:-mt-6 sm:px-6 lg:-mx-8 lg:px-8 ${ground ? '' : 'bg-mulberry text-cream'}`}
         style={ground ? { background: ground.kind === 'paper' ? ground.background : undefined, color: ground.ink } : undefined}
       >
         {ground?.kind === 'image' ? (
@@ -208,139 +213,142 @@ export function HomeFirstScreen({
         </span>
       </div>
 
-      {/* ① THE ONE NEXT CARD — the shared `NextCard`, drawn with the button rule's row:
-          the main verb (+ 📅 Later). An unread guest list is SAID here, with ⟳ Reload (H3). */}
-      <NextCard
-        marker="data-home-next"
-        kind={next.kind}
-        title={next.title}
-        body={next.body}
-        action={next.action}
-        href={nextHref(next.kind, eventId)}
-        bad={next.kind === 'unread'}
-        actions={
-          <>
-            {nextMain}
-            {next.offer ? (
-              /* 🧭 The once-offer's Later answers it — the shipped tour action, no new one. */
-              <form action={completeTour.bind(null, HUB_SETUP_OFFER_TOUR)} className="contents">
-                <ActionButton type="submit" tone="neutral" icon={CalendarDays} label="Later" data-testid="home-next-later" />
-              </form>
-            ) : next.kind !== 'unread' ? (
-              <HomeLater eventId={eventId} kind={next.kind} />
-            ) : null}
-          </>
-        }
-      />
+      <div data-home-column className="mx-auto flex w-full max-w-xl flex-col gap-3 lg:max-w-3xl">
 
-      {/* ② THE THREE DOORS (owner 2026-10-07: "maybe add the 3 buttons. Edit your
-          Gueslist, Edit your Suppliers, Edit your Event Hub") — the bottom bar's icons. */}
-      <HomeDoorways eventId={eventId} navSlots={doorSlots(navSlots)} />
-
-      {/* ③ THREE NUMBERS — counted (`Count`); "—" when unread, never 0. */}
-      <div className="home-nums" data-home-numbers>
-        <Link href={`/dashboard/${eventId}/details`} className="home-tile" data-home-days="">
-          <div className={`home-v${typeof figures?.days === 'number' || /^[\d,—]+$/.test(days.value) ? '' : ' home-v-word'}`}>
-            <Figure n={figures?.days} word={days.value} id="home-days" />
-          </div>
-          <div className="home-k">{days.label}</div>
-        </Link>
-        {guestsUnread ? (
-          <div className="home-tile home-tile-bad col-span-2" data-home-guests-unread="">
-            <div className="text-[14.5px] font-semibold leading-snug" style={{ color: 'rgb(var(--color-danger))' }}>
-              Guest counts couldn&rsquo;t load
-            </div>
-            <div className="home-s mb-1.5">Not zero — unread.</div>
-            <HomeReload />
-          </div>
-        ) : (
-          <>
-            <Link href={`/dashboard/${eventId}/guests`} className="home-tile">
-              <div className="home-v">
-                <Figure n={figures?.coming} word={coming} id="home-coming" />
-              </div>
-              <div className="home-k">coming</div>
-            </Link>
-            <Link href={`/dashboard/${eventId}/guests`} className="home-tile">
-              {/* Plain ink, as the prototype draws it — the count speaks; no alarm colour. */}
-              <div className="home-v" data-waiting={noReplyWaiting ? '' : undefined}>
-                <Figure n={figures?.noReply} word={noReply} id="home-noreply" />
-              </div>
-              <div className="home-k">no reply</div>
-            </Link>
-          </>
-        )}
-      </div>
-
-      {/* ④ THE MONEY — opens the budget, which lives in Suppliers now (owner 2026-10-07, H6).
-          Absent only when not shared; an unread read is SAID (H3). */}
-      {money ? (
-        moneyUnread ? (
-          <div className="home-card home-card-bad" data-home-money="" data-money="">
-            <div className="font-semibold" style={{ color: 'rgb(var(--color-danger))' }}>
-              Money couldn&rsquo;t load
-            </div>
-            <div className="home-s mb-1.5">Paid and still owing are unread — not zero.</div>
-            <HomeReload />
-          </div>
-        ) : (
-          <Link
-            href={`/dashboard/${eventId}/vendors?part=budget`}
-            data-home-money
-            /* 💾 Money is never kept as last-seen data (lib/last-seen). */
-            data-money=""
-            className="home-card block"
-          >
-            <div className="home-money">
-              <div>
-                <div className="home-k">Paid</div>
-                <div className="home-v">{m ? <Count value={m.paid} format="peso" id="home-paid" /> : money.paid}</div>
-              </div>
-              <div className="text-right">
-                <div className="home-k">Still owing</div>
-                <div className="home-v">{m ? <Count value={m.owing} format="peso" id="home-owing" /> : money.owing}</div>
-              </div>
-            </div>
-            <div className="home-meter">
-              <Fill value={paidPct ?? 0} id="home-paid" />
-            </div>
-            <div className="home-s mt-1.5 text-[12.5px]">
-              {paidPct !== null ? (
-                <>
-                  <Count value={paidPct} format="pct" id="home-paid-pct" /> paid ·{' '}
-                </>
+        {/* ① THE ONE NEXT CARD — the shared `NextCard`, drawn with the button rule's row:
+            the main verb (+ 📅 Later). An unread guest list is SAID here, with ⟳ Reload (H3). */}
+        <NextCard
+          marker="data-home-next"
+          kind={next.kind}
+          title={next.title}
+          body={next.body}
+          action={next.action}
+          href={nextHref(next.kind, eventId)}
+          bad={next.kind === 'unread'}
+          actions={
+            <>
+              {nextMain}
+              {next.offer ? (
+                /* 🧭 The once-offer's Later answers it — the shipped tour action, no new one. */
+                <form action={completeTour.bind(null, HUB_SETUP_OFFER_TOUR)} className="contents">
+                  <ActionButton type="submit" tone="neutral" icon={CalendarDays} label="Later" data-testid="home-next-later" />
+                </form>
+              ) : next.kind !== 'unread' ? (
+                <HomeLater eventId={eventId} kind={next.kind} />
               ) : null}
-              opens your budget in Suppliers
+            </>
+          }
+        />
+
+        {/* ② THE THREE DOORS (owner 2026-10-07: "maybe add the 3 buttons. Edit your
+            Gueslist, Edit your Suppliers, Edit your Event Hub") — the bottom bar's icons. */}
+        <HomeDoorways eventId={eventId} navSlots={doorSlots(navSlots)} />
+
+        {/* ③ THREE NUMBERS — counted (`Count`); "—" when unread, never 0. */}
+        <div className="home-nums" data-home-numbers>
+          <Link href={`/dashboard/${eventId}/details`} className="home-tile" data-home-days="">
+            <div className={`home-v${typeof figures?.days === 'number' || /^[\d,—]+$/.test(days.value) ? '' : ' home-v-word'}`}>
+              <Figure n={figures?.days} word={days.value} id="home-days" />
             </div>
+            <div className="home-k">{days.label}</div>
           </Link>
-        )
-      ) : null}
+          {guestsUnread ? (
+            <div className="home-tile home-tile-bad col-span-2" data-home-guests-unread="">
+              <div className="text-[14.5px] font-semibold leading-snug" style={{ color: 'rgb(var(--color-danger))' }}>
+                Guest counts couldn&rsquo;t load
+              </div>
+              <div className="home-s mb-1.5">Not zero — unread.</div>
+              <HomeReload />
+            </div>
+          ) : (
+            <>
+              <Link href={`/dashboard/${eventId}/guests`} className="home-tile">
+                <div className="home-v">
+                  <Figure n={figures?.coming} word={coming} id="home-coming" />
+                </div>
+                <div className="home-k">coming</div>
+              </Link>
+              <Link href={`/dashboard/${eventId}/guests`} className="home-tile">
+                {/* Plain ink, as the prototype draws it — the count speaks; no alarm colour. */}
+                <div className="home-v" data-waiting={noReplyWaiting ? '' : undefined}>
+                  <Figure n={figures?.noReply} word={noReply} id="home-noreply" />
+                </div>
+                <div className="home-k">no reply</div>
+              </Link>
+            </>
+          )}
+        </div>
 
-      {/* ⑤ WHAT'S NEXT — the one row; it unfolds in place (H7), no sheet. */}
-      {whatsNext ?? <HomeWhatsNext open={null} rows={[]} checklist={{ href: `/dashboard/${eventId}/checklist`, pct: null }} />}
+        {/* ④ THE MONEY — opens the budget, which lives in Suppliers now (owner 2026-10-07, H6).
+            Absent only when not shared; an unread read is SAID (H3). */}
+        {money ? (
+          moneyUnread ? (
+            <div className="home-card home-card-bad" data-home-money="" data-money="">
+              <div className="font-semibold" style={{ color: 'rgb(var(--color-danger))' }}>
+                Money couldn&rsquo;t load
+              </div>
+              <div className="home-s mb-1.5">Paid and still owing are unread — not zero.</div>
+              <HomeReload />
+            </div>
+          ) : (
+            <Link
+              href={`/dashboard/${eventId}/vendors?part=budget`}
+              data-home-money
+              /* 💾 Money is never kept as last-seen data (lib/last-seen). */
+              data-money=""
+              className="home-card block"
+            >
+              <div className="home-money">
+                <div>
+                  <div className="home-k">Paid</div>
+                  <div className="home-v">{m ? <Count value={m.paid} format="peso" id="home-paid" /> : money.paid}</div>
+                </div>
+                <div className="text-right">
+                  <div className="home-k">Still owing</div>
+                  <div className="home-v">{m ? <Count value={m.owing} format="peso" id="home-owing" /> : money.owing}</div>
+                </div>
+              </div>
+              <div className="home-meter">
+                <Fill value={paidPct ?? 0} id="home-paid" />
+              </div>
+              <div className="home-s mt-1.5 text-[12.5px]">
+                {paidPct !== null ? (
+                  <>
+                    <Count value={paidPct} format="pct" id="home-paid-pct" /> paid ·{' '}
+                  </>
+                ) : null}
+                opens your budget in Suppliers
+              </div>
+            </Link>
+          )
+        ) : null}
 
-      {/* ⑥ YOUR SERVICES — compact, one line each; never the one that is Next. */}
-      {services.length > 0 ? (
-        <nav aria-label="Your services" data-home-services className="flex flex-col">
-          <p className="home-k2 !mt-1">Your services</p>
-          <div className="home-svc">
-            {services.map((svc) => {
-              const Icon = SERVICE_ICON[svc.key];
-              return (
-                <Link key={svc.key} href={serviceHref(svc.key, eventId)} data-home-service={svc.key} className="home-tile">
-                  <span className="home-t">
-                    <Icon aria-hidden strokeWidth={1.9} />
-                    <span className="truncate">{svc.name}</span>
-                  </span>
-                  {/* The Setnayan name, small under the plain one (owner d17). */}
-                  {svc.brand ? <span className="block truncate text-[11px] text-ink/50">{svc.brand}</span> : null}
-                  <span className="block truncate text-[12.5px] text-ink/60">{svc.status}</span>
-                </Link>
-              );
-            })}
-          </div>
-        </nav>
-      ) : null}
+        {/* ⑤ WHAT'S NEXT — the one row; it unfolds in place (H7), no sheet. */}
+        {whatsNext ?? <HomeWhatsNext open={null} rows={[]} checklist={{ href: `/dashboard/${eventId}/checklist`, pct: null }} />}
+
+        {/* ⑥ YOUR SERVICES — compact, one line each; never the one that is Next. */}
+        {services.length > 0 ? (
+          <nav aria-label="Your services" data-home-services className="flex flex-col">
+            <p className="home-k2 !mt-1">Your services</p>
+            <div className="home-svc">
+              {services.map((svc) => {
+                const Icon = SERVICE_ICON[svc.key];
+                return (
+                  <Link key={svc.key} href={serviceHref(svc.key, eventId)} data-home-service={svc.key} className="home-tile">
+                    <span className="home-t">
+                      <Icon aria-hidden strokeWidth={1.9} />
+                      <span className="truncate">{svc.name}</span>
+                    </span>
+                    {/* The Setnayan name, small under the plain one (owner d17). */}
+                    {svc.brand ? <span className="block truncate text-[11px] text-ink/50">{svc.brand}</span> : null}
+                    <span className="block truncate text-[12.5px] text-ink/60">{svc.status}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </nav>
+        ) : null}
+      </div>
     </section>
   );
 }

@@ -17,6 +17,7 @@ import {
 import { PickMenu } from '../../../website/editor/_components/pick-menu';
 import type { PickOption } from '../../../website/editor/_components/pick-menu-types';
 import { useStagePanelNow } from './store';
+import { MAKER_PARTS, type MakerPartKey } from '@/lib/maker-parts';
 
 /**
  * 🧩 THE PROTOTYPE'S PIECES, IN REACT (`maker_two_dropdowns_owner_wireframe_2026-10-06_fable.html`):
@@ -147,13 +148,15 @@ export function Dir({ on, glyph, label, onPick }: { on: boolean; glyph: string; 
  * and this is the only door there. The part's own sentence sits behind ⓘ beside it.
  */
 export function QuietBar() {
-  const { quiet, about } = useStagePanelNow();
+  const { quiet, about, picked } = useStagePanelNow();
+  const name = picked && picked in MAKER_PARTS ? MAKER_PARTS[picked as MakerPartKey].label : null;
   if (!quiet && !about) return null;
-  /* No door to name: the part's own sentences are SAID, never a row holding only an ⓘ (owner, the pass). */
+  /* No door to name: the part's NAME heads the row and its sentences sit behind ⓘ — once, never a row holding
+     only an ⓘ (owner, the pass: "a lone ⓘ" → "the copy appears once, behind ⓘ"). */
   if (!quiet) {
     return (
-      <div className="flex shrink-0 items-start gap-1.5 py-1" data-stage-quiet-row="" data-stage-quiet-words="">
-        <div className="line-clamp-2 min-w-0 flex-1 px-1 text-[12.5px] leading-snug text-[var(--sp-mute)]">{about}</div>
+      <div className="flex h-11 shrink-0 items-center gap-1.5" data-stage-quiet-row="" data-stage-quiet-name="">
+        <span className="min-w-0 flex-1 truncate px-1 text-[13px] font-semibold text-[var(--sp-ink2)]">{name ?? 'This part'}</span>
         <About label="this part">{about}</About>
       </div>
     );

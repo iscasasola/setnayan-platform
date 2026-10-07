@@ -46,7 +46,8 @@ import { makerPagePick, makerPageValue, makerStageLabel } from './maker-bar';
 import { StageItemMenu, type StagePageOption } from './stage-item-menu';
 /* ＋ ↕ 🗑 🎭 PR 3 — the part's edges, the ＋ sheet, the one confirm, the Reveal part (same lazy chunk). */
 import { PartEdits, RevealPartTools, RevealPlay, revealStageOf } from './add-part-sheet';
-import { CameraPartTools } from './stage-panel/camera-look';
+import { CameraPartTools, StagePlayStatus } from './details-lazy';
+
 import { makerPartLabelOn, makerPartOfCanvas, makerPartsWithAdded } from '@/lib/maker-part-groups';
 
 /**
@@ -215,6 +216,8 @@ export function StageTools({
   const revealOpen = picked === 'reveal' && revealStage !== null;
   /* 🎛 …and so are the Camera's (its three looks, owner 2026-10-06/07). */
   const cameraOpen = picked === 'camera' && !rsvpOpen;
+  /** A part whose only tool is Style (the pass is a guest's own card: no words or motion of its own to set). */
+  const styleOnly = revealOpen || cameraOpen || rsvpOpen || picked === 'pass';
   const [revealPlaying, setRevealPlaying] = useState(false);
   const open = (openTool !== null || revealOpen || cameraOpen) && !typing && !playing;
   /* ↕ THE PANEL'S HEIGHT (prototype `.lt`, owner 2026-10-06 "the toolbar is half the screen"):
@@ -670,37 +673,7 @@ export function StageTools({
 
       {/* ══ ▶ WHAT IS PLAYING — Build in · Action · Build out, the one now in bold, and any phase the part has none of
           named ("Build out: none"), so a blank never reads as a fault. Shown over the page while it plays. ══ */}
-      {seq && (playing || seq.skipped.length > 0) && typeof document !== 'undefined'
-        ? createPortal(
-            <div
-              data-stage-play-status={seq.phase}
-              role="status"
-              className="pointer-events-none fixed inset-x-4 z-[95] mx-auto max-w-[360px] rounded-xl bg-[rgba(44,42,41,.88)] px-3 py-2 text-center text-[12px] leading-snug text-white lg:hidden"
-              style={{ bottom: 'calc(var(--maker-lt-h, 62px) + 12px)' }}
-            >
-              <span className="block">
-                {(
-                  [
-                    ['in', 'Build in'],
-                    ['act', 'Action'],
-                    ['out', 'Build out'],
-                  ] as const
-                ).map(([k, w], i) => (
-                  <span key={k} className={seq.phase === k ? 'font-bold text-white' : 'text-white/60'}>
-                    {i ? ' · ' : ''}
-                    {w}
-                  </span>
-                ))}
-              </span>
-              {seq.skipped.map((x) => (
-                <span key={x} className="block text-white/75" data-stage-play-skipped="">
-                  {x}
-                </span>
-              ))}
-            </div>,
-            document.body,
-          )
-        : null}
+      {seq && (playing || seq.skipped.length > 0) ? <StagePlayStatus phase={seq.phase} skipped={seq.skipped} /> : null}
 
       {/* ══ ↕ THE GRAB — 44 × 5 in a 14 px strip; the tap reaches 15 px above and below ══ */}
       <button
@@ -760,9 +733,9 @@ export function StageTools({
                 {i > 0 ? <span aria-hidden className="mx-px h-5 w-px bg-[var(--sp-line2)]" /> : null}
                 <button
                   type="button"
-                  aria-pressed={open && (revealOpen || cameraOpen || rsvpOpen ? t === 'style' : tool === t)}
-                  /* The Reveal, the Camera and the RSVP stage's three screens have no Text or Animate saves of their own. */
-                  disabled={(revealOpen || cameraOpen || rsvpOpen) && t !== 'style'}
+                  aria-pressed={open && (styleOnly ? t === 'style' : tool === t)}
+                  /* The Reveal, the Camera, the Digital pass and the RSVP stage's three screens have no Text or Animate saves of their own. */
+                  disabled={styleOnly && t !== 'style'}
                   aria-label={MAKER_PART_TOOL_LABEL[t]}
                   title={MAKER_PART_TOOL_LABEL[t]}
                   data-stage-tool={t}

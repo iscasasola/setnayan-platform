@@ -7,7 +7,8 @@ import { passDesignDraftPatch } from '@/lib/pass-design-save';
 import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { hubDraftAction } from '../../website/hub-draft-actions';
 import { PrintPreview } from './print-preview';
-import { SP_LAYOUT_CARD } from '@/lib/maker-stage-room';
+import { SP_LAYOUT_CARD, spCardWidth } from '@/lib/maker-stage-room';
+import { PASS_CARD_PX } from '@/lib/pass-card';
 
 /**
  * 🎫 THE TICKET STYLE — ONE dropdown (Classic · Ticket · Photo poster) and
@@ -96,7 +97,7 @@ export function PassCardDesignPicker({
           {PASS_CARD_DESIGNS.map((d) => {
             const on = d === shown;
             return (
-              <button key={d} type="button" role="radio" aria-checked={on} data-style-card={d} data-pass-card-design-pick={d} onClick={() => pick(d)} className={SP_LAYOUT_CARD}>
+              <button key={d} type="button" role="radio" aria-checked={on} data-style-card={d} data-pass-card-design-pick={d} onClick={() => pick(d)} className={SP_LAYOUT_CARD} style={spCardWidth(PASS_CARD_PX.w / PASS_CARD_PX.h)}>
                 <span
                   data-style-card-preview=""
                   className={`relative block h-[104px] shrink-0 overflow-hidden rounded-lg bg-[var(--sp-page)] ${

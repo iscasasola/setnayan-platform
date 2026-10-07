@@ -111,7 +111,7 @@ test('an EXISTING hangout stored the old way shows its one date', () => {
 test('Home and the Event Hub cover read the event through withPickedDate', () => {
   const root = join(__dirname, '..', '..');
   const home = readFileSync(join(root, 'app/dashboard/[eventId]/page.tsx'), 'utf8');
-  assert.match(home, /const event = withPickedDate\(eventRes\.data\)/);
+  assert.match(home, /const event = eventRes\.data \? withPickedDate\(eventRes\.data\) : null;/);
   assert.match(home, /leanSelect =\s*'[^']*\bdate_candidates\b/);
   const shell = readFileSync(join(root, 'app/[slug]/_lib/loaders.ts'), 'utf8');
   assert.match(shell, /return data \? withPickedDate\(data\) : data;/);

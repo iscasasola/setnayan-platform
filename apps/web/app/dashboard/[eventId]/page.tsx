@@ -188,11 +188,11 @@ export default async function EventHomePage({
     return leanRes;
   })();
 
-  if (!eventRes.data) notFound();
   // 📅 ONE PICKED DATE IS THE DATE (owner 2026-10-08): an event created before
   // the write was fixed holds its one picked day in `date_candidates` with
   // `event_date` null — read it as the date, the way a new one is stored.
-  const event = withPickedDate(eventRes.data);
+  const event = eventRes.data ? withPickedDate(eventRes.data) : null;
+  if (!event) notFound();
 
   const isNikahEvent = isMuslimWedding({
     ceremony_type: (event as { ceremony_type?: string | null }).ceremony_type ?? null,

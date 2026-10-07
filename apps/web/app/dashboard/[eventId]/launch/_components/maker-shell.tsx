@@ -46,7 +46,6 @@ import {
 import { DETAILS_FIRST_ITEM, DETAILS_LT_SECTION_FIRST, detailsLtSection, movedPageItem, type DetailsItemKey, type DetailsLtSection } from '@/lib/maker-details-items';
 import { makerGuestPages } from '@/lib/maker-guest-pages';
 import { SEE_AS, SEE_AS_EDITING, type SeeAs } from '@/lib/see-as';
-import { MakerTour } from './maker-tour';
 import { MAKER_PLAY_SCENE_EVENT, PreviewStageLink } from './maker-play-menu';
 import { MAKER_OPEN_RESET_EVENT } from '../../website/_components/maker-open-reset';
 import { MakerPage } from './maker-page';
@@ -90,7 +89,7 @@ import { useMakerTool, type MakerEventBar, type MakerTool } from './maker-contex
 import type { MakerSide } from './maker-bar';
 import { PickSheetContext, type PickSheet } from '../../website/editor/_components/pick-menu-place';
 /* 🧭 The new Maker's own chrome — lazy, so the shipped Maker's first load carries none of it. */
-import { LowerThirdGrab, MakerSheet, StageTools, StudioCover, StudioSideSwitch, StudioToolMenu, StudioToolRow } from './details-lazy';
+import { LowerThirdGrab, MakerSheet, MakerTour, StageTools, StudioBackToPart, StudioCover, StudioSideSwitch, StudioToolMenu, StudioToolRow } from './details-lazy';
 import { MAKER_LT_HALF } from '@/lib/maker-phone-room';
 import { detailsItemLayout } from '@/lib/maker-details-items';
 import { studioTileItem, type StudioTileKey } from '@/lib/studio-tile-defs';
@@ -741,33 +740,9 @@ export function MakerShell({
   /* 🎯 THE STYLE BAR'S JUMP (owner 2026-10-07: *"opens to the exact place where to edit it"* · *"if we did a jump,
      we need a way to apply and return to where we were editing"*): the field is brought into view and focused
      once the editor has drawn it; "✓ Done · back to <part>" returns to the same stage and part (the edit stays
-     in the draft — the top ✓ still publishes). */
+     in the draft — the top ✓ still publishes). ⚡ The focusing and the button are `StudioBackToPart`, in the lazy
+     chunk (`details-lazy.tsx`) — they exist only after a Style-bar jump, so they never ride the Maker's first load. */
   const [studioFrom, setStudioFrom] = useState<{ label: string; focus: string | null } | null>(null);
-  const focusSel = studioFrom?.focus ?? null;
-  useEffect(() => {
-    if (!focusSel || side !== 'studio') return;
-    let n = 0;
-    const id = window.setInterval(() => {
-      n += 1;
-      const el = document.querySelector<HTMLElement>(`[data-maker-shell] :is(${focusSel})`);
-      /* A field inside a folded row (Studio › Info's "Event name · …") asks that row to open first. */
-      if (el && el.offsetParent === null) el.closest('[data-studio-event-name]')?.setAttribute('data-focus-pending', '');
-      if (el && el.offsetParent !== null) {
-        window.clearInterval(id);
-        el.scrollIntoView({ block: 'center', behavior: 'smooth' });
-        el.focus({ preventScroll: true });
-      } else if (n > 40) window.clearInterval(id);
-    }, 100);
-    return () => window.clearInterval(id);
-  }, [focusSel, side, studioAt]);
-  const [studioHasFoot, setStudioHasFoot] = useState(false);
-  useEffect(() => {
-    if (!studioFrom) return;
-    const look = () => setStudioHasFoot(Boolean(document.querySelector('[data-maker-shell] :is([data-studio-day], [data-moment-order-cards])')));
-    look();
-    const id = window.setInterval(look, 500);
-    return () => window.clearInterval(id);
-  }, [studioFrom, studioAt]);
   const backToPart = () => {
     setStudioFrom(null);
     pickSide('stages');
@@ -1178,19 +1153,7 @@ export function MakerShell({
         </div>
 
         {/* 🎯 Opened from a part's Style bar: the way back, in the thumb's reach, just above the editor. */}
-        {studioFull && studioFrom ? (
-          <button
-            type="button"
-            data-maker-studio-back=""
-            onClick={backToPart}
-            /* Above an editor's own pinned foot (the Schedule's / Love Story's "Add a moment", ~64 px). */
-            style={{ bottom: `calc(var(--maker-lt-h) + env(safe-area-inset-bottom) + ${studioHasFoot ? 76 : 8}px)` }}
-            className="sn-press absolute left-1/2 z-[45] inline-flex h-11 -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full bg-success-600 px-5 text-[14px] font-bold text-cream shadow-[0_10px_24px_-12px_rgba(0,0,0,.5)] hover:bg-success-700 lg:hidden"
-          >
-            <Check aria-hidden className="h-4 w-4" strokeWidth={2.6} />
-            Done · back to {studioFrom.label}
-          </button>
-        ) : null}
+        {studioFrom ? <StudioBackToPart from={studioFrom} side={side} at={studioAt} full={studioFull} onBack={backToPart} /> : null}
         {/* ══ 🧰 THE LOWER THIRD ══ (phone) — where you are · the navigator; a tool
             open folds them into the left column and takes the rest. It REPLACES
             the bottom bar (Page ▾ · Look · Event Details) and the canvas's

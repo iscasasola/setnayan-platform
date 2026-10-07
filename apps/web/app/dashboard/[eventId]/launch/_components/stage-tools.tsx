@@ -37,7 +37,7 @@ import { MAKER_LT_SIZE_KEY, MAKER_LT_TAP_PX } from '@/lib/maker-lt-size';
 import { fixedOfKey, fixedScenePanel } from '@/lib/maker-selection';
 import { makerPartStudioDoor, makerStagePickedAttr, makerStageMayType } from '@/lib/maker-parts';
 import { findMakerSection } from '@/app/[slug]/_components/maker-section-find';
-import { shownHubTab } from '@/app/[slug]/_components/hub-tab-dom';
+import { showHubTab, shownHubTab } from '@/app/[slug]/_components/hub-tab-dom';
 import { setStagePanelNow, setStageRevealColours, useStageRevealLook, type StageQuiet } from './stage-panel/store';
 import { revealStubHtml } from './stage-panel/reveal-picture';
 import type { StudioTileKey } from '@/lib/studio-tiles';
@@ -95,6 +95,9 @@ import { filedOnCanvas, firstMarkerOnPage, makerStagesPages } from '@/lib/maker-
 
 /** Where Style's quiet row last took the couple — the panel picks the same part when they come back (‹). */
 let resumeAt: { stage: MakerStageKey; page: string | null; part: MakerPartKey } | null = null;
+/** 🧭 The tab that was on screen when this panel last stood — it is put back when the couple returns from Studio
+ *  (the panel is not mounted there, and an edit made there reloads the canvas onto its first tab). */
+let lastTab: { of: string; stage: LifecyclePhase; tab: string } | null = null;
 
 const SHOWN_FRAME = 'iframe[data-maker-canvas-frame="shown"]';
 
@@ -137,6 +140,15 @@ function readCanvasTab(stage: LifecyclePhase): string | null {
     return shownHubTab(doc);
   } catch {
     return null;
+  }
+}
+
+/** Show `tab` on a canvas that just (re)loaded — its place untouched. False: that page is not there to show. */
+function putTabBack(canvas: Window, tab: string): boolean {
+  try {
+    return showHubTab(canvas.document, tab);
+  } catch {
+    return false;
   }
 }
 
@@ -206,7 +218,11 @@ export function StageTools({
   /** The page each drawn part is on, as the canvas filed it (`[data-hub-tab]`) — the canvas is the one truth. */
   const [filed, setFiled] = useState<Record<string, string>>({});
   /** 🧭 The tab the canvas has ON SCREEN, as the canvas said it (its `ready` and every switch) — never guessed. */
-  const [canvasTab, setCanvasTab] = useState<{ stage: LifecyclePhase; tab: string } | null>(null);
+  /* `suppliersHref` names the event: another event's Maker never opens on this one's last page. */
+  const [canvasTab, setCanvasTab] = useState<{ stage: LifecyclePhase; tab: string } | null>(lastTab?.of === suppliersHref ? lastTab : null);
+  lastTab = canvasTab ? { of: suppliersHref, stage: canvasTab.stage, tab: canvasTab.tab } : null;
+  const tabRef = useRef(canvasTab);
+  tabRef.current = canvasTab;
   const rootRef = useRef<HTMLDivElement>(null);
 
   /* ── where we are ── */
@@ -261,7 +277,11 @@ export function StageTools({
     /* 🧭 …and the tab it has on screen, off the page itself: this panel may mount after the canvas said `ready`
        (it is lazy), and a stage warmed behind the canvas is shown without saying it again. */
     const tab = readCanvasTab(stage);
-    if (tab) setCanvasTab((c) => (c?.stage === stage && c.tab === tab ? c : { stage, tab }));
+    const was = tabRef.current;
+    /* The canvas reloaded while this panel was away (Studio): the page the couple left is put back. */
+    const frame = document.querySelector<HTMLIFrameElement>(SHOWN_FRAME)?.contentWindow;
+    const putBack = Boolean(tab && was?.stage === stage && was.tab !== tab && frame && putTabBack(frame, was.tab));
+    if (tab && !putBack) setCanvasTab((c) => (c?.stage === stage && c.tab === tab ? c : { stage, tab }));
     const onReady = (e: MessageEvent) => {
       if (e.origin !== window.location.origin) return;
       const d = e.data as { source?: unknown; t?: unknown } | null;
@@ -272,12 +292,9 @@ export function StageTools({
   }, [stage, shownPage]);
 
   /* 🧭 THE TAB ON SCREEN IS THE CANVAS'S TO SAY. It says it when it loads (`ready`) and after every switch
-     (`hubTab`). A canvas that RELOADS comes back on its first tab and the work area re-sends the page IT holds —
-     which follows the scroll and the selection, so it may name another; the tab that was on screen is sent again
-     right after, last, so a reload never moves the couple off the page they were editing (`keep`: nor off their
-     place on it — the Maker carried the scroll over). */
-  const tabRef = useRef<{ stage: LifecyclePhase; tab: string } | null>(null);
-  tabRef.current = canvasTab;
+     (`hubTab`). A canvas that RELOADS comes back on its first tab: the tab that was on screen is put back at once
+     (`putTabBack`), so a reload never moves the couple off the page they were editing, nor off their place on it
+     (the Maker carries the scroll over right after). */
   useEffect(() => {
     const onTab = (e: MessageEvent) => {
       if (e.origin !== window.location.origin) return;
@@ -289,14 +306,11 @@ export function StageTools({
       if (d.t === 'hubTab') setCanvasTab({ stage, tab: d.tab });
       else if (d.t === 'ready') {
         const was = tabRef.current;
-        if (was?.stage === stage && was.tab !== d.tab) window.setTimeout(() => from.postMessage({ source: 'setnayan-editor', t: 'hubTab', key: '', tab: was.tab, keep: true }, window.location.origin), 80);
-        else setCanvasTab({ stage, tab: d.tab });
-        /* …and whatever came of it, the label ends on the tab the page really shows (a page that could not be put
-           back is never named as if it were on screen). */
-        window.setTimeout(() => {
-          const now = readCanvasTab(stage);
-          if (now) setCanvasTab((c) => (c?.stage === stage && c.tab === now ? c : { stage, tab: now }));
-        }, 500);
+        /* The page that was on screen is put back NOW, on the fresh page's own document — before the buffered
+           swap carries the scroll over (a task later), so the place is measured against the right page. A page
+           that could not be put back is never named as if it were on screen. */
+        if (was?.stage === stage && was.tab !== d.tab && putTabBack(from, was.tab)) return;
+        setCanvasTab({ stage, tab: d.tab });
       }
     };
     window.addEventListener('message', onTab);

@@ -170,6 +170,10 @@ export const StudioSideSwitch = dynamic(() => import(/* webpackChunkName: "maker
 });
 export const StudioToolMenu = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.StudioToolMenu), { loading: SlotButton });
 export const StudioToolRow = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.StudioToolRow), { loading: SlotNone });
+/* 🎓 "About the Maker" (Page ▾) — the tour is drawn only when the couple asks for it, never on a first open, so its
+   slides' frame and words load with the first ask (08 Oct: #6413's Maker first load was 0.4 KB over its budget). */
+export const MakerTour = dynamic(() => import(/* webpackChunkName: "maker-details" */ './maker-tour').then((m) => m.MakerTour), { loading: SlotNone });
+export const StudioBackToPart = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.StudioBackToPart), { loading: SlotNone });
 export const StudioCover = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.StudioCover), { loading: SlotFill });
 export const LowerThirdGrab = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.LowerThirdGrab), { loading: SlotNone });
 export const MakerSheet = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.MakerSheet), { loading: SlotNone });

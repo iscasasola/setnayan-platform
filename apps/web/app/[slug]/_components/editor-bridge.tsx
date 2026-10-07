@@ -26,7 +26,7 @@ import {
 } from '@/lib/element-style';
 import { postEventElementScope } from '@/lib/post-event-styles';
 import { findMakerSection, sectionAfter } from './maker-section-find';
-import { HUB_TAB_HOLD_MS, showHubTab, shownHubTab } from './hub-tab-dom';
+import { HUB_TAB_FREES, createPageTop, openHubTab, showHubTab, shownHubTab } from './hub-tab-dom';
 import { applySceneBgPreview, sanitizeSceneBgPreview } from './scene-bg-preview';
 import { applyButtonsPreview, sanitizeButtonsPreview } from './buttons-preview';
 import { applyPartRuns, applySceneRuns, type RunsDoc } from './part-runs';
@@ -60,8 +60,7 @@ import { playSequence } from './play-sequence';
  *   parent → frame  { source:'setnayan-editor', t:'sceneBg',  scenes:[{ key, classes, vars }] }
  *   parent → frame  { source:'setnayan-editor', t:'sceneShow', key, shown }
  *   frame  → parent { source:'setnayan-site',   t:'ready',    order, bar, tab }
- *   parent → frame  { source:'setnayan-editor', t:'hubTab',   tab, keep? } — 🧭 Stages: show that tab's page, from its top
- *                    (`keep`: the same page put back after a reload — its place is kept)
+ *   parent → frame  { source:'setnayan-editor', t:'hubTab',   tab } — 🧭 Stages: show that tab's page, from its top
  *   frame  → parent { source:'setnayan-site',   t:'hubTab',   tab } — the tab now on screen (after any switch)
  *   parent → frame  { source:'setnayan-editor', t:'refresh' } — 🖼 a pick the bridge cannot draw
  *                    was saved: the page re-renders itself in place (`router.refresh()`)
@@ -610,8 +609,16 @@ export function EditorBridge() {
           });
     /** ▶ The picked part's sequence now playing (`playSeq`) — stopped by the next one or by `playStop`. */
     let seqStop: (() => void) | null = null;
-    /** 🧭 Until when a page that just opened keeps its top (`hubTab`). */
-    let holdTop = 0;
+    /** 🔝 A page that just opened is held at its top until the couple touches it or picks a part (`createPageTop`). */
+    const pageTop = createPageTop(window);
+    const onPageScroll = () => void pageTop.onScroll();
+    const theirTouch = () => pageTop.release();
+    window.addEventListener('scroll', onPageScroll, { passive: true });
+    for (const t of ['pointerdown', 'touchstart', 'wheel', 'keydown'] as const) window.addEventListener(t, theirTouch, { passive: true, capture: true });
+    cleanups.push(() => {
+      window.removeEventListener('scroll', onPageScroll);
+      for (const t of ['pointerdown', 'touchstart', 'wheel', 'keydown'] as const) window.removeEventListener(t, theirTouch, { capture: true });
+    });
     /** ▶ The whole stage, scene after scene — the parent hears `playDone` when it ends. */
     const stage = (() => {
       let timer: number | null = null;
@@ -739,6 +746,7 @@ export function EditorBridge() {
         stage.stop(false);
         seqStop?.();
         seqStop = null;
+        pageTop.release();
         if (data.t === 'playStage') stage.start();
         return;
       }
@@ -753,17 +761,16 @@ export function EditorBridge() {
         /* 🔥 A stage warmed BEHIND the canvas is not on screen: a tab picked on the page in front is not for it
            (both stages have a Welcome) — it keeps its first page until it is shown. */
         if (window.frameElement?.getAttribute('data-maker-canvas-frame') === 'warm') return;
-        if (!showHubTab(document, tab)) return;
-        /* `keep`: the SAME page put back after the canvas reloaded (a style pick redraws it) — its place is the
-           one the Maker just carried over, so it is not sent to the top. A pick of a page always starts at the top. */
-        if ((data as { keep?: unknown }).keep !== true) {
-          window.scrollTo({ top: 0, behavior: 'auto' });
-          holdTop = Date.now() + HUB_TAB_HOLD_MS;
-        }
+        /* 🔝 From the top, the old page's resting place forgotten (`openHubTab`) — so the `settle` that follows a
+           tab tap (it closes the part being edited) cannot send the page back down. */
+        if (!openHubTab(document, window, lift, tab)) return;
+        pageTop.hold();
         window.parent?.postMessage({ source: 'setnayan-site', t: 'hubTab', tab }, origin);
         return;
       }
       if (!data || data.source !== 'setnayan-editor' || typeof data.key !== 'string') return;
+      /* 🔝 A part picked or played may be brought into view — the page is the couple's again. */
+      if (HUB_TAB_FREES.includes(data.t ?? '')) pageTop.release();
       if (data.t === 'typeText') {
         /* ✍ A Wording ▾ / Format ▾ pick, the other pane's keystroke, or a
            refused save's words put back — on the part now. */
@@ -865,7 +872,7 @@ export function EditorBridge() {
       }
       if (data.t === 'scrollTo') {
         /* 🧭 A page just opened stays at its top (see `hubTab`). */
-        if (Date.now() < holdTop) return;
+        if (pageTop.held()) return;
         /* 🧭 …and a scene on ANOTHER page is reached by opening its page first — never a scroll to a hidden part. */
         const here = shownHubTab(document);
         const away = here === null ? null : (el.closest('[data-hub-tab]')?.getAttribute('data-hub-tab') ?? null);

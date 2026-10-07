@@ -120,7 +120,13 @@ test('🍎 no event menu offers a door the app would refuse — in the shell, an
   }
 });
 
-test('🍎 the store-shell bar is the same five as the web — none blank, none repeated', () => {
+test('🍎 the store-shell bar is the web\'s bar minus an empty More — none blank, none repeated', () => {
+  /*
+    Owner 2026-10-08 (roadmap Level 1, "the app shows only owned services"):
+    with no service the event owns, the app draws NO More tab — never a dead
+    one. The other four pillars are the web's own. (With owned services the
+    bar is the same five: \`the-app-more-lists-only-owned-services.test.ts\`.)
+  */
   for (const phase of PHASES) {
     const web = buildCustomerMenuTree(EVENT_ID, { phase, websiteEnabled: true, studioRows: STUDIO_ROWS });
     const app = buildCustomerMenuTree(EVENT_ID, {
@@ -129,8 +135,13 @@ test('🍎 the store-shell bar is the same five as the web — none blank, none 
       studioRows: STUDIO_ROWS,
       storeShell: true,
     });
-    assert.deepEqual(app.map((m) => m.key), web.map((m) => m.key), `${phase}: the app bar lost a pillar`);
-    assert.equal(app.length, 5, `${phase}: ${app.length} tab(s) in the store shell`);
+    assert.deepEqual(
+      app.map((m) => m.key),
+      web.map((m) => m.key).filter((k) => k !== 'studio'),
+      `${phase}: the app bar lost a pillar, or kept an empty More`,
+    );
+    assert.equal(web.length, 5, `${phase}: the web bar is not five`);
+    assert.equal(app.length, 4, `${phase}: ${app.length} tab(s) in the store shell with nothing owned`);
     for (const m of app) {
       assert.ok(m.label.trim().length > 0 && m.href.length > 0, `${phase}: a tab with no label or href`);
     }

@@ -10,6 +10,7 @@ import { checkPabuyaQrImage } from '@/lib/pabuya-qr-check.server';
 import { deleteDisplacedPabuyaQr } from '@/lib/pabuya-qr-object.server';
 import { storeRedrawnPabuyaQr } from '@/lib/pabuya-qr-store.server';
 import { cleanPabuyaMessage } from '@/lib/pabuya-message';
+import { isHubDraftWrite, saveHubDraftPatch } from '@/lib/hub-draft-store';
 
 /**
  * Server actions for the Pabuya e-gift surface (/dashboard/[eventId]/pabuya).
@@ -521,6 +522,20 @@ export async function savePabuyaMessage(
     patch.gift_registry_url = link;
   }
   if (Object.keys(patch).length === 0) return { ok: false, error: 'Nothing to save. Please try again.' };
+
+  /* ⏳ THE THANK-YOU WORDS WAIT FOR APPLY IN THE MAKER (owner 2026-10-08, "draft 1-3"): a Maker
+     form (`HubDraftField`) puts `pabuya_message` into the hub DRAFT — guests read it only after ✓
+     Apply. The registry link is not this ruling's field and keeps saving live beside it. */
+  if (isHubDraftWrite(formData) && 'pabuya_message' in patch) {
+    /* The draft table's RLS (hosts of this event) is the fence, as for the live column. */
+    try {
+      await saveHubDraftPatch(eventId, { events: { pabuya_message: patch.pabuya_message ?? null } });
+    } catch {
+      return { ok: false, error: 'Could not save your message. Please try again.' };
+    }
+    delete patch.pabuya_message;
+    if (Object.keys(patch).length === 0) return { ok: true };
+  }
 
   const supabase = await createClient();
   const { data, error } = await supabase

@@ -153,6 +153,7 @@ import { boardWithMainColours, mainColoursChanged, paintedPaletteKey, sanitizeMa
 import { boardIsTheCouples, boardWithFill, sanitizeSeedPalette } from '@/lib/mood-board-palette-set';
 import { cleanDisplayName, cleanPersonName } from '@/lib/typed-names';
 import { NAME_STYLES, nameStyleOfPrintDetails } from '@/lib/name-style';
+import { PABUYA_MESSAGE_MAX } from '@/lib/pabuya-message';
 import { PASS_CARD_DESIGNS, passCardDesignFrom } from '@/lib/pass-card';
 import type { DateClash } from '@/lib/date-fits-booked';
 import { MARCH_DRAFT_PLACE, sanitizeMarchMoves } from '@/lib/march-draft';
@@ -441,6 +442,28 @@ export const HUB_DRAFT_FACT_COLUMNS = [
 ] as const;
 
 /**
+ * ⏳ "DRAFT 1-3" (owner 2026-10-08, verbatim *"draft 1-3"*): three settings the Maker used to save
+ * LIVE now wait for ✓ Apply like every other Maker edit —
+ *
+ *   · `pabuya_message` — E-Gifts' thank-you words (`savePabuyaMessage`, the E-Gifts page's own
+ *     column; the Maker's two doors — E-Gifts and Prints › Finer Details — post into the draft);
+ *   · `guest_list_edit_deadline` — RSVP's Reply by (`updatePaxSettings`; only the date drafts — its
+ *     pricing view, posted beside it, stays live: it is not this ruling's field);
+ *   · the opening line — `print_details.opening_line`, drafted as ONE key of that blob beside the
+ *     name and ticket styles (`HUB_DRAFT_OPENING_LINE_KEY`), merged by Apply like them.
+ *
+ * Never Pro. The Event Hub address (the slug) stays LIVE (owner, item 4). E-Gifts' ways to give are
+ * rows of `event_egift_methods`, not an `events` column — the draft holds only `events` columns and
+ * section rows, so they are NOT drafted here (reported; that is a shape change, not a column).
+ */
+export const HUB_DRAFT_SETTINGS_COLUMNS = ['pabuya_message', 'guest_list_edit_deadline'] as const;
+
+/** The opening line's key of `print_details` a draft may hold (owner 2026-10-08, "draft 1-3"). */
+export const HUB_DRAFT_OPENING_LINE_KEY = 'opening_line';
+/** `parsePrintDetails`' own cap for the opening line. */
+export const HUB_DRAFT_OPENING_LINE_MAX = 240;
+
+/**
  * 📍 THE VENUES TYPED IN THE MAKER (owner 2026-10-01, DECISION_LOG "THE MAKER'S
  * VENUES GET A REAL PIN AND A PICKED CITY" + "NOTHING TAKES EFFECT UNTIL
  * APPLY"; design approved 2026-10-04): Details › Venues' "Enter your own" —
@@ -567,10 +590,15 @@ export const HUB_DRAFT_EVENT_READ_COLUMNS = [
   ...HUB_DRAFT_ANSWER_COLUMNS,
   // 📍 THE VENUES TYPED IN THE MAKER (owner 2026-10-04).
   ...HUB_DRAFT_VENUE_COLUMNS,
+  // ⏳ "DRAFT 1-3" (owner 2026-10-08) — the thank-you words (its SELECT grant is 20271230123132).
+  'pabuya_message',
 ] as const;
 
 /** Every key the draft's `events` may hold: the columns, and 🕒 the ceremony time (owner 2026-10-04). */
-export const HUB_DRAFT_EVENT_COLUMNS = [...HUB_DRAFT_EVENT_READ_COLUMNS, HUB_DRAFT_CEREMONY_TIME, HUB_DRAFT_MAIN_COLOURS] as const;
+/* ⏳ Reply by is drafted (owner 2026-10-08) but NOT in the session-client live read above: its only
+   readers and its writer use the admin client, and one refused column would fail the whole read.
+   Apply writes it through the admin client (`hub-draft-actions.ts`). */
+export const HUB_DRAFT_EVENT_COLUMNS = [...HUB_DRAFT_EVENT_READ_COLUMNS, HUB_DRAFT_CEREMONY_TIME, HUB_DRAFT_MAIN_COLOURS, 'guest_list_edit_deadline'] as const;
 
 /** The largest logo a draft accepts — `saveStudioAction`'s own cap. */
 export const HUB_DRAFT_LOGO_MAX_BYTES = 400_000;
@@ -779,6 +807,11 @@ export function sanitizeHubDraftEventValue(
     case 'special_message':
     case 'what_to_bring':
       return draftText(raw, HUB_DRAFT_TEXT_MAX);
+    // ⏳ "Draft 1-3" (owner 2026-10-08): `cleanPabuyaMessage`'s cap; a real day for Reply by (null = the default).
+    case 'pabuya_message':
+      return draftText(raw, PABUYA_MESSAGE_MAX);
+    case 'guest_list_edit_deadline':
+      return isCalendarDay(raw) ? raw : undefined;
     case 'together_since':
       return draftText(raw, 120);
     case 'love_story':
@@ -864,8 +897,14 @@ export function sanitizeHubDraftEventValue(
       if (!isPlainObject(raw)) return undefined;
       const style = raw[HUB_DRAFT_PRINT_DETAILS_KEY];
       const pass = raw[HUB_DRAFT_PASS_DESIGN_KEY];
-      const out: Record<string, string> = {};
+      const out: Record<string, string | null> = {};
       if (typeof style === 'string' && (NAME_STYLES as readonly string[]).includes(style)) out[HUB_DRAFT_PRINT_DETAILS_KEY] = style;
+      // ⏳ The opening line (owner 2026-10-08, "draft 1-3") — `parsePrintDetails`' own cleaning; empty = none.
+      if (HUB_DRAFT_OPENING_LINE_KEY in raw) {
+        const line = raw[HUB_DRAFT_OPENING_LINE_KEY];
+        if (line === null) out[HUB_DRAFT_OPENING_LINE_KEY] = null;
+        else if (typeof line === 'string') out[HUB_DRAFT_OPENING_LINE_KEY] = line.replace(/\s+/g, ' ').trim().slice(0, HUB_DRAFT_OPENING_LINE_MAX) || null;
+      }
       // 🎫 The ticket style — one of the three looks, else dropped (never repaired).
       if (typeof pass === 'string' && (PASS_CARD_DESIGNS as readonly string[]).includes(pass)) out[HUB_DRAFT_PASS_DESIGN_KEY] = pass;
       return Object.keys(out).length > 0 ? out : undefined;
@@ -1323,9 +1362,16 @@ export type HubDraftItem =
 const asText = (v: unknown): string | null =>
   v === null || v === undefined ? null : typeof v === 'string' ? v : JSON.stringify(v);
 
+type PrintDetailsDraftKey = typeof HUB_DRAFT_PRINT_DETAILS_KEY | typeof HUB_DRAFT_PASS_DESIGN_KEY | typeof HUB_DRAFT_OPENING_LINE_KEY;
+
 /** One drafted `print_details` key, as the prints read it. */
-function printDetailsValue(v: unknown, key: typeof HUB_DRAFT_PRINT_DETAILS_KEY | typeof HUB_DRAFT_PASS_DESIGN_KEY): string {
+function printDetailsValue(v: unknown, key: PrintDetailsDraftKey): string {
   if (key === HUB_DRAFT_PRINT_DETAILS_KEY) return nameStyleOfPrintDetails(v);
+  /* ⏳ The opening line, as `parsePrintDetails` cleans it — none and empty are one. */
+  if (key === HUB_DRAFT_OPENING_LINE_KEY) {
+    const line = isPlainObject(v) ? v[HUB_DRAFT_OPENING_LINE_KEY] : null;
+    return typeof line === 'string' ? line.replace(/\s+/g, ' ').trim().slice(0, HUB_DRAFT_OPENING_LINE_MAX) : '';
+  }
   return passCardDesignFrom(isPlainObject(v) ? v[HUB_DRAFT_PASS_DESIGN_KEY] : undefined);
 }
 
@@ -1336,9 +1382,9 @@ function printDetailsValue(v: unknown, key: typeof HUB_DRAFT_PRINT_DETAILS_KEY |
 export function printDetailsKeysChanged(
   live: unknown,
   next: unknown,
-): Array<typeof HUB_DRAFT_PRINT_DETAILS_KEY | typeof HUB_DRAFT_PASS_DESIGN_KEY> {
+): PrintDetailsDraftKey[] {
   if (!isPlainObject(next)) return [];
-  return ([HUB_DRAFT_PRINT_DETAILS_KEY, HUB_DRAFT_PASS_DESIGN_KEY] as const).filter(
+  return ([HUB_DRAFT_PRINT_DETAILS_KEY, HUB_DRAFT_PASS_DESIGN_KEY, HUB_DRAFT_OPENING_LINE_KEY] as const).filter(
     (key) => key in next && printDetailsValue(live, key) !== printDetailsValue(next, key),
   );
 }
@@ -2493,6 +2539,8 @@ export const HUB_DRAFT_EVENT_LABEL: Record<HubDraftEventColumn, string> = {
   event_date: 'Your date',
   event_date_precision: 'Your date',
   print_details: 'Your name style',
+  pabuya_message: 'Your thank-you message',
+  guest_list_edit_deadline: 'Your reply-by date',
   // The venues are ONE change however many columns carry them.
   std_film_ceremony_name: 'Your venues',
   ceremony_venue_address: 'Your venues',
@@ -2539,8 +2587,11 @@ export function hubDraftItemLabel(item: HubDraftItem, sectionLabel: (t: WidgetTy
     if (item.column === 'print_details' && isPlainObject(item.value)) {
       const pass = HUB_DRAFT_PASS_DESIGN_KEY in item.value;
       const name = HUB_DRAFT_PRINT_DETAILS_KEY in item.value;
-      if (pass && !name) return 'Your ticket style';
-      if (pass && name) return 'Your name style and ticket style';
+      const opening = HUB_DRAFT_OPENING_LINE_KEY in item.value;
+      if (opening && !pass && !name) return 'Your opening line';
+      if (pass && !name) return opening ? 'Your ticket style and opening line' : 'Your ticket style';
+      if (pass && name) return opening ? 'Your name style, ticket style and opening line' : 'Your name style and ticket style';
+      if (name && opening) return 'Your name style and opening line';
     }
     // 🎛 The drafted camera look says so — "Your camera look", not "Your QR code".
     if (item.column === 'style_preferences' && isPlainObject(item.value) && !(QR_STYLE_PREF_KEY in item.value) && cameraLookOfDraft(item.value)) {

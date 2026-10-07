@@ -3,7 +3,7 @@
 import { HUB_DRAFT_BAR_FIELD, SUPERSEDED, makerLatestWrite, makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { canvasWriteKey, draftedCanvasOr, noteDraftedCanvas } from '@/lib/maker-draft-store';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
-import type { HubDraftActionResult } from '@/lib/hub-draft';
+import { HUB_DRAFT_FIELD, type HubDraftActionResult } from '@/lib/hub-draft';
 import { useEffect, useId, useRef, useState, useTransition, type ReactNode } from 'react';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import {

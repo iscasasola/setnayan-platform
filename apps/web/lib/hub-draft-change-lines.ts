@@ -92,6 +92,8 @@ export const HUB_DRAFT_EVENT_PLACE: Record<HubDraftEventColumn, { place: string;
   event_date: { place: DETAILS, what: 'Date' },
   event_date_precision: { place: DETAILS, what: 'Date' },
   print_details: { place: DETAILS, what: 'Name style' },
+  pabuya_message: { place: 'E-Gifts', what: 'Thank-you message' },
+  guest_list_edit_deadline: { place: 'RSVP', what: 'Reply by' },
   std_film_ceremony_name: { place: DETAILS, what: 'Venues' },
   ceremony_venue_address: { place: DETAILS, what: 'Venues' },
   ceremony_venue_latitude: { place: DETAILS, what: 'Venues' },
@@ -159,8 +161,12 @@ export function hubDraftChangePlace(item: HubDraftItem, live: HubLiveState): { p
          the Guest's ticket's, the name style Event Details'. */
       if (item.column === 'print_details') {
         const keys = printDetailsKeysChanged(live.events.print_details, item.value);
+        if (keys.length === 1 && keys[0] === 'opening_line') return { place: 'Prints', what: 'Opening line' };
         if (keys.length === 1 && keys[0] === 'pass_design') return { place: "Guest's ticket", what: PASS_CARD_WORDS.style };
-        if (keys.length === 2) return { place: DETAILS, what: `Name style, ${PASS_CARD_WORDS.style}` };
+        if (keys.length >= 2) {
+          const words = { name_style: 'Name style', pass_design: PASS_CARD_WORDS.style, opening_line: 'Opening line' } as const;
+          return { place: DETAILS, what: keys.map((k) => words[k]).join(', ') };
+        }
       }
       /* 🎛 The camera's look (owner 2026-10-07) — "Camera · Look · Your brand", not the QR. */
       if (item.column === 'style_preferences') {

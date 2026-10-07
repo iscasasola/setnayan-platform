@@ -452,7 +452,7 @@ export function detailsFactEditors(input: {
     /* ── The thank-you message: ONE source, `events.pabuya_message` — the E-Gifts page reads the same column ── */
     'thank-you': (
       <div data-details-thank-you="" className="flex flex-col gap-1">
-        <HubSavesImmediately />
+        {/* ⏳ Drafted since 2026-10-08 ("draft 1-3") — no "Guests see this right away". */}
         <PabuyaMessageEditor eventId={eventId} initialMessage={input.pabuyaMessage} />
       </div>
     ),
@@ -1180,6 +1180,8 @@ export function MakerDetails(props: MakerDetailsProps) {
                   the Love Story) it read as a contradiction. */}
               <HubSavesImmediately className="sr-only" />
               <input type="hidden" name="event_id" value={eventId} />
+              {/* ⏳ The opening line on this form goes into the DRAFT (owner 2026-10-08, "draft 1-3"); the switches stay live. */}
+              <input type="hidden" name="opening_line_to_draft" value="1" />
               {/* The include marker: a posted form ALWAYS carries it, so an
                   all-off form still saves "off" instead of looking like no answer. */}
               <input type="hidden" name="include_form" value="1" />

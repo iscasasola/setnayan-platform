@@ -187,7 +187,8 @@ test('RSVP links out to nothing: "Reply by" is a date field right there, and the
   assert.doesNotMatch(html, /<a\b[^>]*href=/, 'the RSVP settings still link out');
   const replyBy = html.slice(html.indexOf('data-rsvp-setting="reply-by"'), html.indexOf('data-rsvp-setting="requests"'));
   assert.match(replyBy, /<input[^>]*type="date"[^>]*value="2026-11-18"/, 'reply-by is not a field here');
-  assert.match(replyBy, /data-hub-saves-immediately/, 'a live write must say it saves immediately');
+  /* ⏳ Reply by is DRAFTED in the Maker since 2026-10-08 (owner "draft 1-3") — no "saves immediately". */
+  assert.doesNotMatch(replyBy, /data-hub-saves-immediately/, 'a drafted Reply by still says it saves immediately');
   assert.match(html, /data-rsvp-requests-list=""[\s\S]*data-stub="the-shipped-requests-rows"/, 'the Requests rows are not in place');
   // The one writer of that column, with the pricing view posted back unchanged.
   const src = read(`${L}/maker-rsvp-ask.tsx`);

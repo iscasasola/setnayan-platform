@@ -20,6 +20,8 @@ import { SCENE_FIELD_LABEL, sceneTypeWrite, type SceneOwnWords } from '@/lib/sce
 import { typedDisplayName } from '@/lib/typed-names';
 import { nameStyleChoicesFor, type NameParts, type NameStyle } from '@/lib/name-style';
 import { nameStyleDraftPatch } from '@/lib/name-style-save';
+import { useMaker } from '../../../launch/_components/maker-context';
+import { SP_KEY_BAR, SP_KEY_DONE } from '@/lib/maker-stage-room';
 
 /**
  * ✍ THE TYPE BAR — the small floating bar over the words being typed (Maker
@@ -517,6 +519,8 @@ export function TypeBar(p: TypeBarProps) {
 
   /* 📍 Over the words: above them, or under them when there is no room. */
   const bar = useRef<HTMLDivElement>(null);
+  /* 🧭 The new Maker types with the panel away and ONE bar over the keyboard (`stage-tools.tsx`). */
+  const stagesStudio = useMaker()?.stagesStudio === true;
   const [at, setAt] = useState<{ top: number; left: number } | null>(null);
   /* The Maker's own window moving (a phone's keyboard, a resize) moves the words on screen too. */
   const [tick, setTick] = useState(0);
@@ -559,6 +563,35 @@ export function TypeBar(p: TypeBarProps) {
     setAt((prev) => (prev && prev.top === top && prev.left === left ? prev : { top, left }));
   }, [session.rect, session.vw, session.source, tick]);
 
+  /* 🧭 THE NEW MAKER ON A PHONE (DECISION_LOG 2026-10-07 rule 1; prototype `#kbd .kbar`): the panel has
+     stepped aside, the keyboard takes the bottom half, and ONE bar rides on it — "Typing · Names" and Done,
+     which brings the panel back. No Wording / Style / Hide: those are the panel's (Style · Text · Animate). */
+  if (stagesStudio && !p.inline && typeof window !== 'undefined' && window.innerWidth < 1024) {
+    const vv = window.visualViewport;
+    const bottom = Math.max(0, window.innerHeight - ((vv?.offsetTop ?? 0) + (vv?.height ?? window.innerHeight)));
+    return createPortal(
+      <div
+        ref={bar}
+        role="toolbar"
+        aria-label={`${field ? SCENE_FIELD_LABEL[field] : HUB_ELEMENT_LABEL[el]} — words`}
+        data-type-bar={el}
+        data-type-bar-keys=""
+        style={{ bottom }}
+        className={`fixed inset-x-0 z-[85] ${SP_KEY_BAR}`}
+      >
+        <span className="min-w-0 truncate">Typing · {field ? SCENE_FIELD_LABEL[field] : HUB_ELEMENT_LABEL[el]}</span>
+        <button type="button" onClick={p.onClose} data-type-done="" className={SP_KEY_DONE}>
+          <span className="inline-flex h-8 items-center rounded-full bg-[#2C2A29] px-4 text-[13px] font-semibold text-white">Done</span>
+        </button>
+        {error ? (
+          <p role="alert" className="absolute inset-x-3 -top-9 rounded-lg bg-white px-2 py-1 text-[12px] font-semibold text-terracotta-700 shadow">
+            {error}
+          </p>
+        ) : null}
+      </div>,
+      document.body,
+    );
+  }
   /* 🧰 A PHONE: the rows, inside the part's own Text tools — never over the page. */
   if (p.inline) {
     if (!p.inline.slot) return null;

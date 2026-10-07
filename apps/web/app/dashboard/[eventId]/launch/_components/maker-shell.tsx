@@ -720,6 +720,15 @@ export function MakerShell({
     setDetailsDoor((n) => n + 1);
     select({ kind: 'tool', key: 'details' });
   };
+  /* 🧭 STAGES ALWAYS SHOWS THE PAGE (DECISION_LOG 2026-10-07 rule 3): the retired guided "Which stage do you
+     want ready?" — and every door into Event Details (`?tool=details`, `?guide=`, Home's next-step card, the
+     tab's remembered tool) — never covers the Stages side. Such a door lands on Studio's home instead. */
+  useEffect(() => {
+    if (!ss || side !== 'stages' || selection?.kind !== 'tool' || selection.key !== 'details') return;
+    setSide('studio');
+    setStudioAt('home');
+    select(null);
+  }, [ss, side, selection, select]);
   /** Stages | Studio — tapping Studio (again) returns to its tiles; Stages puts the stage back. */
   const pickSide = (next: MakerSide) => {
     if (next === 'studio') setStudioAt('home');

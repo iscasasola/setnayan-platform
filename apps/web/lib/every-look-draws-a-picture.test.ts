@@ -62,3 +62,41 @@ test('every look card asks the page for its own style, and a card that finds not
   assert.equal(new Set(srcs).size, ids.length, 'each look is its own page');
   for (const [i, s] of srcs.entries()) assert.match(s!, new RegExp(`style=countdown%3A${ids[i]}`), `the ${ids[i]} card asks for ${ids[i]}`);
 });
+
+test('a script-less miniature is finished from the parent — the streamed page never draws itself', async () => {
+  /* Vercel preview, 2026-10-07: every card blank. The guest route STREAMS (`$RS`/`$RC` move hidden
+     `S:n` segments into place) and a sandboxed frame runs no script, so every section stayed hidden.
+     The lab never streamed, so it drew. */
+  const { readFileSync } = await import('node:fs');
+  const here = PANEL.replace(/^\.\.\//, '');
+  const prev = readFileSync(`${here}/style-preview.tsx`, 'utf8');
+  const swap = readFileSync(`${here}/streamed-swap.ts`, 'utf8');
+  const finish = prev.indexOf('finishStreamedHtml(d);');
+  const find = prev.indexOf('findMakerSection(d, key!)');
+  assert.ok(finish > 0 && finish < find, 'the stream is finished BEFORE the part is looked for');
+  assert.match(prev, /drawn\.width < 1 \|\| drawn\.height < 1/, 'a part drawn at 0×0 (still hidden) is not a picture');
+  assert.match(prev, /Couldn’t draw this look/, 'a card that cannot draw says so');
+  assert.match(prev, /'Drawing…'/, 'a card still drawing says so — never a blank card');
+  assert.match(swap, /\\\$R\(\[SC\]\)/, 'both React swap calls are applied');
+  assert.match(swap, /sn-init-splash/, 'the init splash is lifted');
+});
+
+test('no part’s Style › Look opens on a row holding only an ⓘ — the pass included', async () => {
+  /* Owner, the Digital pass: "an empty row holding only a lone ⓘ". A part with no door to name (the pass,
+     the guest's look …) still has its own sentences — they are SAID, beside the ⓘ. */
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { MAKER_PART_KEYS, makerPartQuietRow } = await import('./maker-parts');
+  const { QuietBar } = await import(`${PANEL}/kit`);
+  const { setStagePanelNow } = await import(`${PANEL}/store`);
+  let doorless = 0;
+  for (const k of MAKER_PART_KEYS) {
+    if (makerPartQuietRow(k)) continue;
+    doorless += 1;
+    setStagePanelNow({ picked: k, quiet: null, about: `What ${k} is, and where it comes from.` });
+    const html = renderToStaticMarkup(React.createElement(QuietBar));
+    const visible = html.replace(/<span[^>]*data-stage-about=""[\s\S]*?<\/span><\/span>/g, '').replace(/<[^>]+>/g, '').trim();
+    assert.ok(visible.length > 0, `${k}: its Look opens on a lone ⓘ`);
+  }
+  assert.ok(doorless > 0, 'parts without a door were found (the pass among them)');
+  setStagePanelNow({ picked: null, quiet: null, about: null });
+});

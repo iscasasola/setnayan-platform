@@ -42,7 +42,6 @@ import { revealStubHtml } from './stage-panel/reveal-picture';
 import type { StudioTileKey } from '@/lib/studio-tiles';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import { MAKER_OPEN_PART_EVENT, MAKER_STAGE_PICK_EVENT, MAKER_STAGE_TOOL_EVENT, useMaker } from './maker-context';
-import { MAKER_PLAY_SCENE_EVENT } from './maker-play-menu';
 import { makerPagePick, makerPageValue, makerStageLabel } from './maker-bar';
 import { StageItemMenu, type StagePageOption } from './stage-item-menu';
 /* ＋ ↕ 🗑 🎭 PR 3 — the part's edges, the ＋ sheet, the one confirm, the Reveal part (same lazy chunk). */
@@ -152,6 +151,14 @@ export function StageTools({
   const [picked, setPicked] = useState<MakerPartKey | null>(null);
   const [typing, setTyping] = useState(false);
   const [playing, setPlaying] = useState(false);
+  /** ▶ The picked part's sequence as the canvas plays it: the phase now, and what it has none of (`play-sequence.ts`). */
+  const [seq, setSeq] = useState<{ phase: string; skipped: string[] } | null>(null);
+  /* What it had none of stays said a moment after it rests, then goes. */
+  useEffect(() => {
+    if (playing || !seq) return;
+    const id = window.setTimeout(() => setSeq(null), 3500);
+    return () => window.clearTimeout(id);
+  }, [playing, seq]);
   const [present, setPresent] = useState<Set<string>>(() => new Set());
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -335,6 +342,13 @@ export function StageTools({
         if (makerStageMayType(attr, typeof d.key === 'string' ? d.key : '', typeof d.el === 'string' ? d.el : null)) setTyping(true);
       }
       else if (d.t === 'playDone') setPlaying(false);
+      else if (d.t === 'playSeq' && typeof d.phase === 'string') {
+        const skipped = Array.isArray((d as { skipped?: unknown }).skipped)
+          ? ((d as { skipped: unknown[] }).skipped.filter((x) => typeof x === 'string') as string[]).slice(0, 3)
+          : [];
+        setSeq({ phase: d.phase, skipped });
+        if (d.phase === 'rest') setPlaying(false);
+      }
     };
     window.addEventListener('message', onCanvas);
     return () => window.removeEventListener('message', onCanvas);
@@ -471,8 +485,14 @@ export function StageTools({
     /* 🎛 The Camera has nothing to play — its look is a still. */
     if (picked === 'camera') return;
     const def = picked ? MAKER_PARTS[picked] : null;
-    if (def?.canvas && def.el) return postToCanvas({ source: 'setnayan-editor', t: 'playEl', key: def.canvas, el: def.el });
-    if (def?.canvas) return window.dispatchEvent(new Event(MAKER_PLAY_SCENE_EVENT));
+    /* ▶ A picked part plays its WHOLE life on the canvas — Build in · Action · Build out · rest (owner: "i cannot
+       see the build out and action"); the canvas tells each phase back (`playSeq`). */
+    if (def?.canvas) {
+      setSeq(null);
+      postToCanvas({ source: 'setnayan-editor', t: 'playSeq', key: def.canvas, ...(def.el ? { el: def.el } : {}) });
+      setPlaying(true);
+      return;
+    }
     postToCanvas({ source: 'setnayan-editor', t: 'playStage' });
     setPlaying(true);
   };
@@ -648,6 +668,40 @@ export function StageTools({
           '}@media (prefers-reduced-motion:reduce){[data-maker-lower-third]:has(>[data-stage-tools]),[data-maker-shell][data-stage-playing] [data-phone-chrome="bar"]{transition:none}}'}
       </style>
 
+      {/* ══ ▶ WHAT IS PLAYING — Build in · Action · Build out, the one now in bold, and any phase the part has none of
+          named ("Build out: none"), so a blank never reads as a fault. Shown over the page while it plays. ══ */}
+      {seq && (playing || seq.skipped.length > 0) && typeof document !== 'undefined'
+        ? createPortal(
+            <div
+              data-stage-play-status={seq.phase}
+              role="status"
+              className="pointer-events-none fixed inset-x-4 z-[95] mx-auto max-w-[360px] rounded-xl bg-[rgba(44,42,41,.88)] px-3 py-2 text-center text-[12px] leading-snug text-white lg:hidden"
+              style={{ bottom: 'calc(var(--maker-lt-h, 62px) + 12px)' }}
+            >
+              <span className="block">
+                {(
+                  [
+                    ['in', 'Build in'],
+                    ['act', 'Action'],
+                    ['out', 'Build out'],
+                  ] as const
+                ).map(([k, w], i) => (
+                  <span key={k} className={seq.phase === k ? 'font-bold text-white' : 'text-white/60'}>
+                    {i ? ' · ' : ''}
+                    {w}
+                  </span>
+                ))}
+              </span>
+              {seq.skipped.map((x) => (
+                <span key={x} className="block text-white/75" data-stage-play-skipped="">
+                  {x}
+                </span>
+              ))}
+            </div>,
+            document.body,
+          )
+        : null}
+
       {/* ══ ↕ THE GRAB — 44 × 5 in a 14 px strip; the tap reaches 15 px above and below ══ */}
       <button
         type="button"
@@ -804,7 +858,11 @@ export function StageTools({
                           if (rsvpOpen) {
                             setScreen(p.key as RsvpStageScene);
                             document.querySelector<HTMLElement>(`[data-rsvp-stage-scene="${p.key}"]`)?.click();
-                          } else onPickPage(p.option);
+                          } else {
+                            /* Another page: the picked part is let go (the owner: "the picked part clears"). */
+                            setPicked(null);
+                            onPickPage(p.option);
+                          }
                         }}
                         className={STAGE_GUEST_TAB}
                       >

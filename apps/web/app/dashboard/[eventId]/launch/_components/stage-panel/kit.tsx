@@ -149,6 +149,15 @@ export function Dir({ on, glyph, label, onPick }: { on: boolean; glyph: string; 
 export function QuietBar() {
   const { quiet, about } = useStagePanelNow();
   if (!quiet && !about) return null;
+  /* No door to name: the part's own sentences are SAID, never a row holding only an ⓘ (owner, the pass). */
+  if (!quiet) {
+    return (
+      <div className="flex shrink-0 items-start gap-1.5 py-1" data-stage-quiet-row="" data-stage-quiet-words="">
+        <div className="line-clamp-2 min-w-0 flex-1 px-1 text-[12.5px] leading-snug text-[var(--sp-mute)]">{about}</div>
+        <About label="this part">{about}</About>
+      </div>
+    );
+  }
   return (
     <div className="flex h-11 shrink-0 items-center gap-1.5" data-stage-quiet-row="">
       {quiet ? (
@@ -169,9 +178,7 @@ export function QuietBar() {
             <small className="shrink-0 text-[10.5px] font-bold uppercase tracking-[0.12em] opacity-85">{quiet.small}</small>
           </button>
         )
-      ) : (
-        <span className="flex-1" />
-      )}
+      ) : null}
       {about ? <About label="this part">{about}</About> : null}
     </div>
   );

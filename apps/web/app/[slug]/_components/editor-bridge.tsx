@@ -32,7 +32,8 @@ import { applyPartRuns, applySceneRuns, type RunsDoc } from './part-runs';
 import { applySceneCardPreview } from '@/lib/scene-card-look';
 import { createCanvasTyping, markSceneWords, readSceneTypeWords, sceneTypeField, typeablePart } from './type-in-place-canvas';
 import { createCanvasBringUp } from './canvas-bring-up';
-import { replaySceneIn } from './scene-replay';
+import { replaySceneIn, sceneFrameOf } from './scene-replay';
+import { playSequence } from './play-sequence';
 
 /**
  * EditorBridge — the guest site's half of the unified-editor two-way sync
@@ -586,6 +587,8 @@ export function EditorBridge() {
             replayPart: (part) => replayElementIn(part as unknown as HTMLElement, false),
             later: (fn, ms) => window.setTimeout(fn, ms),
           });
+    /** ▶ The picked part's sequence now playing (`playSeq`) — stopped by the next one or by `playStop`. */
+    let seqStop: (() => void) | null = null;
     /** ▶ The whole stage, scene after scene — the parent hears `playDone` when it ends. */
     const stage = (() => {
       let timer: number | null = null;
@@ -711,6 +714,8 @@ export function EditorBridge() {
            each scene in turn, brought into view and replaying its own arrival; a
            tap anywhere on the page, or `playStop`, ends it. */
         stage.stop(false);
+        seqStop?.();
+        seqStop = null;
         if (data.t === 'playStage') stage.start();
         return;
       }
@@ -737,6 +742,18 @@ export function EditorBridge() {
            reloads. Putting a scene back is never drawn here: a scene the page
            did not draw has nothing to show, so that write reloads. */
         el.style.display = (data as { shown?: unknown }).shown === false ? 'none' : '';
+        return;
+      }
+      if (data.t === 'playSeq') {
+        /* ▶ THE PICKED PART'S WHOLE LIFE — Build in · Action · Build out · rest (`play-sequence.ts`); each
+           phase, and what it has none of, told to the Maker so it can say so. */
+        seqStop?.();
+        const part = typeof data.el === 'string' ? el.querySelector<HTMLElement>(`[data-el="${CSS.escape(data.el)}"]`) : null;
+        const target = part ?? (sceneFrameOf(el as never) as unknown as HTMLElement | null) ?? el;
+        seqStop = playSequence(target, !part, (r) => {
+          if (r.phase === 'rest') seqStop = null;
+          window.parent?.postMessage({ source: 'setnayan-site', t: 'playSeq', phase: r.phase, skipped: r.skipped }, origin);
+        });
         return;
       }
       if (data.t === 'playEl') {

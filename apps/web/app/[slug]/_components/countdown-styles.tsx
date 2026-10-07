@@ -128,3 +128,36 @@ export function CountdownCalendar({
     </section>
   );
 }
+
+/**
+ * D · Line and E · Circle — the 2026-10-06 Maker prototype's countdown presets 3 and 4
+ * (`.el[data-el=countdown][data-preset="3"|"4"]`): the count in one uppercase line between
+ * accent rules, and the days inside a filled circle.
+ */
+export function CountdownLine({ label, remaining, bare = false }: { label: ReactNode; remaining: CountdownReading | null; bare?: boolean }) {
+  const d = remaining?.days;
+  return (
+    <section data-scene-card={bare ? 'bare' : 'own'} data-scene-style="line" className={`${sceneCardClass('countdown', bare)} text-center`}>
+      <p className="font-sans text-xs uppercase tracking-[0.2em] text-terracotta">{label}</p>
+      <p className="mt-4 border-y border-terracotta py-3 font-sans text-sm uppercase tabular-nums tracking-[0.2em] text-ink/80">
+        {d ?? '––'} {d === 1 ? 'day' : 'days'}
+        <span aria-hidden className="mx-2 text-gild">·</span>
+        {remaining ? remaining.hours : '––'} {remaining?.hours === 1 ? 'hour' : 'hours'}
+        <span aria-hidden className="mx-2 text-gild">·</span>
+        {remaining ? remaining.minutes : '––'} min
+      </p>
+    </section>
+  );
+}
+
+export function CountdownCircle({ label, remaining, bare = false }: { label: ReactNode; remaining: CountdownReading | null; bare?: boolean }) {
+  return (
+    <section data-scene-card={bare ? 'bare' : 'own'} data-scene-style="circle" className={`${sceneCardClass('countdown', bare)} text-center`}>
+      <p className="font-sans text-xs uppercase tracking-[0.2em] text-terracotta">{label}</p>
+      <div className="mx-auto mt-4 flex h-40 w-40 flex-col items-center justify-center rounded-full bg-terracotta text-cream">
+        <span className="font-pahina text-6xl font-light leading-none tabular-nums">{remaining ? String(remaining.days) : '––'}</span>
+        <span className="mt-1 font-sans text-[11px] uppercase tracking-[0.2em] text-cream/80">{remaining?.days === 1 ? 'day' : 'days'}</span>
+      </div>
+    </section>
+  );
+}

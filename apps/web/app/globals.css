@@ -178,6 +178,27 @@
      * colour — gold keeps that role, so the "one decorative family" rule holds. */
     --color-link: 59 78 103;           /* slate indigo #3B4E67 · 8.22:1 AAA */
     --color-link-600: 48 64 85;        /* link hover → #304055 */
+    /* ONE COLOUR PER MEANING — the button rule (owner 2026-10-07,
+     * corpus BUTTON_RULE_2026-10-07_fable.md). Read by `components/action-button.tsx`
+     * (`tone` → token). Primary stays `--color-mulberry`; neutral stays `--color-ink`.
+     * Every ratio MEASURED (WCAG relative luminance); the label is 13 px / 500 =
+     * normal text, so the floor is 4.5:1. "tint" = the outlined button's 9% wash.
+     *   ok      #2B744A  on white 5.68 · white label on fill 5.68 · on tint 5.00  AA
+     *           (the doc's #2E7D4F measured 4.48 on its own tint — FAILS — so darkened)
+     *   warn    #965A00  on white 5.59 · white label on fill 5.59 · on tint 4.93  AA
+     *           (the doc's #B26B00 measured 4.20 on WHITE — FAILS outright — so darkened)
+     *   danger  #B3261E  on white 6.54 · white label on fill 6.54 · on tint 5.63  AA
+     *   info  = --color-link #3B4E67 (owner's open call "reuse --color-link or add
+     *           --color-info" → REUSED: 8.50 on white · 7.37 on tint, AAA; the doc's
+     *           #1F6FB2 passed too, 5.28, but a second blue for one meaning is a
+     *           second source of truth). Aliased, so the two can never drift.
+     *   primary outlined word = --color-mulberry-700 #9D3F1E · 5.88 on the mulberry
+     *           tint (mulberry itself is 4.22 there — FAILS — so the filled main
+     *           verb keeps mulberry with a white label, 4.76). */
+    --color-ok: 43 116 74;             /* #2B744A */
+    --color-warn: 150 90 0;            /* #965A00 */
+    --color-danger: 179 38 30;         /* #B3261E */
+    --color-info: var(--color-link);   /* #3B4E67 — reused, see above */
     --accent: #c5a059;
     --accent-deep: #a88340;
     --accent-soft: #f4ecd8;            /* Light champagne wash */
@@ -214,6 +235,16 @@
     --color-mulberry-700: 194 78 37;     /* CTA deepest → the light-mode #C24E25 */
     --color-link: 157 178 206;         /* link → lightened slate indigo #9DB2CE · 8.37:1 AAA */
     --color-link-600: 175 194 218;     /* link hover → #AFC2DA (9.97:1) */
+    /* Button-rule tones, dark (inert like the rest of this block). Against the
+     * dark page #17160F · dark label #161513 on the fill · on the 9% tint:
+     *   ok     #6FCF97  9.54 · 9.60 · 8.10  AAA
+     *   warn   #F0B45A  9.83 · 9.89 · 8.33  AAA
+     *   danger #F2817A  7.08 · 7.12 · 6.19  AA
+     *   info = --color-link #9DB2CE  8.37 · 8.42 · 7.21  AAA */
+    --color-ok: 111 207 151;           /* #6FCF97 */
+    --color-warn: 240 180 90;          /* #F0B45A */
+    --color-danger: 242 129 122;       /* #F2817A */
+    --color-info: var(--color-link);
     --accent: #e0cca0;
     --accent-deep: #c5a059;
     --accent-soft: #22262c;            /* Dark obsidian tint for accent backgrounds */
@@ -7612,3 +7643,60 @@ html:has(.hub-shape-full) { overflow-x: clip; }
   outline: 2px solid currentColor;
   outline-offset: 2px;
 }
+
+/* ─── ActionButton — the button rule (owner 2026-10-07) ─────────────────────
+ * One shape for every action: a 40 px pill with a border, icon + word.
+ * `components/action-button.tsx` is the only producer of these classes.
+ * Tone → token (globals :root above): primary=mulberry · ok · info · warn ·
+ * danger · neutral=ink. `main` = filled (white label); the rest = outlined on
+ * a 9% wash of the tone, word in the tone. `.icon-only` hides the word when
+ * `useFitRow` runs out of width — `aria-label` still carries it.
+ * Measured ratios are in the token comment, not repeated here. */
+.ab {
+  --ab-tone: var(--color-ink);
+  --ab-word: var(--ab-tone);
+  height: 40px;
+  min-width: 40px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  flex: 0 0 auto;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+  border-radius: var(--m-r-full);
+  border: 1px solid rgb(var(--ab-tone) / 0.45);
+  background: rgb(var(--ab-tone) / 0.09);
+  color: rgb(var(--ab-word));
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1), background-color 160ms;
+  -webkit-tap-highlight-color: transparent;
+}
+.ab svg { width: 18px; height: 18px; flex: 0 0 auto; }
+.ab:active { transform: scale(0.97); }
+.ab:focus-visible { outline: 2px solid rgb(var(--color-mulberry)); outline-offset: 2px; }
+.ab:disabled, .ab[aria-disabled='true'] { opacity: 0.35; cursor: not-allowed; transform: none; }
+.ab.icon-only { width: 40px; padding: 0; }
+.ab.icon-only .lbl { display: none; }
+.ab-primary { --ab-tone: var(--color-mulberry); --ab-word: var(--color-mulberry-700); }
+.ab-ok { --ab-tone: var(--color-ok); }
+.ab-info { --ab-tone: var(--color-info); }
+.ab-warn { --ab-tone: var(--color-warn); }
+.ab-danger { --ab-tone: var(--color-danger); }
+.ab-neutral { --ab-tone: var(--color-ink); background: transparent; border-color: rgb(var(--color-ink) / 0.18); }
+.ab.ab-main {
+  background: rgb(var(--ab-tone));
+  border-color: rgb(var(--ab-tone));
+  color: #fff;
+}
+html.dark .ab.ab-main { color: #161513; }
+@media (prefers-reduced-motion: reduce) { .ab { transition: none; } .ab:active { transform: none; } }
+
+/* Fill — the meter rule's bar (components/count.tsx). Width is set inline by
+ * the component; this only owns the slide. Reduced motion → jump. */
+.fill-bar { transition: width 700ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+@media (prefers-reduced-motion: reduce) { .fill-bar { transition: none; } }

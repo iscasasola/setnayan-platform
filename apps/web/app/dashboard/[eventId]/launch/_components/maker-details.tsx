@@ -47,7 +47,6 @@ import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
 import type { StoredQrStyle } from '@/lib/qr-look';
 import { MiniTour } from '@/app/_components/mini-tour';
 import { ThemePickProvider } from './maker-theme-picker';
-import { FilmFollowsTheme } from './film-follows-theme';
 import type { ThemeTile } from '@/lib/maker-theme-tiles';
 import type { UpdateQrStyleResult } from '../qr-look-actions';
 import {
@@ -83,6 +82,8 @@ import { DetailsLookBody, DetailsLookEditor, DetailsLookPageBody, DetailsLookPie
 import {
   LoveStoryPieceFocus,
   PabuyaMessageEditor,
+  OpenInPlace,
+  FilmFollowsTheme,
   ParentCards,
   QrLookControls,
   ScheduleSlots,
@@ -100,7 +101,6 @@ import { studioDetailsGroups, studioFullScreenCss, STUDIO_FORM_HEADS, STUDIO_SUP
 import { MoodBoardPieces } from '../../studio/mood-board/_components/mood-board-parts';
 import { ItemPieces } from './details-piece';
 import { DetailsGoTo } from './details-go';
-import { OpenInPlace } from './open-in-place';
 import { yourEventParts, type YourEventInput } from './details-your-event-parts';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { VENUE_ROLE_LABEL } from '@/lib/event-venues';

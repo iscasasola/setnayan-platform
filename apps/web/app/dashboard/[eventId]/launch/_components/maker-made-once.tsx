@@ -17,6 +17,8 @@ import { REVEAL_NONE } from '@/lib/reveal-access';
 import { INVITE_THEMES, normalizeThemeId, type InviteThemeId } from '@/lib/invite-themes';
 import { revealMaterialsFor } from '@/lib/reveal-materials';
 import { makerLogoOpening } from '@/lib/maker-logo-opening';
+import { sanitizeRolePalette } from '@/lib/mood-board';
+import { themeSeedPalette } from '@/lib/theme-colours';
 import { STD_THRESHOLD_DAYS } from '@/lib/invitation-widgets';
 import { resolveRevealStages, type RevealStage } from '@/lib/reveal-stages';
 import { resolveRevealEffects, revealTuneHouse } from '@/lib/std-reveal-effects';
@@ -357,11 +359,16 @@ export async function MakerLogoPanel({ eventId, storeShell = false }: { eventId:
   const ownsMotion = await eventEntitlementClient(eventId)
     .then((ent) => eventOwnsAnimatedMonogram(ent, eventId))
     .catch(() => false);
+  /* 🎨 The five main colours as Look › Colours shows them — the board's, else the worn theme's own
+     (`themeSeedPalette`, the resolver's empty-board answer). Only the new Maker's Colour row uses them. */
+  const board = sanitizeRolePalette(m.drafted.role_palette ?? {});
+  const mainColours = (board.reception ?? []).length > 0 ? board.reception! : themeSeedPalette(themeOf(m.drafted.invite_theme)).reception;
   return (
     <MakerLogoDoor
       eventId={eventId}
       opening={opening}
       motionMark={makerProMark({ owns: ownsMotion, storeShell })}
+      mainColours={mainColours}
     />
   );
 }

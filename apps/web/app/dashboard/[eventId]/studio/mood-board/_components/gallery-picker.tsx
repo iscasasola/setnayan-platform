@@ -29,10 +29,32 @@
  */
 
 import { useCallback, useEffect, useState, useTransition } from 'react';
-import { Check, ImageOff, Sparkles } from 'lucide-react';
+import { Check, ImageOff, Search, Sparkles } from 'lucide-react';
 import type { GalleryAsset, GalleryPage } from '@/lib/moodboard-gallery';
+import { GALLERY_FROM, type GalleryFromKey } from '@/lib/inspiration-slots';
+import { photoMatchesColours } from '@/lib/mood-board-studio';
+import { PickMenu } from '../../../website/editor/_components/pick-menu';
 import { EventLinkedBadge } from './event-linked-badge';
 import { formatCount } from '@/lib/format-number';
+
+/**
+ * 🔍 STUDIO'S "SEARCH IDEAS ›" — the SAME picker, with search on top (owner
+ * 2026-10-06, DECISION_LOG "EACH MOOD BOARD PART CAN SEARCH SUPPLIERS' PHOTOS":
+ * *"they can search from the photos of vendors, we have this in concept"*).
+ * Only the new Maker's Studio passes it. Every addition is a FILTER on the same
+ * paged, server-capped read (`normalizeGalleryQuery` still clamps every page):
+ * the words, From ▾ and Near ▾ go to the server; "Matches my colours" keeps the
+ * photos on the loaded pages whose sampled colours sit near the five main ones.
+ */
+export type GalleryStudio = {
+  /** The five main colours, for "Matches my colours". */
+  mainFive: readonly string[];
+  /** Near ▾ — the regions, the event's own first. `key` is a region code. */
+  regions: ReadonlyArray<{ key: string; label: string }>;
+};
+
+/** The paged read, with Studio's filters when asked. */
+export type GalleryFetchInput = { slotKey: string; offset?: number; q?: string; from?: string; near?: string };
 
 export type GalleryPickerProps = {
   eventId: string;
@@ -41,7 +63,7 @@ export type GalleryPickerProps = {
   slotLabel: string;
   /** Which of this slot's photo cells are free right now, in order. */
   emptyPositions: readonly number[];
-  fetchAction: (input: { slotKey: string; offset?: number }) => Promise<GalleryPage>;
+  fetchAction: (input: GalleryFetchInput) => Promise<GalleryPage>;
   applyAction: (input: {
     eventId: string;
     slotKey: string;
@@ -53,8 +75,10 @@ export type GalleryPickerProps = {
    * hand it THE SAME credit string this card just displayed. Not a second
    * derivation: two places computing one credit is how they end up disagreeing.
    */
-  onSaved: (slotPosition: number, imageUrl: string, credit: string) => void;
+  onSaved: (slotPosition: number, imageUrl: string, credit: string, swatches?: string[]) => void;
   onClose: () => void;
+  /** 🔍 Studio's search, From ▾, Near ▾ and Matches my colours — the new Maker only. */
+  studio?: GalleryStudio;
 };
 
 export function GalleryPicker({
@@ -62,11 +86,23 @@ export function GalleryPicker({
   slotKey,
   slotLabel,
   emptyPositions,
-  fetchAction,
+  fetchAction: fetchPage,
   applyAction,
   onSaved,
   onClose,
+  studio,
 }: GalleryPickerProps) {
+  /* 🔍 Studio's filters — the words settle for a moment before they are asked. */
+  const [typed, setTyped] = useState('');
+  const [q, setQ] = useState('');
+  const [from, setFrom] = useState<GalleryFromKey>('everyone');
+  const [near, setNear] = useState('');
+  const [matchMine, setMatchMine] = useState(false);
+  useEffect(() => {
+    if (!studio) return;
+    const t = window.setTimeout(() => setQ(typed.trim()), 350);
+    return () => window.clearTimeout(t);
+  }, [typed, studio]);
   const [assets, setAssets] = useState<GalleryAsset[]>([]);
   const [total, setTotal] = useState(0);
   const [withheld, setWithheld] = useState(0);
@@ -79,6 +115,17 @@ export function GalleryPicker({
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [saveError, setSaveError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  /* 🔍 The page read, with Studio's filters laid on it — never a limit (the server clamps). */
+  const fetchAction = useCallback(
+    (input: { slotKey: string; offset: number }) =>
+      fetchPage(
+        studio
+          ? { ...input, ...(q ? { q } : {}), ...(from !== 'everyone' ? { from } : {}), ...(near ? { near } : {}) }
+          : input,
+      ),
+    [fetchPage, studio, q, from, near],
+  );
 
   const loadPage = useCallback(
     async (offset: number) => {
@@ -105,6 +152,9 @@ export function GalleryPicker({
   }, [loadPage]);
 
   const free = emptyPositions.length > 0 ? emptyPositions[0]! : null;
+  /* 🎨 "Matches my colours" keeps the loaded photos near the five — said as a count, never a silent shrink. */
+  const hiddenAsset = (a: GalleryAsset) => Boolean(studio && matchMine && !photoMatchesColours(a.swatches, studio.mainFive));
+  const hiddenByMatch = assets.filter(hiddenAsset).length;
 
   function save(asset: GalleryAsset) {
     if (pending || free === null) return;
@@ -120,7 +170,7 @@ export function GalleryPicker({
         });
         if (res.status === 'ok' && res.imageUrl) {
           setSavedIds((prior) => new Set(prior).add(asset.assetId));
-          onSaved(free, res.imageUrl, asset.credit);
+          onSaved(free, res.imageUrl, asset.credit, asset.swatches);
         } else {
           setSaveError(res.message ?? 'Could not save that photo — try again.');
         }
@@ -135,13 +185,61 @@ export function GalleryPicker({
   return (
     <section
       aria-label={`Supplier photos for ${slotLabel}`}
-      className="space-y-3 rounded-2xl border border-ink/12 bg-white/70 p-4"
+      data-gallery-picker={studio ? 'studio' : ''}
+      className={studio ? 'space-y-3' : 'space-y-3 rounded-2xl border border-ink/12 bg-white/70 p-4'}
     >
+      {studio ? (
+        <div className="space-y-2" data-gallery-search="">
+          <label className="flex min-h-11 items-center gap-2 rounded-full bg-ink/5 px-4">
+            <Search aria-hidden className="h-4 w-4 shrink-0 text-ink/50" />
+            <span className="sr-only">Search ideas</span>
+            <input
+              type="search"
+              value={typed}
+              onChange={(e) => setTyped(e.target.value)}
+              placeholder="Search — peonies, rustic, white roses…"
+              maxLength={40}
+              className="min-w-0 flex-1 bg-transparent text-[15px] text-ink placeholder:text-ink/40 focus:outline-none"
+              data-gallery-search-input=""
+            />
+          </label>
+          <div className="flex gap-2">
+            <PickMenu
+              label="From"
+              value={from}
+              options={GALLERY_FROM.map((f) => ({ key: f.key, label: f.label }))}
+              onPick={(k) => setFrom(k as GalleryFromKey)}
+              buttonText={`From · ${GALLERY_FROM.find((f) => f.key === from)?.label ?? 'Everyone'}`}
+              dataAttr="data-gallery-from"
+              className="min-h-11 flex-1 justify-between"
+            />
+            <PickMenu
+              label="Near"
+              value={near}
+              options={[{ key: '', label: 'Anywhere' }, ...studio.regions]}
+              onPick={(k) => setNear(k)}
+              buttonText={`Near · ${near ? (studio.regions.find((r) => r.key === near)?.label ?? 'Anywhere') : 'Anywhere'}`}
+              dataAttr="data-gallery-near"
+              className="min-h-11 flex-1 justify-between"
+            />
+          </div>
+          <label className="flex min-h-11 cursor-pointer items-center justify-between gap-3" data-gallery-match="">
+            <span className="text-[14px] font-semibold text-ink">Matches my colours</span>
+            <input type="checkbox" role="switch" checked={matchMine} onChange={(e) => setMatchMine(e.target.checked)} className="peer sr-only" />
+            <span
+              aria-hidden
+              className="relative h-6 w-11 shrink-0 rounded-full bg-ink/20 transition-colors after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:bg-terracotta-700 peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-mulberry"
+            />
+          </label>
+        </div>
+      ) : null}
       <header className="flex flex-wrap items-baseline justify-between gap-2">
         <div className="space-y-0.5">
-          <h3 className="text-lg font-semibold text-ink">
-            {slotLabel} — suppliers&rsquo; own photos
-          </h3>
+          {studio ? null : (
+            <h3 className="text-lg font-semibold text-ink">
+              {slotLabel} — suppliers&rsquo; own photos
+            </h3>
+          )}
           {/* 🔑 THREE DIFFERENT EMPTIES, THREE DIFFERENT SENTENCES. A dead
               fetch, a slot no supplier has stocked, and a slot whose photos we
               hold but may not credit are three separate facts, and rendering
@@ -160,13 +258,15 @@ export function GalleryPicker({
                     : 'No supplier has added photos for this yet. Nothing is wrong — the shelf is new.'}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="sn-press text-[12px] font-bold text-ink/60 underline underline-offset-2 hover:text-ink"
-        >
-          Close
-        </button>
+        {studio ? null : (
+          <button
+            type="button"
+            onClick={onClose}
+            className="sn-press text-[12px] font-bold text-ink/60 underline underline-offset-2 hover:text-ink"
+          >
+            Close
+          </button>
+        )}
       </header>
 
       {loadError ? (
@@ -191,8 +291,15 @@ export function GalleryPicker({
         </p>
       ) : null}
 
+      {hiddenByMatch > 0 ? (
+        <p className="text-xs text-ink/60" data-gallery-match-hidden="">
+          {formatCount(hiddenByMatch)} {hiddenByMatch === 1 ? 'photo is' : 'photos are'} hidden — not near your colours.
+        </p>
+      ) : null}
+
       <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {assets.map((asset) => {
+          if (hiddenAsset(asset)) return null;
           const isSaving = savingId === asset.assetId && pending;
           const saved = savedIds.has(asset.assetId);
           return (
@@ -242,10 +349,22 @@ export function GalleryPicker({
                 ) : (
                   <>
                     <Sparkles className="h-3 w-3" aria-hidden />
-                    {isSaving ? 'Saving…' : 'Save to this slot'}
+                    {isSaving ? 'Saving…' : studio ? `Save to ${slotLabel}` : 'Save to this slot'}
                   </>
                 )}
               </button>
+              {/* 🛍 Shop › — the photo's shop, in its own tab so the Maker stays where it is. */}
+              {studio && asset.shopSlug ? (
+                <a
+                  href={`/v/${asset.shopSlug}`}
+                  target="_blank"
+                  rel="noopener"
+                  className="sn-press inline-flex min-h-9 w-full items-center justify-center rounded-full px-3 text-[11px] font-semibold text-ink/70 hover:bg-ink/5"
+                  data-gallery-shop=""
+                >
+                  Shop ›
+                </a>
+              ) : null}
             </li>
           );
         })}

@@ -295,7 +295,10 @@ test('e · the Home draws exactly one h1 — the cover name — and it is the fi
 test('e · desktop is the same single column, only wider — no second section', () => {
   const html = draw();
   assert.equal(count(html, 'data-home-first-screen'), 1, 'one first screen');
-  assert.match(html, /<section[^>]*data-home-first-screen[^>]*class="[^"]*\bmax-w-xl\b[^"]*\blg:max-w-3xl\b/, 'one centred column, with a wider max-width from lg up');
+  // The cover is a full-width band (owner 2026-10-07); everything under it is one centred column.
+  assert.match(html, /<div data-home-column[^>]*class="[^"]*\bmax-w-xl\b[^"]*\blg:max-w-3xl\b/, 'one centred column, with a wider max-width from lg up');
+  assert.match(html, /data-home-cover="[^"]*"[^>]*class="[^"]*-mx-4[^"]*sm:-mx-6[^"]*lg:-mx-8/, 'the cover cancels the layout gutter at every width — a full-width band');
+  assert.doesNotMatch(html.slice(html.indexOf('data-home-cover'), html.indexOf('data-home-column')), /rounded/, 'the cover band is square-edged');
   assert.doesNotMatch(html, /grid-cols-(?:3|4)\b[^"]*lg:|lg:grid-cols|lg:flex-row/, 'the first screen must not turn into a wide multi-column layout on desktop');
   assert.equal(count(html, '#home-all'), 0, 'a "See all" / "#home-all" link with nothing under it');
   assert.equal(count(html, '>See all<'), 0);

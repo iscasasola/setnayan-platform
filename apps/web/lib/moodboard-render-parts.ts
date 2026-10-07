@@ -151,14 +151,10 @@ const SLOT_ROLE: Record<MoodboardSlotKey, SlotRole> = {
   stage: { kind: 'alias_of_room', partId: 'stage' },
   ceiling: { kind: 'alias_of_room', partId: 'ceiling' },
   table: { kind: 'alias_of_room', partId: 'tables' },
-  // 💐 Centrepieces stand on the tables — the tables zone's references (step 4c).
-  centrepieces: { kind: 'alias_of_room', partId: 'tables' },
 
   // ── the same subject as an attire role ──
   groom: { kind: 'alias_of_people', paletteKey: 'groom' },
   bride: { kind: 'alias_of_people', paletteKey: 'bride' },
-  // 💐 The bouquet is the bride's — her references (step 4c).
-  bridal_bouquet: { kind: 'alias_of_people', paletteKey: 'bride' },
   principal_sponsor: { kind: 'alias_of_people', paletteKey: 'principal_sponsors' },
   entourage: { kind: 'alias_of_people', paletteKey: 'wedding_party' },
   parents: { kind: 'alias_of_people', paletteKey: 'parents_immediate_family' },
@@ -168,6 +164,17 @@ const SLOT_ROLE: Record<MoodboardSlotKey, SlotRole> = {
   overall: {
     kind: 'not_a_part',
     why: 'the whole look — that is WHOLE_LOOK_PART_ID, the five-credit combined render',
+  },
+  // 💐 Step 4c (2026-10-07): inspiration cards of their own, NOT render parts —
+  // aliasing them onto the tables or the bride would hand florists and caterers
+  // a say in another part's sign-off (`canonicalServicesForPart`). Kept apart.
+  bridal_bouquet: {
+    kind: 'not_a_part',
+    why: 'an inspiration card (the florist’s shelf), not a render part — the bride’s part keeps its own trades',
+  },
+  centrepieces: {
+    kind: 'not_a_part',
+    why: 'an inspiration card (florists, stylists, caterers), not a render part — the tables zone keeps its own trades',
   },
   palette: {
     kind: 'not_a_part',

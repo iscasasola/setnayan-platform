@@ -190,11 +190,13 @@ test('no inspiration slot both feeds a room/people part AND becomes a place of i
     );
   }
   // …and every slot is accounted for exactly once: place, alias, or one of the
-  // two explicit non-parts. An unclassified slot is a compile error in
+  // explicit non-parts (the two cards of step 4c, 2026-10-07, are inspiration
+  // cards only — never a render part). An unclassified slot is a compile error in
   // SLOT_ROLE; this proves the runtime agrees with the type.
   const places = new Set(renderPartsInGroup('places').map((p) => p.sourceKey));
   for (const slot of MOODBOARD_SLOT_KEYS) {
-    const classified = places.has(slot) || aliased.has(slot) || slot === 'overall' || slot === 'palette';
+    const classified =
+      places.has(slot) || aliased.has(slot) || slot === 'overall' || slot === 'palette' || slot === 'bridal_bouquet' || slot === 'centrepieces';
     assert.ok(classified, `inspiration slot "${slot}" is not classified anywhere`);
   }
 });
@@ -202,9 +204,7 @@ test('no inspiration slot both feeds a room/people part AND becomes a place of i
 /* ── the join MB8 needs ──────────────────────────────────────────────────── */
 
 test('a part knows which inspiration uploads condition it', () => {
-  // 💐 Centrepieces stand on the tables, the bouquet is the bride's (step 4c, 2026-10-07).
-  assert.deepEqual(inspirationSlotsForPart('room:tables'), ['table', 'centrepieces']);
-  assert.deepEqual(inspirationSlotsForPart('people:bride'), ['bridal_bouquet', 'bride']);
+  assert.deepEqual(inspirationSlotsForPart('room:tables'), ['table']);
   assert.deepEqual(inspirationSlotsForPart('people:wedding_party'), ['entourage']);
   assert.deepEqual(inspirationSlotsForPart('people:guest'), ['guests']);
   assert.deepEqual(inspirationSlotsForPart('place:cake'), ['cake']);

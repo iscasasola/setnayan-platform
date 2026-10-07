@@ -21,8 +21,8 @@
  *   HomeWhatsNext  — the What's next row: pop, then unfold IN PLACE under it (H7)
  *                    — no `?sheet=next` portal, no URL change.
  */
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
+import { useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { CalendarClock, CalendarDays, Check, ChevronDown, CreditCard, ListChecks, RotateCw, Sparkles, UserRound, CalendarCheck } from 'lucide-react';
 import { ActionButton, type ActionTone } from '@/components/action-button';
 import { Count } from '@/components/count';
@@ -152,14 +152,10 @@ export function HomeLater({ eventId, kind }: { eventId: string; kind: string }) 
 
 /** "⟳ Reload" — runs the page's reads again. Never claims the read worked. */
 export function HomeReload({ main = false }: { main?: boolean }) {
-  // Outside the app router (a render test, the dev lab's static paint) there is no
-  // router to ask; the button then reloads the page, which re-runs the reads too.
-  let router: ReturnType<typeof useRouter> | null = null;
-  try {
-    router = useRouter();
-  } catch {
-    router = null;
-  }
+  // Read the router's context rather than `useRouter()`, which throws outside the app
+  // router (a render test, the dev lab's static paint). No router → reload the page,
+  // which re-runs the reads too.
+  const router = useContext(AppRouterContext);
   return (
     <ActionButton
       tone="neutral"

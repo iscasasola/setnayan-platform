@@ -119,7 +119,9 @@ export function StylePreview({ canvasKey, sceneType, styleId, current }: { canva
   const frame = useRef<HTMLIFrameElement>(null);
   const [mount, setMount] = useState<HTMLElement | null>(null);
   const [fit, setFit] = useState<{ k: number; x: number; y: number; h: number } | null>(null);
-  const srcDoc = live && mode ? buildTileDocument(live.head, mode === 'render' ? withMount(live.snap) : live.snap) : null;
+  /* The part alone, on the page's colour — the page's ground (a photo behind every scene) would fill the small card. */
+  const head = live ? { ...live.head, grounds: [] } : null;
+  const srcDoc = live && head && mode ? buildTileDocument(head, mode === 'render' ? withMount(live.snap) : live.snap) : null;
   const width = live?.snap.frameWidth ?? 375;
 
   /* Fit the copy's root into the card (contain, centred — `fillLayouts`). */

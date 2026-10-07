@@ -53,9 +53,9 @@ export const STAGE_SHEET_ROW =
  * Suppliers line (`STAGE_QUIET_SUPPLIERS`) wears the CTA wash.
  */
 export const STAGE_QUIET_ROW =
-  'sn-press flex h-11 w-full shrink-0 items-center gap-2 rounded-full border border-[var(--sp-ink)] bg-[var(--sp-ink)] px-[14px] text-left text-[14px] font-semibold text-white';
+  'sn-press flex h-11 min-w-0 flex-1 items-center gap-2 rounded-full border border-[var(--sp-ink)] bg-[var(--sp-ink)] px-[14px] text-left text-[14px] font-semibold text-white';
 export const STAGE_QUIET_SUPPLIERS =
-  'sn-press flex h-11 w-full shrink-0 items-center gap-2 rounded-full border border-[#F0D3C7] bg-[var(--sp-cta-wash)] px-[14px] text-left text-[14px] font-semibold text-[var(--sp-ink)]';
+  'sn-press flex h-11 min-w-0 flex-1 items-center gap-2 rounded-full border border-[#F0D3C7] bg-[var(--sp-cta-wash)] px-[14px] text-left text-[14px] font-semibold text-[var(--sp-ink)]';
 /** A page of the guest's tab bar under the page preview (prototype `.gbar button`: words only, 44 px). */
 export const STAGE_GUEST_TAB =
   'sn-press relative flex h-11 min-w-0 flex-1 items-center justify-center whitespace-nowrap px-1 text-[12px] font-semibold text-[var(--sp-mute)] aria-[current=page]:text-[var(--sp-ink)]';

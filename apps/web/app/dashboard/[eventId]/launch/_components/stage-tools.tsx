@@ -247,9 +247,14 @@ export function StageTools({
   const pickedEl = picked ? (MAKER_PARTS[picked].el ?? null) : null;
   useEffect(() => {
     if (!open || !pickedKey || rsvpOpen) return;
+    /* Once the panel has risen — and again after the page under it settles (a page jump scrolls the canvas). */
     const t = window.setTimeout(() => centrePart(pickedKey, pickedEl), STAGE_PANEL_MS + 40);
-    return () => window.clearTimeout(t);
-  }, [open, pickedKey, pickedEl, rsvpOpen, ltNow]);
+    const t2 = window.setTimeout(() => centrePart(pickedKey, pickedEl), STAGE_PANEL_MS + 900);
+    return () => {
+      window.clearTimeout(t);
+      window.clearTimeout(t2);
+    };
+  }, [open, pickedKey, pickedEl, rsvpOpen, ltNow, shownPage]);
   /* Its tools closed (×, a tap on nothing): nothing is picked. */
   useEffect(() => {
     if (openTool !== null) return;
@@ -828,7 +833,8 @@ function centrePart(key: string, el: string | null) {
     doc.body.style.paddingBottom = `${Math.round(band / 2)}px`;
     const r = node.getBoundingClientRect();
     const dy = r.height >= band - 24 ? r.top - 12 : r.top + r.height / 2 - band / 2;
-    if (Math.abs(dy) > 2) win.scrollBy({ top: dy, behavior: 'smooth' });
+    /* An absolute target — a scroll still gliding from the last pick cannot add to it. */
+    if (Math.abs(dy) > 2) win.scrollTo({ top: Math.max(0, win.scrollY + dy), behavior: 'smooth' });
   } catch {
     /* a frame we cannot reach keeps its own scroll */
   }

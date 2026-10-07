@@ -7687,26 +7687,32 @@ html:has(.hub-shape-full) { overflow-x: clip; }
 .ab.icon-only .lbl { display: none; }
 /* 3a's middle state — a row too narrow for icon + word shows words only. */
 .ab.word-only svg { display: none; }
-.ab-brand { --ab-tone: var(--color-mulberry); --ab-word: var(--color-mulberry-700); }
-.ab-ok { --ab-tone: var(--color-ok); }
-.ab-info { --ab-tone: var(--color-info); }
-.ab-warn { --ab-tone: var(--color-warn); }
-.ab-danger { --ab-tone: var(--color-danger); }
-.ab-neutral { --ab-tone: var(--color-ink); background: transparent; border-color: color-mix(in srgb, rgb(var(--color-ink)) 18%, transparent); }
+/* Tone rules are ELEMENT + BASE CLASS + TONE (specificity 0,2,1) — never a bare
+ * tone class. Owner 2026-10-07: a specificity slip (a bare `.t-brand` losing to
+ * the base rule) made every tone fall back to ink in the prototypes. The main
+ * and quiet rules below are written at the same weight or higher, AFTER these,
+ * so a tone can only be overridden on purpose. Held by
+ * lib/action-button-is-icon-and-word.test.ts. */
+:is(button, a).ab.ab-brand { --ab-tone: var(--color-mulberry); --ab-word: var(--color-mulberry-700); }
+:is(button, a).ab.ab-ok { --ab-tone: var(--color-ok); }
+:is(button, a).ab.ab-info { --ab-tone: var(--color-info); }
+:is(button, a).ab.ab-warn { --ab-tone: var(--color-warn); }
+:is(button, a).ab.ab-danger { --ab-tone: var(--color-danger); }
+:is(button, a).ab.ab-neutral { --ab-tone: var(--color-ink); background: transparent; border-color: color-mix(in srgb, rgb(var(--color-ink)) 18%, transparent); }
 /* `quiet` — the prototype's `.btn.quiet`: a secondary that should not compete
  * (Skip · Not now). Hairline border, muted word, no wash — any tone. Muted word
  * = ink at 72% on white, measured 5.75:1, AA. Ignored on `main`. */
-.ab.quiet:not(.ab-main) {
+:is(button, a).ab.quiet:not(.ab-main) {
   background: transparent;
   border-color: color-mix(in srgb, rgb(var(--color-ink)) 18%, transparent);
   color: color-mix(in srgb, rgb(var(--color-ink)) 72%, transparent);
 }
-.ab.ab-main {
+:is(button, a).ab.ab-main {
   background: rgb(var(--ab-tone));
   border-color: rgb(var(--ab-tone));
   color: #fff;
 }
-html.dark .ab.ab-main { color: #161513; }
+html.dark :is(button, a).ab.ab-main { color: #161513; }
 @media (prefers-reduced-motion: reduce) { .ab { transition: none; } .ab:active { transform: none; } }
 
 /* Fill — the meter rule's bar (components/count.tsx). Width is set inline by

@@ -8,16 +8,20 @@ Foundation", built once and shared).
   a 40 px pill, icon + `<span class="lbl">` word, `aria-label` = the word; `tone`
   REQUIRED (`brand` · `ok` · `info` · `warn` · `danger` · `neutral`); `main` filled
   with a white word, the rest the tone on a 9% `color-mix` wash. `useFitRow(ref)`
-  drops the right-most secondary words to icon-only until the row fits; the main
-  verb keeps its word; re-runs on resize and on child changes; the row is made
-  `min-width: 0` so the measure is honest.
+  follows the owner's 3a/3b rulings (2026-10-07): a row changes state AS ONE —
+  icon + word → word only → icon only, never a mix (the main verb keeps its word)
+  — and a text field in the row keeps ≥ 60% of its width (the buttons give);
+  re-runs on resize and on child changes; the row is made `min-width: 0` so the
+  measure is honest.
 - `components/count.tsx` — `<Count value format="peso|int|pct" id>` counts 0 → value
   on load and old → new on change (420–900 ms ease-out, formatted every frame,
   keyed by `id` so a re-render does not replay; reduced motion = at once) and
   `<Fill value id>` grows / slides a bar (700 ms, `.meter-fill`). The shipped
   `CountUp` (`app/_components/count-up.tsx`) now runs on the same engine
   (`useCountTo`) — one implementation, same behaviour.
-- `globals.css` — `--color-ok` / `--color-warn` / `--color-danger` light + dark with
+- `globals.css` — tone rules are element + base class + tone
+  (`:is(button, a).ab.ab-brand`), never a bare tone class — the specificity slip
+  that turned every prototype tone ink cannot recur; `--color-ok` / `--color-warn` / `--color-danger` light + dark with
   measured AA numbers; `--color-info` REUSES `--color-link` (the doc's open owner
   call). Two of the doc's suggested hexes failed AA and were darkened: warn
   #B26B00 → #965A00 (4.20 → 5.59 on white), ok #2E7D4F → #2B744A (4.48 → 5.00 on

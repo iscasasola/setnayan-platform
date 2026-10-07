@@ -18,6 +18,7 @@
  *
  * SABOTAGE, each seen red before this shipped (PR body has the run):
  *   T1 drop `aria-label={label}` from the <button> branch
+ *   T2 write a tone rule as a bare `.ab-brand`
  *   T2 put the doc's warn #B26B00 (`178 107 0`) back — 4.20:1 on white
  *   T3 let the pass drop `.ab-main` too
  *   T3a restore the one-at-a-time drop (a mixed row)
@@ -165,6 +166,28 @@ test('T2 · every light pairing the button draws clears AA 4.5:1', () => {
     const r = ratio(word, wash(c, page));
     assert.ok(r >= 4.5, `${tone} outlined: word on 9% wash = ${r.toFixed(2)}`);
   }
+});
+
+test('T2 · tone rules are element + base class + tone — never a bare tone class (the prototype specificity slip)', () => {
+  const start = css.indexOf('/* ─── ActionButton');
+  assert.ok(start >= 0, 'the ActionButton block exists');
+  const block = css.slice(start).replace(/\/\*[\s\S]*?\*\//g, '');
+  const rules = [...block.matchAll(/(^|\})\s*([^{}@]+?)\s*\{/g)].map((m) => m[2]!.trim());
+  const toneRules = rules.filter((sel) => /\.ab-(brand|ok|info|warn|danger|neutral|main)\b|\.quiet\b/.test(sel));
+  // every tone has its rule; brand + 5 more + quiet + main (+ dark main)
+  for (const t of [...AB.ACTION_TONES, 'main']) {
+    assert.ok(toneRules.some((sel) => sel.includes(`.ab-${t}`)), `a rule for .ab-${t}`);
+  }
+  for (const sel of toneRules) {
+    for (const part of sel.split(/,(?![^(]*\))/).map((x) => x.trim()).filter((x) => /\.ab-|\.quiet/.test(x))) {
+      assert.match(part, /:is\(button, a\)\.ab\./, `"${part}" carries element + base class (0,2,1), not a bare tone class`);
+    }
+  }
+  // the base rule stays the lightest, so a tone can never lose to it
+  assert.ok(rules.includes('.ab'), 'the base rule is `.ab` (0,1,0)');
+  // main is written after every tone rule, so filled beats a tone's own background (neutral's transparent)
+  const lastTone = Math.max(...AB.ACTION_TONES.map((t) => block.indexOf(`.ab.ab-${t} {`)));
+  assert.ok(block.indexOf(':is(button, a).ab.ab-main {') > lastTone, 'main comes after every tone rule');
 });
 
 /* ═══ T3 · THE FIT PASS, EXECUTED (rules 3 · 3a · 3b) ═════════════════════ */

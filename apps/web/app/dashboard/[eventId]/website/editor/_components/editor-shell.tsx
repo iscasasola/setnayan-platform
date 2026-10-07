@@ -1001,18 +1001,11 @@ export function MakerWork({
   /* 🧭 The new Maker's Stages panel owns the page's place on a phone: it centres the picked part itself
      (`stage-tools.tsx` `centrePart`) — a top-aligned bring-up here would undo it. */
   /* Stages on a phone centres a PICKED part itself (`stage-tools.tsx` `centrePart`), so `scrollPreviewTo` skips there —
-     but a PAGE pick (`jumpToPage` raises this first) still goes to its page: the tabs did nothing while it was
-     skipped too (owner 2026-10-07). */
-  const pageAskRef = useRef(false);
-  /** Was this scroll a PAGE pick? Read once — the ask is spent by the scroll it asked for. */
-  const takePageAsk = () => {
-    const asked = pageAskRef.current;
-    pageAskRef.current = false;
-    return asked;
-  };
+     a PAGE pick included: its tab is its own page, opened from the TOP (`jumpToPage` → the bridge's `hubTab`), never
+     scrolled to its first scene (measured 08 Oct: a tab tap ended 959 px down the Details page). */
   const scrollPreviewTo = useCallback(
     (anchor?: string) => {
-      if (!anchor || (stagesStudioRef.current && window.innerWidth < 1024 && !takePageAsk())) return;
+      if (!anchor || (stagesStudioRef.current && window.innerWidth < 1024)) return;
       postToShownCanvases({ source: 'setnayan-editor', t: 'scrollTo', key: anchor });
     },
     [postToShownCanvases],
@@ -2066,7 +2059,6 @@ export function MakerWork({
      Me and a page that leaves have no scenes here; the navigator's top says so. */
   const jumpToPage = (page: MakerGuestPage) => {
     const key = page.key;
-    pageAskRef.current = true;
     setTabKey(key);
     /* 🧭 Stages: the page SWAPS to that tab (its own page, as guests get it) before anything scrolls. */
     if (maker?.stagesStudio) postToShownCanvases({ source: 'setnayan-editor', t: 'hubTab', key: '', tab: key });
@@ -2075,7 +2067,6 @@ export function MakerWork({
       navList?.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
       // 👤 Me, drawn for a See as sample guest (PR-10): the canvas goes to it.
       if (key === 'me' && seeAsDrawsMe(seeAs)) scrollPreviewTo('me');
-      pageAskRef.current = false;
       return;
     }
     scrollPreviewTo(first);
@@ -2094,21 +2085,6 @@ export function MakerWork({
      `jumpToPage` the navigator's dropdown ran. A pick on another stage waits
      for THAT stage's canvas to hand over its bar (a new `canvasBar`), so it
      never scrolls the old stage's frame. */
-  /* 🧭 Stages: a canvas that (re)loads is told which tab is on screen, so a reload never jumps back to the first. */
-  const tabNowRef = useRef<string | null>(null);
-  tabNowRef.current = shownPage?.key ?? null;
-  useEffect(() => {
-    if (!maker?.stagesStudio) return;
-    const onReady = (e: MessageEvent) => {
-      if (e.origin !== window.location.origin) return;
-      const d = e.data as { source?: unknown; t?: unknown } | null;
-      if (d?.source === 'setnayan-site' && d.t === 'ready' && tabNowRef.current) {
-        (e.source as Window | null)?.postMessage({ source: 'setnayan-editor', t: 'hubTab', key: '', tab: tabNowRef.current }, window.location.origin);
-      }
-    };
-    window.addEventListener('message', onReady);
-    return () => window.removeEventListener('message', onReady);
-  }, [maker?.stagesStudio]);
   const setGuestPagesCtx = maker?.setGuestPages;
   const shownPageKey = shownPage?.key ?? null;
   const pagesRef = useRef(guestPages);

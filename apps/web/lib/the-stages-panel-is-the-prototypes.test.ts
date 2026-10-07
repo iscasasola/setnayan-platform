@@ -212,7 +212,11 @@ test('every part with a Studio bar has a door; every focused field exists in the
     assert.ok(hits.length > 0, `${part}: no editor draws data-same-field="${field}"`);
   }
   const shell = read(`${LAUNCH}/maker-shell.tsx`);
-  assert.match(shell, /Done · back to \{studioFrom\.label\}/, 'the way back names the part');
+  /* ⚡ MOVED 08 Oct, not changed: the button and its two effects live in the lazy chunk (`StudioBackToPart`) — the
+     Maker's first load was 0.4 KB over its budget on #6413, and this exists only after a Style-bar jump. */
+  assert.match(read(`${LAUNCH}/stages-studio-parts.tsx`), /Done · back to \{from\.label\}/, 'the way back names the part');
+  assert.match(shell, /\{studioFrom \? <StudioBackToPart from=\{studioFrom\} side=\{side\} at=\{studioAt\} full=\{studioFull\} onBack=\{backToPart\} \/> : null\}/, 'the shell mounts it for a jump');
+  assert.match(read(`${LAUNCH}/details-lazy.tsx`), /export const StudioBackToPart = dynamic\(\(\) => import\(\/\* webpackChunkName: "maker-details" \*\/ '\.\/stages-studio-parts'\)/, 'lazily');
   assert.match(shell, /onDone=\{\(\) => \(studioFrom \? backToPart\(\) : pickSide\('studio'\)\)\}/, 'the top Done returns too');
 });
 
@@ -220,10 +224,16 @@ test('every part with a Studio bar has a door; every focused field exists in the
 
 test('a page tab still takes the canvas to its page under Stages (only a picked part centres itself)', () => {
   const shell = read(`${EDITOR}/editor-shell.tsx`);
-  assert.match(shell, /if \(!anchor \|\| \(stagesStudioRef\.current && window\.innerWidth < 1024 && !takePageAsk\(\)\)\) return;/, 'the skip spares a page pick');
+  /* 🧭 AMENDED 08 Oct — measured on the preview: after a tab tap the Invitation ended 959 / 77 / 156 px down, not at
+     the top. The owner's ruling (2026-10-07, "yes pages"): *"each page is just a bookmark on a single page that just
+     jumps. this was not the plan"* — a tab is its own page, opened from its TOP. So the page pick no longer ASKS for
+     a scroll to its first scene (the `pageAskRef` this test used to pin is gone): it swaps the page (`hubTab`), and
+     on a phone `scrollPreviewTo` skips for it as it does for a picked part. STRONGER, not weaker: the canvas is
+     still taken to the page, and never away from its top. */
+  assert.match(shell, /if \(!anchor \|\| \(stagesStudioRef\.current && window\.innerWidth < 1024\)\) return;/, 'under Stages the Maker never scrolls the canvas to a scene — a page pick included');
+  assert.doesNotMatch(shell, /pageAskRef|takePageAsk/, 'a page pick asks for a scroll to its first tile again');
   const jump = shell.slice(shell.indexOf('const jumpToPage = (page: MakerGuestPage) => {'));
-  assert.match(jump.slice(0, 200), /pageAskRef\.current = true;/, 'jumpToPage asks as a PAGE pick');
-  assert.match(shell, /const asked = pageAskRef\.current;\s*pageAskRef\.current = false;\s*return asked;/, 'one ask, one jump');
+  assert.match(jump.slice(0, 400), /if \(maker\?\.stagesStudio\) postToShownCanvases\(\{ source: 'setnayan-editor', t: 'hubTab', key: '', tab: key \}\);/, 'jumpToPage opens the page');
   const tools = read(`${LAUNCH}/stage-tools.tsx`);
   /* 🧭 AMENDED 08 Oct — owner, on the Stages view: *"i do not see the individual pages. i still see invitation as a
      1 long page that scrolls down"*. A tab tap now tells the CANVAS to swap first (`goToPage`), then the shell's

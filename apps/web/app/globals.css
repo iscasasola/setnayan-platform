@@ -7708,5 +7708,5 @@ html.dark .ab.ab-main { color: #161513; }
 
 /* Fill — the meter rule's bar (components/count.tsx). Width is set inline by
  * the component; this only owns the slide. Reduced motion → jump. */
-.fill-bar { transition: width 700ms cubic-bezier(0.2, 0.8, 0.2, 1); }
-@media (prefers-reduced-motion: reduce) { .fill-bar { transition: none; } }
+.meter-fill { transition: width 700ms cubic-bezier(0.2, 0.8, 0.2, 1), height 700ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+@media (prefers-reduced-motion: reduce) { .meter-fill { transition: none; } }

@@ -61,12 +61,12 @@ test('T2 · the duration rule is 420–900 ms, longer for a bigger jump', () => 
 
 test('T3 · Fill renders the final width, clamped, with the shared slide class', () => {
   const html = renderToStaticMarkup(React.createElement(C.Fill, { value: 62, id: 'm' }));
-  assert.match(html, /class="fill-bar"/);
+  assert.match(html, /class="meter-fill"/);
   assert.match(html, /width:62%/);
   assert.match(renderToStaticMarkup(React.createElement(C.Fill, { value: 140 })), /width:100%/);
   assert.match(renderToStaticMarkup(React.createElement(C.Fill, { value: 50, axis: 'height' })), /height:50%/);
-  assert.match(css, /\.fill-bar\s*\{\s*transition:\s*width 700ms/, '700 ms slide');
-  assert.match(css, /prefers-reduced-motion: reduce\) \{ \.fill-bar \{ transition: none/, 'reduced motion jumps');
+  assert.match(css, /\.meter-fill\s*\{\s*transition:\s*width 700ms/, '700 ms slide');
+  assert.match(css, /prefers-reduced-motion: reduce\) \{ \.meter-fill \{ transition: none/, 'reduced motion jumps');
 });
 
 test('T4 · the shipped CountUp runs on the same engine and still prints grouped', () => {

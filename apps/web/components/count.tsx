@@ -171,7 +171,7 @@ export function Count({
 /**
  * `<Fill value={62} id="budget-spoken" className="h-full bg-terracotta" />` —
  * a bar whose width (or height) is `value`% of its track. Grows from 0 (or the
- * remembered value) on mount, slides on change; `.fill-bar` in globals.css
+ * remembered value) on mount, slides on change; `.meter-fill` in globals.css
  * owns the 700 ms transition and the reduced-motion jump.
  */
 export function Fill({
@@ -198,7 +198,7 @@ export function Fill({
     const from = key !== undefined ? startFor(key, to) : instanceLast.current ?? 0;
     instanceLast.current = to;
     if (!node || from === to || prefersReducedMotion()) return;
-    // Paint `from` with no transition, force a reflow, then let `.fill-bar` slide to `to`.
+    // Paint `from` with no transition, force a reflow, then let `.meter-fill` slide to `to`.
     node.style.transition = 'none';
     node.style[axis] = `${from}%`;
     void node.offsetWidth;
@@ -224,7 +224,7 @@ export function Fill({
   return (
     <div
       ref={el}
-      className={['fill-bar', className].filter(Boolean).join(' ')}
+      className={['meter-fill', className].filter(Boolean).join(' ')}
       style={{ ...style, [axis]: `${to}%` }}
       data-fill={id}
       role="presentation"

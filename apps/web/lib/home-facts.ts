@@ -69,6 +69,20 @@ export type HomeFacts = {
   noReplyWaiting: boolean;
   /** `null` = the viewer may not see the budget (no line at all); "—" figures = not measured. */
   money: { paid: string; owing: string } | null;
+  /**
+   * 🔢 THE SAME FACTS AS NUMBERS, for `Count` / `Fill` (owner 2026-10-07, BUTTON_RULE
+   * rule 2: "all numbers on the app will animate going to that number"). `null` = not
+   * a number to count — unread, or a word ("Today"). Money: `'unread'` = the read
+   * failed (said so on the tile, never ₱0); `null` = not shared (no tile).
+   */
+  figures: HomeFigures;
+};
+
+export type HomeFigures = {
+  days: number | null;
+  coming: number | null;
+  noReply: number | null;
+  money: { paid: number; owing: number } | 'unread' | null;
 };
 
 /**
@@ -114,5 +128,11 @@ export function homeFacts(input: {
       money === 'hidden'
         ? null
         : { paid: glanceMoney(money?.paid ?? null), owing: glanceMoney(money?.owing ?? null) },
+    figures: {
+      days: toGo?.kind === 'days' ? toGo.days : null,
+      coming: guests.measured ? guests.stats.attending : null,
+      noReply: guests.measured ? guests.stats.pending : null,
+      money: money === 'hidden' ? null : money === null ? 'unread' : { paid: money.paid, owing: money.owing },
+    },
   };
 }

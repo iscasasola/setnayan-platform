@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "25a7dcef0",
+  "generatedFromRef": "be93c6c29",
   "routeCount": 428,
-  "destinations": 949,
+  "destinations": 954,
   "actions": 671,
-  "blocks": 5635,
+  "blocks": 5647,
   "routes": {
     "/": {
       "files": [
@@ -5189,6 +5189,7 @@
         "dashboard/[eventId]/_components/guest-setup/rsvp-asks.tsx",
         "dashboard/[eventId]/_components/guest-setup/setup-skin.ts",
         "dashboard/[eventId]/_components/home-first-screen.tsx",
+        "dashboard/[eventId]/_components/home-parts.tsx",
         "dashboard/[eventId]/_components/inline-checkout-drawer.tsx",
         "dashboard/[eventId]/_components/more-services-sheet.tsx",
         "dashboard/[eventId]/_components/new-manual-vendor-modal.tsx",
@@ -5212,7 +5213,6 @@
         "dashboard/[eventId]/_components/vendor-direct-pay.tsx",
         "dashboard/[eventId]/_components/vendor-itemization-card.tsx",
         "dashboard/[eventId]/_components/vendor-marketplace-info.tsx",
-        "dashboard/[eventId]/_components/whats-next-sheet.tsx",
         "dashboard/[eventId]/actions.ts",
         "dashboard/[eventId]/archive-actions.ts",
         "dashboard/[eventId]/checklist-actions.ts",
@@ -5228,6 +5228,7 @@
       ],
       "destinations": [
         "/dashboard",
+        "/dashboard/[seg]",
         "/dashboard/[seg]/budget",
         "/dashboard/[seg]/checklist",
         "/dashboard/[seg]/clearance",
@@ -5250,9 +5251,10 @@
         "/dashboard/[seg]/studio/mood-board",
         "/dashboard/[seg]/studio/papic",
         "/dashboard/[seg]/studio/setnayan-ai",
+        "/dashboard/[seg]/vendors",
+        "/dashboard/[seg]/vendors?part=budget",
         "/dashboard/[seg]/vendors?tab=shortlist",
         "/dashboard/[seg]/vendors?tab=shortlist&open=[seg]",
-        "/dashboard/[seg]?sheet=next",
         "/dashboard/notifications",
         "/help",
         "/login?next=[seg]",
@@ -5332,6 +5334,7 @@
         "Field",
         "Figure",
         "FileUpload",
+        "Fill",
         "FinalizeRow",
         "FinishedEventSummary",
         "FourFlapEnvelope",
@@ -5343,13 +5346,19 @@
         "GuestsGetIn",
         "HTMLButtonElement",
         "HTMLDivElement",
+        "HTMLElement",
         "HTMLFormElement",
         "HTMLInputElement",
         "HTMLSpanElement",
         "HTMLTextAreaElement",
         "HeadcountView",
+        "HomeDecisionRow",
+        "HomeDoorways",
         "HomeFirstScreen",
         "HomeGuide",
+        "HomeLater",
+        "HomeReload",
+        "HomeWhatsNext",
         "HubSavesImmediately",
         "Icon",
         "Image",
@@ -5449,6 +5458,7 @@
         "SupplierConnectPanel",
         "SupplierInviteView",
         "SupplierReachLinks",
+        "Suspense",
         "UnreadBellBadge",
         "UnreadMessagesBadge",
         "UpcomingItem",
@@ -5462,7 +5472,6 @@
         "VoucherBlock",
         "Watermark",
         "WhatsHappeningCard",
-        "WhatsNextSheet",
         "WizardTaskId",
         "YourTableCard"
       ]
@@ -5745,8 +5754,10 @@
         "AccessPick",
         "AddPerson",
         "AreaPicks",
+        "AreaToggle",
         "ButtonsLookRow",
         "ColorsPanel",
+        "CoordinatorSwitch",
         "CouldNotOpen",
         "DetailsForm",
         "EditableField",
@@ -5759,6 +5770,7 @@
         "HTMLElement",
         "HTMLFormElement",
         "HubDraftDock",
+        "InfoTip",
         "LastSeenCapture",
         "LastSeenFallback",
         "Link",
@@ -5770,6 +5782,7 @@
         "PageMasthead",
         "PaxSettingsCard",
         "PeopleWithAccess",
+        "PersonItem",
         "PickMenu",
         "PlanMyselfSwitch",
         "ProLockPanel",
@@ -9682,10 +9695,15 @@
       "files": [
         "dev/home-lab/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/dashboard/[seg]/checklist",
+        "/dashboard/[seg]/guests",
+        "/dashboard/[seg]/vendors"
+      ],
       "actions": [],
       "blocks": [
-        "HomeFirstScreen"
+        "HomeFirstScreen",
+        "HomeWhatsNext"
       ]
     },
     "/dev/maker-lab": {

@@ -94,12 +94,18 @@ test('only the parts another flow owns carry a quiet "Open … ›" link — one
   }
 });
 
-test('People with access is the ONE live part — mounted once, in its own file, before Put this away', async () => {
+test('People with access is the ONE live part — mounted once, in its own Event access fold, before Put this away', async () => {
   // ⚖ Owner 2026-10-03: access is set per person, per area, in Event Details ›
   // People with access. Access is a door, so it changes at once — the one part
   // of the sheet that is not a read-out. Everything else stays information only.
+  // ⚖ Owner 2026-10-07: it is its OWN fold, Event access — after Guests &
+  // money (where it used to hide under the last supplier row), before Put this away.
   assert.equal((PAGE.match(/<PeopleWithAccess\b/g) ?? []).length, 1, 'People with access is not drawn exactly once');
   assert.match(PAGE, /from '\.\/_components\/people-with-access'/, 'People with access is not its own component');
+  const accessFold = PAGE.indexOf('<RecordFold group="access"');
+  assert.ok(accessFold > 0, 'People with access has no Event access fold of its own');
+  assert.ok(PAGE.indexOf('<RecordFold group="guests-money"') < accessFold, 'Event access sits before Guests & money');
+  assert.ok(accessFold < PAGE.indexOf('<PeopleWithAccess'), 'People with access is mounted outside the Event access fold');
   assert.ok(PAGE.indexOf('<PeopleWithAccess') < PAGE.indexOf('data-section="put-away"'), 'People with access sits after Put this away');
   // Only a host loads everyone; a delegate sees their own access, as words.
   assert.match(PAGE, /viewer\.isCouple\s*\?\s*loadPeopleWithAccess\(eventId, user\.id\)/, 'people with access is loaded for a non-host');

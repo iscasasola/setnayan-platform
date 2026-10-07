@@ -48,6 +48,12 @@ opening line both ways, the Prints row both ways; the workspace's Look; the full
   pills (swatch · name · job · hex · ▾) over 4c's one-colour draft; Pattern · Focus · Blur · Shade
   are the prototype's row dropdowns.
 
+- **Mood Board › Attire** (owner 2026-10-07: *"the palettes can still be changed to colors
+  manually"*): every colour a role wears is a button — it opens the SAME colour picker sheet as
+  the five main colours (now · from your photos · swatches · custom — any colour), the change goes
+  into the painted-palette draft (counted on ✓, published by Apply), and the sheet offers "Remove
+  this colour" while the role keeps more than its minimum; ＋ still adds one.
+
 Not in this PR: **Schedule and Love Story are NOT redrawn** — Studio opens the shipped Schedule rail
 (`ScheduleDay`) and the Love Story scrapbook, which only render against the database, so the lab
 cannot show them and no side-by-side was possible; they get the shared surface (warm page, edge to

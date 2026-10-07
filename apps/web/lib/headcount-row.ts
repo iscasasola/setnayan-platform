@@ -22,19 +22,19 @@ export const FINALIZE_LOCKED_TITLE = 'Guest list finalized';
 /** Behind the row's ⓘ (owner 2026-10-07 — the words that sat above the switcher). */
 export const FINALIZE_TIP = 'Guests can reply until you finalize.';
 export function headcountOpenLine(attending: number): string {
-  return `${attending} attending now. It stays open until you lock it.`;
+  return `${attending} attending now. It stays open until you finalize it.`;
 }
 export function headcountLockedLine(heads: number | null): string {
   return heads
-    ? `Locked at ${heads} heads. Your suppliers price for it; guests can no longer reply.`
-    : 'Locked. Guests can no longer reply.';
+    ? `Finalized at ${heads} heads. Your suppliers price for it; guests can no longer reply.`
+    : 'Finalized. Guests can no longer reply.';
 }
 export const FINALIZE_NOW_LABEL = 'Finalize now';
 
 /** The one confirmation (owner: *"a confirmation Finalize | Not Now"*). It never says "cannot be undone":
  *  the hosts can reopen (owner 2026-10-07, *"…always have the power to unfinalize it as needed"*). */
 export const FINALIZE_SHEET = {
-  eyebrow: 'Lock the headcount',
+  eyebrow: 'Finalize the guest list',
   title: (heads: number) => `Finalize at ${heads} heads?`,
   body: () => 'Guests can’t reply after this. You can reopen it any time.',
   confirm: 'Finalize',

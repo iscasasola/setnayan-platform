@@ -304,7 +304,7 @@ function OneLinkRow({ link }: { link: OneLink }) {
       {link.qrSvg ? (
         <div className="pb-3" data-setup-one-qr="">
           <div
-            className="mx-auto h-[168px] w-[168px] rounded-xl bg-white p-2 [&>svg]:h-full [&>svg]:w-full"
+            className="qr-slot mx-auto h-[168px] w-[168px] rounded-xl bg-white p-2 [&>svg]:h-full [&>svg]:w-full"
             dangerouslySetInnerHTML={{ __html: link.qrSvg }}
           />
         </div>

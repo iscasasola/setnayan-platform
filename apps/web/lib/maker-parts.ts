@@ -285,8 +285,8 @@ export const MAKER_PARTS: Readonly<Record<MakerPartKey, MakerPartDef>> = {
   nonote: { label: 'When-no note', source: 'info:no_note', canvas: null, layouts: NONE },
   numbers: { label: 'By the numbers', source: 'tool', canvas: 'p:numbers', layouts: scene('statistics') },
   wishes: { label: 'Wishes', source: 'tool', canvas: 'p:wishes', layouts: scene('photo-notes') },
-  suppliers: { label: 'With thanks to', source: 'tool', canvas: 'p:vendors', layouts: scene('supplier-stories') },
-  film: { label: 'The film', source: 'tool', canvas: 'p:film', layouts: scene('live-stream') },
+  suppliers: { label: 'Supplier Stories', source: 'tool', canvas: 'p:vendors', layouts: scene('supplier-stories') },
+  film: { label: 'Watch Live', source: 'tool', canvas: 'p:film', layouts: scene('live-stream') },
   /* 🎞 The nine Post Event scenes the ＋ sheet adds — each by its SHIPPED name and
      key (`lib/post-event-scenes.ts` `POST_EVENT_SCENE_NAMES`), never retyped; their
      looks are Post Event's own (`post-event-style-resolve.ts`), not a scene's. */

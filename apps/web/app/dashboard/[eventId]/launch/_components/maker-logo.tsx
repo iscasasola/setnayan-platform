@@ -24,6 +24,7 @@ import { announceMakerSave } from '@/lib/maker-save-status';
 import type { MakerLogoOpening } from '@/lib/maker-logo-opening';
 import type { HubFontKey } from '@/lib/hub-fonts';
 import { FontPick } from '../../website/editor/_components/font-pick';
+import { PickMenu, type PickOption } from '../../website/editor/_components/pick-menu';
 import { logoFontOutlineUrl, outlineWords, pinLogoFaceWeight, type OtFace } from '@/lib/logo-fonts';
 import { fileToMarkSvg } from '@/lib/monogram-studio/upload';
 import { paidMarkLabel, type PaidMarkState } from '@/lib/paid-mark';
@@ -1071,40 +1072,39 @@ function LayerTools({
         label="Motion"
         mark={motionMark ? <PaidMark state={motionMark} label={paidMarkLabel(motionMark, 'the Animated Monogram')} size="xs" /> : null}
       >
-        <p className="text-[12px] font-semibold text-ink/70">In</p>
-        <div className="flex flex-wrap gap-1.5">
-          {LOGO_IN.map((k) => (
-            <Chip
-              key={k}
-              on={effectiveIn(layer) === k}
-              label={LOGO_IN_LABEL[k]}
-              onClick={() => onChange({ motion: { ...layer.motion, in: k } })}
-            />
-          ))}
+        {/* ▾ In · During · Out are dropdowns, never chip rows (owner 2026-10-07 final
+            fixes; "any set of choices is a dropdown"). Same saves as the chips had. */}
+        <div className="flex min-h-11 items-center justify-between gap-3" data-logo-motion="in">
+          <span className="text-[13px] font-semibold text-ink">In</span>
+          <PickMenu
+            label="In"
+            value={effectiveIn(layer)}
+            options={LOGO_IN.map((k): PickOption => ({ key: k, label: LOGO_IN_LABEL[k] }))}
+            onPick={(k) => onChange({ motion: { ...layer.motion, in: k as (typeof LOGO_IN)[number] } })}
+          />
         </div>
-        <p className="mt-2 text-[12px] font-semibold text-ink/70">During</p>
-        <div className="flex flex-wrap gap-1.5">
-          {LOGO_DURING.map((k) => (
-            <Chip key={k} on={layer.motion.during === k} label={LOGO_DURING_LABEL[k]} onClick={() => onChange({ motion: { ...layer.motion, during: k } })} />
-          ))}
+        <div className="flex min-h-11 items-center justify-between gap-3" data-logo-motion="during">
+          <span className="text-[13px] font-semibold text-ink">During</span>
+          <PickMenu
+            label="During"
+            value={layer.motion.during}
+            options={LOGO_DURING.map((k): PickOption => ({ key: k, label: LOGO_DURING_LABEL[k] }))}
+            onPick={(k) => onChange({ motion: { ...layer.motion, during: k as (typeof LOGO_DURING)[number] } })}
+          />
         </div>
         {studio ? (
-          <>
-            <p className="mt-2 text-[12px] font-semibold text-ink/70">Out</p>
-            <div className="flex flex-wrap gap-1.5" data-logo-out="">
-              {LOGO_OUT.map((k) => (
-                <Chip
-                  key={k}
-                  on={(layer.motion.out ?? 'none') === k}
-                  label={LOGO_OUT_LABEL[k]}
-                  onClick={() => {
-                    const { out: _was, ...rest } = layer.motion;
-                    onChange({ motion: k === 'none' ? rest : { ...rest, out: k } });
-                  }}
-                />
-              ))}
-            </div>
-          </>
+          <div className="flex min-h-11 items-center justify-between gap-3" data-logo-motion="out" data-logo-out="">
+            <span className="text-[13px] font-semibold text-ink">Out</span>
+            <PickMenu
+              label="Out"
+              value={layer.motion.out ?? 'none'}
+              options={LOGO_OUT.map((k): PickOption => ({ key: k, label: LOGO_OUT_LABEL[k] }))}
+              onPick={(k) => {
+                const { out: _was, ...rest } = layer.motion;
+                onChange({ motion: k === 'none' ? rest : { ...rest, out: k as Exclude<(typeof LOGO_OUT)[number], 'none'> } });
+              }}
+            />
+          </div>
         ) : null}
         {layer.motion.in !== 'none' ? (
           <Slider

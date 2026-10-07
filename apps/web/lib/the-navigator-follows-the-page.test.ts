@@ -24,6 +24,7 @@ import React from 'react';
 import { stripComments } from './strip-comments';
 import { resolveSiteBodyPlan } from './site-body-plan';
 import { WELCOME_PART_SCENE, scenesLeftForDetails, welcomeParts } from './invitation-welcome';
+import { splitAroundEntourage } from './stage-scenes';
 
 /**
  * 🏠 THE PAGE'S OWN ORDER (owner 2026-09-30, `lib/invitation-welcome.ts`): the
@@ -41,7 +42,10 @@ function pageSceneOrder<T extends { widget_type: string }>(stage: LifecyclePhase
     const w = p === 'reminders' && t ? planned.find((x) => x.widget_type === t) : undefined;
     return w ? [w] : [];
   });
-  return [...first, ...scenesLeftForDetails(planned, welcome)];
+  // 🎒 …and the Invitation draws What to bring after the entourage (owner
+  // 2026-10-07) — the same `splitAroundEntourage` site-body.tsx calls.
+  const around = splitAroundEntourage(stage, scenesLeftForDetails(planned, welcome));
+  return [...first, ...around.before, ...around.after];
 }
 import {
   WIDGET_TYPES,
@@ -159,11 +163,11 @@ test('2 · the owner’s page, stage by stage — fixed sections included, in th
   // guest" (owner 2026-09-27): the greeting, the pass, the RSVP — whichever the
   // page gives a guest on that stage.
   // 🏠 …then the Invitation's Welcome page (owner 2026-09-30): the guest's
-  // look and E-Gifts. 🎒 What to bring is Details' since 2026-10-06 — after the
-  // dress code, before the entourage.
+  // look and E-Gifts. 🎒 What to bring is Details' since 2026-10-06 — and since
+  // 2026-10-07 AFTER the entourage ("SIX BUILD QUESTIONS SETTLED" (1)).
   assert.deepEqual(keys('rsvp'), [
     'f:hero', 'f:greeting', 'f:pass', 'f:rsvp', 'f:look', 'f:gifts',
-    'w:countdown', 'w:special_message', 'w:our_love_story', 'w:schedule', 'w:venue_map', 'w:dress_code', 'w:what_to_bring', 'f:entourage',
+    'w:countdown', 'w:special_message', 'w:our_love_story', 'w:schedule', 'w:venue_map', 'w:dress_code', 'f:entourage', 'w:what_to_bring',
   ]);
   assert.deepEqual(keys('event'), ['f:hero', 'f:pass', 'w:schedule', 'w:venue_map', 'w:photo_moments', 'f:entourage']);
   assert.deepEqual(keys('editorial'), [

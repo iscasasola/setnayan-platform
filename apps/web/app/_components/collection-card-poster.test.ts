@@ -23,7 +23,7 @@ async function poster(props: Record<string, unknown>): Promise<string> {
       layout: 'poster',
       href: '/dashboard/e1',
       title: 'Maria & Jose',
-      meta: 'KASAL, You organise this · Saturday 12 December 2026',
+      meta: 'WEDDING, You organise this · Saturday 12 December 2026',
       cover: React.createElement('div', { 'data-art': 'poster', 'aria-hidden': true }, 'Maria and Jose'),
       progress: { pct: 18, remainder: '79 days to go' },
       ...props,
@@ -45,11 +45,11 @@ test('the names are printed ONCE — by the poster — and the link still has a 
   assert.doesNotMatch(visible(html), /12 December 2026/, 'the body re-printed the date');
   assert.match(
     html,
-    /^<a [^>]*href="\/dashboard\/e1"[^>]*><span class="sr-only">Maria &amp; Jose · KASAL, You organise this · Saturday 12 December 2026 · 79 days to go<\/span>/,
+    /^<a [^>]*href="\/dashboard\/e1"[^>]*><span class="sr-only">Maria &amp; Jose · WEDDING, You organise this · Saturday 12 December 2026 · 79 days to go<\/span>/,
   );
   // The strip and the chips repeat facts that sentence already carries, so
   // they are hidden from assistive tech — the sentence IS the link's name.
-  const withChips = await poster({ kicker: ['KASAL'] });
+  const withChips = await poster({ kicker: ['WEDDING'] });
   assert.match(withChips, /<span aria-hidden="true" class="absolute left-2 top-2/, 'the chips are announced twice');
   assert.match(withChips, /<span aria-hidden="true" class="absolute inset-x-0 bottom-0/, 'the strip is announced twice');
   assert.match(html, /aspect-\[3\/4\]/);

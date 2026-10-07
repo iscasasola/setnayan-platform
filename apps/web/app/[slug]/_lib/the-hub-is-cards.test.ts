@@ -34,15 +34,23 @@ test('both pages wrap the hub sections in the card wrapper', () => {
     // (Details draws what the Welcome page left it — `detailsScenes`, owner
     // 2026-09-30 — less the love story scene when that is a tab of its own:
     // `detailsSceneList`, 📱 each tab its own page.)
-    /<div className="sn-hub-cards space-y-4">\s*<HubScenes widgets=\{detailsSceneList\}[^>]*>\s*\{detailsSceneList\.map/,
+    // 🎒 Split around the entourage (owner 2026-10-07) — both halves wear the wrapper.
+    /<div className="sn-hub-cards space-y-4">\s*<HubScenes widgets=\{guestAround\.before\}[^>]*>\s*\{guestAround\.before\.map/,
     "the guest's hub",
   );
+  assert.match(
+    body,
+    /<div className="sn-hub-cards space-y-4">\s*<HubScenes widgets=\{guestAround\.after\}[^>]*>\s*\{guestAround\.after\.map/,
+    "the guest's after-the-entourage scenes",
+  );
+  assert.match(body, /<div className="sn-hub-cards mt-8 space-y-4">\{sceneNodes\(detailsAround\.after\)\}<\/div>/, "the stranger's after-the-entourage scenes");
   assert.match(
     body,
     /const sceneNodes = \(list: typeof detailsScenes\) => \(\s*<HubScenes widgets=\{list\}/,
     "the stranger's hub goes through the same scenes",
   );
-  assert.match(body, /const publicWidgetNodes = sceneNodes\(detailsSceneList\);/);
+  assert.match(body, /const detailsAround = splitAroundEntourage\(pageStage, detailsSceneList\);/);
+  assert.match(body, /const publicWidgetNodes = sceneNodes\(detailsAround\.before\);/);
 });
 
 test('the card look is one CSS block', () => {

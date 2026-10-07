@@ -74,3 +74,13 @@ test('nothing else: no starting designs, ornaments, split, hide / lock / duplica
     assert.doesNotMatch(src, banned, `the Logo editor gained ${banned}`);
   }
 });
+
+test('▾ Motion\'s In · During · Out are dropdowns, never chip rows (owner 2026-10-07)', () => {
+  const src = editor();
+  const motion = src.slice(src.indexOf('label="Motion"'), src.indexOf('<Slider', src.indexOf('label="Motion"')));
+  assert.ok(motion.length > 0, 'the Motion field moved — re-anchor this test');
+  assert.doesNotMatch(motion, /<Chip\b/, 'a Motion choice is a chip row again');
+  for (const which of ['In', 'During', 'Out']) {
+    assert.match(motion, new RegExp(`<PickMenu\\s+label="${which}"`), `${which} is not a PickMenu`);
+  }
+});

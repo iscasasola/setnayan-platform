@@ -70,8 +70,8 @@ export function anchorOfTile(tileKey: string, day = false): (typeof PAGE_ANCHOR_
   if (tileKey === 'f:story' || tileKey === 'w:our_love_story') return 'story';
   // 🏠 The Invitation's Welcome page (owner 2026-09-30, `lib/invitation-welcome.ts`):
   // the guest's look and E-Gifts sit under Welcome — the page's first tab, anchor
-  // `home`. 🎒 What to bring is Details' since 2026-10-06 (after Dress code, before
-  // the Entourage) — the `w:` rule below files it there.
+  // `home`. 🎒 What to bring is Details' since 2026-10-06 (after the Entourage since
+  // 2026-10-07, `splitAroundEntourage`) — the `w:` rule below files it there.
   if (tileKey === 'f:look' || tileKey === 'f:gifts') return 'home';
   if (tileKey === 'f:entourage' || tileKey.startsWith('w:')) return 'details';
   // 🎨 The Invitation's announcement stands after the entourage (`MAKER_DAY_PARTS`).

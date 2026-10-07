@@ -58,6 +58,7 @@ async function paint(f: {
   coming: string;
   noReply: string;
   money?: { paid: string; owing: string } | null;
+  figures?: unknown;
 }): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { HomeFirstScreen } = await import('./_components/home-first-screen');
@@ -71,10 +72,18 @@ async function paint(f: {
       noReply: f.noReply,
       noReplyWaiting: false,
       money: f.money ?? null,
+      figures: f.figures,
       services: [],
     } as never),
   );
 }
+
+/**
+ * The number drawn beside a label — `numberBeside`, widened for `Count` (2026-10-07):
+ * the counted figure sits in a `<span>` inside the value's `<div>`.
+ */
+const beside = (html: string, label: RegExp): string | null =>
+  numberBeside(html.replace(/<span[^>]*data-count="[^"]*"[^>]*>([^<]*)<\/span>/g, '$1'), label);
 
 const guest = (rsvp_status: string) => ({ rsvp_status, plus_one_count: 0, entry_source: 'host', passed_away: false });
 
@@ -104,6 +113,8 @@ test('page.tsx feeds the first screen — and the dashboard — through the ONE 
   assert.match(src, /coming=\{facts\.coming\}/);
   assert.match(src, /noReply=\{facts\.noReply\}/);
   assert.match(src, /money=\{facts\.money\}/);
+  // …and the SAME facts as numbers, which the first screen counts (`Count` / `Fill`).
+  assert.match(src, /figures=\{facts\.figures\}/);
   // …and nothing else on the page works those numbers out a second time.
   assert.doesNotMatch(src, /\bdaysUntil\(/, 'the page must not run its own countdown');
   assert.doesNotMatch(src, /\bcomputeGuestStats\(/, 'the page must not recount the guests');
@@ -126,12 +137,12 @@ test('days to go moves when today moves — and when the date does', async () =>
     mock.timers.enable({ apis: ['Date'], now: new Date(`${i.today}T04:00:00Z`) });
     try {
       const f = await factsFor({ date: i.date });
-      return await paint({ days: f.days, coming: '0', noReply: '0' });
+      return await paint({ days: f.days, coming: '0', noReply: '0', figures: f.figures });
     } finally {
       mock.timers.reset();
     }
   };
-  const read = (html: string) => numberBeside(html, /days? to go/);
+  const read = (html: string) => beside(html, /days? to go/);
   await assertOutputMoves({
     what: 'Home · days to go, two todays',
     render,
@@ -164,35 +175,41 @@ test('a date that is only a month or a year counts down to nothing', async () =>
 test('coming and no-reply move when the guest list does', async () => {
   const render = async (gs: Array<ReturnType<typeof guest>>) => {
     const f = await factsFor({ guests: gs });
-    return paint({ days: f.days, coming: f.coming, noReply: f.noReply });
+    return paint({ days: f.days, coming: f.coming, noReply: f.noReply, figures: f.figures });
   };
   const small = [guest('attending'), guest('pending'), guest('declined')];
   const big = [...small, guest('attending'), guest('attending'), guest('pending')];
-  await assertOutputMoves({ what: 'Home · coming', render, read: (h) => numberBeside(h, /coming/), inputs: [small, big], expect: ['1', '3'] });
-  await assertOutputMoves({ what: 'Home · no reply', render, read: (h) => numberBeside(h, /no reply/), inputs: [small, big], expect: ['1', '2'] });
+  await assertOutputMoves({ what: 'Home · coming', render, read: (h) => beside(h, /coming/), inputs: [small, big], expect: ['1', '3'] });
+  await assertOutputMoves({ what: 'Home · no reply', render, read: (h) => beside(h, /no reply/), inputs: [small, big], expect: ['1', '2'] });
 });
 
 test('a guest read that did not happen prints "—", never 0 coming', async () => {
   const f = await factsFor({ guests: [], measured: false });
-  const html = await paint({ days: f.days, coming: f.coming, noReply: f.noReply });
-  assert.equal(numberBeside(html, /coming/), '—');
-  assert.equal(numberBeside(html, /no reply/), '—');
+  const html = await paint({ days: f.days, coming: f.coming, noReply: f.noReply, figures: f.figures });
+  // Said, not a bare "—" (H3, 2026-10-07): the two guest numbers become one "couldn't load" tile.
+  assert.equal(beside(html, /coming/), null, 'no "coming" number is drawn from a read that did not happen');
+  assert.equal(beside(html, /no reply/), null);
+  assert.match(html, /Guest counts couldn’t load/);
+  assert.doesNotMatch(html.slice(html.indexOf('data-home-numbers')), />0</);
 });
 
 test('Paid and Still owing move when the money does — and "—" when it was not read', async () => {
   const render = async (m: { paid: number; owing: number } | null) => {
     const f = await factsFor({ money: m });
-    return paint({ days: f.days, coming: '0', noReply: '0', money: f.money });
+    return paint({ days: f.days, coming: '0', noReply: '0', money: f.money, figures: f.figures });
   };
-  const owing = (html: string) => html.match(/Still owing<span[^>]*>([^<]+)</)?.[1] ?? null;
-  const paid = (html: string) => html.match(/Paid<span[^>]*>([^<]+)</)?.[1] ?? null;
+  const owing = (html: string) => html.match(/>Still owing<\/div><div[^>]*>(?:<span[^>]*>)?([^<]+)</)?.[1] ?? null;
+  const paid = (html: string) => html.match(/>Paid<\/div><div[^>]*>(?:<span[^>]*>)?([^<]+)</)?.[1] ?? null;
   const a = await render({ paid: 12_000, owing: 3_000 });
   const b = await render({ paid: 20_000, owing: 500 });
   assert.notEqual(owing(a), owing(b), 'Still owing did not move with the money');
   assert.notEqual(paid(a), paid(b), 'Paid did not move with the money');
   assert.match(owing(a) ?? '', /3,000/);
   assert.match(owing(b) ?? '', /500/);
-  assert.equal(owing(await render(null)), '—', 'an unread budget prints —, never ₱0');
+  const unread = await render(null);
+  assert.equal(owing(unread), null, 'an unread budget prints no figure at all');
+  assert.match(unread, /Money couldn’t load/, 'an unread budget is SAID (H3), never hidden like "not shared"');
+  assert.doesNotMatch(unread, /₱0/, 'never ₱0');
   const hidden = await paint({ days: { value: '1', label: 'day to go' }, coming: '0', noReply: '0', money: (await factsFor({ money: 'hidden' })).money });
   assert.equal(owing(hidden), null, 'a viewer the budget is not shared with gets no money line at all');
 });

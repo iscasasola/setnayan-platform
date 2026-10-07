@@ -10,9 +10,9 @@
  *                    be 3 buttons to edit guests, suppliers and event hub"*), each
  *                    wearing THE BOTTOM BAR'S OWN ICON for the tab it opens (owner:
  *                    *"it will have an icon that should be similar to the bottom
- *                    nav"*): read from the same registry slot
- *                    (`customer.bottom-nav.<key>`) through the same resolver
- *                    (`navIconComponent`) the bar uses — so whatever icon the bar
+ *                    nav"*): `homeDoorwayIcon` (PR 4g, lib/nav-line-icon.ts) —
+ *                    the same registry slot (`customer.bottom-nav.<key>`) and the
+ *                    same line-only rule the bar uses, so whatever icon the bar
  *                    wears, the door wears, with no second list. The row changes
  *                    state AS ONE (BUTTON_RULE 3a): icon + word → word → icon.
  *   HomeLater      — "Later": hides today's next step for today, on this device.
@@ -26,35 +26,15 @@ import { useRouter } from 'next/navigation';
 import { CalendarClock, CalendarDays, Check, ChevronDown, CreditCard, ListChecks, RotateCw, Sparkles, UserRound, CalendarCheck } from 'lucide-react';
 import { ActionButton, type ActionTone } from '@/components/action-button';
 import { Count } from '@/components/count';
-import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
-import { EVENT_MENU_ICONS } from '@/lib/customer-menu';
-import type { NavIconDescriptor } from '@/lib/nav-registry-types';
+import { homeDoorwayIcon, type HomeDoorwayKey } from '@/lib/nav-line-icon';
+import type { NavSlotLite } from '@/lib/nav-registry-types';
 
 const useIsoLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 /* ─── The doorway row ─────────────────────────────────────────────────────── */
 
-/** The three bottom-bar tabs a doorway opens — the bar's own keys. */
-export type HomeDoorKey = 'guests' | 'explore' | 'launch';
-
-/** The registry slot each door reads its icon from — the bar's slot, never a copy. */
-export const HOME_DOOR_SLOT: Record<HomeDoorKey, string> = {
-  guests: 'customer.bottom-nav.guests',
-  explore: 'customer.bottom-nav.explore',
-  launch: 'customer.bottom-nav.launch',
-};
-
-/** The bar's code default when no registry slot exists (`buildCustomerMenuTree`'s `icon`). */
-const DOOR_FALLBACK = {
-  guests: EVENT_MENU_ICONS.guests,
-  explore: EVENT_MENU_ICONS.team,
-  launch: EVENT_MENU_ICONS.hub,
-} as const;
-
-/** The icon a door wears: the bar's resolver over the bar's slot (`customer-bottom-nav.tsx`). */
-export function doorIcon(key: HomeDoorKey, slotIcon: NavIconDescriptor | null | undefined) {
-  return slotIcon ? navIconComponent(slotIcon) : DOOR_FALLBACK[key];
-}
+/** The three bottom-bar tabs a doorway opens — the bar's own keys (4g's `HomeDoorwayKey`). */
+export type HomeDoorKey = HomeDoorwayKey;
 
 const DOORS: ReadonlyArray<{ key: HomeDoorKey; label: string; path: string }> = [
   { key: 'guests', label: 'Edit your Guest list', path: '/guests' },
@@ -87,11 +67,11 @@ export function fitAsOne(row: HTMLElement): '' | 'text-only' | 'icon-only' {
 
 export function HomeDoorways({
   eventId,
-  icons,
+  navSlots,
 }: {
   eventId: string;
-  /** The bar's registry icon for each tab (plain data from the server; null = no slot). */
-  icons: Record<HomeDoorKey, NavIconDescriptor | null>;
+  /** The bar's registry slots (plain data from the server; null = the code icons). */
+  navSlots: Record<string, NavSlotLite> | null;
 }) {
   const row = useRef<HTMLDivElement | null>(null);
   const run = useCallback(() => {
@@ -106,7 +86,7 @@ export function HomeDoorways({
   return (
     <div ref={row} className="home-doors" data-home-doors="" data-home-edit-hub="">
       {DOORS.map((d) => {
-        const Icon = doorIcon(d.key, icons[d.key]);
+        const Icon = homeDoorwayIcon(d.key, navSlots);
         return (
           <ActionButton
             key={d.key}
@@ -169,7 +149,14 @@ export function HomeLater({ eventId, kind }: { eventId: string; kind: string }) 
 
 /** "⟳ Reload" — runs the page's reads again. Never claims the read worked. */
 export function HomeReload({ main = false }: { main?: boolean }) {
-  const router = useRouter();
+  // Outside the app router (a render test, the dev lab's static paint) there is no
+  // router to ask; the button then reloads the page, which re-runs the reads too.
+  let router: ReturnType<typeof useRouter> | null = null;
+  try {
+    router = useRouter();
+  } catch {
+    router = null;
+  }
   return (
     <ActionButton
       tone="neutral"
@@ -177,7 +164,7 @@ export function HomeReload({ main = false }: { main?: boolean }) {
       icon={RotateCw}
       label="Reload"
       data-testid="home-reload"
-      onClick={() => router.refresh()}
+      onClick={() => (router ? router.refresh() : window.location.reload())}
     />
   );
 }

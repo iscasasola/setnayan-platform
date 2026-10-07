@@ -83,11 +83,7 @@ export default async function HomeLab({
           noReply: unread ? null : F.noReply,
           money: q.hidden === '1' ? null : unread ? 'unread' : { paid: F.paid, owing: F.owing },
         }}
-        doorIcons={{
-          guests: slots?.['customer.bottom-nav.guests']?.icon ?? null,
-          explore: slots?.['customer.bottom-nav.explore']?.icon ?? null,
-          launch: slots?.['customer.bottom-nav.launch']?.icon ?? null,
-        }}
+        navSlots={slots}
         whatsNext={
           <HomeWhatsNext
             open={3}

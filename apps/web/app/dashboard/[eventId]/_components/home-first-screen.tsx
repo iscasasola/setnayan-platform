@@ -7,10 +7,10 @@ import { Count, Fill } from '@/components/count';
 import type { HomeNext, HomeNextKind, HomeService, HomeServiceKey } from '@/lib/home-first-screen';
 import type { HomeFigures } from '@/lib/home-facts';
 import type { HomeCover } from '@/lib/home-cover';
-import type { NavIconDescriptor } from '@/lib/nav-registry-types';
+import type { NavSlotLite } from '@/lib/nav-registry-types';
 import { completeTour } from '@/lib/tour-actions';
 import { HUB_SETUP_OFFER_TOUR } from '@/lib/tours';
-import { HomeDoorways, HomeLater, HomeReload, HomeWhatsNext, type HomeDoorKey } from './home-parts';
+import { HomeDoorways, HomeLater, HomeReload, HomeWhatsNext } from './home-parts';
 
 /**
  * Where each Next card goes. Written as `href:` literals ON PURPOSE: the
@@ -123,13 +123,22 @@ export type HomeFirstScreenProps = {
   services: HomeService[];
   /** 🖼 The Event Hub's main background under the name (`lib/home-cover.ts`); null = today's colour. */
   ground?: HomeCover | null;
-  /** 🧭 The bottom bar's registry icon for the three doorway tabs (`getNavSlotMap`). */
-  doorIcons?: Record<HomeDoorKey, NavIconDescriptor | null>;
+  /** 🧭 The bottom bar's registry slots — the doorways read their tabs' icons from them (`getNavSlotMap`). */
+  navSlots?: Record<string, NavSlotLite> | null;
   /** 📋 What's next — the decisions, unfolding in place (`EventDashboard only="whatsnext"`). */
   whatsNext?: ReactNode;
 };
 
-const NO_DOOR_ICONS: Record<HomeDoorKey, NavIconDescriptor | null> = { guests: null, explore: null, launch: null };
+/** Only the three slots the doorways read cross to the client — not the whole registry. */
+function doorSlots(all: Record<string, NavSlotLite> | null): Record<string, NavSlotLite> | null {
+  if (!all) return null;
+  const out: Record<string, NavSlotLite> = {};
+  for (const k of ['guests', 'explore', 'launch']) {
+    const slot = all[`customer.bottom-nav.${k}`];
+    if (slot) out[`customer.bottom-nav.${k}`] = slot;
+  }
+  return out;
+}
 
 /** A number the Home counts, or its word ("—", "Today") when it is not a number. */
 function Figure({ n, word, id }: { n: number | null | undefined; word: string; id: string }) {
@@ -148,7 +157,7 @@ export function HomeFirstScreen({
   figures,
   services,
   ground = null,
-  doorIcons = NO_DOOR_ICONS,
+  navSlots = null,
   whatsNext,
 }: HomeFirstScreenProps) {
   const guestsUnread = figures ? figures.coming === null : coming === '—';
@@ -224,7 +233,7 @@ export function HomeFirstScreen({
 
       {/* ② THE THREE DOORS (owner 2026-10-07: "maybe add the 3 buttons. Edit your
           Gueslist, Edit your Suppliers, Edit your Event Hub") — the bottom bar's icons. */}
-      <HomeDoorways eventId={eventId} icons={doorIcons} />
+      <HomeDoorways eventId={eventId} navSlots={doorSlots(navSlots)} />
 
       {/* ③ THREE NUMBERS — counted (`Count`); "—" when unread, never 0. */}
       <div className="home-nums" data-home-numbers>
@@ -268,7 +277,7 @@ export function HomeFirstScreen({
             <div className="font-semibold" style={{ color: 'rgb(var(--color-danger))' }}>
               Money couldn&rsquo;t load
             </div>
-            <div className="home-s mb-1.5">Paid and still owing are unread — not ₱0.</div>
+            <div className="home-s mb-1.5">Paid and still owing are unread — not zero.</div>
             <HomeReload />
           </div>
         ) : (

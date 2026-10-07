@@ -688,11 +688,7 @@ export default async function EventHomePage({
       figures={facts.figures}
       services={homeServiceRow}
       ground={homeCover}
-      doorIcons={{
-        guests: homeNavSlots?.['customer.bottom-nav.guests']?.icon ?? null,
-        explore: homeNavSlots?.['customer.bottom-nav.explore']?.icon ?? null,
-        launch: homeNavSlots?.['customer.bottom-nav.launch']?.icon ?? null,
-      }}
+      navSlots={homeNavSlots}
       whatsNext={
         /* 📋 What's next unfolds IN PLACE (owner 2026-10-07, H7) — the decisions stream in
            under their row; the first screen never waits for them. */

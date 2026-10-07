@@ -954,7 +954,7 @@ export function MakerWork({
      The tab on screen is switched IN the loaded page (the bridge's `hubTab`), never by a reload. */
   const stagesTabs = maker?.stagesStudio ? '&tabs=1' : '';
   const previewSrc = publicLandingUrl
-    ? `${publicLandingUrl}?phase=${stage}&editor=1${guestBars ? '&bars=1' : ''}${stagesTabs}${seeAs ? `&${SEE_AS_PARAM}=${seeAs}` : ''}`
+    ? `${publicLandingUrl}?phase=${stage}&editor=1${guestBars ? '&bars=1' : ''}${seeAs ? `&${SEE_AS_PARAM}=${seeAs}` : ''}${stagesTabs}`
     : null;
   const canvasSrc = previewSrc;
   /* 🔥 LOAD EVERYTHING UP FRONT (owner 2026-09-28: *"is it possible to load

@@ -7776,7 +7776,8 @@ html.dark :is(button, a).ab.ab-main { color: #161513; }
 .home-tile-bad { border-color: color-mix(in srgb, rgb(var(--color-danger)) 45%, transparent); }
 .home-v { font-size: 26px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; }
 .home-v-word { font-size: 19px; }
-.home-k { font-size: 12px; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); text-transform: uppercase; letter-spacing: 0.1em; }
+.home-k { font-size: 12px; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap; }
+@media (max-width: 400px) { .home-nums .home-k { font-size: 11.5px; } }
 .home-money { display: flex; justify-content: space-between; gap: 12px; align-items: flex-end; }
 .home-money .home-v { font-size: 20px; }
 .home-meter { position: relative; height: 6px; border-radius: 3px; background: color-mix(in srgb, rgb(var(--color-ink)) 10%, transparent); overflow: hidden; margin-top: 10px; }

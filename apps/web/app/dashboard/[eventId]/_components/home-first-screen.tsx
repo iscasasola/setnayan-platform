@@ -183,7 +183,9 @@ export function HomeFirstScreen({
           words in the hub's own measured ink over its veil (`lib/home-cover.ts`). */}
       <div
         data-home-cover={ground?.kind ?? 'colour'}
-        className={`relative flex items-end justify-between gap-3 overflow-hidden rounded-2xl px-4 py-[18px] ${ground ? '' : 'bg-mulberry text-cream'}`}
+        /* Full-bleed on a phone, under the top bar (the prototype's `.cover{margin:0 -16px}` —
+           the event layout's gutter is px-4 / pt-3); a rounded band from `sm` up. */
+        className={`relative -mx-4 -mt-3 flex items-end justify-between gap-3 overflow-hidden px-4 pb-[18px] pt-[22px] sm:mx-0 sm:mt-0 sm:rounded-2xl ${ground ? '' : 'bg-mulberry text-cream'}`}
         style={ground ? { background: ground.kind === 'paper' ? ground.background : undefined, color: ground.ink } : undefined}
       >
         {ground?.kind === 'image' ? (
@@ -198,7 +200,7 @@ export function HomeFirstScreen({
           {/* The page's one h1. Screen-reader only: the name is drawn once, below, for the eye — and
               BEFORE the eyebrow, so `lint-page-masthead` does not read a label-over-h1. */}
           <h1 className="sr-only">{cover.name}</h1>
-          <p className={`text-[12px] uppercase tracking-[0.12em] ${ground ? 'opacity-85' : 'text-cream/85'}`}>{cover.eyebrow}</p>
+          <p className={`truncate text-[12px] uppercase tracking-[0.12em] ${ground ? 'opacity-85' : 'text-cream/85'}`}>{cover.eyebrow}</p>
           <p aria-hidden className="text-[26px] font-semibold leading-[1.1] tracking-[-0.01em]">{cover.name}</p>
         </div>
         <span className="relative shrink-0" data-home-event-details="">
@@ -245,7 +247,7 @@ export function HomeFirstScreen({
         </Link>
         {guestsUnread ? (
           <div className="home-tile home-tile-bad col-span-2" data-home-guests-unread="">
-            <div className="font-semibold" style={{ color: 'rgb(var(--color-danger))' }}>
+            <div className="text-[14.5px] font-semibold leading-snug" style={{ color: 'rgb(var(--color-danger))' }}>
               Guest counts couldn&rsquo;t load
             </div>
             <div className="home-s mb-1.5">Not zero — unread.</div>
@@ -260,7 +262,8 @@ export function HomeFirstScreen({
               <div className="home-k">coming</div>
             </Link>
             <Link href={`/dashboard/${eventId}/guests`} className="home-tile">
-              <div className="home-v" style={noReplyWaiting ? { color: 'rgb(var(--color-warn))' } : undefined}>
+              {/* Plain ink, as the prototype draws it — the count speaks; no alarm colour. */}
+              <div className="home-v" data-waiting={noReplyWaiting ? '' : undefined}>
                 <Figure n={figures?.noReply} word={noReply} id="home-noreply" />
               </div>
               <div className="home-k">no reply</div>

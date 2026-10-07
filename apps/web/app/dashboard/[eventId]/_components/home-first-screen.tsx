@@ -67,6 +67,13 @@ function serviceHref(key: HomeServiceKey, eventId: string): string {
  * owner 2026-10-07): sending an invitation is messaging (info); the forward
  * steps are brand; the checklist is a confirm (ok); Reload is neutral.
  */
+/*
+  🛑 A SERVER COMPONENT HANDS `ActionButton` (a client component) AN ELEMENT, NEVER A
+  COMPONENT. `icon={Info}` passes a function across the RSC boundary — "Functions cannot
+  be passed directly to Client Components" — and the whole Home render fails (preview
+  2026-10-07: the page fell back to its last-seen snapshot). Always `icon={<Info … />}`.
+  Held by `home-hands-the-client-no-functions.test.ts`.
+*/
 const NEXT_BUTTON: Record<HomeNextKind, { icon: LucideIcon; tone: ActionTone }> = {
   guide: { icon: Sparkles, tone: 'brand' },
   date: { icon: CalendarDays, tone: 'brand' },
@@ -169,7 +176,7 @@ export function HomeFirstScreen({
     next.kind === 'unread' ? (
       <HomeReload main />
     ) : (
-      <ActionButton tone={nb.tone} main icon={nb.icon} label={next.action} href={nextHref(next.kind, eventId)} />
+      <ActionButton tone={nb.tone} main icon={<nb.icon aria-hidden="true" strokeWidth={1.9} />} label={next.action} href={nextHref(next.kind, eventId)} />
     );
   return (
     <section
@@ -209,7 +216,7 @@ export function HomeFirstScreen({
           <p aria-hidden className="text-[26px] font-semibold leading-[1.1] tracking-[-0.01em]">{cover.name}</p>
         </div>
         <span className="relative shrink-0" data-home-event-details="">
-          <ActionButton href={`/dashboard/${eventId}/details`} tone="neutral" icon={Info} label="Event Details" className="home-cover-ab" />
+          <ActionButton href={`/dashboard/${eventId}/details`} tone="neutral" icon={<Info aria-hidden="true" strokeWidth={1.9} />} label="Event Details" className="home-cover-ab" />
         </span>
       </div>
 
@@ -231,7 +238,7 @@ export function HomeFirstScreen({
               {next.offer ? (
                 /* 🧭 The once-offer's Later answers it — the shipped tour action, no new one. */
                 <form action={completeTour.bind(null, HUB_SETUP_OFFER_TOUR)} className="contents">
-                  <ActionButton type="submit" tone="neutral" icon={CalendarDays} label="Later" data-testid="home-next-later" />
+                  <ActionButton type="submit" tone="neutral" icon={<CalendarDays aria-hidden="true" strokeWidth={1.9} />} label="Later" data-testid="home-next-later" />
                 </form>
               ) : next.kind !== 'unread' ? (
                 <HomeLater eventId={eventId} kind={next.kind} />

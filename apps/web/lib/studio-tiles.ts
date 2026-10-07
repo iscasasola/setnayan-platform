@@ -26,7 +26,7 @@
  * (only while the new Maker is on) and hands them to `MakerShell`; the shell
  * and `studio-home.tsx` import TYPES only, so nothing here reaches the phone.
  */
-import { DETAILS_FIRST_PRINT, wordsAndPlansItem, type DetailsItemKey } from '@/lib/maker-details-items';
+import { DETAILS_FIRST_PRINT, LOOK_SECTION_ITEM_KEYS, wordsAndPlansItem, type DetailsItemKey } from '@/lib/maker-details-items';
 import { guidedItemDone, type GuidedDoneFacts } from '@/lib/details-guided-flow';
 import { hubSetupDone, type HubSetupFacts } from '@/lib/hub-setup-steps';
 
@@ -152,4 +152,17 @@ export function studioTiles(input: StudioTilesInput): StudioTileModel[] {
 /** "n of N ready" — a tile counts only when it is really done (no claim is not ready). */
 export function studioReady(tiles: readonly Pick<StudioTileModel, 'done'>[]): { ready: number; total: number } {
   return { ready: tiles.filter((t) => t.done === true).length, total: tiles.length };
+}
+
+/**
+ * 🧭 THE EDITOR A TILE OPENS — each tile its OWN (owner 2026-10-07: Look opened the Logo editor). Look keeps
+ * the Look section the couple was on (Background · Colours · Font · Music) and otherwise opens on
+ * Background — never another Look-group item (Logo, Mood Board, Cover page, Reveal), which the lower
+ * third's "stay where you were" used to carry over. Every other tile opens its own item.
+ */
+export function studioTileItem(key: StudioTileKey, current: string | null): DetailsItemKey {
+  if (key === 'look') {
+    return current !== null && (LOOK_SECTION_ITEM_KEYS as readonly string[]).includes(current) ? (current as DetailsItemKey) : 'background';
+  }
+  return STUDIO_TILES[key].item;
 }

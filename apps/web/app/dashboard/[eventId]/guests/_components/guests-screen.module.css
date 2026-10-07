@@ -423,7 +423,8 @@ button.ico {
   transform: translateY(140%);
   transition: transform 320ms var(--gs-ease);
   pointer-events: none;
-  background: none;
+  /* No fill and no shadow of its own — the shared `.sn-glass-row` (globals.css)
+     paints the row's tint and blur. */
 }
 .lower[data-on='true'] {
   transform: none;

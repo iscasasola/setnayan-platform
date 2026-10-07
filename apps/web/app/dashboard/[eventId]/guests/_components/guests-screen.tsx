@@ -792,7 +792,9 @@ export function GuestsScreen(props: GuestsScreenProps) {
 
         {gview === 'share' ? null : (
           <div
-            className={styles.lower}
+            // The ONE shared glass row (BUTTON_RULE rule 7, `.sn-glass-row` in
+            // globals.css, builder GR): the row tints and blurs what scrolls behind.
+            className={`${styles.lower} sn-glass-row`}
             data-on={barOn ? 'true' : 'false'}
             data-guests-thumb=""
             data-last-seen-hold={selectMode ? '' : undefined}

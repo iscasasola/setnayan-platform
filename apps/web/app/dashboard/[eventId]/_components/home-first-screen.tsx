@@ -202,7 +202,7 @@ export function HomeFirstScreen({
           <p aria-hidden className="text-[26px] font-semibold leading-[1.1] tracking-[-0.01em]">{cover.name}</p>
         </div>
         <span className="relative shrink-0" data-home-event-details="">
-          <ActionButton tone="neutral" icon={Info} label="Event Details" href={`/dashboard/${eventId}/details`} className="home-cover-ab" />
+          <ActionButton href={`/dashboard/${eventId}/details`} tone="neutral" icon={Info} label="Event Details" className="home-cover-ab" />
         </span>
       </div>
 

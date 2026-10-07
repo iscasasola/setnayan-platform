@@ -7750,7 +7750,7 @@ html.dark :is(button, a).ab.ab-main { color: #161513; }
 .home-doors .ab.icon-only .lbl { display: none; }
 /* The prototype's neutral pill (`button.ic.t-neutral`): GREY FILLED — the muted tone's
  * 9% wash, 45% border, muted word — one line, never wrapped. */
-.home-doors > .ab.ab-neutral {
+.home-doors > :is(button, a).ab.ab-neutral {
   --home-door: color-mix(in srgb, rgb(var(--color-ink)) 62%, rgb(var(--color-cream)));
   height: 40px;
   overflow: hidden;
@@ -7804,7 +7804,9 @@ html.dark :is(button, a).ab.ab-main { color: #161513; }
 .home-cover-ab.ab { color: inherit; border-color: color-mix(in srgb, currentColor 50%, transparent); background: color-mix(in srgb, currentColor 14%, transparent); }
 /* Rise on load, staggered — once (the prototype's `up`). */
 @keyframes home-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
-[data-home-first-screen] > * { animation: home-up 360ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+/* `backwards`, not `both`: nothing keeps a transform after the rise (an identity transform
+ * would unpin every fixed child — `an-identity-transform-unpins-every-fixed-child.test.ts`). */
+[data-home-first-screen] > * { animation: home-up 360ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
 [data-home-first-screen] > :nth-child(3) { animation-delay: 40ms; }
 [data-home-first-screen] > :nth-child(n + 4) { animation-delay: 80ms; }
 @media (prefers-reduced-motion: reduce) {

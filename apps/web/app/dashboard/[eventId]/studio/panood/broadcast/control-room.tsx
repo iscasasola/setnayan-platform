@@ -742,7 +742,8 @@ export function PanoodControlRoom({
         {/* Bottom tabs */}
         <nav
           aria-label="Control sections"
-          className="sticky bottom-[5.5rem] z-10 grid grid-cols-3 gap-1 rounded-full border border-ink/10 bg-cream/95 p-1 shadow-sm backdrop-blur"
+          data-glass-row="control-room-tabs"
+          className="sn-glass-row sticky bottom-[5.5rem] z-10 grid grid-cols-3 gap-1 rounded-full p-1"
         >
           {(
             [

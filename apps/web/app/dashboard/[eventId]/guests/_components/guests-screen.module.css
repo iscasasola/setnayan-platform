@@ -55,14 +55,14 @@
 .seg {
   display: flex;
   background: rgb(var(--color-ink) / 0.06);
-  border-radius: 12px;
+  border-radius: var(--m-r-md);
   padding: 3px;
   gap: 2px;
 }
 .seg a {
   flex: 1;
   height: 44px;
-  border-radius: 9px;
+  border-radius: var(--m-r-sm);
   font-size: 13px;
   font-weight: 600;
   color: rgb(var(--color-ink) / 0.6);
@@ -103,7 +103,7 @@
 .meter {
   position: relative;
   height: 6px;
-  border-radius: 3px;
+  border-radius: var(--m-r-xs);
   background: var(--gs-line);
   overflow: hidden;
   margin-top: 10px;
@@ -331,7 +331,7 @@ button.ico {
 }
 .pill {
   display: inline-block;
-  border-radius: 999px;
+  border-radius: var(--m-r-full);
   padding: 3px 10px;
   font-size: 12px;
   background: var(--gs-line);
@@ -360,7 +360,7 @@ button.ico {
 }
 .nomatch {
   border: 1px solid var(--gs-line);
-  border-radius: 16px;
+  border-radius: var(--m-r-md);
   padding: 14px;
   margin-top: 14px;
 }
@@ -454,7 +454,7 @@ button.ico {
   min-width: 60%;
   height: 40px;
   border: 1px solid rgb(var(--color-ink) / 0.14);
-  border-radius: 999px;
+  border-radius: var(--m-r-full);
   padding: 0 14px;
   font-size: 14px;
   color: var(--gs-ink);
@@ -492,7 +492,7 @@ button.ico {
 .thumb [data-pick] button {
   height: 40px;
   min-height: 40px;
-  border-radius: 999px;
+  border-radius: var(--m-r-full);
   border: 1px solid rgb(var(--color-ink) / 0.14);
   padding: 0 12px;
   font-size: 13px;
@@ -553,7 +553,7 @@ button.ico {
   gap: 7px;
   height: 36px;
   padding: 0 12px;
-  border-radius: 999px;
+  border-radius: var(--m-r-full);
   border: 1px solid var(--gs-line);
   background: var(--gs-paper);
   font-size: 13px;

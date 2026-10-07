@@ -63,14 +63,5 @@ export const STUDIO_QUIET_BUTTON = 'sn-press inline-flex h-[34px] shrink-0 items
 /** `.pr-sv` — a print's Save button; `.pr-all` / `.ebot-btn` — the one ink button at the foot. */
 export const STUDIO_SAVE_CHIP = 'sn-press inline-flex h-9 items-center rounded-md bg-cream px-3 text-[12.5px] font-semibold text-ink ring-1 ring-ink/15';
 export const STUDIO_FOOT_BUTTON = 'sn-press flex h-11 w-full items-center justify-center gap-2 rounded-full bg-ink text-[14px] font-semibold text-cream';
-/** `.ebot` — the editor's own bottom: white, a hairline above. */
-export const STUDIO_FOOT = 'shrink-0 border-t border-ink/10 bg-cream px-2.5 py-2';
-/**
- * 🪟 A FLOATING action row is frosted glass (owner 2026-10-08, *"apply this to all glass row"*;
- * BUTTON_RULE Rule 7): the shared `.sn-glass-row` class — no opaque fill, no shadow; the buttons
- * keep their own colours. Never a second glass recipe here.
- */
-export const STUDIO_GLASS_FOOT = 'sn-glass-row shrink-0 px-2.5 py-2';
-
 /** `.dd` — a dropdown on the right of a row (white pill, gold chevron). */
 export const STUDIO_ROW_PICK = '!min-h-9 !h-9 !rounded-full !bg-cream ring-1 ring-ink/10 !px-3 !text-[13px] !font-medium [&>svg]:text-gild';

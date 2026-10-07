@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { GripVertical, Plus } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { MOMENT_LINE_MAX, MOMENT_TITLE_MAX, type ChapteredMoment, type LoveStoryMoment } from '@/lib/love-story-moments';
-import { STUDIO_GLASS_FOOT, STUDIO_FOOT_BUTTON } from '@/lib/studio-skin';
+import { STUDIO_FOOT_BUTTON } from '@/lib/studio-skin';
 import { MomentNotKept, type MomentSheet } from './moment-sheet';
 /* 🧭 The Studio's own add/edit sheet (owner 2026-10-08) — rides this lazy chunk, never the first load. */
 import { MomentSheetStudio } from './moment-sheet-studio';
@@ -297,7 +297,7 @@ export function MomentOrderCards({
       )}
       {/* The editor's own bottom (prototype `.ebot`): pinned to the foot of a phone's screen, room kept above it. */}
       <div aria-hidden className="h-20 shrink-0 lg:hidden" />
-      <div className={`z-30 max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:pb-[max(.5rem,env(safe-area-inset-bottom))] lg:sticky lg:bottom-0 lg:mt-4 ${STUDIO_GLASS_FOOT}`}>
+      <div className={`z-30 max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:pb-[max(.5rem,env(safe-area-inset-bottom))] lg:sticky lg:bottom-0 lg:mt-4 sn-glass-row shrink-0 px-2.5 py-2`}>
         {add.can ? (
           /* BUTTON-RULE */
           <MomentSheetStudio

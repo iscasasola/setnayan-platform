@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "a9df66d39",
+  "generatedFromRef": "5bf5fdb67",
   "routeCount": 428,
   "destinations": 949,
   "actions": 670,
-  "blocks": 5644,
+  "blocks": 5648,
   "routes": {
     "/": {
       "files": [
@@ -867,6 +867,7 @@
         "[slug]/_components/photo-moments-widget.tsx",
         "[slug]/_components/photos-of-you-gallery.tsx",
         "[slug]/_components/photos-of-you-styles.tsx",
+        "[slug]/_components/play-sequence.ts",
         "[slug]/_components/preview-way-back.tsx",
         "[slug]/_components/private-landing.tsx",
         "[slug]/_components/provider-stall.tsx",
@@ -1076,6 +1077,9 @@
         "CopyMyLink",
         "CountdownBigNumber",
         "CountdownCalendar",
+        "CountdownCircle",
+        "CountdownLine",
+        "CountdownOffset",
         "CountdownWidget",
         "CoupleLogo",
         "CssFallback",
@@ -6510,6 +6514,7 @@
         "dashboard/[eventId]/launch/_components/stage-panel/camera-look.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/kit.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/parts.tsx",
+        "dashboard/[eventId]/launch/_components/stage-panel/play-status.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/reveal-picture.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/stage-animate.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/stage-arrange.tsx",
@@ -6517,6 +6522,7 @@
         "dashboard/[eventId]/launch/_components/stage-panel/stage-style.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/stage-text.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/store.ts",
+        "dashboard/[eventId]/launch/_components/stage-panel/streamed-swap.ts",
         "dashboard/[eventId]/launch/_components/stage-panel/style-carousel.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/style-preview.tsx",
         "dashboard/[eventId]/launch/_components/stage-picker.tsx",
@@ -6812,6 +6818,7 @@
         "StageArrange",
         "StageItemMenu",
         "StagePicker",
+        "StagePlayStatus",
         "StageStepPreview",
         "StageStyle",
         "StageTools",

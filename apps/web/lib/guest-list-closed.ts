@@ -18,8 +18,10 @@
  * asked for.
  *
  * So `events.guest_count_locked_at` is now the host's own act, written only by
- * `finalizeGuestList` (lib/pax.ts), after a confirm, and cleared again by
- * `reopenGuestList`. `guest_list_edit_deadline` stays as the reply-by date the
+ * `finalizeGuestList` (lib/pax.ts), after a confirm — and ONE-WAY since
+ * 2026-10-07 (owner: *"when this is pressed say it cannot be unfinalized"*):
+ * no host can clear it; only Setnayan support can (`admin-reopen-guest-list.ts`).
+ * `guest_list_edit_deadline` stays as the reply-by date the
  * invitation PRINTS. It asks guests to reply by then and closes nothing.
  *
  * Pure by design (no DB, no React, no server-only imports), so the public event

@@ -5,8 +5,13 @@
  *
  * ⚖ Owner, 2026-09-30: *"i must click a finalize to finalize it."* Until the
  * host presses Finalize here and confirms, the list stays open: names can be
- * added and guests can reply. A finalized list shows why it is closed and
- * offers Reopen, so a mistaken press is never a dead end.
+ * added and guests can reply. A finalized list shows why it is closed.
+ *
+ * 🔒 ONE-WAY (owner 2026-10-07, DECISION_LOG "FINALIZING THE HEADCOUNT IS
+ * ONE-WAY": *"when this is pressed say it cannot be unfinalized"*). The Reopen
+ * link this banner carried is gone, the confirm says it cannot be undone, and
+ * the action refuses an unlock (`finalize-actions.ts`). The Setup tab's
+ * Headcount row is the other door to the same one-way Finalize.
  *
  * A refused press is SAID, never swallowed: the server's sentence renders
  * under the button (a failure must never look like nothing happened).
@@ -17,6 +22,7 @@ import { useRouter } from 'next/navigation';
 import { useConfirm } from '@/app/_components/confirm-dialog';
 import { formatCount } from '@/lib/format-number';
 import { setGuestListFinalized } from '../finalize-actions';
+import { FINALIZE_SHEET } from '@/lib/headcount-row';
 
 export function FinalizeGuestListControl({
   eventId,
@@ -33,25 +39,18 @@ export function FinalizeGuestListControl({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  const run = async (finalize: boolean) => {
-    const ok = await confirm(
-      finalize
-        ? {
-            title: 'Finalize your guest list?',
-            body:
-              'Your head count is frozen at today’s number, suppliers price for it, and guests can no longer reply on your event page. You can reopen it later.',
-            confirmLabel: 'Finalize',
-          }
-        : {
-            title: 'Reopen your guest list?',
-            body: 'You can add and change names again, and guests can reply again. The head count goes back to following your list.',
-            confirmLabel: 'Reopen',
-          },
-    );
+  const run = async () => {
+    const ok = await confirm({
+      title: 'Finalize your guest list? This cannot be undone.',
+      body:
+        'Your head count is frozen at today’s number, suppliers price for it, and guests can no longer reply on your event page. Once locked, it stays locked.',
+      confirmLabel: FINALIZE_SHEET.confirm,
+      cancelLabel: FINALIZE_SHEET.cancel,
+    });
     if (!ok) return;
     setError(null);
     startTransition(async () => {
-      const res = await setGuestListFinalized(eventId, finalize);
+      const res = await setGuestListFinalized(eventId, true);
       if (!res.ok) {
         setError(res.error);
         return;
@@ -86,15 +85,7 @@ export function FinalizeGuestListControl({
           {finalPax
             ? ` · your suppliers price for ${formatCount(finalPax)} ${finalPax === 1 ? 'head' : 'heads'}`
             : ''}
-          . Guests can no longer reply on your event page.{' '}
-          <button
-            type="button"
-            disabled={pending}
-            onClick={() => run(false)}
-            className="font-medium text-mulberry-700 underline underline-offset-4 disabled:opacity-50"
-          >
-            {pending ? 'Reopening…' : 'Reopen'}
-          </button>
+          . Guests can no longer reply on your event page. This cannot be undone.
         </p>
       ) : (
         <>
@@ -102,7 +93,7 @@ export function FinalizeGuestListControl({
           <button
             type="button"
             disabled={pending}
-            onClick={() => run(true)}
+            onClick={() => void run()}
             data-guest-list-finalize-button=""
             className="inline-flex min-h-[44px] w-full shrink-0 items-center justify-center rounded-full border border-ink/15 px-4 text-sm font-medium text-ink hover:bg-ink/5 disabled:opacity-50 sm:w-auto"
           >

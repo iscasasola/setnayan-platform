@@ -69,7 +69,9 @@ export function rosterDoors({
   // this page's body, so the header, tabs and meters stay where they are. The
   // /guests/invite page still exists — the sidebar and journey link there.
   if (!finished) {
-    tabs.push({ kind: 'tab', key: 'share', label: 'Share the link', href: `${base}?gview=share`, current: view === 'share' });
+    /* ⚙ SETUP (owner 2026-10-07, DECISION_LOG "GUESTS › SETUP"): the third segment
+       is the guest settings the Maker reads (`invite-panel.tsx`); same `?gview=share`. */
+    tabs.push({ kind: 'tab', key: 'share', label: 'Setup', href: `${base}?gview=share`, current: view === 'share' });
   }
 
   // ⚖ NO "ARRANGE THE ROOM" (owner 2026-09-29, DECISION_LOG "THE GUEST LIST

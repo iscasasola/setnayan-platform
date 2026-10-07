@@ -1162,32 +1162,12 @@ export function MakerWork({
          its studio on the page and its panels in the tools (a phone's lower
          third, a desktop's right column). Its size and motion stay one ‹ › away
          from the other parts. Nothing is written by opening it. */
-<<<<<<< ours
       if (!stagesTap && data.key === 'f:hero' && data.el === 'mark' && select) {
         setElementTarget(null);
         postToShownCanvases({ source: 'setnayan-editor', t: 'markEl', key: data.key, el: null });
         // The made-once Logo is Details' item now: the shell moves the pick there (`movedSelection`).
         select({ kind: 'tool', key: 'logo' });
         return;
-||||||| base
-      if (data.key === 'f:hero' && data.el === 'mark' && select) {
-        setElementTarget(null);
-        postToShownCanvases({ source: 'setnayan-editor', t: 'markEl', key: data.key, el: null });
-        // The made-once Logo is Details' item now: the shell moves the pick there (`movedSelection`).
-        select({ kind: 'tool', key: 'logo' });
-        return;
-=======
-      if (data.key === 'f:hero' && data.el === 'mark' && select) {
-        /* 🧭 …except in the new Maker's Stages on a phone, where the Logo is a PART like the names: its Style ›
-           Look carousel (`lib/scene-styles-parts.ts`) and the quiet bar "Edit the Logo · Studio ›" (owner 2026-10-07). */
-        if (!(stagesStudioRef.current && window.innerWidth < 1024)) {
-          setElementTarget(null);
-          postToShownCanvases({ source: 'setnayan-editor', t: 'markEl', key: data.key, el: null });
-          // The made-once Logo is Details' item now: the shell moves the pick there (`movedSelection`).
-          select({ kind: 'tool', key: 'logo' });
-          return;
-        }
->>>>>>> theirs
       }
       const moment = (data as { moment?: unknown }).moment;
       if (!stagesTap && data.key === 'w:schedule' && typeof moment === 'string' && moment && openDetailsItemRef.current) {

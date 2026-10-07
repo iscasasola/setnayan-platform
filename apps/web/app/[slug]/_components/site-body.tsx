@@ -1432,6 +1432,13 @@ export async function SiteBody({
       // 🗂 "Accept gifts? — No" (Your info): the canvas draws no gift place either.
       giftsOff: event.gifts_on === false,
     });
+    /* 🧭 Stages canvas: each Welcome place is on its own page (`at` — the guest's look is Me's, E-Gifts Welcome's),
+       so each is its own run; for every reader the Welcome is one run, as before. */
+    const welcomeRuns: ReadonlyArray<readonly (typeof welcome)[number][]> = stagesPages
+      ? welcome.map((part) => [part])
+      : welcome.length > 0
+        ? [welcome]
+        : [];
     const detailsScenes = scenesLeftForDetails(plan.publicSafeWidgets, welcome);
     // 📱 On a tabbed page the "Our love story" scene is Our Love Story's page,
     // not a Details section (owner 2026-09-30: each tab its own page). One
@@ -1993,7 +2000,7 @@ export async function SiteBody({
             {/* 🏠 WELCOME — after the reply, before Details (owner 2026-09-30).
                 A stranger meets Reminders and E-Gifts here; the Maker's canvas
                 draws all three places, each after its navigator marker. */}
-            {(stagesPages ? welcome.map((part) => [part] as const) : welcome.length > 0 ? [welcome] : []).map((parts) => (
+            {welcomeRuns.map((parts) => (
               <Fragment key={parts.join()}>
               {group(stagesPages ? at(WELCOME_PART_CANVAS[parts[0]!], 'home') : 'home', (
               <div className="mt-12">

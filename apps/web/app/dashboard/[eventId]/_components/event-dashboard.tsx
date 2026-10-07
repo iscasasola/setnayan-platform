@@ -119,6 +119,7 @@ import {
   type ChangeLineRow,
 } from '@/lib/agreed-total-and-its-changes';
 import { formatCount } from '@/lib/format-number';
+import { HomeWhatsNext, type HomeDecisionRow, type HomeDecisionVerb } from './home-parts';
 
 /**
  * <EventDashboard> — the couple's event dashboard, extracted verbatim from the
@@ -2116,6 +2117,49 @@ export async function EventDashboard({
   // and Papic is never dropped.
   const MAX_MINIS = 4;
   if (miniTiles.length > MAX_MINIS) miniTiles.length = MAX_MINIS;
+
+  /*
+    📋 HOME'S "WHAT'S NEXT" — the Home draws this board IN PLACE under its row
+    (owner 2026-10-07, HOME_AND_GUESTS H7: pop → unfold, no `?sheet=next`
+    portal), in the prototype's rows: the group's name, the item's own words,
+    and one button per decision — 📅 Book · 💳 Pay · 👤 Pick (H1). The same
+    groups, the same counts, the same hrefs as the board below; only the drawing
+    is the Home's (`HomeWhatsNext`, plain data across the client boundary).
+  */
+  if (only === 'whatsnext') {
+    const homeVerb = (id: DecisionGroupView['id']): HomeDecisionVerb =>
+      id === 'book' ? 'book' : id === 'pay' ? 'pay' : id === 'role' ? 'role' : id === 'deadline' ? 'date' : 'other';
+    const homeRows = (groups: DecisionGroupView[]): HomeDecisionRow[] =>
+      groups.flatMap((g) =>
+        g.items.map((it) => ({
+          id: it.id,
+          title: g.title,
+          sub: it.sub ? `${it.label} · ${it.sub}` : it.label,
+          href: it.href,
+          verb: homeVerb(g.id),
+          cta: it.ctaLabel,
+        })),
+      );
+    return (
+      <HomeWhatsNext
+        open={openDecisionCount}
+        rows={homeRows(decisionGroups)}
+        coming={datesGroup ? homeRows([datesGroup]) : []}
+        checklist={{
+          href: `${base}/checklist`,
+          // Absent when never seeded or unread — "0% done" would be a fact nobody measured.
+          pct: checklistProgress ? Math.round((checklistProgress.done / checklistProgress.total) * 100) : null,
+        }}
+        emptyNote="Nothing needs a decision right now — your plan keeps moving on its own."
+      >
+        {venueOfferAvailable ? (
+          <div className="mb-2">
+            <FreeVenueShortlistOffer eventId={eventId} variant="card" fullSaiPhp={fullSaiPhp} sell={!storeShell} />
+          </div>
+        ) : null}
+      </HomeWhatsNext>
+    );
+  }
 
   const inspectorMaster = (
     <div className="relative">

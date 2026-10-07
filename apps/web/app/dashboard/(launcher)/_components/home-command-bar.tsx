@@ -68,7 +68,7 @@ export type HomeCommandItem = {
   href: string;
   kind: 'event' | 'space' | 'action';
   /** Searchable words that are never rendered — see `lib/command-match.ts`.
-   *  This is how typing "wedding" finds a KASAL-badged event. */
+   *  This is how typing "kasal" finds a WEDDING-badged event. */
   terms?: string;
   /** Icon key — resolved to a Lucide glyph client-side (RSC boundary rule:
    *  never pass component functions from server to client). */

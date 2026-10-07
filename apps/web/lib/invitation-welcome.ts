@@ -15,7 +15,7 @@
  *                    ticket"). NOT a new store: the shipped `what_to_bring` scene
  *                    (`events.what_to_bring`). ⚠ Since 2026-10-06 ONLY The Day's
  *                    Welcome draws it (`welcomePartsOnTheDay`); on the Invitation
- *                    What to bring is a Details scene after Dress code.
+ *                    What to bring is a Details scene after the Entourage.
  *   3. `gifts`     — the E-Gifts door, shown NOW rather than at the foot of the
  *                    page, whenever the couple has at least one gift method on.
  *
@@ -75,8 +75,8 @@ export function welcomeParts(input: WelcomeInput): WelcomePart[] {
   if (input.scenes.includes('dress_code') && (input.identified || input.maker)) out.push('look');
   /* 🎒 WHAT TO BRING LEFT THE INVITATION'S WELCOME (owner 2026-10-06, DECISION_LOG
      "'WHEN YES' GETS A CELEBRATION · 'WHAT TO BRING' JOINS THE PREPARE GROUP"):
-     it is drawn on the Details page, right after Dress code and before the
-     Entourage — when & where → dress code → what to bring, read together. The
+     it is drawn on the Details page — since 2026-10-07 AFTER the Entourage
+     ("SIX BUILD QUESTIONS SETTLED" (1), `splitAroundEntourage`). The
      Day's Welcome keeps its reminders line (`welcomePartsOnTheDay`). */
   if (welcomeCarriesGifts(input)) out.push('gifts');
   return out;

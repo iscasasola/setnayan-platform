@@ -2,7 +2,8 @@
  * event-vocabulary.test.ts — typing the word you know finds your own event.
  *
  * Owner, 2026-09-23: *"when i searched wedding, it should also show my wedding
- * event."* He was right, and the cause was that the index was built from the
+ * event."* (Since 2026-10-07 the badge itself is English — "WEDDING" — and
+ * the Filipino word is the one only the data carries.) He was right, and the cause was that the index was built from the
  * RENDERING: the subtitle puts the type through `eventTypeBadge`, which turns
  * `wedding` into "KASAL", so the English word was translated away before
  * anything was searched. Measured live the same day — `?q=wedding` returned 24
@@ -34,11 +35,31 @@ function eventRow(type: string, name: string, date: string | null, place: string
   };
 }
 
-test('🔴 the exact measured defect: "wedding" finds a KASAL-badged event', () => {
+test('🔴 the exact measured defect: "wedding" finds a wedding', () => {
   const row = eventRow('wedding', 'Maria & Jose', '2026-12-12', 'Tagaytay');
-  assert.ok(!row.sublabel.toLowerCase().includes('wedding'), 'fixture is wrong — the badge should read KASAL');
   assert.ok(matchesCommandQuery(row, 'wedding'), 'typing "wedding" still cannot find your wedding');
   assert.ok(matchesCommandQuery(row, 'kasal'), 'the Filipino word stopped working');
+});
+
+test('🔴 badges are ENGLISH, and the Filipino word still finds what the badge no longer says', () => {
+  // Owner, 2026-10-07, on the Home card's "KASAL" chip: "This should be
+  // English: Wedding". The badge moved; search must not move with it.
+  const english: Array<[type: string, badge: string, filipino: string | null]> = [
+    ['wedding', 'WEDDING', 'kasal'],
+    ['christening', 'CHRISTENING', 'binyag'],
+    ['baptism', 'BAPTISM', 'binyag'],
+    ['birthday', 'BIRTHDAY', 'kaarawan'],
+    ['anniversary', 'ANNIVERSARY', 'anibersaryo'],
+    ['debut', 'DEBUT', null],
+    ['tournament', 'TOURNAMENT', null],
+  ];
+  for (const [type, badge, filipino] of english) {
+    assert.equal(eventTypeBadge(type), badge, `"${type}" should badge as "${badge}"`);
+    if (!filipino) continue;
+    const row = eventRow(type, 'Their day', '2027-03-04', 'Cebu');
+    assert.ok(!row.sublabel.toLowerCase().includes(filipino), `fixture is wrong — "${filipino}" is on the badge`);
+    assert.ok(matchesCommandQuery(row, filipino), `a ${type} is no longer findable by "${filipino}"`);
+  }
 });
 
 test('🔴 every mapped type is findable in BOTH languages', () => {

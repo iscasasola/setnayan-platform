@@ -172,7 +172,7 @@ import { HubSceneRuns } from './hub-scene-runs';
 import { heroDesignOf } from '@/lib/hero-design';
 import { heroCanvasOf } from '../_lib/hero-design-of';
 import { makerDayPartsOn, makerDrawsEmpty, widgetsGuestsMeet, type MakerDayPartPlace } from '@/lib/maker-scene-list';
-import { stageShowsEntourage } from '@/lib/stage-scenes';
+import { splitAroundEntourage, stageShowsEntourage } from '@/lib/stage-scenes';
 import { sceneBoundTextOf } from '@/lib/details-bound';
 import { MakerGuestScenes } from './maker-guest-scenes';
 import { GuestWelcome } from './guest-welcome';
@@ -1444,7 +1444,10 @@ export async function SiteBody({
       ))}
       </HubScenes>
     );
-    const publicWidgetNodes = sceneNodes(detailsSceneList);
+    // 🎒 What to bring follows the entourage on the Invitation (owner 2026-10-07,
+    // `splitAroundEntourage`) — drawn right after the entourage mount below.
+    const detailsAround = splitAroundEntourage(pageStage, detailsSceneList);
+    const publicWidgetNodes = sceneNodes(detailsAround.before);
     /* 🎨 THE DAY'S OWN PARTS — the Maker's canvas only, never a guest: a
        stand-in for each part a guest meets as their own (their table, their
        photos) or only once it happens (a message, a stream), so the couple can
@@ -1975,6 +1978,7 @@ export async function SiteBody({
                 needed). Everyone shows inline; `/[slug]/everyone` keeps
                 working for old links, it just isn't linked from here. */}
             {group(scenesTab, stageShowsEntourage(pageStage) ? <EntourageSection groups={entourage} id="site-entourage" sceneStyle={entourageStyle} /> : null)}
+            {detailsAround.after.length > 0 ? group(scenesTab, <div className="sn-hub-cards mt-8 space-y-4">{sceneNodes(detailsAround.after)}</div>) : null}
 
             {makerDayStandIns('last')}
 
@@ -2388,6 +2392,8 @@ export async function SiteBody({
     );
     /** On the day the page's sections are Live's (owner 2026-09-30). */
     const scenesTab = pageStage === 'event' ? 'live' : 'details';
+    /** 🎒 What to bring follows the entourage on the Invitation (`splitAroundEntourage`). */
+    const guestAround = splitAroundEntourage(pageStage, detailsSceneList);
     /** One of the couple's scenes, as this guest reads it — for Details, and on
      *  a tabbed page for the love story scene on its own tab. */
     const renderScene = (widget: (typeof detailsScenes)[number]) => (
@@ -3177,8 +3183,8 @@ export async function SiteBody({
                   Pro (`proWatermarkHidden` is that read). See hub-scenes.tsx. */}
               {group(scenesTab, <>
               <div className="sn-hub-cards space-y-4">
-              <HubScenes widgets={detailsSceneList} scrubAllowed={proWatermarkHidden} stageMarks={stageAutoplayOn}>
-              {detailsSceneList.map(renderScene)}
+              <HubScenes widgets={guestAround.before} scrubAllowed={proWatermarkHidden} stageMarks={stageAutoplayOn}>
+              {guestAround.before.map(renderScene)}
               </HubScenes>
               </div>
 
@@ -3190,6 +3196,15 @@ export async function SiteBody({
 
                   No `previewHref` here either — see the anonymous mount above. */}
               {marchOnWelcome ? null : guestEntourage}
+              {/* 🎒 What to bring, after the entourage (owner 2026-10-07). No stage
+                  marks: only the Invitation splits, and the marks are the Save the Date's. */}
+              {guestAround.after.length > 0 ? (
+                <div className="sn-hub-cards space-y-4">
+                  <HubScenes widgets={guestAround.after} scrubAllowed={proWatermarkHidden}>
+                    {guestAround.after.map(renderScene)}
+                  </HubScenes>
+                </div>
+              ) : null}
               </>, { chapters: true, className: 'space-y-12', id: pageStage === 'event' ? undefined : SITE_MENU_ANCHORS.details })}
 
               {group('home', isLimitedPlusOne ? (

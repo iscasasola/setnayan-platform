@@ -15,6 +15,7 @@ import { LaunchStdButton } from '../../studio/save-the-date/_components/launch-s
 import type { LaunchPhaseKey } from '../../website/editor/_components/launch-phase-choices';
 import { MAKER_OPEN_RESET_EVENT } from '../../website/_components/maker-open-reset';
 import { QrActions } from '@/app/_components/qr-actions';
+import { FileUpload } from '@/app/_components/file-upload';
 import { MAKER_STAY_FIELD } from '@/lib/maker-stay';
 import {
   WHICH_VERSION_LABEL,
@@ -124,14 +125,21 @@ export function StudioReadOnlyFact({ label, value, line, data }: { label?: strin
 /** The four ways to give the prototype draws, in its order — the shipped kinds (`lib/egift-kinds.ts`). */
 export const STUDIO_GIFT_KINDS = ['gcash', 'maya', 'bank', 'paypal'] as const satisfies readonly EgiftMethodKind[];
 
-type GiftRow = { id: string | null; on: boolean; handle: string; accountName: string };
+type GiftRow = { id: string | null; on: boolean; handle: string; accountName: string; qrRef: string; qrUrl: string | null };
 
 function rowsFrom(methods: readonly ManagerMethod[]): Record<(typeof STUDIO_GIFT_KINDS)[number], GiftRow> {
   const out = {} as Record<(typeof STUDIO_GIFT_KINDS)[number], GiftRow>;
   for (const k of STUDIO_GIFT_KINDS) {
     /* The first of its kind — the one guests see first (the manager keeps any others). */
     const m = methods.find((x) => x.method_kind === k && x.is_enabled) ?? methods.find((x) => x.method_kind === k) ?? null;
-    out[k] = { id: m?.egift_method_id ?? null, on: m?.is_enabled ?? false, handle: m?.handle ?? '', accountName: m?.account_name ?? '' };
+    out[k] = {
+      id: m?.egift_method_id ?? null,
+      on: m?.is_enabled ?? false,
+      handle: m?.handle ?? '',
+      accountName: m?.account_name ?? '',
+      qrRef: m?.qr_r2_key ?? '',
+      qrUrl: m?.qrDisplayUrl ?? null,
+    };
   }
   return out;
 }
@@ -178,6 +186,11 @@ export function StudioEgifts({
           next[k] = { ...r[k], id: fresh[k].id };
           changed = true;
         }
+        /* A QR saved here comes back with its permanent picture URL. */
+        if (fresh[k].qrRef === r[k].qrRef && fresh[k].qrUrl !== r[k].qrUrl) {
+          next[k] = { ...next[k], qrUrl: fresh[k].qrUrl };
+          changed = true;
+        }
       }
       return changed ? next : r;
     });
@@ -222,6 +235,38 @@ export function StudioEgifts({
         }),
       ), requestMakerRefresh);
       if (!res.ok) setError(res.error);
+    });
+  };
+  /**
+   * 🔳 THE METHOD'S QR (controller 2026-10-07, owner: *"shouldn't we show the
+   * actual QR instead?"*): the E-Gifts manager's own upload (the
+   * `pabuya-qr/<event>` shelf), compressed on the phone, then the SHIPPED
+   * `saveEgiftMethod` with `qr_r2_key` — which checks it is a real payment QR
+   * (`checkPabuyaQrImage`) and says so if not. '' removes it. Live, like every
+   * E-Gifts write. +0 server actions.
+   */
+  const saveQr = (kind: (typeof STUDIO_GIFT_KINDS)[number], ref: string) => {
+    const before = rows[kind];
+    if (before.qrRef === ref) return;
+    const original = methods.find((m) => m.egift_method_id === before.id) ?? null;
+    setRows((r) => ({ ...r, [kind]: { ...r[kind], qrRef: ref, qrUrl: ref ? r[kind].qrUrl : null } }));
+    setError(null);
+    start(async () => {
+      const res = await makerSave(() => saveEgiftMethod(
+        fd({
+          ...(original ? { egift_method_id: original.egift_method_id } : {}),
+          method_kind: kind,
+          label: original?.label ?? EGIFT_KIND_META[kind].defaultLabel,
+          account_name: before.accountName,
+          handle: before.handle,
+          note: original?.note ?? '',
+          qr_r2_key: ref,
+        }),
+      ), requestMakerRefresh);
+      if (!res.ok) {
+        setRows((r) => ({ ...r, [kind]: before }));
+        setError(res.error);
+      }
     });
   };
   /** 🔗 The registry link — saved when the box is left (the E-Gifts page's own write, live). */
@@ -280,6 +325,23 @@ export function StudioEgifts({
                   placeholder={meta.handlePlaceholder}
                   className="min-h-11 rounded-md border border-ink/15 bg-white px-3 text-[14px] text-ink"
                 />
+                {/* 🔳 Add your QR — the QR-first ways (GCash · Maya, `qrPrimary`); its picture with Remove once set. */}
+                {meta.qrPrimary ? (
+                  <div data-studio-gift-qr={k}>
+                    <FileUpload
+                      bucket="thread-files"
+                      pathPrefix={`pabuya-qr/${eventId}`}
+                      label="Add your QR"
+                      acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
+                      maxSizeMB={5}
+                      variant="square"
+                      compressImage
+                      currentValue={row.qrRef || null}
+                      initialDisplayUrls={row.qrRef && row.qrUrl ? { [row.qrRef]: row.qrUrl } : {}}
+                      onChange={(v) => saveQr(k, typeof v === 'string' ? v : '')}
+                    />
+                  </div>
+                ) : null}
                 <input
                   value={row.accountName}
                   onChange={(e) => setRows((r) => ({ ...r, [k]: { ...r[k], accountName: e.target.value } }))}

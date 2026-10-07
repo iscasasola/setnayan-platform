@@ -76,5 +76,5 @@ test('the guest page passes the HOST’s draft only — a guest reads the live m
   const page = stripComments(readFileSync(join(__dirname, '../app/[slug]/page.tsx'), 'utf8'));
   assert.match(page, /entourage: await loadEntourage\([\s\S]*?hostDraft\?\.march\?\.flat\(\),\s*\)/, 'the canvas no longer reads the drafted march');
   const loaders = stripComments(readFileSync(join(__dirname, '../app/[slug]/_lib/loaders.ts'), 'utf8'));
-  assert.match(loaders, /marchSteps\?\.length \? await draftedMarchPrint\(/, 'loadEntourage ignores the drafted steps');
+  assert.match(loaders, /if \(marchSteps\?\.length\) \{[\s\S]{0,400}?await draftedMarchPrint\(/, 'loadEntourage ignores the drafted steps');
 });

@@ -1972,14 +1972,20 @@ export const loadEntourage = cache(
     const tray = await trayRead;
     if (tray.error) logQueryError('loadEntourage tray', tray.error, { event_id: eventId }, 'graceful_degrade');
     const out = new Set(((tray.data ?? []) as Array<{ guest_id: string }>).map((r) => r.guest_id));
-    const liveRows = ((data ?? []) as EntourageGuestRow[]).map((r) => (r.guest_id && out.has(r.guest_id) ? { ...r, not_walking: true } : r));
-    const savedOrder = await loadEntourageSectionOrder(admin, eventId);
-    /* 🚶 The march as the march editor draws it (live + drafted steps,
-       `replayMarch`), written back onto the printed rows (`printedRowsAsDrafted`). */
-    const drafted = marchSteps?.length ? await draftedMarchPrint(admin, eventId, liveRows, savedOrder, marchSteps) : null;
+    /* 🚶 The Maker canvas only: the march as the march editor draws it (live +
+       the host's drafted steps, `replayMarch`), written back onto the printed
+       rows (`printedRowsAsDrafted`) and printed by the same builder. */
+    if (marchSteps?.length) {
+      const savedOrder = await loadEntourageSectionOrder(admin, eventId);
+      const marked = ((data ?? []) as EntourageGuestRow[]).map((r) => (r.guest_id && out.has(r.guest_id) ? { ...r, not_walking: true } : r));
+      const drafted = await draftedMarchPrint(admin, eventId, marked, savedOrder, marchSteps);
+      if (drafted) {
+        return buildEntourage(drafted.rows, drafted.sectionOrder, await loadEventRoleNames(admin, eventId), nameStyle ?? (await loadEventNameStyle(admin, eventId)));
+      }
+    }
     return buildEntourage(
-      drafted?.rows ?? liveRows,
-      drafted?.sectionOrder ?? savedOrder,
+      ((data ?? []) as EntourageGuestRow[]).map((r) => (r.guest_id && out.has(r.guest_id) ? { ...r, not_walking: true } : r)),
+      await loadEntourageSectionOrder(admin, eventId),
       await loadEventRoleNames(admin, eventId),
       nameStyle ?? (await loadEventNameStyle(admin, eventId)),
     );

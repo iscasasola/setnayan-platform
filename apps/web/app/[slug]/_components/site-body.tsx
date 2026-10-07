@@ -3136,10 +3136,11 @@ export async function SiteBody({
 
                   No `previewHref` here either — see the anonymous mount above. */}
               {marchOnWelcome ? null : guestEntourage}
-              {/* 🎒 What to bring, after the entourage (owner 2026-10-07). */}
+              {/* 🎒 What to bring, after the entourage (owner 2026-10-07). No stage
+                  marks: only the Invitation splits, and the marks are the Save the Date's. */}
               {guestAround.after.length > 0 ? (
                 <div className="sn-hub-cards space-y-4">
-                  <HubScenes widgets={guestAround.after} scrubAllowed={proWatermarkHidden} stageMarks={stageAutoplayOn}>
+                  <HubScenes widgets={guestAround.after} scrubAllowed={proWatermarkHidden}>
                     {guestAround.after.map(renderScene)}
                   </HubScenes>
                 </div>

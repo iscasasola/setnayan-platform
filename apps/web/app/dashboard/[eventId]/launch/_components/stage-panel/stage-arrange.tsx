@@ -12,11 +12,12 @@ import { formatCount } from '@/lib/format-number';
  *   ON THIS STAGE  Shown ▾          the scene's own Show (Shown · Auto · Hidden where the
  *                                   event lets guests browse, else Shown · Hidden)
  *   ORDER  3 of 9   ‹  ›            the navigator's own one-step move
- *   ALIGNMENT  Centre ▾             the scene's words, every part at once (`SceneAlignRow`)
+ *   ALIGNMENT  Centre ▾ · SPACING Regular ▾   the scene's words, every part at once, and the
+ *                                   room above and below it (`SceneAlignRow`; Spacing is
+ *                                   `HubSectionCanvas.spacing`, owner 2026-10-07)
  *
  * Every pick is the SHIPPED write the scene inspector's Arrange made (`SceneArrangeTab`,
  * `editor-shell.tsx`'s `modeWrite` / `eyeWrite` / `move`); only the drawing is new.
- * (The prototype's Spacing ▾ has no shipped field — it is not drawn: never invented.)
  */
 export function StageArrange({
   openBrowse,

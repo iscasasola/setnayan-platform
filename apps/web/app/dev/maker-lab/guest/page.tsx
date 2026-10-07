@@ -6,7 +6,16 @@ import { EditorBridge } from '@/app/[slug]/_components/editor-bridge';
 import { HUB_STAGES, type HubStage } from '@/lib/hub-canvas';
 import { sceneStyleOfRow, paletteLookOfRow } from '@/lib/scene-style-of-row';
 import { SpecialMessageWidget } from '@/app/[slug]/_components/special-message-widget';
-import { MakerWelcomeGiftsEmpty } from '@/app/[slug]/_components/maker-guest-scenes';
+import { MakerWelcomeGiftsEmpty, MakerWelcomeLook } from '@/app/[slug]/_components/maker-guest-scenes';
+import { WelcomeGifts } from '@/app/[slug]/_components/guest-doorway-strip';
+import { PahinaMasthead } from '@/app/[slug]/_components/pahina-masthead';
+import { HubCanvasFrame } from '@/app/[slug]/_components/hub-canvas-frame';
+import { canvasOnlyCss, canvasOnlyScene, canvasStylePreview } from '@/app/[slug]/_lib/editor-canvas';
+import { withStylePreview } from '@/app/[slug]/_lib/style-preview';
+import { eventWordsFor } from '@/app/[slug]/_lib/event-words';
+import { fixedSceneStyleOf } from '@/lib/fixed-scene-style-of';
+import type { StyledScene } from '@/lib/fixed-scene-styles';
+import { HERO_PART_LOOK, partLookAttr } from '@/lib/scene-styles-parts';
 import { MakerEmptyScene } from '@/app/[slug]/_components/maker-empty-scene';
 import { WhenYesCelebration } from '@/app/[slug]/_components/when-yes-celebration';
 import { celebrationColours, isRsvpCelebration } from '@/lib/rsvp-celebration';
@@ -62,7 +71,30 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   if ((await cookies()).get('lab_slow')?.value === '1') await new Promise((r) => setTimeout(r, 2500));
   const labPhoto = (await cookies()).get('lab_photo')?.value === '1';
   const stage: HubStage | null = (HUB_STAGES as readonly string[]).includes(phase) ? (phase as HubStage) : null;
-  const rowOf = (type: string) => ({ widget_type: type, config_json: { canvas: drafted[type] ?? {} } });
+  /* 🖼 A style's true miniature (`?only=` + `?style=`), as the real canvas honours them — the lab is a host canvas. */
+  const only = canvasOnlyScene({ only: typeof sp.only === 'string' ? sp.only : undefined }, true);
+  const preview = canvasStylePreview({ style: typeof sp.style === 'string' ? sp.style : undefined }, true);
+  /* 🎨 The lab's drafted part styles (`lab_styles`, the lab's `fixedStyles` stand-in), the preview's laid on top. */
+  let labStyles: Record<string, unknown> = {};
+  try {
+    labStyles = JSON.parse(decodeURIComponent((await cookies()).get('lab_styles')?.value ?? '{}')) as Record<string, unknown>;
+  } catch {
+    labStyles = {};
+  }
+  const { event: labEvent, widgets: labRows } = withStylePreview(
+    { style_preferences: { scene_styles: labStyles } },
+    Object.keys({ ...drafted, countdown: 1, special_message: 1, schedule: 1, dress_code: 1 }).map((t) => ({ widget_type: t, config_json: { canvas: drafted[t] ?? {} } })),
+    preview,
+  );
+  const rowOf = (type: string) => labRows.find((r) => r.widget_type === type) ?? { widget_type: type, config_json: { canvas: {} } };
+  const look = (type: StyledScene) => partLookAttr(type, fixedSceneStyleOf(labEvent.style_preferences, type, stage, 'wedding'));
+  const heroLooks = Object.fromEntries(
+    (Object.entries(HERO_PART_LOOK) as Array<[keyof typeof HERO_PART_LOOK, StyledScene]>).flatMap(([part, type]) => {
+      const v = look(type);
+      return v ? [[part, v]] : [];
+    }),
+  );
+  const words = await eventWordsFor('wedding').catch(() => null);
   const mark = (key: string) => <span hidden data-maker-section={key} />;
   if (rsvp) {
     return (
@@ -124,19 +156,23 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
         <span>Setnayan</span>
         <span>{phase === 'save_the_date' ? 'Save the Date' : phase === 'event' ? 'The Day' : phase === 'editorial' ? 'Post Event' : 'Invitation'}</span>
       </div>
-      {/* 🧭 The hero's parts carry their `data-el`, as the real hero does — so a tap picks Names, Date, Place. */}
+      {/* 🧭 THE REAL HERO (`PahinaMasthead`, the guest page's own) on maria-and-jose's words — its parts carry their
+          `data-el` and, when picked, their own style (`data-part-look`), exactly as the guest page draws them. */}
       {mark('f:hero')}
       <section className="px-4 pb-10 pt-6">
-        <p data-el="eyebrow" className="text-[9px] font-semibold uppercase tracking-[0.26em] text-ink/55">Together with their families</p>
-        <p data-el="mark" className="mx-auto mt-3 flex h-16 w-16 items-center justify-center rounded-full border border-gild font-serif text-lg italic text-terracotta-700">M &amp; J</p>
-        <div data-el="names">
-          <p className="mt-2 font-serif text-[30px] leading-none">Maria</p>
-          <p className="font-serif text-lg italic text-gild">and</p>
-          <p className="font-serif text-[30px] leading-none">Jose</p>
-        </div>
-        <p className="mt-2 text-[11px] text-ink/70">invite you to celebrate their wedding</p>
-        <p data-el="date" className="mt-1 font-serif text-lg">Saturday, December 12, 2026</p>
-        <p data-el="venue" className="mt-1 text-[12px] text-ink/60">Quezon City · Seda Vertis North</p>
+        <PahinaMasthead
+          displayName="Maria & Jose"
+          eventDate="2026-12-12"
+          venueName="Seda Vertis North, Quezon City"
+          eyebrow="Together with their families"
+          stampElements
+          looks={Object.keys(heroLooks).length > 0 ? heroLooks : null}
+          monogramSlot={
+            <span className="flex h-20 w-20 items-center justify-center rounded-full border border-gild font-serif text-2xl italic text-terracotta-700">
+              M &amp; J
+            </span>
+          }
+        />
       </section>
       <section className="border-t border-ink/10 px-4 py-8">
         <p className="font-serif text-lg">Personal greeting</p>
@@ -154,29 +190,28 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       <div className="sn-editorial">
         {mark('f:gifts')}
         <div data-lab-scene="gifts" className="border-t border-ink/10 px-4 py-8 text-left">
-          <MakerWelcomeGiftsEmpty />
+          {words ? <WelcomeGifts href="#gifts" words={words} look={look('gifts')} /> : <MakerWelcomeGiftsEmpty look={look('gifts')} />}
         </div>
         {mark('w:our_love_story')}
         <div data-lab-scene="our_love_story" className="border-t border-ink/10 px-4 py-8">
           <MakerEmptyScene type="our_love_story" />
         </div>
         {mark('w:special_message')}
-        <div data-lab-scene="special_message" className="border-t border-ink/10 px-4 py-8 text-left">
-          <SpecialMessageWidget
-            text="We cannot wait to celebrate with you."
-            signedBy="Maria & Jose"
-            sceneStyle={sceneStyleOfRow(rowOf('special_message'), stage, 'wedding')}
-          />
-        </div>
-        {/* 👤 The Invitation's "Guest's look" stand-in — each guest's own outfit (the Maker's What to wear part). */}
+        {/* 🌗 The REAL scene frame (`HubCanvasFrame`): its drafted background, Darker ↔ Lighter and Spacing, as guests see them. */}
+        <HubCanvasFrame widget={{ ...rowOf('special_message'), widget_id: 'lab-special-message' } as never} hubTheme="house" ownClipPlays>
+          <div data-lab-scene="special_message" className="border-t border-ink/10 px-4 py-8 text-left">
+            <SpecialMessageWidget
+              text="We cannot wait to celebrate with you."
+              signedBy="Maria & Jose"
+              sceneStyle={sceneStyleOfRow(rowOf('special_message'), stage, 'wedding')}
+            />
+          </div>
+        </HubCanvasFrame>
+        {/* 👤 The Invitation's "Guest's look" — the guest page's own stand-in (the Maker's What to wear part). */}
         {mark('f:look')}
-        <section data-lab-scene="look" className="border-t border-ink/10 px-4 py-8 text-left">
-          <p className="pahina-eyebrow">
-            <span>What to wear</span>
-          </p>
-          <p className="mt-2 font-serif text-2xl">Your guest’s role, colours and outfit</p>
-          <p className="mt-1 text-[11px] uppercase tracking-[0.2em] text-ink/55">Each guest sees their own look, from your Mood Board</p>
-        </section>
+        <div data-lab-scene="look" className="border-t border-ink/10 px-4 py-8 text-left">
+          <MakerWelcomeLook look={look('my_wear')} />
+        </div>
         {/* 🗓 The day's moments — a scene of ROWS (its Build in carries Rows ▾). */}
         {mark('w:schedule')}
         <section data-lab-scene="schedule" className="border-t border-ink/10 px-4 py-8 text-left">
@@ -207,8 +242,9 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
           </p>
         </section>
       </div>
-      {/* The Maker's two-way bridge, as the real canvas mounts it — its `ready` swaps a buffered frame in. */}
-      {sp.editor === '1' ? <EditorBridge /> : null}
+      {/* The Maker's two-way bridge, as the real canvas mounts it — its `ready` swaps a buffered frame in. Never in a miniature. */}
+      {sp.editor === '1' && !preview ? <EditorBridge /> : null}
+      {only ? <style>{canvasOnlyCss(only)}</style> : null}
     </main>
   );
 }

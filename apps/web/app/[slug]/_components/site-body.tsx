@@ -190,7 +190,8 @@ import { PublicHideableWidget } from './public-hideable-widget';
 import { HubScenes } from './hub-scenes';
 import { RsvpWidget } from './rsvp-widget';
 import { sceneStyleOfRow, paletteLookOfRow } from '@/lib/scene-style-of-row';
-import type { FixedStyleScene } from '@/lib/fixed-scene-styles';
+import type { FixedStyleScene, StyledScene } from '@/lib/fixed-scene-styles';
+import { HERO_PART_LOOK, partLookAttr } from '@/lib/scene-styles-parts';
 import { fixedSceneStyleOf } from '@/lib/fixed-scene-style-of';
 import { LiveHubArrangement } from './live-hub-styles';
 import { MakerDayPartStandIn } from './maker-fixed-parts';
@@ -208,7 +209,8 @@ import {
 import { EditorBridge } from './editor-bridge';
 import { SampleViewerInert } from './sample-viewer-inert';
 import type { SeeAs } from '@/lib/see-as';
-import { EDITOR_CANVAS_HIDES_APP_CHROME, canvasOnlyCss, type CanvasOnlyScene } from '../_lib/editor-canvas';
+import { EDITOR_CANVAS_HIDES_APP_CHROME, canvasOnlyCss, type CanvasOnlyScene, type CanvasStylePreview } from '../_lib/editor-canvas';
+import { withStylePreview } from '../_lib/style-preview';
 import { PreviewWayBack } from './preview-way-back';
 import { PahinaMasthead } from './pahina-masthead';
 import { EntourageSection } from './entourage-section';
@@ -421,6 +423,10 @@ type SiteBodyProps = {
   /** 🖼 The Maker's made-once Hero page (`?only=hero`) — draw that ONE scene.
    *  Resolved by `canvasOnlyScene`, which is null off the host canvas. */
   canvasOnly?: CanvasOnlyScene | null;
+  /** 🖼 A style's true miniature (`?style=<type>:<id>`, `canvasStylePreview`) — the
+   *  page drawn with that one scene or part in that style. Null off the host canvas.
+   *  Like a theme tile, it never mounts the click-to-edit bridge. */
+  stylePreview?: CanvasStylePreview | null;
   /** 🎨 A theme TILE on the Maker's Details page (`canvasTriedTheme`): drawn as
    *  the canvas, but the click-to-edit bridge is NEVER mounted — the tile's
    *  parent is the Maker, which would hear its `ready` / `edit` as the canvas's
@@ -506,7 +512,7 @@ type SiteBodyProps = {
 };
 
 export async function SiteBody({
-  event,
+  event: eventIn,
   identity,
   monogram,
   animatedMonogram,
@@ -528,7 +534,7 @@ export async function SiteBody({
   bgMusicUrl,
   ownsStdReveal,
   ourPhotoUrls,
-  widgets,
+  widgets: widgetsIn,
   scheduleBlocks,
   backdrop,
   liveWall,
@@ -543,6 +549,7 @@ export async function SiteBody({
   canvasGuestBars = false,
   ticketUrl = null,
   canvasOnly = null,
+  stylePreview = null,
   themeTile = false,
   makerWayBack = null,
   ownerCapability = null,
@@ -558,6 +565,9 @@ export async function SiteBody({
   guestStages = false,
   comingWith = [],
 }: SiteBodyProps) {
+  /* 🖼 A style's true miniature lays its one style over the rows (`_lib/style-preview.ts`);
+     for every guest `stylePreview` is null and both come back exactly as read. */
+  const { event, widgets } = withStylePreview(eventIn, widgetsIn, isEditorCanvas ? stylePreview : null);
   // 🎨 SECTION BACKGROUNDS — signed ONCE for the whole page.
   // Every arranged section's `config_json.canvas.media` is an `r2://` ref, held
   // to the public bucket by `siteMediaServeRef` on the way in. They are
@@ -743,6 +753,8 @@ export async function SiteBody({
     elements: heroCanvas.elements ?? null,
     stampElements: isMakerCanvas,
     design: heroDesignOf(heroCanvas),
+    /* 🎨 The hero parts' own styles — set below, once the page's stage is known. */
+    looks: null as Partial<Record<keyof typeof HERO_PART_LOOK, string>> | null,
   };
   /* ✍ Does any scene carry a run (one letter, one word in its own look)? Only
      then is the small script that lays them mounted (`HubSceneRuns`) — the
@@ -979,6 +991,21 @@ export async function SiteBody({
      the page exactly as before. */
   const fixedStyle = (scene: FixedStyleScene) =>
     fixedSceneStyleOf((event as { style_preferences?: unknown }).style_preferences, scene, pageStage, event.event_type);
+  /* 🎨 THE PARTS' OWN STYLES (owner 2026-10-07, `lib/scene-styles-parts.ts`): each picked
+     part's `data-part-look`, null for the shipped look — so a page nobody styled is unchanged. */
+  const partLook = (type: StyledScene) =>
+    partLookAttr(type, fixedSceneStyleOf((event as { style_preferences?: unknown }).style_preferences, type, pageStage, event.event_type));
+  {
+    const looks: Partial<Record<keyof typeof HERO_PART_LOOK, string>> = {};
+    for (const [part, type] of Object.entries(HERO_PART_LOOK) as Array<[keyof typeof HERO_PART_LOOK, StyledScene]>) {
+      const v = partLook(type);
+      if (v) looks[part] = v;
+    }
+    heroElements.looks = Object.keys(looks).length > 0 ? looks : null;
+  }
+  /** E-Gifts and the guest's look on Welcome, and the four for-each-guest parts on Me. */
+  const welcomeLooks = { gifts: partLook('gifts'), wear: partLook('my_wear') };
+  const meLooks = { role: partLook('my_role'), wear: partLook('my_wear'), arrive: partLook('my_arrive'), guests: partLook('my_guests') };
   const entourageStyle = fixedStyle('entourage');
   const liveHubStyle = fixedStyle('live_hub');
   /** A live hub arranged by the couple (not style A): player and wall drawn together. */
@@ -1879,6 +1906,7 @@ export async function SiteBody({
             {welcome.length > 0 ? group('home', (
               <div className="mt-12">
                 <GuestWelcome
+                  partLooks={welcomeLooks}
                   parts={welcome}
                   words={clientWords}
                   look={null}
@@ -1914,6 +1942,7 @@ export async function SiteBody({
             {dayWelcome.length > 0 ? group('home', (
               <div className="mt-12">
                 <GuestWelcome
+                  partLooks={welcomeLooks}
                   parts={dayWelcome}
                   words={clientWords}
                   look={null}
@@ -3060,6 +3089,7 @@ export async function SiteBody({
                   Guarded by `lib/welcome-is-the-guests-own.test.ts`. */}
               {tabs.on && welcome.length === 0 ? null : group('home', (
               <GuestWelcome
+                partLooks={welcomeLooks}
                 parts={welcome}
                 words={clientWords}
                 /* 🏠 One home per fact: once Me draws this guest's role and
@@ -3095,6 +3125,7 @@ export async function SiteBody({
                   empty is drawn. */}
               {group('home', dayWelcome.length > 0 ? (
                 <GuestWelcome
+                  partLooks={welcomeLooks}
                   parts={dayWelcome}
                   words={clientWords}
                   look={{
@@ -3313,6 +3344,7 @@ export async function SiteBody({
             {/* 👤 Your role · What to wear · Arrive by · Coming with you. */}
             {meParts.length > 0 ? (
               <GuestMeParts
+                partLooks={meLooks}
                 parts={meParts}
                 words={clientWords}
                 look={{ ...guestLook, roleNames }}
@@ -3696,7 +3728,7 @@ export async function SiteBody({
           editor's preview iframe. `editorMode` is TRUE only for a verified host
           who passed `?editor=1`; for every guest/anonymous visitor this renders
           nothing, so their HTML is byte-identical to before. */}
-      {isEditorCanvas && editorBridge && !themeTile ? <EditorBridge /> : null}
+      {isEditorCanvas && editorBridge && !themeTile && !stylePreview ? <EditorBridge /> : null}
       {/* 👁 See as: the sample viewer touches nothing (sample-viewer-inert.tsx). */}
       {sampleViewer !== null ? <SampleViewerInert canvas={isEditorCanvas} /> : null}
       {sceneRunsOnPage ? <HubSceneRuns /> : null}

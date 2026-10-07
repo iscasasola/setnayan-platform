@@ -144,9 +144,10 @@ function GiftDoorCard({ href, words }: { href: string; words: EventWords }) {
  * Invitation's Welcome page (`lib/invitation-welcome.ts`). `href` is
  * `resolveGuestDoorways(...).pabuya` — null means no card, never an empty one.
  */
-export function WelcomeGifts({ href, words }: { href: string; words: EventWords }) {
+export function WelcomeGifts({ href, words, look = null }: { href: string; words: EventWords; look?: string | null }) {
   return (
-    <section className="space-y-3" data-welcome-gifts="">
+    /* 🎨 Its own style when the couple picked one (`lib/scene-styles-parts.ts`) — absent, as shipped. */
+    <section className="space-y-3" data-welcome-gifts="" {...(look ? { 'data-part-look': look } : {})}>
       <p className="pahina-eyebrow">
         <span>E-Gifts</span>
       </p>

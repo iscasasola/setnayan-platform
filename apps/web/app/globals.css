@@ -6006,7 +6006,8 @@ html:has([data-sticky-top]) {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(to bottom, rgb(255 255 255 / 0.72), rgb(255 255 255 / 0.84));
+  /* 🌗 Darker ↔ Lighter (`lib/scene-media-shade.ts`) sets the two stops; absent, the shipped light scrim. */
+  background: linear-gradient(to bottom, var(--hub-scrim-top, rgb(255 255 255 / 0.72)), var(--hub-scrim-end, rgb(255 255 255 / 0.84)));
 }
 .hub-has-media > .hub-canvas-body { position: relative; z-index: 1; padding: clamp(14px, 3vw, 28px); }
 /* 🌄 THE SAME PARALLAX ON A SCENE'S PHOTO BACKGROUND (owner 2026-09-28,
@@ -6067,9 +6068,19 @@ html:has([data-sticky-top]) {
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background: linear-gradient(to bottom, rgb(255 255 255 / 0.72), rgb(255 255 255 / 0.84));
+  background: linear-gradient(to bottom, var(--hub-scrim-top, rgb(255 255 255 / 0.72)), var(--hub-scrim-end, rgb(255 255 255 / 0.84)));
 }
 .hub-bg-snippet { position: relative; }
+
+/* ↕ ARRANGE › SPACING (owner 2026-10-07; `hubSpacingClass`): the room above and
+   below one scene. Regular is the page's own rhythm (no class). Tight pulls the
+   scene to its neighbours; Roomy gives it a breath above and below. The page's
+   `space-y-*` gap sets margin-top on a scene that follows another, so Tight
+   answers that same selector shape. */
+:not([hidden]) ~ .hub-space-tight { margin-top: 0.75rem !important; }
+.hub-space-tight { margin-bottom: 0 !important; }
+.hub-space-tight.hub-canvas > .hub-canvas-body { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+.hub-space-roomy { padding-top: clamp(1.25rem, 6vw, 2.5rem); padding-bottom: clamp(1.25rem, 6vw, 2.5rem); }
 
 /* A flat colour needs no layer and no scrim: the couple chose the ground
    itself, so there is nothing to see through and nothing to soften. */
@@ -7611,4 +7622,146 @@ html:has(.hub-shape-full) { overflow-x: clip; }
 .sn-switch:focus-visible {
   outline: 2px solid currentColor;
   outline-offset: 2px;
+}
+
+/* ═══ 🎨 THE PARTS' OWN STYLES (owner 2026-10-07, DECISION_LOG "STAGES PANEL REDRAW
+   APPROVED … THREE FOLLOW-UPS AS ONE STEP"; `lib/scene-styles-parts.ts`) ═══════
+   Names · Date · Place · Logo · Title, E-Gifts and the four for-each-guest parts,
+   each drawn by the guest page from the couple's one pick: the part carries
+   `data-part-look="<part>.<style>"`. The FIRST style of every set is the shipped
+   look and carries no attribute, so nothing here touches a page nobody styled.
+   Design reference: the approved prototype's five-layout carousels
+   (`.el[data-el=…][data-preset]`). `html` raises each rule over the part's own
+   utility classes; the couple's per-part look (inline) still wins over all of it. */
+
+/* ── Names ── */
+html [data-part-look="names.one-line"] { font-size: clamp(2rem, 9.5vw, 3.1rem); }
+html [data-part-look="names.one-line"] > span { display: inline; }
+html [data-part-look="names.one-line"] > span:nth-child(2):not(:last-child) { margin: 0 0.22em; font-size: 0.62em; }
+html [data-part-look="names.staggered"] { position: relative; padding: 0.15em 0; font-size: clamp(2.4rem, 12vw, 3.2rem); line-height: 0.98; }
+html [data-part-look="names.staggered"] > span { position: relative; z-index: 1; }
+html [data-part-look="names.staggered"] > span:first-child { transform: translateX(-0.7em); }
+html [data-part-look="names.staggered"] > span:last-child:not(:first-child) { transform: translateX(0.7em); }
+html [data-part-look="names.staggered"] > span:nth-child(2):not(:last-child) {
+  position: absolute; left: 50%; top: 50%; z-index: 0; transform: translate(-50%, -52%);
+  font-size: 2.2em; line-height: 1; opacity: 0.22;
+}
+html [data-part-look="names.spaced-caps"] {
+  display: inline-block; font-family: var(--font-sans), system-ui, sans-serif; text-transform: uppercase;
+  letter-spacing: 0.3em; font-size: clamp(0.95rem, 4.2vw, 1.15rem); font-weight: 500; line-height: 1.6;
+  padding: 0.95em 0.2em 0.95em 0.5em; border-top: 1px solid rgb(var(--color-gild) / 0.7); border-bottom: 1px solid rgb(var(--color-gild) / 0.7);
+}
+html [data-part-look="names.spaced-caps"] > span { display: inline; }
+html [data-part-look="names.spaced-caps"] > span:nth-child(2):not(:last-child) {
+  font-family: var(--font-pahina-display), Georgia, serif; text-transform: none; letter-spacing: 0; font-size: 1.5em; margin: 0 0.35em;
+}
+html [data-part-look="names.big-joiner"] { display: flex; flex-wrap: wrap; justify-content: center; column-gap: 0.7em; row-gap: 0.15em; }
+html [data-hero-design="letter"] [data-part-look="names.big-joiner"] { justify-content: flex-start; }
+html [data-part-look="names.big-joiner"] > span {
+  display: inline; font-family: var(--font-sans), system-ui, sans-serif; text-transform: uppercase; letter-spacing: 0.14em;
+  font-size: 0.3em; font-weight: 600; opacity: 0.75; line-height: 1.4;
+}
+html [data-part-look="names.big-joiner"] > span:nth-child(2):not(:last-child) {
+  order: -1; flex-basis: 100%; font-family: var(--font-pahina-display), Georgia, serif; text-transform: none; letter-spacing: 0;
+  font-size: 1.7em; font-weight: 400; font-style: italic; opacity: 1; line-height: 1;
+}
+html [data-part-look="names.big-joiner"] > span:only-child { font-size: 0.42em; }
+
+/* ── Date ── */
+html :is([data-part-look="date.ruled"], [data-part-look="date.big-day"], [data-part-look="date.numerals"]) > span[aria-hidden] { display: none; }
+html [data-part-look="date.ruled"] {
+  display: flex; width: fit-content; margin-inline: auto; font-family: var(--font-sans), system-ui, sans-serif; text-transform: uppercase;
+  letter-spacing: 0.26em; font-size: 0.78rem; font-weight: 500; color: rgb(var(--color-ink) / 0.72);
+  border-top: 1px solid rgb(var(--color-gild) / 0.7); border-bottom: 1px solid rgb(var(--color-gild) / 0.7); padding: 0.85em 0.3em 0.85em 0.55em;
+}
+html [data-hero-design="letter"] [data-part-look="date.ruled"] { margin-inline: 0; }
+html [data-part-look="date.ruled"] > span { font-size: inherit; }
+html [data-part-look="date.big-day"] { line-height: 1; color: rgb(var(--color-ink)); }
+html [data-part-look="date.big-day"] > span { font-size: inherit; }
+html [data-part-look="date.big-day"] [data-date-piece] { display: block; }
+html [data-part-look="date.big-day"] :is([data-date-piece="weekday"], [data-date-piece="month"]) {
+  font-family: var(--font-sans), system-ui, sans-serif; font-size: 0.72rem; letter-spacing: 0.3em; text-transform: uppercase; color: rgb(var(--color-ink) / 0.65);
+}
+html [data-part-look="date.big-day"] [data-date-piece="day"] { font-family: var(--font-pahina-display), Georgia, serif; font-size: 3.6rem; font-weight: 400; margin: 0.08em 0; }
+html [data-part-look="date.numerals"] { font-family: var(--font-pahina-display), Georgia, serif; color: rgb(var(--color-ink)); }
+html [data-part-look="date.numerals"] > span { font-size: inherit; }
+html [data-part-look="date.numerals"] [data-date-piece="figures"] { font-size: clamp(2.4rem, 12vw, 3.2rem); font-weight: 400; letter-spacing: 0.04em; line-height: 1; }
+
+/* ── Place ── */
+html [data-part-look="venue.name-first"] [data-place-piece] { display: block; }
+html [data-part-look="venue.name-first"] [data-place-piece="name"] { font-family: var(--font-pahina-display), Georgia, serif; font-size: 1.55rem; line-height: 1.15; color: rgb(var(--color-ink)); }
+html [data-part-look="venue.name-first"] [data-place-piece="city"] {
+  font-family: var(--font-sans), system-ui, sans-serif; font-size: 0.7rem; letter-spacing: 0.3em; text-transform: uppercase; margin-top: 0.45em; color: rgb(var(--color-ink) / 0.6);
+}
+html [data-part-look="venue.ruled"] {
+  width: fit-content; margin-inline: auto; font-family: var(--font-sans), system-ui, sans-serif; text-transform: uppercase; letter-spacing: 0.26em;
+  font-size: 0.74rem; font-weight: 500; border-top: 1px solid rgb(var(--color-gild) / 0.7); border-bottom: 1px solid rgb(var(--color-gild) / 0.7); padding: 0.85em 0.3em 0.85em 0.55em;
+}
+html [data-hero-design="letter"] [data-part-look="venue.ruled"] { margin-inline: 0; }
+html [data-part-look="venue.pin"]::before {
+  content: ''; display: block; width: 14px; height: 14px; margin: 0 auto 0.55em; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); background: rgb(var(--color-mulberry));
+}
+html [data-hero-design="letter"] [data-part-look="venue.pin"]::before { margin-left: 2px; }
+
+/* ── Logo ── */
+html [data-part-look="mark.ringed"] { position: relative; }
+html [data-part-look="mark.ringed"]::before,
+html [data-part-look="mark.ringed"]::after {
+  content: ''; position: absolute; left: 50%; top: 50%; aspect-ratio: 1; border-radius: 9999px; pointer-events: none; transform: translate(-50%, -50%);
+}
+html [data-part-look="mark.ringed"]::before { height: calc(100% + 1.25rem); border: 1px solid rgb(var(--color-gild) / 0.75); }
+html [data-part-look="mark.ringed"]::after { height: calc(100% + 0.5rem); border: 1px solid rgb(var(--color-gild) / 0.4); }
+html [data-part-look="mark.between-rules"] { display: flex; align-items: center; justify-content: center; gap: 1.1rem; }
+html [data-part-look="mark.between-rules"]::before,
+html [data-part-look="mark.between-rules"]::after { content: ''; height: 1px; width: 3.5rem; flex: none; background: rgb(var(--color-gild) / 0.65); }
+html [data-part-look="mark.large"] { zoom: 1.3; }
+
+/* ── Title ── */
+html [data-part-look="eyebrow.serif"] {
+  font-family: var(--font-pahina-display), Georgia, serif; text-transform: none; letter-spacing: 0.02em; font-size: 1.5rem; font-weight: 500; color: rgb(var(--color-ink));
+}
+html [data-part-look="eyebrow.flanked"] {
+  display: inline-flex; align-items: center; gap: 0.55em; font-family: var(--font-pahina-display), Georgia, serif; font-style: italic;
+  text-transform: none; letter-spacing: 0; font-size: 1.35rem; font-weight: 400; color: rgb(var(--color-ink) / 0.85);
+}
+html [data-part-look="eyebrow.flanked"]::before,
+html [data-part-look="eyebrow.flanked"]::after { content: ''; position: static; display: block; width: 1.6em; height: 1px; flex: none; background: rgb(var(--color-gild)); }
+html [data-part-look="eyebrow.ruled"] {
+  display: inline-block; letter-spacing: 0.4em; padding: 0.75em 0.2em 0.75em 0.6em;
+  border-top: 1px solid rgb(var(--color-gild) / 0.7); border-bottom: 1px solid rgb(var(--color-gild) / 0.7);
+}
+html [data-part-look="eyebrow.pill"] {
+  display: inline-block; border-radius: 9999px; padding: 0.6em 1.35em 0.6em 1.6em; letter-spacing: 0.32em;
+  background: rgb(var(--color-mulberry)); color: rgb(var(--color-cream));
+}
+html :is([data-part-look="eyebrow.serif"], [data-part-look="eyebrow.flanked"], [data-part-look="eyebrow.ruled"], [data-part-look="eyebrow.pill"]) > span { color: inherit; }
+
+/* ── E-Gifts ── */
+html [data-part-look="gifts.centred"] { text-align: center; }
+html [data-part-look="gifts.centred"] .pahina-eyebrow { justify-content: center; }
+html [data-part-look="gifts.centred"] a { flex-direction: column; text-align: center; gap: 0.6rem; padding-block: 1.25rem; }
+html [data-part-look="gifts.centred"] a > svg:last-child { display: none; }
+html [data-part-look="gifts.side-rule"] a {
+  border: 0; border-left: 2px solid rgb(var(--color-gild)); border-radius: 0; background: transparent; padding-left: 1rem;
+}
+html [data-part-look="gifts.ruled"] { text-align: center; }
+html [data-part-look="gifts.ruled"] .pahina-eyebrow { justify-content: center; }
+html [data-part-look="gifts.ruled"] a {
+  justify-content: center; border: 0; border-top: 1px solid rgb(var(--color-gild) / 0.7); border-bottom: 1px solid rgb(var(--color-gild) / 0.7);
+  border-radius: 0; background: transparent; padding-block: 1rem;
+}
+html [data-part-look="gifts.ruled"] a > span:nth-child(2) { flex: none; }
+
+/* ── The guest's own parts: Your role · What to wear · Arrive by · Coming with you ── */
+html :is([data-part-look="role.centred"], [data-part-look="wear.centred"], [data-part-look="arrive.centred"], [data-part-look="guests.centred"]) { text-align: center; }
+html :is([data-part-look="role.centred"], [data-part-look="wear.centred"], [data-part-look="arrive.centred"], [data-part-look="guests.centred"]) :is(.pahina-eyebrow, .flex) { justify-content: center; }
+html :is([data-part-look="role.centred"], [data-part-look="wear.centred"], [data-part-look="arrive.centred"], [data-part-look="guests.centred"]) .pahina-eyebrow::after {
+  content: ''; display: block; width: 2.2em; height: 1px; background: rgb(var(--color-gild)); margin: 0.45em auto 0;
+}
+html :is([data-part-look="role.italic"], [data-part-look="wear.italic"], [data-part-look="arrive.italic"], [data-part-look="guests.italic"]) .font-pahina { font-style: italic; font-size: 1.55rem; }
+html :is([data-part-look="role.spaced-caps"], [data-part-look="wear.spaced-caps"], [data-part-look="arrive.spaced-caps"], [data-part-look="guests.spaced-caps"]) .font-pahina {
+  font-family: var(--font-sans), system-ui, sans-serif; text-transform: uppercase; letter-spacing: 0.14em; font-size: 0.95rem; font-weight: 500;
+}
+html :is([data-part-look="role.side-rule"], [data-part-look="wear.side-rule"], [data-part-look="arrive.side-rule"], [data-part-look="guests.side-rule"]) {
+  border-left: 2px solid rgb(var(--color-gild)); padding-left: 1rem; text-align: left;
 }

@@ -102,6 +102,7 @@ import { SCENE_TABS, SceneArrangeTab, SceneLayoutRow, SceneParts, type SceneTab 
 import { FixedSceneStyleRow, PaletteLookCanvasRow, PostEventScenePanel, PostEventWordsField, SceneAlignRow, SceneStyleCanvasRow } from './scene-styles-lazy';
 import { postEventStatusWord, postEventTileLabel, postEventTileNote, type PostEventTile } from './post-event-tile-words';
 import { isFixedStyleScene, type FixedSceneStyles } from '@/lib/fixed-scene-styles';
+import type { CameraLook } from '@/lib/camera-look';
 import { postEventSetElements } from '@/lib/post-event-draft';
 import { postEventElementScope, postEventSceneOfScope, postEventWordParts } from '@/lib/post-event-styles';
 import type { SceneUpload } from './scene-background-row';
@@ -309,6 +310,8 @@ export function MakerWork({
     heroPhoto?: boolean;
     /** 🎨 The five fixed parts' style picks, live with the draft laid on (`lib/fixed-scene-styles.ts`). */
     fixedStyles?: FixedSceneStyles;
+    /** 🎛 The Camera's look, drafted over live (`lib/camera-look.ts`). */
+    cameraLook?: CameraLook;
     /** ✍ The hero names' Wording ▾ — the event's Name style and one of the couple's own names to show it in. */
     names?: { style: NameStyle; person: NameParts | null };
     /** 🎫 The guest's Ticket style — the drafted one when the draft holds it, else live (`print_details.pass_design`). */
@@ -871,6 +874,7 @@ export function MakerWork({
   const hasDressCode = scenes.some((sc) => sc.type === 'dress_code');
   const revealStagesKey = revealStages.join();
   const twoPeopleOff = sceneFormat?.twoPeople === false;
+  const cameraLookNow = sceneFormat?.cameraLook ?? null;
   useEffect(() => {
     if (!setLookPages) return;
     setLookPages({
@@ -891,6 +895,7 @@ export function MakerWork({
         : null,
       revealStages: revealStagesKey ? (revealStagesKey.split(',') as LifecyclePhase[]) : [],
       publicLandingUrl,
+      camera: cameraLookNow ? { look: cameraLookNow } : null,
       fontsInUse: elementEditing?.fontsInUse ?? [],
       look: {
         background: backgroundNode,
@@ -912,7 +917,7 @@ export function MakerWork({
     });
     // `sceneFormat` and `eventId` come with the same render as `elementEditing`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setLookPages, madeOnce, backgroundNode, fontNode, coloursNode, buttonsNode, musicNode, hasDressCode, revealStagesKey, publicLandingUrl, elementEditing, twoPeopleOff, ownsPro]);
+  }, [setLookPages, madeOnce, backgroundNode, fontNode, coloursNode, buttonsNode, musicNode, hasDressCode, revealStagesKey, publicLandingUrl, elementEditing, twoPeopleOff, ownsPro, cameraLookNow]);
   useEffect(() => () => setLookPages?.(null), [setLookPages]);
   useEffect(() => {
     try {
@@ -3148,6 +3153,12 @@ export function MakerWork({
             if (fixed === 'rsvp') {
               return (
                 <SceneStyleCanvasRow key={`rsvp:${stage}`} eventId={eventId} widgetType="rsvp" canvas={canvasOf('rsvp')} stage={stage} eventType={sceneFormat?.eventType ?? null} draftAction={elementEditing.draftAction} />
+              );
+            }
+            /* 🎨 The hero, E-Gifts and the guest's look: the picked part's own styles (owner 2026-10-07) — the new Maker's. */
+            if (maker?.stagesStudio && (fixed === 'hero' || fixed === 'gifts' || fixed === 'look')) {
+              return (
+                <FixedSceneStyleRow key={`${fixed}:${stage}`} eventId={eventId} scene={fixed} stage={stage} eventType={sceneFormat?.eventType ?? null} styles={sceneFormat?.fixedStyles ?? null} draftAction={elementEditing.draftAction} />
               );
             }
             if (!fixed || !isFixedStyleScene(fixed)) return null;

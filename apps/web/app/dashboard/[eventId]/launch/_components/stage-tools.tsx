@@ -47,6 +47,7 @@ import { makerPagePick, makerPageValue, makerStageLabel } from './maker-bar';
 import { StageItemMenu, type StagePageOption } from './stage-item-menu';
 /* ＋ ↕ 🗑 🎭 PR 3 — the part's edges, the ＋ sheet, the one confirm, the Reveal part (same lazy chunk). */
 import { PartEdits, RevealPartTools, RevealPlay, revealStageOf } from './add-part-sheet';
+import { CameraPartTools } from './stage-panel/camera-look';
 import { makerPartLabelOn, makerPartOfCanvas, makerPartsWithAdded } from '@/lib/maker-part-groups';
 
 /**
@@ -177,7 +178,10 @@ export function StageTools({
   const tappableOn = useCallback(
     (page: string | null): MakerPartKey[] => {
       const drawnHere = makerPartsWithAdded({ stage, page, pages: pages.map((p) => p.key), drawn: [...present] });
-      return revealStage && page && makerPartsOnPage(stage, page)[0] === 'reveal' ? ['reveal', ...drawnHere] : drawnHere;
+      const withReveal = revealStage && page && makerPartsOnPage(stage, page)[0] === 'reveal' ? (['reveal', ...drawnHere] as MakerPartKey[]) : drawnHere;
+      /* 🎛 The Camera is never drawn on the editing page (`the-maker-canvas-draws-no-camera`) — on its own page its
+         tile is the page map's, and its tools are this panel's own (`CameraPartTools`). */
+      return page && makerPartsOnPage(stage, page).includes('camera') && !withReveal.includes('camera') ? [...withReveal, 'camera'] : withReveal;
     },
     [pages, present, revealStage, stage],
   );
@@ -202,8 +206,10 @@ export function StageTools({
   /* ── the panel's height: half the screen while a part's tools are open ── */
   /* 🎭 The Reveal's tools are this panel's own (no work-area tool opens for it). */
   const revealOpen = picked === 'reveal' && revealStage !== null;
+  /* 🎛 …and so are the Camera's (its three looks, owner 2026-10-06/07). */
+  const cameraOpen = picked === 'camera' && !rsvpOpen;
   const [revealPlaying, setRevealPlaying] = useState(false);
-  const open = (openTool !== null || revealOpen) && !typing && !playing;
+  const open = (openTool !== null || revealOpen || cameraOpen) && !typing && !playing;
   /* ↕ THE PANEL'S HEIGHT (prototype `.lt`, owner 2026-10-06 "the toolbar is half the screen"):
      a part picked → half the screen (or the size this phone last dragged it to, remembered as a
      share — the shipped `MAKER_LT_SIZE_KEY`); nothing picked → the grab and the one row (62 px),
@@ -260,7 +266,7 @@ export function StageTools({
     if (openTool !== null) return;
     /* One tool handing over to another (the part's sheet → the scene's) is not a close —
        nor is the Reveal, whose tools are this panel's own. */
-    const t = window.setTimeout(() => setPicked((p) => (p === 'reveal' ? p : null)), 400);
+    const t = window.setTimeout(() => setPicked((p) => (p === 'reveal' || p === 'camera' ? p : null)), 400);
     return () => window.clearTimeout(t);
   }, [openTool]);
 
@@ -290,8 +296,8 @@ export function StageTools({
   const pickPart = useCallback(
     (k: MakerPartKey) => {
       setPicked(k);
-      if (k === 'reveal') {
-        /* 🎭 Its tools are drawn here; whatever the work area had open folds. */
+      if (k === 'reveal' || k === 'camera') {
+        /* 🎭 🎛 Its tools are drawn here; whatever the work area had open folds. */
         openToolRef.current?.close();
         return;
       }
@@ -462,6 +468,8 @@ export function StageTools({
     if (playing) return stopPlay();
     /* 🎭 ▶ on the Reveal: it plays over the cover, once, as a guest meets it. */
     if (picked === 'reveal' && revealStage) return setRevealPlaying(true);
+    /* 🎛 The Camera has nothing to play — its look is a still. */
+    if (picked === 'camera') return;
     const def = picked ? MAKER_PARTS[picked] : null;
     if (def?.canvas && def.el) return postToCanvas({ source: 'setnayan-editor', t: 'playEl', key: def.canvas, el: def.el });
     if (def?.canvas) return window.dispatchEvent(new Event(MAKER_PLAY_SCENE_EVENT));
@@ -693,9 +701,9 @@ export function StageTools({
                 {i > 0 ? <span aria-hidden className="mx-px h-5 w-px bg-[var(--sp-line2)]" /> : null}
                 <button
                   type="button"
-                  aria-pressed={open && (revealOpen || rsvpOpen ? t === 'style' : tool === t)}
-                  /* The Reveal and the RSVP stage's three screens have no Text or Animate saves of their own. */
-                  disabled={(revealOpen || rsvpOpen) && t !== 'style'}
+                  aria-pressed={open && (revealOpen || cameraOpen || rsvpOpen ? t === 'style' : tool === t)}
+                  /* The Reveal, the Camera and the RSVP stage's three screens have no Text or Animate saves of their own. */
+                  disabled={(revealOpen || cameraOpen || rsvpOpen) && t !== 'style'}
                   aria-label={MAKER_PART_TOOL_LABEL[t]}
                   title={MAKER_PART_TOOL_LABEL[t]}
                   data-stage-tool={t}
@@ -754,9 +762,11 @@ export function StageTools({
           <RevealPartTools stage={revealStage} />
         </div>
       ) : null}
+      {/* ══ 🎛 THE CAMERA'S TOOLS — Style › Look: Classic · Your brand · Challenges ══ */}
+      {open && cameraOpen ? <CameraPartTools /> : null}
       {revealPlaying && revealStage ? <RevealPlay stage={revealStage} onDone={() => setRevealPlaying(false)} /> : null}
       {/* ══ ＋ ↕ 🗑 — on the picked part's edges, over the page ══ */}
-      <PartEdits stage={stageKey} picked={open && !rsvpOpen ? picked : null} />
+      <PartEdits stage={stageKey} picked={open && !rsvpOpen && !cameraOpen ? picked : null} />
 
       {/* ══ THE GUEST'S TAB BAR, at the foot of the page preview — "You're editing · Invitation › Welcome" over it ══ */}
       {shellEl && !away

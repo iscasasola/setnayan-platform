@@ -17,6 +17,7 @@
  * pure, no I/O. The client receives the finished strings in
  * `HubDraftSummary.changes`, so none of this reaches the Maker's first-load JS.
  */
+import { CAMERA_LOOK_LABEL } from '@/lib/camera-look';
 import { WIDGET_CATALOG_BY_TYPE, WIDGET_PHASES, type WidgetType } from '@/lib/invitation-widgets';
 import { makerSceneLabel } from '@/lib/maker-scene-list';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
@@ -24,6 +25,7 @@ import { LOOK_SECTION_LABEL } from '@/lib/maker-look-sections';
 import { sanitizeHubCanvas, type HubSectionCanvas } from '@/lib/hub-canvas';
 import {
   FIXED_STYLE_LABEL,
+  cameraLookOfDraft,
   canvasLookFacets,
   hubDraftCountedChanges,
   planHubDraftApply,
@@ -160,6 +162,12 @@ export function hubDraftChangePlace(item: HubDraftItem, live: HubLiveState): { p
         if (keys.length === 1 && keys[0] === 'pass_design') return { place: "Guest's ticket", what: PASS_CARD_WORDS.style };
         if (keys.length === 2) return { place: DETAILS, what: `Name style, ${PASS_CARD_WORDS.style}` };
       }
+      /* 🎛 The camera's look (owner 2026-10-07) — "Camera · Look · Your brand", not the QR. */
+      if (item.column === 'style_preferences') {
+        const cam = cameraLookOfDraft(item.value);
+        const qrMoved = isPlainObjectValue(item.value) && 'qr' in item.value;
+        if (cam && cam !== cameraLookOfDraft(live.events.style_preferences ?? null) && !qrMoved) return { place: 'Camera', what: `Look · ${CAMERA_LOOK_LABEL[cam]}` };
+      }
       /* 🎉 The When yes celebration is NAMED at Apply (owner 2026-10-06):
          "RSVP · Celebration · Confetti" — with the RSVP's other edits beside it
          when they moved too. */
@@ -226,3 +234,6 @@ export function hubDraftChangeLines(draft: HubDraftState | null, live: HubLiveSt
   }));
 }
 
+function isPlainObjectValue(v: unknown): v is Record<string, unknown> {
+  return Boolean(v) && typeof v === 'object' && !Array.isArray(v);
+}

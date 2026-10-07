@@ -178,6 +178,27 @@
      * colour — gold keeps that role, so the "one decorative family" rule holds. */
     --color-link: 59 78 103;           /* slate indigo #3B4E67 · 8.22:1 AAA */
     --color-link-600: 48 64 85;        /* link hover → #304055 */
+    /* ONE COLOUR PER MEANING — the button rule (owner 2026-10-07,
+     * corpus BUTTON_RULE_2026-10-07_fable.md). Read by `components/action-button.tsx`
+     * (`tone` → token). Brand (terracotta) stays `--color-mulberry`; neutral stays `--color-ink`.
+     * Every ratio MEASURED (WCAG relative luminance); the label is 13 px / 500 =
+     * normal text, so the floor is 4.5:1. "tint" = the outlined button's 9% wash.
+     *   ok      #2B744A  on white 5.68 · white label on fill 5.68 · on tint 5.00  AA
+     *           (the doc's #2E7D4F measured 4.48 on its own tint — FAILS — so darkened)
+     *   warn    #965A00  on white 5.59 · white label on fill 5.59 · on tint 4.93  AA
+     *           (the doc's #B26B00 measured 4.20 on WHITE — FAILS outright — so darkened)
+     *   danger  #B3261E  on white 6.54 · white label on fill 6.54 · on tint 5.63  AA
+     *   info  = --color-link #3B4E67 (owner's open call "reuse --color-link or add
+     *           --color-info" → REUSED: 8.50 on white · 7.37 on tint, AAA; the doc's
+     *           #1F6FB2 passed too, 5.28, but a second blue for one meaning is a
+     *           second source of truth). Aliased, so the two can never drift.
+     *   brand outlined word = --color-mulberry-700 #9D3F1E · 5.88 on the mulberry
+     *           tint (mulberry itself is 4.22 there — FAILS — so the filled main
+     *           verb keeps mulberry with a white label, 4.76). */
+    --color-ok: 43 116 74;             /* #2B744A */
+    --color-warn: 150 90 0;            /* #965A00 */
+    --color-danger: 179 38 30;         /* #B3261E */
+    --color-info: var(--color-link);   /* #3B4E67 — reused, see above */
     --accent: #c5a059;
     --accent-deep: #a88340;
     --accent-soft: #f4ecd8;            /* Light champagne wash */
@@ -214,6 +235,16 @@
     --color-mulberry-700: 194 78 37;     /* CTA deepest → the light-mode #C24E25 */
     --color-link: 157 178 206;         /* link → lightened slate indigo #9DB2CE · 8.37:1 AAA */
     --color-link-600: 175 194 218;     /* link hover → #AFC2DA (9.97:1) */
+    /* Button-rule tones, dark (inert like the rest of this block). Against the
+     * dark page #17160F · dark label #161513 on the fill · on the 9% tint:
+     *   ok     #6FCF97  9.54 · 9.60 · 8.10  AAA
+     *   warn   #F0B45A  9.83 · 9.89 · 8.33  AAA
+     *   danger #F2817A  7.08 · 7.12 · 6.19  AA
+     *   info = --color-link #9DB2CE  8.37 · 8.42 · 7.21  AAA */
+    --color-ok: 111 207 151;           /* #6FCF97 */
+    --color-warn: 240 180 90;          /* #F0B45A */
+    --color-danger: 242 129 122;       /* #F2817A */
+    --color-info: var(--color-link);
     --accent: #e0cca0;
     --accent-deep: #c5a059;
     --accent-soft: #22262c;            /* Dark obsidian tint for accent backgrounds */
@@ -5882,6 +5913,104 @@ html:has([data-sticky-top]) {
   scroll-padding-top: 4.5rem;
 }
 
+
+/* ─── The couple's HOME, redrawn to the prototype (owner 2026-10-07, PR 4e) ──
+ * `prototypes/home_and_guests_2026-10-07_fable.html?frame=1&page=home`, its
+ * `.card` · `.nums` · `.tile` · `.money` · `.bar`/`.fold` · `.acts.three` rules,
+ * on the app's own tokens (page = cream, words = ink). Producers:
+ * `app/dashboard/[eventId]/_components/home-first-screen.tsx`, `home-parts.tsx`,
+ * and `app/_components/next-card.tsx`'s `actions` variant. Kept ABOVE the Event Hub
+ * canvas block: `the-canvas-fails-visible.test.ts` reads everything after `.hub-canvas`
+ * as the canvas, and these animations are not the canvas's. */
+.home-card {
+  border: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent);
+  border-radius: 16px;
+  padding: 14px;
+  background: color-mix(in srgb, rgb(var(--color-ink)) 2%, rgb(var(--color-cream)));
+  text-align: left;
+  color: rgb(var(--color-ink));
+  min-width: 0;
+}
+.home-card-bad {
+  border-color: color-mix(in srgb, rgb(var(--color-danger)) 45%, transparent);
+  background: color-mix(in srgb, rgb(var(--color-danger)) 7%, rgb(var(--color-cream)));
+}
+.home-eyebrow { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
+.home-card-title { font-size: 19px; font-weight: 600; margin: 4px 0 2px; letter-spacing: -0.01em; line-height: 1.25; }
+.home-card-body { color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); font-size: 14px; margin: 0 0 10px; line-height: 1.45; }
+.home-acts { display: flex; gap: 8px; align-items: center; flex-wrap: nowrap; overflow: hidden; min-width: 0; }
+/* Rule 3a — the doorway row is ONE state: icon + word → word → icon. */
+.home-doors { display: flex; gap: 8px; min-width: 0; }
+.home-doors > .ab { flex: 1 1 0; min-width: 0; justify-content: center; }
+.home-doors .ab.text-only svg { display: none; }
+.home-doors .ab.icon-only .lbl { display: none; }
+/* The prototype's neutral pill (`button.ic.t-neutral`): GREY FILLED — the muted tone's
+ * 9% wash, 45% border, muted word — one line, never wrapped. */
+.home-doors > :is(button, a).ab.ab-neutral {
+  --home-door: color-mix(in srgb, rgb(var(--color-ink)) 62%, rgb(var(--color-cream)));
+  height: 40px;
+  overflow: hidden;
+  white-space: nowrap;
+  color: var(--home-door);
+  border-color: color-mix(in srgb, var(--home-door) 45%, transparent);
+  background: color-mix(in srgb, var(--home-door) 9%, transparent);
+}
+.home-doors > .ab.icon-only { width: auto; padding: 0; }
+.home-nums { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.home-tile {
+  border: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent);
+  border-radius: 14px;
+  padding: 12px;
+  background: color-mix(in srgb, rgb(var(--color-ink)) 2%, rgb(var(--color-cream)));
+  text-align: left;
+  display: block;
+  color: rgb(var(--color-ink));
+  min-width: 0;
+  transition: transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.home-tile:active { transform: scale(0.98); }
+.home-tile-bad { border-color: color-mix(in srgb, rgb(var(--color-danger)) 45%, transparent); }
+.home-v { font-size: 26px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; }
+.home-v-word { font-size: 19px; }
+.home-k { font-size: 12px; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap; }
+@media (max-width: 400px) { .home-nums .home-k { font-size: 11.5px; } }
+.home-money { display: flex; justify-content: space-between; gap: 12px; align-items: flex-end; }
+.home-money .home-v { font-size: 20px; }
+.home-meter { position: relative; height: 6px; border-radius: 3px; background: color-mix(in srgb, rgb(var(--color-ink)) 10%, transparent); overflow: hidden; margin-top: 10px; }
+.home-meter > .meter-fill { position: absolute; left: 0; top: 0; bottom: 0; background: rgb(var(--color-ok)); }
+.home-k2 { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); margin: 14px 0 6px; }
+.home-s { color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); font-size: 13px; }
+.home-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 12px 0; border-top: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); min-width: 0; }
+.home-row .home-t { font-weight: 500; }
+/* What's next — the prototype's `.bar` + `.fold`: pop, then unfold in place. */
+.home-sec { border-top: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); }
+.home-bar { width: 100%; display: flex; align-items: center; gap: 12px; padding: 12px 0; text-align: left; color: rgb(var(--color-ink)); }
+.home-bar-ico { width: 40px; height: 40px; border-radius: 50%; background: var(--sn-gold-100); color: var(--sn-gold-800); display: grid; place-items: center; flex: none; }
+.home-bar-ico svg { width: 18px; height: 18px; }
+.home-chev { margin-left: auto; color: color-mix(in srgb, rgb(var(--color-ink)) 55%, transparent); transition: transform 280ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+.home-fold { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 280ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+.home-fold > div { overflow: clip; min-width: 0; min-height: 0; }
+.home-sec.open > .home-fold { grid-template-rows: 1fr; transition-delay: 120ms; }
+.home-sec.open .home-chev { transform: rotate(180deg); }
+@keyframes home-catpop { 0% { transform: scale(1); } 30% { transform: scale(1.28) rotate(-6deg); } 60% { transform: scale(0.92) rotate(4deg); } 100% { transform: scale(1) rotate(0); } }
+.home-sec.open > .home-bar .home-bar-ico { animation: home-catpop 420ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+.home-svc { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.home-svc .home-t { font-weight: 600; display: flex; align-items: center; gap: 6px; }
+.home-svc .home-t svg { width: 16px; height: 16px; flex: none; }
+/* The cover's one button wears the cover's ink (`currentColor`), like the prototype's glass pill. */
+:is(button, a).ab.ab-neutral.home-cover-ab { color: inherit; border-color: color-mix(in srgb, currentColor 50%, transparent); background: color-mix(in srgb, currentColor 14%, transparent); }
+/* Rise on load, staggered — once (the prototype's `up`). */
+@keyframes home-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+/* `backwards`, not `both`: nothing keeps a transform after the rise (an identity transform
+ * would unpin every fixed child — `an-identity-transform-unpins-every-fixed-child.test.ts`). */
+[data-home-column] > * { animation: home-up 360ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
+[data-home-column] > :nth-child(2) { animation-delay: 40ms; }
+[data-home-column] > :nth-child(n + 3) { animation-delay: 80ms; }
+@media (prefers-reduced-motion: reduce) {
+  [data-home-column] > *, .home-sec.open > .home-bar .home-bar-ico { animation: none; }
+  .home-fold, .home-chev, .home-tile { transition: none; }
+}
+
 /* ════════════════════════════════════════════════════════════════════════════
    THE EVENT HUB CANVAS — a couple's own arrangement, drawn with CSS only
    (owner 2026-09-23: "rails on"; contract in lib/hub-canvas.ts)
@@ -7612,3 +7741,79 @@ html:has(.hub-shape-full) { overflow-x: clip; }
   outline: 2px solid currentColor;
   outline-offset: 2px;
 }
+
+/* ─── ActionButton — the button rule (owner 2026-10-07) ─────────────────────
+ * One shape for every action: a 40 px pill with a border, icon + word.
+ * `components/action-button.tsx` is the only producer of these classes.
+ * Tone → token (globals :root above): brand=mulberry · ok · info · warn ·
+ * danger · neutral=ink. `main` = filled (white label); the rest = outlined on
+ * a 9% wash of the tone, word in the tone. `.icon-only` hides the word when
+ * `useFitRow` runs out of width — `aria-label` still carries it; `.word-only`
+ * is the middle state. A row changes state AS ONE (rule 3a). A fitted row
+ * must be a `min-width: 0` flex/grid child or its width never shrinks and the
+ * measure lies (the prototype's `.detail{min-width:0}` bug) — the hook sets it.
+ * Measured ratios are in the token comment, not repeated here. */
+.ab {
+  --ab-tone: var(--color-ink);
+  --ab-word: var(--ab-tone);
+  height: 40px;
+  min-width: 40px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  flex: 0 0 auto;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+  border-radius: var(--m-r-full);
+  border: 1px solid color-mix(in srgb, rgb(var(--ab-tone)) 45%, transparent);
+  background: color-mix(in srgb, rgb(var(--ab-tone)) 9%, transparent);
+  color: rgb(var(--ab-word));
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1), background-color 160ms;
+  -webkit-tap-highlight-color: transparent;
+}
+.ab svg { width: 18px; height: 18px; flex: 0 0 auto; }
+.ab:active { transform: scale(0.97); }
+.ab:focus-visible { outline: 2px solid rgb(var(--color-mulberry)); outline-offset: 2px; }
+.ab:disabled, .ab[aria-disabled='true'] { opacity: 0.35; cursor: not-allowed; transform: none; }
+.ab.icon-only { width: 40px; padding: 0; }
+.ab.icon-only .lbl { display: none; }
+/* 3a's middle state — a row too narrow for icon + word shows words only. */
+.ab.word-only svg { display: none; }
+/* Tone rules are ELEMENT + BASE CLASS + TONE (specificity 0,2,1) — never a bare
+ * tone class. Owner 2026-10-07: a specificity slip (a bare `.t-brand` losing to
+ * the base rule) made every tone fall back to ink in the prototypes. The main
+ * and quiet rules below are written at the same weight or higher, AFTER these,
+ * so a tone can only be overridden on purpose. Held by
+ * lib/action-button-is-icon-and-word.test.ts. */
+:is(button, a).ab.ab-brand { --ab-tone: var(--color-mulberry); --ab-word: var(--color-mulberry-700); }
+:is(button, a).ab.ab-ok { --ab-tone: var(--color-ok); }
+:is(button, a).ab.ab-info { --ab-tone: var(--color-info); }
+:is(button, a).ab.ab-warn { --ab-tone: var(--color-warn); }
+:is(button, a).ab.ab-danger { --ab-tone: var(--color-danger); }
+:is(button, a).ab.ab-neutral { --ab-tone: var(--color-ink); background: transparent; border-color: color-mix(in srgb, rgb(var(--color-ink)) 18%, transparent); }
+/* `quiet` — the prototype's `.btn.quiet`: a secondary that should not compete
+ * (Skip · Not now). Hairline border, muted word, no wash — any tone. Muted word
+ * = ink at 72% on white, measured 5.75:1, AA. Ignored on `main`. */
+:is(button, a).ab.quiet:not(.ab-main) {
+  background: transparent;
+  border-color: color-mix(in srgb, rgb(var(--color-ink)) 18%, transparent);
+  color: color-mix(in srgb, rgb(var(--color-ink)) 72%, transparent);
+}
+:is(button, a).ab.ab-main {
+  background: rgb(var(--ab-tone));
+  border-color: rgb(var(--ab-tone));
+  color: #fff;
+}
+html.dark :is(button, a).ab.ab-main { color: #161513; }
+@media (prefers-reduced-motion: reduce) { .ab { transition: none; } .ab:active { transform: none; } }
+
+/* Fill — the meter rule's bar (components/count.tsx). Width is set inline by
+ * the component; this only owns the slide. Reduced motion → jump. */
+.meter-fill { transition: width 700ms cubic-bezier(0.2, 0.8, 0.2, 1), height 700ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+@media (prefers-reduced-motion: reduce) { .meter-fill { transition: none; } }

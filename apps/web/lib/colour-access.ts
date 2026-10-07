@@ -393,3 +393,79 @@ function slotLabel(key: string, base: string, index: number): string {
   const named = PALETTE_LIMITS[key as PaletteKey]?.slotLabels?.[index];
   return named ? `${base} · ${named}` : `${base} #${index + 1}`;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   6 · THE TWO LANES AS THE COUPLE READS THEM — Studio › Mood Board › Colours
+   ══════════════════════════════════════════════════════════════════════════
+
+   Owner 2026-10-06 (DECISION_LOG "THE STYLIST'S COLOURS HAVE THEIR OWN
+   SECTION" + "MOOD BOARD PARTS ADDED"): *"where is the colors for the
+   stylist?"* — every part of the room and of the flowers, each with its colour
+   and whether it FOLLOWS one of the five main colours or is SET BY YOU. Which
+   main colour each part follows is the 2026-10-05 "THE 5 MAIN COLOURS, ONE JOB
+   EACH" venue rule: florals + lighting = Dominant · linens = Supporting · chairs
+   = Accent · walls / base drapes = Neutral · ribbons, candles, details = Accent 2.
+
+   🔑 ONLY FOUR PARTS CAN BE "SET BY YOU", AND THAT IS THE SCHEMA, NOT A CHOICE.
+   A part with `field` is a real `room_dressing` override (`RoomDressing`,
+   read by the 3D room through `resolveRoomDressing`, and the fields a booked
+   supplier's grant reaches — §3 above). The rest have no colour of their own to
+   store: they FOLLOW their main colour, and the row says which. Giving them one
+   is a storage change (the SQL lane mirror included), not a screen change.
+
+   The lanes are the ones §2 already decides: the stylist's `decor` (+ the five
+   main colours) and the florist's `florals`. Pure, like the rest of the file.
+*/
+
+/** The five main colours by position — `PALETTE_LIMITS.reception.slotLabels`. */
+export const MAIN_COLOUR_SLOTS = ['Dominant', 'Supporting', 'Accent', 'Neutral', 'Accent 2'] as const;
+export type MainColourSlot = (typeof MAIN_COLOUR_SLOTS)[number];
+
+export type LanePart = {
+  label: string;
+  /** The main colour it follows until set (`MAIN_COLOUR_SLOTS` index). */
+  follows: number;
+  /** The `room_dressing` field that stores it — absent = it can only follow. */
+  field?: keyof RoomDressing;
+};
+
+/** 🛋 The room — for your stylist (`reception_decor`'s lane). */
+export const ROOM_LANE_PARTS: readonly LanePart[] = [
+  { label: 'Stage', follows: 0 },
+  { label: 'Ceiling', follows: 0 },
+  { label: 'Walls', follows: 3 },
+  { label: 'Tunnel', follows: 1 },
+  { label: 'Table linens', follows: 1, field: 'linens' },
+  { label: 'Chairs', follows: 2, field: 'chairs' },
+  { label: 'Ribbons & candles', follows: 4 },
+  { label: 'Lights · warmth', follows: 0, field: 'lighting_warmth' },
+];
+
+/** 💐 Flowers — for your florist (`florist`'s lane). */
+export const FLORIST_LANE_PARTS: readonly LanePart[] = [
+  { label: 'Bridal bouquet', follows: 0 },
+  { label: 'Entourage bouquets', follows: 1 },
+  { label: 'Centrepieces', follows: 0, field: 'florals' },
+  { label: 'Accents', follows: 4 },
+];
+
+export type LanePartColour = {
+  hex: string;
+  /** TRUE when the couple (or a supplier with the grant) set this part's own colour. */
+  setByYou: boolean;
+  /** The main colour it follows — said when it is not set by you. */
+  followsLabel: MainColourSlot;
+};
+
+/**
+ * The colour a part shows and why. `mainFive` is the five main colours as the
+ * board shows them (the couple's, or the theme's while the board is empty).
+ */
+export function lanePartColour(part: LanePart, mainFive: readonly string[], palette: RolePalette): LanePartColour {
+  const followsLabel = MAIN_COLOUR_SLOTS[part.follows] ?? MAIN_COLOUR_SLOTS[0];
+  const own = part.field ? palette.room_dressing?.[part.field] : undefined;
+  if (own) return { hex: own, setByYou: true, followsLabel };
+  const main = mainFive[part.follows] ?? mainFive[0];
+  const hex = main ?? (part.field ? resolveRoomDressing(palette)[part.field] : '#E7E1D8');
+  return { hex, setByYou: false, followsLabel };
+}

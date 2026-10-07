@@ -13,7 +13,7 @@ import type { HubDraftActionResult } from '@/lib/hub-draft';
 import { ToolsResizeHandle, type ToolsResize } from './tools-resize';
 import { findMakerSection } from '@/app/[slug]/_components/maker-section-find';
 import { scrollToClearSheet } from '@/lib/part-above-sheet';
-import { useMakerTool } from '../../../launch/_components/maker-context';
+import { useMaker, useMakerTool } from '../../../launch/_components/maker-context';
 import { MAKER_LT_TOOL } from '@/lib/maker-phone-room';
 import {
   HUB_ELEMENT_LABEL,
@@ -381,6 +381,10 @@ export function ElementSheet({
   const at = parts && onPart ? parts.indexOf(target.el) : -1;
   const prevPart = at > 0 ? parts![at - 1]! : null;
   const nextPart = at >= 0 && at < parts!.length - 1 ? parts![at + 1]! : null;
+  /* 🧭 THE NEW MAKER (`makerStagesStudioEnabled`): its panel's Style | Text | Animate
+     picks the section (`stage-tools.tsx`), Text is Font · Colour · Size, and Animate's
+     steps are Build in · Action · Build out (`lib/maker-parts.ts`). */
+  const stagesStudio = useMaker()?.stagesStudio === true;
   useMakerTool(true, {
     key: `part:${target.key}:${target.el}`,
     name: HUB_ELEMENT_LABEL[target.el],
@@ -466,7 +470,7 @@ export function ElementSheet({
       {/* ▣ THE PART'S THREE SECTIONS as ONE segmented control (owner 2026-10-04:
           "segmented control") — Text · Motion · Arrange, the chosen one in the
           Setnayan wine. Every control inside is the one that shipped. */}
-      <div className="shrink-0 px-4 pt-1" data-element-sections="">
+      <div className={`shrink-0 px-4 pt-1${stagesStudio ? ' max-lg:hidden' : ''}`} data-element-sections="">
         <ISegmented label="Edit this part">
           {tabs.map((t) => (
             <ISeg key={t.key} tone="wine" on={tab === t.key} onClick={() => setTab(t.key)} data={`section-${t.key}`}>
@@ -496,6 +500,7 @@ export function ElementSheet({
               onPreviewColour={previewColour}
               fontMark={fontMark}
               hideFont={false}
+              threeControls={stagesStudio}
             />
             {range && run ? (
               <div className="py-1.5">
@@ -506,6 +511,7 @@ export function ElementSheet({
         ) : tab === 'animate' && !hidePro ? (
           <PartAnimateTab
             proMark={animateMark}
+            buildWords={stagesStudio}
             motion={motion}
             moveTo={moveTo}
             onPreview={onPlay}

@@ -24,6 +24,7 @@ export function DressCodeListsForm({
   donts,
   inMaker,
   incStarter = false,
+  studio = false,
 }: {
   eventId: string;
   dos: string[];
@@ -31,16 +32,20 @@ export function DressCodeListsForm({
   inMaker: boolean;
   /** The lists hold the INC starter guidance, not a saved answer (`incDressCodeStarter`). */
   incStarter?: boolean;
+  /** 🧭 Studio's Do's & Don'ts tab — its tab names it, so no heading and no explainer (owner: words minimal). */
+  studio?: boolean;
 }) {
   return (
     <section id="dos-and-donts" className="scroll-mt-24 space-y-4" data-mood-board-dress-lists="">
-      <header className="space-y-1">
-        <h2 className="text-2xl font-semibold text-ink">Do&rsquo;s and don&rsquo;ts</h2>
-        <p className="max-w-prose text-sm text-ink/65">
-          What guests read under your dress code. The same list as the Dress code scene — change it in
-          either place.
-        </p>
-      </header>
+      {studio ? null : (
+        <header className="space-y-1">
+          <h2 className="text-2xl font-semibold text-ink">Do&rsquo;s and don&rsquo;ts</h2>
+          <p className="max-w-prose text-sm text-ink/65">
+            What guests read under your dress code. The same list as the Dress code scene — change it in
+            either place.
+          </p>
+        </header>
+      )}
       {incStarter ? <IncDressCodeStarterNote /> : null}
       <form action={updateDressCodeLists.bind(null, eventId)} className="space-y-4">
         {inMaker ? (

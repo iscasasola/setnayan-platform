@@ -36,7 +36,14 @@ export function TextPanel({
   placeholder,
   previewKey,
   savedValue,
+  sameField,
 }: {
+  /**
+   * 🔗 ONE VALUE, TWO DOORS (`launch/_components/same-field.ts`): the draft column
+   * this box writes, as every door of it is marked — the words typed on the page
+   * (`lib/maker-parts.ts` `info:` parts) and this box are the same value.
+   */
+  sameField?: string;
   action: (formData: FormData) => void | Promise<void>;
   eventId: string;
   rowKey: string;
@@ -84,6 +91,7 @@ export function TextPanel({
         placeholder={placeholder}
         defaultValue={defaultValue ?? ''}
         ref={box}
+        data-same-field={sameField}
         onInput={(e) => preview(e.currentTarget.value)}
         className="w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink outline-none focus:border-terracotta"
       />

@@ -57,7 +57,7 @@ import { resolveSectionOrder, type EditorialOrderKey } from '@/app/[slug]/_compo
 import type { SceneTemplateId } from '@/lib/scene-templates';
 import type { StoryViewer } from '@/lib/who-can-see-your-story';
 import type { PostEventArrangement } from '@/lib/post-event-draft';
-import { PHOTO_NOTES_LABEL } from '@/lib/post-event-styles';
+import { POST_EVENT_SCENE_NAMES } from '@/lib/post-event-scene-names';
 
 /* ── the open-up family ─────────────────────────────────────────────────── */
 
@@ -252,7 +252,7 @@ type Def = Omit<PostEventScene, 'status' | 'note' | 'count' | 'source'> & {
 /** The fixed scenes, in the prototype's numbering (chapters are built apart). */
 const FIXED: Record<string, Def> = {
   cover: {
-    key: 'cover', name: 'Front Page', template: 4, open: null, pin: 'first', block: null, switch: null,
+    key: 'cover', name: POST_EVENT_SCENE_NAMES.cover!, template: 4, open: null, pin: 'first', block: null, switch: null,
     fill: (s) => ({
       count: null,
       source:
@@ -263,18 +263,18 @@ const FIXED: Record<string, Def> = {
     }),
   },
   before: {
-    key: 'before', name: 'The Road to the Day', template: 24, open: null, pin: null, block: null, switch: null,
+    key: 'before', name: POST_EVENT_SCENE_NAMES.before!, template: 24, open: null, pin: null, block: null, switch: null,
     fill: (s) => (s.milestones > 0 ? { count: s.milestones, source: `Our Love Story · ${plural(s.milestones, 'moment')}` } : { skip: 'No Love Story moments yet' }),
   },
   numbers: {
-    key: 'numbers', name: 'Statistics', template: 12, open: null, pin: null, block: null, switch: 'byTheNumbers',
+    key: 'numbers', name: POST_EVENT_SCENE_NAMES.numbers!, template: 12, open: null, pin: null, block: null, switch: 'byTheNumbers',
     fill: (s) =>
       (s.metrics.photos ?? 0) > 0 || s.metrics.guests > 0
         ? { count: s.metrics.photos ?? s.metrics.guests, source: (s.metrics.photos ?? 0) > 0 ? `${plural(s.metrics.photos ?? 0, 'capture')} · ${plural(s.metrics.guests, 'guest')}` : plural(s.metrics.guests, 'guest') }
         : { skip: 'No guests or captures to count' },
   },
   gallery: {
-    key: 'gallery', name: 'Gallery', template: 21, open: 'gallery', pin: null, block: 'gallery', switch: 'gallery',
+    key: 'gallery', name: POST_EVENT_SCENE_NAMES.gallery!, template: 21, open: 'gallery', pin: null, block: 'gallery', switch: 'gallery',
     fill: (s) => (s.galleryPhotos > 0 ? { count: s.galleryPhotos, source: `The gallery · ${plural(s.galleryPhotos, 'photo')}` } : { skip: 'No photos from the day yet' }),
   },
   film: {
@@ -283,31 +283,31 @@ const FIXED: Record<string, Def> = {
        scene (prototype types 14 · 15). Both live in the run's `watchFilm` block
        and answer to its one switch; the film open-up is the replay's when there
        is one, else the videos'. */
-    key: 'film', name: 'Watch Live', template: 14, open: 'film', pin: null, block: 'watchFilm', switch: 'watchFilm',
+    key: 'film', name: POST_EVENT_SCENE_NAMES.film!, template: 14, open: 'film', pin: null, block: 'watchFilm', switch: 'watchFilm',
     fill: (s) => (s.broadcast ? { count: 1, source: 'Live Watch replay' } : { skip: 'No livestream on this event' }),
   },
   videos: {
-    key: 'videos', name: 'Videos', template: 14, open: null, pin: null, block: 'watchFilm', switch: 'watchFilm',
+    key: 'videos', name: POST_EVENT_SCENE_NAMES.videos!, template: 14, open: null, pin: null, block: 'watchFilm', switch: 'watchFilm',
     fill: (s) => (s.films > 0 ? { count: s.films, source: `Your films · ${plural(s.films, 'link')}` } : { skip: 'No films linked yet' }),
   },
   you: {
-    key: 'you', name: 'Were you there?', template: null, open: 'you', pin: null, block: null, switch: null,
+    key: 'you', name: POST_EVENT_SCENE_NAMES.you!, template: null, open: 'you', pin: null, block: null, switch: null,
     fill: (s) => ((s.metrics.photos ?? 0) > 0 ? { count: null, source: 'Each guest’s own Papic link · no name field' } : { skip: 'No Papic captures on this event' }),
   },
   wishes: {
-    key: 'wishes', name: PHOTO_NOTES_LABEL, template: 23, open: 'wishes', pin: null, block: 'kwento', switch: 'kwento',
+    key: 'wishes', name: POST_EVENT_SCENE_NAMES.wishes!, template: 23, open: 'wishes', pin: null, block: 'kwento', switch: 'kwento',
     fill: (s) => (s.kwento > 0 ? { count: s.kwento, source: `Guest wishes · ${plural(s.kwento, 'wish', 'wishes')}` } : { skip: 'No approved wishes yet' }),
   },
   asked: {
-    key: 'asked', name: 'Papic Challenge', template: 25, open: null, pin: null, block: 'challengeAnswers', switch: 'challengeAnswers',
+    key: 'asked', name: POST_EVENT_SCENE_NAMES.asked!, template: 25, open: null, pin: null, block: 'challengeAnswers', switch: 'challengeAnswers',
     fill: (s) => (s.challengeAnswers > 0 ? { count: s.challengeAnswers, source: `Challenge answers · ${s.challengeAnswers}` } : { skip: 'No shared challenge answers' }),
   },
   letters: {
-    key: 'letters', name: 'Messages', template: 22, open: null, pin: null, block: 'guestColumns', switch: 'guestColumns',
+    key: 'letters', name: POST_EVENT_SCENE_NAMES.letters!, template: 22, open: null, pin: null, block: 'guestColumns', switch: 'guestColumns',
     fill: (s) => (s.guestColumns > 0 ? { count: s.guestColumns, source: `Guest columns · ${s.guestColumns}` } : { skip: 'No approved guest columns' }),
   },
   vendors: {
-    key: 'vendors', name: 'Supplier Stories', template: 20, open: null, pin: null, block: 'fromVendors', switch: 'fromVendors',
+    key: 'vendors', name: POST_EVENT_SCENE_NAMES.vendors!, template: 20, open: null, pin: null, block: 'fromVendors', switch: 'fromVendors',
     fill: (s) =>
       s.vendorMedia > 0 || (s.team ?? 0) > 0
         ? {
@@ -319,42 +319,42 @@ const FIXED: Record<string, Def> = {
         : { skip: 'No suppliers or their photos yet' },
   },
   wall: {
-    key: 'wall', name: 'Live Photo Wall', template: 19, open: null, pin: null, block: 'liveWall', switch: 'liveWall',
+    key: 'wall', name: POST_EVENT_SCENE_NAMES.wall!, template: 19, open: null, pin: null, block: 'liveWall', switch: 'liveWall',
     fill: (s) =>
       !s.liveWall.active ? { skip: 'No Live Photo Wall on this event' }
         : s.liveWall.photos > 0 ? { count: s.liveWall.photos, source: `Live Photo Wall · ${plural(s.liveWall.photos, 'photo')}` }
           : { skip: 'Nothing on the Live Photo Wall' },
   },
   said: {
-    key: 'said', name: 'What They Said', template: 23, open: null, pin: null, block: 'reviews', switch: 'reviews',
+    key: 'said', name: POST_EVENT_SCENE_NAMES.said!, template: 23, open: null, pin: null, block: 'reviews', switch: 'reviews',
     fill: (s) => (s.reviews > 0 ? { count: s.reviews, source: `Reviews · ${s.reviews}` } : { skip: 'No reviews yet' }),
   },
   powered: {
-    key: 'powered', name: 'Powered by Setnayan', template: 8, open: null, pin: null, block: 'poweredBy', switch: 'poweredBy',
+    key: 'powered', name: POST_EVENT_SCENE_NAMES.powered!, template: 8, open: null, pin: null, block: 'poweredBy', switch: 'poweredBy',
     fill: (s) => (s.services > 0 ? { count: s.services, source: `Your orders · ${plural(s.services, 'service')}` } : { skip: 'No Setnayan services on this event' }),
   },
   loved: {
-    key: 'loved', name: 'Suppliers We Loved', template: 17, open: null, pin: null, block: 'vendorsWeLoved', switch: 'vendorsWeLoved',
+    key: 'loved', name: POST_EVENT_SCENE_NAMES.loved!, template: 17, open: null, pin: null, block: 'vendorsWeLoved', switch: 'vendorsWeLoved',
     fill: (s) => (s.vendorsWeLoved > 0 ? { count: s.vendorsWeLoved, source: `Your recommendations · ${s.vendorsWeLoved}` } : { skip: 'No suppliers recommended yet' }),
   },
   seating: {
-    key: 'seating', name: 'Where Everyone Sat', template: null, open: null, pin: null, block: 'seating', switch: 'seating',
+    key: 'seating', name: POST_EVENT_SCENE_NAMES.seating!, template: null, open: null, pin: null, block: 'seating', switch: 'seating',
     fill: (s) => ((s.seatingTables ?? 0) > 0 ? { count: s.seatingTables ?? 0, source: `Your seat plan · ${plural(s.seatingTables ?? 0, 'table')}` } : { skip: 'No seat plan on this event' }),
   },
   entourage: {
-    key: 'entourage', name: 'Entourage', template: null, open: null, pin: null, block: 'entourage', switch: 'entourage',
+    key: 'entourage', name: POST_EVENT_SCENE_NAMES.entourage!, template: null, open: null, pin: null, block: 'entourage', switch: 'entourage',
     fill: (s) => ((s.entourage ?? 0) > 0 ? { count: s.entourage ?? 0, source: `Your guest list’s roles · ${plural(s.entourage ?? 0, 'person', 'people')}` } : { skip: 'Nobody holds an entourage role' }),
   },
   beforeAfter: {
-    key: 'beforeAfter', name: 'Before & After', template: 17, open: null, pin: null, block: 'beforeAfter', switch: 'beforeAfter',
+    key: 'beforeAfter', name: POST_EVENT_SCENE_NAMES.beforeAfter!, template: 17, open: null, pin: null, block: 'beforeAfter', switch: 'beforeAfter',
     fill: (s) => (s.beforeAfter ? { count: null, source: 'Your Save the Date’s cover beside your story’s' } : { skip: 'Your story’s cover is your Save the Date’s — nothing to set beside it' }),
   },
   couple: {
-    key: 'couple', name: 'Thank You', template: 11, open: null, pin: 'close', block: null, switch: 'fromTheCouple',
+    key: 'couple', name: POST_EVENT_SCENE_NAMES.couple!, template: 11, open: null, pin: 'close', block: null, switch: 'fromTheCouple',
     fill: (s) => (s.specialMessage ? { count: null, source: 'Your closing words' } : { skip: 'Write your closing words and the story ends on them' }),
   },
   song: {
-    key: 'song', name: 'Song', template: 8, open: null, pin: 'last', block: null, switch: null,
+    key: 'song', name: POST_EVENT_SCENE_NAMES.song!, template: 8, open: null, pin: 'last', block: null, switch: null,
     fill: (s) => (s.song ? { count: null, source: `“${s.song}”` } : { skip: 'No song for the day' }),
   },
 };
@@ -473,8 +473,8 @@ export function compilePostEventScenes(
     build(FIXED.couple!, s, day),
     build(FIXED.song!, s, day),
     s.whatsNext
-      ? { key: 'next', name: 'What comes next', template: 10, source: s.whatsNext, status: 'auto', note: null, count: null, open: null, pin: 'after', block: null, switch: null }
-      : { key: 'next', name: 'What comes next', template: 10, source: '—', status: 'optional', note: 'Absent until you choose what comes next', count: null, open: null, pin: 'after', block: null, switch: null },
+      ? { key: 'next', name: POST_EVENT_SCENE_NAMES.next!, template: 10, source: s.whatsNext, status: 'auto', note: null, count: null, open: null, pin: 'after', block: null, switch: null }
+      : { key: 'next', name: POST_EVENT_SCENE_NAMES.next!, template: 10, source: '—', status: 'optional', note: 'Absent until you choose what comes next', count: null, open: null, pin: 'after', block: null, switch: null },
   ];
   return { version: POST_EVENT_SCENES_VERSION, generatedAt, scenes };
 }

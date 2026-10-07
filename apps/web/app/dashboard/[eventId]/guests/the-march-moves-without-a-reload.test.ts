@@ -80,10 +80,12 @@ test('the march maker posts no form — a form action reloads the page', () => {
 test('a refusal reaches the RENDER, not just a live region', () => {
   // 🔑 The reason used to travel as `?error=<sentence>` through a page load.
   // Returned-and-dropped would be worse: the move would simply appear not to happen.
-  assert.match(MAKER, /say\(\{ said: landed > 0 \? partly\(r\.reason\) : r\.reason, undo: null, before: null, refused: true \}\)/, 'a refused step is not said');
-  assert.match(MAKER, /setMine\(null\);\s*say\(\{ said: landed > 0/, 'a refused step is said but the drop stays drawn');
-  // Half a move is never reported as "nothing was changed".
-  assert.match(MAKER, /Part of the move was saved/);
+  // (Since 2026-10-06 a drop is DRAFTED — owner: *"Wait for apply"* — so the refusal a drop can meet is the draft's.)
+  assert.match(MAKER, /say\(\{ said: r\.reason, undo: false, before: null, refused: true \}\)/, 'a refused save is not said');
+  assert.match(MAKER, /setMine\(null\);\s*say\(\{ said: r\.reason/, 'a refused save is said but the drop stays drawn');
+  // Half a move is never reported as "nothing was changed" — the half-made march is Apply's now, said by name.
+  const bar = stripComments(readFileSync(join(process.cwd(), 'app', 'dashboard', '[eventId]', 'website', '_components', 'hub-draft-bar.tsx'), 'utf8'));
+  assert.match(bar, /march_stopped: 'stopped partway — the moves before it are live; open it to see where everyone walks now'/);
   assert.match(MAKER, /\{toast\.said\}/, 'the reason is stored and never drawn');
   assert.match(MAKER, /role="status"/, 'the reason is drawn with nothing to announce it');
 });

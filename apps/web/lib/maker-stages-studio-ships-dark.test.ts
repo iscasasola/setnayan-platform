@@ -137,7 +137,13 @@ test('3 · the new chrome is unreachable with the flag off — Studio is a lazy 
   assert.match(shell, /\{studioHomeOn \? \(\s*<StudioCover\b/, 'Studio\'s home is drawn outside its flag-gated door');
   assert.match(shell, /\) : studioFull && studioTile \? \(\s*<StudioToolRow\b/, 'a Studio tool\'s row is drawn outside its flag-gated door');
   assert.match(shell, /const ltItemMenu = !ss \? null :/, 'the item ▾ is drawn without the flag');
-  assert.match(shell, /grab=\{ss \? <LowerThirdGrab px=\{ltPx\} onPx=\{setLtPx\} \/> : null\}/, 'the grab handle is drawn without the flag');
+  /* PR 2: on the Stages side the lower third's top slot is the Stages panel (`stage-tools.tsx`) — the same `ss` door. */
+  assert.match(
+    shell,
+    /grab=\{ss \? side === 'stages' \? <StageTools\b[\s\S]*?\/> : <LowerThirdGrab px=\{ltPx\} onPx=\{setLtPx\} \/> : null\}/,
+    'the grab handle or the Stages panel is drawn without the flag',
+  );
+  assert.equal((shell.match(/<StageTools\b/g) ?? []).length, 1, 'the Stages panel has one door');
   assert.match(shell, /<StudioSideSwitch side=\{side\} onPick=\{pickSide\} \/>/);
   assert.match(shell, /\{stagesStudio \? \(\s*(?:\/\*[\s\S]*?\*\/\s*)?<div data-maker-tool="side"/, 'Stages | Studio is drawn without the flag');
   assert.match(shell, /withPickSheet\(\s*stagesStudio,/, 'the one bottom sheet is handed down without the flag');

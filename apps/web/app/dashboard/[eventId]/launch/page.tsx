@@ -50,10 +50,11 @@ import { HubStage } from './_components/hub-stage';
 import { MakerShell } from './_components/maker-shell';
 import { HubDraftDock } from '../website/_components/hub-draft-dock';
 import { readHubDraft } from '@/lib/hub-draft-store';
+import type { MarchStep } from '@/lib/march-drag';
 import { resolveReplyBy, sanitizeRsvpAskConfig, type RsvpAskConfig } from '@/lib/rsvp-ask';
 import { makerPageCanvasSrc } from '@/lib/maker-made-once-pages';
 import { readMakerRevealStages } from './_components/maker-made-once';
-import { MoodBoardMakerBody, MoodBoardMakerControls } from '../studio/mood-board/_components/mood-board-editor';
+import { MoodBoardMakerBody, MoodBoardMakerControls, MoodBoardStudioBody } from '../studio/mood-board/_components/mood-board-editor';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { MakerRsvpCanvas } from './_components/maker-page';
 /* ⚡ Loads when Details › RSVP is opened — never with the Maker (`details-lazy.tsx`). */
@@ -1132,8 +1133,11 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       let draftedMain: unknown = undefined;
       // 🔳 The QR look being edited — drafted over live (owner 2026-09-29, "yes to all 3").
       let qrPrefs: unknown = printEvent.style_preferences;
+      // 🚶 The Wedding March's drafted moves (owner 2026-10-06, "Wait for apply"); null = the draft could not be read.
+      let draftedMarch: MarchStep[][] | null = null;
       try {
         const d = await readHubDraft(supabase, eventId);
+        draftedMarch = d?.march ?? [];
         if (d) draftedEvents = d.events as Record<string, unknown>;
         if (d) draftedVenue = d.widgets.venue_map?.venue ?? null;
         if (d && d.widgets.hero && 'main' in d.widgets.hero) draftedMain = d.widgets.hero.main ?? null;
@@ -1312,6 +1316,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         // ✍ The names, the date and the venues as the couple is editing them (drafted until Apply).
         drafted: draftedEvents,
         draftedVenue,
+        draftedMarch,
       }).catch((e: unknown) => {
         console.error('[details] your event could not be read:', e instanceof Error ? e.message : e);
         return null;
@@ -1759,12 +1764,17 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
                come from the work area. "Done" is read from the columns they
                already write, drafted over live. */
             look={{
-              moodBoard: (
+              /* 🧭 The new Maker draws Studio › Mood Board & Dress Code — full screen, its tools inside it (plan PR 5). */
+              moodBoard: stagesStudio ? (
+                <Suspense fallback={<p className="py-6 text-sm text-ink/60">Opening your Mood Board…</p>}>
+                  <MoodBoardStudioBody eventId={eventId} />
+                </Suspense>
+              ) : (
                 <Suspense fallback={<p className="py-6 text-sm text-ink/60">Opening your Mood Board…</p>}>
                   <MoodBoardMakerBody eventId={eventId} />
                 </Suspense>
               ),
-              moodBoardControls: (
+              moodBoardControls: stagesStudio ? null : (
                 <Suspense fallback={<p className="text-sm text-ink/60">Opening your Mood Board…</p>}>
                   <MoodBoardMakerControls eventId={eventId} />
                 </Suspense>

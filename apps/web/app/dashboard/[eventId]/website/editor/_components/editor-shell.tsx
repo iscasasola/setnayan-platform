@@ -17,11 +17,13 @@ import { unlockLabel } from './unlock-label';
 import {
   MAKER_MORE_ROWS_ID,
   MAKER_OPEN_PART_EVENT,
+  MAKER_STAGE_TOOL_EVENT,
   useMaker,
   type MakerSceneTab,
   type MakerSelection,
 } from '../../../launch/_components/maker-context';
 import { MAKER_PLAY_SCENE_EVENT } from '../../../launch/_components/maker-play-menu';
+import { MAKER_PART_OPS_EVENT, type MakerPartRaw } from '../../../launch/_components/maker-part-ops';
 import { isMakerShellPage, type MakerShellPage } from '../../../launch/_components/maker-bar';
 import { HubDraftField } from '../../_components/hub-draft-field';
 import { SceneTemplatePicker } from './scene-template-picker';
@@ -94,15 +96,15 @@ import {
 import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
 import { InspectorTabs } from './inspector-kit';
-import { SCENE_TABS, SceneAnimateTab, SceneArrangeTab, SceneLayoutRow, SceneParts, type SceneTab } from './scene-inspector';
-import { FixedSceneStyleRow, PaletteLookCanvasRow, PostEventScenePanel, PostEventWordsField, SceneStyleCanvasRow } from './scene-styles-lazy';
+import { SCENE_TABS, SceneArrangeTab, SceneLayoutRow, SceneParts, type SceneTab } from './scene-inspector';
+import { FixedSceneStyleRow, PaletteLookCanvasRow, PostEventScenePanel, PostEventWordsField, SceneAlignRow, SceneStyleCanvasRow } from './scene-styles-lazy';
 import { postEventStatusWord, postEventTileLabel, postEventTileNote, type PostEventTile } from './post-event-tile-words';
 import { isFixedStyleScene, type FixedSceneStyles } from '@/lib/fixed-scene-styles';
 import { postEventSetElements } from '@/lib/post-event-draft';
 import { postEventElementScope, postEventSceneOfScope, postEventWordParts } from '@/lib/post-event-styles';
 import type { SceneUpload } from './scene-background-row';
 /* ⚡ A scene's background row loads when a scene is edited — never with the Maker (`details-lazy.tsx`). */
-import { DetailsBoundField, ElementSheet, PassCardDesignPicker, SceneBackgroundRow, TypeBar } from '../../../launch/_components/details-lazy';
+import { DetailsBoundField, ElementSheet, PassCardDesignPicker, SceneAnimateTab, SceneBackgroundRow, TypeBar } from '../../../launch/_components/details-lazy';
 import { IntoLowerThird } from '../../../launch/_components/maker-lower-third';
 import { readTypeStart, type SceneTypeWords, type TypeStart } from '@/lib/hub-part-words';
 import type { NameParts, NameStyle } from '@/lib/name-style';
@@ -495,6 +497,8 @@ export function MakerWork({
   const elementEditingOn = Boolean(elementEditing);
   const elementEditingRef = useRef(elementEditingOn);
   elementEditingRef.current = elementEditingOn;
+  const stagesStudioRef = useRef(false);
+  stagesStudioRef.current = maker?.stagesStudio === true;
   const selectionKey = canvasKeyOfSelection(selection, scenes);
   useEffect(() => {
     if (elementRef.current && elementRef.current.key !== selectionKey) setElementTarget(null);
@@ -521,7 +525,9 @@ export function MakerWork({
          navigator folds left, Text · Motion · Arrange — and the words are still
          typed right there on the page (owner 2026-10-05, the lower third
          approved). The type bar's rows sit inside the Text tools; nothing floats. */
-      if (window.innerWidth < 1024 && elementEditingRef.current && isHubElementKey(start.el)) {
+      /* 🧭 The new Maker types with the panel AWAY (DECISION_LOG 2026-10-06 rule 5): the
+         floating bar, the keyboard below, Done brings the panel back (`stage-tools.tsx`). */
+      if (window.innerWidth < 1024 && elementEditingRef.current && isHubElementKey(start.el) && !stagesStudioRef.current) {
         sheetDo({ t: 'tapPart', target: { key: start.key, widgetType: start.key === 'f:hero' ? 'hero' : start.key.slice(2), el: start.el, range: null } });
         sheetDo({ t: 'section', section: 'text' });
         setTypeInline(true);
@@ -620,6 +626,25 @@ export function MakerWork({
     window.addEventListener(MAKER_OPEN_PART_EVENT, onOpenPart);
     return () => window.removeEventListener(MAKER_OPEN_PART_EVENT, onOpenPart);
   }, [setElementTarget]);
+  /* 🧭 THE NEW MAKER'S Style | Text | Animate (`stage-tools.tsx`): Style is the
+     scene's Format (the part's sheet folds); Text and Animate are the part's own
+     sections — with no part picked, the scene's heading and the scene's motion. */
+  useEffect(() => {
+    const onTool = (e: Event) => {
+      const t = (e as CustomEvent<unknown>).detail;
+      const now = selectionNow.current;
+      const sc = now?.kind === 'scene' ? scenes.find((x) => x.id === now.id) : null;
+      if (t === 'style') {
+        sheetDo({ t: 'close' });
+        if (now?.kind === 'scene') select?.({ ...now, tab: 'format' });
+      } else if (!elementRef.current && t === 'text' && sc && !HUB_ELEMENT_EXCLUDED_WIDGETS.includes(sc.type)) {
+        setElementTarget({ key: `w:${sc.type}`, widgetType: sc.type, el: 'heading' });
+      } else if (!elementRef.current && now?.kind === 'scene') select?.({ ...now, tab: t === 'text' ? 'content' : 'animate' });
+      if (t !== 'style') sheetDo({ t: 'section', section: t === 'text' ? 'text' : 'animate' });
+    };
+    window.addEventListener(MAKER_STAGE_TOOL_EVENT, onTool);
+    return () => window.removeEventListener(MAKER_STAGE_TOOL_EVENT, onTool);
+  }, [scenes, select, setElementTarget]);
 
   /* ⚡ THE CANVAS HOLD (`element-preview.ts`). The canvas iframe is keyed on
      `canvasStamp`, not on every server render's `renderStamp`: an element
@@ -1783,6 +1808,15 @@ export function MakerWork({
   const lastShownType = lastShown ? sceneById.get(lastShown)?.type : undefined;
   lastSceneKeyRef.current = lastShownType ? `w:${lastShownType}` : null;
   const afterLastShown = lastShown ? (fullOrder[fullOrder.indexOf(lastShown) + 1] ?? null) : null;
+  /* ＋ ↕ 🗑 THE NEW MAKER'S PART EDITS (`add-part-sheet.tsx`, lazy) ask THIS work area for its
+     own writes — the eye, the one-save move, Remove for good, "+ Add a scene" (`maker-part-ops.ts`). */
+  const partOps = useRef<MakerPartRaw | null>(null);
+  partOps.current = { eventId, stage, list, fullOrder, afterLastShown, scenes, move, eyeWrite, sceneRemovers, navigator, elementEditing, addScene, postEventPresets, sceneFacts, onPickTemplate };
+  useEffect(() => {
+    const ask = (e: Event) => (e as CustomEvent<(raw: MakerPartRaw) => void>).detail?.(partOps.current!);
+    window.addEventListener(MAKER_PART_OPS_EVENT, ask);
+    return () => window.removeEventListener(MAKER_PART_OPS_EVENT, ask);
+  }, []);
   /* Each tile's canvas marker: its own key, or a Post Event scene's anchor. */
   const markerOf = (t: (typeof list.shown)[number]): string | null => (t.kind === 'post-event' ? t.anchor : t.key);
   tileKeysRef.current = list.shown.flatMap((t) => {
@@ -1862,6 +1896,10 @@ export function MakerWork({
               eventType={sceneFormat.eventType ?? null}
               draftAction={elementEditing.draftAction}
             />
+            {/* 🎨 Where "Our colours" is drawn (the Dress code's Colours and roles), its palette look sits under its Style too. */}
+            {type === 'dress_code' ? (
+              <PaletteLookCanvasRow eventId={eventId} canvas={canvas} eventType={sceneFormat.eventType ?? null} draftAction={elementEditing.draftAction} colours={sceneFormat.colorChoices} />
+            ) : null}
             <SceneBackgroundRow
               key={type}
               eventId={eventId}
@@ -1933,6 +1971,11 @@ export function MakerWork({
           onUp={() => move(id, swapsForDrop(fullOrder, id, shownSceneIds[at - 1] ?? null))}
           onDown={() => move(id, swapsForDrop(fullOrder, id, shownSceneIds[at + 2] ?? afterLastShown))}
           removeForm={sceneRemovers[id]}
+          alignRow={
+            maker?.stagesStudio && elementEditing && !HUB_ELEMENT_EXCLUDED_WIDGETS.includes(type) ? (
+              <SceneAlignRow eventId={eventId} widgetType={type} canvas={canvas} draftAction={elementEditing.draftAction} />
+            ) : null
+          }
         />
       ),
       ownScene,
@@ -3038,6 +3081,12 @@ export function MakerWork({
           fixedStylePanel={(() => {
             if (selection.kind !== 'row' || !elementEditing) return null;
             const fixed = fixedOfKey(selection.key);
+            /* 🗳 The RSVP form is a row of its own: its three styles are its `canvas.style`. */
+            if (fixed === 'rsvp') {
+              return (
+                <SceneStyleCanvasRow key={`rsvp:${stage}`} eventId={eventId} widgetType="rsvp" canvas={canvasOf('rsvp')} stage={stage} eventType={sceneFormat?.eventType ?? null} draftAction={elementEditing.draftAction} />
+              );
+            }
             if (!fixed || !isFixedStyleScene(fixed)) return null;
             return (
               <FixedSceneStyleRow
@@ -3448,6 +3497,8 @@ function Inspector({
   onTab: (tab: MakerSceneTab) => void;
 }) {
   const bodyRef = useRef<HTMLDivElement>(null);
+  /* 🧭 The new Maker: its panel's Style | Text | Animate is the tab row, and Style is Format with Arrange under it. */
+  const ss = useMaker()?.stagesStudio === true;
   /* The old Transition tab (a saved address, a navigator chip) now opens Animate — answer 4, "fold it". */
   const asked: MakerSceneTab = selection.kind === 'scene' ? (selection.tab ?? 'format') : 'format';
   const tab: SceneTab = asked === 'transition' ? 'animate' : asked;
@@ -3514,7 +3565,14 @@ function Inspector({
           </p>
         )
       ) : sceneTabs ? (
-        (sceneTabs[tab] ?? <p className="px-1 text-[13px] text-ink/70">This scene has no settings of its own.</p>)
+        ss && tab === 'format' ? (
+          <>
+            {sceneTabs.format}
+            {sceneTabs.arrange}
+          </>
+        ) : (
+          (sceneTabs[tab] ?? <p className="px-1 text-[13px] text-ink/70">This scene has no settings of its own.</p>)
+        )
       ) : (
         <>
           {scenePanel ?? <p className="px-1 text-[13px] text-ink/70">This scene has no settings of its own.</p>}
@@ -3602,7 +3660,7 @@ function Inspector({
       desktopClassName="lg:relative lg:z-auto lg:order-3 lg:h-auto lg:w-[var(--maker-tools-w)] lg:shrink-0 lg:rounded-none"
       beforeGrip={<ToolsResizeHandle onPointerDown={resize.onPointerDown} />}
     >
-      {selection.kind === 'scene' ? (
+      {selection.kind === 'scene' && !ss ? (
         /* 🧰 Format · Animate · Arrange · Content — the inspector's own tab row,
            their ONE home (never the top bar: "repeated. just place it on the sidebar"). */
         <InspectorTabs tabs={tabs} value={tab} onChange={onTab} label="Edit this scene" />

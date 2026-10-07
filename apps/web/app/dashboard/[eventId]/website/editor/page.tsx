@@ -1123,7 +1123,7 @@ export default async function WebsiteEditorPage({
               placeholder="Arrive by 2:30 · Bring your ticket · Wear flat shoes for the garden…"
               defaultValue={(drafted.what_to_bring as string | null) ?? ''}
               /* ✍ Typed here, seen on the scene at once (`canvas-words.tsx`). */
-              previewKey="w:what_to_bring"
+              previewKey="w:what_to_bring" sameField="what_to_bring"
             />
           ),
         },

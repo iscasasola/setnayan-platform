@@ -32,6 +32,15 @@ import { noteDraftedCanvas } from '@/lib/maker-draft-store';
 import type { ElementDraftAction } from './element-sheet';
 import { PaletteLookRow } from './palette-look-row';
 import { PALETTE_LOOK_DEFAULT, layoutDrawsPaletteLook, resolvePaletteLook } from '@/lib/palette-looks';
+import { useMaker } from '../../../launch/_components/maker-context';
+import {
+  HUB_ELEMENT_ALIGNS,
+  HUB_ELEMENT_ALIGN_LABEL,
+  HUB_ELEMENT_FIELDS,
+  HUB_SCENE_ELEMENT_KEYS,
+  withElementAlign,
+  type HubElementAlign,
+} from '@/lib/element-style';
 
 export type SceneStyleChoice = { id: string; name: string; line: string; isDefault: boolean };
 
@@ -57,7 +66,12 @@ export function SceneStyleRow({
   pending?: boolean;
   error?: string | null;
 }) {
+  /* 🧭 The new Maker draws the same styles as a carousel (`StyleCarousel`). */
+  const carousel = useMaker()?.stagesStudio === true;
   if (options.length < 2) return null;
+  if (carousel) {
+    return <StyleCarousel options={options} value={value} recommendedId={recommendedId} onPick={onPick} pending={pending} error={error} />;
+  }
   return (
     <>
       <IRow label="Style" data="scene-style">
@@ -81,6 +95,65 @@ export function SceneStyleRow({
         </p>
       ) : null}
     </>
+  );
+}
+
+/**
+ * 🎠 THE NEW MAKER'S STYLE — the SAME shipped styles (`sceneStyleOptions`,
+ * `lib/scene-styles.ts`), side by side as a carousel (owner 2026-10-06: *"Style
+ * are the presets"*; prototype `.lcar`). Never a new family list: these are the
+ * scene's own three-or-so styles — `lib/layouts-are-the-shipped-scene-styles.test.ts`.
+ * A tap applies at once: the page above IS the preview (the pick is redrawn in
+ * place, drafted, counted on ✓). Each card is a button.
+ */
+function StyleCarousel({
+  options,
+  value,
+  recommendedId,
+  onPick,
+  pending,
+  error,
+}: {
+  options: readonly SceneStyleChoice[];
+  value: string | null;
+  recommendedId: string | null;
+  onPick: (id: string) => void;
+  pending: boolean;
+  error: string | null;
+}) {
+  return (
+    <div data-style-carousel="" className="py-2">
+      <div role="radiogroup" aria-label="Layout" className="-mx-1 flex snap-x snap-mandatory gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {options.map((o) => {
+          const on = o.id === value;
+          const recommended = recommendedId ? o.id === recommendedId : o.isDefault;
+          return (
+            <button
+              key={o.id}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              data-style-card={o.id}
+              onClick={() => {
+                if (!pending && !on) onPick(o.id);
+              }}
+              className={`sn-press flex min-h-[92px] w-[9.75rem] shrink-0 snap-start flex-col rounded-xl bg-white px-3 py-2.5 text-left ring-1 transition-shadow duration-sn-control ease-sn ${
+                on ? 'ring-2 ring-mulberry' : 'ring-ink/10'
+              }`}
+            >
+              <span className="font-serif text-[16px] leading-tight text-ink">{o.name}</span>
+              <span className="mt-1 line-clamp-3 text-[11.5px] leading-snug text-ink/65">{o.line}</span>
+              {recommended ? <span className="mt-auto pt-1 text-[10.5px] font-semibold text-ink/50">Recommended</span> : null}
+            </button>
+          );
+        })}
+      </div>
+      {error ? (
+        <p role="alert" className="py-2 text-[12.5px] font-semibold text-terracotta-700">
+          {error}
+        </p>
+      ) : null}
+    </div>
   );
 }
 
@@ -205,5 +278,58 @@ export function PaletteLookCanvasRow({
         </p>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * ⇔ STYLE › ARRANGE › ALIGNMENT (the new Maker, plan PR 2/3 — "Arrange (Shown/Hidden ·
+ * Order · Centre)"). Behind the flag the Text tool is Font · Colour · Size only
+ * (DECISION_LOG "TEXT STYLING STAYS THREE CONTROLS"), so the shipped Alignment row
+ * (`part-inspector.tsx`) moves here, for the scene's words: ONE dropdown (As the
+ * scene · Left · Centre · Right) setting every text part of the scene at once
+ * (`withElementAlign`, the same per-part choice the Text row wrote), saved to the
+ * draft through the scene's one door (`useSceneCanvas`).
+ */
+export function SceneAlignRow({
+  eventId,
+  widgetType,
+  canvas,
+  draftAction,
+}: {
+  eventId: string;
+  widgetType: string;
+  canvas: HubSectionCanvas;
+  draftAction: ElementDraftAction;
+}) {
+  const { shown, save, pending, error } = useSceneCanvas(eventId, widgetType, canvas, draftAction);
+  const keys = HUB_SCENE_ELEMENT_KEYS.filter((k) => HUB_ELEMENT_FIELDS[k].includes('align'));
+  const now = keys.map((k) => shown.elements?.[k]?.align ?? null);
+  const value = now.every((a) => a === now[0]) && now[0] ? now[0] : 'auto';
+  return (
+    <>
+      <IRow label="Alignment" data="scene-align">
+        <PickMenu
+          label="Alignment"
+          dataAttr="data-scene-align-pick"
+          value={value}
+          options={[{ key: 'auto', label: 'As the scene' }, ...HUB_ELEMENT_ALIGNS.map((a) => ({ key: a, label: HUB_ELEMENT_ALIGN_LABEL[a] }))]}
+          onPick={(k) => {
+            if (pending) return;
+            const align = k === 'auto' ? null : (k as HubElementAlign);
+            save((c) => {
+              let next = c.elements ?? null;
+              for (const el of keys) next = withElementAlign(next, el, align);
+              if (next) c.elements = next;
+              else delete c.elements;
+            });
+          }}
+        />
+      </IRow>
+      {error ? (
+        <p role="alert" className="py-1 text-[12.5px] font-semibold text-terracotta-700">
+          {error}
+        </p>
+      ) : null}
+    </>
   );
 }

@@ -257,8 +257,10 @@ test('🚶 a whole SECTION moves by dragging its header — never the groom’s 
     maker carries it now, through the SAME shipped writers.
   */
   const code = stripComments(MAKER);
-  assert.match(code, /case 'section':\s*return moveEntourageSection\(eventId, step\.section, step\.direction\);/, 'a header drag does not reach moveEntourageSection');
-  assert.match(code, /case 'sections-default':\s*return resetEntourageSections\(eventId\);/, 'the usual order cannot be put back');
+  // (Since 2026-10-06 the steps are drafted and sent at ✓ Apply — owner: *"Wait for apply"* — through ONE dispatch.)
+  const dispatch = stripComments(readFileSync(join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests', 'march-step.ts'), 'utf8'));
+  assert.match(dispatch, /case 'section':\s*return moveEntourageSection\(eventId, step\.section, step\.direction\);/, 'a header drag does not reach moveEntourageSection');
+  assert.match(dispatch, /case 'sections-default':\s*return resetEntourageSections\(eventId\);/, 'the usual order cannot be put back');
   assert.match(code, /const fixed = isMarchOnlyGroup\(sec\.key\);/);
   assert.match(code, /data-march-drag=\{fixed \? undefined : `section\|\$\{sec\.key\}`\}/, 'a header is not draggable, or the couple’s sides are');
   // One line, shown only when the order was changed — not a toolbar.
@@ -374,7 +376,8 @@ test('⚖ a move keeps you where you made it', () => {
     );
     assert.doesNotMatch(code, /\bredirect\s*\(/, `${file} navigates away from the view the move was made in`);
   }
-  assert.match(MARCH_UI, /await makerSave\(\s*\(\) => \(lab \? Promise\.resolve\(LAB_SAVED\) : callStep\(eventId, step\)/);
+  // (Since 2026-10-06 a drop is DRAFTED — owner: *"Wait for apply"* — through the same one refresh.)
+  assert.match(MARCH_UI, /await makerSave\(\s*\(\) => \(lab \? Promise\.resolve\(LAB_SAVED\) : draftStep\(eventId, patch\)/);
   assert.match(MARCH_UI, /lab \? LAB_NO_RENDER : requestMakerRefresh,\s*\);/);
 });
 

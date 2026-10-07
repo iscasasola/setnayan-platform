@@ -30,3 +30,5 @@ export const MakeItReal = dynamic(() => import(/* webpackChunkName: "maker-mood-
 export const ShareWithVendorsButton = dynamic(() => import(/* webpackChunkName: "maker-mood-board" */ './share-with-vendors-button').then((m) => m.ShareWithVendorsButton), { loading: SlotButton });
 export const PrintablePdfButton = dynamic(() => import(/* webpackChunkName: "maker-mood-board" */ './printable-pdf-button').then((m) => m.PrintablePdfButton), { loading: SlotButton });
 export const ConceptPdfButton = dynamic(() => import(/* webpackChunkName: "maker-mood-board" */ './concept-pdf-button').then((m) => m.ConceptPdfButton), { loading: SlotButton });
+/* 🧭 Studio › Mood Board & Dress Code — the new Maker's tool (plan PR 5), in the same chunk as the board it draws. */
+export const MoodBoardStudio = dynamic(() => import(/* webpackChunkName: "maker-mood-board" */ './mood-board-studio').then((m) => m.MoodBoardStudio), { loading: SlotFill });

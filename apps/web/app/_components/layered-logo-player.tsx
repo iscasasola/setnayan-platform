@@ -6,6 +6,8 @@ import {
   logoAttributePlayable,
   logoElementPlayable,
   logoInSeconds,
+  LOGO_OUT_HOLD_SECONDS,
+  LOGO_OUT_SECONDS,
   parseWritePathD,
   penProgress,
   LOGO_WRITE_TIP_OPACITY,
@@ -108,6 +110,21 @@ export function LayeredLogoPlayer({
     const NS = SVG_NS;
     const defs = document.createElementNS(NS, 'defs');
     root.insertBefore(defs, root.firstChild);
+    /* 🚪 OUT — once the WHOLE logo has played (every layer's In ended) and held,
+       a layer with an Out leaves (owner 2026-09-27, built 2026-10-07). Never on a
+       settled logo: it has already played here once, so it stays arrived. */
+    let logoEnds = 0;
+    host.querySelectorAll<SVGGElement>('g[data-logo-layer]').forEach((layer) => {
+      const durAttr = layer.getAttribute('data-dur');
+      const m = sanitizeLogoMotion({
+        in: layer.getAttribute('data-in'),
+        during: layer.getAttribute('data-during'),
+        delay: Number(layer.getAttribute('data-delay')),
+        dur: durAttr === null ? undefined : Number(durAttr),
+      });
+      logoEnds = Math.max(logoEnds, m.delay + logoInSeconds(m));
+    });
+    const outAtMs = (logoEnds + LOGO_OUT_HOLD_SECONDS) * 1000;
     host.querySelectorAll<SVGGElement>('g[data-logo-layer]').forEach((layer, i) => {
       const body = layer.querySelector<SVGGElement>('g[data-logo-body]');
       if (!body) return;
@@ -283,6 +300,18 @@ export function LayeredLogoPlayer({
         const to = motion.in === 'rise' ? { opacity: 1, transform: 'none' } : { opacity: 1 };
         anims.push(
           body.animate([from, to], { duration: inMs, delay: delayMs, easing: 'cubic-bezier(.2,.7,.2,1)', fill: 'backwards' }),
+        );
+      }
+
+      const leave = settled ? null : layer.getAttribute('data-out');
+      if (leave === 'fade' || leave === 'sink') {
+        // On the LAYER (its body may be drifting), by `translate` — never `transform`/its origin, which
+        // would re-read the layer's own placing transform.
+        anims.push(
+          layer.animate(
+            leave === 'sink' ? [{ opacity: 1, translate: '0 0' }, { opacity: 0, translate: '0 6%' }] : [{ opacity: 1 }, { opacity: 0 }],
+            { duration: LOGO_OUT_SECONDS * 1000, delay: outAtMs, easing: 'ease-in', fill: 'forwards' },
+          ),
         );
       }
 

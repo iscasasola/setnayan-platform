@@ -44,6 +44,8 @@ const HOME = {
   background: `${EDITOR}/scene-background-row.tsx`,
   colour: `${EDITOR}/colour-well.tsx`,
   scene: `${EDITOR}/scene-inspector.tsx`,
+  /* A scene's Animate tab moved to its own lazily-loaded module (Stages PR 2) — the rows, not lost. */
+  sceneAnimate: `${EDITOR}/scene-animate-tab.tsx`,
   part: `${EDITOR}/part-inspector.tsx`,
   sheet: `${EDITOR}/element-sheet.tsx`,
   shell: `${EDITOR}/editor-shell.tsx`,
@@ -98,11 +100,11 @@ const STRIP: ReadonlyArray<readonly [string, keyof typeof HOME, readonly string[
   ['A free couple may take a photo off', 'background', ['Remove this scene’s photo']],
   ['Auto · Shown · Hidden (the mode chips) / the eye', 'scene', ["'shown', 'auto', 'hidden'", 'onEye']],
   ['Move up / Move down', 'scene', ['Move up', 'Move down']],
-  ['How it moves — Auto · Still · Calm · Editorial · Cinematic', 'scene', ['HUB_MOTION_PRESETS', 'How it moves']],
+  ['How it moves — Auto · Still · Calm · Editorial · Cinematic', 'sceneAnimate', ['HUB_MOTION_PRESETS', 'How it moves']],
   // 🎛 2026-10-04: Comes in / From and Goes out / Toward became the four effects (Fade · Move ▾ arrow grid · Size · Blur), each end with its own Auto.
-  ['Timing · Comes in · Goes out (four effects each, Move from 8 directions) · Parts', 'scene', ['label="Timing"', '<ISection>Comes in</ISection>', '<MotionFxRows end="in"', '<ISection>Goes out</ISection>', '<MotionFxRows end="out"', 'Back to Auto', 'label="Parts"']],
-  ['Into the next section — Scroll · Scrub · Auto-scroll + Speed', 'scene', ['Into the next scene', 'HUB_TRANSITIONS', 'HUB_AUTO_SPEEDS']],
-  ['Reset how it moves (free)', 'scene', ['Reset how it moves']],
+  ['Timing · Comes in · Goes out (four effects each, Move from 8 directions) · Parts', 'sceneAnimate', ['label="Timing"', '<ISection>Comes in</ISection>', '<MotionFxRows end="in"', '<ISection>Goes out</ISection>', '<MotionFxRows end="out"', 'Back to Auto', 'label="Parts"']],
+  ['Into the next section — Scroll · Scrub · Auto-scroll + Speed', 'sceneAnimate', ['Into the next scene', 'HUB_TRANSITIONS', 'HUB_AUTO_SPEEDS']],
+  ['Reset how it moves (free)', 'sceneAnimate', ['Reset how it moves']],
   ['Layout (a scene of their own)', 'scene', ['HUB_ARRANGEMENTS', 'label="Layout"']],
   // 🔽 One dropdown of parts since 2026-10-05 (owner: a set of choices is a dropdown); "Open the Hero editor" is gone — the words are typed on the page.
   ['Style a part: Label · Heading · Words', 'scene', ['dataAttr="data-scene-part-pick"', 'onElement(k as HubElementKey)']],

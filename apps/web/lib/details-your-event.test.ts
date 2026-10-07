@@ -189,9 +189,10 @@ test('walking alone (a name dragged out of its pair) happens IN PLACE — the Gu
   // In place, a refusal is THROWN (said by the caller) and success RETURNS — both before any redirect.
   assert.match(unpair, /if \(inPlace\) throw new Error\([^)]*\);\s*redirect\(/);
   assert.match(unpair, /if \(inPlace\) \{[\s\S]*?return;\s*\}\s*redirect\(backToList\(eventId, \{ unpaired: '1' \}\)\);/);
-  // The Maker calls that same action, through the Maker's one refresh.
-  const march = read(`${L}details-march.tsx`);
-  assert.match(march, /import \{ unpairGuestAction \} from '\.\.\/\.\.\/guests\/pair-actions';/);
+  // The Maker's march calls that same action — since 2026-10-06 at ✓ Apply (owner: *"Wait for apply"*),
+  // through the one dispatch that replays the drafted steps.
+  const march = read('app/dashboard/[eventId]/guests/march-step.ts');
+  assert.match(march, /import \{ unpairGuestAction \} from '\.\/pair-actions';/);
   // 🚶 Since 2026-10-06 a name dragged out of its pair splits it: the same action, in place.
   assert.match(march, /await unpairGuestAction\(eventId, step\.guest, 'in-place'\);/);
   // …and the Guest list's rows no longer offer it at all (owner 2026-09-30:

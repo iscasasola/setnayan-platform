@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
-import { rosterDoors } from '@/lib/roster-doors';
 
 /**
  * ⚖ OWNER 2026-09-23: *"the guest list on mobile mode is different from the
@@ -25,8 +24,9 @@ const LAUNCH = join(process.cwd(), 'app', 'dashboard', '[eventId]', 'launch', '_
 const read = (dir: string, ...p: string[]) => stripComments(readFileSync(join(dir, ...p), 'utf8'));
 
 test('the Wedding March has one home — Details — and the Guest list hands old links to it', () => {
-  const doors = rosterDoors({ eventId: 'e1', view: 'list', finished: false, hasJoinLink: true });
-  assert.ok(!doors.tabs.some((d) => /walk|march/i.test(d.key)), 'the Guest list offers the march again');
+  // ⤷ Maker PR 4f: the doors are List · Map · Setup (guests-screen.tsx); no march.
+  const screen = read(GUESTS, '_components', 'guests-screen.tsx');
+  assert.doesNotMatch(screen, /seg\('(?:walk|march)'/i, 'the Guest list offers the march again');
   const page = read(GUESTS, 'page.tsx');
   assert.match(page, /redirect\(detailsItemHref\(eventId, 'march'\)\)/, 'an old ?gview=walk link no longer lands on Details');
   // ⤷ 2026-09-30 (Fix E): the phone carousel was deleted; the phone draws the

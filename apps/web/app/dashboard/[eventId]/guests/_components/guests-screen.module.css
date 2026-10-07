@@ -1,0 +1,719 @@
+/*
+ * guests-screen.module.css — Guests › List and Map, translated from the
+ * prototype `prototypes/home_and_guests_2026-10-07_fable.html?frame=1&page=guests`
+ * (Maker PR 4f, owner 2026-10-07). Class names follow the prototype's so a
+ * reader can hold the two side by side: .stick · .seg · .counts · .meter ·
+ * .sec · .bar · .fold · .g · .lower · .thumb · .mapwrap · .node.
+ *
+ * Tokens are the shipped ones (never a hex from the prototype's own palette):
+ *   paper = --color-cream (white) · ink = --color-ink · brand = --color-mulberry
+ *   gold  = --sn-gold-500 · ok/info/warn/danger = the button-rule tones (#6400).
+ */
+
+.screen {
+  --gs-ink: rgb(var(--color-ink));
+  --gs-mute: rgb(var(--color-ink) / 0.6);
+  --gs-line: rgb(var(--color-ink) / 0.1);
+  /* the page ground (`.sn-ambient`), so the sticky pieces read as the page, not a white box */
+  --gs-paper: #f7f5f0;
+  --gs-gild: var(--sn-gold-500, #a9834b);
+  --gs-gild-soft: color-mix(in srgb, var(--sn-gold-500, #a9834b) 16%, transparent);
+  --gs-brand: rgb(var(--color-mulberry));
+  --gs-ok: rgb(var(--color-ok, 43 116 74));
+  --gs-warn: rgb(var(--color-warn, 150 90 0));
+  --gs-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --gs-t: 280ms;
+  /* --gs-top: the shell bar's height while it shows (set by the screen);
+     --gs-stick-h: this screen's own sticky block (segmented · counts · meter). */
+  position: relative;
+  min-width: 0;
+  /* The prototype's one 720 px column at every width; the map breaks out of it. */
+  max-width: 720px;
+  margin: 0 auto;
+  width: 100%;
+}
+.screen[data-guests-screen='map'] {
+  max-width: none;
+}
+
+/* ═══ the sticky block: segmented · counts · meter ═══ */
+:global(html.dark) .screen {
+  --gs-paper: #17160f;
+}
+/* The map has no background of its own (G39): the sticky block goes clear too. */
+.screen[data-guests-screen='map'] .stick {
+  background: transparent;
+}
+.stick {
+  position: sticky;
+  top: var(--gs-top, 0px);
+  z-index: 15;
+  background: var(--gs-paper);
+  padding: 8px 0 10px;
+  transition: top 300ms ease-out;
+}
+.seg {
+  display: flex;
+  background: rgb(var(--color-ink) / 0.06);
+  border-radius: 12px;
+  padding: 3px;
+  gap: 2px;
+}
+.seg a {
+  flex: 1;
+  height: 44px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgb(var(--color-ink) / 0.6);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  transition: background 160ms, color 160ms;
+}
+.seg a[aria-current='page'] {
+  background: var(--gs-brand);
+  color: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+.seg b {
+  font-weight: 500;
+  opacity: 0.8;
+  margin-left: 4px;
+}
+.counts {
+  display: flex;
+  gap: 10px 14px;
+  flex-wrap: wrap;
+  font-size: 13.5px;
+  margin: 10px 0 2px;
+  align-items: center;
+  color: var(--gs-ink);
+}
+.counts b {
+  font-weight: 600;
+}
+.wine {
+  color: rgb(var(--color-mulberry-700));
+}
+.mute {
+  color: var(--gs-mute);
+}
+.meter {
+  position: relative;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--gs-line);
+  overflow: hidden;
+  margin-top: 10px;
+}
+.meterFill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: var(--gs-ok);
+}
+.replied {
+  font-size: 12px;
+  margin: 5px 0 0;
+  color: var(--gs-mute);
+}
+
+/* ═══ a plain row (requests to join) ═══ */
+.row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 12px 0;
+  border-top: 1px solid var(--gs-line);
+  min-width: 0;
+}
+.row .t {
+  font-weight: 500;
+}
+.row .s {
+  color: var(--gs-mute);
+  font-size: 13px;
+}
+
+/* ═══ sections: pop → unfold ═══ */
+.sec {
+  border-top: 1px solid var(--gs-line);
+  scroll-margin-top: calc(var(--gs-top, 0px) + var(--gs-stick-h, 64px));
+}
+.bar {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.sec.open > .barWrap {
+  position: sticky;
+  top: calc(var(--gs-top, 0px) + var(--gs-stick-h, 64px));
+  z-index: 12;
+  background: var(--gs-paper);
+  box-shadow: 0 1px 0 var(--gs-line);
+}
+.barWrap {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.ico {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--gs-gild-soft);
+  color: var(--gs-gild);
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  font-weight: 600;
+  border: 0;
+  transition: transform 200ms var(--gs-ease);
+}
+.ico svg {
+  width: 18px;
+  height: 18px;
+}
+button.ico {
+  cursor: pointer;
+}
+.ico.picked {
+  outline: 2px solid var(--gs-brand);
+  outline-offset: 2px;
+  background: color-mix(in srgb, var(--gs-brand) 12%, transparent);
+  color: var(--gs-brand);
+  animation: gs-popin 320ms var(--gs-ease);
+}
+.lab {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gs-mute);
+  font-weight: 600;
+}
+.n {
+  white-space: nowrap;
+  flex: 0 0 auto;
+  color: var(--gs-mute);
+  font-size: 13px;
+}
+.chev {
+  margin-left: auto;
+  color: var(--gs-mute);
+  transition: transform var(--gs-t) var(--gs-ease);
+}
+.open .chev {
+  transform: rotate(180deg);
+}
+.fold {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--gs-t) var(--gs-ease);
+}
+.fold > div {
+  overflow: clip;
+  min-width: 0;
+  min-height: 0;
+}
+.open > .fold {
+  grid-template-rows: 1fr;
+  transition-delay: 120ms;
+}
+/* POP, then unfold (G21 · Suppliers' category): the marker pops first; the
+   fold opens 120 ms later. */
+.open > .barWrap .ico {
+  animation: gs-catpop 420ms var(--gs-ease);
+}
+
+/* ═══ a guest row ═══ */
+.g {
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 0;
+  border-top: 1px solid var(--gs-line);
+  min-width: 0;
+}
+.g.plus {
+  margin-left: 20px;
+}
+.ava {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--gs-gild-soft);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gs-gild);
+  border: 0;
+  padding: 0;
+  overflow: hidden;
+  cursor: pointer;
+}
+.ava img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.ava svg {
+  width: 18px;
+  height: 18px;
+}
+.g.picked .ava {
+  outline: 2px solid var(--gs-brand);
+  outline-offset: 2px;
+  background: color-mix(in srgb, var(--gs-brand) 12%, transparent);
+  color: var(--gs-brand);
+  animation: gs-popin 320ms var(--gs-ease);
+}
+.who {
+  text-align: left;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.nm {
+  font-weight: 500;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.meta {
+  font-size: 12.5px;
+  color: var(--gs-mute);
+}
+.g .acts {
+  grid-column: 2;
+  margin-top: 6px;
+}
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  flex: 0 0 auto;
+}
+.sideBride {
+  background: #b86f8a;
+}
+.sideGroom {
+  background: #5b7fb8;
+}
+.sideBoth {
+  background: linear-gradient(90deg, #b86f8a 50%, #5b7fb8 50%);
+}
+.pill {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 12px;
+  background: var(--gs-line);
+  color: var(--gs-ink);
+  transition: background 200ms, color 200ms;
+}
+.pillOk {
+  background: color-mix(in srgb, var(--gs-ok) 14%, transparent);
+  color: var(--gs-ok);
+}
+.pillWine {
+  background: color-mix(in srgb, var(--gs-warn) 14%, transparent);
+  color: var(--gs-warn);
+}
+.pillMute {
+  color: var(--gs-mute);
+}
+.pillGold {
+  background: var(--gs-gild-soft);
+  color: rgb(var(--color-terracotta-700));
+}
+.empty {
+  font-size: 13px;
+  padding: 8px 0;
+  color: var(--gs-mute);
+}
+.nomatch {
+  border: 1px solid var(--gs-line);
+  border-radius: 16px;
+  padding: 14px;
+  margin-top: 14px;
+}
+.nomatch .title {
+  font-size: 19px;
+  font-weight: 600;
+  margin: 4px 0 2px;
+  letter-spacing: -0.01em;
+}
+.nomatch .body {
+  color: var(--gs-mute);
+  font-size: 14px;
+  margin: 0 0 10px;
+}
+
+/* ═══ a row of buttons — ONE state for the whole group (rule 3a) ═══
+   [data-row-state] sits on the GROUP (every guest row together, or the thumb
+   row on its own): full = icon + word · text = word only · icon = icon only. */
+.acts {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: nowrap;
+  overflow: hidden;
+  min-width: 0;
+}
+[data-row-state='text'] .acts :global(.ab) svg,
+[data-row-state='text'] .thumb :global(.ab):not(.grow) svg,
+[data-row-state='text'] .thumb [data-pick] button > span:has(svg) {
+  display: none;
+}
+[data-row-state='icon'] .acts :global(.ab),
+[data-row-state='icon'] .thumb :global(.ab):not(.grow) {
+  width: 40px;
+  padding: 0;
+}
+[data-row-state='icon'] .acts :global(.ab .lbl),
+[data-row-state='icon'] .thumb :global(.ab):not(.grow) :global(.lbl),
+[data-row-state='icon'] .thumb [data-pick] button > span:not(:has(svg)),
+[data-row-state='icon'] .thumb [data-pick] button > svg:last-child {
+  display: none;
+}
+[data-row-state='icon'] .thumb [data-pick] button {
+  width: 40px;
+  padding: 0;
+  justify-content: center;
+}
+
+/* ═══ the floating thumb row — glass, slides (rules 5 and 7) ═══ */
+.lower {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--sn-bottomdock-h, calc(env(safe-area-inset-bottom) + 64px)));
+  padding: 10px 16px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  z-index: 25;
+  transform: translateY(140%);
+  transition: transform 320ms var(--gs-ease);
+  pointer-events: none;
+  background: none;
+}
+.lower[data-on='true'] {
+  transform: none;
+}
+.lower > * {
+  pointer-events: auto;
+}
+@media (min-width: 1024px) {
+  .lower {
+    bottom: 16px;
+    left: var(--gs-left, 0px);
+    right: var(--gs-right, 0px);
+  }
+}
+.thumb {
+  flex: 1;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+}
+.thumb .acts {
+  gap: 6px;
+  flex: 0 0 auto;
+}
+.field {
+  flex: 1 0 60%;
+  min-width: 60%;
+  height: 40px;
+  border: 1px solid rgb(var(--color-ink) / 0.14);
+  border-radius: 999px;
+  padding: 0 14px;
+  font-size: 14px;
+  color: var(--gs-ink);
+}
+/* the glass: translucent paper over a blur, clipped to the pill, NO shadow;
+   toned buttons keep their full colour (owner: "it still needs to have their
+   button colors"). */
+.field,
+.thumb :global(.ab-neutral:not(.ab-main)),
+.thumb [data-pick] button {
+  background: color-mix(in srgb, rgb(var(--color-cream)) 62%, transparent);
+  -webkit-backdrop-filter: blur(16px) saturate(1.3);
+  backdrop-filter: blur(16px) saturate(1.3);
+  border-color: rgb(var(--color-ink) / 0.14);
+  box-shadow: none;
+  overflow: hidden;
+  isolation: isolate;
+  -webkit-mask-image: -webkit-radial-gradient(white, black);
+}
+.thumb :global(.ab:not(.ab-main):not(.ab-neutral)) {
+  background: color-mix(in srgb, rgb(var(--color-cream)) 62%, transparent);
+  -webkit-backdrop-filter: blur(16px) saturate(1.3);
+  backdrop-filter: blur(16px) saturate(1.3);
+}
+.thumb .grow {
+  flex: 1 1 60%;
+  min-width: 60%;
+  justify-content: center;
+}
+/* the Sort / Arrange / Set… dropdown wears the button shape (.sel.ctl) */
+.thumb [data-pick] {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+.thumb [data-pick] button {
+  height: 40px;
+  min-height: 40px;
+  border-radius: 999px;
+  border: 1px solid rgb(var(--color-ink) / 0.14);
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 500;
+  gap: 7px;
+  color: rgb(var(--color-ink) / 0.72);
+  display: inline-flex;
+  align-items: center;
+}
+.thumb [data-pick] svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* ═══ the map — the canvas IS the screen (G38/G39) ═══ */
+.mapwrap {
+  position: relative;
+  overflow: auto;
+  background: transparent;
+  touch-action: pan-x pan-y;
+  margin-left: -16px;
+  margin-right: -16px;
+  min-height: 320px;
+}
+@media (min-width: 640px) {
+  .mapwrap {
+    margin-left: -24px;
+    margin-right: -24px;
+  }
+}
+@media (min-width: 1024px) {
+  .mapwrap {
+    margin-left: -32px;
+    margin-right: -32px;
+  }
+}
+.mapcanvas {
+  position: relative;
+  transform-origin: 0 0;
+}
+.mapcanvas svg.links {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.mapcanvas svg.links path {
+  fill: none;
+  stroke: rgb(var(--color-ink) / 0.14);
+  stroke-width: 1.5;
+}
+.node {
+  position: absolute;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--gs-line);
+  background: var(--gs-paper);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  color: var(--gs-ink);
+  animation: gs-popin 320ms var(--gs-ease) both;
+}
+button.node {
+  cursor: pointer;
+}
+.nodeRoot {
+  height: 48px;
+  padding: 0 16px;
+  font-size: 15px;
+  font-weight: 600;
+  background: var(--gs-brand);
+  color: #fff;
+  border-color: var(--gs-brand);
+}
+.nodeSide {
+  background: var(--gs-gild-soft);
+  border-color: transparent;
+}
+.nodeGrp {
+  color: var(--gs-mute);
+}
+.leafYes {
+  border-color: color-mix(in srgb, var(--gs-ok) 45%, transparent);
+}
+.leafNone {
+  border-color: color-mix(in srgb, var(--gs-warn) 45%, transparent);
+}
+.leafNo {
+  opacity: 0.6;
+}
+@media (max-width: 1023px) {
+  .node {
+    height: 32px;
+    padding: 0 10px;
+    font-size: 12.5px;
+  }
+  .nodeRoot {
+    height: 42px;
+    font-size: 14px;
+  }
+}
+
+/* ═══ motion — once per page/mode, never on a re-render (rule 4) ═══ */
+.rise {
+  animation: gs-up 360ms var(--gs-ease) both;
+}
+.screen[data-settled='true'] .rise {
+  animation: none;
+}
+.fresh {
+  animation: gs-slidein 420ms var(--gs-ease) both;
+}
+@keyframes gs-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes gs-popin {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+@keyframes gs-slidein {
+  from {
+    opacity: 0;
+    transform: translateX(-14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes gs-catpop {
+  0% {
+    transform: scale(1);
+  }
+  30% {
+    transform: scale(1.28) rotate(-6deg);
+  }
+  60% {
+    transform: scale(0.92) rotate(4deg);
+  }
+  100% {
+    transform: scale(1) rotate(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rise,
+  .fresh,
+  .node,
+  .ico.picked,
+  .g.picked .ava,
+  .open > .barWrap .ico {
+    animation: none;
+  }
+  .fold,
+  .lower,
+  .chev {
+    transition: none;
+  }
+}
+
+/* Set… ▾ carries the tag icon the prototype draws (`ICO.tag`): PickMenu shows
+   only an option's icon, and Set… has no current option — so the icon sits in
+   the wrapper, over the button's left padding, and follows the row state. */
+.pickIcon {
+  position: relative;
+}
+.pickIcon > svg {
+  position: absolute;
+  left: 12px;
+  top: 11px;
+  width: 18px;
+  height: 18px;
+  pointer-events: none;
+  z-index: 1;
+  color: rgb(var(--color-ink) / 0.72);
+}
+.thumb .pickIcon button {
+  padding-left: 37px;
+}
+[data-row-state='text'] .thumb .pickIcon > svg {
+  display: none;
+}
+[data-row-state='text'] .thumb .pickIcon button {
+  padding-left: 12px;
+}
+[data-row-state='icon'] .thumb .pickIcon > svg {
+  left: 11px;
+}
+[data-row-state='icon'] .thumb .pickIcon button {
+  padding-left: 0;
+}
+
+/* Select mode's "tap ○ to select all" yields first — the chevron never leaves the row. */
+.note {
+  margin-left: auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--gs-mute);
+  font-size: 13px;
+}

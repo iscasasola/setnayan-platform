@@ -16,10 +16,37 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useRouter } from 'next/navigation';
 import { ChevronDown, Plus, X } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import type { GuestSide } from '@/lib/guests';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { CaptureBar } from './capture-bar';
+import { openQuickAdd } from './quick-add-sheet';
+import { openAddFromPeople } from './add-from-people-sheet';
 
 const OPEN_EVENT = 'setnayan:add-guest-open';
+
+/**
+ * Open the sheet from code, optionally with a name already in the box — the
+ * Guests search box's `＋ Add` (Maker PR 4f, G3: no match → it is probably a
+ * name). The SAME event the round + and the empty list's button dispatch.
+ */
+export function openAddGuest(name = ''): void {
+  window.dispatchEvent(new CustomEvent(OPEN_EVENT, { detail: { name } }));
+}
+
+/**
+ * The four other ways in, as ONE dropdown "Add another way" (G2, owner
+ * 2026-10-07: any set of choices is one dropdown) — the same four doors
+ * `AddDoors` draws, the same openers and links.
+ */
+const OTHER_WAYS = [
+  { key: 'people', label: 'From your people' },
+  { key: 'details', label: 'With details' },
+  { key: 'import', label: 'Import a file' },
+  { key: 'paste', label: 'Paste many names' },
+] as const;
 
 /**
  * The round + — in the Guests page HEADER, beside ⋯, at every width (owner
@@ -61,21 +88,28 @@ export function OpenAddGuestTextButton({ label }: { label: string }) {
 }
 
 export function AddGuestSheet({
-  nameBox,
-  doors,
+  eventId,
+  defaultSide,
   tips,
 }: {
-  nameBox: React.ReactNode;
-  doors: React.ReactNode;
+  eventId: string;
+  /** A new guest's side (the shipped CaptureBar's `defaultSide`). */
+  defaultSide: GuestSide;
   /** One example line + the Tips ▾ fold (`lib/quick-add-tips.ts`). */
   tips?: { example: string; tips: string[] };
 }) {
   const [open, setOpen] = useState(false);
+  const [name, setName] = useState('');
+  const router = useRouter();
   const sheetRef = useRef<HTMLDivElement>(null);
   useModalA11y({ open, onClose: () => setOpen(false), containerRef: sheetRef });
 
   useEffect(() => {
-    const onOpen = () => setOpen(true);
+    const onOpen = (e: Event) => {
+      const detail = (e as CustomEvent<{ name?: string } | null>).detail;
+      setName(detail?.name ?? '');
+      setOpen(true);
+    };
     window.addEventListener(OPEN_EVENT, onOpen);
     return () => window.removeEventListener(OPEN_EVENT, onOpen);
   }, []);
@@ -120,7 +154,16 @@ export function AddGuestSheet({
             <X className="h-5 w-5" strokeWidth={1.8} aria-hidden />
           </button>
         </div>
-        <div data-add-guest-name="">{nameBox}</div>
+        <div data-add-guest-name="">
+          <CaptureBar
+            key={name}
+            eventId={eventId}
+            defaultSide={defaultSide}
+            withDoors={false}
+            placeholder="Type a name…"
+            initialValue={name}
+          />
+        </div>
         {/* ⚖ What the name box understands (owner 2026-10-01): ONE example line
             that fits this event, and one fold — never a wall of text. The words
             come from `lib/quick-add-tips.ts`, each read by the shipped parser. */}
@@ -140,15 +183,25 @@ export function AddGuestSheet({
             </details>
           </div>
         ) : null}
-        {/* Every other way in opens its own sheet or page — this one steps aside. */}
-        <div
-          className="space-y-0.5 border-t border-ink/10 pt-3"
-          data-add-guest-doors=""
-          onClickCapture={(e) => {
-            if ((e.target as HTMLElement).closest('a, button')) setOpen(false);
-          }}
-        >
-          {doors}
+        {/* ⚖ THE FOUR OTHER WAYS IN ARE ONE DROPDOWN (Maker PR 4f, G2): they
+            lived as rows here and again behind the retired ⋯; now one list,
+            "Add another way". Picking one closes this sheet and opens theirs. */}
+        <div className="space-y-1.5 border-t border-ink/10 pt-3" data-add-guest-doors="">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink/55">Add another way</p>
+          <PickMenu
+            label="Add another way"
+            value={null}
+            buttonText="From your people"
+            options={OTHER_WAYS.map((o) => ({ key: o.key, label: o.label }))}
+            dataAttr="data-add-another-way"
+            onPick={(key) => {
+              setOpen(false);
+              if (key === 'people') openAddFromPeople();
+              else if (key === 'details') openQuickAdd();
+              else if (key === 'import') router.push(`/dashboard/${eventId}/guests/import`);
+              else router.push(`/dashboard/${eventId}/guests/quick`);
+            }}
+          />
         </div>
       </div>
     </div>,

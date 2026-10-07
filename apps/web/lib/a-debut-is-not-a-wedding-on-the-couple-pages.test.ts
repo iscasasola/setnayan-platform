@@ -35,10 +35,12 @@ test('eventNoun: a debut reads "event", a wedding stays "wedding"', () => {
 
 const CASES: Array<{ name: string; file: string; banned: RegExp; mount?: { file: string; re: RegExp } }> = [
   {
-    name: 'guest mind map root',
-    file: `${D}/guests/_components/guest-mind-map.tsx`,
+    // ⤷ Maker PR 4f: the map is guest-map-canvas.tsx; its centre is the
+    // celebrants' names, else the event's own word (`mapRootLabel`).
+    name: 'guest map root',
+    file: `${D}/guests/_components/guest-map-canvas.tsx`,
     banned: /'Your wedding'/,
-    mount: { file: `${D}/guests/page.tsx`, re: /<GuestMindMap[\s\S]*?eventWord=\{eventWord\}[\s\S]*?\/>/ },
+    mount: { file: `${D}/guests/page.tsx`, re: /mapRootLabel\(rosterAll, eventWord\)/ },
   },
   {
     name: 'preparation empty state',

@@ -28,16 +28,19 @@ const GUESTS = join(APP, 'dashboard', '[eventId]', 'guests');
 const LAUNCHER = join(APP, 'dashboard', '(launcher)', '_components');
 const read = (p: string) => stripComments(readFileSync(p, 'utf8'));
 
-test('the Guest list page row has no search box — Filter, Sort and ⋯ only', () => {
-  const row = read(join(GUESTS, '_components', 'find-add-row.tsx'));
+test('the Guest list has ONE search box of its own — the thumb row’s “Search or add” (Maker PR 4f, G3)', () => {
+  // ⤷ 2026-10-07 (owner, the prototype): the search/add box lives in the THUMB
+  // row; it reads the top bar's ?q= on arrival, so the two never disagree.
   const page = read(join(GUESTS, 'page.tsx'));
-  for (const [where, src] of [['find-add-row.tsx', row], ['guests/page.tsx', page]] as const) {
-    assert.doesNotMatch(src, /<LiveSearch\b|<GuestsSearch\b|type="search"|role="search"/, `${where} draws a search box again — search is the top bar's`);
-  }
-  assert.doesNotMatch(row, /\bsearch\s*[:?]/, 'FindAddRow grew a `search` slot again');
-  assert.ok(!existsSync(join(GUESTS, '_components', 'guests-search.tsx')), 'the page-level search box is back');
-  // The filters are what the row IS (Add is the round + since 2026-10-01).
-  assert.match(row, /data-find-add-filter=""/);
+  const screen = read(join(GUESTS, '_components', 'guests-screen.tsx'));
+  assert.doesNotMatch(page, /<LiveSearch\b|<GuestsSearch\b|type="search"|role="search"/, 'the page draws a second search box');
+  assert.equal((screen.match(/data-guests-search=""/g) ?? []).length, 1, 'the screen draws more than one search box');
+  assert.match(screen, /placeholder="Search or add"/);
+  assert.match(page, /initialQuery=\{search\.q \?\? ''\}/, 'the thumb row no longer adopts the top bar’s ?q=');
+  assert.ok(!existsSync(join(GUESTS, '_components', 'guests-search.tsx')), 'the old page-level search box is back');
+  // …and it answers with the ONE matcher, through the roster view.
+  const lib = read(join(APP, '..', 'lib', 'guest-roster-view.ts'));
+  assert.match(lib, /return guestMatchesSearch\(q, g, searchFacts\);/, 'the thumb row search grew its own matcher');
 });
 
 test('the top bar resolves to the guests scope on the list — and drives ?q= there', () => {

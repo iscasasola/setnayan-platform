@@ -31,6 +31,7 @@ import path from 'node:path';
 import * as React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { APP_ROOT } from './security/shadowed-export-scan';
+import { stripComments } from './strip-comments';
 
 // The component files use the automatic JSX runtime; under tsx they need `React` in scope.
 (globalThis as unknown as { React: unknown }).React = React;
@@ -171,7 +172,7 @@ test('T2 · every light pairing the button draws clears AA 4.5:1', () => {
 test('T2 · tone rules are element + base class + tone — never a bare tone class (the prototype specificity slip)', () => {
   const start = css.indexOf('/* ─── ActionButton');
   assert.ok(start >= 0, 'the ActionButton block exists');
-  const block = css.slice(start).replace(/\/\*[\s\S]*?\*\//g, '');
+  const block = stripComments(css.slice(start));
   const rules = [...block.matchAll(/(^|\})\s*([^{}@]+?)\s*\{/g)].map((m) => m[2]!.trim());
   const toneRules = rules.filter((sel) => /\.ab-(brand|ok|info|warn|danger|neutral|main)\b|\.quiet\b/.test(sel));
   // every tone has its rule; brand + 5 more + quiet + main (+ dark main)

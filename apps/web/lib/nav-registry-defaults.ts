@@ -356,7 +356,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     label: "Home",
     labelKind: "literal",
     iconKind: "lucide",
-    lucideName: "HouseWifi",
+    lucideName: "House",
     customRef: null,
     sortOrder: 0,
   },
@@ -366,12 +366,12 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     area: "customer-bottom-nav",
     route: "/dashboard/[eventId]",
     // Overview → Home (Stage D, owner 2026-09-29). Key + route unchanged.
-    // Icon: the Setnayan mark → HouseWifi (owner's pick 2026-10-07 — the five
+    // Icon: the Setnayan mark → House (owner 2026-10-07 — the five
     // tabs wear ONE line family; the mark stays in the top bar only).
     label: "Home",
     labelKind: "literal",
     iconKind: "lucide",
-    lucideName: "HouseWifi",
+    lucideName: "House",
     customRef: null,
     sortOrder: 0,
   },

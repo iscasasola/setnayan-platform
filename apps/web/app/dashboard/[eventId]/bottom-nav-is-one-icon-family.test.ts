@@ -15,7 +15,7 @@
  * green the whole time; this one renders the bar the way the layout feeds it.
  *
  * WHAT THIS HOLDS:
- *   1 · The tree's five tabs are HouseWifi · BookUser · Store · AppWindow · Grip.
+ *   1 · The tree's five tabs are House · BookUser · Store · AppWindow · Grip.
  *   2 · The registry defaults for the five (bar AND rail) name those same five.
  *   3 · The RENDERED bar — fed the registry defaults, as production is — draws
  *       those five lucide line icons at one stroke, and no mark, no image.
@@ -27,7 +27,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import React, { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { HouseWifi, BookUser, Store, AppWindow, Grip, Heart, type LucideIcon } from 'lucide-react';
+import { House, BookUser, Store, AppWindow, Grip, Heart, type LucideIcon } from 'lucide-react';
 
 import { buildCustomerMenuTree, EVENT_MENU_ICONS, type CustomerMenuKey } from '@/lib/customer-menu';
 import { NAV_SLOT_DEFAULTS } from '@/lib/nav-registry-defaults';
@@ -46,7 +46,7 @@ const EVENT_ID = 'S89E-ONEFAMILY1';
 
 /** THE OWNER'S PICK, in tab order. */
 const FAMILY: ReadonlyArray<[CustomerMenuKey, LucideIcon, string]> = [
-  ['home', HouseWifi, 'lucide-house-wifi'],
+  ['home', House, 'lucide-house'],
   ['guests', BookUser, 'lucide-book-user'],
   ['explore', Store, 'lucide-store'],
   ['launch', AppWindow, 'lucide-app-window'],
@@ -153,5 +153,5 @@ test('5 · the desktop rail’s five rows draw the same five icons', () => {
     }
   }
   // And the family is the menu's own map, not a second list.
-  assert.equal(EVENT_MENU_ICONS.overview, HouseWifi);
+  assert.equal(EVENT_MENU_ICONS.overview, House);
 });

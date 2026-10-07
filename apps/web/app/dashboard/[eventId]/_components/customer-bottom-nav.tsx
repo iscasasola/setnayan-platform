@@ -16,7 +16,7 @@
  *
  * NAV REGISTRY: `navSlots` (`customer.bottom-nav.<key>`) overlays the
  * admin-managed label + icon on each tab; a slot marked hidden drops its tab.
- * The icon is LINE-ONLY (`navLineIcon`, owner 2026-10-07): HouseWifi ·
+ * The icon is LINE-ONLY (`navLineIcon`, owner 2026-10-07): House ·
  * BookUser · Store · AppWindow · Grip by default, another lucide icon by
  * override, never the Setnayan mark, an image or an emoji.
  * Keys `home` · `guests` · `explore` · `launch` · `studio` — each has its slot

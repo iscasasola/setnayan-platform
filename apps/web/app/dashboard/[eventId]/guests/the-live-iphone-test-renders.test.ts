@@ -333,7 +333,8 @@ test('⑫ every block under the title is one flex column with ONE gap — no per
   assert.match(tag, /flex min-w-0 flex-col gap-4/, 'the blocks are not spaced by one gap');
   const blocks = page.slice(open, page.indexOf('<AddGuestSheet'));
   // ⤷ Maker PR 4f: the requests row and the head moved into GuestsScreen.
-  for (const piece of ['<FinalizeGuestListControl', '{guestsScreen}']) {
+  // ⤷ 2026-10-07: the finalize row moved into Setup (PR 4d) — not a block here.
+  for (const piece of ['{guestsScreen}']) {
     assert.ok(blocks.includes(piece), `${piece} is not one of the evenly spaced blocks`);
   }
   assert.match(page, /className="sn-col max-w-none flex flex-col gap-6" data-roster-full-width=""/, 'the title row has no step after it');

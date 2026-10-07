@@ -144,6 +144,8 @@ export type GuestsScreenProps = {
   rootLabel: string;
   /** A `?q=` from the shell's top bar search. */
   initialQuery?: string;
+  /** Open in Select mode (Setup's "☑ Pick who" → `?select=to-invite`). */
+  initialSelect?: boolean;
   /**
    * Where a guest's chat opens, if anywhere. ⚠ No couple↔guest chat ships
    * today, so the page passes `() => null` and no row draws Message (G35 is
@@ -222,6 +224,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
     requests,
     rootLabel,
     initialQuery = '',
+    initialSelect = false,
     chatHrefFor,
     setup,
     empty,
@@ -297,7 +300,10 @@ export function GuestsScreen(props: GuestsScreenProps) {
   const allOpen = sections.length > 0 && sections.every((s) => isOpen(s.key));
 
   // ── Select mode.
-  const [selectMode, setSelectMode] = useState(false);
+  const [selectMode, setSelectMode] = useState(initialSelect);
+  useEffect(() => {
+    if (initialSelect) setSelectMode(true);
+  }, [initialSelect]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const toggleOne = (id: string) =>
     setSelected((prev) => {

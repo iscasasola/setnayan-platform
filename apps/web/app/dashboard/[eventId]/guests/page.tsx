@@ -49,8 +49,6 @@ import { detailsItemHref } from '@/lib/maker-details-items';
 import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
 import { fetchAssignments, fetchFloorPlan, fetchTables } from '@/lib/seating';
 import { suggestTableFor } from '@/lib/seat-suggest';
-import { readFinalizeState } from '@/lib/pax';
-import { FinalizeGuestListControl } from './_components/finalize-guest-list-control';
 import { eventHasSides, SIDELESS_SIDE } from '@/lib/guest-side-question';
 import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -202,6 +200,8 @@ type Props = {
   params: Promise<{ eventId: string }>;
   searchParams: Promise<{
     q?: string;
+    /** `to-invite` — Setup's "Pick who": open Select mode over the guests still to invite. */
+    select?: string;
     rsvp?: string;
     view?: string;
     group?: string;
@@ -860,10 +860,6 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // The counts were worked out ONCE, with the read (`MeasuredGuests.stats`) — never
   // recounted here, so the meters, the counts line and the header cannot disagree.
   const stats = guestsRead.stats;
-  // Finalize state: a READ. The list is final only when the host pressed
-  // Finalize (owner 2026-09-30, "i must click a finalize to finalize it"); no
-  // date closes it any more. See lib/guest-list-closed.ts.
-  const finalize = await readFinalizeState(supabase, eventId);
   const flash = pickFlash(search);
   // Which guests an account holds — a row's 💬 Message needs one (G35). Refused
   // → null, and no row claims an account nobody measured.
@@ -936,7 +932,9 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       faceByGuest={faceByGuest}
       requests={pendingClaimsCount}
       rootLabel={mapRoot}
-      initialQuery={search.q ?? ''}
+      // Setup's "☑ Pick who" (PR 4d) lands here: Select mode over "to invite".
+      initialQuery={search.select === 'to-invite' ? 'to invite' : (search.q ?? '')}
+      initialSelect={search.select === 'to-invite'}
       setup={gview === 'share' ? <InvitePanel eventId={eventId} /> : null}
       empty={
         !guestsMeasured || rosterAll.length === 0 ? (
@@ -1073,14 +1071,9 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       {/* REQUESTS TO JOIN — now the first row of the List (GuestsScreen,
           `👤 Review`, G11); the link and its words are unchanged. */}
 
-      {/* Finalize / Reopen (owner 2026-09-30: "i must click a finalize to
-          finalize it"). The ONLY way the list becomes final; a finalized list
-          says so and offers Reopen. Shown on desktop + mobile. */}
-      <FinalizeGuestListControl
-        eventId={eventId}
-        locked={finalize.locked}
-        finalPax={finalize.finalPax}
-      />
+      {/* FINALIZE LIVES IN SETUP (owner 2026-10-07: "finalize should be inside
+          the Setup. not on its current location") — PR 4d mounts it there.
+          Nothing sits above the List · Map · Setup switcher. */}
 
       {/* ⚖ GUESTS › LIST AND MAP (Maker PR 4f, owner 2026-10-07) — the
           prototype `home_and_guests_2026-10-07_fable.html?page=guests`, one

@@ -1,15 +1,11 @@
 'use client';
 
-import dynamic from 'next/dynamic';
 import { useState, type ReactNode } from 'react';
 import { ChevronDown } from 'lucide-react';
-
-/* The ONE picker — the Mood Board's (`colour-picker-sheet.tsx`) — loaded on the first tap, so the
-   Maker's first load stays inside its budget; preloaded with the Maker's tools (`maker-tools.tsx`). */
-export const ColourPickerSheet = dynamic(
-  () => import(/* webpackChunkName: "maker-details" */ '../../studio/mood-board/_components/colour-picker-sheet').then((m) => m.ColourPickerSheet),
-  { ssr: false },
-);
+/* The ONE picker — the Mood Board's. A static import on purpose: every caller of this field is
+   itself lazy (Studio tools, the QR look, the Logo — all in the `maker-details` chunk), so the sheet
+   rides that chunk and adds nothing to the Maker's first load (507 KB). */
+import { ColourPickerSheet } from '../../studio/mood-board/_components/colour-picker-sheet';
 
 /**
  * 🎨 A STUDIO COLOUR CONTROL (owner 2026-10-08: *"we already have a design for the color palettes and

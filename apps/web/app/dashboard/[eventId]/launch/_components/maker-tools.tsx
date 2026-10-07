@@ -73,12 +73,6 @@ export const MAKER_TOOLS: readonly MakerTool[] = [
     load: () => import(/* webpackChunkName: "maker-details" */ '../../website/our-story/_components/moment-order-cards-lazy').then(warmDynamicExports),
   },
   {
-    key: 'maker:colour-picker',
-    /* 🎨 The ONE colour picker (the Mood Board's sheet) every Studio colour opens (owner 2026-10-08) — its first tap never waits. */
-    label: 'Colour picker',
-    load: () => import(/* webpackChunkName: "maker-details" */ './studio-colour-field').then(warmDynamicExports),
-  },
-  {
     key: 'maker:schedule',
     label: 'Schedule',
     load: () => import(/* webpackChunkName: "maker-schedule" */ '../../schedule/_components/schedule-lazy').then(warmDynamicExports),

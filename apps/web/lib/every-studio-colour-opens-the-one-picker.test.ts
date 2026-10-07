@@ -9,8 +9,8 @@
  *       Mood Board's own harmony, `candidatesFor`) · From your photos · Swatches · Custom (+ Use);
  *   B · `pickerSuggestions` is that order's source: the five first, then colours that go with them —
  *       taken from every one of the five, none repeating the five;
- *   C · every Studio colour control mounts it — through `StudioColourField` (which lazy-loads the
- *       sheet) or the sheet itself — and draws no `type="color"` of its own:
+ *   C · every Studio colour control mounts it — through `StudioColourField` (whose callers are all
+ *       lazy, so the sheet rides their chunk) or the sheet itself — and draws no `type="color"` of its own:
  *         Look › Colours (the five main colours) · Info › QR colour · Logo › Colour · Mood Board;
  *   D · the controls drawn by `ColourWell` (Look › Colours › Background · Buttons, and every Stages
  *       well) are RD's to move onto the same sheet (agreed by message 2026-10-08) — reported as a
@@ -64,7 +64,7 @@ test('B · the suggestions: the Mood Board’s five, then what goes with them �
 
 test('C · every Studio colour control mounts the one picker and draws no colour input of its own', () => {
   const field = read(FIELD);
-  assert.match(field, /import\(\s*'\.\.\/\.\.\/studio\/mood-board\/_components\/colour-picker-sheet'\)\.then\(\(m\) => m\.ColourPickerSheet\)/, 'StudioColourField does not lazy-load the Mood Board’s picker');
+  assert.match(field, /import \{ ColourPickerSheet \} from '\.\.\/\.\.\/studio\/mood-board\/_components\/colour-picker-sheet';/, 'StudioColourField does not open the Mood Board’s picker');
   assert.match(field, /<ColourPickerSheet[\s\S]{0,200}palette=\{palette\}/, 'StudioColourField does not hand the five to the picker');
   const controls: Array<[string, string, RegExp]> = [
     ['Look › Colours (the five main colours)', `${D}/launch/_components/studio-tools.tsx`, /<StudioColourField\s+data=\{`main-\$\{slot\}`\}[\s\S]{0,300}palette=\{colours\}/],

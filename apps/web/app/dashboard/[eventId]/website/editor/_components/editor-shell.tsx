@@ -997,11 +997,19 @@ export function MakerWork({
       : [];
   /* 🧭 The new Maker's Stages panel owns the page's place on a phone: it centres the picked part itself
      (`stage-tools.tsx` `centrePart`) — a top-aligned bring-up here would undo it. */
+  /* Stages on a phone centres a PICKED part itself (`stage-tools.tsx` `centrePart`), so `scrollPreviewTo` skips there —
+     but a PAGE pick (`jumpToPage` raises this first) still goes to its page: the tabs did nothing while it was
+     skipped too (owner 2026-10-07). */
+  const pageAskRef = useRef(false);
+  /** Was this scroll a PAGE pick? Read once — the ask is spent by the scroll it asked for. */
+  const takePageAsk = () => {
+    const asked = pageAskRef.current;
+    pageAskRef.current = false;
+    return asked;
+  };
   const scrollPreviewTo = useCallback(
-    (anchor?: string, page = false) => {
-      /* Stages on a phone centres a PICKED part itself (`stage-tools.tsx` `centrePart`) — but a PAGE pick
-         (`jumpToPage`) still goes to its page: the tabs did nothing while this was skipped too (owner 2026-10-07). */
-      if (!anchor || (stagesStudioRef.current && window.innerWidth < 1024 && !page)) return;
+    (anchor?: string) => {
+      if (!anchor || (stagesStudioRef.current && window.innerWidth < 1024 && !takePageAsk())) return;
       postToShownCanvases({ source: 'setnayan-editor', t: 'scrollTo', key: anchor });
     },
     [postToShownCanvases],
@@ -1164,7 +1172,9 @@ export function MakerWork({
          its studio on the page and its panels in the tools (a phone's lower
          third, a desktop's right column). Its size and motion stay one ‹ › away
          from the other parts. Nothing is written by opening it. */
-      if (!stagesTap && data.key === 'f:hero' && data.el === 'mark' && select) {
+      if (stagesTap) {
+        /* Stages: a tap on the mark only picks it (the Style bar is the Logo's door). */
+      } else if (data.key === 'f:hero' && data.el === 'mark' && select) {
         setElementTarget(null);
         postToShownCanvases({ source: 'setnayan-editor', t: 'markEl', key: data.key, el: null });
         // The made-once Logo is Details' item now: the shell moves the pick there (`movedSelection`).
@@ -1172,7 +1182,7 @@ export function MakerWork({
         return;
       }
       const moment = (data as { moment?: unknown }).moment;
-      if (!stagesTap && data.key === 'w:schedule' && typeof moment === 'string' && moment && openDetailsItemRef.current) {
+      if (data.key === 'w:schedule' && typeof moment === 'string' && moment && openDetailsItemRef.current && !stagesTap) {
         setElementTarget(null);
         openDetailsItemRef.current('schedule');
         select?.({ kind: 'tool', key: 'details' });
@@ -2053,15 +2063,17 @@ export function MakerWork({
      Me and a page that leaves have no scenes here; the navigator's top says so. */
   const jumpToPage = (page: MakerGuestPage) => {
     const key = page.key;
+    pageAskRef.current = true;
     setTabKey(key);
     const first = page.tiles[0];
     if (!first) {
       navList?.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
       // 👤 Me, drawn for a See as sample guest (PR-10): the canvas goes to it.
-      if (key === 'me' && seeAsDrawsMe(seeAs)) scrollPreviewTo('me', true);
+      if (key === 'me' && seeAsDrawsMe(seeAs)) scrollPreviewTo('me');
+      pageAskRef.current = false;
       return;
     }
-    scrollPreviewTo(first, true);
+    scrollPreviewTo(first);
     (
       navList?.querySelector(`[data-maker-group="${CSS.escape(key)}"]`) ??
       navList?.querySelector(`[data-maker-tile="${CSS.escape(first)}"]`)
@@ -2784,14 +2796,13 @@ export function MakerWork({
         {/* 🎫 The Guest's ticket scene: the REAL ticket on the page — the first
             coming guest's name and QR (`pass_guest=first`), in the look the
             Ticket style ▾ below holds. The canvas stays loaded underneath. */}
+        {/* 🧭 Stages never REPLACES the canvas: the pass is picked in place, the page around it (owner 2026-10-07:
+            "cannot go back to the website. the digital pass is all that is left"). Its looks are the Style carousel. */}
         {ticketOn && canvasSrc ? (
           <div
             data-maker-ticket-view={ticketDesign}
             /* A phone sizes the ticket by whichever side binds (`cq*` units), so its box is always 3:4. */
-            className={`absolute inset-0 z-10 flex items-center justify-center overflow-hidden bg-cream p-4 max-lg:[container-type:size]${
-              /* 🧭 Stages: room above and below the card for the picked part's frame and its ＋ — never over the ticket. */
-              maker?.stagesStudio ? ' max-lg:py-16' : ''
-            }`}
+            className={`absolute inset-0 z-10 flex items-center justify-center overflow-hidden bg-cream p-4 max-lg:[container-type:size]${maker?.stagesStudio ? ' hidden' : ''}`}
           >
             {ticketFailed === ticketDesign ? (
               <p role="alert" data-maker-ticket-failed="" className="m-auto max-w-xs px-4 text-center text-sm text-terracotta-700">

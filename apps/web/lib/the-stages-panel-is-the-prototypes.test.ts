@@ -178,14 +178,14 @@ test('in Stages a canvas tap only picks — no door to Studio, Details, the Logo
   /* Every branch that opens something other than the part itself is closed to a Stages tap. */
   const doors = [
     /if \(([^)]*)openWordsOnTap\(/,
-    /if \(([^)]*)data\.el === 'mark' && select\)/,
-    /if \(([^)]*)data\.key === 'w:schedule' && typeof moment === 'string'/,
+    /if \(stagesTap\) \{\s*\/\*[^*]*\*\/\s*\} else (if) \(data\.key === 'f:hero' && data\.el === 'mark' && select\)/,
+    /if \(data\.key === 'w:schedule' && typeof moment === 'string'([^{]*)\{/,
     /if \(([^)]*)factEditorsRef\.current\?\.\[tapped\]\)/,
   ];
   for (const d of doors) {
     const m = d.exec(handler);
     assert.ok(m, `the door ${d} is found`);
-    assert.match(m![1]!, /^!stagesTap && /, `a Stages tap opens it: ${d}`);
+    assert.match(m![1]!, /^!stagesTap && |&& !stagesTap\)\s*$|^if$/, `a Stages tap opens it: ${d}`);
   }
   /* …and nothing else in the handler opens a tool or a Details item. */
   const opens = handler.match(/select\??\.?\(\{ kind: 'tool'|openDetailsItemRef\.current\(/g) ?? [];
@@ -218,9 +218,10 @@ test('every part with a Studio bar has a door; every focused field exists in the
 
 test('a page tab still takes the canvas to its page under Stages (only a picked part centres itself)', () => {
   const shell = read(`${EDITOR}/editor-shell.tsx`);
-  assert.match(shell, /if \(!anchor \|\| \(stagesStudioRef\.current && window\.innerWidth < 1024 && !page\)\) return;/, 'the skip spares a page pick');
+  assert.match(shell, /if \(!anchor \|\| \(stagesStudioRef\.current && window\.innerWidth < 1024 && !takePageAsk\(\)\)\) return;/, 'the skip spares a page pick');
   const jump = shell.slice(shell.indexOf('const jumpToPage = (page: MakerGuestPage) => {'));
-  assert.match(jump.slice(0, 900), /scrollPreviewTo\(first, true\);/, 'jumpToPage asks as a PAGE pick');
+  assert.match(jump.slice(0, 200), /pageAskRef\.current = true;/, 'jumpToPage asks as a PAGE pick');
+  assert.match(shell, /const asked = pageAskRef\.current;\s*pageAskRef\.current = false;\s*return asked;/, 'one ask, one jump');
   const tools = read(`${LAUNCH}/stage-tools.tsx`);
   assert.match(tools, /setPicked\(null\);\s*onPickPage\(p\.option\);/, 'another page lets the picked part go');
 });
@@ -229,10 +230,24 @@ test('▶ on a picked part plays Build in · Action · Build out, and says what 
   const tools = read(`${LAUNCH}/stage-tools.tsx`);
   assert.match(tools, /t: 'playSeq', key: def\.canvas/, '▶ asks the canvas for the whole sequence');
   assert.doesNotMatch(tools, /t: 'playEl', key: def\.canvas/, 'never the arrival alone');
-  assert.match(tools, /data-stage-play-skipped=""/, 'a skipped phase is said');
+  assert.match(tools, /<StagePlayStatus phase=\{seq\.phase\} skipped=\{seq\.skipped\} \/>/, 'the status line is drawn');
+  assert.match(read(`${LAUNCH}/stage-panel/play-status.tsx`), /data-stage-play-skipped=""/, 'a skipped phase is said');
   const bridge = read('app/[slug]/_components/editor-bridge.tsx');
   assert.match(bridge, /if \(data\.t === 'playSeq'\) \{/);
   const seq = read('app/[slug]/_components/play-sequence.ts');
   for (const w of ["'Build in: none'", "'Action: none'", "'Build out: none'"]) assert.ok(seq.includes(w), `names ${w}`);
   assert.match(seq, /phase: 'in'[\s\S]*phase: 'act'[\s\S]*phase: 'out'/, 'in, then the action, then out');
+});
+
+test('picking the Digital pass never replaces the canvas in Stages — it is picked in place, Style only', () => {
+  /* Owner, 2026-10-07: "cannot go back to the website. the digital pass is all that is left". */
+  const shell = read(`${EDITOR}/editor-shell.tsx`);
+  const at = shell.indexOf('data-maker-ticket-view={ticketDesign}');
+  assert.ok(at > 0);
+  assert.match(shell.slice(at, at + 400), /\$\{maker\?\.stagesStudio \? ' hidden' : ''\}/, 'the ticket view is put away under Stages');
+  const tools = read(`${LAUNCH}/stage-tools.tsx`);
+  assert.match(tools, /const styleOnly = revealOpen \|\| cameraOpen \|\| rsvpOpen \|\| picked === 'pass';/);
+  assert.match(tools, /disabled=\{styleOnly && t !== 'style'\}/);
+  const edges = read(`${LAUNCH}/add-part-sheet.tsx`);
+  assert.match(edges, /clipPath: `inset\(/, 'the frame is clipped to the canvas');
 });

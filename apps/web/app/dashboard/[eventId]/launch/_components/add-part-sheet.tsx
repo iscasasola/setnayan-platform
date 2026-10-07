@@ -142,12 +142,6 @@ function readRevealPart(): Element | null {
 
 /** A part's box on the SCREEN (the canvas is a same-origin frame; it may be drawn scaled). */
 function partBox(canvas: string, el?: string | null): { top: number; left: number; width: number; height: number } | null {
-  /* 🎫 The Digital pass is shown as the REAL ticket laid over the page (`editor-shell.tsx` `data-maker-ticket-view`);
-     the frame hugs THAT card — never the full-width section hidden under it (owner: the frame cut across the ticket). */
-  if (canvas === 'f:pass') {
-    const t = document.querySelector('[data-maker-ticket-view] [data-maker-ticket-box]')?.getBoundingClientRect();
-    if (t && t.width > 0 && t.height > 0) return { top: t.top, left: t.left, width: t.width, height: t.height };
-  }
   const frame = document.querySelector<HTMLIFrameElement>(SHOWN_FRAME);
   const doc = frame?.contentDocument;
   if (!frame || !doc) return null;
@@ -421,7 +415,14 @@ export function PartEdits({ stage, picked }: { stage: MakerStageKey; picked: Mak
   return createPortal(
     <>
       {edges && box ? (
-        <div aria-hidden={drag ? true : undefined} data-part-edges={picked} className="pointer-events-none fixed inset-0 z-[86] lg:hidden">
+        <div
+          aria-hidden={drag ? true : undefined}
+          data-part-edges={picked}
+          className="pointer-events-none fixed inset-0 z-[86] lg:hidden"
+          /* The frame lives ON the canvas: clipped to the page's visible band, never over the "You're editing"
+             strip, the page tabs or the panel (owner 2026-10-07). */
+          style={band ? { clipPath: `inset(${Math.max(0, band.top)}px 0 ${Math.max(0, window.innerHeight - band.bottom)}px 0)` } : undefined}
+        >
           <div
             data-part-outline=""
             className="absolute rounded-lg shadow-[0_0_0_2px_#C24E25,0_0_0_7px_rgba(194,78,37,.14)]"

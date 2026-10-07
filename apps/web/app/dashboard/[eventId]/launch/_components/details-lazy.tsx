@@ -190,3 +190,7 @@ export const PhotoMomentsEditor = dynamic(
   () => import(/* webpackChunkName: "maker-details" */ '../../website/photo-moments/_components/photo-moments-editor').then((m) => m.PhotoMomentsEditor),
   { loading: SlotRows },
 );
+/* ▶ The Stages ▶'s status line — first pressed, then loaded (`stage-panel/play-status.tsx`). */
+export const StagePlayStatus = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stage-panel/play-status').then((m) => m.StagePlayStatus));
+/* 🎛 The Camera's own looks in Stages — loaded the first time the Camera is picked (`stage-panel/camera-look.tsx`). */
+export const CameraPartTools = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stage-panel/camera-look').then((m) => m.CameraPartTools), { loading: SlotRows });

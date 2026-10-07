@@ -223,7 +223,8 @@ export function StageTools({
     [onPx],
   );
   useEffect(() => {
-    if (playing) {
+    /* ▶ playing, or ⌨ typing (the keyboard takes the bottom half — prototype `.phone.typing .lt{display:none}`): away, no gap. */
+    if (playing || typing) {
       onPx(0);
       return;
     }
@@ -237,7 +238,7 @@ export function StageTools({
       /* private mode: half the screen */
     }
     setHeight(px);
-  }, [open, toolOnly, playing, onPx, setHeight]);
+  }, [open, toolOnly, playing, typing, onPx, setHeight]);
   useEffect(() => () => onPx(null), [onPx]);
   /* 🎯 THE PICKED PART IN THE MIDDLE of the page left above the panel (prototype `centrePicked`: "making
      sure they see what element they are editing") — once the panel has risen; a part taller than that
@@ -350,6 +351,19 @@ export function StageTools({
     else shell?.removeAttribute('data-stage-picked');
     return () => shell?.removeAttribute('data-stage-picked');
   }, [open, picked]);
+
+  /* ⌨ Done brings the panel back ON THE SAME PART (prototype `endTyping`): the part typed in is picked again. */
+  const typedPart = useRef<MakerPartKey | null>(null);
+  const wasTyping = useRef(false);
+  useEffect(() => {
+    if (typing && !wasTyping.current) typedPart.current = picked;
+    if (!typing && wasTyping.current && typedPart.current) {
+      const k = typedPart.current;
+      typedPart.current = null;
+      window.setTimeout(() => pickPart(k), 60);
+    }
+    wasTyping.current = typing;
+  }, [typing, picked, pickPart]);
 
   /* ⌨️ Typing on the page: the panel is away until the words' bar is gone (Done). */
   useEffect(() => {
@@ -539,7 +553,8 @@ export function StageTools({
   const canvasOfPick = picked ? MAKER_PARTS[picked].canvas : null;
   const fixedHere = canvasOfPick ? fixedOfKey(canvasOfPick) : null;
   useEffect(() => {
-    const q = picked && !rsvpOpen && picked !== 'reveal' ? makerPartQuietRow(picked) : null;
+    /* The RSVP stage's screens are the RSVP tool's: its one quiet bar is "Edit the RSVP · Studio ›". */
+    const q = rsvpOpen ? makerPartQuietRow('rsvp') : picked && picked !== 'reveal' ? makerPartQuietRow(picked) : null;
     let quiet: StageQuiet | null = null;
     if (q) {
       if ('suppliers' in q.to) quiet = { kind: 'suppliers', words: q.words, small: 'Suppliers ›', href: suppliersHref };
@@ -666,15 +681,16 @@ export function StageTools({
             window.setTimeout(() => document.querySelector<HTMLElement>(`[data-rsvp-stage-scene="${s}"]`)?.click(), 60);
           }}
         />
-        {rsvpOpen ? null : (
+        {(
           <span role="group" aria-label="Edit with" className={STAGE_TOOL_PILL} data-stage-tpill="">
             {MAKER_PART_TOOLS.map((t, i) => (
               <span key={t} className="contents">
                 {i > 0 ? <span aria-hidden className="mx-px h-5 w-px bg-[var(--sp-line2)]" /> : null}
                 <button
                   type="button"
-                  aria-pressed={open && (revealOpen ? t === 'style' : tool === t)}
-                  disabled={revealOpen && t !== 'style'}
+                  aria-pressed={open && (revealOpen || rsvpOpen ? t === 'style' : tool === t)}
+                  /* The Reveal and the RSVP stage's three screens have no Text or Animate saves of their own. */
+                  disabled={(revealOpen || rsvpOpen) && t !== 'style'}
                   aria-label={MAKER_PART_TOOL_LABEL[t]}
                   title={MAKER_PART_TOOL_LABEL[t]}
                   data-stage-tool={t}

@@ -206,7 +206,7 @@ export type MakerPartSource =
 export type MakerStudioTool = 'logo' | 'mood' | 'schedule' | 'story' | 'march' | 'seats' | 'gifts' | 'rsvp';
 export const MAKER_STUDIO_TOOL_LABEL: Record<MakerStudioTool, string> = {
   logo: 'Logo',
-  mood: 'Mood Board',
+  mood: 'Mood Board & Dress Code',
   schedule: 'Schedule',
   story: 'Love Story',
   march: 'Wedding March',

@@ -5,7 +5,8 @@ import { CANVAS_REFRESH_MESSAGE, MAKER_CANVAS_REDRAW_EVENT } from '@/lib/maker-r
 import { BufferedCanvasFrame } from '../../website/editor/_components/buffered-canvas-frame';
 import { MAKER_PAGE_TITLE, type MakerPageKey } from '@/lib/maker-made-once-pages';
 import { MAKER_LT_TOOL } from '@/lib/maker-phone-room';
-import { useMakerTool } from './maker-context';
+import { useMaker, useMakerTool } from './maker-context';
+import { StagePanelPart } from './details-lazy';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 
 /**
@@ -71,6 +72,7 @@ export function MakerPage({
   };
   /* 🧰 On a phone the controls are a TOOL of the lower third (owner 2026-10-05,
      "approve") — the column names them and closes them; nothing over the page. */
+  const stagesRsvp = useMaker()?.stagesStudio === true && pageKey === 'rsvp-page';
   useMakerTool(Boolean(controls) && open, { key: `page:${pageKey}`, name: toolName ?? title, close: () => setOpen(false) });
   return (
     <div data-maker-page={pageKey} className="flex h-full min-h-0 w-full flex-1 flex-col lg:flex-row">
@@ -100,7 +102,14 @@ export function MakerPage({
           <div className="hidden items-center gap-2 px-4 pt-3 lg:flex">
             <p className="min-w-0 flex-1 truncate font-serif text-lg text-ink">{title}</p>
           </div>
-          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-3 pb-6 pt-2">
+          {stagesRsvp ? (
+            /* 🧭 THE NEW MAKER'S RSVP STAGE: the screen's controls are its Style › Look, under the same quiet bar
+               ("Edit the RSVP · Studio ›") as every part (DECISION_LOG 2026-10-07). */
+            <div className="flex min-h-0 flex-1 flex-col max-lg:contents lg:hidden">
+              <StagePanelPart part="style" look={<div className="flex flex-col gap-3 pb-4">{controls}</div>} background={null} arrange={null} />
+            </div>
+          ) : null}
+          <div className={`flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-3 pb-6 pt-2${stagesRsvp ? ' max-lg:hidden' : ''}`}>
             {controls}
           </div>
         </aside>

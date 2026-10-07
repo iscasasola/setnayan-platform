@@ -399,13 +399,14 @@ export function ElementSheet({
     step: { prev: prevPart && onPart ? () => onPart(prevPart) : null, next: nextPart && onPart ? () => onPart(nextPart) : null },
   });
   useEffect(() => {
-    if (!window.matchMedia('(max-width: 1023px)').matches) return;
+    /* 🧭 The new Maker's Stages panel centres the picked part itself (`stage-tools.tsx` `centrePart`). */
+    if (!window.matchMedia('(max-width: 1023px)').matches || stagesStudio) return;
     const id = window.requestAnimationFrame(() => {
       const sheet = sheetRef.current;
       if (sheet) keepPartAboveSheet(sheet, target.key, target.el);
     });
     return () => window.cancelAnimationFrame(id);
-  }, [target.key, target.el]);
+  }, [target.key, target.el, stagesStudio]);
 
   return (
     <>

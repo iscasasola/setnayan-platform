@@ -1417,7 +1417,7 @@ export function MakerWork({
       // 🧭 The stage's Event Bar, as this canvas drew it — the navigator's tabs.
       setCanvasBar(parseNavigatorBar(data.bar));
       const key = selectedKeyRef.current;
-      if (key) {
+      if (key && !(stagesStudioRef.current && window.innerWidth < 1024)) {
         frameRef.current?.contentWindow?.postMessage(
           { source: 'setnayan-editor', t: 'scrollTo', key },
           window.location.origin,
@@ -3169,7 +3169,9 @@ export function MakerWork({
           madeOnce={madeOnce}
           showMotionTabs={ownsPro || !maker.storeShell}
           onClose={() => select?.(null)}
-          onReveal={() => scrollPreviewTo(selectedKeyRef.current ?? undefined)}
+          /* 🧭 The new Maker's Stages panel centres the picked part itself (`stage-tools.tsx` `centrePart`) — the
+             scene's top-aligned bring-up would undo it. */
+          onReveal={() => (stagesStudioRef.current && window.innerWidth < 1024 ? undefined : scrollPreviewTo(selectedKeyRef.current ?? undefined))}
           onTab={(tab) => selectedScene && select?.({ kind: 'scene', id: selectedScene.id, tab })}
           fixedFact={
             selection.kind === 'row' && selection.key.startsWith('f:')

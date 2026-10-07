@@ -13,7 +13,7 @@
  *      always keeps its word.
  *   4. One colour per meaning — `tone` is REQUIRED (the type will not let a
  *      caller leave it blank), mapped to the `--color-*` tokens in globals.css:
- *        primary  terracotta  the forward step
+ *        brand    terracotta  the forward step (--color-mulberry)
  *        ok       green       confirm · commit · money
  *        info     blue/slate  messaging · information
  *        warn     amber       attention — waiting on you
@@ -40,10 +40,10 @@ import {
   type SVGProps,
 } from 'react';
 
-export type ActionTone = 'primary' | 'ok' | 'info' | 'warn' | 'danger' | 'neutral';
+export type ActionTone = 'brand' | 'ok' | 'info' | 'warn' | 'danger' | 'neutral';
 
 export const ACTION_TONES: readonly ActionTone[] = [
-  'primary',
+  'brand',
   'ok',
   'info',
   'warn',
@@ -62,6 +62,8 @@ type Common = {
   label: string;
   /** The row's main verb: filled, and never loses its word. */
   main?: boolean;
+  /** A secondary that should not compete (Skip · Not now): hairline, muted word, no wash. */
+  quiet?: boolean;
   /** Start icon-only (a toolbar of icons that are still buttons). */
   iconOnly?: boolean;
   disabled?: boolean;
@@ -95,11 +97,10 @@ export type ActionButtonProps = AsButton | AsLink;
 /** The class list — exported so a guard can assert the shape without a DOM. */
 export function actionButtonClass(
   tone: ActionTone,
-  main?: boolean,
-  iconOnly?: boolean,
-  extra?: string,
+  opts: { main?: boolean; quiet?: boolean; iconOnly?: boolean; extra?: string } = {},
 ): string {
-  return ['ab', `ab-${tone}`, main ? 'ab-main' : '', iconOnly ? 'icon-only' : '', extra ?? '']
+  const { main, quiet, iconOnly, extra } = opts;
+  return ['ab', `ab-${tone}`, main ? 'ab-main' : '', quiet && !main ? 'quiet' : '', iconOnly ? 'icon-only' : '', extra ?? '']
     .filter(Boolean)
     .join(' ');
 }
@@ -112,8 +113,8 @@ function renderIcon(icon: Common['icon']) {
 
 export const ActionButton = forwardRef<HTMLButtonElement | HTMLAnchorElement, ActionButtonProps>(
   function ActionButton(props, ref) {
-    const { tone, icon, label, main, iconOnly, className, title } = props;
-    const cls = actionButtonClass(tone, main, iconOnly, className);
+    const { tone, icon, label, main, quiet, iconOnly, className, title } = props;
+    const cls = actionButtonClass(tone, { main, quiet, iconOnly, extra: className });
     const inner = (
       <>
         {renderIcon(icon)}
@@ -178,7 +179,8 @@ export const ActionButton = forwardRef<HTMLButtonElement | HTMLAnchorElement, Ac
  * Ported from the prototype's `fitActs()`: clear every `icon-only` the pass
  * added, then walk the SECONDARY buttons right-to-left adding `icon-only`
  * until `scrollWidth ≤ clientWidth`. The main verb (`.ab-main`) is never
- * dropped. Buttons rendered with `iconOnly` stay icon-only (the pass only
+ * dropped. The row is made `min-width: 0` so it can be narrower than its
+ * content (otherwise it never overflows and nothing drops). Buttons rendered with `iconOnly` stay icon-only (the pass only
  * touches the ones it marked, tagged `data-fit-dropped`). Re-runs whenever
  * the row resizes, and when its children change. */
 
@@ -213,6 +215,9 @@ export function useFitRow(ref: RefObject<HTMLElement | null>): void {
   useIsoLayoutEffect(() => {
     const row = ref.current;
     if (!row) return;
+    // A row that cannot shrink never overflows, so the measure would lie
+    // (the prototype's `.detail{min-width:0}` bug). Make it shrinkable.
+    if (getComputedStyle(row).minWidth === 'auto') row.style.minWidth = '0';
     run();
     const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(run) : null;
     ro?.observe(row);

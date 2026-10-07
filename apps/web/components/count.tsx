@@ -34,6 +34,18 @@ const useIsoLayoutEffect = typeof window === 'undefined' ? useEffect : useLayout
 /** Last value shown per stable id — page lifetime, shared by Count and Fill. */
 const lastShown = new Map<string, number>();
 
+/**
+ * Where a figure under `key` starts: the value last shown under that key, or
+ * 0 the first time — and remember `value` as the new last. A re-render with
+ * the same value therefore starts AT the value (no replay); only a real change
+ * moves. Pure apart from the page-lifetime map; the guard runs it directly.
+ */
+export function startFor(key: string, value: number): number {
+  const from = lastShown.get(key) ?? 0;
+  lastShown.set(key, value);
+  return from;
+}
+
 /** Test hook: forget every remembered value. */
 export function __resetCountMemory(): void {
   lastShown.clear();
@@ -78,9 +90,8 @@ export function useCountTo(value: number, opts: CountToOptions = {}): number {
   const instanceLast = useRef<number | null>(null);
 
   useEffect(() => {
-    const remembered = id !== undefined ? lastShown.get(id) : instanceLast.current ?? undefined;
-    const from = alwaysFromZero ? 0 : remembered ?? 0;
-    if (id !== undefined) lastShown.set(id, value);
+    const remembered = id !== undefined ? startFor(id, value) : instanceLast.current ?? 0;
+    const from = alwaysFromZero ? 0 : remembered;
     instanceLast.current = value;
 
     if (!Number.isFinite(value) || (skipNonPositive && value <= 0) || from === value || prefersReducedMotion()) {
@@ -90,19 +101,30 @@ export function useCountTo(value: number, opts: CountToOptions = {}): number {
     const d = durationMs ?? countDurationMs(from, value);
     let raf = 0;
     let start = 0;
+    let shown = from;
+    let done = false;
     setDisplay(from);
     const timer = window.setTimeout(() => {
       const tick = (now: number) => {
         if (!start) start = now;
         const t = Math.min(1, (now - start) / d);
-        setDisplay(Math.round(from + (value - from) * easeOutCubic(t)));
+        shown = Math.round(from + (value - from) * easeOutCubic(t));
+        setDisplay(shown);
         if (t < 1) raf = requestAnimationFrame(tick);
+        else done = true;
       };
       raf = requestAnimationFrame(tick);
     }, delayMs);
     return () => {
       window.clearTimeout(timer);
       cancelAnimationFrame(raf);
+      // Cut short (a newer value, or StrictMode's mount-unmount-mount): remember
+      // the figure actually on screen, so the next run starts from it rather
+      // than believing the old target was reached.
+      if (!done) {
+        if (id !== undefined) lastShown.set(id, shown);
+        instanceLast.current = shown;
+      }
     };
     // `id`/options are identity, not inputs — only a new value animates.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -173,8 +195,7 @@ export function Fill({
   useIsoLayoutEffect(() => {
     const node = el.current;
     const key = id !== undefined ? `fill:${id}` : undefined;
-    const from = key !== undefined ? lastShown.get(key) ?? 0 : instanceLast.current ?? 0;
-    if (key !== undefined) lastShown.set(key, to);
+    const from = key !== undefined ? startFor(key, to) : instanceLast.current ?? 0;
     instanceLast.current = to;
     if (!node || from === to || prefersReducedMotion()) return;
     // Paint `from` with no transition, force a reflow, then let `.fill-bar` slide to `to`.
@@ -182,10 +203,20 @@ export function Fill({
     node.style[axis] = `${from}%`;
     void node.offsetWidth;
     node.style.transition = '';
+    let fired = false;
     const raf = requestAnimationFrame(() => {
+      fired = true;
       node.style[axis] = `${to}%`;
     });
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      cancelAnimationFrame(raf);
+      // Cut short before the slide began (StrictMode's mount-unmount-mount):
+      // forget `to`, so the next run slides again instead of leaving `from`.
+      if (!fired) {
+        if (key !== undefined) lastShown.set(key, from);
+        instanceLast.current = from;
+      }
+    };
     // `id` is identity, not an input — only a new value slides.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [to, axis]);

@@ -180,7 +180,7 @@
     --color-link-600: 48 64 85;        /* link hover → #304055 */
     /* ONE COLOUR PER MEANING — the button rule (owner 2026-10-07,
      * corpus BUTTON_RULE_2026-10-07_fable.md). Read by `components/action-button.tsx`
-     * (`tone` → token). Primary stays `--color-mulberry`; neutral stays `--color-ink`.
+     * (`tone` → token). Brand (terracotta) stays `--color-mulberry`; neutral stays `--color-ink`.
      * Every ratio MEASURED (WCAG relative luminance); the label is 13 px / 500 =
      * normal text, so the floor is 4.5:1. "tint" = the outlined button's 9% wash.
      *   ok      #2B744A  on white 5.68 · white label on fill 5.68 · on tint 5.00  AA
@@ -192,7 +192,7 @@
      *           --color-info" → REUSED: 8.50 on white · 7.37 on tint, AAA; the doc's
      *           #1F6FB2 passed too, 5.28, but a second blue for one meaning is a
      *           second source of truth). Aliased, so the two can never drift.
-     *   primary outlined word = --color-mulberry-700 #9D3F1E · 5.88 on the mulberry
+     *   brand outlined word = --color-mulberry-700 #9D3F1E · 5.88 on the mulberry
      *           tint (mulberry itself is 4.22 there — FAILS — so the filled main
      *           verb keeps mulberry with a white label, 4.76). */
     --color-ok: 43 116 74;             /* #2B744A */
@@ -7647,10 +7647,12 @@ html:has(.hub-shape-full) { overflow-x: clip; }
 /* ─── ActionButton — the button rule (owner 2026-10-07) ─────────────────────
  * One shape for every action: a 40 px pill with a border, icon + word.
  * `components/action-button.tsx` is the only producer of these classes.
- * Tone → token (globals :root above): primary=mulberry · ok · info · warn ·
+ * Tone → token (globals :root above): brand=mulberry · ok · info · warn ·
  * danger · neutral=ink. `main` = filled (white label); the rest = outlined on
  * a 9% wash of the tone, word in the tone. `.icon-only` hides the word when
- * `useFitRow` runs out of width — `aria-label` still carries it.
+ * `useFitRow` runs out of width — `aria-label` still carries it. A fitted row
+ * must be a `min-width: 0` flex/grid child or its width never shrinks and the
+ * measure lies (the prototype's `.detail{min-width:0}` bug) — the hook sets it.
  * Measured ratios are in the token comment, not repeated here. */
 .ab {
   --ab-tone: var(--color-ink);
@@ -7668,8 +7670,8 @@ html:has(.hub-shape-full) { overflow-x: clip; }
   font-weight: 500;
   line-height: 1;
   border-radius: var(--m-r-full);
-  border: 1px solid rgb(var(--ab-tone) / 0.45);
-  background: rgb(var(--ab-tone) / 0.09);
+  border: 1px solid color-mix(in srgb, rgb(var(--ab-tone)) 45%, transparent);
+  background: color-mix(in srgb, rgb(var(--ab-tone)) 9%, transparent);
   color: rgb(var(--ab-word));
   cursor: pointer;
   text-decoration: none;
@@ -7682,12 +7684,20 @@ html:has(.hub-shape-full) { overflow-x: clip; }
 .ab:disabled, .ab[aria-disabled='true'] { opacity: 0.35; cursor: not-allowed; transform: none; }
 .ab.icon-only { width: 40px; padding: 0; }
 .ab.icon-only .lbl { display: none; }
-.ab-primary { --ab-tone: var(--color-mulberry); --ab-word: var(--color-mulberry-700); }
+.ab-brand { --ab-tone: var(--color-mulberry); --ab-word: var(--color-mulberry-700); }
 .ab-ok { --ab-tone: var(--color-ok); }
 .ab-info { --ab-tone: var(--color-info); }
 .ab-warn { --ab-tone: var(--color-warn); }
 .ab-danger { --ab-tone: var(--color-danger); }
-.ab-neutral { --ab-tone: var(--color-ink); background: transparent; border-color: rgb(var(--color-ink) / 0.18); }
+.ab-neutral { --ab-tone: var(--color-ink); background: transparent; border-color: color-mix(in srgb, rgb(var(--color-ink)) 18%, transparent); }
+/* `quiet` — the prototype's `.btn.quiet`: a secondary that should not compete
+ * (Skip · Not now). Hairline border, muted word, no wash — any tone. Muted word
+ * = ink at 72% on white, measured 5.75:1, AA. Ignored on `main`. */
+.ab.quiet:not(.ab-main) {
+  background: transparent;
+  border-color: color-mix(in srgb, rgb(var(--color-ink)) 18%, transparent);
+  color: color-mix(in srgb, rgb(var(--color-ink)) 72%, transparent);
+}
 .ab.ab-main {
   background: rgb(var(--ab-tone));
   border-color: rgb(var(--ab-tone));

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { GripVertical, Plus } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
-import { MOMENT_LINE_MAX, MOMENT_TITLE_MAX, type ChapteredMoment, type LoveStoryMoment } from '@/lib/love-story-moments';
+import { LOVE_STORY_CHAPTER_LABEL, MOMENT_LINE_MAX, MOMENT_TITLE_MAX, type ChapteredMoment, type LoveStoryMoment, type MomentAnchor } from '@/lib/love-story-moments';
 import { STUDIO_FOOT_BUTTON } from '@/lib/studio-skin';
 import { MomentNotKept, type MomentSheet } from './moment-sheet';
 /* 🧭 The Studio's own add/edit sheet (owner 2026-10-08) — rides this lazy chunk, never the first load. */
@@ -152,6 +152,60 @@ function OpenMoment({
   );
 }
 
+/* A moment's card — ONE set of boxes for a real moment and for the sample of one (`SampleStory`),
+   so the sample cannot drift from the arrangement it stands for. */
+const CARD_BAND = 'border-t border-ink/10 bg-cream';
+const CARD_ROW = 'flex items-center gap-3 py-2.5 pl-4 pr-1';
+const CARD_PHOTO = 'h-16 w-16 shrink-0 rounded-md';
+const CARD_WORDS = 'flex min-w-0 flex-1 flex-col';
+const CARD_GRIP = 'flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink/35';
+
+/** The three chapters a story is anchored by — `MOMENT_ANCHORS`, spelled (its type holds it): the list itself is not
+    read by anything the Maker loads first, and asking for it here would add it to that first load (507 KB). */
+const SAMPLE_CHAPTERS = ['met', 'together', 'yes'] as const satisfies readonly MomentAnchor[];
+
+/** The sample lines' widths — a year, a title, a first line — a little different on each card. */
+const SAMPLE_LINES = [
+  ['w-11', 'w-28', 'w-44'],
+  ['w-11', 'w-20', 'w-36'],
+  ['w-11', 'w-24', 'w-40'],
+] as const;
+
+/**
+ * 🩶 AN EMPTY STORY SHOWS WHAT IT WILL LOOK LIKE (owner 2026-10-08 on the preview, of an event with
+ * no moments: *"i cannot see it is blank"*; his standing rule for empty things, the same day:
+ * *"maybe show what it could look like with boxes?"*). The approved prototype draws no empty state
+ * (`EDITORS.story` maps the moments it has), so this is the shipped card itself — the same band,
+ * photo box, three lines and grip (`CARD_*`) — in grey shapes, one under each of the three chapters
+ * a story is anchored by (`SAMPLE_CHAPTERS`: How we met · Together · The yes, the real labels).
+ *
+ * Unmistakably a sample: shapes only (no name, no year, no words of a moment), `aria-hidden`, not
+ * tappable — and drawn ONLY while there is no moment, so the first real one replaces it. Editor
+ * only: these cards exist in the new Maker's Studio and nowhere a guest can open.
+ */
+function SampleStory() {
+  return (
+    <ol data-studio-story-sample="" aria-hidden className="pointer-events-none flex select-none flex-col border-b border-ink/10">
+      {SAMPLE_CHAPTERS.map((chapter, i) => (
+        <li key={chapter} data-studio-story-sample-card={chapter} className={CARD_BAND}>
+          <p className="px-4 pt-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-ink/45">{LOVE_STORY_CHAPTER_LABEL[chapter]}</p>
+          <div className={CARD_ROW}>
+            <span data-sample-shape="photo" className={`${CARD_PHOTO} bg-ink/10`} />
+            <span className={CARD_WORDS}>
+              <span data-sample-shape="year" className={`h-4 ${SAMPLE_LINES[i]![0]} rounded-sm bg-ink/15`} />
+              <span data-sample-shape="title" className={`mt-2 h-3 ${SAMPLE_LINES[i]![1]} rounded-sm bg-ink/15`} />
+              <span data-sample-shape="line" className={`mt-2 h-2.5 ${SAMPLE_LINES[i]![2]} max-w-full rounded-sm bg-ink/10`} />
+            </span>
+            <span className={`${CARD_GRIP} opacity-50`}>
+              <GripVertical className="h-5 w-5" strokeWidth={1.75} />
+            </span>
+          </div>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
 export function MomentOrderCards({
   action,
   moments,
@@ -227,9 +281,9 @@ export function MomentOrderCards({
                 key={id}
                 data-moment-card={id}
                 data-studio-story-card={isOpen ? 'open' : ''}
-                className={`border-t border-ink/10 bg-cream ${dragging === id ? 'relative z-10 opacity-90 shadow-[0_10px_24px_-18px_rgba(30,26,18,.6)]' : ''}`}
+                className={`${CARD_BAND} ${dragging === id ? 'relative z-10 opacity-90 shadow-[0_10px_24px_-18px_rgba(30,26,18,.6)]' : ''}`}
               >
-                <div className="flex items-center gap-3 py-2.5 pl-4 pr-1">
+                <div className={CARD_ROW}>
                   <button
                     type="button"
                     data-studio-story-head={id}
@@ -239,11 +293,11 @@ export function MomentOrderCards({
                   >
                     {photo ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={photo} alt="" className="h-16 w-16 shrink-0 rounded-md object-cover" />
+                      <img src={photo} alt="" className={`${CARD_PHOTO} object-cover`} />
                     ) : (
-                      <span aria-hidden className="h-16 w-16 shrink-0 rounded-md bg-[linear-gradient(135deg,rgb(var(--color-gild)/.35),rgb(var(--color-cream)))]" />
+                      <span aria-hidden className={`${CARD_PHOTO} bg-[linear-gradient(135deg,rgb(var(--color-gild)/.35),rgb(var(--color-cream)))]`} />
                     )}
-                    <span className="flex min-w-0 flex-1 flex-col">
+                    <span className={CARD_WORDS}>
                       <b className="font-serif text-[20px] font-medium leading-none text-gild">{m.date?.y ?? '—'}</b>
                       {m.title ? (
                         <em className="mt-0.5 truncate text-[14.5px] font-semibold not-italic text-ink">{m.title}</em>
@@ -256,7 +310,7 @@ export function MomentOrderCards({
                     type="button"
                     aria-label={`Move ${m.title || 'this moment'} — drag, or use the arrow keys`}
                     data-moment-grip={id}
-                    className="flex h-11 w-11 shrink-0 cursor-grab touch-none items-center justify-center rounded-full text-ink/35 active:cursor-grabbing"
+                    className={`${CARD_GRIP} cursor-grab touch-none active:cursor-grabbing`}
                     onPointerDown={(e) => {
                       e.preventDefault();
                       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
@@ -293,7 +347,10 @@ export function MomentOrderCards({
           })}
         </ol>
       ) : (
-        <p className="px-4 pt-6 text-center text-[14px] text-ink/60">No moments yet.</p>
+        <>
+          <p className="px-4 pb-3 pt-1 text-[14px] text-ink/60">No moments yet.</p>
+          <SampleStory />
+        </>
       )}
       {/* The editor's own bottom (prototype `.ebot`): pinned to the foot of a phone's screen, room kept above it. */}
       <div aria-hidden className="h-20 shrink-0 lg:hidden" />

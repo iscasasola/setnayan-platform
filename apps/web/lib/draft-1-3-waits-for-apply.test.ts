@@ -15,14 +15,23 @@
  *
  * 🛡 Sabotaged once each (2026-10-08), each red alone: `savePabuyaMessage`'s draft branch removed →
  * B; Apply's `openingLine: openingLineWrite` merge removed → D; the Reply-by fd without the draft
- * field → B.
+ * field → B. (S3b) `import { PABUYA_MESSAGE_MAX } from '@/lib/pabuya-message'` put back in
+ * `lib/hub-draft.ts` → A; the Studio's `fd.set(HUB_DRAFT_FIELD, '1')` removed → B; the editor's
+ * `import { HUB_DRAFT_FIELD } from '@/lib/hub-draft'` put back → B; its spelled field renamed off
+ * `'draft'` → B; `std_film_venue_city: 'venues'` removed from the fact group → A (and tsc: the Record
+ * type); the computed `Object.fromEntries(HUB_DRAFT_VENUE_COLUMNS…)` spread put back → A.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from './strip-comments';
+import { PABUYA_MESSAGE_MAX } from './pabuya-message';
 import {
+  HUB_DRAFT_FACT_GROUP,
+  HUB_DRAFT_FIELD,
+  HUB_DRAFT_PABUYA_MESSAGE_MAX,
+  HUB_DRAFT_VENUE_COLUMNS,
   HUB_DRAFT_EVENT_COLUMNS,
   HUB_DRAFT_EVENT_READ_COLUMNS,
   emptyHubDraft,
@@ -43,6 +52,13 @@ test('A · the draft holds the three — cleaned as their live writers clean the
   assert.ok(!(HUB_DRAFT_EVENT_READ_COLUMNS as readonly string[]).includes('guest_list_edit_deadline'), 'Reply by joined the session-client live read (its readers are admin-only)');
   assert.equal(sanitizeHubDraftEventValue('pabuya_message', '  Thank you  '), 'Thank you');
   assert.equal(sanitizeHubDraftEventValue('pabuya_message', 'x'.repeat(900))?.toString().length, 600, 'the thank-you words are not capped as `cleanPabuyaMessage` caps them');
+  /* ⚖ The cap is the page's own NUMBER, and `lib/hub-draft.ts` (in the Maker's first load) never imports
+     `lib/pabuya-message`: that import carried the five templates into the first load (507.4 KB, CI red). */
+  assert.equal(HUB_DRAFT_PABUYA_MESSAGE_MAX, PABUYA_MESSAGE_MAX, 'the draft caps the thank-you words at a different length than the column');
+  assert.doesNotMatch(read('lib/hub-draft.ts'), /from '(?:@\/lib|\.)\/pabuya-message'/, 'lib/hub-draft.ts imports the templates module into the Maker’s first load');
+  /* …and the venues' fact group is WRITTEN OUT: a computed spread is a statement every Maker open must run. */
+  for (const c of HUB_DRAFT_VENUE_COLUMNS) assert.equal(HUB_DRAFT_FACT_GROUP[c], 'venues', `${c} is not counted with the venues`);
+  assert.doesNotMatch(read('lib/hub-draft.ts'), /Object\.fromEntries\(HUB_DRAFT_VENUE_COLUMNS/, 'the venues’ fact group is computed at load again (first-load weight)');
   assert.equal(sanitizeHubDraftEventValue('guest_list_edit_deadline', '2027-01-14'), '2027-01-14');
   assert.equal(sanitizeHubDraftEventValue('guest_list_edit_deadline', '2027-02-30'), undefined, 'a day that does not exist is drafted');
   assert.equal(sanitizeHubDraftEventValue('guest_list_edit_deadline', null), null, 'Reply by cannot go back to the default');
@@ -64,6 +80,13 @@ test('B · the Maker writes each into the DRAFT, never the live column', () => {
   assert.match(save.slice(draftAt), /saveHubDraftPatch\(eventId, \{ events: \{ pabuya_message: patch\.pabuya_message \?\? null \} \}\);[\s\S]{0,200}delete patch\.pabuya_message;/, 'the drafted words still reach the live write');
   const editor = read(`${D}/pabuya/_components/pabuya-message-editor.tsx`);
   assert.match(editor, /if \(maker\) fd\.set\(HUB_DRAFT_FIELD, '1'\);/, 'the Maker’s thank-you editor does not ask for the draft');
+  /* ⚖ The editor is the E-Gifts PAGE's too: it SPELLS the draft field and never imports `lib/hub-draft.ts`
+     (which would hand that page the Maker's draft library and re-split the Maker's first-load chunks). */
+  assert.equal(/\nconst HUB_DRAFT_FIELD = '([^']+)';/.exec(editor)?.[1], HUB_DRAFT_FIELD, 'the thank-you editor’s draft field is not the draft’s');
+  assert.doesNotMatch(editor, /from '@\/lib\/hub-draft(?:-store|-change-lines)?'/, 'the E-Gifts page’s editor imports the Maker’s draft library');
+  /* The Studio has no Save: the words are drafted as they are typed (`studio-round-3-follows-the-owner` 4b). */
+  const studioWords = editor.slice(editor.indexOf('function StudioThanks('), editor.indexOf('function ShippedEditor('));
+  assert.match(studioWords, /fd\.set\(HUB_DRAFT_FIELD, '1'\);\s*return savePabuyaMessage\(fd\);/, 'the Studio’s thank-you words do not ask for the draft');
 
   const pax = read(`${D}/actions.ts`);
   const upd = pax.slice(pax.indexOf('export async function updatePaxSettings('));

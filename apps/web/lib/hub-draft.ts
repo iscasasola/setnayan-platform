@@ -152,7 +152,6 @@ import { boardWithMainColours, mainColoursChanged, paintedPaletteKey, sanitizeMa
 import { boardIsTheCouples, boardWithFill, sanitizeSeedPalette } from '@/lib/mood-board-palette-set';
 import { cleanDisplayName, cleanPersonName } from '@/lib/typed-names';
 import { NAME_STYLES, nameStyleOfPrintDetails } from '@/lib/name-style';
-import { PABUYA_MESSAGE_MAX } from '@/lib/pabuya-message';
 import { PASS_CARD_DESIGNS, passCardDesignFrom } from '@/lib/pass-card';
 import type { DateClash } from '@/lib/date-fits-booked';
 import { MARCH_DRAFT_PLACE, sanitizeMarchMoves } from '@/lib/march-draft';
@@ -461,6 +460,17 @@ export const HUB_DRAFT_SETTINGS_COLUMNS = ['pabuya_message', 'guest_list_edit_de
 export const HUB_DRAFT_OPENING_LINE_KEY = 'opening_line';
 /** `parsePrintDetails`' own cap for the opening line. */
 export const HUB_DRAFT_OPENING_LINE_MAX = 240;
+/**
+ * `cleanPabuyaMessage`'s own cap for the thank-you words (`PABUYA_MESSAGE_MAX`, the column's
+ * `events_pabuya_message_chk`) — the NUMBER, never an import of `lib/pabuya-message`.
+ *
+ * ⚖ Budget (507 KB, never raised): this file is in the Maker's FIRST LOAD (the toolbar and the shell
+ * read it). Importing the cap from `lib/pabuya-message` moved that whole module — the five
+ * starting-point templates, ~0.5 KB gzipped — out of the lazy thank-you editor's chunk and into the
+ * first load: 506.9 → 507.4 KB, CI red on "draft 1-3". `draft-1-3-waits-for-apply.test.ts` holds the
+ * two numbers equal and this file free of that import.
+ */
+export const HUB_DRAFT_PABUYA_MESSAGE_MAX = 600;
 
 /**
  * 📍 THE VENUES TYPED IN THE MAKER (owner 2026-10-01, DECISION_LOG "THE MAKER'S
@@ -546,7 +556,19 @@ export const HUB_DRAFT_FACT_GROUP: Readonly<
   event_date_precision: 'date',
   print_details: 'name-style',
   // 📍 The venues are ONE change however many of their nine columns moved.
-  ...(Object.fromEntries(HUB_DRAFT_VENUE_COLUMNS.map((c) => [c, 'venues'])) as Record<(typeof HUB_DRAFT_VENUE_COLUMNS)[number], 'venues'>),
+  // ⚖ WRITTEN OUT, never computed from `HUB_DRAFT_VENUE_COLUMNS` (the type above refuses a missing or
+  // an extra column): this file is in the Maker's FIRST LOAD, and a computed spread is a statement the
+  // minifier must keep — it shipped the nine column names and an `Object.fromEntries` call to every
+  // Maker open for a table no client reads (507 KB, never raised).
+  std_film_ceremony_name: 'venues',
+  ceremony_venue_address: 'venues',
+  ceremony_venue_latitude: 'venues',
+  ceremony_venue_longitude: 'venues',
+  std_film_venue_name: 'venues',
+  venue_address: 'venues',
+  venue_latitude: 'venues',
+  venue_longitude: 'venues',
+  std_film_venue_city: 'venues',
   ceremony_time: 'ceremony-time',
 };
 
@@ -808,7 +830,7 @@ export function sanitizeHubDraftEventValue(
       return draftText(raw, HUB_DRAFT_TEXT_MAX);
     // ⏳ "Draft 1-3" (owner 2026-10-08): `cleanPabuyaMessage`'s cap; a real day for Reply by (null = the default).
     case 'pabuya_message':
-      return draftText(raw, PABUYA_MESSAGE_MAX);
+      return draftText(raw, HUB_DRAFT_PABUYA_MESSAGE_MAX);
     case 'guest_list_edit_deadline':
       return isCalendarDay(raw) ? raw : undefined;
     case 'together_since':

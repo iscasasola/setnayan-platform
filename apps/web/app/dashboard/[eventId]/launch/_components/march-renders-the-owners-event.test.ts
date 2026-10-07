@@ -48,6 +48,7 @@ test('a throw inside the march draws ONE line in its own place — never the roo
   assert.match(renderToString(b.render() as React.ReactElement), /march/);
   // The page the Maker mounts IS the bounded one (the body is never exported bare).
   const src = readFileSync(join(process.cwd(), 'app/dashboard/[eventId]/launch/_components/details-march.tsx'), 'utf8');
-  assert.match(src, /export function MarchMaker\(props: MarchMakerProps\) \{\s*return \(\s*<MarchBoundary>\s*<MarchMakerBody \{\.\.\.props\} \/>/);
+  // (An unread draft draws the same one line first — 2026-10-06, the march waits for Apply.)
+  assert.match(src, /export function MarchMaker\(props: MarchMakerProps\) \{[^}]*if \(props\.draftUnread\) return <CouldNotLoad onRetry=\{requestMakerRefresh\} \/>;\s*return \(\s*<MarchBoundary>\s*<MarchMakerBody \{\.\.\.props\} \/>/);
   assert.doesNotMatch(src, /export function MarchMakerBody/);
 });

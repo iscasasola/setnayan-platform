@@ -61,6 +61,10 @@
  *           (owner 2026-09-27, every scene drags within its stage) — and the
  *           GALLERY row alone `std_lead`, the Save the Date's Film · Photos pick;
  *           both live in `config_json` and both are free (`lib/stage-scenes.ts`).
+ * march   — (2026-10-06, "Wait for apply") the Wedding March's moves, each the
+ *           list of shipped march steps one drop makes (`lib/march-draft.ts`).
+ *           Not a column: Apply REPLAYS them through the shipped march actions,
+ *           in order. Free. Never Pro.
  */
 import { sanitizeStdFollowTheme } from './std-backgrounds';
 import {
@@ -149,6 +153,8 @@ import { cleanDisplayName, cleanPersonName } from '@/lib/typed-names';
 import { NAME_STYLES, nameStyleOfPrintDetails } from '@/lib/name-style';
 import { PASS_CARD_DESIGNS, passCardDesignFrom } from '@/lib/pass-card';
 import type { DateClash } from '@/lib/date-fits-booked';
+import { MARCH_DRAFT_PLACE, sanitizeMarchMoves } from '@/lib/march-draft';
+import type { MarchStep } from '@/lib/march-drag';
 
 /** The form field that sends an existing Event Hub writer's save to the draft. */
 export const HUB_DRAFT_FIELD = 'draft';
@@ -651,6 +657,14 @@ export type HubDraftState = {
    * `null` = back to the default. Never Pro. Absent = nothing drafted.
    */
   fixedStyles?: FixedSceneStylesDraft;
+  /**
+   * 🚶 THE WEDDING MARCH'S MOVES (owner 2026-10-06, *"Wait for apply"*) — one
+   * entry per drop, each the shipped march steps that drop makes, oldest first
+   * (`lib/march-draft.ts`). The Maker draws the live march with them laid on
+   * (`replayMarch`); Apply replays them through the shipped actions. Never Pro.
+   * Absent = nothing drafted.
+   */
+  march?: MarchStep[][];
 };
 
 export type HubDraft = HubDraftState & {
@@ -949,11 +963,14 @@ function sanitizeState(raw: unknown): HubDraftState {
   const editorial = sanitizePostEventDraft(src.editorial);
   // 🎨 The fixed parts' style picks — through their own reader.
   const fixedStyles = sanitizeFixedSceneStylesDraft(src.fixedStyles);
+  // 🚶 The Wedding March's moves — each step one of the shipped march moves (`lib/march-draft.ts`).
+  const march = sanitizeMarchMoves(src.march);
   return {
     events,
     widgets,
     ...(editorial ? { editorial } : {}),
     ...(fixedStyles ? { fixedStyles } : {}),
+    ...(march ? { march } : {}),
   };
 }
 
@@ -973,7 +990,8 @@ export function hubDraftHasChanges(d: HubDraftState): boolean {
     Object.keys(d.events).length > 0 ||
     Object.keys(d.widgets).length > 0 ||
     Object.keys(d.editorial ?? {}).length > 0 ||
-    Object.keys(d.fixedStyles ?? {}).length > 0
+    Object.keys(d.fixedStyles ?? {}).length > 0 ||
+    (d.march?.length ?? 0) > 0
   );
 }
 
@@ -989,6 +1007,10 @@ export type HubDraftPatch = {
   editorial?: PostEventDraft;
   /** 🎨 The fixed parts' style picks this save changes, part by part. */
   fixedStyles?: FixedSceneStylesDraft;
+  /** 🚶 Wedding March moves to ADD, after the ones already drafted (a drop sends its own). */
+  march?: MarchStep[][];
+  /** 🚶 Take the LAST drafted march move back off (the march's own Undo) — before `march` is added. */
+  marchUndo?: true;
 };
 
 const stateOf = (d: HubDraftState): HubDraftState => ({
@@ -998,6 +1020,7 @@ const stateOf = (d: HubDraftState): HubDraftState => ({
   ) as HubDraftState['widgets'],
   ...(d.editorial ? { editorial: { ...d.editorial } } : {}),
   ...(d.fixedStyles ? { fixedStyles: { ...d.fixedStyles } } : {}),
+  ...(d.march ? { march: d.march.map((move) => [...move]) } : {}),
 });
 
 /**
@@ -1032,6 +1055,13 @@ export function mergeHubDraft(current: HubDraft, patch: HubDraftPatch): HubDraft
   if (clean.editorial) next.editorial = { ...(next.editorial ?? {}), ...clean.editorial };
   // 🎨 A pick for one fixed part never forgets another's.
   if (clean.fixedStyles) next.fixedStyles = { ...(next.fixedStyles ?? {}), ...clean.fixedStyles };
+  /* 🚶 The march's moves are a LIST, in the order they were made: a save ADDS
+     its move after the drafted ones (the server's list, never the client's
+     copy of it — two saves can never write over each other), and the march's
+     own Undo takes the last one back off. */
+  if ((patch as { marchUndo?: unknown }).marchUndo === true && next.march?.length) next.march = next.march.slice(0, -1);
+  if (clean.march) next.march = [...(next.march ?? []), ...clean.march];
+  if (next.march && next.march.length === 0) delete next.march;
   const history = [...current.history, stateOf(current)].slice(-HUB_DRAFT_HISTORY_LIMIT);
   return fitHubDraftHistory({ v: 1, ...next, history });
 }
@@ -1228,6 +1258,15 @@ export type HubDraftItem =
       scene: FixedStyleScene;
       /** The id to store, or null = back to the default. */
       value: string | null;
+      change: LookChange;
+      pro: false;
+      freePart?: undefined;
+    }
+  | {
+      /** 🚶 The Wedding March's drafted moves (`lib/march-draft.ts`) — ONE change line, "Wedding March · N changes". Free. */
+      kind: 'march';
+      /** The moves, oldest first — Apply replays them in this order. */
+      value: MarchStep[][];
       change: LookChange;
       pro: false;
       freePart?: undefined;
@@ -1910,6 +1949,9 @@ export function classifyHubDraft(
     const liveId = live.fixedStyles?.[scene] ?? null;
     if ((value ?? null) !== liveId) items.push({ kind: 'fixed-style', scene, value: value ?? null, change: 'change', pro: false });
   }
+  // 🚶 The Wedding March's moves, very last: they are not compared with live (a
+  // move is a step, not a value) — every drafted move is one Apply makes.
+  if (draft.march?.length) items.push({ kind: 'march', value: draft.march, change: 'change', pro: false });
   return { items, orphans };
 }
 
@@ -2029,6 +2071,9 @@ export function planHubDraftApply(
     } else if (item.kind === 'fixed-style') {
       // Never refused (a style pick is free) — kept for completeness.
       remaining.fixedStyles = { ...(remaining.fixedStyles ?? {}), [item.scene]: item.value };
+    } else if (item.kind === 'march') {
+      // Never refused (a march move is free) — kept for completeness.
+      remaining.march = item.value;
     } else {
       const w = (remaining.widgets[item.widgetType] ??= {});
       if (item.field === 'canvas') w.canvas = item.value as HubSectionCanvas | null;
@@ -2049,10 +2094,20 @@ export function planHubDraftApply(
  */
 export function hubDraftWriteTables(
   items: readonly HubDraftItem[],
-): Array<'events' | 'invitation_widgets' | 'event_editorial'> {
-  const out = new Set<'events' | 'invitation_widgets' | 'event_editorial'>();
+): Array<'events' | 'invitation_widgets' | 'event_editorial' | 'march_walks'> {
+  const out = new Set<'events' | 'invitation_widgets' | 'event_editorial' | 'march_walks'>();
   // 🎨 A fixed part's style pick is a key of `events.style_preferences`.
-  for (const i of items) out.add(i.kind === 'event' || i.kind === 'fixed-style' ? 'events' : i.kind === 'editorial' ? 'event_editorial' : 'invitation_widgets');
+  // 🚶 The march's moves are the shipped march actions' (`march_walks`, the tray, the section order).
+  for (const i of items)
+    out.add(
+      i.kind === 'event' || i.kind === 'fixed-style'
+        ? 'events'
+        : i.kind === 'editorial'
+          ? 'event_editorial'
+          : i.kind === 'march'
+            ? 'march_walks'
+            : 'invitation_widgets',
+    );
   return [...out];
 }
 
@@ -2235,7 +2290,9 @@ export type HubDraftRefusal =
   /** 🗓 A drafted date a booked supplier holds (`eventDateRefusal` → `locked` · `widens`). */
   | 'date_locked'
   /** 🕒 A ceremony time with no day to stand on (the event's date is not a single day). */
-  | 'needs_a_day';
+  | 'needs_a_day'
+  /** 🚶 A drafted march move the server refused at Apply — the moves before it went live, the rest were dropped. */
+  | 'march_stopped';
 
 export type HubDraftActionResult =
   | {
@@ -2386,6 +2443,7 @@ export function hubDraftItemLabel(item: HubDraftItem, sectionLabel: (t: WidgetTy
   }
   if (item.kind === 'editorial') return postEventItemLabel(item.item);
   if (item.kind === 'fixed-style') return `${FIXED_STYLE_LABEL[item.scene]} · its style`;
+  if (item.kind === 'march') return MARCH_DRAFT_PLACE;
   if (item.field === 'main') return 'Behind every scene';
   if (item.field === 'std_lead') return 'Save the Date · Film or Photos';
   if (item.field === 'custom') return `${sectionLabel(item.widgetType)} · its words`;

@@ -50,6 +50,7 @@ import { HubStage } from './_components/hub-stage';
 import { MakerShell } from './_components/maker-shell';
 import { HubDraftDock } from '../website/_components/hub-draft-dock';
 import { readHubDraft } from '@/lib/hub-draft-store';
+import type { MarchStep } from '@/lib/march-drag';
 import { resolveReplyBy, sanitizeRsvpAskConfig, type RsvpAskConfig } from '@/lib/rsvp-ask';
 import { makerPageCanvasSrc } from '@/lib/maker-made-once-pages';
 import { readMakerRevealStages } from './_components/maker-made-once';
@@ -1132,8 +1133,11 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       let draftedMain: unknown = undefined;
       // 🔳 The QR look being edited — drafted over live (owner 2026-09-29, "yes to all 3").
       let qrPrefs: unknown = printEvent.style_preferences;
+      // 🚶 The Wedding March's drafted moves (owner 2026-10-06, "Wait for apply"); null = the draft could not be read.
+      let draftedMarch: MarchStep[][] | null = null;
       try {
         const d = await readHubDraft(supabase, eventId);
+        draftedMarch = d?.march ?? [];
         if (d) draftedEvents = d.events as Record<string, unknown>;
         if (d) draftedVenue = d.widgets.venue_map?.venue ?? null;
         if (d && d.widgets.hero && 'main' in d.widgets.hero) draftedMain = d.widgets.hero.main ?? null;
@@ -1312,6 +1316,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         // ✍ The names, the date and the venues as the couple is editing them (drafted until Apply).
         drafted: draftedEvents,
         draftedVenue,
+        draftedMarch,
       }).catch((e: unknown) => {
         console.error('[details] your event could not be read:', e instanceof Error ? e.message : e);
         return null;

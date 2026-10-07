@@ -223,6 +223,8 @@ export function hubDraftProEffects(draft: HubDraftState, live: HubLiveState, own
     }
     // 🎨 A fixed part's Style pick is free — never refused, so never listed.
     if (item.kind === 'fixed-style') continue;
+    // 🚶 …and so is every Wedding March move.
+    if (item.kind === 'march') continue;
     if (item.kind === 'event') {
       const named = eventEffect(item.column, item.value);
       push({

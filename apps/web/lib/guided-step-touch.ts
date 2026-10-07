@@ -70,9 +70,9 @@ export function touchOrigin(target: unknown, doc: Doc | null): unknown {
 }
 
 /**
- * The opt-in a control that WRITES LIVE carries — the Wedding March order and
- * Reply by (owner 2026-10-05: they stay instant, and say "Guests see this right
- * away"). ON THE CONTROL'S OWN BLOCK, never inferred from the "Guests see this
+ * The opt-in a control that WRITES LIVE carries — Reply by (owner 2026-10-05:
+ * it stays instant, and says "Guests see this right away"; the Wedding March
+ * carried it too until 2026-10-06, when it began to wait for Apply). ON THE CONTROL'S OWN BLOCK, never inferred from the "Guests see this
  * right away" mark: that mark also sits beside forms with a Save of their own
  * (the parent add, the words blocks, the print menu), and typing a parent's name
  * there and pressing Skip would lose it with no question (review 2026-10-05).

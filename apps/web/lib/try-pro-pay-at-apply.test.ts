@@ -129,6 +129,11 @@ test('2 · Apply for a free couple writes only free changes — every Pro effect
       assert.equal(item.pro, false, 'a fixed part\'s Style pick is free');
       continue;
     }
+    // 🚶 A Wedding March move is free (owner 2026-10-06, "Wait for apply").
+    if (item.kind === 'march') {
+      assert.equal(item.pro, false, 'a Wedding March move is free');
+      continue;
+    }
     if (item.field === 'canvas') {
       const row = LIVE.widgets.find((w) => w.widget_id === item.widgetId)!;
       const live = ((row.config_json as { canvas?: HubSectionCanvas } | null)?.canvas ?? {}) as HubSectionCanvas;
@@ -223,6 +228,7 @@ test('3 · one source: no Pro effect named for an owning couple, and none once t
   const effects = hubDraftProEffects(triedDraft(), LIVE, false);
   for (const item of plan.refused) {
     if (item.kind === 'fixed-style') continue; // free — never refused
+    if (item.kind === 'march') continue; // free — never refused
     const key = item.kind === 'event' ? `event:${item.column}` : item.kind === 'editorial' ? 'pe:' : item.widgetType;
     assert.ok(
       effects.some((e) =>

@@ -647,6 +647,100 @@ export function planMove(
   return { ok: true, sections: p.next, printed: [...printed], steps: p.steps, said: p.said, undo: p.undo };
 }
 
+/* ── THE DRAFTED MARCH, DRAWN (owner 2026-10-06, "Wait for apply") ──────────
+ * Every move now waits in the Event Hub draft as its STEPS (`lib/march-draft.ts`);
+ * the Maker draws the live march with those steps laid on. Each step is laid on
+ * the way its shipped action leaves the march — the same prediction a drop
+ * draws (`simulateSwap` · `simulateJoin` · `simulateUnpair`, the section rule
+ * `nextSectionOrder`, the tray's "back in at the end of their section") — so a
+ * drafted move looks, after the Maker re-reads the draft, exactly as it did at
+ * the drop (`the-march-waits-for-apply.test.ts` holds that, drop by drop).
+ * A step that names someone the live march no longer has changes nothing here;
+ * Apply asks the server, which decides.
+ */
+
+/** The march as the maker draws it: the walks, the printed sections' order, the "Not walking" tray. */
+export type MarchShown = { sections: MarchSection[]; printed: string[]; out: MarchOut[] };
+
+/** The movable sections, in the order `printed` puts them (one not in it keeps its place after the rest). */
+function byPrinted(sections: readonly MarchSection[], printed: readonly string[]): MarchSection[] {
+  const rank = (k: string, i: number) => {
+    const at = printed.indexOf(k);
+    return at === -1 ? printed.length + i : at;
+  };
+  const want = movable(sections)
+    .map((k, i) => ({ k, r: rank(k, i) }))
+    .sort((a, b) => a.r - b.r)
+    .map((x) => x.k);
+  return inOrder(sections, want);
+}
+
+/** One step, laid on the march as its action leaves it. */
+export function replayMarchStep(m: MarchShown, step: MarchStep): MarchShown {
+  if (step.kind === 'section') {
+    const printed = nextSectionOrder(m.printed, new Set(m.printed), step.section, step.direction);
+    return printed ? { ...m, printed, sections: byPrinted(m.sections, printed) } : m;
+  }
+  if (step.kind === 'sections-default') {
+    const printed = ENTOURAGE_GROUP_KEYS.filter((k) => m.printed.includes(k));
+    return { ...m, printed, sections: byPrinted(m.sections, printed) };
+  }
+  if (step.kind === 'walking' && step.walks) {
+    const o = m.out.find((x) => x.id === step.guest);
+    if (!o) return m;
+    const person: MarchPerson = { id: o.id, name: o.name, role: o.role, tag: o.tag ?? null, side: o.side ?? null };
+    let sections = m.sections;
+    let s = sections.findIndex((x) => x.key === o.section);
+    if (s === -1) {
+      // Their section had nobody walking: it comes back with them, before the bride's side (as `planIn` draws it).
+      const last = sections.length > 1 && isMarchOnlyGroup(sections[sections.length - 1]!.key) ? sections.length - 1 : sections.length;
+      sections = [...sections.slice(0, last), { key: o.section, label: o.sectionLabel, rows: [] }, ...sections.slice(last)];
+      s = last;
+    }
+    const sec = sections[s]!;
+    return { ...m, sections: withRows(sections, s, [...sec.rows, alone(sec.key, person)]), out: m.out.filter((x) => x.id !== step.guest) };
+  }
+  if (step.kind === 'walking') {
+    const a = locate(m.sections, step.guest);
+    if (!a) return m;
+    const sec = m.sections[a.s]!;
+    const rows = [...sec.rows];
+    const rest = without(sec.key, rows[a.r]!, step.guest);
+    if (rest) rows.splice(a.r, 1, rest);
+    else rows.splice(a.r, 1);
+    return {
+      ...m,
+      sections: rows.length ? withRows(m.sections, a.s, rows) : m.sections.filter((_, i) => i !== a.s),
+      out: [{ ...a.person, section: sec.key, sectionLabel: sec.label }, ...m.out],
+    };
+  }
+  const s = m.sections.findIndex((x) => x.key === step.section);
+  if (s === -1) return m;
+  const sec = m.sections[s]!;
+  switch (step.kind) {
+    case 'swap':
+      return { ...m, sections: withRows(m.sections, s, [...simulateSwap(sec, step.a, step.b).rows]) };
+    case 'join':
+      return { ...m, sections: withRows(m.sections, s, [...simulateJoin(sec, step.anchor, step.joiner).rows]) };
+    case 'unpair':
+      return { ...m, sections: withRows(m.sections, s, [...simulateUnpair(sec, step.guest).rows]) };
+    case 'order': {
+      // The named walks in the order named; a walk the step does not name keeps its place after them.
+      const rank = new Map(step.leads.map((lead, i) => [lead, i]));
+      const rows = sec.rows
+        .map((row, i) => ({ row, r: rank.get(leadOf(row)) ?? step.leads.length + i }))
+        .sort((x, y) => x.r - y.r)
+        .map((x) => x.row);
+      return { ...m, sections: withRows(m.sections, s, rows) };
+    }
+  }
+}
+
+/** Every step in turn — the live march with the drafted moves laid on. */
+export function replayMarch(m: MarchShown, steps: readonly MarchStep[]): MarchShown {
+  return steps.reduce(replayMarchStep, m);
+}
+
 /* ── WHICH SIDE OF THE AISLE (owner 2026-10-06) ───────────────────────────
  * *"Walk side ninong left ninang right"* · *"Brides crew should be on right and
  * grooms crew on the left."* DERIVED, never stored: sponsors by role (Ninong

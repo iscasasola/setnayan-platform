@@ -193,19 +193,19 @@ test('Event Home carries the Event Details button beside the event name', () => 
 });
 
 test('how guests get in — one fact, the shipped readers', () => {
-  assert.deepEqual(howGuestsGetIn(null), { value: 'List only · Guests reply', chosen: false });
-  assert.deepEqual(howGuestsGetIn({ whoCanRsvp: 'anyone' }), { value: 'Accept · Guests reply', chosen: true });
-  assert.equal(howGuestsGetIn({ guestsReply: false }).value, 'List only · No reply, each gets their own QR');
-  assert.equal(howGuestsGetIn({ guestsReply: false, whoCanRsvp: 'anyone' }).value, 'Open · One QR for everyone');
+  assert.deepEqual(howGuestsGetIn(null), { value: 'Only my list · They reply', chosen: false });
+  assert.deepEqual(howGuestsGetIn({ whoCanRsvp: 'anyone' }), { value: 'My list + requests · They reply', chosen: true });
+  assert.equal(howGuestsGetIn({ guestsReply: false }).value, 'Only my list · No reply');
+  assert.equal(howGuestsGetIn({ guestsReply: false, whoCanRsvp: 'anyone' }).value, 'Open · Anyone with the link');
   assert.equal(
     howGuestsGetIn({ guestsReply: false, whoCanRsvp: 'anyone', approveEach: true }).value,
-    'Accept · No reply, one QR, I approve each',
+    'My list + requests · No reply',
   );
 });
 
 test('RSVP questions: absent is ON, only false is off; no reply means no questions', () => {
-  assert.ok(rsvpQuestions({}).includes('Meal choice'));
-  assert.ok(!rsvpQuestions({ meal: false }).includes('Meal choice'));
+  assert.ok(rsvpQuestions({}).includes('Meal'));
+  assert.ok(!rsvpQuestions({ meal: false }).includes('Meal'));
   assert.deepEqual(rsvpQuestions({ guestsReply: false }), []);
 });
 

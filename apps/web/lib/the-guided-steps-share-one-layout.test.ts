@@ -371,8 +371,10 @@ test('(13) Reply by: one date line, the date in the field, one date format', () 
   assert.ok(block.length > 50, 'anti-vacuity: the reply-by block was not found');
   assert.doesNotMatch(block, /Set your event date first|formatDay\(replyBy\.date\)/, 'the date is said twice again');
   assert.match(block, /fallback=\{replyByFallback \?\? \(replyBy\?\.isDefault \? replyBy\.date : null\)\}/);
-  assert.match(ask, /value=\{value \|\| fallback \|\| ''\}/, 'the field is empty while a date is in force');
-  assert.match(ask, /toLocaleDateString\('en-US', \{\s*day: 'numeric',\s*month: 'long',/, 'not the Maker’s one date format');
+  /* The field is the shared `ReplyBy` part (2026-10-07) — Guests › Setup mounts the same one. */
+  const part = read('app/dashboard/[eventId]/_components/guest-setup/reply-by.tsx');
+  assert.match(part, /value=\{value \|\| fallback \|\| ''\}/, 'the field is empty while a date is in force');
+  assert.match(part, /toLocaleDateString\('en-US', \{\s*day: 'numeric',\s*month: 'long',/, 'not the Maker’s one date format');
   // Both RSVP panels (Details' settings and the RSVP stage) are handed the default the field shows.
   assert.equal((read('app/dashboard/[eventId]/launch/page.tsx').match(/replyByFallback=\{resolveReplyBy\(\{ deadline: null, eventDate: printEvent\.event_date \}\)\?\.date \?\? null\}/g) ?? []).length, 2);
 });
@@ -385,7 +387,9 @@ test('(14) the March has no caption in the step; the cover has no "made once" li
 });
 
 test('(15) How guests get in: label and dropdown on ONE row', () => {
-  assert.match(read(`${L}/maker-rsvp-ask.tsx`), /<section className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1" data-rsvp-setting="who-can-rsvp">/);
+  /* The one dropdown is the shared `GuestsGetIn` part; the Maker hands it this ONE-row shape. */
+  assert.match(read(`${L}/maker-rsvp-ask.tsx`), /<GuestsGetIn[\s\S]{0,200}rowClassName="flex flex-wrap items-center justify-between gap-x-3 gap-y-1"/);
+  assert.match(read('app/dashboard/[eventId]/_components/guest-setup/guests-get-in.tsx'), /<section className=\{rowClassName\}[^>]*data-rsvp-setting="who-can-rsvp"/);
 });
 
 test('(16) the Schedule’s Journey · Preparation · Event Day wears the one segmented control — and each view stays a LINK', () => {
@@ -470,7 +474,7 @@ test('(20) a control that writes live says so plainly: "Guests see this right aw
   assert.match(field, /export const HUB_LIVE_WORDS = 'Guests see this right away';/);
   assert.match(field, /<InfoTip label=\{HUB_LIVE_WORDS\}/, 'the live mark shows the plain words, not "Saves immediately"');
   assert.doesNotMatch(field, /['">]Saves immediately/, 'the old words are gone from the mark');
-  assert.match(read(`${L}/maker-rsvp-ask.tsx`), /<HubSavesImmediately\b/, 'Reply by no longer says it writes live (owner: it stays instant)');
+  assert.match(read('app/dashboard/[eventId]/_components/guest-setup/reply-by.tsx'), /<HubSavesImmediately\b/, 'Reply by no longer says it writes live (owner: it stays instant)');
   // 🚶 The Wedding March left the live writers on 2026-10-06 (owner: *"Wait for apply"*) — it drafts, and says nothing of the kind.
   assert.doesNotMatch(read(`${L}/details-march.tsx`), /<HubSavesImmediately\b/, 'the march says it writes live, but it waits for Apply');
 });
@@ -563,10 +567,12 @@ test('(22) touch a field → Skip asks; open only → Skip goes — a custom pic
   assert.equal(T.writesLive(parentName, root), false, 'the "Guests see this right away" mark exempts a form with its own Save');
   assert.equal(T.writesLive(replyByPick, root), true);
   // Only the one instant writer opts in.
-  const optedIn = ['details-march.tsx', 'maker-rsvp-ask.tsx'].map((f) => (read(`${L}/${f}`).match(/data-writes-live=""/g) ?? []).length);
+  /* The reply-by field is the shared `ReplyBy` part (2026-10-07): ONE writer, drawn two ways — the Maker's
+     stacked field and Guests › Setup's row — so it opts in twice; the Maker's panel itself holds none. */
+  const optedIn = [`${L}/details-march.tsx`, 'app/dashboard/[eventId]/_components/guest-setup/reply-by.tsx', `${L}/maker-rsvp-ask.tsx`].map((f) => (read(f).match(/data-writes-live=""/g) ?? []).length);
   // (The march's two controls became ONE drag maker on 2026-10-06 — and the same day it began to wait
   // for Apply (owner: *"Wait for apply"*), so it opts in no more: its drops are drafted, like every Maker edit.)
-  assert.deepEqual(optedIn, [0, 1], `the live opt-in moved: ${optedIn}`);
+  assert.deepEqual(optedIn, [0, 2, 0], `the live opt-in moved: ${optedIn}`);
 
   // The foot says which question it is asking.
   const { GuideFoot } = await import(`../${L}/details-guide`);

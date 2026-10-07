@@ -250,8 +250,11 @@ test('E · every save the RSVP stage makes is held, batched, and asks for the ba
   assert.match(branch, /makerLatestWrite\(canvasWriteKey\(RSVP_DRAFT_TYPE\)/, 'the stage save is not batched');
   assert.match(branch, /\{ held: true, ok: \(r\) => r !== SUPERSEDED && r\.ok === true \}/, 'the stage save is not held');
   assert.match(branch, /fd\.set\(HUB_DRAFT_BAR_FIELD, '1'\)/, 'the Apply count must come back with the save');
-  const liveAt = panel.indexOf('function LiveReplyByField(');
-  const live = panel.slice(liveAt, panel.indexOf('\nfunction ', liveAt + 1) > 0 ? panel.indexOf('\nfunction ', liveAt + 1) : undefined);
+  /* The reply-by field is the shared `ReplyBy` part (2026-10-07) — the Maker's stage mounts it. */
+  assert.match(panel, /<ReplyBy\s+layout="stack"/, 'the stage no longer mounts the reply-by field');
+  const part = read('app/dashboard/[eventId]/_components/guest-setup/reply-by.tsx');
+  const liveAt = part.indexOf('export function ReplyBy(');
+  const live = part.slice(liveAt, part.indexOf('\nexport function ', liveAt + 1));
   assert.ok(live.length > 100, 'the stage reply-by field is gone');
   assert.match(live, /makerLatestWrite\(/, 'the reply-by save is not batched');
   assert.match(live, /\{ held: true,/, 'the reply-by save is not held');

@@ -32,6 +32,17 @@ import { updateWhatToBring } from '../../website/what-to-bring/actions';
 import { DetailsSelectContext } from './details-go';
 import { ISeg, ISegmented } from '../../website/editor/_components/inspector-kit';
 import { LOOK_SECTION_ITEM_KEYS, type LookSectionItemKey } from '@/lib/maker-details-items';
+import {
+  STUDIO_GROUP,
+  STUDIO_GROUP_HEAD,
+  STUDIO_GROUP_HEAD_LINE,
+  STUDIO_QUIET_BUTTON,
+  STUDIO_QUIET_ROW,
+  STUDIO_ROW,
+  STUDIO_ROW_LABEL,
+  STUDIO_ROW_PICK,
+  STUDIO_SWITCH_TRACK,
+} from '@/lib/studio-skin';
 import { hubDraftAction } from '../../website/hub-draft-actions';
 import {
   HUB_MAIN_BLURS,
@@ -43,6 +54,8 @@ import {
 } from '@/lib/hub-canvas';
 import { MAIN_GROUND_SHADES, MAIN_GROUND_SHADE_LABEL } from '@/lib/main-ground-shade';
 import { MAIN_COLOUR_JOB, MAIN_COLOUR_SLOTS, type MainColourDraft, type MainColourSlot } from '@/lib/main-colours';
+import { MAIN_COLOUR_SLOTS as MOOD_MAIN_COLOUR_SLOTS } from '@/lib/colour-access';
+import { ChevronDown } from 'lucide-react';
 
 /**
  * 🧭 THE NEW MAKER'S STUDIO TOOLS, REDRAWN TO THE PROTOTYPE (owner 2026-10-06;
@@ -63,9 +76,9 @@ import { MAIN_COLOUR_JOB, MAIN_COLOUR_SLOTS, type MainColourDraft, type MainColo
 /** The prototype's group heading — a name and a small line beside it. */
 export function StudioHeading({ title, line, data }: { title: string; line?: string; data?: string }) {
   return (
-    <p data-studio-heading={data} className="flex items-baseline gap-2 px-1 pb-1 pt-4 text-[12px] font-semibold uppercase tracking-[0.08em] text-ink/55">
+    <p data-studio-heading={data} className={STUDIO_GROUP_HEAD}>
       {title}
-      {line ? <small className="text-[11.5px] font-medium normal-case tracking-normal text-ink/45">{line}</small> : null}
+      {line ? <small className={STUDIO_GROUP_HEAD_LINE}>{line}</small> : null}
     </p>
   );
 }
@@ -86,8 +99,8 @@ export function StudioSwitch({
 }) {
   const id = useId();
   return (
-    <label htmlFor={id} data-studio-switch={data} className="flex min-h-11 cursor-pointer items-center justify-between gap-3 py-1">
-      <span className="min-w-0 text-[14px] font-semibold text-ink">{label}</span>
+    <label htmlFor={id} data-studio-switch={data} className="flex min-h-[52px] cursor-pointer items-center justify-between gap-2.5 py-1">
+      <span className="min-w-0 text-[14.5px] font-semibold text-ink">{label}</span>
       <input
         id={id}
         type="checkbox"
@@ -97,10 +110,7 @@ export function StudioSwitch({
         onChange={(e) => onChange(e.target.checked)}
         className="peer sr-only"
       />
-      <span
-        aria-hidden
-        className="relative h-6 w-11 shrink-0 rounded-full bg-ink/20 transition-colors after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:bg-terracotta-700 peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-mulberry peer-disabled:opacity-40"
-      />
+      <span aria-hidden className={STUDIO_SWITCH_TRACK} />
     </label>
   );
 }
@@ -308,81 +318,85 @@ export function StudioEgifts({
         ) : null}
       </div>
       <StudioHeading title="Ways to give" line="switch on what you have" />
-      {STUDIO_GIFT_KINDS.map((k) => {
-        const meta = EGIFT_KIND_META[k];
-        const row = rows[k];
-        return (
-          <div key={k} data-studio-gift={k} className="flex flex-col border-b border-ink/[0.07]">
-            <StudioSwitch label={meta.defaultLabel} on={row.on} onChange={(v) => toggle(k, v)} data={`gift-${k}`} />
-            {row.on ? (
-              <div className="flex flex-col gap-2 pb-3">
-                <input
-                  value={row.handle}
-                  onChange={(e) => setRows((r) => ({ ...r, [k]: { ...r[k], handle: e.target.value } }))}
-                  onBlur={() => saveHandle(k)}
-                  maxLength={200}
-                  aria-label={meta.handleLabel}
-                  placeholder={meta.handlePlaceholder}
-                  className="min-h-11 rounded-md border border-ink/15 bg-white px-3 text-[14px] text-ink"
-                />
-                {/* 🔳 Add your QR — the QR-first ways (GCash · Maya, `qrPrimary`); its picture with Remove once set. */}
-                {meta.qrPrimary ? (
-                  <div data-studio-gift-qr={k}>
-                    <FileUpload
-                      bucket="thread-files"
-                      pathPrefix={`pabuya-qr/${eventId}`}
-                      label="Add your QR"
-                      acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
-                      maxSizeMB={5}
-                      variant="square"
-                      compressImage
-                      currentValue={row.qrRef || null}
-                      initialDisplayUrls={row.qrRef && row.qrUrl ? { [row.qrRef]: row.qrUrl } : {}}
-                      onChange={(v) => saveQr(k, typeof v === 'string' ? v : '')}
-                    />
-                  </div>
-                ) : null}
-                <input
-                  value={row.accountName}
-                  onChange={(e) => setRows((r) => ({ ...r, [k]: { ...r[k], accountName: e.target.value } }))}
-                  onBlur={() => saveHandle(k)}
-                  maxLength={80}
-                  aria-label="Name on the account"
-                  placeholder="Name on the account"
-                  className="min-h-11 rounded-md border border-ink/15 bg-white px-3 text-[14px] text-ink"
-                />
-              </div>
-            ) : null}
+      <div className={STUDIO_GROUP}>
+        {STUDIO_GIFT_KINDS.map((k) => {
+          const meta = EGIFT_KIND_META[k];
+          const row = rows[k];
+          return (
+            <div key={k} data-studio-gift={k} className="flex flex-col border-t border-ink/10 first:border-t-0">
+              <StudioSwitch label={meta.defaultLabel} on={row.on} onChange={(v) => toggle(k, v)} data={`gift-${k}`} />
+              {row.on ? (
+                <div className="flex flex-col gap-2 pb-3">
+                  <input
+                    value={row.handle}
+                    onChange={(e) => setRows((r) => ({ ...r, [k]: { ...r[k], handle: e.target.value } }))}
+                    onBlur={() => saveHandle(k)}
+                    maxLength={200}
+                    aria-label={meta.handleLabel}
+                    placeholder={meta.handlePlaceholder}
+                    className="min-h-11 rounded-md border border-ink/10 px-3 text-[14px] text-ink"
+                  />
+                  {/* 🔳 Add your QR — the QR-first ways (GCash · Maya, `qrPrimary`); its picture with Remove once set. */}
+                  {meta.qrPrimary ? (
+                    <div data-studio-gift-qr={k}>
+                      <FileUpload
+                        bucket="thread-files"
+                        pathPrefix={`pabuya-qr/${eventId}`}
+                        label="Add your QR"
+                        acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
+                        maxSizeMB={5}
+                        variant="square"
+                        compressImage
+                        currentValue={row.qrRef || null}
+                        initialDisplayUrls={row.qrRef && row.qrUrl ? { [row.qrRef]: row.qrUrl } : {}}
+                        onChange={(v) => saveQr(k, typeof v === 'string' ? v : '')}
+                      />
+                    </div>
+                  ) : null}
+                  <input
+                    value={row.accountName}
+                    onChange={(e) => setRows((r) => ({ ...r, [k]: { ...r[k], accountName: e.target.value } }))}
+                    onBlur={() => saveHandle(k)}
+                    maxLength={80}
+                    aria-label="Name on the account"
+                    placeholder="Name on the account"
+                    className="min-h-11 rounded-md border border-ink/10 px-3 text-[14px] text-ink"
+                  />
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
+        {registryUrl !== undefined ? (
+          <div data-studio-gift="registry" className="flex flex-col border-t border-ink/10 pb-3">
+            <label className="flex min-h-11 items-center justify-between gap-3 py-1" htmlFor={`${eventId}-registry`}>
+              <span className="text-[14.5px] font-semibold text-ink">Registry link</span>
+              <small className="text-[12px] text-ink/50">optional</small>
+            </label>
+            <input
+              id={`${eventId}-registry`}
+              type="url"
+              inputMode="url"
+              value={registry}
+              onChange={(e) => setRegistry(e.target.value)}
+              onBlur={saveRegistry}
+              maxLength={GIFT_REGISTRY_URL_MAX}
+              placeholder="Paste a link to your registry"
+              data-studio-registry-input=""
+              className="min-h-11 rounded-md border border-ink/10 px-3 text-[14px] text-ink"
+            />
           </div>
-        );
-      })}
-      {registryUrl !== undefined ? (
-        <div data-studio-gift="registry" className="flex flex-col border-b border-ink/[0.07] pb-3">
-          <label className="flex min-h-11 items-center justify-between gap-3 py-1" htmlFor={`${eventId}-registry`}>
-            <span className="text-[14px] font-semibold text-ink">Registry link</span>
-            <small className="text-[12px] text-ink/50">optional</small>
-          </label>
-          <input
-            id={`${eventId}-registry`}
-            type="url"
-            inputMode="url"
-            value={registry}
-            onChange={(e) => setRegistry(e.target.value)}
-            onBlur={saveRegistry}
-            maxLength={GIFT_REGISTRY_URL_MAX}
-            placeholder="Paste a link to your registry"
-            data-studio-registry-input=""
-            className="min-h-11 rounded-md border border-ink/15 bg-white px-3 text-[14px] text-ink"
-          />
-        </div>
-      ) : null}
+        ) : null}
+      </div>
       {thanks ? (
         <>
           <StudioHeading title="What it says" />
-          <div data-studio-egifts-thanks="">{thanks}</div>
+          <div data-studio-egifts-thanks="" className={`${STUDIO_GROUP} py-3`}>
+            {thanks}
+          </div>
         </>
       ) : null}
-      <p className="pt-2 text-[12px] text-ink/55">{HUB_LIVE_WORDS}</p>
+      <p className="px-1.5 pt-1 text-center text-[12px] text-ink/50">{HUB_LIVE_WORDS}</p>
       {error ? (
         <p role="alert" className="pt-2 text-[13px] text-terracotta-700">
           {error} Nothing else was changed.
@@ -424,8 +438,8 @@ function stayForm(eventId: string, fields: Record<string, string>): FormData {
 /** One row of the form: the name on the left, the control on the right. */
 function HubRow({ label, children, data }: { label: string; children: ReactNode; data: string }) {
   return (
-    <div data-studio-hub-row={data} className="flex min-h-11 flex-wrap items-center justify-between gap-x-3 gap-y-1 py-1">
-      <span className="text-[14px] font-semibold text-ink">{label}</span>
+    <div data-studio-hub-row={data} className={`${STUDIO_ROW} flex-wrap`}>
+      <span className={`${STUDIO_ROW_LABEL} text-[14px] text-ink`}>{label}</span>
       {children}
     </div>
   );
@@ -504,6 +518,7 @@ export function StudioHubSettings({ eventId, slug, hub }: { eventId: string; slu
           buttonText={WHO_CAN_VIEW.find((w) => w.key === who)?.label ?? 'Private'}
           options={WHO_CAN_VIEW}
           onPick={pickWho}
+          className={STUDIO_ROW_PICK}
         />
       </HubRow>
       <HubRow label={WHICH_VERSION_LABEL} data="which-version">
@@ -514,10 +529,13 @@ export function StudioHubSettings({ eventId, slug, hub }: { eventId: string; slu
           buttonText={whichVersionLabel(version)}
           options={WHICH_VERSION_OPTIONS}
           onPick={pickVersion}
+          className={STUDIO_ROW_PICK}
         />
       </HubRow>
       {maker?.eventBar ? (
-        <StudioSwitch label="Event Bar" on={maker.eventBar.on} onChange={() => maker.eventBar?.toggle()} data="event-bar" />
+        <div className="border-t border-ink/10">
+          <StudioSwitch label="Event Bar" on={maker.eventBar.on} onChange={() => maker.eventBar?.toggle()} data="event-bar" />
+        </div>
       ) : null}
       {error ? (
         <p role="alert" className="text-[13px] text-terracotta-700">
@@ -553,19 +571,19 @@ export function StudioQrActions({ slug, path }: { slug: string | null; path: str
 export function StudioQuietRows() {
   const maker = useMaker();
   const draft = maker?.draft ?? null;
-  const quiet = 'flex min-h-11 items-center justify-between gap-3 border-t border-ink/[0.07] py-1 text-[13px] text-ink/60';
+  const quiet = STUDIO_QUIET_ROW;
   return (
     <div data-studio-quiet="" className="mt-4 flex flex-col">
       {draft ? (
         <div className={quiet} data-studio-quiet-row="restore">
           <span>
-            <b className="font-semibold text-ink/80">Restore</b> · back to what guests see now
+            <b className="font-semibold text-ink/70">Restore</b> · back to what guests see now
           </span>
           <button
             type="button"
             disabled={!draft.canRestore}
             onClick={() => draft.canRestore && draft.restore()}
-            className="sn-press inline-flex min-h-11 items-center rounded-full px-3 text-[13px] font-semibold text-ink/75 ring-1 ring-ink/15 disabled:opacity-40"
+            className={STUDIO_QUIET_BUTTON}
           >
             Restore
           </button>
@@ -574,12 +592,12 @@ export function StudioQuietRows() {
       {draft ? (
       <div className={quiet} data-studio-quiet-row="reset">
         <span>
-          <b className="font-semibold text-ink/80">Reset</b> · start this stage over
+          <b className="font-semibold text-ink/70">Reset</b> · start this stage over
         </span>
         <button
           type="button"
           onClick={() => window.dispatchEvent(new Event(MAKER_OPEN_RESET_EVENT))}
-          className="sn-press inline-flex min-h-11 items-center rounded-full px-3 text-[13px] font-semibold text-terracotta-700 ring-1 ring-terracotta/30"
+          className={`${STUDIO_QUIET_BUTTON} !bg-terracotta-700/10 !text-terracotta-700 !ring-terracotta-700/25`}
         >
           Reset…
         </button>
@@ -587,7 +605,7 @@ export function StudioQuietRows() {
       ) : null}
       <div className={quiet} data-studio-quiet-row="about">
         <span>
-          <b className="font-semibold text-ink/80">About</b> · Made with Setnayan
+          <b className="font-semibold text-ink/70">About</b> · Made with Setnayan
         </span>
       </div>
     </div>
@@ -620,14 +638,15 @@ export function StudioLookBar({ item }: { item: LookSectionItemKey }) {
     <div data-studio-look-bar={item} className="flex flex-col gap-2 pb-1">
       <ISegmented label="Look">
         {LOOK_SECTION_ITEM_KEYS.map((k) => (
-          <ISeg key={k} tone="wine" on={k === item} data={k} onClick={() => k !== item && select?.(k)}>
+          <ISeg key={k} on={k === item} data={k} onClick={() => k !== item && select?.(k)} className="!text-[13px]">
             {STUDIO_LOOK_LABEL[k]}
           </ISeg>
         ))}
       </ISegmented>
       {item === 'background' ? (
-        <p data-studio-main-background-line="" className="text-[12.5px] leading-snug text-ink/65">
-          {STUDIO_MAIN_BACKGROUND_LINE}
+        <p data-studio-main-background-line="" className="text-[13px] leading-snug text-ink/70">
+          <b className="font-semibold text-ink">The main background</b>
+          {STUDIO_MAIN_BACKGROUND_LINE.slice('The main background'.length)}
         </p>
       ) : null}
     </div>
@@ -708,6 +727,7 @@ export function StudioMainExtras({ eventId, main }: { eventId: string; main: Hub
         <PickMenu
           label="Pattern"
           dataAttr="data-studio-pattern-pick"
+            className={STUDIO_ROW_PICK}
           value={pattern ?? 'none'}
           options={[{ key: 'none', label: NONE_LABEL.pattern }, ...HUB_MAIN_PATTERNS.map((k) => ({ key: k, label: HUB_MAIN_PATTERN_LABEL[k] }))]}
           onPick={(k) => {
@@ -721,6 +741,7 @@ export function StudioMainExtras({ eventId, main }: { eventId: string; main: Hub
           <PickMenu
             label="Focus"
             dataAttr="data-studio-focus-pick"
+            className={STUDIO_ROW_PICK}
             value={extra('focus') ?? 'centre'}
             options={[{ key: 'centre', label: NONE_LABEL.focus }, ...HUB_MAIN_FOCUSES.map((k) => ({ key: k, label: FOCUS_LABEL[k] }))]}
             onPick={(k) => k !== (extra('focus') ?? 'centre') && save(withExtra('focus', k === 'centre' ? null : k))}
@@ -732,6 +753,7 @@ export function StudioMainExtras({ eventId, main }: { eventId: string; main: Hub
           <PickMenu
             label="Blur"
             dataAttr="data-studio-blur-pick"
+            className={STUDIO_ROW_PICK}
             value={extra('blur') ?? 'none'}
             options={[{ key: 'none', label: NONE_LABEL.blur }, ...HUB_MAIN_BLURS.map((k) => ({ key: k, label: BLUR_LABEL[k] }))]}
             onPick={(k) => k !== (extra('blur') ?? 'none') && save(withExtra('blur', k === 'none' ? null : k))}
@@ -743,6 +765,7 @@ export function StudioMainExtras({ eventId, main }: { eventId: string; main: Hub
           <PickMenu
             label="Shade"
             dataAttr="data-studio-shade-pick"
+            className={STUDIO_ROW_PICK}
             value={extra('shade') ?? 'as-is'}
             options={MAIN_GROUND_SHADES.map((k) => ({ key: k, label: MAIN_GROUND_SHADE_LABEL[k] }))}
             onPick={(k) => k !== (extra('shade') ?? 'as-is') && save(withExtra('shade', k === 'as-is' ? null : k))}
@@ -759,6 +782,9 @@ export function StudioMainExtras({ eventId, main }: { eventId: string; main: Hub
 }
 
 /* ── 🎨 LOOK › COLOURS — ONE OF THE FIVE, ON ITS OWN ─────────────────────── */
+
+/** Each slot's name, as the Mood Board and the prototype say it (`lib/colour-access.ts`). */
+const SLOT_NAME = MOOD_MAIN_COLOUR_SLOTS;
 
 /**
  * 🎨 THE FIVE MAIN COLOURS, EACH WITH ITS JOB (owner 2026-10-06: *"the five Mood
@@ -803,16 +829,21 @@ export function StudioMainColours({
     });
   };
   return (
-    <div data-studio-main-colours="" className="flex flex-col">
+    <div data-studio-main-colours="" className="flex flex-col pt-1">
       {MAIN_COLOUR_SLOTS.map((slot) => (
+        /* The prototype's `.lk-col`: a 44 px pill — the colour, its name and job, its hex, a chevron. */
         <label
           key={slot}
           data-studio-colour={slot}
-          className="relative flex min-h-11 cursor-pointer items-center gap-3 border-b border-ink/[0.07] py-1.5"
+          className="relative mb-2 flex min-h-11 cursor-pointer items-center gap-2.5 rounded-full bg-cream py-1 pl-1.5 pr-3 ring-1 ring-ink/10"
         >
-          <span aria-hidden className="h-7 w-7 shrink-0 rounded-full shadow-[inset_0_0_0_1px_rgba(0,0,0,0.15)]" style={{ backgroundColor: five[slot] }} />
-          <span className="min-w-0 flex-1 text-[14px] font-semibold text-ink">{MAIN_COLOUR_JOB[slot]}</span>
-          <span className="font-mono text-[12px] text-ink/55">{five[slot]}</span>
+          <span aria-hidden className="h-[30px] w-[30px] shrink-0 rounded-full shadow-[inset_0_0_0_1px_rgba(0,0,0,0.1)]" style={{ backgroundColor: five[slot] }} />
+          <span className="flex min-w-0 flex-1 flex-col leading-tight">
+            <b className="text-[13.5px] font-semibold text-ink">{SLOT_NAME[slot]}</b>
+            <small className="text-[11px] text-ink/50">{MAIN_COLOUR_JOB[slot]}</small>
+          </span>
+          <span className="font-mono text-[11px] text-ink/50">{five[slot]}</span>
+          <ChevronDown aria-hidden className="h-3.5 w-3.5 shrink-0 text-gild" strokeWidth={2} />
           <input
             type="color"
             aria-label={`${MAIN_COLOUR_JOB[slot]} colour`}

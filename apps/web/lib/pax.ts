@@ -89,7 +89,7 @@ export async function readFinalizeState(
  * session and scoped by `user_id` explicitly, so RLS is defence in depth and
  * never the fence (an admin's RLS reaches every event).
  */
-async function callerHostsEvent(
+export async function callerHostsEvent(
   supabase: SupabaseClient,
   eventId: string,
   userId: string,
@@ -159,7 +159,11 @@ export async function finalizeGuestList(
 /**
  * The host reopens a finalized list. Clears the stamp AND the frozen count, so
  * adds, RSVP changes and guest replies work again and the live count resumes.
- * Same fence as `finalizeGuestList`.
+ * Same fence as `finalizeGuestList`: a HOST (`couple` member — the couple and
+ * co-hosts) only, checked here on the server before anything is written —
+ * never a supplier, the coordinator or a helper (owner 2026-10-07: *"the host
+ * of the event not the supplier and coordinator always have the power to
+ * unfinalize it as needed"*).
  */
 export async function reopenGuestList(
   supabase: SupabaseClient,
@@ -177,6 +181,7 @@ export async function reopenGuestList(
   if (upErr) return { ok: false, error: 'Couldn’t reopen just now — nothing was changed.' };
   return { ok: true, state: await readFinalizeState(admin, eventId) };
 }
+
 
 /**
  * True when the guest list is finalized — planning edits (add / RSVP / remove)

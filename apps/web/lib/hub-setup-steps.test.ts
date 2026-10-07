@@ -105,7 +105,8 @@ test('🔑 each setup step writes the field its Maker place already writes — n
     { step: 'wear', files: [`${D}/studio/mood-board/dress-code-actions.ts`], field: /dress_code_config:\s*config/ },
     // B5–6 → Details › RSVP: the questions (drafted) and the reply-by date.
     { step: 'ask', files: [`${D}/launch/_components/maker-rsvp-ask.tsx`], field: /rsvp_ask_config:\s*next/ },
-    { step: 'ask', files: [`${D}/launch/_components/maker-rsvp-ask.tsx`], field: /'guest_list_edit_deadline'/ },
+    /* The reply-by field is the shared `ReplyBy` part the Maker mounts (Guests › Setup mounts the same — 2026-10-07). */
+    { step: 'ask', files: [`${D}/_components/guest-setup/reply-by.tsx`], field: /'guest_list_edit_deadline'/ },
     // B7 → the Guest list, by the template import (#6225).
     { step: 'guests', files: [`${D}/guests/import/actions.ts`], field: /\.from\('guests'\)\s*\.insert/ },
   ];

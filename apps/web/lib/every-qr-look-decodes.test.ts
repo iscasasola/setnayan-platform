@@ -423,7 +423,7 @@ const GUEST_QR_SURFACES: Array<[file: string, call: RegExp]> = [
   ['app/dashboard/[eventId]/studio/mood-board/concept-pdf/route.ts', /renderStyledUrlQrPng\([\s\S]*?,\s*look,/],
   // The panel already measured Pro on its own read, so it composes the look
   // inline (`qrLookFromRow(lookRow, ownsPro)`) instead of a `look` const.
-  ['app/dashboard/[eventId]/guests/invite/_components/invite-panel.tsx', /renderStyledUrlQrSvg\([\s\S]*?qrLookFromRow\(/],
+  ['app/dashboard/[eventId]/guests/invite/_components/share-link-panel.tsx', /renderStyledUrlQrSvg\([\s\S]*?qrLookFromRow\(/],
   ['app/[slug]/print/page.tsx', /renderStyledUrlQrSvg\([^)]*\blook\b/s],
 ];
 

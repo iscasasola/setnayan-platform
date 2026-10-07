@@ -434,13 +434,28 @@ test('the finalized banner does not claim guests the list does not have', () => 
     the Guest list mounts. Both halves are checked: the page still mounts it,
     and the banner's own words still say what the number is FOR.
   */
+  /* ⤷ 2026-10-07 (owner: *"finalize should be inside the Setup. not on its current
+     location"*): the banner left the page header — its finalized face is Guests ›
+     Setup's Finalize row (`guest-setup-rows.tsx`), its words `lib/headcount-row.ts`. */
   const page = src('app/dashboard/[eventId]/guests/page.tsx');
   // ⤷ 2026-10-07 (owner: "finalize should be inside the Setup. not on its
   // current location"): nothing above List · Map · Setup — PR 4d mounts it in Setup.
   assert.doesNotMatch(page, /<FinalizeGuestListControl\b/, 'the finalize row is back above the List · Map · Setup switcher');
   assert.ok(!/guests locked in/.test(page.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')), '"N guests locked in" must not return to the page');
-  // ⤷ 2026-10-07: the old Finalize / Reopen control was deleted (finalize is
-  // one-way and lives in Setup, PR 4d #6409 — whose own guard holds its words).
+  assert.match(src('app/dashboard/[eventId]/_components/guest-setup/guest-setup-rows.tsx'), /headcountLockedLine\(view\.heads\)/, 'the finalized row no longer says the locked count');
+  const g = src('lib/headcount-row.ts');
+  /*
+    🪤 COMMENTS STRIPPED FIRST — this assertion failed on its own first run
+    because the fix carries a comment QUOTING the string it removed. A raw
+    source match reports the defect it just repaired, which is the same trap
+    `doors-are-designed.test.ts` was corrected for. Raw: 1. Stripped: 0. Zero
+    is the true number.
+  */
+  const code = g.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  assert.ok(!/guests locked in/.test(code), '"N guests locked in" must not return');
+  assert.match(code, /[Yy]our suppliers price for/, 'it must say what the number is for');
+  // ⤷ 2026-10-07: the old Finalize / Reopen control was deleted (finalize lives
+  // in Setup, PR 4d #6409, and the hosts can reopen it there).
   // What holds HERE: the old file is gone, so its banner cannot return.
   assert.ok(!existsSync(join(WEB, 'app/dashboard/[eventId]/guests/_components/finalize-guest-list-control.tsx')), 'the retired finalize control is back');
 });

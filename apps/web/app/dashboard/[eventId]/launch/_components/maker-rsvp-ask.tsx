@@ -9,38 +9,33 @@ import { PickMenu } from '../../website/editor/_components/pick-menu';
 import {
   RSVP_DRAFT_TYPE,
   RSVP_PREVIEW_EVENT,
-  RSVP_REPLY_BY_EVENT,
   RSVP_SCENE_WORDS,
   RSVP_WORD_LABEL,
-  rsvpReplyByLine,
   type RsvpStageScene,
 } from '@/lib/rsvp-stage';
 import { hubDraftAction } from '../../website/hub-draft-actions';
 import { updatePaxSettings } from '../../actions';
-import { HubSavesImmediately } from '../../website/_components/hub-draft-field';
 import { DetailsPieceOnly } from './details-piece';
 import {
   RSVP_ASK_FIELDS,
   RSVP_ASK_LABEL,
   readOneAtATime,
   rsvpAnswerWord,
-  rsvpAsks,
   RSVP_WORD_LINES,
   RSVP_WORD_MAX,
   type RsvpAskConfig,
   type RsvpWordKey,
 } from '@/lib/rsvp-ask';
-import {
-  GUESTS_GET_IN_LABEL,
-  guestsGetInLabel,
-  guestsGetInOptions,
-  guestsGetInPatch,
-  isGuestsGetIn,
-  readGuestsGetIn,
-} from '@/lib/who-can-reply';
+import { GUESTS_GET_IN_LABEL, guestsGetInPatch, readGuestsGetIn } from '@/lib/who-can-reply';
+/* 🔗 ONE SETTING, TWO DOORS (owner 2026-10-07, HOME_AND_GUESTS_CHECK § "Setup ↔ Event
+   Hub Maker"): the get-in dropdown, the six asks and Reply by are the SAME parts Guests ›
+   Setup mounts — never a second copy here (`setup-and-maker-mount-the-same-parts.test.ts`). */
+/* ⚖ Loaded when first drawn, warmed at idle (the Maker's first-load budget) — `guest-setup-lazy.tsx`. */
+import { GuestsGetIn, ReplyBy, RsvpAsks } from '../../_components/guest-setup/guest-setup-lazy';
 import { formatCount } from '@/lib/format-number';
 import { readCelebrationKey, type RsvpCelebration } from '@/lib/rsvp-celebration';
 import { CelebrationPick } from './celebration-pick';
+import { STUDIO_GROUP, STUDIO_GROUP_HEAD, STUDIO_GROUP_HEAD_LINE, STUDIO_ROW, STUDIO_ROW_LABEL, STUDIO_ROW_PICK, STUDIO_ROW_SUB } from '@/lib/studio-skin';
 
 /**
  * THE RSVP PAGE'S CONTROLS — the Maker's own RSVP page (guest pathway brief
@@ -299,23 +294,15 @@ export function MakerRsvpSettings({
      it; only Your info sets it. */
   const getInNow = readGuestsGetIn(local);
   const getIn = (
-    /* Label and dropdown on ONE row, like every other step (owner 2026-10-05). */
-    <section className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1" data-rsvp-setting="who-can-rsvp">
-      <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">
-        {GUESTS_GET_IN_LABEL}
-      </p>
-      <PickMenu
-        label={GUESTS_GET_IN_LABEL}
-        dataAttr="data-rsvp-who-pick"
-        value={getInNow}
-        buttonText={guestsGetInLabel(getInNow)}
-        options={guestsGetInOptions()}
-        onPick={(value) =>
-          value === getInNow || !isGuestsGetIn(value) ? undefined : save(guestsGetInPatch(value), `“${GUESTS_GET_IN_LABEL}”`)
-        }
-      />
-    </section>
+    <GuestsGetIn
+      value={getInNow}
+      onPick={(value) => save(guestsGetInPatch(value), `“${GUESTS_GET_IN_LABEL}”`)}
+      rowClassName="flex flex-wrap items-center justify-between gap-x-3 gap-y-1"
+      pickClassName=""
+    />
   );
+  /* ✓ The six asks — the shared toggle buttons (Guests › Setup draws the same). */
+  const asks = <RsvpAsks config={local} onToggle={(field, v) => save({ [field]: v })} rowClassName="flex flex-col gap-2" />;
 
   /* ══ 🗳 THE RSVP STAGE — one scene's controls ══
      The form: its YES / NO words, then how it asks (one at a time), what it
@@ -384,30 +371,13 @@ export function MakerRsvpSettings({
             onChange={(v) => save({ oneAtATime: v })}
           />
         </section>
-        <section className="flex flex-col gap-1" data-made-once="rsvp-ask">
-          <p className="text-sm font-semibold text-ink">What do you ask your guests?</p>
-          <div className="flex min-h-11 items-center justify-between gap-3 border-b border-ink/5 py-2 text-sm text-ink/55">
-            <span>Attending</span>
-            <span className="text-xs">always</span>
-          </div>
-          <div className="flex flex-col">
-            {RSVP_ASK_FIELDS.map((field) => (
-              <Switch
-                key={field}
-                label={
-                  <>{RSVP_ASK_LABEL[field]}</>
-                }
-                on={rsvpAsks(local, field)}
-                onChange={(v) => save({ [field]: v })}
-              />
-            ))}
-          </div>
-        </section>
+        {asks}
         {getIn}
         <section className="flex flex-col gap-1" data-rsvp-setting="reply-by">
           <p className="text-sm font-semibold text-ink">Reply by</p>
           {replyByOwn ? (
-            <ReplyByField
+            <ReplyBy
+              layout="stack"
               eventId={eventId}
               own={replyByOwn.deadline}
               pricingMode={replyByOwn.pricingMode}
@@ -426,44 +396,55 @@ export function MakerRsvpSettings({
     );
   }
 
-  /* ══ 🧭 STUDIO › RSVP — the prototype's tool (`studio`), over the SAME saves ══ */
+  /* ══ 🧭 STUDIO › RSVP — the prototype's tool (`studio`, `EDITORS.rsvp`), over the SAME saves ══
+     Its rows, in its order: Reply by · How guests answer ▾ · WORDS · WHAT THE REPLY ASKS (one row
+     per question, its switch on the right) · When yes. 48 px rows on white bands, small-capital
+     group headings (`lib/studio-skin.ts`); never a box. */
   if (studio) {
     const words = local.words ?? {};
     return (
-      <div className="flex flex-col gap-5 px-1" data-studio-rsvp="">
-        <section className="flex flex-col gap-1" data-rsvp-setting="reply-by">
-          <p className="text-sm font-semibold text-ink">Reply by</p>
+      <div className="flex flex-col" data-studio-rsvp="">
+        <div className={STUDIO_GROUP}>
+          {/* 📅 Reply by — PRINTED here, read only (HOME_AND_GUESTS_CHECK § "Setup ↔ Event Hub Maker":
+              the date is set on Guests › Setup or in Event Details). */}
           {replyByOwn ? (
-            <ReplyByField
+            <ReplyBy
+              layout="print"
               eventId={eventId}
               own={replyByOwn.deadline}
               pricingMode={replyByOwn.pricingMode}
               fallback={replyByFallback ?? (replyBy?.isDefault ? replyBy.date : null)}
-              action={replyByAction}
+              rowClassName={STUDIO_ROW}
             />
           ) : (
-            <p role="alert" className="text-[13px] text-terracotta-700">
-              We couldn&rsquo;t read your reply-by date just now, so it can&rsquo;t be changed here. Nothing was changed.
+            <p role="alert" className="py-2 text-[13px] text-terracotta-700">
+              We couldn&rsquo;t read your reply-by date just now.
             </p>
           )}
-        </section>
-        {/* ❓ How guests answer ▾ — ONE dropdown over the shipped `oneAtATime` (drafted, counted on ✓). */}
-        <section className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1" data-rsvp-setting="how-guests-answer">
-          <p className="text-sm font-semibold text-ink">{HOW_GUESTS_ANSWER_LABEL}</p>
-          <PickMenu
-            label={HOW_GUESTS_ANSWER_LABEL}
-            dataAttr="data-rsvp-answer-pick"
-            value={oneAtATime ? 'one' : 'all'}
-            buttonText={howGuestsAnswerLabel(oneAtATime)}
-            options={HOW_GUESTS_ANSWER_OPTIONS}
-            onPick={(value) => {
-              const next = value === 'one';
-              if (next !== oneAtATime) save({ oneAtATime: next }, `“${HOW_GUESTS_ANSWER_LABEL}”`);
-            }}
-          />
-        </section>
-        <section className="flex flex-col gap-3" data-rsvp-setting="answers">
-          <p className="text-sm font-semibold text-ink">Words</p>
+          {/* ❓ How guests answer ▾ — ONE dropdown over the shipped `oneAtATime` (drafted, counted on ✓). */}
+          <section className={STUDIO_ROW} data-rsvp-setting="how-guests-answer">
+            <p className={STUDIO_ROW_LABEL}>
+              <span className="text-[14.5px] font-semibold text-ink">{HOW_GUESTS_ANSWER_LABEL}</span>
+              <small className={STUDIO_ROW_SUB}>{HOW_GUESTS_ANSWER_OPTIONS[oneAtATime ? 1 : 0].hint}</small>
+            </p>
+            <PickMenu
+              label={HOW_GUESTS_ANSWER_LABEL}
+              dataAttr="data-rsvp-answer-pick"
+              value={oneAtATime ? 'one' : 'all'}
+              buttonText={howGuestsAnswerLabel(oneAtATime)}
+              options={HOW_GUESTS_ANSWER_OPTIONS}
+              onPick={(value) => {
+                const next = value === 'one';
+                if (next !== oneAtATime) save({ oneAtATime: next }, `“${HOW_GUESTS_ANSWER_LABEL}”`);
+              }}
+              className={STUDIO_ROW_PICK}
+            />
+          </section>
+        </div>
+        <p className={STUDIO_GROUP_HEAD}>
+          Words <small className={STUDIO_GROUP_HEAD_LINE}>the two answers</small>
+        </p>
+        <section className={`${STUDIO_GROUP} gap-3 py-3`} data-rsvp-setting="answers">
           {RSVP_SCENE_WORDS.form.map((key) => (
             <WordField
               key={key}
@@ -475,29 +456,29 @@ export function MakerRsvpSettings({
             />
           ))}
         </section>
-        <section className="flex flex-col gap-1" data-made-once="rsvp-ask">
-          <p className="text-sm font-semibold text-ink">What the reply asks</p>
-          <div className="flex min-h-11 items-center justify-between gap-3 border-b border-ink/5 py-2 text-sm text-ink/55">
-            <span>Attending</span>
-            <span className="text-xs">always</span>
-          </div>
-          <div className="flex flex-col">
-            {RSVP_ASK_FIELDS.map((field) => (
-              <Switch key={field} label={<>{RSVP_ASK_LABEL[field]}</>} on={rsvpAsks(local, field)} onChange={(v) => save({ [field]: v })} />
-            ))}
-          </div>
-        </section>
-        {celebration ? (
-          <CelebrationPick
-            value={readCelebrationKey(local)}
-            ownsPro={celebration.ownsPro}
-            storeShell={celebration.storeShell}
-            colours={celebration.colours}
-            onPick={(next: RsvpCelebration) => save({ celebration: next === 'none' ? undefined : next }, `“Celebration”`)}
+        {/* 🎟 How guests get in ▾ + ✓ RSVP asks — the SAME parts as Guests › Setup (owner 2026-10-07). */}
+        <div className={STUDIO_GROUP}>
+          <GuestsGetIn
+            value={getInNow}
+            onPick={(value) => save(guestsGetInPatch(value), `“${GUESTS_GET_IN_LABEL}”`)}
+            rowClassName={`${STUDIO_ROW} gap-3`}
+            pickClassName={STUDIO_ROW_PICK}
           />
+          <RsvpAsks config={local} onToggle={(field, v) => save({ [field]: v })} rowClassName="flex flex-col gap-2 py-3" />
+        </div>
+        {celebration ? (
+          <div className={STUDIO_GROUP}>
+            <CelebrationPick
+              value={readCelebrationKey(local)}
+              ownsPro={celebration.ownsPro}
+              storeShell={celebration.storeShell}
+              colours={celebration.colours}
+              onPick={(next: RsvpCelebration) => save({ celebration: next === 'none' ? undefined : next }, `“Celebration”`)}
+            />
+          </div>
         ) : null}
         {error ? (
-          <p role="alert" className="text-[13px] text-terracotta-700">
+          <p role="alert" className="px-1 text-[13px] text-terracotta-700">
             {error}
           </p>
         ) : null}
@@ -521,25 +502,7 @@ export function MakerRsvpSettings({
       </section>
 
       {/* ── What do you ask your guests? (moved here from Details) ── */}
-      <section className="flex flex-col gap-1" data-made-once="rsvp-ask">
-        <p className="text-sm font-semibold text-ink">What do you ask your guests?</p>
-        <div className="flex min-h-11 items-center justify-between gap-3 border-b border-ink/5 py-2 text-sm text-ink/55">
-          <span>Attending</span>
-          <span className="text-xs">always</span>
-        </div>
-        <div className="flex flex-col">
-          {RSVP_ASK_FIELDS.map((field) => (
-            <Switch
-              key={field}
-              label={
-                <>{RSVP_ASK_LABEL[field]}</>
-              }
-              on={rsvpAsks(local, field)}
-              onChange={(v) => save({ [field]: v })}
-            />
-          ))}
-        </div>
-      </section>
+      {asks}
       </DetailsPieceOnly>
 
       <DetailsPieceOnly item="rsvp" piece="who">
@@ -554,7 +517,8 @@ export function MakerRsvpSettings({
         {/* ONE line for the date — the field's own (owner 2026-10-05: the date
             showed twice, once with "Set your event date first."). */}
         {replyByOwn ? (
-          <ReplyByField
+          <ReplyBy
+            layout="stack"
             eventId={eventId}
             own={replyByOwn.deadline}
             pricingMode={replyByOwn.pricingMode}
@@ -627,11 +591,6 @@ function rsvpSettingName(patch: RsvpAskConfig): string {
 /** The whole config, drawn — the RSVP stage's frames lay it on the page (`maker-rsvp-stage.tsx`). */
 function announceRsvpPreview(config: RsvpAskConfig): void {
   window.dispatchEvent(new CustomEvent(RSVP_PREVIEW_EVENT, { detail: config }));
-}
-
-/** The reply-by sentence, drawn — the stage lays it on the form's "Please reply by …". */
-function announceReplyByLine(line: string): void {
-  window.dispatchEvent(new CustomEvent(RSVP_REPLY_BY_EVENT, { detail: { line } }));
 }
 
 /** A word's name in a sentence ("“Yes answer” did not save…"). */
@@ -728,19 +687,6 @@ function WordField({
   );
 }
 
-/** "18 November 2026" from `YYYY-MM-DD`, without a timezone shift. */
-function formatDay(ymd: string): string {
-  const [y, m, d] = ymd.split('-').map(Number);
-  if (!y || !m || !d) return ymd;
-  /* ONE date format across the Maker — "December 12, 2026" (owner 2026-10-05). */
-  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-US', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-    timeZone: 'UTC',
-  });
-}
-
 /** One on/off row — the switch the six questions have always used. */
 function Switch({
   label,
@@ -777,134 +723,5 @@ function Switch({
         className="relative h-6 w-11 shrink-0 rounded-full bg-ink/20 transition-colors duration-sn-control ease-sn after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform after:duration-sn-control after:ease-sn peer-checked:bg-terracotta-700 peer-checked:after:translate-x-5"
       />
     </label>
-  );
-}
-
-/**
- * THE REPLY-BY DATE, TYPED WHERE IT IS SHOWN. `events.guest_list_edit_deadline`
- * — its ONE editor (Event settings' Pricing card no longer shows it; it only
- * posts the stored date back hidden, `lib/pax-settings-form.ts`). Saved through
- * `updatePaxSettings`, which writes the pricing view beside it, so the current
- * one is posted back unchanged. Empty = back to the default.
- * It is not drafted — the deadline is the guest list's, not the Event Hub's
- * look — so it says it saves immediately.
- */
-function ReplyByField({
-  eventId,
-  own,
-  pricingMode,
-  fallback = null,
-  action = updatePaxSettings,
-}: {
-  eventId: string;
-  own: string | null;
-  pricingMode: 'realtime' | 'final_only';
-  action?: typeof updatePaxSettings;
-  /** The 30-day default the line reads while no date of their own is set. */
-  fallback?: string | null;
-}) {
-  /* ✍ No Save button anywhere (owner 2026-10-05): the RSVP stage's field is
-     the one field — the date shows at the pick and saves behind it. */
-  return <LiveReplyByField eventId={eventId} own={own} pricingMode={pricingMode} fallback={fallback} action={action} />;
-}
-
-/**
- * ⚡ THE REPLY-BY DATE ON THE RSVP STAGE — on the canvas at the pick
- * (`RSVP_REPLY_BY_EVENT` → "Please reply by …" on the form), saved behind it:
- * one write after a pause (`makerLatestWrite`), `held` (no render of the Maker)
- * and `maker_quiet` (the action revalidates no path — a `revalidatePath` in an
- * action makes its answer carry a whole render of the page it was sent from).
- * A refused save puts the date back and says so.
- */
-function LiveReplyByField({
-  eventId,
-  own,
-  pricingMode,
-  fallback,
-  action,
-}: {
-  eventId: string;
-  own: string | null;
-  pricingMode: 'realtime' | 'final_only';
-  fallback: string | null;
-  action: typeof updatePaxSettings;
-}) {
-  const [value, setValue] = useState(own ?? '');
-  const saved = useRef(own ?? '');
-  const newest = useRef(0);
-  const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
-  const shown = value || fallback;
-  const pick = (next: string) => {
-    setValue(next);
-    setNote(null);
-    announceReplyByLine(rsvpReplyByLine(next || fallback));
-    const tap = ++newest.current;
-    void (async () => {
-      let res: { ok: boolean; message?: string } | typeof SUPERSEDED;
-      try {
-        res = await makerSave(
-          () =>
-            makerLatestWrite('events.guest_list_edit_deadline', () => {
-              const fd = new FormData();
-              fd.set('event_id', eventId);
-              fd.set('guest_list_edit_deadline', next);
-              fd.set('adaptive_pricing_mode', pricingMode);
-              fd.set('maker_quiet', '1');
-              return action(fd);
-            }),
-          requestMakerRefresh,
-          { held: true, ok: (r) => r !== SUPERSEDED && r.ok === true },
-        );
-      } catch {
-        res = { ok: false, message: 'Please try again.' };
-      }
-      if (res === SUPERSEDED || tap !== newest.current) return;
-      if (res.ok) {
-        saved.current = next;
-        setNote({ ok: true, text: 'Saved.' });
-        return;
-      }
-      setValue(saved.current);
-      announceReplyByLine(rsvpReplyByLine(saved.current || fallback));
-      setNote({ ok: false, text: `The reply-by date did not save, so it is back as it was. ${res.message ?? ''}`.trim() });
-    })();
-  };
-  return (
-    <div className="flex flex-col gap-1.5" data-reply-by-field="live" data-writes-live="">
-      {shown ? (
-        <p className="flex flex-wrap items-baseline gap-x-2">
-          <span className="text-base font-semibold text-ink" data-reply-by={shown}>
-            {formatDay(shown)}
-          </span>
-          <span className="text-sm text-ink/60">{value ? '· your date' : '· 30 days before'}</span>
-        </p>
-      ) : (
-        <p className="text-sm text-ink/60">Set your event date first.</p>
-      )}
-      <div className="flex flex-wrap items-center gap-2">
-        <input
-          type="date"
-          value={value || fallback || ''}
-          onChange={(e) => pick(e.target.value)}
-          aria-label="Reply by — your own date"
-          className="min-h-11 rounded-md border border-ink/15 bg-white px-3 text-sm text-ink"
-        />
-        {value ? (
-          <button
-            type="button"
-            onClick={() => pick('')}
-            className="sn-press inline-flex min-h-11 items-center px-2 text-[13px] font-semibold text-ink/70 underline underline-offset-2"
-          >
-            Use the default
-          </button>
-        ) : null}
-      </div>
-      <HubSavesImmediately />
-      {note ? (
-        <p role={note.ok ? 'status' : 'alert'} className={`text-[13px] ${note.ok ? 'text-success-800' : 'text-terracotta-700'}`}>
-          {note.text}
-        </p>
-      ) : null}
-    </div>
   );
 }

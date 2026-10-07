@@ -27,6 +27,14 @@
  *                   an empty list, &fail=1 for a refused read
  *   &low=1          push the card's ticket row to the bottom of a short phone
  *                   (375×667), where a menu has no room under it
+ *   ?part=setup     Guests › Setup (2026-10-07) — the REAL `GuestSetupRows` on
+ *                   fixture data: &getin=list|personal|requests|one_qr_approve|one_qr,
+ *                   &hc=open|locked. The Digital Pass is the shipped
+ *                   SAMPLE event's pass (`?sample=1`, the public sample door) —
+ *                   a lab has no event of its own. Saves go nowhere real: the
+ *                   fixture event id fails the host fence, and a refusal says so.
+ *   ?part=rsvp      the Maker's Studio › RSVP (`MakerRsvpSettings studio`) on the
+ *                   same fixture, so the two doors can be compared side by side
  */
 import { notFound } from 'next/navigation';
 import { redirect } from 'next/navigation';
@@ -42,6 +50,10 @@ import type { GuestCardData } from '@/app/dashboard/[eventId]/guests/_components
 import type { GuestRow } from '@/lib/guests';
 import { GuestListMultiselect } from '@/app/dashboard/[eventId]/guests/_components/guest-list-multiselect';
 import type { ArrangeKey } from '@/lib/roster-arrangement';
+import { GuestSetupRows } from '@/app/dashboard/[eventId]/_components/guest-setup/guest-setup-rows';
+import { MakerRsvpSettings } from '@/app/dashboard/[eventId]/launch/_components/maker-rsvp-ask';
+import { guestsGetInPatch, isGuestsGetIn } from '@/lib/who-can-reply';
+import { renderStyledUrlQrSvg } from '@/lib/qr';
 import { GuestsScreen } from '@/app/dashboard/[eventId]/guests/_components/guests-screen';
 import { RoleNamesProvider } from '@/app/dashboard/[eventId]/guests/_components/role-names-context';
 
@@ -280,7 +292,54 @@ export default async function GuestsLabPage({
     );
   }
 
-  if (part === 'screen') {
+  /* ⚙ Guests › Setup (PR 4d) — the REAL rows on fixture data, drawn inside the
+     real Guests screen (`?part=setup` = `?part=screen&gview=share`). */
+  const getIn = isGuestsGetIn(sp.getin) ? sp.getin : 'list';
+  const labConfig = { ...guestsGetInPatch(getIn), dietary: false, song_request: false, note: false };
+  const hc = typeof sp.hc === 'string' ? sp.hc : 'open';
+  const config = labConfig;
+  const setupRows = (
+                    <GuestSetupRows
+                      eventId={EVENT}
+                      config={config}
+                      drafted={false}
+                      reply={{ own: '2027-01-14', pricingMode: 'realtime', fallback: null }}
+                      toInvite={3}
+                      passSrc="https://setnayan.com/api/hub-print/pass?sample=1&mode=screen"
+                      oneLink={{
+                        url: 'https://setnayan.com/cale-ice/invite',
+                        qrSvg: await renderStyledUrlQrSvg('https://setnayan.com/cale-ice/invite', undefined, 240),
+                        notice: null,
+                      }}
+                      headcount={{ locked: hc === 'locked', attending: 7, heads: 7 }}
+                    />
+  );
+  if (part === 'rsvp') {
+    return (
+      <div className="sn-ambient min-h-screen">
+        <main className="sn-vt-page">
+          <div data-shell-main>
+            <div className="sn-page-enter">
+              <section className="mx-auto flex w-full max-w-[720px] flex-col gap-4 px-4 py-6" data-lab-setup="rsvp">
+                <MakerRsvpSettings
+                  eventId={EVENT}
+                  studio
+                  current={labConfig}
+                  drafted={false}
+                  replyBy={{ date: '2027-01-14', isDefault: false }}
+                  replyByOwn={{ deadline: '2027-01-14', pricingMode: 'realtime' }}
+                  requests={{ count: 0, list: null }}
+                />
+              </section>
+            </div>
+          </div>
+        </main>
+        <DockStandIn />
+      </div>
+    );
+  }
+
+  if (part === 'screen' || part === 'setup') {
     // maria-and-jose's roster with the replies, invitations and groups a
     // planning couple has a month out — so every section, pill and count of the
     // prototype has something real to draw.
@@ -309,7 +368,7 @@ export default async function GuestsLabPage({
     };
     const tables = [...new Set(MJ_ROSTER.map((r) => r[4]))].map((label, i) => ({ tableId: `t-${i}`, label }));
     const tableByGuest = Object.fromEntries(MJ_ROSTER.map(([, , , , table], i) => [`g-mj-${i}`, table]).filter((_, i) => i % 3 !== 2));
-    const gview = sp.gview === 'map' ? 'map' : sp.gview === 'share' ? 'share' : 'list';
+    const gview = sp.gview === 'map' ? 'map' : sp.gview === 'share' || part === 'setup' ? 'share' : 'list';
     const empty = sp.empty === '1';
     const fail = sp.fail === '1';
     return (
@@ -342,7 +401,7 @@ export default async function GuestsLabPage({
                     requests={3}
                     rootLabel="Maria & Jose"
                     initialQuery={typeof sp.q === 'string' ? sp.q : ''}
-                    setup={<p className="py-6 text-sm text-ink/60">Setup — the shipped Share panel (PR 4d builds the rows).</p>}
+                    setup={setupRows}
                     empty={
                       empty || fail ? (
                         <p className="p-8 text-center text-base text-ink/70" data-guests-empty="">

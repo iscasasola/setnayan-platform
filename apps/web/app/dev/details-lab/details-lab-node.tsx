@@ -89,7 +89,7 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
           parentCount: fresh || mj ? 0 : 2,
           // Where the invitation prints parents a co-host account never counts (`readYourEventFacts`).
           hostCount: mj ? 0 : 1,
-          marchLines: marchLab ? 1 : 0,
+          marchLines: marchLab || studioLab ? 1 : 0,
         },
         names: hasTwoNamedPeople(profile)
           ? {
@@ -115,7 +115,8 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
         venues: studioLab
           ? { resolved: [{ role: 'reception', name: 'The Garden at Tagaytay', address: 'Tagaytay City' } as never], slots: [], city: null }
           : { resolved: [], slots: [], city: null },
-        march: marchLab ? { ...labMarchSections(one('march')), lab: true } : { sections: [] },
+        /* 🧭 `?studio=1` also draws the march on fixtures — Studio's side-by-side needs real-looking walks. */
+        march: marchLab || studioLab ? { ...labMarchSections(one('march')), lab: true } : { sections: [] },
       }
     : null;
   const needsDb = (what: string) => <p className="p-6 text-sm text-ink/60">{what} is read from the database — open it in the Maker.</p>;

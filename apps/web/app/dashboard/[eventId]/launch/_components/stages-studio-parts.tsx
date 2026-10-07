@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Check } from 'lucide-react';
+import { MAKER_UNHELD_WRITE_EVENT, makerSavesInFlight } from '@/lib/maker-refresh';
+import { STUDIO_DONE_BUTTON, STUDIO_HEAD_ROW, STUDIO_SAVED_PILL, STUDIO_TOOL_PILL } from '@/lib/studio-skin';
 import { ISeg, ISegmented } from '../../website/editor/_components/inspector-kit';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import type { PickOption } from '../../website/editor/_components/pick-menu-types';
@@ -39,11 +41,14 @@ export function StudioToolMenu({
   value,
   onOpen,
   dataAttr,
+  className = '!min-h-11 shrink-0 ring-1 ring-ink/10',
 }: {
   tiles: readonly StudioTileModel[];
   value: StudioTileKey;
   onOpen: (key: StudioTileKey) => void;
   dataAttr: string;
+  /** The pill's look — the Tool row's is the prototype's `.ddp` (`STUDIO_TOOL_PILL`). */
+  className?: string;
 }) {
   const options: PickOption[] = tiles.map((t) => ({
     key: t.key,
@@ -59,15 +64,63 @@ export function StudioToolMenu({
       buttonText={tiles.find((t) => t.key === value)?.short ?? 'Studio'}
       options={options}
       onPick={(k) => onOpen(k as StudioTileKey)}
-      className="!min-h-11 shrink-0 ring-1 ring-ink/10"
+      className={className}
     />
   );
 }
 
 /**
- * A Studio tool FULL SCREEN — its slim row (owner 2026-10-06, DECISION_LOG "'ASK ONE BY ONE' … TAPPING
- * STUDIO AGAIN RETURNS TO THE TILES"): Tool ▾, and ✓ Done where the top nav is hidden (Wedding March,
- * Seat plan). No "‹ Studio" — tapping Studio in the top nav returns to the tiles.
+ * ✓ SAVED — the Tool row's right-hand pill (prototype `.fright.saved`). Every Studio
+ * write already says it is under way (`makerSave` / the shell's form posts fire
+ * `MAKER_UNHELD_WRITE_EVENT`); this only DRAWS that: "Saving…" while one is in
+ * flight, "✓ Saved" once none is. It writes nothing and claims nothing it did not
+ * hear — a screen that never wrote shows "✓ Saved" because nothing is pending.
+ */
+export function StudioSaved() {
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    let timer: number | null = null;
+    const settle = () => {
+      if (makerSavesInFlight() > 0) {
+        timer = window.setTimeout(settle, 400);
+        return;
+      }
+      timer = null;
+      setSaving(false);
+    };
+    const onWrite = () => {
+      setSaving(true);
+      if (timer === null) timer = window.setTimeout(settle, 400);
+    };
+    window.addEventListener(MAKER_UNHELD_WRITE_EVENT, onWrite);
+    return () => {
+      window.removeEventListener(MAKER_UNHELD_WRITE_EVENT, onWrite);
+      if (timer !== null) window.clearTimeout(timer);
+    };
+  }, []);
+  return (
+    <span data-studio-saved={saving ? 'saving' : 'saved'} aria-live="polite" className={`${STUDIO_SAVED_PILL} ${saving ? 'text-ink/50' : 'text-success-700'}`}>
+      {saving ? (
+        'Saving…'
+      ) : (
+        <>
+          <Check aria-hidden className="h-4 w-4" strokeWidth={2.2} />
+          Saved
+        </>
+      )}
+    </span>
+  );
+}
+
+/**
+ * A Studio tool FULL SCREEN — its slim row (prototype `.fhead`; owner 2026-10-06, DECISION_LOG
+ * "'ASK ONE BY ONE' … TAPPING STUDIO AGAIN RETURNS TO THE TILES"): Tool ▾ across the row, then
+ * ✓ Saved — or ✓ Done where the top nav is hidden (Wedding March, Seat plan). No "‹ Studio" —
+ * tapping Studio in the top nav returns to the tiles.
+ *
+ * `[data-studio-row-end]` is the row's right end: a tool with a control of its own there (the
+ * Mood Board's ✨ Auto and its own Saved, prototype `.autob`) portals it in, and the row's own
+ * Saved steps aside for it (`studioFullScreenCss`).
  */
 export function StudioToolRow({
   tile,
@@ -81,19 +134,20 @@ export function StudioToolRow({
   onDone: () => void;
 }) {
   return (
-    <div data-maker-studio-row="" className="absolute inset-x-0 top-0 z-40 flex h-[52px] items-center gap-2 border-b border-ink/10 bg-cream px-2 lg:hidden">
-      <StudioToolMenu tiles={tiles} value={tile.key} onOpen={onOpen} dataAttr="data-maker-studio-tool" />
+    <div data-maker-studio-row="" className={STUDIO_HEAD_ROW}>
+      <StudioToolMenu tiles={tiles} value={tile.key} onOpen={onOpen} dataAttr="data-maker-studio-tool" className={STUDIO_TOOL_PILL} />
       {tile.immersive ? (
-        <button
-          type="button"
-          data-maker-studio-done=""
-          onClick={onDone}
-          className="sn-press ml-auto inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full bg-success-600 px-4 text-[13.5px] font-bold text-cream hover:bg-success-700"
-        >
-          <Check aria-hidden className="h-4 w-4" strokeWidth={2.6} />
+        <button type="button" data-maker-studio-done="" onClick={onDone} className={STUDIO_DONE_BUTTON}>
+          <Check aria-hidden className="h-[15px] w-[15px]" strokeWidth={2.6} />
           Done
         </button>
-      ) : null}
+      ) : (
+        <div data-studio-row-end="" className="flex shrink-0 items-center gap-1.5">
+          <span data-studio-row-saved="" className="contents">
+            <StudioSaved />
+          </span>
+        </div>
+      )}
     </div>
   );
 }

@@ -2,6 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
+import { createPortal } from 'react-dom';
+import { STUDIO_AUTO_BUTTON, STUDIO_SAVED_PILL } from '@/lib/studio-skin';
+import { useMaker } from '../../../launch/_components/maker-context';
 import { Check, ChevronDown, Plus, Sparkles, X } from 'lucide-react';
 import { useOneOpen } from '@/lib/one-open';
 import { makerSave } from '@/lib/maker-refresh';
@@ -122,6 +125,11 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
   const [sheet, setSheet] = useState<Sheet>(null);
   useOneOpen(sheet !== null, () => setSheet(null));
   const [save, setSave] = useState<SaveState>('idle');
+  /* The Studio's Tool row's right end (`StudioToolRow` `[data-studio-row-end]`) — found once mounted. */
+  /* Only while the Mood Board is the tool on screen: Studio keeps its tools mounted, hidden. */
+  const shown = useMaker()?.detailsItem === 'mood-board';
+  const [rowEnd, setRowEnd] = useState<Element | null>(null);
+  useEffect(() => setRowEnd(shown ? document.querySelector('[data-studio-row-end]') : null), [shown]);
   const [note, setNote] = useState<{ text: string; undo?: () => void } | null>(null);
 
   /* ── the palette: local, written through the Mood Board's own writer ── */
@@ -359,30 +367,35 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
     return { title: t.label, job: 'Adds a colour they wear', current: roleColours(t.key)[0] ?? five[0]!, onPick: (h: string) => pickRole(t.key, t.label, h), extra: null };
   };
 
+  const bar = (
+    <div className="flex min-h-11 items-center gap-1.5" data-mood-board-studio-bar="">
+      <button type="button" onClick={() => setSheet({ kind: 'auto' })} className={STUDIO_AUTO_BUTTON} data-mood-board-auto="">
+        <Sparkles aria-hidden className="h-4 w-4" /> Auto
+      </button>
+      <span
+        className={`${STUDIO_SAVED_PILL} ${save === 'error' ? 'text-terracotta-700' : save === 'saving' ? 'text-ink/50' : 'text-success-700'}`}
+        data-mood-board-save={save}
+        aria-live="polite"
+      >
+        {save === 'saving' ? 'Saving…' : save === 'error' ? 'Not saved — try again' : (
+          <>
+            <Check aria-hidden className="h-4 w-4" /> Saved
+          </>
+        )}
+      </span>
+    </div>
+  );
+
   return (
     <div data-mood-board="studio" className="flex flex-col gap-3 pb-8">
-      {/* Saved · ✨ Auto (owner: "a button beside save") */}
-      <div className="flex min-h-11 items-center gap-2" data-mood-board-studio-bar="">
-        <span className="inline-flex items-center gap-1 text-[12.5px] font-semibold text-ink/60" data-mood-board-save={save} aria-live="polite">
-          {save === 'saving' ? 'Saving…' : save === 'error' ? <span className="text-terracotta-700">Not saved — try again</span> : (
-            <>
-              <Check aria-hidden className="h-3.5 w-3.5" /> Saved
-            </>
-          )}
-        </span>
-        <button
-          type="button"
-          onClick={() => setSheet({ kind: 'auto' })}
-          className="sn-press ml-auto inline-flex min-h-11 items-center gap-1 rounded-full bg-ink px-4 text-[13px] font-bold text-cream"
-          data-mood-board-auto=""
-        >
-          <Sparkles aria-hidden className="h-4 w-4" /> Auto
-        </button>
-      </div>
+      {/* Saved · ✨ Auto (owner: "a button beside save") — IN the Studio's Tool row, beside Tool ▾
+          (prototype `.fhead`: MOOD BOARD ▾ · ✨ Auto · ✓ Saved), portalled into its right end; drawn
+          here only where there is no such row (the shipped Mood Board page). */}
+      {rowEnd ? createPortal(bar, rowEnd) : bar}
       <div className="flex" data-mood-board-tabs="">
         <ISegmented label="Mood Board">
           {TABS.map(([k, label]) => (
-            <ISeg key={k} on={tab === k} onClick={() => setTab(k)} tone="wine" data={`data-mood-board-tab="${k}"`}>
+            <ISeg key={k} on={tab === k} onClick={() => setTab(k)} data={`data-mood-board-tab="${k}"`} className="!px-1 !text-[12.5px]">
               {label}
             </ISeg>
           ))}

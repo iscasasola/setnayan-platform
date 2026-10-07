@@ -186,7 +186,15 @@ export function DetailsWorkspace({
   guide = null,
   coverUrl = null,
   bodyAlias = {},
+  formHeads = {},
 }: {
+  /**
+   * 🗂 A form's group headings (the new Maker's Studio, prototype `.gh`): the item a
+   * group of the one scrolling form starts at → its small-capital heading and the
+   * small line on its right ("Your event · saves as you type"). Drawn above that
+   * item's field, inside the form only.
+   */
+  formHeads?: Partial<Record<DetailsItemKey, { title: string; line?: string }>>;
   /**
    * 🖼 Items that SHARE another item's picture (owner 2026-10-06: Background ·
    * Colours · Font · Music each show the couple's own page — ONE frame, the
@@ -275,6 +283,13 @@ export function DetailsWorkspace({
   useEffect(() => {
     if (marchHere) setSheetOpen(true);
   }, [marchHere]);
+  /* 🧭 STUDIO › LOOK (the new Maker, prototype `.lt .look`): Look opens straight on its controls —
+     ONE full-width bar, Background · Colours · Fonts · Music (`StudioLookBar`), over the page — never
+     a row of tall tiles to pick from first (side-by-side M29, owner 2026-10-07). */
+  const studioLook = maker?.stagesStudio === true && detailsLtSection(selected) === 'look';
+  useEffect(() => {
+    if (studioLook) setSheetOpen(true);
+  }, [studioLook]);
   const editorRef = useRef<HTMLDivElement>(null);
   const navRef = useRef<HTMLOListElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -567,7 +582,7 @@ export function DetailsWorkspace({
   const ltNav = maker?.ltNav ?? null;
   const ltSection = (k: DetailsItemKey) => detailsLtSection(k);
   const here = ltSection(selected);
-  const ltTiles = ltNav ? (
+  const ltTiles = ltNav && !studioLook ? (
     <IntoLowerThird to={ltNav}>
           {detailsListGroups(groups, selected)
             .flatMap((g) => g.items)
@@ -660,6 +675,12 @@ export function DetailsWorkspace({
           data-details-form-field={formKeys.has(i.key) ? '' : undefined}
           className={!showsEditor(i.key) ? 'hidden' : i.key === 'march' ? 'flex min-h-0 flex-1 flex-col' : `flex flex-col gap-3${formKeys.has(i.key) && i.key !== formGroup?.items[0]?.key ? ' border-t border-ink/10 pt-4' : ''}`}
         >
+          {formKeys.has(i.key) && formHeads[i.key] ? (
+            <p data-details-form-group={i.key} className="flex items-baseline gap-2 pt-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-ink/55">
+              {formHeads[i.key]!.title}
+              {formHeads[i.key]!.line ? <small className="ml-auto text-[11px] font-medium normal-case tracking-normal text-ink/50">{formHeads[i.key]!.line}</small> : null}
+            </p>
+          ) : null}
           {/* 🗂 In the Your event form each field is named — the list's row is the form's. */}
           {formKeys.has(i.key) ? <h3 className="text-[15px] font-semibold text-ink" data-details-form-heading={i.key}>{i.label}</h3> : null}
           {/* A server-made editor arrives as a lazy client reference — keyed, so it is

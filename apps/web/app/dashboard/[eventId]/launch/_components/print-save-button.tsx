@@ -12,6 +12,7 @@ import {
   type PrintedStamp,
 } from '@/lib/printed-stamp';
 import { Download, Loader2 } from 'lucide-react';
+import { STUDIO_SAVE_CHIP } from '@/lib/studio-skin';
 
 /**
  * PrintSaveButton — every Prints & Tickets button SAVES a file and never opens
@@ -78,7 +79,8 @@ export function PrintSaveButton({
   /** The saved file's name — `<event slug>-<print>.pdf`. */
   file: string;
   children: ReactNode;
-  variant?: 'primary' | 'secondary' | 'link';
+  /** `chip` — the new Maker's Studio › Prints (prototype `.pr-sv`): a small bordered Save, words only. */
+  variant?: 'primary' | 'secondary' | 'link' | 'chip';
   className?: string;
 }) {
   const [state, setState] = useState<State>({ k: 'idle' });
@@ -144,7 +146,9 @@ export function PrintSaveButton({
       ? 'button-primary inline-flex min-h-10 items-center gap-1.5 whitespace-nowrap text-sm'
       : variant === 'secondary'
         ? 'button-secondary inline-flex min-h-10 items-center gap-1.5 whitespace-nowrap text-sm'
-        : 'inline-flex min-h-10 items-center gap-1 text-sm font-medium text-mulberry underline underline-offset-2';
+        : variant === 'chip'
+          ? `${STUDIO_SAVE_CHIP} gap-1.5 whitespace-nowrap`
+          : 'inline-flex min-h-10 items-center gap-1 text-sm font-medium text-mulberry underline underline-offset-2';
 
   return (
     <span className="inline-flex flex-col items-start gap-1">
@@ -158,7 +162,7 @@ export function PrintSaveButton({
       >
         {state.k === 'working' ? (
           <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={1.75} />
-        ) : variant !== 'link' ? (
+        ) : variant !== 'link' && variant !== 'chip' ? (
           <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         ) : null}
         {state.k === 'working' ? 'Preparing…' : state.k === 'ready' ? 'Tap to save' : children}

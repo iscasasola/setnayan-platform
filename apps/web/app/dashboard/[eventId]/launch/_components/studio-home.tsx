@@ -1,9 +1,10 @@
 'use client';
 
 import type { ComponentType } from 'react';
-import { Armchair, CalendarClock, ClipboardList, Footprints, Gem, Gift, Heart, Palette, Printer, Reply, Shirt } from 'lucide-react';
+import { Armchair, Clock, FileText, Gift, Heart, LayoutGrid, PersonStanding, Reply } from 'lucide-react';
 import type { StudioTileKey, StudioTileModel } from '@/lib/studio-tiles';
 import { formatCount } from '@/lib/format-number';
+import { STUDIO_PAGE_BG } from '@/lib/studio-skin';
 
 /**
  * 🗂 THE STUDIO HOME — the new Maker's Studio side opens on its tiles (owner
@@ -25,26 +26,39 @@ import { formatCount } from '@/lib/format-number';
  * ⚡ Loaded when Studio is first opened (`details-lazy.tsx`, the `maker-details`
  * chunk) — never in the Maker's first load. 🔒 Opening it writes nothing.
  */
-const TILE_ICON: Record<StudioTileKey, ComponentType<{ className?: string; strokeWidth?: number; 'aria-hidden'?: boolean }>> = {
-  info: ClipboardList,
-  look: Palette,
-  logo: Gem,
-  mood: Shirt,
-  schedule: CalendarClock,
+type TileIcon = ComponentType<{ className?: string; strokeWidth?: number; 'aria-hidden'?: boolean }>;
+
+/** The Logo's mark in the prototype (`i-logo`): a ring with an M — the monogram it makes. */
+function MonogramIcon({ className }: { className?: string }) {
+  return (
+    <svg aria-hidden viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M8.5 15.5v-7l3.5 4.5 3.5-4.5v7" />
+    </svg>
+  );
+}
+
+/** The prototype's icons (`ICON[k]`): Look and the Mood Board share the board mark, Prints the form. */
+const TILE_ICON: Record<StudioTileKey, TileIcon> = {
+  info: FileText,
+  look: LayoutGrid,
+  logo: MonogramIcon,
+  mood: LayoutGrid,
+  schedule: Clock,
   story: Heart,
-  march: Footprints,
+  march: PersonStanding,
   seats: Armchair,
   gifts: Gift,
   rsvp: Reply,
-  prints: Printer,
+  prints: FileText,
 };
 
 export function StudioHome({ tiles, onOpen }: { tiles: readonly StudioTileModel[]; onOpen: (key: StudioTileKey) => void }) {
   const ready = tiles.filter((t) => t.done === true).length;
   return (
-    <div data-studio-home="" className="h-full overflow-y-auto overscroll-contain px-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-3">
-      <div className="flex items-baseline justify-between px-1 pb-3">
-        <h2 className="font-serif text-[26px] font-medium text-ink">Studio</h2>
+    <div data-studio-home="" className={`h-full overflow-y-auto overscroll-contain ${STUDIO_PAGE_BG} px-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-3`}>
+      <div className="flex items-baseline justify-between px-1 pb-3 pt-1">
+        <h2 className="font-serif text-[26px] font-medium leading-none text-ink">Studio</h2>
         <p className="text-[12.5px] font-semibold text-success-700" data-studio-ready="">
           {formatCount(ready)} of {formatCount(tiles.length)} ready
         </p>
@@ -59,22 +73,22 @@ export function StudioHome({ tiles, onOpen }: { tiles: readonly StudioTileModel[
                 data-studio-tile={t.key}
                 data-studio-done={t.done === undefined ? 'unread' : t.done ? 'yes' : 'no'}
                 onClick={() => onOpen(t.key)}
-                className={`sn-press relative flex min-h-28 flex-col items-start gap-1 rounded-2xl bg-white px-3.5 py-3 text-left ring-1 transition-shadow duration-sn-control ease-sn ${
-                  t.done === false ? 'ring-terracotta/30' : 'ring-ink/10'
+                className={`sn-press relative flex min-h-28 flex-col items-start gap-1 rounded-2xl bg-cream py-3 pl-3.5 pr-3 text-left ring-1 transition-shadow duration-sn-control ease-sn ${
+                  t.done === false ? 'ring-terracotta-700/25' : 'ring-ink/10'
                 }`}
               >
                 <span className="mb-1.5 flex w-full items-center justify-between">
-                  <Icon aria-hidden className="h-[22px] w-[22px] text-gild" strokeWidth={1.75} />
+                  <Icon aria-hidden className="h-[22px] w-[22px] text-gild" strokeWidth={1.9} />
                   {t.done === true ? (
-                    <span className="rounded-full bg-success-600/15 px-2 py-0.5 text-[10.5px] font-bold text-success-700">✓</span>
+                    <span className="rounded-full bg-success-600/12 px-2 py-[3px] text-[10.5px] font-bold text-success-700">✓</span>
                   ) : t.done === false ? (
-                    <span className="rounded-full bg-terracotta/10 px-2 py-0.5 text-[10.5px] font-bold text-terracotta-700">Missing</span>
+                    <span className="rounded-full bg-terracotta-700/10 px-2 py-[3px] text-[10.5px] font-bold text-terracotta-700">Missing</span>
                   ) : null}
                 </span>
                 <span className="text-[15px] font-semibold leading-tight text-ink">{t.label}</span>
-                <span className="text-[12px] leading-snug text-ink/65">{t.status}</span>
+                <span className="text-[12px] leading-snug text-ink/70">{t.status}</span>
                 {t.immersive ? (
-                  <span className="absolute bottom-2 right-2.5 text-[9.5px] font-bold uppercase tracking-[0.08em] text-ink/45">Full screen</span>
+                  <span className="absolute bottom-[9px] right-2.5 text-[9.5px] font-bold uppercase tracking-[0.08em] text-ink/50">Full screen</span>
                 ) : null}
               </button>
             </li>

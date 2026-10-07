@@ -94,7 +94,7 @@ import { LOOK_ITEM_SECTIONS } from '@/lib/maker-look-sections';
 import { StudioTool } from './details-lazy';
 import type { StudioHubFacts } from './studio-tools';
 import type { ManagerMethod } from '../../pabuya/_components/pabuya-manager';
-import { studioDetailsGroups, studioFullScreenCss, STUDIO_SUPPLIERS_LINE } from '@/lib/studio-details';
+import { studioDetailsGroups, studioFullScreenCss, STUDIO_FORM_HEADS, STUDIO_SUPPLIERS_LINE } from '@/lib/studio-details';
 import { MoodBoardPieces } from '../../studio/mood-board/_components/mood-board-parts';
 import { ItemPieces } from './details-piece';
 import { DetailsGoTo } from './details-go';
@@ -484,7 +484,7 @@ export function MakerDetails(props: MakerDetailsProps) {
   // ⭕ The plate follows the code (owner 2026-09-30): a round code sits on a round plate.
   // The plate WRAPS the picture rather than clipping it, so a code drawn square still shows whole.
   const qrPlate = qr.style.shape === 'circle' ? ' rounded-full' : '';
-  const free = freePrintParts(eventId, slug, prints);
+  const free = freePrintParts(eventId, slug, prints, Boolean(props.studio));
   const save = <SaveWords />;
   /* 🗓 Your event (part 2a) — its rows, bodies and editors (`details-your-event-parts.tsx`). */
   const ye = props.yourEvent ? yourEventParts({ eventId, input: props.yourEvent, prints, parents, hosts }) : null;
@@ -801,7 +801,8 @@ export function MakerDetails(props: MakerDetailsProps) {
       tip="Use 25 mm round NFC stickers (NTAG213/215). Write your Event Hub link to them first. The spot prints beside the QR — on the calling card it takes the corner; where a format has no room for both, the QR stays and the spot is left off."
     />
   );
-  const printsOn = (piece: PrintSetKey) => (
+  /* 🧭 The new Maker's Studio keeps helper text behind ⓘ — this line is the shipped Details' only. */
+  const printsOn = (piece: PrintSetKey) => props.studio ? null : (
     <p className="text-xs text-ink/60">
       Prints on {PRINT_PIECES[piece].label} while its switch is on.
     </p>
@@ -837,7 +838,7 @@ export function MakerDetails(props: MakerDetailsProps) {
       </div>
     ),
     invitation: (
-      <PrintPieceEditor input={prints} piece="invitation">
+      <PrintPieceEditor input={prints} piece="invitation" studio={Boolean(props.studio)}>
         {switches.parents ? (
           <Toggle
             form={WORDS_FORM}
@@ -857,7 +858,7 @@ export function MakerDetails(props: MakerDetailsProps) {
       </PrintPieceEditor>
     ),
     details: (
-      <PrintPieceEditor input={prints} piece="details">
+      <PrintPieceEditor input={prints} piece="details" studio={Boolean(props.studio)}>
         <Toggle
           form={WORDS_FORM}
           name="inc_gift_details"
@@ -901,7 +902,7 @@ export function MakerDetails(props: MakerDetailsProps) {
     ),
     pass: (
       <>
-        <PrintPieceEditor input={prints} piece="pass">
+        <PrintPieceEditor input={prints} piece="pass" studio={Boolean(props.studio)}>
           <Toggle form={WORDS_FORM} name="inc_guest_names" label="Guest list — names on passes" on={inc.guestNames} />
           {qrAlways}
           {save}
@@ -910,11 +911,11 @@ export function MakerDetails(props: MakerDetailsProps) {
         <PassCardsPanel input={prints} />
       </>
     ),
-    entourage: <PrintPieceEditor input={prints} piece="entourage" />,
-    menu: <PrintPieceEditor input={prints} piece="menu" menu={menu} />,
-    poster: <PrintPieceEditor input={prints} piece="poster" />,
-    'story-poster': <PrintPieceEditor input={prints} piece="story-poster" />,
-    card: <PrintPieceEditor input={prints} piece="card" />,
+    entourage: <PrintPieceEditor input={prints} piece="entourage" studio={Boolean(props.studio)} />,
+    menu: <PrintPieceEditor input={prints} piece="menu" studio={Boolean(props.studio)} menu={menu} />,
+    poster: <PrintPieceEditor input={prints} piece="poster" studio={Boolean(props.studio)} />,
+    'story-poster': <PrintPieceEditor input={prints} piece="story-poster" studio={Boolean(props.studio)} />,
+    card: <PrintPieceEditor input={prints} piece="card" studio={Boolean(props.studio)} />,
     download: <PrintSetDownloads input={prints} />,
     /* ── Words ── */
     'special-message': facts['special-message'],
@@ -1085,6 +1086,8 @@ export function MakerDetails(props: MakerDetailsProps) {
         coverUrl={props.coverUrl ?? null}
         /* 🖼 Background · Colours · Font · Music show the ONE page the whole Look shows. */
         bodyAlias={{ background: 'theme', colours: 'theme', font: 'theme', music: 'theme' }}
+        /* 🗂 The new Maker's Studio forms, grouped as the prototype draws them (`.gh`). */
+        formHeads={props.studio ? STUDIO_FORM_HEADS : undefined}
         /* 🧩 Each moved tool's pieces, in the navigator (DECISION_LOG "A TOOL
            MOVED INTO THE MAKER IS REBUILT INTO THE THREE PARTS"). */
         pieces={{

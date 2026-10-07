@@ -492,7 +492,7 @@ export function makerStagePickedAttr(key: MakerPartKey | null): string | null {
  * part keeps all four.
  */
 export function makerRevealEdges(isReveal: boolean): { grip: boolean; addAbove: boolean; addBelow: boolean; remove: boolean } {
-  return isReveal ? { grip: false, addAbove: false, addBelow: true, remove: false } : { grip: true, addAbove: true, addBelow: true, remove: true };
+  return isReveal ? { grip: false, addAbove: false, addBelow: false, remove: false } : { grip: true, addAbove: true, addBelow: true, remove: true };
 }
 
 /**

@@ -493,7 +493,7 @@ export function PartEdits({
                   <span className={ADD_FACE}>+</span>
                 </button>
               ) : null}
-              {onEdge(fr!.top + fr!.height) ? (
+              {edgesOf.addBelow && onEdge(fr!.top + fr!.height) ? (
                 <button type="button" aria-label={`Add below ${label}`} data-part-add="below" onClick={() => setAdding('below')} className={EDGE_BTN} style={tapAt(box.left + box.width / 2, fr!.top + fr!.height, fe!.tapBelow)}>
                   <span className={ADD_FACE}>+</span>
                 </button>

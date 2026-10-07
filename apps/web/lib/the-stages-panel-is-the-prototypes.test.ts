@@ -132,13 +132,15 @@ test('the preview is the SHIPPED guest page drawing that style — never a text 
 /* ── 4 · the Reveal is locked first ──────────────────────────────────────── */
 
 test('picked, the Reveal shows no grip, no ＋ above and no 🗑 — its ＋ below stays; every other part keeps all four', () => {
-  assert.deepEqual(makerRevealEdges(true), { grip: false, addAbove: false, addBelow: true, remove: false });
+  /* Owner 2026-10-07: "also remove the (+) under the highlight" — the Reveal has NO ＋ at all now. */
+  assert.deepEqual(makerRevealEdges(true), { grip: false, addAbove: false, addBelow: false, remove: false });
   assert.deepEqual(makerRevealEdges(false), { grip: true, addAbove: true, addBelow: true, remove: true });
   const src = read(`${LAUNCH}/add-part-sheet.tsx`);
   assert.match(src, /const edgesOf = makerRevealEdges\(isReveal\);/);
   assert.match(src, /const canRemove = edgesOf\.remove &&/, '🗑 follows the lock');
   assert.match(src, /const canMove = edgesOf\.grip &&/, 'the grip follows the lock');
   assert.match(src, /\{edgesOf\.addAbove \? \(\s*<button type="button" aria-label=\{`Add above/, '＋ above follows the lock');
+  assert.match(src, /\{edgesOf\.addBelow && onEdge\(fr!\.top \+ fr!\.height\) \? \(\s*<button type="button" aria-label=\{`Add below/, '＋ below follows the lock');
 });
 
 test('a drop at slot 0 on a page the Reveal leads lands at slot 1', () => {
@@ -345,9 +347,18 @@ test('the Reveal is FIRST on The Day › Live (and every page it leads) — befo
   for (const [stage, page] of [['save_the_date', 'home'], ['rsvp', 'home'], ['event', 'live']] as const) {
     assert.equal((MAKER_STAGE_PAGES[stage] as Record<string, readonly string[]>)[page]![0], 'reveal', `${stage} › ${page} opens with the Reveal`);
   }
-  const live = MAKER_STAGE_PAGES.event.live;
+  const live = MAKER_STAGE_PAGES.event.live!;
   assert.ok(live.indexOf('reveal') < live.indexOf('spotlight'), 'the Reveal comes before the Happening-now card');
   const tools = read(`${LAUNCH}/stage-tools.tsx`);
   assert.match(tools, /const first = \[\.\.\.doc\.querySelectorAll\('\[data-maker-section\]'\)\]\.find\(\(m\) => !m\.closest\('\[data-hub-tab\]\[hidden\]'\)\)/, 'drawn before the first SHOWN part');
   assert.match(tools, /part\.nextElementSibling !== first\) \{\s*part\.remove\(\);/, 'a stub left lower down is moved back to the top');
+});
+
+test('the Reveal’s Look carries one switch per stage it can play on — the same drafted list Arrange writes', () => {
+  /* Owner 2026-10-07: "reveal will have a toggle for each stage it is at. to know where they want this to activate". */
+  const src = read(`${LAUNCH}/maker-reveal.tsx`);
+  assert.match(src, /data-reveal-stage-switches=""/);
+  assert.match(src, /\{REVEAL_STAGE_CHOICES\.map\(\(st\) => \([\s\S]{0,400}<PanelSwitch on=\{stages\.includes\(st\)\}[^>]*onChange=\{\(\) => toggleStage\(st\)\}/, 'each switch reads and writes the one stages list');
+  assert.match(src, /stages=\{stages\} toggleStage=\{toggleStage\}/, 'the Stages part is handed the picker’s own list and toggle');
+  assert.match(src, /const toggleStage = \(s: RevealStage\) => setStages\(revealStagesWith\(stages, s, !stages\.includes\(s\)\)\);/, 'one write: setStages');
 });

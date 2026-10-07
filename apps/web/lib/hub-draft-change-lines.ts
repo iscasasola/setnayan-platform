@@ -104,6 +104,10 @@ export const HUB_DRAFT_EVENT_PLACE: Record<HubDraftEventColumn, { place: string;
   gifts_on: { place: DETAILS, what: 'Gifts' },
   logo_wanted: { place: DETAILS, what: 'Logo' },
   cover_photo_wanted: { place: DETAILS, what: 'Event photo' },
+  // 🔳 Info › Your Event Hub › QR on/off (owner 2026-10-07).
+  qr_shown: { place: 'Info', what: 'Event QR on or off' },
+  // 🎨 One of the five main colours, edited in Studio › Look › Colours (owner 2026-10-07).
+  main_colours: { place: LOOK, what: LOOK_SECTION_LABEL.colours },
 };
 
 /** A scene canvas facet group → the word on the sheet. */

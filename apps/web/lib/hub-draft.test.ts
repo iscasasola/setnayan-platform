@@ -118,7 +118,8 @@ test('every drafted column is look, the one free colour, or the couple\'s words 
     const own = ['site_bg_music_enabled', 'style_preferences'].includes(c);
     // 🎨 The Mood Board palette a theme pick fills onto an EMPTY board (owner
     // 2026-10-05, "THE MOOD BOARD PALETTE IS THE PRIORITY") — never Pro.
-    const fill = c === 'role_palette';
+    // 🎨 …and one main colour edited on its own (Studio › Look › Colours, owner 2026-10-07) — never Pro.
+    const fill = c === 'role_palette' || c === 'main_colours';
     // ✍ The names and the date typed in the Maker (2026-10-01, "wait for apply").
     // Two of them are also HUB_WORDS_EVENT_COLUMNS (display_name, event_date) — a fact first.
     const fact = (HUB_DRAFT_FACT_COLUMNS as readonly string[]).includes(c);

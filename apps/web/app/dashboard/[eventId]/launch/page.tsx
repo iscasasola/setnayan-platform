@@ -50,6 +50,9 @@ import { HubStage } from './_components/hub-stage';
 import { MakerShell } from './_components/maker-shell';
 import { HubDraftDock } from '../website/_components/hub-draft-dock';
 import { readHubDraft } from '@/lib/hub-draft-store';
+import { overlayHubDraftEvent } from '@/lib/hub-draft';
+import { hubMainGround, sanitizeHubMainGround } from '@/lib/hub-canvas';
+import { mainColoursOf, sanitizeMainColourDraft } from '@/lib/main-colours';
 import type { MarchStep } from '@/lib/march-drag';
 import { resolveReplyBy, sanitizeRsvpAskConfig, type RsvpAskConfig } from '@/lib/rsvp-ask';
 import { makerPageCanvasSrc } from '@/lib/maker-made-once-pages';
@@ -1066,6 +1069,15 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
           .eq('event_id', eventId)
           .maybeSingle()
       : null;
+    /* 🧱 THE MISSING FIELDS (owner 2026-10-07) — the registry link and the QR switch,
+       and the live main background (the hero row's `main`). Read on their own so a
+       refusal here never blanks Your Event Hub; each refusal is said, never guessed. */
+    const studioMissingP = stagesStudio
+      ? Promise.all([
+          supabase.from('events').select('gift_registry_url, qr_shown').eq('event_id', eventId).maybeSingle(),
+          printAdmin.from('invitation_widgets').select('config_json').eq('event_id', eventId).eq('widget_type', 'hero').maybeSingle(),
+        ])
+      : null;
     const [printEvent, printPro, rsvpHosts, printParents, egifts, printInputs, sampleVersion, feelRes, storyLiveRes, scheduleRes, announceOn] = await Promise.all([
       readPrintEvent(printAdmin, eventId),
       printOwnsPro(eventId),
@@ -1608,7 +1620,19 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
          refused read is said by the form, never a guessed "Private" or an empty gift list. */
       const studioDetails = studioHubP
         ? await (async () => {
-            const [hubRes, gifts] = await Promise.all([studioHubP, egiftAllP]);
+            const [hubRes, gifts, missing] = await Promise.all([studioHubP, egiftAllP, studioMissingP]);
+            const [fieldsRes, heroRes] = missing ?? [null, null];
+            if (fieldsRes?.error) logQueryError('LaunchPage.studioMissingFields', fieldsRes.error, { event_id: eventId }, 'graceful_degrade');
+            if (heroRes?.error) logQueryError('LaunchPage.studioMainGround', heroRes.error, { event_id: eventId }, 'graceful_degrade');
+            const fields = fieldsRes && !fieldsRes.error ? (fieldsRes.data as { gift_registry_url?: string | null; qr_shown?: boolean | null } | null) : null;
+            /* The main background as the Maker shows it: the drafted one over live. */
+            const liveMain = heroRes && !heroRes.error ? hubMainGround((heroRes.data as { config_json?: unknown } | null)?.config_json) : undefined;
+            const studioMain = draftedMain !== undefined ? sanitizeHubMainGround(draftedMain) : liveMain;
+            /* The five main colours as the page wears them — the Mood Board drafted over live. */
+            const dressedRow = overlayHubDraftEvent(
+              { role_palette: printEvent.role_palette, invite_theme: printEvent.invite_theme } as Record<string, unknown>,
+              { events: draftedEvents, widgets: {} },
+            );
             if (hubRes.error) logQueryError('LaunchPage.studioHub', hubRes.error, { event_id: eventId }, 'graceful_degrade');
             const row = hubRes.error ? null : (hubRes.data as Record<string, unknown> | null);
             const visibility = row?.landing_page_visibility;
@@ -1642,6 +1666,11 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
                   ? ((draftedEvents.what_to_bring as string | null) ?? null)
                   : ((row?.what_to_bring as string | null | undefined) ?? null),
               livePath: hubSlug ? publicEventPath(hubSlug) : null,
+              registryUrl: fields ? (fields.gift_registry_url ?? null) : undefined,
+              qrShown: ('qr_shown' in draftedEvents ? draftedEvents.qr_shown : fields?.qr_shown) !== false,
+              main: studioMain,
+              mainColours: mainColoursOf(dressedRow.role_palette, dressedRow.invite_theme),
+              mainColourDraft: sanitizeMainColourDraft(draftedEvents.main_colours) ?? {},
             };
           })()
         : null;

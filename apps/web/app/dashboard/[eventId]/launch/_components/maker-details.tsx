@@ -93,6 +93,8 @@ import { LOOK_ITEM_SECTIONS } from '@/lib/maker-look-sections';
 /* 🧭 The new Maker's Studio tools (`studio`) — lazy, so the shipped Maker's first load carries none of them. */
 import { StudioTool } from './details-lazy';
 import type { StudioHubFacts } from './studio-tools';
+import type { HubMainGround } from '@/lib/hub-canvas';
+import type { MainColourDraft } from '@/lib/main-colours';
 import type { ManagerMethod } from '../../pabuya/_components/pabuya-manager';
 import { studioDetailsGroups, studioFullScreenCss, STUDIO_FORM_HEADS, STUDIO_SUPPLIERS_LINE } from '@/lib/studio-details';
 import { MoodBoardPieces } from '../../studio/mood-board/_components/mood-board-parts';
@@ -212,6 +214,18 @@ export type MakerDetailsProps = {
     whatToBring: string | null;
     /** The live address's path (`publicEventPath`) — the QR's Copy · Share · Download. */
     livePath: string | null;
+    /**
+     * 🧱 THE MISSING FIELDS (owner 2026-10-07, "approve all"): the registry link
+     * (undefined = could not be read — its field is then not drawn), the event QR
+     * on/off (draft over live), the main background's extras (the drafted main
+     * background over live) and the five main colours (draft over live; null =
+     * could not be read) with the slots already drafted.
+     */
+    registryUrl?: string | null;
+    qrShown?: boolean;
+    main?: HubMainGround | null;
+    mainColours?: string[] | null;
+    mainColourDraft?: MainColourDraft;
   } | null;
   eventId: string;
   slug: string | null;
@@ -1029,6 +1043,8 @@ export function MakerDetails(props: MakerDetailsProps) {
     /* 🔳 The QR — Shape · Pattern · Colour, then Copy · Share · Download, then the quiet rows. */
     editors.qr = (
       <div className="flex flex-col gap-1">
+        {/* 🔳 On or off first (owner 2026-10-07) — off, the event QR leaves the prints and the guest page. */}
+        <StudioTool part="qr-shown" eventId={eventId} shown={st.qrShown !== false} />
         <QrLookControls eventId={eventId} ownsPro={qr.ownsPro} storeShell={qr.storeShell} style={qr.style} inks={qr.inks} action={qrStyleAction} />
         <StudioTool part="qr" slug={slug} path={st.livePath} />
         <StudioTool part="quiet" />
@@ -1047,6 +1063,11 @@ export function MakerDetails(props: MakerDetailsProps) {
         <>
           <StudioTool part="look" item={k} />
           {editors[k]}
+          {/* 🌄 Background's extras — Pattern · Focus · Blur · Shade — and 🎨 the five main colours, one at a time (owner 2026-10-07). */}
+          {k === 'background' && st.main !== undefined ? <StudioTool part="main-extras" eventId={eventId} main={st.main ?? null} /> : null}
+          {k === 'colours' && st.mainColours ? (
+            <StudioTool part="main-colours" eventId={eventId} colours={st.mainColours} drafted={st.mainColourDraft ?? {}} />
+          ) : null}
         </>
       );
     }
@@ -1055,7 +1076,7 @@ export function MakerDetails(props: MakerDetailsProps) {
       editors.gifts = (
         <div className="flex flex-col gap-3" data-details-egifts="">
           {ap.editors.gifts}
-          <StudioTool part="gifts" eventId={eventId} methods={st.egiftMethods} />
+          <StudioTool part="gifts" eventId={eventId} methods={st.egiftMethods} registryUrl={st.registryUrl} />
         </div>
       );
     }

@@ -1,4 +1,5 @@
 import 'server-only';
+import { mainColourSlotsOf } from '@/lib/main-colours';
 import { hubDraftChangeLines } from '@/lib/hub-draft-change-lines';
 import { fixedSceneStylesFromPreferences } from '@/lib/fixed-scene-styles';
 import { sanitizeCustomSection } from '@/lib/custom-sections';
@@ -331,7 +332,12 @@ export async function readHubLiveState(supabase: SessionClient, eventId: string)
   // Unread is not "no picks" either — Apply would compare against a guess.
   if (prefsErr) throw new Error(`Could not read the live scene styles: ${prefsErr.message}`);
   return {
-    events: { ...((ev ?? {}) as HubLiveState['events']), ceremony_time: ceremonyTime },
+    events: {
+      ...((ev ?? {}) as HubLiveState['events']),
+      ceremony_time: ceremonyTime,
+      // 🎨 The five main colours the page wears live, by slot — what a drafted colour is compared with.
+      main_colours: mainColourSlotsOf((ev as { role_palette?: unknown } | null)?.role_palette, (ev as { invite_theme?: unknown } | null)?.invite_theme),
+    },
     widgets: (rows ?? []) as unknown as HubLiveState['widgets'],
     editorial: (story as { draft_json?: unknown } | null)?.draft_json ?? null,
     fixedStyles: fixedSceneStylesFromPreferences((prefs as { style_preferences?: unknown } | null)?.style_preferences),

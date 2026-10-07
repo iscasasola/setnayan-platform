@@ -2,17 +2,18 @@ import 'server-only';
 
 import type { ReactNode } from 'react';
 import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
-import { hubMainGround, isHubMainLoop, mainGroundIsNone, type ResolvedMainGround } from '@/lib/hub-canvas';
+import { hubMainGround, hubMainLook, isHubMainLoop, mainGroundIsNone, type HubMainLook, type ResolvedMainGround } from '@/lib/hub-canvas';
+import { mainGroundShade, shadeWordVars } from '@/lib/main-ground-shade';
 import { heroGroundNeedsOwnership } from '@/lib/page-ground';
 import { guestMainGround } from '@/lib/guest-main-ground';
 import { mainGroundClipRefForGuests } from '@/lib/guest-hero-video';
 import { websiteProActiveFor } from './hub-look';
 import type { HeroEventInput } from '@/lib/event-hero';
-import { adaptiveThemeVars, resolveAdaptiveTheme } from '@/lib/adaptive-theme';
+import { adaptiveThemeVars, pagePaperAndInk, resolveAdaptiveTheme } from '@/lib/adaptive-theme';
 import { dressedTheme } from '@/lib/theme-colours';
 import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { displayUrlForStoredAsset, publicUrlForStoredAsset } from '@/lib/uploads';
-import { MainGround, MainGroundNone } from '../_components/main-ground';
+import { MainGround, MainGroundNone, PatternGround } from '../_components/main-ground';
 
 /**
  * 🎞 THE MAIN BACKGROUND (Maker Phase 10) — the couple's hero photo/video, or
@@ -85,6 +86,12 @@ export async function mainGroundLayerFor({
   if (mainGroundIsNone(hubMainGround(heroConfig))) {
     return INVITE_THEMES[theme]?.media ? <MainGroundNone /> : null;
   }
+  /* 🧵 A PATTERN ON THE COLOUR (owner 2026-10-06/07, Studio › Look › Pattern ▾):
+     the theme's loop off, as "Just the colour", and the pattern drawn in the
+     page's ink over the Background colour. Free. */
+  if (main && 'ground' in main && main.ground === 'pattern') {
+    return <PatternGround pattern={main.pattern} hideLoop={Boolean(INVITE_THEMES[theme]?.media)} />;
+  }
   // The ownership read only where it can change the answer (a free theme with
   // a loop); cached per request, shared with the theme gate and the watermark.
   const ownsPro = heroGroundNeedsOwnership(theme)
@@ -103,6 +110,8 @@ export async function mainGroundLayerFor({
      inks — the same legibility rule an uploaded clip gets (`tint.match` off:
      a loop never recolours the page). */
   const loop = isHubMainLoop(main) ? movingBackground(main.loop) : null;
+  // 🌄 A moving background carries its Shade · Blur (owner 2026-10-06/07).
+  if (loop && isHubMainLoop(main)) loop.ground.look = loopLook(hubMainLook(main));
   const loopShows = loop ? tryOn || (await websiteProActiveFor(event.event_id).catch(() => false)) : false;
   const urls = loop && loopShows ? { ...signed, ...loop.urls } : signed;
   // The ONE answer to "what is behind the event", shared with Discover's card.
@@ -110,6 +119,7 @@ export async function mainGroundLayerFor({
   if (mainGround) {
     // 🎨 Measured on the theme as the Mood Board dresses it (`dressedTheme`, 2026-10-05).
     const adaptive = resolveAdaptiveTheme(dressedTheme(theme, event.role_palette), mainGround.tint);
+    const { look, page, shade } = shadeOf(mainGround, dressedTheme(theme, event.role_palette));
     const sign = async (ref: string | null) =>
       ref ? (urls[ref] ?? (await displayUrlForStoredAsset(siteMediaServeRef(ref)))) : null;
     const [still, clip] = await Promise.all([
@@ -122,7 +132,13 @@ export async function mainGroundLayerFor({
         clip={clip}
         parallax={mainGround.parallax === true}
         adaptive={adaptive}
-        vars={adaptiveThemeVars(adaptive, { ownButton: Boolean(event.site_button_color) })}
+        vars={{
+          ...adaptiveThemeVars(adaptive, { ownButton: Boolean(event.site_button_color) }),
+          ...(shade ? shadeWordVars(shade, page) : {}),
+        }}
+        veil={shade ? { color: shade.veil, opacity: shade.opacity } : null}
+        blur={look.blur ?? null}
+        focus={look.focus ?? null}
       />
     );
   }
@@ -135,6 +151,25 @@ export async function mainGroundLayerFor({
  * refs map to their PUBLIC URLs (our own art on the public bucket). Null when
  * the theme has no loop or no public host is configured.
  */
+/**
+ * 🌗 SHADE ▾ (owner 2026-10-06/07): Darker · Dark · Light · Lighter lay the
+ * shipped veil (`mainGroundShade`) — never less than readability already needs,
+ * so no step takes the words under the floor — and on a dark veil the words
+ * flip light (`shadeWordVars`). As is (absent) = today's measured scrim.
+ */
+function shadeOf(mainGround: ResolvedMainGround, dressed: Parameters<typeof pagePaperAndInk>[0]) {
+  const look: HubMainLook = mainGround.look ?? {};
+  const page = pagePaperAndInk(dressed);
+  const shade = look.shade ? mainGroundShade(look.shade, page, mainGround.tint?.frame ?? []) : null;
+  return { look, page, shade };
+}
+
+/** A loop takes Shade and Blur, never Focus (it is not a photo). */
+function loopLook(look: HubMainLook): HubMainLook | undefined {
+  const out: HubMainLook = { ...(look.shade ? { shade: look.shade } : {}), ...(look.blur ? { blur: look.blur } : {}) };
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
 function movingBackground(id: InviteThemeId): { ground: ResolvedMainGround; urls: Record<string, string> } | null {
   const media = INVITE_THEMES[id]?.media ?? null;
   if (!media) return null;

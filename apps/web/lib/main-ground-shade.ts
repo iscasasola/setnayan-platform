@@ -15,15 +15,17 @@
  *
  * Pure. Held by `shade-never-crosses-the-floor.test.ts`.
  *
- * ⚠ NOT YET DRAWN FOR GUESTS. Storing the step on the main background and
- * painting the flipped words on the guest page (`main-ground-layer.tsx`,
- * `adaptiveThemeVars`) is the guest-render half; until it ships the Studio
- * shows no Shade ▾ — a control that changes nothing would be worse than none.
+ * DRAWN FOR GUESTS (2026-10-07, "THE MISSING FIELDS ARE APPROVED"): the step is
+ * stored on the main background (`HubMainLook.shade`, lib/hub-canvas.ts) and the
+ * guest page lays this veil and flips its words (`main-ground-layer.tsx` →
+ * `MainGround`, `shadeWordVars`); Studio › Look › Background draws Shade ▾.
  */
 import { AA_BODY, compositeOver, contrastRatio, requiredScrim } from '@/lib/hub-legibility';
+import { HUB_MAIN_SHADES, type HubMainShade } from '@/lib/hub-canvas';
 
-export const MAIN_GROUND_SHADES = ['darker', 'dark', 'as-is', 'light', 'lighter'] as const;
-export type MainGroundShade = (typeof MAIN_GROUND_SHADES)[number];
+/* The ONE vocabulary lives beside the stored main background (`lib/hub-canvas.ts`). */
+export const MAIN_GROUND_SHADES = HUB_MAIN_SHADES;
+export type MainGroundShade = HubMainShade;
 
 export const MAIN_GROUND_SHADE_LABEL: Readonly<Record<MainGroundShade, string>> = {
   darker: 'Darker',
@@ -64,4 +66,22 @@ export function mainGroundShade(step: MainGroundShade, page: { paper: string; in
   const opacity = samples.length === 0 ? 1 : requiredScrim(text, veil, samples, s.floor, AA_BODY);
   const over = samples.length === 0 ? [veil] : samples.map((c) => compositeOver(veil, opacity, c));
   return { veil, opacity, text, bodyContrast: Math.min(...over.map((c) => contrastRatio(text, c))) };
+}
+
+/** The page's two inks as the `r g b` channels its tokens hold (`--color-ink`, `--color-cream`). */
+function channels(hex: string): string {
+  const h = hex.replace('#', '');
+  return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)).join(' ');
+}
+
+/**
+ * 🔤 THE WORDS FLIP ON A DARK SHADE (owner 2026-10-06: *"the words flip light on a
+ * dark background so they never fall below the contrast floor"*). Over an INK
+ * veil the page's ink and paper trade places for the whole page scope, so every
+ * word that was ink-on-paper is now paper-on-ink — the very pair the veil was
+ * measured for. A paper veil (Light · Lighter · As is) changes no word: `{}`.
+ */
+export function shadeWordVars(result: ShadeResult, page: { paper: string; ink: string }): Record<string, string> {
+  if (result.veil.toLowerCase() !== page.ink.toLowerCase()) return {};
+  return { '--color-ink': channels(page.paper), '--color-cream': channels(page.ink) };
 }

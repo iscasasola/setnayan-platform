@@ -9,6 +9,7 @@ import { useModalA11y } from '@/lib/use-modal-a11y';
 import {
   LOVE_STORY_CHAPTER_LABEL,
   MOMENT_MEDIA_MAX,
+  MOMENT_TITLE_MAX,
   chapterOf,
   formatMomentDate,
   isMomentAnchor,
@@ -329,6 +330,18 @@ export function MomentSheet({
                   </label>
                 </div>
               </fieldset>
+
+              {/* 📖 The title (owner 2026-10-07, "THE MISSING FIELDS ARE APPROVED") */}
+              <label className="block" data-moment-title="">
+                <span className={eye}>Title · optional</span>
+                <input
+                  name="title"
+                  maxLength={MOMENT_TITLE_MAX}
+                  defaultValue={moment?.title ?? ''}
+                  placeholder="The first date"
+                  className={`${field} font-pahina text-lg`}
+                />
+              </label>
 
               {/* The line */}
               <label className="block">

@@ -33,7 +33,7 @@ import { PickMenu } from '../../../website/editor/_components/pick-menu';
 import { hubDraftAction } from '../../../website/hub-draft-actions';
 import { rejectColourChange } from '../../../colour-access-actions';
 import { uploadMoodboardSlot, removeMoodboardSlot } from '../../../wizard-actions';
-import { applyGalleryPick, fetchGalleryAssets, saveRolePalette } from '../actions';
+import { applyGalleryPick, fetchGalleryAssets } from '../actions';
 import { ColourPickerSheet, StudioSheet } from './colour-picker-sheet';
 import { AutoPaletteSheet } from './auto-palette-sheet';
 import { GalleryPicker } from './gallery-picker';
@@ -54,9 +54,9 @@ import type { InspirationItem } from './inspiration-board';
  * the Studio's Tool ▾ row, with Saved and ✨ Auto above it. Nothing here is a
  * new write:
  *
- *   · the five main colours, the room's parts and a role's colours → the Mood
- *     Board's own `saveRolePalette` (the hub draft holds only a theme's seed —
- *     see `lib/mood-board-studio.ts`), each change undoable here;
+ *   · the five main colours, the room's parts and a role's colours → the hub
+ *     DRAFT (`hubDraftAction`, `role_palette` as a painted board — step 4c),
+ *     each change undoable here, published by Apply;
  *   · a role's outfit → the dress code, through the hub draft (`hubDraftAction`),
  *     so guests meet it at Apply;
  *   · photos → the shipped `uploadMoodboardSlot` / `applyGalleryPick`, into the
@@ -140,12 +140,19 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
   const flushPalette = useCallback(() => {
     if (timer.current) window.clearTimeout(timer.current);
     timer.current = null;
+    /* 🎨 INTO THE DRAFT (step 4c, controller 2026-10-07 — "Apply publishes"): the
+       hub draft now holds a PAINTED board (\`sanitizePaintedPalette\`), so the
+       picker, ✨ Auto and the part palettes are tried here and published by
+       Apply, through the Mood Board's own write shape — never live. */
     const fd = new FormData();
-    fd.set('event_id', eventId);
-    fd.set('palette_json', JSON.stringify(paletteRef.current));
+    fd.set('intent', 'save');
+    fd.set('patch', JSON.stringify({ events: { role_palette: paletteRef.current } }));
     setSave('saving');
-    makerSave(() => saveRolePalette(fd), () => router.refresh())
-      .then(() => setSave('saved'))
+    makerSave(() => hubDraftAction(eventId, fd), () => router.refresh())
+      .then((r) => {
+        setSave(r.ok ? 'saved' : 'error');
+        if (!r.ok) setNote({ text: r.error ?? 'Your colours did not save to your draft. Nothing changed — please try again.' });
+      })
       .catch(() => setSave('error'));
   }, [eventId, router]);
   useEffect(

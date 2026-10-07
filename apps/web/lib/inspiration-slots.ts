@@ -13,13 +13,12 @@
  * the slot's OWN trades (`MOODBOARD_SLOT_TRADES`, the 2026-09-03 "inspiration by
  * slot" ruling) — never a second list.
  *
- * ⛔ TWO OF THE OWNER'S TWELVE HAVE NO SLOT YET: Bridal bouquet and
- * Centrepieces. Both map to existing taxonomy tiles (florist · stylist_decorator
- * · catering — `AWAITING_A_SLOT` below records it), but a photo needs a
- * `slot_key` the database accepts, and widening that CHECK is a migration this
- * build was not given. So they are NOT drawn — no card a couple could upload
- * into and lose — and the build report says so. `every-slot-maps-to-a-taxonomy-
- * category.test.ts` holds both halves.
+ * 💐 BRIDAL BOUQUET AND CENTREPIECES HAVE THEIR SLOTS (2026-10-07, step 4c):
+ * migration 20271265788160 widened both DB gates, and `MOODBOARD_SLOT_KEYS`,
+ * the trades and the shipped board's tiles carry them — so they are drawn
+ * here like every other card. `AWAITING_A_SLOT` stays as the place a future
+ * part with no slot is recorded (empty today). `every-slot-maps-to-a-taxonomy-
+ * category.test.ts` and `bouquet-and-centrepieces-have-a-slot.test.ts` hold it.
  *
  * Pure, client-safe: types only from the taxonomy (it reaches the server).
  */
@@ -50,8 +49,7 @@ export type StudioInspirationSlot = {
 };
 
 /**
- * The cards, in the prototype's order (Bridal bouquet and Centrepieces wait for
- * their slot — see the docblock).
+ * The cards, in the prototype's order.
  */
 export const STUDIO_INSPIRATION_SLOTS: readonly StudioInspirationSlot[] = [
   { slotKey: 'flowers', label: 'Flowers', from: 'florists and stylists', target: { kind: 'florals' }, useLabel: 'Use for the florist’s colours' },
@@ -64,6 +62,9 @@ export const STUDIO_INSPIRATION_SLOTS: readonly StudioInspirationSlot[] = [
   { slotKey: 'bride', label: 'The bride', from: 'gown designers and make-up artists', target: { kind: 'role', key: 'bride' }, useLabel: 'Use for the bride’s colours' },
   { slotKey: 'entourage', label: 'Entourage', from: 'attire makers', target: { kind: 'role', key: 'wedding_party' }, useLabel: 'Use for the entourage' },
   { slotKey: 'cake', label: 'Cake', from: 'cake and dessert makers', target: { kind: 'none' }, useLabel: null },
+  /* 💐 Their slots exist since 2026-10-07 (migration 20271265788160, step 4c). */
+  { slotKey: 'bridal_bouquet', label: 'Bridal bouquet', from: 'florists', target: { kind: 'florals' }, useLabel: 'Use for the florist’s colours' },
+  { slotKey: 'centrepieces', label: 'Centrepieces', from: 'florists, stylists and caterers', target: { kind: 'room' }, useLabel: 'Use for the room' },
 ];
 
 /**
@@ -71,10 +72,7 @@ export const STUDIO_INSPIRATION_SLOTS: readonly StudioInspirationSlot[] = [
  * EXISTING taxonomy tiles (the 2026-09-03 rule — nothing invented); what is
  * missing is storage, i.e. a migration widening the slot CHECK.
  */
-export const AWAITING_A_SLOT: ReadonlyArray<{ label: string; trades: readonly WeddingTile[] }> = [
-  { label: 'Bridal bouquet', trades: ['florist'] },
-  { label: 'Centrepieces', trades: ['florist', 'stylist_decorator', 'catering'] },
-];
+export const AWAITING_A_SLOT: ReadonlyArray<{ label: string; trades: readonly WeddingTile[] }> = [];
 
 /* ══ SEARCH IDEAS › — the shipped gallery picker's filters ══════════════════ */
 

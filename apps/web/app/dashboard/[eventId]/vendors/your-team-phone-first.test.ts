@@ -1,25 +1,36 @@
 /**
- * your-team-phone-first.test.ts — the approved phone Your Team (owner
- * 2026-10-01, `prototypes/phone_app_simple_2026-10-01_fable.html` frame 4):
+ * your-team-phone-first.test.ts — THE ORDER OF THE SUPPLIERS SCREEN.
  *
- *   (a) the booked suppliers render BEFORE "Find a supplier", and the category
- *       walls sit INSIDE it — hidden on a phone until it is pressed, never
- *       unreachable (since 2026-10-05 it is also not DRAWN on a phone until it
- *       first opens — `suppliers-opens-fast.test.ts`);
- *   (b) each row's one next step comes from real state — executed in
+ * Re-pointed 2026-10-08 at the one-screen shell (owner 2026-10-07; corpus
+ * `SUPPLIERS_HANDOFF_2026-10-07_fable.md` PR1; prototype
+ * `prototypes/suppliers_page_2026-10-07_fable.html`). It used to hold the
+ * 2026-10-01 phone order — team → Find a supplier → "Your planning" → a hidden
+ * find area. That order is retired; what it protected is kept, restated:
+ *
+ *   (a) the screen is: the date · place line, then ONE segmented control —
+ *       Find · Build · Booked — pinned together, then ONE body. Every shipped
+ *       section still has a home (Find: the bench + the marketplace door ·
+ *       Build: the picks + the saved builds · Booked: the team + the
+ *       payments), so nothing is unreachable, and nothing is drawn twice;
+ *       the five-row menu, the hidden find area and the second chat icon are
+ *       gone and stay gone;
+ *   (b) each booked row's one next step comes from real state — executed in
  *       `lib/your-team-rows.test.ts`; here, that the page feeds the rows from
  *       the SAME maps the Picks list and the bench already read, and the row
  *       renders the one lock path rather than a second one;
- *   (c) a refused team read says "Couldn't load your team" — never an empty
- *       team (the read itself is executed in `your-team-read-is-honest.test.ts`).
+ *   (c) a refused team read says "Couldn't load your suppliers" — never an
+ *       empty team (the read itself is executed in
+ *       `your-team-read-is-honest.test.ts`) — and a refused EVENT read says
+ *       the date and place could not load, never "Pick your date".
  *
  * Source assertions, comments stripped (a docblock naming a pattern is not the
- * pattern), each scoped to the component it is about. Sabotage-checked: see
- * the PR body for the before → after of every assertion.
+ * pattern), each scoped to the component it is about; the first paint itself
+ * is EXECUTED in `suppliers-opens-fast.test.ts`. Sabotage-checked: see the PR
+ * body for the before → after of every assertion.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
 
@@ -29,6 +40,7 @@ const code = (...p: string[]) => stripComments(readFileSync(join(DIR, ...p), 'ut
 const TAKEOVER = code('_components', 'services-takeover.tsx');
 const PAGE = code('page.tsx');
 const ROWS = code('_components', 'team-rows.tsx');
+const LINE = code('_components', 'date-place-line.tsx');
 
 /** The takeover's own render — from `export function ServicesTakeover(` to the next top-level `}`. */
 function takeoverBody(): string {
@@ -41,54 +53,111 @@ function takeoverBody(): string {
   return TAKEOVER.slice(start, end);
 }
 
-/* ── (a) booked first, then ONE Find a supplier, then the walls inside it ── */
-
-test('(a) the team renders before "Find a supplier", which renders before the find area', () => {
+/** One body's markup — from its `data-suppliers-body` to the next body (or the cart). */
+function bodyOf(mode: 'find' | 'build' | 'booked'): string {
   const body = takeoverBody();
-  const team = body.indexOf('{teamSlot ?');
-  const find = body.indexOf('data-find-supplier');
-  const area = body.indexOf('id="team-find-area"');
-  const bench = body.indexOf('tab="shortlist"');
-  assert.ok(team > -1, 'the team slot is not rendered');
-  assert.ok(find > -1, 'the Find a supplier button is gone');
-  assert.ok(area > -1, 'the find area is gone');
-  assert.ok(team < find, 'the booked suppliers must come BEFORE Find a supplier');
-  assert.ok(find < area, 'Find a supplier must come before the area it opens');
-  assert.ok(area < bench, 'the category walls (the bench) must live INSIDE the find area');
-  assert.equal((body.match(/>\s*Find a supplier\s*</g) ?? []).length, 1, 'exactly ONE Find a supplier');
+  const start = body.indexOf(`data-suppliers-body="${mode}"`);
+  assert.notEqual(start, -1, `the ${mode} body is gone`);
+  const next = [body.indexOf('data-suppliers-body="', start + 1), body.indexOf('<BuildCart', start)].filter((i) => i > -1);
+  return body.slice(start, Math.min(...next));
+}
+
+/* ── (a) the line, the control, one body ─────────────────────────────────── */
+
+test('(a) the order: the date · place line, Find · Build · Booked, then one body', () => {
+  const body = takeoverBody();
+  const stick = body.indexOf('data-suppliers-stick');
+  const facts = body.indexOf('{factsSlot}');
+  const seg = body.indexOf('<ISegmented');
+  const find = body.indexOf('data-suppliers-body="find"');
+  const build = body.indexOf('data-suppliers-body="build"');
+  const booked = body.indexOf('data-suppliers-body="booked"');
+  for (const [name, at] of Object.entries({ stick, facts, seg, find, build, booked })) {
+    assert.ok(at > -1, `the ${name} piece is gone`);
+  }
+  assert.ok(stick < facts && facts < seg, 'the date · place line sits ABOVE the segmented control, inside the pinned block');
+  assert.ok(seg < find && find < build && build < booked, 'the body follows the control, in the order Find · Build · Booked');
+  // ONE control, the shipped one, in the wine tone — and exactly three segments.
+  assert.equal((body.match(/<ISegmented\b/g) ?? []).length, 1, 'a second navigator');
+  assert.match(TAKEOVER, /import \{ ISeg, ISegmented \} from '\.\.\/\.\.\/website\/editor\/_components\/inspector-kit'/);
+  assert.match(body, /SUPPLIERS_MODES\.map\(\(m\) => \(\s*<ISeg\s+key=\{m\}\s+tone="wine"/);
+  // The counts are <Count>, never a bare number.
+  assert.match(body, /<Count value=\{tally\.filled\} id="sup-seg-filled" \/>\/<Count value=\{tally\.total\} id="sup-seg-total" \/>/);
+  assert.match(body, /<Count value=\{bookedCount\} id="sup-seg-booked" \/>/);
+  // No Jump bar and no page-name row on a phone: the visible name is desktop-only.
+  assert.match(body, /<p aria-hidden className="[^"]*\bhidden\b[^"]*\blg:block\b[^"]*">\s*Suppliers\s*<\/p>/);
+  assert.doesNotMatch(body, /Jump to|<select\b/);
 });
 
-test('(a) the find area is hidden on a phone ONLY while closed — and every door opens it', () => {
+test('(a) every shipped section has ONE home — Find, Build or Booked', () => {
+  const find = bodyOf('find');
+  const build = bodyOf('build');
+  const booked = bodyOf('booked');
+  // Find: the door to the category marketplace, then the bench.
+  assert.match(find, /href=\{`\/dashboard\/\$\{eventId\}\/vendors\/categories`\}\s*data-find-supplier/);
+  assert.equal((takeoverBody().match(/>\s*Find a supplier\s*</g) ?? []).length, 1, 'exactly ONE Find a supplier');
+  assert.ok(find.indexOf('data-find-supplier') < find.indexOf('tab="shortlist"'), 'the door comes before the bench it searches beyond');
+  assert.match(find, /\{shortlistSlot \?\?/);
+  // Build: the picks, then the saved builds.
+  assert.ok(build.indexOf('tab="build"') > -1 && build.indexOf('tab="build"') < build.indexOf('tab="compare"'));
+  assert.match(build, /\{buildSlot \?\?/);
+  assert.match(build, /\{compareSlot \?\?/);
+  // Booked: the team's rows, then the payments.
+  assert.ok(booked.indexOf('{teamSlot ?') > -1 && booked.indexOf('{teamSlot ?') < booked.indexOf('tab="budget"'));
+  assert.match(booked, /\{budgetSlot \?\?/);
+  // …and each is mounted ONCE on the whole screen (no display-toggled twin).
   const body = takeoverBody();
-  // Hidden is conditional, and lg+ always shows it (desktop: same things first, more below).
-  assert.match(body, /className=\{findOpen \? undefined : 'hidden lg:block'\}/);
-  // Find a supplier opens its OWN page now (P3, 2026-10-01) — so ⋯'s section
-  // jumps, which always render, are the phone's door to the bench …
-  assert.match(body, /href=\{`\/dashboard\/\$\{eventId\}\/vendors\/categories`\}\s*data-find-supplier/);
-  assert.match(body, /<PlanningList\b/, 'the bench lost its phone door (the Your planning list)');
-  // … and goToSection — the bus listener, every ⋯ row, every ?tab= adopt — opens it first.
+  for (const slot of ['shortlistSlot ??', 'buildSlot ??', 'compareSlot ??', 'budgetSlot ??', '{teamSlot ?']) {
+    assert.equal(body.split(slot).length - 1, 1, `${slot} is mounted more than once`);
+  }
+  for (const tab of ['shortlist', 'build', 'compare', 'budget']) {
+    assert.equal(body.split(`<ServiceSection tab="${tab}"`).length - 1, 1, `#svc-${tab} would be a duplicate id`);
+  }
+});
+
+test('(a) the segmented control drives the shipped bus, and the bus drives the control', () => {
+  const body = takeoverBody();
+  // A press dispatches the mode's own tab key on the SHIPPED bus — no second channel.
+  assert.match(body, /onClick=\{\(\) => goToBuildTab\(SUPPLIERS_MODE_TAB\[m\]\)\}/);
+  // The listener is unchanged for every caller, and resolves a key to its body.
+  assert.match(body, /window\.addEventListener\(BB_TAB_EVENT, onTab\)/);
   const goTo = body.slice(body.indexOf('const goToSection'), body.indexOf('}, []);', body.indexOf('const goToSection')));
-  assert.match(goTo, /setFindOpen\(true\)/, 'a section jump would scroll to a hidden element');
-  // A deep link arrives open in the FIRST render (the bench scrolls on mount).
-  assert.match(body, /useState\(initialFindOpen\)/);
-  assert.match(PAGE, /initialFindOpen=\{Boolean\(sp\.open \|\| sp\.inspect \|\| sp\.tab\)\}/);
+  assert.match(goTo, /const nextMode = suppliersModeOfTab\(next\);/);
+  assert.match(goTo, /url\.searchParams\.set\('tab', next\)/, '?tab= is no longer mirrored');
+  // A body opens at its top; only a section INSIDE a body is scrolled to.
+  assert.match(goTo, /if \(isModeTab\(next\)\) \{\s*window\.scrollTo\(\{ top: 0 \}\);/);
+  assert.match(goTo, /document\.getElementById\(sectionId\(next\)\)\?\.scrollIntoView\(/);
+  // The page hands the first body in with the request, so the first paint is already it.
+  assert.match(PAGE, /initialTab=\{initialTab\}/);
+  assert.match(body, /const firstMode = suppliersModeOfTab\(initialTab\);/);
 });
 
-test('(a) the page hands the takeover the team, and Budget is a Your planning row', () => {
-  assert.match(PAGE, /teamSlot=\{teamSlot\}/);
-  assert.match(PAGE, /teamParts=\{teamParts\}/);
-  // Budget's address comes from lib/pillar-parts — never a hand-typed href.
-  assert.match(TAKEOVER, /teamParts\?\.find\(\(p\) => p\.key === 'budget'\)\?\.href/);
-});
-
-test('(a) the ⋯ menu is gone and the planning list sits after Find a supplier, before the find area', () => {
-  const body = takeoverBody();
+test('(a) retired and gone: the five-row menu, the hidden find area, the second chat icon', () => {
+  assert.doesNotMatch(TAKEOVER, /PlanningList|data-planning-list|Your planning/, 'the planning menu is back');
+  assert.doesNotMatch(TAKEOVER, /team-find-area|data-find-area|findOpen|findMounted/, 'the hidden find area is back');
+  assert.doesNotMatch(TAKEOVER, /chatSlot|ChatsDoor|data-chats-door/, 'a second chat icon is back on Suppliers');
+  assert.doesNotMatch(PAGE, /ChatsDoor|chatSlot=|initialFindOpen=|teamParts=\{teamParts\}/);
   assert.doesNotMatch(TAKEOVER, /TeamMoreMenu|SectionChips|data-team-more/, 'the ⋯ menu is back');
-  const find = body.indexOf('data-find-supplier');
-  const list = body.indexOf('<PlanningList');
-  const area = body.indexOf('id="team-find-area"');
-  assert.ok(find > -1 && list > -1 && area > -1);
-  assert.ok(find < list && list < area, 'Your planning must follow Find a supplier and precede the find area');
+  for (const gone of ['_components/planning-list.tsx', 'planning-list.test.ts', '_components/chats-door.tsx']) {
+    assert.equal(existsSync(join(DIR, ...gone.split('/'))), false, `${gone} is back`);
+  }
+});
+
+test('(a) the date · place line: the page’s own facts, opening the SHIPPED editor for each', () => {
+  // Server-rendered by the page, only placed by the shell.
+  assert.match(PAGE, /factsSlot=\{<DatePlaceLine eventId=\{eventId\} facts=\{shellFacts\} \/>\}/);
+  // No second editor and no write: each value is a link to the one field for that fact.
+  assert.match(LINE, /href=\{recordFieldHref\(eventId, 'date'\)\}/);
+  assert.match(LINE, /href=\{recordFieldHref\(eventId, 'venues'\)\}/);
+  assert.doesNotMatch(LINE, /'use client'|'use server'|<input\b|<form\b|onClick=/);
+  // Date and place appear ONCE in the shell — the line.
+  assert.equal(takeoverBody().split('{factsSlot}').length - 1, 1);
+  // The words come from the one pure module, from facts the page already read.
+  const facts = PAGE.slice(PAGE.indexOf('const shellFacts'), PAGE.indexOf('const buildSlot'));
+  assert.ok(facts.length > 0, 'shellFacts moved — re-anchor');
+  assert.match(facts, /suppliersDateFact\(ev\.event_date, ev\.event_date_precision\)/);
+  assert.match(facts, /pickVenueBookingRows\(venueRows\)/, 'the venue is no longer picked by the Event Hub’s own rule');
+  assert.doesNotMatch(facts, /await |\.from\(/, 'the line grew a read of its own');
 });
 
 /* ── (b) one next step, from the state the page already read ──────────────── */
@@ -136,6 +205,14 @@ test('(c) the page reads the team MEASURED and stops on a refusal with "Couldn�
     PAGE.indexOf('buildPlanBudgetModel(') > guard && PAGE.indexOf('teamRows(') > guard,
     'a surface is built from the rows before the refusal branch',
   );
+});
+
+test('(c) a refused EVENT read says so on the line — never "Pick your date"', () => {
+  const facts = PAGE.slice(PAGE.indexOf('const shellFacts'), PAGE.indexOf('const buildSlot'));
+  assert.match(facts, /if \(eventCtx\.error \|\| !ev\) return null;/, 'a refused read would be drawn as an unset date');
+  const unreadable = LINE.slice(LINE.indexOf('if (!facts)'), LINE.indexOf('const { date, place } = facts;'));
+  assert.match(unreadable, /Couldn’t load your date and place\./);
+  assert.doesNotMatch(unreadable, /Pick your date|Pick the place|recordFieldHref/);
 });
 
 test('(c) TeamRows says "Couldn’t load your team" for unreadable, and "empty" only for a measured zero', () => {

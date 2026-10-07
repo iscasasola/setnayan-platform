@@ -92,11 +92,12 @@ import {
 import { LOOK_ITEM_SECTIONS } from '@/lib/maker-look-sections';
 /* 🧭 The new Maker's Studio tools (`studio`) — lazy, so the shipped Maker's first load carries none of them. */
 import { StudioTool } from './details-lazy';
+import { DEFAULT_NAME_STYLE } from '@/lib/name-style';
 import type { StudioHubFacts } from './studio-tools';
 import type { HubMainGround } from '@/lib/hub-canvas';
 import type { MainColourDraft } from '@/lib/main-colours';
 import type { ManagerMethod } from '../../pabuya/_components/pabuya-manager';
-import { studioDetailsGroups, studioFullScreenCss, STUDIO_SUPPLIERS_LINE } from '@/lib/studio-details';
+import { studioDetailsGroups, studioFullScreenCss, STUDIO_FORM_HEADS, STUDIO_SUPPLIERS_LINE } from '@/lib/studio-details';
 import { MoodBoardPieces } from '../../studio/mood-board/_components/mood-board-parts';
 import { ItemPieces } from './details-piece';
 import { DetailsGoTo } from './details-go';
@@ -499,9 +500,15 @@ export function MakerDetails(props: MakerDetailsProps) {
   // The plate WRAPS the picture rather than clipping it, so a code drawn square still shows whole.
   const qrPlate = qr.style.shape === 'circle' ? ' rounded-full' : '';
   const free = freePrintParts(eventId, slug, prints);
+  /* 🧭 Studio › Prints: the same prints for the day, drawn as rows of its one list (blurb · small Saves). */
+  const freeStudio = props.studio ? freePrintParts(eventId, slug, prints, true) : null;
   const save = <SaveWords />;
   /* 🗓 Your event (part 2a) — its rows, bodies and editors (`details-your-event-parts.tsx`). */
   const ye = props.yourEvent ? yourEventParts({ eventId, input: props.yourEvent, prints, parents, hosts }) : null;
+  /* 📍 Studio › Info names the place "Venue" — "Venues" only when there are several (owner 2026-10-07). */
+  if (props.studio && ye?.rows.venues && (props.yourEvent?.venues.resolved.filter((v) => v.name).length ?? 0) <= 1) {
+    ye.rows.venues = { ...ye.rows.venues, label: 'Venue' };
+  }
   /* 🗂 Your info's answers (`details-answers-parts.tsx`). */
   const ap = answerParts({ eventId, answers: props.answers ?? null });
   const logoA = props.answers ? logoAnswer(eventId, props.answers) : null;
@@ -815,7 +822,8 @@ export function MakerDetails(props: MakerDetailsProps) {
       tip="Use 25 mm round NFC stickers (NTAG213/215). Write your Event Hub link to them first. The spot prints beside the QR — on the calling card it takes the corner; where a format has no room for both, the QR stays and the spot is left off."
     />
   );
-  const printsOn = (piece: PrintSetKey) => (
+  /* 🧭 The new Maker's Studio keeps helper text behind ⓘ — this line is the shipped Details' only. */
+  const printsOn = (piece: PrintSetKey) => props.studio ? null : (
     <p className="text-xs text-ink/60">
       Prints on {PRINT_PIECES[piece].label} while its switch is on.
     </p>
@@ -851,7 +859,7 @@ export function MakerDetails(props: MakerDetailsProps) {
       </div>
     ),
     invitation: (
-      <PrintPieceEditor input={prints} piece="invitation">
+      <PrintPieceEditor input={prints} piece="invitation" studio={Boolean(props.studio)}>
         {switches.parents ? (
           <Toggle
             form={WORDS_FORM}
@@ -871,7 +879,7 @@ export function MakerDetails(props: MakerDetailsProps) {
       </PrintPieceEditor>
     ),
     details: (
-      <PrintPieceEditor input={prints} piece="details">
+      <PrintPieceEditor input={prints} piece="details" studio={Boolean(props.studio)}>
         <Toggle
           form={WORDS_FORM}
           name="inc_gift_details"
@@ -915,7 +923,7 @@ export function MakerDetails(props: MakerDetailsProps) {
     ),
     pass: (
       <>
-        <PrintPieceEditor input={prints} piece="pass">
+        <PrintPieceEditor input={prints} piece="pass" studio={Boolean(props.studio)}>
           <Toggle form={WORDS_FORM} name="inc_guest_names" label="Guest list — names on passes" on={inc.guestNames} />
           {qrAlways}
           {save}
@@ -924,11 +932,11 @@ export function MakerDetails(props: MakerDetailsProps) {
         <PassCardsPanel input={prints} />
       </>
     ),
-    entourage: <PrintPieceEditor input={prints} piece="entourage" />,
-    menu: <PrintPieceEditor input={prints} piece="menu" menu={menu} />,
-    poster: <PrintPieceEditor input={prints} piece="poster" />,
-    'story-poster': <PrintPieceEditor input={prints} piece="story-poster" />,
-    card: <PrintPieceEditor input={prints} piece="card" />,
+    entourage: <PrintPieceEditor input={prints} piece="entourage" studio={Boolean(props.studio)} />,
+    menu: <PrintPieceEditor input={prints} piece="menu" studio={Boolean(props.studio)} menu={menu} />,
+    poster: <PrintPieceEditor input={prints} piece="poster" studio={Boolean(props.studio)} />,
+    'story-poster': <PrintPieceEditor input={prints} piece="story-poster" studio={Boolean(props.studio)} />,
+    card: <PrintPieceEditor input={prints} piece="card" studio={Boolean(props.studio)} />,
     download: <PrintSetDownloads input={prints} />,
     /* ── Words ── */
     'special-message': facts['special-message'],
@@ -977,11 +985,13 @@ export function MakerDetails(props: MakerDetailsProps) {
         }
       : {}),
   };
+  /* Studio › Prints draws the same saves as rows of its list (`freeStudio`). */
+  const freeEditor = (f: (typeof free)[number]) => freeStudio?.find((x) => x.key === f.key)?.editor ?? f.editor;
   for (const f of free) {
     editors[f.key] =
       f.key === 'seat-plan' ? (
         <div className="flex flex-col gap-3">
-          {f.editor}
+          {freeEditor(f)}
           <Toggle form={WORDS_FORM} name="inc_seat_plan" label="Offer a seat plan with the set" on={inc.seatPlan !== 'none'} tip="Prints your seating chart from the Seat plan you already made.">
             <Segmented form={WORDS_FORM} name="seat_plan_kind" value={inc.seatPlan === 'none' ? 'list' : inc.seatPlan} options={[['3d', '3D'], ['2d', '2D'], ['list', 'List']]} />
           </Toggle>
@@ -989,7 +999,7 @@ export function MakerDetails(props: MakerDetailsProps) {
           {save}
         </div>
       ) : (
-        f.editor
+        freeEditor(f)
       );
   }
   /* 🗂 The Logo's step field — "Do you want a logo?" — in the step's sheet like
@@ -1022,6 +1032,20 @@ export function MakerDetails(props: MakerDetailsProps) {
         .map((v) => (two ? `${VENUE_ROLE_LABEL[v.role]} · ${v.name}` : v.name!))
         .join('\n');
       editors.venues = <StudioTool part="fact" value={names || null} line={STUDIO_SUPPLIERS_LINE} data="venues" />;
+    }
+    /* 🏷 Event name · Maria & Jose — ONE row that opens the two people + Name style ▾ in place
+       (owner 2026-10-07 "yes"). The same NamesEditor / NameStylePicker; a one-person event
+       (`oneName`) and a whole-form event keep their own field. */
+    if (yeIn?.names && !yeIn.oneName && !yeIn.names.wholeForm && editors.names !== undefined) {
+      editors.names = (
+        <StudioTool
+          part="event-name"
+          eventId={eventId}
+          people={yeIn.names.people}
+          initial={yeIn.names.initial}
+          nameStyle={yeIn.nameStyle ?? DEFAULT_NAME_STYLE}
+        />
+      );
     }
     /* ✍ What to bring — its own drafted column (`what_to_bring`), the Event Hub's Reminders box, in place. */
     if (editors['special-message'] !== undefined) {
@@ -1106,6 +1130,8 @@ export function MakerDetails(props: MakerDetailsProps) {
         coverUrl={props.coverUrl ?? null}
         /* 🖼 Background · Colours · Font · Music show the ONE page the whole Look shows. */
         bodyAlias={{ background: 'theme', colours: 'theme', font: 'theme', music: 'theme' }}
+        /* 🗂 The new Maker's Studio forms, grouped as the prototype draws them (`.gh`). */
+        formHeads={props.studio ? STUDIO_FORM_HEADS : undefined}
         /* 🧩 Each moved tool's pieces, in the navigator (DECISION_LOG "A TOOL
            MOVED INTO THE MAKER IS REBUILT INTO THE THREE PARTS"). */
         pieces={{
@@ -1226,11 +1252,11 @@ function lookSectionRow(k: LookSectionItemKey, chosen: boolean): Omit<DetailsIte
 /** Save for the print words form — every item that has switches shows one. */
 function SaveWords() {
   return (
-    <div className="flex items-center gap-3 pt-1">
+    <div className="flex items-center gap-3 pt-1" data-save-words="">
       <button type="submit" form={WORDS_FORM} className="button-primary text-sm">
         Save
       </button>
-      <span className="text-xs text-ink/55">The card redraws.</span>
+      <span className="text-xs text-ink/55" data-save-words-note="">The card redraws.</span>
       <HubSavesImmediately />
     </div>
   );

@@ -41,6 +41,7 @@ import {
 import { formatCount } from '@/lib/format-number';
 import { readCelebrationKey, type RsvpCelebration } from '@/lib/rsvp-celebration';
 import { CelebrationPick } from './celebration-pick';
+import { STUDIO_GROUP, STUDIO_GROUP_HEAD, STUDIO_GROUP_HEAD_LINE, STUDIO_ROW, STUDIO_ROW_LABEL, STUDIO_ROW_PICK, STUDIO_ROW_SUB } from '@/lib/studio-skin';
 
 /**
  * THE RSVP PAGE'S CONTROLS — the Maker's own RSVP page (guest pathway brief
@@ -426,44 +427,55 @@ export function MakerRsvpSettings({
     );
   }
 
-  /* ══ 🧭 STUDIO › RSVP — the prototype's tool (`studio`), over the SAME saves ══ */
+  /* ══ 🧭 STUDIO › RSVP — the prototype's tool (`studio`, `EDITORS.rsvp`), over the SAME saves ══
+     Its rows, in its order: Reply by · How guests answer ▾ · WORDS · WHAT THE REPLY ASKS (one row
+     per question, its switch on the right) · When yes. 48 px rows on white bands, small-capital
+     group headings (`lib/studio-skin.ts`); never a box. */
   if (studio) {
     const words = local.words ?? {};
     return (
-      <div className="flex flex-col gap-5 px-1" data-studio-rsvp="">
-        <section className="flex flex-col gap-1" data-rsvp-setting="reply-by">
-          <p className="text-sm font-semibold text-ink">Reply by</p>
-          {replyByOwn ? (
-            <ReplyByField
-              eventId={eventId}
-              own={replyByOwn.deadline}
-              pricingMode={replyByOwn.pricingMode}
-              fallback={replyByFallback ?? (replyBy?.isDefault ? replyBy.date : null)}
-              action={replyByAction}
-            />
-          ) : (
-            <p role="alert" className="text-[13px] text-terracotta-700">
-              We couldn&rsquo;t read your reply-by date just now, so it can&rsquo;t be changed here. Nothing was changed.
+      <div className="flex flex-col" data-studio-rsvp="">
+        <div className={STUDIO_GROUP}>
+          <section className="flex flex-col gap-1 py-2" data-rsvp-setting="reply-by">
+            <p className="text-[14.5px] font-semibold text-ink">Reply by</p>
+            {replyByOwn ? (
+              <ReplyByField
+                eventId={eventId}
+                own={replyByOwn.deadline}
+                pricingMode={replyByOwn.pricingMode}
+                fallback={replyByFallback ?? (replyBy?.isDefault ? replyBy.date : null)}
+                action={replyByAction}
+              />
+            ) : (
+              <p role="alert" className="text-[13px] text-terracotta-700">
+                We couldn&rsquo;t read your reply-by date just now, so it can&rsquo;t be changed here. Nothing was changed.
+              </p>
+            )}
+          </section>
+          {/* ❓ How guests answer ▾ — ONE dropdown over the shipped `oneAtATime` (drafted, counted on ✓). */}
+          <section className={STUDIO_ROW} data-rsvp-setting="how-guests-answer">
+            <p className={STUDIO_ROW_LABEL}>
+              <span className="text-[14.5px] font-semibold text-ink">{HOW_GUESTS_ANSWER_LABEL}</span>
+              <small className={STUDIO_ROW_SUB}>{HOW_GUESTS_ANSWER_OPTIONS[oneAtATime ? 1 : 0].hint}</small>
             </p>
-          )}
-        </section>
-        {/* ❓ How guests answer ▾ — ONE dropdown over the shipped `oneAtATime` (drafted, counted on ✓). */}
-        <section className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1" data-rsvp-setting="how-guests-answer">
-          <p className="text-sm font-semibold text-ink">{HOW_GUESTS_ANSWER_LABEL}</p>
-          <PickMenu
-            label={HOW_GUESTS_ANSWER_LABEL}
-            dataAttr="data-rsvp-answer-pick"
-            value={oneAtATime ? 'one' : 'all'}
-            buttonText={howGuestsAnswerLabel(oneAtATime)}
-            options={HOW_GUESTS_ANSWER_OPTIONS}
-            onPick={(value) => {
-              const next = value === 'one';
-              if (next !== oneAtATime) save({ oneAtATime: next }, `“${HOW_GUESTS_ANSWER_LABEL}”`);
-            }}
-          />
-        </section>
-        <section className="flex flex-col gap-3" data-rsvp-setting="answers">
-          <p className="text-sm font-semibold text-ink">Words</p>
+            <PickMenu
+              label={HOW_GUESTS_ANSWER_LABEL}
+              dataAttr="data-rsvp-answer-pick"
+              value={oneAtATime ? 'one' : 'all'}
+              buttonText={howGuestsAnswerLabel(oneAtATime)}
+              options={HOW_GUESTS_ANSWER_OPTIONS}
+              onPick={(value) => {
+                const next = value === 'one';
+                if (next !== oneAtATime) save({ oneAtATime: next }, `“${HOW_GUESTS_ANSWER_LABEL}”`);
+              }}
+              className={STUDIO_ROW_PICK}
+            />
+          </section>
+        </div>
+        <p className={STUDIO_GROUP_HEAD}>
+          Words <small className={STUDIO_GROUP_HEAD_LINE}>the two answers</small>
+        </p>
+        <section className={`${STUDIO_GROUP} gap-3 py-3`} data-rsvp-setting="answers">
           {RSVP_SCENE_WORDS.form.map((key) => (
             <WordField
               key={key}
@@ -475,29 +487,29 @@ export function MakerRsvpSettings({
             />
           ))}
         </section>
-        <section className="flex flex-col gap-1" data-made-once="rsvp-ask">
-          <p className="text-sm font-semibold text-ink">What the reply asks</p>
-          <div className="flex min-h-11 items-center justify-between gap-3 border-b border-ink/5 py-2 text-sm text-ink/55">
-            <span>Attending</span>
-            <span className="text-xs">always</span>
+        <p className={STUDIO_GROUP_HEAD}>What the reply asks</p>
+        <section className={STUDIO_GROUP} data-made-once="rsvp-ask">
+          <div className={`${STUDIO_ROW} text-ink/55`}>
+            <span className={STUDIO_ROW_LABEL}>Attending</span>
+            <span className="text-[13px]">always asked</span>
           </div>
-          <div className="flex flex-col">
-            {RSVP_ASK_FIELDS.map((field) => (
-              <Switch key={field} label={<>{RSVP_ASK_LABEL[field]}</>} on={rsvpAsks(local, field)} onChange={(v) => save({ [field]: v })} />
-            ))}
-          </div>
+          {RSVP_ASK_FIELDS.map((field) => (
+            <Switch key={field} label={<>{RSVP_ASK_LABEL[field]}</>} on={rsvpAsks(local, field)} onChange={(v) => save({ [field]: v })} />
+          ))}
         </section>
         {celebration ? (
-          <CelebrationPick
-            value={readCelebrationKey(local)}
-            ownsPro={celebration.ownsPro}
-            storeShell={celebration.storeShell}
-            colours={celebration.colours}
-            onPick={(next: RsvpCelebration) => save({ celebration: next === 'none' ? undefined : next }, `“Celebration”`)}
-          />
+          <div className={STUDIO_GROUP}>
+            <CelebrationPick
+              value={readCelebrationKey(local)}
+              ownsPro={celebration.ownsPro}
+              storeShell={celebration.storeShell}
+              colours={celebration.colours}
+              onPick={(next: RsvpCelebration) => save({ celebration: next === 'none' ? undefined : next }, `“Celebration”`)}
+            />
+          </div>
         ) : null}
         {error ? (
-          <p role="alert" className="text-[13px] text-terracotta-700">
+          <p role="alert" className="px-1 text-[13px] text-terracotta-700">
             {error}
           </p>
         ) : null}

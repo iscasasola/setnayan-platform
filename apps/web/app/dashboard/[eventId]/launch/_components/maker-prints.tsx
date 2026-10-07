@@ -252,11 +252,19 @@ export function PrintPieceEditor({
   piece: k,
   menu,
   children = null,
+  studio = false,
 }: {
   input: PrintsInput;
   piece: PrintSetKey;
   menu?: { saved: MenuMoment[]; caterer: MenuMoment[]; suggestions: string[]; flash: 'saved' | 'error' | null };
   children?: React.ReactNode;
+  /**
+   * 🧭 The new Maker's Studio › Prints — ONE LIST (prototype `EDITORS.prints`, owner 2026-10-06
+   * "yes add prints as the eleventh tile"): the piece's name and sizes on the left, its size ▾ on the
+   * right, its Saves right under it as small buttons, then what it includes. Same pickers, same
+   * files, same switches — only the order and the look change.
+   */
+  studio?: boolean;
 }) {
   const { t, themed, themedReady, q, classic, file, hrefWith, formats } = printPlan(input);
   const spec = PRINT_PIECES[k];
@@ -264,17 +272,69 @@ export function PrintPieceEditor({
   const menuEmpty = k === 'menu' && !menuHasDishes(menuPrints(menu ?? { saved: [], caterer: [], suggestions: [], flash: null }));
   // Never offered blank: no Love Story, no poster to save (the route refuses it too).
   const storyMissing = k === 'story-poster' && Boolean(input.storyEmpty);
+  const sizePicker =
+    fam && HAS_SIZES(k) ? (
+      <PrintChoicePicker
+        label={`${spec.label} size`}
+        value={formats[fam].id}
+        dataAttr="data-print-format-picker"
+        options={formatsFor(fam).map((f) => ({ key: f.id, label: f.label, href: hrefWith(k, { family: fam, format: f.id }) }))}
+      />
+    ) : null;
+  const saves =
+    menuEmpty || storyMissing ? null : (
+      <>
+        <PrintSaveButton href={classic(k)} file={file.classic(k)} variant={studio ? 'chip' : 'link'}>
+          {themed ? 'Save · Classic (PDF)' : 'Save PDF'}
+        </PrintSaveButton>
+        {themedReady ? (
+          <PrintSaveButton href={q(k, 'print')} file={file.themed(k)} variant={studio ? 'chip' : 'link'}>
+            Save · {t.name} (PDF)
+          </PrintSaveButton>
+        ) : themed ? (
+          <PrintSaveButton href={q(k, 'sample')} file={file.sample(k)} variant={studio ? 'chip' : 'link'}>
+            Sample · {t.name} (JPG)
+          </PrintSaveButton>
+        ) : null}
+      </>
+    );
+  if (studio) {
+    const sizes = fam ? formatsFor(fam).map((f) => f.label) : [];
+    return (
+      <div data-print-editor={k} data-print-studio="" className="flex flex-col gap-1">
+        <div className="flex min-h-12 items-center justify-between gap-2.5">
+          <span className="flex min-w-0 flex-col">
+            <span className="text-[14.5px] font-semibold text-ink">{spec.label.replace(/^the\s+/i, '')}</span>
+            <small className="text-[11.5px] font-medium text-ink/50">{sizes.length > 1 ? sizes.join(sizes.length > 2 ? ' · ' : ' or ') : spec.size}</small>
+          </span>
+          {sizePicker}
+        </div>
+        {saves ? (
+          <div className="flex flex-wrap gap-1.5 pb-2" data-print-piece-saves={k}>
+            {saves}
+          </div>
+        ) : null}
+        <ChangedSincePrinted eventId={input.eventId} piece={k} version={input.previewVersion} />
+        {children}
+        {k === 'story-poster' && !storyMissing ? <PosterPhotoPicker eventId={input.eventId} saved={input.posterPhoto ?? null} /> : null}
+        {k === 'menu' && menu ? (
+          <PrintMenuEditor
+            eventId={input.eventId}
+            initial={menuHasDishes(menu.saved) || menu.saved.length ? menu.saved : menu.caterer}
+            fromCaterer={!menuHasDishes(menu.saved) && !menu.saved.length && menu.caterer.length > 0}
+            suggestions={menu.suggestions}
+            flash={menu.flash}
+          />
+        ) : null}
+      </div>
+    );
+  }
   return (
     <div data-print-editor={k} className="flex flex-col gap-3">
       {fam && HAS_SIZES(k) ? (
         <div data-print-formats={fam} className="flex min-h-11 items-center justify-between gap-3 border-b border-ink/5 pb-2">
           <span className="text-sm text-ink">Size</span>
-          <PrintChoicePicker
-            label={`${spec.label} size`}
-            value={formats[fam].id}
-            dataAttr="data-print-format-picker"
-            options={formatsFor(fam).map((f) => ({ key: f.id, label: f.label, href: hrefWith(k, { family: fam, format: f.id }) }))}
-          />
+          {sizePicker}
         </div>
       ) : null}
       {children}
@@ -296,20 +356,7 @@ export function PrintPieceEditor({
         <div className="flex flex-col gap-1.5 border-t border-ink/10 pt-3" data-print-piece-saves={k}>
           <p className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-ink/55">This piece</p>
           <ChangedSincePrinted eventId={input.eventId} piece={k} version={input.previewVersion} />
-          <div className="flex flex-wrap gap-x-4 gap-y-1">
-            <PrintSaveButton href={classic(k)} file={file.classic(k)} variant="link">
-              {themed ? 'Save · Classic (PDF)' : 'Save PDF'}
-            </PrintSaveButton>
-            {themedReady ? (
-              <PrintSaveButton href={q(k, 'print')} file={file.themed(k)} variant="link">
-                Save · {t.name} (PDF)
-              </PrintSaveButton>
-            ) : themed ? (
-              <PrintSaveButton href={q(k, 'sample')} file={file.sample(k)} variant="link">
-                Sample · {t.name} (JPG)
-              </PrintSaveButton>
-            ) : null}
-          </div>
+          <div className="flex flex-wrap gap-x-4 gap-y-1">{saves}</div>
         </div>
       )}
     </div>
@@ -388,6 +435,8 @@ export function freePrintParts(
   slug: string | null,
   /** 💾 The previews' names — the live hash and the draft's (`FreePrintStamps`), so a QR look being tried shows on the sheet. */
   input?: Pick<PrintsInput, 'previewVersion' | 'draftVersion'>,
+  /** 🧭 The new Maker's Studio › Prints: the blurb as the row's small line, the saves as small buttons (prototype `.pr-sv`). */
+  studio = false,
 ): Array<{ key: FreePrint['key']; label: string; body: React.ReactNode; editor: React.ReactNode }> {
   const stamps = { version: input?.previewVersion ?? null, draft: input?.draftVersion ?? null };
   return freePrints(eventId, slug, stamps).map((fp) => ({
@@ -402,7 +451,18 @@ export function freePrintParts(
         <p className="max-w-md text-center text-xs text-ink/60">{fp.blurb}</p>
       </div>
     ),
-    editor: (
+    editor: studio ? (
+      <div className="flex flex-col gap-2 pb-1" data-free-print-saves={fp.key} data-print-studio="">
+        <p className="text-[11.5px] leading-snug text-ink/55">{fp.blurb}</p>
+        <div className="flex flex-wrap gap-1.5">
+          {fp.saves.map((s) => (
+            <PrintSaveButton key={s.href} href={s.href} file={s.file} variant="chip">
+              {s.label}
+            </PrintSaveButton>
+          ))}
+        </div>
+      </div>
+    ) : (
       <div className="flex flex-col gap-2" data-free-print-saves={fp.key}>
         <p className="text-xs text-ink/60">
           {/* Names, parents and tables on these prints come from the Guest list —

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Check } from 'lucide-react';
+import { STUDIO_DONE_BUTTON, STUDIO_HEAD_ROW, STUDIO_TOOL_PILL } from '@/lib/studio-skin';
 import { ISeg, ISegmented } from '../../website/editor/_components/inspector-kit';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import type { PickOption } from '../../website/editor/_components/pick-menu-types';
@@ -39,11 +40,14 @@ export function StudioToolMenu({
   value,
   onOpen,
   dataAttr,
+  className = '!min-h-11 shrink-0 ring-1 ring-ink/10',
 }: {
   tiles: readonly StudioTileModel[];
   value: StudioTileKey;
   onOpen: (key: StudioTileKey) => void;
   dataAttr: string;
+  /** The pill's look — the Tool row's is the prototype's `.ddp` (`STUDIO_TOOL_PILL`). */
+  className?: string;
 }) {
   const options: PickOption[] = tiles.map((t) => ({
     key: t.key,
@@ -59,15 +63,20 @@ export function StudioToolMenu({
       buttonText={tiles.find((t) => t.key === value)?.short ?? 'Studio'}
       options={options}
       onPick={(k) => onOpen(k as StudioTileKey)}
-      className="!min-h-11 shrink-0 ring-1 ring-ink/10"
+      className={className}
     />
   );
 }
 
 /**
- * A Studio tool FULL SCREEN — its slim row (owner 2026-10-06, DECISION_LOG "'ASK ONE BY ONE' … TAPPING
- * STUDIO AGAIN RETURNS TO THE TILES"): Tool ▾, and ✓ Done where the top nav is hidden (Wedding March,
- * Seat plan). No "‹ Studio" — tapping Studio in the top nav returns to the tiles.
+ * A Studio tool FULL SCREEN — its slim row (prototype `.fhead`; owner 2026-10-06, DECISION_LOG
+ * "'ASK ONE BY ONE' … TAPPING STUDIO AGAIN RETURNS TO THE TILES"): Tool ▾ across the row, then
+ * ✓ Saved — or ✓ Done where the top nav is hidden (Wedding March, Seat plan). No "‹ Studio" —
+ * tapping Studio in the top nav returns to the tiles.
+ *
+ * `[data-studio-row-end]` is the row's right end: a tool with a control of its own there (the
+ * Mood Board's ✨ Auto and its own Saved, prototype `.autob`) portals it in, and the row's own
+ * Saved steps aside for it (`studioFullScreenCss`).
  */
 export function StudioToolRow({
   tile,
@@ -81,19 +90,18 @@ export function StudioToolRow({
   onDone: () => void;
 }) {
   return (
-    <div data-maker-studio-row="" className="absolute inset-x-0 top-0 z-40 flex h-[52px] items-center gap-2 border-b border-ink/10 bg-cream px-2 lg:hidden">
-      <StudioToolMenu tiles={tiles} value={tile.key} onOpen={onOpen} dataAttr="data-maker-studio-tool" />
+    <div data-maker-studio-row="" className={STUDIO_HEAD_ROW}>
+      <StudioToolMenu tiles={tiles} value={tile.key} onOpen={onOpen} dataAttr="data-maker-studio-tool" className={STUDIO_TOOL_PILL} />
       {tile.immersive ? (
-        <button
-          type="button"
-          data-maker-studio-done=""
-          onClick={onDone}
-          className="sn-press ml-auto inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full bg-success-600 px-4 text-[13.5px] font-bold text-cream hover:bg-success-700"
-        >
-          <Check aria-hidden className="h-4 w-4" strokeWidth={2.6} />
+        <button type="button" data-maker-studio-done="" onClick={onDone} className={STUDIO_DONE_BUTTON}>
+          <Check aria-hidden className="h-[15px] w-[15px]" strokeWidth={2.6} />
           Done
         </button>
-      ) : null}
+      ) : (
+        /* 🧾 No "✓ Saved" chip (owner 2026-10-07, *"yes remove the saved."*): the ONE state signal is ✓ Apply's
+           count. The end slot stays for a tool's own control (the Mood Board's ✨ Auto). */
+        <div data-studio-row-end="" className="flex shrink-0 items-center gap-1.5" />
+      )}
     </div>
   );
 }

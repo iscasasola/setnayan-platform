@@ -1,5 +1,6 @@
 'use client';
 
+import { StudioColourField } from './studio-colour-field';
 import { useMaker, useMakerTool } from './maker-context';
 import { IntoLowerThird, LOWER_THIRD_TILE, LOWER_THIRD_TILE_ON, LOWER_THIRD_TILE_PLAIN } from './maker-lower-third';
 import { MAKER_LT_TOOL } from '@/lib/maker-phone-room';
@@ -980,6 +981,21 @@ function LayerTools({
       ) : null}
 
       <Field label="Colour">
+        {studio ? (
+          /* 🎨 The new Maker: the Mood Board's ONE colour sheet (owner 2026-10-08) — the five first,
+             then what goes with them, the photos, the swatches, Custom. "Its own" stays for a picture. */
+          <div className="flex flex-col" data-logo-colour="studio">
+            <StudioColourField
+              data="logo"
+              name="Colour"
+              job={layer.kind === 'image' && layer.color === null ? 'Its own colours' : 'This part of your logo'}
+              value={layer.color ?? LOGO_DEFAULT_INK}
+              palette={studio.five}
+              onPick={(c) => onChange({ color: c })}
+              reset={layer.kind === 'image' && layer.color !== null ? { label: 'Its own colours', onReset: () => onChange({ color: null }) } : undefined}
+            />
+          </div>
+        ) : (
         <div className="flex flex-wrap items-center gap-2">
           {layer.kind === 'image' ? (
             <Chip on={layer.color === null} label="Its own" onClick={() => onChange({ color: null })} />
@@ -1000,6 +1016,7 @@ function LayerTools({
             );
           })}
         </div>
+        )}
       </Field>
 
       <Field label="Size and place">

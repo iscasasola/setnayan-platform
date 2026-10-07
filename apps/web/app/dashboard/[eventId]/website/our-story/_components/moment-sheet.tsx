@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, X } from 'lucide-react';
+import { Check, Plus, X } from 'lucide-react';
 import { FileUpload } from '@/app/_components/file-upload';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { useModalA11y } from '@/lib/use-modal-a11y';
@@ -23,6 +23,8 @@ import { LoveStoryProLine } from './love-story-pro-line';
 import { HubDraftField } from '../../_components/hub-draft-field';
 import { useMaker } from '../../../launch/_components/maker-context';
 import { InMakerReturnTo } from './in-maker-return-to';
+import { Sheet } from '@/app/_components/sheet';
+import { PickMenu } from '../../editor/_components/pick-menu';
 
 /**
  * A moment the Maker's instant scrapbook could not keep (`love-story-live.tsx`
@@ -57,6 +59,21 @@ const CHAPTER_RULE: Record<LoveStoryChapter, string> = {
   yes: 'The yes holds the one moment marked The yes.',
   toward: 'Toward the day holds moments dated after The yes.',
 };
+
+/** How exact a date is — ONE dropdown in the Studio, the shipped pill row elsewhere. */
+const PRECISIONS = [
+  ['day', 'Exact day'],
+  ['month', 'Month'],
+  ['year', 'Just a year'],
+] as const;
+
+/** "This one is…" — a plain moment, or one of the three chapter anchors. */
+const ANCHORS = [
+  ['', 'A moment'],
+  ['met', 'How we met'],
+  ['together', 'Together'],
+  ['yes', 'The yes'],
+] as const;
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -119,8 +136,15 @@ export function MomentSheet({
     setOpen(true);
   };
   /* Inside the Maker the moment opens IN PLACE (no sheet, no trap). */
-  const inMaker = useMaker() !== null;
+  const maker = useMaker();
+  const inMaker = maker !== null;
+  /* 🧭 STUDIO › LOVE STORY (owner 2026-10-08, studio round 3): the new Maker's add form is the
+     APP's — white, ink, standard inputs, each set of choices ONE dropdown, ✕ Not now · ✓ Keep this
+     moment in the thumb zone — on the Schedule's add-a-moment sheet (`day-sheets.tsx`), never the
+     event's palette (its placeholders were invisible) and never under the Studio's sticky bar. */
+  const studio = maker?.stagesStudio === true;
   useModalA11y({ open: open && !inMaker, onClose: () => setOpen(false), containerRef: ref });
+  const [addedBy, setAddedBy] = useState(moment?.added_by ?? partners[0] ?? '');
   /* ⚡ In the Maker a kept moment is on the page at the tap (`love-story-live.tsx`):
      the sheet closes; a moment that could not be kept says why and stays open. */
   const [refused, setRefused] = useState<string | null>(null);
@@ -203,31 +227,45 @@ export function MomentSheet({
     return { label: `${formatMomentDate(date)} · ${LOVE_STORY_CHAPTER_LABEL[chapter]}`, chapter };
   }, [year, month, day, precision, anchor, moment, moments]);
 
-  const field =
-    'mt-1.5 w-full rounded-md border border-[color:var(--ls-rule)] bg-[color:var(--ls-surface)] px-3 py-2 text-[15px] text-[color:var(--ls-ink)] focus:border-[color:var(--ls-accent)] focus:outline-none';
-  const eye = 'font-mono text-[0.66rem] uppercase tracking-[0.24em] text-[color:var(--ls-muted)]';
+  const field = studio
+    ? 'mt-1.5 min-h-11 w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-[15px] text-ink placeholder:text-ink/45 focus:border-ink/40 focus:outline-none'
+    : 'mt-1.5 w-full rounded-md border border-[color:var(--ls-rule)] bg-[color:var(--ls-surface)] px-3 py-2 text-[15px] text-[color:var(--ls-ink)] focus:border-[color:var(--ls-accent)] focus:outline-none';
+  const eye = studio
+    ? 'text-[10px] font-bold uppercase tracking-[0.16em] text-ink/55'
+    : 'font-mono text-[0.66rem] uppercase tracking-[0.24em] text-[color:var(--ls-muted)]';
+  const quiet = studio ? 'text-ink/60' : 'text-[color:var(--ls-muted)]';
+  const serif = studio ? '' : 'font-pahina';
 
   const body = (
     <>
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className={eye}>A moment</p>
-                <h3 id="moment-sheet-title" className="mt-1 font-pahina text-2xl font-light">
-                  {moment ? 'Edit this ' : 'Add to '}
-                  <i className="text-[color:var(--ls-heading)]">{moment ? 'moment' : 'our love story'}</i>
-                </h3>
+                {studio ? (
+                  <h3 id="moment-sheet-title" className="mt-1 font-display text-[22px] leading-tight text-ink">
+                    {moment ? 'Edit this moment' : 'Add to our love story'}
+                  </h3>
+                ) : (
+                  <h3 id="moment-sheet-title" className="mt-1 font-pahina text-2xl font-light">
+                    {moment ? 'Edit this ' : 'Add to '}
+                    <i className="text-[color:var(--ls-heading)]">{moment ? 'moment' : 'our love story'}</i>
+                  </h3>
+                )}
               </div>
-              <button
-                type="button"
-                aria-label="Close"
-                onClick={() => setOpen(false)}
-                className="inline-flex h-11 w-11 items-center justify-center rounded-full text-[color:var(--ls-muted)] hover:bg-black/5"
-              >
-                <X aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-              </button>
+              {/* The Studio's sheet draws its own ✕ (the shared `Sheet`). */}
+              {studio ? null : (
+                <button
+                  type="button"
+                  aria-label="Close"
+                  onClick={() => setOpen(false)}
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-full text-[color:var(--ls-muted)] hover:bg-black/5"
+                >
+                  <X aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+                </button>
+              )}
             </div>
 
-            <form action={keep} className="mt-5 space-y-6">
+            <form action={keep} className={studio ? 'mt-4 space-y-5' : 'mt-5 space-y-6'}>
               <HubDraftField />
               <InMakerReturnTo />
               <input type="hidden" name="intent" value={moment ? 'edit' : 'add'} />
@@ -262,17 +300,23 @@ export function MomentSheet({
               {/* When */}
               <fieldset>
                 <legend className={eye}>When</legend>
-                <p className="mt-1 text-[13px] text-[color:var(--ls-muted)]">
+                <p className={`mt-1 text-[13px] ${quiet}`}>
                   Only as exact as you remember. A year on its own is enough.
                 </p>
+                {studio ? (
+                  <div className="mt-2">
+                    <PickMenu
+                      label="How exact"
+                      value={precision}
+                      dataAttr="data-moment-when"
+                      options={PRECISIONS.map(([key, label]) => ({ key, label }))}
+                      onPick={(k) => setPrecision(k as Precision)}
+                      className="ring-1 ring-ink/15"
+                    />
+                  </div>
+                ) : (
                 <div role="radiogroup" aria-label="How exact" className="mt-2 flex gap-1.5">
-                  {(
-                    [
-                      ['day', 'Exact day'],
-                      ['month', 'Month'],
-                      ['year', 'Just a year'],
-                    ] as const
-                  ).map(([k, label]) => (
+                  {PRECISIONS.map(([k, label]) => (
                     <button
                       key={k}
                       type="button"
@@ -289,6 +333,7 @@ export function MomentSheet({
                     </button>
                   ))}
                 </div>
+                )}
                 <div className="mt-3 flex gap-2">
                   {precision === 'day' ? (
                     <label className="w-20">
@@ -339,7 +384,7 @@ export function MomentSheet({
                   maxLength={MOMENT_TITLE_MAX}
                   defaultValue={moment?.title ?? ''}
                   placeholder="The first date"
-                  className={`${field} font-pahina text-lg`}
+                  className={`${field} ${serif} ${studio ? '' : 'text-lg'}`}
                 />
               </label>
 
@@ -353,7 +398,7 @@ export function MomentSheet({
                   maxLength={600}
                   defaultValue={moment?.line ?? ''}
                   placeholder="What happened, in your words…"
-                  className={`${field} font-pahina text-lg leading-snug`}
+                  className={`${field} ${serif} ${studio ? '' : 'text-lg'} leading-snug`}
                 />
               </label>
 
@@ -370,7 +415,22 @@ export function MomentSheet({
               </label>
 
               {/* Added by */}
-              {partners.length > 0 ? (
+              {partners.length > 0 && studio ? (
+                <div data-moment-added-by="">
+                  <p className={eye}>Added by</p>
+                  <input type="hidden" name="added_by" value={addedBy} />
+                  <div className="mt-2">
+                    <PickMenu
+                      label="Added by"
+                      value={addedBy}
+                      dataAttr="data-moment-added-by-pick"
+                      options={partners.map((name) => ({ key: name, label: name }))}
+                      onPick={setAddedBy}
+                      className="ring-1 ring-ink/15"
+                    />
+                  </div>
+                </div>
+              ) : partners.length > 0 ? (
                 <fieldset>
                   <legend className={eye}>Added by</legend>
                   <div className="mt-2 flex flex-wrap gap-2">
@@ -402,18 +462,24 @@ export function MomentSheet({
               {/* This one is… */}
               <fieldset>
                 <legend className={eye}>This one is…</legend>
-                <p className="mt-1 text-[13px] text-[color:var(--ls-muted)]">
+                <p className={`mt-1 text-[13px] ${quiet}`}>
                   Three moments anchor the chapters: how you met, when you became a couple and the yes. Everything else finds its chapter from its date.
                 </p>
+                {studio ? (
+                  <div className="mt-2">
+                    <input type="hidden" name="anchor" value={anchor} />
+                    <PickMenu
+                      label="This one is"
+                      value={anchor || 'moment'}
+                      dataAttr="data-moment-anchor"
+                      options={ANCHORS.map(([k, label]) => ({ key: k || 'moment', label }))}
+                      onPick={(k) => setAnchor(k === 'moment' ? '' : (k as MomentAnchor))}
+                      className="ring-1 ring-ink/15"
+                    />
+                  </div>
+                ) : (
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {(
-                    [
-                      ['', 'A moment'],
-                      ['met', 'How we met'],
-                      ['together', 'Together'],
-                      ['yes', 'The yes'],
-                    ] as const
-                  ).map(([k, label]) => (
+                  {ANCHORS.map(([k, label]) => (
                     <label
                       key={k || 'none'}
                       className="inline-flex min-h-10 cursor-pointer items-center rounded-full px-3 text-[14px] ring-1 ring-inset ring-[color:var(--ls-rule)] has-[:checked]:bg-[color:var(--ls-accent)] has-[:checked]:text-[color:var(--ls-accent-ink)] has-[:checked]:ring-[color:var(--ls-accent)]"
@@ -430,6 +496,7 @@ export function MomentSheet({
                     </label>
                   ))}
                 </div>
+                )}
               </fieldset>
 
               {moment ? (
@@ -439,11 +506,11 @@ export function MomentSheet({
                 </label>
               ) : null}
 
-              <div aria-live="polite" className="border-t border-[color:var(--ls-rule)] pt-4">
+              <div aria-live="polite" className={`border-t pt-4 ${studio ? 'border-ink/10' : 'border-[color:var(--ls-rule)]'}`}>
                 <p className={eye}>Will sit in</p>
-                <p className="mt-1 font-pahina text-xl">{sitsIn?.label ?? 'Add a year to find its place'}</p>
+                <p className={studio ? 'mt-1 text-[16px] font-semibold text-ink' : 'mt-1 font-pahina text-xl'}>{sitsIn?.label ?? 'Add a year to find its place'}</p>
                 {target && sitsIn && sitsIn.chapter !== target ? (
-                  <p data-moment-chapter-rule={target} className="mt-1 text-[13px] text-[color:var(--ls-muted)]">
+                  <p data-moment-chapter-rule={target} className={`mt-1 text-[13px] ${quiet}`}>
                     {CHAPTER_RULE[target]}
                   </p>
                 ) : null}
@@ -454,6 +521,28 @@ export function MomentSheet({
                   {refused}
                 </p>
               ) : null}
+              {studio ? (
+                /* 👍 The thumb zone — pinned to the foot of the sheet, as the Schedule's add sheet (BUTTON-RULE:
+                   icon + word, grey backs out, green keeps — until the shared ActionButton lands). */
+                <div data-moment-sheet-foot="" className="sn-glass-row sticky bottom-0 -mx-5 flex justify-end gap-2 px-5 py-3">
+                  <button
+                    type="button"
+                    data-moment-not-now=""
+                    onClick={() => setOpen(false)}
+                    className="sn-press inline-flex h-11 items-center gap-1.5 rounded-full px-4 text-[13px] font-semibold text-ink/75 ring-1 ring-inset ring-ink/15"
+                  >
+                    <X aria-hidden className="h-4 w-4" strokeWidth={2.2} />
+                    Not now
+                  </button>
+                  <SubmitButton
+                    pendingLabel="Keeping…"
+                    className="sn-press inline-flex h-11 items-center gap-1.5 rounded-full bg-success-700 px-4 text-[13px] font-semibold text-white disabled:opacity-60"
+                  >
+                    <Check aria-hidden className="h-4 w-4" strokeWidth={2.2} />
+                    Keep this moment
+                  </SubmitButton>
+                </div>
+              ) : (
               <div className="flex items-center justify-end gap-2">
                 <button
                   type="button"
@@ -466,19 +555,20 @@ export function MomentSheet({
                   Keep this moment
                 </SubmitButton>
               </div>
+              )}
             </form>
     </>
   );
 
   return (
-    <div className={inMaker && open ? 'w-full basis-full' : 'contents'}>
+    <div className={inMaker && open && !studio ? 'w-full basis-full' : 'contents'}>
       <button
         ref={triggerRef}
         type="button"
-        aria-expanded={inMaker ? open : undefined}
+        aria-expanded={inMaker && !studio ? open : undefined}
         className={triggerClassName}
         onClick={
-          inMaker && open
+          inMaker && open && !studio
             ? () => setOpen(false)
             : () => {
                 // Opened by its own button: no chapter was asked for.
@@ -492,7 +582,16 @@ export function MomentSheet({
       >
         {trigger}
       </button>
-      {open && inMaker ? (
+      {open && studio && typeof document !== 'undefined' ? createPortal(
+        /* 🧭 The Studio: the Schedule's sheet (`Sheet`, rise), portalled to <body> and lifted above the
+           Maker's sticky bars, so the form starts below them and nothing overlaps its top. */
+        <div data-moment-studio-sheet="" className="relative z-[90]">
+          <Sheet open onClose={() => setOpen(false)} labelledById="moment-sheet-title" wide rise>
+            <div className="px-5 pt-5">{body}</div>
+          </Sheet>
+        </div>,
+        document.body,
+      ) : open && inMaker ? (
         /* 🖼 IN PLACE inside the Event Hub Maker (owner 2026-09-25: "Love story,
            add and create your story" — the made-once pages never pop up): the
            moment opens right here, in the page, and the page keeps its theme. */

@@ -294,7 +294,7 @@ export function AddMomentSheet({
           </p>
         ) : null}
       </div>
-      <div className="sticky bottom-0 flex justify-end gap-2 bg-cream px-5 py-3 shadow-[0_-1px_0_rgba(27,26,23,0.06)]">
+      <div className="sn-glass-row sticky bottom-0 flex justify-end gap-2 px-5 py-3">
         {/* BUTTON-RULE — icon + word, toned (✕ Cancel · ＋ Add moment), until the shared ActionButton lands. */}
         <button type="button" onClick={onClose} className="inline-flex h-11 items-center gap-1.5 rounded-full px-4 text-[13px] font-semibold text-ink/75 ring-1 ring-inset ring-ink/15">
           <X aria-hidden className="h-4 w-4" strokeWidth={2.2} />

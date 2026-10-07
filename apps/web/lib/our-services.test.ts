@@ -25,6 +25,7 @@ import {
   toolHasGoneHome,
   type OurServicesInput,
 } from './our-services';
+import { liveStudioControlPath } from './live-studio-control';
 import { buildEventMenuSections, eventMenuRows, STUDIO_ABSORBED } from './customer-menu';
 import { yourTeamParts } from './pillar-parts';
 import { DETAILS_ITEM_KEYS } from './maker-details-items';
@@ -118,6 +119,28 @@ test('Live Watch is whichever livestream tile the event is offered — never bot
   }
   const none = input({ offered: (a) => a.key !== 'panood' && a.key !== 'live-studio-roam' });
   assert.equal(buildOurServices(none).some((c) => c.key === 'live-studio'), false);
+});
+
+test('🎛 once Live Watch is OWNED, its row opens the controller — never the shop window', () => {
+  // Corpus MORE_MENU_PAGES_AUDIT_2026-10-07 §3 step 1 (owner: "Live Stream full controller.").
+  // The real entry is flag-gated out of ADD_ONS when the launch flag is off, so
+  // the test brings its own (same key + SKU) rather than passing by reading nothing.
+  const cast = ADD_ONS.find((a) => a.key === 'panood')!;
+  const roam: AddOnEntry = ADD_ONS.find((a) => a.key === 'live-studio-roam') ?? {
+    ...cast,
+    key: 'live-studio-roam',
+    serviceKey: 'LIVE_STUDIO',
+  };
+  const catalogue = [...ADD_ONS.filter((a) => a.key !== 'live-studio-roam'), roam];
+  const only = (a: AddOnEntry) => a.key !== 'panood';
+  const base = { catalogue, offered: only };
+  const owned = input({ ...base, owned: { active: new Set([roam.serviceKey!]), pending: new Set() } });
+  assert.equal(byKey(owned, 'live-studio').href, liveStudioControlPath(EVENT));
+  // Waiting for payment is NOT owned: the row still opens the page that says so.
+  const pending = input({ ...base, owned: { active: new Set(), pending: new Set([roam.serviceKey!]) } });
+  assert.equal(byKey(pending, 'live-studio').href, addOnHref('live-studio-roam', EVENT));
+  // Not bought: the page (with its free single-camera door) — unchanged.
+  assert.equal(byKey(input(base), 'live-studio').href, addOnHref('live-studio-roam', EVENT));
 });
 
 test('a price comes only from the catalogue read — and a missing one is not free', () => {

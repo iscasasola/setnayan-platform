@@ -32,6 +32,7 @@
 import { SERVICE_NAMES, type ServiceNameKey } from '@/lib/service-names';
 import type { LucideIcon } from 'lucide-react';
 import { addOnHref, appStoreDetailHref, type AddOnEntry } from './add-ons-catalog';
+import { liveStudioControlPath } from './live-studio-control';
 import type { EventMenuChild, EventMenuIconName } from './customer-menu';
 
 export type OurServiceState =
@@ -238,7 +239,7 @@ function catalogueCard(svc: CatalogueService, input: OurServicesInput): OurServi
   // Suite hid that card, and so does this page (unless it is already theirs).
   if (entry.key === 'setnayan-ai' && !input.aiSellable && !isActive && !isPending) return null;
 
-  const open = addOnHref(entry.key, input.eventId);
+  const open = isActive ? ownedHref(entry.key, input.eventId) : addOnHref(entry.key, input.eventId);
   if (input.refusesPath(open.split('?')[0]!)) return null;
 
   const base = {
@@ -283,6 +284,21 @@ function catalogueCard(svc: CatalogueService, input: OurServicesInput): OurServi
     return { ...base, href: open, inertReason: null, state: 'price', stateText: `Add for ${price}`, pro: true };
   }
   return { ...base, href: open, inertReason: null, state: 'unpriced', stateText: 'See the price', pro: true };
+}
+
+/**
+ * 🎛 ONCE OWNED, THE ROW OPENS THE CONTROLLER (corpus
+ * MORE_MENU_PAGES_AUDIT_2026-10-07 §3 step 1 — owner: "Live Stream full
+ * controller."). Before this, an event that had bought Live Watch still landed
+ * on the shop window and had to find "Open controller" in its hero. Only
+ * `live-studio-roam` has a controller that lives at a different URL from its
+ * page (`/panood/control/[eventId]`, chrome-less); every other service's page
+ * IS its controller, so it keeps `addOnHref`. Waiting-for-payment is not owned:
+ * that row still opens the page, where "Verifying payment" lives.
+ */
+function ownedHref(key: string, eventId: string): string {
+  if (key === 'live-studio-roam') return liveStudioControlPath(eventId);
+  return addOnHref(key, eventId);
 }
 
 /** The cards for one event, in the owner's order, minus any not offered. */

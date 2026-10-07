@@ -103,6 +103,8 @@ export type TourKey =
   | 'customer_galleries_v1'
   | 'customer_seat_plan_v1'
   | 'customer_papic_v1'
+  // The More-menu service pages (corpus MORE_MENU_PAGES_AUDIT_2026-10-07 §3).
+  | 'customer_live_watch_v1'
   | 'customer_love_story_v1'
   | 'customer_event_hub_maker_v1'
   | 'customer_adaptive_theme_v1'
@@ -141,6 +143,7 @@ export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'customer_galleries_v1',
   'customer_seat_plan_v1',
   'customer_papic_v1',
+  'customer_live_watch_v1',
   'customer_love_story_v1',
   'customer_event_hub_maker_v1',
   'customer_adaptive_theme_v1',
@@ -341,6 +344,28 @@ export const TOURS: Record<TourKey, TourDefinition> = {
   // "5 guest cameras free" and "your wedding" — the seat hand-out is retired
   // and Papic runs on every event type. These words match the Papic page as it
   // ships: cameras, camera QRs, credits, the shooting days, the library.
+  customer_live_watch_v1: {
+    key: 'customer_live_watch_v1',
+    label: 'Live stream mini-tour',
+    blurb: 'How phones become cameras and guests watch from anywhere.',
+    slides: [
+      {
+        Icon: QrCode,
+        title: 'Phones are your cameras',
+        body: 'Anyone scans the event QR and their phone joins as a camera. No app to install.',
+      },
+      {
+        Icon: Camera,
+        title: 'One camera is free',
+        body: 'Go live with one camera any time. More cameras unlock with Live Watch, once per event.',
+      },
+      {
+        Icon: Users,
+        title: 'Guests watch on your Event Hub',
+        body: 'You cut the camera everyone sees, or let guests pick their own view.',
+      },
+    ],
+  },
   customer_papic_v1: {
     key: 'customer_papic_v1',
     label: 'Papic mini-tour',

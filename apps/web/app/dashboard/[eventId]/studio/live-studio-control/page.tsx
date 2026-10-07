@@ -1,11 +1,9 @@
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import Link from 'next/link';
-import { studioHubHref } from '@/lib/studio-hub';
 import { notFound, redirect } from 'next/navigation';
 import {
-  Video,
-  ArrowRight,
   AlertCircle,
+  Play,
   CheckCircle2,
   ExternalLink,
   Lock,
@@ -15,11 +13,9 @@ import {
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { formatPhp } from '@/lib/orders';
-import { AppStoreLayout, type PlanRow, type StatTile } from '@/app/_components/app-store/layout';
-import { AddOnStateCta, statusPillForState } from '@/app/_components/app-store/state-cta';
+import { statusPillForState } from '@/app/_components/app-store/state-cta';
 import { ChoosePlanSheet, type ChoosePlanSheetProps } from '@/app/_components/app-store/choose-plan-sheet';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { fetchAddOnStats } from '@/lib/add-on-stats';
 import { resolveAddOnState } from '@/lib/add-on-state';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
@@ -41,7 +37,11 @@ import {
   YOUTUBE_READY_NOTICE,
 } from '@/lib/live-studio-readiness';
 import { setYoutubeLiveReadyAck } from './actions';
-import { formatCount } from '@/lib/format-number';
+import { MiniTour } from '@/app/_components/mini-tour';
+import { ActionButton } from '@/components/action-button';
+import { ThumbBar, ThumbBarSpacer } from '@/components/thumb-bar';
+import { RowGroup, ServiceHead } from '@/components/service-rows';
+import { MoreCamerasRow } from './_components/more-cameras-row';
 
 // UNIFIED Live Studio — one switching-based product that merges Cast (the directed
 // single feed) + Roam (guests pick their view) into a directed Main Stage plus
@@ -168,9 +168,8 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
   // the server gate (checkoutPoolChannel → eventHoldsHostedChannel) decides.
   const ent = await eventEntitlementClient(eventId);
 
-  const [stats, stateCtx, settings, sku, hostedChannelSku, ownsHostedChannel, hostedChannelOnSale] =
+  const [stateCtx, settings, sku, hostedChannelSku, ownsHostedChannel, hostedChannelOnSale] =
     await Promise.all([
-      fetchAddOnStats(supabase, FEATURE_KEY),
       resolveAddOnState(ent, eventId, FEATURE_KEY, 'couple', controllerHref),
       fetchPlatformSettings(supabase),
       formatV2Sku(LIVE_STUDIO_SKU_CODE).catch(() => null),
@@ -201,162 +200,90 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
   const hostedChannelCentavos = hostedChannelSku?.price_centavos ?? 0;
   const hostedChannelPriceLabel = hostedChannelSku ? formatPhp(hostedChannelSku.price_php) : '—';
 
-  const planRow: PlanRow = {
-    name: 'Live Watch',
-    scope:
-      'Everything unlocks for one event. Name multiple cameras across your angles, rooms, and venues; cut whichever one you want onto your directed Main Stage with a tap, and let remote guests pick their own view and switch live. Cameras join as phones via the event QR (no install, no per-camera fee).',
-    price: priceLabel,
-    unit: '',
-    badge: 'Per event',
+  // 🧹 THE SHOP WINDOW IS GONE (corpus MORE_MENU_PAGES_AUDIT_2026-10-07 §3 step 1;
+  // prototype `3-live-watch.html`). Owner, on these pages: "those have so many
+  // words. it doesn't feel simple and easy to understand". The hero, the four
+  // stat tiles, the highlights, the three-paragraph description, the plans table
+  // and the not-included list (with its "Build state:" developer note) collapse
+  // into ONE row — "More cameras" — that opens the SAME ChoosePlanSheet with the
+  // SAME plan, notices and acknowledgement. The purchase is untouched; only the
+  // words in front of it went. Once the event OWNS Live Watch, the More menu
+  // skips this page and opens the controller (lib/our-services.ts).
+  const choosePlan = {
+    eventId,
+    triggerLabel: 'Add Live Watch',
+    priceFromLabel: priceLabel,
+    // Single per-event SKU. serviceKey = LIVE_STUDIO_SKU_CODE so the drawer's order
+    // re-resolves the price from the admin catalog; priceCentavos is the live catalog
+    // price threaded through for the inline voucher math.
+    plans: [
+      {
+        sku_code: LIVE_STUDIO_SKU_CODE,
+        name: 'Live Watch',
+        scope:
+          'Everything unlocks for one event. Name your cameras, cut any one onto the Main Stage with a tap, and let remote guests pick their own view. Cameras join as phones via the event QR — no install, no per-camera fee.',
+        price: priceLabel,
+        unit: '',
+        badge: 'Per event',
+        priceCentavos: String(centavos),
+      },
+    ],
+    settings,
+    introCopy:
+      'Live Watch streams your event live for everyone who can’t be there — a directed Main Stage plus cameras guests can switch between. Buy one per event; set up your cameras right after.',
+    // ⏳ THE FOUR FACTS THE BUYER CANNOT DISCOVER LATE, above the price, in the
+    // order they bite (payment SLA · YouTube activation · the laptop · music
+    // rights). Unchanged from the shop window — see lib/live-studio-readiness.ts.
+    notice: [LEAD_TIME_NOTICE, YOUTUBE_READY_NOTICE, ENCODER_BUY_NOTICE, MUSIC_RIGHTS_NOTICE],
+    // Shown ONLY until they have ticked it once, ever. Omitting the prop is how
+    // "already accepted" is expressed — the sheet has no way to pre-tick a box,
+    // which is what keeps this affirmative (see consent-is-affirmative.test.ts).
+    acknowledgement: youtubeLiveReadyAcked
+      ? undefined
+      : {
+          label:
+            'I understand, and I already have a YouTube account that is ready for live streaming.',
+          onChange: setYoutubeLiveReadyAck,
+        },
+    footnote:
+      'We confirm the price before you pay · refunds follow the standard 24-hour SLA. Cameras join as phones via the event QR — no per-camera fee. The free single-camera livestream is unchanged.',
   };
 
-  const stats4: StatTile[] = [
-    {
-      eyebrow: 'Rating',
-      value: stats.avgRating === null ? '—' : stats.avgRating.toFixed(1),
-      starFill: stats.avgRating ?? 0,
-      caption:
-        stats.reviewCount === 0
-          ? 'No reviews yet'
-          : `${formatCount(stats.reviewCount)} review${stats.reviewCount === 1 ? '' : 's'}`,
-    },
-    {
-      eyebrow: 'Purchased',
-      value: stats.paidOrderCount === 0 ? '—' : stats.paidOrderCount.toLocaleString('en-PH'),
-      caption:
-        stats.paidOrderCount === 0
-          ? 'Be one of the first'
-          : `${formatCount(stats.eventsWithFeature)} event${stats.eventsWithFeature === 1 ? '' : 's'}`,
-    },
-    {
-      eyebrow: 'Cameras',
-      value: 'Multi',
-      caption: 'Cut + guest-pick',
-    },
-    {
-      eyebrow: 'Pricing',
-      value: priceLabel,
-      caption: 'per event',
-    },
-  ];
-
-  // One controller shared by free + paid (owner 2026-07-25): a host who hasn't
-  // bought Live Studio can still OPEN the controller and go live free with a single
-  // camera — the multi-camera extras simply show locked there.
-  //
-  // L8 (2026-09-02): for a non-owned host this doorway used to lead with the
-  // ₱3,000 buy button and demote the free path to a plain text link beneath it —
-  // at odds with the Wave 3 lock (§ 4d) that "seeing the cameras actually working
-  // IS the conversion mechanism". So for any non-owned state the free controller
-  // link now renders FIRST and at the same button weight as the buy CTA — order
-  // and weight only; the price and the buy button are unchanged. When owned
-  // ('launch'), the primary CTA already opens the controller, so nothing else
-  // renders.
-  const cta = (
-    <div className="space-y-2">
-      {stateCtx.state !== 'launch' ? (
-        <Link
-          href={controllerHref}
-          className="inline-flex items-center gap-2 rounded-full border border-terracotta bg-cream px-5 py-2 text-sm font-semibold text-terracotta-700 transition-colors hover:bg-terracotta/10"
-        >
-          Open the controller — go live free with one camera
-          <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-        </Link>
-      ) : null}
-      <AddOnStateCta
-        context={stateCtx}
-        launchLabel="Open controller"
-        choosePlan={{
-        eventId,
-        triggerLabel: 'Add Live Watch',
-        priceFromLabel: priceLabel,
-        // Single per-event SKU. serviceKey = LIVE_STUDIO_SKU_CODE so the drawer's order
-        // re-resolves the price from the admin catalog; priceCentavos is the live catalog
-        // price threaded through for the inline voucher math.
-        plans: [
-          {
-            sku_code: LIVE_STUDIO_SKU_CODE,
-            name: planRow.name,
-            scope: planRow.scope,
-            price: planRow.price,
-            unit: planRow.unit,
-            badge: planRow.badge,
-            priceCentavos: String(centavos),
-          },
-        ],
-        settings,
-        introCopy:
-          'Live Watch streams your celebration live for everyone who can’t be there. One directed Main Stage plus switchable guest cameras — different angles, rooms, even different venues. Cut the Main Stage between them with a tap, or let remote guests pick their own view. Buy one Live Watch per event; set up your cameras right after.',
-        // ⏳ THE LEAD-TIME NOTICE, prominent and above the price — not in the footnote
-        // below it. Manual payment reconciliation runs to a 24-hour SLA, and a wedding
-        // cannot wait for it: an unlock bought the night before may still be
-        // unapproved when the ceremony starts, which is one camera on the day. Its
-        // second sentence ("your unlock covers the whole event — no day to start, no
-        // clock to burn") is what makes "buy earlier" safe advice: LS6 (2026-09-02)
-        // retired the per-event-day clock, so there is no longer even a window to
-        // mis-anchor by buying ahead — see lib/live-studio-window.ts.
-        // TWO CLOCKS, TWO PARAGRAPHS, BOTH ABOVE THE PRICE. Ours is manual payment
-        // reconciliation; theirs is Google's ~24-hour first-time live activation on
-        // their OWN channel. They run in PARALLEL — a couple can activate YouTube
-        // while payment is pending — so these are two sentences, not 24 hours added
-        // to one. Merging them into a single paragraph would read as a 3-day wait
-        // and talk buyers out of a purchase that only ever needed 2 days.
-        // THREE FACTS THE BUYER CANNOT DISCOVER LATE, in the order they bite:
-        // our payment SLA, YouTube's activation wait, and the laptop. The last is
-        // the only one with NO recovery — a couple who meets the other two too late
-        // can still wait or be approved early; a couple with no laptop on the
-        // morning has no broadcast, and nothing fixes it.
-        // 🎵 THE FOURTH, AND THE ONLY ONE THAT FAILS DURING THE CEREMONY. The three
-        // above all bite BEFORE the day — late, but survivable. YouTube scans the
-        // live stream in real time and a music match replaces it with a placeholder
-        // or cuts it off at the processional, in front of everyone watching from
-        // abroad. It applies to music the couple PAID to license, and it is the
-        // default path for a Filipino wedding, not an edge case. LAST in the array
-        // on purpose: the first three decide whether they can broadcast at all,
-        // this one decides what they play once they can.
-        notice: [LEAD_TIME_NOTICE, YOUTUBE_READY_NOTICE, ENCODER_BUY_NOTICE, MUSIC_RIGHTS_NOTICE],
-        // Shown ONLY until they have ticked it once, ever. Omitting the prop is how
-        // "already accepted" is expressed — the sheet has no way to pre-tick a box,
-        // which is what keeps this affirmative (see consent-is-affirmative.test.ts).
-        acknowledgement: youtubeLiveReadyAcked
-          ? undefined
-          : {
-              label:
-                'I understand, and I already have a YouTube account that is ready for live streaming.',
-              onChange: setYoutubeLiveReadyAck,
-            },
-        footnote:
-          'Apply-then-pay flow · we confirm price before payment · refunds follow the standard 24-hour SLA. Cameras join as phones via the event QR — no per-camera fee. The free single-camera livestream is unchanged.',
-        }}
-      />
-    </div>
-  );
-
   const youtubeError = sp.youtube_error;
+  const statusLabel = statusPillForState(stateCtx.state)?.label ?? 'One camera free';
 
   return (
-    <div className="space-y-8">
+    <div className="pb-2">
+      <MiniTour tourKey="customer_live_watch_v1" />
+      <ServiceHead
+        title="Live stream"
+        brand="Live Watch"
+        status={statusLabel}
+        line="Phones are cameras. Guests watch on your Event Hub."
+        info={
+          <>
+            Cut any camera onto the Main Stage with a tap, or let guests pick their own
+            view. One camera is always free; more cameras unlock with Live Watch, once per
+            event. Cameras are phones that scan the event QR — no install.
+          </>
+        }
+      />
+
       {sp.youtube_connected ? (
-        <p
-          role="status"
-          className="inline-flex items-center gap-2 rounded-2xl border border-success-300/70 bg-success-50 px-4 py-3 text-sm text-success-900"
-        >
+        <p role="status" className="mt-3 flex items-center gap-2 text-sm text-success-900">
           <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           YouTube connected
           {youtubeGrant?.external_account_display
             ? ` — ${youtubeGrant.external_account_display}`
             : ''}
-          . Your broadcast will go live on this channel.
+          .
         </p>
       ) : null}
 
       {sp.youtube_disconnected ? (
-        <p
-          role="status"
-          className="inline-flex items-center gap-2 rounded-2xl border border-ink/15 bg-cream px-4 py-3 text-sm text-ink/75"
-        >
+        <p role="status" className="mt-3 flex items-center gap-2 text-sm text-ink/75">
           <Unlink2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          YouTube disconnected. Reconnect any time to re-enable the broadcast.
+          YouTube disconnected.
         </p>
       ) : null}
 
@@ -366,18 +293,12 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
           closed door and the controller use. Checked BEFORE the generic branch, or
           the couple reads "connection failed · contact support" about a non-event. */}
       {youtubeError === 'pool_only' ? (
-        <p
-          role="status"
-          className="inline-flex items-start gap-2 rounded-2xl border border-ink/15 bg-cream px-4 py-3 text-sm text-ink/75"
-        >
+        <p role="status" className="mt-3 flex items-start gap-2 text-sm text-ink/75">
           <CheckCircle2 aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
           <span>{poolOnlyConnectNotice(ownsHostedChannel)}</span>
         </p>
       ) : youtubeError ? (
-        <p
-          role="alert"
-          className="inline-flex items-start gap-2 rounded-2xl border border-danger-300/70 bg-danger-50 px-4 py-3 text-sm text-danger-900"
-        >
+        <p role="alert" className="mt-3 flex items-start gap-2 text-sm text-danger-900">
           <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
           <span>
             YouTube connection failed (
@@ -387,62 +308,41 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
         </p>
       ) : null}
 
-      <AppStoreLayout
-        back={{ href: studioHubHref(eventId), label: 'Back to add-ons' }}
-        hero={{
-          Icon: Video,
-          eyebrow: 'Live Watch',
-          title: 'Stream it live — your way.',
-          tagline:
-            'Give the people you love a front-row seat from anywhere. Direct a Main Stage between your cameras with a tap, or let each guest choose the angle they want to watch — every corner of your day, live.',
-          statusPill: statusPillForState(stateCtx.state) ?? { label: 'Web V1', tone: 'accent' },
-          cta,
-        }}
-        stats={stats4}
-        justLaunchedChip={stats.hasLaunchSignal ? null : 'Just launched · early access'}
-        highlights={{
-          title: "What you'll have",
-          items: [
-            'One directed Main Stage you cut between cameras with a tap',
-            'Multiple cameras — one per angle, room, or venue',
-            'Guests can pick their own view and switch live',
-            'Cameras join as phones via the event QR — no install, no per-camera fee',
-            'Plays right on your event page, in your colors',
-            'One price, per event — the free single-camera livestream stays free',
-          ],
-        }}
-        description={{
-          paragraphs: [
-            'A celebration happens in more than one place at once — the ceremony up front, the reception floor, the photo booth in the corner, sometimes a whole second venue. Live Watch lets you direct all of it: line up your cameras, then cut whichever one matters most onto the Main Stage every remote guest is watching.',
-            `You set it up in the controller (${priceLabel}, one price per event): name each camera, group them by venue, mark a default, and cut between them live on the day. Each camera is just a phone your paparazzi join by scanning the event QR — no install, no per-camera fee. Guests who want to wander can pick their own view; everyone else follows your directed Main Stage.`,
-            'Live Watch merges the two things people asked for — a directed broadcast and a choose-your-own-camera experience — into one tool. The single-camera livestream stays free; Live Watch is the multi-camera upgrade.',
-          ],
-          plans: [planRow],
-          notIncluded: [
-            'Your camera people are friends or family with phones — not a hired crew.',
-            'The free single-camera livestream is a separate, always-free service — Live Watch is the paid multi-camera upgrade.',
-            'No compositing in this version — picture-in-picture, split-screen, and graphics overlays are a later Pro layer. Live Watch cuts cleanly between whole cameras.',
-            'A Setnayan-provided camera kit is an optional add-on, not included in this price.',
-            'Build state: the switching controller and picker are in place; live multi-camera streaming rolls out as the streaming infrastructure comes online.',
-          ],
-        }}
-      />
+      <RowGroup>
+        <MoreCamerasRow
+          state={stateCtx.state}
+          href={stateCtx.href}
+          choosePlan={choosePlan}
+        />
+      </RowGroup>
 
-      <YoutubeChannelPanel
-        eventId={eventId}
-        oauthReady={oauthReady}
-        grant={youtubeGrant}
-        ownsHostedChannel={ownsHostedChannel}
-      />
+      <div className="mt-8 space-y-8">
+        <YoutubeChannelPanel
+          eventId={eventId}
+          oauthReady={oauthReady}
+          grant={youtubeGrant}
+          ownsHostedChannel={ownsHostedChannel}
+        />
 
-      <HostedChannelUpsell
-        eventId={eventId}
-        owns={ownsHostedChannel}
-        onSale={hostedChannelOnSale}
-        priceLabel={hostedChannelPriceLabel}
-        priceCentavos={hostedChannelCentavos}
-        settings={settings}
-      />
+        <HostedChannelUpsell
+          eventId={eventId}
+          owns={ownsHostedChannel}
+          onSale={hostedChannelOnSale}
+          priceLabel={hostedChannelPriceLabel}
+          priceCentavos={hostedChannelCentavos}
+          settings={settings}
+        />
+      </div>
+
+      <ThumbBarSpacer />
+      {/* One controller shared by free + paid (owner 2026-07-25): a host who
+          hasn't bought Live Watch can still OPEN it and go live free with one
+          camera. ⚠ OWNER CALL OPEN (audit §4): where the free single-camera door
+          lives once the shop window is gone. Today it stays HERE, as the bar's
+          one verb — moved into the thumb zone, not decided. */}
+      <ThumbBar label="Live stream tools">
+        <ActionButton tone="ok" main icon={Play} label="Go live" href={controllerHref} />
+      </ThumbBar>
     </div>
   );
 }

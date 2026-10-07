@@ -75,7 +75,10 @@ test('2 · rendered: the stored answer, both ways — and no "How guests get in"
     const btn = html.slice(html.indexOf('data-rsvp-answer-pick'));
     assert.ok(btn.slice(0, 600).includes(label), `stored ${on}, the dropdown does not read "${label}"`);
     assert.match(html, /data-studio-rsvp=""/);
-    assert.equal((html.match(/data-rsvp-who-pick/g) ?? []).length, 1, 'Studio › RSVP draws ONE How guests get in — the shared part');
+    // How guests get in is the shared `GuestsGetIn` part, loaded lazily (first-load budget) — see the source check below.
     assert.doesNotMatch(html, /Ask one question at a time/, 'the old switch is drawn beside the dropdown');
   }
+  const src = readFileSync(join(WEB, FILE), 'utf8');
+  const studio = src.slice(src.indexOf('if (studio) {'), src.indexOf('return (\n    <div className="flex flex-col gap-5 px-1" data-made-once="rsvp-page">'));
+  assert.equal((studio.match(/<GuestsGetIn\b/g) ?? []).length, 1, 'Studio › RSVP draws ONE How guests get in — the shared part');
 });

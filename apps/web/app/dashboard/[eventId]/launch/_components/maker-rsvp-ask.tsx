@@ -30,9 +30,8 @@ import { GUESTS_GET_IN_LABEL, guestsGetInPatch, readGuestsGetIn } from '@/lib/wh
 /* 🔗 ONE SETTING, TWO DOORS (owner 2026-10-07, HOME_AND_GUESTS_CHECK § "Setup ↔ Event
    Hub Maker"): the get-in dropdown, the six asks and Reply by are the SAME parts Guests ›
    Setup mounts — never a second copy here (`setup-and-maker-mount-the-same-parts.test.ts`). */
-import { GuestsGetIn } from '../../_components/guest-setup/guests-get-in';
-import { RsvpAsks } from '../../_components/guest-setup/rsvp-asks';
-import { ReplyBy } from '../../_components/guest-setup/reply-by';
+/* ⚖ Loaded when first drawn, warmed at idle (the Maker's first-load budget) — `guest-setup-lazy.tsx`. */
+import { GuestsGetIn, ReplyBy, RsvpAsks } from '../../_components/guest-setup/guest-setup-lazy';
 import { formatCount } from '@/lib/format-number';
 import { readCelebrationKey, type RsvpCelebration } from '@/lib/rsvp-celebration';
 import { CelebrationPick } from './celebration-pick';

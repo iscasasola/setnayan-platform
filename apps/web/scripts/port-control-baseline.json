@@ -1,5 +1,5 @@
 {
-  "generatedFromRef": "646d264c1",
+  "generatedFromRef": "915127039",
   "routeCount": 428,
   "destinations": 954,
   "actions": 671,
@@ -5181,6 +5181,7 @@
         "dashboard/[eventId]/_components/event-rail-match-rows.ts",
         "dashboard/[eventId]/_components/expand-card.tsx",
         "dashboard/[eventId]/_components/feature-us-card.tsx",
+        "dashboard/[eventId]/_components/guest-setup/guest-setup-lazy.tsx",
         "dashboard/[eventId]/_components/guest-setup/guest-setup-rows.tsx",
         "dashboard/[eventId]/_components/guest-setup/guests-get-in.tsx",
         "dashboard/[eventId]/_components/guest-setup/one-link.server.ts",

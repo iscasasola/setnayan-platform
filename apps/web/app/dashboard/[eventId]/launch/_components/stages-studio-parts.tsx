@@ -223,3 +223,64 @@ export function LowerThirdGrab({ px, onPx }: { px: number | null; onPx: (px: num
     </button>
   );
 }
+
+/**
+ * 🎯 THE STYLE BAR'S JUMP, AND THE WAY BACK (owner 2026-10-07: *"opens to the exact place where to edit it"* · *"if we
+ * did a jump, we need a way to apply and return to where we were editing"*). Mounted by the shell only while a Studio
+ * tool is open FROM a part (`from`): the field is brought into view and focused once the editor has drawn it, and
+ * "✓ Done · back to <part>" sits in the thumb's reach, just above the editor. Lazy: it exists only after a jump.
+ */
+export function StudioBackToPart({
+  from,
+  side,
+  at,
+  full,
+  onBack,
+}: {
+  from: { label: string; focus: string | null };
+  side: MakerSide;
+  /** The Studio tool on screen — the field is looked for again when it changes. */
+  at: unknown;
+  /** The tool is drawn full screen (the button shows only then). */
+  full: boolean;
+  onBack: () => void;
+}) {
+  const focusSel = from.focus;
+  useEffect(() => {
+    if (!focusSel || side !== 'studio') return;
+    let n = 0;
+    const id = window.setInterval(() => {
+      n += 1;
+      const el = document.querySelector<HTMLElement>(`[data-maker-shell] :is(${focusSel})`);
+      /* A field inside a folded row (Studio › Info's "Event name · …") asks that row to open first. */
+      if (el && el.offsetParent === null) el.closest('[data-studio-event-name]')?.setAttribute('data-focus-pending', '');
+      if (el && el.offsetParent !== null) {
+        window.clearInterval(id);
+        el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        el.focus({ preventScroll: true });
+      } else if (n > 40) window.clearInterval(id);
+    }, 100);
+    return () => window.clearInterval(id);
+  }, [focusSel, side, at]);
+  const [hasFoot, setHasFoot] = useState(false);
+  useEffect(() => {
+    const look = () => setHasFoot(Boolean(document.querySelector('[data-maker-shell] :is([data-studio-day], [data-moment-order-cards])')));
+    look();
+    const id = window.setInterval(look, 500);
+    return () => window.clearInterval(id);
+  }, [from, at]);
+  if (!full) return null;
+  return (
+    <button
+      type="button"
+      data-maker-studio-back=""
+      onClick={onBack}
+      /* Above an editor's own pinned foot (the Schedule's / Love Story's "Add a moment", ~64 px). */
+      style={{ bottom: `calc(var(--maker-lt-h) + env(safe-area-inset-bottom) + ${hasFoot ? 76 : 8}px)` }}
+      className="sn-press absolute left-1/2 z-[45] inline-flex h-11 -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full bg-success-600 px-5 text-[14px] font-bold text-cream shadow-[0_10px_24px_-12px_rgba(0,0,0,.5)] hover:bg-success-700 lg:hidden"
+    >
+      <Check aria-hidden className="h-4 w-4" strokeWidth={2.6} />
+      Done · back to {from.label}
+    </button>
+  );
+}

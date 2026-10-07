@@ -28,7 +28,8 @@ import { join } from 'node:path';
 import { TABBED_STAGES, hubTabFor, hubTabsOn, inPageTabs } from '../app/[slug]/_lib/hub-tabs';
 import { navPhaseFor, resolveSiteNav } from '../app/[slug]/_lib/site-nav';
 import { STAGE_BAR } from '../app/[slug]/_lib/stage-bar';
-import { HUB_TAB_HOLD_MS, showHubTab, shownHubTab } from '../app/[slug]/_components/hub-tab-dom';
+import { HUB_TAB_FREES, HUB_TAB_HOLD_MS, createPageTop, openHubTab, showHubTab, shownHubTab } from '../app/[slug]/_components/hub-tab-dom';
+import { createCanvasBringUp } from '../app/[slug]/_components/canvas-bring-up';
 import type { LifecyclePhase } from './invitation-widgets';
 import { WIDGET_TYPES } from './invitation-widgets';
 import { makerGuestPages } from './maker-guest-pages';
@@ -296,20 +297,25 @@ test('d · the canvas shows one tab’s groups, refuses a tab it has no page for
 test('d · WIRING: the swap starts at the top and stays there; the label follows the canvas, not a guess', () => {
   const tab = BRIDGE.slice(BRIDGE.indexOf("data.t === 'hubTab'"));
   const handler = tab.slice(0, tab.indexOf('return;\n      }') + 20);
-  assert.match(handler, /if \(!showHubTab\(document, tab\)\) return;/);
-  assert.match(handler, /if \(\(data as \{ keep\?: unknown \}\)\.keep !== true\) \{\s*window\.scrollTo\(\{ top: 0, behavior: 'auto' \}\);\s*holdTop = Date\.now\(\) \+ HUB_TAB_HOLD_MS;\s*\}/, 'a pick starts at the top');
-  // …and only the page put back after a RELOAD keeps its place: a tap on a tab never asks to.
-  assert.equal(TOOLS.match(/keep: true/g)?.length, 1, 'one sender keeps the place: the reload');
-  assert.match(TOOLS, /if \(was\?\.stage === stage && was\.tab !== d\.tab\) window\.setTimeout\(\(\) => from\.postMessage\(\{ source: 'setnayan-editor', t: 'hubTab', key: '', tab: was\.tab, keep: true \}/);
+  assert.match(handler, /if \(!openHubTab\(document, window, lift, tab\)\) return;\s*pageTop\.hold\(\);/, 'a pick starts at the top');
+  // After a RELOAD the page that was on screen is put back on the fresh page's own document, at once — before the
+  // buffered swap carries the scroll — and never through a message that would send it to the top.
+  assert.match(TOOLS, /if \(was\?\.stage === stage && was\.tab !== d\.tab && putTabBack\(from, was\.tab\)\) return;/);
+  assert.match(TOOLS, /function putTabBack\(canvas: Window, tab: string\): boolean \{\s*try \{\s*return showHubTab\(canvas\.document, tab\);/);
+  // The shell no longer re-sends ITS page on `ready` (it follows the scroll, so it named the wrong tab).
+  assert.doesNotMatch(src('app/dashboard/[eventId]/website/editor/_components/editor-shell.tsx'), /tabNowRef/);
   assert.match(handler, /postMessage\(\{ source: 'setnayan-site', t: 'hubTab', tab \}, origin\)/, 'the canvas says the tab on screen');
   // The page pick's own "scroll to its first scene" no longer drags the fresh page down.
-  assert.match(BRIDGE, /if \(data\.t === 'scrollTo'\) \{\s*if \(Date\.now\(\) < holdTop\) return;/);
+  assert.match(BRIDGE, /if \(data\.t === 'scrollTo'\) \{\s*if \(pageTop\.held\(\)\) return;/);
   assert.match(BRIDGE, /t: 'ready', order: drawnMakerOrder\(document\), bar: readMakerBar\(document\), tab: shownHubTab\(document\)/);
-  assert.ok(HUB_TAB_HOLD_MS >= 200 && HUB_TAB_HOLD_MS <= 1000, 'long enough for the pick’s own scroll, short enough that the next tap scrolls');
+  assert.ok(HUB_TAB_HOLD_MS >= 800 && HUB_TAB_HOLD_MS <= 3000, 'long enough for what a tab tap sets off, short enough that the page is theirs again at once');
   // A stage warmed behind the canvas is not on screen: the front page's tab pick is not for it.
   assert.match(handler, /window\.frameElement\?\.getAttribute\('data-maker-canvas-frame'\) === 'warm'\) return;/);
   // The panel reads the tab off the page when it mounts late or a warm stage is shown (no `ready` is said again).
-  assert.match(TOOLS, /const tab = readCanvasTab\(stage\);\s*if \(tab\) setCanvasTab\(/);
+  assert.match(TOOLS, /const tab = readCanvasTab\(stage\);/);
+  // …and when the canvas reloaded while the panel was away (Studio), the page the couple left is put back.
+  assert.match(TOOLS, /const putBack = Boolean\(tab && was\?\.stage === stage && was\.tab !== tab && frame && putTabBack\(frame, was\.tab\)\);\s*if \(tab && !putBack\) setCanvasTab\(/);
+  assert.match(TOOLS, /useState<\{ stage: LifecyclePhase; tab: string \} \| null>\(lastTab\?\.of === suppliersHref \? lastTab : null\);/, 'this event’s last page only');
   // 📦 The Maker's panel reads the small DOM file, never the bridge (nothing of the bridge rides the Maker).
   assert.doesNotMatch(TOOLS, /_components\/editor-bridge'/);
   // The label and the underline name the tab the CANVAS has on screen (on Me they read "Welcome").
@@ -318,6 +324,119 @@ test('d · WIRING: the swap starts at the top and stays there; the label follows
   // A tap on a tab tells the canvas itself, then the shell's Page ▾.
   assert.match(TOOLS, /postToCanvas\(\{ source: 'setnayan-editor', t: 'hubTab', key: '', tab: key \}\);\s*onPickPage\(option\);/);
   assert.match(TOOLS, /setPicked\(null\);\s*goToPage\(p\.key, p\.option\);/);
+});
+
+test('d · 🔝 a tab tap ENDS at the top: the part edited before cannot pull the page back down', () => {
+  /* The measured fault (preview a76d76a, 375 px): Details → scrollY 959, Me → 77, Welcome → 156 about 1.8 s after
+     the tap. Replayed here on the REAL bring-up (`canvas-bring-up.ts`) and the REAL page-open rule. */
+  let y = 0;
+  const scrolls: number[] = [];
+  const win = {
+    innerWidth: 375,
+    get scrollY() { return y; },
+    scrollTo(to: { top: number }) { y = to.top; scrolls.push(to.top); },
+    addEventListener() {},
+    removeEventListener() {},
+  };
+  const lift = createCanvasBringUp(win as never);
+  const g = (tab: string, hidden: boolean) => ({ hidden, getAttribute: (n: string) => (n === 'data-hub-tab' ? tab : null) });
+  const doc = { querySelectorAll: () => [g('home', false), g('details', true), g('me', true)] };
+  // 1 · The couple is 959 px down Welcome and taps a part: it is brought up for its sheet; the page's place is kept.
+  y = 959;
+  lift.up({ getBoundingClientRect: () => ({ top: 300 }) } as never);
+  assert.notEqual(y, 959, 'precondition: the part was brought up');
+  // 2 · They tap the Details tab. The page opens from its top…
+  assert.equal(openHubTab(doc, win, lift, 'details'), true);
+  assert.equal(y, 0, 'the page opens at its top');
+  // 3 · …and the tap closed the part's sheet, so the Maker says `settle` (`lift.down()`): the page STAYS at the top.
+  lift.down();
+  assert.equal(y, 0, 'the old page’s resting place pulled the new page down');
+  assert.equal(scrolls.at(-1), 0, 'the last scroll after a tab tap is the one to the top');
+  // A tab with no page: nothing is scrolled and nothing is forgotten (the edit in hand keeps its way back).
+  y = 400;
+  lift.up({ getBoundingClientRect: () => ({ top: 200 }) } as never);
+  const before = scrolls.length;
+  assert.equal(openHubTab(doc, win, lift, 'gallery'), false);
+  assert.equal(scrolls.length, before, 'a refused pick scrolled the page');
+  lift.down();
+  assert.equal(y, 400, 'a refused pick forgot where the page rested');
+});
+
+test('d · 🔝 for a moment after a page opens only the COUPLE moves it — any other scroll is put back to the top', () => {
+  let t = 1_000;
+  let y = 0;
+  const win = { get scrollY() { return y; }, scrollTo(to: { top: number }) { y = to.top; } };
+  const top = createPageTop(win, () => t);
+  // Not held: a scroll is nobody's business.
+  y = 300;
+  assert.equal(top.onScroll(), false);
+  assert.equal(y, 300);
+  // A page opens (the bridge: `openHubTab`, then `hold`)…
+  y = 0;
+  top.hold();
+  assert.equal(top.held(), true, 'a scroll the Maker asks for by message is not run');
+  // …and 300 ms later something that is not the couple scrolls it 959 px down (the measured fault): put back.
+  t += 300;
+  y = 959;
+  assert.equal(top.onScroll(), true);
+  assert.equal(y, 0, 'a scroll that was not theirs moved the fresh page off its top');
+  // Their own touch ends the hold at once: the page scrolls as they move it.
+  top.release();
+  y = 420;
+  assert.equal(top.onScroll(), false);
+  assert.equal(y, 420, 'the couple could not scroll their own page');
+  assert.equal(top.held(), false);
+  // Untouched, the hold ends by itself.
+  top.hold();
+  t += HUB_TAB_HOLD_MS;
+  y = 700;
+  assert.equal(top.onScroll(), false, 'the hold never ended');
+  assert.equal(y, 700);
+  // WIRING: their touch is a pointer, a finger, a wheel or a key ON THE PAGE; a part picked or played frees it too.
+  assert.match(BRIDGE, /for \(const t of \['pointerdown', 'touchstart', 'wheel', 'keydown'\] as const\) window\.addEventListener\(t, theirTouch, \{ passive: true, capture: true \}\);/);
+  assert.match(BRIDGE, /window\.addEventListener\('scroll', onPageScroll, \{ passive: true \}\);/);
+  assert.match(BRIDGE, /if \(HUB_TAB_FREES\.includes\(data\.t \?\? ''\)\) pageTop\.release\(\);/);
+  assert.deepEqual([...HUB_TAB_FREES].sort(), ['markEl', 'play', 'playEl', 'playSeq', 'playStage']);
+  assert.ok(!HUB_TAB_FREES.includes('scrollTo') && !HUB_TAB_FREES.includes('settle'), 'the two that pulled the page down must never free it');
+});
+
+test('d · 🔝 nothing in the Maker scrolls the canvas after a tab tap — no scroll to the page’s first tile', () => {
+  const SHELL = src('app/dashboard/[eventId]/website/editor/_components/editor-shell.tsx');
+  // The page pick: its one message to the canvas is the tab — never a `scrollTo` for the page's first scene.
+  const jump = SHELL.slice(SHELL.indexOf('const jumpToPage = (page: MakerGuestPage) => {'));
+  const body = jump.slice(0, jump.indexOf('\n  };') + 1);
+  assert.ok(body.length > 200 && body.length < 2500, `precondition: jumpToPage was found (${body.length})`);
+  assert.doesNotMatch(body, /t: 'scrollTo'/, 'jumpToPage posts a scroll itself');
+  // Its only scrolls go through `scrollPreviewTo`, which under Stages on a phone sends nothing at all…
+  assert.match(SHELL, /if \(!anchor \|\| \(stagesStudioRef\.current && window\.innerWidth < 1024\)\) return;\s*postToShownCanvases\(\{ source: 'setnayan-editor', t: 'scrollTo', key: anchor \}\);/);
+  assert.doesNotMatch(SHELL, /pageAskRef|takePageAsk/, 'the page pick is exempt from the skip again — it scrolls to its first tile');
+  // …and should one arrive anyway, the canvas holds the fresh page's top against it.
+  assert.match(BRIDGE, /if \(data\.t === 'scrollTo'\) \{\s*if \(pageTop\.held\(\)\) return;/);
+  // The tab bar's own tap sends the tab and nothing else to the canvas.
+  const go = TOOLS.slice(TOOLS.indexOf('const goToPage = useCallback('));
+  assert.doesNotMatch(go.slice(0, go.indexOf('[onPickPage]')), /scrollTo|centrePart/, 'a tab tap scrolls the canvas');
+});
+
+/* ══ ⚡ THE MAKER'S FIRST LOAD (budget 507 KB — #6413 measured 507.4 KB in CI) ═══════ */
+
+test('⚡ what only a tap asks for stays out of the Maker’s first load', () => {
+  const LAUNCH_DIR = 'app/dashboard/[eventId]/launch/_components';
+  const SHELL_SRC = src(`${LAUNCH_DIR}/maker-shell.tsx`);
+  /* Raw, not stripped: the chunk's name is a comment (`webpackChunkName`). */
+  const LAZY = readFileSync(join(WEB, `${LAUNCH_DIR}/details-lazy.tsx`), 'utf8');
+  // The pages list and the filing are read by the lazy Stages tools and the canvas — never by a first-load file.
+  for (const f of [`${LAUNCH_DIR}/maker-shell.tsx`, 'app/dashboard/[eventId]/website/editor/_components/editor-shell.tsx', `${LAUNCH_DIR}/maker-bar.ts`, 'lib/maker-guest-pages.ts', 'lib/maker-navigator-tabs.ts']) {
+    assert.doesNotMatch(src(f), /maker-stage-filing|hub-tab-dom|from '@\/lib\/maker-parts'/, `${f} pulls the Stages filing into the first load`);
+  }
+  // The Stages tools themselves arrive lazily.
+  assert.match(LAZY, /export const StageTools = dynamic\(\(\) => import\(\/\* webpackChunkName: "maker-details" \*\/ '\.\/stage-tools'\)/);
+  // "✓ Done · back to <part>" and its focusing exist only after a Style-bar jump; "About the Maker" only when asked.
+  for (const [name, file] of [['StudioBackToPart', 'stages-studio-parts'], ['MakerTour', 'maker-tour']] as const) {
+    assert.match(LAZY, new RegExp(`export const ${name} = dynamic\\(\\(\\) => import\\(\\/\\* webpackChunkName: "maker-details" \\*\\/ '\\.\\/${file}'\\)`), `${name} is not lazy`);
+    assert.doesNotMatch(SHELL_SRC, new RegExp(`from '\\./${file}'`), `the shell imports ${file} statically again`);
+  }
+  assert.match(SHELL_SRC, /import \{[^}]*\bMakerTour\b[^}]*\bStudioBackToPart\b[^}]*\} from '\.\/details-lazy';/);
+  assert.doesNotMatch(SHELL_SRC, /data-focus-pending|data-maker-studio-back/, 'the jump’s focusing or its button is back in the shell');
 });
 
 /* ══ e · GUESTS ARE UNTOUCHED ════════════════════════════════════════════════ */

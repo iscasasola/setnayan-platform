@@ -2,11 +2,11 @@
  * event-details-shows-the-map.test.ts — Event Details shows every collected
  * fact and keeps empty, failed and hidden apart.
  *
- * ⚖ 2026-10-04 (DECISION_LOG "YES TO ALL"): the rows are now EDITED IN PLACE —
- * each opens the Maker's own field (held by `every-fact-has-one-editor.test.ts`),
- * and the record is four folds on the phone (held by
- * `the-record-is-four-folds-on-the-phone.test.ts`). Every MAP fact is still
- * here, now inside its group's fold.
+ * ⚖ 2026-10-08 (DECISION_LOG "EVENT DETAILS IS THREE SEGMENTS"): the page is
+ * Event · Access · Settings (held by `the-record-is-three-segments.test.ts`).
+ * Every MAP fact is still here — on its own row, or carried by the › row that
+ * leads to its one home (the Event Hub's look and words by *Event Hub* ›, the
+ * guest names and the RSVP asks by *Guests* ›) — never dropped silently.
  *
  * ⚖ Owner 2026-10-01 (DECISION_LOG "EVENT DETAILS IS INFORMATION ONLY"):
  * *"Technically, everything that is collected will be here."* The build spec's
@@ -28,7 +28,6 @@ import { stripComments } from '@/lib/strip-comments';
 import {
   COULD_NOT_LOAD,
   EVENT_DETAILS_MAP,
-  EVENT_DETAILS_SECTIONS,
   HIDDEN_BY_THE_COUPLE,
   NOT_SET_YET,
   howGuestsGetIn,
@@ -41,21 +40,13 @@ const WEB = join(HERE, '..', '..', '..', '..');
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 
 const PAGE = read('app/dashboard/[eventId]/details/page.tsx');
-// 'access' (People with access, owner 2026-10-03) is the sheet's one LIVE part
-// and is drawn by its own component, not `<Section>` — held by the test below.
-const SECTION_KEYS = EVENT_DETAILS_SECTIONS.map((s) => s.key).filter((k) => k !== 'put-away' && k !== 'access');
-
-/** The JSX between `<Section k="key"` and the next `<Section k=` / fold (or the end of the grid). */
-function sectionBody(key: string): string {
-  const m = new RegExp(`<Section\\s+k="${key}"`).exec(PAGE);
-  assert.ok(m, `the page draws no "${key}" section`);
-  const start = m.index;
-  const next = PAGE.slice(start + 1).search(/<Section\s+k="|<RecordFold\b/);
-  const end = next < 0 ? PAGE.indexOf('data-section="put-away"') : start + 1 + next;
-  return PAGE.slice(start, end);
+/** The row element that carries `data-details-row="<row>"`, as source. */
+function rowSource(row: string): string | null {
+  const m = new RegExp(`row="${row}"[^>]*?fact="([^"]+)"|data-details-row="${row}" data-fact="([^"]+)"`).exec(PAGE);
+  return m ? (m[1] ?? m[2] ?? null) : null;
 }
 
-test('every MAP row with an Event Details column renders, in its own section (count)', () => {
+test('every MAP row with an Event Details column is carried by a row on the page (count)', () => {
   // The spec's MAP (2026-10-01) had 22 rows with an "Event Details row" column;
   // 21 since 2026-10-05, when A-Hub "Theme" left with the theme pick (DECISION_LOG
   // "THEMES ARE REPLACED BY THREE DIRECT GLOBAL SETTINGS").
@@ -65,47 +56,36 @@ test('every MAP row with an Event Details column renders, in its own section (co
   let checked = 0;
   for (const row of EVENT_DETAILS_MAP) {
     checked += 1;
-    if (!sectionBody(row.section).includes(`fact="${row.fact}"`)) {
-      missing.push(`${row.asked} "${row.question}" → ${row.section} (fact="${row.fact}")`);
+    const facts = rowSource(row.row);
+    if (!facts || !facts.split(' ').includes(row.fact)) {
+      missing.push(`${row.asked} "${row.question}" → ${row.segment} › ${row.row} (fact="${row.fact}")`);
     }
   }
   assert.equal(checked, EVENT_DETAILS_MAP.length);
   assert.deepEqual(missing, [], `These collected facts are not on Event Details:\n  ${missing.join('\n  ')}`);
 });
 
-test('the page draws each section exactly once, and Put this away last', () => {
-  for (const key of SECTION_KEYS) {
-    const n = PAGE.split(`k="${key}"`).length - 1;
-    assert.equal(n, 1, `section "${key}" is drawn ${n} times`);
-  }
+test('Put this away is drawn once, last', () => {
   const putAway = PAGE.indexOf('data-section="put-away"');
   assert.ok(putAway > 0, 'Put this away is not on the sheet');
-  for (const key of SECTION_KEYS) assert.ok(PAGE.indexOf(`k="${key}"`) < putAway, `"${key}" sits after Put this away`);
+  assert.equal(PAGE.split('data-section="put-away"').length - 1, 1);
+  assert.ok(PAGE.lastIndexOf('data-details-row') < putAway || PAGE.lastIndexOf('<JumpRow') < putAway, 'a row sits after Put this away');
   assert.match(PAGE, /<PutAwayCard\b/);
 });
 
-test('only the parts another flow owns carry a quiet "Open … ›" link — one each', () => {
-  for (const key of SECTION_KEYS) {
-    const body = sectionBody(key);
-    const head = body.slice(0, body.indexOf('>') + 1 + 400);
-    const opens = (head.match(/label: 'Open /g) ?? []).length;
-    const owned = ['guests', 'budget', 'suppliers', 'services', 'purchases'].includes(key);
-    assert.equal(opens, owned ? 1 : 0, `section "${key}" has ${opens} Open links in its header (${owned ? 'one' : 'none — its rows open their own field'})`);
-  }
-});
-
-test('People with access is the ONE live part — mounted once, in its own Event access fold, before Put this away', async () => {
+test('People with access is mounted once, in the Access segment, before Put this away', async () => {
   // ⚖ Owner 2026-10-03: access is set per person, per area, in Event Details ›
   // People with access. Access is a door, so it changes at once — the one part
   // of the sheet that is not a read-out. Everything else stays information only.
-  // ⚖ Owner 2026-10-07: it is its OWN fold, Event access — after Guests &
-  // money (where it used to hide under the last supplier row), before Put this away.
+  // ⚖ Owner 2026-10-07: its OWN place, never under a supplier row — since
+  // 2026-10-08 the Access segment (DECISION_LOG "EVENT DETAILS IS THREE SEGMENTS").
   assert.equal((PAGE.match(/<PeopleWithAccess\b/g) ?? []).length, 1, 'People with access is not drawn exactly once');
   assert.match(PAGE, /from '\.\/_components\/people-with-access'/, 'People with access is not its own component');
-  const accessFold = PAGE.indexOf('<RecordFold group="access"');
-  assert.ok(accessFold > 0, 'People with access has no Event access fold of its own');
-  assert.ok(PAGE.indexOf('<RecordFold group="guests-money"') < accessFold, 'Event access sits before Guests & money');
-  assert.ok(accessFold < PAGE.indexOf('<PeopleWithAccess'), 'People with access is mounted outside the Event access fold');
+  const accessBody = PAGE.indexOf('const accessBody =');
+  const settingsBody = PAGE.indexOf('const settingsBody =');
+  assert.ok(accessBody > 0 && settingsBody > accessBody, 'there is no Access body of its own');
+  const mount = PAGE.indexOf('<PeopleWithAccess');
+  assert.ok(accessBody < mount && mount < settingsBody, 'People with access is mounted outside the Access segment');
   assert.ok(PAGE.indexOf('<PeopleWithAccess') < PAGE.indexOf('data-section="put-away"'), 'People with access sits after Put this away');
   // Only a host loads everyone; a delegate sees their own access, as words.
   assert.match(PAGE, /viewer\.isCouple\s*\?\s*loadPeopleWithAccess\(eventId, user\.id\)/, 'people with access is loaded for a non-host');
@@ -167,11 +147,11 @@ test('empty, failed and hidden are three different words, and the page uses all 
     assert.ok(PAGE.includes(word), `the page never says ${word}`);
   }
   // A refused budget reader is told it is hidden, never shown an empty budget.
-  assert.match(PAGE, /moneyHidden \? \(\s*<Row fact="budget-target" label="Budget" value=\{HIDDEN_BY_THE_COUPLE\}/);
+  assert.match(PAGE, /let money: Read<[^>]*>\s*= moneyHidden \? HIDDEN : FAILED;/);
 });
 
 test('the fixed bugs stay fixed: venues come from bookings, never a setting type; no "vendors" in copy', () => {
-  const venues = sectionBody('venues');
+  const venues = PAGE.slice(PAGE.indexOf('const venueNames ='), PAGE.indexOf('const venueBooked ='));
   assert.ok(PAGE.includes('pickVenueBookingRows('), 'venues are no longer read from the confirmed bookings');
   assert.ok(!/value=\{[^}]*venue_setting/.test(venues), 'a venue SETTING is drawn as the venue');
   // What a person READS: JSX text, and string literals with a space in them

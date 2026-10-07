@@ -23,7 +23,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { stripComments } from '@/lib/strip-comments';
-import { RECORD_GROUPS } from '@/lib/event-details-record';
+import { DETAILS_SEGMENTS, accessBadge } from '@/lib/event-details-segments';
 import {
   ACCESS_GROUPS,
   ACCESS_SUMMARY_FAILED,
@@ -46,33 +46,35 @@ const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8')
 const PAGE = read('app/dashboard/[eventId]/details/page.tsx');
 const SECTION = read('app/dashboard/[eventId]/details/_components/people-with-access.tsx');
 
-test('Event access is a top-level group of its own, named for access', () => {
-  const g = RECORD_GROUPS.find((x) => x.key === 'access');
-  assert.ok(g, 'there is no Event access group');
-  assert.equal(g.title, 'Event access');
-  assert.equal(RECORD_GROUPS[RECORD_GROUPS.length - 1]!.key, 'access', 'Event access is not the last fold');
+test('Event access is a top-level segment of its own, named for access', () => {
+  // Since 2026-10-08 (DECISION_LOG "EVENT DETAILS IS THREE SEGMENTS") the fold
+  // became the Access segment — still its own place, never under a supplier row.
+  const g = DETAILS_SEGMENTS.find((x) => x.key === 'access');
+  assert.ok(g, 'there is no Access segment');
+  assert.equal(g.title, 'Access');
+  assert.deepEqual(DETAILS_SEGMENTS.map((x) => x.key), ['event', 'access', 'settings']);
 });
 
-test('mounted once, in its own fold, between Guests & money and Put this away', () => {
-  const folds = [...PAGE.matchAll(/<RecordFold group="access"/g)];
-  assert.equal(folds.length, 1, 'the Event access fold is not drawn exactly once');
+test('mounted once, in the Access segment, before Put this away; nothing of it under the suppliers', () => {
   assert.equal((PAGE.match(/<PeopleWithAccess\b/g) ?? []).length, 1, 'People with access is not mounted exactly once');
 
-  const money = PAGE.indexOf('<RecordFold group="guests-money"');
-  const access = folds[0]!.index!;
+  const event = PAGE.indexOf('const eventBody =');
+  const access = PAGE.indexOf('const accessBody =');
   const mount = PAGE.indexOf('<PeopleWithAccess');
+  const settings = PAGE.indexOf('const settingsBody =');
   const putAway = PAGE.indexOf('data-section="put-away"');
-  assert.ok(money > 0 && money < access, 'Event access is not after Guests & money');
-  assert.ok(access < mount && mount < putAway, 'People with access is not inside the Event access fold, before Put this away');
+  assert.ok(event > 0 && event < access, 'Access is not after Event');
+  assert.ok(access < mount && mount < settings && settings < putAway, 'People with access is not inside the Access segment, before Put this away');
 
-  // Nothing of it is left inside Guests & money (where it read as a supplier).
-  const moneyBody = PAGE.slice(money, access);
-  assert.ok(!moneyBody.includes('<PeopleWithAccess'), 'People with access is still inside Guests & money');
-  assert.ok(!/sectionTitle\('access'\)/.test(moneyBody), 'the old People with access heading is still inside Guests & money');
+  // Nothing of it is left in the Event body (where it once read as a supplier).
+  const eventBody = PAGE.slice(event, access);
+  assert.ok(!eventBody.includes('<PeopleWithAccess'), 'People with access is still inside the Event body');
 
-  // The fold carries a one-line summary counted from the real rows.
-  assert.match(PAGE, /<RecordFold group="access" title=\{groupTitle\('access'\)\} summary=\{summary\.access\}/);
-  assert.match(PAGE, /access: people \? accessFoldSummary\(people\.measured \? people\.rows : null\)/, 'the summary is not counted from the rows, or a failed read is not passed as a failure');
+  // The segment's badge is counted from the real rows; a failed read draws no number.
+  assert.match(PAGE, /accessBadge=\{accessBadge\(people && people\.measured \? people\.rows : null\)\}/, 'the badge is not counted from the rows, or a failed read is passed as a count');
+  assert.equal(accessBadge(null), null);
+  assert.equal(accessBadge([]), null);
+  assert.equal(accessBadge([1, 2, 3, 4, 5, 6, 7]), '7');
 });
 
 test('four plain groups — Hosts · Coordinator · Helpers · Booked suppliers — and no box of its own', () => {

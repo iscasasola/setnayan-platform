@@ -684,6 +684,37 @@ export async function updateEventMatchCriteria(
     return { ok: true };
   }
 
+  // ── 📍 THE AREA ALONE (2026-10-08, DECISION_LOG "EVENT DETAILS IS THREE
+  // SEGMENTS": Event Details › Area is one dropdown that saves at once). It
+  // posts `only=region` with `region`, and this writes `region` and NOTHING
+  // else. 🪤 The full-form path below writes the feel from whatever was posted
+  // and, for a Chinese wedding with BaZi on, PURGES the birth data when the
+  // consent box is absent — so a one-field pick must never reach it. +0
+  // actions: the same writer, one more door, the same host check above.
+  if (formData.get('only') === 'region') {
+    if (!region) {
+      return { ok: false, code: 'invalid_input', message: 'Pick an area first' };
+    }
+    const adminForRegion = createAdminClient();
+    const { data: prior } = await adminForRegion.from('events').select('region').eq('event_id', eventId).maybeSingle();
+    const { error: regionError } = await adminForRegion.from('events').update({ region }).eq('event_id', eventId);
+    if (regionError) {
+      return { ok: false, code: 'db_error', message: regionError.message };
+    }
+    // The area is saved; a lost audit row is logged (never silent), not a failed save.
+    const { error: auditError } = await adminForRegion.from('admin_audit_log').insert({
+      action: 'event_match_criteria_updated',
+      target_table: 'events',
+      target_id: eventId,
+      before_json: prior ?? null,
+      after_json: { region },
+      actor_user_id: user.id,
+    });
+    if (auditError) logQueryError('updateEventMatchCriteria.region.audit', auditError, { event_id: eventId }, 'graceful_degrade');
+    revalidatePath(`/dashboard/${eventId}`, 'layout');
+    return { ok: true };
+  }
+
   // ── WHOSE MONEY IS THIS? ───────────────────────────────────────────────────
   // 🔴 The host check above admits a coordinator and an accepted delegate, and
   // the patch below wrote `estimated_budget_centavos` through the ADMIN client.

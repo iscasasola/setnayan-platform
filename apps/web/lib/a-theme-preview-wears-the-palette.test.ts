@@ -476,9 +476,9 @@ test('the measurers are handed the dressed theme at every picture call site', ()
   assert.match(loaders, /const dressed = dressedTheme\(hub\.theme, event\.role_palette\);/);
   assert.match(loaders, /ombreLook\(dressed, background\.ombre\)/);
   assert.match(loaders, /page: hubButtonPage\(dressed, painted\)/);
-  // The Maker's Buttons panel (both doors) measures on the dressed theme too.
+  // The Maker's Buttons panel (its one door) measures on the dressed theme too.
   assert.match(read('app/dashboard/[eventId]/website/editor/page.tsx'), /const theme = dressedTheme\(currentThemeId, \(drafted as \{ role_palette\?: unknown \}\)\.role_palette\);\s*const pageLook = guestLookFrom\(/);
-  assert.match(read('app/dashboard/[eventId]/details/_components/record-editor.tsx'), /const theme = dressedTheme\(themeId, drafted\.role_palette\);\s*const pageLook = guestLookFrom\(/);
+  // (Event Details' Buttons door left 2026-10-08 — DECISION_LOG "EVENT DETAILS IS THREE SEGMENTS": the Buttons row went home to the Maker.)
   // …and a board does reach them: Cyber Neon dressed in maria's board is light.
   assert.equal(dressedTheme('cyber', MARIA).palette.canvas, '#c9a9a6');
   assert.equal(dressedTheme('cyber', null), INVITE_THEMES.cyber, 'no board: the registry entry itself');

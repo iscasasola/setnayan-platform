@@ -1,0 +1,5 @@
+## 2026-10-08 · feat(event-details): Event · Access · Settings — PR-A (WIP, paused)
+
+Event Details becomes three segments on one pinned segmented control (DECISION_LOG 2026-10-07 "EVENT DETAILS IS THREE SEGMENTS"). The 17 rows that wrote the Event Hub draft leave for their homes; HubDraftDock (Undo · Apply), the Finish card, the four folds and `record-fold.tsx` retire. Event = jump rows (Event name · Event Hub · Guests · Money · Purchases) + Area dropdown + a Settled group with one ⓘ. Access = EA's People with access, unchanged. Settings = Costs shown + Plan it myself (PR-C adds the rest). `updateEventMatchCriteria` gains an `only=region` door (writes region alone; the full path would purge BaZi birth data). New guard `the-record-is-three-segments.test.ts`; `every-fact-has-one-editor`, `event-details-shows-the-map`, `event-access-is-its-own-fold` and one line of `a-theme-preview-wears-the-palette` re-measured.
+
+SPEC IMPACT: None (implements the approved design; corpus status in EVENT_DETAILS_BUILD_STATUS_2026-10-08.md).

@@ -8008,3 +8008,7 @@ html :is([data-part-look="role.spaced-caps"], [data-part-look="wear.spaced-caps"
 html :is([data-part-look="role.side-rule"], [data-part-look="wear.side-rule"], [data-part-look="arrive.side-rule"], [data-part-look="guests.side-rule"]) {
   border-left: 2px solid rgb(var(--color-gild)); padding-left: 1rem; text-align: left;
 }
+
+/* 🔲 A LOOK'S SAMPLE SHAPES (`[data-maker-sample]`, owner 08 Oct "show what it could look like with boxes") are the
+   Maker canvas's only: a page with no `[data-maker-section]` marker (every guest's) never shows them. */
+body:not(:has([data-maker-section])) [data-maker-sample] { display: none !important; }

@@ -36,11 +36,14 @@ const useIsoLayoutEffect = typeof window === 'undefined' ? useEffect : useLayout
 /** The three bottom-bar tabs a doorway opens — the bar's own keys (4g's `HomeDoorwayKey`). */
 export type HomeDoorKey = HomeDoorwayKey;
 
-const DOORS: ReadonlyArray<{ key: HomeDoorKey; label: string; path: string }> = [
-  { key: 'guests', label: 'Edit your Guest list', path: '/guests' },
-  { key: 'explore', label: 'Edit your Suppliers', path: '/vendors' },
-  { key: 'launch', label: 'Edit your Event Hub', path: '/launch' },
-];
+/** The three doors — `href:` literals, so the port-controls scan sees each destination. */
+function doorsFor(eventId: string): ReadonlyArray<{ key: HomeDoorKey; label: string; href: string }> {
+  return [
+    { key: 'guests', label: 'Edit your Guest list', href: `/dashboard/${eventId}/guests` },
+    { key: 'explore', label: 'Edit your Suppliers', href: `/dashboard/${eventId}/vendors` },
+    { key: 'launch', label: 'Edit your Event Hub', href: `/dashboard/${eventId}/launch` },
+  ];
+}
 
 /**
  * One fit pass over a row that changes state AS ONE (BUTTON_RULE 3a, owner
@@ -85,7 +88,7 @@ export function HomeDoorways({
   }, [run]);
   return (
     <div ref={row} className="home-doors" data-home-doors="" data-home-edit-hub="">
-      {DOORS.map((d) => {
+      {doorsFor(eventId).map((d) => {
         const Icon = homeDoorwayIcon(d.key, navSlots);
         return (
           <ActionButton
@@ -93,7 +96,7 @@ export function HomeDoorways({
             tone="neutral"
             icon={Icon}
             label={d.label}
-            href={`/dashboard/${eventId}${d.path}`}
+            href={d.href}
             data-testid={`home-door-${d.key}`}
           />
         );

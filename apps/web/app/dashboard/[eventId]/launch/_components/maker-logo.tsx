@@ -1003,12 +1003,11 @@ function LayerTools({
           {/* The shipped editor (no Studio): the logo inks, as before. */}
           {logoColourChoices(null, layer.color).map((c) => {
             const on = layer.color?.toUpperCase() === c.toUpperCase();
-            const slot = -1;
             return (
             <button
               key={c}
               type="button"
-              aria-label={slot >= 0 ? `${MAIN_COLOUR_NAMES[slot] ?? 'Colour'} ${c}` : `Colour ${c}`}
+              aria-label={`Colour ${c}`}
               aria-pressed={on}
               onClick={() => onChange({ color: c })}
               className={`h-9 max-h-9 min-h-9 w-9 min-w-9 max-w-9 shrink-0 rounded-full border border-ink/20 ${on ? 'ring-2 ring-ink ring-offset-2 ring-offset-cream' : ''}`}
@@ -1155,11 +1154,6 @@ function LayerTools({
     </>
   );
 }
-
-/* ── the Colour row's swatches ───────────────────────────────────────────── */
-
-/** The five main colours' names, in slot order — `PALETTE_LIMITS.reception.slotLabels`. */
-const MAIN_COLOUR_NAMES = ['Dominant', 'Supporting', 'Accent', 'Neutral', 'Accent 2'] as const;
 
 /* ── small parts ─────────────────────────────────────────────────────────── */
 

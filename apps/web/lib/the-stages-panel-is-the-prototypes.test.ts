@@ -315,3 +315,39 @@ test('the frame and its ＋ stop in the gap — never on the neighbour’s words
   assert.match(edges, /tapAt\(box\.left \+ box\.width \/ 2, fr!\.top, fe!\.tapAbove\)/);
   assert.match(edges, /tapAt\(box\.left \+ box\.width \/ 2, fr!\.top \+ fr!\.height, fe!\.tapBelow\)/);
 });
+
+/* ── 10 · every visible piece is a part ─────────────────────────────────── */
+
+test('every piece the cover draws picks a part of its own (owner 2026-10-07: "every visible piece of the page must be a pickable part")', async () => {
+  const { HUB_HERO_ELEMENT_KEYS } = await import('./element-style');
+  const { MAKER_PARTS, MAKER_STAGE_PAGES, makerPartOfTap, HERO_EL_INSIDE } = await import('./maker-parts');
+  /* The one piece with no part yet — the cover photo's caption — is named here, so it stays visible as a gap. */
+  const GAPS = ['caption'];
+  for (const [stage, page] of [['save_the_date', 'home'], ['rsvp', 'home'], ['event', 'live']] as const) {
+    for (const el of HUB_HERO_ELEMENT_KEYS) {
+      if (GAPS.includes(el)) continue;
+      const k = makerPartOfTap(stage, page, 'f:hero', el);
+      assert.ok(k, `${stage} › ${page}: a tap on the cover's ${el} picks nothing`);
+      const want = HERO_EL_INSIDE[el] ?? el;
+      assert.equal(MAKER_PARTS[k!].el, want, `${stage} › ${page}: the cover's ${el} picks ${k}, not its own part`);
+      assert.ok((MAKER_STAGE_PAGES[stage] as Record<string, readonly string[]>)[page]!.includes(k!), `${k} is on ${stage} › ${page}`);
+    }
+  }
+  /* The two blocks that drew no marker — every tap on them was dead — now stand after one. */
+  const body = read('app/[slug]/_components/site-body.tsx');
+  assert.match(body, /\{makerMark\('f:details'\)\}\s*<PublicEventDetails/, 'THE DETAILS · WHEN · WHERE is a part');
+  assert.equal((body.match(/makerMark\('f:spotlight'\)/g) ?? []).length, 2, 'both Happening-now mounts are a part');
+  for (const [k, canvas] of [['details', 'f:details'], ['spotlight', 'f:spotlight']] as const) assert.equal(MAKER_PARTS[k].canvas, canvas);
+});
+
+test('the Reveal is FIRST on The Day › Live (and every page it leads) — before the Happening-now card, on the shown tab', async () => {
+  const { MAKER_STAGE_PAGES } = await import('./maker-parts');
+  for (const [stage, page] of [['save_the_date', 'home'], ['rsvp', 'home'], ['event', 'live']] as const) {
+    assert.equal((MAKER_STAGE_PAGES[stage] as Record<string, readonly string[]>)[page]![0], 'reveal', `${stage} › ${page} opens with the Reveal`);
+  }
+  const live = MAKER_STAGE_PAGES.event.live;
+  assert.ok(live.indexOf('reveal') < live.indexOf('spotlight'), 'the Reveal comes before the Happening-now card');
+  const tools = read(`${LAUNCH}/stage-tools.tsx`);
+  assert.match(tools, /const first = \[\.\.\.doc\.querySelectorAll\('\[data-maker-section\]'\)\]\.find\(\(m\) => !m\.closest\('\[data-hub-tab\]\[hidden\]'\)\)/, 'drawn before the first SHOWN part');
+  assert.match(tools, /part\.nextElementSibling !== first\) \{\s*part\.remove\(\);/, 'a stub left lower down is moved back to the top');
+});

@@ -1637,6 +1637,7 @@ export async function SiteBody({
             ☝ ONE BUTTON (owner 2026-09-26/27): the stranger's "Find your
             invitation" card is a second way in beside "Get inside" — it is not
             drawn; "Get inside" is the one door. */}
+        {plan.spotlight && plan.spotlight.kind !== 'find_invite' ? makerMark('f:spotlight') : null}
         {plan.spotlight && plan.spotlight.kind !== 'find_invite' ? (
           <SpotlightCard spotlight={plan.spotlight} occasion={clientWords.occasion} />
         ) : null}
@@ -1978,6 +1979,7 @@ export async function SiteBody({
               // event-level facts (the anonymous event_details variant — §5.10),
               // the public widgets, then a teaser plate when nothing is filled.
               <section id={SITE_MENU_ANCHORS.details} className="mt-12 space-y-8 scroll-mt-6">
+                {makerMark('f:details')}
                 <PublicEventDetails
                   dateLabel={event.event_date ? formatEventDate(event.event_date) : null}
                   venueName={event.venue_name}
@@ -2644,6 +2646,7 @@ export async function SiteBody({
               dateLabel={event.event_date ? formatEventDate(event.event_date) : null}
             />
           ) : null}
+          {plan.spotlight ? makerMark('f:spotlight') : null}
           {plan.spotlight ? <SpotlightCard spotlight={plan.spotlight} occasion={clientWords.occasion} /> : null}
           {/* 🎫 NO "HI AGAIN · YOUR INVITATION SUMMARY" CARD (owner 2026-09-30).
               Its reply, seat, meal and "coming up" were a second statement of

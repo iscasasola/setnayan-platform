@@ -131,6 +131,12 @@ export const MAKER_PART_KEYS = [
   'wishes',
   'suppliers',
   'film',
+  /* 👆 EVERY VISIBLE PIECE IS A PART (owner 2026-10-07: "every visible piece of the page must be a pickable part") —
+     the cover's invite line and its link, the Details block, the day's "Happening now" card. */
+  'heroline',
+  'herolink',
+  'details',
+  'spotlight',
   /* 🎞 THE NINE POST EVENT SCENES THE ＋ SHEET ADDS (PR 3, DECISION_LOG 2026-10-06
      "POST EVENT: EVERY SHIPPED AUTO SCENE CAN BE ADDED") — not on a page by default. */
   'road',
@@ -287,6 +293,15 @@ export const MAKER_PARTS: Readonly<Record<MakerPartKey, MakerPartDef>> = {
   wishes: { label: 'Wishes', source: 'tool', canvas: 'p:wishes', layouts: scene('photo-notes') },
   suppliers: { label: 'Supplier Stories', source: 'tool', canvas: 'p:vendors', layouts: scene('supplier-stories') },
   film: { label: 'Watch Live', source: 'tool', canvas: 'p:film', layouts: scene('live-stream') },
+  /* 👆 The cover's own two lines ("invite you to celebrate their wedding" · "the day, the place, the story ↓") —
+     hero parts (`HUB_HERO_ELEMENT_KEYS` 'line' / 'link'), typed on the page on the second tap. */
+  heroline: { label: 'Invite line', source: 'tool', canvas: 'f:hero', el: 'line', layouts: NONE },
+  herolink: { label: 'Link', source: 'tool', canvas: 'f:hero', el: 'link', layouts: NONE },
+  /* The Details page's "THE DETAILS · WHEN · WHERE" block (`PublicEventDetails`) — its date and place come from the
+     booked venue, so its door is Suppliers'; its looks are the shipped event_details styles. */
+  details: { label: 'The details', source: 'supplier:date', canvas: 'f:details', layouts: scene('event_details') },
+  /* The Day's "Happening now · Watch the event live →" card (`SpotlightCard`). */
+  spotlight: { label: 'Happening now', source: 'tool', canvas: 'f:spotlight', layouts: NONE },
   /* 🎞 The nine Post Event scenes the ＋ sheet adds — each by its SHIPPED name and
      key (`lib/post-event-scenes.ts` `POST_EVENT_SCENE_NAMES`), never retyped; their
      looks are Post Event's own (`post-event-style-resolve.ts`), not a scene's. */
@@ -337,7 +352,7 @@ export function makerPartQuietRow(key: MakerPartKey): { words: string; to: { stu
  */
 export const MAKER_STAGE_PAGES: Readonly<Record<MakerStageKey, Readonly<Record<string, readonly MakerPartKey[]>>>> = {
   save_the_date: {
-    home: ['reveal', 'logo', 'ename', 'names', 'date', 'place', 'countdown', 'message'],
+    home: ['reveal', 'logo', 'ename', 'names', 'heroline', 'date', 'place', 'herolink', 'countdown', 'message'],
     story: ['story'],
     me: ['pass'],
   },
@@ -347,13 +362,13 @@ export const MAKER_STAGE_PAGES: Readonly<Record<MakerStageKey, Readonly<Record<s
     decline: ['nonote'],
   },
   rsvp: {
-    home: ['reveal', 'logo', 'ename', 'names', 'date', 'place', 'rsvpcard', 'countdown', 'opening', 'greeting', 'message', 'reminders', 'gifts'],
-    details: ['schedule', 'venue', 'dress', 'march', 'bring'],
+    home: ['reveal', 'logo', 'ename', 'names', 'heroline', 'date', 'place', 'herolink', 'rsvpcard', 'countdown', 'opening', 'greeting', 'message', 'reminders', 'gifts'],
+    details: ['details', 'schedule', 'venue', 'dress', 'march', 'bring'],
     story: ['story'],
     me: ['rsvpcard', 'myrole', 'mywear', 'myarrive', 'myguests', 'seats'],
   },
   event: {
-    live: ['reveal', 'announce', 'logo', 'names', 'date', 'place', 'schedule'],
+    live: ['reveal', 'spotlight', 'announce', 'logo', 'ename', 'names', 'heroline', 'date', 'place', 'herolink', 'schedule'],
     home: ['venue', 'dress', 'march', 'bring'],
     camera: ['camera'],
     gallery: ['gallery', 'myphotos'],
@@ -379,8 +394,13 @@ export function makerPartsOnPage(stage: MakerStageKey, page: string | null | und
  */
 export function makerPartsTappable(stage: MakerStageKey, page: string | null | undefined, present: ReadonlySet<string>): MakerPartKey[] {
   return makerPartsOnPage(stage, page).filter((k) => {
-    const c = MAKER_PARTS[k].canvas;
-    return c !== null && present.has(c);
+    const { canvas: c, el } = MAKER_PARTS[k];
+    if (c === null || !present.has(c)) return false;
+    /* A part of a section (the hero's invite line, its link): a tile only when the page DREW that part — when the
+       reader also listed the section's parts (`canvas|el`); a reader that did not is answered by the section. */
+    if (!el) return true;
+    const listed = [...present].some((p) => p.startsWith(`${c}|`));
+    return !listed || present.has(`${c}|${el}`);
   });
 }
 
@@ -409,6 +429,9 @@ export function makerStepPart(input: {
   return { page: pages[q]!, part: null };
 }
 
+/** Hero pieces drawn inside another part (`pahina-masthead.tsx`): a tap on one picks the part it sits in. */
+export const HERO_EL_INSIDE: Readonly<Record<string, string>> = { joiner: 'names', time: 'date' };
+
 /** The part whose canvas key (and part) a tap on the page named — the first in this page's order. */
 export function makerPartOfTap(
   stage: MakerStageKey,
@@ -417,6 +440,8 @@ export function makerPartOfTap(
   el: string | null | undefined,
 ): MakerPartKey | null {
   const on = makerPartsOnPage(stage, page);
+  /* A piece INSIDE a part is that part: the names' "&", the date's time. */
+  el = el ? (HERO_EL_INSIDE[el] ?? el) : el;
   const exact = on.find((k) => MAKER_PARTS[k].canvas === key && (MAKER_PARTS[k].el ?? null) === (el ?? null));
   if (exact) return exact;
   /* A tap inside a section on a part the map does not split (a scene's heading) is that section's part. */

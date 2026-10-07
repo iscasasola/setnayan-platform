@@ -103,7 +103,10 @@ function readPresent(): Set<string> {
     const doc = document.querySelector<HTMLIFrameElement>(SHOWN_FRAME)?.contentDocument;
     doc?.querySelectorAll('[data-maker-section]').forEach((m) => {
       const k = m.getAttribute('data-maker-section');
-      if (k) out.add(k);
+      if (!k) return;
+      out.add(k);
+      /* …and the parts that section drew (`canvas|el`), so a part it did not draw is never a tile. */
+      if (k === 'f:hero') findMakerSection(doc, k)?.querySelectorAll('[data-el]').forEach((p) => out.add(`${k}|${p.getAttribute('data-el')}`));
     });
     if (doc?.getElementById('site-entourage')) out.add('f:entourage');
     if (doc?.getElementById('site-story')) out.add('f:story');
@@ -587,8 +590,14 @@ export function StageTools({
           part?.remove();
           return;
         }
+        /* 🎭 The Reveal is the FIRST thing on its page (DECISION_LOG 2026-10-06) — before every marked part, the
+           day's "Happening now" card included, and on the tab that is SHOWN (a tabbed canvas hides the others). */
+        const first = [...doc.querySelectorAll('[data-maker-section]')].find((m) => !m.closest('[data-hub-tab][hidden]')) ?? null;
+        if (part && first && part.nextElementSibling !== first) {
+          part.remove();
+          part = null;
+        }
         if (!part) {
-          const first = doc.querySelector('[data-maker-section]');
           if (!first?.parentElement) return;
           part = doc.createElement('section');
           part.setAttribute('data-maker-reveal-part', '');

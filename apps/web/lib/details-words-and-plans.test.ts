@@ -192,7 +192,7 @@ test('RSVP links out to nothing: "Reply by" is a date field right there, and the
   assert.match(section, /<ReplyBy\s+layout="stack"/, 'reply-by is not a field here');
   const { ReplyBy } = await import('../app/dashboard/[eventId]/_components/guest-setup/reply-by');
   const replyBy = renderToStaticMarkup(
-    React.createElement(ReplyBy, { layout: 'stack', eventId: 'e-1', own: '2026-11-18', pricingMode: 'final_only', fallback: null, action: async () => ({ ok: true }) as never }),
+    React.createElement(ReplyBy, { layout: 'stack', draft: true, eventId: 'e-1', own: '2026-11-18', pricingMode: 'final_only', fallback: null, action: async () => ({ ok: true }) as never }),
   );
   assert.match(replyBy, /<input[^>]*type="date"[^>]*value="2026-11-18"/, 'reply-by is not a field here');
   /* ⏳ Reply by is DRAFTED in the Maker since 2026-10-08 (owner "draft 1-3") — no "saves immediately". */

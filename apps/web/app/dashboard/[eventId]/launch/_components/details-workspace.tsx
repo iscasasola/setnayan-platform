@@ -304,7 +304,9 @@ export function DetailsWorkspace({
   );
 
   /* ══ 🪜 THE GUIDED FLOW — BY STAGE (PR-2) ══ */
-  const plan = guide && guide.plan.steps.length > 0 ? guide.plan : null;
+  /* 🧭 THE NEW MAKER RETIRED THE GUIDED FLOW (DECISION_LOG 2026-10-07 rule 3): with it on, no plan — the
+     stage picker, Before we start and the Ready screens never draw; Studio's tiles are the way in. */
+  const plan = maker?.stagesStudio !== true && guide && guide.plan.steps.length > 0 ? guide.plan : null;
   const entry = plan && guide?.open ? guide.entry : null;
   const [mode, setMode] = useState<'guided' | 'all'>(plan && guide?.open ? 'guided' : 'all');
   /** A screen of the flow that is not a step — the stage picker, a Before we start, a Ready screen. */

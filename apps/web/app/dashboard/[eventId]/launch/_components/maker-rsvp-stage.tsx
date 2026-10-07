@@ -1,5 +1,6 @@
 'use client';
 
+import { StageStyle } from './stage-panel/stage-style';
 import { useCallback, useEffect, useRef, useState, type ComponentProps } from 'react';
 import { IntoLowerThird, LOWER_THIRD_TILE, LOWER_THIRD_TILE_ON, LOWER_THIRD_TILE_PART } from './maker-lower-third';
 import { MakerPage } from './maker-page';
@@ -226,6 +227,8 @@ export function MakerRsvpStage({
   };
 
   const phone = maker ? maker.device !== 'desktop' : false;
+  /* The new Maker is a phone's only (`maker-shell.tsx` `ss`). */
+  const stagesRsvp = maker?.stagesStudio === true;
   const sceneMeta = RSVP_STAGE_SCENES.find((s) => s.key === scene)!;
 
   const page = publicLandingUrl ? (
@@ -315,6 +318,34 @@ export function MakerRsvpStage({
         toolName={RSVP_STAGE_TILE[scene].label}
         page={page}
         controls={
+          stagesRsvp ? (
+            /* 🧭 THE NEW MAKER'S RSVP STAGE (phone): the screen's controls are its Style › Look, under the same quiet
+               bar ("Edit the RSVP · Studio ›") as every part (DECISION_LOG 2026-10-07). */
+            <div className="-mx-3 -mb-6 -mt-2 flex min-h-0 flex-1 flex-col">
+              <StageStyle
+                look={
+                  <div className="flex flex-col gap-3 pb-4">
+                    <MakerRsvpSettings
+                      eventId={eventId}
+                      current={current}
+                      drafted={drafted}
+                      replyBy={replyBy}
+                      replyByOwn={replyByOwn}
+                      requests={{ count: null, list: null }}
+                      scene={scene}
+                      solemn={solemn}
+                      replyByFallback={replyByFallback}
+                      draftAction={draftAction}
+                      replyByAction={replyByAction}
+                      celebration={celebration ? { ...celebration, storeShell: maker?.storeShell ?? false } : undefined}
+                    />
+                  </div>
+                }
+                background={null}
+                arrange={null}
+              />
+            </div>
+          ) : (
           <>
             {/* The desktop's title — on a phone the lower third's column names the screen. */}
             <p className="hidden px-1 text-[13px] font-semibold text-ink/70 lg:block" data-rsvp-stage-scene-title="">
@@ -335,6 +366,7 @@ export function MakerRsvpStage({
               celebration={celebration ? { ...celebration, storeShell: maker?.storeShell ?? false } : undefined}
             />
           </>
+          )
         }
       />
     </div>

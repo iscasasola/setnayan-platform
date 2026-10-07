@@ -29,6 +29,10 @@ import { IButton, IHint, IReset, IRow, ISection } from './inspector-kit';
 import { PickMenu } from './pick-menu';
 import { MotionFxRows } from './motion-fx-rows';
 import type { MotionFx } from '@/lib/motion-effects';
+import { HUB_DURING_LABEL, HUB_SEQUENCES } from '@/lib/hub-canvas';
+import { makerSceneHasRows } from '@/lib/maker-parts';
+import { useMaker } from '../../../launch/_components/maker-context';
+import { StageAnimate } from '../../../launch/_components/stage-panel/stage-animate';
 
 /**
  * 🎬 A SCENE'S ANIMATE TAB — the scene inspector's (`scene-inspector.tsx`, whose
@@ -74,6 +78,8 @@ export function SceneAnimateTab({
   onPreview: () => void;
 }) {
   const { shown, save, pending, error } = useSceneCanvas(eventId, widgetType, canvas, draftAction);
+  /* 🧭 The new Maker draws these same saves as the prototype's one column (`stage-panel/stage-animate.tsx`). */
+  const ss = useMaker()?.stagesStudio === true;
 
   const mark = makerProMark({ owns: ownsPro, storeShell: hideLocked });
   if (!makerProUsable({ owns: ownsPro, storeShell: hideLocked })) {
@@ -102,6 +108,58 @@ export function SceneAnimateTab({
       if (step.transition) c.transition = step.transition;
       if (step.autoSpeed) c.autoSpeed = step.autoSpeed;
     });
+
+  if (ss) {
+    return (
+      <div data-scene-tab="animate" className="contents">
+        <StageAnimate
+          pending={pending}
+          error={error}
+          pro={mark ? 'How a scene moves is Event Hub Pro — try it here; it goes live when you Apply with it.' : null}
+          how={{
+            value: preset ?? 'auto',
+            options: [{ key: 'auto', label: 'Auto' }, ...HUB_MOTION_PRESETS.map((p) => ({ key: p, label: HUB_MOTION_PRESET_LABEL[p] }))],
+            onPick: (k) => save((c) => { if (k === 'auto') delete c.preset; else c.preset = k; }),
+          }}
+          inFx={m.inFx}
+          outFx={m.outFx}
+          onIn={(fx) => save((c) => sceneFx(c, 'in', fx))}
+          onOut={(fx) => save((c) => sceneFx(c, 'out', fx))}
+          rows={
+            makerSceneHasRows(widgetType)
+              ? {
+                  value: shown.sequence ?? 'auto',
+                  options: [
+                    { key: 'auto', label: 'Auto' },
+                    ...HUB_SEQUENCES.map((q) => ({ key: q, label: q === 'one_after_another' ? 'One after another' : HUB_SEQUENCE_LABEL[q] })),
+                  ],
+                  onPick: (q) => save((c) => { if (q === 'auto') delete c.sequence; else c.sequence = q; }),
+                }
+              : null
+          }
+          does={{
+            value: shown.during ?? 'auto',
+            options: [{ key: 'auto', label: 'Auto' }, ...(['still', 'lift'] as const).map((d) => ({ key: d, label: HUB_DURING_LABEL[d] }))],
+            onPick: (d) => save((c) => { if (d === 'auto') delete c.during; else c.during = d; }),
+          }}
+          timing={{
+            value: shown.timeline ?? 'auto',
+            options: (['auto', 'time', 'scrub'] as const).map((t) => ({ key: t, label: t === 'auto' ? 'Auto' : HUB_TIMELINE_LABEL[t] })),
+            onPick: (t) => save((c) => { if (t === 'auto') delete c.timeline; else c.timeline = t; }),
+          }}
+          next={
+            isLast
+              ? null
+              : {
+                  value: transition,
+                  options: HUB_TRANSITIONS.map((t) => ({ key: t, label: HUB_TRANSITION_LABEL[t] })),
+                  onPick: (t) => setTransition(t, null),
+                }
+          }
+        />
+      </div>
+    );
+  }
 
   return (
     <div data-scene-tab="animate" aria-busy={pending}>

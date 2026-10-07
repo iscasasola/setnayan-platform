@@ -65,7 +65,7 @@ export function studioDetailsGroups<I extends { key: DetailsItemKey }>(groups: r
 export const STUDIO_FORM_HEADS: Partial<Record<DetailsItemKey, { title: string; line?: string }>> = {
   names: { title: 'Your event' },
   address: { title: 'Your Event Hub' },
-  invitation: { title: 'Your invitation set', line: 'Classic is free' },
+  invitation: { title: 'Your invitation set' },
   [FREE_PRINT_KEYS[0]!]: { title: 'For the day', line: 'free for every event' },
 };
 

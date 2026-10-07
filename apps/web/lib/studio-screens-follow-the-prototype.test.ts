@@ -124,7 +124,8 @@ test('4 · Studio › Look opens on its one bar: no tall tiles; Background is th
   assert.match(ws, /if \(studioLook\) setSheetOpen\(true\);/, 'Studio › Look does not open on its controls');
   const mb = read('app/dashboard/[eventId]/website/editor/_components/main-background-panel.tsx');
   assert.match(mb, /<GroundCarousel options=\{groundOptions\} value=\{groundValue\}[^>]*onPick=\{pickGround\}/, 'the carousel is not the dropdown’s list');
-  assert.match(mb, /options=\{groundOptions\}\s+onPick=\{pickGround\}/, 'the dropdown is not the same list');
+  assert.match(mb, /options=\{\[\.\.\.loops\.map\(groundLoopOption\), \.\.\.groundOwnOptions\]\}\s+onPick=\{pickGround\}/, 'the dropdown is not the same list');
+  assert.match(mb, /const groundOptions: PickOption\[\] = \[\.\.\.loops\.map\(groundLoopOption\), \.\.\.groundOwnOptions\];/, 'the carousel is not the same list');
   const bar = read(`${L}/studio-tools.tsx`);
   const look = bar.slice(bar.indexOf('export function StudioLookBar'));
   assert.doesNotMatch(look.slice(0, look.indexOf('\n}\n')), /tone="wine"/, 'Look’s bar is the filled wine section switch, not the prototype’s segmented');

@@ -430,8 +430,7 @@ export function MainBackgroundPanel({
   /* 🧭 Every choice "Behind every scene" holds — one list, drawn as ONE dropdown, or (the new Maker's
      Studio › Look, prototype `lookBackground`) as the carousel of real pictures. */
   const groundValue = choice === 'theme' || choice === 'loop' ? (loopNow ?? null) : `src:${choice}`;
-  const groundOptions: PickOption[] = [
-            ...loops.map((l) => ({
+  const groundLoopOption = (l: MovingBackgroundOption): PickOption => ({
               key: l.id,
               label: l.name,
               group: 'Moving background',
@@ -439,7 +438,8 @@ export function MainBackgroundPanel({
               ...(proMark && !(l.id === themeId && INVITE_THEMES[themeId]?.tier === 'free')
                 ? { trail: { text: '◆', tone: 'muted' as const, label: 'Event Hub Pro' } }
                 : {}),
-            })),
+            }));
+  const groundOwnOptions: PickOption[] = [
             /* "Same as my hero" follows a MEASURED hero (`HeroFrameSync`), which Classic never
                runs (it would write on open) — so Classic offers its own upload, not the follow. */
             ...(themeId === 'house'
@@ -460,7 +460,8 @@ export function MainBackgroundPanel({
               ...(proMark ? { trail: { text: '◆', tone: 'muted' as const, label: 'Event Hub Pro' } } : {}),
             },
             { key: 'src:none', label: 'Just the colour', group: 'Plain' },
-          ];
+            ];
+  const groundOptions: PickOption[] = [...loops.map(groundLoopOption), ...groundOwnOptions];
   const pickGround = (k: string) => {
             if (pending) return;
             if (k === 'src:media') return setChoosingMedia(true);
@@ -493,7 +494,7 @@ export function MainBackgroundPanel({
         <PickMenu
           label="Behind every scene"
           value={groundValue}
-          options={groundOptions}
+          options={[...loops.map(groundLoopOption), ...groundOwnOptions]}
           onPick={pickGround}
           dataAttr="data-main-ground-loop-pick"
           className="w-full justify-between text-ink"

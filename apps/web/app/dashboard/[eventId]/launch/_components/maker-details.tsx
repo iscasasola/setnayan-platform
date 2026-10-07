@@ -498,7 +498,9 @@ export function MakerDetails(props: MakerDetailsProps) {
   // ⭕ The plate follows the code (owner 2026-09-30): a round code sits on a round plate.
   // The plate WRAPS the picture rather than clipping it, so a code drawn square still shows whole.
   const qrPlate = qr.style.shape === 'circle' ? ' rounded-full' : '';
-  const free = freePrintParts(eventId, slug, prints, Boolean(props.studio));
+  const free = freePrintParts(eventId, slug, prints);
+  /* 🧭 Studio › Prints: the same prints for the day, drawn as rows of its one list (blurb · small Saves). */
+  const freeStudio = props.studio ? freePrintParts(eventId, slug, prints, true) : null;
   const save = <SaveWords />;
   /* 🗓 Your event (part 2a) — its rows, bodies and editors (`details-your-event-parts.tsx`). */
   const ye = props.yourEvent ? yourEventParts({ eventId, input: props.yourEvent, prints, parents, hosts }) : null;
@@ -978,11 +980,13 @@ export function MakerDetails(props: MakerDetailsProps) {
         }
       : {}),
   };
+  /* Studio › Prints draws the same saves as rows of its list (`freeStudio`). */
+  const freeEditor = (f: (typeof free)[number]) => freeStudio?.find((x) => x.key === f.key)?.editor ?? f.editor;
   for (const f of free) {
     editors[f.key] =
       f.key === 'seat-plan' ? (
         <div className="flex flex-col gap-3">
-          {f.editor}
+          {freeEditor(f)}
           <Toggle form={WORDS_FORM} name="inc_seat_plan" label="Offer a seat plan with the set" on={inc.seatPlan !== 'none'} tip="Prints your seating chart from the Seat plan you already made.">
             <Segmented form={WORDS_FORM} name="seat_plan_kind" value={inc.seatPlan === 'none' ? 'list' : inc.seatPlan} options={[['3d', '3D'], ['2d', '2D'], ['list', 'List']]} />
           </Toggle>
@@ -990,7 +994,7 @@ export function MakerDetails(props: MakerDetailsProps) {
           {save}
         </div>
       ) : (
-        f.editor
+        freeEditor(f)
       );
   }
   /* 🗂 The Logo's step field — "Do you want a logo?" — in the step's sheet like

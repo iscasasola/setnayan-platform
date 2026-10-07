@@ -11,14 +11,18 @@
  *   T2  the tone tokens EXIST in globals.css `:root` AND `html.dark`, and every
  *       light pairing the button draws is ≥ 4.5:1 — computed from the file,
  *       never re-typed.
- *   T3  `useFitRow`'s pass (`fitRow`) EXECUTED on a measured fake row: the
- *       right-most secondary drops first, the main verb never loses its word,
- *       a wide row drops nothing, a re-run restores what fits again.
+ *   T3  `useFitRow`'s pass (`fitRow`) EXECUTED on a measured fake row: a wide
+ *       row shows every word; 3a — the row changes state AS ONE (icon + word →
+ *       word only → icon only), never a mix of secondaries, the main verb keeps
+ *       its word; 3b — a text field keeps ≥ 60% of the row, the buttons give.
  *
  * SABOTAGE, each seen red before this shipped (PR body has the run):
  *   T1 drop `aria-label={label}` from the <button> branch
+ *   T2 write a tone rule as a bare `.ab-brand`
  *   T2 put the doc's warn #B26B00 (`178 107 0`) back — 4.20:1 on white
  *   T3 let the pass drop `.ab-main` too
+ *   T3a restore the one-at-a-time drop (a mixed row)
+ *   T3b drop the 60% field check
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -164,70 +168,139 @@ test('T2 · every light pairing the button draws clears AA 4.5:1', () => {
   }
 });
 
-/* ═══ T3 · THE FIT PASS, EXECUTED ══════════════════════════════════════════ */
-
-type FakeBtn = {
-  classList: { add(c: string): void; remove(c: string): void; contains(c: string): boolean };
-  hasAttribute(a: string): boolean;
-  setAttribute(a: string, v: string): void;
-  removeAttribute(a: string): void;
-  _cls: Set<string>;
-  _attrs: Set<string>;
-  _wide: number;
-};
-
-function fakeButton(cls: string, wide: number): FakeBtn {
-  const _cls = new Set(cls.split(' '));
-  const _attrs = new Set<string>();
-  return {
-    _cls,
-    _attrs,
-    _wide: wide,
-    classList: { add: (c) => void _cls.add(c), remove: (c) => void _cls.delete(c), contains: (c) => _cls.has(c) },
-    hasAttribute: (a) => _attrs.has(a),
-    setAttribute: (a) => void _attrs.add(a),
-    removeAttribute: (a) => void _attrs.delete(a),
-  };
-}
-
-function fakeRow(width: number, buttons: FakeBtn[]) {
-  const row = {
-    clientWidth: width,
-    get scrollWidth() {
-      return buttons.reduce((s, b) => s + (b._cls.has('icon-only') ? 40 : b._wide) + 8, -8);
-    },
-    querySelectorAll: () => buttons,
-  };
-  return row as unknown as HTMLElement;
-}
-
-test('T3 · right-most secondary drops first; the main verb keeps its word', () => {
-  const main = fakeButton('ab ab-brand ab-main', 110);
-  const a = fakeButton('ab ab-info', 100);
-  const b = fakeButton('ab ab-neutral', 100);
-  const c = fakeButton('ab ab-danger', 100);
-  const row = fakeRow(330, [main, a, b, c]); // 434 wide → drop two (314) to fit 330
-  const dropped = AB.fitRow(row);
-  assert.equal(dropped, 2, 'two words dropped');
-  assert.ok(c._cls.has('icon-only') && b._cls.has('icon-only'), 'the right-most two went icon-only');
-  assert.ok(!a._cls.has('icon-only'), 'the left secondary kept its word');
-  assert.ok(!main._cls.has('icon-only'), 'the main verb never drops its word');
-
-  // Even when nothing else is left to drop, main keeps its word.
-  const tight = fakeRow(120, [main, a, b, c]);
-  AB.fitRow(tight);
-  assert.ok(!main._cls.has('icon-only'));
-  assert.ok(a._cls.has('icon-only'));
-
-  // Widen again: a re-run restores every word that fits.
-  const wide = fakeRow(1280, [main, a, b, c]);
-  assert.equal(AB.fitRow(wide), 0);
-  for (const x of [a, b, c]) assert.ok(!x._cls.has('icon-only'), 'desktop shows every word');
+test('T2 · tone rules are element + base class + tone — never a bare tone class (the prototype specificity slip)', () => {
+  const start = css.indexOf('/* ─── ActionButton');
+  assert.ok(start >= 0, 'the ActionButton block exists');
+  const block = css.slice(start).replace(/\/\*[\s\S]*?\*\//g, '');
+  const rules = [...block.matchAll(/(^|\})\s*([^{}@]+?)\s*\{/g)].map((m) => m[2]!.trim());
+  const toneRules = rules.filter((sel) => /\.ab-(brand|ok|info|warn|danger|neutral|main)\b|\.quiet\b/.test(sel));
+  // every tone has its rule; brand + 5 more + quiet + main (+ dark main)
+  for (const t of [...AB.ACTION_TONES, 'main']) {
+    assert.ok(toneRules.some((sel) => sel.includes(`.ab-${t}`)), `a rule for .ab-${t}`);
+  }
+  for (const sel of toneRules) {
+    for (const part of sel.split(/,(?![^(]*\))/).map((x) => x.trim()).filter((x) => /\.ab-|\.quiet/.test(x))) {
+      assert.match(part, /:is\(button, a\)\.ab\./, `"${part}" carries element + base class (0,2,1), not a bare tone class`);
+    }
+  }
+  // the base rule stays the lightest, so a tone can never lose to it
+  assert.ok(rules.includes('.ab'), 'the base rule is `.ab` (0,1,0)');
+  // main is written after every tone rule, so filled beats a tone's own background (neutral's transparent)
+  const lastTone = Math.max(...AB.ACTION_TONES.map((t) => block.indexOf(`.ab.ab-${t} {`)));
+  assert.ok(block.indexOf(':is(button, a).ab.ab-main {') > lastTone, 'main comes after every tone rule');
 });
 
-test('T3 · a button rendered icon-only stays icon-only (the pass only undoes its own drops)', () => {
-  const pinned = fakeButton('ab ab-neutral icon-only', 100);
-  const row = fakeRow(1280, [fakeButton('ab ab-ok ab-main', 100), pinned]);
-  AB.fitRow(row);
-  assert.ok(pinned._cls.has('icon-only'));
+/* ═══ T3 · THE FIT PASS, EXECUTED (rules 3 · 3a · 3b) ═════════════════════ */
+
+/** A measured fake: each button knows its width in each state; the row sums them. */
+type Widths = { full: number; word: number; icon: number };
+
+function el(cls: string, w: Widths) {
+  const c = new Set(cls.split(' '));
+  const attrs = new Set<string>();
+  return {
+    _c: c,
+    _w: w,
+    classList: {
+      add: (...x: string[]) => x.forEach((v) => c.add(v)),
+      remove: (...x: string[]) => x.forEach((v) => c.delete(v)),
+      contains: (v: string) => c.has(v),
+    },
+    hasAttribute: (a: string) => attrs.has(a),
+    setAttribute: (a: string) => void attrs.add(a),
+    removeAttribute: (a: string) => void attrs.delete(a),
+    get width() {
+      return c.has('icon-only') ? w.icon : c.has('word-only') ? w.word : w.full;
+    },
+  };
+}
+type Btn = ReturnType<typeof el>;
+const btn = (cls: string, full = 110) => el(`ab ${cls}`, { full, word: full - 26, icon: 40 });
+
+/** A flex row: buttons take their width, a field (flex:1, min-width 60%) takes the rest. */
+function row(width: number, buttons: Btn[], field = false) {
+  const gaps = 8 * (buttons.length - (field ? 0 : 1));
+  const used = () => buttons.reduce((s, b) => s + b.width, 0) + gaps;
+  const fieldW = () => Math.max(width - used(), FIELD_MIN * width);
+  const r = {
+    clientWidth: width,
+    attrs: new Map<string, string>(),
+    get scrollWidth() {
+      return Math.max(width, used() + (field ? fieldW() : 0));
+    },
+    querySelectorAll: () => buttons,
+    querySelector: () => (field ? { get offsetWidth() { return fieldW(); } } : null),
+    setAttribute(k: string, v: string) {
+      this.attrs.set(k, v);
+    },
+  };
+  return r;
+}
+const FIELD_MIN = 0; // the fake field can shrink to nothing — the pass alone must hold 60%
+
+/** 3a — every SECONDARY button is in the same state. */
+function secondaryStates(buttons: Btn[]) {
+  return new Set(
+    buttons
+      .filter((b) => !b._c.has('ab-main'))
+      .map((b) => (b._c.has('icon-only') ? 'icon' : b._c.has('word-only') ? 'word' : 'full')),
+  );
+}
+
+test('T3 · a wide row shows every icon AND word (desktop shows every word)', () => {
+  const bs = [btn('ab-brand ab-main'), btn('ab-info'), btn('ab-neutral')];
+  const r = row(1280, bs);
+  assert.equal(AB.fitRow(r as unknown as HTMLElement), 'full');
+  assert.equal(r.attrs.get('data-fit'), 'full');
+  for (const b of bs) assert.ok(!b._c.has('icon-only') && !b._c.has('word-only'));
+});
+
+test('T3a · the row changes state AS ONE: icon+word → word only → icon only, never a mix', () => {
+  // 3 × 110 + 16 = 346 full · 3 × 84 + 16 = 268 word · 84 + 40 + 40 + 16 = 180 icon
+  for (const [width, expect] of [
+    [360, 'full'],
+    [300, 'word'],
+    [200, 'icon'],
+    [120, 'icon'], // nothing narrower exists; still one state
+  ] as const) {
+    const bs = [btn('ab-brand ab-main'), btn('ab-info'), btn('ab-danger')];
+    const got = AB.fitRow(row(width, bs) as unknown as HTMLElement);
+    assert.equal(got, expect, `${width}px → ${expect}`);
+    assert.equal(secondaryStates(bs).size, 1, `${width}px: secondaries never mixed (${[...secondaryStates(bs)]})`);
+    const main = bs[0]!;
+    assert.ok(!main._c.has('icon-only'), `${width}px: the main verb keeps its word`);
+    if (expect === 'word') for (const b of bs) assert.ok(b._c.has('word-only'), 'word state: every button word only');
+    if (expect === 'icon') {
+      for (const b of bs.slice(1)) assert.ok(b._c.has('icon-only'), 'icon state: every secondary icon only');
+      assert.ok(main._c.has('word-only'), 'icon state: the main shows its word');
+    }
+  }
+});
+
+test('T3a · re-running after a widen restores every word (state is recomputed, not sticky)', () => {
+  const bs = [btn('ab-ok ab-main'), btn('ab-info'), btn('ab-neutral')];
+  AB.fitRow(row(150, bs) as unknown as HTMLElement);
+  assert.equal(AB.fitRow(row(1280, bs) as unknown as HTMLElement), 'full');
+  for (const b of bs) assert.ok(!b._c.has('icon-only') && !b._c.has('word-only'));
+});
+
+test('T3b · a text field keeps ≥ 60% of the row; the buttons go to icons first', () => {
+  // 375 row with a search field + 3 secondaries: full buttons (330+24) leave the field 21 px.
+  const bs = [btn('ab-brand'), btn('ab-info'), btn('ab-neutral')];
+  const r = row(375, bs, true);
+  const got = AB.fitRow(r as unknown as HTMLElement);
+  const field = r.querySelector()!;
+  assert.ok(field.offsetWidth >= AB.FIELD_FLOOR * 375 - 1, `field ${field.offsetWidth}px ≥ 60% of 375`);
+  assert.equal(got, 'icon', 'only icon-only buttons leave the field its 60%');
+  assert.equal(secondaryStates(bs).size, 1);
+  // The same row on desktop: field already has its share with every word showing.
+  const wide = [btn('ab-brand'), btn('ab-info'), btn('ab-neutral')];
+  assert.equal(AB.fitRow(row(1280, wide, true) as unknown as HTMLElement), 'full');
+  assert.equal(AB.FIELD_FLOOR, 0.6);
+});
+
+test('T3 · a button rendered icon-only is a deliberate toolbar icon and stays icon-only', () => {
+  const pinned = btn('ab-neutral icon-only');
+  AB.fitRow(row(1280, [btn('ab-ok ab-main'), pinned]) as unknown as HTMLElement);
+  assert.ok(pinned._c.has('icon-only'));
 });

@@ -225,7 +225,11 @@ test('a page tab still takes the canvas to its page under Stages (only a picked 
   assert.match(jump.slice(0, 200), /pageAskRef\.current = true;/, 'jumpToPage asks as a PAGE pick');
   assert.match(shell, /const asked = pageAskRef\.current;\s*pageAskRef\.current = false;\s*return asked;/, 'one ask, one jump');
   const tools = read(`${LAUNCH}/stage-tools.tsx`);
-  assert.match(tools, /setPicked\(null\);\s*onPickPage\(p\.option\);/, 'another page lets the picked part go');
+  /* 🧭 AMENDED 08 Oct — owner, on the Stages view: *"i do not see the individual pages. i still see invitation as a
+     1 long page that scrolls down"*. A tab tap now tells the CANVAS to swap first (`goToPage`), then the shell's
+     Page ▾ exactly as before — the picked part is still let go, and the shell's door is still the one pressed. */
+  assert.match(tools, /setPicked\(null\);\s*goToPage\(p\.key, p\.option\);/, 'another page lets the picked part go');
+  assert.match(tools, /const goToPage = useCallback\(\s*\(key: string, option: string\) => \{\s*postToCanvas\(\{ source: 'setnayan-editor', t: 'hubTab', key: '', tab: key \}\);\s*onPickPage\(option\);/, 'the canvas swaps, and the shell’s Page ▾ is still told');
 });
 
 test('▶ on a picked part plays Build in · Action · Build out, and says what it has none of', () => {
@@ -350,7 +354,10 @@ test('the Reveal is FIRST on The Day › Live (and every page it leads) — befo
   const live = MAKER_STAGE_PAGES.event.live!;
   assert.ok(live.indexOf('reveal') < live.indexOf('spotlight'), 'the Reveal comes before the Happening-now card');
   const tools = read(`${LAUNCH}/stage-tools.tsx`);
-  assert.match(tools, /const first = \[\.\.\.doc\.querySelectorAll\('\[data-maker-section\]'\)\]\.find\(\(m\) => !m\.closest\('\[data-hub-tab\]\[hidden\]'\)\)/, 'drawn before the first SHOWN part');
+  /* 🧭 AMENDED 08 Oct (measured on the preview: on Invitation › Me the stub was drawn above the page — "the first
+     part not in a hidden group" was the greeting, which stood outside every tab). Stronger now: the first marked
+     part INSIDE the shown page's own group (`firstMarkerOnPage`, executed by `every-stages-tab-has-its-own-page`). */
+  assert.match(tools, /const first = firstMarkerOnPage\(doc, shownPage\);/, 'drawn before the first part of the SHOWN page');
   assert.match(tools, /part\.nextElementSibling !== first\) \{\s*part\.remove\(\);/, 'a stub left lower down is moved back to the top');
 });
 

@@ -37,6 +37,7 @@ import { MAKER_LT_SIZE_KEY, MAKER_LT_TAP_PX } from '@/lib/maker-lt-size';
 import { fixedOfKey, fixedScenePanel } from '@/lib/maker-selection';
 import { makerPartStudioDoor, makerStagePickedAttr, makerStageMayType } from '@/lib/maker-parts';
 import { findMakerSection } from '@/app/[slug]/_components/maker-section-find';
+import { shownHubTab } from '@/app/[slug]/_components/hub-tab-dom';
 import { setStagePanelNow, setStageRevealColours, useStageRevealLook, type StageQuiet } from './stage-panel/store';
 import { revealStubHtml } from './stage-panel/reveal-picture';
 import type { StudioTileKey } from '@/lib/studio-tiles';
@@ -50,6 +51,7 @@ import { partsInPageOrder } from '@/lib/maker-part-step';
 import { CameraPartTools, StagePlayStatus } from './details-lazy';
 
 import { makerPartLabelOn, makerPartOfCanvas, makerPartsWithAdded } from '@/lib/maker-part-groups';
+import { filedOnCanvas, firstMarkerOnPage, makerStagesPages } from '@/lib/maker-stage-filing';
 
 /**
  * 🎬 THE STAGES PANEL — the new Maker's lower third on the Stages side (owner
@@ -116,6 +118,42 @@ function readPresent(): Set<string> {
   return out;
 }
 
+/** The page each drawn part sits on, as the canvas filed it — `{}` on a canvas that is one page (or unreadable). */
+function readFiled(): Record<string, string> {
+  try {
+    const doc = document.querySelector<HTMLIFrameElement>(SHOWN_FRAME)?.contentDocument;
+    return doc ? filedOnCanvas(doc) : {};
+  } catch {
+    return {};
+  }
+}
+
+/** The tab the stage's canvas has on screen NOW, read off the page itself — null: one page, another stage's frame, or unreadable. */
+function readCanvasTab(stage: LifecyclePhase): string | null {
+  try {
+    const frame = document.querySelector<HTMLIFrameElement>(SHOWN_FRAME);
+    const doc = frame?.contentDocument;
+    if (!frame || !doc || new URL(frame.src, window.location.href).searchParams.get('phase') !== stage) return null;
+    return shownHubTab(doc);
+  } catch {
+    return null;
+  }
+}
+
+/** The canvas frame a message came from, when it is one of `stage`'s (shown, or loading behind it) — else null. */
+function stageCanvasOf(source: MessageEventSource | null, stage: LifecyclePhase): Window | null {
+  if (!source) return null;
+  for (const f of Array.from(document.querySelectorAll<HTMLIFrameElement>('iframe[data-maker-canvas-frame]'))) {
+    if (f.contentWindow !== source) continue;
+    try {
+      return new URL(f.src, window.location.href).searchParams.get('phase') === stage ? f.contentWindow : null;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
 /** To the canvas on screen (the stage's shown frame). */
 function postToCanvas(message: unknown) {
   document.querySelector<HTMLIFrameElement>(SHOWN_FRAME)?.contentWindow?.postMessage(message, window.location.origin);
@@ -165,23 +203,33 @@ export function StageTools({
     return () => window.clearTimeout(id);
   }, [playing, seq]);
   const [present, setPresent] = useState<Set<string>>(() => new Set());
+  /** The page each drawn part is on, as the canvas filed it (`[data-hub-tab]`) — the canvas is the one truth. */
+  const [filed, setFiled] = useState<Record<string, string>>({});
+  /** 🧭 The tab the canvas has ON SCREEN, as the canvas said it (its `ready` and every switch) — never guessed. */
+  const [canvasTab, setCanvasTab] = useState<{ stage: LifecyclePhase; tab: string } | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
 
   /* ── where we are ── */
-  const pages = useMemo(
-    () =>
-      rsvpOpen
-        ? RSVP_STAGE_SCENES.map((s) => ({ key: s.key as string, label: s.label, option: RSVP_STAGE_KEY as string }))
-        : options.flatMap((o) => {
-            const pk = makerPagePick(o.key);
-            return pk?.kind === 'page' && pk.stage === stage && !o.disabledNote ? [{ key: pk.page, label: o.label, option: o.key }] : [];
-          }),
-    [options, rsvpOpen, stage],
-  );
+  /* 🧭 THE STAGE'S PAGES ARE THE CANVAS'S PAGES — one list (`makerStagesPages`, which the canvas groups by too):
+     every page it names is a tab here, whether or not a scene of the couple's sits on it yet (its page is drawn
+     all the same), and a stage the canvas draws as ONE page has no tabs at all. The words and the pick are still
+     the shell's own Page ▾ options — a page the event's bar drops (no Love Story) is dropped here with it. */
+  const pages = useMemo(() => {
+    if (rsvpOpen) return RSVP_STAGE_SCENES.map((s) => ({ key: s.key as string, label: s.label, option: RSVP_STAGE_KEY as string }));
+    const own = new Set(makerStagesPages(stage).map((p) => p.key));
+    return options.flatMap((o) => {
+      const pk = makerPagePick(o.key);
+      return pk?.kind === 'page' && pk.stage === stage && own.has(pk.page) ? [{ key: pk.page, label: o.label, option: o.key }] : [];
+    });
+  }, [options, rsvpOpen, stage]);
   const shownPage = (() => {
     if (rsvpOpen) return screen;
+    const has = (k: string | null | undefined): k is string => Boolean(k) && pages.some((p) => p.key === k);
+    /* The canvas's own word first (owner 08 Oct: on Me the label read "Welcome" — the shell's page follows the
+       scroll and the selection, the canvas knows the tab it shows); the shell's page until the canvas has said. */
+    if (canvasTab?.stage === stage && has(canvasTab.tab)) return canvasTab.tab;
     const pk = makerPagePick(value);
-    return pk?.kind === 'page' && pk.stage === stage && pk.page ? pk.page : (pages[0]?.key ?? null);
+    return pk?.kind === 'page' && pk.stage === stage && has(pk.page) ? pk.page : (pages[0]?.key ?? null);
   })();
   /* 🎭 The Reveal leads Save the Date, Invitation › Welcome and The Day › Live — never drawn
      on the editing canvas (it plays over the cover), so its tile is the page map's own. ＋ A
@@ -189,13 +237,13 @@ export function StageTools({
   const revealStage = rsvpOpen ? null : revealStageOf(stage);
   const tappableOn = useCallback(
     (page: string | null): MakerPartKey[] => {
-      const drawnHere = makerPartsWithAdded({ stage, page, pages: pages.map((p) => p.key), drawn: [...present] });
+      const drawnHere = makerPartsWithAdded({ stage, page, pages: pages.map((p) => p.key), drawn: [...present], filed });
       const withReveal = revealStage && page && makerPartsOnPage(stage, page)[0] === 'reveal' ? (['reveal', ...drawnHere] as MakerPartKey[]) : drawnHere;
       /* 🎛 The Camera is never drawn on the editing page (`the-maker-canvas-draws-no-camera`) — on its own page its
          tile is the page map's, and its tools are this panel's own (`CameraPartTools`). */
       return page && makerPartsOnPage(stage, page).includes('camera') && !withReveal.includes('camera') ? [...withReveal, 'camera'] : withReveal;
     },
-    [pages, present, revealStage, stage],
+    [filed, pages, present, revealStage, stage],
   );
   const parts = useMemo(
     () => (rsvpOpen ? [...makerPartsOnPage(RSVP_STAGE_KEY, screen)] : tappableOn(shownPage)),
@@ -205,15 +253,56 @@ export function StageTools({
 
   /* The canvas's sections, read again whenever a canvas says it is ready, or the page moves. */
   useEffect(() => {
-    setPresent(readPresent());
+    const read = () => {
+      setPresent(readPresent());
+      setFiled(readFiled());
+    };
+    read();
+    /* 🧭 …and the tab it has on screen, off the page itself: this panel may mount after the canvas said `ready`
+       (it is lazy), and a stage warmed behind the canvas is shown without saying it again. */
+    const tab = readCanvasTab(stage);
+    if (tab) setCanvasTab((c) => (c?.stage === stage && c.tab === tab ? c : { stage, tab }));
     const onReady = (e: MessageEvent) => {
       if (e.origin !== window.location.origin) return;
       const d = e.data as { source?: unknown; t?: unknown } | null;
-      if (d?.source === 'setnayan-site' && d.t === 'ready') window.setTimeout(() => setPresent(readPresent()), 60);
+      if (d?.source === 'setnayan-site' && d.t === 'ready') window.setTimeout(read, 60);
     };
     window.addEventListener('message', onReady);
     return () => window.removeEventListener('message', onReady);
   }, [stage, shownPage]);
+
+  /* 🧭 THE TAB ON SCREEN IS THE CANVAS'S TO SAY. It says it when it loads (`ready`) and after every switch
+     (`hubTab`). A canvas that RELOADS comes back on its first tab and the work area re-sends the page IT holds —
+     which follows the scroll and the selection, so it may name another; the tab that was on screen is sent again
+     right after, last, so a reload never moves the couple off the page they were editing. */
+  const tabRef = useRef<{ stage: LifecyclePhase; tab: string } | null>(null);
+  tabRef.current = canvasTab;
+  useEffect(() => {
+    const onTab = (e: MessageEvent) => {
+      if (e.origin !== window.location.origin) return;
+      const d = e.data as { source?: unknown; t?: unknown; tab?: unknown } | null;
+      if (d?.source !== 'setnayan-site' || typeof d.tab !== 'string' || !d.tab) return;
+      /* Only THIS stage's canvas — the one on screen, or its reload loading behind it; never a warm stage's. */
+      const from = stageCanvasOf(e.source, stage);
+      if (!from) return;
+      if (d.t === 'hubTab') setCanvasTab({ stage, tab: d.tab });
+      else if (d.t === 'ready') {
+        const was = tabRef.current;
+        if (was?.stage === stage && was.tab !== d.tab) window.setTimeout(() => from.postMessage({ source: 'setnayan-editor', t: 'hubTab', key: '', tab: was.tab }, window.location.origin), 80);
+        else setCanvasTab({ stage, tab: d.tab });
+      }
+    };
+    window.addEventListener('message', onTab);
+    return () => window.removeEventListener('message', onTab);
+  }, [stage]);
+  /** Open one of this stage's pages: the canvas swaps to it now, and the shell's Page ▾ is told (its own door). */
+  const goToPage = useCallback(
+    (key: string, option: string) => {
+      postToCanvas({ source: 'setnayan-editor', t: 'hubTab', key: '', tab: key });
+      onPickPage(option);
+    },
+    [onPickPage],
+  );
 
   /* ── the panel's height: half the screen while a part's tools are open ── */
   /* 🎭 The Reveal's tools are this panel's own (no work-area tool opens for it). */
@@ -453,9 +542,9 @@ export function StageTools({
       if (rsvpOpen) {
         setScreen(r.page as RsvpStageScene);
         document.querySelector<HTMLElement>(`[data-rsvp-stage-scene="${r.page}"]`)?.click();
-      } else onPickPage(makerPageValue(stage, r.page));
+      } else goToPage(r.page, makerPageValue(stage, r.page));
     },
-    [onPickPage, ordered, pages, parts, pickPart, picked, rsvpOpen, shownPage, stage, tappableOn],
+    [goToPage, ordered, pages, parts, pickPart, picked, rsvpOpen, shownPage, stage, tappableOn],
   );
   /* The next page is on screen and its parts are read: pick its first (or, going back, its last). */
   useEffect(() => {
@@ -592,7 +681,7 @@ export function StageTools({
         }
         /* 🎭 The Reveal is the FIRST thing on its page (DECISION_LOG 2026-10-06) — before every marked part, the
            day's "Happening now" card included, and on the tab that is SHOWN (a tabbed canvas hides the others). */
-        const first = [...doc.querySelectorAll('[data-maker-section]')].find((m) => !m.closest('[data-hub-tab][hidden]')) ?? null;
+        const first = firstMarkerOnPage(doc, shownPage);
         if (part && first && part.nextElementSibling !== first) {
           part.remove();
           part = null;
@@ -881,7 +970,7 @@ export function StageTools({
                           } else {
                             /* Another page: the picked part is let go (the owner: "the picked part clears"). */
                             setPicked(null);
-                            onPickPage(p.option);
+                            goToPage(p.key, p.option);
                           }
                         }}
                         className={STAGE_GUEST_TAB}

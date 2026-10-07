@@ -55,6 +55,7 @@
  * RLS still apply underneath the host gate; only the Pro read uses the admin
  * client (inside `lookProAllows`, because orders RLS is purchaser-scoped).
  */
+import { deleteOwnScene } from '@/lib/own-scene-delete';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -77,6 +78,7 @@ import {
   type SectionContentEvent,
 } from '@/lib/website-section-content';
 import {
+  HUB_DRAFT_MAIN_COLOURS,
   HUB_DRAFT_SAVE_FAILED_MESSAGE,
   HUB_DRAFT_TOO_LARGE_MESSAGE,
   HubDraftTooLargeError,
@@ -97,6 +99,7 @@ import {
   type HubDraftState,
 } from '@/lib/hub-draft';
 import { hubDraftBarAfterSave, readHubDraft, readHubLiveState, writeHubDraft } from '@/lib/hub-draft-store';
+import { boardWithMainColours, sanitizeMainColourDraft, sanitizePaintedPalette } from '@/lib/main-colours';
 import { sanitizeSeedPalette } from '@/lib/mood-board-palette-set';
 import { writePaletteFill, type PaletteFillClient } from '@/lib/palette-fill-write';
 import { HUB_DRAFT_BAR_FIELD } from '@/lib/maker-refresh';
@@ -510,6 +513,11 @@ export async function hubDraftAction(
        block stands on has been written. */
     const ceremonyTimeWrite = typeof eventsPatch.ceremony_time === 'string' ? eventsPatch.ceremony_time : undefined;
     delete eventsPatch.ceremony_time;
+    /* 🎨 ONE MAIN COLOUR IS NOT AN \`events\` COLUMN either — the drafted slots of
+       the Mood Board's five main colours, laid INTO the board as it stands at
+       write time (below, after the theme's fill), every other key kept. */
+    const mainColoursWrite = HUB_DRAFT_MAIN_COLOURS in eventsPatch ? sanitizeMainColourDraft(eventsPatch[HUB_DRAFT_MAIN_COLOURS]) : undefined;
+    delete eventsPatch[HUB_DRAFT_MAIN_COLOURS];
     const dateWritten = 'event_date' in eventsPatch;
     /* 🔳 THE QR LOOK LEAVES THE SESSION UPDATE TOO. The draft holds `{ qr }`
        only; `style_preferences` also carries the couple's onboarding answers,
@@ -682,8 +690,43 @@ export async function hubDraftAction(
          rows counted (`writePaletteFill`): never over a board the couple made,
          even one painted between the read and now. */
       const seed = sanitizeSeedPalette(paletteWrite);
-      const filled = seed ? await writePaletteFill(supabase as unknown as PaletteFillClient, eventId, paletteRead, seed) : { ok: true };
+      /* 🎨 A board the couple PAINTED (step 4c): the Mood Board's own write — the
+         sanitized board and its timestamp, the shape \`saveRolePalette\` writes —
+         on the couple's session, the row counted. */
+      const painted = seed ? undefined : sanitizePaintedPalette(paletteWrite);
+      const filled = seed
+        ? await writePaletteFill(supabase as unknown as PaletteFillClient, eventId, paletteRead, seed)
+        : painted
+          ? await supabase
+              .from('events')
+              .update({ role_palette: painted, mood_board_updated_at: new Date().toISOString() })
+              .eq('event_id', eventId)
+              .select('event_id')
+              .then(({ data, error }) => ({ ok: !error && Array.isArray(data) && data.length > 0 }))
+          : { ok: true };
       if (!filled.ok) {
+        return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
+      }
+    }
+    if (mainColoursWrite) {
+      /* 🎨 Read the board NOW (a fill just above, or a Mood Board edit since the
+         draft was made, must not be undone), lay the drafted slots into its main
+         colours, and count the row — a zero-row write is not "applied". The
+         couple's own session, as the Mood Board writes it. */
+      const { data: boardRow, error: boardErr } = await supabase
+        .from('events')
+        .select('role_palette, invite_theme')
+        .eq('event_id', eventId)
+        .maybeSingle();
+      const board = boardRow as { role_palette?: unknown; invite_theme?: unknown } | null;
+      const { data: colourRows, error: colourErr } = boardErr || !board
+        ? { data: null, error: boardErr ?? new Error('no row') }
+        : await supabase
+            .from('events')
+            .update({ role_palette: boardWithMainColours(board.role_palette, mainColoursWrite, board.invite_theme) })
+            .eq('event_id', eventId)
+            .select('event_id');
+      if (colourErr || !Array.isArray(colourRows) || colourRows.length === 0) {
         return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
       }
     }
@@ -728,6 +771,15 @@ export async function hubDraftAction(
     for (const [widgetId, items] of byWidget) {
       const row = live.widgets.find((r) => r.widget_id === widgetId);
       if (!row) continue;
+      /* 🗑 A scene of their own deleted in the draft (owner 2026-10-07, *"remove
+         for good"*): deleted now, through the ONE delete the live Remove for
+         good uses (`deleteOwnScene`, rows counted). Nothing else is written to a
+         row that is gone. */
+      if (items.some((i) => i.kind === 'widget' && i.field === 'removed')) {
+        const gone = await deleteOwnScene(supabase, eventId, row);
+        if (!gone.ok) return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
+        continue;
+      }
       const patch: Record<string, unknown> = {};
       const before: Record<string, unknown> = {};
       for (const item of items) {

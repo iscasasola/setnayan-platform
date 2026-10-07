@@ -165,6 +165,17 @@ const SLOT_ROLE: Record<MoodboardSlotKey, SlotRole> = {
     kind: 'not_a_part',
     why: 'the whole look — that is WHOLE_LOOK_PART_ID, the five-credit combined render',
   },
+  // 💐 Step 4c (2026-10-07): inspiration cards of their own, NOT render parts —
+  // aliasing them onto the tables or the bride would hand florists and caterers
+  // a say in another part's sign-off (`canonicalServicesForPart`). Kept apart.
+  bridal_bouquet: {
+    kind: 'not_a_part',
+    why: 'an inspiration card (the florist’s shelf), not a render part — the bride’s part keeps its own trades',
+  },
+  centrepieces: {
+    kind: 'not_a_part',
+    why: 'an inspiration card (florists, stylists, caterers), not a render part — the tables zone keeps its own trades',
+  },
   palette: {
     kind: 'not_a_part',
     why: 'a colour source, not a place — it conditions every render rather than being one',

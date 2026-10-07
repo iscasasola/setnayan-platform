@@ -75,7 +75,7 @@ import { isPlaceholderSeat } from '@/lib/extra-seats';
 // select whose columns it can read. It carries the hero's columns
 // (HERO_EVENT_COLUMNS, asserted below) so resolveHero() sees what it needs.
 const EVENT_COLUMNS =
-  'event_id, display_name, event_type, event_date, slug, invite_theme, site_bg_color, site_button_color, site_button_style, site_font_key, venue_name, venue_address, std_film_ceremony_name, std_film_venue_name, dress_code_config, role_palette, print_details, pabuya_message, special_message, love_story, landing_page_hero_image_url, landing_page_hero_video_r2_key, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, rsvp_ask_config, style_preferences, role_names, papic_on, gifts_on, logo_wanted, cover_photo_wanted';
+  'event_id, display_name, event_type, event_date, slug, invite_theme, site_bg_color, site_button_color, site_button_style, site_font_key, venue_name, venue_address, std_film_ceremony_name, std_film_venue_name, dress_code_config, role_palette, print_details, pabuya_message, special_message, love_story, landing_page_hero_image_url, landing_page_hero_video_r2_key, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, rsvp_ask_config, style_preferences, role_names, qr_shown, papic_on, gifts_on, logo_wanted, cover_photo_wanted';
 
 for (const c of HERO_EVENT_COLUMNS) {
   if (!EVENT_COLUMNS.includes(c)) throw new Error(`print-set: EVENT_COLUMNS is missing the hero column ${c}`);
@@ -123,6 +123,8 @@ export type PrintEventRow = {
    * owner 2026-10-02): shown and changed in Your info, read by the guided flow.
    */
   papic_on?: boolean | null;
+  /** 🔳 Info › Your Event Hub › QR (owner 2026-10-07): false = the event QR is left off every print. */
+  qr_shown?: boolean | null;
   gifts_on?: boolean | null;
   logo_wanted?: boolean | null;
   cover_photo_wanted?: boolean | null;
@@ -680,7 +682,8 @@ export async function loadPrintSet(
   const qrLook = qrLookForHostDraft(liveEvent, draft) ?? (await resolveEventQrLook(admin, eventId, event));
 
   let hasEventQr = false;
-  if (opts.withEventQr !== false && event.slug) {
+  // 🔳 The couple switched the event QR OFF (Info › Your Event Hub › QR) — no print carries it.
+  if (opts.withEventQr !== false && event.qr_shown !== false && event.slug) {
     try {
       const png = await renderEventLandingQrPng({ appUrl, slug: event.slug, ownerSlug, look: qrLook, width: opts.mode === 'print' ? 900 : 360 });
       images.eventqr = { bytes: new Uint8Array(png), mime: 'image/png' };

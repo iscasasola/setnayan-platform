@@ -270,6 +270,6 @@ export function makerPostEventMoveDraft(arr: PostEventArrangement, sceneKey: str
  */
 export function makerRemoveWords(label: string, own: boolean): { title: string; body: string; yes: string } {
   return own
-    ? { title: 'Delete this scene?', body: `${label} and its words are deleted for good.`, yes: 'Delete' }
+    ? { title: 'Delete this scene?', body: `${label} and its words are deleted for good when you Apply.`, yes: 'Delete' }
     : { title: 'Remove from this page?', body: `${label} leaves this page. Its words stay in Studio, and ＋ brings it back.`, yes: 'Remove' };
 }

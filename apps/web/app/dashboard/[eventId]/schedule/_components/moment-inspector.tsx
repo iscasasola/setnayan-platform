@@ -33,6 +33,8 @@ import type { DayMoment, DayRequest, DaySupplier } from './day-types';
 import { formatBlockTime, formatBlockTimeRange } from '@/lib/schedule';
 import { DETAILS_PIECE_LABEL_EVENT } from '../../launch/_components/details-piece';
 import { CARRIED, momentLatestWrite, postMomentToCanvas } from './schedule-live';
+import { useMaker } from '../../launch/_components/maker-context';
+import { SCHEDULE_AUDIENCE_OPTIONS, readScheduleAudience, scheduleAudienceForWrite } from '@/lib/schedule-audience';
 
 const FIELD_WHAT = { label: 'The name', location: 'The place', notes: 'The note' } as const;
 import { Eyebrow, PickMenu, Stepper, Switch, Tip, toFormData, useDayActions } from './day-ui';
@@ -92,6 +94,9 @@ export function MomentInspector({
     updateScheduleBlock,
   } = useDayActions();
   const [save, setSave] = useState<SaveState>('idle');
+  /* 🧭 For ▾ is drawn only in the new Maker's Studio (`makerStagesStudioEnabled`). */
+  const studio = useMaker()?.stagesStudio === true;
+  const audience = readScheduleAudience(m.audience ?? null);
   const [, startTransition] = useTransition();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [party, setParty] = useState(m.responsible_party ?? '');
@@ -305,6 +310,39 @@ export function MomentInspector({
           </div>
         )}
       </div>
+
+      {/* 👥 FOR ▾ — who this moment is for (owner 2026-10-06/07, the new Maker's
+          Studio › Schedule only — `makerStagesStudioEnabled`). A role's moment is
+          its Arrive by; the guests' schedule shows only the Everyone moments. */}
+      {studio ? (
+        <div className="mt-4" data-moment-for="">
+          <Eyebrow>For</Eyebrow>
+          {readOnly ? (
+            <p className="py-1.5 text-[15px] text-ink">{SCHEDULE_AUDIENCE_OPTIONS.find((o) => o.key === audience)?.label}</p>
+          ) : (
+            <div className="mt-1">
+              <PickMenu
+                label="Who this moment is for"
+                value={audience}
+                dataAttr="data-moment-for-pick"
+                options={SCHEDULE_AUDIENCE_OPTIONS}
+                onPick={(key) => {
+                  const stored = scheduleAudienceForWrite(key);
+                  if (stored === undefined || key === audience) return;
+                  onOverride(m.block_id, { audience: stored });
+                  run(
+                    [m.block_id],
+                    () => updateScheduleBlock(toFormData({ event_id: eventId, block_id: m.block_id, audience: key })),
+                    undefined,
+                    { audience: stored },
+                    'Who it is for',
+                  );
+                }}
+              />
+            </div>
+          )}
+        </div>
+      ) : null}
 
       <div className="mt-4 grid grid-cols-2 gap-4">
         <div>

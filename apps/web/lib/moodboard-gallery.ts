@@ -80,6 +80,9 @@ export const MOODBOARD_SLOT_TRADES: Readonly<
   flowers: ['florist', 'stylist_decorator'],
   cocktail: ['mobile_bar', 'mocktail', 'coffee_espresso'],
   cake: ['cake', 'dessert'],
+  // 💐 The owner's two parts, on the taxonomy tiles they already map to (step 4c).
+  bridal_bouquet: ['florist'],
+  centrepieces: ['florist', 'stylist_decorator', 'catering'],
   overall: ['reception', 'stylist_decorator', 'lights_sound', 'coordinator'],
   // 🔑 NOT A TRADE. A palette source is a photo the couple sampled colours
   // from — a wall, a fabric, a sunset. No shop's portfolio answers it.

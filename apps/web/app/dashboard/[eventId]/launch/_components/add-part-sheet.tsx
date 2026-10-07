@@ -29,6 +29,7 @@ import type { RevealStage } from '@/lib/reveal-stages';
 import { STAGE_SHEET_ROW } from '@/lib/maker-stage-room';
 import { SceneTemplatePicker } from '../../website/editor/_components/scene-template-picker';
 import { MakerSheet } from './stages-studio-parts';
+import { PLACE_ORDER_FIELD, PLACE_STAGE_FIELD, ownScenePlaceOrder } from '@/lib/own-scene-place';
 import { MakerRevealStageContext } from './maker-reveal';
 import { MAKER_PART_OPS_EVENT, type MakerPartOps, type MakerPartRaw } from './maker-part-ops';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
@@ -180,6 +181,13 @@ function movableOf(ops: MakerPartOps | null, canvas: string | null): Movable {
   return { kind: 'fixed' };
 }
 
+/** ＋ The new scene's place, as the form sends it (`lib/own-scene-place.ts`) — only off a scene; anything else lands at the end. */
+function ownPlaceFields(ops: MakerPartOps, mv: Movable, where: 'above' | 'below' | null): Record<string, string> {
+  if (!where || mv.kind !== 'scene') return {};
+  const order = ownScenePlaceOrder(ops.fullOrder, mv.id, where);
+  return order ? { [PLACE_STAGE_FIELD]: ops.stage, [PLACE_ORDER_FIELD]: order.join(',') } : {};
+}
+
 type Box = { top: number; left: number; width: number; height: number };
 /** A 44 px tap around each edge's small face (prototype `.addp` · `.grip` · `.delp`). */
 const EDGE_BTN = 'sn-press pointer-events-auto absolute inline-flex h-11 w-11 items-center justify-center rounded-full';
@@ -200,6 +208,8 @@ export function PartEdits({ stage, picked }: { stage: MakerStageKey; picked: Mak
   const [adding, setAdding] = useState<'above' | 'below' | null>(null);
   const [removing, setRemoving] = useState(false);
   const [ownOpen, setOwnOpen] = useState(false);
+  /* ＋ Which edge "A scene of your own" was asked from — it lands there (owner 2026-10-07). */
+  const [ownWhere, setOwnWhere] = useState<'above' | 'below' | null>(null);
   const [drag, setDrag] = useState<{ dy: number; line: number | null } | null>(null);
   const [error, setError] = useState<string | null>(null);
   /* The prototype's toast — what just happened, said at once ("Song added below"). */
@@ -479,6 +489,7 @@ export function PartEdits({ stage, picked }: { stage: MakerStageKey; picked: Mak
           ops={ops}
           onAdd={add}
           onOwn={() => {
+            setOwnWhere(adding);
             setAdding(null);
             setOwnOpen(true);
           }}
@@ -498,7 +509,7 @@ export function PartEdits({ stage, picked }: { stage: MakerStageKey; picked: Mak
               ops.onPickTemplate();
             }}
             action={ops.addOwn.action}
-            hidden={{ event_id: ops.eventId, return_to: ops.addOwn.returnTo }}
+            hidden={{ event_id: ops.eventId, return_to: ops.addOwn.returnTo, ...ownPlaceFields(ops, mv, ownWhere) }}
             stageLabel={ops.addOwn.stageLabel}
             heading={ops.addOwn.heading}
             triggerLabel="A scene of your own"

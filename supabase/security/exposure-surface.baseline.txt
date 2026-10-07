@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6613
+# facts: 6616
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     568
-#   col       4830
+#   col       4833
 #   policy    945
 #   view      8
 #   func      258
@@ -1687,6 +1687,7 @@ col	public.event_scene_objects.x_pct	anon=SIU authenticated=SIU
 col	public.event_scene_objects.y_pct	anon=SIU authenticated=SIU
 col	public.event_schedule_blocks.actual_end_at	anon=SIU authenticated=SIU
 col	public.event_schedule_blocks.actual_start_at	anon=SIU authenticated=SIU
+col	public.event_schedule_blocks.audience	anon=SIU authenticated=SIU
 col	public.event_schedule_blocks.block_id	anon=SIU authenticated=SIU
 col	public.event_schedule_blocks.block_type	anon=SIU authenticated=SIU
 col	public.event_schedule_blocks.created_at	anon=SIU authenticated=SIU
@@ -2101,6 +2102,7 @@ col	public.events.final_pax	anon=S authenticated=S
 col	public.events.full_res_drop_warned_at	anon=SIU authenticated=SIU
 col	public.events.gender_separation	anon=SIU authenticated=SIU
 col	public.events.geolocation_enabled	anon=SIU authenticated=SIU
+col	public.events.gift_registry_url	anon=- authenticated=SU
 col	public.events.gifts_on	anon=- authenticated=SU
 col	public.events.groom_name	anon=SIU authenticated=SIU
 col	public.events.guest_count_locked_at	anon=S authenticated=S
@@ -2197,6 +2199,7 @@ col	public.events.pool_gallery_open	anon=S authenticated=S
 col	public.events.previous_event_id	anon=- authenticated=S
 col	public.events.print_details	anon=- authenticated=S
 col	public.events.public_id	anon=S authenticated=S
+col	public.events.qr_shown	anon=- authenticated=SU
 col	public.events.recap_social_optout_at	anon=SIU authenticated=SIU
 col	public.events.reception_design	anon=SIU authenticated=SIU
 col	public.events.recur_cadence	anon=- authenticated=SIU

@@ -148,6 +148,7 @@ import { celebrationDraftIsPro } from '@/lib/rsvp-celebration';
 import { resolveReturnTo } from '@/lib/editor-return';
 import type { HubProEffectView } from '@/lib/hub-pro-effects';
 import { INVITE_THEMES, isInviteThemeId, normalizeThemeId } from '@/lib/invite-themes';
+import { boardWithMainColours, mainColoursChanged, paintedPaletteKey, sanitizeMainColourDraft, sanitizePaintedPalette } from '@/lib/main-colours';
 import { boardIsTheCouples, boardWithFill, sanitizeSeedPalette } from '@/lib/mood-board-palette-set';
 import { cleanDisplayName, cleanPersonName } from '@/lib/typed-names';
 import { NAME_STYLES, nameStyleOfPrintDetails } from '@/lib/name-style';
@@ -482,7 +483,20 @@ export const HUB_DRAFT_CEREMONY_TIME = 'ceremony_time' as const;
  * grant for `authenticated`, migration 20271260666366), and turning Papic ON
  * arms its free grants there (`hub-draft-actions.ts`).
  */
-export const HUB_DRAFT_ANSWER_COLUMNS = ['papic_on', 'gifts_on', 'logo_wanted', 'cover_photo_wanted'] as const;
+export const HUB_DRAFT_ANSWER_COLUMNS = ['papic_on', 'gifts_on', 'logo_wanted', 'cover_photo_wanted', 'qr_shown'] as const;
+/* 🔳 `qr_shown` — Info › Your Event Hub › QR on/off (owner 2026-10-07, "THE
+   MISSING FIELDS ARE APPROVED"; migration 20271265788160): false hides the event
+   QR from the prints and the guest page; NULL/true = shown. A yes or a no, like
+   the answers above, drafted and never Pro. */
+
+/**
+ * 🎨 ONE MAIN COLOUR, EDITED ON ITS OWN (owner 2026-10-06/07, Studio › Look ›
+ * Colours — "one palette, not a copy"). NOT an `events` column: the drafted
+ * slots of the Mood Board's five main colours (`lib/main-colours.ts`), laid INTO
+ * `role_palette.reception` by the host's canvas (`overlayHubDraftEvent`) and by
+ * Apply, every other key of the board kept. Never Pro (a colour is free).
+ */
+export const HUB_DRAFT_MAIN_COLOURS = 'main_colours' as const;
 
 /** The name-style key of `print_details` a draft may hold (the ticket style is `HUB_DRAFT_PASS_DESIGN_KEY`). */
 export const HUB_DRAFT_PRINT_DETAILS_KEY = 'name_style';
@@ -555,7 +569,7 @@ export const HUB_DRAFT_EVENT_READ_COLUMNS = [
 ] as const;
 
 /** Every key the draft's `events` may hold: the columns, and 🕒 the ceremony time (owner 2026-10-04). */
-export const HUB_DRAFT_EVENT_COLUMNS = [...HUB_DRAFT_EVENT_READ_COLUMNS, HUB_DRAFT_CEREMONY_TIME] as const;
+export const HUB_DRAFT_EVENT_COLUMNS = [...HUB_DRAFT_EVENT_READ_COLUMNS, HUB_DRAFT_CEREMONY_TIME, HUB_DRAFT_MAIN_COLOURS] as const;
 
 /** The largest logo a draft accepts — `saveStudioAction`'s own cap. */
 export const HUB_DRAFT_LOGO_MAX_BYTES = 400_000;
@@ -613,6 +627,14 @@ export type HubDraftWidget = {
    * re-reads it through `readVenueChoices` (this event's own photos only).
    */
   venue?: HubDraftVenueChoices;
+  /**
+   * 🗑 A SCENE OF THEIR OWN, DELETED IN THE DRAFT — `custom_*` rows ONLY (owner
+   * 2026-10-07, *"remove for good"*: in the Maker the delete waits for Apply).
+   * The canvas and the navigator stop drawing it at once (`overlayHubDraftWidgets`
+   * drops the row); its slot stays taken — the live row is still there — until
+   * Apply deletes it through `deleteOwnScene`; Undo brings it back. Never Pro.
+   */
+  removed?: true;
 };
 
 /** The Venue scene's per-card choices as the draft holds them (shape only — the event is checked at Apply). */
@@ -693,7 +715,7 @@ export function sanitizeHubDraftEventValue(
   // ceremony time is moved, never erased, from here.
   // 🎨 …and the Mood Board palette is only ever FILLED from here, never cleared.
   if (raw === null)
-    return column === 'display_name' || column === 'event_date_precision' || column === 'ceremony_time' || column === 'role_palette'
+    return column === 'display_name' || column === 'event_date_precision' || column === 'ceremony_time' || column === 'role_palette' || column === 'main_colours'
       ? undefined
       : null;
   switch (column) {
@@ -743,7 +765,11 @@ export function sanitizeHubDraftEventValue(
       return sanitizeHubButtonStyle(raw);
     // 🎨 A theme's own colours as the board's main colours — nothing else.
     case 'role_palette':
-      return sanitizeSeedPalette(raw);
+      // …or a board the couple PAINTED (the Mood Board's own sanitizer — step 4c, 2026-10-07).
+      return sanitizeSeedPalette(raw) ?? sanitizePaintedPalette(raw);
+    // 🎨 One (or more) of the five main colours, by slot — `#RRGGBB` each.
+    case 'main_colours':
+      return sanitizeMainColourDraft(raw);
     // 🎨 The theme — only a live id of a SHIPPED theme (`setInviteTheme`'s old
     // rule: `isInviteThemeId` + `ready`). A retired alias is never written.
     case 'invite_theme':
@@ -787,6 +813,7 @@ export function sanitizeHubDraftEventValue(
     case 'gifts_on':
     case 'logo_wanted':
     case 'cover_photo_wanted':
+    case 'qr_shown':
       return typeof raw === 'boolean' ? raw : undefined;
     // ⚙ WHAT DO YOU WANT TO ASK YOUR GUESTS? — through the SAME sanitizer the
     // guest render and `submitRsvp` read: unknown keys and non-boolean values
@@ -925,6 +952,7 @@ function sanitizeWidget(raw: unknown, type: WidgetType): HubDraftWidget | null {
       if (words.ok) out.custom = words.value;
     }
   }
+  if (isCustomSectionType(type) && src.removed === true) out.removed = true;
   if (type === 'venue_map' && isPlainObject(src.venue)) {
     const venue = draftVenueChoices(src.venue);
     if (Object.keys(venue).length) out.venue = venue;
@@ -1097,7 +1125,16 @@ export function overlayHubDraftEvent<T extends Record<string, unknown>>(
   if ('role_palette' in draft.events) {
     const seed = sanitizeSeedPalette(draft.events.role_palette);
     // The fill lands as Apply lands it: the board's main colours replaced, nothing else (`boardWithFill`).
-    out.role_palette = (seed && boardWithFill(row.role_palette, seed)) ?? row.role_palette;
+    /* 🎨 …and a board the couple PAINTED in the Maker (step 4c) is the board, whole. */
+    const painted = seed ? undefined : sanitizePaintedPalette(draft.events.role_palette);
+    out.role_palette = painted ?? (seed && boardWithFill(row.role_palette, seed)) ?? row.role_palette;
+  }
+  /* 🎨 ONE MAIN COLOUR (Studio › Look › Colours): the drafted slots laid INTO the
+     board's main colours — over the fill above, every other key kept. Not a column. */
+  delete out[HUB_DRAFT_MAIN_COLOURS];
+  if (HUB_DRAFT_MAIN_COLOURS in draft.events) {
+    const slots = sanitizeMainColourDraft(draft.events[HUB_DRAFT_MAIN_COLOURS]);
+    if (slots) out.role_palette = boardWithMainColours(out.role_palette, slots, out.invite_theme);
   }
   /* 🔳 The drafted QR look is laid INTO the live blob — the blob's other keys
      (onboarding answers the page may read) are never overlaid away. */
@@ -1157,12 +1194,17 @@ export function configWithVenue(config: unknown, venue: HubDraftVenueChoices): R
 }
 
 /** The live widget rows with the draft's mode / order / canvas on top (new objects). */
+/** 🗑 Is this scene of their own deleted in the draft (`HubDraftWidget.removed`)? */
+export function draftRemoves(draft: HubDraftState | null, type: string): boolean {
+  return Boolean(draft && isCustomSectionType(type) && draft.widgets[type as WidgetType]?.removed === true);
+}
+
 export function overlayHubDraftWidgets(
   rows: readonly InvitationWidgetRow[],
   draft: HubDraftState | null,
 ): InvitationWidgetRow[] {
   if (!draft || Object.keys(draft.widgets).length === 0) return [...rows];
-  return rows.map((row) => {
+  return rows.filter((row) => !draftRemoves(draft, row.widget_type)).map((row) => {
     const w = draft.widgets[row.widget_type];
     if (!w) return row;
     let config: unknown = row.config_json;
@@ -1224,7 +1266,7 @@ export type HubDraftItem =
       kind: 'widget';
       widgetType: WidgetType;
       widgetId: string;
-      field: 'mode' | 'is_visible' | 'display_order' | 'canvas' | 'main' | 'stage_order' | 'std_lead' | 'custom' | 'venue';
+      field: 'mode' | 'is_visible' | 'display_order' | 'canvas' | 'main' | 'stage_order' | 'std_lead' | 'custom' | 'venue' | 'removed';
       value: unknown;
       change: LookChange;
       pro: boolean;
@@ -1347,7 +1389,8 @@ export function eventColumnChange(column: HubDraftEventColumn, live: unknown, ne
       return refChange(key(live), key(next));
     }
     case 'papic_on':
-    case 'gifts_on': {
+    case 'gifts_on':
+    case 'qr_shown': {
       // On until someone says No: never answered and Yes are the same event.
       const on = (v: unknown) => (v === false ? 'off' : 'on');
       return on(live) === on(next) ? refChange('same', 'same') : refChange(on(live), on(next));
@@ -1358,6 +1401,10 @@ export function eventColumnChange(column: HubDraftEventColumn, live: unknown, ne
       return refChange(said(live), said(next));
     }
     case 'role_palette': {
+      // 🎨 A PAINTED board (step 4c) is the couple's own edit: compared as the Mood Board reads it.
+      if (!sanitizeSeedPalette(next) && sanitizePaintedPalette(next)) {
+        return paintedPaletteKey(live) === paintedPaletteKey(next) ? 'none' : 'change';
+      }
       // 🎨 Never over a board the couple painted (the draft's fill is then
       // nothing); an empty or theme-written board takes the picked theme's.
       if (boardIsTheCouples(live)) return 'none';
@@ -1367,6 +1414,9 @@ export function eventColumnChange(column: HubDraftEventColumn, live: unknown, ne
       };
       return refChange(seedKey(live), seedKey(next));
     }
+    case 'main_colours':
+      // 🎨 Only the slots the draft HOLDS, against the five the page wears live.
+      return mainColoursChanged(live, next) ? 'change' : 'none';
     case 'site_art_direction': {
       // Exactly as `siteLookChange` reads it: only Candlelight is a choice;
       // Daylight and "never chosen" are the same page.
@@ -1831,6 +1881,12 @@ export function classifyHubDraft(
        couple's OWN scene that guests do not see today is asked — putting it in
        front of guests is adding a look (`lookWriteAllowed`'s 'add'); taking one
        off, and every shipped section's show / hide, stay free. */
+    /* 🗑 A scene of their own deleted in the draft: ONE item — the delete — and
+       nothing else about it is written (its words, look and place go with it). */
+    if (w.removed === true && isCustomSectionType(type)) {
+      items.push({ kind: 'widget', widgetType: type, widgetId: row.widget_id, field: 'removed', value: true, change: 'remove', pro: false });
+      continue;
+    }
     const showsOwnScene = isCustomSectionType(type) && !row.is_always_on && !ownSceneOn(row, {}) && ownSceneOn(row, w);
     if (w.mode !== undefined && !row.is_always_on && w.mode !== (row.mode ?? 'auto')) {
       items.push({
@@ -2054,7 +2110,8 @@ export function planHubDraftApply(
      picked theme's; a Pro theme held at Apply holds its colours with it, or the
      live page would wear the held theme's colours under the theme it kept. */
   if (refused.some((i) => i.kind === 'event' && i.column === 'invite_theme')) {
-    const at = apply.findIndex((i) => i.kind === 'event' && i.column === 'role_palette');
+    // Only a theme's FILL shares its fate — a board the couple painted is theirs, whatever the theme.
+    const at = apply.findIndex((i) => i.kind === 'event' && i.column === 'role_palette' && Boolean(sanitizeSeedPalette(i.value)));
     if (at >= 0) refused.push(...apply.splice(at, 1));
   }
   const remaining: HubDraftState = { events: {}, widgets: {} };
@@ -2418,6 +2475,8 @@ export const HUB_DRAFT_EVENT_LABEL: Record<HubDraftEventColumn, string> = {
   gifts_on: 'Gifts',
   logo_wanted: 'Do you want a logo',
   cover_photo_wanted: 'Your event photo',
+  qr_shown: 'Your event QR',
+  main_colours: 'Your colours',
 };
 
 /** A sentence-ready name for each fixed part whose style is drafted. */
@@ -2448,6 +2507,7 @@ export function hubDraftItemLabel(item: HubDraftItem, sectionLabel: (t: WidgetTy
   if (item.field === 'std_lead') return 'Save the Date · Film or Photos';
   if (item.field === 'custom') return `${sectionLabel(item.widgetType)} · its words`;
   if (item.field === 'venue') return 'Your venues';
+  if (item.field === 'removed') return `${sectionLabel(item.widgetType)} · deleted for good`;
   const what =
     item.field === 'mode' || item.field === 'is_visible'
       ? 'shown or hidden'

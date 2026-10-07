@@ -20,6 +20,7 @@ export function mainGroundChoice(input: {
 }): 'theme' | 'loop' | 'hero' | 'media' | 'none' {
   const { current, choosingMedia } = input;
   if (choosingMedia || isHubMainOwn(current)) return 'media';
-  if (isHubMainChoice(current)) return current.ground;
+  // 🧵 A pattern is drawn ON the colour — the panel lights "Just the colour" (Studio › Look draws its Pattern ▾).
+  if (isHubMainChoice(current)) return current.ground === 'pattern' ? 'none' : current.ground;
   return input.followsHero || (!current && input.heroPhotoRef) ? 'hero' : 'theme';
 }

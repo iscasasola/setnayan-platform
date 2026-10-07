@@ -4,7 +4,8 @@ import { useContext, useEffect, useId, useState, useTransition, type ReactNode }
 import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { EGIFT_KIND_META, type EgiftMethodKind } from '@/lib/egift-kinds';
 import { PabuyaCardList } from '@/app/_components/pabuya/pabuya-card-list';
-import { saveEgiftMethod, setEgiftMethodEnabled } from '../../pabuya/actions';
+import { saveEgiftMethod, savePabuyaMessage, setEgiftMethodEnabled } from '../../pabuya/actions';
+import { cleanGiftRegistryUrl, GIFT_REGISTRY_URL_ERROR, GIFT_REGISTRY_URL_MAX } from '@/lib/gift-registry';
 import type { ManagerMethod } from '../../pabuya/_components/pabuya-manager';
 import { HUB_LIVE_WORDS } from '../../website/_components/hub-draft-field';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
@@ -14,6 +15,7 @@ import { LaunchStdButton } from '../../studio/save-the-date/_components/launch-s
 import type { LaunchPhaseKey } from '../../website/editor/_components/launch-phase-choices';
 import { MAKER_OPEN_RESET_EVENT } from '../../website/_components/maker-open-reset';
 import { QrActions } from '@/app/_components/qr-actions';
+import { FileUpload } from '@/app/_components/file-upload';
 import { MAKER_STAY_FIELD } from '@/lib/maker-stay';
 import {
   WHICH_VERSION_LABEL,
@@ -30,6 +32,17 @@ import { updateWhatToBring } from '../../website/what-to-bring/actions';
 import { DetailsSelectContext } from './details-go';
 import { ISeg, ISegmented } from '../../website/editor/_components/inspector-kit';
 import { LOOK_SECTION_ITEM_KEYS, type LookSectionItemKey } from '@/lib/maker-details-items';
+import { hubDraftAction } from '../../website/hub-draft-actions';
+import {
+  HUB_MAIN_BLURS,
+  HUB_MAIN_FOCUSES,
+  HUB_MAIN_PATTERNS,
+  HUB_MAIN_PATTERN_LABEL,
+  hubMainTakes,
+  type HubMainGround,
+} from '@/lib/hub-canvas';
+import { MAIN_GROUND_SHADES, MAIN_GROUND_SHADE_LABEL } from '@/lib/main-ground-shade';
+import { MAIN_COLOUR_JOB, MAIN_COLOUR_SLOTS, type MainColourDraft, type MainColourSlot } from '@/lib/main-colours';
 
 /**
  * 🧭 THE NEW MAKER'S STUDIO TOOLS, REDRAWN TO THE PROTOTYPE (owner 2026-10-06;
@@ -112,14 +125,21 @@ export function StudioReadOnlyFact({ label, value, line, data }: { label?: strin
 /** The four ways to give the prototype draws, in its order — the shipped kinds (`lib/egift-kinds.ts`). */
 export const STUDIO_GIFT_KINDS = ['gcash', 'maya', 'bank', 'paypal'] as const satisfies readonly EgiftMethodKind[];
 
-type GiftRow = { id: string | null; on: boolean; handle: string; accountName: string };
+type GiftRow = { id: string | null; on: boolean; handle: string; accountName: string; qrRef: string; qrUrl: string | null };
 
 function rowsFrom(methods: readonly ManagerMethod[]): Record<(typeof STUDIO_GIFT_KINDS)[number], GiftRow> {
   const out = {} as Record<(typeof STUDIO_GIFT_KINDS)[number], GiftRow>;
   for (const k of STUDIO_GIFT_KINDS) {
     /* The first of its kind — the one guests see first (the manager keeps any others). */
     const m = methods.find((x) => x.method_kind === k && x.is_enabled) ?? methods.find((x) => x.method_kind === k) ?? null;
-    out[k] = { id: m?.egift_method_id ?? null, on: m?.is_enabled ?? false, handle: m?.handle ?? '', accountName: m?.account_name ?? '' };
+    out[k] = {
+      id: m?.egift_method_id ?? null,
+      on: m?.is_enabled ?? false,
+      handle: m?.handle ?? '',
+      accountName: m?.account_name ?? '',
+      qrRef: m?.qr_r2_key ?? '',
+      qrUrl: m?.qrDisplayUrl ?? null,
+    };
   }
   return out;
 }
@@ -139,13 +159,22 @@ export function StudioEgifts({
   eventId,
   methods,
   thanks,
+  registryUrl,
 }: {
   eventId: string;
   methods: readonly ManagerMethod[];
   /** The thank-you line's shipped editor (`PabuyaMessageEditor`) — absent where the form draws it as its own item. */
   thanks?: ReactNode;
+  /**
+   * 🔗 The registry link as stored (`events.gift_registry_url`, owner 2026-10-07);
+   * null = none yet; absent (undefined) = it could not be read — the field is
+   * then not drawn, never shown empty over a link that exists.
+   */
+  registryUrl?: string | null;
 }) {
   const [rows, setRows] = useState(() => rowsFrom(methods));
+  const [registry, setRegistry] = useState(registryUrl ?? '');
+  const [registrySaved, setRegistrySaved] = useState(registryUrl ?? '');
   /* A way created here comes back from the server with its id (the Maker re-reads after a create). */
   useEffect(() => {
     const fresh = rowsFrom(methods);
@@ -155,6 +184,11 @@ export function StudioEgifts({
       for (const k of STUDIO_GIFT_KINDS) {
         if (!r[k].id && fresh[k].id) {
           next[k] = { ...r[k], id: fresh[k].id };
+          changed = true;
+        }
+        /* A QR saved here comes back with its permanent picture URL. */
+        if (fresh[k].qrRef === r[k].qrRef && fresh[k].qrUrl !== r[k].qrUrl) {
+          next[k] = { ...next[k], qrUrl: fresh[k].qrUrl };
           changed = true;
         }
       }
@@ -203,6 +237,57 @@ export function StudioEgifts({
       if (!res.ok) setError(res.error);
     });
   };
+  /**
+   * 🔳 THE METHOD'S QR (controller 2026-10-07, owner: *"shouldn't we show the
+   * actual QR instead?"*): the E-Gifts manager's own upload (the
+   * `pabuya-qr/<event>` shelf), compressed on the phone, then the SHIPPED
+   * `saveEgiftMethod` with `qr_r2_key` — which checks it is a real payment QR
+   * (`checkPabuyaQrImage`) and says so if not. '' removes it. Live, like every
+   * E-Gifts write. +0 server actions.
+   */
+  const saveQr = (kind: (typeof STUDIO_GIFT_KINDS)[number], ref: string) => {
+    const before = rows[kind];
+    if (before.qrRef === ref) return;
+    const original = methods.find((m) => m.egift_method_id === before.id) ?? null;
+    setRows((r) => ({ ...r, [kind]: { ...r[kind], qrRef: ref, qrUrl: ref ? r[kind].qrUrl : null } }));
+    setError(null);
+    start(async () => {
+      const res = await makerSave(() => saveEgiftMethod(
+        fd({
+          ...(original ? { egift_method_id: original.egift_method_id } : {}),
+          method_kind: kind,
+          label: original?.label ?? EGIFT_KIND_META[kind].defaultLabel,
+          account_name: before.accountName,
+          handle: before.handle,
+          note: original?.note ?? '',
+          qr_r2_key: ref,
+        }),
+      ), requestMakerRefresh);
+      if (!res.ok) {
+        setRows((r) => ({ ...r, [kind]: before }));
+        setError(res.error);
+      }
+    });
+  };
+  /** 🔗 The registry link — saved when the box is left (the E-Gifts page's own write, live). */
+  const saveRegistry = () => {
+    const next = cleanGiftRegistryUrl(registry);
+    if (next === undefined) {
+      setError(GIFT_REGISTRY_URL_ERROR);
+      return;
+    }
+    if ((next ?? '') === registrySaved) return;
+    setError(null);
+    start(async () => {
+      const res = await makerSave(() => savePabuyaMessage(fd({ gift_registry_url: next ?? '' })), requestMakerRefresh);
+      if (res.ok) setRegistrySaved(next ?? '');
+      else {
+        setRegistry(registrySaved);
+        setError(res.error);
+      }
+    });
+  };
+  const shownLink = cleanGiftRegistryUrl(registrySaved);
   const seen = STUDIO_GIFT_KINDS.filter((k) => rows[k].on && rows[k].handle.trim()).map((k) => ({
     kind: k,
     label: methods.find((m) => m.egift_method_id === rows[k].id)?.label ?? EGIFT_KIND_META[k].defaultLabel,
@@ -216,6 +301,11 @@ export function StudioEgifts({
       <StudioHeading title="What guests see" data="egifts-preview" />
       <div data-studio-egifts-preview="" className="pointer-events-none">
         <PabuyaCardList methods={seen} emptyHint="Switch on a way to give below" />
+        {shownLink ? (
+          <p data-studio-egifts-registry-preview="" className="pt-2 text-[13px] text-ink/75">
+            Registry · <span className="underline underline-offset-2">{new URL(shownLink).hostname}</span>
+          </p>
+        ) : null}
       </div>
       <StudioHeading title="Ways to give" line="switch on what you have" />
       {STUDIO_GIFT_KINDS.map((k) => {
@@ -235,6 +325,23 @@ export function StudioEgifts({
                   placeholder={meta.handlePlaceholder}
                   className="min-h-11 rounded-md border border-ink/15 bg-white px-3 text-[14px] text-ink"
                 />
+                {/* 🔳 Add your QR — the QR-first ways (GCash · Maya, `qrPrimary`); its picture with Remove once set. */}
+                {meta.qrPrimary ? (
+                  <div data-studio-gift-qr={k}>
+                    <FileUpload
+                      bucket="thread-files"
+                      pathPrefix={`pabuya-qr/${eventId}`}
+                      label="Add your QR"
+                      acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
+                      maxSizeMB={5}
+                      variant="square"
+                      compressImage
+                      currentValue={row.qrRef || null}
+                      initialDisplayUrls={row.qrRef && row.qrUrl ? { [row.qrRef]: row.qrUrl } : {}}
+                      onChange={(v) => saveQr(k, typeof v === 'string' ? v : '')}
+                    />
+                  </div>
+                ) : null}
                 <input
                   value={row.accountName}
                   onChange={(e) => setRows((r) => ({ ...r, [k]: { ...r[k], accountName: e.target.value } }))}
@@ -249,6 +356,26 @@ export function StudioEgifts({
           </div>
         );
       })}
+      {registryUrl !== undefined ? (
+        <div data-studio-gift="registry" className="flex flex-col border-b border-ink/[0.07] pb-3">
+          <label className="flex min-h-11 items-center justify-between gap-3 py-1" htmlFor={`${eventId}-registry`}>
+            <span className="text-[14px] font-semibold text-ink">Registry link</span>
+            <small className="text-[12px] text-ink/50">optional</small>
+          </label>
+          <input
+            id={`${eventId}-registry`}
+            type="url"
+            inputMode="url"
+            value={registry}
+            onChange={(e) => setRegistry(e.target.value)}
+            onBlur={saveRegistry}
+            maxLength={GIFT_REGISTRY_URL_MAX}
+            placeholder="Paste a link to your registry"
+            data-studio-registry-input=""
+            className="min-h-11 rounded-md border border-ink/15 bg-white px-3 text-[14px] text-ink"
+          />
+        </div>
+      ) : null}
       {thanks ? (
         <>
           <StudioHeading title="What it says" />
@@ -507,6 +634,242 @@ export function StudioLookBar({ item }: { item: LookSectionItemKey }) {
   );
 }
 
+
+/* ── 🌄 LOOK › BACKGROUND — THE MAIN BACKGROUND'S EXTRAS ─────────────────── */
+
+/** One drafted write through the ONE draft door (`hubDraftAction` intent=save) — never live. Sent inside `makerSave` by the handler that drew it. */
+function draftSend(eventId: string, patch: Record<string, unknown>) {
+  const fd = new FormData();
+  fd.set('intent', 'save');
+  fd.set('patch', JSON.stringify(patch));
+  return hubDraftAction(eventId, fd);
+}
+
+/** Did the draft door take it? A thrown save is a refusal, said by the caller. */
+async function draftTook(send: Promise<{ ok: boolean }>): Promise<boolean> {
+  try {
+    return (await send).ok;
+  } catch {
+    return false;
+  }
+}
+
+const NONE_LABEL = { blur: 'None', focus: 'Centre', pattern: 'None' } as const;
+const BLUR_LABEL = { soft: 'Soft', strong: 'Strong' } as const;
+const FOCUS_LABEL = { top: 'Top', bottom: 'Bottom' } as const;
+
+/**
+ * 🌄 THE MAIN BACKGROUND'S EXTRAS (owner 2026-10-06 DECISION_LOG "STUDIO › LOOK IS
+ * THE GLOBAL LOOK"; stored 2026-10-07 "THE MISSING FIELDS ARE APPROVED"), under the
+ * shipped "Behind every scene" — each a PickMenu, each only where it means
+ * something:
+ *   · Pattern ▾  None · Fine lines · Dots · Lace · Grid — a pattern on the
+ *     Background colour, the prototype's Pattern type (picking one puts it
+ *     behind every stage; None takes it off, back to just the colour);
+ *   · Focus ▾    Centre · Top · Bottom — a photo;
+ *   · Blur ▾     None · Soft · Strong — a photo, a clip or a moving background;
+ *   · Shade ▾    Darker · Dark · As is · Light · Lighter — the same three; the
+ *     guest page lays the veil and never crosses the contrast floor.
+ * Every pick is DRAFTED on the main background (`widgets.hero.main`), counted on
+ * ✓ and named on the Apply sheet ("Look · Background"); guests see it at Apply.
+ */
+export function StudioMainExtras({ eventId, main }: { eventId: string; main: HubMainGround | null }) {
+  const [now, setNow] = useState<HubMainGround | null>(main);
+  useEffect(() => setNow(main), [main]);
+  const [error, setError] = useState<string | null>(null);
+  const [, start] = useTransition();
+  const takes = hubMainTakes(now);
+  const save = (next: HubMainGround) => {
+    const before = now;
+    setNow(next);
+    setError(null);
+    start(async () => {
+      const ok = await draftTook(makerSave(() => draftSend(eventId, { widgets: { hero: { main: next } } }), requestMakerRefresh));
+      if (!ok) {
+        setNow(before);
+        setError('That did not save, so it is back as it was. Please try again.');
+      }
+    });
+  };
+  /** The same main background with one extra set, or taken off (the default). */
+  const withExtra = (key: 'shade' | 'blur' | 'focus', value: string | null): HubMainGround => {
+    const { [key]: _drop, ...rest } = now as Record<string, unknown>;
+    return (value ? { ...rest, [key]: value } : rest) as HubMainGround;
+  };
+  const extra = (key: 'shade' | 'blur' | 'focus'): string | null => {
+    const v = (now as Record<string, unknown> | null)?.[key];
+    return typeof v === 'string' ? v : null;
+  };
+  const pattern = now && 'ground' in now && now.ground === 'pattern' ? now.pattern : null;
+  return (
+    <div data-studio-main-extras="" className="flex flex-col">
+      {/* 🧵 Pattern is a background of its own (the prototype's sixth type): a pick puts it behind every stage; None takes it off. */}
+      <HubRow label="Pattern" data="pattern">
+        <PickMenu
+          label="Pattern"
+          dataAttr="data-studio-pattern-pick"
+          value={pattern ?? 'none'}
+          options={[{ key: 'none', label: NONE_LABEL.pattern }, ...HUB_MAIN_PATTERNS.map((k) => ({ key: k, label: HUB_MAIN_PATTERN_LABEL[k] }))]}
+          onPick={(k) => {
+            if (k === (pattern ?? 'none')) return;
+            save(k === 'none' ? { ground: 'none' } : { ground: 'pattern', pattern: k as (typeof HUB_MAIN_PATTERNS)[number] });
+          }}
+        />
+      </HubRow>
+      {takes.focus ? (
+        <HubRow label="Focus" data="focus">
+          <PickMenu
+            label="Focus"
+            dataAttr="data-studio-focus-pick"
+            value={extra('focus') ?? 'centre'}
+            options={[{ key: 'centre', label: NONE_LABEL.focus }, ...HUB_MAIN_FOCUSES.map((k) => ({ key: k, label: FOCUS_LABEL[k] }))]}
+            onPick={(k) => k !== (extra('focus') ?? 'centre') && save(withExtra('focus', k === 'centre' ? null : k))}
+          />
+        </HubRow>
+      ) : null}
+      {takes.blur ? (
+        <HubRow label="Blur" data="blur">
+          <PickMenu
+            label="Blur"
+            dataAttr="data-studio-blur-pick"
+            value={extra('blur') ?? 'none'}
+            options={[{ key: 'none', label: NONE_LABEL.blur }, ...HUB_MAIN_BLURS.map((k) => ({ key: k, label: BLUR_LABEL[k] }))]}
+            onPick={(k) => k !== (extra('blur') ?? 'none') && save(withExtra('blur', k === 'none' ? null : k))}
+          />
+        </HubRow>
+      ) : null}
+      {takes.shade ? (
+        <HubRow label="Shade" data="shade">
+          <PickMenu
+            label="Shade"
+            dataAttr="data-studio-shade-pick"
+            value={extra('shade') ?? 'as-is'}
+            options={MAIN_GROUND_SHADES.map((k) => ({ key: k, label: MAIN_GROUND_SHADE_LABEL[k] }))}
+            onPick={(k) => k !== (extra('shade') ?? 'as-is') && save(withExtra('shade', k === 'as-is' ? null : k))}
+          />
+        </HubRow>
+      ) : null}
+      {error ? (
+        <p role="alert" className="text-[13px] text-terracotta-700">
+          {error}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/* ── 🎨 LOOK › COLOURS — ONE OF THE FIVE, ON ITS OWN ─────────────────────── */
+
+/**
+ * 🎨 THE FIVE MAIN COLOURS, EACH WITH ITS JOB (owner 2026-10-06: *"the five Mood
+ * Board colours, each with its job (Headings · Cards · Buttons · Background ·
+ * Ornaments), editable here — one palette, not a copy"*; approved 2026-10-07).
+ * A tap opens the phone's own colour picker for THAT colour; the pick is drafted
+ * (`main_colours`, lib/main-colours.ts) — the slots changed and nothing else —
+ * counted on ✓, named on the Apply sheet, laid into the Mood Board at Apply.
+ */
+export function StudioMainColours({
+  eventId,
+  colours,
+  drafted,
+}: {
+  eventId: string;
+  /** The five the page wears now (the draft over live). */
+  colours: readonly string[];
+  /** The slots already drafted (kept: each pick adds to them). */
+  drafted: MainColourDraft;
+}) {
+  const [five, setFive] = useState<string[]>([...colours]);
+  const [slots, setSlots] = useState<MainColourDraft>(drafted);
+  useEffect(() => setFive([...colours]), [colours]);
+  useEffect(() => setSlots(drafted), [drafted]);
+  const [error, setError] = useState<string | null>(null);
+  const [, start] = useTransition();
+  const pick = (slot: MainColourSlot, hex: string) => {
+    const up = hex.toUpperCase();
+    if (five[slot] === up) return;
+    const before = { five, slots };
+    const nextSlots = { ...slots, [String(slot)]: up } as MainColourDraft;
+    setFive((f) => f.map((c, i) => (i === slot ? up : c)));
+    setSlots(nextSlots);
+    setError(null);
+    start(async () => {
+      const ok = await draftTook(makerSave(() => draftSend(eventId, { events: { main_colours: nextSlots } }), requestMakerRefresh));
+      if (!ok) {
+        setFive(before.five);
+        setSlots(before.slots);
+        setError('That colour did not save, so it is back as it was. Please try again.');
+      }
+    });
+  };
+  return (
+    <div data-studio-main-colours="" className="flex flex-col">
+      {MAIN_COLOUR_SLOTS.map((slot) => (
+        <label
+          key={slot}
+          data-studio-colour={slot}
+          className="relative flex min-h-11 cursor-pointer items-center gap-3 border-b border-ink/[0.07] py-1.5"
+        >
+          <span aria-hidden className="h-7 w-7 shrink-0 rounded-full shadow-[inset_0_0_0_1px_rgba(0,0,0,0.15)]" style={{ backgroundColor: five[slot] }} />
+          <span className="min-w-0 flex-1 text-[14px] font-semibold text-ink">{MAIN_COLOUR_JOB[slot]}</span>
+          <span className="font-mono text-[12px] text-ink/55">{five[slot]}</span>
+          <input
+            type="color"
+            aria-label={`${MAIN_COLOUR_JOB[slot]} colour`}
+            value={(five[slot] ?? '#000000').toLowerCase()}
+            onChange={(e) => pick(slot, e.target.value)}
+            className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+          />
+        </label>
+      ))}
+      {error ? (
+        <p role="alert" className="pt-2 text-[13px] text-terracotta-700">
+          {error}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/* ── 🔳 INFO › YOUR EVENT HUB › QR ON / OFF ──────────────────────────────── */
+
+/**
+ * 🔳 THE EVENT QR, ON OR OFF (owner 2026-10-07, "THE MISSING FIELDS ARE
+ * APPROVED"): off leaves the event QR off the prints and the guest page. On is
+ * today's behaviour. Drafted (`qr_shown`) — guests see it at Apply.
+ */
+export function StudioQrShown({ eventId, shown }: { eventId: string; shown: boolean }) {
+  const [on, setOn] = useState(shown);
+  useEffect(() => setOn(shown), [shown]);
+  const [error, setError] = useState<string | null>(null);
+  const [, start] = useTransition();
+  return (
+    <div data-studio-qr-shown="" className="flex flex-col">
+      <StudioSwitch
+        label="Show the event QR"
+        on={on}
+        data="qr-shown"
+        onChange={(next) => {
+          setOn(next);
+          setError(null);
+          start(async () => {
+            const ok = await draftTook(makerSave(() => draftSend(eventId, { events: { qr_shown: next } }), requestMakerRefresh));
+            if (!ok) {
+              setOn(!next);
+              setError('That did not save, so it is back as it was. Please try again.');
+            }
+          });
+        }}
+      />
+      {error ? (
+        <p role="alert" className="text-[13px] text-terracotta-700">
+          {error}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 /* ── ONE door for the lazy stand-in (`details-lazy.tsx` `StudioTool`) ────── */
 
 /** ✍ What to bring — its own drafted column (`what_to_bring`), the Event Hub's Reminders box, in place. */
@@ -535,6 +898,9 @@ export type StudioToolProps =
   | { part: 'quiet' }
   | ({ part: 'gifts' } & Parameters<typeof StudioEgifts>[0])
   | ({ part: 'look' } & Parameters<typeof StudioLookBar>[0])
+  | ({ part: 'main-extras' } & Parameters<typeof StudioMainExtras>[0])
+  | ({ part: 'main-colours' } & Parameters<typeof StudioMainColours>[0])
+  | ({ part: 'qr-shown' } & Parameters<typeof StudioQrShown>[0])
   | ({ part: 'bring' } & Parameters<typeof StudioWhatToBring>[0]);
 
 export function StudioTool(props: StudioToolProps) {
@@ -551,6 +917,12 @@ export function StudioTool(props: StudioToolProps) {
       return <StudioEgifts {...props} />;
     case 'look':
       return <StudioLookBar {...props} />;
+    case 'main-extras':
+      return <StudioMainExtras {...props} />;
+    case 'main-colours':
+      return <StudioMainColours {...props} />;
+    case 'qr-shown':
+      return <StudioQrShown {...props} />;
     case 'bring':
       return <StudioWhatToBring {...props} />;
   }

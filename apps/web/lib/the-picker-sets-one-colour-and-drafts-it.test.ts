@@ -9,14 +9,11 @@
  *       with only that one changed (controller ruling 2026-10-07) — and nothing
  *       else on the board (a part, a role) moves.
  *   2 · It SAYS what it changes: every main colour has its one job.
- *   3 · 🛑 WHERE IT GOES. The brief asked for the change to be DRAFTED; the hub
- *       draft's `role_palette` accepts only a theme's own seed
- *       (`sanitizeSeedPalette` — "the Mood Board page stays the only place a
- *       couple paints their own"), so a painted palette cannot be held there
- *       and the picker writes through the Mood Board's own `saveRolePalette`,
- *       undoable in the Studio. This test asserts THAT FACT, so the day the
- *       draft can hold a painted palette it goes red — and the picker should
- *       then move into the draft.
+ *   3 · 🎨 WHERE IT GOES — THE DRAFT (step 4c, 2026-10-07). The hub draft's
+ *       `role_palette` now holds a PAINTED board (`sanitizePaintedPalette`, the
+ *       Mood Board's own sanitizer), so the picker, ✨ Auto and the part
+ *       palettes are drafted and published by Apply — never `saveRolePalette`
+ *       live from the Studio.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -60,14 +57,17 @@ test('every main colour says what it changes', () => {
   for (const job of MAIN_COLOUR_JOBS) assert.ok(job.trim().length > 0);
 });
 
-test('🛑 the draft cannot hold a painted palette — so the picker writes through the Mood Board’s own writer', () => {
+test('🎨 the draft holds a painted palette — so the picker, Auto and the part palettes write INTO it (step 4c)', () => {
   const painted = withMainColour({ reception: FIVE }, FIVE, 0, '#102030');
-  assert.equal(sanitizeHubDraftEventValue('role_palette', painted), undefined, 'the draft now holds a painted palette — move the picker into it');
+  const held = sanitizeHubDraftEventValue('role_palette', painted) as { reception?: string[] } | undefined;
+  assert.deepEqual(held?.reception, painted.reception, 'the draft no longer holds a painted palette');
   const src = stripComments(
     readFileSync(join(__dirname, '../app/dashboard/[eventId]/studio/mood-board/_components/mood-board-studio.tsx'), 'utf8'),
   );
   assert.match(src, /withMainColour\(palette, five, index, hex\)/, 'the picker must set exactly one slot');
-  assert.match(src, /saveRolePalette\(fd\)/, 'the picker must write through the Mood Board’s own writer');
+  assert.match(src, /fd\.set\('patch', JSON\.stringify\(\{ events: \{ role_palette: paletteRef\.current \} \}\)\);/, 'the palette must be written into the draft');
+  assert.match(src, /makerSave\(\(\) => hubDraftAction\(eventId, fd\)/);
+  assert.doesNotMatch(src, /saveRolePalette/, 'the Studio still writes the palette live');
   assert.match(src, /MAIN_COLOUR_JOBS\[index\]/, 'the picker must say what it changed');
   assert.match(src, /undo: \(\) => commit\(before/, 'every picker change must be undoable');
 });

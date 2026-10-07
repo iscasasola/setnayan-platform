@@ -182,7 +182,8 @@ test('C · the six-cap holds: a seventh scene has no slot', () => {
   assert.equal(nextFreeCustomSlot([...CUSTOM_SECTION_TYPES]), null);
   assert.equal(nextFreeCustomSlot(CUSTOM_SECTION_TYPES.slice(0, 5)), CUSTOM_SECTION_TYPES[5]);
   // …and the Maker offers the sheet only where a slot is free.
-  assert.match(read(PAGE), /!nextFreeCustomSlot\(allWidgets\.map\(\(w\) => w\.widget_type\)\)\s*\?\s*\{ note:/);
+  // 🗑 Counted on the LIVE rows since 2026-10-07: a scene deleted in the draft keeps its slot until Apply.
+  assert.match(read(PAGE), /!nextFreeCustomSlot\(liveWidgets\.map\(\(w\) => w\.widget_type\)\)\s*\?\s*\{\s*note:/);
 });
 
 test('P · 💎 a free couple gets the sheet on the web (Apply asks for Pro); the store shell → nothing', () => {

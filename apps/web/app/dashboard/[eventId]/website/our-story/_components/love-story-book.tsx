@@ -7,6 +7,7 @@ import {
   LOVE_STORY_CHAPTER_PROMPT,
   formatMomentDate,
   groupByChapter,
+  sortMoments,
   loveStoryScenes,
   mayAddMoment,
   type LoveStoryMoment,
@@ -18,6 +19,7 @@ import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
 import { InMakerReturnTo } from './in-maker-return-to';
 import { formatCount } from '@/lib/format-number';
+import { MomentOrderCards } from './moment-order-cards';
 
 /**
  * OUR LOVE STORY — THE SCRAPBOOK (Event Hub Maker Phase 7).
@@ -71,6 +73,12 @@ export type LoveStoryBookProps = {
    * where it is, and "As guests see it" is the page's own switch.
    */
   inMaker?: boolean;
+  /**
+   * 🧭 The new Maker's Studio (`makerStagesStudioEnabled`): the moments as cards
+   * on top — photo · year · title · first line · grip — dragged into the
+   * couple's own order (`MomentOrderCards`, owner 2026-10-06/07).
+   */
+  studio?: boolean;
 };
 
 const eye = 'font-mono text-[0.66rem] uppercase tracking-[0.24em] text-[color:var(--ls-muted)]';
@@ -200,6 +208,15 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
         ) : null}
       </section>
 
+      {/* ✋ STUDIO — the moments as cards, dragged into the couple's own order. */}
+      {p.studio ? (
+        <MomentOrderCards
+          moments={sortMoments(p.moments)}
+          mediaUrls={p.mediaUrls}
+          action={p.action}
+        />
+      ) : null}
+
       {/* ── YEARS STRIP (phone / tablet) ── */}
       <nav aria-label="Chapters" className="sticky top-0 z-10 -mx-4 flex gap-1 overflow-x-auto bg-[color:var(--ls-canvas)] px-4 py-2 lg:hidden">
         {chapters.map(({ chapter, moments }) => (
@@ -271,6 +288,7 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
                             <b className="font-pahina text-lg font-medium">{formatMomentDate(m.date) || 'Undated'}</b>
                             {m.place ? <span className="text-[14px] text-[color:var(--ls-muted)]">{m.place}</span> : null}
                           </p>
+                          {m.title ? <h3 data-moment-title-shown="" className="mt-2 font-pahina text-2xl font-medium">{m.title}</h3> : null}
                           <p className="mt-2 max-w-prose whitespace-pre-line font-pahina text-2xl font-light leading-snug">
                             {m.line}
                           </p>

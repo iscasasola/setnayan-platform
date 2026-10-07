@@ -70,6 +70,8 @@ const CANVAS_POST = new Set(['onPreview', 'lay', 'broadcastToCanvas', 'postToCan
 const WAITS_ON_PURPOSE: Record<string, string> = {
   'website/_components/hub-draft-bar.tsx › run':
     'Undo · Restore · Reset · Apply: the result is computed by the server (the history, the live page). The bar shows the pending state, and the canvas reloads double-buffered, never blank.',
+  'launch/_components/studio-tools.tsx › saveRegistry':
+    'The registry link is drawn as it is typed (the box’s own state); this is the save on leaving the box, and a refusal puts the box back.',
   'launch/_components/maker-logo.tsx › flush':
     'The logo autosave: the edit is already drawn by the studio’s own state; this is the debounced save behind it.',
   'website/editor/_components/details-bound-field.tsx › answer':

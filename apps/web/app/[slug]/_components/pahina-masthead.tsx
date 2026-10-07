@@ -508,8 +508,13 @@ export function PahinaMasthead({
     return (
       <header data-pahina-first-screen="" className="text-center">
         {badgeSlot}
-        <div className="mx-auto max-w-md rounded-sm bg-cream p-3 shadow-[0_20px_48px_rgba(30,34,41,0.16)]">
-          <div className="border border-gild/45 px-5 pb-7 pt-8">
+        {/* 🖼 THE COVER LOSES ITS FRAME (owner 2026-10-06, DECISION_LOG "THE COVER
+            LOSES ITS FRAME, WEARS THE GLOBAL BACKGROUND"; 2026-10-07 *"for
+            everyone"*): no paper card, no gold hairline — the words sit on the
+            Event Hub's main background, in the page's own adaptive inks (the
+            same ground and the same legibility rule every other part reads). */}
+        <div data-cover-frameless="" className="mx-auto max-w-md">
+          <div className="px-5 pb-7 pt-8">
             <p {...el('eyebrow')} className="text-xs uppercase tracking-[0.36em] text-ink/60">{txt('eyebrow', ownEyebrow ?? card.eyebrow)}</p>
             {monogramSlot ? (
               <div {...el('mark')} data-motion="arrive-mark" className="mt-5 flex h-[9.5rem] items-center justify-center">

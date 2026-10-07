@@ -188,21 +188,18 @@ export function SiteChromePanel({
         label="Background music"
         help="Plays only when a guest taps the speaker — never on its own."
       />
-      {/* 🔀 A switch (owner 2026-10-08) — the same `bg_music_enabled` checkbox underneath. */}
-      <label className="mt-2 flex min-h-11 cursor-pointer items-center justify-between gap-3 text-sm text-ink" data-music-switch="">
-        Play music on my Event Hub
+      {/* 🔀 The Studio draws it as a switch (owner 2026-10-08) — the SAME `bg_music_enabled` checkbox, its
+          look in the Studio's server-drawn CSS (`studioFullScreenCss`), so the Maker's first load carries no styles for it. */}
+      <label className="mt-2 flex items-center gap-2 text-xs text-ink/70" data-music-switch={studio ? '' : undefined}>
         <input
           type="checkbox"
-          role="switch"
+          role={studio ? 'switch' : undefined}
           name="bg_music_enabled"
           defaultChecked={musicEnabled}
           onChange={draftNow}
-          className="peer sr-only"
+          className="h-3.5 w-3.5 rounded border-ink/30"
         />
-        <span
-          aria-hidden
-          className="relative h-6 w-11 shrink-0 rounded-full bg-ink/20 transition-colors after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:bg-terracotta-700 peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-mulberry"
-        />
+        Play music on my Event Hub
       </label>
       <div className="mt-3 border-t border-ink/10 pt-3">
         <FileUpload

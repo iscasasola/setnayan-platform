@@ -194,7 +194,8 @@ export function DetailsWorkspace({
    * small line on its right ("Your event · saves as you type"). Drawn above that
    * item's field, inside the form only.
    */
-  formHeads?: Partial<Record<DetailsItemKey, { title: string; line?: string }>>;
+  /** A form group's heading, DRAWN by the server (`maker-details.tsx`) — its words and classes never ride the Maker's first load (507 KB). */
+  formHeads?: Partial<Record<DetailsItemKey, ReactNode>>;
   /**
    * 🖼 Items that SHARE another item's picture (owner 2026-10-06: Background ·
    * Colours · Font · Music each show the couple's own page — ONE frame, the
@@ -677,12 +678,7 @@ export function DetailsWorkspace({
           data-details-form-field={formKeys.has(i.key) ? '' : undefined}
           className={!showsEditor(i.key) ? 'hidden' : i.key === 'march' ? 'flex min-h-0 flex-1 flex-col' : `flex flex-col gap-3${formKeys.has(i.key) && i.key !== formGroup?.items[0]?.key ? ' border-t border-ink/10 pt-4' : ''}`}
         >
-          {formKeys.has(i.key) && formHeads[i.key] ? (
-            <p data-details-form-group={i.key} className="flex items-baseline gap-2 pt-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-ink/55">
-              {formHeads[i.key]!.title}
-              {formHeads[i.key]!.line ? <small className="ml-auto text-[11px] font-medium normal-case tracking-normal text-ink/50">{formHeads[i.key]!.line}</small> : null}
-            </p>
-          ) : null}
+          {formKeys.has(i.key) && formHeads[i.key] ? <Fragment key="head">{formHeads[i.key]}</Fragment> : null}
           {/* 🗂 In the Your event form each field is named — the list's row is the form's. */}
           {formKeys.has(i.key) ? <h3 className="text-[15px] font-semibold text-ink" data-details-form-heading={i.key}>{i.label}</h3> : null}
           {/* A server-made editor arrives as a lazy client reference — keyed, so it is

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "a76d76aab",
+  "generatedFromRef": "4b9fda5cd",
   "routeCount": 428,
   "destinations": 954,
   "actions": 671,
-  "blocks": 5691,
+  "blocks": 5692,
   "routes": {
     "/": {
       "files": [
@@ -6850,6 +6850,7 @@
         "StepTouch",
         "StoredQrStyle",
         "StoryPanel",
+        "StudioBackToPart",
         "StudioColourField",
         "StudioCover",
         "StudioEgifts",

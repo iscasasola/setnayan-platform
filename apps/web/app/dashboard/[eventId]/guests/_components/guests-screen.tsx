@@ -65,6 +65,7 @@ import {
 } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { Count, Fill } from '@/components/count';
+import { formatCount } from '@/lib/format-number';
 import { PickMenu, type PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { useInspectorContext } from '@/app/_components/inspector/inspector-column';
 import { Sheet } from '@/app/_components/sheet';
@@ -434,7 +435,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
       data-guests-seg={key}
     >
       {label}
-      {count !== undefined && measured ? <b>{count}</b> : null}
+      {count !== undefined && measured ? <b><Count value={count} id={`gs-seg-${key}`} /></b> : null}
     </Link>
   );
 
@@ -727,7 +728,8 @@ export function GuestsScreen(props: GuestsScreenProps) {
           </span>
         </div>
       ) : null}
-      <div aria-hidden style={{ height: '30dvh' }} data-roster-runout="" />
+      {/* Half a screen after the list, so the last guest reaches the middle (owner 2026-09-21). */}
+      <div aria-hidden style={{ height: '50dvh' }} data-roster-runout="" />
     </div>
   );
 
@@ -762,7 +764,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
                 </span>
                 {q ? (
                   <span className={styles.mute}>
-                    · <Count value={shown} id="gs-shown" /> of {stats.total} shown
+                    · <Count value={shown} id="gs-shown" /> of {formatCount(stats.total)} shown
                   </span>
                 ) : null}
               </div>

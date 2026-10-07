@@ -25,6 +25,7 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { guestDisplayName, type GuestRow } from '@/lib/guests';
+import { formatCount } from '@/lib/format-number';
 import type { MapBranch } from '@/lib/guest-roster-view';
 import { layoutMap, type MapNode } from '@/lib/guest-map-layout';
 import styles from './guests-screen.module.css';
@@ -189,7 +190,7 @@ export function GuestMapCanvas({
                 style={style}
                 data-map-branch=""
               >
-                {n.label} <span className={styles.mute}>· {n.count}</span>
+                {n.label} <span className={styles.mute}>· {formatCount(n.count)}</span>
               </span>
             );
           }

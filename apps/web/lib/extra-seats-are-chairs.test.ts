@@ -71,5 +71,8 @@ test('🔒 a finalized guest list locks extra seats — checked before saving, o
   // And the roster stops offering the picker.
   const chip = read(...G, '_components', 'chip-editors.tsx');
   assert.match(chip, /const finalized = useContext\(GuestListFinalizedContext\);[\s\S]{0,400}if \(finalized\) \{/, 'the + picker is offered on a finalized list');
-  assert.match(read(...G, 'page.tsx'), /listFinalized=\{finalize\.locked\}/, 'the roster is never told the list is finalized');
+  // ⤷ Maker PR 4f: the list's rows edit nothing in place (Edit opens the card),
+  // so the only + picker left is the card's — the row offers none to lock.
+  const screen = read(...G, '_components', 'guests-screen.tsx');
+  assert.doesNotMatch(screen, /PlusOneChipEditor|PlusOneSeatsSummary/, 'the new list offers an extra-seat picker the finalize lock does not reach');
 });

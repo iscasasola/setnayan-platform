@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useState, useTransition } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
-import { Check, Copy, Mail, Share2, SquareCheck, X } from 'lucide-react';
+import { Check, Copy, Mail, RotateCcw, Share2, SquareCheck, X } from 'lucide-react';
 import { ActionButton, useFitRow } from '@/components/action-button';
 import { Count } from '@/components/count';
 import { Sheet } from '@/app/_components/sheet';
@@ -20,6 +21,7 @@ import {
   FINALIZE_SHEET,
   FINALIZE_TIP,
   FINALIZE_TITLE,
+  REOPEN_LABEL,
   headcountLockedLine,
   headcountOpenLine,
 } from '@/lib/headcount-row';
@@ -302,7 +304,7 @@ function OneLinkRow({ link }: { link: OneLink }) {
       {link.qrSvg ? (
         <div className="pb-3" data-setup-one-qr="">
           <div
-            className="mx-auto h-[168px] w-[168px] rounded-xl bg-white p-2 [&>svg]:h-full [&>svg]:w-full"
+            className="qr-slot mx-auto h-[168px] w-[168px] rounded-xl bg-white p-2 [&>svg]:h-full [&>svg]:w-full"
             dangerouslySetInnerHTML={{ __html: link.qrSvg }}
           />
         </div>
@@ -312,10 +314,13 @@ function OneLinkRow({ link }: { link: OneLink }) {
 }
 
 /**
- * 🔒 FINALIZE GUEST LIST — one-way Finalize (DECISION_LOG "FINALIZING THE HEADCOUNT IS
- * ONE-WAY"). Open → `✓ Finalize now` → ONE sheet (*"… this cannot be undone"*,
- * `✓ Finalize` · `✕ Not now`). Locked → the locked count and NO button: there
- * is no Reopen anywhere. A refused press is said under the row.
+ * 🔒 FINALIZE GUEST LIST — closes replies; the hosts can reopen (owner
+ * 2026-10-07: *"finalize means the guestlist is finalized and guests cannot
+ * answer anymore. but the host of the event … always have the power to
+ * unfinalize it"*). Open → `✓ Finalize now` → ONE sheet ("Guests can't reply
+ * after this. You can reopen it any time.", `✓ Finalize` · `✕ Not now`).
+ * Locked → the locked count and `↻ Reopen guest list`. A refused press is said
+ * under the row.
  */
 function FinalizeRow({ eventId, view }: { eventId: string; view: HeadcountView }) {
   const router = useRouter();
@@ -332,6 +337,18 @@ function FinalizeRow({ eventId, view }: { eventId: string; view: HeadcountView }
         return;
       }
       setOpen(false);
+      router.refresh();
+    });
+  /* ↻ The hosts' way back (owner 2026-10-07). This panel renders for the couple only
+     (`invite-panel.tsx`), and `reopenGuestList` refuses anyone else on the server. */
+  const reopen = () =>
+    start(async () => {
+      setError(null);
+      const res = await setGuestListFinalized(eventId, false);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
       router.refresh();
     });
 
@@ -371,15 +388,28 @@ function FinalizeRow({ eventId, view }: { eventId: string; view: HeadcountView }
           />
         </span>
       ) : (
-        <span />
+        <span className={SETUP_ACTS}>
+          <ActionButton
+            tone="neutral"
+            icon={RotateCcw}
+            label={pending ? 'Reopening…' : REOPEN_LABEL}
+            disabled={pending}
+            onClick={reopen}
+            data-testid="setup-reopen"
+          />
+        </span>
       )}
-      <Sheet open={open} onClose={() => (pending ? undefined : setOpen(false))} labelledById="setup-finalize-title">
-        <div className="flex flex-col gap-2 p-1" data-finalize-sheet="">
+      {/* Portalled to <body>: the Guests screen is its own stacking context, and a sheet left
+          inside it drew UNDER the bottom nav — its Finalize · Not now hidden (measured in the lab). */}
+      {open && typeof document !== 'undefined'
+        ? createPortal(
+      <Sheet open={open} onClose={() => (pending ? undefined : setOpen(false))} labelledById="setup-finalize-title" rise>
+        <div className="flex flex-col gap-2 p-5" data-finalize-sheet="">
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink/55">{FINALIZE_SHEET.eyebrow}</p>
           <p id="setup-finalize-title" className="font-serif text-xl text-ink">
             {FINALIZE_SHEET.title(heads)}
           </p>
-          <p className="text-[14px] text-ink/75">{FINALIZE_SHEET.body(heads)}</p>
+          <p className="text-[14px] text-ink/75">{FINALIZE_SHEET.body()}</p>
           <div className="mt-3 flex items-center gap-2">
             <ActionButton
               tone="ok"
@@ -398,7 +428,10 @@ function FinalizeRow({ eventId, view }: { eventId: string; view: HeadcountView }
             </p>
           ) : null}
         </div>
-      </Sheet>
+      </Sheet>,
+            document.body,
+          )
+        : null}
     </section>
   );
 }

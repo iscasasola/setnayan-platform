@@ -1,7 +1,9 @@
 /**
  * headcount-row.ts — the words of Guests › Setup's FINALIZE GUEST LIST row and
- * its one-way confirm (owner 2026-10-07, DECISION_LOG "GUESTS › SETUP" ·
- * "FINALIZING THE HEADCOUNT IS ONE-WAY"; HOME_AND_GUESTS_CHECK G31 · G37).
+ * its confirm (owner 2026-10-07, DECISION_LOG "GUESTS › SETUP"; HOME_AND_GUESTS_CHECK
+ * G31 · G37). Finalize closes replies; the event's HOSTS can reopen it (owner, the
+ * same day: *"the host of the event not the supplier and coordinator always have
+ * the power to unfinalize it as needed"*) — this replaced the earlier one-way ruling.
  *
  * ⚖ *"finalize should be inside the Setup. not on its current location"*
  * (owner, 2026-10-07): the roster's Finalize — which sat above the List · Map ·
@@ -20,24 +22,24 @@ export const FINALIZE_LOCKED_TITLE = 'Guest list finalized';
 /** Behind the row's ⓘ (owner 2026-10-07 — the words that sat above the switcher). */
 export const FINALIZE_TIP = 'Guests can reply until you finalize.';
 export function headcountOpenLine(attending: number): string {
-  return `${attending} attending now. It stays open until you lock it.`;
+  return `${attending} attending now. It stays open until you finalize it.`;
 }
 export function headcountLockedLine(heads: number | null): string {
   return heads
-    ? `Locked at ${heads} heads. Your suppliers price for it; guests can no longer reply. This cannot be undone.`
-    : 'Locked. Guests can no longer reply. This cannot be undone.';
+    ? `Finalized at ${heads} heads. Your suppliers price for it; guests can no longer reply.`
+    : 'Finalized. Guests can no longer reply.';
 }
 export const FINALIZE_NOW_LABEL = 'Finalize now';
 
-/** The one confirmation (owner: *"when this is pressed say it cannot be unfinalized"* · *"a confirmation Finalize | Not Now"*). */
+/** The one confirmation (owner: *"a confirmation Finalize | Not Now"*). It never says "cannot be undone":
+ *  the hosts can reopen (owner 2026-10-07, *"…always have the power to unfinalize it as needed"*). */
 export const FINALIZE_SHEET = {
-  eyebrow: 'Lock the headcount',
-  title: (heads: number) => `${heads} heads — this cannot be undone`,
-  body: (heads: number) =>
-    `Your suppliers price for ${heads} and guests can no longer reply. Once locked, it stays locked.`,
+  eyebrow: 'Finalize the guest list',
+  title: (heads: number) => `Finalize at ${heads} heads?`,
+  body: () => 'Guests can’t reply after this. You can reopen it any time.',
   confirm: 'Finalize',
   cancel: 'Not now',
 } as const;
 
-/** What the server says to an attempt to unlock — there is no way back (owner 2026-10-07). */
-export const FINALIZE_IS_ONE_WAY = 'A locked headcount cannot be undone.';
+/** The hosts' way back (owner 2026-10-07) — on the locked row, for the event's hosts only. */
+export const REOPEN_LABEL = 'Reopen guest list';

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "00728fd37",
+  "generatedFromRef": "04a4b5692",
   "routeCount": 428,
   "destinations": 954,
   "actions": 671,
-  "blocks": 5685,
+  "blocks": 5687,
   "routes": {
     "/": {
       "files": [
@@ -838,6 +838,7 @@
         "[slug]/_components/hub-canvas-frame.tsx",
         "[slug]/_components/hub-scene-runs.tsx",
         "[slug]/_components/hub-scenes.tsx",
+        "[slug]/_components/hub-tab-dom.ts",
         "[slug]/_components/hub/hub-shell.tsx",
         "[slug]/_components/in-app-bar.tsx",
         "[slug]/_components/invitation-shell.tsx",
@@ -1221,6 +1222,7 @@
         "MakerDayPartStandIn",
         "MakerEmptyScene",
         "MakerGuestScenes",
+        "MakerPageStandIn",
         "MakerWelcomeGiftsEmpty",
         "MakerWelcomeLook",
         "Marked",
@@ -1402,6 +1404,7 @@
         "T",
         "THREE.CanvasTexture",
         "THREE.Texture",
+        "TabGroup",
         "TakeItDown",
         "TakedownResult",
         "TeaCeremonyCard",
@@ -5192,6 +5195,7 @@
         "dashboard/[eventId]/_components/event-rail-match-rows.ts",
         "dashboard/[eventId]/_components/expand-card.tsx",
         "dashboard/[eventId]/_components/feature-us-card.tsx",
+        "dashboard/[eventId]/_components/guest-setup/guest-setup-lazy.tsx",
         "dashboard/[eventId]/_components/guest-setup/guest-setup-rows.tsx",
         "dashboard/[eventId]/_components/guest-setup/guests-get-in.tsx",
         "dashboard/[eventId]/_components/guest-setup/one-link.server.ts",

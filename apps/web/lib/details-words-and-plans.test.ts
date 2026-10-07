@@ -185,7 +185,15 @@ test('RSVP links out to nothing: "Reply by" is a date field right there, and the
     }),
   );
   assert.doesNotMatch(html, /<a\b[^>]*href=/, 'the RSVP settings still link out');
-  const replyBy = html.slice(html.indexOf('data-rsvp-setting="reply-by"'), html.indexOf('data-rsvp-setting="requests"'));
+  /* The field is the shared `ReplyBy` part, which the Maker loads lazily (its first-load budget) —
+     so the Maker mounts it in its reply-by section, and the part is drawn here on its own. */
+  const maker = read(`${L}/maker-rsvp-ask.tsx`);
+  const section = maker.slice(maker.lastIndexOf('data-rsvp-setting="reply-by"'), maker.indexOf('</DetailsPieceOnly>', maker.lastIndexOf('data-rsvp-setting="reply-by"')));
+  assert.match(section, /<ReplyBy\s+layout="stack"/, 'reply-by is not a field here');
+  const { ReplyBy } = await import('../app/dashboard/[eventId]/_components/guest-setup/reply-by');
+  const replyBy = renderToStaticMarkup(
+    React.createElement(ReplyBy, { layout: 'stack', draft: true, eventId: 'e-1', own: '2026-11-18', pricingMode: 'final_only', fallback: null, action: async () => ({ ok: true }) as never }),
+  );
   assert.match(replyBy, /<input[^>]*type="date"[^>]*value="2026-11-18"/, 'reply-by is not a field here');
   /* ⏳ Reply by is DRAFTED in the Maker since 2026-10-08 (owner "draft 1-3") — no "saves immediately". */
   assert.doesNotMatch(replyBy, /data-hub-saves-immediately/, 'a drafted Reply by still says it saves immediately');

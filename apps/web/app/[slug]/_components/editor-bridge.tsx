@@ -26,6 +26,7 @@ import {
 } from '@/lib/element-style';
 import { postEventElementScope } from '@/lib/post-event-styles';
 import { findMakerSection, sectionAfter } from './maker-section-find';
+import { HUB_TAB_HOLD_MS, showHubTab, shownHubTab } from './hub-tab-dom';
 import { applySceneBgPreview, sanitizeSceneBgPreview } from './scene-bg-preview';
 import { applyButtonsPreview, sanitizeButtonsPreview } from './buttons-preview';
 import { applyPartRuns, applySceneRuns, type RunsDoc } from './part-runs';
@@ -58,7 +59,10 @@ import { playSequence } from './play-sequence';
  *   parent → frame  { source:'setnayan-editor', t:'elStyle',  key, el, elements, motion, replay }
  *   parent → frame  { source:'setnayan-editor', t:'sceneBg',  scenes:[{ key, classes, vars }] }
  *   parent → frame  { source:'setnayan-editor', t:'sceneShow', key, shown }
- *   frame  → parent { source:'setnayan-site',   t:'ready',    order, bar }
+ *   frame  → parent { source:'setnayan-site',   t:'ready',    order, bar, tab }
+ *   parent → frame  { source:'setnayan-editor', t:'hubTab',   tab, keep? } — 🧭 Stages: show that tab's page, from its top
+ *                    (`keep`: the same page put back after a reload — its place is kept)
+ *   frame  → parent { source:'setnayan-site',   t:'hubTab',   tab } — the tab now on screen (after any switch)
  *   parent → frame  { source:'setnayan-editor', t:'refresh' } — 🖼 a pick the bridge cannot draw
  *                    was saved: the page re-renders itself in place (`router.refresh()`)
  *   parent → frame  { source:'setnayan-editor', t:'settle', forget? } — 📱 the Maker's last editing
@@ -124,6 +128,10 @@ export function readMakerBar(doc: Document): unknown[] | null {
     return null;
   }
 }
+
+/* 🧭 The Stages canvas's tabs (each its own page): `./hub-tab-dom` — a file with no imports, which the Maker's
+   panel reads too. Re-exported here for the bridge's callers. */
+export { shownHubTab, showHubTab } from './hub-tab-dom';
 
 /** Every section the canvas actually DREW, in page order — the navigator must equal this. */
 export function drawnMakerOrder(doc: Document): string[] {
@@ -602,6 +610,8 @@ export function EditorBridge() {
           });
     /** ▶ The picked part's sequence now playing (`playSeq`) — stopped by the next one or by `playStop`. */
     let seqStop: (() => void) | null = null;
+    /** 🧭 Until when a page that just opened keeps its top (`hubTab`). */
+    let holdTop = 0;
     /** ▶ The whole stage, scene after scene — the parent hears `playDone` when it ends. */
     const stage = (() => {
       let timer: number | null = null;
@@ -734,15 +744,23 @@ export function EditorBridge() {
       }
       if (data && data.source === 'setnayan-editor' && data.t === 'hubTab') {
         /* 🧭 THE STAGES CANVAS'S TABS — each its own page, switched in place exactly as the guest's hub shell does
-           (`hub-shell.tsx` `showTab`): every group but the tab's is `hidden`, and the page starts at its top. */
+           (`hub-shell.tsx` `showTab`): every group but the tab's is `hidden`, and the page starts at its top —
+           and STAYS there (`holdTop`): the Maker's page pick also asks for its first scene, which used to scroll
+           the fresh page down (owner 2026-10-07: *"a bookmark on a single page that just jumps. this was not the
+           plan"*). The Maker is told the tab that is on screen. */
         const tab = (data as { tab?: unknown }).tab;
         if (typeof tab !== 'string' || !tab) return;
-        const groups = document.querySelectorAll<HTMLElement>('[data-hub-tab]');
-        if (![...groups].some((g) => g.getAttribute('data-hub-tab') === tab)) return;
-        groups.forEach((g) => {
-          g.hidden = g.getAttribute('data-hub-tab') !== tab;
-        });
-        window.scrollTo({ top: 0, behavior: 'auto' });
+        /* 🔥 A stage warmed BEHIND the canvas is not on screen: a tab picked on the page in front is not for it
+           (both stages have a Welcome) — it keeps its first page until it is shown. */
+        if (window.frameElement?.getAttribute('data-maker-canvas-frame') === 'warm') return;
+        if (!showHubTab(document, tab)) return;
+        /* `keep`: the SAME page put back after the canvas reloaded (a style pick redraws it) — its place is the
+           one the Maker just carried over, so it is not sent to the top. A pick of a page always starts at the top. */
+        if ((data as { keep?: unknown }).keep !== true) {
+          window.scrollTo({ top: 0, behavior: 'auto' });
+          holdTop = Date.now() + HUB_TAB_HOLD_MS;
+        }
+        window.parent?.postMessage({ source: 'setnayan-site', t: 'hubTab', tab }, origin);
         return;
       }
       if (!data || data.source !== 'setnayan-editor' || typeof data.key !== 'string') return;
@@ -846,6 +864,14 @@ export function EditorBridge() {
         return;
       }
       if (data.t === 'scrollTo') {
+        /* 🧭 A page just opened stays at its top (see `hubTab`). */
+        if (Date.now() < holdTop) return;
+        /* 🧭 …and a scene on ANOTHER page is reached by opening its page first — never a scroll to a hidden part. */
+        const here = shownHubTab(document);
+        const away = here === null ? null : (el.closest('[data-hub-tab]')?.getAttribute('data-hub-tab') ?? null);
+        if (away && away !== here && showHubTab(document, away)) {
+          window.parent?.postMessage({ source: 'setnayan-site', t: 'hubTab', tab: away }, origin);
+        }
         /* To the scene's TOP, always (owner 2026-09-27: "a scene is as tall as
            its content — never a forced full screen"). A short scene lands with
            the next one below it on the same screen; nothing is resized. */
@@ -866,7 +892,7 @@ export function EditorBridge() {
 
     // Tell the parent the frame is ready, with the order it actually drew.
     window.parent?.postMessage(
-      { source: 'setnayan-site', t: 'ready', order: drawnMakerOrder(document), bar: readMakerBar(document) },
+      { source: 'setnayan-site', t: 'ready', order: drawnMakerOrder(document), bar: readMakerBar(document), tab: shownHubTab(document) },
       origin,
     );
 

@@ -151,3 +151,39 @@ export function MakerDayPartStandIn({ part, styleName, styleId = null }: { part:
     </section>
   );
 }
+
+/**
+ * 🧭 A PAGE OF THE STAGES CANVAS THAT NOTHING WAS FILED ON — still a page (owner 08 Oct: *"i do not see the
+ * individual pages"*; every tab the Maker's bar shows has its own page, `lib/maker-stage-filing.ts`). The Camera
+ * is one by nature: guests open it as its own screen, and the live camera is never opened in the Maker
+ * (`the-maker-canvas-draws-no-camera.test.ts`), so its page is the camera's SHAPE — the viewfinder and the
+ * shutter, in grey — and its looks are picked from its tile below. Any other page with nothing on it yet says so.
+ * Shapes and one line; never sample content. Mounted only by the Stages canvas (`site-body.tsx` `rest`).
+ */
+export function MakerPageStandIn({ page, label }: { page: string; label: string }) {
+  return (
+    <section className="space-y-3 px-4 py-10 text-center" data-maker-page-stand-in={page} data-maker-sample="">
+      <p className="pahina-eyebrow justify-center">
+        <span>{label}</span>
+      </p>
+      {page === 'camera' ? (
+        <span aria-hidden className="relative mx-auto block aspect-[3/4] w-2/3 rounded-lg bg-ink/10">
+          <span data-sample-box="" className="absolute inset-x-[12%] top-[10%] bottom-[30%] rounded-md border-2 border-dashed border-ink/20" />
+          <span data-sample-box="" className="absolute bottom-[8%] left-1/2 block h-12 w-12 -translate-x-1/2 rounded-full bg-ink/20" />
+        </span>
+      ) : (
+        <span aria-hidden className="mx-auto block w-2/3 space-y-2">
+          <Line w="w-1/2" className="mx-auto" />
+          <Line w="w-5/6" className="mx-auto" />
+        </span>
+      )}
+      <p className="text-xs uppercase tracking-[0.2em] text-ink/40">
+        {page === 'camera'
+          ? 'Only you see this · guests open the camera as its own screen'
+          : page === 'me'
+            ? 'Only you see this · each guest sees their own'
+            : 'Only you see this · guests see it once it has content'}
+      </p>
+    </section>
+  );
+}

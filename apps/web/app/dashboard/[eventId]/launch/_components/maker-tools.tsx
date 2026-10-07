@@ -55,6 +55,12 @@ export const MAKER_TOOLS: readonly MakerTool[] = [
     load: () => import(/* webpackChunkName: "maker-details" */ './details-lazy').then(warmDynamicExports),
   },
   {
+    key: 'maker:guest-setup',
+    /* the RSVP settings' shared Setup parts — How guests get in · RSVP asks · Reply by (Guests › Setup draws the same) */
+    label: 'Guest setup',
+    load: () => import(/* webpackChunkName: "maker-details" */ '../../_components/guest-setup/guest-setup-lazy').then(warmDynamicExports),
+  },
+  {
     key: 'maker:scene-styles',
     /* a scene's Style rows, the Post Event panel and its twelve preset tiles (+ Add a scene) */
     label: 'Scene styles',

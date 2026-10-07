@@ -23,6 +23,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const read = (...p: string[]) => stripComments(readFileSync(join(HERE, ...p), 'utf8'));
 const SETUP = read('guest-setup-rows.tsx');
 const MAKER = read('..', '..', 'launch', '_components', 'maker-rsvp-ask.tsx');
+const lazy = readFileSync(join(HERE, 'guest-setup-lazy.tsx'), 'utf8');
 const count = (src: string, re: RegExp) => (src.match(re) ?? []).length;
 
 test('both doors import the three shared parts from guest-setup/', () => {
@@ -31,7 +32,12 @@ test('both doors import the three shared parts from guest-setup/', () => {
     ['Maker', MAKER, '../../_components/guest-setup/'],
   ] as const) {
     for (const [part, file] of [['GuestsGetIn', 'guests-get-in'], ['RsvpAsks', 'rsvp-asks'], ['ReplyBy', 'reply-by']]) {
-      assert.ok(src.includes(`import { ${part} } from '${from}${file}'`), `${name} does not import ${part}`);
+      // Setup imports it; the Maker loads the SAME module lazily (its first-load budget).
+      const imported =
+        src.includes(`import { ${part} } from '${from}${file}'`) ||
+        (name === 'Maker' && /import \{ GuestsGetIn, ReplyBy, RsvpAsks \} from '\.\.\/\.\.\/_components\/guest-setup\/guest-setup-lazy'/.test(src) &&
+          lazy.includes(`import(/* webpackChunkName: "maker-guest-setup" */ './${file}').then((m) => m.${part})`));
+      assert.ok(imported, `${name} does not import ${part}`);
       assert.ok(count(src, new RegExp(`<${part}\\b`, 'g')) >= 1, `${name} does not mount <${part}>`);
     }
   }

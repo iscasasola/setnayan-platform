@@ -7,6 +7,7 @@ import type { LucideIcon } from 'lucide-react';
 import { RSVP_STAGE_KEY } from '@/lib/rsvp-stage-shared';
 import { RSVP_STAGE_SCENES, type RsvpStageScene } from '@/lib/rsvp-stage';
 import { MAKER_STAGE_KEYS, type MakerStageKey } from '@/lib/maker-parts';
+import { makerStagesPages } from '@/lib/maker-stage-filing';
 import { STAGE_ITEM_BUTTON, STAGE_SHEET_ROW } from '@/lib/maker-stage-room';
 import { useOneOpen } from '@/lib/one-open';
 import { MakerSheet } from './stages-studio-parts';
@@ -72,8 +73,14 @@ export function StageItemMenu({
         },
       }));
     }
+    /* 🧭 The pages the CANVAS draws this stage as (`makerStagesPages` — the one list its groups and the tab bar
+       under the page share), so "3 pages" here is three pages there; a stage it draws as one page says "One page". */
+    const own = new Set(makerStagesPages(s).map((p) => p.key));
     return options
-      .filter((o) => stageOf(o.key) === s)
+      .filter((o) => {
+        const pk = makerPagePick(o.key);
+        return stageOf(o.key) === s && pk?.kind === 'page' && own.has(pk.page);
+      })
       .map((o) => {
         const pk = makerPagePick(o.key);
         const key = pk?.kind === 'page' ? pk.page : '';

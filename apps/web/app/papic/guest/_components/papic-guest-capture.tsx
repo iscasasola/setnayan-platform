@@ -45,6 +45,7 @@ import {
 } from '@/lib/papic-adaptive-quality';
 import { formatCount } from '@/lib/format-number';
 import { cameraExitHref, type HubTabKey } from '@/app/[slug]/_lib/hub-tabs';
+import { cameraLookDrawsLogo, type CameraLook } from '@/lib/camera-look';
 
 // NO PER-PHOTO TAG LIMIT (owner 2026-08-06: "no tag limit. we can tag as many").
 // This file used to hardcode TAG_CAP = 10 and show a counter — while the DATABASE
@@ -235,6 +236,20 @@ type Props = {
   exitTo?: { slug: string; tab: HubTabKey | null } | null;
   /** The guest's OWN latest shot, for the thumbnail beside the shutter (server-read). */
   lastShotUrl?: string | null;
+  /**
+   * 🎛 THE CAMERA'S LOOK — and with it, the camera FULL SCREEN (owner
+   * 2026-10-06: *"camera is a full screen feature"* · *"with an exit button"*;
+   * DECISION_LOG "THE CAMERA HAS ITS OWN THREE LAYOUTS"). Set only where the new
+   * Maker's guest side is on (`guestStagesOn`, /papic/guest):
+   *   · the camera fills the phone's screen exactly (`100dvh`), ✕ top-left;
+   *   · `classic`    a plain white shutter, white focus corners, neutral pills;
+   *   · `brand`      the event's logo (`logo`) on the shutter, the corners and
+   *                  the chosen pill in `tint`, the theme's colour;
+   *   · `challenges` the Papic Challenges as chips just above the shutter.
+   * Null (every real couple today, and the hub's inline camera) = the camera
+   * exactly as shipped.
+   */
+  look?: { kind: CameraLook; tint: string; logo: ReactNode | null } | null;
 };
 
 /**
@@ -297,6 +312,7 @@ export function PapicGuestCapture({
   embedded,
   exitTo = null,
   lastShotUrl = null,
+  look = null,
 }: Props) {
   // 📸 Shots that landed this visit, and the thumbnail of the latest one of
   // THEIRS — the server's on arrival, then each new shot as it saves.
@@ -1518,8 +1534,27 @@ export function PapicGuestCapture({
   const isFlashSending = kwentoPhase === 'flash_sending';
   const isStorySending = kwentoPhase === 'story_sending';
 
+  /* 🎛 The look's shutter: plain white (Classic, Challenges) or the logo on white (Your brand). */
+  const shutterLogo = look && cameraLookDrawsLogo(look.kind) ? look.logo : null;
+  const challengePanel = (
+    <PapicChallengePanel
+      lastCaptureId={lastCaptureId}
+      lastCaptureKind={lastCaptureKind}
+      onArmedChange={setArmedChallenge}
+      storyHref={storyToken ? `/papic/me/${encodeURIComponent(storyToken)}#story` : null}
+      layout={look?.kind === 'challenges' ? 'chips' : 'list'}
+    />
+  );
+
   return (
-    <main className="flex min-h-screen flex-col bg-ink text-cream">
+    <main
+      data-camera-look={look ? look.kind : undefined}
+      className={
+        look
+          ? 'flex h-[100dvh] flex-col overflow-hidden bg-ink text-cream'
+          : 'flex min-h-screen flex-col bg-ink text-cream'
+      }
+    >
       <header className={`flex items-center px-4 py-3 ${exitTo ? 'justify-between' : 'justify-end'}`}>
         {/* ✕ ONE EXIT, TOP-LEFT — back to the Event Hub tab this was opened
             from, with the count of shots that landed. */}
@@ -1605,6 +1640,8 @@ export function PapicGuestCapture({
             filter: cssPreviewFilter(eventStyle),
           }}
         />
+        {/* 🎯 THE FOCUS CORNERS — white, or the theme's colour in Your brand. */}
+        {look ? <FocusCorners tint={look.tint} /> : null}
         {((!ready && !exhausted) || switching) && (
           <div className="absolute inset-0 flex items-center justify-center bg-ink/80">
             <Loader2 aria-hidden className="h-6 w-6 animate-spin text-cream/70" strokeWidth={2} />
@@ -1620,6 +1657,7 @@ export function PapicGuestCapture({
             lens={lens}
             onSelectLens={selectLens}
             disabled={switching}
+            tint={look?.kind === 'brand' ? look.tint : null}
           />
         )}
         {recording && (
@@ -1696,8 +1734,11 @@ export function PapicGuestCapture({
         )}
       </div>
 
-      <div className="space-y-3 px-4 pb-8 pt-4">
+      <div className={look ? 'max-h-[45dvh] space-y-3 overflow-y-auto px-4 pb-6 pt-3' : 'space-y-3 px-4 pb-8 pt-4'}>
         {saveError && <p className="text-center text-xs text-cream/80">{saveError}</p>}
+
+        {/* 🎛 Challenges: every challenge, one tap away, just above the shutter. */}
+        {look?.kind === 'challenges' && !exhausted ? challengePanel : null}
 
         {/* THE gesture shutter: tap = photo, press-and-hold = record. Pointer
             events (not onClick) drive the hold detection; the guards kill iOS
@@ -1755,9 +1796,14 @@ export function PapicGuestCapture({
                     ? 'Recording — release to stop'
                     : 'Tap to take a photo, or press and hold to record a snippet'
                 }
-                className={`flex h-full w-full items-center justify-center rounded-full border-4 border-cream/80 transition active:scale-95 disabled:opacity-40 ${
-                  recording ? 'bg-terracotta/30' : 'bg-cream/10'
-                }`}
+                data-shutter={look ? look.kind : undefined}
+                className={
+                  look
+                    ? 'flex h-full w-full items-center justify-center rounded-full border-4 border-white p-1 transition active:scale-95 disabled:opacity-40'
+                    : `flex h-full w-full items-center justify-center rounded-full border-4 border-cream/80 transition active:scale-95 disabled:opacity-40 ${
+                        recording ? 'bg-terracotta/30' : 'bg-cream/10'
+                      }`
+                }
                 style={{
                   touchAction: 'manipulation',
                   WebkitUserSelect: 'none',
@@ -1765,7 +1811,23 @@ export function PapicGuestCapture({
                   WebkitTouchCallout: 'none',
                 }}
               >
-                {busy ? (
+                {look ? (
+                  <span
+                    className={`flex h-full w-full items-center justify-center overflow-hidden rounded-full ${
+                      recording ? 'bg-terracotta' : 'bg-white'
+                    }`}
+                  >
+                    {busy ? (
+                      <Loader2 aria-hidden className="h-7 w-7 animate-spin text-ink" strokeWidth={2} />
+                    ) : recording ? (
+                      <Square aria-hidden className="h-6 w-6 text-cream" strokeWidth={2.5} />
+                    ) : shutterLogo ? (
+                      <span data-shutter-logo="" className="flex items-center justify-center">
+                        {shutterLogo}
+                      </span>
+                    ) : null}
+                  </span>
+                ) : busy ? (
                   <Loader2 aria-hidden className="h-7 w-7 animate-spin text-cream" strokeWidth={2} />
                 ) : recording ? (
                   <Square aria-hidden className="h-6 w-6 text-cream" strokeWidth={2.5} />
@@ -1804,12 +1866,7 @@ export function PapicGuestCapture({
             until NEXT_PUBLIC_PAPIC_GAMES_V1 is on / the event has live missions.
             SELECT → COMMENCE → RETAKE: the guest arms a challenge, the next
             capture completes it (the panel watches lastCaptureId). */}
-        <PapicChallengePanel
-          lastCaptureId={lastCaptureId}
-          lastCaptureKind={lastCaptureKind}
-          onArmedChange={setArmedChallenge}
-          storyHref={storyToken ? `/papic/me/${encodeURIComponent(storyToken)}#story` : null}
-        />
+        {look?.kind === 'challenges' ? null : challengePanel}
 
         {/* Public-sharing opt-in (Alaala orb gate · RA 10173). Explicit, never
             pre-checked, default OFF. When ON, the shots this guest captures are
@@ -2030,5 +2087,23 @@ export function PapicGuestCapture({
 
       <canvas ref={canvasRef} className="hidden" />
     </main>
+  );
+}
+
+/**
+ * 🎯 THE FOCUS CORNERS — four L-shaped corners framing the viewfinder, drawn in
+ * `tint` (white for Classic and Challenges, the theme's colour for Your brand).
+ * Decorative only: no hit area, nothing a screen reader reads.
+ */
+function FocusCorners({ tint }: { tint: string }) {
+  const arm = 'absolute h-7 w-7';
+  const line = { borderColor: tint };
+  return (
+    <div aria-hidden data-focus-corners="" className="pointer-events-none absolute inset-8">
+      <span className={`${arm} left-0 top-0 border-l-2 border-t-2`} style={line} />
+      <span className={`${arm} right-0 top-0 border-r-2 border-t-2`} style={line} />
+      <span className={`${arm} bottom-0 left-0 border-b-2 border-l-2`} style={line} />
+      <span className={`${arm} bottom-0 right-0 border-b-2 border-r-2`} style={line} />
+    </div>
   );
 }

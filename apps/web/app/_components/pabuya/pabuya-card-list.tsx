@@ -65,15 +65,40 @@ export function PabuyaCardList({
     <ul className="space-y-3">
       {methods.map((m, i) => {
         const meta = egiftKindMeta(m.kind);
+        /* 📱 THE QR IS THE METHOD (owner 2026-10-07, on the E-Gifts part:
+           *"shouldn't we show the actual QR instead?"*). For a scan-first rail
+           (`qrPrimary` — GCash, Maya) with a QR uploaded, the QR itself stands
+           where the icon tile stood, sized to scan; bank and PayPal keep
+           their details, and a method with no QR keeps its mark. */
+        const qrFirst = meta.qrPrimary && Boolean(m.qrUrl);
+        const qrLink = m.qrUrl ? (
+          <a
+            href={m.qrUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            data-egift-qr={qrFirst ? 'primary' : 'side'}
+            aria-label={`Open the ${m.label || meta.defaultLabel} QR code full size`}
+            className={`inline-flex ${qrFirst ? 'h-32 w-32' : 'h-28 w-28'} shrink-0 overflow-hidden rounded-xl border border-ink/10 bg-white transition hover:border-terracotta focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta sm:h-36 sm:w-36`}
+          >
+            {/* Raw <img>: the QR is an app route, not a build-time asset, and
+                next/image would add an optimiser hop in front of a gated route. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={m.qrUrl} alt={`${m.label || meta.defaultLabel} QR code`} className="h-full w-full object-contain" />
+          </a>
+        ) : null;
         return (
           <li
             key={`${m.kind}-${i}`}
             className="overflow-hidden rounded-2xl border border-ink/10 bg-cream shadow-sm"
           >
             <div className="flex items-start gap-3 p-4">
-              <span className="mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-mulberry/10">
-                <KindIcon kind={m.kind} />
-              </span>
+              {qrFirst ? (
+                qrLink
+              ) : (
+                <span className="mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-mulberry/10">
+                  <KindIcon kind={m.kind} />
+                </span>
+              )}
               <div className="min-w-0 flex-1">
                 <p className="font-display text-lg italic text-ink">
                   {m.label || meta.defaultLabel}
@@ -116,7 +141,7 @@ export function PabuyaCardList({
                   handleElementId={`egift-handle-${i}`}
                 />
               </div>
-              {m.qrUrl ? (
+              {m.qrUrl && !qrFirst ? (
                 /*
                   ── A QR A GUEST CAN ACTUALLY SCAN (2026-09-16) ──────────────
                   This was an 80×80 `<span>`. A couple does not upload bare QR
@@ -139,23 +164,7 @@ export function PabuyaCardList({
                   docblock keeps it presentational so those two cannot drift. A
                   link needs no JavaScript and works identically in both.
                 */
-                <a
-                  href={m.qrUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={`Open the ${m.label || meta.defaultLabel} QR code full size`}
-                  className="inline-flex h-28 w-28 shrink-0 overflow-hidden rounded-xl border border-ink/10 bg-white transition hover:border-terracotta focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta sm:h-36 sm:w-36"
-                >
-                  {/* Raw <img>: the QR is an app route, not a build-time
-                      asset, and next/image would add an optimiser hop in front
-                      of a gated route for no gain. */}
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={m.qrUrl}
-                    alt={`${m.label || meta.defaultLabel} QR code`}
-                    className="h-full w-full object-contain"
-                  />
-                </a>
+                qrLink
               ) : null}
             </div>
           </li>

@@ -29,7 +29,7 @@ new is drawn only in the new Maker's Studio (`makerStagesStudioEnabled`).
   (a new `{ ground: 'pattern' }`), Focus ▾, Blur ▾, Shade ▾ — drafted on the main
   background, free. The guest page lays Shade's veil (`mainGroundShade`, the
   contrast floor kept) and flips the words light on a dark one (`shadeWordVars`),
-  blurs, focuses and draws the pattern (`MainGroundPattern`).
+  blurs, focuses and draws the pattern (`PatternGround`).
 - **Look › Colours — one at a time** (`lib/main-colours.ts`): the five main
   colours with their jobs; a pick drafts `main_colours` (slot → hex), laid into
   the Mood Board's main colours on the canvas and at Apply, every other board key
@@ -39,12 +39,16 @@ new is drawn only in the new Maker's Studio (`makerStagesStudioEnabled`).
   `sanitizeRolePalette` (`sanitizePaintedPalette`, lib/main-colours.ts); a theme
   seed keeps its fill rule; overlaid whole, compared as the Mood Board reads it,
   free, never held with a refused theme; Apply writes it the `saveRolePalette`
-  way (board + `mood_board_updated_at`). Re-routing the Mood Board's picker /
-  Auto / part palettes into it waits for #6392.
+  way (board + `mood_board_updated_at`). Studio › Mood Board's picker, ✨ Auto
+  and part palettes now write INTO the draft (`mood-board-studio.tsx`, was
+  `saveRolePalette` live); S5's tripwire test now asserts the drafted path.
 - **Bridal bouquet · Centrepieces slots** (controller addition): the migration
   widens both slot gates (`event_inspiration_assets_slot_key_check_v3`, same
   name, and `moodboard_library_assets_supplier_gallery_shape`), every existing
-  value kept. The app vocabulary and the cards wait for #6392 (it owns those files).
+  value kept; `MOODBOARD_SLOT_KEYS`, the trades (florist; florist ·
+  stylist_decorator · catering), the gallery labels, the render-part aliases
+  (centrepieces → tables, bouquet → the bride), a Studio Inspiration card each
+  and a tile each on the shipped board.
 - **Info › QR on/off**: drafted `qr_shown`; off leaves the event QR off the print
   set and the guest keepsake.
 

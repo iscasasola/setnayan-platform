@@ -216,7 +216,7 @@ test('⭐ a supplier_gallery asset filed under a NON-SLOT is REFUSED', async () 
   assert.match(msg, /supplier_gallery_shape/);
 });
 
-test('every one of the 18 real inspiration slots is accepted by the gallery CHECK', async () => {
+test('every one of the 20 real inspiration slots is accepted by the gallery CHECK', async () => {
   // The three gates (MOODBOARD_SLOT_KEYS · the board's slot CHECK · this one)
   // must agree. A slot missing from THIS one fails silently: the couple's own
   // upload works and the supplier gallery for that slot is empty forever.
@@ -226,6 +226,8 @@ test('every one of the 18 real inspiration slots is accepted by the gallery CHEC
     'backdrop', 'flowers', 'cocktail', 'reception_venue', 'cake',
     'palette',
     'groom', 'bride', 'principal_sponsor', 'entourage', 'parents', 'guests',
+    // 💐 step 4c (2026-10-07): both gates widened in 20271265788160.
+    'bridal_bouquet', 'centrepieces',
   ];
   for (const slot of slots) {
     await newGalleryAsset({ vendorProfileId: shop, slot });

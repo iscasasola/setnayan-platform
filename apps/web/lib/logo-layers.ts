@@ -90,7 +90,19 @@ export const LOGO_DUR_MIN = 0.3;
 export const LOGO_DUR_MAX = 8;
 export const LOGO_DUR_STEP = 0.1;
 
-export type LogoMotion = { in: LogoIn; during: LogoDuring; delay: number; dur?: number };
+/* 🚪 OUT (owner 2026-09-27, asked; built 2026-10-07 — DECISION_LOG 2026-10-06
+   "THE LOGO MAKER IS THE SHIPPED LAYERED EDITOR … PLUS THREE OF THE OWNER'S OWN
+   UNBUILT ASKS"): how a layer LEAVES once the whole logo has played and held
+   (`LOGO_OUT_HOLD_SECONDS`). Absent = None, so every logo saved before stays
+   exactly as it plays today. */
+export const LOGO_OUT = ['none', 'fade', 'sink'] as const;
+export type LogoOut = (typeof LOGO_OUT)[number];
+export const LOGO_OUT_LABEL: Record<LogoOut, string> = { none: 'None', fade: 'Fade', sink: 'Sink' };
+/** How long the finished logo rests before a layer goes Out, and how long it takes. */
+export const LOGO_OUT_HOLD_SECONDS = 1.2;
+export const LOGO_OUT_SECONDS = 0.8;
+
+export type LogoMotion = { in: LogoIn; during: LogoDuring; delay: number; dur?: number; out?: Exclude<LogoOut, 'none'> };
 
 /** How long a layer's In actually takes, in seconds. */
 export function logoInSeconds(m: Pick<LogoMotion, 'in' | 'dur'>): number {
@@ -122,6 +134,18 @@ export const LOGO_FRAME_LABEL: Record<LogoFrameKind, string> = {
 export const LOGO_INKS = ['#1E2229', '#5C2542', '#8C6932', '#C5A059', '#2A3A5E', '#6E7B66', '#B07A86', '#FFFFFF'] as const;
 export const LOGO_DEFAULT_INK = '#5C2542';
 
+/**
+ * 🎨 What Colour offers: the shipped eight inks, or — in the new Maker — the five
+ * main colours (owner 2026-10-06: "Colour offers the five main colours (today 8
+ * fixed inks)"). A layer already in a colour that is not one of the five keeps
+ * it on the row, chosen, so opening the row never repaints anything.
+ */
+export function logoColourChoices(studio: { five: readonly string[] } | null, current: string | null): string[] {
+  if (!studio || studio.five.length === 0) return [...LOGO_INKS];
+  const five = [...new Set(studio.five.map((c) => c.toUpperCase()))];
+  return current && !five.includes(current.toUpperCase()) ? [...five, current] : five;
+}
+
 export const LOGO_MAX_LAYERS = 12;
 export const LOGO_SCALE_MIN = 0.1;
 export const LOGO_SCALE_MAX = 1.5;
@@ -138,6 +162,8 @@ export type LogoLayerMeta = {
   y: number;
   /** 1 = the layer's box fits the frame exactly. */
   scale: number;
+  /** ↻ Degrees, −180 … 180, about the layer's centre (owner 2026-10-06, "a Rotate slider in Size and place"). Absent = upright. */
+  rotate?: number;
   /** A hex, or null = the image's own colours (text/frame always carry one). */
   color: string | null;
   motion: LogoMotion;
@@ -188,6 +214,9 @@ export function sanitizeLogoMotion(raw: unknown, dflt: LogoMotion = defaultMotio
     during: pick(o.during, LOGO_DURING, dflt.during),
     delay: Number((Math.round(delay / LOGO_DELAY_STEP) * LOGO_DELAY_STEP).toFixed(1)),
   };
+  // An Out only when one was chosen — None is the same as never set.
+  const leave = pick(o.out, LOGO_OUT, 'none');
+  if (leave !== 'none') out.out = leave;
   // A speed only when one was set — a string, NaN or a missing value is "the default".
   if (typeof o.dur === 'number' && Number.isFinite(o.dur)) {
     const dur = clampNum(o.dur, LOGO_DUR_MIN, LOGO_DUR_MAX, LOGO_IN_SECONDS.draw);
@@ -213,6 +242,14 @@ export function sanitizeWritePath(raw: unknown): LogoWritePath | undefined {
   return { w: Math.round(clampNum(o.w, 1, 2000, 60) * 10) / 10, pts };
 }
 
+/** ↻ A turn in whole degrees, −180 … 180; 0 (upright) and anything unreadable are "no turn". */
+export const LOGO_ROTATE_MAX = 180;
+export function sanitizeRotate(v: unknown): number {
+  if (typeof v !== 'number' || !Number.isFinite(v)) return 0;
+  const r = Math.round(Math.min(LOGO_ROTATE_MAX, Math.max(-LOGO_ROTATE_MAX, v)));
+  return r === 0 ? 0 : r;
+}
+
 /** Each layer checked alone; a malformed one is dropped, never the whole logo. */
 export function sanitizeLogoLayers(raw: unknown): LogoLayerMeta[] {
   if (!Array.isArray(raw)) return [];
@@ -234,6 +271,7 @@ export function sanitizeLogoLayers(raw: unknown): LogoLayerMeta[] {
       x: clampNum(o.x, 0, LOGO_FRAME, LOGO_FRAME / 2),
       y: clampNum(o.y, 0, LOGO_FRAME, LOGO_FRAME / 2),
       scale: clampNum(o.scale, LOGO_SCALE_MIN, LOGO_SCALE_MAX, 1),
+      ...(sanitizeRotate(o.rotate) ? { rotate: sanitizeRotate(o.rotate) } : {}),
       color: kind === 'image' ? color : (color ?? LOGO_DEFAULT_INK),
       motion: sanitizeLogoMotion(o.motion),
     };
@@ -766,9 +804,11 @@ export function originalColours(body: string): string {
 
 /** Where a layer sits in the frame — the SAME transform the editor canvas and
  *  the saved file use, so the editor shows exactly what guests get. */
-export function layerTransform(layer: Pick<LogoLayer, 'w' | 'h' | 'x' | 'y' | 'scale'>): string {
+export function layerTransform(layer: Pick<LogoLayer, 'w' | 'h' | 'x' | 'y' | 'scale'> & { rotate?: number }): string {
   const k = fitFactor(layer.w, layer.h) * layer.scale;
-  return `translate(${R(layer.x)} ${R(layer.y)}) scale(${Number(k.toFixed(5))}) translate(${R(-layer.w / 2)} ${R(-layer.h / 2)})`;
+  /* ↻ Turned about its own centre — between the move and the size, so it turns where it stands. */
+  const turn = sanitizeRotate(layer.rotate);
+  return `translate(${R(layer.x)} ${R(layer.y)})${turn ? ` rotate(${turn})` : ''} scale(${Number(k.toFixed(5))}) translate(${R(-layer.w / 2)} ${R(-layer.h / 2)})`;
 }
 
 /** A layer's shapes as drawn: recoloured when it has a colour, on its white
@@ -791,8 +831,9 @@ export function composeLogoSvg(layers: LogoLayer[]): string | null {
     const inKind = effectiveIn(l);
     const write = inKind === 'draw' && l.write ? ` data-write="${writePathD(l.write)}" data-write-w="${R(l.write.w)}"` : '';
     const dur = typeof l.motion.dur === 'number' ? ` data-dur="${l.motion.dur}"` : '';
+    const leave = l.motion.out ? ` data-out="${l.motion.out}"` : '';
     parts.push(
-      `<g data-logo-layer="${l.id}" data-kind="${l.kind}" data-in="${inKind}" data-during="${l.motion.during}" data-delay="${l.motion.delay}"${dur}${write} transform="${layerTransform(l)}">` +
+      `<g data-logo-layer="${l.id}" data-kind="${l.kind}" data-in="${inKind}" data-during="${l.motion.during}" data-delay="${l.motion.delay}"${dur}${leave}${write} transform="${layerTransform(l)}">` +
         `<g data-logo-body="${R(l.w)} ${R(l.h)}">${layerShapes(l)}</g></g>`,
     );
   }

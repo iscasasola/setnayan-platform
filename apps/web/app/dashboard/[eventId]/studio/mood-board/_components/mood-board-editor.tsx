@@ -51,7 +51,9 @@ import {
   PrintablePdfButton,
   ShareWithVendorsButton,
   ThemeStudio,
+  MoodBoardStudio,
 } from './mood-board-lazy';
+import type { StudioAttireRow, StudioChange } from './mood-board-studio';
 import {
   cancelPartFinalization,
   cancelPartReopen,
@@ -92,6 +94,17 @@ import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
 import { draftedEventColumn } from '@/lib/hub-draft-store';
 import { normalizeDressCodeConfig } from './dress-code-fields';
+import type { DressCodeConfig } from '../dress-code-actions';
+import type { GuestRole } from '@/lib/guests';
+import { readHubDraft } from '@/lib/hub-draft-store';
+import { overlayHubDraftEvent } from '@/lib/hub-draft';
+import { HUB_THEMES, normalizeThemeId } from '@/lib/invite-themes';
+import { themeSeedPalette } from '@/lib/theme-colours';
+import { allRegions, resolveRegion } from '@/lib/region-source';
+import { describeColourChange, type ColourChangeRow } from '@/lib/colour-access';
+import { frozenNow } from '@/lib/moodboard-finalization-rows';
+import { ATTIRE_STYLES, ATTIRE_STYLE_LABEL, formatCallTime } from '@/lib/role-dress-code';
+import { roleGroupLabel, roleGroupOf, type RoleGroup } from '@/lib/role-groups';
 import { DressCodeListsForm } from './dress-code-lists-form';
 import { incDressCodeStarter } from './inc-dress-code-starter';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -282,6 +295,7 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
       .from('event_inspiration_assets')
       .select(
         `slot_key, slot_position, image_url, library_asset_id,
+         sampled_hex_1, sampled_hex_2, sampled_hex_3, sampled_hex_4, sampled_hex_5, sampled_hex_6,
          asset:moodboard_library_assets (
            asset_subtype,
            shop:vendor_profiles ( business_name, services )
@@ -364,6 +378,8 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
      through the couple's draft — the same place the Dress code scene saves —
      so the two show one list. A refused draft read is said, never guessed. */
   let dressLists: { dos: string[]; donts: string[]; incStarter: boolean } | null = null;
+  /* 🧭 The whole dress code as drafted — Studio's Attire tab writes a role's outfit into it. */
+  let dressConfig: DressCodeConfig | null = null;
   try {
     const drafted = inMaker ? await draftedEventColumn(eventId, 'dress_code_config') : { drafted: false as const };
     /* 👗 An INC event's EMPTY dress code starts from the modest guidance
@@ -375,6 +391,7 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
       ),
     );
     dressLists = { dos: cfg.dos, donts: cfg.donts, incStarter: started };
+    dressConfig = cfg;
   } catch (err) {
     console.error(`[moodBoard] dress-code draft unreadable for event_id=${eventId}:`, err);
   }
@@ -390,6 +407,12 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
     slot_position: number;
     image_url: string;
     library_asset_id: string | null;
+    sampled_hex_1: string | null;
+    sampled_hex_2: string | null;
+    sampled_hex_3: string | null;
+    sampled_hex_4: string | null;
+    sampled_hex_5: string | null;
+    sampled_hex_6: string | null;
     asset: {
       asset_subtype: string | null;
       shop: { business_name: string | null; services: string[] | null } | null;
@@ -409,6 +432,10 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
       slot_key: r.slot_key,
       slot_position: r.slot_position,
       image_url: r.image_url,
+      /* 🎨 The photo's own six sampled colours — Studio reads each part's palette from them. */
+      swatches: [r.sampled_hex_1, r.sampled_hex_2, r.sampled_hex_3, r.sampled_hex_4, r.sampled_hex_5, r.sampled_hex_6].filter(
+        (h): h is string => typeof h === 'string' && /^#[0-9a-f]{6}$/i.test(h),
+      ),
       credit:
         r.library_asset_id && shopName
           ? creditLine(
@@ -1088,6 +1115,15 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
     jumpLinks,
     provider,
     parts: { lastSaved, theme, inspiration, paletteSection, peopleAgreed, dressLists: dressListsPart, reception, roomAgreed, colours, makeItReal, shareWords, shareButton, pdfs },
+    /* 🧭 What Studio › Mood Board & Dress Code draws from — the SAME reads, nothing re-fetched. */
+    studio: {
+      palette,
+      inspirations,
+      dressConfig,
+      dressLists,
+      roleTally: guestRoleTally(guests),
+      finalizations: finalizationRecords,
+    },
   };
 });
 
@@ -1229,5 +1265,115 @@ export async function MoodBoardMakerControls({ eventId }: { eventId: string }) {
         {parts.lastSaved}
       </div>
     </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   🧭 STUDIO › MOOD BOARD & DRESS CODE (the new Maker; plan PR 5)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/** Every role on the guest list (a guest's extra roles included), with how many hold it. */
+function guestRoleTally(guests: ReadonlyArray<{ role: GuestRole; extra_roles?: GuestRole[] | null }>): Array<{ role: GuestRole; count: number }> {
+  const m = new Map<GuestRole, number>();
+  for (const g of guests) for (const r of [g.role, ...(g.extra_roles ?? [])]) m.set(r, (m.get(r) ?? 0) + 1);
+  return [...m].map(([role, count]) => ({ role, count }));
+}
+
+/**
+ * The Attire tab's people, in the Mood Board order (owner 2026-10-06: couple →
+ * parents → sponsors → entourage → bearers → guests). The couple and the guests
+ * are a ROLE's own line in the shipped dress code (`roles`); everyone else is
+ * their GROUP's line (`groups`) — the coarse tier the shipped editor offers.
+ * Only the people this guest list has; the guests always.
+ */
+const STUDIO_ATTIRE_GROUPS: ReadonlyArray<{ group: RoleGroup; paletteKey: PaletteKey | null }> = [
+  { group: 'vip_family', paletteKey: 'parents_immediate_family' },
+  { group: 'principal_sponsors', paletteKey: 'principal_sponsors' },
+  { group: 'secondary_sponsors', paletteKey: 'secondary_sponsors' },
+  { group: 'muslim_principals', paletteKey: 'muslim_principals' },
+  { group: 'bridesmaids', paletteKey: 'bridesmaids' },
+  { group: 'groomsmen', paletteKey: 'groomsmen' },
+  { group: 'bearers_flower_girl', paletteKey: 'bearers_flower_girl' },
+  { group: 'officiants', paletteKey: 'officiants' },
+];
+
+function studioAttireRows(tally: ReadonlyArray<{ role: GuestRole }>, config: DressCodeConfig | null): StudioAttireRow[] {
+  const roles = new Set(tally.map((t) => t.role));
+  const groups = new Set(tally.map((t) => roleGroupOf(t.role)));
+  const callOf = (tier: 'roles' | 'groups', key: string) =>
+    formatCallTime(((config?.[tier] ?? {}) as Record<string, { callTime?: string }>)[key]?.callTime ?? null);
+  const out: StudioAttireRow[] = [];
+  if (roles.has('celebrant')) out.push({ tier: 'roles', key: 'celebrant', label: 'The celebrant', paletteKey: null, arrives: callOf('roles', 'celebrant') });
+  out.push({ tier: 'roles', key: 'bride', label: 'The bride', paletteKey: 'bride', arrives: callOf('roles', 'bride') });
+  out.push({ tier: 'roles', key: 'groom', label: 'The groom', paletteKey: 'groom', arrives: callOf('roles', 'groom') });
+  for (const { group, paletteKey } of STUDIO_ATTIRE_GROUPS) {
+    if (!groups.has(group)) continue;
+    out.push({ tier: 'groups', key: group, label: roleGroupLabel(group), paletteKey, arrives: callOf('groups', group) });
+  }
+  out.push({ tier: 'roles', key: 'guest', label: 'Guests', paletteKey: 'guest', arrives: null });
+  return out;
+}
+
+/** 🧭 The new Maker's Studio › Mood Board & Dress Code — drawn by the launch page in place of `MoodBoardMakerBody` while it is on. */
+export async function MoodBoardStudioBody({ eventId }: { eventId: string }) {
+  const board = await buildMoodBoard(eventId, true);
+  if (!board.ok) return <CouldNotLoad />;
+  const { studio } = board;
+  const supabase = await createClient();
+  const [eventRes, draft, changesRes] = await Promise.all([
+    supabase.from('events').select('invite_theme, role_palette, region').eq('event_id', eventId).maybeSingle(),
+    readHubDraft(supabase, eventId).catch(() => null),
+    supabase
+      .from('event_colour_changes')
+      .select('change_id, domain, target_kind, target_key, target_index, old_value, new_value, actor_kind, actor_label, vendor_id, created_at, reverted_at')
+      .eq('event_id', eventId)
+      .is('reverted_at', null)
+      .not('vendor_id', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(6),
+  ]);
+  if (eventRes.error) logQueryError('moodBoardStudio.event', eventRes.error, { eventId });
+  /* A refused change log is said nowhere as "no changes" — logged; the board still draws. */
+  if (changesRes.error) logQueryError('moodBoardStudio.colourChanges', changesRes.error, { eventId }, 'graceful_degrade');
+  const live = (eventRes.data ?? { invite_theme: null, role_palette: null, region: null }) as { invite_theme: string | null; role_palette: unknown; region: string | null };
+  const shown = overlayHubDraftEvent(live, draft);
+  /* 🎨 The five the board shows while it is not the couple's: a theme's drafted fill, else the worn theme's own. */
+  const themeId = normalizeThemeId(typeof shown.invite_theme === 'string' ? shown.invite_theme : null) ?? 'house';
+  const drafted = sanitizeRolePalette(shown.role_palette ?? {});
+  const fallbackFive = (drafted.reception ?? []).length > 0 ? drafted.reception! : themeSeedPalette(themeId).reception;
+
+  const changes: StudioChange[] = ((changesRes.data ?? []) as ColourChangeRow[]).map((r) => {
+    const d = describeColourChange(r);
+    return { id: r.change_id, who: r.actor_label?.trim() || 'Your supplier', what: d.what, from: d.from, to: d.to };
+  });
+  const own = resolveRegion(live.region);
+  const regions = [...allRegions()]
+    .filter((r) => r.psgc_code)
+    .sort((a, b) => (a.slug === own?.slug ? -1 : b.slug === own?.slug ? 1 : 0))
+    .map((r) => ({ key: r.psgc_code!, label: r.display_label }));
+
+  return (
+    <MoodBoardStudio
+      eventId={eventId}
+      palette={studio.palette}
+      fallbackFive={fallbackFive}
+      frozenDressing={[...frozenNow(studio.finalizations).dressingFields]}
+      changes={changes}
+      attire={studioAttireRows(studio.roleTally, studio.dressConfig)}
+      dressConfig={studio.dressConfig as unknown as Record<string, unknown> | null}
+      attireStyles={ATTIRE_STYLES.map((k) => ({ key: k, label: ATTIRE_STYLE_LABEL[k] }))}
+      inspirations={studio.inspirations}
+      autoThemes={HUB_THEMES.filter((t) => t.ready).map((t) => ({ name: t.name, five: themeSeedPalette(t.id).reception }))}
+      regions={regions}
+      dos={
+        studio.dressLists ? (
+          <DressCodeListsForm eventId={eventId} dos={studio.dressLists.dos} donts={studio.dressLists.donts} inMaker incStarter={studio.dressLists.incStarter} studio />
+        ) : (
+          <p role="alert" className="text-sm text-terracotta-700" data-mood-board-unread="">
+            Your do&rsquo;s and don&rsquo;ts could not be loaded just now. Nothing was changed — please reopen this in a moment.
+          </p>
+        )
+      }
+    />
   );
 }

@@ -10,12 +10,6 @@ budget_allocation_decisions.total_budget_php	# first run 2026-10-02 · host app 
 chat_threads.compat_reasons	# first run 2026-10-02 · shared code · a column the app writes and nothing reads
 discount_code_redemptions.discount_centavos_applied	# first run 2026-10-02 · host app · a column the app writes and nothing reads
 event_editorial.edited_by_couple	# first run 2026-10-02 · host app · a column the app writes and nothing reads
-event_inspiration_assets.sampled_hex_1	# first run 2026-10-02 · host app · a column the app writes and nothing reads
-event_inspiration_assets.sampled_hex_2	# first run 2026-10-02 · host app · a column the app writes and nothing reads
-event_inspiration_assets.sampled_hex_3	# first run 2026-10-02 · host app · a column the app writes and nothing reads
-event_inspiration_assets.sampled_hex_4	# first run 2026-10-02 · host app · a column the app writes and nothing reads
-event_inspiration_assets.sampled_hex_5	# first run 2026-10-02 · host app · a column the app writes and nothing reads
-event_inspiration_assets.sampled_hex_6	# first run 2026-10-02 · host app · a column the app writes and nothing reads
 event_moderators.removal_reason	# first run 2026-10-02 · host app · a column the app writes and nothing reads
 event_vendors.completion_resolution_note	# first run 2026-10-02 · admin console · a column the app writes and nothing reads
 event_walkthrough_zones.duration_seconds	# first run 2026-10-02 · host app · a column the app writes and nothing reads

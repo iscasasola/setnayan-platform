@@ -30,3 +30,13 @@ Owner, on the preview (Maker › Studio, 375 px, maria-and-jose): faults 2 and 3
 No migration. +0 server actions.
 
 SPEC IMPACT: None (owner rulings already in `DECISION_LOG.md`, 2026-10-07/08); status in `STUDIO_ROUND3_BUILD_STATUS_2026-10-08.md`.
+
+## 2026-10-08 · perf(studio): two Studio pieces leave the Maker's first load (507 KB on the combined train)
+
+No behaviour or visual change — the same markup, the same map.
+
+- `lib/studio-tile-defs.ts` (in the first load through `maker-shell.tsx`) now holds only the eleven tile keys and the editor each opens (`STUDIO_TILE_ITEM`). The tiles' words — label · short · sub · reads (`STUDIO_TILES`) — moved to `lib/studio-tiles.ts`, which only the server reads; its `item` is the map's.
+- Studio forms' group headings ("Your event" · "Your Event Hub" · "Your invitation set" · "For the day"): drawn by the server in `maker-details.tsx` and only placed by `details-workspace.tsx` (first load) — the two class strings and the JSX no longer ship with the Maker.
+- Guard: `studio-followups-follow-the-prototype` 7 (each assertion seen red once).
+
+SPEC IMPACT: None.

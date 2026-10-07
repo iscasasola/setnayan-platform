@@ -1355,7 +1355,8 @@ export async function MoodBoardStudioBody({ eventId }: { eventId: string }) {
   return (
     <MoodBoardStudio
       eventId={eventId}
-      palette={studio.palette}
+      /* 🎨 The board as the couple is editing it — the draft over live (step 4c: the palette waits for Apply). */
+      palette={draft && ('role_palette' in draft.events || 'main_colours' in draft.events) ? drafted : studio.palette}
       fallbackFive={fallbackFive}
       frozenDressing={[...frozenNow(studio.finalizations).dressingFields]}
       changes={changes}

@@ -70,6 +70,7 @@ import { activeRailKey, railMatchRows } from './rail-active';
 import type { RailMatchRow } from './rail-active';
 import { RailActiveKeyProvider } from './rail-active-key';
 import { publicSearchPlaceholder } from '@/lib/public-search-nouns';
+import { InsideEventContext } from './inside-event-context';
 import { useOneOpen } from '@/lib/one-open';
 /*
   ─── THE RAIL'S OWN ROWS DRAW LUCIDE, LIKE EVERY OTHER ROW IN IT ──────────
@@ -1261,6 +1262,7 @@ export function FrontDoorShell({
   return (
     // `data-chrome` is the ONE switch the stylesheet reads. Below 1024 the app
     // variant paints no chrome at all; the surface's own bars are untouched.
+    <InsideEventContext.Provider value={insideEvent}>
     <div className="fd" data-chrome={chrome}>
       <>
       {/*
@@ -1971,6 +1973,7 @@ export function FrontDoorShell({
           bundle. */}
       {signInPanel}
     </div>
+    </InsideEventContext.Provider>
   );
 }
 

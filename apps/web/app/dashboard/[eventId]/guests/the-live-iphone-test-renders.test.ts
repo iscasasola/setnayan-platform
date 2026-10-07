@@ -340,9 +340,9 @@ test('⑫ every block under the title is one flex column with ONE gap — no per
   assert.match(page, /className="sn-col max-w-none flex flex-col gap-6" data-roster-full-width=""/, 'the title row has no step after it');
   assert.doesNotMatch(page.slice(page.indexOf('data-roster-full-width'), open), /space-y-/, 'per-element margins are back above the blocks');
 
-  // ⤷ 2026-10-07: the header Finalize control was deleted — Finalize is ONE row of Guests › Setup
-  // (owner: *"finalize should be inside the Setup"*; `finalize-mounts-once-inside-setup.test.ts`).
-  assert.doesNotMatch(page, /FinalizeGuestListControl/, 'Finalize is back above the switcher');
+  // ⤷ 2026-10-07: the finalize row left the page for Setup (PR 4d), and its
+  // old component was deleted — nothing of it may come back above the list.
+  assert.doesNotMatch(page, /FinalizeGuestListControl|data-guest-list-finalize/, 'the finalize row is back on the List');
 });
 
 // ── ⑬ the row's ⋯ opens where it can be seen ────────────────────────────────

@@ -95,7 +95,6 @@ test('only a co-host gets the door; everyone else reads the word', () => {
   const linkAt = cell.indexOf('<Link');
   assert.notEqual(guardAt, -1, 'the cell no longer keeps a read-only state');
   assert.ok(guardAt < linkAt, 'the link is drawn before the read-only guard can stop it');
-  assert.match(PAGE, /canManageAccess=\{viewer\.isCouple\}/, 'the page does not hand the list the couple gate it resolved');
 });
 
 test('one guest at a time — the retired bulk picker stays retired', () => {
@@ -109,11 +108,13 @@ test('the "+Co-host" tag that trailed the role is gone — the column says it on
   assert.doesNotMatch(bodyOf(ROSTER, 'RoleTexts'), /access/i, 'RoleTexts still draws an access tag');
 });
 
-test('the page reads every guest’s Access once and hands the list the map', () => {
-  assert.equal((PAGE.match(/loadGuestAccessMap\(/g) ?? []).length, 1, 'the page reads Access more than once');
-  // Maker PR 4f: the list is GuestsScreen now; the word sits on each row.
-  assert.match(PAGE, /<GuestsScreen[\s\S]*?\baccessByGuest=\{accessByGuest\}/, 'the list is not handed the Access map');
+test('the Guest list shows NO access at all (owner 2026-10-07: "remove access column since the access will be inside event details")', () => {
+  // Maker PR 4f: Access lives in Event Details › People with access, and on the
+  // guest's card. The list neither reads it nor draws it.
+  assert.doesNotMatch(PAGE, /loadGuestAccessMap\(|accessByGuest/, 'the Guest list page reads Access for the list again');
+  const list = PAGE.slice(PAGE.indexOf('<GuestsScreen'), PAGE.indexOf('/>', PAGE.indexOf('<GuestsScreen')));
+  assert.doesNotMatch(list, /ccess/, 'the list is handed Access again');
   const SCREEN = read('guests-screen.tsx');
-  assert.match(SCREEN, /<GuestAccessCell\b/, 'the list no longer shows each guest’s Access');
+  assert.doesNotMatch(SCREEN, /GuestAccessCell|accessWordFor|GuestAccessState|data-row-access/, 'the list draws an Access word again');
   assert.doesNotMatch(PAGE, /accessTagByGuest/, 'the page still builds the retired tag map');
 });

@@ -82,7 +82,6 @@ import {
   type GuestSide,
 } from '@/lib/guests';
 import { projectGuests } from '@/lib/guest-optimistic';
-import { isHonoreeRole } from '@/lib/role-groups';
 import {
   isToInvite,
   MAP_ARRANGE,
@@ -90,6 +89,7 @@ import {
   ROSTER_VIEWS,
   rosterSearchMatches,
   rosterSections,
+  rosterStats,
   rowVerbsFor,
   SEARCH_WAIT_MS,
   type MapArrange,
@@ -107,8 +107,6 @@ import { GuestListHasSidesContext } from './chip-editors';
 import { openAddGuest } from './add-guest-sheet';
 import { useRowState } from './use-row-state';
 import { GuestMapCanvas } from './guest-map-canvas';
-import { GuestAccessCell } from './guest-access-cell';
-import type { GuestAccessState } from '@/lib/guest-access';
 import styles from './guests-screen.module.css';
 
 
@@ -132,10 +130,6 @@ export type GuestsScreenProps = {
   songsByGuest: Record<string, string[]>;
   /** Guests an account holds (null = not measured). */
   linkedGuestIds: string[] | null;
-  /** guest_id → their Access (Host · Co-host · Limited helper), read once by the page. */
-  accessByGuest?: Record<string, GuestAccessState>;
-  /** Only a co-host's word is a door to People with access. */
-  canManageAccess?: boolean;
   /** guest_id → a face to draw. */
   faceByGuest: Record<string, string>;
   /** Requests to join waiting (from the event link). */
@@ -218,8 +212,6 @@ export function GuestsScreen(props: GuestsScreenProps) {
     tableByGuest,
     songsByGuest,
     linkedGuestIds,
-    accessByGuest,
-    canManageAccess = false,
     faceByGuest,
     requests,
     rootLabel,
@@ -419,15 +411,9 @@ export function GuestsScreen(props: GuestsScreenProps) {
   };
 
   // ── The counts (they count on load and on change — rule 2).
-  const counted = roster.filter((g) => countsTowardEvent(g));
-  const stats = {
-    total: counted.length,
-    yes: counted.filter((g) => g.rsvp_status === 'attending').length,
-    no: counted.filter((g) => g.rsvp_status === 'declined').length,
-    // "No reply" = invited and silent; a guest still to invite is counted under "to invite" (the prototype).
-    none: counted.filter((g) => g.rsvp_status === 'pending' && !isToInvite(g) && !isHonoreeRole(g.role)).length,
-    toInvite: counted.filter((g) => isToInvite(g)).length,
-  };
+  // The counts are read off the SAME list the rows are drawn from (`roster`),
+  // never a second read — so "List N" and "N attending" equal the rows below.
+  const stats = rosterStats(roster);
   const replied = stats.total ? Math.round(((stats.yes + stats.no) / stats.total) * 100) : 0;
   const shown = visible.filter((g) => countsTowardEvent(g)).length;
   const noMatch = Boolean(q) && visible.length === 0;
@@ -683,18 +669,6 @@ export function GuestsScreen(props: GuestsScreenProps) {
                       picked={selected.has(g.guest_id)}
                       face={faceByGuest[g.guest_id]}
                       table={tableByGuest[g.guest_id] ?? null}
-                      access={
-                        accessByGuest?.[g.guest_id] ? (
-                          <GuestAccessCell
-                            eventId={eventId}
-                            guestId={g.guest_id}
-                            firstName={g.first_name}
-                            state={accessByGuest[g.guest_id]!}
-                            canManage={canManageAccess}
-                            size="phone"
-                          />
-                        ) : null
-                      }
                       verbs={rowVerbsFor(g, {
                         linked: linked ? linked.has(g.guest_id) : null,
                         chatHref: chatHrefFor?.(g.guest_id) ?? null,
@@ -798,7 +772,9 @@ export function GuestsScreen(props: GuestsScreenProps) {
 
         {gview === 'share' ? null : (
           <div
-            className={styles.lower}
+            // The ONE shared glass row (BUTTON_RULE rule 7, `.sn-glass-row` in
+            // globals.css, builder GR): the row tints and blurs what scrolls behind.
+            className={`${styles.lower} sn-glass-row`}
             data-on={barOn ? 'true' : 'false'}
             data-guests-thumb=""
             data-last-seen-hold={selectMode ? '' : undefined}
@@ -842,11 +818,6 @@ export function GuestsScreen(props: GuestsScreenProps) {
 
 /* ═══ one guest row ═══ */
 
-/** The phone-size Access cell draws nothing for "None" — say nothing then. */
-function accessShown(node: ReactNode): boolean {
-  const el = node as { props?: { state?: GuestAccessState } } | null;
-  return Boolean(el?.props?.state && el.props.state.level !== 'none');
-}
 
 const PILL: Record<GuestRow['rsvp_status'], { cls: string; word: string }> = {
   attending: { cls: 'pillOk', word: `✓ ${RSVP_ROW_WORDS.attending}` },
@@ -861,7 +832,6 @@ function GuestRowLine({
   picked,
   face,
   table,
-  access,
   verbs,
   chatHref,
   onOpen,
@@ -873,8 +843,6 @@ function GuestRowLine({
   picked: boolean;
   face?: string;
   table: string | null;
-  /** The Access word (Host · Co-host · Limited helper) — none for a plain guest. */
-  access: ReactNode;
   verbs: readonly ('message' | 'edit' | 'remove')[];
   chatHref: string | null;
   onOpen: (id: string, el: HTMLElement) => void;
@@ -926,14 +894,6 @@ function GuestRowLine({
           )}
         </div>
       </button>
-      {/* The Access word sits under the name, OUTSIDE the name's button — for a
-          co-host it is a link to People with access, and a link inside a button
-          is two controls in one. */}
-      {access && accessShown(access) && !g.passed_away ? (
-        <span className={styles.meta} style={{ gridColumn: 2, marginTop: -6 }} data-row-access="">
-          {access}
-        </span>
-      ) : null}
       {selectMode ? null : (
         <span className={styles.acts} data-fit-row="" data-row-acts="">
           {verbs.includes('message') && chatHref ? (

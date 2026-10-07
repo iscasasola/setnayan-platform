@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getMenuLifecyclePhase, getDayOfPhase } from './day-of-mode';
@@ -454,4 +454,8 @@ test('the finalized banner does not claim guests the list does not have', () => 
   const code = g.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
   assert.ok(!/guests locked in/.test(code), '"N guests locked in" must not return');
   assert.match(code, /[Yy]our suppliers price for/, 'it must say what the number is for');
+  // ⤷ 2026-10-07: the old Finalize / Reopen control was deleted (finalize lives
+  // in Setup, PR 4d #6409, and the hosts can reopen it there).
+  // What holds HERE: the old file is gone, so its banner cannot return.
+  assert.ok(!existsSync(join(WEB, 'app/dashboard/[eventId]/guests/_components/finalize-guest-list-control.tsx')), 'the retired finalize control is back');
 });

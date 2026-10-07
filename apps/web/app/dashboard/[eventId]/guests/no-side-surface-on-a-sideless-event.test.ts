@@ -72,8 +72,8 @@ const COMPONENTS: ReadonlyArray<{ file: string; name: string }> = [
   { file: 'app/dashboard/[eventId]/guests/_components/guest-list-multiselect.tsx', name: 'NewGroupInlineForm' },
   { file: 'app/dashboard/[eventId]/guests/_components/guest-list-multiselect.tsx', name: 'MobileListRow' },
   { file: 'app/dashboard/[eventId]/guests/_components/guest-list-multiselect.tsx', name: 'GroupChipList' },
-  { file: 'app/dashboard/[eventId]/guests/_components/groups-sidebar.tsx', name: 'GroupsSidebarBody' },
-  { file: 'app/dashboard/[eventId]/guests/_components/groups-sidebar.tsx', name: 'TeamSideSelect' },
+  // (groups-sidebar.tsx — GroupsSidebarBody, TeamSideSelect — was deleted with
+  // the retired filter row, Maker PR 4f, 2026-10-07.)
   { file: 'app/dashboard/[eventId]/guests/_components/guest-card-body.tsx', name: 'GuestCardBody' },
   { file: 'app/dashboard/[eventId]/guests/_components/guests-screen.tsx', name: 'GuestsScreen' },
   { file: 'app/dashboard/[eventId]/guests/_components/guest-name-fields.tsx', name: 'GuestNameFields' },

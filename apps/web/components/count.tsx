@@ -94,7 +94,11 @@ export function useCountTo(value: number, opts: CountToOptions = {}): number {
     const from = alwaysFromZero ? 0 : remembered;
     instanceLast.current = value;
 
-    if (!Number.isFinite(value) || (skipNonPositive && value <= 0) || from === value || prefersReducedMotion()) {
+    // 🪤 A HIDDEN PAGE NEVER RUNS A FRAME (a background tab, a document-hidden
+    // preview pane): the count would sit on `from` — 0 on load — forever, a
+    // real figure rendered as a zero. Hidden → the value at once.
+    const hidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
+    if (!Number.isFinite(value) || (skipNonPositive && value <= 0) || from === value || hidden || prefersReducedMotion()) {
       setDisplay(value);
       return;
     }
@@ -103,7 +107,8 @@ export function useCountTo(value: number, opts: CountToOptions = {}): number {
     let start = 0;
     let shown = from;
     let done = false;
-    setDisplay(from);
+    // `from` is shown by the FIRST FRAME, never before it: if no frame ever
+    // runs, the figure stays on its true value instead of on `from`.
     const timer = window.setTimeout(() => {
       const tick = (now: number) => {
         if (!start) start = now;
@@ -121,7 +126,8 @@ export function useCountTo(value: number, opts: CountToOptions = {}): number {
       // Cut short (a newer value, or StrictMode's mount-unmount-mount): remember
       // the figure actually on screen, so the next run starts from it rather
       // than believing the old target was reached.
-      if (!done) {
+      // (No frame ran → `from` was never shown; the true value still is.)
+      if (!done && start) {
         if (id !== undefined) lastShown.set(id, shown);
         instanceLast.current = shown;
       }
@@ -197,7 +203,10 @@ export function Fill({
     const key = id !== undefined ? `fill:${id}` : undefined;
     const from = key !== undefined ? startFor(key, to) : instanceLast.current ?? 0;
     instanceLast.current = to;
-    if (!node || from === to || prefersReducedMotion()) return;
+    // A hidden page never runs the frame that slides the bar on — it would sit
+    // at `from` (0 on load). Hidden → the bar is already at `to` (its style).
+    const hidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
+    if (!node || from === to || hidden || prefersReducedMotion()) return;
     // Paint `from` with no transition, force a reflow, then let `.meter-fill` slide to `to`.
     node.style.transition = 'none';
     node.style[axis] = `${from}%`;

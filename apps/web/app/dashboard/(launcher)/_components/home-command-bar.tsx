@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   Search,
@@ -23,6 +23,7 @@ import { marketplaceEscapeItem } from '@/app/_components/frontdoor/command-escap
 import { KIND_LABEL, matchesCommandQuery } from '@/lib/command-match';
 import { itemInScope, resolveSearchScope } from '@/lib/search-scope';
 import { GuestsTopSearch } from './guests-top-search';
+import { InsideEventContext } from '@/app/_components/frontdoor/inside-event-context';
 
 /**
  * HomeCommandBar — the launcher's DETERMINISTIC "search or jump" bar
@@ -121,6 +122,14 @@ export function HomeCommandBar({
   items: HomeCommandItem[];
   variant?: 'bar' | 'rail';
 }) {
+  /*
+    True on every page inside one event (`/dashboard/[eventId]/**`): the
+    shell's own `insideEvent`, provided by `FrontDoorShell` — the same switch it
+    already reads, set only by the event layout's `studioEventId`. Read from
+    context, not a prop, so both search mounts stay one identical expression.
+    See the early return below for what it turns off.
+  */
+  const insideEvent = useContext(InsideEventContext);
   const rail = variant === 'rail';
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -187,6 +196,10 @@ export function HomeCommandBar({
   const safeHighlight = Math.min(highlight, Math.max(0, filtered.length - 1));
 
   useEffect(() => {
+    // Inside an event there is no palette to open (see the early return
+    // below), so ⌘K is not bound there at all — never a listener that opens
+    // a dialog nobody can see.
+    if (insideEvent) return;
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
         // Stand down while another modal (e.g. the AccountSwitcher sheet) is
@@ -212,7 +225,7 @@ export function HomeCommandBar({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [insideEvent]);
 
   // Reset the palette state each time it opens (focus comes from useModalA11y).
   useEffect(() => {
@@ -259,6 +272,19 @@ export function HomeCommandBar({
     above still runs, so the order never changes between places.
   */
   if (scope.key === 'guests') return <GuestsTopSearch scope={scope} />;
+
+  /*
+    🚫 NO TOP-BAR SEARCH INSIDE AN EVENT (owner 2026-10-08, looking at the
+    round search button and its ⌘K inside an event: *"when we enter and event
+    dashboard. i don't think we need search on top anymore"*). The palette here
+    only ever searched "your events" — the board one level up — so inside one
+    event it pointed away from where the person is standing. Pages that search
+    their own contents keep their own box (Suppliers' category search, the
+    check-in desk, Messages …); the Guest list keeps the guests box above,
+    because that box IS the list's search (owner 2026-09-30) and the page has
+    no other. The account pages and the events board are untouched.
+  */
+  if (insideEvent) return null;
 
   return (
     <>

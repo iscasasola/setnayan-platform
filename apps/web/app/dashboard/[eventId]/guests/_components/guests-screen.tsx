@@ -107,8 +107,6 @@ import { GuestListHasSidesContext } from './chip-editors';
 import { openAddGuest } from './add-guest-sheet';
 import { useRowState } from './use-row-state';
 import { GuestMapCanvas } from './guest-map-canvas';
-import { GuestAccessCell } from './guest-access-cell';
-import type { GuestAccessState } from '@/lib/guest-access';
 import styles from './guests-screen.module.css';
 
 
@@ -132,10 +130,6 @@ export type GuestsScreenProps = {
   songsByGuest: Record<string, string[]>;
   /** Guests an account holds (null = not measured). */
   linkedGuestIds: string[] | null;
-  /** guest_id → their Access (Host · Co-host · Limited helper), read once by the page. */
-  accessByGuest?: Record<string, GuestAccessState>;
-  /** Only a co-host's word is a door to People with access. */
-  canManageAccess?: boolean;
   /** guest_id → a face to draw. */
   faceByGuest: Record<string, string>;
   /** Requests to join waiting (from the event link). */
@@ -218,8 +212,6 @@ export function GuestsScreen(props: GuestsScreenProps) {
     tableByGuest,
     songsByGuest,
     linkedGuestIds,
-    accessByGuest,
-    canManageAccess = false,
     faceByGuest,
     requests,
     rootLabel,
@@ -677,18 +669,6 @@ export function GuestsScreen(props: GuestsScreenProps) {
                       picked={selected.has(g.guest_id)}
                       face={faceByGuest[g.guest_id]}
                       table={tableByGuest[g.guest_id] ?? null}
-                      access={
-                        accessByGuest?.[g.guest_id] ? (
-                          <GuestAccessCell
-                            eventId={eventId}
-                            guestId={g.guest_id}
-                            firstName={g.first_name}
-                            state={accessByGuest[g.guest_id]!}
-                            canManage={canManageAccess}
-                            size="phone"
-                          />
-                        ) : null
-                      }
                       verbs={rowVerbsFor(g, {
                         linked: linked ? linked.has(g.guest_id) : null,
                         chatHref: chatHrefFor?.(g.guest_id) ?? null,
@@ -838,11 +818,6 @@ export function GuestsScreen(props: GuestsScreenProps) {
 
 /* ═══ one guest row ═══ */
 
-/** The phone-size Access cell draws nothing for "None" — say nothing then. */
-function accessShown(node: ReactNode): boolean {
-  const el = node as { props?: { state?: GuestAccessState } } | null;
-  return Boolean(el?.props?.state && el.props.state.level !== 'none');
-}
 
 const PILL: Record<GuestRow['rsvp_status'], { cls: string; word: string }> = {
   attending: { cls: 'pillOk', word: `✓ ${RSVP_ROW_WORDS.attending}` },
@@ -857,7 +832,6 @@ function GuestRowLine({
   picked,
   face,
   table,
-  access,
   verbs,
   chatHref,
   onOpen,
@@ -869,8 +843,6 @@ function GuestRowLine({
   picked: boolean;
   face?: string;
   table: string | null;
-  /** The Access word (Host · Co-host · Limited helper) — none for a plain guest. */
-  access: ReactNode;
   verbs: readonly ('message' | 'edit' | 'remove')[];
   chatHref: string | null;
   onOpen: (id: string, el: HTMLElement) => void;
@@ -922,14 +894,6 @@ function GuestRowLine({
           )}
         </div>
       </button>
-      {/* The Access word sits under the name, OUTSIDE the name's button — for a
-          co-host it is a link to People with access, and a link inside a button
-          is two controls in one. */}
-      {access && accessShown(access) && !g.passed_away ? (
-        <span className={styles.meta} style={{ gridColumn: 2, marginTop: -6 }} data-row-access="">
-          {access}
-        </span>
-      ) : null}
       {selectMode ? null : (
         <span className={styles.acts} data-fit-row="" data-row-acts="">
           {verbs.includes('message') && chatHref ? (

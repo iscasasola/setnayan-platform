@@ -689,7 +689,8 @@ function GroundCarousel({
       data-main-ground-source={source}
       className="-mx-4 flex snap-x snap-mandatory gap-2 overflow-x-auto overscroll-x-contain px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
     >
-      {options.map((o) => {
+      {/* The plain colour first, as the prototype draws it ("Plain colour"), then every picture. */}
+      {[...options.filter((o) => o.key === 'src:none'), ...options.filter((o) => o.key !== 'src:none')].map((o) => {
         const on = o.key === value;
         const off = Boolean(o.disabledNote);
         return (

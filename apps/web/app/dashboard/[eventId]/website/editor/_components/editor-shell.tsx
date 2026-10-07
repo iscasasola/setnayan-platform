@@ -990,12 +990,11 @@ export function MakerWork({
           src: `${publicLandingUrl}?phase=${s}&editor=1${guestBars ? '&bars=1' : ''}`,
         }))
       : [];
+  /* 🧭 The new Maker's Stages panel owns the page's place on a phone: it centres the picked part itself
+     (`stage-tools.tsx` `centrePart`) — a top-aligned bring-up here would undo it. */
   const scrollPreviewTo = useCallback(
     (anchor?: string) => {
-      if (!anchor) return;
-      /* 🧭 The new Maker's Stages panel owns the page's place on a phone: it centres the picked part itself
-         (`stage-tools.tsx` `centrePart`) — a top-aligned bring-up here would undo it. */
-      if (stagesStudioRef.current && window.innerWidth < 1024) return;
+      if (!anchor || (stagesStudioRef.current && window.innerWidth < 1024)) return;
       postToShownCanvases({ source: 'setnayan-editor', t: 'scrollTo', key: anchor });
     },
     [postToShownCanvases],

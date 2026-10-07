@@ -1135,7 +1135,20 @@ export function MakerDetails(props: MakerDetailsProps) {
         /* 🖼 Background · Colours · Font · Music show the ONE page the whole Look shows. */
         bodyAlias={{ background: 'theme', colours: 'theme', font: 'theme', music: 'theme' }}
         /* 🗂 The new Maker's Studio forms, grouped as the prototype draws them (`.gh`). */
-        formHeads={props.studio ? STUDIO_FORM_HEADS : undefined}
+        formHeads={
+          props.studio
+            ? Object.fromEntries(
+                Object.entries(STUDIO_FORM_HEADS).map(([key, head]) => [
+                  key,
+                  /* Drawn HERE, on the server — the workspace (first load) only places it. */
+                  <p key={key} data-details-form-group={key} className="flex items-baseline gap-2 pt-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-ink/55">
+                    {head.title}
+                    {head.line ? <small className="ml-auto text-[11px] font-medium normal-case tracking-normal text-ink/50">{head.line}</small> : null}
+                  </p>,
+                ]),
+              )
+            : undefined
+        }
         /* 🧩 Each moved tool's pieces, in the navigator (DECISION_LOG "A TOOL
            MOVED INTO THE MAKER IS REBUILT INTO THE THREE PARTS"). */
         pieces={{

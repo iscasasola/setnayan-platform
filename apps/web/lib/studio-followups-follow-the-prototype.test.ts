@@ -288,4 +288,8 @@ test('7 · each of the 11 tiles opens its OWN editor — Look never opens the Lo
   assert.match(shell, /import \{ studioTileItem, type StudioTileKey \} from '@\/lib\/studio-tile-defs';/, 'the shell maps a tile through another module');
   assert.doesNotMatch(shell, /import \{[^}]*\} from '@\/lib\/studio-tiles';/, 'the shell imports a VALUE from lib/studio-tiles (types only)');
   for (const k of STUDIO_TILE_KEYS) assert.equal(STUDIO_TILES[k].item, studioTileItem(k, null), `${k}: the table and the map disagree`);
+  /* …and the Studio forms' group headings are DRAWN by the server; the workspace (first load) only places them. */
+  assert.doesNotMatch(read(`${L}/details-workspace.tsx`), /data-details-form-group=/, 'the workspace draws the form headings itself again (first-load weight)');
+  assert.match(read(`${L}/details-workspace.tsx`), /formHeads\[i\.key\] \? <Fragment key="head">\{formHeads\[i\.key\]\}<\/Fragment> : null/, 'the workspace no longer places the server-drawn heading');
+  assert.match(read(`${L}/maker-details.tsx`), /<p key=\{key\} data-details-form-group=\{key\} className="flex items-baseline gap-2 pt-2 text-\[10px\] font-semibold uppercase tracking-\[0\.2em\] text-ink\/55">/, 'the server does not draw the form headings as they were drawn');
 });

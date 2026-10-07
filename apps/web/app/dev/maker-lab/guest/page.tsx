@@ -9,6 +9,8 @@ import { SpecialMessageWidget } from '@/app/[slug]/_components/special-message-w
 import { MakerWelcomeGiftsEmpty, MakerWelcomeLook } from '@/app/[slug]/_components/maker-guest-scenes';
 import { WelcomeGifts } from '@/app/[slug]/_components/guest-doorway-strip';
 import { PahinaMasthead } from '@/app/[slug]/_components/pahina-masthead';
+import { ScheduleWidget } from '@/app/[slug]/_components/schedule-widget';
+import { VenueWidget } from '@/app/[slug]/_components/venue-widget';
 import { HubCanvasFrame } from '@/app/[slug]/_components/hub-canvas-frame';
 import { canvasOnlyCss, canvasOnlyScene, canvasStylePreview } from '@/app/[slug]/_lib/editor-canvas';
 import { withStylePreview } from '@/app/[slug]/_lib/style-preview';
@@ -19,6 +21,26 @@ import { HERO_PART_LOOK, partLookAttr } from '@/lib/scene-styles-parts';
 import { MakerEmptyScene } from '@/app/[slug]/_components/maker-empty-scene';
 import { WhenYesCelebration } from '@/app/[slug]/_components/when-yes-celebration';
 import { celebrationColours, isRsvpCelebration } from '@/lib/rsvp-celebration';
+
+/** maria-and-jose's run of show and venues (read-only shape, 2026-10-05) — the lab has no database. */
+const LAB_BLOCK = (i: number, label: string, at: string, location: string | null, type = 'other') => ({
+  block_id: `lab-${i}`, public_id: `lab-${i}`, event_id: 'lab', label, block_type: type, start_at: `2026-12-12T${at}:00`, end_at: null,
+  location, notes: null, is_public: true, sort_order: i, parent_block_id: null, created_at: '2026-10-01T00:00:00Z',
+  run_state: 'upcoming', actual_start_at: null, actual_end_at: null, audience: null,
+});
+const LAB_BLOCKS = [
+  LAB_BLOCK(1, 'Guests arrive', '14:30', 'Santuario de San Antonio'),
+  LAB_BLOCK(2, 'Ceremony', '15:00', 'Santuario de San Antonio', 'ceremony'),
+  LAB_BLOCK(3, 'Cocktails', '17:30', 'Seda Vertis North'),
+  LAB_BLOCK(4, 'Dinner & dancing', '19:00', 'Seda Vertis North', 'reception'),
+];
+const LAB_VENUE_EVENT = {
+  event_date: '2026-12-12',
+  venues: [
+    { role: 'ceremony', name: 'Santuario de San Antonio', address: 'McKinley Rd, Forbes Park, Makati', latitude: 14.5476, longitude: 121.0335 },
+    { role: 'reception', name: 'Seda Vertis North', address: '1 Astra Way, Vertis North, Quezon City', latitude: 14.6537, longitude: 121.0367 },
+  ],
+};
 
 /** maria-and-jose's board stand-in — Oxblood & olive, the prototype's first palette. */
 const LAB_BOARD = ['#5B1A22', '#6B7A3A', '#E0A52B', '#8E2E3C', '#F2C8C2'];
@@ -83,7 +105,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   }
   const { event: labEvent, widgets: labRows } = withStylePreview(
     { style_preferences: { scene_styles: labStyles } },
-    Object.keys({ ...drafted, countdown: 1, special_message: 1, schedule: 1, dress_code: 1 }).map((t) => ({ widget_type: t, config_json: { canvas: drafted[t] ?? {} } })),
+    Object.keys({ ...drafted, countdown: 1, special_message: 1, schedule: 1, venue_map: 1, dress_code: 1 }).map((t) => ({ widget_type: t, config_json: { canvas: drafted[t] ?? {} } })),
     preview,
   );
   const rowOf = (type: string) => labRows.find((r) => r.widget_type === type) ?? { widget_type: type, config_json: { canvas: {} } };
@@ -212,24 +234,20 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
         <div data-lab-scene="look" className="border-t border-ink/10 px-4 py-8 text-left">
           <MakerWelcomeLook look={look('my_wear')} />
         </div>
-        {/* 🗓 The day's moments — a scene of ROWS (its Build in carries Rows ▾). */}
+        {/* 🗓 The day's moments — the REAL Schedule widget on maria-and-jose's run of show, in its drafted (or previewed) Style. */}
         {mark('w:schedule')}
-        <section data-lab-scene="schedule" className="border-t border-ink/10 px-4 py-8 text-left">
-          <p className="pahina-eyebrow">
-            <span>The day</span>
-          </p>
-          {[
-            ['2:30 PM', 'Guests arrive · Santuario de San Antonio'],
-            ['3:00 PM', 'Ceremony'],
-            ['5:30 PM', 'Cocktails · the garden'],
-            ['7:00 PM', 'Dinner & dancing'],
-          ].map(([t, w]) => (
-            <p key={t} className="mt-3 flex gap-3 border-t border-ink/10 pt-3 text-sm">
-              <b className="w-20 shrink-0 font-serif text-base font-medium">{t}</b>
-              <span className="text-ink/70">{w}</span>
-            </p>
-          ))}
-        </section>
+        <HubCanvasFrame widget={{ ...rowOf('schedule'), widget_id: 'lab-schedule' } as never} hubTheme="house" ownClipPlays>
+          <section data-lab-scene="schedule" className="border-t border-ink/10 px-4 py-8 text-left">
+            <ScheduleWidget blocks={LAB_BLOCKS as never} eventTz="Asia/Manila" eventType="wedding" sceneStyle={sceneStyleOfRow(rowOf('schedule'), stage, 'wedding')} />
+          </section>
+        </HubCanvasFrame>
+        {/* 🏛 The REAL Venue widget — the church and the hotel, in its drafted (or previewed) Style. */}
+        {mark('w:venue_map')}
+        <HubCanvasFrame widget={{ ...rowOf('venue_map'), widget_id: 'lab-venue' } as never} hubTheme="house" ownClipPlays>
+          <section data-lab-scene="venue_map" className="border-t border-ink/10 px-4 py-8 text-left">
+            <VenueWidget event={LAB_VENUE_EVENT as never} sceneStyle={sceneStyleOfRow(rowOf('venue_map'), stage, 'wedding')} map="none" blocks={LAB_BLOCKS as never} />
+          </section>
+        </HubCanvasFrame>
         {mark('w:dress_code')}
         {/* 🎨 Dress code's palette LOOK (`canvas.palette`), read through the real
             resolver; the lab stands in for the widget's drawing with its name. */}

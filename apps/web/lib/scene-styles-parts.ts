@@ -42,7 +42,7 @@ const INV: readonly HubStage[] = ['rsvp'];
 /** The four for-each-guest parts share one family of looks — words on the page, no box. */
 const MY_STYLES = [
   { id: 'plain', name: 'Plain', line: 'Ranged left, as written.', stages: INV },
-  { id: 'centred', name: 'Centred', line: 'Centred, the label over a short rule.', stages: INV },
+  { id: 'centred', name: 'Centred', line: 'Everything centred.', stages: INV },
   { id: 'italic', name: 'Italic', line: 'The answer large, in italics.', stages: INV },
   { id: 'spaced-caps', name: 'Spaced caps', line: 'Small capitals, widely spaced.', stages: INV },
   { id: 'side-rule', name: 'Side rule', line: 'A gold rule down the left.', stages: INV },
@@ -106,7 +106,7 @@ export const PART_SCENE_STYLE_SETS: readonly SceneStyleSet[] = [
     label: 'E-Gifts',
     styles: [
       { id: 'door', name: 'The door', line: 'The gift door, as shipped.', stages: INV },
-      { id: 'centred', name: 'Centred', line: 'Centred, the label over a short rule.', stages: INV },
+      { id: 'centred', name: 'Centred', line: 'Centred, the door stacked.', stages: INV },
       { id: 'side-rule', name: 'Side rule', line: 'A gold rule down the left.', stages: INV },
       { id: 'ruled', name: 'Between rules', line: 'Between two rules.', stages: INV },
     ],

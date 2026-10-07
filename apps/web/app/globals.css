@@ -7755,9 +7755,6 @@ html [data-part-look="gifts.ruled"] a > span:nth-child(2) { flex: none; }
 /* ── The guest's own parts: Your role · What to wear · Arrive by · Coming with you ── */
 html :is([data-part-look="role.centred"], [data-part-look="wear.centred"], [data-part-look="arrive.centred"], [data-part-look="guests.centred"]) { text-align: center; }
 html :is([data-part-look="role.centred"], [data-part-look="wear.centred"], [data-part-look="arrive.centred"], [data-part-look="guests.centred"]) :is(.pahina-eyebrow, .flex) { justify-content: center; }
-html :is([data-part-look="role.centred"], [data-part-look="wear.centred"], [data-part-look="arrive.centred"], [data-part-look="guests.centred"]) .pahina-eyebrow::after {
-  content: ''; display: block; width: 2.2em; height: 1px; background: rgb(var(--color-gild)); margin: 0.45em auto 0;
-}
 html :is([data-part-look="role.italic"], [data-part-look="wear.italic"], [data-part-look="arrive.italic"], [data-part-look="guests.italic"]) .font-pahina { font-style: italic; font-size: 1.55rem; }
 html :is([data-part-look="role.spaced-caps"], [data-part-look="wear.spaced-caps"], [data-part-look="arrive.spaced-caps"], [data-part-look="guests.spaced-caps"]) .font-pahina {
   font-family: var(--font-sans), system-ui, sans-serif; text-transform: uppercase; letter-spacing: 0.14em; font-size: 0.95rem; font-weight: 500;

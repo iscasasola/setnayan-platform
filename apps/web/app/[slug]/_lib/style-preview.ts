@@ -25,14 +25,14 @@ import type { CanvasStylePreview } from './editor-canvas';
 const asObject = (v: unknown): Record<string, unknown> | null =>
   v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
 
-export function withStylePreview<E extends { style_preferences?: unknown }, W extends { widget_type: string; config_json: unknown }>(
+export function withStylePreview<E extends object, W extends { widget_type: string; config_json: unknown }>(
   event: E,
   widgets: readonly W[],
   preview: CanvasStylePreview | null | undefined,
 ): { event: E; widgets: W[] } {
   if (!preview) return { event, widgets: widgets as W[] };
   if ((STYLED_SCENES as readonly string[]).includes(preview.type)) {
-    const prefs = { ...(asObject(event.style_preferences) ?? {}) };
+    const prefs = { ...(asObject((event as { style_preferences?: unknown }).style_preferences) ?? {}) };
     prefs[SCENE_STYLES_PREF_KEY] = { ...(asObject(prefs[SCENE_STYLES_PREF_KEY]) ?? {}), [preview.type]: preview.id };
     return { event: { ...event, style_preferences: prefs }, widgets: widgets as W[] };
   }

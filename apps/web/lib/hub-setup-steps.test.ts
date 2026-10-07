@@ -105,7 +105,8 @@ test('🔑 each setup step writes the field its Maker place already writes — n
     { step: 'wear', files: [`${D}/studio/mood-board/dress-code-actions.ts`], field: /dress_code_config:\s*config/ },
     // B5–6 → Details › RSVP: the questions (drafted) and the reply-by date.
     { step: 'ask', files: [`${D}/launch/_components/maker-rsvp-ask.tsx`], field: /rsvp_ask_config:\s*next/ },
-    { step: 'ask', files: [`${D}/launch/_components/maker-rsvp-ask.tsx`], field: /'guest_list_edit_deadline'/ },
+    /* The reply-by field is the shared `ReplyBy` part the Maker mounts (Guests › Setup mounts the same — 2026-10-07). */
+    { step: 'ask', files: [`${D}/_components/guest-setup/reply-by.tsx`], field: /'guest_list_edit_deadline'/ },
     // B7 → the Guest list, by the template import (#6225).
     { step: 'guests', files: [`${D}/guests/import/actions.ts`], field: /\.from\('guests'\)\s*\.insert/ },
   ];
@@ -266,7 +267,8 @@ test('🚪 the three doors open the SAME address, read through the SAME derivati
   const home = code(`${D}/_components/home-first-screen.tsx`);
   assert.match(home, /kind: 'guide', href: `\/dashboard\/\$\{eventId\}\/launch\?tool=details&guide=1`/);
   assert.equal((home.match(/<NextCard/g) ?? []).length, 1, 'the offer is the Next card itself — not a second door');
-  assert.match(home, /later=\{next\.offer \?/);
+  // Its Later is drawn in the card's own button row (Home redraw, 2026-10-07) — the shipped tour action.
+  assert.match(home, /next\.offer \? \([\s\S]{0,300}?completeTour\.bind\(null, HUB_SETUP_OFFER_TOUR\)/);
   // Door 3 (the Maker's What's left) is what `?guide=1` opens (`parseGuideParam`).
   // Both pages derive the setup from ONE function.
   const launch = code(`${D}/launch/page.tsx`);

@@ -42,6 +42,7 @@ export function CaptureBar({
   defaultSide,
   withDoors = true,
   placeholder = 'Type a name…  e.g. “Ana Cruz +1 groom vip #Barkada”  → Enter',
+  initialValue = '',
 }: {
   eventId: string;
   /** The active Side lens — a new guest inherits it (prototype `:855`). */
@@ -51,8 +52,10 @@ export function CaptureBar({
   /** The add sheet says "Type a name…" and puts an example that fits THIS
    *  event under the box (`lib/quick-add-tips.ts`) — never two examples. */
   placeholder?: string;
+  /** What the Guests search box held when its ＋ Add opened the sheet (PR 4f). */
+  initialValue?: string;
 }) {
-  const [value, setValue] = useState('');
+  const [value, setValue] = useState(initialValue);
   const [pending, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
   const toast = useToast();

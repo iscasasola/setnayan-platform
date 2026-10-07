@@ -52,7 +52,13 @@ test('the list readers read the ACCEPTED list by default; only the roster opts i
   // Exactly one caller opts in: the roster, which draws requests as their own rows.
   const roster = read('app/dashboard/[eventId]/guests/page.tsx');
   assert.match(roster, /fetchGuestsByEventMeasured\(supabase, eventId, \{ includeRequests: true(?:, includePassedAway: true)? \}\)/);
-  assert.match(roster, /const counted = guests\.filter\(countsTowardEvent\)/, 'the side counts include requests');
+  // ⤷ Maker PR 4f: the counts are drawn by GuestsScreen, over the list the page
+  // hands it — requests excluded (they are the Review row), counted through the one rule.
+  assert.match(roster, /\.filter\(\(g\) => !selfJoinIds\.includes\(g\.guest_id\)\)/, 'the list includes requests');
+  const screen = read('app/dashboard/[eventId]/guests/_components/guests-screen.tsx');
+  assert.match(screen, /const stats = rosterStats\(roster\);/, 'the counts are not read off the drawn list');
+  const lib = read('lib/guest-roster-view.ts');
+  assert.match(lib, /const counted = guests\.filter\(\(g\) => countsTowardEvent\(g\)\)/, 'the counts include requests');
   assert.match(roster, /!countsTowardEvent\(g\)\s*\?\s*null/, 'a request is suggested a seat');
 });
 

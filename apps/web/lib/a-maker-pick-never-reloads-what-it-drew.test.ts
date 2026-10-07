@@ -275,7 +275,10 @@ test('only saves the bridge drew are marked held; the shell announces every form
     const rsvp = read('app/dashboard/[eventId]/launch/_components/maker-rsvp-ask.tsx');
     const details = rsvp.slice(rsvp.indexOf('start(async () => {'), rsvp.indexOf('const saveWord = '));
     assert.match(details, /makerSave\(\(\) => hubDraftAction\(eventId, fd\), requestMakerRefresh\)/, 'Details’ RSVP save must stay unheld');
-    assert.equal((rsvp.match(/held: true/g) ?? []).length, 2, 'only the stage’s two saves (the config, the reply-by date) are held');
+    assert.equal((rsvp.match(/held: true/g) ?? []).length, 1, 'only the stage’s config save is held here');
+    /* The reply-by save is the shared `ReplyBy` part now (Guests › Setup mounts it too, 2026-10-07) — still held. */
+    const replyBy = read('app/dashboard/[eventId]/_components/guest-setup/reply-by.tsx');
+    assert.equal((replyBy.match(/held: true/g) ?? []).length, 1, 'the reply-by date’s save is held');
   }
   const shell = read('app/dashboard/[eventId]/launch/_components/maker-shell.tsx');
   assert.match(shell, /form\.dataset\.makerHeld !== '1'\) \{\s*announceUnheldWrite\(\);/);

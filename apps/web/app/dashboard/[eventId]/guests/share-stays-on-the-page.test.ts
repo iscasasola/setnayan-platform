@@ -17,15 +17,20 @@ const read = (...p: string[]) => stripComments(readFileSync(join(G, ...p), 'utf8
 
 test('the guest list renders the invite panel in its own body for the share tab', () => {
   const page = read('page.tsx');
-  assert.match(page, /gview === 'share' \? \(\s*<InvitePanel\b/, 'the share tab no longer renders the panel in the body');
+  // ⤷ Maker PR 4f: the third segment is SETUP; until PR 4d builds its rows the
+  // shipped panel is its body, handed to GuestsScreen's `setup` slot.
+  assert.match(page, /setup=\{gview === 'share' \? <InvitePanel\b/, 'the Setup tab no longer renders the panel in the body');
   // (`returnTo` left with the look picker on 2026-09-28 — the panel saves nothing
   // that redirects now; the theme is chosen in the Maker's Details.)
   assert.match(page, /<InvitePanel eventId=\{eventId\} \/>/, 'the share tab passes the panel something it no longer takes');
 });
 
-test('both doors render ONE panel — no second copy of the invite to drift', () => {
+test('the invite page renders the moved share panel — no second copy of the invite to drift', () => {
+  /* 2026-10-07 (DECISION_LOG "GUESTS › SETUP"): the guest list's third tab is
+     Setup (`invite-panel.tsx`); the share panel moved whole to
+     `share-link-panel.tsx` and the invite page renders it. */
   const invitePage = read('invite', 'page.tsx');
-  assert.match(invitePage, /<InvitePanel eventId=\{eventId\} \/>/, 'the invite page stopped using the shared panel');
+  assert.match(invitePage, /<ShareLinkPanel eventId=\{eventId\} \/>/, 'the invite page stopped using the share panel');
   // The markup lives once. If the invite page grows its own QR again, the two
   // doors can show two different links.
   assert.ok(!/QRCode\.toString\(/.test(invitePage), 'the invite page builds its own QR again — a second copy of the panel');
@@ -34,7 +39,7 @@ test('both doors render ONE panel — no second copy of the invite to drift', ()
 test('🔒 the panel checks for the couple itself — Regenerate is never shown to anyone else', () => {
   // The invite page is couple-only; the guest list is not necessarily. The
   // panel holds REGENERATE, which kills the current link and every printed QR.
-  const panel = read('invite', '_components', 'invite-panel.tsx');
+  const panel = read('invite', '_components', 'share-link-panel.tsx');
   const check = panel.search(/\.eq\('member_type', 'couple'\)/);
   const regen = panel.search(/<RegenerateQrButton\b/);
   assert.ok(check > -1, 'the panel no longer asks whether the viewer is the couple');

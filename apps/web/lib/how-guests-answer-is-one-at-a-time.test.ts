@@ -7,7 +7,11 @@
  *       read from `oneAtATime` and whose pick saves `{ oneAtATime }` and nothing
  *       else, through the panel's one drafted save (counted on ✓ Apply).
  *   2 · Rendered (Studio › RSVP), the button names the stored answer both ways,
- *       and "How guests get in" is NOT in Studio › RSVP (Event Setup holds it).
+ *       and "How guests get in" IS in Studio › RSVP — the shared `GuestsGetIn`
+ *       part, the same one Guests › Setup mounts (owner 2026-10-07,
+ *       HOME_AND_GUESTS_CHECK § "Setup ↔ Event Hub Maker": *"make sure to make the
+ *       adjustments and mapping on event hub maker as well"* — supersedes the
+ *       2026-10-06 reading that Studio › RSVP has no get-in switch).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -71,7 +75,10 @@ test('2 · rendered: the stored answer, both ways — and no "How guests get in"
     const btn = html.slice(html.indexOf('data-rsvp-answer-pick'));
     assert.ok(btn.slice(0, 600).includes(label), `stored ${on}, the dropdown does not read "${label}"`);
     assert.match(html, /data-studio-rsvp=""/);
-    assert.doesNotMatch(html, /How guests get in|data-rsvp-who-pick/, 'How guests get in is drawn in Studio › RSVP');
+    // How guests get in is the shared `GuestsGetIn` part, loaded lazily (first-load budget) — see the source check below.
     assert.doesNotMatch(html, /Ask one question at a time/, 'the old switch is drawn beside the dropdown');
   }
+  const src = readFileSync(join(WEB, FILE), 'utf8');
+  const studio = src.slice(src.indexOf('if (studio) {'), src.indexOf('return (\n    <div className="flex flex-col gap-5 px-1" data-made-once="rsvp-page">'));
+  assert.equal((studio.match(/<GuestsGetIn\b/g) ?? []).length, 1, 'Studio › RSVP draws ONE How guests get in — the shared part');
 });

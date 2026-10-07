@@ -32,7 +32,7 @@ import { formatCount } from '@/lib/format-number';
 import { formatPhp } from '@/lib/php';
 import { SERVICE_NAMES } from '@/lib/service-names';
 
-export type HomeNextKind = 'guide' | 'date' | 'guests' | 'invite' | 'papic' | 'ai' | 'plan';
+export type HomeNextKind = 'guide' | 'date' | 'unread' | 'guests' | 'invite' | 'papic' | 'ai' | 'plan';
 
 /**
  * The guided flow's button — it names what the tap does (owner, live phone test
@@ -41,7 +41,7 @@ export type HomeNextKind = 'guide' | 'date' | 'guests' | 'invite' | 'papic' | 'a
 export const HOME_GUIDE_ACTION = 'Pick a stage';
 
 /** The order the Home already stacked its nudges in — the first that applies is Next. */
-export const HOME_NEXT_ORDER: readonly HomeNextKind[] = ['guide', 'date', 'guests', 'invite', 'papic', 'ai', 'plan'];
+export const HOME_NEXT_ORDER: readonly HomeNextKind[] = ['guide', 'date', 'unread', 'guests', 'invite', 'papic', 'ai', 'plan'];
 
 /**
  * The guided flow, as Home reads it (null = nothing left, not for this viewer,
@@ -144,7 +144,19 @@ export function pickHomeNext(input: HomeNextInput): HomeNext {
       action: 'Set your date',
     };
   }
-  if (guests && guests.total === 0) {
+  /* 🔴 A GUEST READ THAT FAILED IS NOT "ON TRACK" (owner 2026-10-07, HOME_AND_GUESTS
+     H3). It used to fall through to papic → ai → plan, so a couple whose list could
+     not be read was told "You are on track — Nothing is waiting on you". The card
+     says what happened and offers the read again; it never guesses past it. */
+  if (guests === null) {
+    return {
+      kind: 'unread',
+      title: 'We couldn’t read your guest list',
+      body: 'So we can’t say what’s next — this is not “on track”. Reload to try again.',
+      action: 'Reload',
+    };
+  }
+  if (guests.total === 0) {
     return {
       kind: 'guests',
       title: 'Add your guests',
@@ -152,12 +164,13 @@ export function pickHomeNext(input: HomeNextInput): HomeNext {
       action: 'Add guests',
     };
   }
-  if (guests && guests.unsent > 0) {
+  if (guests.unsent > 0) {
     const n = formatCount(guests.unsent);
     return {
       kind: 'invite',
       title: `Send ${n} ${guests.unsent === 1 ? 'invitation' : 'invitations'}`,
-      body: `${n} of ${formatCount(guests.total)} ${guests.total === 1 ? 'guest has' : 'guests have'} not been sent one yet.`,
+      /* The prototype's words (HOME_AND_GUESTS 2026-10-07, frame Home). */
+      body: `${n} ${guests.unsent === 1 ? 'guest has' : 'guests have'} no invitation yet. One tap sends each their own link and ticket.`,
       action: 'Send invitations',
     };
   }

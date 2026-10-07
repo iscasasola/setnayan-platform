@@ -95,7 +95,7 @@ const BILL: ReadonlyArray<readonly [string, number]> = [
   ['guests/_components/guest-list-multiselect.tsx', 3],
   ['guests/checkin/page.tsx', 1],
   ['guests/claims/page.tsx', 1],
-  ['guests/invite/_components/invite-panel.tsx', 1], // the theme-link chevron — moved from invite/page.tsx with the panel
+  ['guests/invite/_components/share-link-panel.tsx', 1], // the theme-link chevron — moved from invite/page.tsx with the panel
   ['guests/invite/page.tsx', 1],
   ['guests/new/page.tsx', 1], // the Allow plus-one checkbox became the 0–4 choice (2026-09-21)
   ['guests/souvenirs/_components/souvenir-desk.tsx', 1],

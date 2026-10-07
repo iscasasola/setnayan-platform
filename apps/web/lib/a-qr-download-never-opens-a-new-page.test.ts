@@ -30,12 +30,13 @@ const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
 
 /** Every surface with a QR "download" control on the Guest list or its drawer. */
 const GUEST_LIST_QR_SURFACES = [
-  'app/dashboard/[eventId]/guests/_components/roster-tabs.tsx', // the tab row (its QR sheet moved to Details, 2026-09-29)
+  // (roster-tabs.tsx, the old tab row, was retired with Maker PR 4f — 2026-10-07.)
+  'app/dashboard/[eventId]/guests/_components/guests-screen.tsx', // the Guests screen (List · Map · Setup)
   // ⤷ 2026-09-30: the card's own QR left (owner, the Fable guest card); the
   // card saves the guest's Digital ticket instead — `Save ticket`, below.
   'app/dashboard/[eventId]/guests/_components/guest-card-body.tsx', // the guest card
   'app/dashboard/[eventId]/guests/_components/guest-ticket-parts.tsx', // the card's ticket · Save ticket
-  'app/dashboard/[eventId]/guests/invite/_components/invite-panel.tsx', // Guest list's Share tab join-link QR
+  'app/dashboard/[eventId]/guests/invite/_components/share-link-panel.tsx', // Guest list's Share tab join-link QR
   'app/_components/qr-actions.tsx', // the shared Download · NFC · Copy strip
   'app/_components/save-file-link.tsx', // the mechanism itself
 ];

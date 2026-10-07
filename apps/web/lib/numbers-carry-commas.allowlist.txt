@@ -13,6 +13,7 @@
 # A row that no longer matches a finding FAILS the test — delete it.
 
 # ── TEXT: a string property whose digits were grouped where it was built ──
+app/dashboard/[eventId]/guests/page.tsx :: guestsScreen :: TEXT — a React element (the Guests screen), not a number; the scanner reads its name
 app/(shell)/papic/_papic-free-credits.tsx :: promise.count :: TEXT — PapicFreeCreditPromise.count is built by points.toLocaleString('en-PH') in lib/papic-free-credit-promise.ts
 app/(shell)/papic/_papic-free-credits.tsx :: promise.count :: TEXT — the second render of the same grouped string
 app/realstories/[slug]/page.tsx :: wedding.guestCount :: TEXT — RealWedding.guestCount is static copy ("120 guests") in lib/real-weddings.ts

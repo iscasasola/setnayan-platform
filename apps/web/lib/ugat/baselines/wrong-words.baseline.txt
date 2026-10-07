@@ -45,7 +45,7 @@ app/dashboard/[eventId]/date-selection/_components/chinese-specialist-nudge.tsx 
 app/dashboard/[eventId]/documents/page.tsx "· · Ref" → /dashboard/[eventId]/orders	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/documents/page.tsx "TXN- - · ·" → /receipts/[receiptId]	# first run 2026-10-02 · guest app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/guests/_components/capture-bar.tsx "Paste many names" → /dashboard/[eventId]/guests/quick	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
-app/dashboard/[eventId]/guests/invite/_components/invite-panel.tsx "waiting for you to confirm" → /dashboard/[eventId]/guests/claims	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
+app/dashboard/[eventId]/guests/invite/_components/share-link-panel.tsx "waiting for you to confirm" → /dashboard/[eventId]/guests/claims	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/guests/page.tsx "Who came" → /dashboard/[eventId]/guests/checkin	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/launch/_components/hub-pro-offer.tsx "What s included" → /dashboard/[eventId]/website/editor	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/launch/_components/hub-stage.tsx "Open the live page" → /[slug]	# first run 2026-10-02 · guest app · a "Messages" row that opens the roster
@@ -123,5 +123,3 @@ lib/nav-registry-defaults.ts "Search" → /dashboard/[eventId]/guests	# first ru
 lib/nav-registry-defaults.ts "Setnayan brand logo / Home" → /	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
 lib/nav-registry-defaults.ts "Summary" → /dashboard/[eventId]/guests	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 lib/nav-registry-defaults.ts "Verify" → /vendor-dashboard/shop	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
-lib/roster-doors.ts "Scan tickets" → /dashboard/[eventId]/guests/checkin	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
-lib/roster-doors.ts "Share the link" → /dashboard/[eventId]/guests	# first run 2026-10-02 · host app · a "Messages" row that opens the roster

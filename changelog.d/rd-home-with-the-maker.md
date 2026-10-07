@@ -1,0 +1,13 @@
+## 2026-10-07 · feat(home): the couple's Home redrawn to the prototype — three doorways, numbers that count, honest failures, What's next in place (Maker PR 4e)
+
+Owner, verbatim (2026-10-07): *"and home as well. add this to the builds on event hub maker"* · *"maximize this button"* · *"on home, there will be 3 buttons to edit guests, suppliers and event hub"* · *"it will have an icon that should be similar to the bottom nav"*. Built to `prototypes/home_and_guests_2026-10-07_fable.html?frame=1&page=home` (and `&fail=1`), `HOME_AND_GUESTS_CHECK_2026-10-07_fable.md` H1–H8, extending the shipped `home-first-screen.tsx` — same reads, same order, re-skinned and re-wired.
+
+- **H1 · buttons.** Every Home control is an `ActionButton` (icon + word, toned): ⓘ Event Details on the cover; the Next card's main verb (✉ Send invitations = info) + 📅 Later; **three doorways in one row** — Edit your Guest list · Edit your Suppliers · Edit your Event Hub — wearing the bottom bar's own icons through `homeDoorwayIcon` (PR 4g), the row changing state as one (icon + word → word → icon); per decision 📅 Book · 💳 Pay · 👤 Pick; ✓ Your checklist · N% done.
+- **H2 · numbers count.** days · coming · no reply · Paid · Still owing · % paid · N open go through the shared `Count`; the paid bar through `Fill` (`components/count.tsx`, #6400). `homeFacts()` now also returns `figures` (the same facts as numbers).
+- **H3 · a failed read never reads as success.** An unread guest list is its own Next kind (`unread`): "We couldn't read your guest list — this is not 'on track'" + ⟳ Reload, ahead of Papic / AI / plan (it used to fall through to "You are on track"). The two guest numbers become "Guest counts couldn't load · Not zero — unread" + Reload; a failed money read says "Money couldn't load" instead of a quiet "—".
+- **H5/H6/H7.** No arrow links; the money tile opens the budget in Suppliers (`/vendors?part=budget`); What's next unfolds in place under its row (pop → unfold) — the `?sheet=next` portal and `whats-next-sheet.tsx` are gone, the decisions stream in via `<Suspense>`.
+- **H8.** Unchanged — the Home's tour is already behind `TIP_POPUPS_ON` (off), the same switch as Suppliers.
+- `NextCard` gains an `actions` variant (the supplier's Today is untouched). `/dev/home-lab?proto=1` draws the prototype's own figures; `&fail=1` the failure state.
+- New guards: `home-never-reads-a-failed-read-as-on-track` · `home-numbers-count` · `home-has-no-go-elsewhere-links` · `home-words` (each sabotaged once). Depends on #6400 (ActionButton · Count · Fill) and PR 4g (`homeDoorwayIcon`).
+
+SPEC IMPACT: None — builds the locked `HOME_AND_GUESTS_CHECK_2026-10-07_fable.md` H1–H8 and the Maker build plan's PR 4e as written.

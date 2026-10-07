@@ -1710,7 +1710,7 @@ export function GenericOnboarding(props: Props) {
       </div>
 
       {/* nav */}
-      <div className="sticky bottom-0 border-t border-ink/8 bg-paper/95 backdrop-blur">
+      <div data-glass-row="onboarding-nav" className="sn-glass-row sticky bottom-0">
         <div className="mx-auto flex w-full max-w-xl items-center justify-between gap-3 px-5 py-4">
           <button
             type="button"

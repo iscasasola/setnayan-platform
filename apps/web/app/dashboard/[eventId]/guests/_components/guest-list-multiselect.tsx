@@ -1616,7 +1616,7 @@ function RosterBulkBar({
 }
 
 
-function NewGroupInlineForm({
+export function NewGroupInlineForm({
   eventId,
   selectedIds,
   onClose,

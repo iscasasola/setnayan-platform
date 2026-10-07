@@ -1,17 +1,23 @@
 'use server';
 
 /**
- * finalize-actions.ts: the host's Finalize and Reopen buttons.
+ * finalize-actions.ts: the host's Finalize and Reopen.
  *
  * ⚖ Owner, 2026-09-30: *"i must click a finalize to finalize it."* The guest
  * list is never finalized by a date, only by the host pressing Finalize (after
- * a confirm), and a finalized list can be reopened. The rule and the write
- * live in lib/pax.ts (`finalizeGuestList` / `reopenGuestList`), which refuse
- * anyone who is not a host of this event before anything is written.
+ * a confirm). The rule and the write live in lib/pax.ts (`finalizeGuestList`),
+ * which refuses anyone who is not a host of this event before anything is
+ * written.
  *
- * ONE exported action for both directions, on purpose: every exported server
- * action is a Vercel route under a hard ceiling
- * (scripts/lint-server-action-budget.mjs).
+ * ⚖ Owner, 2026-10-07: *"finalize means the guestlist is finalized and guests
+ * cannot answer anymore. but the host of the event not the supplier and
+ * coordinator always have the power to unfinalize it as needed"*. Reopen is
+ * the HOSTS' only — `reopenGuestList` refuses anyone who is not a `couple`
+ * member of this event, on the server (a hidden button is not a fence). Held by
+ * `finalize-closes-replies-and-only-hosts-reopen.test.ts`.
+ *
+ * Every exported server action is a Vercel route under a hard ceiling
+ * (scripts/lint-server-action-budget.mjs) — this stays the one.
  */
 
 import { revalidatePath } from 'next/cache';

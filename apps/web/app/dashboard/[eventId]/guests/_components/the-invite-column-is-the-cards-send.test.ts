@@ -101,9 +101,13 @@ test('the column stays OUT of send-invite.tsx, which the Maker loads first', () 
     'the Guest list’s column moved back into send-invite.tsx — the Maker pays for it');
 });
 
-test('the page reads the words once, hands them to the list, and mounts the tour', () => {
+test('the page reads the words once, hands them to the card, and mounts the tour', () => {
   assert.equal((PAGE.match(/loadInviteSetup\(/g) ?? []).length, 1, 'the page reads the event’s words more than once');
-  assert.match(PAGE, /<GuestListMultiselect[\s\S]*?\binvite=\{/, 'the list is not handed the Invite setup');
+  // ⤷ Maker PR 4f (G34, owner: *"so again. you still kept the invite here. how
+  // do we invite?"*): the LIST has no per-row Invite any more — one way to
+  // invite, the run. The open CARD is still handed the words for its Send.
+  assert.doesNotMatch(PAGE, /<GuestsScreen[^>]*\binvite=\{/, 'the list is handed an Invite setup again — a per-row Invite is back');
+  assert.match(PAGE, /inviteSetup=\{inspectedInviteSetup\}/, 'the card is not handed the Invite setup');
   assert.match(PAGE, /<MiniTour tourKey="customer_guest_invite_v1" \/>/, 'the Invite tour is not mounted on the Guest list');
   assert.ok(TOUR_KEYS.includes('customer_guest_invite_v1'), 'the tour key is not registered');
   const n = TOURS.customer_guest_invite_v1.slides.length;

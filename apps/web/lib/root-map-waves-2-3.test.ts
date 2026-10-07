@@ -180,8 +180,10 @@ test('one rendering per fact: the shared words and the shared reads', () => {
   for (const file of [
     'app/dashboard/[eventId]/guests/_components/chip-editors.tsx',
     'app/dashboard/[eventId]/guests/_components/guest-card-body.tsx',
-    'app/dashboard/[eventId]/guests/_components/roster-controls.tsx',
-    'app/dashboard/[eventId]/guests/page.tsx',
+    // ⤷ Maker PR 4f: the filter row (roster-controls.tsx) and the page's counts
+    // line are retired; the screen and its sections carry the words now.
+    'app/dashboard/[eventId]/guests/_components/guests-screen.tsx',
+    'lib/guest-roster-view.ts',
   ]) {
     const src = code(file);
     assert.match(src, /RSVP_ROW_WORDS/, `${file} must take the roster's RSVP words from lib/guests`);

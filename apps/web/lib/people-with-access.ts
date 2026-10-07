@@ -18,6 +18,7 @@
  * No I/O: the reads are `people-with-access.server.ts`.
  */
 import {
+  COORDINATOR_AREAS,
   DELEGATE_AREAS,
   DELEGATE_AREA_LABEL,
   FIXED_AREA_LEVEL,
@@ -287,3 +288,107 @@ export function buildPeopleWithAccess(input: {
   }
   return rows;
 }
+
+/**
+ * 📁 EVENT ACCESS — THE GROUPS (owner 2026-10-07: *"Host: Helper: Vendors:"*,
+ * then *"Coordinator Access? Booked Vendor Access?"*; the UI word is
+ * "supplier"). A co-host is a Host; the hired coordinator is its own group; a
+ * limited helper is a Helper; a booked supplier is a Booked supplier. Pure, so
+ * the fold's summary and the section's headings can never count differently.
+ */
+export const ACCESS_GROUPS = [
+  { key: 'hosts', title: 'Hosts', one: 'host', many: 'hosts', empty: 'No hosts yet.' },
+  { key: 'coordinator', title: 'Coordinator', one: 'coordinator', many: 'coordinators', empty: 'No coordinator yet.' },
+  { key: 'helpers', title: 'Helpers', one: 'helper', many: 'helpers', empty: 'No helpers yet.' },
+  { key: 'suppliers', title: 'Booked suppliers', one: 'supplier', many: 'suppliers', empty: 'No booked suppliers yet.' },
+] as const;
+export type AccessGroupKey = (typeof ACCESS_GROUPS)[number]['key'];
+
+export function accessGroupOf(kind: PersonKind): AccessGroupKey {
+  return kind === 'co_host' ? 'hosts' : kind === 'coordinator' ? 'coordinator' : kind === 'supplier' ? 'suppliers' : 'helpers';
+}
+
+/** What the Event access fold says when its read FAILED — never a zero. */
+export const ACCESS_SUMMARY_FAILED = 'Couldn’t load';
+
+/**
+ * The Event access fold's one line, from the real rows: "2 hosts · 1
+ * coordinator · 1 helper · 12 suppliers". `null` = the read FAILED →
+ * "Couldn’t load", never "0 hosts". A group with nobody in it is left out of
+ * the line, not counted as 0.
+ */
+export function accessFoldSummary(rows: readonly PersonRow[] | null): string {
+  if (rows === null) return ACCESS_SUMMARY_FAILED;
+  const parts: string[] = [];
+  for (const g of ACCESS_GROUPS) {
+    const n = rows.filter((r) => accessGroupOf(r.kind) === g.key).length;
+    if (n > 0) parts.push(`${n} ${n === 1 ? g.one : g.many}`);
+  }
+  return parts.length > 0 ? parts.join(' · ') : 'Just you';
+}
+
+/**
+ * 🏷 BOOKED SUPPLIERS — said once under the heading (owner 2026-10-07: *"Booked
+ * Vendor Access? is defined depending on the category they provide for your
+ * event"*). The category → access matrix lives in the corpus
+ * (`03_Strategy/Feature_Access_By_Vendor_Category_2026-06-12.md` § 7) and in
+ * scattered SQL gates (`get_vendor_event_brief`'s food-relevant check, the
+ * `*_booked_vendor_*` policies) — there is NO single map in code to render a
+ * per-row list from, and suppliers hold no `moderator_area_level` row, so the
+ * row shows its category only and nothing here is a switch.
+ */
+export const SUPPLIERS_BY_CATEGORY = 'What each booked supplier sees is set by their category. There is nothing to switch here.';
+
+/**
+ * Why Event Hub and Mood Board are a toggle you cannot move — the truth
+ * `areaChoices` already holds (null = nothing asks the database for these two
+ * areas yet, so a live toggle would be a switch wired to nothing).
+ */
+export const FIXED_AREA_WHY = 'Every helper can view this for now. A per-person setting is not built yet, so it cannot be switched.';
+
+/**
+ * 🔀 THE COORDINATOR'S ONE SWITCH (owner 2026-10-07: *"Coordinator Access is
+ * Same as User Host of the event. so toggle is just yes or no. Always auto
+ * YES"* — *"On allows them to edit values inside and create schedules. Off only
+ * provides them the initial information they received."*).
+ *
+ * Built on the SAME enforcement — the seat's per-area grant, written by
+ * `setDelegateArea`, read by `moderator_area_level`. No new column:
+ *   · ON  = every area the coordinator's default grant (`COORDINATOR_AREAS`)
+ *     puts at Edit and a host can set — Guest list · Seat plan · The Day ·
+ *     Suppliers — at Edit. That IS the default every coordinator seat is
+ *     created with (`hosts/actions.ts`, `lib/coordinator-grant.ts`), so the
+ *     switch is YES from the start with no write.
+ *   · OFF = every area a host can set → Off. What they received as a booked
+ *     supplier (their brief, their thread) is a different door and stays.
+ * Budget stays View at most (locked D1) and Photos stays "only upon approval"
+ * (owner 2026-08-06): ON never raises them.
+ */
+export const COORDINATOR_ON_AREAS: readonly DelegateArea[] = DELEGATE_AREAS.filter(
+  (a) => COORDINATOR_AREAS[a] === 'edit' && (areaChoices(a)?.includes('edit') ?? false),
+);
+
+export const COORDINATOR_SWITCH_LABEL = 'Same access as you';
+export const COORDINATOR_SWITCH_WHY = 'On — can change details and build the schedule. Off — sees only what you first shared.';
+
+/** The switch's state, read from the grant the database enforces. */
+export function coordinatorHasHostAccess(cells: readonly AreaCell[] | null): boolean {
+  if (!cells) return false;
+  return COORDINATOR_ON_AREAS.every((a) => cells.find((c) => c.area === a)?.choice === 'edit');
+}
+
+/** The per-area writes one flip makes — each through `setDelegateArea`. */
+export function coordinatorSwitchWrites(cells: readonly AreaCell[], on: boolean): Array<{ area: DelegateArea; choice: AreaChoice }> {
+  const want = (c: AreaCell): AreaChoice | null =>
+    on ? (COORDINATOR_ON_AREAS.includes(c.area) ? 'edit' : null) : c.choices ? 'off' : null;
+  return cells.flatMap((c) => {
+    const next = want(c);
+    return next && next !== c.choice ? [{ area: c.area, choice: next }] : [];
+  });
+}
+
+/**
+ * THE THREE POSITIONS of a helper's per-area toggle, in the owner's order
+ * (2026-10-07: *"3 way toggle Edit - OFF - View"*) — Off in the middle.
+ */
+export const AREA_TOGGLE_ORDER: readonly AreaChoice[] = ['edit', 'off', 'view'];

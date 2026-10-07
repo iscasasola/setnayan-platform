@@ -141,7 +141,7 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
       eventId={EVENT}
       scenes={scenes}
       navigator={navigator}
-      details={detailsLabNode({ ...sp, shape: 'mj' })}
+      details={detailsLabNode({ ...sp, shape: 'mj', ...(sp.studio === '1' || sp.ss === '1' ? { look: '1' } : {}) })}
       /* 🎞 Look › Background's moving backgrounds, built as the editor page builds them. */
       loops={hubMovingBackgroundIds().map((id) => ({
         id,

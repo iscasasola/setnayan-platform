@@ -187,10 +187,13 @@ test('the column has EXACTLY ONE writer — zero froze the number, two would fak
 // list. Its two honesty rules carry over to what replaced it:
 
 test('"to invite" counts a column that has a writer — so it can fall', () => {
-  const page = strip(readFileSync(join(WEB, 'app/dashboard/[eventId]/guests/page.tsx'), 'utf8'));
-  const at = page.indexOf('const toInvite = guests.filter(');
+  // ⤷ Maker PR 4f: "to invite" is ONE predicate, `isToInvite` (the counts line,
+  // the RSVP view's "To invite" section, the word search and the map all read it).
+  const lib = strip(readFileSync(join(WEB, 'lib/guest-roster-view.ts'), 'utf8'));
+  const at = lib.indexOf('export function isToInvite(');
   assert.ok(at > 0, 'the counts line lost its "to invite"');
-  assert.match(page.slice(at, at + 400), /!g\.invitation_sent_at/, '"to invite" no longer reads the sent stamp');
+  assert.match(lib.slice(at, at + 500), /!g\.invitation_sent_at/, '"to invite" no longer reads the sent stamp');
+  assert.match(lib, /toInvite: counted\.filter\(\(g\) => isToInvite\(g\)\)\.length/, 'the counts line counts "to invite" its own way');
   // …and that stamp HAS its one writer (the per-guest Invite), pinned above.
   assert.match(
     strip(readFileSync(join(WEB, 'app/dashboard/[eventId]/invitation/actions.ts'), 'utf8')),
@@ -208,9 +211,12 @@ test('the event link is offered only when it works — never a dead "Share the l
      owner's 2-guest event: the badge was TRUE — the event is private and never
      launched, so the link answered "Link not found". */
   const panel = strip(
-    readFileSync(join(WEB, 'app/dashboard/[eventId]/guests/invite/_components/invite-panel.tsx'), 'utf8'),
+    readFileSync(join(WEB, 'app/dashboard/[eventId]/guests/invite/_components/share-link-panel.tsx'), 'utf8'),
   );
   assert.match(panel, /\{joinUrl && inviteLink\.usable \? \(/, 'the panel hands out a link without asking whether it works');
+  /* Guests › Setup's "Your one link" (2026-10-07) asks the same question before it builds a URL. */
+  const setupLink = strip(readFileSync(join(WEB, 'app/dashboard/[eventId]/_components/guest-setup/one-link.server.ts'), 'utf8'));
+  assert.match(setupLink, /if \(!state\.usable\) \{\s*return \{ url: null/, 'Setup hands out a link without asking whether it works');
   assert.match(panel, /inviteLink\.notice \?\?/, 'the panel stopped naming why the link does not work');
   // The page's own copy of the link (the after-the-event Share menu) is null
   // whenever the same rule says no.

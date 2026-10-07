@@ -439,6 +439,9 @@ test('G · both roster rows draw the summary and the warning, from the FULL rost
     assert.match(body, /<PlusOneOverNote/, `${row} lacks the "named · allowed" warning`);
     assert.match(body, /const shownName = seatLabel \?\? /, `${row} does not label an unnamed seat "+N · TBA"`);
   }
-  const page = read(...G, 'page.tsx');
-  assert.match(page, /seatsByBringer=\{bringerSeatsFrom\(guests\)\}/, 'seats are counted from a filtered view');
+  // ⤷ Maker PR 4f: the page's list is GuestsScreen; its row draws the "+N" pill
+  // from the guest's own row (plusOneSeats), never from a filtered view. The
+  // "+N (k named)" summary and its warning stay on the card and the lab rows above.
+  const screen = read(...G, '_components', 'guests-screen.tsx');
+  assert.match(screen, /const plus = plusOneSeats\(g\);/, 'the list row counts a +N some other way');
 });

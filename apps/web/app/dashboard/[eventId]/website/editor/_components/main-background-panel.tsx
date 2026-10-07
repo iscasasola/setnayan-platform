@@ -27,6 +27,8 @@ import { IMAGE_MAX_EDGE } from '@/lib/image-max-edge';
 import { STD_REALISTIC_BACKGROUNDS } from '@/lib/std-backgrounds';
 import { ClipTile, PhotoTile, type SceneUpload } from './scene-background-row';
 import { PickMenu } from './pick-menu';
+import type { PickOption } from './pick-menu-types';
+import { useMaker } from '../../../launch/_components/maker-context';
 import { MAKER_MAX_CLIP_SECONDS, makeMakerVideoDurationValidator } from '@/lib/maker-media-limits';
 import { uploadStill } from '@/lib/upload-still';
 import { MakerMediaMeter } from '@/app/_components/maker-media-meter';
@@ -425,8 +427,62 @@ export function MainBackgroundPanel({
   const urlOf = (ref: string | null | undefined) =>
     ref ? (photoChoices.find((p) => p.ref === ref)?.url ?? sceneUploads.find((u) => u.ref === ref)?.url ?? null) : null;
 
+  /* 🧭 Every choice "Behind every scene" holds — one list, drawn as ONE dropdown, or (the new Maker's
+     Studio › Look, prototype `lookBackground`) as the carousel of real pictures. */
+  const groundValue = choice === 'theme' || choice === 'loop' ? (loopNow ?? null) : `src:${choice}`;
+  const groundLoopOption = (l: MovingBackgroundOption): PickOption => ({
+      key: l.id,
+      label: l.name,
+      group: 'Moving background',
+      ...(l.stillUrl ? { thumb: l.stillUrl } : {}),
+      ...(proMark && !(l.id === themeId && INVITE_THEMES[themeId]?.tier === 'free')
+        ? { trail: { text: '◆', tone: 'muted' as const, label: 'Event Hub Pro' } }
+        : {}),
+  });
+  const groundOwnOptions: PickOption[] = [
+    /* "Same as my hero" follows a MEASURED hero (`HeroFrameSync`), which Classic never
+       runs (it would write on open) — so Classic offers its own upload, not the follow. */
+    ...(themeId === 'house'
+      ? []
+      : [{
+          key: 'src:hero',
+          label: 'Same as my hero',
+          group: 'Your own',
+          ...(hero.photoUrl ? { thumb: hero.photoUrl } : {}),
+          ...(hero.photoRef ? {} : { disabledNote: 'add a hero photo first' }),
+          ...(proMark ? { trail: { text: '◆', tone: 'muted' as const, label: 'Event Hub Pro' } } : {}),
+        }]),
+    {
+      key: 'src:media',
+      label: 'Upload media',
+      group: 'Your own',
+      ...(own && overrideStillUrl ? { thumb: overrideStillUrl } : {}),
+      ...(proMark ? { trail: { text: '◆', tone: 'muted' as const, label: 'Event Hub Pro' } } : {}),
+    },
+    { key: 'src:none', label: 'Just the colour', group: 'Plain' },
+  ];
+  const groundOptions: PickOption[] = [...loops.map(groundLoopOption), ...groundOwnOptions];
+  const pickGround = (k: string) => {
+      if (pending) return;
+      if (k === 'src:media') return setChoosingMedia(true);
+      setChoosingMedia(false);
+      if (k === 'src:hero') return save(null, 'Your background could not be changed. Please try again.');
+      if (k === 'src:none') return save({ ground: 'none' }, 'Your background could not be changed. Please try again.');
+      const id = loops.find((l) => l.id === k)?.id;
+      if (!id) return;
+      save(
+        id === themeId ? { ground: 'theme' } : { ground: 'loop', loop: id },
+        'Your background could not be changed. Please try again.',
+      );
+  };
+  const studio = useMaker()?.stagesStudio === true;
+
   return (
-    <section className="flex flex-col gap-3 rounded-md bg-white/70 px-3 py-3" data-maker-main-background="">
+    <section className={studio ? 'flex flex-col gap-3' : 'flex flex-col gap-3 rounded-md bg-white/70 px-3 py-3'} data-maker-main-background="">
+      {studio ? (
+        <GroundCarousel options={groundOptions} value={groundValue} plain={colours.canvas} onPick={pickGround} source={choice} />
+      ) : (
+      <>
       <p className="text-[14px] font-semibold text-ink">Behind every scene</p>
 
       {/* 🧭 ONE DROPDOWN (owner rule "any set of choices is a dropdown"; controller sweep
@@ -437,55 +493,15 @@ export function MainBackgroundPanel({
       <div className="flex flex-col gap-1.5" data-main-ground-source={choice} data-main-ground-choices="">
         <PickMenu
           label="Behind every scene"
-          value={choice === 'theme' || choice === 'loop' ? (loopNow ?? null) : `src:${choice}`}
-          options={[
-            ...loops.map((l) => ({
-              key: l.id,
-              label: l.name,
-              group: 'Moving background',
-              ...(l.stillUrl ? { thumb: l.stillUrl } : {}),
-              ...(proMark && !(l.id === themeId && INVITE_THEMES[themeId]?.tier === 'free')
-                ? { trail: { text: '◆', tone: 'muted' as const, label: 'Event Hub Pro' } }
-                : {}),
-            })),
-            /* "Same as my hero" follows a MEASURED hero (`HeroFrameSync`), which Classic never
-               runs (it would write on open) — so Classic offers its own upload, not the follow. */
-            ...(themeId === 'house'
-              ? []
-              : [{
-                  key: 'src:hero',
-                  label: 'Same as my hero',
-                  group: 'Your own',
-                  ...(hero.photoUrl ? { thumb: hero.photoUrl } : {}),
-                  ...(hero.photoRef ? {} : { disabledNote: 'add a hero photo first' }),
-                  ...(proMark ? { trail: { text: '◆', tone: 'muted' as const, label: 'Event Hub Pro' } } : {}),
-                }]),
-            {
-              key: 'src:media',
-              label: 'Upload media',
-              group: 'Your own',
-              ...(own && overrideStillUrl ? { thumb: overrideStillUrl } : {}),
-              ...(proMark ? { trail: { text: '◆', tone: 'muted' as const, label: 'Event Hub Pro' } } : {}),
-            },
-            { key: 'src:none', label: 'Just the colour', group: 'Plain' },
-          ]}
-          onPick={(k) => {
-            if (pending) return;
-            if (k === 'src:media') return setChoosingMedia(true);
-            setChoosingMedia(false);
-            if (k === 'src:hero') return save(null, 'Your background could not be changed. Please try again.');
-            if (k === 'src:none') return save({ ground: 'none' }, 'Your background could not be changed. Please try again.');
-            const id = loops.find((l) => l.id === k)?.id;
-            if (!id) return;
-            save(
-              id === themeId ? { ground: 'theme' } : { ground: 'loop', loop: id },
-              'Your background could not be changed. Please try again.',
-            );
-          }}
+          value={groundValue}
+          options={[...loops.map(groundLoopOption), ...groundOwnOptions]}
+          onPick={pickGround}
           dataAttr="data-main-ground-loop-pick"
           className="w-full justify-between text-ink"
         />
       </div>
+      </>
+      )}
       {choice === 'hero' && hero.photoRef ? (
         <HeroFrameSync eventId={eventId} heroRef={hero.photoRef} heroUrl={hero.photoUrl} current={current} liveHeroRef={hero.liveRef} mainDrafted={drafted} />
       ) : null}
@@ -646,3 +662,68 @@ export function MainBackgroundPanel({
   );
 }
 
+
+/**
+ * 🧭 STUDIO › LOOK › BACKGROUND (owner 2026-10-07 side-by-side M29; prototype `lookBackground`):
+ * the SAME choices as the dropdown, as a carousel of real pictures — each moving background's
+ * still, the hero, the couple's own upload, the plain page colour — the name under each, the one
+ * on screen ringed. A tap does exactly what its dropdown row does (`pickGround`); a ◆ rides its name.
+ */
+function GroundCarousel({
+  options,
+  value,
+  plain,
+  onPick,
+  source,
+}: {
+  options: readonly PickOption[];
+  value: string | null;
+  plain: string;
+  onPick: (key: string) => void;
+  source: string;
+}) {
+  return (
+    <div
+      role="group"
+      aria-label="Behind every scene"
+      data-main-ground-carousel=""
+      data-main-ground-source={source}
+      className="-mx-4 flex snap-x snap-mandatory gap-2 overflow-x-auto overscroll-x-contain px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+    >
+      {/* The plain colour first, as the prototype draws it ("Plain colour"), then every picture. */}
+      {[...options.filter((o) => o.key === 'src:none'), ...options.filter((o) => o.key !== 'src:none')].map((o) => {
+        const on = o.key === value;
+        const off = Boolean(o.disabledNote);
+        return (
+          <button
+            key={o.key}
+            type="button"
+            disabled={off}
+            aria-pressed={on}
+            data-main-ground-card={o.key}
+            onClick={() => !on && onPick(o.key)}
+            className="sn-press flex w-[46%] shrink-0 snap-start flex-col items-stretch gap-1.5 text-left disabled:opacity-50"
+          >
+            <span
+              className={`relative block h-[86px] overflow-hidden rounded-xl ring-1 ${on ? 'ring-2 ring-terracotta-700' : 'ring-ink/10'}`}
+              style={o.thumb ? undefined : { background: o.key === 'src:none' ? plain : undefined }}
+            >
+              {o.thumb ? (
+                /* eslint-disable-next-line @next/next/no-img-element -- a loop's public still / the couple's own picture, already signed */
+                <img src={o.thumb} alt="" aria-hidden loading="lazy" className="h-full w-full object-cover" />
+              ) : o.key === 'src:media' ? (
+                <span aria-hidden className="flex h-full w-full items-center justify-center bg-ink/[0.04] text-[22px] text-ink/40">＋</span>
+              ) : o.key === 'src:hero' ? (
+                <span aria-hidden className="flex h-full w-full items-center justify-center bg-ink/[0.04] text-[12px] text-ink/45">Your hero</span>
+              ) : null}
+            </span>
+            <span className={`flex items-center justify-center gap-1 truncate text-center text-[13px] ${on ? 'font-semibold text-ink' : 'font-medium text-ink/70'}`}>
+              <span className="truncate">{o.label}</span>
+              {o.trail ? <span aria-label={o.trail.label} className="shrink-0 text-[11px] text-ink/45">{o.trail.text}</span> : null}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}

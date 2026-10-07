@@ -185,14 +185,24 @@ test('RSVP links out to nothing: "Reply by" is a date field right there, and the
     }),
   );
   assert.doesNotMatch(html, /<a\b[^>]*href=/, 'the RSVP settings still link out');
-  const replyBy = html.slice(html.indexOf('data-rsvp-setting="reply-by"'), html.indexOf('data-rsvp-setting="requests"'));
+  /* The field is the shared `ReplyBy` part, which the Maker loads lazily (its first-load budget) —
+     so the Maker mounts it in its reply-by section, and the part is drawn here on its own. */
+  const maker = read(`${L}/maker-rsvp-ask.tsx`);
+  const section = maker.slice(maker.lastIndexOf('data-rsvp-setting="reply-by"'), maker.indexOf('</DetailsPieceOnly>', maker.lastIndexOf('data-rsvp-setting="reply-by"')));
+  assert.match(section, /<ReplyBy\s+layout="stack"/, 'reply-by is not a field here');
+  const { ReplyBy } = await import('../app/dashboard/[eventId]/_components/guest-setup/reply-by');
+  const replyBy = renderToStaticMarkup(
+    React.createElement(ReplyBy, { layout: 'stack', eventId: 'e-1', own: '2026-11-18', pricingMode: 'final_only', fallback: null, action: async () => ({ ok: true }) as never }),
+  );
   assert.match(replyBy, /<input[^>]*type="date"[^>]*value="2026-11-18"/, 'reply-by is not a field here');
   assert.match(replyBy, /data-hub-saves-immediately/, 'a live write must say it saves immediately');
   assert.match(html, /data-rsvp-requests-list=""[\s\S]*data-stub="the-shipped-requests-rows"/, 'the Requests rows are not in place');
   // The one writer of that column, with the pricing view posted back unchanged.
   const src = read(`${L}/maker-rsvp-ask.tsx`);
   assert.match(src, /import \{ updatePaxSettings \} from '\.\.\/\.\.\/actions';/);
-  assert.match(src, /fd\.set\('adaptive_pricing_mode', pricingMode\);/, 'a reply-by save would reset the pricing view');
+  /* The field is the shared `ReplyBy` part (2026-10-07, one setting two doors). */
+  const part = read('app/dashboard/[eventId]/_components/guest-setup/reply-by.tsx');
+  assert.match(part, /fd\.set\('adaptive_pricing_mode', pricingMode\);/, 'a reply-by save would reset the pricing view');
   // The rows are the Requests page itself, drawn with `maker=1` (no way back, saves stay put).
   const launch = read('app/dashboard/[eventId]/launch/page.tsx');
   assert.match(launch, /<RequestsPage params=\{Promise\.resolve\(\{ eventId \}\)\} searchParams=\{Promise\.resolve\(\{ maker: '1' \}\)\} \/>/);

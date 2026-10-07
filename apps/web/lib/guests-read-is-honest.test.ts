@@ -123,18 +123,16 @@ const PAGE = join(
 // defect used to render, so a raw-source guard would read the explanation of
 // the fix as the bug itself.
 const page = () => stripComments(readFileSync(PAGE, 'utf8'));
-// 🪤 The confirmations meter MOVED (2026-09-21, the guest-list shell) into its
-// own component. This guard pinned the hedge to page.tsx by path, so it went
-// red on the move while the hedge itself still worked — rendered, the failed-
-// read case reads "not loaded" over an empty track. It now reads the meter
-// where it lives AND asserts the page feeds it the measurement: a correctly
-// gated meter that nobody hands `measured` would still print zeros.
-const METERS = join(
+// ⤷ Maker PR 4f (2026-10-07): the meter, the counts line and the head moved
+// into ONE client screen (`guests-screen.tsx`). The guard reads the screen
+// where the figures are drawn AND asserts the page hands it the measurement —
+// a correctly gated screen that nobody hands `measured` would still print zeros.
+const SCREEN = join(
   dirname(fileURLToPath(import.meta.url)),
   '..',
-  'app/dashboard/[eventId]/guests/_components/roster-meters.tsx',
+  'app/dashboard/[eventId]/guests/_components/guests-screen.tsx',
 );
-const meters = () => stripComments(readFileSync(METERS, 'utf8'));
+const screen = () => stripComments(readFileSync(SCREEN, 'utf8'));
 
 test('the guests page asks whether the read happened', () => {
   const src = page();
@@ -158,17 +156,7 @@ test('every claim on the page is gated on that measurement', () => {
     return src.slice(at, src.indexOf('/>', at));
   };
   assert.match(propOf('EmptyState'), /measured=\{guestsMeasured\}/, 'the zero-state must know');
-  assert.match(propOf('SummaryFacetBar'), /measured=\{guestsMeasured\}/, 'the summary bar must know');
-  // 4 · THE PHONE. ⤷ 2026-09-30 (Fix E): the phone no longer has a head of
-  //     its own — the summary bar above IS the phone's head — so the gate on
-  //     SummaryFacetBar covers both widths. What must hold is that the bar is
-  //     not hidden on a phone, or the phone would show no gated count at all.
-  {
-    const at = src.indexOf('data-roster-head=""');
-    assert.notEqual(at, -1, 'the roster head lost its anchor — this guard is blind');
-    const tag = src.slice(src.lastIndexOf('<div', at), at);
-    assert.doesNotMatch(tag.replace(/\b(?:sm|md|lg|xl|2xl):[\w-]+/g, ''), /\bhidden\b/, 'the one roster head is hidden on a phone again');
-  }
+  assert.match(propOf('GuestsScreen'), /measured=\{guestsMeasured\}/, 'the Guests screen must know');
   assert.match(src, /We couldn&rsquo;t load your guest list/, 'and must say so');
   // 2 · the headcount (precedent rule 3)
   assert.match(
@@ -176,19 +164,14 @@ test('every claim on the page is gated on that measurement', () => {
     /guestsMeasured \? \(\s*<>\s*<span className="font-mono">\{formatCount\(stats\.total\)\}/,
     'the masthead headcount must be gated',
   );
-  // 3 · the confirmations meter — in its own component now, fed by the page
-  assert.match(meters(), /measured \? \(\s*<>\s*\{formatCount\(responded\)\} of \{formatCount\(stats\.total\)\}/, 'the RSVP figure must be gated');
-  assert.match(meters(), /: 'Responses could not be loaded'/, 'including for screen readers');
-  assert.match(
-    src,
-    /<RosterMeters[^>]*\bmeasured=\{measured\}/,
-    'the page renders the meter without telling it whether the read happened',
-  );
-  // 5 · ⤷ 2026-09-30: the count-bearing facet pills became four dropdowns with
-  //     NO counts on them (owner, the Fable rows); the figures moved to ONE
-  //     counts line, which is drawn only when the read was measured.
-  assert.match(src, /const countsLine = guestsMeasured \? \(\s*<RosterCountsLine/, 'the counts line is drawn on a refused read');
-  assert.doesNotMatch(src, /count=\{\w+\.count\}/, 'an ungated count is back on a facet');
+  // 3 · the counts line, the replied meter and the List segment's number are
+  //     drawn only when the read was measured.
+  const scr = screen();
+  assert.match(scr, /\{measured \? \(\s*<>\s*<div className=\{`\$\{styles\.counts\}/, 'the counts line and meter are drawn on a refused read');
+  assert.match(scr, /count !== undefined && measured \? <b>/, 'the List segment prints a count nobody measured');
+  // 4 · a refused read shows the page's "couldn't load" state, never sections.
+  assert.match(src, /!guestsMeasured \|\| rosterAll\.length === 0 \?/, 'a refused read is not routed to the honest empty state');
+  assert.doesNotMatch(scr, /hidden lg:|lg:hidden/, 'a gated figure is hidden at one width');
 });
 
 test('the phone draws no second head that could state an unmeasured figure', () => {

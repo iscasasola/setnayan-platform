@@ -60,13 +60,15 @@ test('a six-switch save through the draft path does not reset Who can RSVP', () 
   assert.equal(resolveRsvpAsk(stored).meal, true);
 });
 
-test('Who can RSVP is READ through the one reader in both places that show it, and written in only one', () => {
+test('Who can RSVP is READ through the one reader in both doors, and written through the one draft door', () => {
   const read = (rel: string) => stripComments(readFileSync(join(__dirname, '..', rel), 'utf8'));
   const maker = read('app/dashboard/[eventId]/launch/_components/maker-rsvp-ask.tsx');
-  const invite = read('app/dashboard/[eventId]/guests/invite/_components/invite-panel.tsx');
+  /* ⚖ 2026-10-07 (DECISION_LOG "GUESTS › SETUP"): Guests › Setup is the second door —
+     it SETS the value with the same part and the same draft door (supersedes "only links there"). */
+  const invite = read('app/dashboard/[eventId]/_components/guest-setup/guest-setup-rows.tsx');
   for (const [where, src] of [
     ['the Maker’s RSVP page', maker],
-    ['Guest List → Invite', invite],
+    ['Guests › Setup', invite],
   ] as const) {
     // ⤷ 2026-10-02 ("ONE HOME, MAPPED"): the Maker reads the WHOLE setting
     // ("How guests get in") through `readGuestsGetIn`, itself built on
@@ -79,12 +81,13 @@ test('Who can RSVP is READ through the one reader in both places that show it, a
     /export function readGuestsGetIn[\s\S]{0,200}readWhoCanRsvp\(raw\)/,
     'readGuestsGetIn stopped reading through readWhoCanRsvp',
   );
-  // Your info (the Maker's RSVP item) writes it — the whole config, through the
-  // draft door, as ONE dropdown's patch; the Invite panel only links there.
-  assert.match(maker, /save\(guestsGetInPatch\(value\)/, 'the Maker page no longer writes How guests get in');
-  assert.match(maker, /hubDraftAction\(eventId, fd\)/, 'the write left the draft door');
-  assert.doesNotMatch(invite, /hubDraftAction|whoCanRsvp:/, 'Guest List → Invite grew a second writer');
-  assert.match(invite, /launch\?tool=rsvp-page/, 'Guest List → Invite no longer leads to where it is changed');
+  // Both doors write it the same way — the whole config, through the draft
+  // door, as ONE dropdown's patch — never a key of their own.
+  for (const [where, src] of [['the Maker', maker], ['Guests › Setup', invite]] as const) {
+    assert.match(src, /save\(guestsGetInPatch\(v(alue)?\)/, `${where} no longer writes How guests get in through the one patch`);
+    assert.match(src, /hubDraftAction\(eventId, fd\)/, `${where}: the write left the draft door`);
+    assert.doesNotMatch(src, /whoCanRsvp:/, `${where} writes the stored key by hand`);
+  }
 });
 
 test('one question at a time defaults OFF', () => {

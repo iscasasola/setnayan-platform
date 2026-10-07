@@ -22,7 +22,7 @@ import { railToolsSignedIn } from '@/lib/studio-rail';
 import type { EventStudioRow } from '@/lib/customer-menu';
 import { ADD_ONS } from '@/lib/add-ons-catalog';
 import { addOnOfferedForEvent, addOnSellableNow } from '@/lib/add-on-event-scope';
-import { STORE_SHELL_HIDDEN_ADDON_KEYS, isStoreShellWebOnlyPath } from '@/lib/store-shell';
+import { isStoreShellWebOnlyPath } from '@/lib/store-shell';
 import { eventActiveSkus } from '@/lib/entitlements';
 import { resolveSetnayanAiDisplayPricePhp } from '@/lib/setnayan-ai-server';
 import { PAPIC_INCLUSIVE_SKUS } from '@/lib/papic-seats';
@@ -500,9 +500,18 @@ export default async function EventLayout({ children, params }: Props) {
       catalogue: ADD_ONS,
       owned,
       prices: new Map(),
-      offered: (a) =>
-        !(storeShell && STORE_SHELL_HIDDEN_ADDON_KEYS.has(a.key)) &&
-        addOnOfferedForEvent(a, profile, communityId),
+      /*
+        🍎 IN THE APP, ONLY WHAT THIS EVENT ALREADY OWNS (owner 2026-10-08,
+        roadmap Level 1). `ownedOnly` keeps a card only when it is `added` —
+        no price, trial, "Free" or "Waiting for payment" — so the paid keys
+        (`STORE_SHELL_HIDDEN_ADDON_KEYS`) need not be dropped up front any
+        more: an unowned one is never built, an owned one may be listed. Its door
+        must still pass `refusesPath`, so a row never opens "Not available in
+        the app". With nothing left, the More tab is not drawn
+        (`buildEventMenuSections`). The web passes neither and is unchanged.
+      */
+      offered: (a) => addOnOfferedForEvent(a, profile, communityId),
+      ownedOnly: storeShell,
       sellableNow: (e) => addOnSellableNow(e, phase === 'after' ? 'after' : 'plan'),
       aiSellable: aiPricePhp > 0,
       papicOwnedBy: PAPIC_INCLUSIVE_SKUS,

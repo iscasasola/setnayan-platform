@@ -396,7 +396,16 @@ export function buildEventMenuSections(
   // services since we have the guestlist, your team and event hub maker on the
   // sidebar which is also our services"*). 🔒 The KEY stays `studio`.
   const services = ctx.services ?? [];
-  put({
+  /*
+    🍎 IN THE APP, NO SERVICE → NO MORE ROW (owner 2026-10-08, roadmap Level 1:
+    "the app shows only owned services"). In the store shell `services` holds
+    only what the event already owns (`ownedOnly` in `lib/our-services.ts`).
+    With none, this row's door is Home `?more=services`, which opens nothing —
+    the dead "More" tab the owner found in the iPhone app. So it is not built:
+    the bar, the rail and the ☰ drawer all lose it together. The web always
+    keeps it.
+  */
+  if (!(ctx.storeShell && services.length === 0)) put({
     key: 'studio',
     label: SUITE_NAV_ON ? 'More Services' : 'Studio',
     href: studioHubHref(eventId),

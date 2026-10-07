@@ -194,6 +194,19 @@ export type OurServicesInput = {
   papicOwnedBy: readonly string[];
   /** The store shell refuses this path (`isStoreShellWebOnlyPath`). */
   refusesPath: (path: string) => boolean;
+  /**
+   * 🍎 THE APP LISTS ONLY WHAT THE EVENT ALREADY OWNS (owner 2026-10-08,
+   * DECISION_LOG "ROADMAP LOCKED: LEVEL 1" — "the app shows only owned
+   * services"). True in the App Store / Play Store shell. Then a card is built
+   * ONLY when the event owns the service outright (`added`): never a price, a
+   * trial, "Free", "Waiting for payment" or "coming soon" — every one of those
+   * is a sale, or a step towards one, and the app sells nothing digital
+   * (3.1.1). The card's door still has to pass `refusesPath`: a row that opens
+   * "Not available in the app" is a dead tap, so it is not listed either.
+   * Parts are not built — the sheet draws none, and a part is a door to a
+   * tool the event may not own. Undefined / false → the web, unchanged.
+   */
+  ownedOnly?: boolean;
 };
 
 function partFor(svc: CatalogueService, input: OurServicesInput): OurServicePart[] {
@@ -233,6 +246,7 @@ function catalogueCard(svc: CatalogueService, input: OurServicesInput): OurServi
   ];
   const isActive = ownKeys.some((k) => input.owned.active.has(k));
   const isPending = !isActive && ownKeys.some((k) => input.owned.pending.has(k));
+  if (input.ownedOnly && !isActive) return null;
 
   // Setnayan AI with no price for this event type can never be bought — the
   // Suite hid that card, and so does this page (unless it is already theirs).
@@ -248,7 +262,7 @@ function catalogueCard(svc: CatalogueService, input: OurServicesInput): OurServi
     line: svc.line,
     Icon: entry.Icon,
     gradient: entry.poster.baseBackground,
-    parts: partFor(svc, input),
+    parts: input.ownedOnly ? [] : partFor(svc, input),
   };
 
   if (isActive) {

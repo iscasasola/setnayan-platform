@@ -47,7 +47,7 @@
  */
 
 import {
-  HouseWifi, BookUser, Store, AppWindow, Grip, Sparkles, Palette, Gem, Camera,
+  House, BookUser, Store, AppWindow, Grip, Sparkles, Palette, Gem, Camera,
   QrCode, Images, Newspaper, Wallet, Music, Crown, CalendarDays, Armchair, Box,
   Radio, Clapperboard, Gift,
   type LucideIcon,
@@ -106,10 +106,11 @@ export type EventMenuIconName =
  * 🧭 THE FIVE DESTINATIONS WEAR ONE LINE FAMILY (owner 2026-10-07, DECISION_LOG
  * "THE BOTTOM NAV'S FIVE ICONS — THE OWNER'S PICK"; plan PR 4g). Owner,
  * verbatim, from a picker: *"Smart Home · Address Book · Store · Page · Grid"*
- * (Hub = the browser window, his "okay" over Page). Mapped to lucide, the
- * app's own family:
+ * (Hub = the browser window, his "okay" over Page); Home re-picked as the
+ * plain house the same day (*"that looks like a wifi home not a home"*).
+ * Mapped to lucide, the app's own family:
  *
- *     Home → HouseWifi · Guests → BookUser · Suppliers → Store ·
+ *     Home → House · Guests → BookUser · Suppliers → Store ·
  *     Hub → AppWindow · More → Grip
  *
  * The phone bar, the desktop rail and the Home doorway row
@@ -118,7 +119,7 @@ export type EventMenuIconName =
  * stays in the top bar only. `bottom-nav-is-one-icon-family.test.ts` holds it.
  */
 export const EVENT_MENU_ICONS: Record<EventMenuIconName, LucideIcon> = {
-  overview: HouseWifi,
+  overview: House,
   papic: Camera,
   galleries: Images,
   editorial: Newspaper,

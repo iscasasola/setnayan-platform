@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "9de7c6c80",
+  "generatedFromRef": "1f5519793",
   "routeCount": 428,
   "destinations": 949,
   "actions": 670,
-  "blocks": 5647,
+  "blocks": 5648,
   "routes": {
     "/": {
       "files": [
@@ -6731,6 +6731,7 @@
         "PabuyaMessageEditor",
         "PageMasthead",
         "PaidMark",
+        "PanelSwitch",
         "ParentCards",
         "PartEdits",
         "PassCardDesign",

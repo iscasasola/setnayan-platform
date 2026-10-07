@@ -666,7 +666,7 @@ export async function hubDraftAction(
         return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
       }
       const { data: who } = await supabase.auth.getUser();
-      await admin.from('admin_audit_log').insert({
+      const { error: auditErr } = await admin.from('admin_audit_log').insert({
         action: 'pax_settings_updated',
         target_table: 'events',
         target_id: eventId,
@@ -674,6 +674,8 @@ export async function hubDraftAction(
         after_json: { guest_list_edit_deadline: deadlineWrite, via: 'hub_draft_apply' },
         actor_user_id: who.user?.id ?? null,
       });
+      /* The date is applied; a missing audit row is logged, never a reason to call Apply failed. */
+      if (auditErr) console.error('[hub-draft] reply-by audit row not written:', auditErr.message);
     }
     if (nameStyleWrite !== undefined || passDesignWrite !== undefined || openingLineWrite !== undefined) {
       const admin = createAdminClient();

@@ -213,12 +213,7 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
         <MomentOrderCards
           moments={sortMoments(p.moments)}
           mediaUrls={p.mediaUrls}
-          onOrder={(ids) => {
-            const fd = new FormData();
-            fd.set('intent', 'order');
-            fd.set('order', ids.join(','));
-            void p.action(fd);
-          }}
+          action={p.action}
         />
       ) : null}
 

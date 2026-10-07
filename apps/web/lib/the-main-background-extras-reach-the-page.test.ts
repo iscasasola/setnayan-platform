@@ -59,19 +59,21 @@ test('a dark shade flips the words to the paper, and the floor holds', () => {
 test('the guest layer lays the veil, the blur, the focus and the pattern', () => {
   const layer = read('app/[slug]/_lib/main-ground-layer.tsx');
   assert.match(layer, /const shade = look\.shade \? mainGroundShade\(look\.shade, page, mainGround\.tint\?\.frame \?\? \[\]\) : null;/);
+  assert.match(layer, /const \{ look, page, shade \} = shadeOf\(mainGround, dressedTheme\(theme, event\.role_palette\)\);/);
+  assert.match(layer, /if \(loop && isHubMainLoop\(main\)\) loop\.ground\.look = loopLook\(hubMainLook\(main\)\);/);
   assert.match(layer, /\.\.\.\(shade \? shadeWordVars\(shade, page\) : \{\}\)/);
   assert.match(layer, /veil=\{shade \? \{ color: shade\.veil, opacity: shade\.opacity \} : null\}/);
   assert.match(layer, /blur=\{look\.blur \?\? null\}\s*focus=\{look\.focus \?\? null\}/);
-  assert.match(layer, /<MainGroundPattern pattern=\{main\.pattern\}/);
+  assert.match(layer, /<PatternGround pattern=\{main\.pattern\}/);
   const ground = read('app/[slug]/_components/main-ground.tsx');
   assert.match(ground, /\{veil \? \(\s*<div\s*data-main-ground-scrim=""\s*data-main-ground-shade=""/);
   assert.match(ground, /backgroundPosition: position, \.\.\.blurStyle/);
-  assert.match(ground, /export function MainGroundPattern/);
+  assert.match(ground, /export function PatternGround/);
 });
 
 test('Studio › Look › Background draws Pattern · Focus · Blur · Shade as dropdowns into the draft', () => {
   const tools = read('app/dashboard/[eventId]/launch/_components/studio-tools.tsx');
   for (const k of ['pattern', 'focus', 'blur', 'shade']) assert.match(tools, new RegExp(`dataAttr="data-studio-${k}-pick"`), `${k} ▾ is gone`);
-  assert.match(tools, /draftPatch\(eventId, \{ widgets: \{ hero: \{ main: next \} \} \}\)/);
+  assert.match(tools, /draftSend\(eventId, \{ widgets: \{ hero: \{ main: next \} \} \}\)/);
   assert.match(read('app/dashboard/[eventId]/launch/_components/maker-details.tsx'), /k === 'background' && st\.main !== undefined \? <StudioTool part="main-extras"/);
 });

@@ -198,7 +198,7 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
                    a moving background with a Shade, and the five main colours with one drafted. */
                 registryUrl: 'https://www.registry.example.ph/maria-and-jose',
                 qrShown: true,
-                main: { ground: 'loop', loop: 'modern', shade: 'dark' },
+                main: { ground: 'loop', loop: 'galeriya', shade: 'dark' },
                 mainColours: ['#5B1A22', '#F7F2EC', '#C9A86A', '#FBFAF7', '#7A8B6F'],
                 mainColourDraft: { 2: '#C9A86A' },
               }

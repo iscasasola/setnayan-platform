@@ -57,5 +57,5 @@ test('Apply lays it into the board as it stands, never as an events column', () 
   assert.match(src, /\.update\(\{ role_palette: boardWithMainColours\(board\.role_palette, mainColoursWrite, board\.invite_theme\) \}\)/);
   assert.match(read('lib/hub-draft-store.ts'), /main_colours: mainColourSlotsOf\(/);
   const tools = read('app/dashboard/[eventId]/launch/_components/studio-tools.tsx');
-  assert.match(tools, /draftPatch\(eventId, \{ events: \{ main_colours: nextSlots \} \}\)/);
+  assert.match(tools, /draftSend\(eventId, \{ events: \{ main_colours: nextSlots \} \}\)/);
 });

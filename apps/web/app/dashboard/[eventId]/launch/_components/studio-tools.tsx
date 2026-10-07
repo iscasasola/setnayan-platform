@@ -575,16 +575,20 @@ export function StudioLookBar({ item }: { item: LookSectionItemKey }) {
 
 /* ── 🌄 LOOK › BACKGROUND — THE MAIN BACKGROUND'S EXTRAS ─────────────────── */
 
-/** One drafted write through the ONE draft door (`hubDraftAction` intent=save) — never live. */
-async function draftPatch(eventId: string, patch: Record<string, unknown>): Promise<{ ok: boolean; error?: string }> {
+/** One drafted write through the ONE draft door (`hubDraftAction` intent=save) — never live. Sent inside `makerSave` by the handler that drew it. */
+function draftSend(eventId: string, patch: Record<string, unknown>) {
   const fd = new FormData();
   fd.set('intent', 'save');
   fd.set('patch', JSON.stringify(patch));
+  return hubDraftAction(eventId, fd);
+}
+
+/** Did the draft door take it? A thrown save is a refusal, said by the caller. */
+async function draftTook(send: Promise<{ ok: boolean }>): Promise<boolean> {
   try {
-    const r = await makerSave(() => hubDraftAction(eventId, fd), requestMakerRefresh);
-    return r.ok ? { ok: true } : { ok: false, error: 'error' in r && typeof r.error === 'string' ? r.error : undefined };
+    return (await send).ok;
   } catch {
-    return { ok: false };
+    return false;
   }
 }
 
@@ -618,8 +622,8 @@ export function StudioMainExtras({ eventId, main }: { eventId: string; main: Hub
     setNow(next);
     setError(null);
     start(async () => {
-      const r = await draftPatch(eventId, { widgets: { hero: { main: next } } });
-      if (!r.ok) {
+      const ok = await draftTook(makerSave(() => draftSend(eventId, { widgets: { hero: { main: next } } }), requestMakerRefresh));
+      if (!ok) {
         setNow(before);
         setError('That did not save, so it is back as it was. Please try again.');
       }
@@ -728,8 +732,8 @@ export function StudioMainColours({
     setSlots(nextSlots);
     setError(null);
     start(async () => {
-      const r = await draftPatch(eventId, { events: { main_colours: nextSlots } });
-      if (!r.ok) {
+      const ok = await draftTook(makerSave(() => draftSend(eventId, { events: { main_colours: nextSlots } }), requestMakerRefresh));
+      if (!ok) {
         setFive(before.five);
         setSlots(before.slots);
         setError('That colour did not save, so it is back as it was. Please try again.');
@@ -787,8 +791,8 @@ export function StudioQrShown({ eventId, shown }: { eventId: string; shown: bool
           setOn(next);
           setError(null);
           start(async () => {
-            const r = await draftPatch(eventId, { events: { qr_shown: next } });
-            if (!r.ok) {
+            const ok = await draftTook(makerSave(() => draftSend(eventId, { events: { qr_shown: next } }), requestMakerRefresh));
+            if (!ok) {
               setOn(!next);
               setError('That did not save, so it is back as it was. Please try again.');
             }

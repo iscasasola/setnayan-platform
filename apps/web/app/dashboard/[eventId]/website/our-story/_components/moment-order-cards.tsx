@@ -11,7 +11,7 @@ import type { ChapteredMoment } from '@/lib/love-story-moments';
  * approved 2026-10-07, "THE MISSING FIELDS ARE APPROVED").
  *
  * A drag of the grip (finger or mouse) moves the card as it goes; letting go
- * posts ONE `intent=order` with every id, first to last — the moment action's
+ * sends ONE `intent=order` with every id, first to last — the moment action's
  * own intent (`applyMomentIntent`), into the DRAFT like every other moment edit,
  * guests see it at Apply. The grip also answers ↑ / ↓ from the keyboard.
  *
@@ -21,13 +21,13 @@ import type { ChapteredMoment } from '@/lib/love-story-moments';
 export function MomentOrderCards({
   moments,
   mediaUrls,
-  onOrder,
+  action,
 }: {
   /** The story as guests read it (`sortMoments`). */
   moments: readonly ChapteredMoment[];
   mediaUrls: Readonly<Record<string, string>>;
-  /** Every id, first to last — called once per drop that changed the order. */
-  onOrder: (ids: string[]) => void;
+  /** The moment action (the server's, or the Maker's instant one) — sent ONE `intent=order` per drop that changed the order. */
+  action: (formData: FormData) => void | Promise<void>;
 }) {
   const ids = moments.map((m) => m.id);
   const key = ids.join(',');
@@ -44,7 +44,12 @@ export function MomentOrderCards({
 
   const finish = (next: string[]) => {
     setDragging(null);
-    if (next.join(',') !== start.current) onOrder(next);
+    if (next.join(',') === start.current) return;
+    /* Every id, first to last — the moment action's own `intent=order`. */
+    const fd = new FormData();
+    fd.set('intent', 'order');
+    fd.set('order', next.join(','));
+    void action(fd);
   };
   /** Which place the pointer is over, from the cards' own boxes. */
   const placeAt = (y: number): number => {

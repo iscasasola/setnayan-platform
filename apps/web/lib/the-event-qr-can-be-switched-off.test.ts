@@ -27,7 +27,7 @@ test('a drafted yes or no; never-set and Yes are one event; never Pro', () => {
 test('off leaves the event QR off the prints and the guest keepsake', () => {
   const set = read('lib/print-set.server.ts');
   assert.match(set, /if \(opts\.withEventQr !== false && event\.qr_shown !== false && event\.slug\) \{/);
-  assert.match(set, /cover_photo_wanted, qr_shown';/, 'the print event read does not select qr_shown');
+  assert.match(set, /role_names, qr_shown, papic_on/, 'the print event read does not select qr_shown');
   const keepsake = read('app/[slug]/print/page.tsx');
   assert.match(keepsake, /if \(\(event as \{ qr_shown\?: boolean \| null \}\)\.qr_shown !== false\) \{/);
   assert.match(keepsake, /style_preferences, qr_shown`/);
@@ -35,7 +35,7 @@ test('off leaves the event QR off the prints and the guest keepsake', () => {
 
 test('the Studio switch drafts it, on by default', () => {
   const tools = read('app/dashboard/[eventId]/launch/_components/studio-tools.tsx');
-  assert.match(tools, /draftPatch\(eventId, \{ events: \{ qr_shown: next \} \}\)/);
+  assert.match(tools, /draftSend\(eventId, \{ events: \{ qr_shown: next \} \}\)/);
   const details = read('app/dashboard/[eventId]/launch/_components/maker-details.tsx');
   assert.match(details, /<StudioTool part="qr-shown" eventId=\{eventId\} shown=\{st\.qrShown !== false\} \/>/);
 });

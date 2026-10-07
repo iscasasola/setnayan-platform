@@ -174,7 +174,7 @@ const PATTERN_CSS: Readonly<Record<HubMainPatternKey, { image: string; size: str
   },
 };
 
-export function MainGroundPattern({ pattern, hideLoop }: { pattern: HubMainPatternKey; hideLoop: boolean }) {
+export function PatternGround({ pattern, hideLoop }: { pattern: HubMainPatternKey; hideLoop: boolean }) {
   const p = PATTERN_CSS[pattern];
   return (
     <>

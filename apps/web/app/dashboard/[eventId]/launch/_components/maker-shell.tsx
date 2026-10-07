@@ -93,7 +93,8 @@ import { PickSheetContext, type PickSheet } from '../../website/editor/_componen
 import { LowerThirdGrab, MakerSheet, StageTools, StudioCover, StudioSideSwitch, StudioToolMenu, StudioToolRow } from './details-lazy';
 import { MAKER_LT_HALF } from '@/lib/maker-phone-room';
 import { detailsItemLayout } from '@/lib/maker-details-items';
-import type { StudioTileKey, StudioTileModel } from '@/lib/studio-tiles';
+import { studioTileItem, type StudioTileKey } from '@/lib/studio-tile-defs';
+import type { StudioTileModel } from '@/lib/studio-tiles';
 import { BookOpen, ClipboardList, Info, PanelsTopLeft, Printer, RotateCcw, Undo, Users } from 'lucide-react';
 
 /**
@@ -717,8 +718,14 @@ export function MakerShell({
     setStudioFrom(from ?? null);
     setSide('studio');
     setStudioAt(key);
-    if (key === 'look') return openSection('look');
-    openDetailsItem(tile.item);
+    /* 🎨 Look opens a Look SECTION — never the Logo (or another Look-group item) the couple last had open. */
+    if (key === 'look') {
+      setDetailsItem(studioTileItem('look', detailsItem));
+      setLookVisit((n) => n + 1);
+      select({ kind: 'tool', key: 'details' });
+      return;
+    }
+    openDetailsItem(studioTileItem(key, detailsItem));
     setDetailsDoor((n) => n + 1);
     select({ kind: 'tool', key: 'details' });
   };

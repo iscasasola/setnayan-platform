@@ -1,5 +1,7 @@
 'use client';
 
+import { Plus, X } from 'lucide-react';
+
 /**
  * The Event Day rail's three sheets (Schedule rebuild, slice 1 · prototype
  * `.ov.add`, `.ov.shift`, `.ov.req`): Add a moment, Running late, Requests.
@@ -164,7 +166,7 @@ export function AddMomentSheet({
           id="add-moment-title"
           title={
             <>
-              Add at <span className="font-mono text-[19px]">{formatClock(start)}</span>
+              Add at <span className="text-[19px] tabular-nums">{formatClock(start)}</span>
             </>
           }
           tip="You tapped a time, so it is filled in. Change it below, or drag the moment on the rail afterwards."
@@ -211,7 +213,8 @@ export function AddMomentSheet({
             stepper (five minutes a press) for anything between two options. */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <div className="flex items-center gap-1.5">
+            {/* One header height for both columns, so Starts and Runs for sit on one baseline (owner 2026-10-07). */}
+            <div className="flex min-h-7 items-center gap-1.5">
               <Eyebrow>Starts</Eyebrow>
               <Tip>Pick a time — or drag the moment on the rail afterwards. Everything snaps to 5 minutes.</Tip>
             </div>
@@ -230,7 +233,9 @@ export function AddMomentSheet({
             />
           </div>
           <div>
-            <Eyebrow>Runs for</Eyebrow>
+            <div className="flex min-h-7 items-center">
+              <Eyebrow>Runs for</Eyebrow>
+            </div>
             <div className="mt-1.5">
               <PickMenu
                 label="Runs for"
@@ -249,7 +254,7 @@ export function AddMomentSheet({
           </div>
         </div>
         <p className="text-[12.5px] text-ink/55">
-          Ends <span className="font-mono">{formatClock(start + runs)}</span>
+          Ends <span className="tabular-nums">{formatClock(start + runs)}</span>
           {fits ? ` · ${fits}` : ''}
         </p>
 
@@ -290,15 +295,18 @@ export function AddMomentSheet({
         ) : null}
       </div>
       <div className="sticky bottom-0 flex justify-end gap-2 bg-cream px-5 py-3 shadow-[0_-1px_0_rgba(27,26,23,0.06)]">
-        <button type="button" onClick={onClose} className="h-10 rounded-full px-4 text-[13px] font-semibold text-ink/75 ring-1 ring-inset ring-ink/15">
+        {/* BUTTON-RULE — icon + word, toned (✕ Cancel · ＋ Add moment), until the shared ActionButton lands. */}
+        <button type="button" onClick={onClose} className="inline-flex h-11 items-center gap-1.5 rounded-full px-4 text-[13px] font-semibold text-ink/75 ring-1 ring-inset ring-ink/15">
+          <X aria-hidden className="h-4 w-4" strokeWidth={2.2} />
           Cancel
         </button>
         <button
           type="button"
           onClick={submit}
           disabled={pending}
-          className="h-10 rounded-full bg-ink px-4 text-[13px] font-semibold text-cream disabled:opacity-60"
+          className="inline-flex h-11 items-center gap-1.5 rounded-full bg-ink px-4 text-[13px] font-semibold text-cream disabled:opacity-60"
         >
+          <Plus aria-hidden className="h-4 w-4" strokeWidth={2.2} />
           {pending ? 'Adding…' : 'Add moment'}
         </button>
       </div>

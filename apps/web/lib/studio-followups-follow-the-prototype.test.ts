@@ -261,3 +261,25 @@ test('6 · a Studio tile never leaves the Maker — every tile opens its editor 
   const look = read(`${L}/details-look-pages.tsx`);
   assert.match(look, /if \(item === 'logo'\) \{\s*return look\.logo \? \(\s*<div[^>]*data-details-look="logo">\s*\{look\.logo\}/, 'the Logo tile no longer draws the logo editor in place');
 });
+
+test('7 · each of the 11 tiles opens its OWN editor — Look never opens the Logo it was last on', async () => {
+  const { STUDIO_TILE_KEYS, STUDIO_TILES, studioTileItem } = await import('./studio-tiles');
+  const want: Record<string, string> = {
+    info: 'names', look: 'background', logo: 'logo', mood: 'mood-board', schedule: 'schedule', story: 'love-story',
+    march: 'march', seats: 'seating', gifts: 'gifts', rsvp: 'rsvp', prints: STUDIO_TILES.prints.item,
+  };
+  assert.equal(STUDIO_TILE_KEYS.length, 11);
+  /* Whatever was open before — the worst cases are the other Look-group items. */
+  for (const before of [null, 'logo', 'mood-board', 'hero', 'reveal', 'names', 'colours']) {
+    for (const k of STUDIO_TILE_KEYS) {
+      const got = studioTileItem(k, before);
+      if (k === 'look' && before === 'colours') assert.equal(got, 'colours', 'Look forgot the section it was on');
+      else assert.equal(got, want[k], `${k} (after ${before}) opened ${got}`);
+    }
+  }
+  const shell = read(`${L}/maker-shell.tsx`);
+  const open = shell.slice(shell.indexOf('const openStudio = ('), shell.indexOf('/* 🧭 STAGES ALWAYS SHOWS THE PAGE'));
+  assert.match(open, /setDetailsItem\(studioTileItem\('look', detailsItem\)\)/, 'the Look tile does not open through the tile→editor map');
+  assert.match(open, /openDetailsItem\(studioTileItem\(key, detailsItem\)\)/, 'a tile opens something other than its own editor');
+  assert.doesNotMatch(open, /openSection\('look'\)/, 'Look still keeps whatever Look-group item was open (the Logo)');
+});

@@ -30,7 +30,7 @@ export const STUDIO_PILL_BG = 'bg-[color-mix(in_srgb,rgb(var(--color-gild))_8%,r
 export const STUDIO_HEAD_ROW =
   'absolute inset-x-0 top-0 z-40 flex h-[52px] items-center gap-2 border-b border-ink/10 bg-cream px-2.5 lg:hidden';
 /** `.ddp` — the Tool ▾ pill: the whole row's width, capitals, a gold chevron. */
-export const STUDIO_TOOL_PILL = `!min-h-10 !h-10 flex-1 justify-center !gap-1.5 !rounded-full ${STUDIO_PILL_BG} !px-3.5 !text-[11.5px] !font-bold uppercase !tracking-[0.1em] ring-1 ring-ink/10 [&>svg]:text-gild`;
+export const STUDIO_TOOL_PILL = `!min-h-10 !h-10 flex-1 justify-center !gap-1.5 !rounded-full !bg-[color-mix(in_srgb,rgb(var(--color-gild))_8%,rgb(var(--color-cream)))] hover:!bg-[color-mix(in_srgb,rgb(var(--color-gild))_8%,rgb(var(--color-cream)))] !px-3.5 !text-[11.5px] !font-bold uppercase !tracking-[0.1em] ring-1 ring-ink/10 [&>svg]:text-gild`;
 /** `.fright.saved` — ✓ Saved (green words on the pill). */
 export const STUDIO_SAVED_PILL = `inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full ${STUDIO_PILL_BG} px-3 text-[12.5px] font-semibold ring-1 ring-ink/10`;
 /** `.sdone` — ✓ Done on the two full-screen tools (Wedding March, Seat plan). */

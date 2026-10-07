@@ -1208,11 +1208,11 @@ function lookSectionRow(k: LookSectionItemKey, chosen: boolean): Omit<DetailsIte
 /** Save for the print words form — every item that has switches shows one. */
 function SaveWords() {
   return (
-    <div className="flex items-center gap-3 pt-1">
+    <div className="flex items-center gap-3 pt-1" data-save-words="">
       <button type="submit" form={WORDS_FORM} className="button-primary text-sm">
         Save
       </button>
-      <span className="text-xs text-ink/55">The card redraws.</span>
+      <span className="text-xs text-ink/55" data-save-words-note="">The card redraws.</span>
       <HubSavesImmediately />
     </div>
   );

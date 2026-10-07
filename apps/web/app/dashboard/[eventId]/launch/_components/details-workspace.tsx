@@ -757,7 +757,7 @@ export function DetailsWorkspace({
                       <GuideHead step={stepHere} roundTitle={roundName(plan!, walking!)} itemLabel={bodyLabel(i)} compact={detailsItemLayout(i.key) !== 'flow'} />
                     </div>
                   ) : detailsItemLayout(i.key) === 'flow' ? (
-                    <header className="flex flex-col gap-0.5">
+                    <header className="flex flex-col gap-0.5" data-details-body-head="">
                       <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
                         {groups.find((g) => g.items.some((x) => x.key === i.key))?.label}
                       </p>
@@ -770,7 +770,7 @@ export function DetailsWorkspace({
                     </header>
                   ) : (
                     /* A page that moved in keeps its room: one line, not a masthead. */
-                    <header className="flex shrink-0 flex-wrap items-baseline gap-x-2 px-4 pb-1 pt-2.5 sm:px-6">
+                    <header className="flex shrink-0 flex-wrap items-baseline gap-x-2 px-4 pb-1 pt-2.5 sm:px-6" data-details-body-head="">
                       <h2 className="font-serif text-lg text-ink">{bodyLabel(i)}</h2>
                       {i.usedOn?.length ? (
                         <p className="text-xs text-ink/60" data-details-used-on={i.key}>

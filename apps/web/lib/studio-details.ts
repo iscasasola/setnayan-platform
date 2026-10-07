@@ -118,6 +118,14 @@ const STUDIO_SKIN_CSS =
   `${W} [data-details-form-field]{background:rgb(var(--color-cream));margin-left:-16px;margin-right:-16px;padding:12px 16px;border-top:1px solid rgb(var(--color-ink)/.1)}` +
   `${W} [data-details-form-group]{margin:-12px -16px 4px;padding:18px 22px 6px;background:${STUDIO_PAGE};border-bottom:1px solid rgb(var(--color-ink)/.1)}` +
   `${W} [data-details-form-heading]{font-size:14px;font-weight:600;line-height:1.3}` +
+  /* The print words' Save: the prototype's one ink pill, its "The card redraws." helper gone (helper text lives behind ⓘ). */
+  `${W} [data-save-words-note]{display:none}` +
+  /* A print's row names it (Studio › Prints, `data-print-studio`) — the form's own heading would say it twice. */
+  `${W} [data-details-editor]:has(> [data-print-studio]) > [data-details-form-heading]{display:none}` +
+  /* The tool's name is the Tool ▾ row's — no second masthead over the march, the Mood Board, the Logo (prototype `.full`). */
+  `${W} [data-details-body-head]{display:none}` +
+  '[data-details-workspace]:has([data-details-editor]:not([hidden]) [data-studio-look-bar]) [data-details-body-head]{display:none}' +
+  `${W} [data-save-words] button[type=submit]{min-height:44px;padding:0 22px;border-radius:9999px;background:rgb(var(--color-ink));color:rgb(var(--color-cream))}` +
   `${W} input[role=switch]+span{width:46px;height:28px}` +
   `${W} input[role=switch]+span::after{width:22px;height:22px;left:3px;top:3px}` +
   `${W} input[role=switch]:checked+span{background-color:#4f6b4a}` +
@@ -142,9 +150,9 @@ export function studioFullScreenCss(): string {
     `${page} [data-details-editor-panel]{display:none}` +
     /* 🌄 Look: its one bar (Background · Colours · Fonts · Music) is the section picker — no second ▾ above it. */
     '[data-details-editor-panel]:has([data-details-editor]:not([hidden]) [data-studio-look-bar]) [data-details-sheet-head]{display:none}' +
-    /* 🌄 …and Look's panel is the lower third's whole width (prototype `.lt`): no column beside it, no
+    /* 🌄 …and Look's panel is the lower third's whole width at half the screen (prototype `.lt`, owner "the toolbar is half the screen"): no column beside it, no
        floating sheet — a hairline over the page, the controls under it. */
-    '[data-details-workspace] [data-details-editor-panel][data-phone-chrome="panel"]:has([data-details-editor]:not([hidden]) [data-studio-look-bar]){left:0;right:0;bottom:0;border-radius:0;box-shadow:none;border-top:1px solid rgb(var(--color-ink)/.1)}' +
+    '[data-details-workspace] [data-details-editor-panel][data-phone-chrome="panel"]:has([data-details-editor]:not([hidden]) [data-studio-look-bar]){left:0;right:0;bottom:0;height:calc(50dvh - 26px);border-radius:0;box-shadow:none;border-top:1px solid rgb(var(--color-ink)/.1)}' +
     `[data-maker-studio-full]:has([data-details-workspace]${on([...STUDIO_FORM_ITEMS, ...STUDIO_PAGE_ITEMS])}) [data-maker-studio-room]{display:none}` +
     STUDIO_SKIN_CSS +
     '}'

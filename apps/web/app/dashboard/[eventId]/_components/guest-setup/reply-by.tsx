@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { SUPERSEDED, makerLatestWrite, makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
+import { SUPERSEDED, makerLatestWrite, makerNeedsRender, makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { RSVP_REPLY_BY_EVENT, rsvpReplyByLine } from '@/lib/rsvp-stage';
 import { HUB_DRAFT_FIELD } from '@/lib/hub-draft';
 import type { updatePaxSettings } from '../../actions';
@@ -42,8 +42,10 @@ type PaxAction = typeof updatePaxSettings;
  * ⏳ TWO DOORS, ONE RULE EACH (owner 2026-10-08, "draft 1-3", over the 2026-10-07
  * part): in the MAKER (`draft`) the date goes into the hub draft and reaches
  * guests at ✓ Apply — `updatePaxSettings` reads `HUB_DRAFT_FIELD` — so it does
- * not say "Guests see this right away". On Guests › Setup there is no Apply:
- * the date writes live, as before, and the stack layout says so.
+ * not say "Guests see this right away", never says "Saved.", and a drafted pick
+ * ends in the one render that moves the count on ✓ Apply (`makerNeedsRender`).
+ * On Guests › Setup there is no Apply: the date writes live, as before, and the
+ * stack layout says so.
  */
 export function ReplyBy({
   eventId,
@@ -114,7 +116,11 @@ export function ReplyBy({
       if (res === SUPERSEDED || tap !== newest.current) return;
       if (res.ok) {
         saved.current = next;
-        setNote({ ok: true, text: 'Saved.' });
+        /* ⏳ Drafted (the Maker): the pick is held and its answer carries no bar, so nothing moved the
+           count on ✓ Apply — ask for the ONE render a held burst owes (`makerNeedsRender`, as the
+           thank-you words do), and say nothing: a date guests do not read yet is not "Saved." */
+        if (draft) makerNeedsRender();
+        else setNote({ ok: true, text: 'Saved.' });
         return;
       }
       setValue(saved.current);

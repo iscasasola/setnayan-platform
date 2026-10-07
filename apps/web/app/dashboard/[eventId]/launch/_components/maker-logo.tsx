@@ -1,9 +1,8 @@
 'use client';
 
 import { StudioColourField } from './studio-colour-field';
-import { useMaker, useMakerTool } from './maker-context';
-import { IntoLowerThird, LOWER_THIRD_TILE, LOWER_THIRD_TILE_ON, LOWER_THIRD_TILE_PLAIN } from './maker-lower-third';
-import { MAKER_LT_TOOL } from '@/lib/maker-phone-room';
+import { useMaker } from './maker-context';
+import { LOGO_PANEL_PHONE } from '@/lib/logo-maker-layout';
 import { makerSave } from '@/lib/maker-refresh';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -211,6 +210,11 @@ function openingLayers(o: MakerLogoOpening): LogoLayer[] {
   ];
 }
 
+/** The layer the editor opens on: the TOP of the stack (the last drawn), or none when there are none. */
+function openingPick(layers: readonly LogoLayer[]): string | null {
+  return layers[layers.length - 1]?.id ?? null;
+}
+
 export function MakerLogoDoor({
   eventId,
   opening,
@@ -230,11 +234,13 @@ export function MakerLogoDoor({
      Motion. Everything else is the shipped editor as it is — and with the new Maker off, all of it is. */
   const studioAdds = useMaker()?.stagesStudio === true ? { five: mainColours ?? [] } : null;
   const [layers, setLayers] = useState<LogoLayer[]>(() => openingLayers(opening));
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [sheet, setSheet] = useState<'layers' | 'tools' | null>(null);
-  /* 🧰 On a phone the logo's two panels are TOOLS of the Maker's lower third
-     (owner 2026-10-05, "approve"), opened from its tiles — never sheets over the logo. */
-  const ltNav = useMaker()?.ltNav ?? null;
+  /* ✏ DIRECT EDIT (owner 2026-10-08, LOGO_MAKER_REPLOT L1): the editor opens with the TOP layer
+     already picked — never "Pick a layer", never a disabled Edit. */
+  const [selectedId, setSelectedId] = useState<string | null>(() => openingPick(layers));
+  /* 🧰 UNFOLDED (L1): the two panels are this page's own, under the logo, ONE always open — they are
+     never a Maker tool (`useMakerTool`) and never tiles in the lower third's navigator (`ltNav`),
+     which folds away whenever a tool is open: that fold was the one-layer trap. */
+  const [sheet, setSheet] = useState<'layers' | 'tools'>('tools');
   const [playKey, setPlayKey] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -248,11 +254,6 @@ export function MakerLogoDoor({
   const strokeRef = useRef<Array<{ x: number; y: number }>>([]);
 
   const selected = layers.find((l) => l.id === selectedId) ?? null;
-  useMakerTool(Boolean(ltNav) && sheet !== null, {
-    key: `logo:${sheet}`,
-    name: sheet === 'layers' ? 'Layers' : selected ? (selected.kind === 'text' ? 'Text' : selected.name) : 'Layer',
-    close: () => setSheet(null),
-  });
   const composed = useMemo(() => composeLogoSvg(layers.filter((l) => l.body)), [layers]);
   /* Text layers wait for their face; until every layer has its shapes the logo
      is not "as it stands", so no touch can take a baseline from it. */
@@ -482,9 +483,11 @@ export function MakerLogoDoor({
   };
 
   const remove = (id: string) => {
+    const rest = layers.filter((l) => l.id !== id);
     setLayers((cur) => retimeLayers(cur.filter((l) => l.id !== id)));
-    setSelectedId(null);
-    setSheet(null);
+    // The next layer down is picked — a page with layers always has one picked.
+    setSelectedId(openingPick(rest));
+    if (rest.length === 0) setSheet('layers');
   };
 
   /* ── dragging on the canvas (rails + snapping) ── */
@@ -508,8 +511,9 @@ export function MakerLogoDoor({
     }
     const hit = (e.target as Element).closest('[data-logo-edit-layer]');
     const id = hit?.getAttribute('data-logo-edit-layer') ?? null;
-    setSelectedId(id);
+    // A tap on the empty frame keeps the pick (L1: a layer stays picked; nothing to re-find).
     if (!id) return;
+    setSelectedId(id);
     const p = toFrame(e);
     const l = layers.find((x) => x.id === id);
     if (!p || !l) return;
@@ -560,13 +564,11 @@ export function MakerLogoDoor({
     strokeRef.current = [];
     setStroke([]);
     setPlaying(false);
-    setSheet(null);
   };
 
   const play = () => {
     setPlaying(true);
     setPlayKey((k) => k + 1);
-    setSheet(null);
   };
 
   /* ── render ── */
@@ -619,7 +621,7 @@ export function MakerLogoDoor({
         aria-label="Logo layers"
         data-logo-navigator=""
         data-phone-chrome="panel"
-        className={`${sheet === 'layers' ? 'flex' : 'hidden'} sn-glass-bare flex-col ${MAKER_LT_TOOL} lg:static lg:z-auto lg:flex lg:max-h-none lg:w-64 lg:shrink-0 lg:rounded-none lg:border-r lg:border-ink/10`}
+        className={`${sheet === 'layers' ? 'flex' : 'hidden'} sn-glass-bare flex-col ${LOGO_PANEL_PHONE} lg:static lg:z-auto lg:flex lg:max-h-none lg:w-64 lg:shrink-0 lg:rounded-none lg:border-r lg:border-ink/10`}
       >
         <SheetHead title="Layers" />
         <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-contain px-2 pb-3">
@@ -691,13 +693,13 @@ export function MakerLogoDoor({
       {/* ══ CENTRE · THE LOGO'S FRAME ══ */}
       {/* 📱 On a phone the frame sits at the TOP, so the half-height sheets
           under it never cover the logo being edited. */}
-      <div className="relative flex min-h-0 flex-1 flex-col items-center justify-start p-3 lg:justify-center lg:p-6">
+      <div className="relative flex min-h-0 flex-1 flex-col items-center justify-start p-3 max-lg:[container-type:size] lg:justify-center lg:p-6">
         {/* The frame is SQUARE: as wide as the space allows, never taller than
             the space left under the Maker bar. */}
         {/* 📱 In the guided flow the logo is the step's picture above its half sheet:
             the frame fits the half above it, so the whole logo is seen as it changes. */}
         <div
-          className="relative aspect-square w-full max-w-[min(100%,calc(100dvh-13rem))] max-lg:group-data-[details-mode=guided]/ws:max-w-[min(100%,calc(55dvh-8rem))]"
+          className="relative aspect-square w-full max-w-[min(100%,calc(100dvh-13rem))] max-lg:max-w-[min(100%,calc(100cqh-4.25rem))] max-lg:group-data-[details-mode=guided]/ws:max-w-[min(100%,calc(55dvh-8rem))]"
           data-logo-frame=""
         >
           {playing ? (
@@ -827,34 +829,39 @@ export function MakerLogoDoor({
             {playing ? 'Edit' : 'Play'}
           </button>
         </div>
-        {/* 📱 Phone: the two panels open from the lower third's tiles, in the thumb. */}
-        <IntoLowerThird to={ltNav}>
-          <span className={ltNav ? 'contents' : 'mt-2 flex w-full max-w-sm gap-2 lg:hidden'}>
-            {([
-              { key: 'layers', label: 'Layers', icon: <Layers aria-hidden className="h-5 w-5" />, disabled: false },
-              {
-                key: 'tools',
-                label: selected ? `Edit ${selected.kind === 'text' ? 'text' : selected.name}` : 'Pick a layer',
-                icon: <SlidersHorizontal aria-hidden className="h-5 w-5" />,
-                disabled: !selected,
-              },
-            ] as const).map((t) => (
-              <button
-                key={t.key}
-                type="button"
-                data-lt-tile={`logo:${t.key}`}
-                data-lt-group="logo"
-                aria-pressed={sheet === t.key}
-                disabled={t.disabled}
-                onClick={() => setSheet(t.key)}
-                className={`${LOWER_THIRD_TILE} ${LOWER_THIRD_TILE_PLAIN} ${sheet === t.key ? LOWER_THIRD_TILE_ON : ''} disabled:opacity-50`}
-              >
-                <span className="flex min-h-0 flex-1 items-center justify-center text-ink/75">{t.icon}</span>
-                <span className="block w-full truncate border-t border-ink/10 px-1 py-1.5 text-center text-[11.5px] font-semibold text-ink">{t.label}</span>
-              </button>
-            ))}
-          </span>
-        </IntoLowerThird>
+        {/* 📱 Phone: Layers | the picked layer — ONE row under the logo, both always reachable; the
+            panel opens under it, in the page's flow (never fixed over the lower third, never folded). */}
+        <div
+          role="tablist"
+          aria-label="Logo panels"
+          data-logo-panels=""
+          className="mt-2 flex w-full max-w-sm shrink-0 gap-1 rounded-full bg-ink/[0.05] p-1 ring-1 ring-ink/10 lg:hidden max-lg:group-data-[details-mode=guided]/ws:hidden"
+        >
+          {([
+            { key: 'layers', label: 'Layers', icon: <Layers aria-hidden className="h-4 w-4" /> },
+            {
+              key: 'tools',
+              label: selected ? (selected.kind === 'text' ? selected.text?.trim() || 'Text' : selected.name) : 'Layer',
+              icon: <SlidersHorizontal aria-hidden className="h-4 w-4" />,
+            },
+          ] as const).map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              role="tab"
+              data-logo-panel-tab={t.key}
+              aria-selected={sheet === t.key}
+              disabled={t.key === 'tools' && !selected}
+              onClick={() => setSheet(t.key)}
+              className={`sn-press inline-flex min-h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full px-3 text-[13.5px] font-semibold transition-colors duration-sn-control ease-sn disabled:opacity-50 ${
+                sheet === t.key ? 'bg-ink text-cream' : 'text-ink'
+              }`}
+            >
+              {t.icon}
+              <span className="truncate">{t.label}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* ══ RIGHT · THE SELECTED LAYER'S TOOLS ══ */}
@@ -862,7 +869,7 @@ export function MakerLogoDoor({
         aria-label="Layer tools"
         data-logo-tools=""
         data-phone-chrome="panel"
-        className={`${sheet === 'tools' ? 'flex' : 'hidden'} sn-glass-bare flex-col ${MAKER_LT_TOOL} lg:static lg:z-auto lg:flex lg:max-h-none lg:w-80 lg:shrink-0 lg:rounded-none lg:border-l lg:border-ink/10`}
+        className={`${sheet === 'tools' ? 'flex' : 'hidden'} sn-glass-bare flex-col ${LOGO_PANEL_PHONE} lg:static lg:z-auto lg:flex lg:max-h-none lg:w-80 lg:shrink-0 lg:rounded-none lg:border-l lg:border-ink/10`}
       >
         <SheetHead title={selected ? (selected.kind === 'text' ? 'Text' : selected.name) : 'Layer'} />
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-3 pb-6 pt-1">

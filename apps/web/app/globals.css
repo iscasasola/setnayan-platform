@@ -3042,12 +3042,23 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
   --sn-sh-float: 0 1px 2px rgba(40,34,24,.07), 0 10px 24px -12px rgba(30,26,18,.30),
                  0 30px 60px -30px rgba(30,26,18,.28);
   --sn-sh-panel: -2px 0 8px -4px rgba(30,26,18,.12), -30px 0 70px -30px rgba(30,26,18,.45);
+
+  /* The floating row's glass (`.sn-glass-row` — BUTTON_RULE_2026-10-07 Rule 7):
+     translucent paper ≈62 % over a 16 px blur. Its own pair, not
+     `--sn-glass-bg`/`--sn-glass-blur` (.5 · 22 px), because the rule names
+     these numbers; the edge reuses `--sn-glass-line`. */
+  --sn-glass-row-alpha: 62%;
+  --sn-glass-row-blur: blur(16px) saturate(1.3);
 }
 html.dark {
   /* Dark pairs ship with the tokens so they are not a trap for whoever turns
      dark mode on. Nothing sets `html.dark` today (light lock 2026-06-04). */
   --sn-canvas: #17160F;
   --sn-glass-bg-raised: rgba(30,34,41,.86);
+  /* The row's paper is `--color-cream` and its edge `--sn-glass-line`; both
+     flip under html.dark themselves, so dark keeps the same alpha and blur. */
+  --sn-glass-row-alpha: 62%;
+  --sn-glass-row-blur: blur(16px) saturate(1.3);
 }
 
 
@@ -4439,6 +4450,36 @@ html.dark {
   backdrop-filter: var(--sn-glass-blur);
   -webkit-backdrop-filter: var(--sn-glass-blur);
   box-shadow: var(--sn-sh-float);
+}
+
+/* `.sn-glass-row` — THE FLOATING ROW IS GLASS (BUTTON_RULE_2026-10-07_fable.md
+ * § Rule 7). Owner 2026-10-07: "the row with search add and buttons needs to
+ * blur the background with its color. not a opaque. must blur the content
+ * behind" → "apply this to all glass row".
+ *   · translucent paper (≈62 %) over `blur(16px) saturate(1.3)`, with the
+ *     -webkit- prefix, and a faint ink edge;
+ *   · NO shadow — a shadow reads as a box (owner);
+ *   · the blur is clipped to the row's own shape (Safari needs the mask);
+ *   · toned buttons inside keep their FULL colour — only the box and the
+ *     neutral controls (which sit transparent on it) are frosted.
+ * Every row that floats over scrolling content wears this one class; the
+ * shape (pill, top-rounded bar, edge-to-edge strip) stays the row's own.
+ * In @layer components so a breakpoint variant (`max-sm:sn-glass-row`) works
+ * and a row's own radius/padding utilities still apply. Held by
+ * `lib/floating-rows-are-glass.test.ts`. ⚠ `overflow:hidden` clips anything
+ * that opens OUT of the row — a row with an attached dropdown is not a
+ * candidate until that dropdown is portalled. */
+@layer components {
+  .sn-glass-row {
+    background: color-mix(in srgb, rgb(var(--color-cream)) var(--sn-glass-row-alpha), transparent);
+    border: 1px solid var(--sn-glass-line);
+    -webkit-backdrop-filter: var(--sn-glass-row-blur);
+    backdrop-filter: var(--sn-glass-row-blur);
+    box-shadow: none;
+    overflow: hidden;
+    isolation: isolate;
+    -webkit-mask-image: -webkit-radial-gradient(white, black);
+  }
 }
 
 /* `.sn-canvas-drift` — the brief's "barely-perceptible, slow-moving gradient".
@@ -5911,6 +5952,104 @@ html:active-view-transition .sn-page-enter { animation: none; }
    scroll-margin, so no anchor needs to know about the bar. */
 html:has([data-sticky-top]) {
   scroll-padding-top: 4.5rem;
+}
+
+
+/* ─── The couple's HOME, redrawn to the prototype (owner 2026-10-07, PR 4e) ──
+ * `prototypes/home_and_guests_2026-10-07_fable.html?frame=1&page=home`, its
+ * `.card` · `.nums` · `.tile` · `.money` · `.bar`/`.fold` · `.acts.three` rules,
+ * on the app's own tokens (page = cream, words = ink). Producers:
+ * `app/dashboard/[eventId]/_components/home-first-screen.tsx`, `home-parts.tsx`,
+ * and `app/_components/next-card.tsx`'s `actions` variant. Kept ABOVE the Event Hub
+ * canvas block: `the-canvas-fails-visible.test.ts` reads everything after `.hub-canvas`
+ * as the canvas, and these animations are not the canvas's. */
+.home-card {
+  border: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent);
+  border-radius: 16px;
+  padding: 14px;
+  background: color-mix(in srgb, rgb(var(--color-ink)) 2%, rgb(var(--color-cream)));
+  text-align: left;
+  color: rgb(var(--color-ink));
+  min-width: 0;
+}
+.home-card-bad {
+  border-color: color-mix(in srgb, rgb(var(--color-danger)) 45%, transparent);
+  background: color-mix(in srgb, rgb(var(--color-danger)) 7%, rgb(var(--color-cream)));
+}
+.home-eyebrow { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
+.home-card-title { font-size: 19px; font-weight: 600; margin: 4px 0 2px; letter-spacing: -0.01em; line-height: 1.25; }
+.home-card-body { color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); font-size: 14px; margin: 0 0 10px; line-height: 1.45; }
+.home-acts { display: flex; gap: 8px; align-items: center; flex-wrap: nowrap; overflow: hidden; min-width: 0; }
+/* Rule 3a — the doorway row is ONE state: icon + word → word → icon. */
+.home-doors { display: flex; gap: 8px; min-width: 0; }
+.home-doors > .ab { flex: 1 1 0; min-width: 0; justify-content: center; }
+.home-doors .ab.text-only svg { display: none; }
+.home-doors .ab.icon-only .lbl { display: none; }
+/* The prototype's neutral pill (`button.ic.t-neutral`): GREY FILLED — the muted tone's
+ * 9% wash, 45% border, muted word — one line, never wrapped. */
+.home-doors > :is(button, a).ab.ab-neutral {
+  --home-door: color-mix(in srgb, rgb(var(--color-ink)) 62%, rgb(var(--color-cream)));
+  height: 40px;
+  overflow: hidden;
+  white-space: nowrap;
+  color: var(--home-door);
+  border-color: color-mix(in srgb, var(--home-door) 45%, transparent);
+  background: color-mix(in srgb, var(--home-door) 9%, transparent);
+}
+.home-doors > .ab.icon-only { width: auto; padding: 0; }
+.home-nums { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.home-tile {
+  border: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent);
+  border-radius: 14px;
+  padding: 12px;
+  background: color-mix(in srgb, rgb(var(--color-ink)) 2%, rgb(var(--color-cream)));
+  text-align: left;
+  display: block;
+  color: rgb(var(--color-ink));
+  min-width: 0;
+  transition: transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.home-tile:active { transform: scale(0.98); }
+.home-tile-bad { border-color: color-mix(in srgb, rgb(var(--color-danger)) 45%, transparent); }
+.home-v { font-size: 26px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; }
+.home-v-word { font-size: 19px; }
+.home-k { font-size: 12px; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap; }
+@media (max-width: 400px) { .home-nums .home-k { font-size: 11.5px; } }
+.home-money { display: flex; justify-content: space-between; gap: 12px; align-items: flex-end; }
+.home-money .home-v { font-size: 20px; }
+.home-meter { position: relative; height: 6px; border-radius: 3px; background: color-mix(in srgb, rgb(var(--color-ink)) 10%, transparent); overflow: hidden; margin-top: 10px; }
+.home-meter > .meter-fill { position: absolute; left: 0; top: 0; bottom: 0; background: rgb(var(--color-ok)); }
+.home-k2 { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); margin: 14px 0 6px; }
+.home-s { color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); font-size: 13px; }
+.home-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 12px 0; border-top: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); min-width: 0; }
+.home-row .home-t { font-weight: 500; }
+/* What's next — the prototype's `.bar` + `.fold`: pop, then unfold in place. */
+.home-sec { border-top: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); }
+.home-bar { width: 100%; display: flex; align-items: center; gap: 12px; padding: 12px 0; text-align: left; color: rgb(var(--color-ink)); }
+.home-bar-ico { width: 40px; height: 40px; border-radius: 50%; background: var(--sn-gold-100); color: var(--sn-gold-800); display: grid; place-items: center; flex: none; }
+.home-bar-ico svg { width: 18px; height: 18px; }
+.home-chev { margin-left: auto; color: color-mix(in srgb, rgb(var(--color-ink)) 55%, transparent); transition: transform 280ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+.home-fold { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 280ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+.home-fold > div { overflow: clip; min-width: 0; min-height: 0; }
+.home-sec.open > .home-fold { grid-template-rows: 1fr; transition-delay: 120ms; }
+.home-sec.open .home-chev { transform: rotate(180deg); }
+@keyframes home-catpop { 0% { transform: scale(1); } 30% { transform: scale(1.28) rotate(-6deg); } 60% { transform: scale(0.92) rotate(4deg); } 100% { transform: scale(1) rotate(0); } }
+.home-sec.open > .home-bar .home-bar-ico { animation: home-catpop 420ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+.home-svc { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.home-svc .home-t { font-weight: 600; display: flex; align-items: center; gap: 6px; }
+.home-svc .home-t svg { width: 16px; height: 16px; flex: none; }
+/* The cover's one button wears the cover's ink (`currentColor`), like the prototype's glass pill. */
+:is(button, a).ab.ab-neutral.home-cover-ab { color: inherit; border-color: color-mix(in srgb, currentColor 50%, transparent); background: color-mix(in srgb, currentColor 14%, transparent); }
+/* Rise on load, staggered — once (the prototype's `up`). */
+@keyframes home-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+/* `backwards`, not `both`: nothing keeps a transform after the rise (an identity transform
+ * would unpin every fixed child — `an-identity-transform-unpins-every-fixed-child.test.ts`). */
+[data-home-column] > * { animation: home-up 360ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
+[data-home-column] > :nth-child(2) { animation-delay: 40ms; }
+[data-home-column] > :nth-child(n + 3) { animation-delay: 80ms; }
+@media (prefers-reduced-motion: reduce) {
+  [data-home-column] > *, .home-sec.open > .home-bar .home-bar-ico { animation: none; }
+  .home-fold, .home-chev, .home-tile { transition: none; }
 }
 
 /* ════════════════════════════════════════════════════════════════════════════
@@ -7730,7 +7869,6 @@ html.dark :is(button, a).ab.ab-main { color: #161513; }
  * the component; this only owns the slide. Reduced motion → jump. */
 .meter-fill { transition: width 700ms cubic-bezier(0.2, 0.8, 0.2, 1), height 700ms cubic-bezier(0.2, 0.8, 0.2, 1); }
 @media (prefers-reduced-motion: reduce) { .meter-fill { transition: none; } }
-||||||| 508cb3fef
 
 /* ═══ 🎨 THE PARTS' OWN STYLES (owner 2026-10-07, DECISION_LOG "STAGES PANEL REDRAW
    APPROVED … THREE FOLLOW-UPS AS ONE STEP"; `lib/scene-styles-parts.ts`) ═══════
@@ -7869,99 +8007,4 @@ html :is([data-part-look="role.spaced-caps"], [data-part-look="wear.spaced-caps"
 }
 html :is([data-part-look="role.side-rule"], [data-part-look="wear.side-rule"], [data-part-look="arrive.side-rule"], [data-part-look="guests.side-rule"]) {
   border-left: 2px solid rgb(var(--color-gild)); padding-left: 1rem; text-align: left;
-}
-
-/* ─── The couple's HOME, redrawn to the prototype (owner 2026-10-07, PR 4e) ──
- * `prototypes/home_and_guests_2026-10-07_fable.html?frame=1&page=home`, its
- * `.card` · `.nums` · `.tile` · `.money` · `.bar`/`.fold` · `.acts.three` rules,
- * on the app's own tokens (page = cream, words = ink). Producers:
- * `app/dashboard/[eventId]/_components/home-first-screen.tsx`, `home-parts.tsx`,
- * and `app/_components/next-card.tsx`'s `actions` variant. */
-.home-card {
-  border: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent);
-  border-radius: 16px;
-  padding: 14px;
-  background: color-mix(in srgb, rgb(var(--color-ink)) 2%, rgb(var(--color-cream)));
-  text-align: left;
-  color: rgb(var(--color-ink));
-  min-width: 0;
-}
-.home-card-bad {
-  border-color: color-mix(in srgb, rgb(var(--color-danger)) 45%, transparent);
-  background: color-mix(in srgb, rgb(var(--color-danger)) 7%, rgb(var(--color-cream)));
-}
-.home-eyebrow { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
-.home-card-title { font-size: 19px; font-weight: 600; margin: 4px 0 2px; letter-spacing: -0.01em; line-height: 1.25; }
-.home-card-body { color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); font-size: 14px; margin: 0 0 10px; line-height: 1.45; }
-.home-acts { display: flex; gap: 8px; align-items: center; flex-wrap: nowrap; overflow: hidden; min-width: 0; }
-/* Rule 3a — the doorway row is ONE state: icon + word → word → icon. */
-.home-doors { display: flex; gap: 8px; min-width: 0; }
-.home-doors > .ab { flex: 1 1 0; min-width: 0; justify-content: center; }
-.home-doors .ab.text-only svg { display: none; }
-.home-doors .ab.icon-only .lbl { display: none; }
-/* The prototype's neutral pill (`button.ic.t-neutral`): GREY FILLED — the muted tone's
- * 9% wash, 45% border, muted word — one line, never wrapped. */
-.home-doors > :is(button, a).ab.ab-neutral {
-  --home-door: color-mix(in srgb, rgb(var(--color-ink)) 62%, rgb(var(--color-cream)));
-  height: 40px;
-  overflow: hidden;
-  white-space: nowrap;
-  color: var(--home-door);
-  border-color: color-mix(in srgb, var(--home-door) 45%, transparent);
-  background: color-mix(in srgb, var(--home-door) 9%, transparent);
-}
-.home-doors > .ab.icon-only { width: auto; padding: 0; }
-.home-nums { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-.home-tile {
-  border: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent);
-  border-radius: 14px;
-  padding: 12px;
-  background: color-mix(in srgb, rgb(var(--color-ink)) 2%, rgb(var(--color-cream)));
-  text-align: left;
-  display: block;
-  color: rgb(var(--color-ink));
-  min-width: 0;
-  transition: transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-.home-tile:active { transform: scale(0.98); }
-.home-tile-bad { border-color: color-mix(in srgb, rgb(var(--color-danger)) 45%, transparent); }
-.home-v { font-size: 26px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; }
-.home-v-word { font-size: 19px; }
-.home-k { font-size: 12px; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap; }
-@media (max-width: 400px) { .home-nums .home-k { font-size: 11.5px; } }
-.home-money { display: flex; justify-content: space-between; gap: 12px; align-items: flex-end; }
-.home-money .home-v { font-size: 20px; }
-.home-meter { position: relative; height: 6px; border-radius: 3px; background: color-mix(in srgb, rgb(var(--color-ink)) 10%, transparent); overflow: hidden; margin-top: 10px; }
-.home-meter > .meter-fill { position: absolute; left: 0; top: 0; bottom: 0; background: rgb(var(--color-ok)); }
-.home-k2 { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); margin: 14px 0 6px; }
-.home-s { color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); font-size: 13px; }
-.home-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 12px 0; border-top: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); min-width: 0; }
-.home-row .home-t { font-weight: 500; }
-/* What's next — the prototype's `.bar` + `.fold`: pop, then unfold in place. */
-.home-sec { border-top: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); }
-.home-bar { width: 100%; display: flex; align-items: center; gap: 12px; padding: 12px 0; text-align: left; color: rgb(var(--color-ink)); }
-.home-bar-ico { width: 40px; height: 40px; border-radius: 50%; background: var(--sn-gold-100); color: var(--sn-gold-800); display: grid; place-items: center; flex: none; }
-.home-bar-ico svg { width: 18px; height: 18px; }
-.home-chev { margin-left: auto; color: color-mix(in srgb, rgb(var(--color-ink)) 55%, transparent); transition: transform 280ms cubic-bezier(0.2, 0.8, 0.2, 1); }
-.home-fold { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 280ms cubic-bezier(0.2, 0.8, 0.2, 1); }
-.home-fold > div { overflow: clip; min-width: 0; min-height: 0; }
-.home-sec.open > .home-fold { grid-template-rows: 1fr; transition-delay: 120ms; }
-.home-sec.open .home-chev { transform: rotate(180deg); }
-@keyframes home-catpop { 0% { transform: scale(1); } 30% { transform: scale(1.28) rotate(-6deg); } 60% { transform: scale(0.92) rotate(4deg); } 100% { transform: scale(1) rotate(0); } }
-.home-sec.open > .home-bar .home-bar-ico { animation: home-catpop 420ms cubic-bezier(0.2, 0.8, 0.2, 1); }
-.home-svc { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.home-svc .home-t { font-weight: 600; display: flex; align-items: center; gap: 6px; }
-.home-svc .home-t svg { width: 16px; height: 16px; flex: none; }
-/* The cover's one button wears the cover's ink (`currentColor`), like the prototype's glass pill. */
-.home-cover-ab.ab { color: inherit; border-color: color-mix(in srgb, currentColor 50%, transparent); background: color-mix(in srgb, currentColor 14%, transparent); }
-/* Rise on load, staggered — once (the prototype's `up`). */
-@keyframes home-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
-/* `backwards`, not `both`: nothing keeps a transform after the rise (an identity transform
- * would unpin every fixed child — `an-identity-transform-unpins-every-fixed-child.test.ts`). */
-[data-home-column] > * { animation: home-up 360ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
-[data-home-column] > :nth-child(2) { animation-delay: 40ms; }
-[data-home-column] > :nth-child(n + 3) { animation-delay: 80ms; }
-@media (prefers-reduced-motion: reduce) {
-  [data-home-column] > *, .home-sec.open > .home-bar .home-bar-ico { animation: none; }
-  .home-fold, .home-chev, .home-tile { transition: none; }
 }

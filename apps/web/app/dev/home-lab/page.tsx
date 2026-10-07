@@ -89,7 +89,7 @@ export default async function HomeLab({
             open={3}
             rows={[
               { id: 'b', title: 'Book a supplier', sub: 'Catering · 2 quotes in', href: `/dashboard/${E}/vendors`, verb: 'book', cta: 'Book' },
-              { id: 'p', title: 'Settle a payment', sub: 'Seda Vertis North · first payment ₱528,000 · by Oct 5', href: `/dashboard/${E}/vendors`, verb: 'pay', cta: 'Pay' },
+              { id: 'p', title: 'Settle a payment', sub: 'Seda Vertis North · first payment · by Oct 5', href: `/dashboard/${E}/vendors`, verb: 'pay', cta: 'Pay' },
               { id: 'r', title: 'Fill a role', sub: 'Emcee · nobody picked yet', href: `/dashboard/${E}/guests`, verb: 'role', cta: 'Pick' },
             ]}
             checklist={{ href: `/dashboard/${E}/checklist`, pct: 47 }}

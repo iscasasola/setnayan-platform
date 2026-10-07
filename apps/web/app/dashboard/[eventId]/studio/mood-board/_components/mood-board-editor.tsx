@@ -1205,7 +1205,7 @@ export async function MoodBoardEditor({ eventId }: { eventId: string }) {
       </div>
 
       {/* Persistent action bar — both PDF exports stay reachable at any scroll. */}
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-ink/10 bg-cream/95 px-4 py-3 backdrop-blur sm:px-6">
+      <div data-glass-row="mood-board-pdfs" className="sn-glass-row fixed inset-x-0 bottom-0 z-20 px-4 py-3 sm:px-6">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-2 sm:gap-3">{parts.pdfs}</div>
       </div>
     </div>

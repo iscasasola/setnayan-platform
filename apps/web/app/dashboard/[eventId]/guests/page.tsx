@@ -77,8 +77,6 @@ import {
   InspectorLayout,
 } from '@/app/_components/inspector/inspector-column';
 import { formatCount } from '@/lib/format-number';
-import { loadGuestAccessMap } from '@/lib/guest-access.server';
-import type { GuestAccessState } from '@/lib/guest-access';
 
 import { MiniTour } from '@/app/_components/mini-tour';
 import { loadGuestHelperCard } from '@/lib/guest-helper-card.server';
@@ -685,17 +683,8 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // Auto-Arrange does. Falls back to suggestTableFor's default when no floor plan
   // row exists yet (undefined → the param default kicks in).
   const stage = floorPlan ? { x: floorPlan.stage_x, y: floorPlan.stage_y } : undefined;
-  // The Access column (owner 2026-09-28: co-hosts come from the guest list) —
-  // every guest's Access, TRUE by construction, from the live seats. ONE read
-  // for the whole list. A refused read (null) hands the roster NO states, so no
-  // word is drawn — never a list with every co-host silently reading "None".
-  // ⚠ Maker PR 4f keeps it on each row's meta line (the old table's column is
-  // retired with the table) — owner call 2026-10-07 still open.
-  const accessMap = await loadGuestAccessMap(
-    eventId,
-    guests.map((g) => ({ guest_id: g.guest_id, role: g.role })),
-  );
-  const accessByGuest: Record<string, GuestAccessState> = Object.fromEntries(accessMap ?? []);
+  // ⚖ NO ACCESS ON THE LIST (owner 2026-10-07: "remove access column since the
+  // access will be inside event details"). The list reads and shows none.
   const seatByGuest: Record<string, { placed: string | null; suggested: string | null }> =
     Object.fromEntries(
       visible.map((g) => {
@@ -926,9 +915,6 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       tableByGuest={tableByGuest}
       songsByGuest={songsByGuest}
       linkedGuestIds={linkedGuestIds}
-      accessByGuest={accessByGuest}
-      // Only a co-host changes Access — the same `couple` gate the card uses.
-      canManageAccess={viewer.isCouple}
       faceByGuest={faceByGuest}
       requests={pendingClaimsCount}
       rootLabel={mapRoot}

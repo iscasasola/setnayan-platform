@@ -357,7 +357,8 @@ export function HalfSheetSlimBar({
       data-phone-chrome="panel"
       data-phone-chrome-name="the slim bar"
       data-half-sheet-slim=""
-      className={`sn-glass-bare fixed inset-x-0 bottom-0 z-30 flex items-center gap-2 rounded-t-2xl border-t border-ink/10 px-3 pb-[env(safe-area-inset-bottom)] ${HALF_SHEET_SLIM} ${SLIM_BAR_SEAT} lg:hidden`}
+      data-glass-row="half-sheet-slim"
+      className={`sn-glass-row fixed inset-x-0 bottom-0 z-30 flex items-center gap-2 rounded-t-2xl px-3 pb-[env(safe-area-inset-bottom)] ${HALF_SHEET_SLIM} ${SLIM_BAR_SEAT} lg:hidden`}
     >
       <button
         type="button"

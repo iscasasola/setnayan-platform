@@ -78,7 +78,9 @@ export function sceneMediaShadeVars(step: HubSceneShade, theme: InviteTheme): Re
     '--hub-scrim-end': `rgb(${c} / ${r.opacityEnd.toFixed(2)})`,
   };
   if (step === 'lighter') return { ...sceneLegibilityVars(theme, '#ffffff', 'media'), ...veil };
-  /* The lightest the dark veil can leave — over a white pixel — is the ground light words are measured on. */
-  const lightest = compositeOver(r.veil, r.opacity, '#ffffff');
-  return { ...sceneLegibilityVars(theme, lightest, 'color'), ...veil };
+  /* The words were measured over the LIGHTEST the veil can leave (a white pixel, `sceneMediaShade`); the
+     scene's tokens — its light ink, and the plates inside it — are drawn for the veil over a mid-tone photo,
+     so a plate reads as a darker pane of the picture, not a grey box. */
+  const ground = compositeOver(r.veil, r.opacity, '#4a4540');
+  return { ...sceneLegibilityVars(theme, ground, 'color'), ...veil };
 }

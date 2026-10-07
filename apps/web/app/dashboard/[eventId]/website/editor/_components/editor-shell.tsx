@@ -1158,11 +1158,15 @@ export function MakerWork({
          third, a desktop's right column). Its size and motion stay one ‹ › away
          from the other parts. Nothing is written by opening it. */
       if (data.key === 'f:hero' && data.el === 'mark' && select) {
-        setElementTarget(null);
-        postToShownCanvases({ source: 'setnayan-editor', t: 'markEl', key: data.key, el: null });
-        // The made-once Logo is Details' item now: the shell moves the pick there (`movedSelection`).
-        select({ kind: 'tool', key: 'logo' });
-        return;
+        /* 🧭 …except in the new Maker's Stages on a phone, where the Logo is a PART like the names: its Style ›
+           Look carousel (`lib/scene-styles-parts.ts`) and the quiet bar "Edit the Logo · Studio ›" (owner 2026-10-07). */
+        if (!(stagesStudioRef.current && window.innerWidth < 1024)) {
+          setElementTarget(null);
+          postToShownCanvases({ source: 'setnayan-editor', t: 'markEl', key: data.key, el: null });
+          // The made-once Logo is Details' item now: the shell moves the pick there (`movedSelection`).
+          select({ kind: 'tool', key: 'logo' });
+          return;
+        }
       }
       const moment = (data as { moment?: unknown }).moment;
       if (data.key === 'w:schedule' && typeof moment === 'string' && moment && openDetailsItemRef.current) {

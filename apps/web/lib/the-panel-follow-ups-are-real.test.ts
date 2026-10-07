@@ -24,7 +24,7 @@ import { PART_LOOK_SCENES, sanitizeFixedSceneStylesDraft } from './fixed-scene-s
 import { hasHubCanvas, sanitizeHubCanvas } from './hub-canvas';
 import { HUB_THEMES } from './invite-themes';
 import { AA_BODY } from './hub-legibility';
-import { sceneMediaShade } from './scene-media-shade';
+import { sceneMediaShade, sceneMediaShadeVars } from './scene-media-shade';
 import { eventItemIsPro, mergeHubDraft, emptyHubDraft, planHubDraftApply, type HubLiveState } from './hub-draft';
 import { canvasOnlyCss, canvasOnlyScene, canvasStylePreview } from '../app/[slug]/_lib/editor-canvas';
 import { withStylePreview } from '../app/[slug]/_lib/style-preview';
@@ -139,6 +139,10 @@ test('C · Darker and Lighter hold body text at AA over the darkest and lightest
       assert.ok(r.bodyContrast >= AA_BODY, `${theme.id} · ${step}: ${r.bodyContrast.toFixed(2)}:1`);
     }
     assert.ok(sceneMediaShade('darker', theme).veil === theme.palette.darkInk, `${theme.id}: Darker is the theme’s dark ink`);
+    /* …and the words the page paints over it ARE the ink that was measured (the theme's light ink). */
+    const ink = sceneMediaShadeVars('darker', theme)['--color-ink'];
+    const hex = `#${ink!.split(' ').map((n) => Number(n).toString(16).padStart(2, '0')).join('')}`;
+    assert.equal(hex.toLowerCase(), theme.palette.lightInk.toLowerCase(), `${theme.id}: Darker paints the measured light ink`);
   }
 });
 

@@ -23,7 +23,7 @@ import { WhenYesCelebration } from '@/app/[slug]/_components/when-yes-celebratio
 import { celebrationColours, isRsvpCelebration } from '@/lib/rsvp-celebration';
 
 /** maria-and-jose's run of show and venues (read-only shape, 2026-10-05) — the lab has no database. */
-const LAB_BLOCK = (i: number, label: string, at: string, location: string | null, type = 'other') => ({
+const LAB_BLOCK = (i: number, label: string, at: string, location: string | null, type = 'pre_ceremony') => ({
   block_id: `lab-${i}`, public_id: `lab-${i}`, event_id: 'lab', label, block_type: type, start_at: `2026-12-12T${at}:00`, end_at: null,
   location, notes: null, is_public: true, sort_order: i, parent_block_id: null, created_at: '2026-10-01T00:00:00Z',
   run_state: 'upcoming', actual_start_at: null, actual_end_at: null, audience: null,
@@ -31,7 +31,7 @@ const LAB_BLOCK = (i: number, label: string, at: string, location: string | null
 const LAB_BLOCKS = [
   LAB_BLOCK(1, 'Guests arrive', '14:30', 'Santuario de San Antonio'),
   LAB_BLOCK(2, 'Ceremony', '15:00', 'Santuario de San Antonio', 'ceremony'),
-  LAB_BLOCK(3, 'Cocktails', '17:30', 'Seda Vertis North'),
+  LAB_BLOCK(3, 'Cocktails', '17:30', 'Seda Vertis North', 'cocktails'),
   LAB_BLOCK(4, 'Dinner & dancing', '19:00', 'Seda Vertis North', 'reception'),
 ];
 const LAB_VENUE_EVENT = {
@@ -41,6 +41,9 @@ const LAB_VENUE_EVENT = {
     { role: 'reception', name: 'Seda Vertis North', address: '1 Astra Way, Vertis North, Quezon City', latitude: 14.6537, longitude: 121.0367 },
   ],
 };
+
+/** The public ready-made scene photo the lab's scene backgrounds use, as its own URL (a legacy ref is served verbatim). */
+const LAB_MEDIA = { '/std/backgrounds/golden-hour.webp': '/std/backgrounds/golden-hour.webp' };
 
 /** maria-and-jose's board stand-in — Oxblood & olive, the prototype's first palette. */
 const LAB_BOARD = ['#5B1A22', '#6B7A3A', '#E0A52B', '#8E2E3C', '#F2C8C2'];
@@ -220,7 +223,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
         </div>
         {mark('w:special_message')}
         {/* 🌗 The REAL scene frame (`HubCanvasFrame`): its drafted background, Darker ↔ Lighter and Spacing, as guests see them. */}
-        <HubCanvasFrame widget={{ ...rowOf('special_message'), widget_id: 'lab-special-message' } as never} hubTheme="house" ownClipPlays>
+        <HubCanvasFrame widget={{ ...rowOf('special_message'), widget_id: 'lab-special-message' } as never} hubTheme="house" ownClipPlays mediaUrls={LAB_MEDIA}>
           <div data-lab-scene="special_message" className="border-t border-ink/10 px-4 py-8 text-left">
             <SpecialMessageWidget
               text="We cannot wait to celebrate with you."

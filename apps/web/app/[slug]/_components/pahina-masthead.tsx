@@ -96,7 +96,14 @@ export function PahinaMasthead({
   elements = null,
   stampElements = false,
   design = HERO_DESIGN_DEFAULT,
+  looks = null,
 }: {
+  /**
+   * 🎨 THE PARTS' OWN STYLES (owner 2026-10-07, `lib/scene-styles-parts.ts`) — each
+   * picked part's `data-part-look` value (`partLookAttr`), drawn by `globals.css`.
+   * Absent (or a part not listed) = the shipped look, byte for byte.
+   */
+  looks?: Partial<Record<'mark' | 'eyebrow' | 'names' | 'date' | 'venue', string>> | null;
   /**
    * 🎴 Which arrangement of the parts (`lib/hero-design.ts`). Absent → The
    * Card, the shipped hero, byte-identical to before.
@@ -181,6 +188,7 @@ export function PahinaMasthead({
   /** The part's own style and, in the Maker canvas only, its key. */
   const el = (key: HubHeroElementKey) => ({
     ...(stampElements ? { 'data-el': key, ...makerFacts[key] } : {}),
+    ...(looks && key in looks && looks[key as keyof typeof looks] ? { 'data-part-look': looks[key as keyof typeof looks] } : {}),
     // The part's own motion rides as custom properties; this is the hook the
     // ONE gated rule in globals.css reads (`[data-el-motion]`).
     ...hubElementMotionAttr(elements?.[key]),
@@ -211,6 +219,11 @@ export function PahinaMasthead({
       ),
     );
   };
+  /* 🗓 THE DATE'S WORDS — written out (`dateLabel`, with the couple's runs), or, for the
+     Big day and Numerals styles, laid out in pieces from the date itself. */
+  const dateWords = partDateWords(looks?.date ?? null, eventDate) ?? (dateLabel ? txt('date', dateLabel) : null);
+  /** 📍 The place's words — written out, or for Name first, the place large and the city small. */
+  const placeWords = (name: string) => partPlaceWords(looks?.venue ?? null, name) ?? txt('venue', name);
   /* 🔗 THE JOINER — the couple's own word when they chose one (and · & · + ·
      their own, `HubElementStyle.word`), else the word the display name gives,
      exactly as before the Joiner existed. */
@@ -250,7 +263,7 @@ export function PahinaMasthead({
   /** 📍 The plain masthead's venue — the event's own venue, styled as a part. */
   const venuePart = (name: string) => (
     <p {...el('venue')} className="mt-2 text-base text-ink/70">
-      {txt('venue', name)}
+      {placeWords(name)}
     </p>
   );
 
@@ -390,9 +403,9 @@ export function PahinaMasthead({
         }`}
       >
         {design === 'crest' ? (
-          <span className="text-xs">{txt('date', dateLabel)}</span>
+          <span className="text-xs">{dateWords}</span>
         ) : (
-          <span className="text-2xl sm:text-[1.65rem]">{txt('date', dateLabel)}</span>
+          <span className="text-2xl sm:text-[1.65rem]">{dateWords}</span>
         )}
       </p>
     ) : null;
@@ -545,7 +558,7 @@ export function PahinaMasthead({
                  words (see the designs' DATE above). */
               <p {...el('date')} data-motion="arrive-date" className="mt-4 flex items-center justify-center gap-3 font-pahina text-ink">
                 <span aria-hidden className="h-px w-5 bg-gild/60" />
-                <span className="text-xl">{txt('date', dateLabel)}</span>
+                <span className="text-xl">{dateWords}</span>
                 <span aria-hidden className="h-px w-5 bg-gild/60" />
               </p>
             ) : null}
@@ -592,7 +605,7 @@ export function PahinaMasthead({
       {/* The gild date — oversized lining numerals; venue meta beneath. */}
       {dateLabel ? (
         <p {...el('date')} data-motion="arrive-date" className="mt-6 font-pahina text-[clamp(1.6rem,6vw,2.4rem)] font-light tracking-tight text-gild">
-          {txt('date', dateLabel)}
+          {dateWords}
         </p>
       ) : null}
       {venueName ? venuePart(venueName) : null}
@@ -601,5 +614,43 @@ export function PahinaMasthead({
           printed plate with a mono caption. Only when media exists. */}
       {coverPlate}
     </header>
+  );
+}
+
+/* ── 🎨 THE PARTS' OWN STYLES that lay their words out differently (`lib/scene-styles-parts.ts`) ── */
+
+const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] as const;
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'] as const;
+
+/** The date in pieces, for Big day (weekday · day · month year) and Numerals (dd.mm.yy). Null: the line as written. */
+function partDateWords(look: string | null, iso: string | null): ReactNode | null {
+  if (look !== 'date.big-day' && look !== 'date.numerals') return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso ?? '');
+  if (!m) return null;
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const day = new Date(Date.UTC(y, mo - 1, d));
+  if (look === 'date.numerals') {
+    return <span data-date-piece="figures">{`${String(d).padStart(2, '0')}.${String(mo).padStart(2, '0')}.${String(y).slice(2)}`}</span>;
+  }
+  return (
+    <>
+      <span data-date-piece="weekday">{WEEKDAYS[day.getUTCDay()]}</span>
+      <span data-date-piece="day">{d}</span>
+      <span data-date-piece="month">{`${MONTHS[mo - 1]} ${y}`}</span>
+    </>
+  );
+}
+
+/** The place in two pieces for Name first — the place, then the city (after the last comma or ·). Null: as written. */
+function partPlaceWords(look: string | null, name: string): ReactNode | null {
+  if (look !== 'venue.name-first') return null;
+  const cut = Math.max(name.lastIndexOf(','), name.lastIndexOf('·'));
+  const place = (cut > 0 ? name.slice(0, cut) : name).trim();
+  const city = cut > 0 ? name.slice(cut + 1).trim() : '';
+  return (
+    <>
+      <span data-place-piece="name">{place}</span>
+      {city ? <span data-place-piece="city">{city}</span> : null}
+    </>
   );
 }

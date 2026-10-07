@@ -20,11 +20,13 @@ import {
   hubCanvasClass,
   hubCanvasVars,
   hubPhotoPlacement,
+  hubSpacingClass,
   type HubBackground,
   type HubSectionCanvas,
 } from '@/lib/hub-canvas';
 import type { InviteTheme } from '@/lib/invite-themes';
 import { sceneLegibilityVars } from '@/lib/scene-legibility';
+import { sceneMediaShadeVars } from '@/lib/scene-media-shade';
 
 export type SceneFrameLook = { className: string; style: Record<string, string>; placement: ReturnType<typeof hubPhotoPlacement> };
 
@@ -42,10 +44,13 @@ export function sceneFrameLook(
       : tint && bg && bg.kind !== 'photo' && bg.kind !== 'snippet' && bg.kind !== 'none'
         ? sceneLegibilityVars(theme, tint, bg.kind, canvas.opacity)
         : mediaUrl && (bg?.kind === 'photo' || bg?.kind === 'snippet')
-          ? sceneLegibilityVars(theme, '#ffffff', 'media')
+          ? /* 🌗 Darker ↔ Lighter (`lib/scene-media-shade.ts`): the veil and the words over it, never under AA. */
+            canvas.shade
+            ? sceneMediaShadeVars(canvas.shade, theme)
+            : sceneLegibilityVars(theme, '#ffffff', 'media')
           : null;
   return {
-    className: hubCanvasClass(canvas, painted),
+    className: [hubCanvasClass(canvas, painted), hubSpacingClass(canvas)].filter(Boolean).join(' '),
     style: { ...hubCanvasVars(canvas, placement === 'none' ? null : mediaUrl), ...(legible ?? {}) },
     placement,
   };

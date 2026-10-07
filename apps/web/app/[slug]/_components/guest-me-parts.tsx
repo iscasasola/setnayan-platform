@@ -30,7 +30,10 @@ export function GuestMeParts({
   words,
   look,
   comingWith,
+  partLooks = null,
 }: {
+  /** 🎨 Each part's own style (`lib/scene-styles-parts.ts`) — absent: the shipped look. */
+  partLooks?: Partial<Record<GuestMePart, string | null>> | null;
   parts: readonly GuestMePart[];
   words: EventWords;
   look: {
@@ -50,7 +53,7 @@ export function GuestMeParts({
     <div data-me-parts="" className="space-y-10">
       {parts.map((p) =>
         p === 'guests' ? (
-          <section key={p} className="space-y-2" data-me-part="guests">
+          <section key={p} className="space-y-2" data-me-part="guests" {...(partLooks?.guests ? { 'data-part-look': partLooks.guests } : {})}>
             <p className="pahina-eyebrow">
               <span>Coming with you</span>
             </p>
@@ -62,24 +65,34 @@ export function GuestMeParts({
               ))}
             </ul>
           </section>
+        ) : partLooks?.[p] ? (
+          <div key={p} data-part-look={partLooks[p]!} className="empty:hidden">
+            <MePart p={p} words={words} look={look} />
+          </div>
         ) : (
-          <DressCodeWidget
-            key={p}
-            part={p}
-            words={words}
-            config={look.config}
-            ceremonyType={look.ceremonyType}
-            genderSeparation={look.genderSeparation}
-            guestRole={look.guestRole}
-            march={p === 'role' ? look.march : null}
-            rolePalette={look.rolePalette}
-            roleNames={look.roleNames ?? null}
-            paletteLook={look.paletteLook ?? null}
-            hideWhenEmpty
-          />
+          <MePart key={p} p={p} words={words} look={look} />
         ),
       )}
     </div>
+  );
+}
+
+/** One of Your role · What to wear · Arrive by — the dress code's own "you" panel, one fact. */
+function MePart({ p, words, look }: { p: Exclude<GuestMePart, 'guests'>; words: EventWords; look: Parameters<typeof GuestMeParts>[0]['look'] }) {
+  return (
+    <DressCodeWidget
+      part={p}
+      words={words}
+      config={look.config}
+      ceremonyType={look.ceremonyType}
+      genderSeparation={look.genderSeparation}
+      guestRole={look.guestRole}
+      march={p === 'role' ? look.march : null}
+      rolePalette={look.rolePalette}
+      roleNames={look.roleNames ?? null}
+      paletteLook={look.paletteLook ?? null}
+      hideWhenEmpty
+    />
   );
 }
 

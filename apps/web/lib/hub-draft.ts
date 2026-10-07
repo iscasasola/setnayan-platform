@@ -72,7 +72,7 @@ import {
   stylePreferencesWithDraftedStyles,
   type FixedSceneStyles,
   type FixedSceneStylesDraft,
-  type FixedStyleScene,
+  type StyledScene,
 } from '@/lib/fixed-scene-styles';
 import {
   WIDGET_PHASES,
@@ -123,6 +123,7 @@ import {
 import { parseRsvpBackdropConfig } from '@/lib/spatial-backdrop';
 import { siteMediaServeRef, siteMediaServeRefs } from '@/lib/site-media-ref';
 import { QR_STYLE_PREF_KEY, qrStyleFromPreferences, sanitizeQrStyle } from '@/lib/qr-look';
+import { CAMERA_LOOK_PREF_KEY, isCameraLook, type CameraLook } from '@/lib/camera-look';
 import {
   classifyPostEventDraft,
   postEventItemLabel,
@@ -804,9 +805,14 @@ export function sanitizeHubDraftEventValue(
       return [...new Set(refs)].slice(0, HUB_DRAFT_GALLERY_MAX);
     }
     case 'style_preferences': {
-      // ONLY the QR's look — never another key of the blob.
+      // ONLY the QR's look and 🎛 the camera's look (owner 2026-10-07, `lib/camera-look.ts`) — never another
+      // key of the blob. Each is kept only when the save carries it, so a camera pick never resets a drafted
+      // QR and the other way round (`mergeHubDraft` merges the two key by key).
       if (!isPlainObject(raw)) return undefined;
-      return { [QR_STYLE_PREF_KEY]: sanitizeQrStyle(raw[QR_STYLE_PREF_KEY]) };
+      const out: Record<string, unknown> = {};
+      if (QR_STYLE_PREF_KEY in raw) out[QR_STYLE_PREF_KEY] = sanitizeQrStyle(raw[QR_STYLE_PREF_KEY]);
+      if (isCameraLook(raw[CAMERA_LOOK_PREF_KEY])) out[CAMERA_LOOK_PREF_KEY] = raw[CAMERA_LOOK_PREF_KEY];
+      return Object.keys(out).length > 0 ? out : undefined;
     }
     // 🗂 An answer is a yes or a no (null = back to "not asked"); anything else is dropped.
     case 'papic_on':
@@ -1065,7 +1071,7 @@ export function mergeHubDraft(current: HubDraft, patch: HubDraftPatch): HubDraft
     // never forgets a drafted name style, nor the other way round.
     const prev = next.events[col as HubDraftEventColumn];
     next.events[col as HubDraftEventColumn] =
-      col === 'print_details' && isPlainObject(prev) && isPlainObject(v) ? { ...prev, ...v } : v;
+      (col === 'print_details' || col === 'style_preferences') && isPlainObject(prev) && isPlainObject(v) ? { ...prev, ...v } : v;
   }
   for (const [type, w] of Object.entries(clean.widgets)) {
     const prev = next.widgets[type as WidgetType] ?? {};
@@ -1297,7 +1303,7 @@ export type HubDraftItem =
   | {
       /** 🎨 One fixed part's style pick (`lib/fixed-scene-styles.ts`). Free. */
       kind: 'fixed-style';
-      scene: FixedStyleScene;
+      scene: StyledScene;
       /** The id to store, or null = back to the default. */
       value: string | null;
       change: LookChange;
@@ -1438,10 +1444,11 @@ export function eventColumnChange(column: HubDraftEventColumn, live: unknown, ne
     case 'site_bg_music_enabled':
       return refChange(live === true ? 'on' : null, next === true ? 'on' : null);
     case 'style_preferences': {
-      // Only the QR's look is compared; the blob's other keys are not the Maker's.
+      // Only the QR's look and the camera's look are compared; the blob's other keys are not the Maker's.
       const qr = (v: unknown) => {
         const s = qrStyleFromPreferences(v);
-        return Object.keys(s).length > 0 ? JSON.stringify(s) : null;
+        const cam = cameraLookOfDraft(v);
+        return Object.keys(s).length > 0 || cam ? JSON.stringify({ qr: s, cam }) : null;
       };
       return refChange(qr(live), qr(next));
     }
@@ -1518,8 +1525,10 @@ export function eventItemIsPro(
   // (and Apply still writes its free part — `rsvpAskFreePart`).
   if (column === 'rsvp_ask_config') return celebrationDraftIsPro(live, value);
   // 🔳 The QR's shape · pattern · colour are Event Hub Pro (`updateQrStyle`);
-  // going back to the plain code is a removal, which is free.
-  if (column === 'style_preferences') return true;
+  // going back to the plain code is a removal, which is free. 🎛 The camera's
+  // look is a style pick — FREE, like every scene style — so the blob is Pro
+  // only while its QR moves.
+  if (column === 'style_preferences') return styleQrMoves(live, value);
   if (column === 'invite_theme') {
     // 🎨 The free themes (Classic, Modern, Cyber Neon — `tier: 'free'`, owner
     // 2026-09-29) are free; every other theme is Event Hub Pro (owner 2026-09-28,
@@ -2001,7 +2010,7 @@ export function classifyHubDraft(
     }
   }
   // 🎨 The fixed parts' style picks, last — each compared with what is live.
-  for (const [scene, value] of Object.entries(draft.fixedStyles ?? {}) as Array<[FixedStyleScene, string | null]>) {
+  for (const [scene, value] of Object.entries(draft.fixedStyles ?? {}) as Array<[StyledScene, string | null]>) {
     const liveId = live.fixedStyles?.[scene] ?? null;
     if ((value ?? null) !== liveId) items.push({ kind: 'fixed-style', scene, value: value ?? null, change: 'change', pro: false });
   }
@@ -2031,6 +2040,21 @@ export function rsvpAskFreePart(live: unknown, drafted: unknown): Record<string,
   if (liveConfig.celebration !== undefined) next.celebration = liveConfig.celebration;
   else delete next.celebration;
   return next;
+}
+
+/** 🎛 The camera look a `style_preferences` value names (live blob or drafted part) — null when none. */
+export function cameraLookOfDraft(v: unknown): CameraLook | null {
+  const c = isPlainObject(v) ? v[CAMERA_LOOK_PREF_KEY] : undefined;
+  return isCameraLook(c) ? c : null;
+}
+
+/** 🔳 Does the drafted `style_preferences` move the QR's look from live? (Only the QR is Pro.) */
+function styleQrMoves(live: unknown, drafted: unknown): boolean {
+  if (!isPlainObject(drafted) || !(QR_STYLE_PREF_KEY in drafted)) return false;
+  const next = qrStyleFromPreferences(drafted);
+  /* Back to the plain code is a removal — free. */
+  if (Object.keys(next).length === 0) return false;
+  return canonicalJson(qrStyleFromPreferences(live)) !== canonicalJson(next);
 }
 
 /** Did anything BESIDES the celebration move between live and the draft? */
@@ -2086,6 +2110,15 @@ export function planHubDraftApply(
       const liveConfig = live.events.rsvp_ask_config ?? null;
       if (rsvpAskFreePartMoves(liveConfig, item.value)) {
         apply.push({ kind: 'event', column: 'rsvp_ask_config', value: rsvpAskFreePart(liveConfig, item.value), change: 'change', pro: false, freePart: true });
+      }
+    }
+    /* 🎛 A held QR look still gets its free camera look: the drafted camera pick is
+       written now (merged into the blob like the QR); the whole drafted blob stays
+       in the draft (below), where it now differs from live only by the QR. */
+    if (!allowed && item.kind === 'event' && item.column === 'style_preferences') {
+      const cam = cameraLookOfDraft(item.value);
+      if (cam && cam !== cameraLookOfDraft(live.events.style_preferences ?? null)) {
+        apply.push({ kind: 'event', column: 'style_preferences', value: { [CAMERA_LOOK_PREF_KEY]: cam }, change: 'change', pro: false, freePart: true });
       }
     }
     /* 💎 …and a held Post Event look gets its free edits the same way — its
@@ -2480,12 +2513,23 @@ export const HUB_DRAFT_EVENT_LABEL: Record<HubDraftEventColumn, string> = {
 };
 
 /** A sentence-ready name for each fixed part whose style is drafted. */
-export const FIXED_STYLE_LABEL: Record<FixedStyleScene, string> = {
+export const FIXED_STYLE_LABEL: Record<StyledScene, string> = {
   entourage: 'The entourage',
   find_your_seat: 'Find your seat',
   photos_of_you: "Each guest's own photos",
   announcements: 'Announcements',
   live_hub: 'The live hub',
+  /* 🎨 The parts' own (owner 2026-10-07, `lib/scene-styles-parts.ts`). */
+  hero_names: 'The names',
+  hero_date: 'The date',
+  hero_venue: 'The place',
+  hero_mark: 'The logo',
+  hero_eyebrow: 'The title',
+  gifts: 'E-Gifts',
+  my_role: 'Your role',
+  my_wear: 'What to wear',
+  my_arrive: 'Arrive by',
+  my_guests: 'Coming with you',
 };
 
 /** A sentence-ready name for one draft key. */
@@ -2497,6 +2541,10 @@ export function hubDraftItemLabel(item: HubDraftItem, sectionLabel: (t: WidgetTy
       const name = HUB_DRAFT_PRINT_DETAILS_KEY in item.value;
       if (pass && !name) return 'Your ticket style';
       if (pass && name) return 'Your name style and ticket style';
+    }
+    // 🎛 The drafted camera look says so — "Your camera look", not "Your QR code".
+    if (item.column === 'style_preferences' && isPlainObject(item.value) && !(QR_STYLE_PREF_KEY in item.value) && cameraLookOfDraft(item.value)) {
+      return 'Your camera look';
     }
     return HUB_DRAFT_EVENT_LABEL[item.column];
   }

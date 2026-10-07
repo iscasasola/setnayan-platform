@@ -61,7 +61,7 @@ async function inStudio(el: React.ReactElement): Promise<string> {
 }
 
 test('1 · Love Story › Add a moment: the app’s form on the Schedule’s sheet — three dropdowns, ✕ Not now · ✓ Keep this moment in glass', () => {
-  const src = read(`${D}/website/our-story/_components/moment-sheet.tsx`);
+  const src = read(`${D}/website/our-story/_components/moment-sheet-studio.tsx`);
   assert.match(src, /const studio = maker\?\.stagesStudio === true;/, 'the sheet does not know it is in the Studio');
   /* The app's tokens, never the event's palette, for the fields and their words. */
   const field = /const field = studio\s*\?\s*'([^']+)'/.exec(src)?.[1] ?? '';
@@ -87,7 +87,11 @@ test('1 · Love Story › Add a moment: the app’s form on the Schedule’s she
   assert.doesNotMatch(foot.slice(0, 120), /bg-cream|shadow-/, 'the glass row has an opaque fill or a shadow of its own');
   assert.match(foot, /<X aria-hidden[^>]*\/>\s*Not now/, '✕ Not now has no icon');
   assert.match(foot, /<Check aria-hidden[^>]*\/>\s*$/, '✓ Keep this moment has no icon');
-  /* No boxed card: the in-place box (ring + shadow) is the shipped Maker's only. */
+  /* ⚖ Budget: the Studio's sheet is its own file in the LAZY cards chunk; the first-load sheet is untouched. */
+  const shipped = read(`${D}/website/our-story/_components/moment-sheet.tsx`);
+  assert.doesNotMatch(shipped, /from '@\/app\/_components\/sheet'|<PickMenu|stagesStudio/, 'the first-load MomentSheet carries the Studio’s form (507 KB)');
+  assert.match(read(`${D}/website/our-story/_components/moment-order-cards.tsx`), /import \{ MomentSheetStudio \} from '\.\/moment-sheet-studio';/, 'the Studio’s cards do not open the Studio’s sheet');
+    /* No boxed card: the in-place box (ring + shadow) is the shipped Maker's only. */
   assert.match(src, /inMaker && open && !studio \? 'w-full basis-full' : 'contents'/, 'the Studio still opens the boxed in-place card');
 });
 

@@ -5,7 +5,9 @@ import { GripVertical, Plus } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { MOMENT_LINE_MAX, MOMENT_TITLE_MAX, type ChapteredMoment, type LoveStoryMoment } from '@/lib/love-story-moments';
 import { STUDIO_GLASS_FOOT, STUDIO_FOOT_BUTTON } from '@/lib/studio-skin';
-import { MomentNotKept, MomentSheet } from './moment-sheet';
+import { MomentNotKept, type MomentSheet } from './moment-sheet';
+/* 🧭 The Studio's own add/edit sheet (owner 2026-10-08) — rides this lazy chunk, never the first load. */
+import { MomentSheetStudio } from './moment-sheet-studio';
 
 /**
  * ✋ STUDIO › LOVE STORY — ONE CARD PER MOMENT (owner 2026-10-06 DECISION_LOG
@@ -125,7 +127,7 @@ function OpenMoment({
       ) : null}
       <div className="flex gap-2">
         {/* BUTTON-RULE */}
-        <MomentSheet
+        <MomentSheetStudio
           {...sheet}
           moment={m}
           trigger="Change photo"
@@ -298,7 +300,7 @@ export function MomentOrderCards({
       <div className={`z-30 max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:pb-[max(.5rem,env(safe-area-inset-bottom))] lg:sticky lg:bottom-0 lg:mt-4 ${STUDIO_GLASS_FOOT}`}>
         {add.can ? (
           /* BUTTON-RULE */
-          <MomentSheet
+          <MomentSheetStudio
             {...sheet}
             opensFor="add"
             trigger={

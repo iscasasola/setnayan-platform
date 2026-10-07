@@ -41,9 +41,11 @@ import {
   LOGO_FRAME_LABEL,
   LOGO_IN,
   LOGO_IN_LABEL,
-  LOGO_INKS,
   LOGO_LAYER_KIND_LABEL,
   LOGO_MAX_LAYERS,
+  LOGO_OUT,
+  LOGO_OUT_LABEL,
+  LOGO_ROTATE_MAX,
   LOGO_SCALE_MAX,
   LOGO_SCALE_MIN,
   LOGO_WRITE_MAX_PTS,
@@ -58,6 +60,7 @@ import {
   halfExtent,
   layerShapes,
   layerTransform,
+  logoColourChoices,
   layerToFrame,
   layersFromSaved,
   logoInSeconds,
@@ -210,13 +213,20 @@ export function MakerLogoDoor({
   eventId,
   opening,
   motionMark,
+  mainColours = null,
 }: {
   eventId: string;
   opening: MakerLogoOpening;
   /** The paid mark on Motion (plays for guests with the Animated Monogram), or null. */
   motionMark: PaidMarkState | null;
+  /** 🎨 The five main colours (Dominant … Accent 2) — Colour offers them in the new Maker. */
+  mainColours?: readonly string[] | null;
 }) {
   const router = useRouter();
+  /* 🧭 THE NEW MAKER'S THREE ADDITIONS ONLY (owner 2026-10-06, DECISION_LOG "THE LOGO MAKER IS THE
+     SHIPPED LAYERED EDITOR"): Colour offers the five main colours · Rotate in Size and place · Out in
+     Motion. Everything else is the shipped editor as it is — and with the new Maker off, all of it is. */
+  const studioAdds = useMaker()?.stagesStudio === true ? { five: mainColours ?? [] } : null;
   const [layers, setLayers] = useState<LogoLayer[]>(() => openingLayers(opening));
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sheet, setSheet] = useState<'layers' | 'tools' | null>(null);
@@ -861,6 +871,7 @@ export function MakerLogoDoor({
               eventId={eventId}
               layer={selected}
               motionMark={motionMark}
+              studio={studioAdds}
               onWrite={() => startWriting(selected.id)}
               onChange={(patch) => update(selected.id, patch)}
               onRemove={() => remove(selected.id)}
@@ -878,6 +889,7 @@ function LayerTools({
   eventId,
   layer,
   motionMark,
+  studio = null,
   onWrite,
   onChange,
   onRemove,
@@ -885,6 +897,8 @@ function LayerTools({
   eventId: string;
   layer: LogoLayer;
   motionMark: PaidMarkState | null;
+  /** 🧭 The new Maker: the five main colours, Rotate and Out. Null = the shipped editor, exactly. */
+  studio?: { five: readonly string[] } | null;
   onWrite: () => void;
   onChange: (patch: Partial<LogoLayer>) => void;
   onRemove: () => void;
@@ -969,17 +983,21 @@ function LayerTools({
           {layer.kind === 'image' ? (
             <Chip on={layer.color === null} label="Its own" onClick={() => onChange({ color: null })} />
           ) : null}
-          {LOGO_INKS.map((c) => (
+          {logoColourChoices(studio, layer.color).map((c) => {
+            const on = layer.color?.toUpperCase() === c.toUpperCase();
+            const slot = studio ? studio.five.findIndex((f) => f.toUpperCase() === c.toUpperCase()) : -1;
+            return (
             <button
               key={c}
               type="button"
-              aria-label={`Colour ${c}`}
-              aria-pressed={layer.color === c}
+              aria-label={slot >= 0 ? `${MAIN_COLOUR_NAMES[slot] ?? 'Colour'} ${c}` : `Colour ${c}`}
+              aria-pressed={on}
               onClick={() => onChange({ color: c })}
-              className={`h-9 max-h-9 min-h-9 w-9 min-w-9 max-w-9 shrink-0 rounded-full border border-ink/20 ${layer.color === c ? 'ring-2 ring-ink ring-offset-2 ring-offset-cream' : ''}`}
+              className={`h-9 max-h-9 min-h-9 w-9 min-w-9 max-w-9 shrink-0 rounded-full border border-ink/20 ${on ? 'ring-2 ring-ink ring-offset-2 ring-offset-cream' : ''}`}
               style={{ background: c }}
             />
-          ))}
+            );
+          })}
         </div>
       </Field>
 
@@ -987,6 +1005,17 @@ function LayerTools({
         <Slider label="Size" min={LOGO_SCALE_MIN} max={LOGO_SCALE_MAX} step={0.01} value={layer.scale} onChange={(v) => onChange({ scale: v })} />
         <Slider label="Across" min={0} max={LOGO_FRAME} step={1} value={layer.x} snapCentre onChange={(v) => onChange({ x: v })} />
         <Slider label="Up and down" min={0} max={LOGO_FRAME} step={1} value={layer.y} snapCentre onChange={(v) => onChange({ y: v })} />
+        {studio ? (
+          <Slider
+            label={`Rotate ${layer.rotate ?? 0}°`}
+            min={-LOGO_ROTATE_MAX}
+            max={LOGO_ROTATE_MAX}
+            step={1}
+            value={layer.rotate ?? 0}
+            snapCentre
+            onChange={(v) => onChange({ rotate: Math.round(v) || undefined })}
+          />
+        ) : null}
         <button
           type="button"
           onClick={() => onChange({ x: LOGO_FRAME / 2, y: LOGO_FRAME / 2 })}
@@ -1059,6 +1088,24 @@ function LayerTools({
             <Chip key={k} on={layer.motion.during === k} label={LOGO_DURING_LABEL[k]} onClick={() => onChange({ motion: { ...layer.motion, during: k } })} />
           ))}
         </div>
+        {studio ? (
+          <>
+            <p className="mt-2 text-[12px] font-semibold text-ink/70">Out</p>
+            <div className="flex flex-wrap gap-1.5" data-logo-out="">
+              {LOGO_OUT.map((k) => (
+                <Chip
+                  key={k}
+                  on={(layer.motion.out ?? 'none') === k}
+                  label={LOGO_OUT_LABEL[k]}
+                  onClick={() => {
+                    const { out: _was, ...rest } = layer.motion;
+                    onChange({ motion: k === 'none' ? rest : { ...rest, out: k } });
+                  }}
+                />
+              ))}
+            </div>
+          </>
+        ) : null}
         {layer.motion.in !== 'none' ? (
           <Slider
             label={`Speed — takes ${logoInSeconds(layer.motion).toFixed(1)}s`}
@@ -1090,6 +1137,11 @@ function LayerTools({
     </>
   );
 }
+
+/* ── the Colour row's swatches ───────────────────────────────────────────── */
+
+/** The five main colours' names, in slot order — `PALETTE_LIMITS.reception.slotLabels`. */
+const MAIN_COLOUR_NAMES = ['Dominant', 'Supporting', 'Accent', 'Neutral', 'Accent 2'] as const;
 
 /* ── small parts ─────────────────────────────────────────────────────────── */
 

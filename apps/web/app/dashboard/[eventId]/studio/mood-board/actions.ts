@@ -834,6 +834,10 @@ export async function fetchGalleryAssets(input: {
   slotKey: string;
   limit?: number;
   offset?: number;
+  /** 🔍 Studio's Search ideas › — words · From ▾ · Near ▾ (all cleaned by `normalizeGalleryQuery`). */
+  q?: string;
+  from?: string;
+  near?: string;
 }): Promise<GalleryPage> {
   const query = normalizeGalleryQuery(input);
   if (!query) throw new Error('No supplier gallery for that slot');
@@ -844,18 +848,32 @@ export async function fetchGalleryAssets(input: {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { data, count, error } = await supabase
+  /* 🔍 A filter on the SHOP (From ▾ · Near ▾) needs the shop joined, not
+     embedded: `!inner` drops a photo whose shop does not match — or whose shop
+     RLS refuses, which the plain embed would count as `withheld`. With no shop
+     filter the query is exactly the shipped one. */
+  const shopFiltered = Boolean(query.fromServices || query.near);
+  let gallery = supabase
     .from('moodboard_library_assets')
     .select(
-      `asset_id, label, storage_path, vendor_profile_id, is_event_linked,
-       shop:vendor_profiles ( business_name, services ),
+      shopFiltered
+        ? `asset_id, label, storage_path, vendor_profile_id, is_event_linked,
+       shop:vendor_profiles!inner ( business_name, services, business_slug, hq_region ),
+       ranges:moodboard_asset_color_ranges ( slot_id, sampled_hex )`
+        : `asset_id, label, storage_path, vendor_profile_id, is_event_linked,
+       shop:vendor_profiles ( business_name, services, business_slug ),
        ranges:moodboard_asset_color_ranges ( slot_id, sampled_hex )`,
       { count: 'exact' },
     )
     .eq('asset_type', SUPPLIER_GALLERY_ASSET_TYPE)
     .eq('asset_subtype', query.slotKey)
     .not('approved_at', 'is', null)
-    .is('retired_at', null)
+    .is('retired_at', null);
+  // The words are cleaned to letters, digits and spaces (`cleanGallerySearch`), so no filter syntax rides in.
+  if (query.q) gallery = gallery.ilike('label', `%${query.q}%`);
+  if (query.fromServices) gallery = gallery.overlaps('shop.services', query.fromServices);
+  if (query.near) gallery = gallery.eq('shop.hq_region', query.near);
+  const { data, count, error } = await gallery
     // MB22 — event-linked photos stand out FIRST, ahead of back-catalogue, in
     // this same ranged query: `is_event_linked` is boolean (never null, see
     // its column comment), so this partitions the page without touching
@@ -930,7 +948,7 @@ export async function applyGalleryPick(input: {
     .from('moodboard_library_assets')
     .select(
       `asset_id, label, storage_path, vendor_profile_id, is_event_linked,
-       shop:vendor_profiles ( business_name, services ),
+       shop:vendor_profiles ( business_name, services, business_slug ),
        ranges:moodboard_asset_color_ranges ( slot_id, sampled_hex )`,
     )
     .eq('asset_id', input.assetId)

@@ -80,7 +80,8 @@ export const STUDIO_FORM_ITEMS: readonly DetailsItemKey[] = [
   ...FREE_PRINT_KEYS,
   'download',
 ];
-export const STUDIO_PAGE_ITEMS: readonly DetailsItemKey[] = ['love-story'];
+/* 🎨 Mood Board & Dress Code (plan PR 5) fills the screen too — its four tabs and their tools are all in its body. */
+export const STUDIO_PAGE_ITEMS: readonly DetailsItemKey[] = ['love-story', 'mood-board'];
 
 /** The top nav (52 px) and the tool's row (52 px), less the panel's own 4 px inset each side. */
 const UNDER_THE_ROWS = 'calc(100dvh - 100px - env(safe-area-inset-bottom))';

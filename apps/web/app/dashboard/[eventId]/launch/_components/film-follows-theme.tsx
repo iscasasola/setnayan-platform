@@ -25,12 +25,14 @@ export function FilmFollowsTheme({
   /** The film's Readability today — kept when it follows the theme (`stdFollowTheme`). */
   legibility?: StdLegibility;
 }) {
-  const [hidden, setHidden] = useState(false);
+  /* ON = the film follows the Event Hub. Drawn only while it has a pick of its own (off); a tap
+     turns it on at once, saves into the draft, and the refresh then folds the row away. */
+  const [on, setOn] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [, start] = useTransition();
-  if (hidden && !error) return null;
   const follow = () => {
-    setHidden(true);
+    if (on) return;
+    setOn(true);
     setError(null);
     start(async () => {
       const fd = new FormData();
@@ -40,26 +42,30 @@ export function FilmFollowsTheme({
         () => ({ ok: false as const, error: 'That did not save. Please try again.' }),
       );
       if (!r.ok) {
-        setHidden(false);
+        setOn(false);
         setError(r.error);
       }
     });
   };
   return (
-    <p data-film-follows-theme="" className="flex flex-wrap items-center gap-x-1.5 text-sm text-ink/75">
-      <span>Your Save the Date film keeps its own background ·</span>
-      <button
-        type="button"
-        onClick={follow}
-        className="sn-press inline-flex min-h-11 items-center font-semibold text-ink underline underline-offset-2"
-      >
-        Same as the Event Hub
-      </button>
+    <div data-film-follows-theme="" className="flex flex-col gap-1">
+      {/* 🔀 A SWITCH, not a link (owner 2026-10-08, studio round 3: *"Same as the Event Hub" becomes a switch*). */}
+      <label className="flex min-h-11 cursor-pointer items-center justify-between gap-3 text-sm text-ink">
+        <span className="min-w-0">
+          Save the Date film · Same as the Event Hub
+          <span className="block text-xs text-ink/60">{on ? 'It follows the Event Hub’s background.' : 'Your film keeps its own background.'}</span>
+        </span>
+        <input type="checkbox" role="switch" checked={on} onChange={follow} className="peer sr-only" data-film-follows-switch="" />
+        <span
+          aria-hidden
+          className="relative h-6 w-11 shrink-0 rounded-full bg-ink/20 transition-colors after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:bg-terracotta-700 peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-mulberry"
+        />
+      </label>
       {error ? (
-        <span role="alert" className="basis-full text-xs text-danger-800">
+        <span role="alert" className="text-xs text-danger-800">
           {error}
         </span>
       ) : null}
-    </p>
+    </div>
   );
 }

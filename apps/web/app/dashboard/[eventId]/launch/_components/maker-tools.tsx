@@ -73,6 +73,12 @@ export const MAKER_TOOLS: readonly MakerTool[] = [
       liveLoveStory.length > 0 ? Promise.all(liveLoveStory.map(warmDynamic)) : Promise.reject(new Error('not on the Maker')),
   },
   {
+    key: 'maker:love-story-cards',
+    /* 🧭 Studio › Love Story's cards (`moment-order-cards-lazy.tsx`) — lazy so the Maker's first load stays within budget. */
+    label: 'Love Story cards',
+    load: () => import(/* webpackChunkName: "maker-details" */ '../../website/our-story/_components/moment-order-cards-lazy').then(warmDynamicExports),
+  },
+  {
     key: 'maker:schedule',
     label: 'Schedule',
     load: () => import(/* webpackChunkName: "maker-schedule" */ '../../schedule/_components/schedule-lazy').then(warmDynamicExports),

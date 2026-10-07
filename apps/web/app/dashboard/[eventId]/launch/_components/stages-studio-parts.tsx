@@ -2,8 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Check } from 'lucide-react';
-import { MAKER_UNHELD_WRITE_EVENT, makerSavesInFlight } from '@/lib/maker-refresh';
-import { STUDIO_DONE_BUTTON, STUDIO_HEAD_ROW, STUDIO_SAVED_PILL, STUDIO_TOOL_PILL } from '@/lib/studio-skin';
+import { STUDIO_DONE_BUTTON, STUDIO_HEAD_ROW, STUDIO_TOOL_PILL } from '@/lib/studio-skin';
 import { ISeg, ISegmented } from '../../website/editor/_components/inspector-kit';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import type { PickOption } from '../../website/editor/_components/pick-menu-types';
@@ -70,49 +69,6 @@ export function StudioToolMenu({
 }
 
 /**
- * ✓ SAVED — the Tool row's right-hand pill (prototype `.fright.saved`). Every Studio
- * write already says it is under way (`makerSave` / the shell's form posts fire
- * `MAKER_UNHELD_WRITE_EVENT`); this only DRAWS that: "Saving…" while one is in
- * flight, "✓ Saved" once none is. It writes nothing and claims nothing it did not
- * hear — a screen that never wrote shows "✓ Saved" because nothing is pending.
- */
-export function StudioSaved() {
-  const [saving, setSaving] = useState(false);
-  useEffect(() => {
-    let timer: number | null = null;
-    const settle = () => {
-      if (makerSavesInFlight() > 0) {
-        timer = window.setTimeout(settle, 400);
-        return;
-      }
-      timer = null;
-      setSaving(false);
-    };
-    const onWrite = () => {
-      setSaving(true);
-      if (timer === null) timer = window.setTimeout(settle, 400);
-    };
-    window.addEventListener(MAKER_UNHELD_WRITE_EVENT, onWrite);
-    return () => {
-      window.removeEventListener(MAKER_UNHELD_WRITE_EVENT, onWrite);
-      if (timer !== null) window.clearTimeout(timer);
-    };
-  }, []);
-  return (
-    <span data-studio-saved={saving ? 'saving' : 'saved'} aria-live="polite" className={`${STUDIO_SAVED_PILL} ${saving ? 'text-ink/50' : 'text-success-700'}`}>
-      {saving ? (
-        'Saving…'
-      ) : (
-        <>
-          <Check aria-hidden className="h-4 w-4" strokeWidth={2.2} />
-          Saved
-        </>
-      )}
-    </span>
-  );
-}
-
-/**
  * A Studio tool FULL SCREEN — its slim row (prototype `.fhead`; owner 2026-10-06, DECISION_LOG
  * "'ASK ONE BY ONE' … TAPPING STUDIO AGAIN RETURNS TO THE TILES"): Tool ▾ across the row, then
  * ✓ Saved — or ✓ Done where the top nav is hidden (Wedding March, Seat plan). No "‹ Studio" —
@@ -142,11 +98,9 @@ export function StudioToolRow({
           Done
         </button>
       ) : (
-        <div data-studio-row-end="" className="flex shrink-0 items-center gap-1.5">
-          <span data-studio-row-saved="" className="contents">
-            <StudioSaved />
-          </span>
-        </div>
+        /* 🧾 No "✓ Saved" chip (owner 2026-10-07, *"yes remove the saved."*): the ONE state signal is ✓ Apply's
+           count. The end slot stays for a tool's own control (the Mood Board's ✨ Auto). */
+        <div data-studio-row-end="" className="flex shrink-0 items-center gap-1.5" />
       )}
     </div>
   );

@@ -51,7 +51,8 @@ const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8')
 
 test('1a · the draft holds the ticket style beside the name style — only a real look, never junk', () => {
   const d = sanitizeHubDraft({ v: 1, events: { print_details: { pass_design: 'ticket', opening_line: 'x', name_style: 'nope' } }, widgets: {}, history: [] });
-  assert.deepEqual(d.events.print_details, { pass_design: 'ticket' }, 'the draft keeps the ticket style and drops every other key');
+  /* The opening line is drafted too since 2026-10-08 (owner, "draft 1-3"); junk is still dropped. */
+  assert.deepEqual(d.events.print_details, { pass_design: 'ticket', opening_line: 'x' }, 'the draft keeps the ticket style (and the opening line) and drops every other key');
   const bad = sanitizeHubDraft({ v: 1, events: { print_details: { pass_design: 'neon' } }, widgets: {}, history: [] });
   assert.equal('print_details' in bad.events, false, 'an unknown look is dropped, never repaired');
   assert.deepEqual(passDesignDraftPatch('poster'), { events: { print_details: { pass_design: 'poster' } } });

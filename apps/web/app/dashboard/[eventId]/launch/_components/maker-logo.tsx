@@ -1,5 +1,6 @@
 'use client';
 
+import { StudioColourField } from './studio-colour-field';
 import { useMaker, useMakerTool } from './maker-context';
 import { IntoLowerThird, LOWER_THIRD_TILE, LOWER_THIRD_TILE_ON, LOWER_THIRD_TILE_PLAIN } from './maker-lower-third';
 import { MAKER_LT_TOOL } from '@/lib/maker-phone-room';
@@ -980,18 +981,33 @@ function LayerTools({
       ) : null}
 
       <Field label="Colour">
+        {studio ? (
+          /* 🎨 The new Maker: the Mood Board's ONE colour sheet (owner 2026-10-08) — the five first,
+             then what goes with them, the photos, the swatches, Custom. "Its own" stays for a picture. */
+          <div className="flex flex-col" data-logo-colour="studio">
+            <StudioColourField
+              data="logo"
+              name="Colour"
+              job={layer.kind === 'image' && layer.color === null ? 'Its own colours' : 'This part of your logo'}
+              value={layer.color ?? LOGO_DEFAULT_INK}
+              palette={studio.five}
+              onPick={(c) => onChange({ color: c })}
+              reset={layer.kind === 'image' && layer.color !== null ? { label: 'Its own colours', onReset: () => onChange({ color: null }) } : undefined}
+            />
+          </div>
+        ) : (
         <div className="flex flex-wrap items-center gap-2">
           {layer.kind === 'image' ? (
             <Chip on={layer.color === null} label="Its own" onClick={() => onChange({ color: null })} />
           ) : null}
-          {logoColourChoices(studio, layer.color).map((c) => {
+          {/* The shipped editor (no Studio): the logo inks, as before. */}
+          {logoColourChoices(null, layer.color).map((c) => {
             const on = layer.color?.toUpperCase() === c.toUpperCase();
-            const slot = studio ? studio.five.findIndex((f) => f.toUpperCase() === c.toUpperCase()) : -1;
             return (
             <button
               key={c}
               type="button"
-              aria-label={slot >= 0 ? `${MAIN_COLOUR_NAMES[slot] ?? 'Colour'} ${c}` : `Colour ${c}`}
+              aria-label={`Colour ${c}`}
               aria-pressed={on}
               onClick={() => onChange({ color: c })}
               className={`h-9 max-h-9 min-h-9 w-9 min-w-9 max-w-9 shrink-0 rounded-full border border-ink/20 ${on ? 'ring-2 ring-ink ring-offset-2 ring-offset-cream' : ''}`}
@@ -1000,6 +1016,7 @@ function LayerTools({
             );
           })}
         </div>
+        )}
       </Field>
 
       <Field label="Size and place">
@@ -1137,11 +1154,6 @@ function LayerTools({
     </>
   );
 }
-
-/* ── the Colour row's swatches ───────────────────────────────────────────── */
-
-/** The five main colours' names, in slot order — `PALETTE_LIMITS.reception.slotLabels`. */
-const MAIN_COLOUR_NAMES = ['Dominant', 'Supporting', 'Accent', 'Neutral', 'Accent 2'] as const;
 
 /* ── small parts ─────────────────────────────────────────────────────────── */
 

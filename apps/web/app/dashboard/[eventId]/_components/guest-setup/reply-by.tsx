@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 import { SUPERSEDED, makerLatestWrite, makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { RSVP_REPLY_BY_EVENT, rsvpReplyByLine } from '@/lib/rsvp-stage';
+import { HUB_DRAFT_FIELD } from '@/lib/hub-draft';
 import type { updatePaxSettings } from '../../actions';
 import { HubSavesImmediately } from '../../website/_components/hub-draft-field';
 import { SETUP_ROW, SETUP_SUB, SETUP_TITLE } from './setup-skin';
@@ -36,8 +37,13 @@ type PaxAction = typeof updatePaxSettings;
  * write per pause (`makerLatestWrite`), `held` + `maker_quiet` (no page render
  * rides on the answer); a refused save puts the date back and says so. The
  * stage's frames hear the new line (`RSVP_REPLY_BY_EVENT`); off the Maker
- * nobody listens and nothing happens. It is not drafted — the deadline belongs
- * to the guest list, not the Event Hub's look.
+ * nobody listens and nothing happens.
+ *
+ * ⏳ TWO DOORS, ONE RULE EACH (owner 2026-10-08, "draft 1-3", over the 2026-10-07
+ * part): in the MAKER (`draft`) the date goes into the hub draft and reaches
+ * guests at ✓ Apply — `updatePaxSettings` reads `HUB_DRAFT_FIELD` — so it does
+ * not say "Guests see this right away". On Guests › Setup there is no Apply:
+ * the date writes live, as before, and the stack layout says so.
  */
 export function ReplyBy({
   eventId,
@@ -47,6 +53,7 @@ export function ReplyBy({
   action,
   layout,
   rowClassName,
+  draft = false,
 }: {
   eventId: string;
   /** The couple's own date (null = the 30-day default). */
@@ -57,6 +64,8 @@ export function ReplyBy({
   action?: PaxAction;
   layout: 'row' | 'stack' | 'print';
   rowClassName?: string;
+  /** ⏳ The Maker's door: the date waits in the hub draft for ✓ Apply (owner 2026-10-08, "draft 1-3"). */
+  draft?: boolean;
 }) {
   const [value, setValue] = useState(own ?? '');
   const saved = useRef(own ?? '');
@@ -92,6 +101,8 @@ export function ReplyBy({
               fd.set('guest_list_edit_deadline', next);
               fd.set('adaptive_pricing_mode', pricingMode);
               fd.set('maker_quiet', '1');
+              /* ⏳ Reply by waits for ✓ Apply in the Maker (owner 2026-10-08, "draft 1-3"). */
+              if (draft) fd.set(HUB_DRAFT_FIELD, '1');
               return action(fd);
             }),
           requestMakerRefresh,
@@ -164,7 +175,8 @@ export function ReplyBy({
           </button>
         ) : null}
       </div>
-      <HubSavesImmediately />
+      {/* ⏳ Drafted in the Maker since 2026-10-08 ("draft 1-3") — no "Guests see this right away" there. */}
+      {draft ? null : <HubSavesImmediately />}
       {status}
     </div>
   );

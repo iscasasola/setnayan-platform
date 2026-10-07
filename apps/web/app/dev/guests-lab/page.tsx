@@ -25,7 +25,7 @@
  *                   (375×667), where a menu has no room under it
  *   ?part=setup     Guests › Setup (2026-10-07) — the REAL `GuestSetupRows` on
  *                   fixture data: &getin=list|personal|requests|one_qr_approve|one_qr,
- *                   &hc=open|locked|off|unread. The Digital Pass is the shipped
+ *                   &hc=open|locked. The Digital Pass is the shipped
  *                   SAMPLE event's pass (`?sample=1`, the public sample door) —
  *                   a lab has no event of its own. Saves go nowhere real: the
  *                   fixture event id fails the host fence, and a refusal says so.
@@ -318,14 +318,7 @@ export default async function GuestsLabPage({
                         qrSvg: await renderStyledUrlQrSvg('https://setnayan.com/cale-ice/invite', undefined, 240),
                         notice: null,
                       }}
-                      headcount={{
-                        show: hc !== 'off',
-                        mayFinalize: hc === 'open',
-                        locked: hc === 'locked',
-                        attending: 7,
-                        heads: 7,
-                        unread: hc === 'unread',
-                      }}
+                      headcount={{ locked: hc === 'locked', attending: 7, heads: 7 }}
                     />
                   </>
                 ) : (

@@ -15,14 +15,15 @@ import {
   readGuestsGetIn,
 } from '@/lib/who-can-reply';
 import {
+  FINALIZE_LOCKED_TITLE,
   FINALIZE_NOW_LABEL,
   FINALIZE_SHEET,
-  HEADCOUNT_LOCKED_TITLE,
-  HEADCOUNT_TITLE,
-  HEADCOUNT_UNREAD_LINE,
+  FINALIZE_TIP,
+  FINALIZE_TITLE,
   headcountLockedLine,
   headcountOpenLine,
 } from '@/lib/headcount-row';
+import { InfoTip } from '@/app/_components/info-tip';
 import { hubDraftAction } from '../../website/hub-draft-actions';
 import { updatePaxSettings } from '../../actions';
 import { setGuestListFinalized } from '../../guests/finalize-actions';
@@ -37,17 +38,11 @@ export const INVITATIONS_TITLE = 'Invitations';
 export const ONE_LINK_TITLE = 'Your one link';
 
 export type HeadcountView = {
-  /** The row renders at all (`showsHeadcountRow`). */
-  show: boolean;
-  /** The ✓ Finalize now button (`headcountMayFinalize`). */
-  mayFinalize: boolean;
   locked: boolean;
   /** Who said yes, now (null = unread). */
   attending: number | null;
   /** The count Finalize would lock / has locked (`resolveLivePax` / `final_pax`). */
   heads: number | null;
-  /** The per-head check was refused. */
-  unread: boolean;
 };
 
 /**
@@ -62,8 +57,10 @@ export type HeadcountView = {
  *   3. Your one link       link · Copy · Share + the QR (Open · Anyone with the link only)
  *   4. RSVP asks           `RsvpAsks` (shared) — "They reply" choices only
  *   5. Reply by            `ReplyBy` (shared) — "They reply" choices only
- *   6. Headcount           ✓ Finalize now → one sheet, one way — only when a
- *                          booked supplier prices per head
+ *   6. Finalize guest list ✓ Finalize now → one sheet, one way — every list
+ *                          (owner 2026-10-07: *"finalize should be inside the
+ *                          Setup. not on its current location"* — it left the
+ *                          header above List · Map · Setup)
  *
  * 🚫 No message field (owner: *"your message should be on the event hub
  * maker"*), no Nudge, no per-row Invite.
@@ -184,7 +181,7 @@ export function GuestSetupRows({
           </section>
         )
       ) : null}
-      {headcount.show ? <HeadcountRow eventId={eventId} view={headcount} /> : null}
+      <FinalizeRow eventId={eventId} view={headcount} />
     </div>
   );
 }
@@ -315,12 +312,12 @@ function OneLinkRow({ link }: { link: OneLink }) {
 }
 
 /**
- * 🔒 HEADCOUNT — one-way Finalize (DECISION_LOG "FINALIZING THE HEADCOUNT IS
+ * 🔒 FINALIZE GUEST LIST — one-way Finalize (DECISION_LOG "FINALIZING THE HEADCOUNT IS
  * ONE-WAY"). Open → `✓ Finalize now` → ONE sheet (*"… this cannot be undone"*,
  * `✓ Finalize` · `✕ Not now`). Locked → the locked count and NO button: there
  * is no Reopen anywhere. A refused press is said under the row.
  */
-function HeadcountRow({ eventId, view }: { eventId: string; view: HeadcountView }) {
+function FinalizeRow({ eventId, view }: { eventId: string; view: HeadcountView }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
@@ -339,17 +336,21 @@ function HeadcountRow({ eventId, view }: { eventId: string; view: HeadcountView 
     });
 
   return (
-    <section className={SETUP_ROW} data-setup-row="headcount" data-headcount={view.locked ? 'locked' : 'open'}>
+    <section className={SETUP_ROW} data-setup-row="finalize" data-guest-list-finalize={view.locked ? 'finalized' : 'open'}>
       <div className="min-w-0">
-        <p className={SETUP_TITLE}>{view.locked ? HEADCOUNT_LOCKED_TITLE : HEADCOUNT_TITLE}</p>
+        {view.locked ? (
+          <p className={SETUP_TITLE}>{FINALIZE_LOCKED_TITLE}</p>
+        ) : (
+          <InfoTip label={FINALIZE_TITLE} labelAs="p" labelClassName={SETUP_TITLE} align="start">
+            {FINALIZE_TIP}
+          </InfoTip>
+        )}
         <p className={SETUP_SUB}>
           {view.locked
             ? headcountLockedLine(view.heads)
-            : view.unread
-              ? HEADCOUNT_UNREAD_LINE
-              : view.attending === null
-                ? 'We couldn’t count who is coming just now.'
-                : headcountOpenLine(view.attending)}
+            : view.attending === null
+              ? 'We couldn’t count who is coming just now.'
+              : headcountOpenLine(view.attending)}
         </p>
         {error ? (
           <p role="alert" className="mt-1 text-[13px] text-terracotta-700">
@@ -357,7 +358,7 @@ function HeadcountRow({ eventId, view }: { eventId: string; view: HeadcountView 
           </p>
         ) : null}
       </div>
-      {view.mayFinalize ? (
+      {!view.locked ? (
         <span className={SETUP_ACTS}>
           <ActionButton
             tone="ok"

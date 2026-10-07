@@ -15,11 +15,11 @@ const rows = (html: string) => [...html.matchAll(/data-setup-row="([^"]+)"/g)].m
 
 test('each choice draws exactly its rows', async () => {
   const expected: Record<string, string[]> = {
-    list: ['get-in', 'invitations', 'asks', 'reply-by'],
-    personal: ['get-in', 'invitations'],
-    requests: ['get-in', 'invitations', 'asks', 'reply-by'],
-    one_qr_approve: ['get-in', 'invitations'],
-    one_qr: ['get-in', 'one-link'],
+    list: ['get-in', 'invitations', 'asks', 'reply-by', 'finalize'],
+    personal: ['get-in', 'invitations', 'finalize'],
+    requests: ['get-in', 'invitations', 'asks', 'reply-by', 'finalize'],
+    one_qr_approve: ['get-in', 'invitations', 'finalize'],
+    one_qr: ['get-in', 'one-link', 'finalize'],
   };
   for (const [getIn, want] of Object.entries(expected)) {
     const html = await renderSetup({ getIn: getIn as never });

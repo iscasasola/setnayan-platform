@@ -1,54 +1,24 @@
 /**
- * headcount-row.ts — WHEN Guests › Setup shows the Headcount row, and the words
- * of its one-way Finalize (owner 2026-10-07, DECISION_LOG "GUESTS › SETUP" and
+ * headcount-row.ts — the words of Guests › Setup's FINALIZE GUEST LIST row and
+ * its one-way confirm (owner 2026-10-07, DECISION_LOG "GUESTS › SETUP" ·
  * "FINALIZING THE HEADCOUNT IS ONE-WAY"; HOME_AND_GUESTS_CHECK G31 · G37).
  *
- * ⚖ *"Finalize deadline is on setup and a button to force finalize (Only for
- * guestlist that needs finalization)"*. A list needs finalizing only when a
- * BOOKED supplier prices it per head — a booked row (`event_vendors.status` in
- * `COMMITTED_BOOKING_STATUSES`) whose service is `vendor_services.pricing_basis
- * = 'per_pax'`. Otherwise there is nothing to lock a price against, and the row
- * is absent.
+ * ⚖ *"finalize should be inside the Setup. not on its current location"*
+ * (owner, 2026-10-07): the roster's Finalize — which sat above the List · Map ·
+ * Setup switcher for every list — moved into Setup as ONE row next to Reply by,
+ * for every list, as it was. (This replaces the earlier per-head gate, which
+ * hid the row unless a booked supplier priced per head.)
  *
- * 🔑 NOT `adaptive_pricing_mode`, although the check doc names it: that column
- * is `NOT NULL DEFAULT 'realtime'` (migration 20261211000000), so it is "set"
- * on every event ever made and could not tell one list from another. The
- * per-head booking is the fact the owner's words describe (controller-approved
- * deviation, 2026-10-07).
- *
- * A list that is ALREADY locked always shows the row — the locked count must
- * stay visible even if the per-head booking is later cancelled.
- *
- * Pure: no I/O (the read is `headcount-row.server.ts`).
+ * Pure: no I/O.
  */
-
-/** The `pricing_basis` that makes a booking count per head. */
-export const PER_HEAD_BASIS = 'per_pax';
-
-/**
- * Show the Headcount row? `perHeadBooked` null = the read failed: the row shows
- * (so the couple is never told "nothing to finalize" by a refused read) but
- * offers no button — `headcountMayFinalize` below.
- */
-export function showsHeadcountRow(input: { perHeadBooked: boolean | null; locked: boolean }): boolean {
-  return input.locked || input.perHeadBooked !== false;
-}
-
-/** The ✓ Finalize now button — only on an open list a per-head booking is waiting on. Never on a locked one. */
-export function headcountMayFinalize(input: { perHeadBooked: boolean | null; locked: boolean }): boolean {
-  return !input.locked && input.perHeadBooked === true;
-}
-
-/** Any booked per-head service among these bases. */
-export function anyPerHead(bases: ReadonlyArray<string | null | undefined>): boolean {
-  return bases.some((b) => b === PER_HEAD_BASIS);
-}
 
 /* ── THE WORDS (HOME_AND_GUESTS_CHECK G31 · G37, verbatim except where the
    prototype promised a date lock: since 2026-09-30 NO date locks the list —
    `lib/guest-list-closed.ts` — so the row never says it locks by itself). ── */
-export const HEADCOUNT_TITLE = 'Headcount';
-export const HEADCOUNT_LOCKED_TITLE = 'Headcount locked';
+export const FINALIZE_TITLE = 'Finalize guest list';
+export const FINALIZE_LOCKED_TITLE = 'Guest list finalized';
+/** Behind the row's ⓘ (owner 2026-10-07 — the words that sat above the switcher). */
+export const FINALIZE_TIP = 'Guests can reply until you finalize.';
 export function headcountOpenLine(attending: number): string {
   return `${attending} attending now. It stays open until you lock it.`;
 }
@@ -57,7 +27,6 @@ export function headcountLockedLine(heads: number | null): string {
     ? `Locked at ${heads} heads. Your suppliers price for it; guests can no longer reply. This cannot be undone.`
     : 'Locked. Guests can no longer reply. This cannot be undone.';
 }
-export const HEADCOUNT_UNREAD_LINE = 'We couldn’t check your suppliers just now, so Finalize is not offered. Nothing was changed.';
 export const FINALIZE_NOW_LABEL = 'Finalize now';
 
 /** The one confirmation (owner: *"when this is pressed say it cannot be unfinalized"* · *"a confirmation Finalize | Not Now"*). */

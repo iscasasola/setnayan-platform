@@ -6,7 +6,7 @@
  *   · the confirm sheet says "cannot be undone", with Finalize · Not now;
  *   · a locked row reads the locked count and has NO button;
  *   · no host Reopen remains — not the action, not the lib writer, not the
- *     roster banner's button.
+ *     roster banner (removed — finalize lives in Setup only).
  *
  * 🛡 Sabotage: a Reopen button back on the locked Setup row → red.
  */
@@ -34,11 +34,11 @@ test('the sheet says it cannot be undone, Finalize · Not now', () => {
 });
 
 test('a locked row reads the locked count and has no button', async () => {
-  const html = await renderSetup({ headcount: { show: true, mayFinalize: false, locked: true, heads: 120 } });
-  const at = html.indexOf('data-setup-row="headcount"');
+  const html = await renderSetup({ headcount: { locked: true, heads: 120 } });
+  const at = html.indexOf('data-setup-row="finalize"');
   assert.ok(at > 0, 'the locked row is gone');
   const row = html.slice(at, html.indexOf('</section>', at));
-  assert.match(row, /Headcount locked/);
+  assert.match(row, /Guest list finalized/);
   assert.ok(row.includes(headcountLockedLine(120)));
   const buttons = (row.match(/<(button|a)\b/g) ?? []).length;
   console.log(`locked headcount row buttons: ${buttons}`);
@@ -52,7 +52,7 @@ test('the server refuses an unlock, and no host reopen writer remains', () => {
   assert.doesNotMatch(action, /reopen/i);
   assert.equal(FINALIZE_IS_ONE_WAY, 'A locked headcount cannot be undone.');
   assert.doesNotMatch(read('lib/pax.ts'), /export async function reopenGuestList/);
-  const banner = read('app/dashboard/[eventId]/guests/_components/finalize-guest-list-control.tsx');
-  assert.doesNotMatch(banner, /Reopen/, 'the roster banner offers Reopen again');
-  assert.match(banner, /setGuestListFinalized\(eventId, true\)/);
+  const rows = read('app/dashboard/[eventId]/_components/guest-setup/guest-setup-rows.tsx');
+  assert.match(rows, /setGuestListFinalized\(eventId, true\)/);
+  assert.doesNotMatch(rows, /setGuestListFinalized\(eventId, false\)|Reopen/);
 });

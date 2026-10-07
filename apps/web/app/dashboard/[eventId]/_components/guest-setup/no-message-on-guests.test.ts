@@ -17,7 +17,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 
 test('no choice of Setup draws a message field, a Nudge or an Invite verb', async () => {
   for (const getIn of ['list', 'personal', 'requests', 'one_qr_approve', 'one_qr'] as const) {
-    const html = await renderSetup({ getIn, headcount: { show: true, mayFinalize: true } });
+    const html = await renderSetup({ getIn });
     assert.doesNotMatch(html, /<textarea\b/, `${getIn}: a message field on Guests`);
     assert.doesNotMatch(html, /data-group-invite-message|For a group chat|Copy message/, `${getIn}: the group message`);
     assert.doesNotMatch(html, /Nudge/i, `${getIn}: Nudge is back`);

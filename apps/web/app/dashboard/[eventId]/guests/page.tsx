@@ -55,7 +55,6 @@ import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
 import { fetchAssignments, fetchFloorPlan, fetchTables } from '@/lib/seating';
 import { suggestTableFor } from '@/lib/seat-suggest';
 import { readFinalizeState } from '@/lib/pax';
-import { FinalizeGuestListControl } from './_components/finalize-guest-list-control';
 import { eventHasSides, SIDELESS_SIDE } from '@/lib/guest-side-question';
 import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
 import { eventSkuActive } from '@/lib/entitlements';
@@ -1199,14 +1198,9 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         </Link>
       ) : null}
 
-      {/* Finalize / Reopen (owner 2026-09-30: "i must click a finalize to
-          finalize it"). The ONLY way the list becomes final; a finalized list
-          says so and offers Reopen. Shown on desktop + mobile. */}
-      <FinalizeGuestListControl
-        eventId={eventId}
-        locked={finalize.locked}
-        finalPax={finalize.finalPax}
-      />
+      {/* ⚙ Finalize moved INTO Guests › Setup (owner 2026-10-07: *"finalize should be
+          inside the Setup. not on its current location"*) — `GuestSetupRows`, next to
+          Reply by. Nothing finalizes from List or Map. */}
 
       {/* The roster head — Living Roster reskin (P0 · 2026-07-11). The old
           split-brain of a stat strip (GUEST TARGET / PAX POOL / CONFIRMATIONS)

@@ -21,7 +21,7 @@ import type { HeadcountView } from './guest-setup-rows';
 
 const ROUTER = { push() {}, replace() {}, refresh() {}, prefetch() {}, back() {}, forward() {} };
 
-export const HEADCOUNT_OFF: HeadcountView = { show: false, mayFinalize: false, locked: false, attending: 3, heads: 3, unread: false };
+export const HEADCOUNT_OPEN: HeadcountView = { locked: false, attending: 3, heads: 3 };
 
 export async function renderSetup(opts: { getIn?: GetIn; headcount?: Partial<HeadcountView> } = {}): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
@@ -39,7 +39,7 @@ export async function renderSetup(opts: { getIn?: GetIn; headcount?: Partial<Hea
         toInvite: 4,
         passSrc: '/api/hub-print/pass?event=e1&mode=screen&pass_guest=first',
         oneLink: { url: 'https://setnayan.com/cale-ice/invite', qrSvg: '<svg data-qr=""></svg>', notice: null },
-        headcount: { ...HEADCOUNT_OFF, ...(opts.headcount ?? {}) },
+        headcount: { ...HEADCOUNT_OPEN, ...(opts.headcount ?? {}) },
       }),
     ),
   );

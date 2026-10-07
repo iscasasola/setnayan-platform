@@ -1,5 +1,7 @@
 'use server';
 
+import { NEW_SCENE_TOKEN, PLACE_ORDER_FIELD, PLACE_STAGE_FIELD, readOwnScenePlace } from '@/lib/own-scene-place';
+import { stageOrderPatch } from '@/lib/maker-reorder';
 import { redirect } from 'next/navigation';
 import { landAfterWrite } from '@/lib/maker-land.server';
 import { createClient } from '@/lib/supabase/server';
@@ -1043,7 +1045,7 @@ export async function addCustomSection(formData: FormData): Promise<void> {
 
   const { data: rows, error: readErr } = await supabase
     .from('invitation_widgets')
-    .select('widget_type, display_order')
+    .select('widget_id, widget_type, display_order')
     .eq('event_id', eventId);
   if (readErr) throw new Error(`Failed to read your sections: ${readErr.message}`);
 
@@ -1106,9 +1108,25 @@ export async function addCustomSection(formData: FormData): Promise<void> {
        crashing the page (`the-draft-always-fits.test.ts`); the hidden row it
        leaves behind is folded in the navigator as hidden, where it can be
        shown or removed. */
+    /* ＋ IT LANDS WHERE THEY ASKED (owner 2026-10-07): the ＋ sheet sends the
+       stage's order with the new scene's place marked (`lib/own-scene-place.ts`);
+       every scene on that stage gets its place in the draft — the patch a grip
+       drag saves (`stageOrderPatch`). No place, or one that does not check out
+       against this event's rows → the end of the stage, as before. */
+    const typeById = new Map((rows ?? []).map((r) => [String(r.widget_id), String(r.widget_type)] as const));
+    const place = readOwnScenePlace(formData.get(PLACE_STAGE_FIELD), formData.get(PLACE_ORDER_FIELD), new Set(typeById.keys()));
+    typeById.set(added.widget_id, slot as string);
+    const placed = place
+      ? stageOrderPatch(
+          place.order.map((x) => (x === NEW_SCENE_TOKEN ? added.widget_id : x)),
+          (id) => typeById.get(id),
+          place.stage,
+        )
+      : null;
+    const { [slot as string]: slotPlace, ...othersPlaced } = (placed?.widgets ?? {}) as Record<string, HubDraftWidget>;
     await saveHubDraftPatch(
       eventId,
-      { widgets: { [slot as string]: addedSceneDraft({ displayOrder: end, canvas }) } as HubDraftPatch['widgets'] },
+      { widgets: { [slot as string]: addedSceneDraft({ displayOrder: end, canvas, stageOrder: slotPlace?.stage_order }), ...othersPlaced } as HubDraftPatch['widgets'] },
       { formData, fallback: DRAFT_FALLBACK(eventId) },
     );
     revalidateWebsiteEditor(eventId, 'widgets');
@@ -1235,9 +1253,24 @@ export async function saveCustomSection(formData: FormData): Promise<void> {
     resolveReturnTo(formData, `/dashboard/${eventId}/website/widgets${q}`, q);
 
   if (intent === 'delete') {
+    /* 🗑 IN THE MAKER THE DELETE WAITS FOR APPLY (owner 2026-10-07, *"remove for
+       good"*): `draft=1` drafts it (`HubDraftWidget.removed`) — the canvas and
+       the navigator stop drawing the scene now, Undo brings it back, and Apply
+       deletes it through the same `deleteOwnScene` as below. Its slot stays
+       taken until then: the row is still live. */
+    if (draftingHere) {
+      await saveHubDraftPatch(
+        eventId,
+        { widgets: { [row.widget_type]: { removed: true } } as HubDraftPatch['widgets'] },
+        { formData, fallback: DRAFT_FALLBACK(eventId) },
+      );
+      revalidateWebsiteEditor(eventId, 'widgets');
+      return landAfterWrite(formData, DRAFT_FALLBACK(eventId), '?drafted=1');
+    }
     /* 🔑 COUNT THE ROWS. A delete RLS refuses is not an error in PostgREST —
        it is zero rows and a 204 — so without `.select()` a refusal would redirect
-       to "saved" with the section still on the page. */
+       to "saved" with the section still on the page. (Apply's drafted delete,
+       `deleteOwnScene`, is this same query.) */
     const { data: gone, error: delErr } = await supabase
       .from('invitation_widgets')
       .delete()

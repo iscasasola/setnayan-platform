@@ -768,7 +768,8 @@ export function SectionsPanel({
                         Remove this section
                       </summary>
                       <form action={saveCustomAction} className="mt-1 flex items-center gap-2">
-                        <HubSavesImmediately />
+                        {/* 🗑 In the Maker the delete waits for Apply (owner 2026-10-07). */}
+                        {makerPart ? <HubDraftField /> : <HubSavesImmediately />}
                         <input type="hidden" name="event_id" value={eventId} />
                         <input type="hidden" name="widget_id" value={row.widget_id} />
                         <input type="hidden" name="intent" value="delete" />

@@ -47,9 +47,9 @@
  */
 
 import {
-  Home, Users, Compass, Sparkles, Palette, Gem, Globe, Camera, QrCode, Images,
-  Newspaper, Wallet, Music, Crown, CalendarDays, Armchair, Box, Radio,
-  Clapperboard, Grid2x2, Gift,
+  HouseWifi, BookUser, Store, AppWindow, Grip, Sparkles, Palette, Gem, Camera,
+  QrCode, Images, Newspaper, Wallet, Music, Crown, CalendarDays, Armchair, Box,
+  Radio, Clapperboard, Gift,
   type LucideIcon,
 } from 'lucide-react';
 import type { MenuLifecyclePhase } from '@/lib/day-of-mode';
@@ -102,19 +102,34 @@ export type EventMenuIconName =
   | 'schedule' | 'checkin' | 'seat' | 'plan3d' | 'live' | 'patiktok'
   | 'ai' | 'suite' | 'refer' | 'details' | 'product';
 
+/**
+ * 🧭 THE FIVE DESTINATIONS WEAR ONE LINE FAMILY (owner 2026-10-07, DECISION_LOG
+ * "THE BOTTOM NAV'S FIVE ICONS — THE OWNER'S PICK"; plan PR 4g). Owner,
+ * verbatim, from a picker: *"Smart Home · Address Book · Store · Page · Grid"*
+ * (Hub = the browser window, his "okay" over Page). Mapped to lucide, the
+ * app's own family:
+ *
+ *     Home → HouseWifi · Guests → BookUser · Suppliers → Store ·
+ *     Hub → AppWindow · More → Grip
+ *
+ * The phone bar, the desktop rail and the Home doorway row
+ * (`HOME_DOORWAY_ICONS`) all draw these. Before, the bar's Home was the FILLED
+ * Setnayan mark among four line icons and Suppliers was a compass; the mark
+ * stays in the top bar only. `bottom-nav-is-one-icon-family.test.ts` holds it.
+ */
 export const EVENT_MENU_ICONS: Record<EventMenuIconName, LucideIcon> = {
-  overview: Home,
+  overview: HouseWifi,
   papic: Camera,
   galleries: Images,
   editorial: Newspaper,
-  team: Compass,
+  team: Store,
   budget: Wallet,
   'mood-board': Palette,
   logo: Gem,
   pakanta: Music,
-  guests: Users,
+  guests: BookUser,
   hosts: Crown,
-  hub: Globe,
+  hub: AppWindow,
   schedule: CalendarDays,
   checkin: QrCode,
   seat: Armchair,
@@ -122,11 +137,36 @@ export const EVENT_MENU_ICONS: Record<EventMenuIconName, LucideIcon> = {
   live: Radio,
   patiktok: Clapperboard,
   ai: Sparkles,
-  suite: Grid2x2,
+  suite: Grip,
   refer: Gift,
   details: Sparkles,
   product: Sparkles,
 };
+
+/** Each of the five tabs' icon NAME — the one place a tab key meets its glyph.
+ *  (`CustomerMenuKey` is declared above; the keys are the registry slot keys.) */
+export const PILLAR_TAB_ICON: Readonly<Record<CustomerMenuKey, EventMenuIconName>> = {
+  home: 'overview',
+  guests: 'guests',
+  explore: 'team',
+  launch: 'hub',
+  studio: 'suite',
+};
+
+/**
+ * 🚪 THE HOME DOORWAY ROW WEARS THE TABS' OWN ICONS (owner 2026-10-07: *"make
+ * the logo of guests, supplier and event hub consistent"*). "Edit your Guest
+ * list · Edit your Suppliers · Edit your Event Hub" open the Guests, Suppliers
+ * and Hub tabs, so each button draws exactly that tab's glyph — these three
+ * constants, never a second pick. With the nav registry in hand, resolve through
+ * `homeDoorwayIcon(key, navSlots)` (`lib/nav-line-icon.ts`) so an admin re-icon
+ * of a tab moves its doorway too. `home-doorways-wear-the-nav-icons.test.ts`.
+ */
+export const HOME_DOORWAY_ICONS = {
+  guests: EVENT_MENU_ICONS[PILLAR_TAB_ICON.guests],
+  explore: EVENT_MENU_ICONS[PILLAR_TAB_ICON.explore],
+  launch: EVENT_MENU_ICONS[PILLAR_TAB_ICON.launch],
+} as const satisfies Partial<Record<CustomerMenuKey, LucideIcon>>;
 
 export type EventMenuRow = {
   key: string;
@@ -299,7 +339,7 @@ export function buildEventMenuSections(
 
   // HOME — the event's front page. Sentinel matchPrefix: every other event
   // route shares `${base}/`, so only the exact pathname may light it.
-  put({ key: 'home', label: 'Home', href: base, icon: 'overview', matchPrefix: '__home__' });
+  put({ key: 'home', label: 'Home', href: base, icon: PILLAR_TAB_ICON.home, matchPrefix: '__home__' });
 
   // GUEST LIST — the people room: Access and Check-in are columns of the list
   // (F2 cut its parts row), and the pages about the same people light it.
@@ -309,7 +349,7 @@ export function buildEventMenuSections(
     // Rail, ☰ and phone bar alike.
     label: 'Guests',
     href: `${base}/guests`,
-    icon: 'guests',
+    icon: PILLAR_TAB_ICON.guests,
     alsoMatch: [`${base}/hosts`, `${base}/event-qr`, `${base}/people`],
   });
 
@@ -320,7 +360,7 @@ export function buildEventMenuSections(
     key: 'explore',
     label: 'Suppliers',
     href: `${base}/vendors`,
-    icon: 'team',
+    icon: PILLAR_TAB_ICON.explore,
     alsoMatch: [`${base}/budget`],
   });
 
@@ -335,7 +375,7 @@ export function buildEventMenuSections(
       key: 'launch',
       label: 'Hub',
       href: `${base}/launch`,
-      icon: 'hub',
+      icon: PILLAR_TAB_ICON.launch,
       matchPrefix: `${base}/website`,
       alsoMatch: [
         `${base}/story`,
@@ -360,7 +400,7 @@ export function buildEventMenuSections(
     label: SUITE_NAV_ON ? 'More Services' : 'Studio',
     href: studioHubHref(eventId),
     menuDoor: true,
-    icon: 'suite',
+    icon: PILLAR_TAB_ICON.studio,
     ...(services.length ? { children: services.map((c) => ({ ...c })) } : {}),
     alsoMatch: [
       `${base}/studio`,

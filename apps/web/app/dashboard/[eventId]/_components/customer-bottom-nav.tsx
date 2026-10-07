@@ -16,6 +16,9 @@
  *
  * NAV REGISTRY: `navSlots` (`customer.bottom-nav.<key>`) overlays the
  * admin-managed label + icon on each tab; a slot marked hidden drops its tab.
+ * The icon is LINE-ONLY (`navLineIcon`, owner 2026-10-07): HouseWifi ·
+ * BookUser · Store · AppWindow · Grip by default, another lucide icon by
+ * override, never the Setnayan mark, an image or an emoji.
  * Keys `home` · `guests` · `explore` · `launch` · `studio` — each has its slot
  * in NAV_SLOT_DEFAULTS. href + activeMatch always stay in code.
  *
@@ -27,10 +30,8 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { asksForMoreServices } from '@/lib/studio-hub';
 import { BottomNav } from '@/app/_components/nav/bottom-nav';
-import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
+import { navLineIcon } from '@/lib/nav-line-icon';
 import type { BottomNavItem } from '@/app/_components/nav/types';
-import type { LucideIcon } from 'lucide-react';
-import { SetnayanMark } from '@/app/_components/setnayan-mark-icon';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
 import type { MenuLifecyclePhase } from '@/lib/day-of-mode';
 import { buildCustomerMenuTree, type EventMenuChild, type EventStudioRow } from '@/lib/customer-menu';
@@ -148,14 +149,11 @@ export function CustomerBottomNav({
     const slot = navSlots?.[`customer.bottom-nav.${m.key}`];
     if (slot?.isHidden) return [];
     const label = slot?.label ?? m.label;
-    // Keep the Setnayan mark on the Home tab as the code default when no
-    // admin override has set an icon for the slot.
-    const icon =
-      slot
-        ? navIconComponent(slot.icon)
-        : m.key === 'home'
-          ? (SetnayanMark as unknown as LucideIcon)
-          : m.icon;
+    // ONE LINE FAMILY (owner 2026-10-07). The slot may pick another lucide
+    // icon; a custom mark, an image or an unknown name falls back to the
+    // tree's icon (`EVENT_MENU_ICONS`). The Setnayan mark is the top bar's
+    // alone — it is no longer this bar's Home.
+    const icon = navLineIcon(slot?.icon, m.icon);
     // Live badge — the SAME helper the desktop rail's Guest list row uses, so
     // the phone and the laptop can never show different numbers for the same
     // thing. Only tabs whose sidebar twin already carries a badge get one;

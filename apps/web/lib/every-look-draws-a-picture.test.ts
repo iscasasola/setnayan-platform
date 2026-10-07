@@ -80,3 +80,23 @@ test('a script-less miniature is finished from the parent — the streamed page 
   assert.match(swap, /\\\$R\(\[SC\]\)/, 'both React swap calls are applied');
   assert.match(swap, /sn-init-splash/, 'the init splash is lifted');
 });
+
+test('no part’s Style › Look opens on a row holding only an ⓘ — the pass included', async () => {
+  /* Owner, the Digital pass: "an empty row holding only a lone ⓘ". A part with no door to name (the pass,
+     the guest's look …) still has its own sentences — they are SAID, beside the ⓘ. */
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { MAKER_PART_KEYS, makerPartQuietRow } = await import('./maker-parts');
+  const { QuietBar } = await import(`${PANEL}/kit`);
+  const { setStagePanelNow } = await import(`${PANEL}/store`);
+  let doorless = 0;
+  for (const k of MAKER_PART_KEYS) {
+    if (makerPartQuietRow(k)) continue;
+    doorless += 1;
+    setStagePanelNow({ picked: k, quiet: null, about: `What ${k} is, and where it comes from.` });
+    const html = renderToStaticMarkup(React.createElement(QuietBar));
+    const visible = html.replace(/<span[^>]*data-stage-about=""[\s\S]*?<\/span><\/span>/g, '').replace(/<[^>]+>/g, '').trim();
+    assert.ok(visible.length > 0, `${k}: its Look opens on a lone ⓘ`);
+  }
+  assert.ok(doorless > 0, 'parts without a door were found (the pass among them)');
+  setStagePanelNow({ picked: null, quiet: null, about: null });
+});

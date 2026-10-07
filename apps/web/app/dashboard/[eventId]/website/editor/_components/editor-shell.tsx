@@ -998,8 +998,10 @@ export function MakerWork({
   /* 🧭 The new Maker's Stages panel owns the page's place on a phone: it centres the picked part itself
      (`stage-tools.tsx` `centrePart`) — a top-aligned bring-up here would undo it. */
   const scrollPreviewTo = useCallback(
-    (anchor?: string) => {
-      if (!anchor || (stagesStudioRef.current && window.innerWidth < 1024)) return;
+    (anchor?: string, page = false) => {
+      /* Stages on a phone centres a PICKED part itself (`stage-tools.tsx` `centrePart`) — but a PAGE pick
+         (`jumpToPage`) still goes to its page: the tabs did nothing while this was skipped too (owner 2026-10-07). */
+      if (!anchor || (stagesStudioRef.current && window.innerWidth < 1024 && !page)) return;
       postToShownCanvases({ source: 'setnayan-editor', t: 'scrollTo', key: anchor });
     },
     [postToShownCanvases],
@@ -2056,10 +2058,10 @@ export function MakerWork({
     if (!first) {
       navList?.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
       // 👤 Me, drawn for a See as sample guest (PR-10): the canvas goes to it.
-      if (key === 'me' && seeAsDrawsMe(seeAs)) scrollPreviewTo('me');
+      if (key === 'me' && seeAsDrawsMe(seeAs)) scrollPreviewTo('me', true);
       return;
     }
-    scrollPreviewTo(first);
+    scrollPreviewTo(first, true);
     (
       navList?.querySelector(`[data-maker-group="${CSS.escape(key)}"]`) ??
       navList?.querySelector(`[data-maker-tile="${CSS.escape(first)}"]`)
@@ -2786,7 +2788,10 @@ export function MakerWork({
           <div
             data-maker-ticket-view={ticketDesign}
             /* A phone sizes the ticket by whichever side binds (`cq*` units), so its box is always 3:4. */
-            className="absolute inset-0 z-10 flex items-center justify-center overflow-hidden bg-cream p-4 max-lg:[container-type:size]"
+            className={`absolute inset-0 z-10 flex items-center justify-center overflow-hidden bg-cream p-4 max-lg:[container-type:size]${
+              /* 🧭 Stages: room above and below the card for the picked part's frame and its ＋ — never over the ticket. */
+              maker?.stagesStudio ? ' max-lg:py-16' : ''
+            }`}
           >
             {ticketFailed === ticketDesign ? (
               <p role="alert" data-maker-ticket-failed="" className="m-auto max-w-xs px-4 text-center text-sm text-terracotta-700">
@@ -3184,6 +3189,7 @@ export function MakerWork({
                 saved={ticketSaved}
                 preview={false}
                 onShown={setTicketShown}
+                cards={maker?.stagesStudio === true}
                 previews={Object.fromEntries(PASS_CARD_DESIGNS.map((d) => [d, makerTicketSrc(eventId, d)])) as Record<PassCardDesign, string>}
               />
             ) : null

@@ -142,6 +142,12 @@ function readRevealPart(): Element | null {
 
 /** A part's box on the SCREEN (the canvas is a same-origin frame; it may be drawn scaled). */
 function partBox(canvas: string, el?: string | null): { top: number; left: number; width: number; height: number } | null {
+  /* 🎫 The Digital pass is shown as the REAL ticket laid over the page (`editor-shell.tsx` `data-maker-ticket-view`);
+     the frame hugs THAT card — never the full-width section hidden under it (owner: the frame cut across the ticket). */
+  if (canvas === 'f:pass') {
+    const t = document.querySelector('[data-maker-ticket-view] [data-maker-ticket-box]')?.getBoundingClientRect();
+    if (t && t.width > 0 && t.height > 0) return { top: t.top, left: t.left, width: t.width, height: t.height };
+  }
   const frame = document.querySelector<HTMLIFrameElement>(SHOWN_FRAME);
   const doc = frame?.contentDocument;
   if (!frame || !doc) return null;
@@ -397,6 +403,9 @@ export function PartEdits({ stage, picked }: { stage: MakerStageKey; picked: Mak
 
   const band = typeof window === 'undefined' ? null : visibleBand();
   const clampY = (y: number) => (band ? Math.max(band.top + 26, Math.min(band.bottom - 26, y)) : y);
+  /* A ＋ sits ON the frame's edge or not at all: clamped into view it would land on the part's own content
+     (owner: the lower ＋ sat on the pass's QR). Scroll the part, and its edge — and its ＋ — come back. */
+  const onEdge = (y: number) => !band || (y >= band.top + 26 && y <= band.bottom - 26);
 
   if (typeof document === 'undefined') return null;
   /* What just happened is said even once the part is let go (a move re-renders the page). */
@@ -431,13 +440,15 @@ export function PartEdits({ stage, picked }: { stage: MakerStageKey; picked: Mak
           {drag ? null : (
             <>
               {edgesOf.addAbove ? (
-                <button type="button" aria-label={`Add above ${label}`} data-part-add="above" onClick={() => setAdding('above')} className={EDGE_BTN} style={at(box.left + box.width / 2, clampY(fr!.top))}>
+                <button type="button" aria-label={`Add above ${label}`} data-part-add="above" onClick={() => setAdding('above')} className={EDGE_BTN} style={{ ...at(box.left + box.width / 2, fr!.top), visibility: onEdge(fr!.top) ? undefined : 'hidden' }}>
                   <span className={ADD_FACE}>+</span>
                 </button>
               ) : null}
-              <button type="button" aria-label={`Add below ${label}`} data-part-add="below" onClick={() => setAdding('below')} className={EDGE_BTN} style={at(box.left + box.width / 2, clampY(fr!.top + fr!.height))}>
-                <span className={ADD_FACE}>+</span>
-              </button>
+              {onEdge(fr!.top + fr!.height) ? (
+                <button type="button" aria-label={`Add below ${label}`} data-part-add="below" onClick={() => setAdding('below')} className={EDGE_BTN} style={at(box.left + box.width / 2, fr!.top + fr!.height)}>
+                  <span className={ADD_FACE}>+</span>
+                </button>
+              ) : null}
               {canRemove ? (
                 <button
                   type="button"

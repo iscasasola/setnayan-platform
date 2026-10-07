@@ -213,3 +213,26 @@ test('every part with a Studio bar has a door; every focused field exists in the
   assert.match(shell, /Done · back to \{studioFrom\.label\}/, 'the way back names the part');
   assert.match(shell, /onDone=\{\(\) => \(studioFrom \? backToPart\(\) : pickSide\('studio'\)\)\}/, 'the top Done returns too');
 });
+
+/* ── 8 · the page tabs move the canvas; ▶ plays the whole life ───────────── */
+
+test('a page tab still takes the canvas to its page under Stages (only a picked part centres itself)', () => {
+  const shell = read(`${EDITOR}/editor-shell.tsx`);
+  assert.match(shell, /if \(!anchor \|\| \(stagesStudioRef\.current && window\.innerWidth < 1024 && !page\)\) return;/, 'the skip spares a page pick');
+  const jump = shell.slice(shell.indexOf('const jumpToPage = (page: MakerGuestPage) => {'));
+  assert.match(jump.slice(0, 900), /scrollPreviewTo\(first, true\);/, 'jumpToPage asks as a PAGE pick');
+  const tools = read(`${LAUNCH}/stage-tools.tsx`);
+  assert.match(tools, /setPicked\(null\);\s*onPickPage\(p\.option\);/, 'another page lets the picked part go');
+});
+
+test('▶ on a picked part plays Build in · Action · Build out, and says what it has none of', () => {
+  const tools = read(`${LAUNCH}/stage-tools.tsx`);
+  assert.match(tools, /t: 'playSeq', key: def\.canvas/, '▶ asks the canvas for the whole sequence');
+  assert.doesNotMatch(tools, /t: 'playEl', key: def\.canvas/, 'never the arrival alone');
+  assert.match(tools, /data-stage-play-skipped=""/, 'a skipped phase is said');
+  const bridge = read('app/[slug]/_components/editor-bridge.tsx');
+  assert.match(bridge, /if \(data\.t === 'playSeq'\) \{/);
+  const seq = read('app/[slug]/_components/play-sequence.ts');
+  for (const w of ["'Build in: none'", "'Action: none'", "'Build out: none'"]) assert.ok(seq.includes(w), `names ${w}`);
+  assert.match(seq, /phase: 'in'[\s\S]*phase: 'act'[\s\S]*phase: 'out'/, 'in, then the action, then out');
+});

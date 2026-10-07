@@ -4,7 +4,8 @@ import { IncDressCodeStarterNote } from '../../../studio/mood-board/_components/
 import type { LoveStoryBlob } from '../../our-story/_components/story-fields';
 import { LoveStoryChaptersPanel } from '../../our-story/_components/love-story-chapters-panel';
 import { WordsReturnTo } from '../../our-story/_components/words-return-to';
-import { PhotoMomentsEditor } from '../../photo-moments/_components/photo-moments-editor';
+/* ⚡ The lazy stand-in (`details-lazy.tsx`, the `maker-details` chunk) — the SAME component, loaded on first use. */
+import { PhotoMomentsEditor } from '../../../launch/_components/details-lazy';
 import type { DressCodeConfig } from '../../../studio/mood-board/dress-code-actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { formatWallClock } from '@/lib/schedule-datetime-local';

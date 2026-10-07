@@ -49,6 +49,8 @@ export function FixedSceneStyleRow({
       options={options}
       value={resolveSceneStyle(scene, stage, shown, eventType)}
       recommendedId={recommendedStageSceneStyle(scene, stage, eventType)}
+      /* 🧭 The new Maker's miniatures are copied from this fixed part on the canvas. */
+      preview={{ canvasKey: `f:${scene}`, sceneType: scene }}
       pending={pending}
       error={error}
       onPick={(id) => {

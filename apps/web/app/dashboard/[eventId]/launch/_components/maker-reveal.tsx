@@ -2,7 +2,7 @@
 
 import { makerSave } from '@/lib/maker-refresh';
 import { useRouter } from 'next/navigation';
-import { createContext, useContext, useEffect, useRef, useState, useTransition } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
 import { Check, Play } from 'lucide-react';
 import { hubDraftAction } from '../../website/hub-draft-actions';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
@@ -20,6 +20,11 @@ import { PaidMark } from '@/app/_components/paid-mark';
 import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
 import { IRow, ISection, ISeg, ISegmented } from '../../website/editor/_components/inspector-kit';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
+import { StageStyle } from './stage-panel/stage-style';
+import { Dd } from './stage-panel/kit';
+import { RevealPicture } from './stage-panel/reveal-picture';
+import { setStageRevealKind, useStageRevealLook } from './stage-panel/store';
+import { SP_LAYOUT_CARD } from '@/lib/maker-stage-room';
 
 /**
  * 🎭 THE REVEAL AS A PART (the new Maker's Stages side, plan PR 3 — owner
@@ -305,67 +310,13 @@ export function MakerRevealPicker({
       {error}
     </p>
   ) : null;
-  /* 🎭 The Stages panel's Reveal part: its kinds · Extras ▾ · Arrange › Hidden on this stage. */
+  /* 🎭 The Stages panel's Reveal part — the prototype's Style (DECISION_LOG 2026-10-07): Look = its five
+     openings as REAL miniatures (`RevealPicture`, the picture the page draws) and Extras ▾; Arrange = On this
+     stage ▾ (Hidden = no reveal here). No Background: the reveal plays over the cover. */
   if (onStage) {
-    const shownHere = stages.includes(onStage);
-    const extras = effective !== 'none' ? revealExtrasFor(effective) : [];
-    return (
-      <section className="flex flex-col px-1" data-maker-reveal-part={onStage}>
-        {openings.length > 0 ? (
-          <div
-            role="radiogroup"
-            aria-label="Kind"
-            data-style-carousel=""
-            data-maker-reveal-kinds=""
-            className="flex gap-2 overflow-x-auto pb-2 pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          >
-            {openings.map((o) => {
-              const on = effective === o.id;
-              const mark = makerProMark({ owns: ownsPro, storeShell });
-              return (
-                <button
-                  key={o.id}
-                  type="button"
-                  role="radio"
-                  aria-checked={on}
-                  data-maker-reveal-kind={o.id}
-                  onClick={() => choose(o.id)}
-                  className={`sn-press inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-semibold transition-colors duration-sn-control ease-sn ${
-                    on ? 'bg-ink text-cream' : 'bg-ink/[0.06] text-ink/80'
-                  }`}
-                >
-                  {o.label}
-                  {mark ? <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Hub Pro')} tone={on ? 'current' : 'auto'} /> : null}
-                </button>
-              );
-            })}
-          </div>
-        ) : null}
-        {extras.length > 1 ? (
-          <IRow label="Extras" data="reveal-extras">
-            <PickMenu
-              label="Extras"
-              dataAttr="data-maker-reveal-extra"
-              value={revealExtraOf(effects, effective)}
-              options={extras.map((x) => ({ key: x, label: REVEAL_EXTRA_LABEL[x] }))}
-              onPick={(k) => setEffects(revealEffectsWithExtra(effects, effective, k as (typeof extras)[number]))}
-            />
-          </IRow>
-        ) : null}
-        <ISection>Arrange</ISection>
-        <IRow label="This stage" data="reveal-show">
-          <ISegmented label="Show or hide the reveal on this stage">
-            <ISeg on={shownHere} onClick={() => setStages(revealStagesWith(stages, onStage, true))} data="shown">
-              Shown
-            </ISeg>
-            <ISeg on={!shownHere} onClick={() => setStages(revealStagesWith(stages, onStage, false))} data="hidden">
-              Hidden
-            </ISeg>
-          </ISegmented>
-        </IRow>
-        {failed}
-      </section>
-    );
+    /* Shown / Hidden write THIS stage only, through the one helper. */
+    const showHere = (on: boolean) => (on ? setStages(revealStagesWith(stages, onStage, true)) : setStages(revealStagesWith(stages, onStage, false)));
+    return <RevealStagePart onStage={onStage} openings={openings} effective={effective} choose={choose} shownHere={stages.includes(onStage)} showHere={showHere} effects={effects} setEffects={setEffects} ownsPro={ownsPro} storeShell={storeShell} failed={failed} />;
   }
   /* 🧩 The navigator's part: the openings alone. */
   if (part === 'options') {
@@ -687,5 +638,103 @@ function ColourRow({
         </button>
       ) : null}
     </div>
+  );
+}
+
+function RevealStagePart({
+  onStage,
+  openings,
+  effective,
+  choose,
+  shownHere,
+  showHere,
+  effects,
+  setEffects,
+  ownsPro,
+  storeShell,
+  failed,
+}: {
+  onStage: RevealStage;
+  openings: MakerRevealOpening[];
+  effective: string;
+  choose: (value: string | null) => void;
+  shownHere: boolean;
+  showHere: (on: boolean) => void;
+  effects: RevealEffects;
+  setEffects: (next: RevealEffects) => void;
+  ownsPro: boolean;
+  storeShell: boolean;
+  failed: ReactNode;
+}) {
+  const look = useStageRevealLook();
+  /* The page's Reveal part draws the opening chosen here (`stage-tools.tsx`). */
+  useEffect(() => {
+    if (effective !== 'none') setStageRevealKind(effective);
+  }, [effective]);
+  const extras = effective !== 'none' ? revealExtrasFor(effective) : [];
+  const mark = makerProMark({ owns: ownsPro, storeShell });
+  return (
+    <section className="contents" data-maker-reveal-part={onStage}>
+      <StageStyle
+        look={
+          <>
+            {openings.length > 0 ? (
+              <div role="radiogroup" aria-label="Kind" data-style-carousel="" data-maker-reveal-kinds="" className="-mx-[2px] flex shrink-0 snap-x snap-mandatory gap-2 overflow-x-auto overflow-y-hidden px-[2px] pb-1 pt-[2px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {openings.map((o) => {
+                  const on = effective === o.id;
+                  return (
+                    <button key={o.id} type="button" role="radio" aria-checked={on} data-maker-reveal-kind={o.id} data-style-card={o.id} onClick={() => choose(o.id)} className={SP_LAYOUT_CARD}>
+                      <span
+                        data-style-card-preview=""
+                        className={`relative flex h-[104px] shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--sp-page)] ${
+                          on ? 'border-2 border-[var(--sp-cta)] shadow-[0_0_0_3px_var(--sp-cta-wash)]' : 'border border-[var(--sp-line)]'
+                        }`}
+                      >
+                        <span data-style-preview="render" className="pointer-events-none">
+                          <RevealPicture kind={o.id} colours={look.colours} scale={0.82} />
+                        </span>
+                      </span>
+                      <span className={`inline-flex h-[18px] items-center justify-center gap-1 truncate text-center text-[13px] font-semibold ${on ? 'text-[var(--sp-ink)]' : 'text-[var(--sp-ink2)]'}`}>
+                        {o.label}
+                        {mark ? <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Hub Pro')} size="xs" /> : null}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
+            {extras.length > 1 ? (
+              <div className="flex h-11 shrink-0">
+                <Dd
+                  small="Extras"
+                  label="Extras"
+                  data="reveal-extras"
+                  value={revealExtraOf(effects, effective)}
+                  options={extras.map((x) => ({ key: x, label: REVEAL_EXTRA_LABEL[x] }))}
+                  onPick={(k) => setEffects(revealEffectsWithExtra(effects, effective, k as (typeof extras)[number]))}
+                />
+              </div>
+            ) : null}
+            {failed}
+          </>
+        }
+        background={null}
+        arrange={
+          <div className="flex h-11 shrink-0">
+            <Dd
+              small="On this stage"
+              label="Show or hide the reveal on this stage"
+              data="reveal-show"
+              value={shownHere ? 'shown' : 'hidden'}
+              options={[
+                { key: 'shown', label: 'Shown' },
+                { key: 'hidden', label: 'Hidden — no reveal' },
+              ]}
+              onPick={(k) => showHere(k === 'shown')}
+            />
+          </div>
+        }
+      />
+    </section>
   );
 }

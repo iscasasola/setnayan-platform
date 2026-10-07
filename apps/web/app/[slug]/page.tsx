@@ -1,5 +1,5 @@
 import { sampleBoardFor } from '@/lib/sample-board.server';
-import { asksForHostCanvas, asksForEditorBridge, canvasOnlyScene, canvasTriedTheme, previewWayBackHref } from './_lib/editor-canvas';
+import { asksForHostCanvas, asksForEditorBridge, canvasOnlyScene, canvasStylePreview, canvasTriedTheme, previewWayBackHref } from './_lib/editor-canvas';
 import type { InviteThemeId } from '@/lib/invite-themes';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { eventShortcutMetadata } from '@/lib/event-app-icon';
@@ -180,6 +180,10 @@ type Props = {
     // 🖼 The Maker's made-once Hero page — `?only=hero` draws one scene alone.
     // Canvas-only (host-verified); inert everywhere else.
     only?: string;
+    // 🖼 A style's true miniature (the Stages panel's Style › Look) — `?style=<type>:<id>`
+    // draws that one scene or part in that style. Canvas-only (host-verified,
+    // `canvasStylePreview`); inert everywhere else.
+    style?: string;
     // 🎨 A theme tile on the Maker's Details page — `?theme=<id>` draws the
     // couple's page in that theme, bridge-less. Canvas-only (host-verified,
     // `canvasTriedTheme`); inert everywhere else.
@@ -1372,6 +1376,9 @@ async function InvitationBody({
     // only: `canvasOnlyScene` is null unless `isEditorCanvas` (a guest's
     // `?only=` is ignored). See `_lib/editor-canvas.ts`.
     canvasOnly: canvasOnlyScene(search, isEditorCanvas),
+    // 🖼 `?style=<type>:<id>` — a style's true miniature for the Maker's carousel. Host
+    // canvas only (`canvasStylePreview` is null unless `isEditorCanvas`).
+    stylePreview: canvasStylePreview(search, isEditorCanvas),
     // ↩ "Back to the Maker" — the preview tab only (`?preview=draft`), a
     // verified host only; null for a guest, the canvas, a tile or a one-scene
     // page. See `_lib/editor-canvas.ts`.

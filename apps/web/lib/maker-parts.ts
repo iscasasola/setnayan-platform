@@ -239,19 +239,19 @@ const scene = (type: string): MakerPartLayouts => ({ kind: 'scene', type });
 const NONE: MakerPartLayouts = { kind: 'none' };
 
 /**
- * THE PART MAP (prototype `ELS`). The hero's own parts share the hero's styles
- * (none registered today — the hero's design is Studio › Look's); a section's
- * parts share its scene's styles.
+ * THE PART MAP (prototype `ELS`). The hero's own parts, E-Gifts and the four
+ * for-each-guest parts wear their OWN registered styles (`lib/scene-styles-parts.ts`,
+ * owner 2026-10-07); a section's parts share its scene's styles.
  */
 export const MAKER_PARTS: Readonly<Record<MakerPartKey, MakerPartDef>> = {
   /* The Reveal is the first part of three stages — its kinds are PR 3's (`maker-reveal.tsx`). */
   reveal: { label: 'Reveal', source: 'tool', canvas: null, layouts: NONE },
-  logo: { label: 'Logo', source: 'studio:logo', canvas: 'f:hero', el: 'mark', layouts: NONE },
+  logo: { label: 'Logo', source: 'studio:logo', canvas: 'f:hero', el: 'mark', layouts: scene('hero_mark') },
   /* The stage's first line ("Save the date", "The wedding of") — typed on the page; NOT the Event Name. */
-  ename: { label: 'Title', source: 'info:title', canvas: 'f:hero', el: 'eyebrow', layouts: NONE },
-  names: { label: 'Names', source: 'info:display_name', canvas: 'f:hero', el: 'names', layouts: NONE },
-  date: { label: 'Date', source: 'supplier:date', canvas: 'f:hero', el: 'date', layouts: NONE },
-  place: { label: 'Place', source: 'supplier:venue', canvas: 'f:hero', el: 'venue', layouts: NONE },
+  ename: { label: 'Title', source: 'info:title', canvas: 'f:hero', el: 'eyebrow', layouts: scene('hero_eyebrow') },
+  names: { label: 'Names', source: 'info:display_name', canvas: 'f:hero', el: 'names', layouts: scene('hero_names') },
+  date: { label: 'Date', source: 'supplier:date', canvas: 'f:hero', el: 'date', layouts: scene('hero_date') },
+  place: { label: 'Place', source: 'supplier:venue', canvas: 'f:hero', el: 'venue', layouts: scene('hero_venue') },
   countdown: { label: 'Countdown', source: 'info:countdown_line', canvas: 'w:countdown', layouts: scene('countdown') },
   message: { label: 'Message', source: 'info:special_message', canvas: 'w:special_message', layouts: scene('special_message') },
   rsvp: { label: 'RSVP', source: 'studio:rsvp', canvas: 'f:rsvp', layouts: scene('rsvp') },
@@ -261,7 +261,7 @@ export const MAKER_PARTS: Readonly<Record<MakerPartKey, MakerPartDef>> = {
   opening: { label: 'Opening line', source: 'info:opening_line', canvas: null, layouts: NONE },
   /* The Welcome's own short notes (2026-10-06 full pass) — not drawn on the Invitation's Welcome yet. */
   reminders: { label: 'Reminders', source: 'tool', canvas: null, layouts: NONE },
-  gifts: { label: 'E-Gifts', source: 'studio:gifts', canvas: 'f:gifts', layouts: NONE },
+  gifts: { label: 'E-Gifts', source: 'studio:gifts', canvas: 'f:gifts', layouts: scene('gifts') },
   schedule: { label: 'Schedule', source: 'studio:schedule', canvas: 'w:schedule', layouts: scene('schedule') },
   venue: { label: 'Venue', source: 'supplier:venue', canvas: 'w:venue_map', layouts: scene('venue_map') },
   dress: { label: 'Dress code', source: 'studio:mood', canvas: 'w:dress_code', layouts: scene('dress_code') },
@@ -269,11 +269,11 @@ export const MAKER_PARTS: Readonly<Record<MakerPartKey, MakerPartDef>> = {
   bring: { label: 'What to bring', source: 'info:what_to_bring', canvas: 'w:what_to_bring', layouts: scene('what_to_bring') },
   story: { label: 'Love Story', source: 'studio:story', canvas: 'w:our_love_story', layouts: scene('our_love_story') },
   /* 👤 FOR EACH GUEST — one part per fact, from that guest's own row (owner 2026-10-06); drawn in PR 6. */
-  myrole: { label: 'Your role', source: 'studio:march', canvas: null, layouts: NONE, my: 'role' },
+  myrole: { label: 'Your role', source: 'studio:march', canvas: null, layouts: scene('my_role'), my: 'role' },
   /* The Invitation's "Guest's look" stand-in (`f:look`) IS this part on the canvas — each guest's own outfit and colours. */
-  mywear: { label: 'What to wear', source: 'studio:mood', canvas: 'f:look', layouts: NONE, my: 'wear' },
-  myarrive: { label: 'Arrive by', source: 'studio:schedule', canvas: null, layouts: NONE, my: 'arrive' },
-  myguests: { label: 'Coming with you', source: 'tool', canvas: null, layouts: NONE, my: 'guests' },
+  mywear: { label: 'What to wear', source: 'studio:mood', canvas: 'f:look', layouts: scene('my_wear'), my: 'wear' },
+  myarrive: { label: 'Arrive by', source: 'studio:schedule', canvas: null, layouts: scene('my_arrive'), my: 'arrive' },
+  myguests: { label: 'Coming with you', source: 'tool', canvas: null, layouts: scene('my_guests'), my: 'guests' },
   seats: { label: 'Your seat', source: 'studio:seats', canvas: 'f:find_your_seat', layouts: scene('find_your_seat') },
   pass: { label: 'Digital pass', source: 'tool', canvas: 'f:pass', layouts: NONE },
   announce: { label: 'Announcements', source: 'tool', canvas: 'f:announcements', layouts: scene('announcements') },

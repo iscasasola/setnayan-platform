@@ -118,12 +118,15 @@ test('every layout card carries a rendered preview and only a short name — no 
   }
 });
 
-test('the preview renders the SHIPPED style components — never a text card', () => {
+test('the preview is the SHIPPED guest page drawing that style — never a text card', () => {
+  /* 2026-10-07 (the follow-ups, owner "1. all three together"): every card is the guest route itself,
+     one part in one style (`?only=` + `?style=`), for EVERY part — no longer three hand-imported
+     components and a dimmed copy for the rest. `lib/the-panel-follow-ups-are-real.test.ts` holds the route side. */
   const src = read(`${LAUNCH}/stage-panel/style-preview.tsx`);
-  const renderers = read(`${LAUNCH}/stage-panel/style-renderers.tsx`);
-  assert.match(renderers, /from '@\/app\/\[slug\]\/_components\/countdown'/, 'the shipped countdown is the countdown’s miniature');
-  assert.match(src, /buildTileDocument/, 'drawn in a copy of the canvas’s own document');
+  assert.match(src, /searchParams\.set\('style', `\$\{sceneType\}:\$\{styleId\}`\)/, 'the page is asked for that style');
+  assert.match(src, /searchParams\.set\('only', canvasKey\)/, 'and for that part alone');
   assert.match(src, /<iframe/, 'a picture, not words');
+  assert.doesNotMatch(src, /grayscale|opacity-40/, 'no style is shown as the current one, dimmed');
 });
 
 /* ── 4 · the Reveal is locked first ──────────────────────────────────────── */

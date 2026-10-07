@@ -282,8 +282,10 @@ export function SceneAlignRow({
   canvas: HubSectionCanvas;
   draftAction: ElementDraftAction;
 }) {
-  const { shown, save, pending, error } = useSceneCanvas(eventId, widgetType, canvas, draftAction);
   const ss = useMaker()?.stagesStudio === true;
+  /* ↕ The new Maker's row also carries Spacing, a class the bridge cannot lay — so there the scene is redrawn
+     in place once the save lands (`redraw`), the way a Style pick is. */
+  const { shown, save, pending, error } = useSceneCanvas(eventId, widgetType, canvas, draftAction, undefined, { redraw: ss });
   const keys = HUB_SCENE_ELEMENT_KEYS.filter((k) => HUB_ELEMENT_FIELDS[k].includes('align'));
   const now = keys.map((k) => shown.elements?.[k]?.align ?? null);
   const value = now.every((a) => a === now[0]) && now[0] ? now[0] : 'auto';
@@ -298,11 +300,30 @@ export function SceneAlignRow({
       else delete c.elements;
     });
   };
-  /* 🧭 The new Maker: the prototype's `.dd` row — ALIGNMENT  Centre ▾ (`stage-panel/kit.tsx`). */
+  /* 🧭 The new Maker: the prototype's `.r2` row — ALIGNMENT  Centre ▾ · SPACING  Regular ▾ (`stage-panel/kit.tsx`).
+     ↕ Spacing is the scene's room above and below (`HubSectionCanvas.spacing`; Regular is the absence). */
   if (ss) {
     return (
-      <div className="flex h-11 shrink-0" data-stage-arrange="align">
+      <div className="flex h-11 shrink-0 gap-1.5" data-stage-arrange="align">
         <Dd small="Alignment" label="Alignment" data="arrange-align" value={value} options={options} onPick={pick} />
+        <Dd
+          small="Spacing"
+          label="Spacing"
+          data="arrange-spacing"
+          value={shown.spacing ?? 'regular'}
+          options={[
+            { key: 'tight', label: 'Tight' },
+            { key: 'regular', label: 'Regular' },
+            { key: 'roomy', label: 'Roomy' },
+          ]}
+          onPick={(k) => {
+            if (pending) return;
+            save((c) => {
+              if (k === 'tight' || k === 'roomy') c.spacing = k;
+              else delete c.spacing;
+            });
+          }}
+        />
       </div>
     );
   }

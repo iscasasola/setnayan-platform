@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { SP_DD, SP_DD_LABEL, SP_STEP_BUTTON } from '@/lib/maker-stage-room';
 import { Dd } from './kit';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * ↕ STYLE › ARRANGE — the prototype's three rows (`S.sphase === 'arrange'`):
@@ -85,7 +86,7 @@ export function StageArrange({
         <span className={SP_DD}>
           <span className={SP_DD_LABEL}>Order</span>
           <span className="pl-1.5 text-[14px] font-medium text-[var(--sp-ink)]">
-            {at} of {of}
+            {formatCount(at)} of {formatCount(of)}
           </span>
         </span>
         <button type="button" aria-label="Move up" data-stage-order="up" disabled={pending || !canUp} onClick={onUp} className={SP_STEP_BUTTON}>

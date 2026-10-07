@@ -993,6 +993,9 @@ export function MakerWork({
   const scrollPreviewTo = useCallback(
     (anchor?: string) => {
       if (!anchor) return;
+      /* 🧭 The new Maker's Stages panel owns the page's place on a phone: it centres the picked part itself
+         (`stage-tools.tsx` `centrePart`) — a top-aligned bring-up here would undo it. */
+      if (stagesStudioRef.current && window.innerWidth < 1024) return;
       postToShownCanvases({ source: 'setnayan-editor', t: 'scrollTo', key: anchor });
     },
     [postToShownCanvases],
@@ -3169,9 +3172,7 @@ export function MakerWork({
           madeOnce={madeOnce}
           showMotionTabs={ownsPro || !maker.storeShell}
           onClose={() => select?.(null)}
-          /* 🧭 The new Maker's Stages panel centres the picked part itself (`stage-tools.tsx` `centrePart`) — the
-             scene's top-aligned bring-up would undo it. */
-          onReveal={() => (stagesStudioRef.current && window.innerWidth < 1024 ? undefined : scrollPreviewTo(selectedKeyRef.current ?? undefined))}
+          onReveal={() => scrollPreviewTo(selectedKeyRef.current ?? undefined)}
           onTab={(tab) => selectedScene && select?.({ kind: 'scene', id: selectedScene.id, tab })}
           fixedFact={
             selection.kind === 'row' && selection.key.startsWith('f:')

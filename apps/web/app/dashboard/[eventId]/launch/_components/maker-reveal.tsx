@@ -314,7 +314,9 @@ export function MakerRevealPicker({
      openings as REAL miniatures (`RevealPicture`, the picture the page draws) and Extras ▾; Arrange = On this
      stage ▾ (Hidden = no reveal here). No Background: the reveal plays over the cover. */
   if (onStage) {
-    return <RevealStagePart onStage={onStage} openings={openings} effective={effective} choose={choose} stages={stages} setStages={setStages} effects={effects} setEffects={setEffects} ownsPro={ownsPro} storeShell={storeShell} failed={failed} />;
+    /* Shown / Hidden write THIS stage only, through the one helper. */
+    const showHere = (on: boolean) => (on ? setStages(revealStagesWith(stages, onStage, true)) : setStages(revealStagesWith(stages, onStage, false)));
+    return <RevealStagePart onStage={onStage} openings={openings} effective={effective} choose={choose} shownHere={stages.includes(onStage)} showHere={showHere} effects={effects} setEffects={setEffects} ownsPro={ownsPro} storeShell={storeShell} failed={failed} />;
   }
   /* 🧩 The navigator's part: the openings alone. */
   if (part === 'options') {
@@ -644,8 +646,8 @@ function RevealStagePart({
   openings,
   effective,
   choose,
-  stages,
-  setStages,
+  shownHere,
+  showHere,
   effects,
   setEffects,
   ownsPro,
@@ -656,8 +658,8 @@ function RevealStagePart({
   openings: MakerRevealOpening[];
   effective: string;
   choose: (value: string | null) => void;
-  stages: readonly RevealStage[];
-  setStages: (next: RevealStage[]) => void;
+  shownHere: boolean;
+  showHere: (on: boolean) => void;
   effects: RevealEffects;
   setEffects: (next: RevealEffects) => void;
   ownsPro: boolean;
@@ -669,7 +671,6 @@ function RevealStagePart({
   useEffect(() => {
     if (effective !== 'none') setStageRevealKind(effective);
   }, [effective]);
-  const shownHere = stages.includes(onStage);
   const extras = effective !== 'none' ? revealExtrasFor(effective) : [];
   const mark = makerProMark({ owns: ownsPro, storeShell });
   return (
@@ -729,7 +730,7 @@ function RevealStagePart({
                 { key: 'shown', label: 'Shown' },
                 { key: 'hidden', label: 'Hidden — no reveal' },
               ]}
-              onPick={(k) => setStages(revealStagesWith(stages, onStage, k === 'shown'))}
+              onPick={(k) => showHere(k === 'shown')}
             />
           </div>
         }

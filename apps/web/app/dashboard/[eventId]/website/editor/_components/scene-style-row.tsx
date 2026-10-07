@@ -71,20 +71,11 @@ export function SceneStyleRow({
   pending?: boolean;
   error?: string | null;
 }) {
-  /* 🧭 The new Maker draws the same styles as a carousel of real miniatures (`StyleCards`). */
+  /* 🧭 The new Maker draws the same styles as a carousel of real miniatures (`StyleCarousel` = `stage-panel/style-carousel.tsx`). */
   const carousel = useMaker()?.stagesStudio === true;
   if (options.length < 2) return null;
   if (carousel) {
-    return (
-      <>
-        <StyleCards options={options} value={value} onPick={onPick} pending={pending} canvasKey={preview?.canvasKey ?? null} sceneType={preview?.sceneType ?? ''} />
-        {error ? (
-          <p role="alert" className="shrink-0 py-1 text-[12.5px] font-semibold text-terracotta-700">
-            {error}
-          </p>
-        ) : null}
-      </>
-    );
+    return <StyleCarousel options={options} value={value} onPick={onPick} pending={pending} error={error} preview={preview} />;
   }
   return (
     <>
@@ -105,6 +96,40 @@ export function SceneStyleRow({
       </IRow>
       {error ? (
         <p role="alert" className="py-2 text-[12.5px] font-semibold text-terracotta-700">
+          {error}
+        </p>
+      ) : null}
+    </>
+  );
+}
+
+/**
+ * 🎠 THE NEW MAKER'S STYLE — the SAME shipped styles (`sceneStyleOptions`, `lib/scene-styles.ts`) as a
+ * carousel of REAL miniatures (owner 2026-10-07: *"should be a preview of the style and not text"*; prototype
+ * `.lcar`): each card is the part drawn in that style (`stage-panel/style-carousel.tsx` `StyleCards`), with
+ * its short name only — no description, no "Recommended". Never a list of its own:
+ * `lib/layouts-are-the-shipped-scene-styles.test.ts`. A tap applies at once; the page above is the full preview.
+ */
+function StyleCarousel({
+  options,
+  value,
+  onPick,
+  pending,
+  error,
+  preview,
+}: {
+  options: readonly SceneStyleChoice[];
+  value: string | null;
+  onPick: (id: string) => void;
+  pending: boolean;
+  error: string | null;
+  preview: { canvasKey: string; sceneType: string } | null;
+}) {
+  return (
+    <>
+      <StyleCards options={options} value={value} onPick={onPick} pending={pending} canvasKey={preview?.canvasKey ?? null} sceneType={preview?.sceneType ?? ''} />
+      {error ? (
+        <p role="alert" className="shrink-0 py-1 text-[12.5px] font-semibold text-terracotta-700">
           {error}
         </p>
       ) : null}

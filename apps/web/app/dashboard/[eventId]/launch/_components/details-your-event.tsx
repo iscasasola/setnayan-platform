@@ -100,9 +100,17 @@ export function NamesEditor({
   /** 🏷 The names as typed — Studio › Info's "Event name" row composes its line from them (no write). */
   onNames?: (a: PersonName, b: PersonName) => void;
 }) {
-  const [a, setA] = useState<PersonName>(initial[0]);
-  const [b, setB] = useState<PersonName>(initial[1]);
-  useEffect(() => onNames?.(a, b), [a, b, onNames]);
+  const [a, setNameA] = useState<PersonName>(initial[0]);
+  const [b, setNameB] = useState<PersonName>(initial[1]);
+  /* 🏷 Told as typed, from the change itself — never an effect (opening the editor writes and tells nothing). */
+  const setA = (n: PersonName) => {
+    setNameA(n);
+    onNames?.(n, b);
+  };
+  const setB = (n: PersonName) => {
+    setNameB(n);
+    onNames?.(a, n);
+  };
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
 

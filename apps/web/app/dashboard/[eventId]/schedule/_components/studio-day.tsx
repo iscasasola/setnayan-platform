@@ -206,7 +206,7 @@ export function StudioDay({ eventId, dateKey, moments, canEdit, onPatch, onAdd, 
     <div data-studio-day="" className="-mx-4 flex min-h-full flex-col">
       <section data-studio-day-head="" className="border-b border-ink/10 bg-cream px-4 py-3">
         <InfoTip label={heading} labelClassName="font-serif text-[19px] text-ink" align="center">
-          Set when you lock your venue in Suppliers. A new date moves the whole day.
+          Set when you book your venue in Suppliers. A new date moves the whole day.
         </InfoTip>
       </section>
       {notice ? (

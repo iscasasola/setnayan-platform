@@ -106,6 +106,28 @@ export function isToInvite(g: Pick<GuestRow, 'role' | 'entry_source' | 'passed_a
   );
 }
 
+/**
+ * THE COUNTS LINE, from the same list the rows are drawn from. "No reply" =
+ * invited and silent (a guest still to invite counts under "to invite" only,
+ * as the prototype splits them); requests and the passed-away are not counted.
+ */
+export function rosterStats(guests: readonly GuestRow[]): {
+  total: number;
+  yes: number;
+  no: number;
+  none: number;
+  toInvite: number;
+} {
+  const counted = guests.filter((g) => countsTowardEvent(g));
+  return {
+    total: counted.length,
+    yes: counted.filter((g) => g.rsvp_status === 'attending').length,
+    no: counted.filter((g) => g.rsvp_status === 'declined').length,
+    none: counted.filter((g) => g.rsvp_status === 'pending' && !isToInvite(g) && !isHonoreeRole(g.role)).length,
+    toInvite: counted.filter((g) => isToInvite(g)).length,
+  };
+}
+
 /* ─── THE SECTIONS ──────────────────────────────────────────────────────── */
 
 /** What a section's round marker draws — the screen maps it to an icon. */

@@ -193,8 +193,7 @@ test('"to invite" counts a column that has a writer — so it can fall', () => {
   const at = lib.indexOf('export function isToInvite(');
   assert.ok(at > 0, 'the counts line lost its "to invite"');
   assert.match(lib.slice(at, at + 500), /!g\.invitation_sent_at/, '"to invite" no longer reads the sent stamp');
-  const screen = strip(readFileSync(join(WEB, 'app/dashboard/[eventId]/guests/_components/guests-screen.tsx'), 'utf8'));
-  assert.match(screen, /toInvite: counted\.filter\(\(g\) => isToInvite\(g\)\)\.length/, 'the counts line counts "to invite" its own way');
+  assert.match(lib, /toInvite: counted\.filter\(\(g\) => isToInvite\(g\)\)\.length/, 'the counts line counts "to invite" its own way');
   // …and that stamp HAS its one writer (the per-guest Invite), pinned above.
   assert.match(
     strip(readFileSync(join(WEB, 'app/dashboard/[eventId]/invitation/actions.ts'), 'utf8')),

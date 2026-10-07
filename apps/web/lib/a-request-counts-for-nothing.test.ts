@@ -56,7 +56,9 @@ test('the list readers read the ACCEPTED list by default; only the roster opts i
   // hands it — requests excluded (they are the Review row), counted through the one rule.
   assert.match(roster, /\.filter\(\(g\) => !selfJoinIds\.includes\(g\.guest_id\)\)/, 'the list includes requests');
   const screen = read('app/dashboard/[eventId]/guests/_components/guests-screen.tsx');
-  assert.match(screen, /const counted = roster\.filter\(\(g\) => countsTowardEvent\(g\)\)/, 'the counts include requests');
+  assert.match(screen, /const stats = rosterStats\(roster\);/, 'the counts are not read off the drawn list');
+  const lib = read('lib/guest-roster-view.ts');
+  assert.match(lib, /const counted = guests\.filter\(\(g\) => countsTowardEvent\(g\)\)/, 'the counts include requests');
   assert.match(roster, /!countsTowardEvent\(g\)\s*\?\s*null/, 'a request is suggested a seat');
 });
 

@@ -82,7 +82,6 @@ import {
   type GuestSide,
 } from '@/lib/guests';
 import { projectGuests } from '@/lib/guest-optimistic';
-import { isHonoreeRole } from '@/lib/role-groups';
 import {
   isToInvite,
   MAP_ARRANGE,
@@ -90,6 +89,7 @@ import {
   ROSTER_VIEWS,
   rosterSearchMatches,
   rosterSections,
+  rosterStats,
   rowVerbsFor,
   SEARCH_WAIT_MS,
   type MapArrange,
@@ -419,15 +419,9 @@ export function GuestsScreen(props: GuestsScreenProps) {
   };
 
   // ── The counts (they count on load and on change — rule 2).
-  const counted = roster.filter((g) => countsTowardEvent(g));
-  const stats = {
-    total: counted.length,
-    yes: counted.filter((g) => g.rsvp_status === 'attending').length,
-    no: counted.filter((g) => g.rsvp_status === 'declined').length,
-    // "No reply" = invited and silent; a guest still to invite is counted under "to invite" (the prototype).
-    none: counted.filter((g) => g.rsvp_status === 'pending' && !isToInvite(g) && !isHonoreeRole(g.role)).length,
-    toInvite: counted.filter((g) => isToInvite(g)).length,
-  };
+  // The counts are read off the SAME list the rows are drawn from (`roster`),
+  // never a second read — so "List N" and "N attending" equal the rows below.
+  const stats = rosterStats(roster);
   const replied = stats.total ? Math.round(((stats.yes + stats.no) / stats.total) * 100) : 0;
   const shown = visible.filter((g) => countsTowardEvent(g)).length;
   const noMatch = Boolean(q) && visible.length === 0;

@@ -51,14 +51,16 @@ test('after the patch the list reads OPEN — the one question guestListIsClosed
   assert.equal(guestListIsClosed({ lockedAt: '2026-09-30T08:00:00Z' }), true);
 });
 
-test('the reopen matches the host\'s own Reopen column-for-column', () => {
+/* 🔒 2026-10-07 (DECISION_LOG "FINALIZING THE HEADCOUNT IS ONE-WAY"): the host's own
+   Reopen is gone, so the admin reopen — support's only way back — is pinned to the
+   two columns `finalizeGuestList` writes: the stamp AND the frozen count. */
+test('the admin reopen clears exactly the two columns the host\'s Finalize writes', () => {
   const pax = stripComments(readFileSync(join(HERE, 'pax.ts'), 'utf8'));
-  const host = pax.slice(pax.indexOf('export async function reopenGuestList'));
-  assert.match(
-    host,
-    /\.update\(\{ guest_count_locked_at: null, final_pax: null \}\)/,
-    'the host reopen changed shape — re-read it and keep the admin reopen identical',
-  );
+  assert.doesNotMatch(pax, /export async function reopenGuestList/, 'a host Reopen is back');
+  const fin = pax.slice(pax.indexOf('export async function finalizeGuestList'));
+  assert.match(fin, /guest_count_locked_at: new Date\(\)\.toISOString\(\),/);
+  assert.match(fin, /final_pax: computed > 0 \? computed : null,/);
+  assert.deepEqual(guestListReopenPatch(), { guest_count_locked_at: null, final_pax: null });
 });
 
 test('reopenLanded only says yes to exactly one row carrying the patch', () => {

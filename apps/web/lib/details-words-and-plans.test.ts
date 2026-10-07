@@ -192,7 +192,9 @@ test('RSVP links out to nothing: "Reply by" is a date field right there, and the
   // The one writer of that column, with the pricing view posted back unchanged.
   const src = read(`${L}/maker-rsvp-ask.tsx`);
   assert.match(src, /import \{ updatePaxSettings \} from '\.\.\/\.\.\/actions';/);
-  assert.match(src, /fd\.set\('adaptive_pricing_mode', pricingMode\);/, 'a reply-by save would reset the pricing view');
+  /* The field is the shared `ReplyBy` part (2026-10-07, one setting two doors). */
+  const part = read('app/dashboard/[eventId]/_components/guest-setup/reply-by.tsx');
+  assert.match(part, /fd\.set\('adaptive_pricing_mode', pricingMode\);/, 'a reply-by save would reset the pricing view');
   // The rows are the Requests page itself, drawn with `maker=1` (no way back, saves stay put).
   const launch = read('app/dashboard/[eventId]/launch/page.tsx');
   assert.match(launch, /<RequestsPage params=\{Promise\.resolve\(\{ eventId \}\)\} searchParams=\{Promise\.resolve\(\{ maker: '1' \}\)\} \/>/);

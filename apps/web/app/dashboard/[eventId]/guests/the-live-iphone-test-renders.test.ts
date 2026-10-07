@@ -340,26 +340,9 @@ test('⑫ every block under the title is one flex column with ONE gap — no per
   assert.match(page, /className="sn-col max-w-none flex flex-col gap-6" data-roster-full-width=""/, 'the title row has no step after it');
   assert.doesNotMatch(page.slice(page.indexOf('data-roster-full-width'), open), /space-y-/, 'per-element margins are back above the blocks');
 
-  const { renderToStaticMarkup } = await import('react-dom/server');
-  const { AppRouterContext } = await import('next/dist/shared/lib/app-router-context.shared-runtime');
-  const { FinalizeGuestListControl } = await import('./_components/finalize-guest-list-control');
-  const html = renderToStaticMarkup(
-    React.createElement(
-      AppRouterContext.Provider,
-      { value: ROUTER as never },
-      React.createElement(FinalizeGuestListControl, { eventId: 'e1', locked: false, finalPax: null }),
-    ),
-  );
-  const row = html.match(/<div[^>]*data-guest-list-finalize="open"[^>]*class="([^"]*)"|<div[^>]*class="([^"]*)"[^>]*data-guest-list-finalize="open"/);
-  const cls = row?.[1] ?? row?.[2] ?? '';
-  for (const c of ['flex', 'flex-col', 'gap-3', 'sm:flex-row', 'sm:items-center', 'sm:justify-between']) {
-    assert.ok(cls.split(/\s+/).includes(c), `the finalize row lacks ${c}`);
-  }
-  assert.doesNotMatch(cls, /\b(?:p[xy]?|m[tbxy]?)-\d/, 'the finalize row brings its own padding or margin');
-  const button = html.match(/<button[^>]*data-guest-list-finalize-button=""[^>]*>/)?.[0] ?? '';
-  for (const c of ['min-h-[44px]', 'rounded-full', 'w-full', 'sm:w-auto']) {
-    assert.ok(button.includes(c), `the Finalize button lacks ${c}`);
-  }
+  // ⤷ 2026-10-07: the header Finalize control was deleted — Finalize is ONE row of Guests › Setup
+  // (owner: *"finalize should be inside the Setup"*; `finalize-mounts-once-inside-setup.test.ts`).
+  assert.doesNotMatch(page, /FinalizeGuestListControl/, 'Finalize is back above the switcher');
 });
 
 // ── ⑬ the row's ⋯ opens where it can be seen ────────────────────────────────

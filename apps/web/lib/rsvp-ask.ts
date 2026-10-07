@@ -55,7 +55,9 @@ export const WHO_CAN_RSVP_DEFAULT: WhoCanRsvp = 'guest_list';
  * "How guests get in" (lib/who-can-reply.ts) and the names of the two Who-can-RSVP
  * values. One spelling, here; who-can-reply.ts imports it.
  */
-export const GUEST_ENTRY_RULE = { list: 'List only', accept: 'Accept', open: 'Open' } as const;
+/* 📝 Owner 2026-10-07 (HOME_AND_GUESTS_CHECK G25, *"name it as simple as possible"*):
+   the three headings in plain words — same three rules, same stored keys. */
+export const GUEST_ENTRY_RULE = { list: 'Only my list', accept: 'My list + requests', open: 'Open' } as const;
 export const WHO_CAN_RSVP_LABEL: Record<WhoCanRsvp, string> = {
   guest_list: GUEST_ENTRY_RULE.list,
   anyone: GUEST_ENTRY_RULE.accept,
@@ -293,11 +295,11 @@ export function resolveRsvpAsk(raw: unknown): Record<RsvpAskField, boolean> {
 
 export const RSVP_ASK_LABEL: Record<RsvpAskField, string> = {
   plus_ones: 'Plus-ones',
-  meal: 'Meal choice',
-  dietary: 'Dietary needs',
+  meal: 'Meal',
+  dietary: 'Dietary',
   song_request: 'Song request',
-  note: 'Note to you',
-  mobile: 'Mobile number',
+  note: 'A note',
+  mobile: 'Mobile',
 };
 
 // ── WHO CAN RSVP · ONE AT A TIME · REPLY BY ─────────────────────────────────

@@ -212,9 +212,12 @@ test('the event link is offered only when it works — never a dead "Share the l
      owner's 2-guest event: the badge was TRUE — the event is private and never
      launched, so the link answered "Link not found". */
   const panel = strip(
-    readFileSync(join(WEB, 'app/dashboard/[eventId]/guests/invite/_components/invite-panel.tsx'), 'utf8'),
+    readFileSync(join(WEB, 'app/dashboard/[eventId]/guests/invite/_components/share-link-panel.tsx'), 'utf8'),
   );
   assert.match(panel, /\{joinUrl && inviteLink\.usable \? \(/, 'the panel hands out a link without asking whether it works');
+  /* Guests › Setup's "Your one link" (2026-10-07) asks the same question before it builds a URL. */
+  const setupLink = strip(readFileSync(join(WEB, 'app/dashboard/[eventId]/_components/guest-setup/one-link.server.ts'), 'utf8'));
+  assert.match(setupLink, /if \(!state\.usable\) \{\s*return \{ url: null/, 'Setup hands out a link without asking whether it works');
   assert.match(panel, /inviteLink\.notice \?\?/, 'the panel stopped naming why the link does not work');
   // The page's own copy of the link (the after-the-event Share menu) is null
   // whenever the same rule says no.

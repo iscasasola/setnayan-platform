@@ -39,7 +39,7 @@ const STRIP_MOUNTS: Record<string, number> = {
   'app/dashboard/[eventId]/invitation/page.tsx': 2, // per-guest rows, table + list
   // The join-link QR — lives in the panel both the invite page and the
   // guest list's Share tab render, so it is ONE mount, not two.
-  'app/dashboard/[eventId]/guests/invite/_components/invite-panel.tsx': 1,
+  'app/dashboard/[eventId]/guests/invite/_components/share-link-panel.tsx': 1,
   'app/dashboard/[eventId]/website/editor/_components/editor-shell.tsx': 1, // scan-to-view
   // ⤷ 2026-09-30: the guest's own card NO LONGER draws a QR (owner, the Fable
   // guest card: "QR look leaves the card"). It draws their Digital ticket — the

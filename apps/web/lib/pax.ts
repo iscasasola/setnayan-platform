@@ -83,7 +83,7 @@ export async function readFinalizeState(
 }
 
 /**
- * 🔒 THE FENCE for finalize / reopen: the caller is a HOST (a `couple` member)
+ * 🔒 THE FENCE for finalize: the caller is a HOST (a `couple` member)
  * of this event. Not "can read the event row": a published event page is
  * readable far more widely than it is ownable. Read with the caller's OWN
  * session and scoped by `user_id` explicitly, so RLS is defence in depth and
@@ -156,27 +156,9 @@ export async function finalizeGuestList(
   return { ok: true, state: await readFinalizeState(admin, eventId) };
 }
 
-/**
- * The host reopens a finalized list. Clears the stamp AND the frozen count, so
- * adds, RSVP changes and guest replies work again and the live count resumes.
- * Same fence as `finalizeGuestList`.
- */
-export async function reopenGuestList(
-  supabase: SupabaseClient,
-  eventId: string,
-  userId: string,
-): Promise<FinalizeResult> {
-  const hosts = await callerHostsEvent(supabase, eventId, userId);
-  if (hosts === 'unknown') return { ok: false, error: 'Couldn’t reach your event just now — nothing was changed.' };
-  if (hosts === 'no') return { ok: false, error: 'Only the hosts can reopen this guest list.' };
-  const admin = createAdminClient();
-  const { error: upErr } = await admin
-    .from('events')
-    .update({ guest_count_locked_at: null, final_pax: null })
-    .eq('event_id', eventId);
-  if (upErr) return { ok: false, error: 'Couldn’t reopen just now — nothing was changed.' };
-  return { ok: true, state: await readFinalizeState(admin, eventId) };
-}
+/* 🔒 No host Reopen (owner 2026-10-07, DECISION_LOG "FINALIZING THE HEADCOUNT IS
+   ONE-WAY"): the host's `reopenGuestList` was removed with the button. Only
+   Setnayan support can unlock a list (`lib/admin-reopen-guest-list.ts`, admin-only). */
 
 /**
  * True when the guest list is finalized — planning edits (add / RSVP / remove)

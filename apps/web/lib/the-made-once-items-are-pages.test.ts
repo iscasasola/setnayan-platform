@@ -360,7 +360,8 @@ test('RSVP is Details › RSVP — the guest’s RSVP as its picture, its settin
   assert.doesNotMatch(details, /MakerRsvp/, '"What do you ask your guests?" is typed a second time in Details');
   assert.match(details, /rsvp: <div key="rsvp" data-details-rsvp-page=""[^>]*>\{rsvp\.page\}<\/div>/);
   assert.match(details, /\.\.\.\(rsvp \? \{ rsvp: rsvp\.settings \} : \{\}\)/);
-  const settings = read(`${L}/maker-rsvp-ask.tsx`);
+  /* + the shared parts it mounts (2026-10-07, one setting two doors with Guests › Setup). */
+  const settings = read(`${L}/maker-rsvp-ask.tsx`) + read('app/dashboard/[eventId]/_components/guest-setup/guests-get-in.tsx') + read('app/dashboard/[eventId]/_components/guest-setup/rsvp-asks.tsx');
   for (const section of ['one-at-a-time', 'who-can-rsvp', 'reply-by', 'requests']) {
     assert.match(settings, new RegExp(`data-rsvp-setting="${section}"`), `the RSVP page lost "${section}"`);
   }

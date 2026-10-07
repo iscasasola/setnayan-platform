@@ -56,7 +56,9 @@ test('the finalize state is a READ — nothing on a page load may write the stam
 
 test('the stamp is written only behind the host fence', () => {
   const pax = read('pax.ts');
-  for (const fn of ['finalizeGuestList', 'reopenGuestList']) {
+  /* 🔒 2026-10-07: finalizing is one-way — the host's `reopenGuestList` is gone (finalize-is-one-way.test.ts). */
+  assert.doesNotMatch(pax, /export async function reopenGuestList/, 'a host Reopen is back');
+  for (const fn of ['finalizeGuestList']) {
     const at = pax.indexOf(`export async function ${fn}`);
     assert.ok(at >= 0, `${fn} is gone`);
     const body = pax.slice(at, pax.indexOf('\n}\n', at));

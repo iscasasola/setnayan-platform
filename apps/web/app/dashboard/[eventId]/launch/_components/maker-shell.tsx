@@ -93,7 +93,8 @@ import { PickSheetContext, type PickSheet } from '../../website/editor/_componen
 import { LowerThirdGrab, MakerSheet, StageTools, StudioCover, StudioSideSwitch, StudioToolMenu, StudioToolRow } from './details-lazy';
 import { MAKER_LT_HALF } from '@/lib/maker-phone-room';
 import { detailsItemLayout } from '@/lib/maker-details-items';
-import { studioTileItem, type StudioTileKey, type StudioTileModel } from '@/lib/studio-tiles';
+import { studioTileItem, type StudioTileKey } from '@/lib/studio-tile-defs';
+import type { StudioTileModel } from '@/lib/studio-tiles';
 import { BookOpen, ClipboardList, Info, PanelsTopLeft, Printer, RotateCcw, Undo, Users } from 'lucide-react';
 
 /**

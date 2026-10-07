@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "7405f6e0b5",
+  "generatedFromRef": "eea45dd32",
   "routeCount": 428,
   "destinations": 949,
   "actions": 670,
-  "blocks": 5614,
+  "blocks": 5615,
   "routes": {
     "/": {
       "files": [
@@ -9598,6 +9598,7 @@
         "MakerLookPages",
         "MakerRsvpSettings",
         "MakerState",
+        "MoodBoardStudio",
         "Stand"
       ]
     },

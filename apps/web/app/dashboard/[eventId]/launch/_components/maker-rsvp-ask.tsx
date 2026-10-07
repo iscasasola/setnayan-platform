@@ -3,7 +3,7 @@
 import { HUB_DRAFT_BAR_FIELD, SUPERSEDED, makerLatestWrite, makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { canvasWriteKey, draftedCanvasOr, noteDraftedCanvas } from '@/lib/maker-draft-store';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
-import type { HubDraftActionResult } from '@/lib/hub-draft';
+import { HUB_DRAFT_FIELD, type HubDraftActionResult } from '@/lib/hub-draft';
 import { useEffect, useId, useRef, useState, useTransition, type ReactNode } from 'react';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import {
@@ -17,7 +17,6 @@ import {
 } from '@/lib/rsvp-stage';
 import { hubDraftAction } from '../../website/hub-draft-actions';
 import { updatePaxSettings } from '../../actions';
-import { HubSavesImmediately } from '../../website/_components/hub-draft-field';
 import { DetailsPieceOnly } from './details-piece';
 import {
   RSVP_ASK_FIELDS,
@@ -862,6 +861,8 @@ function LiveReplyByField({
               fd.set('guest_list_edit_deadline', next);
               fd.set('adaptive_pricing_mode', pricingMode);
               fd.set('maker_quiet', '1');
+              /* ⏳ Reply by waits for ✓ Apply (owner 2026-10-08, "draft 1-3"). */
+              fd.set(HUB_DRAFT_FIELD, '1');
               return action(fd);
             }),
           requestMakerRefresh,
@@ -911,7 +912,7 @@ function LiveReplyByField({
           </button>
         ) : null}
       </div>
-      <HubSavesImmediately />
+      {/* ⏳ Drafted since 2026-10-08 ("draft 1-3") — no "Guests see this right away". */}
       {note ? (
         <p role={note.ok ? 'status' : 'alert'} className={`text-[13px] ${note.ok ? 'text-success-800' : 'text-terracotta-700'}`}>
           {note.text}

@@ -403,7 +403,8 @@ const NO_FORM_WRITERS: Array<[file: string, anchor: RegExp, why: string]> = [
   // Phase 9 · Details: the address (the shipped SlugField — never drafted) and
   // the E-Gifts thank-you message (PabuyaMessageEditor posts from a transition).
   ['app/dashboard/[eventId]/launch/_components/maker-details.tsx', /<SlugField\b[^>]*\/>[\s{}]*<HubSavesImmediately\b/, 'the address is never drafted'],
-  ['app/dashboard/[eventId]/launch/_components/maker-details.tsx', /<HubSavesImmediately\s*\/>[\s{}]*<PabuyaMessageEditor\b/, 'the thank-you message is the E-Gifts message, written live'],
+  // (The E-Gifts thank-you message left this list on 2026-10-08: it is DRAFTED in the Maker now —
+  // owner "draft 1-3" — held by lib/draft-1-3-waits-for-apply.test.ts.)
   // (The Pro QR left this list on 2026-09-29: Shape · Pattern · Colour are
   // DRAFTED now — owner "yes to all 3" — held by the test below.)
   // Details part 2a · Your event (2026-09-29): the march's order (the Guest

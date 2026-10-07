@@ -538,7 +538,16 @@ export async function hubDraftAction(
     /* 🎫 THE TICKET STYLE (owner 2026-10-02 Q7, "the pass look waits for Apply"):
        drafted beside the name style, merged the same way — only when held. */
     const passDesignWrite = draftedPrint && 'pass_design' in draftedPrint ? passCardDesignFrom(draftedPrint.pass_design) : undefined;
+    /* ⏳ THE OPENING LINE (owner 2026-10-08, "draft 1-3"): drafted beside them, merged the same way. */
+    const openingLineWrite =
+      draftedPrint && 'opening_line' in draftedPrint ? parsePrintDetails({ opening_line: draftedPrint.opening_line }).openingLine : undefined;
     delete eventsPatch.print_details;
+    /* ⏳ REPLY BY (owner 2026-10-08, "draft 1-3") leaves the session update too: its live writer
+       (`updatePaxSettings`) writes it through the admin client, after the host check — Apply does the
+       same below (the host check is at the top of this action), with the same audit row. */
+    const deadlineWrite =
+      'guest_list_edit_deadline' in eventsPatch ? ((eventsPatch.guest_list_edit_deadline as string | null) ?? null) : undefined;
+    delete eventsPatch.guest_list_edit_deadline;
     /* 🎵 The song's companions, as `updateSiteChrome` stamps them: where it came
        from, and off when there is no song to play. */
     if ('site_bg_music_r2_key' in eventsPatch) {
@@ -645,7 +654,28 @@ export async function hubDraftAction(
         return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
       }
     }
-    if (nameStyleWrite !== undefined || passDesignWrite !== undefined) {
+    if (deadlineWrite !== undefined) {
+      const admin = createAdminClient();
+      const { data: before } = await admin.from('events').select('guest_list_edit_deadline').eq('event_id', eventId).maybeSingle();
+      const { data: dlRows, error: dlErr } = await admin
+        .from('events')
+        .update({ guest_list_edit_deadline: deadlineWrite })
+        .eq('event_id', eventId)
+        .select('event_id');
+      if (dlErr || !Array.isArray(dlRows) || dlRows.length === 0) {
+        return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
+      }
+      const { data: who } = await supabase.auth.getUser();
+      await admin.from('admin_audit_log').insert({
+        action: 'pax_settings_updated',
+        target_table: 'events',
+        target_id: eventId,
+        before_json: before ?? null,
+        after_json: { guest_list_edit_deadline: deadlineWrite, via: 'hub_draft_apply' },
+        actor_user_id: who.user?.id ?? null,
+      });
+    }
+    if (nameStyleWrite !== undefined || passDesignWrite !== undefined || openingLineWrite !== undefined) {
       const admin = createAdminClient();
       const { data: pdRow, error: pdErr } = await admin
         .from('events')
@@ -663,6 +693,7 @@ export async function hubDraftAction(
             ...stored,
             ...(nameStyleWrite !== undefined ? { nameStyle: nameStyleWrite } : {}),
             ...(passDesignWrite !== undefined ? { passDesign: passDesignWrite } : {}),
+            ...(openingLineWrite !== undefined ? { openingLine: openingLineWrite } : {}),
           }),
         })
         .eq('event_id', eventId)

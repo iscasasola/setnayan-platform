@@ -1131,6 +1131,11 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
          both — ONE read serves them, so a couple with an unreadable draft
          does not also lose their special message to a second failed call. */
       let specialMessage: string | null = printEvent.special_message;
+      /* ⏳ "DRAFT 1-3" (owner 2026-10-08): the thank-you words, Reply by and the opening line read
+         the draft over live here, as every other drafted field does. `undefined` = not drafted. */
+      let pabuyaMessage: string | null = printEvent.pabuya_message;
+      let draftedDeadline: string | null | undefined = undefined;
+      let draftedOpeningLine: string | null | undefined = undefined;
       let rsvpAsk: RsvpAskConfig = sanitizeRsvpAskConfig(printEvent.rsvp_ask_config);
       let rsvpAskDrafted = false;
       // 🎨 The theme being edited — drafted over live (picked on Details).
@@ -1157,6 +1162,10 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         if (d && 'love_story' in d.events) storyRaw = d.events.love_story;
         if (d && 'style_preferences' in d.events) qrPrefs = d.events.style_preferences;
         if (d && 'special_message' in d.events) specialMessage = (d.events.special_message as string | null) ?? null;
+        if (d && 'pabuya_message' in d.events) pabuyaMessage = (d.events.pabuya_message as string | null) ?? null;
+        if (d && 'guest_list_edit_deadline' in d.events) draftedDeadline = (d.events.guest_list_edit_deadline as string | null) ?? null;
+        const pd = d && 'print_details' in d.events ? (d.events.print_details as Record<string, unknown> | null) : null;
+        if (pd && 'opening_line' in pd) draftedOpeningLine = (pd.opening_line as string | null) ?? null;
         if (d && 'rsvp_ask_config' in d.events) {
           rsvpAsk = sanitizeRsvpAskConfig(d.events.rsvp_ask_config);
           rsvpAskDrafted = true;
@@ -1164,6 +1173,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       } catch (e) {
         console.error('[hub-draft] details could not read the draft:', e instanceof Error ? e.message : e);
       }
+      /* ⏳ The opening line as drafted (owner 2026-10-08, "draft 1-3") — every Maker door reads `stored`. */
+      if (draftedOpeningLine !== undefined) stored.openingLine = draftedOpeningLine;
       /* 🔢 ONE COUNT, STARTED NOW (owner 2026-10-05: "10 of 18" here, "9 of 18"
          on Event Details; review 2026-10-05: it ran serially, re-reading what
          this page had just read, on every refresh). The plan Home and Event
@@ -1356,6 +1367,9 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         requestsCountRead,
       ]);
       if (deadlineRes.error) logQueryError('LaunchPage.rsvpDeadline', deadlineRes.error, { event_id: eventId }, 'graceful_degrade');
+      /* ⏳ Reply by as the couple is editing it — the draft's, else live (owner 2026-10-08, "draft 1-3"). */
+      const deadlineNow: string | null =
+        draftedDeadline !== undefined ? draftedDeadline : ((deadlineRes.data?.guest_list_edit_deadline as string | null) ?? null);
       if (requestsRes?.error) logQueryError('LaunchPage.rsvpRequests', requestsRes.error, { event_id: eventId }, 'graceful_degrade');
       const rsvpHome = printEvent.slug ? `/${printEvent.slug}` : null;
       const rsvpSrc = makerPageCanvasSrc(rsvpHome, 'rsvp-page', 'rsvp');
@@ -1386,7 +1400,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
               deadlineRes.error
                 ? null
                 : resolveReplyBy({
-                    deadline: (deadlineRes.data?.guest_list_edit_deadline as string | null) ?? null,
+                    deadline: deadlineNow,
                     eventDate: printEvent.event_date,
                   })
             }
@@ -1398,7 +1412,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
               deadlineRes.error
                 ? null
                 : {
-                    deadline: (deadlineRes.data?.guest_list_edit_deadline as string | null) ?? null,
+                    deadline: deadlineNow,
                     pricingMode:
                       (deadlineRes.data as { adaptive_pricing_mode?: string | null } | null)?.adaptive_pricing_mode === 'final_only'
                         ? 'final_only'
@@ -1424,7 +1438,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
          guest, host-verified), its controls the same `MakerRsvpSettings` with a
          `scene`. Lazy: it rides the `maker-details` chunk, never the first load. */
       {
-        const ownDeadline = deadlineRes.error ? null : ((deadlineRes.data?.guest_list_edit_deadline as string | null) ?? null);
+        const ownDeadline = deadlineRes.error ? null : (deadlineNow);
         rsvpStage = (
           <MakerRsvpStage
             eventId={eventId}
@@ -1530,7 +1544,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
           venuesShown: yourEvent ? yourEvent.venues.resolved : null,
           loveStoryMoments: detailsItemApplies('love-story', eventContext) ? (guided.story ? resolveMoments(guided.story).length : null) : 0,
           dressCode: 'dress_code_config' in draftedEvents ? draftedEvents.dress_code_config : printEvent.dress_code_config,
-          replyBy: deadlineRes.error ? undefined : ((deadlineRes.data?.guest_list_edit_deadline as string | null) ?? null),
+          replyBy: deadlineRes.error ? undefined : (deadlineNow),
           guests: mayReadGuestList ? await countSetupGuests(printAdmin, eventId) : null,
         });
       }
@@ -1579,7 +1593,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         eventId,
         specialMessage,
         specialMessageAction: updateSpecialMessage.bind(null, eventId),
-        pabuyaMessage: printEvent.pabuya_message,
+        pabuyaMessage,
         // A sixth moment's gate — the Story row's own (`proActive`, as the viewer is shown it).
         loveStory: withStory ? { story: story!, ownsPro: proActive } : null,
       });
@@ -1742,7 +1756,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
             stored={stored}
             hosts={rsvpHosts}
             parents={parentCards}
-            pabuyaMessage={printEvent.pabuya_message}
+            pabuyaMessage={pabuyaMessage}
             specialMessage={specialMessage}
             facts={factEditors}
             loveStory={loveStoryBook ? { book: loveStoryBook, moments: story ? resolveMoments(story).length : null } : null}

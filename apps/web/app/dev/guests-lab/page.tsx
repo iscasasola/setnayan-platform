@@ -21,6 +21,10 @@
  *                   (its 32 names, roles, sides and table names, read
  *                   2026-10-05) — "Sweetheart Table", "Table 9",
  *                   "Principal Sponsors 1"; &by=seat groups by table
+ *   ?part=screen    Guests › List and Map (Maker PR 4f) — the whole screen on
+ *                   maria-and-jose's roster, with a stand-in shell bar and
+ *                   dock: &gview=map for the map, &q=… to search, &empty=1 for
+ *                   an empty list, &fail=1 for a refused read
  *   &low=1          push the card's ticket row to the bottom of a short phone
  *                   (375×667), where a menu has no room under it
  */
@@ -42,6 +46,8 @@ import type { GuestCardData } from '@/app/dashboard/[eventId]/guests/_components
 import type { GuestRow } from '@/lib/guests';
 import { GuestListMultiselect } from '@/app/dashboard/[eventId]/guests/_components/guest-list-multiselect';
 import type { ArrangeKey } from '@/lib/roster-arrangement';
+import { GuestsScreen } from '@/app/dashboard/[eventId]/guests/_components/guests-screen';
+import { RoleNamesProvider } from '@/app/dashboard/[eventId]/guests/_components/role-names-context';
 
 const EVENT = '00000000-0000-4000-8000-000000000000';
 
@@ -278,6 +284,88 @@ export default async function GuestsLabPage({
     );
   }
 
+  if (part === 'screen') {
+    // maria-and-jose's roster with the replies, invitations and groups a
+    // planning couple has a month out — so every section, pill and count of the
+    // prototype has something real to draw.
+    const RSVP: GuestRow['rsvp_status'][] = ['attending', 'attending', 'attending', 'pending', 'maybe', 'attending', 'declined', 'pending'];
+    const roster = MJ_ROSTER.map(([first, last, role, side], i) =>
+      guest({
+        guest_id: `g-mj-${i}`,
+        public_id: `S89G-LABMJ${String(i).padStart(5, '0')}`,
+        first_name: first,
+        last_name: last,
+        role,
+        side,
+        group_category: 'family',
+        rsvp_status: role === 'bride' || role === 'groom' ? 'attending' : RSVP[i % RSVP.length]!,
+        invitation_sent_at: i % 5 === 4 || i > 26 ? null : '2026-09-20T00:00:00Z',
+        plus_one_count: i === 6 ? 1 : 0,
+        plus_one_allowed: i === 6,
+      }),
+    ).map((g) => (g.invitation_sent_at === null && g.rsvp_status !== 'declined' ? { ...g, rsvp_status: 'pending' as const } : g));
+    const GROUPS: Record<string, string[]> = {
+      'g-mj-24': ['Barkada'],
+      'g-mj-25': ['Barkada'],
+      'g-mj-26': ['Barkada', 'Choir'],
+      'g-mj-27': ['Barkada'],
+      'g-mj-14': ['Choir'],
+    };
+    const tables = [...new Set(MJ_ROSTER.map((r) => r[4]))].map((label, i) => ({ tableId: `t-${i}`, label }));
+    const tableByGuest = Object.fromEntries(MJ_ROSTER.map(([, , , , table], i) => [`g-mj-${i}`, table]).filter((_, i) => i % 3 !== 2));
+    const gview = sp.gview === 'map' ? 'map' : sp.gview === 'share' ? 'share' : 'list';
+    const empty = sp.empty === '1';
+    const fail = sp.fail === '1';
+    return (
+      <RoleNamesProvider names={{}}>
+        <div className="sn-ambient min-h-screen">
+          {/* A stand-in for the shell's sticky top bar (same class, same height). */}
+          <div className="shell-topbar sticky top-0 z-20 flex h-[61px] items-center border-b border-ink/10 bg-white/90 px-4 text-sm font-semibold tracking-[0.18em] text-[#A9834B]" data-hidden="false">
+            SETNAYAN
+          </div>
+          <main className="sn-vt-page">
+            <div data-shell-main>
+              <div className="mx-auto w-full px-4 pb-6 pt-3 sm:px-6 sm:pt-6 lg:px-8">
+                <section className="sn-col max-w-none flex flex-col gap-6" data-lab-screen="">
+                  <GuestsScreen
+                    eventId={EVENT}
+                    gview={gview}
+                    guests={empty || fail ? [] : roster}
+                    measured={!fail}
+                    hasSides
+                    groupsByGuest={GROUPS}
+                    groups={[
+                      { group_id: 'grp-b', label: 'Barkada' },
+                      { group_id: 'grp-c', label: 'Choir' },
+                    ]}
+                    tables={tables}
+                    tableByGuest={tableByGuest}
+                    songsByGuest={{}}
+                    linkedGuestIds={roster.filter((_, i) => i % 2 === 0).map((g) => g.guest_id)}
+                    faceByGuest={{}}
+                    requests={3}
+                    rootLabel="Maria & Jose"
+                    initialQuery={typeof sp.q === 'string' ? sp.q : ''}
+                    setup={<p className="py-6 text-sm text-ink/60">Setup — the shipped Share panel (PR 4d builds the rows).</p>}
+                    empty={
+                      empty || fail ? (
+                        <p className="p-8 text-center text-base text-ink/70" data-guests-empty="">
+                          {fail ? 'We couldn’t load your guest list.' : 'No guests yet.'}
+                        </p>
+                      ) : null
+                    }
+                  />
+                </section>
+              </div>
+            </div>
+          </main>
+          <DockStandIn />
+          <AddGuestSheet eventId={EVENT} defaultSide="both" />
+        </div>
+      </RoleNamesProvider>
+    );
+  }
+
   if (part === 'rows') {
     const roster = MJ_ROSTER.map(([first, last, role, side], i) =>
       guest({
@@ -371,10 +459,7 @@ export default async function GuestsLabPage({
               ))}
             </section>
             {/* Inside the page, where the real Guest list mounts it. */}
-            <AddGuestSheet
-              nameBox={<input className="w-full rounded-lg border border-ink/15 px-3 py-2" placeholder="Type a name…" />}
-              doors={<AddDoors eventId={EVENT} rows />}
-            />
+            <AddGuestSheet eventId={EVENT} defaultSide="both" />
           </div>
         </div>
       </main>

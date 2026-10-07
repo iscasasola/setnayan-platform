@@ -7,6 +7,8 @@ import { savePabuyaMessage } from '../actions';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { useMaker } from '../../launch/_components/maker-context';
+import { HUB_DRAFT_FIELD } from '@/lib/hub-draft';
+import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 
 /**
  * THE COUPLE'S OWN WORDS — five starting points, or their own.
@@ -42,7 +44,8 @@ export function PabuyaMessageEditor({
   const [saved, setSaved] = useState<string | null>(initialMessage);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
-  const studio = useMaker()?.stagesStudio === true;
+  const maker = useMaker();
+  const studio = maker?.stagesStudio === true;
 
   const dirty = (text.trim() || null) !== saved;
   const remaining = PABUYA_MESSAGE_MAX - text.length;
@@ -52,8 +55,10 @@ export function PabuyaMessageEditor({
     const fd = new FormData();
     fd.set('event_id', eventId);
     fd.set('pabuya_message', text);
+    /* ⏳ In the Maker the words wait for ✓ Apply (owner 2026-10-08, "draft 1-3") — into the draft. */
+    if (maker) fd.set(HUB_DRAFT_FIELD, '1');
     start(async () => {
-      const res = await savePabuyaMessage(fd);
+      const res = maker ? await makerSave(() => savePabuyaMessage(fd), requestMakerRefresh) : await savePabuyaMessage(fd);
       if (res.ok) setSaved(text.trim() || null);
       else setError(res.error ?? 'Could not save your message.');
     });

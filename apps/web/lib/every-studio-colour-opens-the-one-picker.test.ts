@@ -64,7 +64,7 @@ test('B · the suggestions: the Mood Board’s five, then what goes with them �
 
 test('C · every Studio colour control mounts the one picker and draws no colour input of its own', () => {
   const field = read(FIELD);
-  assert.match(field, /import\('\.\.\/\.\.\/studio\/mood-board\/_components\/colour-picker-sheet'\)\.then\(\(m\) => m\.ColourPickerSheet\)/, 'StudioColourField does not lazy-load the Mood Board’s picker');
+  assert.match(field, /import\(\s*'\.\.\/\.\.\/studio\/mood-board\/_components\/colour-picker-sheet'\)\.then\(\(m\) => m\.ColourPickerSheet\)/, 'StudioColourField does not lazy-load the Mood Board’s picker');
   assert.match(field, /<ColourPickerSheet[\s\S]{0,200}palette=\{palette\}/, 'StudioColourField does not hand the five to the picker');
   const controls: Array<[string, string, RegExp]> = [
     ['Look › Colours (the five main colours)', `${D}/launch/_components/studio-tools.tsx`, /<StudioColourField\s+data=\{`main-\$\{slot\}`\}[\s\S]{0,300}palette=\{colours\}/],

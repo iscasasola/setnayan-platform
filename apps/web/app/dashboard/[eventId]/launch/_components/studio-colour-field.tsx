@@ -5,9 +5,9 @@ import { useState, type ReactNode } from 'react';
 import { ChevronDown } from 'lucide-react';
 
 /* The ONE picker — the Mood Board's (`colour-picker-sheet.tsx`) — loaded on the first tap, so the
-   Maker's first load stays inside its budget. */
-const ColourPickerSheet = dynamic(
-  () => import('../../studio/mood-board/_components/colour-picker-sheet').then((m) => m.ColourPickerSheet),
+   Maker's first load stays inside its budget; preloaded with the Maker's tools (`maker-tools.tsx`). */
+export const ColourPickerSheet = dynamic(
+  () => import(/* webpackChunkName: "maker-details" */ '../../studio/mood-board/_components/colour-picker-sheet').then((m) => m.ColourPickerSheet),
   { ssr: false },
 );
 

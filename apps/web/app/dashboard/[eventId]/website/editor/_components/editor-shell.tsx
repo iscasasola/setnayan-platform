@@ -23,6 +23,7 @@ import {
   type MakerSelection,
 } from '../../../launch/_components/maker-context';
 import { MAKER_PLAY_SCENE_EVENT } from '../../../launch/_components/maker-play-menu';
+import { MAKER_PART_OPS_EVENT, type MakerPartRaw } from '../../../launch/_components/maker-part-ops';
 import { isMakerShellPage, type MakerShellPage } from '../../../launch/_components/maker-bar';
 import { HubDraftField } from '../../_components/hub-draft-field';
 import { SceneTemplatePicker } from './scene-template-picker';
@@ -96,7 +97,7 @@ import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
 import { InspectorTabs } from './inspector-kit';
 import { SCENE_TABS, SceneArrangeTab, SceneLayoutRow, SceneParts, type SceneTab } from './scene-inspector';
-import { FixedSceneStyleRow, PaletteLookCanvasRow, PostEventScenePanel, PostEventWordsField, SceneStyleCanvasRow } from './scene-styles-lazy';
+import { FixedSceneStyleRow, PaletteLookCanvasRow, PostEventScenePanel, PostEventWordsField, SceneAlignRow, SceneStyleCanvasRow } from './scene-styles-lazy';
 import { postEventStatusWord, postEventTileLabel, postEventTileNote, type PostEventTile } from './post-event-tile-words';
 import { isFixedStyleScene, type FixedSceneStyles } from '@/lib/fixed-scene-styles';
 import { postEventSetElements } from '@/lib/post-event-draft';
@@ -1807,6 +1808,15 @@ export function MakerWork({
   const lastShownType = lastShown ? sceneById.get(lastShown)?.type : undefined;
   lastSceneKeyRef.current = lastShownType ? `w:${lastShownType}` : null;
   const afterLastShown = lastShown ? (fullOrder[fullOrder.indexOf(lastShown) + 1] ?? null) : null;
+  /* ＋ ↕ 🗑 THE NEW MAKER'S PART EDITS (`add-part-sheet.tsx`, lazy) ask THIS work area for its
+     own writes — the eye, the one-save move, Remove for good, "+ Add a scene" (`maker-part-ops.ts`). */
+  const partOps = useRef<MakerPartRaw | null>(null);
+  partOps.current = { eventId, stage, list, fullOrder, afterLastShown, scenes, move, eyeWrite, sceneRemovers, navigator, elementEditing, addScene, postEventPresets, sceneFacts, onPickTemplate };
+  useEffect(() => {
+    const ask = (e: Event) => (e as CustomEvent<(raw: MakerPartRaw) => void>).detail?.(partOps.current!);
+    window.addEventListener(MAKER_PART_OPS_EVENT, ask);
+    return () => window.removeEventListener(MAKER_PART_OPS_EVENT, ask);
+  }, []);
   /* Each tile's canvas marker: its own key, or a Post Event scene's anchor. */
   const markerOf = (t: (typeof list.shown)[number]): string | null => (t.kind === 'post-event' ? t.anchor : t.key);
   tileKeysRef.current = list.shown.flatMap((t) => {
@@ -1961,6 +1971,11 @@ export function MakerWork({
           onUp={() => move(id, swapsForDrop(fullOrder, id, shownSceneIds[at - 1] ?? null))}
           onDown={() => move(id, swapsForDrop(fullOrder, id, shownSceneIds[at + 2] ?? afterLastShown))}
           removeForm={sceneRemovers[id]}
+          alignRow={
+            maker?.stagesStudio && elementEditing && !HUB_ELEMENT_EXCLUDED_WIDGETS.includes(type) ? (
+              <SceneAlignRow eventId={eventId} widgetType={type} canvas={canvas} draftAction={elementEditing.draftAction} />
+            ) : null
+          }
         />
       ),
       ownScene,

@@ -117,6 +117,7 @@ export function SceneArrangeTab({
   onUp,
   onDown,
   removeForm,
+  alignRow = null,
 }: {
   mode: 'auto' | 'shown' | 'hidden';
   isVisible: boolean;
@@ -132,6 +133,8 @@ export function SceneArrangeTab({
   onDown: () => void;
   /** A scene of their own: its confirm-first Remove (a server form). */
   removeForm?: React.ReactNode;
+  /** ⇔ The new Maker's Alignment (its Text is three controls) — `SceneAlignRow`, lazy. */
+  alignRow?: React.ReactNode;
 }) {
   return (
     <div data-scene-tab="arrange" aria-busy={pending}>
@@ -184,6 +187,7 @@ export function SceneArrangeTab({
         </IButton>
       </IRow>
       <IHint>Or drag a scene in the list. Same thing.</IHint>
+      {alignRow}
       {removeForm ? <div className="py-1">{removeForm}</div> : null}
     </div>
   );

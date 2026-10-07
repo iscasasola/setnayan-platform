@@ -2,11 +2,12 @@
 
 import { makerSave } from '@/lib/maker-refresh';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState, useTransition } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, useTransition } from 'react';
 import { Check, Play } from 'lucide-react';
 import { hubDraftAction } from '../../website/hub-draft-actions';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
-import { REVEAL_STAGE_CHOICES, type RevealStage } from '@/lib/reveal-stages';
+import { REVEAL_STAGE_CHOICES, revealStagesWith, type RevealStage } from '@/lib/reveal-stages';
+import { REVEAL_EXTRA_LABEL, revealEffectsWithExtra, revealExtraOf, revealExtrasFor } from '@/lib/reveal-extras';
 import {
   revealTuneKnobsFor,
   type RevealEffects,
@@ -17,6 +18,21 @@ import { InfoTip } from '@/app/_components/info-tip';
 import { useMaker } from './maker-context';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
+import { IRow, ISection, ISeg, ISegmented } from '../../website/editor/_components/inspector-kit';
+import { PickMenu } from '../../website/editor/_components/pick-menu';
+
+/**
+ * 🎭 THE REVEAL AS A PART (the new Maker's Stages side, plan PR 3 — owner
+ * 2026-10-06: *"Reveal must be placed as the first scenes for the Save the
+ * Date, Inviting and The Day. So we can say if it will show or be hidden"* ·
+ * *"reveal only stays on top of the cover and the next slide will not have the
+ * reveal anymore"*). The Stages panel wraps the SAME picker the work area
+ * registered (`MakerLookPages.reveal`) in this context, naming the stage it is
+ * the first part of; the picker then draws its part's tools — its kinds (the
+ * openings) as the layouts, Extras ▾ and Arrange › Hidden on this stage — with
+ * the SAME draft saves. Null: the picker as it always was.
+ */
+export const MakerRevealStageContext = createContext<RevealStage | null>(null);
 
 /**
  * THE REVEAL — chosen once, in the Maker (Phase 6).
@@ -114,6 +130,8 @@ export function MakerRevealPicker({
   storeShell: boolean;
 }) {
   const router = useRouter();
+  /* 🎭 The Stages panel's Reveal part — the stage it is the first part of. */
+  const onStage = useContext(MakerRevealStageContext);
   const [, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   /* ⚡ A PICK SHOWS AT ONCE (owner 2026-09-29: *"make sure 100% that there is
@@ -199,8 +217,7 @@ export function MakerRevealPicker({
     });
   };
 
-  const toggleStage = (s: RevealStage) =>
-    setStages(REVEAL_STAGE_CHOICES.filter((x) => (x === s ? !stages.includes(s) : stages.includes(x))));
+  const toggleStage = (s: RevealStage) => setStages(revealStagesWith(stages, s, !stages.includes(s)));
 
   const replay = () => {
     /* The Reveal's page (the Maker's body) is the stage it plays on: playing it
@@ -288,6 +305,68 @@ export function MakerRevealPicker({
       {error}
     </p>
   ) : null;
+  /* 🎭 The Stages panel's Reveal part: its kinds · Extras ▾ · Arrange › Hidden on this stage. */
+  if (onStage) {
+    const shownHere = stages.includes(onStage);
+    const extras = effective !== 'none' ? revealExtrasFor(effective) : [];
+    return (
+      <section className="flex flex-col px-1" data-maker-reveal-part={onStage}>
+        {openings.length > 0 ? (
+          <div
+            role="radiogroup"
+            aria-label="Kind"
+            data-style-carousel=""
+            data-maker-reveal-kinds=""
+            className="flex gap-2 overflow-x-auto pb-2 pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
+            {openings.map((o) => {
+              const on = effective === o.id;
+              const mark = makerProMark({ owns: ownsPro, storeShell });
+              return (
+                <button
+                  key={o.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  data-maker-reveal-kind={o.id}
+                  onClick={() => choose(o.id)}
+                  className={`sn-press inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-semibold transition-colors duration-sn-control ease-sn ${
+                    on ? 'bg-ink text-cream' : 'bg-ink/[0.06] text-ink/80'
+                  }`}
+                >
+                  {o.label}
+                  {mark ? <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Hub Pro')} tone={on ? 'current' : 'auto'} /> : null}
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
+        {extras.length > 1 ? (
+          <IRow label="Extras" data="reveal-extras">
+            <PickMenu
+              label="Extras"
+              dataAttr="data-maker-reveal-extra"
+              value={revealExtraOf(effects, effective)}
+              options={extras.map((x) => ({ key: x, label: REVEAL_EXTRA_LABEL[x] }))}
+              onPick={(k) => setEffects(revealEffectsWithExtra(effects, effective, k as (typeof extras)[number]))}
+            />
+          </IRow>
+        ) : null}
+        <ISection>Arrange</ISection>
+        <IRow label="This stage" data="reveal-show">
+          <ISegmented label="Show or hide the reveal on this stage">
+            <ISeg on={shownHere} onClick={() => setStages(revealStagesWith(stages, onStage, true))} data="shown">
+              Shown
+            </ISeg>
+            <ISeg on={!shownHere} onClick={() => setStages(revealStagesWith(stages, onStage, false))} data="hidden">
+              Hidden
+            </ISeg>
+          </ISegmented>
+        </IRow>
+        {failed}
+      </section>
+    );
+  }
   /* 🧩 The navigator's part: the openings alone. */
   if (part === 'options') {
     return (

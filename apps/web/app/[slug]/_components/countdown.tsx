@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 
 import { countdownReading, countdownTargetMs, type CountdownReading } from '@/lib/countdown-target';
 import { sceneCardClass, sceneCardTileClass } from '@/lib/scene-card-look';
-import { CountdownBigNumber, CountdownCalendar, CountdownCircle, CountdownLine } from './countdown-styles';
+import { CountdownBigNumber, CountdownCalendar, CountdownCircle, CountdownLine, CountdownOffset } from './countdown-styles';
 
 /*
  * ✉️ 2026-08-24 (AP-3) — THE INVITATION STOPPED READING LIKE A RECEIPT.
@@ -123,6 +123,9 @@ export function CountdownWidget({ targetIso, timeZone, bare = false, sceneStyle 
     w.eventWord === 'wedding' ? <>Until we say &lsquo;I do&rsquo;</> : <>Until the day</>;
   if (sceneStyle === 'big-number') {
     return <CountdownBigNumber label={label} remaining={remaining} targetIso={targetIso} bare={bare} />;
+  }
+  if (sceneStyle === 'offset') {
+    return <CountdownOffset label={label} remaining={remaining} bare={bare} />;
   }
   if (sceneStyle === 'line') {
     return <CountdownLine label={label} remaining={remaining} bare={bare} />;

@@ -161,3 +161,18 @@ export function CountdownCircle({ label, remaining, bare = false }: { label: Rea
     </section>
   );
 }
+
+/** The prototype's countdown preset 2: the days large at the left, the label and "days to go" beside them. */
+export function CountdownOffset({ label, remaining, bare = false }: { label: ReactNode; remaining: CountdownReading | null; bare?: boolean }) {
+  return (
+    <section data-scene-card={bare ? 'bare' : 'own'} data-scene-style="offset" className={sceneCardClass('countdown', bare)}>
+      <div className="flex items-center gap-5">
+        <span className="shrink-0 font-pahina text-[4.4rem] font-light leading-none tabular-nums text-ink">{remaining ? String(remaining.days) : '––'}</span>
+        <span className="min-w-0 text-left">
+          <span className="block font-sans text-[11px] uppercase tracking-[0.2em] text-terracotta">{label}</span>
+          <span className="mt-1 block font-pahina text-2xl text-terracotta">{remaining?.days === 1 ? 'day to go' : 'days to go'}</span>
+        </span>
+      </div>
+    </section>
+  );
+}

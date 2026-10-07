@@ -60,6 +60,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   }
   /* ⏱ A `lab_slow` cookie: the canvas page takes as long as production's to arrive. */
   if ((await cookies()).get('lab_slow')?.value === '1') await new Promise((r) => setTimeout(r, 2500));
+  const labPhoto = (await cookies()).get('lab_photo')?.value === '1';
   const stage: HubStage | null = (HUB_STAGES as readonly string[]).includes(phase) ? (phase as HubStage) : null;
   const rowOf = (type: string) => ({ widget_type: type, config_json: { canvas: drafted[type] ?? {} } });
   const mark = (key: string) => <span hidden data-maker-section={key} />;
@@ -109,20 +110,33 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
     );
   }
   return (
-    <main className={`min-h-dvh text-center text-ink ${ground ? 'relative' : 'bg-[#FBF9F5]'}`} data-lab-phase={phase}>
+    <main className={`relative min-h-dvh text-center text-ink ${ground || labPhoto ? '' : 'bg-[#FBF9F5]'}`} data-lab-phase={phase}>
       {ground}
+      {/* 🖼 a `lab_photo=1` cookie: a photo behind the page (the side-by-side's real-looking content) — a public ready-made scene. */}
+      {!ground && labPhoto ? (
+        <div data-guest-ground="" aria-hidden className="pointer-events-none fixed inset-0 -z-10">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/std/backgrounds/golden-hour.webp" alt="" className="h-full w-full object-cover" />
+          <div className="absolute inset-0 bg-[#FBF9F5]/60" />
+        </div>
+      ) : null}
       <div className="flex justify-between border-b border-ink/10 px-4 py-2.5 text-[9.5px] font-semibold uppercase tracking-[0.3em] text-gild">
         <span>Setnayan</span>
         <span>{phase === 'save_the_date' ? 'Save the Date' : phase === 'event' ? 'The Day' : phase === 'editorial' ? 'Post Event' : 'Invitation'}</span>
       </div>
-      <section data-maker-section="f:hero" className="px-4 pb-10 pt-6">
-        <p className="text-[9px] font-semibold uppercase tracking-[0.26em] text-ink/55">Together with their families</p>
-        <p className="mx-auto mt-3 flex h-16 w-16 items-center justify-center rounded-full border border-gild font-serif text-lg italic text-terracotta-700">M &amp; J</p>
-        <p className="mt-2 font-serif text-[30px] leading-none">Maria</p>
-        <p className="font-serif text-lg italic text-gild">and</p>
-        <p className="font-serif text-[30px] leading-none">Jose</p>
+      {/* 🧭 The hero's parts carry their `data-el`, as the real hero does — so a tap picks Names, Date, Place. */}
+      {mark('f:hero')}
+      <section className="px-4 pb-10 pt-6">
+        <p data-el="eyebrow" className="text-[9px] font-semibold uppercase tracking-[0.26em] text-ink/55">Together with their families</p>
+        <p data-el="mark" className="mx-auto mt-3 flex h-16 w-16 items-center justify-center rounded-full border border-gild font-serif text-lg italic text-terracotta-700">M &amp; J</p>
+        <div data-el="names">
+          <p className="mt-2 font-serif text-[30px] leading-none">Maria</p>
+          <p className="font-serif text-lg italic text-gild">and</p>
+          <p className="font-serif text-[30px] leading-none">Jose</p>
+        </div>
         <p className="mt-2 text-[11px] text-ink/70">invite you to celebrate their wedding</p>
-        <p className="mt-1 font-serif text-lg">December 12, 2026</p>
+        <p data-el="date" className="mt-1 font-serif text-lg">Saturday, December 12, 2026</p>
+        <p data-el="venue" className="mt-1 text-[12px] text-ink/60">Quezon City · Seda Vertis North</p>
       </section>
       <section className="border-t border-ink/10 px-4 py-8">
         <p className="font-serif text-lg">Personal greeting</p>
@@ -154,6 +168,33 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
             sceneStyle={sceneStyleOfRow(rowOf('special_message'), stage, 'wedding')}
           />
         </div>
+        {/* 👤 The Invitation's "Guest's look" stand-in — each guest's own outfit (the Maker's What to wear part). */}
+        {mark('f:look')}
+        <section data-lab-scene="look" className="border-t border-ink/10 px-4 py-8 text-left">
+          <p className="pahina-eyebrow">
+            <span>What to wear</span>
+          </p>
+          <p className="mt-2 font-serif text-2xl">Your guest’s role, colours and outfit</p>
+          <p className="mt-1 text-[11px] uppercase tracking-[0.2em] text-ink/55">Each guest sees their own look, from your Mood Board</p>
+        </section>
+        {/* 🗓 The day's moments — a scene of ROWS (its Build in carries Rows ▾). */}
+        {mark('w:schedule')}
+        <section data-lab-scene="schedule" className="border-t border-ink/10 px-4 py-8 text-left">
+          <p className="pahina-eyebrow">
+            <span>The day</span>
+          </p>
+          {[
+            ['2:30 PM', 'Guests arrive · Santuario de San Antonio'],
+            ['3:00 PM', 'Ceremony'],
+            ['5:30 PM', 'Cocktails · the garden'],
+            ['7:00 PM', 'Dinner & dancing'],
+          ].map(([t, w]) => (
+            <p key={t} className="mt-3 flex gap-3 border-t border-ink/10 pt-3 text-sm">
+              <b className="w-20 shrink-0 font-serif text-base font-medium">{t}</b>
+              <span className="text-ink/70">{w}</span>
+            </p>
+          ))}
+        </section>
         {mark('w:dress_code')}
         {/* 🎨 Dress code's palette LOOK (`canvas.palette`), read through the real
             resolver; the lab stands in for the widget's drawing with its name. */}

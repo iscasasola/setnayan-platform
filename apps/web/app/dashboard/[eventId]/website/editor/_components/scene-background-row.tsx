@@ -52,6 +52,8 @@ import { IButton, IHint, IRow, ISection, ISeg, ISegmented } from './inspector-ki
 import { backgroundPickRedrawsBox } from './element-preview';
 import { PickMenu } from './pick-menu';
 import { sceneBgPreviewMessage, type SceneBgPreviewMessage } from './scene-bg-preview-message';
+import { useMaker } from '../../../launch/_components/maker-context';
+import { StageBackground, type StageBgChoice } from '../../../launch/_components/stage-panel/stage-background';
 
 /**
  * 🖼 THE SCENE'S FORMAT → BACKGROUND, as the approved prototype draws it
@@ -186,6 +188,8 @@ export function SceneBackgroundRow({
   storeShell?: boolean;
 }) {
   const router = useRouter();
+  /* 🧭 The new Maker draws these same saves as the prototype's three rows (`stage-panel/stage-background.tsx`). */
+  const ss = useMaker()?.stagesStudio === true;
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [asking, setAsking] = useState(false);
@@ -402,6 +406,221 @@ export function SceneBackgroundRow({
   const [opacityDraft, setOpacityDraft] = useState<number | null>(null);
   const opacity = opacityDraft ?? shown.opacity ?? (bg?.kind === 'frost' ? 50 : 86);
 
+  /* The media rows — drawn under the choices here, or in the new Maker's Gallery and Upload sheets. */
+  const galleryNode = (
+    <>
+          <IRow label="Media" wrap data="scene-uploads">
+            <div className="flex flex-1 flex-wrap gap-2" role="group" aria-label="Your pictures">
+              {videoChoice ? (
+                <ClipTile
+                  still={videoChoice.poster ? mediaUrl(videoChoice.poster) : null}
+                  on={bg?.kind === 'snippet' && bg.media === videoChoice.ref}
+                  onPick={() => put(clipBg(videoChoice.ref, videoChoice.poster))}
+                />
+              ) : null}
+              {uploads.map((u) =>
+                u.kind === 'snippet' ? (
+                  <ClipTile
+                    key={u.ref}
+                    still={u.posterUrl ?? null}
+                    on={bg?.kind === 'snippet' && bg.media === u.ref}
+                    onPick={() => put(clipBg(u.ref, u.poster))}
+                  />
+                ) : (
+                  <PhotoTile key={u.ref} url={u.url} on={bg?.kind === 'photo' && bg.media === u.ref} onPick={() => put(photoBg(u.ref))} />
+                ),
+              )}
+              {photoChoices.map((p) => (
+                <PhotoTile key={p.ref} url={p.url} on={bg?.kind === 'photo' && bg.media === p.ref} onPick={() => put(photoBg(p.ref))} />
+              ))}
+            </div>
+          </IRow>
+          {bg?.kind === 'photo' || bg?.kind === 'snippet' ? (
+            /* 🔓 Taking a photo or clip OFF is never gated — back to the Event Hub's own look. */
+            <IRow data="scene-media-off">
+              <IButton data="media-off" disabled={pending} onClick={() => put({}, false)}>
+                {bg.kind === 'snippet' ? 'Remove this scene’s video' : 'Remove this scene’s photo'}
+              </IButton>
+            </IRow>
+          ) : null}
+          {/* 🖼 READY-MADE (owner 2026-09-29, answer 3: *"yes"*) — the Save the
+              Date's ready-made scenes, after the couple's own. */}
+          <IRow label="Ready-made" wrap data="scene-library">
+            <div className="flex flex-1 flex-wrap gap-2" role="group" aria-label="Ready-made backgrounds">
+              {STD_REALISTIC_BACKGROUNDS.map((b) => (
+                <PhotoTile key={b.id} url={b.src} label={b.label} on={bg?.kind === 'photo' && bg.media === b.src} onPick={() => put(photoBg(b.src))} />
+              ))}
+            </div>
+          </IRow>
+          {bg?.kind === 'photo' ? (
+            <IRow label="Motion" data="scene-media-motion">
+              <PickMenu
+                label="How the photo moves"
+                value={shown.mediaMotion ?? 'still'}
+                options={HUB_MEDIA_MOTIONS.map((m) => ({ key: m, label: HUB_MEDIA_MOTION_LABEL[m] }))}
+                onPick={(k) => putKeys({ mediaMotion: k === 'parallax' ? 'parallax' : undefined })}
+                dataAttr="data-scene-media-motion"
+              />
+              <InfoTip label="" ariaLabel="About Motion" align="end">
+                Parallax drifts the photo gently as guests scroll — the same drift as your hero. Guests who turn
+                motion off see it still.
+              </InfoTip>
+            </IRow>
+          ) : bg?.kind === 'snippet' ? (
+            <IRow label="Clip" data="scene-media-clip">
+              <p className="flex-1 text-[12.5px] text-ink/70">Plays silently, on a loop.</p>
+              <InfoTip label="" ariaLabel="About the clip" align="end">
+                Up to {MAKER_MAX_CLIP_SECONDS} seconds. It plays only while on screen.
+              </InfoTip>
+            </IRow>
+          ) : null}
+          {bg?.kind === 'photo' ? (
+            <IRow label="In frame" wrap data="scene-crop">
+              <div
+                className="relative h-[72px] w-[96px] shrink-0 overflow-hidden rounded-md border border-ink/15 bg-ink/5 bg-cover"
+                style={
+                  mediaUrl(bg.media)
+                    ? {
+                        backgroundImage: `url("${mediaUrl(bg.media)}")`,
+                        backgroundPosition: focalToObjectPosition(shown.focal ?? HUB_DEFAULT_FOCAL),
+                      }
+                    : undefined
+                }
+              >
+                <div className="absolute inset-0 grid grid-cols-3 grid-rows-3">
+                  {HUB_FOCAL_POINTS.map((f) => (
+                    <button
+                      key={f}
+                      type="button"
+                      aria-pressed={(shown.focal ?? HUB_DEFAULT_FOCAL) === f}
+                      aria-label={`Keep area ${f} of 9 in frame`}
+                      onClick={() => putKeys({ focal: f })}
+                      className={`border border-white/35 ${(shown.focal ?? HUB_DEFAULT_FOCAL) === f ? 'bg-white/70' : 'hover:bg-white/25'}`}
+                    />
+                  ))}
+                </div>
+              </div>
+              <ISegmented label="How close">
+                {HUB_ZOOMS.map((z) => (
+                  <ISeg key={z} on={(shown.zoom ?? HUB_DEFAULT_ZOOM) === z} onClick={() => putKeys({ zoom: z })}>
+                    {z === 100 ? 'As it is' : z === 120 ? 'Closer' : 'Closest'}
+                  </ISeg>
+                ))}
+              </ISegmented>
+            </IRow>
+          ) : null}
+    </>
+  );
+  const uploadNode = (
+          <div className="border-b border-ink/[0.07] py-2.5" data-inspector-row="scene-upload">
+            <FileUpload
+              bucket="media"
+              pathPrefix={sceneBackgroundPathPrefix(eventId)}
+              multiple={false}
+              maxSizeMB={100}
+              acceptedTypes={[...IMAGE_TYPES, ...VIDEO_TYPES]}
+              compressImage
+              compressVideo
+              videoCompressProfile="maker"
+              videoSilent
+              maxVideoDurationS={MAKER_MAX_CLIP_SECONDS}
+              validateFile={makeMakerVideoDurationValidator()}
+              onFilePicked={onFilePicked}
+              onChange={onUploaded}
+              disabled={pending}
+              label="Upload a photo or clip"
+            />
+            {reading ? <p className="pt-1 text-[12px] text-ink/60">Reading your clip…</p> : null}
+            {/* 💾 The event's 100 MB of uploads, beside the upload that spends it
+                (DECISION_LOG 2026-09-25: "with a visible meter"). */}
+            {typeof mediaUsedBytes === 'number' ? (
+              <MakerMediaMeter usedBytes={mediaUsedBytes} className="pt-2" />
+            ) : null}
+          </div>
+  );
+
+  if (ss) {
+    const scopeNow = sceneBackgroundScope(scenes, widgetType, shown);
+    const value: StageBgChoice = !bg || scopeNow === 'every' ? 'hub' : (current ?? 'hub');
+    const photoWords =
+      bg?.kind === 'photo'
+        ? (STD_REALISTIC_BACKGROUNDS.find((b) => b.src === bg.media)?.label ?? 'Your photo')
+        : bg?.kind === 'snippet'
+          ? 'Your video'
+          : 'Your pictures';
+    return (
+      <StageBackground
+        value={value}
+        pending={pending}
+        offerMedia={offerMedia}
+        mediaMark={Boolean(mediaMark)}
+        onPick={(c) => {
+          if (c === 'hub') {
+            const next = hubBackgroundCanvasFor(scenes, widgetType, latest.current);
+            latest.current = next;
+            setShown(next);
+            save({ widgets: { [widgetType]: { canvas: next } } });
+            return;
+          }
+          pick(c);
+          setAsking(false);
+        }}
+        shape={value === 'hub' || value === 'none' ? null : (shown.shape ?? HUB_DEFAULT_SCENE_SHAPE)}
+        onShape={(k) => putKeys({ shape: k === 'framed' ? undefined : k })}
+        colours={themeColours}
+        colour={value === 'hub' ? null : tint}
+        onColour={(hex) => {
+          const kind: HubBackgroundKind = current && TINTED.includes(current) ? (bg!.kind as HubBackgroundKind) : 'color';
+          put({ kind, color: hex.slice(0, 7), opacity: shown.opacity }, false);
+        }}
+        customColour={
+          <ColourWell
+            value={value === 'hub' ? null : tint}
+            shown={tint}
+            what="this scene"
+            themeColours={themeColours}
+            usedColours={usedColours}
+            savedKey={`sn-maker-colours:${eventId}`}
+            onPick={(hex) => {
+              const kind: HubBackgroundKind = current && TINTED.includes(current) ? (bg!.kind as HubBackgroundKind) : 'color';
+              put({ kind, color: hex.slice(0, 7), opacity: shown.opacity }, false);
+            }}
+            data="scene"
+          />
+        }
+        opacityRow={
+          current === 'glass' || current === 'frost' ? (
+            <IRow label="Opacity" data="scene-opacity">
+              <input
+                type="range"
+                min={HUB_GLASS_OPACITY_MIN}
+                max={HUB_GLASS_OPACITY_MAX}
+                step={HUB_GLASS_OPACITY_STEP}
+                value={opacity}
+                aria-label="Opacity"
+                data-scene-opacity=""
+                onChange={(e) => {
+                  const n = Number(e.target.value);
+                  setOpacityDraft(n);
+                  if (opacityTimer.current) clearTimeout(opacityTimer.current);
+                  opacityTimer.current = setTimeout(() => {
+                    setOpacityDraft(null);
+                    put({ kind: bg!.kind as HubBackgroundKind, color: tint, opacity: n }, false);
+                  }, 350);
+                }}
+                className="h-11 min-w-0 flex-1 accent-ink"
+              />
+              <span className="w-10 text-right text-[12px] tabular-nums text-ink/70">{opacity}%</span>
+            </IRow>
+          ) : null
+        }
+        galleryWords={photoWords}
+        gallery={galleryNode}
+        upload={uploadNode}
+      />
+    );
+  }
+
   return (
     <section data-scene-background-row={widgetType} aria-busy={pending}>
       <ISection>Background</ISection>
@@ -561,131 +780,8 @@ export function SceneBackgroundRow({
 
       {showMedia ? (
         <>
-          <IRow label="Media" wrap data="scene-uploads">
-            <div className="flex flex-1 flex-wrap gap-2" role="group" aria-label="Your pictures">
-              {videoChoice ? (
-                <ClipTile
-                  still={videoChoice.poster ? mediaUrl(videoChoice.poster) : null}
-                  on={bg?.kind === 'snippet' && bg.media === videoChoice.ref}
-                  onPick={() => put(clipBg(videoChoice.ref, videoChoice.poster))}
-                />
-              ) : null}
-              {uploads.map((u) =>
-                u.kind === 'snippet' ? (
-                  <ClipTile
-                    key={u.ref}
-                    still={u.posterUrl ?? null}
-                    on={bg?.kind === 'snippet' && bg.media === u.ref}
-                    onPick={() => put(clipBg(u.ref, u.poster))}
-                  />
-                ) : (
-                  <PhotoTile key={u.ref} url={u.url} on={bg?.kind === 'photo' && bg.media === u.ref} onPick={() => put(photoBg(u.ref))} />
-                ),
-              )}
-              {photoChoices.map((p) => (
-                <PhotoTile key={p.ref} url={p.url} on={bg?.kind === 'photo' && bg.media === p.ref} onPick={() => put(photoBg(p.ref))} />
-              ))}
-            </div>
-          </IRow>
-          {bg?.kind === 'photo' || bg?.kind === 'snippet' ? (
-            /* 🔓 Taking a photo or clip OFF is never gated — back to the Event Hub's own look. */
-            <IRow data="scene-media-off">
-              <IButton data="media-off" disabled={pending} onClick={() => put({}, false)}>
-                {bg.kind === 'snippet' ? 'Remove this scene’s video' : 'Remove this scene’s photo'}
-              </IButton>
-            </IRow>
-          ) : null}
-          {/* 🖼 READY-MADE (owner 2026-09-29, answer 3: *"yes"*) — the Save the
-              Date's ready-made scenes, after the couple's own. */}
-          <IRow label="Ready-made" wrap data="scene-library">
-            <div className="flex flex-1 flex-wrap gap-2" role="group" aria-label="Ready-made backgrounds">
-              {STD_REALISTIC_BACKGROUNDS.map((b) => (
-                <PhotoTile key={b.id} url={b.src} label={b.label} on={bg?.kind === 'photo' && bg.media === b.src} onPick={() => put(photoBg(b.src))} />
-              ))}
-            </div>
-          </IRow>
-          <div className="border-b border-ink/[0.07] py-2.5" data-inspector-row="scene-upload">
-            <FileUpload
-              bucket="media"
-              pathPrefix={sceneBackgroundPathPrefix(eventId)}
-              multiple={false}
-              maxSizeMB={100}
-              acceptedTypes={[...IMAGE_TYPES, ...VIDEO_TYPES]}
-              compressImage
-              compressVideo
-              videoCompressProfile="maker"
-              videoSilent
-              maxVideoDurationS={MAKER_MAX_CLIP_SECONDS}
-              validateFile={makeMakerVideoDurationValidator()}
-              onFilePicked={onFilePicked}
-              onChange={onUploaded}
-              disabled={pending}
-              label="Upload a photo or clip"
-            />
-            {reading ? <p className="pt-1 text-[12px] text-ink/60">Reading your clip…</p> : null}
-            {/* 💾 The event's 100 MB of uploads, beside the upload that spends it
-                (DECISION_LOG 2026-09-25: "with a visible meter"). */}
-            {typeof mediaUsedBytes === 'number' ? (
-              <MakerMediaMeter usedBytes={mediaUsedBytes} className="pt-2" />
-            ) : null}
-          </div>
-          {bg?.kind === 'photo' ? (
-            <IRow label="Motion" data="scene-media-motion">
-              <PickMenu
-                label="How the photo moves"
-                value={shown.mediaMotion ?? 'still'}
-                options={HUB_MEDIA_MOTIONS.map((m) => ({ key: m, label: HUB_MEDIA_MOTION_LABEL[m] }))}
-                onPick={(k) => putKeys({ mediaMotion: k === 'parallax' ? 'parallax' : undefined })}
-                dataAttr="data-scene-media-motion"
-              />
-              <InfoTip label="" ariaLabel="About Motion" align="end">
-                Parallax drifts the photo gently as guests scroll — the same drift as your hero. Guests who turn
-                motion off see it still.
-              </InfoTip>
-            </IRow>
-          ) : bg?.kind === 'snippet' ? (
-            <IRow label="Clip" data="scene-media-clip">
-              <p className="flex-1 text-[12.5px] text-ink/70">Plays silently, on a loop.</p>
-              <InfoTip label="" ariaLabel="About the clip" align="end">
-                Up to {MAKER_MAX_CLIP_SECONDS} seconds. It plays only while on screen.
-              </InfoTip>
-            </IRow>
-          ) : null}
-          {bg?.kind === 'photo' ? (
-            <IRow label="In frame" wrap data="scene-crop">
-              <div
-                className="relative h-[72px] w-[96px] shrink-0 overflow-hidden rounded-md border border-ink/15 bg-ink/5 bg-cover"
-                style={
-                  mediaUrl(bg.media)
-                    ? {
-                        backgroundImage: `url("${mediaUrl(bg.media)}")`,
-                        backgroundPosition: focalToObjectPosition(shown.focal ?? HUB_DEFAULT_FOCAL),
-                      }
-                    : undefined
-                }
-              >
-                <div className="absolute inset-0 grid grid-cols-3 grid-rows-3">
-                  {HUB_FOCAL_POINTS.map((f) => (
-                    <button
-                      key={f}
-                      type="button"
-                      aria-pressed={(shown.focal ?? HUB_DEFAULT_FOCAL) === f}
-                      aria-label={`Keep area ${f} of 9 in frame`}
-                      onClick={() => putKeys({ focal: f })}
-                      className={`border border-white/35 ${(shown.focal ?? HUB_DEFAULT_FOCAL) === f ? 'bg-white/70' : 'hover:bg-white/25'}`}
-                    />
-                  ))}
-                </div>
-              </div>
-              <ISegmented label="How close">
-                {HUB_ZOOMS.map((z) => (
-                  <ISeg key={z} on={(shown.zoom ?? HUB_DEFAULT_ZOOM) === z} onClick={() => putKeys({ zoom: z })}>
-                    {z === 100 ? 'As it is' : z === 120 ? 'Closer' : 'Closest'}
-                  </ISeg>
-                ))}
-              </ISegmented>
-            </IRow>
-          ) : null}
+          {galleryNode}
+          {uploadNode}
         </>
       ) : null}
 

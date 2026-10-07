@@ -283,7 +283,9 @@ test('Love Story: Our Love Story is the body, and a moment is added and edited I
   assert.match(page, /inMaker \? null : <MiniTour/, 'no second tour pops up inside the Maker');
   // Inside the Maker the moment opens in the page — the sheet, its portal and its trap are the standalone page's only.
   const sheet = read(`${S}/_components/moment-sheet.tsx`);
-  const inPlace = sheet.indexOf('{open && inMaker ? (');
+  /* 🧭 The new Maker's Studio draws its add/edit form on the Schedule's sheet (owner 2026-10-08, studio
+     round 3 — held by studio-round-3-follows-the-owner.test.ts); every other Maker keeps it in place. */
+  const inPlace = sheet.indexOf(') : open && inMaker ? (');
   const portal = sheet.indexOf('createPortal(', inPlace);
   assert.ok(inPlace > 0 && portal > inPlace, 'the in-place branch must come before the portal');
   assert.match(sheet.slice(inPlace, portal), /data-moment-in-place=""/);

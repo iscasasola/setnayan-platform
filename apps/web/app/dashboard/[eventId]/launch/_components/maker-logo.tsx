@@ -1000,9 +1000,10 @@ function LayerTools({
           {layer.kind === 'image' ? (
             <Chip on={layer.color === null} label="Its own" onClick={() => onChange({ color: null })} />
           ) : null}
-          {logoColourChoices(studio, layer.color).map((c) => {
+          {/* The shipped editor (no Studio): the logo inks, as before. */}
+          {logoColourChoices(null, layer.color).map((c) => {
             const on = layer.color?.toUpperCase() === c.toUpperCase();
-            const slot = studio ? studio.five.findIndex((f) => f.toUpperCase() === c.toUpperCase()) : -1;
+            const slot = -1;
             return (
             <button
               key={c}

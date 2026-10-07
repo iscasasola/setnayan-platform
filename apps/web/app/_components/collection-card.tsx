@@ -38,7 +38,7 @@ import { formatCount } from '@/lib/format-number';
 
 /**
  * A kicker chip. A plain string renders in the house mono chip (the type
- * badge — "KASAL"); an element renders as given (Planning's stance chip).
+ * badge — "WEDDING"); an element renders as given (Planning's stance chip).
  */
 export type CollectionChip = string | ReactElement;
 

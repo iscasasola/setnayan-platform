@@ -48,6 +48,7 @@ import {
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { SamahanIdentityHeader } from './_components/samahan-identity-header';
 import { formatCount } from '@/lib/format-number';
+import { eventTypeBadge } from '@/lib/event-vocabulary';
 
 export const metadata = {
   title: 'Group',
@@ -556,19 +557,6 @@ function MembersTab({
         ))}
       </div>
     </div>
-  );
-}
-
-/** event_type → short badge (launcher idiom, kept in lockstep with
- *  eventTypeBadge in (launcher)/page.tsx — module-private there). */
-const EVENT_TYPE_BADGE: Record<string, string> = {
-  anniversary: 'ANIBERSARYO',
-};
-
-function eventTypeBadge(type: string): string {
-  return (
-    EVENT_TYPE_BADGE[type] ??
-    type.split(/[_\s]+/).filter(Boolean).join(' ').toUpperCase()
   );
 }
 

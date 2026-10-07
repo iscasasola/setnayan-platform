@@ -2017,6 +2017,8 @@ export function MakerWork({
           onUp={() => move(id, swapsForDrop(fullOrder, id, shownSceneIds[at - 1] ?? null))}
           onDown={() => move(id, swapsForDrop(fullOrder, id, shownSceneIds[at + 2] ?? afterLastShown))}
           removeForm={sceneRemovers[id]}
+          at={at + 1}
+          of={shownSceneIds.length}
           alignRow={
             maker?.stagesStudio && elementEditing && !HUB_ELEMENT_EXCLUDED_WIDGETS.includes(type) ? (
               <SceneAlignRow eventId={eventId} widgetType={type} canvas={canvas} draftAction={elementEditing.draftAction} />
@@ -2026,30 +2028,6 @@ export function MakerWork({
       ),
       look: lookRow,
       background: backgroundRow,
-      arrangeSs: (
-        <StagePanelPart
-          part="arrange"
-          mode={selectedScene.mode}
-          isVisible={selectedScene.isVisible}
-          hasContent={selectedScene.hasContent}
-          openBrowse={sceneFormat?.openBrowse ?? true}
-          pending={pending}
-          onMode={(m) => modeWrite(selectedScene, m)}
-          onEye={() => eyeWrite(selectedScene)}
-          at={at + 1}
-          of={shownSceneIds.length}
-          canUp={at > 0}
-          canDown={at >= 0 && at < shownSceneIds.length - 1}
-          onUp={() => move(id, swapsForDrop(fullOrder, id, shownSceneIds[at - 1] ?? null))}
-          onDown={() => move(id, swapsForDrop(fullOrder, id, shownSceneIds[at + 2] ?? afterLastShown))}
-          removeForm={sceneRemovers[id]}
-          alignRow={
-            elementEditing && !HUB_ELEMENT_EXCLUDED_WIDGETS.includes(type) ? (
-              <SceneAlignRow eventId={eventId} widgetType={type} canvas={canvas} draftAction={elementEditing.draftAction} />
-            ) : null
-          }
-        />
-      ),
       ownScene,
       contentExtra: (
         <>
@@ -3556,10 +3534,9 @@ function Inspector({
     arrange: ReactNode;
     contentExtra: ReactNode;
     ownScene: boolean;
-    /** 🧭 The new Maker's Style › Look · › Background · › Arrange (`StageStyle`). */
+    /** 🧭 The new Maker's Style › Look · › Background (`StageStyle`; its Arrange is drawn from `arrange`'s own props). */
     look?: ReactNode;
     background?: ReactNode;
-    arrangeSs?: ReactNode;
   } | null;
   /** 🔗 A scene bound to a Details fact: its Content is this field, which asks
    *  "everywhere or just here" (`details-bound-field.tsx`). */
@@ -3655,7 +3632,7 @@ function Inspector({
       ) : sceneTabs ? (
         ss && (tab === 'format' || tab === 'arrange') ? (
           /* 🧭 THE NEW MAKER: Style = [ Look | Background | Arrange ], the prototype's (DECISION_LOG 2026-10-07). */
-          <StagePanelPart part="style" look={sceneTabs.look ?? null} background={sceneTabs.background ?? null} arrange={sceneTabs.arrangeSs ?? sceneTabs.arrange} />
+          <StagePanelPart part="style" look={sceneTabs.look ?? null} background={sceneTabs.background ?? null} arrange={sceneTabs.arrange} />
         ) : (
           (sceneTabs[tab] ?? <p className="px-1 text-[13px] text-ink/70">This scene has no settings of its own.</p>)
         )

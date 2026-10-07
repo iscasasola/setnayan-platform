@@ -48,7 +48,7 @@ const ADDED: Record<string, readonly string[]> = {
   /* …the Details page's "THE DETAILS · WHEN · WHERE" block. */
   'rsvp/details': ['details'],
   /* …the day's "Happening now" card, and the day's cover draws its Title too. */
-  'event/live': ['spotlight', 'ename', 'heroline', 'herolink'],
+  'event/live': ['spotlight', 'livehub', 'ename', 'heroline', 'herolink'],
 };
 /** Pages the code has that the prototype does not — each a tab the SHIPPED guest bar draws. */
 const BAR_PAGES: Record<string, readonly string[]> = {

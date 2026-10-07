@@ -1497,6 +1497,7 @@ export async function SiteBody({
                 styleName={
                   sceneStylesOn(part, pageStage, event.event_type).find((st) => st.id === fixedStyle(part as FixedStyleScene))?.name ?? null
                 }
+                styleId={fixedStyle(part as FixedStyleScene)}
               />
             </Fragment>
           ))

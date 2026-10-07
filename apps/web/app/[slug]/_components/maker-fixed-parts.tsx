@@ -5,33 +5,149 @@
  * are drawn for ONE guest (their table, their photos) or only once something
  * happens (a message sent, a stream on). The couple still picks each one's
  * style (owner 2026-09-29, "every scene … three styles"), so the Maker's
- * canvas draws a stand-in in the part's place — its name and, in one line,
- * what fills it and the style it is drawn in — and the navigator lists it
- * (`MAKER_DAY_PARTS`, `lib/maker-scene-list.ts`). Never sample content (owner
- * 2026-09-27): no invented table, no stock photo.
+ * canvas draws a stand-in in the part's place and the navigator lists it
+ * (`MAKER_DAY_PARTS`, `lib/maker-scene-list.ts`).
+ *
+ * 🔲 THE STAND-IN DRAWS ITS LOOK'S ARRANGEMENT WITH SAMPLE SHAPES (owner 08 Oct: *"still cannot see the gallery
+ * style? maybe show what it could look like with boxes?"*): grey boxes where photos go, short grey lines where words
+ * go — the banner, the player and its wall, the seat map — so each look card and the canvas show the real shape
+ * guests will get. Still never sample CONTENT (owner 2026-09-27): no invented table, name or stock photo — shapes
+ * only. Mounted only in the Maker's canvas (`site-body.tsx` `isMakerCanvas`), so a guest never receives it.
  */
+import type { ReactNode } from 'react';
 import type { FixedStyleScene } from '@/lib/fixed-scene-styles';
 
 type DayPart = Exclude<FixedStyleScene, 'entourage'>;
 
-const STAND_IN: Record<DayPart, { eyebrow: string; line: string }> = {
-  announcements: { eyebrow: 'Announcements', line: 'Your messages to guests appear at the top of the page' },
-  find_your_seat: { eyebrow: '✦ Your seat', line: 'Each guest sees their own table here' },
-  live_hub: { eyebrow: 'Watch live · Live photo wall', line: 'Your stream and your live photo wall appear here' },
-  photos_of_you: { eyebrow: '✦ Photos of you', line: 'Each guest sees the photos they are in here' },
+const EYEBROW: Record<DayPart, string> = {
+  announcements: 'Announcements',
+  find_your_seat: '✦ Your seat',
+  live_hub: 'Watch live · Live photo wall',
+  photos_of_you: '✦ Photos of you',
 };
 
-export function MakerDayPartStandIn({ part, styleName }: { part: DayPart; styleName: string | null }) {
-  const s = STAND_IN[part];
+/** A photo's place. */
+const Box = ({ className = '' }: { className?: string }) => <span aria-hidden data-sample-box="" className={`block rounded-md bg-ink/10 ${className}`} />;
+/** A line of words' place. */
+const Line = ({ w = 'w-2/3', className = '' }: { w?: string; className?: string }) => (
+  <span aria-hidden data-sample-line="" className={`block h-2 rounded-full bg-ink/15 ${w} ${className}`} />
+);
+
+/** Each look's arrangement, keyed `<part>:<style id>` (`lib/scene-styles-stages.ts`). */
+export const DAY_SAMPLE: Record<string, () => ReactNode> = {
+  /* ── Announcements ── */
+  'announcements:banner': () => (
+    <span className="flex items-center gap-3 rounded-lg bg-ink/10 px-4 py-3">
+      <Box className="h-6 w-6 shrink-0 rounded-full" />
+      <span className="flex-1 space-y-1.5">
+        <Line w="w-1/2" />
+        <Line w="w-5/6" />
+      </span>
+    </span>
+  ),
+  'announcements:notice': () => (
+    <span className="block space-y-2 bg-ink/5 px-4 py-4">
+      <Line w="w-1/3" className="mx-auto" />
+      <Line w="w-11/12" className="mx-auto" />
+      <Line w="w-3/4" className="mx-auto" />
+    </span>
+  ),
+  'announcements:line': () => (
+    <span className="block border-y border-ink/15 py-2.5">
+      <Line w="w-3/4" className="mx-auto" />
+    </span>
+  ),
+  /* ── Live hub ── */
+  'live_hub:player-and-wall': () => (
+    <span className="block space-y-2">
+      <Box className="aspect-video w-full" />
+      <span className="grid grid-cols-4 gap-1.5">
+        {[0, 1, 2, 3].map((i) => (
+          <Box key={i} className="aspect-square" />
+        ))}
+      </span>
+    </span>
+  ),
+  'live_hub:theatre': () => (
+    <span className="block space-y-2">
+      <Box className="aspect-[16/10] w-full rounded-lg" />
+      <Line w="w-1/2" className="mx-auto" />
+    </span>
+  ),
+  'live_hub:wall-first': () => (
+    <span className="block space-y-2">
+      <span className="grid grid-cols-3 gap-1.5">
+        {[0, 1, 2, 3, 4, 5].map((i) => (
+          <Box key={i} className="aspect-square" />
+        ))}
+      </span>
+      <Box className="ml-auto aspect-video w-1/3" />
+    </span>
+  ),
+  /* ── Find your seat ── */
+  'find_your_seat:map': () => (
+    <span className="relative block aspect-[4/3] w-full bg-ink/5">
+      {['left-[12%] top-[18%]', 'left-[42%] top-[18%]', 'left-[72%] top-[18%]', 'left-[12%] top-[58%]', 'left-[42%] top-[58%]', 'left-[72%] top-[58%]'].map((at, i) => (
+        <span key={at} aria-hidden data-sample-box="" className={`absolute h-[22%] w-[16%] rounded-full ${at} ${i === 4 ? 'bg-ink/30' : 'bg-ink/10'}`} />
+      ))}
+    </span>
+  ),
+  'find_your_seat:table-number': () => (
+    <span className="block space-y-2 py-2">
+      <span aria-hidden data-sample-box="" className="mx-auto block h-16 w-16 rounded-full bg-ink/10" />
+      <Line w="w-1/3" className="mx-auto" />
+    </span>
+  ),
+  'find_your_seat:place-card': () => (
+    <span className="mx-auto block w-3/4 -rotate-2 space-y-2 rounded-md border border-ink/20 px-4 py-4 shadow-sm">
+      <Line w="w-2/3" className="mx-auto" />
+      <Line w="w-1/3" className="mx-auto" />
+    </span>
+  ),
+  /* ── Photos of you ── */
+  'photos_of_you:grid': () => (
+    <span className="grid grid-cols-3 gap-1.5">
+      {[0, 1, 2, 3, 4, 5].map((i) => (
+        <Box key={i} className="aspect-square" />
+      ))}
+    </span>
+  ),
+  'photos_of_you:lead': () => (
+    <span className="block space-y-1.5">
+      <Box className="aspect-[4/3] w-full" />
+      <span className="grid grid-cols-3 gap-1.5">
+        {[0, 1, 2].map((i) => (
+          <Box key={i} className="aspect-square" />
+        ))}
+      </span>
+    </span>
+  ),
+  'photos_of_you:polaroids': () => (
+    <span className="flex justify-center gap-2 py-2">
+      {['-rotate-6', 'rotate-3', '-rotate-2'].map((r) => (
+        <span key={r} className={`block w-1/4 border border-ink/15 p-1.5 pb-4 shadow ${r}`}>
+          <Box className="aspect-square rounded-none" />
+        </span>
+      ))}
+    </span>
+  ),
+};
+
+/** The arrangement a part's look draws (its first look when the style is unknown). */
+export function daySampleKey(part: DayPart, styleId: string | null): string {
+  const want = `${part}:${styleId ?? ''}`;
+  return DAY_SAMPLE[want] ? want : Object.keys(DAY_SAMPLE).find((k) => k.startsWith(`${part}:`))!;
+}
+
+export function MakerDayPartStandIn({ part, styleName, styleId = null }: { part: DayPart; styleName: string | null; styleId?: string | null }) {
+  const key = daySampleKey(part, styleId);
   return (
-    <section className="pahina-plate space-y-2 text-center" data-maker-day-part={part}>
+    <section className="space-y-3 text-center" data-maker-day-part={part} data-maker-day-sample={key}>
       <p className="pahina-eyebrow justify-center">
-        <span>{s.eyebrow}</span>
+        <span>{EYEBROW[part]}</span>
       </p>
-      <p className="text-sm leading-relaxed text-ink/70">
-        {s.line}
-        {styleName ? <>, drawn as &ldquo;{styleName}&rdquo;.</> : '.'}
-      </p>
+      {DAY_SAMPLE[key]!()}
+      {styleName ? <p className="text-xs text-ink/70">Sample of “{styleName}” — each guest sees their own.</p> : null}
     </section>
   );
 }

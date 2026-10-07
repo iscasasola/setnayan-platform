@@ -55,6 +55,7 @@
  * RLS still apply underneath the host gate; only the Pro read uses the admin
  * client (inside `lookProAllows`, because orders RLS is purchaser-scoped).
  */
+import { deleteOwnScene } from '@/lib/own-scene-delete';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -770,6 +771,15 @@ export async function hubDraftAction(
     for (const [widgetId, items] of byWidget) {
       const row = live.widgets.find((r) => r.widget_id === widgetId);
       if (!row) continue;
+      /* 🗑 A scene of their own deleted in the draft (owner 2026-10-07, *"remove
+         for good"*): deleted now, through the ONE delete the live Remove for
+         good uses (`deleteOwnScene`, rows counted). Nothing else is written to a
+         row that is gone. */
+      if (items.some((i) => i.kind === 'widget' && i.field === 'removed')) {
+        const gone = await deleteOwnScene(supabase, eventId, row);
+        if (!gone.ok) return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
+        continue;
+      }
       const patch: Record<string, unknown> = {};
       const before: Record<string, unknown> = {};
       for (const item of items) {

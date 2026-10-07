@@ -10,6 +10,7 @@
  * action runs through `sanitizeHubCanvas` once more on the way to the row — the
  * same one fence on the way in and on the way out.
  */
+import type { LifecyclePhase } from './invitation-widgets';
 import { HUB_CANVAS_MOTION_KEYS } from '@/lib/hub-look-pro';
 import {
   HUB_SLOT_HEAD_MAX,
@@ -163,11 +164,23 @@ export function applySceneVideo(
  */
 export const ADDED_SCENE_LIVE = { is_visible: false } as const;
 
-export function addedSceneDraft(input: { displayOrder: number; canvas: HubSectionCanvas | null }): {
+export function addedSceneDraft(input: {
+  displayOrder: number;
+  canvas: HubSectionCanvas | null;
+  /** ＋ Its place on the stage it was added from (`lib/own-scene-place.ts`, owner 2026-10-07); absent = the end. */
+  stageOrder?: Partial<Record<LifecyclePhase, number | null>> | null;
+}): {
   mode: 'auto';
   is_visible: true;
   display_order: number;
   canvas: HubSectionCanvas | null;
+  stage_order?: Partial<Record<LifecyclePhase, number | null>>;
 } {
-  return { mode: 'auto', is_visible: true, display_order: input.displayOrder, canvas: input.canvas };
+  return {
+    mode: 'auto',
+    is_visible: true,
+    display_order: input.displayOrder,
+    canvas: input.canvas,
+    ...(input.stageOrder ? { stage_order: input.stageOrder } : {}),
+  };
 }

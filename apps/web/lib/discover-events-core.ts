@@ -31,6 +31,11 @@
  *       shelf whose whole order IS the date. A card here promises "this is
  *       coming, on this day" — an event with no day cannot keep that promise.
  *   6 · the viewer is not already a member — it is on their own Events page.
+ *       ⚠ EXCEPT an event the viewer HOSTS (owner 2026-10-08, on Discover:
+ *       *"you placed there event that from people you follow, include your own
+ *       account there."*). The viewer's own public events go on the people
+ *       shelf as `relation: 'you'`, merged into its soonest-first order —
+ *       conditions 1–5 still hold, so a private event of theirs never lists.
  *
  * The loader applies the SAME gate the public profile does
  * (`filterPubliclyVisibleEvents`: visibility + the event type's website
@@ -131,8 +136,11 @@ export type DiscoverHost = {
   publicSlug: string | null;
 };
 
-/** How the viewer is tied to a host. `connected` outranks `follow`. */
-export type DiscoverRelation = 'connected' | 'follow';
+/**
+ * How the viewer is tied to a host. `you` (the viewer hosts it) outranks
+ * `connected`, which outranks `follow`.
+ */
+export type DiscoverRelation = 'you' | 'connected' | 'follow';
 
 /** What a card renders — plain, serializable, and free of any user id. */
 export type DiscoverEventCard = {
@@ -183,6 +191,11 @@ export type DiscoverSelectInput = {
   hostsByEvent: ReadonlyMap<string, readonly DiscoverHost[]>;
   /** user id → how the viewer is tied to them. Empty for a stranger. */
   people: ReadonlyMap<string, DiscoverRelation>;
+  /**
+   * The signed-in viewer. An event they HOST joins their people shelf as
+   * `relation: 'you'` and is exempt from condition 6. Null/absent when signed out.
+   */
+  viewerId?: string | null;
   memberEventIds: ReadonlySet<string>;
   /** Canonical region slug (`resolveRegion(...).slug`), or null. */
   viewerRegion: string | null;
@@ -268,7 +281,9 @@ export function datePlate(
 function bestRelation(
   hosts: readonly DiscoverHost[],
   people: ReadonlyMap<string, DiscoverRelation>,
+  viewerId: string | null,
 ): DiscoverRelation | null {
+  if (viewerId && hosts.some((h) => h.userId === viewerId)) return 'you';
   let best: DiscoverRelation | null = null;
   for (const h of hosts) {
     const r = people.get(h.userId);
@@ -322,14 +337,20 @@ function toCard(
   };
 }
 
+const NO_MEMBERSHIPS: ReadonlySet<string> = new Set();
+
 /**
  * Split eligible events into the two layers and order each.
  *
- *   people — soonest first (`splitComingUpAndPast`'s own order, reused).
+ *   people — the viewer's own hosted events and their people's, merged,
+ *            soonest first (`splitComingUpAndPast`'s own order, reused).
  *   world  — events in the viewer's region first, each group soonest first.
  */
 export function selectDiscoverShelves(input: DiscoverSelectInput): DiscoverShelves {
   const caps = input.caps ?? DISCOVER_CAPS;
+  const viewerId = input.viewerId ?? null;
+  const hostedByViewer = (eventId: string) =>
+    !!viewerId && (input.hostsByEvent.get(eventId) ?? []).some((h) => h.userId === viewerId);
   const seen = new Set<string>();
   const eligible: Array<DiscoverEventRow & { slug: string }> = [];
   for (const e of input.events) {
@@ -339,7 +360,8 @@ export function selectDiscoverShelves(input: DiscoverSelectInput): DiscoverShelv
       isDiscoverable(e, {
         todayISO: input.todayISO,
         now: input.now,
-        memberEventIds: input.memberEventIds,
+        // Condition 6 never hides the viewer's OWN hosted event — it is theirs to see here.
+        memberEventIds: hostedByViewer(e.event_id) ? NO_MEMBERSHIPS : input.memberEventIds,
       })
     ) {
       eligible.push(e as DiscoverEventRow & { slug: string });
@@ -352,7 +374,7 @@ export function selectDiscoverShelves(input: DiscoverSelectInput): DiscoverShelv
   const inRegion: DiscoverEventCard[] = [];
   const elsewhere: DiscoverEventCard[] = [];
   for (const e of comingUp) {
-    const relation = bestRelation(input.hostsByEvent.get(e.event_id) ?? [], input.people);
+    const relation = bestRelation(input.hostsByEvent.get(e.event_id) ?? [], input.people, viewerId);
     if (relation) {
       people.push(toCard(e, input, relation));
       continue;

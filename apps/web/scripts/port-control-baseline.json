@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "f64354e74",
+  "generatedFromRef": "374620d92",
   "routeCount": 428,
   "destinations": 949,
   "actions": 670,
-  "blocks": 5648,
+  "blocks": 5651,
   "routes": {
     "/": {
       "files": [
@@ -1055,6 +1055,7 @@
         "Bar",
         "BeforeAfterScene",
         "Blob",
+        "Box",
         "ByRoleGroup",
         "CaptureTile",
         "CapturesByHour",
@@ -1200,6 +1201,7 @@
         "Layer",
         "LeadArticle",
         "LeadMedia",
+        "Line",
         "Link",
         "LiveHubArrangement",
         "LiveLayerData",
@@ -1264,6 +1266,7 @@
         "PhotoGallery",
         "PhotoMomentModeBadge",
         "PhotoMomentsDownTheDay",
+        "PhotoMomentsSample",
         "PhotoMomentsWidget",
         "PhotoMomentsYesAndNo",
         "PhotoNotesScene",

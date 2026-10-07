@@ -100,3 +100,27 @@ test('no part’s Style › Look opens on a row holding only an ⓘ — the pass
   assert.ok(doorless > 0, 'parts without a door were found (the pass among them)');
   setStagePanelNow({ picked: null, quiet: null, about: null });
 });
+
+test('an EMPTY part still draws each look differently — sample shapes, on the Maker canvas only', async () => {
+  /* Owner 08 Oct: "still cannot see the gallery style? maybe show what it could look like with boxes?" */
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { readFileSync } = await import('node:fs');
+  const { MakerDayPartStandIn } = await import('../app/[slug]/_components/maker-fixed-parts');
+  const { sceneStylesOn } = await import('./scene-styles');
+  for (const part of ['announcements', 'find_your_seat', 'live_hub', 'photos_of_you'] as const) {
+    const looks = sceneStylesOn(part, 'event', 'wedding');
+    assert.ok(looks.length >= 2, `${part} offers looks`);
+    const drawn = looks.map((l: { id: string; name: string }) =>
+      renderToStaticMarkup(React.createElement(MakerDayPartStandIn, { part, styleName: l.name, styleId: l.id })).replace(/Sample of “[^”]*”/, ''),
+    );
+    assert.equal(new Set(drawn).size, looks.length, `${part}: every look draws its own arrangement`);
+    for (const h of drawn) assert.match(h, /data-sample-(box|line)=""/, `${part}: shapes, not a sentence`);
+  }
+  const { PhotoMomentsWidget } = await import('../app/[slug]/_components/photo-moments-widget');
+  const words = { eventWord: 'wedding' } as never;
+  const pm = ['cards', 'down-the-day', 'yes-and-no'].map((st) => renderToStaticMarkup(React.createElement(PhotoMomentsWidget, { config: null, words, sceneStyle: st })));
+  assert.equal(new Set(pm).size, 3, 'Photo moments: Cards · Down the day · Yes and no differ with no moments');
+  for (const h of pm) assert.match(h, /data-maker-sample="/);
+  const css = readFileSync('app/globals.css', 'utf8');
+  assert.match(css, /body:not\(:has\(\[data-maker-section\]\)\) \[data-maker-sample\] \{ display: none !important; \}/, 'never shown to a guest');
+});

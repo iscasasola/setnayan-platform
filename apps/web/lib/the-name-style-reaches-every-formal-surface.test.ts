@@ -237,6 +237,7 @@ const STYLE_AT: Record<string, number> = {
  */
 const NOT_FORMAL: ReadonlyArray<{ file: RegExp; callee: string; why: string }> = [
   { file: /guest-list-multiselect\.tsx$/, callee: 'guestFullName', why: 'the Guest list’s own working rows and aria-labels — the couple’s editing list, not a printed one (its invite {name} IS styled)' },
+  { file: /guests-screen\.tsx$/, callee: 'guestFullName', why: 'Guests › List (Maker PR 4f) — the same working rows and the delete warning’s names, the couple’s editing list, not a printed one' },
   { file: /editorial\/data\.ts$/, callee: 'guestFullName', why: 'a byline under a guest’s own words on the story page — not one of the owner’s formal surfaces' },
 ];
 

@@ -36,16 +36,17 @@ test('only a wedding role set has sides — simple, generic (birthday) and null 
 test('the page derives hasSides from the profile and gates the Side filter, sort and people picker', () => {
   const page = src('page.tsx');
   assert.match(page, /const hasSides = eventHasSides\(resolveRoleSet\(guestRoleSetKey\)\)/);
-  // One head at every width (#6192 Fix E): the Side filter is a dropdown in
-  // RosterFilters, told by the page whether the event has sides.
-  assert.match(page, /<RosterFilters\s+hasSides=\{hasSides\}/, 'the filter row is not told whether the event has sides');
-  assert.match(src('_components/roster-controls.tsx'), /\{hasSides \? \(\s*<PickMenu\s+label="Side"/, 'the Side filter renders on a sideless event');
-  assert.match(page, /sorts=\{SORT_OPTIONS\.filter\(\(o\) => hasSides \|\| o\.value !== 'side'\)/, 'Sort ▾ offers Side on a sideless event');
+  // ⤷ Maker PR 4f: the filter row is retired; the ONE Sort (list) and the map's
+  // arrange dropdown are the side controls now, and Set… ▾'s Side group.
+  const screen = src('_components/guests-screen.tsx');
+  assert.match(screen, /ROSTER_VIEWS\.filter\(\(v\) => hasSides \|\| v\.key !== 'side'\)/, 'Sort offers Side on a sideless event');
+  assert.match(screen, /MAP_ARRANGE\.filter\(\(v\) => hasSides \|\| v\.key !== 'side'\)/, 'the map arranges by side on a sideless event');
+  assert.match(screen, /\.\.\.\(hasSides\s*\?\s*\(\['bride', 'groom', 'both'\] as GuestSide\[\]\)/, 'Set… offers Side on a sideless event');
   assert.match(page, /hasSides && \(teamRaw === 'bride' \|\| teamRaw === 'groom'\)/, 'a ?team=bride link still filters a sideless event');
   assert.match(page, /!hasSides && sortRaw === 'side'/, 'a ?sort=side link still sorts a sideless event by side');
   assert.match(page, /hasSides \? groupingRaw : groupingRaw\.filter\(\(k\) => k !== 'side'\)/, 'side headings survive on a sideless event');
   assert.match(page, /<AddFromPeopleSheet[\s\S]*?showSides=\{hasSides\}/, 'the people picker asks for a side on a sideless event');
-  for (const mount of ['<GuestListMultiselect', '<GuestMindMap', '<SummaryFacetBar']) {
+  for (const mount of ['<GuestsScreen']) {
     const at = page.indexOf(mount);
     assert.ok(at >= 0, `${mount} moved; re-anchor`);
     const props = page.slice(at, page.indexOf('/>', at));
@@ -64,12 +65,11 @@ test('the roster table gates its Side column, bulk "Assign side…", and the pho
   assert.match(ms, /\{hasSides \? \(\s*<SideChipEditor eventId=\{eventId\} guest=\{guest\}>\s*<RowAvatar/, 'the phone row avatar opens a side editor on a sideless event');
 });
 
-test('the mind map has no sides either', () => {
-  // The phone's own carousel and the arrange menu were retired by #6192 (one
-  // head at every width); their Side controls are the RosterFilters dropdown
-  // and Sort ▾, both gated above.
-  const map = src('_components/guest-mind-map.tsx');
-  assert.match(map, /for \(const side of hasSides \? BRANCH_SIDE_LAYOUT : \[\]\)/, 'the mind map grows side branches on a sideless event');
+test('the map has no sides either', () => {
+  // ⤷ Maker PR 4f: one canvas (guest-map-canvas.tsx) drawn from `mapTree`,
+  // which only grows side branches when the event has sides.
+  const lib = src('../../../../lib/guest-roster-view.ts');
+  assert.match(lib, /if \(arrange === 'side' && facts\.hasSides\)/, 'the map grows side branches on a sideless event');
 });
 
 test('the empty Guest list speaks to any event, not only to a couple', () => {

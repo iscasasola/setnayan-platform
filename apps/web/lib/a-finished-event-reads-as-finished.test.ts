@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getMenuLifecyclePhase, getDayOfPhase } from './day-of-mode';
@@ -233,8 +233,14 @@ test('the guest list knows the event happened, and nothing is taken away', () =>
   const g = src('app/dashboard/[eventId]/guests/page.tsx');
   assert.match(g, /getMenuLifecyclePhase\(/, 'the Guests page must resolve the phase');
   assert.match(g, /event_date, event_end_date, cleared_at, timezone/, 'it must read the date');
-  assert.match(g, /Still adding someone\?/, 'the add path must still be reachable');
-  assert.match(g, /<CaptureBar/, 'the capture bar must still be mounted');
+  // ⤷ Maker PR 4f: the round + and its "Still adding someone?" left with the
+  // phone title; the thumb row's "Search or add" is drawn after the event too
+  // (no phase gate on it), and its Add opens the same sheet, which holds the
+  // capture bar.
+  const screen = src('app/dashboard/[eventId]/guests/_components/guests-screen.tsx');
+  assert.match(screen, /placeholder="Search or add"/, 'the add path must still be reachable');
+  assert.doesNotMatch(screen, /finished|phase/, 'the thumb row is gated on the event being over');
+  assert.match(src('app/dashboard/[eventId]/guests/_components/add-guest-sheet.tsx'), /<CaptureBar/, 'the capture bar must still be mounted');
   // The empty list's door is the SAME add sheet the header + opens (first-timer
   // fix 11, 2026-10-02) — the quick-add form is one of its rows (`AddDoors`).
   assert.match(g, /<OpenAddGuestTextButton label=\{finished \? 'Add someone who came'/, 'the empty list must still offer an add, worded for a finished event');
@@ -429,17 +435,12 @@ test('the finalized banner does not claim guests the list does not have', () => 
     and the banner's own words still say what the number is FOR.
   */
   const page = src('app/dashboard/[eventId]/guests/page.tsx');
-  assert.match(page, /<FinalizeGuestListControl[\s\S]*?finalPax=\{finalize\.finalPax\}/, 'the Guest list no longer mounts the finalize banner');
+  // ⤷ 2026-10-07 (owner: "finalize should be inside the Setup. not on its
+  // current location"): nothing above List · Map · Setup — PR 4d mounts it in Setup.
+  assert.doesNotMatch(page, /<FinalizeGuestListControl\b/, 'the finalize row is back above the List · Map · Setup switcher');
   assert.ok(!/guests locked in/.test(page.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')), '"N guests locked in" must not return to the page');
-  const g = src('app/dashboard/[eventId]/guests/_components/finalize-guest-list-control.tsx');
-  /*
-    🪤 COMMENTS STRIPPED FIRST — this assertion failed on its own first run
-    because the fix carries a comment QUOTING the string it removed. A raw
-    source match reports the defect it just repaired, which is the same trap
-    `doors-are-designed.test.ts` was corrected for. Raw: 1. Stripped: 0. Zero
-    is the true number.
-  */
-  const code = g.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
-  assert.ok(!/guests locked in/.test(code), '"N guests locked in" must not return');
-  assert.match(code, /your suppliers price for/, 'it must say what the number is for');
+  // ⤷ 2026-10-07: the old Finalize / Reopen control was deleted (finalize is
+  // one-way and lives in Setup, PR 4d #6409 — whose own guard holds its words).
+  // What holds HERE: the old file is gone, so its banner cannot return.
+  assert.ok(!existsSync(join(WEB, 'app/dashboard/[eventId]/guests/_components/finalize-guest-list-control.tsx')), 'the retired finalize control is back');
 });

@@ -54,9 +54,10 @@ test('the update bar reserves its height, so the last guest row can scroll clear
 
 test('the list ends with half a screen of room, so the last guest reaches the middle', () => {
   // Owner 2026-09-21: "make the last guest row scroll up to the middle of the screen for safety."
-  const page = read('app', 'dashboard', '[eventId]', 'guests', 'page.tsx');
-  const list = page.indexOf('<GuestListMultiselect');
-  const runout = page.indexOf('<div aria-hidden className="h-[50dvh]" data-roster-runout />');
+  // ⤷ Maker PR 4f: the list is GuestsScreen; the run-out closes its list.
+  const page = read('app', 'dashboard', '[eventId]', 'guests', '_components', 'guests-screen.tsx');
+  const list = page.indexOf('<GuestRowLine');
+  const runout = page.indexOf(`<div aria-hidden style={{ height: '50dvh' }} data-roster-runout="" />`);
   assert.ok(list > -1 && runout > list, 'the roster has no run-out after the list');
   assert.equal(page.split('data-roster-runout').length - 1, 1, 'expected exactly one run-out');
 });

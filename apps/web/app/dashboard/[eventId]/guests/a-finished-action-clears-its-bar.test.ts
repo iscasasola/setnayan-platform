@@ -93,28 +93,12 @@ test('every pair flag produces a message the host can read', () => {
   }
 });
 
-test('a finished PAIR retracts the selection bar, and an unpair does not', () => {
-  const expr = /recentlyApplied=\{Boolean\(([\s\S]*?)\)\}/.exec(page);
-  const body = expr?.[1] ?? '';
-  assert.ok(body, 'could not find the recentlyApplied expression');
-  console.log(`recentlyApplied reads: ${body.replace(/\s+/g, ' ').trim()}`);
-
-  assert.match(
-    body,
-    /search\.paired\b/,
-    'pairing does not clear the bar — the host is left holding two guests the ' +
-      'action already finished with',
-  );
-  // An unpair is one ROW's own control. Clearing the selection from it would
-  // throw away a selection the host is still assembling.
-  assert.doesNotMatch(
-    body,
-    /search\.unpaired\b/,
-    'an unpair must not discard the host\'s in-progress selection',
-  );
-  // The bulk flags this mechanism was built for must not have been dropped
-  // while adding pairing to it.
-  for (const flag of ['bulk_assigned', 'bulk_grouped', 'bulk_sided']) {
-    assert.match(body, new RegExp(`search\\.${flag}\\b`), `${flag} fell out`);
-  }
+test('the new list holds its own selection; Done is the way out (Maker PR 4f)', () => {
+  // ⤷ 2026-10-07: the roster table and its `recentlyApplied` reset are retired
+  // with the old list. The prototype keeps Select mode after a Set… (the host
+  // may set a group and then a table for the same people) and leaves it on
+  // ☑ Done — pairing left the list on 2026-09-30.
+  const screen = readFileSync(join(process.cwd(), 'app/dashboard/[eventId]/guests/_components/guests-screen.tsx'), 'utf8');
+  assert.match(screen, /label="Done" onClick=\{leaveSelect\}/, 'Select mode lost its Done');
+  assert.doesNotMatch(screen, /\bpair(ed|With)?\b/i, 'pairing is back on the list');
 });

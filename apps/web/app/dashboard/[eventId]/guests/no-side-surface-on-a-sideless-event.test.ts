@@ -72,9 +72,10 @@ const COMPONENTS: ReadonlyArray<{ file: string; name: string }> = [
   { file: 'app/dashboard/[eventId]/guests/_components/guest-list-multiselect.tsx', name: 'NewGroupInlineForm' },
   { file: 'app/dashboard/[eventId]/guests/_components/guest-list-multiselect.tsx', name: 'MobileListRow' },
   { file: 'app/dashboard/[eventId]/guests/_components/guest-list-multiselect.tsx', name: 'GroupChipList' },
-  { file: 'app/dashboard/[eventId]/guests/_components/groups-sidebar.tsx', name: 'GroupsSidebarBody' },
-  { file: 'app/dashboard/[eventId]/guests/_components/groups-sidebar.tsx', name: 'TeamSideSelect' },
+  // (groups-sidebar.tsx — GroupsSidebarBody, TeamSideSelect — was deleted with
+  // the retired filter row, Maker PR 4f, 2026-10-07.)
   { file: 'app/dashboard/[eventId]/guests/_components/guest-card-body.tsx', name: 'GuestCardBody' },
+  { file: 'app/dashboard/[eventId]/guests/_components/guests-screen.tsx', name: 'GuestsScreen' },
   { file: 'app/dashboard/[eventId]/guests/_components/guest-name-fields.tsx', name: 'GuestNameFields' },
   { file: 'app/dashboard/[eventId]/guests/_components/quick-add-sheet.tsx', name: 'QuickAddSheet' },
   { file: 'app/dashboard/[eventId]/guests/checkin/_components/checkin-desk.tsx', name: 'CheckinDesk' },
@@ -120,7 +121,9 @@ test('the pages that mount them pass the gate down', () => {
   assert.match(claims, /const hasSides = eventHasSides\(\{ coupleRoles \}\)/);
   assert.match(claims, /<KeepQuickAdd[\s\S]*?hasSides=\{hasSides\}/, 'the Accept quick add is not told whether the event has sides');
   assert.match(read('app/dashboard/[eventId]/guests/new/page.tsx'), /<GuestNameFields[^>]*hasSides=\{hasSides\}/);
-  assert.match(read('app/dashboard/[eventId]/guests/page.tsx'), /<GroupsSidebar[\s\S]*?hasSides=\{hasSides\}/);
+  // ⤷ Maker PR 4f: the Guest list is GuestsScreen (GroupsSidebar's inline mount
+  // left with the retired filter row).
+  assert.match(read('app/dashboard/[eventId]/guests/page.tsx'), /<GuestsScreen[\s\S]*?hasSides=\{hasSides\}/);
 });
 
 test('the door refusals name the event’s own organizer, not "the couple"', () => {

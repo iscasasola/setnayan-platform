@@ -1,5 +1,4 @@
 import { test } from 'node:test';
-import { rosterDoors } from './roster-doors';
 import { DETAILS_ITEM_GROUPS, detailsItemHref } from './maker-details-items';
 import { yourEventItems, yourEventLabel } from './details-your-event';
 import { stripComments } from './strip-comments';
@@ -306,8 +305,9 @@ test('⛔ the drag path posts NAMES, and touches no chair', () => {
 //    "THE GUEST LIST KEEPS PEOPLE…" (owner 2026-09-29): the march's one home is
 //    the Maker's Details › Your event, in the three parts. ────────────────────
 
+// ⤷ Maker PR 4f: the List · Mind map switcher is the screen's List · Map · Setup.
 const SWITCHER = readFileSync(
-  join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests', '_components', 'view-switcher.tsx'),
+  join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests', '_components', 'guests-screen.tsx'),
   'utf8',
 );
 const PAGE = readFileSync(
@@ -340,7 +340,8 @@ test('🔑 there is a LABELLED way in — the march is an item of Details › St
   assert.equal(detailsItemHref('E', 'march'), '/dashboard/E/launch?tool=details&item=march');
   // An old Guest list link lands on it.
   assert.match(stripComments(PAGE), /if \(search\.gview === 'walk' \|\| search\.view === 'march'\) \{\s*redirect\(detailsItemHref\(eventId, 'march'\)\);/);
-  assert.ok(!rosterDoors({ eventId: 'E', view: 'list', finished: false, hasJoinLink: true }).tabs.some((d) => /walk|march/i.test(d.key)));
+  // ⤷ Maker PR 4f: the doors are List · Map · Setup (SWITCHER = guests-screen.tsx); no march.
+  assert.doesNotMatch(stripComments(SWITCHER), /seg\('(?:walk|march)'/i);
 });
 
 test('🚶 the Wedding March is ONE item whose page is the drag maker — never a list of its names (owner 2026-10-06)', () => {
@@ -402,7 +403,7 @@ test('🔑 a celebration with no processional is not offered one', () => {
   // ⚖ And never back in the List · Mind map switcher (owner 2026-09-21: "wedding march is repeated?").
   const switcherCode = stripComments(SWITCHER);
   assert.ok(
-    !/Wedding March/.test(switcherCode) && !/key: 'walk'/.test(switcherCode),
+    !/Wedding March/.test(switcherCode) && !/seg\('walk'/.test(switcherCode),
     'Wedding March is back in the List · Mind map switcher',
   );
 });

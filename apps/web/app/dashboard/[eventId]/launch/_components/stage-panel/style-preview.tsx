@@ -67,18 +67,22 @@ export function StylePreview({ canvasKey, sceneType, styleId, current }: { canva
   const [fit, setFit] = useState<{ k: number; x: number; y: number; h: number } | null>(null);
   const [empty, setEmpty] = useState(false);
 
+  /* Measured once the frame has LOADED (a slow page may take many seconds) — never given up on while it loads. */
+  const [loads, setLoads] = useState(0);
   useEffect(() => {
     setFit(null);
     setEmpty(false);
-    if (!src || !canvasKey) return;
+  }, [src]);
+  useEffect(() => {
+    if (!src || !canvasKey || loads === 0) return;
     let n = 0;
     const id = window.setInterval(() => {
       n += 1;
       try {
         const d = frame.current?.contentDocument;
         const b = box.current;
-        if (!d || !b || d.readyState !== 'complete' || !d.body || d.location.href === 'about:blank') {
-          if (n > 400) window.clearInterval(id);
+        if (!d || !b || !d.body || d.location.href === 'about:blank') {
+          if (n > 100) window.clearInterval(id);
           return;
         }
         if (!d.querySelector('style[data-sn-mini]')) {
@@ -112,7 +116,7 @@ export function StylePreview({ canvasKey, sceneType, styleId, current }: { canva
       }
     }, 60);
     return () => window.clearInterval(id);
-  }, [src, canvasKey]);
+  }, [src, canvasKey, loads]);
 
   return (
     <span
@@ -129,6 +133,7 @@ export function StylePreview({ canvasKey, sceneType, styleId, current }: { canva
           aria-hidden
           sandbox="allow-same-origin"
           src={src}
+          onLoad={() => setLoads((x) => x + 1)}
           data-style-preview-frame={styleId}
           className={`pointer-events-none absolute left-0 top-0 origin-top-left border-0 bg-transparent transition-opacity duration-200 ${fit ? 'opacity-100' : 'opacity-0'}`}
           style={{

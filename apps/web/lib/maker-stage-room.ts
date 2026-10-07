@@ -147,3 +147,22 @@ export function stagePanelOpenPx(viewportH: number): number {
 
 /** How long the panel takes to rise or fold (the prototype's 240 ms). */
 export const STAGE_PANEL_MS = 240;
+
+/**
+ * 🖼 THE PICKED PART'S FRAME, BETWEEN ITS NEIGHBOURS (owner 2026-10-07: the Logo's frame and ＋ sat ON "TOGETHER WITH
+ * THEIR FAMILIES" — "the frame hugs its part's real box, the ＋ sits in the gap BETWEEN parts and never over another
+ * part's content, and a tap on another part's visible text always picks that part"). Each edge sits at most `pad` px
+ * out, and never past the MIDDLE of the gap to the neighbour on that side; a control on that edge is at most as tall
+ * as the gap (never under 26 px, the ＋'s own face), so its tap stops where the neighbour's words begin.
+ * `gapAbove` / `gapBelow` null: nothing drawn on that side (the page's own margin) — the full pad and a 44 px tap.
+ */
+export function partFrameEdges(
+  box: { top: number; height: number },
+  gapAbove: number | null,
+  gapBelow: number | null,
+  pad = 22,
+): { top: number; bottom: number; tapAbove: number; tapBelow: number } {
+  const half = (g: number | null) => (g === null ? pad : Math.max(0, Math.min(pad, g / 2)));
+  const tap = (g: number | null) => (g === null ? 44 : Math.max(26, Math.min(44, g)));
+  return { top: box.top - half(gapAbove), bottom: box.top + box.height + half(gapBelow), tapAbove: tap(gapAbove), tapBelow: tap(gapBelow) };
+}

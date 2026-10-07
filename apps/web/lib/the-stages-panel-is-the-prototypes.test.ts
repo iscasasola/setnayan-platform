@@ -260,3 +260,58 @@ test('Arrange has no Order row, and every Arrange row carries its ⓘ (owner 202
   assert.match(row, /small="Alignment"[^>]*about="/, 'Alignment ▾ has its ⓘ');
   assert.match(row, /small="Spacing"[\s\S]{0,120}about="/, 'Spacing ▾ has its ⓘ');
 });
+
+/* ── 9 · ↑ ↓ ✕ on the frame; the frame never on a neighbour ─────────────── */
+
+test('↓ from part i picks part i+1 in the order the page DRAWS them, and keeps the tool open', async () => {
+  const { makerStepPart } = await import('./maker-parts');
+  const { partsInPageOrder } = await import('./maker-part-step');
+  /* Drawn order differs from the map's: the page put the date above the names. */
+  const tops: Record<string, number> = { logo: 10, date: 80, names: 140, place: 220 };
+  const ordered = partsInPageOrder(['logo', 'names', 'date', 'place', 'countdown'] as const, (k) => tops[k] ?? null);
+  assert.deepEqual(ordered, ['logo', 'date', 'names', 'place'], 'visual order; a part not drawn is left out');
+  const pages = ['home', 'details'];
+  assert.deepEqual(makerStepPart({ parts: ordered, at: 'date', pages, page: 'home', dir: 1 }), { page: 'home', part: 'names' });
+  assert.deepEqual(makerStepPart({ parts: ordered, at: 'date', pages, page: 'home', dir: -1 }), { page: 'home', part: 'logo' });
+  assert.deepEqual(makerStepPart({ parts: ordered, at: 'place', pages, page: 'home', dir: 1 }), { page: 'details', part: null }, 'the last part goes on to the next tab');
+  const tools = read(`${LAUNCH}/stage-tools.tsx`);
+  assert.match(tools, /const here = home === shownPage \? \(drawnHere\.length \? drawnHere : parts\) : tappableOn\(home\);/, 'the step walks the drawn order');
+  /* The tool is never touched by a step: `pickPart` asks for the SAME tool (`askTool(toolRef.current, k)`). */
+  assert.match(tools, /askTool\(toolRef\.current, k\);/);
+});
+
+test('the frame carries ↑ upper-left, ↓ lower-left and ✕ lower-right; keys, Esc and a tap on the ground work too', () => {
+  const edges = read(`${LAUNCH}/add-part-sheet.tsx`);
+  for (const [attr, label] of [['data-part-step="prev"', 'Previous part'], ['data-part-step="next"', 'Next part']] as const) {
+    const at = edges.indexOf(attr);
+    assert.ok(at > 0, `${attr} is drawn`);
+    assert.ok(edges.slice(at - 120, at).includes(`aria-label="${label}"`), `${attr} is "${label}"`);
+  }
+  assert.match(edges, /data-part-step="prev" onClick=\{onPrev\}[^>]*chipAt\(box\.left \+ 2, fr!\.top\)/, '↑ upper-left');
+  assert.match(edges, /data-part-step="next" onClick=\{onNext\}[^>]*chipAt\(box\.left \+ 2, fr!\.top \+ fr!\.height\)/, '↓ lower-left');
+  assert.match(edges, /data-part-deselect="" onClick=\{onClose\}[^>]*chipAt\(box\.left \+ box\.width - 2, fr!\.top \+ fr!\.height\)/, '✕ lower-right');
+  assert.match(edges, /const CHIP_BTN = '[^']*!h-8[^']*w-8/, 'a 32 px tap');
+  const tools = read(`${LAUNCH}/stage-tools.tsx`);
+  assert.match(tools, /onPrev=\{[^}]*step\(-1\)/);
+  assert.match(tools, /onNext=\{[^}]*step\(1\)/);
+  assert.match(tools, /onClose=\{deselect\}/);
+  assert.match(tools, /e\.key === 'ArrowDown' \|\| e\.key === 'ArrowUp'/);
+  assert.match(tools, /e\.key === 'Escape'\) deselect\(\)/);
+  assert.match(tools, /d\.t === 'tapOutside'\) deselectRef\.current\(\)/, 'a tap on the page’s ground lets go');
+});
+
+test('the frame and its ＋ stop in the gap — never on the neighbour’s words', async () => {
+  const { partFrameEdges } = await import('./maker-stage-room');
+  /* The Logo at 100–160, the eyebrow ending 12 px above it, the names 30 px below. */
+  const f = partFrameEdges({ top: 100, height: 60 }, 12, 30);
+  assert.ok(f.top >= 100 - 6 && f.top <= 100, `top edge in the gap's middle or nearer (${f.top})`);
+  assert.ok(f.top - f.tapAbove / 2 >= 100 - 12 - 26 / 2 - 0.001 || f.tapAbove === 26, '＋ above is only as tall as the gap allows');
+  assert.ok(f.bottom <= 160 + 15 && f.bottom >= 160, `bottom edge within the gap (${f.bottom})`);
+  assert.ok(f.tapBelow <= 30, `＋ below's tap ends where the names begin (${f.tapBelow})`);
+  const open = partFrameEdges({ top: 100, height: 60 }, null, null);
+  assert.deepEqual([open.top, open.bottom, open.tapAbove], [78, 182, 44], 'nothing beside it: the full pad and a 44 px tap');
+  const edges = read(`${LAUNCH}/add-part-sheet.tsx`);
+  assert.match(edges, /partFrameEdges\(box, box\.gapAbove \?\? null, box\.gapBelow \?\? null, PART_PAD\)/, 'the frame is drawn from the gaps');
+  assert.match(edges, /tapAt\(box\.left \+ box\.width \/ 2, fr!\.top, fe!\.tapAbove\)/);
+  assert.match(edges, /tapAt\(box\.left \+ box\.width \/ 2, fr!\.top \+ fr!\.height, fe!\.tapBelow\)/);
+});

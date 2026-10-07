@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { GripVertical, Plus, Trash2, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, GripVertical, Plus, Trash2, X } from 'lucide-react';
 import { findMakerSection } from '@/app/[slug]/_components/maker-section-find';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PaidMark } from '@/app/_components/paid-mark';
@@ -26,7 +26,7 @@ import {
 import { postEventRun, postEventShow, type PostEventDraft } from '@/lib/post-event-draft';
 import { stageTakesOwnScenes, swapsForDrop, type MakerTile } from '@/lib/maker-scene-list';
 import type { RevealStage } from '@/lib/reveal-stages';
-import { STAGE_SHEET_ROW } from '@/lib/maker-stage-room';
+import { STAGE_SHEET_ROW, partFrameEdges } from '@/lib/maker-stage-room';
 import { SceneTemplatePicker } from '../../website/editor/_components/scene-template-picker';
 import { MakerSheet } from './stages-studio-parts';
 import { PLACE_ORDER_FIELD, PLACE_STAGE_FIELD, ownScenePlaceOrder } from '@/lib/own-scene-place';
@@ -141,7 +141,7 @@ function readRevealPart(): Element | null {
 }
 
 /** A part's box on the SCREEN (the canvas is a same-origin frame; it may be drawn scaled). */
-function partBox(canvas: string, el?: string | null): { top: number; left: number; width: number; height: number } | null {
+function partBox(canvas: string, el?: string | null): Box | null {
   const frame = document.querySelector<HTMLIFrameElement>(SHOWN_FRAME);
   const doc = frame?.contentDocument;
   if (!frame || !doc) return null;
@@ -153,7 +153,35 @@ function partBox(canvas: string, el?: string | null): { top: number; left: numbe
   const k = frame.clientWidth > 0 ? fr.width / frame.clientWidth : 1;
   const r = node.getBoundingClientRect();
   if (r.height <= 0) return null;
-  return { top: fr.top + r.top * k, left: fr.left + r.left * k, width: r.width * k, height: r.height * k };
+  const gap = (dir: -1 | 1): number | null => {
+    const n = neighbourOf(node!, dir);
+    if (!n) return null;
+    const nr = n.getBoundingClientRect();
+    return Math.max(0, (dir < 0 ? r.top - nr.bottom : nr.top - r.bottom) * k);
+  };
+  return { top: fr.top + r.top * k, left: fr.left + r.left * k, width: r.width * k, height: r.height * k, gapAbove: gap(-1), gapBelow: gap(1) };
+}
+
+/** Where a part sits on the screen (its top), or null when it is not drawn on the page now — ↑ ↓'s order. */
+export function makerPartTopOnScreen(stage: MakerStageKey, key: MakerPartKey): number | null {
+  const canvas = key === 'reveal' ? REVEAL_STUB : makerPartCanvasOn(stage, key);
+  if (!canvas) return null;
+  return partBox(canvas, MAKER_PARTS[key].el ?? null)?.top ?? null;
+}
+
+/** The nearest DRAWN thing above (-1) or below (1) a node on the page — a sibling, or an ancestor's sibling. */
+function neighbourOf(node: Element, dir: -1 | 1): Element | null {
+  let cur: Element | null = node;
+  while (cur && cur.tagName !== 'BODY') {
+    let sib: Element | null = dir < 0 ? cur.previousElementSibling : cur.nextElementSibling;
+    while (sib) {
+      const sr = sib.getBoundingClientRect();
+      if (sr.height > 0 && sr.width > 0) return sib;
+      sib = dir < 0 ? sib.previousElementSibling : sib.nextElementSibling;
+    }
+    cur = cur.parentElement;
+  }
+  return null;
 }
 
 /** The page's visible band: under the frame's top, above the guest's tab bar and the lower third. */
@@ -188,11 +216,14 @@ function ownPlaceFields(ops: MakerPartOps, mv: Movable, where: 'above' | 'below'
   return order ? { [PLACE_STAGE_FIELD]: ops.stage, [PLACE_ORDER_FIELD]: order.join(',') } : {};
 }
 
-type Box = { top: number; left: number; width: number; height: number };
+type Box = { top: number; left: number; width: number; height: number; gapAbove?: number | null; gapBelow?: number | null };
 /** A 44 px tap around each edge's small face (prototype `.addp` · `.grip` · `.delp`). */
 /** How far outside the part its frame is drawn — half a 44 px tap, so a ＋ on the frame never covers the part. */
 export const PART_PAD = 22;
 const EDGE_BTN = 'sn-press pointer-events-auto absolute inline-flex h-11 w-11 items-center justify-center rounded-full';
+/** ↑ ↓ ✕ — a 32 px tap (the owner's floor for these), its 24 px face in the frame's orange. */
+const CHIP_BTN = 'sn-press pointer-events-auto absolute inline-flex !h-8 !min-h-0 w-8 items-center justify-center rounded-full';
+const CHIP_FACE = 'inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#C24E25] text-white shadow-[0_0_0_2px_#fff]';
 const ADD_FACE =
   'inline-flex h-[26px] w-[26px] items-center justify-center rounded-full bg-[#C24E25] font-sans text-[18px] font-semibold leading-none text-white shadow-[0_0_0_3px_#fff,0_4px_10px_-4px_rgba(0,0,0,.4)]';
 
@@ -202,7 +233,20 @@ const ADD_FACE =
  * inside the visible band. `picked` null: nothing is drawn. Layered just over
  * the Maker shell (z-80) and under every sheet (the picker z-90, `MakerSheet` z-95).
  */
-export function PartEdits({ stage, picked }: { stage: MakerStageKey; picked: MakerPartKey | null }) {
+export function PartEdits({
+  stage,
+  picked,
+  onPrev = null,
+  onNext = null,
+  onClose = null,
+}: {
+  stage: MakerStageKey;
+  picked: MakerPartKey | null;
+  /** ↑ / ↓ the part above / below (null: nowhere to go — its chip is not drawn) · ✕ let it go (owner 2026-10-07). */
+  onPrev?: (() => void) | null;
+  onNext?: (() => void) | null;
+  onClose?: (() => void) | null;
+}) {
   const isReveal = picked === 'reveal';
   const canvas = isReveal ? REVEAL_STUB : picked ? makerPartCanvasOn(stage, picked) : null;
   const el = picked ? (MAKER_PARTS[picked].el ?? null) : null;
@@ -233,7 +277,7 @@ export function PartEdits({ stage, picked }: { stage: MakerStageKey; picked: Mak
     let last = '';
     const tick = () => {
       const b = partBox(canvas, el);
-      const sig = b ? `${Math.round(b.top)}|${Math.round(b.left)}|${Math.round(b.width)}|${Math.round(b.height)}` : '';
+      const sig = b ? `${Math.round(b.top)}|${Math.round(b.left)}|${Math.round(b.width)}|${Math.round(b.height)}|${Math.round(b.gapAbove ?? -1)}|${Math.round(b.gapBelow ?? -1)}` : '';
       if (sig !== last) {
         last = sig;
         setBox(b);
@@ -406,12 +450,16 @@ export function PartEdits({ stage, picked }: { stage: MakerStageKey; picked: Mak
   const edges = Boolean(picked && box);
   /* The prototype pads a picked part (`.el.on{padding-block:18px}`) so ＋ sits ON the frame, never over its words:
      the frame is drawn PART_PAD outside the part, and each 44 px tap lies wholly outside the part's box. */
-  const fr = box ? { top: box.top - PART_PAD, left: box.left, width: box.width, height: box.height + 2 * PART_PAD } : null;
+  const fe = box ? partFrameEdges(box, box.gapAbove ?? null, box.gapBelow ?? null, PART_PAD) : null;
+  const fr = box && fe ? { top: fe.top, left: box.left, width: box.width, height: fe.bottom - fe.top } : null;
   /* The prototype's chrome (`.el.on` · `.addp` · `.grip` · `.delp`): one outline with its soft halo and the part's
      name on its corner; ＋ 26 px on the middle of the top and bottom edges; the grip 30 × 22 on the right edge; 🗑 28 px
      on the top-right corner — each a 44 px tap around its face. Kept inside the screen. */
   const vw = typeof window === 'undefined' ? 375 : window.innerWidth;
   const at = (x: number, y: number) => ({ left: Math.max(0, Math.min(vw - 44, x - 22)), top: y - 22 });
+  /** A control on a frame edge whose tap is only as tall as the gap there (`partFrameEdges`). */
+  const chipAt = (x: number, y: number) => ({ left: Math.max(0, Math.min(vw - 32, x - 16)), top: y - 16 });
+  const tapAt = (x: number, y: number, h: number) => ({ ...at(x, y), top: y - h / 2, height: h, minHeight: 0 });
   return createPortal(
     <>
       {edges && box ? (
@@ -432,7 +480,7 @@ export function PartEdits({ stage, picked }: { stage: MakerStageKey; picked: Mak
             <span
               data-part-name=""
               className="absolute z-[1] rounded-sm bg-[#C24E25] px-[7px] py-[3px] font-sans text-[9px] font-bold uppercase leading-[1.2] tracking-[0.14em] text-white"
-              style={{ top: clampY(fr!.top) - 11, left: Math.max(2, box.left - 2) }}
+              style={{ top: clampY(fr!.top) - 11, left: Math.max(2, box.left - 2) + (onPrev ? 30 : 0) }}
             >
               {label}
             </span>
@@ -441,13 +489,37 @@ export function PartEdits({ stage, picked }: { stage: MakerStageKey; picked: Mak
           {drag ? null : (
             <>
               {edgesOf.addAbove ? (
-                <button type="button" aria-label={`Add above ${label}`} data-part-add="above" onClick={() => setAdding('above')} className={EDGE_BTN} style={{ ...at(box.left + box.width / 2, fr!.top), visibility: onEdge(fr!.top) ? undefined : 'hidden' }}>
+                <button type="button" aria-label={`Add above ${label}`} data-part-add="above" onClick={() => setAdding('above')} className={EDGE_BTN} style={{ ...tapAt(box.left + box.width / 2, fr!.top, fe!.tapAbove), visibility: onEdge(fr!.top) ? undefined : 'hidden' }}>
                   <span className={ADD_FACE}>+</span>
                 </button>
               ) : null}
               {onEdge(fr!.top + fr!.height) ? (
-                <button type="button" aria-label={`Add below ${label}`} data-part-add="below" onClick={() => setAdding('below')} className={EDGE_BTN} style={at(box.left + box.width / 2, fr!.top + fr!.height)}>
+                <button type="button" aria-label={`Add below ${label}`} data-part-add="below" onClick={() => setAdding('below')} className={EDGE_BTN} style={tapAt(box.left + box.width / 2, fr!.top + fr!.height, fe!.tapBelow)}>
                   <span className={ADD_FACE}>+</span>
+                </button>
+              ) : null}
+              {/* ↑ upper-left · ↓ lower-left · ✕ lower-right (owner 2026-10-07, verbatim: "upper left of the highlight is
+                  go to the element above · lower left of the highlight is to go to the next element under · lower
+                  right is deselect"). Each a 32 px tap on the frame's corner, a face in the frame's own orange. */}
+              {onPrev && onEdge(fr!.top) ? (
+                <button type="button" aria-label="Previous part" data-part-step="prev" onClick={onPrev} className={CHIP_BTN} style={chipAt(box.left + 2, fr!.top)}>
+                  <span className={CHIP_FACE}>
+                    <ChevronUp aria-hidden className="h-4 w-4" strokeWidth={2.6} />
+                  </span>
+                </button>
+              ) : null}
+              {onNext && onEdge(fr!.top + fr!.height) ? (
+                <button type="button" aria-label="Next part" data-part-step="next" onClick={onNext} className={CHIP_BTN} style={chipAt(box.left + 2, fr!.top + fr!.height)}>
+                  <span className={CHIP_FACE}>
+                    <ChevronDown aria-hidden className="h-4 w-4" strokeWidth={2.6} />
+                  </span>
+                </button>
+              ) : null}
+              {onClose && onEdge(fr!.top + fr!.height) ? (
+                <button type="button" aria-label={`Let go of ${label}`} data-part-deselect="" onClick={onClose} className={CHIP_BTN} style={chipAt(box.left + box.width - 2, fr!.top + fr!.height)}>
+                  <span className={CHIP_FACE}>
+                    <X aria-hidden className="h-4 w-4" strokeWidth={2.6} />
+                  </span>
                 </button>
               ) : null}
               {canRemove ? (

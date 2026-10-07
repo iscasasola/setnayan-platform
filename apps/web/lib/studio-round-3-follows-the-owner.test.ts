@@ -190,7 +190,8 @@ test('6 · Look › Music has no Save: an upload or the switch drafts at once; "
   assert.match(panel, /<HubDraftField \/>/, 'Music no longer writes into the draft');
   assert.equal((panel.match(/onChange=\{draftNow\}/g) ?? []).length, 3, 'the song, the switch and the video do not each draft at once');
   assert.match(panel, /formRef\.current\?\.requestSubmit\(\)/, 'nothing posts the form when a change lands');
-  assert.match(panel, /type="checkbox"\s*role="switch"\s*name="bg_music_enabled"/, '“Play music on my Event Hub” is not a switch (same field)');
+  assert.match(panel, /type="checkbox"\s*role=\{studio \? 'switch' : undefined\}\s*name="bg_music_enabled"/, '“Play music on my Event Hub” is not a switch in the Studio (same field)');
+  assert.match((await import('./studio-details')).studioFullScreenCss(), /\[data-music-switch\] input\[role=switch\]:checked/, 'the Studio’s CSS does not draw the music switch');
   const action = read(`${D}/website/site-chrome/actions.ts`);
   assert.match(action, /if \(isHubDraftWrite\(formData\)\) \{[\s\S]{0,500}site_bg_music_r2_key[\s\S]{0,400}landing_page_hero_video_r2_key/, 'the song and the video are not hub-draft fields');
 });

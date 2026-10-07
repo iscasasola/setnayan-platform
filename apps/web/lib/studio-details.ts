@@ -151,6 +151,13 @@ const STUDIO_MARCH_CSS =
   '[data-maker-studio-full] [data-march-parents]{display:none}' +
   `[data-maker-studio-full]:has([data-details-workspace][data-details-item="march"]){--maker-lt-h:${STUDIO_MARCH_TRAY_PX}px!important}`;
 
+/** 🔀 Look › Music's "Play music on my Event Hub" as a switch (owner 2026-10-08) — drawn here, by the server, so the Maker's first load carries none of it. */
+const STUDIO_MUSIC_SWITCH_CSS =
+  '[data-music-switch]{min-height:44px;justify-content:space-between;flex-direction:row-reverse;font-size:14px;color:rgb(var(--color-ink))}' +
+  '[data-music-switch] input[role=switch]{appearance:none;-webkit-appearance:none;position:relative;width:46px;height:28px;border:0;border-radius:9999px;background:rgb(var(--color-ink)/.2);cursor:pointer;flex:none;transition:background-color .2s}' +
+  '[data-music-switch] input[role=switch]::after{content:"";position:absolute;left:3px;top:3px;width:22px;height:22px;border-radius:9999px;background:#fff;box-shadow:0 1px 2px rgb(0 0 0/.2);transition:left .2s}' +
+  '[data-music-switch] input[role=switch]:checked{background:#4f6b4a}[data-music-switch] input[role=switch]:checked::after{left:21px}';
+
 export function studioFullScreenCss(): string {
   const on = (keys: readonly DetailsItemKey[]) => `:is(${keys.map((k) => `[data-details-item="${k}"]`).join(',')})`;
   const ws = (keys: readonly DetailsItemKey[]) => `[data-maker-studio-full] [data-details-workspace]${on(keys)}`;
@@ -177,6 +184,7 @@ export function studioFullScreenCss(): string {
     `[data-maker-studio-full]:has([data-details-workspace]${on([...STUDIO_FORM_ITEMS, ...STUDIO_PAGE_ITEMS])}) [data-maker-studio-room]{display:none}` +
     STUDIO_SKIN_CSS +
     STUDIO_MARCH_CSS +
-    '}'
+    '}' +
+    STUDIO_MUSIC_SWITCH_CSS
   );
 }

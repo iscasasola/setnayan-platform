@@ -6,7 +6,7 @@ import { InfoTip } from '@/app/_components/info-tip';
 import { formatClock, formatDateHeading, spanOf, toDatetimeLocal, wallDateKey, wallMinutes } from '@/lib/schedule-rail';
 import { fromDatetimeLocalValue } from '@/lib/schedule-datetime-local';
 import { SCHEDULE_AUDIENCE_OPTIONS, readScheduleAudience, scheduleAudienceForWrite, type ScheduleAudience } from '@/lib/schedule-audience';
-import { STUDIO_GLASS_FOOT, STUDIO_FOOT_BUTTON } from '@/lib/studio-skin';
+import { STUDIO_FOOT_BUTTON } from '@/lib/studio-skin';
 import type { DayMoment } from './day-types';
 import { PickMenu, toFormData, useDayActions } from './day-ui';
 
@@ -226,7 +226,7 @@ export function StudioDay({ eventId, dateKey, moments, canEdit, onPatch, onAdd, 
       {/* The editor's own bottom (prototype `.ebot`): pinned to the foot of a phone's screen, room kept above it. */}
       {canEdit ? <div aria-hidden className="h-20 shrink-0 lg:hidden" /> : null}
       {canEdit ? (
-        <div className={`z-30 max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:pb-[max(.5rem,env(safe-area-inset-bottom))] lg:sticky lg:bottom-0 lg:mt-4 ${STUDIO_GLASS_FOOT}`}>
+        <div className={`z-30 max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:pb-[max(.5rem,env(safe-area-inset-bottom))] lg:sticky lg:bottom-0 lg:mt-4 sn-glass-row shrink-0 px-2.5 py-2`}>
           {/* BUTTON-RULE */}
           <button type="button" data-studio-add-moment="" onClick={onAdd} className={STUDIO_FOOT_BUTTON}>
             <Plus aria-hidden className="h-[18px] w-[18px]" strokeWidth={2.2} />

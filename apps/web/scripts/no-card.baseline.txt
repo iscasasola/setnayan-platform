@@ -341,7 +341,7 @@
 2 apps/web/app/dashboard/[eventId]/guests/claims/link-picker.tsx
 1 apps/web/app/dashboard/[eventId]/guests/import/page.tsx
 1 apps/web/app/dashboard/[eventId]/guests/invite/_components/invite-link.tsx
-5 apps/web/app/dashboard/[eventId]/guests/invite/_components/invite-panel.tsx
+5 apps/web/app/dashboard/[eventId]/guests/invite/_components/share-link-panel.tsx
 2 apps/web/app/dashboard/[eventId]/guests/new/page.tsx
 3 apps/web/app/dashboard/[eventId]/guests/page.tsx
 2 apps/web/app/dashboard/[eventId]/guests/quick/_components/quick-add-list.tsx

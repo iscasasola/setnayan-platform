@@ -35,7 +35,7 @@ const GUEST_LIST_QR_SURFACES = [
   // card saves the guest's Digital ticket instead — `Save ticket`, below.
   'app/dashboard/[eventId]/guests/_components/guest-card-body.tsx', // the guest card
   'app/dashboard/[eventId]/guests/_components/guest-ticket-parts.tsx', // the card's ticket · Save ticket
-  'app/dashboard/[eventId]/guests/invite/_components/invite-panel.tsx', // Guest list's Share tab join-link QR
+  'app/dashboard/[eventId]/guests/invite/_components/share-link-panel.tsx', // Guest list's Share tab join-link QR
   'app/_components/qr-actions.tsx', // the shared Download · NFC · Copy strip
   'app/_components/save-file-link.tsx', // the mechanism itself
 ];

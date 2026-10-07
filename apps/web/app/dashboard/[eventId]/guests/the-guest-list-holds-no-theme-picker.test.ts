@@ -62,7 +62,7 @@ test('1 · nothing under the Guest list can choose a theme', () => {
 });
 
 test('2 · the Guest list keeps ONE quiet line — the theme, and the way to Details', () => {
-  const panel = read(join(HERE, 'invite', '_components', 'invite-panel.tsx'));
+  const panel = read(join(HERE, 'invite', '_components', 'share-link-panel.tsx'));
   const at = panel.indexOf('data-invite-theme-line');
   assert.ok(at > 0, 'the theme line is gone — a couple can no longer see which theme guests meet');
   const line = panel.slice(at, panel.indexOf('</p>', at));

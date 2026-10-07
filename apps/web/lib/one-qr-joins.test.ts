@@ -110,12 +110,18 @@ test('5 · the Event Hub offers one "Join as a guest" press to a signed-in stran
   );
 });
 
-test('6 · Your info sets it as ONE dropdown; the Guest list only shows it', () => {
-  const maker = read('app/dashboard/[eventId]/launch/_components/maker-rsvp-ask.tsx');
-  assert.match(maker, /options=\{guestsGetInOptions\(\)/);
-  assert.equal((maker.match(/<PickMenu\s+label=\{GUESTS_GET_IN_LABEL\}/g) ?? []).length, 1, 'one dropdown, drawn once');
-  assert.doesNotMatch(maker, /role="radiogroup"/, 'the setting is a pill row again');
-  const invite = read('app/dashboard/[eventId]/guests/invite/_components/invite-panel.tsx');
-  assert.match(invite, /guestsGetInLabel\(readGuestsGetIn\(/);
-  assert.doesNotMatch(invite, /guestsGetInPatch|hubDraftAction/, 'the Guest list grew a writer for How guests get in');
+/* ⚖ 2026-10-07 (DECISION_LOG "GUESTS › SETUP"): *this supersedes the 2026-10-02 reading that
+   the Guests page shows, never sets* the entry rule — Guests › Setup sets it, with the SAME
+   one dropdown the Maker mounts (`GuestsGetIn`), through the SAME draft door. */
+test('6 · ONE dropdown, one part, mounted by the Maker and Guests › Setup; both write through the one door', () => {
+  const part = read('app/dashboard/[eventId]/_components/guest-setup/guests-get-in.tsx');
+  assert.match(part, /options=\{guestsGetInOptions\(\)/);
+  assert.equal((part.match(/<PickMenu\s+label=\{GUESTS_GET_IN_LABEL\}/g) ?? []).length, 1, 'one dropdown, drawn once');
+  assert.doesNotMatch(part, /role="radiogroup"/, 'the setting is a pill row again');
+  for (const door of ['app/dashboard/[eventId]/launch/_components/maker-rsvp-ask.tsx', 'app/dashboard/[eventId]/_components/guest-setup/guest-setup-rows.tsx']) {
+    const src = read(door);
+    assert.match(src, /<GuestsGetIn\b/, `${door} does not mount the one dropdown`);
+    assert.match(src, /guestsGetInPatch\(/, `${door} writes the keys some other way`);
+    assert.doesNotMatch(src, /guestsGetInOptions\(/, `${door} draws its own dropdown`);
+  }
 });

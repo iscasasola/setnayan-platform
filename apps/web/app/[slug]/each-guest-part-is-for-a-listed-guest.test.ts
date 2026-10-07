@@ -9,10 +9,10 @@
  *
  * One test per part — Your role · What to wear · Arrive by · Coming with you —
  * each RENDERED (the gate `guestMePartsShown` → `GuestMeParts`):
- *   ✔ a guest on the list, How guests get in = List only · Guests reply, whose
+ *   ✔ a guest on the list, How guests get in = Only my list · They reply, whose
  *     row carries the fact → the part is drawn, under its own heading;
  *   ✘ a visitor on the plain address (no guest row), a request still waiting,
- *     an approved request (Accept · Guests reply), an open-QR guest (Open · One
+ *     an approved request (My list + requests · They reply), an open-QR guest (Open · One
  *     QR for everyone), the switch off, and a listed guest WITHOUT the fact →
  *     not drawn.
  *
@@ -43,8 +43,8 @@ const LISTED: Reader = { label: 'a listed guest', getIn: 'list', reader: { kind:
 const NOT_FOR_THEM: Reader[] = [
   { label: 'a visitor on the plain address', getIn: 'list', reader: { kind: 'visitor' } },
   { label: 'a request still waiting', getIn: 'list', reader: { kind: 'guest', entrySource: 'self_added_unlisted' } },
-  { label: 'an approved request (Accept · Guests reply)', getIn: 'requests', reader: { kind: 'guest', entrySource: 'host_seeded' } },
-  { label: 'an open-QR guest (Open · One QR for everyone)', getIn: 'one_qr', reader: { kind: 'guest', entrySource: 'host_seeded' } },
+  { label: 'an approved request (My list + requests · They reply)', getIn: 'requests', reader: { kind: 'guest', entrySource: 'host_seeded' } },
+  { label: 'an open-QR guest (Open · Anyone with the link)', getIn: 'one_qr', reader: { kind: 'guest', entrySource: 'host_seeded' } },
   { label: 'a guest let in by one QR, approved', getIn: 'one_qr_approve', reader: { kind: 'guest', entrySource: 'host_seeded' } },
   { label: 'a guest with their own QR, no reply', getIn: 'personal', reader: { kind: 'guest', entrySource: 'host_seeded' } },
   { ...LISTED, label: 'the switch off', on: false },

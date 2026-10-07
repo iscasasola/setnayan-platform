@@ -280,6 +280,6 @@ test('list head: Sort ▾ and four dropdowns — RSVP · Side · Role · Group �
   // four dropdowns fold under ONE Filter ▾, on a line of their own when open.
   assert.match(ROW, /order-last w-full min-w-0 \$\{filterOpen \? 'block' : 'hidden'\}/, 'the filter line is gone — the controls squeeze one 390px row');
   assert.match(PAGE, /sort=\{<RosterSort sorts=\{sorts\} current=\{sort\} \/>\}/, 'Sort ▾ left the row');
-  // "Share the link" — Invite means one guest's ticket everywhere.
-  assert.match(readFileSync(join(HERE, '..', '..', '..', '..', '..', 'lib', 'roster-doors.ts'), 'utf8'), /'Share the link'/);
+  // The third door is "Setup" (owner 2026-10-07, DECISION_LOG "GUESTS › SETUP") — never "Invite": Invite means one guest's ticket everywhere.
+  assert.match(readFileSync(join(HERE, '..', '..', '..', '..', '..', 'lib', 'roster-doors.ts'), 'utf8'), /key: 'share', label: 'Setup'/);
 });

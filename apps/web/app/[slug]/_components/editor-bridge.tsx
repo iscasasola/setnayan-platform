@@ -60,7 +60,8 @@ import { playSequence } from './play-sequence';
  *   parent → frame  { source:'setnayan-editor', t:'sceneBg',  scenes:[{ key, classes, vars }] }
  *   parent → frame  { source:'setnayan-editor', t:'sceneShow', key, shown }
  *   frame  → parent { source:'setnayan-site',   t:'ready',    order, bar, tab }
- *   parent → frame  { source:'setnayan-editor', t:'hubTab',   tab } — 🧭 Stages: show that tab's page, from its top
+ *   parent → frame  { source:'setnayan-editor', t:'hubTab',   tab, keep? } — 🧭 Stages: show that tab's page, from its top
+ *                    (`keep`: the same page put back after a reload — its place is kept)
  *   frame  → parent { source:'setnayan-site',   t:'hubTab',   tab } — the tab now on screen (after any switch)
  *   parent → frame  { source:'setnayan-editor', t:'refresh' } — 🖼 a pick the bridge cannot draw
  *                    was saved: the page re-renders itself in place (`router.refresh()`)
@@ -752,8 +753,12 @@ export function EditorBridge() {
            (both stages have a Welcome) — it keeps its first page until it is shown. */
         if (window.frameElement?.getAttribute('data-maker-canvas-frame') === 'warm') return;
         if (!showHubTab(document, tab)) return;
-        window.scrollTo({ top: 0, behavior: 'auto' });
-        holdTop = Date.now() + HUB_TAB_HOLD_MS;
+        /* `keep`: the SAME page put back after the canvas reloaded (a style pick redraws it) — its place is the
+           one the Maker just carried over, so it is not sent to the top. A pick of a page always starts at the top. */
+        if ((data as { keep?: unknown }).keep !== true) {
+          window.scrollTo({ top: 0, behavior: 'auto' });
+          holdTop = Date.now() + HUB_TAB_HOLD_MS;
+        }
         window.parent?.postMessage({ source: 'setnayan-site', t: 'hubTab', tab }, origin);
         return;
       }

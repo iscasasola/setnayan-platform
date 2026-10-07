@@ -297,7 +297,10 @@ test('d · WIRING: the swap starts at the top and stays there; the label follows
   const tab = BRIDGE.slice(BRIDGE.indexOf("data.t === 'hubTab'"));
   const handler = tab.slice(0, tab.indexOf('return;\n      }') + 20);
   assert.match(handler, /if \(!showHubTab\(document, tab\)\) return;/);
-  assert.match(handler, /window\.scrollTo\(\{ top: 0, behavior: 'auto' \}\);\s*holdTop = Date\.now\(\) \+ HUB_TAB_HOLD_MS;/);
+  assert.match(handler, /if \(\(data as \{ keep\?: unknown \}\)\.keep !== true\) \{\s*window\.scrollTo\(\{ top: 0, behavior: 'auto' \}\);\s*holdTop = Date\.now\(\) \+ HUB_TAB_HOLD_MS;\s*\}/, 'a pick starts at the top');
+  // …and only the page put back after a RELOAD keeps its place: a tap on a tab never asks to.
+  assert.equal(TOOLS.match(/keep: true/g)?.length, 1, 'one sender keeps the place: the reload');
+  assert.match(TOOLS, /if \(was\?\.stage === stage && was\.tab !== d\.tab\) window\.setTimeout\(\(\) => from\.postMessage\(\{ source: 'setnayan-editor', t: 'hubTab', key: '', tab: was\.tab, keep: true \}/);
   assert.match(handler, /postMessage\(\{ source: 'setnayan-site', t: 'hubTab', tab \}, origin\)/, 'the canvas says the tab on screen');
   // The page pick's own "scroll to its first scene" no longer drags the fresh page down.
   assert.match(BRIDGE, /if \(data\.t === 'scrollTo'\) \{\s*if \(Date\.now\(\) < holdTop\) return;/);

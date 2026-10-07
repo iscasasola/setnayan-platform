@@ -274,7 +274,8 @@ export function StageTools({
   /* 🧭 THE TAB ON SCREEN IS THE CANVAS'S TO SAY. It says it when it loads (`ready`) and after every switch
      (`hubTab`). A canvas that RELOADS comes back on its first tab and the work area re-sends the page IT holds —
      which follows the scroll and the selection, so it may name another; the tab that was on screen is sent again
-     right after, last, so a reload never moves the couple off the page they were editing. */
+     right after, last, so a reload never moves the couple off the page they were editing (`keep`: nor off their
+     place on it — the Maker carried the scroll over). */
   const tabRef = useRef<{ stage: LifecyclePhase; tab: string } | null>(null);
   tabRef.current = canvasTab;
   useEffect(() => {
@@ -288,7 +289,7 @@ export function StageTools({
       if (d.t === 'hubTab') setCanvasTab({ stage, tab: d.tab });
       else if (d.t === 'ready') {
         const was = tabRef.current;
-        if (was?.stage === stage && was.tab !== d.tab) window.setTimeout(() => from.postMessage({ source: 'setnayan-editor', t: 'hubTab', key: '', tab: was.tab }, window.location.origin), 80);
+        if (was?.stage === stage && was.tab !== d.tab) window.setTimeout(() => from.postMessage({ source: 'setnayan-editor', t: 'hubTab', key: '', tab: was.tab, keep: true }, window.location.origin), 80);
         else setCanvasTab({ stage, tab: d.tab });
       }
     };

@@ -89,6 +89,8 @@ const GUIDE = { done: 9, total: 20, stageTitle: 'Invitation', stageDone: 4, stag
 const EVERY_STATE: HomeNextInput[] = [
   { ...NOTHING, guide: GUIDE, hasDate: false, guests: { total: 0, unsent: 0 }, papicReady: true, aiOffer: true },
   { ...NOTHING, hasDate: false, guests: { total: 0, unsent: 0 }, papicReady: true, aiOffer: true },
+  // An unread guest list is its OWN step (H3, 2026-10-07) — never "on track".
+  { ...NOTHING, guests: null, papicReady: true, aiOffer: true },
   { ...NOTHING, guests: { total: 0, unsent: 0 }, papicReady: true, aiOffer: true },
   { ...NOTHING, guests: { total: 96, unsent: 58 }, papicReady: true, aiOffer: true },
   { ...NOTHING, papicReady: true, aiOffer: true },
@@ -119,6 +121,12 @@ function draw(over: Partial<HomeFirstScreenProps> = {}, input: HomeNextInput = N
 
 const count = (html: string, needle: string) => html.split(needle).length - 1;
 
+/** The Next card's markup — from its marker up to the doorway row under it. */
+const nextCard = (html: string) => html.slice(html.indexOf('data-home-next='), html.indexOf('data-home-doors'));
+/** True when one `<a>` carries both this href and this label (attribute order is React's). */
+const linkTo = (html: string, href: string, label: string) =>
+  (html.match(/<a [^>]*>/g) ?? []).some((t) => t.includes(`href="${href}"`) && t.includes(`aria-label="${label}"`));
+
 test('the picker walks the order the Home already stacked its nudges in', () => {
   assert.deepEqual(
     EVERY_STATE.map((s) => pickHomeNext(s).kind),
@@ -127,43 +135,49 @@ test('the picker walks the order the Home already stacked its nudges in', () => 
   );
 });
 
-test('a · exactly ONE Next card with ONE button, in every state', () => {
+test('a · exactly ONE Next card with ONE main verb (+ Later), in every state', () => {
   for (const state of EVERY_STATE) {
     const html = draw({}, state);
     const kind = pickHomeNext(state).kind;
     assert.equal(count(html, 'data-home-next='), 1, `${kind}: the first screen must carry exactly one Next card`);
-    const card = html.slice(html.indexOf('data-home-next='), html.lastIndexOf('<a', html.indexOf('data-home-edit-hub')));
-    assert.equal(count(card, '<a '), 1, `${kind}: the Next card must hold exactly one button`);
+    const card = nextCard(html);
+    assert.equal(count(card, 'data-main'), 1, `${kind}: the Next card must hold exactly one main verb`);
+    // The prototype's row: the verb, and 📅 Later beside it (an unread list has only ⟳ Reload).
+    assert.equal(count(card, 'class="ab '), kind === 'unread' ? 1 : 2, `${kind}: the card's button row`);
   }
 });
 
-test('a · the plan branch IS the first screen — the dashboard appears only inside the What\'s next sheet', () => {
+test('a · the plan branch IS the first screen — the dashboard appears only as What\'s next, in place', () => {
   assert.equal(count(PAGE, '<HomeFirstScreen'), 1, 'the first screen is drawn once, in one place');
   assert.equal(count(PAGE, 'homeFirstScreen'), 2, 'the first screen is built once and mounted once');
   assert.ok(PLAN.includes('{homeFirstScreen}'), 'the plan branch must render the first screen');
-  // The ONLY dashboard in the plan branch is the sheet's, told `only="whatsnext"`, behind the URL param.
-  assert.equal(count(PLAN, '<EventDashboard'), 1, 'the plan branch mounts the dashboard more than once');
+  // The ONLY dashboard the plan Home draws is What's next, handed to the first screen and
+  // unfolding IN PLACE under its row (owner 2026-10-07, H7) — no sheet, no URL param.
+  assert.equal(count(PLAN, '<EventDashboard'), 0, 'the plan branch mounts a second dashboard');
   assert.match(
-    PLAN,
-    /\{search\.sheet === 'next' \? \(\s*<WhatsNextSheet[^>]*>\s*<EventDashboard[^>]*only="whatsnext"[^>]*\/>\s*<\/WhatsNextSheet>\s*\) : null\}/,
-    'the dashboard must sit inside the sheet, only while ?sheet=next, drawn as `only="whatsnext"`',
+    PAGE,
+    /whatsNext=\{[\s\S]*?<Suspense[\s\S]*?<EventDashboard[^>]*only="whatsnext"[^>]*\/>\s*<\/Suspense>/,
+    'What\'s next must be the dashboard drawn as `only="whatsnext"`, streamed in under its row',
   );
+  assert.doesNotMatch(PAGE, /sheet === 'next'|WhatsNextSheet/, 'the ?sheet=next portal is back');
   assert.doesNotMatch(PLAN, /slotAfterBento|firstScreenAbove|home-all/, 'a leftover of the stacked second section');
   // The two receded views keep the whole dashboard — each behind its own disclosure.
-  assert.equal(count(PAGE, '<EventDashboard'), 3, 'EventDashboard: day-of, after the day, the sheet');
+  assert.equal(count(PAGE, '<EventDashboard'), 3, 'EventDashboard: day-of, after the day, What\'s next');
   assert.equal(count(PAGE, 'firstScreenAbove'), 0, 'the "first screen is above" flag is dead');
   assert.equal(count(PAGE, 'home-all'), 0, 'a "#home-all" anchor with nothing to land on');
 });
 
-test('b · Edit your Event Hub is drawn in every state — no data can hide it', () => {
+test('b · the three doors — Guest list · Suppliers · Event Hub — are drawn in every state', () => {
   const states: Array<[string, string]> = [
     ...EVERY_STATE.map((s): [string, string] => [pickHomeNext(s).kind, draw({}, s)]),
     ['nothing measured', draw({ coming: glanceCount(0, false), noReply: glanceCount(0, false), money: { paid: glanceMoney(null), owing: glanceMoney(null) }, days: glanceDays(null) })],
     ['budget not shared', draw({ money: null })],
   ];
   for (const [label, html] of states) {
-    assert.equal(count(html, 'data-home-edit-hub'), 1, `${label}: the Edit your Event Hub button is missing`);
-    assert.match(html, /href="\/dashboard\/e1\/launch"[^>]*>Edit your Event Hub</, `${label}: it must open the Maker`);
+    assert.equal(count(html, 'data-home-edit-hub'), 1, `${label}: the doorway row is missing`);
+    assert.ok(linkTo(html, '/dashboard/e1/guests', 'Edit your Guest list'), `${label}: Edit your Guest list must open Guests`);
+    assert.ok(linkTo(html, '/dashboard/e1/vendors', 'Edit your Suppliers'), `${label}: Edit your Suppliers must open Suppliers`);
+    assert.ok(linkTo(html, '/dashboard/e1/launch', 'Edit your Event Hub'), `${label}: Edit your Event Hub must open the Maker`);
     assert.doesNotMatch(html, /Recommended/i, `${label}: the owner dropped the Recommended badge (2026-10-01)`);
   }
 });
@@ -184,7 +198,9 @@ test('c · an unread number prints "—", never 0', () => {
   const numbers = html.slice(html.indexOf('data-home-numbers'));
   assert.doesNotMatch(numbers, />0</, 'an unread count rendered as 0');
   assert.doesNotMatch(numbers, /₱0/, 'an unread sum rendered as ₱0');
-  assert.ok(count(numbers, '>—<') >= 4, 'coming · no reply · paid · still owing must each read "—"');
+  // H3 (2026-10-07): an unread read is SAID, with ⟳ Reload — not a bare "—" that reads as quiet.
+  assert.match(numbers, /Guest counts couldn’t load/, 'an unread guest list must say so on the numbers');
+  assert.match(numbers, /Money couldn’t load/, 'an unread money read must say so on the money tile');
 });
 
 test('c · the page hands the measurement to the render, not only the rows', () => {
@@ -307,7 +323,7 @@ const read = (route: string) => stripComments(readFileSync(page(route), 'utf8'))
 test('e · the "plan" Next card opens the checklist — the plan, step by step', () => {
   assert.ok(exists('checklist'), 'the checklist page exists');
   const html = draw({}, NOTHING);
-  assert.match(html, /href="\/dashboard\/e1\/checklist"[^>]*>Open your checklist</, 'the plan card must open the checklist');
+  assert.ok(linkTo(html, '/dashboard/e1/checklist', 'Open your checklist'), 'the plan card must open the checklist');
   assert.doesNotMatch(html, /just below|See your plan/i, 'the card still points at a section that no longer exists');
 });
 
@@ -335,7 +351,8 @@ test('e · each removed tile\'s content is reachable at its home', () => {
   }
   // The Home hands the way to the two services and the money line.
   const html = draw();
-  for (const href of ['/dashboard/e1/studio/papic', '/dashboard/e1/studio/setnayan-ai', '/dashboard/e1/budget']) {
+  // The money opens the budget where it lives now — Suppliers (owner 2026-10-07, H6).
+  for (const href of ['/dashboard/e1/studio/papic', '/dashboard/e1/studio/setnayan-ai', '/dashboard/e1/vendors?part=budget']) {
     assert.ok(html.includes(`href="${href}"`), `the first screen must link ${href}`);
   }
 });
@@ -392,34 +409,25 @@ test('e · the nudges of the old second section are not on the plan Home', () =>
 
 /* ══ f · "WHAT'S NEXT" — the one row (owner "yes", 2026-10-03) ═══════════════════ */
 
-test('f · the first screen carries ONE "What\'s next" row — no caption, 48px, opening the sheet', () => {
+test('f · the first screen carries ONE "What\'s next" row — it unfolds in place, no sheet', () => {
   const html = draw();
   assert.equal(count(html, 'data-home-whats-next'), 1, 'exactly one What\'s next row');
-  const row = html.slice(html.lastIndexOf('<a', html.indexOf('data-home-whats-next')), html.indexOf('</a>', html.indexOf('data-home-whats-next')) + 4);
-  assert.match(row, /href="\/dashboard\/e1\?sheet=next"/, 'it opens the sheet (the Home URL + ?sheet=next)');
-  assert.match(row, /\bh-12\b/, 'one 48px row (h-12)');
-  assert.equal(row.replace(/<svg[\s\S]*?<\/svg>/g, '').replace(/<[^>]+>/g, '').trim(), 'What’s next', 'no caption, no count, no second line');
   const at = html.indexOf('data-home-whats-next');
+  const row = html.slice(at, html.indexOf('</button>', at));
+  assert.match(row, /<button type="button" class="home-bar" aria-expanded="false"/, 'the row is a button that unfolds, closed on load');
+  assert.doesNotMatch(html, /sheet=next/, 'nothing on Home opens the ?sheet=next portal');
   assert.ok(at > html.indexOf('data-home-money') && at < html.indexOf('data-home-services'), 'it sits under the money line, above Your services');
-  // present in every state, store shell included
-  assert.equal(count(draw({ services: [] }), 'data-home-whats-next'), 1);
+  assert.equal(count(draw({ services: [] }), 'data-home-whats-next'), 1, 'present in every state, store shell included');
 });
 
-test('f · the sheet draws the dashboard\'s own decisions list, then Coming up — and nothing else of it', () => {
-  assert.match(DASH, /only\?: 'whatsnext'/, 'the dashboard takes the sheet mode');
-  assert.match(DASH, /if \(only\) return inspectorMaster;/, 'in the sheet there is no inspector column — a row opens its room');
-  assert.equal(count(DASH, '{only ? null : ('), 2, 'two blocks leave the sheet: the hero + top grid, and Meanwhile + Around your event');
-  const g1 = DASH.indexOf('{only ? null : (');
-  const g2 = DASH.indexOf('{only ? null : (', g1 + 1);
-  const decisions = DASH.indexOf('<section id="decisions"');
-  const coming = DASH.indexOf('<section id="coming-up"');
-  assert.ok(g1 < decisions && decisions < coming && coming < g2, 'the decisions board, then Coming up, sit between the two removed blocks');
-  assert.match(DASH, /\{slotAfterBento && !only \? \(/, 'the cultural overlays do not ride into the sheet');
-  assert.ok(DASH.indexOf('Today&rsquo;s one thing') > 0 || DASH.includes('Today\'s one thing'), '"Today\'s one thing" is kept with the list');
-  // one wiring: the sheet shell and the row agree on the param
-  const SHEET = stripComments(readFileSync(join(HERE, '_components', 'whats-next-sheet.tsx'), 'utf8'));
-  assert.match(SHEET, /router\.replace\(closeHref/, 'closing returns to the plain Home URL');
-  assert.match(PAGE, /closeHref=\{`\/dashboard\/\$\{eventId\}`\}/);
+test('f · What\'s next draws the dashboard\'s own decisions, then Coming up — in the Home\'s rows', () => {
+  assert.match(DASH, /only\?: 'whatsnext'/, 'the dashboard takes the What\'s next mode');
+  const branch = DASH.slice(DASH.indexOf("if (only === 'whatsnext')"), DASH.indexOf('const inspectorMaster'));
+  assert.ok(branch.length > 0, 'the Home branch is gone');
+  assert.match(branch, /<HomeWhatsNext[\s\S]*open=\{openDecisionCount\}[\s\S]*rows=\{homeRows\(decisionGroups\)\}[\s\S]*coming=\{datesGroup \? homeRows\(\[datesGroup\]\)/, 'the same groups and counts as the board');
+  assert.match(branch, /href: it\.href/, 'each row opens the room its CTA always opened');
+  assert.equal(count(DASH, '{only ? null : ('), 2, 'the full dashboard still keeps its two removed blocks');
+  assert.throws(() => readFileSync(join(HERE, '_components', 'whats-next-sheet.tsx'), 'utf8'), 'the sheet shell is back');
 });
 
 test('f · replace means remove — the journey-rail stage line and the non-AI "% locked in" are gone, not hidden', () => {
@@ -459,7 +467,7 @@ test('f · the guests cards: "Add your guests" on an empty list, "Send N invitat
   assert.deepEqual(homeGuestsRead(rows, true), { total: 3, unsent: 2 });
   // A refused read is null — never "Add your guests" to a couple with names.
   assert.equal(homeGuestsRead(rows, false), null);
-  assert.equal(pickHomeNext({ ...NOTHING, guests: null }).kind, 'plan');
+  assert.equal(pickHomeNext({ ...NOTHING, guests: null }).kind, 'unread', 'an unread list is said — never "on track"');
 
   const invite = pickHomeNext({ ...NOTHING, guests: homeGuestsRead(rows, true) });
   assert.equal(invite.kind, 'invite');
@@ -483,9 +491,11 @@ test('the Next card reads "Your next step", and its button names the action — 
   for (const state of EVERY_STATE) {
     const html = draw({}, state);
     const kind = pickHomeNext(state).kind;
-    const card = html.slice(html.indexOf('data-home-next='), html.lastIndexOf('<a', html.indexOf('data-home-edit-hub')));
+    const card = nextCard(html);
     assert.match(card, />Your next step<\/p>/, `${kind}: the eyebrow does not say what the card is`);
-    const button = /<a [^>]*>([^<]*)<\/a>/.exec(card)?.[1]?.trim() ?? '';
+    const main = (card.match(/<(?:a|button) [^>]*data-main[^>]*>/) ?? [''])[0];
+    const button = /aria-label="([^"]*)"/.exec(main)?.[1]?.trim() ?? '';
+    assert.ok(button.length > 0, `${kind}: the main verb has no word`);
     assert.ok(!/^(Continue|Next|Go|Open)$/i.test(button), `${kind}: the button says "${button}" — it must name the action`);
   }
 });

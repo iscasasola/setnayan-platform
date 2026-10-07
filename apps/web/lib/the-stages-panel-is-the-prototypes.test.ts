@@ -362,3 +362,17 @@ test('the Reveal’s Look carries one switch per stage it can play on — the sa
   assert.match(src, /stages=\{stages\} toggleStage=\{toggleStage\}/, 'the Stages part is handed the picker’s own list and toggle');
   assert.match(src, /const toggleStage = \(s: RevealStage\) => setStages\(revealStagesWith\(stages, s, !stages\.includes\(s\)\)\);/, 'one write: setStages');
 });
+
+test('the RSVP stage canvas never fills in or sends a reply — its fields are inert and a submit is stopped', () => {
+  /* Owner 2026-10-07: "it is the actual RSVP not an editing way". Nothing on this canvas may write an RSVP. */
+  const bridge = read('app/[slug]/_components/rsvp-canvas-bridge.tsx');
+  assert.match(bridge, /const INERT_FIELDS = 'input, textarea, select, label,/);
+  for (const ev of ['click', 'pointerdown', 'mousedown', 'keydown', 'beforeinput']) {
+    assert.match(bridge, new RegExp(`document\\.addEventListener\\('${ev}', on\\w+, true\\)`), `${ev} is caught on the canvas`);
+  }
+  assert.match(bridge, /const onSubmit = \(e: Event\) => \{\s*e\.preventDefault\(\);\s*e\.stopPropagation\(\);/, 'a submit is stopped before React reads it');
+  /* …and the bridge is only ever on the Maker's canvas: the reply page mounts it behind the host-verified `canvas`. */
+  assert.match(read('app/[slug]/invite/reply/page.tsx'), /\{canvas \? <RsvpCanvasBridge \/> : null\}/);
+  /* …and even a sample that reached the action writes nothing. */
+  assert.match(read('app/[slug]/invite/actions.ts'), /if \(guestId === SIMULATED_GUEST_ID\) \{/);
+});

@@ -54,7 +54,11 @@ test('both first screens render the card, and the masthead has the card branch',
   assert.equal(mounts, 2, `the stranger's and the guest's text-only mastheads (found ${mounts})`);
   const mast = stripComments(read(join(C, 'pahina-masthead.tsx')));
   assert.match(mast, /if \(card\) \{/);
-  assert.match(mast, /border border-gild\/45/, 'the gold hairline frame');
+  // 🖼 The cover lost its frame (owner 2026-10-06/07, "THE COVER LOSES ITS FRAME", *"for everyone"*):
+  // the card's paper and its gold hairline are gone; the words sit on the Event Hub's main background.
+  const cardBranch = mast.slice(mast.indexOf('if (card) {'), mast.indexOf('scale-[1.85]'));
+  assert.match(cardBranch, /data-cover-frameless=""/, 'the frameless cover');
+  assert.doesNotMatch(cardBranch, /bg-cream|border-gild|shadow-\[/, 'the cover wears a frame again');
   assert.match(mast, /data-motion="arrive-mark"[\s\S]{0,900}scale-\[1\.85\]/, 'the mark at card size');
 });
 

@@ -59,7 +59,8 @@ test('1 · the Tool row: Tool ▾ across the row, ✓ Saved at its end — ✓ D
   const info = await html(React.createElement(StudioToolRow, { tile: tiles[0], tiles, onOpen: noop, onDone: noop }));
   assert.match(info, /data-maker-studio-tool/, 'no Tool ▾');
   assert.match(info, /data-studio-row-end=""/, 'no end slot for a tool’s own control (the Mood Board’s ✨ Auto)');
-  assert.match(info, /data-studio-saved="saved"[^>]*>.*Saved/s, 'no ✓ Saved in the row');
+  /* 🧾 No ✓ Saved chip any more (owner 2026-10-07, "yes remove the saved."): ✓ Apply's count is the one signal. */
+  assert.doesNotMatch(info, /Saved/, 'the Tool row still shows a Saved chip');
   assert.match(info, /uppercase/, 'the Tool ▾ pill is not the prototype’s capitals');
   assert.doesNotMatch(info, /data-maker-studio-done/);
   const march = tiles.find((t) => t.key === 'march')!;
@@ -136,7 +137,6 @@ test('5 · the full-screen surface: green switches, edge to edge, Look full widt
   assert.match(css, /input\[role=switch\]:checked\+span\{background-color:#4f6b4a\}/, 'switches are not the prototype’s green');
   assert.match(css, /\[data-details-editor-panel\]\[data-phone-chrome="panel"\]\{left:0;right:0;bottom:0;border-radius:0;box-shadow:none/, 'the editor still floats as a sheet');
   assert.match(css, /:has\(\[data-details-editor\]:not\(\[hidden\]\) \[data-studio-look-bar\]\)\{left:0;right:0/, 'Look’s panel is not full width');
-  assert.match(css, /\[data-studio-row-end\]:has\(\[data-mood-board-studio-bar\]\) \[data-studio-row-saved\]\{display:none\}/);
 });
 
 test('6 · Attire: every colour a role wears is a button that opens the SAME picker, drafts the change, and can be removed', () => {

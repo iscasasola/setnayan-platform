@@ -505,6 +505,10 @@ export function MakerDetails(props: MakerDetailsProps) {
   const save = <SaveWords />;
   /* 🗓 Your event (part 2a) — its rows, bodies and editors (`details-your-event-parts.tsx`). */
   const ye = props.yourEvent ? yourEventParts({ eventId, input: props.yourEvent, prints, parents, hosts }) : null;
+  /* 📍 Studio › Info names the place "Venue" — "Venues" only when there are several (owner 2026-10-07). */
+  if (props.studio && ye?.rows.venues && (props.yourEvent?.venues.resolved.filter((v) => v.name).length ?? 0) <= 1) {
+    ye.rows.venues = { ...ye.rows.venues, label: 'Venue' };
+  }
   /* 🗂 Your info's answers (`details-answers-parts.tsx`). */
   const ap = answerParts({ eventId, answers: props.answers ?? null });
   const logoA = props.answers ? logoAnswer(eventId, props.answers) : null;

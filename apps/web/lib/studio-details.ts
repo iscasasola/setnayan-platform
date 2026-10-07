@@ -140,7 +140,8 @@ const STUDIO_SKIN_CSS =
  * is automatically part of the wedding march, hosts are just access so this can live under the
  * guestlist since there is a access column already"*; DECISION_LOG "STUDIO REDRAW ANSWERS" (4)).
  * Parents keep their place IN the march — they walk, their rows are the march's own; hosts are
- * access, shown in the Guest list's Access column. So the tray's "Parents & hosts" block
+ * access, set in ONE place — Event Details › People with access (owner 2026-10-07, *"put people
+ * with access in event details"*). So the tray's "Parents & hosts" block
  * (`[data-march-parents]`) steps aside in Studio — hidden, never unmounted — and the lower part
  * shrinks to the prototype's Not-walking strip (`.mx-tray`): the heading and one row of names,
  * the rest behind "+N more" (`fitChips`, scroll-less). The shipped Maker (flag off) is unchanged.
@@ -162,8 +163,6 @@ export function studioFullScreenCss(): string {
        page behind it, no floating sheet (no inset, no rounded top, no ring). */
     `[data-maker-studio-full] [data-details-workspace] [data-details-editor-panel][data-phone-chrome="panel"]{left:0;right:0;bottom:0;border-radius:0;box-shadow:none;background:${STUDIO_PAGE}}` +
     `[data-maker-studio-full] [data-details-workspace]{background:${STUDIO_PAGE}}` +
-    /* The Tool row's own ✓ Saved steps aside where the tool portals its own (the Mood Board's Saved · ✨ Auto). */
-    '[data-studio-row-end]:has([data-mood-board-studio-bar]) [data-studio-row-saved]{display:none}' +
     `${form} [data-details-body],${form} [data-details-sheet-head]{display:none}` +
     `${page} [data-details-editor-panel]{display:none}` +
     /* 🌄 Look: its one bar (Background · Colours · Fonts · Music) is the section picker — no second ▾ above it. */

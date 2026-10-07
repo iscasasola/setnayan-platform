@@ -1,6 +1,6 @@
 'use client';
 
-import { useContext, useEffect, useId, useState, useTransition, type ReactNode } from 'react';
+import { useContext, useEffect, useId, useRef, useState, useTransition, type ReactNode } from 'react';
 import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { EGIFT_KIND_META, type EgiftMethodKind } from '@/lib/egift-kinds';
 import { PabuyaCardList } from '@/app/_components/pabuya/pabuya-card-list';
@@ -27,8 +27,7 @@ import {
   type WhichVersion,
 } from '@/lib/which-version-guests-see';
 import { useMaker } from './maker-context';
-import { TextPanel } from '../../website/editor/_components/text-panel';
-import { updateWhatToBring } from '../../website/what-to-bring/actions';
+import { useSceneWordsBox } from '../../website/editor/_components/canvas-words';
 import { DetailsSelectContext } from './details-go';
 import { ISeg, ISegmented } from '../../website/editor/_components/inspector-kit';
 import { LOOK_SECTION_ITEM_KEYS, type LookSectionItemKey } from '@/lib/maker-details-items';
@@ -56,6 +55,7 @@ import { MAIN_GROUND_SHADES, MAIN_GROUND_SHADE_LABEL } from '@/lib/main-ground-s
 import { MAIN_COLOUR_JOB, MAIN_COLOUR_SLOTS, type MainColourDraft, type MainColourSlot } from '@/lib/main-colours';
 import { MAIN_COLOUR_SLOTS as MOOD_MAIN_COLOUR_SLOTS } from '@/lib/colour-access';
 import { ChevronDown } from 'lucide-react';
+import { InfoTip } from '@/app/_components/info-tip';
 import { StudioEventName } from './studio-event-name';
 
 /**
@@ -904,25 +904,69 @@ export function StudioQrShown({ eventId, shown }: { eventId: string; shown: bool
 
 /* ── ONE door for the lazy stand-in (`details-lazy.tsx` `StudioTool`) ────── */
 
-/** ✍ What to bring — its own drafted column (`what_to_bring`), the Event Hub's Reminders box, in place. */
+/**
+ * ✍ What to bring — its own drafted column (`what_to_bring`, `HUB_DRAFT_WORDS_COLUMNS`), the Event Hub's
+ * Reminders box, in place. NO Save button (owner 2026-10-07, *"yes remove the saved."*): typed words are
+ * drafted after a pause through the ONE draft door (`hubDraftAction` intent=save — the door the names use),
+ * on the canvas as they are typed, and published by ✓ Apply. A refused save is said in words.
+ */
 function StudioWhatToBring({ eventId, value }: { eventId: string; value: string | null }) {
+  const [text, setText] = useState(value ?? '');
+  const [error, setError] = useState<string | null>(null);
+  const sent = useRef(value ?? '');
+  const box = useRef<HTMLTextAreaElement>(null);
+  const preview = useSceneWordsBox('w:what_to_bring', box, () => sent.current);
+  /** The draft write — the words are already on the box and the canvas (`preview`) before it is asked. */
+  const save = (typed: string) => {
+    setText(typed); // the box shows exactly what is sent (it already does — typed is its own value)
+    setError(null);
+    const fd = new FormData();
+    fd.set('intent', 'save');
+    fd.set('patch', JSON.stringify({ events: { what_to_bring: typed.trim().slice(0, 600) || null } }));
+    void makerSave(() => hubDraftAction(eventId, fd), requestMakerRefresh)
+      .then((r) => {
+        if (r.ok) sent.current = typed;
+        else setError(`What to bring did not save. ${r.error || 'Please try again.'}`);
+      })
+      .catch(() => setError('What to bring did not save. Please try again.'));
+  };
+  const saveRef = useRef(save);
+  saveRef.current = save;
+  /* A pause after the last keystroke (the names' `AutoDraft` beat), then one draft write. */
+  useEffect(() => {
+    if (text === sent.current) return;
+    const t = window.setTimeout(() => saveRef.current(text), 900);
+    return () => window.clearTimeout(t);
+  }, [text]);
   return (
-    <div className="flex flex-col gap-2 border-t border-ink/10 pt-4" data-studio-what-to-bring="">
-      <TextPanel
-        action={updateWhatToBring.bind(null, eventId)}
-        eventId={eventId}
-        rowKey="what-to-bring"
-        name="note"
-        label="What to bring"
+    <div className="flex flex-col gap-1 border-t border-ink/10 pt-4" data-studio-what-to-bring="">
+      {/* ⓘ Where it is read (owner 2026-10-07): the Event Hub's What to bring part (`what-to-bring-widget.tsx`) and the guest's welcome (`guest-welcome.tsx`). */}
+      <InfoTip label="What to bring" labelClassName="text-[14px] font-semibold text-ink" align="start">
+        Shown on your Event Hub in its own What to bring part, and in each guest&rsquo;s welcome.
+      </InfoTip>
+      <textarea
+        id={`bring-${eventId}`}
+        aria-label="What to bring"
+        ref={box}
+        rows={3}
         maxLength={600}
+        value={text}
         placeholder="e.g. your invitation QR, a jacket for the garden"
-        defaultValue={value ?? ''}
-        previewKey="w:what_to_bring"
+        data-same-field="what_to_bring"
+        onChange={(e) => {
+          setText(e.target.value);
+          preview(e.target.value);
+        }}
+        className="w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-[15px] text-ink outline-none focus:border-ink/30"
       />
+      {error ? (
+        <p role="alert" className="text-[13px] text-terracotta-700">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }
-
 
 export type StudioToolProps =
   | ({ part: 'hub' } & Parameters<typeof StudioHubSettings>[0])

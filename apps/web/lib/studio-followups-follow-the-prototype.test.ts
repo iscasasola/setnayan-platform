@@ -189,7 +189,8 @@ test('3 · Studio › Info: ONE "Event name · Maria & Jose" row that opens the 
       nameStyle: 'full',
     }),
   );
-  assert.match(out, /Event name<\/span><span[^>]*>Maria &amp; Jose<\/span>/, 'the row does not read “Event name · Maria & Jose” (first names, as the hero composes them)');
+  assert.match(out, /Event name[\s\S]*?<span[^>]*>Maria &amp; Jose<\/span>/, 'the row does not read “Event name · Maria & Jose” (first names, as the hero composes them)');
+  assert.match(out, /About Event name/, 'Event name has no ⓘ saying where it is read');
   assert.match(out, /aria-expanded="false"/);
   assert.match(out, /<div id="[^"]+" hidden="" class="hidden /, 'the names are not folded under the row until it is tapped');
   const md = read(`${L}/maker-details.tsx`);
@@ -210,4 +211,40 @@ test('4 · Studio › Wedding March: no "Parents & hosts" block; the tray is the
   assert.ok(STUDIO_MARCH_TRAY_PX <= 132, 'the tray takes the walks’ screen back');
   /* Parents keep their place: the shipped march still draws its parents (hidden in Studio by CSS only). */
   assert.match(read(`${L}/details-your-event-parts.tsx`), /<section data-march-parents=""/, 'the shipped march lost its parents');
+});
+
+test('5 · no Studio editor says "Saved" or asks for a Save on a drafted field — ✓ Apply’s count is the one signal', async () => {
+  const { StudioToolRow } = await import(`../${L}/stages-studio-parts`);
+  const { STUDIO_TILE_KEYS, STUDIO_TILES } = await import('./studio-tiles');
+  const tiles = STUDIO_TILE_KEYS.map((key) => ({ key, label: STUDIO_TILES[key].label, short: STUDIO_TILES[key].short, item: STUDIO_TILES[key].item, immersive: STUDIO_TILES[key].immersive === true, done: true, status: '' }));
+  for (const tile of tiles) {
+    const row = await html(React.createElement(StudioToolRow, { tile, tiles, onOpen: () => {}, onDone: () => {} }));
+    assert.doesNotMatch(row, /Saved|Saving/, `the ${tile.label} row still shows a Saved chip`);
+  }
+  const mood = read('app/dashboard/[eventId]/studio/mood-board/_components/mood-board-studio.tsx');
+  const bar = mood.slice(mood.indexOf('const bar = ('), mood.indexOf('return (', mood.indexOf('const bar = (')));
+  assert.match(bar, /data-mood-board-auto/, 'the Mood Board lost ✨ Auto');
+  assert.doesNotMatch(bar, /Saved|Saving/, 'the Mood Board still shows a Saved chip');
+  assert.match(bar, /save === 'error' \?/, 'a FAILED Mood Board save is no longer said');
+  /* What to bring is a drafted column: typed → drafted after a pause, no Save button. */
+  const tools = read(`${L}/studio-tools.tsx`);
+  const bring = tools.slice(tools.indexOf('function StudioWhatToBring'), tools.indexOf('export type StudioToolProps'));
+  assert.doesNotMatch(bring, /type="submit"|<TextPanel|>Save</, 'What to bring still has a Save button');
+  assert.match(bring, /JSON\.stringify\(\{ events: \{ what_to_bring:/, 'What to bring no longer writes the draft');
+  assert.match(bring, /hubDraftAction\(eventId, fd\)/, 'What to bring writes outside the one draft door');
+});
+
+test('6 · a Studio tile never leaves the Maker — every tile opens its editor in place', async () => {
+  const { STUDIO_TILE_KEYS, STUDIO_TILES } = await import('./studio-tiles');
+  const { isDetailsItemKey } = await import('./maker-details-items');
+  for (const k of STUDIO_TILE_KEYS) assert.ok(isDetailsItemKey(STUDIO_TILES[k].item), `${k} opens something that is not a Details item`);
+  const home = read(`${L}/studio-home.tsx`);
+  assert.doesNotMatch(home, /<a\s|<Link\b|href=|router\.|location\./, 'a Studio tile is a link out');
+  const shell = read(`${L}/maker-shell.tsx`);
+  const open = shell.slice(shell.indexOf('const openStudio = ('), shell.indexOf('};', shell.indexOf('const openStudio = (')));
+  assert.ok(open.length > 0);
+  assert.doesNotMatch(open, /router\.|location\.|href|window\.open|redirect/, 'opening a Studio tile routes away');
+  /* Logo: its editor is the shipped one, drawn INSIDE Details' body — never a page of its own. */
+  const look = read(`${L}/details-look-pages.tsx`);
+  assert.match(look, /if \(item === 'logo'\) \{\s*return look\.logo \? \(\s*<div[^>]*data-details-look="logo">\s*\{look\.logo\}/, 'the Logo tile no longer draws the logo editor in place');
 });

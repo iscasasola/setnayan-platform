@@ -21,7 +21,6 @@
  *                   (its 32 names, roles, sides and table names, read
  *                   2026-10-05) — "Sweetheart Table", "Table 9",
  *                   "Principal Sponsors 1"; &by=seat groups by table
- *   &access=1       (with part=rows) the Access column with a host set — the Host, a Co-host, a helper
  *   &low=1          push the card's ticket row to the bottom of a short phone
  *                   (375×667), where a menu has no room under it
  */
@@ -316,19 +315,6 @@ export default async function GuestsLabPage({
                   grouping={grouping}
                   sort="importance"
                   tables={tables}
-                  /* 🔑 `&access=1` — hosts are ACCESS, shown in the Access column (owner 2026-10-07, DECISION_LOG
-                     "STUDIO REDRAW ANSWERS" (4)): Maria is the Host (the creator), Jose a Co-host, Daniel a
-                     Limited helper who has not joined yet. */
-                  {...(sp.access === '1'
-                    ? {
-                        canManageAccess: true,
-                        accessByGuest: {
-                          'g-mj-0': { level: 'co_host' as const, live: true, lock: 'creator' as const },
-                          'g-mj-1': { level: 'co_host' as const, live: true, lock: null },
-                          'g-mj-3': { level: 'limited_helper' as const, live: false, lock: null },
-                        },
-                      }
-                    : {})}
                 />
               </section>
             </div>

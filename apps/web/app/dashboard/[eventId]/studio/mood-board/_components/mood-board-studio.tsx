@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import { STUDIO_AUTO_BUTTON, STUDIO_SAVED_PILL } from '@/lib/studio-skin';
 import { useMaker } from '../../../launch/_components/maker-context';
-import { Check, ChevronDown, Plus, Sparkles, X } from 'lucide-react';
+import { ChevronDown, Plus, Sparkles, X } from 'lucide-react';
 import { useOneOpen } from '@/lib/one-open';
 import { makerSave } from '@/lib/maker-refresh';
 import { compressImageForWeb } from '@/lib/image-compress';
@@ -410,17 +410,13 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
       <button type="button" onClick={() => setSheet({ kind: 'auto' })} className={STUDIO_AUTO_BUTTON} data-mood-board-auto="">
         <Sparkles aria-hidden className="h-4 w-4" /> Auto
       </button>
-      <span
-        className={`${STUDIO_SAVED_PILL} ${save === 'error' ? 'text-terracotta-700' : save === 'saving' ? 'text-ink/50' : 'text-success-700'}`}
-        data-mood-board-save={save}
-        aria-live="polite"
-      >
-        {save === 'saving' ? 'Saving…' : save === 'error' ? 'Not saved — try again' : (
-          <>
-            <Check aria-hidden className="h-4 w-4" /> Saved
-          </>
-        )}
-      </span>
+      {/* 🧾 No "✓ Saved" chip (owner 2026-10-07, *"yes remove the saved."*): edits go to the draft and the ONE
+          signal is ✓ Apply's count. A save that FAILED is still said, in words, here — never silent. */}
+      {save === 'error' ? (
+        <span className={`${STUDIO_SAVED_PILL} text-terracotta-700`} data-mood-board-save="error" role="alert">
+          Not saved — try again
+        </span>
+      ) : null}
     </div>
   );
 

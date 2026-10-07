@@ -191,7 +191,3 @@ export const PhotoMomentsEditor = dynamic(
   { loading: SlotRows },
 );
 
-/* ⚖ Studio round 3 (2026-10-08): the in-place E-Gifts door and the film's switch — drawn only inside
-   their items, so they load with Details, never with the Maker (CI measured the first load 1.9 KB over). */
-export const OpenInPlace = dynamic(() => import(/* webpackChunkName: "maker-details" */ './open-in-place').then((m) => m.OpenInPlace), { loading: SlotButton });
-export const FilmFollowsTheme = dynamic(() => import(/* webpackChunkName: "maker-details" */ './film-follows-theme').then((m) => m.FilmFollowsTheme), { loading: SlotNone });

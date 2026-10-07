@@ -1,6 +1,8 @@
 'use client';
 
 import { StudioColourField } from './studio-colour-field';
+import { OpenInPlace } from './open-in-place';
+import { FilmFollowsTheme } from './film-follows-theme';
 import { useContext, useEffect, useId, useRef, useState, useTransition, type ReactNode } from 'react';
 import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { EGIFT_KIND_META, type EgiftMethodKind } from '@/lib/egift-kinds';
@@ -969,7 +971,10 @@ export type StudioToolProps =
   | ({ part: 'main-colours' } & Parameters<typeof StudioMainColours>[0])
   | ({ part: 'qr-shown' } & Parameters<typeof StudioQrShown>[0])
   | ({ part: 'bring' } & Parameters<typeof StudioWhatToBring>[0])
-  | ({ part: 'event-name' } & Parameters<typeof StudioEventName>[0]);
+  | ({ part: 'event-name' } & Parameters<typeof StudioEventName>[0])
+  /* ⚖ Two round-3 pieces ride this one lazy door (2026-10-08) — a door of their own each cost the Maker's first load. */
+  | ({ part: 'open-in-place' } & Parameters<typeof OpenInPlace>[0])
+  | ({ part: 'film-follows' } & Parameters<typeof FilmFollowsTheme>[0]);
 
 export function StudioTool(props: StudioToolProps) {
   switch (props.part) {
@@ -995,5 +1000,9 @@ export function StudioTool(props: StudioToolProps) {
       return <StudioWhatToBring {...props} />;
     case 'event-name':
       return <StudioEventName {...props} />;
+    case 'open-in-place':
+      return <OpenInPlace {...props} />;
+    case 'film-follows':
+      return <FilmFollowsTheme {...props} />;
   }
 }

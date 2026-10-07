@@ -82,8 +82,6 @@ import { DetailsLookBody, DetailsLookEditor, DetailsLookPageBody, DetailsLookPie
 import {
   LoveStoryPieceFocus,
   PabuyaMessageEditor,
-  OpenInPlace,
-  FilmFollowsTheme,
   ParentCards,
   QrLookControls,
   ScheduleSlots,
@@ -94,6 +92,7 @@ import { LOOK_ITEM_SECTIONS } from '@/lib/maker-look-sections';
 import { StudioTool } from './details-lazy';
 import { DEFAULT_NAME_STYLE } from '@/lib/name-style';
 import type { StudioHubFacts } from './studio-tools';
+import type { StdLegibility } from '@/lib/std-backgrounds';
 import type { HubMainGround } from '@/lib/hub-canvas';
 import type { MainColourDraft } from '@/lib/main-colours';
 import type { ManagerMethod } from '../../pabuya/_components/pabuya-manager';
@@ -1324,6 +1323,14 @@ export function Toggle({
       ) : null}
     </div>
   );
+}
+
+/* ⚖ Studio round 3's two pieces load through the ONE lazy `StudioTool` door (the Maker's first load, 507 KB). */
+function OpenInPlace(props: { open: string; back: string; data: string; children: ReactNode }) {
+  return <StudioTool part="open-in-place" {...props} />;
+}
+function FilmFollowsTheme(props: { eventId: string; legibility?: StdLegibility }) {
+  return <StudioTool part="film-follows" {...props} />;
 }
 
 /** ↪ An item's editor as `MakerDetails` finally composed it — read at render, after the composition. */

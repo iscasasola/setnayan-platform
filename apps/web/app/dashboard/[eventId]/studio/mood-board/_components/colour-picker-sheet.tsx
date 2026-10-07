@@ -3,7 +3,7 @@
 import { useContext, useEffect, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Check } from 'lucide-react';
-import { PICKER_SWATCHES, cleanHexInput } from '@/lib/mood-board-studio';
+import { PICKER_SWATCHES, cleanHexInput, pickerSuggestions } from '@/lib/mood-board-studio';
 import { PickSheetContext, pickOpensAsSheet } from '../../../website/editor/_components/pick-menu-place';
 
 /**
@@ -13,6 +13,14 @@ import { PickSheetContext, pickOpensAsSheet } from '../../../website/editor/_com
  * Swatches (16) · Custom (the system wheel + a code to type, e.g. a stylist's
  * brief). ONE tap sets that colour and closes; the Studio then says what it
  * changed. Opening it writes nothing.
+ *
+ * 🎨 ONE PICKER FOR EVERY COLOUR (owner 2026-10-08: *"we already have a design for the color
+ * palettes and how to pick colors on the moodboard. apply that same concept on the background and
+ * on any other color rules parts"* · *"the color suggestions should rely on the moodboard as well. so
+ * the mood board colors, then the complementing colors for them"*). Every Studio colour control
+ * opens THIS sheet (`StudioColourField` for the Maker's), never a second picker; its suggestions
+ * run in that order — Your palette (the Mood Board's five) · Goes with your palette
+ * (`pickerSuggestions`, the Mood Board's own harmony) · From your photos · Swatches · Custom.
  *
  * Prototype `openPicker`. The sheet is the new Maker's ONE bottom sheet
  * (`PickSheetContext`, handed down by the shell on a phone); a desktop draws
@@ -26,7 +34,13 @@ export function ColourPickerSheet({
   onPick,
   onClose,
   extra,
+  palette = [],
+  onRemove,
 }: {
+  /** "Remove this colour" under the swatches (a role's own colour, a part set by hand). */
+  onRemove?: () => void;
+  /** The Mood Board's five — drawn FIRST, then the colours that go with them. Empty = both rows are left out. */
+  palette?: readonly string[];
   /** "Dominant", "Table linens", "Bridesmaids". */
   title: string;
   /** What it changes, said beside the title ("Headings and big blocks · flowers · lights"). */
@@ -40,6 +54,7 @@ export function ColourPickerSheet({
   extra?: ReactNode;
 }) {
   const [code, setCode] = useState(current);
+  const suggest = pickerSuggestions(palette);
   const typed = cleanHexInput(code);
   const sw = (c: string) => {
     const on = c.toUpperCase() === current.toUpperCase();
@@ -65,6 +80,22 @@ export function ColourPickerSheet({
           <span className="font-mono text-[14px] text-ink">{current.toUpperCase()}</span>
           <small className="text-[11px] text-ink/50">now</small>
         </div>
+        {suggest.palette.length > 0 ? (
+          <>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/55">Your palette</p>
+            <div className="grid grid-cols-8 gap-2" data-picker-palette="">
+              {suggest.palette.map(sw)}
+            </div>
+            {suggest.goesWith.length > 0 ? (
+              <>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/55">Goes with your palette</p>
+                <div className="grid grid-cols-8 gap-2" data-picker-goes-with="">
+                  {suggest.goesWith.map(sw)}
+                </div>
+              </>
+            ) : null}
+          </>
+        ) : null}
         {fromPhotos.length > 0 ? (
           <>
             <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/55">From your photos</p>
@@ -100,6 +131,16 @@ export function ColourPickerSheet({
           </button>
         </div>
         {extra}
+        {onRemove ? (
+          <button
+            type="button"
+            data-picker-remove=""
+            onClick={onRemove}
+            className="sn-press min-h-11 self-start rounded-full bg-terracotta-700/10 px-4 text-[13px] font-semibold text-terracotta-700"
+          >
+            Remove this colour
+          </button>
+        ) : null}
       </div>
     </StudioSheet>
   );

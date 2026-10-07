@@ -199,7 +199,8 @@ test('in Details the editor draws no panel column, no fixed drawer, no fixed she
   assert.doesNotMatch(ed, /variant=\{isPhone \? 'sheet'/, 'a dock variant bypasses the Details rule');
   assert.match(ed, /<SeatPlanPortal name="place" on>\s*\{placeList\}/, 'the place is not drawn into the navigator');
   // The right part's JSX is named a NODE (\`guestsNode\`, train m): \`guestsPart\` read as a guest COUNT to T4.
-  assert.match(ed, /<SeatPlanPortal name="guests" on>\s*\{guestsNode\}/, 'the guests are not drawn into the right part');
+  /* In the new Maker's Studio on a phone the guests are the pull-up sheet over the map instead (owner 2026-10-08). */
+  assert.match(ed, /<SeatPlanPortal name="guests" on=\{!studioSeat\}>\s*\{guestsNode\}/, 'the guests are not drawn into the right part');
   assert.match(ed, /<SeatingFrame fill=\{details !== null\}>/);
   assert.match(ed, /<FrameBody single=\{details !== null\}>/);
   // Every existing verb stays in the ONE command bar (Add · Auto Arrange · Share & print).

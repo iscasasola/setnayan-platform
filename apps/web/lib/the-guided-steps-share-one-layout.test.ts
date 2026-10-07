@@ -649,7 +649,10 @@ test('(23) "Same as theme": first in the film\'s background picker and the defau
   // ("Same as theme" until 2026-10-05 — in Look there is no theme to name any more; the film follows the Event Hub.)
   const { FilmFollowsTheme } = await import(`../${L}/film-follows-theme`);
   const line = renderToStaticMarkup(React.createElement(FilmFollowsTheme, { eventId: 'e' }));
-  assert.match(line, /Your Save the Date film keeps its own background ·[\s\S]*<button[^>]*>Same as the Event Hub<\/button>/);
+  /* 🔀 A switch since 2026-10-08 (owner, studio round 3: "Same as the Event Hub" becomes a switch) — off while the film keeps its own. */
+  assert.match(line, /Save the Date film · Same as the Event Hub[\s\S]*Your film keeps its own background\.[\s\S]*<input[^>]*role="switch"/);
+  assert.doesNotMatch(line, /checked=""/, 'the switch draws ON while the film keeps its own background');
+  assert.doesNotMatch(line, /underline/, '"Same as the Event Hub" is a link again');
   const picker2 = read(`${L}/film-follows-theme.tsx`);
   assert.match(picker2, /fd\.set\('patch', JSON\.stringify\(\{ events: \{ std_background: stdFollowTheme\(legibility\) \} \}\)\);\s*const r = await makerSave\(\(\) => hubDraftAction\(eventId, fd\)/, 'the tap does not go into the draft (with the film\'s Readability)');
 

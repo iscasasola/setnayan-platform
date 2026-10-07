@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import type { ReactNode } from 'react';
 import {
   Armchair,
@@ -48,7 +47,6 @@ import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
 import type { StoredQrStyle } from '@/lib/qr-look';
 import { MiniTour } from '@/app/_components/mini-tour';
 import { ThemePickProvider } from './maker-theme-picker';
-import { FilmFollowsTheme } from './film-follows-theme';
 import type { ThemeTile } from '@/lib/maker-theme-tiles';
 import type { UpdateQrStyleResult } from '../qr-look-actions';
 import {
@@ -94,6 +92,7 @@ import { LOOK_ITEM_SECTIONS } from '@/lib/maker-look-sections';
 import { StudioTool } from './details-lazy';
 import { DEFAULT_NAME_STYLE } from '@/lib/name-style';
 import type { StudioHubFacts } from './studio-tools';
+import type { StdLegibility } from '@/lib/std-backgrounds';
 import type { HubMainGround } from '@/lib/hub-canvas';
 import type { MainColourDraft } from '@/lib/main-colours';
 import type { ManagerMethod } from '../../pabuya/_components/pabuya-manager';
@@ -828,6 +827,9 @@ export function MakerDetails(props: MakerDetailsProps) {
       Prints on {PRINT_PIECES[piece].label} while its switch is on.
     </p>
   );
+  /* ↪ An editor decided further down (E-Gifts' is finished in the Studio block below), drawn
+     in place from another item — `LateEditor` reads it when it renders, after this returns. */
+  const late: Partial<Record<DetailsItemKey, ReactNode>> = {};
   const editors: Partial<Record<DetailsItemKey, ReactNode>> = {
     /* 🎨 LOOK IS ONE PANEL — Background · Font · Colours · Buttons (`lib/maker-look-sections.ts`). */
     theme: <LookPanel filmLine={filmLine} item="theme" />,
@@ -887,9 +889,10 @@ export function MakerDetails(props: MakerDetailsProps) {
           on={inc.giftDetails && hasGifts}
           disabled={!hasGifts}
           note={hasGifts ? null : (
-            <Link href={`${base}/pabuya`} className="underline underline-offset-2">
-              Set up E-Gifts
-            </Link>
+            /* ↪ E-Gifts' own editor opens HERE, never a link out (owner 2026-10-08, studio round 3). */
+            <OpenInPlace open="Set up E-Gifts" back="Prints" data="gifts">
+              <LateEditor from={late} item="gifts" />
+            </OpenInPlace>
           )}
           tip="Account numbers print masked (•••• 1234)."
         />
@@ -1104,6 +1107,7 @@ export function MakerDetails(props: MakerDetailsProps) {
       );
     }
   }
+  late.gifts = editors.gifts ?? null;
   /* 🪑 The seat plan's right part is its guests — the editor draws them here. */
   if (seatPlan) editors.seating = <SeatPlanSlot name="guests" className="flex flex-col" />;
   /* 🙋 Plan it myself — what the help is (middle), the one switch (right). */
@@ -1313,12 +1317,25 @@ export function Toggle({
           className="relative h-6 w-11 shrink-0 rounded-full bg-ink/20 transition-colors after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:bg-terracotta-700 peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-mulberry peer-disabled:opacity-40"
         />
       </label>
-      {note ? <p className="text-xs text-ink/60">{note}</p> : null}
+      {note ? <div className="text-xs text-ink/60">{note}</div> : null}
       {children ? (
         <div className="hidden flex-col gap-2 pl-1 group-has-[[role=switch]:checked]/inc:flex">{children}</div>
       ) : null}
     </div>
   );
+}
+
+/* ⚖ Studio round 3's two pieces load through the ONE lazy `StudioTool` door (the Maker's first load, 507 KB). */
+function OpenInPlace(props: { open: string; back: string; data: string; children: ReactNode }) {
+  return <StudioTool part="open-in-place" {...props} />;
+}
+function FilmFollowsTheme(props: { eventId: string; legibility?: StdLegibility }) {
+  return <StudioTool part="film-follows" {...props} />;
+}
+
+/** ↪ An item's editor as `MakerDetails` finally composed it — read at render, after the composition. */
+function LateEditor({ from, item }: { from: Partial<Record<DetailsItemKey, ReactNode>>; item: DetailsItemKey }) {
+  return <>{from[item] ?? null}</>;
 }
 
 /** A small segmented choice (radio buttons that look like one control). */

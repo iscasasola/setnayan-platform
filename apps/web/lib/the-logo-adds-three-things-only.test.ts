@@ -41,7 +41,10 @@ test('1 · Colour offers the five main colours in the new Maker, the eight inks 
   assert.deepEqual(logoColourChoices(null, null), [...LOGO_INKS]);
   const src = editor();
   assert.match(src, /label="Its own"/, 'Its own is gone');
-  assert.match(src, /logoColourChoices\(studio, layer\.color\)/);
+  /* 🎨 Since 2026-10-08 the new Maker's Colour opens the Mood Board's ONE picker with the five first
+     (owner: "apply that same concept … on any other color rules parts"); the shipped editor keeps its inks. */
+  assert.match(src, /<StudioColourField\s+data="logo"[\s\S]{0,300}palette=\{studio\.five\}/, 'the new Maker’s logo colour does not open the one picker with the five');
+  assert.match(src, /logoColourChoices\(null, layer\.color\)/, 'the shipped editor lost its inks');
 });
 
 test('2 · Rotate is a slider in Size and place, saved and drawn', () => {

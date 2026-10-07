@@ -4,6 +4,9 @@ import { useState, useTransition } from 'react';
 
 import { PABUYA_TEMPLATES, PABUYA_MESSAGE_MAX, type PabuyaTemplate } from '@/lib/pabuya-message';
 import { savePabuyaMessage } from '../actions';
+import { InfoTip } from '@/app/_components/info-tip';
+import { PickMenu } from '../../website/editor/_components/pick-menu';
+import { useMaker } from '../../launch/_components/maker-context';
 
 /**
  * THE COUPLE'S OWN WORDS — five starting points, or their own.
@@ -19,6 +22,11 @@ import { savePabuyaMessage } from '../actions';
  *
  * ⚠ The box starts with whatever is already saved, so opening this screen never
  * looks like an empty field on a page that has words on it.
+ *
+ * 🧭 In the new Maker's Studio (`stagesStudio`, owner 2026-10-08 studio round 3): the starting
+ * points are ONE dropdown — "Start from ▾", exactly as Info's Opening line
+ * (`opening-line-field.tsx`) — and the helper line sits behind ⓘ. Same box, same save; the
+ * E-Gifts page keeps its chips until it is redrawn.
  */
 export function PabuyaMessageEditor({
   eventId,
@@ -34,6 +42,7 @@ export function PabuyaMessageEditor({
   const [saved, setSaved] = useState<string | null>(initialMessage);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
+  const studio = useMaker()?.stagesStudio === true;
 
   const dirty = (text.trim() || null) !== saved;
   const remaining = PABUYA_MESSAGE_MAX - text.length;
@@ -61,6 +70,26 @@ export function PabuyaMessageEditor({
         </p>
       </header>
 
+      {studio ? (
+        <div className="mt-4 flex min-h-11 items-center justify-between gap-3" data-pabuya-start="studio">
+          <InfoTip label="Start from" labelClassName="text-[14px] text-ink" align="start">
+            Pick one to fill the box, then change anything you like — what you save is your text, not the template.
+          </InfoTip>
+          <PickMenu
+            label="Start from"
+            dataAttr="data-pabuya-start-from"
+            value={templates.find((t) => t.body === text)?.key ?? ''}
+            buttonText={templates.find((t) => t.body === text)?.name ?? 'Start from'}
+            options={templates.map((t) => ({ key: t.key, label: t.name, hint: t.body }))}
+            onPick={(k) => {
+              const t = templates.find((x) => x.key === k);
+              if (t) setText(t.body);
+            }}
+            className="ring-1 ring-ink/10"
+          />
+        </div>
+      ) : (
+      <>
       <div className="mt-4 flex flex-wrap gap-2">
         {templates.map((t) => (
           <button
@@ -77,6 +106,8 @@ export function PabuyaMessageEditor({
         Pick one to fill the box, then change anything you like — what you save is your text,
         not the template.
       </p>
+      </>
+      )}
 
       <textarea
         value={text}
@@ -85,7 +116,7 @@ export function PabuyaMessageEditor({
         data-same-field="pabuya_message"
         onChange={(e) => setText(e.target.value.slice(0, PABUYA_MESSAGE_MAX))}
         rows={4}
-        placeholder="Write your own, or pick one above…"
+        placeholder={studio ? 'Write your own, or start from one' : 'Write your own, or pick one above…'}
         className="mt-3 w-full rounded-xl border border-ink/15 bg-cream p-3 text-sm text-ink placeholder:text-ink/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mulberry"
       />
 

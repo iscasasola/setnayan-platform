@@ -290,3 +290,183 @@ export function MoveGuestSheet({
     document.body,
   );
 }
+
+/*
+ * 🧭 STUDIO › SEAT PLAN — THE MAP GETS THE SPACE (owner 2026-10-08, studio round 3, verbatim:
+ * *"seatplan has correct page but wrong balance. there is no space to see the whole seatplan"*).
+ * Drawn only in the new Maker's Studio on a phone; the shipped head and foot above stay for
+ * everyone else. The SAME handlers and counts the editor hands the shipped head — nothing new is
+ * saved, nothing is counted twice:
+ *
+ *   StudioSeatPlanHead  — ONE compact row: "Seat plan · N tables" · the save chip · ⋯
+ *   StudioSeatPlanTools — the thumb zone, over the foot of the map: Auto arrange · Rules ▾ · View ▾
+ *                         (2D · 3D · List — the view dropdown covers "Same layout in 3D ↗")
+ *   PeopleSheet         — the people list as a pull-up sheet over the map, its peek
+ *                         "32 guests · 0 unseated"; a tap (or a drag up) raises it, ⌄ lowers it.
+ */
+export function StudioSeatPlanHead({
+  countLabel,
+  more,
+  trailing,
+}: {
+  countLabel: string;
+  more: ReactNode;
+  trailing?: ReactNode;
+}) {
+  return (
+    <div data-seat-plan-studio-head="" className="flex h-11 shrink-0 items-center gap-2 border-b border-ink/10 bg-cream px-3">
+      <h2 className="min-w-0 truncate text-[15px] font-semibold text-ink">
+        Seat plan <span className="font-normal text-ink/55">· </span>
+        <span data-seat-plan-count="" className="font-normal tabular-nums text-ink/60">
+          {countLabel}
+        </span>
+      </h2>
+      <span className="flex-1" />
+      {trailing}
+      <Pop
+        label="More seat-plan tools"
+        align="right"
+        data="data-seat-plan-more"
+        button={<MoreHorizontal aria-hidden className="h-5 w-5" strokeWidth={1.75} />}
+      >
+        {more}
+      </Pop>
+    </div>
+  );
+}
+
+export function StudioSeatPlanTools({
+  onAutoArrange,
+  autoDisabled,
+  autoBusy,
+  rules,
+  view,
+  onView,
+  show3D,
+  toast,
+}: {
+  onAutoArrange: () => void;
+  autoDisabled: boolean;
+  autoBusy: boolean;
+  rules: ReactNode;
+  view: '2d' | '3d' | 'list';
+  onView: (v: '2d' | '3d' | 'list') => void;
+  show3D: boolean;
+  toast: { text: string; onUndo: (() => void) | null; onDismiss: () => void } | null;
+}) {
+  const views: PickOption[] = [
+    { key: '2d', label: '2D' },
+    ...(show3D ? [{ key: '3d', label: '3D' }] : []),
+    { key: 'list', label: 'List' },
+  ];
+  return (
+    <div data-seat-plan-studio-tools="" className="flex flex-col gap-2">
+      {toast ? (
+        <div role="status" data-seat-plan-toast="" className="flex items-center gap-2 rounded-xl bg-ink px-3 py-2 text-[13px] text-cream">
+          <Sparkles aria-hidden className="h-4 w-4 shrink-0 text-terracotta-200" />
+          <span className="min-w-0 flex-1">{toast.text}</span>
+          {toast.onUndo ? (
+            <button type="button" onClick={toast.onUndo} data-seat-plan-undo="" className="sn-press shrink-0 font-semibold text-terracotta-200 underline-offset-2 hover:underline">
+              Undo
+            </button>
+          ) : null}
+          <button type="button" onClick={toast.onDismiss} aria-label="Dismiss" className="shrink-0 rounded p-0.5 text-cream/70 hover:text-cream">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      ) : null}
+      {/* 🪟 The floating row is glass (`sn-glass-row`, BUTTON_RULE Rule 7) — no fill, no shadow of its own. */}
+      <div className="sn-glass-row flex items-center gap-2 rounded-full p-1">
+        {/* BUTTON-RULE — icon + word; Auto arrange is the forward step (terracotta). */}
+        <button
+          type="button"
+          onClick={onAutoArrange}
+          disabled={autoDisabled || autoBusy}
+          data-seat-plan-auto=""
+          className="sn-press inline-flex h-10 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full bg-mulberry px-3 text-[13px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <Sparkles aria-hidden className="h-4 w-4 shrink-0" strokeWidth={2} />
+          <span className="truncate">{autoBusy ? 'Arranging…' : 'Auto arrange'}</span>
+        </button>
+        <Pop
+          label="Who sits together"
+          align="right"
+          data="data-seat-plan-rules"
+          button={
+            <>
+              Rules <ChevronDown aria-hidden className="h-3.5 w-3.5 text-ink/45" />
+            </>
+          }
+        >
+          {rules}
+        </Pop>
+        <PickMenu label="View" value={view} options={views} onPick={(k) => onView(k as '2d' | '3d' | 'list')} dataAttr="data-seat-plan-view" compact className="h-11 border border-ink/15 bg-cream" />
+      </div>
+    </div>
+  );
+}
+
+export function PeopleSheet({
+  guests,
+  unseated,
+  open,
+  onOpen,
+  onClose,
+  tools,
+  children,
+}: {
+  /** Everyone on the list the plan seats — `guests.length`, counted by the editor. */
+  guests: number;
+  /** The Unseated section's own count (the shipped head's chip). */
+  unseated: number;
+  open: boolean;
+  onOpen: () => void;
+  onClose: () => void;
+  /** The thumb-zone tools, riding just above the peek. */
+  tools: ReactNode;
+  /** The people list — the editor's own `guestsNode`, never a copy. */
+  children: ReactNode;
+}) {
+  const peek = `${formatCount(guests)} ${guests === 1 ? 'guest' : 'guests'} · ${formatCount(unseated)} unseated`;
+  /* A drag up on the peek raises the sheet, a drag down on its grip lowers it (no library — two numbers). */
+  const [startY, setStartY] = useState<number | null>(null);
+  const swipe = (endY: number) => {
+    if (startY === null) return;
+    const dy = endY - startY;
+    setStartY(null);
+    if (!open && dy < -24) onOpen();
+    if (open && dy > 24) onClose();
+  };
+  return (
+    <div
+      data-seat-plan-people={open ? 'open' : 'peek'}
+      className="pointer-events-none absolute inset-x-0 bottom-0 z-30 flex flex-col justify-end"
+      style={{ top: open ? 0 : undefined }}
+    >
+      {open ? null : <div className="pointer-events-auto px-3 pb-2">{tools}</div>}
+      <div
+        className={`pointer-events-auto flex min-h-0 flex-col rounded-t-2xl border-t border-ink/10 bg-cream ${open ? 'h-[72%] shadow-[0_-12px_30px_-18px_rgba(26,26,26,0.35)]' : ''}`}
+      >
+        <button
+          type="button"
+          aria-expanded={open}
+          data-seat-plan-people-peek=""
+          onClick={open ? onClose : onOpen}
+          onPointerDown={(e) => setStartY(e.clientY)}
+          onPointerUp={(e) => swipe(e.clientY)}
+          className="flex min-h-12 w-full shrink-0 flex-col items-center justify-center gap-1 px-4 pb-[max(.5rem,env(safe-area-inset-bottom))] pt-1.5 text-[13.5px] font-semibold text-ink"
+        >
+          <span aria-hidden className="h-1 w-10 rounded-full bg-ink/20" />
+          <span className="flex w-full items-center justify-between gap-2">
+            <span data-seat-plan-people-count="">{peek}</span>
+            <ChevronDown aria-hidden className={`h-4 w-4 text-ink/50 transition-transform ${open ? '' : 'rotate-180'}`} />
+          </span>
+        </button>
+        {/* Mounted always (the list keeps its search and scroll); shown only when raised. */}
+        <div hidden={!open} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}

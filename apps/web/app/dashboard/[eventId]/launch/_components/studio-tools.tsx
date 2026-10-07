@@ -1,5 +1,8 @@
 'use client';
 
+import { StudioColourField } from './studio-colour-field';
+import { OpenInPlace } from './open-in-place';
+import { FilmFollowsTheme } from './film-follows-theme';
 import { useContext, useEffect, useId, useRef, useState, useTransition, type ReactNode } from 'react';
 import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { EGIFT_KIND_META, type EgiftMethodKind } from '@/lib/egift-kinds';
@@ -54,7 +57,6 @@ import {
 import { MAIN_GROUND_SHADES, MAIN_GROUND_SHADE_LABEL } from '@/lib/main-ground-shade';
 import { MAIN_COLOUR_JOB, MAIN_COLOUR_SLOTS, type MainColourDraft, type MainColourSlot } from '@/lib/main-colours';
 import { MAIN_COLOUR_SLOTS as MOOD_MAIN_COLOUR_SLOTS } from '@/lib/colour-access';
-import { ChevronDown } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { StudioEventName } from './studio-event-name';
 
@@ -832,27 +834,17 @@ export function StudioMainColours({
   return (
     <div data-studio-main-colours="" className="flex flex-col pt-1">
       {MAIN_COLOUR_SLOTS.map((slot) => (
-        /* The prototype's `.lk-col`: a 44 px pill — the colour, its name and job, its hex, a chevron. */
-        <label
-          key={slot}
-          data-studio-colour={slot}
-          className="relative mb-2 flex min-h-11 cursor-pointer items-center gap-2.5 rounded-full bg-cream py-1 pl-1.5 pr-3 ring-1 ring-ink/10"
-        >
-          <span aria-hidden className="h-[30px] w-[30px] shrink-0 rounded-full shadow-[inset_0_0_0_1px_rgba(0,0,0,0.1)]" style={{ backgroundColor: five[slot] }} />
-          <span className="flex min-w-0 flex-1 flex-col leading-tight">
-            <b className="text-[13.5px] font-semibold text-ink">{SLOT_NAME[slot]}</b>
-            <small className="text-[11px] text-ink/50">{MAIN_COLOUR_JOB[slot]}</small>
-          </span>
-          <span className="font-mono text-[11px] text-ink/50">{five[slot]}</span>
-          <ChevronDown aria-hidden className="h-3.5 w-3.5 shrink-0 text-gild" strokeWidth={2} />
-          <input
-            type="color"
-            aria-label={`${MAIN_COLOUR_JOB[slot]} colour`}
-            value={(five[slot] ?? '#000000').toLowerCase()}
-            onChange={(e) => pick(slot, e.target.value)}
-            className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+        /* The prototype's `.lk-col` row; a tap opens the Mood Board's ONE colour sheet (owner 2026-10-08). */
+        <div key={slot} data-studio-colour={slot}>
+          <StudioColourField
+            data={`main-${slot}`}
+            name={SLOT_NAME[slot]}
+            job={MAIN_COLOUR_JOB[slot]}
+            value={five[slot] ?? '#000000'}
+            palette={colours}
+            onPick={(hex) => pick(slot, hex)}
           />
-        </label>
+        </div>
       ))}
       {error ? (
         <p role="alert" className="pt-2 text-[13px] text-terracotta-700">
@@ -979,7 +971,10 @@ export type StudioToolProps =
   | ({ part: 'main-colours' } & Parameters<typeof StudioMainColours>[0])
   | ({ part: 'qr-shown' } & Parameters<typeof StudioQrShown>[0])
   | ({ part: 'bring' } & Parameters<typeof StudioWhatToBring>[0])
-  | ({ part: 'event-name' } & Parameters<typeof StudioEventName>[0]);
+  | ({ part: 'event-name' } & Parameters<typeof StudioEventName>[0])
+  /* ⚖ Two round-3 pieces ride this one lazy door (2026-10-08) — a door of their own each cost the Maker's first load. */
+  | ({ part: 'open-in-place' } & Parameters<typeof OpenInPlace>[0])
+  | ({ part: 'film-follows' } & Parameters<typeof FilmFollowsTheme>[0]);
 
 export function StudioTool(props: StudioToolProps) {
   switch (props.part) {
@@ -1005,5 +1000,9 @@ export function StudioTool(props: StudioToolProps) {
       return <StudioWhatToBring {...props} />;
     case 'event-name':
       return <StudioEventName {...props} />;
+    case 'open-in-place':
+      return <OpenInPlace {...props} />;
+    case 'film-follows':
+      return <FilmFollowsTheme {...props} />;
   }
 }

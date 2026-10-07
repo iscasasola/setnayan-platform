@@ -5,7 +5,9 @@ import { useEffect, useRef, useState, useTransition } from 'react';
 import { makerSave } from '@/lib/maker-refresh';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
-import { QR_PATTERNS, QR_SHAPES, type QrPattern, type QrShape, type StoredQrStyle } from '@/lib/qr-look';
+import { QR_PATTERNS, QR_SHAPES, qrInkPasses, type QrPattern, type QrShape, type StoredQrStyle } from '@/lib/qr-look';
+import { useMaker } from './maker-context';
+import { StudioColourField } from './studio-colour-field';
 import { PickMenu, type PickOption } from '../../website/editor/_components/pick-menu';
 import type { UpdateQrStyleResult } from '../qr-look-actions';
 
@@ -64,6 +66,7 @@ export function QrLookControls({
   const [pending, startTransition] = useTransition();
   const [note, setNote] = useState<string | null>(null);
   const mark = makerProMark({ owns: ownsPro, storeShell });
+  const studio = useMaker()?.stagesStudio === true;
   /* What the dropdowns show: the pick at once, the server's answer once it lands. */
   const [shown, setShown] = useState<StoredQrStyle>(style);
   const latest = useRef<StoredQrStyle>(style);
@@ -149,6 +152,27 @@ export function QrLookControls({
           className="bg-ink/5 hover:bg-ink/10"
         />
       </Row>
+      {studio ? (
+        /* 🎨 Studio: the Mood Board's ONE colour sheet (owner 2026-10-08) — the scan-safe Mood Board
+           colours first; a colour too light to scan is refused here, as the server would. */
+        <div data-qr-look-row="colour" className="pt-1">
+          <StudioColourField
+            data="qr-ink"
+            name="QR colour"
+            job="The code’s dots — dark enough to scan"
+            value={shown.ink ?? '#1A1A1A'}
+            palette={inks}
+            onPick={(hex) => {
+              if (!qrInkPasses(hex)) {
+                setNote('That colour is too light to scan on the cream card — pick a darker one.');
+                return;
+              }
+              save({ ink: hex });
+            }}
+            reset={shown.ink ? { label: 'Use the plain ink', onReset: () => save({ ink: undefined }) } : undefined}
+          />
+        </div>
+      ) : (
       <Row label="Colour">
         <span className="flex min-w-0 items-center gap-2">
           <span
@@ -166,6 +190,7 @@ export function QrLookControls({
           />
         </span>
       </Row>
+      )}
       {inks.length === 0 ? (
         <p className="text-xs text-ink/55">Build your Mood Board to pick a colour — only colours dark enough to scan are offered.</p>
       ) : null}

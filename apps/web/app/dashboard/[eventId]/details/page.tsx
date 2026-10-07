@@ -90,7 +90,7 @@ import { PeopleWithAccess } from './_components/people-with-access';
 import { RecordFold } from './_components/record-fold';
 import { RecordRowLink } from './_components/record-row-link';
 import { loadPeopleWithAccess } from '@/lib/people-with-access.server';
-import { areaCells, type PersonRow } from '@/lib/people-with-access';
+import { accessFoldSummary, areaCells, type PersonRow } from '@/lib/people-with-access';
 
 export const dynamic = 'force-dynamic';
 
@@ -114,8 +114,8 @@ export const metadata = { title: 'Event Details' };
  * groups on the phone). Study `EVENT_DETAILS_STUDY_2026-10-04_fable.md` § 1,
  * § 4, § 6 rows 4·5·19, § 7 PR-1; prototype screens 4 and 5.
  *
- *   · FOUR GROUPS — How it looks · How it works · Your event · Guests & money
- *     (`RECORD_GROUPS`). Phone: four folds, one line + summary each, one open
+ *   · FIVE GROUPS — How it looks · How it works · Your event · Guests & money
+ *     · Event access (`RECORD_GROUPS`; the fifth, owner 2026-10-07). Phone: four folds, one line + summary each, one open
  *     at a time (`record-fold.tsx`, the app's one-open mechanism); the
  *     Finish-your-Event-Hub card on top. Desktop: every group open.
  *   · EVERY ROW OPENS ITS FIELD — the SAME editor the Maker opens for that fact
@@ -513,6 +513,8 @@ export default async function EventDetailsPage({
       moneyHidden ? null : targetWords,
       lockedSuppliers.length > 0 ? `${formatCount(lockedSuppliers.length)} booked` : null,
     ]),
+    // Counted from the rows the fold draws; a failed read says so — never "0".
+    access: people ? accessFoldSummary(people.measured ? people.rows : null) : 'Your access',
   };
   const groupTitle = (k: RecordGroupKey) => RECORD_GROUPS.find((g) => g.key === k)!.title;
 
@@ -902,21 +904,6 @@ export default async function EventDetailsPage({
             )}
           </Section>
 
-          {/* ── People with access — the one place access is SET (owner
-              2026-10-03). Access is a door, so it changes at once, never on a
-              later Apply. ── */}
-          {people || ownAccess ? (
-            <PeopleWithAccess
-              eventId={eventId}
-              title={sectionTitle('access')}
-              rows={people && people.measured ? people.rows : ownAccess ? [ownAccess] : []}
-              addable={people && people.measured ? people.addable : []}
-              readOnly={!people}
-              failed={Boolean(people && !people.measured)}
-              flash={accessFlash}
-            />
-          ) : null}
-
           {/* ── Services ── */}
           <Section k="services" open={{ href: studioHubHref(eventId), label: 'Open Services' }}>
             <Row fact="services" label="Event Hub Pro" value={proRead.ok ? (ownsPro ? 'Active' : 'Not added') : COULD_NOT_LOAD} />
@@ -963,6 +950,24 @@ export default async function EventDetailsPage({
             )}
           </Section>
         </RecordFold>
+
+        {/* ══ EVENT ACCESS — its own fold (owner 2026-10-07: *"the Event Access
+            is not here: Host: Helper: Vendors"*). People with access, the one
+            place access is SET (owner 2026-10-03), grouped Hosts · Helpers ·
+            Suppliers. Access is a door, so it changes at once, never on a later
+            Apply. ══ */}
+        {people || ownAccess ? (
+          <RecordFold group="access" title={groupTitle('access')} summary={summary.access} recordHref={record}>
+            <PeopleWithAccess
+              eventId={eventId}
+              rows={people && people.measured ? people.rows : ownAccess ? [ownAccess] : []}
+              addable={people && people.measured ? people.addable : []}
+              readOnly={!people}
+              failed={Boolean(people && !people.measured)}
+              flash={accessFlash}
+            />
+          </RecordFold>
+        ) : null}
       </div>
 
       {/* ── Put this away — last and quiet, as shipped. ── */}

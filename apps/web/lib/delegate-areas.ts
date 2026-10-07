@@ -85,6 +85,22 @@ export const DELEGATE_AREA_LABEL: Readonly<Record<DelegateArea, string>> = {
   photos: 'Photos',
 };
 
+/**
+ * What each area lets a helper do — the ⓘ beside the area's name in Event
+ * Details › Event access (owner 2026-10-07: *"Guestlist (i) toggle"*). Plain
+ * words for what the area's readers and writers already gate.
+ */
+export const DELEGATE_AREA_DOES: Readonly<Record<DelegateArea, string>> = {
+  guest_list: 'Add and change guests, and follow up on replies.',
+  seat_plan: 'Arrange tables and seats. Publishing the plan stays with you.',
+  schedule: 'The schedule of the day, the emcee script and the songs.',
+  vendors: 'Your suppliers — their details, milestones and status.',
+  invitations: 'Your Event Hub — what your guests see.',
+  mood_board: 'The palette and the dress code.',
+  budget: 'Your budget and payments. Never Edit — View at most.',
+  photos: 'The event’s photos. View at most.',
+};
+
 /** The three words of an area's dropdown (owner 2026-10-03: "Edit · View · Off"). */
 export const AREA_LEVEL_WORD: Readonly<Record<'edit' | 'view' | 'off', string>> = {
   edit: 'Edit',

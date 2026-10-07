@@ -104,6 +104,12 @@ let drawnStudio: Record<string, boolean> | null = null;
 test('B · one draft fixture: Studio › RSVP draws the six asks the draft holds', async () => {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { MakerRsvpSettings } = await import(`../${STUDIO_DOOR.replace(/\.tsx$/, '')}`);
+  /* ⤷ Train merge 2026-10-08: the Studio door now mounts the SHARED Setup parts (#6409) through
+     `guest-setup-lazy` — `next/dynamic`, their own chunk, for the Maker's 507 KB first load. Until a
+     lazy part's chunk is in, a render draws nothing in its place (no asks at all), so the chunks are
+     loaded first — what `MAKER_TOOLS` does at idle — and the door is drawn as the host sees it. */
+  const Loadable = (await import('next/dist/shared/lib/loadable.shared-runtime')).default as unknown as { preloadAll(): Promise<void> };
+  await Loadable.preloadAll();
   const studio = renderToStaticMarkup(
     React.createElement(MakerRsvpSettings, {
       eventId: 'e1',

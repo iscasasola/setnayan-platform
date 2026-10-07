@@ -118,8 +118,15 @@ export function DressCodeWidget({
    * look — the "You are …" block and the Do's & Don'ts — and NOTHING when there
    * is nothing personal to say (the everyone view stays on Details). `'all'`
    * (default) is the section as it has always been.
+   *
+   * 👤 `'role'` · `'wear'` · `'arrive'` — three of the four FOR-EACH-GUEST parts
+   * on Invitation › Me (owner 2026-10-06: *"they will have their own elements
+   * per custom part for each guest"*; `lib/guest-me-parts.ts`). Each is ONE fact
+   * of the same resolved "you" panel this widget already draws, under its own
+   * heading — Your role · What to wear · Arrive by — and NOTHING when that fact
+   * is not set (never a default style, never "to be confirmed").
    */
-  part?: 'all' | 'you';
+  part?: 'all' | 'you' | 'role' | 'wear' | 'arrive';
   /**
    * 🚶 WHERE THIS READER WALKS (owner 2026-09-29, DECISION_LOG "THE WEDDING
    * MARCH ON THE INVITATION TELLS EACH ENTOURAGE MEMBER THEIR ROLE…"): their
@@ -270,6 +277,63 @@ export function DressCodeWidget({
 
   // 🏠 The Welcome page's half says only what is this reader's own — or nothing.
   if (part === 'you' && !mine && !march) return null;
+
+  /* 👤 THE FOR-EACH-GUEST PARTS — one fact each, from the SAME `mine` (owner
+     2026-10-06). A part whose fact is unset draws nothing. */
+  if (part === 'role') {
+    const named = mine?.roleLabel ?? (guestRole && guestRole !== 'guest' ? (roleLabel(guestRole, roleNames) ?? guestRoleLabel(guestRole, roleNames)) : null);
+    if (!named) return null;
+    return (
+      <section className="space-y-2" data-me-part="role">
+        <p className="pahina-eyebrow">
+          <span>Your role</span>
+        </p>
+        <p className="font-pahina text-2xl font-light leading-snug tracking-tight text-ink">{named}</p>
+        {march ? (
+          <p className="text-base leading-snug text-ink/80" data-dress-code="march">
+            {marchPlaceLine(march)}
+          </p>
+        ) : null}
+      </section>
+    );
+  }
+  if (part === 'arrive') {
+    if (!mine?.callTime) return null;
+    return (
+      <section className="space-y-2" data-me-part="arrive">
+        <p className="pahina-eyebrow">
+          <span>Arrive by</span>
+        </p>
+        <p className="font-pahina text-2xl font-light tracking-tight text-ink">{mine.callTime}</p>
+      </section>
+    );
+  }
+  if (part === 'wear') {
+    if (!mine || (mine.styleLabel === null && mine.hexes.length === 0)) return null;
+    return (
+      <section className="space-y-3" data-me-part="wear">
+        <p className="pahina-eyebrow">
+          <span>What to wear</span>
+        </p>
+        {mineFromGroup ? (
+          <p className="text-xs leading-relaxed text-ink/55">From your hosts&rsquo; note for {mineFromGroup}.</p>
+        ) : null}
+        {mine.styleLabel ? (
+          <p className="font-pahina text-2xl font-light leading-snug tracking-tight text-ink">{mine.styleLabel}</p>
+        ) : null}
+        {mine.note ? <p className="text-sm leading-relaxed text-ink/70">{mine.note}</p> : null}
+        {showFigure && mine.hexes.length > 0 && guestRole ? (
+          <RoleFigure
+            roleKey={guestRole}
+            hexes={mine.hexes}
+            meaning={meaningOf(paletteKeyForRole(guestRole) as PaletteKey)}
+            className="h-20 w-auto"
+          />
+        ) : null}
+        {mine.hexes.length > 0 ? <YourColours hexes={mine.hexes} look={look} /> : null}
+      </section>
+    );
+  }
 
   // Empty state — section stays visible (so guests know to expect it) but
   // reads as an intentional note in the host's brand voice.
@@ -455,20 +519,7 @@ export function DressCodeWidget({
               className="h-20 w-auto"
             />
           ) : null}
-          {mine.hexes.length > 0 && look !== 'tags' ? (
-            <PaletteLookList look={look} items={mine.hexes.map((hex) => ({ hex, name: colourName(hex) || undefined }))} label="Your colours" />
-          ) : mine.hexes.length > 0 ? (
-            <ul className="flex flex-wrap gap-2" aria-label="Your colours">
-              {mine.hexes.map((hex, i) => (
-                <li key={`${hex}-${i}`} className="w-[3.25rem]">
-                  <span aria-hidden className={`pahina-swatch ${SWATCH_EDGE}`} style={{ backgroundColor: hex }} />
-                  <span className="mt-2 block text-center font-mono text-[0.55rem] uppercase leading-tight tracking-[0.08em] text-ink/55">
-                    {colourName(hex)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : null}
+          {mine.hexes.length > 0 ? <YourColours hexes={mine.hexes} look={look} /> : null}
           </>
           ) : null}
         </div>
@@ -576,3 +627,23 @@ export function DressCodeWidget({
   );
 }
 
+/** 🎨 THE READER'S OWN COLOURS — every colour their role wears, in the scene's
+ *  palette look (Tags = the shipped chips). One drawing for the Welcome's "you"
+ *  panel and Me's "What to wear". */
+function YourColours({ hexes, look }: { hexes: readonly string[]; look: PaletteLookId }) {
+  if (look !== 'tags') {
+    return <PaletteLookList look={look} items={hexes.map((hex) => ({ hex, name: colourName(hex) || undefined }))} label="Your colours" />;
+  }
+  return (
+    <ul className="flex flex-wrap gap-2" aria-label="Your colours">
+      {hexes.map((hex, i) => (
+        <li key={`${hex}-${i}`} className="w-[3.25rem]">
+          <span aria-hidden className={`pahina-swatch ${SWATCH_EDGE}`} style={{ backgroundColor: hex }} />
+          <span className="mt-2 block text-center font-mono text-[0.55rem] uppercase leading-tight tracking-[0.08em] text-ink/55">
+            {colourName(hex)}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}

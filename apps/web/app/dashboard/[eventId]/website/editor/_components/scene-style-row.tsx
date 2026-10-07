@@ -33,6 +33,14 @@ import type { ElementDraftAction } from './element-sheet';
 import { PaletteLookRow } from './palette-look-row';
 import { PALETTE_LOOK_DEFAULT, layoutDrawsPaletteLook, resolvePaletteLook } from '@/lib/palette-looks';
 import { useMaker } from '../../../launch/_components/maker-context';
+import {
+  HUB_ELEMENT_ALIGNS,
+  HUB_ELEMENT_ALIGN_LABEL,
+  HUB_ELEMENT_FIELDS,
+  HUB_SCENE_ELEMENT_KEYS,
+  withElementAlign,
+  type HubElementAlign,
+} from '@/lib/element-style';
 
 export type SceneStyleChoice = { id: string; name: string; line: string; isDefault: boolean };
 
@@ -270,5 +278,58 @@ export function PaletteLookCanvasRow({
         </p>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * ⇔ STYLE › ARRANGE › ALIGNMENT (the new Maker, plan PR 2/3 — "Arrange (Shown/Hidden ·
+ * Order · Centre)"). Behind the flag the Text tool is Font · Colour · Size only
+ * (DECISION_LOG "TEXT STYLING STAYS THREE CONTROLS"), so the shipped Alignment row
+ * (`part-inspector.tsx`) moves here, for the scene's words: ONE dropdown (As the
+ * scene · Left · Centre · Right) setting every text part of the scene at once
+ * (`withElementAlign`, the same per-part choice the Text row wrote), saved to the
+ * draft through the scene's one door (`useSceneCanvas`).
+ */
+export function SceneAlignRow({
+  eventId,
+  widgetType,
+  canvas,
+  draftAction,
+}: {
+  eventId: string;
+  widgetType: string;
+  canvas: HubSectionCanvas;
+  draftAction: ElementDraftAction;
+}) {
+  const { shown, save, pending, error } = useSceneCanvas(eventId, widgetType, canvas, draftAction);
+  const keys = HUB_SCENE_ELEMENT_KEYS.filter((k) => HUB_ELEMENT_FIELDS[k].includes('align'));
+  const now = keys.map((k) => shown.elements?.[k]?.align ?? null);
+  const value = now.every((a) => a === now[0]) && now[0] ? now[0] : 'auto';
+  return (
+    <>
+      <IRow label="Alignment" data="scene-align">
+        <PickMenu
+          label="Alignment"
+          dataAttr="data-scene-align-pick"
+          value={value}
+          options={[{ key: 'auto', label: 'As the scene' }, ...HUB_ELEMENT_ALIGNS.map((a) => ({ key: a, label: HUB_ELEMENT_ALIGN_LABEL[a] }))]}
+          onPick={(k) => {
+            if (pending) return;
+            const align = k === 'auto' ? null : (k as HubElementAlign);
+            save((c) => {
+              let next = c.elements ?? null;
+              for (const el of keys) next = withElementAlign(next, el, align);
+              if (next) c.elements = next;
+              else delete c.elements;
+            });
+          }}
+        />
+      </IRow>
+      {error ? (
+        <p role="alert" className="py-1 text-[12.5px] font-semibold text-terracotta-700">
+          {error}
+        </p>
+      ) : null}
+    </>
   );
 }

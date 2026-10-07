@@ -16,6 +16,9 @@ import { INVITE_THEMES } from '@/lib/invite-themes';
 import { hubButtonPage } from '@/lib/hub-buttons';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
 import { celebrationColours, celebrationDraftIsPro } from '@/lib/rsvp-celebration';
+import { MakerRevealPicker } from '@/app/dashboard/[eventId]/launch/_components/maker-reveal';
+import { REVEAL_LIBRARY } from '@/app/[slug]/_components/reveal/reveal-templates';
+import { DEFAULT_REVEAL_EFFECTS } from '@/lib/std-reveal-effects';
 
 /**
  * The Maker lab's client half (`page.tsx` says what is real): the real shell,
@@ -201,7 +204,33 @@ export function MakerLabShell({
         proPriceLabel={null}
         showProCta={false}
         revealStages={['save_the_date']}
-        madeOnce={{ hero: stand('The names & date design'), reveal: stand('The reveal — its controls'), logo: stand('The logo studio') }}
+        madeOnce={{
+          hero: stand('The names & date design'),
+          /* 🎭 The real Reveal picker on fixtures (its saves are refused here — no write leaves the lab),
+             so the Stages panel's Reveal part draws what the Maker draws. */
+          reveal: (
+            <MakerRevealPicker
+              eventId={eventId}
+              current="four-flap"
+              drafted={false}
+              stages={['save_the_date']}
+              stagesDrafted={false}
+              effects={DEFAULT_REVEAL_EFFECTS}
+              effectsDrafted={false}
+              tuneHouse={{} as ComponentProps<typeof MakerRevealPicker>['tuneHouse']}
+              themeName="Classic"
+              defaultOpening="four-flap"
+              defaultIsTheme={false}
+              dressing={null}
+              openings={REVEAL_LIBRARY.map((t) => ({ id: t.id, label: t.label, blurb: t.blurb }))}
+              ownsPro={false}
+              storeShell={false}
+              stdWindowDays={180}
+              part="settings"
+            />
+          ),
+          logo: stand('The logo studio'),
+        }}
         elementEditing={{
           canvases,
           palette: { ink: '#2C2A29', heading: '#2C2A29', accent: '#A9834B', muted: '#8A8580', surface: '#FBF9F5' },

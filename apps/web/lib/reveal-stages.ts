@@ -58,6 +58,18 @@ export function revealStageChosen(raw: unknown, stage: LifecyclePhase): boolean 
 }
 
 /**
+ * 🎭 HIDDEN ON THIS STAGE (the new Maker's Reveal part, owner 2026-10-06:
+ * *"Reveal must be placed as the first scenes for the Save the Date, Inviting
+ * and The Day. So we can say if it will show or be hidden"*) — the ONE stage
+ * named turned on or off; every other stage exactly as it was. The shipped
+ * "Where it plays" switches write through this too (`maker-reveal.tsx`).
+ * Held by `lib/the-reveal-hides-one-stage.test.ts`.
+ */
+export function revealStagesWith(stages: readonly RevealStage[], stage: RevealStage, shown: boolean): RevealStage[] {
+  return REVEAL_STAGE_CHOICES.filter((s) => (s === stage ? shown : stages.includes(s)));
+}
+
+/**
  * Off the Save the Date the opening belongs to the hero scene only: once opened
  * it is gone, and scrolling past the first page retires it. The Save the Date's
  * own opening leads its film and keeps its valance while the film plays.

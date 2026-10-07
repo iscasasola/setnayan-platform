@@ -133,11 +133,15 @@ test('⚠ it removed the BUY, never the LAUNCH — a Cast buyer keeps their room
     'a Cast buyer must still resolve as a Live Studio owner after the page is gone',
   );
   const live = read('../app/dashboard/[eventId]/studio/live-studio-control/page.tsx');
+  // Since the More-menu step 1 (2026-10-08) the way in is the thumb bar's one
+  // verb, for owner and non-owner alike — and the More row itself opens the
+  // controller once owned (lib/our-services.ts). Assert the door, not its words.
   assert.match(
     live,
-    /launchLabel="Open controller"/,
+    /<ThumbBar\b[\s\S]*?href=\{controllerHref\}[\s\S]*?<\/ThumbBar>/,
     'the surviving Live Studio surface no longer offers an owner a way into the room',
   );
+  assert.match(live, /const controllerHref = liveStudioControlPath\(eventId\)/, 'the door no longer resolves to the controller');
 });
 
 test('the home pricing payload quotes NO per-day rate — the table is gone entirely', () => {

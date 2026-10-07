@@ -28,7 +28,8 @@
  *   &low=1          push the card's ticket row to the bottom of a short phone
  *                   (375×667), where a menu has no room under it
  */
-import { notFound, redirect } from 'next/navigation';
+import { notFound } from 'next/navigation';
+import { redirect } from 'next/navigation';
 import { NotificationsList } from '@/app/_components/notifications/notifications-list';
 import type { NotificationRow } from '@/lib/notifications';
 import { HomePillNav } from '@/app/dashboard/(launcher)/_components/home-pill-nav';

@@ -277,8 +277,8 @@ test('(4) a page that has not arrived SAYS so — never an empty column', async 
 
 test('(4) Details wires each Look item: its body, its editor, and the Mood Board note opens the item in place', () => {
   const details = read(`${L}/maker-details.tsx`);
-  // 🗂 The logo answer ("Do you want a logo?", 2026-10-02) sits above the studio — the studio is still the body.
-  assert.match(details, /bodies\.logo = logoA \? \([\s\S]{0,500}<DetailsLookBody item="logo" \/>[\s\S]{0,40}\) : \(\s*<DetailsLookBody item="logo" \/>/);
+  // ✏ The Logo studio IS the body — no "Do you want a logo?" over it (L1, owner 2026-10-08: "this is direct edit already").
+  assert.match(details, /bodies\.logo = <DetailsLookBody item="logo" \/>/);
   assert.match(details, /bodies\.hero = <DetailsLookBody item="hero" \/>/);
   assert.match(details, /bodies\.reveal = <DetailsLookBody item="reveal" \/>/);
   // 🗂 …and the event-photo answer above the Hero's own controls.

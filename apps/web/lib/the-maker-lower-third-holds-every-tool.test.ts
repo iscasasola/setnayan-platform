@@ -186,7 +186,7 @@ test('3 · ‹ › step within the tile’s own group — scene to scene, never 
   const work = read(`${E}/editor-shell.tsx`);
   assert.match(work, /data-lt-tile=\{tile\.key\}\s*data-lt-group="scenes"/, 'a scene tile is not a tile of the navigator — the scene sheet’s ‹ › do nothing');
   /* 🗂 2026-10-06: Look's sections are Event Details items (one 'details' group of tiles), no 'look' parts. */
-  for (const [file, group] of [[`${L}/details-workspace.tsx`, 'details'], [`${L}/maker-rsvp-stage.tsx`, 'rsvp'], [`${L}/maker-logo.tsx`, 'logo']] as const) {
+  for (const [file, group] of [[`${L}/details-workspace.tsx`, 'details'], [`${L}/maker-rsvp-stage.tsx`, 'rsvp']] as const) {
     assert.match(read(file), new RegExp(`data-lt-group="${group}"`), `${file}: its tiles have no group`);
   }
   assert.match(read(`${L}/maker-lower-third.tsx`), /data-lt-group=\{group\}/);
@@ -229,10 +229,10 @@ test('4 · every control the bottom bar, Page ▾ and the floating Event Bar hel
   // The canvas's floating Event Bar switch is a desktop's only; a phone's is Settings' tile.
   assert.match(work, /setEventBar\?\.\(publicLandingUrl \? \{ on: guestBars, toggle: \(\) => toggleRef\.current\(\) \} : null\);/);
   assert.match(work, /<div className="flex w-full shrink-0 items-center justify-end gap-1 pt-1\.5 max-lg:hidden">\s*<button\s+type="button"\s+role="switch"/);
-  // The RSVP's three screens, Details' items and the logo's two panels draw THEIR tiles into the navigator.
+  // The RSVP's three screens and Details' items draw THEIR tiles into the navigator. (The Logo's
+  // panels are its own, under the logo — never navigator tiles: `the-logo-maker-opens-ready-to-edit.test.ts`.)
   assert.match(read(`${L}/maker-rsvp-stage.tsx`), /<IntoLowerThird to=\{maker\.ltNav\}>/);
   assert.match(read(`${L}/details-workspace.tsx`), /<IntoLowerThird to=\{ltNav\}>/);
-  assert.match(read(`${L}/maker-logo.tsx`), /<IntoLowerThird to=\{ltNav\}>/);
 });
 
 test('4 · a jump to another item (Look → the address, the Mood Board, the love story) moves the pick with it — never snaps back', () => {

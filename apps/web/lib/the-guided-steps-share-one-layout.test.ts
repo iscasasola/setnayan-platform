@@ -233,7 +233,8 @@ test('(5) no step’s own field brings back a Save — each drafts as it changes
 test('(6) the logo step: "Do you want a logo?" is in its sheet; the logo shows without guide lines, fitted above the sheet', () => {
   const details = read(`${L}/maker-details.tsx`);
   assert.match(details, /if \(logoA\) editors\.logo = logoA\.node;/, 'the logo’s answer is not the step’s field');
-  assert.match(details, /max-lg:group-data-\[details-mode=guided\]\/ws:hidden" data-details-logo-strip=""/, 'the answer strip still shows over the logo in the flow');
+  // ✏ L1 (owner 2026-10-08, "no more asking do you want a logo?"): no answer strip over the logo at all — only the flow's step asks.
+  assert.doesNotMatch(details, /data-details-logo-strip/, 'the "Do you want a logo?" strip is back over the Logo studio');
   const ws = read(`${L}/details-workspace.tsx`);
   assert.match(ws, /className="group\/ws flex h-full/, 'the workspace no longer names the group the tools dress by');
   assert.match(ws, /\{editorsBody\(false\)\}\s*(\{\s*(\/\*[\s\S]*?\*\/)?\s*\}\s*)?\{at\?\.kind === 'step'( && !marchHere)? \? \(/, 'a step whose item draws its own tools hides its field');

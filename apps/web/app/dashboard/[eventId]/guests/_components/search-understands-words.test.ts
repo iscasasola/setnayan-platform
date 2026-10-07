@@ -37,8 +37,9 @@ const hits = (q: string) => ROSTER.filter((x) => rosterSearchMatches(q, x, facts
 
 test('the reply words', () => {
   assert.deepEqual(hits('attending'), ['ana', 'maria', 'nong']);
-  // Invited and silent — Ella has no invitation yet, so she is "to invite", not "no reply".
-  assert.deepEqual(hits('no reply'), ['ben']);
+  // Every guest who has not answered yet (owner 2026-10-07: "no reply will show all guest
+  // who have not yet answered") — Ella, not yet invited, has not answered either.
+  assert.deepEqual(hits('no reply'), ['ben', 'ella']);
   assert.deepEqual(hits('maybe'), ['cita']);
   assert.deepEqual(hits('not coming'), ['dan']);
 });

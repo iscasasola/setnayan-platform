@@ -103,11 +103,15 @@ export function homeFacts(input: {
   /** `events.event_date_precision` — only 'day' counts down. */
   precision: string | null | undefined;
   timezone: string | null | undefined;
-  guests: { stats: GuestStats; measured: boolean };
+  /** `noReply` = `rosterStats(rows).none` — the Guests list's own count (one definition). */
+  guests: { stats: GuestStats; measured: boolean; noReply?: number };
   money: HomeMoneyRead;
   now?: Date;
 }): HomeFacts {
   const { guests, money } = input;
+  /* 🔑 "No reply" is the Guests list's ONE definition (`hasNotAnswered`, owner 2026-10-07),
+     handed in as `noReply`, so the tile's number is the rows its filter shows. */
+  const noReplyN = guests.noReply ?? guests.stats.pending;
   const daysOut =
     input.precision === 'month' || input.precision === 'year'
       ? null
@@ -122,8 +126,8 @@ export function homeFacts(input: {
     guestStats: guests.stats,
     days: glanceDaysToGo(toGo),
     coming: glanceCount(guests.stats.attending, guests.measured),
-    noReply: glanceCount(guests.stats.pending, guests.measured),
-    noReplyWaiting: guests.measured && guests.stats.pending > 0,
+    noReply: glanceCount(noReplyN, guests.measured),
+    noReplyWaiting: guests.measured && noReplyN > 0,
     money:
       money === 'hidden'
         ? null
@@ -131,7 +135,7 @@ export function homeFacts(input: {
     figures: {
       days: toGo?.kind === 'days' ? toGo.days : null,
       coming: guests.measured ? guests.stats.attending : null,
-      noReply: guests.measured ? guests.stats.pending : null,
+      noReply: guests.measured ? noReplyN : null,
       money: money === 'hidden' ? null : money === null ? 'unread' : { paid: money.paid, owing: money.owing },
     },
   };

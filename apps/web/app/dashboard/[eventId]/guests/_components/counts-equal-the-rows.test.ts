@@ -21,7 +21,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 import type { GuestRow } from '@/lib/guests';
-import { rosterSections, rosterStats, type RosterFacts } from '@/lib/guest-roster-view';
+import { rosterSections, rosterStats, type RosterFacts, hasNotAnswered } from '@/lib/guest-roster-view';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SCREEN = stripComments(readFileSync(join(HERE, 'guests-screen.tsx'), 'utf8'));
@@ -48,7 +48,12 @@ test('the List count and the attending count equal the rendered rows (executed)'
   assert.equal(stats.total, rows.length, 'List N is not the number of rows drawn');
   assert.equal(stats.yes, rows.filter((r) => r.rsvp_status === 'attending').length, 'N attending is not the attending rows');
   assert.equal(stats.yes, 3);
-  assert.equal(stats.no + stats.none + stats.toInvite + stats.yes + rows.filter((r) => r.rsvp_status === 'maybe').length, rows.length);
+  // The replies partition everyone; "to invite" OVERLAPS "no reply" (owner 2026-10-07: no reply =
+  // every guest who has not answered, invited or not), so it is not part of the sum.
+  assert.equal(
+    stats.no + stats.none + stats.yes + rows.filter((r) => r.rsvp_status === 'maybe').length + rows.filter((r) => r.rsvp_status === 'pending' && !hasNotAnswered(r)).length,
+    rows.length,
+  );
   assert.ok(stats.total > 0 && stats.yes > 0, 'a fixture with attending rows counts zero');
 });
 

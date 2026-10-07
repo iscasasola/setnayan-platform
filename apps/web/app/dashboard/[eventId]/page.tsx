@@ -57,6 +57,7 @@ import { DayOfModeGrid } from './_components/day-of-mode/grid';
 import { SetDateNudge } from './_components/set-date-nudge';
 import { readHomeGuide } from './_components/details-guide-home-card';
 import { HomeFirstScreen } from './_components/home-first-screen';
+import { rosterStats } from '@/lib/guest-roster-view';
 import { HomeWhatsNext } from './_components/home-parts';
 import { getNavSlotMap } from '@/lib/nav-registry';
 import { homeCoverFor } from '@/lib/home-cover.server';
@@ -624,7 +625,7 @@ export default async function EventHomePage({
     eventDate: (event.event_date as string | null) ?? null,
     precision: (event as { event_date_precision?: string | null }).event_date_precision,
     timezone: (event as { timezone?: string | null }).timezone,
-    guests: { stats: guestStats, measured: guestsMeasured },
+    guests: { stats: guestStats, measured: guestsMeasured, noReply: rosterStats(guests).none },
     money: moneyNow,
   });
   const homeServiceRow = homeServices({

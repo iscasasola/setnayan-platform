@@ -107,9 +107,27 @@ export function isToInvite(g: Pick<GuestRow, 'role' | 'entry_source' | 'passed_a
 }
 
 /**
+ * 🔑 "NO REPLY" — ONE DEFINITION, in the owner's words (2026-10-07: *"no reply will
+ * show all guest who have not yet answered"*): every counted guest who has not
+ * answered, invited or not — never the couple or the celebrants, who are not asked.
+ * Home's "no reply" tile, this counts line and the "no reply" search word all read
+ * THIS, so the tile's number is exactly the rows its filter shows.
+ */
+export function hasNotAnswered(g: Pick<GuestRow, 'role' | 'rsvp_status' | 'entry_source' | 'passed_away'>): boolean {
+  return (
+    countsTowardEvent(g) &&
+    g.rsvp_status === 'pending' &&
+    g.role !== 'bride' &&
+    g.role !== 'groom' &&
+    !isHonoreeRole(g.role)
+  );
+}
+
+/**
  * THE COUNTS LINE, from the same list the rows are drawn from. "No reply" =
- * invited and silent (a guest still to invite counts under "to invite" only,
- * as the prototype splits them); requests and the passed-away are not counted.
+ * `hasNotAnswered` (every guest who has not answered — a guest still to invite is
+ * ALSO "to invite"; the two overlap, owner 2026-10-07); requests and the
+ * passed-away are not counted.
  */
 export function rosterStats(guests: readonly GuestRow[]): {
   total: number;
@@ -123,7 +141,7 @@ export function rosterStats(guests: readonly GuestRow[]): {
     total: counted.length,
     yes: counted.filter((g) => g.rsvp_status === 'attending').length,
     no: counted.filter((g) => g.rsvp_status === 'declined').length,
-    none: counted.filter((g) => g.rsvp_status === 'pending' && !isToInvite(g) && !isHonoreeRole(g.role)).length,
+    none: counted.filter((g) => hasNotAnswered(g)).length,
     toInvite: counted.filter((g) => isToInvite(g)).length,
   };
 }
@@ -344,7 +362,7 @@ export function mapRootLabel(guests: readonly Pick<GuestRow, 'role' | 'first_nam
 
 const TO_INVITE_WORDS = ['to invite', 'not invited', 'uninvited', 'invite'];
 const INVITED_WORDS = ['invited', 'sent'];
-/** "No reply" means invited and silent — a guest still to invite is "to invite" (the prototype's split). */
+/** "No reply" = `hasNotAnswered` — every guest who has not answered yet (owner 2026-10-07). */
 const NO_REPLY_WORDS = ['no reply', 'pending', 'not replied', 'no answer', 'waiting', 'awaiting'];
 const SIDE_WORDS: Record<string, GuestRow['side']> = {
   bride: 'bride',
@@ -359,7 +377,7 @@ const SIDE_WORDS: Record<string, GuestRow['side']> = {
  * Does `query` match this guest? Empty → yes.
  *
  *   · "to invite" / "invited" → the invite state (not on the guest row's words);
- *     "no reply" → invited and silent (a guest still to invite is not "no reply").
+ *     "no reply" → `hasNotAnswered`, every guest who has not answered yet.
  *   · "bride" / "groom" (and "… side") → that side, plus the bride or groom themselves.
  *   · everything else → the ONE shipped matcher, `guestMatchesSearch`: every
  *     name part, the reply in every word for it ("attending", "no reply",
@@ -371,7 +389,7 @@ export function rosterSearchMatches(query: string, g: GuestRow, facts: RosterFac
   if (!q) return true;
   if (TO_INVITE_WORDS.includes(q)) return isToInvite(g);
   if (INVITED_WORDS.includes(q)) return Boolean(g.invitation_sent_at);
-  if (NO_REPLY_WORDS.includes(q)) return g.rsvp_status === 'pending' && !isToInvite(g) && !isHonoreeRole(g.role);
+  if (NO_REPLY_WORDS.includes(q)) return hasNotAnswered(g);
   if (facts.hasSides && SIDE_WORDS[q]) {
     const side = SIDE_WORDS[q]!;
     return g.side === side || g.side === 'both' || g.role === side;

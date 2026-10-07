@@ -775,18 +775,11 @@ export function MakerDetails(props: MakerDetailsProps) {
         {look.moodBoard}
       </div>
     );
-    /* 🗂 "Do you want a logo?" sits above the Logo studio — the answer, changed where the logo is made. */
-    bodies.logo = logoA ? (
-      <div className="flex min-h-0 flex-1 flex-col" data-details-logo-answer="">
-        {/* 📱 In the guided flow this answer is IN the step's sheet (`editors.logo`), never a strip over the logo. */}
-        <div className="shrink-0 px-4 pb-2 pt-3 sm:px-6 max-lg:group-data-[details-mode=guided]/ws:hidden" data-details-logo-strip="">
-          {logoA.node}
-        </div>
-        <DetailsLookBody item="logo" />
-      </div>
-    ) : (
-      <DetailsLookBody item="logo" />
-    );
+    /* ✏ NO GATE (owner 2026-10-08, LOGO_MAKER_REPLOT L1: *"no more asking do you want a logo? this is
+       direct edit already"*): the Logo studio IS the item — no "Do you want a logo?" strip over it. The
+       answer is still Event Details' row (`logoAnswer`, the record editor) and, in the shipped Maker's
+       guided flow, the Logo step's field (`editors.logo`, below). */
+    bodies.logo = <DetailsLookBody item="logo" />;
     bodies.hero = <DetailsLookBody item="hero" />;
     bodies.reveal = <DetailsLookBody item="reveal" />;
   }

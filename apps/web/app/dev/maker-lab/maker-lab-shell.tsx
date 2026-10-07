@@ -17,6 +17,7 @@ import { hubButtonPage } from '@/lib/hub-buttons';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
 import { celebrationColours, celebrationDraftIsPro } from '@/lib/rsvp-celebration';
 import { MakerRevealPicker } from '@/app/dashboard/[eventId]/launch/_components/maker-reveal';
+import { MakerLogoDoor } from '@/app/dashboard/[eventId]/launch/_components/details-lazy';
 import { REVEAL_LIBRARY } from '@/app/[slug]/_components/reveal/reveal-templates';
 import { DEFAULT_REVEAL_EFFECTS } from '@/lib/std-reveal-effects';
 
@@ -229,7 +230,16 @@ export function MakerLabShell({
               part="settings"
             />
           ),
-          logo: stand('The logo studio'),
+          /* ✏ The REAL Logo editor on the lab's names (the replot's side-by-side, 2026-10-08) — it saves only
+             after a touch (`maker-logo-save-gate`), and the lab's event id is not a real event. */
+          logo: (
+            <MakerLogoDoor
+              eventId={eventId}
+              opening={{ source: 'names', layers: [], svg: null, names: 'M&J', anim: null }}
+              motionMark={null}
+              mainColours={['#5B4A6E', '#D8C3D1', '#A9834B', '#F4EFE6', '#7B8B6F']}
+            />
+          ),
         }}
         elementEditing={{
           canvases,

@@ -47,8 +47,12 @@ new is drawn only in the new Maker's Studio (`makerStagesStudioEnabled`).
   name, and `moodboard_library_assets_supplier_gallery_shape`), every existing
   value kept; `MOODBOARD_SLOT_KEYS`, the trades (florist; florist ·
   stylist_decorator · catering), the gallery labels, the render-part aliases
-  (centrepieces → tables, bouquet → the bride), a Studio Inspiration card each
+  (both inspiration cards only, never render parts — no part's sign-off trades change), a Studio Inspiration card each
   and a tile each on the shipped board.
+- **E-Gifts › Add your QR** (controller addition): GCash and Maya (`qrPrimary`)
+  get the manager's own QR upload (the `pabuya-qr/<event>` shelf, compressed on
+  the phone) saved by the shipped `saveEgiftMethod` (its QR Ph check included),
+  with the picture and Remove once set. +0 server actions.
 - **Info › QR on/off**: drafted `qr_shown`; off leaves the event QR off the print
   set and the guest keepsake.
 
@@ -56,7 +60,7 @@ Guards (each seen red by sabotage): `a-schedule-moment-is-for-someone`,
 `the-love-story-keeps-the-couples-order`, `the-registry-link-is-a-real-link`,
 `the-main-background-extras-reach-the-page`, `one-main-colour-waits-for-apply`,
 `the-event-qr-can-be-switched-off`, `the-draft-holds-a-painted-palette`,
-`bouquet-and-centrepieces-have-a-slot`.
+`bouquet-and-centrepieces-have-a-slot`, `the-studio-gifts-take-a-qr`.
 
 SPEC IMPACT: None beyond the 2026-10-07 DECISION_LOG row "THE MISSING FIELDS ARE
 APPROVED" (written by the controller). Recorded here: the Love Story title and

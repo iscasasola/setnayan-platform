@@ -701,6 +701,16 @@ export function snapSliderToCentre(v: number, min: number, max: number, band: nu
 /* ── the stack ─────────────────────────────────────────────────────────────── */
 
 /** Move one layer up (towards the top of the stack) or down. */
+/** Move one layer to a place in the stack (0 = bottom) — the carousel's drag. Out of range = unchanged. */
+export function moveLayerTo<T extends { id: string }>(layers: T[], id: string, to: number): T[] {
+  const i = layers.findIndex((l) => l.id === id);
+  if (i < 0 || to < 0 || to >= layers.length || to === i) return layers;
+  const next = layers.slice();
+  const [m] = next.splice(i, 1);
+  next.splice(to, 0, m as T);
+  return next;
+}
+
 export function moveLayer<T extends { id: string }>(layers: T[], id: string, dir: 'up' | 'down'): T[] {
   const i = layers.findIndex((l) => l.id === id);
   const j = dir === 'up' ? i + 1 : i - 1;

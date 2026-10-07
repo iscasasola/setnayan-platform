@@ -14,8 +14,8 @@
  *
  * Pure strings — no React — so the guard can read the contract without a DOM.
  */
-/** The Layers | layer row over the panel, its margin included (44 px buttons + 8 px ring + 8 px margin). */
-export const LOGO_PANEL_ROW_PX = 60;
+/** The layers carousel over the panel, its margin included (74 px cards + 8 px margin) — L2. */
+export const LOGO_PANEL_ROW_PX = 82;
 /**
  * The open panel, under the logo on a phone (a desk keeps its side columns). The row and the panel
  * TOGETHER are the lower third's height (`--maker-lt-h`): Studio draws no lower third for the Logo
@@ -23,4 +23,15 @@ export const LOGO_PANEL_ROW_PX = 60;
  * exactly the room a Studio tool rests at — the logo keeps the rest.
  */
 export const LOGO_PANEL_PHONE =
-  'max-lg:order-last max-lg:h-[calc(var(--maker-lt-h)-60px)] max-lg:shrink-0 max-lg:min-h-0 max-lg:border-t max-lg:border-ink/10 max-lg:bg-cream max-lg:group-data-[details-mode=guided]/ws:hidden';
+  'max-lg:order-last max-lg:h-[calc(var(--maker-lt-h)-82px)] max-lg:shrink-0 max-lg:min-h-0 max-lg:border-t max-lg:border-ink/10 max-lg:bg-cream max-lg:group-data-[details-mode=guided]/ws:hidden';
+
+/** A card's half width — the pointer is "over" another card when within this of its middle (prototype `.card` 66 px). */
+export const LOGO_CARD_HALF_PX = 33;
+/**
+ * Where a held card lands: the index of the OTHER card whose middle the pointer is over, else where it is.
+ * `mids` are the cards' middles along the strip, in strip order.
+ */
+export function cardDropIndex(mids: readonly number[], from: number, pointer: number): number {
+  const over = mids.findIndex((m, i) => i !== from && Math.abs(m - pointer) < LOGO_CARD_HALF_PX);
+  return over < 0 ? from : over;
+}

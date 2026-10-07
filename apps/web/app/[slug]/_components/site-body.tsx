@@ -107,7 +107,6 @@ import {
   hubTabFor,
   hubTabHref,
   hubTabsOn,
-  inPageTabs,
 } from '../_lib/hub-tabs';
 import type { NavSlot } from '../_lib/site-nav';
 import { SITE_WELCOME_ANCHOR } from '../_lib/site-menu';
@@ -190,10 +189,12 @@ import { PublicHideableWidget } from './public-hideable-widget';
 import { HubScenes } from './hub-scenes';
 import { RsvpWidget } from './rsvp-widget';
 import { sceneStyleOfRow, paletteLookOfRow } from '@/lib/scene-style-of-row';
-import type { FixedStyleScene } from '@/lib/fixed-scene-styles';
+import type { FixedStyleScene, StyledScene } from '@/lib/fixed-scene-styles';
+import { HERO_PART_LOOK, partLookAttr } from '@/lib/scene-styles-parts';
 import { fixedSceneStyleOf } from '@/lib/fixed-scene-style-of';
 import { LiveHubArrangement } from './live-hub-styles';
-import { MakerDayPartStandIn } from './maker-fixed-parts';
+import { MakerDayPartStandIn, MakerPageStandIn } from './maker-fixed-parts';
+import { WELCOME_PART_CANVAS, makerStagesPageOf, makerStagesPages, pageTabKeys, stagesPagesLeft } from '@/lib/maker-stage-filing';
 import { sceneStylesOn } from '@/lib/scene-styles';
 import { RsvpSheet } from './rsvp-sheet';
 import { rsvpSheetHeading, rsvpSheetTrigger } from './rsvp-sheet-state';
@@ -208,7 +209,8 @@ import {
 import { EditorBridge } from './editor-bridge';
 import { SampleViewerInert } from './sample-viewer-inert';
 import type { SeeAs } from '@/lib/see-as';
-import { EDITOR_CANVAS_HIDES_APP_CHROME, canvasOnlyCss, type CanvasOnlyScene } from '../_lib/editor-canvas';
+import { EDITOR_CANVAS_HIDES_APP_CHROME, canvasOnlyCss, type CanvasOnlyScene, type CanvasStylePreview } from '../_lib/editor-canvas';
+import { withStylePreview } from '../_lib/style-preview';
 import { PreviewWayBack } from './preview-way-back';
 import { PahinaMasthead } from './pahina-masthead';
 import { EntourageSection } from './entourage-section';
@@ -415,12 +417,18 @@ type SiteBodyProps = {
    *  (the Host controls bar, "Manage", the Live hub pill) never returns. Inert
    *  outside the canvas. */
   canvasGuestBars?: boolean;
+  /** 🧭 The Maker's Stages canvas draws each tab as its own page (`hubTabsOn`'s one canvas exception). */
+  stagesTabs?: boolean;
   /** 🎟 "Get tickets" — `publicTicketUrl(...)` (lib/ticket-url.ts): the
    *  organizer's own ticket page, or null unless the event is Public. */
   ticketUrl?: string | null;
   /** 🖼 The Maker's made-once Hero page (`?only=hero`) — draw that ONE scene.
    *  Resolved by `canvasOnlyScene`, which is null off the host canvas. */
   canvasOnly?: CanvasOnlyScene | null;
+  /** 🖼 A style's true miniature (`?style=<type>:<id>`, `canvasStylePreview`) — the
+   *  page drawn with that one scene or part in that style. Null off the host canvas.
+   *  Like a theme tile, it never mounts the click-to-edit bridge. */
+  stylePreview?: CanvasStylePreview | null;
   /** 🎨 A theme TILE on the Maker's Details page (`canvasTriedTheme`): drawn as
    *  the canvas, but the click-to-edit bridge is NEVER mounted — the tile's
    *  parent is the Maker, which would hear its `ready` / `edit` as the canvas's
@@ -506,7 +514,7 @@ type SiteBodyProps = {
 };
 
 export async function SiteBody({
-  event,
+  event: eventIn,
   identity,
   monogram,
   animatedMonogram,
@@ -528,7 +536,7 @@ export async function SiteBody({
   bgMusicUrl,
   ownsStdReveal,
   ourPhotoUrls,
-  widgets,
+  widgets: widgetsIn,
   scheduleBlocks,
   backdrop,
   liveWall,
@@ -541,9 +549,11 @@ export async function SiteBody({
   editorialDraft = null,
   editorBridge = false,
   canvasGuestBars = false,
+  stagesTabs = false,
   ticketUrl = null,
   canvasOnly = null,
-  themeTile = false,
+  stylePreview = null,
+  themeTile: themeTileIn = false,
   makerWayBack = null,
   ownerCapability = null,
   vendorCapability = null,
@@ -558,6 +568,11 @@ export async function SiteBody({
   guestStages = false,
   comingWith = [],
 }: SiteBodyProps) {
+  /* 🖼 A style's true miniature lays its one style over the rows (`_lib/style-preview.ts`);
+     for every guest `stylePreview` is null and both come back exactly as read. */
+  const { event, widgets } = withStylePreview(eventIn, widgetsIn, isEditorCanvas ? stylePreview : null);
+  /* 🖼 A miniature is drawn like a theme tile: its parent is the Maker, so it never mounts the editor bridge. */
+  const themeTile = themeTileIn || Boolean(stylePreview);
   // 🎨 SECTION BACKGROUNDS — signed ONCE for the whole page.
   // Every arranged section's `config_json.canvas.media` is an `r2://` ref, held
   // to the public bucket by `siteMediaServeRef` on the way in. They are
@@ -743,6 +758,8 @@ export async function SiteBody({
     elements: heroCanvas.elements ?? null,
     stampElements: isMakerCanvas,
     design: heroDesignOf(heroCanvas),
+    /* 🎨 The hero parts' own styles — set below, once the page's stage is known. */
+    looks: null as Partial<Record<keyof typeof HERO_PART_LOOK, string>> | null,
   };
   /* ✍ Does any scene carry a run (one letter, one word in its own look)? Only
      then is the small script that lays them mounted (`HubSceneRuns`) — the
@@ -979,6 +996,21 @@ export async function SiteBody({
      the page exactly as before. */
   const fixedStyle = (scene: FixedStyleScene) =>
     fixedSceneStyleOf((event as { style_preferences?: unknown }).style_preferences, scene, pageStage, event.event_type);
+  /* 🎨 THE PARTS' OWN STYLES (owner 2026-10-07, `lib/scene-styles-parts.ts`): each picked
+     part's `data-part-look`, null for the shipped look — so a page nobody styled is unchanged. */
+  const partLook = (type: StyledScene) =>
+    partLookAttr(type, fixedSceneStyleOf((event as { style_preferences?: unknown }).style_preferences, type, pageStage, event.event_type));
+  {
+    const looks: Partial<Record<keyof typeof HERO_PART_LOOK, string>> = {};
+    for (const [part, type] of Object.entries(HERO_PART_LOOK) as Array<[keyof typeof HERO_PART_LOOK, StyledScene]>) {
+      const v = partLook(type);
+      if (v) looks[part] = v;
+    }
+    heroElements.looks = Object.keys(looks).length > 0 ? looks : null;
+  }
+  /** E-Gifts and the guest's look on Welcome, and the four for-each-guest parts on Me. */
+  const welcomeLooks = { gifts: partLook('gifts'), wear: partLook('my_wear') };
+  const meLooks = { role: partLook('my_role'), wear: partLook('my_wear'), arrive: partLook('my_arrive'), guests: partLook('my_guests') };
   const entourageStyle = fixedStyle('entourage');
   const liveHubStyle = fixedStyle('live_hub');
   /** A live hub arranged by the couple (not style A): player and wall drawn together. */
@@ -1049,11 +1081,23 @@ export async function SiteBody({
     bodyNormal: plan.body === 'normal',
     barDrawn:
       siteMenuEnabled({ flag: process.env.NEXT_PUBLIC_WEBSITE_MENU_ENABLED, isSample: Boolean(event.is_sample) }) &&
-      showGuestBars,
+      (showGuestBars || (stagesTabs && isMakerCanvas)),
     makerCanvas: isMakerCanvas || canvasOnly !== null,
+    stagesCanvas: stagesTabs && isMakerCanvas && canvasOnly === null,
   });
   /** The Day's first tab, or the Invitation's — where the masthead lives. */
   const leadTab = pageStage === 'event' ? 'live' : 'home';
+  /* 🧭 THE STAGES CANVAS'S PAGES (owner 08 Oct, on the Maker's Stages view: *"i do not see the individual pages. i
+     still see invitation as a 1 long page that scrolls down"*; his ruling 2026-10-07 *"yes pages"*). In the new
+     Maker's Stages canvas — and nowhere else — the page is grouped by the MAKER's own page list
+     (`makerStagesPages`, the one list its bar draws), so every tab that bar shows has a page here; and each part
+     is on the page the approved prototype puts it on (`at`, `lib/maker-stage-filing.ts`). Null for every guest:
+     their tabs are their own bar's, exactly as before. */
+  const stagesPageList =
+    tabsOn && stagesTabs && isMakerCanvas && canvasOnly === null ? makerStagesPages(pageStage, weddingOnly.love_story) : null;
+  const stagesPages = stagesPageList ? stagesPageList.map((p) => p.key) : null;
+  /** The tab a part is on: in the Stages canvas the prototype's page for its canvas key; for every reader, `want`. */
+  const at = (key: string, want: string): string => (stagesPages ? makerStagesPageOf(pageStage, key, stagesPages) : want);
   /** A group with nothing in it draws no box — an empty box would still take
    *  its place in the page's rhythm (a fragment of conditions that all failed). */
   const nothingIn = (node: React.ReactNode): boolean =>
@@ -1063,19 +1107,23 @@ export async function SiteBody({
     (Array.isArray(node) && node.every(nothingIn)) ||
     (isValidElement(node) && node.type === Fragment && nothingIn((node.props as { children?: React.ReactNode }).children));
   const pageTabsFor = (bar: readonly NavSlot[]) => {
-    const inPage = tabsOn ? inPageTabs(bar) : [];
+    const inPage = pageTabKeys({ tabsOn, bar, stagesPages });
     const on = inPage.length > 0;
     const active = activeHubTab(activeTab, inPage);
+    /** The tabs something was filed on — the Stages canvas draws every OTHER page of its list a stand-in (`rest`). */
+    const filled = new Set<string>();
     /** One tab's content. `chapters` keeps the §6 scroll reveal on its children
      *  (the group itself is never hidden by it — it IS the page's first screen
      *  whenever it is shown). */
     const group = (
       want: string,
       node: React.ReactNode,
-      opts: { chapters?: boolean; className?: string; id?: string } = {},
+      opts: { chapters?: boolean; className?: string; id?: string; quiet?: boolean } = {},
     ) => {
       if (!on || nothingIn(node)) return on ? null : node;
       const tab = hubTabFor(want, inPage);
+      /* `quiet`: a landing mark alone (a zero-height anchor) does not make a page. */
+      if (!opts.quiet) filled.add(tab);
       return (
         <div
           id={opts.id}
@@ -1095,7 +1143,18 @@ export async function SiteBody({
       const tab = hubTabFor(want, inPage);
       return { [HUB_TAB_ATTR]: tab, ...(tab !== active ? { hidden: true } : {}) };
     };
-    return { on, active, group, attrs, bar };
+    /** 🧭 Stages canvas only: a page of the Maker's list nothing was filed on is STILL a page — its stand-in, in
+     *  its own group (the Camera, which guests open as its own screen; a page with nothing on it yet). Called
+     *  last in each tree, after every `group()` has run. Nothing for a guest. */
+    const rest = () =>
+      on && stagesPageList
+        ? stagesPagesLeft(inPage, filled).map((p) => (
+            <div key={p} {...{ [HUB_TAB_ATTR]: p }} data-stages-page={p} hidden={p !== active ? true : undefined}>
+              <MakerPageStandIn page={p} label={stagesPageList.find((x) => x.key === p)?.label ?? p} />
+            </div>
+          ))
+        : null;
+    return { on, active, group, attrs, bar, rest };
   };
   /* The tabs the tree below resolved for its reader — set by whichever tree
      renders (they are evaluated in JSX order, before the blocks after them that
@@ -1373,6 +1432,13 @@ export async function SiteBody({
       // 🗂 "Accept gifts? — No" (Your info): the canvas draws no gift place either.
       giftsOff: event.gifts_on === false,
     });
+    /* 🧭 Stages canvas: each Welcome place is on its own page (`at` — the guest's look is Me's, E-Gifts Welcome's),
+       so each is its own run; for every reader the Welcome is one run, as before. */
+    const welcomeRuns: ReadonlyArray<readonly (typeof welcome)[number][]> = stagesPages
+      ? welcome.map((part) => [part])
+      : welcome.length > 0
+        ? [welcome]
+        : [];
     const detailsScenes = scenesLeftForDetails(plan.publicSafeWidgets, welcome);
     // 📱 On a tabbed page the "Our love story" scene is Our Love Story's page,
     // not a Details section (owner 2026-09-30: each tab its own page). One
@@ -1448,6 +1514,38 @@ export async function SiteBody({
     // `splitAroundEntourage`) — drawn right after the entourage mount below.
     const detailsAround = splitAroundEntourage(pageStage, detailsSceneList);
     const publicWidgetNodes = sceneNodes(detailsAround.before);
+    /* 🧭 STAGES CANVAS — EACH SCENE ON ITS OWN PAGE (`at`, the prototype's `TABS`): the Invitation's Welcome has
+       scenes of its own (Countdown, Message), drawn in the prototype's order — reply card · countdown · greeting ·
+       message · E-Gifts — so they lead the scenes the other pages keep. Empty for every guest. */
+    const stagesLead = stagesPages && pageStage === 'rsvp' ? detailsSceneList.filter((w) => at(`w:${w.widget_type}`, 'details') === leadTab) : [];
+    const stagesLeadCut = stagesLead.findIndex((w) => w.widget_type === 'special_message');
+    const stagesAround = splitAroundEntourage(pageStage, detailsSceneList.filter((w) => !stagesLead.includes(w)));
+    /** "THE DETAILS · WHEN · WHERE" behind its Maker marker — ONE node, for the page's Details and the Stages canvas's. */
+    const eventDetailsPart = (
+      <>
+                {makerMark('f:details')}
+                <PublicEventDetails
+                  dateLabel={event.event_date ? formatEventDate(event.event_date) : null}
+                  venueName={event.venue_name}
+                  venueAddress={event.venue_address}
+                  venues={event.venues}
+                  dateIso={event.event_date ?? null}
+                  sceneStyle={sceneStyleOfRow(
+                    widgets.find((w) => w.widget_type === 'event_details'),
+                    pageStage,
+                    event.event_type,
+                  )}
+                />
+      </>
+    );
+    /** A run of scenes, one group per page of the Maker's list, the couple's order kept inside each. */
+    const scenesByPage = (list: typeof detailsScenes, gap: 'mt-12' | 'mt-8') =>
+      (stagesPages ?? []).map((p) => {
+        const mine = list.filter((w) => at(`w:${w.widget_type}`, p) === p);
+        return mine.length > 0 ? (
+          <Fragment key={p}>{group(p, <div className={`sn-hub-cards ${gap} space-y-4`}>{sceneNodes(mine)}</div>)}</Fragment>
+        ) : null;
+      });
     /* 🎨 THE DAY'S OWN PARTS — the Maker's canvas only, never a guest: a
        stand-in for each part a guest meets as their own (their table, their
        photos) or only once it happens (a message, a stream), so the couple can
@@ -1458,13 +1556,16 @@ export async function SiteBody({
       isMakerCanvas
         ? makerDayPartsOn(pageStage, place).map((part) => (
             <Fragment key={part}>
+              {group(at(`f:${part}`, scenesTab), <>
               {makerMark(`f:${part}`)}
               <MakerDayPartStandIn
                 part={part as Exclude<FixedStyleScene, 'entourage'>}
                 styleName={
                   sceneStylesOn(part, pageStage, event.event_type).find((st) => st.id === fixedStyle(part as FixedStyleScene))?.name ?? null
                 }
+                styleId={fixedStyle(part as FixedStyleScene)}
               />
+              </>)}
             </Fragment>
           ))
         : null;
@@ -1604,6 +1705,7 @@ export async function SiteBody({
             ☝ ONE BUTTON (owner 2026-09-26/27): the stranger's "Find your
             invitation" card is a second way in beside "Get inside" — it is not
             drawn; "Get inside" is the one door. */}
+        {plan.spotlight && plan.spotlight.kind !== 'find_invite' ? makerMark('f:spotlight') : null}
         {plan.spotlight && plan.spotlight.kind !== 'find_invite' ? (
           <SpotlightCard spotlight={plan.spotlight} occasion={clientWords.occasion} />
         ) : null}
@@ -1759,7 +1861,7 @@ export async function SiteBody({
                 (lib/guests-may-see-seats.ts, via `doorwayFacts.seatingPublished`),
                 never a door to a "not yet" page. */}
             {/* 🏠 The day's Welcome begins here — the seat finder is its table. */}
-            {pageStage === 'event' ? group('home', <div id={SITE_WELCOME_ANCHOR} aria-hidden className="scroll-mt-6" />) : null}
+            {pageStage === 'event' ? group('home', <div id={SITE_WELCOME_ANCHOR} aria-hidden className="scroll-mt-6" />, { quiet: true }) : null}
             {group('home', <>{insideAllowed && doorwayFacts?.seatingSurfaceEnabled && doorwayFacts?.seatingPublished ? (
             <div className="mt-8 text-center">
               <Link
@@ -1865,9 +1967,31 @@ export async function SiteBody({
              *  anonymous path doesn't have a guest object to pass. */}
             {/* 👤 The guest-link scenes, in place, in the Maker's canvas only
                 ("Your guest" — `maker-guest-scenes.tsx`). Guests: nothing here. */}
+            {/* 🧭 STAGES CANVAS: each of the three is ON ITS OWN PAGE (`at`) — measured 08 Oct, they stood outside
+                every tab's group and were drawn on all of them. The Welcome's own scenes sit between them, in the
+                prototype's order (reply card · countdown · greeting · message). */}
+            {stagesPages ? (
+              <>
+                {plan.rsvpShouldRender
+                  ? group(at('f:rsvp', 'home'), <MakerGuestScenes show={{ greeting: false, pass: false, rsvp: true }} eventDate={event.event_date} solemn={clientWords.solemn} mark={makerMark} />)
+                  : null}
+                {scenesByPage(stagesLeadCut < 0 ? stagesLead : stagesLead.slice(0, stagesLeadCut), 'mt-12')}
+                {plan.greetingShouldRender
+                  ? group(at('f:greeting', leadTab), <MakerGuestScenes show={{ greeting: true, pass: false, rsvp: false }} eventDate={event.event_date} solemn={clientWords.solemn} mark={makerMark} />)
+                  : null}
+                {scenesByPage(stagesLeadCut < 0 ? [] : stagesLead.slice(stagesLeadCut), 'mt-12')}
+                {plan.qrCardShouldRender
+                  ? group(at('f:pass', 'me'), <MakerGuestScenes show={{ greeting: false, pass: true, rsvp: false }} eventDate={event.event_date} solemn={clientWords.solemn} mark={makerMark} />)
+                  : null}
+              </>
+            ) : null}
             {isMakerCanvas ? (
               <MakerGuestScenes
-                show={{ greeting: plan.greetingShouldRender, pass: plan.qrCardShouldRender, rsvp: plan.rsvpShouldRender }}
+                show={
+                  stagesPages
+                    ? { greeting: false, pass: false, rsvp: false }
+                    : { greeting: plan.greetingShouldRender, pass: plan.qrCardShouldRender, rsvp: plan.rsvpShouldRender }
+                }
                 eventDate={event.event_date}
                 solemn={clientWords.solemn}
                 mark={makerMark}
@@ -1876,10 +2000,13 @@ export async function SiteBody({
             {/* 🏠 WELCOME — after the reply, before Details (owner 2026-09-30).
                 A stranger meets Reminders and E-Gifts here; the Maker's canvas
                 draws all three places, each after its navigator marker. */}
-            {welcome.length > 0 ? group('home', (
+            {welcomeRuns.map((parts) => (
+              <Fragment key={parts.join()}>
+              {group(stagesPages ? at(WELCOME_PART_CANVAS[parts[0]!], 'home') : 'home', (
               <div className="mt-12">
                 <GuestWelcome
-                  parts={welcome}
+                  partLooks={welcomeLooks}
+                  parts={parts}
                   words={clientWords}
                   look={null}
                   reminders={
@@ -1907,13 +2034,16 @@ export async function SiteBody({
                   maker={isMakerCanvas}
                 />
               </div>
-            )) : null}
+              ))}
+              </Fragment>
+            ))}
             {/* 🏠 THE DAY'S WELCOME (owner 2026-09-30, "THE DAY'S MENU HAS
                 FIVE") — for a reader without a key, the couple's Reminders and
                 E-Gifts. Never on the Maker's canvas (`welcomePartsOnTheDay`). */}
             {dayWelcome.length > 0 ? group('home', (
               <div className="mt-12">
                 <GuestWelcome
+                  partLooks={welcomeLooks}
                   parts={dayWelcome}
                   words={clientWords}
                   look={null}
@@ -1938,23 +2068,28 @@ export async function SiteBody({
               </div>
             )) : null}
             {makerDayStandIns('before')}
+            {stagesPages ? (
+              /* 🧭 STAGES CANVAS: "THE DETAILS · WHEN · WHERE" on its page, then each scene on its own (`at`) —
+                 the Love Story never at the foot of Details, the day's venue and dress code on Welcome. */
+              <>
+                {plan.openBrowse ? group(at('f:details', scenesTab), (
+                  <section id={SITE_MENU_ANCHORS.details} className="mt-12 space-y-8 scroll-mt-6">
+                    {eventDetailsPart}
+                    {detailsSceneList.length === 0 ? (
+                      <SectionEmptyPlate kind="details" pastTense={archiveTense} occasion={clientWords.occasion} />
+                    ) : null}
+                  </section>
+                )) : null}
+                {scenesByPage(stagesAround.before, 'mt-12')}
+              </>
+            ) : (
+            <>
             {group(scenesTab, plan.openBrowse ? (
               // Open-browse Details — always present so the tab is never dead:
               // event-level facts (the anonymous event_details variant — §5.10),
               // the public widgets, then a teaser plate when nothing is filled.
               <section id={SITE_MENU_ANCHORS.details} className="mt-12 space-y-8 scroll-mt-6">
-                <PublicEventDetails
-                  dateLabel={event.event_date ? formatEventDate(event.event_date) : null}
-                  venueName={event.venue_name}
-                  venueAddress={event.venue_address}
-                  venues={event.venues}
-                  dateIso={event.event_date ?? null}
-                  sceneStyle={sceneStyleOfRow(
-                    widgets.find((w) => w.widget_type === 'event_details'),
-                    pageStage,
-                    event.event_type,
-                  )}
-                />
+                {eventDetailsPart}
                 <div className="sn-hub-cards space-y-4">{publicWidgetNodes}</div>
                 {detailsSceneList.length === 0 ? (
                   <SectionEmptyPlate kind="details" pastTense={archiveTense} occasion={clientWords.occasion} />
@@ -1965,6 +2100,8 @@ export async function SiteBody({
                 <div className="sn-hub-cards space-y-4">{publicWidgetNodes}</div>
               </section>
             ) : null)}
+            </>
+            )}
 
             {makerDayStandIns('after')}
 
@@ -1977,8 +2114,8 @@ export async function SiteBody({
                 list" — it should not "see other [list]", it should extend as
                 needed). Everyone shows inline; `/[slug]/everyone` keeps
                 working for old links, it just isn't linked from here. */}
-            {group(scenesTab, stageShowsEntourage(pageStage) ? <EntourageSection groups={entourage} id="site-entourage" sceneStyle={entourageStyle} /> : null)}
-            {detailsAround.after.length > 0 ? group(scenesTab, <div className="sn-hub-cards mt-8 space-y-4">{sceneNodes(detailsAround.after)}</div>) : null}
+            {group(at('f:entourage', scenesTab), stageShowsEntourage(pageStage) ? <EntourageSection groups={entourage} id="site-entourage" sceneStyle={entourageStyle} /> : null)}
+            {stagesPages ? scenesByPage(stagesAround.after, 'mt-8') : detailsAround.after.length > 0 ? group(scenesTab, <div className="sn-hub-cards mt-8 space-y-4">{sceneNodes(detailsAround.after)}</div>) : null}
 
             {makerDayStandIns('last')}
 
@@ -1987,7 +2124,7 @@ export async function SiteBody({
                 branches), so this naturally stays off the post-event Editorial.
                 Under open-browse a teaser plate stands in when there's no story so
                 the Story tab never lands on nothing. */}
-            {group('story', <>
+            {group(at('w:our_love_story', 'story'), <>
             {/* 📱 On a tabbed page the "Our love story" scene is this tab's own
                 page (it left Details above), in the couple's scene look. */}
             {storyScene ? (
@@ -2002,7 +2139,7 @@ export async function SiteBody({
                 <SectionEmptyPlate kind="story" pastTense={archiveTense} occasion={clientWords.occasion} />
               ) : null}
             </div>
-            </>)}
+            </>, { quiet: !storyScene && (storySceneShown || !weddingOnly.love_story || !(event.love_story || plan.openBrowse)) })}
           </>
         ))}
         {/* Me tab — under open-browse a cookie-less visitor gets designed
@@ -2033,7 +2170,9 @@ export async function SiteBody({
           </section>
         ) : (
           <div id={SITE_MENU_ANCHORS.me} aria-hidden className="scroll-mt-6" />
-        )}</>)}
+        )}</>, { quiet: !(plan.openBrowse && (viewerIsHost || archiveTense)) })}
+        {/* 🧭 Stages canvas: every page of the Maker's list has a page here (`rest`). Nothing for a guest. */}
+        {tabs.rest()}
         {/* Open-browse menu shell (PR6) — fixed bottom tab bar of in-page
             anchors. Flag-dark (NEXT_PUBLIC_WEBSITE_MENU_ENABLED) + always on for
             the sample event. Coexists with PublicEventDayBar until PR11 retires
@@ -2609,6 +2748,7 @@ export async function SiteBody({
               dateLabel={event.event_date ? formatEventDate(event.event_date) : null}
             />
           ) : null}
+          {plan.spotlight ? makerMark('f:spotlight') : null}
           {plan.spotlight ? <SpotlightCard spotlight={plan.spotlight} occasion={clientWords.occasion} /> : null}
           {/* 🎫 NO "HI AGAIN · YOUR INVITATION SUMMARY" CARD (owner 2026-09-30).
               Its reply, seat, meal and "coming up" were a second statement of
@@ -3060,6 +3200,7 @@ export async function SiteBody({
                   Guarded by `lib/welcome-is-the-guests-own.test.ts`. */}
               {tabs.on && welcome.length === 0 ? null : group('home', (
               <GuestWelcome
+                partLooks={welcomeLooks}
                 parts={welcome}
                 words={clientWords}
                 /* 🏠 One home per fact: once Me draws this guest's role and
@@ -3095,6 +3236,7 @@ export async function SiteBody({
                   empty is drawn. */}
               {group('home', dayWelcome.length > 0 ? (
                 <GuestWelcome
+                  partLooks={welcomeLooks}
                   parts={dayWelcome}
                   words={clientWords}
                   look={{
@@ -3313,6 +3455,7 @@ export async function SiteBody({
             {/* 👤 Your role · What to wear · Arrive by · Coming with you. */}
             {meParts.length > 0 ? (
               <GuestMeParts
+                partLooks={meLooks}
                 parts={meParts}
                 words={clientWords}
                 look={{ ...guestLook, roleNames }}
@@ -3434,6 +3577,9 @@ export async function SiteBody({
             precedence — a guest's OWN roll first, then the couple's shared camera,
             the same order GuestHubBar already uses; neither open ⇒ the resolver
             LOCKS the slot rather than hiding it. */}
+        {/* 🧭 Stages canvas (a See as sample guest): every page of the Maker's list has a page (`rest`) — after
+            Me above, so a page is only a stand-in when nothing at all was filed on it. Nothing for a guest. */}
+        {tabs.rest()}
         {menuOn && showGuestBars ? (
           <SiteMenuBar
             slots={guestBar}

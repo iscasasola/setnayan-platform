@@ -131,14 +131,14 @@ export const REVEAL_LIBRARY: ReadonlyArray<{
   },
   {
     id: 'two-flap-vertical',
-    label: 'Two-flap · side open',
+    label: 'Two-flap side',
     family: 'rigid',
     blurb: 'Two panels part to the left and right, like opening a card from the side.',
     motion: 'Opens sideways',
   },
   {
     id: 'two-flap-horizontal',
-    label: 'Two-flap · top open',
+    label: 'Two-flap top',
     family: 'rigid',
     blurb: 'Two panels swing up and down, opening from the middle like a top-fold note.',
     motion: 'Opens up & down',
@@ -152,7 +152,7 @@ export const REVEAL_LIBRARY: ReadonlyArray<{
   },
   {
     id: 'veil-sheer',
-    label: 'Sheer bridal veil',
+    label: 'Sheer veil',
     family: 'veil',
     blurb: 'A soft, sheer veil lifts and floats away, uncovering your film beneath.',
     motion: 'Veil lifts away',

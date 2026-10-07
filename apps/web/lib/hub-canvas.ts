@@ -277,6 +277,23 @@ export type HubSectionCanvas = {
    * beside a snippet.
    */
   poster?: string;
+  /**
+   * 🌗 DARKER ↔ LIGHTER ON A SCENE'S PHOTO OR CLIP (owner 2026-10-07, "THREE
+   * FOLLOW-UPS AS ONE STEP"; prototype `SHADE` — Darker · As is · Lighter). The
+   * veil laid over the picture: 'darker' an ink veil (the words flip light),
+   * 'lighter' more of the paper veil. As is is the shipped scrim and an absence.
+   * The strength is the hub's contrast floor (`lib/scene-media-shade.ts`, the
+   * `lib/main-ground-shade.ts` pattern) — no step can take words under AA.
+   * Kept only beside a photo or a snippet (the direction rule).
+   */
+  shade?: HubSceneShade;
+  /**
+   * ↕ ARRANGE › SPACING (owner 2026-10-07; prototype Arrange `SPACE`): Tight ·
+   * Regular · Roomy — the room above and below the scene. Regular is the shipped
+   * rhythm and an absence. FREE (not a look key) and never a frame on its own
+   * (`hasHubCanvas` ignores it; `hubSpacingClass` draws it).
+   */
+  spacing?: HubSceneSpacing;
   preset?: HubMotionPreset;
   /** Fine-tune. Each absent when the couple left it on Auto. */
   in?: HubIn;
@@ -572,6 +589,12 @@ export const HUB_GLASS_DEFAULT_TINT = '#ffffff';
 /** FRAMED (an inset panel, rounded) or FULL WIDTH (edge to edge, square). */
 export const HUB_SCENE_SHAPES = ['framed', 'full'] as const;
 export type HubSceneShape = (typeof HUB_SCENE_SHAPES)[number];
+/** 🌗 A scene picture's Darker ↔ Lighter — 'as-is' is the absence and is never stored. */
+export const HUB_SCENE_SHADES = ['darker', 'as-is', 'lighter'] as const;
+export type HubSceneShade = Exclude<(typeof HUB_SCENE_SHADES)[number], 'as-is'>;
+/** ↕ Arrange › Spacing — 'regular' is the absence and is never stored. */
+export const HUB_SCENE_SPACINGS = ['tight', 'regular', 'roomy'] as const;
+export type HubSceneSpacing = Exclude<(typeof HUB_SCENE_SPACINGS)[number], 'regular'>;
 export const HUB_DEFAULT_SCENE_SHAPE: HubSceneShape = 'framed';
 export const HUB_SCENE_SHAPE_LABEL: Record<HubSceneShape, string> = { framed: 'Framed', full: 'Full width' };
 
@@ -655,6 +678,10 @@ export function sanitizeHubCanvas(raw: unknown): HubSectionCanvas {
   if (canvas.mediaMotion === 'parallax' && ground?.kind === 'photo') out.mediaMotion = 'parallax';
   const poster = hubMediaRef(canvas.poster);
   if (poster && ground?.kind === 'snippet') out.poster = poster;
+  /* 🌗 Darker ↔ Lighter only beside a picture — a colour has no veil to move. */
+  if ((canvas.shade === 'darker' || canvas.shade === 'lighter') && (ground?.kind === 'photo' || ground?.kind === 'snippet')) out.shade = canvas.shade;
+  /* ↕ Spacing: Regular is the absence. */
+  if (canvas.spacing === 'tight' || canvas.spacing === 'roomy') out.spacing = canvas.spacing;
   if (inSet(HUB_MOTION_PRESETS, canvas.preset)) out.preset = canvas.preset;
   if (inSet(HUB_IN, canvas.in)) out.in = canvas.in;
   if (inSet(HUB_OUT, canvas.out)) out.out = canvas.out;
@@ -1154,8 +1181,15 @@ export function hasHubCanvas(canvas: HubSectionCanvas): boolean {
       k !== 'style' &&
       k !== 'palette' &&
       k !== 'venueMap' &&
-      k !== 'postEventPreset',
+      k !== 'postEventPreset' &&
+      /* ↕ …nor Spacing: room above and below is drawn without a frame (`hubSpacingClass`). */
+      k !== 'spacing',
   );
+}
+
+/** ↕ The scene's Spacing as a class (`globals.css` `.hub-space-*`) — null for Regular, the shipped rhythm. */
+export function hubSpacingClass(canvas: HubSectionCanvas): string | null {
+  return canvas.spacing ? `hub-space-${canvas.spacing}` : null;
 }
 
 /**

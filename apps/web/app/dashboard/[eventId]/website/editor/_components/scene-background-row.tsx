@@ -54,6 +54,7 @@ import { PickMenu } from './pick-menu';
 import { sceneBgPreviewMessage, type SceneBgPreviewMessage } from './scene-bg-preview-message';
 import { useMaker } from '../../../launch/_components/maker-context';
 import { StageBackground, type StageBgChoice } from '../../../launch/_components/stage-panel/stage-background';
+import { Dd } from '../../../launch/_components/stage-panel/kit';
 
 /**
  * 🖼 THE SCENE'S FORMAT → BACKGROUND, as the approved prototype draws it
@@ -589,7 +590,24 @@ export function SceneBackgroundRow({
           />
         }
         opacityRow={
-          current === 'glass' || current === 'frost' ? (
+          current === 'media' && value !== 'hub' ? (
+            /* 🌗 DARKER ↔ LIGHTER (owner 2026-10-07; prototype `SHADE`) — once a photo or video is chosen; the
+               veil never takes the words under the contrast floor (`lib/scene-media-shade.ts`). */
+            <div className="flex h-11 shrink-0" data-stage-bg="shade">
+              <Dd
+                small="Darker ↔ Lighter"
+                label="Darker or lighter"
+                data="bg-shade"
+                value={shown.shade ?? 'as-is'}
+                options={[
+                  { key: 'darker', label: 'Darker' },
+                  { key: 'as-is', label: 'As is' },
+                  { key: 'lighter', label: 'Lighter' },
+                ]}
+                onPick={(k) => putKeys({ shade: k === 'darker' || k === 'lighter' ? k : undefined })}
+              />
+            </div>
+          ) : current === 'glass' || current === 'frost' ? (
             <IRow label="Opacity" data="scene-opacity">
               <input
                 type="range"

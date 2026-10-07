@@ -1,3 +1,5 @@
+import { sanitizeFixedSceneStyles, type FixedSceneStyles } from '@/lib/fixed-scene-styles';
+import { isCameraLook, type CameraLook } from '@/lib/camera-look';
 import { notFound } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { sanitizeHubCanvas, type HubSectionCanvas } from '@/lib/hub-canvas';
@@ -113,6 +115,15 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
   } catch {
     drafted = {};
   }
+  /* 🎨 🎛 The lab's drafted part styles and camera look (set by the lab's save stand-in). */
+  let fixedStyles: FixedSceneStyles = {};
+  try {
+    fixedStyles = sanitizeFixedSceneStyles(JSON.parse(decodeURIComponent((await cookies()).get('lab_styles')?.value ?? '{}')));
+  } catch {
+    fixedStyles = {};
+  }
+  const camRaw = (await cookies()).get('lab_camera')?.value;
+  const cameraLook: CameraLook = isCameraLook(camRaw) ? camRaw : 'classic';
   const canvases: Record<string, HubSectionCanvas> = Object.fromEntries(
     rows.map((r) => [r.widget_type, sanitizeHubCanvas({ canvas: drafted[r.widget_type] ?? {} })]),
   );
@@ -139,6 +150,8 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
       }))}
       openDetails={sp.tool === 'details' || typeof sp.guide === 'string'}
       canvases={canvases}
+      fixedStyles={fixedStyles}
+      cameraLook={cameraLook}
       /* Moves with every render, as the real Maker's stamp does — a save's refresh reaches the canvas. */
       renderStamp={String(Date.now())}
       /* 🧭 `?studio=1` (or `?ss=1`) — the new Maker on the lab's fixtures (no ✓ claimed: nothing was measured here). */

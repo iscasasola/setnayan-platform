@@ -711,9 +711,11 @@ export function MakerShell({
   };
   /* ══ 🧭 THE NEW MAKER — Stages | Studio (`stagesStudio`, phone) ══ */
   /** A Studio tile opens its tool: Look in the lower third, every other the shipped Event Details item, full screen. */
-  const openStudio = (key: StudioTileKey) => {
+  const openStudio = (key: StudioTileKey, from?: { label: string; focus: string | null }) => {
     const tile = studio?.tiles.find((t) => t.key === key);
     if (!tile || !hasWork) return;
+    /* 🎯 Opened from a part's Style bar: where to come back to, and the field to land on. A tile opens fresh. */
+    setStudioFrom(from ?? null);
     setSide('studio');
     setStudioAt(key);
     /* 🎨 Look opens a Look SECTION — never the Logo (or another Look-group item) the couple last had open. */
@@ -736,8 +738,43 @@ export function MakerShell({
     setStudioAt('home');
     select(null);
   }, [ss, side, selection, select]);
+  /* 🎯 THE STYLE BAR'S JUMP (owner 2026-10-07: *"opens to the exact place where to edit it"* · *"if we did a jump,
+     we need a way to apply and return to where we were editing"*): the field is brought into view and focused
+     once the editor has drawn it; "✓ Done · back to <part>" returns to the same stage and part (the edit stays
+     in the draft — the top ✓ still publishes). */
+  const [studioFrom, setStudioFrom] = useState<{ label: string; focus: string | null } | null>(null);
+  const focusSel = studioFrom?.focus ?? null;
+  useEffect(() => {
+    if (!focusSel || side !== 'studio') return;
+    let n = 0;
+    const id = window.setInterval(() => {
+      n += 1;
+      const el = document.querySelector<HTMLElement>(`[data-maker-shell] :is(${focusSel})`);
+      /* A field inside a folded row (Studio › Info's "Event name · …") asks that row to open first. */
+      if (el && el.offsetParent === null) el.closest('[data-studio-event-name]')?.setAttribute('data-focus-pending', '');
+      if (el && el.offsetParent !== null) {
+        window.clearInterval(id);
+        el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        el.focus({ preventScroll: true });
+      } else if (n > 40) window.clearInterval(id);
+    }, 100);
+    return () => window.clearInterval(id);
+  }, [focusSel, side, studioAt]);
+  const [studioHasFoot, setStudioHasFoot] = useState(false);
+  useEffect(() => {
+    if (!studioFrom) return;
+    const look = () => setStudioHasFoot(Boolean(document.querySelector('[data-maker-shell] :is([data-studio-day], [data-moment-order-cards])')));
+    look();
+    const id = window.setInterval(look, 500);
+    return () => window.clearInterval(id);
+  }, [studioFrom, studioAt]);
+  const backToPart = () => {
+    setStudioFrom(null);
+    pickSide('stages');
+  };
   /** Stages | Studio — tapping Studio (again) returns to its tiles; Stages puts the stage back. */
   const pickSide = (next: MakerSide) => {
+    if (next === 'studio') setStudioFrom(null);
     if (next === 'studio') setStudioAt('home');
     if (selection && (next === 'studio' || side === 'studio')) select(null);
     setSide(next);
@@ -1136,10 +1173,24 @@ export function MakerShell({
           {studioHomeOn ? (
             <StudioCover tiles={studio?.tiles ?? null} onOpen={openStudio} />
           ) : studioFull && studioTile ? (
-            <StudioToolRow tile={studioTile} tiles={studio?.tiles ?? []} onOpen={openStudio} onDone={() => pickSide('studio')} />
+            <StudioToolRow tile={studioTile} tiles={studio?.tiles ?? []} onOpen={(k) => openStudio(k)} onDone={() => (studioFrom ? backToPart() : pickSide('studio'))} />
           ) : null}
         </div>
 
+        {/* 🎯 Opened from a part's Style bar: the way back, in the thumb's reach, just above the editor. */}
+        {studioFull && studioFrom ? (
+          <button
+            type="button"
+            data-maker-studio-back=""
+            onClick={backToPart}
+            /* Above an editor's own pinned foot (the Schedule's / Love Story's "Add a moment", ~64 px). */
+            style={{ bottom: `calc(var(--maker-lt-h) + env(safe-area-inset-bottom) + ${studioHasFoot ? 76 : 8}px)` }}
+            className="sn-press absolute left-1/2 z-[45] inline-flex h-11 -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full bg-success-600 px-5 text-[14px] font-bold text-cream shadow-[0_10px_24px_-12px_rgba(0,0,0,.5)] hover:bg-success-700 lg:hidden"
+          >
+            <Check aria-hidden className="h-4 w-4" strokeWidth={2.6} />
+            Done · back to {studioFrom.label}
+          </button>
+        ) : null}
         {/* ══ 🧰 THE LOWER THIRD ══ (phone) — where you are · the navigator; a tool
             open folds them into the left column and takes the rest. It REPLACES
             the bottom bar (Page ▾ · Look · Event Details) and the canvas's

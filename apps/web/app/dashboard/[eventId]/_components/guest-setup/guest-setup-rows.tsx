@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useTransition } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { Check, Copy, Mail, Share2, SquareCheck, X } from 'lucide-react';
 import { ActionButton, useFitRow } from '@/components/action-button';
@@ -373,8 +374,12 @@ function FinalizeRow({ eventId, view }: { eventId: string; view: HeadcountView }
       ) : (
         <span />
       )}
-      <Sheet open={open} onClose={() => (pending ? undefined : setOpen(false))} labelledById="setup-finalize-title">
-        <div className="flex flex-col gap-2 p-1" data-finalize-sheet="">
+      {/* Portalled to <body>: the Guests screen is its own stacking context, and a sheet left
+          inside it drew UNDER the bottom nav — its Finalize · Not now hidden (measured in the lab). */}
+      {open && typeof document !== 'undefined'
+        ? createPortal(
+      <Sheet open={open} onClose={() => (pending ? undefined : setOpen(false))} labelledById="setup-finalize-title" rise>
+        <div className="flex flex-col gap-2 p-5" data-finalize-sheet="">
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink/55">{FINALIZE_SHEET.eyebrow}</p>
           <p id="setup-finalize-title" className="font-serif text-xl text-ink">
             {FINALIZE_SHEET.title(heads)}
@@ -398,7 +403,10 @@ function FinalizeRow({ eventId, view }: { eventId: string; view: HeadcountView }
             </p>
           ) : null}
         </div>
-      </Sheet>
+      </Sheet>,
+            document.body,
+          )
+        : null}
     </section>
   );
 }

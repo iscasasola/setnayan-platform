@@ -37,6 +37,10 @@ import { updateQrStyle } from '@/app/dashboard/[eventId]/launch/qr-look-actions'
 import { updateSpecialMessage } from '@/app/dashboard/[eventId]/website/special-message/actions';
 import { labMarchSections } from './march-fixture';
 import { MakerRsvpSettings } from '@/app/dashboard/[eventId]/launch/_components/maker-rsvp-ask';
+import { MoodBoardStudio } from '@/app/dashboard/[eventId]/studio/mood-board/_components/mood-board-lazy';
+import { ATTIRE_STYLES, ATTIRE_STYLE_LABEL } from '@/lib/role-dress-code';
+import { HUB_THEMES } from '@/lib/invite-themes';
+import { themeSeedPalette } from '@/lib/theme-colours';
 
 const EVENT = '00000000-0000-4000-8000-000000000000';
 
@@ -246,7 +250,27 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
         look={
           withLook
             ? {
-                moodBoard: (
+                moodBoard: studioLab ? (
+                  /* 🧭 `?studio=1`: the REAL Studio › Mood Board & Dress Code on fixtures (its writes fail here — no event). */
+                  <MoodBoardStudio
+                    eventId={EVENT}
+                    palette={{ reception: ['#5B4A6B', '#D9C4CF', '#A9834B', '#F7F2EC', '#7A8B6F'], bride: ['#F7F2EC', '#D9C4CF', '#A9834B'], groom: ['#2C2A29'] } as never}
+                    fallbackFive={['#5B4A6B', '#D9C4CF', '#A9834B', '#F7F2EC', '#7A8B6F']}
+                    frozenDressing={[]}
+                    changes={[{ id: 'c1', who: 'Your florist', what: 'Bouquets', from: '#F2C8C2', to: '#C99A9A' }]}
+                    attire={[
+                      { tier: 'roles', key: 'bride', label: 'The bride', paletteKey: 'bride', arrives: null },
+                      { tier: 'roles', key: 'groom', label: 'The groom', paletteKey: 'groom', arrives: null },
+                      { tier: 'groups', key: 'entourage', label: 'Entourage', paletteKey: 'wedding_party', arrives: '2:00 PM' },
+                    ] as never}
+                    dressConfig={{ roles: { bride: { style: ATTIRE_STYLES[0] } } }}
+                    attireStyles={ATTIRE_STYLES.map((k) => ({ key: k, label: ATTIRE_STYLE_LABEL[k] }))}
+                    inspirations={[]}
+                    autoThemes={HUB_THEMES.filter((t) => t.ready).map((t) => ({ name: t.name, five: themeSeedPalette(t.id).reception }))}
+                    regions={[]}
+                    dos={<p className="text-sm text-ink/60">The do&rsquo;s and don&rsquo;ts are read from the database — open them in the Maker.</p>}
+                  />
+                ) : (
                   <div data-lab-stand="mood-board" className="flex min-h-[1400px] items-start justify-center bg-white/70 pt-10 text-sm text-ink/60">
                     Mood Board — the picked part (theme, inspirations, palette, reception…)
                   </div>

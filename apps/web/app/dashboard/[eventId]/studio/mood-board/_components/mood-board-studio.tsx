@@ -110,7 +110,9 @@ const TABS: ReadonlyArray<[Tab, string]> = [
 type PickTarget =
   | { kind: 'main'; index: number }
   | { kind: 'part'; part: LanePart }
-  | { kind: 'role'; key: PaletteKey; label: string };
+  | { kind: 'role'; key: PaletteKey; label: string }
+  /** One colour a role already wears — tap its dot to change it, or remove it. */
+  | { kind: 'role-colour'; key: PaletteKey; label: string; index: number };
 type Sheet = { kind: 'picker'; target: PickTarget } | { kind: 'auto' } | { kind: 'browse'; slot: StudioInspirationSlot } | null;
 
 type Tile = { url: string; credit: string | null; swatches: string[] };
@@ -218,6 +220,12 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
   };
   const pickRole = (key: PaletteKey, label: string, hex: string) =>
     commit(withRoleColours(palette, key, [...roleColours(key), hex]), `${label} — colour added.`);
+  /* 🎨 A role's own colour, changed or removed (owner 2026-10-07: *"the palettes can still be changed to
+     colors manually"*) — any colour, not only the five; into the same draft as every pick here. */
+  const setRoleColour = (key: PaletteKey, label: string, index: number, hex: string) =>
+    commit(withRoleColours(palette, key, roleColours(key).map((c, i) => (i === index ? hex : c))), `${label} — colour changed.`);
+  const removeRoleColour = (key: PaletteKey, label: string, index: number) =>
+    commit(withRoleColours(palette, key, roleColours(key).filter((_, i) => i !== index)), `${label} — colour removed.`);
 
   const takeAuto = (s: AutoSuggestion) => {
     setSheet(null);
@@ -371,6 +379,29 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
         ) : null,
       };
     }
+    if (t.kind === 'role-colour') {
+      const now = roleColours(t.key);
+      return {
+        title: t.label,
+        job: 'A colour they wear — any colour, not only your five',
+        current: now[t.index] ?? five[0]!,
+        onPick: (h: string) => setRoleColour(t.key, t.label, t.index, h),
+        extra:
+          now.length > Math.max(1, PALETTE_LIMITS[t.key].min) ? (
+            <button
+              type="button"
+              data-mood-board-role-remove=""
+              onClick={() => {
+                setSheet(null);
+                removeRoleColour(t.key, t.label, t.index);
+              }}
+              className="sn-press min-h-11 self-start rounded-full bg-terracotta-700/10 px-4 text-[13px] font-semibold text-terracotta-700"
+            >
+              Remove this colour
+            </button>
+          ) : null,
+      };
+    }
     return { title: t.label, job: 'Adds a colour they wear', current: roleColours(t.key)[0] ?? five[0]!, onPick: (h: string) => pickRole(t.key, t.label, h), extra: null };
   };
 
@@ -482,7 +513,16 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                   {row.paletteKey ? (
                     <span className="flex flex-wrap items-center gap-1.5">
                       {colours.map((c, i) => (
-                        <i key={i} aria-label={c} className="h-7 w-7 rounded-full border border-ink/10" style={{ background: c }} />
+                        <button
+                          key={i}
+                          type="button"
+                          aria-label={`${row.label} colour ${c} — change it`}
+                          data-mood-board-role-colour={i}
+                          onClick={() => setSheet({ kind: 'picker', target: { kind: 'role-colour', key: row.paletteKey!, label: row.label, index: i } })}
+                          className="sn-press inline-flex h-11 w-11 items-center justify-center rounded-full"
+                        >
+                          <i aria-hidden className="h-7 w-7 rounded-full border border-ink/10" style={{ background: c }} />
+                        </button>
                       ))}
                       {colours.length < PALETTE_LIMITS[row.paletteKey].max ? (
                         <button

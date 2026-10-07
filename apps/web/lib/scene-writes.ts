@@ -168,13 +168,13 @@ export function addedSceneDraft(input: {
   displayOrder: number;
   canvas: HubSectionCanvas | null;
   /** ＋ Its place on the stage it was added from (`lib/own-scene-place.ts`, owner 2026-10-07); absent = the end. */
-  stageOrder?: Partial<Record<LifecyclePhase, number>> | null;
+  stageOrder?: Partial<Record<LifecyclePhase, number | null>> | null;
 }): {
   mode: 'auto';
   is_visible: true;
   display_order: number;
   canvas: HubSectionCanvas | null;
-  stage_order?: Partial<Record<LifecyclePhase, number>>;
+  stage_order?: Partial<Record<LifecyclePhase, number | null>>;
 } {
   return {
     mode: 'auto',

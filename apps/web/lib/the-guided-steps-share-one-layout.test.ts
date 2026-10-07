@@ -470,7 +470,8 @@ test('(20) a control that writes live says so plainly: "Guests see this right aw
   assert.match(field, /export const HUB_LIVE_WORDS = 'Guests see this right away';/);
   assert.match(field, /<InfoTip label=\{HUB_LIVE_WORDS\}/, 'the live mark shows the plain words, not "Saves immediately"');
   assert.doesNotMatch(field, /['">]Saves immediately/, 'the old words are gone from the mark');
-  assert.match(read(`${L}/maker-rsvp-ask.tsx`), /<HubSavesImmediately\b/, 'Reply by no longer says it writes live (owner: it stays instant)');
+  /* ⏳ Superseded 2026-10-08 (owner, "draft 1-3"): Reply by now waits for Apply — so it must NOT say it is live. */
+  assert.doesNotMatch(read(`${L}/maker-rsvp-ask.tsx`), /<HubSavesImmediately\b/, 'a drafted Reply by says it writes live');
   // 🚶 The Wedding March left the live writers on 2026-10-06 (owner: *"Wait for apply"*) — it drafts, and says nothing of the kind.
   assert.doesNotMatch(read(`${L}/details-march.tsx`), /<HubSavesImmediately\b/, 'the march says it writes live, but it waits for Apply');
 });

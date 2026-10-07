@@ -10,8 +10,6 @@ import {
   SP_DIR,
   SP_PHASE,
   SP_PHASES,
-  SP_ROW,
-  SP_ROW_LABEL,
   SP_SWITCH,
   STAGE_QUIET_ROW,
   STAGE_QUIET_SUPPLIERS,
@@ -26,8 +24,7 @@ import { useStagePanelNow } from './store';
  *   Phases    `.sub.phases` — Look | Background | Arrange · Build in | Action | Build out
  *   Dd        `.dd` — a white pill: SMALL CAPS label · value · gold ▾ (the shipped PickMenu,
  *             whose list opens as the Maker's bottom sheet — owner: "every pop-up opens from the bottom")
- *   Row       `.r` / `.ar` — a 70 px label and its control, 44 px tall
- *   Switch    `.sw` — 54 × 32, green when on
+ *   PanelSwitch `.sw` — 54 × 32, green when on (named apart from the Maker's other `Switch` rows)
  *   Dir       `.dir` — one of ← → ↓ ↑
  *   QuietBar  `.pane>.jump` — Style › Look's one dark bar ("Edit the E-Gifts · Studio ›")
  *   About     ⓘ — helper words are never a box on the panel (owner rule), only behind ⓘ
@@ -105,17 +102,6 @@ export function Dd({
   );
 }
 
-/** One row: its label (70 px) and its control. */
-export function Row({ label, children, data, info }: { label: ReactNode; children: ReactNode; data: string; info?: ReactNode }) {
-  return (
-    <div className={SP_ROW} data-stage-row-of={data}>
-      <span className={SP_ROW_LABEL}>{label}</span>
-      {children}
-      {info ? <About label={typeof label === 'string' ? label : 'this row'}>{info}</About> : null}
-    </div>
-  );
-}
-
 /** ⓘ — the only place the panel says anything in sentences. */
 export function About({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -128,7 +114,7 @@ export function About({ label, children }: { label: string; children: ReactNode 
 }
 
 /** The prototype's switch (`.sw`). */
-export function Switch({ on, label, onChange, data }: { on: boolean; label: string; onChange: (on: boolean) => void; data: string }) {
+export function PanelSwitch({ on, label, onChange, data }: { on: boolean; label: string; onChange: (on: boolean) => void; data: string }) {
   return (
     <button type="button" role="switch" aria-checked={on} aria-label={label} data-stage-switch={data} onClick={() => onChange(!on)} className={SP_SWITCH}>
       <span aria-hidden className={`relative h-8 w-[54px] rounded-full transition-colors duration-200 ${on ? 'bg-[var(--sp-ok)]' : 'bg-[var(--sp-line2)]'}`}>

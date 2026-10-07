@@ -125,7 +125,7 @@ import { readHubDraft } from '@/lib/hub-draft-store';
 import { sceneUploadRefs, stdBackgroundUploadRef } from '@/lib/scene-media-choices';
 import { hubDraftAction } from '../hub-draft-actions';
 import { fixedSceneStylesAfter, fixedSceneStylesFromPreferences } from '@/lib/fixed-scene-styles';
-import { overlayHubDraftEvent, overlayHubDraftWidgets, type HubDraft } from '@/lib/hub-draft';
+import { draftRemoves, overlayHubDraftEvent, overlayHubDraftWidgets, type HubDraft } from '@/lib/hub-draft';
 import { HubSavesImmediately } from '../_components/hub-draft-field';
 import { updateWhatToBring } from '../what-to-bring/actions';
 import { buildMakerNavigatorData } from './_components/maker-navigator-data';
@@ -1616,8 +1616,14 @@ export default async function WebsiteEditorPage({
           ? null
           : /* 💎 Open to every couple on the web (owner 2026-09-28): the scene is
                added HIDDEN and shown in the draft; Apply asks for Pro to show it. */
-            !nextFreeCustomSlot(allWidgets.map((w) => w.widget_type))
-              ? { note: 'You have all six of your own scenes. Remove one you are not using to add another.' }
+            /* 🗑 Counted on the LIVE rows: a scene deleted in the draft keeps its
+               slot until Apply deletes it (owner 2026-10-07, "remove for good"). */
+            !nextFreeCustomSlot(liveWidgets.map((w) => w.widget_type))
+              ? {
+                  note: liveWidgets.some((w) => draftRemoves(hubDraft, w.widget_type))
+                    ? 'Apply to finish deleting your scene, then add another.'
+                    : 'You have all six of your own scenes. Remove one you are not using to add another.',
+                }
               : {
                   action: addCustomSection,
                   returnTo: `/dashboard/${eventId}/launch`,

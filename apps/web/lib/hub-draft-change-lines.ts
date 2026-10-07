@@ -198,6 +198,8 @@ export function hubDraftChangePlace(item: HubDraftItem, live: HubLiveState): { p
           return { place, what: 'Words' };
         case 'venue':
           return { place, what: 'Venue' };
+        case 'removed':
+          return { place, what: 'Deleted for good' };
         case 'canvas': {
           const row = live.widgets.find((r) => r.widget_id === item.widgetId);
           return { place, what: canvasWhat(row?.config_json, item.value) };

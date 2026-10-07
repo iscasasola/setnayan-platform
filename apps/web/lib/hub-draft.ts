@@ -613,6 +613,14 @@ export type HubDraftWidget = {
    * re-reads it through `readVenueChoices` (this event's own photos only).
    */
   venue?: HubDraftVenueChoices;
+  /**
+   * 🗑 A SCENE OF THEIR OWN, DELETED IN THE DRAFT — `custom_*` rows ONLY (owner
+   * 2026-10-07, *"remove for good"*: in the Maker the delete waits for Apply).
+   * The canvas and the navigator stop drawing it at once (`overlayHubDraftWidgets`
+   * drops the row); its slot stays taken — the live row is still there — until
+   * Apply deletes it through `deleteOwnScene`; Undo brings it back. Never Pro.
+   */
+  removed?: true;
 };
 
 /** The Venue scene's per-card choices as the draft holds them (shape only — the event is checked at Apply). */
@@ -925,6 +933,7 @@ function sanitizeWidget(raw: unknown, type: WidgetType): HubDraftWidget | null {
       if (words.ok) out.custom = words.value;
     }
   }
+  if (isCustomSectionType(type) && src.removed === true) out.removed = true;
   if (type === 'venue_map' && isPlainObject(src.venue)) {
     const venue = draftVenueChoices(src.venue);
     if (Object.keys(venue).length) out.venue = venue;
@@ -1157,12 +1166,17 @@ export function configWithVenue(config: unknown, venue: HubDraftVenueChoices): R
 }
 
 /** The live widget rows with the draft's mode / order / canvas on top (new objects). */
+/** 🗑 Is this scene of their own deleted in the draft (`HubDraftWidget.removed`)? */
+export function draftRemoves(draft: HubDraftState | null, type: string): boolean {
+  return Boolean(draft && isCustomSectionType(type) && draft.widgets[type as WidgetType]?.removed === true);
+}
+
 export function overlayHubDraftWidgets(
   rows: readonly InvitationWidgetRow[],
   draft: HubDraftState | null,
 ): InvitationWidgetRow[] {
   if (!draft || Object.keys(draft.widgets).length === 0) return [...rows];
-  return rows.map((row) => {
+  return rows.filter((row) => !draftRemoves(draft, row.widget_type)).map((row) => {
     const w = draft.widgets[row.widget_type];
     if (!w) return row;
     let config: unknown = row.config_json;
@@ -1224,7 +1238,7 @@ export type HubDraftItem =
       kind: 'widget';
       widgetType: WidgetType;
       widgetId: string;
-      field: 'mode' | 'is_visible' | 'display_order' | 'canvas' | 'main' | 'stage_order' | 'std_lead' | 'custom' | 'venue';
+      field: 'mode' | 'is_visible' | 'display_order' | 'canvas' | 'main' | 'stage_order' | 'std_lead' | 'custom' | 'venue' | 'removed';
       value: unknown;
       change: LookChange;
       pro: boolean;
@@ -1831,6 +1845,12 @@ export function classifyHubDraft(
        couple's OWN scene that guests do not see today is asked — putting it in
        front of guests is adding a look (`lookWriteAllowed`'s 'add'); taking one
        off, and every shipped section's show / hide, stay free. */
+    /* 🗑 A scene of their own deleted in the draft: ONE item — the delete — and
+       nothing else about it is written (its words, look and place go with it). */
+    if (w.removed === true && isCustomSectionType(type)) {
+      items.push({ kind: 'widget', widgetType: type, widgetId: row.widget_id, field: 'removed', value: true, change: 'remove', pro: false });
+      continue;
+    }
     const showsOwnScene = isCustomSectionType(type) && !row.is_always_on && !ownSceneOn(row, {}) && ownSceneOn(row, w);
     if (w.mode !== undefined && !row.is_always_on && w.mode !== (row.mode ?? 'auto')) {
       items.push({
@@ -2448,6 +2468,7 @@ export function hubDraftItemLabel(item: HubDraftItem, sectionLabel: (t: WidgetTy
   if (item.field === 'std_lead') return 'Save the Date · Film or Photos';
   if (item.field === 'custom') return `${sectionLabel(item.widgetType)} · its words`;
   if (item.field === 'venue') return 'Your venues';
+  if (item.field === 'removed') return `${sectionLabel(item.widgetType)} · deleted for good`;
   const what =
     item.field === 'mode' || item.field === 'is_visible'
       ? 'shown or hidden'

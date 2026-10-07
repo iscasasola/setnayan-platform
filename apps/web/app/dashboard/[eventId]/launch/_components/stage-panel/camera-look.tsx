@@ -62,10 +62,11 @@ function useCanvasBrand(): { logo: string | null; accent: string | null } {
 function CameraLookFace({ look, logo, accent }: { look: CameraLook; logo: string | null; accent: string | null }) {
   const tint = cameraLookTint(look, accent);
   return (
-    <span aria-hidden data-camera-look-face={look} className="absolute inset-0 overflow-hidden bg-[linear-gradient(160deg,#3a3633,#1c1a19_70%)]">
-      <FocusCorners tint={tint} inset="inset-x-5 top-3 bottom-12" />
+    /* The camera screen, phone-shaped, centred in the card (prototype: the whole camera, small). */
+    <span aria-hidden data-camera-look-face={look} className="absolute inset-y-[5px] left-1/2 aspect-[3/4] -translate-x-1/2 overflow-hidden rounded-md bg-[radial-gradient(ellipse_at_50%_40%,#5a5160,#2a2530_75%)]">
+      <FocusCorners tint={tint} inset="inset-x-2.5 top-2.5 bottom-[52px]" size="h-3 w-3" />
       {look === 'challenges' ? (
-        <span className="absolute inset-x-2 bottom-[46px] flex gap-1 overflow-hidden">
+        <span className="absolute inset-x-1.5 bottom-[38px] flex gap-1 overflow-hidden">
           {[0, 1, 2].map((i) => (
             <span key={i} className="inline-flex h-[14px] shrink-0 items-center gap-0.5 rounded-full bg-white/15 px-1.5">
               <Trophy className="h-2 w-2 text-white" strokeWidth={2.4} />
@@ -74,11 +75,11 @@ function CameraLookFace({ look, logo, accent }: { look: CameraLook; logo: string
           ))}
         </span>
       ) : null}
-      <span className="absolute bottom-2 left-1/2 flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full border-[3px] border-white p-[2px]">
+      <span className="absolute bottom-2 left-1/2 flex h-7 w-7 -translate-x-1/2 items-center justify-center rounded-full border-2 border-white p-[1.5px]">
         <span className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-white">
           {look === 'brand' && logo ? (
             // The event's own logo, as the canvas drew it (an SVG or image the page already serves).
-            <span className="block h-[22px] w-[22px] [&>*]:h-full [&>*]:w-full" dangerouslySetInnerHTML={{ __html: logo }} />
+            <span className="block h-[18px] w-[18px] [&>*]:h-full [&>*]:w-full" dangerouslySetInnerHTML={{ __html: logo }} />
           ) : null}
         </span>
       </span>

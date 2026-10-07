@@ -7,8 +7,8 @@
  * draw the SAME corners the guest camera draws (`papic-guest-capture.tsx`),
  * without loading the camera.
  */
-export function FocusCorners({ tint, inset = 'inset-8' }: { tint: string; inset?: string }) {
-  const arm = 'absolute h-7 w-7';
+export function FocusCorners({ tint, inset = 'inset-8', size = 'h-7 w-7' }: { tint: string; inset?: string; size?: string }) {
+  const arm = `absolute ${size}`;
   const line = { borderColor: tint };
   return (
     <div aria-hidden data-focus-corners="" className={`pointer-events-none absolute ${inset}`}>

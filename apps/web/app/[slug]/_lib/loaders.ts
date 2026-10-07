@@ -40,6 +40,9 @@ import {
   type EntourageGroup,
   type EntourageGuestRow,
 } from '@/lib/entourage';
+import { marchSections, marchTray, printedSectionOrder } from '@/lib/march-sections';
+import { replayMarch, type MarchStep } from '@/lib/march-drag';
+import { printedRowsAsDrafted } from '@/lib/march-draft-print';
 import { resolveMonogram } from '@/lib/monogram';
 import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
 import { dressedTheme, paletteColourVars, themeColours } from '@/lib/theme-colours';
@@ -1916,6 +1919,9 @@ export const loadEntourage = cache(
     admin: AdminClient,
     eventId: string,
     nameStyle?: NameStyle,
+    /* 🚶 The host's DRAFTED march moves — the Maker's canvas only (owner
+       2026-10-07, "SIX BUILD QUESTIONS SETTLED" (3)); absent = the live march. */
+    marchSteps?: readonly MarchStep[],
   ): Promise<EntourageGroup[]> => {
     const roles = ENTOURAGE_ROLES;
     /* 🚶 Who is in the march's "Not walking" tray (owner 2026-10-06): they still
@@ -1966,9 +1972,14 @@ export const loadEntourage = cache(
     const tray = await trayRead;
     if (tray.error) logQueryError('loadEntourage tray', tray.error, { event_id: eventId }, 'graceful_degrade');
     const out = new Set(((tray.data ?? []) as Array<{ guest_id: string }>).map((r) => r.guest_id));
+    const liveRows = ((data ?? []) as EntourageGuestRow[]).map((r) => (r.guest_id && out.has(r.guest_id) ? { ...r, not_walking: true } : r));
+    const savedOrder = await loadEntourageSectionOrder(admin, eventId);
+    /* 🚶 The march as the march editor draws it (live + drafted steps,
+       `replayMarch`), written back onto the printed rows (`printedRowsAsDrafted`). */
+    const drafted = marchSteps?.length ? await draftedMarchPrint(admin, eventId, liveRows, savedOrder, marchSteps) : null;
     return buildEntourage(
-      ((data ?? []) as EntourageGuestRow[]).map((r) => (r.guest_id && out.has(r.guest_id) ? { ...r, not_walking: true } : r)),
-      await loadEntourageSectionOrder(admin, eventId),
+      drafted?.rows ?? liveRows,
+      drafted?.sectionOrder ?? savedOrder,
       await loadEventRoleNames(admin, eventId),
       nameStyle ?? (await loadEventNameStyle(admin, eventId)),
     );
@@ -2022,3 +2033,22 @@ export const loadMarch = cache(
     };
   },
 );
+
+/** 🚶 The printed rows with the host's drafted march moves laid on (the Maker's canvas only). */
+async function draftedMarchPrint(
+  admin: AdminClient,
+  eventId: string,
+  rows: EntourageGuestRow[],
+  savedOrder: string[] | null,
+  steps: readonly MarchStep[],
+): Promise<{ rows: EntourageGuestRow[]; sectionOrder: string[] } | null> {
+  const march = await loadMarch(admin, eventId);
+  // An unread tray is never drawn as "nobody out" — the canvas keeps the live march.
+  if (march.out === null) return null;
+  const live = {
+    sections: marchSections(march.walking),
+    printed: printedSectionOrder([...march.walking, ...march.out], savedOrder),
+    out: marchTray(march.out),
+  };
+  return printedRowsAsDrafted(rows, replayMarch(live, steps));
+}

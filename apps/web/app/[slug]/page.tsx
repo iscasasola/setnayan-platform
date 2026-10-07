@@ -1413,6 +1413,8 @@ async function InvitationBody({
       admin,
       event.event_id,
       hostDraft && 'print_details' in hostDraft.events ? nameStyleOfPrintDetails(hostDraft.events.print_details) : undefined,
+      // 🚶 …and the host's DRAFTED Wedding March moves (owner 2026-10-07) — guests read the live march.
+      hostDraft?.march?.flat(),
     ),
     // Ask-the-band card (SUP-52): only this event's own guest, only live. The
     // check asks the band's own song-desk gate, so it is not run for anybody

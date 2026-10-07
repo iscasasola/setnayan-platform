@@ -14,6 +14,11 @@
  *  4 · ONE SEGMENTED CONTROL. Roster · Share the link were underline tabs
  *      beside the List · Mind map pill. The doors are one `.sn-seg` now, with
  *      List · Mind map standing where Roster stood.
+ *
+ *  ⤷ 2026-10-07 (Maker PR 4f): the ⋯ sheet is retired — its tools moved to the
+ *     thumb row — and the doors are the prototype's `List N · Map · Setup`
+ *     (`guests-screen.tsx`). 1 and 2 hold for the add sheet; 3 retires with the
+ *     ⋯; 4 holds for the new segmented control.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -24,49 +29,38 @@ import { stripComments } from '@/lib/strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const read = (f: string) => stripComments(readFileSync(join(HERE, f), 'utf8'));
-const MENU = read('guests-phone-menu.tsx');
 const ADD = read('add-guest-sheet.tsx');
-const TABS = read('roster-tabs.tsx');
-const SWITCH = read('view-switcher.tsx');
-const PAGE = read('../page.tsx');
+const SCREEN = read('guests-screen.tsx');
 const CSS = stripComments(readFileSync(join(HERE, '..', '..', '..', '..', 'globals.css'), 'utf8'));
 
 test('1 · both guest sheets are drawn on <body>, above the bottom bar', () => {
   // The reason, so this guard dies loudly if the reason ever goes away.
   assert.match(CSS, /\.sn-vt-page\s*\{[^}]*view-transition-name/, 'the page <main> no longer names a view transition');
-  for (const [name, src] of [['guests-phone-menu.tsx', MENU], ['add-guest-sheet.tsx', ADD]] as const) {
+  for (const [name, src] of [['add-guest-sheet.tsx', ADD]] as const) {
     assert.match(src, /createPortal\(/, `${name} draws its sheet inside the page — the bottom bar covers it`);
     assert.match(src, /document\.body,?\s*\)/, `${name} portals somewhere other than <body>`);
   }
 });
 
 test('2 · the blur behind a guest sheet is light enough to read the + through', () => {
-  for (const [name, src] of [['guests-phone-menu.tsx', MENU], ['add-guest-sheet.tsx', ADD]] as const) {
+  for (const [name, src] of [['add-guest-sheet.tsx', ADD]] as const) {
     const blurs = src.match(/backdrop-blur-\[(\d+)px\]/g) ?? [];
     assert.ok(blurs.length > 0, `${name} lost its scrim blur rule`);
     for (const b of blurs) assert.equal(b, 'backdrop-blur-[1px]', `${name}: ${b} turns the round + into a black circle`);
   }
 });
 
-test('3 · the ⋯ sheet says Sort once — the dropdown names itself', () => {
-  assert.match(MENU, /\{sort\}/, 'the ⋯ sheet dropped Sort');
-  assert.doesNotMatch(MENU, />\s*Sort\s*</, 'a second "Sort" label is back beside the Sort dropdown');
+test('4 · the doors are ONE segmented control — List · Map · Setup, one word each (G1)', () => {
+  const nav = SCREEN.slice(SCREEN.indexOf('<nav'), SCREEN.indexOf('</nav>'));
+  assert.match(nav, /className=\{styles\.seg\}/, 'the doors are not one segmented control');
+  const words = [...nav.matchAll(/seg\('(\w+)', '([^']+)'/g)].map((m) => m[2]);
+  assert.deepEqual(words, ['List', 'Map', 'Setup'], `the segments read ${words.join(' · ')}`);
 });
 
-test('4 · the doors are ONE segmented control', () => {
-  assert.match(TABS, /className="sn-seg\b/, 'the doors are not the shipped .sn-seg control');
-  assert.doesNotMatch(TABS, /border-b-2/, 'underline tabs are back beside the segmented pill');
-  assert.match(TABS, /d\.key === 'roster' && viewSwitch/, 'List · Mind map no longer stand where Roster stood');
-  assert.match(TABS, /className=\{SEG_ITEM\}/, 'a door is drawn in its own look, not the one segment look');
-  // The switch, inside it, draws no pill of its own.
-  assert.match(SWITCH, /if \(bare\) return <>\{items\}<\/>;/, 'the bare switch draws its own .sn-seg inside the doors');
-  assert.match(PAGE, /<GuestsViewSwitcher [^>]*\bbare\b/, 'the page hands the doors a switch with its own pill — two controls');
-});
-
-test('4 · the segmented doors are a <nav> of LINKS — Share the link is a link, never a broken tab', () => {
-  const nav = TABS.slice(TABS.indexOf('<nav'), TABS.indexOf('>', TABS.indexOf('<nav')));
-  assert.match(nav, /aria-label="Guest list"/, 'the doors lost their nav landmark name');
-  assert.doesNotMatch(TABS, /role="tablist"|role="tab"|aria-selected/, 'the doors pose as tabs again');
-  assert.match(TABS, /aria-current=\{current \? 'page' : undefined\}/, 'the current door does not say it is the current page');
-  assert.match(SWITCH, /bare \? \{ 'aria-current': on \? \('page' as const\) : undefined \}/, 'List · Mind map pose as tabs inside the nav');
+test('4 · the segmented doors are a <nav> of LINKS — never a broken tab', () => {
+  const nav = SCREEN.slice(SCREEN.indexOf('<nav'), SCREEN.indexOf('>', SCREEN.indexOf('<nav')));
+  assert.match(nav, /aria-label="Guest list views"/, 'the doors lost their nav landmark name');
+  assert.doesNotMatch(SCREEN, /role="tablist"|role="tab"|aria-selected/, 'the doors pose as tabs again');
+  assert.match(SCREEN, /aria-current=\{gview === key \? 'page' : undefined\}/, 'the current door does not say it is the current page');
+  assert.match(SCREEN, /<Link\b[\s\S]{0,400}?data-guests-seg=\{key\}/, 'a segment is not a link');
 });

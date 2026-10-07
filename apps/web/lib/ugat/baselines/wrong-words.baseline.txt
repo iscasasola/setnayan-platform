@@ -123,5 +123,3 @@ lib/nav-registry-defaults.ts "Search" → /dashboard/[eventId]/guests	# first ru
 lib/nav-registry-defaults.ts "Setnayan brand logo / Home" → /	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
 lib/nav-registry-defaults.ts "Summary" → /dashboard/[eventId]/guests	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 lib/nav-registry-defaults.ts "Verify" → /vendor-dashboard/shop	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
-lib/roster-doors.ts "Scan tickets" → /dashboard/[eventId]/guests/checkin	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
-lib/roster-doors.ts "Share the link" → /dashboard/[eventId]/guests	# first run 2026-10-02 · host app · a "Messages" row that opens the roster

@@ -36,6 +36,12 @@ import { SIDE_CONTROL_BORDER } from '@/lib/side-colors';
 /* ------------------------------------------------------------------ */
 const OPEN_EVENT = 'setnayan:quick-add-open';
 
+/** Open this sheet from code (the add sheet's "Add another way" dropdown) — the
+ *  SAME event the button below dispatches, so the name lives in one place. */
+export function openQuickAdd(): void {
+  window.dispatchEvent(new CustomEvent(OPEN_EVENT));
+}
+
 export function OpenQuickAddButton({
   label = '+ Add guest',
   className = 'button-primary',

@@ -56,6 +56,12 @@ import { formatCount } from '@/lib/format-number';
 
 const OPEN_EVENT = 'setnayan:add-from-people-open';
 
+/** Open this sheet from code (the add sheet's "Add another way" dropdown) — the
+ *  SAME event the button below dispatches, so the name lives in one place. */
+export function openAddFromPeople(): void {
+  window.dispatchEvent(new CustomEvent(OPEN_EVENT));
+}
+
 export function OpenAddFromPeopleButton({
   label = 'Add from your people',
   className = 'button-secondary',

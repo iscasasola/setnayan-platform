@@ -34,15 +34,21 @@ test('the roster wrappers never keep their entry transform', () => {
   }
 });
 
-test('the roster still renders inside those wrappers, and the bulk bar is still fixed', () => {
-  const page = stripComments(readFileSync(join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests', 'page.tsx'), 'utf8'));
-  assert.match(page, /className="gl-settle-delayed sn-lens-swap min-w-0 space-y-4"/);
-  const rows = stripComments(
-    readFileSync(join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests', '_components', 'guest-list-multiselect.tsx'), 'utf8'),
+test('the thumb row (and Select mode’s bulk row) is fixed on the measured dock, and no ancestor transforms it (Maker PR 4f)', () => {
+  const css = stripComments(
+    readFileSync(join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests', '_components', 'guests-screen.module.css'), 'utf8'),
   );
-  // In the iOS app the bottom chrome is the measured dock (bar + the section
-  // strip when one is up + the home indicator — `--sn-bottomdock-h`, published
-  // by <BottomDock>). A fixed "+5rem" sat UNDER the strip whenever one was up;
-  // the bar now stands on the dock's real height.
-  assert.match(rows, /className="fixed inset-x-3 bottom-\[calc\(var\(--sn-bottomdock-h,calc\(env\(safe-area-inset-bottom\)\+64px\)\)\+0\.75rem\)\]/, 'the bulk bar no longer stands on the measured dock');
+  const lower = css.slice(css.indexOf('.lower {'), css.indexOf('}', css.indexOf('.lower {')));
+  assert.match(lower, /position: fixed;/, 'the thumb row is no longer fixed to the screen');
+  // In the iOS app the bottom chrome is the measured dock (`--sn-bottomdock-h`).
+  assert.match(lower, /bottom: calc\(var\(--sn-bottomdock-h, calc\(env\(safe-area-inset-bottom\) \+ 64px\)\)\);/, 'the thumb row no longer stands on the measured dock');
+  // The row's own ancestors in the screen never animate a transform (a
+  // transformed ancestor makes `fixed` relative to it — the bar leaves the screen).
+  const screen = stripComments(
+    readFileSync(join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests', '_components', 'guests-screen.tsx'), 'utf8'),
+  );
+  const root = screen.slice(screen.indexOf('<div ref={rootRef}'), screen.indexOf('>', screen.indexOf('<div ref={rootRef}')));
+  assert.doesNotMatch(root, /styles\.rise/, 'the screen root animates — the fixed thumb row would ride with it');
+  const page = stripComments(readFileSync(join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests', 'page.tsx'), 'utf8'));
+  assert.doesNotMatch(page, /gl-settle[^"]*"[^>]*>\s*\{guestsScreen\}/, 'the screen sits inside an entry-transform wrapper again');
 });

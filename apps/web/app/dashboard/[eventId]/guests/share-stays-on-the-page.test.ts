@@ -17,7 +17,9 @@ const read = (...p: string[]) => stripComments(readFileSync(join(G, ...p), 'utf8
 
 test('the guest list renders the invite panel in its own body for the share tab', () => {
   const page = read('page.tsx');
-  assert.match(page, /gview === 'share' \? \(\s*<InvitePanel\b/, 'the share tab no longer renders the panel in the body');
+  // ⤷ Maker PR 4f: the third segment is SETUP; until PR 4d builds its rows the
+  // shipped panel is its body, handed to GuestsScreen's `setup` slot.
+  assert.match(page, /setup=\{gview === 'share' \? <InvitePanel\b/, 'the Setup tab no longer renders the panel in the body');
   // (`returnTo` left with the look picker on 2026-09-28 — the panel saves nothing
   // that redirects now; the theme is chosen in the Maker's Details.)
   assert.match(page, /<InvitePanel eventId=\{eventId\} \/>/, 'the share tab passes the panel something it no longer takes');

@@ -234,8 +234,11 @@ test('columns: remembered per device — every storage touch is inside try/catch
 test('rows: requests are never rows between guests — one strip leads to the Requests page', () => {
   assert.doesNotMatch(ROWS, /SelfJoinDesktopRow|MobileSelfJoinCard/);
   assert.match(ROWS, /\.filter\(\(g\) => !selfJoinIds\.includes\(g\.guest_id\)\)/, 'requests are drawn as rows');
-  assert.match(PAGE, /data-requests-strip=""/);
-  assert.match(PAGE, /'request' : 'requests'\} to join/);
+  // ⤷ Maker PR 4f: the strip is the List's first row (GuestsScreen), `👤 Review`.
+  const SCREEN = read('guests-screen.tsx');
+  assert.match(SCREEN, /data-requests-strip=""/);
+  assert.match(SCREEN, /'request' : 'requests'\} to join/);
+  assert.match(PAGE, /\.filter\(\(g\) => !selfJoinIds\.includes\(g\.guest_id\)\)/, 'requests are drawn as rows on the new list');
 });
 
 test('rows: a +1 sits right under the guest who brings them (executed)', () => {
@@ -261,25 +264,16 @@ test('rows: long-press selects on a phone, and ONE bulk bar holds the four', () 
   assert.match(bar, /g\.role !== 'bride' && g\.role !== 'groom'/);
 });
 
-test('list head: Sort ▾ and four dropdowns — RSVP · Side · Role · Group — on both widths', () => {
-  const controls = read('roster-controls.tsx');
-  for (const d of ['data-roster-filter-rsvp', 'data-roster-filter-side', 'data-roster-filter-role', 'data-roster-filter-group', 'data-roster-sort']) {
-    assert.ok(controls.includes(d), `${d} is gone`);
-  }
-  // ⤷ 2026-09-30 (Fix E): ONE head at every width — the phone-only head is
-  // deleted, so the page's own RosterFilters + RosterSort are the phone's too.
+test('list head: the filter row is gone — ONE Sort dropdown regroups the sections (Maker PR 4f, G16/G17)', () => {
+  // ⤷ 2026-10-07 (owner: *"we can remove this? because if we search attending
+  // it will already show all attending"* · *"So we can group them by Last Name,
+  // Side, Role, Group, RSVP"*): Filter ▾ (RSVP · Side · Role · Group), Show ▾ and
+  // the old Sort ▾ are retired; one Sort in the thumb row changes the sections.
+  assert.ok(!existsSync(join(HERE, 'roster-controls.tsx')), 'the retired filter dropdowns are back');
+  assert.ok(!existsSync(join(HERE, 'find-add-row.tsx')), 'the retired head row is back');
   assert.ok(!existsSync(join(HERE, 'mobile-guest-carousel.tsx')), 'the phone-only head is back');
-  assert.match(PAGE, /<RosterFilters\b/);
-  assert.match(PAGE, /<RosterSort\b/);
-  assert.equal((PAGE.match(/<RosterFilters\b/g) ?? []).length, 1, 'a second set of filters is back on the page');
-  // On a phone the four dropdowns and Sort ▾ take their own line under Add
-  // (frame A — search left for the top bar on 2026-10-01); on a computer they
-  // sit in the one row (frame F).
-  const ROW = read('find-add-row.tsx');
-  // ⤷ 2026-10-01 (the approved simple phone app, frame 2): at every width the
-  // four dropdowns fold under ONE Filter ▾, on a line of their own when open.
-  assert.match(ROW, /order-last w-full min-w-0 \$\{filterOpen \? 'block' : 'hidden'\}/, 'the filter line is gone — the controls squeeze one 390px row');
-  assert.match(PAGE, /sort=\{<RosterSort sorts=\{sorts\} current=\{sort\} \/>\}/, 'Sort ▾ left the row');
-  // The third door is "Setup" (owner 2026-10-07, DECISION_LOG "GUESTS › SETUP") — never "Invite": Invite means one guest's ticket everywhere.
-  assert.match(readFileSync(join(HERE, '..', '..', '..', '..', '..', 'lib', 'roster-doors.ts'), 'utf8'), /key: 'share', label: 'Setup'/);
+  assert.doesNotMatch(PAGE, /<RosterFilters\b|<RosterSort\b|<FindAddRow\b/, 'a retired head control is on the page again');
+  const SCREEN = read('guests-screen.tsx');
+  assert.match(SCREEN, /data-thumb-sort=""[\s\S]*?<PickMenu\b/, 'the Sort is not one PickMenu dropdown');
+  assert.match(SCREEN, /options=\{views\.map\(/, 'the Sort no longer lists the five views');
 });

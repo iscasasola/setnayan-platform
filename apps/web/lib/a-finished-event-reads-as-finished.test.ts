@@ -233,8 +233,14 @@ test('the guest list knows the event happened, and nothing is taken away', () =>
   const g = src('app/dashboard/[eventId]/guests/page.tsx');
   assert.match(g, /getMenuLifecyclePhase\(/, 'the Guests page must resolve the phase');
   assert.match(g, /event_date, event_end_date, cleared_at, timezone/, 'it must read the date');
-  assert.match(g, /Still adding someone\?/, 'the add path must still be reachable');
-  assert.match(g, /<CaptureBar/, 'the capture bar must still be mounted');
+  // ⤷ Maker PR 4f: the round + and its "Still adding someone?" left with the
+  // phone title; the thumb row's "Search or add" is drawn after the event too
+  // (no phase gate on it), and its Add opens the same sheet, which holds the
+  // capture bar.
+  const screen = src('app/dashboard/[eventId]/guests/_components/guests-screen.tsx');
+  assert.match(screen, /placeholder="Search or add"/, 'the add path must still be reachable');
+  assert.doesNotMatch(screen, /finished|phase/, 'the thumb row is gated on the event being over');
+  assert.match(src('app/dashboard/[eventId]/guests/_components/add-guest-sheet.tsx'), /<CaptureBar/, 'the capture bar must still be mounted');
   // The empty list's door is the SAME add sheet the header + opens (first-timer
   // fix 11, 2026-10-02) — the quick-add form is one of its rows (`AddDoors`).
   assert.match(g, /<OpenAddGuestTextButton label=\{finished \? 'Add someone who came'/, 'the empty list must still offer an add, worded for a finished event');
@@ -432,6 +438,9 @@ test('the finalized banner does not claim guests the list does not have', () => 
      location"*): the banner left the page header — its finalized face is Guests ›
      Setup's Finalize row (`guest-setup-rows.tsx`), its words `lib/headcount-row.ts`. */
   const page = src('app/dashboard/[eventId]/guests/page.tsx');
+  // ⤷ 2026-10-07 (owner: "finalize should be inside the Setup. not on its
+  // current location"): nothing above List · Map · Setup — PR 4d mounts it in Setup.
+  assert.doesNotMatch(page, /<FinalizeGuestListControl\b/, 'the finalize row is back above the List · Map · Setup switcher');
   assert.ok(!/guests locked in/.test(page.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')), '"N guests locked in" must not return to the page');
   assert.match(src('app/dashboard/[eventId]/_components/guest-setup/guest-setup-rows.tsx'), /headcountLockedLine\(view\.heads\)/, 'the finalized row no longer says the locked count');
   const g = src('lib/headcount-row.ts');

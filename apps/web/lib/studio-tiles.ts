@@ -30,8 +30,36 @@ import { wordsAndPlansItem, type DetailsItemKey } from '@/lib/maker-details-item
 import { guidedItemDone, type GuidedDoneFacts } from '@/lib/details-guided-flow';
 import { hubSetupDone, type HubSetupFacts } from '@/lib/hub-setup-steps';
 
-export { STUDIO_TILE_KEYS, STUDIO_TILES, studioTileItem, type StudioTileKey } from './studio-tile-defs';
-import { STUDIO_TILE_KEYS, STUDIO_TILES, type StudioTileKey } from './studio-tile-defs';
+export { STUDIO_TILE_KEYS, STUDIO_TILE_ITEM, studioTileItem, type StudioTileKey } from './studio-tile-defs';
+import { STUDIO_TILE_ITEM, STUDIO_TILE_KEYS, type StudioTileKey } from './studio-tile-defs';
+
+type StudioTileDef = {
+  /** The tile's name, and the short name the pill shows. */
+  label: string;
+  short: string;
+  /** The shipped Event Details item the tile opens. */
+  item: DetailsItemKey;
+  /** The items whose `done` this tile reads (all must be read, and all true). */
+  reads: readonly DetailsItemKey[];
+  /** Wedding March and Seat plan: the top nav hides, ✓ Done returns (owner: "yes for those 2"). */
+  immersive?: true;
+  /** What it holds, in the prototype's words — the status line where no count says more. */
+  sub: string;
+};
+
+export const STUDIO_TILES: Readonly<Record<StudioTileKey, StudioTileDef>> = {
+  info: { label: 'Info', short: 'Info', item: STUDIO_TILE_ITEM.info, reads: ['names', 'date', 'venues'], sub: 'Your event · Your Event Hub' },
+  look: { label: 'Look', short: 'Look', item: STUDIO_TILE_ITEM.look, reads: ['theme'], sub: 'Background · Colours · Font · Music' },
+  logo: { label: 'Logo', short: 'Logo', item: STUDIO_TILE_ITEM.logo, reads: ['logo'], sub: 'Mark · fonts · animation' },
+  mood: { label: 'Mood Board & Dress Code', short: 'Mood Board', item: STUDIO_TILE_ITEM.mood, reads: ['mood-board'], sub: 'Five colours · attire by role' },
+  schedule: { label: 'Schedule', short: 'Schedule', item: STUDIO_TILE_ITEM.schedule, reads: ['schedule'], sub: 'Times and moments' },
+  story: { label: 'Love Story', short: 'Love Story', item: STUDIO_TILE_ITEM.story, reads: ['love-story'], sub: 'Chapters with a photo' },
+  march: { label: 'Wedding March', short: 'March', item: STUDIO_TILE_ITEM.march, reads: ['march'], immersive: true, sub: 'Drag the names, two columns' },
+  seats: { label: 'Seat plan', short: 'Seat plan', item: STUDIO_TILE_ITEM.seats, reads: ['seating'], immersive: true, sub: 'Tables and who sits where' },
+  gifts: { label: 'E-Gifts', short: 'E-Gifts', item: STUDIO_TILE_ITEM.gifts, reads: [], sub: 'GCash · Maya · bank · PayPal' },
+  rsvp: { label: 'RSVP', short: 'RSVP', item: STUDIO_TILE_ITEM.rsvp, reads: [], sub: 'Reply by · what the form asks' },
+  prints: { label: 'Prints', short: 'Prints', item: STUDIO_TILE_ITEM.prints, reads: [], sub: 'Invitation set · for the day' },
+};
 
 /** One tile, as the Studio home draws it and the Tool ▾ lists it. */
 export type StudioTileModel = {

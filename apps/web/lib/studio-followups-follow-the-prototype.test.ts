@@ -282,4 +282,10 @@ test('7 · each of the 11 tiles opens its OWN editor — Look never opens the Lo
   assert.match(open, /setDetailsItem\(studioTileItem\('look', detailsItem\)\)/, 'the Look tile does not open through the tile→editor map');
   assert.match(open, /openDetailsItem\(studioTileItem\(key, detailsItem\)\)/, 'a tile opens something other than its own editor');
   assert.doesNotMatch(open, /openSection\('look'\)/, 'Look still keeps whatever Look-group item was open (the Logo)');
+  /* ⚖ 507 KB: the shell's first load reads `studio-tile-defs` — the eleven keys and the editor each opens,
+     never the tiles' words (those are `STUDIO_TILES`, read on the server). One map: the table's `item` is the map's. */
+  assert.doesNotMatch(read('lib/studio-tile-defs.ts'), /\b(?:label|short|sub|reads)\s*:/, 'the tiles’ words are back in the module the Maker’s shell loads first');
+  assert.match(shell, /import \{ studioTileItem, type StudioTileKey \} from '@\/lib\/studio-tile-defs';/, 'the shell maps a tile through another module');
+  assert.doesNotMatch(shell, /import \{[^}]*\} from '@\/lib\/studio-tiles';/, 'the shell imports a VALUE from lib/studio-tiles (types only)');
+  for (const k of STUDIO_TILE_KEYS) assert.equal(STUDIO_TILES[k].item, studioTileItem(k, null), `${k}: the table and the map disagree`);
 });

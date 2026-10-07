@@ -123,7 +123,7 @@ import {
 import { parseRsvpBackdropConfig } from '@/lib/spatial-backdrop';
 import { siteMediaServeRef, siteMediaServeRefs } from '@/lib/site-media-ref';
 import { QR_STYLE_PREF_KEY, qrStyleFromPreferences, sanitizeQrStyle } from '@/lib/qr-look';
-import { CAMERA_LOOK_PREF_KEY, isCameraLook, type CameraLook } from '@/lib/camera-look';
+import { CAMERA_LOOK_PREF_KEY, isCameraLook, type CameraLook } from '@/lib/camera-look-key';
 import {
   classifyPostEventDraft,
   postEventItemLabel,

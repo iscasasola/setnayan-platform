@@ -384,6 +384,7 @@ export function MakerRsvpSettings({
               pricingMode={replyByOwn.pricingMode}
               fallback={replyByFallback}
               action={replyByAction}
+              draft
             />
           ) : (
             <p role="alert" className="text-[13px] text-terracotta-700">
@@ -525,6 +526,7 @@ export function MakerRsvpSettings({
             pricingMode={replyByOwn.pricingMode}
             fallback={replyByFallback ?? (replyBy?.isDefault ? replyBy.date : null)}
             action={replyByAction}
+            draft
           />
         ) : (
           <p role="alert" className="text-[13px] text-terracotta-700">

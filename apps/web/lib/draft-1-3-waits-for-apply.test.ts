@@ -16,6 +16,9 @@
  * 🛡 Sabotaged once each (2026-10-08), each red alone: `savePabuyaMessage`'s draft branch removed →
  * B; Apply's `openingLine: openingLineWrite` merge removed → D; the Reply-by fd without the draft
  * field → B.
+ * ⤷ Preview merge 2026-10-08 (the Reply-by field had moved into the shared `ReplyBy` part): `draft`
+ * dropped from one Maker mount → B; the part's `if (draft)` line removed → B; the part's live note
+ * shown regardless of `draft` → C and the Maker's render (`details-words-and-plans.test.ts`).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -71,7 +74,16 @@ test('B · the Maker writes each into the DRAFT, never the live column', () => {
   assert.ok(branch.length > 0, 'updatePaxSettings has no draft branch before its live write');
   assert.match(branch, /saveHubDraftPatch\(eventId, \{ events: \{ guest_list_edit_deadline: deadline \} \}\);[\s\S]*return \{ ok: true \};/, 'a drafted Reply by also reaches the live column');
   assert.doesNotMatch(branch, /guest_list_edit_deadline: deadline,? adaptive|update\(\{ guest_list_edit_deadline/, 'the draft branch writes the live date');
-  assert.match(read(`${D}/launch/_components/maker-rsvp-ask.tsx`), /fd\.set\('maker_quiet', '1'\);\s*fd\.set\(HUB_DRAFT_FIELD, '1'\);/, 'the Maker’s Reply by does not ask for the draft');
+  /* ⤷ Preview merge 2026-10-08: the field is the shared `ReplyBy` part now (#6409, Guests › Setup mounts it too,
+     and there — no Apply — it stays live). The Maker asks for the draft by mounting it with `draft`: every
+     editable (`stack`) mount in the Maker carries it, and the part sends the draft field for it. */
+  const replyByPart = read(`${D}/_components/guest-setup/reply-by.tsx`);
+  assert.match(replyByPart, /fd\.set\('maker_quiet', '1'\);\s*if \(draft\) fd\.set\(HUB_DRAFT_FIELD, '1'\);/, 'the Maker’s Reply by does not ask for the draft');
+  const makerRsvp = read(`${D}/launch/_components/maker-rsvp-ask.tsx`);
+  const stackMounts = makerRsvp.match(/<ReplyBy\s+layout="stack"[\s\S]*?\/>/g) ?? [];
+  assert.ok(stackMounts.length >= 2, `the Maker mounts ${stackMounts.length} editable Reply by fields — the stage and Event Details each have one`);
+  for (const mount of stackMounts) assert.match(mount, /\baction=\{replyByAction\}\s+draft\s*\/>$/, 'a Maker Reply by field writes the live date');
+  assert.doesNotMatch(read(`${D}/_components/guest-setup/guest-setup-rows.tsx`), /<ReplyBy\b[^>]*\bdraft\b/, 'Guests › Setup drafts Reply by — it has no Apply to publish it');
 
   const route = read('app/api/hub-print/[piece]/route.ts');
   assert.match(route, /const draftLine = form\.get\('opening_line_to_draft'\) === '1' && form\.has\('opening_line'\);/);
@@ -97,6 +109,7 @@ test('C · the Maker reads each draft-over-live; the host preview overlays them'
   const details = read(`${D}/launch/_components/maker-details.tsx`);
   assert.doesNotMatch(details, /<HubSavesImmediately\s*\/>\s*<PabuyaMessageEditor/, 'the thank-you words still say they save immediately');
   assert.doesNotMatch(read(`${D}/launch/_components/maker-rsvp-ask.tsx`), /<HubSavesImmediately/, 'Reply by still says it saves immediately');
+  assert.match(read(`${D}/_components/guest-setup/reply-by.tsx`), /\{draft \? null : <HubSavesImmediately \/>\}/, 'the Maker’s drafted Reply by still says it saves immediately');
 });
 
 test('D · Apply writes each to the live column — Reply by through the admin client, the line merged', () => {

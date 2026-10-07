@@ -37,9 +37,7 @@
  * but the plain inputs.
  */
 
-import type { LucideIcon } from 'lucide-react';
 import type { NavGroup, NavItem } from '@/app/_components/nav/types';
-import { SetnayanMark } from '@/app/_components/setnayan-mark-icon';
 import { customerGuestsBadge } from '@/lib/nav-badges';
 import type { MenuLifecyclePhase } from '@/lib/day-of-mode';
 import {
@@ -99,10 +97,9 @@ export function buildCustomerNavGroups(
       key: r.key,
       label: r.label,
       href: r.href,
-      icon:
-        r.key === 'home'
-          ? (SetnayanMark as unknown as LucideIcon)
-          : EVENT_MENU_ICONS[r.icon],
+      // One line family for every row — Home too (owner 2026-10-07: the
+      // Setnayan mark stays in the top bar only; `EVENT_MENU_ICONS`).
+      icon: EVENT_MENU_ICONS[r.icon],
       matchPrefix: r.matchPrefix ?? r.href,
       ...(r.alsoMatch?.length ? { alsoMatch: r.alsoMatch } : {}),
       ...(r.key === 'guests' && guestsBadge ? { badge: guestsBadge } : {}),

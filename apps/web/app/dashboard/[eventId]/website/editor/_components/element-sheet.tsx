@@ -37,6 +37,13 @@ import type { MotionFx } from '@/lib/motion-effects';
 import { IReset, ISeg, ISegmented } from './inspector-kit';
 import { PART_TABS, PartAnimateTab, PartArrangeTab, PartPicker, PartTextTab, type PartTab } from './part-inspector';
 import { elementPreview, refusedChoiceWords, revertAfterFailedSave, type ElementPreviewMessage } from './element-preview';
+import { ColourWell } from './colour-well';
+import { FontPick } from './font-pick';
+import { HUB_EL_DELAY, HUB_EL_DELAY_LABEL, HUB_EL_DURING_LABEL, HUB_EL_DURING_WORDS, HUB_EL_TIMELINE, HUB_EL_TIMELINE_LABEL } from '@/lib/element-style';
+import { MOTION_SPEEDS, MOTION_SPEED_LABEL, motionFxOn } from '@/lib/motion-effects';
+import { SP_DD, SP_DD_BUTTON } from '@/lib/maker-stage-room';
+import { StageText } from '../../../launch/_components/stage-panel/stage-text';
+import { StageAnimate } from '../../../launch/_components/stage-panel/stage-animate';
 
 /**
  * THE ELEMENT SHEET — one tapped element's font · colour · size · animation.
@@ -480,6 +487,108 @@ export function ElementSheet({
         </ISegmented>
       </div>
 
+      {stagesStudio ? (
+        /* 🧭 THE NEW MAKER — the prototype's Text and Animate (`stage-panel/`), on this sheet's own saves. */
+        tab === 'animate' && !hidePro ? (
+          <StageAnimate
+            pending={pending}
+            error={error}
+            pro={animateMark ? 'How a part moves is Event Hub Pro — try it here; it goes live when you Apply with it.' : null}
+            how={{
+              value: style.motion ? 'own' : 'auto',
+              options: [
+                { key: 'auto', label: 'Auto' },
+                ...(style.motion ? [{ key: 'own', label: 'Its own' }] : []),
+              ],
+              onPick: (k) => {
+                if (k === 'auto' && style.motion) commit(withoutMotion(latest.current.elements, target.el), 'motion');
+              },
+            }}
+            inFx={motion.in ?? null}
+            outFx={motion.out ?? null}
+            onIn={(fx) => moveTo('in', fx)}
+            onOut={(fx) => {
+              /* A part's Build out plays as guests scroll on — choosing one makes it follow the scroll. */
+              if (fx && motion.timeline !== 'scroll') moveTo('timeline', 'scroll');
+              moveTo('out', fx);
+            }}
+            outAbout="Build out plays as guests scroll on past it — choosing one sets Timing to Follows the scroll."
+            speed={
+              motionFxOn(motion.in)
+                ? {
+                    value: motion.speed ?? 'regular',
+                    options: MOTION_SPEEDS.map((v) => ({ key: v, label: MOTION_SPEED_LABEL[v] })),
+                    onPick: (v) => moveTo('speed', v === 'regular' ? null : v),
+                  }
+                : null
+            }
+            delay={
+              motionFxOn(motion.in) && motion.timeline !== 'scroll'
+                ? {
+                    value: motion.delay ?? 'none',
+                    options: HUB_EL_DELAY.map((v) => ({ key: v, label: HUB_EL_DELAY_LABEL[v] })),
+                    onPick: (v) => moveTo('delay', v === 'none' ? null : v),
+                  }
+                : null
+            }
+            does={{
+              value: motion.during ?? 'still',
+              options: HUB_EL_DURING_WORDS.map((v) => ({ key: v, label: HUB_EL_DURING_LABEL[v] })),
+              onPick: (v) => moveTo('during', v === 'still' ? null : v),
+            }}
+            timing={{
+              value: motion.timeline ?? 'once',
+              options: HUB_EL_TIMELINE.map((t) => ({ key: t, label: HUB_EL_TIMELINE_LABEL[t] })),
+              onPick: (t) => moveTo('timeline', t === 'once' ? null : t),
+            }}
+          />
+        ) : (
+          <StageText
+            el={target.el}
+            pending={pending}
+            extra={wordsSlot}
+            fontPick={
+              <span className={SP_DD} data-stage-dd="font">
+                <FontPick
+                  eventId={eventId}
+                  label="Font"
+                  dataAttr="data-element-font"
+                  value={face.font ?? null}
+                  lead="Event Hub font"
+                  onPick={(key) => choose('font', key)}
+                  className={SP_DD_BUTTON}
+                />
+              </span>
+            }
+            colours={themeColours}
+            colour={face.color ?? null}
+            onColour={(hex) => choose('color', hex)}
+            customColour={
+              <ColourWell
+                value={face.color ?? null}
+                shown={palette.ink}
+                what={`the ${HUB_ELEMENT_LABEL[target.el].toLowerCase()}`}
+                themeColours={themeColours}
+                usedColours={usedColours}
+                savedKey={`sn-maker-colours:${eventId}`}
+                alpha
+                onPreview={previewColour}
+                onPick={(hex) => choose('color', hex)}
+                data="element"
+              />
+            }
+            contrast={
+              contrast && !contrast.ok ? (
+                <p className="flex shrink-0 items-center gap-1 text-[12px] font-semibold text-terracotta-700" role="status" data-element-contrast="low">
+                  Hard to read here · {contrast.ratio.toFixed(1)}:1
+                </p>
+              ) : null
+            }
+            size={face.size}
+            onSize={(v) => choose('size', v)}
+          />
+        )
+      ) : (
       <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 pb-4" aria-busy={pending} data-element-tab={tab}>
         {tab === 'text' ? (
           <>
@@ -530,6 +639,7 @@ export function ElementSheet({
           </p>
         ) : null}
       </div>
+      )}
     </aside>
     </>
   );

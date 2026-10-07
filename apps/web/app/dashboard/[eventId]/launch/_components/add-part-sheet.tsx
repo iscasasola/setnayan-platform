@@ -10,7 +10,7 @@ import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
 import { isCustomSectionType } from '@/lib/custom-sections';
 import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { makerPageCanvasSrc } from '@/lib/maker-made-once-pages';
-import { MAKER_PARTS, type MakerPartKey, type MakerStageKey } from '@/lib/maker-parts';
+import { MAKER_PARTS, makerDropSlot, makerRevealEdges, type MakerPartKey, type MakerStageKey } from '@/lib/maker-parts';
 import {
   makerDropDelta,
   makerOwnScenesLeft,
@@ -58,6 +58,8 @@ import { useMaker } from './maker-context';
  */
 
 const SHOWN_FRAME = 'iframe[data-maker-canvas-frame="shown"]';
+/** The Reveal part's key on the page (it has no canvas section of its own). */
+export const REVEAL_STUB = 'reveal:part';
 
 /** To the canvas on screen (the stage's shown frame). */
 function postToCanvas(message: unknown) {
@@ -128,12 +130,22 @@ export function readDrawnOrder(): string[] {
   return out;
 }
 
+/** The Reveal part drawn at the top of the page in Stages, or null (`stage-tools.tsx`). */
+function readRevealPart(): Element | null {
+  try {
+    return document.querySelector<HTMLIFrameElement>(SHOWN_FRAME)?.contentDocument?.querySelector('[data-maker-reveal-part]') ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /** A part's box on the SCREEN (the canvas is a same-origin frame; it may be drawn scaled). */
 function partBox(canvas: string, el?: string | null): { top: number; left: number; width: number; height: number } | null {
   const frame = document.querySelector<HTMLIFrameElement>(SHOWN_FRAME);
   const doc = frame?.contentDocument;
   if (!frame || !doc) return null;
-  let node: Element | null = findMakerSection(doc, canvas);
+  /* 🎭 The Reveal is drawn at the top of the page in Stages (`stage-tools.tsx` `drawRevealPart`). */
+  let node: Element | null = canvas === REVEAL_STUB ? doc.querySelector('[data-maker-reveal-part]') : findMakerSection(doc, canvas);
   if (node && el) node = node.querySelector(`[data-el="${CSS.escape(el)}"]`) ?? node;
   if (!node) return null;
   const fr = frame.getBoundingClientRect();
@@ -169,8 +181,10 @@ function movableOf(ops: MakerPartOps | null, canvas: string | null): Movable {
 }
 
 type Box = { top: number; left: number; width: number; height: number };
-const EDGE_BTN =
-  'sn-press pointer-events-auto absolute inline-flex h-11 w-11 items-center justify-center rounded-full bg-mulberry text-white shadow-[0_0_0_3px_#fff] transition-transform duration-sn-control ease-sn';
+/** A 44 px tap around each edge's small face (prototype `.addp` · `.grip` · `.delp`). */
+const EDGE_BTN = 'sn-press pointer-events-auto absolute inline-flex h-11 w-11 items-center justify-center rounded-full';
+const ADD_FACE =
+  'inline-flex h-[26px] w-[26px] items-center justify-center rounded-full bg-[#C24E25] font-sans text-[18px] font-semibold leading-none text-white shadow-[0_0_0_3px_#fff,0_4px_10px_-4px_rgba(0,0,0,.4)]';
 
 /**
  * THE PICKED PART'S EDGES — ＋ on its top and bottom, the grip, 🗑. Drawn over
@@ -179,7 +193,8 @@ const EDGE_BTN =
  * the Maker shell (z-80) and under every sheet (the picker z-90, `MakerSheet` z-95).
  */
 export function PartEdits({ stage, picked }: { stage: MakerStageKey; picked: MakerPartKey | null }) {
-  const canvas = picked && picked !== 'reveal' ? makerPartCanvasOn(stage, picked) : null;
+  const isReveal = picked === 'reveal';
+  const canvas = isReveal ? REVEAL_STUB : picked ? makerPartCanvasOn(stage, picked) : null;
   const el = picked ? (MAKER_PARTS[picked].el ?? null) : null;
   const [box, setBox] = useState<Box | null>(null);
   const [adding, setAdding] = useState<'above' | 'below' | null>(null);
@@ -220,10 +235,14 @@ export function PartEdits({ stage, picked }: { stage: MakerStageKey; picked: Mak
   const renderStamp = useMaker()?.renderStamp;
   useEffect(() => setOps(askPartOps()), [canvas, renderStamp, adding, removing]);
 
-  const mv = movableOf(ops, canvas);
+  const mv = isReveal ? ({ kind: 'fixed' } as Movable) : movableOf(ops, canvas);
   const ownScene = mv.kind === 'scene' && mv.own;
-  const canRemove = mv.kind === 'scene' || (mv.kind === 'post-event' && mv.switchKey !== null);
-  const canMove = mv.kind === 'scene' || (mv.kind === 'post-event' && mv.runKey !== null);
+  /* 🎭 THE REVEAL IS LOCKED FIRST (owner 2026-10-07: *"the move feature or add a slide above on reveal must be
+     removed (for reveal only) because that should be its limitation"*): no grip, no ＋ above, no 🗑 — it hides per
+     stage through Arrange › On this stage. Its ＋ below stays. `makerRevealEdges`. */
+  const edgesOf = makerRevealEdges(isReveal);
+  const canRemove = edgesOf.remove && (mv.kind === 'scene' || (mv.kind === 'post-event' && mv.switchKey !== null));
+  const canMove = edgesOf.grip && (mv.kind === 'scene' || (mv.kind === 'post-event' && mv.runKey !== null));
   const label = picked ? makerPartLabelOn(stage, picked) : '';
 
   /* ── 💾 the Post Event saves (its switch, its run) — the one draft door ── */
@@ -287,9 +306,13 @@ export function PartEdits({ stage, picked }: { stage: MakerStageKey; picked: Mak
     dragRef.current = null;
     setDrag(null);
     if (!d || Math.abs(e.clientY - d.y0) < 8) return;
-    const at = targetAt(d, e.clientY);
+    let at = targetAt(d, e.clientY);
     const o = askPartOps();
     if (!at || !o) return;
+    /* 🎭 Nothing lands above the Reveal: slot 0 (above it) becomes slot 1 — above the page's first other part. */
+    const revealLeads = readRevealPart() !== null;
+    const slot = makerDropSlot(revealLeads ? d.targets.indexOf(at.t) + (at.where === 'below' ? 2 : 1) : d.targets.indexOf(at.t) + (at.where === 'below' ? 1 : 0), revealLeads);
+    if (revealLeads && slot === 1 && d.targets[0]) at = { t: d.targets[0], where: 'above' };
     if (mv.kind === 'scene') {
       const shown = o.list.shown.flatMap((t) => (t.kind === 'scene' ? [t.widgetId] : []));
       const delta = makerDropDelta({ fullOrder: o.fullOrder, shown, afterLastShown: o.afterLastShown, id: mv.id, target: at.t.id, where: at.where });
@@ -365,38 +388,40 @@ export function PartEdits({ stage, picked }: { stage: MakerStageKey; picked: Mak
 
   if (typeof document === 'undefined') return null;
   /* What just happened is said even once the part is let go (a move re-renders the page). */
-  const edges = Boolean(picked && picked !== 'reveal' && box);
+  const edges = Boolean(picked && box);
+  /* The prototype's chrome (`.el.on` · `.addp` · `.grip` · `.delp`): one outline with its soft halo and the part's
+     name on its corner; ＋ 26 px on the middle of the top and bottom edges; the grip 30 × 22 on the right edge; 🗑 28 px
+     on the top-right corner — each a 44 px tap around its face. Kept inside the screen. */
+  const vw = typeof window === 'undefined' ? 375 : window.innerWidth;
+  const at = (x: number, y: number) => ({ left: Math.max(0, Math.min(vw - 44, x - 22)), top: y - 22 });
   return createPortal(
     <>
       {edges && box ? (
         <div aria-hidden={drag ? true : undefined} data-part-edges={picked} className="pointer-events-none fixed inset-0 z-[86] lg:hidden">
-          {/* The part's outline (it follows a drag). */}
           <div
-            className="absolute rounded-md ring-2 ring-mulberry"
+            data-part-outline=""
+            className="absolute rounded-lg shadow-[0_0_0_2px_#C24E25,0_0_0_7px_rgba(194,78,37,.14)]"
             style={{ top: box.top, left: box.left, width: box.width, height: box.height, transform: drag ? `translateY(${drag.dy}px)` : undefined }}
           />
-          {drag?.line != null ? <div className="absolute h-1 rounded-full bg-mulberry" style={{ top: drag.line - 2, left: box.left, width: box.width }} /> : null}
+          {drag ? null : (
+            <span
+              data-part-name=""
+              className="absolute z-[1] rounded-sm bg-[#C24E25] px-[7px] py-[3px] font-sans text-[9px] font-bold uppercase leading-[1.2] tracking-[0.14em] text-white"
+              style={{ top: clampY(box.top) - 11, left: Math.max(2, box.left - 2) }}
+            >
+              {label}
+            </span>
+          )}
+          {drag?.line != null ? <div className="absolute h-1 rounded-full bg-[#C24E25]" style={{ top: drag.line - 2, left: box.left, width: box.width }} /> : null}
           {drag ? null : (
             <>
-              <button
-                type="button"
-                aria-label={`Add above ${label}`}
-                data-part-add="above"
-                onClick={() => setAdding('above')}
-                className={EDGE_BTN}
-                style={{ top: clampY(box.top) - 22, left: box.left + box.width / 2 - 22 }}
-              >
-                <Plus aria-hidden className="h-5 w-5" strokeWidth={2.4} />
-              </button>
-              <button
-                type="button"
-                aria-label={`Add below ${label}`}
-                data-part-add="below"
-                onClick={() => setAdding('below')}
-                className={EDGE_BTN}
-                style={{ top: clampY(box.top + box.height) - 22, left: box.left + box.width / 2 - 22 }}
-              >
-                <Plus aria-hidden className="h-5 w-5" strokeWidth={2.4} />
+              {edgesOf.addAbove ? (
+                <button type="button" aria-label={`Add above ${label}`} data-part-add="above" onClick={() => setAdding('above')} className={EDGE_BTN} style={at(box.left + box.width / 2, clampY(box.top))}>
+                  <span className={ADD_FACE}>+</span>
+                </button>
+              ) : null}
+              <button type="button" aria-label={`Add below ${label}`} data-part-add="below" onClick={() => setAdding('below')} className={EDGE_BTN} style={at(box.left + box.width / 2, clampY(box.top + box.height))}>
+                <span className={ADD_FACE}>+</span>
               </button>
               {canRemove ? (
                 <button
@@ -404,10 +429,12 @@ export function PartEdits({ stage, picked }: { stage: MakerStageKey; picked: Mak
                   aria-label={ownScene ? `Delete ${label}` : `Remove ${label} from this page`}
                   data-part-remove=""
                   onClick={() => setRemoving(true)}
-                  className={`${EDGE_BTN} bg-white !text-terracotta-700`}
-                  style={{ top: clampY(box.top) - 22, left: Math.min(window.innerWidth - 50, box.left + box.width - 30) }}
+                  className={EDGE_BTN}
+                  style={at(box.left + box.width - 6, clampY(box.top))}
                 >
-                  <Trash2 aria-hidden className="h-[18px] w-[18px]" strokeWidth={2.2} />
+                  <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border-[1.5px] border-[#B3261E] bg-white text-[#B3261E] shadow-[0_2px_6px_-2px_rgba(0,0,0,.3)]">
+                    <Trash2 aria-hidden className="h-[15px] w-[15px]" strokeWidth={2} />
+                  </span>
                 </button>
               ) : null}
             </>
@@ -425,12 +452,11 @@ export function PartEdits({ stage, picked }: { stage: MakerStageKey; picked: Mak
                 setDrag(null);
               }}
               className={`${EDGE_BTN} touch-none`}
-              style={{
-                top: clampY(box.top + box.height / 2) - 22 + (drag?.dy ?? 0),
-                left: Math.min(window.innerWidth - 50, box.left + box.width - 26),
-              }}
+              style={{ ...at(box.left + box.width - 5, clampY(box.top + box.height / 2)), transform: drag ? `translateY(${drag.dy}px)` : undefined }}
             >
-              <GripVertical aria-hidden className="h-5 w-5" strokeWidth={2.2} />
+              <span className="inline-flex h-[22px] w-[30px] items-center justify-center rounded-md bg-[#C24E25] text-white shadow-[0_0_0_3px_#fff]">
+                <GripVertical aria-hidden className="h-4 w-4" strokeWidth={2.4} />
+              </span>
             </button>
           ) : null}
         </div>
@@ -658,7 +684,7 @@ export function revealStageOf(stage: MakerStageKey): RevealStage | null {
 export function RevealPartTools({ stage }: { stage: RevealStage }) {
   const node = useMaker()?.lookPages?.reveal ?? null;
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2" data-reveal-part-tools={stage}>
+    <div className="-mx-[10px] mt-2 flex min-h-0 flex-1 flex-col" data-reveal-part-tools={stage}>
       {node ? (
         <MakerRevealStageContext.Provider value={stage}>{node}</MakerRevealStageContext.Provider>
       ) : (

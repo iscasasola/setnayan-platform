@@ -270,7 +270,8 @@ export const MAKER_PARTS: Readonly<Record<MakerPartKey, MakerPartDef>> = {
   story: { label: 'Love Story', source: 'studio:story', canvas: 'w:our_love_story', layouts: scene('our_love_story') },
   /* 👤 FOR EACH GUEST — one part per fact, from that guest's own row (owner 2026-10-06); drawn in PR 6. */
   myrole: { label: 'Your role', source: 'studio:march', canvas: null, layouts: NONE, my: 'role' },
-  mywear: { label: 'What to wear', source: 'studio:mood', canvas: null, layouts: NONE, my: 'wear' },
+  /* The Invitation's "Guest's look" stand-in (`f:look`) IS this part on the canvas — each guest's own outfit and colours. */
+  mywear: { label: 'What to wear', source: 'studio:mood', canvas: 'f:look', layouts: NONE, my: 'wear' },
   myarrive: { label: 'Arrive by', source: 'studio:schedule', canvas: null, layouts: NONE, my: 'arrive' },
   myguests: { label: 'Coming with you', source: 'tool', canvas: null, layouts: NONE, my: 'guests' },
   seats: { label: 'Your seat', source: 'studio:seats', canvas: 'f:find_your_seat', layouts: scene('find_your_seat') },
@@ -420,4 +421,59 @@ export function makerPartOfTap(
   if (exact) return exact;
   /* A tap inside a section on a part the map does not split (a scene's heading) is that section's part. */
   return on.find((k) => MAKER_PARTS[k].canvas === key && !MAKER_PARTS[k].el) ?? on.find((k) => MAKER_PARTS[k].canvas === key) ?? null;
+}
+
+/**
+ * 🧾 THE SCENES THAT ARE ROWS (owner 2026-10-07, on Schedule › Animate › Build in:
+ * *"where is the animation to allow it row by row or at the same time"* → *"put it
+ * in build in"*). These scenes draw a list — moments, venues, chapters, colours,
+ * items — so Build in carries ONE "Rows ▾" (All at once · One after another), the
+ * SHIPPED `canvas.sequence` (`HUB_SEQUENCES`). A single block (the countdown, a
+ * message, the greeting) has no rows and no such row. Widget types, as the scene's
+ * canvas is keyed (`stage-animate.tsx`, `scene-animate-tab.tsx`).
+ */
+export const MAKER_ROW_SCENES: readonly string[] = [
+  'schedule',
+  'our_love_story',
+  'venue_map',
+  'dress_code',
+  'what_to_bring',
+  'photo_moments',
+  'our_photos',
+  'event_details',
+  'entourage',
+  'gifts',
+];
+
+/** Does this scene's Build in offer Rows ▾? */
+export function makerSceneHasRows(widgetType: string): boolean {
+  return MAKER_ROW_SCENES.includes(widgetType);
+}
+
+export { makerStageMayType } from './maker-stage-type';
+
+/** The shell attribute the Stages panel keeps for the part it has picked (`makerStageMayType`). */
+export function makerStagePickedAttr(key: MakerPartKey | null): string | null {
+  if (!key) return null;
+  const def = MAKER_PARTS[key];
+  return def.canvas ? `${def.canvas}|${def.el ?? ''}` : null;
+}
+
+/**
+ * 🎭 THE REVEAL IS LOCKED FIRST (owner 2026-10-07, verbatim: *"then the move feature or add a slide
+ * above on reveal must be removed (for reveal only) because that should be its limitation"*). It is the
+ * first part of Save the Date, Invitation › Welcome and The Day › Live: picked, it shows NO grip, NO ＋
+ * above and NO 🗑 (it hides per stage through Arrange › On this stage); its ＋ below stays. Every other
+ * part keeps all four.
+ */
+export function makerRevealEdges(isReveal: boolean): { grip: boolean; addAbove: boolean; addBelow: boolean; remove: boolean } {
+  return isReveal ? { grip: false, addAbove: false, addBelow: true, remove: false } : { grip: true, addAbove: true, addBelow: true, remove: true };
+}
+
+/**
+ * …and nothing lands ABOVE it: on a page the Reveal leads, a drop (or an add) at slot 0 lands at slot 1 —
+ * right under the Reveal. `index` is the slot in the page's drawn order, the Reveal counted.
+ */
+export function makerDropSlot(index: number, revealLeads: boolean): number {
+  return revealLeads ? Math.max(1, index) : Math.max(0, index);
 }

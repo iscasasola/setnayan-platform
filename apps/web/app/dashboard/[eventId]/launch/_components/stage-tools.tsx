@@ -2,8 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Brush, ChevronRight, Play, Sparkles, Square, X } from 'lucide-react';
-import { GUEST_PAGE_ICON } from '../../website/editor/_components/page-pick';
+import { Brush, Diamond, FileText, PencilLine, Play, Square, Store } from 'lucide-react';
 import { RSVP_STAGE_KEY } from '@/lib/rsvp-stage-shared';
 import { RSVP_STAGE_SCENES, type RsvpStageScene } from '@/lib/rsvp-stage';
 import {
@@ -20,19 +19,29 @@ import {
   type MakerStageKey,
 } from '@/lib/maker-parts';
 import {
+  SP_GRAB,
   STAGE_GUEST_TAB,
   STAGE_ICON_BUTTON,
+  STAGE_ICON_FACE,
   STAGE_PANEL_MS,
+  STAGE_PANEL_REST_PX,
+  STAGE_PANEL_VARS,
   STAGE_PART_TILE,
-  STAGE_QUIET_ROW,
   STAGE_ROW,
   STAGE_TOOL_BUTTON,
+  STAGE_TOOL_FACE,
+  STAGE_TOOL_PILL,
   stagePanelOpenPx,
 } from '@/lib/maker-stage-room';
+import { MAKER_LT_SIZE_KEY, MAKER_LT_TAP_PX } from '@/lib/maker-lt-size';
+import { fixedOfKey, fixedScenePanel } from '@/lib/maker-selection';
+import { makerStagePickedAttr, makerStageMayType } from '@/lib/maker-parts';
+import { findMakerSection } from '@/app/[slug]/_components/maker-section-find';
+import { setStagePanelNow, setStageRevealColours, useStageRevealLook, type StageQuiet } from './stage-panel/store';
+import { revealStubHtml } from './stage-panel/reveal-picture';
 import type { StudioTileKey } from '@/lib/studio-tiles';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
-import type { NavSlotKey } from '@/app/[slug]/_lib/site-nav';
-import { MAKER_OPEN_PART_EVENT, MAKER_STAGE_TOOL_EVENT, useMaker } from './maker-context';
+import { MAKER_OPEN_PART_EVENT, MAKER_STAGE_PICK_EVENT, MAKER_STAGE_TOOL_EVENT, useMaker } from './maker-context';
 import { MAKER_PLAY_SCENE_EVENT } from './maker-play-menu';
 import { makerPagePick, makerPageValue, makerStageLabel } from './maker-bar';
 import { StageItemMenu, type StagePageOption } from './stage-item-menu';
@@ -195,18 +204,51 @@ export function StageTools({
   const revealOpen = picked === 'reveal' && revealStage !== null;
   const [revealPlaying, setRevealPlaying] = useState(false);
   const open = (openTool !== null || revealOpen) && !typing && !playing;
+  /* ↕ THE PANEL'S HEIGHT (prototype `.lt`, owner 2026-10-06 "the toolbar is half the screen"):
+     a part picked → half the screen (or the size this phone last dragged it to, remembered as a
+     share — the shipped `MAKER_LT_SIZE_KEY`); nothing picked → the grab and the one row (62 px),
+     so the page runs right down to it with no gap; ▶ playing → away. The grab drags between. */
+  const [ltNow, setLtNow] = useState<number>(STAGE_PANEL_REST_PX);
+  /* A tool tapped with nothing picked: the panel rises with "Tap a part of the page" and the page's parts
+     (prototype `.nosel`) — it never picks one by itself (M5). */
+  const [toolOnly, setToolOnly] = useState(false);
   useEffect(() => {
-    /* ▶ The whole stage plays on the whole screen: the panel folds away entirely. */
-    onPx(playing ? 0 : open ? stagePanelOpenPx(window.innerHeight) : null);
-  }, [open, playing, onPx]);
+    if (open) setToolOnly(false);
+  }, [open]);
+  const setHeight = useCallback(
+    (px: number) => {
+      setLtNow(px);
+      onPx(px);
+    },
+    [onPx],
+  );
+  useEffect(() => {
+    if (playing) {
+      onPx(0);
+      return;
+    }
+    if (!open && !toolOnly) return setHeight(STAGE_PANEL_REST_PX);
+    const half = stagePanelOpenPx(window.innerHeight);
+    let px = half;
+    try {
+      const share = Number(window.localStorage.getItem(MAKER_LT_SIZE_KEY));
+      if (Number.isFinite(share) && share > 0 && share <= 0.5) px = Math.round(Math.max(STAGE_PANEL_REST_PX, Math.min(half, share * window.innerHeight)));
+    } catch {
+      /* private mode: half the screen */
+    }
+    setHeight(px);
+  }, [open, toolOnly, playing, onPx, setHeight]);
   useEffect(() => () => onPx(null), [onPx]);
-  /* Risen to half the screen, the page above is shorter: the picked part is brought back into view there. */
+  /* 🎯 THE PICKED PART IN THE MIDDLE of the page left above the panel (prototype `centrePicked`: "making
+     sure they see what element they are editing") — once the panel has risen; a part taller than that
+     band lines up with its top. The canvas is a same-origin frame, scrolled here directly. */
   const pickedKey = picked ? MAKER_PARTS[picked].canvas : null;
+  const pickedEl = picked ? (MAKER_PARTS[picked].el ?? null) : null;
   useEffect(() => {
     if (!open || !pickedKey || rsvpOpen) return;
-    const t = window.setTimeout(() => postToCanvas({ source: 'setnayan-editor', t: 'scrollTo', key: pickedKey }), STAGE_PANEL_MS + 60);
+    const t = window.setTimeout(() => centrePart(pickedKey, pickedEl), STAGE_PANEL_MS + 40);
     return () => window.clearTimeout(t);
-  }, [open, pickedKey, rsvpOpen]);
+  }, [open, pickedKey, pickedEl, rsvpOpen, ltNow]);
   /* Its tools closed (×, a tap on nothing): nothing is picked. */
   useEffect(() => {
     if (openTool !== null) return;
@@ -275,12 +317,39 @@ export function StageTools({
           makerPartOfCanvas(where.current.stageKey, d.key);
         setPicked(k);
         askTool(toolRef.current, k);
-      } else if (d.t === 'type' && d.phase === 'start') setTyping(true);
+      } else if (d.t === 'type' && d.phase === 'start') {
+        /* ⌨ Only the picked part's words type (the work area takes a first tap's caret back). */
+        const attr = document.querySelector('[data-maker-shell]')?.getAttribute('data-stage-picked') ?? null;
+        if (makerStageMayType(attr, typeof d.key === 'string' ? d.key : '', typeof d.el === 'string' ? d.el : null)) setTyping(true);
+      }
       else if (d.t === 'playDone') setPlaying(false);
     };
     window.addEventListener('message', onCanvas);
     return () => window.removeEventListener('message', onCanvas);
   }, [askTool]);
+
+  /* ⌨ A FIRST tap on a part's words (the work area took the caret back): the part is picked. */
+  useEffect(() => {
+    const onPick = (e: Event) => {
+      const d = (e as CustomEvent<{ key?: unknown; el?: unknown }>).detail;
+      if (!d || typeof d.key !== 'string') return;
+      const el = typeof d.el === 'string' ? d.el : null;
+      const k = makerPartOfTap(where.current.stageKey, where.current.shownPage, d.key, el) ?? makerPartOfCanvas(where.current.stageKey, d.key);
+      if (k) return pickPart(k);
+      /* A part the map does not name: the canvas's own selection, all the same. */
+      window.postMessage({ source: 'setnayan-site', t: 'edit', key: d.key, ...(el ? { el } : {}) }, window.location.origin);
+    };
+    window.addEventListener(MAKER_STAGE_PICK_EVENT, onPick);
+    return () => window.removeEventListener(MAKER_STAGE_PICK_EVENT, onPick);
+  }, [pickPart]);
+  /* 🔑 Which part is picked, on the shell — the work area reads it before it lets a tap type. */
+  useEffect(() => {
+    const shell = document.querySelector<HTMLElement>('[data-maker-shell]');
+    const attr = open ? makerStagePickedAttr(picked) : null;
+    if (attr) shell?.setAttribute('data-stage-picked', attr);
+    else shell?.removeAttribute('data-stage-picked');
+    return () => shell?.removeAttribute('data-stage-picked');
+  }, [open, picked]);
 
   /* ⌨️ Typing on the page: the panel is away until the words' bar is gone (Done). */
   useEffect(() => {
@@ -404,46 +473,186 @@ export function StageTools({
     };
   }, [playing, stopPlay]);
 
-  /* ── the room the row (and the quiet row) take above an open tool ── */
-  const quiet = open && tool === 'style' && picked && !rsvpOpen ? makerPartQuietRow(picked) : null;
+
+  /* ── 🎭 THE PAGE IN STAGES: the Reveal drawn as the first part, one outline only ──
+     The Reveal plays over the cover for guests, so the editing page never drew it — in Stages it is drawn
+     where it sits, the first part (prototype `.el[data-el=reveal]`: the chosen opening in the event's
+     colours over "Opens once, over the cover"), and a tap on it picks it. The canvas's own gold `mark()`
+     outline is put away — the panel's outline is the one highlight (DECISION_LOG 2026-10-07 rule 2). */
+  const revealLook = useStageRevealLook();
+  const pickRef = useRef(pickPart);
+  pickRef.current = pickPart;
+  const revealLeadsHere = Boolean(revealStage && !rsvpOpen && shownPage && makerPartsOnPage(stage, shownPage)[0] === 'reveal');
   useEffect(() => {
-    const shell = document.querySelector<HTMLElement>('[data-maker-shell]');
-    shell?.style.setProperty('--stage-top', `${quiet ? 104 : 60}px`);
-    return () => {
-      shell?.style.removeProperty('--stage-top');
+    const paint = () => {
+      try {
+        const doc = document.querySelector<HTMLIFrameElement>(SHOWN_FRAME)?.contentDocument;
+        if (!doc?.body) return;
+        if (!doc.getElementById('sn-stage-canvas-css')) {
+          const css = doc.createElement('style');
+          css.id = 'sn-stage-canvas-css';
+          css.textContent = '[data-setnayan-editor-bound],[data-setnayan-editor-bound] *{outline:none!important}[data-maker-reveal-part]{cursor:pointer}';
+          doc.head.appendChild(css);
+        }
+        /* The event's colours, as the page wears them (the names · the eyebrow · the page). */
+        const ink = getComputedStyle(doc.querySelector('[data-el="names"]') ?? doc.body).color;
+        const accent = getComputedStyle(doc.querySelector('[data-el="eyebrow"]') ?? doc.body).color;
+        const bodyBg = getComputedStyle(doc.body).backgroundColor;
+        const neutral = !bodyBg || bodyBg === 'rgba(0, 0, 0, 0)' ? '#F7F2EC' : bodyBg;
+        setStageRevealColours({ dominant: ink, supporting: `color-mix(in srgb, ${ink} 30%, white)`, accent, neutral });
+        let part = doc.querySelector<HTMLElement>('[data-maker-reveal-part]');
+        if (!revealLeadsHere) {
+          part?.remove();
+          return;
+        }
+        if (!part) {
+          const first = doc.querySelector('[data-maker-section]');
+          if (!first?.parentElement) return;
+          part = doc.createElement('section');
+          part.setAttribute('data-maker-reveal-part', '');
+          part.setAttribute('aria-label', 'Reveal');
+          part.style.cssText = 'padding:18px 14px 14px;margin:6px 14px;border-radius:var(--m-r-md,14px);text-align:center';
+          part.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            pickRef.current('reveal');
+          });
+          first.parentElement.insertBefore(part, first);
+        }
+        const mute = getComputedStyle(doc.body).color;
+        part.innerHTML = revealStubHtml(revealLook.kind, revealLook.colours, ink, mute);
+      } catch {
+        /* a canvas we cannot reach draws no Reveal part — its tile still picks it */
+      }
     };
-  }, [quiet]);
+    paint();
+    const onReady = (e: MessageEvent) => {
+      if (e.origin !== window.location.origin) return;
+      const d = e.data as { source?: unknown; t?: unknown } | null;
+      if (d?.source === 'setnayan-site' && d.t === 'ready') window.setTimeout(paint, 80);
+    };
+    window.addEventListener('message', onReady);
+    return () => window.removeEventListener('message', onReady);
+  }, [revealLeadsHere, revealLook.kind, revealLook.colours, shownPage]);
+
+  /* ── Style › Look's quiet bar and the part's own words behind ⓘ, said to the panel under the row ── */
+  const canvasOfPick = picked ? MAKER_PARTS[picked].canvas : null;
+  const fixedHere = canvasOfPick ? fixedOfKey(canvasOfPick) : null;
+  useEffect(() => {
+    const q = picked && !rsvpOpen && picked !== 'reveal' ? makerPartQuietRow(picked) : null;
+    let quiet: StageQuiet | null = null;
+    if (q) {
+      if ('suppliers' in q.to) quiet = { kind: 'suppliers', words: q.words, small: 'Suppliers ›', href: suppliersHref };
+      else {
+        const to = q.to.studio;
+        const typed = picked ? makerPartSource(picked).kind === 'info' : false;
+        quiet = {
+          kind: to === 'info' ? 'info' : 'studio',
+          words: q.words,
+          small: to === 'info' ? (typed ? 'or tap the words ›' : 'Info ›') : 'Studio ›',
+          open: () => {
+            resumeAt = picked ? { stage: stageKey, page: shownPage, part: picked } : null;
+            onOpenStudio((to === 'info' ? 'info' : to) as StudioTileKey);
+          },
+        };
+      }
+    }
+    const f = fixedHere ? fixedScenePanel(fixedHere) : null;
+    const about = f ? [f.line, f.source?.text].filter(Boolean).join(' ') || null : null;
+    setStagePanelNow({ picked, quiet, about });
+  }, [picked, rsvpOpen, suppliersHref, stageKey, shownPage, onOpenStudio, fixedHere]);
+  useEffect(() => () => setStagePanelNow({ picked: null, quiet: null, about: null }), []);
 
   const pickTool = (t: MakerPartTool) => {
     setTool(t);
     if (picked === 'reveal') return;
-    if (!picked && parts[0]) return pickPart(parts[0]);
+    if (!picked || !open) return setToolOnly(true);
     askTool(t, picked);
   };
   const away = typing || playing;
   const shellEl = typeof document === 'undefined' ? null : document.querySelector<HTMLElement>('[data-maker-shell]');
+  /* Dragged down to the row alone, an open part's tools fold away (prototype `.lt.min`). */
+  const folded = ltNow < STAGE_PANEL_REST_PX + 60;
+
+  /* ── ↕ THE GRAB (prototype `.grab`) — the shipped drag, tap and memory (`lib/maker-lt-size.ts`) ── */
+  const grabFrom = useRef<{ y: number; h: number } | null>(null);
+  const [grabbing, setGrabbing] = useState(false);
+  const clampLt = (px: number) => Math.round(Math.max(STAGE_PANEL_REST_PX, Math.min(stagePanelOpenPx(window.innerHeight), px)));
+  const keepLt = (px: number) => {
+    setHeight(px);
+    if (px > STAGE_PANEL_REST_PX + 60) {
+      try {
+        window.localStorage.setItem(MAKER_LT_SIZE_KEY, String(px / window.innerHeight));
+      } catch {
+        /* blocked storage: not remembered */
+      }
+    }
+  };
 
   return (
     <div
       ref={rootRef}
       data-stage-tools=""
       data-stage-open={open ? '' : undefined}
+      data-stage-folded={folded ? '' : undefined}
       aria-hidden={away || undefined}
-      className={`flex min-h-0 flex-1 flex-col gap-1.5 px-1 pb-1 pt-2 transition-transform ease-out motion-reduce:transition-none ${away ? 'pointer-events-none translate-y-[110%]' : ''}`}
+      className={`flex min-h-0 flex-1 flex-col px-[10px] transition-transform ease-out motion-reduce:transition-none ${away ? 'pointer-events-none translate-y-[110%]' : ''}`}
       style={{ transitionDuration: `${STAGE_PANEL_MS}ms` }}
     >
-      {/* One rule set, drawn only while this panel is: it takes the lower third's place,
-          and an open tool sits under its row, full width. Phone only. */}
+      {/* One rule set, drawn only while this panel is (phone only): the prototype's colours, the lower
+          third as its `.lt` (page-coloured, no frame, full width), and the open tool flush under the row. */}
       <style>
-        {'@media (max-width:1023.98px){' +
+        {`html:has([data-stage-tools]){${STAGE_PANEL_VARS}}` +
+          '@media (max-width:1023.98px){' +
           '[data-maker-lower-third]:has(>[data-stage-tools])>:not([data-stage-tools]){display:none}' +
-          '[data-maker-lower-third]:has(>[data-stage-tools]){transition:height 240ms ease-out}' +
-          '[data-maker-shell]:has([data-stage-tools]) [data-phone-chrome="panel"]{left:4px;height:calc(var(--maker-lt-h) - var(--stage-top,60px))}' +
+          '[data-maker-lower-third]:has(>[data-stage-tools]){transition:height 240ms cubic-bezier(.16,1,.3,1);background:var(--sp-page)!important;border-top:1px solid var(--sp-line)!important;padding:0!important;gap:0!important;box-shadow:none!important}' +
+          '[data-maker-shell]:has([data-stage-tools]) [data-phone-chrome="panel"]{left:0!important;right:0!important;bottom:env(safe-area-inset-bottom)!important;height:calc(var(--maker-lt-h) - 67px)!important;outline:none!important;border-radius:0!important;box-shadow:none!important;background:var(--sp-page)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;padding:0!important}' +
+          '[data-maker-shell]:has([data-stage-folded]) [data-phone-chrome="panel"]{opacity:0;pointer-events:none}' +
           '[data-maker-shell][data-stage-playing] [data-phone-chrome="bar"]{transform:translateY(-110%);transition:transform 240ms ease-out}' +
+          '.sp-range{-webkit-appearance:none;appearance:none}.sp-range::-webkit-slider-runnable-track{height:4px;border-radius:var(--m-r-xs);background:linear-gradient(90deg,var(--sp-cta) var(--p,50%),#D9D3C8 var(--p,50%))}' +
+          '.sp-range::-webkit-slider-thumb{-webkit-appearance:none;width:28px;height:28px;margin-top:-12px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.3)}' +
+          '.sp-range::-moz-range-track{height:4px;border-radius:var(--m-r-xs);background:#D9D3C8}.sp-range::-moz-range-progress{height:4px;background:var(--sp-cta)}.sp-range::-moz-range-thumb{width:28px;height:28px;border:0;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.3)}' +
           '}@media (prefers-reduced-motion:reduce){[data-maker-lower-third]:has(>[data-stage-tools]),[data-maker-shell][data-stage-playing] [data-phone-chrome="bar"]{transition:none}}'}
       </style>
 
-      {/* ══ THE ROW ══ */}
+      {/* ══ ↕ THE GRAB — 44 × 5 in a 14 px strip; the tap reaches 15 px above and below ══ */}
+      <button
+        type="button"
+        aria-label="Resize the tools — drag, or tap"
+        data-stage-grab=""
+        className={`-mx-[10px] ${SP_GRAB}`}
+        onPointerDown={(e) => {
+          grabFrom.current = { y: e.clientY, h: ltNow };
+          setGrabbing(true);
+          e.currentTarget.setPointerCapture?.(e.pointerId);
+        }}
+        onPointerMove={(e) => {
+          const f = grabFrom.current;
+          if (f && Math.abs(e.clientY - f.y) >= MAKER_LT_TAP_PX) setHeight(clampLt(f.h + (f.y - e.clientY)));
+        }}
+        onPointerUp={(e) => {
+          const f = grabFrom.current;
+          grabFrom.current = null;
+          setGrabbing(false);
+          if (!f) return;
+          const half = stagePanelOpenPx(window.innerHeight);
+          if (Math.abs(e.clientY - f.y) < MAKER_LT_TAP_PX) keepLt(ltNow >= (STAGE_PANEL_REST_PX + half) / 2 ? STAGE_PANEL_REST_PX : half);
+          else keepLt(clampLt(f.h + (f.y - e.clientY)));
+        }}
+        onPointerCancel={() => {
+          grabFrom.current = null;
+          setGrabbing(false);
+        }}
+        onKeyDown={(e) => {
+          if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+          e.preventDefault();
+          keepLt(clampLt(ltNow + (e.key === 'ArrowUp' ? 40 : -40)));
+        }}
+      >
+        <span aria-hidden className={`h-[5px] rounded-sm transition-[width,background-color] duration-150 ${grabbing ? 'w-14 bg-[var(--sp-gold)]' : 'w-11 bg-[var(--sp-line2)]'}`} />
+      </button>
+
+      {/* ══ THE ROW — [ stage ▾ ] · [ Style | Text | Animate ] · ▶ ══ */}
       <div className={STAGE_ROW} data-stage-row="">
         <StageItemMenu
           options={options}
@@ -458,130 +667,153 @@ export function StageTools({
           }}
         />
         {rsvpOpen ? null : (
-          <span role="group" aria-label="Edit with" className="inline-flex h-11 shrink-0 items-center rounded-full bg-white p-0.5 ring-1 ring-ink/10" data-stage-tpill="">
-            {MAKER_PART_TOOLS.map((t) => (
-              <button
-                key={t}
-                type="button"
-                aria-pressed={open && (revealOpen ? t === 'style' : tool === t)}
-                disabled={revealOpen && t !== 'style'}
-                aria-label={MAKER_PART_TOOL_LABEL[t]}
-                title={MAKER_PART_TOOL_LABEL[t]}
-                data-stage-tool={t}
-                onClick={() => pickTool(t)}
-                className={`${STAGE_TOOL_BUTTON} disabled:opacity-30`}
-              >
-                {t === 'style' ? (
-                  <Brush aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} />
-                ) : t === 'text' ? (
-                  <em className="font-serif text-[17px] font-semibold not-italic leading-none">Aa</em>
-                ) : (
-                  <Sparkles aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} />
-                )}
-              </button>
+          <span role="group" aria-label="Edit with" className={STAGE_TOOL_PILL} data-stage-tpill="">
+            {MAKER_PART_TOOLS.map((t, i) => (
+              <span key={t} className="contents">
+                {i > 0 ? <span aria-hidden className="mx-px h-5 w-px bg-[var(--sp-line2)]" /> : null}
+                <button
+                  type="button"
+                  aria-pressed={open && (revealOpen ? t === 'style' : tool === t)}
+                  disabled={revealOpen && t !== 'style'}
+                  aria-label={MAKER_PART_TOOL_LABEL[t]}
+                  title={MAKER_PART_TOOL_LABEL[t]}
+                  data-stage-tool={t}
+                  onClick={() => pickTool(t)}
+                  className={STAGE_TOOL_BUTTON}
+                >
+                  <span className={STAGE_TOOL_FACE}>
+                    {t === 'style' ? (
+                      <Brush aria-hidden className="h-[18px] w-[18px]" strokeWidth={2} />
+                    ) : t === 'text' ? (
+                      <em className="font-serif text-[17px] font-semibold not-italic leading-none">Aa</em>
+                    ) : (
+                      <Diamond aria-hidden className="h-[18px] w-[18px]" strokeWidth={2} />
+                    )}
+                  </span>
+                </button>
+              </span>
             ))}
           </span>
         )}
-        <button type="button" aria-label={playing ? 'Stop' : picked ? 'Play this part' : 'Play the stage'} data-stage-play="" onClick={play} className={`${STAGE_ICON_BUTTON} ml-auto`}>
-          {playing ? <Square aria-hidden className="h-4 w-4" strokeWidth={2.2} /> : <Play aria-hidden className="h-4 w-4" strokeWidth={2.2} />}
+        <button type="button" aria-label={playing ? 'Stop' : picked ? 'Play this part' : 'Play the stage as guests see it'} data-stage-play="" onClick={play} className={STAGE_ICON_BUTTON}>
+          <span className={STAGE_ICON_FACE}>
+            {playing ? <Square aria-hidden className="h-4 w-4" strokeWidth={2.2} /> : <Play aria-hidden className="h-[18px] w-[18px]" strokeWidth={2} />}
+          </span>
         </button>
-        {open ? (
-          <button type="button" aria-label="Close the tools" data-stage-close="" onClick={() => (revealOpen ? setPicked(null) : openTool?.close())} className={STAGE_ICON_BUTTON}>
-            <X aria-hidden className="h-4 w-4" strokeWidth={2.2} />
-          </button>
-        ) : null}
       </div>
 
-      {/* ══ STYLE'S ONE QUIET ROW — "Edit the Wedding March ›" (never a badge on the page) ══ */}
-      {quiet ? (
-        'suppliers' in quiet.to ? (
-          <a href={suppliersHref} data-stage-quiet="suppliers" className={STAGE_QUIET_ROW}>
-            {quiet.words}
-            <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2.2} />
-          </a>
-        ) : (
-          <button
-            type="button"
-            data-stage-quiet={quiet.to.studio}
-            onClick={() => {
-              const to = (quiet.to as { studio: StudioTileKey }).studio;
-              resumeAt = picked ? { stage: stageKey, page: shownPage, part: picked } : null;
-              onOpenStudio(to);
-            }}
-            className={STAGE_QUIET_ROW}
-          >
-            {quiet.words}
-            <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2.2} />
-          </button>
-        )
-      ) : null}
-
-      {/* ══ NOTHING PICKED — where you are, and the page's parts ══ */}
-      {open ? null : (
-        <>
-          <p className="truncate px-1 text-[12px] text-ink/60" data-stage-caption="">
-            You’re editing · {makerStageLabel(stageKey as never)}
-            {pageLabel && pages.length > 1 ? ` › ${pageLabel}` : ''}
+      {/* ══ NOTHING PICKED, DRAGGED TALLER — "Tap a part of the page", and the page's parts (prototype `.nosel`) ══ */}
+      {open || folded ? null : (
+        <div className="mt-2 flex min-h-0 flex-1 flex-col gap-2" data-stage-nosel="">
+          <p className="flex h-9 shrink-0 items-center gap-2 px-1.5 text-[13px] font-semibold text-[var(--sp-ink2)]">
+            Tap a part of the page — {MAKER_PART_TOOL_LABEL[tool]} will act on it
           </p>
-          <div role="group" aria-label="Parts of this page" data-stage-strip="" className="flex min-h-0 flex-1 items-start gap-2 overflow-x-auto overflow-y-hidden px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div role="group" aria-label="Parts of this page" data-stage-strip="" className="flex shrink-0 gap-2 overflow-x-auto overflow-y-hidden px-0.5 pb-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {parts.map((k) => {
               const src = makerPartSource(k);
               const tag = src.kind === 'info' ? 'Info' : src.kind === 'studio' ? 'Studio' : src.kind === 'supplier' ? 'Suppliers' : null;
               return (
                 <button key={k} type="button" aria-pressed={picked === k} data-stage-part={k} onClick={() => pickPart(k)} className={STAGE_PART_TILE}>
-                  <span className="line-clamp-2 text-[12.5px] font-semibold leading-tight text-ink">{makerPartLabelOn(stageKey, k)}</span>
-                  {tag ? <span className="text-[10.5px] text-ink/50">{tag}</span> : null}
+                  <span aria-hidden className="flex flex-1 items-center justify-center border-b border-[var(--sp-line)] bg-white p-1.5 text-[var(--sp-gold)]">
+                    {src.kind === 'studio' ? <PencilLine className="h-5 w-5" strokeWidth={2} /> : src.kind === 'info' ? <FileText className="h-5 w-5" strokeWidth={2} /> : src.kind === 'supplier' ? <Store className="h-5 w-5" strokeWidth={2} /> : <Brush className="h-5 w-5" strokeWidth={2} />}
+                  </span>
+                  <span className="block truncate px-1 pt-1.5 text-[12.5px] font-medium text-[var(--sp-ink2)]">{makerPartLabelOn(stageKey, k)}</span>
+                  <span className="block h-[15px] truncate px-1 pb-1 text-[9px] font-bold uppercase tracking-[0.1em] text-[var(--sp-gold)]">{tag ?? ''}</span>
                 </button>
               );
             })}
-            {parts.length === 0 && present.size > 0 ? <p className="px-1 py-3 text-[13px] text-ink/60">Nothing on this page to style yet.</p> : null}
           </div>
-        </>
+        </div>
       )}
 
       {/* ══ 🎭 THE REVEAL'S TOOLS — its kinds, Extras ▾, Arrange › Hidden on this stage ══ */}
-      {open && revealOpen && revealStage ? <RevealPartTools stage={revealStage} /> : null}
+      {open && revealOpen && revealStage ? <RevealPartTools stage={revealStage} /> : revealLeadsHere && revealStage ? (
+        /* Mounted unseen while another part is picked, so the page's Reveal draws the opening chosen. */
+        <div hidden>
+          <RevealPartTools stage={revealStage} />
+        </div>
+      ) : null}
       {revealPlaying && revealStage ? <RevealPlay stage={revealStage} onDone={() => setRevealPlaying(false)} /> : null}
       {/* ══ ＋ ↕ 🗑 — on the picked part's edges, over the page ══ */}
-      <PartEdits stage={stageKey} picked={open && !rsvpOpen && !revealOpen ? picked : null} />
+      <PartEdits stage={stageKey} picked={open && !rsvpOpen ? picked : null} />
 
-      {/* ══ THE GUEST'S TAB BAR, at the foot of the page preview ══ */}
-      {shellEl && pages.length > 1 && !away
+      {/* ══ THE GUEST'S TAB BAR, at the foot of the page preview — "You're editing · Invitation › Welcome" over it ══ */}
+      {shellEl && !away
         ? createPortal(
             <nav
               aria-label="The guest's pages"
               data-stage-guest-bar=""
-              className="absolute inset-x-0 z-[25] flex border-t border-ink/10 bg-cream/95 px-1 lg:hidden"
+              className="absolute inset-x-0 z-[25] border-t border-[var(--sp-line)] bg-white lg:hidden"
               /* It rides the panel's rise and fall (the same 240 ms), never across it. */
-              style={{ bottom: 'calc(var(--maker-lt-h) + env(safe-area-inset-bottom))', transition: `bottom ${STAGE_PANEL_MS}ms ease-out` }}
+              style={{ bottom: 'calc(var(--maker-lt-h) + env(safe-area-inset-bottom))', transition: `bottom ${STAGE_PANEL_MS}ms cubic-bezier(.16,1,.3,1)` }}
             >
-              {pages.map((p) => {
-                const Icon = rsvpOpen ? null : (GUEST_PAGE_ICON[p.key as NavSlotKey] ?? null);
-                const here = p.key === shownPage;
-                return (
-                  <button
-                    key={p.key}
-                    type="button"
-                    aria-current={here ? 'page' : undefined}
-                    data-stage-guest-tab={p.key}
-                    onClick={() => {
-                      if (here) return;
-                      if (rsvpOpen) {
-                        setScreen(p.key as RsvpStageScene);
-                        document.querySelector<HTMLElement>(`[data-rsvp-stage-scene="${p.key}"]`)?.click();
-                      } else onPickPage(p.option);
-                    }}
-                    className={STAGE_GUEST_TAB}
-                  >
-                    {Icon ? <Icon aria-hidden className="h-[18px] w-[18px]" strokeWidth={here ? 2.2 : 1.75} /> : null}
-                    <span className="max-w-full truncate">{p.label}</span>
-                  </button>
-                );
-              })}
+              <p
+                data-stage-caption=""
+                className="flex h-[18px] items-center justify-center border-b border-[var(--sp-gold-soft)] bg-[var(--sp-gold-wash)] text-[8.5px] font-bold uppercase tracking-[0.14em] text-[var(--sp-mute)]"
+              >
+                You’re editing ·<b className="ml-1 text-[var(--sp-ink2)]">{makerStageLabel(stageKey as never)}{pageLabel && pages.length > 1 ? ` › ${pageLabel}` : ''}</b>
+              </p>
+              {pages.length > 1 ? (
+                <div className="flex h-11 items-stretch px-1">
+                  {pages.map((p) => {
+                    const here = p.key === shownPage;
+                    return (
+                      <button
+                        key={p.key}
+                        type="button"
+                        aria-current={here ? 'page' : undefined}
+                        data-stage-guest-tab={p.key}
+                        onClick={() => {
+                          if (here) return;
+                          if (rsvpOpen) {
+                            setScreen(p.key as RsvpStageScene);
+                            document.querySelector<HTMLElement>(`[data-rsvp-stage-scene="${p.key}"]`)?.click();
+                          } else onPickPage(p.option);
+                        }}
+                        className={STAGE_GUEST_TAB}
+                      >
+                        {here ? <span aria-hidden className="absolute inset-x-2.5 top-0 h-[2.5px] rounded-sm bg-[var(--sp-ink)]" /> : null}
+                        <span className="max-w-full truncate">{p.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
             </nav>,
             shellEl,
           )
         : null}
     </div>
   );
+}
+
+/**
+ * 🎯 Bring a part to the MIDDLE of the page band left above the guest bar (prototype
+ * `centrePicked`): `top + h/2 − band/2`; a part taller than the band lines up with its
+ * top. The canvas is the stage's shown, same-origin frame; it gets the room below to
+ * centre its last part too (its own `padding-bottom`, set once).
+ */
+function centrePart(key: string, el: string | null) {
+  try {
+    const frame = document.querySelector<HTMLIFrameElement>(SHOWN_FRAME);
+    const doc = frame?.contentDocument;
+    const win = frame?.contentWindow;
+    if (!frame || !doc || !win) return;
+    let node: Element | null = findMakerSection(doc, key);
+    if (node && el) node = node.querySelector(`[data-el="${CSS.escape(el)}"]`) ?? node;
+    if (!node) return;
+    const fr = frame.getBoundingClientRect();
+    const k = frame.clientWidth > 0 ? fr.width / frame.clientWidth : 1;
+    const bar = document.querySelector('[data-stage-guest-bar]')?.getBoundingClientRect();
+    const lt = document.querySelector('[data-maker-lower-third]')?.getBoundingClientRect();
+    const bottom = Math.min(fr.bottom, bar && bar.height > 0 ? bar.top : Infinity, lt ? lt.top : Infinity);
+    const band = (bottom - fr.top) / k;
+    if (band <= 40) return;
+    doc.body.style.paddingBottom = `${Math.round(band / 2)}px`;
+    const r = node.getBoundingClientRect();
+    const dy = r.height >= band - 24 ? r.top - 12 : r.top + r.height / 2 - band / 2;
+    if (Math.abs(dy) > 2) win.scrollBy({ top: dy, behavior: 'smooth' });
+  } catch {
+    /* a frame we cannot reach keeps its own scroll */
+  }
 }

@@ -18,11 +18,13 @@ import {
   MAKER_MORE_ROWS_ID,
   MAKER_OPEN_PART_EVENT,
   MAKER_STAGE_TOOL_EVENT,
+  MAKER_STAGE_PICK_EVENT,
   useMaker,
   type MakerSceneTab,
   type MakerSelection,
 } from '../../../launch/_components/maker-context';
 import { MAKER_PLAY_SCENE_EVENT } from '../../../launch/_components/maker-play-menu';
+import { makerStageMayType } from '@/lib/maker-stage-type';
 import { MAKER_PART_OPS_EVENT, type MakerPartRaw } from '../../../launch/_components/maker-part-ops';
 import { isMakerShellPage, type MakerShellPage } from '../../../launch/_components/maker-bar';
 import { HubDraftField } from '../../_components/hub-draft-field';
@@ -104,7 +106,7 @@ import { postEventSetElements } from '@/lib/post-event-draft';
 import { postEventElementScope, postEventSceneOfScope, postEventWordParts } from '@/lib/post-event-styles';
 import type { SceneUpload } from './scene-background-row';
 /* ⚡ A scene's background row loads when a scene is edited — never with the Maker (`details-lazy.tsx`). */
-import { DetailsBoundField, ElementSheet, PassCardDesignPicker, SceneAnimateTab, SceneBackgroundRow, TypeBar } from '../../../launch/_components/details-lazy';
+import { DetailsBoundField, ElementSheet, PassCardDesignPicker, SceneAnimateTab, SceneBackgroundRow, StagePanelPart, TypeBar } from '../../../launch/_components/details-lazy';
 import { IntoLowerThird } from '../../../launch/_components/maker-lower-third';
 import { readTypeStart, type SceneTypeWords, type TypeStart } from '@/lib/hub-part-words';
 import type { NameParts, NameStyle } from '@/lib/name-style';
@@ -521,6 +523,17 @@ export function MakerWork({
       if (d?.source === 'setnayan-site' && d.t === 'edit') setTypeStart(null);
       const start = readTypeStart(event.data, event.source, Date.now());
       if (!start) return;
+      /* 🧭 THE NEW MAKER: a FIRST tap on a part's words picks the part (the panel opens on it); only a
+         tap on the words of the part already picked types — and the date and the place never do
+         (`makerStageMayType`, DECISION_LOG 2026-10-07 rule 1). The caret the tap put there is taken back. */
+      if (stagesStudioRef.current && window.innerWidth < 1024) {
+        const picked = document.querySelector('[data-maker-shell]')?.getAttribute('data-stage-picked') ?? null;
+        if (!makerStageMayType(picked, start.key, start.el)) {
+          (start.source as Window | null)?.postMessage({ source: 'setnayan-editor', t: 'typeStop' }, window.location.origin);
+          window.dispatchEvent(new CustomEvent(MAKER_STAGE_PICK_EVENT, { detail: { key: start.key, el: start.el } }));
+          return;
+        }
+      }
       /* 🧰 A PHONE: ONE tap on a part opens ITS tools in the lower third — the
          navigator folds left, Text · Motion · Arrange — and the words are still
          typed right there on the page (owner 2026-10-05, the lower third
@@ -1881,25 +1894,37 @@ export function MakerWork({
     /** A couple's own scene — the page hands a Remove for exactly those. */
     const ownScene = id in sceneRemovers;
     const openPart = (el: HubElementKey) => setElementTarget({ key: `w:${type}`, widgetType: type, el });
-    return {
-      format:
-        elementEditing && sceneFormat ? (
-          <>
-            {/* 🎨 Style — one dropdown, free; drawn only where the registry
-                offers this scene a choice on this stage. */}
-            <SceneStyleCanvasRow
-              key={`style-${type}`}
-              eventId={eventId}
-              widgetType={type}
-              canvas={canvas}
-              stage={stage}
-              eventType={sceneFormat.eventType ?? null}
-              draftAction={elementEditing.draftAction}
-            />
-            {/* 🎨 Where "Our colours" is drawn (the Dress code's Colours and roles), its palette look sits under its Style too. */}
-            {type === 'dress_code' ? (
-              <PaletteLookCanvasRow eventId={eventId} canvas={canvas} eventType={sceneFormat.eventType ?? null} draftAction={elementEditing.draftAction} colours={sceneFormat.colorChoices} />
-            ) : null}
+    /* 🧭 The new Maker's Style › Look and › Background — the SAME rows, laid out by `StageStyle`. */
+    const styleRow =
+      elementEditing && sceneFormat ? (
+        <SceneStyleCanvasRow
+          key={`style-${type}`}
+          eventId={eventId}
+          widgetType={type}
+          canvas={canvas}
+          stage={stage}
+          eventType={sceneFormat.eventType ?? null}
+          draftAction={elementEditing.draftAction}
+        />
+      ) : null;
+    /* 🎨 Where "Our colours" is drawn (the Dress code's Colours and roles), its palette look sits under its Style too. */
+    const paletteRow =
+      elementEditing && sceneFormat && type === 'dress_code' ? (
+        <PaletteLookCanvasRow eventId={eventId} canvas={canvas} eventType={sceneFormat.eventType ?? null} draftAction={elementEditing.draftAction} colours={sceneFormat.colorChoices} />
+      ) : null;
+    const layoutRow =
+      elementEditing && ownScene ? <SceneLayoutRow eventId={eventId} widgetType={type} canvas={canvas} draftAction={elementEditing.draftAction} /> : null;
+    const lookRow =
+      styleRow || paletteRow || layoutRow ? (
+        <>
+          {styleRow}
+          {paletteRow}
+          {layoutRow}
+        </>
+      ) : null;
+    const backgroundRow =
+      elementEditing && sceneFormat ? (
+        <>
             <SceneBackgroundRow
               key={type}
               eventId={eventId}
@@ -1939,9 +1964,19 @@ export function MakerWork({
                 );
               }}
             />
-            {ownScene ? (
-              <SceneLayoutRow eventId={eventId} widgetType={type} canvas={canvas} draftAction={elementEditing.draftAction} />
-            ) : null}
+        </>
+      ) : null;
+    return {
+      format:
+        elementEditing && sceneFormat ? (
+          <>
+            {/* 🎨 Style — one dropdown, free; drawn only where the registry
+                offers this scene a choice on this stage. Then the palette look, the
+                Background, and (a scene of their own) its Layout. */}
+            {styleRow}
+            {paletteRow}
+            {backgroundRow}
+            {layoutRow}
           </>
         ) : null,
       animate: elementEditing ? (
@@ -1973,6 +2008,32 @@ export function MakerWork({
           removeForm={sceneRemovers[id]}
           alignRow={
             maker?.stagesStudio && elementEditing && !HUB_ELEMENT_EXCLUDED_WIDGETS.includes(type) ? (
+              <SceneAlignRow eventId={eventId} widgetType={type} canvas={canvas} draftAction={elementEditing.draftAction} />
+            ) : null
+          }
+        />
+      ),
+      look: lookRow,
+      background: backgroundRow,
+      arrangeSs: (
+        <StagePanelPart
+          part="arrange"
+          mode={selectedScene.mode}
+          isVisible={selectedScene.isVisible}
+          hasContent={selectedScene.hasContent}
+          openBrowse={sceneFormat?.openBrowse ?? true}
+          pending={pending}
+          onMode={(m) => modeWrite(selectedScene, m)}
+          onEye={() => eyeWrite(selectedScene)}
+          at={at + 1}
+          of={shownSceneIds.length}
+          canUp={at > 0}
+          canDown={at >= 0 && at < shownSceneIds.length - 1}
+          onUp={() => move(id, swapsForDrop(fullOrder, id, shownSceneIds[at - 1] ?? null))}
+          onDown={() => move(id, swapsForDrop(fullOrder, id, shownSceneIds[at + 2] ?? afterLastShown))}
+          removeForm={sceneRemovers[id]}
+          alignRow={
+            elementEditing && !HUB_ELEMENT_EXCLUDED_WIDGETS.includes(type) ? (
               <SceneAlignRow eventId={eventId} widgetType={type} canvas={canvas} draftAction={elementEditing.draftAction} />
             ) : null
           }
@@ -3472,7 +3533,17 @@ function Inspector({
   /** The tools column's width and its drag handle (desktop). */
   resize: ToolsResize;
   /** 🧰 The scene's Format · Animate · Arrange tabs, and what Content adds (its own words, its parts). */
-  sceneTabs?: { format: ReactNode; animate: ReactNode; arrange: ReactNode; contentExtra: ReactNode; ownScene: boolean } | null;
+  sceneTabs?: {
+    format: ReactNode;
+    animate: ReactNode;
+    arrange: ReactNode;
+    contentExtra: ReactNode;
+    ownScene: boolean;
+    /** 🧭 The new Maker's Style › Look · › Background · › Arrange (`StageStyle`). */
+    look?: ReactNode;
+    background?: ReactNode;
+    arrangeSs?: ReactNode;
+  } | null;
   /** 🔗 A scene bound to a Details fact: its Content is this field, which asks
    *  "everywhere or just here" (`details-bound-field.tsx`). */
   contentBound?: ReactNode;
@@ -3565,11 +3636,9 @@ function Inspector({
           </p>
         )
       ) : sceneTabs ? (
-        ss && tab === 'format' ? (
-          <>
-            {sceneTabs.format}
-            {sceneTabs.arrange}
-          </>
+        ss && (tab === 'format' || tab === 'arrange') ? (
+          /* 🧭 THE NEW MAKER: Style = [ Look | Background | Arrange ], the prototype's (DECISION_LOG 2026-10-07). */
+          <StagePanelPart part="style" look={sceneTabs.look ?? null} background={sceneTabs.background ?? null} arrange={sceneTabs.arrangeSs ?? sceneTabs.arrange} />
         ) : (
           (sceneTabs[tab] ?? <p className="px-1 text-[13px] text-ink/70">This scene has no settings of its own.</p>)
         )
@@ -3596,7 +3665,24 @@ function Inspector({
         : f.tool === 'post-event'
           ? (TOOL_ROWS['post-event'] ?? []).filter((k) => rows[k]).map((k) => <RowBlock key={k} row={rows[k]!} />)
           : null;
-    body = (
+    body = ss ? (
+      /* 🧭 THE NEW MAKER: its Style is Look — the quiet bar (where its content comes from, the row's own
+         words behind ⓘ — `stage-tools.tsx` says them) and its styles as the carousel of miniatures. */
+      <section className="contents" data-maker-fixed-panel={fixed}>
+        <StagePanelPart
+          part="style"
+          look={
+            <>
+              {fixedStylePanel}
+              {fixed === MAKER_FIXED_TICKET && ticketPanel ? ticketPanel : null}
+              {fixedFact ?? toolHere}
+            </>
+          }
+          background={null}
+          arrange={null}
+        />
+      </section>
+    ) : (
       <section className="space-y-3 px-1" data-maker-fixed-panel={fixed}>
         {/* 🎨 Its Style first — the same one row every scene wears. */}
         {fixedStylePanel}
@@ -3665,7 +3751,7 @@ function Inspector({
            their ONE home (never the top bar: "repeated. just place it on the sidebar"). */
         <InspectorTabs tabs={tabs} value={tab} onChange={onTab} label="Edit this scene" />
       ) : null}
-      <div ref={bodyRef} className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-3 pb-6 pt-3">
+      <div ref={bodyRef} className={ss ? 'flex min-h-0 flex-1 flex-col' : 'flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-3 pb-6 pt-3'} data-maker-inspector-body="">
         {body}
         {selection.kind === 'scene' && tab === 'content' ? sceneTabs?.contentExtra : null}
       </div>

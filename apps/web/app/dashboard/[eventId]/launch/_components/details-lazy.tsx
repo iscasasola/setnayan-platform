@@ -181,3 +181,6 @@ export const StageTools = dynamic(() => import(/* webpackChunkName: "maker-detai
    every piece (`StudioTool`'s `part`) — each stand-in is bytes in the Maker's first load. Drawn only while the new
    Maker is on. ── */
 export const StudioTool = dynamic(() => import(/* webpackChunkName: "maker-details" */ './studio-tools').then((m) => m.StudioTool), { loading: SlotRows });
+/* 🧭 The redrawn Stages panel's Style (Look | Background | Arrange) and its Arrange rows — ONE stand-in
+   (`stage-panel/parts.tsx`), drawn only while the new Maker is on (DECISION_LOG 2026-10-07). */
+export const StagePanelPart = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stage-panel/parts').then((m) => m.StagePanelPart), { loading: SlotRows });

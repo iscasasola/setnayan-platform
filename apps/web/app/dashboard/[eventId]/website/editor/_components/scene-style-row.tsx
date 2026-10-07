@@ -33,6 +33,8 @@ import type { ElementDraftAction } from './element-sheet';
 import { PaletteLookRow } from './palette-look-row';
 import { PALETTE_LOOK_DEFAULT, layoutDrawsPaletteLook, resolvePaletteLook } from '@/lib/palette-looks';
 import { useMaker } from '../../../launch/_components/maker-context';
+import { StyleCards } from '../../../launch/_components/stage-panel/style-carousel';
+import { Dd } from '../../../launch/_components/stage-panel/kit';
 import {
   HUB_ELEMENT_ALIGNS,
   HUB_ELEMENT_ALIGN_LABEL,
@@ -51,7 +53,10 @@ export function SceneStyleRow({
   pending = false,
   error = null,
   recommendedId = null,
+  preview = null,
 }: {
+  /** 🧭 The new Maker's miniatures: the part's canvas key and scene type (`StyleCards`). */
+  preview?: { canvasKey: string; sceneType: string } | null;
   options: readonly SceneStyleChoice[];
   /**
    * The style the design recommends, when it is NOT the default — the
@@ -66,11 +71,20 @@ export function SceneStyleRow({
   pending?: boolean;
   error?: string | null;
 }) {
-  /* 🧭 The new Maker draws the same styles as a carousel (`StyleCarousel`). */
+  /* 🧭 The new Maker draws the same styles as a carousel of real miniatures (`StyleCards`). */
   const carousel = useMaker()?.stagesStudio === true;
   if (options.length < 2) return null;
   if (carousel) {
-    return <StyleCarousel options={options} value={value} recommendedId={recommendedId} onPick={onPick} pending={pending} error={error} />;
+    return (
+      <>
+        <StyleCards options={options} value={value} onPick={onPick} pending={pending} canvasKey={preview?.canvasKey ?? null} sceneType={preview?.sceneType ?? ''} />
+        {error ? (
+          <p role="alert" className="shrink-0 py-1 text-[12.5px] font-semibold text-terracotta-700">
+            {error}
+          </p>
+        ) : null}
+      </>
+    );
   }
   return (
     <>
@@ -95,65 +109,6 @@ export function SceneStyleRow({
         </p>
       ) : null}
     </>
-  );
-}
-
-/**
- * 🎠 THE NEW MAKER'S STYLE — the SAME shipped styles (`sceneStyleOptions`,
- * `lib/scene-styles.ts`), side by side as a carousel (owner 2026-10-06: *"Style
- * are the presets"*; prototype `.lcar`). Never a new family list: these are the
- * scene's own three-or-so styles — `lib/layouts-are-the-shipped-scene-styles.test.ts`.
- * A tap applies at once: the page above IS the preview (the pick is redrawn in
- * place, drafted, counted on ✓). Each card is a button.
- */
-function StyleCarousel({
-  options,
-  value,
-  recommendedId,
-  onPick,
-  pending,
-  error,
-}: {
-  options: readonly SceneStyleChoice[];
-  value: string | null;
-  recommendedId: string | null;
-  onPick: (id: string) => void;
-  pending: boolean;
-  error: string | null;
-}) {
-  return (
-    <div data-style-carousel="" className="py-2">
-      <div role="radiogroup" aria-label="Layout" className="-mx-1 flex snap-x snap-mandatory gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {options.map((o) => {
-          const on = o.id === value;
-          const recommended = recommendedId ? o.id === recommendedId : o.isDefault;
-          return (
-            <button
-              key={o.id}
-              type="button"
-              role="radio"
-              aria-checked={on}
-              data-style-card={o.id}
-              onClick={() => {
-                if (!pending && !on) onPick(o.id);
-              }}
-              className={`sn-press flex min-h-[92px] w-[9.75rem] shrink-0 snap-start flex-col rounded-xl bg-white px-3 py-2.5 text-left ring-1 transition-shadow duration-sn-control ease-sn ${
-                on ? 'ring-2 ring-mulberry' : 'ring-ink/10'
-              }`}
-            >
-              <span className="font-serif text-[16px] leading-tight text-ink">{o.name}</span>
-              <span className="mt-1 line-clamp-3 text-[11.5px] leading-snug text-ink/65">{o.line}</span>
-              {recommended ? <span className="mt-auto pt-1 text-[10.5px] font-semibold text-ink/50">Recommended</span> : null}
-            </button>
-          );
-        })}
-      </div>
-      {error ? (
-        <p role="alert" className="py-2 text-[12.5px] font-semibold text-terracotta-700">
-          {error}
-        </p>
-      ) : null}
-    </div>
   );
 }
 
@@ -191,6 +146,7 @@ export function SceneStyleCanvasRow({
         options={options}
         value={layout}
         recommendedId={recommendedStageSceneStyle(type, stage, eventType)}
+        preview={{ canvasKey: `w:${widgetType}`, sceneType: type }}
         pending={pending}
         error={error}
         /* One row, one value across stages: the pick is stored as chosen. */
@@ -302,9 +258,29 @@ export function SceneAlignRow({
   draftAction: ElementDraftAction;
 }) {
   const { shown, save, pending, error } = useSceneCanvas(eventId, widgetType, canvas, draftAction);
+  const ss = useMaker()?.stagesStudio === true;
   const keys = HUB_SCENE_ELEMENT_KEYS.filter((k) => HUB_ELEMENT_FIELDS[k].includes('align'));
   const now = keys.map((k) => shown.elements?.[k]?.align ?? null);
   const value = now.every((a) => a === now[0]) && now[0] ? now[0] : 'auto';
+  const options = [{ key: 'auto', label: 'As the scene' }, ...HUB_ELEMENT_ALIGNS.map((a) => ({ key: a, label: HUB_ELEMENT_ALIGN_LABEL[a] }))];
+  const pick = (k: string) => {
+    if (pending) return;
+    const align = k === 'auto' ? null : (k as HubElementAlign);
+    save((c) => {
+      let next = c.elements ?? null;
+      for (const el of keys) next = withElementAlign(next, el, align);
+      if (next) c.elements = next;
+      else delete c.elements;
+    });
+  };
+  /* 🧭 The new Maker: the prototype's `.dd` row — ALIGNMENT  Centre ▾ (`stage-panel/kit.tsx`). */
+  if (ss) {
+    return (
+      <div className="flex h-11 shrink-0" data-stage-arrange="align">
+        <Dd small="Alignment" label="Alignment" data="arrange-align" value={value} options={options} onPick={pick} />
+      </div>
+    );
+  }
   return (
     <>
       <IRow label="Alignment" data="scene-align">

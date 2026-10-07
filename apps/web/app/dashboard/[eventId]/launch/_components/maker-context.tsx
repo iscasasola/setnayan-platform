@@ -343,3 +343,12 @@ export type MakerAddScene =
  * without a range); the work area (`editor-shell.tsx`) answers.
  */
 export const MAKER_OPEN_PART_EVENT = 'maker:open-part';
+
+/**
+ * ⌨ THE NEW MAKER'S FIRST TAP ON A PART'S WORDS (DECISION_LOG 2026-10-07 rule 1): the
+ * canvas puts the caret in the words on ANY tap, but in Stages a first tap only PICKS
+ * the part. The work area (`editor-shell.tsx`) stops the caret and says which part was
+ * tapped with this event (`detail` = `{ key, el }`); the Stages panel (`stage-tools.tsx`)
+ * picks it. A second tap on the picked part's words types (`makerStageMayType`).
+ */
+export const MAKER_STAGE_PICK_EVENT = 'maker:stage-pick';

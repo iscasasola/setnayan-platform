@@ -7710,3 +7710,82 @@ html.dark .ab.ab-main { color: #161513; }
  * the component; this only owns the slide. Reduced motion → jump. */
 .meter-fill { transition: width 700ms cubic-bezier(0.2, 0.8, 0.2, 1), height 700ms cubic-bezier(0.2, 0.8, 0.2, 1); }
 @media (prefers-reduced-motion: reduce) { .meter-fill { transition: none; } }
+
+/* ─── The couple's HOME, redrawn to the prototype (owner 2026-10-07, PR 4e) ──
+ * `prototypes/home_and_guests_2026-10-07_fable.html?frame=1&page=home`, its
+ * `.card` · `.nums` · `.tile` · `.money` · `.bar`/`.fold` · `.acts.three` rules,
+ * on the app's own tokens (page = cream, words = ink). Producers:
+ * `app/dashboard/[eventId]/_components/home-first-screen.tsx`, `home-parts.tsx`,
+ * and `app/_components/next-card.tsx`'s `actions` variant. */
+.home-card {
+  border: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent);
+  border-radius: 16px;
+  padding: 14px;
+  background: color-mix(in srgb, rgb(var(--color-ink)) 2%, rgb(var(--color-cream)));
+  text-align: left;
+  color: rgb(var(--color-ink));
+  min-width: 0;
+}
+.home-card-bad {
+  border-color: color-mix(in srgb, rgb(var(--color-danger)) 45%, transparent);
+  background: color-mix(in srgb, rgb(var(--color-danger)) 7%, rgb(var(--color-cream)));
+}
+.home-eyebrow { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
+.home-card-title { font-size: 19px; font-weight: 600; margin: 4px 0 2px; letter-spacing: -0.01em; line-height: 1.25; }
+.home-card-body { color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); font-size: 14px; margin: 0 0 10px; line-height: 1.45; }
+.home-acts { display: flex; gap: 8px; align-items: center; flex-wrap: nowrap; overflow: hidden; min-width: 0; }
+/* Rule 3a — the doorway row is ONE state: icon + word → word → icon. */
+.home-doors { display: flex; gap: 8px; min-width: 0; }
+.home-doors > .ab { flex: 1 1 0; min-width: 0; justify-content: center; }
+.home-doors .ab.text-only svg { display: none; }
+.home-nums { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.home-tile {
+  border: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent);
+  border-radius: 14px;
+  padding: 12px;
+  background: color-mix(in srgb, rgb(var(--color-ink)) 2%, rgb(var(--color-cream)));
+  text-align: left;
+  display: block;
+  color: rgb(var(--color-ink));
+  min-width: 0;
+  transition: transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.home-tile:active { transform: scale(0.98); }
+.home-tile-bad { border-color: color-mix(in srgb, rgb(var(--color-danger)) 45%, transparent); }
+.home-v { font-size: 26px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; }
+.home-v-word { font-size: 19px; }
+.home-k { font-size: 12px; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); text-transform: uppercase; letter-spacing: 0.1em; }
+.home-money { display: flex; justify-content: space-between; gap: 12px; align-items: flex-end; }
+.home-money .home-v { font-size: 20px; }
+.home-meter { position: relative; height: 6px; border-radius: 3px; background: color-mix(in srgb, rgb(var(--color-ink)) 10%, transparent); overflow: hidden; margin-top: 10px; }
+.home-meter > .meter-fill { position: absolute; left: 0; top: 0; bottom: 0; background: rgb(var(--color-ok)); }
+.home-k2 { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); margin: 14px 0 6px; }
+.home-s { color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); font-size: 13px; }
+.home-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 12px 0; border-top: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); min-width: 0; }
+.home-row .home-t { font-weight: 500; }
+/* What's next — the prototype's `.bar` + `.fold`: pop, then unfold in place. */
+.home-sec { border-top: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); }
+.home-bar { width: 100%; display: flex; align-items: center; gap: 12px; padding: 12px 0; text-align: left; color: rgb(var(--color-ink)); }
+.home-bar-ico { width: 40px; height: 40px; border-radius: 50%; background: var(--sn-gold-100); color: var(--sn-gold-800); display: grid; place-items: center; flex: none; }
+.home-bar-ico svg { width: 18px; height: 18px; }
+.home-chev { margin-left: auto; color: color-mix(in srgb, rgb(var(--color-ink)) 55%, transparent); transition: transform 280ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+.home-fold { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 280ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+.home-fold > div { overflow: clip; min-width: 0; min-height: 0; }
+.home-sec.open > .home-fold { grid-template-rows: 1fr; transition-delay: 120ms; }
+.home-sec.open .home-chev { transform: rotate(180deg); }
+@keyframes home-catpop { 0% { transform: scale(1); } 30% { transform: scale(1.28) rotate(-6deg); } 60% { transform: scale(0.92) rotate(4deg); } 100% { transform: scale(1) rotate(0); } }
+.home-sec.open > .home-bar .home-bar-ico { animation: home-catpop 420ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+.home-svc { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.home-svc .home-t { font-weight: 600; display: flex; align-items: center; gap: 6px; }
+.home-svc .home-t svg { width: 16px; height: 16px; flex: none; }
+/* The cover's one button wears the cover's ink (`currentColor`), like the prototype's glass pill. */
+.home-cover-ab.ab { color: inherit; border-color: color-mix(in srgb, currentColor 50%, transparent); background: color-mix(in srgb, currentColor 14%, transparent); }
+/* Rise on load, staggered — once (the prototype's `up`). */
+@keyframes home-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+[data-home-first-screen] > * { animation: home-up 360ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+[data-home-first-screen] > :nth-child(3) { animation-delay: 40ms; }
+[data-home-first-screen] > :nth-child(n + 4) { animation-delay: 80ms; }
+@media (prefers-reduced-motion: reduce) {
+  [data-home-first-screen] > *, .home-sec.open > .home-bar .home-bar-ico { animation: none; }
+  .home-fold, .home-chev, .home-tile { transition: none; }
+}

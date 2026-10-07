@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -56,9 +57,10 @@ import { DayOfModeGrid } from './_components/day-of-mode/grid';
 import { SetDateNudge } from './_components/set-date-nudge';
 import { readHomeGuide } from './_components/details-guide-home-card';
 import { HomeFirstScreen } from './_components/home-first-screen';
+import { HomeWhatsNext } from './_components/home-parts';
+import { getNavSlotMap } from '@/lib/nav-registry';
 import { homeCoverFor } from '@/lib/home-cover.server';
 import { DateChangeDoorway } from './_components/date-change-doorway';
-import { WhatsNextSheet } from './_components/whats-next-sheet';
 import { PapicReadyNudge } from './_components/papic-ready-nudge';
 import { readNikahImam } from './_components/nikah-imam';
 import { SetnayanAiComebackOffer } from './_components/setnayan-ai-comeback-offer';
@@ -259,6 +261,12 @@ export default async function EventHomePage({
       guard: read.money,
     };
   })();
+
+  // 🧭 The bottom bar's own registry icons — Home's three doorway buttons wear the
+  // icon of the tab each opens (owner 2026-10-07: "an icon that should be similar
+  // to the bottom nav"). The same cached map the layout hands the bar; a refused
+  // read leaves the doors on the bar's code defaults, never a broken Home.
+  const navSlotsRead = getNavSlotMap().catch(() => null);
 
   // Day-of mode (iteration 0031): inside the day-of window, load the schedule
   // + seating + same-day data for the live grid that takes over above
@@ -573,6 +581,7 @@ export default async function EventHomePage({
     homeGuide,
     { now: moneyNow, guard: guardMoney },
     papicTile,
+    homeNavSlots,
   ] = await Promise.all([
     guestsRead,
     afterSummaryRead,
@@ -584,6 +593,7 @@ export default async function EventHomePage({
     homeGuideRead,
     moneyRead,
     papicTileRead,
+    navSlotsRead,
   ]);
 
   /*
@@ -675,8 +685,31 @@ export default async function EventHomePage({
       noReply={facts.noReply}
       noReplyWaiting={facts.noReplyWaiting}
       money={facts.money}
+      figures={facts.figures}
       services={homeServiceRow}
       ground={homeCover}
+      doorIcons={{
+        guests: homeNavSlots?.['customer.bottom-nav.guests']?.icon ?? null,
+        explore: homeNavSlots?.['customer.bottom-nav.explore']?.icon ?? null,
+        launch: homeNavSlots?.['customer.bottom-nav.launch']?.icon ?? null,
+      }}
+      whatsNext={
+        /* 📋 What's next unfolds IN PLACE (owner 2026-10-07, H7) — the decisions stream in
+           under their row; the first screen never waits for them. */
+        <Suspense fallback={<HomeWhatsNext open={null} rows={[]} checklist={null} />}>
+          <EventDashboard
+            eventId={eventId}
+            saiPreviewParam={search.sai}
+            lifecyclePhase={lifecyclePhase}
+            canViewPapicCounts={canViewPapicCounts}
+            daysOut={facts.daysOut}
+            daysToGo={facts.daysToGo}
+            guestStats={facts.guestStats}
+            guardMoney={guardMoney}
+            only="whatsnext"
+          />
+        </Suspense>
+      }
     />
   );
 
@@ -945,26 +978,10 @@ export default async function EventHomePage({
          *  tiles) is NOT mounted here — it repeated the first screen and drew a
          *  second, wider page. The whole `<EventDashboard>` is mounted only by the
          *  two receded views above (day-of · after the day); here it is drawn only
-         *  as `only="whatsnext"`, inside the "What's next" sheet. */
+         *  as `only="whatsnext"`, unfolding in place under the first screen's
+         *  "What's next" row (owner 2026-10-07, H7 — no sheet). */
         <>
           {homeFirstScreen}
-          {/* 📋 "What's next" — the one row's sheet. Drawn ONLY while `?sheet=next` is in the URL,
-              so a Home nobody opens that sheet on never reads the decisions. */}
-          {search.sheet === 'next' ? (
-            <WhatsNextSheet closeHref={`/dashboard/${eventId}`}>
-              <EventDashboard
-                eventId={eventId}
-                saiPreviewParam={search.sai}
-                lifecyclePhase={lifecyclePhase}
-                canViewPapicCounts={canViewPapicCounts}
-                daysOut={facts.daysOut}
-                daysToGo={facts.daysToGo}
-                guestStats={facts.guestStats}
-                guardMoney={guardMoney}
-                only="whatsnext"
-              />
-            </WhatsNextSheet>
-          ) : null}
         </>
       )}
     </LastSeenCapture>

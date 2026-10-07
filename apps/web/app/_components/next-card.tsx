@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 
 /**
  * next-card.tsx — THE ONE "Next" CARD, for every phone first screen.
@@ -34,6 +35,8 @@ export function NextCard({
   action,
   href,
   later = null,
+  actions,
+  bad = false,
 }: {
   marker: 'data-home-next' | 'data-today-next';
   kind: string;
@@ -42,7 +45,28 @@ export function NextCard({
   action: string;
   href: string;
   later?: { label: string; action: (formData: FormData) => Promise<void> } | null;
+  /**
+   * 🔘 THE BUTTON RULE'S CARD (owner 2026-10-07, the couple's Home — PR 4e,
+   * `prototypes/home_and_guests_2026-10-07_fable.html`): the same eyebrow ·
+   * title · line, drawn the prototype's way, with the caller's `ActionButton`
+   * row in place of the one full-width link. Absent → the card exactly as it
+   * was (the supplier's Today is untouched). `href`/`action`/`later` are then
+   * the caller's to draw inside `actions`.
+   */
+  actions?: ReactNode;
+  /** A read failed — the card says so in the danger wash (H3), never as success. */
+  bad?: boolean;
 }) {
+  if (actions !== undefined) {
+    return (
+      <div {...{ [marker]: kind }} data-next-bad={bad ? '' : undefined} className={`home-card${bad ? ' home-card-bad' : ''}`}>
+        <p className="home-eyebrow">Your next step</p>
+        <h2 className="home-card-title">{title}</h2>
+        <p className="home-card-body">{body}</p>
+        <div className="home-acts">{actions}</div>
+      </div>
+    );
+  }
   return (
     <div {...{ [marker]: kind }} className="sn-glass-bare rounded-2xl p-4">
       <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-terracotta-700">Your next step</p>

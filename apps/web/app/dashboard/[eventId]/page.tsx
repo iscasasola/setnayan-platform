@@ -74,6 +74,7 @@ import { planNextYearEvent } from '@/app/dashboard/(account)/create-event/action
 import { resolveSetnayanAiPaywallEnabled } from '@/lib/integration-config';
 import { resolveSetnayanAiOfferForEvent } from '@/lib/setnayan-ai-server';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
+import { withPickedDate } from '@/lib/event-anchor';
 
 export const dynamic = 'force-dynamic';
 
@@ -168,7 +169,7 @@ export default async function EventHomePage({
   // pattern for migration drift between local + prod.
   const eventRes = await (async () => {
     const leanSelect =
-      'event_id, event_date, event_end_date, event_type, ceremony_type, secondary_ceremony_type, cleared_at, timezone, venue_latitude, venue_longitude, region, mahr_description, gender_separation, slug, display_name, created_at, setnayan_ai_active, event_date_precision, planning_mode, setnayan_ai_active_until';
+      'event_id, event_date, event_end_date, event_type, ceremony_type, secondary_ceremony_type, cleared_at, timezone, venue_latitude, venue_longitude, region, mahr_description, gender_separation, slug, display_name, created_at, setnayan_ai_active, event_date_precision, planning_mode, setnayan_ai_active_until, date_candidates';
     const leanRes = await supabase
       .from('events')
       .select(leanSelect)
@@ -187,8 +188,11 @@ export default async function EventHomePage({
     return leanRes;
   })();
 
-  const event = eventRes.data;
-  if (!event) notFound();
+  if (!eventRes.data) notFound();
+  // 📅 ONE PICKED DATE IS THE DATE (owner 2026-10-08): an event created before
+  // the write was fixed holds its one picked day in `date_candidates` with
+  // `event_date` null — read it as the date, the way a new one is stored.
+  const event = withPickedDate(eventRes.data);
 
   const isNikahEvent = isMuslimWedding({
     ceremony_type: (event as { ceremony_type?: string | null }).ceremony_type ?? null,

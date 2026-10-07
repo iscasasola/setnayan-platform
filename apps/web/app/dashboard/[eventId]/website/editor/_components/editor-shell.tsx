@@ -950,8 +950,11 @@ export function MakerWork({
      `?as=<state>` (lib/see-as.ts `SEE_AS_PARAM`). The draft, the
      bridge and the stage are unchanged; only who the page is drawn for. */
   const seeAs = maker?.seeAs ?? null;
+  /* 🧭 Stages: each tab its own page, as guests get it (owner 2026-10-07 "yes pages"; `hubTabsOn`'s canvas exception).
+     The tab on screen is switched IN the loaded page (the bridge's `hubTab`), never by a reload. */
+  const stagesTabs = maker?.stagesStudio ? '&tabs=1' : '';
   const previewSrc = publicLandingUrl
-    ? `${publicLandingUrl}?phase=${stage}&editor=1${guestBars ? '&bars=1' : ''}${seeAs ? `&${SEE_AS_PARAM}=${seeAs}` : ''}`
+    ? `${publicLandingUrl}?phase=${stage}&editor=1${guestBars ? '&bars=1' : ''}${stagesTabs}${seeAs ? `&${SEE_AS_PARAM}=${seeAs}` : ''}`
     : null;
   const canvasSrc = previewSrc;
   /* 🔥 LOAD EVERYTHING UP FRONT (owner 2026-09-28: *"is it possible to load
@@ -992,7 +995,7 @@ export function MakerWork({
       ? warmStageOrder(stage).map((s) => ({
           key: `${s}:${canvasStamp}:`,
           group: `${s}:`,
-          src: `${publicLandingUrl}?phase=${s}&editor=1${guestBars ? '&bars=1' : ''}`,
+          src: `${publicLandingUrl}?phase=${s}&editor=1${guestBars ? '&bars=1' : ''}${stagesTabs}`,
         }))
       : [];
   /* 🧭 The new Maker's Stages panel owns the page's place on a phone: it centres the picked part itself
@@ -2065,6 +2068,8 @@ export function MakerWork({
     const key = page.key;
     pageAskRef.current = true;
     setTabKey(key);
+    /* 🧭 Stages: the page SWAPS to that tab (its own page, as guests get it) before anything scrolls. */
+    if (maker?.stagesStudio) postToShownCanvases({ source: 'setnayan-editor', t: 'hubTab', key: '', tab: key });
     const first = page.tiles[0];
     if (!first) {
       navList?.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
@@ -2089,6 +2094,21 @@ export function MakerWork({
      `jumpToPage` the navigator's dropdown ran. A pick on another stage waits
      for THAT stage's canvas to hand over its bar (a new `canvasBar`), so it
      never scrolls the old stage's frame. */
+  /* 🧭 Stages: a canvas that (re)loads is told which tab is on screen, so a reload never jumps back to the first. */
+  const tabNowRef = useRef<string | null>(null);
+  tabNowRef.current = shownPage?.key ?? null;
+  useEffect(() => {
+    if (!maker?.stagesStudio) return;
+    const onReady = (e: MessageEvent) => {
+      if (e.origin !== window.location.origin) return;
+      const d = e.data as { source?: unknown; t?: unknown } | null;
+      if (d?.source === 'setnayan-site' && d.t === 'ready' && tabNowRef.current) {
+        (e.source as Window | null)?.postMessage({ source: 'setnayan-editor', t: 'hubTab', key: '', tab: tabNowRef.current }, window.location.origin);
+      }
+    };
+    window.addEventListener('message', onReady);
+    return () => window.removeEventListener('message', onReady);
+  }, [maker?.stagesStudio]);
   const setGuestPagesCtx = maker?.setGuestPages;
   const shownPageKey = shownPage?.key ?? null;
   const pagesRef = useRef(guestPages);

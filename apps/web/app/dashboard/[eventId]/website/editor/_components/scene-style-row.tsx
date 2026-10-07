@@ -304,12 +304,16 @@ export function SceneAlignRow({
      ↕ Spacing is the scene's room above and below (`HubSectionCanvas.spacing`; Regular is the absence). */
   if (ss) {
     return (
+      <>
       <div className="flex h-11 shrink-0 gap-1.5" data-stage-arrange="align">
-        <Dd small="Alignment" label="Alignment" data="arrange-align" value={value} options={options} onPick={pick} />
+        <Dd small="Alignment" label="Alignment" data="arrange-align" about="Follows the page, or set it left, centre or right." value={value} options={options} onPick={pick} />
+      </div>
+      <div className="flex h-11 shrink-0 gap-1.5" data-stage-arrange="spacing">
         <Dd
           small="Spacing"
           label="Spacing"
           data="arrange-spacing"
+          about="The room above and below this scene."
           value={shown.spacing ?? 'regular'}
           options={[
             { key: 'tight', label: 'Tight' },
@@ -325,6 +329,7 @@ export function SceneAlignRow({
           }}
         />
       </div>
+      </>
     );
   }
   return (

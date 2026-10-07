@@ -251,3 +251,12 @@ test('picking the Digital pass never replaces the canvas in Stages — it is pic
   const edges = read(`${LAUNCH}/add-part-sheet.tsx`);
   assert.match(edges, /clipPath: `inset\(/, 'the frame is clipped to the canvas');
 });
+
+test('Arrange has no Order row, and every Arrange row carries its ⓘ (owner 2026-10-07, Arrange "yes")', () => {
+  const arr = read(`${LAUNCH}/stage-panel/stage-arrange.tsx`);
+  assert.doesNotMatch(arr, /data-stage-arrange="order"|data-stage-order=/, 'the Order row is back');
+  assert.equal((arr.match(/about=\{SHOW_ABOUT\}/g) ?? []).length, 2, 'On this stage ▾ says what Auto · Shown · Hidden do');
+  const row = read(`${EDITOR}/scene-style-row.tsx`);
+  assert.match(row, /small="Alignment"[^>]*about="/, 'Alignment ▾ has its ⓘ');
+  assert.match(row, /small="Spacing"[\s\S]{0,120}about="/, 'Spacing ▾ has its ⓘ');
+});

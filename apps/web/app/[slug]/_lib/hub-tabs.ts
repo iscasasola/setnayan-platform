@@ -84,8 +84,13 @@ export function hubTabsOn(input: {
   bodyNormal: boolean;
   barDrawn: boolean;
   makerCanvas: boolean;
+  /** 🧭 The ONE canvas exception: the new Maker's Stages canvas (`?tabs=1`, host-only) is the guest's own tabbed
+   *  page, each tab its own page (owner 2026-10-07, verbatim: *"yes pages"* — "each page is just a bookmark on a
+   *  single page that just jumps. this was not the plan"). Its navigator still lists every scene, under its tab
+   *  (`drawnMakerOrder` measures every tab's groups). */
+  stagesCanvas?: boolean;
 }): boolean {
-  return TABBED_STAGES.includes(input.stage) && input.bodyNormal && input.barDrawn && !input.makerCanvas;
+  return TABBED_STAGES.includes(input.stage) && input.bodyNormal && input.barDrawn && (!input.makerCanvas || input.stagesCanvas === true);
 }
 
 /** The bar's tabs that are pages of this one (live, and addressed `?tab=`), in bar order. */

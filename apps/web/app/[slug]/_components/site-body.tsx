@@ -417,6 +417,8 @@ type SiteBodyProps = {
    *  (the Host controls bar, "Manage", the Live hub pill) never returns. Inert
    *  outside the canvas. */
   canvasGuestBars?: boolean;
+  /** 🧭 The Maker's Stages canvas draws each tab as its own page (`hubTabsOn`'s one canvas exception). */
+  stagesTabs?: boolean;
   /** 🎟 "Get tickets" — `publicTicketUrl(...)` (lib/ticket-url.ts): the
    *  organizer's own ticket page, or null unless the event is Public. */
   ticketUrl?: string | null;
@@ -547,6 +549,7 @@ export async function SiteBody({
   editorialDraft = null,
   editorBridge = false,
   canvasGuestBars = false,
+  stagesTabs = false,
   ticketUrl = null,
   canvasOnly = null,
   stylePreview = null,
@@ -1078,8 +1081,9 @@ export async function SiteBody({
     bodyNormal: plan.body === 'normal',
     barDrawn:
       siteMenuEnabled({ flag: process.env.NEXT_PUBLIC_WEBSITE_MENU_ENABLED, isSample: Boolean(event.is_sample) }) &&
-      showGuestBars,
+      (showGuestBars || (stagesTabs && isMakerCanvas)),
     makerCanvas: isMakerCanvas || canvasOnly !== null,
+    stagesCanvas: stagesTabs && isMakerCanvas && canvasOnly === null,
   });
   /** The Day's first tab, or the Invitation's — where the masthead lives. */
   const leadTab = pageStage === 'event' ? 'live' : 'home';

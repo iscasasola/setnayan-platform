@@ -177,6 +177,8 @@ type Props = {
     // tab bar back into the canvas (never the host's). Canvas-only; inert
     // everywhere else.
     bars?: string;
+    /** 🧭 The Maker Stages canvas asks for its tabs as pages (`stagesTabs`). */
+    tabs?: string;
     // 🖼 The Maker's made-once Hero page — `?only=hero` draws one scene alone.
     // Canvas-only (host-verified); inert everywhere else.
     only?: string;
@@ -1369,6 +1371,8 @@ async function InvitationBody({
     // the Maker, which would hear its bridge as the canvas's.
     themeTile: triedTheme !== null,
     canvasGuestBars: isEditorCanvas && search.bars === '1',
+    /* 🧭 The Maker's Stages canvas: each tab its own page, as guests get it (owner 2026-10-07 "yes pages"). */
+    stagesTabs: isEditorCanvas && search.tabs === '1',
     // 🎟 Public events only — `visibility` is the effective one this page
     // renders from, so a private or unlisted event never draws the button.
     ticketUrl: publicTicketUrl({ visibility, ticketUrl: event.ticket_url }),

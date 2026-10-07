@@ -154,9 +154,24 @@ export function CountdownCircle({ label, remaining, bare = false }: { label: Rea
   return (
     <section data-scene-card={bare ? 'bare' : 'own'} data-scene-style="circle" className={`${sceneCardClass('countdown', bare)} text-center`}>
       <p className="font-sans text-xs uppercase tracking-[0.2em] text-terracotta">{label}</p>
-      <div className="mx-auto mt-4 flex h-40 w-40 flex-col items-center justify-center rounded-full bg-terracotta text-cream">
+      <div className="mx-auto mt-4 flex h-40 w-40 flex-col items-center justify-center rounded-full bg-terracotta-700 text-cream">
         <span className="font-pahina text-6xl font-light leading-none tabular-nums">{remaining ? String(remaining.days) : '––'}</span>
-        <span className="mt-1 font-sans text-[11px] uppercase tracking-[0.2em] text-cream/80">{remaining?.days === 1 ? 'day' : 'days'}</span>
+        <span className="mt-1 font-sans text-xs uppercase tracking-[0.2em] text-cream/80">{remaining?.days === 1 ? 'day' : 'days'}</span>
+      </div>
+    </section>
+  );
+}
+
+/** The prototype's countdown preset 2: the days large at the left, the label and "days to go" beside them. */
+export function CountdownOffset({ label, remaining, bare = false }: { label: ReactNode; remaining: CountdownReading | null; bare?: boolean }) {
+  return (
+    <section data-scene-card={bare ? 'bare' : 'own'} data-scene-style="offset" className={sceneCardClass('countdown', bare)}>
+      <div className="flex items-center gap-5">
+        <span className="shrink-0 font-pahina text-[4.4rem] font-light leading-none tabular-nums text-ink">{remaining ? String(remaining.days) : '––'}</span>
+        <span className="min-w-0 text-left">
+          <span className="block font-sans text-xs uppercase tracking-[0.2em] text-terracotta">{label}</span>
+          <span className="mt-1 block font-pahina text-2xl text-terracotta">{remaining?.days === 1 ? 'day to go' : 'days to go'}</span>
+        </span>
       </div>
     </section>
   );

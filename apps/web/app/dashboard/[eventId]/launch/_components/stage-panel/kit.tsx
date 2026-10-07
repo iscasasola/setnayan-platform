@@ -68,7 +68,10 @@ export function Dd({
   data,
   className = '',
   tone = 'plain',
+  about,
 }: {
+  /** What the row does, behind ⓘ beside the pill (owner 2026-10-07: each Arrange row has an ⓘ). */
+  about?: ReactNode;
   /** The small caps word on the pill ("Background", "◆ How it moves"). */
   small: string;
   /** What the dropdown is, for a screen reader. */
@@ -83,7 +86,7 @@ export function Dd({
   tone?: 'plain' | 'how';
 }) {
   const box = useRef<HTMLDivElement>(null);
-  return (
+  const pill = (
     <div
       ref={box}
       className={`${SP_DD} ${tone === 'how' ? '!bg-[var(--sp-gold-wash)] !ring-[var(--sp-gold-soft)]' : ''} ${className}`}
@@ -100,6 +103,14 @@ export function Dd({
       </span>
       <PickMenu label={label} value={value} options={options} onPick={onPick} buttonText={buttonText} className={SP_DD_BUTTON} />
     </div>
+  );
+  return about ? (
+    <div className="flex min-w-0 flex-1 items-center gap-0.5" data-stage-dd-row={data}>
+      {pill}
+      <About label={small}>{about}</About>
+    </div>
+  ) : (
+    pill
   );
 }
 

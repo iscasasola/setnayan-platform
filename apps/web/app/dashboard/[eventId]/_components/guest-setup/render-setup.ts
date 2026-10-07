@@ -10,7 +10,6 @@ import type { HeadcountView } from './guest-setup-rows';
 (globalThis as unknown as { React: unknown }).React = React;
 /* The rows import the shipped server actions, whose modules import `server-only` — stubbed here, as the repo's other render tests do. */
 {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const Mod = require('node:module');
   const load = Mod._load;
   Mod._load = function (request: string, ...rest: unknown[]) {

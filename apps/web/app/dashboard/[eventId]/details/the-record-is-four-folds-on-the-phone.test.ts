@@ -1,6 +1,6 @@
 /**
  * the-record-is-four-folds-on-the-phone.test.ts — Event Details on a phone is
- * FOUR folded groups, one line + summary each, ONE OPEN AT A TIME; the
+ * FIVE folded groups (the fifth, Event access, owner 2026-10-07), one line + summary each, ONE OPEN AT A TIME; the
  * Finish-your-Event-Hub card sits on top; a desktop keeps every group open.
  *
  * ⚖ Owner 2026-10-04 (DECISION_LOG "EVENT DETAILS / MAKER: FOUR FIXES BEFORE
@@ -42,15 +42,16 @@ function folds(): Array<{ group: string; body: string }> {
   }));
 }
 
-test('the record is exactly four groups, in the owner’s order', () => {
+test('the record is exactly five groups, in the owner’s order', () => {
+  // The fifth, Event access, is owner 2026-10-07 (`event-access-is-its-own-fold.test.ts`).
   assert.deepEqual(
     RECORD_GROUPS.map((g) => g.title),
-    ['How it looks', 'How it works', 'Your event', 'Guests & money'],
+    ['How it looks', 'How it works', 'Your event', 'Guests & money', 'Event access'],
   );
   assert.deepEqual(
     folds().map((f) => f.group),
     RECORD_GROUPS.map((g) => g.key),
-    'the page does not draw the four groups, once each, in order',
+    'the page does not draw the five groups, once each, in order',
   );
   for (const g of RECORD_GROUPS) {
     assert.match(PAGE, new RegExp(`<RecordFold group="${g.key}" title=\\{groupTitle\\('${g.key}'\\)\\} summary=\\{summary(?:\\.${g.key.replace('-', '')}|\\['${g.key}'\\])\\}`), `${g.key} has no one-line summary`);

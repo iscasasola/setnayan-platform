@@ -18,12 +18,21 @@
  * Pure (no I/O): the page reads it, the guards read it.
  */
 
-/** The four groups — phone: four folds, one open at a time; desktop: all open. */
+/**
+ * The groups — phone: one fold each, one open at a time; desktop: all open.
+ *
+ * ⚖ Owner 2026-10-07 (on his phone, Event Details): *"the Event Access is not
+ * here: Host: Helper: Vendors: and toggles on what they can access?"* — People
+ * with access sat INSIDE Guests & money, under the last supplier row, where it
+ * read as part of that supplier. It is now its own fold, EVENT ACCESS, after
+ * Guests & money and before Put this away.
+ */
 export const RECORD_GROUPS = [
   { key: 'looks', title: 'How it looks' },
   { key: 'works', title: 'How it works' },
   { key: 'event', title: 'Your event' },
   { key: 'guests-money', title: 'Guests & money' },
+  { key: 'access', title: 'Event access' },
 ] as const;
 export type RecordGroupKey = (typeof RECORD_GROUPS)[number]['key'];
 

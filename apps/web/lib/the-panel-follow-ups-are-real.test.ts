@@ -120,7 +120,8 @@ test('B · the style asked for is laid over the rows as read — a section’s c
 
 test('B · a miniature frame never mounts the editor bridge, and every card is the guest page', () => {
   const body = stripComments(read('app/[slug]/_components/site-body.tsx'));
-  assert.match(body, /\{isEditorCanvas && editorBridge && !themeTile && !stylePreview \? <EditorBridge \/> : null\}/);
+  assert.match(body, /\{isEditorCanvas && editorBridge && !themeTile \? <EditorBridge \/> : null\}/);
+  assert.match(body, /const themeTile = themeTileIn \|\| Boolean\(stylePreview\);/, 'a miniature is a tile: no bridge');
   assert.match(body, /withStylePreview\(eventIn, widgetsIn, isEditorCanvas \? stylePreview : null\)/);
   const page = stripComments(read('app/[slug]/page.tsx'));
   assert.match(page, /stylePreview: canvasStylePreview\(search, isEditorCanvas\)/);

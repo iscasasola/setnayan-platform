@@ -550,7 +550,7 @@ export async function SiteBody({
   ticketUrl = null,
   canvasOnly = null,
   stylePreview = null,
-  themeTile = false,
+  themeTile: themeTileIn = false,
   makerWayBack = null,
   ownerCapability = null,
   vendorCapability = null,
@@ -568,6 +568,8 @@ export async function SiteBody({
   /* 🖼 A style's true miniature lays its one style over the rows (`_lib/style-preview.ts`);
      for every guest `stylePreview` is null and both come back exactly as read. */
   const { event, widgets } = withStylePreview(eventIn, widgetsIn, isEditorCanvas ? stylePreview : null);
+  /* 🖼 A miniature is drawn like a theme tile: its parent is the Maker, so it never mounts the editor bridge. */
+  const themeTile = themeTileIn || Boolean(stylePreview);
   // 🎨 SECTION BACKGROUNDS — signed ONCE for the whole page.
   // Every arranged section's `config_json.canvas.media` is an `r2://` ref, held
   // to the public bucket by `siteMediaServeRef` on the way in. They are
@@ -3728,7 +3730,7 @@ export async function SiteBody({
           editor's preview iframe. `editorMode` is TRUE only for a verified host
           who passed `?editor=1`; for every guest/anonymous visitor this renders
           nothing, so their HTML is byte-identical to before. */}
-      {isEditorCanvas && editorBridge && !themeTile && !stylePreview ? <EditorBridge /> : null}
+      {isEditorCanvas && editorBridge && !themeTile ? <EditorBridge /> : null}
       {/* 👁 See as: the sample viewer touches nothing (sample-viewer-inert.tsx). */}
       {sampleViewer !== null ? <SampleViewerInert canvas={isEditorCanvas} /> : null}
       {sceneRunsOnPage ? <HubSceneRuns /> : null}

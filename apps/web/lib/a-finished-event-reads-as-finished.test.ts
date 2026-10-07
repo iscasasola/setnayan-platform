@@ -435,7 +435,9 @@ test('the finalized banner does not claim guests the list does not have', () => 
     and the banner's own words still say what the number is FOR.
   */
   const page = src('app/dashboard/[eventId]/guests/page.tsx');
-  assert.match(page, /<FinalizeGuestListControl[\s\S]*?finalPax=\{finalize\.finalPax\}/, 'the Guest list no longer mounts the finalize banner');
+  // ⤷ 2026-10-07 (owner: "finalize should be inside the Setup. not on its
+  // current location"): nothing above List · Map · Setup — PR 4d mounts it in Setup.
+  assert.doesNotMatch(page, /<FinalizeGuestListControl\b/, 'the finalize row is back above the List · Map · Setup switcher');
   assert.ok(!/guests locked in/.test(page.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')), '"N guests locked in" must not return to the page');
   const g = src('app/dashboard/[eventId]/guests/_components/finalize-guest-list-control.tsx');
   /*

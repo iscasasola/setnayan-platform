@@ -36,7 +36,7 @@ test('the Guest list has ONE search box of its own — the thumb row’s “Sear
   assert.doesNotMatch(page, /<LiveSearch\b|<GuestsSearch\b|type="search"|role="search"/, 'the page draws a second search box');
   assert.equal((screen.match(/data-guests-search=""/g) ?? []).length, 1, 'the screen draws more than one search box');
   assert.match(screen, /placeholder="Search or add"/);
-  assert.match(page, /initialQuery=\{search\.q \?\? ''\}/, 'the thumb row no longer adopts the top bar’s ?q=');
+  assert.match(page, /initialQuery=\{search\.select === 'to-invite' \? 'to invite' : \(search\.q \?\? ''\)\}/, 'the thumb row no longer adopts the top bar’s ?q=');
   assert.ok(!existsSync(join(GUESTS, '_components', 'guests-search.tsx')), 'the old page-level search box is back');
   // …and it answers with the ONE matcher, through the roster view.
   const lib = read(join(APP, '..', 'lib', 'guest-roster-view.ts'));

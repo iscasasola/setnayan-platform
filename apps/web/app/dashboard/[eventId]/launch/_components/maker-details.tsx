@@ -92,6 +92,7 @@ import {
 import { LOOK_ITEM_SECTIONS } from '@/lib/maker-look-sections';
 /* 🧭 The new Maker's Studio tools (`studio`) — lazy, so the shipped Maker's first load carries none of them. */
 import { StudioTool } from './details-lazy';
+import { DEFAULT_NAME_STYLE } from '@/lib/name-style';
 import type { StudioHubFacts } from './studio-tools';
 import type { HubMainGround } from '@/lib/hub-canvas';
 import type { MainColourDraft } from '@/lib/main-colours';
@@ -1027,6 +1028,20 @@ export function MakerDetails(props: MakerDetailsProps) {
         .map((v) => (two ? `${VENUE_ROLE_LABEL[v.role]} · ${v.name}` : v.name!))
         .join('\n');
       editors.venues = <StudioTool part="fact" value={names || null} line={STUDIO_SUPPLIERS_LINE} data="venues" />;
+    }
+    /* 🏷 Event name · Maria & Jose — ONE row that opens the two people + Name style ▾ in place
+       (owner 2026-10-07 "yes"). The same NamesEditor / NameStylePicker; a one-person event
+       (`oneName`) and a whole-form event keep their own field. */
+    if (yeIn?.names && !yeIn.oneName && !yeIn.names.wholeForm && editors.names !== undefined) {
+      editors.names = (
+        <StudioTool
+          part="event-name"
+          eventId={eventId}
+          people={yeIn.names.people}
+          initial={yeIn.names.initial}
+          nameStyle={yeIn.nameStyle ?? DEFAULT_NAME_STYLE}
+        />
+      );
     }
     /* ✍ What to bring — its own drafted column (`what_to_bring`), the Event Hub's Reminders box, in place. */
     if (editors['special-message'] !== undefined) {

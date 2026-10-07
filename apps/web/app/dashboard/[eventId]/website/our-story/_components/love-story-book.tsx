@@ -126,7 +126,19 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
   );
   let chapterNo = 0;
 
+  /* ✋ STUDIO (the new Maker, `makerStagesStudioEnabled`) — the prototype's screen IS the cards:
+     one band per moment, opened in place, dragged into the couple's own order, + Add a moment. */
   return (
+    <>
+    {p.studio ? (
+    <MomentOrderCards
+      action={p.action}
+      moments={sortMoments(p.moments)}
+      mediaUrls={p.mediaUrls}
+      sheet={sheetProps}
+      add={canAdd ? { can: true } : { can: false, line: proLine }}
+    />
+    ) : (
     <div className="-mx-4 bg-[color:var(--ls-canvas)] px-4 pb-24 text-[color:var(--ls-ink)] sm:-mx-6 sm:px-6 lg:rounded-md">
       {/* ── THE BAR ── */}
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[color:var(--ls-rule)] py-4">
@@ -207,15 +219,6 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
           </div>
         ) : null}
       </section>
-
-      {/* ✋ STUDIO — the moments as cards, dragged into the couple's own order. */}
-      {p.studio ? (
-        <MomentOrderCards
-          moments={sortMoments(p.moments)}
-          mediaUrls={p.mediaUrls}
-          action={p.action}
-        />
-      ) : null}
 
       {/* ── YEARS STRIP (phone / tablet) ── */}
       <nav aria-label="Chapters" className="sticky top-0 z-10 -mx-4 flex gap-1 overflow-x-auto bg-[color:var(--ls-canvas)] px-4 py-2 lg:hidden">
@@ -412,5 +415,7 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
       </div>
 
     </div>
+    )}
+    </>
   );
 }

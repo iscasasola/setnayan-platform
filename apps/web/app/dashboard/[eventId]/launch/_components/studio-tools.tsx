@@ -56,6 +56,7 @@ import { MAIN_GROUND_SHADES, MAIN_GROUND_SHADE_LABEL } from '@/lib/main-ground-s
 import { MAIN_COLOUR_JOB, MAIN_COLOUR_SLOTS, type MainColourDraft, type MainColourSlot } from '@/lib/main-colours';
 import { MAIN_COLOUR_SLOTS as MOOD_MAIN_COLOUR_SLOTS } from '@/lib/colour-access';
 import { ChevronDown } from 'lucide-react';
+import { StudioEventName } from './studio-event-name';
 
 /**
  * 🧭 THE NEW MAKER'S STUDIO TOOLS, REDRAWN TO THE PROTOTYPE (owner 2026-10-06;
@@ -922,6 +923,7 @@ function StudioWhatToBring({ eventId, value }: { eventId: string; value: string 
   );
 }
 
+
 export type StudioToolProps =
   | ({ part: 'hub' } & Parameters<typeof StudioHubSettings>[0])
   | ({ part: 'fact' } & Parameters<typeof StudioReadOnlyFact>[0])
@@ -932,7 +934,8 @@ export type StudioToolProps =
   | ({ part: 'main-extras' } & Parameters<typeof StudioMainExtras>[0])
   | ({ part: 'main-colours' } & Parameters<typeof StudioMainColours>[0])
   | ({ part: 'qr-shown' } & Parameters<typeof StudioQrShown>[0])
-  | ({ part: 'bring' } & Parameters<typeof StudioWhatToBring>[0]);
+  | ({ part: 'bring' } & Parameters<typeof StudioWhatToBring>[0])
+  | ({ part: 'event-name' } & Parameters<typeof StudioEventName>[0]);
 
 export function StudioTool(props: StudioToolProps) {
   switch (props.part) {
@@ -956,5 +959,7 @@ export function StudioTool(props: StudioToolProps) {
       return <StudioQrShown {...props} />;
     case 'bring':
       return <StudioWhatToBring {...props} />;
+    case 'event-name':
+      return <StudioEventName {...props} />;
   }
 }

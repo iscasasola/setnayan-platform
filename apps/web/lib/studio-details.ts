@@ -92,8 +92,9 @@ export const STUDIO_FORM_ITEMS: readonly DetailsItemKey[] = [
   ...FREE_PRINT_KEYS,
   'download',
 ];
-/* 🎨 Mood Board & Dress Code (plan PR 5) fills the screen too — its four tabs and their tools are all in its body. */
-export const STUDIO_PAGE_ITEMS: readonly DetailsItemKey[] = ['love-story', 'mood-board'];
+/* 🎨 Mood Board & Dress Code (plan PR 5) fills the screen too — its four tabs and their tools are all in its body.
+   🗓 So does the Schedule (owner 2026-10-07 "1. okay"): its timeline, + Add a moment and ⋯ are all in its body. */
+export const STUDIO_PAGE_ITEMS: readonly DetailsItemKey[] = ['love-story', 'mood-board', 'schedule'];
 
 /** The top nav (52 px) and the tool's row (52 px) — the panel fills the rest, edge to edge (prototype `.full`).
  *  The panel's own height is `--maker-lt-h` less 8 px (`MAKER_LT_TOOL`), so this is 104 − 8. */
@@ -120,6 +121,8 @@ const STUDIO_SKIN_CSS =
   `${W} [data-details-form-heading]{font-size:14px;font-weight:600;line-height:1.3}` +
   /* The print words' Save: the prototype's one ink pill, its "The card redraws." helper gone (helper text lives behind ⓘ). */
   `${W} [data-save-words-note]{display:none}` +
+  /* 🏷 The Event name row names itself ("Event name · Maria & Jose") — no "Names" heading over it. */
+  `${W} [data-details-editor]:has([data-studio-event-name]) > [data-details-form-heading]{display:none}` +
   /* A print's row names it (Studio › Prints, `data-print-studio`) — the form's own heading would say it twice. */
   `${W} [data-details-editor]:has(> [data-print-studio]) > [data-details-form-heading]{display:none}` +
   /* The tool's name is the Tool ▾ row's — no second masthead over the march, the Mood Board, the Logo (prototype `.full`). */
@@ -131,6 +134,21 @@ const STUDIO_SKIN_CSS =
   `${W} input[role=switch]:checked+span{background-color:#4f6b4a}` +
   `${W} input[role=switch]:checked+span::after{transform:translateX(18px)}` +
   `${W} [data-details-editor] :is(input:not([type]),input[type=text],input[type=url],input[type=tel],input[type=email],input[type=search],input[type=date],textarea){min-height:44px;border-radius:var(--m-r-sm);border-color:rgb(var(--color-ink)/.1);background:${STUDIO_PAGE};font-size:14px}`;
+
+/**
+ * 🚶 STUDIO › WEDDING MARCH GETS THE SCREEN FOR THE WALKS (owner 2026-10-07, verbatim *"yes parents
+ * is automatically part of the wedding march, hosts are just access so this can live under the
+ * guestlist since there is a access column already"*; DECISION_LOG "STUDIO REDRAW ANSWERS" (4)).
+ * Parents keep their place IN the march — they walk, their rows are the march's own; hosts are
+ * access, shown in the Guest list's Access column. So the tray's "Parents & hosts" block
+ * (`[data-march-parents]`) steps aside in Studio — hidden, never unmounted — and the lower part
+ * shrinks to the prototype's Not-walking strip (`.mx-tray`): the heading and one row of names,
+ * the rest behind "+N more" (`fitChips`, scroll-less). The shipped Maker (flag off) is unchanged.
+ */
+export const STUDIO_MARCH_TRAY_PX = 112;
+const STUDIO_MARCH_CSS =
+  '[data-maker-studio-full] [data-march-parents]{display:none}' +
+  `[data-maker-studio-full]:has([data-details-workspace][data-details-item="march"]){--maker-lt-h:${STUDIO_MARCH_TRAY_PX}px!important}`;
 
 export function studioFullScreenCss(): string {
   const on = (keys: readonly DetailsItemKey[]) => `:is(${keys.map((k) => `[data-details-item="${k}"]`).join(',')})`;
@@ -155,6 +173,7 @@ export function studioFullScreenCss(): string {
     '[data-details-workspace] [data-details-editor-panel][data-phone-chrome="panel"]:has([data-details-editor]:not([hidden]) [data-studio-look-bar]){left:0;right:0;bottom:0;height:calc(50dvh - 26px);border-radius:0;box-shadow:none;border-top:1px solid rgb(var(--color-ink)/.1)}' +
     `[data-maker-studio-full]:has([data-details-workspace]${on([...STUDIO_FORM_ITEMS, ...STUDIO_PAGE_ITEMS])}) [data-maker-studio-room]{display:none}` +
     STUDIO_SKIN_CSS +
+    STUDIO_MARCH_CSS +
     '}'
   );
 }

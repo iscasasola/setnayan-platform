@@ -161,7 +161,7 @@ export function hubDraftChangePlace(item: HubDraftItem, live: HubLiveState): { p
         if (keys.length === 2) return { place: DETAILS, what: `Name style, ${PASS_CARD_WORDS.style}` };
       }
       /* 🎉 The When yes celebration is NAMED at Apply (owner 2026-10-06):
-         "RSVP · Celebration · Confetti" — with the RSVP's other edits beside it
+         "RSVP · When they say yes · Confetti" — with the RSVP's other edits beside it
          when they moved too. */
       if (item.column === 'rsvp_ask_config') {
         const liveConfig = live.events.rsvp_ask_config ?? null;

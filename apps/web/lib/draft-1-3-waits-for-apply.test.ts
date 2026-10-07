@@ -23,6 +23,8 @@
  * ⤷ Preview merge 2026-10-08 (the Reply-by field had moved into the shared `ReplyBy` part): `draft`
  * dropped from one Maker mount → B; the part's `if (draft)` line removed → B; the part's live note
  * shown regardless of `draft` → C and the Maker's render (`details-words-and-plans.test.ts`).
+ * ⤷ Train 2026-10-08: the part's `if (draft) makerNeedsRender(); else` taken out (a drafted pick says
+ * "Saved." and the count on ✓ Apply does not move) → B.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -107,6 +109,12 @@ test('B · the Maker writes each into the DRAFT, never the live column', () => {
   assert.ok(stackMounts.length >= 2, `the Maker mounts ${stackMounts.length} editable Reply by fields — the stage and Event Details each have one`);
   for (const mount of stackMounts) assert.match(mount, /\baction=\{replyByAction\}\s+draft\s*\/>$/, 'a Maker Reply by field writes the live date');
   assert.doesNotMatch(read(`${D}/_components/guest-setup/guest-setup-rows.tsx`), /<ReplyBy\b[^>]*\bdraft\b/, 'Guests › Setup drafts Reply by — it has no Apply to publish it');
+  /* ⤷ Train 2026-10-08: a drafted pick is HELD (no render rides on it) and `updatePaxSettings` answers with no
+     bar, so nothing moved the count on ✓ Apply until something else rendered — and the field said "Saved."
+     under a date guests do not read yet. The part asks for the one render a held burst owes (as the
+     thank-you words do) and says nothing; the live door (Guests › Setup has no Apply) keeps its "Saved.". */
+  assert.match(replyByPart, /if \(res\.ok\) \{\s*saved\.current = next;\s*if \(draft\) makerNeedsRender\(\);\s*else setNote\(\{ ok: true, text: 'Saved\.' \}\);\s*return;/, 'a drafted Reply by does not move the count on ✓ Apply — or says "Saved."');
+  assert.match(replyByPart, /import \{[^}]*\bmakerNeedsRender\b[^}]*\} from '@\/lib\/maker-refresh';/, 'the shared Reply by part cannot ask the Maker for its render');
 
   const route = read('app/api/hub-print/[piece]/route.ts');
   assert.match(route, /const draftLine = form\.get\('opening_line_to_draft'\) === '1' && form\.has\('opening_line'\);/);

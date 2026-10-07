@@ -19,14 +19,17 @@ import {
   MOMENT_BY_MAX,
   MOMENT_LINE_MAX,
   MOMENT_PLACE_MAX,
+  MOMENT_TITLE_MAX,
   newMomentId,
   readMomentDate,
   readMomentMedia,
+  withMomentOrder,
   type LoveStoryMoment,
 } from './love-story-moments';
 import { storyStr, type StoryFormRead } from './love-story-words';
 
-export const LOCAL_MOMENT_INTENTS = ['add', 'edit', 'delete', 'arrange'] as const;
+/** ✋ `order` — the couple's own order, a drag of a card in Studio › Love Story (owner 2026-10-07). */
+export const LOCAL_MOMENT_INTENTS = ['add', 'edit', 'delete', 'arrange', 'order'] as const;
 export type LocalMomentIntent = (typeof LOCAL_MOMENT_INTENTS)[number];
 
 /** The moment the form describes, or null when it lacks a year or a line. */
@@ -39,6 +42,9 @@ export function momentFromForm(formData: StoryFormRead, prior: LoveStoryMoment |
   const line = storyStr(formData.get('line'), MOMENT_LINE_MAX);
   if (!date || !line) return null; // a moment needs at least a year and a line
   const place = storyStr(formData.get('place'), MOMENT_PLACE_MAX);
+  /* 📖 The title (owner 2026-10-07). A form without the field keeps the moment's own. */
+  const titleRaw = formData.get('title');
+  const title = titleRaw === null ? (prior?.title ?? '') : storyStr(titleRaw, MOMENT_TITLE_MAX).replace(/\s+/g, ' ');
   const addedBy = storyStr(formData.get('added_by'), MOMENT_BY_MAX);
   const anchorRaw = formData.get('anchor');
   const anchor = anchorRaw === 'met' || anchorRaw === 'yes' ? anchorRaw : undefined;
@@ -46,12 +52,15 @@ export function momentFromForm(formData: StoryFormRead, prior: LoveStoryMoment |
   return {
     id,
     date,
+    ...(title ? { title } : {}),
     line,
     ...(place ? { place } : {}),
     ...(media.length ? { media } : {}),
     ...(addedBy ? { added_by: addedBy } : {}),
     ...(anchor ? { anchor } : {}),
     ...(formData.get('hidden') === 'on' ? { hidden: true } : {}),
+    /* ✋ An edit never moves the moment out of the couple's own order. */
+    ...(typeof prior?.order === 'number' ? { order: prior.order } : {}),
     canvas: prior?.canvas ?? {},
   };
 }
@@ -92,6 +101,15 @@ export function applyMomentIntent(
     return { ok: true, after: oneAnchorEach(list.map((x) => (x.id === id ? m : x)), m), touched: m };
   }
   if (intent === 'delete') return { ok: true, after: list.filter((m) => m.id !== id), touched: null };
+  /* ✋ 'order' — the couple's own order: `order` = every moment's id, first to last. */
+  if (intent === 'order') {
+    const ids = String(formData.get('order') ?? '')
+      .split(',')
+      .map((v) => v.trim())
+      .filter(Boolean);
+    if (ids.length === 0) return { ok: false, error: 'That order did not come through. Please try again.' };
+    return { ok: true, after: withMomentOrder(list, ids), touched: null };
+  }
   // 'arrange' — show on / keep off the Event Hub, per moment.
   if (!prior) return { ok: false, error: 'That moment is no longer here.' };
   const hide = formData.get('hidden') === 'on';

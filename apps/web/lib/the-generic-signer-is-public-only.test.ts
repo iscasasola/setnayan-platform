@@ -217,6 +217,10 @@ const PRIVATE_UPLOADERS: Record<string, number> = {
   'app/vendor-dashboard/shop/_components/docs-body.tsx': 2, // vendor-verification → doc_uploads
   'app/vendor-dashboard/payment-options/_components/add-payment-method.tsx': 1, // thread-files → vendor_payment_methods.qr_r2_key
   'app/dashboard/[eventId]/pabuya/_components/pabuya-manager.tsx': 1, // thread-files → event_egift_methods.qr_r2_key
+  // Studio › E-Gifts › Add your QR (step 4c, 2026-10-07) — the SAME column and
+  // shelf as the manager above, posted through the same `saveEgiftMethod`
+  // (`pabuyaQrPolicy`); its readers are already the manager's.
+  'app/dashboard/[eventId]/launch/_components/studio-tools.tsx': 1, // thread-files → event_egift_methods.qr_r2_key
 };
 
 test('the private-bucket UPLOADERS are exactly the known ones (a new one names its reader first)', () => {

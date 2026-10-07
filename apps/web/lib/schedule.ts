@@ -99,6 +99,9 @@ export type ScheduleBlockRow = {
   run_state: 'upcoming' | 'live' | 'done';
   actual_start_at: string | null;
   actual_end_at: string | null;
+  /** 👥 Who this moment is for (Studio › Schedule › For ▾, migration
+   *  20271265788160). NULL = Everyone; see `lib/schedule-audience.ts`. */
+  audience?: string | null;
 };
 
 /*
@@ -115,7 +118,7 @@ export type ScheduleBlockRow = {
   see `insertScheduleBlocks` — so there is still exactly one copy of the list.
 */
 const SELECT =
-  'block_id,public_id,event_id,label,block_type,start_at,end_at,location,notes,is_public,sort_order,parent_block_id,created_at,run_state,actual_start_at,actual_end_at';
+  'block_id,public_id,event_id,label,block_type,start_at,end_at,location,notes,is_public,sort_order,parent_block_id,created_at,run_state,actual_start_at,actual_end_at,audience';
 
 /**
  * The SAME ordering `fetchScheduleBlocks` asks PostgREST for — `start_at`
@@ -196,7 +199,11 @@ export async function fetchPublicScheduleBlocks(
     .from('event_schedule_blocks')
     .select(SELECT)
     .eq('event_id', eventId)
-    .eq('is_public', true);
+    .eq('is_public', true)
+    // 👥 The guests' schedule is the EVERYONE moments only (For ▾, owner
+    // 2026-10-06/07): a role's moment is that role's Arrive by, never the
+    // whole room's. NULL is Everyone (`lib/schedule-audience.ts`).
+    .is('audience', null);
   // Guest day-of site runs on the SERVICE-ROLE admin client, which BYPASSES
   // RLS — so a coordinator's unreleased prep block must be excluded here in app
   // code (the RLS public_read tightening does not protect the admin path). The

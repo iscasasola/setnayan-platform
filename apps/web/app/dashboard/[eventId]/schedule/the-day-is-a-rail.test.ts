@@ -254,8 +254,8 @@ test('7 · every set of choices is ONE PickMenu — the Maker’s — never a se
     assert.ok(pickMenus[f]! >= 1, `${f} mounts no PickMenu`);
   }
   console.log('PickMenu mounts:', JSON.stringify(pickMenus));
-  // phase · tag a supplier (inspector) · phase · starts · runs for · from · through · by (sheets) · view as (rail)
-  assert.equal(pickMenus['_components/moment-inspector.tsx'], 2);
+  // phase · for (Studio only, owner 2026-10-07) · tag a supplier (inspector) · phase · starts · runs for · from · through · by (sheets) · view as (rail)
+  assert.equal(pickMenus['_components/moment-inspector.tsx'], 3);
   assert.equal(pickMenus['_components/day-sheets.tsx'], 6);
   assert.equal(pickMenus['_components/day-rail.tsx'], 1);
   // A quantity is a −/+ stepper: starts and ends (inspector); starts, runs for, by (sheets).

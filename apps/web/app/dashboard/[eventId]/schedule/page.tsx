@@ -546,6 +546,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
     staged: stagedIds.has(b.block_id),
     responsible_party: rosMeta.get(b.block_id)?.responsible_party ?? null,
     responsible_vendor_ids: rosMeta.get(b.block_id)?.responsible_vendor_ids ?? [],
+    audience: b.audience ?? null,
   }));
   const dayRequests: DayRequest[] = openSuggestions.map((s) => ({
     suggestion_id: s.suggestion_id,

@@ -54,6 +54,8 @@ export const MOMENT_MEDIA_MAX = 4;
 export const MOMENT_LINE_MAX = 600;
 export const MOMENT_PLACE_MAX = 80;
 export const MOMENT_BY_MAX = 40;
+/** 📖 A moment's title (owner 2026-10-07, "THE MISSING FIELDS ARE APPROVED"): a few words, one line. */
+export const MOMENT_TITLE_MAX = 80;
 
 /** The one line a free couple meets at the sixth story or any photo. Owner-worded. */
 export const LOVE_STORY_PRO_LINE = 'Add more stories and your photos';
@@ -80,6 +82,8 @@ export type LoveStoryMoment = {
   id: string;
   /** Absent only on a moment seeded from words that never had a date. */
   date?: MomentDate;
+  /** 📖 Its title — "The first date" (owner 2026-10-07). Absent = untitled, as every moment was before. */
+  title?: string;
   line: string;
   place?: string;
   /** Public-bucket `r2://` refs (Pro). Nothing is copied — a ref points at the original. */
@@ -88,6 +92,12 @@ export type LoveStoryMoment = {
   anchor?: MomentAnchor;
   /** Kept off the Event Hub without being deleted (the Maker's eye). */
   hidden?: boolean;
+  /**
+   * ✋ THE COUPLE'S OWN ORDER (owner 2026-10-07; Studio › Love Story, drag a card):
+   * its place in the story, 0 first. Absent on every moment = the story's own
+   * order (chapter, then date), exactly as before — nothing moves until they drag.
+   */
+  order?: number;
   /** The same canvas every scene carries. `{}` = the theme's defaults. */
   canvas: HubSectionCanvas;
 };
@@ -160,15 +170,19 @@ export function readMoment(raw: unknown): LoveStoryMoment | null {
   if (!line && !place && media.length === 0) return null;
   const addedBy = text(raw.added_by, MOMENT_BY_MAX);
   const anchor = isMomentAnchor(raw.anchor) ? raw.anchor : undefined;
+  const title = text(raw.title, MOMENT_TITLE_MAX).replace(/\s+/g, ' ');
+  const order = intIn(raw.order, 0, MOMENT_MAX - 1);
   return {
     id,
     ...(date ? { date } : {}),
+    ...(title ? { title } : {}),
     line,
     ...(place ? { place } : {}),
     ...(media.length ? { media } : {}),
     ...(addedBy ? { added_by: addedBy } : {}),
     ...(anchor ? { anchor } : {}),
     ...(raw.hidden === true ? { hidden: true } : {}),
+    ...(order !== undefined ? { order } : {}),
     canvas: sanitizeHubCanvas(isObj(raw.canvas) ? raw.canvas : {}),
   };
 }
@@ -283,16 +297,46 @@ export function chapterOf(moment: LoveStoryMoment, all: readonly LoveStoryMoment
 
 export type ChapteredMoment = LoveStoryMoment & { chapter: LoveStoryChapter };
 
-/** The story in reading order: chapter, then date, then the order they were added. */
+/**
+ * The story in reading order: chapter, then date, then the order they were added.
+ *
+ * ✋ …unless the couple put it in their OWN order (Studio › Love Story, a drag —
+ * owner 2026-10-07): then a moment with an `order` takes that place, and one
+ * added since (no `order` yet) follows them in the story's own order. Chapters
+ * are still named from the dates, never re-sorted over the couple's choice.
+ */
 export function sortMoments(moments: readonly LoveStoryMoment[]): ChapteredMoment[] {
   const rank = (c: LoveStoryChapter) => LOVE_STORY_CHAPTERS.indexOf(c);
+  const own = (m: LoveStoryMoment) => (typeof m.order === 'number' ? m.order : Infinity);
   return moments
     .map((m, i) => ({ ...m, chapter: chapterOf(m, moments), i }))
     .sort(
       (a, b) =>
-        rank(a.chapter) - rank(b.chapter) || compareMomentDates(a.date, b.date) || a.i - b.i,
+        (own(a) === own(b) ? 0 : own(a) < own(b) ? -1 : 1) ||
+        rank(a.chapter) - rank(b.chapter) ||
+        compareMomentDates(a.date, b.date) ||
+        a.i - b.i,
     )
     .map(({ i: _i, ...m }) => m);
+}
+
+/** Has the couple put the story in their own order (a drag in Studio › Love Story)? */
+export function hasOwnMomentOrder(moments: readonly LoveStoryMoment[]): boolean {
+  return moments.some((m) => typeof m.order === 'number');
+}
+
+/**
+ * ✋ THE STORY IN THE ORDER THE COUPLE DRAGGED IT TO: every moment named in
+ * `ids` takes its place there (0, 1, 2 …); a moment the list does not name keeps
+ * its place after them, in reading order. Ids that are not in the story are
+ * dropped. Pure — the action and the Maker's instant scrapbook both call it.
+ */
+export function withMomentOrder(moments: readonly LoveStoryMoment[], ids: readonly string[]): LoveStoryMoment[] {
+  const known = new Set(moments.map((m) => m.id));
+  const named = [...new Set(ids)].filter((id) => known.has(id));
+  const rest = sortMoments(moments).map((m) => m.id).filter((id) => !named.includes(id));
+  const place = new Map([...named, ...rest].map((id, i) => [id, i]));
+  return moments.map((m) => ({ ...m, order: place.get(m.id)! }));
 }
 
 export function groupByChapter(
@@ -357,6 +401,8 @@ export type LoveStoryScene = {
   chapter: LoveStoryChapter;
   chapterLabel: string;
   when: string;
+  /** 📖 Its title, or null (owner 2026-10-07). */
+  title: string | null;
   line: string;
   place: string | null;
   media: string[];
@@ -392,6 +438,7 @@ export function loveStoryScenes(loveStory: unknown): LoveStoryScene[] {
       chapter: m.chapter,
       chapterLabel: LOVE_STORY_CHAPTER_LABEL[m.chapter],
       when: formatMomentDate(m.date),
+      title: m.title ?? null,
       line: m.line,
       place: m.place ?? null,
       media: m.media ?? [],
@@ -412,7 +459,9 @@ export function loveStoryScenes(loveStory: unknown): LoveStoryScene[] {
 export function printStoryChapters(loveStory: unknown): PrintStoryChapter[] {
   const out: PrintStoryChapter[] = [];
   for (const s of loveStoryScenes(loveStory)) {
-    const line = s.line.replace(/\s+/g, ' ').trim();
+    const words = s.line.replace(/\s+/g, ' ').trim();
+    // 📖 A titled moment prints its title first — "The first date — We met at…".
+    const line = s.title && words ? `${s.title} — ${words}` : s.title || words;
     const place = s.place?.replace(/\s+/g, ' ').trim() || null;
     if (!line && !place) continue;
     const last = out[out.length - 1];

@@ -1,5 +1,6 @@
 'use server';
 
+import { scheduleAudienceForWrite } from '@/lib/schedule-audience';
 import { revalidatePath } from 'next/cache';
 import { makerQuietWrite } from '@/lib/maker-live-preview';
 import { fromDatetimeLocalValue } from '@/lib/schedule-datetime-local';
@@ -345,9 +346,19 @@ export async function updateScheduleBlock(formData: FormData) {
     location?: string | null;
     notes?: string | null;
     block_type?: ScheduleBlockType;
+    audience?: string | null;
     updated_at: string;
   };
   const patch: Patch = { updated_at: new Date().toISOString() };
+
+  // 👥 For ▾ (owner 2026-10-06/07, "THE MISSING FIELDS ARE APPROVED"): who this
+  // moment is for. Everyone is stored as NULL; an unknown word is refused.
+  const audienceRaw = formData.get('audience');
+  if (audienceRaw !== null) {
+    const audience = scheduleAudienceForWrite(audienceRaw);
+    if (audience === undefined) throw new Error('Invalid audience');
+    patch.audience = audience;
+  }
 
   // The Schedule rail's inspector changes a moment's phase in place (Schedule
   // rebuild, 2026-09-27). Only the ordinary types are accepted here — the two

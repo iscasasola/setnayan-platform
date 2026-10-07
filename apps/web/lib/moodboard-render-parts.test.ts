@@ -190,11 +190,13 @@ test('no inspiration slot both feeds a room/people part AND becomes a place of i
     );
   }
   // …and every slot is accounted for exactly once: place, alias, or one of the
-  // two explicit non-parts. An unclassified slot is a compile error in
+  // explicit non-parts (the two cards of step 4c, 2026-10-07, are inspiration
+  // cards only — never a render part). An unclassified slot is a compile error in
   // SLOT_ROLE; this proves the runtime agrees with the type.
   const places = new Set(renderPartsInGroup('places').map((p) => p.sourceKey));
   for (const slot of MOODBOARD_SLOT_KEYS) {
-    const classified = places.has(slot) || aliased.has(slot) || slot === 'overall' || slot === 'palette';
+    const classified =
+      places.has(slot) || aliased.has(slot) || slot === 'overall' || slot === 'palette' || slot === 'bridal_bouquet' || slot === 'centrepieces';
     assert.ok(classified, `inspiration slot "${slot}" is not classified anywhere`);
   }
 });

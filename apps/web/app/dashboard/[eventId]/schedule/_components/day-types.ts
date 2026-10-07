@@ -21,6 +21,8 @@ export type DayMoment = {
   staged: boolean;
   responsible_party: string | null;
   responsible_vendor_ids: string[];
+  /** 👥 For ▾ — who this moment is for; NULL/absent = Everyone (`lib/schedule-audience.ts`). */
+  audience?: string | null;
 };
 
 export type DayRequest = {

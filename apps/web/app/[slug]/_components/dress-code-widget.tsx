@@ -278,6 +278,13 @@ export function DressCodeWidget({
   // 🏠 The Welcome page's half says only what is this reader's own — or nothing.
   if (part === 'you' && !mine && !march) return null;
 
+  /* 🚶 WHERE YOU WALK — one drawing, under "You are …" here and under Me's "Your role". */
+  const marchLine = march ? (
+    <p className="text-base leading-snug text-ink" data-dress-code="march">
+      {marchPlaceLine(march)}
+    </p>
+  ) : null;
+
   /* 👤 THE FOR-EACH-GUEST PARTS — one fact each, from the SAME `mine` (owner
      2026-10-06). A part whose fact is unset draws nothing. */
   if (part === 'role') {
@@ -289,11 +296,7 @@ export function DressCodeWidget({
           <span>Your role</span>
         </p>
         <p className="font-pahina text-2xl font-light leading-snug tracking-tight text-ink">{named}</p>
-        {march ? (
-          <p className="text-base leading-snug text-ink/80" data-dress-code="march">
-            {marchPlaceLine(march)}
-          </p>
-        ) : null}
+        {marchLine}
       </section>
     );
   }
@@ -457,11 +460,7 @@ export function DressCodeWidget({
           </p>
           {/* 🚶 WHERE YOU WALK (owner 2026-09-29) — under the same "You are" line,
               so a walker whose role has no outfit line still reads it. */}
-          {march ? (
-            <p className="text-base leading-snug text-ink" data-dress-code="march">
-              {marchPlaceLine(march)}
-            </p>
-          ) : null}
+          {marchLine}
           {mine ? (
           <>
           {/* WHERE THE ANSWER CAME FROM — said only when it came from the group.

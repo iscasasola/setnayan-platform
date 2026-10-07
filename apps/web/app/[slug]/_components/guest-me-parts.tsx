@@ -5,7 +5,7 @@ import type { GuestRole } from '@/lib/guests';
 import type { MarchPlace } from '@/lib/march-place';
 import type { PaletteLookId } from '@/lib/palette-looks';
 import type { RoleNames } from '@/lib/role-names';
-import { GUEST_ME_PART_LABEL, type GuestMePart, type ReplyCard } from '@/lib/guest-me-parts';
+import type { GuestMePart, ReplyCard } from '@/lib/guest-me-parts';
 import { DressCodeWidget } from './dress-code-widget';
 
 /**
@@ -52,7 +52,7 @@ export function GuestMeParts({
         p === 'guests' ? (
           <section key={p} className="space-y-2" data-me-part="guests">
             <p className="pahina-eyebrow">
-              <span>{GUEST_ME_PART_LABEL.guests}</span>
+              <span>Coming with you</span>
             </p>
             <ul className="space-y-1">
               {comingWith.map((name, i) => (

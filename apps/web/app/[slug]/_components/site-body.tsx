@@ -2188,9 +2188,19 @@ export async function SiteBody({
             solemn: clientWords.solemn,
           })
         : null;
-    /* 🏠 One home per fact: once Me draws this guest's role and outfit, the
-       Welcome no longer repeats them (DECISION_LOG 2026-10-06 "'YOUR DETAILS'
-       LIVES ON INVITATION › ME"). */
+    /* 👗 THIS GUEST'S OWN LOOK — read once, for the Welcome's "you" panel and
+       for Me's parts (one home per fact: when Me draws them, the Welcome's
+       look stands down — DECISION_LOG 2026-10-06 "'YOUR DETAILS' LIVES ON
+       INVITATION › ME"). */
+    const guestLook = {
+      config: event.dress_code_config ?? null,
+      ceremonyType: dressRiteOf(event),
+      genderSeparation: (event as { gender_separation?: string | null }).gender_separation ?? null,
+      guestRole: guest.role ?? null,
+      march: marchPlaceOf(entourage, guest.guest_id),
+      rolePalette: event.role_palette,
+      paletteLook: paletteLookOfRow(widgetByType(widgets, 'dress_code')),
+    };
     const welcome = welcomeParts({
       stage: pageStage,
       bodyNormal: plan.body === 'normal',
@@ -2200,7 +2210,7 @@ export async function SiteBody({
       reminders: event.what_to_bring,
       giftHref: doorways.pabuya,
       maker: false,
-    }).filter((p) => !(p === 'look' && meParts.length > 0));
+    });
     const detailsScenes = scenesLeftForDetails(plan.hideableInOrder, welcome);
     // 📱 On a tabbed page the "Our love story" scene is Our Love Story's page —
     // see the stranger's tree above. It moves; it is never drawn twice.
@@ -2385,7 +2395,7 @@ export async function SiteBody({
       key={widget.widget_id}
       widget={widget}
       /* 🏠 This guest's own look is on Welcome (or on Me); Details keeps everyone's. */
-      dressCodeGeneral={welcome.includes('look') || meParts.length > 0}
+      dressCodeGeneral={welcome.includes('look')}
       stage={pageStage}
       canvasMediaUrls={canvasMediaUrls}
       hubTheme={sceneTheme}
@@ -3046,15 +3056,9 @@ export async function SiteBody({
               <GuestWelcome
                 parts={welcome}
                 words={clientWords}
-                look={{
-                  config: event.dress_code_config ?? null,
-                  ceremonyType: dressRiteOf(event),
-                  genderSeparation: (event as { gender_separation?: string | null }).gender_separation ?? null,
-                  guestRole: guest.role ?? null,
-                  march: marchPlaceOf(entourage, guest.guest_id),
-                  rolePalette: event.role_palette,
-                  paletteLook: paletteLookOfRow(widgetByType(widgets, 'dress_code')),
-                }}
+                /* 🏠 One home per fact: once Me draws this guest's role and
+                   outfit (`meParts`), the Welcome's look stands down. */
+                look={meParts.length > 0 ? null : guestLook}
                 reminders={
                   remindersScene ? (
                     <HideableWidgetRender
@@ -3296,16 +3300,7 @@ export async function SiteBody({
               <GuestMeParts
                 parts={meParts}
                 words={clientWords}
-                look={{
-                  config: event.dress_code_config ?? null,
-                  ceremonyType: dressRiteOf(event),
-                  genderSeparation: (event as { gender_separation?: string | null }).gender_separation ?? null,
-                  guestRole: guest.role ?? null,
-                  march: marchPlaceOf(entourage, guest.guest_id),
-                  rolePalette: event.role_palette,
-                  roleNames,
-                  paletteLook: paletteLookOfRow(widgetByType(widgets, 'dress_code')),
-                }}
+                look={{ ...guestLook, roleNames }}
                 comingWith={comingWith}
               />
             ) : null}

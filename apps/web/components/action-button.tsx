@@ -175,35 +175,71 @@ export const ActionButton = forwardRef<HTMLButtonElement | HTMLAnchorElement, Ac
   },
 );
 
-/* ─── useFitRow — rule 3, the fit pass ─────────────────────────────────────
- * Ported from the prototype's `fitActs()`: clear every `icon-only` the pass
- * added, then walk the SECONDARY buttons right-to-left adding `icon-only`
- * until `scrollWidth ≤ clientWidth`. The main verb (`.ab-main`) is never
- * dropped. The row is made `min-width: 0` so it can be narrower than its
- * content (otherwise it never overflows and nothing drops). Buttons rendered with `iconOnly` stay icon-only (the pass only
- * touches the ones it marked, tagged `data-fit-dropped`). Re-runs whenever
- * the row resizes, and when its children change. */
+/* ─── useFitRow — rules 3, 3a and 3b, the fit pass ─────────────────────────
+ * Owner 2026-10-07 (corpus BUTTON_RULE, 3a): *"the 3 buttons will all be
+ * icons at the same time, or text at the same time or icon with text at the
+ * same time. not each"*. So a row has ONE state, written to `data-fit` on the
+ * row, tried in order until the row fits:
+ *     full  → every button icon + word
+ *     word  → every button word only (icons hidden)
+ *     icon  → every SECONDARY button icon only; the main verb keeps its word
+ *             (rule 3: "the main verb always keeps its word"), shown word-only.
+ * Never a mix of secondaries. (Supersedes the prototype's one-at-a-time
+ * `fitActs()`.)
+ * 3b: a text field in the row (`input` / `textarea` / `[data-fit-field]`) keeps
+ * ≥ 60% of the row's width — the hook pins its `min-width: 60%`, and a state
+ * only "fits" when the field still has that share. The buttons adapt, never
+ * the field.
+ * The row is made `min-width: 0` so it can be narrower than its content
+ * (otherwise it never overflows and nothing changes). Buttons rendered with
+ * `iconOnly` are a deliberate icon toolbar and are left alone. Re-runs when
+ * the row resizes and when its children change. */
 
 const useIsoLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
-/** One fit pass over a row; returns how many words it dropped. Exported for the guard. */
-export function fitRow(row: HTMLElement): number {
+export type FitState = 'full' | 'word' | 'icon';
+export const FIT_STATES: readonly FitState[] = ['full', 'word', 'icon'] as const;
+/** 3b — the share of the row a text field never gives up. */
+export const FIELD_FLOOR = 0.6;
+const FIELD_SELECTOR = 'input:not([type=checkbox]):not([type=radio]):not([type=hidden]), textarea, [data-fit-field]';
+
+function applyState(buttons: HTMLElement[], state: FitState): void {
+  for (const b of buttons) {
+    if (b.hasAttribute('data-fit-pinned')) continue;
+    const main = b.classList.contains('ab-main');
+    b.classList.remove('icon-only', 'word-only');
+    if (state === 'word' || (state === 'icon' && main)) b.classList.add('word-only');
+    else if (state === 'icon') b.classList.add('icon-only');
+  }
+}
+
+function fits(row: HTMLElement, field: HTMLElement | null): boolean {
+  if (row.scrollWidth > row.clientWidth + 1) return false;
+  if (field && field.offsetWidth + 1 < FIELD_FLOOR * row.clientWidth) return false;
+  return true;
+}
+
+/** One fit pass over a row; returns the state it chose. Exported for the guard. */
+export function fitRow(row: HTMLElement): FitState {
   const buttons = Array.from(row.querySelectorAll<HTMLElement>('.ab'));
   for (const b of buttons) {
-    if (b.hasAttribute('data-fit-dropped')) {
-      b.classList.remove('icon-only');
-      b.removeAttribute('data-fit-dropped');
+    // A button rendered icon-only (and never touched by the pass) is pinned.
+    if (!b.hasAttribute('data-fit-seen')) {
+      b.setAttribute('data-fit-seen', '');
+      if (b.classList.contains('icon-only')) b.setAttribute('data-fit-pinned', '');
     }
   }
-  const secondary = buttons.filter((b) => !b.classList.contains('ab-main') && !b.classList.contains('icon-only')).reverse();
-  let dropped = 0;
-  for (const b of secondary) {
-    if (row.scrollWidth <= row.clientWidth + 1) break;
-    b.classList.add('icon-only');
-    b.setAttribute('data-fit-dropped', '');
-    dropped += 1;
+  const field = row.querySelector<HTMLElement>(FIELD_SELECTOR);
+  let chosen: FitState = 'icon';
+  for (const state of FIT_STATES) {
+    applyState(buttons, state);
+    if (fits(row, field)) {
+      chosen = state;
+      break;
+    }
   }
-  return dropped;
+  row.setAttribute('data-fit', chosen);
+  return chosen;
 }
 
 export function useFitRow(ref: RefObject<HTMLElement | null>): void {
@@ -218,6 +254,9 @@ export function useFitRow(ref: RefObject<HTMLElement | null>): void {
     // A row that cannot shrink never overflows, so the measure would lie
     // (the prototype's `.detail{min-width:0}` bug). Make it shrinkable.
     if (getComputedStyle(row).minWidth === 'auto') row.style.minWidth = '0';
+    // 3b — the field holds its 60%; the buttons are what give.
+    const field = row.querySelector<HTMLElement>(FIELD_SELECTOR);
+    if (field) field.style.minWidth = `${FIELD_FLOOR * 100}%`;
     run();
     const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(run) : null;
     ro?.observe(row);

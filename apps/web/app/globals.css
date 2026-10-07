@@ -7650,7 +7650,8 @@ html:has(.hub-shape-full) { overflow-x: clip; }
  * Tone → token (globals :root above): brand=mulberry · ok · info · warn ·
  * danger · neutral=ink. `main` = filled (white label); the rest = outlined on
  * a 9% wash of the tone, word in the tone. `.icon-only` hides the word when
- * `useFitRow` runs out of width — `aria-label` still carries it. A fitted row
+ * `useFitRow` runs out of width — `aria-label` still carries it; `.word-only`
+ * is the middle state. A row changes state AS ONE (rule 3a). A fitted row
  * must be a `min-width: 0` flex/grid child or its width never shrinks and the
  * measure lies (the prototype's `.detail{min-width:0}` bug) — the hook sets it.
  * Measured ratios are in the token comment, not repeated here. */
@@ -7684,6 +7685,8 @@ html:has(.hub-shape-full) { overflow-x: clip; }
 .ab:disabled, .ab[aria-disabled='true'] { opacity: 0.35; cursor: not-allowed; transform: none; }
 .ab.icon-only { width: 40px; padding: 0; }
 .ab.icon-only .lbl { display: none; }
+/* 3a's middle state — a row too narrow for icon + word shows words only. */
+.ab.word-only svg { display: none; }
 .ab-brand { --ab-tone: var(--color-mulberry); --ab-word: var(--color-mulberry-700); }
 .ab-ok { --ab-tone: var(--color-ok); }
 .ab-info { --ab-tone: var(--color-info); }

@@ -48,6 +48,11 @@ import { cache } from 'react';
  * that follows a write starts from an empty Map, so it can never show the
  * answer from before the write.
  *
+ * (A render's own `after()` callbacks keep that render's scope — Next carries
+ * the request's context into them — exactly as every other `cache()` in the
+ * app already does. An `after()` registered by an ACTION has no render, so it
+ * remembers nothing.)
+ *
  * ⛔ NEVER a module-level Map. That would be shared by every request on the
  * instance — one couple's answer served to the next, and a paid order unseen
  * until the function recycled.

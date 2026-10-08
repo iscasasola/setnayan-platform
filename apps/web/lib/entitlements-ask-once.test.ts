@@ -7,7 +7,7 @@
  * out of pooled connections and plain reads came back 504. Measured on one
  * server render (a local run against a counting stand-in — never production):
  *
- *     the Maker page         37 entitlement requests   (COUPLE_WEBSITE_PRO asked 9 times)
+ *     the Maker page         36 entitlement requests   (COUPLE_WEBSITE_PRO asked 9 times)
  *     one guest page         32 entitlement requests   (7 products × the whole chain)
  *
  * and one Maker open drew the Maker page plus up to four guest pages.

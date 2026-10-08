@@ -13,13 +13,13 @@ for Supabase — never production; an internal-hosted event with nothing bought 
 | One server render | Before | After |
 |---|---|---|
 | Maker page — all requests | 180 | 148 |
-| Maker page — entitlement shapes (orders · basket · comp · internal host · bundles) | 37 | 4 |
+| Maker page — entitlement shapes (orders · basket · comp · internal host · bundles) | 36 | 4 |
 | Guest page (the Maker's canvas) — all requests | 63 | 35 |
 | Guest page — entitlement shapes | 32 | 4 |
 | Guest pages one Maker OPEN renders (the canvas + the stages fetched ahead) | 2–4 | 1 |
 | …and again after every save that reloaded the canvas | 2–4 | 1 |
 | **One Maker open, all requests** | **306–432** | **183** |
-| **One Maker open, entitlement requests** | **101–165** | **8** |
+| **One Maker open, entitlement requests** | **100–164** | **8** |
 
 **Cause.** "Does this event hold X?" walked orders → each granting bundle → basket → comp →
 internal host → founder seat **per product**, and nothing remembered an answer: the readers take a

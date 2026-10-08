@@ -15,6 +15,7 @@ import { MainBackgroundPanel, type MovingBackgroundOption } from '@/app/dashboar
 import { ColorsPanel } from '@/app/dashboard/[eventId]/website/editor/_components/pro-panels';
 import { SiteChromePanel } from '@/app/dashboard/[eventId]/website/editor/_components/media-panels';
 import { ButtonsLookRow } from '@/app/dashboard/[eventId]/website/editor/_components/buttons-look-row';
+import { FontsLookRows } from '@/app/dashboard/[eventId]/website/editor/_components/fonts-look-rows';
 import { LookSample } from '@/app/dashboard/[eventId]/launch/_components/look-sample';
 import { INVITE_THEMES } from '@/lib/invite-themes';
 import { hubButtonPage } from '@/lib/hub-buttons';
@@ -209,7 +210,12 @@ export function MakerLabShell({
     },
     font: {
       label: 'Font',
-      node: <ColorsPanel action={formDraft} eventId={eventId} rowKey="font" part="font" bgColor={null} buttonColor={null} artDirection={null} fontKey={null} proMark="try" />,
+      /* 🔤 The Studio's four font rows, on the lab's own draft stand-in (no write leaves the lab). */
+      node: stagesStudio ? (
+        <FontsLookRows eventId={eventId} themeId="house" fontKey={null} roles={null} draftAction={labDraft as never} />
+      ) : (
+        <ColorsPanel action={formDraft} eventId={eventId} rowKey="font" part="font" bgColor={null} buttonColor={null} artDirection={null} fontKey={null} proMark="try" />
+      ),
     },
     /* 🌈 The page fill — Look › Background's since 2026-10-08 (`LOOK_ROW_OF.page`). */
     'page-colour': {
@@ -289,6 +295,7 @@ export function MakerLabShell({
                   site_button_style: null,
                   site_font_key: null,
                   site_art_direction: null,
+                  site_roles: null,
                 },
                 main: mainBackground ?? null,
                 coverRef: null,

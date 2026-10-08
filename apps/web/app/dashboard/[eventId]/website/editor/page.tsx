@@ -202,7 +202,7 @@ export default async function WebsiteEditorPage({
   const { data: event, error: eventError } = await supabase
     .from('events')
     .select(
-      `event_id, display_name, slug, event_type, event_date, event_end_date, timezone, venue_name, venue_address, landing_page_visibility, ticket_url, std_launched_at, scheduled_launch_at, website_open_browse, launch_mode, manual_phase, love_story, our_photos, site_bg_music_r2_key, landing_page_hero_image_url, site_art_direction, site_bg_color, site_button_color, site_button_style, site_font_key, site_magic_traveller, special_message, what_to_bring, site_bg_music_enabled, landing_page_hero_video_r2_key, couple_media_bytes, dress_code_config, photo_moments_config, role_palette, std_reveal_template, std_theme, std_background, invite_theme, std_invitation_launch_date, rsvp_backdrop, bride_name, print_details, gifts_on, ${SECTION_CONTENT_EVENT_COLUMNS}`,
+      `event_id, display_name, slug, event_type, event_date, event_end_date, timezone, venue_name, venue_address, landing_page_visibility, ticket_url, std_launched_at, scheduled_launch_at, website_open_browse, launch_mode, manual_phase, love_story, our_photos, site_bg_music_r2_key, landing_page_hero_image_url, site_art_direction, site_bg_color, site_button_color, site_button_style, site_font_key, site_roles, site_magic_traveller, special_message, what_to_bring, site_bg_music_enabled, landing_page_hero_video_r2_key, couple_media_bytes, dress_code_config, photo_moments_config, role_palette, std_reveal_template, std_theme, std_background, invite_theme, std_invitation_launch_date, rsvp_backdrop, bride_name, print_details, gifts_on, ${SECTION_CONTENT_EVENT_COLUMNS}`,
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -891,6 +891,8 @@ export default async function WebsiteEditorPage({
               eventId={eventId}
               rowKey="font"
               part="font"
+              /* 🔤 The Studio draws four rows here — it needs the other three fonts too (`events.site_roles`). */
+              siteRoles={(drafted as { site_roles?: unknown }).site_roles ?? null}
               themeId={currentThemeId}
               bgColor={(drafted.site_bg_color as string | null) ?? null}
               buttonColor={(drafted.site_button_color as string | null) ?? null}
@@ -1576,6 +1578,7 @@ export default async function WebsiteEditorPage({
                 site_button_style: (drafted as { site_button_style?: string | null }).site_button_style ?? null,
                 site_font_key: (drafted as { site_font_key?: string | null }).site_font_key ?? null,
                 site_art_direction: (drafted.site_art_direction as 'daylight' | 'candlelight' | null) ?? null,
+                site_roles: (drafted as { site_roles?: unknown }).site_roles ?? null,
               },
               main: mainNow,
               coverRef: draftedHero.photoRef,

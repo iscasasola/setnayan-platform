@@ -35,6 +35,7 @@ import { compositeOver } from './hub-legibility';
 import { INVITE_THEMES, type InviteThemeId } from './invite-themes';
 import { mainGroundShade, shadeWordVars } from './main-ground-shade';
 import { ombreLook, ombreRamp, parseSiteBackground } from './ombre';
+import { siteFontLook } from './site-role-look';
 import { buildCustomSiteColorVars } from './site-palette';
 import { dressedTheme, paletteColourVars } from './theme-colours';
 import { pageWordBase, pinPlateInk, pinWordInks, proSiteVarsFor, shadeWordInks } from '@/app/[slug]/_lib/pro-site-vars';
@@ -47,6 +48,8 @@ export type LookSampleRow = {
   site_button_style: string | null;
   site_font_key: string | null;
   site_art_direction: 'daylight' | 'candlelight' | null;
+  /** 🔤 `events.site_roles` — the Headings · Text · Labels & buttons fonts (`lib/site-roles.ts`). */
+  site_roles: unknown;
 };
 
 /** What the guest scope wears (`GuestLookScope`): two attributes, the inline variables, the ombré, the buttons. */
@@ -56,6 +59,8 @@ export type LookSampleScope = {
   vars: Record<string, string> | null;
   ombre: string | null;
   buttons: HubButtonsLook | null;
+  /** 🔤 `data-hub-roles` — the marks of the fonts the couple chose (`siteFontLook`), or null. */
+  roles: string | null;
 };
 
 /**
@@ -82,6 +87,10 @@ export function lookSampleScope(event: LookSampleRow, themeId: InviteThemeId): L
 
   vars = pinWordInks(vars, pageWordBase(themeId, palette, event.site_art_direction === 'candlelight' ? 'candlelight' : null), ramp);
 
+  /* 🔤 The couple's four fonts, layered last — as the guest page (`guestLookFrom`). */
+  const fonts = siteFontLook(event.site_font_key, event.site_roles);
+  if (Object.keys(fonts.vars).length > 0) vars = { ...(vars ?? {}), ...fonts.vars };
+
   const painted = vars && Object.keys(vars).length > 0 ? pinPlateInk(vars, themeId) : null;
   const buttons = resolveHubButtons({
     style: event.site_button_style,
@@ -97,6 +106,7 @@ export function lookSampleScope(event: LookSampleRow, themeId: InviteThemeId): L
     vars: painted,
     ombre,
     buttons,
+    roles: fonts.marks,
   };
 }
 

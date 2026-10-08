@@ -6,7 +6,6 @@ import { LANDING_WORDS } from '@/lib/guest-landing';
 import { AmbientEffectLayer } from '@/app/[slug]/_components/ambient-effect';
 import { ambientWash } from '@/lib/ambient-effects';
 import { hubMainEffect, isHubMainFollow, type HubMainGround } from '@/lib/hub-canvas';
-import { hubFontVars } from '@/lib/hub-fonts';
 import type { InviteThemeId } from '@/lib/invite-themes';
 import { lookEffectOn, lookSampleEffect, lookSampleGround, lookSampleScope, type LookSampleRow } from '@/lib/look-sample';
 import { lookSampleVersion, readLookSample, subscribeLookSample, tellLookSampleWorn, type LookSampleValues } from '@/lib/look-sample-store';
@@ -77,6 +76,7 @@ function useLookSample(seed: LookSampleSeed) {
     bg: seed.row.site_bg_color,
     art: seed.row.site_art_direction,
     fontKey: seed.row.site_font_key,
+    roles: seed.row.site_roles ?? null,
     buttonStyle: seed.row.site_button_style,
     buttonColour: seed.row.site_button_color,
     music: seed.musicOn,
@@ -103,6 +103,7 @@ export function LookSample({ seed }: { seed: LookSampleSeed }) {
     return () => holdCanvasRedraw(false);
   }, [onScreen]);
   const five = now.fivePicked;
+  const rolesKey = JSON.stringify(now.roles ?? null);
   const fiveKey = five ? five.join() : '';
 
   /* The drafted row with every pick laid over — what the guest page would read after Apply. */
@@ -115,10 +116,11 @@ export function LookSample({ seed }: { seed: LookSampleSeed }) {
       site_button_color: now.buttonColour ?? null,
       site_button_style: now.buttonStyle ?? null,
       site_font_key: now.fontKey ?? null,
+      site_roles: now.roles ?? null,
       site_art_direction: now.art ?? null,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `fiveKey` is the five by content
-    [seed.row.role_palette, seed.themeId, fiveKey, now.bg, now.buttonColour, now.buttonStyle, now.fontKey, now.art],
+    [seed.row.role_palette, seed.themeId, fiveKey, now.bg, now.buttonColour, now.buttonStyle, now.fontKey, rolesKey, now.art],
   );
   const main = now.main ?? null;
   const followsCover = isHubMainFollow(main) ? main.of === seed.coverRef : false;
@@ -156,8 +158,9 @@ export function LookSample({ seed }: { seed: LookSampleSeed }) {
   }, [seed.eventId, seed.words.names, effectOn, wornVeil]);
 
   const style = {
+    /* The couple's fonts are IN the scope's variables (`proSiteVarsFor` → `hubFontVars`, then `siteFontLook`) — as on the
+       guest page. They are not spread a second time: that put the Names face back over a Headings face. */
     ...(scope.vars ?? {}),
-    ...hubFontVars(row.site_font_key),
     ...(scope.buttons?.vars ?? {}),
     /* A picture's tint and a dark shade's flipped words win over the scope, as the guest page's `!important` sheet does. */
     ...(picture ? ground.vars : {}),
@@ -182,6 +185,8 @@ export function LookSample({ seed }: { seed: LookSampleSeed }) {
       data-guest-look=""
       data-hub-btn-shape={scope.buttons?.shape ?? undefined}
       data-hub-btn-paint={scope.buttons?.paint ?? undefined}
+      /* 🔤 The marks of the fonts the couple chose — the guest scope's own attribute, so the page's own rules apply here. */
+      data-hub-roles={scope.roles ?? undefined}
       style={style}
       aria-label="Sample of your Event Hub"
       role="img"
@@ -221,7 +226,10 @@ export function LookSample({ seed }: { seed: LookSampleSeed }) {
         <p data-look-sample-eyebrow="" className="mb-1.5 font-mono text-[9.5px] font-semibold uppercase tracking-[0.22em] text-terracotta-700">
           {EYEBROW}
         </p>
-        <p data-look-sample-names="" className="font-display text-[30px] font-medium leading-[1.05] text-ink">
+        {/* 🔤 THE NAMES, AS THE HERO DRAWS THEM: `font-pahina` + `data-hub-names` (`pahina-masthead.tsx`). Until 2026-10-08 this
+            line was `font-display` — the headings' face — and so showed the names in a font the guest page never used for
+            them: the SAMPLE was the one that was wrong. */}
+        <p data-look-sample-names="" data-hub-names="" className="font-pahina text-[30px] font-medium leading-[1.05] text-ink">
           {second ? (
             <>
               {first} <em className="text-[0.85em] font-normal italic text-gild">&amp;</em> {second}

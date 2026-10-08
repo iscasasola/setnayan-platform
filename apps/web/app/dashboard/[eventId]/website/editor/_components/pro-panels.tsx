@@ -3,11 +3,13 @@
 import { sanitizeHubFontKey } from '@/lib/hub-fonts';
 import { tellLookSample } from '@/lib/look-sample-store';
 import { FontPick } from './font-pick';
+import dynamic from 'next/dynamic';
+
 import { MAGIC_TRAVELLERS, MAGIC_TRAVELLER_LABEL } from '@/lib/magic-move';
 import Link from 'next/link';
 import { useState } from 'react';
 import { WEBSITE_PRO_ITEMS } from '@/lib/website-pro-items';
-import { INVITE_THEMES, LEGACY_THEME_ALIASES, type InviteThemeId } from '@/lib/invite-themes';
+import { INVITE_THEMES, LEGACY_THEME_ALIASES, type InviteThemeId, isInviteThemeId } from '@/lib/invite-themes';
 import {
   BACKGROUND_EFFECTS,
   BACKGROUND_EFFECT_LABEL,
@@ -89,6 +91,10 @@ export function ProLockPanel({
   );
 }
 
+/* 🔤 The Studio's four font rows (`fonts-look-rows.tsx`) — loaded when the Studio's Font part is drawn: they hold the
+   draft door (a server action), which this file's other callers — and its static renders — must not pull in. */
+const FontsLookRows = dynamic(() => import('./fonts-look-rows').then((m) => m.FontsLookRows));
+
 export function ColorsPanel({
   action,
   eventId,
@@ -97,6 +103,7 @@ export function ColorsPanel({
   buttonColor,
   artDirection,
   fontKey = null,
+  siteRoles = null,
   magicTraveller = null,
   proLocked = false,
   proLock = null,
@@ -158,6 +165,8 @@ export function ColorsPanel({
    * once owned, none in the store shell.
    */
   proMark?: PaidMarkState | null;
+  /** 🔤 `events.site_roles`, the draft over live — the Headings · Text · Labels & buttons fonts (the Studio's Font part). */
+  siteRoles?: unknown;
 }) {
   const mark = proMark ? <PaidMark state={proMark} label={paidMarkLabel(proMark, 'Event Hub Pro')} size="xs" /> : null;
   /* 🌗 In the new Maker's Studio, Candlelight is Background › Shade ▾'s darkest step (owner 2026-10-08, the Look
@@ -210,6 +219,12 @@ export function ColorsPanel({
      a mark already set to travel keeps travelling on the guest page (`the-mark-travels-or-sits-still.test.ts`).
      In the Studio, where Candlelight is Background › Shade ▾'s, that leaves this part with nothing to draw. */
   if (shadeHoldsArt) return null;
+  /* 🔤 IN THE STUDIO THE FONT PART IS FOUR ROWS (owner 2026-10-08, round 5: "more than just 2 types of fonts") —
+     Fonts ▾ · Names · Headings · Text · Labels & buttons, each drafted by its own pick (`fonts-look-rows.tsx`), so
+     there is no form to post. The shipped Maker keeps its one Typeface row below (it is the Names font). */
+  if (part === 'font' && maker?.stagesStudio === true) {
+    return <FontsLookRows eventId={eventId} themeId={isInviteThemeId(themeId) ? themeId : 'house'} fontKey={sanitizeHubFontKey(fontKey)} roles={siteRoles} />;
+  }
   return (
     <form action={action} data-look-form={part ?? undefined} className={flush ? 'flex flex-col' : 'border-t border-dashed border-ink/10 bg-cream/40 p-3'}>
       {/* Into the draft (`updateSiteColors`' door) — a free couple may TRY the

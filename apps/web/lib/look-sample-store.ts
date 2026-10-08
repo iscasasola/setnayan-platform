@@ -35,8 +35,10 @@ export type LookSampleValues = {
   art: 'daylight' | 'candlelight' | null;
   /** `events.role_palette.reception` — the Mood Board's five. */
   five: readonly string[];
-  /** `events.site_font_key` — the Headings face. */
+  /** `events.site_font_key` — the Names face. */
   fontKey: string | null;
+  /** `events.site_roles` — the Headings · Text · Labels & buttons faces (`lib/site-roles.ts`). */
+  roles: unknown;
   /** `events.site_button_style` / `events.site_button_color`. */
   buttonStyle: string | null;
   buttonColour: string | null;

@@ -133,6 +133,12 @@ export type DoorShellProps = {
   eyebrow?: React.ReactNode;
   /** The one sentence a stranger reads first. */
   title: React.ReactNode;
+  /**
+   * 🔤 The title IS the couple's names (the invitation's header, on a door that wears the Event Hub's look): it then
+   * carries `data-hub-names`, and wears the couple's Names font where they chose one (`globals.css`, "THE COUPLE'S
+   * FOUR FONTS"). Off by default — every other door's title is a sentence, not names.
+   */
+  titleIsNames?: boolean;
   /** One supporting sentence. Two is a paragraph, and a door is not a page. */
   sub?: React.ReactNode;
   /**
@@ -182,6 +188,7 @@ const WIDTH: Record<'md' | 'lg', string> = {
 export function DoorShell({
   eyebrow,
   title,
+  titleIsNames = false,
   sub,
   meta,
   tone = 'threshold',
@@ -329,7 +336,7 @@ export function DoorShell({
               </p>
             ) : null}
 
-            <h1 className="font-serif text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
+            <h1 {...(titleIsNames ? { 'data-hub-names': '' } : {})} className="font-serif text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
               {title}
             </h1>
 

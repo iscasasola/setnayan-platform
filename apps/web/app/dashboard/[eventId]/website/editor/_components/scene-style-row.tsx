@@ -30,11 +30,12 @@ import { PickMenu } from './pick-menu';
 import { useSceneCanvas } from './use-scene-canvas';
 import { noteDraftedCanvas } from '@/lib/maker-draft-store';
 import type { ElementDraftAction } from './element-sheet';
-import { PaletteLookRow } from './palette-look-row';
+import { PaletteLookCards, PaletteLookRow } from './palette-look-row';
 import { PALETTE_LOOK_DEFAULT, layoutDrawsPaletteLook, resolvePaletteLook } from '@/lib/palette-looks';
 import { useMaker } from '../../../launch/_components/maker-context';
 import { StyleCards } from '../../../launch/_components/stage-panel/style-carousel';
 import { Dd } from '../../../launch/_components/stage-panel/kit';
+import { useStagePanelNow } from '../../../launch/_components/stage-panel/store';
 import {
   HUB_ELEMENT_ALIGNS,
   HUB_ELEMENT_ALIGN_LABEL,
@@ -243,15 +244,33 @@ export function PaletteLookCanvasRow({
     { redraw: true },
   );
   const layout = resolveSceneStyle('dress_code', 'rsvp', shown.style, eventType);
+  /* 🖼 The Stages panel, on the Dress code part: the looks are PICTURES (owner 08 Oct: *"palette should show the
+     actual previews like the other styles"*), drawn by the shared look-card renderer. Studio › Look › Colours
+     keeps the dropdown — the page under it may be a stage that draws no Dress code to picture. */
+  const cards = useMaker()?.stagesStudio === true;
+  const onDressPart = useStagePanelNow().picked === 'dress';
   if (colours.length === 0 || !layoutDrawsPaletteLook(layout)) return null;
+  /* Tags is the default, and "Auto is an absence": picking it clears the key. */
+  const pick = (id: string) => save((c) => { if (id === PALETTE_LOOK_DEFAULT) delete c.palette; else c.palette = id; });
+  if (cards && onDressPart) {
+    return (
+      <>
+        <PaletteLookCards value={resolvePaletteLook(shown.palette)} pending={pending} onPick={pick} />
+        {error ? (
+          <p role="alert" className="shrink-0 py-1 text-[12.5px] font-semibold text-terracotta-700">
+            {error}
+          </p>
+        ) : null}
+      </>
+    );
+  }
   return (
     <div data-look-palette="">
       <PaletteLookRow
         value={resolvePaletteLook(shown.palette)}
         colours={colours}
         pending={pending}
-        /* Tags is the default, and "Auto is an absence": picking it clears the key. */
-        onPick={(id) => save((c) => { if (id === PALETTE_LOOK_DEFAULT) delete c.palette; else c.palette = id; })}
+        onPick={pick}
       />
       {error ? (
         <p role="alert" className="py-2 text-[12.5px] font-semibold text-terracotta-700">

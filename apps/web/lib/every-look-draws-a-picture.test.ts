@@ -124,3 +124,76 @@ test('an EMPTY part still draws each look differently — sample shapes, on the 
   const css = readFileSync('app/globals.css', 'utf8');
   assert.match(css, /body:not\(:has\(\[data-maker-section\]\)\) \[data-maker-sample\] \{ display: none !important; \}/, 'never shown to a guest');
 });
+
+/* ── 🎨 THE PALETTE'S LOOKS ARE PICTURES (owner's preview check, 08 Oct: "palette should show the actual
+      previews like the other styles") ─────────────────────────────────────────────────────────────── */
+
+test('the palette’s looks are picture cards on the Dress code part — never a dropdown', async () => {
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { readFileSync } = await import('node:fs');
+  const { PaletteLookCards } = await import('../app/dashboard/[eventId]/website/editor/_components/palette-look-row');
+  const { PALETTE_LOOK_IDS } = await import('./palette-looks');
+  const html = renderToStaticMarkup(React.createElement(PaletteLookCards, { value: 'tags', onPick: () => {} }));
+  const cards = [...html.matchAll(/data-style-card="([a-z-]+)"/g)].map((m) => m[1]);
+  assert.deepEqual(cards, [...PALETTE_LOOK_IDS], 'one card per look, in the registry’s order');
+  assert.equal(html.split('data-style-preview=').length - 1, PALETTE_LOOK_IDS.length, 'every card holds a picture');
+  assert.match(html, /role="radiogroup"[^>]*aria-label="Palette look"[^>]*data-style-carousel="palette"/, 'the shared look-card carousel');
+  assert.doesNotMatch(html, /aria-haspopup|data-palette-look=|<select/, 'a dropdown came back');
+  assert.match(html, /aria-checked="true"[^>]*data-style-card="tags"/, 'the look worn now is the ringed card');
+  /* …and the Stages panel's Dress code part is where they are drawn. */
+  const row = readFileSync('app/dashboard/[eventId]/website/editor/_components/scene-style-row.tsx', 'utf8');
+  const palette = row.slice(row.indexOf('export function PaletteLookCanvasRow'), row.indexOf('export function SceneAlignRow'));
+  assert.match(palette, /const cards = useMaker\(\)\?\.stagesStudio === true;/);
+  assert.match(palette, /const onDressPart = useStagePanelNow\(\)\.picked === 'dress';/);
+  const at = palette.indexOf('if (cards && onDressPart) {');
+  assert.ok(at > 0 && at < palette.indexOf('<PaletteLookRow'), 'the cards are returned BEFORE the dropdown row is reached');
+  assert.match(palette.slice(at, palette.indexOf('<PaletteLookRow')), /<PaletteLookCards value=\{resolvePaletteLook\(shown\.palette\)\}/);
+});
+
+test('each palette card is the couple’s page in that look — one address each, laid on canvas.palette, drawn differently', async () => {
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { stylePreviewSrc } = await import(`${PANEL}/style-preview`);
+  const { PALETTE_LOOK_IDS, PALETTE_LOOK_PREVIEW_TYPE, PALETTE_LOOK_CARD_FOCUS } = await import('./palette-looks');
+  const { withStylePreview } = await import('../app/[slug]/_lib/style-preview');
+  const { canvasStylePreview } = await import('../app/[slug]/_lib/editor-canvas');
+  const { paletteLookOfRow, sceneStyleOfRow } = await import('./scene-style-of-row');
+  const { DressCodeWidget } = await import('../app/[slug]/_components/dress-code-widget');
+  const srcs = PALETTE_LOOK_IDS.map((id) => stylePreviewSrc('/maria-and-jose?phase=rsvp&editor=1', 'w:dress_code', PALETTE_LOOK_PREVIEW_TYPE, id, 'http://x.test'));
+  assert.equal(new Set(srcs).size, PALETTE_LOOK_IDS.length, 'each look is its own page');
+  const rows = [
+    { widget_type: 'dress_code', config_json: { canvas: { style: 'colours-and-roles', palette: 'ribbon' } } },
+    { widget_type: 'countdown', config_json: { canvas: { style: 'line' } } },
+  ];
+  const words = { eventWord: 'wedding', solemn: false, twoPeople: true } as never;
+  const board = { reception: ['#7A1F2B', '#C9A24B', '#F4E9DC'] };
+  const drawn: string[] = [];
+  for (const id of PALETTE_LOOK_IDS) {
+    const asked = canvasStylePreview({ style: new URL(srcs[PALETTE_LOOK_IDS.indexOf(id)]!, 'http://x.test').searchParams.get('style')! }, true);
+    assert.deepEqual(asked, { type: PALETTE_LOOK_PREVIEW_TYPE, id }, `${id}: the page reads the card’s ask`);
+    const { widgets } = withStylePreview({}, rows, asked);
+    assert.equal(paletteLookOfRow(widgets[0]), id, `${id}: laid on the Dress code row’s canvas.palette`);
+    assert.equal(sceneStyleOfRow(widgets[0], 'rsvp', 'wedding'), 'colours-and-roles', `${id}: the scene’s own style is left alone`);
+    assert.deepEqual(widgets[1], rows[1], `${id}: no other scene is touched`);
+    const html = renderToStaticMarkup(
+      React.createElement(DressCodeWidget, { words, config: { title: 'Garden formal' } as never, rolePalette: board, paletteLook: paletteLookOfRow(widgets[0]) }),
+    );
+    assert.match(html, /data-dress-code="ours"/, `${id}: the block the card is fitted on (${PALETTE_LOOK_CARD_FOCUS}) is drawn`);
+    drawn.push(html);
+  }
+  assert.equal(new Set(drawn).size, PALETTE_LOOK_IDS.length, 'the five cards are five different pictures');
+  /* A guest's `?style=` asks for nothing — the page they are served cannot be restyled from the address. */
+  assert.equal(canvasStylePreview({ style: `${PALETTE_LOOK_PREVIEW_TYPE}:ribbon` }, false), null);
+  assert.equal(paletteLookOfRow(withStylePreview({}, rows, null).widgets[0]), 'ribbon', 'no ask → the stored pick, untouched');
+});
+
+test('a card fitted on one block hides the rest of its scene, and falls back to the scene when the block is not drawn', async () => {
+  const { readFileSync } = await import('node:fs');
+  const here = PANEL.replace(/^\.\.\//, '');
+  const prev = readFileSync(`${here}/style-preview.tsx`, 'utf8');
+  const car = readFileSync(`${here}/style-carousel.tsx`, 'utf8');
+  assert.match(prev, /return focus \? \(section\.querySelector<HTMLElement>\(focus\) \?\? section\) : section;/, 'no block → the scene, never a blank card');
+  assert.match(prev, /const part = miniaturePart\(section, el, focus\);/, 'the card is fitted on the block');
+  assert.match(prev, /\[data-sn-mini-scene\] \*:not\(\[data-sn-mini-focus\]\)[^']*\{visibility:hidden!important\}/, 'the rest of the scene is not drawn in the card');
+  assert.match(car, /const part = miniaturePart\(sec \?\? null, el, focus\);/, 'the card’s width follows the SAME block’s shape');
+  assert.match(car, /style=\{spCardWidth\(aspect\)\}/, 'sized by aspect like every look card');
+});

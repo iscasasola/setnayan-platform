@@ -38,6 +38,14 @@ function labSummary(n: number, pro = 0): HubDraftSummary {
   return { hasChanges: n > 0, changeCount: n, proCount: pro, canUndo: n > 0, changes: [] };
 }
 async function labDraft(_eventId: string, fd: FormData): Promise<HubDraftActionResult> {
+  /* ⏱ The lab's stopwatch (`performance.getEntriesByName`): when a draft write left and when it answered. */
+  performance.mark('lab-draft-sent');
+  /* 💥 `?fail=1`: every save is refused — the lab's way to see a failure said in place. */
+  if (new URLSearchParams(window.location.search).get('fail') === '1') {
+    await new Promise((r) => setTimeout(r, 600));
+    performance.mark('lab-draft-answered');
+    return { ok: false, error: 'Your background could not be changed. Please try again.' } as HubDraftActionResult;
+  }
   const w = window as unknown as { __labDrafts?: Array<Record<string, string>> };
   (w.__labDrafts ??= []).push(Object.fromEntries([...fd].filter(([, v]) => typeof v === 'string')) as Record<string, string>);
   /* 🎞 The lab's "draft": a Look › Background pick rides a cookie the lab's
@@ -96,6 +104,7 @@ async function labDraft(_eventId: string, fd: FormData): Promise<HubDraftActionR
   /* ⏱ `?slow=1`: a save takes as long as production's (~1.5 s), so a race can show. */
   if (new URLSearchParams(window.location.search).get('slow') === '1') await new Promise((r) => setTimeout(r, 1500));
   const s = labSummary(labChanges, labPro);
+  performance.mark('lab-draft-answered');
   return { ok: true, intent: 'save', applied: 0, held: [], bar: { free: s, owned: s, proEffects: [], priceLabel: null } } as HubDraftActionResult;
 }
 function labWidgetsFromCookie(): Record<string, unknown> {

@@ -60,15 +60,24 @@ export const BACKGROUND_SOURCE_IS_PRO: Readonly<Record<BackgroundSource, boolean
  * The source the stored main background IS.
  *   · `themeHasLoop` — the page's own theme carries a moving background (nothing
  *     stored, or "the theme's own", then draws it);
- *   · `followsHero` — nothing is stored and there is a hero photo to follow
- *     (the default on every theme but Classic, which never follows one).
+ *   · `followsHero` — the page IS wearing the cover photo: nothing is stored
+ *     and there is one to follow (the default on every theme but Classic, which
+ *     never follows one), or the stored follow is of this very photo.
+ *
+ * 🔑 A FOLLOW WITH NOTHING TO FOLLOW IS NOT "YOUR PHOTO" (owner 2026-10-08, on a
+ * grey card reading "Your hero": *"why same as hero?"*). `{ follow: 'hero' }`
+ * stored on an event whose cover photo is gone (or is a different, unmeasured
+ * one) draws NO picture for guests — `resolveMainGround` answers null and the
+ * page wears the theme's own background. The Source reads what guests see:
+ * Video on a theme with a loop, else Colour — never "Your photo or video" with
+ * no card ringed.
  */
 export function backgroundSourceOf(
   main: HubMainGround | null,
   page: { themeHasLoop: boolean; followsHero: boolean },
 ): BackgroundSource {
   if (isHubMainOwn(main)) return isStdLibrarySrc(main.media) ? 'scene' : 'own';
-  if (isHubMainFollow(main)) return 'own';
+  if (isHubMainFollow(main)) return page.followsHero ? 'own' : page.themeHasLoop ? 'video' : 'colour';
   if (isHubMainLoop(main)) return 'video';
   if (main && 'ground' in main) {
     if (main.ground === 'pattern') return 'pattern';
@@ -77,6 +86,16 @@ export function backgroundSourceOf(
   }
   if (page.followsHero) return 'own';
   return page.themeHasLoop ? 'video' : 'colour';
+}
+
+/**
+ * 🖼 IS THERE A "YOUR COVER PHOTO" CARD? Only when there is a cover photo to
+ * follow AND a picture of it to draw — never an empty card that says to add
+ * one (owner 2026-10-08). Classic never follows a cover (it would have to
+ * measure one on open), so it never draws the card.
+ */
+export function coverCardShows(input: { classic: boolean; photoRef: string | null; photoUrl: string | null }): boolean {
+  return !input.classic && Boolean(input.photoRef) && Boolean(input.photoUrl);
 }
 
 /**

@@ -23,6 +23,8 @@ import {
   isHubMainFollow,
   isHubMainLoop,
   isHubMainOwn,
+  mainGroundPosition,
+  type HubMainFocus,
   type HubMainGround,
   type HubMainOwn,
 } from '@/lib/hub-canvas';
@@ -39,6 +41,7 @@ import {
   backgroundShadeValue,
   backgroundShadeWrite,
   backgroundSourceOf,
+  coverCardShows,
   backgroundWritePatch,
   type BackgroundSource,
   type BackgroundWrite,
@@ -594,7 +597,7 @@ export function MainBackgroundPanel({
     const proOn = Boolean(proMark);
     const storedSource = backgroundSourceOf(current, {
       themeHasLoop: Boolean(INVITE_THEMES[themeId]?.media),
-      followsHero: !current && Boolean(hero.photoRef) && themeId !== 'house',
+      followsHero: Boolean(follow) || (!current && Boolean(hero.photoRef) && themeId !== 'house'),
     });
     const view = viewed ?? storedSource;
     /** The cards on screen are the source the page wears — only then is one of them ringed, and its rows drawn. */
@@ -627,6 +630,10 @@ export function MainBackgroundPanel({
       const { [key]: _drop, ...rest } = current as Record<string, unknown>;
       return (value ? { ...rest, [key]: value } : rest) as HubMainGround;
     };
+    /* 🎯 The card of the picture ON the page is cropped where the page crops it (Focus ▾) — the guest page's own rule.
+       Every other card is held at its centre: that is how the page would wear it the moment it is picked. */
+    const heldAt = mainGroundPosition(takes.focus ? (extra('focus') as HubMainFocus | null) : null);
+    const held = (isOn: boolean | null | undefined) => (isOn ? { position: heldAt } : {});
     const shadeNow = backgroundShadeValue({ art, shade: takes.shade ? extra('shade') : null });
     /** ONE list, one pick: a veil step is worn INSTEAD of Candlelight, and Candlelight instead of a veil. */
     const pickShade = (k: string) => {
@@ -703,7 +710,7 @@ export function MainBackgroundPanel({
                   swatch={PAPER_SWATCH}
                   onPick={() => pickExisting({ kind: 'photo', ref: b.src, stillUrl: b.src })}
                 >
-                  <StillOverSwatch src={b.src} swatch={PAPER_SWATCH} />
+                  <StillOverSwatch src={b.src} swatch={PAPER_SWATCH} {...held(active && own?.media === b.src)} />
                 </BgCard>
               ))
             : null}
@@ -728,24 +735,21 @@ export function MainBackgroundPanel({
             : null}
           {view === 'own' ? (
             <>
-              {/* "Your cover photo" follows a MEASURED hero (`HeroFrameSync`), which Classic never runs — Classic offers its own upload. */}
-              {themeId === 'house' ? null : (
+              {/* 🖼 "Your cover photo" — drawn ONLY when there is one, and then with the photo itself. No cover photo = no card
+                  (owner 2026-10-08, on an empty grey card: "why same as hero?") — never a placeholder in the strip.
+                  It follows a MEASURED cover (`HeroFrameSync`), which Classic never runs — Classic offers its own upload. */}
+              {coverCardShows({ classic: themeId === 'house', photoRef: hero.photoRef, photoUrl: hero.photoUrl }) ? (
                 <BgCard
                   name="Your cover photo"
                   data="src:hero"
                   pro={proOn}
                   on={active && choice === 'hero'}
-                  disabled={!hero.photoRef}
                   swatch={PAPER_SWATCH}
                   onPick={() => pickGround('src:hero')}
                 >
-                  {hero.photoUrl ? (
-                    <StillOverSwatch src={hero.photoUrl} swatch={PAPER_SWATCH} />
-                  ) : (
-                    <span className="absolute inset-0 flex items-center justify-center px-1 text-center text-[10.5px] leading-tight text-ink/60">Add a cover photo first</span>
-                  )}
+                  <StillOverSwatch src={hero.photoUrl} swatch={PAPER_SWATCH} {...held(active && choice === 'hero')} />
                 </BgCard>
-              )}
+              ) : null}
               {videoChoice ? (
                 <BgCard
                   name="Your video"
@@ -774,7 +778,7 @@ export function MainBackgroundPanel({
                       : pickExisting({ kind: 'photo', ref: u.ref, stillUrl: u.url })
                   }
                 >
-                  <StillOverSwatch src={u.kind === 'snippet' ? (u.posterUrl ?? null) : u.url} swatch={PAPER_SWATCH} />
+                  <StillOverSwatch src={u.kind === 'snippet' ? (u.posterUrl ?? null) : u.url} swatch={PAPER_SWATCH} {...held(active && own?.media === u.ref)} />
                 </BgCard>
               ))}
               {photoChoices.map((p) => (
@@ -787,13 +791,13 @@ export function MainBackgroundPanel({
                   swatch={PAPER_SWATCH}
                   onPick={() => pickExisting({ kind: 'photo', ref: p.ref, stillUrl: p.url })}
                 >
-                  <StillOverSwatch src={p.url} swatch={PAPER_SWATCH} />
+                  <StillOverSwatch src={p.url} swatch={PAPER_SWATCH} {...held(active && own?.media === p.ref)} />
                 </BgCard>
               ))}
               {/* The background they uploaded here is a card too — ringed, so "what is on" is never empty. */}
               {own && !listed ? (
                 <BgCard name="Your upload" data="own:upload" moving={own.kind === 'snippet'} pro={proOn} on={active} swatch={PAPER_SWATCH} onPick={() => {}}>
-                  <StillOverSwatch src={overrideStillUrl} swatch={PAPER_SWATCH} />
+                  <StillOverSwatch src={overrideStillUrl} swatch={PAPER_SWATCH} {...held(active)} />
                 </BgCard>
               ) : null}
               <BgCard name="Photo or video" data="upload" pro={proOn} on={false} swatch={PAPER_SWATCH} onPick={() => setUploadOpen((o) => !o)}>
@@ -1148,7 +1152,16 @@ export function MainBackgroundPanel({
  * Eager, not lazy: a lazy image in a sideways carousel that is hidden on mount can be skipped and
  * left as the browser's broken glyph, and there are only ten small stills.
  */
-export function StillOverSwatch({ src, swatch }: { src: string | null | undefined; swatch: string }) {
+export function StillOverSwatch({
+  src,
+  swatch,
+  position,
+}: {
+  src: string | null | undefined;
+  swatch: string;
+  /** 🎯 Where the picture is held when it is cropped — the guest page's own rule (`mainGroundPosition`). Absent = its centre. */
+  position?: string;
+}) {
   const [state, setState] = useState<'loading' | 'shown' | 'failed'>('loading');
   useEffect(() => setState('loading'), [src]);
   return (
@@ -1162,6 +1175,7 @@ export function StillOverSwatch({ src, swatch }: { src: string | null | undefine
           onLoad={(e) => setState(e.currentTarget.naturalWidth > 0 ? 'shown' : 'failed')}
           onError={() => setState('failed')}
           className={`h-full w-full object-cover transition-opacity duration-200 ${state === 'shown' ? 'opacity-100' : 'opacity-0'}`}
+          {...(position && position !== 'center' ? { style: { objectPosition: position } } : {})}
         />
       ) : null}
     </span>

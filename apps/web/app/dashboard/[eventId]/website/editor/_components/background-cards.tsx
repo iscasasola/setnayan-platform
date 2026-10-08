@@ -43,7 +43,7 @@ export function BgCards({ label, source, children }: { label: string; source: st
       role="group"
       aria-label={label}
       data-bg-cards={source}
-      className="-mx-4 flex snap-x snap-mandatory scroll-px-4 gap-2 overflow-x-auto overscroll-x-contain px-4 pb-1 pt-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      className="-mx-4 flex snap-x snap-mandatory scroll-px-4 items-start gap-2 overflow-x-auto overscroll-x-contain px-4 pb-1 pt-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
     >
       {children}
     </div>
@@ -54,6 +54,15 @@ export function BgCards({ label, source, children }: { label: string; source: st
  * One picture card: the picture (its fallback `swatch` under whatever `children`
  * lay over it) and the name under it; the one on the page is ringed. A ◆ rides
  * the name of a Pro choice (never a padlock — tried free, named at Apply).
+ *
+ * 📱 PHONE-SHAPED (owner 2026-10-08: *"we are on mobile view, so show in mobile
+ * view, not like a header that is short and wide or at least square or 4:3 or
+ * 3:4"*). The picture wears the Maker's ONE picture-card frame, `.sn-phone-card`
+ * (`globals.css`): 3 : 4 portrait, a fixed width (`--phone-card-w`), never
+ * growing into a wide panel — the STRIP scrolls. Nothing here sizes the picture:
+ * no width, height, aspect or flex class may sit beside the frame's.
+ * The card is exactly as wide as its picture (`w-min`), so a long name is cut
+ * with … and its ◆ stays.
  */
 export function BgCard({
   name,
@@ -88,21 +97,22 @@ export function BgCard({
       disabled={disabled}
       data-bg-card={data}
       onClick={() => !on && onPick()}
-      className={`sn-press flex w-[104px] shrink-0 snap-start flex-col items-stretch gap-1 text-left disabled:opacity-50 ${on ? 'text-ink' : 'text-ink/70'}`}
+      className={`sn-press flex w-min flex-none snap-start flex-col gap-1.5 text-left disabled:opacity-50 ${on ? 'text-ink' : 'text-ink/70'}`}
     >
       <span
         data-bg-card-picture=""
-        className={`relative block h-[66px] overflow-hidden rounded-xl ring-1 ${on ? 'ring-2 ring-terracotta-700' : 'ring-ink/10'}`}
+        className={`sn-phone-card ${on ? 'ring-2 ring-terracotta-700' : 'ring-1 ring-ink/10'}`}
         style={{ background: swatch, ...(swatchSize ? { backgroundSize: swatchSize } : {}) }}
       >
         {children}
         {moving ? (
-          <span aria-hidden className="absolute bottom-1.5 right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-white/85 text-ink">
-            <Play className="h-2.5 w-2.5" fill="currentColor" strokeWidth={0} />
+          <span aria-hidden className="absolute bottom-2 right-2 flex h-6 w-6 items-center justify-center rounded-full bg-white/85 text-ink">
+            <Play className="h-3 w-3" fill="currentColor" strokeWidth={0} />
           </span>
         ) : null}
       </span>
-      <span className={`flex min-h-[18px] items-center justify-center gap-1 text-center text-[11.5px] ${on ? 'font-semibold' : 'font-medium'}`}>
+      {/* `w-0 min-w-full`: the name never widens the card — the picture's fixed width is the card's. */}
+      <span data-bg-card-name="" className={`flex min-h-[18px] w-0 min-w-full items-center justify-center gap-1 text-center text-[12px] ${on ? 'font-semibold' : 'font-medium'}`}>
         <span className="truncate">{name}</span>
         {pro ? (
           <span aria-label="Event Hub Pro" className="shrink-0 text-[10px] text-ink/45">
@@ -117,8 +127,8 @@ export function BgCard({
 /** The Upload card's picture — an arrow over paper stripes (the prototype's `.up`). */
 export function UploadPicture() {
   return (
-    <span aria-hidden className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 text-[10.5px] font-bold text-terracotta-700">
-      <Upload className="h-[18px] w-[18px]" strokeWidth={2.2} />
+    <span aria-hidden className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-[12px] font-bold text-terracotta-700">
+      <Upload className="h-[22px] w-[22px]" strokeWidth={2.2} />
       Upload
     </span>
   );

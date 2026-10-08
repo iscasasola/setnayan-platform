@@ -1,5 +1,5 @@
 import type { AdaptiveTheme } from '@/lib/adaptive-theme';
-import type { HubMainBlur, HubMainFocus, HubMainPatternKey } from '@/lib/hub-canvas';
+import { mainGroundPosition, type HubMainBlur, type HubMainFocus, type HubMainPatternKey } from '@/lib/hub-canvas';
 import { MAIN_GROUND_PATTERN_CSS } from '@/lib/main-ground-patterns';
 import { SceneClip } from './scene-clip';
 
@@ -78,7 +78,7 @@ export function MainGround({
   focus?: HubMainFocus | null;
 }) {
   if (!still && !clip) return null;
-  const position = focus === 'top' ? 'center top' : focus === 'bottom' ? 'center bottom' : 'center';
+  const position = mainGroundPosition(focus);
   /* A blur's soft edge would show the page through it — the footage is drawn a
      little larger, so the edge falls outside the screen. */
   const blurStyle = blur ? { filter: `blur(${blur === 'strong' ? 14 : 5}px)`, transform: 'scale(1.08)' } : {};

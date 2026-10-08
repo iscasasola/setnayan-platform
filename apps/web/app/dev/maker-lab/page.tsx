@@ -122,6 +122,20 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
   } catch {
     fixedStyles = {};
   }
+  /* 🎞 The lab's DRAFTED main background (`lab_main`, the cookie the lab's save stand-in writes and its canvas reads) —
+     the lab's "server" hands it back on its next render, as the real Maker's does, so a pick survives a render. */
+  let labMain: ReturnType<typeof sanitizeHubMainGround> | undefined;
+  {
+    const raw = (await cookies()).get('lab_main')?.value;
+    if (raw !== undefined) {
+      try {
+        const v = JSON.parse(decodeURIComponent(raw)) as unknown;
+        labMain = v === null ? null : sanitizeHubMainGround(v);
+      } catch {
+        labMain = undefined;
+      }
+    }
+  }
   const camRaw = (await cookies()).get('lab_camera')?.value;
   const cameraLook: CameraLook = isCameraLook(camRaw) ? camRaw : 'classic';
   const canvases: Record<string, HubSectionCanvas> = Object.fromEntries(
@@ -152,7 +166,9 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
       pageColour={sp.paper === 'dark' ? '#1e2229' : null}
       /* 🌄 `?bg=video|pattern|scene` — start Look › Background on that Source (nothing is written; a fixture). */
       mainBackground={
-        sp.bg === 'video'
+        labMain !== undefined
+          ? labMain
+          : sp.bg === 'video'
           ? sanitizeHubMainGround({ ground: 'loop', loop: hubMovingBackgroundIds()[0] })
           : sp.bg === 'pattern'
             ? sanitizeHubMainGround({ ground: 'pattern', pattern: 'dots' })

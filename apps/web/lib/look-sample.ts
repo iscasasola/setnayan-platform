@@ -27,7 +27,9 @@
  * Pure: no React, no DOM, no reads.
  */
 import { adaptiveThemeVars, pagePaperAndInk, resolveAdaptiveTheme, type HubTint } from './adaptive-theme';
-import { hubMainLook, isHubMainFollow, isHubMainLoop, isHubMainOwn, type HubMainGround } from './hub-canvas';
+import { ambientEffectSpec, ambientGround, type AmbientEffectSpec } from './ambient-effects';
+import { hubMainLook, isHubMainFollow, isHubMainLoop, isHubMainOwn, type HubMainEffect, type HubMainGround } from './hub-canvas';
+import { mainColoursOf } from './main-colours';
 import { hubButtonPage, resolveHubButtons, type HubButtonsLook } from './hub-buttons';
 import { compositeOver } from './hub-legibility';
 import { INVITE_THEMES, type InviteThemeId } from './invite-themes';
@@ -152,4 +154,63 @@ export function lookSampleGround(
     buildCustomSiteColorVars(null, ownButton) ?? {},
   );
   return { scrim: adaptive.scrim, veil: { color: shade.veil, opacity: shade.opacity }, vars: { ...tinted, ...flip, ...followers } };
+}
+
+/* ── ✨ the effect on top ────────────────────────────────────────────────────────────────────────────────────── */
+
+/** `r g b` (a CSS variable's triplet) → `#rrggbb`; anything else → null. */
+function tripletHex(v: string | undefined): string | null {
+  const m = /^\s*(\d{1,3})[ ,]+(\d{1,3})[ ,]+(\d{1,3})\s*$/.exec(v ?? '');
+  return m ? `#${[m[1], m[2], m[3]].map((n) => Math.min(255, Number(n)).toString(16).padStart(2, '0')).join('')}` : null;
+}
+
+/** What an effect is drawn over, and with: the ground's average, the five, and what lies over a picture. */
+export type LookEffectOn = { ground: string; five: string[]; veil: { color: string; opacity: number } | null };
+
+/**
+ * ✨ WHAT THE EFFECT LIES ON — for the sample screen AND the guest page, which both ask THIS (`lookSampleEffect`),
+ * so the two cannot draw one effect two ways. Built only from what the page's own rules already measure:
+ *   · a picture / film: its measured colours (`lookSampleTint`) under the Fade's veil or the page's paper scrim
+ *     (`lookSampleGround` — `mainGroundLayerFor`'s own sequence);
+ *   · a blend: its ramp under the veil its words needed (`ombreLook`);
+ *   · else the page colour — the page's own `--color-cream`, Candlelight and a colour of the couple's included.
+ * `main` is the background AS DRAWN (a follow whose photo is gone is not drawn: pass null).
+ */
+export function lookEffectOn(
+  main: HubMainGround | null,
+  row: LookSampleRow,
+  themeId: InviteThemeId,
+  followsCover = true,
+  /** The scope and the veil, where the caller already worked them out (the sample screen) — never a second opinion. */
+  known: { scope?: LookSampleScope; ground?: LookSampleGround } = {},
+): LookEffectOn {
+  const scope = known.scope ?? lookSampleScope(row, themeId);
+  const over = known.ground ?? lookSampleGround(main, row, themeId, followsCover);
+  const dressed = dressedTheme(themeId, row.role_palette);
+  const art = row.site_art_direction === 'candlelight' ? 'candlelight' : null;
+  const base = pageWordBase(themeId, paletteColourVars(row.role_palette, themeId), art);
+  const paper = tripletHex(scope.vars?.['--color-cream']) ?? tripletHex(base['--color-cream']) ?? pagePaperAndInk(dressed).paper;
+  const tint = lookSampleTint(main, themeId, followsCover);
+  const background = parseSiteBackground(row.site_bg_color);
+  let ramp: string[] | null = null;
+  if (background?.kind === 'ombre') {
+    const { color, opacity } = ombreLook(dressed, background.ombre).legibility.scrim;
+    ramp = ombreRamp(background.ombre).map((stop) => compositeOver(color, opacity, stop));
+  }
+  const veil = tint && tint.frame.length > 0 ? (over.veil ?? (over.scrim ? { color: paper, opacity: over.scrim } : null)) : null;
+  return {
+    ground: ambientGround({ frame: tint?.frame ?? null, veil: over.veil, scrim: over.scrim, paper, ramp }),
+    five: mainColoursOf(row.role_palette, themeId),
+    veil,
+  };
+}
+
+/**
+ * ✨ THE ONE ANSWER to "what effect is drawn on this page?" — null: none. The sample screen passes what it is
+ * drawing over (`lookEffectOn` of the drafted row, with the pick laid over it); the guest page passes
+ * `lookEffectOn` of the event's own columns. Same two functions, same drawing (`ambientEffectSpec` is seeded:
+ * shape for shape).
+ */
+export function lookSampleEffect(effect: HubMainEffect | null, on: LookEffectOn): AmbientEffectSpec | null {
+  return effect ? ambientEffectSpec(effect, on.ground, on.five) : null;
 }

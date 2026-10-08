@@ -89,3 +89,82 @@ NOT built: Low Power Mode / a low battery showing the still (it needs a script o
 guest page; the layer has none) — the browser's own reduce-motion setting is honoured.
 
 SPEC IMPACT: None beyond the contract above.
+
+## 2026-10-08 · feat(look): Background › Effects — a carousel of live miniatures, How much ▾ and Colour ▾, on the sample at the tap (amendment PR 3, step 3)
+
+Owner, verbatim (2026-10-08): *"improve the overall look of these effect"* · *"show color
+choice"* · *"open choices not just switch automatically"*. Prototype frames A07 · A21–A29;
+the approved gallery's kinds 5 (Style card) and 20 (Pro mark). Local commit.
+
+- **Where:** Studio › Look › Background, under the source's own rows, on EVERY source
+  (`background-effects.tsx`, drawn by the Background panel wherever the sample screen is).
+  An "Effects" row (ⓘ; says Off or the effect's name), then the strip: **None · Lanterns ◆ ·
+  Falling petals ◆ · Sparkles · Capiz glow ◆ · Gold shimmer ◆ · Bokeh lights**.
+- **The cards** are the shipped Style card (`BgCard` / `BgCards`: 112 × 149, no frame, the
+  picked one ringed and named in the accent and centred in its row). Each is a LIVE
+  miniature — the same engine, the same shapes at half size — over the couple's real
+  background with two small lines of words, on the ground the SAMPLE SCREEN measured
+  (`lib/look-sample-store.ts` `tellLookSampleWorn`): the same light/dark variant, the same
+  pulled colour. Until the sample has said what it is drawing over, a card shows the
+  background alone — never a guessed effect. One stylesheet for the whole strip.
+- **How much ▾** Subtle · Standard · Lavish and **Colour ▾** Original · then the five by
+  name with their circles — both `PickMenu`, each OPENS its choices; shown only while an
+  effect is on. No free picker. "Original" takes the colour key off; the word is not stored.
+- **Starts gentle over a ground that moves:** turned on from None over a video of ours, the
+  page's own film or a clip of theirs, an effect starts at Subtle; over a still, at Standard.
+  Switching from one effect to another keeps the couple's own How much and Colour.
+- **Another background keeps the effect** — picking a scene, a video, a colour or an upload
+  no longer needs the effect picked again (`keepEffect`, in the panel's one pick path, and
+  in the cover photo's own measurement write).
+- **◆ tried, never applied:** a couple without Event Hub Pro may tap a ◆ effect — the sample
+  wears it, NOTHING is written, the ring stays where the draft is, and one note says
+  "<Effect> is part of Pro · Pro also gives you scenes, films and your own music. You can
+  keep trying it on the preview." with **Not now** · **See Pro** (the approved gallery's
+  words). How much and Colour on a tried effect stay tries. Leaving the panel, Not now, or
+  any real pick puts the sample back.
+- **The sample screen** draws the effect over the background and its veil, under the words
+  (`lookSampleEffect` — the answer the guest page will ask too, next commit).
+- The two free-couple lock titles "Candlelight and motion" → **"Effects and motion"**
+  (`website/editor/page.tsx`, `details/_components/record-editor.tsx`).
+  ⚠ The owner has not chosen these words.
+
+control → kind: the seven cards → Style card · ◆ → Pro mark · How much ▾, Colour ▾ →
+Dropdown · the Effects row → Form row with ⓘ · Not now → Action button (second) · See Pro →
+Action button (main, a link).
+
+Requests, counted by reading the one pick path (`pickLook`) — not with a stubbed client:
+- putting an effect on, changing How much or Colour, taking it off: **1 draft write, 0
+  whole-Maker renders, no `router.refresh()`**. The effect's layer is the page's own
+  drawing, so the hidden stage canvas is owed ONE redraw — held while the sample is the
+  screen, and made once when a page is next shown, however many picks were made.
+- trying a ◆ effect: **0**. Not now: 0. Opening the Background tab: +0 (the cards are
+  shapes; the background picture in each card is the address the source's own card and the
+  sample already drew — no new file).
+- before this commit: the controls did not exist.
+
+Guard: `lib/the-effects-are-picked-on-the-sample.test.ts` (9, new) — the pure rules run;
+the carousel RENDERED (order, ring, ◆, rows, the Pro note); the panel's path read (a try
+reaches no save; an effect write is `pickLook(…, { fx: true })`); the sample's wiring; the
+store. `a-background-pick-shows-at-once` 8/8 with the new redraw rule. 34 sabotages seen red.
+
+Deviations from the prototype, each with its reason:
+1. **The carousel is in the panel, not in an "Effects ▾" sheet.** A sheet holding two
+   dropdowns would open a sheet over a sheet (the Maker has ONE bottom sheet; the pop-up rule
+   is one open at a time), and inline the sample stays above the cards while they are
+   tapped. The brief words it the same way ("Under the carousel: How much ▾ and Colour ▾").
+2. **Blur and Parallax were not regrouped** under "The picture" (the note's PR 3a) — Blur
+   stays its own row where it is; Parallax is not offered in the Studio today. Not asked for
+   in this brief; said so it is not read as done.
+3. **Nothing stored + an effect = "the page's own background" is written with it**
+   (`{ ground: 'theme' }`, which draws exactly what "nothing" draws). Consequence: it is a
+   choice, so a cover photo added LATER no longer becomes the background by itself. The
+   note's decision 2 recommends that default anyway; flagged for the owner.
+4. A tried effect's card says "· trying" after its name (the builder's word — the gallery
+   draws no mark for it).
+5. The miniature's ground is the sample's measure, so for one frame after the tab opens the
+   cards show the background without the shapes.
+
+NOT SEEN in a browser at commit time (no server of my own): the strip, the rows and the
+note in the real Maker. Rendered to HTML in the guard; to be looked at on the review copy.
+
+SPEC IMPACT: None beyond the contract above.

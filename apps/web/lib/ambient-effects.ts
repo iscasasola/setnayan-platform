@@ -92,7 +92,8 @@ export function ambientCount(kind: HubMainEffectKind, intensity: HubMainEffectIn
 export const AMBIENT_COLOUR_FLOOR = 2.4;
 
 const mix = (a: string, b: string, t: number): string => compositeOver(b, t, a);
-const rgba = (hex: string, a: number): string => {
+/** A colour at a strength, as CSS — a wash, a veil. */
+export const ambientWash = (hex: string, a: number): string => {
   const n = (i: number) => parseInt(hex.slice(i, i + 2), 16);
   return `rgba(${n(1)},${n(3)},${n(5)},${a})`;
 };
@@ -259,14 +260,14 @@ export function ambientEffectSpec(effect: HubMainEffect, ground: string, five: r
       '--c2': hi,
       '--c3': deep,
       /* The washes a glow, a rim or a shell needs — worked out here, so the stylesheet needs no `color-mix()`. */
-      '--c1-75': rgba(c1, 0.75),
-      '--c1-45': rgba(c1, 0.45),
-      '--c1-35': rgba(c1, 0.35),
-      '--c1-12': rgba(c1, 0.12),
-      '--c2-85': rgba(hi, 0.85),
-      '--c2-55': rgba(hi, 0.55),
-      '--c3-35': rgba(deep, 0.35),
-      '--c3-20': rgba(deep, 0.2),
+      '--c1-75': ambientWash(c1, 0.75),
+      '--c1-45': ambientWash(c1, 0.45),
+      '--c1-35': ambientWash(c1, 0.35),
+      '--c1-12': ambientWash(c1, 0.12),
+      '--c2-85': ambientWash(hi, 0.85),
+      '--c2-55': ambientWash(hi, 0.55),
+      '--c3-35': ambientWash(deep, 0.35),
+      '--c3-20': ambientWash(deep, 0.2),
     },
     particles,
   };

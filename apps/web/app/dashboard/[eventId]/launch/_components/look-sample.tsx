@@ -3,11 +3,13 @@
 import { useEffect, useMemo, useSyncExternalStore, type CSSProperties } from 'react';
 import { backgroundLayOf, lookGroundPictures, type LookGroundSources } from '@/lib/background-pick';
 import { LANDING_WORDS } from '@/lib/guest-landing';
-import { isHubMainFollow, type HubMainGround } from '@/lib/hub-canvas';
+import { AmbientEffectLayer } from '@/app/[slug]/_components/ambient-effect';
+import { ambientWash } from '@/lib/ambient-effects';
+import { hubMainEffect, isHubMainFollow, type HubMainGround } from '@/lib/hub-canvas';
 import { hubFontVars } from '@/lib/hub-fonts';
 import type { InviteThemeId } from '@/lib/invite-themes';
-import { lookSampleGround, lookSampleScope, type LookSampleRow } from '@/lib/look-sample';
-import { lookSampleVersion, readLookSample, subscribeLookSample, type LookSampleValues } from '@/lib/look-sample-store';
+import { lookEffectOn, lookSampleEffect, lookSampleGround, lookSampleScope, type LookSampleRow } from '@/lib/look-sample';
+import { lookSampleVersion, readLookSample, subscribeLookSample, tellLookSampleWorn, type LookSampleValues } from '@/lib/look-sample-store';
 import { boardWithMainColours, mainColoursOf, type MainColourDraft } from '@/lib/main-colours';
 import { LOOK_SECTION_ITEM_KEYS } from '@/lib/maker-details-items';
 import { holdCanvasRedraw } from '@/lib/maker-refresh';
@@ -138,6 +140,20 @@ export function LookSample({ seed }: { seed: LookSampleSeed }) {
     [drawn, row.site_bg_color, seed.sources, ground],
   );
   const picture = lay && lay.still ? lay : null;
+  /* ✨ THE EFFECT ON TOP (owner 2026-10-08) — what it lies on is measured ONCE here (`lookEffectOn`: the guest page asks
+     the same function of the event's own columns), and the effect is `lookSampleEffect` of it: the guest page's own
+     answer, so this is what a guest will see. The effect is read off the STORED background — a follow whose photo is
+     gone still carries it. */
+  const effect = hubMainEffect(main);
+  const effectKey = effect ? `${effect.kind}:${effect.intensity}:${effect.colour ?? ''}` : '';
+  const effectOn = useMemo(() => lookEffectOn(drawn, row, seed.themeId, followsCover, { scope, ground }), [drawn, row, seed.themeId, followsCover, scope, ground]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `effectKey` is the effect by content
+  const fx = useMemo(() => lookSampleEffect(effect, effectOn), [effectKey, effectOn]);
+  /* The Effects cards draw their miniatures over what THIS screen is drawing over — told after the render, never in it. */
+  const wornVeil = effectOn.veil ? ambientWash(effectOn.veil.color, effectOn.veil.opacity) : null;
+  useEffect(() => {
+    tellLookSampleWorn(seed.eventId, { ground: effectOn.ground, five: effectOn.five, veil: wornVeil, names: seed.words.names });
+  }, [seed.eventId, seed.words.names, effectOn, wornVeil]);
 
   const style = {
     ...(scope.vars ?? {}),
@@ -193,6 +209,8 @@ export function LookSample({ seed }: { seed: LookSampleSeed }) {
         <div aria-hidden data-look-sample-pattern="" className="absolute inset-0 -z-10" style={{ backgroundImage: lay.image, backgroundSize: lay.size ?? undefined }} />
       ) : null}
 
+      {/* ✨ The effect — over the background and its veil, under the words. Shapes and a stylesheet: no request. */}
+      {fx ? <AmbientEffectLayer spec={fx} className="absolute inset-0 -z-10" /> : null}
       <span aria-hidden className="absolute left-2.5 top-2 z-10 text-[9px] font-bold uppercase tracking-[0.14em] text-ink/55" style={{ fontFamily: 'var(--font-app), system-ui, sans-serif' }}>
         Sample
       </span>

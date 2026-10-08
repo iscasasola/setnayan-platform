@@ -108,3 +108,38 @@ export function tellLookSample(eventId: string, patch: Partial<LookSampleValues>
 export const readLookSample: typeof shared.read = (eventId, server) => shared.read(eventId, server);
 export const subscribeLookSample = shared.subscribe;
 export const lookSampleVersion = shared.version;
+
+/* ── ✨ what the sample is drawing its effect over ─────────────────────────────────────────────────────────────
+   The Effects carousel's miniatures (`background-effects.tsx`) must be the SAME drawing as the sample screen —
+   the same ground colour (so the same light/dark variant and the same pulled colour) and the same five. The
+   sample measures those once per render it changes on, and says so here; the cards read it. One measure, two
+   readers: a card can never show an effect the sample would draw differently. Told from an effect (never
+   during a render); asks for nothing; no timer. */
+export type LookSampleWorn = {
+  /** `ambientGround(…)` — the average of what the effect lies on, as the page draws it. */
+  ground: string;
+  /** The palette's five, in slot order, with every pick laid over. */
+  five: readonly string[];
+  /** What lies over the picture, as a CSS colour (a Fade's veil, or the page's paper scrim) — null: nothing. */
+  veil: string | null;
+  /** The couple's names, for a card's two small lines of words. */
+  names: string | null;
+};
+const worn = new Map<string, LookSampleWorn>();
+const wornHears = new Set<() => void>();
+
+export function tellLookSampleWorn(eventId: string, value: LookSampleWorn): void {
+  if (fingerprint(worn.get(eventId)) === fingerprint(value)) return;
+  worn.set(eventId, value);
+  for (const hear of wornHears) hear();
+}
+/** The same object until it changes — `useSyncExternalStore`'s snapshot. */
+export function readLookSampleWorn(eventId: string): LookSampleWorn | null {
+  return worn.get(eventId) ?? null;
+}
+export function subscribeLookSampleWorn(hear: () => void): () => void {
+  wornHears.add(hear);
+  return () => {
+    wornHears.delete(hear);
+  };
+}

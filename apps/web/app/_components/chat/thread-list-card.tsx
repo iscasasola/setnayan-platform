@@ -72,7 +72,7 @@ export function ThreadListCard({
       )}
       <ArrowRight
         aria-hidden
-        className="h-4 w-4 text-ink/40 transition-transform group-hover:translate-x-0.5 group-hover:text-terracotta"
+        className="h-4 w-4 text-sn-accent transition-transform group-hover:translate-x-0.5"
         strokeWidth={1.75}
       />
     </Link>

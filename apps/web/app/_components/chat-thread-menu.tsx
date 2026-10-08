@@ -59,7 +59,7 @@ export function ChatThreadMenu({
         aria-label="Conversation options"
         className="grid h-9 w-9 place-items-center rounded-full text-ink/60 hover:bg-ink/5 hover:text-ink"
       >
-        <MoreVertical aria-hidden className="h-5 w-5" strokeWidth={2} />
+        <MoreVertical aria-hidden className="h-5 w-5 text-sn-accent" strokeWidth={2} />
       </button>
 
       {open ? (

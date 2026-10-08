@@ -51,6 +51,25 @@ export type RelationshipTab = {
   href?: string;
 };
 
+/**
+ * WHICH PANEL TAB AN ARROW KEY LANDS ON — the next or the previous one (wrapping round), the first (Home) or the
+ * last (End); null for any other key.
+ *
+ * 🔑 COUNTED AMONG THE PANEL TABS, BY THE TAB'S OWN ID. The strip also holds LINK tabs ("Chat" leaves for the thread
+ * page) that are never picked, so a tab's place in the strip is NOT its place among the panels. The handler used to
+ * be handed the place in the whole strip and looked it up in the panels-only list: with "Chat" first, → from Quote
+ * landed on Files and skipped Payments (controller, 2026-10-08).
+ */
+export function nextPanelTabId(panelIds: readonly string[], currentId: string, key: string): string | null {
+  if (key !== 'ArrowRight' && key !== 'ArrowLeft' && key !== 'Home' && key !== 'End') return null;
+  if (panelIds.length === 0) return null;
+  const at = panelIds.indexOf(currentId);
+  if (key === 'Home' || at < 0) return panelIds[0] ?? null;
+  if (key === 'End') return panelIds[panelIds.length - 1] ?? null;
+  const step = key === 'ArrowRight' ? 1 : -1;
+  return panelIds[(at + step + panelIds.length) % panelIds.length] ?? null;
+}
+
 function readTabFromUrl(): string | null {
   if (typeof window === 'undefined') return null;
   try {
@@ -106,21 +125,12 @@ export function RelationshipTabShell({
   }, []);
 
   const onKeyDown = useCallback(
-    (e: KeyboardEvent<HTMLButtonElement>, idx: number) => {
-      if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft' && e.key !== 'Home' && e.key !== 'End') {
-        return;
-      }
+    (e: KeyboardEvent<HTMLButtonElement>, id: string) => {
+      const nextId = nextPanelTabId(ids, id, e.key);
+      if (nextId === null) return;
       e.preventDefault();
-      let nextIdx = idx;
-      if (e.key === 'ArrowRight') nextIdx = (idx + 1) % ids.length;
-      else if (e.key === 'ArrowLeft') nextIdx = (idx - 1 + ids.length) % ids.length;
-      else if (e.key === 'Home') nextIdx = 0;
-      else if (e.key === 'End') nextIdx = ids.length - 1;
-      const nextId = ids[nextIdx];
-      if (nextId) {
-        select(nextId);
-        tabRefs.current[nextId]?.focus();
-      }
+      select(nextId);
+      tabRefs.current[nextId]?.focus();
     },
     [ids, select],
   );
@@ -139,7 +149,7 @@ export function RelationshipTabShell({
       className={`${PILL_TRACK_CLASS} ${PILL_TRACK_GROUND} overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}
     >
       <PillThumb />
-      {visible.map((t, idx) => {
+      {visible.map((t) => {
         if (t.href) {
           return (
             <a
@@ -168,7 +178,7 @@ export function RelationshipTabShell({
             aria-controls={`rpanel-${t.id}`}
             tabIndex={isActive ? 0 : -1}
             onClick={() => select(t.id)}
-            onKeyDown={(e) => onKeyDown(e, idx)}
+            onKeyDown={(e) => onKeyDown(e, t.id)}
             className={`${pillSegClass(isActive)} shrink-0 gap-1.5 px-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry`}
           >
             {t.icon ? <span aria-hidden>{t.icon}</span> : null}

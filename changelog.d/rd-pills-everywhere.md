@@ -54,3 +54,28 @@ Same ruling, same template; shape, colour and motion only. Adds no request.
   widened to `app/vendor-dashboard` (nothing added to its baseline).
 
 SPEC IMPACT: None.
+
+## 2026-10-08 · feat(ui): every segmented selector is the one pill — area 3, onboarding and the public pages
+
+- **Converted (1):** the wedding onboarding's song step — Top 100 | Search |
+  Playlist. Onboarding's own CSS keeps two rules for it that only give back the
+  padding its `.onbw * { padding: 0 }` reset removes; the look is the template's.
+- Everything else found on these pages picks one of 3+ values, filters, or is a
+  card picker — listed for the controller, not converted.
+- **Guards:** one line in `lib/pills-are-everywhere.test.ts` plus a check that
+  onboarding.css does not draw the selector's look again; the watch widened to
+  onboarding, sign-up, sign-in and the public route folders.
+
+SPEC IMPACT: None.
+
+## 2026-10-08 · fix(workspace): an arrow key moves one tab in the two-sided workspace, never two
+
+With the "Chat" link tab first in the strip, → from Quote landed on Files and
+skipped Payments: the key handler was given a tab's place in the whole strip and
+looked it up in the panels-only list. It is now given the tab's own id
+(`nextPanelTabId` in `app/_components/relationship-tab-shell.tsx`). Found while
+the strip became the pill selector; older than that work.
+
+Guard: `lib/workspace-tabs-step-one-at-a-time.test.ts`.
+
+SPEC IMPACT: None.

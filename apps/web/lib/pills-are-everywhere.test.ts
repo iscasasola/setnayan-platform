@@ -59,7 +59,7 @@ type Converted = {
   gone: string;
 };
 
-const RADIO = 'a radio group (aria-checked): the thumb reads aria-pressed / aria-current / aria-selected only — one line in pill-thumb.tsx (PICKED + attributeFilter) would let it slide';
+const RADIO = 'a radio group (aria-checked): at this branch’s base the thumb reads aria-pressed / aria-current / aria-selected only. The template learns aria-checked in L3’s commit 832ddeada (rd/press-feel-everywhere) — once both are in one tree these slide with no change here, and the line can say “slides”';
 
 export const CONVERTED: readonly Converted[] = [
   /* ── area 1 · the couple's dashboard and the shared pieces ── */
@@ -88,6 +88,8 @@ export const CONVERTED: readonly Converted[] = [
   { area: 'supplier', what: 'Discount unit (% | ₱)', file: `${V}/services/_components/service-list-editors.tsx`, anchor: 'aria-label="Discount unit"', via: 'track', thumb: 'slides', gone: "background: on ? 'var(--m-ink)' : 'var(--m-paper-2)'" },
   { area: 'supplier', what: 'How a payment is set (% of total | Fixed ₱)', file: `${V}/services/_components/payment-schedule-editor.tsx`, anchor: 'data-payment-amount-kind=""', via: 'track', thumb: 'slides', gone: 'inline-flex overflow-hidden rounded-md border border-ink/20' },
   { area: 'supplier', what: 'Billing term (Every 28 days | Yearly)', file: `${V}/subscription/custom/_components/custom-configurator.tsx`, anchor: 'aria-label="Billing term"', via: 'track', thumb: 'waits', why: RADIO, gone: 'rounded-lg border border-ink/12 p-1' },
+  /* ── area 3 · onboarding, sign-in and the public pages ── */
+  { area: 'public', what: 'Browse songs (Top 100 | Search | Playlist)', file: 'app/onboarding/wedding/_components/song-bank-step.tsx', anchor: 'aria-label="Browse songs"', via: 'track', thumb: 'slides', gone: "className={mode === m ? 'on' : undefined}" },
 ];
 
 /** From the opening `<` of the element the anchor sits on, a window long enough to hold the selector. */
@@ -104,7 +106,8 @@ export function pillFaults(src: string, c: Pick<Converted, 'file' | 'anchor' | '
   const win = selectorWindow(src, c.anchor, c.file);
   if (c.via === 'track') {
     if (!/^<PillTrack\b/.test(win)) faults.push('the track is drawn by hand — it is no longer <PillTrack>');
-    if (!/<Pill(?:Button|Link)\b/.test(win)) faults.push('no choice is a <PillButton> / <PillLink>');
+    /* (the file, not the window: a choice is often drawn by a small helper just above or below its track) */
+    if (!/<Pill(?:Button|Link)\b/.test(src)) faults.push('no choice is a <PillButton> / <PillLink>');
     if (/^<PillTrack\b[^>]*\bslide=\{false\}/.test(win)) faults.push('the thumb is switched off (slide={false})');
     if (!/from '@\/app\/_components\/pill-track'/.test(src)) faults.push('the file does not import the template');
   } else {
@@ -162,7 +165,7 @@ test('(1) pill-track.tsx — the template, as three elements a server page can w
 });
 
 test('(2)(3) every converted selector is drawn by the template — its track, its choices, its thumb; the hand-made look is gone', () => {
-  assert.ok(CONVERTED.length >= 24, `anti-vacuity: only ${CONVERTED.length} selectors are held`);
+  assert.ok(CONVERTED.length >= 25, `anti-vacuity: only ${CONVERTED.length} selectors are held`);
   const report: string[] = [];
   for (const c of CONVERTED) {
     const faults = pillFaults(read(c.file), c);
@@ -185,6 +188,16 @@ test('(2)(3) every converted selector is drawn by the template — its track, it
   assert.deepEqual(pillFaults(goodWorn, worn), []);
   assert.equal(pillFaults(goodWorn.replace('<PillThumb />\n', ''), worn).length, 1, 'blind to a missing thumb');
   assert.equal(pillFaults(goodWorn.replace('${PILL_TRACK_CLASS} ${PILL_TRACK_GROUND}', 'flex rounded-md bg-cream p-1'), worn).length, 1, 'blind to a track that dropped the template’s class');
+});
+
+test('(3b) onboarding’s own CSS gives the song selector its padding back and nothing else — the look stays the template’s', () => {
+  const css = stripComments(readFileSync(join(WEB, 'app/onboarding/wedding/_styles/onboarding.css'), 'utf8'));
+  // The reason the two rules exist at all; if the reset goes, they can go too.
+  assert.match(css, /\.onbw \*\{box-sizing:border-box;margin:0;padding:0\}/, 'anti-vacuity: onboarding’s padding reset moved — the song selector’s two padding rules may no longer be needed');
+  const rules = [...css.matchAll(/\.onbw \.songbank \.song-seg(?![-\w])[^{]*\{([^}]*)\}/g)].map((m) => m[1]!);
+  assert.equal(rules.length, 2, `the song selector has ${rules.length} rules of its own in onboarding.css — expected the track’s and its buttons’ padding`);
+  for (const body of rules) assert.doesNotMatch(body, /background|color|border|radius|shadow|font|transition/, `onboarding.css draws the song selector’s look again: {${body}}`);
+  assert.match(rules.join(' '), /padding:3px/);
 });
 
 test('(4) the guests’ Event Hub is the one place that does not follow this rule — nothing under app/[slug] draws the template', () => {

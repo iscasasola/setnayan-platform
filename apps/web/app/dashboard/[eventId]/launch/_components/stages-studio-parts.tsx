@@ -1,8 +1,10 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Check } from 'lucide-react';
+import { inertBehind, popupClearRect, popupHolePath } from '@/lib/popup-behind';
 import { STUDIO_DONE_BUTTON, STUDIO_HEAD_ROW, STUDIO_TOOL_PILL } from '@/lib/studio-skin';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 import { ISeg, ISegmented } from '../../website/editor/_components/inspector-kit';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import type { PickOption } from '../../website/editor/_components/pick-menu-types';
@@ -126,18 +128,78 @@ export function StudioCover({ tiles, onOpen }: { tiles: readonly StudioTileModel
  * opens from the bottom; prototype `#pmenu .menu`): the stage ▾, Studio's Tool ▾ and every `PickMenu`
  * inside the Maker (`PickSheetContext`, handed down by the shell while the new Maker is on) — full
  * width at the foot of the screen, a grabber, its name in small capitals, rows that scroll inside it
- * (never past 62% of the screen), the page dimmed behind it, and a tap there closes it. Fixed to the
- * screen, so the shell portals it to <body> (inside a glass panel a `fixed` box is held by the
- * panel's backdrop filter). Phone only; a desktop keeps each list where it opens.
+ * (never past 62% of the screen). Fixed to the screen, so the shell portals it to <body> (inside a
+ * glass panel a `fixed` box is held by the panel's backdrop filter). Phone only; a desktop keeps each
+ * list where it opens.
+ *
+ * 🌑 THE POP-UP RULE (owner 2026-10-08, `INTERACTION_RULES.md` § 9: *"the rest of the screen darkens
+ * (except for when there is preview) … The darkened area will be blurred and nothing behind it will
+ * work. pressing on the dark part removes the pop up. the background will not be scrollable"*):
+ *   · DARK AND BLURRED behind — one class, `.sn-popup-dark` (dark alone where blur is not supported, or
+ *     the device asks for less transparency);
+ *   · NOTHING BEHIND WORKS — every branch of the page but this one is `inert` (`inertBehind`); the page
+ *     behind does not scroll, Escape closes and Tab stays inside (the app's one contract, `useModalA11y`);
+ *   · A TAP OUTSIDE CLOSES — one button under the dark, the whole screen;
+ *   · A LIVE PREVIEW STAYS CLEAR — where one is on screen (`[data-popup-clear]`, Studio › Look's sample)
+ *     the dark is cut around it, so a pick in the sheet is seen at once. Measured at open and on a
+ *     resize; never polled.
  */
 export function MakerSheet({ label, onClose, children }: { label: string; onClose: () => void; children: ReactNode }) {
+  const root = useRef<HTMLDivElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
+  /** What had the focus (the ▾ that opened this) — it goes back there when the sheet leaves. */
+  const from = useRef<HTMLElement | null>(null);
+  /** The dark layer's shape with the live preview cut out — null: there is none, the layer is whole. */
+  const [hole, setHole] = useState<string | null>(null);
+  useLayoutEffect(() => {
+    const el = root.current;
+    if (!el) return;
+    from.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const undo = inertBehind(el);
+    const measure = () => setHole(popupHolePath(popupClearRect(document), { width: window.innerWidth, height: window.innerHeight }));
+    measure();
+    window.addEventListener('resize', measure);
+    return () => {
+      window.removeEventListener('resize', measure);
+      undo();
+    };
+  }, []);
+  /* The app's ONE modal contract (`lib/use-modal-a11y.ts`): Escape closes the sheet on top, Tab stays inside it, the
+     page behind does not scroll. The focus comes INTO the sheet — unless its content already took it (a list focuses
+     its picked row, and keeps it). */
+  const kept = useRef({
+    get current(): HTMLElement | null {
+      const a = document.activeElement;
+      return a instanceof HTMLElement && root.current?.contains(a) ? a : null;
+    },
+  }).current;
+  useModalA11y({ open: true, onClose, containerRef: panel, initialFocusRef: kept });
+  /* …and goes BACK to what opened it, once the sheet is gone (declared after the contract, so it runs after it). */
+  useEffect(
+    () => () => {
+      const a = document.activeElement;
+      const lost = !a || a === document.body || (a instanceof HTMLElement && a.matches('main, [role="main"]'));
+      if (lost && from.current?.isConnected) from.current.focus({ preventScroll: true });
+    },
+    [],
+  );
   return (
-    <div data-maker-sheet="" className="fixed inset-0 z-[95] lg:hidden">
-      <button type="button" aria-label="Close" data-maker-sheet-scrim="" onClick={onClose} className="absolute inset-0 h-full w-full cursor-default bg-ink/20" />
+    <div ref={root} data-maker-sheet="" className="fixed inset-0 z-[95] lg:hidden">
+      {/* A tap anywhere outside the sheet closes it — the dark, and the clear preview too. */}
+      <button type="button" aria-label="Close" data-maker-sheet-scrim="" onClick={onClose} className="absolute inset-0 h-full w-full cursor-default touch-none" />
+      <span
+        aria-hidden
+        data-maker-sheet-dark={hole ? 'around-preview' : 'whole'}
+        className="sn-popup-dark pointer-events-none absolute inset-0"
+        style={hole ? { clipPath: hole } : undefined}
+      />
       <div
+        ref={panel}
         role="dialog"
+        aria-modal="true"
         aria-label={label}
-        className="absolute inset-x-0 bottom-0 flex max-h-[62dvh] flex-col rounded-t-3xl bg-white px-2 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-1 shadow-[0_-18px_40px_-18px_rgba(30,26,18,.45)] ring-1 ring-ink/10"
+        tabIndex={-1}
+        className="absolute inset-x-0 bottom-0 flex max-h-[62dvh] flex-col rounded-t-3xl bg-white px-2 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-1 shadow-[0_-18px_40px_-18px_rgba(30,26,18,.45)] ring-1 ring-ink/10 focus:outline-none"
       >
         <span aria-hidden className="mx-auto mb-1.5 mt-1 h-1 w-10 shrink-0 rounded-full bg-ink/15" />
         <p className="shrink-0 px-3 pb-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-ink/55">{label}</p>

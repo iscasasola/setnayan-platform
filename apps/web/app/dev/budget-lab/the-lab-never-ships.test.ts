@@ -33,7 +33,8 @@ test('the budget lab calls notFound() in production, before anything else', () =
 });
 
 test('the lab draws the REAL components, not a copy', () => {
-  assert.match(LAB, /from '@\/app\/dashboard\/\[eventId\]\/budget\/_components\/budget-summary'/);
+  assert.match(LAB, /from '@\/app\/dashboard\/\[eventId\]\/budget\/_components\/budget-screen'/);
+  assert.match(LAB, /buildBudgetList\(money\)/, 'the lab lists through the real builder');
   assert.doesNotMatch(LAB, /formatPhp\(|toLocaleString\(/, 'the lab formats no figure of its own');
 });
 
@@ -49,6 +50,7 @@ test("the fixture reproduces the approved prototype's figures through the real c
     name: 'Seda Vertis North',
     dueDate: '2026-10-05',
     vendorId: 'sv',
+    costId: null,
   });
 });
 

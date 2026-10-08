@@ -234,36 +234,100 @@ test('BA7 · a failed line-item write does not leave a supplier nobody added', (
 
 // ── 3 · COPY ─────────────────────────────────────────────────────────────────
 
+// ⤷ 2026-10-08 (Budget B2): the "Costs you pay yourself" form became the
+// "Your expenses" group of the one list, with ＋ Add expense as its door
+// (`BUDGET_PAGE_2026-10-08_fable.md`). The two rules below are the same two
+// rules, re-pointed at where the copy and the list now live.
+const SCREEN = 'app/dashboard/[eventId]/budget/_components/budget-screen.tsx';
+const VIEW = 'lib/budget-page-view.ts';
+
 test('BA7 · the page no longer tells a couple to invent a supplier first', () => {
-  const src = readFileSync(resolve(WEB, PAGE), 'utf8');
-  // The literal sentence, and the instruction it carried. Checked against the
-  // RAW file, not the stripped one, on purpose: the old copy is quoted inside
-  // this PR's own docblock explaining why it went, and that quotation is the
-  // record. What must not come back is the RENDERED string.
-  const stripped = stripComments(src);
-  assert.equal(
-    /Add a vendor first/.test(stripped),
-    false,
-    'the dead-end empty state is back in rendered copy',
+  // The dead-end sentence was, in full: "No vendors yet. Add a vendor first,
+  // then come back here to itemize costs." What must never come back is the
+  // RENDERED string — on the page or on the screen it mounts.
+  for (const rel of [PAGE, SCREEN]) {
+    assert.equal(
+      /Add a (vendor|supplier) first/.test(code(rel)),
+      false,
+      `${rel}: the dead-end empty state is back in rendered copy`,
+    );
+  }
+  // And what replaced it is actually there: an expenses group that can be
+  // added to with nobody on the other side of the money.
+  const screen = code(SCREEN);
+  assert.match(code(PAGE), /<BudgetScreen\b/);
+  assert.match(screen, /<ExpenseGroup\b/, 'the "Your expenses" group is not mounted');
+  assert.match(screen, /label="Add expense"/, 'there is no way to add an expense');
+  assert.match(
+    screen,
+    /Nothing added yet\. Use ＋ Add expense for anything paid outside Setnayan\./,
+    'the empty expenses group must point at the door, not at a supplier',
   );
-  assert.ok(
-    src.includes('Add a vendor first'),
-    'the docblock that records what this replaced has been deleted',
-  );
-  // And the section that replaced it is actually mounted.
-  assert.match(stripped, /<CostsWithNoSupplier\b/);
 });
 
 test('BA7 · the recorded list comes from the resolver, not a second read', () => {
   // Two mechanisms that can disagree about one fact is the defect. The page
-  // derives its list from `money.lines`; a second `.from('event_costs')` here
+  // derives its list from the resolver's lines; a second `.from('event_costs')`
   // would be a query that can succeed while the resolver's fails, printing a
   // list beside totals that do not include it.
-  const src = code(PAGE);
-  assert.equal(count(src, /from\('event_costs'\)/g), 0);
-  assert.match(src, /source === 'event_cost'/);
+  assert.equal(count(code(PAGE), /from\('event_costs'\)/g), 0);
+  assert.equal(count(code(SCREEN), /from\('event_costs'\)/g), 0);
+  assert.match(code(PAGE), /buildBudgetList\(/);
+  assert.match(code(VIEW), /l\.source === 'event_cost'/);
   // ...and a resolver refusal is SAID, not rendered as an empty list. An
   // absence that looks identical to "you have none" is the disease this whole
-  // stream is named after.
-  assert.match(src, /costsUnavailable/);
+  // stream is named after. The group is `null` (unknown), and `null` draws
+  // words — never the "Nothing added yet" zero-state.
+  assert.match(code(VIEW), /if \(money\.reads\.costs === 'ok'\) \{\s*expenses = /, 'expenses are built without asking whether the read answered');
+  const group = code(SCREEN).slice(code(SCREEN).indexOf('function ExpenseGroup('));
+  assert.match(
+    group,
+    /rows === null \? \(\s*<GroupUnread what="your expenses" \/>\s*\) : rows\.length === 0 \?/,
+    'a refused expenses read must be answered BEFORE the empty state is considered',
+  );
+});
+
+// ── 4 · EDITING (Budget B2, 2026-10-08) ─────────────────────────────────────
+
+test('B2 · an edit rides recordEventCost — no new exported action', () => {
+  // Every exported 'use server' function is a route against Vercel's ceiling
+  // (lint-server-action-budget). The expense sheet's as-you-type save is an OP
+  // on the existing action — a `cost_id` field — not a third export.
+  const src = code(ACTIONS);
+  assert.deepEqual(
+    [...src.matchAll(/^export async function (\w+)/gm)].map((m) => m[1]),
+    ['recordEventCost', 'deleteEventCost'],
+    'cost-actions.ts grew (or lost) an exported server action',
+  );
+  assert.match(
+    src,
+    /const costId = formData\.get\('cost_id'\);\s*if \(typeof costId === 'string' && costId\.length > 0\) \{\s*return updateRecordedCost\(eventId, costId, formData\);/,
+    'recordEventCost no longer routes a cost_id to the edit',
+  );
+  assert.doesNotMatch(src, /export async function updateRecordedCost/, 'the edit must not be exported');
+});
+
+test('B2 · an edit that changes no row is REFUSED, not reported as saved', () => {
+  // RLS filters an unauthorised UPDATE to zero rows and Postgres calls that a
+  // success (held in the DB by a-cost-can-exist-with-no-supplier.db.test.ts).
+  // The action must ask for the row back and treat "none" as a refusal, or the
+  // sheet prints "Saved." over a figure that never moved.
+  const src = code(ACTIONS);
+  const at = src.indexOf('async function updateRecordedCost(');
+  assert.notEqual(at, -1);
+  const body = src.slice(at, src.indexOf('\nexport async function recordEventCost('));
+  assert.match(
+    body,
+    /\.from\('event_costs'\)\s*\.update\(\{[^}]*amount_php: amountPhp, paid_php: paidPhp[^}]*\}\)\s*\.eq\('cost_id', costId\)\s*\.eq\('event_id', eventId\)\s*\.select\('cost_id'\)/,
+    'the edit must be scoped to the cost AND the event, and ask for the changed row back',
+  );
+  assert.match(
+    body,
+    /if \(!changed \|\| changed\.length === 0\) \{\s*return \{ ok: false,/,
+    'a zero-row update must come back as a refusal',
+  );
+  assert.match(body, /if \(amountPhp === null \|\| amountPhp <= 0\)/, 'an edit may not zero an expense out');
+  // The edit touches the two figures and nothing else — never the label, the
+  // category or the event the row belongs to.
+  assert.doesNotMatch(body, /plan_group_id|label:|event_id:/, 'the edit writes a column it has no business moving');
 });

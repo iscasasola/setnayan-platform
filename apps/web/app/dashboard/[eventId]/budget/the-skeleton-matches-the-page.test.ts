@@ -52,10 +52,17 @@ function skeletonProp(name: 'stats' | 'actions' | 'rows'): number {
 }
 
 test('the page still draws its summary through the component this guard counts', () => {
+  // page.tsx → <BudgetScreen> → <BudgetSummary> (the screen joined them in B2,
+  // so "Pay ›" can open the same sheet a supplier's row does).
   assert.match(
     read(PAGE),
+    /<BudgetScreen\b/,
+    'budget/page.tsx no longer renders <BudgetScreen> — the figures moved again; point this guard at where they live rather than deleting it.',
+  );
+  assert.match(
+    read(join(__dirname, '_components', 'budget-screen.tsx')),
     /<BudgetSummary\b/,
-    'budget/page.tsx no longer renders <BudgetSummary> — the figures moved again; point this guard at where they live rather than deleting it.',
+    'budget-screen.tsx no longer renders <BudgetSummary> — the count below would be of a component nobody draws.',
   );
 });
 

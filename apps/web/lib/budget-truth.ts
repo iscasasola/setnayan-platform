@@ -166,6 +166,17 @@ export type MoneyLine = {
   readOnly: boolean;
   dueDate: string | null;
   /**
+   * The day this money was BOOKED, where its source records one — today only a
+   * Setnayan order (`orders.created_at`, the day the couple placed it). `null`
+   * everywhere else. A LABEL for a row ("Sep 14 · receipt"), never arithmetic:
+   * nothing is due, late or counted because of it.
+   *
+   * ⚖ `created_at`, not `updated_at`: `orders` has no `paid_at`, and
+   * `updated_at` moves every time the row is touched (paid → fulfilled, an
+   * admin note), so a receipt's date would drift after the fact.
+   */
+  bookedOn: string | null;
+  /**
    * Whole days from `now` to `dueDate` — negative once the date has passed.
    * `null` when the line carries no due date at all.
    */
@@ -442,6 +453,8 @@ export type OrderMoneyRow = {
   status: string;
   /** Set on vendor-billing orders. Present so the payer can be discriminated. */
   vendor_profile_id?: string | null;
+  /** The day the order was placed. Optional so a fixture need not carry it. */
+  created_at?: string | null;
 };
 
 /**
@@ -638,6 +651,18 @@ const toCentavos = (v: number | string | null | undefined): number => {
 };
 const toPhp = (centavos: number): number => Math.round(centavos) / 100;
 
+/**
+ * `orders.created_at` → the Manila CALENDAR day it was placed (`YYYY-MM-DD`).
+ * The timestamp is UTC; an order placed at 07:00 in Manila is "yesterday" in
+ * UTC, and a receipt dated the day before the couple bought it is wrong.
+ */
+function orderBookedDay(createdAt: string | null | undefined): string | null {
+  if (typeof createdAt !== 'string' || createdAt.length === 0) return null;
+  const t = Date.parse(createdAt);
+  if (!Number.isFinite(t)) return null;
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date(t));
+}
+
 // ── The pure core ────────────────────────────────────────────────────────────
 
 type WorkingLine = MoneyLine & {
@@ -724,10 +749,14 @@ export function computeEventMoney(inputs: MoneyInputs): EventMoney {
   };
 
   const pushLine = (
-    l: Omit<WorkingLine, 'amountPhp' | 'paidPhp' | 'stillOwedPhp' | 'daysUntilDue' | 'dueState'>,
+    l: Omit<
+      WorkingLine,
+      'amountPhp' | 'paidPhp' | 'stillOwedPhp' | 'daysUntilDue' | 'dueState' | 'bookedOn'
+    > & { bookedOn?: string | null },
   ) => {
     const line: WorkingLine = {
       ...l,
+      bookedOn: l.bookedOn ?? null,
       amountPhp: toPhp(l.amountC),
       paidPhp: toPhp(l.paidC),
       stillOwedPhp: toPhp(l.owedC),
@@ -858,6 +887,7 @@ export function computeEventMoney(inputs: MoneyInputs): EventMoney {
         vendorName: null,
         readOnly: true,
         dueDate: null,
+        bookedOn: orderBookedDay(o.created_at),
       });
       committedC += amountC;
       paidC += isPaid ? amountC : 0;
@@ -882,6 +912,7 @@ export function computeEventMoney(inputs: MoneyInputs): EventMoney {
         vendorName: null,
         readOnly: true,
         dueDate: null,
+        bookedOn: orderBookedDay(o.created_at),
       });
       estimatedC += amountC;
       bucket(SETNAYAN_BUCKET).estimatedC += amountC;
@@ -1732,7 +1763,7 @@ export async function resolveEventMoney(
       supabase
         .from('orders')
         .select(
-          'order_id,description,service_key,requested_total_php,confirmed_total_php,status,vendor_profile_id',
+          'order_id,description,service_key,requested_total_php,confirmed_total_php,status,vendor_profile_id,created_at',
         )
         .eq('event_id', eventId),
       supabase

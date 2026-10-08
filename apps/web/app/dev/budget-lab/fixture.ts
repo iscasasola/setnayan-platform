@@ -10,6 +10,7 @@
  * Fixture data only. No database, no event.
  */
 import { computeEventMoney, type EventMoney, type MoneyReadStatus } from '@/lib/budget-truth';
+import type { SupplierPayment } from '@/app/dashboard/[eventId]/budget/_components/budget-screen';
 
 const E = '00000000-0000-4000-8000-000000000000';
 /** The prototype was drawn in early October 2026; the clock is pinned so due states do not drift. */
@@ -20,8 +21,8 @@ export function labMoney(reads?: MoneyReadStatus): EventMoney {
   return computeEventMoney({
     targetCentavos: 225_000_000,
     vendors: [
-      { vendor_id: 'sv', event_id: E, category: 'reception_venue' as never, vendor_name: 'Seda Vertis North', status: 'contracted' as never, total_cost_php: 1_056_000 },
-      { vendor_id: 'sd', event_id: E, category: 'ceremony_venue' as never, vendor_name: 'Santuario de San Vicente de Paul', status: 'contracted' as never, total_cost_php: 26_499 },
+      { vendor_id: 'sv', event_id: E, category: 'venue', vendor_name: 'Seda Vertis North', status: 'contracted', total_cost_php: 1_056_000 },
+      { vendor_id: 'sd', event_id: E, category: 'religious_venue', vendor_name: 'Santuario de San Vicente de Paul', status: 'contracted', total_cost_php: 26_499 },
     ],
     lineItems: [
       { line_item_id: 'sv-1', vendor_id: 'sv', label: 'Reservation', amount_php: 105_600, due_date: '2026-08-02' },
@@ -36,9 +37,9 @@ export function labMoney(reads?: MoneyReadStatus): EventMoney {
     orders: ordersFailed
       ? []
       : [
-          { order_id: 'o1', description: 'Event Hub Pro', service_key: 'EVENT_HUB_PRO', requested_total_php: 2_499, confirmed_total_php: 2_499, status: 'paid' },
-          { order_id: 'o2', description: 'Papic · 2 cameras', service_key: 'PAPIC', requested_total_php: 2_899, confirmed_total_php: 2_899, status: 'paid' },
-          { order_id: 'o3', description: 'Live Watch', service_key: 'LIVE_WATCH', requested_total_php: 2_500, confirmed_total_php: 2_500, status: 'paid' },
+          { order_id: 'o1', description: 'Event Hub Pro', service_key: 'EVENT_HUB_PRO', requested_total_php: 2_499, confirmed_total_php: 2_499, status: 'paid', created_at: '2026-09-14T03:00:00Z' },
+          { order_id: 'o2', description: 'Papic · 2 cameras', service_key: 'PAPIC', requested_total_php: 2_899, confirmed_total_php: 2_899, status: 'paid', created_at: '2026-09-14T03:05:00Z' },
+          { order_id: 'o3', description: 'Live Watch', service_key: 'LIVE_WATCH', requested_total_php: 2_500, confirmed_total_php: 2_500, status: 'paid', created_at: '2026-09-30T03:00:00Z' },
         ],
     costs: [
       { cost_id: 'e1', plan_group_id: 'ceremony_venue', label: 'Church offering', amount_php: 15_000, paid_php: 15_000, due_date: null },
@@ -51,3 +52,9 @@ export function labMoney(reads?: MoneyReadStatus): EventMoney {
     now: LAB_NOW,
   });
 }
+
+/** How each fixture payment was made — the "· Bank transfer" a sheet's Paid row prints. */
+export const LAB_PAYMENTS: Record<string, SupplierPayment[]> = {
+  sv: [{ paymentId: 'p1', paidAt: '2026-08-02', amountPhp: 105_600, method: 'Bank transfer' }],
+  sd: [{ paymentId: 'p2', paidAt: '2026-07-21', amountPhp: 26_499, method: 'GCash' }],
+};

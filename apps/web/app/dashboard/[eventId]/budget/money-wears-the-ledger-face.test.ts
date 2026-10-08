@@ -33,9 +33,9 @@
  *
  * ── Scope: the `budget/` tree, and only it ────────────────────────────────
  * The old guard followed the page's imports into the shared
- * `_components/vendor-itemization-card.tsx`. That card is also the supplier
- * workspace's, whose look is not this page's to change; it leaves the Budget
- * page in plan row B2 (its job moves into the supplier's payments sheet).
+ * `_components/vendor-itemization-card.tsx`. That card is the supplier
+ * workspace's; since plan row B2 the Budget page no longer mounts it (its job
+ * here moved into the supplier's payments sheet).
  *
  * 🛡 Each rule was sabotaged and seen red before being trusted.
  */
@@ -71,15 +71,8 @@ const PROSE_BILL: ReadonlyArray<{
     reason:
       'Sentences, not columns: "Suggested ₱45,000 · typical range ₱30,000–₱60,000" and the same ' +
       'line in the tilt editor. Tabular numerals are for the column the eye scans, never for ' +
-      'money inside prose. (This component leaves the page in plan row B2.)',
-  },
-  {
-    file: '_components/budget-ledger-table.tsx',
-    count: 5,
-    reason:
-      'BA3. Five sentences: the overpaid warning and the absorption disclosure\'s four ' +
-      'in-sentence amounts. The Planned · Agreed · Paid · Owed column itself is tabular. (This ' +
-      'component leaves the page in plan row B2.)',
+      'money inside prose. (Unmounted from the page in plan row B2 — owner: "not this one" — and ' +
+      'kept as a file for whichever surface draws the estimates next.)',
   },
 ];
 
@@ -357,7 +350,9 @@ test('the setter form, the boxed stat tile and the pinned bar do not come back',
   const page = code(join(BUDGET_TREE, 'page.tsx'));
   assert.doesNotMatch(page, /\bBudgetSetter\b/, 'the "What\'s your total … budget?" form is gone — Target edits in place');
   assert.doesNotMatch(page, /\bBudgetLiveSummaryCard\b|\bBudgetTopSummary\b|\bSummaryStat\b/, 'the boxed stat tile and the live card are gone');
-  assert.match(page, /<BudgetSummary\b/, 'the summary is the rows component');
+  // Since B2 the page mounts <BudgetScreen>, which draws the summary rows.
+  assert.match(page, /<BudgetScreen\b/, 'the page draws the budget screen');
+  assert.match(code(join(BUDGET_TREE, '_components', 'budget-screen.tsx')), /<BudgetSummary\b/, 'whose summary is the rows component');
   const summary = code(join(BUDGET_TREE, '_components', 'budget-summary.tsx'));
   assert.doesNotMatch(summary, /sn-tile|sn-eye/, 'the summary is rows: no tile, no eyebrow');
   assert.doesNotMatch(summary, /position:\s*['"]?fixed|\bfixed inset-x-0\b/, 'no pinned bar');

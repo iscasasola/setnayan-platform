@@ -15,6 +15,9 @@
  */
 
 .page {
+  /* the prototype's own type scale: 15px on a 1.4 line */
+  font-size: 15px;
+  line-height: 1.4;
   --bp-ink: rgb(var(--color-ink));
   --bp-mute: rgb(var(--color-ink) / 0.6);
   --bp-line: rgb(var(--color-ink) / 0.1);
@@ -234,6 +237,283 @@
   align-items: center;
   min-height: 44px;
   margin-block: -14px;
+}
+
+/* ═══ the one list — three groups, hairline rows ═══ */
+.list {
+  margin-top: 8px;
+}
+.grp {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 22px 0 4px;
+}
+.grp h2 {
+  font-size: 19px;
+  line-height: 1.15;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  margin: 0;
+  color: var(--bp-ink);
+}
+.cnt {
+  color: var(--bp-mute);
+  font-size: 14px;
+}
+.row {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 11px 0;
+  border: 0;
+  border-top: 1px solid var(--bp-line);
+  min-height: 56px;
+  width: 100%;
+  background: none;
+  color: var(--bp-ink);
+  font: inherit;
+  text-align: left;
+}
+button.row {
+  cursor: pointer;
+}
+.grp + .row {
+  border-top: 0;
+}
+.logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--bp-line);
+  display: grid;
+  place-items: center;
+  font-size: 11.5px;
+  letter-spacing: 0.06em;
+  color: var(--bp-mute);
+  background: rgb(var(--color-cream));
+}
+.logoS {
+  background: color-mix(in srgb, var(--bp-gild) 16%, transparent);
+  color: var(--bp-gild);
+  border-color: transparent;
+  font-weight: 700;
+  font-size: 13px;
+}
+.mid {
+  min-width: 0;
+}
+.name {
+  font-weight: 500;
+  font-size: 15px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+}
+.svc {
+  font-size: 13px;
+  color: var(--bp-mute);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+}
+.end {
+  display: flex;
+  align-items: center;
+}
+.amt {
+  text-align: right;
+  white-space: nowrap;
+}
+.amt b {
+  display: block;
+  font-weight: 500;
+  font-size: 15px;
+}
+.amt small {
+  display: block;
+  font-size: 12px;
+  color: var(--bp-mute);
+}
+.amt small.wine {
+  color: var(--bp-wine);
+}
+.amt small.ok {
+  color: var(--bp-ok);
+}
+.chev {
+  color: var(--bp-mute);
+  font-size: 16px;
+  margin-left: 6px;
+}
+.empty {
+  padding: 10px 0 4px;
+  color: var(--bp-mute);
+  font-size: 14px;
+}
+.fail {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 0;
+  border-top: 1px solid var(--bp-line);
+  color: var(--bp-mute);
+  font-size: 14px;
+}
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--bp-danger);
+  flex: none;
+}
+
+/* ═══ the thumb row — fixed over the list, above the bottom nav ═══
+   The row has no fill of its own. B2 gives it its first control (＋ Add
+   expense, which keeps its full colour); the filter and search join it later. */
+.lower {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--sn-bottomdock-h, calc(env(safe-area-inset-bottom) + 64px)));
+  padding: 10px 16px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  z-index: 25;
+  pointer-events: none;
+}
+.lower > * {
+  pointer-events: auto;
+}
+@media (min-width: 1024px) {
+  .lower {
+    bottom: 16px;
+    justify-content: center;
+  }
+}
+/* Room under the last row so the fixed row never sits on top of a figure. */
+.listRoom {
+  padding-bottom: 72px;
+}
+
+/* ═══ sheets ═══ */
+.sheet {
+  padding: 18px 16px 8px;
+  color: var(--bp-ink);
+}
+.sheet h3 {
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  margin: 0 48px 2px 0;
+}
+.sheetSub {
+  font-size: 13px;
+  color: var(--bp-mute);
+}
+.sheetBody {
+  margin-top: 8px;
+}
+.field {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 0;
+  border-top: 1px solid var(--bp-line);
+  min-height: 56px;
+}
+.field:first-child {
+  border-top: 0;
+}
+.field label,
+.fieldLabel {
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.field input {
+  border: 0;
+  border-bottom: 1px dashed var(--bp-mute);
+  border-radius: 0;
+  background: none;
+  text-align: right;
+  width: 150px;
+  font: inherit;
+  font-size: 16px;
+  color: inherit;
+  outline: none;
+  box-shadow: none;
+  padding: 2px 0;
+}
+.field input.wide {
+  width: 190px;
+}
+.field input:focus,
+.field input:focus-visible {
+  border-bottom: 1px solid var(--bp-brand);
+  outline: none;
+  box-shadow: none;
+}
+.field input::placeholder {
+  color: var(--bp-mute);
+}
+/* The dropdown's own pill, outlined as drawn — on the sheet's paper the
+   shipped button's white wash alone does not read as a control. */
+.pick {
+  border: 1px solid var(--bp-line);
+}
+.optional {
+  font-size: 12px;
+  color: var(--bp-mute);
+  margin-left: 4px;
+}
+.acts {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.pay {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 10px;
+  padding: 10px 0;
+  border-top: 1px solid var(--bp-line);
+  font-size: 14px;
+}
+.pay:first-child {
+  border-top: 0;
+}
+.payD {
+  color: var(--bp-mute);
+  font-size: 13px;
+}
+.payA {
+  text-align: right;
+  font-weight: 500;
+}
+.payDue {
+  color: var(--bp-wine);
+  font-weight: 400;
+}
+.payOk {
+  color: var(--bp-ok);
+}
+.said {
+  font-size: 13px;
+  color: var(--bp-mute);
+  margin-top: 10px;
+}
+.saidBad {
+  color: var(--bp-danger);
 }
 
 @media (prefers-reduced-motion: reduce) {

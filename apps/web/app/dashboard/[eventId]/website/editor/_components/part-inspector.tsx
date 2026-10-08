@@ -231,7 +231,7 @@ export function PartTextTab({
           />
           {has('weight') || has('italic') || has('underline') ? (
             <span className="ml-auto">
-              <ISegmented label="Bold, italic, underline" grow={false}>
+              <ISegmented label="Bold, italic, underline" grow={false} slide={false}>
                 {has('weight') && bold ? (
                   <ISeg
                     on={style.weight === bold}

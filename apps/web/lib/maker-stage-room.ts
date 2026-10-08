@@ -35,12 +35,25 @@ export const STAGE_ICON_FACE =
 /** The stage ▾ pill (prototype `.ddp`: caps, a gold chevron, open = gold ring). */
 export const STAGE_ITEM_BUTTON =
   'sn-press inline-flex h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full border border-[var(--sp-line)] bg-[var(--sp-pill)] px-3 text-[11.5px] font-bold uppercase tracking-[0.06em] text-[var(--sp-ink)] transition-[box-shadow,border-color,background-color] duration-150 aria-expanded:border-[var(--sp-gold)] aria-expanded:bg-white aria-expanded:shadow-[0_0_0_2px_var(--sp-gold-soft)]';
-/** The Style | Text | Animate pill (prototype `.tpill`, white, 44 px). */
-export const STAGE_TOOL_PILL = 'inline-flex h-11 shrink-0 items-center rounded-full border border-[var(--sp-line)] bg-white';
-/** One of Style | Text | Animate — 44 px tall to the thumb; its 46 × 38 face (`STAGE_TOOL_FACE`) is the prototype's `.tb`. */
-export const STAGE_TOOL_BUTTON = 'sn-press group inline-flex h-11 w-[46px] items-center justify-center text-[var(--sp-ink2)] disabled:opacity-30';
+/**
+ * The Style | Text | Animate pill (prototype `.tpill`, white, 44 px).
+ * 🎚 A PILL SELECTOR WHOSE THUMB SLIDES (owner 2026-10-08, selecting this group: *"apply the same pill selector"*;
+ * DECISION_LOG "SELECTORS ARE PILLS THAT SLIDE"): the track wears the app's thumb (`app/_components/pill-thumb.tsx`,
+ * `group/seg relative`), so the dark face TRAVELS from one tool to the next instead of one fading out and another
+ * in. The icons stay where they are and their ink cross-fades to white on the thumb.
+ */
+export const STAGE_TOOL_PILL = 'group/seg relative inline-flex h-11 shrink-0 items-center rounded-full border border-[var(--sp-line)] bg-white';
+/** One of Style | Text | Animate — 44 px tall to the thumb; its 46 × 38 face (`STAGE_TOOL_FACE`) is the prototype's `.tb`. Above the travelling thumb (`z-[1]`). */
+export const STAGE_TOOL_BUTTON = 'sn-press group relative z-[1] inline-flex h-11 w-[46px] items-center justify-center text-[var(--sp-ink2)] disabled:opacity-30';
+/** The face: it paints the dark pill itself until the thumb is laid, then hands the fill over (never a frame with none, never two). */
 export const STAGE_TOOL_FACE =
-  'inline-flex h-[38px] w-[46px] items-center justify-center rounded-full transition-colors duration-[240ms] group-aria-pressed:bg-[var(--sp-ink)] group-aria-pressed:text-white';
+  'inline-flex h-[38px] w-[46px] items-center justify-center rounded-full transition-colors duration-[220ms] ease-sn motion-reduce:transition-none group-aria-pressed:bg-[var(--sp-ink)] group-aria-pressed:text-white group-data-[seg-thumb]/seg:group-aria-pressed:bg-transparent';
+/**
+ * The hairline between two tools. It fades out on either side of the picked tool — the thumb is never cut by a line
+ * as it passes, and the line beside it is gone when it lands (the way iOS draws a segmented control).
+ */
+export const STAGE_TOOL_DIVIDER =
+  'mx-px h-5 w-px bg-[var(--sp-line2)] transition-opacity duration-[220ms] ease-sn motion-reduce:transition-none has-[+[aria-pressed=true]]:opacity-0 [[aria-pressed=true]+&]:opacity-0';
 /** A part's tile in the strip (shown only when the panel is dragged taller with nothing picked — prototype `.th`). */
 export const STAGE_PART_TILE =
   'sn-press flex h-[124px] w-[104px] shrink-0 flex-col overflow-hidden rounded-[14px] border border-[var(--sp-line)] bg-[#FBF9F5] text-center text-[12.5px] text-[var(--sp-ink2)] aria-pressed:border-[var(--sp-cta)]';
@@ -64,11 +77,22 @@ export const STAGE_GUEST_TAB =
 
 /** A tool's column (prototype `.pane`): rows 8 px apart, scrolls only when a tool is longer than half the screen. */
 export const SP_PANE = 'flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overflow-x-hidden px-[10px] pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden';
-/** The segmented control (Look | Background | Arrange · Build in | Action | Build out) — prototype `.sub.phases`. */
-export const SP_PHASES = 'flex h-11 w-full shrink-0 rounded-[10px] bg-[rgba(44,42,41,.07)] ring-1 ring-inset ring-[var(--sp-line2)]';
-/** One segment: 44 px to the thumb, its white face clipped 3 px inside (the prototype's 2 px padding). */
+/**
+ * The segmented control (Look | Background | Arrange · Build in | Action | Build out) — prototype `.sub.phases`.
+ * 🎚 A FULL PILL WHOSE THUMB SLIDES (owner 2026-10-08, selecting it: *"apple the same pill selector"*; DECISION_LOG
+ * "SELECTORS ARE PILLS THAT SLIDE"): the app's track shape (`group/seg relative … rounded-full p-[3px]`, as
+ * `PILL_TRACK_CLASS`) on the panel's own ground, 44 px tall, with the app's thumb inside (`Phases`, `stage-panel/kit.tsx`).
+ */
+export const SP_PHASES = 'group/seg relative flex h-11 w-full min-w-0 shrink-0 rounded-full bg-[rgba(44,42,41,.07)] ring-1 ring-inset ring-[var(--sp-line2)]';
+/**
+ * One segment: 44 px to the finger (`h-11` — the panel's own rule, `the-stage-panel-fits-a-phone`), its white pill
+ * clipped 3 px inside (a transparent border), so the face is the 38-px pill of the app's selector. `SP_PHASE_INSET`
+ * tells the thumb the same 3 px. It paints the pill itself until the thumb is laid, then hands the fill over.
+ */
 export const SP_PHASE =
-  'sn-press flex h-11 min-w-0 flex-1 items-center justify-center rounded-[11px] border-[3px] border-transparent bg-clip-padding text-[13px] font-semibold text-[var(--sp-ink2)] transition-colors duration-[240ms] aria-pressed:bg-white aria-pressed:text-[var(--sp-ink)] aria-pressed:shadow-[inset_0_0_0_1px_rgba(0,0,0,.04)]';
+  'sn-press relative z-[1] flex h-11 min-w-0 flex-1 items-center justify-center rounded-full border-[3px] border-transparent bg-clip-padding text-[13px] font-semibold text-[var(--sp-ink2)] transition-colors duration-[220ms] ease-sn motion-reduce:transition-none aria-pressed:bg-white aria-pressed:text-[var(--sp-ink)] aria-pressed:shadow-[inset_0_0_0_1px_rgba(0,0,0,.04)] group-data-[seg-thumb]/seg:aria-pressed:bg-transparent group-data-[seg-thumb]/seg:aria-pressed:shadow-none';
+/** The 3 px `SP_PHASE` keeps clear around its face (its `border-[3px]`) — what the thumb is laid inside. */
+export const SP_PHASE_INSET = 3;
 /** A labelled dropdown row (prototype `.dd`: white pill, the small caps label, the value, a gold chevron). */
 export const SP_DD = 'relative flex h-11 min-w-0 flex-1 items-center rounded-full bg-white pl-[14px] ring-1 ring-inset ring-[var(--sp-line)]';
 /** The small caps word before a dropdown's value (prototype `.dd small`). */

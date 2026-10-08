@@ -56,12 +56,27 @@ import type { HubStage } from './hub-canvas';
 import { RSVP_STAGE_KEY } from './rsvp-stage-shared';
 import { POST_EVENT_SCENE_NAMES } from './post-event-scene-names';
 
-/* ── the three tools ──────────────────────────────────────────────────────── */
+/* ── the four tools ───────────────────────────────────────────────────────── */
 
-/** Style | Text | Animate — the panel's one segmented control (`tpill`). */
-export const MAKER_PART_TOOLS = ['style', 'text', 'animate'] as const;
+/**
+ * Edit | Style | Background | Animate — the toolbar's one selector (owner 2026-10-09, verbatim: *"so it is just
+ * Edit | Style | Background | Animate"*; `TOOLBAR-SPEC-2026-10-09.md`). It was Style | Text | Animate: Text's Font
+ * left the toolbar (*"there is already a universal font"*), its Colour and Size are Style's last row, the part's
+ * words and its place are Edit's, and Background is a tool of its own instead of a segment under Style.
+ */
+export const MAKER_PART_TOOLS = ['edit', 'style', 'bg', 'animate'] as const;
 export type MakerPartTool = (typeof MAKER_PART_TOOLS)[number];
-export const MAKER_PART_TOOL_LABEL: Record<MakerPartTool, string> = { style: 'Style', text: 'Text', animate: 'Animate' };
+export const MAKER_PART_TOOL_LABEL: Record<MakerPartTool, string> = { edit: 'Edit', style: 'Style', bg: 'Background', animate: 'Animate' };
+
+/**
+ * What the WORK AREA is asked for a tool (`MAKER_STAGE_TOOL_EVENT`, `editor-shell.tsx` `onTool`): Animate is the
+ * part's own motion; Edit, Style and Background are all read off the scene's Format (`StageStyle` shows the one the
+ * toolbar is on — `stage-panel/store.ts` `useStageTool`). The work area's vocabulary is unchanged.
+ */
+export type MakerWorkTool = 'style' | 'animate';
+export function makerWorkTool(tool: MakerPartTool): MakerWorkTool {
+  return tool === 'animate' ? 'animate' : 'style';
+}
 
 /**
  * 🔤 THE TEXT TOOL IS THREE CONTROLS — Font · Colour · Size (owner 2026-10-06:
@@ -349,28 +364,35 @@ export function makerPartQuietRow(key: MakerPartKey): { words: string; to: { stu
 
 /**
  * 🚫 DOES A TOOL HAVE ANYTHING TO SET ON THIS PART? (owner rule: a failure never renders as success — a pill that
- * slides to "Text" over a panel still showing Style's cards is exactly that. Tapped on the Maker lab, 2026-10-08:
+ * slides to "Animate" over a panel still showing Style's cards is exactly that. Tapped on the Maker lab, 2026-10-08:
  * E-Gifts and What to wear did it.)
  *
- *   Style    always — every part has a look.
- *   Text     }  only where the work area has a save for it (`editor-shell.tsx` `onTool`, `stage-tools.tsx`
- *   Animate  }  `askTool`): a part of a bigger section with words of its own (`el` → the part's sheet), or a scene
- *               the couple arranges (`w:` → the scene's heading, the scene's motion).
- * A fixed part with no `el` (E-Gifts, What to wear, the March, the details, the seat, the pass …), a Post Event
- * scene (`p:`), and the parts the canvas does not draw (the Reveal, the Camera) have neither.
+ *   Edit        always — every part has a door or a name, and its place on the page.
+ *   Style       always — every part has a look.
+ *   Background  only where the work area has a background to save TODAY: a scene the couple arranges (`w:`). A
+ *               single line inside the cover (`el`) sits on the cover's own — grey for good (owner 2026-10-09). The
+ *               fixed blocks (the March, E-Gifts, The details, What to wear, the seat, the pass …) are to get one
+ *               (*"giving the freedom to fix their event hub"*) — real build work after the toolbar; grey until then.
+ *   Animate     only where the work area has a save for it (`editor-shell.tsx` `onTool`, `stage-tools.tsx`
+ *               `askTool`): a part of a bigger section with words of its own (`el` → the part's sheet), or a scene
+ *               the couple arranges (`w:` → the scene's motion). The fixed blocks are to get it too — grey until then.
+ * A Post Event scene (`p:`), and the parts the canvas does not draw (the Reveal, the Camera) have neither.
  */
 export function makerPartToolWorks(key: MakerPartKey, tool: MakerPartTool): boolean {
-  if (tool === 'style') return true;
+  if (tool === 'edit' || tool === 'style') return true;
   const def = MAKER_PARTS[key];
   if (!def.canvas) return false;
+  if (tool === 'bg') return def.canvas.startsWith('w:');
   return Boolean(def.el) || def.canvas.startsWith('w:');
 }
 
 /**
  * The ONE plain line a tap on a tool with nothing to set answers with — never a dead tap, never a silent one. A
- * part whose content is Studio's says where it IS changed; any other names the tool.
+ * line of the cover says whose background it sits on (the prototype's own words); a part whose content is Studio's
+ * says where it IS changed; any other names the tool.
  */
 export function makerPartToolWhy(key: MakerPartKey | null, tool: MakerPartTool): string {
+  if (tool === 'bg' && key && MAKER_PARTS[key].canvas === 'f:hero' && MAKER_PARTS[key].el) return 'This sits on the cover’s background.';
   const src = key ? makerPartSource(key) : null;
   if (src?.kind === 'studio') return 'Nothing to change here — edit it in Studio.';
   return `${MAKER_PART_TOOL_LABEL[tool]} has nothing to change on this part.`;

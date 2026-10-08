@@ -34,7 +34,7 @@ import React from 'react';
 
 import { stripComments } from './strip-comments';
 import { PILL_THUMB_CLASS, createPillThumb, pillThumbLay, segIndex, segStep, type PillChoiceEl } from '../app/_components/pill-thumb';
-import { SP_PHASE, SP_PHASE_INSET, SP_PHASES, STAGE_TOOL_BUTTON, STAGE_TOOL_DIVIDER, STAGE_TOOL_FACE, STAGE_TOOL_PILL } from './maker-stage-room';
+import { SP_PHASE, SP_PHASE_INSET, SP_PHASES, STAGE_TOOL_BUTTON, STAGE_TOOL_INSET, STAGE_TOOL_PILL } from './maker-stage-room';
 
 (globalThis as unknown as { React: unknown }).React = React;
 
@@ -291,7 +291,9 @@ test('(3) it lands with a bounce and pulses once on a pick — transform, size, 
   //   review copy: the thumb ran at the 150 ms default while its class said 220).
   assert.match(tw, /plugins: \[tailwindcssAnimate\]/, 'anti-vacuity: the animate plugin left — arbitrary durations may be safe again');
   for (const f of ['app/_components/pill-selector.tsx', 'app/_components/pill-thumb.tsx', `${E}/inspector-kit.tsx`]) assert.doesNotMatch(read(f), /duration-\[/, `${f}: an arbitrary duration is never emitted`);
-  for (const [name, cls] of Object.entries({ SP_PHASE, STAGE_TOOL_FACE, STAGE_TOOL_DIVIDER })) {
+  /* (Re-aimed 2026-10-09: the tool group is words now — the button itself carries the colour's fade; its icon face and
+     its hairlines are gone, `TOOLBAR-SPEC-2026-10-09.md`.) */
+  for (const [name, cls] of Object.entries({ SP_PHASE, STAGE_TOOL_BUTTON })) {
     assert.ok(has(cls, 'duration-sn-pill'), `${name} does not move at the family's speed`);
     assert.doesNotMatch(cls, /duration-\[/, `${name}: an arbitrary duration is never emitted`);
   }
@@ -393,34 +395,31 @@ test('(5) the four Maker selectors wear the ONE thumb — Stages | Studio, Look�
   assert.match(stageKit, /<button key=\{k\} type="button" aria-pressed=\{k === value\} data-stage-phase=\{k\} data-seg-inset=\{SP_PHASE_INSET\} onClick=\{\(\) => onPick\(k\)\} className=\{SP_PHASE\}>/);
   assert.equal(SP_PHASE_INSET, 3);
   assert.ok(has(SP_PHASE, `border-[${SP_PHASE_INSET}px]`), 'the thumb’s inset is not the segment’s own clear margin');
+  /* 🔁 Re-aimed 2026-10-09: Style's own Look | Background | Arrange is gone — the toolbar's four tools say which is on
+     show (owner: *"so it is just Edit | Style | Background | Animate"*), so `Phases` is Animate's alone now. */
   const phasesUses = [`${L}/stage-panel/stage-style.tsx`, `${L}/stage-panel/stage-animate.tsx`].filter((f) => /<Phases\b/.test(read(f)));
-  assert.equal(phasesUses.length, 2, 'anti-vacuity: Phases is used somewhere else now');
+  assert.deepEqual(phasesUses, [`${L}/stage-panel/stage-animate.tsx`], 'anti-vacuity: Phases is used somewhere else now');
 
-  // 4 · THE TOOL GROUP (Style · Text · Animate): the dark face TRAVELS — one thumb, on each tool's 46 × 38 face.
+  // 4 · THE TOOL GROUP (Edit · Style · Background · Animate): the accent TRAVELS — one thumb, 3 px inside each tool's box.
+  /* 🔁 Re-aimed 2026-10-09 (`TOOLBAR-SPEC-2026-10-09.md`): the tools are WORDS, each as wide as its word — it was three
+     icons on 46 × 38 faces with hairlines between. The claim is the same: ONE thumb that travels, in the one accent,
+     the tools the track's direct children, the picked one handing its fill to the thumb. The thumb now lies inside
+     the button's own clear margin (`data-seg-inset`, as `Phases` does), since a word has no fixed face to lie on. */
   for (const c of ['group/seg', 'relative', 'rounded-full', 'h-11']) assert.ok(has(STAGE_TOOL_PILL, c), `the tool group’s track lost ${c}`);
-  for (const c of ['relative', 'z-[1]', 'h-11', 'w-[46px]']) assert.ok(has(STAGE_TOOL_BUTTON, c), `a tool lost ${c}`);
-  for (const c of ['h-[38px]', 'w-[46px]', 'rounded-full', 'duration-sn-pill', 'motion-reduce:transition-none', 'group-aria-pressed:bg-sn-accent', 'group-aria-pressed:text-sn-on-accent', 'group-data-[seg-thumb]/seg:group-aria-pressed:bg-transparent']) {
-    assert.ok(has(STAGE_TOOL_FACE, c), `a tool’s face lost ${c}`);
+  for (const c of ['relative', 'z-[1]', 'h-11', 'rounded-full', 'bg-clip-padding', 'duration-sn-pill', 'motion-reduce:transition-none', 'aria-pressed:bg-sn-accent', 'aria-pressed:text-sn-on-accent', 'group-data-[seg-thumb]/seg:aria-pressed:bg-transparent']) {
+    assert.ok(has(STAGE_TOOL_BUTTON, c), `a tool lost ${c}`);
   }
+  assert.equal(STAGE_TOOL_INSET, 3);
+  assert.ok(has(STAGE_TOOL_BUTTON, `border-[${STAGE_TOOL_INSET}px]`) && has(STAGE_TOOL_BUTTON, 'border-transparent'), 'the thumb’s inset is not the tool’s own clear margin');
   const tools = read(`${L}/stage-tools.tsx`);
   const group = tools.slice(tools.indexOf('data-stage-tpill=""'), tools.indexOf('data-stage-play=""'));
-  assert.match(group, /^data-stage-tpill="">\s*(?:\{\s*\}\s*)?<PillThumb \/>\s*\{MAKER_PART_TOOLS\.map\(\(t, i\) => \(\s*<Fragment key=\{t\}>/, 'the tool group does not wear the thumb, or its tools are not the track’s direct children');
-  assert.doesNotMatch(group, /className="contents"/, 'a wrapper hides the tools from the thumb');
+  assert.match(group, /^data-stage-tpill="">\s*(?:\{\s*\}\s*)?<PillThumb \/>\s*\{MAKER_PART_TOOLS\.map\(\(t\) => \(\s*<button\s+key=\{t\}/, 'the tool group does not wear the thumb, or its tools are not the track’s direct children');
+  assert.doesNotMatch(group, /className="contents"|<Fragment|<span/, 'a wrapper hides the tools from the thumb');
   assert.doesNotMatch(group, /data-seg-fill|--sp-ink\)/, 'the tool group still has a colour of its own');
-  assert.match(group, /<span data-seg-face="" className=\{STAGE_TOOL_FACE\}>/, 'the thumb fills the whole 44-px button, not the 38-px face');
-  // ONE ICON PER TOOL (owner 2026-10-08, the "Bolder" set S5 · T4 · A5): swatch book · A-large-small · orbit — 18 px, stroke 2.
-  for (const [tool, icon] of [['style', 'SwatchBook'], ['text', 'ALargeSmall'], ['animate', 'Orbit']] as const) {
-    assert.match(group, new RegExp(`<${icon} aria-hidden className="h-\\[18px\\] w-\\[18px\\]" strokeWidth=\\{2\\} />`), `${tool} lost its icon (${icon})`);
-  }
-  assert.match(group, /t === 'style' \? \(\s*<SwatchBook [^>]*\/>\s*\) : t === 'text' \? \(\s*<ALargeSmall [^>]*\/>\s*\) : \(\s*<Orbit [^>]*\/>/, 'a tool wears another tool’s icon');
-  assert.doesNotMatch(group, /<Brush\b|<Diamond\b|<Zap\b|>Aa</, 'an old tool icon is still drawn');
-  // The names a screen reader hears are unchanged.
-  assert.match(group, /aria-label=\{MAKER_PART_TOOL_LABEL\[t\]\}/);
-  // The hairline beside the picked tool fades — the thumb is never cut by a line (as iOS draws it).
-  assert.match(group, /\{i > 0 \? <span aria-hidden data-stage-tool-divider="" className=\{STAGE_TOOL_DIVIDER\} \/> : null\}/);
-  for (const c of ['has-[+[aria-pressed=true]]:opacity-0', '[[aria-pressed=true]+&]:opacity-0', 'transition-opacity', 'duration-sn-pill', 'motion-reduce:transition-none']) {
-    assert.ok(has(STAGE_TOOL_DIVIDER, c), `the hairline lost ${c}`);
-  }
+  assert.match(group, /data-seg-inset=\{STAGE_TOOL_INSET\}/, 'the thumb fills the whole 44-px button, not the 38-px pill inside it');
+  // WORDS, never icons (owner 2026-10-09) — the word is the name a screen reader hears too.
+  assert.match(group, />\s*\{MAKER_PART_TOOL_LABEL\[t\]\}\s*<\/button>/);
+  assert.doesNotMatch(group, /<SwatchBook\b|<ALargeSmall\b|<Orbit\b|<Brush\b|<Diamond\b|<Zap\b|>Aa</, 'a tool icon is still drawn');
 
   // A row where several may be on at once is not an either-or: no thumb.
   assert.match(read(`${E}/part-inspector.tsx`), /<ISegmented label="Bold, italic, underline" grow=\{false\} slide=\{false\}>/);

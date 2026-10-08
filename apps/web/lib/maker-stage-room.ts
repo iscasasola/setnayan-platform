@@ -2,18 +2,17 @@
  * lib/maker-stage-room.ts — 📏 THE STAGES PANEL'S ROOM ON A PHONE (the new Maker,
  * `makerStagesStudioEnabled`; `launch/_components/stage-tools.tsx`).
  *
- * Owner, 2026-10-06 (the approved prototype; DECISION_LOG "ONE HEIGHT: 44"): the
- * panel is ONE row while nothing is picked — the stage ▾, Style | Text | Animate,
- * ▶ — over the strip of the page's parts, and rises to HALF the screen, never
- * more, when a part is picked (PR 1's `MAKER_LT_HALF`, `lib/maker-lt-size.ts`).
- * Every control in it is at least Apple's 44 px.
+ * Owner, 2026-10-09 (`TOOLBAR-SPEC-2026-10-09.md`, the approved prototype `studio-head-prototype.html`): the
+ * toolbar is ONE FIXED HEIGHT — "330 px it is" on a tall phone — a handle, "You're editing · Stage › Page ›
+ * Part", the selector Edit | Style | Background | Animate with ▶, and FOUR ROWS. (It was one row that rose to
+ * half the screen when a part was picked — 2026-10-06 — and was dragged between the two.) Every control in it
+ * is at least Apple's 44 px (DECISION_LOG "ONE HEIGHT: 44").
  *
- * The class strings live here, not in the component, so the guard
- * (`lib/the-stage-panel-fits-a-phone.test.ts`) measures the SAME strings the
- * panel draws (`phoneHeightPx`, `lib/maker-phone-room.ts`). Pure; imported only
- * by the lazy Stages panel and the test.
+ * The class strings live here, not in the component, so the guards
+ * (`lib/the-stage-panel-fits-a-phone.test.ts`, `lib/the-toolbar-is-four-rows.test.ts`) measure the SAME strings
+ * the toolbar draws (`phoneHeightPx`, `lib/maker-phone-room.ts`). Pure; imported only by the lazy Stages panel
+ * and the tests.
  */
-import { makerLtClampPx } from './maker-lt-size';
 
 /**
  * 🎨 THE PROTOTYPE'S OWN COLOURS (`maker_two_dropdowns_owner_wireframe_2026-10-06_fable.html`
@@ -34,8 +33,8 @@ export const STAGE_PANEL_VARS =
   '--sp-gold-soft:#E6D8BE;--sp-gold-wash:#F8F3E9;--sp-cta:rgb(var(--sn-accent));--sp-cta-wash:rgb(var(--sn-accent) / .1);--sp-line:#E6E1D8;' +
   '--sp-line2:#D9D3C8;--sp-pill:#F1EEE8;--sp-pill-on:#D8D3CA;--sp-ok:#2F6B4F;--sp-bad:rgb(var(--color-danger))';
 
-/** The panel's one row — [ stage ▾ ] · [ Style | Text | Animate ] · ▶ (prototype `.row1`, 44 px, gap 6). */
-export const STAGE_ROW = 'flex h-11 shrink-0 items-center gap-1.5';
+/** The selector's band — [ Edit | Style | Background | Animate ] · ▶ (prototype `.tools`: 52 px, the 44-px pill and ▶ in its middle, 10 px apart). */
+export const STAGE_ROW = 'flex h-[52px] shrink-0 items-center gap-2.5';
 /** ▶ — a 44 px tap; the prototype's 40 px round is its inner `STAGE_ICON_FACE`. */
 export const STAGE_ICON_BUTTON = 'sn-press inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[var(--sp-ink)]';
 export const STAGE_ICON_FACE =
@@ -44,35 +43,85 @@ export const STAGE_ICON_FACE =
 export const STAGE_ITEM_BUTTON =
   'sn-press inline-flex h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full border border-[var(--sp-line)] bg-[var(--sp-pill)] px-3 text-[11.5px] font-bold uppercase tracking-[0.06em] text-[var(--sp-ink)] transition-[box-shadow,border-color,background-color] duration-150 aria-expanded:border-[var(--sp-gold)] aria-expanded:bg-white aria-expanded:shadow-[0_0_0_2px_var(--sp-gold-soft)]';
 /**
- * The Style | Text | Animate pill (prototype `.tpill`, white, 44 px).
- * 🎚 A PILL SELECTOR WHOSE THUMB SLIDES (owner 2026-10-08, selecting this group: *"apply the same pill selector"*;
- * DECISION_LOG "SELECTORS ARE PILLS THAT SLIDE"): the track wears the app's thumb (`app/_components/pill-thumb.tsx`,
- * `group/seg relative`), so the face TRAVELS from one tool to the next instead of one fading out and another in. ONE
- * colour, as every pill selector (owner: *"pill selector should have a consistent color"*): the terracotta when a
- * tool is on, grey icons when off. The icons stay where they are and their ink cross-fades to white on the thumb.
+ * The Edit | Style | Background | Animate selector (prototype `.tsel`: white, 44 px, a hairline round it) — owner
+ * 2026-10-09, verbatim: *"so it is just Edit | Style | Background | Animate"*. WORDS ONLY, each tool AS WIDE AS ITS
+ * WORD (`flex-auto` — the row's spare room is shared out, a long word is never cut to a third), the track taking the
+ * row left of ▶ (301 px of a 375 phone).
+ * 🎚 A PILL SELECTOR WHOSE THUMB SLIDES (owner 2026-10-08: *"apply the same pill selector"*; DECISION_LOG "SELECTORS
+ * ARE PILLS THAT SLIDE"): the track wears the app's thumb (`app/_components/pill-thumb.tsx`, `group/seg relative`),
+ * so the face TRAVELS from one tool to the next — and changes WIDTH as it goes, to the word it lands on. ONE colour,
+ * as every pill selector: the accent under a white word when a tool is on, grey words when off.
  */
-export const STAGE_TOOL_PILL = 'group/seg relative inline-flex h-11 shrink-0 items-center rounded-full border border-[var(--sp-line)] bg-white';
-/** One of Style | Text | Animate — 44 px tall to the thumb; its 46 × 38 face (`STAGE_TOOL_FACE`) is the prototype's `.tb`. Above the travelling thumb (`z-[1]`). */
-/* A tool with nothing to set on the picked part is GREY and still hears a tap (`aria-disabled`, never `disabled`): the tap says why. */
-export const STAGE_TOOL_BUTTON = 'sn-press group relative z-[1] inline-flex h-11 w-[46px] items-center justify-center text-[var(--sp-mute)] aria-disabled:opacity-30';
-/** The face: it paints the dark pill itself until the thumb is laid, then hands the fill over (never a frame with none, never two). */
-export const STAGE_TOOL_FACE =
-  'inline-flex h-[38px] w-[46px] items-center justify-center rounded-full transition-colors duration-sn-pill ease-sn motion-reduce:transition-none group-aria-pressed:bg-sn-accent group-aria-pressed:text-sn-on-accent group-data-[seg-thumb]/seg:group-aria-pressed:bg-transparent';
+export const STAGE_TOOL_PILL = 'group/seg relative flex h-11 min-w-0 flex-1 items-center rounded-full border border-[var(--sp-line)] bg-white';
 /**
- * The hairline between two tools. It fades out on either side of the picked tool — the thumb is never cut by a line
- * as it passes, and the line beside it is gone when it lands (the way iOS draws a segmented control).
+ * One of the four — 44 px tall to the thumb (`h-11`), never narrower than 44 (`min-w-11`), its pill clipped 3 px
+ * inside (a transparent border — `STAGE_TOOL_INSET` tells the thumb the same 3 px). It paints the pill itself until
+ * the thumb is laid, then hands the fill over (never a frame with none, never two).
  */
-export const STAGE_TOOL_DIVIDER =
-  'mx-px h-5 w-px bg-[var(--sp-line2)] transition-opacity duration-sn-pill ease-sn motion-reduce:transition-none has-[+[aria-pressed=true]]:opacity-0 [[aria-pressed=true]+&]:opacity-0';
-/** A part's tile in the strip (shown only when the panel is dragged taller with nothing picked — prototype `.th`). */
-export const STAGE_PART_TILE =
-  'sn-press flex h-[124px] w-[104px] shrink-0 flex-col overflow-hidden rounded-[14px] border border-[var(--sp-line)] bg-[#FBF9F5] text-center text-[12.5px] text-[var(--sp-ink2)] aria-pressed:border-[var(--sp-cta)]';
+/* A tool with nothing to set on the picked part is GREY and still hears a tap (`aria-disabled`, never `disabled`): the tap says why. */
+export const STAGE_TOOL_BUTTON =
+  'sn-press relative z-[1] inline-flex h-11 min-w-11 flex-auto items-center justify-center whitespace-nowrap rounded-full border-[3px] border-transparent bg-clip-padding px-1 text-[13px] font-semibold text-[var(--sp-mute)] transition-colors duration-sn-pill ease-sn motion-reduce:transition-none aria-pressed:bg-sn-accent aria-pressed:text-sn-on-accent group-data-[seg-thumb]/seg:aria-pressed:bg-transparent aria-disabled:opacity-40';
+/** The 3 px `STAGE_TOOL_BUTTON` keeps clear around its face (its `border-[3px]`) — what the thumb is laid inside. */
+export const STAGE_TOOL_INSET = 3;
 /** A row of the stage ▾ sheet (a stage, or one of its pages). */
 export const STAGE_SHEET_ROW =
   'sn-press flex h-12 w-full items-center gap-2.5 rounded-xl px-3 text-left text-[15px] text-ink transition-colors duration-sn-control ease-sn hover:bg-ink/5 disabled:text-ink/40';
 /** A page of the guest's tab bar under the page preview (prototype `.gbar button`: words only, 44 px). */
 export const STAGE_GUEST_TAB =
   'sn-press relative flex h-11 min-w-0 flex-1 items-center justify-center whitespace-nowrap px-1 text-[12px] font-semibold text-[var(--sp-mute)] aria-[current=page]:text-[var(--sp-ink)]';
+
+/* ── 📐 THE TOOLBAR'S FRAME (owner 2026-10-09: *"make toolbar just the lower third"* → *"maybe increase it a bit more
+   just enough to place 4 clean rows"* → *"330 px it is"*; `TOOLBAR-SPEC-2026-10-09.md`) ──────────────────────────────
+   A FIXED height, top to bottom: the handle 14 · "You're editing · Stage › Page › Part" 20 · the selector's band 52 ·
+   FOUR ROWS · the room under the last row. Rows are 48 px with 6-px gaps on a tall phone (4 × 48 + 3 × 6 = 210) and
+   44 / 4 on a short one (188) — a control is 44 px either way, centred in its row. The room under the last row is the
+   phone's own safe area and never under 10 px (*"make sure we have space away from the switch screen line"*):
+   14 + 20 + 52 + 210 + 34 = 330 on an iPhone. Nothing here is dragged, folded or scrolled up and down. */
+export const STAGE_BAR_HANDLE_PX = 14;
+export const STAGE_BAR_LINE_PX = 20;
+export const STAGE_BAR_BAND_PX = 52;
+/** Under this many px of screen height a phone is SHORT: 44-px rows, 4-px gaps. */
+export const STAGE_BAR_SHORT_PX = 740;
+/** The least room kept under the last row (a phone with no home indicator). */
+export const STAGE_BAR_FOOT_PX = 10;
+export const STAGE_BAR_ROWS = 4;
+/** A row and the gap between two, on a screen this tall. */
+export function stageBarRow(viewportH: number): { row: number; gap: number } {
+  return viewportH < STAGE_BAR_SHORT_PX ? { row: 44, gap: 4 } : { row: 48, gap: 6 };
+}
+/** The four rows and their three gaps. */
+export function stageBarGridPx(viewportH: number): number {
+  const { row, gap } = stageBarRow(viewportH);
+  return STAGE_BAR_ROWS * row + (STAGE_BAR_ROWS - 1) * gap;
+}
+/** The whole toolbar, from its curved top to the screen's edge — `safeBottom`: the phone's `env(safe-area-inset-bottom)` in px. */
+export function stageBarPx(viewportH: number, safeBottom: number): number {
+  return STAGE_BAR_HANDLE_PX + STAGE_BAR_LINE_PX + STAGE_BAR_BAND_PX + stageBarGridPx(viewportH) + Math.max(STAGE_BAR_FOOT_PX, safeBottom);
+}
+/**
+ * The frame's two measures as CSS (`--sp-rh` a row, `--sp-rg` a gap) — the SAME numbers as `stageBarRow`, said to the
+ * stylesheet so the first paint needs no script (a short phone is a media query).
+ */
+export const STAGE_BAR_ROW_VARS =
+  `html:has([data-stage-tools]){--sp-rh:${stageBarRow(STAGE_BAR_SHORT_PX).row}px;--sp-rg:${stageBarRow(STAGE_BAR_SHORT_PX).gap}px}` +
+  `@media (max-height:${STAGE_BAR_SHORT_PX - 0.02}px){html:has([data-stage-tools]){--sp-rh:${stageBarRow(0).row}px;--sp-rg:${stageBarRow(0).gap}px}}`;
+/** The four rows' height, in CSS. */
+export const STAGE_BAR_GRID_CSS = `calc(${STAGE_BAR_ROWS} * var(--sp-rh) + ${STAGE_BAR_ROWS - 1} * var(--sp-rg))`;
+/** The room under the last row, in CSS. */
+export const STAGE_BAR_FOOT_CSS = `max(${STAGE_BAR_FOOT_PX}px, env(safe-area-inset-bottom))`;
+/** The handle: the prototype's 40 × 4 pill in a 14 px strip. Drawn, never pressed — the toolbar is one height. */
+export const STAGE_BAR_HANDLE = 'flex h-[14px] shrink-0 items-center justify-center';
+/** "You're editing · Stage › Page › Part" — one line of small caps, cut with … and never wrapped (prototype `.edit`). */
+export const STAGE_BAR_LINE =
+  'h-5 shrink-0 truncate px-2 pb-2 pt-0.5 text-center text-[9.5px] font-semibold uppercase leading-none tracking-[0.16em] text-[var(--sp-mute)]';
+/**
+ * 🧱 THE FOUR ROWS (prototype `.g4`): a grid of exactly four rows — *"the rule is always start from the top"*: a tool
+ * fills from row 1, its empty rows are at the bottom, nothing is centred up and down and nothing scrolls up and down
+ * (a fifth row has no height: `auto-rows-[0]`). A cards strip may swipe sideways inside its own rows.
+ */
+export const SP_ROWS = 'grid min-h-0 grid-rows-[repeat(4,var(--sp-rh))] auto-rows-[0] gap-y-[var(--sp-rg)] overflow-hidden';
+/** One of the four rows: its controls side by side, 44 px tall, in the row's middle. */
+export const SP_ROWS_ROW = 'flex min-w-0 items-center gap-2';
 
 /* ── the panel's body (`stage-panel/*`) — every row ONE height, 44 px (owner 2026-10-06 "keep all rows consistent in height") ── */
 
@@ -168,8 +217,6 @@ export const SP_STEP_BUTTON =
 /** The keyboard's bar while typing on the page (prototype `#kbd .kbar`): "Typing · Names" · Done. */
 export const SP_KEY_BAR = 'flex h-11 shrink-0 items-center justify-between border-t border-[var(--sp-line)] bg-white pl-[14px] pr-2 text-[13px] font-semibold text-[var(--sp-ink2)]';
 export const SP_KEY_DONE = 'sn-press inline-flex h-11 items-center px-1';
-/** The resize grab (prototype `.grab`): a 44 × 5 pill in a 14 px strip — the tap reaches 15 px above and below. */
-export const SP_GRAB = 'relative flex !h-[14px] !min-h-0 w-full shrink-0 touch-none items-center justify-center before:absolute before:inset-x-0 before:-top-[15px] before:-bottom-[15px] before:content-[""]';
 
 /** Every class string a tap lands on, by name — the guard walks them all. */
 export const STAGE_TAP_TARGETS = {
@@ -178,7 +225,6 @@ export const STAGE_TAP_TARGETS = {
   STAGE_ITEM_BUTTON,
   STAGE_TOOL_PILL,
   STAGE_TOOL_BUTTON,
-  STAGE_PART_TILE,
   STAGE_SHEET_ROW,
   STAGE_GUEST_TAB,
   SP_PHASES,
@@ -195,15 +241,7 @@ export const STAGE_TAP_TARGETS = {
   SP_KEY_DONE,
 } as const;
 
-/** The panel with nothing picked: the grab and the one row (prototype `.lt.min`, 62 px of an 812 phone). */
-export const STAGE_PANEL_REST_PX = 62;
-
-/** The panel picked open: the lower half of this screen — never more. */
-export function stagePanelOpenPx(viewportH: number): number {
-  return Math.min(Math.floor(viewportH / 2), makerLtClampPx(Number.POSITIVE_INFINITY, viewportH));
-}
-
-/** How long the panel takes to rise or fold (the prototype's 240 ms). */
+/** How long the toolbar takes to slide away for ▶ and typing, and back (the prototype's 240 ms). */
 export const STAGE_PANEL_MS = 240;
 
 /**

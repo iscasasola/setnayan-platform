@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "80a9d91a8",
+  "generatedFromRef": "200412122",
   "routeCount": 429,
   "destinations": 959,
   "actions": 672,
-  "blocks": 5874,
+  "blocks": 5873,
   "routes": {
     "/": {
       "files": [
@@ -6622,6 +6622,7 @@
         "dashboard/[eventId]/launch/_components/stage-panel/stage-animate.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/stage-arrange.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/stage-background.tsx",
+        "dashboard/[eventId]/launch/_components/stage-panel/stage-edit.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/stage-style.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/stage-text.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/store.ts",
@@ -6871,7 +6872,6 @@
         "PaidMark",
         "PanelSwitch",
         "ParentCards",
-        "PartEdits",
         "PassCardDesign",
         "PassCardDesignPicker",
         "PassCardsPanel",
@@ -6880,7 +6880,6 @@
         "PeopleControls",
         "PeoplePieces",
         "PersonName",
-        "Phases",
         "PickContext.Provider",
         "PickMenu",
         "PickOption",
@@ -6945,6 +6944,7 @@
         "SoftPost",
         "SpecialMessageField",
         "StageArrange",
+        "StageEdit",
         "StageItemMenu",
         "StagePicker",
         "StagePlayStatus",

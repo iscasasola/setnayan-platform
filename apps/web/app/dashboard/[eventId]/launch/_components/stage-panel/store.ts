@@ -9,11 +9,13 @@
  * Look's one quiet bar ("Edit the E-Gifts · Studio ›"). It is said here, once, and
  * read with `useSyncExternalStore`. Nothing here writes a draft.
  *
- * It also keeps which segment each tool was on (Look | Background | Arrange ·
- * Build in | Action | Build out), so the next part opens where the couple was — the
- * prototype's `S.sphase` / `S.aphase`.
+ * It also says which of the toolbar's FOUR tools is on (Edit | Style | Background | Animate — `useStageTool`): the
+ * scene's Format is ONE body in the work area, and `StageStyle` shows the tool's part of it. And it keeps which
+ * segment Animate was on (Build in | Action | Build out), so the next part opens where the couple was — the
+ * prototype's `S.aphase`.
  */
 import { useSyncExternalStore } from 'react';
+import type { MakerPartTool } from '@/lib/maker-parts';
 
 export type StageQuiet =
   | { kind: 'info'; words: string; open: () => void }
@@ -29,11 +31,11 @@ export type StagePanelNow = {
   about: string | null;
 };
 
-export type StylePhase = 'look' | 'bg' | 'arrange';
 export type AnimatePhase = 'in' | 'act' | 'out';
 
 let now: StagePanelNow = { picked: null, quiet: null, about: null };
-let stylePhase: StylePhase = 'look';
+/** The toolbar's tool on show — said by the selector (`stage-tools.tsx`), read by the body under it. */
+let stageTool: MakerPartTool = 'edit';
 let animatePhase: AnimatePhase = 'in';
 const subs = new Set<() => void>();
 const ping = () => subs.forEach((f) => f());
@@ -57,15 +59,14 @@ export function useStagePanelNow(): StagePanelNow {
   return useSyncExternalStore(subscribe, () => now, () => now);
 }
 
-export function useStylePhase(): [StylePhase, (p: StylePhase) => void] {
-  const p = useSyncExternalStore(subscribe, () => stylePhase, () => stylePhase);
-  return [
-    p,
-    (next) => {
-      stylePhase = next;
-      ping();
-    },
-  ];
+export function setStageTool(next: MakerPartTool): void {
+  if (next === stageTool) return;
+  stageTool = next;
+  ping();
+}
+
+export function useStageTool(): MakerPartTool {
+  return useSyncExternalStore(subscribe, () => stageTool, () => stageTool);
 }
 
 export function useAnimatePhase(): [AnimatePhase, (p: AnimatePhase) => void] {

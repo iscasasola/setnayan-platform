@@ -60,9 +60,12 @@ test('the four for-each-guest parts are marked `my`, and only they', () => {
   assert.deepEqual(my.map((k) => MAKER_PARTS[k].my), ['role', 'wear', 'arrive', 'guests']);
 });
 
-test('the Text tool is exactly Font · Colour · Size', () => {
+test('the Text rows are exactly Font · Colour · Size; the toolbar’s tools are Edit · Style · Background · Animate', () => {
+  /* The shipped part sheet's three rows (the older Maker and the desktop still draw them, `threeControls`). */
   assert.deepEqual([...MAKER_PART_TEXT_TOOLS], ['font', 'colour', 'size']);
-  assert.deepEqual([...MAKER_PART_TOOLS], ['style', 'text', 'animate']);
+  /* 🔁 Re-aimed 2026-10-09 (owner: *"so it is just Edit | Style | Background | Animate"*): it was Style | Text |
+     Animate — Text is not a tool of the toolbar any more (`lib/the-toolbar-is-four-rows.test.ts`). */
+  assert.deepEqual([...MAKER_PART_TOOLS], ['edit', 'style', 'bg', 'animate']);
 });
 
 test('PartTextTab with threeControls draws Font · Colour · Size and none of the retired rows', () => {

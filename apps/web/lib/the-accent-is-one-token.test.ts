@@ -79,7 +79,8 @@ const TEMPLATE_FILES = [
  * named constants are watched, not the file.
  */
 const TEMPLATE_CONSTANTS: Array<{ file: string; names: string[] }> = [
-  { file: 'lib/maker-stage-room.ts', names: ['STAGE_TOOL_FACE', 'SP_PHASE'] }, // the pill selector, drawn for the Stages tools and Phases
+  /* (Re-aimed 2026-10-09: the Stages tools are words — the button itself wears the picked fill; its icon face is gone.) */
+  { file: 'lib/maker-stage-room.ts', names: ['STAGE_TOOL_BUTTON', 'SP_PHASE'] }, // the pill selector, drawn for the Stages tools and Phases
 ];
 
 /** The stylesheet's template rules, by selector — each must take its "on" from the token. */
@@ -232,8 +233,8 @@ test('(3) one line makes it blue — every template’s "on" colour resolves to 
     ['pill selector — picked words', P.PILL_ON_CLASS.split(' '), 'on-accent'],
     ['pill selector — a picked choice', P.pillSegClass(true).split(' '), 'accent'],
     ['pill selector — the thumb', T.PILL_THUMB_CLASS.split(' '), 'accent'],
-    ['Stages tools — the picked face', R.STAGE_TOOL_FACE.split(' '), 'accent'],
-    ['Stages tools — the picked icon', R.STAGE_TOOL_FACE.split(' '), 'on-accent'],
+    ['Stages tools — the picked tool', R.STAGE_TOOL_BUTTON.split(' '), 'accent'],
+    ['Stages tools — the picked word', R.STAGE_TOOL_BUTTON.split(' '), 'on-accent'],
     ['Phases — the picked choice', R.SP_PHASE.split(' '), 'accent'],
     ['style card — the picked ring', classesOf(card, /data-bg-card-picture=""[^>]*class="([^"]*)"/), 'accent'],
     ['style card — the picked name', classesOf(card, /<button[^>]*data-bg-card="x"[^>]*class="([^"]*)"/), 'accent'],

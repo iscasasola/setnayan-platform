@@ -248,14 +248,7 @@ const ADD_FACE = `inline-flex h-[26px] w-[26px] items-center justify-center roun
  * inside the visible band. `picked` null: nothing is drawn. Layered just over
  * the Maker shell (z-80) and under every sheet (the picker z-90, `MakerSheet` z-95).
  */
-export function PartEdits({
-  stage,
-  picked,
-  onPrev = null,
-  onNext = null,
-  onClose = null,
-  frame,
-}: {
+type PartEditsProps = {
   stage: MakerStageKey;
   picked: MakerPartKey | null;
   /** The frame the stage's page is drawn in, when it is not the shown canvas — the RSVP stage's own three screens
@@ -265,7 +258,30 @@ export function PartEdits({
   onPrev?: (() => void) | null;
   onNext?: (() => void) | null;
   onClose?: (() => void) | null;
-}) {
+};
+
+/**
+ * ↑ ↓ 🗑 THE PICKED PART'S PLACE, FOR THE TOOLBAR'S EDIT (owner 2026-10-09: Edit's last row is *"always"* ↑ Earlier ·
+ * ↓ Later · Remove — `stage-panel/stage-edit.tsx`). The SAME writes the frame's grip and 🗑 make (one order write
+ * for a step, the one confirm before a remove), handed out so the row and the frame can never disagree.
+ */
+export type PartEditsNow = {
+  /** The frame, its sheets and its toast — drawn once, by whoever holds the hook. */
+  node: ReactNode;
+  /** One place up / down among the parts this page draws — null: nowhere to go, or a part that does not move. */
+  earlier: (() => void) | null;
+  later: (() => void) | null;
+  /** Ask to take it off (the one confirm) — null: a part that cannot be removed. */
+  remove: (() => void) | null;
+  /** "Delete" for a scene of their own (gone for good at Apply), "Remove" for any other. */
+  removeWord: 'Remove' | 'Delete';
+};
+
+export function PartEdits(props: PartEditsProps) {
+  return usePartEdits(props).node;
+}
+
+export function usePartEdits({ stage, picked, onPrev = null, onNext = null, onClose = null, frame }: PartEditsProps): PartEditsNow {
   const isReveal = picked === 'reveal';
   const canvas = isReveal ? REVEAL_STUB : picked ? makerPartCanvasOn(stage, picked) : null;
   const el = picked ? (MAKER_PARTS[picked].el ?? null) : null;
@@ -341,7 +357,22 @@ export function PartEdits({
   }, [setToast]);
 
   /* ── ↕ the grip ── */
-  const dragRef = useRef<{ y0: number; targets: Array<{ key: string; id: string; mid: number; top: number; bottom: number }> } | null>(null);
+  type MoveTarget = { key: string; id: string; mid: number; top: number; bottom: number };
+  /** The parts the picked one can move among: the same kind, DRAWN on this page, top to bottom (never itself). */
+  const moveTargets = (o: MakerPartOps): MoveTarget[] => {
+    const targets: MoveTarget[] = [];
+    for (const t of o.list.shown) {
+      const key = t.kind === 'post-event' ? t.anchor : t.key;
+      if (!key || key === canvas) continue;
+      if (mv.kind === 'scene' && t.kind !== 'scene') continue;
+      if (mv.kind === 'post-event' && (t.kind !== 'post-event' || !t.runKey || t.runKey === mv.runKey)) continue;
+      const b = partBox(key);
+      if (!b) continue;
+      targets.push({ key, id: t.kind === 'scene' ? t.widgetId : t.kind === 'post-event' ? (t.runKey ?? t.scene) : key, mid: b.top + b.height / 2, top: b.top, bottom: b.top + b.height });
+    }
+    return targets.sort((a, b) => a.mid - b.mid);
+  };
+  const dragRef = useRef<{ y0: number; targets: MoveTarget[] } | null>(null);
   const targetAt = (d: typeof dragRef.current, y: number) => {
     if (!d || d.targets.length === 0) return null;
     for (const t of d.targets) if (y < t.mid) return { t, where: 'above' as const };
@@ -357,18 +388,7 @@ export function PartEdits({
     } catch {
       /* a pointer the browser no longer tracks — the drag still follows the button's own events */
     }
-    const targets: Array<{ key: string; id: string; mid: number; top: number; bottom: number }> = [];
-    for (const t of o.list.shown) {
-      const key = t.kind === 'post-event' ? t.anchor : t.key;
-      if (!key || key === canvas) continue;
-      if (mv.kind === 'scene' && t.kind !== 'scene') continue;
-      if (mv.kind === 'post-event' && (t.kind !== 'post-event' || !t.runKey || t.runKey === mv.runKey)) continue;
-      const b = partBox(key);
-      if (!b) continue;
-      targets.push({ key, id: t.kind === 'scene' ? t.widgetId : t.kind === 'post-event' ? (t.runKey ?? t.scene) : key, mid: b.top + b.height / 2, top: b.top, bottom: b.top + b.height });
-    }
-    targets.sort((a, b) => a.mid - b.mid);
-    dragRef.current = { y0: e.clientY, targets };
+    dragRef.current = { y0: e.clientY, targets: moveTargets(o) };
     setDrag({ dy: 0, line: null });
   };
   const onGripMove = (e: React.PointerEvent<HTMLButtonElement>) => {
@@ -389,9 +409,13 @@ export function PartEdits({
     const revealLeads = readRevealPart() !== null;
     const slot = makerDropSlot(revealLeads ? d.targets.indexOf(at.t) + (at.where === 'below' ? 2 : 1) : d.targets.indexOf(at.t) + (at.where === 'below' ? 1 : 0), revealLeads);
     const dropAt = revealLeads && slot === 1 && d.targets[0] ? { t: d.targets[0], where: 'above' as const } : at;
+    dropOn(o, dropAt.t, dropAt.where);
+  };
+  /** Land the picked part above / below `t` — ONE order write (the work area's own move; Post Event: its run). */
+  const dropOn = (o: MakerPartOps, t: MoveTarget, where: 'above' | 'below') => {
     if (mv.kind === 'scene') {
-      const shown = o.list.shown.flatMap((t) => (t.kind === 'scene' ? [t.widgetId] : []));
-      const delta = makerDropDelta({ fullOrder: o.fullOrder, shown, afterLastShown: o.afterLastShown, id: mv.id, target: dropAt.t.id, where: dropAt.where });
+      const shown = o.list.shown.flatMap((x) => (x.kind === 'scene' ? [x.widgetId] : []));
+      const delta = makerDropDelta({ fullOrder: o.fullOrder, shown, afterLastShown: o.afterLastShown, id: mv.id, target: t.id, where });
       if (delta !== 0) {
         setToast(`${label} moved`);
         o.move(mv.id, delta);
@@ -399,12 +423,26 @@ export function PartEdits({
     } else if (mv.kind === 'post-event' && mv.runKey && o.postEvent) {
       const run = postEventRun(o.postEvent);
       const from = run.indexOf(mv.runKey);
-      let to = run.indexOf(dropAt.t.id) + (dropAt.where === 'below' ? 1 : 0);
+      let to = run.indexOf(t.id) + (where === 'below' ? 1 : 0);
       if (from < 0 || to < 0) return;
       if (to > from) to -= 1;
       const draft = makerPostEventMoveDraft(o.postEvent, mv.scene, to - from);
       if (draft) saveEditorial(draft, `${label} moved`);
     }
+  };
+  /* ── ↑ ↓ one place earlier / later (the toolbar's Edit) — the neighbour the page DRAWS above / below it ── */
+  const neighbour = (o: MakerPartOps, dir: -1 | 1): MoveTarget | null => {
+    const me = canvas ? partBox(canvas, el, frame) : null;
+    if (!me) return null;
+    const mid = me.top + me.height / 2;
+    const targets = moveTargets(o);
+    const above = targets.filter((t) => t.mid < mid);
+    return dir < 0 ? (above[above.length - 1] ?? null) : (targets[above.length] ?? null);
+  };
+  const stepMove = (dir: -1 | 1) => {
+    const o = askPartOps();
+    const t = o && canMove ? neighbour(o, dir) : null;
+    if (o && t) dropOn(o, t, dir < 0 ? 'above' : 'below');
   };
 
   /* ── ＋ add a part ── */
@@ -465,7 +503,15 @@ export function PartEdits({
      (owner: the lower ＋ sat on the pass's QR). Scroll the part, and its edge — and its ＋ — come back. */
   const onEdge = (y: number) => !band || (y >= band.top + 26 && y <= band.bottom - 26);
 
-  if (typeof document === 'undefined') return null;
+  /* The toolbar's Edit row reads these (`PartEditsNow`); `box` re-renders this as the page settles, so they stay true. */
+  const canStep = (dir: -1 | 1) => Boolean(typeof document !== 'undefined' && canMove && ops && box && neighbour(ops, dir));
+  const now: Omit<PartEditsNow, 'node'> = {
+    earlier: canStep(-1) ? () => stepMove(-1) : null,
+    later: canStep(1) ? () => stepMove(1) : null,
+    remove: canRemove ? () => setRemoving(true) : null,
+    removeWord: ownScene ? 'Delete' : 'Remove',
+  };
+  if (typeof document === 'undefined') return { node: null, ...now };
   /* What just happened is said even once the part is let go (a move re-renders the page). */
   const edges = Boolean(picked && box);
   /* The prototype pads a picked part (`.el.on{padding-block:18px}`) so ＋ sits ON the frame, never over its words:
@@ -480,7 +526,7 @@ export function PartEdits({
   /** A control on a frame edge whose tap is only as tall as the gap there (`partFrameEdges`). */
   const chipAt = (x: number, y: number) => ({ left: Math.max(0, Math.min(vw - 32, x - 16)), top: y - 16 });
   const tapAt = (x: number, y: number, h: number) => ({ ...at(x, y), top: y - h / 2, height: h, minHeight: 0 });
-  return createPortal(
+  const node = createPortal(
     <>
       {edges && box ? (
         <div
@@ -646,6 +692,7 @@ export function PartEdits({
     </>,
     document.body,
   );
+  return { node, ...now };
 }
 
 /**

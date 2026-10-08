@@ -549,8 +549,10 @@ test('6 · the frame, its name tab and ↑ ↓ ✕ are drawn on the RSVP screen�
   assert.match(STAGE, /hidden=\{scene !== s\.key\}/);
   assert.match(TOOLS, /const frameSel = rsvpOpen \? rsvpStageFrameSelector\(screen\) : SHOWN_FRAME;/);
   /* The RSVP stage is no longer shut out of the frame. */
-  assert.match(TOOLS, /picked=\{open && !cameraOpen \? picked : null\}\s*frame=\{rsvpOpen \? frameSel : undefined\}/);
-  assert.doesNotMatch(TOOLS, /picked=\{open && !rsvpOpen/);
+  /* (Re-aimed 2026-10-09: the frame's edits are a hook now — `usePartEdits({ … })` — so the toolbar's Edit can draw
+     the same move and remove in its last row; the same two values, as an object's fields instead of JSX props.) */
+  assert.match(TOOLS, /usePartEdits\(\{\s*stage: stageKey,\s*picked: open && !cameraOpen \? picked : null,\s*frame: rsvpOpen \? frameSel : undefined,/);
+  assert.doesNotMatch(TOOLS, /picked[=:] ?\{?open && !rsvpOpen/);
   assert.match(EDGES, /function partBox\(canvas: string, el\?: string \| null, frameSel: string = SHOWN_FRAME\): Box \| null \{\s*const frame = document\.querySelector<HTMLIFrameElement>\(frameSel\);/);
   assert.match(EDGES, /const b = partBox\(canvas, el, frame\);/);
   assert.match(EDGES, /visibleBand\(frame\)/);

@@ -27,6 +27,9 @@ export function revealPictureHtml(kind: string, c: RevealColours, w: number = RE
   const box = `position:${fill ? 'absolute;inset:0' : `relative;width:${w}px;height:${h}px`};margin:0 auto;border-radius:var(--m-r-sm,8px);overflow:hidden;border:1px solid rgba(0,0,0,.08);box-shadow:0 8px 20px -12px rgba(44,42,41,.45);`;
   const d = `background:${c.dominant};`;
   switch (kind) {
+    case 'none':
+      /* 🚫 No opening: the cover itself, with nothing over it. */
+      return `<span data-reveal-picture="${kind}" style="${box}display:block;background:${c.neutral}"></span>`;
     case 'two-flap-vertical':
       return `<span data-reveal-picture="${kind}" style="${box}display:block;background:${c.neutral}">${piece(`${d}opacity:.85;left:0;top:0;width:50%;height:100%`)}${piece(`${d}opacity:.6;right:0;top:0;width:50%;height:100%`)}</span>`;
     case 'two-flap-horizontal':

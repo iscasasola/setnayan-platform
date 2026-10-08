@@ -50,7 +50,7 @@ const PICKERS: ReadonlyArray<{ what: string; file: string; anchor: RegExp; cards
     cards: 1,
     frame: /className=\{`\$\{SP_PHONE_PICTURE\} /,
   },
-  { what: 'Reveal openings', file: `${LAUNCH}/maker-reveal.tsx`, anchor: /<span\s+data-style-card-preview=""[^>]*>/g, cards: 1, frame: /className=\{`\$\{SP_PHONE_PICTURE\} / },
+  { what: 'Reveal openings (None + each opening)', file: `${LAUNCH}/maker-reveal.tsx`, anchor: /<span\s+data-style-card-preview=""[^>]*>/g, cards: 2, frame: /className=\{`\$\{SP_PHONE_PICTURE\} / },
   { what: 'Camera looks', file: `${LAUNCH}/stage-panel/camera-look.tsx`, anchor: /<span\s+data-style-card-preview=""[^>]*>/g, cards: 1, frame: /className=\{`\$\{SP_PHONE_PICTURE\} / },
   { what: 'Digital pass ticket styles', file: `${LAUNCH}/pass-card-design-picker.tsx`, anchor: /<span\s+data-style-card-preview=""[^>]*>/g, cards: 1, frame: /className=\{`\$\{SP_PHONE_PICTURE\} / },
   /* The theme's picture is the element that holds its still / live frame / poster. */

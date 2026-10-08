@@ -23,6 +23,7 @@ import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { StageStyle } from './stage-panel/stage-style';
 import { Dd, PanelSwitch } from './stage-panel/kit';
 import { RevealPicture } from './stage-panel/reveal-picture';
+import { REVEAL_NONE_ID, revealIsNone, revealPickPatch, revealSwitchOn, revealSwitchPatch, type RevealPatch } from '@/lib/reveal-none';
 import { setStageRevealKind, useStageRevealLook } from './stage-panel/store';
 import { SP_LOOK_CARD, SP_LOOK_NAME, SP_PHONE_PICTURE } from '@/lib/maker-stage-room';
 
@@ -180,6 +181,37 @@ export function MakerRevealPicker({
     });
   };
 
+  /* 🚫 One tap that may move BOTH the opening and where it plays (the None card, `lib/reveal-none.ts`) — one
+     draft patch, so the card and the switches land together or not at all. */
+  const savePick = (patch: RevealPatch | null) => {
+    if (!patch) return;
+    setMine((m) => ({
+      ...m,
+      ...(patch.std_reveal_template !== undefined ? { current: patch.std_reveal_template } : {}),
+      ...(patch.reveal_stages !== undefined ? { stages: patch.reveal_stages } : {}),
+    }));
+    start(async () => {
+      setError(null);
+      const back = () => {
+        if (patch.std_reveal_template !== undefined) forget('current');
+        if (patch.reveal_stages !== undefined) forget('stages');
+      };
+      try {
+        const fd = new FormData();
+        fd.set('intent', 'save');
+        fd.set('patch', JSON.stringify({ events: patch }));
+        const r = await makerSave(() => hubDraftAction(eventId, fd), () => router.refresh());
+        if (!r.ok) {
+          back();
+          setError(r.error);
+        }
+      } catch {
+        back();
+        setError('Your reveal could not be saved. Please try again.');
+      }
+    });
+  };
+
   const setStages = (next: RevealStage[]) => {
     setMine((m) => ({ ...m, stages: next }));
     start(async () => {
@@ -316,7 +348,9 @@ export function MakerRevealPicker({
   if (onStage) {
     /* Shown / Hidden write THIS stage only, through the one helper. */
     const showHere = (on: boolean) => (on ? setStages(revealStagesWith(stages, onStage, true)) : setStages(revealStagesWith(stages, onStage, false)));
-    return <RevealStagePart onStage={onStage} openings={openings} effective={effective} choose={choose} shownHere={stages.includes(onStage)} showHere={showHere} stages={stages} toggleStage={toggleStage} effects={effects} setEffects={setEffects} ownsPro={ownsPro} storeShell={storeShell} failed={failed} />;
+    /* The opening a switch takes when it is turned on from the older "No reveal" value: the default, if the event may use it. */
+    const fallback = openings.some((o) => o.id === defaultOpening) ? defaultOpening : (openings[0]?.id ?? null);
+    return <RevealStagePart onStage={onStage} openings={openings} effective={effective} choose={choose} savePick={savePick} fallback={fallback} shownHere={stages.includes(onStage)} showHere={showHere} stages={stages} toggleStage={toggleStage} effects={effects} setEffects={setEffects} ownsPro={ownsPro} storeShell={storeShell} failed={failed} />;
   }
   /* 🧩 The navigator's part: the openings alone. */
   if (part === 'options') {
@@ -646,6 +680,8 @@ function RevealStagePart({
   openings,
   effective,
   choose,
+  savePick,
+  fallback,
   shownHere,
   showHere,
   stages,
@@ -656,6 +692,9 @@ function RevealStagePart({
   storeShell,
   failed,
 }: {
+  /** 🚫 The None card's door: one patch for the opening and where it plays (`lib/reveal-none.ts`). */
+  savePick: (patch: RevealPatch | null) => void;
+  fallback: string | null;
   /** Where the reveal plays — the ONE source (`events.reveal_stages`, drafted) Arrange's "On this stage" also writes. */
   stages: readonly RevealStage[];
   toggleStage: (s: RevealStage) => void;
@@ -678,17 +717,34 @@ function RevealStagePart({
   }, [effective]);
   const extras = effective !== 'none' ? revealExtrasFor(effective) : [];
   const mark = makerProMark({ owns: ownsPro, storeShell });
+  const now = { effective, stages };
+  const none = revealIsNone(now);
   return (
     <section className="contents" data-maker-reveal-part={onStage}>
       <StageStyle
         look={
           <>
-            {openings.length > 0 ? (
+            {
               <div role="radiogroup" aria-label="Kind" data-style-carousel="" data-maker-reveal-kinds="" className="-mx-[2px] flex shrink-0 snap-x snap-mandatory gap-2 overflow-x-auto overflow-y-hidden px-[2px] pb-1 pt-[2px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {/* 🚫 NONE — the first card (owner 2026-10-08: "and none."): the cover with no opening over it. It IS
+                    "every stage switch off" (`lib/reveal-none.ts`) — one fact, drawn twice, never two values. Free. */}
+                <button type="button" role="radio" aria-checked={none} data-maker-reveal-kind={REVEAL_NONE_ID} data-style-card={REVEAL_NONE_ID} onClick={() => savePick(revealPickPatch(REVEAL_NONE_ID, now, onStage))} className={SP_LOOK_CARD}>
+                  <span
+                    data-style-card-preview=""
+                    className={`${SP_PHONE_PICTURE} ${
+                      none ? 'border-2 border-[var(--sp-cta)] shadow-[0_0_0_3px_var(--sp-cta-wash)]' : 'border border-[var(--sp-line)]'
+                    }`}
+                  >
+                    <span data-style-preview="render" className="pointer-events-none absolute inset-0">
+                      <RevealPicture kind={REVEAL_NONE_ID} colours={look.colours} fill />
+                    </span>
+                  </span>
+                  <span className={`${SP_LOOK_NAME} ${none ? 'text-[var(--sp-ink)]' : 'text-[var(--sp-ink2)]'}`}>None</span>
+                </button>
                 {openings.map((o) => {
-                  const on = effective === o.id;
+                  const on = !none && effective === o.id;
                   return (
-                    <button key={o.id} type="button" role="radio" aria-checked={on} data-maker-reveal-kind={o.id} data-style-card={o.id} onClick={() => choose(o.id)} className={SP_LOOK_CARD}>
+                    <button key={o.id} type="button" role="radio" aria-checked={on} data-maker-reveal-kind={o.id} data-style-card={o.id} onClick={() => (none ? savePick(revealPickPatch(o.id, now, onStage)) : choose(o.id))} className={SP_LOOK_CARD}>
                       <span
                         data-style-card-preview=""
                         className={`${SP_PHONE_PICTURE} ${
@@ -707,7 +763,7 @@ function RevealStagePart({
                   );
                 })}
               </div>
-            ) : null}
+            }
             {/* 🎚 WHERE IT PLAYS — one switch per stage that can carry a reveal (owner 2026-10-07: "reveal will have a
                 toggle for each stage it is at. to know where they want this to activate"). The same drafted list
                 Arrange › On this stage writes — one source, two doors. */}
@@ -715,7 +771,7 @@ function RevealStagePart({
               {REVEAL_STAGE_CHOICES.map((st) => (
                 <span key={st} className="flex min-w-0 flex-col items-center gap-0.5" data-reveal-stage-switch={st}>
                   <span className="max-w-full truncate text-[12px] font-semibold text-[var(--sp-ink2)]">{PUBLIC_STAGE_LABELS[st]}</span>
-                  <PanelSwitch on={stages.includes(st)} label={`Reveal on ${PUBLIC_STAGE_LABELS[st]}`} onChange={() => toggleStage(st)} data={`reveal-${st}`} />
+                  <PanelSwitch on={revealSwitchOn(now, st)} label={`Reveal on ${PUBLIC_STAGE_LABELS[st]}`} onChange={() => (effective === REVEAL_NONE_ID ? savePick(revealSwitchPatch(st, now, fallback)) : toggleStage(st))} data={`reveal-${st}`} />
                 </span>
               ))}
             </div>

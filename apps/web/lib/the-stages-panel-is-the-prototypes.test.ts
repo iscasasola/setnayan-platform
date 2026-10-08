@@ -380,7 +380,11 @@ test('the Reveal’s Look carries one switch per stage it can play on — the sa
   /* Owner 2026-10-07: "reveal will have a toggle for each stage it is at. to know where they want this to activate". */
   const src = read(`${LAUNCH}/maker-reveal.tsx`);
   assert.match(src, /data-reveal-stage-switches=""/);
-  assert.match(src, /\{REVEAL_STAGE_CHOICES\.map\(\(st\) => \([\s\S]{0,400}<PanelSwitch on=\{stages\.includes\(st\)\}[^>]*onChange=\{\(\) => toggleStage\(st\)\}/, 'each switch reads and writes the one stages list');
+  /* Amended 2026-10-08 (owner, on the Look strip: "and none."): a switch is ON only while a reveal can play
+     (`revealSwitchOn` = the same stages list, and off under the older "No reveal" value), and still writes the one
+     list through `toggleStage` — from that older value alone it also takes an opening (`lib/reveal-none.ts`). */
+  assert.match(src, /\{REVEAL_STAGE_CHOICES\.map\(\(st\) => \([\s\S]{0,400}<PanelSwitch on=\{revealSwitchOn\(now, st\)\}[^>]*onChange=\{\(\) => \(effective === REVEAL_NONE_ID \? savePick\(revealSwitchPatch\(st, now, fallback\)\) : toggleStage\(st\)\)\}/, 'each switch reads and writes the one stages list');
+  assert.match(src, /const now = \{ effective, stages \};/, 'the switches read the picker’s own stages list');
   assert.match(src, /stages=\{stages\} toggleStage=\{toggleStage\}/, 'the Stages part is handed the picker’s own list and toggle');
   assert.match(src, /const toggleStage = \(s: RevealStage\) => setStages\(revealStagesWith\(stages, s, !stages\.includes\(s\)\)\);/, 'one write: setStages');
 });
@@ -492,4 +496,57 @@ test('the Reveal and Camera look cards are the phone-shaped frame — the Camera
   assert.match(camera, /className=\{SP_LOOK_CARD\}>/, 'a Camera card is not the frame-wide look card');
   assert.match(camera, /data-camera-look-face=\{look\} className="absolute inset-0 /, 'the camera screen no longer fills the frame');
   assert.doesNotMatch(camera + card, /spCardWidth|SP_LAYOUT_CARD/, 'a card is sized apart from the frame again');
+});
+
+/* ── 14 · the Reveal's NONE card — one fact with the three switches (owner, live Maker 2026-10-08: "and none.") ── */
+
+test('None is the FIRST card of the Reveal’s Look and IS "every stage switch off" — the card and the switches cannot disagree', async () => {
+  const { revealIsNone, revealPickPatch, revealSwitchOn, revealSwitchPatch, REVEAL_NONE_ID } = await import('./reveal-none');
+  const { sanitizeRevealStages, revealStageChosen } = await import('./reveal-stages');
+  /* 1 · One home: an empty stages list — the value that already means "no reveal on any stage". */
+  assert.deepEqual(revealPickPatch('none', { effective: 'veil-sheer', stages: ['save_the_date', 'rsvp'] }, 'rsvp'), { reveal_stages: [] });
+  assert.deepEqual(sanitizeRevealStages([]), [], 'an empty list is not a stored answer any more');
+  for (const st of ['save_the_date', 'rsvp', 'event'] as const) assert.equal(revealStageChosen([], st), false, `None still plays on ${st}`);
+  assert.ok(!('std_reveal_template' in revealPickPatch('none', { effective: 'veil-sheer', stages: ['rsvp'] }, 'rsvp')!), 'None threw the couple’s opening away');
+  assert.equal(revealPickPatch('none', { effective: 'veil-sheer', stages: [] }, 'rsvp'), null, 'None picked twice writes nothing');
+  /* 2 · None is picked exactly when every switch is off (or the older "No reveal" value). */
+  assert.equal(revealIsNone({ effective: 'veil-sheer', stages: [] }), true);
+  assert.equal(revealIsNone({ effective: 'veil-sheer', stages: ['event'] }), false);
+  assert.equal(revealIsNone({ effective: 'none', stages: ['save_the_date'] }), true);
+  for (const st of ['save_the_date', 'rsvp', 'event'] as const) {
+    assert.equal(revealSwitchOn({ effective: 'veil-sheer', stages: [] }, st), false);
+    assert.equal(revealSwitchOn({ effective: 'none', stages: ['save_the_date', 'rsvp', 'event'] }, st), false, 'a switch is drawn on over no reveal');
+  }
+  assert.equal(revealSwitchOn({ effective: 'veil-sheer', stages: ['rsvp'] }, 'rsvp'), true);
+  /* 3 · Picking an opening FROM None turns on the stage being edited — that stage alone. */
+  assert.deepEqual(revealPickPatch('veil-sheer', { effective: 'veil-sheer', stages: [] }, 'rsvp'), { std_reveal_template: 'veil-sheer', reveal_stages: ['rsvp'] });
+  assert.deepEqual(revealPickPatch('four-flap', { effective: 'none', stages: ['save_the_date'] }, 'event'), { std_reveal_template: 'four-flap', reveal_stages: ['event'] });
+  /* …and with a reveal already playing, a card changes the opening only. */
+  assert.deepEqual(revealPickPatch('four-flap', { effective: 'veil-sheer', stages: ['save_the_date'] }, 'rsvp'), { std_reveal_template: 'four-flap' });
+  assert.equal(revealPickPatch('veil-sheer', { effective: 'veil-sheer', stages: ['save_the_date'] }, 'rsvp'), null);
+  /* 4 · Switching the last stage off IS None; a switch from the older value takes an opening or changes nothing. */
+  const off = revealSwitchPatch('rsvp', { effective: 'veil-sheer', stages: ['rsvp'] }, 'veil-sheer')!;
+  assert.deepEqual(off, { reveal_stages: [] });
+  assert.equal(revealIsNone({ effective: 'veil-sheer', stages: off.reveal_stages! }), true);
+  assert.deepEqual(revealSwitchPatch('event', { effective: 'none', stages: ['save_the_date'] }, 'veil-sheer'), { std_reveal_template: 'veil-sheer', reveal_stages: ['event'] });
+  assert.equal(revealSwitchPatch('event', { effective: 'none', stages: [] }, null), null, 'a switch goes on with no opening to play');
+  assert.equal(REVEAL_NONE_ID, 'none');
+  /* 5 · The strip: None first, always drawn, phone-shaped, the plain cover; one draft patch for both keys. */
+  const src = read(`${LAUNCH}/maker-reveal.tsx`);
+  const strip = src.slice(src.indexOf('data-maker-reveal-kinds=""'), src.indexOf('data-reveal-stage-switches=""'));
+  const noneAt = strip.indexOf('data-maker-reveal-kind={REVEAL_NONE_ID}');
+  assert.ok(noneAt > 0 && noneAt < strip.indexOf('{openings.map((o) => {'), 'None is not the first card');
+  assert.doesNotMatch(src.slice(src.indexOf('data-maker-reveal-kinds=""') - 200, src.indexOf('data-maker-reveal-kinds=""')), /openings\.length > 0 \?/, 'the strip (and None with it) disappears when no opening is offered');
+  assert.match(strip, /aria-checked=\{none\}[^>]*onClick=\{\(\) => savePick\(revealPickPatch\(REVEAL_NONE_ID, now, onStage\)\)\}/);
+  assert.match(strip, /<RevealPicture kind=\{REVEAL_NONE_ID\} colours=\{look\.colours\} fill \/>/);
+  assert.match(strip, />None<\/span>/);
+  assert.match(strip, /const on = !none && effective === o\.id;/, 'an opening stays ringed beside None');
+  assert.match(strip, /onClick=\{\(\) => \(none \? savePick\(revealPickPatch\(o\.id, now, onStage\)\) : choose\(o\.id\)\)\}/);
+  assert.match(src, /fd\.set\('patch', JSON\.stringify\(\{ events: patch \}\)\);/, 'the card and the switches are not one draft write');
+  const { revealPictureHtml } = await import(`../${LAUNCH}/stage-panel/reveal-picture`);
+  const plain = revealPictureHtml('none', { dominant: '#111', supporting: '#222', accent: '#333', neutral: '#F7F2EC' }, 150, 96, true);
+  assert.match(plain, /data-reveal-picture="none"[^>]*background:#F7F2EC"><\/span>$/, 'None draws an opening over the cover');
+  /* 6 · Every opening the event may use is a card: the list is the library less what the admin map switched off — no other filter. */
+  const made = read(`${LAUNCH}/maker-made-once.tsx`);
+  assert.match(made, /const allowed: Partial<Record<string, boolean>> = config\?\.templates \?\? \{\};\s*const openings = REVEAL_LIBRARY\.filter\(\(t\) => allowed\[t\.id\] !== false\)\.map\(/);
 });

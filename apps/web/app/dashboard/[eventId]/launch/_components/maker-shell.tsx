@@ -90,7 +90,7 @@ import { useMakerTool, type MakerEventBar, type MakerTool } from './maker-contex
 import type { MakerSide } from './maker-bar';
 import { PickSheetContext, type PickSheet } from '../../website/editor/_components/pick-menu-place';
 /* 🧭 The new Maker's own chrome — lazy, so the shipped Maker's first load carries none of it. */
-import { LowerThirdGrab, MakerSheet, MakerTour, StageTools, StudioBackToPart, StudioCover, StudioDoneBar, StudioSideSwitch, StudioToolMenu } from './details-lazy';
+import { LowerThirdGrab, MakerSheet, MakerTour, StageTools, StudioBackToPart, StudioCover, StudioPageHead, StudioSideSwitch, StudioToolMenu } from './details-lazy';
 import { MAKER_LT_HALF } from '@/lib/maker-phone-room';
 import { detailsItemLayout } from '@/lib/maker-details-items';
 import { studioTileItem, type StudioTileKey } from '@/lib/studio-tile-defs';
@@ -297,8 +297,6 @@ export function MakerShell({
   const studioTile = studioOn && studioAt !== 'home' ? (studio?.tiles.find((t) => t.key === studioAt) ?? null) : null;
   /** A Studio tool full screen — every one but Look (owner: "No lower-third toolbar in Studio except Look"). */
   const studioFull = studioTile !== null && studioTile.key !== 'look';
-  /** Wedding March and Seat plan hide the top nav; ✓ Done returns (owner: "yes for those 2"). */
-  const studioImmersive = studioFull && studioTile!.immersive;
   /** Studio covers the page and the lower third (its home, or a full-screen tool). */
   const studioCovers = studioHomeOn || studioFull;
   /* 🎓 About the Maker (Page ▾) replays the short tour — never on a first open. */
@@ -1019,7 +1017,7 @@ export function MakerShell({
              the canvas there. */
           data-phone-chrome="bar"
           data-phone-chrome-name="the toolbar"
-          className={`sn-glass-bare relative z-20 flex shrink-0 flex-nowrap items-center gap-x-1 px-2 py-1 max-lg:h-[52px] lg:gap-1.5 lg:px-2.5${studioImmersive ? ' max-lg:hidden' : ''}`}
+          className="sn-glass-bare relative z-20 flex shrink-0 flex-nowrap items-center gap-x-1 px-2 py-1 max-lg:h-[52px] lg:gap-1.5 lg:px-2.5"
         >
           {/* ✕ EXIT — red, its OWN pill (owner 2026-10-05: *"exit on the left side is
               red with an X icon"* — "‹" read as back one step); the draft is kept. */}
@@ -1027,6 +1025,12 @@ export function MakerShell({
               the three step."*): the Maker covers the app's own bar and rail, so ✕ → this event → ☰ → Events was
               three taps. ✕ opens the Maker's one sheet — Back to this event · All events (`MakerExitSheet`) — and
               no longer leaves by itself. */}
+          {/* 🧭 INSIDE A STUDIO PAGE the bar's first two places are the page's own head — ‹ back to the Studio home, and
+              the page's name ▾ (owner 2026-10-08: "make the top nav show where we are at" · "with a go back button?").
+              ✕ Exit and Stages | Studio are on the Studio home, one tap back; ↺ and ✓ stay where they are. */}
+          {studioTile ? (
+            <StudioPageHead tile={studioTile} tiles={studio?.tiles} onOpen={openStudio} onBack={() => pickSide('studio')} />
+          ) : (
           <IconPill tone="exit">
             <button
               type="button"
@@ -1044,6 +1048,7 @@ export function MakerShell({
               <ChevronLeft aria-hidden className="hidden h-6 w-6 lg:block" strokeWidth={2} />
             </button>
           </IconPill>
+          )}
           {/* 🚪 The way out, over everything (the sheet is fixed to the screen — portalled, like every Maker sheet). */}
           {exitOpen && typeof document !== 'undefined'
             ? createPortal(<MakerExitSheet eventId={eventId} changes={draft?.count ?? 0} onClose={() => setExitOpen(false)} />, document.body)
@@ -1052,10 +1057,10 @@ export function MakerShell({
           {/* 📱 THE SCREEN YOU ARE ON (owner 2026-10-05: "RSVP · When yes") — the
               stage and its page ("Invitation · Welcome"), or the Maker page that
               covers it; one line that truncates. */}
-          {stagesStudio ? (
+          {studioTile ? null : stagesStudio ? (
             /* 🧭 THE NEW MAKER: ONE segmented control, Stages | Studio, where the screen's name was. */
             <div data-maker-tool="side" data-bar-item="Stages or Studio" data-bar-fill="" className={`flex min-w-0 flex-1 px-1 lg:hidden ${MAKER_BAR_PHONE.side}`}>
-              <StudioSideSwitch side={side} onPick={pickSide} at={studioTile} tiles={studio?.tiles} onOpen={openStudio} />
+              <StudioSideSwitch side={side} onPick={pickSide} />
             </div>
           ) : (
           <p
@@ -1128,7 +1133,7 @@ export function MakerShell({
               a page in the body, never a dialog. Look, Details and Page ▾ › Prints
               all open THIS one page, on their own part. */}
           {hasWork && selection?.kind === 'tool' && selection.key === 'details' ? (
-            <div className={`absolute inset-0 z-30 flex bg-cream${studioImmersive ? ' max-lg:top-[52px]' : ''}`} data-maker-details-layer="">
+            <div className="absolute inset-0 z-30 flex bg-cream" data-maker-details-layer="">
               <MakerPage
                 pageKey="details"
                 page={
@@ -1156,13 +1161,10 @@ export function MakerShell({
             </div>
           ) : null}
           {/* 🧭 THE NEW MAKER'S STUDIO, over the work area (appended last, so the shipped Maker's tree is
-              unchanged): its HOME of cards (`studio-home.tsx`, loaded when first opened), or — on the two pages
-              that hide the top nav — ✓ Done. No title row under the top bar (owner 2026-10-08, "we will not have
-              these."): the way to another page is "Studio ▾" in the top nav, and the page has that height. */}
+              unchanged): its HOME of cards (`studio-home.tsx`, loaded when first opened). A Studio PAGE draws
+              nothing here: its head is in the top bar's own place (`StudioPageHead`, above) — no row is added. */}
           {studioHomeOn ? (
             <StudioCover tiles={studio?.tiles ?? null} onOpen={openStudio} />
-          ) : studioImmersive ? (
-            <StudioDoneBar onDone={() => (studioFrom ? backToPart() : pickSide('studio'))} />
           ) : null}
         </div>
 

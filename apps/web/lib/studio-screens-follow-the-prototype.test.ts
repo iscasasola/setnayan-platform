@@ -53,15 +53,19 @@ async function html(el: React.ReactElement): Promise<string> {
   return renderToStaticMarkup(el);
 }
 
-test('1 · no Tool row: a Studio page has no title pill under the top bar — ✓ Done alone stays on the two full-screen pages', async () => {
-  /* Owner 2026-10-08, on the "INFO ▾" row: "we will not have these." The way to another page is "Studio ▾" in the
-     top nav (`lib/studio-pages-have-no-title-row.test.ts`); the Mood Board's ✨ Auto, which rode the row's end, is
-     drawn in the Mood Board's own place (its own fallback when no row end is found). */
+test('1 · no Tool row and no Done band: a Studio page’s head is in the top bar’s own place — ‹ and the page’s name ▾', async () => {
+  /* Owner 2026-10-08: "we will not have these." (the "INFO ▾" row) → "make the top nav show where we are at" · "with a
+     go back button?". The head's own claims are `lib/studio-pages-have-no-title-row.test.ts`; here: the row and the
+     band are gone, the head paints the page, and the Mood Board's ✨ Auto (which rode the row's end) is drawn in the
+     Mood Board's own place. */
   const parts = await import(`../${L}/stages-studio-parts`);
   assert.equal((parts as Record<string, unknown>).StudioToolRow, undefined, 'the Tool row is still exported');
-  const full = await html(React.createElement(parts.StudioDoneBar, { onDone: () => {} }));
-  assert.match(full, /data-maker-studio-done=""/, 'the Wedding March has no ✓ Done');
-  assert.doesNotMatch(full, /data-maker-studio-tool|aria-haspopup|uppercase|Saved/, 'the Done bar still carries a Tool ▾ or a Saved chip');
+  assert.equal((parts as Record<string, unknown>).StudioDoneBar, undefined, 'the Done band is still exported');
+  const march = tiles.find((t) => t.key === 'march')!;
+  const head = await html(React.createElement(parts.StudioPageHead, { tile: march, tiles, onOpen: () => {}, onBack: () => {} }));
+  assert.match(head, /aria-label="Back to Studio"/, 'the Wedding March has no way back');
+  assert.match(head, /aria-label="Wedding March — choose another Studio page"/);
+  assert.doesNotMatch(head, /data-maker-studio-tool|data-maker-studio-done|uppercase|Saved/, 'the head still carries the old Tool ▾, ✓ Done or a Saved chip');
   assert.match(read('app/dashboard/[eventId]/studio/mood-board/_components/mood-board-studio.tsx'), /\{rowEnd \? createPortal\(bar, rowEnd\) : bar\}/, 'the Mood Board’s ✨ Auto has nowhere to be drawn without the row');
 });
 

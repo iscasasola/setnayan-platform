@@ -49,6 +49,7 @@ import {
   MapPin,
   MessageSquareWarning,
   Music,
+  Music4,
   Network,
   Newspaper,
   Palette,
@@ -437,6 +438,16 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin/website-media',
         icon: Images,
         matchPrefix: '/admin/website-media',
+      },
+      {
+        // Event Hub music — "Our music": the tracks an admin uploads and a
+        // couple picks in Look › Music (owner 2026-10-08). Beside the other two
+        // upload tools; its files show up in Website media like theirs.
+        key: 'hub-music',
+        label: 'Event Hub music',
+        href: '/admin/hub-music',
+        icon: Music4,
+        matchPrefix: '/admin/hub-music',
       },
       {
         // Repointed to the Studio Studio Reveal Studio tab (slice 1).

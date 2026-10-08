@@ -203,6 +203,15 @@ export function addToPlanChipLabel(label: string): string {
 /** The quiet per-category removal control. */
 export const REMOVE_FROM_PLAN_LABEL = 'Not needed? Remove';
 
+/** The same control on the one-screen Suppliers page — it names what it removes
+ *  (owner 2026-10-07, the prototype's "Not needed · Remove Catering"). */
+export function removeFromEventLabel(label: string): string {
+  return `Not needed · Remove ${label}`;
+}
+
+/** The words before the one "＋ Add to your event" dropdown under the list. */
+export const ADD_TO_EVENT_ASK = 'Need something else?';
+
 /**
  * What removal actually does, said out loud (owner 2026-09-06: *"archive …
  * just means, that category will no longer be on their choices to build"* +

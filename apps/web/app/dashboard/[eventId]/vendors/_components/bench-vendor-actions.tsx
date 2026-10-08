@@ -41,6 +41,7 @@ import Link from 'next/link';
 import { useState, useTransition } from 'react';
 import { Ban, CalendarX2, Check, Clock, Hammer, Hourglass, MessageCircle, QrCode } from 'lucide-react';
 import { haptic } from '@/lib/haptics';
+import { announceBuildAdded } from '@/lib/budget-build';
 import { useSaveLoader } from '@/components/sd-loader';
 import type { BenchCardActions } from '@/lib/bench-card-actions';
 import {
@@ -106,10 +107,12 @@ export function BenchVendorActions({
   const pin = (planGroupId: string) => {
     haptic('confirm');
     start(async () => {
-      await save.run(() => setBuildPick({ eventId, planGroupId, vendorId }), {
+      const added = await save.run(() => setBuildPick({ eventId, planGroupId, vendorId }), {
         steps: ['Pinning your pick'],
         hint: 'Saving',
       });
+      // The cart peeks (the page's shell listens) — only for a pick that saved.
+      if (added.ok) announceBuildAdded({ name: vendorName, category: groupLabel });
     });
   };
 

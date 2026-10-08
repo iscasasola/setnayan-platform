@@ -33,7 +33,13 @@ import type { SupplierStanding } from '@/lib/supplier-standing';
 import { emitNotification } from '@/lib/notification-emit';
 import { resolveVendorDisplayName, isVendorNameRevealed } from '@/lib/vendors';
 import { readEventVendorsMeasured } from '@/lib/event-vendors-read';
-import { teamRows, type TeamRowFacts } from '@/lib/your-team-rows';
+import { teamCountsLine, teamRows, type TeamRowFacts } from '@/lib/your-team-rows';
+import { buildTally, suppliersDateFact, suppliersPlaceFact } from '@/lib/suppliers-shell';
+import { pickVenueBookingRows, type VenueBookingRow } from '@/lib/event-venues';
+import { regionLabel } from '@/lib/region-source';
+import { plannedTileIdSet } from '@/lib/leaf-suggestions';
+import { addedCategoriesOf, resolveBenchRing, ringBuildCount } from '@/lib/explore-in-plan';
+import { popularTilesFor } from '@/lib/supplier-find';
 import { hasVerifiedBadge } from '@/lib/verified-badge';
 import { readUnreadChatCountsByThread } from '@/lib/vendor-unread-threads';
 import { benchUnreadFrom } from '@/lib/bench-unread';
@@ -119,7 +125,7 @@ import {
 import { buildCoupleFaithSet } from '@/lib/taxonomy-filters';
 import { ServicesTakeover } from './_components/services-takeover';
 import { LastSeenCapture } from '@/app/_components/last-seen/last-seen-capture';
-import { ChatsDoor } from './_components/chats-door';
+import { DatePlaceLine } from './_components/date-place-line';
 import { TeamRows } from './_components/team-rows';
 import { MerkadoBudgetLens } from './_components/merkado-budget-lens';
 import { MerkadoGuardBanner } from './_components/merkado-guard-banner';
@@ -1480,12 +1486,20 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // plan the reveal promised is front-and-center where they act on it. Scoped to
   // NON-wedding (wedding keeps its own rich plan/build machinery untouched).
   const plannedTiles = (() => {
-    if ((ev?.event_type ?? 'wedding') === 'wedding') return undefined;
+    // ⚖ Owner 2026-10-08 ("which rows a wedding shows": *"go"*) — a wedding
+    // honours its OWN onboarding picks too. They were ignored here since
+    // 2026-06-28, which is why a wedding's bench showed every category. The
+    // picks are onboarding PICKER keys for a wedding and tile ids elsewhere;
+    // `plannedTileIdSet` is the one bridge (it keeps a raw tile id as it is).
+    // …plus every category the couple added under the ring since
+    // (`added_categories`, `lib/explore-in-plan.ts`).
     const prefs = (ev?.style_preferences ?? {}) as Record<string, unknown>;
     const picks = Array.isArray(prefs.interested_categories)
       ? (prefs.interested_categories as unknown[]).filter((p): p is string => typeof p === 'string')
       : [];
-    return picks.length > 0 ? new Set(picks) : undefined;
+    const tiles = plannedTileIdSet(picks);
+    for (const t of addedCategoriesOf(prefs)) tiles.add(t);
+    return tiles.size > 0 ? tiles : undefined;
   })();
 
   // ── Bench date-availability fit (2026-07-09) ────────────────────────────────
@@ -2105,6 +2119,9 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         daysUntilWedding={daysUntilWedding}
         // Explore Replan PR-C — tile-level exclusions ("Not needed? Remove").
         excludedTiles={excludedTiles}
+        // The starter ring for an event with no plan of its own — the four a
+        // host of its type books first (the Find page's own "Popular" list).
+        starterTiles={[...popularTilesFor(ev?.event_type ?? null)]}
         // Explore Replan PR-G1 — the convergence banner between the Coverage
         // Strip and the bench. Null on an open window (nothing to report yet)
         // and whenever the tier isn't running.
@@ -2489,6 +2506,68 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         .filter((d) => d.count > 0 && d.name);
     }
 
+    // ── THE SHELL'S FACTS (Suppliers PR1, owner 2026-10-07) ──────────────────
+    // NO NEW READ: the plan model, the team rows and the event row above are
+    // everything the top of the one screen says.
+    //   · Build N/M and the build's money — `buildTally` over the SAME children
+    //     `BuildLocked` draws, summed by the same `teamMoney`.
+    //   · the date · place line — the event's date at its own precision; the
+    //     BOOKED venue (reception first, else the ceremony — the rule the Event
+    //     Hub answers "where is this event?" with, `pickVenueBookingRows`) and
+    //     the event's area. A venue the couple is still considering is not
+    //     where the event is, so it is never named here.
+    // ⛔ A REFUSED EVENT READ IS NOT "NO DATE YET". With no row the line says it
+    // could not load — never "Pick your date" to a couple who has one.
+    // "Build N/M" is counted over THE RING — the category rows Find shows —
+    // through the same `resolveBenchRing` the bench calls, so the segment can
+    // never count a category the list does not show (owner 2026-10-08). The
+    // money stays `buildTally`'s (one sum, the Build body's own). Flag off, the
+    // old shape keeps the plan model's own count.
+    const shellTally = (() => {
+      const money = buildTally(buildChildren, model.chosenCentavos);
+      if (!isExploreReplanEnabled()) return money;
+      const inBuild = new Set([...buildPicksByGroup.values()].flat());
+      const ringTiles = shortlistFolders.flatMap((f) =>
+        f.tiles.map((t) => ({
+          tile: t.tile,
+          planned: t.planned,
+          vendorCount: t.vendors.length,
+          lockedCount: t.vendors.filter((v) => v.status === 'locked').length,
+          buildCount: t.vendors.filter((v) => inBuild.has(v.vendorId)).length,
+        })),
+      );
+      const ring = resolveBenchRing({
+        tiles: ringTiles,
+        excludedTiles,
+        pinnedTile: sp.open ?? null,
+        starterTiles: [...popularTilesFor(ev?.event_type ?? null)],
+      });
+      return { ...money, ...ringBuildCount(ringTiles, ring.inPlan) };
+    })();
+    const shellFacts = (() => {
+      if (eventCtx.error || !ev) return null;
+      const venueRows: VenueBookingRow[] = vendors.map((v) => ({
+        category: v.category,
+        status: v.status,
+        vendor_name: v.vendor_name,
+        updated_at: null,
+      }));
+      const won = pickVenueBookingRows(venueRows);
+      const at = won.reception ?? won.ceremony;
+      const booked = at ? vendors[venueRows.indexOf(at)] : undefined;
+      // The name the Booked body's own row says (a marketplace supplier's
+      // revealed name), never a second spelling of it.
+      const venueName = booked
+        ? (teamRowList.find((r) => r.vendorId === booked.vendor_id)?.name ?? booked.vendor_name)
+        : null;
+      return {
+        date: suppliersDateFact(ev.event_date, ev.event_date_precision),
+        // The area by its own name; an unlisted spelling is shown as typed
+        // (what the Build body's Location tile already prints).
+        place: suppliersPlaceFact(venueName, regionLabel(ev.region) ?? ev.region),
+      };
+    })();
+
     const buildSlot = (
       <div className="space-y-6">
         {showGuard ? <MerkadoGuardBanner guard={buildGuard} demand={guardDemand} /> : null}
@@ -2536,15 +2615,16 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       <LastSeenCapture page="suppliers">
         <ServicesTakeover
           eventId={eventId}
+          // `?tab=` picks the FIRST body (the lock door, a checklist deep link,
+          // the finished-event summary); anything else opens on Find.
           initialTab={initialTab}
-          // The chat icon + unread count beside ⋯ → the couple's Chats (P3).
-          chatSlot={<ChatsDoor supabase={supabase} eventId={eventId} userId={user.id} />}
+          // The date · place line — the only place on this page they appear.
+          factsSlot={<DatePlaceLine eventId={eventId} facts={shellFacts} />}
+          // Find · Build N/M · Booked N — counted from what the bodies draw.
+          tally={shellTally}
+          bookedCount={teamCountsLine(teamRowList).booked}
           premium={aiActive}
-          teamParts={teamParts}
           teamSlot={teamSlot}
-          // Arrived aimed below the team (the lock door's `?open=`, a `?tab=`
-          // deep link, a desktop `?inspect=`) → the find area opens first render.
-          initialFindOpen={Boolean(sp.open || sp.inspect || sp.tab)}
           shortlistSlot={shortlistContent}
           buildSlot={buildSlot}
           budgetSlot={<MerkadoBudgetLens eventId={eventId} />}

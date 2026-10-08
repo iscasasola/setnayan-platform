@@ -34,6 +34,7 @@ import {
   useTransition,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { loadSelfAddedSupplier, type SelfAddedSupplierPrefill } from '../actions';
@@ -102,6 +103,10 @@ import { isExploreReplanEnabled } from '@/lib/explore-replan-flag';
 import { benchFolderAnchorId, benchTileAnchorId, scrollBenchAnchor } from '@/lib/bench-anchors';
 import { benchSearchScopeForTile } from '@/lib/bench-category-search';
 import { CategorySearchOverlay } from './category-search-overlay';
+import { FindThumbRow } from './find-thumb-row';
+import { categoryRowState, isCategoryOpen, ringCoveredCount } from '@/lib/suppliers-shell';
+import { Count } from '@/components/count';
+import { Sheet } from '@/app/_components/sheet';
 import { cardDates, dateOutcome, type CardDates, type DateOutcome } from '@/lib/card-dates';
 import { formatDayKeyLabel } from '@/lib/build-date-window';
 import {
@@ -114,37 +119,30 @@ import { useConfirm } from '@/app/_components/confirm-dialog';
 import { folderIcon, tileIcon } from '@/lib/taxonomy-icons';
 import { folderHintButtonLabel, folderHintFor } from '@/lib/category-hints';
 import {
-  coverageBadgeOf,
   coverageStateOf,
-  coverageSummary,
   folderSummaryOf,
   orderCoverageTiles,
   type CoverageTile,
 } from '@/lib/coverage-strip';
-import { canRemoveTileFromPlan, resolveInPlanTiles } from '@/lib/explore-in-plan';
+import { canRemoveTileFromPlan, resolveBenchRing } from '@/lib/explore-in-plan';
 import {
   ADD_TO_PLAN_HEADING,
-  addToPlanChipLabel,
   cardAddAnother,
   categoryHintButtonLabel,
   categoryHintForTile,
-  COVERAGE_NEXT_FLAG,
-  COVERAGE_STRIP_HEADING,
-  coverageCountLabel,
-  coverageTileLabel,
-  folderEmptyInPlan,
   FOLDER_SUMMARY_ALL_COVERED,
   FOLDER_SUMMARY_LOCKED,
   FOLDER_SUMMARY_MORE,
   FOLDER_SUMMARY_TO_DECIDE,
   lockedNamesLabel,
   lockedNamesLine,
-  REMOVE_FROM_PLAN_LABEL,
   REMOVE_FROM_PLAN_NOTE,
   REMOVE_FROM_PLAN_CONFIRM_BODY,
   REMOVE_FROM_PLAN_CONFIRM_CANCEL,
   REMOVE_FROM_PLAN_CONFIRM_OK,
   removeFromPlanConfirmTitle,
+  ADD_TO_EVENT_ASK,
+  removeFromEventLabel,
   removeFromPlanButtonLabel,
   INLINE_MORE_FAILED,
   INLINE_MORE_INQUIRE,
@@ -278,6 +276,38 @@ const SLCAT_CSS = `
   color:var(--ink);font-family:var(--sans)}
 .slcat *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 
+/* ── THE ONE-SCREEN SHAPE (owner 2026-10-07) — NO folder level. Each folder is
+   open and headless ('.fold.flat'), so its categories are the next rows of ONE
+   list: a hairline between rows, the icon in a 36px disc, the name, "· N yours",
+   one state word, the chevron. 'overflow:visible' so a row head can pin. ── */
+.slcat .fold.flat{margin:0;background:none;border:0;border-radius:0;overflow:visible;box-shadow:none}
+.slcat .fold.flat .fold-body{padding:0}
+.slcat .fold.flat .fold-body::before{display:none}
+.slcat .fold.flat .cat,.slcat .fold.flat .fold-body .cat:first-child{margin:0;border-top:1px solid var(--line-soft)}
+.slcat .fold.flat .cat-head{min-height:56px;padding:10px 0;gap:12px}
+.slcat .fold.flat .cat-l{gap:12px}
+.slcat .fold.flat .cat-ic{width:36px;height:36px;align-items:center;justify-content:center;border-radius:var(--m-r-full);background:rgba(169,131,75,.13)}
+.slcat .fold.flat .cat-nm{font-weight:500;font-size:16px}
+.slcat .cat-yours{flex:0 0 auto;font-size:15px;color:var(--ink-soft);white-space:nowrap}
+.slcat .cat-st{font-size:13px;color:var(--ink-soft);white-space:nowrap}
+.slcat .cat-st.ok{color:rgb(var(--color-ok))}
+.slcat .cat-st.wn{color:var(--mulberry)}
+.slcat .rowsum{margin:0 0 10px;font-size:14px;font-weight:600;color:rgb(var(--color-ok))}
+.slcat .addmore{display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:14px 0 4px;border-top:1px solid var(--line-soft);font-size:14px;color:var(--ink-soft)}
+/* A row's head PINS under the shell's pinned block while its category is open
+   (owner 2026-10-07: "category pins … so they can collapse"), so the body must
+   not be a scroll box ('overflow:visible' — a flat folder never collapses). The
+   fill is the page's own ground ('.sn-ambient': #F7F5F0 · dark #17160F), so the
+   pinned head reads as the page, not a bar. The icon pops, then the body
+   unfolds a beat later (the prototype's 420 ms / 120 ms). */
+.slcat .fold.flat .fold-collapse>.fold-body{overflow:visible}
+.slcat .fold.flat .cat.open>.cat-head-row{position:sticky;top:var(--stick-h,150px);z-index:3;background:#F7F5F0;box-shadow:0 1px 0 var(--line-soft)}
+html.dark .slcat .fold.flat .cat.open>.cat-head-row{background:#17160F}
+.slcat .fold.flat .cat.open .cat-collapse{transition-delay:.12s}
+.slcat .fold.flat .cat.open .cat-ic{animation:slcat-pop 420ms var(--ease)}
+@keyframes slcat-pop{0%{transform:scale(1)}35%{transform:scale(1.28) rotate(-6deg)}60%{transform:scale(.92) rotate(4deg)}100%{transform:scale(1) rotate(0)}}
+@media (prefers-reduced-motion:reduce){.slcat .fold.flat .cat.open .cat-ic{animation:none}.slcat .fold.flat .cat.open .cat-collapse{transition-delay:0s}}
+.slcat .scope-none{margin:10px 0 4px;font-size:13px;color:var(--ink-soft)}
 /* ── Level 1 · folder card (collapsible) ── */
 .slcat .fold{margin:0 0 10px;background:var(--card);border:1px solid var(--edge);border-radius: var(--m-r-md);overflow:hidden;box-shadow:var(--edge-lift);transition:box-shadow .3s var(--ease),border-color .3s var(--ease)}
 .slcat .fold.open{box-shadow:var(--edge-lift-open);border-color:rgba(30,26,18,.28)}
@@ -1640,6 +1670,7 @@ export function ShortlistCategories({
   buildPickVendorIds = [],
   daysUntilWedding = null,
   excludedTiles = [],
+  starterTiles,
   convergence = null,
   buildWindow = null,
   probeDayKeys = [],
@@ -1716,6 +1747,13 @@ export function ShortlistCategories({
    */
   excludedTiles?: readonly string[];
   /**
+   * The starter ring (owner 2026-10-08) — the categories an event with NO plan
+   * of its own opens on (`popularTilesFor`, the Find page's "Popular" four).
+   * An ARRAY, like every set that crosses to the client here. Absent → the
+   * bench keeps every category, as before.
+   */
+  starterTiles?: readonly string[];
+  /**
    * Explore Replan PR-G1 — the build's shared-date convergence banner, resolved
    * server-side by `convergenceBanner`. Null = render nothing: an open window
    * has no news, and a status bar that says "no news" is chrome. Sits between
@@ -1775,6 +1813,19 @@ export function ShortlistCategories({
     deepLinkFolder ? initialOpenTile : null,
   );
   // The category whose "Add manually" modal is open (every category has Find + Add).
+  // ── FIND'S THUMB ROW (owner 2026-10-07 evening · `find-thumb-row.tsx`) ────
+  // "Expand all" opens every category; a tap on a header then folds JUST that
+  // one (`folded`); "Collapse all" closes them. The one-open-at-a-time state
+  // above is untouched — it is what a header tap means while not all are open.
+  const [openAll, setOpenAll] = useState(false);
+  const [folded, setFolded] = useState<ReadonlySet<string>>(() => new Set());
+  // "＋ Add your own" with no category open asks which one FIRST.
+  const [addAsk, setAddAsk] = useState(false);
+  // THE SCOPE (owner 2026-10-07 late: *"which ever is pinned is where we
+  // search?"* — yes): the open category whose header is stuck under the pinned
+  // block. The thumb row's words, its search and its Add follow it.
+  const [scopeTile, setScopeTile] = useState<string | null>(null);
+  const benchRef = useRef<HTMLDivElement>(null);
   const [manual, setManual] = useState<{ category: string; label: string } | null>(null);
   // ── In-place category search (2026-07-29) ─────────────────────────────────
   // Owner: "clicking find more doesn't search specifically for that category.
@@ -2317,20 +2368,19 @@ export function ShortlistCategories({
   // ~53-row bench to whatever is already shortlisted would be an amputation,
   // not an adaptation). Locks pin a tile in plan no matter what; the deep-link
   // target is pinned too so `?open=` always lands on a row.
-  const allTilesInOrder = folders.flatMap((f) => f.tiles.map((t) => t.tile));
-  const inPlanResolution = resolveInPlanTiles({
-    allTiles: allTilesInOrder,
-    plannedTiles: plannedTileSet,
-    tilesWithVendors: new Set(
-      folders.flatMap((f) => f.tiles.filter((t) => t.vendors.length > 0).map((t) => t.tile)),
+  const inPlanResolution = resolveBenchRing({
+    tiles: folders.flatMap((f) =>
+      f.tiles.map((t) => ({
+        tile: t.tile,
+        planned: t.planned,
+        vendorCount: t.vendors.length,
+        lockedCount: t.vendors.filter((v) => v.status === 'locked').length,
+      })),
     ),
-    tilesWithLocks: new Set(
-      folders.flatMap((f) =>
-        f.tiles.filter((t) => t.vendors.some((v) => v.status === 'locked')).map((t) => t.tile),
-      ),
-    ),
-    excludedTiles: new Set(excludedTiles),
-    pinnedTiles: initialOpenTile ? new Set([initialOpenTile]) : undefined,
+    excludedTiles,
+    pinnedTile: initialOpenTile,
+    // The starter ring belongs to the one-screen shape only.
+    starterTiles: replan ? starterTiles : undefined,
   });
   // Flag OFF → null everywhere below, so every adaptive branch is skipped and
   // the bench renders exactly as it does in production today.
@@ -2345,10 +2395,119 @@ export function ShortlistCategories({
     [...coverageByFolder.values()].flat().filter((t) => stripSource.has(t.tile)),
     daysUntilWedding,
   );
-  const stripSummary = coverageSummary(stripTiles);
-  // Progress ring geometry (r=13.5 in a 34×34 box — the prototype's numbers).
-  const RING_R = 13.5;
-  const RING_C = 2 * Math.PI * RING_R;
+  // "Covered N of M" over the ring — booked or covered (`ringCoveredCount`).
+  const ringCovered = ringCoveredCount(stripTiles.map((t) => coverageStateOf(t)));
+  /** tile → its CoverageTile, for each row's own state word. */
+  const coverageByTile = new Map([...coverageByFolder.values()].flat().map((t) => [t.tile, t] as const));
+
+  /** Where a row head pins: the top bar plus the shell's pinned block (`--stick-h`). */
+  function stickLine(): number {
+    const el = benchRef.current;
+    return el ? parseFloat(getComputedStyle(el).getPropertyValue('--stick-h')) || 0 : 0;
+  }
+  // Which open category is pinned right now — read a beat after the scroll
+  // settles (the prototype's 80 ms), so the words do not flicker mid-fling.
+  useEffect(() => {
+    if (!replan) return;
+    let timer = 0;
+    const read = () => {
+      const line = stickLine();
+      let pinned: string | null = null;
+      for (const row of benchRef.current?.querySelectorAll<HTMLElement>('.cat.open[data-tile]') ?? []) {
+        const head = row.querySelector<HTMLElement>(':scope > .cat-head-row');
+        if (!head) continue;
+        const hd = head.getBoundingClientRect();
+        if (Math.abs(hd.top - line) < 3 && row.getBoundingClientRect().bottom > line + hd.height) {
+          pinned = row.dataset.tile ?? null;
+          break;
+        }
+      }
+      setScopeTile((cur) => (cur === pinned ? cur : pinned));
+    };
+    const onScroll = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(read, 80);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('scroll', onScroll);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [replan]);
+  /**
+   * A tap on a row's header (BUTTON_RULE rule 6): scrolled INTO the category —
+   * its header pinned, its first card above the line — the first tap goes back
+   * to its first card and folds nothing; at its top, the tap folds it. Opening
+   * a row lands its first card under the pinned block.
+   */
+  function tapRowHead(tile: string, isOpen: boolean) {
+    const row = replan ? document.getElementById(benchTileAnchorId(tile)) : null;
+    if (row && isOpen && row.getBoundingClientRect().top < stickLine() - 2) {
+      scrollBenchAnchor(benchTileAnchorId(tile));
+      return;
+    }
+    if (openAll) toggleFolded(tile);
+    else setOpenTile(isOpen ? null : tile);
+    if (replan && !isOpen) setLanding((cur) => ({ tile, n: (cur?.n ?? 0) + 1 }));
+  }
+  // Opening a row lands its first card under the pinned block. No guessed
+  // delay: one frame after the commit that opened it, and once more when the
+  // unfold (and the fold of whichever row closed above it) has finished —
+  // `transitionend` is the moment the layout is final. The listener answers
+  // ONCE, so folding the row later does not pull the page back to it.
+  const [landing, setLanding] = useState<{ tile: string; n: number } | null>(null);
+  useLayoutEffect(() => {
+    if (!landing) return;
+    const id = benchTileAnchorId(landing.tile);
+    const row = document.getElementById(id);
+    const frame = requestAnimationFrame(() => scrollBenchAnchor(id));
+    const settle = (e: TransitionEvent) => {
+      if (e.propertyName !== 'grid-template-rows') return;
+      row?.removeEventListener('transitionend', settle);
+      scrollBenchAnchor(id);
+    };
+    row?.addEventListener('transitionend', settle);
+    return () => {
+      cancelAnimationFrame(frame);
+      row?.removeEventListener('transitionend', settle);
+    };
+  }, [landing]);
+  /** A header tap while every category is open folds, or re-opens, just that one. */
+  function toggleFolded(tile: string) {
+    setFolded((cur) => {
+      const next = new Set(cur);
+      if (next.has(tile)) next.delete(tile);
+      else next.add(tile);
+      return next;
+    });
+  }
+  /** ⇕ Expand all / Collapse all — as the prototype: a clean slate each way, from the top. */
+  function toggleOpenAll() {
+    setFolded(new Set());
+    setOpenAll((on) => {
+      if (on) {
+        setOpenFolder(null);
+        setOpenTile(null);
+      }
+      return !on;
+    });
+    window.scrollTo({ top: 0 });
+  }
+  /** The rows on the bench — what "the categories on your event" means here. */
+  const benchRows = folders.flatMap((f) =>
+    f.tiles.filter((t) => !inPlanTiles || inPlanTiles.has(t.tile)).map((t) => ({ t, group: f.label })),
+  );
+  /** Every category NOT on the event — what "＋ Add to your event" offers. */
+  const poolRows = inPlanTiles
+    ? folders.flatMap((f) => f.tiles.filter((t) => !inPlanTiles.has(t.tile)).map((t) => ({ t, f })))
+    : [];
+  /** ＋ Add your own: straight into the ONE open category; otherwise ask which first. */
+  function addYourOwn() {
+    const open = scopeRow ?? (!openAll && !searching && openTile ? benchRows.find((r) => r.t.tile === openTile) : null);
+    if (open) setManual({ category: open.t.category, label: open.t.label });
+    else setAddAsk(true);
+  }
 
   function openPlan(folder: string, tile: string, slug: string) {
     setOpenFolder(folder);
@@ -2407,7 +2566,11 @@ export function ShortlistCategories({
   // Bench search — filter folders to tiles (or their considered vendors) matching
   // the query; while searching, every matching folder + tile shows expanded.
   const q = query.trim().toLowerCase();
-  const searching = q.length > 0;
+  // With a category pinned the box searches THAT category (its cards below);
+  // with none it searches everything and the rows with a hit unfold.
+  const scopeRow = replan && scopeTile ? (benchRows.find((r) => r.t.tile === scopeTile) ?? null) : null;
+  const searching = q.length > 0 && !scopeRow;
+  const scopedQ = scopeRow ? q : '';
   const visibleFolders = searching
     ? folders
         .map((f) => ({
@@ -2610,7 +2773,7 @@ export function ShortlistCategories({
 
   return (
     <UnreadCtx.Provider value={benchUnread}>
-    <div className="slcat">
+    <div className="slcat" ref={benchRef}>
       <style>{SLCAT_CSS}</style>
       {/* The remove confirm. It must live INSIDE the rendered tree or
           `confirm()` resolves against a dialog that was never mounted —
@@ -2623,95 +2786,16 @@ export function ShortlistCategories({
           bench card, in the wide left column where they spend their time. */}
       <BenchRollUp folders={folders} standings={standings} />
       {replan && stripTiles.length > 0 ? (
-        /* Coverage Strip v2 (Explore Replan PR-B) — the SAME `.plan-strip`
-           shell + the SAME `openPlan` doorway as the chip strip it upgrades;
-           only the rendering and the ordering change. Icon tile per in-plan
-           category, state ring, count badge, NEXT flag, "Covered X of Y" and a
-           progress ring. Ordered by the accordion's own planning clock, with
-           covered categories sunk to the right. */
-        <div className="plan-strip">
-          <div className="cov-hd">
-            <span className="cov-hl">
-              <svg
-                className="cov-ring"
-                viewBox="0 0 34 34"
-                role="img"
-                aria-label={coverageCountLabel(stripSummary.covered, stripSummary.total)}
-              >
-                <circle className="tr" cx="17" cy="17" r={RING_R} />
-                <circle
-                  className="pr"
-                  cx="17"
-                  cy="17"
-                  r={RING_R}
-                  strokeDasharray={RING_C.toFixed(1)}
-                  strokeDashoffset={(RING_C * (1 - stripSummary.fraction)).toFixed(1)}
-                />
-                <text x="17" y="20.5" textAnchor="middle">
-                  {stripSummary.covered}
-                </text>
-              </svg>
-              <b>{COVERAGE_STRIP_HEADING}</b>
-            </span>
-            <span className="cov-cnt">
-              {coverageCountLabel(stripSummary.covered, stripSummary.total)}
-            </span>
-          </div>
-          <div className="cov-strip">
-            {stripTiles.map((t) => {
-              const state = coverageStateOf(t);
-              const badge = coverageBadgeOf(t);
-              const isNext = stripSummary.nextTile === t.tile;
-              const Icon = tileIcon(t.tile);
-              return (
-                <button
-                  key={t.tile}
-                  type="button"
-                  className={`ctile st-${state}${isNext ? ' is-next' : ''}`}
-                  aria-label={coverageTileLabel({
-                    label: t.label,
-                    state,
-                    vendorCount: t.vendorCount,
-                    lockedCount: t.lockedCount,
-                    buildCount: t.buildCount,
-                    askedCount: t.askedCount,
-                    isNext,
-                  })}
-                  onClick={() => openPlan(t.folder, t.tile, t.slug)}
-                >
-                  <span className="ic">
-                    {isNext ? (
-                      <span className="nx" aria-hidden>
-                        {COVERAGE_NEXT_FLAG}
-                      </span>
-                    ) : null}
-                    <Icon size={21} strokeWidth={1.6} aria-hidden />
-                    {badge ? (
-                      <span
-                        className={`mini ${
-                          badge.kind === 'covered'
-                            ? 'dn'
-                            : badge.kind === 'locked'
-                              ? 'lk'
-                              : // PR-H · an asked count must not wear the LOCKED
-                                // badge's solid gold fill. Its own class, dashed
-                                // like the tile it sits on.
-                                badge.kind === 'asked'
-                                ? 'ak'
-                                : 'bd'
-                        }`}
-                        aria-hidden
-                      >
-                        {badge.text}
-                      </span>
-                    ) : null}
-                  </span>
-                  <span className="lb">{t.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+        /* "Covered N of M" — the ring IS the rows below now (owner 2026-10-07:
+           one screen; a category unfolds in place). The Coverage Strip's icon
+           tiles drew the same categories a second time, so they are gone; its
+           count stays, and it counts a category that is BOOKED as covered, as
+           the prototype does (the strip counted only "I'm done"). The heading
+           "Cover your event" is the section's own, in the shell. */
+        <p className="rowsum" data-ring-count="">
+          Covered <Count value={ringCovered} id="sup-ring-covered" /> of{' '}
+          <Count value={stripTiles.length} id="sup-ring-total" />
+        </p>
       ) : plannedList.length > 0 ? (
         <div className="plan-strip">
           <p className="plan-eyebrow">
@@ -2785,6 +2869,7 @@ export function ShortlistCategories({
           className="border border-ink/15"
         />
       </div>
+      {replan ? null : (
       <div className="bench-search">
         <Search size={16} strokeWidth={1.75} aria-hidden />
         <input
@@ -2800,6 +2885,7 @@ export function ShortlistCategories({
           </button>
         ) : null}
       </div>
+      )}
       {searching && (mktLoading || mktResults.length > 0) ? (
         <div className="bench-mkt-results">
           <div className="bmr-head">From the whole marketplace</div>
@@ -2854,7 +2940,9 @@ export function ShortlistCategories({
         </div>
       ) : null}
       {visibleFolders.map((folder) => {
-        const folderOpen = searching || openFolder === folder.folder;
+        // The one-screen shape has NO folder level: every folder is open and
+        // headless, so its categories are simply the next rows of one list.
+        const folderOpen = replan || searching || openAll || openFolder === folder.folder;
         // Folder-head summary (Explore Replan PR-B · decision #8). Computed over
         // the FULL folder (not the search-filtered slice) so the numbers stay
         // true while a query narrows the visible rows.
@@ -2873,12 +2961,16 @@ export function ShortlistCategories({
           ? folder.tiles.filter((t) => !inPlanTiles.has(t.tile))
           : [];
         const FolderIcon = folderIcon(folder.folder);
+        // A folder with no category on the event draws nothing at all.
+        if (replan && rowTiles.length === 0) return null;
         return (
           <section
             key={folder.folder}
             id={benchFolderAnchorId(folder.slug)}
-            className={`fold${folderOpen ? ' open' : ''}`}
+            className={`fold${folderOpen ? ' open' : ''}${replan ? ' flat' : ''}`}
           >
+            {replan ? null : (
+            <>
             <div className="fold-head-row" style={{ display: 'flex', alignItems: 'center' }}>
             <button
               type="button"
@@ -2886,6 +2978,9 @@ export function ShortlistCategories({
               aria-expanded={folderOpen}
               style={{ flex: 1, minWidth: 0 }}
               onClick={() => {
+                // With every category open, a folder head leaves them so:
+                // "Collapse all" is the control that closes them.
+                if (openAll) return;
                 setOpenFolder(folderOpen ? null : folder.folder);
                 setOpenTile(null);
               }}
@@ -2953,10 +3048,12 @@ export function ShortlistCategories({
             {hintFolder === folder.folder ? (
               <div className="hintbox">{folderHintFor(folder.folder)}</div>
             ) : null}
+            </>
+            )}
             <div className="fold-collapse">
               <div className="fold-body">
                 {rowTiles.map((t) => {
-                  const tileOpen = searching || openTile === t.tile;
+                  const tileOpen = isCategoryOpen({ tile: t.tile, searching, openTile, openAll, folded });
                   const coveredGroup = coveredByTile[t.tile] ?? null;
                   // Phase 1b PR-4 — the leaf canonical with a saved requirements
                   // row for this tile (if any) drives the "saved request" icon.
@@ -3003,8 +3100,14 @@ export function ShortlistCategories({
                   // The sink stays LAST because it is a partition over whatever
                   // order was chosen, not a term inside it.
                   const tilePins = pinsByTile[t.tile] ?? [];
+                  // The pinned category's own search: its cards, by name.
+                  const railVendors =
+                    scopedQ && scopeTile === t.tile
+                      ? t.vendors.filter((v) => v.name.toLowerCase().includes(scopedQ))
+                      : t.vendors;
+                  const scopedNone = scopedQ.length > 0 && scopeTile === t.tile && railVendors.length === 0;
                   const arrangedRail = applyBenchArrangement(
-                    sortWithReasons(t.vendors, effectiveSort),
+                    sortWithReasons(railVendors, effectiveSort),
                     tilePins,
                     (e) => e.v.vendorId,
                   );
@@ -3033,6 +3136,15 @@ export function ShortlistCategories({
                     t.vendors.map((v) => v.vendorId),
                   );
                   const CatIcon = tileIcon(t.tile);
+                  const rowCoverage = coverageByTile.get(t.tile);
+                  const rowState = replan
+                    ? categoryRowState({
+                        lockedCount: rowCoverage?.lockedCount ?? 0,
+                        covered: rowCoverage?.covered ?? false,
+                        vendorCount: t.vendors.length,
+                        quoteInCount: t.vendors.filter((v) => standings[v.vendorId]?.needsYou === true).length,
+                      })
+                    : null;
                   // ── ROW 2 (owner 2026-09-06) ────────────────────────────
                   // Built here, beside row 1, so both rows are drawn from the
                   // SAME window in the same pass and cannot disagree about who
@@ -3086,6 +3198,7 @@ export function ShortlistCategories({
                       // byte-identical to today.
                       id={replan ? benchTileAnchorId(t.tile) : undefined}
                       className={`cat${tileOpen ? ' open' : ''}`}
+                      data-tile={t.tile}
                     >
                       {/* The category head is a tap target to expand. The
                           "saved request" icon sits beside it as its OWN button
@@ -3095,7 +3208,7 @@ export function ShortlistCategories({
                           type="button"
                           className="cat-head"
                           aria-expanded={tileOpen}
-                          onClick={() => setOpenTile(tileOpen ? null : t.tile)}
+                          onClick={() => tapRowHead(t.tile, tileOpen)}
                           style={{ flex: 1, minWidth: 0 }}
                         >
                           {/* Visual parity 2026-07-28 — a glyph per leaf row,
@@ -3109,6 +3222,11 @@ export function ShortlistCategories({
                               <CatIcon size={15} strokeWidth={1.7} />
                             </span>
                             <span className="cat-nm">{t.label}</span>
+                            {replan && t.vendors.length > 0 ? (
+                              <span className="cat-yours">
+                                · <Count value={t.vendors.length} id={`sup-yours-${t.tile}`} /> yours
+                              </span>
+                            ) : null}
                             <UnreadRollupBadge vendors={t.vendors} />
                           </span>
                           <span className="cat-rt">
@@ -3123,13 +3241,26 @@ export function ShortlistCategories({
                             {t.planned && t.vendors.length === 0 ? (
                               <span className="cat-plan">In your plan</span>
                             ) : null}
-                            {coveredGroup ? (
+                            {!replan && coveredGroup ? (
                               <span className="cat-plan" style={{ color: '#41603b' }}>
                                 ✓ Covered
                               </span>
                             ) : null}
-                            {t.vendors.length > 0 ? (
+                            {!replan && t.vendors.length > 0 ? (
                               <span className="cat-count">{t.vendors.length}</span>
+                            ) : null}
+                            {/* The row's ONE state word (the prototype's
+                                `catState`): Booked ✓ · Covered ✓ · N quote in ·
+                                N to decide — or nothing for an empty category. */}
+                            {rowState ? (
+                              <span className={`cat-st${rowState.tone === 'ok' ? ' ok' : ' wn'}`} data-row-state={rowState.kind}>
+                                {rowState.n != null ? (
+                                  <>
+                                    <Count value={rowState.n} id={`sup-st-${rowState.kind}-${t.tile}`} />{' '}
+                                  </>
+                                ) : null}
+                                {rowState.words}
+                              </span>
                             ) : null}
                             <ChevronDown className="cat-chev" size={16} strokeWidth={1.75} aria-hidden />
                           </span>
@@ -3190,6 +3321,11 @@ export function ShortlistCategories({
                       ) : null}
                       <div className="cat-collapse">
                         <div className="cat-body">
+                          {scopedNone ? (
+                            <p className="scope-none" role="status">
+                              Nobody called “{query.trim()}” in {t.label} yet — add them as your own.
+                            </p>
+                          ) : null}
                           {coveredGroup ? (
                             /* "✓ Covered — reopen" (Explore Replan slice A):
                                the couple answered "I'm done" here, or a
@@ -3594,7 +3730,7 @@ export function ShortlistCategories({
                                   title={REMOVE_FROM_PLAN_NOTE}
                                   onClick={() => void removeTileFromPlan(t.tile, t.label)}
                                 >
-                                  {REMOVE_FROM_PLAN_LABEL}
+                                  {removeFromEventLabel(t.label)}
                                 </button>
                               ) : null}
                             </div>
@@ -3604,46 +3740,82 @@ export function ShortlistCategories({
                     </div>
                   );
                 })}
-                {/* "＋ Add to your event" (PR-C · decision #6) — everything in
-                    this folder the couple is NOT planning, as a chip pool at
-                    the foot of the folder body. Tapping one clears the
-                    exclusion and opens the category. */}
-                {inPlanTiles && rowTiles.length === 0 && poolTiles.length > 0 ? (
-                  <p className="fold-empty">{folderEmptyInPlan(folder.label)}</p>
-                ) : null}
-                {inPlanTiles && poolTiles.length > 0 ? (
-                  <div className="addpool">
-                    <p className="ap-t">{ADD_TO_PLAN_HEADING}</p>
-                    <div className="ap-chips">
-                      {poolTiles.map((t) => {
-                        const PoolIcon = tileIcon(t.tile);
-                        return (
-                          <button
-                            key={t.tile}
-                            type="button"
-                            className="addchip"
-                            disabled={planEditing}
-                            aria-label={addToPlanChipLabel(t.label)}
-                            onClick={() => addTileToPlan(t.tile, folder.folder, folder.slug)}
-                          >
-                            <PoolIcon size={13} strokeWidth={1.7} aria-hidden />
-                            {t.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    {planError && poolTiles.some((t) => t.tile === planError.tile) ? (
-                      <p className="plan-err" style={{ textAlign: 'left', marginTop: 8 }}>
-                        {planError.message}
-                      </p>
-                    ) : null}
-                  </div>
-                ) : null}
               </div>
             </div>
           </section>
         );
       })}
+      {/* "Need something else? ＋ Add to your event" — every category NOT on the
+          event, as ONE dropdown under the list (owner rule: a set of choices is
+          one dropdown; these were a chip pool at the foot of each folder).
+          Picking one clears any removal, keeps the category on the event
+          (`restoreTileToPlan`) and opens its row. */}
+      {replan && !searching && poolRows.length > 0 ? (
+        <div className="addmore" data-add-to-event="">
+          <span>{ADD_TO_EVENT_ASK}</span>
+          <PickMenu
+            label={ADD_TO_PLAN_HEADING}
+            value={null}
+            buttonText={`+ ${ADD_TO_PLAN_HEADING}`}
+            dataAttr="data-add-category"
+            stickyGroups
+            options={poolRows.map(({ t, f }) => ({ key: t.tile, label: t.label, group: f.label }))}
+            onPick={(tile) => {
+              const row = poolRows.find((r) => r.t.tile === tile);
+              if (row && !planEditing) addTileToPlan(row.t.tile, row.f.folder, row.f.slug);
+            }}
+            className="border border-ink/15"
+          />
+          {planError && poolRows.some((r) => r.t.tile === planError.tile) ? (
+            <p className="plan-err" style={{ textAlign: 'left', flexBasis: '100%' }}>
+              {planError.message}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+      {/* FIND'S THUMB ROW — expand / collapse all · search · add your own. The
+          three controls are the bench's own; the row is only where they live
+          now (the search box used to sit above the folders). */}
+      {replan ? (
+        <FindThumbRow
+          allOpen={openAll}
+          onToggleAll={toggleOpenAll}
+          scope={scopeRow ? scopeRow.t.label : 'all suppliers'}
+          onSearch={setQuery}
+          onAdd={addYourOwn}
+        />
+      ) : null}
+      {/* "＋ Add your own" with no category open: which category, first — ONE
+          dropdown of ONLY the categories on the event (owner 2026-10-07: *"it
+          should only show on the existing categories, not all"*). A new
+          category is added under the list first. Drawn into <body>, like every
+          sheet here: the page wrapper captures `position: fixed`. */}
+      {addAsk && typeof document !== 'undefined'
+        ? createPortal(
+            <Sheet open onClose={() => setAddAsk(false)} labelledById="add-own-ask" title="Add your own">
+              <div className="space-y-3 px-1 pb-4">
+                <p id="add-own-ask" className="text-sm text-ink/70">
+                  What they do
+                </p>
+                <PickMenu
+                  label="What they do"
+                  value={null}
+                  buttonText="Pick a category"
+                  dataAttr="data-add-own-category"
+                  stickyGroups
+                  options={benchRows.map(({ t, group }) => ({ key: t.tile, label: t.label, group }))}
+                  onPick={(tile) => {
+                    const row = benchRows.find((r) => r.t.tile === tile);
+                    setAddAsk(false);
+                    if (row) setManual({ category: row.t.category, label: row.t.label });
+                  }}
+                  className="w-full border border-ink/15"
+                />
+              </div>
+            </Sheet>,
+            document.body,
+          )
+        : null}
       {manual ? (
         <NewManualVendorModal
           eventId={eventId}

@@ -150,5 +150,11 @@ test('the supplier is told the outcome of a booking ask', () => {
   const page = read(join(APP, 'vendor-dashboard', 'page.tsx'));
   assert.match(page, /lockAgreeNotice\(/, '/vendor-dashboard does not read lock_agree');
   assert.match(page, /lockDeclineNotice\(/, '/vendor-dashboard does not read lock_decline');
-  assert.match(page, /\{lockAnswer\.text\}/, 'the notice is computed but never rendered');
+  // The sentence is said as a toast since the supplier redesign (S-PR1): the
+  // page hands the notice's own words to `outcome`, draws `outcome` first on the
+  // page, and the toast prints exactly the text it is given.
+  assert.match(page, /const outcome = lockAnswer\s*\? \{ text: lockAnswer\.text, refused: lockAnswer\.tone === 'refused' \}/, 'the notice is computed but never handed to what the page draws');
+  assert.match(page, /\{outcome \? <SupplierToast text=\{outcome\.text\} refused=\{outcome\.refused\} \/> : null\}/, 'the notice is computed but never rendered');
+  const toast = read(join(APP, 'vendor-dashboard', '_components', 'supplier-toast.tsx'));
+  assert.match(toast, /<div role="status" data-supplier-toast=\{refused \? 'refused' : 'said'\} className=\{PILL\}>\s*\{text\}\s*<\/div>/, 'the toast does not print the words it is given');
 });

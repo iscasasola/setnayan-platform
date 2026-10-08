@@ -54,6 +54,7 @@ import {
 } from '@/lib/supplier-today';
 import { splitDesk } from '@/lib/vendor-desk-disposition';
 import { formatPesoCompact } from '@/lib/vendors-plan-budget';
+import { todayCreditNotice } from '@/lib/vendor-credit-warning';
 
 export const dynamic = 'force-dynamic';
 
@@ -186,8 +187,10 @@ function TodayLab({ state, toast }: { state: TodayState; toast: string | undefin
     since: cardTimestamp,
     setupStep: null,
     findability,
+    // The shipped sentence, from the shipped rule — a credit that ends in three
+    // days. The lab types no peso figure of its own (`public-price-literals`).
     credit: state.extras
-      ? { title: 'Your ₱2,500 credit expires in 3 days', body: 'Renew your plan to keep it.', href: '/vendor-dashboard/subscription' }
+      ? todayCreditNotice({ creditPhp: 2500, tierExpiresAt: new Date(NOW + 3 * 86_400_000).toISOString() }, NOW)
       : null,
     payout: state.extras
       ? { title: 'Add a payment method', body: 'You have bookings, and your couples can’t see anywhere to pay you yet.', href: '/vendor-dashboard/shop?open=payments#shop-folds' }

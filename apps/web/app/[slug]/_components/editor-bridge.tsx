@@ -1,7 +1,7 @@
 'use client';
 
 import { LOVE_STORY_PREVIEW_T as LOVE_STORY_PREVIEW, SCHEDULE_PREVIEW_T as SCHEDULE_PREVIEW, applyLoveStoryPreview, applySchedulePreview } from '@/lib/maker-live-preview-apply';
-import { useEffect, useRef, useTransition } from 'react';
+import { Component, useEffect, useRef, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   HUB_ELEMENT_EXCLUDED_WIDGETS,
@@ -27,7 +27,7 @@ import {
 import { postEventElementScope } from '@/lib/post-event-styles';
 import { findMakerSection, sectionAfter } from './maker-section-find';
 import { HUB_TAB_FREES, createPageTop, openHubTab, showHubTab, shownHubTab } from './hub-tab-dom';
-import { applySceneBgPreview, sanitizeSceneBgPreview } from './scene-bg-preview';
+import { applySceneBgPreview, sanitizeSceneBgPreview, undoSceneBgPreviews } from './scene-bg-preview';
 import { applyButtonsPreview, sanitizeButtonsPreview } from './buttons-preview';
 import { createMainGroundPreviewer, sanitizeMainGroundPreview, type MainGroundPreviewer } from './main-ground-preview';
 import { applyPartRuns, applySceneRuns, type RunsDoc } from './part-runs';
@@ -448,6 +448,33 @@ function flash(el: HTMLElement) {
     el.style.boxShadow = prior;
   }, 1400);
 }
+
+/**
+ * 🧷 BEFORE REACT TOUCHES THE DOM FOR A REDRAW. The bridge lays previews by hand — a scene's background WRAPS the
+ * scene (`scene-bg-preview.ts`), moving a node this page's React tree drew. When the page then redraws itself in
+ * place, React removes that scene from the parent it remembers and `removeChild` throws: the whole sample fell to
+ * the error screen (measured on the Maker lab, 2026-10-08). `getSnapshotBeforeUpdate` is React's own "the new output
+ * is about to be committed, the DOM is still the old one" moment — every one runs before any node is removed — so
+ * `run` puts the DOM back exactly then: the previewed background never blinks off while the server answers, and
+ * React finds every node where it left it. `pending` is the redraw's transition; it ends in the commit that brings
+ * the server's render (the same fact `redrawDone` below relies on).
+ */
+export class BeforeRedrawCommits extends Component<{ pending: boolean; run: () => void }> {
+  override getSnapshotBeforeUpdate(prev: { pending: boolean }) {
+    if (prev.pending && !this.props.pending) this.props.run();
+    return null;
+  }
+  override componentDidUpdate() {
+    /* (React asks for this beside `getSnapshotBeforeUpdate`; there is nothing to do after the commit.) */
+  }
+  override render() {
+    return null;
+  }
+}
+/** What `BeforeRedrawCommits` runs: every hand-laid scene frame goes back to the page's own DOM. */
+const undoLaidPreviews = () => {
+  undoSceneBgPreviews(document);
+};
 
 export function EditorBridge() {
   /* 🖼 `refresh` — the Maker's page re-renders ITSELF, in place (below). */
@@ -945,5 +972,10 @@ export function EditorBridge() {
 
   /* The preview's layer: `fixed -z-10` like every ground, LAST in the page so it lies over them; `hidden` until a
      pick is laid. Only ever in the Maker's canvas — a guest's page never mounts this bridge. */
-  return <div ref={groundLayer} data-main-ground-preview="" aria-hidden hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden" />;
+  return (
+    <>
+      <BeforeRedrawCommits pending={redrawing} run={undoLaidPreviews} />
+      <div ref={groundLayer} data-main-ground-preview="" aria-hidden hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden" />
+    </>
+  );
 }

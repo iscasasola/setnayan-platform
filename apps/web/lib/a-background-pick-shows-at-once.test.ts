@@ -751,7 +751,9 @@ test('(8) the Studio draws and lays a pick BEFORE its save, holds the save, lets
   // THE BRIDGE: its own layer, hidden at rest; every message checked; the refresh inside a transition whose end
   // (the render committed) is the ONLY thing that takes the preview away.
   const bridge = read(`${G}/editor-bridge.tsx`);
-  assert.match(bridge, /return <div ref=\{groundLayer\} data-main-ground-preview="" aria-hidden hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden" \/>;/);
+  /* (The layer is the bridge's one drawn element; beside it since 2026-10-09 sits `BeforeRedrawCommits`, which draws
+     nothing — `a-laid-scene-frame-is-undone-before-a-redraw`.) */
+  assert.match(bridge, /<div ref=\{groundLayer\} data-main-ground-preview="" aria-hidden hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden" \/>\s*<\/>\s*\);\s*\}\s*$/);
   const refresh = bridge.slice(bridge.indexOf("data.t === 'refresh'"), bridge.indexOf("data.t === 'mainGround'"));
   assert.match(refresh, /groundPreview\.current\?\.redrawStarted\(\);\s*startRedrawRef\.current\(\(\) => \{\s*routerRef\.current\.refresh\(\);\s*\}\);/, 'the page’s refresh is not the transition the preview waits on');
   const lay = bridge.slice(bridge.indexOf("data.t === 'mainGround'"), bridge.indexOf("data.t === 'sceneBg'"));

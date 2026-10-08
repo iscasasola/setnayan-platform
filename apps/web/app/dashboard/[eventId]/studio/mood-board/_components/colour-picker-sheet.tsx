@@ -1,11 +1,12 @@
 'use client';
 
-import { useContext, useEffect, useState, type ReactNode } from 'react';
+import { useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { MAIN_COLOUR_NAMES, PICKER_SWATCHES, cleanHexInput, pickerReadsOn, pickerShelves, type PickerRow } from '@/lib/mood-board-studio';
 import { PickSheetContext, pickOpensAsSheet } from '../../../website/editor/_components/pick-menu-place';
+import { POPUP_DARK, POPUP_SCRIM, usePopupBehind } from '@/lib/use-popup-behind';
 
 /**
  * 🎨 THE COLOUR PICKER — THE ONE (owner 2026-10-06, DECISION_LOG "AUTO PALETTE BESIDE SAVED — AND A
@@ -189,29 +190,47 @@ const SHELF = 'text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/55
 
 /**
  * ▁ Studio's pop-ups — the new Maker's ONE bottom sheet on a phone (the shell's
- * `PickSheetContext`), a small centred panel on a wider screen. Esc closes it.
+ * `PickSheetContext`), a small centred panel on a wider screen (`StudioPopup`).
  */
 export function StudioSheet({ label, onClose, children }: { label: string; onClose: () => void; children: ReactNode }) {
   const sheet = useContext(PickSheetContext);
   const [wide, setWide] = useState<number | null>(null);
-  useEffect(() => {
-    setWide(window.innerWidth);
-    const esc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', esc);
-    return () => window.removeEventListener('keydown', esc);
-  }, [onClose]);
+  useEffect(() => setWide(window.innerWidth), []);
   if (wide === null) return null;
   if (sheet && pickOpensAsSheet(true, wide)) return <>{sheet({ label, onClose, children })}</>;
   return createPortal(
-    <div className="fixed inset-0 z-[95] flex items-end justify-center sm:items-center" data-studio-sheet="">
-      <button type="button" aria-label="Close" onClick={onClose} className="absolute inset-0 h-full w-full cursor-default bg-ink/20" />
-      <div role="dialog" aria-label={label} className="relative flex max-h-[80dvh] w-full max-w-md flex-col rounded-t-3xl bg-white px-2 pb-4 pt-3 shadow-xl ring-1 ring-ink/10 sm:rounded-3xl">
+    <StudioPopup label={label} onClose={onClose}>
+      {children}
+    </StudioPopup>,
+    document.body,
+  );
+}
+
+/**
+ * 🌑 THE SAME POP-UP WHERE THERE IS NO MAKER SHEET (a computer; the Mood Board and the Logo on their own pages) —
+ * UNDER THE POP-UP RULE (owner 2026-10-08, `INTERACTION_RULES.md` § 9): the rest of the screen is dark AND blurred
+ * (`.sn-popup-dark`, never a wash of this file's own), nothing behind works or scrolls, Escape closes and Tab stays
+ * inside (`usePopupBehind`), and a tap on the dark closes it. Held by `lib/every-stages-popup-follows-the-rule.test.ts`.
+ */
+export function StudioPopup({ label, onClose, children }: { label: string; onClose: () => void; children: ReactNode }) {
+  const root = useRef<HTMLDivElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
+  usePopupBehind({ root, panel, onClose });
+  return (
+    <div ref={root} className="fixed inset-0 z-[95] flex items-end justify-center sm:items-center" data-studio-sheet="">
+      <button type="button" aria-label="Close" data-studio-sheet-scrim="" onClick={onClose} className={POPUP_SCRIM} />
+      <span aria-hidden className={POPUP_DARK} />
+      <div
+        ref={panel}
+        role="dialog"
+        aria-modal="true"
+        aria-label={label}
+        tabIndex={-1}
+        className="relative flex max-h-[80dvh] w-full max-w-md flex-col rounded-t-3xl bg-white px-2 pb-4 pt-3 shadow-xl ring-1 ring-ink/10 focus:outline-none sm:rounded-3xl"
+      >
         <p className="shrink-0 px-3 pb-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-ink/55">{label}</p>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">{children}</div>
       </div>
-    </div>,
-    document.body,
+    </div>
   );
 }

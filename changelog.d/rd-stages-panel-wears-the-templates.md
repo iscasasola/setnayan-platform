@@ -51,3 +51,25 @@ Guard: `lib/a-laid-scene-frame-is-undone-before-a-redraw.test.ts` executes the s
 `removeChild` refuses as a browser's does (7 sabotages, each seen red — two of them restore today's behaviour).
 
 SPEC IMPACT: None.
+
+## 2026-10-09 · feat(maker): the Stages panel wears the approved templates — B · every pop-up follows the pop-up rule
+
+Owner, 2026-10-08: *"when there is a pop up. the rest of the screen darkens … The darkened area will be blurred and
+nothing behind it will work. pressing on the dark part removes the pop up. the background will not be scrollable"*.
+
+The panel's sheets that are `MakerSheet` already held the rule (measured: Colour, Font, Gallery, Upload, the ＋
+sheet, the remove confirm). Three that could not be that sheet now hold it with the same pieces — one dark
+(`.sn-popup-dark`), `inertBehind`, `useModalA11y` — through one small hook, `lib/use-popup-behind.ts`:
+
+- **The colour sheet where there is no Maker sheet** (a computer; the Mood Board and the Logo on their own pages):
+  its hand-made 20 % wash is the one dark; nothing behind works or scrolls; a tap on the dark closes.
+- **"A scene of your own"** (the template picker opened from a part's ＋): the dark is put under the picker's own
+  close button and the page behind goes out of reach. The picker's file — in the Maker's first load — is untouched.
+- **The Apply sheet**: its backdrop wears the one dark from the STYLESHEET (`div:has(> [data-apply-pro-sheet])` in
+  each rule of `.sn-popup-dark`), so its first-load file gains not one byte of script.
+
+Requests: none added or removed. First load: the Maker's first-load file set is unchanged (562 files, walked).
+
+Guard: `lib/every-stages-popup-follows-the-rule.test.ts` (10 sabotages, each seen red).
+
+SPEC IMPACT: None.

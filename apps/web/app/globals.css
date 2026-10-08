@@ -4769,18 +4769,27 @@ html.dark {
  * backdrop: the page's ink at 42 % with a 6-px blur (the template gallery's own
  * figures). DARK ALONE — a little deeper, so the pop-up still stands off the page
  * — where the browser cannot blur a backdrop, and where the device asks for less
- * transparency. No motion; nothing here animates. */
+ * transparency. No motion; nothing here animates.
+ *
+ * 🧾 `div:has(> [data-apply-pro-sheet])` — THE APPLY SHEET'S OWN BACKDROP WEARS IT TOO, FROM HERE. Its file
+ * (`website/_components/apply-pro-sheet.tsx`) rides the Maker's first-load JavaScript, which has 0.1 KB of room, so
+ * the look is given by the stylesheet through the mark the sheet already carries — not one byte of script. It
+ * outweighs the sheet's own `bg-ink/30` utility ((0,1,1) over (0,1,0)). Written FIRST in each list, so each rule
+ * still ends `.sn-popup-dark {`. Held by `lib/every-stages-popup-follows-the-rule.test.ts`. */
+div:has(> [data-apply-pro-sheet]),
 .sn-popup-dark {
   background-color: rgb(var(--color-ink) / 0.42);
   -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
 }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  div:has(> [data-apply-pro-sheet]),
   .sn-popup-dark {
     background-color: rgb(var(--color-ink) / 0.55);
   }
 }
 @media (prefers-reduced-transparency: reduce) {
+  div:has(> [data-apply-pro-sheet]),
   .sn-popup-dark {
     background-color: rgb(var(--color-ink) / 0.55);
     -webkit-backdrop-filter: none;

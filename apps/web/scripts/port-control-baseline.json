@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "980c40594",
+  "generatedFromRef": "0570d60c8",
   "routeCount": 429,
   "destinations": 959,
   "actions": 672,
-  "blocks": 5852,
+  "blocks": 5854,
   "routes": {
     "/": {
       "files": [
@@ -6857,6 +6857,7 @@
         "OpeningLineField",
         "OpensRow",
         "OurStoryEditorPage",
+        "OwnScenePicker",
         "PabuyaCardList",
         "PabuyaManager",
         "PabuyaMessageEditor",
@@ -8087,6 +8088,7 @@
         "Slider",
         "SlotTile",
         "Strip",
+        "StudioPopup",
         "StudioSheet",
         "SubmitButton",
         "SwapSource",

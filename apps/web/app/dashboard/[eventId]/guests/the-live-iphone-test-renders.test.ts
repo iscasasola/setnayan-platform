@@ -197,7 +197,7 @@ test('⑦ the list and the card both go through the one warning and the one dele
   const hook = del.slice(del.indexOf('export function useGuestRemoval('), del.indexOf('export function DeleteGuestSheet('));
   assert.match(hook, /pushUndo\(/, 'a delete with no Undo');
   assert.match(hook, /restoreDeletedGuests\(/, 'Undo does not restore the guest');
-  assert.match(hook, /if \(!result\.ok\)[\s\S]{0,200}toast\.error\(result\.error\)[\s\S]{0,40}return result\.error/, 'a refusal is swallowed again');
+  assert.match(hook, /if \(!result\.ok\)[\s\S]{0,200}guestToast\.error\(result\.error\)[\s\S]{0,40}return result\.error/, 'a refusal is swallowed again');
   const action = read('groups-actions.ts');
   const fn = action.slice(action.indexOf('export async function bulkSoftDeleteGuestsForUndo('), action.indexOf('export async function restoreDeletedGuests('));
   assert.match(fn, /\.in\('plus_one_of_guest_id'/, 'their +1 stays behind although the warning says it goes with them');

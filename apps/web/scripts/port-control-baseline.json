@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "7062fe1f6",
+  "generatedFromRef": "b35ded81c",
   "routeCount": 429,
   "destinations": 958,
   "actions": 672,
-  "blocks": 5828,
+  "blocks": 5829,
   "routes": {
     "/": {
       "files": [
@@ -6064,6 +6064,7 @@
         "dashboard/[eventId]/guests/_components/role-section-order.ts",
         "dashboard/[eventId]/guests/_components/send-invite.tsx",
         "dashboard/[eventId]/guests/_components/undo-toast.tsx",
+        "dashboard/[eventId]/guests/_components/use-peek-toast.tsx",
         "dashboard/[eventId]/guests/_components/use-row-state.ts",
         "dashboard/[eventId]/guests/entourage-order-actions.ts",
         "dashboard/[eventId]/guests/finalize-actions.ts",
@@ -6167,6 +6168,8 @@
         "OpenAddGuestTextButton",
         "OpenQuickAddButton",
         "PageMasthead",
+        "PeekSay",
+        "PeekToast",
         "PickMenu",
         "PillThumb",
         "Popover",
@@ -6564,7 +6567,6 @@
         "dashboard/[eventId]/launch/_components/stage-item-menu.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/camera-look.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/kit.tsx",
-        "dashboard/[eventId]/launch/_components/stage-panel/part-words.ts",
         "dashboard/[eventId]/launch/_components/stage-panel/parts.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/play-status.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/reveal-picture.tsx",
@@ -6892,7 +6894,6 @@
         "SlugField",
         "SoftPost",
         "SpecialMessageField",
-        "StageAbout",
         "StageArrange",
         "StageEdit",
         "StageItemMenu",

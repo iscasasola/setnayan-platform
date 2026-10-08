@@ -12,6 +12,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { AlertTriangle, Check, Plus, UserCheck, UserRoundPen, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
+import { usePeekToast } from './use-peek-toast';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import {
   guestRoleLabel,
@@ -146,13 +147,12 @@ export function QuickAddSheet({
   const [roleOverrides, setRoleOverrides] = useState<
     Record<string, { role: GuestRole; extra_roles: GuestRole[] }>
   >({});
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, toastNode] = usePeekToast();
   const [isPending, startTransition] = useTransition();
 
   const fnRef = useRef<HTMLInputElement>(null);
   const lnRef = useRef<HTMLInputElement>(null);
   const groupRef = useRef<HTMLInputElement>(null);
-  const toastT = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // existing groups + ones created this session (deduped by id), so a
   // just-created group shows in the picker before router.refresh() lands
@@ -209,11 +209,8 @@ export function QuickAddSheet({
     };
   }, [open]);
 
-  const showToast = useCallback((msg: string) => {
-    setToast(msg);
-    if (toastT.current) clearTimeout(toastT.current);
-    toastT.current = setTimeout(() => setToast(null), 1800);
-  }, []);
+  /* The approved toast from the top (`usePeekToast`) — a result is the accent with a ✓; "Skipped" is a note. */
+  const showToast = useCallback((msg: string) => toast.success(msg), [toast]);
 
   const clearNames = useCallback(() => {
     setFn('');
@@ -224,9 +221,9 @@ export function QuickAddSheet({
 
   const skipDuplicate = useCallback(() => {
     clearNames();
-    showToast('Skipped — already on your list');
+    toast.info('Skipped — already on your list');
     fnRef.current?.focus();
-  }, [clearNames, showToast]);
+  }, [clearNames, toast]);
 
   const doSave = useCallback(
     (keepOpen: boolean) => {
@@ -395,6 +392,7 @@ export function QuickAddSheet({
 
   return (
     <>
+      {toastNode}
       {/* Mobile has no FAB: adding is handled by the carousel's "Add" panel
           (QuickAddInlineForm). This sheet opens on desktop only, via
           OpenQuickAddButton → OPEN_EVENT. */}
@@ -703,11 +701,6 @@ export function QuickAddSheet({
             </div>
           </div>
 
-          {toast ? (
-            <div className="pointer-events-none fixed bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-full bg-ink px-4 py-2 text-sm font-medium text-cream shadow-lg sm:bottom-8">
-              {toast}
-            </div>
-          ) : null}
         </div>
       ) : null}
     </>

@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { RefreshCw } from 'lucide-react';
 import { useConfirm } from '@/app/_components/confirm-dialog';
-import { useToast } from '@/app/_components/toast/toast-provider';
+import { usePeekToast } from '../../_components/use-peek-toast';
 import { useSaveLoader } from '@/components/sd-loader';
 import { regenerateInviteQr } from '../actions';
 
@@ -21,7 +21,7 @@ import { regenerateInviteQr } from '../actions';
  */
 export function RegenerateQrButton({ eventId }: { eventId: string }) {
   const router = useRouter();
-  const toast = useToast();
+  const [toast, toastNode] = usePeekToast();
   const { confirm, dialog } = useConfirm();
   const [isPending, startTransition] = useTransition();
   const [busy, setBusy] = useState(false);
@@ -63,6 +63,7 @@ export function RegenerateQrButton({ eventId }: { eventId: string }) {
   return (
     <>
       {dialog}
+      {toastNode}
       <button
         type="button"
         onClick={handleClick}

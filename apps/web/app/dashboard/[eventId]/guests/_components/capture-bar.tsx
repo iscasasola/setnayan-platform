@@ -25,7 +25,7 @@
 import { useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { ClipboardList, ListPlus, Plus, Upload, Users } from 'lucide-react';
-import { useToast } from '@/app/_components/toast/toast-provider';
+import { usePeekToast } from './use-peek-toast';
 import { parseGuestInput } from '@/lib/guest-parse';
 import type { GuestSide } from '@/lib/guests';
 import { OpenQuickAddButton } from './quick-add-sheet';
@@ -58,7 +58,7 @@ export function CaptureBar({
   const [value, setValue] = useState(initialValue);
   const [pending, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
-  const toast = useToast();
+  const [toast, toastNode] = usePeekToast();
 
   const submitAdd = () => {
     const raw = value;
@@ -86,6 +86,7 @@ export function CaptureBar({
        keeps its own spacing and every control is untouched; only the container
        stopped drawing. */
     <div className="relative">
+      {toastNode}
       {/* 🪤 `flex-wrap` + a floor on the name box, measured at 380px: with the
           four doors on the same line the box was 77px wide — "Type a r…" —
           and nobody can type "Ana Cruz +1 groom vip" into that. When the box

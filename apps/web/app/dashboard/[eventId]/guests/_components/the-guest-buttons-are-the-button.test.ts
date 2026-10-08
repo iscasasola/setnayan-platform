@@ -148,6 +148,12 @@ test('the file-save link and the submit button wear the shared button class, not
   assert.match(read('send-invite.tsx'), /<SaveFileLink[\s\S]{0,300}actionButtonClass\('neutral'\)/, 'Download ticket lost the shared button class');
 });
 
+test('a row\'s Invite is NAMED for its guest (and the day it went) — the word is "Invite", the name is more', () => {
+  const el = actionButtonWith(read('guest-invite-cell.tsx'), /label="Invite"/);
+  assert.ok(el, 'the Invite button is gone');
+  assert.match(el!, /name=\{sentAt \? `Invite \$\{guest\.fullName\} — sent \$\{sentDay\}` : `Invite \$\{guest\.fullName\}`\}/, 'Invite is not named for its guest');
+});
+
 test('the ⋯ opener is the neutral icon button and keeps its name, menu and open state', () => {
   const el = actionButtonWith(read('guest-ticket-parts.tsx'), /More for \$\{guestName\}/);
   assert.ok(el, 'the ⋯ is not an ActionButton');

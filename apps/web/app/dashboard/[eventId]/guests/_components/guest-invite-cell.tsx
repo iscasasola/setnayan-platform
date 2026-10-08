@@ -322,8 +322,8 @@ export function GuestInviteCell({
       data-guest-invite-pair={layout}
     >
       <div className="flex flex-wrap items-center gap-1.5">
-        {/* The forward step is the filled brand button (components/action-button.tsx). Its longer name — who it is for,
-            and whether it went — rides the title; the button's own word is "Invite". */}
+        {/* The forward step is the filled brand button (components/action-button.tsx). Its word is "Invite"; its NAME says
+            who it is for and whether it went, so a list of forty is not forty identical "Invite"s to a screen reader. */}
         <span className="contents" data-guest-invite-cell="" data-sent={sentAt ? 'true' : undefined}>
           <ActionButton
             ref={ref}
@@ -331,7 +331,7 @@ export function GuestInviteCell({
             main
             icon={Send}
             label="Invite"
-            title={sentAt ? `Invite ${guest.fullName} — sent ${sentDay}` : `Invite ${guest.fullName}`}
+            name={sentAt ? `Invite ${guest.fullName} — sent ${sentDay}` : `Invite ${guest.fullName}`}
             onClick={invite}
             disabled={pending}
             aria-haspopup="dialog"

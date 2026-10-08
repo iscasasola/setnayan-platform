@@ -60,6 +60,12 @@ type Common = {
   icon: IconComponent | ReactElement;
   /** The word. Also the `aria-label`, so icon-only still reads. */
   label: string;
+  /**
+   * The ACCESSIBLE NAME where it must say more than the word — a row's "Invite" that has to be named for its guest
+   * ("Invite Maria Santos — sent Sep 30"), so a list of forty is not forty identical "Invite"s. Optional and additive:
+   * absent, the `aria-label` is `label`, byte for byte. The visible word stays `label`; the name should contain it.
+   */
+  name?: string;
   /** The row's main verb: filled, and never loses its word. */
   main?: boolean;
   /** A secondary that should not compete (Skip · Not now): hairline, muted word, no wash. */
@@ -121,7 +127,7 @@ function renderIcon(icon: Common['icon']) {
 
 export const ActionButton = forwardRef<HTMLButtonElement | HTMLAnchorElement, ActionButtonProps>(
   function ActionButton(props, ref) {
-    const { tone, icon, label, main, quiet, iconOnly, className, title, waiting } = props;
+    const { tone, icon, label, name, main, quiet, iconOnly, className, title, waiting } = props;
     const cls = actionButtonClass(tone, { main, quiet, iconOnly, extra: className });
     const inner = (
       <>
@@ -147,8 +153,8 @@ export const ActionButton = forwardRef<HTMLButtonElement | HTMLAnchorElement, Ac
           }
           aria-disabled={disabled || waiting || undefined}
           data-waiting={waiting ? '' : undefined}
-          aria-label={label}
-          title={title ?? label}
+          aria-label={name ?? label}
+          title={title ?? name ?? label}
           className={cls}
           data-tone={tone}
           data-main={main ? '' : undefined}
@@ -174,8 +180,8 @@ export const ActionButton = forwardRef<HTMLButtonElement | HTMLAnchorElement, Ac
         aria-pressed={p['aria-pressed']}
         aria-expanded={p['aria-expanded']}
         aria-haspopup={p['aria-haspopup']}
-        aria-label={label}
-        title={title ?? label}
+        aria-label={name ?? label}
+        title={title ?? name ?? label}
         className={cls}
         data-tone={tone}
         data-main={main ? '' : undefined}

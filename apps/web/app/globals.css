@@ -4221,6 +4221,41 @@ html.dark {
   --pahina-rule-len: 3rem;
 }
 
+/* ── 🪟 STUDIO › LOOK'S SAMPLE SCREEN (owner 2026-10-08: "a sample of the header
+   text, buttons on the actual screen") ──────────────────────────────────────
+   `look-sample.tsx` is a piece of the GUEST page drawn inside the dashboard: it
+   wears the guest scope's attributes and variables, and its two buttons are the
+   guest page's own classes. The dashboard re-points those classes to its gold
+   recipe (`.app-surface .button-primary`, in `@layer components`), so here they
+   are handed back the guest page's own paint — the SAME tokens the base rules
+   name (`bg-mulberry text-cream` · `border-link/30 bg-cream text-link`;
+   `lib/the-look-sample-is-the-guest-look.test.ts` holds the two equal).
+   Unlayered and BEFORE the host's Buttons rules below, so a host's shape, fill
+   and colour still win — same weight, later. */
+[data-look-sample] .button-primary {
+  background: rgb(var(--color-mulberry));
+  color: rgb(var(--color-cream));
+  transform: none;
+  box-shadow: none;
+}
+[data-look-sample] .button-secondary {
+  background: rgb(var(--color-cream));
+  color: rgb(var(--color-link));
+  border: 1px solid rgb(var(--color-link) / 0.3);
+  transform: none;
+}
+/* A photo set to Parallax drifts a little on the sample — never under "reduce motion". */
+@keyframes sn-look-sample-drift {
+  from { transform: translateY(-2%) scale(1.06); }
+  to { transform: translateY(2%) scale(1.06); }
+}
+.sn-look-sample-drift {
+  animation: sn-look-sample-drift 6s ease-in-out infinite alternate;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sn-look-sample-drift { animation: none; }
+}
+
 /* ── LOOK › BUTTONS (owner 2026-10-04: "create them") ────────────────────────
    The host's ONE choice for every Event Hub button — Shape · Fill · Colour —
    decided by `lib/hub-buttons.ts` (`resolveHubButtons`) and worn by the guest

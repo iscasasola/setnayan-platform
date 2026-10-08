@@ -36,8 +36,9 @@ import { guestLookFrom, type EventShellRow } from '@/app/[slug]/_lib/loaders';
 import { hubButtonPage } from '@/lib/hub-buttons';
 import { resolveHero } from '@/lib/event-hero';
 import { MiniTour } from '@/app/_components/mini-tour';
+import { siteSkin } from '@/app/[slug]/_components/skins/site-skin';
 /* ⚡ The Main background's panel and its hero-colour sync load with the Details pieces — never with the Maker (`details-lazy.tsx`). */
-import { ButtonsLookRow, ColorsPanel, HeroFrameSync, MainBackgroundPanel, ProLockPanel } from '../../launch/_components/details-lazy';
+import { ButtonsLookRow, ColorsPanel, HeroFrameSync, LookSample, MainBackgroundPanel, ProLockPanel } from '../../launch/_components/details-lazy';
 import { HUB_TRANSITION_LABEL, resolveTransition } from '@/lib/hub-scenes';
 /* 🔴 `done`/`todo` come from `rail-rows.ts`, NOT from `editor-shell.tsx`. That
    file is `'use client'`, and calling a client export from this server page is
@@ -1557,6 +1558,53 @@ export default async function WebsiteEditorPage({
         reveal: <MakerRevealPanel eventId={eventId} ownsPro={ownsPro} storeShell={storeShell} part="settings" />,
         'reveal-options': <MakerRevealPanel eventId={eventId} ownsPro={ownsPro} storeShell={storeShell} part="options" />,
         logo: <MakerLogoPanel eventId={eventId} storeShell={storeShell} />,
+        /* 🪟 STUDIO › LOOK'S SAMPLE SCREEN (owner 2026-10-08, DECISION_LOG "THE LOOK PREVIEW IS A SAMPLE OF WHAT IS
+           BEING EDITED"): the header text and the two buttons, on the real background, drawn in the browser — Look
+           mounts no guest-page frame. Handed the drafted values this page ALREADY read (no read is added): the look
+           columns, the main background, and the addresses the Background panel was given for its cards. */
+        'look-sample': (
+          <LookSample
+            seed={{
+              eventId,
+              themeId: mainThemeId,
+              /* The theme's own faces, as the guest layout wears them (`lookScopeProps`) — class names only. */
+              fontClassName: siteSkin(mainThemeId, { accent: '#000000' })?.className ?? '',
+              row: {
+                role_palette: (drafted as { role_palette?: unknown }).role_palette ?? null,
+                site_bg_color: (drafted.site_bg_color as string | null) ?? null,
+                site_button_color: (drafted.site_button_color as string | null) ?? null,
+                site_button_style: (drafted as { site_button_style?: string | null }).site_button_style ?? null,
+                site_font_key: (drafted as { site_font_key?: string | null }).site_font_key ?? null,
+                site_art_direction: (drafted.site_art_direction as 'daylight' | 'candlelight' | null) ?? null,
+              },
+              main: mainNow,
+              coverRef: draftedHero.photoRef,
+              sources: {
+                loops: hubMovingBackgroundIds().map((id) => ({
+                  id,
+                  stillUrl: resolveThemeGround(id, { ownColours: false })?.poster ?? null,
+                  loopUrl: resolveThemeGround(id, { ownColours: false })?.loop ?? null,
+                })),
+                photoChoices,
+                videoChoice,
+                sceneUploads,
+                cover: heroPhotoUrl,
+                themeId: mainThemeId,
+                /* A background uploaded in the panel is in none of the lists — its still is the one this page signed for it. */
+                stored:
+                  isHubMainOwn(mainNow) && mainOverrideStillUrl
+                    ? { ref: mainNow.kind === 'photo' ? mainNow.media : (mainNow.poster ?? mainNow.media), url: mainOverrideStillUrl }
+                    : null,
+              },
+              words: {
+                names: (drafted.display_name as string | null) ?? null,
+                date: drafted.event_date ? formatEventDate(drafted.event_date as string) : null,
+                line: (event.venue_name as string | null) ?? null,
+              },
+              musicOn: panelMusicOn,
+            }}
+          />
+        ),
         /* 💌 Love Story's own page (the scrapbook) moved INTO Details — Story &
            plans › Love Story, drawn by the launch page (Details part 2b). */
       }}

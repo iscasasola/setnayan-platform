@@ -1,6 +1,7 @@
 'use client';
 
 import { sanitizeHubFontKey } from '@/lib/hub-fonts';
+import { tellLookSample } from '@/lib/look-sample-store';
 import { FontPick } from './font-pick';
 import { MAGIC_TRAVELLERS, MAGIC_TRAVELLER_LABEL } from '@/lib/magic-move';
 import Link from 'next/link';
@@ -191,6 +192,8 @@ export function ColorsPanel({
         name="site_font_key"
         dataAttr="data-site-font"
         value={sanitizeHubFontKey(fontKey)}
+        /* 🪟 Studio › Look's sample screen sets the names in the face from the tap (`look-sample.tsx`). */
+        onPick={(key) => tellLookSample(eventId, { fontKey: key })}
         lead="Default"
         className="mt-1.5 min-h-11 w-full justify-between border border-ink/15"
       />

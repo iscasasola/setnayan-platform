@@ -190,7 +190,27 @@ export function DetailsLookBody({ item }: { item: LookPageKey }) {
       <CouldNotOpen item={item} />
     );
   }
+  /* 🪟 STUDIO › LOOK SHOWS A SAMPLE, NOT THE PAGE (owner 2026-10-08, DECISION_LOG "THE LOOK PREVIEW IS A SAMPLE OF
+     WHAT IS BEING EDITED — NOT THE COVER PAGE": *"a sample of the header text, buttons on the actual screen"*). In the
+     new Maker's Studio, Look's body is the sample screen the work area built (`look-sample.tsx`) — drawn in the
+     browser from the values in hand, answering every control at the tap. NO guest-page frame is mounted here: a Look
+     open fetches no guest-page document, and a pick asks for no render of one. The whole page is one tap away, where
+     it always was — Stages. The shipped Maker (the flag off) keeps its page frame. */
+  if (lookShowsSample(item, maker.stagesStudio === true)) {
+    return look.look?.sample ? (
+      <div className="flex min-h-0 flex-1 flex-col" data-details-look="look" data-details-look-sample="">
+        {look.look.sample}
+      </div>
+    ) : (
+      <CouldNotOpen item={item} />
+    );
+  }
   return <LookFrame item={item} />;
+}
+
+/** Studio › Look draws the sample screen in place of the page frame — the Hero and the Reveal keep their page (they ARE the page). */
+export function lookShowsSample(item: LookPageKey, stagesStudio: boolean): boolean {
+  return item === 'look' && stagesStudio;
 }
 
 /** The editor of a Look item: the controls its page always had beside it. */

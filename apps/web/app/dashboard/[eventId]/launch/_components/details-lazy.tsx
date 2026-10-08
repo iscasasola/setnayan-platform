@@ -131,6 +131,9 @@ export const DetailsLookEditor = dynamic(() => import(/* webpackChunkName: "make
 export const LookPanel = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-look-pages').then((m) => m.LookPanel), { loading: SlotRows });
 export const DetailsLookPageBody = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-look-pages').then((m) => m.DetailsLookPageBody), { loading: SlotFill });
 export const DetailsLookPieces = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-look-pages').then((m) => m.DetailsLookPieces), { loading: SlotRows });
+/* 🪟 Studio › Look's sample screen (owner 2026-10-08, "THE LOOK PREVIEW IS A SAMPLE") — drawn in the browser from the
+   values in hand, in place of a guest-page frame. It rides this chunk: never in the Maker's first load. */
+export const LookSample = dynamic(() => import(/* webpackChunkName: "maker-details" */ './look-sample').then((m) => m.LookSample), { loading: SlotFill });
 export const StageStepPreview = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-look-pages').then((m) => m.StageStepPreview), { loading: SlotFill });
 
 /* ── The stage editor's background controls (#6135): shown when Main or a scene is edited ── */

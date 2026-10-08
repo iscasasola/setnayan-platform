@@ -4,6 +4,7 @@ import { StudioColourField } from './studio-colour-field';
 import { OpenInPlace } from './open-in-place';
 import { useContext, useEffect, useId, useRef, useState, useTransition, type ReactNode } from 'react';
 import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
+import { tellLookSample } from '@/lib/look-sample-store';
 import { EGIFT_KIND_META, type EgiftMethodKind } from '@/lib/egift-kinds';
 import { PabuyaCardList } from '@/app/_components/pabuya/pabuya-card-list';
 import { saveEgiftMethod, savePabuyaMessage, setEgiftMethodEnabled } from '../../pabuya/actions';
@@ -812,12 +813,16 @@ export function StudioMainColours({
     if (five[slot] === up) return;
     const before = { five, slots };
     const nextSlots = { ...slots, [String(slot)]: up } as MainColourDraft;
-    setFive((f) => f.map((c, i) => (i === slot ? up : c)));
+    const nextFive = five.map((c, i) => (i === slot ? up : c));
+    setFive(nextFive);
+    /* 🪟 Studio › Look's sample screen wears the colour from the tap (`look-sample.tsx`) — and goes back with a refusal. */
+    tellLookSample(eventId, { five: nextFive });
     setSlots(nextSlots);
     setError(null);
     start(async () => {
       const ok = await draftTook(makerSave(() => draftSend(eventId, { events: { main_colours: nextSlots } }), requestMakerRefresh));
       if (!ok) {
+        tellLookSample(eventId, { five: before.five });
         setFive(before.five);
         setSlots(before.slots);
         setError('That colour did not save, so it is back as it was. Please try again.');

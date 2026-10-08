@@ -229,7 +229,7 @@ const CONTENT_ROW_FOR_TYPE: Record<string, string> = {
  * registered into Details (part 3). Love Story's page, the scrapbook, is Details
  * › Story & plans › Love Story, built by the launch page (part 2b).
  */
-export type MadeOnceKey = 'logo' | 'hero' | 'reveal' | 'reveal-options';
+export type MadeOnceKey = 'logo' | 'hero' | 'reveal' | 'reveal-options' | 'look-sample';
 
 const TOOL_ROWS: Record<string, string[]> = {
   hero: ['hero'],
@@ -917,6 +917,8 @@ export function MakerWork({
               colours={sceneFormat?.colorChoices ?? []}
             />
           ) : null,
+        /* 🪟 Studio › Look's sample screen — built by the page from reads it already made (owner 2026-10-08). */
+        sample: madeOnce?.['look-sample'] ?? null,
         buttons: buttonsNode,
         music: musicNode,
         page: pageNode,

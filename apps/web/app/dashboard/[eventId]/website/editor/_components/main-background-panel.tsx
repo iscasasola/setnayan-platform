@@ -63,11 +63,13 @@ import {
   backgroundPickStep,
   backgroundPictureKey,
   createLookGroundStore,
+  lookGroundPictures,
   mainGroundPreviewMessage,
   type BackgroundPick,
   type LookGround,
   type LookGroundPictures,
 } from '@/lib/background-pick';
+import { tellLookSample } from '@/lib/look-sample-store';
 import { mainGroundChoice } from '@/lib/main-ground-choice';
 import { heroFrameWrites } from '@/lib/hero-frame-sync';
 import { IMAGE_MAX_EDGE } from '@/lib/image-max-edge';
@@ -497,23 +499,10 @@ export function MainBackgroundPanel({
   /* ── ⚡ the Studio's pick: ringed, on the canvas, then saved — in that order ─────────────────── */
 
   /** Where the canvas finds a picture the panel already holds an address for (never a guess: unknown = null). */
-  const lookPictures: LookGroundPictures = {
-    loop: (id) => {
-      const l = loops.find((x) => x.id === id);
-      return l ? { still: l.stillUrl, clip: l.loopUrl ?? null } : null;
-    },
-    media: (ref) =>
-      isStdLibrarySrc(ref)
-        ? ref
-        : videoChoice?.ref === ref
-          ? videoChoice.url
-          : (photoChoices.find((p) => p.ref === ref)?.url ??
-            sceneUploads.find((u) => u.ref === ref)?.url ??
-            sceneUploads.find((u) => u.kind === 'snippet' && u.poster === ref)?.posterUrl ??
-            null),
-    cover: hero.photoUrl,
-    themeId,
-  };
+  const lookPictures: LookGroundPictures = lookGroundPictures(
+    { loops, photoChoices, videoChoice, sceneUploads, cover: hero.photoUrl, themeId },
+    isStdLibrarySrc,
+  );
   /**
    * The scrim and tint THE PAGE'S OWN RULES measure for a background (`resolveAdaptiveTheme` · `adaptiveThemeVars`,
    * the two `main-ground-layer.tsx` calls) — so the canvas wears a picture exactly as its render would, and the save
@@ -593,6 +582,8 @@ export function MainBackgroundPanel({
     const worn = !opts.render && !redraws && Boolean(lay) && heard > 0;
     lookDrawnSeq = seq;
     lookGround.draw(lookKey, next, serverRef.current);
+    /* 🪟 The sample screen wears it from the tap — drawn in the browser, no request (`look-sample.tsx`). */
+    tellLookSample(eventId, next);
     lookGround.sent();
     retry.current = () => pickLook(write, failure, opts.render ? { render: true } : {});
     setError(null);
@@ -635,6 +626,8 @@ export function MainBackgroundPanel({
       else if (latest) {
         postToCanvas(mainGroundPreviewMessage(seq, null));
         setPick((p) => (p && p.seq === seq ? { ...p, reading: false, failed: said } : p));
+        /* 🪟 Refused: the sample goes back with the panel — to what the last landed save left. */
+        tellLookSample(eventId, lookGround.read(lookKey, serverRef.current));
       }
     })();
   };
@@ -657,6 +650,9 @@ export function MainBackgroundPanel({
     if (heard > 0) pickMark('canvas-told');
     setPick({ seq, card, reading: Boolean(stillUrl), laid: heard > 0, shown: false, saved: false, failed: stillUrl ? null : COULD_NOT_READ });
     if (!stillUrl) return;
+    /* 🪟 The sample wears the picture at the tap, while its colours are read; a picture that cannot be read comes off again. */
+    const before = ground.main;
+    tellLookSample(eventId, { main: provisional });
     void (async () => {
       let frame: string[] = [];
       try {
@@ -670,6 +666,7 @@ export function MainBackgroundPanel({
       if (frame.length === 0) {
         postToCanvas(mainGroundPreviewMessage(seq, null));
         setPick((p) => (p && p.seq === seq ? { ...p, reading: false, failed: COULD_NOT_READ } : p));
+        tellLookSample(eventId, { main: before });
         return;
       }
       pickMark('files-read');

@@ -156,6 +156,43 @@ export type LookGroundPictures = {
   themeId: string;
 };
 
+/** The lists Look › Background already holds an address for — the panel's own props, and the sample screen's. */
+export type LookGroundSources = {
+  loops: readonly { id: string; stillUrl: string | null; loopUrl?: string | null }[];
+  photoChoices: readonly { ref: string; url: string }[];
+  videoChoice: { ref: string; url: string; poster?: string | null } | null;
+  sceneUploads: readonly { ref: string; url: string; kind: 'photo' | 'snippet'; poster?: string | null; posterUrl?: string | null }[];
+  /** The cover photo's address. */
+  cover: string | null;
+  themeId: string;
+  /** The stored background's own still (an upload made here is in none of the lists): its ref and a signed address. */
+  stored?: { ref: string; url: string } | null;
+};
+
+/**
+ * Where a picture the Maker already holds an address for is found — never a guess: unknown = null. ONE lookup, for
+ * the canvas preview (`main-background-panel.tsx`) and the sample screen (`look-sample.tsx`).
+ */
+export function lookGroundPictures(src: LookGroundSources, isLibrary: (ref: string) => boolean): LookGroundPictures {
+  return {
+    loop: (id) => {
+      const l = src.loops.find((x) => x.id === id);
+      return l ? { still: l.stillUrl, clip: l.loopUrl ?? null } : null;
+    },
+    media: (ref) =>
+      isLibrary(ref)
+        ? ref
+        : src.videoChoice?.ref === ref
+          ? src.videoChoice.url
+          : (src.photoChoices.find((p) => p.ref === ref)?.url ??
+            src.sceneUploads.find((u) => u.ref === ref)?.url ??
+            src.sceneUploads.find((u) => u.kind === 'snippet' && u.poster === ref)?.posterUrl ??
+            (src.stored && src.stored.ref === ref ? src.stored.url : null)),
+    cover: src.cover,
+    themeId: src.themeId,
+  };
+}
+
 /**
  * What the canvas wears for this background, before the server has drawn it —
  * or null when there is nothing honest to lay (a picture whose address is not

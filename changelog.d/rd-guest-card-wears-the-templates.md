@@ -29,3 +29,17 @@ Step 4B. The card's fields — the name and mobile, Details, RSVP, Seat, Photos,
 LIVE BUG FIXED (found while moving the fields): React 19 resets a form after its action lands, and a controlled checkbox goes back to its mount-time `checked` attribute — so the card's "Invited to" switches snapped back on screen after a save, and the NEXT autosave (any other field) posted the reverted set, quietly un-inviting the guest from the blocks the host had just ticked. Measured in a real browser with the autosave's own form. `InvitedToChips` (and the new checkboxes) now keep the attribute equal to the box; `a-saved-form-does-not-revert-its-checkboxes.test.ts` holds it. No request, no server action, no migration added.
 
 SPEC IMPACT: None
+
+## 2026-10-09 · fix(guests): the guest card's buttons are the one ActionButton, its words are plain, and a failed autosave says so
+
+Step 4C. The hand-made buttons in the card body (give this spot, this is me, send/resend the invite, cancel, and the like) go through a kit leaf (`K.Submit`, `K.Tip` for the ⓘ, `K.SaveState`): on the Guests pages they are the app's ActionButton and ⓘ; in the Maker's parent cards they stay today's hand-drawn ones. The card's refusals are plain sentences (`guest-card-error-copy.ts`, chosen by the pages — never imported by the body, so the Maker's first load is untouched), in the danger colour.
+
+The autosave line no longer says "Saved" when the action threw or was refused. A failed save says "Couldn't save." with a "Try again" within the same press, keeps the unsaved value on screen (React's own post-action form reset is refused for a failed save), and records no Undo for a change that did not land. The Undo of a landed change is recorded after it lands, not when it is sent. `a-failed-save-says-so.test.ts` holds it; the framework's redirect / not-found signals are not mistaken for a failure. The autosave fires no more often than before. No request, no server action, no migration added.
+
+SPEC IMPACT: None
+
+## 2026-10-09 · test(guests): the templated guest card holds no hand-made control
+
+Step 4D. `the-templated-card-holds-no-hand-made-control.test.ts` renders the card with the template kit in its states and asserts every control it draws is a template's (a Form row, switch, chip, ActionButton, PickMenu) — no bare `<button>`, `<input>` or `<select>` of the card's own — with the one named exception (the native swap-name input that keeps an empty swap from falling through to "take the seat back"). The ⋯ menu's Unlink is now the danger colour instead of gold. No request, no server action, no migration added.
+
+SPEC IMPACT: None

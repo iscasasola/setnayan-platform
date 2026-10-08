@@ -45,7 +45,8 @@ import type { NotificationRow } from '@/lib/notifications';
 import { HomePillNav } from '@/app/dashboard/(launcher)/_components/home-pill-nav';
 import { BottomDock } from '@/app/_components/nav/bottom-nav';
 import { AddGuestSheet } from '@/app/dashboard/[eventId]/guests/_components/add-guest-sheet';
-import { GuestCardBody, GUEST_CARD_ERROR_COPY } from '@/app/dashboard/[eventId]/guests/_components/guest-card-body';
+import { GuestCardBody } from '@/app/dashboard/[eventId]/guests/_components/guest-card-body';
+import { guestCardErrorCopy } from '@/app/dashboard/[eventId]/guests/_components/guest-card-error-copy';
 import { GuestInviteCell } from '@/app/dashboard/[eventId]/guests/_components/guest-invite-cell';
 import { GuestMoreMenu, GuestTicketThumb } from '@/app/dashboard/[eventId]/guests/_components/guest-ticket-parts';
 import type { GuestCardData } from '@/app/dashboard/[eventId]/guests/_components/guest-card-data';
@@ -342,7 +343,7 @@ export default async function GuestsLabPage({
                   photoDisplayUrl={null}
                   variant="page"
                   returnTo={labBack}
-                  errorMessage={typeof sp.error === 'string' ? (GUEST_CARD_ERROR_COPY[sp.error] ?? decodeURIComponent(sp.error)) : null}
+                  errorMessage={typeof sp.error === 'string' ? guestCardErrorCopy(sp.error) : null}
                   actions={{ update: labUpdate, release: labRelease, partnerLink: labPartnerLink }}
                   inviteFlash={null}
                   inviteSetup={{

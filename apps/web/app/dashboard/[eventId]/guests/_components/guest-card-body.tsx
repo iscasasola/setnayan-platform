@@ -48,7 +48,7 @@ import type { GuestInviteCell } from './guest-invite-cell';
 // from a 'use client' file would arrive here as a client reference, not a string).
 import { PASS_CARD_ROUTE } from '@/lib/pass-card';
 import type { InviteSetup } from './invite-message-setup';
-import type { CardBoxProps, CardFieldProps, CardFoldProps, CardInvitedToProps, CardKit, CardLockedProps, CardPickProps, CardToggleProps } from './guest-card-kit';
+import type { CardBoxProps, CardFieldProps, CardFoldProps, CardInvitedToProps, CardKit, CardLockedProps, CardPickProps, CardSubmitProps, CardTipProps, CardToggleProps } from './guest-card-kit';
 import type { ComponentType } from 'react';
 import { AutosaveForm, AutosaveState } from './guest-card-autosave';
 import { GuestAccessControl } from './guest-access-control';
@@ -369,7 +369,7 @@ export function GuestCardBody({
       {errorMessage ? (
         <p
           role="alert"
-          className="rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-2.5 text-sm text-terracotta-700"
+          className="text-sm font-semibold text-danger-700"
         >
           {errorMessage}
         </p>
@@ -380,7 +380,7 @@ export function GuestCardBody({
           className={
             inviteFlash.ok
               ? 'rounded-md border border-success-300/60 bg-success-50 px-4 py-2.5 text-sm text-success-800'
-              : 'rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-2.5 text-sm text-terracotta-700'
+              : 'text-sm font-semibold text-danger-700'
           }
         >
           {inviteFlash.msg}
@@ -390,12 +390,12 @@ export function GuestCardBody({
       {/* Identity — who, whose side, and the answer at a glance. */}
       <div className="flex items-center gap-3">
         {photoDisplayUrl ? (
-          <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-terracotta/10">
+          <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-sn-accent/10">
             {/* eslint-disable-next-line @next/next/no-img-element -- presigned R2 URL, resolved by the loader */}
             <img src={photoDisplayUrl} alt="" className="h-full w-full object-cover" />
           </span>
         ) : (
-          <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-terracotta/10 text-sm font-semibold text-terracotta-700">
+          <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-sn-accent/10 text-sm font-semibold text-sn-accent">
             {guestInitials(guest)}
           </span>
         )}
@@ -494,12 +494,7 @@ export function GuestCardBody({
                 <form action={releaseAction} data-this-is-me="">
                   <input type="hidden" name="this_is_me" value="1" />
                   <input type="hidden" name="return_to" value={returnTo} />
-                  <SubmitButton
-                    className="mt-1 block min-h-[44px] w-full rounded-full border border-ink/15 px-4 text-sm font-medium text-ink/75 transition-colors hover:border-ink/40 hover:text-ink disabled:opacity-60"
-                    pendingLabel="Saving…"
-                  >
-                    This is me
-                  </SubmitButton>
+                  <K.Submit pendingLabel="Saving…">This is me</K.Submit>
                 </form>
               ) : null}
             </div>
@@ -513,7 +508,7 @@ export function GuestCardBody({
           <div className="flex items-baseline justify-between gap-3">
             <h2 className="sn-eye">Name · mobile</h2>
             <span className="flex items-center gap-2 text-xs text-ink/45">
-              <AutosaveState />
+              <K.SaveState />
             </span>
           </div>
           {/* 🔒 A linked person keeps their own name — a plus-one who linked
@@ -530,7 +525,7 @@ export function GuestCardBody({
                   {profileName?.isYou ? (
                     <>
                       {' · '}
-                      <Link href="/dashboard/profile" className="text-terracotta-700 underline-offset-2 hover:underline">
+                      <Link href="/dashboard/profile" className="text-sn-accent underline-offset-2 hover:underline">
                         Edit on your profile ›
                       </Link>
                     </>
@@ -890,12 +885,7 @@ export function GuestCardBody({
                   lib/seat-link-approval.ts). Never offered while linked. */}
               {canManageAccess && !linkedAccount && guest.email ? (
                 <form action={partnerLinkAction} data-partner-sign-in="">
-                  <SubmitButton
-                    className="block min-h-[44px] w-full rounded-full border border-ink/15 px-4 text-sm font-medium text-ink/75 transition-colors hover:border-ink/40 hover:text-ink disabled:opacity-60"
-                    pendingLabel="Sending…"
-                  >
-                    Send {guest.first_name} their sign-in link
-                  </SubmitButton>
+                  <K.Submit pendingLabel="Sending…">{`Send ${guest.first_name} their sign-in link`}</K.Submit>
                 </form>
               ) : null}
               <p className="text-xs text-ink/50">Foundation of the event — can&rsquo;t be removed.</p>
@@ -907,11 +897,11 @@ export function GuestCardBody({
               {guest.rsvp_status === 'pending' ? (
                 <form action={releaseAction} className="space-y-2" data-give-spot="">
                   <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">
-                    <InfoTip label="Give this spot to someone else" align="start">
+                    <K.Tip label="Give this spot to someone else">
                       The new person takes this guest&rsquo;s table, seats and place in the count.{' '}
                       {name}&rsquo;s link and QR stop working; they are not notified. Guests who
                       already replied cannot be swapped.
-                    </InfoTip>
+                    </K.Tip>
                   </p>
                   <label className="block">
                     <span className="text-xs font-medium text-ink/60">Who takes it?</span>
@@ -923,21 +913,17 @@ export function GuestCardBody({
                       className="input-field mt-1 w-full"
                     />
                   </label>
-                  <SubmitButton className="button-primary w-full" pendingLabel="Giving the spot…">
+                  <K.Submit main pendingLabel="Giving the spot…">
                     Give the spot
-                  </SubmitButton>
+                  </K.Submit>
                 </form>
               ) : null}
               {/* Owner ruling 2026-08-06: "the couple has full control of their
                   guests." Rotation FIRST, then the claim is let go. */}
               <form action={releaseAction}>
-                <SubmitButton
-                  className="block min-h-[44px] w-full rounded-full border border-ink/15 px-4 text-sm font-medium text-ink/75 transition-colors hover:border-ink/40 hover:text-ink disabled:opacity-60"
-                  aria-label={`Take back ${name}'s seat — new QR and unlink their account`}
-                  pendingLabel="Taking back…"
-                >
+                <K.Submit ariaLabel={`Take back ${name}'s seat — new QR and unlink their account`} pendingLabel="Taking back…">
                   Take this seat back
-                </SubmitButton>
+                </K.Submit>
               </form>
               <p className="text-xs text-ink/50">
                 Give this spot: only while they have not replied. Take back: a new QR, and their account is unlinked.
@@ -1061,4 +1047,38 @@ function OldList({ children }: CardBoxProps) {
 function OldCols({ className, children }: CardBoxProps) {
   return <div className={className}>{children}</div>;
 }
-const OLD_KIT: CardKit = { Field, Toggle, Fold, Pick: OldPick, InvitedTo: OldInvitedTo, Locked: OldLocked, List: OldList, Cols: OldCols };
+function OldSubmit({ main = false, pendingLabel, ariaLabel, children }: CardSubmitProps) {
+  return (
+    <SubmitButton
+      className={
+        main
+          ? 'button-primary w-full'
+          : 'block min-h-[44px] w-full rounded-full border border-ink/15 px-4 text-sm font-medium text-ink/75 transition-colors hover:border-ink/40 hover:text-ink disabled:opacity-60'
+      }
+      aria-label={ariaLabel}
+      pendingLabel={pendingLabel}
+    >
+      {children}
+    </SubmitButton>
+  );
+}
+function OldTip({ label, children }: CardTipProps) {
+  return (
+    <InfoTip label={label} align="start">
+      {children}
+    </InfoTip>
+  );
+}
+const OLD_KIT: CardKit = {
+  Field,
+  Toggle,
+  Fold,
+  Pick: OldPick,
+  InvitedTo: OldInvitedTo,
+  Locked: OldLocked,
+  Submit: OldSubmit,
+  Tip: OldTip,
+  SaveState: AutosaveState,
+  List: OldList,
+  Cols: OldCols,
+};

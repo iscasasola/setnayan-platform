@@ -12,13 +12,11 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { isUuid } from '@/lib/is-uuid';
 import { fetchInvitationBase, loadGuestCard } from '../_components/guest-card-data';
 import { loadInviteSetup } from '../_components/invite-message-setup';
-import {
-  GuestCardBody,
-  GUEST_CARD_ERROR_COPY,
-} from '../_components/guest-card-body';
+import { GuestCardBody } from '../_components/guest-card-body';
 import { GuestInviteCell } from '../_components/guest-invite-cell';
 import { GuestMoreMenu, GuestTicketThumb } from '../_components/guest-ticket-parts';
 import { TEMPLATE_KIT } from '../_components/guest-card-template-kit';
+import { guestCardErrorCopy } from '../_components/guest-card-error-copy';
 import { UndoToastHost } from '../_components/undo-toast';
 
 export const metadata = { title: 'Guest detail' };
@@ -102,10 +100,8 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
     photoDisplayUrls[guest.photo_url ?? ''] ??
     (accountRef ? (accountUrls[accountRef] ?? null) : null);
 
-  const rawError = search.error ? decodeURIComponent(search.error) : null;
-  const errorMessage = rawError
-    ? (GUEST_CARD_ERROR_COPY[rawError] ?? rawError)
-    : null;
+  /* Said in the card's own words — a code it knows, a sentence an action wrote for the host, or one plain line; never the database's. */
+  const errorMessage = search.error ? guestCardErrorCopy(search.error) : null;
 
   // What the careful actions did — said on the card they were pressed on.
   const inviteFlash =

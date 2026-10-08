@@ -50,6 +50,10 @@ export type CardPickProps = {
 export type CardInvitedToProps = { roleSelectId: string; initialRole: string; initialBlocks?: string[] };
 export type CardLockedProps = { label: string; value: string; note: string };
 export type CardBoxProps = { className?: string; children: ReactNode };
+/** A submit button of one of the card's own small forms (This is me · Send the sign-in link · Give the spot · Take the seat back). */
+export type CardSubmitProps = { main?: boolean; pendingLabel: string; ariaLabel?: string; children: string };
+/** A heading with its explanation behind an ⓘ. */
+export type CardTipProps = { label: string; children: ReactNode };
 
 export type CardKit = {
   Field: ComponentType<CardFieldProps>;
@@ -61,6 +65,12 @@ export type CardKit = {
   Locked: ComponentType<CardLockedProps>;
   /** One list of rows (the app's Form rows draw one list; the old kit a spaced column). */
   List: ComponentType<CardBoxProps>;
+  /** The card's small forms' submit buttons — the old kit's hand classes, the new kit's ActionButton. */
+  Submit: ComponentType<CardSubmitProps>;
+  /** A heading with an ⓘ (the old ⓘ in the Maker's card, the approved Explain on the Guests pages). */
+  Tip: ComponentType<CardTipProps>;
+  /** The save line in the card's header: Saving… · Saved · Couldn’t save — Try again (never "Saved" for a failed save). */
+  SaveState: ComponentType;
   /** Fields that sit side by side in the old kit and are rows of the same list in the new one. */
   Cols: ComponentType<CardBoxProps>;
 };

@@ -382,7 +382,7 @@ export function GuestMoreMenu({
           <button
             type="button"
             role="menuitem"
-            className={`${item} border-t border-ink/[0.06] text-terracotta-700`}
+            className={`${item} border-t border-ink/[0.06] text-danger-700`}
             data-guest-unlink=""
             onClick={() => {
               setOpen(false);

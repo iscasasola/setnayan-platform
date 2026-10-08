@@ -1,4 +1,4 @@
-import { CardCols, CardField, CardFold, CardInvitedTo, CardList, CardLocked, CardPick, CardToggle } from './guest-card-rows';
+import { CardCols, CardField, CardFold, CardInvitedTo, CardList, CardLocked, CardPick, CardSaveState, CardSubmit, CardTip, CardToggle } from './guest-card-rows';
 import type { CardKit } from './guest-card-kit';
 
 /**
@@ -14,6 +14,9 @@ export const TEMPLATE_KIT: CardKit = {
   Pick: CardPick,
   InvitedTo: CardInvitedTo,
   Locked: CardLocked,
+  Submit: CardSubmit,
+  Tip: CardTip,
+  SaveState: CardSaveState,
   List: CardList,
   Cols: CardCols,
 };

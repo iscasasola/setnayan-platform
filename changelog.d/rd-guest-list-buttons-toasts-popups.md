@@ -27,3 +27,9 @@ SPEC IMPACT: None
 "Invite N" in the live list's Select mode (it already existed, going to `/guests/send?ids=…` with the selected guests who still need an invitation — Rule 0) and "Remove N" are now WAITING buttons (grey, still buttons, a press does nothing) instead of faded when nothing applies; guarded by `the-select-mode-sends-invites.test.ts`. The `?error=` banner on the guest list (bulk Set…, New group, table writes) shows an action's words only when they are a plain sentence — a database message that happens to contain spaces no longer passes as "prose" (`guest-list-error-copy.ts`). In the Delete warning the sentence keeps its gap above Delete. No request, no server action, no migration added.
 
 SPEC IMPACT: None
+
+## 2026-10-09 · fix(guests): Invite N is the brand forward step; the dev lab's whole Guests screen is stand-ins that never reach the database
+
+Select mode's "Invite N" is the terracotta (brand) filled button and the row's ONE filled forward step ("Done" is neutral); with nothing selected it reads just "Invite" (waiting), named "Invite — nobody selected still needs an invitation". The dev lab's Guests screen now takes every write a plain press reaches — Set… ▾, New group, the + sheet's name box, Quick add, Add from your people, Mark as sent, and the door "Invite N" opens (the lab's own run) — from a context the lab fills with local stand-ins (`GuestActionsContext`); the app never provides it, so production calls the shipped actions. Guarded by `the-lab-cannot-reach-the-database.test.ts`. No request, no server action, no migration added.
+
+SPEC IMPACT: None

@@ -99,7 +99,7 @@ import {
   type SectionIcon,
   type SectionMark,
 } from '@/lib/guest-roster-view';
-import { bulkApplyRoleAndGroup } from '../groups-actions';
+import { useGuestActions } from './guest-actions-context';
 import { useRoleNames } from './role-names-context';
 import { guestOptimistic, useGuestOptimistic } from './guest-optimistic-store';
 import { DeleteGuestSheet, useGuestRemoval } from './guest-delete';
@@ -387,6 +387,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
 
   // ── Set… ▾ (group · table · side) — the shipped bulk writer, one field at a time.
   const [newGroup, setNewGroup] = useState(false);
+  const { bulkApplyRoleAndGroup, sendRunHref } = useGuestActions();
   const applyBulk = async (field: 'group_id' | 'table' | 'side', value: string) => {
     const fd = new FormData();
     for (const id of selected) fd.append('guest_ids[]', id);
@@ -518,10 +519,11 @@ export function GuestsScreen(props: GuestsScreenProps) {
     thumb = (
       <div className={styles.thumb} data-fit-row="" data-thumb="select">
         <ActionButton
-          tone="info"
+          tone="brand"
           main
           icon={Mail}
-          label={`Invite ${selected.size}`}
+          label={selected.size === 0 ? 'Invite' : `Invite ${selected.size}`}
+          name={selected.size === 0 ? 'Invite — nobody selected still needs an invitation' : undefined}
           className={styles.grow}
           waiting={selected.size === 0}
           onClick={() => {
@@ -531,7 +533,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
               toast.info('Everyone selected is already invited');
               return;
             }
-            router.push(`/dashboard/${eventId}/guests/send?ids=${invitable.map((g) => g.guest_id).join(',')}`);
+            router.push(sendRunHref(eventId, invitable.map((g) => g.guest_id)));
           }}
           data-testid="bulk-invite"
         />
@@ -563,7 +565,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
             }}
             data-testid="bulk-remove"
           />
-          <ActionButton tone="neutral" main icon={SquareCheck} label="Done" onClick={leaveSelect} data-testid="bulk-done" />
+          <ActionButton tone="neutral" icon={SquareCheck} label="Done" onClick={leaveSelect} data-testid="bulk-done" />
         </span>
       </div>
     );

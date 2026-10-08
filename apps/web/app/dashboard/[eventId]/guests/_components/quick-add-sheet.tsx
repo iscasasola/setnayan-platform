@@ -25,12 +25,7 @@ import {
 } from '@/lib/guests';
 import { resolveRoleSet } from '@/lib/role-sets';
 import { SIDELESS_SIDE, eventHasSides } from '@/lib/guest-side-question';
-import {
-  quickAddGuest,
-  quickCreateGroup,
-  addRoleToGuest,
-  setGuestPrimaryRole,
-} from '../quick-add-actions';
+import { useGuestActions } from './guest-actions-context';
 import { parsePersonName } from '@/lib/person-name-parse';
 import { findDuplicates, norm, TAG } from '@/lib/guest-dedupe';
 import { SIDE_CONTROL_BORDER } from '@/lib/side-colors';
@@ -115,6 +110,7 @@ export function QuickAddSheet({
   roleSetKey?: string | null;
 }) {
   const router = useRouter();
+  const { quickAddGuest, quickCreateGroup, addRoleToGuest, setGuestPrimaryRole } = useGuestActions();
   // Per-event-type offered roles (iteration 0053 P2). resolveRoleSet is a pure
   // client-safe lookup; the parent passes the event's roleSetKey string.
   const roleSet = resolveRoleSet(roleSetKey);
@@ -261,7 +257,7 @@ export function QuickAddSheet({
         }
       });
     },
-    [fn, ln, side, role, groupId, eventId, clearNames, router, showToast],
+    [fn, ln, side, role, groupId, eventId, clearNames, router, showToast, quickAddGuest],
   );
 
   const forceAdd = useCallback(
@@ -315,7 +311,7 @@ export function QuickAddSheet({
         setTimeout(() => fnRef.current?.focus(), 0);
       });
     },
-    [eventId, role, roleNames, clearNames, router, showToast],
+    [eventId, role, roleNames, clearNames, router, showToast, addRoleToGuest],
   );
   const applyChangeRole = useCallback(
     (g: ExistingGuest) => {
@@ -336,7 +332,7 @@ export function QuickAddSheet({
         setTimeout(() => fnRef.current?.focus(), 0);
       });
     },
-    [eventId, role, roleNames, clearNames, router, showToast],
+    [eventId, role, roleNames, clearNames, router, showToast, setGuestPrimaryRole],
   );
 
   /* resolver state for the TOP name match (dups are sorted best-first) */
@@ -382,7 +378,7 @@ export function QuickAddSheet({
       // back to the names so the rapid loop keeps going
       setTimeout(() => fnRef.current?.focus(), 0);
     });
-  }, [newGroupName, eventId, cancelNewGroup, router]);
+  }, [newGroupName, eventId, cancelNewGroup, router, quickCreateGroup]);
 
   return (
     <>

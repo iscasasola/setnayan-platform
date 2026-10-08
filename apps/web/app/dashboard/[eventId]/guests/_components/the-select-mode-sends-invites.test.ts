@@ -23,11 +23,14 @@ import { stripComments } from '@/lib/strip-comments';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SCREEN = stripComments(readFileSync(join(HERE, 'guests-screen.tsx'), 'utf8'));
 const SEND = stripComments(readFileSync(join(HERE, '..', 'send', 'page.tsx'), 'utf8'));
-const btn = SCREEN.slice(SCREEN.indexOf('label={`Invite ${selected.size}`}') - 120, SCREEN.indexOf('data-testid="bulk-invite"') + 30);
+const btn = SCREEN.slice(SCREEN.indexOf("label={selected.size === 0 ? 'Invite'") - 120, SCREEN.indexOf('data-testid="bulk-invite"') + 30);
 
 test('Select mode has ONE Invite N, the filled forward button, WAITING while nothing is selected', () => {
   assert.ok(btn.length > 200, 'the Invite N button is gone from Select mode');
-  assert.match(btn, /<ActionButton[\s\S]*main[\s\S]*waiting=\{selected\.size === 0\}/);
+  assert.match(btn, /<ActionButton\s+tone="brand"\s+main[\s\S]*waiting=\{selected\.size === 0\}/, 'Invite N is not the brand filled forward step');
+  assert.match(btn, /label=\{selected\.size === 0 \? 'Invite' : `Invite \$\{selected\.size\}`\}/, 'an empty selection reads "Invite 0"');
+  assert.match(btn, /name=\{selected\.size === 0 \? 'Invite — nobody selected still needs an invitation' : undefined\}/);
+  assert.match(SCREEN, /<ActionButton tone="neutral" icon=\{SquareCheck\} label="Done"/, 'Done is a second filled forward step in the row');
   assert.doesNotMatch(btn, /disabled=/, 'an empty selection fades the button instead of making it a waiting button');
   assert.equal((SCREEN.match(/data-testid="bulk-invite"/g) ?? []).length, 1, 'more than one send door in Select mode');
   assert.match(SCREEN, /label=\{`Remove \$\{removable\.length\}`\}\s*waiting=\{removable\.length === 0\}/, 'Remove N is not waiting when nothing can be removed');
@@ -35,7 +38,10 @@ test('Select mode has ONE Invite N, the filled forward button, WAITING while not
 
 test('it goes to the existing run with the selected, still-to-invite guests’ ids — and says so when there is nobody', () => {
   assert.match(btn, /if \(invitable\.length === 0\) \{\s*toast\.info\('Everyone selected is already invited'\);\s*return;\s*\}/);
-  assert.match(btn, /router\.push\(`\/dashboard\/\$\{eventId\}\/guests\/send\?ids=\$\{invitable\.map\(\(g\) => g\.guest_id\)\.join\(','\)\}`\)/);
+  assert.match(btn, /router\.push\(sendRunHref\(eventId, invitable\.map\(\(g\) => g\.guest_id\)\)\);/);
+  /* …and the app's door IS the existing run, with exactly that param (the lab hands in its own). */
+  const ctx = stripComments(readFileSync(join(HERE, 'guest-actions-context.tsx'), 'utf8'));
+  assert.match(ctx, /sendRunHref: \(eventId, ids\) => `\/dashboard\/\$\{eventId\}\/guests\/send\?ids=\$\{ids\.join\(','\)\}`/);
   assert.match(SCREEN, /const invitable = selectedIds\s*\.map\(\(id\) => byId\.get\(id\)\)\s*\.filter\(\(g\): g is GuestRow => Boolean\(g\) && isToInvite\(g!\)\);/, 'the list sends guests who do not need an invitation');
 });
 

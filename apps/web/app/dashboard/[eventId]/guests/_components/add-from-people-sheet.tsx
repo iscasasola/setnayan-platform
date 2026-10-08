@@ -50,10 +50,7 @@ import {
 } from '@/lib/people-you-can-invite-core';
 import { SIDE_LABELS, type GuestSide } from '@/lib/guests';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
-import {
-  addGuestsFromPeople,
-  listPeopleYouCanInvite,
-} from '../people-add-actions';
+import { useGuestActions } from './guest-actions-context';
 import { formatCount } from '@/lib/format-number';
 
 const OPEN_EVENT = 'setnayan:add-from-people-open';
@@ -124,6 +121,7 @@ export function AddFromPeopleSheet({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
+  const { addGuestsFromPeople, listPeopleYouCanInvite } = useGuestActions();
   const searchRef = useRef<HTMLInputElement>(null);
 
   const close = useCallback(() => {
@@ -183,7 +181,7 @@ export function AddFromPeopleSheet({
         setRows([]);
       })
       .finally(() => setLoading(false));
-  }, [open, rows, loading, eventId]);
+  }, [open, rows, loading, eventId, listPeopleYouCanInvite]);
 
   const pickedKeys = useMemo(
     () => Object.keys(picked).filter((k) => picked[k]),

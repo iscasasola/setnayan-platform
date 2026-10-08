@@ -31,7 +31,7 @@ import { parseGuestInput } from '@/lib/guest-parse';
 import type { GuestSide } from '@/lib/guests';
 import { OpenQuickAddButton } from './quick-add-sheet';
 import { OpenAddFromPeopleButton } from './add-from-people-sheet';
-import { addSingleGuest } from '../inline-actions';
+import { useGuestActions } from './guest-actions-context';
 
 // One size for all four doors. 36px is the smallest this row can give a tap
 // target without pushing the name box off a 380px phone.
@@ -60,6 +60,7 @@ export function CaptureBar({
   const [pending, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
   const [toast, toastNode] = usePeekToast();
+  const { addSingleGuest } = useGuestActions();
 
   const submitAdd = () => {
     const raw = value;

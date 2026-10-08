@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "effd190f9",
+  "generatedFromRef": "679dcb038",
   "routeCount": 429,
   "destinations": 958,
   "actions": 672,
-  "blocks": 5835,
+  "blocks": 5839,
   "routes": {
     "/": {
       "files": [
@@ -6040,6 +6040,7 @@
         "dashboard/[eventId]/guests/_components/capture-bar.tsx",
         "dashboard/[eventId]/guests/_components/card-fields.tsx",
         "dashboard/[eventId]/guests/_components/guest-access-control.tsx",
+        "dashboard/[eventId]/guests/_components/guest-actions-context.tsx",
         "dashboard/[eventId]/guests/_components/guest-card-autosave.tsx",
         "dashboard/[eventId]/guests/_components/guest-card-body.tsx",
         "dashboard/[eventId]/guests/_components/guest-card-data.ts",
@@ -6129,6 +6130,8 @@
         "G",
         "GridPageSkeleton",
         "GuestAccessControl",
+        "GuestActions",
+        "GuestActionsContext.Provider",
         "GuestCardBody",
         "GuestCardData",
         "GuestHelperAccess",
@@ -9861,6 +9864,7 @@
     "/dev/guests-lab": {
       "files": [
         "dev/guests-lab/lab-guest-actions.tsx",
+        "dev/guests-lab/lab-stand-ins.ts",
         "dev/guests-lab/page.tsx"
       ],
       "destinations": [
@@ -9872,6 +9876,8 @@
         "AddGuestSheet",
         "BottomDock",
         "DockStandIn",
+        "GuestActions",
+        "GuestActionsProvider",
         "GuestCardBody",
         "GuestRemovalActionsContext.Provider",
         "GuestRow",

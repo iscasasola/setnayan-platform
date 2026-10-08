@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "8bbd556bc",
+  "generatedFromRef": "4c5619373",
   "routeCount": 429,
   "destinations": 959,
   "actions": 671,
-  "blocks": 5840,
+  "blocks": 5843,
   "routes": {
     "/": {
       "files": [
@@ -1064,6 +1064,7 @@
         "BackgroundMusic",
         "Bar",
         "BeforeAfterScene",
+        "BeforeRedrawCommits",
         "Blob",
         "Box",
         "ByRoleGroup",
@@ -6855,6 +6856,7 @@
         "OpeningLineField",
         "OpensRow",
         "OurStoryEditorPage",
+        "OwnScenePicker",
         "PabuyaCardList",
         "PabuyaManager",
         "PabuyaMessageEditor",
@@ -8083,6 +8085,7 @@
         "Slider",
         "SlotTile",
         "Strip",
+        "StudioPopup",
         "StudioSheet",
         "SubmitButton",
         "SwapSource",

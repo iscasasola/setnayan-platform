@@ -251,11 +251,11 @@ test('(3) the dark is dark AND blurred — and dark alone where blur is not supp
   assert.match(base, /-webkit-backdrop-filter: blur\(\d+px\);/, 'iOS Safari would not blur');
   assert.ok(Number(/backdrop-filter: blur\((\d+)px\)/.exec(base)![1]) >= 4);
   // NOT SUPPORTED: still dark (deeper), no reliance on the blur.
-  const unsupported = /@supports not \(\(backdrop-filter: blur\(1px\)\) or \(-webkit-backdrop-filter: blur\(1px\)\)\) \{\s*\.sn-popup-dark \{([^}]*)\}/.exec(css)?.[1] ?? '';
+  const unsupported = /@supports not \(\(backdrop-filter: blur\(1px\)\) or \(-webkit-backdrop-filter: blur\(1px\)\)\) \{\s*(?:[^{}]*,\s*)?\.sn-popup-dark \{([^}]*)\}/.exec(css)?.[1] ?? '';
   const deep = Number(/background-color: rgb\(var\(--color-ink\) \/ (0?\.\d+)\);/.exec(unsupported)?.[1]);
   assert.ok(deep >= alpha, 'where the backdrop cannot blur the page behind is not even dark');
   // LESS TRANSPARENCY ASKED FOR: the blur is taken off, the dark stays.
-  const reduced = /@media \(prefers-reduced-transparency: reduce\) \{\s*\.sn-popup-dark \{([^}]*)\}/.exec(css)?.[1] ?? '';
+  const reduced = /@media \(prefers-reduced-transparency: reduce\) \{\s*(?:[^{}]*,\s*)?\.sn-popup-dark \{([^}]*)\}/.exec(css)?.[1] ?? '';
   assert.match(reduced, /backdrop-filter: none;/, 'the blur stays under "reduce transparency"');
   assert.match(reduced, /-webkit-backdrop-filter: none;/);
   assert.ok(Number(/background-color: rgb\(var\(--color-ink\) \/ (0?\.\d+)\);/.exec(reduced)?.[1]) >= alpha, 'under "reduce transparency" the page behind is not dark');

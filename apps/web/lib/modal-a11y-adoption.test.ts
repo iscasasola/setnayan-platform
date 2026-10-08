@@ -90,6 +90,10 @@ const EVIDENCE: { name: string; matcher: RegExp }[] = [
   { name: 'useModalA11y', matcher: /useModalA11y\s*\(/ },
   { name: '<Sheet>', matcher: /<Sheet[\s/>]/ },
   { name: 'confirm-dialog', matcher: /<ConfirmDialog[\s/>]|useConfirm\s*\(/ },
+  /* `usePopupBehind` (lib/use-popup-behind.ts) IS a call of the hook: its body is `useModalA11y({ open: true, onClose,
+     containerRef: panel })` plus `inertBehind` — pinned by `every-stages-popup-follows-the-rule` (1). A CALL only,
+     with its `(`: an import or a mention does not count. */
+  { name: 'usePopupBehind', matcher: /usePopupBehind\s*\(/ },
 ];
 
 /**

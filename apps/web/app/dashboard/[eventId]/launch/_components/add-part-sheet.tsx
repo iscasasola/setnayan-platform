@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { usePopupBehind } from '@/lib/use-popup-behind';
 import { createPortal } from 'react-dom';
 import { Check, ChevronDown, ChevronUp, GripVertical, Plus, Trash2, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
@@ -610,8 +611,8 @@ export function PartEdits({
         />
       ) : null}
       {ownOpen && ops?.addOwn && 'action' in ops.addOwn ? (
-        /* The SHIPPED picker — its trigger is the sheet's row, so its own button is not drawn. */
-        <div className="[&>div>button:first-child]:hidden" data-part-own-picker="">
+        /* The SHIPPED picker — its trigger is the sheet's row, so its own button is not drawn — under the pop-up rule. */
+        <OwnScenePicker onClose={() => setOwnOpen(false)}>
           <SceneTemplatePicker
             overlay
             draft
@@ -631,7 +632,7 @@ export function PartEdits({
             facts={ops.addOwn.facts ?? null}
             presets={ops.addOwn.presets ?? null}
           />
-        </div>
+        </OwnScenePicker>
       ) : null}
       {removing ? (
         <RemovePartSheet
@@ -644,6 +645,26 @@ export function PartEdits({
       ) : null}
     </>,
     document.body,
+  );
+}
+
+/**
+ * 🌑 "A SCENE OF YOUR OWN" FOLLOWS THE POP-UP RULE (owner 2026-10-08, `INTERACTION_RULES.md` § 9). The shipped
+ * template picker sits in the lower third and, on a phone, left the page behind bright and live (`max-lg:bg-transparent`
+ * — its file is in the Maker's first load, which has no room for more code). Here, in the lazy Stages chunk, the three
+ * pieces are put AROUND it: the one dark (`.sn-popup-dark`) under the picker's own full-screen close button, every
+ * other branch of the page out of reach, no scroll behind, Escape closes, Tab stays inside (`usePopupBehind`). The
+ * picker itself is untouched. A pick is not tried on the page (it adds the scene and closes), so the dark is whole.
+ */
+function OwnScenePicker({ onClose, children }: { onClose: () => void; children: ReactNode }) {
+  const root = useRef<HTMLDivElement>(null);
+  usePopupBehind({ root, panel: root, onClose });
+  return (
+    <div ref={root} tabIndex={-1} className="focus:outline-none [&>div>button:first-child]:hidden" data-part-own-picker="">
+      {/* Under the picker's own close button (z-90) and its box (z-91); over the page and the part's frame (z-86). */}
+      <span aria-hidden data-part-own-picker-dark="" className="sn-popup-dark pointer-events-none fixed inset-0 z-[89]" />
+      {children}
+    </div>
   );
 }
 

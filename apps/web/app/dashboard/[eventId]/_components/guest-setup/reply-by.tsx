@@ -28,9 +28,12 @@ type PaxAction = typeof updatePaxSettings;
  *   · `layout="row"`   Guests › Setup — the words left, the date field right;
  *   · `layout="stack"` Event Details' RSVP item and the RSVP stage's form — the
  *                      date, "· your date / · 30 days before", Use the default;
- *   · `layout="print"` the Maker's Studio › RSVP — the date PRINTED, read only
- *                      ("Reply by December 12, 2026"); it is set on Setup or in
- *                      Event Details.
+ *   · `layout="studio"` the Maker's Studio › RSVP — ONE row: "Reply by" left, the
+ *                      date field right, nothing else. (It PRINTED the date, read
+ *                      only, until the owner's preview check 2026-10-08: *"where it
+ *                      the reply by date?"* → *"date is not changeable on studio."*
+ *                      — no go-elsewhere: the control is right there. Always
+ *                      mounted with `draft`.)
  *
  * One writer: `updatePaxSettings` (it writes the pricing view beside the date,
  * so the current one is posted back unchanged). Saved behind the pick, one
@@ -64,7 +67,7 @@ export function ReplyBy({
   /** The 30-day default the field reads while no date of their own is set. */
   fallback?: string | null;
   action?: PaxAction;
-  layout: 'row' | 'stack' | 'print';
+  layout: 'row' | 'stack' | 'studio';
   rowClassName?: string;
   /** ⏳ The Maker's door: the date waits in the hub draft for ✓ Apply (owner 2026-10-08, "draft 1-3"). */
   draft?: boolean;
@@ -74,17 +77,6 @@ export function ReplyBy({
   const newest = useRef(0);
   const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
   const shown = value || fallback;
-
-  if (layout === 'print') {
-    return (
-      <section className={rowClassName ?? SETUP_ROW} data-setup-row="reply-by" data-rsvp-setting="reply-by" data-reply-by-field="print">
-        <p className={SETUP_TITLE}>{REPLY_BY_LABEL}</p>
-        <p className="text-[14px] font-semibold text-ink" data-reply-by={shown ?? ''}>
-          {shown ? formatReplyDay(shown) : 'Set your event date first.'}
-        </p>
-      </section>
-    );
-  }
 
   const pick = (next: string) => {
     if (!action) return;
@@ -134,7 +126,7 @@ export function ReplyBy({
       type="date"
       value={value || fallback || ''}
       onChange={(e) => pick(e.target.value)}
-      aria-label={layout === 'row' ? REPLY_BY_LABEL : 'Reply by — your own date'}
+      aria-label={layout === 'stack' ? 'Reply by — your own date' : REPLY_BY_LABEL}
       className="min-h-10 rounded-full border border-ink/15 bg-white px-3 text-[13px] text-ink"
     />
   );
@@ -143,6 +135,18 @@ export function ReplyBy({
       {note.text}
     </p>
   ) : null;
+
+  /* 🧭 Studio › RSVP: the label and the field on ONE row — no box, no sentence, no "Saved", no
+     "Guests see this right away" (the date waits for ✓ Apply). A refused pick is still SAID, under the row. */
+  if (layout === 'studio') {
+    return (
+      <section className={`${rowClassName ?? SETUP_ROW}${note && !note.ok ? ' flex-wrap' : ''}`} data-setup-row="reply-by" data-rsvp-setting="reply-by" data-reply-by-field="draft">
+        <p className="min-w-0 flex-1 text-[14.5px] font-semibold text-ink">{REPLY_BY_LABEL}</p>
+        {field}
+        {note && !note.ok ? <div className="basis-full">{status}</div> : null}
+      </section>
+    );
+  }
 
   if (layout === 'row') {
     return (

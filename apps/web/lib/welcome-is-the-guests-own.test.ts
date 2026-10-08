@@ -232,7 +232,9 @@ test('3 · both trees mount the one Welcome section and ask the one rule', () =>
   const guest = BODY.slice(BODY.indexOf('const guestTree'));
   const reply = guest.indexOf('rsvpSheetTrigger(');
   const mount = guest.indexOf('<GuestWelcome');
-  const details = guest.indexOf('SITE_MENU_ANCHORS.details');
+  /* The Details SECTION's own mount (📱 2026-10-08: the name of its landing mark is also mentioned earlier now — the
+     Welcome's scenes carry `#site-details` when Details has nothing of its own, and they ARE on Welcome). */
+  const details = guest.indexOf("id: pageStage === 'event' || detailsMarkOnLead ? undefined : SITE_MENU_ANCHORS.details");
   assert.ok(reply > 0 && reply < mount && mount < details, 'Welcome: after the reply, before Details');
 });
 

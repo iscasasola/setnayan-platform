@@ -297,7 +297,9 @@ test('(3) the SAME rows move into Look, and their old places no longer hold them
   assert.ok(musicRow.length > 100, 'anti-vacuity: the music row was not found before the hero video’s');
   assert.match(musicRow, /<SiteChromePanel[\s\S]*?part="music"/);
   assert.doesNotMatch(musicRow, /part="video"/, 'the hero video is built under Music again');
-  assert.match(page.slice(page.indexOf("key: 'hero-video',")), /^key: 'hero-video',[\s\S]{0,700}?<SiteChromePanel[\s\S]{0,200}?part="video"/, 'the hero video is not a row of its own (Look › Background)');
+  /* Built ONCE (`heroVideoPanel`): the row hands it to Look, and the Studio's Background draws the same node (restudy row 2). */
+  assert.match(page.slice(page.indexOf("key: 'hero-video',")), /^key: 'hero-video',[\s\S]{0,300}?panel: heroVideoPanel,/, 'the hero video is not a row of its own (Look › Background)');
+  assert.match(page, /const heroVideoPanel = musicLocked \? \([\s\S]{0,120}\) : \(\s*<SiteChromePanel[\s\S]{0,200}?part="video"/, 'the hero video’s row is not the one form’s video part');
 });
 
 /* ── (4) each part posts only its own fields ──────────────────────────── */

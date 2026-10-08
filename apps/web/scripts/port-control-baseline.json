@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "124ada744",
+  "generatedFromRef": "ed2ede65c",
   "routeCount": 428,
   "destinations": 954,
   "actions": 671,
-  "blocks": 5691,
+  "blocks": 5699,
   "routes": {
     "/": {
       "files": [
@@ -778,6 +778,7 @@
         "[slug]/_components/arrival-greeting.tsx",
         "[slug]/_components/background-music.tsx",
         "[slug]/_components/buttons-preview.ts",
+        "[slug]/_components/candlelight-off-on-canvas.tsx",
         "[slug]/_components/canvas-bring-up.ts",
         "[slug]/_components/copy-my-link.tsx",
         "[slug]/_components/countdown-styles.tsx",
@@ -1058,6 +1059,7 @@
         "Blob",
         "Box",
         "ByRoleGroup",
+        "CandlelightOffOnCanvas",
         "CaptureTile",
         "CapturesByHour",
         "CelebrantItem",
@@ -9135,6 +9137,7 @@
     "/dashboard/[eventId]/website/editor": {
       "files": [
         "dashboard/[eventId]/website/editor/_components/authoring-panels.tsx",
+        "dashboard/[eventId]/website/editor/_components/background-cards.tsx",
         "dashboard/[eventId]/website/editor/_components/both-view.ts",
         "dashboard/[eventId]/website/editor/_components/buffered-canvas-frame.tsx",
         "dashboard/[eventId]/website/editor/_components/buttons-look-row.tsx",
@@ -9215,6 +9218,10 @@
         "ArtDirectionPick",
         "BackgroundEffect",
         "BackgroundField",
+        "BackgroundSource",
+        "BgCard",
+        "BgCards",
+        "BgRow",
         "BufferedCanvasFrame",
         "ButtonColourField",
         "ButtonsLookRow",
@@ -9243,7 +9250,6 @@
         "FontPick",
         "Fragment",
         "GalleryPanel",
-        "GroundCarousel",
         "HTMLButtonElement",
         "HTMLDivElement",
         "HTMLElement",
@@ -9252,6 +9258,7 @@
         "HTMLSpanElement",
         "HTMLTextAreaElement",
         "HTMLUListElement",
+        "HTMLVideoElement",
         "HeroFrameSync",
         "HeroPhotoPanel",
         "Hsv",
@@ -9278,6 +9285,7 @@
         "LaunchPhasePanel",
         "LaunchStdButton",
         "Link",
+        "LoopPicture",
         "LoveStoryChaptersPanel",
         "MagicMovePick",
         "MainBackgroundPanel",
@@ -9354,6 +9362,7 @@
         "StdPanel",
         "StillOverSwatch",
         "StoryPanel",
+        "StudioColourField",
         "StyleCards",
         "StyleCarousel",
         "StyledSceneRow",
@@ -9368,6 +9377,7 @@
         "TypeBar",
         "TypeSession",
         "TypeStart",
+        "UploadPicture",
         "VisibilityPanel",
         "Window",
         "WordsReturnTo"

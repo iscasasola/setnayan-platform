@@ -24,6 +24,7 @@ import { paidMarkLabel, type PaidMarkState } from '@/lib/paid-mark';
 import { ColourWell } from './colour-well';
 import { PickMenu } from './pick-menu';
 import { DraftsAsYouGo } from './drafts-as-you-go';
+import { useMaker } from '../../../launch/_components/maker-context';
 
 /**
  * Website Pro panels for the unified editor (PR-4).
@@ -158,6 +159,11 @@ export function ColorsPanel({
   proMark?: PaidMarkState | null;
 }) {
   const mark = proMark ? <PaidMark state={proMark} label={paidMarkLabel(proMark, 'Event Hub Pro')} size="xs" /> : null;
+  /* 🌗 In the new Maker's Studio, Candlelight is Background › Shade ▾'s darkest step (owner 2026-10-08, the Look
+     restudy § 3.1) whenever the main background's panel is there to hold it — one field, one place. This
+     form then posts no `site_art_direction`, which the action reads as unchanged. */
+  const maker = useMaker();
+  const shadeHoldsArt = part === 'art' && maker?.stagesStudio === true && Boolean(maker.lookPages?.look?.background);
   /* ══ THE TYPEFACE ═════════════════════════════════════════════════
      Owner's Pro list names "Custom Fonts". A FIXED list, because
      `next/font` resolves at build time: every face here is already served
@@ -235,7 +241,7 @@ export function ColorsPanel({
           is one dropdown). A hidden field ALWAYS posts one of the two values:
           the action treats an absent field as "leave unchanged", so the dark
           direction can always be turned back off from here. */}
-      <ArtDirectionPick value={artDirection ?? 'daylight'} mark={mark} leads={part === 'art'} />
+      {shadeHoldsArt ? null : <ArtDirectionPick value={artDirection ?? 'daylight'} mark={mark} leads={part === 'art'} />}
 
       {part === 'colours' || part === 'art' ? null : typeface}
 
@@ -254,7 +260,7 @@ export function ColorsPanel({
           "unchanged", exactly as the typeface above does. A couple must be able
           to take this back, and this is the first motion on the guest page that
           moves an element ACROSS the viewport. */}
-      <MagicMovePick value={magicTraveller} mark={mark} />
+      <MagicMovePick value={magicTraveller} mark={mark} leads={shadeHoldsArt} />
       </>
       )}
       </>
@@ -469,10 +475,10 @@ function ArtDirectionPick({ value, mark, leads = false }: { value: 'daylight' | 
  * dropdown. "Nothing travels" is first and always there; it posts `''`, which
  * the action reads as "clear" (an absent field means "unchanged").
  */
-function MagicMovePick({ value, mark }: { value: string | null; mark: React.ReactNode }) {
+function MagicMovePick({ value, mark, leads = false }: { value: string | null; mark: React.ReactNode; /** First in its form — no rule over it. */ leads?: boolean }) {
   const [magic, setMagic] = useState<string>(value && (MAGIC_TRAVELLERS as readonly string[]).includes(value) ? value : '');
   return (
-    <div className="mt-3 flex min-h-11 items-center justify-between gap-3 border-t border-dashed border-ink/10 pt-3" data-look-magic-move="">
+    <div className={`flex min-h-11 items-center justify-between gap-3${leads ? '' : ' mt-3 border-t border-dashed border-ink/10 pt-3'}`} data-look-magic-move="">
       <p className="inline-flex shrink-0 items-center gap-1.5 text-[0.72rem] font-semibold text-ink/80">Magic Move{mark}</p>
       <input type="hidden" name="site_magic_traveller" value={magic} />
       <PickMenu

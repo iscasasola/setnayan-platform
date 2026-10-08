@@ -16,7 +16,7 @@ import { ColorsPanel } from '@/app/dashboard/[eventId]/website/editor/_component
 import { ButtonsLookRow } from '@/app/dashboard/[eventId]/website/editor/_components/buttons-look-row';
 import { INVITE_THEMES } from '@/lib/invite-themes';
 import { hubButtonPage } from '@/lib/hub-buttons';
-import type { HubSectionCanvas } from '@/lib/hub-canvas';
+import type { HubMainGround, HubSectionCanvas } from '@/lib/hub-canvas';
 import { celebrationColours, celebrationDraftIsPro } from '@/lib/rsvp-celebration';
 import { MakerRevealPicker } from '@/app/dashboard/[eventId]/launch/_components/maker-reveal';
 import { MakerLogoDoor } from '@/app/dashboard/[eventId]/launch/_components/details-lazy';
@@ -115,6 +115,7 @@ export function MakerLabShell({
   navigator,
   details,
   loops = [],
+  mainBackground = null,
   openDetails = false,
   canvases = {},
   renderStamp = 'lab',
@@ -134,6 +135,8 @@ export function MakerLabShell({
   navigator: MakerNavigatorData;
   details: ReactNode;
   loops?: readonly MovingBackgroundOption[];
+  /** 🌄 `?bg=` — the main background the lab starts on, so each Source of Studio › Look › Background can be seen (default: just the colour). */
+  mainBackground?: HubMainGround | null;
   openDetails?: boolean;
   /** The lab's "server" canvases — what its draft holds (`lab_widgets`), read on every render. */
   canvases?: Record<string, HubSectionCanvas>;
@@ -171,12 +174,14 @@ export function MakerLabShell({
           eventId={eventId}
           themeId="house"
           colours={house.palette}
-          current={null}
+          current={mainBackground}
           hero={{ photoRef: null, photoUrl: null, hasClip: false, liveRef: null }}
           overrideStillUrl={null}
           drafted={false}
           ownsPro={false}
           loops={loops}
+          /* 🌈 Studio › Look › Background's Colour source — Classic's paper and maria-and-jose's five. */
+          page={{ bgColor: null, resolved: house.palette.canvas, five: ['#5B1A22', '#F7F2EC', '#C9A86A', '#FBFAF7', '#7A8B6F'], artDirection: null }}
           draftAction={labDraft as never}
         />
       ),

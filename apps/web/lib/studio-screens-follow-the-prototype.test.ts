@@ -118,15 +118,19 @@ test('3 · a print in Studio is one row of the list: name · sizes · size ▾ �
   assert.match(shipped, /This piece/, 'the shipped Details lost its block — flag-off must not change');
 });
 
-test('4 · Studio › Look opens on its one bar: no tall tiles; Background is the dropdown’s own list as a carousel', () => {
+test('4 · Studio › Look opens on its one bar: no tall tiles; Background is the dropdown’s own choices as cards, by source', () => {
   const ws = read(`${L}/details-workspace.tsx`);
   assert.match(ws, /const studioLook = maker\?\.stagesStudio === true && detailsLtSection\(selected\) === 'look';/);
   assert.match(ws, /const ltTiles = ltNav && !studioLook \?/, 'Studio › Look draws the tall tiles again (M29)');
   assert.match(ws, /if \(studioLook\) setSheetOpen\(true\);/, 'Studio › Look does not open on its controls');
   const mb = read('app/dashboard/[eventId]/website/editor/_components/main-background-panel.tsx');
-  assert.match(mb, /<GroundCarousel options=\{groundOptions\} value=\{groundValue\}[^>]*onPick=\{pickGround\}/, 'the carousel is not the dropdown’s list');
+  /* The carousel became picture cards under ONE Source ▾ (2026-10-08, the Look restudy row 2 —
+     `the-background-has-one-source.test.ts`). What M29 held stays held: the Studio draws the dropdown's OWN
+     choices through its OWN handler — the same loops, the same hero follow — never a second list. */
+  assert.match(mb, /view === 'video'\s*\? loops\.map\(\(l\) => \([\s\S]{0,620}onPick=\{\(\) => pickGround\(l\.id\)\}/, 'the Video cards are not the dropdown’s loops');
+  assert.match(mb, /name="Your cover photo"[\s\S]{0,260}onPick=\{\(\) => pickGround\('src:hero'\)\}/, 'the cover photo card is not the dropdown’s "Same as my hero"');
   assert.match(mb, /options=\{\[\.\.\.loops\.map\(groundLoopOption\), \.\.\.groundOwnOptions\]\}\s+onPick=\{pickGround\}/, 'the dropdown is not the same list');
-  assert.match(mb, /const groundOptions: PickOption\[\] = \[\.\.\.loops\.map\(groundLoopOption\), \.\.\.groundOwnOptions\];/, 'the carousel is not the same list');
+  assert.doesNotMatch(mb, /GroundCarousel/, 'the carousel is drawn beside the cards');
   const bar = read(`${L}/studio-tools.tsx`);
   const look = bar.slice(bar.indexOf('export function StudioLookBar'));
   assert.doesNotMatch(look.slice(0, look.indexOf('\n}\n')), /tone="wine"/, 'Look’s bar is the filled wine section switch, not the prototype’s segmented');

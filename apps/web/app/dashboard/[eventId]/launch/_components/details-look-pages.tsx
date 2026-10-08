@@ -99,13 +99,24 @@ export function LookPanel({
   const look = maker?.lookPages?.look ?? null;
   const late = useLate(Boolean(look));
   if (item && maker && maker.detailsItem !== item) return null;
+  /* 🧭 THE NEW MAKER'S STUDIO, WITH A MAIN BACKGROUND: its ONE Source ▾ (`main-background-panel.tsx`, restudy
+     row 2) draws the page fill (Colour), the hero video (Your photo or video) and the extras (Shade · Blur ·
+     Focus) itself — so Look does not draw them a second time. Without that panel (the app-store shell builds
+     none) they stay rows of Look, as in the shipped Maker. */
+  const sourceHolds = maker?.stagesStudio === true && Boolean(look?.background);
   const part = (k: LookPart): ReactNode =>
-    !look ? null : k === 'colours' ? (look.colours || look.palette ? <>{look.colours}{look.palette}</> : null) : (look[k] ?? null);
+    !look || (sourceHolds && (k === 'page' || k === 'video'))
+      ? null
+      : k === 'colours'
+        ? look.colours || look.palette
+          ? <>{look.colours}{look.palette}</>
+          : null
+        : (look[k] ?? null);
   /** A section's parts that are there — each with what rides under it. */
   const partsOf = (k: LookSection) =>
     LOOK_SECTION_PARTS[k].flatMap((p) => {
       const node = part(p);
-      const more = extras?.[p] ?? null;
+      const more = sourceHolds && p === 'background' ? null : (extras?.[p] ?? null);
       return node || more ? [{ p, node, more }] : [];
     });
   /* 🗂 Never a blank panel (owner 2026-10-06): a section this event does not offer says so in one line. */

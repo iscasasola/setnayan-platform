@@ -124,9 +124,14 @@ test('2 · Look › Background: a still is drawn over its swatch and never as a 
   assert.match(drawn, /<img[^>]*class="[^"]*opacity-0/, 'a still shows before it has loaded (a broken glyph would show)');
   const src = read(`${D}/website/editor/_components/main-background-panel.tsx`);
   assert.match(src, /onError=\{\(\) => setState\('failed'\)\}/, 'a failed still is not removed');
-  const carousel = src.slice(src.indexOf('function GroundCarousel('));
-  assert.doesNotMatch(carousel, /<img/, 'the carousel draws a bare <img> again');
-  assert.match(carousel, /<StillOverSwatch src=\{o\.thumb\}/, 'the carousel’s pictures are not drawn over a swatch');
+  /* The carousel became the Source ▾ cards (2026-10-08, the Look restudy row 2) — the SAME rule on them:
+     every picture is laid over a swatch, never a bare <img>. */
+  const cards = src.slice(src.indexOf('if (studio) {'), src.indexOf('<p className="text-[14px] font-semibold text-ink">Behind every scene</p>'));
+  assert.ok(cards.length > 2000, 'anti-vacuity: the Studio’s cards were not found');
+  assert.doesNotMatch(cards, /<img/, 'the cards draw a bare <img> again');
+  for (const still of ['l.stillUrl', 'b.src', 'hero.photoUrl', 'p.url']) {
+    assert.ok(cards.includes(`<StillOverSwatch src={${still}}`), `${still} is not drawn over a swatch`);
+  }
 });
 
 test('3 · in place, never a link out: Set up E-Gifts opens E-Gifts here; Look draws no "Same as the Event Hub" (it left 2026-10-08)', async () => {

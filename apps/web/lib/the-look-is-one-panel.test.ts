@@ -131,15 +131,26 @@ test('(1) Look draws Background · Elements · Music, in that order, each with i
   inSection('background', 'elements', 'page-fill');
   inSection('background', 'elements', 'hero-video');
   inSection('elements', 'music', 'art-and-motion');
-  inSection('elements', 'music', 'palette-look');
   inSection('elements', 'music', 'font-pick');
   inSection('elements', 'music', 'buttons-look');
   inSection('music', null, 'music');
   assert.doesNotMatch(html.slice(at('music')), /data-stub="hero-video"/, 'the hero video is under Music again');
   assert.doesNotMatch(html.slice(at('elements'), at('music')), /data-stub="page-fill"/, 'the page fill is under Elements (Colours) again');
-  // The palette sits AFTER the colours it goes with, in the same part.
-  assert.ok(html.indexOf('data-stub="palette-look"') > html.indexOf('data-stub="art-and-motion"'));
-  assert.ok(html.indexOf('data-stub="palette-look"') < html.indexOf('data-stub="font-pick"'));
+  // 🎨 THE PALETTE-TYPE ROW LEFT LOOK (owner 2026-10-08, on the local copy: "remove Palette Type") — handed in, never drawn.
+  assert.doesNotMatch(html, /data-stub="palette-look"/, 'the Palette type row is still drawn in Look');
+  {
+    // …and it has not simply been dropped: the SAME control still sits with the palette, in the Dress code scene's own
+    // settings, and leaving it out of Look writes nothing (the stored look stays; the guest page reads it as before).
+    const shellSrc = read(`${E}/editor-shell.tsx`);
+    assert.match(shellSrc, /const paletteRow =\s*elementEditing && sceneFormat && type === 'dress_code' \? \(\s*<PaletteLookCanvasRow /, 'the palette look has no control left anywhere');
+    assert.ok((shellSrc.match(/\{paletteRow\}/g) ?? []).length >= 2, 'the Dress code scene no longer draws its palette look');
+    const lookPanel = read(`${L}/details-look-pages.tsx`);
+    const panelAt = lookPanel.indexOf('export function LookPanel');
+    const panelFn = lookPanel.slice(panelAt, lookPanel.indexOf('\nexport function ', panelAt + 20));
+    assert.ok(panelAt > 0 && panelFn.length > 500 && panelFn.includes('data-look-part='), 'anti-vacuity: LookPanel was not found');
+    assert.doesNotMatch(panelFn, /look\.palette|draftAction|hubDraftAction/, 'Look draws the palette row, or writes when it leaves it out');
+    assert.match(read('lib/scene-style-of-row.ts'), /export function paletteLookOfRow|paletteLookOfRow/, 'the guest page can no longer read a stored palette look');
+  }
   for (const label of ['Background', 'Elements', 'Music']) assert.match(html, new RegExp(`>${label}</h3>`), `no "${label}" heading`);
   for (const gone of ['Colours', 'Buttons', 'Font']) assert.doesNotMatch(html, new RegExp(`>${gone}</h3>`), `"${gone}" is a section of its own again`);
   // Inside Elements each control is named — Colours · Font · Buttons; Background and Music name themselves.
@@ -272,7 +283,7 @@ test('(3) the SAME rows move into Look, and their old places no longer hold them
   // The hero no longer carries the Main background.
   assert.match(work, /hero: madeOnce\?\.hero \?\? null,/);
   assert.doesNotMatch(work, /mainBackgroundRow/);
-  // The Dress code scene's Style no longer draws the palette; Look's row does.
+  // The Style DROPDOWN's own row does not draw the palette (it is its own row beside it — never in two places in one row).
   const style = read(`${E}/scene-style-row.tsx`);
   const styleRow = style.slice(style.indexOf('export function SceneStyleCanvasRow'), style.indexOf('export function PaletteLookCanvasRow'));
   assert.ok(styleRow.length > 200, 'anti-vacuity: the Style row was not found');

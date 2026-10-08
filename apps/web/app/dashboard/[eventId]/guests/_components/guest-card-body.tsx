@@ -14,6 +14,8 @@ import {
   SINGLETON_GUEST_ROLES,
   REQUEST_ENTRY_SOURCE,
   type GuestGroupCategory,
+  type GuestRole,
+  type InvitedToBlock,
   type GuestSide,
   type GuestAttire,
   type MealPreference,
@@ -46,6 +48,7 @@ import type { GuestInviteCell } from './guest-invite-cell';
 // from a 'use client' file would arrive here as a client reference, not a string).
 import { PASS_CARD_ROUTE } from '@/lib/pass-card';
 import type { InviteSetup } from './invite-message-setup';
+import type { CardBoxProps, CardFieldProps, CardFoldProps, CardInvitedToProps, CardKit, CardLockedProps, CardPickProps, CardToggleProps } from './guest-card-kit';
 import type { ComponentType } from 'react';
 import { AutosaveForm, AutosaveState } from './guest-card-autosave';
 import { GuestAccessControl } from './guest-access-control';
@@ -200,6 +203,7 @@ export function GuestCardBody({
   MoreMenu,
   helperAccess,
   actions,
+  kit,
 }: {
   eventId: string;
   data: GuestCardData;
@@ -242,6 +246,11 @@ export function GuestCardBody({
   helperAccess?: React.ReactNode;
   /** Other writes for the card's forms — the dev lab's stand-ins. Absent = the shipped actions. */
   actions?: GuestCardActions;
+  /**
+   * The card's leaf controls, drawn by the app's templates (`guest-card-kit.ts`). Handed in by the Guests pages; the Maker's
+   * parent cards hand none (the templates are not in the Maker's first load) and keep the hand-drawn rows below.
+   */
+  kit?: CardKit;
 }) {
   const {
     guest,
@@ -276,6 +285,9 @@ export function GuestCardBody({
   const lockedName = composeFormalName(guest) ?? guestDisplayName(guest);
   const accessTagLabel = access ? accessTag(access) : null;
 
+  const K: CardKit = kit ?? OLD_KIT;
+  /** True when the templates draw the leaves — their helper sentences go behind each row's ⓘ, not beside the control. */
+  const templated = kit !== undefined;
   const updateAction = actions?.update ?? updateGuest.bind(null, eventId, guest.guest_id);
   const releaseAction = actions?.release ?? releaseGuestClaim.bind(null, eventId, guest.guest_id);
   const partnerLinkAction = actions?.partnerLink ?? inviteGuestByEmailAction.bind(null, eventId, guest.guest_id);
@@ -509,93 +521,90 @@ export function GuestCardBody({
               profile holds a formal name (owner 2026-09-30): read-only here, and
               `updateGuest` leaves the name out of its write. The stored parts
               still post, so the form's own checks are satisfied. */}
-          {nameLocked ? (
-            <div data-guest-name-linked="">
-              <p className="text-sm text-ink">
-                <span className="font-medium">{lockedName}</span>
-                {nameLockWords ? <span className="text-ink/60"> · {nameLockWords}</span> : null}
-                {profileName?.isYou ? (
-                  <>
-                    {' · '}
-                    <Link href="/dashboard/profile" className="text-terracotta-700 underline-offset-2 hover:underline">
-                      Edit on your profile ›
-                    </Link>
-                  </>
-                ) : null}
-              </p>
-              <input type="hidden" name="first_name" value={guest.first_name} />
-              <input type="hidden" name="last_name" value={guest.last_name} />
-              <input type="hidden" name="name_prefix" value={guest.name_prefix ?? ''} />
-              <input type="hidden" name="middle_name" value={guest.middle_name ?? ''} />
-              <input type="hidden" name="name_suffix" value={guest.name_suffix ?? ''} />
-              <input type="hidden" name="display_name" value={guest.display_name ?? ''} />
-            </div>
-          ) : (
-            <>
-              <div className="grid grid-cols-[minmax(0,5.5rem)_minmax(0,1fr)_minmax(0,1fr)] gap-2">
-                <FormPick
-                  name="name_prefix"
-                  label="Prefix"
-                  value={guest.name_prefix ?? ''}
-                  options={[{ key: '', label: '—' }, ...prefixChoicesFor(guest.name_prefix).map((p) => ({ key: p, label: p }))]}
+          <K.List>
+            {nameLocked ? (
+              <div data-guest-name-linked="">
+                <p className="text-sm text-ink">
+                  <span className="font-medium">{lockedName}</span>
+                  {nameLockWords ? <span className="text-ink/60"> · {nameLockWords}</span> : null}
+                  {profileName?.isYou ? (
+                    <>
+                      {' · '}
+                      <Link href="/dashboard/profile" className="text-terracotta-700 underline-offset-2 hover:underline">
+                        Edit on your profile ›
+                      </Link>
+                    </>
+                  ) : null}
+                </p>
+                <input type="hidden" name="first_name" value={guest.first_name} />
+                <input type="hidden" name="last_name" value={guest.last_name} />
+                <input type="hidden" name="name_prefix" value={guest.name_prefix ?? ''} />
+                <input type="hidden" name="middle_name" value={guest.middle_name ?? ''} />
+                <input type="hidden" name="name_suffix" value={guest.name_suffix ?? ''} />
+                <input type="hidden" name="display_name" value={guest.display_name ?? ''} />
+              </div>
+            ) : (
+              <>
+                <K.Cols className="grid grid-cols-[minmax(0,5.5rem)_minmax(0,1fr)_minmax(0,1fr)] gap-2">
+                  <K.Pick
+                    name="name_prefix"
+                    label="Prefix"
+                    value={guest.name_prefix ?? ''}
+                    options={[{ key: '', label: '—' }, ...prefixChoicesFor(guest.name_prefix).map((p) => ({ key: p, label: p }))]}
+                  />
+                  <K.Field id="first_name" label="First" required defaultValue={guest.first_name} />
+                  <K.Field id="middle_name" label="Middle" defaultValue={guest.middle_name ?? ''} />
+                </K.Cols>
+                <K.Cols className="grid grid-cols-[minmax(0,1fr)_minmax(0,5.5rem)] gap-2">
+                  <K.Field id="last_name" label="Last" required defaultValue={guest.last_name} />
+                  <K.Field id="name_suffix" label="Suffix" defaultValue={guest.name_suffix ?? ''} placeholder="—" />
+                </K.Cols>
+                <K.Field
+                  id="display_name"
+                  label="Shown as (optional)"
+                  defaultValue={guest.display_name ?? ''}
+                  placeholder="e.g. Tito Boy & Tita Cora"
                 />
-                <Field id="first_name" label="First" required defaultValue={guest.first_name} />
-                <Field id="middle_name" label="Middle" defaultValue={guest.middle_name ?? ''} />
-              </div>
-              <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,5.5rem)] gap-2">
-                <Field id="last_name" label="Last" required defaultValue={guest.last_name} />
-                <Field id="name_suffix" label="Suffix" defaultValue={guest.name_suffix ?? ''} placeholder="—" />
-              </div>
-              <Field
-                id="display_name"
-                label="Shown as (optional)"
-                defaultValue={guest.display_name ?? ''}
-                placeholder="e.g. Tito Boy & Tita Cora"
-              />
-            </>
-          )}
-          {/* 📱 THEIR MOBILE, UP FRONT (owner, live iPhone test 2026-10-02: "the
-              guest's mobile number is hard to find on the guest card"). It sat
-              inside the closed Details row; the first section is the one a
-              phone opens on, so the way to reach them is here, under the name. */}
-          <Field id="mobile" label="Mobile" type="tel" defaultValue={guest.mobile ?? ''} placeholder="+63 …" />
+              </>
+            )}
+            {/* 📱 THEIR MOBILE, UP FRONT (owner, live iPhone test 2026-10-02: "the
+                guest's mobile number is hard to find on the guest card"). It sat
+                inside the closed Details row; the first section is the one a
+                phone opens on, so the way to reach them is here, under the name. */}
+            <K.Field id="mobile" label="Mobile" type="tel" defaultValue={guest.mobile ?? ''} placeholder="+63 …" />
+          </K.List>
         </section>
 
         <div className="border-y border-ink/10">
           {/* ── DETAILS — side, group, role, extra roles, groups ───────────── */}
-          <Fold summary="Details" value={detailsSummary}>
-            <div className="grid grid-cols-2 gap-2.5">
+          <K.Fold summary="Details" value={detailsSummary}>
+            <K.Cols className="grid grid-cols-2 gap-2.5">
               {hasSides ? (
-                <FormPick
+                <K.Pick
                   name="side"
                   label="Side"
                   value={guest.side}
                   options={SIDE_OPTIONS.map((v) => ({ key: v, label: SIDE_LABELS[v] }))}
                 />
               ) : null}
-              <FormPick
+              <K.Pick
                 name="group_category"
                 label="Group"
                 value={guest.group_category}
                 options={groupOptions.map((v) => ({ key: v, label: GROUP_CATEGORY_LABELS[v] }))}
               />
-            </div>
+            </K.Cols>
             {isCouple ? (
-              <div className="space-y-1">
-                <span className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/50">
-                  {hasSides ? 'Role in wedding' : 'Role'}
-                </span>
-                <div className="flex min-h-10 items-center justify-between rounded-full border border-ink/15 bg-ink/[0.03] px-3 text-sm">
-                  <span className="font-medium text-ink">{roleWord}</span>
-                  <span className="text-xs text-ink/45">Foundation · locked</span>
-                </div>
+              <>
+                <K.Locked label={hasSides ? 'Role in wedding' : 'Role'} value={roleWord} note="Foundation · locked" />
                 <input type="hidden" name="role" value={guest.role} />
-              </div>
+              </>
             ) : (
-              <div className="space-y-1">
-                <FormPick
+              <K.Cols className="space-y-1">
+                <K.Pick
                   name="role"
                   label={hasSides ? 'Role in wedding' : 'Role'}
+                  about={isIncWedding ? 'INC note: non-member principal sponsors (Ninong/Ninang) are limited to one pair. Member sponsors aren’t capped.' : undefined}
                   value={guest.role}
                   /* ⚖ Owner 2026-09-30: best man OR best woman, maid OR
                      matron of honour — each pair sits under ONE heading so
@@ -606,20 +615,20 @@ export function GuestCardBody({
                       : [{ key: it.role, label: guestRolePickLabel(it.role, roleNames) }],
                   )}
                 />
-                {isIncWedding ? (
+                {isIncWedding && !templated ? (
                   <p className="text-xs text-ink/55">
                     INC note: non-member principal sponsors (Ninong/Ninang) are
                     limited to one pair. Member sponsors aren&rsquo;t capped.
                   </p>
                 ) : null}
-              </div>
+              </K.Cols>
             )}
             {/* ✓ Checkmark dropdowns (owner 2026-09-30 "yes"): extra roles and
                 the couple's own groups, editable right here. */}
             {isCouple ? null : (
               <>
                 <input type="hidden" name="extra_roles_posted" value="1" />
-                <FormPick
+                <K.Pick
                   name="extra_roles"
                   label="Also serves as"
                   value={extraRolesNow.join(',')}
@@ -632,7 +641,7 @@ export function GuestCardBody({
               groupChoices.options.length > 0 ? (
                 <>
                   <input type="hidden" name="groups_posted" value="1" />
-                  <FormPick
+                  <K.Pick
                     name="group_ids"
                     label="Groups"
                     value={groupChoices.memberIds.join(',')}
@@ -653,7 +662,7 @@ export function GuestCardBody({
             {/* Chinese / Tsinoy rites only. Fails CLOSED: a refused ceremony read
                 degrades to null and this hides. */}
             {showTeaCeremony ? (
-              <Field
+              <K.Field
                 id="seniority_rank"
                 label="Tea-ceremony order"
                 type="number"
@@ -675,7 +684,7 @@ export function GuestCardBody({
             {/* 🕯 PASSED AWAY — listed, never counted (owner 2026-09-25). Never
                 offered for the couple — `updateGuest` refuses it for them too. */}
             {isCouple ? null : (
-              <Toggle
+              <K.Toggle
                 name="passed_away"
                 defaultChecked={guest.passed_away === true}
                 label="Passed away"
@@ -683,10 +692,10 @@ export function GuestCardBody({
                 soft
               />
             )}
-          </Fold>
+          </K.Fold>
 
           {/* ── RSVP — the answer, to what, and what they eat ─────────────── */}
-          <Fold summary="RSVP" value={rsvpSummary} open={Boolean(guest.guest_note?.trim())}>
+          <K.Fold summary="RSVP" value={rsvpSummary} open={Boolean(guest.guest_note?.trim())}>
             {isCouple ? (
               <>
                 <p className="text-sm font-medium text-success-800">Attending · always</p>
@@ -699,7 +708,7 @@ export function GuestCardBody({
               /* Attending · No reply · Not coming (owner 2026-09-30 — no Maybe).
                  A guest who already answered Maybe keeps it listed, so opening
                  the card never rewrites their answer. */
-              <FormPick
+              <K.Pick
                 name="rsvp_status"
                 label="Reply"
                 value={guest.rsvp_status}
@@ -715,20 +724,17 @@ export function GuestCardBody({
               <p className="text-xs text-ink/50">Answer recorded {recordedAt}</p>
             ) : null}
 
-            <div className="space-y-1">
-              <span className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/50">Invited to</span>
-              {/* Smart defaults by role · locked 2026-05-23 PM — changing the
-                  Role snaps these to that role's usual set. */}
-              <InvitedToChips roleSelectId="role" initialRole={guest.role} initialBlocks={initialInvited} look="toggles" />
-            </div>
+            {/* Smart defaults by role · locked 2026-05-23 PM — changing the
+                Role snaps these to that role's usual set. */}
+            <K.InvitedTo roleSelectId="role" initialRole={guest.role} initialBlocks={initialInvited} />
 
             <span className="block pt-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/50">Seats and food</span>
-            <div className="grid grid-cols-2 gap-2.5">
+            <K.Cols className="grid grid-cols-2 gap-2.5">
               {/* ⚖ Owner 2026-09-21: "+1 per guest can be up to number 4". */}
               {isCouple ? (
                 <input type="hidden" name="plus_one_count" value={String(seats)} />
               ) : (
-                <FormPick
+                <K.Pick
                   name="plus_one_count"
                   label="Extra seats"
                   value={String(seats)}
@@ -736,32 +742,31 @@ export function GuestCardBody({
                 />
               )}
               {/* 🔑 DIETARY BELONGS WITH MEAL — owner 2026-09-22. */}
-              <FormPick
+              <K.Pick
                 name="meal_preference"
                 label="Meal"
                 value={guest.meal_preference ?? 'no_preference'}
                 options={MEAL_OPTIONS.map((v) => ({ key: v, label: MEAL_LABELS[v] }))}
               />
-            </div>
+            </K.Cols>
             {isCouple ? null : plusOneStateLabel ? (
               <p className="rounded-lg bg-success-50/70 px-3 py-2 text-xs text-success-900">+1: {plusOneStateLabel}</p>
             ) : guest.plus_one_allowed ? (
               <p className="rounded-lg bg-warn-50/70 px-3 py-2 text-xs text-warn-900">Allowed, but no +1 added yet.</p>
             ) : null}
-            <Field
+            <K.Field
               id="dietary_restrictions"
               label="Dietary"
               defaultValue={guest.dietary_restrictions ?? ''}
               placeholder="halal · nut allergy · …"
             />
-          </Fold>
+          </K.Fold>
 
           {/* ── SEAT — the table, in place (never "go edit elsewhere") ──────── */}
-          <Fold summary="Seat" value={seatSummary}>
+          <K.Fold summary="Seat" value={seatSummary}>
             {tables && !guest.passed_away && guest.rsvp_status !== 'declined' ? (
               <>
-                <input type="hidden" name="table_posted" value="1" />
-                <FormPick
+                <K.Pick
                   name="table_id"
                   label="Table"
                   value={seatTableId ?? ''}
@@ -770,24 +775,28 @@ export function GuestCardBody({
                     ...tables.map((t) => ({ key: t.tableId, label: tableWords(t.label) })),
                   ]}
                 />
+                <input type="hidden" name="table_posted" value="1" />
               </>
             ) : (
               <p className="text-sm text-ink/70">{seatSummary}</p>
             )}
-            <FormPick
+            <K.Pick
               name="attire"
               label="Attire · 3D seat plan"
+              about="Guests see their table on the day, not before. Moving them here moves them on the seat plan too."
               value={guest.attire}
               options={ATTIRE_OPTIONS.map((v) => ({ key: v, label: ATTIRE_LABELS[v] }))}
             />
-            <p className="text-xs text-ink/55">
-              Guests see their table on the day, not before. Moving them here moves them on the seat plan too.
-            </p>
-          </Fold>
+            {templated ? null : (
+              <p className="text-xs text-ink/55">
+                Guests see their table on the day, not before. Moving them here moves them on the seat plan too.
+              </p>
+            )}
+          </K.Fold>
 
           {/* ── PHOTOS — three yes/no answers ───────────────────────────────── */}
-          <Fold summary="Photos" value={photosSummary}>
-            <Toggle
+          <K.Fold summary="Photos" value={photosSummary}>
+            <K.Toggle
               name="photo_consent"
               defaultChecked={guest.photo_consent}
               label="Wants to be tagged in photos"
@@ -795,37 +804,38 @@ export function GuestCardBody({
             />
             {/* Salamisim P2 (iteration 0012) — the Live Photo Wall then needs a
                 server-baked blur on EVERY projected photo, fail-closed. */}
-            <Toggle
+            <K.Toggle
               name="faceblock_enabled"
               defaultChecked={guest.faceblock_enabled}
               label="Blur their face on the Live Wall"
               note="FaceBlock — blurs every face in the shot"
             />
             {/* Minor safeguard (DPIA BV-8, 2026-07-05) — a host attestation. */}
-            <Toggle
+            <K.Toggle
               name="face_recognition_excluded"
               defaultChecked={guest.face_recognition_excluded}
               label="Keep out of face recognition"
               note="e.g. a minor"
             />
-          </Fold>
+          </K.Fold>
 
           {/* ── PRIVATE NOTE — the couple's own, never the guest's ─────────── */}
-          <Fold summary="Private note" value={guest.notes?.trim() || null} emptyValue="None" last>
-            <textarea
+          <K.Fold summary="Private note" value={guest.notes?.trim() || null} emptyValue="None" last>
+            <K.Field
               id="notes"
-              name="notes"
-              rows={3}
-              aria-label="Private note"
+              long
+              label="Private note"
               defaultValue={guest.notes ?? ''}
               placeholder="e.g. Tito’s driver drops him at the side gate"
-              className="input-field min-h-[88px] resize-y py-2"
+              about={`Only you and your co-hosts see this. ${guest.first_name} never sees it.`}
             />
             {/* Said out loud, because until 2026-08-06 it was the opposite of true. */}
-            <p className="text-xs text-ink/50">
-              Only you and your co-hosts see this. {guest.first_name} never sees it.
-            </p>
-          </Fold>
+            {templated ? null : (
+              <p className="text-xs text-ink/50">
+                Only you and your co-hosts see this. {guest.first_name} never sees it.
+              </p>
+            )}
+          </K.Fold>
         </div>
 
         {/* 🔴 The guest's own message. Read-only: it is theirs, not yours to
@@ -845,7 +855,7 @@ export function GuestCardBody({
       {/* ── ACCESS — its own actions, so OUTSIDE the autosave form (a nested
           <form> is invalid HTML). Same accordion as the rows above. */}
       <div className="border-y border-ink/10">
-        <Fold summary="Access" value={accessSummary || null} emptyValue="—">
+        <K.Fold summary="Access" value={accessSummary || null} emptyValue="—">
           {/* A refused read (access === null) shows nothing, never "Guest only". */}
           {access ? (
             <GuestAccessControl
@@ -934,7 +944,7 @@ export function GuestCardBody({
               </p>
             </div>
           )}
-        </Fold>
+        </K.Fold>
 
         {/* ── TAGS — read-only, made from the fields above; never opens ───── */}
         <div className="flex items-start gap-3 border-t border-ink/[0.06] px-3.5 py-3 text-sm" data-guest-card-tags="">
@@ -954,22 +964,7 @@ export function GuestCardBody({
  * opening a row closes the one that was open — the card never grows long, and
  * there is no script to load (the card is in the Maker's first load too).
  */
-function Fold({
-  summary,
-  value,
-  emptyValue,
-  open = false,
-  last = false,
-  children,
-}: {
-  summary: string;
-  value: string | null;
-  emptyValue?: string;
-  /** Opens on arrival — the RSVP row when the guest left a note. */
-  open?: boolean;
-  last?: boolean;
-  children: React.ReactNode;
-}) {
+function Fold({ summary, value, emptyValue, open = false, last = false, children }: CardFoldProps) {
   return (
     <details name="guest-card-row" open={open || undefined} className={`group ${last ? '' : 'border-b border-ink/[0.06]'}`}>
       <summary className="flex min-h-[48px] cursor-pointer list-none items-center gap-3 px-3.5 text-sm text-ink transition-colors hover:bg-ink/[0.03]">
@@ -987,20 +982,7 @@ function Fold({
 }
 
 /** A yes/no answer, as a switch. A real checkbox underneath (posts `on`). */
-function Toggle({
-  name,
-  defaultChecked,
-  label,
-  note,
-  soft = false,
-}: {
-  name: string;
-  defaultChecked: boolean;
-  label: string;
-  note: string;
-  /** Drawn quietly — the careful one (Passed away). */
-  soft?: boolean;
-}) {
+function Toggle({ name, defaultChecked, label, note, soft = false }: CardToggleProps) {
   return (
     <label
       className={`flex min-h-[48px] cursor-pointer items-center justify-between gap-3 rounded-xl px-3 py-2 text-sm ${
@@ -1016,21 +998,20 @@ function Toggle({
   );
 }
 
-function Field({
-  id,
-  label,
-  required = false,
-  type = 'text',
-  defaultValue,
-  placeholder,
-}: {
-  id: string;
-  label: string;
-  required?: boolean;
-  type?: string;
-  defaultValue: string;
-  placeholder?: string;
-}) {
+function Field({ id, label, required = false, type = 'text', defaultValue, placeholder, long = false }: CardFieldProps) {
+  if (long) {
+    return (
+      <textarea
+        id={id}
+        name={id}
+        rows={3}
+        aria-label={label}
+        defaultValue={defaultValue}
+        placeholder={placeholder}
+        className="input-field min-h-[88px] resize-y py-2"
+      />
+    );
+  }
   return (
     <div className="min-w-0 space-y-1">
       <label className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/50" htmlFor={id}>
@@ -1048,3 +1029,36 @@ function Field({
     </div>
   );
 }
+
+/* ── the hand-drawn kit: what the Maker's parent cards draw (the templates are not in the Maker's first load) ────────────────── */
+
+function OldPick({ about, ...pick }: CardPickProps) {
+  void about; // the old kit prints the sentence beside the control (the body does), not behind an ⓘ
+  return <FormPick {...pick} />;
+}
+function OldInvitedTo({ roleSelectId, initialRole, initialBlocks }: CardInvitedToProps) {
+  return (
+    <div className="space-y-1">
+      <span className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/50">Invited to</span>
+      <InvitedToChips roleSelectId={roleSelectId} initialRole={initialRole as GuestRole} initialBlocks={initialBlocks as InvitedToBlock[] | undefined} look="toggles" />
+    </div>
+  );
+}
+function OldLocked({ label, value, note }: CardLockedProps) {
+  return (
+    <div className="space-y-1">
+      <span className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/50">{label}</span>
+      <div className="flex min-h-10 items-center justify-between rounded-full border border-ink/15 bg-ink/[0.03] px-3 text-sm">
+        <span className="font-medium text-ink">{value}</span>
+        <span className="text-xs text-ink/45">{note}</span>
+      </div>
+    </div>
+  );
+}
+function OldList({ children }: CardBoxProps) {
+  return <div className="space-y-2.5">{children}</div>;
+}
+function OldCols({ className, children }: CardBoxProps) {
+  return <div className={className}>{children}</div>;
+}
+const OLD_KIT: CardKit = { Field, Toggle, Fold, Pick: OldPick, InvitedTo: OldInvitedTo, Locked: OldLocked, List: OldList, Cols: OldCols };

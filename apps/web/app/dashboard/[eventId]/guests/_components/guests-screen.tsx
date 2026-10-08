@@ -70,6 +70,7 @@ import { PickMenu, type PickOption } from '@/app/dashboard/[eventId]/website/edi
 import { useInspectorContext } from '@/app/_components/inspector/inspector-column';
 import { PILL_TRACK_CLASS, PILL_TRACK_GROUND, PillThumb, pillSegClass } from '@/app/_components/pill-selector';
 import { GuestPopup } from './guest-popup';
+import { Handed } from './handed';
 import { usePeekToast } from './use-peek-toast';
 import {
   countsTowardEvent,
@@ -198,16 +199,6 @@ function useShellBarOffset(root: React.RefObject<HTMLElement | null>) {
       window.removeEventListener('resize', sync);
     };
   }, [root]);
-}
-
-/**
- * A slot the page HANDS this screen as a prop (`setup`, `empty`) — an element made on the server. Placed straight among this
- * screen's other children it is a child of an array, and React 19's dev build asks it for a `key` ("Each child in a list
- * should have a unique key … It was passed a child from GuestsLabPage", seen on the lab 2026-10-09). Held as the ONE child of
- * a fragment it is not in a list, so nothing is asked of it. Draws nothing of its own.
- */
-function Handed({ children }: { children: ReactNode }) {
-  return <>{children}</>;
 }
 
 export function GuestsScreen(props: GuestsScreenProps) {

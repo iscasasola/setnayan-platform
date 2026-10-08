@@ -88,6 +88,15 @@ export function Chips<K extends string>({
   const boxes = useRef(new Map<K, HTMLInputElement>());
   const tapped = useRef<K | null>(null);
   const chosen = value.join('\u0001');
+  /* React 19 resets a form after its action lands: a controlled checkbox goes back to its `checked` ATTRIBUTE (its mount-time value) while
+     React's state says otherwise, and the next autosave would post the reverted set. Keeping each attribute equal to its chip's state makes the
+     reset a no-op. (Measured on the card's Invited-to, 2026-10-09.) */
+  useEffect(() => {
+    if (!fieldName) return;
+    for (const [key, box] of boxes.current) box.defaultChecked = value.includes(key);
+    // `value` is read through `chosen`, its stable key.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chosen, fieldName]);
   useEffect(() => {
     if (tapped.current === null) return;
     const box = boxes.current.get(tapped.current);

@@ -923,6 +923,12 @@ export function SwitchRow({
   /* 📮 Only a PERSON's tap tells the form — the flag is set by the tap and spent by the next commit (a restore, or a re-seed, never sets it). */
   const post = useRef<HTMLInputElement>(null);
   const tapped = useRef(false);
+  /* React 19 RESETS a form after its action lands (`form.reset()`); a controlled checkbox goes back to its `checked` ATTRIBUTE — what it was
+     when it mounted — while React's state says otherwise, and the next autosave would post the reverted value. Keeping the attribute equal to
+     the answer makes the reset a no-op. (Measured on the card's Invited-to switches, 2026-10-09.) */
+  useEffect(() => {
+    if (fieldName && post.current) post.current.defaultChecked = on;
+  }, [on, fieldName]);
   useEffect(() => {
     if (!tapped.current) return;
     tapped.current = false;

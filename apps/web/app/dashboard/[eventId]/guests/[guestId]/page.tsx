@@ -18,6 +18,7 @@ import {
 } from '../_components/guest-card-body';
 import { GuestInviteCell } from '../_components/guest-invite-cell';
 import { GuestMoreMenu, GuestTicketThumb } from '../_components/guest-ticket-parts';
+import { TEMPLATE_KIT } from '../_components/guest-card-template-kit';
 import { UndoToastHost } from '../_components/undo-toast';
 
 export const metadata = { title: 'Guest detail' };
@@ -140,6 +141,7 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
         SendInvite={GuestInviteCell}
         TicketThumb={GuestTicketThumb}
         MoreMenu={GuestMoreMenu}
+        kit={TEMPLATE_KIT}
         helperAccess={
           helper ? <GuestHelperAccess eventId={eventId} guestId={guestId} firstName={guest.first_name} helper={helper} /> : null
         }

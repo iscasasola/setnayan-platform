@@ -224,10 +224,11 @@ export const SCENARIOS: Record<string, Scenario> = {
   },
 };
 
-async function paint(s: Scenario): Promise<string> {
+async function paint(s: Scenario, withKit = false): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { AppRouterContext } = await import('next/dist/shared/lib/app-router-context.shared-runtime');
   const { GuestCardBody } = await import('./guest-card-body');
+  const kit = withKit ? (await import('./guest-card-template-kit')).TEMPLATE_KIT : undefined;
   const g = guest(s.guest);
   const data = { ...BASE_DATA, ...s.data, guest: g };
   const card = React.createElement(GuestCardBody as unknown as React.FC<Record<string, unknown>>, {
@@ -240,13 +241,14 @@ async function paint(s: Scenario): Promise<string> {
     returnTo: '/dashboard/e1/guests',
     errorMessage: null,
     inviteFlash: null,
+    ...(kit ? { kit } : {}),
   });
   return renderToStaticMarkup(React.createElement(AppRouterContext.Provider, { value: ROUTER as never }, card));
 }
 
-export async function everyScenario(): Promise<Record<string, Record<string, string[]>>> {
+export async function everyScenario(withKit = false): Promise<Record<string, Record<string, string[]>>> {
   const out: Record<string, Record<string, string[]>> = {};
-  for (const [name, s] of Object.entries(SCENARIOS)) out[name] = postedForm(await paint(s));
+  for (const [name, s] of Object.entries(SCENARIOS)) out[name] = postedForm(await paint(s, withKit));
   return out;
 }
 
@@ -271,6 +273,65 @@ test('the card’s form, in every state, posts exactly what it posted before any
   const golden = JSON.parse(readFileSync(GOLDEN, 'utf8')) as typeof now;
   assert.deepEqual(Object.keys(now), Object.keys(golden), 'a state was added or removed');
   for (const name of Object.keys(golden)) assert.deepEqual(now[name], golden[name], `the posted form changed — ${name}`);
+});
+
+test('…and the card drawn by the TEMPLATES posts the very same form, in every state, column by column (4B)', async () => {
+  const golden = JSON.parse(readFileSync(GOLDEN, 'utf8')) as Record<string, Record<string, string[]>>;
+  const templated = await everyScenario(true);
+  assert.deepEqual(Object.keys(templated), Object.keys(golden));
+  const wrong: string[] = [];
+  for (const name of Object.keys(golden)) {
+    const a = golden[name]!;
+    const b = templated[name]!;
+    for (const k of new Set([...Object.keys(a), ...Object.keys(b)])) {
+      if (JSON.stringify(a[k] ?? null) !== JSON.stringify(b[k] ?? null)) wrong.push(`${name} › ${k}: before ${JSON.stringify(a[k] ?? null)} · templates ${JSON.stringify(b[k] ?? null)}`);
+    }
+  }
+  assert.deepEqual(wrong, [], 'the templated card posts a different form');
+});
+
+test('anti-vacuity (4B): the templated card really IS drawn by the templates, and the old one is not', async () => {
+  const s = SCENARIOS['02 a guest with sides, a seat, groups, extra roles, +1 of 2']!;
+  const old = await paint(s, false);
+  const tpl = await paint(s, true);
+  assert.doesNotMatch(old, /data-form-row=|data-fold=|data-card-field=/, 'the Maker’s card is drawn by templates it cannot afford');
+  assert.match(old, /class="input-field"/);
+  assert.match(tpl, /data-form-row-kind="typed"/);
+  assert.match(tpl, /data-form-row-kind="switch"/);
+  assert.match(tpl, /data-chips="invited-to"/);
+  assert.match(tpl, /data-fold="card-details"/);
+  assert.doesNotMatch(tpl, /class="input-field"|class="sn-switch"|<details\b|<select\b/, 'a hand-made control is left on the templated card');
+  for (const f of ['first_name', 'last_name', 'mobile', 'display_name', 'notes', 'dietary_restrictions']) assert.match(tpl, new RegExp(`data-card-field="${f}"`), `${f} is not a typed row`);
+  for (const f of ['side', 'group_category', 'role', 'extra_roles', 'group_ids', 'rsvp_status', 'plus_one_count', 'meal_preference', 'table_id', 'attire']) assert.match(tpl, new RegExp(`data-card-field="${f}"`), `${f} is not a dropdown row`);
+});
+
+test('one list of fields: every field the card\'s body names is drawn by BOTH kits, in some state (a field added to one path appears in the other)', async () => {
+  const { stripComments } = await import('@/lib/strip-comments');
+  const body = stripComments(readFileSync(join(HERE, 'guest-card-body.tsx'), 'utf8'));
+  const named = new Set<string>([
+    ...[...body.matchAll(/<K\.Field\s+id="(\w+)"/g)].map((m) => m[1]!),
+    ...[...body.matchAll(/<K\.(?:Pick|Toggle)\s+name="(\w+)"/g)].map((m) => m[1]!),
+  ]);
+  assert.ok(named.size >= 20, `the body names only ${named.size} fields — the scan is blind`);
+  const old: string[] = [];
+  const tpl: string[] = [];
+  for (const sc of Object.values(SCENARIOS)) {
+    old.push(await paint(sc, false));
+    tpl.push(await paint(sc, true));
+  }
+  const oldAll = old.join('\n');
+  const tplAll = tpl.join('\n');
+  const lacking: string[] = [];
+  for (const f of named) {
+    if (!new RegExp(`name="${f}"`).test(oldAll)) lacking.push(`${f}: not on the hand-drawn card`);
+    if (!new RegExp(`data-card-field="${f}"`).test(tplAll)) lacking.push(`${f}: not on the templated card`);
+    if (!new RegExp(`name="${f}"`).test(tplAll)) lacking.push(`${f}: the templated card does not post it`);
+  }
+  assert.deepEqual(lacking, []);
+  /* The kit's two halves implement the same list of leaves (the type says it; this names it so a leaf added to one is read). */
+  const rows = stripComments(readFileSync(join(HERE, 'guest-card-template-kit.ts'), 'utf8'));
+  const keys = (src: string, re: RegExp) => (re.exec(src)?.[1] ?? '').split(',').map((e) => e.split(':')[0]!.trim()).filter(Boolean).sort();
+  assert.deepEqual(keys(rows, /TEMPLATE_KIT: CardKit = \{([^}]*)\}/), keys(body, /const OLD_KIT: CardKit = \{([^}]*)\}/).map((k) => k), 'the two kits draw different leaves');
 });
 
 test('anti-vacuity: the states really differ, and the form is not trivially small', async () => {

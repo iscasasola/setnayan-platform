@@ -66,6 +66,7 @@ import { UndoToastHost } from './_components/undo-toast';
 import { GuestCardBody, GUEST_CARD_ERROR_COPY, guestCardEyebrow, guestCardReply } from './_components/guest-card-body';
 import { GuestInviteCell } from './_components/guest-invite-cell';
 import { GuestMoreMenu, GuestTicketThumb } from './_components/guest-ticket-parts';
+import { TEMPLATE_KIT } from './_components/guest-card-template-kit';
 import { guestListErrorCopy } from './_components/guest-list-error-copy';
 import { loadInviteSetup } from './_components/invite-message-setup';
 import { fetchInvitationBase, loadGuestCard } from './_components/guest-card-data';
@@ -780,6 +781,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         SendInvite={GuestInviteCell}
         TicketThumb={GuestTicketThumb}
         MoreMenu={GuestMoreMenu}
+        kit={TEMPLATE_KIT}
         helperAccess={
           inspectedHelper ? (
             <GuestHelperAccess

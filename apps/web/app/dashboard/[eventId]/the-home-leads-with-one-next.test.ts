@@ -206,8 +206,9 @@ test('c · an unread number prints "—", never 0', () => {
 test('c · the page hands the measurement to the render, not only the rows', () => {
   assert.match(PAGE, /fetchGuestsByEventMeasured\(/, 'Home must take the measured guest read');
   // The page hands the measurement to `homeFacts`; `homeFacts` is the one place the numbers are printed.
-  assert.match(PAGE, /guests:\s*\{\s*stats:\s*guestStats,\s*measured:\s*guestsMeasured,\s*noReply:\s*rosterStats\(guests\)\.none\s*\}/, 'the page must pass the measured flag with the counts');
-  assert.match(FACTS, /glanceCount\(guests\.stats\.attending,\s*guests\.measured\)/, '"coming" must know whether it was measured');
+  assert.match(PAGE, /guests:\s*\{\s*stats:\s*guestStats,\s*measured:\s*guestsMeasured,\s*noReply:\s*homeRoster\.none,\s*coming:\s*homeRoster\.yes\s*\}/, 'the page must pass the measured flag with the counts');
+  assert.match(FACTS, /glanceCount\(comingN,\s*guests\.measured\)/, '"coming" must know whether it was measured');
+  assert.match(FACTS, /coming:\s*guests\.measured \? comingN : null/, 'the counted "coming" figure must be null when unread');
   assert.match(FACTS, /glanceCount\(noReplyN,\s*guests\.measured\)/, '"no reply" must know whether it was measured');
   assert.match(FACTS, /glanceMoney\(money\?\.paid \?\? null\)/, 'Paid must print "—" when the money read failed');
   assert.match(FACTS, /glanceMoney\(money\?\.owing \?\? null\)/, 'Still owing must print "—" when the money read failed');

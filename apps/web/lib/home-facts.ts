@@ -103,8 +103,9 @@ export function homeFacts(input: {
   /** `events.event_date_precision` — only 'day' counts down. */
   precision: string | null | undefined;
   timezone: string | null | undefined;
-  /** `noReply` = `rosterStats(rows).none` — the Guests list's own count (one definition). */
-  guests: { stats: GuestStats; measured: boolean; noReply?: number };
+  /** `noReply` / `coming` = `rosterStats(rows).none` / `.yes` — the Guests list's own counts
+   *  (ONE source: the two tiles state what the Guests summary line states). */
+  guests: { stats: GuestStats; measured: boolean; noReply?: number; coming?: number };
   money: HomeMoneyRead;
   now?: Date;
 }): HomeFacts {
@@ -112,6 +113,8 @@ export function homeFacts(input: {
   /* 🔑 "No reply" is the Guests list's ONE definition (`hasNotAnswered`, owner 2026-10-07),
      handed in as `noReply`, so the tile's number is the rows its filter shows. */
   const noReplyN = guests.noReply ?? guests.stats.pending;
+  /* …and "coming" is the list's own "N attending" (`rosterStats().yes`), from the same call. */
+  const comingN = guests.coming ?? guests.stats.attending;
   const daysOut =
     input.precision === 'month' || input.precision === 'year'
       ? null
@@ -125,7 +128,7 @@ export function homeFacts(input: {
     daysToGo: toGo,
     guestStats: guests.stats,
     days: glanceDaysToGo(toGo),
-    coming: glanceCount(guests.stats.attending, guests.measured),
+    coming: glanceCount(comingN, guests.measured),
     noReply: glanceCount(noReplyN, guests.measured),
     noReplyWaiting: guests.measured && noReplyN > 0,
     money:
@@ -134,7 +137,7 @@ export function homeFacts(input: {
         : { paid: glanceMoney(money?.paid ?? null), owing: glanceMoney(money?.owing ?? null) },
     figures: {
       days: toGo?.kind === 'days' ? toGo.days : null,
-      coming: guests.measured ? guests.stats.attending : null,
+      coming: guests.measured ? comingN : null,
       noReply: guests.measured ? noReplyN : null,
       money: money === 'hidden' ? null : money === null ? 'unread' : { paid: money.paid, owing: money.owing },
     },

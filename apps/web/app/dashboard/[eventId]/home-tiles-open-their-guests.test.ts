@@ -9,7 +9,12 @@
  *   2 · ONE DEFINITION: the tile's number and the filter's rows are the same set —
  *       `rosterStats(rows).yes / .none` against `rosterSearchMatches('coming' /
  *       'no reply')` over one fixture, so the tile can never say 79 and show 64.
- *   3 · the page hands Home the Guests list's own count (`rosterStats(guests).none`).
+ *   3 · the page hands Home the Guests list's own counts — BOTH tiles from one
+ *       `rosterStats(guests)` call (`.yes` and `.none`), the function the Guests
+ *       summary line reads; Home never counts the list a second way.
+ *
+ * SABOTAGE (each seen red): drop a link's filter · split the "no reply" definition ·
+ * hand Home `coming` from another count (a fixture where the two disagree).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -94,11 +99,38 @@ test('2 · the tile counts exactly the rows its filter shows — coming and no r
     eventDate: null,
     precision: 'day',
     timezone: 'Asia/Manila',
-    guests: { stats: computeGuestStats(ROWS), measured: true, noReply: stats.none },
+    guests: { stats: computeGuestStats(ROWS), measured: true, noReply: stats.none, coming: stats.yes },
     money: 'hidden',
   });
   assert.equal(facts.figures.noReply, noReply.length);
   assert.equal(facts.figures.coming, coming.length, 'Home\'s "coming" is the list\'s attending');
+});
+
+test('2b · Home states the counts it is HANDED — the list\'s own, never a second count of its own', () => {
+  // A stats object that DISAGREES with the list's counts: the tiles must print the list's.
+  const other = { ...computeGuestStats(ROWS), attending: 41, pending: 17 };
+  const facts = homeFacts({
+    eventDate: null,
+    precision: 'day',
+    timezone: 'Asia/Manila',
+    guests: { stats: other, measured: true, noReply: 3, coming: 3 },
+    money: 'hidden',
+  });
+  assert.equal(facts.figures.coming, 3, 'COMING came from a second count, not the list\'s');
+  assert.equal(facts.coming, '3');
+  assert.equal(facts.figures.noReply, 3, 'NO REPLY came from a second count, not the list\'s');
+  // A refused read is still "—", never the handed number and never 0.
+  const refused = homeFacts({
+    eventDate: null,
+    precision: 'day',
+    timezone: 'Asia/Manila',
+    guests: { stats: computeGuestStats([]), measured: false, noReply: 0, coming: 0 },
+    money: 'hidden',
+  });
+  assert.equal(refused.figures.coming, null);
+  assert.equal(refused.figures.noReply, null);
+  assert.equal(refused.coming, '—');
+  assert.equal(refused.noReply, '—');
 });
 
 test('1 · COMING opens the list filtered to coming, NO REPLY to no reply', async () => {
@@ -122,9 +154,15 @@ test('1 · COMING opens the list filtered to coming, NO REPLY to no reply', asyn
   assert.equal(new URLSearchParams('q=no+reply').get('q'), 'no reply', 'the page reads the words the search understands');
 });
 
-test('3 · the page hands Home the Guests list\'s own no-reply count', () => {
+test('3 · the page hands Home the Guests list\'s own counts — one rosterStats call', () => {
   const page = stripComments(readFileSync(join(HERE, 'page.tsx'), 'utf8'));
-  assert.match(page, /guests: \{ stats: guestStats, measured: guestsMeasured, noReply: rosterStats\(guests\)\.none \}/);
+  assert.match(page, /const homeRoster = rosterStats\(guests\);/, 'Home does not read the Guests list\'s own counts');
+  assert.match(
+    page,
+    /guests: \{ stats: guestStats, measured: guestsMeasured, noReply: homeRoster\.none, coming: homeRoster\.yes \}/,
+    'a tile is fed by something other than the one rosterStats call',
+  );
+  assert.equal(page.match(/rosterStats\(/g)?.length, 1, 'Home calls rosterStats more than once — two counts of one list');
   const guestsPage = stripComments(readFileSync(join(HERE, 'guests', 'page.tsx'), 'utf8'));
   assert.match(guestsPage, /initialQuery=\{[^}]*search\.q/, 'the Guests page seeds its search box from ?q=');
 });

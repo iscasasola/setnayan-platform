@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { Check, LayoutGrid } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { PILL_ON_CLASS } from '@/app/_components/pill-selector';
 import { inertBehind, popupClearRect, popupHolePath } from '@/lib/popup-behind';
 import { STUDIO_DONE_BUTTON, STUDIO_HEAD_ROW } from '@/lib/studio-skin';
@@ -34,9 +34,10 @@ import { StudioHome, TILE_ICON } from './studio-home';
  *   · at the Studio home there is no ▾ (a tap on Studio does nothing new — it is where you are);
  *   · inside a page (`at`), the Studio half shows a small ▾ and a tap OPENS THE CHOICES — the house dropdown
  *     (`PickMenu`): a sheet from the bottom on a phone (the Maker's one sheet — dark, blurred, nothing behind works),
- *     a list under the pill on a computer. First "All pages" (→ the home), then the pages this event draws, each
- *     with its mark, its name and Ready / Missing, the current one ticked. A ▾ never cycles, and the thumb does not
- *     move on that tap (it is already on Studio).
+ *     a list under the pill on a computer. The pages this event draws — exactly the Studio home's, in its order —
+ *     each with its mark, its name and Ready / Missing, the current one ticked. NO "All pages" row (owner
+ *     2026-10-08, on the first build: *"pop up looks good. remove the all pages."*): the home is one tap on Stages
+ *     and one on Studio away. A ▾ never cycles, and the thumb does not move on that tap (it is already on Studio).
  * A pick is the SAME call the row's Tool ▾ made (`onOpen` → the shell's `openStudio`): state on the phone, no
  * request, no render of the Maker.
  */
@@ -71,7 +72,7 @@ export function StudioSideSwitch({
             value={at.key}
             buttonText={MAKER_SIDE_LABEL.studio}
             options={studioChooserOptions(tiles)}
-            onPick={(k) => studioChooserPick(k, { home: () => onPick('studio'), open: onOpen })}
+            onPick={(k) => onOpen(k as StudioTileKey)}
             className={STUDIO_CHOOSER_PICK}
           />
         </span>
@@ -83,9 +84,6 @@ export function StudioSideSwitch({
     </ISegmented>
   );
 }
-
-/** The chooser's first row: back to the Studio home, where every page is a card. */
-export const STUDIO_CHOOSER_HOME = 'home';
 
 /** The picked half of the pill while it holds the chooser: the pill's own "on" look until the thumb has measured, then the thumb's. */
 const STUDIO_CHOOSER_SEG = `relative z-[1] inline-flex min-h-[38px] flex-1 items-stretch justify-center rounded-full ${PILL_ON_CLASS} group-data-[seg-thumb]/seg:bg-transparent lg:min-h-8`;
@@ -106,20 +104,11 @@ function tileOption(t: StudioTileModel, withIcon: boolean): PickOption {
 }
 
 /**
- * What "Studio ▾" lists: "All pages", then the pages this event draws — the SAME list, in the SAME order, as the
- * Studio home's cards and the row it replaces (one source: `tiles`).
+ * What "Studio ▾" lists: the pages this event draws — the SAME list, in the SAME order, as the Studio home's cards
+ * and the row it replaces (one source: `tiles`). Nothing else: no "All pages" row (owner 2026-10-08).
  */
 export function studioChooserOptions(tiles: readonly StudioTileModel[]): PickOption[] {
-  return [
-    { key: STUDIO_CHOOSER_HOME, label: 'All pages', hint: 'The Studio home', icon: <LayoutGrid aria-hidden className="h-[18px] w-[18px] text-sn-accent" strokeWidth={1.9} /> },
-    ...tiles.map((t) => tileOption(t, true)),
-  ];
-}
-
-/** A pick: "All pages" goes home; a page opens — at once, from what is already on the phone. */
-export function studioChooserPick(key: string, to: { home: () => void; open: (key: StudioTileKey) => void }): void {
-  if (key === STUDIO_CHOOSER_HOME) to.home();
-  else to.open(key as StudioTileKey);
+  return tiles.map((t) => tileOption(t, true));
 }
 
 /** The eleven tools as ONE dropdown (Studio › Look's lower third), each with its line and ✓ / Missing. */

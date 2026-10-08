@@ -344,8 +344,8 @@ test('8 · Love Story: an EMPTY story draws its real arrangement in sample shape
   /* …and it is gone the moment one real moment exists. */
   assert.doesNotMatch(one, /data-studio-story-sample/, 'the sample stays beside a real moment');
   assert.match(one, /data-moment-card="u"/);
-  /* + Add a chapter is at the foot, with or without a chapter. */
-  for (const out of [empty, one]) assert.match(out, /class="[^"]*sn-glass-row[^"]*"><button[^>]*data-studio-add-moment=""[^>]*>[\s\S]*?Add a chapter/, 'the + Add a chapter bar changed');
+  /* + Add a moment is at the foot, with or without a moment. */
+  for (const out of [empty, one]) assert.match(out, /class="[^"]*sn-glass-row[^"]*"><button[^>]*data-studio-add-moment=""[^>]*>[\s\S]*?Add a moment/, 'the + Add a moment bar changed');
 
   /* The Add-a-moment sheet, in the Studio: each helper line is behind an ⓘ beside its label — never a paragraph. */
   const sheet = read(`${D}/website/our-story/_components/moment-sheet-studio.tsx`);

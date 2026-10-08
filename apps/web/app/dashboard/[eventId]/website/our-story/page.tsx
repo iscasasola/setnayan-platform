@@ -19,6 +19,7 @@ import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/php';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { formatEventDate } from '@/lib/events';
+import { TimelineReadProblem } from '@/app/_components/timeline-read-problem';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { HUB_MOTION_PRESET_LABEL } from '@/lib/hub-canvas';
@@ -117,6 +118,17 @@ export default async function OurStoryEditorPage({
     logQueryError('OurStoryPage.widget', widgetError, { event_id: eventId }, 'graceful_degrade');
   }
 
+  /* 🛑 A REFUSED READ OF THE STORY IS SAID, NEVER ACTED ON. Inside the Maker (Studio › Love Story) a read that
+     ERRORED — the event's, or who is asking — says so where the moments would be, with Try again. Before this it
+     fell into the two redirects below and threw the couple out of the Maker as if the event were not theirs. A read
+     that ANSWERED (no such event, not the couple) still redirects exactly as before. */
+  if (inMaker && (eventError || membershipError)) {
+    return (
+      <TimelineReadProblem title="We could not load your Love Story">
+        Your moments are safe. This is a problem on our side or your connection.
+      </TimelineReadProblem>
+    );
+  }
   if (!event) redirect(`/dashboard/${eventId}`);
   // Couple-only, like the website hub (moderators are read-only on events —
   // the form would silently no-op for them).

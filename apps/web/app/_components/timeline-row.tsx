@@ -244,19 +244,22 @@ export function TimelineEmpty({
   action,
   onAction,
   actionClassName,
+  actionAttrs,
 }: {
   title: string;
   children: ReactNode;
   action?: ReactNode;
   onAction?: () => void;
   actionClassName?: string;
+  /** The wearer's own `data-*` hooks for the first action. */
+  actionAttrs?: Readonly<Record<`data-${string}`, string>>;
 }) {
   return (
     <div data-timeline-empty="" className="flex flex-col items-center gap-1.5 px-6 py-8 text-center">
       <b className="text-[15px] font-semibold text-ink">{title}</b>
       <p className="max-w-[28ch] text-[13.5px] text-ink/70">{children}</p>
       {action && onAction ? (
-        <button type="button" data-timeline-first="" onClick={onAction} className={`mt-2 !w-auto px-6 ${actionClassName ?? ''}`}>
+        <button type="button" {...actionAttrs} data-timeline-first="" onClick={onAction} className={`mt-2 !w-auto px-6 ${actionClassName ?? ''}`}>
           {action}
         </button>
       ) : null}

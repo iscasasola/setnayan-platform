@@ -4,6 +4,7 @@ import { NotSharedWithYou } from '../_components/not-shared-with-you';
 import { eventNoun } from '@/lib/event-noun';
 import { applyDelegateAccessWindow } from '@/lib/delegate-access-window.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { TimelineReadProblem } from '@/app/_components/timeline-read-problem';
 import { LastSeenCapture } from '@/app/_components/last-seen/last-seen-capture';
 import { Plus, Trash2, Eye, EyeOff, MapPin, CalendarClock, Send } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -191,7 +192,14 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
       .select('event_id, event_date, event_end_date, ceremony_type, secondary_ceremony_type, event_type, created_at, display_name')
       .eq('event_id', eventId)
       .maybeSingle(),
-    fetchScheduleBlocks(supabase, eventId),
+    /* 🛑 A REFUSED READ OF THE DAY IS SAID, NEVER DRAWN AS AN EMPTY DAY. Inside the Maker (Studio › Schedule) the
+       page says so where the moments would be, with Try again — and stops there, before anything could seed a
+       run of show over moments it merely failed to read. Everywhere else the read throws, as it always has. */
+    fetchScheduleBlocks(supabase, eventId).catch((error: unknown) => {
+      if (!inMaker) throw error;
+      logQueryError('SchedulePage.blocks', error, { eventId }, 'graceful_degrade');
+      return null;
+    }),
     // Vendor suggestions queue (feature-access program Phase 3): open
     // proposals from booked vendors, resolved here by the couple or a
     // delegate with schedule edit (RLS-gated).
@@ -247,6 +255,13 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   // GET requests for one render, so the re-read was served the answer from
   // BEFORE the insert. The host saw "0 blocks" and a plain reload showed five.
   // See the docblock in `lib/schedule-seed.server.ts`.
+  if (blocks === null) {
+    return (
+      <TimelineReadProblem title="We could not load your schedule">
+        Your moments are safe. This is a problem on our side or your connection.
+      </TimelineReadProblem>
+    );
+  }
   let scheduleBlocks = blocks;
   if (
     scheduleBlocks.length === 0 &&

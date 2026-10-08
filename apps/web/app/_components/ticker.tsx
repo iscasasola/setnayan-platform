@@ -382,6 +382,8 @@ export function TickerPill({
   align = 'start',
   sheet = null,
   onClosed,
+  hold = false,
+  onHeld,
   className = '',
   face,
   data,
@@ -399,6 +401,13 @@ export function TickerPill({
   sheet?: TickerSheet | null;
   /** It closed — by Done, a tap outside, Esc or another thing opening. Whoever rolled it writes NOW, once. */
   onClosed?: () => void;
+  /**
+   * It must not close right now (something inside would be lost — a file still uploading). While true, EVERY way of
+   * closing is refused — Done, the dark part, a tap outside, Esc, the pill itself, another thing opening — and
+   * `onHeld` is told, so the wearer can say why in words.
+   */
+  hold?: boolean;
+  onHeld?: () => void;
   /** More classes for the pill (a width floor). */
   className?: string;
   /** A face other than the pill's (a picture square): the whole button's classes. */
@@ -408,8 +417,15 @@ export function TickerPill({
   /** What the pop holds; `close` is its Done. */
   children: (close: () => void) => ReactNode;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpenNow] = useState(false);
   const [asSheet, setAsSheet] = useState(false);
+  /* The ONE door every closing goes through — held shut while `hold` is on. */
+  const held = useRef({ hold, onHeld });
+  held.current = { hold, onHeld };
+  const setOpen = (next: boolean) => {
+    if (!next && held.current.hold) return held.current.onHeld?.();
+    setOpenNow(next);
+  };
   useOneOpen(open, setOpen);
   const button = useRef<HTMLButtonElement>(null);
   const closed = useRef(onClosed);

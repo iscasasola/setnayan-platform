@@ -129,3 +129,59 @@ Guard: `apps/web/lib/studio-love-story-wears-the-timeline-row.test.ts` (7 tests;
 23 sabotages seen red). `port-control-baseline.json` regenerated.
 
 SPEC IMPACT: None.
+
+## 2026-10-08 · feat(studio): Schedule and Love Story — empty, loading and a problem never look alike
+
+Gallery § 16, on both Studio pages:
+
+- LOADING — while either page streams into the Studio, soft shimmering shapes
+  of the rows that are coming (`TimelineRowsLoading`, the real row's own band
+  and line; still under reduced motion). The shipped Maker keeps its words.
+- EMPTY — Studio › Schedule with no moments says what to do first and gives the
+  ONE Add button (the main one) in the middle; a viewer gets words only. Love
+  Story keeps the owner's sample rows, which are still and named.
+- A PROBLEM — a refused read SAYS SO with Try again (`TimelineReadProblem`: one
+  re-read per tap, nothing retries by itself). In the Maker the Schedule page
+  now catches a refused read of the day and stops BEFORE its run-of-show seed
+  (it used to throw to the route's error page; outside the Maker it still
+  does). The Love Story page, in the Maker, no longer answers a refused read by
+  redirecting the couple to the dashboard as if the event were not theirs.
+
+Guard: `apps/web/lib/the-timeline-states-never-look-alike.test.ts` (6 tests;
+15 sabotages seen red).
+
+SPEC IMPACT: None.
+
+## 2026-10-08 · fix(studio): Love Story — an entry is a "moment" again; "chapter" stays the story's six sections
+
+The Timeline row had brought the gallery's word "chapter" to a Love Story
+entry ("Name this chapter", "+ Add a chapter"), on a page whose six sections are
+already its chapters. The app's own words win: "N moments", "Name this moment",
+"+ Add a moment", "Off the Event Hub — guests do not see this moment.", "Not
+saved yet — a moment needs a line or two.", and the aria-labels. Guard: test (8)
+of `studio-love-story-wears-the-timeline-row.test.ts`.
+
+SPEC IMPACT: `INTERACTION_RULES.md` § 9 and the gallery say "chapter" for the
+Love Story row's entry — the controller is correcting the word there.
+
+## 2026-10-08 · fix(studio): Love Story — a photo still uploading cannot be lost by closing its slots
+
+While a file is on its way (picked and being prepared, or in flight) the photo
+slots cannot be closed: Done reads "Uploading… N%" with the uploader's own
+figure and cannot be pressed; a tap on the dark part, outside, Esc, the square
+itself or another thing opening is refused and the slots say "A photo is still
+uploading." When the last one lands (or fails) Done is back.
+
+- `FileUpload` gains ONE optional prop, `onBusy(busy)`: true from the pick until
+  the last file has landed or failed — the same two windows it already guards a
+  form's submit with (`busyRef` + `inFlight`). No change for other callers.
+- `TickerPill` gains `hold` / `onHeld`: every way of closing goes through one
+  door, shut while held.
+- `lib/the-showcase-is-a-gallery.test.ts`: the Love Story's photo slots are
+  admitted to the uploader's `gallery` layout on purpose (photos — the picture
+  is the subject). That guard was red from the Love Story commit until now.
+
+Guard: test (9) of `studio-love-story-wears-the-timeline-row.test.ts` (9
+sabotages seen red, "closing mid-upload drops the file" among them).
+
+SPEC IMPACT: None.

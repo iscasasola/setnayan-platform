@@ -4,7 +4,7 @@ import { useContext, useState } from 'react';
 import { MoreHorizontal, Plus } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { TICKER_PILL_CLASS, TickerPill, TimeTicker } from '@/app/_components/ticker';
-import { TimelineDash, TimelineRow } from '@/app/_components/timeline-row';
+import { TimelineDash, TimelineEmpty, TimelineRow } from '@/app/_components/timeline-row';
 import { daysBetween, formatDateHeading, spanOf, toDatetimeLocal, wallDateKey } from '@/lib/schedule-rail';
 import { fromDatetimeLocalValue } from '@/lib/schedule-datetime-local';
 import { readScheduleAudience } from '@/lib/schedule-audience';
@@ -338,11 +338,22 @@ export function StudioDay({ eventId, dateKey, moments, canEdit, onPatch, onAdd, 
           {fresh ? <NewMomentRow span={fresh} onKeep={(text) => endFresh(text)} onLeave={() => endFresh(null)} /> : null}
         </ol>
       ) : (
-        <p className="px-4 pt-6 text-center text-[14px] text-ink/60">No moments yet.</p>
+        /* EMPTY (gallery § 16): what to do first, and the button to do it — the page's own main action. A viewer
+           gets the words alone. Never drawn for a day that could not be READ: the page says that itself. */
+        <TimelineEmpty
+          title="No moments yet"
+          action={canEdit ? <><Plus aria-hidden className="h-[18px] w-[18px]" strokeWidth={2.2} />Add a moment</> : undefined}
+          onAction={canEdit ? add : undefined}
+          actionClassName={STUDIO_FOOT_BUTTON}
+          actionAttrs={{ 'data-studio-add-moment': '' }}
+        >
+          {canEdit ? 'Add the first thing that happens on the day. You can add the rest later.' : 'Nothing has been added to the day yet.'}
+        </TimelineEmpty>
       )}
       {/* The editor's own bottom (prototype `.ebot`): pinned to the foot of a phone's screen, room kept above it. */}
-      {canEdit ? <div aria-hidden className="h-20 shrink-0 lg:hidden" /> : null}
-      {canEdit ? (
+      {/* With no moments the first action is in the middle of the page — ONE Add button, not two. */}
+      {canEdit && (ordered.length || fresh) ? <div aria-hidden className="h-20 shrink-0 lg:hidden" /> : null}
+      {canEdit && (ordered.length || fresh) ? (
         <div className={`z-30 max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:pb-[max(.5rem,env(safe-area-inset-bottom))] lg:sticky lg:bottom-0 lg:mt-4 sn-glass-row shrink-0 px-2.5 py-2`}>
           {/* BUTTON-RULE */}
           <button type="button" data-studio-add-moment="" onClick={add} className={STUDIO_FOOT_BUTTON}>

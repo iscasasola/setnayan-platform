@@ -149,3 +149,15 @@ SPEC IMPACT: None.
   a page with no badge can each be seen beside the head's count ("6 of 11 ready").
 
 SPEC IMPACT: None.
+
+## 2026-10-08 · fix(ui): ONE ActionButton — the quiet rows draw through the house button, which gains the waiting look
+
+The fix before this one added a second `ActionButton` (`app/_components/action-button.tsx`) beside the house one
+(`components/action-button.tsx`, the button rule, owner 2026-10-07). It is deleted. `StudioQuietRows` draws Restore
+(`tone="neutral"`, the Maker's own Restore mark) and Reset… (`tone="danger"`, the Maker's own reset mark) through the
+house button, 104 × 40 on one right edge. The house button gains `waiting` (additive): grey fill and word, its pill and
+a line kept, `aria-disabled` (never the native `disabled`), a press does nothing — `disabled` keeps its own faded look,
+so no caller that passes it today changes. A guard fails if any other file under `app/` or `components/` exports an
+`ActionButton`.
+
+SPEC IMPACT: None.

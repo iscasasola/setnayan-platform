@@ -59,7 +59,8 @@ import { StudioEventName } from './studio-event-name';
 import { STUDIO_INFO_ROWS, StudioOpeningLine, StudioWords, studioDraftKeep } from './studio-info';
 import { ChosenRow, FactRow, FormRow, FormRows, SwitchRow } from '@/app/_components/form-row';
 import { Fold } from '@/app/_components/fold';
-import { ActionButton } from '@/app/_components/action-button';
+import { RotateCcw, Undo } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { BACKGROUND_MAIN_INFO } from '@/lib/background-source';
 
 /**
@@ -626,8 +627,8 @@ export function StudioQrActions({ slug, path }: { slug: string | null; path: str
   );
 }
 
-/** Restore and Reset… are ONE size, on one right edge. */
-const QUIET_ACTION = 'w-[104px]';
+/** Restore and Reset… are ONE size (the house button's 40 px), on one right edge. */
+const QUIET_ACTION = 'w-[104px] !px-0';
 
 /**
  * The form's quiet rows at the very bottom (prototype `infoForm`): Restore · drop the draft (the draft bar's own
@@ -636,10 +637,11 @@ const QUIET_ACTION = 'w-[104px]';
  *
  * 🧱 ON THE TEMPLATES (owner 2026-10-08, with a picture of these rows: *"we better fix the buttons here as well"*):
  *   · each is a house row — its name, one quiet line of what it does, the action at the right (`FormRow`);
- *   · "Restore" is the SECOND action button (white, a hairline, ink words, a full pill). With nothing to restore it is
- *     the button's own waiting look — grey and `aria-disabled`, still a button — never faded text;
- *   · "Reset…" is the DELETE action button (the danger token — it was the gold `terracotta-700` family). Its "…"
- *     stays: it opens the draft bar's confirm, which asks once;
+ *   · both are the house `ActionButton` (`components/action-button.tsx`, the button rule — icon + word, a 40-px pill);
+ *   · "Restore" is its `neutral` tone (a hairline, ink word). With nothing to restore it is the button's WAITING look
+ *     — grey and `aria-disabled`, still a button — never faded text;
+ *   · "Reset…" is its `danger` tone (it was the gold `terracotta-700` family). Its "…" stays: it opens the draft
+ *     bar's confirm, which asks once;
  *   · the two are the same width and height, on one right edge; "About" has no button.
  * 🔑 No handler, name or behaviour changed, and nothing here asks the server: Restore runs the draft bar's own
  * restore, Reset… only opens its confirm.
@@ -651,16 +653,12 @@ export function StudioQuietRows() {
     <FormRows data="quiet" attrs={{ 'data-studio-quiet': '' }} className="mt-4">
       {draft ? (
         <FormRow data="restore" name="Restore" line="Back to what guests see now" attrs={{ 'data-studio-quiet-row': 'restore' }}>
-          <ActionButton tone="second" size="row" className={QUIET_ACTION} disabled={!draft.canRestore} onClick={() => draft.canRestore && draft.restore()}>
-            Restore
-          </ActionButton>
+          <ActionButton tone="neutral" icon={Undo} label="Restore" className={QUIET_ACTION} waiting={!draft.canRestore} onClick={() => draft.canRestore && draft.restore()} />
         </FormRow>
       ) : null}
       {draft ? (
         <FormRow data="reset" name="Reset" line="Start this stage over" attrs={{ 'data-studio-quiet-row': 'reset' }}>
-          <ActionButton tone="delete" size="row" className={QUIET_ACTION} onClick={() => window.dispatchEvent(new Event(MAKER_OPEN_RESET_EVENT))}>
-            Reset…
-          </ActionButton>
+          <ActionButton tone="danger" icon={RotateCcw} label="Reset…" className={QUIET_ACTION} onClick={() => window.dispatchEvent(new Event(MAKER_OPEN_RESET_EVENT))} />
         </FormRow>
       ) : null}
       <FormRow data="about" name="About" line="Made with Setnayan" attrs={{ 'data-studio-quiet-row': 'about' }} />

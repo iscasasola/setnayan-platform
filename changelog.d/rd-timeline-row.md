@@ -129,3 +129,25 @@ Guard: `apps/web/lib/studio-love-story-wears-the-timeline-row.test.ts` (7 tests;
 23 sabotages seen red). `port-control-baseline.json` regenerated.
 
 SPEC IMPACT: None.
+
+## 2026-10-08 · feat(studio): Schedule and Love Story — empty, loading and a problem never look alike
+
+Gallery § 16, on both Studio pages:
+
+- LOADING — while either page streams into the Studio, soft shimmering shapes
+  of the rows that are coming (`TimelineRowsLoading`, the real row's own band
+  and line; still under reduced motion). The shipped Maker keeps its words.
+- EMPTY — Studio › Schedule with no moments says what to do first and gives the
+  ONE Add button (the main one) in the middle; a viewer gets words only. Love
+  Story keeps the owner's sample rows, which are still and named.
+- A PROBLEM — a refused read SAYS SO with Try again (`TimelineReadProblem`: one
+  re-read per tap, nothing retries by itself). In the Maker the Schedule page
+  now catches a refused read of the day and stops BEFORE its run-of-show seed
+  (it used to throw to the route's error page; outside the Maker it still
+  does). The Love Story page, in the Maker, no longer answers a refused read by
+  redirecting the couple to the dashboard as if the event were not theirs.
+
+Guard: `apps/web/lib/the-timeline-states-never-look-alike.test.ts` (6 tests;
+15 sabotages seen red).
+
+SPEC IMPACT: None.

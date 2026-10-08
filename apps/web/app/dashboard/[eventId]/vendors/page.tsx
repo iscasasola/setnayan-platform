@@ -37,6 +37,9 @@ import { teamCountsLine, teamRows, type TeamRowFacts } from '@/lib/your-team-row
 import { buildTally, suppliersDateFact, suppliersPlaceFact } from '@/lib/suppliers-shell';
 import { pickVenueBookingRows, type VenueBookingRow } from '@/lib/event-venues';
 import { regionLabel } from '@/lib/region-source';
+import { plannedTileIdSet } from '@/lib/leaf-suggestions';
+import { addedCategoriesOf } from '@/lib/explore-in-plan';
+import { popularTilesFor } from '@/lib/supplier-find';
 import { hasVerifiedBadge } from '@/lib/verified-badge';
 import { readUnreadChatCountsByThread } from '@/lib/vendor-unread-threads';
 import { benchUnreadFrom } from '@/lib/bench-unread';
@@ -1483,12 +1486,20 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // plan the reveal promised is front-and-center where they act on it. Scoped to
   // NON-wedding (wedding keeps its own rich plan/build machinery untouched).
   const plannedTiles = (() => {
-    if ((ev?.event_type ?? 'wedding') === 'wedding') return undefined;
+    // ⚖ Owner 2026-10-08 ("which rows a wedding shows": *"go"*) — a wedding
+    // honours its OWN onboarding picks too. They were ignored here since
+    // 2026-06-28, which is why a wedding's bench showed every category. The
+    // picks are onboarding PICKER keys for a wedding and tile ids elsewhere;
+    // `plannedTileIdSet` is the one bridge (it keeps a raw tile id as it is).
+    // …plus every category the couple added under the ring since
+    // (`added_categories`, `lib/explore-in-plan.ts`).
     const prefs = (ev?.style_preferences ?? {}) as Record<string, unknown>;
     const picks = Array.isArray(prefs.interested_categories)
       ? (prefs.interested_categories as unknown[]).filter((p): p is string => typeof p === 'string')
       : [];
-    return picks.length > 0 ? new Set(picks) : undefined;
+    const tiles = plannedTileIdSet(picks);
+    for (const t of addedCategoriesOf(prefs)) tiles.add(t);
+    return tiles.size > 0 ? tiles : undefined;
   })();
 
   // ── Bench date-availability fit (2026-07-09) ────────────────────────────────
@@ -2108,6 +2119,9 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         daysUntilWedding={daysUntilWedding}
         // Explore Replan PR-C — tile-level exclusions ("Not needed? Remove").
         excludedTiles={excludedTiles}
+        // The starter ring for an event with no plan of its own — the four a
+        // host of its type books first (the Find page's own "Popular" list).
+        starterTiles={[...popularTilesFor(ev?.event_type ?? null)]}
         // Explore Replan PR-G1 — the convergence banner between the Coverage
         // Strip and the bench. Null on an open window (nothing to report yet)
         // and whenever the tier isn't running.

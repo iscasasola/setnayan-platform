@@ -59,6 +59,18 @@ export type InPlanInput = {
    * instead of silently doing nothing.
    */
   pinnedTiles?: ReadonlySet<string>;
+  /**
+   * THE STARTER RING (owner 2026-10-08, "which rows a wedding shows": *"go"*) —
+   * what an event with NO plan of its own opens on: the "popular four" its
+   * type books first (`popularTilesFor`, `lib/supplier-find.ts`). Given, an
+   * unseeded event shows starter ∪ engaged instead of every tile, and the rest
+   * wait under "＋ Add to your event". Omitted → the 2026-07-27 rule, unchanged
+   * (every tile minus the removed ones).
+   *
+   * 🔑 It can only ever ADD rows to "engaged". A category that already holds one
+   * of the couple's suppliers, or a booking, is in plan whatever this says.
+   */
+  starterTiles?: ReadonlySet<string>;
 };
 
 export type InPlanResolution = {
@@ -96,12 +108,17 @@ export function resolveInPlanTiles(input: InPlanInput): InPlanResolution {
   if (seeded) {
     for (const t of input.plannedTiles) if (known.has(t) && !excluded.has(t)) inPlan.add(t);
     for (const t of engaged) inPlan.add(t);
+  } else if (input.starterTiles) {
+    for (const t of input.starterTiles) if (known.has(t) && !excluded.has(t)) inPlan.add(t);
+    for (const t of engaged) inPlan.add(t);
   } else {
     for (const t of all) if (!excluded.has(t)) inPlan.add(t);
   }
   for (const t of pinned) inPlan.add(t);
 
-  const coverage = seeded ? new Set(inPlan) : engaged;
+  // With a plan or a starter ring the bench IS the short list, so the count is
+  // over all of it; the every-tile fallback keeps counting what is engaged.
+  const coverage = seeded || input.starterTiles ? new Set(inPlan) : engaged;
   const pool = all.filter((t) => !inPlan.has(t));
 
   return { seeded, inPlan, pool, coverage };
@@ -114,4 +131,57 @@ export function resolveInPlanTiles(input: InPlanInput): InPlanResolution {
  */
 export function canRemoveTileFromPlan(t: { lockedCount: number }): boolean {
   return t.lockedCount === 0;
+}
+
+/* ── "＋ ADD TO YOUR EVENT" — WHERE AN ADDED CATEGORY IS KEPT ────────────────
+ *
+ * Owner 2026-10-08: a category added under the ring must STAY on the event.
+ * Until then nothing stored that choice — `event_category_decisions` knows
+ * `excluded | deferred | complete`, and "＋ Add" only deleted an exclusion, so
+ * a never-planned category was back in the pool on the next load.
+ *
+ * It is kept in the event's `style_preferences` blob (no migration), under ITS
+ * OWN key rather than appended to the onboarding picks beside it:
+ *
+ *   `interested_categories` is read by four other features in the ONBOARDING
+ *   PICKER's vocabulary (`PICK_TO_GROUP`) — the checklist's budget scope
+ *   (`lib/checklist-budget.ts`), the checklist's suggestions, the brief sent to
+ *   suppliers, and the onboarding auto-inquiry fan-out
+ *   (`lib/pending-inquiries.ts`). A bench TILE id appended there would grow the
+ *   checklist for the ~15 tiles that happen to share a picker key and do
+ *   nothing for the rest, and could be swept into a still-pending fan-out that
+ *   messages suppliers. None of that is what "show this category on my
+ *   Suppliers page" means. A key nobody else reads changes exactly one thing.
+ */
+export const ADDED_CATEGORIES_KEY = 'added_categories';
+
+/** A taxonomy tile id, as stored — never a label, never free text. */
+const TILE_ID = /^[a-z0-9][a-z0-9_]{0,63}$/;
+/** More tiles than the taxonomy holds is not a list of categories. */
+const MAX_ADDED_CATEGORIES = 200;
+
+/** The stored list, read defensively: strings that look like tile ids, once each. */
+export function addedCategoriesOf(stylePreferences: unknown): string[] {
+  const blob =
+    stylePreferences && typeof stylePreferences === 'object' && !Array.isArray(stylePreferences)
+      ? (stylePreferences as Record<string, unknown>)[ADDED_CATEGORIES_KEY]
+      : null;
+  if (!Array.isArray(blob)) return [];
+  const out: string[] = [];
+  for (const v of blob) {
+    if (typeof v === 'string' && TILE_ID.test(v) && !out.includes(v)) out.push(v);
+    if (out.length >= MAX_ADDED_CATEGORIES) break;
+  }
+  return out;
+}
+
+/**
+ * The list with one tile added — or `null` when the tile is not a tile id (the
+ * caller writes nothing). Idempotent: adding a tile twice keeps one.
+ */
+export function withAddedCategory(current: unknown, tile: string): string[] | null {
+  if (!TILE_ID.test(tile)) return null;
+  const list = addedCategoriesOf({ [ADDED_CATEGORIES_KEY]: current });
+  if (list.includes(tile)) return list;
+  return list.length >= MAX_ADDED_CATEGORIES ? list : [...list, tile];
 }

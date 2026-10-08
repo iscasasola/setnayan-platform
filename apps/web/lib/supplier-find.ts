@@ -183,6 +183,16 @@ const POPULAR_BY_TYPE: Readonly<Record<string, readonly string[]>> = {
 };
 const POPULAR_DEFAULT: readonly string[] = ['reception', 'catering', 'photo_video', 'host_mc'];
 
+/**
+ * The same four, as a set — the STARTER RING of the Suppliers page for an event
+ * with no plan of its own (owner 2026-10-08; `resolveInPlanTiles`'
+ * `starterTiles`). One list, two readers: "Popular for <type>" here and the
+ * rows a new event opens on there cannot name different categories.
+ */
+export function popularTilesFor(eventType: string | null | undefined): ReadonlySet<string> {
+  return new Set(POPULAR_BY_TYPE[eventType ?? 'wedding'] ?? POPULAR_DEFAULT);
+}
+
 const TYPE_PLURAL: Readonly<Record<string, string>> = {
   wedding: 'weddings',
   birthday: 'birthdays',

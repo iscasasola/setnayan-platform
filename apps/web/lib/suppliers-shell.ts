@@ -138,6 +138,47 @@ export function isCategoryOpen(s: {
   return s.openTile === s.tile;
 }
 
+/* ── FIND: A ROW'S STATE WORD, AND "COVERED N OF M" ──────────────────────── */
+
+/** A category's coverage state, as `lib/coverage-strip.ts` derives it. */
+type RowCoverage = 'empty' | 'exploring' | 'picked' | 'asked' | 'locked' | 'covered';
+
+export type CategoryRowState = {
+  kind: 'booked' | 'covered' | 'quote_in' | 'to_decide';
+  /** The number the words follow ("2 quote in"), or null for a word alone. */
+  n: number | null;
+  words: string;
+  tone: 'ok' | 'attention';
+};
+
+/**
+ * The ONE state word on a category's row (the prototype's `catState`):
+ *   Booked ✓       a supplier is booked here
+ *   Covered ✓      the couple said they are done, or it comes with another booking
+ *   N quote in     a quote is waiting on the couple
+ *   N to decide    they have suppliers here and nothing is booked
+ *   (nothing)      nobody here yet — never "0 to decide"
+ * A booking outranks a "done" mark — booking a single-supplier category also
+ * marks it done, and the row says the stronger, truer thing.
+ */
+export function categoryRowState(t: {
+  lockedCount: number;
+  covered: boolean;
+  vendorCount: number;
+  quoteInCount: number;
+}): CategoryRowState | null {
+  if (t.lockedCount > 0) return { kind: 'booked', n: null, words: 'Booked ✓', tone: 'ok' };
+  if (t.covered) return { kind: 'covered', n: null, words: 'Covered ✓', tone: 'ok' };
+  if (t.quoteInCount > 0) return { kind: 'quote_in', n: t.quoteInCount, words: 'quote in', tone: 'attention' };
+  if (t.vendorCount > 0) return { kind: 'to_decide', n: t.vendorCount, words: 'to decide', tone: 'attention' };
+  return null;
+}
+
+/** "Covered N of M" — N is every category that is booked or covered. */
+export function ringCoveredCount(states: readonly RowCoverage[]): number {
+  return states.filter((s) => s === 'locked' || s === 'covered').length;
+}
+
 /* ── THE DATE · PLACE LINE ───────────────────────────────────────────────── */
 
 export type SuppliersFact = {

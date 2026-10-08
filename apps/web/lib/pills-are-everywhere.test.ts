@@ -37,6 +37,7 @@ const has = (classes: string, c: string) => classes.split(/\s+/).includes(c);
 const D = 'app/dashboard/[eventId]';
 const A = 'app/dashboard/(account)';
 const V = 'app/vendor-dashboard';
+const AD = 'app/admin';
 
 /**
  * ONE CONVERTED SELECTOR.
@@ -90,6 +91,13 @@ export const CONVERTED: readonly Converted[] = [
   { area: 'supplier', what: 'Billing term (Every 28 days | Yearly)', file: `${V}/subscription/custom/_components/custom-configurator.tsx`, anchor: 'aria-label="Billing term"', via: 'track', thumb: 'waits', why: RADIO, gone: 'rounded-lg border border-ink/12 p-1' },
   /* ── area 3 · onboarding, sign-in and the public pages ── */
   { area: 'public', what: 'Browse songs (Top 100 | Search | Playlist)', file: 'app/onboarding/wedding/_components/song-bank-step.tsx', anchor: 'aria-label="Browse songs"', via: 'track', thumb: 'slides', gone: "className={mode === m ? 'on' : undefined}" },
+  /* ── area 4 · admin (selector shape only) ── */
+  { area: 'admin', what: 'Verification surfaces (Applications | Listing visibility)', file: `${AD}/verify/page.tsx`, anchor: 'aria-label="Verification surfaces"', via: 'track', thumb: 'slides', gone: 'mb-4 inline-flex flex-wrap gap-2' },
+  { area: 'admin', what: 'Price state (On sale | Switched off)', file: `${AD}/pricing/_components/catalog-editor.tsx`, anchor: 'aria-label="Price state"', via: 'track', thumb: 'slides', gone: "'border-terracotta-700 text-ink'" },
+  { area: 'admin', what: 'Connection logs (Active issues | Resolved archive)', file: `${AD}/connection-logs/connection-logs-client.tsx`, anchor: 'data-connection-log-tabs=""', via: 'track', thumb: 'slides', gone: "'bg-[#1B1A17] text-white' : 'text-[#5B5B5B]" },
+  { area: 'admin', what: 'Custom plan pay channel (BDO | GCASH)', file: `${AD}/custom-plans/_components/custom-composer.tsx`, anchor: 'data-pay-channel=""', via: 'track', thumb: 'slides', gone: "channel === ch ? 'bg-ink text-cream'" },
+  { area: 'admin', what: 'Integrity watch sections (Reviews | Listings | Inquiries | Prices)', file: `${AD}/integrity-watch/page.tsx`, anchor: 'data-integrity-tabs=""', via: 'track', thumb: 'slides', gone: "tab === 'reviews'\n              ? 'bg-ink text-cream'" },
+  { area: 'admin', what: 'Concierge abuse sections (Pending review | Enforcement decisions)', file: `${AD}/concierge-abuse/_components/abuse-tabs.tsx`, anchor: 'data-abuse-tabs=""', via: 'classes', thumb: 'slides', gone: 'bg-terracotta text-cream' },
 ];
 
 /** From the opening `<` of the element the anchor sits on, a window long enough to hold the selector. */
@@ -165,7 +173,7 @@ test('(1) pill-track.tsx — the template, as three elements a server page can w
 });
 
 test('(2)(3) every converted selector is drawn by the template — its track, its choices, its thumb; the hand-made look is gone', () => {
-  assert.ok(CONVERTED.length >= 25, `anti-vacuity: only ${CONVERTED.length} selectors are held`);
+  assert.ok(CONVERTED.length >= 31, `anti-vacuity: only ${CONVERTED.length} selectors are held`);
   const report: string[] = [];
   for (const c of CONVERTED) {
     const faults = pillFaults(read(c.file), c);
@@ -173,6 +181,10 @@ test('(2)(3) every converted selector is drawn by the template — its track, it
     if (c.thumb === 'waits') assert.ok(c.why && c.why.length > 20, `${c.what}: a selector whose thumb cannot slide yet must say why`);
   }
   assert.deepEqual(report, [], `a converted selector is no longer drawn by the pill template:\n  ${report.join('\n  ')}`);
+  // A selector that moved into its own small file is still MOUNTED by its page, and the page's hand-made row is gone.
+  const abusePage = read(`${AD}/concierge-abuse/page.tsx`);
+  assert.match(abusePage, /<AbuseTabs\s+tab=\{tab\}/, 'the concierge-abuse page no longer mounts its section selector');
+  assert.doesNotMatch(abusePage, /href="\/admin\/concierge-abuse\?tab=(?:queue|enforcement)"/, 'the concierge-abuse page draws its two section links by hand again');
   // Two lines never name the same selector.
   const keys = CONVERTED.map((c) => `${c.file}|${c.anchor}`);
   assert.equal(new Set(keys).size, keys.length, 'two lines name the same selector');
@@ -188,6 +200,31 @@ test('(2)(3) every converted selector is drawn by the template — its track, it
   assert.deepEqual(pillFaults(goodWorn, worn), []);
   assert.equal(pillFaults(goodWorn.replace('<PillThumb />\n', ''), worn).length, 1, 'blind to a missing thumb');
   assert.equal(pillFaults(goodWorn.replace('${PILL_TRACK_CLASS} ${PILL_TRACK_GROUND}', 'flex rounded-md bg-cream p-1'), worn).length, 1, 'blind to a track that dropped the template’s class');
+});
+
+test('(2b) the concierge-abuse sections, RENDERED — a refused read is “—”, never 0; a count carries its commas; the picked link says so', async () => {
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { AbuseTabs } = await import('../app/admin/concierge-abuse/_components/abuse-tabs');
+  const paint = (props: Record<string, unknown>) => renderToStaticMarkup(React.createElement(AbuseTabs as never, props as never));
+  // A refused read: the tab says "—". It must never say 0 — that reads as "nothing is waiting".
+  const refused = paint({ tab: 'queue', pending: null, enforcement: null });
+  assert.match(refused, /Pending review \((?:<!-- -->)?—(?:<!-- -->)?\)/, 'a refused read of the queue is not shown as “—”');
+  assert.match(refused, /Enforcement decisions \((?:<!-- -->)?—(?:<!-- -->)?\)/);
+  assert.doesNotMatch(refused, /\((?:<!-- -->)?0(?:<!-- -->)?\)/, 'a refused read is shown as 0');
+  // A measured count, with its commas; a true zero IS a zero.
+  const counted = paint({ tab: 'enforcement', pending: 1234, enforcement: 0 });
+  assert.match(counted, /Pending review \((?:<!-- -->)?1,234(?:<!-- -->)?\)/);
+  assert.match(counted, /Enforcement decisions \((?:<!-- -->)?0(?:<!-- -->)?\)/);
+  assert.match(paint({ tab: 'queue', pending: 0, enforcement: 5678 }), /Enforcement decisions \((?:<!-- -->)?5,678(?:<!-- -->)?\)/, 'the enforcement count lost its commas');
+  // The same two addresses; exactly one link says it is the current page — the picked one.
+  assert.match(counted, /href="\/admin\/concierge-abuse\?tab=queue"/);
+  assert.match(counted, /href="\/admin\/concierge-abuse\?tab=enforcement"/);
+  assert.equal((counted.match(/aria-current="page"/g) ?? []).length, 1);
+  assert.match(counted, /<a [^>]*aria-current="page"[^>]*>Enforcement decisions|<a [^>]*aria-current="page"[^>]*href="\/admin\/concierge-abuse\?tab=enforcement"/);
+  // The page hands over null on a refused read — not a length it never measured.
+  const page = read(`${AD}/concierge-abuse/page.tsx`);
+  assert.match(page, /pending=\{pendingUnread \? null : pendingFlags\.length\}/);
+  assert.match(page, /enforcement=\{enforcementUnread \? null : enforcementUsers\.length\}/);
 });
 
 test('(3b) onboarding’s own CSS gives the song selector its padding back and nothing else — the look stays the template’s', () => {

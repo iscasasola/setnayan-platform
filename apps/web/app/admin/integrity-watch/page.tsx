@@ -35,6 +35,7 @@ import {
 import { plausibilityScannerEnabled } from '@/lib/plausibility-scanner-flag';
 import { FormFlash } from '@/app/_components/forms/form-flash';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { PillLink, PillTrack } from '@/app/_components/pill-track';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Integrity watch · Admin' };
@@ -355,55 +356,29 @@ export default async function AdminIntegrityWatchPage({
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="mb-4 flex items-center gap-2">
-        <Link
-          href="/admin/integrity-watch?tab=reviews"
-          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium ${
-            tab === 'reviews'
-              ? 'bg-ink text-cream'
-              : 'border border-ink/15 text-ink/70 hover:bg-ink/[0.04]'
-          }`}
-        >
+      {/* Tabs — the app's ONE pill selector (owner 2026-10-08: "adjust all pill selectors to this"). Still links to
+          the same addresses; the picked one now says `aria-current="page"` (it said nothing), which is how the
+          sliding thumb finds it. */}
+      <PillTrack className="mb-4" data-integrity-tabs="">
+        <PillLink on={tab === 'reviews'} href="/admin/integrity-watch?tab=reviews" aria-current={tab === 'reviews' ? 'page' : undefined} className="gap-1.5 px-3">
           <Star aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Reviews
           {openReviews ? ` · ${openReviews}` : ''}
-        </Link>
-        <Link
-          href="/admin/integrity-watch?tab=listings"
-          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium ${
-            tab === 'listings'
-              ? 'bg-ink text-cream'
-              : 'border border-ink/15 text-ink/70 hover:bg-ink/[0.04]'
-          }`}
-        >
+        </PillLink>
+        <PillLink on={tab === 'listings'} href="/admin/integrity-watch?tab=listings" aria-current={tab === 'listings' ? 'page' : undefined} className="gap-1.5 px-3">
           <Store aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Listings
           {openListings ? ` · ${openListings}` : ''}
-        </Link>
-        <Link
-          href="/admin/integrity-watch?tab=inquiries"
-          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium ${
-            tab === 'inquiries'
-              ? 'bg-ink text-cream'
-              : 'border border-ink/15 text-ink/70 hover:bg-ink/[0.04]'
-          }`}
-        >
+        </PillLink>
+        <PillLink on={tab === 'inquiries'} href="/admin/integrity-watch?tab=inquiries" aria-current={tab === 'inquiries' ? 'page' : undefined} className="gap-1.5 px-3">
           <Users aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Inquiries
           {openInquiries ? ` · ${openInquiries}` : ''}
-        </Link>
+        </PillLink>
         {pricesEnabled && (
-          <Link
-            href="/admin/integrity-watch?tab=prices"
-            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium ${
-              tab === 'prices'
-                ? 'bg-ink text-cream'
-                : 'border border-ink/15 text-ink/70 hover:bg-ink/[0.04]'
-            }`}
-          >
+          <PillLink on={tab === 'prices'} href="/admin/integrity-watch?tab=prices" aria-current={tab === 'prices' ? 'page' : undefined} className="gap-1.5 px-3">
             <Coins aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Prices
             {openPrices ? ` · ${openPrices}` : ''}
-          </Link>
+          </PillLink>
         )}
-      </div>
+      </PillTrack>
 
       {/* Status filters */}
       <div className="mb-4 flex flex-wrap items-center gap-2">

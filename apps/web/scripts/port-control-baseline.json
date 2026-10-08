@@ -1,5 +1,5 @@
 {
-  "generatedFromRef": "bc46ff712",
+  "generatedFromRef": "effd190f9",
   "routeCount": 429,
   "destinations": 958,
   "actions": 672,
@@ -6046,6 +6046,7 @@
         "dashboard/[eventId]/guests/_components/guest-delete.tsx",
         "dashboard/[eventId]/guests/_components/guest-helper-access.tsx",
         "dashboard/[eventId]/guests/_components/guest-invite-cell.tsx",
+        "dashboard/[eventId]/guests/_components/guest-list-error-copy.ts",
         "dashboard/[eventId]/guests/_components/guest-list-has-sides-context.ts",
         "dashboard/[eventId]/guests/_components/guest-map-canvas.tsx",
         "dashboard/[eventId]/guests/_components/guest-name-fields.tsx",

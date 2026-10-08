@@ -21,3 +21,9 @@ SPEC IMPACT: None
 The add-a-guest sheet, quick add, the ticket view, the New QR / Unlink confirm, "Add from your people", the Delete warning and the New-group sheet are drawn by one `GuestPopup` (`usePopupBehind` + `.sn-popup-dark`): dark and blurred behind, a tap on the dark closes it, nothing behind works or scrolls, Escape closes, focus is managed — and drawn on <body>, so the Delete warning's Cancel is no longer half hidden under the bottom bar. Content and behaviour of each are unchanged. A refused action is told in one plain sentence of the page's own ("Couldn’t delete Daniel Ramos. Try again."), never the database's words; the raw text goes only to the fault report. The shared `Sheet` is not changed (it does not follow the rule — listed). No request, no server action, no migration added.
 
 SPEC IMPACT: None
+
+## 2026-10-09 · fix(guests): Select mode's Invite N waits when nothing is selected; the list's error banner never prints the database's words
+
+"Invite N" in the live list's Select mode (it already existed, going to `/guests/send?ids=…` with the selected guests who still need an invitation — Rule 0) and "Remove N" are now WAITING buttons (grey, still buttons, a press does nothing) instead of faded when nothing applies; guarded by `the-select-mode-sends-invites.test.ts`. The `?error=` banner on the guest list (bulk Set…, New group, table writes) shows an action's words only when they are a plain sentence — a database message that happens to contain spaces no longer passes as "prose" (`guest-list-error-copy.ts`). In the Delete warning the sentence keeps its gap above Delete. No request, no server action, no migration added.
+
+SPEC IMPACT: None

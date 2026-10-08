@@ -226,7 +226,9 @@ export function DeleteGuestWarning({
           {error}
         </p>
       ) : null}
-      <span className="contents" data-guest-delete-confirm="">
+      {/* A box, not a `contents` span: `space-y-4` puts its gap above a box, and a `contents` element has none — the
+          sentence touched the Delete button (controller, 2026-10-09). */}
+      <div data-guest-delete-confirm="">
         <ActionButton
           tone="danger"
           main
@@ -236,7 +238,7 @@ export function DeleteGuestWarning({
           disabled={busy}
           className="w-full"
         />
-      </span>
+      </div>
       <ActionButton tone="neutral" icon={X} label="Cancel" onClick={onClose} className="w-full" />
     </div>
   );

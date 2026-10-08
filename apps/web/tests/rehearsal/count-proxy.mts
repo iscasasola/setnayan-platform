@@ -100,6 +100,14 @@ const server = http.createServer((req, res) => {
     res.writeHead(204).end();
     return;
   }
+  if (u.pathname === '/__rehearsal/total') {
+    // For "has it gone quiet?" and "what did THIS step cost so far?".
+    const db = (c: StepCount): number =>
+      (['server', 'browser'] as const).reduce((n, w) => n + c.counts[w].read + c.counts[w].write + c.counts[w].rpc, 0);
+    const all = steps.reduce((n, c) => n + db(c) + c.counts.server.auth + c.counts.browser.auth, 0);
+    res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ total: all, stepDb: db(current()) }));
+    return;
+  }
   if (u.pathname === '/__rehearsal/report') {
     persist();
     res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ steps }));

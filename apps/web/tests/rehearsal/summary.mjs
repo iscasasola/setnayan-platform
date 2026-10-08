@@ -160,7 +160,7 @@ if (reqSteps.length === 0) {
   say('Counted at the door between the app and the database, for the fixture (30 guests, 12 suppliers, 3 orders).');
   say('"DB" = PostgREST requests (reads + writes + function calls). "from the phone" = sent by the browser itself, the rest by the app\'s server.');
   say();
-  say('| Step | Screens opened | Other screens preloaded | DB reads | DB writes | DB function calls | **DB total** | from the phone | auth | refused | Asked most |');
+  say('| Step | Screen loads | Presses | DB reads | DB writes | DB function calls | **DB total** | from the phone | auth | refused | Asked most |');
   say('|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|');
   let grand = 0;
   const refusedLines = [];
@@ -180,12 +180,12 @@ if (reqSteps.length === 0) {
       .join(', ');
     for (const [k, n] of Object.entries(s.refused ?? {})) refusedLines.push(`- ${cell(s.step)}: \`${cell(k)}\` ×${n}`);
     say(
-      `| ${cell(s.step)} | ${walked ? walked.app?.screens ?? '' : ''} | ${walked ? walked.app?.preloads ?? '' : ''} | ${sum('read')} | ${sum('write')} | ${sum('rpc')} | **${db}** | ${fromPhone} | ${sum('auth')} | ${s.failed ?? 0} | ${cell(top)} |`,
+      `| ${cell(s.step)} | ${walked ? walked.app?.screens ?? '' : ''} | ${walked ? walked.app?.presses ?? '' : ''} | ${sum('read')} | ${sum('write')} | ${sum('rpc')} | **${db}** | ${fromPhone} | ${sum('auth')} | ${s.failed ?? 0} | ${cell(top)} |`,
     );
   }
   say(`| **Whole walk** (steps only) | | | | | | **${grand}** | | | | |`);
   say();
-  say('"Other screens preloaded" is why a host screen costs what it costs: the app loads the screens its links point to, in the background, and each of those reads the database too. Every number in a row is everything that row set off.');
+  say('"Screen loads" = how many screens the phone asked the app\'s server to draw during the step: the one the person opened, plus every screen the app loaded in the background on its own (link preloads and the app\'s own preloader). "Presses" = taps that reached the server. Every number in a row is everything that row set off, counted until the database went quiet.');
   say();
   if (refusedLines.length > 0) {
     say(`**Requests the database refused (${refusedLines.length} kinds)** — each is worth a look before the upload:`);

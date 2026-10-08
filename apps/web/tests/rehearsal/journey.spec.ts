@@ -11,6 +11,8 @@
  *   C  Guests › Setup → one guest's invitation link is copied (nothing is sent)
  *      → the guest opens it → replies yes → the host sees them coming
  *   D  the public page, signed out
+ *   E  two screens left open for a minute with nothing pressed — what the app
+ *      asks the database when nothing happened (owner rule: it should ask nothing)
  *
  * Every step: tells the request counter its name, asserts what a PERSON would
  * check (the name on the reply, the count on the tile — never just "it
@@ -40,9 +42,13 @@ const PASSWORD = process.env.REHEARSAL_HOST_PASSWORD ?? '';
 
 /** What the phone asked the APP for during a step — the reason behind its database count. */
 type AppAsks = {
-  /** Screens the person opened (a page load or an in-app navigation). */
+  /**
+   * Screens the phone asked the app's server to draw: the one the person
+   * opened, plus every screen the app loaded in the background on its own
+   * (link preloads and the app's own preloader). Each one reads the database.
+   */
   screens: number;
-  /** OTHER screens the app loaded in the background, unasked (link preloads). */
+  /** Of those, the ones sent as a link preload. */
   preloads: number;
   /** Presses that reached the server (server actions). */
   presses: number;
@@ -98,9 +104,11 @@ async function phone(browser: Browser): Promise<BrowserContext> {
     if (isLocalUrl(url)) {
       if (running && url.startsWith(BASE)) {
         const h = request.headers();
-        if (h['next-router-prefetch']) running.app.preloads += 1;
-        else if (h['next-action']) running.app.presses += 1;
-        else if (request.resourceType() === 'document' || h['rsc']) running.app.screens += 1;
+        if (h['next-action']) running.app.presses += 1;
+        else if (request.resourceType() === 'document' || h['rsc']) {
+          running.app.screens += 1;
+          if (h['next-router-prefetch']) running.app.preloads += 1;
+        }
       }
       return route.continue();
     }
@@ -148,6 +156,45 @@ async function answerCookieNotice(page: Page): Promise<void> {
     await essential.click({ timeout: 5_000 });
   } catch {
     /* not on this screen */
+  }
+}
+
+/** Park a page on nothing, so what it would keep asking is not billed to another visitor's step. */
+async function rest(page: Page): Promise<void> {
+  await page.goto('about:blank').catch(() => {});
+}
+
+/** Read the request counter. `stepDb` is what the running step has cost so far. */
+async function counted(): Promise<{ total: number; stepDb: number }> {
+  if (!COUNTER) return { total: -1, stepDb: -1 };
+  try {
+    const j = (await (await fetch(`${COUNTER}/__rehearsal/total`)).json()) as { total?: number; stepDb?: number };
+    return { total: Number(j.total ?? -1), stepDb: Number(j.stepDb ?? -1) };
+  } catch {
+    return { total: -1, stepDb: -1 };
+  }
+}
+
+/**
+ * Wait until the database has heard nothing for a moment. The browser going
+ * quiet is not enough: the server may still be drawing the screens it was asked
+ * to preload, and those requests belong to THIS step, not the next one.
+ */
+async function settle(maxMs = 30_000): Promise<void> {
+  if (!COUNTER) return;
+  const until = Date.now() + maxMs;
+  let last = -2;
+  let same = 0;
+  while (Date.now() < until) {
+    const { total } = await counted();
+    if (total === last) {
+      same += 1;
+      if (same >= 3) return;
+    } else {
+      same = 0;
+      last = total;
+    }
+    await new Promise((r) => setTimeout(r, 500));
   }
 }
 
@@ -203,6 +250,7 @@ class Walk {
       // Let the screen settle the way an eye would before the picture is taken
       // — and so the background loads it set off are counted under THIS step.
       await page().waitForLoadState('networkidle', { timeout: 20_000 }).catch(() => {});
+      await settle();
       await page().evaluate(() => window.scrollTo(0, 0)).catch(() => {});
       record.screenshot = `${num}-${slugOf(title)}.png`;
       await page().screenshot({ path: path.join(SCREENS, record.screenshot) });
@@ -230,6 +278,7 @@ class Walk {
         record.screenshot = undefined;
       }
       // Loud, named, and on the run page — not only in an artifact.
+      await settle(10_000);
       console.log(
         `::error title=Rehearsal failed at step ${num}: ${title}::${message.replace(/\r?\n/g, ' ')} — screenshot: rehearsal-screens/${record.screenshot ?? '(none)'}`,
       );
@@ -295,19 +344,30 @@ test('the launch-critical journey', async ({ browser }) => {
     await expect(host.locator('[data-maker-shell]').first()).toBeVisible({ timeout: 45_000 });
     const sides = host.getByRole('group', { name: 'Stages or Studio' });
     await expect(sides).toBeVisible();
+    check('the Maker opens with Stages | Studio on top');
+    // A new event's Maker opens on Studio (by design: nothing covers Stages).
+    await sides.locator('[data-seg="stages"]').click();
     await expect(sides.locator('[data-seg="stages"]')).toHaveAttribute('aria-pressed', 'true');
-    check('the Maker opens on Stages, with Stages | Studio on top');
+    await expect(host.locator('[data-stage-tools]').first()).toBeVisible({ timeout: 30_000 });
+    const canvas = host.frameLocator('iframe[data-maker-canvas-frame="shown"]');
+    for (const name of FIXTURE.hostNames) {
+      await expect(canvas.getByText(name, { exact: false }).first()).toBeVisible({ timeout: 45_000 });
+    }
+    check(`Stages shows the guest page itself, with ${FIXTURE.hostNames.join(' & ')} on it`);
     await expect(host.locator('[data-maker-apply] button:visible').first()).toBeDisabled();
     check('✓ Apply is off — nothing is waiting');
   }, ['A · Host']);
 
   await walk.step('B · Event Hub', 'Studio', () => host, async (check) => {
-    await host.getByRole('group', { name: 'Stages or Studio' }).locator('[data-seg="studio"]').click();
+    const sides = host.getByRole('group', { name: 'Stages or Studio' });
+    await sides.locator('[data-seg="studio"]').click();
+    await expect(sides.locator('[data-seg="studio"]')).toHaveAttribute('aria-pressed', 'true');
     await expect(host.locator('[data-studio-home]')).toBeVisible();
-    const tiles = host.locator('[data-studio-tile]');
-    await expect(tiles).toHaveCount(11);
+    await expect(host.locator('[data-studio-tile]')).toHaveCount(11);
     check('Studio shows its eleven tiles');
     await expect(host.locator('[data-studio-tile="info"]')).toBeVisible();
+    await expect(host.locator('[data-studio-ready]')).toContainText('of 11 ready');
+    check(`it says "${(await host.locator('[data-studio-ready]').innerText()).trim()}"`);
   }, ['A · Host']);
 
   await walk.step('B · Event Hub', 'Change the draft — a new note to guests', () => host, async (check) => {
@@ -328,6 +388,7 @@ test('the launch-critical journey', async ({ browser }) => {
     await expect(stranger.locator('h1[data-motion="arrive-names"]')).toBeVisible();
     await expect(stranger.getByText(note)).toHaveCount(0);
     check('the guest page does NOT show the draft yet');
+    await rest(stranger);
   }, ['A · Host']);
 
   await walk.step('B · Event Hub', '✓ Apply', () => host, async (check) => {
@@ -357,6 +418,7 @@ test('the launch-critical journey', async ({ browser }) => {
 
   // ── C · INVITE → REPLY ──────────────────────────────────────────────────
   await walk.step('C · Guests', 'Guests › Setup', () => host, async (check) => {
+    await rest(stranger);
     await host.goto(`${BASE}${eventUrl}/guests?gview=share`);
     await expect(host.locator('[data-guest-setup]')).toBeVisible({ timeout: 45_000 });
     await expect(host.locator('a[data-guests-seg="share"]')).toHaveAttribute('aria-current', 'page');
@@ -388,6 +450,7 @@ test('the launch-critical journey', async ({ browser }) => {
   }, ['A · Host']);
 
   await walk.step('C · Guests', 'The guest opens the link', () => guest, async (check) => {
+    await rest(host);
     await guest.goto(inviteLink);
     await guest.waitForURL((u) => u.pathname.includes('/invite/'), { timeout: 45_000 });
     await answerCookieNotice(guest);
@@ -419,6 +482,7 @@ test('the launch-critical journey', async ({ browser }) => {
   }, ['A · Host']);
 
   await walk.step('C · Guests', 'The host sees the guest is coming', () => host, async (check) => {
+    await rest(guest);
     await host.goto(`${BASE}${eventUrl}/guests?q=${encodeURIComponent(invited.lastName)}`);
     const row = host.locator(`[data-guest-row][data-guest-id="${invited.id}"]`);
     await expect(row).toBeVisible({ timeout: 45_000 });
@@ -429,8 +493,22 @@ test('the launch-critical journey', async ({ browser }) => {
     check(`the Home's "coming" count went ${comingBefore} → ${comingBefore + 1}`);
   }, ['A · Host']);
 
+  // ── E (first half) · THE HOST'S HOME, LEFT OPEN ─────────────────────────
+  const IDLE_SECONDS = 60;
+  await walk.step('E · Left open', `The host's Home, left open for ${IDLE_SECONDS} seconds`, () => host, async (check) => {
+    // The step above ended on the Home and waited for it to go quiet. Nothing
+    // is pressed here: whatever is counted now, the app asked on its own.
+    await expect(host.locator('section[aria-label="Home"]')).toBeVisible();
+    await host.waitForTimeout(IDLE_SECONDS * 1000);
+    await expect(host.locator('section[aria-label="Home"]')).toBeVisible();
+    const { stepDb } = await counted();
+    check(`nothing was pressed for ${IDLE_SECONDS} s — the app made ${stepDb < 0 ? 'an unread number of' : stepDb} database requests on its own`);
+  }, ['A · Host', 'C · Guests']);
+
   // ── D · A STRANGER ──────────────────────────────────────────────────────
   await walk.step('D · Public', 'The public guest page, signed out', () => stranger, async (check) => {
+    await rest(host);
+    await rest(guest);
     await strangerCtx.clearCookies();
     await stranger.goto(`${BASE}/${FIXTURE.slug}`);
     const names = stranger.locator('h1[data-motion="arrive-names"]');
@@ -445,6 +523,15 @@ test('the launch-critical journey', async ({ browser }) => {
     await expect(stranger.getByText(invited.fullName)).toHaveCount(0);
     check('no guest is named to a stranger');
   });
+
+  await walk.step('E · Left open', `The guest page, left open for ${IDLE_SECONDS} seconds`, () => stranger, async (check) => {
+    const names = stranger.locator('h1[data-motion="arrive-names"]');
+    await expect(names).toBeVisible();
+    await stranger.waitForTimeout(IDLE_SECONDS * 1000);
+    await expect(names).toBeVisible();
+    const { stepDb } = await counted();
+    check(`nothing was pressed for ${IDLE_SECONDS} s — the app made ${stepDb < 0 ? 'an unread number of' : stepDb} database requests on its own`);
+  }, ['D · Public']);
 
   finished = true;
   writeReports();

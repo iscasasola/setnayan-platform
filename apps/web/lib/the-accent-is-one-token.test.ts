@@ -67,6 +67,7 @@ const TEMPLATE_FILES = [
   'app/_components/explain.tsx', //        7 · ⓘ explanation (the centred popup on a phone, the note on a computer)
   'app/_components/fold.tsx', //           19 · Fold
   'app/_components/page-card.tsx', //      4 · Page card (the app-icon tile is the accent; its ⓘ is `explain.tsx`)
+  'app/_components/action-button.tsx', //  9 · Action button (main · second · quiet · delete; the waiting look)
   'app/_components/calendar.tsx', //       8 · Calendar (the month grid; its sheet on a phone, its panel on a computer)
   'app/_components/form-row-date.tsx', //      the Form row with a date (the pill with the calendar mark)
   'app/_components/chips.tsx', //          11 · Chips (choose several from a few)

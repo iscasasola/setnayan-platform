@@ -121,3 +121,20 @@ Owner, 2026-10-08, on the chooser: *"pop up looks good. remove the all pages."* 
 home's pages (in its order, the current one ticked). The Studio home is still where Stages → Studio lands.
 
 SPEC IMPACT: None.
+
+## 2026-10-08 · fix(studio): Restore · Reset… · About wear the approved rows and buttons
+
+Owner, 2026-10-08, with a picture of Studio › Info's last rows: *"we better fix the buttons here as well"*.
+
+- `app/_components/action-button.tsx` — the Action button (kind 9, the approved gallery § 9), which had no shared
+  source: `main` · `second` · `quiet` · `delete`, two sizes, and the waiting look (grey, `aria-disabled`, still a
+  button — a press does nothing). Joins `TEMPLATE_FILES`.
+- `StudioQuietRows` — each row is a house row (name · one quiet line · the action at the right): "Restore" is the
+  second button (the waiting look when there is nothing to restore — it was faded text), "Reset…" is the delete button
+  on the danger token (it was the gold `terracotta-700` family), both one size on one right edge; "About" has no
+  button. `FormRow` gains `line` — a row's quiet second line.
+- No handler, name or behaviour changed; nothing here asks the server. The Reset confirm itself is the draft bar's
+  (`hub-draft-bar.tsx`) and is unchanged.
+- `lib/studio-quiet-rows-wear-the-templates.test.ts` — three tests, six mutations seen red.
+
+SPEC IMPACT: None.

@@ -194,6 +194,29 @@ test('nothing is warmed before the stage on screen has said ready — and then o
   assert.equal(m.fetches(), 4);
 });
 
+test('a warmed stage whose bridge never says ready does not stall the warm — its document having LOADED is enough to start the next', () => {
+  // A real browser, 2026-10-08 (dev harness): the first warmed stage finished loading and still had not
+  // said `ready` 13 s later, so the other two were never warmed. "Up" is `ready` OR the iframe's `load`.
+  const m = new MakerOpen('rsvp');
+  const loaded = new Set<string>();
+  const step = () => {
+    const s = warmOnce(m.s, m.left, m.wanted(), m.max, { ready: (f) => m.up.has(canvasFrameId(f)) || loaded.has(canvasFrameId(f)), hidden: false, saved: false });
+    m.left = s.left;
+    m.s = s.state;
+  };
+  m.settle(); // the page on screen says ready
+  for (let i = 0; i < 6; i += 1) {
+    step();
+    const loading = (m.s.warm ?? []).filter((f) => !loaded.has(canvasFrameId(f)));
+    assert.ok(loading.length <= 1, 'never two pages loading at once');
+    step(); // an idle moment while it is still loading: nothing
+    assert.equal((m.s.warm ?? []).filter((f) => !loaded.has(canvasFrameId(f))).length, loading.length);
+    for (const f of m.s.warm ?? []) loaded.add(canvasFrameId(f)); // `load` fires; `ready` never does
+  }
+  assert.equal((m.s.warm ?? []).length, 3, 'all three other stages were warmed');
+  assert.deepEqual(m.left, []);
+});
+
 test('a hidden tab warms nothing; back in view, the warm happens — once', () => {
   const m = new MakerOpen('event');
   m.hidden = true;
@@ -425,7 +448,10 @@ test('the component: one warm effect, on idle, reading saves, the Maker render, 
   const effect = buffer.slice(buffer.indexOf('const warmLeft = useRef'), buffer.indexOf('const shownId = '));
   assert.ok(effect.length > 300, 'the warm effect moved — re-anchor this test');
   assert.match(effect, /return whenIdle\(\(\) => \{/, 'on an idle moment, cancelled on unmount');
-  assert.match(effect, /ready: \(f\) => canvasFrameId\(f\) in readyOf\.current,/, 'after the frames said ready');
+  assert.match(effect, /ready: \(f\) => canvasFrameId\(f\) in readyOf\.current \|\| loaded\.current\.has\(canvasFrameId\(f\)\),/, 'after the frames are up: `ready`, or `load`');
+  // A frame is "loaded" only from its own iframe's `load` event — the server has finished rendering it.
+  assert.match(buffer, /onLoad=\{\(\) => \{\s+loaded\.current\.add\(canvasFrameId\(f\)\);\s+setWarmTick\(\(n\) => n \+ 1\);/);
+  assert.equal((buffer.match(/loaded\.current\.add\(/g) ?? []).length, 1, 'ONE thing marks a frame loaded: its load event');
   assert.match(effect, /hidden: document\.visibilityState === 'hidden',/);
   assert.match(effect, /saved: warmOver \|\| makerSavesStarted\(\) !== opened\.current,/);
   assert.match(effect, /const opened = useRef\(makerSavesStarted\(\)\);/, 'measured from the mount');

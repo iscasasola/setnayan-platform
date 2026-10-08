@@ -46,9 +46,10 @@ import { CANVAS_REFRESH_MESSAGE, makerSavesStarted } from '@/lib/maker-refresh';
  *
  * 🔥 THE OTHER STAGES ARE WARMED ONCE PER OPEN, AND ONLY THEN (`warmOnce`;
  * owner 2026-10-08, on the first visit to another stage: *"For as long as it
- * doesnt take kore than 1 second"*). After the stage on screen has said
- * `ready`, on an idle moment, with the tab visible: one hidden frame at a
- * time, each stage at most once. The first save of the open ENDS it — nothing
+ * doesnt take kore than 1 second"*). After the stage on screen is up (its
+ * bridge said `ready`, or its document finished loading), on an idle moment,
+ * with the tab visible: one hidden frame at a time — the next one only when
+ * the last is up — each stage at most once. The first save of the open ENDS it — nothing
  * is warmed after a save, during one, or again. And a save's redraw
  * (`CANVAS_REFRESH_MESSAGE`, a server render of the page) goes to the page on
  * screen only: a kept stage OWES it and pays when it is shown (`canvasPosts`).
@@ -302,6 +303,8 @@ export function BufferedCanvasFrame({
   const mountOrder = useRef<string[]>([]);
   /** Every frame's own `ready` message, by id — a frame is "ready" once it is here. */
   const readyOf = useRef<Record<string, unknown>>({});
+  /** Frames whose document finished loading (`load`). The server has done its work for them — enough for the warm to move on, bridge or no bridge. */
+  const loaded = useRef(new Set<string>());
 
   useEffect(() => {
     setFrames((s) => trimWarmFrames(planCanvasFrames(s, { key: frameKey, group, src }), wantedRef.current, warmMax));
@@ -371,7 +374,7 @@ export function BufferedCanvasFrame({
     return whenIdle(() => {
       const s = framesRef.current;
       const step = warmOnce(s, warmLeft.current, wantedRef.current, warmMax, {
-        ready: (f) => canvasFrameId(f) in readyOf.current,
+        ready: (f) => canvasFrameId(f) in readyOf.current || loaded.current.has(canvasFrameId(f)),
         hidden: document.visibilityState === 'hidden',
         saved: warmOver || makerSavesStarted() !== opened.current,
       });
@@ -440,10 +443,11 @@ export function BufferedCanvasFrame({
   useEffect(() => {
     const live = new Set([frames.shown, frames.loading, ...(frames.warm ?? [])].filter(Boolean).map((f) => canvasFrameId(f!)));
     /* (Only a frame that was up can owe a redraw, so one sweep forgets both.) */
-    for (const id of Object.keys(readyOf.current)) {
+    for (const id of [...Object.keys(readyOf.current), ...loaded.current]) {
       if (live.has(id)) continue;
       delete readyOf.current[id];
       owed.current.delete(id);
+      loaded.current.delete(id);
     }
   }, [frames]);
 
@@ -482,14 +486,14 @@ export function BufferedCanvasFrame({
             tabIndex={role !== 'shown' ? -1 : undefined}
             data-maker-canvas-frame={pageFrame ? undefined : role}
             data-maker-page-frame={pageFrame && role === 'shown' ? '' : undefined}
-            onLoad={
-              loading
-                ? () =>
-                    window.setTimeout(() => {
-                      if (!(canvasFrameId(f) in readyOf.current)) promote(canvasFrameId(f));
-                    }, NO_BRIDGE_MS)
-                : undefined
-            }
+            onLoad={() => {
+              loaded.current.add(canvasFrameId(f));
+              setWarmTick((n) => n + 1);
+              if (!loading) return;
+              window.setTimeout(() => {
+                if (!(canvasFrameId(f) in readyOf.current)) promote(canvasFrameId(f));
+              }, NO_BRIDGE_MS);
+            }}
             className={`absolute inset-0 h-full w-full rounded-[inherit] bg-white ${
               loading ? 'pointer-events-none opacity-0' : role === 'warm' ? 'pointer-events-none invisible' : ''
             }`}

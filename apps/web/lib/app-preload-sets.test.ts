@@ -13,7 +13,6 @@ import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { stripComments } from './strip-comments';
 import { SUPPLIER_BAR_ROUTES, appPreloadPlan, hostAppRoutes, hostedEventOf, isPreloadableAppRoute, makerRouteOf, supplierAppRoutes } from './app-preload-sets';
-import { routeChunkUrls } from './app-preload';
 import { buildEventMenuSections, eventMenuRows } from './customer-menu';
 
 const WEB = resolve(__dirname, '..');
@@ -84,20 +83,8 @@ test('the trigger is mounted where a signed-in person lands — and never in the
   // layouts made the Maker page's chunks entries in the webpack runtime every page loads
   // (measured +139 to +176 B). It fetches files; webpack never hears of them.
   assert.doesNotMatch(trigger, /\bimport\(/, 'app-preload.tsx loads code with import() — the shared bundle grows');
-  assert.match(trigger, /routeChunkUrls\(await res\.text\(\)\)/, 'the trigger no longer brings each page’s code');
+  // It brings each page's code — named by the build's code map (`lib/app-code-map.ts`), never by fetching the page.
+  assert.match(trigger, /chunksForRoute\(await loadCodeMap\(\), href\)/, 'the trigger no longer brings each page’s code');
+  assert.doesNotMatch(trigger, /_rsc|RSC:|routeChunkUrls/, 'the trigger asks the server to render a page to learn its chunk names');
 });
 
-test('routeChunkUrls reads the chunk files out of an RSC payload, once each, in order', () => {
-  const payload = [
-    '1:"$Sreact.fragment"',
-    '5:I[41919,[],""]',
-    'c:I[2722,["15025","static/chunks/15025-7ad4c594e92f1326.js","8124","static/chunks/app/dashboard/%5BeventId%5D/launch/page-e0c44bd4c68709d3.js"],"MakerShell"]',
-    'd:I[2723,["15025","static/chunks/15025-7ad4c594e92f1326.js"],"Other"]',
-    '0:{"b":"AQAB","f":[["children","static/chunks/not-a-file"]]}',
-  ].join('\n');
-  assert.deepEqual(routeChunkUrls(payload), [
-    '/_next/static/chunks/15025-7ad4c594e92f1326.js',
-    '/_next/static/chunks/app/dashboard/%5BeventId%5D/launch/page-e0c44bd4c68709d3.js',
-  ]);
-  assert.deepEqual(routeChunkUrls('0:{"b":"x"}'), []);
-});

@@ -75,5 +75,5 @@ test('Studio › Look › Background draws Pattern · Focus · Blur · Shade as 
   const tools = read('app/dashboard/[eventId]/launch/_components/studio-tools.tsx');
   for (const k of ['pattern', 'focus', 'blur', 'shade']) assert.match(tools, new RegExp(`dataAttr="data-studio-${k}-pick"`), `${k} ▾ is gone`);
   assert.match(tools, /draftSend\(eventId, \{ widgets: \{ hero: \{ main: next \} \} \}\)/);
-  assert.match(read('app/dashboard/[eventId]/launch/_components/maker-details.tsx'), /k === 'background' && st\.main !== undefined \? <StudioTool part="main-extras"/);
+  assert.match(read('app/dashboard/[eventId]/launch/_components/maker-details.tsx'), /background: st\.main !== undefined \? \{ background: <StudioTool part="main-extras"/, 'the extras are not drawn under the main background (Look › Background)');
 });

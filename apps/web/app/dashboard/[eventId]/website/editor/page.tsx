@@ -836,10 +836,10 @@ export default async function WebsiteEditorPage({
                 ),
               },
             ]),
-        /* 🔤 FONT · 🎨 COLOURS — two sections of the one Look panel
-           (`lib/maker-look-sections.ts`, owner 2026-10-02): the SAME
-           `ColorsPanel` and the same `updateSiteColors` door, drawn as two
-           parts so Look reads Background · Font · Colours · Buttons.
+        /* 🔤 FONT · 🎨 COLOURS — parts of the one Look panel
+           (`lib/maker-look-sections.ts`, owner 2026-10-02; under Elements since
+           2026-10-08): the SAME `ColorsPanel` and the same `updateSiteColors`
+           door, drawn as its parts.
            🆓 The font is FREE (owner 2026-10-05, DECISION_LOG "THEMES ARE
            REPLACED BY THREE DIRECT GLOBAL SETTINGS": *"Colors, and Fonts are
            all free"*) — no ◆, never locked, never asked for at Apply. */
@@ -864,12 +864,15 @@ export default async function WebsiteEditorPage({
             />
           ),
         },
+        /* 🌈 THE PAGE FILL — Look › Background's since 2026-10-08 (owner, the Look
+           restudy: the colour of the page is a BACKGROUND, not one of the
+           colours of the things on it). The SAME `ColorsPanel` and the same
+           `updateSiteColors` door, its page part alone; free. */
         {
-          key: 'colors',
-          label: 'Colours',
-          blurb: 'Your page colour.',
+          key: 'page-colour',
+          label: 'Page colour',
+          blurb: 'One colour — plain, or blended as Dawn, Diagonal or Glow.',
           href: `${w}/colors`,
-          /* 🆓 Colours are free (2026-10-05); Candlelight keeps its own ◆ on its control. */
           pro: false,
           locked: false,
           panel: (
@@ -878,11 +881,37 @@ export default async function WebsiteEditorPage({
                   a first-visit tour). Mounted beside the panel it explains, as
                   the adaptive theme's is; sells nothing, so the shell keeps it. */}
               <MiniTour tourKey="customer_ombre_background_v1" storeShell={storeShell} />
+              <ColorsPanel
+                action={updateSiteColors.bind(null, eventId)}
+                eventId={eventId}
+                rowKey="page-colour"
+                part="page"
+                themeId={currentThemeId}
+                /* 🎨 Blank = the Mood Board's colours — shown AS those colours
+                   (owner 2026-09-27: "mood board palettes did not update"). */
+                moodBoard={boardSiteColours((drafted as { role_palette?: unknown }).role_palette)}
+                bgColor={(drafted.site_bg_color as string | null) ?? null}
+                buttonColor={(drafted.site_button_color as string | null) ?? null}
+                artDirection={(drafted.site_art_direction as 'daylight' | 'candlelight' | null) ?? null}
+              />
+            </>
+          ),
+        },
+        {
+          key: 'colors',
+          label: 'Colours',
+          blurb: 'Candlelight and Magic Move.',
+          href: `${w}/colors`,
+          /* 🆓 Colours are free (2026-10-05); Candlelight keeps its own ◆ on its control. */
+          pro: false,
+          locked: false,
+          panel: (
+            <>
             <ColorsPanel
               action={updateSiteColors.bind(null, eventId)}
               eventId={eventId}
               rowKey="colors"
-              part="colours"
+              part="art"
               proLocked={colorsProLocked}
               proLock={lockPanel('Candlelight and motion')}
               proMark={proMark}
@@ -952,6 +981,33 @@ export default async function WebsiteEditorPage({
             <SiteChromePanel
               action={updateSiteChrome.bind(null, eventId)}
               eventId={eventId}
+              part="music"
+              musicRef={panelMusicRef}
+              musicEnabled={panelMusicOn}
+              musicDisplay={chromeDisplay}
+              videoRef={panelVideoRef}
+              videoDisplay={chromeDisplay}
+            />
+          ),
+        },
+        /* 🎬 THE HERO VIDEO — Look › Background's since 2026-10-08 (owner: *"i see a
+           hero video on music. this should be for the background"*). The SAME
+           form part and the same `updateSiteChrome` door it had under Music,
+           with Music's own lock (one unlock covers the song and the video). */
+        {
+          key: 'hero-video',
+          label: 'Hero video',
+          blurb: 'Your own video, where the hero photo sits.',
+          href: `${w}/site-chrome`,
+          pro: true,
+          locked: musicLocked,
+          panel: musicLocked ? (
+            lockPanel('Your own hero video')
+          ) : (
+            <SiteChromePanel
+              action={updateSiteChrome.bind(null, eventId)}
+              eventId={eventId}
+              part="video"
               musicRef={panelMusicRef}
               musicEnabled={panelMusicOn}
               musicDisplay={chromeDisplay}

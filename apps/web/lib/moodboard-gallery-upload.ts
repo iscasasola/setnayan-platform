@@ -111,6 +111,13 @@ export const GALLERY_SLOT_LABEL: Readonly<
   groom: 'Groom’s attire',
   principal_sponsor: 'Principal sponsors’ attire',
   entourage: 'Entourage attire',
+  // 👗 The four attire boards' shelves (owner 2026-10-08) — a tailor files a
+  // photo under the people it dresses, and the couple's board of that name
+  // searches exactly that shelf.
+  bridesmaids: 'Bridesmaids’ attire',
+  groomsmen: 'Groomsmen’s attire',
+  flower_girl: 'Flower girl’s attire',
+  ring_bearer: 'Ring bearer’s attire',
   parents: 'Parents’ attire',
   guests: 'Guest attire',
   // 🔑 NULL IS THE ANSWER, NOT A GAP. `palette` has no supplying trade at all

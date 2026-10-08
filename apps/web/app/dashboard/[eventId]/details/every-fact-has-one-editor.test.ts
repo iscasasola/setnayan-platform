@@ -60,7 +60,7 @@ const EDITOR = read(`${D}/_components/record-editor.tsx`);
  */
 const SAME_AS_THE_MAKER: Record<RecordEditorKey, { defined: string; maker: string; mount: RegExp }> = {
   font: { defined: 'app/dashboard/[eventId]/website/editor/_components/pro-panels.tsx', maker: 'app/dashboard/[eventId]/website/editor/page.tsx', mount: /<ColorsPanel\b[\s\S]{0,200}?part="font"/ },
-  colours: { defined: 'app/dashboard/[eventId]/website/editor/_components/pro-panels.tsx', maker: 'app/dashboard/[eventId]/website/editor/page.tsx', mount: /<ColorsPanel\b[\s\S]{0,200}?part="colours"/ },
+  colours: { defined: 'app/dashboard/[eventId]/website/editor/_components/pro-panels.tsx', maker: 'app/dashboard/[eventId]/website/editor/page.tsx', /* The Maker draws Colours as its two parts since 2026-10-08 (the Look restudy): the page fill under Look › Background, Candlelight · Magic Move under Elements — the same panel, both mounted. */ mount: /<ColorsPanel\b[\s\S]{0,200}?part="page"[\s\S]*<ColorsPanel\b[\s\S]{0,200}?part="art"/ },
   buttons: { defined: 'app/dashboard/[eventId]/website/editor/_components/buttons-look-row.tsx', maker: 'app/dashboard/[eventId]/website/editor/page.tsx', mount: /<ButtonsLookRow\b/ },
   rsvp: { defined: `${L}/maker-rsvp-ask.tsx`, maker: 'app/dashboard/[eventId]/launch/page.tsx', mount: /<MakerRsvpSettings\b/ },
   papic: { defined: `${L}/details-answers.tsx`, maker: `${L}/details-answers-parts.tsx`, mount: /<AnswerPicker\b[^>]*column="papic_on"/ },

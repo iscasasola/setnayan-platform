@@ -6,7 +6,11 @@
   "crons": [],
   "git": {
     "deploymentEnabled": {
-      "main": false
+      "main": false,
+      "**": false,
+      "*": false,
+      "preview/*": true,
+      "preview/**": true
     }
   }
 }

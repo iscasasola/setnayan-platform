@@ -51,12 +51,14 @@ test('the allowlist holds the prefixes the app ACTUALLY writes', () => {
   //   onboarding-surface.tsx         pathPrefix="onboarding/background-music"
   //   admin/settings/actions.ts      `brand-icon/${randomUUID()}`
   //   admin/menus/actions.ts         `nav-icons/${slot}-${randomUUID()}.${ext}`
+  //   hub-music-manager.tsx          pathPrefix: HUB_MUSIC_ROOT ('hub-music')
   const prefixes = SITE_MEDIA_PREFIXES.map((p) => p.prefix).sort();
   assert.deepEqual(prefixes, [
     'brand-icon/',
     'hero-frames/',
     'hero-videos/',
     'homepage-bg/',
+    'hub-music/',
     'nav-icons/',
     'onboarding/',
   ]);

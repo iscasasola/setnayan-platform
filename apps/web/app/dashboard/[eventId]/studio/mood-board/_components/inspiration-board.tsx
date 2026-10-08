@@ -6,7 +6,7 @@
  * enhance the photo output to be more accurate").
  *
  * Surfaces the same per-event inspiration intake that onboarding's Card 15
- * uses — 18 named slots × 3 photos, stored in event_inspiration_assets, with
+ * uses — 24 named slots × 3 photos, stored in event_inspiration_assets, with
  * a 6-color palette auto-extracted from each upload. Widened through
  * 2026-09-02/03: backdrop · flowers · cocktail, then reception_venue (the
  * ceremony/reception asymmetry), then cake — and 2 photos per slot became 3,
@@ -115,6 +115,11 @@ const GROUPS: ReadonlyArray<{ title: string; slots: { k: string; label: string }
       { k: 'bride', label: 'Bride' },
       { k: 'groom', label: 'Groom' },
       { k: 'entourage', label: 'Entourage' },
+      // 👗 The four attire boards of their own (owner 2026-10-08) — the same slots Studio › Attire draws.
+      { k: 'bridesmaids', label: 'Bridesmaids' },
+      { k: 'groomsmen', label: 'Groomsmen' },
+      { k: 'flower_girl', label: 'Flower girl' },
+      { k: 'ring_bearer', label: 'Ring bearer' },
       { k: 'principal_sponsor', label: 'Sponsors' },
       { k: 'parents', label: 'Parents' },
       { k: 'guests', label: 'Guests' },

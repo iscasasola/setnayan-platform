@@ -20,7 +20,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import React from 'react';
 import { stripComments } from './strip-comments';
@@ -609,7 +609,7 @@ test('(22) touch a field → Skip asks; open only → Skip goes — a custom pic
   assert.match(pm, /id=\{listId\}\s*role="listbox"/);
 });
 
-test('(23) "Same as theme": first in the film\'s background picker and the default; one line under Theme hands the film back, into the draft', async () => {
+test('(23) "Same as theme": first in the film\'s background picker and the default; Look draws no line for it since 2026-10-08', async () => {
   // The draft holds ONE value for the film's background: null, the film following the theme.
   const D = await import('./hub-draft');
   assert.ok(D.isHubDraftEventColumn('std_background'), 'the film cannot be handed back into the draft');
@@ -652,16 +652,14 @@ test('(23) "Same as theme": first in the film\'s background picker and the defau
   assert.match(client, /background=\{shownBackground\}/, 'the studio preview paints the veil while guests see the theme');
   assert.match(action, /if \(data\.backgroundFollowsTheme === true\) \{[\s\S]{0,260}patch\.std_background = stdFollowTheme\(/, 'the studio cannot hand the film back to the theme');
 
-  // The Look step: one line under Background, while the film keeps its own pick; a tap writes the DRAFT.
-  // ("Same as theme" until 2026-10-05 — in Look there is no theme to name any more; the film follows the Event Hub.)
-  const { FilmFollowsTheme } = await import(`../${L}/film-follows-theme`);
-  const line = renderToStaticMarkup(React.createElement(FilmFollowsTheme, { eventId: 'e' }));
-  /* 🔀 A switch since 2026-10-08 (owner, studio round 3: "Same as the Event Hub" becomes a switch) — off while the film keeps its own. */
-  assert.match(line, /Save the Date film · Same as the Event Hub[\s\S]*Your film keeps its own background\.[\s\S]*<input[^>]*role="switch"/);
-  assert.doesNotMatch(line, /checked=""/, 'the switch draws ON while the film keeps its own background');
-  assert.doesNotMatch(line, /underline/, '"Same as the Event Hub" is a link again');
-  const picker2 = read(`${L}/film-follows-theme.tsx`);
-  assert.match(picker2, /fd\.set\('patch', JSON\.stringify\(\{ events: \{ std_background: stdFollowTheme\(legibility\) \} \}\)\);\s*const r = await makerSave\(\(\) => hubDraftAction\(eventId, fd\)/, 'the tap does not go into the draft (with the film\'s Readability)');
+  // 🎞 THE LOOK'S LINE LEFT (2026-10-08, the Look restudy — plan row 1: "delete `FilmFollowsTheme` from Look"). It was one
+  // line (then a switch) under Look › Background while the film kept its own pick. The film's own background retires
+  // (restudy § 4, plan row 6); until it does, the hand-back is the studio's "Same as theme" held above — still one tap,
+  // still written. Held here: Look draws no film line, and nothing else in the Maker still imports the old one.
+  assert.ok(!existsSync(join(WEB, `${L}/film-follows-theme.tsx`)), 'the film line’s component is back');
+  for (const f of ['maker-details.tsx', 'studio-tools.tsx', 'details-look-pages.tsx']) {
+    assert.doesNotMatch(read(`${L}/${f}`), /film-follows-theme|FilmFollowsTheme|filmLine/, `${f} still draws the film line`);
+  }
 
   // 🔤 THE COUPLE'S READABILITY SURVIVES "SAME AS THEME" (review 2026-10-05).
   const B = await import('./std-backgrounds');
@@ -685,10 +683,9 @@ test('(23) "Same as theme": first in the film\'s background picker and the defau
   const forget = store.slice(store.indexOf('export async function forgetDraftedEventColumn'), store.indexOf('/** Where a form\'s draft save goes back'));
   assert.match(forget, /delete events\[column\];\s*await writeHubDraft\(supabase, eventId, \{ \.\.\.draft, events: /, 'the drafted column is not taken out of the draft');
   const details = read(`${L}/maker-details.tsx`);
-  assert.match(details, /const filmLine = theme\.filmOwnBackground \? <FilmFollowsTheme eventId=\{eventId\} legibility=\{theme\.filmLegibility\} \/> : null;/);
-  // 2026-10-06: the whole Look (`theme`) and its Background row each carry the film line (one mount at a time — `item=`).
-  assert.match(details, /theme: <LookPanel filmLine=\{filmLine\} item="theme" \/>,/, 'the film line is not under Look');
-  assert.match(details, /background: <LookPanel filmLine=\{filmLine\} sections=\{LOOK_ITEM_SECTIONS\.background\} item="background" \/>,/, 'the film line is not under Look › Background');
+  // 2026-10-08: the whole Look (`theme`) and its Background row are the one panel, with no film line (one mount at a time — `item=`).
+  assert.match(details, /theme: <LookPanel item="theme" \/>,/, 'the whole Look is not the one panel');
+  assert.match(details, /background: <LookPanel sections=\{LOOK_ITEM_SECTIONS\.background\} item="background" \/>,/, 'Look › Background is not the one panel on its section');
   const page = read('app/dashboard/[eventId]/launch/page.tsx');
   assert.match(page, /'std_background' in draftedEvents\s*\? draftedEvents\.std_background/, 'the line ignores the draft (it would come back after a tap)');
   assert.match(page, /filmOwnBackground: mayShowStdFilm && filmBackgroundRead !== undefined && !stdFollowsTheme\(filmBackgroundRead\),/, 'a film following the theme (with a kept Readability) is offered "Same as theme" again');

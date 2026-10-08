@@ -864,13 +864,16 @@ export function MakerWork({
      identity until the next server render, so this runs once per render of the
      page, not once per click. */
   const setLookPages = maker?.setLookPages;
-  /* 🎨 LOOK › BACKGROUND · FONT · COLOURS (owner 2026-10-02, tracker f40) —
-     the rows this page always built, handed to Look as they are. */
+  /* 🎨 LOOK'S PARTS (owner 2026-10-02, tracker f40; three sections since 2026-10-08,
+     `LOOK_SECTION_PARTS`) — the rows this page always built, handed to Look as they are. */
   const backgroundNode = rows[LOOK_ROW_OF.background]?.node ?? null;
   const fontNode = rows[LOOK_ROW_OF.font]?.node ?? null;
   const coloursNode = rows[LOOK_ROW_OF.colours]?.node ?? null;
   const buttonsNode = rows[LOOK_ROW_OF.buttons]?.node ?? null;
   const musicNode = rows[LOOK_ROW_OF.music]?.node ?? null;
+  /* 🌈🎬 The page fill and the hero video — Look › Background's since 2026-10-08 (they were under Colours and Music). */
+  const pageNode = rows[LOOK_ROW_OF.page]?.node ?? null;
+  const videoNode = rows[LOOK_ROW_OF.video]?.node ?? null;
   const hasDressCode = scenes.some((sc) => sc.type === 'dress_code');
   const revealStagesKey = revealStages.join();
   const twoPeopleOff = sceneFormat?.twoPeople === false;
@@ -913,11 +916,13 @@ export function MakerWork({
           ) : null,
         buttons: buttonsNode,
         music: musicNode,
+        page: pageNode,
+        video: videoNode,
       },
     });
     // `sceneFormat` and `eventId` come with the same render as `elementEditing`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setLookPages, madeOnce, backgroundNode, fontNode, coloursNode, buttonsNode, musicNode, hasDressCode, revealStagesKey, publicLandingUrl, elementEditing, twoPeopleOff, ownsPro, cameraLookNow]);
+  }, [setLookPages, madeOnce, backgroundNode, fontNode, coloursNode, buttonsNode, musicNode, pageNode, videoNode, hasDressCode, revealStagesKey, publicLandingUrl, elementEditing, twoPeopleOff, ownsPro, cameraLookNow]);
   useEffect(() => () => setLookPages?.(null), [setLookPages]);
   useEffect(() => {
     try {
@@ -964,9 +969,13 @@ export function MakerWork({
      page that is already loaded. Keyed exactly as the shown frame would be, so
      a switch finds its frame. None while "view as" is on, and none on a
      small-memory phone or a save-data connection (`warmCanvasBudget`).
-     🧯 2026-10-08: a stage nobody opened is no longer fetched ahead — each one
-     is a full server render of the guest page, repeated after every save. */
+     🧯 2026-10-08: no save ever fetches a stage nobody is looking at — each
+     one is a full server render of the guest page. They are warmed ONCE per
+     open, on idle, and the first save ends it (`warmOnce`; `warmOver` is how
+     the canvas hears of a Maker render that came after the open). */
   const [warmBudget, setWarmBudget] = useState(0);
+  const [openStamp] = useState(maker?.renderStamp ?? '');
+  const warmOver = (maker?.renderStamp ?? '') !== openStamp;
   useEffect(() => {
     const nav = window.navigator as Navigator & { deviceMemory?: number; connection?: { saveData?: boolean } };
     setWarmBudget(
@@ -2731,6 +2740,7 @@ export function MakerWork({
             broadcastRef={canvasBroadcast}
             warm={warmStages}
             warmMax={warmBudget}
+            warmOver={warmOver}
             anchorKey={() => selectedKeyRef.current}
             onShown={setShownFrameKey}
             onSwapped={onCanvasSwapped}
@@ -3263,7 +3273,7 @@ export function MakerWork({
  * (the scrapbook, or the story as guests see it). Details is the shell's.
  */
 /** Details and RSVP are drawn by the SHELL (`maker-shell.tsx`) over this area. */
-/** The other stages, nearest first (`PUBLIC_STAGE_ORDER`) — the order they are kept in when the budget is short. */
+/** The other stages, nearest first (`PUBLIC_STAGE_ORDER`) — the order they are warmed in, and kept in when the budget is short. */
 function warmStageOrder(stage: LifecyclePhase): LifecyclePhase[] {
   const order: readonly LifecyclePhase[] = PUBLIC_STAGE_ORDER;
   const at = order.indexOf(stage);

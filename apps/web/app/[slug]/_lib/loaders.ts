@@ -26,6 +26,7 @@ import { resolveAlbumDoor } from './album-door.server';
 import { HOST_MEMBER_TYPES } from './host-scope';
 import { after } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { startAhead } from '@/lib/start-ahead';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { loadRoleNames } from '@/lib/role-names.server';
 import type { RoleNames } from '@/lib/role-names';
@@ -581,6 +582,12 @@ export const loadMedia = cache(
     draftedVenueChoices: unknown = null,
   ): Promise<EventMedia> => {
     const monogram = resolveMonogram(event);
+    /* ⏩ STARTED TOGETHER, AWAITED WHERE THEY ALWAYS WERE (`lib/start-ahead.ts`).
+       None of these needs another's answer; in single file each waited for the
+       one above it. Same reads, same count, the same lines receive them. */
+    const proWatermarkHiddenAhead = startAhead(websiteProActiveFor(event.event_id));
+    const venueBookingsAhead = startAhead(loadVenueBookings(admin, event.event_id, draftedVenueChoices ?? undefined));
+    const ownsStdRevealAhead = startAhead(eventStdOpeningsActive(admin, event.event_id));
 
     // Paid ANIMATED_MONOGRAM upgrade (₱999 · "Your initials, drawn live").
     // When the event owns it, the monogram hero circle ANIMATES on load with
@@ -618,7 +625,7 @@ export const loadMedia = cache(
     // question to dress every page of the tree (`loadGuestLook` below), and so
     // does the theme gate. Three readers, one order lookup. `admin` is unused
     // for it now — the cached reader builds its own so its key is the id alone.
-    const proWatermarkHidden = await websiteProActiveFor(event.event_id);
+    const proWatermarkHidden = await proWatermarkHiddenAhead;
     /* ⛔ THE COUPLE'S PRO COLOURS AND FACE ARE NO LONGER RESOLVED HERE. They used
        to ride out of this loader as `siteColorVars` and be painted by the ONE
        page that went through InvitationShell — so `/find-seat`, `/seat`, `/hub`,
@@ -797,7 +804,7 @@ export const loadMedia = cache(
     // Venue scene cannot name different places. `eventVenues` is UN-WITHHELD:
     // page.tsx hands it to `withheldVenue`, which closes each address and pin
     // for a viewer who has not replied, exactly as it closes the event's own.
-    const venueBookings = await loadVenueBookings(admin, event.event_id, draftedVenueChoices ?? undefined);
+    const venueBookings = await venueBookingsAhead;
     const stdVenues = {
       ceremony:
         venueBookings.ceremony?.name ?? (event.std_film_ceremony_name as string | null) ?? null,
@@ -860,7 +867,7 @@ export const loadMedia = cache(
     // · sentiment · calendar); owning the Reveal lights up the couple's own music,
     // video, and photos. This gate is SCOPED TO THE STD FILM ONLY — the couple's full
     // website (later lifecycle phases) still shows their photos/music free.
-    const ownsStdReveal = await eventStdOpeningsActive(admin, event.event_id);
+    const ownsStdReveal = await ownsStdRevealAhead;
 
     return {
       monogram,
@@ -904,6 +911,9 @@ export const loadLiveLayer = cache(
     // Schedule widget. fetchPublicScheduleBlocks already takes the admin
     // client + event_id and returns only the rows the host has marked
     // public — safe to show to anonymous visitors.
+    /* ⏩ Started beside the schedule, awaited where it always was (`lib/start-ahead.ts`):
+       "is the host's camera open?" is asked on every path below and needs nothing from them. */
+    const hostCameraOpenAhead = startAhead(eventPapicGuestActive(admin, event.event_id));
     const scheduleBlocks = await fetchPublicScheduleBlocks(
       admin,
       event.event_id,
@@ -1160,7 +1170,7 @@ export const loadLiveLayer = cache(
     // SWITCH, not the calendar — and the menu's camera slot needs to know the
     // switch's real state on every day, not just the wedding day, so it can be
     // drawn LOCKED with an honest reason rather than silently vanishing.
-    const hostCameraOpen = await eventPapicGuestActive(admin, event.event_id);
+    const hostCameraOpen = await hostCameraOpenAhead;
     // The day-of BAR keeps its original live-window rule: that surface is the
     // on-the-day chrome and has no meaning before it. Only the menu slot follows
     // the switch alone.

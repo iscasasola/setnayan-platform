@@ -87,6 +87,16 @@ const ALLOWED_FILTERS: ReadonlyMap<string, string> = new Map([
     'The writer for that other table.',
   ],
   [
+    'lib/hub-music-server.ts',
+    'Different table (hub_music_tracks — Event Hub music). Its is_published is ' +
+      'real: an admin switches it at /admin/hub-music and the couple\'s list reads ' +
+      'it. Not the vendor column.',
+  ],
+  [
+    'app/admin/hub-music/actions.ts',
+    'The writer for that other table.',
+  ],
+  [
     'app/admin/integrity-watch/actions.ts',
     'Writes is_published = false as one belt-and-braces half of taking a shop ' +
       'down. Harmless while the column is inert, and removing a takedown lever ' +

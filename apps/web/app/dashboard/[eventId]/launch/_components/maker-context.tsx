@@ -281,6 +281,10 @@ export type MakerLookPages = {
     buttons?: ReactNode | null;
     /** 🎵 Look › Music — the work area's own Music row (on/off · song · tap to play), moved whole (owner 2026-10-06). */
     music?: ReactNode | null;
+    /** 🌈 Look › Background — the page fill (one colour · Plain · Dawn · Diagonal · Glow), out of Colours (owner 2026-10-08). */
+    page?: ReactNode | null;
+    /** 🎬 Look › Background — the hero video, out of Music (owner 2026-10-08). */
+    video?: ReactNode | null;
   } | null;
   /** The Reveal's settings: play it, its fine-tune, where it plays (the RIGHT column). */
   reveal: ReactNode | null;

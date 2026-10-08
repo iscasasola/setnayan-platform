@@ -132,26 +132,43 @@ test('an EMPTY part still draws each look differently — sample shapes, on the 
 /* ── 🎨 THE PALETTE'S LOOKS ARE PICTURES (owner's preview check, 08 Oct: "palette should show the actual
       previews like the other styles") ─────────────────────────────────────────────────────────────── */
 
-test('the palette’s looks are picture cards on the Dress code part — never a dropdown', async () => {
+test('the palette’s looks are pictures on the Dress code part — one row of five, never a dropdown', async () => {
+  /* 🔁 RE-AIMED 2026-10-09 (owner, verbatim: *"row 3 is palette style"*; `TOOLBAR-SPEC-2026-10-09.md` § STYLE). This
+     held the palette's looks as a second CAROUSEL of full miniatures on the Dress code part (2026-10-08: "palette
+     should show the actual previews like the other styles"). In the four-row toolbar they are ONE ROW of five
+     pictures — each the couple's colours drawn in that look. The claim is kept: every look is a picture, the one
+     worn is marked, there is no dropdown. (`PaletteLookCards` still draws the full miniatures for a surface with
+     the room for them — the next test holds what each of those cards asks the page for.) */
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { readFileSync } = await import('node:fs');
-  const { PaletteLookCards } = await import('../app/dashboard/[eventId]/website/editor/_components/palette-look-row');
+  const { PaletteLookStrip, PaletteLookCards } = await import('../app/dashboard/[eventId]/website/editor/_components/palette-look-row');
   const { PALETTE_LOOK_IDS } = await import('./palette-looks');
-  const html = renderToStaticMarkup(React.createElement(PaletteLookCards, { value: 'tags', onPick: () => {} }));
-  const cards = [...html.matchAll(/data-style-card="([a-z-]+)"/g)].map((m) => m[1]);
-  assert.deepEqual(cards, [...PALETTE_LOOK_IDS], 'one card per look, in the registry’s order');
-  assert.equal(html.split('data-style-preview=').length - 1, PALETTE_LOOK_IDS.length, 'every card holds a picture');
-  assert.match(html, /role="radiogroup"[^>]*aria-label="Palette look"[^>]*data-style-carousel="palette"/, 'the shared look-card carousel');
+  const html = renderToStaticMarkup(React.createElement(PaletteLookStrip, { value: 'fabric', colours: ['#A9834B', '#2C2A29', '#C7A27C'], onPick: () => {} }));
+  const picks = [...html.matchAll(/<button[^>]*role="radio"[^>]*data-palette-pick="([a-z-]+)"[^>]*>/g)];
+  assert.deepEqual(picks.map((m) => m[1]), [...PALETTE_LOOK_IDS], 'one picture per look, in the registry’s order');
+  assert.match(html, /^<div role="radiogroup" aria-label="Palette style" data-look-row="palette"/, 'the five are not ONE row of the toolbar');
+  /* Each is a PICTURE of the couple's own colours (three drawn marks at the least), named for a screen reader. */
+  const bodies = html.split('<button').slice(1);
+  assert.equal(bodies.length, PALETTE_LOOK_IDS.length);
+  for (const b of bodies) {
+    assert.ok((b.match(/background-color:#/gi) ?? []).length >= 3, 'a look is drawn without the couple’s colours');
+    assert.match(b, /aria-label="Palette style: [A-Za-z ]+"/);
+  }
   assert.doesNotMatch(html, /aria-haspopup|data-palette-look=|<select/, 'a dropdown came back');
-  assert.match(html, /aria-checked="true"[^>]*data-style-card="tags"/, 'the look worn now is the ringed card');
-  /* …and the Stages panel's Dress code part is where they are drawn. */
+  assert.equal((html.match(/aria-checked="true"/g) ?? []).length, 1);
+  assert.match(picks[1]![0], /aria-checked="true"/, 'the look worn now is not the marked one');
+  /* The full miniatures are still one card per look, each holding a picture. */
+  const cards = renderToStaticMarkup(React.createElement(PaletteLookCards, { value: 'tags', onPick: () => {} }));
+  assert.deepEqual([...cards.matchAll(/data-style-card="([a-z-]+)"/g)].map((m) => m[1]), [...PALETTE_LOOK_IDS]);
+  assert.equal(cards.split('data-style-preview=').length - 1, PALETTE_LOOK_IDS.length, 'every card holds a picture');
+  /* …and the Stages panel's Dress code part is where the row is drawn. */
   const row = readFileSync('app/dashboard/[eventId]/website/editor/_components/scene-style-row.tsx', 'utf8');
   const palette = row.slice(row.indexOf('export function PaletteLookCanvasRow'), row.indexOf('export function SceneAlignRow'));
   assert.match(palette, /const cards = useMaker\(\)\?\.stagesStudio === true;/);
   assert.match(palette, /const onDressPart = useStagePanelNow\(\)\.picked === 'dress';/);
   const at = palette.indexOf('if (cards && onDressPart) {');
-  assert.ok(at > 0 && at < palette.indexOf('<PaletteLookRow'), 'the cards are returned BEFORE the dropdown row is reached');
-  assert.match(palette.slice(at, palette.indexOf('<PaletteLookRow')), /<PaletteLookCards value=\{resolvePaletteLook\(shown\.palette\)\}/);
+  assert.ok(at > 0 && at < palette.indexOf('<PaletteLookRow'), 'the row is returned BEFORE the dropdown row is reached');
+  assert.match(palette.slice(at, palette.indexOf('<PaletteLookRow')), /\{drawsPalette \? <PaletteLookStrip value=\{resolvePaletteLook\(shown\.palette\)\} colours=\{colours\} pending=\{pending\} onPick=\{pick\} \/> : null\}/);
 });
 
 test('each palette card is the couple’s page in that look — one address each, laid on canvas.palette, drawn differently', async () => {
@@ -198,9 +215,10 @@ test('a card fitted on one block hides the rest of its scene, and falls back to 
   assert.match(prev, /return focus \? \(section\.querySelector<HTMLElement>\(focus\) \?\? section\) : section;/, 'no block → the scene, never a blank card');
   assert.match(prev, /const part = miniaturePart\(section, el, focus\);/, 'the card is fitted on the block');
   assert.match(prev, /\[data-sn-mini-scene\] \*:not\(\[data-sn-mini-focus\]\)[^']*\{visibility:hidden!important\}/, 'the rest of the scene is not drawn in the card');
-  /* 📱 Since 2026-10-08 ("show in mobile view, not like a header that is short and wide") a card no longer
-     follows its block's shape: it is the ONE phone-shaped frame (`every-style-card-is-phone-shaped.test.ts`). */
-  assert.match(car, /className=\{`\$\{SP_PHONE_PICTURE\} /, 'the card’s picture is the phone-shaped frame, like every look card');
+  /* 📱 Since 2026-10-08 ("show in mobile view, not like a header that is short and wide") a card is the ONE
+     phone-shaped frame (`every-style-card-is-phone-shaped.test.ts`). (🔁 Re-aimed 2026-10-09: in the toolbar the
+     frame is the CARD itself, as tall as its rows — `SP_STYLE_CARD` — not a picture inside a card.) */
+  assert.match(car, /className=\{SP_STYLE_CARD\}/, 'the card is the phone-shaped frame, like every look card');
   assert.doesNotMatch(car, /spCardWidth|miniaturePart/, 'the card is sized by its block again');
 });
 

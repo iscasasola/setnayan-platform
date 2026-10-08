@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { SP_PANE } from '@/lib/maker-stage-room';
+import { SP_PANE, SP_STYLE_PANE } from '@/lib/maker-stage-room';
 import { useStageTool } from './store';
 
 /**
@@ -9,8 +9,8 @@ import { useStageTool } from './store';
  * Animate"* — `TOOLBAR-SPEC-2026-10-09.md`). It was Style's own second selector, Look | Background | Arrange: the
  * toolbar's four tools say which part of it is on show now, so there is one selector, not two.
  *
- *   Style       the looks as a carousel of REAL miniatures (`StyleCarousel`), and whatever else the part's look is
- *               (the palette look, a scene of their own's layout, the ticket's style)
+ *   Style       the looks as a carousel of REAL miniatures (`StyleCards`) in rows 1–3 — rows 1–2 over the Dress
+ *               code's palette row — and, drawn by the toolbar itself in row 4, Colour · Size (`StageLookRow`)
  *   Background  Background ▾ · the five colours · Gallery ▸ · Upload ◆ (`StageBackground`)
  *   Edit        is the toolbar's own (`stage-edit.tsx` — the part's one door, and its place on the page): this body
  *               is under it, kept mounted (a word typed on the RSVP page saves through it) and out of sight.
@@ -23,9 +23,20 @@ import { useStageTool } from './store';
  * this only shows the one the toolbar is on. A part with no background of its own never gets here on Background
  * (the tool is grey — `makerPartToolWorks`); if it does, its look is shown rather than a blank.
  */
-export function StageStyle({ look, background }: { look: ReactNode; background: ReactNode; arrange?: ReactNode }) {
+export function StageStyle({ look, background, rows = false }: { look: ReactNode; background: ReactNode; arrange?: ReactNode; rows?: boolean }) {
   const tool = useStageTool();
   const on = tool === 'bg' && background ? 'bg' : 'look';
+  /* 🧱 `rows` (the work area's parts — `parts.tsx`): under Style the body is laid in the toolbar's rows, no scroll up
+     and down — the look cards take the rows left to them, a row under them is one row tall (the rule set is the
+     toolbar's own, `stage-tools.tsx`, on `data-stage-style-rows`). Background keeps its own pane until it is
+     rebuilt; so do the bodies that are not the work area's (the Reveal, the Camera, the reply pages). */
+  if (rows && on === 'look') {
+    return (
+      <div className={SP_STYLE_PANE} data-stage-style={on} data-stage-style-rows="">
+        {look}
+      </div>
+    );
+  }
   return (
     <div className={SP_PANE} data-stage-style={on}>
       {on === 'bg' ? background : look}

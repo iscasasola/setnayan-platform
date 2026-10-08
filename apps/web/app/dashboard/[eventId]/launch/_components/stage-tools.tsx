@@ -35,6 +35,7 @@ import {
   STAGE_BAR_LINE_LEAD,
   SP_KEY_BAR,
   SP_KEY_DONE,
+  SP_ROWS,
   STAGE_BAR_ROW_VARS,
   STAGE_GUEST_TAB,
   STAGE_ICON_BUTTON,
@@ -65,6 +66,9 @@ import {
 import { setStagePanelNow, setStageRevealColours, setStageTool, useStagePanelNow, useStageRevealLook, type StageQuiet } from './stage-panel/store';
 import { StageEdit } from './stage-panel/stage-edit';
 import { StageAbout } from './stage-panel/kit';
+import { StageLookRow } from './stage-panel/stage-look-row';
+import { keepPartLook, partLookFields, partLookTarget } from './stage-panel/part-look';
+import type { MakerPartOps } from './maker-part-ops';
 import { keepPartWords, readPartWords, showPartWords, type PartWordsField } from './stage-panel/part-words';
 import { ActionButton } from '@/components/action-button';
 import { revealStubHtml } from './stage-panel/reveal-picture';
@@ -1018,6 +1022,29 @@ export function StageTools({
     root.addEventListener('focusin', onFocus);
     return () => root.removeEventListener('focusin', onFocus);
   }, [frameSel, pickedEl, pickedKey]);
+  /* ── 🎨 STYLE'S LAST ROW — Colour · Size of the picked part's words (`part-look.ts`), drawn by this toolbar: the
+     work area's cards then have rows 1–3 (the rule set below, `data-stage-row4`). A part with neither (a fixed
+     block, the logo's colour, a reply page) has no row, and its cards take all four. ── */
+  const lookTarget = useMemo(
+    () => (picked && !rsvpOpen && picked !== 'pass' ? partLookTarget(makerPartCanvasOn(stageKey, picked), MAKER_PARTS[picked].el ?? null) : null),
+    [picked, rsvpOpen, stageKey],
+  );
+  const lookCan = partLookFields(lookTarget);
+  const lookOn = open && shownTool === 'style' && lookTarget !== null && (lookCan.colour || lookCan.size);
+  /* The work area's own canvases and colours, asked for when the row comes up and after each of the Maker's renders. */
+  const renderStamp = maker?.renderStamp;
+  const [lookOps, setLookOps] = useState<MakerPartOps | null>(null);
+  useEffect(() => {
+    if (lookOn) setLookOps(askPartOps());
+  }, [lookOn, lookTarget, renderStamp]);
+  const keepLook = useCallback(
+    async (field: 'color' | 'size', value: string | number | null) => {
+      const o = askPartOps();
+      if (!o?.draftAction || !lookTarget) return { ok: false as const, error: 'That could not be saved just now. Please try again.' };
+      return keepPartLook(lookTarget, field, value, { eventId: o.eventId, draftAction: o.draftAction, canvases: o.canvases });
+    },
+    [lookTarget],
+  );
   /** Edit's rows are this toolbar's own; every other tool's are the work area's (or the Reveal's / the Camera's). */
   const editOn = picked !== null && shownTool === 'edit';
   /* "You're editing · Stage › Page › Part" — the page only where the stage has several, the part once one is picked.
@@ -1050,6 +1077,7 @@ export function StageTools({
       data-stage-tools=""
       data-stage-open={open ? '' : undefined}
       data-stage-tool-now={shownTool}
+      data-stage-row4={lookOn ? '' : undefined}
       aria-hidden={away || undefined}
       className={`relative flex min-h-0 flex-1 flex-col rounded-t-2xl bg-[var(--sp-page)] px-[10px] shadow-[inset_0_1px_0_var(--sp-line2)] transition-transform ease-out motion-reduce:transition-none ${away ? 'pointer-events-none translate-y-[110%]' : ''}`}
       style={{ transitionDuration: `${STAGE_PANEL_MS}ms` }}
@@ -1067,6 +1095,14 @@ export function StageTools({
           '[data-maker-lower-third]:has(>[data-stage-tools]){transition:height 240ms cubic-bezier(.16,1,.3,1);background:var(--sp-paper)!important;border-top:0!important;padding:0!important;gap:0!important;box-shadow:none!important}' +
           `[data-maker-shell]:has([data-stage-tools]) [data-phone-chrome="panel"]{left:0!important;right:0!important;bottom:${STAGE_BAR_FOOT_CSS}!important;height:${STAGE_BAR_GRID_CSS}!important;outline:none!important;border-radius:0!important;box-shadow:none!important;background:var(--sp-page)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;padding:0!important}` +
           '[data-maker-shell]:has([data-stage-tool-now="edit"]) [data-phone-chrome="panel"]{visibility:hidden;pointer-events:none}' +
+          /* 🎨 STYLE: this toolbar draws row 4 (Colour · Size) — the work area's tool is rows 1–3, standing on it. */
+          `[data-maker-shell]:has([data-stage-tools][data-stage-row4]) [data-phone-chrome="panel"]{height:calc(3 * var(--sp-rh) + 2 * var(--sp-rg))!important;bottom:calc(${STAGE_BAR_FOOT_CSS} + var(--sp-rh) + var(--sp-rg))!important}` +
+          /* …and the scene's Format under Style is laid in rows (`StageStyle` `rows`): the look cards take the rows
+             left to them; a row under them (the Dress code's palette) and a save's error keep theirs; anything else
+             of the part's Format — an editor of its content, its older rows — is not drawn here (it stays mounted):
+             content is Edit's, and nothing scrolls up and down. A body with no look cards keeps its own pane. */
+          '[data-maker-shell]:has([data-stage-tools]) [data-stage-style-rows]:has(>[data-look-cards])>:not([data-look-cards],[data-look-row],[role="alert"]){display:none!important}' +
+          '[data-maker-shell]:has([data-stage-tools]) [data-stage-style-rows]:not(:has(>[data-look-cards])){overflow-y:auto;gap:8px;padding-bottom:8px}' +
           /* ⌨ A FIELD OF EDIT IS OPEN (`[data-form-row-editing]`, the app's typed row): the toolbar is the typing bar
              above the keyboard — "Typing · Names" and Done over the one open field; everything else of it steps
              aside and it is only as tall as that. All by `:has()`: no state to fall out of step with the field. */
@@ -1152,6 +1188,20 @@ export function StageTools({
       {/* ══ THE FOUR ROWS — Edit's are drawn here; the work area's tool lies over this same box for the other three.
           Nothing picked: empty (the prototype's `drawStrip` with no part). ══ */}
       <div data-stage-rows="" className="flex min-h-0 flex-1 flex-col [&>*]:!mt-0">
+        {lookOn && lookTarget ? (
+          <div className={SP_ROWS} data-stage-look="">
+            <div className="row-start-4 min-w-0">
+              <StageLookRow
+                key={`${lookTarget.widgetType}:${lookTarget.el}`}
+                target={lookTarget}
+                canvas={lookOps?.canvases?.[lookTarget.widgetType] ?? null}
+                palette={lookOps?.palette ?? null}
+                onKeep={keepLook}
+                onRefused={(words) => setWhy((w) => ({ words, n: (w?.n ?? 0) + 1 }))}
+              />
+            </div>
+          </div>
+        ) : null}
         {editOn ? (
           <StageEdit key={picked} fields={fields} tapped={tapped} onType={showPartWords} onKeep={keepWords} earlier={edits.earlier} later={edits.later} remove={edits.remove} removeWord={edits.removeWord} why={edits.why} onWhy={(words) => setWhy((w) => ({ words, n: (w?.n ?? 0) + 1 }))} />
         ) : null}

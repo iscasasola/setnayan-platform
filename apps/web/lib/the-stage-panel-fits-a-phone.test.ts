@@ -15,7 +15,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { phoneHeightPx } from './maker-phone-room';
-import { SP_LOOK_CARD, STAGE_BAR_HANDLE, STAGE_TAP_TARGETS, stageBarGridPx, stageBarPx } from './maker-stage-room';
+import { SP_LOOK_CARD, SP_STYLE_CARD, STAGE_BAR_HANDLE, STAGE_TAP_TARGETS, stageBarGridPx, stageBarPx, stageBarRow } from './maker-stage-room';
 
 const WEB = join(__dirname, '..');
 const L = 'app/dashboard/[eventId]/launch/_components';
@@ -47,6 +47,9 @@ test('a look card is as tall as its phone-shaped frame — far over 44 px', () =
   assert.match(rule, /aspect-ratio:\s*3 \/ 4/);
   assert.ok((w * 4) / 3 >= 44, `the frame is ${(w * 4) / 3}px tall`);
   assert.ok(SP_LOOK_CARD.split(' ').includes('min-h-11'), 'and the card keeps the 44 px floor whatever width a strip sets');
+  /* The toolbar's Style card is as tall as its strip (`!h-full`), and a strip is never under two rows. */
+  assert.ok(SP_STYLE_CARD.split(' ').includes('!h-full'));
+  for (const h of [568, 667, 812]) assert.ok(2 * stageBarRow(h).row + stageBarRow(h).gap >= 88, `${h}px tall: a two-row card is under 88 px`);
 });
 
 test('the panel draws those same strings for every button', () => {
@@ -72,7 +75,9 @@ test('the panel draws those same strings for every button', () => {
       assert.ok(
         /* 📱 `SP_LOOK_CARD` (owner 2026-10-08, every style card is phone-shaped): its height is its FRAME's
            (`.sn-phone-card`, 3 : 4), not a height class — measured from the stylesheet in the test below. */
-        Object.keys(STAGE_TAP_TARGETS).some((n) => cls.includes(n)) || cls.includes('SP_LOOK_CARD'),
+        /* 🎠 `SP_STYLE_CARD` (owner 2026-10-09, the toolbar's Style): the same frame AS TALL AS THE ROWS it has — two
+           rows at the least (92 px on a short phone), measured below. */
+        Object.keys(STAGE_TAP_TARGETS).some((n) => cls.includes(n)) || cls.includes('SP_LOOK_CARD') || cls.includes('SP_STYLE_CARD'),
         `${file}: a button wears its own classes (${cls.slice(0, 60)}…) — use a STAGE_* string from lib/maker-stage-room.ts`,
       );
     }

@@ -268,6 +268,7 @@ const PAINTS: Record<string, [number, string]> = {
   'launch/_components/maker-logo.tsx': [1, 'the SHIPPED Maker’s logo inks (no Studio) — the new Maker draws StudioColourField instead'],
   'launch/_components/maker-reveal.tsx': [1, 'the Reveal colour row’s trigger — opens ColourSheet'],
   'launch/_components/stage-panel/stage-background.tsx': [1, 'the prototype’s five-colour row — its “+” opens ColourSheet'],
+  'launch/_components/stage-panel/stage-look-row.tsx': [1, 'Style’s last row in the toolbar (owner 2026-10-09: “Color just 1 circle”) — the ONE circle, a trigger of ColourSheet'],
   'launch/_components/stage-panel/stage-text.tsx': [1, 'the prototype’s colour row — its “+” opens ColourSheet'],
   'launch/_components/studio-colour-field.tsx': [1, 'the Studio colour row’s trigger — opens the sheet'],
   'website/editor/_components/background-colour-wells.tsx': [2, 'Background › Colour’s two circles — each a trigger of the one sheet (ColourPickerSheet)'],

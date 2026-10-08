@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { TILE_FREEZE_CSS } from '@/lib/maker-tile-preview';
 import { findMakerSection } from '@/app/[slug]/_components/maker-section-find';
 import { finishStreamedHtml } from './streamed-swap';
+import { styleCardFit } from '@/lib/maker-stage-room';
 
 /**
  * 🖼 A STYLE'S TRUE MINIATURE (owner 2026-10-07: *"should be a preview of the style
@@ -20,8 +21,9 @@ import { finishStreamedHtml } from './streamed-swap';
  * (`canvasOnlyScene` + `canvasStylePreview`, `app/[slug]/_lib/editor-canvas.ts`; both
  * host-canvas only, so a guest's `?style=` changes nothing, and a frame asking for a
  * style never mounts the editor bridge). The page draws the style with the shipped
- * renderer — never a copy of it here — and the frame is the phone's view of the part
- * (`phoneViewFit`: the page at phone width, cut to the card's 3 : 4 frame). Script-less (`sandbox="allow-same-origin"`): a
+ * renderer — never a copy of it here — at the phone's own width, and the card shows that part WHOLE: centred and
+ * scaled to fit, never cut (`styleCardFit`, owner 2026-10-09 — `TOOLBAR-SPEC-2026-10-09.md` § STYLE; it was the
+ * page at the card's width, cut at the card's foot, 2026-10-08). Script-less (`sandbox="allow-same-origin"`): a
  * miniature cannot play, ask for a camera, or speak to the Maker.
  */
 
@@ -67,20 +69,6 @@ function useCanvasSrc(): { src: string; width: number } | null {
 const FOCUS_CSS =
   '[data-sn-mini-scene] *:not([data-sn-mini-focus]):not([data-sn-mini-focus] *):not(:has([data-sn-mini-focus])){visibility:hidden!important}';
 
-/**
- * 📱 THE PHONE'S VIEW OF A PART (owner 2026-10-08: *"we are on mobile view, so show in mobile view, not like a
- * header that is short and wide"*). The card's frame is a small phone screen: the page is drawn at the phone's
- * own width and scaled so that width IS the frame's — never a wide part shrunk until it fits. The window opens
- * at the part's top; a part taller than the frame is cut at the frame's foot (cover), a shorter one sits in the
- * middle of it. Pure — `every-style-card-is-phone-shaped.test.ts` measures it.
- */
-export function phoneViewFit(part: { top: number; height: number }, box: { w: number; h: number }, pageW: number): { k: number; x: number; y: number; h: number } {
-  const k = box.w / Math.max(1, pageW);
-  const shown = part.height * k;
-  const y = shown < box.h ? (box.h - shown) / 2 - part.top * k : -part.top * k;
-  return { k, x: 0, y, h: part.top + Math.max(part.height, box.h / k) };
-}
-
 /** The block a card is fitted on: the scene, one `data-el` part of it, or one `focus` block (the scene when absent). */
 export function miniaturePart(section: HTMLElement | null, el: string | undefined, focus: string | null | undefined): HTMLElement | null {
   if (!section) return null;
@@ -94,12 +82,15 @@ export function StylePreview({
   styleId,
   current,
   focus = null,
+  onDrawn,
 }: {
   canvasKey: string | null;
   sceneType: string;
   styleId: string;
   current: boolean;
   focus?: string | null;
+  /** Told the part's drawn shape once it is measured — a card of one long line is made wider (`styleCardIsWide`). */
+  onDrawn?: (shape: { w: number; h: number }) => void;
 }) {
   const canvas = useCanvasSrc();
   const src = canvas && canvasKey ? stylePreviewSrc(canvas.src, canvasKey, sceneType, styleId, window.location.origin) : null;
@@ -107,6 +98,11 @@ export function StylePreview({
   const box = useRef<HTMLSpanElement>(null);
   const frame = useRef<HTMLIFrameElement>(null);
   const [fit, setFit] = useState<{ k: number; x: number; y: number; h: number } | null>(null);
+  /** The part's box on its page, and the page's own ground — kept so the fit is worked out again when the card changes size. */
+  const drawnRef = useRef<{ top: number; left: number; width: number; height: number } | null>(null);
+  const [ground, setGround] = useState<string | null>(null);
+  const onDrawnRef = useRef(onDrawn);
+  onDrawnRef.current = onDrawn;
   const [empty, setEmpty] = useState(false);
 
   /* Measured once the frame has LOADED (a slow page may take many seconds) — never given up on while it loads. */
@@ -114,7 +110,26 @@ export function StylePreview({
   useEffect(() => {
     setFit(null);
     setEmpty(false);
+    drawnRef.current = null;
   }, [src]);
+  /** The picture, centred and scaled to fit the card as it is NOW. */
+  const lay = () => {
+    const b = box.current;
+    const part = drawnRef.current;
+    if (!b || !part || b.clientWidth < 1 || b.clientHeight < 1) return;
+    const f = styleCardFit(part, { w: b.clientWidth, h: b.clientHeight });
+    setFit((was) => (was && was.k === f.k && was.x === f.x && was.y === f.y ? was : { ...f, h: part.top + part.height + 40 }));
+  };
+  const layRef = useRef(lay);
+  layRef.current = lay;
+  /* The card changed size (a one-line look's card widened; the phone turned): fitted again, never stretched. */
+  useEffect(() => {
+    const b = box.current;
+    if (!b || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => layRef.current());
+    ro.observe(b);
+    return () => ro.disconnect();
+  }, []);
   useEffect(() => {
     if (!src || !canvasKey || loads === 0) return;
     let n = 0;
@@ -158,7 +173,12 @@ export function StylePreview({
           return;
         }
         window.clearInterval(id);
-        setFit(phoneViewFit({ top: drawn.top + (d.defaultView?.scrollY ?? 0), height: drawn.height }, { w: b.clientWidth, h: b.clientHeight }, d.documentElement.clientWidth || width));
+        drawnRef.current = { top: drawn.top + (d.defaultView?.scrollY ?? 0), left: drawn.left + (d.defaultView?.scrollX ?? 0), width: drawn.width, height: drawn.height };
+        /* The card stands on the page's own ground, so the room round a small part is the page's, never a grey band. */
+        const bg = getComputedStyle(d.body).backgroundColor;
+        setGround(bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent' ? bg : '#FFFFFF');
+        onDrawnRef.current?.({ w: drawn.width, h: drawn.height });
+        layRef.current();
       } catch {
         window.clearInterval(id);
         setEmpty(true);
@@ -173,6 +193,7 @@ export function StylePreview({
       aria-hidden
       data-style-preview={!src ? 'loading' : empty ? 'empty' : fit ? (current ? 'live' : 'render') : 'loading'}
       className="pointer-events-none absolute inset-0 overflow-hidden"
+      style={ground ? { background: ground } : undefined}
     >
       {src ? (
         <iframe

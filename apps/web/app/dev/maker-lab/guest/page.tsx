@@ -12,7 +12,7 @@ import { PahinaMasthead } from '@/app/[slug]/_components/pahina-masthead';
 import { ScheduleWidget } from '@/app/[slug]/_components/schedule-widget';
 import { VenueWidget } from '@/app/[slug]/_components/venue-widget';
 import { HubCanvasFrame } from '@/app/[slug]/_components/hub-canvas-frame';
-import { canvasOnlyCss, canvasOnlyScene, canvasStylePreview } from '@/app/[slug]/_lib/editor-canvas';
+import { EDITOR_CANVAS_HIDES_APP_CHROME, canvasOnlyCss, canvasOnlyScene, canvasStylePreview } from '@/app/[slug]/_lib/editor-canvas';
 import { withStylePreview } from '@/app/[slug]/_lib/style-preview';
 import { eventWordsFor } from '@/app/[slug]/_lib/event-words';
 import { fixedSceneStyleOf } from '@/lib/fixed-scene-style-of';
@@ -342,6 +342,10 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       {/* The Maker's two-way bridge, as the real canvas mounts it — its `ready` swaps a buffered frame in. Never in a miniature. */}
       {sp.editor === '1' && !preview ? <EditorBridge /> : null}
       {only ? <style>{canvasOnlyCss(only)}</style> : null}
+      {/* 🍪 As the REAL canvas does (`site-body.tsx`, `isEditorCanvas`): the app's floating notices — the cookie consent
+          among them — are not drawn inside the Maker's sample; the host answers them on the Maker's own page. The lab
+          drew the banner over the foot of the sample, which the real Maker never does (seen on the review copy, 2026-10-09). */}
+      <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style>
     </main>
   );
 }

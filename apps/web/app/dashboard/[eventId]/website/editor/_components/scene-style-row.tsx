@@ -31,8 +31,7 @@ import { PickMenu } from './pick-menu';
 import { useHeldEventsSave, useSceneCanvas } from './use-scene-canvas';
 import { noteDraftedCanvas } from '@/lib/maker-draft-store';
 import type { ElementDraftAction } from './element-sheet';
-import { DosLookCards, PaletteLookCards, PaletteLookRow } from './palette-look-row';
-import { DOS_LOOK_DEFAULT, resolveDosLook } from '@/lib/dress-code-looks';
+import { PaletteLookRow, PaletteLookStrip } from './palette-look-row';
 import type { DressCodeConfig } from '../../../studio/mood-board/dress-code-actions';
 import { PALETTE_LOOK_DEFAULT, layoutDrawsPaletteLook, resolvePaletteLook } from '@/lib/palette-looks';
 import { useMaker } from '../../../launch/_components/maker-context';
@@ -228,7 +227,6 @@ export function PaletteLookCanvasRow({
   eventType,
   draftAction,
   colours,
-  dressCode = null,
 }: {
   /**
    * 👗 The Dress code as saved (drafted over live, `normalizeDressCodeConfig`) — handed by the Stages panel's
@@ -262,15 +260,14 @@ export function PaletteLookCanvasRow({
   /* Tags is the default, and "Auto is an absence": picking it clears the key. */
   const pick = (id: string) => save((c) => { if (id === PALETTE_LOOK_DEFAULT) delete c.palette; else c.palette = id; });
   if (cards && onDressPart) {
-    /* The cards are the page itself, which draws "Our colours" and the two lists in sample shapes until they
-       exist (owner 08 Oct) — so they are offered before a colour or a line is written. The palette's cards
-       only where the layout draws the look; the Do's & Don'ts' under every layout. */
+    /* 🎨 THE TOOLBAR'S STYLE, ON THE DRESS CODE (owner 2026-10-09: *"row 3 is palette style"*): the five palette
+       looks as ONE row of five under the layouts' cards — only where the layout draws the look.
+       No longer drawn here (the toolbar is four rows): the Do's & Don'ts looks → Studio › Mood Board & Dress Code
+       (owner, decided 2026-10-09 — their stored pick, `canvas.dos`, is still honoured by the page), and Figures ▾,
+       which is the Mood Board's own switch (`show_figure` — one setting, and that door is still there). */
     return (
       <>
-        {drawsPalette ? <PaletteLookCards value={resolvePaletteLook(shown.palette)} pending={pending} onPick={pick} /> : null}
-        {/* 🧾 The shipped notes are the default and an absence, like Tags. */}
-        <DosLookCards value={resolveDosLook(shown.dos)} pending={pending} onPick={(id) => save((c) => { if (id === DOS_LOOK_DEFAULT) delete c.dos; else c.dos = id; })} />
-        {dressCode ? <DressFiguresRow eventId={eventId} dressCode={dressCode} draftAction={draftAction} /> : null}
+        {drawsPalette ? <PaletteLookStrip value={resolvePaletteLook(shown.palette)} colours={colours} pending={pending} onPick={pick} /> : null}
         {error ? (
           <p role="alert" className="shrink-0 py-1 text-[12.5px] font-semibold text-terracotta-700">
             {error}
@@ -317,7 +314,9 @@ export function PaletteLookCanvasRow({
  * could only fall back to Drawn for every role would be a pick that changes nothing — so it is left out, not
  * drawn disabled.
  */
-function DressFiguresRow({ eventId, dressCode, draftAction }: { eventId: string; dressCode: DressCodeConfig; draftAction: ElementDraftAction }) {
+/* (Not drawn in the toolbar since 2026-10-09 — four rows; the Mood Board's own switch is this setting's door. Kept,
+   exported, for whoever gives it a row again.) */
+export function DressFiguresRow({ eventId, dressCode, draftAction }: { eventId: string; dressCode: DressCodeConfig; draftAction: ElementDraftAction }) {
   const saveEvents = useHeldEventsSave(eventId, draftAction);
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);

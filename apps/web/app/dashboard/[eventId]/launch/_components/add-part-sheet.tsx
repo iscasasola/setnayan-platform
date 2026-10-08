@@ -98,6 +98,8 @@ export function partOpsOf(raw: MakerPartRaw): MakerPartOps {
     draftAction: raw.elementEditing?.draftAction ?? null,
     heroCanvas: raw.elementEditing?.canvases.hero ?? null,
     ownWords: raw.elementEditing?.ownWords ?? null,
+    canvases: raw.elementEditing?.canvases ?? null,
+    palette: raw.elementEditing?.palette ?? null,
     /* "+ Add a scene" exactly as the navigator offers it (`editor-shell.tsx` `setAddScene`). */
     addOwn:
       stage === 'editorial' && pe

@@ -428,29 +428,39 @@ test('a tap on the day’s parts and on THE DETAILS picks them — every marked 
 
 /* ── 11 · the Dress code part's Look: its looks are PICTURES (owner's preview check, 08 Oct) ─────────── */
 
-test('the Dress code part’s Look draws its layouts, its palette looks and its Do’s & Don’ts as look cards — no dropdown among them', async () => {
+test('the Dress code part’s Style draws its layouts as look cards and its palette looks as one row of five — no dropdown among them', async () => {
+  /* 🔁 RE-AIMED 2026-10-09 (owner: *"row 3 is palette style"*; decided the same day: the Do's & Don'ts look goes to
+     Studio › Mood Board & Dress Code — `TOOLBAR-SPEC-2026-10-09.md`). This held THREE carousels under one another
+     (layouts · palette looks · Do's & Don'ts), 614 px in a 210-px box. The toolbar's Style is the layouts' cards
+     (rows 1–2), the palette's five in ONE row (row 3), Colour · Size (row 4). The Do's & Don'ts pick is not drawn
+     here any more; its stored value (`canvas.dos`) is still what the page draws. */
   const { renderToStaticMarkup } = await import('react-dom/server');
-  /* The work area lays the three under one another: the scene's layouts, then what rides beside them. */
+  /* The work area lays them under one another: the scene's layouts, then what rides beside them. */
   const shell = read(`${EDITOR}/editor-shell.tsx`);
   const look = shell.slice(shell.indexOf('const lookRow ='), shell.indexOf('const backgroundRow ='));
-  assert.match(look, /\{styleRow\}\s*\{paletteRow\}\s*\{layoutRow\}/, 'the layouts lead; the palette and Do’s & Don’ts follow');
-  assert.match(shell, /type === 'dress_code' \? \(\s*<PaletteLookCanvasRow /, 'only the Dress code part carries them');
+  assert.match(look, /\{styleRow\}\s*\{paletteRow\}\s*\{layoutRow\}/, 'the layouts lead; the palette follows');
+  assert.match(shell, /type === 'dress_code' \? \(\s*<PaletteLookCanvasRow /, 'only the Dress code part carries it');
   const row = read(`${EDITOR}/scene-style-row.tsx`);
   const body = row.slice(row.indexOf('export function PaletteLookCanvasRow'), row.indexOf('export function SceneAlignRow'));
   const stages = body.slice(body.indexOf('if (cards && onDressPart) {'), body.indexOf('if (!drawsPalette || colours.length === 0) return null;'));
   assert.ok(stages.length > 200, 'the Stages branch was found');
-  assert.match(stages, /\{drawsPalette \? <PaletteLookCards [^\n]*\/> : null\}/, 'the palette’s cards, where the layout draws the look');
-  assert.match(stages, /<DosLookCards value=\{resolveDosLook\(shown\.dos\)\}/, 'the Do’s & Don’ts cards, under every layout');
+  assert.match(stages, /\{drawsPalette \? <PaletteLookStrip [^\n]*\/> : null\}/, 'the palette’s row, where the layout draws the look');
+  assert.doesNotMatch(stages, /DosLookCards|DressFiguresRow|PaletteLookCards/, 'a second carousel (or Figures ▾) is back under the Dress code’s Style — it has four rows');
   assert.doesNotMatch(stages, /PaletteLookRow|PickMenu|<Dd /, 'a dropdown sits among the Dress code’s looks');
-  /* A pick of the shipped look is an absence, never a stored default. */
-  assert.match(stages, /if \(id === DOS_LOOK_DEFAULT\) delete c\.dos; else c\.dos = id;/);
-  /* …and what the couple sees: two labelled rows of picture cards. */
-  const { PaletteLookCards, DosLookCards } = await import(`../${EDITOR}/palette-look-row`);
+  /* The page still draws the Do's & Don'ts in the look that was picked — the stored value is honoured. */
+  assert.match(read('lib/scene-style-of-row.ts'), /resolveDosLook\(/, 'the page no longer reads the stored Do’s & Don’ts look');
+  /* A pick of the shipped palette look is an absence, never a stored default. */
+  assert.match(body, /if \(id === PALETTE_LOOK_DEFAULT\) delete c\.palette; else c\.palette = id;/);
+  /* …and what the couple sees: five pictures in one row, the one worn marked; the full cards still draw for a
+     surface with the room (Do's & Don'ts' too — they wait for their Studio row). */
+  const { PaletteLookStrip, PaletteLookCards, DosLookCards } = await import(`../${EDITOR}/palette-look-row`);
+  const strip = renderToStaticMarkup(React.createElement(PaletteLookStrip, { value: 'fabric', colours: ['#A9834B', '#2C2A29', '#C7A27C'], onPick: () => {} }));
+  assert.equal((strip.match(/role="radio"/g) ?? []).length, 5);
+  assert.match(strip, /aria-checked="true"[^>]*data-palette-pick="fabric"|data-palette-pick="fabric"[^>]*aria-checked="true"/);
+  assert.doesNotMatch(strip, /aria-haspopup/);
   const html =
     renderToStaticMarkup(React.createElement(PaletteLookCards, { value: 'fabric', onPick: () => {} })) +
     renderToStaticMarkup(React.createElement(DosLookCards, { value: 'marks', onPick: () => {} }));
-  assert.match(html, /data-palette-look-label="">Palette look</);
-  assert.match(html, /data-dos-look-label="">Do’s &amp; Don’ts</);
   assert.equal(html.split('data-style-card-preview=""').length - 1, 5 + 3, 'every card holds a picture');
   assert.match(html, /aria-checked="true"[^>]*data-style-card="fabric"/);
   assert.match(html, /aria-checked="true"[^>]*data-style-card="marks"/);
@@ -492,7 +502,12 @@ test('the Dress code part carries ONE Figures ▾ (Drawn · Hidden) writing the 
   assert.match(page, /dressCode: normalizeDressCodeConfig\(\(drafted as \{ dress_code_config\?: unknown \}\)\.dress_code_config\),/);
   const shell = read(`${EDITOR}/editor-shell.tsx`);
   assert.equal(shell.split('dressCode={sceneFormat.dressCode ?? null}').length - 1, 1, 'only the Stages panel’s Dress code part is handed the config');
-  assert.match(row, /\{dressCode \? <DressFiguresRow eventId=\{eventId\} dressCode=\{dressCode\} draftAction=\{draftAction\} \/> : null\}/);
+  /* (🔁 Re-aimed 2026-10-09: the toolbar is four rows and Figures ▾ has none — the row is no longer DRAWN on the Dress
+     code part. Everything above still holds for the row itself, kept and exported: it is the Mood Board's own
+     switch, which is where the setting is changed now.) */
+  assert.match(row, /export function DressFiguresRow\(/);
+  assert.doesNotMatch(row.slice(row.indexOf('if (cards && onDressPart) {'), row.indexOf('if (!drawsPalette || colours.length === 0) return null;')), /<DressFiguresRow/);
+  assert.match(read('app/dashboard/[eventId]/studio/mood-board/_components/dress-code-fields.tsx'), /show_figure/, 'the Mood Board’s own switch — the setting’s other door — is gone');
 });
 
 /* ── 13 · the Reveal and Camera look cards (status TODO 13) — amended the same day by the owner's newer ruling:

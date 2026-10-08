@@ -143,6 +143,71 @@ export const SP_ROWS = 'grid min-h-0 grid-rows-[repeat(4,var(--sp-rh))] auto-row
 /** One of the four rows: its controls side by side, 44 px tall, in the row's middle. */
 export const SP_ROWS_ROW = 'flex min-w-0 items-center gap-2';
 
+/* ── 🎠 STYLE'S LOOK CARDS IN THE TOOLBAR (owner 2026-10-09, `TOOLBAR-SPEC-2026-10-09.md` § STYLE, the approved
+   prototype's `.cr` / `.lc`: *"maximize the height … portrait"*, long one-line text up to 60 % width, the picked
+   one centred with the previous and the next in view, each picture centred and scaled to fit, never cut) ──────────
+   The cards strip takes the rows left to it (rows 1–3 beside Colour + Size, 1–2 over the Dress code's palette, all
+   four where the part has neither) and a card is AS TALL AS THE STRIP — the one phone-shaped frame (`.sn-phone-card`,
+   3 : 4) at the rows' height instead of its fixed 112 × 149. A look that draws ONE LONG LINE gets a wider card
+   (60 % of the toolbar's inner width) so its words are read, not squeezed. The Reveal, the Camera, the pass and the
+   Themes keep the 2026-10-08 card (`SP_LOOK_CARD`). */
+/** The pane the scene's Format is laid in under Style: no scroll up and down, a row's gap between its rows. */
+export const SP_STYLE_PANE = 'flex h-full min-h-0 flex-col gap-[var(--sp-rg)] overflow-hidden px-[10px]';
+/**
+ * The strip: edge to edge of the toolbar, swiped sideways only, a card snapping to its middle. It reaches 4 px into
+ * the gaps above and below (`-my-1 py-1`) so the picked card's ring is never cut.
+ */
+export const SP_STYLE_STRIP =
+  '-mx-[10px] -my-1 flex min-h-0 min-w-0 flex-1 snap-x snap-mandatory items-stretch gap-2 overflow-x-auto overflow-y-hidden py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden';
+/**
+ * A card: the phone-shaped frame at the strip's height (its width follows, 3 : 4), white, a hairline round it, its
+ * picture over its name. Picked, it wears the accent's line and soft ring. `data-wide`: one long line of words —
+ * as tall, 60 % of the toolbar's inner width.
+ */
+export const SP_STYLE_CARD =
+  'sn-press sn-phone-card group !flex !h-full ![inline-size:auto] snap-center flex-col border border-[var(--sp-line)] bg-white text-left ' +
+  'aria-checked:border-[var(--sp-cta)] aria-checked:shadow-[0_0_0_1px_var(--sp-cta),0_0_0_4px_var(--sp-cta-wash)] ' +
+  'data-[wide]:![aspect-ratio:auto] data-[wide]:![inline-size:calc((100%_-_20px)_*_0.6)]';
+/** The share of the toolbar's inner width a one-line look's card takes — the spec's "up to 60 %". */
+export const SP_STYLE_CARD_WIDE = 0.6;
+/** A drawn part at least this many times wider than tall is ONE LONG LINE (the Title, the Date, the Names in a row). */
+export const SP_STYLE_WIDE_ASPECT = 4;
+export function styleCardIsWide(drawn: { w: number; h: number } | null | undefined): boolean {
+  return Boolean(drawn && drawn.h > 0 && drawn.w / drawn.h >= SP_STYLE_WIDE_ASPECT);
+}
+/** The card's picture: all the card above its name. */
+export const SP_STYLE_PICTURE = 'relative block min-h-0 w-full flex-1 overflow-hidden';
+/** The card's name: one line in a 22 px foot (prototype `.nm`), cut with …; the picked one in the accent. */
+export const SP_STYLE_NAME =
+  'block h-[22px] w-full shrink-0 truncate border-t border-[var(--sp-line)] bg-[var(--sp-page)] px-1 text-center text-[10.5px] font-medium leading-[21px] text-[var(--sp-ink2)] group-aria-checked:font-semibold group-aria-checked:text-[var(--sp-cta)]';
+/** Room kept between a picture and its card's edge (the prototype's 6 px a side). */
+export const SP_STYLE_PICTURE_PAD = 6;
+/**
+ * 🖼 A PICTURE IS CENTRED AND SCALED TO FIT — NEVER CUT (the prototype's `fitPreviews`): the part as the page draws
+ * it, scaled by the smaller of what its width and its height allow (never enlarged), in the middle of the card.
+ * `part` is the part's box on its page; the answer moves and scales the page so that box lands there.
+ */
+export function styleCardFit(
+  part: { top: number; left: number; width: number; height: number },
+  box: { w: number; h: number },
+  pad: number = SP_STYLE_PICTURE_PAD,
+): { k: number; x: number; y: number } {
+  const k = Math.min((box.w - 2 * pad) / Math.max(1, part.width), (box.h - 2 * pad) / Math.max(1, part.height), 1);
+  const s = Math.max(0.01, k);
+  return { k: s, x: (box.w - part.width * s) / 2 - part.left * s, y: (box.h - part.height * s) / 2 - part.top * s };
+}
+/**
+ * 🎨 THE DRESS CODE'S PALETTE ROW (owner 2026-10-09: *"row 3 is palette style"* — Tags · Fabric swatches · Paint
+ * chips · Circles · Ribbon, `lib/palette-looks.ts`): five equal buttons in one row, each the couple's colours drawn
+ * in that look. 44 px; the picked one wears the accent's line and ring.
+ */
+export const SP_PALETTE_ROW = 'flex h-[var(--sp-rh)] shrink-0 items-center gap-1.5';
+export const SP_PALETTE_PICK =
+  'sn-press flex h-11 min-w-0 flex-1 items-center justify-center rounded-lg border border-[var(--sp-line)] bg-white aria-checked:border-[var(--sp-cta)] aria-checked:shadow-[0_0_0_1px_var(--sp-cta),0_0_0_3px_var(--sp-cta-wash)]';
+/** Style's last row: Colour (one circle) and Size (a slider) side by side — *"color and size share the same row"*. */
+export const SP_LOOK_ROW = 'flex h-full min-w-0 items-center gap-2';
+export const SP_LOOK_ROW_LABEL = 'shrink-0 text-[13px] font-medium text-[var(--sp-ink)]';
+
 /* ── the panel's body (`stage-panel/*`) — every row ONE height, 44 px (owner 2026-10-06 "keep all rows consistent in height") ── */
 
 /** A tool's column (prototype `.pane`): rows 8 px apart, scrolls only when a tool is longer than half the screen. */
@@ -256,6 +321,7 @@ export const STAGE_TAP_TARGETS = {
   SP_SWATCH,
   SP_LAYOUT_CARD,
   SP_PILL_BUTTON,
+  SP_PALETTE_PICK,
   SP_STEP_BUTTON,
   SP_KEY_BAR,
   SP_KEY_DONE,

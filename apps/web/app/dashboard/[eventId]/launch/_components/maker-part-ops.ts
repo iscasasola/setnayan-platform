@@ -70,6 +70,9 @@ export type MakerPartOps = {
   /** ✍ For Edit's typed words (`stage-panel/part-words.ts`): the hero's canvas and each scene of their own's words, as the last render had them. */
   heroCanvas: NonNullable<WorkProps['elementEditing']>['canvases'][string] | null;
   ownWords: NonNullable<WorkProps['elementEditing']>['ownWords'] | null;
+  /** 🎨 For Style's Colour · Size (`stage-panel/part-look.ts`): every scene's canvas as the last render drew it, and the Event Hub's colours. */
+  canvases: NonNullable<WorkProps['elementEditing']>['canvases'] | null;
+  palette: NonNullable<WorkProps['elementEditing']>['palette'] | null;
   /** "+ Add a scene" — the shipped picker's form, or why a scene cannot be added here; null = not on this stage. */
   addOwn:
     | {

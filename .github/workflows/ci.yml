@@ -855,6 +855,18 @@ jobs:
       - name: Unit-test the deploy drift doctor classifier
         run: node --test scripts/deploy-drift-doctor.test.mjs
 
+      # `pnpm preflight` (scripts/preflight.mjs) is what a builder runs BEFORE
+      # A PUSH so that the cheap faults are found in minutes on their own
+      # machine instead of one-per-round here. It does not keep its own list of
+      # "what CI runs": it READS THIS FILE and runs every cheap step as written.
+      # That only stays true if every step in this file is one it understands —
+      # so this test fails when a step is added that nobody classified
+      # (cheap = run it locally as written · medium = which targeted version
+      # runs locally · heavy = left to CI, and named as such in its output).
+      # It rides THIS job because this job is required and install-free.
+      - name: Unit-test preflight (every CI step is classified)
+        run: node --test scripts/preflight.test.mjs
+
   lint-exposure-baseline:
     name: lint exposure baseline
     runs-on: ubuntu-latest

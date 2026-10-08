@@ -147,7 +147,7 @@ function lookupSeconds(seconds, s) {
   let best = null;
   for (const [k, v] of seconds) {
     const [job, step] = k.split('::');
-    if (step !== s.step) continue;
+    if (step !== s.step && step !== `Run ${s.step}`) continue;
     if (job === s.jobName || job.startsWith(`${s.jobName} (`)) best = Math.max(best ?? 0, v);
   }
   return best;
@@ -300,11 +300,29 @@ if (flag('--list')) {
 
 /* ── running things ─────────────────────────────────────────────────────────*/
 
+const live = new Set();
+function killGroup(child, signal) {
+  try {
+    process.kill(-child.pid, signal);
+  } catch {
+    child.kill(signal);
+  }
+}
+/** Ctrl-C (or a kill) must not leave a test batch running behind us. */
+for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
+  process.on(sig, () => {
+    for (const child of live) killGroup(child, 'SIGTERM');
+    process.exit(130);
+  });
+}
+
 /** @returns {Promise<{code:number|null, signal:string|null, out:string, ms:number, timedOut:boolean}>} */
 function run(cmd, args, { cwd = ROOT, env = {}, timeoutMs = 20 * 60 * 1000 } = {}) {
   return new Promise((resolve) => {
     const began = Date.now();
-    const child = spawn(cmd, args, { cwd, env: { ...process.env, FORCE_COLOR: '0', NO_COLOR: '1', ...env }, stdio: ['ignore', 'pipe', 'pipe'] });
+    // its own process group, so stopping preflight stops the test children too
+    const child = spawn(cmd, args, { cwd, env: { ...process.env, FORCE_COLOR: '0', NO_COLOR: '1', ...env }, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
+    live.add(child);
     const chunks = [];
     let size = 0;
     const keep = (b) => {
@@ -317,14 +335,16 @@ function run(cmd, args, { cwd = ROOT, env = {}, timeoutMs = 20 * 60 * 1000 } = {
     let timedOut = false;
     const timer = setTimeout(() => {
       timedOut = true;
-      child.kill('SIGKILL');
+      killGroup(child, 'SIGKILL');
     }, timeoutMs);
     child.on('error', (e) => {
       clearTimeout(timer);
+      live.delete(child);
       resolve({ code: 127, signal: null, out: String(e.message), ms: Date.now() - began, timedOut });
     });
     child.on('close', (code, signal) => {
       clearTimeout(timer);
+      live.delete(child);
       resolve({ code, signal, out: Buffer.concat(chunks).toString('utf8'), ms: Date.now() - began, timedOut });
     });
   });
@@ -422,7 +442,6 @@ async function tscOnce(files) {
   }
 }
 process.on('exit', () => fs.rmSync(TSC_CFG, { force: true }));
-for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => process.exit(130));
 
 let tscNote = '';
 async function runTsc() {

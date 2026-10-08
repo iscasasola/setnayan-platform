@@ -149,7 +149,8 @@ test('4 · the thank-you says what the SERVER kept, and the list behind it re-re
   assert.match(s, /\{giftThanksTitle\(kept\.giverName\)\}/);
   assert.match(s, /\{giftThanksLine\(\{ hostName, \.\.\.kept \}\)\}/);
   // `kept` is the server's answer — never what the form happened to hold.
-  assert.match(s, /setKept\(res\.data as unknown as Kept\); router\.refresh\(\);/);
+  /* The thank-you is drawn from the answer — and so is the list behind it (`a-kept-gift-is-drawn-not-refetched.test.ts`). */
+  assert.match(s, /const answer = res\.data as unknown as Kept; setKept\(answer\); onKept\?\.\(answer\);/);
   assert.equal([...s.matchAll(/setKept\(/g)].length, 1);
   assert.match(s, /data-gift-back="" onClick=\{onClose\}/);
 });
@@ -237,12 +238,18 @@ test('6 · 🔒 the door: page switch → who is reading → the limiter → onl
       'if (!guest || guest.deleted_at != null) return { ok: false, error: GIFT_NOT_RECOGNISED };',
       'if (!giftsAreOn(event.gifts_on) || ways.length === 0) return { ok: false, error: GIFT_NOT_ACCEPTING };',
       'if (!parseClientRef(shotRaw, giftShotPolicy(eventId, session.guest_id))) return { ok: false, error: GIFT_SHOT_REFUSED };',
-      ".eq('public_id', wishId).eq('event_id', eventId)",
+      /* The wish is READ beside the checks above (one round of reads — see
+         `a-kept-gift-is-drawn-not-refetched.test.ts`), and JUDGED here: this event's, or refused. */
+      'if (!wishNamed) return { ok: false, error: GIFT_WISH_GONE };',
+      'if (!wish) return { ok: false, error: GIFT_WISH_GONE };',
       ".from('event_gift_records') .insert({",
     ],
     'the writer',
   );
   assert.equal([...writer.matchAll(/\.insert\(/g)].length, 1);
+  /* 🔒 The wish it names is looked up by its public id AND this event — never by the id alone. */
+  assert.equal([...writer.matchAll(/\.eq\('public_id', wishId\)\.eq\('event_id', eventId\)/g)].length, 1);
+  assert.doesNotMatch(writer, /\.eq\('public_id', wishId\)(?!\.eq\('event_id', eventId\))/);
 });
 
 test('7 · it costs no new route and no server action — both requests ride the guest upload route', () => {

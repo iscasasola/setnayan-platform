@@ -223,7 +223,10 @@ test('8 · +0 server actions: four writes, one existing door', () => {
   /* The screen saves through the ONE door the lazy Studio tools hand it — and imports no action itself. */
   const wl = read(`${L}/studio-wish-list.tsx`);
   assert.doesNotMatch(wl, /pabuya\/actions|hub-draft-actions/, 'the wish list imports a server action of its own');
-  assert.equal(wl.match(/makerSave\(\s*\(\) => action\(form\(\{ wish_op: /g)?.length, 5, 'every wish write goes through makerSave and the one action');
+  /* Five writes, each sent ONCE, each inside a makerSave (how they are held, and that none
+     re-renders the Maker, is `the-wish-list-costs-one-request.test.ts`). */
+  assert.equal(wl.match(/action\(form\(\{ wish_op: /g)?.length, 5, 'a wish write is sent from more (or fewer) than its five places');
+  assert.equal(wl.match(/\bmakerSave\(/g)?.length, 5, 'every wish write goes through makerSave and the one action');
   const tools = read(`${L}/studio-tools.tsx`);
   const live = tools.slice(tools.indexOf('function StudioWishListLive('), tools.indexOf('export type StudioToolProps'));
   assert.match(live, /<StudioWishList \{\.\.\.props\} action=\{saveEgiftMethod\} \/>/);

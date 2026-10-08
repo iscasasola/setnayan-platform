@@ -133,23 +133,50 @@ class Q implements PromiseLike<Res> {
     }
     const db = this.db;
     const person = this.actor === SERVICE ? null : this.actor;
-    if (person) {
-      await db.exec('SET ROLE authenticated');
-      await setAuthUid(db, person);
-    }
-    try {
-      const r = await db.query<Row>(sql, params);
-      return { data: r.rows, error: null };
-    } catch (e) {
-      // Returned, never thrown — exactly as supabase-js hands a refusal back.
-      return { data: null, error: { message: (e as Error).message, code: (e as { code?: string }).code } };
-    } finally {
+    /* ONE STATEMENT AT A TIME. The writers run requests side by side (`Promise.all`), and this
+       client is one connection: without the queue, one statement's RESET ROLE could land before
+       another's query — which would then run as the superuser, past RLS, and "pass". */
+    const turn = queue.then(async (): Promise<Res> => {
+      sent.push(`${this.verb} ${this.table}`);
       if (person) {
-        await db.exec('RESET ROLE');
-        await setAuthUid(db, null);
+        await db.exec('SET ROLE authenticated');
+        await setAuthUid(db, person);
       }
-    }
+      try {
+        const r = await db.query<Row>(sql, params);
+        return { data: r.rows, error: null };
+      } catch (e) {
+        // Returned, never thrown — exactly as supabase-js hands a refusal back.
+        return { data: null, error: { message: (e as Error).message, code: (e as { code?: string }).code } };
+      } finally {
+        if (person) {
+          await db.exec('RESET ROLE');
+          await setAuthUid(db, null);
+        }
+      }
+    });
+    queue = turn.then(
+      () => undefined,
+      () => undefined,
+    );
+    return turn;
   }
+}
+
+/** The statements-in-turn queue (see `run`). */
+let queue: Promise<void> = Promise.resolve();
+/** Every request any client here sent, in order — "verb table". */
+const sent: string[] = [];
+
+/**
+ * Run `fn` and hand back the requests it sent — "verb table", in the order they
+ * were sent (owner rule 2026-10-08: count the requests, with a real function).
+ * One request = one awaited table call, exactly as supabase-js sends one.
+ */
+export async function counted<T>(fn: () => Promise<T>): Promise<{ res: T; sent: string[] }> {
+  const from = sent.length;
+  const res = await fn();
+  return { res, sent: sent.slice(from) };
 }
 
 export function clientAs(db: PGlite, actor: Actor): SupabaseClient {

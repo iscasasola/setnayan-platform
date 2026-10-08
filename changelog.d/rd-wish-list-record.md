@@ -52,3 +52,37 @@ whose figures carry commas.
 
 SPEC IMPACT: None. Build status in the corpus:
 `EGIFTS_WISH_LIST_BUILD_STATUS_2026-10-08.md`.
+
+## 2026-10-08 · fix(egifts): "I sent it" costs one request and renders no page (wish list 4/5)
+
+Owner rule, 2026-10-08 (minimum requests); controller's named changes 2 and 4.
+
+**Before** (read from the code): after a gift was kept the sheet called
+`router.refresh()` — the whole gift page rendered again on the server to change
+one line — and the door revalidated two paths by hand.
+
+**After: one request per press, zero page renders.**
+- `gift-record-sheet.tsx` — no router, no refresh. The answer is handed to the
+  list (`onKept`).
+- `wish-list.tsx` — the list is redrawn from that answer (`withOwnGift`,
+  `lib/wish-list-guest.ts`): the wish's sum and the reader's own "You sent ₱ ✓"
+  grow by what they said they sent, a wish that reached its price is got and
+  sinks to the end — exactly the list the next read would hand back (pinned by
+  comparing the two). A gift toward no wish changes nothing on the page.
+- `gift-door.server.ts` — ends with the one revalidation door
+  (`revalidateGuestSite`, `lib/revalidate-site.ts`); no path revalidated by hand.
+- `gift-record.server.ts` — the wish is asked for BESIDE the three checks (one
+  round of four reads, not three then one); refusals are said in the same order.
+- `tests/db/pglite-client.ts` — statements run one at a time (the writers send
+  requests side by side; without the queue one could run past RLS), and
+  `counted()` hands back the requests a call sent.
+
+Requests for "I sent it" toward a wish: 1 from the phone (+ the screenshot's
+presign and its PUT straight to storage, when one is added). On the server:
+4 reads together · 1 insert · 1 sum · 1 mark only when it reaches (was 3
+together + 1 · 1 · 1 · 0–1). Guest page server renders: **0 (was 1)**.
+
+Guard: `lib/a-kept-gift-is-drawn-not-refetched.test.ts` (new, 5 tests; 7
+sabotages each red).
+
+SPEC IMPACT: None.

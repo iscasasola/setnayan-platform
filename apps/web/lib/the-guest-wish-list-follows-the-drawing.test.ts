@@ -224,10 +224,11 @@ test('7 · the guest read takes the sum and the guest’s wish columns — never
   assert.doesNotMatch(guest, /GIFT_RECORD_SELECT|WISH_ITEM_SELECT|giver_name|screenshot|message/, 'the guest path reads a giver’s record');
   assert.match(guest, /if \(wishRes\.error \|\| sumRes\.error \|\| !wishRes\.data \|\| !sumRes\.data\) return \{ read: false \};/);
 
-  /* The Welcome door asks through the same reader, and only when the page would draw the list. */
+  /* The Welcome door needs ONE number, so it asks for one — a count of the open wishes, and only
+     when a way to give is on (`lib/the-gift-door-asks-one-count.test.ts` holds the request). */
   const loaders = flat('app/[slug]/_lib/loaders.ts');
-  assert.match(loaders, /const wishRead = pabuyaRouteEnabled && enabledEgiftCount > 0 \? await readGuestWishList\(admin, eventId\) : null;/);
-  assert.match(loaders, /openWishCount: wishRead\?\.read \? openWishCount\(wishRead\.wishes\) : 0,/);
+  assert.match(loaders, /const openWishes = enabledEgiftCount > 0 \? await readOpenWishCount\(admin, eventId\) : null;/);
+  assert.match(loaders, /openWishCount: openWishes \?\? 0,/);
 });
 
 test('8 · "I sent it" is drawn only when the page says who is reading', async () => {

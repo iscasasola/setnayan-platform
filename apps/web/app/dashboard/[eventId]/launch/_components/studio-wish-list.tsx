@@ -6,7 +6,7 @@ import { FileUpload } from '@/app/_components/file-upload';
 import { InfoTip } from '@/app/_components/info-tip';
 import { ActionButton } from '@/components/action-button';
 import { Count, Fill } from '@/components/count';
-import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
+import { SUPERSEDED, makerLatestWrite, makerSave, requestMakerRefresh, type Superseded } from '@/lib/maker-refresh';
 import { STUDIO_GROUP_HEAD, STUDIO_GROUP_HEAD_LINE, STUDIO_SWITCH_TRACK } from '@/lib/studio-skin';
 import { WISH_LINK_MAX, WISH_NAME_MAX, WISH_NOTE_MAX } from '@/lib/wish-list';
 import {
@@ -34,6 +34,7 @@ import {
   wishesWithGifts,
   type StudioWish,
   type StudioWishGift,
+  type StudioWishKept,
   type StudioWishList,
 } from '@/lib/wish-list-studio';
 import { GiftRow, GiftsSent, GiftsSentDoor, OpenGift } from './studio-wish-gifts';
@@ -64,6 +65,13 @@ import { FIELD, FOOT, LABEL, WishSheet } from './studio-wish-sheet';
  * handed in by `studio-tools.tsx` — and guests see it right away — it sits under the SAME "Guests see this right away" line
  * the ways to give carry, so no second note is drawn. ✓ Apply does not cover it.
  *
+ * ⚡ ONE PRESS, ONE REQUEST, NO PAGE RENDERED (owner rule 2026-10-08). Each of
+ * the five writes is drawn on this list first and saved behind it HELD — the
+ * Maker is not re-read, because an add or an edit is answered with the row as
+ * kept and the rest is already on screen. The only thing here that asks the
+ * Maker to render is the couple's own "Try again" on a list that could not be
+ * read. Held by `lib/the-wish-list-costs-one-request.test.ts`.
+ *
  * 🔴 A REFUSED READ IS SAID. `list.read === false` draws "Couldn't load your
  * wish list." and Try again — never "No wishes yet" with an add button under it.
  *
@@ -92,10 +100,17 @@ const sameDraft = (a: Draft, b: Draft) =>
 
 /**
  * The E-Gifts page's one door, as the lazy Studio tools hand it in (`saveEgiftMethod`).
- * `shotUrl` answers the one READ that rides it (an opened gift's screenshot);
- * `kept` marks a refusal that came after the record itself was changed.
+ *   · `wish`    — a save answers with the row it kept, which the list lays over what it drew;
+ *   · `shotUrl` — answers the one READ that rides it (an opened gift's screenshot);
+ *   · `kept`    — marks a refusal that came after a gift record itself was changed.
  */
-export type WishAction = (form: FormData) => Promise<{ ok: true; shotUrl?: string | null } | { ok: false; error: string; kept?: true }>;
+type WishResult = { ok: true; wish?: StudioWishKept; shotUrl?: string | null } | { ok: false; error: string; kept?: true };
+export type WishAction = (form: FormData) => Promise<WishResult>;
+
+/** A write a LATER one for the same wish carried is as good as kept — that later write answers for both. */
+const kept = (r: WishResult | Superseded): boolean => r === SUPERSEDED || r.ok;
+/** What a refused write said — nothing, when it was kept or carried by a later one. */
+const refusal = (r: WishResult | Superseded): string | null => (r === SUPERSEDED || r.ok ? null : r.error);
 
 /** How long an opened screenshot's address is reused before it is asked for again (the server's lives 10 minutes). */
 const SHOT_REUSE_MS = 8 * 60 * 1000;
@@ -158,11 +173,27 @@ export function StudioWishList({
     return f;
   };
 
-  /* ⚡ EVERY WRITE IS DRAWN FIRST, THEN SAVED BEHIND IT (`makerSave` — one Maker
-     re-read per burst), and put back if the server refuses it
-     (`every-maker-edit-shows-before-it-saves.test.ts`). */
+  /* ⚡ ONE PRESS, ONE REQUEST, AND THE MAKER IS NOT RENDERED AGAIN (owner rule
+     2026-10-08). Every write is DRAWN FIRST — the list on this screen is the
+     drawing — then saved behind it as a HELD Maker save: no Maker re-read is
+     owed, because nothing the server would bring back is missing here. An add or
+     an edit is answered with the row as it was kept (`wish`), laid over what was
+     drawn; a refusal puts back ONLY the wish it was about, and is said in place.
+     Quick repeats on one wish (two fields left in a row, the switch flipped
+     twice, the arrow keys) fold into ONE write — the latest carries everything
+     (`makerLatestWrite`). `every-maker-edit-shows-before-it-saves.test.ts` and
+     `the-wish-list-costs-one-request.test.ts` hold this. */
 
-  /** ＋ Add it: the wish is on the list at the tap; its real row replaces it when the Maker re-reads. */
+  /** Lay the server's row over a wish on screen — its sum and gifts stay the screen's own. */
+  const lay = (id: string, row: StudioWishKept) =>
+    setWishes((cur) => cur.map((w) => (w.id === id || w.id === row.id ? { ...w, ...row } : w)));
+  /** Put ONE wish back as it was — never the whole list (another change may have landed meanwhile). */
+  const putBack = (was: StudioWish) => setWishes((cur) => cur.map((w) => (w.id === was.id ? was : w)));
+
+  /** A new wish still on its way: its on-screen id → the promise of its real one (null = refused). */
+  const adding = useRef(new Map<string, Promise<string | null>>());
+
+  /** ＋ Add it: the wish is on the list at the tap; the row the server kept replaces it when the save answers. */
   const addWish = async (draft: Draft) => {
     pendingNo.current += 1;
     const temp: StudioWish = drawn(
@@ -173,11 +204,27 @@ export function StudioWishList({
     setSheet(null);
     setAddSeed(null);
     setError(null);
-    const res = await makerSave(
+    const saved = makerSave(
       () => action(form({ wish_op: 'save', name: draft.name, price: draft.price, link: draft.link, note: draft.note, photo_r2_key: draft.photo })),
       requestMakerRefresh,
+      { held: true },
     );
-    if (res.ok) return;
+    adding.current.set(
+      temp.id,
+      saved.then(
+        (r) => (r.ok ? (r.wish?.id ?? null) : null),
+        () => null,
+      ),
+    );
+    const res = await saved;
+    adding.current.delete(temp.id);
+    if (res.ok) {
+      const row = res.wish;
+      /* The row as kept takes the drawn one's place — or joins the list, if a Maker render
+         from elsewhere replaced the list while the save was on its way. */
+      if (row) setWishes((cur) => (cur.some((w) => w.id === temp.id) ? cur.map((w) => (w.id === temp.id ? { ...w, ...row } : w)) : cur.some((w) => w.id === row.id) ? cur : [...cur, { ...temp, ...row }]));
+      return;
+    }
     setWishes((cur) => cur.filter((w) => w.id !== temp.id));
     setAddSeed(draft);
     setSheet({ kind: 'add' });
@@ -186,40 +233,51 @@ export function StudioWishList({
 
   /** A field was left (or the sheet closed): the row shows it at once. Returns what the server said, if it refused. */
   const keepWish = async (id: string, draft: Draft): Promise<string | null> => {
-    const was = wishes;
+    const was = wishes.find((w) => w.id === id);
     setWishes((cur) => cur.map((w) => (w.id === id ? drawn(w, draft) : w)));
     const res = await makerSave(
-      () => action(form({ wish_op: 'save', wish_item_id: id, name: draft.name, price: draft.price, link: draft.link, note: draft.note, photo_r2_key: draft.photo })),
+      () =>
+        makerLatestWrite(`wish:${id}`, () =>
+          action(form({ wish_op: 'save', wish_item_id: id, name: draft.name, price: draft.price, link: draft.link, note: draft.note, photo_r2_key: draft.photo })),
+        ),
       requestMakerRefresh,
+      { held: true, ok: kept },
     );
-    if (res.ok) return null;
-    setWishes(was);
-    return res.error;
+    if (res !== SUPERSEDED && res.ok && res.wish) lay(id, res.wish);
+    if (kept(res)) return null;
+    if (was) putBack(was);
+    return refusal(res);
   };
 
   /** The couple's own Got it switch. */
   const gotWish = async (id: string, got: boolean): Promise<string | null> => {
-    const was = wishes;
+    const was = wishes.find((w) => w.id === id);
     setWishes((cur) => cur.map((w) => (w.id === id ? { ...w, gotBy: got ? 'host' : null } : w)));
-    const res = await makerSave(() => action(form({ wish_op: 'got', wish_item_id: id, got: got ? '1' : '0' })), requestMakerRefresh);
-    if (res.ok) return null;
-    setWishes(was);
-    return res.error;
+    const res = await makerSave(
+      () => makerLatestWrite(`wish-got:${id}`, () => action(form({ wish_op: 'got', wish_item_id: id, got: got ? '1' : '0' }))),
+      requestMakerRefresh,
+      { held: true, ok: kept },
+    );
+    if (kept(res)) return null;
+    if (was) setWishes((cur) => cur.map((w) => (w.id === id ? { ...w, gotBy: was.gotBy } : w)));
+    return refusal(res);
   };
 
-  /** 🗑 Remove it? — the second tap: the row leaves at once, and comes back if the server refuses. */
+  /** 🗑 Remove it? — the second tap: the row leaves at once, and comes back (in its place) if the server refuses. */
   const removeWish = async (id: string) => {
-    const was = wishes;
-    const wasGifts = gifts;
+    const at = wishes.findIndex((w) => w.id === id);
+    const was = wishes[at];
+    /* The gifts that counted toward it — they are freed with it, and come back with it. */
+    const freed = gifts.filter((g) => g.wishId === id).map((g) => g.id);
     setWishes((cur) => cur.filter((w) => w.id !== id));
     /* Its gifts stay on the couple's list, as "Any gift". */
     setGifts((cur) => cur.map((g) => (g.wishId === id ? { ...g, wishId: null } : g)));
     setSheet(null);
     setError(null);
-    const res = await makerSave(() => action(form({ wish_op: 'delete', wish_item_id: id })), requestMakerRefresh);
+    const res = await makerSave(() => action(form({ wish_op: 'delete', wish_item_id: id })), requestMakerRefresh, { held: true });
     if (res.ok) return;
-    setWishes(was);
-    setGifts(wasGifts);
+    if (was) setWishes((cur) => (cur.some((w) => w.id === id) ? cur : [...cur.slice(0, at), was, ...cur.slice(at)]));
+    setGifts((cur) => cur.map((g) => (freed.includes(g.id) && g.wishId === null ? { ...g, wishId: id } : g)));
     setError(res.error);
   };
 
@@ -237,22 +295,21 @@ export function StudioWishList({
    * Returns what the server said, if it refused.
    */
   const changeGift = async (id: string, change: Partial<StudioWishGift>, fields: Record<string, string>): Promise<string | null> => {
-    const wasGifts = gifts;
-    const wasWishes = wishes;
     const had = gifts.find((g) => g.id === id);
     if (!had) return 'That gift isn’t on your list any more.';
+    /* The wishes this change can re-mark — the one it counted toward, and the one it now does. */
+    const touched = [had.wishId, change.wishId ?? null];
+    const marks = new Map(wishes.map((w) => [w.id, w.gotBy]));
     const next = gifts.map((g) => (g.id === id ? { ...g, ...change } : g));
     setGifts(next);
-    setWishes((cur) => settleDrawn(cur, next, [had.wishId, change.wishId ?? null]));
+    setWishes((cur) => settleDrawn(cur, next, touched));
     const res = await makerSave(() => action(form({ gift_record_id: id, ...fields })), requestMakerRefresh, { held: true });
     if (res.ok) return null;
-    /* Late refusal: the RECORD was changed, its wish's mark was not — the record stays as
-       drawn, and the marks go back to what they were (the couple is told to set it). */
-    if (res.kept) setWishes((cur) => cur.map((w) => ({ ...w, gotBy: wasWishes.find((x) => x.id === w.id)?.gotBy ?? w.gotBy })));
-    else {
-      setGifts(wasGifts);
-      setWishes(wasWishes);
-    }
+    /* Refused: put back ONLY this record — never a snapshot of the whole list. A LATE refusal
+       (`kept`) means the record WAS changed and its wish's mark was not: the record stays as
+       drawn. Either way the touched wishes' marks go back to what they were. */
+    if (!res.kept) setGifts((cur) => cur.map((g) => (g.id === id ? had : g)));
+    setWishes((cur) => cur.map((w) => (touched.includes(w.id) && marks.has(w.id) ? { ...w, gotBy: marks.get(w.id) ?? null } : w)));
     return res.error;
   };
 
@@ -282,6 +339,8 @@ export function StudioWishList({
   const rows = useRef(new Map<string, HTMLElement>());
   const [dragging, setDragging] = useState<string | null>(null);
   const before = useRef<StudioWish[]>([]);
+  /** While moves are on their way: the ids in the order the server still holds (null = nothing is on its way). */
+  const orderHeld = useRef<string[] | null>(null);
   const view = wishesWithGifts(wishes, gifts);
   const shown = studioWishesInOrder(view);
   const moveTo = (id: string, to: number) => {
@@ -309,15 +368,36 @@ export function StudioWishList({
     }
     return at;
   };
-  /** The drop: the list already shows the new order (`moveTo`); this is the one write behind it. */
+  /**
+   * The drop: the list already shows the new order (`moveTo`); this is the one write behind it.
+   * Several arrow-key presses in a row are ONE write — the last order carries them all. A wish
+   * still on its way in is waited for, so the order names real rows only.
+   */
   const finish = async (order: readonly StudioWish[]) => {
     setDragging(null);
-    const was = before.current;
-    if (order.map((w) => w.id).join(',') === was.map((w) => w.id).join(',')) return;
+    if (order.map((w) => w.id).join(',') === before.current.map((w) => w.id).join(',')) return;
+    /* The order the server still holds: the one from before the FIRST move of this run of moves. */
+    orderHeld.current ??= before.current.map((w) => w.id);
+    const was = orderHeld.current;
     setError(null);
-    const res = await makerSave(() => action(form({ wish_op: 'move', order: order.map((w) => w.id).join(',') })), requestMakerRefresh);
+    const res = await makerSave(
+      () =>
+        makerLatestWrite('wish-order', async () => {
+          const ids = await Promise.all(order.map((w) => adding.current.get(w.id) ?? w.id));
+          return action(form({ wish_op: 'move', order: ids.filter((id): id is string => id !== null).join(',') }));
+        }),
+      requestMakerRefresh,
+      { held: true, ok: kept },
+    );
+    /* A later move carried this one: that later write answers for the whole run. */
+    if (res === SUPERSEDED) return;
+    orderHeld.current = null;
     if (res.ok) return;
-    setWishes(was);
+    setWishes((cur) => {
+      /* Back to the order the server holds — keeping whatever else changed on the rows meanwhile. */
+      const place = new Map(was.map((id, i) => [id, i]));
+      return [...cur].sort((x, y) => (place.get(x.id) ?? was.length) - (place.get(y.id) ?? was.length));
+    });
     setError(res.error);
   };
 

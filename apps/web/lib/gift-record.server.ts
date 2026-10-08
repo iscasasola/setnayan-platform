@@ -100,7 +100,13 @@ export async function recordGift(
   /* 1 · a guest of THIS event */
   if (!session || session.event_id !== eventId || !session.guest_id) return { ok: false, error: GIFT_NOT_RECOGNISED };
 
-  const [eventRes, guestRes, waysRes] = await Promise.all([
+  /* The wish it names (its PUBLIC id) — asked for BESIDE the three checks below, never after
+     them (owner rule 2026-10-08: reads that can run together do). It is JUDGED further down,
+     in the order the refusals have always been said. A malformed id is never sent at all. */
+  const wishId = typeof input.wishId === 'string' ? input.wishId.trim() : '';
+  const wishNamed = wishId !== '' && PUBLIC_WISH_ID.test(wishId);
+
+  const [eventRes, guestRes, waysRes, wishRes] = await Promise.all([
     admin.from('events').select('event_id, slug, gifts_on').eq('event_id', eventId).maybeSingle(),
     admin
       .from('guests')
@@ -109,6 +115,9 @@ export async function recordGift(
       .eq('event_id', eventId)
       .maybeSingle(),
     admin.from('event_egift_methods').select('method_kind').eq('event_id', eventId).eq('is_enabled', true),
+    wishNamed
+      ? admin.from('event_wish_items').select(WISH_ITEM_SELECT).eq('public_id', wishId).eq('event_id', eventId).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
   ]);
   if (eventRes.error || guestRes.error || waysRes.error) {
     console.error('[supabase-error] recordGift: a check could not be read', eventRes.error ?? guestRes.error ?? waysRes.error, { eventId });
@@ -146,11 +155,9 @@ export async function recordGift(
   }
 
   /* 3 · the wish is this event's */
-  const wishId = typeof input.wishId === 'string' ? input.wishId.trim() : '';
   let wish: WishItemRow | null = null;
   if (wishId !== '') {
-    if (!PUBLIC_WISH_ID.test(wishId)) return { ok: false, error: GIFT_WISH_GONE };
-    const wishRes = await admin.from('event_wish_items').select(WISH_ITEM_SELECT).eq('public_id', wishId).eq('event_id', eventId).maybeSingle();
+    if (!wishNamed) return { ok: false, error: GIFT_WISH_GONE };
     if (wishRes.error) {
       console.error('[supabase-error] recordGift: the wish could not be read', wishRes.error, { eventId });
       return { ok: false, error: GIFT_NOT_KEPT };

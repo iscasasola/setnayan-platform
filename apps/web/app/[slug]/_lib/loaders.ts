@@ -67,8 +67,7 @@ import { resolveGuestCamera } from '@/lib/papic-limited';
 import { guestsMaySeeSeatsFor } from '@/lib/guests-may-see-seats';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { fetchEgiftMethods, isPabuyaPublicRouteEnabled } from '@/lib/egift';
-import { readGuestWishList } from '@/lib/wish-list.server';
-import { openWishCount } from '@/lib/wish-list-guest';
+import { readOpenWishCount } from '@/lib/wish-list.server';
 import { DEFAULT_STUDIO_ANIM, heroMarkSvg } from '@/lib/hero-monogram-data';
 import { sanitizeStudioConfig, markAnimationSwitchedOff } from '@/lib/monogram-studio-shared';
 import type { StudioAnim } from '@/app/_components/studio-reveal-player';
@@ -1248,17 +1247,20 @@ export const loadDoorwayFacts = cache(
         ? fetchEgiftMethods(admin, eventId, { enabledOnly: true }).then((m) => m.length)
         : Promise.resolve(0),
     ]);
-    /* 🎁 The wish list's open wishes (owner 2026-10-08) — asked through the SAME reader the
-       gift page stands on (`readGuestWishList`), and only when that page would draw the list:
-       the route is on and a way to give is switched on. A read that fails counts as none —
-       the door then simply does not mention a list. */
-    const wishRead = pabuyaRouteEnabled && enabledEgiftCount > 0 ? await readGuestWishList(admin, eventId) : null;
+    /* 🎁 The wish list's open wishes (owner 2026-10-08) — ONE count, event-level, asked at most
+       once per render (`readOpenWishCount`), and SKIPPED ENTIRELY when a guest could not be
+       shown a list anyway. The fact that decides the skip is one this loader has already
+       loaded: `enabledEgiftCount` — it is zero when the gift route is dark, when the host
+       answered "Accept gifts? No" (`fetchEgiftMethods` folds `events.gifts_on` in) and when no
+       way to give is switched on. So an event without E-Gifts pays nothing for the wish list.
+       A count that could not be read is none — the door then simply does not mention a list. */
+    const openWishes = enabledEgiftCount > 0 ? await readOpenWishCount(admin, eventId) : null;
     return {
       seatingSurfaceEnabled,
       seatingPublished,
       pabuyaRouteEnabled,
       enabledEgiftCount,
-      openWishCount: wishRead?.read ? openWishCount(wishRead.wishes) : 0,
+      openWishCount: openWishes ?? 0,
     };
   },
 );

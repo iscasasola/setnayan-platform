@@ -73,6 +73,29 @@ export type StudioWish = {
 };
 
 /**
+ * A wish as the WRITE answers with it (`saveWishItem`): the row the server
+ * kept — its real id, its link as stored, its picture's address, its mark after
+ * a price change. The screen lays it over what it drew, so no Maker re-read is
+ * owed for an add or an edit. It carries no sum and no gift: a save changes
+ * neither, and the screen keeps the ones it holds.
+ */
+export type StudioWishKept = Omit<StudioWish, 'sentPhp' | 'gifts'>;
+
+/** One row → the fields a save answers with (and the list read builds on). */
+export function studioWishKeptFrom(w: WishItemRow, photoUrlFor: (ref: string | null) => string | null): StudioWishKept {
+  return {
+    id: w.wish_item_id,
+    name: w.name,
+    pricePhp: w.price_php,
+    photoRef: w.photo_r2_key,
+    photoUrl: photoUrlFor(w.photo_r2_key),
+    linkUrl: w.link_url,
+    note: w.note,
+    gotBy: w.got_at != null ? (w.got_by ?? 'host') : null,
+  };
+}
+
+/**
  * The whole section's data. `read: false` = the wishes or their gifts could NOT
  * be read — the screen then says so and draws no list, no "No wishes yet" and no
  * add button (a refused read never renders as empty).
@@ -378,14 +401,7 @@ export function studioWishListFrom(
     giftsOf.set(g.wishId, list);
   }
   const view: StudioWish[] = wishes.map((w) => ({
-    id: w.wish_item_id,
-    name: w.name,
-    pricePhp: w.price_php,
-    photoRef: w.photo_r2_key,
-    photoUrl: photoUrlFor(w.photo_r2_key),
-    linkUrl: w.link_url,
-    note: w.note,
-    gotBy: w.got_at != null ? (w.got_by ?? 'host') : null,
+    ...studioWishKeptFrom(w, photoUrlFor),
     sentPhp: sums.get(w.wish_item_id)?.sentPhp ?? 0,
     gifts: giftsOf.get(w.wish_item_id) ?? [],
   }));

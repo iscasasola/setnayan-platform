@@ -59,3 +59,31 @@ Lab: `/dev/maker-lab/guest?wish=five|got|long|noprice|door&look=rows|side|tiles|
 
 SPEC IMPACT: None. Build status in the corpus:
 `EGIFTS_WISH_LIST_BUILD_STATUS_2026-10-08.md`.
+
+## 2026-10-08 · fix(egifts): the Welcome gift door asks one count, and nothing without E-Gifts (wish list 3/5)
+
+Owner rule, 2026-10-08 (minimum requests); controller's named change 3.
+
+**Before** (read from the code): `loadDoorwayFacts` runs on every guest page
+view, and for the door's one line ("Wish list · 4 things they'd love") it called
+the gift page's whole read — every wish AND every gift's sum: **2 requests, one
+after the egift read**, for every event with a way to give on, wish list or not.
+
+**After: 1 request** — `readOpenWishCount` (`lib/wish-list.server.ts`): a head
+count of the event's wishes with no Got it mark; no row leaves the database.
+- **Event-level:** the event id and nothing about the reader (no guest id, no
+  cookie), so it can be cached with the event's public bundle.
+- **At most once per render** (`askedOnce`), whichever service-role client asks.
+- **Skipped entirely** when no way to give is on — decided by a fact the loader
+  already holds (`enabledEgiftCount`, which is zero when the gift route is dark,
+  when the host answered "Accept gifts? No", and when no way is switched on).
+  An event without E-Gifts pays nothing for the wish list (0 requests).
+- A count that could not be read is `null`: the door mentions no list.
+
+The gift page itself (`/[slug]/pabuya`) still reads its list (2 requests, side
+by side) — there it is the content.
+
+Guard: `lib/the-gift-door-asks-one-count.test.ts` (new, 5 tests, the request
+counted on the real function over a counting client; 7 sabotages each red).
+
+SPEC IMPACT: None.

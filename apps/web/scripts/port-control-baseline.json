@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "6f2a89fd8",
+  "generatedFromRef": "f9e134dde",
   "routeCount": 429,
   "destinations": 956,
   "actions": 671,
-  "blocks": 5725,
+  "blocks": 5729,
   "routes": {
     "/": {
       "files": [
@@ -8735,7 +8735,7 @@
         "dashboard/[eventId]/vendors/_components/self-added-price.tsx",
         "dashboard/[eventId]/vendors/_components/services-takeover.tsx",
         "dashboard/[eventId]/vendors/_components/shortlist-categories.tsx",
-        "dashboard/[eventId]/vendors/_components/supplier-sheet-actions.tsx",
+        "dashboard/[eventId]/vendors/_components/supplier-sheet.tsx",
         "dashboard/[eventId]/vendors/_components/suppliers-mode.tsx",
         "dashboard/[eventId]/vendors/_components/team-controls.tsx",
         "dashboard/[eventId]/vendors/_components/team-rows.tsx",
@@ -8883,6 +8883,7 @@
         "RowAction",
         "RowPrice",
         "RunBuildResult",
+        "Said",
         "SaveCategoryRequirementsResult",
         "SavedPhotoMarker",
         "SearchMarketplaceVendorsResult",
@@ -8897,13 +8898,18 @@
         "ServicesTakeover",
         "SetnayanGiftLine",
         "Sheet",
+        "SheetDoor",
+        "SheetDoorCtx.Provider",
         "ShortlistCategories",
         "SlotPickerModal",
         "StartServiceInquiryResult",
         "SubmitButton",
         "SuccessToast",
         "SupplierInviteView",
-        "SupplierSheetActions",
+        "SupplierSheet",
+        "SupplierSheetData",
+        "SupplierSheetLoad",
+        "SupplierSheetTarget",
         "SuppliersMode",
         "SuppliersModeContext.Provider",
         "SuppliersModeState",
@@ -9866,9 +9872,7 @@
         "MoreRowStandInCtx.Provider",
         "ServicesTakeover",
         "ShortlistCategories",
-        "SupplierSheetActions",
-        "SuppliersLabStage",
-        "VendorQuickViewInspector"
+        "SuppliersLabStage"
       ]
     },
     "/download": {

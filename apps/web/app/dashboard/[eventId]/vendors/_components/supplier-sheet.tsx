@@ -239,7 +239,7 @@ export default function SupplierSheet({
             ) : null}
             {target.rating != null ? (
               <span className="inline-flex items-center gap-1">
-                <Star size={13} strokeWidth={1.75} className="text-terracotta" aria-hidden />
+                <Star size={13} strokeWidth={1.75} className="text-terracotta-700" aria-hidden />
                 <b className="font-semibold text-ink">{target.rating.toFixed(1)}</b>
                 {target.reviewCount != null ? ` · ${formatCount(target.reviewCount)} ${target.reviewCount === 1 ? 'review' : 'reviews'}` : ''}
               </span>

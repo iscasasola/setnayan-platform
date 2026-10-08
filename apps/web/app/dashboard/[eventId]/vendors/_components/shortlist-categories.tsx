@@ -1374,8 +1374,7 @@ function VendorCard({
       className="vc"
       // Replaces the trigger's own click (its props spread AFTER it) — only for
       // a self-added supplier. Every other card keeps the inspector untouched.
-      {...(selfAdded
-        ? { onClick: openDetails, 'aria-busy': detailsLoading || undefined }
+      {...(selfAdded ? { onClick: openDetails, 'aria-busy': detailsLoading || undefined }
         : sheetDoor && tile
           ? { onClick: openSheet, 'aria-haspopup': 'dialog' as const }
           : {})}

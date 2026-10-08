@@ -94,3 +94,31 @@ Same measurement, NOT fixed here (Maker files, another lane): `StudioSwitch` (`a
 Maker's `Toggle` (`after:transition-transform`) have the same defect — their knobs read 0.15 s, no spring.
 
 SPEC IMPACT: None.
+
+## 2026-10-08 · fix(ui): every switch's knob travels at the family's speed — the Maker's two included
+
+Controller's ruling on the finding above (option b): ONE rule beside the switch rules in `globals.css`,
+`.sn-switch.sn-switch::after { transition-duration: var(--sn-pill-dur); transition-timing-function:
+var(--sn-pill-spring); }` — the class doubled only so it outweighs one `after:transition-*` utility; it never names
+what moves (one drawing moves its knob by `left`, another by `transform`). No Maker file is edited.
+
+Measured on the compiled sheet in headless Chromium (a static page; knob position on → 120 ms after switching off
+→ at rest), before → after this rule:
+
+| Form | Size | Knob moves by | Before | After |
+|---|---|---|---|---|
+| StudioSwitch (Maker) | 46 × 28 | `left` 21 → 3 | 0.15 s, plain ease | 0.7 s, spring |
+| PanelSwitch (Maker) | 54 × 32 | `left` 25 → 3 | 0.7 s, spring | the same |
+| Toggle (Maker) | 44 × 24 | `transform` 22 → 2 | 0.15 s, plain ease | 0.7 s, spring |
+| Switch (Schedule) | 40 × 24 | `transform` 19 → 3 | 0.7 s, spring | the same |
+| SwitchTrack · button | 50 × 30 | `transform` 23 → 3 | 0.7 s, spring | the same |
+| SwitchTrack · hidden checkbox | 50 × 30 | `transform` 23 → 3 | 0.7 s, spring | the same |
+| `input.sn-switch` (a real checkbox) | 50 × 30 | `transform` 23 → 3 | 0.7 s, spring | the same |
+
+Every knob was part-way at 120 ms (it moves; none jumps), one knob each, terracotta on, grey off.
+
+Guard: `every-switch-wears-the-one-look` (3b) — the rule says exactly the family's speed and spring and no
+property; every class string in the app that wears `sn-switch` may put a timing utility on its knob only as
+`after:transition…` (one more variant would outweigh the rule again in one state). 6 sabotages seen red.
+
+SPEC IMPACT: None.

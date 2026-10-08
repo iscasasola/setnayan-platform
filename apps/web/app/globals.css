@@ -8009,6 +8009,18 @@ input.sn-switch:focus-visible {
   outline-offset: 2px;
 }
 
+/* ── THE KNOB'S SPEED OUTRANKS A UTILITY (2026-10-08, measured on the compiled sheet in Chromium).
+   A switch whose knob is its `::after` usually carries a Tailwind VARIANT utility for the move
+   (`after:transition-[left]`, `after:transition-transform`). Variant utilities are emitted at the END of the
+   compiled sheet — after every rule in this file — so at the same weight they outranked `.sn-switch::after` above,
+   and the knob moved in 150 ms with no spring (StudioSwitch, the Maker's Toggle). The class is doubled here ONLY to
+   weigh more than one utility; it says the same two things that rule says. WHAT moves (`left`, `transform`) stays
+   each drawing's own — this never names a transition-property, or a knob moved by the other one would stop moving. */
+.sn-switch.sn-switch::after {
+  transition-duration: var(--sn-pill-dur);
+  transition-timing-function: var(--sn-pill-spring);
+}
+
 /* ─── ActionButton — the button rule (owner 2026-10-07) ─────────────────────
  * One shape for every action: a 40 px pill with a border, icon + word.
  * `components/action-button.tsx` is the only producer of these classes.

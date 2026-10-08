@@ -107,6 +107,50 @@ test('(3) the drawing is the approved template — 50 × 30, a 24-px knob travel
   assert.doesNotMatch(SWITCH_BUTTON, /(?:^|\s)(?:bg|border|text)-|(?:^|\s)h-/, 'the button paints or sizes itself — the track is the drawing');
 });
 
+test('(3b) no switch relies on a utility for its knob’s speed — the family’s rule outweighs every utility a drawing carries', () => {
+  /* THE RULE: the class doubled, so it weighs (0,2,1) — more than `after:transition-*`, which Tailwind emits at
+     the END of the compiled sheet at (0,1,1). It says the family's speed and spring, and NEVER what moves: one
+     drawing moves its knob by `left`, another by `transform`; naming one would stop the other. */
+  const outranks = declarationsOf('.sn-switch.sn-switch::after');
+  assert.deepEqual(
+    outranks.split(';').map((d) => d.trim()).filter(Boolean),
+    ['transition-duration: var(--sn-pill-dur)', 'transition-timing-function: var(--sn-pill-spring)'],
+    'the outranking rule says more (or less) than the family’s speed and spring',
+  );
+  /* It says exactly what the family's own rule says — one speed, declared once (`--sn-pill-dur`). */
+  const family = RULES.find(([sels]) => sels.includes('.sn-switch::after'));
+  assert.ok(family && family[1].replace(/\s+/g, ' ').trim() === outranks.replace(/\s+/g, ' ').trim(), 'the two knob rules disagree');
+
+  /* EVERY DRAWING: each class string in the app that wears `sn-switch`. A timing utility on its knob may carry
+     `after:` and nothing else — one more variant (`peer-checked:after:duration-300` compiles to
+     `.peer:checked ~ .x::after`, (0,3,1)) would outweigh the rule again, in one state only, where nobody looks. */
+  const sources = ['app', 'lib'].flatMap(walkAll).filter((f) => readFileSync(join(WEB, f), 'utf8').includes('sn-switch'));
+  const drawings: [string, string][] = [];
+  for (const f of sources) {
+    const src = read(f);
+    for (const m of src.matchAll(/(?<=["'`\s])sn-switch(?=["'`\s])/g)) {
+      /* The class string around it: back to the quote that opens it, on to the same quote that closes it. */
+      let open = m.index;
+      while (open > 0 && !/["'`\n]/.test(src[open - 1] ?? '')) open -= 1;
+      const quote = src[open - 1] ?? '';
+      const close = src.indexOf(quote, m.index);
+      const cls = quote && quote !== '\n' && close > 0 ? src.slice(open, close) : '';
+      if (/\bafter:/.test(cls)) drawings.push([f, cls]);
+    }
+  }
+  assert.ok(drawings.length >= 3, `anti-vacuity: only ${drawings.length} drawings with an ::after knob were found`);
+  assert.ok(drawings.some(([, c]) => c === SWITCH_TRACK), 'anti-vacuity: the one drawing was not among them');
+  for (const [f, cls] of drawings) {
+    for (const token of cls.split(/\s+/)) {
+      const parts = token.split(':');
+      const utility = parts[parts.length - 1] ?? '';
+      if (!parts.includes('after') || !/^(?:transition|duration|ease|delay)(?:-|$)/.test(utility)) continue;
+      assert.deepEqual(parts.slice(0, -1), ['after'], `${f}: “${token}” outweighs the family’s speed in one state — the knob would move at the utility’s speed there`);
+      assert.match(utility, /^transition(?:-|$)/, `${f}: “${token}” gives the knob a speed of its own that the family’s rule silently overrides — remove it`);
+    }
+  }
+});
+
 /* ── (4) THE WATCH ───────────────────────────────────────────────────────────────────────────────────────── */
 
 /** The areas already moved onto the one drawing. EXTEND it as an area is swept — never make it the whole repo. */
@@ -145,6 +189,14 @@ const SWITCH_NOT_SWEPT: readonly { path: string; has?: string; why: string }[] =
     why: 'the same tick, for Event Hub Pro (pinned by lib/onboarding/event-hub-pro-on-the-services-step.test.ts)',
   },
 ];
+
+/** Every non-test source file under a folder (`.ts` and `.tsx`). */
+const walkAll = (rel: string): string[] =>
+  readdirSync(join(WEB, rel)).flatMap((name) => {
+    const child = `${rel}/${name}`;
+    if (statSync(join(WEB, child)).isDirectory()) return name === 'node_modules' ? [] : walkAll(child);
+    return /\.tsx?$/.test(name) && !/\.test\.tsx?$/.test(name) ? [child] : [];
+  });
 
 const walk = (rel: string): string[] => {
   const abs = join(WEB, rel);

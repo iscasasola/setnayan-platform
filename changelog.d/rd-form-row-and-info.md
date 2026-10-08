@@ -121,3 +121,43 @@ Owner, 2026-10-08, on the chooser: *"pop up looks good. remove the all pages."* 
 home's pages (in its order, the current one ticked). The Studio home is still where Stages → Studio lands.
 
 SPEC IMPACT: None.
+
+## 2026-10-08 · fix(studio): Restore · Reset… · About wear the approved rows and buttons
+
+Owner, 2026-10-08, with a picture of Studio › Info's last rows: *"we better fix the buttons here as well"*.
+
+- `app/_components/action-button.tsx` — the Action button (kind 9, the approved gallery § 9), which had no shared
+  source: `main` · `second` · `quiet` · `delete`, two sizes, and the waiting look (grey, `aria-disabled`, still a
+  button — a press does nothing). Joins `TEMPLATE_FILES`.
+- `StudioQuietRows` — each row is a house row (name · one quiet line · the action at the right): "Restore" is the
+  second button (the waiting look when there is nothing to restore — it was faded text), "Reset…" is the delete button
+  on the danger token (it was the gold `terracotta-700` family), both one size on one right edge; "About" has no
+  button. `FormRow` gains `line` — a row's quiet second line.
+- No handler, name or behaviour changed; nothing here asks the server. The Reset confirm itself is the draft bar's
+  (`hub-draft-bar.tsx`) and is unchanged.
+- `lib/studio-quiet-rows-wear-the-templates.test.ts` — three tests, six mutations seen red.
+
+SPEC IMPACT: None.
+
+## 2026-10-08 · fix(studio): the page cards say "moments", promise only what ships, and the lab shows their badges
+
+- Love Story's line is "How you met, told moment by moment, with photos." (owner: they are MOMENTS, and a moment holds
+  up to 3 photos); "chapter" is gone from every card and ⓘ.
+- Each ⓘ text was read against what ships; reworded: Logo (no "travels into the bar"), Mood Board, Schedule, Wedding
+  March, Seat plan, E-Gifts and RSVP no longer name a "Day page" / "Details page" guests do not have.
+- The dev Maker lab hands the cards a mix of measured states (its stand-in, `LAB_STUDIO_DONE`), so Ready, Missing and
+  a page with no badge can each be seen beside the head's count ("6 of 11 ready").
+
+SPEC IMPACT: None.
+
+## 2026-10-08 · fix(ui): ONE ActionButton — the quiet rows draw through the house button, which gains the waiting look
+
+The fix before this one added a second `ActionButton` (`app/_components/action-button.tsx`) beside the house one
+(`components/action-button.tsx`, the button rule, owner 2026-10-07). It is deleted. `StudioQuietRows` draws Restore
+(`tone="neutral"`, the Maker's own Restore mark) and Reset… (`tone="danger"`, the Maker's own reset mark) through the
+house button, 104 × 40 on one right edge. The house button gains `waiting` (additive): grey fill and word, its pill and
+a line kept, `aria-disabled` (never the native `disabled`), a press does nothing — `disabled` keeps its own faded look,
+so no caller that passes it today changes. A guard fails if any other file under `app/` or `components/` exports an
+`ActionButton`.
+
+SPEC IMPACT: None.

@@ -37,8 +37,6 @@ import {
   STUDIO_GROUP,
   STUDIO_GROUP_HEAD,
   STUDIO_GROUP_HEAD_LINE,
-  STUDIO_QUIET_BUTTON,
-  STUDIO_QUIET_ROW,
   STUDIO_ROW,
   STUDIO_ROW_LABEL,
   STUDIO_ROW_PICK,
@@ -61,6 +59,8 @@ import { StudioEventName } from './studio-event-name';
 import { STUDIO_INFO_ROWS, StudioOpeningLine, StudioWords, studioDraftKeep } from './studio-info';
 import { ChosenRow, FactRow, FormRow, FormRows, SwitchRow } from '@/app/_components/form-row';
 import { Fold } from '@/app/_components/fold';
+import { RotateCcw, Undo } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { BACKGROUND_MAIN_INFO } from '@/lib/background-source';
 
 /**
@@ -627,53 +627,42 @@ export function StudioQrActions({ slug, path }: { slug: string | null; path: str
   );
 }
 
+/** Restore and Reset… are ONE size (the house button's 40 px), on one right edge. */
+const QUIET_ACTION = 'w-[104px] !px-0';
+
 /**
- * The form's quiet rows at the very bottom (prototype `infoForm`): Restore · drop
- * the draft (the draft bar's own Restore) · Reset… (the draft bar's ONE confirm,
- * `MAKER_OPEN_RESET_EVENT`) · About. Settings had them in the shipped Maker's
- * lower third; the new Maker's phone frame has no Settings, so they live here.
+ * The form's quiet rows at the very bottom (prototype `infoForm`): Restore · drop the draft (the draft bar's own
+ * Restore) · Reset… (the draft bar's ONE confirm, `MAKER_OPEN_RESET_EVENT`) · About. Settings had them in the shipped
+ * Maker's lower third; the new Maker's phone frame has no Settings, so they live here — at the foot of Studio › Info.
+ *
+ * 🧱 ON THE TEMPLATES (owner 2026-10-08, with a picture of these rows: *"we better fix the buttons here as well"*):
+ *   · each is a house row — its name, one quiet line of what it does, the action at the right (`FormRow`);
+ *   · both are the house `ActionButton` (`components/action-button.tsx`, the button rule — icon + word, a 40-px pill);
+ *   · "Restore" is its `neutral` tone (a hairline, ink word). With nothing to restore it is the button's WAITING look
+ *     — grey and `aria-disabled`, still a button — never faded text;
+ *   · "Reset…" is its `danger` tone (it was the gold `terracotta-700` family). Its "…" stays: it opens the draft
+ *     bar's confirm, which asks once;
+ *   · the two are the same width and height, on one right edge; "About" has no button.
+ * 🔑 No handler, name or behaviour changed, and nothing here asks the server: Restore runs the draft bar's own
+ * restore, Reset… only opens its confirm.
  */
 export function StudioQuietRows() {
   const maker = useMaker();
   const draft = maker?.draft ?? null;
-  const quiet = STUDIO_QUIET_ROW;
   return (
-    <div data-studio-quiet="" className="mt-4 flex flex-col">
+    <FormRows data="quiet" attrs={{ 'data-studio-quiet': '' }} className="mt-4">
       {draft ? (
-        <div className={quiet} data-studio-quiet-row="restore">
-          <span>
-            <b className="font-semibold text-ink/70">Restore</b> · back to what guests see now
-          </span>
-          <button
-            type="button"
-            disabled={!draft.canRestore}
-            onClick={() => draft.canRestore && draft.restore()}
-            className={STUDIO_QUIET_BUTTON}
-          >
-            Restore
-          </button>
-        </div>
+        <FormRow data="restore" name="Restore" line="Back to what guests see now" attrs={{ 'data-studio-quiet-row': 'restore' }}>
+          <ActionButton tone="neutral" icon={Undo} label="Restore" className={QUIET_ACTION} waiting={!draft.canRestore} onClick={() => draft.canRestore && draft.restore()} />
+        </FormRow>
       ) : null}
       {draft ? (
-      <div className={quiet} data-studio-quiet-row="reset">
-        <span>
-          <b className="font-semibold text-ink/70">Reset</b> · start this stage over
-        </span>
-        <button
-          type="button"
-          onClick={() => window.dispatchEvent(new Event(MAKER_OPEN_RESET_EVENT))}
-          className={`${STUDIO_QUIET_BUTTON} !bg-terracotta-700/10 !text-terracotta-700 !ring-terracotta-700/25`}
-        >
-          Reset…
-        </button>
-      </div>
+        <FormRow data="reset" name="Reset" line="Start this stage over" attrs={{ 'data-studio-quiet-row': 'reset' }}>
+          <ActionButton tone="danger" icon={RotateCcw} label="Reset…" className={QUIET_ACTION} onClick={() => window.dispatchEvent(new Event(MAKER_OPEN_RESET_EVENT))} />
+        </FormRow>
       ) : null}
-      <div className={quiet} data-studio-quiet-row="about">
-        <span>
-          <b className="font-semibold text-ink/70">About</b> · Made with Setnayan
-        </span>
-      </div>
-    </div>
+      <FormRow data="about" name="About" line="Made with Setnayan" attrs={{ 'data-studio-quiet-row': 'about' }} />
+    </FormRows>
   );
 }
 

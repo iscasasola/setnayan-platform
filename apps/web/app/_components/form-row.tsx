@@ -133,7 +133,21 @@ export const FORM_ROW_BAND = 'border-t border-ink/10 first:border-t-0';
 export const FORM_ROW_LINE = 'flex min-h-[52px] items-center gap-2.5';
 
 /** The name on the left, with "Required" under it while it is still needed, and its ⓘ beside it. */
-function RowName({ name, about, needed, nameId, mark }: { name: string; about?: FormRowAbout | null; needed?: boolean; nameId?: string; mark?: ReactNode }) {
+function RowName({
+  name,
+  about,
+  needed,
+  nameId,
+  mark,
+  line,
+}: {
+  name: string;
+  about?: FormRowAbout | null;
+  needed?: boolean;
+  nameId?: string;
+  mark?: ReactNode;
+  line?: ReactNode;
+}) {
   return (
     <span data-form-row-name="" className="sn-row-name flex min-w-0 flex-1 items-center">
       <span className="min-w-0">
@@ -148,6 +162,11 @@ function RowName({ name, about, needed, nameId, mark }: { name: string; about?: 
         {needed ? (
           <small data-form-row-required="" className="block text-[11px] font-bold leading-tight text-sn-accent">
             Required
+          </small>
+        ) : null}
+        {line ? (
+          <small data-form-row-line="" className="mt-0.5 block text-[12.5px] font-normal leading-snug text-ink/55">
+            {line}
           </small>
         ) : null}
       </span>
@@ -177,6 +196,7 @@ export function FormRow({
   name,
   about,
   mark,
+  line,
   children,
   note,
   problem,
@@ -188,6 +208,8 @@ export function FormRow({
   about?: FormRowAbout | null;
   /** A small mark after the name — the Pro mark ◆ (gallery § 20: shown, never a lock). */
   mark?: ReactNode;
+  /** One quiet line under the name, INSIDE the row (a list row's second line — what the action at the right does). */
+  line?: ReactNode;
   /** The answer, on the right. */
   children?: ReactNode;
   /** One quiet line under the row. */
@@ -201,8 +223,8 @@ export function FormRow({
 }) {
   return (
     <div {...attrs} data-form-row={data ?? ''} className={FORM_ROW_BAND}>
-      <div className={FORM_ROW_LINE}>
-        <RowName name={name} about={about} mark={mark} />
+      <div className={`${FORM_ROW_LINE}${line ? ' py-2' : ''}`}>
+        <RowName name={name} about={about} mark={mark} line={line} />
         {children}
       </div>
       {note ? (

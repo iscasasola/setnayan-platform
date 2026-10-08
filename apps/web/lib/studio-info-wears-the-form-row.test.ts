@@ -247,7 +247,7 @@ test('(7) a field that draws rows gives up its heading and padding; the old box 
   assert.ok(css.includes('[data-studio-info-rows] + [data-studio-info-rows]{border-top:1px solid rgb(var(--color-ink)/.1)}'), 'two lists in one field have no line between them');
   // The last field holds only the quiet rows (the QR is in the fold): no bare "QR code" heading over them.
   assert.ok(css.includes('[data-details-workspace] [data-details-editor]:has(> [data-studio-quiet]) > [data-details-form-heading]{display:none}'), 'a bare "QR code" heading shows under the fold with nothing beneath it');
-  assert.match(read(TOOLS), /<div data-studio-quiet="" className="mt-4 flex flex-col">/, 'anti-vacuity: the quiet rows’ mark moved');
+  assert.match(read(TOOLS), /<FormRows data="quiet" attrs=\{\{ 'data-studio-quiet': '' \}\} className="mt-4">/, 'anti-vacuity: the quiet rows’ mark moved');
   // At EVERY width: these three are outside the phone's media block.
   assert.ok(css.indexOf(`${field}{gap:0`) > css.lastIndexOf('@media'), 'anti-vacuity');
   assert.ok(css.indexOf(`${field}{gap:0`) > css.indexOf('[data-music-switch]'), 'the Info rows’ skin is inside the phone-only block');

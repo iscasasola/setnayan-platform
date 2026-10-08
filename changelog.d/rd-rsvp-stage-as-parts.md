@@ -31,6 +31,10 @@ what the rsvp looks like after the reply yes or no"*. The stage drew the real re
 - **Tabs as pages.** The tab bar reads Form · When yes · When no with the prototype's icons (reply · check · x). A tab
   lets the picked part go, the stage says which screen is on show (the label follows it, never a guess), and a kept
   screen is put back to its top and held there until the couple moves it (`rsvpTop`, on `hub-tab-dom.ts`'s hold).
+- **A finger reaches the tabs** (controller's preview probe, 08 Oct: the row sat UNDER the RSVP layer — only a scripted
+  click reached Form · When yes · When no). On the RSVP stage the tab row is drawn into a slot at the foot of the
+  stage's own flex column, after its screens — in flow, so the screens end above it at every height of the panel. The
+  label over the tabs says the tab's own word ("RSVP › Form").
 - **Typing is a second tap.** The Maker tells the screens which part is picked; a tap on the words of THAT part
   (`makerStageMayType`, asked on the page in the tap itself) puts the caret in them; each keystroke goes into the RSVP
   panel's own save (`RSVP_WORD_TYPED_EVENT` → `saveWord` — one value, two doors; drafted, published only at Apply),

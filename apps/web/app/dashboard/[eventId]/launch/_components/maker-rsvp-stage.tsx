@@ -28,6 +28,7 @@ import {
 import {
   RSVP_PICK_MESSAGE,
   RSVP_STAGE_ASK_EVENT,
+  RSVP_STAGE_BAR_SLOT,
   RSVP_STAGE_SCENE_EVENT,
   RSVP_TOP_MESSAGE,
   RSVP_TYPED_MESSAGE,
@@ -432,7 +433,17 @@ export function MakerRsvpStage({
         open={controlsOpen}
         onOpenChange={setControlsOpen}
         toolName={RSVP_STAGE_TILE[scene].label}
-        page={page}
+        page={
+          /* 🧭 THE SCREENS, THEN THE STAGES TAB ROW — two children of the page's one flex column (`MakerPage`'s
+             body), in this order: the screens take what is left ABOVE the row, at every height of the lower third.
+             The row itself is the Stages panel's (`stage-tools.tsx` draws it into this slot); outside the new
+             Maker the slot is empty and takes no room. Never an overlay: this layer covers the work area, so a row
+             drawn over the work area's foot was under it, out of a finger's reach (measured 08 Oct). */
+          <>
+            {page}
+            <div {...{ [RSVP_STAGE_BAR_SLOT]: '' }} className="shrink-0 lg:hidden" />
+          </>
+        }
         controls={
           stagesRsvp ? (
             /* 🧭 THE NEW MAKER'S RSVP STAGE (phone): the screen's controls are its Style › Look, under the same quiet

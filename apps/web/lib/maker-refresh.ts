@@ -438,7 +438,28 @@ export function createCanvasRedrawer(redraw: () => void): CanvasRedrawer {
 /** Ask every page the Maker shows (the canvas and its warm stages, Look's page) to re-render in place. */
 export function requestCanvasRedraw(): void {
   if (typeof window === 'undefined') return;
+  /* 🪟 Nobody is looking at a page: it redraws ONCE, when one is shown again (`holdCanvasRedraw`). */
+  if (redrawHeld) {
+    redrawOwed = true;
+    return;
+  }
   window.dispatchEvent(new Event(MAKER_CANVAS_REDRAW_EVENT));
+}
+
+/**
+ * 🪟 NO PAGE ON SCREEN, NO PAGE RENDER (owner rule 2026-10-08: *"the least amount of request for the tasks to be
+ * done"*). While Studio › Look shows its sample screen (`look-sample.tsx`) the stage canvas is hidden, and a pick
+ * the server must measure (a page colour, a Shade, Candlelight) used to re-render that hidden guest page — once per
+ * pick, for nobody. Held, those picks are ONE write each; the page redraws ONCE when it is shown again, and only if
+ * something asked. Releasing with nothing owed asks for nothing.
+ */
+let redrawHeld = false;
+let redrawOwed = false;
+export function holdCanvasRedraw(hold: boolean): void {
+  redrawHeld = hold;
+  if (hold || !redrawOwed) return;
+  redrawOwed = false;
+  requestCanvasRedraw();
 }
 
 const redrawer = createCanvasRedrawer(requestCanvasRedraw);

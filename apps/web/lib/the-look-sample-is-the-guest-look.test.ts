@@ -442,3 +442,64 @@ test('(5) a pick is laid over the server’s values at once — until the server
   assert.match(tools, /if \(!ok\) \{\s*tellLookSample\(eventId, \{ five: before\.five \}\);/, 'a refused colour stays on the sample');
   assert.match(read(`${E}/pro-panels.tsx`), /onPick=\{\(key\) => tellLookSample\(eventId, \{ fontKey: key \}\)\}/);
 });
+
+/* ── (6) no page on screen, no page render ───────────────────────────────── */
+
+test('(6) while the sample is the screen the hidden stage canvas is not re-rendered — it redraws once when a page is shown again, only if a pick asked', async () => {
+  const { MAKER_CANVAS_REDRAW_EVENT, holdCanvasRedraw, requestCanvasRedraw, makerRedrawSave } = await import('./maker-refresh');
+  const g = globalThis as unknown as { window?: unknown; Event?: unknown };
+  const had = { window: g.window, Event: g.Event };
+  let redraws = 0;
+  g.Event = class {
+    type: string;
+    constructor(type: string) {
+      this.type = type;
+    }
+  };
+  g.window = { dispatchEvent: (e: { type: string }) => (e.type === MAKER_CANVAS_REDRAW_EVENT ? ++redraws : 0) };
+  try {
+    // Not held: every ask is a redraw, as before.
+    requestCanvasRedraw();
+    assert.equal(redraws, 1);
+    // Held (Look's sample is the screen): three picks the server must measure ask for NO render…
+    holdCanvasRedraw(true);
+    for (let i = 0; i < 3; i++) await makerRedrawSave(async () => ({ ok: true }), () => {});
+    assert.equal(redraws, 1, 'a Look pick re-rendered a page nobody is looking at');
+    // …and the page redraws ONCE when it is shown again.
+    holdCanvasRedraw(false);
+    assert.equal(redraws, 2, 'the stage canvas was not redrawn when it was shown again — it would show the old look');
+    holdCanvasRedraw(false);
+    assert.equal(redraws, 2);
+    // Look opened and left with nothing picked (or only refused picks): nothing is asked.
+    holdCanvasRedraw(true);
+    await makerRedrawSave(async () => ({ ok: false }), () => {});
+    holdCanvasRedraw(false);
+    assert.equal(redraws, 2, 'leaving Look re-rendered the page though nothing changed');
+    requestCanvasRedraw();
+    assert.equal(redraws, 3);
+  } finally {
+    holdCanvasRedraw(false);
+    g.window = had.window;
+    g.Event = had.Event;
+  }
+
+  const { lookSampleOnScreen } = await import(`../${L}/look-sample`);
+  const details = { kind: 'tool', key: 'details' };
+  for (const item of ['theme', 'background', 'elements', 'music']) assert.equal(lookSampleOnScreen(details, item), true, `${item} is a Look item`);
+  assert.equal(lookSampleOnScreen(details, 'hero'), false, 'the Hero shows its page — its redraws must not be held');
+  assert.equal(lookSampleOnScreen(details, 'rsvp'), false);
+  assert.equal(lookSampleOnScreen({ kind: 'tool', key: 'hero' }, 'background'), false);
+  assert.equal(lookSampleOnScreen({ kind: 'row', key: 'f:hero' }, 'background'), false, 'Stages is showing — the canvas must redraw');
+  assert.equal(lookSampleOnScreen(null, 'background'), false);
+
+  const sample = read(`${L}/look-sample.tsx`);
+  assert.match(
+    sample,
+    /const onScreen = lookSampleOnScreen\(maker\?\.selection \?\? null, maker\?\.detailsItem \?\? null\);\s*useEffect\(\(\) => \{\s*holdCanvasRedraw\(onScreen\);\s*return \(\) => holdCanvasRedraw\(false\);\s*\}, \[onScreen\]\);/,
+    'the sample does not hold the canvas redraw while it is the screen — or never lets go',
+  );
+  // With the sample as the screen, a pick is on screen at the tap: the line never waits for a hidden page.
+  const panel = read(`${E}/main-background-panel.tsx`);
+  assert.match(panel, /const sampleNode = useMaker\(\)\?\.lookPages\?\.look\?\.sample;\s*const onSample = studio && Boolean\(sampleNode\);/);
+  assert.match(panel, /shown: heard === 0 \|\| Boolean\(!lay && !fresh && was && was\.seq === seq && was\.shown\) \|\| onSample,/, 'a pick waits for a page nobody sees before its line clears');
+});

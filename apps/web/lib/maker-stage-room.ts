@@ -154,11 +154,15 @@ export const SP_ROWS_ROW = 'flex min-w-0 items-center gap-2';
 /** The pane the scene's Format is laid in under Style: no scroll up and down, a row's gap between its rows. */
 export const SP_STYLE_PANE = 'flex h-full min-h-0 flex-col gap-[var(--sp-rg)] overflow-hidden px-[10px]';
 /**
- * The strip: edge to edge of the toolbar, swiped sideways only, a card snapping to its middle. It reaches 4 px into
- * the gaps above and below (`-my-1 py-1`) so the picked card's ring is never cut.
+ * The strip: edge to edge of the toolbar, swiped sideways only, a card snapping to its middle.
+ * 🫧 A ROW'S GAP ABOVE THE CARDS (seen on the review copy, 2026-10-09: the cards' top edge touched the selector's
+ * band and the picked card's ring and top corners were cut): the cards start one gap (`--sp-rg`) under the band, as
+ * every row stands one gap from the next — `STAGE_STRIP_RING_PX` of it is the strip's own padding, which is the room
+ * the ring is drawn in; below, the strip reaches the same 4 px into the gap under it. So the ring is whole all round.
  */
+export const STAGE_STRIP_RING_PX = 4;
 export const SP_STYLE_STRIP =
-  '-mx-[10px] -my-1 flex min-h-0 min-w-0 flex-1 snap-x snap-mandatory items-stretch gap-2 overflow-x-auto overflow-y-hidden py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden';
+  '-mx-[10px] -mb-1 mt-[calc(var(--sp-rg)_-_4px)] flex min-h-0 min-w-0 flex-1 snap-x snap-mandatory items-stretch gap-2 overflow-x-auto overflow-y-hidden py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden';
 /**
  * A card: the phone-shaped frame at the strip's height (its width follows, 3 : 4), white, a hairline round it, its
  * picture over its name. Picked, it wears the accent's line and soft ring. `data-wide`: one long line of words —
@@ -170,7 +174,11 @@ export const SP_STYLE_CARD =
   'data-[wide]:![aspect-ratio:auto] data-[wide]:![inline-size:calc((100%_-_20px)_*_0.6)]';
 /** The share of the toolbar's inner width a one-line look's card takes — the spec's "up to 60 %". */
 export const SP_STYLE_CARD_WIDE = 0.6;
-/** A drawn part at least this many times wider than tall is ONE LONG LINE (the Title, the Date, the Names in a row). */
+/**
+ * What a part draws — its words, its drawing — at least this many times wider than tall is ONE LONG LINE (the Title,
+ * the Date, the Names in a row). Measured on what it DRAWS, not on its block: a logo stands in a block as wide as
+ * the page and is no line of words (seen on the review copy, 2026-10-09: the Logo's cards came out wide).
+ */
 export const SP_STYLE_WIDE_ASPECT = 4;
 export function styleCardIsWide(drawn: { w: number; h: number } | null | undefined): boolean {
   return Boolean(drawn && drawn.h > 0 && drawn.w / drawn.h >= SP_STYLE_WIDE_ASPECT);
@@ -203,7 +211,10 @@ export function styleCardFit(
  */
 export const SP_PALETTE_ROW = 'flex h-[var(--sp-rh)] shrink-0 items-center gap-1.5';
 export const SP_PALETTE_PICK =
-  'sn-press flex h-11 min-w-0 flex-1 items-center justify-center rounded-lg border border-[var(--sp-line)] bg-white aria-checked:border-[var(--sp-cta)] aria-checked:shadow-[0_0_0_1px_var(--sp-cta),0_0_0_3px_var(--sp-cta-wash)]';
+  'sn-press flex h-11 min-w-0 flex-1 items-stretch justify-center overflow-hidden rounded-lg border border-[var(--sp-line)] bg-white aria-checked:border-[var(--sp-cta)] aria-checked:shadow-[0_0_0_1px_var(--sp-cta),0_0_0_3px_var(--sp-cta-wash)] ' +
+  /* The picture fills the button — one frame, not the dropdown thumbnail's small box inside a second one — and its
+     marks are drawn half as large again, to be read at a glance. */
+  '[&>[data-palette-thumb]]:!h-auto [&>[data-palette-thumb]]:!w-full [&>[data-palette-thumb]]:!rounded-none [&>[data-palette-thumb]]:!shadow-none [&>[data-palette-thumb]>*]:scale-150';
 /** Style's last row: Colour (one circle) and Size (a slider) side by side — *"color and size share the same row"*. */
 export const SP_LOOK_ROW = 'flex h-full min-w-0 items-center gap-2';
 export const SP_LOOK_ROW_LABEL = 'shrink-0 text-[13px] font-medium text-[var(--sp-ink)]';

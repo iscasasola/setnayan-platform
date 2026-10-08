@@ -76,6 +76,37 @@ export function miniaturePart(section: HTMLElement | null, el: string | undefine
   return focus ? (section.querySelector<HTMLElement>(focus) ?? section) : section;
 }
 
+/**
+ * The box of what a part DRAWS inside its block: its words as laid out (each text run's own box) and its pictures —
+ * or null when there is nothing to measure. A block child's own box is as wide as its line, so it is never counted.
+ */
+export function drawnContent(doc: Document, part: Element): { w: number; h: number } | null {
+  try {
+    let left = Infinity;
+    let right = -Infinity;
+    let top = Infinity;
+    let bottom = -Infinity;
+    const take = (r: { left: number; right: number; top: number; bottom: number; width: number; height: number }) => {
+      if (r.width < 1 || r.height < 1) return;
+      left = Math.min(left, r.left);
+      right = Math.max(right, r.right);
+      top = Math.min(top, r.top);
+      bottom = Math.max(bottom, r.bottom);
+    };
+    const walker = doc.createTreeWalker(part, 4 /* NodeFilter.SHOW_TEXT */);
+    const range = doc.createRange();
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      if (!(n.textContent ?? '').trim()) continue;
+      range.selectNodeContents(n);
+      for (const r of Array.from(range.getClientRects())) take(r);
+    }
+    part.querySelectorAll('img, svg, video, canvas').forEach((e) => take(e.getBoundingClientRect()));
+    return right > left && bottom > top ? { w: right - left, h: bottom - top } : null;
+  } catch {
+    return null;
+  }
+}
+
 export function StylePreview({
   canvasKey,
   sceneType,
@@ -177,7 +208,9 @@ export function StylePreview({
         /* The card stands on the page's own ground, so the room round a small part is the page's, never a grey band. */
         const bg = getComputedStyle(d.body).backgroundColor;
         setGround(bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent' ? bg : '#FFFFFF');
-        onDrawnRef.current?.({ w: drawn.width, h: drawn.height });
+        /* Its shape is what it DRAWS (the words' own box, a picture's) — a block is as wide as the page whatever
+           stands in it. A part with nothing to measure falls back to its block. */
+        onDrawnRef.current?.(drawnContent(d, part) ?? { w: drawn.width, h: drawn.height });
         layRef.current();
       } catch {
         window.clearInterval(id);

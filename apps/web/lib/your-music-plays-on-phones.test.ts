@@ -112,7 +112,8 @@ test('1 · the rule: an .m4a whose sound is not AAC or MP3 is refused — everyt
 });
 
 test('2 · the browser half reads the picked File, and fails open', async () => {
-  const file = (bytes: Uint8Array, name: string, type: string) => new File([bytes], name, { type });
+  // (`new File([bytes])` wants an ArrayBuffer-backed part; copying the bytes gives it one.)
+  const file = (bytes: Uint8Array, name: string, type: string) => new File([new Uint8Array(bytes).buffer as ArrayBuffer], name, { type });
   assert.equal(await validateSongPlaysOnPhones(file(OPUS, 'Velvet Court.m4a', 'audio/x-m4a')), OPUS_SENTENCE);
   assert.equal(await validateSongPlaysOnPhones(file(AAC, 'Velvet Court.m4a', 'audio/x-m4a')), null);
   assert.equal(await validateSongPlaysOnPhones(file(MP3, 'song.mp3', 'audio/mpeg')), null);

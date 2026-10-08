@@ -18,7 +18,10 @@
  *       (`MAKER_STAGE_PAGES`, pinned by `the-stage-pages-are-the-prototypes.test.ts`).
  *   c · the Reveal's stub is on one page only: the first.
  *   d · a tab pick swaps the page, from its top, and the canvas says which tab is on screen.
- *   e · guests are untouched: with no Stages page list, the tabs are the reader's own bar's, as before.
+ *   e · a guest's TABS are their own bar's, as before — and since 2026-10-08 (owner, DECISION_LOG "EIGHT OWNER
+ *       ANSWERS" answer 5: the guest's pages follow the Maker's — *"yes"*) each part on them is filed by the SAME
+ *       reading the canvas files by (`prototypePageOf`), so the couple and their guest meet it on one page. The
+ *       guest's side of it is held in full by `a-guests-pages-are-filed-like-the-makers.test.ts`.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -43,6 +46,8 @@ import {
   makerStagesPageOf,
   makerStagesPages,
   pageTabKeys,
+  prototypePageOf,
+  readerPageOf,
   stagesPagesLeft,
 } from './maker-stage-filing';
 import { stripComments } from './strip-comments';
@@ -226,8 +231,10 @@ test('b · WIRING: in the canvas every marker is inside a group filed by its own
   assert.match(anon, /\{stagesPages \? \(\s*<>\s*\{plan\.openBrowse \? group\(at\('f:details', scenesTab\), \(/);
   assert.match(anon, /\{scenesByPage\(stagesAround\.before, 'mt-12'\)\}/);
   assert.match(anon, /\{stagesPages \? scenesByPage\(stagesAround\.after, 'mt-8'\) : /);
-  // …and `at` IS the filing function (a guest's page keeps the tab it asked for).
-  assert.match(BODY, /const at = \(key: string, want: string\): string => \(stagesPages \? makerStagesPageOf\(pageStage, key, stagesPages\) : want\);/);
+  // …and `at` IS the filing function: the canvas asks the Maker's, with the Maker's list. (Until 2026-10-08 a
+  // reader's page kept the tab it asked for — `: want`; the owner ruled the guest's pages follow the Maker's, so a
+  // reader now asks `readerAt`, which reads the same prototype map. The canvas's arm is unchanged.)
+  assert.match(BODY, /const at = \(key: string, want: string\): string => \(stagesPages \? makerStagesPageOf\(pageStage, key, stagesPages\) : readerAt\(key, want\)\);/);
 });
 
 test('b · the Stages tools read the page of a part off the canvas — never a second rule', () => {
@@ -452,9 +459,38 @@ test('e · with no Stages page list the tabs are the reader’s own bar’s — 
     assert.deepEqual(pageTabKeys({ tabsOn: true, bar, stagesPages: null }), inPageTabs(bar), `${stage}: a guest's tabs changed`);
     assert.deepEqual(pageTabKeys({ tabsOn: false, bar, stagesPages: keysOf(stage) }), [], 'a page that is one scroll has no tabs');
   }
-  // `at` hands a guest back the tab the page asked for; the filing still runs through `hubTabFor` for them.
+  // Every group still lands on a tab the reader's bar HAS (`hubTabFor`) — nothing is stranded.
   assert.match(BODY, /const tab = hubTabFor\(want, inPage\);/);
   assert.equal(hubTabFor('story', ['home', 'details', 'me']), 'details', 'a guest with no Our Love Story still reads it on Details');
   // The Stages list exists only on the host's Stages canvas: `?tabs=1` is honoured on the editor canvas alone.
   assert.match(src('app/[slug]/page.tsx'), /stagesTabs: isEditorCanvas && search\.tabs === '1',/);
+});
+
+test('e · ONE filing for both: a guest meets every part on the page the canvas files it on — whenever their bar has it', () => {
+  for (const stage of TABBED_STAGES) {
+    const pages = keysOf(stage);
+    /* The fullest bar a guest holds on this stage: every page of the Maker's that is a tab of the page (the Camera
+       opens as its own screen). */
+    const guestTabs = pages.filter((p) => p !== 'camera');
+    let named = 0;
+    for (const page of pages)
+      for (const part of makerPartsOnPage(stage, page)) {
+        const canvas = makerPartCanvasOn(stage, part);
+        if (!canvas) continue;
+        named += 1;
+        const makers = makerStagesPageOf(stage, canvas, pages);
+        assert.equal(prototypePageOf(stage, canvas, pages), makers, `${stage}: ${part} — the canvas and the prototype reading disagree`);
+        // Whatever tab the guest's page used to ask for, the answer is the Maker's page.
+        for (const want of ['live', 'home', 'details', 'story', 'gallery', 'me']) {
+          assert.equal(readerPageOf(stage, canvas, want, guestTabs, pages), makers, `${stage}: ${part} (${canvas}) is on ${makers} in the Maker and elsewhere for a guest`);
+        }
+      }
+    assert.ok(named >= 8, `precondition: ${stage} names several drawn parts (${named})`);
+  }
+  // The guest-only rule that keeps the bar honest: a reader whose bar has no such tab keeps the part where it was.
+  assert.equal(readerPageOf('rsvp', 'f:look', 'home', ['home', 'details', 'story'], keysOf('rsvp')), 'home', 'no Me on this bar: the look stays on Welcome');
+  assert.equal(readerPageOf('rsvp', 'w:our_love_story', 'story', ['home', 'details', 'me'], keysOf('rsvp')), 'details', 'no Our Love Story tab while the story is unwritten');
+  // A key no part names is not moved for a guest: only the prototype moves a part.
+  assert.equal(prototypePageOf('event', 'f:rsvp', keysOf('event')), null);
+  assert.equal(readerPageOf('event', 'f:rsvp', 'home', ['live', 'home', 'gallery', 'me'], keysOf('event')), 'home');
 });

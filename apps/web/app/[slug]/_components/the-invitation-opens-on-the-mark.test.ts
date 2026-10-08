@@ -50,10 +50,19 @@ test('everything personal sits below the hero, not just the status card', () => 
   // `<KeepOnHomeScreen` left this list 2026-09-30: the owner removed the card
   // from the Event Hub outright (the-event-hub-has-no-home-screen-card.test.ts);
   // `<GuestHubCard` left it the same day (the Digital ticket moved onto Me).
-  for (const personal of ['<GuestChecklist', '<YourSeatBlock']) {
+  for (const personal of ['<GuestChecklist']) {
     const at = SRC.indexOf(personal, hero);
     assert.ok(at > hero, `${personal} renders after the hero`);
   }
+  /* ⚠ MECHANISM CHANGED 2026-10-08 (owner, DECISION_LOG "EIGHT OWNER ANSWERS" answer 5 — the guest's pages follow
+     the Maker's filing: their table is Me's). THE PROPERTY IS UNCHANGED AND ASSERTED HARDER, exactly as for the
+     salutation below: the table is written ONCE as `seatBlock` and mounted in one of two slots (inside Me, or where
+     it stood for a reader whose bar has no Me), so its DECLARATION sits above the hero in source order. A
+     declaration is not a mount — every MOUNT is measured, and counted. */
+  const seatMounts = [...SRC.matchAll(/group\(seatTab, seatBlock,|\{tableOnMe \? seatBlock : null\}/g)];
+  assert.equal(seatMounts.length, 2, `the table has exactly two slots (found ${seatMounts.length})`);
+  for (const m of seatMounts) assert.ok((m.index ?? -1) > hero, 'every slot the table can render in sits below the mark');
+  assert.equal(SRC.split('const seatBlock = seatMap ? (').length - 1, 1, 'the table is declared exactly once, and still only where there is a plan to draw');
 });
 
 test('a shared phone does not announce the reader before the couple', () => {

@@ -14,10 +14,14 @@
  *   2 · each tab has its own address (`?tab=<key>`), and the address decides
  *       the tab — a bad or absent one is the first tab, never a blank page.
  *   3 · nothing is stranded: content asking for a tab this reader has not got
- *       lands on the nearest tab above it.
- *   4 · the day's Welcome: their table (drawn by the page) + their look +
- *       the reminders + E-Gifts; the day's Live leads with Directions until
- *       the programme begins.
+ *       lands on the nearest tab above it. Since 2026-10-08 (owner, DECISION_LOG
+ *       "EIGHT OWNER ANSWERS" answer 5 — the guest's pages follow the Maker's
+ *       filing: *"yes"*) a part asks for the PROTOTYPE's page first, so the
+ *       whole order is: the prototype's page · the tab it asked for before ·
+ *       the nearest tab above that · the first tab.
+ *   4 · the day's Welcome: their look + the reminders + the walk + the venue +
+ *       E-Gifts (their table is Me's since 2026-10-08 — prototype: Me · seats);
+ *       the day's Live leads with Directions until the programme begins.
  *   5 · ONE shell (hub-shell.tsx, both frames), ONE bar (SiteMenuBar), ONE
  *       state (the address) — and never in the Maker's editing canvas.
  */
@@ -42,6 +46,7 @@ import { resolveSiteNav, navPhaseFor, type NavInput, type NavSlot } from './site
 import { STAGE_BAR } from './stage-bar';
 import { welcomePartsOnTheDay, welcomeCarriesGifts } from '@/lib/invitation-welcome';
 import { makerGuestPages } from '@/lib/maker-guest-pages';
+import { makerStagesPages, readerPageOf } from '@/lib/maker-stage-filing';
 import { resolveSiteBodyPlan } from '@/lib/site-body-plan';
 import { stripComments } from '@/lib/strip-comments';
 
@@ -146,6 +151,27 @@ test('3 · content asking for a tab the reader has not got lands on the nearest 
       assert.ok(inPage.includes(hubTabFor(want, inPage)), `${want} → stranded off ${inPage.join('·')}`);
 });
 
+test('3 · the whole order a part falls through: the prototype’s page · the tab it asked for · the nearest above · the first', () => {
+  const pages = (stage: 'rsvp' | 'event') => makerStagesPages(stage).map((p) => p.key);
+  assert.deepEqual([...HUB_TAB_ORDER], ['live', 'home', 'details', 'story', 'gallery', 'me']);
+  // The prototype's page, when this reader's bar has it — the Countdown is Welcome's, their table is Me's.
+  assert.equal(readerPageOf('rsvp', 'w:countdown', 'details', ['home', 'details', 'story', 'me'], pages('rsvp')), 'home');
+  assert.equal(readerPageOf('event', 'f:find_your_seat', 'home', ['live', 'home', 'gallery', 'me'], pages('event')), 'me');
+  // No such tab on this bar: the tab the part asked for before the ruling (a reader without a key has no Me).
+  assert.equal(readerPageOf('event', 'f:find_your_seat', 'home', ['live', 'home'], pages('event')), 'home');
+  // That one missing too: the nearest tab above it…
+  assert.equal(readerPageOf('event', 'f:find_your_seat', 'home', ['live'], pages('event')), 'live');
+  assert.equal(readerPageOf('rsvp', 'w:our_love_story', 'story', ['home', 'details', 'me'], pages('rsvp')), 'details');
+  // …and with nothing above it, the first tab.
+  assert.equal(readerPageOf('event', 'w:schedule', 'live', ['home', 'me'], pages('event')), 'home');
+  // Every answer is a tab the bar HAS — for every part the prototype names, every ask, every bar.
+  for (const stage of ['rsvp', 'event'] as const)
+    for (const key of ['f:hero', 'w:countdown', 'w:special_message', 'f:look', 'f:gifts', 'f:find_your_seat', 'w:venue_map', 'w:dress_code', 'f:entourage', 'w:what_to_bring', 'w:schedule', 'w:our_love_story', 'f:photos_of_you', 'f:pass', 'w:faq'])
+      for (const want of HUB_TAB_ORDER)
+        for (const inPage of [['home', 'details', 'story', 'me'], ['live', 'home', 'gallery', 'me'], ['home', 'details', 'story'], ['home'], ['live'], ['live', 'me']])
+          assert.ok(inPage.includes(readerPageOf(stage, key, want, inPage, pages(stage))), `${stage}: ${key} (asked ${want}) → stranded off ${inPage.join('·')}`);
+});
+
 /* ══ 4 · THE DAY'S WELCOME AND LIVE ══════════════════════════════════════════ */
 
 const DAY = {
@@ -167,11 +193,21 @@ test('4 · the day’s Welcome: their look, the reminders, E-Gifts — nothing e
   assert.deepEqual(welcomePartsOnTheDay({ ...DAY, bodyNormal: false }), []);
   // One gift door per page: the foot strip stands down on the day too.
   assert.equal(welcomeCarriesGifts({ stage: 'event', bodyNormal: true, giftHref: '/ana/pabuya', maker: false }), true);
-  // The table is the page's own seat block — the guest tree files it on Welcome.
+  /* 🪑 The table is the page's own seat block. It was filed on Welcome until 2026-10-08, when the owner ruled the
+     guest's pages follow the Maker's filing (DECISION_LOG "EIGHT OWNER ANSWERS" answer 5: *"yes"*; prototype: The
+     Day › Me · seats). It is Me's now — drawn INSIDE Me, before the ticket — and on Welcome only for a reader whose
+     bar has no Me. One block, two slots, never both. */
   const BODY = stripComments(read('_components', 'site-body.tsx'));
   const guest = BODY.slice(BODY.indexOf('const guestTree'));
-  const seatGroupEnd = guest.indexOf('<YourSeatBlock');
-  assert.ok(seatGroupEnd > 0 && guest.lastIndexOf("{group('home', <>", seatGroupEnd) > 0, 'the seat block is not on the Welcome tab');
+  assert.equal(guest.split('<YourSeatBlock').length - 1, 1, 'the seat block is written once');
+  assert.match(guest, /const seatTab = readerAt\('f:find_your_seat', 'home'\);\s*const seatOnMe = tabs\.on && seatTab === 'me';/);
+  assert.match(guest, /\{seatOnMe \? null : group\(seatTab, seatBlock, \{ chapters: true, className: 'space-y-12' \}\)\}/, 'off Me, the seat block stands where it asked — Welcome');
+  const me = guest.slice(guest.indexOf("group('me', ("));
+  assert.match(me, /const tableOnMe = seatOnMe && seatBlock !== null;/);
+  assert.match(me, /\{tableOnMe \? seatBlock : null\}\s*\{mine\}/, 'on Me the table stands before the ticket');
+  const day = makerStagesPages('event').map((p) => p.key);
+  assert.equal(readerPageOf('event', 'f:find_your_seat', 'home', ['live', 'home', 'gallery', 'me'], day), 'me', 'the day’s seat is Me’s');
+  assert.equal(readerPageOf('event', 'f:find_your_seat', 'home', ['live', 'home'], day), 'home', 'a reader with no Me keeps it on Welcome');
 });
 
 test('4 · the day’s Live leads with Directions until the programme begins — on the venue’s clock', () => {

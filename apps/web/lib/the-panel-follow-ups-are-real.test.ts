@@ -84,7 +84,10 @@ test('A · the picks are drafted beside the five fixed parts (one key, no migrat
 test('A · the guest render hands each part its look (masthead, Welcome, Me)', () => {
   const body = stripComments(read('app/[slug]/_components/site-body.tsx'));
   assert.match(body, /heroElements\.looks = /);
-  assert.equal((body.match(/partLooks=\{welcomeLooks\}/g) ?? []).length, 4, 'every Welcome mount');
+  /* Five since 2026-10-08: the guest's own look is drawn on Me (the guest's pages follow the Maker's filing) — the
+     same component, the same looks. EVERY mount carries them. */
+  assert.equal((body.match(/partLooks=\{welcomeLooks\}/g) ?? []).length, (body.match(/<GuestWelcome\b/g) ?? []).length, 'every Welcome mount');
+  assert.equal((body.match(/<GuestWelcome\b/g) ?? []).length, 5);
   assert.match(body, /partLooks=\{meLooks\}/);
   const mast = stripComments(read('app/[slug]/_components/pahina-masthead.tsx'));
   assert.match(mast, /'data-part-look': looks\[key as keyof typeof looks\]/, 'each hero part carries its look');

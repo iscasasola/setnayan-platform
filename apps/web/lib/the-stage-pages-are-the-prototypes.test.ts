@@ -8,7 +8,9 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { MAKER_STAGE_PAGES } from './maker-parts';
+import { makerPartCanvasOn } from './maker-part-groups';
+import { MAKER_STAGE_PAGES, type MakerPartKey } from './maker-parts';
+import { makerStagesPageOf, makerStagesPages, readerPageOf } from './maker-stage-filing';
 
 /** The prototype's TABS (line ~1226), page label → [code page key, parts]. */
 const PROTOTYPE: Record<string, ReadonlyArray<[label: string, page: string | null, parts: readonly string[]]>> = {
@@ -84,4 +86,38 @@ test('every prototype page is a page of its stage, with the prototype’s parts 
   }
   /* The one known gap, kept visible: */
   assert.deepEqual(missing, ['editorial › Gifts'], 'the pages not built are exactly these');
+});
+
+/**
+ * 📱 …AND THE GUEST'S PHONE FILES THEM THE SAME (owner 2026-10-08, DECISION_LOG "EIGHT OWNER ANSWERS" answer 5 — asked
+ * whether the guest page should change to match the Maker's filing: *"yes"*). For the two stages whose page is tabs,
+ * every prototype part the canvas draws is on the PROTOTYPE's page for a guest too — copied here from the prototype,
+ * so a change to either filing that parts them goes red.
+ */
+test('a guest meets every prototype part on the prototype’s page — the Invitation and The Day', () => {
+  for (const stage of ['rsvp', 'event'] as const) {
+    const pages = makerStagesPages(stage).map((p) => p.key);
+    /* The fullest bar a guest holds: every page of the stage that is a tab of the page (the Camera is its own screen). */
+    const guestTabs = pages.filter((p) => p !== 'camera');
+    const seen = new Set<string>();
+    let checked = 0;
+    for (const [label, page, parts] of PROTOTYPE[stage]!) {
+      assert.ok(page, `${stage} › ${label} is a page`);
+      for (const part of parts) {
+        const canvas = makerPartCanvasOn(stage, part as MakerPartKey);
+        if (!canvas || seen.has(canvas)) continue; // not drawn by the canvas yet, or the first page that names it has it
+        seen.add(canvas);
+        checked += 1;
+        assert.equal(makerStagesPageOf(stage, canvas, pages), page, `${stage} › ${label}: the Maker files ${part} elsewhere`);
+        /* The tab the guest's page asked for before the ruling does not matter: the prototype's page wins. */
+        for (const want of ['live', 'home', 'details', 'story', 'gallery', 'me']) {
+          assert.equal(readerPageOf(stage, canvas, want, guestTabs, pages), page, `${stage} › ${label}: a guest meets ${part} on another page (asked ${want})`);
+        }
+      }
+    }
+    assert.ok(checked >= 7, `precondition: ${stage} draws several prototype parts (${checked})`);
+  }
+  // The owner's own example.
+  const inv = makerStagesPages('rsvp').map((p) => p.key);
+  assert.equal(readerPageOf('rsvp', 'w:countdown', 'details', ['home', 'details', 'story', 'me'], inv), 'home', 'Countdown: Welcome, for the couple and for the guest');
 });

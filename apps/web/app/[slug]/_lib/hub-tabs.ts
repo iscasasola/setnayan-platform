@@ -117,6 +117,15 @@ const rank = (k: string) => (HUB_TAB_ORDER as readonly string[]).indexOf(k);
  * bar does have, and failing that to the first tab. 🔑 NOTHING IS EVER STRANDED
  * on a tab nobody can open: a section the old long page showed is still shown,
  * on the page a reader would have been scrolling when they passed it.
+ *
+ * 📱 WHICH TAB IT ASKS FOR IS THE MAKER'S FILING (owner 2026-10-08, DECISION_LOG
+ * "EIGHT OWNER ANSWERS", answer 5 — the guest's pages follow the Maker's:
+ * *"yes"*). A part the approved prototype names asks for the prototype's page
+ * first (`readerPageOf`, `lib/maker-stage-filing.ts` — the function the Maker's
+ * canvas files by); this rule is what answers when that reader's bar has no
+ * such tab, with the tab the part stood on before the ruling as `want`. So the
+ * whole order a part falls through is: the prototype's page · the tab it asked
+ * for before · the nearest tab above that in `HUB_TAB_ORDER` · the first tab.
  */
 export function hubTabFor(want: string, inPage: readonly string[]): string {
   if (inPage.includes(want)) return want;

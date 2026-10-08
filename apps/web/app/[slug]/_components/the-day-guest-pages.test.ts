@@ -124,7 +124,11 @@ test('the day’s Welcome runs look · reminders · walking order · venue · E-
   const body = BODY();
   assert.match(body, /march=\{marchOnWelcome \? guestEntourage : null\}/);
   assert.match(body, /venue=\{<DayDirections venues=\{dayVenues\} \/>\}/);
-  assert.match(body, /\{marchOnWelcome \? null : guestEntourage\}/);
+  /* 📱 2026-10-08 (owner, DECISION_LOG "EIGHT OWNER ANSWERS" answer 5 — the guest's pages follow the Maker's
+     filing): the walk also leaves this group when its own tab is another one (`marchTab`, the one filing). The
+     property is unchanged — one place on the page — and both slots are counted. */
+  assert.match(body, /\{marchOnWelcome \|\| marchTab !== hereTab \? null : guestEntourage\}/);
+  assert.match(body, /\{marchOnWelcome \|\| marchTab === hereTab \? null : group\(marchTab, guestEntourage,/);
 });
 
 test('one venue is labelled with its role, so the guest knows which of the two it is', async () => {

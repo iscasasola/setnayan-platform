@@ -50,11 +50,9 @@ export function SupplierThumbRow({
   /** `ActionButton`s (and at most one text field). */
   children: ReactNode;
 }) {
-  const fitRef = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(false);
   const [on, setOn] = useState(false);
   const pathname = usePathname();
-  useFitRow(fitRef);
 
   // Slides up once the page has rendered (two frames: mount, then move).
   useEffect(() => {
@@ -117,10 +115,28 @@ export function SupplierThumbRow({
       role="toolbar"
       aria-label={label}
     >
-      <div ref={fitRef} className={styles.thumb} data-fit-row="">
-        {children}
-      </div>
+      <ThumbFit>{children}</ThumbFit>
     </div>,
     document.body,
+  );
+}
+
+/**
+ * The fitted inner row — ITS OWN COMPONENT, ON PURPOSE.
+ *
+ * 🔴 `useFitRow` measures the node its ref points at, once, when the hook's
+ * effect first runs. The row above renders NOTHING until it has mounted (the
+ * portal needs `document.body`), so calling the hook up there measured `null`
+ * and never ran again: four buttons overflowed the phone and the last one was
+ * cut off at "Ca" (caught on the 375 side-by-side, 2026-10-08). Down here the
+ * hook's first effect runs when the node already exists.
+ */
+function ThumbFit({ children }: { children: ReactNode }) {
+  const fitRef = useRef<HTMLDivElement>(null);
+  useFitRow(fitRef);
+  return (
+    <div ref={fitRef} className={styles.thumb} data-fit-row="">
+      {children}
+    </div>
   );
 }

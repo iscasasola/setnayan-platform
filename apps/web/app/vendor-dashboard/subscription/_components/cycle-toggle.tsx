@@ -1,11 +1,18 @@
-import Link from 'next/link';
+import { PillLink, PillTrack } from '@/app/_components/pill-track';
 
 /**
  * SubscriptionCycleToggle — monthly / annual switch for the subscription cards.
  *
- * Pure-link toggle (no client JS): each option is a <Link> to the same page
- * with a different ?cycle= so the server re-renders the cards at the chosen
- * cadence. Annual carries a "save" hint since it's ~2 months free vs monthly.
+ * Pure-link toggle: each option is a link to the same page with a different
+ * ?cycle= so the server re-renders the cards at the chosen cadence (it works
+ * before any JavaScript has loaded). Annual carries a "save" hint since it's
+ * ~2 months free vs monthly.
+ *
+ * Drawn by the app's ONE pill selector (owner 2026-10-08,
+ * `app/_components/pill-track.tsx`): the picked side is the terracotta and the
+ * thumb slides to it. The picked link now says `aria-current="page"` (it said
+ * "true") — that is the word the thumb reads, and the right one for a link to
+ * the page you are on.
  */
 export function SubscriptionCycleToggle({
   cycle,
@@ -13,10 +20,7 @@ export function SubscriptionCycleToggle({
   cycle: 'monthly' | 'annual';
 }) {
   return (
-    <div
-      className="inline-flex items-center gap-1 rounded-full border p-1"
-      style={{ borderColor: 'var(--m-line)' }}
-    >
+    <PillTrack data-cycle-toggle="">
       <CycleLink active={cycle === 'monthly'} target="monthly" label="Monthly" />
       <CycleLink
         active={cycle === 'annual'}
@@ -24,7 +28,7 @@ export function SubscriptionCycleToggle({
         label="Annual"
         hint="save 20%"
       />
-    </div>
+    </PillTrack>
   );
 }
 
@@ -40,23 +44,19 @@ function CycleLink({
   hint?: string;
 }) {
   return (
-    <Link
+    <PillLink
+      on={active}
       href={`/vendor-dashboard/subscription?cycle=${target}`}
       scroll={false}
-      aria-current={active ? 'true' : undefined}
-      className={
-        'rounded-full px-4 py-1.5 text-sm transition ' +
-        (active
-          ? 'bg-ink text-paper sn-bounce'
-          : 'text-ink/65 hover:text-ink')
-      }
+      aria-current={active ? 'page' : undefined}
+      className="px-4"
     >
       {label}
       {hint && (
-        <span className={'ml-1.5 text-[11px] ' + (active ? 'text-paper/70' : 'text-orange')}>
+        <span className={'ml-0.5 text-[11px] font-medium ' + (active ? 'text-white/80' : 'text-orange')}>
           {hint}
         </span>
       )}
-    </Link>
+    </PillLink>
   );
 }

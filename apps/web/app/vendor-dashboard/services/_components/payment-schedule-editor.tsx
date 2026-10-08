@@ -23,6 +23,7 @@
 import { useState } from 'react';
 import { CalendarClock, Plus, Trash2, ArrowUp, ArrowDown, ShieldCheck } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { PillButton, PillTrack } from '@/app/_components/pill-track';
 import { setServicePaymentSchedule } from '../actions';
 import {
   MAX_SCHEDULE_ITEMS,
@@ -199,30 +200,16 @@ export function PaymentScheduleEditor({
                 </label>
 
                 <div className="grid gap-2 sm:grid-cols-[auto_1fr] sm:items-end">
-                  <div className="inline-flex overflow-hidden rounded-md border border-ink/20">
-                    <button
-                      type="button"
-                      onClick={() => update(i, { amount_kind: 'percent' })}
-                      className={`px-3 py-2 text-xs font-medium ${
-                        r.amount_kind === 'percent'
-                          ? 'bg-terracotta text-white'
-                          : 'bg-white/70 text-ink/70 hover:bg-ink/5'
-                      }`}
-                    >
+                  {/* The app's ONE pill selector (owner 2026-10-08). Each side now SAYS which is picked
+                      (`aria-pressed`) — it said nothing before, and the thumb finds the picked side by it. */}
+                  <PillTrack data-payment-amount-kind="">
+                    <PillButton on={r.amount_kind === 'percent'} aria-pressed={r.amount_kind === 'percent'} onClick={() => update(i, { amount_kind: 'percent' })} className="px-3">
                       % of total
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => update(i, { amount_kind: 'fixed' })}
-                      className={`px-3 py-2 text-xs font-medium ${
-                        r.amount_kind === 'fixed'
-                          ? 'bg-terracotta text-white'
-                          : 'bg-white/70 text-ink/70 hover:bg-ink/5'
-                      }`}
-                    >
+                    </PillButton>
+                    <PillButton on={r.amount_kind === 'fixed'} aria-pressed={r.amount_kind === 'fixed'} onClick={() => update(i, { amount_kind: 'fixed' })} className="px-3">
                       Fixed ₱
-                    </button>
-                  </div>
+                    </PillButton>
+                  </PillTrack>
                   <label className="block space-y-1">
                     <span className="block text-xs font-medium text-ink/75">
                       {r.amount_kind === 'percent' ? 'Percent (0–100)' : 'Amount (PHP)'}

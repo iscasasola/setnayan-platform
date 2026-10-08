@@ -21,6 +21,8 @@ type Phase = { label: string; ms: number };
 export class ServerTimer {
   private readonly phases: Phase[] = [];
   private readonly start = performance.now();
+  /** When the last NAMED stretch ended — what `mark()` and the `unnamed` remainder measure from. */
+  private last = this.start;
 
   constructor(private readonly route: string) {}
 
@@ -33,8 +35,24 @@ export class ServerTimer {
     try {
       return await fn();
     } finally {
-      this.phases.push({ label, ms: Math.round(performance.now() - t0) });
+      this.last = performance.now();
+      this.phases.push({ label, ms: Math.round(this.last - t0) });
     }
+  }
+
+  /**
+   * Name everything since the last named stretch (a `track`, a `mark`, or the
+   * start). For a run of `await`s that cannot be wrapped without moving code:
+   * put one `mark('gate')` after them.
+   *
+   * WHY (production, 2026-10-08): the guest body logged total_ms ≈ 1,150 with
+   * phases summing to ≈ 270 — three quarters of the render had no name, so
+   * nobody could say which reads it was waiting on.
+   */
+  mark(label: string): void {
+    const now = performance.now();
+    this.phases.push({ label, ms: Math.round(now - this.last) });
+    this.last = now;
   }
 
   /** Record a phase whose duration you measured yourself (already-awaited work). */
@@ -48,7 +66,12 @@ export class ServerTimer {
    */
   flush(): void {
     try {
-      const total = Math.round(performance.now() - this.start);
+      const now = performance.now();
+      const total = Math.round(now - this.start);
+      /* Whatever no `track` or `mark` covered is SAID, never left to be found by
+         subtraction (1 ms or more — a render with nothing unnamed logs as before). */
+      const unnamed = Math.round(now - this.last);
+      if (unnamed >= 1 && this.phases.length > 0) this.phases.push({ label: 'unnamed', ms: unnamed });
       // eslint-disable-next-line no-console
       console.info(
         `[server-timing] ${JSON.stringify({

@@ -147,6 +147,7 @@ import { PrivateLanding } from './_components/private-landing';
 // dissolved into it. See _components/site-body.tsx.
 import { SiteBody } from './_components/site-body';
 import { envFlagEnabled } from '@/lib/env-flag';
+import { startAhead } from '@/lib/start-ahead';
 
 // Task #13 (Phase 1 day-of PWA fix, 2026-05-22) — swap `dynamic = 'force-dynamic'`
 // for ISR so this surface can be CDN-cached AND served from SHELL_CACHE when a
@@ -747,6 +748,18 @@ async function InvitationBody({
       : null;
   const wearDraft = (node: React.ReactNode) =>
     draftLook ? <HostDraftLook look={draftLook}>{node}</HostDraftLook> : node;
+  timer.mark('draft-look');
+
+  /* ⏩ STARTED TOGETHER, AWAITED WHERE THEY ALWAYS WERE (`lib/start-ahead.ts`;
+     production 2026-10-08: 1,150 ms of body, 270 ms of it inside a named phase —
+     the rest was reads standing in single file). The media, the scene list, the
+     guest's session and the signed-in account need nothing of each other, and
+     every path below awaits all four. Each is still asked ONCE: these are the
+     same `cache()`d reads the lines below await (the session's one database
+     check is `cache()`d inside `readGuestSession`). */
+  startAhead(loadWidgets(admin, event.event_id));
+  startAhead(readGuestSession());
+  startAhead(getCurrentUser());
 
   // Hero / photos / monogram / Save-the-Date media resolution — moved verbatim
   // to `loadMedia` (_lib/loaders.ts · OPEN-BROWSE PR2). Runs BEFORE the private
@@ -788,6 +801,7 @@ async function InvitationBody({
   // unnecessarily. The same `session` reference is consumed by the
   // existing guest-vs-public branch a few lines down — no extra DB call.
   const session = await readGuestSession();
+  timer.mark('guest-session');
 
   // Private-mode gate (CLAUDE.md 2026-05-22 owner directive).
   //
@@ -1123,6 +1137,17 @@ async function InvitationBody({
   // Day-of layer — public schedule + RSVP-era backdrop + live-window Watch-Live
   // / Live Photo Wall + the anonymous event-day chrome. Moved verbatim to
   // `loadLiveLayer` (_lib/loaders.ts), branching on the same dayOfPhase.
+  timer.mark('gates');
+  /* ⏩ …and these two, beside the day-of layer and the "who is looking" checks:
+     the doorway facts and the entourage are read for every viewer who got this
+     far, from the event alone. (The drafted name style and march are the host
+     canvas's only — computed once here so both lines hand the loader the SAME
+     arguments and its `cache()` answers the second call.) */
+  const draftedNameStyle =
+    hostDraft && 'print_details' in hostDraft.events ? nameStyleOfPrintDetails(hostDraft.events.print_details) : undefined;
+  const draftedMarch = hostDraft?.march?.flat();
+  startAhead(loadDoorwayFacts(admin, event.event_id, event.event_type ?? null));
+  startAhead(loadEntourage(admin, event.event_id, draftedNameStyle, draftedMarch));
   const {
     scheduleBlocks,
     backdropConfig,
@@ -1133,6 +1158,7 @@ async function InvitationBody({
     hostCameraOpen,
     publicAlbumHref,
   } = await loadLiveLayer(admin, event, dayOfPhase);
+  timer.mark('live-layer');
   // The loader returns the parsed CONFIG; the JSX wrap stays here (same
   // truthiness guard the inline block applied).
   const backdrop: React.ReactNode = backdropConfig ? (
@@ -1150,6 +1176,15 @@ async function InvitationBody({
   // `getCurrentUser()` isn't a loader, it's `lib/auth.ts`'s own cached auth
   // helper — the same one that already fixed this shape on the dashboard.
   const viewerAccount = await getCurrentUser();
+  /* ⏩ "Is this their own event?" and "are they a booked supplier here?" are two
+     questions about the same signed-in id; the second no longer waits for the first. */
+  const vendorCapabilityAhead = startAhead(
+    resolveVendorCapability({
+      eventId: event.event_id,
+      viewerUserId: viewerAccount?.id ?? null,
+      checkVendorBooking: (userId) => loadVendorBooking(event.event_id, userId),
+    }),
+  );
 
   // ── OWNER LAYER · FOUNDATION ONLY (owner-locked 2026-07-26) ──────────────
   // The event owner opens `/[slug]` like a guest and gets owner controls
@@ -1179,11 +1214,8 @@ async function InvitationBody({
   // The supplier doorway's grant. Same shape and same discipline as the owner
   // capability above: one query, answered by the DB, bound to this event and
   // this auth user. A cookie-only guest has no account, so no capability.
-  const vendorCapability = await resolveVendorCapability({
-    eventId: event.event_id,
-    viewerUserId: viewerAccount?.id ?? null,
-    checkVendorBooking: (userId) => loadVendorBooking(event.event_id, userId),
-  });
+  const vendorCapability = await vendorCapabilityAhead;
+  timer.mark('capabilities');
 
   /*
     ── THE SUPPLIER'S DESK, AND WHY IT IS RESOLVED HERE ─────────────────────
@@ -1255,6 +1287,7 @@ async function InvitationBody({
       ? await findGuestSeatForUser(event.event_id, viewerAccount.id)
       : null;
   const viewerHoldsASeat = viewerSeat !== null;
+  timer.mark('supplier-desk+seat');
 
   // ── WHO IS THIS GUEST, ON THIS EVENT (owner 2026-09-25) ──────────────────
   // The cookie when it names this event; otherwise the seat this SIGNED-IN
@@ -1303,6 +1336,7 @@ async function InvitationBody({
     rawVisibility === visibility
       ? true
       : await canViewSlugEvent(event.event_id, rawVisibility);
+  timer.mark('pabuya-admission');
   const doorwayFacts: DoorwayFacts = {
     ...(await timer.track('doorway-facts', () => loadDoorwayFacts(admin, event.event_id, event.event_type ?? null))),
     pabuyaViewerAllowed,
@@ -1424,9 +1458,9 @@ async function InvitationBody({
     entourage: await loadEntourage(
       admin,
       event.event_id,
-      hostDraft && 'print_details' in hostDraft.events ? nameStyleOfPrintDetails(hostDraft.events.print_details) : undefined,
+      draftedNameStyle,
       // 🚶 …and the host's DRAFTED Wedding March moves (owner 2026-10-07) — guests read the live march.
-      hostDraft?.march?.flat(),
+      draftedMarch,
     ),
     // Ask-the-band card (SUP-52): only this event's own guest, only live. The
     // check asks the band's own song-desk gate, so it is not run for anybody
@@ -1629,6 +1663,7 @@ async function InvitationBody({
   // is always verified for THIS event (the loader never reads cookies itself).
   // Control flow — the invalid-invite landing and the /welcome redirect — stays
   // here, keyed off the loader's discriminated result.
+  timer.mark('chapters+entourage+identity');
   const guestContext = await timer.track('guest-context', () =>
     loadGuestContext(admin, event, guestSession, dayOfPhase, slug, scheduleBlocks),
   );

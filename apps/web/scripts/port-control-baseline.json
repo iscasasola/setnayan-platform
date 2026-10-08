@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "9ebac4b30",
+  "generatedFromRef": "91fc9c386",
   "routeCount": 429,
   "destinations": 959,
-  "actions": 671,
-  "blocks": 5847,
+  "actions": 672,
+  "blocks": 5865,
   "routes": {
     "/": {
       "files": [
@@ -5519,6 +5519,7 @@
         "RigidReveal",
         "Row",
         "RsvpAskConfig",
+        "RsvpAskField",
         "RsvpAsks",
         "SDLoader",
         "SavePakantaIntakeResult",
@@ -6700,6 +6701,7 @@
         "DateBody",
         "DateClashNote",
         "DateEditor",
+        "DateRow",
         "DateState",
         "Dd",
         "DetailsGoTo",
@@ -6716,7 +6718,6 @@
         "DetailsTapContext.Provider",
         "DetailsWorkspace",
         "Door",
-        "DraftNote",
         "DraftsAsYouGo",
         "Drag",
         "EffectRows",
@@ -6862,6 +6863,7 @@
         "PabuyaCardList",
         "PabuyaManager",
         "PabuyaMessageEditor",
+        "PageCard",
         "PageMasthead",
         "PaidMark",
         "PanelSwitch",
@@ -6917,6 +6919,7 @@
         "RsvpStageScene",
         "SVGGElement",
         "SVGSVGElement",
+        "SaveAnswer",
         "SaveState",
         "SaveWords",
         "SceneTemplatePicker",
@@ -6956,6 +6959,7 @@
         "StudioCover",
         "StudioEgifts",
         "StudioEventName",
+        "StudioHeadFit",
         "StudioHeading",
         "StudioHome",
         "StudioHubSettings",
@@ -6963,6 +6967,8 @@
         "StudioMainColours",
         "StudioMainExtras",
         "StudioOpeningLine",
+        "StudioPageHead",
+        "StudioPageName",
         "StudioQrActions",
         "StudioQrShown",
         "StudioQuietRows",
@@ -6972,7 +6978,6 @@
         "StudioTileKey",
         "StudioTool",
         "StudioToolMenu",
-        "StudioToolRow",
         "StudioWords",
         "StylePreview",
         "Suspense",
@@ -7006,7 +7011,7 @@
         "WhatsLeftDoor",
         "WhichVersion",
         "Window",
-        "WordField",
+        "WordRows",
         "WordsCard",
         "YourEventInput"
       ]
@@ -9281,6 +9286,7 @@
         "dashboard/[eventId]/website/editor/_components/element-sheet.tsx",
         "dashboard/[eventId]/website/editor/_components/fixed-scene-style-row.tsx",
         "dashboard/[eventId]/website/editor/_components/font-pick.tsx",
+        "dashboard/[eventId]/website/editor/_components/fonts-look-rows.tsx",
         "dashboard/[eventId]/website/editor/_components/inspector-kit.tsx",
         "dashboard/[eventId]/website/editor/_components/launch-phase-choices.ts",
         "dashboard/[eventId]/website/editor/_components/main-background-panel.tsx",
@@ -9288,6 +9294,7 @@
         "dashboard/[eventId]/website/editor/_components/maker-navigator-data.ts",
         "dashboard/[eventId]/website/editor/_components/media-panels.tsx",
         "dashboard/[eventId]/website/editor/_components/motion-fx-rows.tsx",
+        "dashboard/[eventId]/website/editor/_components/our-music.tsx",
         "dashboard/[eventId]/website/editor/_components/page-pick.tsx",
         "dashboard/[eventId]/website/editor/_components/palette-look-row.tsx",
         "dashboard/[eventId]/website/editor/_components/part-inspector.tsx",
@@ -9393,14 +9400,18 @@
         "ErrorLine",
         "FileUpload",
         "FixedSceneStyleRow",
+        "FontChoice",
         "FontPick",
+        "FontsLookRows",
         "Fragment",
         "GalleryPanel",
+        "HTMLAudioElement",
         "HTMLButtonElement",
         "HTMLDivElement",
         "HTMLElement",
         "HTMLFormElement",
         "HTMLIFrameElement",
+        "HTMLInputElement",
         "HTMLSpanElement",
         "HTMLTextAreaElement",
         "HTMLUListElement",
@@ -9452,6 +9463,7 @@
         "MotionSpeedRow",
         "NameStyle",
         "OpenBrowsePanel",
+        "OurMusicSong",
         "PaidMark",
         "PaletteLookCanvasRow",
         "PaletteLookCards",
@@ -9618,6 +9630,7 @@
         "dashboard/[eventId]/website/our-story/_components/moment-order-cards.tsx",
         "dashboard/[eventId]/website/our-story/_components/moment-sheet-studio.tsx",
         "dashboard/[eventId]/website/our-story/_components/moment-sheet.tsx",
+        "dashboard/[eventId]/website/our-story/_components/our-events-offer.ts",
         "dashboard/[eventId]/website/our-story/_components/our-events-read.ts",
         "dashboard/[eventId]/website/our-story/_components/our-events-rule.ts",
         "dashboard/[eventId]/website/our-story/_components/panel-follows-the-page.tsx",
@@ -9640,6 +9653,7 @@
         "AddMomentLabel",
         "ChapterMoments",
         "DetailsPieceOnly",
+        "EventsOffer",
         "Field",
         "FileUpload",
         "Fresh",
@@ -9670,6 +9684,7 @@
         "PaidMark",
         "PanelFollowsThePage",
         "PhotoCount",
+        "PickFromEvents",
         "PickFromOurEvents",
         "PickMenu",
         "Precision",
@@ -9683,6 +9698,7 @@
         "TickerPill",
         "TimelineReadProblem",
         "TimelineRow",
+        "UploadSend",
         "WhenTicker"
       ]
     },
@@ -9834,14 +9850,18 @@
     "/dev/details-lab": {
       "files": [
         "dev/details-lab/details-lab-node.tsx",
+        "dev/details-lab/lab-studio-rsvp.tsx",
+        "dev/details-lab/lab-upload-stand-in.ts",
         "dev/details-lab/look-lab.tsx",
+        "dev/details-lab/love-story-fixture.ts",
         "dev/details-lab/march-fixture.ts",
         "dev/details-lab/page.tsx",
         "dev/details-lab/studio-lab-fixtures.tsx"
       ],
       "destinations": [],
       "actions": [
-        "labDraft"
+        "labDraft",
+        "labMomentAction"
       ],
       "blocks": [
         "ColorsPanel",
@@ -9854,6 +9874,7 @@
         "HubFontKey",
         "LabFontPick",
         "LabStudioLoveStory",
+        "LabStudioRsvp",
         "LabStudioSchedule",
         "LiveLoveStoryBook",
         "LookLab",
@@ -9864,7 +9885,9 @@
         "MakerState",
         "MoodBoardStudio",
         "ScheduleDay",
-        "Stand"
+        "SlotsUploadStandIn.Provider",
+        "Stand",
+        "UploadOutcome"
       ]
     },
     "/dev/guests-lab": {
@@ -9935,6 +9958,7 @@
       "blocks": [
         "ButtonsLookRow",
         "ColorsPanel",
+        "FontsLookRows",
         "HubDraftActionResult",
         "HubDraftToolbar",
         "LookSample",
@@ -9962,6 +9986,7 @@
         "MakerWelcomeGiftsEmpty",
         "MakerWelcomeLook",
         "PahinaMasthead",
+        "RsvpCanvasBridge",
         "ScheduleWidget",
         "SpecialMessageWidget",
         "VenueWidget",

@@ -285,8 +285,12 @@ export type HubSectionCanvas = {
    * The strength is the hub's contrast floor (`lib/scene-media-shade.ts`, the
    * `lib/main-ground-shade.ts` pattern) — no step can take words under AA.
    * Kept only beside a photo or a snippet (the direction rule).
+   * 🎚 SINCE 2026-10-09 IT IS THE LOOK'S OWN SHAPE (`HubMainShadeValue`, owner: *"darker lighter line bar"*): a word
+   * from before the bar, or a bar position — a non-zero whole number, −100…100; the centre (as is) is never stored.
+   * A format extension: the two words stored before keep reading, at the Look's places for them (−70 · +70), and
+   * lay exactly the veils they always did (`lib/scene-media-shade.ts`). No migration.
    */
-  shade?: HubSceneShade;
+  shade?: HubMainShadeValue;
   /**
    * ↕ ARRANGE › SPACING (owner 2026-10-07; prototype Arrange `SPACE`): Tight ·
    * Regular · Roomy — the room above and below the scene. Regular is the shipped
@@ -685,7 +689,8 @@ export function sanitizeHubCanvas(raw: unknown): HubSectionCanvas {
   const poster = hubMediaRef(canvas.poster);
   if (poster && ground?.kind === 'snippet') out.poster = poster;
   /* 🌗 Darker ↔ Lighter only beside a picture — a colour has no veil to move. */
-  if ((canvas.shade === 'darker' || canvas.shade === 'lighter') && (ground?.kind === 'photo' || ground?.kind === 'snippet')) out.shade = canvas.shade;
+  const shade = sanitizeHubMainShade(canvas.shade);
+  if (shade !== undefined && (ground?.kind === 'photo' || ground?.kind === 'snippet')) out.shade = shade;
   /* ↕ Spacing: Regular is the absence. */
   if (canvas.spacing === 'tight' || canvas.spacing === 'roomy') out.spacing = canvas.spacing;
   if (inSet(HUB_MOTION_PRESETS, canvas.preset)) out.preset = canvas.preset;

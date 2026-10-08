@@ -109,6 +109,44 @@ picture`, `the-stages-panel-is-the-prototypes` (Dress code), `the-stage-panel-fi
 `every-studio-colour-opens-the-one-picker` (+1 trigger). `scripts/port-control-baseline.json` regenerated: −
 `DosLookCards`, − `DressFiguresRow`, − `PaletteLookCards` (the three above), + `PaletteLookStrip`, + `StageLookRow`.
 
+### 4b · Style cards, seen on the review copy
+
+A row's gap above the cards (the picked card's ring was cut at the selector's band); "one long line" measured on what
+a part draws, not on its block (the Logo's cards came out wide); a palette look's picture fills its button.
+
+### 5 · Background is four rows
+
+Owner: "copy the background on studio look" · "remove the Background Text" · "darker lighter line bar" · "no picking
+where just automatic center" · "remove how close" · "it is meant for just this element".
+
+- **Row 1** the source ▾, no label: The Event Hub's · Colour · Scene ◆ · Upload ◆ (the Look's own names and ◆ table,
+  `lib/background-source.ts`). A source picked only SHOWS its choices; the Event Hub's own is one choice and is taken
+  at once.
+- **Row 2** that source's choices, one row of small pictures: None · Plain · Diagonal · Glow · Opaque · Frosted — the
+  ready-made scenes — "＋ Upload" and the couple's own photos and clips.
+- **Row 3** the choice's one control: a colour's ONE circle (the one picker), with Opacity beside it on a glass; a
+  picture's ONE "Darker ━ Lighter" bar — the page follows the thumb, one write on release.
+- **Row 4** Framed | Full width, and Still | Parallax for a photo.
+- **Not drawn any more** (stored values still read by the page): In frame, How close, "Use this background on every
+  scene?", "Remove this scene's photo", the Gallery sheet, the ⓘ's sentence.
+- **Asked for and NOT built — a scene cannot store it** (no migration, nothing invented): "Dawn" (needs a scene kind
+  `dawn`), a second colour (needs `canvas.color2` and a two-colour ombré), "Video" as a ready-made loop (a scene's clip
+  must be the couple's own upload: needs `hubMediaRef` to admit the loops' closed list). The couple's own video and
+  clips are under Upload.
+
+Tests: new `lib/background-is-four-rows.test.ts` (5 rules, each seen red). Re-aimed with the reason written in:
+`every-studio-colour-opens-the-one-picker`, `the-slider-is-one-drawing`, `the-stages-panel-wears-the-accent`.
+
+### 5b · a scene's Darker ↔ Lighter is a place on the bar (its own commit — revert it alone to go back to three stops)
+
+`HubSectionCanvas.shade` takes the Look's own shape (`HubMainShadeValue`): 'darker' | 'lighter' as before, or a
+non-zero whole number −100…100; the centre is never stored. No migration: the two words stored before keep reading,
+at the Look's places for them (−70 · +70), and lay exactly the veils they laid (`lib/scene-media-shade.ts`
+`sceneShadeStep`, guarded for every theme and every position — never under the reading floor). The scene sanitizer
+calls the Look's `sanitizeHubMainShade` (one rule, not two). `lib/hub-canvas.ts` is a Maker first-load file: minified
+alone it is 17 bytes smaller raw and 4 bytes larger gzipped — the real budget check is the controller's build.
+`lib/scene-shade-bar.ts` loses its three stops (a release rests where it is let go, snapping to the centre).
+
 SPEC IMPACT: Yes — supersedes the 2026-10-06/07 "Style | Text | Animate" and "the toolbar is half the screen" rows.
 The controller holds the spec (`TOOLBAR-SPEC-2026-10-09.md`) and applies the corpus rows; nothing in the corpus was
 edited from this branch.

@@ -215,6 +215,22 @@ export const SP_PALETTE_PICK =
   /* The picture fills the button — one frame, not the dropdown thumbnail's small box inside a second one — and its
      marks are drawn half as large again, to be read at a glance. */
   '[&>[data-palette-thumb]]:!h-auto [&>[data-palette-thumb]]:!w-full [&>[data-palette-thumb]]:!rounded-none [&>[data-palette-thumb]]:!shadow-none [&>[data-palette-thumb]>*]:scale-150';
+/* ── 🖼 BACKGROUND'S FOUR ROWS (owner 2026-10-09: *"copy the background on studio look"*; `TOOLBAR-SPEC-2026-10-09.md`
+   § BACKGROUND) — row 1 the source ▾, row 2 that source's choices as ONE row of small pictures (the prototype's
+   `.gs` / `.gt`), row 3 the choice's one control, row 4 its shape. ── */
+/** Row 2: the choices, swiped sideways, edge to edge of the toolbar. */
+export const SP_BG_STRIP =
+  '-mx-[10px] flex h-full min-w-0 items-center gap-2 overflow-x-auto overflow-y-hidden px-[10px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden';
+/** One choice: a 44-px picture of it with its name on it; picked, the accent's ring. Never narrower than 84 px. */
+export const SP_BG_TILE =
+  'sn-press relative flex h-11 min-w-[84px] shrink-0 items-end justify-center overflow-hidden rounded-lg border border-[var(--sp-line)] bg-white bg-cover bg-center px-2 pb-[3px] aria-pressed:border-[var(--sp-cta)] aria-pressed:shadow-[0_0_0_2px_var(--sp-cta)]';
+/** Its name: one line on a soft plate, so it reads over any picture. */
+export const SP_BG_TILE_NAME = 'max-w-full truncate rounded-sm bg-white/85 px-1 text-[10px] font-semibold leading-[13px] text-[var(--sp-ink)]';
+/** Row 3 / row 4: a label, then its control. */
+export const SP_BG_ROW = 'flex h-full min-w-0 items-center gap-2';
+/** A quiet line in a row ("Uses the Event Hub's own background."). */
+export const SP_BG_QUIET = 'truncate px-1 text-[14px] font-medium text-[var(--sp-mute)]';
+
 /** Style's last row: Colour (one circle) and Size (a slider) side by side — *"color and size share the same row"*. */
 export const SP_LOOK_ROW = 'flex h-full min-w-0 items-center gap-2';
 export const SP_LOOK_ROW_LABEL = 'shrink-0 text-[13px] font-medium text-[var(--sp-ink)]';
@@ -333,6 +349,7 @@ export const STAGE_TAP_TARGETS = {
   SP_LAYOUT_CARD,
   SP_PILL_BUTTON,
   SP_PALETTE_PICK,
+  SP_BG_TILE,
   SP_STEP_BUTTON,
   SP_KEY_BAR,
   SP_KEY_DONE,

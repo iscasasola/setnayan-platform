@@ -127,14 +127,19 @@ test('(4) the Stages panel and the scene’s Background row draw no range by han
     assert.doesNotMatch(src, /sp-range|accent-ink|slider-thumb|range-thumb/, `${f} still carries a private range look`);
     drawn += (src.match(/<Slider\b/g) ?? []).length;
   }
-  /* Duration and Delay (one row drawn twice) · Text size · Opacity in both shapes of the Background row · the
+  /* Duration and Delay (one row drawn twice) · Text size · the Background's Opacity (the older editor's row, and the
+     toolbar's row 3) and its Darker ↔ Lighter bar (🔁 2026-10-09: it was a dropdown of three words — owner: *"darker
+     lighter line bar"*; and the toolbar's Opacity moved from the row's file into `stage-background.tsx`) · the
      Reveal's Fine-tune knobs (one row mapped over them). */
-  assert.equal(drawn, 5, 'a slider the panel drew is gone, or a new one is not counted here');
+  assert.equal(drawn, 6, 'a slider the panel drew is gone, or a new one is not counted here');
+  assert.equal((read(`${L}/stage-panel/stage-background.tsx`).match(/<Slider\b/g) ?? []).length, 2, 'the Background’s Opacity or its Darker ↔ Lighter bar is not the app’s slider');
   assert.equal((read(`${L}/stage-panel/stage-animate.tsx`).match(/<TimeRow\b/g) ?? []).length, 2, 'Duration or Delay is gone');
   /* Each says what its value means, beside it and to a screen reader. */
   assert.match(read(`${L}/stage-panel/stage-animate.tsx`), /valueText=\{`\$\{t\.value\.toFixed\(1\)\} s`\}[\s\S]{0,400}<span className=\{`\$\{SLIDER_VALUE\} w-\[44px\]`\}>\{t\.value\.toFixed\(1\)\} s<\/span>/);
   assert.match(read(`${L}/stage-panel/stage-text.tsx`), /valueText=\{`\$\{pct\}%`\}[\s\S]{0,400}<span className=\{`\$\{SLIDER_VALUE\} w-\[44px\]`\}>\{pct\}%<\/span>/);
-  assert.equal((read(`${E}/scene-background-row.tsx`).match(/valueText=\{`\$\{opacity\}%`\}/g) ?? []).length, 2);
+  /* (🔁 2026-10-09: the toolbar's Opacity is drawn by `stage-background.tsx` from the row's own value — one in each file.) */
+  assert.equal((read(`${E}/scene-background-row.tsx`).match(/valueText=\{`\$\{opacity\}%`\}/g) ?? []).length, 1);
+  assert.match(read(`${L}/stage-panel/stage-background.tsx`), /valueText=\{`\$\{opacity\.value\}%`\}[\s\S]{0,200}<span className=\{`\$\{SLIDER_VALUE\} w-10`\}>\{opacity\.value\}%<\/span>/);
   /* The watch can see one. */
   assert.match('<input type="range" className="sp-range" />', /type=(?:"range"|'range'|\{['"]range['"]\})/);
 });

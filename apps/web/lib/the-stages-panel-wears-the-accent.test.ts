@@ -220,7 +220,8 @@ test('(4) a swatch is a CIRCLE on a 44-px tap, the picked one ringed in the acce
   for (const f of ['stage-text.tsx', 'stage-background.tsx']) {
     const src = read(`${L}/stage-panel/${f}`);
     assert.match(src, /<Swatch\b/, `${f} does not draw the shared circle`);
-    assert.match(src, /<SwatchMore\b/, `${f} draws its own “+”`);
+    /* (🔁 2026-10-09: the toolbar's Background has ONE circle — the colour worn, which opens the picker — and no “+”.) */
+    if (f === 'stage-text.tsx') assert.match(src, /<SwatchMore\b/, `${f} draws its own “+”`);
     assert.doesNotMatch(src, /SP_SWATCH|rounded-md border border-black\/10|border-dashed/, `${f} still draws a swatch by hand`);
   }
 });
@@ -236,8 +237,9 @@ test('(5) the ▾ is the dropdown’s own accent; the frame and its chips are th
   const arrow = classOf(html, /<svg[^>]*class="([^"]*)"/);
   for (const c of M.pickArrowClass(false).split(' ').filter(Boolean)) assert.ok(arrow.includes(c), `the ▾ lost “${c}”`);
   assert.ok(arrow.includes('text-sn-accent'));
-  /* Gallery ›, Upload + and the stage ▾: the same mark. */
-  assert.equal((read(`${L}/stage-panel/stage-background.tsx`).match(/h-3\.5 w-3\.5 shrink-0 text-sn-accent/g) ?? []).length, 2);
+  /* Upload + and the stage ▾: the same mark. (🔁 Re-aimed 2026-10-09: the Background's Gallery › pill is gone with the
+     four-row toolbar — its pictures are row 2's own tiles — so one mark is left there, on "＋ Upload".) */
+  assert.equal((read(`${L}/stage-panel/stage-background.tsx`).match(/<Plus aria-hidden className="h-4 w-4 text-sn-accent"/g) ?? []).length, 1);
   assert.match(read(`${L}/stage-item-menu.tsx`), /<ChevronDown aria-hidden className=\{`h-3\.5 w-3\.5 shrink-0 text-sn-accent /);
 
   const edges = read(`${L}/add-part-sheet.tsx`);

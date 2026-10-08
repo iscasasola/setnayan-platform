@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { SP_PANE, SP_STYLE_PANE } from '@/lib/maker-stage-room';
+import { SP_PANE, SP_ROWS, SP_STYLE_PANE } from '@/lib/maker-stage-room';
 import { useStageTool } from './store';
 
 /**
@@ -11,7 +11,7 @@ import { useStageTool } from './store';
  *
  *   Style       the looks as a carousel of REAL miniatures (`StyleCards`) in rows 1–3 — rows 1–2 over the Dress
  *               code's palette row — and, drawn by the toolbar itself in row 4, Colour · Size (`StageLookRow`)
- *   Background  Background ▾ · the five colours · Gallery ▸ · Upload ◆ (`StageBackground`)
+ *   Background  the source ▾ · its choices · the choice's one control · its shape — four rows (`StageBackground`)
  *   Edit        is the toolbar's own (`stage-edit.tsx` — the part's one door, and its place on the page): this body
  *               is under it, kept mounted (a word typed on the RSVP page saves through it) and out of sight.
  *
@@ -28,12 +28,21 @@ export function StageStyle({ look, background, rows = false }: { look: ReactNode
   const on = tool === 'bg' && background ? 'bg' : 'look';
   /* 🧱 `rows` (the work area's parts — `parts.tsx`): under Style the body is laid in the toolbar's rows, no scroll up
      and down — the look cards take the rows left to them, a row under them is one row tall (the rule set is the
-     toolbar's own, `stage-tools.tsx`, on `data-stage-style-rows`). Background keeps its own pane until it is
-     rebuilt; so do the bodies that are not the work area's (the Reveal, the Camera, the reply pages). */
+     toolbar's own, `stage-tools.tsx`, on `data-stage-style-rows`). The bodies that are not the work area's (the
+     Reveal, the Camera, the reply pages) keep their own pane. */
   if (rows && on === 'look') {
     return (
       <div className={SP_STYLE_PANE} data-stage-style={on} data-stage-style-rows="">
         {look}
+      </div>
+    );
+  }
+  /* 🖼 …and under Background the scene's background is the toolbar's FOUR ROWS (`StageBackground` places each of its
+     rows itself): the grid, nothing scrolled. */
+  if (rows && on === 'bg') {
+    return (
+      <div className={`${SP_ROWS} h-full px-[10px]`} data-stage-style={on} data-stage-bg-rows="">
+        {background}
       </div>
     );
   }

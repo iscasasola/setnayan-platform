@@ -215,12 +215,19 @@ test('E · every well in Stages and Look reaches the sheet with the Mood Board�
   /* The ground a text colour is measured on is the one the sheet's own warning already uses. */
   assert.match(read(`${E}/element-sheet.tsx`), /const ground = canvas\.kind === 'color' && canvas\.color \? canvas\.color : palette\.surface;/);
   /* The Stages rows' "+" opens the picker itself and is handed the way to close it. */
-  for (const f of ['stage-background.tsx', 'stage-text.tsx']) {
+  for (const f of ['stage-text.tsx']) {
     const src = read(`${L}/stage-panel/${f}`);
     /* (“+” is the panel's shared colour circle since 2026-10-08 — `SwatchMore`, `kit.tsx`: the row hands it the open.) */
     assert.match(src, /<SwatchMore open=\{custom\} onOpen=\{\(\) => setCustom\(true\)\}/, `${f}: “+” does not open the picker`);
     assert.match(src, /\{custom \? customColour\(\(\) => setCustom\(false\)\) : null\}/, `${f}: the picker cannot close its “+”`);
   }
+  /* 🔁 Re-aimed 2026-10-09 (the toolbar's Background, `TOOLBAR-SPEC-2026-10-09.md`): the scene's colour is ONE circle
+     now — the colour worn — and that circle IS the picker's trigger (it was five swatches and a “+”). Same claim:
+     the circle opens the one picker and is handed the way to close it. */
+  const bgRow = read(`${L}/stage-panel/stage-background.tsx`);
+  assert.match(bgRow, /<Swatch on label=\{`Background colour \$\{colour\} — change it`\}[\s\S]{0,160}onPick=\{\(\) => setPicking\(true\)\}/, 'the Background’s circle does not open the picker');
+  assert.match(bgRow, /\{picking \? customColour\(\(\) => setPicking\(false\)\) : null\}/, 'the picker cannot close');
+  assert.doesNotMatch(bgRow, /SwatchMore|colours\.(slice|map)/, 'a row of swatches is back on the Background');
   /* The five reach the wells from ONE server reading (`mainColoursOf`, the Mood Board drafted over live). */
   assert.match(read(`${D}/website/editor/page.tsx`), /board: mainColoursOf\(\(drafted as \{ role_palette\?: unknown \}\)\.role_palette, currentThemeId\),/);
   assert.match(read(`${E}/editor-shell.tsx`), /<SceneBackgroundRow[\s\S]{0,500}board=\{elementEditing\.palette\.board\}/);

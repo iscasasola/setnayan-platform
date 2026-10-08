@@ -86,7 +86,10 @@ test('the panel draws those same strings for every button', () => {
 
 test('the panel’s two files that draw no button of their own hand every tap to a measured piece', () => {
   for (const [file, pieces] of [
-    ['stage-panel/stage-animate.tsx', ['<Dd', '<PanelSwitch', '<PillSelector', '<Phases']],
+    /* 🔁 RE-AIMED 2026-10-09 (the toolbar's Animate is four rows — `animate-is-four-rows.test.ts`): Fade · Blur · Move ·
+       Size are the app's row of toggles (`PillSelector`, several pressed), no longer four `PanelSwitch`es down a
+       column; every tap is still a measured piece and the file still draws no button of its own. */
+    ['stage-panel/stage-animate.tsx', ['<Dd', '<PillSelector', '<Phases']],
     ['stage-panel/stage-text.tsx', ['<Swatch', '<SwatchMore']],
   ] as const) {
     const src = readFileSync(join(WEB, L, file), 'utf8');

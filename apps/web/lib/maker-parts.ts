@@ -489,6 +489,18 @@ export function makerPartIsDrawn(key: MakerPartKey, present: ReadonlySet<string>
 }
 
 /**
+ * 🧹 ON ARRIVING, IS THE PART STILL HELD KEPT? Only when it is a part of THIS page: nothing held is nothing to keep;
+ * a part held across a change of STAGE is the old stage's even when both stages have one of that name (the work area
+ * lets it go a moment later, and the toolbar was left on nothing); a part the canvas's own tab switch left on a hidden
+ * page is not on screen. Where the canvas did not say the page (a canvas drawn as one page — the page then follows
+ * what is picked and scrolled), a held part is always kept: it is what named the page.
+ */
+export function makerArrivalKeeps(input: { held: MakerPartKey | null; parts: readonly MakerPartKey[]; newStage: boolean; canvasSaidThePage: boolean }): boolean {
+  if (input.held === null || input.newStage) return false;
+  return input.canvasSaidThePage ? input.parts.includes(input.held) : true;
+}
+
+/**
  * WHY A STEP OF EDIT'S LAST ROW IS GREY (↑ Earlier · ↓ Later · Remove) — said when it is tapped, never a dead tap. A part that does not move at all (a line of the cover, a fixed block,
  * the Reveal, a reply page's part) keeps its place; one that moves but has no neighbour on that side is already first
  * or last; a part that cannot be taken off stays.

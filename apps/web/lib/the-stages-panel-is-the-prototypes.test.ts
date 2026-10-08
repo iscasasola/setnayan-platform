@@ -169,9 +169,11 @@ test('Rows ▾ writes the scene’s `sequence` — and Action carries no Parts r
   assert.match(ss, /rows=\{\s*makerSceneHasRows\(widgetType\)/);
   assert.match(ss, /onPick: \(q\) => save\(\(c\) => \{ if \(q === 'auto'\) delete c\.sequence; else c\.sequence = q; \}\)/);
   const animate = read(`${LAUNCH}/stage-panel/stage-animate.tsx`);
-  const act = animate.slice(animate.indexOf("phase === 'act' ?"), animate.indexOf(') : (\n        <>\n          {outAbout'));
-  assert.ok(!/rows|Parts/.test(act), 'Action keeps Does ▾ and Timing ▾ only');
-  assert.match(animate.slice(animate.indexOf("phase === 'in' ?"), animate.indexOf("phase === 'act' ?")), /small="Rows"/, 'Rows ▾ is Build in’s');
+  /* 🔁 RE-AIMED 2026-10-09 (Animate is four rows): the three phases are no longer three branches of one column —
+     Rows ▾ is drawn in row 4 beside Movement, and only while the phase is Build in. Action still carries none. */
+  const rowsDrawn = [...animate.matchAll(/\{([^{}]*?) \? <Dd stacked small="Rows"/g)].map((m) => m[1]);
+  assert.deepEqual(rowsDrawn, ["phase === 'in' && rows"], 'Rows ▾ is Build in’s, and only its');
+  assert.ok(!/Parts/.test(animate), 'Action carries a Parts row');
 });
 
 /* ── 6 · a tap on the page never leaves the stage ───────────────────────── */
@@ -249,7 +251,12 @@ test('a page tab still takes the canvas to its page under Stages (only a picked 
   /* 🧹 AMENDED 08 Oct (measured on the preview): after a tab change the panel KEPT the look options of the part
      picked on the page before — `setPicked(null)` dropped the frame but left the work area's tool open, so its
      rows stayed. A tab tap now lets go exactly as ✕ does (`deselect`: the pick AND its tools). */
-  assert.match(tools, /deselect\(\);\s*goToPage\(p\.key, p\.option\);/, 'another page lets the picked part go — its tools too');
+  /* 🔁 RE-AIMED 2026-10-09. This held `deselect(); goToPage(…)` in the tap itself. The claim is kept — after a page
+     change the toolbar never keeps a part of the page before, its tools too — but the part is let go when the canvas
+     HAS switched its tab, not on the tap: on the review copy a canvas that refused the switch left NOTHING picked and
+     every tool blank (`lib/the-preview-only-selects.test.ts` (3b)). `deselect` still lets go exactly as ✕ does. */
+  assert.match(tools, /goToPage\(p\.key, p\.option\);\s*askPage\(p\.key\);/, 'a tab tap does not ask the canvas for the page');
+  assert.match(tools, /if \(tab && held && !partsRef\.current\.includes\(held\) && pendingStep\.current === null\) deselectRef\.current\(\);/, 'another page keeps the picked part — its tools too');
   assert.match(tools, /const deselect = useCallback\(\(\) => \{\s*setPicked\(null\);\s*openToolRef\.current\?\.close\(\);\s*\}, \[\]\);/, 'letting go closes the part’s tools');
   assert.match(tools, /const goToPage = useCallback\(\s*\(key: string, option: string\) => \{\s*postToCanvas\(\{ source: 'setnayan-editor', t: 'hubTab', key: '', tab: key \}\);\s*onPickPage\(option\);/, 'the canvas swaps, and the shell’s Page ▾ is still told');
 });

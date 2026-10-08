@@ -11,6 +11,7 @@ import {
   MAKER_PARTS,
   MAKER_PART_TOOLS,
   MAKER_PART_TOOL_LABEL,
+  makerArrivalKeeps,
   makerArrivalPart,
   makerPartIsDrawn,
   makerPartOfTap,
@@ -138,6 +139,8 @@ function safeBottomPx(): number {
 /** 🧠 The tool last used — kept while the toolbar is away (Studio, a Studio tool opened from Edit's door), so it is
  *  the one the next part opens on when the couple comes back (owner 2026-10-09: the last-used tool is remembered). */
 let lastTool: MakerPartTool = 'edit';
+/** How long the canvas is given to say it switched its page after a tap on the guests' bar. */
+const STAGE_PAGE_ASK_MS = 450;
 /** Where Style's quiet row last took the couple — the panel picks the same part when they come back (‹). */
 let resumeAt: { stage: MakerStageKey; page: string | null; part: MakerPartKey } | null = null;
 /** 🧭 The tab that was on screen when this panel last stood — it is put back when the couple returns from Studio
@@ -740,22 +743,60 @@ export function StageTools({
   };
   const hasEditRowRef = useRef(hasEditRow);
   hasEditRowRef.current = hasEditRow;
-  const arrivedAt = useRef<string | null>(null);
+  const partsRef = useRef(parts);
+  partsRef.current = parts;
+  const tappableOnRef = useRef(tappableOn);
+  tappableOnRef.current = tappableOn;
+  const arrived = useRef<{ stage: MakerStageKey | null; at: string | null }>({ stage: null, at: null });
   useEffect(() => {
     const at = `${stageKey}/${shownPage ?? ''}`;
-    if (arrivedAt.current === at || parts.length === 0 || typing || playing) return;
+    if (arrived.current.at === at || parts.length === 0 || typing || playing) return;
     /* After the page has laid the tab out (the same wait the parts are read with). */
     const t = window.setTimeout(() => {
-      if (arrivedAt.current === at) return;
+      if (arrived.current.at === at) return;
       /* …the first of them Edit has a row for (its words, or its door) — never an empty tool, never the Reveal
          (`makerArrivalPart`; the controller's calls, 2026-10-09). A tap still picks any part. */
       const first = makerArrivalPart(orderedRef.current(), hasEditRowRef.current);
       if (!first) return;
-      arrivedAt.current = at;
-      if (!pickedRef.current && pendingStep.current === null) pickPartRef.current(first);
+      const was = arrived.current;
+      arrived.current = { stage: stageKey, at };
+      /* 🧹 A PART STILL HELD FROM WHERE THE COUPLE CAME FROM IS NOT THIS PAGE'S (`makerArrivalKeeps`): another stage's
+         (the work area lets it go a moment later — the toolbar was then left on nothing), or one the canvas's own
+         tab switch left behind on a hidden page. It is replaced; a part of THIS page (one just tapped, the one
+         Studio came back to) is kept. */
+      const keeps = makerArrivalKeeps({
+        held: pickedRef.current,
+        parts: partsRef.current,
+        newStage: was.stage !== null && was.stage !== stageKey,
+        canvasSaidThePage: tabRef.current?.stage === stage || rsvpOpenRef.current,
+      });
+      if (!keeps && pendingStep.current === null) pickPartRef.current(first);
     }, 160);
     return () => window.clearTimeout(t);
-  }, [parts, playing, shownPage, stageKey, typing]);
+  }, [parts, playing, shownPage, stage, stageKey, typing]);
+  /* 🧭 THE CANVAS SWITCHED ITS TAB under a part that is not on the new page: it is let go at once (owner: "the picked
+     part clears") — the toolbar never shows a part of the page before; the arrival above then picks this page's. */
+  const tabSeen = useRef<string | null>(canvasTab?.stage === stage ? canvasTab.tab : null);
+  useEffect(() => {
+    const tab = canvasTab?.stage === stage ? canvasTab.tab : null;
+    if (tab === tabSeen.current) return;
+    tabSeen.current = tab;
+    const held = pickedRef.current;
+    if (tab && held && !partsRef.current.includes(held) && pendingStep.current === null) deselectRef.current();
+  }, [canvasTab, stage]);
+  /* 👆 A PAGE ASKED FOR ON THE GUESTS' BAR. The picked part is NOT let go on the tap: it goes when the page has
+     really changed (above) — so a canvas that does not switch can never leave the toolbar on nothing (seen on the
+     review copy, 2026-10-09: the lab's sample is drawn as ONE page, refuses the switch, and a tap on "Details" left
+     no part picked and every tool blank). If the canvas has not switched shortly after, that page's first part is
+     picked where it is drawn on the one page — the same "first part Edit has a row for". */
+  const askPage = useCallback((key: string) => {
+    window.setTimeout(() => {
+      if (where.current.shownPage === key) return;
+      const on = tappableOnRef.current(key);
+      const first = makerArrivalPart(partsInPageOrder(on, (k) => makerPartTopOnScreen(where.current.stageKey, k)), hasEditRowRef.current);
+      if (first && pendingStep.current === null) pickPartRef.current(first);
+    }, STAGE_PAGE_ASK_MS);
+  }, []);
   /* ⌨ ↑ / ↓ step, Esc lets go — never while typing into a field or on the page. */
   useEffect(() => {
     if (!picked || typing) return;
@@ -1254,11 +1295,11 @@ export function StageTools({
                             deselect();
                             goToScreen(p.key as RsvpStageScene);
                           } else {
-                            /* Another page: the picked part is let go (the owner: "the picked part clears") — and its
-                               tools with it, as ✕ does: the panel never keeps the look options of a part on the page
-                               before (measured on the preview, 08 Oct). */
-                            deselect();
+                            /* Another page: asked of the canvas. The picked part is let go — and its tools with it —
+                               once the page has CHANGED (the owner: "the picked part clears"; the toolbar never keeps
+                               a part of the page before), and that page's first part is picked (`askPage`). */
                             goToPage(p.key, p.option);
+                            askPage(p.key);
                           }
                         }}
                         className={STAGE_GUEST_TAB}

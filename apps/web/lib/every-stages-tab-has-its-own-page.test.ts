@@ -330,7 +330,12 @@ test('d · WIRING: the swap starts at the top and stays there; the label follows
   assert.match(TOOLS, /if \(d\.t === 'hubTab'\) setCanvasTab\(\{ stage, tab: d\.tab \}\);/);
   // A tap on a tab tells the canvas itself, then the shell's Page ▾.
   assert.match(TOOLS, /postToCanvas\(\{ source: 'setnayan-editor', t: 'hubTab', key: '', tab: key \}\);\s*onPickPage\(option\);/);
-  assert.match(TOOLS, /deselect\(\);\s*goToPage\(p\.key, p\.option\);/, 'a tab tap lets go of the part picked on the page before — its tools too');
+  /* 🔁 RE-AIMED 2026-10-09. This held `deselect(); goToPage(…)` in the tap itself. The claim is kept — after a page
+     change the toolbar never keeps a part of the page before, its tools too — but the part is let go when the canvas
+     HAS switched its tab, not on the tap: on the review copy a canvas that refused the switch left NOTHING picked and
+     every tool blank (`lib/the-preview-only-selects.test.ts` (3b)). `deselect` still lets go exactly as ✕ does. */
+  assert.match(TOOLS, /goToPage\(p\.key, p\.option\);\s*askPage\(p\.key\);/, 'a tab tap does not ask the canvas for the page');
+  assert.match(TOOLS, /if \(tab && held && !partsRef\.current\.includes\(held\) && pendingStep\.current === null\) deselectRef\.current\(\);/, 'a tab change keeps the part picked on the page before — its tools too');
 });
 
 test('d · 🔝 a tab tap ENDS at the top: the part edited before cannot pull the page back down', () => {

@@ -127,15 +127,18 @@ test('(4) the Stages panel and the scene’s Background row draw no range by han
     assert.doesNotMatch(src, /sp-range|accent-ink|slider-thumb|range-thumb/, `${f} still carries a private range look`);
     drawn += (src.match(/<Slider\b/g) ?? []).length;
   }
-  /* Duration and Delay (one row drawn twice) · Text size · the Background's Opacity (the older editor's row, and the
+  /* Text size · the Background's Opacity (the older editor's row, and the
      toolbar's row 3) and its Darker ↔ Lighter bar (🔁 2026-10-09: it was a dropdown of three words — owner: *"darker
      lighter line bar"*; and the toolbar's Opacity moved from the row's file into `stage-background.tsx`) · the
      Reveal's Fine-tune knobs (one row mapped over them). */
-  assert.equal(drawn, 6, 'a slider the panel drew is gone, or a new one is not counted here');
+  /* 🔁 RE-AIMED 2026-10-09: Animate draws NO slider now. Duration is gone from the toolbar (owner: *"build in no
+     duration"*) and Delay — three shipped steps — is a dropdown beside Movement, since a row of its own does not
+     exist in the four (`animate-is-four-rows.test.ts`). 6 → 5. */
+  assert.equal(drawn, 5, 'a slider the panel drew is gone, or a new one is not counted here');
   assert.equal((read(`${L}/stage-panel/stage-background.tsx`).match(/<Slider\b/g) ?? []).length, 2, 'the Background’s Opacity or its Darker ↔ Lighter bar is not the app’s slider');
-  assert.equal((read(`${L}/stage-panel/stage-animate.tsx`).match(/<TimeRow\b/g) ?? []).length, 2, 'Duration or Delay is gone');
+  assert.equal((read(`${L}/stage-panel/stage-animate.tsx`).match(/<Slider\b|<TimeRow\b/g) ?? []).length, 0, 'Animate draws a slider again — it has no row for one');
+  assert.match(read(`${L}/stage-panel/stage-animate.tsx`), /small="Delay"[\s\S]{0,300}options=\{delay\.steps\.map\(\(s\) => \(\{ key: String\(s\), label: seconds\(s\) \}\)\)\}/, 'Delay does not offer the shipped steps');
   /* Each says what its value means, beside it and to a screen reader. */
-  assert.match(read(`${L}/stage-panel/stage-animate.tsx`), /valueText=\{`\$\{t\.value\.toFixed\(1\)\} s`\}[\s\S]{0,400}<span className=\{`\$\{SLIDER_VALUE\} w-\[44px\]`\}>\{t\.value\.toFixed\(1\)\} s<\/span>/);
   assert.match(read(`${L}/stage-panel/stage-text.tsx`), /valueText=\{`\$\{pct\}%`\}[\s\S]{0,400}<span className=\{`\$\{SLIDER_VALUE\} w-\[44px\]`\}>\{pct\}%<\/span>/);
   /* (🔁 2026-10-09: the toolbar's Opacity is drawn by `stage-background.tsx` from the row's own value — one in each file.) */
   assert.equal((read(`${E}/scene-background-row.tsx`).match(/valueText=\{`\$\{opacity\}%`\}/g) ?? []).length, 1);

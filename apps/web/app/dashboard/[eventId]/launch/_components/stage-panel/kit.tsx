@@ -6,6 +6,7 @@ import { Explain } from '@/app/_components/explain';
 import { SwitchTrack } from '@/app/_components/switch-track';
 import { PillThumb } from '@/app/_components/pill-selector';
 import { ActionButton } from '@/components/action-button';
+import { SP_DD_STACKED, SP_DD_STACKED_BUTTON, SP_DD_STACKED_LABEL } from '@/lib/maker-animate-rows';
 import { SP_DD, SP_DD_BUTTON, SP_DD_LABEL, SP_PHASE, SP_PHASE_INSET, SP_PHASES, SP_SWATCH, SP_SWATCH_FACE, SP_SWATCH_MORE, SP_SWATCH_ON, SP_SWITCH, STAGE_BAR_ABOUT } from '@/lib/maker-stage-room';
 import { PickMenu } from '../../../website/editor/_components/pick-menu';
 import type { PickOption } from '../../../website/editor/_components/pick-menu-types';
@@ -69,7 +70,10 @@ export function Dd({
   className = '',
   tone = 'plain',
   about,
+  stacked = false,
 }: {
+  /** Two lines in one pill — its name above its value (prototype `.fh`), so two or three sit in one row. */
+  stacked?: boolean;
   /** What the row does, behind ⓘ beside the pill (owner 2026-10-07: each Arrange row has an ⓘ). */
   about?: ReactNode;
   /** The small caps word on the pill ("Background", "◆ How it moves"). */
@@ -89,7 +93,7 @@ export function Dd({
   const pill = (
     <div
       ref={box}
-      className={`${SP_DD} ${tone === 'how' ? '!bg-[var(--sp-gold-wash)] !ring-[var(--sp-gold-soft)]' : ''} ${className}`}
+      className={`${stacked ? SP_DD_STACKED : SP_DD} ${tone === 'how' ? '!bg-[var(--sp-gold-wash)] !ring-[var(--sp-gold-soft)]' : ''} ${className}`}
       data-stage-dd={data}
       onClick={(e) => {
         /* The small label is part of the pill: a tap there opens it too. */
@@ -98,10 +102,10 @@ export function Dd({
         }
       }}
     >
-      <span className={SP_DD_LABEL} data-dd-label="">
+      <span className={stacked ? SP_DD_STACKED_LABEL : SP_DD_LABEL} data-dd-label="">
         {small}
       </span>
-      <PickMenu label={label} value={value} options={options} onPick={onPick} buttonText={buttonText} className={SP_DD_BUTTON} />
+      <PickMenu label={label} value={value} options={options} onPick={onPick} buttonText={buttonText} className={stacked ? SP_DD_STACKED_BUTTON : SP_DD_BUTTON} />
     </div>
   );
   return about ? (

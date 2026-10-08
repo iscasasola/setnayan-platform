@@ -168,20 +168,23 @@ test('(3) Move draws ONE dropdown (no button per arrow) and Size draws the app�
   const dd = { value: 'auto', options: [{ key: 'auto', label: 'Auto' }], onPick: () => {} };
   const draw = (phase: 'in' | 'out', fx: Record<string, unknown> | null) => {
     setStageAnimatePhase(phase);
-    return renderToStaticMarkup(React.createElement(StageAnimate, { how: dd, inFx: fx, outFx: fx, onIn: () => {}, onOut: () => {}, does: dd, timing: dd }));
+    return renderToStaticMarkup(React.createElement(StageAnimate, { how: dd, inFx: fx, outFx: fx, onIn: () => {}, onOut: () => {}, does: dd }));
   };
+  /* 🔁 RE-AIMED 2026-10-09 (Animate is four rows — `animate-is-four-rows.test.ts`): Move and Size are no longer a
+     row each with a switch; the ON ones' needs share ROW 3, a half each (`data-stage-need`). The claim is the same:
+     a direction is ONE dropdown, Grow | Shrink is the app's pill selector with the picked one in the accent. */
   for (const end of ['in', 'out'] as const) {
     const html = draw(end, { move: 'below', size: 'grow' });
-    const move = html.slice(html.indexOf(`data-stage-effect="${end}-move"`), html.indexOf(`data-stage-effect="${end}-size"`));
-    /* ONE control beside the switch, and it is a dropdown: a button that says it opens a list, wearing the ▾. */
+    const move = html.slice(html.indexOf('data-stage-need="move"'), html.indexOf('data-stage-need="size"'));
+    /* ONE control, and it is a dropdown: a button that says it opens a list, wearing the ▾. */
     assert.match(move, new RegExp(`data-stage-dd="${end}-move-dir"`), `${end}: Move has no dropdown`);
     assert.equal((move.match(/aria-haspopup="listbox"/g) ?? []).length, 1, `${end}: Move’s direction is not one dropdown`);
-    assert.equal((move.match(/<button\b/g) ?? []).length, 2, `${end}: Move draws more than its switch and its dropdown`);
+    assert.equal((move.match(/<button\b/g) ?? []).length, 1, `${end}: Move draws more than its dropdown`);
     assert.match(move, new RegExp(`>${end === 'in' ? 'From' : 'To'}</span>`), 'the dropdown does not say From / To');
     assert.match(move, /the bottom/, 'the dropdown does not say the way in words');
     assert.doesNotMatch(html, /data-stage-dir=/, 'a button per arrow is back');
     /* Size: the shared selector, two choices, the picked one the accent — and nothing ink. */
-    const size = html.slice(html.indexOf(`data-stage-effect="${end}-size"`));
+    const size = html.slice(html.indexOf('data-stage-need="size"'), html.indexOf('data-stage-animate-row4='));
     assert.match(size, new RegExp(`role="group" aria-label="Size ${end}" data-pill-selector="${end}-size"`));
     const grow = classOf(size, /<button[^>]*aria-pressed="true"[^>]*class="([^"]*)"[^>]*data-seg="grow"|<button[^>]*data-seg="grow"[^>]*class="([^"]*)"/);
     const picked = /<button type="button" aria-pressed="true" class="([^"]*)" data-seg="grow"/.exec(size)?.[1]?.split(/\s+/) ?? grow;
@@ -189,12 +192,11 @@ test('(3) Move draws ONE dropdown (no button per arrow) and Size draws the app�
     assert.match(size, /<button type="button" aria-pressed="false" class="[^"]*" data-seg="shrink"/);
     assert.doesNotMatch(html, /--sp-ink\)\] bg-\[var\(--sp-ink\)\]|bg-\[var\(--sp-ink\)\] text-white/, 'an ink-black picked button is back');
   }
-  /* Off: no dropdown, no selector — the row says so in words. */
+  /* Off: no dropdown, no selector of a size — row 3 is not drawn at all (it said "Stays in place · Same size"). */
   const off = draw('in', null);
-  assert.doesNotMatch(off, /move-dir|data-pill-selector/);
-  assert.match(off, /Stays in place[\s\S]*Same size/);
+  assert.doesNotMatch(off, /move-dir|in-size|data-stage-need/);
   /* A stored "Settle back" is neither: nothing is picked. */
-  assert.doesNotMatch(draw('out', { size: 'settle' }), /aria-pressed="true"[^>]*data-seg=/);
+  assert.doesNotMatch(draw('out', { size: 'settle' }), /aria-pressed="true"[^>]*data-seg="(?:grow|shrink)"/);
   setStageAnimatePhase('in');
 });
 

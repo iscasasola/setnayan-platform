@@ -271,7 +271,9 @@ test('(5) a Video card is the loop itself: muted, metadata only, playing only on
   const loop = src.slice(src.indexOf('export function LoopPicture('));
   assert.match(loop, /const shown = loopCardDrawsVideo\(\{ src, reducedMotion: reduced, failed \}\);/);
   assert.match(loop, /new IntersectionObserver\(/);
-  assert.match(loop, /if \(e\.isIntersecting && e\.intersectionRatio >= 0\.6\) \{[\s\S]{0,200}void video\.play\(\)\.catch\(\(\) => \{\}\);\s*\} else \{\s*video\.pause\(\);/, 'the loop does not play only while on screen');
+  assert.match(loop, /if \(e\.isIntersecting && e\.intersectionRatio >= 0\.6\) \{[\s\S]{0,200}void video\.play\(\)\.catch\(\(\) => told\(true\)\);\s*\} else \{\s*video\.pause\(\);/, 'the loop does not play only while on screen');
+  // (Re-aimed 2026-10-08: a refused play is still not an error to say — it now tells a waiting pick the film will not
+  // move here, so a pick never waits on it for ever; `a-loading-pick-is-honest.test.ts` (6).)
   assert.match(loop, /onError=\{\(\) => setFailed\(true\)\}/, 'a loop that cannot load stays');
   assert.match(src, /window\.matchMedia\('\(prefers-reduced-motion: reduce\)'\)/);
   // The panel hands every Video card its loop, and the editor page builds that address.

@@ -153,9 +153,11 @@ test('(2) the tapped card is ringed and wears the progress mark from the tap —
   assert.match(old, /class="sn-phone-card sn-press-ring"/);
   assert.doesNotMatch(old, /data-bg-card-busy/);
   assert.match(html, /<p[^>]*data-bg-pick-line="applying"[^>]*>[\s\S]*?Applying to your Hub…<\/p>/, 'the line does not say the draft write is in flight');
-  // The other cards stay tappable: nothing is disabled while a pick is on its way.
+  // The other cards stay tappable while a pick is only being SAVED: a later pick wins. (Re-aimed 2026-10-08, owner:
+  // "when we are picking and the option is not yet done loading, nothing can be pressed" — a pick whose FILE is still
+  // loading now holds its strip; that rule is held by `a-loading-pick-is-honest.test.ts`. A save in flight holds nothing.)
   // (the attribute itself — `disabled:opacity-50` in the class list is not it)
-  assert.doesNotMatch(html, /<button[^>]*\sdisabled=""/, 'a card is locked while a pick is on its way — a second tap could not win');
+  assert.doesNotMatch(html, /<button[^>]*\sdisabled=""/, 'a card is locked while a pick is only being saved — a later pick could not win');
   const locked = renderToStaticMarkup(React.createElement(C.BgCard, { name: 'Locked', data: 'x', on: false, disabled: true, onPick: () => {}, swatch: '#000' }));
   assert.match(locked, /<button[^>]*\sdisabled=""/, 'anti-vacuity: a disabled card does not render the attribute this looks for');
   // No pick: no mark anywhere, the ring where `on` says.
@@ -728,8 +730,10 @@ test('(8) the Studio draws and lays a pick BEFORE its save, holds the save, lets
   assert.doesNotMatch(pickLook + pickMeasured, /setPick\(null\)/, 'a failure clears the line as if it were done');
   // The panel READS its background through the store (a held save brings no props), and draws the line and the pick.
   assert.match(panel, /const ground = studio \? lookGround\.read\(lookKey, server\) : server;/);
-  assert.match(panel, /<BgCards label=\{BACKGROUND_SOURCE_LABEL\[view\]\} source=\{view\} pick=\{pick\} onTap=\{\(data\) => \(tapped\.current = data\)\}>/);
-  assert.match(panel, /<BgPickLine step=\{backgroundPickStep\(pick\)\} error=\{pick\?\.failed \?\? null\} onRetry=\{pick\?\.failed \? \(\) => retry\.current\?\.\(\) : null\} \/>/);
+  // (Re-aimed 2026-10-08: the strip and the line are handed the pick OR an upload in flight (`stripPick`), and the stop.)
+  assert.match(panel, /<BgCards label=\{BACKGROUND_SOURCE_LABEL\[view\]\} source=\{view\} pick=\{stripPick\} onTap=\{\(data\) => \(tapped\.current = data\)\} onCancel=\{cancelPick\}>/);
+  assert.match(panel, /<BgPickLine\s+step=\{backgroundPickStep\(stripPick\)\}\s+error=\{pick\?\.failed \?\? null\}/);
+  assert.match(panel, /onRetry=\{\s*pick\?\.failed\s*\? \(\) => retry\.current\?\.\(\)/, 'a failure’s Try again is not the refused pick, once more');
   assert.equal((panel.match(/<BgPickLine/g) ?? []).length, 1, 'ONE line');
   // The canvas's news is believed only from this origin, and a redraw counts only for a pick whose save had landed.
   const ear = panel.slice(panel.indexOf('const onCanvas = ('), panel.indexOf("window.addEventListener('message', onCanvas);"));

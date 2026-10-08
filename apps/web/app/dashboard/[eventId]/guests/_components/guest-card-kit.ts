@@ -69,8 +69,8 @@ export type CardKit = {
   Submit: ComponentType<CardSubmitProps>;
   /** A heading with an ⓘ (the old ⓘ in the Maker's card, the approved Explain on the Guests pages). */
   Tip: ComponentType<CardTipProps>;
-  /** The save line in the card's header: Saving… · Saved · Couldn’t save — Try again (never "Saved" for a failed save). */
-  SaveState: ComponentType;
+  /** The save line in the card's header: Saving… · Saved · Couldn’t save — Try again (never "Saved" for a failed save). `copy` is the card's sentence for each refusal code (the templated line says it). */
+  SaveState: ComponentType<{ copy?: Record<string, string> }>;
   /** Fields that sit side by side in the old kit and are rows of the same list in the new one. */
   Cols: ComponentType<CardBoxProps>;
 };

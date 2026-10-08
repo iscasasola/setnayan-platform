@@ -53,7 +53,10 @@ test('every autosave offers an undo', () => {
 });
 
 test('undo is the SAME action with the previous payload — not a second writer', () => {
-  assert.match(AUTOSAVE, /await action\(snap\)/, 'undo must post through the same server action');
+  // `send` is the autosave's ONE post (`hearSave(action, fd)`): the same `action` the form submits, with its answer heard.
+  assert.match(AUTOSAVE, /await send\(snap\)/, 'undo must post through the same server action');
+  assert.match(AUTOSAVE, /const send = useCallback\(\(fd: FormData\) => hearSave\(action, fd\), \[action\]\);/, 'undo’s post is no longer the form’s own action');
+  assert.match(AUTOSAVE, /await action\(fd\)/, 'the one post no longer calls the action');
   // A per-field endpoint would be the second source of truth this card exists
   // to avoid; if one appears, this guard should be the thing that objects.
   assert.equal(
@@ -64,7 +67,7 @@ test('undo is the SAME action with the previous payload — not a second writer'
 });
 
 test('the undo reaches the SCREEN, not only the row', () => {
-  const at = AUTOSAVE.indexOf('await action(snap)');
+  const at = AUTOSAVE.indexOf('await send(snap)');
   assert.ok(at > -1, 'the undo write is gone — this guard is pinning a ghost');
   const after = AUTOSAVE.slice(at);
   assert.match(

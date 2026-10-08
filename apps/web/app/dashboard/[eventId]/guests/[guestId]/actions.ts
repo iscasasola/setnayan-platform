@@ -361,9 +361,13 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
     isSafeNext(requestedReturn)
       ? requestedReturn
       : detailRoute;
+  /* A refusal. Non-quiet: the redirect it always was, carrying `?error=`. QUIET (the autosave): RETURNED, not redirected — a redirect
+     navigates the card away (blank for a second and a half, the app-wide error toast, the typed words gone); a returned refusal
+     leaves the card, and what was typed, where it is, and the autosave says "Couldn’t save" once. Same codes, same sentences. */
+  const refuse = (error: string) => (quiet ? { refused: error } : redirect(`${backTo}?error=${encodeURIComponent(error)}`));
 
   if (!first_name || !last_name) {
-    return redirect(`${backTo}?error=missing_name`);
+    return refuse('missing_name');
   }
   // 🔑 THE FORM AND THE ACTION MUST ANSWER THIS THE SAME WAY. The Side control
   // is absent on an event whose role set names no side principals, so an action
@@ -372,21 +376,21 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
   // Same helper as the form, so the two cannot drift.
   const sideResult = resolveSubmittedSide(await resolveRoleSetForEvent(eventId), side);
   if (!sideResult.ok) {
-    return redirect(`${backTo}?error=${sideResult.error}`);
+    return refuse(sideResult.error);
   }
   const resolvedSide = sideResult.side;
   if (!GROUP_VALUES.includes(group_category)) {
-    return redirect(`${backTo}?error=missing_group`);
+    return refuse('missing_group');
   }
   const roleSet = await resolveRoleSetForEvent(eventId);
   if (!roleSet.offeredRoles.includes(role)) {
-    return redirect(`${backTo}?error=invalid_role`);
+    return refuse('invalid_role');
   }
   if (!RSVP_VALUES.includes(rsvp_status)) {
-    return redirect(`${backTo}?error=invalid_rsvp`);
+    return refuse('invalid_rsvp');
   }
   if (meal_preference && !MEAL_VALUES.includes(meal_preference)) {
-    return redirect(`${backTo}?error=invalid_meal`);
+    return refuse('invalid_meal');
   }
   // "Also serves as" — offered roles only, never the primary role twice, and
   // never a one-per-event role (the `guests_extra_roles_no_singletons` CHECK
@@ -410,7 +414,7 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
   // — the named people are kept, never removed by a number.
   if (typeof plusOneWrite.plus_one_count === 'number') {
     const check = await checkExtraSeats(supabase, eventId, guestId, plusOneWrite.plus_one_count);
-    if (!check.ok) return redirect(`${backTo}?error=${encodeURIComponent(check.error)}`);
+    if (!check.ok) return refuse(check.error);
   }
   // Smart seat-plan Phase 5: snapshot the tier-affecting fields before the write
   // so we only re-place the guest when role / group_category actually changed.
@@ -515,7 +519,7 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
     const friendly = dupRole
       ? singletonRoleDuplicateMessage(dupRole)
       : error.message;
-    return redirect(`${backTo}?error=${encodeURIComponent(friendly)}`);
+    return refuse(friendly);
   }
 
   // AUTHORIZATION GATE. The RLS-scoped UPDATE above is the edit-authorization
@@ -527,7 +531,7 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
   // otherwise an unauthorized caller could wipe an arbitrary guest's
   // biometrics/selfie via this action.
   if (!updatedRows || updatedRows.length === 0) {
-    return redirect(`${backTo}?error=not_authorized`);
+    return refuse('not_authorized');
   }
 
   // RA 10173 governance — biometric withdrawal. Two host toggles reach here, and
@@ -712,7 +716,7 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
   }
   if (tablePosted && !passed_away && effectiveRsvp !== 'declined') {
     const seated = await syncCardTable(supabase, eventId, guestId, postedTableId);
-    if (!seated.ok) return redirect(`${backTo}?error=${encodeURIComponent(seated.error)}`);
+    if (!seated.ok) return refuse(seated.error);
   }
 
   // ⚖ "+ will have seats beside the person invited" — one seat row per extra

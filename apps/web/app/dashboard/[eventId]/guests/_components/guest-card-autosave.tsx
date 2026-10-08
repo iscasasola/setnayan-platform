@@ -63,8 +63,8 @@ const NOT_A_FIELD = new Set(['quiet', 'return_to']);
  * take back), and a save is in flight (`useFormStatus`). A redirect (the action's own way of sending an error to be SEEN) and
  * not-found are the framework's and pass through untouched.
  */
-export type AutosaveOutcome = { kind: 'idle' } | { kind: 'saved'; n: number } | { kind: 'failed' };
-const OutcomeContext = createContext<{ outcome: AutosaveOutcome; retry: () => void }>({ outcome: { kind: 'idle' }, retry: () => {} });
+export type AutosaveOutcome = { kind: 'idle' } | { kind: 'saved'; n: number } | { kind: 'failed'; why?: string };
+export const OutcomeContext = createContext<{ outcome: AutosaveOutcome; retry: () => void }>({ outcome: { kind: 'idle' }, retry: () => {} });
 /** The save line's way to read the outcome (the templated card draws its own line with the same facts). */
 export function useAutosaveOutcome() {
   return useContext(OutcomeContext);
@@ -179,13 +179,25 @@ function restoreInputs(form: HTMLFormElement, snap: FormData): void {
   }
 }
 
+/* One post, heard both ways: a save that THREW and a save that was REFUSED. A quiet `updateGuest` RETURNS `{ refused }` instead of
+   redirecting (a redirect navigates the card away — blank for a second, the app-wide error toast, the typed words gone); the
+   framework's own redirect / not-found still pass through. null = it landed; otherwise the reason ('' when the action gave none). */
+export async function hearSave(action: (fd: FormData) => unknown, fd: FormData): Promise<string | null> {
+  try {
+    return ((await action(fd)) as { refused?: string } | undefined)?.refused ?? null;
+  } catch (e) {
+    if (isFrameworkSignal(e)) throw e;
+    return '';
+  }
+}
+
 export function AutosaveForm({
   action,
   returnTo,
   className,
   children,
 }: {
-  action: (formData: FormData) => void | Promise<void>;
+  action: (formData: FormData) => void | { refused: string } | Promise<void | { refused: string }>;
   /** Where `updateGuest` should send an ERROR back to — the surface the card is
    *  open on, so a failed save lands on the card and not on some other page.
    *  The action validates it stays inside this event's guest routes. */
@@ -217,19 +229,21 @@ export function AutosaveForm({
     };
   }, []);
 
+  const send = useCallback((fd: FormData) => hearSave(action, fd), [action]);
+
   const undoTo = useCallback(
     async (snap: FormData) => {
       const form = formRef.current;
       restoring.current = true;
       try {
-        await action(snap);
+        const why = await send(snap);
+        if (why !== null) {
+          // The Undo did not land: the row still holds what it held, so the controls stay where they are — and it says so.
+          setOutcome({ kind: 'failed', why });
+          return;
+        }
         if (form) restoreInputs(form, snap);
         lastSaved.current = snap;
-      } catch (e) {
-        if (isFrameworkSignal(e)) throw e;
-        // The Undo did not land: the row still holds what it held, so the controls stay where they are — and it says so.
-        setOutcome({ kind: 'failed' });
-        return;
       } finally {
         restoring.current = false;
       }
@@ -237,7 +251,7 @@ export function AutosaveForm({
       // — the roster row behind the panel, the tags, the status line.
       router.refresh();
     },
-    [action, router],
+    [send, router],
   );
 
   /* React 19 resets a form after its action returns — and a save that FAILED returns too (the failure is caught below, so the form is not
@@ -260,14 +274,12 @@ export function AutosaveForm({
       const change = carried.current;
       carried.current = null;
       failedLast.current = false;
-      try {
-        await action(fd);
-      } catch (e) {
-        if (isFrameworkSignal(e)) throw e;
+      const why = await send(fd);
+      if (why !== null) {
         failedLast.current = true;
         // Nothing landed: the last saved payload is still the one before this change, and no Undo is offered for it.
         if (change?.prev) lastSaved.current = change.prev;
-        setOutcome({ kind: 'failed' });
+        setOutcome({ kind: 'failed', why });
         return;
       }
       setOutcome({ kind: 'saved', n: ++landed.current });
@@ -278,7 +290,7 @@ export function AutosaveForm({
         if (label) pushUndo({ label, undo: () => undoTo(prev) });
       }
     },
-    [action, undoTo],
+    [send, undoTo],
   );
 
   const schedule = () => {

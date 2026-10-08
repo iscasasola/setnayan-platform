@@ -284,11 +284,15 @@ export default async function GuestsLabPage({
      WORDS, on purpose, so a guard can prove the card never prints them. */
   const labRefuses = sp.refuse === '1';
   const labBack = `/dev/guests-lab?part=${sp.part === 'host' ? 'host' : 'card'}${labRefuses ? '&refuse=1' : ''}`;
-  const labRefusal = `${labBack}&error=${encodeURIComponent('new row violates row-level security policy for table "guests"')}`;
+  const labWords = 'new row violates row-level security policy for table "guests"';
+  const labRefusal = `${labBack}&error=${encodeURIComponent(labWords)}`;
   async function labUpdate(formData: FormData) {
     'use server';
-    void formData;
-    if (labRefuses) redirect(labRefusal);
+    // Like the real `updateGuest`: a QUIET post (the autosave's) is RETURNED the refusal; any other post redirects.
+    if (labRefuses) {
+      if (formData.get('quiet') === '1') return { refused: labWords };
+      redirect(labRefusal);
+    }
   }
   async function labRelease(formData: FormData) {
     'use server';

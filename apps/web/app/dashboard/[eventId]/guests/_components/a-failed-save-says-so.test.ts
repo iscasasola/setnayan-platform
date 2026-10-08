@@ -60,9 +60,9 @@ test('loads the card’s error copy', async () => {
 
 test('(1) the save line is told by the action’s answer — Saved only after it landed, Couldn’t save when it threw', () => {
   const run = AUTO.slice(AUTO.indexOf('const run = useCallback('), AUTO.indexOf('const schedule = () => {'));
-  assert.match(run, /try \{\s*await action\(fd\);\s*\} catch \(e\) \{\s*if \(isFrameworkSignal\(e\)\) throw e;\s*failedLast\.current = true;/);
-  assert.match(run, /setOutcome\(\{ kind: 'failed' \}\);\s*return;\s*\}\s*setOutcome\(\{ kind: 'saved', n: \+\+landed\.current \}\);/, '"saved" is set on a path a failure can take');
-  assert.ok(run.indexOf("kind: 'saved'") > run.indexOf('await action(fd)'), '"Saved" is set before the action answered');
+  assert.match(run, /const why = await send\(fd\);\s*if \(why !== null\) \{\s*failedLast\.current = true;/);
+  assert.match(run, /setOutcome\(\{ kind: 'failed', why \}\);\s*return;\s*\}\s*setOutcome\(\{ kind: 'saved', n: \+\+landed\.current \}\);/, '"saved" is set on a path a failure can take');
+  assert.ok(run.indexOf("kind: 'saved'") > run.indexOf('await send(fd)'), '"Saved" is set before the action answered');
   /* The Undo is offered only once the save LANDED. */
   assert.ok(run.indexOf('pushUndo(') > run.indexOf("kind: 'saved'"), 'the Undo is offered before the save landed');
   assert.doesNotMatch(AUTO.slice(AUTO.indexOf('const schedule = () => {'), AUTO.indexOf('return (\n    <OutcomeContext.Provider')), /pushUndo\(/, 'schedule() still offers the Undo at once');
@@ -98,7 +98,7 @@ test('(1c) the unsaved words stay on screen: the reset React runs after a FAILED
 
 test('(1d) an Undo that does not land says so too', () => {
   const undo = AUTO.slice(AUTO.indexOf('const undoTo = useCallback('), AUTO.indexOf('/* The action the form posts'));
-  assert.match(undo, /\} catch \(e\) \{\s*if \(isFrameworkSignal\(e\)\) throw e;[\s\S]*setOutcome\(\{ kind: 'failed' \}\);\s*return;\s*\} finally \{/);
+  assert.match(undo, /const why = await send\(snap\);\s*if \(why !== null\) \{[\s\S]*setOutcome\(\{ kind: 'failed', why \}\);\s*return;\s*\}[\s\S]*\} finally \{/);
 });
 
 test('(2) a database’s own words never reach the card; a known code and a plain sentence do (fixtures)', () => {

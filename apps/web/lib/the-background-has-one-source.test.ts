@@ -600,7 +600,15 @@ test('(11) Colour is two circles like the Mood Board’s: the second is optional
   assert.match(studio, /const second = bg\?\.kind === 'ombre' \? \(bg\.ombre\.to \?\? null\) : null;/, 'the second colour is not read off the stored blend');
   assert.match(studio, /const pickPage = \(nextEffect: BackgroundEffect, hex: string \| null, keepPattern: boolean, to: string \| null = second\) => \{\s*const base = hex \?\? \(nextEffect === 'plain' \? null : paper\);\s*const value = base \? encodeBackgroundChoice\(base, nextEffect, to\) \|\| null : null;/, 'a page-colour pick drops the second colour');
   // The cards are the blend of the two, live.
-  assert.match(studio, /swatch=\{e === 'plain' \? paper : ombreCss\(second \? \{ shape: e, base: paper, to: second \} : \{ shape: e, base: paper \}\)\}/);
+  // …AS THE GUEST WILL SEE IT: the page's own CSS for the blend, the veil its words need baked in — a card never promises more contrast than the page gives.
+  assert.match(studio, /swatch=\{e === 'plain' \? paper : ombreLook\(theme, second \? \{ shape: e, base: paper, to: second \} : \{ shape: e, base: paper \}\)\.css\}/, 'a blend card is drawn bare — brighter than the page will be');
+  assert.match(panel, /const theme = useMemo\(\(\) => \(\{ \.\.\.INVITE_THEMES\[themeId\], palette: colours \}\), \[themeId, colours\]\);/, 'the card is not measured on the theme as the Mood Board dresses it');
+  {
+    const { ombreLook, ombreCss } = await import('./ombre');
+    const { INVITE_THEMES } = await import('./invite-themes');
+    const hard = { shape: 'dawn', base: '#ffffff', to: '#000000' } as const;
+    assert.notEqual(ombreLook(INVITE_THEMES.house, hard).css, ombreCss(hard), 'anti-vacuity: a white → black blend needs no veil');
+  }
   // Plain with two colours: faint, and its tap WRITES NOTHING — it says why.
   assert.match(studio, /\{\.\.\.\(e === 'plain' && !backgroundPlainOffered\(second\) \? \{ dim: true, note: 'one colour' \} : \{\}\)\}/);
   assert.match(studio, /: e === 'plain' && !backgroundPlainOffered\(second\)\s*\? setNote\(PLAIN_NEEDS_ONE\)\s*: pickPage\(e, ownHex, false\)/, 'Plain is writable with two colours');

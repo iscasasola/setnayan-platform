@@ -30,7 +30,7 @@ import {
 } from '@/lib/hub-canvas';
 import { MAIN_GROUND_SHADES, MAIN_GROUND_SHADE_LABEL } from '@/lib/main-ground-shade';
 import { patternCardSwatch } from '@/lib/main-ground-pattern-cards';
-import { BACKGROUND_EFFECTS, BACKGROUND_EFFECT_LABEL, backgroundPlainOffered, encodeBackgroundChoice, ombreCss, parseSiteBackground, type BackgroundEffect } from '@/lib/ombre';
+import { BACKGROUND_EFFECTS, BACKGROUND_EFFECT_LABEL, backgroundPlainOffered, encodeBackgroundChoice, ombreLook, parseSiteBackground, type BackgroundEffect } from '@/lib/ombre';
 import {
   BACKGROUND_MAIN_INFO,
   BACKGROUND_SHADE_CANDLELIGHT,
@@ -935,8 +935,10 @@ export function MainBackgroundPanel({
                   data={`fill:${e}`}
                   on={active && effect === e}
                   /* 🎨🎨 With two colours the cards ARE the blend, first → second, redrawn as the colours change — and
-                     Plain, which is one colour, is drawn faint and says so (it never drops a colour by a mis-tap). */
-                  swatch={e === 'plain' ? paper : ombreCss(second ? { shape: e, base: paper, to: second } : { shape: e, base: paper })}
+                     Plain, which is one colour, is drawn faint and says so (it never drops a colour by a mis-tap).
+                     AS THE GUEST WILL SEE IT (controller 2026-10-08: "a card must never promise more contrast than the
+                     page gives"): the page's own CSS for the blend, the veil its words need baked in (`ombreLook`). */
+                  swatch={e === 'plain' ? paper : ombreLook(theme, second ? { shape: e, base: paper, to: second } : { shape: e, base: paper }).css}
                   {...(e === 'plain' && !backgroundPlainOffered(second) ? { dim: true, note: 'one colour' } : {})}
                   onPick={() =>
                     !page

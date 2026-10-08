@@ -49,9 +49,10 @@ import { dressedTheme, paletteColourVars, themeColours } from '@/lib/theme-colou
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
 import { withPickedDate } from '@/lib/event-anchor';
 import type { InviteTheme, InviteThemeId } from '@/lib/invite-themes';
-import { ombreLook, parseSiteBackground } from '@/lib/ombre';
+import { ombreLook, ombreRamp, parseSiteBackground } from '@/lib/ombre';
+import { compositeOver } from '@/lib/hub-legibility';
 import { hubButtonPage, resolveHubButtons, type HubButtonsLook } from '@/lib/hub-buttons';
-import { pinPlateInk, proSiteVarsFor } from './pro-site-vars';
+import { pageWordBase, pinPlateInk, pinWordInks, proSiteVarsFor } from './pro-site-vars';
 import { resolveHubTheme, websiteProActiveFor } from './hub-look';
 import { eventPapicGuestActive, fetchGuestQuota } from '@/lib/papic-guest';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
@@ -298,11 +299,28 @@ export function guestLookFrom(
   // 🎨 Every measurement below is made on the theme as the Mood Board dresses it.
   const dressed = dressedTheme(hub.theme, event.role_palette);
   let ombre: string | null = null;
+  // Everything the ombré paints behind the words: its ramp, under the veil it baked in.
+  let ramp: string[] = [];
   if (background?.kind === 'ombre') {
     const look = ombreLook(dressed, background.ombre);
     ombre = look.css;
     vars = { ...(vars ?? {}), ...look.vars };
+    const { color, opacity } = look.legibility.scrim;
+    ramp = ombreRamp(background.ombre).map((stop) => compositeOver(color, opacity, stop));
   }
+
+  /* 🔤 THE WORDS FOLLOW THE PAPER (2026-10-08, live: a dark ombré over a light
+     Mood Board painted "Reply to the invitation" 1.4 : 1). The button's fill —
+     its label is the page's paper — and the accent's steps were sized against
+     the paper the theme or the board drew; the couple's background has just
+     replaced that paper. Each is re-measured on the paper the page ends with
+     and moved only if it no longer reads (`pinWordInks`). A look whose paper
+     never moved is the same object, untouched. */
+  vars = pinWordInks(
+    vars,
+    pageWordBase(hub.theme, palette, event.site_art_direction === 'candlelight' ? 'candlelight' : null),
+    ramp,
+  );
 
   // 🔒 LAST: the plate keeps an ink that reads on the plate paper every layer
   // above left it with (owner 2026-09-30, "I cannot see the venues properly" —

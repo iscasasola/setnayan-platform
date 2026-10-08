@@ -3,7 +3,16 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { cleanGiftRegistryUrl, GIFT_REGISTRY_URL_ERROR } from '@/lib/gift-registry';
 import { parseClientRef, wishPhotoPolicy } from '@/lib/r2-client-ref';
-import { GIFT_SUM_FIELDS, WISH_NAME_MAX, WISH_NOTE_MAX, gotAfterGifts, sumSent, type GiftSumRow, type WishGotBy } from '@/lib/wish-list';
+import {
+  GIFT_SUM_FIELDS,
+  WISH_ITEM_SELECT,
+  WISH_NAME_MAX,
+  WISH_NOTE_MAX,
+  gotAfterGifts,
+  sumSent,
+  type GiftSumRow,
+  type WishItemRow,
+} from '@/lib/wish-list';
 import { cleanWishPrice } from '@/lib/wish-list-studio';
 
 /**
@@ -154,14 +163,14 @@ export async function saveWishItem(
   const [rowRes, sumRes] = await Promise.all([
     supabase
       .from('event_wish_items')
-      .select('wish_item_id, price_php, got_by, photo_r2_key')
+      .select(WISH_ITEM_SELECT)
       .eq('wish_item_id', id)
       .eq('event_id', eventId)
       .maybeSingle(),
     supabase.from('event_gift_records').select(GIFT_SUM_FIELDS).eq('event_id', eventId).eq('wish_item_id', id),
   ]);
   if (rowRes.error || sumRes.error) return { ok: false, error: NOT_KEPT };
-  const row = rowRes.data as { price_php: number | null; got_by: WishGotBy | null; photo_r2_key: string | null } | null;
+  const row = rowRes.data as unknown as WishItemRow | null;
   if (!row) return { ok: false, error: GONE };
 
   if (photoRaw !== '' && !photo) {

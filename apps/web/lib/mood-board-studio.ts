@@ -31,6 +31,8 @@ import { oklchDistance, oklchOfHex, type Oklch } from './color-space';
 import { applyTouch } from './mood-board-board-ops';
 import { candidatesFor, harmonySuggestions, shadeSuggestions } from './palette-recommender';
 import { PALETTE_LIMITS, type PaletteKey, type RolePalette } from './mood-board';
+import { nearestColorName } from './color-names';
+import { AA_BODY, AA_LARGE, contrastRatio, relativeLuminance } from './hub-legibility';
 
 const HEX = /^#[0-9A-F]{6}$/i;
 
@@ -45,6 +47,8 @@ export const MAIN_COLOUR_JOBS = [
 
 /** How many main colours there are — `PALETTE_LIMITS.reception.max`. */
 export const MAIN_COLOUR_COUNT = PALETTE_LIMITS.reception.max;
+/** The five's own names, by slot — Dominant · Supporting · Accent · Neutral · Accent 2 (`PALETTE_LIMITS.reception.slotLabels`). */
+export const MAIN_COLOUR_NAMES: readonly string[] = PALETTE_LIMITS.reception.slotLabels ?? [];
 
 /**
  * The five main colours AS SHOWN: the couple's (`reception`), filled out from
@@ -232,6 +236,73 @@ export function pickerSuggestions(palette: readonly string[], max = 8): { palett
     }
   }
   return { palette: five, goesWith };
+}
+
+/* ══ THE PICKER'S SHELVES ══════════════════════════════════════════════════ */
+
+/**
+ * 🔎 AGAINST THE BACKGROUND — the picker's AA line (owner 2026-10-08 "restudy is good";
+ * `BACKGROUND_RESTUDY_2026-10-08_fable.md` § 2.2: *"the picker's first shelf then says 'Hard to read —
+ * pick a deeper colour · 2.1:1'"*). How `colour` reads on `ground`, in the prototype's three words:
+ * 4.5:1 and up "Clear to read" · 3:1 and up "Clear for large words only" · under that "Hard to read".
+ * The advice names the way out that exists — deeper on a light ground, lighter on a dark one.
+ * Null = one of the two is not a colour (nothing is said, never a guessed verdict).
+ */
+export type PickerRead = { ratio: number; grade: 'clear' | 'large' | 'hard'; words: string };
+export function pickerReadsOn(colour: string, ground: string | null | undefined): PickerRead | null {
+  const c = cleanHexInput(colour.slice(0, 7));
+  const g = ground ? cleanHexInput(ground.slice(0, 7)) : null;
+  if (!c || !g) return null;
+  const ratio = contrastRatio(c, g);
+  const grade = ratio >= AA_BODY ? 'clear' : ratio >= AA_LARGE ? 'large' : 'hard';
+  const say =
+    grade === 'clear'
+      ? 'Clear to read'
+      : grade === 'large'
+        ? 'Clear for large words only'
+        : `Hard to read — pick a ${relativeLuminance(g) < 0.2 ? 'lighter' : 'deeper'} colour`;
+  return { ratio, grade, words: `${say} · ${ratio.toFixed(1)}:1` };
+}
+
+/**
+ * Colours that read on `ground` (4.5:1) FIRST, the rest after — each group in the order it came.
+ * Reordered, never hidden: the list that comes back holds exactly the colours handed in. With no
+ * ground (or one that is not a colour) the list is returned as it is.
+ */
+export function readableFirst<T extends { hex: string }>(list: readonly T[], ground: string | null | undefined): T[] {
+  const g = ground ? cleanHexInput(ground.slice(0, 7)) : null;
+  if (!g) return [...list];
+  const reads = (t: T) => contrastRatio(t.hex, g) >= AA_BODY;
+  return [...list.filter(reads), ...list.filter((t) => !reads(t))];
+}
+
+/** How many "Goes with your Mood Board" rows the picker draws (the prototype's six). */
+export const PICKER_GOES_WITH = 6;
+
+export type PickerRow = { hex: string; name: string | null };
+/**
+ * 🎨 THE PICKER'S TWO SUGGESTION SHELVES, AS ROWS (restudy § 2.2: *Your Mood Board* (the five) ·
+ * *Goes with your Mood Board* (complements)) — `pickerSuggestions`' two lists, each colour with a
+ * name: the caller's own for its slot (`names`, by the position the caller listed it — "Dominant"),
+ * else the colour's own name (`nearestColorName`), else none. With a `readsOn` ground, each shelf
+ * leads with the colours that read on it (`readableFirst`).
+ */
+export function pickerShelves(
+  palette: readonly string[],
+  opts: { names?: readonly string[]; readsOn?: string | null } = {},
+): { board: PickerRow[]; goesWith: PickerRow[] } {
+  const s = pickerSuggestions(palette, PICKER_GOES_WITH);
+  const named = new Map<string, string>();
+  palette.forEach((c, i) => {
+    const hex = cleanHexInput(c);
+    const name = opts.names?.[i];
+    if (hex && name && !named.has(hex)) named.set(hex, name);
+  });
+  const row = (hex: string): PickerRow => ({ hex, name: named.get(hex) ?? nearestColorName(hex) });
+  return {
+    board: readableFirst(s.palette.map(row), opts.readsOn),
+    goesWith: readableFirst(s.goesWith.map(row), opts.readsOn),
+  };
 }
 
 /* ══ ATTIRE — Wear ▾ ═══════════════════════════════════════════════════════ */

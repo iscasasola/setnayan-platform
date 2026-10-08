@@ -13,7 +13,8 @@ import { About, Dd } from './kit';
  *   BACKGROUND  The Event Hub's ▾ · WIDTH  Framed ▾     ONE dropdown, its first choice
  *                                                       "The Event Hub's" (the scene wears
  *                                                       the stage's own); Width once it has one
- *   Colour      ■ ■ ■ ■ ■ +                             the five colours, then any colour
+ *   Colour      ■ ■ ■ ■ ■ +                             the five colours, then any colour ("+" opens
+ *                                                       the one colour picker, owner 2026-10-08)
  *   GALLERY ▸ · UPLOAD ◆                                the couple's pictures and the ready-made
  *                                                       scenes in one sheet; the in-place upload
  *
@@ -51,8 +52,8 @@ export function StageBackground({
   colours: readonly string[];
   colour: string | null;
   onColour: (hex: string) => void;
-  /** The shipped Colour panel (`ColourWell`) — "+" opens it. */
-  customColour: ReactNode;
+  /** "+" opens the ONE colour picker (`ColourSheet`, colour-well.tsx) — handed the way to close it. */
+  customColour: (close: () => void) => ReactNode;
   opacityRow: ReactNode;
   gallery: ReactNode;
   upload: ReactNode;
@@ -108,14 +109,14 @@ export function StageBackground({
               </button>
             );
           })}
-          <button type="button" aria-expanded={custom} aria-label="Any colour" data-stage-swatch="more" onClick={() => setCustom((o) => !o)} className={`${SP_SWATCH} max-w-[34px]`}>
+          <button type="button" aria-haspopup="dialog" aria-expanded={custom} aria-label="Any colour" data-stage-swatch="more" onClick={() => setCustom(true)} className={`${SP_SWATCH} max-w-[34px]`}>
             <span aria-hidden className="flex h-9 w-full items-center justify-center rounded-md border border-dashed border-black/10 bg-white text-[14px] font-semibold text-[var(--sp-ink2)]">
               +
             </span>
           </button>
         </div>
       </div>
-      {custom ? <div className="shrink-0">{customColour}</div> : null}
+      {custom ? customColour(() => setCustom(false)) : null}
       {opacityRow}
       <div className="flex h-11 shrink-0 gap-1.5" data-stage-bg="media">
         <button type="button" data-stage-bg-gallery="" onClick={() => setSheet('gallery')} className={SP_PILL_BUTTON}>

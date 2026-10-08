@@ -653,6 +653,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                 current={p.current}
                 fromPhotos={photoColours}
                 palette={five}
+                slots
                 onPick={(h) => {
                   setSheet(null);
                   p.onPick(h);

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "300d2330c",
+  "generatedFromRef": "124ada744",
   "routeCount": 428,
   "destinations": 954,
   "actions": 671,
-  "blocks": 5692,
+  "blocks": 5693,
   "routes": {
     "/": {
       "files": [
@@ -6604,6 +6604,7 @@
         "CityPick",
         "ColourPickerSheet",
         "ColourRow",
+        "ColourSheet",
         "CouldNotLoad",
         "CouldNotOpen",
         "CoupleSchedulePage",
@@ -9228,6 +9229,8 @@
         "Choice",
         "ClipTile",
         "ColorsPanel",
+        "ColourPickerSheet",
+        "ColourSheet",
         "ColourWell",
         "Dd",
         "DetailsBoundField",
@@ -9256,7 +9259,6 @@
         "HTMLUListElement",
         "HeroFrameSync",
         "HeroPhotoPanel",
-        "Hsv",
         "HubDraftActionResult",
         "HubDraftField",
         "HubSavesImmediately",
@@ -9347,7 +9349,6 @@
         "SectionColourChoices",
         "SectionsPanel",
         "SiteChromePanel",
-        "Slider",
         "StageAnimate",
         "StageBackground",
         "StagePanelPart",

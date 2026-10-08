@@ -267,12 +267,12 @@ function themeOwnColours(themeId: string) {
 function ButtonColourField({
   name,
   defaultValue,
-  eventId,
   moodBoard,
   themeId,
 }: {
   name: string;
   defaultValue: string | null;
+  /** No longer read (the device's "Saved colours" went with the well's own panel, 2026-10-08) — still handed by the mount above. */
   eventId: string;
   moodBoard: { background: string; buttons: string; swatches: string[] } | null;
   themeId: string;
@@ -288,10 +288,8 @@ function ButtonColourField({
         value={hex || null}
         shown={fallback}
         what="your buttons"
-        themeColours={moodBoard?.swatches.length ? moodBoard.swatches : [fallback]}
-        swatchesLabel={moodBoard ? 'Your Mood Board' : 'Your theme'}
+        palette={moodBoard?.swatches ?? []}
         unsetLabel={unsetLabel}
-        savedKey={`sn-maker-colours:${eventId}`}
         onPick={(c) => setHex(c.slice(0, 7))}
         onUnset={() => setHex('')}
         data="buttons"
@@ -320,7 +318,6 @@ function BackgroundField({
   id,
   value,
   themeId,
-  eventId,
   moodBoard,
   label = 'Background',
 }: {
@@ -328,6 +325,7 @@ function BackgroundField({
   id: string;
   value: string | null;
   themeId: string;
+  /** No longer read (the device's "Saved colours" went with the well's own panel, 2026-10-08) — still handed by the mount above. */
   eventId: string;
   moodBoard: { background: string; buttons: string; swatches: string[] } | null;
 }) {
@@ -362,10 +360,8 @@ function BackgroundField({
         value={hex || null}
         shown={resolved}
         what="the page"
-        themeColours={moodBoard?.swatches.length ? moodBoard.swatches : [resolved]}
-        swatchesLabel={moodBoard ? 'Your Mood Board' : 'Your theme'}
+        palette={moodBoard?.swatches ?? []}
         unsetLabel={unsetLabel}
-        savedKey={`sn-maker-colours:${eventId}`}
         onPick={(c) => setHex(c.slice(0, 7).toLowerCase())}
         onUnset={() => {
           setHex('');

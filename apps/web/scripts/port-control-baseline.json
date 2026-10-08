@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "4c5619373",
+  "generatedFromRef": "87a0a6712",
   "routeCount": 429,
   "destinations": 959,
   "actions": 671,
-  "blocks": 5843,
+  "blocks": 5847,
   "routes": {
     "/": {
       "files": [
@@ -3105,7 +3105,8 @@
         "PageMasthead",
         "Picked",
         "Sheet",
-        "Switch"
+        "Switch",
+        "SwitchTrack"
       ]
     },
     "/admin/insights": {
@@ -6723,6 +6724,7 @@
         "ElementSheet",
         "EventPoster",
         "EventSettingsInput",
+        "Explain",
         "Face",
         "FactRow",
         "Field",
@@ -6978,6 +6980,7 @@
         "SwatchMore",
         "Switch",
         "SwitchRow",
+        "SwitchTrack",
         "ThemePick",
         "ThemePickProvider",
         "ThemePreviewOverlay",
@@ -9499,6 +9502,7 @@
         "SectionColourChoices",
         "SectionsPanel",
         "SiteChromePanel",
+        "Slider",
         "StageAnimate",
         "StageBackground",
         "StagePanelPart",

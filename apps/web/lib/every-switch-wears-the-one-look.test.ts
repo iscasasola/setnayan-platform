@@ -176,7 +176,16 @@ const SWITCH_SWEPT: readonly string[] = [
  * names ONE switch by words on it; without it the whole path is skipped. Converting one removes its line.
  */
 const SWITCH_NOT_SWEPT: readonly { path: string; has?: string; why: string }[] = [
-  { path: 'app/dashboard/[eventId]/launch/', why: 'the Maker — its four shared switches already wear `.sn-switch` (the-press-feels-the-same-everywhere); the rest are its own builders’ lane' },
+  /* THE MAKER (`launch/`), FILE BY FILE since 2026-10-09 — the Stages panel is swept (`stage-panel/kit.tsx`'s
+     `PanelSwitch` is `<SwitchTrack>`; every other file under `launch/` that is not named here is watched). Each line
+     below is a file whose switches still wear `.sn-switch` at a size of their own, or are another builder's; converting
+     one removes its line. */
+  { path: 'app/dashboard/[eventId]/launch/_components/maker-details.tsx', why: 'the shipped Maker’s `Toggle` (a hidden box and its own 44 × 24 track) — wears `.sn-switch` (the-press-feels-the-same-everywhere (5)); not the Stages panel' },
+  { path: 'app/dashboard/[eventId]/launch/_components/maker-logo.tsx', why: 'the Logo maker’s own switch — not the Stages panel' },
+  { path: 'app/dashboard/[eventId]/launch/_components/plan-myself.tsx', why: 'the guided flow’s switch — not the Stages panel' },
+  { path: 'app/dashboard/[eventId]/launch/_components/studio-tools.tsx', why: '`StudioSwitch` — Studio’s side (wears `.sn-switch`, `STUDIO_SWITCH_TRACK`); its builder’s lane' },
+  { path: 'app/dashboard/[eventId]/launch/_components/maker-rsvp-ask.tsx', why: 'the RSVP stage’s body — G1’s lane (its own hand-made `Switch`)' },
+  { path: 'app/dashboard/[eventId]/launch/_components/maker-reveal.tsx', why: 'the Reveal’s own two switches — the Stages builder’s next commit; its per-stage switches are already `PanelSwitch`' },
   { path: 'app/dashboard/[eventId]/website/editor/', why: 'the Maker’s work area — its own builders’ lane' },
   {
     path: 'app/onboarding/_shared/services-step.tsx',

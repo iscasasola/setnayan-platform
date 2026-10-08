@@ -47,6 +47,10 @@ the page's render left it in the commit where the redraw's transition ends — b
 (`getSnapshotBeforeUpdate`), never when the refresh is asked, so the previewed background does not blink off while
 the server answers. Only the Maker's canvas mounts the bridge; a guest's page is untouched.
 
+Cost, said plainly: `editor-bridge.tsx` is imported statically by the guest page's `site-body.tsx` (it has no
+`next/dynamic` door; only the Maker's canvas mounts it), so the 12-line class — about 0.2 KB before compression —
+rides the guest bundle.
+
 Guard: `lib/a-laid-scene-frame-is-undone-before-a-redraw.test.ts` executes the sequence over a DOM whose
 `removeChild` refuses as a browser's does (7 sabotages, each seen red — two of them restore today's behaviour).
 
@@ -70,6 +74,35 @@ sheet, the remove confirm). Three that could not be that sheet now hold it with 
 
 Requests: none added or removed. First load: the Maker's first-load file set is unchanged (562 files, walked).
 
+The one gap: behind the Apply sheet the page is not made `inert` (its full-screen backdrop takes every tap and its
+modal hook holds the keyboard, but `inertBehind` is script, and that file rides the Maker's first load, which has
+0.1 KB of room). It waits for room there.
+
 Guard: `lib/every-stages-popup-follows-the-rule.test.ts` (10 sabotages, each seen red).
+
+SPEC IMPACT: None.
+
+## 2026-10-09 · feat(maker): the Stages panel wears the approved templates — C · the switch, the slider, the ⓘ
+
+- **The slider, built once**: `app/_components/slider.tsx` + `.sn-slider` (kind 17) — the line fills in the accent up
+  to the knob, the knob dips, fills and rings while held and springs back at the family's speed, nothing under reduce
+  motion, 44 px to the finger, the value beside it in figures that do not jump. The panel's four ranges use it
+  (Duration, Delay, Text size, Opacity ×2 shapes of the Background row); the panel's private `.sp-range` look and the
+  ink `accent-ink` range are gone.
+- **The switch**: the panel's `PanelSwitch` is the app's one drawing (`SwitchTrack`, 50 × 30; it was its own
+  54 × 32). `every-switch-wears-the-one-look` now watches the Maker file by file — the Stages panel is swept; six
+  Maker files are named with why. `app/admin/hub-music/hub-music-manager.tsx` (a green hand-made switch that came in
+  with main) wears the one switch too.
+- **The ⓘ**: the panel's `About` and the ＋ sheet's "why is this waiting" are the explanation template (`Explain` —
+  a centred pop-up with "Got it" on a phone, a note by the ⓘ on a computer), not the older hover note.
+- **"How close"** (a photo background's three zooms) is one dropdown, not a row of segments.
+- `every-studio-colour-opens-the-one-picker` G: its PAINTS list brought up to what is drawn — `background-colour-wells`
+  (the Look's two circles, triggers of the one picker) and `background-effects` (the dot beside each Colour ▾ choice,
+  the sample's veil) added; `buttons-look-row` removed (its Colour ▾ went with "Buttons is Shape only").
+
+Requests: none added or removed. First load: unchanged (none of the touched files is in it).
+
+Guards: `lib/the-slider-is-one-drawing.test.ts`, `lib/the-stages-panel-wears-the-templates.test.ts` (15 sabotages,
+each seen red).
 
 SPEC IMPACT: None.

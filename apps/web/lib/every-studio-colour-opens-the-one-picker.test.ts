@@ -270,7 +270,11 @@ const PAINTS: Record<string, [number, string]> = {
   'launch/_components/stage-panel/stage-background.tsx': [1, 'the prototype’s five-colour row — its “+” opens ColourSheet'],
   'launch/_components/stage-panel/stage-text.tsx': [1, 'the prototype’s colour row — its “+” opens ColourSheet'],
   'launch/_components/studio-colour-field.tsx': [1, 'the Studio colour row’s trigger — opens the sheet'],
-  'website/editor/_components/buttons-look-row.tsx': [1, 'the dot beside each choice in Colour ▾ (one PickMenu of AA-legible offers)'],
+  /* 2026-10-09, brought up to what is drawn (each file read): `buttons-look-row.tsx` left this list — "Buttons is
+     Shape only" took its Colour ▾ and the dots with it; the one colour it still paints is its sample's ground
+     (`page.grounds[0]`), handed by the page, not picked. */
+  'website/editor/_components/background-colour-wells.tsx': [2, 'Look › Background’s two circles (Page colour → Second colour) — each a trigger that opens ColourPickerSheet'],
+  'website/editor/_components/background-effects.tsx': [2, 'the dot beside each choice in an effect’s Colour ▾ (one PickMenu of the Mood Board’s five and the effect’s own), and the veil over the effect’s sample card — no colour is picked'],
   'website/editor/_components/colour-well.tsx': [1, 'the split well’s wheel half — a trigger'],
   'website/editor/_components/main-background-panel.tsx': [2, 'labels (Buttons · Accents · Ornaments) and a still’s fallback — no colour is picked'],
   'website/editor/_components/sections-panel.tsx': [1, 'the older editor’s scene colour row, from the couple’s own palette (server forms)'],

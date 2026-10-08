@@ -417,7 +417,9 @@ test('(5) the four Maker selectors wear the ONE thumb — Stages | Studio, Look�
     seen++;
     assert.doesNotMatch(m[0], /className=/, `${f}: ${m[0]} restyles the selector by hand`);
   }
-  assert.ok(seen >= 12, `anti-vacuity: only ${seen} selectors read`);
+  /* (11 since 2026-10-09: the Background row's "How close" picked one of three VALUES — it is a dropdown now,
+     `the-stages-panel-wears-the-templates` (3).) */
+  assert.ok(seen >= 11, `anti-vacuity: only ${seen} selectors read`);
 });
 
 test('(6) PillSelector — buttons or links, an icon-only variant, a row of toggles; nothing in it knows any one screen', async () => {

@@ -51,6 +51,7 @@ import type { ElementDraftAction } from './element-sheet';
 import { IButton, IHint, IRow, ISection, ISeg, ISegmented } from './inspector-kit';
 import { backgroundPickRedrawsBox } from './element-preview';
 import { PickMenu } from './pick-menu';
+import { SLIDER_VALUE, Slider } from '@/app/_components/slider';
 import { sceneBgPreviewMessage, type SceneBgPreviewMessage } from './scene-bg-preview-message';
 import { useMaker } from '../../../launch/_components/maker-context';
 import { StageBackground, type StageBgChoice } from '../../../launch/_components/stage-panel/stage-background';
@@ -502,13 +503,17 @@ export function SceneBackgroundRow({
                   ))}
                 </div>
               </div>
-              <ISegmented label="How close">
-                {HUB_ZOOMS.map((z) => (
-                  <ISeg key={z} on={(shown.zoom ?? HUB_DEFAULT_ZOOM) === z} onClick={() => putKeys({ zoom: z })}>
-                    {z === 100 ? 'As it is' : z === 120 ? 'Closer' : 'Closest'}
-                  </ISeg>
-                ))}
-              </ISegmented>
+              {/* One of three VALUES → the dropdown, never a row of segments (`INTERACTION_RULES.md` § 2, § 9). */}
+              <PickMenu
+                label="How close"
+                dataAttr="data-scene-zoom"
+                value={String(shown.zoom ?? HUB_DEFAULT_ZOOM)}
+                options={HUB_ZOOMS.map((z) => ({ key: String(z), label: z === 100 ? 'As it is' : z === 120 ? 'Closer' : 'Closest' }))}
+                onPick={(k) => {
+                  const z = HUB_ZOOMS.find((x) => String(x) === k);
+                  if (z) putKeys({ zoom: z });
+                }}
+              />
             </IRow>
           ) : null}
     </>
@@ -609,16 +614,16 @@ export function SceneBackgroundRow({
             </div>
           ) : current === 'glass' || current === 'frost' ? (
             <IRow label="Opacity" data="scene-opacity">
-              <input
-                type="range"
+              <Slider
+                className="flex-1"
+                label="Opacity"
+                data="scene-opacity"
                 min={HUB_GLASS_OPACITY_MIN}
                 max={HUB_GLASS_OPACITY_MAX}
                 step={HUB_GLASS_OPACITY_STEP}
                 value={opacity}
-                aria-label="Opacity"
-                data-scene-opacity=""
-                onChange={(e) => {
-                  const n = Number(e.target.value);
+                valueText={`${opacity}%`}
+                onChange={(n) => {
                   setOpacityDraft(n);
                   if (opacityTimer.current) clearTimeout(opacityTimer.current);
                   opacityTimer.current = setTimeout(() => {
@@ -626,9 +631,8 @@ export function SceneBackgroundRow({
                     put({ kind: bg!.kind as HubBackgroundKind, color: tint, opacity: n }, false);
                   }, 350);
                 }}
-                className="h-11 min-w-0 flex-1 accent-ink"
               />
-              <span className="w-10 text-right text-[12px] tabular-nums text-ink/70">{opacity}%</span>
+              <span className={`${SLIDER_VALUE} w-10`}>{opacity}%</span>
             </IRow>
           ) : null
         }
@@ -764,16 +768,16 @@ export function SceneBackgroundRow({
 
       {current === 'glass' || current === 'frost' ? (
         <IRow label="Opacity" data="scene-opacity">
-          <input
-            type="range"
+          <Slider
+            className="flex-1 lg:h-6"
+            label="Opacity"
+            data="scene-opacity"
             min={HUB_GLASS_OPACITY_MIN}
             max={HUB_GLASS_OPACITY_MAX}
             step={HUB_GLASS_OPACITY_STEP}
             value={opacity}
-            aria-label="Opacity"
-            data-scene-opacity=""
-            onChange={(e) => {
-              const n = Number(e.target.value);
+            valueText={`${opacity}%`}
+            onChange={(n) => {
               setOpacityDraft(n);
               /* ⚡ The pane at this opacity, on the canvas while the thumb moves. */
               onPreview?.(
@@ -789,9 +793,8 @@ export function SceneBackgroundRow({
                 put({ kind: bg!.kind as HubBackgroundKind, color: tint, opacity: n }, false);
               }, 350);
             }}
-            className="h-11 min-w-0 flex-1 accent-ink lg:h-6"
           />
-          <span className="w-10 text-right text-[12px] tabular-nums text-ink/70">{opacity}%</span>
+          <span className={`${SLIDER_VALUE} w-10`}>{opacity}%</span>
         </IRow>
       ) : null}
 

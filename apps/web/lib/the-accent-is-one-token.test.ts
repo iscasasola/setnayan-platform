@@ -66,6 +66,7 @@ const TEMPLATE_FILES = [
   'app/_components/explain.tsx', //        7 · ⓘ explanation (the centred popup on a phone, the note on a computer)
   'app/_components/fold.tsx', //           19 · Fold
   'app/_components/toast/peek-toast.tsx', // 12 · Messages — the toast that peeks from the top
+  'app/_components/slider.tsx', //         17 · Slider (its drawing; the colours are `.sn-slider` in globals.css)
 ] as const;
 
 /**

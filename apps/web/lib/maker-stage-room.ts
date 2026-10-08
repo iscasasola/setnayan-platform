@@ -106,8 +106,8 @@ export const SP_DD_BUTTON = 'h-11 !min-h-0 min-w-0 flex-1 !justify-between !roun
 /** A row of one label and its control (prototype `.r` / `.ar`). */
 export const SP_ROW = 'flex h-11 shrink-0 items-center gap-2.5';
 export const SP_ROW_LABEL = 'w-[70px] shrink-0 text-[13px] font-semibold text-[var(--sp-ink2)]';
-/** An on / off switch (prototype `.sw`, 54 × 32 face) on a 44 px tap. */
-export const SP_SWITCH = 'sn-press relative inline-flex h-11 w-[54px] shrink-0 items-center';
+/** An on / off switch — the app's ONE drawing (`SwitchTrack`, 50 × 30) on a 44 px tap. */
+export const SP_SWITCH = 'sn-press relative inline-flex h-11 w-[50px] shrink-0 items-center';
 /**
  * A colour CIRCLE (the approved gallery's kind 21, "the five colour circles" — owner 2026-10-08): a 32 px circle on a
  * 44 px tap. Picked, it wears the accent's ring with a gap of the panel's ground (`SP_SWATCH_ON`).

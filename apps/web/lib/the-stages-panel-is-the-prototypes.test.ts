@@ -249,7 +249,12 @@ test('a page tab still takes the canvas to its page under Stages (only a picked 
   /* 🧹 AMENDED 08 Oct (measured on the preview): after a tab change the panel KEPT the look options of the part
      picked on the page before — `setPicked(null)` dropped the frame but left the work area's tool open, so its
      rows stayed. A tab tap now lets go exactly as ✕ does (`deselect`: the pick AND its tools). */
-  assert.match(tools, /deselect\(\);\s*goToPage\(p\.key, p\.option\);/, 'another page lets the picked part go — its tools too');
+  /* 🔁 RE-AIMED 2026-10-09. This held `deselect(); goToPage(…)` in the tap itself. The claim is kept — after a page
+     change the toolbar never keeps a part of the page before, its tools too — but the part is let go when the canvas
+     HAS switched its tab, not on the tap: on the review copy a canvas that refused the switch left NOTHING picked and
+     every tool blank (`lib/the-preview-only-selects.test.ts` (3b)). `deselect` still lets go exactly as ✕ does. */
+  assert.match(tools, /goToPage\(p\.key, p\.option\);\s*askPage\(p\.key\);/, 'a tab tap does not ask the canvas for the page');
+  assert.match(tools, /if \(tab && held && !partsRef\.current\.includes\(held\) && pendingStep\.current === null\) deselectRef\.current\(\);/, 'another page keeps the picked part — its tools too');
   assert.match(tools, /const deselect = useCallback\(\(\) => \{\s*setPicked\(null\);\s*openToolRef\.current\?\.close\(\);\s*\}, \[\]\);/, 'letting go closes the part’s tools');
   assert.match(tools, /const goToPage = useCallback\(\s*\(key: string, option: string\) => \{\s*postToCanvas\(\{ source: 'setnayan-editor', t: 'hubTab', key: '', tab: key \}\);\s*onPickPage\(option\);/, 'the canvas swaps, and the shell’s Page ▾ is still told');
 });

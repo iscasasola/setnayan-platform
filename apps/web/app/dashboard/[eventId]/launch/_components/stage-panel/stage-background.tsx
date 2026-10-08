@@ -88,7 +88,9 @@ export function StageBackground({
   useEffect(() => {
     const s = strip.current;
     const on = s?.querySelector<HTMLElement>('[aria-pressed="true"]');
-    if (s && on) s.scrollTo({ left: Math.max(0, on.offsetLeft + on.offsetWidth / 2 - s.clientWidth / 2) });
+    /* …and a source that is only being looked at starts from its first choice (the row is one element: it kept the
+       last source's place — seen on the review copy, the Scene row opened half-way along). */
+    if (s) s.scrollTo({ left: on ? Math.max(0, on.offsetLeft + on.offsetWidth / 2 - s.clientWidth / 2) : 0 });
   }, [source, tile]);
   const at = live ?? shade?.at ?? 0;
   return (

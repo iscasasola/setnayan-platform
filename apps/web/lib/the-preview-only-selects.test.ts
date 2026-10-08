@@ -12,6 +12,10 @@
  *   (3) SOMETHING IS ALWAYS PICKED ON ARRIVING — once per arrival at a stage's page, the first part the page DRAWS
  *       (measured on the canvas, never the map's order); a tap on the ground still lets go; a step into the page
  *       and a return from Studio keep their own pick. Sabotage: the map's first part (`parts[0]`) → red.
+ *   (3b) A PAGE CHANGE NEVER ENDS ON NOTHING — guest tab, stage change, Studio and back: the part held from before
+ *       is replaced when it is not this page's (EXECUTED); a tap on the guests' bar does not let go before the page
+ *       has changed, and a canvas that does not switch still gets that page's first part picked. Sabotage: the
+ *       tap letting go first → red.
  *   (4) THE LAST-USED TOOL IS REMEMBERED, AND A PART OPENS ON A TOOL THAT WORKS — EXECUTED over every part × every
  *       remembered tool: the remembered one where it has something to set, else the first of the four that has;
  *       kept while the toolbar is away. Sabotage: a fallback that ignores what works → red.
@@ -27,6 +31,7 @@ import { stripComments } from './strip-comments';
 import {
   MAKER_PARTS,
   MAKER_PART_TOOLS,
+  makerArrivalKeeps,
   makerArrivalPart,
   makerPartIsDrawn,
   makerPartToolFor,
@@ -108,13 +113,13 @@ test('(3) something is always picked on arriving: the first part the page DRAWS,
   assert.deepEqual(partsInPageOrder(['names', 'date', 'place', 'countdown'] as const, (k) => tops[k] ?? null)[0], 'date');
 
   const tools = read(`${L}/stage-tools.tsx`);
-  const at = tools.indexOf('const arrivedAt = useRef<string | null>(null);');
-  const arrive = tools.slice(at, tools.indexOf('}, [parts, playing, shownPage, stageKey, typing]);', at));
+  const at = tools.indexOf('const arrived = useRef<{ stage: MakerStageKey | null; at: string | null }>({ stage: null, at: null });');
+  const arrive = tools.slice(at, tools.indexOf('}, [parts, playing, shownPage, stage, stageKey, typing]);', at));
   assert.ok(at > 0 && arrive.length > 400, 'anti-vacuity: the arrival was not found');
   /* Keyed by the stage AND the page — a new page of the same stage is an arrival too. */
   assert.match(arrive, /const at = `\$\{stageKey\}\/\$\{shownPage \?\? ''\}`;/);
   /* ONCE: an arrival already answered asks for nothing (a tap on the ground lets go and it stays let go). */
-  assert.match(arrive, /if \(arrivedAt\.current === at \|\| parts\.length === 0 \|\| typing \|\| playing\) return;/);
+  assert.match(arrive, /if \(arrived\.current\.at === at \|\| parts\.length === 0 \|\| typing \|\| playing\) return;/);
   /* The first DRAWN part Edit has a row for — the measured order's, never the map's; never the Reveal (it leads
      three pages and has only Style), never an empty tool (the controller's calls, 2026-10-09). EXECUTED: */
   const row = new Set<MakerPartKey>(['ename', 'names', 'schedule']);
@@ -126,7 +131,7 @@ test('(3) something is always picked on arriving: the first part the page DRAWS,
   assert.equal(makerArrivalPart(['reveal', 'pass', 'gallery'], has), 'pass');
   assert.equal(makerArrivalPart(['reveal'], has), null);
   assert.equal(makerArrivalPart([], has), null);
-  assert.match(arrive, /const first = makerArrivalPart\(orderedRef\.current\(\), hasEditRowRef\.current\);\s*if \(!first\) return;\s*arrivedAt\.current = at;/, 'the arrival does not pick the first drawn part that has an Edit row');
+  assert.match(arrive, /const first = makerArrivalPart\(orderedRef\.current\(\), hasEditRowRef\.current\);\s*if \(!first\) return;\s*const was = arrived\.current;\s*arrived\.current = \{ stage: stageKey, at \};/, 'the arrival does not pick the first drawn part that has an Edit row');
   /* "Has a row" is what Edit would draw: the part's one door, or words the page draws for it. */
   assert.match(tools, /const hasEditRow = \(k: MakerPartKey\): boolean => \{\s*if \(rsvpOpen\) return rsvpQuietRow\(k\) !== null;\s*if \(makerPartQuietRow\(k\) !== null\) return true;[\s\S]{0,200}return readPartWords\(doc, makerPartCanvasOn\(stageKey, k\), MAKER_PARTS\[k\]\.el \?\? null, ''\)\.length > 0;/);
 
@@ -143,7 +148,7 @@ test('(3) something is always picked on arriving: the first part the page DRAWS,
   assert.deepEqual(makerPartsTappable('rsvp', 'home', lab).filter((k) => !makerPartIsDrawn(k, lab)), []);
   assert.doesNotMatch(arrive, /parts\[0\]|makerPartsOnPage/, 'the arrival picks by the map’s order');
   /* It stands back for a part already picked (a tap, a return from Studio) and for a step into the page. */
-  assert.match(arrive, /if \(!pickedRef\.current && pendingStep\.current === null\) pickPartRef\.current\(first\);/);
+  assert.match(arrive, /if \(!keeps && pendingStep\.current === null\) pickPartRef\.current\(first\);/);
   /* …and it picks the way a tap does (the one door), so the frame, the tools and the centring are the shipped ones. */
   assert.equal((arrive.match(/pickPartRef\.current\(/g) ?? []).length, 1);
   assert.match(tools, /const ordered = useCallback\(\(\) => partsInPageOrder\(parts, \(k\) => makerPartTopOnScreen\(stageKey, k, frameSel\)\), \[frameSel, parts, stageKey\]\);/);
@@ -201,4 +206,47 @@ test('(5) the Camera has only Style: Edit, Background and Animate are grey on it
   assert.match(tools, /const editOn = picked !== null && shownTool === 'edit';/);
   assert.match(tools, /picked: open && !cameraOpen \? picked : null,/);
   assert.match(tools, /\{open && cameraOpen && !editOn \? <CameraPartTools \/> : null\}/);
+});
+
+test('(3b) a page change never ends on nothing: the held part is replaced when it is not this page’s; a tab tap never lets go first', () => {
+  /* Seen on the review copy, 2026-10-09 (375 × 812, touch): a tap on "Details" let the picked part go, the lab's
+     sample — drawn as ONE page — refused the switch, and the toolbar was left on Welcome with nothing picked and
+     every tool an empty box. The tap itself reached the tab (its click ran); nothing was eaten by the swipe. */
+  const parts = ['countdown', 'schedule', 'venue'] as const;
+  /* WHAT IS KEPT ON ARRIVING — executed. Nothing held: nothing to keep (the first part is picked). */
+  assert.equal(makerArrivalKeeps({ held: null, parts, newStage: false, canvasSaidThePage: true }), false);
+  /* A part of THIS page (just tapped; the one Studio came back to): kept. */
+  assert.equal(makerArrivalKeeps({ held: 'schedule', parts, newStage: false, canvasSaidThePage: true }), true);
+  /* A part the canvas's own tab switch left on a hidden page: replaced. */
+  assert.equal(makerArrivalKeeps({ held: 'names', parts, newStage: false, canvasSaidThePage: true }), false, 'a part of the page before is kept on the new page');
+  /* ANOTHER STAGE — even when both stages have a part of that name (the work area lets it go a moment later). */
+  assert.equal(makerArrivalKeeps({ held: 'countdown', parts, newStage: true, canvasSaidThePage: true }), false, 'a part held across a stage change leaves the toolbar on nothing');
+  assert.equal(makerArrivalKeeps({ held: 'countdown', parts, newStage: true, canvasSaidThePage: false }), false);
+  /* A canvas drawn as one page: the page FOLLOWS what is picked and scrolled — a held part is never replaced by a scroll. */
+  assert.equal(makerArrivalKeeps({ held: 'names', parts, newStage: false, canvasSaidThePage: false }), true, 'scrolling a one-page canvas would swap the picked part');
+
+  const tools = read(`${L}/stage-tools.tsx`);
+  /* The arrival asks that rule, with the stage it came from and whether the canvas said the page. */
+  assert.match(tools, /const keeps = makerArrivalKeeps\(\{\s*held: pickedRef\.current,\s*parts: partsRef\.current,\s*newStage: was\.stage !== null && was\.stage !== stageKey,\s*canvasSaidThePage: tabRef\.current\?\.stage === stage \|\| rsvpOpenRef\.current,\s*\}\);/);
+  /* (First mount — back from Studio — is not "another stage": the part Studio came back to is this page's and is kept.) */
+  assert.match(tools, /const arrived = useRef<\{ stage: MakerStageKey \| null; at: string \| null \}>\(\{ stage: null, at: null \}\);/);
+
+  /* THE TAB TAP: it asks the canvas for the page and lets go of NOTHING. */
+  const bar = tools.slice(tools.indexOf('data-stage-guest-tab={p.key}'), tools.indexOf('className={STAGE_GUEST_TAB}'));
+  const other = bar.slice(bar.indexOf('} else {'));
+  assert.ok(other.length > 60, 'anti-vacuity: the tab’s handler was not found');
+  assert.match(other, /goToPage\(p\.key, p\.option\);\s*askPage\(p\.key\);/);
+  assert.doesNotMatch(other, /deselect\(\)/, 'a tab tap lets the picked part go before the page has changed — a canvas that does not switch leaves nothing picked');
+  /* The part is let go when the canvas HAS switched its tab and the part is not on the new page — at once. */
+  assert.match(tools, /if \(tab && held && !partsRef\.current\.includes\(held\) && pendingStep\.current === null\) deselectRef\.current\(\);\s*\}, \[canvasTab, stage\]\);/);
+  /* A canvas that did not switch: shortly after, that page's first part Edit has a row for is picked where it is drawn. */
+  const ask = tools.slice(tools.indexOf('const askPage = useCallback((key: string) => {'), tools.indexOf('}, STAGE_PAGE_ASK_MS);'));
+  assert.ok(ask.length > 200, 'anti-vacuity: the page ask was not found');
+  assert.match(ask, /if \(where\.current\.shownPage === key\) return;/, 'the fallback also picks when the canvas DID switch (the arrival already does)');
+  assert.match(ask, /const on = tappableOnRef\.current\(key\);\s*const first = makerArrivalPart\(partsInPageOrder\(on, [^;]*\), hasEditRowRef\.current\);\s*if \(first && pendingStep\.current === null\) pickPartRef\.current\(first\);/);
+  assert.match(tools, /const STAGE_PAGE_ASK_MS = (\d+);/);
+  const ms = Number(/const STAGE_PAGE_ASK_MS = (\d+);/.exec(tools)?.[1]);
+  assert.ok(ms >= 300 && ms <= 800, `the canvas is given ${ms} ms to switch — too short to be heard, or too long to be left on nothing`);
+  /* The reply pages (their three screens are this toolbar's own state) still let go and arrive on the screen picked. */
+  assert.match(bar, /if \(rsvpOpen\) \{[\s\S]{0,260}deselect\(\);\s*goToScreen\(p\.key as RsvpStageScene\);/);
 });

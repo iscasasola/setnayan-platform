@@ -42,8 +42,12 @@ you · events this week · to come in*; Coming up (three rows); **Also waiting**
   `lib/supplier-today.ts` gains `supplierWaiting` (the rows), `nextLook`,
   `nextSecond`, `nextMeta`, `waitingOnYou`, `ANSWERED_ONLY_ON_TODAY`.
 - `app/_components/next-card.tsx` (shared, server) gains four optional props for
-  its `actions` variant — `meta`, `counter`, `day`, `note`; the couple's Home
-  passes none and is drawn exactly as before.
+  its `actions` variant — `meta`, `counter`, `day`, `note`, `soft` (the
+  prototype's soft-gold ground and 24 px title); the couple's Home passes none
+  and is drawn exactly as before.
+- From the 375 side-by-sides: a lone ask has no "1 of 1"; on an event day
+  Coming up starts after today's event; when no ask row is drawn the rule rows
+  carry the "Also waiting" heading themselves.
 - Guards: new `today-is-rows.test.ts` (12 tests, on real markup); the button
   sweep grows to Today's page, first screen and toast; nine existing guards
   re-anchored to the new shape with their meaning kept

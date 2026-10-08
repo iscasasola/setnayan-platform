@@ -308,6 +308,13 @@ const UPLOAD_STALL_MS = 45_000;
  */
 const UPLOAD_RESPONSE_MS = 300_000;
 
+/**
+ * A `gallery` tile's ✕ — a 44 px ROUND target in the tile's corner, carrying a 24 px disc. (A bare 24 px button is
+ * stretched into a tall oval by the app's 44 px button floor — controller, 2026-10-08, on the Love Story's slots.)
+ */
+const TILE_X = 'absolute right-0 top-0 flex h-11 w-11 items-start justify-end rounded-full p-1.5 text-ink/70 hover:text-danger-700';
+const TILE_X_DISC = 'flex h-6 w-6 items-center justify-center rounded-full bg-cream/90';
+
 type UploadedItem = {
   /** Local-only ID for React keys + cancellation. */
   id: string;
@@ -1327,13 +1334,10 @@ export function FileUpload({
               >
                 <CheckCircle2 className="h-3.5 w-3.5" strokeWidth={2} />
               </span>
-              <button
-                type="button"
-                onClick={() => removeItem(item.id)}
-                className="absolute right-1.5 top-1.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-cream/90 text-ink/70 transition-colors hover:bg-cream hover:text-danger-700"
-                aria-label={`Remove ${item.filename}`}
-              >
-                <X className="h-3.5 w-3.5" strokeWidth={2} />
+              <button type="button" onClick={() => removeItem(item.id)} className={TILE_X} aria-label={`Remove ${item.filename}`}>
+                <span className={TILE_X_DISC}>
+                  <X className="h-3.5 w-3.5" strokeWidth={2} />
+                </span>
               </button>
             </li>
           ))}
@@ -1341,27 +1345,24 @@ export function FileUpload({
             <li
               key={item.id}
               title={item.filename}
-              className="relative flex aspect-square flex-col items-center justify-center gap-2 rounded-xl border border-ink/10 bg-cream p-2"
+              className="relative flex aspect-square items-center justify-center rounded-xl border border-ink/10 bg-cream"
             >
-              <Loader2 className="h-5 w-5 animate-spin text-terracotta" strokeWidth={1.75} />
-              <span className="w-full">
-                <span className="block h-1.5 w-full overflow-hidden rounded-full bg-ink/10">
-                  <span
-                    className="block h-full rounded-full bg-terracotta transition-all"
-                    style={{ width: `${item.progress}%` }}
-                  />
+              {/* 🥧 ON ITS WAY: the 0–100 PIE, in the accent (owner 2026-10-08: "show a loading screen 0-100 pie to
+                  know how long til it uploads"; gallery § 21). The figure is the upload's own measured one — a
+                  state that steps with the bytes, the same under "reduce motion". No spinner beside it. */}
+              <span
+                data-upload-pie={item.progress}
+                className="flex h-11 w-11 items-center justify-center rounded-full"
+                style={{ background: `conic-gradient(rgb(var(--sn-accent)) ${item.progress}%, rgb(0 0 0 / 0.1) 0)` }}
+              >
+                <span className="flex h-[34px] w-[34px] items-center justify-center rounded-full bg-white text-[10px] font-bold tabular-nums text-sn-accent">
+                  {item.progress}%
                 </span>
               </span>
-              <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-                {item.progress}%
-              </span>
-              <button
-                type="button"
-                onClick={() => cancelInFlight(item.id)}
-                className="absolute right-1.5 top-1.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-cream/90 text-ink/70 transition-colors hover:bg-cream hover:text-danger-700"
-                aria-label={`Cancel ${item.filename}`}
-              >
-                <X className="h-3.5 w-3.5" strokeWidth={2} />
+              <button type="button" onClick={() => cancelInFlight(item.id)} className={TILE_X} aria-label={`Cancel ${item.filename}`}>
+                <span className={TILE_X_DISC}>
+                  <X className="h-3.5 w-3.5" strokeWidth={2} />
+                </span>
               </button>
             </li>
           ))}
@@ -1387,13 +1388,10 @@ export function FileUpload({
               >
                 Try again
               </button>
-              <button
-                type="button"
-                onClick={() => dropFailed(item.id)}
-                className="absolute right-0 top-0 inline-flex h-11 w-11 items-center justify-center rounded-full text-ink/70 hover:text-danger-700"
-                aria-label={`Remove ${item.file.name}`}
-              >
-                <X className="h-3.5 w-3.5" strokeWidth={2} />
+              <button type="button" onClick={() => dropFailed(item.id)} className={TILE_X} aria-label={`Remove ${item.file.name}`}>
+                <span className={TILE_X_DISC}>
+                  <X className="h-3.5 w-3.5" strokeWidth={2} />
+                </span>
               </button>
             </li>
           ))}

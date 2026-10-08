@@ -21,6 +21,7 @@
 // (via replaceState, no navigation) so deep-links + back/forward work.
 // ============================================================================
 
+import { PILL_TRACK_CLASS, PILL_TRACK_GROUND, PillThumb, pillSegClass } from './pill-selector';
 import {
   useCallback,
   useEffect,
@@ -129,11 +130,15 @@ export function RelationshipTabShell({
   if (!activeTab) return null;
 
   const tabStrip = (
+    /* 🎚 THE ONE PILL SELECTOR (owner 2026-10-08: "adjust all pill selectors to this") — the app's track, and
+       the terracotta thumb that slides to the picked tab (it reads `aria-selected`). The strip still scrolls
+       sideways on a phone; a link tab is still a door that is never picked. */
     <div
       role="tablist"
       aria-label="Workspace sections"
-      className="flex gap-1 overflow-x-auto rounded-xl border border-ink/10 bg-cream/70 p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      className={`${PILL_TRACK_CLASS} ${PILL_TRACK_GROUND} overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}
     >
+      <PillThumb />
       {visible.map((t, idx) => {
         if (t.href) {
           return (
@@ -141,7 +146,7 @@ export function RelationshipTabShell({
               key={t.id}
               href={t.href}
               data-tab-link={t.id}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-ink/5 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry"
+              className={`${pillSegClass(false)} shrink-0 gap-1.5 px-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry`}
             >
               {t.icon ? <span aria-hidden>{t.icon}</span> : null}
               <span>{t.label}</span>
@@ -164,11 +169,7 @@ export function RelationshipTabShell({
             tabIndex={isActive ? 0 : -1}
             onClick={() => select(t.id)}
             onKeyDown={(e) => onKeyDown(e, idx)}
-            className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry ${
-              isActive
-                ? 'bg-mulberry text-cream shadow-sm'
-                : 'text-ink/70 hover:bg-ink/5 hover:text-ink'
-            }`}
+            className={`${pillSegClass(isActive)} shrink-0 gap-1.5 px-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry`}
           >
             {t.icon ? <span aria-hidden>{t.icon}</span> : null}
             <span>{t.label}</span>

@@ -465,6 +465,8 @@ test('(7) the thumb’s measuring code is not in the Maker’s first load — it
 const PILL_WATCH_SCOPE: readonly string[] = [
   'app/dashboard/[eventId]/launch/_components', // the Maker's shell, Studio and Stages
   'app/dashboard/[eventId]/website/editor/_components', // the Maker's work area and inspectors
+  'app/dashboard', // AREA 1 (2026-10-08, rd/pills-everywhere): the couple's whole dashboard — its converted selectors are held one by one in pills-are-everywhere.test.ts
+  'app/_components', // AREA 1: the shared pieces (a thread's views, the two-sided workspace tabs)
 ];
 /** The files that ARE the template's drawers — they hold the track on purpose. */
 const PILL_TEMPLATE_DRAWERS: readonly string[] = [`${E}/inspector-kit.tsx`, `${L}/stage-panel/kit.tsx`];
@@ -475,6 +477,12 @@ const PILL_TEMPLATE_DRAWERS: readonly string[] = [`${E}/inspector-kit.tsx`, `${L
 const PILL_WATCH_BASELINE: readonly { file: string; has: string; why: string }[] = [
   { file: `${L}/maker-logo.tsx`, has: 'aria-label="Logo panels"', why: 'the Logo studio’s Layers · Logo · Tools tabs (a tablist with panels) — the selector audit’s lane, not converted in the commit that made the template' },
   { file: `${E}/editor-shell.tsx`, has: 'aria-label="What opens your Save the Date"', why: 'the shipped Maker’s Save the Date opener (two values — a toggle by the house rule) — the selector audit’s lane' },
+  // ── Already there when AREA 1 widened the scope to the couple's dashboard (2026-10-08). Each picks one of THREE
+  //    VALUES, which the house rule makes a dropdown, not a pill selector (INTERACTION_RULES § 2) — so it was LISTED
+  //    for the controller's decision instead of being converted. Deciding one removes its line.
+  { file: 'app/dashboard/[eventId]/studio/save-the-date/_components/StdBuilderClient.tsx', has: 'inline-flex rounded-xl border border-ink/15 bg-cream p-1', why: 'LISTED: Save the Date › Readability picks one of 3 values (Auto · Lighten · Darken) — a dropdown by the house rule; the controller’s decision' },
+  { file: 'app/dashboard/[eventId]/schedule/_components/prep-kind-picker.tsx', has: 'aria-label="Item type"', why: 'LISTED: a preparation item’s Type picks one of 3 values (a radio group) — a dropdown by the house rule; the controller’s decision' },
+  { file: 'app/dashboard/[eventId]/guests/_components/chip-editors.tsx', has: 'flex items-center gap-1 rounded-lg bg-ink/[0.04] p-0.5', why: 'NOT A SELECTOR ROW: an either-or pair of roles INSIDE the role menu (menuitemradio, “or” between them) — a menu’s own items, left as the menu draws them' },
 ];
 
 /**
@@ -494,7 +502,7 @@ function handDrawnTracks(source: string): string[] {
   return hits;
 }
 
-test('(8) THE WATCH — in the Maker, a segmented track is drawn through the template, never by hand', () => {
+test('(8) THE WATCH — in the Maker and every area since migrated, a segmented track is drawn through the template, never by hand', () => {
   const walk = (dir: string): string[] =>
     readdirSync(join(WEB, dir)).flatMap((name) => {
       const rel = `${dir}/${name}`;

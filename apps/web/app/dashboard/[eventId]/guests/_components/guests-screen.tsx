@@ -68,6 +68,7 @@ import { Count, Fill } from '@/components/count';
 import { formatCount } from '@/lib/format-number';
 import { PickMenu, type PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { useInspectorContext } from '@/app/_components/inspector/inspector-column';
+import { PILL_TRACK_CLASS, PILL_TRACK_GROUND, PillThumb, pillSegClass } from '@/app/_components/pill-selector';
 import { Sheet } from '@/app/_components/sheet';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import {
@@ -421,6 +422,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
   const seg = (key: 'list' | 'map' | 'share', label: string, count?: number) => (
     <Link
       key={key}
+      className={`${pillSegClass(gview === key)} [&>b]:font-medium [&>b]:opacity-80`}
       href={key === 'list' ? `/dashboard/${eventId}/guests` : `/dashboard/${eventId}/guests?gview=${key}`}
       aria-current={gview === key ? 'page' : undefined}
       scroll={false}
@@ -719,7 +721,10 @@ export function GuestsScreen(props: GuestsScreenProps) {
     <GuestListHasSidesContext.Provider value={hasSides}>
       <div ref={rootRef} className={styles.screen} data-settled={settled ? 'true' : 'false'} data-guests-screen={gview}>
         <div ref={stickRef} className={styles.stick} data-guests-stick="">
-          <nav className={styles.seg} aria-label="Guest list views" data-guests-segmented="">
+          {/* 🎚 THE ONE PILL SELECTOR (owner 2026-10-08: "adjust all pill selectors to this") — the app's template
+              draws the track, the three views and the terracotta thumb that slides between them. Still links. */}
+          <nav className={`${PILL_TRACK_CLASS} ${PILL_TRACK_GROUND}`} aria-label="Guest list views" data-guests-segmented="">
+            <PillThumb />
             {seg('list', 'List', stats.total)}
             {seg('map', 'Map')}
             {seg('share', 'Setup')}

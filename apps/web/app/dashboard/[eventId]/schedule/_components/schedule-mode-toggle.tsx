@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { Route, CalendarRange, CalendarClock } from 'lucide-react';
+import { PillThumb } from '@/app/_components/pill-selector';
 import { I_SEGMENTED_CLASS, iSegClass } from '../../website/editor/_components/inspector-kit';
 
 /**
@@ -62,6 +63,9 @@ export function ScheduleModeToggle({
   return (
     <nav aria-label="Schedule view" className="w-full max-w-md sm:w-auto" data-schedule-view-switch="">
       <div className={I_SEGMENTED_CLASS}>
+        {/* The one thumb that travels between the views (owner 2026-10-08: "and make them animate") — it finds the
+            picked link by its `aria-current="page"`. */}
+        <PillThumb />
         {VIEWS.map(({ mode, label, Icon }) => {
           const on = mode === active;
           const n = counts[mode] ?? 0;

@@ -204,6 +204,7 @@ import { MoveGuestSheet, PeopleSheet, PhoneSeatPlanFoot, PhoneSeatPlanHead, Stud
 import { BlueprintStudio } from '../../studio/indoor-blueprint/_components/blueprint-studio';
 import { saveEntrance } from '../../studio/indoor-blueprint/actions';
 import { InfoTip } from '@/app/_components/info-tip';
+import { PillButton, PillTrack } from '@/app/_components/pill-track';
 import { DetailsPieceButton, useDetailsEditorOpener, useDetailsPiece } from '../../launch/_components/details-go';
 import { useMaker } from '../../launch/_components/maker-context';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
@@ -4779,7 +4780,10 @@ export function SeatingEditor({
   // The tab strip + active pane. `panelBody` is rendered by EITHER the desktop
   // aside OR the mobile drawer (never both — `isNarrow` gates which).
   const panelTabs = (
-    <div role="tablist" aria-label="Seat-plan panel" className="flex shrink-0 gap-1 border-b border-ink/10 px-2">
+    /* 🎚 THE ONE PILL SELECTOR (owner 2026-10-08: "adjust all pill selectors to this") — People · Tables · Rules
+       were underlined tabs; they are the app's pill now, the thumb sliding to the picked one (`aria-selected`). */
+    <div className="shrink-0 px-2 pb-1.5">
+      <PillTrack role="tablist" aria-label="Seat-plan panel" grow data-seat-panel-tabs="">
       {([
         ['people', 'People', unseatedCount, false] as const,
         ['tables', 'Tables', 0, false] as const,
@@ -4787,29 +4791,21 @@ export function SeatingEditor({
       ]).map(([key, label, count, warm]) => {
         const active = panelTab === key;
         return (
-          <button
-            key={key}
-            type="button"
-            role="tab"
-            aria-selected={active}
-            onClick={() => selectPanelTab(key)}
-            className={`relative flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-xs font-medium transition ${
-              active ? 'border-terracotta text-ink' : 'border-transparent text-ink/50 hover:text-ink'
-            }`}
-          >
+          <PillButton key={key} on={active} role="tab" aria-selected={active} onClick={() => selectPanelTab(key)} className="gap-1.5">
             {label}
             {count > 0 ? (
               <span
                 className={`rounded-full px-1.5 py-0.5 font-mono text-[9px] font-semibold tabular-nums ${
-                  warm ? 'bg-danger-100 text-danger-700' : 'bg-ink/8 text-ink/55'
+                  warm ? 'bg-danger-100 text-danger-700' : active ? 'bg-white/25 text-white' : 'bg-ink/8 text-ink/55'
                 }`}
               >
                 {formatCount(count)}
               </span>
             ) : null}
-          </button>
+          </PillButton>
         );
       })}
+      </PillTrack>
     </div>
   );
 
@@ -5514,13 +5510,15 @@ export function SeatingEditor({
         </button>
       );
       const seg = (opts: { key: string; label: string; active: boolean; onClick: () => void }[], label: string) => (
-        <div role="group" aria-label={label} className="flex shrink-0 overflow-hidden rounded-lg border border-ink/15 text-[11px] font-semibold">
+        /* The app's ONE pill selector (owner 2026-10-08) — at the dock's own height: 44 px on a phone, 32 px beside
+           the desktop dock's 32-px buttons. */
+        <PillTrack role="group" aria-label={label} className="shrink-0">
           {opts.map((o) => (
-            <button key={o.key} type="button" onClick={o.onClick} aria-pressed={o.active} className={`${big ? 'h-11' : 'h-8'} px-2.5 ${o.active ? 'bg-terracotta text-cream' : 'text-ink/60 hover:bg-ink/[0.04]'}`}>
+            <PillButton key={o.key} on={o.active} onClick={o.onClick} aria-pressed={o.active} className={big ? '' : '!min-h-[26px]'}>
               {o.label}
-            </button>
+            </PillButton>
           ))}
-        </div>
+        </PillTrack>
       );
 
       let glyph: React.ReactNode = null;
@@ -8629,21 +8627,14 @@ function SeatPeoplePanel({
   return (
     <div className="w-full rounded-xl border border-ink/10 bg-ink/[0.03] p-2">
       <div className="mb-2 flex items-center gap-2">
-        <div className="inline-flex flex-1 rounded-lg border border-ink/15 bg-cream p-0.5">
+        {/* The app's ONE pill selector (owner 2026-10-08) — three views of who can sit here. */}
+        <PillTrack grow data-seat-pick-tabs="">
           {(['guest', 'group', 'role'] as const).map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => onTab(t)}
-              aria-pressed={tab === t}
-              className={`flex-1 rounded-md px-2 py-1 text-xs font-medium capitalize transition ${
-                tab === t ? 'bg-ink/[0.06] text-ink' : 'text-ink/55 hover:text-ink'
-              }`}
-            >
+            <PillButton key={t} on={tab === t} onClick={() => onTab(t)} aria-pressed={tab === t} className="capitalize">
               {t}
-            </button>
+            </PillButton>
           ))}
-        </div>
+        </PillTrack>
         <span className={`shrink-0 text-[11px] ${free === 0 ? 'text-danger-600' : 'text-ink/55'}`}>
           {formatCount(seated)}/{formatCount(cap)} · {free} free
         </span>

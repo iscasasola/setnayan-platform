@@ -13,6 +13,7 @@ import {
 import { respondAppointment } from './appointments-actions';
 import { respondAmendmentFromChat } from './negotiation-actions';
 import { SubmitButton } from './submit-button';
+import { PILL_TRACK_CLASS, PILL_TRACK_GROUND, PillThumb, pillSegClass } from './pill-selector';
 import { formatPhp } from '@/lib/orders';
 import { THREAD_STAGE_TONE } from '@/lib/vendor-thread-stage';
 import { STANDING_LABEL, standingSentence, type SupplierStanding } from '@/lib/supplier-standing';
@@ -80,11 +81,7 @@ export function ThreadViewSwitch({
         type="button"
         onClick={() => onChange(key)}
         aria-pressed={active}
-        className={[
-          'inline-flex min-h-[44px] items-center gap-1.5 px-3 text-xs font-semibold',
-          'border-r border-ink/15 last:border-r-0',
-          active ? 'bg-ink text-cream' : 'bg-cream text-ink/70 hover:bg-ink/[0.04]',
-        ].join(' ')}
+        className={`${pillSegClass(active)} px-3`}
       >
         {label}
         {count != null ? (
@@ -93,8 +90,12 @@ export function ThreadViewSwitch({
         {needs > 0 ? (
           // ⚖ A COUNT AND AN OUTLINE, NEVER A SIXTH LADDER WORD. "Needs you" is
           // not a stage — a thread with two things outstanding is still Booked.
+          // On the picked (terracotta) choice the count is white on a white wash — terracotta on terracotta
+          // would vanish.
           <span
-            className="rounded-full border border-terracotta bg-terracotta/10 px-1.5 font-mono text-[0.6rem] font-bold text-terracotta"
+            className={`rounded-full border px-1.5 font-mono text-[0.6rem] font-bold ${
+              active ? 'border-white/70 bg-white/20 text-white' : 'border-terracotta bg-terracotta/10 text-terracotta'
+            }`}
             aria-label={`${needs} need${needs === 1 ? 's' : ''} you`}
           >
             {needs}
@@ -106,11 +107,10 @@ export function ThreadViewSwitch({
 
   return (
     <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-      <div
-        role="group"
-        aria-label="Show"
-        className="inline-flex overflow-hidden rounded-lg border border-ink/15"
-      >
+      {/* 🎚 THE ONE PILL SELECTOR (owner 2026-10-08: "adjust all pill selectors to this") — Chat · Decisions ·
+          Files are three views of one thread: the app's track, and the terracotta thumb that slides between them. */}
+      <div role="group" aria-label="Show" className={`${PILL_TRACK_CLASS} ${PILL_TRACK_GROUND} inline-flex`}>
+        <PillThumb />
         {/* "Chat", not "All" — the approved One Chat Box layout (2026-09-18)
             names the first tab for what it shows. The key stays `all`: it is
             the URL fact (`?view=`), and the plain thread URL must keep meaning

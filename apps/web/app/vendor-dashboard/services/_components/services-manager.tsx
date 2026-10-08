@@ -12,8 +12,6 @@ import {
   ChevronDown,
   Clock,
   Copy,
-  Eye,
-  EyeOff,
   Gift,
   Layers,
   Plus,
@@ -131,6 +129,7 @@ import {
   type BracketDraft,
 } from './service-list-editors';
 import { formatCount } from '@/lib/format-number';
+import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 
 export type ServicesManagerSearch = {
   saved?: string;
@@ -1070,7 +1069,7 @@ export async function VendorServicesManager({
                         <Copy className="h-4 w-4" strokeWidth={1.75} />
                       </Link>
                     ) : null}
-                    {/* on/off toggle (is_active) */}
+                    {/* on/off (is_active) — the app's one switch (owner 2026-10-08); it was an eye icon that filled ink when live. */}
                     <form action={toggleVendorServiceActive}>
                       <input type="hidden" name="vendor_service_id" value={svc.vendor_service_id} />
                       <input type="hidden" name="is_active" value={svc.is_active ? 'false' : 'true'} />
@@ -1080,17 +1079,9 @@ export async function VendorServicesManager({
                         aria-checked={svc.is_active}
                         aria-label={svc.is_active ? 'Hide service from Explore' : 'Show service on Explore'}
                         title={svc.is_active ? 'Live — tap to hide' : 'Hidden — tap to show'}
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-lg"
-                        style={{
-                          background: svc.is_active ? 'var(--m-ink)' : 'var(--m-paper-2)',
-                          color: svc.is_active ? 'var(--m-paper)' : 'var(--m-slate-2)',
-                        }}
+                        className={SWITCH_BUTTON}
                       >
-                        {svc.is_active ? (
-                          <Eye className="h-4 w-4" strokeWidth={1.75} />
-                        ) : (
-                          <EyeOff className="h-4 w-4" strokeWidth={1.75} />
-                        )}
+                        <SwitchTrack on={svc.is_active} />
                       </button>
                     </form>
                   </div>

@@ -109,6 +109,8 @@ const SWITCH_SWEPT: readonly string[] = [
   /* couple (2026-10-08) */
   'app/dashboard',
   'app/_components/push-toggle.tsx',
+  /* supplier (2026-10-08) */
+  'app/vendor-dashboard',
 ];
 /**
  * Inside a swept area, what is NOT swept — a folder another builder owns, or one switch with a reason. A `has`

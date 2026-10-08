@@ -132,3 +132,25 @@ template. Re-aimed with the reason: `selectors-are-pills-that-slide`,
 `the-background-has-one-source` (the class names they pin).
 
 SPEC IMPACT: None (the rule is already in `INTERACTION_RULES.md` § 9).
+
+## 2026-10-08 · fix(maker): behind a sheet ONLY the preview stays clear — not the part of its box that lies under the controls
+
+Controller, 2026-10-08, measured on the review copy at 375 × 812: the clear hole ran
+y 52 → 576, but the sample screen ends near y 432 — so the Background | Elements | Music
+pill and the Source row were left bright and sharp behind a Look sheet.
+
+- Cause: the sample's own box runs on under the Maker's lower third, which is drawn over
+  its foot. The hole was the box, not what shows of it.
+- Fix (`lib/popup-behind.ts` `visibleBox`): the box is tightened to where the preview is
+  really what shows — the browser's own hit test, asked along the box's middle column
+  then its middle row, to the pixel, looking through the sheet's own layers. Measured
+  BEFORE the page is made inert (an inert branch answers no hit test), and on a resize
+  with the page woken for the length of the measure. Still once per open — never a poll.
+- Checked against the real page on the review server (the sample's box 52 → 576; the hit
+  test says it shows 52 → 432).
+
+Guard: `a-popup-darkens-what-is-behind` (1b, new): the controller's measured geometry — a
+point on the sample is clear; a point on the tabs row and one on the Source row are dark.
+8 sabotages seen red.
+
+SPEC IMPACT: None.

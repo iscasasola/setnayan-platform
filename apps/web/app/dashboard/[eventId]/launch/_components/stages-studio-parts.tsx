@@ -167,12 +167,19 @@ export function MakerSheet({
     const el = root.current;
     if (!el) return;
     from.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const undo = inertBehind(el);
-    const measure = () => setHole(popupHolePath(popupClearRect(document), { width: window.innerWidth, height: window.innerHeight }));
+    /* The preview is measured BEFORE the page is put out of reach (an inert branch answers no hit test) — and, on a
+       resize, with the page woken for the length of the measure. */
+    const measure = () => setHole(popupHolePath(popupClearRect(document, el), { width: window.innerWidth, height: window.innerHeight }));
     measure();
-    window.addEventListener('resize', measure);
+    let undo = inertBehind(el);
+    const again = () => {
+      undo();
+      measure();
+      undo = inertBehind(el);
+    };
+    window.addEventListener('resize', again);
     return () => {
-      window.removeEventListener('resize', measure);
+      window.removeEventListener('resize', again);
       undo();
     };
   }, []);

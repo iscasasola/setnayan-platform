@@ -22,13 +22,17 @@
  * A "fetch" here is what costs the server a render of the guest page: an
  * iframe mounted for a frame id that was not mounted before, or a refresh
  * message posted to a frame. The driver below is the component's own wiring
- * (`BufferedCanvasFrame`) over the same pure functions it calls — section 3
+ * (`BufferedCanvasFrame`) over the same pure functions it calls — section 4
  * holds the component to that wiring.
+ *
+ *   · AND THE PAGE ON SCREEN IS FETCHED ONCE (section 3): the server's HTML
+ *     carries no iframe, so nothing is loaded before React has placed it.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import React from 'react';
 import { stripComments } from './strip-comments';
 import {
   MAX_WARM_FRAMES,
@@ -344,7 +348,56 @@ test('the routing itself: a refresh never reaches a kept frame; what the bridge 
   assert.deepEqual(pick.drop, [canvasFrameId(fr('editorial'))]);
 });
 
-/* ═══ 3 · THE COMPONENT IS WIRED AS THE DRIVER ABOVE ═════════════════════ */
+/* ═══ 3 · ONE CANVAS DOCUMENT PER OPEN — NO IFRAME IN THE SERVER'S HTML ══ */
+
+test('🧯 the server renders NO iframe for the canvas — so the browser cannot fetch the page before React has placed it', async () => {
+  // Production, 2026-10-08: the canvas document was fetched TWICE on every open.
+  // The server's HTML carried `<iframe src>` inside a streamed Suspense segment;
+  // the browser began loading it there, React moved the segment into place, and a
+  // moved iframe loads again. This renders the component exactly as the server
+  // does and COUNTS the iframes in what it sends.
+  (globalThis as unknown as { React: unknown }).React = React;
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { BufferedCanvasFrame } = await import('../app/dashboard/[eventId]/website/editor/_components/buffered-canvas-frame');
+  const wanted = ['save_the_date', 'event', 'editorial'].map((st) => ({ key: `${st}:1:`, group: `${st}:`, src: `/ana-ben?phase=${st}&editor=1` }));
+  for (const pageFrame of [false, true]) {
+    const html = renderToStaticMarkup(
+      React.createElement(BufferedCanvasFrame, {
+        frameKey: 'rsvp:1:',
+        group: 'rsvp:',
+        src: '/ana-ben?phase=rsvp&editor=1',
+        title: 'Your Event Hub',
+        className: 'x',
+        frameRef: { current: null },
+        loadingRef: { current: null },
+        warm: wanted,
+        warmMax: MAX_WARM_FRAMES,
+        anchorKey: () => null,
+        onShown: () => {},
+        onSwapped: () => {},
+        pageFrame,
+      }),
+    );
+    // 🔎 Positive control: the component DID render — its box is in the HTML.
+    assert.match(html, pageFrame ? /data-maker-page-frames="shown"/ : /data-maker-canvas-frames="shown"/);
+    assert.equal((html.match(/<iframe/g) ?? []).length, 0, `the server's HTML carries an iframe: ${html}`);
+    assert.doesNotMatch(html, /\ssrc=/, 'the server hands the browser an address to fetch');
+    // The box still names the page it will show — an attribute fetches nothing.
+    assert.match(html, /data-canvas-src="\/ana-ben\?phase=rsvp&amp;editor=1"/);
+    assert.equal((html.match(/ana-ben/g) ?? []).length, 1, 'no other stage is named, let alone fetched');
+  }
+});
+
+test('…and the client mounts the frames once it has mounted itself — the shown frame is then wired as before', () => {
+  const buffer = stripComments(readFileSync(join(__dirname, '..', 'app/dashboard/[eventId]/website/editor/_components', 'buffered-canvas-frame.tsx'), 'utf8'));
+  assert.match(buffer, /const \[mounted, setMounted\] = useState\(false\);\s+useEffect\(\(\) => setMounted\(true\), \[\]\);/);
+  assert.match(buffer, /\{mounted && list\.map\(\(f\) => \{/);
+  assert.equal((buffer.match(/<iframe/g) ?? []).length, 1, 'ONE place draws a frame');
+  // The Maker talks to the frame SHOWN: that ref is filled when the frames mount, not only when the list changes.
+  assert.match(buffer, /\}, \[frames, frameRef, loadingRef, backgroundRef, mounted\]\);/);
+});
+
+/* ═══ 4 · THE COMPONENT IS WIRED AS THE DRIVER ABOVE ═════════════════════ */
 
 test('every Maker write moves the count the canvas reads — a held pick, a draft save, a form', async () => {
   const at = makerSavesStarted();

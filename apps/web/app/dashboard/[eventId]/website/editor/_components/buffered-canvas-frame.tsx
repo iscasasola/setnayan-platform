@@ -55,6 +55,18 @@ import { CANVAS_REFRESH_MESSAGE, makerSavesStarted } from '@/lib/maker-refresh';
  * So an open costs at most `warmMax` extra guest pages, once, and a save costs
  * none — ever. Holding a frame that is already loaded costs the server nothing.
  *
+ * 🧯 NO IFRAME IN THE SERVER'S HTML (measured on production, 2026-10-08: the
+ * canvas document was fetched TWICE on every Maker open, the same address, a
+ * few seconds apart). The Maker's work area arrives in a streamed Suspense
+ * segment: the browser starts loading an `<iframe src>` the moment it parses
+ * it, inside the hidden segment, and React then MOVES the segment into place —
+ * and moving an iframe in the document loads it again. The first fetch, a full
+ * server render of the guest page, was thrown away. So the frames are mounted
+ * by the client only (`mounted`), once, where they will stay. By then the
+ * shell also knows the screen (`useIsDesktop`), so a desktop no longer fetches
+ * the phone's address first either. The box still NAMES the page it will show
+ * (`data-canvas-src`) — an attribute fetches nothing.
+ *
  * At most TWO frames exist for the stage shown: the one shown, and the newest
  * one loading. A second render while one is loading REPLACES the loading one
  * (`planCanvasFrames`), so quick saves never stack frames
@@ -279,6 +291,9 @@ export function BufferedCanvasFrame({
 }) {
   const next: CanvasFrame = { key: frameKey, group, src };
   const [frames, setFrames] = useState<CanvasFrames>({ shown: next, loading: null });
+  /** No iframe until the client has mounted this — see "NO IFRAME IN THE SERVER'S HTML" above. */
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   /** The frames the Maker lets this keep right now (read at the switch). */
   const wantedRef = useRef(warm);
   wantedRef.current = warm;
@@ -307,7 +322,7 @@ export function BufferedCanvasFrame({
     }
     onShown(canvasFrameId(frames.shown));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- onShown is a setter-like callback
-  }, [frames, frameRef, loadingRef, backgroundRef]);
+  }, [frames, frameRef, loadingRef, backgroundRef, mounted]);
 
   const framesRef = useRef(frames);
   framesRef.current = frames;
@@ -424,8 +439,12 @@ export function BufferedCanvasFrame({
   /* A frame gone from every list is forgotten. */
   useEffect(() => {
     const live = new Set([frames.shown, frames.loading, ...(frames.warm ?? [])].filter(Boolean).map((f) => canvasFrameId(f!)));
-    for (const id of Object.keys(readyOf.current)) if (!live.has(id)) delete readyOf.current[id];
-    for (const id of owed.current) if (!live.has(id)) owed.current.delete(id);
+    /* (Only a frame that was up can owe a redraw, so one sweep forgets both.) */
+    for (const id of Object.keys(readyOf.current)) {
+      if (live.has(id)) continue;
+      delete readyOf.current[id];
+      owed.current.delete(id);
+    }
   }, [frames]);
 
   /* ⚠ THE DOM ORDER NEVER CHANGES FOR A FRAME ALREADY MOUNTED. Moving an
@@ -446,8 +465,9 @@ export function BufferedCanvasFrame({
       className={`relative ${className}`}
       style={style}
       {...{ [pageFrame ? 'data-maker-page-frames' : 'data-maker-canvas-frames']: frames.loading ? 'loading' : 'shown' }}
+      data-canvas-src={frames.shown.src}
     >
-      {list.map((f) => {
+      {mounted && list.map((f) => {
         const role = f === frames.shown ? 'shown' : f === frames.loading ? 'loading' : 'warm';
         const loading = role === 'loading';
         return (

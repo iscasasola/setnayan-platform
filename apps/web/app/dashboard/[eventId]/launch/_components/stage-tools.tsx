@@ -29,6 +29,8 @@ import {
   STAGE_BAR_GRID_CSS,
   STAGE_BAR_HANDLE,
   STAGE_BAR_LINE,
+  SP_KEY_BAR,
+  SP_KEY_DONE,
   STAGE_BAR_ROW_VARS,
   STAGE_GUEST_TAB,
   STAGE_ICON_BUTTON,
@@ -57,6 +59,9 @@ import {
 } from '@/app/[slug]/_components/rsvp-canvas-parts';
 import { setStagePanelNow, setStageRevealColours, setStageTool, useStageRevealLook, type StageQuiet } from './stage-panel/store';
 import { StageEdit } from './stage-panel/stage-edit';
+import { StageAbout } from './stage-panel/kit';
+import { keepPartWords, readPartWords, showPartWords, type PartWordsField } from './stage-panel/part-words';
+import { ActionButton } from '@/components/action-button';
 import { revealStubHtml } from './stage-panel/reveal-picture';
 import type { StudioTileKey } from '@/lib/studio-tiles';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
@@ -64,11 +69,11 @@ import { MAKER_OPEN_PART_EVENT, MAKER_STAGE_PICK_EVENT, MAKER_STAGE_TOOL_EVENT, 
 import { makerPagePick, makerPageValue, makerStageLabel } from './maker-bar';
 import type { StagePageOption } from './stage-item-menu';
 /* ＋ ↕ 🗑 🎭 PR 3 — the part's edges, the ＋ sheet, the one confirm, the Reveal part (same lazy chunk). */
-import { RevealPartTools, RevealPlay, makerPartTopOnScreen, revealStageOf, usePartEdits } from './add-part-sheet';
+import { RevealPartTools, RevealPlay, askPartOps, makerPartTopOnScreen, revealStageOf, usePartEdits } from './add-part-sheet';
 import { partsInPageOrder } from '@/lib/maker-part-step';
 import { CameraPartTools, StagePlayStatus } from './details-lazy';
 
-import { makerPartLabelOn, makerPartOfCanvas, makerPartsWithAdded } from '@/lib/maker-part-groups';
+import { makerPartCanvasOn, makerPartLabelOn, makerPartOfCanvas, makerPartsWithAdded } from '@/lib/maker-part-groups';
 import { filedOnCanvas, firstMarkerOnPage, makerStagesPages } from '@/lib/maker-stage-filing';
 
 /**
@@ -267,6 +272,8 @@ export function StageTools({
   }, []);
   const [picked, setPicked] = useState<MakerPartKey | null>(null);
   const [typing, setTyping] = useState(false);
+  /** The words last tapped on the page (the part inside the section — `[data-el]`): Edit's rows follow it. */
+  const [tapped, setTapped] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
   /** ▶ The picked part's sequence as the canvas plays it: the phase now, and what it has none of (`play-sequence.ts`). */
   const [seq, setSeq] = useState<{ phase: string; skipped: string[] } | null>(null);
@@ -567,6 +574,7 @@ export function StageTools({
           makerPartOfTap(where.current.stageKey, where.current.shownPage, d.key, typeof d.el === 'string' ? d.el : null) ??
           makerPartOfCanvas(where.current.stageKey, d.key);
         setPicked(k);
+        setTapped(typeof d.el === 'string' ? d.el : null);
         askTool(toolFor(k), k);
       } else if (d.t === 'type' && d.phase === 'start') {
         /* 👆 A tap on the page only selects: the rule answers no for every part (`makerStageMayType`, 2026-10-09) —
@@ -608,6 +616,7 @@ export function StageTools({
       if (!d || typeof d.key !== 'string') return;
       const el = typeof d.el === 'string' ? d.el : null;
       const k = makerPartOfTap(where.current.stageKey, where.current.shownPage, d.key, el) ?? makerPartOfCanvas(where.current.stageKey, d.key);
+      setTapped(el);
       if (k) return pickPart(k);
       /* A part the map does not name: the canvas's own selection, all the same. */
       window.postMessage({ source: 'setnayan-site', t: 'edit', key: d.key, ...(el ? { el } : {}) }, window.location.origin);
@@ -719,7 +728,9 @@ export function StageTools({
     /* After the page has laid the tab out (the same wait the parts are read with). */
     const t = window.setTimeout(() => {
       if (arrivedAt.current === at) return;
-      const first = orderedRef.current()[0] ?? null;
+      /* …but never the Reveal, which leads three pages and has only Style: the first part AFTER it (the controller's
+         call, 2026-10-09 — "three grey-ish tools is a poor first impression"). A tap still picks the Reveal. */
+      const first = orderedRef.current().find((k) => k !== 'reveal') ?? null;
       if (!first) return;
       arrivedAt.current = at;
       if (!pickedRef.current && pendingStep.current === null) pickPartRef.current(first);
@@ -956,6 +967,42 @@ export function StageTools({
     picked: open && !cameraOpen ? picked : null,
     frame: rsvpOpen ? frameSel : undefined,
   });
+  /* ── ✍ THE PICKED PART'S WORDS, FOR EDIT'S ROWS — read off the page (`part-words.ts`): what the page draws is what
+     can be typed, so a part whose words the page does not draw keeps its one door. Read again whenever the canvas
+     says it is ready (it marks a scene's words a moment after) and after every keep. ── */
+  const [fields, setFields] = useState<PartWordsField[]>([]);
+  const readFields = useCallback(() => {
+    if (!picked || rsvpOpen) return setFields([]);
+    const doc = document.querySelector<HTMLIFrameElement>(SHOWN_FRAME)?.contentDocument ?? null;
+    const next = readPartWords(doc, makerPartCanvasOn(stageKey, picked), MAKER_PARTS[picked].el ?? null, makerPartLabelOn(stageKey, picked));
+    setFields((was) => (JSON.stringify(was) === JSON.stringify(next) ? was : next));
+  }, [picked, rsvpOpen, stageKey]);
+  useEffect(() => {
+    readFields();
+    const t = window.setTimeout(readFields, 400);
+    return () => window.clearTimeout(t);
+  }, [readFields, present]);
+  /** Keep a field's words: the shipped write, once, through the work area's own draft door (`askPartOps`). */
+  const keepWords = useCallback(
+    async (f: PartWordsField, text: string) => {
+      const o = askPartOps();
+      if (!o?.draftAction) return { ok: false as const, error: 'That could not be saved just now. Please try again.' };
+      const res = await keepPartWords(f, text, { eventId: o.eventId, draftAction: o.draftAction, heroCanvas: o.heroCanvas, ownWords: o.ownWords });
+      window.setTimeout(readFields, 80);
+      return res;
+    },
+    [readFields],
+  );
+  /* ⌨ A field opened: the picked part is brought back to the middle of the page left above the keyboard. */
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root || !pickedKey) return;
+    const onFocus = (e: FocusEvent) => {
+      if ((e.target as Element | null)?.closest?.('[data-stage-edit]')) window.setTimeout(() => centrePart(pickedKey, pickedEl, frameSel), 380);
+    };
+    root.addEventListener('focusin', onFocus);
+    return () => root.removeEventListener('focusin', onFocus);
+  }, [frameSel, pickedEl, pickedKey]);
   /** Edit's rows are this toolbar's own; every other tool's are the work area's (or the Reveal's / the Camera's). */
   const editOn = picked !== null && shownTool === 'edit';
   /** "You're editing · Stage › Page › Part" — the page only where the stage has several, the part once one is picked. */
@@ -970,7 +1017,7 @@ export function StageTools({
       data-stage-open={open ? '' : undefined}
       data-stage-tool-now={shownTool}
       aria-hidden={away || undefined}
-      className={`flex min-h-0 flex-1 flex-col rounded-t-2xl bg-[var(--sp-page)] px-[10px] shadow-[inset_0_1px_0_var(--sp-line2)] transition-transform ease-out motion-reduce:transition-none ${away ? 'pointer-events-none translate-y-[110%]' : ''}`}
+      className={`relative flex min-h-0 flex-1 flex-col rounded-t-2xl bg-[var(--sp-page)] px-[10px] shadow-[inset_0_1px_0_var(--sp-line2)] transition-transform ease-out motion-reduce:transition-none ${away ? 'pointer-events-none translate-y-[110%]' : ''}`}
       style={{ transitionDuration: `${STAGE_PANEL_MS}ms` }}
     >
       {/* One rule set, drawn only while this toolbar is (phone only): the prototype's colours and the frame's two
@@ -986,6 +1033,17 @@ export function StageTools({
           '[data-maker-lower-third]:has(>[data-stage-tools]){transition:height 240ms cubic-bezier(.16,1,.3,1);background:var(--sp-paper)!important;border-top:0!important;padding:0!important;gap:0!important;box-shadow:none!important}' +
           `[data-maker-shell]:has([data-stage-tools]) [data-phone-chrome="panel"]{left:0!important;right:0!important;bottom:${STAGE_BAR_FOOT_CSS}!important;height:${STAGE_BAR_GRID_CSS}!important;outline:none!important;border-radius:0!important;box-shadow:none!important;background:var(--sp-page)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;padding:0!important}` +
           '[data-maker-shell]:has([data-stage-tool-now="edit"]) [data-phone-chrome="panel"]{visibility:hidden;pointer-events:none}' +
+          /* ⌨ A FIELD OF EDIT IS OPEN (`[data-form-row-editing]`, the app's typed row): the toolbar is the typing bar
+             above the keyboard — "Typing · Names" and Done over the one open field; everything else of it steps
+             aside and it is only as tall as that. All by `:has()`: no state to fall out of step with the field. */
+          '[data-stage-tools] [data-stage-keys]{display:none}' +
+          '[data-stage-tools]:has([data-form-row-editing]) [data-stage-keys]{display:flex}' +
+          '[data-stage-tools]:has([data-form-row-editing])>:is([data-stage-handle],[data-stage-caption],[data-stage-row],[data-stage-about]){display:none}' +
+          '[data-stage-tools]:has([data-form-row-editing]){padding-bottom:8px}' +
+          '[data-stage-tools]:has([data-form-row-editing]) [data-stage-edit]{display:block;overflow:visible}' +
+          '[data-stage-tools]:has([data-form-row-editing]) [data-stage-edit-row]:not(:has([data-form-row-editing])){display:none}' +
+          '[data-maker-lower-third]:has(>[data-stage-tools] [data-form-row-editing]){height:auto!important;transition:none!important}' +
+          '[data-maker-shell]:has([data-stage-tools] [data-form-row-editing]) [data-stage-guest-bar]{display:none}' +
           '[data-maker-shell][data-stage-playing] [data-phone-chrome="bar"]{transform:translateY(-110%);transition:transform 240ms ease-out}' +
           '}@media (prefers-reduced-motion:reduce){[data-maker-lower-third]:has(>[data-stage-tools]),[data-maker-shell][data-stage-playing] [data-phone-chrome="bar"]{transition:none}}'}
       </style>
@@ -1009,6 +1067,16 @@ export function StageTools({
       <p data-stage-caption="" className={STAGE_BAR_LINE}>
         You’re editing · <b className="font-semibold text-[var(--sp-ink)]">{editingTrail}</b>
       </p>
+      {/* ══ ⓘ — the toolbar's ONE explanation, at the right end of that line (nothing when the part has none) ══ */}
+      <StageAbout />
+      {/* ══ ⌨ THE TYPING BAR — only while a field of Edit is open (the rule set above): what is typed, and Done.
+          Done is a tap outside the field, which KEEPS (the typed row's own rule) — the app's main button. ══ */}
+      <div data-stage-keys="" className={`-mx-[10px] rounded-t-2xl !border-t-0 !bg-transparent ${SP_KEY_BAR}`}>
+        <span className="min-w-0 truncate">Typing · {picked ? makerPartLabelOn(stageKey, picked) : ''}</span>
+        <span data-type-done="" className={SP_KEY_DONE}>
+          <ActionButton tone="brand" main icon={Check} label="Done" onClick={() => (document.activeElement as HTMLElement | null)?.blur?.()} />
+        </span>
+      </div>
 
       {/* ══ THE SELECTOR — [ Edit | Style | Background | Animate ] · ▶ ══ */}
       <div className={STAGE_ROW} data-stage-row="">
@@ -1044,7 +1112,9 @@ export function StageTools({
       {/* ══ THE FOUR ROWS — Edit's are drawn here; the work area's tool lies over this same box for the other three.
           Nothing picked: empty (the prototype's `drawStrip` with no part). ══ */}
       <div data-stage-rows="" className="flex min-h-0 flex-1 flex-col [&>*]:!mt-0">
-        {editOn ? <StageEdit earlier={edits.earlier} later={edits.later} remove={edits.remove} removeWord={edits.removeWord} /> : null}
+        {editOn ? (
+          <StageEdit key={picked} fields={fields} tapped={tapped} onType={showPartWords} onKeep={keepWords} earlier={edits.earlier} later={edits.later} remove={edits.remove} removeWord={edits.removeWord} />
+        ) : null}
         {/* ══ 🎭 THE REVEAL'S TOOLS — its kinds, Extras ▾ — under Style. Mounted unseen while another part (or Edit)
             is on, so the page's Reveal draws the opening chosen. ══ */}
         {revealStage && (revealOpen || revealLeadsHere) ? (

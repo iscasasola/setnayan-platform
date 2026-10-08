@@ -81,22 +81,26 @@ test('a script-less miniature is finished from the parent — the streamed page 
   assert.match(swap, /sn-init-splash/, 'the init splash is lifted');
 });
 
-test('no part’s Style › Look opens on a row holding only an ⓘ — the pass included', async () => {
-  /* Owner, the Digital pass: "an empty row holding only a lone ⓘ". A part with no door to name (the pass,
-     the guest's look …) still has its own sentences — they are SAID, beside the ⓘ. */
+test('no part opens on a row holding only an ⓘ — the pass included', async () => {
+  /* Owner, the Digital pass: "an empty row holding only a lone ⓘ". */
+  /* 🔁 RE-AIMED 2026-10-09 (owner, decided: the ⓘ explanations do not get rows — ONE ⓘ at the right end of the
+     "You're editing" line). This held that a part with no door still SAID its name beside the ⓘ. The claim is kept
+     and is stronger now: a part with no door draws NO row at all for it, and its sentences are behind the one ⓘ
+     (`StageAbout`) — `lib/edit-types-the-words-in-place.test.ts` (6). */
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { MAKER_PART_KEYS, makerPartQuietRow } = await import('./maker-parts');
-  const { QuietBar } = await import(`${PANEL}/kit`);
+  const { QuietBar, StageAbout } = await import(`${PANEL}/kit`);
   const { setStagePanelNow } = await import(`${PANEL}/store`);
   let doorless = 0;
   for (const k of MAKER_PART_KEYS) {
     if (makerPartQuietRow(k)) continue;
     doorless += 1;
-    setStagePanelNow({ picked: k, quiet: null, about: `What ${k} is, and where it comes from.` });
-    const html = renderToStaticMarkup(React.createElement(QuietBar));
-    const visible = html.replace(/<span[^>]*data-stage-about=""[\s\S]*?<\/button><\/span>/g, '').replace(/<[^>]+>/g, '').trim();
-    assert.ok(visible.length > 0, `${k}: its Look opens on a lone ⓘ`);
+    const about = `What ${k} is, and where it comes from.`;
+    setStagePanelNow({ picked: k, quiet: null, about });
+    assert.equal(renderToStaticMarkup(React.createElement(QuietBar)), '', `${k}: a row is drawn for a part with no door`);
+    assert.match(renderToStaticMarkup(React.createElement(StageAbout)), /data-explain=""/, `${k}: its sentences have no ⓘ`);
   }
+  setStagePanelNow({ picked: null, quiet: null, about: null });
   assert.ok(doorless > 0, 'parts without a door were found (the pass among them)');
   setStagePanelNow({ picked: null, quiet: null, about: null });
 });

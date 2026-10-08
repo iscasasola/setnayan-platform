@@ -349,16 +349,19 @@ export function makerPartSource(key: MakerPartKey): MakerPartSource {
 }
 
 /**
- * THE ONE QUIET ROW at the top of Style (owner-approved: *"Edit the <tool> ›"* —
- * the only "go there" in the Maker; it opens the tool IN PLACE and ‹ returns to
- * the same stage and part). Never a badge on the canvas. Null: none.
+ * THE PART'S ONE DOOR — Edit's row 1 where its editing cannot be done in the toolbar (owner 2026-10-09: *"Only jump
+ * if it has editing that cannot be done there. Example: Schedule, Love Story, Wedding March, Logo"*). It opens the
+ * tool IN PLACE and ‹ returns to the same stage and part; the only "go there" in the Maker, never a badge on the
+ * canvas. Null: none. The words are the approved prototype's: "Open in Studio › <page>" · "Change it in Suppliers".
+ * (A part whose words the page draws is typed right in Edit instead — `stage-panel/part-words.ts`; its door is
+ * only drawn where the page draws no such words.)
  */
 export function makerPartQuietRow(key: MakerPartKey): { words: string; to: { studio: MakerStudioTool | 'info' } | { suppliers: 'date' | 'venue' } } | null {
   const src = makerPartSource(key);
-  if (src.kind === 'studio') return { words: `Edit the ${MAKER_STUDIO_TOOL_LABEL[src.tool]}`, to: { studio: src.tool } };
-  if (src.kind === 'supplier') return { words: `Change the ${src.fact} in Suppliers`, to: { suppliers: src.fact } };
-  /* DECISION_LOG 2026-10-06 rule 6: "Edit in Studio › Info" stays on every text part. */
-  if (src.kind === 'info') return { words: 'Edit in Studio › Info', to: { studio: 'info' } };
+  if (src.kind === 'studio') return { words: `Open in Studio › ${MAKER_STUDIO_TOOL_LABEL[src.tool]}`, to: { studio: src.tool } };
+  if (src.kind === 'supplier') return { words: 'Change it in Suppliers', to: { suppliers: src.fact } };
+  /* DECISION_LOG 2026-10-06 rule 6: the Info door stays on every text part. */
+  if (src.kind === 'info') return { words: 'Open in Studio › Info', to: { studio: 'info' } };
   return null;
 }
 

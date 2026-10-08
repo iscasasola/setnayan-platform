@@ -50,8 +50,12 @@ test('Date, Place and the Venue are set in Suppliers — read-only here', () => 
   assert.deepEqual(makerPartSource('date'), { kind: 'supplier', fact: 'date' });
   assert.deepEqual(makerPartSource('place'), { kind: 'supplier', fact: 'venue' });
   assert.deepEqual(makerPartSource('venue'), { kind: 'supplier', fact: 'venue' });
-  assert.equal(makerPartQuietRow('date')?.words, 'Change the date in Suppliers');
-  assert.equal(makerPartQuietRow('place')?.words, 'Change the venue in Suppliers');
+  /* (Re-aimed 2026-10-09: the door's words are the approved prototype's — one line for both, `TOOLBAR-SPEC-2026-10-09.md` § EDIT.
+     Which fact it is still rides in `to.suppliers`.) */
+  assert.equal(makerPartQuietRow('date')?.words, 'Change it in Suppliers');
+  assert.equal(makerPartQuietRow('place')?.words, 'Change it in Suppliers');
+  assert.deepEqual(makerPartQuietRow('date')?.to, { suppliers: 'date' });
+  assert.deepEqual(makerPartQuietRow('place')?.to, { suppliers: 'venue' });
 });
 
 test('the four for-each-guest parts are marked `my`, and only they', () => {

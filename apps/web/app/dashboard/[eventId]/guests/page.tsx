@@ -63,10 +63,11 @@ import { InvitePanel } from './invite/_components/invite-panel';
 import { AddFromPeopleSheet } from './_components/add-from-people-sheet';
 import { QuickAddSheet } from './_components/quick-add-sheet';
 import { UndoToastHost } from './_components/undo-toast';
-import { GuestCardBody, GUEST_CARD_ERROR_COPY, guestCardEyebrow, guestCardReply } from './_components/guest-card-body';
+import { GuestCardBody, guestCardEyebrow, guestCardReply } from './_components/guest-card-body';
 import { GuestInviteCell } from './_components/guest-invite-cell';
 import { GuestMoreMenu, GuestTicketThumb } from './_components/guest-ticket-parts';
 import { TEMPLATE_KIT } from './_components/guest-card-template-kit';
+import { guestCardErrorCopy } from './_components/guest-card-error-copy';
 import { guestListErrorCopy } from './_components/guest-list-error-copy';
 import { loadInviteSetup } from './_components/invite-message-setup';
 import { fetchInvitationBase, loadGuestCard } from './_components/guest-card-data';
@@ -793,11 +794,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           ) : null
         }
         returnTo={`/dashboard/${eventId}/guests?inspect=${inspectedGuest.guest_id}`}
-        errorMessage={
-          typeof search.error === 'string'
-            ? (GUEST_CARD_ERROR_COPY[search.error] ?? decodeURIComponent(search.error))
-            : null
-        }
+        errorMessage={typeof search.error === 'string' ? guestCardErrorCopy(search.error) : null}
         inviteFlash={
           search.new_qr === '1'
             ? { ok: true, msg: 'Done — a new QR and link. The old ones no longer work. Send them the new one.' }

@@ -1,6 +1,11 @@
 'use client';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useFormStatus } from 'react-dom';
+import { Check } from 'lucide-react';
+import { ActionButton, actionButtonClass } from '@/components/action-button';
+import { Explain } from '@/app/_components/explain';
+import { SubmitButton } from '@/app/_components/submit-button';
 import { Chips } from '@/app/_components/chips';
 import { Fold } from '@/app/_components/fold';
 import { FactRow, FORM_PICK_CLASS, FormRow, FormRows, SwitchRow, TypedRow, usePillWidth } from '@/app/_components/form-row';
@@ -13,8 +18,11 @@ import type {
   CardInvitedToProps,
   CardLockedProps,
   CardPickProps,
+  CardSubmitProps,
+  CardTipProps,
   CardToggleProps,
 } from './guest-card-kit';
+import { useAutosaveOutcome } from './guest-card-autosave';
 
 /**
  * guest-card-rows.tsx — THE GUEST CARD'S LEAF CONTROLS, DRAWN BY THE APP'S TEMPLATES (step 4B, 2026-10-09).
@@ -180,4 +188,59 @@ export function CardList({ children }: CardBoxProps) {
 /** Fields that sat side by side are rows of the same list. */
 export function CardCols({ children }: CardBoxProps): ReactNode {
   return <>{children}</>;
+}
+
+/** A submit button of one of the card's own small forms: the ONE button (`ActionButton`'s class on the form-status `SubmitButton`). */
+export function CardSubmit({ main = false, pendingLabel, ariaLabel, children }: CardSubmitProps) {
+  return (
+    <SubmitButton className={actionButtonClass(main ? 'brand' : 'neutral', { main, extra: 'w-full min-h-11' })} aria-label={ariaLabel} pendingLabel={pendingLabel}>
+      {children}
+    </SubmitButton>
+  );
+}
+
+/** A heading with its explanation behind the approved ⓘ (a centred "Got it" pop-up on a phone). */
+export function CardTip({ label, children }: CardTipProps) {
+  return (
+    <span className="inline-flex items-center gap-1">
+      <span>{label}</span>
+      <Explain title={label}>{children}</Explain>
+    </span>
+  );
+}
+
+/**
+ * The save line, drawn for the templated card: "Saving…" while a save is in flight, "Saved" for a moment once it LANDED, and
+ * "Couldn’t save." with a real button — Try again — when it did not (kept until the next save lands). The facts are the
+ * autosave's own (`useAutosaveOutcome`); a failed save is never drawn as a saved one.
+ */
+export function CardSaveState() {
+  const { pending } = useFormStatus();
+  const { outcome, retry } = useAutosaveOutcome();
+  const [shown, setShown] = useState(false);
+  const seen = useRef(0);
+  useEffect(() => {
+    if (outcome.kind !== 'saved' || outcome.n === seen.current) return;
+    seen.current = outcome.n;
+    setShown(true);
+    const t = setTimeout(() => setShown(false), 2200);
+    return () => clearTimeout(t);
+  }, [outcome]);
+  return (
+    <span role={outcome.kind === 'failed' && !pending ? 'alert' : 'status'} aria-live="polite" data-autosave-line="" className="inline-flex min-h-[1.25rem] items-center gap-2 text-xs text-ink/55">
+      {pending ? (
+        'Saving…'
+      ) : outcome.kind === 'failed' ? (
+        <>
+          <span className="font-semibold text-danger-700">Couldn’t save.</span>
+          <ActionButton tone="danger" label="Try again" icon={Check} onClick={retry} data-testid="autosave-retry" />
+        </>
+      ) : outcome.kind === 'saved' && shown ? (
+        <>
+          <Check aria-hidden className="h-3.5 w-3.5 text-success-700" strokeWidth={2.5} />
+          <span className="text-success-800">Saved</span>
+        </>
+      ) : null}
+    </span>
+  );
 }

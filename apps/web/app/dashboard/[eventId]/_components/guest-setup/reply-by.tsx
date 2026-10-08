@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { SUPERSEDED, makerLatestWrite, makerNeedsRender, makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { RSVP_REPLY_BY_EVENT, rsvpReplyByLine } from '@/lib/rsvp-stage';
 import { HUB_DRAFT_FIELD } from '@/lib/hub-draft';
@@ -28,12 +28,18 @@ type PaxAction = typeof updatePaxSettings;
  *   · `layout="row"`   Guests › Setup — the words left, the date field right;
  *   · `layout="stack"` Event Details' RSVP item and the RSVP stage's form — the
  *                      date, "· your date / · 30 days before", Use the default;
- *   · `layout="studio"` the Maker's Studio › RSVP — ONE row: "Reply by" left, the
- *                      date field right, nothing else. (It PRINTED the date, read
- *                      only, until the owner's preview check 2026-10-08: *"where it
- *                      the reply by date?"* → *"date is not changeable on studio."*
- *                      — no go-elsewhere: the control is right there. Always
- *                      mounted with `draft`.)
+ *   · `layout="frame"` the Maker's Studio › RSVP and the RSVP stage's form — ONE
+ *                      row, drawn by the door itself (`frame`): the Maker hands in
+ *                      the app's Form row with a date (`DateRow`, the approved
+ *                      gallery's "Reply by" — a pill with a calendar mark that opens
+ *                      the one calendar), so this file carries no template and
+ *                      Guests › Setup's page does not download one. THIS part still
+ *                      owns the value, the one writer and what a refusal does; the
+ *                      frame only draws. (It PRINTED the date, read only, until the
+ *                      owner's preview check 2026-10-08: *"where it the reply by
+ *                      date?"* → *"date is not changeable on studio."* — no
+ *                      go-elsewhere: the control is right there. Always mounted with
+ *                      `draft`.)
  *
  * One writer: `updatePaxSettings` (it writes the pricing view beside the date,
  * so the current one is posted back unchanged). Saved behind the pick, one
@@ -50,6 +56,20 @@ type PaxAction = typeof updatePaxSettings;
  * On Guests › Setup there is no Apply: the date writes live, as before, and the
  * stack layout says so.
  */
+/** What a door's own frame is handed to draw the row with (`layout="frame"`). */
+export type ReplyByFrame = {
+  /** The row's name — "Reply by". */
+  name: string;
+  /** The couple's own date as it stands now (`YYYY-MM-DD`, '' = the default applies). */
+  own: string;
+  /** The 30-day default the row reads while there is no date of their own. */
+  fallback: string | null;
+  /** Keep this day: the ONE write. Answers whether it landed and, if not, why — the date is already back as it was. */
+  keep: (day: string) => Promise<{ ok: true } | { ok: false; error: string }>;
+  /** The part's own marks, for the row the frame draws (never a wrapper: a row must stay a direct child of its list). */
+  attrs: Readonly<Record<`data-${string}`, string>>;
+};
+
 export function ReplyBy({
   eventId,
   own,
@@ -59,7 +79,10 @@ export function ReplyBy({
   layout,
   rowClassName,
   draft = false,
+  frame,
 }: {
+  /** `layout="frame"`: the door's own row (the Maker's Form row with a date). */
+  frame?: (row: ReplyByFrame) => ReactNode;
   eventId: string;
   /** The couple's own date (null = the 30-day default). */
   own: string | null;
@@ -67,7 +90,7 @@ export function ReplyBy({
   /** The 30-day default the field reads while no date of their own is set. */
   fallback?: string | null;
   action?: PaxAction;
-  layout: 'row' | 'stack' | 'studio';
+  layout: 'row' | 'stack' | 'frame';
   rowClassName?: string;
   /** ⏳ The Maker's door: the date waits in the hub draft for ✓ Apply (owner 2026-10-08, "draft 1-3"). */
   draft?: boolean;
@@ -78,13 +101,13 @@ export function ReplyBy({
   const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
   const shown = value || fallback;
 
-  const pick = (next: string) => {
-    if (!action) return;
+  const pick = (next: string): Promise<{ ok: true } | { ok: false; error: string }> => {
+    if (!action) return Promise.resolve({ ok: false, error: 'It cannot be changed here.' });
     setValue(next);
     setNote(null);
     announceReplyByLine(rsvpReplyByLine(next || fallback));
     const tap = ++newest.current;
-    void (async () => {
+    return (async () => {
       let res: { ok: boolean; message?: string } | typeof SUPERSEDED;
       try {
         res = await makerSave(
@@ -105,7 +128,8 @@ export function ReplyBy({
       } catch {
         res = { ok: false, message: 'Please try again.' };
       }
-      if (res === SUPERSEDED || tap !== newest.current) return;
+      /* A later pick carried this one, or is on its way: it answers for both. */
+      if (res === SUPERSEDED || tap !== newest.current) return { ok: true as const };
       if (res.ok) {
         saved.current = next;
         /* ⏳ Drafted (the Maker): the pick is held and its answer carries no bar, so nothing moved the
@@ -113,19 +137,28 @@ export function ReplyBy({
            thank-you words do), and say nothing: a date guests do not read yet is not "Saved." */
         if (draft) makerNeedsRender();
         else setNote({ ok: true, text: 'Saved.' });
-        return;
+        return { ok: true as const };
       }
       setValue(saved.current);
       announceReplyByLine(rsvpReplyByLine(saved.current || fallback));
+      const why = `It is back as it was. ${res.message ?? ''}`.trim();
       setNote({ ok: false, text: `The reply-by date did not save, so it is back as it was. ${res.message ?? ''}`.trim() });
+      return { ok: false as const, error: why };
     })();
   };
+
+  /* 🧭 The Maker's doors (Studio › RSVP, the RSVP stage's form): the door draws the row — no box, no sentence, no
+     "Saved", no "Guests see this right away" (the date waits for ✓ Apply). A refused pick is SAID by the row itself
+     (`keep` answers why), and the date is already back as it was. */
+  if (layout === 'frame') {
+    return <>{frame ? frame({ name: REPLY_BY_LABEL, own: value, fallback, keep: pick, attrs: { 'data-setup-row': 'reply-by', 'data-rsvp-setting': 'reply-by', 'data-reply-by-field': 'draft' } }) : null}</>;
+  }
 
   const field = (
     <input
       type="date"
       value={value || fallback || ''}
-      onChange={(e) => pick(e.target.value)}
+      onChange={(e) => void pick(e.target.value)}
       aria-label={layout === 'stack' ? 'Reply by — your own date' : REPLY_BY_LABEL}
       className="min-h-10 rounded-full border border-ink/15 bg-white px-3 text-[13px] text-ink"
     />
@@ -135,18 +168,6 @@ export function ReplyBy({
       {note.text}
     </p>
   ) : null;
-
-  /* 🧭 Studio › RSVP: the label and the field on ONE row — no box, no sentence, no "Saved", no
-     "Guests see this right away" (the date waits for ✓ Apply). A refused pick is still SAID, under the row. */
-  if (layout === 'studio') {
-    return (
-      <section className={`${rowClassName ?? SETUP_ROW}${note && !note.ok ? ' flex-wrap' : ''}`} data-setup-row="reply-by" data-rsvp-setting="reply-by" data-reply-by-field="draft">
-        <p className="min-w-0 flex-1 text-[14.5px] font-semibold text-ink">{REPLY_BY_LABEL}</p>
-        {field}
-        {note && !note.ok ? <div className="basis-full">{status}</div> : null}
-      </section>
-    );
-  }
 
   if (layout === 'row') {
     return (
@@ -178,7 +199,7 @@ export function ReplyBy({
         {value ? (
           <button
             type="button"
-            onClick={() => pick('')}
+            onClick={() => void pick('')}
             className="sn-press inline-flex min-h-11 items-center px-2 text-[13px] font-semibold text-ink/70 underline underline-offset-2"
           >
             Use the default

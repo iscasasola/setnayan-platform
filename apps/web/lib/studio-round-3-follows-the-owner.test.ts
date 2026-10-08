@@ -362,37 +362,53 @@ test('8 · Love Story: an EMPTY story draws its real arrangement in sample shape
   assert.ok(scrollMb >= 84, `a focused field can stop under the foot (it keeps ${scrollMb} px clear of the sheet’s edge; the foot takes 84)`);
 });
 
-test('9 · Studio › RSVP: Reply by is CHANGED on its row — the label, the date field, nothing else; drafted', async () => {
+test('9 · Studio › RSVP: Reply by is CHANGED on its row — the label, the date pill, nothing else; drafted', async () => {
   /* Owner on the preview 2026-10-08, verbatim: *"where it the reply by date?"* → *"date is not changeable on
      studio."* The row printed the date read-only ("set on Guests › Setup or in Event Details"), so the new Maker
      had no place to change it on a phone. His rule: no go-elsewhere — the control is right there; and "draft
      1-3": Reply by is edited in the Maker and waits for ✓ Apply.
-     🛡 Sabotaged once each (2026-10-08, S3b), each red alone: the Studio layout's `{field}` swapped for the
-     printed date → no date field; `REPLY_BY_LINE` drawn under the label → more than the label; the Studio mount
-     without `draft` → the mount; `data-writes-live=""` put on the Studio row → it says it is live. */
+     ⤷ Same day, the templates (`INTERACTION_RULES.md` § 9, the approved gallery's own "Reply by" row): the field is
+     the app's Form row with a date — a pill with a calendar mark that opens the one calendar — never a native date
+     input. The shared part keeps the value and the one writer and hands them to the Maker's row (`layout="frame"`).
+     🛡 Sabotaged once each, each red alone (2026-10-08, S3b; again on the frame the same night): the frame handed
+     the default instead of the couple's own date → not their date; `REPLY_BY_LINE` drawn by the frame layout →
+     more than the label; the Maker's mount without `draft` → the mount; `data-writes-live` put on the framed row's
+     marks → it says it is live; a native `<input type="date">` drawn by the frame layout → a second field. */
   const { ReplyBy } = await import(`../${D}/_components/guest-setup/reply-by`);
-  const { STUDIO_ROW } = await import('./studio-skin');
+  const { DateRow } = await import('../app/_components/form-row-date');
   const props = { eventId: 'e-1', own: '2027-01-14', pricingMode: 'final_only' as const, fallback: '2026-11-12', action: (async () => ({ ok: true })) as never };
-  const row = await html(React.createElement(ReplyBy, { ...props, layout: 'studio', draft: true, rowClassName: STUDIO_ROW }));
-  /* ONE row, the Studio's own — and a field a finger can change. */
-  assert.match(row, new RegExp(`^<section class="${STUDIO_ROW.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}" [^>]*data-rsvp-setting="reply-by"`), 'Reply by is not one Studio row');
-  assert.equal((row.match(/<input\b/g) ?? []).length, 1, 'the Studio’s Reply by row has no field (or more than one control)');
-  const field = /<input\b[^>]*>/.exec(row)?.[0] ?? '';
-  assert.match(field, /type="date"/, 'the row’s field is not a date field');
-  assert.match(field, /value="2027-01-14"/, 'the row’s field is not the couple’s date');
-  assert.match(field, /aria-label="Reply by"/, 'the field has no name');
-  assert.doesNotMatch(field, /disabled|readonly/i, 'the date cannot be changed');
-  /* Nothing else: the label is the only words; no button, no box, no "Saved", no "Guests see this right away". */
-  assert.equal(seen(row), 'Reply by', 'the row says more than its label');
-  assert.doesNotMatch(row, /<button\b|sn-tile|data-hub-saves-immediately|data-writes-live/, 'the row carries a button, a box or a "live" mark');
-  /* The 30-day default fills the field while the couple has no date of their own. */
-  assert.match(await html(React.createElement(ReplyBy, { ...props, own: null, layout: 'studio', draft: true })), /<input\b[^>]*value="2026-11-12"/, 'the default date is not in the field');
-  /* The other doors are as they were: Setup's row keeps its sentence and its live mark; the stage's stack its default link. */
+  type Row = { name: string; own: string; fallback: string | null; keep: (day: string) => unknown; attrs: Record<`data-${string}`, string> };
+  /* The Maker's own frame, as `maker-rsvp-ask.tsx` hands it in. */
+  const frame = (r: Row) => React.createElement(DateRow, { data: 'reply-by', name: r.name, value: r.own, shown: r.fallback, onKeep: r.keep as never, attrs: r.attrs });
+  const row = await html(React.createElement(ReplyBy, { ...props, layout: 'frame', draft: true, frame: frame as never }));
+  /* ONE row — the frame's, and nothing of the part's own around it (a row must stay a direct child of its list). */
+  assert.match(row, /^<div data-setup-row="reply-by" data-rsvp-setting="reply-by" data-reply-by-field="draft" data-form-row-kind="date"[^>]*data-form-row="reply-by"/, 'Reply by is not one Form row carrying the part’s marks');
+  /* A pill a finger can change — the couple's own date, in words — and NO native field. */
+  assert.equal((row.match(/data-form-row-pill="date"/g) ?? []).length, 1, 'the Studio’s Reply by row has no date pill (or more than one control)');
+  assert.match(row, /<button type="button" data-form-row-pill="date" aria-haspopup="dialog" aria-expanded="false" aria-label="Reply by: January 14, 2027\. Tap to change"/, 'the pill is not the couple’s date');
+  assert.match(row, /data-form-row-mark="calendar"/, 'the pill does not say "pick a date"');
+  assert.doesNotMatch(row, /<input\b|type="date"|disabled/i, 'a native date field is drawn, or the date cannot be changed');
+  /* Nothing else: the label and the date are the only words; no box, no "Saved", no "Guests see this right away". */
+  assert.equal(seen(row), 'Reply by January 14, 2027', 'the row says more than its label and its date');
+  assert.doesNotMatch(row, /sn-tile|data-hub-saves-immediately|data-writes-live|>\s*Saved/, 'the row carries a box, a "Saved" or a "live" mark');
+  /* The 30-day default is READ on the pill while the couple has no date of their own. */
+  assert.match(await html(React.createElement(ReplyBy, { ...props, own: null, layout: 'frame', draft: true, frame: frame as never })), /aria-label="Reply by: November 12, 2026\. Tap to change"/, 'the default date is not on the pill');
+  /* What the frame is handed is the PART's: its name, the couple's own date (never the default in its place), the
+     default beside it, the one writer, and its marks. */
+  let handed: Row | null = null;
+  await html(React.createElement(ReplyBy, { ...props, own: null, layout: 'frame', draft: true, frame: ((r: Row) => ((handed = r), null)) as never }));
+  assert.deepEqual({ ...(handed as unknown as Row), keep: typeof (handed as unknown as Row).keep }, { name: 'Reply by', own: '', fallback: '2026-11-12', keep: 'function', attrs: { 'data-setup-row': 'reply-by', 'data-rsvp-setting': 'reply-by', 'data-reply-by-field': 'draft' } });
+  /* The other doors are as they were: Setup's row keeps its sentence and its live mark; Event Details' stack its default link. */
   assert.match(await html(React.createElement(ReplyBy, { ...props, layout: 'row' })), /data-reply-by-field="live" data-writes-live=""[\s\S]*Your invitation asks guests to reply by this day\./, 'Guests › Setup’s Reply by row changed');
-  assert.match(await html(React.createElement(ReplyBy, { ...props, layout: 'stack', draft: true })), /January 14, 2027[\s\S]*· your date[\s\S]*Use the default/, 'the stage’s Reply by field changed');
-  /* Mounted in the Studio branch, drafted, with the writer. */
+  assert.match(await html(React.createElement(ReplyBy, { ...props, layout: 'stack', draft: true })), /January 14, 2027[\s\S]*· your date[\s\S]*Use the default/, 'Event Details’ Reply by field changed');
+  /* Mounted ONCE for the reply's rows — which Studio › RSVP and the stage's form both draw — drafted, with the writer. */
   const ask = read(`${L}/maker-rsvp-ask.tsx`);
-  const studio = ask.slice(ask.indexOf('data-studio-rsvp=""'), ask.indexOf('data-rsvp-setting="how-guests-answer"'));
-  assert.match(studio, /<ReplyBy\s+layout="studio"[\s\S]*?rowClassName=\{STUDIO_ROW\}\s+action=\{replyByAction\}\s+draft\s*\/>/, 'Studio › RSVP does not mount the editable row, drafted');
-  assert.doesNotMatch(read(`${D}/_components/guest-setup/reply-by.tsx`), /layout === 'print'|'print'/, 'the read-only print layout is back');
+  /* (Within ONE mount: `(?!\/>)` never lets the match run on into Event Details' own mount below.) */
+  assert.match(ask, /const replyByRow = replyByOwn \? \(\s*<ReplyBy\s+layout="frame"\s+frame=\{replyByFrame\}(?:(?!\/>)[\s\S])*?action=\{replyByAction\}\s+draft\s*\/>/, 'the Maker does not mount the editable row, drafted');
+  assert.match(ask, /const replyByFrame = \(row: ReplyByFrame\) => <DateRow data="reply-by" name=\{row\.name\} value=\{row\.own\} shown=\{row\.fallback\} onKeep=\{row\.keep\} attrs=\{row\.attrs\} \/>;/);
+  assert.match(ask, /<FormRows data="rsvp">\s*\{replyByRow\}/, 'Reply by is not the first of the reply’s rows');
+  const part = read(`${D}/_components/guest-setup/reply-by.tsx`);
+  assert.doesNotMatch(part, /layout === 'print'|'print'/, 'the read-only print layout is back');
+  /* The part itself carries no template: Guests › Setup's page does not download the Form row or the calendar. */
+  assert.doesNotMatch(part, /form-row|calendar/i, 'the shared part imports a template (Guests › Setup would carry it)');
 });

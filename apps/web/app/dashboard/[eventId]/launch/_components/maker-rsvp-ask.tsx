@@ -1,11 +1,15 @@
 'use client';
 
-import { HUB_DRAFT_BAR_FIELD, SUPERSEDED, makerLatestWrite, makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
+import { HUB_DRAFT_BAR_FIELD, SUPERSEDED, makerLatestWrite, makerRedrawSave, makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { canvasWriteKey, draftedCanvasOr, noteDraftedCanvas } from '@/lib/maker-draft-store';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
 import { HUB_DRAFT_FIELD, type HubDraftActionResult } from '@/lib/hub-draft';
-import { useEffect, useId, useRef, useState, useTransition, type ReactNode } from 'react';
-import { PickMenu } from '../../website/editor/_components/pick-menu';
+import { useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
+import { RotateCcw } from 'lucide-react';
+import { ChosenRow, FormRow, FormRows, TypedRow, type FormRowAbout } from '@/app/_components/form-row';
+import { DateRow } from '@/app/_components/form-row-date';
+import { PillSelector } from '@/app/_components/pill-selector';
+import { ActionButton } from '@/components/action-button';
 import {
   RSVP_DRAFT_TYPE,
   RSVP_PREVIEW_EVENT,
@@ -34,10 +38,12 @@ import { GUESTS_GET_IN_LABEL, guestsGetInPatch, readGuestsGetIn } from '@/lib/wh
    Setup mounts — never a second copy here (`setup-and-maker-mount-the-same-parts.test.ts`). */
 /* ⚖ Loaded when first drawn, warmed at idle (the Maker's first-load budget) — `guest-setup-lazy.tsx`. */
 import { GuestsGetIn, ReplyBy, RsvpAsks } from '../../_components/guest-setup/guest-setup-lazy';
+import type { GuestsGetInFrame } from '../../_components/guest-setup/guests-get-in';
+import type { ReplyByFrame } from '../../_components/guest-setup/reply-by';
 import { formatCount } from '@/lib/format-number';
 import { readCelebrationKey, type RsvpCelebration } from '@/lib/rsvp-celebration';
 import { CelebrationPick } from './celebration-pick';
-import { STUDIO_GROUP, STUDIO_GROUP_HEAD, STUDIO_GROUP_HEAD_LINE, STUDIO_ROW, STUDIO_ROW_LABEL, STUDIO_ROW_PICK, STUDIO_ROW_SUB } from '@/lib/studio-skin';
+import { STUDIO_GROUP } from '@/lib/studio-skin';
 
 /**
  * THE RSVP PAGE'S CONTROLS — the Maker's own RSVP page (guest pathway brief
@@ -155,7 +161,7 @@ export function MakerRsvpSettings({
      server's `current` stays what it was at the last render — reopening the
      stage must not show the switches as they were before this visit's edits. */
   const seen = (server: RsvpAskConfig): RsvpAskConfig =>
-    stage ? (draftedCanvasOr(RSVP_DRAFT_TYPE, server as HubSectionCanvas) as RsvpAskConfig) : server;
+    stage || studio ? (draftedCanvasOr(RSVP_DRAFT_TYPE, server as HubSectionCanvas) as RsvpAskConfig) : server;
   const [local, setLocal] = useState<RsvpAskConfig>(() => seen(current));
   /* ⚡ A SWITCH FLIPS ON THE TAP (owner 2026-09-29, this page: *"when a toggle
      is pressed. everything loads for around 3 seconds"*). It used to set
@@ -196,7 +202,12 @@ export function MakerRsvpSettings({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentKey]);
 
-  const save = (patch: RsvpAskConfig, what?: string) => {
+  /**
+   * `said`: the control that asked says a refusal ITSELF (a Form row's own red line and Try again) — the panel's one
+   * line under the list then stays quiet, so a refusal is never said twice. The answer is the save's: whether the
+   * draft took it and, if not, why.
+   */
+  const save = (patch: RsvpAskConfig, what?: string, said = false): Promise<SaveAnswer> => {
     const next: RsvpAskConfig = { ...latest.current, ...patch };
     latest.current = next;
     setLocal(next); // ⚡ on screen at the tap — never inside the transition below
@@ -212,7 +223,7 @@ export function MakerRsvpSettings({
          count comes back with the save (`HUB_DRAFT_BAR_FIELD`). */
       announceRsvpPreview(next);
       noteDraftedCanvas(RSVP_DRAFT_TYPE, next as HubSectionCanvas, current as HubSectionCanvas);
-      void (async () => {
+      return (async (): Promise<SaveAnswer> => {
         let res: HubDraftActionResult | typeof SUPERSEDED;
         try {
           res = await makerSave(
@@ -233,12 +244,12 @@ export function MakerRsvpSettings({
           inFlight.current -= 1;
         }
         /* A later change carried this one — its answer decides for both. */
-        if (res === SUPERSEDED) return;
+        if (res === SUPERSEDED) return KEPT;
         if (res.ok) {
           saved.current = next;
-          return;
+          return KEPT;
         }
-        if (tap !== newest.current) return;
+        if (tap !== newest.current) return KEPT;
         /* Only what did not save goes back — on the panel AND on the canvas —
            and it is said in words. */
         const back = saved.current;
@@ -246,9 +257,54 @@ export function MakerRsvpSettings({
         setLocal(back);
         announceRsvpPreview(back);
         noteDraftedCanvas(RSVP_DRAFT_TYPE, back as HubSectionCanvas, current as HubSectionCanvas);
-        setError(`${what ?? rsvpSettingName(patch)} did not save, so it is back as it was. ${res.error || 'Please try again.'}`);
+        if (!said) setError(`${what ?? rsvpSettingName(patch)} did not save, so it is back as it was. ${res.error || 'Please try again.'}`);
+        return { ok: false, error: `It is back as it was. ${res.error || 'Please try again.'}` };
       })();
-      return;
+    }
+    if (studio) {
+      /* 🧭 STUDIO › RSVP — ONE REQUEST A PRESS, NO RENDER OF THE MAKER (owner rule 2026-10-08: *"the least amount of
+         request for the tasks to be done"*; the way Studio › Info keeps an answer). It was an unheld save: one draft
+         write AND a whole render of the Maker per burst — per keystroke while a word was typed. Now: the panel
+         builds on the Maker's own copy (`noteDraftedCanvas`), the newest change of a burst is the ONE write
+         (`makerLatestWrite`), the Apply count comes back with it (`HUB_DRAFT_BAR_FIELD`), and the pages the Maker
+         shows redraw themselves in place once the last write has landed (`makerRedrawSave`) — the RSVP's own
+         screens are told at once (`announceRsvpPreview`). */
+      announceRsvpPreview(next);
+      noteDraftedCanvas(RSVP_DRAFT_TYPE, next as HubSectionCanvas, current as HubSectionCanvas);
+      return (async (): Promise<SaveAnswer> => {
+        let res: HubDraftActionResult | typeof SUPERSEDED;
+        try {
+          res = await makerRedrawSave(
+            () =>
+              makerLatestWrite(canvasWriteKey(RSVP_DRAFT_TYPE), () => {
+                const fd = new FormData();
+                fd.set('intent', 'save');
+                fd.set('patch', JSON.stringify({ events: { rsvp_ask_config: next } }));
+                fd.set(HUB_DRAFT_BAR_FIELD, '1');
+                return draftAction(eventId, fd);
+              }),
+            requestMakerRefresh,
+            (r) => r !== SUPERSEDED && r.ok === true,
+          );
+        } catch {
+          res = { ok: false, intent: 'save', error: 'Please try again.' };
+        } finally {
+          inFlight.current -= 1;
+        }
+        if (res === SUPERSEDED) return KEPT;
+        if (res.ok) {
+          saved.current = next;
+          return KEPT;
+        }
+        if (tap !== newest.current) return KEPT;
+        const back = saved.current;
+        latest.current = back;
+        setLocal(back);
+        announceRsvpPreview(back);
+        noteDraftedCanvas(RSVP_DRAFT_TYPE, back as HubSectionCanvas, current as HubSectionCanvas);
+        if (!said) setError(`${what ?? rsvpSettingName(patch)} did not save, so it is back as it was. ${res.error || 'Please try again.'}`);
+        return { ok: false, error: `It is back as it was. ${res.error || 'Please try again.'}` };
+      })();
     }
     start(async () => {
       let refused: string | null = null;
@@ -276,14 +332,23 @@ export function MakerRsvpSettings({
         setError(`${rsvpSettingName(patch)} did not save, so it is back as it was. ${refused}`);
       }
     });
+    /* Event Details' own controls say a refusal on the panel's one line (above). */
+    return Promise.resolve(KEPT);
   };
 
   /** One word typed (or picked) — the whole `words` object travels, as one config. */
-  const saveWord = (key: RsvpWordKey, text: string) => {
+  const wordsWith = (key: RsvpWordKey, text: string) => {
     const words = { ...(latest.current.words ?? {}) };
     if (text === '') delete words[key];
     else words[key] = text.slice(0, RSVP_WORD_MAX[key]);
-    save({ words }, `“${sceneWordName(key)}”`);
+    return words;
+  };
+  const saveWord = (key: RsvpWordKey, text: string, said = false) => save({ words: wordsWith(key, text) }, `“${sceneWordName(key)}”`, said);
+  /* ✍ AS IT IS TYPED IN ITS ROW, the page shows it (owner 2026-09-30: *"fast and realtime and changes instantly"*) —
+     a preview only: nothing is kept until the row is left (tap out or Enter), and ✕ puts the page back. */
+  const previewWord = (key: RsvpWordKey, text: string) => {
+    if (!stage && !studio) return;
+    announceRsvpPreview({ ...latest.current, words: wordsWith(key, text) });
   };
   /* ⌨ A WORD TYPED ON THE PAGE (the RSVP stage's canvas, a second tap on the picked part's words —
      `rsvp-canvas-bridge.tsx`) IS THIS BOX'S OWN SAVE: one value, two doors. On the canvas first, drafted behind it,
@@ -295,13 +360,83 @@ export function MakerRsvpSettings({
     const onTyped = (e: Event) => {
       const d = (e as CustomEvent<{ key?: unknown; text?: unknown }>).detail;
       if (typeof d?.text !== 'string' || !(RSVP_WORD_KEYS as readonly unknown[]).includes(d.key)) return;
-      saveWordRef.current(d.key as RsvpWordKey, d.text);
+      void saveWordRef.current(d.key as RsvpWordKey, d.text);
     };
     window.addEventListener(RSVP_WORD_TYPED_EVENT, onTyped);
     return () => window.removeEventListener(RSVP_WORD_TYPED_EVENT, onTyped);
   }, [stage]);
 
   const oneAtATime = readOneAtATime(local);
+  const words = local.words ?? {};
+  const status = error ? (
+    <p role="alert" className="px-1 pt-2 text-[12.5px] font-semibold text-danger-700" data-rsvp-stage-error="">
+      {error}
+    </p>
+  ) : null;
+
+  /* ══ 🧾 THE RSVP'S ROWS — ONE SOURCE FOR EVERY DOOR ══
+     (owner 2026-10-08: *"we want the whole app to be adaptive to the same feel"* · *"field follow form row style"*;
+     `INTERACTION_RULES.md` § 9; the approved gallery § 1 · § 2 · § 6 · § 8 · § 10 · § 11.)
+     Studio › RSVP and the RSVP stage's form draw the SAME list, in the Studio's order; the stage's two after-screens
+     draw their words the same way. Each row is one approved kind:
+       Reply by            Form row with a date (the one calendar)       drafted through `updatePaxSettings`
+       How guests answer   Pill selector — two named things              `oneAtATime`
+       Yes · No answer     Form row, typed — and Start from ▾ under it   `words`
+       How guests get in   Dropdown in a Form row                        `guestsReply · whoCanRsvp · approveEach`
+       RSVP asks           Chips — choose several                        the six questions
+     Every one saves the ONE object into the draft and waits for ✓ Apply. Opening the page, a row or the calendar
+     writes nothing. */
+
+  /* 📅 Reply by — the shared part keeps the value and the one writer; the row is the app's own (`frame`). */
+  const replyByRow = replyByOwn ? (
+    <ReplyBy
+      layout="frame"
+      frame={replyByFrame}
+      eventId={eventId}
+      own={replyByOwn.deadline}
+      pricingMode={replyByOwn.pricingMode}
+      fallback={replyByFallback ?? (replyBy?.isDefault ? replyBy.date : null)}
+      action={replyByAction}
+      draft
+    />
+  ) : (
+    <FormRow data="reply-by" name="Reply by" problem="We couldn’t read your reply-by date just now, so it can’t be changed here. Nothing was changed." />
+  );
+  /* ❓ How guests answer — two named things, so a pill selector (never a switch, never a list of two). */
+  const answerRow = (
+    <FormRow
+      data="how-guests-answer"
+      name={HOW_GUESTS_ANSWER_LABEL}
+      about={{ words: HOW_GUESTS_ANSWER_ABOUT }}
+      attrs={{ 'data-rsvp-setting': 'how-guests-answer' }}
+    >
+      <PillSelector
+        label={HOW_GUESTS_ANSWER_LABEL}
+        data="rsvp-answer"
+        grow={false}
+        value={oneAtATime ? 'one' : 'all'}
+        options={HOW_GUESTS_ANSWER_OPTIONS}
+        onPick={(value) => {
+          const next = value === 'one';
+          if (next !== oneAtATime) void save({ oneAtATime: next }, `“${HOW_GUESTS_ANSWER_LABEL}”`);
+        }}
+      />
+    </FormRow>
+  );
+  /* ✍ The words a scene holds — typed rows, each with its Start from ▾. */
+  const wordRows = (of: RsvpStageScene) =>
+    RSVP_SCENE_WORDS[of].map((key) => (
+      <WordRows
+        key={key}
+        wordKey={key}
+        value={words[key] ?? ''}
+        automatic={key === 'attending' || key === 'declined' ? rsvpAnswerWord(null, key, solemn) : sceneWordPlaceholder(key)}
+        lines={RSVP_WORD_LINES[key][solemn ? 'solemn' : 'celebrate']}
+        about={of === 'form' ? null : { words: RSVP_NAME_HINT }}
+        onType={(text) => previewWord(key, text)}
+        onKeep={(text) => saveWord(key, text, true)}
+      />
+    ));
   /* 🎟 HOW GUESTS GET IN — "Will guests reply? / Entry" and the guest-list type
      as ONE dropdown (owner 2026-10-02, DECISION_LOG "EVERY ANSWER ABOUT AN EVENT
      LIVES IN EVENT DETAILS ('YOUR INFO') — ONE HOME, MAPPED"). Every choice is a
@@ -310,40 +445,33 @@ export function MakerRsvpSettings({
      through the draft door like every other key here. The Guest list may show
      it; only Your info sets it. */
   const getInNow = readGuestsGetIn(local);
-  const getIn = (
-    <GuestsGetIn
-      value={getInNow}
-      onPick={(value) => save(guestsGetInPatch(value), `“${GUESTS_GET_IN_LABEL}”`)}
-      rowClassName="flex flex-wrap items-center justify-between gap-x-3 gap-y-1"
-      pickClassName=""
-    />
+  const pickGetIn = (value: Parameters<typeof guestsGetInPatch>[0]) => void save(guestsGetInPatch(value), `“${GUESTS_GET_IN_LABEL}”`);
+  const getInRow = <GuestsGetIn frame={getInFrame} value={getInNow} onPick={pickGetIn} />;
+  /* ✓ The six asks — the shared part draws the chips (Guests › Setup draws the same); the row around them is the app's. */
+  const toggleAsk = (field: (typeof RSVP_ASK_FIELDS)[number], v: boolean) => void save({ [field]: v });
+  const asksRow = <RsvpAsks frame={asksFrame} config={local} onToggle={toggleAsk} />;
+  /** The reply's own rows, in the Studio's order — the list Studio › RSVP and the stage's form both draw. */
+  const formRows = (
+    <FormRows data="rsvp">
+      {replyByRow}
+      {answerRow}
+      {wordRows('form')}
+      {getInRow}
+      {asksRow}
+    </FormRows>
   );
-  /* ✓ The six asks — the shared toggle buttons (Guests › Setup draws the same). */
-  const asks = <RsvpAsks config={local} onToggle={(field, v) => save({ [field]: v })} rowClassName="flex flex-col gap-2" />;
+  /* Event Details' item keeps its own rows for these two until that page moves (the same parts, Guests › Setup's look). */
+  const getIn = (
+    <GuestsGetIn value={getInNow} onPick={pickGetIn} rowClassName="flex flex-wrap items-center justify-between gap-x-3 gap-y-1" pickClassName="" />
+  );
+  const asks = <RsvpAsks config={local} onToggle={toggleAsk} rowClassName="flex flex-col gap-2" />;
 
   /* ══ 🗳 THE RSVP STAGE — one scene's controls ══
-     The form: its YES / NO words, then how it asks (one at a time), what it
-     asks, who may ask, and by when. The thank-you and the decline: a heading
+     The form: the reply's own rows (above). The thank-you and the decline: a heading
      and a message. Presentation only — who replied, requests and reminders
      belong to the Guest list (DECISION_LOG 2026-09-30, "THE MAKER EDITS HOW IT
      LOOKS; THE GUEST LIST MANAGES THE PEOPLE"). */
   if (scene !== undefined) {
-    const words = local.words ?? {};
-    const status = error ? (
-      <p role="alert" className="text-[13px] text-terracotta-700" data-rsvp-stage-error="">
-        {error}
-      </p>
-    ) : null;
-    const wordRows = RSVP_SCENE_WORDS[scene].map((key) => (
-      <WordField
-        key={key}
-        wordKey={key}
-        value={words[key] ?? ''}
-        placeholder={key === 'attending' || key === 'declined' ? rsvpAnswerWord(null, key, solemn) : sceneWordPlaceholder(key)}
-        lines={RSVP_WORD_LINES[key][solemn ? 'solemn' : 'celebrate']}
-        onChange={(text) => saveWord(key, text)}
-      />
-    ));
     if (scene !== 'form') {
       return (
         <div className="flex flex-col gap-5 px-1" data-rsvp-stage-controls={scene}>
@@ -361,133 +489,31 @@ export function MakerRsvpSettings({
               storeShell={celebration.storeShell}
               colours={celebration.colours}
               onPick={(next: RsvpCelebration) =>
-                save({ celebration: next === 'none' ? undefined : next }, `“Celebration”`)
+                void save({ celebration: next === 'none' ? undefined : next }, `“Celebration”`)
               }
             />
           ) : null}
-          {wordRows}
-          <p className="text-xs text-ink/60">Type {'{name}'} and each guest sees their own name.</p>
+          <FormRows data={`rsvp-${scene}`}>{wordRows(scene)}</FormRows>
           {drafted || newest.current > 0 ? <DraftNote /> : null}
           {status}
         </div>
       );
     }
     return (
-      <div className="flex flex-col gap-5 px-1" data-rsvp-stage-controls="form">
-        <section className="flex flex-col gap-3" data-rsvp-setting="answers">
-          <p className="text-sm font-semibold text-ink">The answers</p>
-          {wordRows}
-        </section>
-        <section className="flex flex-col gap-1" data-rsvp-setting="one-at-a-time">
-          <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">
-            Ask one question at a time
-          </p>
-          <Switch
-            label={oneAtATime ? 'On · one question per screen' : 'Off · one scrolling page'}
-            on={oneAtATime}
-            onChange={(v) => save({ oneAtATime: v })}
-          />
-        </section>
-        {asks}
-        {getIn}
-        <section className="flex flex-col gap-1" data-rsvp-setting="reply-by">
-          <p className="text-sm font-semibold text-ink">Reply by</p>
-          {replyByOwn ? (
-            <ReplyBy
-              layout="stack"
-              eventId={eventId}
-              own={replyByOwn.deadline}
-              pricingMode={replyByOwn.pricingMode}
-              fallback={replyByFallback}
-              action={replyByAction}
-              draft
-            />
-          ) : (
-            <p role="alert" className="text-[13px] text-terracotta-700">
-              We couldn&rsquo;t read your reply-by date just now, so it can&rsquo;t be changed here. Nothing was changed.
-            </p>
-          )}
-        </section>
-        {drafted || newest.current > 0 ? <DraftNote /> : null}
+      <div className="flex flex-col px-1" data-rsvp-stage-controls="form">
+        {formRows}
         {status}
       </div>
     );
   }
 
-  /* ══ 🧭 STUDIO › RSVP — the prototype's tool (`studio`, `EDITORS.rsvp`), over the SAME saves ══
-     Its rows, in its order: Reply by · How guests answer ▾ · WORDS · WHAT THE REPLY ASKS (one row
-     per question, its switch on the right) · When yes. 48 px rows on white bands, small-capital
-     group headings (`lib/studio-skin.ts`); never a box. */
+  /* ══ 🧭 STUDIO › RSVP — the same rows on the Studio's white band, then When yes ══
+     No title inside the page (the Studio's own row names the tool) and no group headings: the page opens on its
+     first row. */
   if (studio) {
-    const words = local.words ?? {};
     return (
       <div className="flex flex-col" data-studio-rsvp="">
-        <div className={STUDIO_GROUP}>
-          {/* 📅 Reply by — CHANGED right here, on its row (owner on the preview 2026-10-08: *"where it the
-              reply by date?"* → *"date is not changeable on studio."* It was printed read-only, "set on
-              Guests › Setup or in Event Details" — a go-elsewhere). The shared part, `draft`: the pick
-              waits in the hub draft for ✓ Apply ("draft 1-3") and moves its count. */}
-          {replyByOwn ? (
-            <ReplyBy
-              layout="studio"
-              eventId={eventId}
-              own={replyByOwn.deadline}
-              pricingMode={replyByOwn.pricingMode}
-              fallback={replyByFallback ?? (replyBy?.isDefault ? replyBy.date : null)}
-              rowClassName={STUDIO_ROW}
-              action={replyByAction}
-              draft
-            />
-          ) : (
-            <p role="alert" className="py-2 text-[13px] text-terracotta-700">
-              We couldn&rsquo;t read your reply-by date just now, so it can&rsquo;t be changed here. Nothing was changed.
-            </p>
-          )}
-          {/* ❓ How guests answer ▾ — ONE dropdown over the shipped `oneAtATime` (drafted, counted on ✓). */}
-          <section className={STUDIO_ROW} data-rsvp-setting="how-guests-answer">
-            <p className={STUDIO_ROW_LABEL}>
-              <span className="text-[14.5px] font-semibold text-ink">{HOW_GUESTS_ANSWER_LABEL}</span>
-              <small className={STUDIO_ROW_SUB}>{HOW_GUESTS_ANSWER_OPTIONS[oneAtATime ? 1 : 0].hint}</small>
-            </p>
-            <PickMenu
-              label={HOW_GUESTS_ANSWER_LABEL}
-              dataAttr="data-rsvp-answer-pick"
-              value={oneAtATime ? 'one' : 'all'}
-              buttonText={howGuestsAnswerLabel(oneAtATime)}
-              options={HOW_GUESTS_ANSWER_OPTIONS}
-              onPick={(value) => {
-                const next = value === 'one';
-                if (next !== oneAtATime) save({ oneAtATime: next }, `“${HOW_GUESTS_ANSWER_LABEL}”`);
-              }}
-              className={STUDIO_ROW_PICK}
-            />
-          </section>
-        </div>
-        <p className={STUDIO_GROUP_HEAD}>
-          Words <small className={STUDIO_GROUP_HEAD_LINE}>the two answers</small>
-        </p>
-        <section className={`${STUDIO_GROUP} gap-3 py-3`} data-rsvp-setting="answers">
-          {RSVP_SCENE_WORDS.form.map((key) => (
-            <WordField
-              key={key}
-              wordKey={key}
-              value={words[key] ?? ''}
-              placeholder={rsvpAnswerWord(null, key as 'attending' | 'declined', solemn)}
-              lines={RSVP_WORD_LINES[key][solemn ? 'solemn' : 'celebrate']}
-              onChange={(text) => saveWord(key, text)}
-            />
-          ))}
-        </section>
-        {/* 🎟 How guests get in ▾ + ✓ RSVP asks — the SAME parts as Guests › Setup (owner 2026-10-07). */}
-        <div className={STUDIO_GROUP}>
-          <GuestsGetIn
-            value={getInNow}
-            onPick={(value) => save(guestsGetInPatch(value), `“${GUESTS_GET_IN_LABEL}”`)}
-            rowClassName={`${STUDIO_ROW} gap-3`}
-            pickClassName={STUDIO_ROW_PICK}
-          />
-          <RsvpAsks config={local} onToggle={(field, v) => save({ [field]: v })} rowClassName="flex flex-col gap-2 py-3" />
-        </div>
+        <div className={STUDIO_GROUP}>{formRows}</div>
         {celebration ? (
           <div className={STUDIO_GROUP}>
             <CelebrationPick
@@ -495,15 +521,11 @@ export function MakerRsvpSettings({
               ownsPro={celebration.ownsPro}
               storeShell={celebration.storeShell}
               colours={celebration.colours}
-              onPick={(next: RsvpCelebration) => save({ celebration: next === 'none' ? undefined : next }, `“Celebration”`)}
+              onPick={(next: RsvpCelebration) => void save({ celebration: next === 'none' ? undefined : next }, `“Celebration”`)}
             />
           </div>
         ) : null}
-        {error ? (
-          <p role="alert" className="px-1 text-[13px] text-terracotta-700">
-            {error}
-          </p>
-        ) : null}
+        {status}
       </div>
     );
   }
@@ -511,16 +533,9 @@ export function MakerRsvpSettings({
   return (
     <div className="flex flex-col gap-5 px-1" data-made-once="rsvp-page">
       <DetailsPieceOnly item="rsvp" piece="questions">
-      {/* ── Ask one question at a time ── */}
-      <section className="flex flex-col gap-1" data-rsvp-setting="one-at-a-time">
-        <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">
-          Ask one question at a time
-        </p>
-        <Switch
-          label={oneAtATime ? 'On · one question per screen' : 'Off · one scrolling page'}
-          on={oneAtATime}
-          onChange={(v) => save({ oneAtATime: v })}
-        />
+      {/* ── How guests answer — the ONE control for `oneAtATime`, the same row as Studio › RSVP and the stage ── */}
+      <section data-rsvp-setting="one-at-a-time">
+        <FormRows data="rsvp-answer">{answerRow}</FormRows>
       </section>
 
       {/* ── What do you ask your guests? (moved here from Details) ── */}
@@ -589,23 +604,44 @@ export function MakerRsvpSettings({
   );
 }
 
-/** The setting a refused save put back, as the couple reads it on this page. */
+/* ── THE SHARED PARTS' ROWS — the Maker's own frame for each (`_components/guest-setup/`): the part keeps the value,
+   the choices and the one writer; the Maker hands in the app's Form row, so Guests › Setup's page carries no
+   template of ours and both doors still mount ONE part (`setup-and-maker-mount-the-same-parts.test.ts`). ── */
+
+/** 📅 Reply by → the Form row with a date: the pill with the calendar mark, the one calendar behind it. (The three frames are exported for their guard, which draws each part with it.) */
+export const replyByFrame = (row: ReplyByFrame) => <DateRow data="reply-by" name={row.name} value={row.own} shown={row.fallback} onKeep={row.keep} attrs={row.attrs} />;
+/** 🎟 How guests get in → the dropdown in a Form row; the picked choice's one sentence is behind its ⓘ. */
+export const getInFrame = (row: GuestsGetInFrame) => (
+  <ChosenRow data="get-in" name={row.name} about={{ words: row.hint }} value={row.value} buttonText={row.buttonText} options={row.options} onPick={row.onPick} dataAttr={row.dataAttr} attrs={row.attrs} />
+);
+/** ✓ RSVP asks → a Form row whose answer is the chips under it; its sentence is behind its ⓘ. */
+export const asksFrame = (row: { name: string; line: string; chips: ReactNode; attrs: Readonly<Record<`data-${string}`, string>> }) => (
+  <FormRow data="asks" name={row.name} about={{ words: row.line }} attrs={row.attrs} below={<div className="pb-3 pt-0.5">{row.chips}</div>} />
+);
+
+/** What a save answers: the draft took it — or it did not, and why (the panel is already back as it was). */
+type SaveAnswer = { ok: true } | { ok: false; error: string };
+const KEPT: SaveAnswer = { ok: true };
+
 /**
- * ❓ HOW GUESTS ANSWER ▾ (owner 2026-10-06: *"on RSVP, it can show all the questions or the
- * data to fill like a form or ask one by one"*) — ONE dropdown, two choices, over the ONE
- * shipped key `rsvp_ask_config.oneAtATime` (`readOneAtATime`). No second setting.
+ * ❓ HOW GUESTS ANSWER (owner 2026-10-06: *"on RSVP, it can show all the questions or the
+ * data to fill like a form or ask one by one"*) — two named things over the ONE shipped key
+ * `rsvp_ask_config.oneAtATime` (`readOneAtATime`), so ONE pill selector (owner 2026-10-08, the
+ * templates: a choice between two named things is a 2-way pill selector — it was a dropdown of
+ * two in Studio and a switch "Ask one question at a time" on the stage and in Event Details).
+ * No second setting.
  */
 export const HOW_GUESTS_ANSWER_LABEL = 'How guests answer';
 export const HOW_GUESTS_ANSWER_OPTIONS = [
   { key: 'all', label: 'All at once', hint: 'Every question on one page, like a form' },
   { key: 'one', label: 'One by one', hint: 'One question per screen · Next › Send' },
 ] as const;
-export function howGuestsAnswerLabel(oneAtATime: boolean): string {
-  return HOW_GUESTS_ANSWER_OPTIONS[oneAtATime ? 1 : 0].label;
-}
+/** Behind the row's ⓘ: what each of the two means — the options' own lines, word for word. */
+export const HOW_GUESTS_ANSWER_ABOUT = HOW_GUESTS_ANSWER_OPTIONS.map((o) => `${o.label}: ${o.hint}.`).join(' ');
 
+/** The setting a refused save put back, as the couple reads it on this page. */
 function rsvpSettingName(patch: RsvpAskConfig): string {
-  if ('oneAtATime' in patch) return '“Ask one question at a time”';
+  if ('oneAtATime' in patch) return `“${HOW_GUESTS_ANSWER_LABEL}”`;
   if ('whoCanRsvp' in patch) return `“${GUESTS_GET_IN_LABEL}”`;
   const field = RSVP_ASK_FIELDS.find((f) => f in patch);
   return field ? `“${RSVP_ASK_LABEL[field]}”` : 'That change';
@@ -638,113 +674,96 @@ function DraftNote() {
   );
 }
 
+/** Said behind the ⓘ of an after-screen's words — the panel's own sentence, word for word. */
+const RSVP_NAME_HINT = 'Type {name} and each guest sees their own name.';
+/** "Start from ▾": what the couple wrote themselves. */
+const OWN_WORDS = 'own';
+
 /**
  * ONE WORD, TYPED OR PICKED (owner 2026-09-30: *"Joyfully Accepts can be
- * renamed"* — type your own, or a premade line). The box is the couple's own
- * words; Wording ▾ drops a premade line into it. Empty = today's wording.
- * `data-rsvp-word-field` lets a tap on the canvas bring its box up.
+ * renamed"* — type your own, or a premade line), on the app's Form row (owner
+ * 2026-10-08: *"field follow form row style"*):
+ *
+ *   · the row's pill holds the couple's words — empty, it reads the words the page uses by itself, in grey;
+ *   · a tap opens the field across the row (a message: the taller box). Tapping out or Enter keeps — ONE drafted
+ *     write; ✕ leaves it as it was. While it is typed the page shows it (`onType`), and nothing is kept;
+ *   · "Start from ▾" under it drops a premade line into the row (it FILLS the answer, it does not become it) —
+ *     the same row Studio › Info's Opening line has;
+ *   · the house quiet action puts the page's own words back (it was an underlined link).
+ * `data-rsvp-word-field` lets a tap on the canvas bring its row up.
  */
-function WordField({
+function WordRows({
   wordKey,
   value,
-  placeholder,
+  automatic,
   lines,
-  onChange,
+  about,
+  onType,
+  onKeep,
 }: {
   wordKey: RsvpWordKey;
   value: string;
-  placeholder: string;
+  /** What the page says while there are no words of the couple's own. */
+  automatic: string;
   lines: readonly string[];
-  onChange: (text: string) => void;
+  about: FormRowAbout | null;
+  onType: (text: string) => void;
+  onKeep: (text: string) => Promise<SaveAnswer>;
 }) {
-  const id = useId();
-  const long = RSVP_WORD_MAX[wordKey] > 80;
-  return (
-    <div className="flex flex-col gap-1.5" data-rsvp-word-field={wordKey}>
-      <div className="flex items-center justify-between gap-2">
-        <label htmlFor={id} className="text-sm font-semibold text-ink">
-          {RSVP_WORD_LABEL[wordKey]}
-        </label>
-        {lines.length > 0 ? (
-        <PickMenu
-          label={`${RSVP_WORD_LABEL[wordKey]} — premade lines`}
-          dataAttr="data-rsvp-word-lines"
-          value={null}
-          buttonText="Wording"
-          options={lines.map((line) => ({ key: line, label: line }))}
-          onPick={(line) => onChange(line)}
-        />
-        ) : null}
-      </div>
-      {long ? (
-        <textarea
-          id={id}
-          value={value}
-          rows={2}
-          maxLength={RSVP_WORD_MAX[wordKey]}
-          placeholder={placeholder}
-          onChange={(e) => onChange(e.target.value)}
-          className="min-h-11 rounded-md border border-ink/15 bg-white px-3 py-2 text-sm text-ink"
-        />
-      ) : (
-        <input
-          id={id}
-          type="text"
-          value={value}
-          maxLength={RSVP_WORD_MAX[wordKey]}
-          placeholder={placeholder}
-          onChange={(e) => onChange(e.target.value)}
-          className="min-h-11 rounded-md border border-ink/15 bg-white px-3 text-sm text-ink"
-        />
-      )}
-      {value ? (
-        <button
-          type="button"
-          onClick={() => onChange('')}
-          className="sn-press self-start text-[12.5px] font-semibold text-ink/65 underline underline-offset-2"
-        >
-          Use the automatic words
-        </button>
-      ) : null}
+  const name = RSVP_WORD_LABEL[wordKey];
+  const picked = lines.includes(value) ? value : null;
+  const [problem, setProblem] = useState<string | null>(null);
+  /* A pick or the reset is this row's own save too: a refusal is said under the row it belongs to. */
+  const put = (text: string) => {
+    setProblem(null);
+    void onKeep(text).then((r) => {
+      if (!r.ok) setProblem(`${name} did not save. ${r.error}`);
+    });
+  };
+  const reset = value ? (
+    <div className="flex justify-end pb-2" data-rsvp-word-reset={wordKey}>
+      <ActionButton tone="neutral" quiet icon={RotateCcw} label="Use the automatic words" onClick={() => put('')} />
     </div>
-  );
-}
-
-/** One on/off row — the switch the six questions have always used. */
-function Switch({
-  label,
-  on,
-  onChange,
-}: {
-  label: React.ReactNode;
-  on: boolean;
-  onChange: (next: boolean) => void;
-}) {
-  // `label` is usually an <InfoTip>, which renders a <button>. A <label> with
-  // no `for` controls its FIRST labelable descendant — that ⓘ button — so a tap
-  // on the row opened the tip instead of flipping the switch. `htmlFor` pins the
-  // label to the checkbox; the ⓘ stays its own button
-  // (lib/a-label-controls-its-switch.test.ts).
-  const id = useId();
+  ) : null;
   return (
-    <label
-      htmlFor={id}
-      className="flex min-h-11 cursor-pointer items-center justify-between gap-3 border-b border-ink/5 py-2 last:border-0"
-    >
-      <span className="flex items-center gap-1.5 text-sm text-ink">{label}</span>
-      <input
-        id={id}
-        type="checkbox"
-        role="switch"
-        checked={on}
-        aria-checked={on}
-        onChange={(e) => onChange(e.target.checked)}
-        className="peer sr-only"
+    <>
+      <TypedRow
+        data={`word-${wordKey}`}
+        attrs={{ 'data-rsvp-word-field': wordKey }}
+        name={name}
+        about={about}
+        value={value}
+        empty={automatic}
+        placeholder={automatic}
+        long={RSVP_WORD_MAX[wordKey] > 80}
+        maxLength={RSVP_WORD_MAX[wordKey]}
+        onType={onType}
+        onKeep={(text) => {
+          setProblem(null);
+          return onKeep(text);
+        }}
+        below={lines.length === 0 ? reset : null}
       />
-      <span
-        aria-hidden
-        className="relative h-6 w-11 shrink-0 rounded-full bg-ink/20 transition-colors duration-sn-control ease-sn after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform after:duration-sn-control after:ease-sn peer-checked:bg-terracotta-700 peer-checked:after:translate-x-5"
-      />
-    </label>
+      {lines.length > 0 ? (
+        <ChosenRow
+          data={`word-${wordKey}-start`}
+          name="Start from"
+          label={`${name} — start from`}
+          dataAttr="data-rsvp-word-lines"
+          value={picked ?? (value ? OWN_WORDS : null)}
+          buttonText={picked ?? (value ? 'Your own' : 'Choose')}
+          options={[...lines.map((line) => ({ key: line, label: line })), ...(value && !picked ? [{ key: OWN_WORDS, label: 'Your own', hint: 'Keep what you wrote' }] : [])]}
+          onPick={(line) => {
+            if (line !== OWN_WORDS && line !== value) put(line);
+          }}
+          problem={problem}
+          below={reset}
+        />
+      ) : problem ? (
+        <p role="alert" className="pb-2.5 pl-0.5 text-[12.5px] font-semibold text-danger-700">
+          {problem}
+        </p>
+      ) : null}
+    </>
   );
 }

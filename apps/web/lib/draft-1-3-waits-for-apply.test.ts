@@ -106,21 +106,25 @@ test('B · the Maker writes each into the DRAFT, never the live column', () => {
   assert.match(replyByPart, /fd\.set\('maker_quiet', '1'\);\s*if \(draft\) fd\.set\(HUB_DRAFT_FIELD, '1'\);/, 'the Maker’s Reply by does not ask for the draft');
   const makerRsvp = read(`${D}/launch/_components/maker-rsvp-ask.tsx`);
   const stackMounts = makerRsvp.match(/<ReplyBy\s+layout="stack"[\s\S]*?\/>/g) ?? [];
-  assert.ok(stackMounts.length >= 2, `the Maker mounts ${stackMounts.length} editable Reply by fields — the stage and Event Details each have one`);
+  assert.equal(stackMounts.length, 1, `the Maker mounts ${stackMounts.length} stacked Reply by fields — Event Details has the one`);
   for (const mount of stackMounts) assert.match(mount, /\baction=\{replyByAction\}\s+draft\s*\/>$/, 'a Maker Reply by field writes the live date');
   /* ⤷ Owner on the preview 2026-10-08: *"where it the reply by date?"* → *"date is not changeable on studio."*
      Studio › RSVP printed the date read-only, so on a phone the new Maker had NO place to change it. Its row
-     is the field now (`layout="studio"`), and like every Maker mount it is drafted — no mount is left without `draft`. */
+     is the field now, and like every Maker mount it is drafted — no mount is left without `draft`.
+     ⤷ The templates, the same night: Studio › RSVP and the RSVP stage's form draw ONE list of rows, so they share
+     ONE mount (`layout="frame"` — the part keeps the writer, the Maker hands in the app's date row). */
   const everyMount = makerRsvp.match(/<ReplyBy\b[\s\S]*?\/>/g) ?? [];
-  assert.equal(everyMount.length, 3, `the Maker mounts Reply by ${everyMount.length} times — Studio, the stage and Event Details`);
+  assert.equal(everyMount.length, 2, `the Maker mounts Reply by ${everyMount.length} times — the reply's rows (Studio and the stage) and Event Details`);
   for (const mount of everyMount) assert.match(mount, /\baction=\{replyByAction\}\s+draft\s*\/>$/, 'a Maker door shows Reply by without the field, or writes it live');
-  assert.match(makerRsvp, /if \(studio\) \{[\s\S]{0,900}?<ReplyBy\s+layout="studio"[\s\S]{0,400}?rowClassName=\{STUDIO_ROW\}\s+action=\{replyByAction\}\s+draft\s*\/>/, 'Studio › RSVP has no editable Reply by row');
+  assert.match(makerRsvp, /const replyByRow = replyByOwn \? \(\s*<ReplyBy\s+layout="frame"\s+frame=\{replyByFrame\}[\s\S]{0,400}?action=\{replyByAction\}\s+draft\s*\/>/, 'the reply’s rows have no editable Reply by row');
+  assert.equal((makerRsvp.match(/\{replyByRow\}/g) ?? []).length, 1, 'Reply by is not in the one list both doors draw');
+  assert.equal((makerRsvp.match(/\{formRows\}/g) ?? []).length, 2, 'Studio › RSVP and the stage’s form do not draw the same rows');
   assert.doesNotMatch(read(`${D}/_components/guest-setup/guest-setup-rows.tsx`), /<ReplyBy\b[^>]*\bdraft\b/, 'Guests › Setup drafts Reply by — it has no Apply to publish it');
   /* ⤷ Train 2026-10-08: a drafted pick is HELD (no render rides on it) and `updatePaxSettings` answers with no
      bar, so nothing moved the count on ✓ Apply until something else rendered — and the field said "Saved."
      under a date guests do not read yet. The part asks for the one render a held burst owes (as the
      thank-you words do) and says nothing; the live door (Guests › Setup has no Apply) keeps its "Saved.". */
-  assert.match(replyByPart, /if \(res\.ok\) \{\s*saved\.current = next;\s*if \(draft\) makerNeedsRender\(\);\s*else setNote\(\{ ok: true, text: 'Saved\.' \}\);\s*return;/, 'a drafted Reply by does not move the count on ✓ Apply — or says "Saved."');
+  assert.match(replyByPart, /if \(res\.ok\) \{\s*saved\.current = next;\s*if \(draft\) makerNeedsRender\(\);\s*else setNote\(\{ ok: true, text: 'Saved\.' \}\);\s*return \{ ok: true as const \};/, 'a drafted Reply by does not move the count on ✓ Apply — or says "Saved."');
   assert.match(replyByPart, /import \{[^}]*\bmakerNeedsRender\b[^}]*\} from '@\/lib\/maker-refresh';/, 'the shared Reply by part cannot ask the Maker for its render');
 
   const route = read('app/api/hub-print/[piece]/route.ts');

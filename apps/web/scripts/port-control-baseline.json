@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "8ff9e88195",
+  "generatedFromRef": "4dab3a3f0",
   "routeCount": 429,
   "destinations": 959,
-  "actions": 671,
-  "blocks": 5835,
+  "actions": 672,
+  "blocks": 5838,
   "routes": {
     "/": {
       "files": [
@@ -9671,6 +9671,7 @@
         "TickerPill",
         "TimelineReadProblem",
         "TimelineRow",
+        "UploadSend",
         "WhenTicker"
       ]
     },
@@ -9822,6 +9823,7 @@
     "/dev/details-lab": {
       "files": [
         "dev/details-lab/details-lab-node.tsx",
+        "dev/details-lab/lab-upload-stand-in.ts",
         "dev/details-lab/look-lab.tsx",
         "dev/details-lab/march-fixture.ts",
         "dev/details-lab/page.tsx",
@@ -9829,7 +9831,8 @@
       ],
       "destinations": [],
       "actions": [
-        "labDraft"
+        "labDraft",
+        "labMomentAction"
       ],
       "blocks": [
         "ColorsPanel",
@@ -9852,7 +9855,9 @@
         "MakerState",
         "MoodBoardStudio",
         "ScheduleDay",
-        "Stand"
+        "SlotsUploadStandIn.Provider",
+        "Stand",
+        "UploadOutcome"
       ]
     },
     "/dev/guests-lab": {

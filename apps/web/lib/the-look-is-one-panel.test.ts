@@ -404,3 +404,42 @@ test('(6) no Save in Look: the song, its switch and the hero video each post the
   assert.match(drafted, /if \(formData\.has\('bg_music_url'\)\) \{[\s\S]*?site_bg_music_enabled/);
   assert.match(drafted, /if \(formData\.has\('hero_video_url'\)\) \{\s*events\.landing_page_hero_video_r2_key/);
 });
+
+/* ── (7) words and behaviour agree ────────────────────────────────────── */
+
+test('(7) nothing in Look says "Guests see this right away": its controls draft, and the print form’s note is out of the reading order', async () => {
+  // The three the owner's preview walk named (2026-10-08) — each writes the DRAFT, by its own code path.
+  const buttons = read(`${E}/buttons-look-row.tsx`);
+  assert.match(buttons, /makerSave\(\(\) => hubDraftAction\(eventId, fd\)/, 'Buttons (shape · fill · colour) no longer saves through the draft door');
+  const src = read(`${E}/media-panels.tsx`);
+  const music = src.slice(src.indexOf('export function SiteChromePanel('), src.indexOf('export function VisibilityPanel('));
+  assert.match(music, /<HubDraftField \/>/, 'the song / its switch / the hero video no longer post into the draft');
+  for (const [what, code] of [['Buttons', buttons], ['Music', music], ['the Look panel', read(`${L}/details-look-pages.tsx`)], ['the colours panel', read(`${E}/pro-panels.tsx`)]] as const) {
+    assert.doesNotMatch(code, /HubSavesImmediately|HUB_LIVE_WORDS|Guests see this right away/, `${what} says it saves live`);
+  }
+  // The print words form is drawn under WHICHEVER editor is open. Its own live mark must not be read there:
+  // `sr-only` put "Guests see this right away" in the accessibility tree and the page's text under Look.
+  const details = read(`${L}/maker-details.tsx`);
+  const form = details.slice(details.indexOf('<form id={WORDS_FORM}'), details.indexOf('</form>', details.indexOf('<form id={WORDS_FORM}')));
+  assert.ok(form.length > 200, 'anti-vacuity: the print words form was not found');
+  assert.match(form, /<HubSavesImmediately className="!hidden" \/>/, 'the print form’s note is read under every editor again');
+  assert.doesNotMatch(form, /sr-only/);
+  // …and where that form's Save IS, the words are said out loud (the print switches do save live).
+  const save = details.slice(details.indexOf('function SaveWords()'));
+  assert.match(save.slice(0, 700), /<HubSavesImmediately \/>/, 'the print form’s Save no longer says it saves live');
+  // Rendered: the mark is in the form, and it is not displayed.
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { HubSavesImmediately } = await import('../app/dashboard/[eventId]/website/_components/hub-draft-field');
+  assert.match(renderToStaticMarkup(React.createElement(HubSavesImmediately, { className: '!hidden' })), /data-hub-saves-immediately=""[^>]*class="[^"]*!hidden/);
+  // 🧭 In the Studio a Look colour form sits flush with the rows around it — no padded block, no rule of its own (the gap under Magic Move).
+  const { MakerContext } = await import(`../${L}/maker-context`);
+  const { ColorsPanel } = await import(`../${E}/pro-panels`);
+  const base = { action: () => {}, eventId: 'E1', rowKey: 'colors', bgColor: null, buttonColor: null, artDirection: 'daylight' as const };
+  const formOf = (stagesStudio: boolean, part: 'art' | 'page' | 'font' | 'colours') =>
+    /<form[^>]*>/.exec(renderToStaticMarkup(React.createElement(MakerContext.Provider, { value: { stagesStudio } as never }, React.createElement(ColorsPanel, { ...base, part }))))?.[0] ?? '';
+  for (const part of ['art', 'page', 'font'] as const) {
+    assert.doesNotMatch(formOf(true, part), /p-3|border-dashed|bg-cream/, `in the Studio the ${part} form keeps its padded block (the gap)`);
+    assert.match(formOf(false, part), /border-t border-dashed border-ink\/10 bg-cream\/40 p-3/, `the shipped Maker's ${part} form lost its block`);
+  }
+  assert.match(formOf(true, 'colours'), /p-3/, 'the Event Details record row is not a Look part — it keeps its block');
+});

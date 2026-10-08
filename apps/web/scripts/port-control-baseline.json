@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "ed2ede65c",
+  "generatedFromRef": "2df7344c1",
   "routeCount": 428,
   "destinations": 954,
   "actions": 671,
-  "blocks": 5699,
+  "blocks": 5700,
   "routes": {
     "/": {
       "files": [
@@ -9785,7 +9785,8 @@
         "MakerRevealPicker",
         "MakerRsvpStage",
         "MakerShell",
-        "MakerWork"
+        "MakerWork",
+        "SiteChromePanel"
       ]
     },
     "/dev/maker-lab/guest": {

@@ -1185,8 +1185,12 @@ export function MakerDetails(props: MakerDetailsProps) {
             <form id={WORDS_FORM} action={PRINT_WORDS_ENDPOINT} method="post" data-details-include="" className="mt-2">
               {/* Said BESIDE every Save that posts this form (`SaveWords`), not
                   under every editor: under a drafted one (the special message,
-                  the Love Story) it read as a contradiction. */}
-              <HubSavesImmediately className="sr-only" />
+                  the Love Story, every Look control) it read as a contradiction.
+                  `hidden`, not `sr-only` (2026-10-08): this form is drawn under WHICHEVER
+                  editor is open, so a screen reader — and anything that reads the page's
+                  text — heard "Guests see this right away" under Look's drafted Buttons
+                  and Music. The mark stays in the form; nobody is told it where it is false. */}
+              <HubSavesImmediately className="!hidden" />
               <input type="hidden" name="event_id" value={eventId} />
               {/* ⏳ The opening line on this form goes into the DRAFT (owner 2026-10-08, "draft 1-3"); the switches stay live. */}
               <input type="hidden" name="opening_line_to_draft" value="1" />

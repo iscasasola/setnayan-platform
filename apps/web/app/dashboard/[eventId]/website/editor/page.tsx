@@ -948,7 +948,7 @@ export default async function WebsiteEditorPage({
               rowKey="colors"
               part="art"
               proLocked={colorsProLocked}
-              proLock={lockPanel('Candlelight and motion')}
+              proLock={lockPanel('Effects and motion')}
               proMark={proMark}
               themeId={currentThemeId}
               /* 🎨 Blank = the Mood Board's colours — shown AS those colours

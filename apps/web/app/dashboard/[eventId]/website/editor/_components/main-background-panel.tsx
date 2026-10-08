@@ -19,11 +19,13 @@ import {
   HUB_MAIN_PATTERN_LABEL,
   HUB_MEDIA_MOTIONS,
   HUB_MEDIA_MOTION_LABEL,
+  hubMainEffect,
   hubMainTakes,
   isHubMainFollow,
   isHubMainLoop,
   isHubMainOwn,
   mainGroundPosition,
+  type HubMainEffect,
   type HubMainFocus,
   type HubMainGround,
   type HubMainOwn,
@@ -49,6 +51,8 @@ import { StudioColourField } from '../../../launch/_components/studio-colour-fie
 import { BgCard, BgCards, BgPickLine, BgRow, LoopPicture, UploadPicture } from './background-cards';
 import { BgColourWells } from './background-colour-wells';
 import { BgFadeBar } from './background-fade-bar';
+import { BgEffects } from './background-effects';
+import { EFFECT_NONE, effectMayApply, effectPicked, effectWith, keepEffect, withEffect } from '@/lib/background-effect';
 import { fadeMain, fadeOf } from '@/lib/background-fade';
 import {
   BACKGROUND_PICK_CANCELLED,
@@ -282,6 +286,9 @@ export function HeroFrameSync({
   const tried = useRef<string | null>(null);
   const needs = heroFrameWrites({ current, heroRef, liveHeroRef, mainDrafted });
   const match = current && isHubMainFollow(current) ? current.tint.match : true;
+  /* ✨ The effect that is on rides along with the measurement — read at the write, never a reason to measure again. */
+  const effectNow = useRef(current?.effect);
+  effectNow.current = current?.effect;
 
   useEffect(() => {
     if (!needs || !heroRef || !heroUrl || tried.current === heroRef) return;
@@ -294,7 +301,7 @@ export function HeroFrameSync({
         if (!res.ok) throw new Error(String(res.status));
         const frame = await readFrame(await res.blob());
         if (frame.length === 0) throw new Error('empty frame');
-        const r = await makerSave(() => saveMain(eventId, { follow: 'hero', of: heroRef, tint: { match, frame } }), () => router.refresh());
+        const r = await makerSave(() => saveMain(eventId, { follow: 'hero', of: heroRef, tint: { match, frame }, ...(effectNow.current ? { effect: effectNow.current } : {}) }), () => router.refresh());
         if (!r.ok) throw new Error(r.error);
         if (!cancelled) setState('idle');
       } catch {
@@ -466,8 +473,20 @@ export function MainBackgroundPanel({
   const ground = studio ? lookGround.read(lookKey, server) : server;
   /** ⚡ The pick on its way — which card is ringed and marked, and what the one line says. */
   const [pick, setPick] = useState<BackgroundPick | null>(null);
+  /** ✨◆ A Pro effect being TRIED on the sample screen by a couple without Event Hub Pro — never written (`lib/background-effect.ts`). */
+  const [trying, setTrying] = useState<HubMainEffect | null>(null);
+  const tryingRef = useRef(trying);
+  tryingRef.current = trying;
   /** What "Try again" does: the refused pick, once more. */
   const retry = useRef<(() => void) | null>(null);
+  /* ◆ Leaving the panel ends a try: the sample goes back to what the draft holds (a tried effect is never left on a
+     screen that no longer says it is only being tried). */
+  useEffect(
+    () => () => {
+      if (tryingRef.current) tellLookSample(eventId, { main: lookGround.read(lookKey, serverRef.current).main });
+    },
+    [eventId, lookKey],
+  );
   /** The card just tapped (`data-bg-card`) — the strip says it before the card's own handler runs. */
   const tapped = useRef<string | null>(null);
   /** 🥧 The strip on screen (`data-bg-cards`) — a pick whose file loads holds THAT strip, and no other. */
@@ -617,8 +636,13 @@ export function MainBackgroundPanel({
    *   · `render` — nothing here can draw it (a file just uploaded has no address yet): the save brings the
    *     whole-Maker render, as it always did.
    */
-  const pickLook = (write: LookWrite, failure: string, opts: { began?: number; render?: boolean; stop?: AbortController; film?: string | null } = {}) => {
-    if (!('main' in write) && !write.events) return;
+  const pickLook = (asked: LookWrite, failure: string, opts: { began?: number; render?: boolean; stop?: AbortController; film?: string | null; fx?: boolean } = {}) => {
+    if (!('main' in asked) && !asked.events) return;
+    /* ✨ ANOTHER BACKGROUND KEEPS THE EFFECT THAT WAS ON — it lies on whatever is there. A write that is ABOUT the effect
+       (`fx`: put on, changed, taken off) is taken as it is. */
+    const write: LookWrite = 'main' in asked && !opts.fx ? { ...asked, main: keepEffect(asked.main ?? null, ground.main) } : asked;
+    /* ◆ A real pick ends a try: the sample is told what the draft holds, below. */
+    if (tryingRef.current) setTrying(null);
     const next: LookGround = {
       main: 'main' in write ? (write.main ?? null) : ground.main,
       bg: write.events && 'site_bg_color' in write.events ? (write.events.site_bg_color ?? null) : ground.bg,
@@ -649,7 +673,7 @@ export function MainBackgroundPanel({
     /* 🪟 The sample screen wears it from the tap — drawn in the browser, no request (`look-sample.tsx`). */
     tellLookSample(eventId, next);
     lookGround.sent();
-    retry.current = () => pickLook(write, failure, opts.render ? { render: true } : {});
+    retry.current = () => pickLook(write, failure, { ...(opts.render ? { render: true } : {}), ...(opts.fx ? { fx: true } : {}) });
     setError(null);
     setNote(null);
     setPick((was) => ({
@@ -720,6 +744,8 @@ export function MainBackgroundPanel({
    */
   const pickMeasured = (stillUrl: string | null, provisional: HubMainGround, build: (frame: string[]) => HubMainGround) => {
     const card = tapped.current;
+    /* ✨ The picture is worn at the tap WITH the effect that is on — it does not blink off while the colours are read. */
+    provisional = keepEffect(provisional, ground.main) ?? provisional;
     const seq = ++lookPickSeq;
     pickMark('tap');
     stopLoad('newer');
@@ -933,6 +959,20 @@ export function MainBackgroundPanel({
   if (studio) {
     const FAILED = BACKGROUND_PICK_FAILED;
     const proOn = Boolean(proMark);
+    /* ✨ The effect the draft holds, and the real background as an Effects card draws it (the page's own where a
+       follow's photo is gone — what guests see). */
+    const fx = hubMainEffect(current);
+    const fxLay = backgroundLayOf({ main: current && isHubMainFollow(current) && !follow ? { ground: 'theme' } : (current ?? { ground: 'theme' }), bg: ground.bg }, lookPictures);
+    /** ◆ Tried on the sample screen — told, never written; the ring stays where the draft is. */
+    const tryEffect = (next: HubMainEffect) => {
+      setTrying(next);
+      tellLookSample(eventId, { main: withEffect(current, next) });
+    };
+    const endTry = () => {
+      if (!tryingRef.current) return;
+      setTrying(null);
+      tellLookSample(eventId, { main: current });
+    };
     const storedSource = backgroundSourceOf(current, {
       themeHasLoop: Boolean(INVITE_THEMES[themeId]?.media),
       followsHero: Boolean(follow) || (!current && Boolean(hero.photoRef) && themeId !== 'house'),
@@ -1373,6 +1413,36 @@ export function MainBackgroundPanel({
               </p>
             ) : null}
           </>
+        ) : null}
+
+        {/* ✨ EFFECTS — on top of whatever the background is, on every source (owner 2026-10-08). Drawn where the sample
+            screen is (it is what the cards are miniatures of). One tap = ONE draft write and no render; a ◆ effect, for
+            a couple without Event Hub Pro, is tried on the sample and never written. */}
+        {onSample ? (
+          <BgEffects
+            eventId={eventId}
+            effect={fx}
+            trying={trying}
+            locked={proOn}
+            proHref={`/dashboard/${eventId}/studio/website-pro`}
+            swatch={fxLay?.still ? paper : fxLay?.image ? `${fxLay.image}${fxLay.color ? `, ${fxLay.color}` : ''}` : (fxLay?.color ?? paper)}
+            picture={fxLay?.still ? <StillOverSwatch src={fxLay.still} swatch="transparent" position={fxLay.position} /> : null}
+            onPick={(k) => {
+              setNote(null);
+              if (k === EFFECT_NONE) return fx ? pickLook({ main: withEffect(current, null) }, FAILED, { fx: true }) : endTry();
+              const next = effectPicked(k, trying ?? fx, current, Boolean(INVITE_THEMES[themeId]?.media));
+              if (!effectMayApply(k, !proOn)) return tryEffect(next);
+              pickLook({ main: withEffect(current, next) }, FAILED, { fx: true });
+            }}
+            onChange={(change) => {
+              const on = trying ?? fx;
+              if (!on) return;
+              const next = effectWith(on, change);
+              if (trying) return tryEffect(next);
+              pickLook({ main: withEffect(current, next) }, FAILED, { fx: true });
+            }}
+            onTryEnd={endTry}
+          />
         ) : null}
 
         {/* 🎬 The hero video (it was under Music) — beside the other pictures of theirs. */}

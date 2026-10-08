@@ -333,7 +333,8 @@ export function backgroundLayOf(
  *     (Leaving a shade needs none: the old veil and its inks live on the ground the preview hides and the
  *     stylesheet it lifts — `main-ground.tsx`'s one `<style data-main-ground-style>`.)
  *   · MOTION (parallax): the drift is the server layer's own script;
- *   · a picture's TINT when the panel cannot say whether the buttons are the couple's own (`canTint`).
+ *   · a picture's TINT when the panel cannot say whether the buttons are the couple's own (`canTint`);
+ *   · an EFFECT on top (put on, changed, taken off): drawn by the page itself, never by the bridge.
  */
 export function backgroundPickRedraws(prev: LookGround, next: LookGround, canTint: boolean): boolean {
   /* A stored word, or the fade bar's position (a non-zero number) — either is a veil the server measures. */
@@ -344,6 +345,11 @@ export function backgroundPickRedraws(prev: LookGround, next: LookGround, canTin
   if (shade(next)) return true;
   if (drifts(prev) !== drifts(next) || drifts(next)) return true;
   if ((isHubMainOwn(next.main) || isHubMainFollow(next.main)) && !canTint) return true;
+  /* ✨ An EFFECT put on, changed or taken off: its layer is the page's own drawing (`main-ground-layer.tsx` — shapes
+     and a stylesheet, no script the bridge could lay it with). The sample screen wears it at the tap; the page
+     redraws itself once, when it is next shown. */
+  const fx = (g: LookGround) => JSON.stringify(g.main?.effect ?? null);
+  if (fx(prev) !== fx(next)) return true;
   return false;
 }
 

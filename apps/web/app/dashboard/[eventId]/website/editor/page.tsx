@@ -1544,6 +1544,9 @@ export default async function WebsiteEditorPage({
          — the same choices the old server panel was given. Animate has no lock
          any more: a couple without Pro tries it, and Apply asks (2026-09-28). */
       sceneFormat={{
+        /* 👗 Read again, never `dressCodeConfig`: that one carries the INC starter and a filled-in palette for
+           the old panel's form — writing it back would store words the couple never wrote. */
+        dressCode: normalizeDressCodeConfig((drafted as { dress_code_config?: unknown }).dress_code_config),
         colorChoices,
         photoChoices,
         videoChoice,

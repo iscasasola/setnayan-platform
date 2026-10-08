@@ -438,3 +438,37 @@ test('the Dress code part’s Look draws its layouts, its palette looks and its 
   assert.match(html, /aria-checked="true"[^>]*data-style-card="marks"/);
   assert.doesNotMatch(html, /aria-haspopup/);
 });
+
+/* ── 12 · Figures ▾ Drawn · Hidden — ONE setting, two doors (owner's preview check, 08 Oct) ──────────── */
+
+test('the Dress code part carries ONE Figures ▾ (Drawn · Hidden) writing the Mood Board’s own switch — and never offers Photos', () => {
+  const row = read(`${EDITOR}/scene-style-row.tsx`);
+  const at = row.indexOf('function DressFiguresRow');
+  const fn = row.slice(at, row.indexOf('export function SceneAlignRow'));
+  assert.ok(at > 0 && fn.length > 400, 'the Figures row exists');
+  /* One dropdown, the shipped one, with exactly the two choices the data can honour. */
+  assert.equal(fn.split('<Dd').length - 1, 1, 'one dropdown');
+  const keys = [...fn.slice(fn.indexOf('options={['), fn.indexOf(']}', fn.indexOf('options={['))).matchAll(/key: '([a-z]+)', label: '([A-Za-z]+)'/g)].map((m) => `${m[1]}:${m[2]}`);
+  assert.deepEqual(keys, ['drawn:Drawn', 'hidden:Hidden'], 'the choices are not Drawn · Hidden');
+  assert.match(fn, /small="Figures"/);
+  assert.doesNotMatch(fn.replace(/\/\*[\s\S]*?\*\//g, ''), /photos|Photos/, 'Photos is offered with no photo per role to show (blocked — see the docblock)');
+  /* The SAME value the Mood Board's switch holds, the whole config, through the one draft door — never a second key. */
+  assert.match(fn, /const next: DressCodeConfig = \{ \.\.\.before, show_figure: show \};/);
+  assert.match(fn, /fd\.set\('intent', 'save'\);\s*fd\.set\('patch', JSON\.stringify\(\{ events: \{ dress_code_config: next \} \}\)\);/);
+  assert.match(fn, /makerRedrawSave\(\(\) => draftAction\(eventId, fd\)/, 'held, and the page redrawn in place');
+  assert.match(fn, /value=\{drawn \? 'drawn' : 'hidden'\}/);
+  assert.match(fn, /useState\(dressCode\.show_figure !== false\)/, 'only an explicit false is Hidden — a config saved before the switch stays Drawn');
+  /* A refused save puts the row back and says why — never a pick that reads as landed. */
+  const fail = fn.slice(fn.indexOf('if (!res.ok) {'), fn.indexOf('});', fn.indexOf('if (!res.ok) {')));
+  assert.match(fail, /latest\.current = before;\s*setDrawn\(before\.show_figure !== false\);\s*setError\(res\.error\);/);
+  assert.doesNotMatch(row, /c\.figures|canvas\.figures/, 'a second, canvas-side figures value was invented');
+  /* The guest page reads that one switch, and nothing else decides it. */
+  const widget = read('app/[slug]/_components/dress-code-widget.tsx');
+  assert.match(widget, /const showFigure = config\?\.show_figure !== false;/);
+  /* The config it is handed is the couple's own — never the old panel's starter-filled copy. */
+  const page = read('app/dashboard/[eventId]/website/editor/page.tsx');
+  assert.match(page, /dressCode: normalizeDressCodeConfig\(\(drafted as \{ dress_code_config\?: unknown \}\)\.dress_code_config\),/);
+  const shell = read(`${EDITOR}/editor-shell.tsx`);
+  assert.equal(shell.split('dressCode={sceneFormat.dressCode ?? null}').length - 1, 1, 'only the Stages panel’s Dress code part is handed the config');
+  assert.match(row, /\{dressCode \? <DressFiguresRow eventId=\{eventId\} dressCode=\{dressCode\} draftAction=\{draftAction\} \/> : null\}/);
+});

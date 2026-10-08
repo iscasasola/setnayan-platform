@@ -34,6 +34,14 @@ Owner's preview checks, 08 Oct (Stages panel), built in the order A · E · D ·
   slides) · Polaroids (instant prints two across, each with its time) — read against the shipped renderer by
   the test, fenced like every sample (`data-maker-sample`, `aria-hidden`), and still ONE section right after
   its marker, so the pick frame is the part's own box.
+- **C · Figures ▾ Drawn · Hidden — Photos blocked** (*"allow an option not to show this also or pick a style
+  to show or upload a photo for each?"*). The Dress code part carries one dropdown, **Figures ▾ Drawn ·
+  Hidden**. It is ONE setting with two doors: it reads and writes the same
+  `events.dress_code_config.show_figure` the Mood Board's switch does, the whole config through the one draft
+  door — no second key, no migration, guests unchanged until ✓ Apply. **Photos is not offered**: a photo per
+  role is not stored (the Attire boards hold three slots — bride · groom · entourage; the other four wait on
+  a migration widening `event_inspiration_assets_slot_key_check`) and guests cannot read
+  `event_inspiration_assets` (host-members-only RLS; no guest loader reads it).
 
 SPEC IMPACT: `STAGES_PANEL_BUILD_STATUS_2026-10-08.md` gains "Round 5 — looks as pictures" (status only; no
 decision changed).

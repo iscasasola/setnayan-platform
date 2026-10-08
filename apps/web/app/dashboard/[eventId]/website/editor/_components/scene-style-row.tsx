@@ -22,6 +22,9 @@
  *     makes the row appear, with no change here.
  */
 
+import { useEffect, useRef, useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
+import { HUB_DRAFT_BAR_FIELD, makerRedrawSave } from '@/lib/maker-refresh';
 import { sceneStyleOptions, sceneStyleTypeOfWidget, resolveSceneStyle } from '@/lib/scene-styles';
 import { recommendedStageSceneStyle } from '@/lib/scene-styles-stages';
 import type { HubSectionCanvas, HubStage } from '@/lib/hub-canvas';
@@ -32,6 +35,7 @@ import { noteDraftedCanvas } from '@/lib/maker-draft-store';
 import type { ElementDraftAction } from './element-sheet';
 import { DosLookCards, PaletteLookCards, PaletteLookRow } from './palette-look-row';
 import { DOS_LOOK_DEFAULT, resolveDosLook } from '@/lib/dress-code-looks';
+import type { DressCodeConfig } from '../../../studio/mood-board/dress-code-actions';
 import { PALETTE_LOOK_DEFAULT, layoutDrawsPaletteLook, resolvePaletteLook } from '@/lib/palette-looks';
 import { useMaker } from '../../../launch/_components/maker-context';
 import { StyleCards } from '../../../launch/_components/stage-panel/style-carousel';
@@ -226,7 +230,13 @@ export function PaletteLookCanvasRow({
   eventType,
   draftAction,
   colours,
+  dressCode = null,
 }: {
+  /**
+   * 👗 The Dress code as saved (drafted over live, `normalizeDressCodeConfig`) — handed by the Stages panel's
+   * Dress code part alone, for its Figures ▾ (`DressFiguresRow`). Absent = no Figures row.
+   */
+  dressCode?: DressCodeConfig | null;
   eventId: string;
   /** The Dress code scene's canvas (drafted over live). */
   canvas: HubSectionCanvas;
@@ -262,6 +272,7 @@ export function PaletteLookCanvasRow({
         {drawsPalette ? <PaletteLookCards value={resolvePaletteLook(shown.palette)} pending={pending} onPick={pick} /> : null}
         {/* 🧾 The shipped notes are the default and an absence, like Tags. */}
         <DosLookCards value={resolveDosLook(shown.dos)} pending={pending} onPick={(id) => save((c) => { if (id === DOS_LOOK_DEFAULT) delete c.dos; else c.dos = id; })} />
+        {dressCode ? <DressFiguresRow eventId={eventId} dressCode={dressCode} draftAction={draftAction} /> : null}
         {error ? (
           <p role="alert" className="shrink-0 py-1 text-[12.5px] font-semibold text-terracotta-700">
             {error}
@@ -286,6 +297,84 @@ export function PaletteLookCanvasRow({
         </p>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * 👗 FIGURES ▾ — the small drawn person beside each role's colours (owner's preview check, 08 Oct, verbatim:
+ * *"allow an option not to show this also or pick a style to show or upload a photo for each?"*).
+ *
+ * ONE dropdown, **Drawn · Hidden**, and ONE setting with two doors: it reads and writes the SAME
+ * `events.dress_code_config.show_figure` the Mood Board's own switch does (owner 2026-09-30, *"they can opt not
+ * to add this"*; `studio/mood-board/_components/dress-code-fields.tsx`), the whole config through the one draft
+ * door (`{ events: { dress_code_config: next } }`, as `mood-board-studio.tsx` sends it) — so the two can never
+ * disagree, and guests keep the live page until ✓ Apply. Held and redrawn in place, like a look pick.
+ *
+ * ⛔ **Photos is NOT offered.** A photo per role does not exist to show: the Mood Board's Attire boards store
+ * three slots only (`bride`, `groom`, `entourage` — Groomsmen · Bridesmaids · Flower girl · Ring bearer wait in
+ * `AWAITING_A_SLOT`, `lib/inspiration-slots.ts`, on a migration widening `event_inspiration_assets_slot_key_
+ * check`), and guests cannot read `event_inspiration_assets` at all (host-members-only RLS; the guest page's
+ * loader does not read it, and its rows hold pasted third-party URLs and suppliers' photos). An option that
+ * could only fall back to Drawn for every role would be a pick that changes nothing — so it is left out, not
+ * drawn disabled.
+ */
+function DressFiguresRow({ eventId, dressCode, draftAction }: { eventId: string; dressCode: DressCodeConfig; draftAction: ElementDraftAction }) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const latest = useRef(dressCode);
+  const [drawn, setDrawn] = useState(dressCode.show_figure !== false);
+  const json = JSON.stringify(dressCode);
+  useEffect(() => {
+    latest.current = dressCode;
+    setDrawn(dressCode.show_figure !== false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [json]);
+  const pick = (k: string) => {
+    const show = k !== 'hidden';
+    if (pending || show === drawn) return;
+    const before = latest.current;
+    /* The WHOLE config, with the one switch changed — what the Mood Board's door sends. */
+    const next: DressCodeConfig = { ...before, show_figure: show };
+    latest.current = next;
+    setDrawn(show);
+    setError(null);
+    start(async () => {
+      const fd = new FormData();
+      fd.set('intent', 'save');
+      fd.set('patch', JSON.stringify({ events: { dress_code_config: next } }));
+      fd.set(HUB_DRAFT_BAR_FIELD, '1');
+      const res = await makerRedrawSave(() => draftAction(eventId, fd), () => router.refresh());
+      if (!res.ok) {
+        /* A failure never reads as a pick that landed: the row goes back, and says why. */
+        latest.current = before;
+        setDrawn(before.show_figure !== false);
+        setError(res.error);
+      }
+    });
+  };
+  return (
+    <>
+      <div className="flex h-11 shrink-0 gap-1.5" data-stage-figures="">
+        <Dd
+          small="Figures"
+          label="Figures"
+          data="dress-figures"
+          about="The small drawn person beside each role’s colours."
+          value={drawn ? 'drawn' : 'hidden'}
+          options={[
+            { key: 'drawn', label: 'Drawn' },
+            { key: 'hidden', label: 'Hidden' },
+          ]}
+          onPick={pick}
+        />
+      </div>
+      {error ? (
+        <p role="alert" className="shrink-0 py-1 text-[12.5px] font-semibold text-terracotta-700">
+          {error}
+        </p>
+      ) : null}
+    </>
   );
 }
 

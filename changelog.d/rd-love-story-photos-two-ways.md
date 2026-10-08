@@ -49,3 +49,113 @@ hand-off to the run (its `fetch('/api/upload'` anchor moved files).
 
 SPEC IMPACT: None — builds `INTERACTION_RULES.md` § 5 ("Failure = the plain
 reason + Try again, never looking like success") and § 9's upload ruling.
+
+## 2026-10-08 · feat(lab): the dev lab can really add a photo to a Love Story moment
+
+The lab (`/dev/maker-lab?studio=1`) is the owner's only way to see Studio › Love
+Story, and it has no file storage — so there an upload could never succeed. The
+lab now stands in for storage (`app/dev/details-lab/lab-upload-stand-in.ts`,
+`sendToStorage`'s own shape), so the REAL uploader, slots and row run on a photo
+he picks: its figure goes up, Done reads "Uploading… N%" and is held, it lands,
+"Not kept yet — press Done." shows, and Done raises the square's count.
+
+Exactly what the stand-in fakes: no request is made (nothing is signed or sent —
+the file never leaves the browser); the photo is an object URL in the browser's
+memory (a reload forgets it); the ref is made up; the figure is a timer (six
+steps, under two seconds), not measured bytes; nothing is screened. A file whose
+name starts `fail` is refused and one starting `stall` moves nothing, so the
+failed tile can be looked at too. A change only the server may decide (a moment
+with a NEW photo) is applied to the fixture in memory with the server's own
+`applyMomentIntent`, through the instant book's own `editLoveStory`.
+
+The seam: the Love Story slots read `SlotsUploadStandIn` (null everywhere a
+person can reach → real storage) and hand it to `FileUpload`'s `send`. Only
+`app/dev/` provides it; the lab route refuses production.
+
+Also: the failed tile's ✕ is a 44 px round target in its corner (it was the
+uploader's 24 px ✕, stretched into an oval by the app's button height floor).
+
+Guard: `apps/web/lib/the-lab-can-upload.test.ts` (4 tests — the stand-in is RUN
+with hand-turned timers; 14 sabotages seen red).
+
+SPEC IMPACT: None.
+
+## 2026-10-08 · feat(studio): a Love Story row shows the first line of its story under its name
+
+Owner, on Studio › Love Story: *"i do not see the subtext? unlike the Sep 2026"*
+— the only row with a line under its name was the moment kept off the Event Hub
+(its amber notice). The approved drawing (gallery § 13) gives every row the FIRST
+LINE of its story as a quiet second line.
+
+- `TimelineRow` gains one optional prop, `sub`: one quiet line under the name,
+  inside the same tap, cut with "…". The row grows by that ONE line and never
+  more (the name still stops at two). A row handed none — every Schedule row — is
+  drawn exactly as it was.
+- Love Story hands each row `momentFirstLine(its words)`: the first line the
+  couple wrote (never a later one, never words of ours), "…" when more follows,
+  nothing when there are no words. It follows the words as they are typed in ⋯.
+  The amber "Off the Event Hub — guests do not see this moment." stays its own
+  line below; a new moment with a name and no words still says "Not saved yet — a
+  moment needs a line or two."
+
+Also: the photo slots no longer set their "Not kept yet" line while the uploader
+is drawing (React's dev-only "Cannot update a component while rendering a
+different component" — it showed as a red "1 Issue" badge on the local copy).
+
+Guard: `apps/web/lib/a-moment-shows-its-first-line.test.ts` (4 tests; 13
+sabotages seen red). No request added: the words are already on the page.
+
+SPEC IMPACT: None — builds the approved gallery § 13.
+
+## 2026-10-08 · fix(upload): in a gallery an upload is the 0–100 pie, and every tile's ✕ is round
+
+Controller, from two pictures of Studio › Love Story's photo slots: the uploading
+tile drew a small spinner and a thin GOLD bar with "27%" under it; and the ✕ on a
+kept photo was a tall oval. Both are the shared uploader's `gallery` layout
+(`app/_components/file-upload.tsx`):
+
+- **The uploading tile is the pie** (owner: *"show a loading screen 0-100 pie to
+  know how long til it uploads"*; gallery § 21): filled by the upload's own
+  measured figure, in the accent token (`--sn-accent`), the figure on it. No
+  spinner beside it, no bar. A state that steps with the bytes — the same under
+  "reduce motion".
+- **Every ✕ is one round 44 px target** in the tile's corner, carrying the 24 px
+  disc (kept, uploading and failed tiles). A bare 24 px button was being
+  stretched into an oval by the app's 44 px button floor.
+
+`gallery` is worn by two surfaces, and both now show the pie and the round ✕:
+Studio › Love Story's photo slots and the supplier's showcase
+(`vendor-dashboard/services/_components/showcase-media-fields.tsx`). The one-line
+row layout the other callers wear is untouched (its spinner and bar stay).
+
+Guard: `apps/web/lib/a-photo-on-its-way-is-a-pie.test.ts` (3 tests; 10 sabotages
+seen red).
+
+SPEC IMPACT: None.
+
+## 2026-10-08 · perf(maker): the Maker's first load no longer carries the Timeline row
+
+`app/_components/timeline-row.tsx` — the row, its name field, the empty state and
+their handlers — rode the Maker's first load only because the Maker's page
+imported its loading shimmer and `timeline-read-problem.tsx` its problem state.
+Those two pieces and the two class constants now live in
+`app/_components/timeline-states.tsx` (no hooks, no "use client": the shimmer is
+plain server HTML); `timeline-row.tsx` re-exports all four, so no wearer changes.
+`launch/page.tsx` and `timeline-read-problem.tsx` import the small file.
+
+Measured the only way a tree without a build can be (esbuild minify + gzip of
+what the first load imports): `timeline-row.tsx` 1,742 B → `timeline-states.tsx`
+713 B (about −1.0 KB; the row itself, 1,421 B, now loads with the Schedule's day
+and the Love Story's rows). With this branch's other first-load changes (the
+uploader, the watchdog it no longer imports): 7,275 B at the base → 6,394 B.
+
+Also: the uploader fetches the upload run (`lib/upload-send.ts`) the moment its
+file picker is opened, so the first upload does not wait on that chunk — and
+`maker-tools-are-all-preloaded` names it in NOT_A_TOOL with that reason (it was
+red on the review copy since the run became a later load).
+
+Guard: `apps/web/lib/the-maker-first-load-leaves-the-row-behind.test.ts` — walks
+every static import from the Maker's page (4 tests; 8 sabotages seen red, "a
+first-load file imports timeline-row.tsx again" among them).
+
+SPEC IMPACT: None.

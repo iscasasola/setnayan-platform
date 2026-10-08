@@ -255,6 +255,19 @@ const config: Config = {
         // Canonical semantic tokens for new code. Older code referencing
         // `cream` / `ink` / `terracotta` continues to work via the slots above.
         accent: 'var(--accent)',
+        // `sn.accent` / `sn.on-accent` — THE APP'S ACCENT BY ITS JOB (owner 2026-10-08:
+        // "if we change our color to blue, it will be easy to change the button
+        // colors"): what is on / picked / tappable on every template, and the ink of
+        // words on it. ONE setting — `--sn-accent` / `--sn-on-accent` in globals.css.
+        // Classes: bg-sn-accent · text-sn-accent · ring-sn-accent · border-sn-accent ·
+        // text-sn-on-accent. NOT the `accent*` slots around it: those are the kit's
+        // GOLD family (`bg-accent-soft` is a gold wash) — the `sn-` keeps the two apart.
+        // (One family, `sn`, so `scripts/lint-colour-exists.mjs` — which reads a class's
+        // first word as its palette key — finds it.)
+        sn: {
+          accent: 'rgb(var(--sn-accent) / <alpha-value>)',
+          'on-accent': 'rgb(var(--sn-on-accent) / <alpha-value>)',
+        },
         'accent-deep': 'var(--accent-deep)',
         'accent-soft': 'var(--accent-soft)',
         surface: 'var(--surface)',

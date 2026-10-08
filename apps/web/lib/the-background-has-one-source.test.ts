@@ -271,7 +271,9 @@ test('(5) a Video card is the loop itself: muted, metadata only, playing only on
   const loop = src.slice(src.indexOf('export function LoopPicture('));
   assert.match(loop, /const shown = loopCardDrawsVideo\(\{ src, reducedMotion: reduced, failed \}\);/);
   assert.match(loop, /new IntersectionObserver\(/);
-  assert.match(loop, /if \(e\.isIntersecting && e\.intersectionRatio >= 0\.6\) \{[\s\S]{0,200}void video\.play\(\)\.catch\(\(\) => \{\}\);\s*\} else \{\s*video\.pause\(\);/, 'the loop does not play only while on screen');
+  assert.match(loop, /if \(e\.isIntersecting && e\.intersectionRatio >= 0\.6\) \{[\s\S]{0,200}void video\.play\(\)\.catch\(\(\) => told\(true\)\);\s*\} else \{\s*video\.pause\(\);/, 'the loop does not play only while on screen');
+  // (Re-aimed 2026-10-08: a refused play is still not an error to say — it now tells a waiting pick the film will not
+  // move here, so a pick never waits on it for ever; `a-loading-pick-is-honest.test.ts` (6).)
   assert.match(loop, /onError=\{\(\) => setFailed\(true\)\}/, 'a loop that cannot load stays');
   assert.match(src, /window\.matchMedia\('\(prefers-reduced-motion: reduce\)'\)/);
   // The panel hands every Video card its loop, and the editor page builds that address.
@@ -457,11 +459,11 @@ test('(9) a card is PHONE-SHAPED: a 3 : 4 portrait frame of a fixed width that c
     if ('pro' in props) assert.match(html, /<\/span><span aria-label="Event Hub Pro" class="shrink-0[^"]*">◆<\/span>/, `${what}: the ◆ can be cut off with the name`);
     // The ring is on the frame itself (a shadow, so it keeps the frame's shape and radius).
     // 🎴 ONE STYLE CARD (owner 2026-10-08, the template gallery: "no framing" · "Selected Card needs to be highlighted with
-    // same terracota"): the PICKED card wears a 3-px ring in the selector's terracotta (`mulberry`, #C24E25 — never the gold
+    // same terracota"): the PICKED card wears a 3-px ring in the selector's accent (`accent` = `--sn-accent`, the terracotta today — never the gold
     // `terracotta-700` token) hugging the picture, and its name turns terracotta; a card that is not picked has NO frame.
-    assert.match(attr(picture, 'class'), props.on ? /(?:^| )ring-\[3px\] ring-mulberry(?: |$)/ : /^sn-phone-card sn-press-ring$/, `${what}: ${props.on ? 'the picked ring is not the terracotta on the frame' : 'an unpicked card wears a frame'}`);
+    assert.match(attr(picture, 'class'), props.on ? /(?:^| )ring-\[3px\] ring-sn-accent(?: |$)/ : /^sn-phone-card sn-press-ring$/, `${what}: ${props.on ? 'the picked ring is not the terracotta on the frame' : 'an unpicked card wears a frame'}`);
     assert.doesNotMatch(attr(picture, 'class'), /ring-terracotta|ring-gild|ring-ink|border/, `${what}: the frame wears a gold ring or a border`);
-    assert.ok(cls.includes(props.on ? 'text-mulberry' : 'text-ink/70'), `${what}: the name's colour does not say whether it is picked`);
+    assert.ok(cls.includes(props.on ? 'text-sn-accent' : 'text-ink/70'), `${what}: the name's colour does not say whether it is picked`);
   }
   // The strip scrolls sideways and never stretches its cards to one height or width.
   const strip = renderToStaticMarkup(React.createElement(C.BgCards, { label: 'Video', source: 'video' }, null));

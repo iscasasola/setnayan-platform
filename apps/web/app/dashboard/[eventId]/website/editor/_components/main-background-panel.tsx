@@ -51,8 +51,10 @@ import { BgColourWells } from './background-colour-wells';
 import { BgFadeBar } from './background-fade-bar';
 import { fadeMain, fadeOf } from '@/lib/background-fade';
 import {
+  BACKGROUND_PICK_CANCELLED,
   BACKGROUND_PICK_CANVAS_WAIT_MS,
   BACKGROUND_PICK_FAILED,
+  backgroundPickHolds,
   MAIN_GROUND_PREVIEW,
   backgroundLayOf,
   backgroundPickAfter,
@@ -69,6 +71,7 @@ import {
   type LookGroundPictures,
 } from '@/lib/background-pick';
 import { tellLookSample } from '@/lib/look-sample-store';
+import { beginFilmLoad, readBlobWithProgress, waitFilmLoad } from '@/lib/pick-load';
 import { mainGroundChoice } from '@/lib/main-ground-choice';
 import { heroFrameWrites } from '@/lib/hero-frame-sync';
 import { IMAGE_MAX_EDGE } from '@/lib/image-max-edge';
@@ -467,6 +470,13 @@ export function MainBackgroundPanel({
   const retry = useRef<(() => void) | null>(null);
   /** The card just tapped (`data-bg-card`) — the strip says it before the card's own handler runs. */
   const tapped = useRef<string | null>(null);
+  /** 🥧 The strip on screen (`data-bg-cards`) — a pick whose file loads holds THAT strip, and no other. */
+  const viewRef = useRef<string | null>(null);
+  /** 🥧 The file on its way can be stopped: the picture's own fetch is aborted, the film is no longer waited for. */
+  const loadStop = useRef<AbortController | null>(null);
+  /** 🥧 An upload in flight: `FileUpload`'s own figure, and its own stop. */
+  const [uploadPct, setUploadPct] = useState<number | null>(null);
+  const uploadStop = useRef<(() => void) | null>(null);
   const current = ground.main;
 
   const theme = useMemo(() => ({ ...INVITE_THEMES[themeId], palette: colours }), [themeId, colours]);
@@ -558,6 +568,44 @@ export function MainBackgroundPanel({
     return () => window.clearTimeout(t);
   }, [pick]);
 
+  /* ⏱ THE 8-SECOND STOP, for a file that is still not in: the line then offers Try again / Cancel. The load itself is
+     not stopped — if the file arrives meanwhile the pick goes on and the question goes away. One one-shot timeout. */
+  const heldSeq = backgroundPickHolds(pick) && !pick!.stalled ? pick!.seq : null;
+  useEffect(() => {
+    if (heldSeq === null) return;
+    const t = window.setTimeout(() => setPick((p) => (p && p.seq === heldSeq && backgroundPickHolds(p) ? { ...p, stalled: true } : p)), BACKGROUND_PICK_CANVAS_WAIT_MS);
+    return () => window.clearTimeout(t);
+  }, [heldSeq]);
+  /** 🥧 Stop the file on its way — `cancel`: the couple tapped the loading card; `newer`: another pick took over. */
+  const stopLoad = (why: 'cancel' | 'newer') => {
+    loadStop.current?.abort(why);
+    loadStop.current = null;
+  };
+  /** 🥧 A stopped load has put the panel and the sample back. Cancelled by the couple: the line says so. Nothing was written. */
+  const loadStopped = (seq: number, signal: AbortSignal) => {
+    if (signal.reason !== 'cancel') return;
+    setPick((p) => (p && p.seq === seq ? null : p));
+    setNote(BACKGROUND_PICK_CANCELLED);
+  };
+  /** 🥧 A tap on the loading card (or Cancel at the 8-second stop). An upload is stopped by its own uploader. */
+  const cancelPick = () => {
+    if (!pick && uploadPct !== null) {
+      uploadStop.current?.();
+      setNote(BACKGROUND_PICK_CANCELLED);
+      return;
+    }
+    if (backgroundPickHolds(pick)) stopLoad('cancel');
+  };
+  /**
+   * 🎞 The FILM a pick puts on the sample screen, when it is not the one already playing there — its arrival is read
+   * off the sample's own `<video>` (`lib/pick-load.ts`), and its save waits for it. Null = nothing to wait for.
+   */
+  const filmOf = (next: Pick<LookGround, 'main' | 'bg'>): string | null => {
+    if (!onSample) return null;
+    const clip = backgroundLayOf(next, lookPictures)?.clip ?? null;
+    return clip && clip !== (backgroundLayOf(ground, lookPictures)?.clip ?? null) ? clip : null;
+  };
+
   /**
    * 🧭 Studio: ONE pick — the main background and/or the page's colour or Candlelight — in four steps:
    * drawn in the panel (the ring), laid on the canvas (its still, scrim and tint, or its colour), saved behind it
@@ -569,7 +617,7 @@ export function MainBackgroundPanel({
    *   · `render` — nothing here can draw it (a file just uploaded has no address yet): the save brings the
    *     whole-Maker render, as it always did.
    */
-  const pickLook = (write: LookWrite, failure: string, opts: { began?: number; render?: boolean } = {}) => {
+  const pickLook = (write: LookWrite, failure: string, opts: { began?: number; render?: boolean; stop?: AbortController; film?: string | null } = {}) => {
     if (!('main' in write) && !write.events) return;
     const next: LookGround = {
       main: 'main' in write ? (write.main ?? null) : ground.main,
@@ -579,6 +627,14 @@ export function MainBackgroundPanel({
     const fresh = opts.began === undefined;
     const seq = opts.began ?? ++lookPickSeq;
     if (fresh) pickMark('tap');
+    /* 🥧 A file still loading for an older pick is let go: this pick is the one on screen now. */
+    if (fresh) stopLoad('newer');
+    const stop = opts.stop ?? new AbortController();
+    loadStop.current = stop;
+    /* 🎞 LOADED FIRST, APPLIED SECOND: a film new to the sample is waited for before its save is sent — so its card can
+       show how much is in, and a cancel changes nothing. (Begun at the tap by `pickMeasured` for a clip of theirs.) */
+    const film = opts.render ? null : opts.film !== undefined ? opts.film : filmOf(next);
+    if (film && fresh) beginFilmLoad(film);
     /* ⚡ ONE WRITE, NO RENDER wherever the canvas can wear the change exactly from here (`backgroundPickRedraws`):
        another picture, where it is held, its blur, its tint, a pattern. A page colour, a Shade, Candlelight and
        Motion are measured on the server — those lay what they can at the tap and the page redraws itself ONCE. */
@@ -599,7 +655,10 @@ export function MainBackgroundPanel({
     setPick((was) => ({
       seq,
       card: null,
-      reading: false,
+      strip: was && was.seq === seq ? (was.strip ?? null) : viewRef.current,
+      file: Boolean(film),
+      pct: null,
+      reading: Boolean(film),
       laid: Boolean(lay) && heard > 0,
       /* No canvas to hear it, or a save that brings its own render: there is nothing more to wait for than the save. */
       shown: heard === 0 || Boolean(!lay && !fresh && was && was.seq === seq && was.shown) || onSample,
@@ -613,6 +672,20 @@ export function MainBackgroundPanel({
       return r;
     };
     void (async () => {
+      if (film) {
+        const arrived = await waitFilmLoad(film, (pct) => setPick((p) => (p && p.seq === seq ? { ...p, pct } : p)), stop.signal);
+        if (!arrived) {
+          /* Stopped before its save was sent: NOTHING WAS WRITTEN. What the draft holds is drawn again — unless a
+             newer pick is on screen, which this one must not move. */
+          const mine = seq === lookDrawnSeq;
+          postToCanvas(mainGroundPreviewMessage(seq, null));
+          lookGround.answered(lookKey, { ok: false, latest: mine, value: next }, serverRef.current);
+          if (mine) tellLookSample(eventId, lookGround.read(lookKey, serverRef.current));
+          return loadStopped(seq, stop.signal);
+        }
+        pickMark('files-read');
+        setPick((p) => backgroundPickAfter(p, seq, { reading: false }));
+      }
       let ok = false;
       let said = failure;
       try {
@@ -649,6 +722,9 @@ export function MainBackgroundPanel({
     const card = tapped.current;
     const seq = ++lookPickSeq;
     pickMark('tap');
+    stopLoad('newer');
+    const stop = new AbortController();
+    loadStop.current = stop;
     retry.current = () => {
       tapped.current = card;
       pickMeasured(stillUrl, provisional, build);
@@ -657,19 +733,31 @@ export function MainBackgroundPanel({
     const lay = stillUrl ? backgroundLayOf({ main: provisional, bg: ground.bg }, lookPictures) : null;
     const heard = lay ? postToCanvas(mainGroundPreviewMessage(seq, lay)) : 0;
     if (heard > 0) pickMark('canvas-told');
-    setPick({ seq, card, reading: Boolean(stillUrl), laid: heard > 0, shown: false, saved: false, failed: stillUrl ? null : COULD_NOT_READ });
+    setPick({ seq, card, strip: viewRef.current, file: Boolean(stillUrl), pct: null, reading: Boolean(stillUrl), laid: heard > 0, shown: false, saved: false, failed: stillUrl ? null : COULD_NOT_READ });
     if (!stillUrl) return;
     /* 🪟 The sample wears the picture at the tap, while its colours are read; a picture that cannot be read comes off again. */
     const before = ground.main;
+    /* 🎞 A clip of theirs starts loading on the sample now, beside its still's read — its save waits for both. */
+    const film = filmOf({ main: provisional, bg: ground.bg });
+    if (film) beginFilmLoad(film);
     tellLookSample(eventId, { main: provisional });
     void (async () => {
       let frame: string[] = [];
       try {
-        const res = await fetch(stillUrl, { mode: 'cors' });
+        const res = await fetch(stillUrl, { mode: 'cors', signal: stop.signal });
         if (!res.ok) throw new Error(String(res.status));
-        frame = await readFrame(await res.blob());
+        /* 🥧 THE SAME REQUEST, read as it arrives: bytes over the length the server sent. No length = no figure (and the
+           small mark instead of a pie) — never a guess. */
+        const blob = await readBlobWithProgress(res, (pct) => setPick((p) => (p && p.seq === seq ? { ...p, pct, file: pct !== null } : p)));
+        frame = await readFrame(blob);
       } catch {
         frame = [];
+      }
+      if (stop.signal.aborted) {
+        /* Stopped before anything was sent: the canvas and (if the couple cancelled) the sample go back. */
+        postToCanvas(mainGroundPreviewMessage(seq, null));
+        if (stop.signal.reason === 'cancel') tellLookSample(eventId, { main: before });
+        return loadStopped(seq, stop.signal);
       }
       if (seq !== lookPickSeq) return; // a later tap took over
       if (frame.length === 0) {
@@ -679,7 +767,7 @@ export function MainBackgroundPanel({
         return;
       }
       pickMark('files-read');
-      pickLook({ main: build(frame) }, BACKGROUND_PICK_FAILED, { began: seq });
+      pickLook({ main: build(frame) }, BACKGROUND_PICK_FAILED, { began: seq, stop, film });
     })();
   };
 
@@ -850,6 +938,11 @@ export function MainBackgroundPanel({
       followsHero: Boolean(follow) || (!current && Boolean(hero.photoRef) && themeId !== 'house'),
     });
     const view = viewed ?? storedSource;
+    viewRef.current = view;
+    /* 🥧 An upload in flight holds the strip as a loading pick does — the Upload card wears `FileUpload`'s own figure. */
+    const stripPick: BackgroundPick | null =
+      pick ?? (uploadPct !== null ? { seq: 0, card: 'upload', strip: 'own', file: true, pct: uploadPct, upload: true, reading: true, laid: false, shown: false, saved: false, failed: null } : null);
+    const holding = backgroundPickHolds(stripPick);
     /** The cards on screen are the source the page wears — only then is one of them ringed, and its rows drawn. */
     const active = view === storedSource;
     /* 🌈 The page colour: the couple's own (plain or blended), else the one the page wears (the Mood Board's). */
@@ -919,7 +1012,7 @@ export function MainBackgroundPanel({
           />
         </BgRow>
 
-        <BgCards label={BACKGROUND_SOURCE_LABEL[view]} source={view} pick={pick} onTap={(data) => (tapped.current = data)}>
+        <BgCards label={BACKGROUND_SOURCE_LABEL[view]} source={view} pick={stripPick} onTap={(data) => (tapped.current = data)} onCancel={cancelPick}>
           {view === 'colour'
             ? BACKGROUND_EFFECTS.filter((e) => Boolean(page) || e === 'plain').map((e) => (
                 <BgCard
@@ -1066,7 +1159,26 @@ export function MainBackgroundPanel({
           ) : null}
         </BgCards>
         {/* ⚡ What the pick is waiting for — "Loading files…", then "Applying to your Hub…"; a failure, in place, with Try again. */}
-        <BgPickLine step={backgroundPickStep(pick)} error={pick?.failed ?? null} onRetry={pick?.failed ? () => retry.current?.() : null} />
+        <BgPickLine
+          step={backgroundPickStep(stripPick)}
+          error={pick?.failed ?? null}
+          pct={holding ? (stripPick?.pct ?? null) : null}
+          cancellable={holding}
+          stalled={holding && stripPick?.stalled === true}
+          onCancel={holding ? cancelPick : null}
+          onRetry={
+            pick?.failed
+              ? () => retry.current?.()
+              : holding && pick
+                ? () => {
+                    /* Try again at the 8-second stop: the load is let go (the sample goes back), then the same pick is made afresh. */
+                    const again = retry.current;
+                    stopLoad('newer');
+                    window.setTimeout(() => again?.(), 0);
+                  }
+                : null
+          }
+        />
         {note ? (
           <p role="status" data-bg-note="" className="text-[12px] text-ink/70">
             {note}
@@ -1092,6 +1204,8 @@ export function MainBackgroundPanel({
               validateFile={makeMakerVideoDurationValidator()}
               onFilePicked={onFilePicked}
               onChange={onUploaded}
+              onProgress={setUploadPct}
+              cancelRef={uploadStop}
               disabled={pending}
               label="Upload a photo or clip"
             />

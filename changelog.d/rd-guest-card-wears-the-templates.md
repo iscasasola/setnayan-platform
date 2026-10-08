@@ -9,3 +9,9 @@ SPEC IMPACT: None
 Step 4A found a regression of 2B: the guest card (drawn inside the Event Hub Maker's first load, `launch/page.tsx` → `GuestCardBody`) imports the autosave, whose `pushUndo` lived in the same file as the toast HOST — and from 2B the host drew `PeekToast` and a portal. The store (`undo-store.ts`, no React, a type-only toast import) is now separate from the host (`undo-toast.tsx`, mounted by each page); the autosave and the delete flow use the store. `the-guest-card-adds-no-first-load-weight.test.ts` holds it. `check-maker-js-budget.mjs` needs a build and was not run. No request, no server action, no migration added.
 
 SPEC IMPACT: None
+
+## 2026-10-09 · test(guests): the guest card's posted form is pinned, state by state, before any field moves
+
+Step 4B-0 (test only, no source change). The card is live — its autosave posts the whole form to `updateGuest` — so moving its fields onto the templates must not change one posted name or value. `the-card-posts-the-same-form.test.ts` renders the card's form in twelve states (a guest and the couple, sides, claimed, +1, every toggle on and off, empty texts, several "Invited to" blocks and none, a seated and a declined guest, the tea-ceremony order, awkward characters), builds the FormData a browser would (checked boxes post, unchecked do not; textarea, entities, hidden), and compares it with the committed golden file. No request, no server action, no migration added.
+
+SPEC IMPACT: None

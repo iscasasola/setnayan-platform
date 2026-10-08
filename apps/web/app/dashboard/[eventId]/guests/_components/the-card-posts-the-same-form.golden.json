@@ -1,0 +1,875 @@
+{
+  "01 a plain guest, unclaimed, nothing set": {
+    "attire": [
+      "neutral"
+    ],
+    "dietary_restrictions": [
+      ""
+    ],
+    "display_name": [
+      ""
+    ],
+    "email": [
+      ""
+    ],
+    "extra_roles": [
+      ""
+    ],
+    "extra_roles_posted": [
+      "1"
+    ],
+    "first_name": [
+      "Ana"
+    ],
+    "group_category": [
+      "other"
+    ],
+    "last_name": [
+      "Cruz"
+    ],
+    "meal_preference": [
+      "no_preference"
+    ],
+    "middle_name": [
+      ""
+    ],
+    "mobile": [
+      ""
+    ],
+    "name_prefix": [
+      ""
+    ],
+    "name_suffix": [
+      ""
+    ],
+    "notes": [
+      ""
+    ],
+    "plus_one_count": [
+      "0"
+    ],
+    "quiet": [
+      "1"
+    ],
+    "relation": [
+      ""
+    ],
+    "return_to": [
+      "/dashboard/e1/guests"
+    ],
+    "role": [
+      "guest"
+    ],
+    "rsvp_status": [
+      "attending"
+    ],
+    "seniority_rank": [
+      ""
+    ]
+  },
+  "02 a guest with sides, a seat, groups, extra roles, +1 of 2": {
+    "attire": [
+      "suit"
+    ],
+    "dietary_restrictions": [
+      "halal"
+    ],
+    "display_name": [
+      ""
+    ],
+    "email": [
+      ""
+    ],
+    "extra_roles": [
+      "groomsman"
+    ],
+    "extra_roles_posted": [
+      "1"
+    ],
+    "first_name": [
+      "Ana"
+    ],
+    "group_category": [
+      "friends"
+    ],
+    "group_ids": [
+      "grp-c"
+    ],
+    "groups_posted": [
+      "1"
+    ],
+    "last_name": [
+      "Cruz"
+    ],
+    "meal_preference": [
+      "beef"
+    ],
+    "middle_name": [
+      ""
+    ],
+    "mobile": [
+      "0917 555 0101"
+    ],
+    "name_prefix": [
+      ""
+    ],
+    "name_suffix": [
+      ""
+    ],
+    "notes": [
+      "Driver drops him at the side gate"
+    ],
+    "plus_one_count": [
+      "2"
+    ],
+    "quiet": [
+      "1"
+    ],
+    "relation": [
+      ""
+    ],
+    "return_to": [
+      "/dashboard/e1/guests"
+    ],
+    "role": [
+      "principal_sponsor_ninong"
+    ],
+    "rsvp_status": [
+      "maybe"
+    ],
+    "seniority_rank": [
+      ""
+    ],
+    "side": [
+      "groom"
+    ],
+    "table_id": [
+      "t-2"
+    ],
+    "table_posted": [
+      "1"
+    ]
+  },
+  "03 every toggle ON": {
+    "attire": [
+      "neutral"
+    ],
+    "dietary_restrictions": [
+      ""
+    ],
+    "display_name": [
+      ""
+    ],
+    "email": [
+      ""
+    ],
+    "extra_roles": [
+      ""
+    ],
+    "extra_roles_posted": [
+      "1"
+    ],
+    "face_recognition_excluded": [
+      "on"
+    ],
+    "faceblock_enabled": [
+      "on"
+    ],
+    "first_name": [
+      "Ana"
+    ],
+    "group_category": [
+      "other"
+    ],
+    "last_name": [
+      "Cruz"
+    ],
+    "meal_preference": [
+      "no_preference"
+    ],
+    "middle_name": [
+      ""
+    ],
+    "mobile": [
+      ""
+    ],
+    "name_prefix": [
+      ""
+    ],
+    "name_suffix": [
+      ""
+    ],
+    "notes": [
+      ""
+    ],
+    "passed_away": [
+      "on"
+    ],
+    "photo_consent": [
+      "on"
+    ],
+    "plus_one_count": [
+      "0"
+    ],
+    "quiet": [
+      "1"
+    ],
+    "relation": [
+      ""
+    ],
+    "return_to": [
+      "/dashboard/e1/guests"
+    ],
+    "role": [
+      "guest"
+    ],
+    "rsvp_status": [
+      "attending"
+    ],
+    "seniority_rank": [
+      ""
+    ]
+  },
+  "04 every toggle OFF": {
+    "attire": [
+      "neutral"
+    ],
+    "dietary_restrictions": [
+      ""
+    ],
+    "display_name": [
+      ""
+    ],
+    "email": [
+      ""
+    ],
+    "extra_roles": [
+      ""
+    ],
+    "extra_roles_posted": [
+      "1"
+    ],
+    "first_name": [
+      "Ana"
+    ],
+    "group_category": [
+      "other"
+    ],
+    "last_name": [
+      "Cruz"
+    ],
+    "meal_preference": [
+      "no_preference"
+    ],
+    "middle_name": [
+      ""
+    ],
+    "mobile": [
+      ""
+    ],
+    "name_prefix": [
+      ""
+    ],
+    "name_suffix": [
+      ""
+    ],
+    "notes": [
+      ""
+    ],
+    "plus_one_count": [
+      "0"
+    ],
+    "quiet": [
+      "1"
+    ],
+    "relation": [
+      ""
+    ],
+    "return_to": [
+      "/dashboard/e1/guests"
+    ],
+    "role": [
+      "guest"
+    ],
+    "rsvp_status": [
+      "attending"
+    ],
+    "seniority_rank": [
+      ""
+    ]
+  },
+  "05 empty texts (null and empty string)": {
+    "attire": [
+      "neutral"
+    ],
+    "dietary_restrictions": [
+      ""
+    ],
+    "display_name": [
+      ""
+    ],
+    "email": [
+      ""
+    ],
+    "extra_roles": [
+      ""
+    ],
+    "extra_roles_posted": [
+      "1"
+    ],
+    "first_name": [
+      "Ana"
+    ],
+    "group_category": [
+      "other"
+    ],
+    "last_name": [
+      "Cruz"
+    ],
+    "meal_preference": [
+      "no_preference"
+    ],
+    "middle_name": [
+      ""
+    ],
+    "mobile": [
+      ""
+    ],
+    "name_prefix": [
+      ""
+    ],
+    "name_suffix": [
+      ""
+    ],
+    "notes": [
+      ""
+    ],
+    "plus_one_count": [
+      "0"
+    ],
+    "quiet": [
+      "1"
+    ],
+    "relation": [
+      ""
+    ],
+    "return_to": [
+      "/dashboard/e1/guests"
+    ],
+    "role": [
+      "guest"
+    ],
+    "rsvp_status": [
+      "attending"
+    ],
+    "seniority_rank": [
+      ""
+    ]
+  },
+  "06 several Invited-to blocks ticked": {
+    "attire": [
+      "neutral"
+    ],
+    "dietary_restrictions": [
+      ""
+    ],
+    "display_name": [
+      ""
+    ],
+    "email": [
+      ""
+    ],
+    "extra_roles": [
+      ""
+    ],
+    "extra_roles_posted": [
+      "1"
+    ],
+    "first_name": [
+      "Ana"
+    ],
+    "group_category": [
+      "other"
+    ],
+    "invited_ceremony": [
+      "on"
+    ],
+    "invited_cocktails": [
+      "on"
+    ],
+    "invited_reception": [
+      "on"
+    ],
+    "last_name": [
+      "Cruz"
+    ],
+    "meal_preference": [
+      "no_preference"
+    ],
+    "middle_name": [
+      ""
+    ],
+    "mobile": [
+      ""
+    ],
+    "name_prefix": [
+      ""
+    ],
+    "name_suffix": [
+      ""
+    ],
+    "notes": [
+      ""
+    ],
+    "plus_one_count": [
+      "0"
+    ],
+    "quiet": [
+      "1"
+    ],
+    "relation": [
+      ""
+    ],
+    "return_to": [
+      "/dashboard/e1/guests"
+    ],
+    "role": [
+      "guest"
+    ],
+    "rsvp_status": [
+      "attending"
+    ],
+    "seniority_rank": [
+      ""
+    ]
+  },
+  "07 no Invited-to block ticked": {
+    "attire": [
+      "neutral"
+    ],
+    "dietary_restrictions": [
+      ""
+    ],
+    "display_name": [
+      ""
+    ],
+    "email": [
+      ""
+    ],
+    "extra_roles": [
+      ""
+    ],
+    "extra_roles_posted": [
+      "1"
+    ],
+    "first_name": [
+      "Ana"
+    ],
+    "group_category": [
+      "other"
+    ],
+    "last_name": [
+      "Cruz"
+    ],
+    "meal_preference": [
+      "no_preference"
+    ],
+    "middle_name": [
+      ""
+    ],
+    "mobile": [
+      ""
+    ],
+    "name_prefix": [
+      ""
+    ],
+    "name_suffix": [
+      ""
+    ],
+    "notes": [
+      ""
+    ],
+    "plus_one_count": [
+      "0"
+    ],
+    "quiet": [
+      "1"
+    ],
+    "relation": [
+      ""
+    ],
+    "return_to": [
+      "/dashboard/e1/guests"
+    ],
+    "role": [
+      "guest"
+    ],
+    "rsvp_status": [
+      "attending"
+    ],
+    "seniority_rank": [
+      ""
+    ]
+  },
+  "08 the couple (bride): locked role, always attending, no passed-away, no extra roles": {
+    "attire": [
+      "neutral"
+    ],
+    "dietary_restrictions": [
+      ""
+    ],
+    "display_name": [
+      ""
+    ],
+    "email": [
+      ""
+    ],
+    "first_name": [
+      "Maria"
+    ],
+    "group_category": [
+      "other"
+    ],
+    "last_name": [
+      "Santos"
+    ],
+    "meal_preference": [
+      "no_preference"
+    ],
+    "middle_name": [
+      ""
+    ],
+    "mobile": [
+      ""
+    ],
+    "name_prefix": [
+      ""
+    ],
+    "name_suffix": [
+      ""
+    ],
+    "notes": [
+      ""
+    ],
+    "plus_one_count": [
+      "0"
+    ],
+    "quiet": [
+      "1"
+    ],
+    "relation": [
+      ""
+    ],
+    "return_to": [
+      "/dashboard/e1/guests"
+    ],
+    "role": [
+      "bride"
+    ],
+    "rsvp_status": [
+      "attending"
+    ],
+    "seniority_rank": [
+      ""
+    ],
+    "side": [
+      "bride"
+    ]
+  },
+  "09 claimed by an account: the name is carried, not offered": {
+    "attire": [
+      "neutral"
+    ],
+    "dietary_restrictions": [
+      ""
+    ],
+    "display_name": [
+      "Tita Ana"
+    ],
+    "email": [
+      ""
+    ],
+    "extra_roles": [
+      ""
+    ],
+    "extra_roles_posted": [
+      "1"
+    ],
+    "first_name": [
+      "Ana"
+    ],
+    "group_category": [
+      "other"
+    ],
+    "last_name": [
+      "Cruz"
+    ],
+    "meal_preference": [
+      "no_preference"
+    ],
+    "middle_name": [
+      "B."
+    ],
+    "mobile": [
+      ""
+    ],
+    "name_prefix": [
+      "Dr."
+    ],
+    "name_suffix": [
+      "Jr."
+    ],
+    "notes": [
+      ""
+    ],
+    "plus_one_count": [
+      "0"
+    ],
+    "quiet": [
+      "1"
+    ],
+    "relation": [
+      ""
+    ],
+    "return_to": [
+      "/dashboard/e1/guests"
+    ],
+    "role": [
+      "guest"
+    ],
+    "rsvp_status": [
+      "attending"
+    ],
+    "seniority_rank": [
+      ""
+    ]
+  },
+  "10 a declined guest: no table posted; Chinese rite shows the tea-ceremony order": {
+    "attire": [
+      "neutral"
+    ],
+    "dietary_restrictions": [
+      ""
+    ],
+    "display_name": [
+      ""
+    ],
+    "email": [
+      ""
+    ],
+    "extra_roles": [
+      ""
+    ],
+    "extra_roles_posted": [
+      "1"
+    ],
+    "first_name": [
+      "Ana"
+    ],
+    "group_category": [
+      "other"
+    ],
+    "group_ids": [
+      "grp-c"
+    ],
+    "groups_posted": [
+      "1"
+    ],
+    "last_name": [
+      "Cruz"
+    ],
+    "meal_preference": [
+      "no_preference"
+    ],
+    "middle_name": [
+      ""
+    ],
+    "mobile": [
+      ""
+    ],
+    "name_prefix": [
+      ""
+    ],
+    "name_suffix": [
+      ""
+    ],
+    "notes": [
+      ""
+    ],
+    "plus_one_count": [
+      "0"
+    ],
+    "quiet": [
+      "1"
+    ],
+    "relation": [
+      "Lola"
+    ],
+    "return_to": [
+      "/dashboard/e1/guests"
+    ],
+    "role": [
+      "guest"
+    ],
+    "rsvp_status": [
+      "declined"
+    ],
+    "seniority_rank": [
+      "3"
+    ],
+    "side": [
+      "both"
+    ]
+  },
+  "11 a rite without a tea ceremony: the rank is carried hidden": {
+    "attire": [
+      "neutral"
+    ],
+    "dietary_restrictions": [
+      ""
+    ],
+    "display_name": [
+      ""
+    ],
+    "email": [
+      ""
+    ],
+    "extra_roles": [
+      ""
+    ],
+    "extra_roles_posted": [
+      "1"
+    ],
+    "first_name": [
+      "Ana"
+    ],
+    "group_category": [
+      "other"
+    ],
+    "group_ids": [
+      "grp-c"
+    ],
+    "groups_posted": [
+      "1"
+    ],
+    "last_name": [
+      "Cruz"
+    ],
+    "meal_preference": [
+      "no_preference"
+    ],
+    "middle_name": [
+      ""
+    ],
+    "mobile": [
+      ""
+    ],
+    "name_prefix": [
+      ""
+    ],
+    "name_suffix": [
+      ""
+    ],
+    "notes": [
+      ""
+    ],
+    "plus_one_count": [
+      "0"
+    ],
+    "quiet": [
+      "1"
+    ],
+    "relation": [
+      "Tito"
+    ],
+    "return_to": [
+      "/dashboard/e1/guests"
+    ],
+    "role": [
+      "guest"
+    ],
+    "rsvp_status": [
+      "attending"
+    ],
+    "seniority_rank": [
+      "7"
+    ],
+    "side": [
+      "both"
+    ],
+    "table_id": [
+      "t-2"
+    ],
+    "table_posted": [
+      "1"
+    ]
+  },
+  "12 quotes, ampersands and a long note survive": {
+    "attire": [
+      "neutral"
+    ],
+    "dietary_restrictions": [
+      "no nuts, no \"shell\"fish"
+    ],
+    "display_name": [
+      "The <Dela Cruz> family"
+    ],
+    "email": [
+      ""
+    ],
+    "extra_roles": [
+      ""
+    ],
+    "extra_roles_posted": [
+      "1"
+    ],
+    "first_name": [
+      "O’Brien \"Bo\""
+    ],
+    "group_category": [
+      "other"
+    ],
+    "last_name": [
+      "Dela Cruz & Sons"
+    ],
+    "meal_preference": [
+      "no_preference"
+    ],
+    "middle_name": [
+      ""
+    ],
+    "mobile": [
+      ""
+    ],
+    "name_prefix": [
+      ""
+    ],
+    "name_suffix": [
+      ""
+    ],
+    "notes": [
+      "Line one\nLine two — \"quoted\" & more"
+    ],
+    "plus_one_count": [
+      "0"
+    ],
+    "quiet": [
+      "1"
+    ],
+    "relation": [
+      ""
+    ],
+    "return_to": [
+      "/dashboard/e1/guests"
+    ],
+    "role": [
+      "guest"
+    ],
+    "rsvp_status": [
+      "attending"
+    ],
+    "seniority_rank": [
+      ""
+    ]
+  }
+}

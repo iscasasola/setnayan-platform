@@ -92,7 +92,10 @@ const REGISTRY = ['lib/notifications.ts', 'lib/notification-emit.ts'];
  * Bump this in the SAME COMMIT as any edit to ugat-both-ends.baseline.txt:
  * up when a newly-accepted orphan is ranked in, down when a row is paid down.
  */
-const EXPECTED_BASELINE_ROWS = 43;
+// 43 → 45 on 2026-10-08: the E-Gifts wish list's two tables land one PR ahead of
+// their writers (event_wish_items → wish list 2/5, event_gift_records → wish list
+// 4/5). Each of those PRs takes its row out and brings this back down by one.
+const EXPECTED_BASELINE_ROWS = 45;
 
 function walk(dir: string, out: string[]) {
   for (const name of fs.readdirSync(dir)) {

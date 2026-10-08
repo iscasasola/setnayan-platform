@@ -7969,7 +7969,8 @@ html:has(.hub-shape-full) { overflow-x: clip; }
    its own size, a second knob and a `transform`-only transition onto every span track. An input
    needs a drawn knob and a size of its own; a span track brings its own. They share the name and
    the colours, nothing else: the grey "off" and both speeds come from the rule above; only "on"
-   is said here, because a box is on by `:checked`.
+   is said here — the app's accent, `--sn-accent`, the same declaration the track's "on" is — because a box is on by
+   `:checked`.
    Size = the approved template (50 × 30, a 24-px knob, 3 px in, travelling 20 px). */
 input.sn-switch {
   appearance: none;
@@ -7994,7 +7995,7 @@ input.sn-switch::after {
   transition-property: transform;
 }
 input.sn-switch:checked {
-  background-color: rgb(var(--color-mulberry));
+  background-color: rgb(var(--sn-accent));
 }
 input.sn-switch:checked::after {
   transform: translateX(1.25rem);

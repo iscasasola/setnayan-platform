@@ -59,6 +59,7 @@ const TEMPLATE_FILES = [
   `${E}/background-cards.tsx`, //          5 · Style card (and its one status line)
   `${E}/pick-menu.tsx`, //                 2 · Dropdown
   `${E}/pick-menu-place.ts`, //                its looks
+  'app/_components/switch-track.tsx', //   3 · Switch (its drawing; the colours are `.sn-switch` in globals.css)
 ] as const;
 
 /**

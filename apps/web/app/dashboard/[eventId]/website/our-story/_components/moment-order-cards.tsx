@@ -1,6 +1,6 @@
 'use client';
 
-import { useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { ArrowDown, ArrowUp, Image as ImageIcon, MoreHorizontal, Plus, Trash2 } from 'lucide-react';
 import { FileUpload } from '@/app/_components/file-upload';
 import { InfoTip } from '@/app/_components/info-tip';
@@ -12,6 +12,7 @@ import { HUB_DRAFT_FIELD } from '@/lib/hub-draft';
 import { LOVE_STORY_CHAPTER_LABEL, MOMENT_LINE_MAX, MOMENT_TITLE_MAX, type ChapteredMoment, type LoveStoryMoment, type MomentAnchor, type MomentDate } from '@/lib/love-story-moments';
 import { STUDIO_FOOT_BUTTON } from '@/lib/studio-skin';
 import { whenWords, type TimelineWhen } from '@/lib/timeline';
+import type { UploadSend } from '@/lib/upload-send';
 import { PickSheetContext } from '../../editor/_components/pick-menu-place';
 import { useMaker } from '../../../launch/_components/maker-context';
 import { LoveStoryProLine } from './love-story-pro-line';
@@ -359,6 +360,13 @@ function MomentRow({
   );
 }
 
+/**
+ * 🧪 A STAND-IN FOR STORAGE, for these slots — ONLY the dev lab provides one (it has no storage, so there a photo
+ * could never land and the owner could never see one). Null everywhere a person can reach: the slots then send to
+ * real storage. `lib/the-lab-can-upload.test.ts` holds that nothing outside `app/dev/` provides it.
+ */
+export const SlotsUploadStandIn = createContext<UploadSend | null>(null);
+
 /** What a photo's tile says when it did not upload (owner 2026-10-08: *"it does not upload"*). */
 export const PHOTO_NOT_UPLOADED = 'Couldn’t upload this photo.';
 /** How long a photo may move nothing before the slots stop waiting for it. */
@@ -408,6 +416,7 @@ export function MomentPhotos({
   /* The uploader's own words about what is on its way: busy from the pick to the landing, and its measured figure. */
   const [busy, setBusy] = useState(false);
   const [pct, setPct] = useState<number | null>(null);
+  const standIn = useContext(SlotsUploadStandIn);
   return (
     <div data-moment-photos="" className="mx-auto w-full max-w-[300px]">
       <p className="pb-2.5 pt-0.5 text-center text-[13px] font-semibold text-ink/70">Up to {formatCount(MOMENT_PHOTOS_OFFERED)} photos. The first one shows first on your page.</p>
@@ -426,6 +435,7 @@ export function MomentPhotos({
              never nothing. And one that stops moving is given up on after 15 seconds, not left to spin. */
           failedSays={PHOTO_NOT_UPLOADED}
           stallMs={PHOTO_STALL_MS}
+          send={standIn ?? undefined}
           onBusy={(next) => {
             setBusy(next);
             onUploading?.(next);

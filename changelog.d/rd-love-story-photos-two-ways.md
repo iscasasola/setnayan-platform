@@ -49,3 +49,33 @@ hand-off to the run (its `fetch('/api/upload'` anchor moved files).
 
 SPEC IMPACT: None — builds `INTERACTION_RULES.md` § 5 ("Failure = the plain
 reason + Try again, never looking like success") and § 9's upload ruling.
+
+## 2026-10-08 · feat(lab): the dev lab can really add a photo to a Love Story moment
+
+The lab (`/dev/maker-lab?studio=1`) is the owner's only way to see Studio › Love
+Story, and it has no file storage — so there an upload could never succeed. The
+lab now stands in for storage (`app/dev/details-lab/lab-upload-stand-in.ts`,
+`sendToStorage`'s own shape), so the REAL uploader, slots and row run on a photo
+he picks: its figure goes up, Done reads "Uploading… N%" and is held, it lands,
+"Not kept yet — press Done." shows, and Done raises the square's count.
+
+Exactly what the stand-in fakes: no request is made (nothing is signed or sent —
+the file never leaves the browser); the photo is an object URL in the browser's
+memory (a reload forgets it); the ref is made up; the figure is a timer (six
+steps, under two seconds), not measured bytes; nothing is screened. A file whose
+name starts `fail` is refused and one starting `stall` moves nothing, so the
+failed tile can be looked at too. A change only the server may decide (a moment
+with a NEW photo) is applied to the fixture in memory with the server's own
+`applyMomentIntent`, through the instant book's own `editLoveStory`.
+
+The seam: the Love Story slots read `SlotsUploadStandIn` (null everywhere a
+person can reach → real storage) and hand it to `FileUpload`'s `send`. Only
+`app/dev/` provides it; the lab route refuses production.
+
+Also: the failed tile's ✕ is a 44 px round target in its corner (it was the
+uploader's 24 px ✕, stretched into an oval by the app's button height floor).
+
+Guard: `apps/web/lib/the-lab-can-upload.test.ts` (4 tests — the stand-in is RUN
+with hand-turned timers; 14 sabotages seen red).
+
+SPEC IMPACT: None.

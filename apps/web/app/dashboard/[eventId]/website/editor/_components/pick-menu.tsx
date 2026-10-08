@@ -4,7 +4,7 @@ import { useContext, useEffect, useId, useLayoutEffect, useRef, useState, type K
 import { createPortal } from 'react-dom';
 import { ChevronDown } from 'lucide-react';
 import { useOneOpen } from '@/lib/one-open';
-import { PickSheetContext, fontRowClass, groupHeadClass, pickButtonClass, pickOpensAsSheet, pickOptionClass, pickRuns, placePickList, type PickListPlacement } from './pick-menu-place';
+import { PickSheetContext, fontRowClass, groupHeadClass, pickArrowClass, pickButtonClass, pickInHub, pickOpensAsSheet, pickOptionClass, pickRuns, pickTickClass, pickTrailClass, placePickList, type PickListPlacement } from './pick-menu-place';
 import type { PickMenuProps, PickOption } from './pick-menu-types';
 
 export type { PickOption, PickMenuProps } from './pick-menu-types';
@@ -161,7 +161,7 @@ export function PickMenu({
         <span className="min-w-0 truncate" style={current?.fontFamily ? { fontFamily: current.fontFamily } : undefined}>
           {buttonText ?? current?.label ?? label}
         </span>
-        <ChevronDown aria-hidden className={`h-3.5 w-3.5 shrink-0 transition-transform duration-300 ${open ? 'rotate-180' : ''}`} strokeWidth={2} />
+        <ChevronDown aria-hidden className={pickArrowClass(open)} strokeWidth={2} />
       </button>
       {open && at && !asSheet
         ? createPortal(
@@ -196,6 +196,8 @@ export function PickMenu({
   );
 
   function renderOption(o: PickOption) {
+    const plain = pickInHub(btnRef.current);
+    const chosen = !picked && o.key === value;
     return (
       <li key={o.key} role="none" className={fontRowClass(o.fontFamily)}>
         <button
@@ -208,7 +210,7 @@ export function PickMenu({
             if (!picked) setOpen(false);
             onPick(o.key);
           }}
-          className={pickOptionClass(Boolean(o.hint || o.preview), !picked && o.key === value)}
+          className={pickOptionClass(Boolean(o.hint || o.preview), chosen, plain)}
         >
           {o.dot ? <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-terracotta" /> : null}
           {o.thumb ? (
@@ -232,18 +234,13 @@ export function PickMenu({
           {o.dot ? <span className="text-[12px] font-medium opacity-70">· {o.dotNote ?? 'live today'}</span> : null}
           {o.disabledNote ? <span className="text-[12px] font-medium">· {o.disabledNote}</span> : null}
           {o.trail ? (
-            <span
-              data-pick-trail={o.trail.tone}
-              className={`ml-auto shrink-0 pl-3 text-[13px] font-semibold ${
-                o.key === value ? 'opacity-80' : o.trail.tone === 'ok' ? 'text-success-700' : o.trail.tone === 'left' ? 'text-terracotta-700' : 'text-ink/50'
-              }`}
-            >
+            <span data-pick-trail={o.trail.tone} className={pickTrailClass(o.trail.tone, plain && o.key === value)}>
               <span aria-hidden>{o.trail.text}</span>
               {o.trail.label ? <span className="sr-only">{o.trail.label}</span> : null}
             </span>
           ) : null}
-          {picked && picked.includes(o.key) ? (
-            <span aria-hidden className="ml-auto shrink-0 pl-3 text-[14px] font-semibold text-success-700">
+          {(picked ? picked.includes(o.key) : chosen && !plain) ? (
+            <span aria-hidden data-pick-tick="" className={pickTickClass(plain, Boolean(o.trail))}>
               ✓
             </span>
           ) : null}

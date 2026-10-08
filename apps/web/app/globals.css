@@ -175,8 +175,8 @@
     /* ── THE ACCENT, BY ITS JOB — ONE SETTING (owner 2026-10-08, right after approving the template gallery: "if we
      * change our color to blue, it will be easy to change the button colors"). `--sn-accent` is what is ON, PICKED or
      * TAPPABLE on every template (pill selector, switch, style card, dropdown, the press ring); `--sn-on-accent` is
-     * the ink of words that sit ON it. Tailwind: `bg-accent` · `text-accent` · `ring-accent` · `border-accent` ·
-     * `text-on-accent`. A template never writes a colour of its own — `lib/the-accent-is-one-token.test.ts` watches.
+     * the ink of words that sit ON it. Tailwind: `bg-sn-accent` · `text-sn-accent` · `ring-sn-accent` · `border-sn-accent` ·
+     * `text-sn-on-accent`. A template never writes a colour of its own — `lib/the-accent-is-one-token.test.ts` watches.
      *
      * TO CHANGE THE APP'S ACCENT, change the ONE line below (three numbers, red green blue — e.g. `37 99 235`), and
      * check the ink under it still reads: the same test fails under 4.5:1.

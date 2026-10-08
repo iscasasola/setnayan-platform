@@ -57,6 +57,8 @@ const TEMPLATE_FILES = [
   'app/_components/pill-thumb.tsx', //     its thumb
   'app/_components/press-feel.tsx', //     the one press, and its ring
   `${E}/background-cards.tsx`, //          5 · Style card (and its one status line)
+  `${E}/pick-menu.tsx`, //                 2 · Dropdown
+  `${E}/pick-menu-place.ts`, //                its looks
 ] as const;
 
 /**
@@ -73,7 +75,8 @@ const TEMPLATE_RULES = [".sn-switch[data-on='true'],"];
 const WRITTEN = [
   { what: 'the colour name `mulberry`', re: /mulberry/ },
   { what: 'a hex colour', re: /#[0-9a-fA-F]{3,8}\b/ },
-  { what: '`text-white` (the ink on the accent is `text-on-accent`)', re: /\btext-white\b/ },
+  { what: '`text-white` (the ink on the accent is `text-sn-on-accent`)', re: /\btext-white\b/ },
+  { what: 'the kit’s gold `accent` class (the app’s accent is `sn-accent`)', re: /(?:^|[\s"'`:])(?:bg|text|ring|border)-accent(?![\w-])/ },
 ];
 
 /* ── (1) the watch ────────────────────────────────────────────────────── */
@@ -97,8 +100,8 @@ test('(1) no template writes the accent — no `mulberry`, no hex, no `text-whit
   const faces = room.split('\n').filter((l) => /aria-pressed:(bg|text)-/.test(l));
   assert.equal(faces.length, 2, 'anti-vacuity: the Stages tools’ and Phases’ picked faces were not found');
   for (const l of faces) {
-    assert.match(l, /aria-pressed:bg-accent\b/, 'a pill face’s fill is not the accent');
-    assert.match(l, /aria-pressed:text-on-accent\b/, 'a pill face’s words are not the ink on the accent');
+    assert.match(l, /aria-pressed:bg-sn-accent\b/, 'a pill face’s fill is not the accent');
+    assert.match(l, /aria-pressed:text-sn-on-accent\b/, 'a pill face’s words are not the ink on the accent');
     assert.doesNotMatch(l, /mulberry|aria-pressed:text-white/, 'a pill face writes its own colour');
   }
   // The stylesheet's template rules.
@@ -110,7 +113,7 @@ test('(1) no template writes the accent — no `mulberry`, no hex, no `text-whit
     assert.doesNotMatch(rule, /mulberry|#[0-9a-fA-F]{3,8}\b/);
   }
   // …and the watch can see: a line that writes each of the three is caught.
-  for (const [sample, n] of [['bg-mulberry text-white', 2], ['color: #C24E25;', 1], ['ring-accent text-on-accent', 0]] as const) {
+  for (const [sample, n] of [['bg-mulberry text-white', 2], ['color: #C24E25;', 1], ['bg-accent', 1], ['ring-sn-accent text-sn-on-accent', 0]] as const) {
     assert.equal(WRITTEN.filter(({ re }) => re.test(sample)).length, n, `anti-vacuity: the watch misreads "${sample}"`);
   }
 });
@@ -181,12 +184,17 @@ test('(3) one line makes it blue — every template’s "on" colour resolves to 
 
   const tw = (await import('../tailwind.config')).default as { theme: { extend: { colors: Record<string, unknown> } } };
   const colours = tw.theme.extend.colors;
-  assert.equal(colours.accent, 'rgb(var(--sn-accent) / <alpha-value>)');
-  assert.equal(colours['on-accent'], 'rgb(var(--sn-on-accent) / <alpha-value>)');
+  /** The `sn` family: `bg-sn-accent` reads `sn.accent`, `text-sn-on-accent` reads `sn['on-accent']`. */
+  const sn = colours.sn as Record<string, string>;
+  assert.deepEqual(sn, { accent: 'rgb(var(--sn-accent) / <alpha-value>)', 'on-accent': 'rgb(var(--sn-on-accent) / <alpha-value>)' });
+  // NOT the kit's older `accent*` slots — those are its GOLD family (`bg-accent-soft` is a gold wash on the blog), and
+  // stay exactly as they were. The `sn-` keeps the two apart (controller 2026-10-08: "a trap for the next person").
+  assert.equal(colours.accent, 'var(--accent)', 'the kit’s gold `accent` slot was repointed');
+  assert.equal(colours['accent-soft'], 'var(--accent-soft)');
   /** What a utility class paints: its Tailwind colour, with every variable followed. Null = not a colour class of ours. */
   const paints = (cls: string, vars: Vars): string | null => {
-    const m = /(?:^|:)(?:bg|text|ring|border)-(on-accent|accent)$/.exec(cls);
-    return m ? resolve(String(colours[m[1]!]), vars) : null;
+    const m = /(?:^|:)(?:bg|text|ring|border)-sn-(on-accent|accent)$/.exec(cls);
+    return m ? resolve(sn[m[1]!]!, vars) : null;
   };
   const on = (vars: Vars) => `rgb(${resolve(vars['--sn-accent']!, vars)} / <alpha-value>)`;
   const ink = (vars: Vars) => `rgb(${resolve(vars['--sn-on-accent']!, vars)} / <alpha-value>)`;
@@ -195,6 +203,7 @@ test('(3) one line makes it blue — every template’s "on" colour resolves to 
   const P = await import('../app/_components/pill-selector');
   const T = await import('../app/_components/pill-thumb');
   const C = await import(`../${E}/background-cards`);
+  const M = await import(`../${E}/pick-menu-place`);
   const R = await import('./maker-stage-room');
   const card = renderToStaticMarkup(
     React.createElement(
@@ -217,6 +226,9 @@ test('(3) one line makes it blue — every template’s "on" colour resolves to 
     ['style card — the picked name', classesOf(card, /<button[^>]*data-bg-card="x"[^>]*class="([^"]*)"/), 'accent'],
     ['style card — the pie’s centre', classesOf(card, /data-bg-card-pie="40"[^>]*>\s*<span class="([^"]*)"/), 'accent'],
     ['style card — the pie’s figure', classesOf(card, /data-bg-card-pie="40"[^>]*>\s*<span class="([^"]*)"/), 'on-accent'],
+    ['dropdown — the ▾', M.pickArrowClass(false).split(' '), 'accent'],
+    ['dropdown — the picked option’s words', M.pickOptionClass(false, true).split(' '), 'accent'],
+    ['dropdown — the picked option’s ✓', M.pickTickClass(false).split(' '), 'accent'],
   ];
   for (const vars of [LIGHT, blueVars]) {
     for (const [what, classes, job] of looks) {
@@ -253,7 +265,7 @@ test('(4) the guest’s Event Hub never reads the app’s accent — nothing und
   assert.ok(files.length > 100, `anti-vacuity: only ${files.length} guest files read`);
   const LEAKS = [
     { what: 'the accent token', re: /--sn-(?:on-)?accent\b/ },
-    { what: 'an accent class', re: /(?:^|[\s"'`:])(?:bg|text|ring|border)-(?:on-)?accent(?![\w-])/ },
+    { what: 'an accent class', re: /(?:^|[\s"'`:])(?:bg|text|ring|border)-sn-(?:on-)?accent(?![\w-])/ },
     { what: 'the pill selector template', re: /pill-selector'|pill-thumb'|PILL_ON_CLASS|PILL_THUMB_CLASS/ },
   ];
   for (const f of files) {
@@ -264,4 +276,8 @@ test('(4) the guest’s Event Hub never reads the app’s accent — nothing und
   const hubBlocks = CSS.split('\n').filter((l) => /--hub-accent-ink:/.test(l));
   assert.ok(hubBlocks.length >= 5, 'anti-vacuity: the hub’s own accent inks were not found');
   assert.equal((CSS.match(/--sn-accent:/g) ?? []).length, 1, 'the accent is set again somewhere (a theme, a scope)');
+  // The dropdown is the one template the hub also draws — and there it takes the page's own ink.
+  const M = require(`../${E}/pick-menu-place`) as typeof import('../app/dashboard/[eventId]/website/editor/_components/pick-menu-place');
+  assert.ok(M.pickArrowClass(false).split(' ').includes('[.sn-editorial_&]:text-inherit'), 'the ▾ is the app’s accent inside the guest’s hub');
+  assert.doesNotMatch(M.pickOptionClass(false, true, true) + M.pickTickClass(true), /accent/, 'the list keeps the app’s accent inside the guest’s hub');
 });

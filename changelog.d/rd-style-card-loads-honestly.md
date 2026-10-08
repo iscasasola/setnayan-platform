@@ -103,21 +103,23 @@ blue, it will be easy to change the button colors"*.
 - **The token.** `globals.css` `:root`: `--sn-accent` (what is on / picked / tappable on a
   template — today `var(--color-mulberry)`, the terracotta) and `--sn-on-accent` (the ink
   of words on it — white; in the dormant dark block the page's ink-black, where white
-  reads 2.9:1). Tailwind: `accent` and `on-accent` → `bg-accent` · `text-accent` ·
-  `ring-accent` · `border-accent` · `text-on-accent`.
+  reads 2.9:1). Tailwind: the `sn` family (`sn.accent`, `sn.on-accent`) → `bg-sn-accent` · `text-sn-accent` ·
+  `ring-sn-accent` · `border-sn-accent` · `text-sn-on-accent`.
 - **To make the app's accent blue, change ONE line** in `apps/web/app/globals.css`:
   `--sn-accent: var(--color-mulberry);` → `--sn-accent: 37 99 235;`.
 - **`mulberry` is NOT renamed or repointed.** The hundreds of pages not yet moved onto the
   templates still read it and are unchanged.
 - **The templates moved onto it** (nothing else): `pill-selector.tsx` (`PILL_ON_CLASS` =
-  `bg-accent text-on-accent`, same export name) · `pill-thumb.tsx` · `press-feel.tsx`'s
+  `bg-sn-accent text-sn-on-accent`, same export name) · `pill-thumb.tsx` · `press-feel.tsx`'s
   ring · `.sn-switch` when on · the style card's picked ring, name and loading pie, and the
   status line's Try again (`background-cards.tsx`) · the pill selector as the Stages tool
   group and Phases draw it by hand (`STAGE_TOOL_FACE`, `SP_PHASE` in
   `lib/maker-stage-room.ts`).
-- Tailwind's `accent` slot was `var(--accent)` (the kit's gold); no class anywhere used it
-  (measured) — it now names the app's accent. `accent-soft` / `accent-deep` (the blog's
-  gold wash) are unchanged.
+- ⚠ CORRECTED in the next entry (same day): this commit first named the classes
+  `bg-accent` / `text-on-accent` by repointing Tailwind's old `accent` slot (the kit's
+  gold). The controller ruled that a trap; the classes are `bg-sn-accent` /
+  `text-sn-on-accent` and the gold slot is back as it was. The names in this entry are
+  the final ones.
 - **Pixels today: unchanged** — the same terracotta, the same white words. (Dark mode is
   dormant; there the ink on the accent becomes the page's ink-black.)
 
@@ -154,3 +156,46 @@ point on the sample is clear; a point on the tabs row and one on the Source row 
 8 sabotages seen red.
 
 SPEC IMPACT: None.
+
+## 2026-10-08 · feat(ui): the dropdown wears the accent — its ▾, its picked option and its ✓ — everywhere but the guest's Event Hub
+
+Owner, verbatim (2026-10-08, the approved template gallery; `INTERACTION_RULES.md` § 9):
+*"Dropdown — Chevron should be teracota color?"* — "the dropdown's chevron and its ticked
+choice are terracotta"; "the small mark that says 'you can tap this' is terracotta".
+
+- `PickMenu` (161 uses in 79 files), colours only — shape and behaviour unchanged:
+  - the **▾** is the accent (it was the button's ink);
+  - the **picked option** is said by accent words and an accent **✓** at its end (it was a
+    filled ink row with cream words);
+  - a **multi-pick's ✓** is the accent (it was `text-success-700`, green).
+- Written on the accent token (`text-sn-accent`), never a colour name.
+- **The one exemption:** inside the guest's Event Hub (`.sn-editorial`; two pages draw a
+  dropdown there — the RSVP's plus-ones and the owner's phase menu) nothing changes: the ▾
+  takes the page's own ink by a CSS rule that only matches there, and the list — portalled
+  to `<body>`, outside the hub's box — is told where its button is (`pickInHub`) and keeps
+  the filled ink row and the green ✓ byte for byte.
+- `pick-menu.tsx` is 9,573 bytes (ceiling 9,800 — the size that keeps it inlined in every
+  route chunk): the looks moved into `pick-menu-place.ts`, so the file got smaller.
+
+Guards: `the-dropdown-wears-the-accent` (4, new) — incl. Tailwind run on the real config,
+proving `text-sn-accent` and the hub's rule are really emitted; `the-accent-is-one-token`
+extended (the dropdown's two files join the watch; its three looks join the "one line
+makes it blue" proof; the hub's list is checked to hold no accent).
+
+NOT built (written down for the controller, as asked): the dropdown rising as a bottom
+sheet on a phone outside the Maker.
+
+SPEC IMPACT: None.
+
+### The names, settled (controller, 2026-10-08): `sn-accent`, not `accent`
+
+`bg-accent` being terracotta while `bg-accent-soft` is the kit's gold wash was a trap for
+the next person. So, in the same commit as the dropdown:
+- classes: `bg-sn-accent` · `text-sn-accent` · `ring-sn-accent` · `border-sn-accent` ·
+  `text-sn-on-accent` (Tailwind family `sn: { accent, 'on-accent' }`);
+- Tailwind's old `accent` slot is back to exactly `var(--accent)` (gold); a test pins it;
+- the CSS variables keep their names (`--sn-accent`, `--sn-on-accent`); the one line to
+  change the app's accent is unchanged; `PILL_ON_CLASS` keeps its export name
+  (`'bg-sn-accent text-sn-on-accent'`);
+- the watch now also refuses the bare `bg-/text-/ring-/border-accent` in a template file
+  (it would paint gold).

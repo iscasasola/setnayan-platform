@@ -285,7 +285,7 @@ export function DetailsWorkspace({
     if (marchHere) setSheetOpen(true);
   }, [marchHere]);
   /* 🧭 STUDIO › LOOK (the new Maker, prototype `.lt .look`): Look opens straight on its controls —
-     ONE full-width bar, Background · Colours · Fonts · Music (`StudioLookBar`), over the page — never
+     ONE full-width bar, Background · Elements · Music (`StudioLookBar`), over the page — never
      a row of tall tiles to pick from first (side-by-side M29, owner 2026-10-07). */
   const studioLook = maker?.stagesStudio === true && detailsLtSection(selected) === 'look';
   useEffect(() => {

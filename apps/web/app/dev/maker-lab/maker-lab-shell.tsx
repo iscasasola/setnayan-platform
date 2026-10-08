@@ -158,7 +158,7 @@ export function MakerLabShell({
     }),
     [eventId],
   );
-  /* 🎨 Look's rows — the REAL controls (Background · Font · Colours · Buttons), on
+  /* 🎨 Look's rows — the REAL controls (Background · Page colour · Colours · Font · Buttons), on
      maria-and-jose's shape: Classic, no hero photo, nothing chosen yet. A
      Background pick drafts into the lab (`window.__labDrafts`), never a database. */
   const house = INVITE_THEMES.house;
@@ -185,10 +185,15 @@ export function MakerLabShell({
       label: 'Font',
       node: <ColorsPanel action={formDraft} eventId={eventId} rowKey="font" part="font" bgColor={null} buttonColor={null} artDirection={null} fontKey={null} proMark="try" />,
     },
+    /* 🌈 The page fill — Look › Background's since 2026-10-08 (`LOOK_ROW_OF.page`). */
+    'page-colour': {
+      label: 'Page colour',
+      node: <ColorsPanel action={formDraft} eventId={eventId} rowKey="page-colour" part="page" bgColor={null} buttonColor={null} artDirection={null} />,
+    },
     colors: {
       label: 'Colours',
       node: (
-        <ColorsPanel action={formDraft} eventId={eventId} rowKey="colors" part="colours" bgColor={null} buttonColor={null} artDirection={null} fontKey={null} magicTraveller={null} proMark="try" />
+        <ColorsPanel action={formDraft} eventId={eventId} rowKey="colors" part="art" bgColor={null} buttonColor={null} artDirection={null} fontKey={null} magicTraveller={null} proMark="try" />
       ),
     },
     buttons: {

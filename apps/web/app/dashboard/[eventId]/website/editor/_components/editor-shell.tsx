@@ -864,13 +864,16 @@ export function MakerWork({
      identity until the next server render, so this runs once per render of the
      page, not once per click. */
   const setLookPages = maker?.setLookPages;
-  /* 🎨 LOOK › BACKGROUND · FONT · COLOURS (owner 2026-10-02, tracker f40) —
-     the rows this page always built, handed to Look as they are. */
+  /* 🎨 LOOK'S PARTS (owner 2026-10-02, tracker f40; three sections since 2026-10-08,
+     `LOOK_SECTION_PARTS`) — the rows this page always built, handed to Look as they are. */
   const backgroundNode = rows[LOOK_ROW_OF.background]?.node ?? null;
   const fontNode = rows[LOOK_ROW_OF.font]?.node ?? null;
   const coloursNode = rows[LOOK_ROW_OF.colours]?.node ?? null;
   const buttonsNode = rows[LOOK_ROW_OF.buttons]?.node ?? null;
   const musicNode = rows[LOOK_ROW_OF.music]?.node ?? null;
+  /* 🌈🎬 The page fill and the hero video — Look › Background's since 2026-10-08 (they were under Colours and Music). */
+  const pageNode = rows[LOOK_ROW_OF.page]?.node ?? null;
+  const videoNode = rows[LOOK_ROW_OF.video]?.node ?? null;
   const hasDressCode = scenes.some((sc) => sc.type === 'dress_code');
   const revealStagesKey = revealStages.join();
   const twoPeopleOff = sceneFormat?.twoPeople === false;
@@ -913,11 +916,13 @@ export function MakerWork({
           ) : null,
         buttons: buttonsNode,
         music: musicNode,
+        page: pageNode,
+        video: videoNode,
       },
     });
     // `sceneFormat` and `eventId` come with the same render as `elementEditing`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setLookPages, madeOnce, backgroundNode, fontNode, coloursNode, buttonsNode, musicNode, hasDressCode, revealStagesKey, publicLandingUrl, elementEditing, twoPeopleOff, ownsPro, cameraLookNow]);
+  }, [setLookPages, madeOnce, backgroundNode, fontNode, coloursNode, buttonsNode, musicNode, pageNode, videoNode, hasDressCode, revealStagesKey, publicLandingUrl, elementEditing, twoPeopleOff, ownsPro, cameraLookNow]);
   useEffect(() => () => setLookPages?.(null), [setLookPages]);
   useEffect(() => {
     try {

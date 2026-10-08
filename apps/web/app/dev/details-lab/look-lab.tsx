@@ -83,10 +83,12 @@ export function LookLab({ children }: { children: ReactNode }) {
         background: null,
         font: <ColorsPanel action={labDraft} eventId="lab" rowKey="font" part="font" bgColor={null} buttonColor={null} artDirection={null} />,
         colours: (
-          <ColorsPanel action={labDraft} eventId="lab" rowKey="colors" part="colours" bgColor={null} buttonColor={null} artDirection={null} magicTraveller={null} />
+          <ColorsPanel action={labDraft} eventId="lab" rowKey="colors" part="art" bgColor={null} buttonColor={null} artDirection={null} magicTraveller={null} />
         ),
         palette: null,
         buttons: null,
+        /* 🌈 The page fill — Look › Background's since 2026-10-08. */
+        page: <ColorsPanel action={labDraft} eventId="lab" rowKey="page-colour" part="page" bgColor={null} buttonColor={null} artDirection={null} />,
       },
       /* Classic's faces + a couple's part font, as the page would register them. */
       fontsInUse: ['cormorant', 'cormorantsc', 'playfair'],

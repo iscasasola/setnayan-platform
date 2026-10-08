@@ -46,7 +46,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import React from 'react';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from './strip-comments';
 import { PABUYA_TEMPLATES } from './pabuya-message';
@@ -129,7 +129,7 @@ test('2 · Look › Background: a still is drawn over its swatch and never as a 
   assert.match(carousel, /<StillOverSwatch src=\{o\.thumb\}/, 'the carousel’s pictures are not drawn over a swatch');
 });
 
-test('3 · in place, never a link out: Set up E-Gifts opens E-Gifts here; "Same as the Event Hub" is a switch', async () => {
+test('3 · in place, never a link out: Set up E-Gifts opens E-Gifts here; Look draws no "Same as the Event Hub" (it left 2026-10-08)', async () => {
   const details = read(`${L}/maker-details.tsx`);
   assert.doesNotMatch(details, /href=\{`\$\{base\}\/pabuya`\}/, 'Prints links out to the E-Gifts page again');
   assert.match(details, /<OpenInPlace open="Set up E-Gifts" back="Prints" data="gifts">\s*<LateEditor from=\{late\} item="gifts" \/>\s*<\/OpenInPlace>/, 'Set up E-Gifts does not open E-Gifts’ own editor in place');
@@ -140,10 +140,11 @@ test('3 · in place, never a link out: Set up E-Gifts opens E-Gifts here; "Same 
   assert.doesNotMatch(closed, /data-stub/, 'the E-Gifts editor shows before it is asked for');
   assert.match(read(`${L}/open-in-place.tsx`), /Done · back to \{back\}/, 'no ✓ Done · back to Prints');
 
-  const { FilmFollowsTheme } = await import(`../${L}/film-follows-theme`);
-  const film = await html(React.createElement(FilmFollowsTheme, { eventId: 'e' }));
-  assert.match(film, /<input[^>]*role="switch"/, '"Same as the Event Hub" is not a switch');
-  assert.doesNotMatch(film, /underline/, '"Same as the Event Hub" is a link');
+  /* 🎞 "Same as the Event Hub" was a switch here (round 3) — it LEFT Look with the 2026-10-08 restudy (the
+     Save the Date film's own background retires; `the-look-is-one-panel.test.ts` (1) holds that it is not
+     drawn). What stays true of round 3's rule: Look never draws it as a link out either. */
+  assert.ok(!existsSync(join(WEB, `${L}/film-follows-theme.tsx`)), 'the film line is back in Look’s folder');
+  assert.doesNotMatch(details, /Same as the Event Hub/, '"Same as the Event Hub" is drawn in Look again');
 });
 
 test('4 · E-Gifts "Your own words": the starting points are ONE "Start from ▾" dropdown in the Studio', async () => {
@@ -267,7 +268,8 @@ test('5 · Seat plan: the map gets the space — one head row, tools in the thum
 test('6 · Look › Music has no Save: an upload or the switch drafts at once; "Play music" is a switch', async () => {
   const src = read(`${D}/website/editor/_components/media-panels.tsx`);
   const panel = src.slice(src.indexOf('export function SiteChromePanel('), src.indexOf('export function VisibilityPanel('));
-  assert.match(panel, /\{studio \? null : <SaveButton \/>\}/, 'the Studio still draws Save under Music');
+  /* No Save in EITHER Maker since the 2026-10-08 restudy ("no Save anywhere") — round 3 took it off the Studio only. */
+  assert.doesNotMatch(panel, /SaveButton/, 'a Save is drawn under Music');
   assert.match(panel, /<HubDraftField \/>/, 'Music no longer writes into the draft');
   assert.equal((panel.match(/onChange=\{draftNow\}/g) ?? []).length, 3, 'the song, the switch and the video do not each draft at once');
   assert.match(panel, /formRef\.current\?\.requestSubmit\(\)/, 'nothing posts the form when a change lands');

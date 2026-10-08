@@ -158,7 +158,8 @@ function eventEffect(
     case 'site_bg_music_r2_key':
       return { what: 'Background music', where: 'Whole Event Hub', jump: { kind: 'row', key: 'music' } };
     case 'landing_page_hero_video_r2_key':
-      return { what: 'Hero video', where: 'Hero', jump: { kind: 'row', key: 'music' } };
+      /* 🎬 Set in Look › Background since 2026-10-08 (it was under Music). */
+      return { what: 'Hero video', where: 'Hero', jump: { kind: 'look' } };
     case 'our_photos':
       return { what: 'Your photos', where: 'Photos you add', jump: { kind: 'row', key: 'gallery' } };
     case 'style_preferences':

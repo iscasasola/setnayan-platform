@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "300d2330c",
+  "generatedFromRef": "124ada744",
   "routeCount": 428,
   "destinations": 954,
   "actions": 671,
-  "blocks": 5692,
+  "blocks": 5691,
   "routes": {
     "/": {
       "files": [
@@ -6486,7 +6486,6 @@
         "dashboard/[eventId]/launch/_components/details-your-event-load.tsx",
         "dashboard/[eventId]/launch/_components/details-your-event-parts.tsx",
         "dashboard/[eventId]/launch/_components/details-your-event.tsx",
-        "dashboard/[eventId]/launch/_components/film-follows-theme.tsx",
         "dashboard/[eventId]/launch/_components/hub-pro-offer.tsx",
         "dashboard/[eventId]/launch/_components/hub-stage.tsx",
         "dashboard/[eventId]/launch/_components/icon-pill.tsx",
@@ -6638,7 +6637,6 @@
         "Face",
         "Field",
         "FileUpload",
-        "FilmFollowsTheme",
         "FindDateCandidates",
         "FindDatePicked",
         "FineTune",

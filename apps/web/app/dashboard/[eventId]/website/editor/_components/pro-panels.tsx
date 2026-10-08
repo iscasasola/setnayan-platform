@@ -111,8 +111,16 @@ export function ColorsPanel({
    * Move). Each part is its own form posting only its own fields, and the
    * action reads an absent field as "unchanged", so neither part can clear the
    * other's. Null (the panel whole) is kept for the harnesses that draw it.
+   *
+   * 🌈 2026-10-08 (owner, the Look restudy — *"colors here is not color of the
+   * background but the colors of the different fonts, and buttons and
+   * highlights"*): Look draws the `'colours'` part as TWO, in two sections —
+   * **`'page'`** (the page fill alone: one colour · Plain · Dawn · Diagonal ·
+   * Glow) under Look › Background, and **`'art'`** (Candlelight · Magic Move,
+   * the Pro half alone) under Look › Elements › Colours. Same fields, same door.
+   * `'colours'` (both, one form) stays for the Event Details record row.
    */
-  part?: 'font' | 'colours' | null;
+  part?: 'font' | 'colours' | 'page' | 'art' | null;
   /**
    * 🎨 THE COLOURS THE MOOD BOARD GIVES THE PAGE (`moodBoardSiteColours`, the
    * guest page's own resolver) — what the wells show while a colour is left
@@ -182,6 +190,8 @@ export function ColorsPanel({
       />
     </fieldset>
   );
+  /* A Pro half that is locked with no lock to show (the app-store shell) has nothing to draw. */
+  if (part === 'art' && proLocked && !proLock) return null;
   return (
     <form action={action} className="border-t border-dashed border-ink/10 bg-cream/40 p-3">
       {/* Into the draft (`updateSiteColors`' door) — a free couple may TRY the
@@ -202,19 +212,21 @@ export function ColorsPanel({
           field, one hidden `bg_color`. Full width: the four effect chips need
           the room, and the button colour sits under it. */}
       {/* In Look the "Background" is the section above (behind every scene); here it is the page's colour. */}
-      <BackgroundField id={`${rowKey}-bg`} value={bgColor} themeId={themeId} eventId={eventId} moodBoard={moodBoard} label={part === 'colours' ? 'Page' : 'Background'} />
+      {part === 'art' ? null : (
+        <BackgroundField id={`${rowKey}-bg`} value={bgColor} themeId={themeId} eventId={eventId} moodBoard={moodBoard} label={part === 'colours' || part === 'page' ? 'Page' : 'Background'} />
+      )}
       {/* 🎨 Free for everyone since 2026-09-28 (owner: "change … color …
           only when you start adding themes will it be pro") — never locked.
           🔘 In Look it lives in Look › Buttons (2026-10-04) — the same
           `site_button_color`, beside the shape and fill it goes with — so the
           Colours section no longer draws it (one field, one place). This form
           then posts no `button_color`, which the action reads as unchanged. */}
-      {part === 'colours' ? null : (
+      {part === 'colours' || part === 'page' || part === 'art' ? null : (
         <div className="mt-3">
           <ButtonColourField name="button_color" defaultValue={buttonColor} eventId={eventId} moodBoard={moodBoard} themeId={themeId} />
         </div>
       )}
-      {proLocked ? (
+      {part === 'page' ? null : proLocked ? (
         <div className="mt-3">{proLock}</div>
       ) : (
       <>
@@ -223,9 +235,9 @@ export function ColorsPanel({
           is one dropdown). A hidden field ALWAYS posts one of the two values:
           the action treats an absent field as "leave unchanged", so the dark
           direction can always be turned back off from here. */}
-      <ArtDirectionPick value={artDirection ?? 'daylight'} mark={mark} />
+      <ArtDirectionPick value={artDirection ?? 'daylight'} mark={mark} leads={part === 'art'} />
 
-      {part === 'colours' ? null : typeface}
+      {part === 'colours' || part === 'art' ? null : typeface}
 
       {/* ══ MAGIC MOVE ═══════════════════════════════════════════════════
           Owner, 2026-09-23: element animation is *"something I really want"*,
@@ -432,10 +444,10 @@ function BackgroundField({
  * 🌗 ART DIRECTION — Daylight · Candlelight as ONE dropdown, ◆ beside its name
  * (owner, live iPhone test 2026-10-05: any set of choices is one dropdown).
  */
-function ArtDirectionPick({ value, mark }: { value: 'daylight' | 'candlelight'; mark: React.ReactNode }) {
+function ArtDirectionPick({ value, mark, leads = false }: { value: 'daylight' | 'candlelight'; mark: React.ReactNode; /** First in its form — no rule over it. */ leads?: boolean }) {
   const [art, setArt] = useState<'daylight' | 'candlelight'>(value);
   return (
-    <div className="mt-3 flex min-h-11 items-center justify-between gap-3 border-t border-dashed border-ink/10 pt-3" data-look-art-direction="">
+    <div className={`flex min-h-11 items-center justify-between gap-3${leads ? '' : ' mt-3 border-t border-dashed border-ink/10 pt-3'}`} data-look-art-direction="">
       <p className="inline-flex items-center gap-1.5 text-[0.72rem] font-semibold text-ink/80">Art direction{mark}</p>
       <input type="hidden" name="site_art_direction" value={art} />
       <PickMenu

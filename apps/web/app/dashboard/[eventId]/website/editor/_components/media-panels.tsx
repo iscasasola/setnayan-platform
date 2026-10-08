@@ -134,15 +134,24 @@ export function GalleryPanel({
 }
 
 /**
- * Background music (Website Pro) + the hero video, which share one action.
- * ⚠ Both controls must post together: `updateSiteChrome` writes a column only
- * when the form carried its field (the omit-when-untouched hardening from PR
- * #3642), so rendering just one here would leave the other untouched — correct,
- * but the couple would not see it. We render both, matching the sub-page.
+ * Background music (Website Pro) and the hero video, which share one action.
+ *
+ * 🎵🎬 TWO PARTS, TWO PLACES (owner 2026-10-08, the Look restudy — *"i see a hero
+ * video on music. this should be for the background"*): `part="music"` is Look ›
+ * Music (the song and its on/off, nothing else) and `part="video"` is Look ›
+ * Background (the hero video). Each is its own form posting only its own field —
+ * `updateSiteChrome` writes a column only when the form carried its field (the
+ * omit-when-untouched hardening from PR #3642), so neither can clear the other.
+ *
+ * 🚫 NO SAVE BUTTON, ANYWHERE (owner 2026-10-08, *"and no save button"*; round 3
+ * did it for the new Maker's Studio, this is the rest): the form posts itself —
+ * into the SAME draft door (`HubDraftField`) — the moment an upload lands or the
+ * switch flips; ✓ Apply publishes it.
  */
 export function SiteChromePanel({
   action,
   eventId,
+  part,
   musicRef,
   musicEnabled,
   musicDisplay,
@@ -151,57 +160,55 @@ export function SiteChromePanel({
 }: {
   action: (formData: FormData) => void | Promise<void>;
   eventId: string;
+  part: 'music' | 'video';
   musicRef: string | null;
   musicEnabled: boolean;
   musicDisplay?: Record<string, string>;
   videoRef: string | null;
   videoDisplay?: Record<string, string>;
 }) {
-  /* 🎵 STUDIO › LOOK › MUSIC HAS NO SAVE (owner 2026-10-08, *"and no save button"*): in the new Maker
-     the form posts itself — into the SAME draft door — the moment an upload lands or the switch
-     flips; Apply publishes it. The shipped editor keeps its Save. */
   const studio = useMaker()?.stagesStudio === true;
   const formRef = useRef<HTMLFormElement>(null);
-  const draftNow = () => {
-    if (!studio) return;
-    /* After React has written the new value into the upload's hidden field. */
-    window.requestAnimationFrame(() => formRef.current?.requestSubmit());
-  };
-  const hint = studio ? 'it is added to your draft as soon as it uploads' : 'press Save below';
+  /* After React has written the new value into the upload's hidden field. */
+  const draftNow = () => void window.requestAnimationFrame(() => formRef.current?.requestSubmit());
+  const hint = 'it is added to your draft as soon as it uploads';
   return (
-    <form ref={formRef} action={action} className={PANEL} data-site-chrome={studio ? 'drafts-as-you-go' : 'save'}>
+    <form ref={formRef} action={action} className={PANEL} data-site-chrome={part}>
       {/* Into the draft (`updateSiteChrome`'s door, owner 2026-09-29) — the song
           and the video are tried by every couple; Apply puts them live, with Pro. */}
       <HubDraftField />
-      <ReturnTo eventId={eventId} rowKey="music" />
-      <FileUpload
-        bucket="media"
-        pathPrefix={`events/${eventId}/site-music`}
-        name="bg_music_url"
-        unsavedHint={hint}
-        onChange={draftNow}
-        multiple={false}
-        maxSizeMB={20}
-        acceptedTypes={AUDIO_TYPES}
-        currentValue={musicRef}
-        initialDisplayUrls={musicDisplay}
-        label="Background music"
-        help="Plays only when a guest taps the speaker — never on its own."
-      />
-      {/* 🔀 The Studio draws it as a switch (owner 2026-10-08) — the SAME `bg_music_enabled` checkbox, its
-          look in the Studio's server-drawn CSS (`studioFullScreenCss`), so the Maker's first load carries no styles for it. */}
-      <label className="mt-2 flex items-center gap-2 text-xs text-ink/70" data-music-switch={studio ? '' : undefined}>
-        <input
-          type="checkbox"
-          role={studio ? 'switch' : undefined}
-          name="bg_music_enabled"
-          defaultChecked={musicEnabled}
-          onChange={draftNow}
-          className="h-3.5 w-3.5 rounded border-ink/30"
-        />
-        Play music on my Event Hub
-      </label>
-      <div className="mt-3 border-t border-ink/10 pt-3">
+      <ReturnTo eventId={eventId} rowKey={part === 'music' ? 'music' : 'hero-video'} />
+      {part === 'music' ? (
+        <>
+          <FileUpload
+            bucket="media"
+            pathPrefix={`events/${eventId}/site-music`}
+            name="bg_music_url"
+            unsavedHint={hint}
+            onChange={draftNow}
+            multiple={false}
+            maxSizeMB={20}
+            acceptedTypes={AUDIO_TYPES}
+            currentValue={musicRef}
+            initialDisplayUrls={musicDisplay}
+            label="Background music"
+            help="Plays only when a guest taps the speaker — never on its own."
+          />
+          {/* 🔀 The Studio draws it as a switch (owner 2026-10-08) — the SAME `bg_music_enabled` checkbox, its
+              look in the Studio's server-drawn CSS (`studioFullScreenCss`), so the Maker's first load carries no styles for it. */}
+          <label className="mt-2 flex items-center gap-2 text-xs text-ink/70" data-music-switch={studio ? '' : undefined}>
+            <input
+              type="checkbox"
+              role={studio ? 'switch' : undefined}
+              name="bg_music_enabled"
+              defaultChecked={musicEnabled}
+              onChange={draftNow}
+              className="h-3.5 w-3.5 rounded border-ink/30"
+            />
+            Play music on my Event Hub
+          </label>
+        </>
+      ) : (
         <FileUpload
           bucket="media"
           pathPrefix={`events/${eventId}/landing-page-hero-video`}
@@ -216,8 +223,7 @@ export function SiteChromePanel({
           label="Hero video"
           help="Plays in place of the hero photo when set."
         />
-      </div>
-      {studio ? null : <SaveButton />}
+      )}
     </form>
   );
 }

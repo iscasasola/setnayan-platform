@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "b4a51a84b",
-  "routeCount": 428,
-  "destinations": 957,
+  "generatedFromRef": "0f799a4cf",
+  "routeCount": 429,
+  "destinations": 959,
   "actions": 671,
-  "blocks": 5693,
+  "blocks": 5698,
   "routes": {
     "/": {
       "files": [
@@ -9825,6 +9825,21 @@
         "Switch"
       ]
     },
+    "/dev/supplier-lab": {
+      "files": [
+        "dev/supplier-lab/page.tsx"
+      ],
+      "destinations": [
+        "/dev/supplier-lab?thumb=customer",
+        "/dev/supplier-lab?thumb=people"
+      ],
+      "actions": [],
+      "blocks": [
+        "ActionButton",
+        "SupplierSubmit",
+        "SupplierThumbRow"
+      ]
+    },
     "/download": {
       "files": [
         "download/_download-motion.tsx",
@@ -11293,6 +11308,9 @@
         "vendor-dashboard/_components/qr-section.tsx",
         "vendor-dashboard/_components/source-breakdown.tsx",
         "vendor-dashboard/_components/spotlight-award-banner.tsx",
+        "vendor-dashboard/_components/supplier-submit.tsx",
+        "vendor-dashboard/_components/supplier-thumb-leave.ts",
+        "vendor-dashboard/_components/supplier-thumb-row.tsx",
         "vendor-dashboard/_components/supplier-today-first-screen.tsx",
         "vendor-dashboard/_components/tier-gate.tsx",
         "vendor-dashboard/_components/vendor-bottom-nav.tsx",
@@ -11427,8 +11445,10 @@
         "SubmitButton",
         "SupplierTodayFirstScreen",
         "SyncResult",
+        "ThumbFit",
         "TrackRecordRow",
         "UnreadBellBadge",
+        "UnreadMessagesBadge",
         "UpcomingSchedules",
         "VendorBottomNav",
         "VendorDealFacts",

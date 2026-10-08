@@ -288,8 +288,11 @@ export const MAKER_PARTS: Readonly<Record<MakerPartKey, MakerPartDef>> = {
   camera: { label: 'Camera', source: 'tool', canvas: null, layouts: { kind: 'own', names: MAKER_CAMERA_LAYOUTS } },
   gallery: { label: 'Gallery', source: 'tool', canvas: 'w:our_photos', layouts: scene('gallery') },
   myphotos: { label: 'Photos of you', source: 'tool', canvas: 'f:photos_of_you', layouts: scene('photos_of_you') },
-  yesnote: { label: 'When-yes note', source: 'info:yes_note', canvas: null, layouts: NONE },
-  nonote: { label: 'When-no note', source: 'info:no_note', canvas: null, layouts: NONE },
+  /* 🗳 The RSVP stage's two after-screens (owner 2026-10-07/08: "yes and no page for the rsvp is to show what the
+     rsvp looks like after the reply yes or no"): the couple's heading and message, marked on the Maker's canvas of
+     `invite/enter` (`f:yesnote` / `f:nonote`) and typed there on the second tap. */
+  yesnote: { label: 'When-yes note', source: 'info:yes_note', canvas: 'f:yesnote', layouts: NONE },
+  nonote: { label: 'When-no note', source: 'info:no_note', canvas: 'f:nonote', layouts: NONE },
   numbers: { label: 'By the numbers', source: 'tool', canvas: 'p:numbers', layouts: scene('statistics') },
   wishes: { label: 'Wishes', source: 'tool', canvas: 'p:wishes', layouts: scene('photo-notes') },
   suppliers: { label: 'Supplier Stories', source: 'tool', canvas: 'p:vendors', layouts: scene('supplier-stories') },
@@ -361,8 +364,10 @@ export const MAKER_STAGE_PAGES: Readonly<Record<MakerStageKey, Readonly<Record<s
   },
   [RSVP_STAGE_KEY]: {
     form: ['logo', 'ename', 'names', 'date', 'place', 'rsvp', 'greeting'],
-    thanks: ['yesnote', 'pass'],
-    decline: ['nonote'],
+    /* 👆 "Every visible piece is a pickable part" (owner 2026-10-07): the after-screens draw the couple's mark,
+       their names and — when they typed one — their invitation line over the note, so those are parts here too. */
+    thanks: ['logo', 'names', 'heroline', 'yesnote', 'pass'],
+    decline: ['logo', 'names', 'heroline', 'nonote'],
   },
   rsvp: {
     home: ['reveal', 'logo', 'ename', 'names', 'heroline', 'date', 'place', 'herolink', 'rsvpcard', 'countdown', 'opening', 'greeting', 'message', 'reminders', 'gifts'],
@@ -496,6 +501,16 @@ export function makerStagePickedAttr(key: MakerPartKey | null): string | null {
  */
 export function makerRevealEdges(isReveal: boolean): { grip: boolean; addAbove: boolean; addBelow: boolean; remove: boolean } {
   return isReveal ? { grip: false, addAbove: false, addBelow: false, remove: false } : { grip: true, addAbove: true, addBelow: true, remove: true };
+}
+
+/**
+ * 🗳 THE RSVP STAGE'S THREE SCREENS ARE FIXED PAGES: the form and the two after-screens are the guest's own reply
+ * pages — nothing can be added to one, moved on it or taken off it. So a part picked there has its frame, its name
+ * and ↑ ↓ ✕, and NO ＋, grip or 🗑. (The ＋ sheet would also ask the work area mounted under that stage, and offer
+ * the INVITATION's hidden scenes — a write to another stage.)
+ */
+export function makerStageIsFixedPages(stage: MakerStageKey): boolean {
+  return stage === RSVP_STAGE_KEY;
 }
 
 /**

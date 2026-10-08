@@ -76,7 +76,9 @@ export function TimelineRow({
 }) {
   return (
     <Tag {...attrs} data-timeline-row={data ?? ''} data-timeline-row-editing={editing ? '' : undefined} className="border-t border-ink/10 bg-cream first:border-t-0">
-      <div className="flex min-h-[58px] items-center gap-1.5 py-1.5 pl-4 pr-1">
+      {/* The name is the point of the row: it may run to a SECOND line (the row grows, the when stays centred
+          beside it), never a third — then "…". The type never shrinks to fit. */}
+      <div className="flex min-h-[58px] items-center gap-1 py-1.5 pl-3 pr-1">
         {editing ? (
           <NameField name={name} placeholder={placeholder} nameLabel={nameLabel} maxLength={maxLength} onKeep={onKeep} onLeave={onLeave} />
         ) : (
@@ -87,12 +89,12 @@ export function TimelineRow({
                 type="button"
                 data-timeline-name=""
                 onClick={onEdit}
-                className={`sn-press min-h-11 min-w-0 flex-1 truncate rounded-xl px-1.5 text-left text-[15px] ${name ? 'font-medium text-ink' : 'font-normal text-ink/45'}`}
+                className={`sn-press flex min-h-11 min-w-0 flex-1 items-center rounded-xl px-1 text-left text-[15px] leading-tight ${name ? 'font-medium text-ink' : 'font-normal text-ink/45'}`}
               >
-                {name || placeholder}
+                <span className="line-clamp-2 min-w-0 break-words">{name || placeholder}</span>
               </button>
             ) : (
-              <span data-timeline-name="" className="min-w-0 flex-1 truncate px-1.5 text-[15px] font-medium text-ink">
+              <span data-timeline-name="" className="line-clamp-2 min-w-0 flex-1 break-words px-1 text-[15px] font-medium leading-tight text-ink">
                 {name}
               </span>
             )}

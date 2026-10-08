@@ -188,7 +188,7 @@ function MomentRow({
             disabled={!canEdit}
             sheet={sheet}
             onClosed={writeRolled}
-            className="min-w-[80px]"
+            className="min-w-[72px]"
           >
             {(close) => (
               <TimeTicker
@@ -209,7 +209,7 @@ function MomentRow({
             disabled={!canEdit}
             sheet={sheet}
             onClosed={writeRolled}
-            className={`min-w-[80px] ${hasEnd ? '' : '!text-ink/55'}`}
+            className={`min-w-[72px] ${hasEnd ? '' : '!text-ink/55'}`}
           >
             {(close) => (
               <TimeTicker
@@ -247,7 +247,7 @@ function MomentRow({
 
 /** The new moment before it is named: its times shown, its name open — on this screen only. */
 function NewMomentRow({ span, onKeep, onLeave }: { span: TimeSpan; onKeep: (text: string) => void; onLeave: () => void }) {
-  const pill = `${TICKER_PILL_CLASS} min-w-[80px]`;
+  const pill = `${TICKER_PILL_CLASS} min-w-[72px]`;
   return (
     <TimelineRow
       data="new"

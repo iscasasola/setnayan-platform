@@ -202,11 +202,19 @@ test('(5) the row, rendered: when · name · trailing — and open, the field ta
   // In order: the when, the name (a button), the trailing slot.
   const at = (s: string) => closed.indexOf(s);
   assert.ok(at('data-when') > -1 && at('data-when') < at('data-timeline-name=""') && at('data-timeline-name=""') < at('data-trailing'));
-  assert.match(closed, /<button[^>]*data-timeline-name=""[^>]*>Ceremony</);
+  assert.match(closed, /<button[^>]*data-timeline-name=""[^>]*><span[^>]*>Ceremony</);
+  // THE NAME MAY RUN TO A SECOND LINE, never a third, and its type is not shrunk to fit (owner's review at 375 px:
+  // "Entourage ph…" — the name is the point of the row).
+  const nameBtn = /<button[^>]*data-timeline-name=""[^>]*>(<span[^>]*>)/.exec(closed)!;
+  assert.match(nameBtn[1]!, /class="[^"]*\bline-clamp-2\b[^"]*\bbreak-words\b/, 'a long name cannot wrap to a second line');
+  assert.doesNotMatch(nameBtn[0]!, /\btruncate\b|whitespace-nowrap|line-clamp-1\b/, 'the name is cut to one line');
+  assert.match(nameBtn[0]!, /text-\[15px\]/, 'the name’s type was shrunk');
+  assert.match(nameBtn[0]!, /\bmin-h-11\b/, 'the name is under a 44-px target');
+  assert.match(closed, /class="flex min-h-\[58px\] items-center /, 'the when is not centred beside a two-line name');
   assert.doesNotMatch(closed, /<input/);
   // Not named yet: the placeholder, quieter.
   const unnamed = await paint(React.createElement(TimelineRow, { ...base, name: '' }));
-  assert.match(unnamed, /data-timeline-name=""[^>]*text-ink\/45[^>]*>Name this moment</);
+  assert.match(unnamed, /data-timeline-name=""[^>]*text-ink\/45[^>]*><span[^>]*>Name this moment</);
   // View only: words, nothing to press.
   const view = await paint(React.createElement(TimelineRow, { ...base, canEdit: false }));
   assert.doesNotMatch(view, /<button[^>]*data-timeline-name/);

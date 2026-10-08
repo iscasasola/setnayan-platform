@@ -88,7 +88,11 @@ test('(1) the row is start pill – end pill · name · ⋯ on the ONE timeline 
   assert.deepEqual([...order].sort((x, y) => x - y), order, 'the row is not start · end · name · ⋯');
   assert.match(a, /<button[^>]*aria-label="Starts 3:00 PM"[^>]*data-ticker-pill="start"[^>]*>3:00 PM</);
   assert.match(a, /<button[^>]*aria-label="Ends 4:00 PM"[^>]*data-ticker-pill="end"[^>]*>4:00 PM</);
-  assert.match(a, /<button[^>]*data-timeline-name=""[^>]*>Ceremony</);
+  assert.match(a, /<button[^>]*data-timeline-name=""[^>]*><span[^>]*>Ceremony</);
+  // Room for the name at 375 px: the pills sit at a 72-px floor with slim sides, and nothing is under a 44-px target
+  // (every <button> has the app's 44-px floor; ⋯ is 44 × 44).
+  assert.match(a, /data-ticker-pill="start"[^>]*class="[^"]*\bpx-2\b[^"]*\bmin-w-\[72px\]/);
+  assert.match(a, /data-studio-moment-more="a"[^>]*class="[^"]*\bh-11 w-11\b/);
   // A ticker is closed until it is tapped: drawing the day draws no columns, and writes nothing.
   assert.doesNotMatch(html, /data-ticker-column/);
   assert.deepEqual(writes, []);

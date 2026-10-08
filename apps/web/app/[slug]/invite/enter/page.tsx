@@ -483,6 +483,9 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
     await tileCodeOnce(event.event_id as string, guest.guest_id as string);
   }
   const ticket = landingTicketOf({ reply, eligibility: passCard, isPlusOne: Boolean(guest.plus_one_of_guest_id) });
+  /* 🧩 The Maker's "When no" sample is a guest who said no: no ticket (a real one's is withdrawn — `cannotCome`;
+     the sample has no row to read that from, so it is said here). Canvas only — false for every guest. */
+  const noTicketSample = canvas && reply === 'no';
   const seatDay = ticketShowsTable({
     eventDate: event.event_date as string | null,
     eventDatePrecision: event.event_date_precision as string | null,
@@ -609,7 +612,7 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
         ) : null}
         {saved ? <DoorNotice kind={saved.kind}>{saved.text}</DoorNotice> : null}
         {canvas && wordKeys ? (
-          <RsvpCanvasBridge inertButtons />
+          <RsvpCanvasBridge />
         ) : null}
         {/* 🎉 WHEN YES — the couple's celebration, ONCE, as a guest who just
             said yes sees this (owner 2026-10-06). On the Maker's sample it plays
@@ -627,6 +630,10 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
         {/* 1 · THE COUPLE'S MESSAGE — name as given (frame 1). After a Yes, the
             "✓ You replied" pill carries the couple's "After they submit" words
             (frame 3); after a No, the card carries "When they decline" (frame 4). */}
+        {/* 🧩 ON THE MAKER'S CANVAS EVERY PIECE IS A PART (owner 2026-10-07/08: "yes and no page for the rsvp is to
+            show what the rsvp looks like after the reply yes or no"): the SHIPPED section marker stands before the
+            couple's words — the When-yes note, or the When-no note. Canvas only: a guest is served none of it. */}
+        {canvas ? <span hidden data-maker-section={reply === 'no' ? 'f:nonote' : 'f:yesnote'} /> : null}
         <div data-landing="message" className="space-y-3">
           {unreplied ? (
             <div className="sn-glass-bare rounded-2xl bg-cream/95 px-[18px] py-4 text-[15px] leading-relaxed text-ink shadow-sm" data-landing-message="">
@@ -709,6 +716,7 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
             PNG, the file Save hands over): faded (a PICTURE, no control — the "Reply to
             confirm your ticket" pill went 2026-10-01) until a Yes, full with "Save my ticket" after, none after a
             No (`landingTicketOf`). A seat with no ticket keeps the QR panel. */}
+        {canvas && !noTicketSample && ticket !== 'none' ? <span hidden data-maker-section="f:pass" /> : null}
         {ticket === 'full' ? (
           <section aria-labelledby="your-ticket" className="space-y-4 text-center" data-landing="ticket" data-landing-ticket="full">
             <h2 id="your-ticket" className="sr-only">
@@ -739,7 +747,7 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
               <TicketPicture src={PASS_CARD_ROUTE} alt="" fallback={null} />
             </div>
           </section>
-        ) : ticket === 'none' ? null : passCard === 'awaiting' ? (
+        ) : ticket === 'none' ? null : noTicketSample ? null : passCard === 'awaiting' ? (
           <p className="text-sm text-ink/70" data-landing="ticket">{passCardLine(passCard)}</p>
         ) : (
           <div data-landing="ticket">

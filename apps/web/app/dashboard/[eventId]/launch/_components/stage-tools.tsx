@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Brush, Diamond, FileText, PencilLine, Play, Square, Store } from 'lucide-react';
+import { Brush, Check, Diamond, FileText, PencilLine, Play, Reply, Square, Store, X, type LucideIcon } from 'lucide-react';
 import { RSVP_STAGE_KEY } from '@/lib/rsvp-stage-shared';
-import { RSVP_STAGE_SCENES, type RsvpStageScene } from '@/lib/rsvp-stage';
+import { RSVP_STAGE_SCENES, isRsvpStageScene, type RsvpStageScene } from '@/lib/rsvp-stage';
 import {
   MAKER_PARTS,
   MAKER_PART_TOOLS,
@@ -13,6 +13,7 @@ import {
   makerPartQuietRow,
   makerPartSource,
   makerPartsOnPage,
+  makerPartsTappable,
   makerStepPart,
   type MakerPartKey,
   type MakerPartTool,
@@ -38,6 +39,15 @@ import { fixedOfKey, fixedScenePanel } from '@/lib/maker-selection';
 import { makerPartStudioDoor, makerStagePickedAttr, makerStageMayType } from '@/lib/maker-parts';
 import { findMakerSection } from '@/app/[slug]/_components/maker-section-find';
 import { showHubTab, shownHubTab } from '@/app/[slug]/_components/hub-tab-dom';
+import {
+  RSVP_GROUND_MESSAGE,
+  RSVP_PICKED_MESSAGE,
+  RSVP_PICK_MESSAGE,
+  RSVP_STAGE_ASK_EVENT,
+  RSVP_STAGE_SCENE_EVENT,
+  RSVP_TYPING_MESSAGE,
+  rsvpStageFrameSelector,
+} from '@/app/[slug]/_components/rsvp-canvas-parts';
 import { setStagePanelNow, setStageRevealColours, useStageRevealLook, type StageQuiet } from './stage-panel/store';
 import { revealStubHtml } from './stage-panel/reveal-picture';
 import type { StudioTileKey } from '@/lib/studio-tiles';
@@ -101,11 +111,38 @@ let lastTab: { of: string; stage: LifecyclePhase; tab: string } | null = null;
 
 const SHOWN_FRAME = 'iframe[data-maker-canvas-frame="shown"]';
 
+/* ── 🗳 THE RSVP STAGE: three screens, each its own frame (`maker-rsvp-stage.tsx`), each piece a part ──────────── */
+
+/** The page tabs' icons — the prototype's `PICON` (i-reply · i-check · i-x). */
+const RSVP_TAB_ICON: Record<RsvpStageScene, LucideIcon> = { form: Reply, thanks: Check, decline: X };
+
+/**
+ * A part's ONE door on the RSVP stage is where its content really lives FOR THESE SCREENS: the couple's mark, their
+ * names, the date and the place keep their own (Logo · Info · Suppliers); the form and the two notes are the RSVP
+ * tool's. The rest — each guest's own name, their ticket, the door's fixed words — has no door: its name, and ⓘ.
+ */
+const RSVP_OWN_DOOR: readonly MakerPartKey[] = ['logo', 'names', 'date', 'place'];
+const RSVP_TOOL_PARTS: readonly MakerPartKey[] = ['rsvp', 'yesnote', 'nonote'];
+function rsvpQuietRow(picked: MakerPartKey | null): ReturnType<typeof makerPartQuietRow> {
+  if (!picked || RSVP_TOOL_PARTS.includes(picked)) return makerPartQuietRow('rsvp');
+  return RSVP_OWN_DOOR.includes(picked) ? makerPartQuietRow(picked) : null;
+}
+/** ⓘ What a piece of the reply pages is, where nothing else says (host-only words, never a guest's). */
+const RSVP_PART_ABOUT: Partial<Record<MakerPartKey, string>> = {
+  ename: 'Every reply page opens with these words.',
+  heroline: 'Your invitation line. You type it on the Invitation’s Welcome page.',
+};
+
+/** Ask the RSVP stage: show that screen · open (or fold) the picked part's tools. */
+function askRsvpStage(detail: { scene?: RsvpStageScene; controls?: boolean }) {
+  window.dispatchEvent(new CustomEvent(RSVP_STAGE_ASK_EVENT, { detail }));
+}
+
 /** The canvas keys the stage's page drew (its section markers) — what a tile can reach. */
-function readPresent(): Set<string> {
+function readPresent(frameSel: string = SHOWN_FRAME): Set<string> {
   const out = new Set<string>();
   try {
-    const doc = document.querySelector<HTMLIFrameElement>(SHOWN_FRAME)?.contentDocument;
+    const doc = document.querySelector<HTMLIFrameElement>(frameSel)?.contentDocument;
     doc?.querySelectorAll('[data-maker-section]').forEach((m) => {
       const k = m.getAttribute('data-maker-section');
       if (!k) return;
@@ -231,11 +268,11 @@ export function StageTools({
      all the same), and a stage the canvas draws as ONE page has no tabs at all. The words and the pick are still
      the shell's own Page ▾ options — a page the event's bar drops (no Love Story) is dropped here with it. */
   const pages = useMemo(() => {
-    if (rsvpOpen) return RSVP_STAGE_SCENES.map((s) => ({ key: s.key as string, label: s.label, option: RSVP_STAGE_KEY as string }));
+    if (rsvpOpen) return RSVP_STAGE_SCENES.map((s) => ({ key: s.key as string, label: s.label, tab: s.tab, option: RSVP_STAGE_KEY as string }));
     const own = new Set(makerStagesPages(stage).map((p) => p.key));
     return options.flatMap((o) => {
       const pk = makerPagePick(o.key);
-      return pk?.kind === 'page' && pk.stage === stage && own.has(pk.page) ? [{ key: pk.page, label: o.label, option: o.key }] : [];
+      return pk?.kind === 'page' && pk.stage === stage && own.has(pk.page) ? [{ key: pk.page, label: o.label, tab: o.label, option: o.key }] : [];
     });
   }, [options, rsvpOpen, stage]);
   const shownPage = (() => {
@@ -261,16 +298,20 @@ export function StageTools({
     },
     [filed, pages, present, revealStage, stage],
   );
+  /** 🗳 The frame the stage's page is drawn in: the shown canvas — or, on the RSVP stage, the screen on show. */
+  const frameSel = rsvpOpen ? rsvpStageFrameSelector(screen) : SHOWN_FRAME;
+  /* 🗳 The RSVP stage's parts are the ones its screen DREW (its markers, and the masthead's named parts) — never a
+     tile for a piece the page did not draw (no venue yet, no invitation line). */
   const parts = useMemo(
-    () => (rsvpOpen ? [...makerPartsOnPage(RSVP_STAGE_KEY, screen)] : tappableOn(shownPage)),
-    [rsvpOpen, screen, shownPage, tappableOn],
+    () => (rsvpOpen ? makerPartsTappable(RSVP_STAGE_KEY, screen, present) : tappableOn(shownPage)),
+    [present, rsvpOpen, screen, shownPage, tappableOn],
   );
   const pageLabel = pages.find((p) => p.key === shownPage)?.label ?? null;
 
   /* The canvas's sections, read again whenever a canvas says it is ready, or the page moves. */
   useEffect(() => {
     const read = () => {
-      setPresent(readPresent());
+      setPresent(readPresent(frameSel));
       setFiled(readFiled());
     };
     read();
@@ -285,11 +326,44 @@ export function StageTools({
     const onReady = (e: MessageEvent) => {
       if (e.origin !== window.location.origin) return;
       const d = e.data as { source?: unknown; t?: unknown } | null;
-      if (d?.source === 'setnayan-site' && d.t === 'ready') window.setTimeout(read, 60);
+      /* …or an RSVP screen says it is up (`rsvpReady`): its parts are named by then. */
+      if (d?.source === 'setnayan-site' && (d.t === 'ready' || d.t === 'rsvpReady')) window.setTimeout(read, 60);
     };
     window.addEventListener('message', onReady);
     return () => window.removeEventListener('message', onReady);
-  }, [stage, shownPage]);
+  }, [stage, shownPage, frameSel]);
+
+  /* 🗳 THE RSVP SCREEN ON SHOW IS THE STAGE'S TO SAY (`RSVP_STAGE_SCENE_EVENT`) — the label and the tab under-
+     line follow the canvas, never a guess (the rule every Stages tab keeps). `wanted`: a screen asked for before
+     the stage was up is asked for again once it says where it is. */
+  const wanted = useRef<RsvpStageScene | null>(null);
+  useEffect(() => {
+    if (!rsvpOpen) return;
+    const now = document.querySelector('[data-rsvp-stage]')?.getAttribute('data-rsvp-stage');
+    if (isRsvpStageScene(now)) {
+      /* A screen asked for on the way in (the stage menu's "When yes") is asked for now that the stage is up. */
+      if (wanted.current && wanted.current !== now) askRsvpStage({ scene: wanted.current });
+      else setScreen(now);
+    }
+    const onScene = (e: Event) => {
+      const s = (e as CustomEvent<unknown>).detail;
+      if (!isRsvpStageScene(s)) return;
+      const w = wanted.current;
+      wanted.current = null;
+      if (w && w !== s) return askRsvpStage({ scene: w });
+      setScreen(s);
+      /* Its parts are read off the frame now on show (a kept frame says `rsvpReady` only once). */
+      window.setTimeout(() => setPresent(readPresent(rsvpStageFrameSelector(s))), 60);
+    };
+    window.addEventListener(RSVP_STAGE_SCENE_EVENT, onScene);
+    return () => window.removeEventListener(RSVP_STAGE_SCENE_EVENT, onScene);
+  }, [rsvpOpen]);
+  /** Open one of the RSVP stage's three screens — from its top (the stage tells its frame, `rsvpTop`). */
+  const goToScreen = useCallback((s: RsvpStageScene) => {
+    wanted.current = s;
+    setScreen(s);
+    askRsvpStage({ scene: s });
+  }, []);
 
   /* 🧭 THE TAB ON SCREEN IS THE CANVAS'S TO SAY. It says it when it loads (`ready`) and after every switch
      (`hubTab`). A canvas that RELOADS comes back on its first tab: the tab that was on screen is put back at once
@@ -376,15 +450,15 @@ export function StageTools({
   const pickedKey = picked ? MAKER_PARTS[picked].canvas : null;
   const pickedEl = picked ? (MAKER_PARTS[picked].el ?? null) : null;
   useEffect(() => {
-    if (!open || !pickedKey || rsvpOpen) return;
+    if (!open || !pickedKey) return;
     /* Once the panel has risen — and again after the page under it settles (a page jump scrolls the canvas). */
-    const t = window.setTimeout(() => centrePart(pickedKey, pickedEl), STAGE_PANEL_MS + 40);
-    const t2 = window.setTimeout(() => centrePart(pickedKey, pickedEl), STAGE_PANEL_MS + 900);
+    const t = window.setTimeout(() => centrePart(pickedKey, pickedEl, frameSel), STAGE_PANEL_MS + 40);
+    const t2 = window.setTimeout(() => centrePart(pickedKey, pickedEl, frameSel), STAGE_PANEL_MS + 900);
     return () => {
       window.clearTimeout(t);
       window.clearTimeout(t2);
     };
-  }, [open, pickedKey, pickedEl, rsvpOpen, ltNow, shownPage]);
+  }, [open, pickedKey, pickedEl, frameSel, ltNow, shownPage]);
   /* Its tools closed (×, a tap on nothing): nothing is picked. */
   useEffect(() => {
     if (openTool !== null) return;
@@ -426,8 +500,9 @@ export function StageTools({
         return;
       }
       if (rsvpOpen) {
-        /* The RSVP stage's screens carry their own controls (`maker-rsvp-stage.tsx`). */
-        document.querySelector<HTMLElement>(`[data-rsvp-stage-scene-tile="${screen}"]`)?.click();
+        /* The RSVP stage's screens carry their own tools (`maker-rsvp-stage.tsx`): they open for the part picked.
+           ⚠ Never the `edit` below — the work area stays mounted under this stage and would take the selection. */
+        askRsvpStage({ controls: true });
         return;
       }
       const def = MAKER_PARTS[k];
@@ -436,8 +511,10 @@ export function StageTools({
       window.postMessage({ source: 'setnayan-site', t: 'edit', key: def.canvas, ...(def.el ? { el: def.el } : {}) }, window.location.origin);
       askTool(toolRef.current, k);
     },
-    [askTool, rsvpOpen, screen],
+    [askTool, rsvpOpen],
   );
+  const pickPartRef = useRef(pickPart);
+  pickPartRef.current = pickPart;
 
   /* ── ↑ ↓ ✕ — the part above / below, and let go (owner 2026-10-07) ── */
   const deselect = useCallback(() => {
@@ -447,7 +524,7 @@ export function StageTools({
   const deselectRef = useRef(deselect);
   deselectRef.current = deselect;
   /** The page's parts in their VISUAL order (measured on the canvas) — the order ↑ ↓ and the swipe walk. */
-  const ordered = useCallback(() => partsInPageOrder(parts, (k) => makerPartTopOnScreen(stageKey, k)), [parts, stageKey]);
+  const ordered = useCallback(() => partsInPageOrder(parts, (k) => makerPartTopOnScreen(stageKey, k, frameSel)), [frameSel, parts, stageKey]);
   const placeOf = picked ? ordered().indexOf(picked) : -1;
   const isFirstPage = pages.findIndex((p) => p.key === shownPage) <= 0;
   const isLastPage = pages.findIndex((p) => p.key === shownPage) >= pages.length - 1;
@@ -480,6 +557,18 @@ export function StageTools({
         setSeq({ phase: d.phase, skipped });
         if (d.phase === 'rest') setPlaying(false);
       }
+      /* 🗳 THE RSVP STAGE'S SCREENS (`rsvp-canvas-bridge.tsx`) — their own messages, so the work area mounted under
+         the stage never hears a tap there as one of its own (`rsvp-canvas-parts.ts`). A tap PICKS the part under it
+         (the same map a tap on any stage's page reads); a tap on the ground lets it go; a second tap on the picked
+         part's words types them on the page — the panel steps aside until Done. */
+      else if (where.current.stageKey !== RSVP_STAGE_KEY) return;
+      else if (d.t === RSVP_PICK_MESSAGE && typeof d.key === 'string') {
+        const k = makerPartOfTap(RSVP_STAGE_KEY, where.current.shownPage, d.key, typeof d.el === 'string' ? d.el : null);
+        if (k) pickPartRef.current(k);
+        else deselectRef.current();
+      } else if (d.t === RSVP_GROUND_MESSAGE) deselectRef.current();
+      else if (d.t === RSVP_TYPING_MESSAGE && d.phase === 'start') setTyping(true);
+      else if (d.t === 'rsvpReady') sendRsvpPickedRef.current();
     };
     window.addEventListener('message', onCanvas);
     return () => window.removeEventListener('message', onCanvas);
@@ -507,6 +596,19 @@ export function StageTools({
     else shell?.removeAttribute('data-stage-picked');
     return () => shell?.removeAttribute('data-stage-picked');
   }, [open, picked]);
+  /* 🗳 …and the RSVP stage's screens are told which part is picked: a tap on ITS words types them there
+     (`makerStageMayType`, asked on the page in the tap itself — a phone raises its keyboard only then). */
+  const sendRsvpPicked = useCallback(() => {
+    const now = document.querySelector('[data-maker-shell]')?.getAttribute('data-stage-picked') ?? null;
+    document.querySelectorAll<HTMLIFrameElement>('iframe[data-rsvp-stage-frame]').forEach((f) => {
+      f.contentWindow?.postMessage({ source: 'setnayan-editor', t: RSVP_PICKED_MESSAGE, picked: now }, window.location.origin);
+    });
+  }, []);
+  const sendRsvpPickedRef = useRef(sendRsvpPicked);
+  sendRsvpPickedRef.current = sendRsvpPicked;
+  useEffect(() => {
+    if (rsvpOpen) sendRsvpPicked();
+  }, [rsvpOpen, open, picked, sendRsvpPicked]);
 
   /* ⌨ Done brings the panel back ON THE SAME PART (prototype `endTyping`): the part typed in is picked again. */
   const typedPart = useRef<MakerPartKey | null>(null);
@@ -560,12 +662,10 @@ export function StageTools({
       if (!r) return;
       if (r.part) return pickPart(r.part);
       pendingStep.current = dir;
-      if (rsvpOpen) {
-        setScreen(r.page as RsvpStageScene);
-        document.querySelector<HTMLElement>(`[data-rsvp-stage-scene="${r.page}"]`)?.click();
-      } else goToPage(r.page, makerPageValue(stage, r.page));
+      if (rsvpOpen) goToScreen(r.page as RsvpStageScene);
+      else goToPage(r.page, makerPageValue(stage, r.page));
     },
-    [goToPage, ordered, pages, parts, pickPart, picked, rsvpOpen, shownPage, stage, tappableOn],
+    [goToPage, goToScreen, ordered, pages, parts, pickPart, picked, rsvpOpen, shownPage, stage, tappableOn],
   );
   /* The next page is on screen and its parts are read: pick its first (or, going back, its last). */
   useEffect(() => {
@@ -635,7 +735,7 @@ export function StageTools({
     const def = picked ? MAKER_PARTS[picked] : null;
     /* ▶ A picked part plays its WHOLE life on the canvas — Build in · Action · Build out · rest (owner: "i cannot
        see the build out and action"); the canvas tells each phase back (`playSeq`). */
-    if (def?.canvas) {
+    if (def?.canvas && !rsvpOpen) {
       setSeq(null);
       postToCanvas({ source: 'setnayan-editor', t: 'playSeq', key: def.canvas, ...(def.el ? { el: def.el } : {}) });
       setPlaying(true);
@@ -741,13 +841,14 @@ export function StageTools({
   const fixedHere = canvasOfPick ? fixedOfKey(canvasOfPick) : null;
   useEffect(() => {
     /* The RSVP stage's screens are the RSVP tool's: its one quiet bar is "Edit the RSVP · Studio ›". */
-    const q = rsvpOpen ? makerPartQuietRow('rsvp') : picked && picked !== 'reveal' ? makerPartQuietRow(picked) : null;
+    const q = rsvpOpen ? rsvpQuietRow(picked) : picked && picked !== 'reveal' ? makerPartQuietRow(picked) : null;
     let quiet: StageQuiet | null = null;
     if (q) {
       if ('suppliers' in q.to) quiet = { kind: 'suppliers', words: q.words, small: 'Suppliers ›', href: suppliersHref };
       else {
         const to = q.to.studio;
-        const typed = picked ? makerPartSource(picked).kind === 'info' : false;
+        /* (On the RSVP stage only the form's and the notes' own words are typed on the page — never the masthead's.) */
+        const typed = picked && !rsvpOpen ? makerPartSource(picked).kind === 'info' : false;
         quiet = {
           kind: to === 'info' ? 'info' : 'studio',
           words: q.words,
@@ -765,7 +866,7 @@ export function StageTools({
       }
     }
     const f = fixedHere ? fixedScenePanel(fixedHere) : null;
-    const about = f ? [f.line, f.source?.text].filter(Boolean).join(' ') || null : null;
+    const about = (f ? [f.line, f.source?.text].filter(Boolean).join(' ') || null : null) ?? (rsvpOpen && picked ? (RSVP_PART_ABOUT[picked] ?? null) : null);
     setStagePanelNow({ picked, quiet, about });
   }, [picked, rsvpOpen, suppliersHref, stageKey, shownPage, onOpenStudio, fixedHere]);
   useEffect(() => () => setStagePanelNow({ picked: null, quiet: null, about: null }), []);
@@ -872,9 +973,9 @@ export function StageTools({
           rsvpScreen={screen}
           onPick={onPickPage}
           onRsvpScreen={(s) => {
-            setScreen(s);
-            /* The RSVP stage draws its three screens itself; ask it for this one once it is up. */
-            window.setTimeout(() => document.querySelector<HTMLElement>(`[data-rsvp-stage-scene="${s}"]`)?.click(), 60);
+            deselect();
+            /* The RSVP stage draws its three screens itself; ask it for this one (again once it is up — `wanted`). */
+            goToScreen(s);
           }}
         />
         {(
@@ -951,7 +1052,8 @@ export function StageTools({
       {/* ══ ＋ ↕ 🗑 — on the picked part's edges, over the page ══ */}
       <PartEdits
         stage={stageKey}
-        picked={open && !rsvpOpen && !cameraOpen ? picked : null}
+        picked={open && !cameraOpen ? picked : null}
+        frame={rsvpOpen ? frameSel : undefined}
         onPrev={placeOf > 0 || (placeOf === 0 && !isFirstPage) ? () => step(-1) : null}
         onNext={placeOf >= 0 && (placeOf < ordered().length - 1 || !isLastPage) ? () => step(1) : null}
         onClose={deselect}
@@ -986,8 +1088,10 @@ export function StageTools({
                         onClick={() => {
                           if (here) return;
                           if (rsvpOpen) {
-                            setScreen(p.key as RsvpStageScene);
-                            document.querySelector<HTMLElement>(`[data-rsvp-stage-scene="${p.key}"]`)?.click();
+                            /* 🗳 The RSVP stage's three screens are pages too: the picked part is let go, then the
+                               screen opens — from its top (`goToScreen`). */
+                            deselect();
+                            goToScreen(p.key as RsvpStageScene);
                           } else {
                             /* Another page: the picked part is let go (the owner: "the picked part clears") — and its
                                tools with it, as ✕ does: the panel never keeps the look options of a part on the page
@@ -999,7 +1103,8 @@ export function StageTools({
                         className={STAGE_GUEST_TAB}
                       >
                         {here ? <span aria-hidden className="absolute inset-x-2.5 top-0 h-[2.5px] rounded-sm bg-[var(--sp-ink)]" /> : null}
-                        <span className="max-w-full truncate">{p.label}</span>
+                        {rsvpTabIcon(rsvpOpen, p.key)}
+                        <span className="max-w-full truncate">{p.tab}</span>
                       </button>
                     );
                   })}
@@ -1013,15 +1118,22 @@ export function StageTools({
   );
 }
 
+/** 🗳 The RSVP stage's page tabs carry the prototype's icons (`PICON`): reply · check · x. */
+function rsvpTabIcon(rsvpOpen: boolean, key: string) {
+  if (!rsvpOpen || !isRsvpStageScene(key)) return null;
+  const Icon = RSVP_TAB_ICON[key];
+  return <Icon aria-hidden data-stage-guest-tab-icon={key} className="mr-1 h-3.5 w-3.5 shrink-0" strokeWidth={2.2} />;
+}
+
 /**
  * 🎯 Bring a part to the MIDDLE of the page band left above the guest bar (prototype
  * `centrePicked`): `top + h/2 − band/2`; a part taller than the band lines up with its
  * top. The canvas is the stage's shown, same-origin frame; it gets the room below to
  * centre its last part too (its own `padding-bottom`, set once).
  */
-function centrePart(key: string, el: string | null) {
+function centrePart(key: string, el: string | null, frameSel: string = SHOWN_FRAME) {
   try {
-    const frame = document.querySelector<HTMLIFrameElement>(SHOWN_FRAME);
+    const frame = document.querySelector<HTMLIFrameElement>(frameSel);
     const doc = frame?.contentDocument;
     const win = frame?.contentWindow;
     if (!frame || !doc || !win) return;

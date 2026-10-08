@@ -10,7 +10,7 @@ import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
 import { isCustomSectionType } from '@/lib/custom-sections';
 import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { makerPageCanvasSrc } from '@/lib/maker-made-once-pages';
-import { MAKER_PARTS, makerDropSlot, makerRevealEdges, type MakerPartKey, type MakerStageKey } from '@/lib/maker-parts';
+import { MAKER_PARTS, makerDropSlot, makerRevealEdges, makerStageIsFixedPages, type MakerPartKey, type MakerStageKey } from '@/lib/maker-parts';
 import {
   makerDropDelta,
   makerOwnScenesLeft,
@@ -140,9 +140,10 @@ function readRevealPart(): Element | null {
   }
 }
 
-/** A part's box on the SCREEN (the canvas is a same-origin frame; it may be drawn scaled). */
-function partBox(canvas: string, el?: string | null): Box | null {
-  const frame = document.querySelector<HTMLIFrameElement>(SHOWN_FRAME);
+/** A part's box on the SCREEN (the canvas is a same-origin frame; it may be drawn scaled). `frameSel`: the frame the
+ *  part is drawn in — the stage's shown canvas, or the RSVP stage's own screen (`rsvpStageFrameSelector`). */
+function partBox(canvas: string, el?: string | null, frameSel: string = SHOWN_FRAME): Box | null {
+  const frame = document.querySelector<HTMLIFrameElement>(frameSel);
   const doc = frame?.contentDocument;
   if (!frame || !doc) return null;
   /* 🎭 The Reveal is drawn at the top of the page in Stages (`stage-tools.tsx` `drawRevealPart`). */
@@ -163,10 +164,10 @@ function partBox(canvas: string, el?: string | null): Box | null {
 }
 
 /** Where a part sits on the screen (its top), or null when it is not drawn on the page now — ↑ ↓'s order. */
-export function makerPartTopOnScreen(stage: MakerStageKey, key: MakerPartKey): number | null {
+export function makerPartTopOnScreen(stage: MakerStageKey, key: MakerPartKey, frameSel?: string): number | null {
   const canvas = key === 'reveal' ? REVEAL_STUB : makerPartCanvasOn(stage, key);
   if (!canvas) return null;
-  return partBox(canvas, MAKER_PARTS[key].el ?? null)?.top ?? null;
+  return partBox(canvas, MAKER_PARTS[key].el ?? null, frameSel)?.top ?? null;
 }
 
 /** The nearest DRAWN thing above (-1) or below (1) a node on the page — a sibling, or an ancestor's sibling. */
@@ -185,8 +186,8 @@ function neighbourOf(node: Element, dir: -1 | 1): Element | null {
 }
 
 /** The page's visible band: under the frame's top, above the guest's tab bar and the lower third. */
-function visibleBand(): { top: number; bottom: number } {
-  const fr = document.querySelector<HTMLIFrameElement>(SHOWN_FRAME)?.getBoundingClientRect();
+function visibleBand(frameSel: string = SHOWN_FRAME): { top: number; bottom: number } {
+  const fr = document.querySelector<HTMLIFrameElement>(frameSel)?.getBoundingClientRect();
   const lt = document.querySelector('[data-maker-lower-third]')?.getBoundingClientRect();
   /* The guest's tab bar is drawn over the foot of the page (`stage-tools.tsx`). */
   const bar = document.querySelector('[data-stage-guest-bar]')?.getBoundingClientRect();
@@ -239,9 +240,13 @@ export function PartEdits({
   onPrev = null,
   onNext = null,
   onClose = null,
+  frame,
 }: {
   stage: MakerStageKey;
   picked: MakerPartKey | null;
+  /** The frame the stage's page is drawn in, when it is not the shown canvas — the RSVP stage's own three screens
+   *  (`rsvpStageFrameSelector`). The frame, its name tab, ↑ ↓ ✕ and the gap-middle ＋ are the same everywhere. */
+  frame?: string;
   /** ↑ / ↓ the part above / below (null: nowhere to go — its chip is not drawn) · ✕ let it go (owner 2026-10-07). */
   onPrev?: (() => void) | null;
   onNext?: (() => void) | null;
@@ -276,7 +281,7 @@ export function PartEdits({
     let raf = 0;
     let last = '';
     const tick = () => {
-      const b = partBox(canvas, el);
+      const b = partBox(canvas, el, frame);
       const sig = b ? `${Math.round(b.top)}|${Math.round(b.left)}|${Math.round(b.width)}|${Math.round(b.height)}|${Math.round(b.gapAbove ?? -1)}|${Math.round(b.gapBelow ?? -1)}` : '';
       if (sig !== last) {
         last = sig;
@@ -286,7 +291,7 @@ export function PartEdits({
     };
     raf = window.requestAnimationFrame(tick);
     return () => window.cancelAnimationFrame(raf);
-  }, [canvas, el]);
+  }, [canvas, el, frame]);
   /* The work area's writes, read again whenever the part changes (and its render lands). */
   const renderStamp = useMaker()?.renderStamp;
   useEffect(() => setOps(askPartOps()), [canvas, renderStamp, adding, removing]);
@@ -297,8 +302,12 @@ export function PartEdits({
      removed (for reveal only) because that should be its limitation"*): no grip, no ＋ above, no 🗑 — it hides per
      stage through Arrange › On this stage. Its ＋ below stays. `makerRevealEdges`. */
   const edgesOf = makerRevealEdges(isReveal);
-  const canRemove = edgesOf.remove && (mv.kind === 'scene' || (mv.kind === 'post-event' && mv.switchKey !== null));
-  const canMove = edgesOf.grip && (mv.kind === 'scene' || (mv.kind === 'post-event' && mv.runKey !== null));
+  /* 🗳 …and the RSVP stage's three screens are FIXED pages (`makerStageIsFixedPages`): a part there has its frame,
+     its name and ↑ ↓ ✕ — never ＋, a grip or 🗑 (nothing can be added to a reply page, and the ＋ sheet would offer
+     the stage mounted underneath's hidden scenes). */
+  const fixedPages = makerStageIsFixedPages(stage);
+  const canRemove = edgesOf.remove && (mv.kind === 'scene' || (mv.kind === 'post-event' && mv.switchKey !== null)) && !fixedPages;
+  const canMove = edgesOf.grip && (mv.kind === 'scene' || (mv.kind === 'post-event' && mv.runKey !== null)) && !fixedPages;
   const label = picked ? makerPartLabelOn(stage, picked) : '';
 
   /* ── 💾 the Post Event saves (its switch, its run) — the one draft door ── */
@@ -439,7 +448,7 @@ export function PartEdits({
     }
   };
 
-  const band = typeof window === 'undefined' ? null : visibleBand();
+  const band = typeof window === 'undefined' ? null : visibleBand(frame);
   const clampY = (y: number) => (band ? Math.max(band.top + 26, Math.min(band.bottom - 26, y)) : y);
   /* A ＋ sits ON the frame's edge or not at all: clamped into view it would land on the part's own content
      (owner: the lower ＋ sat on the pass's QR). Scroll the part, and its edge — and its ＋ — come back. */
@@ -488,16 +497,21 @@ export function PartEdits({
           {drag?.line != null ? <div className="absolute h-1 rounded-full bg-[#C24E25]" style={{ top: drag.line - 2, left: box.left, width: box.width }} /> : null}
           {drag ? null : (
             <>
-              {edgesOf.addAbove ? (
-                <button type="button" aria-label={`Add above ${label}`} data-part-add="above" onClick={() => setAdding('above')} className={EDGE_BTN} style={{ ...tapAt(box.left + box.width / 2, fr!.top, fe!.tapAbove), visibility: onEdge(fr!.top) ? undefined : 'hidden' }}>
-                  <span className={ADD_FACE}>+</span>
-                </button>
-              ) : null}
-              {edgesOf.addBelow && onEdge(fr!.top + fr!.height) ? (
-                <button type="button" aria-label={`Add below ${label}`} data-part-add="below" onClick={() => setAdding('below')} className={EDGE_BTN} style={tapAt(box.left + box.width / 2, fr!.top + fr!.height, fe!.tapBelow)}>
-                  <span className={ADD_FACE}>+</span>
-                </button>
-              ) : null}
+              {/* ＋ — never on a fixed page (the RSVP stage's screens, `makerStageIsFixedPages`). */}
+              {fixedPages ? null : (
+                <>
+                  {edgesOf.addAbove ? (
+                    <button type="button" aria-label={`Add above ${label}`} data-part-add="above" onClick={() => setAdding('above')} className={EDGE_BTN} style={{ ...tapAt(box.left + box.width / 2, fr!.top, fe!.tapAbove), visibility: onEdge(fr!.top) ? undefined : 'hidden' }}>
+                      <span className={ADD_FACE}>+</span>
+                    </button>
+                  ) : null}
+                  {edgesOf.addBelow && onEdge(fr!.top + fr!.height) ? (
+                    <button type="button" aria-label={`Add below ${label}`} data-part-add="below" onClick={() => setAdding('below')} className={EDGE_BTN} style={tapAt(box.left + box.width / 2, fr!.top + fr!.height, fe!.tapBelow)}>
+                      <span className={ADD_FACE}>+</span>
+                    </button>
+                  ) : null}
+                </>
+              )}
               {/* ↑ upper-left · ↓ lower-left · ✕ lower-right (owner 2026-10-07, verbatim: "upper left of the highlight is
                   go to the element above · lower left of the highlight is to go to the next element under · lower
                   right is deselect"). Each a 32 px tap on the frame's corner, a face in the frame's own orange. */}

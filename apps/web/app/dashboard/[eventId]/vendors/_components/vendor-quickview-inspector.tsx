@@ -15,9 +15,6 @@ import { resolveReachBadge } from '@/lib/vendor-service-radius';
 import { shopInitials } from '@/lib/shop-initials';
 import { NEW_TO_SETNAYAN_LABEL } from '@/lib/reviews';
 import { formatCount } from '@/lib/format-number';
-import { ServiceCardFace } from '@/app/vendor-dashboard/services/_components/service-card-face';
-import type { BenchServiceCard } from '@/lib/bench-service-card';
-import { sheetSnapshot, sheetWorkHeading, type SheetReview, type SheetWork } from '@/lib/supplier-sheet';
 
 /**
  * VendorQuickViewInspector — the desktop inspector body for a Shortlist "bench"
@@ -44,40 +41,16 @@ function initials(name: string): string {
   return shopInitials(name);
 }
 
-/**
- * What the one-screen Suppliers page adds when this quick-view is its SUPPLIER
- * SHEET (owner 2026-10-07 · PR2). Absent on every other caller, which then
- * renders exactly as it shipped.
- */
-export type SupplierSheetExtras = {
-  /** This pick's service card — null when it has none. */
-  serviceCard: BenchServiceCard | null;
-  /** The cards were read. False ⇒ the sheet says nothing about a price. */
-  cardsRead: boolean;
-  /** Added by the couple themselves (no account, no card of their own). */
-  selfAdded: boolean;
-  /** Newest reviews with words. `null` = could not be read. `undefined` = not
-   *  asked for (a supplier who is not on Setnayan has none to read). */
-  reviews?: SheetReview[] | null;
-  work?: SheetWork[];
-  workTotal?: number;
-  /** The action row (a client component the page hands in). */
-  actions?: React.ReactNode;
-};
-
 export function VendorQuickViewInspector({
   vendor,
   categoryLabel,
   fullHref,
-  sheet,
 }: {
   vendor: ShortlistVendor;
   /** The tile (category) this vendor is shortlisted under — the eyebrow. */
   categoryLabel: string;
   /** The vendor's existing detail route (the card's own href). */
   fullHref: string;
-  /** Set only by the one-screen Suppliers page — see `SupplierSheetExtras`. */
-  sheet?: SupplierSheetExtras;
 }) {
   const v = vendor;
 
@@ -139,9 +112,7 @@ export function VendorQuickViewInspector({
       ariaLabel={`${v.name} — supplier details`}
     >
       <div className="space-y-4">
-        {/* Hero image / initials — mirrors the card's photo ladder. On the
-            supplier sheet the service card below carries the picture. */}
-        {sheet ? null : (
+        {/* Hero image / initials — mirrors the card's photo ladder. */}
         <div className="flex h-32 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-[#3a3f47] to-[#565b63]">
           {v.photoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -150,7 +121,6 @@ export function VendorQuickViewInspector({
             <span className="font-serif text-4xl italic text-cream/70">{initials(v.name)}</span>
           )}
         </div>
-        )}
 
         {/* Status + identity chips */}
         <div className="flex flex-wrap items-center gap-2">
@@ -184,33 +154,6 @@ export function VendorQuickViewInspector({
               </span>
             ) : null}
           </div>
-        ) : null}
-
-        {/* THE SERVICE CARD — the shipped face, drawn from the same decided
-            card the row shows (prices withheld where the shop hides them). */}
-        {sheet ? (
-          <section className="space-y-1.5" data-sheet-section="service-card">
-            <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink/45">
-              Service card · {categoryLabel}
-            </p>
-            <ServiceCardFace
-              snap={sheetSnapshot(sheet.serviceCard, {
-                categoryLabel,
-                cardsRead: sheet.cardsRead,
-                selfAdded: sheet.selfAdded,
-              })}
-              leafPathLabel={[v.name, sheet.selfAdded ? 'added by you' : '', v.city ?? ''].filter(Boolean).join(' · ')}
-              coverUrl={sheet.serviceCard?.coverUrl ?? v.photoUrl}
-              /* No mock chip: the sheet's own action row is how a couple asks. */
-              footer={null}
-            />
-          </section>
-        ) : null}
-
-        {sheet ? (
-          <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink/45">
-            Proof · why they fit
-          </p>
         ) : null}
 
         {/* Rating + review summary — "New to Setnayan" for a real
@@ -252,47 +195,6 @@ export function VendorQuickViewInspector({
           </div>
         ) : null}
 
-        {/* What couples who booked them wrote — stars, month, words. Never a
-            name. A read that failed says so; it is not "no reviews". */}
-        {sheet && sheet.reviews === null ? (
-          <p className="text-[13px] text-ink/55" role="status" data-sheet-section="reviews-failed">
-            Couldn’t load their reviews.
-          </p>
-        ) : null}
-        {sheet && sheet.reviews && sheet.reviews.length > 0 ? (
-          <section className="space-y-2.5" data-sheet-section="reviews">
-            {sheet.reviews.map((r) => (
-              <div key={r.id} className="border-t border-ink/10 pt-2.5">
-                <p className="text-[12px] text-ink/55">
-                  <span className="text-terracotta-700" aria-label={`${r.stars} of 5 stars`}>
-                    {'★'.repeat(r.stars)}
-                  </span>
-                  {r.month ? ` · ${r.month}` : ''}
-                </p>
-                <p className="mt-1 text-[14px] leading-snug text-ink">{r.words}</p>
-              </div>
-            ))}
-          </section>
-        ) : null}
-
-        {/* Their work through Setnayan — the KIND of event and the month.
-            No names, no venues, nothing from a couple's gallery. */}
-        {sheet && sheet.work && sheet.work.length > 0 ? (
-          <section className="space-y-1.5" data-sheet-section="work">
-            <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink/45">
-              {sheetWorkHeading(sheet.workTotal ?? sheet.work.length)}
-            </p>
-            <ul className="space-y-1">
-              {sheet.work.map((w) => (
-                <li key={w.id} className="text-[13.5px] text-ink/80">
-                  <span className="font-semibold text-ink">{w.kind}</span>
-                  {w.month ? ` · ${w.month}` : ''}
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
-
         {/* Price — the vendor's quoted total, when there is one. */}
         {v.totalCostPhp != null && v.totalCostPhp > 0 ? (
           <div className="border-t border-ink/10 pt-3">
@@ -302,8 +204,6 @@ export function VendorQuickViewInspector({
             </p>
           </div>
         ) : null}
-
-        {sheet?.actions ? <div className="pt-1">{sheet.actions}</div> : null}
       </div>
     </InspectorColumn>
   );

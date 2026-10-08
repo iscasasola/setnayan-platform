@@ -37,6 +37,7 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { loadSelfAddedSupplier, type SelfAddedSupplierPrefill } from '../actions';
 import {
@@ -193,6 +194,8 @@ import {
   saveBenchArrangement,
 } from '../_actions/bench-arrangement';
 import { fetchInlineMoreRow } from '../_actions/inline-more-row';
+import { sheetFits, sheetStateLine } from '@/lib/supplier-sheet';
+import type { SupplierSheetLoad, SupplierSheetTarget } from './supplier-sheet';
 import type { CategoryVendorResult } from '../_actions/category-search';
 import { saveVendorToPicks } from '@/app/(shell)/explore/actions';
 import { deleteVendor } from '../actions';
@@ -334,6 +337,12 @@ html.dark .slcat .fold.flat .cat.open>.cat-head-row{background:#17160F}
    button) at 44 (controller's walk at 375, 2026-10-08). The button rule is a
    40 px pill, whatever the element. */
 .slcat .ab{min-height:40px}
+/* A PRESS ANSWERS AT ONCE (owner 2026-10-08): the card that was pressed looks
+   pressed the moment the finger lands — before the sheet's chunk has arrived. */
+.slcat .fold.flat .vcw:has(>.vc:active){transform:scale(.985);border-color:var(--gold)}
+.slcat .fold.flat .vcw{transition:transform 90ms ease-out,border-color 90ms ease-out}
+.slcat .fold.flat .vcw.mrc>.vc[role='button']{cursor:pointer}
+@media (prefers-reduced-motion:reduce){.slcat .fold.flat .vcw:has(>.vc:active){transform:none}.slcat .fold.flat .vcw{transition:none}}
 .slcat .verb-err,.slcat .verb-ok{margin:4px 0 0;font-size:11.5px;line-height:1.35;color:var(--ink-soft)}
 .slcat .verb-err{color:rgb(var(--color-danger))}
 .slcat .verbs .verb-err,.slcat .verbs .verb-slot>p,.slcat .verbs .verb-slot>span{position:absolute;left:0;right:0;top:100%;margin:4px 0 0;font-size:11.5px;line-height:1.35}
@@ -1235,6 +1244,7 @@ function VendorCard({
   reason,
   eventId,
   tileLabel,
+  tile,
   dates,
   standing,
   actions,
@@ -1242,6 +1252,8 @@ function VendorCard({
   arrange,
 }: {
   v: ShortlistVendor;
+  /** The category's key — what the supplier sheet asks about. */
+  tile?: string;
   reason?: SortReason | null;
   eventId: string;
   /** The category label — the lock modals' "for {this}" copy. */
@@ -1288,6 +1300,7 @@ function VendorCard({
   // flag-OFF render stays byte-identical (actions is null there) and ONE value
   // decides both the [Connect] button and this tap.
   const selfAdded = Boolean(actions?.connect);
+  const sheetDoor = useContext(SheetDoorCtx);
   const payHrefs = useContext(PayDueCtx);
   const look = useContext(ServiceCardCtx);
   const svc = look.face ? (look.cards?.[v.vendorId] ?? null) : null;
@@ -1320,6 +1333,42 @@ function VendorCard({
     });
   }
 
+  /** A press on the card opens the supplier sheet OVER the page — drawn from
+   *  what this card already holds; the page is not asked for again. */
+  function openSheet(e: React.MouseEvent<HTMLAnchorElement>) {
+    if (!sheetDoor || !tile) return;
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+    e.preventDefault();
+    const booked = v.status === 'locked';
+    sheetDoor.open({
+      vendorId: v.vendorId,
+      vendorProfileId: v.marketplaceVendorId,
+      name: v.name,
+      nameWithheld: false,
+      tile,
+      categoryLabel: tileLabel,
+      city: v.city,
+      rating: v.rating,
+      reviewCount: v.reviewCount,
+      verified: v.isVerified,
+      card: svc,
+      cardsRead: look.cards !== null,
+      coverUrl: v.photoUrl,
+      stateLine: sheetStateLine({
+        booked,
+        asked: v.lockRequestState === 'requested',
+        quoteIn: standing?.needsYou === true,
+        inBuild: actions?.build?.kind === 'in_build',
+        hasThread: v.threadId != null,
+        selfAdded: v.marketplaceVendorId == null,
+      }),
+      fits: sheetFits(v),
+      threadId: v.threadId,
+      booked,
+      onPage: sheetDoor.onPage(v.marketplaceVendorId, tile),
+    });
+  }
+
   const card = (
     // Desktop inspector trigger (Merkado phase 3): at ≥xl a plain click opens the
     // vendor's quick-view in the sticky inspector column instead of navigating;
@@ -1331,7 +1380,10 @@ function VendorCard({
       className="vc"
       // Replaces the trigger's own click (its props spread AFTER it) — only for
       // a self-added supplier. Every other card keeps the inspector untouched.
-      {...(selfAdded ? { onClick: openDetails, 'aria-busy': detailsLoading || undefined } : {})}
+      {...(selfAdded ? { onClick: openDetails, 'aria-busy': detailsLoading || undefined }
+        : sheetDoor && tile
+          ? { onClick: openSheet, 'aria-haspopup': 'dialog' as const }
+          : {})}
     >
       <span className="img">
         {v.photoUrl ? (
@@ -1705,8 +1757,11 @@ function InlineMoreCard({
   onSave,
   onUndo,
   onInquire,
+  onOpen,
 }: {
   v: CategoryVendorResult;
+  /** Opens this supplier's sheet — absent where the sheet is not offered. */
+  onOpen?: () => void;
   label: string;
   /** This supplier's service card for the category, when they have one. Its
    *  name is EMPTY for a supplier whose real name is still withheld. */
@@ -1732,7 +1787,24 @@ function InlineMoreCard({
   const cover = svc?.coverUrl ?? benchCardImage(v);
   return (
     <div className={`vcw mrc${sunk ? ' is-dim' : ''}${busy ? ' is-busy' : ''}`}>
-      <span className="vc">
+      <span
+        className="vc"
+        {...(onOpen
+          ? {
+              role: 'button' as const,
+              tabIndex: 0,
+              'aria-haspopup': 'dialog' as const,
+              'aria-label': `View ${v.name}`,
+              onClick: onOpen,
+              onKeyDown: (e: React.KeyboardEvent) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onOpen();
+                }
+              },
+            }
+          : {})}
+      >
         <span className="img">
           {cover ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -1934,6 +2006,7 @@ function MoreToCompare({
   onSeeAll: () => void;
 }) {
   const router = useRouter();
+  const sheetDoor = useContext(SheetDoorCtx);
   // A ref, so the lab's stand-in is never a reason to ask again.
   const standInRef = useRef(useContext(MoreRowStandInCtx));
   const { groupId: moreGroupId } = benchSearchScopeForTile(tile);
@@ -1958,6 +2031,20 @@ function MoreToCompare({
   const moreQ = query.trim();
   useEffect(() => {
     if (!shouldRunInlineMoreQuery(moreQ)) return;
+    // ONE REQUEST PER CATEGORY PER VISIT (owner 2026-10-08). Folding a row and
+    // opening it again — or Expand all a second time — re-mounts this list; it
+    // used to ask the marketplace again each time. What a category answered is
+    // kept for the visit (a failed read is not kept: the next look asks again).
+    const seenKey = `${eventId}|${moreTile}|${moreQ}`;
+    const kept = MORE_SEEN.get(seenKey);
+    if (kept) {
+      setMoreRows(kept.results);
+      setMoreFreeDays(kept.freeDaysByProfileId);
+      setMoreCards(kept.serviceCardByProfileId);
+      setMoreLoading(false);
+      setMoreError(null);
+      return;
+    }
     let cancelled = false;
     setMoreLoading(true);
     setMoreError(null);
@@ -1967,6 +2054,7 @@ function MoreToCompare({
         : fetchInlineMoreRow({ eventId, groupId: moreGroupId, tile: moreTile, query: moreQ })
       )
         .then((res) => {
+          MORE_SEEN.set(seenKey, res);
           if (cancelled) return;
           setMoreRows(res.results);
           setMoreFreeDays(res.freeDaysByProfileId);
@@ -2135,6 +2223,31 @@ function MoreToCompare({
       onSave={() => void saveFromMore(row)}
       onUndo={() => void undoFromMore(row)}
       onInquire={() => void inquireFromMore(row)}
+      onOpen={
+        sheetDoor
+          ? () =>
+              sheetDoor.open({
+                vendorId: moreSaved[row.vendorProfileId]?.eventVendorId ?? null,
+                vendorProfileId: row.vendorProfileId,
+                name: row.name,
+                nameWithheld: row.nameAnonymized,
+                tile,
+                categoryLabel: label,
+                city: row.city,
+                rating: row.rating,
+                reviewCount: row.reviewCount,
+                verified: row.verified,
+                card: moreCards?.[row.vendorProfileId] ?? null,
+                cardsRead: moreCards !== null,
+                coverUrl: benchCardImage(row),
+                stateLine: null,
+                fits: [],
+                threadId: null,
+                booked: false,
+                onPage: sheetDoor.onPage(row.vendorProfileId, tile),
+              })
+          : undefined
+      }
     />
   );
   return (
@@ -2209,6 +2322,23 @@ function MoreToCompare({
 }
 
 const NO_PAY_DUE: Readonly<Record<string, string>> = {};
+
+/**
+ * THE SUPPLIER SHEET, LAZY. It is not part of the page's first JavaScript: the
+ * chunk is fetched the first time a card is pressed (and the sheet itself then
+ * makes its one small request). `open` is null when the one-screen page is off
+ * — every card then behaves exactly as it shipped.
+ */
+const SupplierSheet = dynamic(() => import('./supplier-sheet'), { ssr: false });
+type SheetDoor = {
+  open: (target: SupplierSheetTarget) => void;
+  /** Other categories on the couple's page that hold this same supplier. */
+  onPage: (vendorProfileId: string | null, exceptTile: string) => Readonly<Record<string, string>>;
+};
+const SheetDoorCtx = createContext<SheetDoor | null>(null);
+
+/** What each category's marketplace read answered, for this visit. */
+const MORE_SEEN = new Map<string, Awaited<ReturnType<typeof fetchInlineMoreRow>>>();
 
 /**
  * A STAND-IN FOR THE MARKETPLACE READ — `/dev/suppliers-lab` only. The lab has
@@ -2702,6 +2832,43 @@ export function ShortlistCategories({
     [replan, serviceCardByVendorId],
   );
   const buildPickSet = new Set(buildPickVendorIds);
+
+  // ── THE SUPPLIER SHEET (client; one small request; the page never re-renders)
+  const [sheetTarget, setSheetTarget] = useState<SupplierSheetTarget | null>(null);
+  const sheetStandIn = useRef(useContext(MoreRowStandInCtx));
+  const loadSheet = useCallback<SupplierSheetLoad>(
+    (vendorProfileId, tile) =>
+      (sheetStandIn.current ?? fetchInlineMoreRow)({ eventId, groupId: '', tile, sheetFor: vendorProfileId }).then(
+        (res) => res.sheet ?? null,
+      ),
+    [eventId],
+  );
+  const sheetDoor = useMemo<SheetDoor>(
+    () => ({
+      open: setSheetTarget,
+      onPage: (vendorProfileId, exceptTile) => {
+        const out: Record<string, string> = {};
+        if (!vendorProfileId) return out;
+        for (const folder of folders) {
+          for (const t of folder.tiles) {
+            if (t.tile === exceptTile) continue;
+            const there = t.vendors.find((x) => x.marketplaceVendorId === vendorProfileId);
+            if (!there) continue;
+            out[t.tile] = sheetStateLine({
+              booked: there.status === 'locked',
+              asked: there.lockRequestState === 'requested',
+              quoteIn: standings[there.vendorId]?.needsYou === true,
+              inBuild: buildPickVendorIds.includes(there.vendorId),
+              hasThread: there.threadId != null,
+              selfAdded: false,
+            });
+          }
+        }
+        return out;
+      },
+    }),
+    [folders, standings, buildPickVendorIds],
+  );
   const plannedTileSet = new Set<string>(plannedList.map((p) => p.tile));
 
   // ── Ranking lenses (Explore Replan §15) ───────────────────────────────────
@@ -3180,6 +3347,7 @@ export function ShortlistCategories({
   );
 
   return (
+    <SheetDoorCtx.Provider value={replan ? sheetDoor : null}>
     <UnreadCtx.Provider value={benchUnread}>
     <PayDueCtx.Provider value={payHrefByVendorId}>
     <ServiceCardCtx.Provider value={serviceLook}>
@@ -3764,6 +3932,7 @@ export function ShortlistCategories({
                                   reason={reason}
                                   eventId={eventId}
                                   tileLabel={t.label}
+                                  tile={t.tile}
                                   dates={dateViewFor(v)}
                                   arrange={{
                                     active: isArranging,
@@ -3856,6 +4025,7 @@ export function ShortlistCategories({
                                       reason={reason}
                                       eventId={eventId}
                                       tileLabel={t.label}
+                                      tile={t.tile}
                                     dates={dateViewFor(v)}
                                       standing={standings[v.vendorId] ?? null}
                                       actions={resolveBenchCardActions({
@@ -3891,6 +4061,7 @@ export function ShortlistCategories({
                                       reason={reason}
                                       eventId={eventId}
                                       tileLabel={t.label}
+                                      tile={t.tile}
                                       dates={dateViewFor(v)}
                                       standing={standings[v.vendorId] ?? null}
                                       unavailable
@@ -4154,9 +4325,13 @@ export function ShortlistCategories({
           />
         )
       ) : null}
+      {sheetTarget ? (
+        <SupplierSheet eventId={eventId} target={sheetTarget} load={loadSheet} onClose={() => setSheetTarget(null)} />
+      ) : null}
     </div>
     </ServiceCardCtx.Provider>
     </PayDueCtx.Provider>
     </UnreadCtx.Provider>
+    </SheetDoorCtx.Provider>
   );
 }

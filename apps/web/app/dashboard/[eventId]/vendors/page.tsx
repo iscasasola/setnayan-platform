@@ -106,8 +106,6 @@ import {
 } from '@/lib/bench-card-actions';
 import { InspectorLayout } from '@/app/_components/inspector/inspector-column';
 import { VendorQuickViewInspector } from './_components/vendor-quickview-inspector';
-import { SupplierSheetActions } from './_components/supplier-sheet-actions';
-import { readSupplierSheetProof } from '@/lib/supplier-sheet-read';
 import { WaitingForQuotes, type WaitingInquiry } from './_components/waiting-for-quotes';
 import {
   buildShortlistFolders,
@@ -1983,43 +1981,17 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         return linked;
       })()
     : null;
-  // ── THE SUPPLIER SHEET (owner 2026-10-07 · Suppliers PR2) ────────────────
-  // On the one-screen page the SAME quick-view is the supplier sheet: a tap on
-  // a card opens it in place at every width (`mobileSheet` below), and it gains
-  // the service card, what couples wrote and the supplier's completed events.
-  // Those two reads run ONLY while a sheet is open, and only for a supplier
-  // who is on Setnayan — a plain page load pays nothing for them.
-  const sheetOn = isExploreReplanEnabled();
-  const sheetVendor = sheetOn ? (inspectSelection?.vendor ?? null) : null;
-  const sheetProof =
-    sheetVendor?.marketplaceVendorId != null
-      ? await readSupplierSheetProof(supabase, sheetVendor.marketplaceVendorId)
-      : null;
+  // ── THE SUPPLIER SHEET IS NOT RENDERED HERE (owner 2026-10-08 · the
+  // minimum-request rules). The first build opened it by re-rendering this whole
+  // page with `?inspect=` and two extra reads. On the one-screen page a card now
+  // opens a client sheet drawn from what the card already holds, which makes ONE
+  // small request of its own (`_components/supplier-sheet.tsx`). What stays
+  // below is the desktop inspector the page had before, exactly as it shipped.
   const shortlistInspectorBody = inspectSelection ? (
     <VendorQuickViewInspector
       vendor={inspectSelection.vendor}
       categoryLabel={inspectSelection.categoryLabel}
       fullHref={inspectSelection.vendor.href}
-      sheet={
-        sheetVendor
-          ? {
-              serviceCard: photoMaps.serviceCardByVendorId?.[sheetVendor.vendorId] ?? null,
-              cardsRead: photoMaps.serviceCardByVendorId !== null,
-              selfAdded: sheetVendor.marketplaceVendorId == null,
-              reviews: sheetProof ? sheetProof.reviews : undefined,
-              work: sheetProof?.work,
-              workTotal: sheetProof?.workTotal,
-              actions: (
-                <SupplierSheetActions
-                  eventId={eventId}
-                  vendorId={sheetVendor.vendorId}
-                  threadId={sheetVendor.threadId}
-                  canAsk={sheetVendor.marketplaceVendorId != null && sheetVendor.status !== 'locked'}
-                />
-              ),
-            }
-          : undefined
-      }
     />
   ) : null;
 
@@ -2206,9 +2178,6 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       hasSelection={Boolean(shortlistInspectorBody)}
       master={shortlistMaster}
       inspector={shortlistInspectorBody}
-      // The supplier sheet: on the one-screen page a card opens it IN PLACE on
-      // a phone too, instead of leaving for another page.
-      mobileSheet={sheetOn}
     />
   );
 

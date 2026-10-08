@@ -43,6 +43,8 @@ import type { WeddingTile } from '@/lib/taxonomy';
 import { fetchMarketServiceCards } from '@/lib/bench-service-cards';
 import { withholdCardNames, type BenchServiceCard } from '@/lib/bench-service-card';
 import { searchCategoryVendors, type CategoryVendorResult } from './category-search';
+import { readSupplierSheet } from '@/lib/supplier-sheet-read';
+import type { SupplierSheetData } from '@/lib/supplier-sheet';
 
 export type InlineMoreRowResult = {
   results: CategoryVendorResult[];
@@ -67,6 +69,12 @@ export type InlineMoreRowResult = {
    * simply has no card in this category.
    */
   serviceCardByProfileId: Record<string, BenchServiceCard> | null;
+  /**
+   * Present ONLY on a `sheetFor` call — the supplier sheet's one request
+   * (their reviews, finished events, published photos, other categories and
+   * whether the couple follows them). `null` = it could not be read.
+   */
+  sheet?: SupplierSheetData | null;
 };
 
 const EMPTY: InlineMoreRowResult = {
@@ -84,9 +92,36 @@ export async function fetchInlineMoreRow(input: {
   tile: string;
   /** The row's live search text. Empty = the category's default page. */
   query?: string;
+  /**
+   * THE SUPPLIER SHEET'S ONE REQUEST (owner 2026-10-08 · the minimum-request
+   * rules). With this set, nothing is searched: the call returns only `sheet`
+   * for that one supplier. It rides this action — not a new one — because the
+   * app is at its server-action ceiling (`lint-server-action-budget.mjs`).
+   */
+  sheetFor?: string;
 }): Promise<InlineMoreRowResult> {
   const eventId = String(input.eventId ?? '').trim();
   if (!eventId) return EMPTY;
+
+  const sheetFor = String(input.sheetFor ?? '').trim();
+  if (sheetFor) {
+    try {
+      const supabase = await createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return { ...EMPTY, sheet: null };
+      const sheet = await readSupplierSheet(createAdminClient(), supabase, {
+        vendorProfileId: sheetFor,
+        userId: user.id,
+        tile: String(input.tile ?? '') || null,
+      });
+      return { ...EMPTY, sheet };
+    } catch (err) {
+      console.error('[inline-more-row] the supplier sheet read threw', err);
+      return { ...EMPTY, sheet: null };
+    }
+  }
 
   // ONE call, the shipped one. Everything about WHO is shown and IN WHAT ORDER
   // is decided in there, including the membership gate.

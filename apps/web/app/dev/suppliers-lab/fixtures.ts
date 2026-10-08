@@ -11,6 +11,7 @@ import type { VendorEnrichment } from '@/lib/vendors-plan-budget';
 import type { BenchServiceCard } from '@/lib/bench-service-card';
 import type { SupplierStanding } from '@/lib/supplier-standing';
 import { formatPhp } from '@/lib/orders';
+import type { SupplierSheetData } from '@/lib/supplier-sheet';
 import type { CategoryVendorResult } from '@/app/dashboard/[eventId]/vendors/_actions/category-search';
 
 export const LAB_EVENT = '00000000-0000-4000-8000-000000000000';
@@ -112,3 +113,36 @@ export const LAB_MARKET: Record<string, { rows: CategoryVendorResult[]; cards: R
     },
   },
 };
+
+/** A flat tint as a picture — the lab has no stored photos to show. */
+const tint = (h: number) =>
+  `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><rect width='200' height='200' fill='hsl(${h} 28% 78%)'/></svg>`)}`;
+
+/** The supplier sheet's one request, per supplier profile. */
+export function labSheet(vendorProfileId: string): SupplierSheetData {
+  const few = vendorProfileId === 'p-hiraya' || vendorProfileId === 'p-hurno';
+  return {
+    reviews: few
+      ? []
+      : [
+          { id: 'r1', stars: 5, month: 'Dec 2025', words: 'The tasting sold us; the day matched it.' },
+          { id: 'r2', stars: 5, month: 'Aug 2025', words: 'On time, clean set-up, and they handled 200 heads without a hitch.' },
+        ],
+    work: few ? [] : [
+      { id: 'w1', kind: 'Wedding', month: 'Dec 2025' },
+      { id: 'w2', kind: 'Debut', month: 'Aug 2025' },
+      { id: 'w3', kind: 'Wedding', month: 'May 2025' },
+    ],
+    workTotal: few ? 0 : 3,
+    photos: few ? [] : Array.from({ length: 14 }, (_, i) => tint(200 + i * 11)),
+    others:
+      vendorProfileId === 'p-bituin'
+        ? [
+            { tile: 'cake', label: 'Cake' },
+            { tile: 'stations', label: 'Stations' },
+          ]
+        : [],
+    following: vendorProfileId === 'p-lola',
+    sharePath: `/v/${vendorProfileId.replace(/^p-/, '')}`,
+  };
+}

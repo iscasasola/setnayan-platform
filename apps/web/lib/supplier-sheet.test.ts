@@ -20,8 +20,16 @@ import {
   SHEET_REVIEW_LIMIT,
   sheetReviews,
   sheetSnapshot,
+  SHEET_FAILED,
+  SHEET_LOADING,
+  sheetFits,
+  sheetOthers,
+  sheetPhotoRow,
+  sheetPhotosHeading,
+  sheetStateLine,
   sheetWork,
   sheetWorkHeading,
+  type SupplierSheetData,
 } from '@/lib/supplier-sheet';
 import { PRICE_ON_REQUEST, type BenchServiceCard } from '@/lib/bench-service-card';
 import type { ReviewRow, VendorCompletedEventRow } from '@/lib/reviews';
@@ -122,68 +130,139 @@ test('🔑 their work is the KIND of event and the month — never its name', ()
   assert.equal(sheetWorkHeading(14), 'Their work · 14 events through Setnayan · newest first');
 });
 
+// ── part 2 · the pure pieces ───────────────────────────────────────────────
+test('their photos are ONE row of three, the last carrying "+N" for the rest', () => {
+  const urls = Array.from({ length: 14 }, (_, i) => `https://cdn.example/p${i}.jpg`);
+  assert.deepEqual(sheetPhotoRow(urls), { shown: urls.slice(0, 3), more: 11 });
+  assert.deepEqual(sheetPhotoRow(urls.slice(0, 2)), { shown: urls.slice(0, 2), more: 0 });
+  assert.deepEqual(sheetPhotoRow(['', urls[0]!]), { shown: [urls[0]!], more: 0 }, 'an empty ref is not a photo');
+  assert.equal(sheetPhotosHeading(1), 'Their photos · 1 photo');
+  assert.equal(sheetPhotosHeading(1400), 'Their photos · 1,400 photos');
+});
+
+test('🔑 the rest of their portfolio: every OTHER category once, never the one on screen, never a guessed one', () => {
+  const label: Record<string, string> = { catering: 'Catering', cake: 'Cake', stations: 'Stations' };
+  const resolve = (c: string) => (c === 'buffet' ? { tile: 'catering', label: 'Catering' } : label[c] ? { tile: c, label: label[c]! } : null);
+  assert.deepEqual(sheetOthers(['buffet', 'cake', 'cake', null, 'no-such-service', 'stations'], 'catering', resolve), [
+    { tile: 'cake', label: 'Cake' },
+    { tile: 'stations', label: 'Stations' },
+  ]);
+  assert.deepEqual(sheetOthers(['buffet'], 'catering', resolve), [], 'the category on screen is not "another" one');
+});
+
+test('where things stand, in the prototype’s words — one line, the furthest step wins', () => {
+  const base = { booked: false, asked: false, quoteIn: false, inBuild: false, hasThread: false, selfAdded: false };
+  assert.equal(sheetStateLine(base), 'Saved');
+  assert.equal(sheetStateLine({ ...base, selfAdded: true }), 'Added by you');
+  assert.equal(sheetStateLine({ ...base, hasThread: true }), 'Asked for a quote');
+  assert.equal(sheetStateLine({ ...base, hasThread: true, inBuild: true }), 'In your build');
+  assert.equal(sheetStateLine({ ...base, hasThread: true, inBuild: true, quoteIn: true }), 'Quote in');
+  assert.equal(sheetStateLine({ ...base, hasThread: true, asked: true }), 'Asked to book · waiting for their yes');
+  assert.equal(sheetStateLine({ ...base, hasThread: true, asked: true, booked: true }), 'Booked');
+});
+
+test('why they fit is the card’s own signals — absent facts draw nothing', () => {
+  const none = { distanceKm: null, innerRadiusKm: null, outerRadiusKm: null, reachesVenue: null, serviceRadiusKm: null, budgetFit: null, budgetEstimated: false, dateFit: null };
+  assert.deepEqual(sheetFits(none), []);
+  assert.deepEqual(
+    sheetFits({ ...none, budgetFit: 'over', budgetEstimated: true, dateFit: 'free' }).map((f) => [f.kind, f.tone, f.text]),
+    [
+      ['budget', 'warn', 'Over budget · est.'],
+      ['date', 'ok', 'Free on your date'],
+    ],
+  );
+});
+
+test('🔑 what the one request returns has no field a couple’s or a guest’s name could ride in on', () => {
+  const data: SupplierSheetData = { reviews: [], work: [], workTotal: 0, photos: null, others: null, following: null, sharePath: null };
+  assert.deepEqual(Object.keys(data).sort(), ['following', 'others', 'photos', 'reviews', 'sharePath', 'work', 'workTotal']);
+});
+
 // ── the wiring ────────────────────────────────────────────────────────────
 const WEB = join(import.meta.dirname, '..');
 const read = (p: string) => stripComments(readFileSync(join(WEB, p), 'utf8'));
 const PAGE = read('app/dashboard/[eventId]/vendors/page.tsx');
 const VIEW = read('app/dashboard/[eventId]/vendors/_components/vendor-quickview-inspector.tsx');
-const ACTIONS = read('app/dashboard/[eventId]/vendors/_components/supplier-sheet-actions.tsx');
+const BENCH = read('app/dashboard/[eventId]/vendors/_components/shortlist-categories.tsx');
+const SHEET = read('app/dashboard/[eventId]/vendors/_components/supplier-sheet.tsx');
+const ACTION = read('app/dashboard/[eventId]/vendors/_actions/inline-more-row.ts');
 const READER = read('lib/supplier-sheet-read.ts');
+const count = (src: string, re: RegExp) => (src.match(re) ?? []).length;
 
-test('🔑 a card opens the sheet in place on a phone — only on the one-screen page', () => {
-  assert.match(PAGE, /const sheetOn = isExploreReplanEnabled\(\);/);
-  assert.match(PAGE, /mobileSheet=\{sheetOn\}/);
-  assert.match(PAGE, /const sheetVendor = sheetOn \? \(inspectSelection\?\.vendor \?\? null\) : null;/);
-  assert.match(PAGE, /sheet=\{\s*sheetVendor\s*\?\s*\{/, 'the pre-replan quick-view was handed the sheet');
+test('🔑 opening a supplier never re-renders the Suppliers page on the server', () => {
+  // The page reads nothing for the sheet and hands the inspector no sheet.
+  assert.doesNotMatch(PAGE, /readSupplierSheet|supplier-sheet-read/, 'the page reads for the sheet again — every open is a full page render');
+  assert.doesNotMatch(PAGE, /mobileSheet=/, 'a card opens the server-rendered panel again');
+  assert.doesNotMatch(VIEW, /\bsheet\b\s*[?:=]/, 'the desktop quick-view grew the sheet back');
+  // The sheet itself navigates nowhere to open, and never refreshes the route.
+  assert.doesNotMatch(SHEET, /router\.refresh\(|revalidatePath|inspect=/);
+  assert.doesNotMatch(BENCH, /sheetDoor\.open\([\s\S]{0,40}router\./);
 });
 
-test('🔑 the sheet’s reads run only while a sheet is open, for a supplier who is on Setnayan', () => {
-  assert.match(
-    PAGE,
-    /sheetVendor\?\.marketplaceVendorId != null\s*\?\s*await readSupplierSheetProof\(supabase, sheetVendor\.marketplaceVendorId\)\s*:\s*null;/,
-  );
-  assert.equal((PAGE.match(/readSupplierSheetProof\(/g) ?? []).length, 1);
-  // Not asked for (no account) is `undefined`; could-not-read is `null`. They differ.
-  assert.match(PAGE, /reviews: sheetProof \? sheetProof\.reviews : undefined,/);
-  assert.match(PAGE, /cardsRead: photoMaps\.serviceCardByVendorId !== null,/);
-  assert.match(PAGE, /serviceCard: photoMaps\.serviceCardByVendorId\?\.\[sheetVendor\.vendorId\] \?\? null,/);
+test('🔑 the sheet is drawn from the pressed card, then asks ONE thing — once per supplier per visit', () => {
+  // One caller of the loader, behind the in-flight and the visit caches.
+  assert.equal(count(SHEET, /\bload\(/g), 1, 'the sheet asks more than one thing');
+  assert.match(SHEET, /askOnce\(seenKey\(target\), \(\) => load\(profileId, target\.tile\)\)/);
+  assert.match(SHEET, /SEEN\.set\(seenKey\(target\), res\);/, 'the answer is not kept for the visit');
+  assert.match(SHEET, /if \(!onSetnayan \|\| SEEN\.has\(seenKey\(target\)\)\) return;/, 'a second look at the same supplier asks again');
+  // A supplier the couple added themselves is not on Setnayan: no request at all.
+  assert.match(SHEET, /const onSetnayan = target\.vendorProfileId != null;/);
+  // The bench hands in the loader: the existing action, with `sheetFor`.
+  assert.match(BENCH, /\(sheetStandIn\.current \?\? fetchInlineMoreRow\)\(\{ eventId, groupId: '', tile, sheetFor: vendorProfileId \}\)/);
 });
 
-test('🔑 reviews that could not be read are null — and the sheet says so, never "no reviews"', () => {
-  assert.match(READER, /\.catch\(\(err\) => \{[\s\S]*?return null;\s*\}\)/);
-  assert.match(VIEW, /\{sheet && sheet\.reviews === null \? \([\s\S]*?Couldn’t load their reviews\./);
-  assert.match(VIEW, /\{sheet && sheet\.reviews && sheet\.reviews\.length > 0 \? \(/);
-  // The work reader is best-effort, so its section is printed only when it holds something.
-  assert.match(VIEW, /\{sheet && sheet\.work && sheet\.work\.length > 0 \? \(/);
-  assert.ok(!/No reviews|no reviews yet|0 events|No events/i.test(VIEW), 'the sheet states an absence it cannot know');
-});
-
-test('the service card on the sheet is the shipped face, with no mock button', () => {
-  assert.equal((VIEW.match(/<ServiceCardFace\b/g) ?? []).length, 1);
-  assert.match(VIEW, /<ServiceCardFace\s+snap=\{sheetSnapshot\(sheet\.serviceCard, \{/);
-  assert.match(VIEW, /footer=\{null\}/);
-  assert.match(VIEW, /coverUrl=\{sheet\.serviceCard\?\.coverUrl \?\? v\.photoUrl\}/);
-});
-
-test('every addition is behind `sheet` — the quick-view elsewhere is as it shipped', () => {
-  const added = ['data-sheet-section="service-card"', 'Proof · why they fit', 'data-sheet-section="reviews"', 'data-sheet-section="work"', 'sheet.actions'];
-  for (const a of added) {
-    const at = VIEW.indexOf(a);
-    assert.ok(at > 0, `${a} is gone`);
-    const before = VIEW.slice(Math.max(0, at - 220), at);
-    assert.match(before, /\{sheet(\?\.actions)? (\?|&&)|\{sheet\?\.actions \?/, `${a} is drawn without asking for the sheet`);
+test('🔑 that one request is five reads, one per table, together — and it is not a new server action', () => {
+  assert.equal(count(READER, /await Promise\.all\(\[/g), 1, 'the sheet reads one after another');
+  assert.equal(count(READER, /\.from\('vendor_profiles'\)/g), 1);
+  assert.equal(count(READER, /\.from\('vendor_services'\)/g), 1);
+  assert.equal(count(READER, /\.from\(/g), 2, 'a table is read twice, or a new table crept in');
+  for (const reader of ['fetchReviewsForVendor(', 'fetchVendorCompletedEvents(', 'isFollowingVendor(']) {
+    assert.equal(READER.split(reader).length - 1, 1, `${reader} runs more than once`);
   }
-  assert.match(VIEW, /\{sheet \? null : \(\s*<div className="flex h-32/, 'the hero image and the card’s cover are both drawn');
+  // It rides `fetchInlineMoreRow` — and answers BEFORE anything is searched.
+  assert.equal(count(ACTION, /^export async function /gm), 1, 'the sheet got its own server action (the ceiling is 1,225)');
+  assert.ok(ACTION.indexOf('if (sheetFor) {') > 0 && ACTION.indexOf('if (sheetFor) {') < ACTION.indexOf('await searchCategoryVendors('));
+  assert.match(ACTION, /if \(!user\) return \{ \.\.\.EMPTY, sheet: null \};/, 'a signed-out caller is answered');
 });
 
-test('🔑 the sheet’s one verb is the conversation, through the ONE inquiry path', () => {
-  // A thread → go to it. No thread → ask, by the couple's own pick id.
-  assert.match(ACTIONS, /if \(threadId\) \{[\s\S]*?href=\{`\/dashboard\/\$\{eventId\}\/messages\/\$\{threadId\}`\}/);
-  assert.match(ACTIONS, /if \(!canAsk\) return null;/);
-  assert.match(ACTIONS, /<ContactShortlistVendorButton\s+eventId=\{eventId\}\s+vendorId=\{vendorId\}\s+label=\{ask\.label\}/);
-  assert.ok(!/vendorProfileId/.test(ACTIONS), 'the sheet asks by profile id — that skips the pick the inquiry is filed under');
-  assert.ok(!/<button\b/.test(ACTIONS), 'a hand-made button on the sheet');
-  assert.equal((ACTIONS.match(/\bmain\b/g) ?? []).length, 2, 'one main verb per state (chat · ask)');
-  // A booked supplier is not asked for a quote; one with no account cannot be.
-  assert.match(PAGE, /canAsk=\{sheetVendor\.marketplaceVendorId != null && sheetVendor\.status !== 'locked'\}/);
+test('🔑 a shop whose name is still withheld is not named by its photos or its address', () => {
+  assert.match(READER, /isVendorNameRevealed\(\{/);
+  assert.match(READER, /photos:\s*profile && revealed\s*\?/);
+  assert.match(READER, /sharePath: profile && revealed && profile\.business_slug \? `\/v\/\$\{profile\.business_slug\}` : null,/);
+  // …and the sheet offers Share only when there is a page to share.
+  assert.match(SHEET, /\{data\?\.sharePath \? <ActionButton tone="neutral" icon=\{Share2\} label="Share"/);
+});
+
+test('🔑 while the request is out one line says so; a refusal says so with Retry — never an empty section', () => {
+  assert.equal(SHEET_LOADING, 'Loading their reviews and photos…');
+  assert.equal(SHEET_FAILED, 'Couldn’t load their reviews and photos.');
+  assert.match(SHEET, /\{state === 'loading' \? \([\s\S]{0,160}\{SHEET_LOADING\}/);
+  assert.match(SHEET, /\{state === 'failed' \? \([\s\S]{0,260}\{SHEET_FAILED\}[\s\S]{0,120}label="Retry" onClick=\{\(\) => ask\(\)\}/);
+  assert.match(SHEET, /if \(!res\) return setState\('failed'\);/, 'a refused read is drawn as an empty sheet');
+  assert.match(SHEET, /data && data\.reviews === null \?/, 'reviews that could not be read read as "none"');
+  assert.match(READER, /console\.error\('\[supplier-sheet\] reviews read failed', err\);\s*return null;/);
+});
+
+test('🔑 Ask goes through the ONE inquiry path; Follow flips here and takes itself back when refused', () => {
+  assert.match(SHEET, /const res = await contactShortlistVendor\(\{ eventId, vendorId: id \}\);/);
+  assert.match(SHEET, /const saved = await saveVendorToPicks\(fd\);/, 'a supplier the couple never saved cannot be asked');
+  assert.match(SHEET, /fd\.set\('tile', tile\);/, '"Ask about Cake" files them under the wrong category');
+  assert.match(SHEET, /setFollowing\(next\);[^\n]*\n\s*setSaid\(null\);/);
+  assert.match(SHEET, /if \(!res\.ok\) \{\s*setFollowing\(!next\);/, 'a refused follow still reads as followed');
+  assert.match(SHEET, /next \? await followVendor\(target\.vendorProfileId!\) : await unfollowVendor\(target\.vendorProfileId!\)/);
+});
+
+test('the sheet is lazy — not part of the page’s first JavaScript — and both kinds of card open it', () => {
+  assert.match(BENCH, /const SupplierSheet = dynamic\(\(\) => import\('\.\/supplier-sheet'\), \{ ssr: false \}\);/);
+  assert.doesNotMatch(BENCH, /^import (?!type)[^\n]*from '\.\/supplier-sheet';/m, 'a static import puts the sheet in the first bundle');
+  assert.equal(count(BENCH, /sheetDoor\.open\(\{/g), 2, 'one of the two cards (yours · More to compare) no longer opens the sheet');
+  assert.match(BENCH, /<SheetDoorCtx\.Provider value=\{replan \? sheetDoor : null\}>/, 'the sheet opens off the one-screen page');
+  assert.match(BENCH, /nameWithheld: row\.nameAnonymized,/);
+});
+
+test('🔑 "More to compare" asks the marketplace ONCE per category per visit', () => {
+  assert.match(BENCH, /const kept = MORE_SEEN\.get\(seenKey\);\s*if \(kept\) \{/);
+  assert.match(BENCH, /MORE_SEEN\.set\(seenKey, res\);/);
+  const failed = BENCH.slice(BENCH.indexOf('setMoreError(INLINE_MORE_FAILED)') - 400, BENCH.indexOf('setMoreError(INLINE_MORE_FAILED)'));
+  assert.doesNotMatch(failed, /MORE_SEEN\.set/, 'a failed read is remembered as the answer');
 });

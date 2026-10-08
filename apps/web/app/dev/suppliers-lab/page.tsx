@@ -8,13 +8,13 @@
  * row of two heights, a strip of the list showing between the top bar and the
  * pinned date line while the bar slides — and no unit test lays out or scrolls.
  * It draws the REAL shell (`ServicesTakeover`), the REAL Find body
- * (`ShortlistCategories`) and the REAL supplier sheet inside a stand-in for the
+ * (`ShortlistCategories`) and the REAL supplier sheet (press any card) inside a stand-in for the
  * app's top bar that slides away on a phone exactly as the real one does.
  *
  *   ?open=<tile>        open a category on load (catering · cake · reception …)
- *   ?inspect=v:<id>     the supplier sheet for one of the couple's cards
- *                       (v-bituin · v-lola · v-hiraya · v-santuario)
  *   &fail=1             the marketplace read ("More to compare") fails
+ *   &sheetfail=1        the supplier sheet's one request fails (press a card)
+ *   &slow=1             …or takes 2.5 s, to read the line it shows meanwhile
  *   &empty=1            a new event: no suppliers yet
  *
  * Run with `NEXT_PUBLIC_EXPLORE_REPLAN_ENABLED=true` — the one-screen page is
@@ -24,9 +24,7 @@ import { notFound } from 'next/navigation';
 import { InspectorLayout } from '@/app/_components/inspector/inspector-column';
 import { ServicesTakeover } from '@/app/dashboard/[eventId]/vendors/_components/services-takeover';
 import { DatePlaceLine } from '@/app/dashboard/[eventId]/vendors/_components/date-place-line';
-import { VendorQuickViewInspector } from '@/app/dashboard/[eventId]/vendors/_components/vendor-quickview-inspector';
-import { SupplierSheetActions } from '@/app/dashboard/[eventId]/vendors/_components/supplier-sheet-actions';
-import { buildShortlistFolders, type ShortlistVendor } from '@/lib/shortlist-taxonomy';
+import { buildShortlistFolders } from '@/lib/shortlist-taxonomy';
 import { popularTilesFor } from '@/lib/supplier-find';
 import { SuppliersLabStage } from './lab-stage';
 import { LabBench } from './lab-bench';
@@ -52,20 +50,13 @@ export default async function SuppliersLabPage({
     lockHandshakeEnabled: true,
   });
 
-  const inspectId = one('inspect')?.startsWith('v:') ? one('inspect')!.slice(2) : null;
-  let selected: { vendor: ShortlistVendor; categoryLabel: string } | null = null;
-  for (const folder of folders) {
-    for (const tile of folder.tiles) {
-      const vendor = tile.vendors.find((v) => v.vendorId === inspectId);
-      if (vendor && !selected) selected = { vendor, categoryLabel: tile.label };
-    }
-  }
-
   const booked = rows.filter((r) => r.status === 'contracted').length;
   const bench = (
     <LabBench
       key={`sl-${one('open') ?? ''}`}
       fail={one('fail') === '1'}
+      sheetFail={one('sheetfail') === '1'}
+      slow={one('slow') === '1'}
       folders={folders}
       eventId={LAB_EVENT}
       standings={LAB_STANDINGS}
@@ -91,45 +82,7 @@ export default async function SuppliersLabPage({
           }
           tally={{ filled: booked, total: 5, knownPhp: 1_056_000, unpriced: 1 }}
           bookedCount={booked}
-          shortlistSlot={
-            <InspectorLayout
-              paramKey="inspect"
-              hasSelection={Boolean(selected)}
-              master={bench}
-              mobileSheet
-              inspector={
-                selected ? (
-                  <VendorQuickViewInspector
-                    vendor={selected.vendor}
-                    categoryLabel={selected.categoryLabel}
-                    fullHref={selected.vendor.href}
-                    sheet={{
-                      serviceCard: LAB_CARDS[selected.vendor.vendorId] ?? null,
-                      cardsRead: true,
-                      selfAdded: selected.vendor.marketplaceVendorId == null,
-                      reviews: [
-                        { id: 'r1', stars: 5, month: 'Dec 2025', words: 'The tasting sold us; the day matched it.' },
-                        { id: 'r2', stars: 5, month: 'Aug 2025', words: 'On time, clean set-up, and they handled 200 heads without a hitch.' },
-                      ],
-                      work: [
-                        { id: 'w1', kind: 'Wedding', month: 'Dec 2025' },
-                        { id: 'w2', kind: 'Debut', month: 'Aug 2025' },
-                      ],
-                      workTotal: 2,
-                      actions: (
-                        <SupplierSheetActions
-                          eventId={LAB_EVENT}
-                          vendorId={selected.vendor.vendorId}
-                          threadId={selected.vendor.threadId}
-                          canAsk={selected.vendor.marketplaceVendorId != null && selected.vendor.status !== 'locked'}
-                        />
-                      ),
-                    }}
-                  />
-                ) : null
-              }
-            />
-          }
+          shortlistSlot={<InspectorLayout paramKey="inspect" hasSelection={false} master={bench} inspector={null} />}
           buildSlot={<p className="py-10 text-sm text-ink/55">Build — not drawn in this lab.</p>}
           teamSlot={<p className="py-10 text-sm text-ink/55">Booked — not drawn in this lab.</p>}
         />

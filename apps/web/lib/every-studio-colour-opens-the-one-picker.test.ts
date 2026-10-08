@@ -33,12 +33,14 @@
  *
  * 🛡 Sabotaged once each, each red alone. 2026-10-08 (Studio): the QR's Studio row drawn as its old
  * PickMenu → C; the Mood Board shelf moved below Swatches → A; `pickerSuggestions` returning the
- * swatches instead of the harmony → B. 2026-10-08 (this stream): `readableFirst` dropping the
- * colours that do not read → B; `pickerReadsOn` grading at 3:1 → B; the AA shelf moved under Your
- * Mood Board → A; a `<input type="range">` put back in `colour-well.tsx` → D; `readsOn={ground}`
- * taken off the part's Text colour → E; a `type="color"` put back in the Reveal's row → G; one more
- * painted swatch in `stage-text.tsx` → G; a `type="color"` put back in `swatch-popover.tsx` → F;
- * `editor-shell.tsx` importing the sheet → H.
+ * swatches instead of the harmony → B. 2026-10-08 (this stream): the AA shelf moved to the foot → A;
+ * `readableFirst` dropping the colours that do not read → B; a slot's name given by the cleaned
+ * list's position → B; `pickerReadsOn` grading "clear" at 3:1 → B; `slots` taken off Look ›
+ * Colours → C; a `<input type="range">` put back in `colour-well.tsx` → D; `readsOn={ground}` taken
+ * off the part's Text colour → E; the Stages "+" handed a close that does nothing → E; a
+ * `type="color"` put back in `swatch-popover.tsx` → F; its Swap dropped → F; a `type="color"` put
+ * back in the Reveal's row → G; one more painted swatch in `stage-text.tsx` → G; `editor-shell.tsx`
+ * importing the sheet → H.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';

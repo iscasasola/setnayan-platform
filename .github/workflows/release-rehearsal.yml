@@ -66,6 +66,8 @@ on:
         description: 'What the site is on now (default: the deployed-prod tag)'
         required: false
         default: 'deployed-prod'
+  push:
+    branches: [rd/release-rehearsal-proof]
 
 permissions:
   contents: read
@@ -322,7 +324,7 @@ jobs:
             apps/web/.next
             !apps/web/.next/cache
             apps/web/public/sw.js
-          key: rehearsal-build-${{ steps.buildkey.outputs.key }}
+          key: rehearsal-build-cold2-${{ steps.buildkey.outputs.key }}
 
       - name: Build the app (production mode — the script Vercel runs)
         if: steps.buildcache.outputs.cache-hit != 'true'
@@ -342,7 +344,7 @@ jobs:
             apps/web/.next
             !apps/web/.next/cache
             apps/web/public/sw.js
-          key: rehearsal-build-${{ steps.buildkey.outputs.key }}
+          key: rehearsal-build-cold2-${{ steps.buildkey.outputs.key }}
 
       - name: Note a reused build
         if: steps.buildcache.outputs.cache-hit == 'true'

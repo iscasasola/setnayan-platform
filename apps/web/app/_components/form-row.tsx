@@ -118,7 +118,8 @@ export function FormRows({
   );
 }
 
-function usePillWidth(): string {
+/** The width every pill of the list this row sits in wears — for a row drawn in its own file (`form-row-date.tsx`). */
+export function usePillWidth(): string {
   return FORM_PILL_WIDTH[useContext(RowsContext)?.width ?? 'wide'];
 }
 
@@ -132,12 +133,17 @@ export const FORM_ROW_BAND = 'border-t border-ink/10 first:border-t-0';
 export const FORM_ROW_LINE = 'flex min-h-[52px] items-center gap-2.5';
 
 /** The name on the left, with "Required" under it while it is still needed, and its ⓘ beside it. */
-function RowName({ name, about, needed, nameId }: { name: string; about?: FormRowAbout | null; needed?: boolean; nameId?: string }) {
+function RowName({ name, about, needed, nameId, mark }: { name: string; about?: FormRowAbout | null; needed?: boolean; nameId?: string; mark?: ReactNode }) {
   return (
     <span data-form-row-name="" className="sn-row-name flex min-w-0 flex-1 items-center">
       <span className="min-w-0">
         <span id={nameId} className="block text-[15px] font-medium leading-tight text-ink">
           {name}
+          {mark ? (
+            <span data-form-row-name-mark="" className="ml-1.5 inline-flex align-middle">
+              {mark}
+            </span>
+          ) : null}
         </span>
         {needed ? (
           <small data-form-row-required="" className="block text-[11px] font-bold leading-tight text-sn-accent">
@@ -170,6 +176,7 @@ function RowProblem({ children }: { children: ReactNode }) {
 export function FormRow({
   name,
   about,
+  mark,
   children,
   note,
   problem,
@@ -179,6 +186,8 @@ export function FormRow({
 }: {
   name: string;
   about?: FormRowAbout | null;
+  /** A small mark after the name — the Pro mark ◆ (gallery § 20: shown, never a lock). */
+  mark?: ReactNode;
   /** The answer, on the right. */
   children?: ReactNode;
   /** One quiet line under the row. */
@@ -193,7 +202,7 @@ export function FormRow({
   return (
     <div {...attrs} data-form-row={data ?? ''} className={FORM_ROW_BAND}>
       <div className={FORM_ROW_LINE}>
-        <RowName name={name} about={about} />
+        <RowName name={name} about={about} mark={mark} />
         {children}
       </div>
       {note ? (
@@ -296,6 +305,7 @@ export function TypedRow({
   check = null,
   clean = null,
   onKeep,
+  onType,
   inputMode,
   autoCapitalize,
   data,
@@ -327,6 +337,12 @@ export function TypedRow({
   clean?: ((text: string) => string) | null;
   /** Keep these words (trimmed; an amount's digits). */
   onKeep: (text: string) => KeepAnswer | Promise<KeepAnswer>;
+  /**
+   * The words AS THEY ARE TYPED in the open field — and, once when it closes, the words the row is left holding (the
+   * kept ones, or what it held before on ✕). For a screen that shows the answer somewhere else while it is typed (a
+   * live preview of the page). NEVER a save: keeping is `onKeep`, once.
+   */
+  onType?: (text: string) => void;
   inputMode?: 'text' | 'numeric' | 'tel' | 'email' | 'url';
   autoCapitalize?: 'off' | 'sentences' | 'words';
   data?: string;
@@ -407,6 +423,8 @@ export function TypedRow({
   const end = (exit: FieldExit, typed: string) => {
     if (mode !== 'open') return;
     const out = keepOutcome({ exit, typed: amount ? amountDigits(typed) : clean ? clean(typed) : typed, before: shown, long, required, check });
+    /* What the row is left holding is said once (a preview drawn while typing ends on it). */
+    onType?.(out.kind === 'send' || out.kind === 'wrong' ? out.text : shown);
     if (out.kind === 'send') {
       setShown(out.text);
       after.current = () => send(out.text);
@@ -488,6 +506,7 @@ export function TypedRow({
           inputMode={amount ? 'numeric' : inputMode}
           autoCapitalize={autoCapitalize}
           leaving={mode === 'leaving'}
+          onType={onType}
           onEnd={end}
           onGone={closed}
         />
@@ -551,9 +570,12 @@ export function FormRowField({
   inputMode,
   autoCapitalize,
   leaving,
+  onType,
   onEnd,
   onGone,
 }: {
+  /** Told the words as they are typed (the row's `onType`). */
+  onType?: (text: string) => void;
   /** How the row asks this field to end (another row of the list opened). */
   handle: React.RefObject<{ end: (exit: FieldExit) => void } | null>;
   name: string;
@@ -569,9 +591,13 @@ export function FormRowField({
   onEnd: (exit: FieldExit, typed: string) => void;
   onGone: () => void;
 }) {
-  const [text, setText] = useState(start);
+  const [text, setTextNow] = useState(start);
   const typed = useRef(start);
   typed.current = text;
+  const setText = (next: string) => {
+    setTextNow(next);
+    onType?.(next);
+  };
   const wrap = useRef<HTMLDivElement>(null);
   const box = useRef<HTMLInputElement & HTMLTextAreaElement>(null);
   /* Decided once: a ✕ must not ALSO be read as the tap-out that follows it. */
@@ -694,6 +720,7 @@ export function FormRowField({
 export function ChosenRow({
   name,
   about,
+  mark,
   label,
   value,
   options,
@@ -702,11 +729,16 @@ export function ChosenRow({
   dataAttr,
   note,
   problem,
+  below,
   data,
   attrs,
 }: {
   name: string;
   about?: FormRowAbout | null;
+  /** A small mark after the name (the Pro mark ◆). */
+  mark?: ReactNode;
+  /** More of this row, under it (the screen's own — a quiet action that belongs to the pick). */
+  below?: ReactNode;
   /** The dropdown's own name (its sheet's title) — the row's name unless given. */
   label?: string;
   value: string | null;
@@ -722,7 +754,7 @@ export function ChosenRow({
 }) {
   const width = usePillWidth();
   return (
-    <FormRow name={name} about={about} note={note} problem={problem} data={data} attrs={{ ...attrs, 'data-form-row-kind': 'chosen' }}>
+    <FormRow name={name} about={about} mark={mark} note={note} problem={problem} below={below} data={data} attrs={{ ...attrs, 'data-form-row-kind': 'chosen' }}>
       <PickMenu label={label ?? name} value={value} options={options} onPick={onPick} buttonText={buttonText} dataAttr={dataAttr} className={`${FORM_PICK_CLASS} ${width}`} />
     </FormRow>
   );

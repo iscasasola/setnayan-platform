@@ -198,7 +198,7 @@ export function DetailsWorkspace({
   formHeads?: Partial<Record<DetailsItemKey, ReactNode>>;
   /**
    * 🖼 Items that SHARE another item's picture (owner 2026-10-06: Background ·
-   * Colours · Font · Music each show the couple's own page — ONE frame, the
+   * Elements · Music each show the couple's own page — ONE frame, the
    * whole Look's, never four). Key → the item whose body it shows.
    */
   bodyAlias?: Partial<Record<DetailsItemKey, DetailsItemKey>>;

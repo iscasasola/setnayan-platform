@@ -13,10 +13,11 @@ import type { HubDraftActionResult, HubDraftSummary } from '@/lib/hub-draft';
 import { sanitizeRsvpAskConfig } from '@/lib/rsvp-ask';
 import { MainBackgroundPanel, type MovingBackgroundOption } from '@/app/dashboard/[eventId]/website/editor/_components/main-background-panel';
 import { ColorsPanel } from '@/app/dashboard/[eventId]/website/editor/_components/pro-panels';
+import { SiteChromePanel } from '@/app/dashboard/[eventId]/website/editor/_components/media-panels';
 import { ButtonsLookRow } from '@/app/dashboard/[eventId]/website/editor/_components/buttons-look-row';
 import { INVITE_THEMES } from '@/lib/invite-themes';
 import { hubButtonPage } from '@/lib/hub-buttons';
-import type { HubSectionCanvas } from '@/lib/hub-canvas';
+import type { HubMainGround, HubSectionCanvas } from '@/lib/hub-canvas';
 import { celebrationColours, celebrationDraftIsPro } from '@/lib/rsvp-celebration';
 import { MakerRevealPicker } from '@/app/dashboard/[eventId]/launch/_components/maker-reveal';
 import { MakerLogoDoor } from '@/app/dashboard/[eventId]/launch/_components/details-lazy';
@@ -37,6 +38,14 @@ function labSummary(n: number, pro = 0): HubDraftSummary {
   return { hasChanges: n > 0, changeCount: n, proCount: pro, canUndo: n > 0, changes: [] };
 }
 async function labDraft(_eventId: string, fd: FormData): Promise<HubDraftActionResult> {
+  /* ⏱ The lab's stopwatch (`performance.getEntriesByName`): when a draft write left and when it answered. */
+  performance.mark('lab-draft-sent');
+  /* 💥 `?fail=1`: every save is refused — the lab's way to see a failure said in place. */
+  if (new URLSearchParams(window.location.search).get('fail') === '1') {
+    await new Promise((r) => setTimeout(r, 600));
+    performance.mark('lab-draft-answered');
+    return { ok: false, error: 'Your background could not be changed. Please try again.' } as HubDraftActionResult;
+  }
   const w = window as unknown as { __labDrafts?: Array<Record<string, string>> };
   (w.__labDrafts ??= []).push(Object.fromEntries([...fd].filter(([, v]) => typeof v === 'string')) as Record<string, string>);
   /* 🎞 The lab's "draft": a Look › Background pick rides a cookie the lab's
@@ -95,6 +104,7 @@ async function labDraft(_eventId: string, fd: FormData): Promise<HubDraftActionR
   /* ⏱ `?slow=1`: a save takes as long as production's (~1.5 s), so a race can show. */
   if (new URLSearchParams(window.location.search).get('slow') === '1') await new Promise((r) => setTimeout(r, 1500));
   const s = labSummary(labChanges, labPro);
+  performance.mark('lab-draft-answered');
   return { ok: true, intent: 'save', applied: 0, held: [], bar: { free: s, owned: s, proEffects: [], priceLabel: null } } as HubDraftActionResult;
 }
 function labWidgetsFromCookie(): Record<string, unknown> {
@@ -115,6 +125,8 @@ export function MakerLabShell({
   navigator,
   details,
   loops = [],
+  mainBackground = null,
+  pageColour = null,
   openDetails = false,
   canvases = {},
   renderStamp = 'lab',
@@ -134,6 +146,10 @@ export function MakerLabShell({
   navigator: MakerNavigatorData;
   details: ReactNode;
   loops?: readonly MovingBackgroundOption[];
+  /** 🌄 `?bg=` — the main background the lab starts on, so each Source of Studio › Look › Background can be seen (default: just the colour). */
+  mainBackground?: HubMainGround | null;
+  /** 🌈 `?paper=dark` — the page colour the lab starts on (a dark one shows whether a Pattern card still shows its pattern). */
+  pageColour?: string | null;
   openDetails?: boolean;
   /** The lab's "server" canvases — what its draft holds (`lab_widgets`), read on every render. */
   canvases?: Record<string, HubSectionCanvas>;
@@ -163,6 +179,7 @@ export function MakerLabShell({
      Background pick drafts into the lab (`window.__labDrafts`), never a database. */
   const house = INVITE_THEMES.house;
   const formDraft = (fd: FormData) => void labDraft(eventId, fd);
+  const heroVideo = <SiteChromePanel action={formDraft} eventId={eventId} part="video" musicRef={null} musicEnabled={false} videoRef={null} />;
   const lookRows = {
     'main-background': {
       label: 'Behind every scene',
@@ -171,13 +188,16 @@ export function MakerLabShell({
           eventId={eventId}
           themeId="house"
           colours={house.palette}
-          current={null}
+          current={mainBackground}
           hero={{ photoRef: null, photoUrl: null, hasClip: false, liveRef: null }}
           overrideStillUrl={null}
           drafted={false}
           ownsPro={false}
           loops={loops}
+          /* 🌈 Studio › Look › Background's Colour source — Classic's paper and maria-and-jose's five. */
+          page={{ bgColor: pageColour, resolved: house.palette.canvas, five: ['#5B1A22', '#F7F2EC', '#C9A86A', '#FBFAF7', '#7A8B6F'], artDirection: null, ownButton: false }}
           draftAction={labDraft as never}
+          heroVideo={heroVideo}
         />
       ),
     },
@@ -196,6 +216,12 @@ export function MakerLabShell({
         <ColorsPanel action={formDraft} eventId={eventId} rowKey="colors" part="art" bgColor={null} buttonColor={null} artDirection={null} fontKey={null} magicTraveller={null} proMark="try" />
       ),
     },
+    /* 🎵 The song and 🎬 the hero video — the REAL form parts, posting into the lab's stand-in (no file leaves it). */
+    music: {
+      label: 'Background music',
+      node: <SiteChromePanel action={formDraft} eventId={eventId} part="music" musicRef={null} musicEnabled={false} videoRef={null} />,
+    },
+    'hero-video': { label: 'Hero video', node: heroVideo },
     buttons: {
       label: 'Buttons',
       node: <ButtonsLookRow eventId={eventId} theme={house} page={hubButtonPage(house, null)} style={null} colour={null} palette={[house.palette.accent, house.palette.ink]} />,

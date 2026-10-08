@@ -698,6 +698,24 @@ export default async function WebsiteEditorPage({
   const heroLocked = draftedRowLockedIf(Boolean(heroRef));
   const backdropLocked = draftedRowLockedIf(Boolean(rsvpBackdrop));
 
+  /* 🎬 THE HERO VIDEO's uploader — built ONCE. It is the `hero-video` row (Look › Background) and, in the new
+     Maker's Studio, the same node is drawn by the Background's "Your photo or video" source (`heroVideo`);
+     Look never mounts both (`LookPanel`). */
+  const heroVideoPanel = musicLocked ? (
+    lockPanel('Your own hero video')
+  ) : (
+    <SiteChromePanel
+      action={updateSiteChrome.bind(null, eventId)}
+      eventId={eventId}
+      part="video"
+      musicRef={panelMusicRef}
+      musicEnabled={panelMusicOn}
+      musicDisplay={chromeDisplay}
+      videoRef={panelVideoRef}
+      videoDisplay={chromeDisplay}
+    />
+  );
+
   const groups: RailGroup[] = [
     {
       key: 'site',
@@ -826,7 +844,22 @@ export default async function WebsiteEditorPage({
                         id,
                         name: themeBackgroundName(id),
                         stillUrl: resolveThemeGround(id, { ownColours: false })?.poster ?? null,
+                        /* 🎞 The loop itself — Studio › Look › Background's Video card plays it, muted, while on screen. */
+                        loopUrl: resolveThemeGround(id, { ownColours: false })?.loop ?? null,
                       }))}
+                      /* 🌈 Studio › Look › Background's Colour source and Shade ▾ (the drafted look over live). */
+                      page={{
+                        bgColor: (drafted.site_bg_color as string | null) ?? null,
+                        resolved:
+                          boardSiteColours((drafted as { role_palette?: unknown }).role_palette)?.background ??
+                          themeColours(mainThemeId, (drafted as { role_palette?: unknown }).role_palette).colours.canvas,
+                        five: boardSiteColours((drafted as { role_palette?: unknown }).role_palette)?.swatches ?? [],
+                        artDirection: (drafted.site_art_direction as 'daylight' | 'candlelight' | null) ?? null,
+                        /* ⚡ A picture's tint leaves the couple's own button colour alone — the panel must know, to draw a pick without a render. */
+                        ownButton: Boolean(drafted.site_button_color),
+                      }}
+                      /* 🎬 …and the hero video's own uploader, drawn there under "Your photo or video". */
+                      heroVideo={heroVideoPanel}
                       photoChoices={photoChoices}
                       videoChoice={videoChoice}
                       sceneUploads={sceneUploads}
@@ -1001,20 +1034,7 @@ export default async function WebsiteEditorPage({
           href: `${w}/site-chrome`,
           pro: true,
           locked: musicLocked,
-          panel: musicLocked ? (
-            lockPanel('Your own hero video')
-          ) : (
-            <SiteChromePanel
-              action={updateSiteChrome.bind(null, eventId)}
-              eventId={eventId}
-              part="video"
-              musicRef={panelMusicRef}
-              musicEnabled={panelMusicOn}
-              musicDisplay={chromeDisplay}
-              videoRef={panelVideoRef}
-              videoDisplay={chromeDisplay}
-            />
-          ),
+          panel: heroVideoPanel,
         },
       ],
     },

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { GuestLookScope } from './guest-look-scope';
+import { CandlelightOffOnCanvas } from './candlelight-off-on-canvas';
 import { siteSkin } from './skins/site-skin';
 import { resolveThemeGround } from '../_lib/theme-ground';
 import type { GuestLook } from '../_lib/loaders';
@@ -63,10 +64,17 @@ export function lookScopeProps(look: GuestLook | null) {
  * (`asksForHostCanvas` + `loadHostPreviewDraft`'s host check) — guest HTML is
  * byte-identical.
  *
- * ⚠ Known limit: Candlelight is worn as an ATTRIBUTE, so a draft that turns
- * Candlelight OFF while it is live cannot take the layout's attribute away —
- * the canvas stays dark until Apply. Turning it ON previews correctly.
+ * 🌗 CANDLELIGHT, BOTH WAYS. It is worn as an ATTRIBUTE by the layout's scope, so
+ * turning it ON previews by itself (the inner scope wears it), and turning it
+ * OFF while it is live is `CandlelightOffOnCanvas`: the drafted scope lifts the
+ * layout's attribute off, on this canvas only (it was a "known limit" until
+ * 2026-10-08 — the canvas stayed dark until Apply).
  */
 export function HostDraftLook({ look, children }: { look: GuestLook | null; children: ReactNode }) {
-  return <GuestLookScope {...lookScopeProps(look)}>{children}</GuestLookScope>;
+  return (
+    <GuestLookScope {...lookScopeProps(look)}>
+      {look && look.art !== 'candlelight' ? <CandlelightOffOnCanvas /> : null}
+      {children}
+    </GuestLookScope>
+  );
 }

@@ -58,6 +58,7 @@ import { MAIN_COLOUR_JOB, MAIN_COLOUR_SLOTS, type MainColourDraft, type MainColo
 import { MAIN_COLOUR_SLOTS as MOOD_MAIN_COLOUR_SLOTS } from '@/lib/colour-access';
 import { InfoTip } from '@/app/_components/info-tip';
 import { StudioEventName } from './studio-event-name';
+import { BACKGROUND_MAIN_INFO } from '@/lib/background-source';
 
 /**
  * 🧭 THE NEW MAKER'S STUDIO TOOLS, REDRAWN TO THE PROTOTYPE (owner 2026-10-06;
@@ -623,15 +624,15 @@ export const STUDIO_LOOK_LABEL: Readonly<Record<LookSectionItemKey, string>> = {
   music: 'Music',
 };
 
-/** Said once, at the top of Background (the owner: *"explain that this is the main background"*). */
-export const STUDIO_MAIN_BACKGROUND_LINE =
-  'The main background — behind every stage and every page, the cover included; a part’s own Background can still change just that part';
+/** What the main background IS (the owner: *"explain that this is the main background"*) — behind the Source row's ⓘ since 2026-10-08 (`BACKGROUND_MAIN_INFO`). */
+export const STUDIO_MAIN_BACKGROUND_LINE = BACKGROUND_MAIN_INFO;
 
 /**
  * 🌄 Look's ONE full-width bar — Background · Elements · Music (sections =
  * one `ISegmented`, INTERACTION_RULES §8; three since the 2026-10-08 restudy). A press opens that section's item —
  * the SAME Look editor Details draws (`LookPanel`), never a copy; opening
- * writes nothing. Background opens with the one line that says what it is.
+ * writes nothing. What the main background IS sits behind the Source row's ⓘ
+ * (helper text lives behind ⓘ), no longer a paragraph under this bar.
  */
 export function StudioLookBar({ item }: { item: LookSectionItemKey }) {
   const select = useContext(DetailsSelectContext);
@@ -644,12 +645,6 @@ export function StudioLookBar({ item }: { item: LookSectionItemKey }) {
           </ISeg>
         ))}
       </ISegmented>
-      {item === 'background' ? (
-        <p data-studio-main-background-line="" className="text-[13px] leading-snug text-ink/70">
-          <b className="font-semibold text-ink">The main background</b>
-          {STUDIO_MAIN_BACKGROUND_LINE.slice('The main background'.length)}
-        </p>
-      ) : null}
     </div>
   );
 }

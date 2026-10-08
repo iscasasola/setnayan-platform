@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "26df38cdb",
-  "routeCount": 429,
-  "destinations": 958,
+  "generatedFromRef": "3e4df42f7",
+  "routeCount": 428,
+  "destinations": 957,
   "actions": 671,
-  "blocks": 5704,
+  "blocks": 5707,
   "routes": {
     "/": {
       "files": [
@@ -778,6 +778,7 @@
         "[slug]/_components/arrival-greeting.tsx",
         "[slug]/_components/background-music.tsx",
         "[slug]/_components/buttons-preview.ts",
+        "[slug]/_components/candlelight-off-on-canvas.tsx",
         "[slug]/_components/canvas-bring-up.ts",
         "[slug]/_components/copy-my-link.tsx",
         "[slug]/_components/countdown-styles.tsx",
@@ -846,6 +847,7 @@
         "[slug]/_components/live-hub-styles.tsx",
         "[slug]/_components/live-wall-block.tsx",
         "[slug]/_components/magic-move.tsx",
+        "[slug]/_components/main-ground-preview.ts",
         "[slug]/_components/main-ground.tsx",
         "[slug]/_components/maker-empty-scene.tsx",
         "[slug]/_components/maker-fixed-parts.tsx",
@@ -1058,6 +1060,7 @@
         "Blob",
         "Box",
         "ByRoleGroup",
+        "CandlelightOffOnCanvas",
         "CaptureTile",
         "CapturesByHour",
         "CelebrantItem",
@@ -1174,6 +1177,7 @@
         "HTMLInputElement",
         "HTMLOListElement",
         "HTMLSpanElement",
+        "HTMLStyleElement",
         "HTMLVideoElement",
         "Header",
         "HeroBackgroundMedia",
@@ -1219,6 +1223,7 @@
         "MagicMove",
         "MainGround",
         "MainGroundNone",
+        "MainGroundPreviewer",
         "MakerDayPartStandIn",
         "MakerEmptyScene",
         "MakerGuestScenes",
@@ -1934,7 +1939,6 @@
         "/admin/fraud",
         "/admin/gifts",
         "/admin/help",
-        "/admin/hub-music",
         "/admin/integrations",
         "/admin/integrity-watch",
         "/admin/live-studio-channels",
@@ -3053,29 +3057,6 @@
         "FilterChip",
         "PageMasthead",
         "SubmitButton"
-      ]
-    },
-    "/admin/hub-music": {
-      "files": [
-        "admin/hub-music/actions.ts",
-        "admin/hub-music/hub-music-manager.tsx",
-        "admin/hub-music/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": [
-        "ConsoleTable",
-        "EditTrack",
-        "HTMLAudioElement",
-        "HTMLInputElement",
-        "HubMusicManager",
-        "HubMusicResult",
-        "InfoTip",
-        "MoodSelect",
-        "PageMasthead",
-        "Picked",
-        "Sheet",
-        "Switch"
       ]
     },
     "/admin/insights": {
@@ -9163,6 +9144,7 @@
     "/dashboard/[eventId]/website/editor": {
       "files": [
         "dashboard/[eventId]/website/editor/_components/authoring-panels.tsx",
+        "dashboard/[eventId]/website/editor/_components/background-cards.tsx",
         "dashboard/[eventId]/website/editor/_components/both-view.ts",
         "dashboard/[eventId]/website/editor/_components/buffered-canvas-frame.tsx",
         "dashboard/[eventId]/website/editor/_components/buttons-look-row.tsx",
@@ -9243,6 +9225,14 @@
         "ArtDirectionPick",
         "BackgroundEffect",
         "BackgroundField",
+        "BackgroundPick",
+        "BackgroundPickStep",
+        "BackgroundSource",
+        "BgCard",
+        "BgCards",
+        "BgPickLine",
+        "BgRow",
+        "BgStrip.Provider",
         "BufferedCanvasFrame",
         "ButtonColourField",
         "ButtonsLookRow",
@@ -9271,7 +9261,6 @@
         "FontPick",
         "Fragment",
         "GalleryPanel",
-        "GroundCarousel",
         "HTMLButtonElement",
         "HTMLDivElement",
         "HTMLElement",
@@ -9280,6 +9269,7 @@
         "HTMLSpanElement",
         "HTMLTextAreaElement",
         "HTMLUListElement",
+        "HTMLVideoElement",
         "HeroFrameSync",
         "HeroPhotoPanel",
         "Hsv",
@@ -9306,6 +9296,7 @@
         "LaunchPhasePanel",
         "LaunchStdButton",
         "Link",
+        "LoopPicture",
         "LoveStoryChaptersPanel",
         "MagicMovePick",
         "MainBackgroundPanel",
@@ -9382,6 +9373,7 @@
         "StdPanel",
         "StillOverSwatch",
         "StoryPanel",
+        "StudioColourField",
         "StyleCards",
         "StyleCarousel",
         "StyledSceneRow",
@@ -9396,6 +9388,7 @@
         "TypeBar",
         "TypeSession",
         "TypeStart",
+        "UploadPicture",
         "VisibilityPanel",
         "Window",
         "WordsReturnTo"
@@ -9804,7 +9797,8 @@
         "MakerRevealPicker",
         "MakerRsvpStage",
         "MakerShell",
-        "MakerWork"
+        "MakerWork",
+        "SiteChromePanel"
       ]
     },
     "/dev/maker-lab/guest": {

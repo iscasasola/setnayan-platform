@@ -8,7 +8,7 @@ import { makerSceneLabel } from '@/lib/maker-scene-list';
 import { resolveWeddingOnlyParts } from '@/lib/wedding-only-parts';
 import { WEDDING_PROFILE } from '@/lib/event-type-profile';
 import { INVITE_THEMES, themeBackgroundName } from '@/lib/invite-themes';
-import { hubMovingBackgroundIds } from '@/lib/hub-canvas';
+import { hubMovingBackgroundIds, sanitizeHubMainGround } from '@/lib/hub-canvas';
 import { resolveThemeGround } from '@/app/[slug]/_lib/theme-ground';
 import type { InvitationWidgetRow, WidgetType } from '@/lib/invitation-widgets';
 import { detailsLabNode } from '../details-lab/details-lab-node';
@@ -49,6 +49,10 @@ const MJ_ROWS: ReadonlyArray<[WidgetType, boolean]> = [
   ['our_photos', false],
   ['our_love_story', false],
 ];
+
+/** Stand-ins for a moving background's still and loop when the lab has no public media address — files this repo ships. */
+const LAB_STILLS = ['ballroom', 'starlit', 'fairy-lights', 'rose-archway', 'seascape', 'sunrise', 'aurora', 'peonies', 'bridgerton'];
+const LAB_CLIPS = ['jack-jill-vclip', 'jack-rose-vclip', 'maria-juan-vclip', 'john-jane-vclip', 'peter-mary-vclip'];
 
 export default async function MakerLabPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   if (process.env.NODE_ENV === 'production') notFound();
@@ -122,6 +126,20 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
   } catch {
     fixedStyles = {};
   }
+  /* 🎞 The lab's DRAFTED main background (`lab_main`, the cookie the lab's save stand-in writes and its canvas reads) —
+     the lab's "server" hands it back on its next render, as the real Maker's does, so a pick survives a render. */
+  let labMain: ReturnType<typeof sanitizeHubMainGround> | undefined;
+  {
+    const raw = (await cookies()).get('lab_main')?.value;
+    if (raw !== undefined) {
+      try {
+        const v = JSON.parse(decodeURIComponent(raw)) as unknown;
+        labMain = v === null ? null : sanitizeHubMainGround(v);
+      } catch {
+        labMain = undefined;
+      }
+    }
+  }
   const camRaw = (await cookies()).get('lab_camera')?.value;
   const cameraLook: CameraLook = isCameraLook(camRaw) ? camRaw : 'classic';
   const canvases: Record<string, HubSectionCanvas> = Object.fromEntries(
@@ -143,11 +161,27 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
       navigator={navigator}
       details={detailsLabNode({ ...sp, shape: 'mj', ...(sp.studio === '1' || sp.ss === '1' ? { look: '1' } : {}) })}
       /* 🎞 Look › Background's moving backgrounds, built as the editor page builds them. */
-      loops={hubMovingBackgroundIds().map((id) => ({
+      loops={hubMovingBackgroundIds().map((id, i) => ({
         id,
         name: themeBackgroundName(id),
-        stillUrl: resolveThemeGround(id, { ownColours: false })?.poster ?? null,
+        /* Where this machine has no address for our public art (no media settings in the lab's env), a LOCAL stand-in
+           still and clip — so the cards, the instant preview and the stopwatch have a real picture and a real film. */
+        stillUrl: resolveThemeGround(id, { ownColours: false })?.poster ?? `/std/backgrounds/${LAB_STILLS[i % LAB_STILLS.length]}.webp`,
+        loopUrl: resolveThemeGround(id, { ownColours: false })?.loop ?? `/realstories/${LAB_CLIPS[i % LAB_CLIPS.length]}.mp4`,
       }))}
+      pageColour={sp.paper === 'dark' ? '#1e2229' : null}
+      /* 🌄 `?bg=video|pattern|scene` — start Look › Background on that Source (nothing is written; a fixture). */
+      mainBackground={
+        labMain !== undefined
+          ? labMain
+          : sp.bg === 'video'
+          ? sanitizeHubMainGround({ ground: 'loop', loop: hubMovingBackgroundIds()[0] })
+          : sp.bg === 'pattern'
+            ? sanitizeHubMainGround({ ground: 'pattern', pattern: 'dots' })
+            : sp.bg === 'scene'
+              ? sanitizeHubMainGround({ kind: 'photo', media: '/std/backgrounds/golden-hour.webp', tint: { match: false, frame: ['#f0d5b4', '#291d10'] }, shade: 'dark' })
+              : null
+      }
       openDetails={sp.tool === 'details' || typeof sp.guide === 'string'}
       canvases={canvases}
       fixedStyles={fixedStyles}

@@ -167,7 +167,10 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
     );
   }
   return (
-    <main className={`relative min-h-dvh text-center text-ink ${ground || labPhoto ? '' : 'bg-[#FBF9F5]'}`} data-lab-phase={phase}>
+    <main className={`min-h-dvh text-center text-ink ${ground || labPhoto ? 'relative' : 'bg-cream'}`} data-lab-phase={phase}>
+      {/* The page's paper is a LAYER under everything, as the real page's is (`GuestGround`) — never the box's own
+          fill, which would hide a background laid behind the page (the main background, and its instant preview). */}
+      {labPhoto && !ground ? null : <div data-guest-ground="" aria-hidden className="pointer-events-none fixed inset-0 -z-10 bg-[#FBF9F5]" />}
       {ground}
       {/* 🖼 a `lab_photo=1` cookie: a photo behind the page (the side-by-side's real-looking content) — a public ready-made scene. */}
       {!ground && labPhoto ? (

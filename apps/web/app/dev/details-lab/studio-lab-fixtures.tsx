@@ -14,13 +14,18 @@
  * real action takes, applied to the fixture); nothing reaches a database, and no server
  * action is added (+0 `"use server"` exports).
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ScheduleDay } from '@/app/dashboard/[eventId]/schedule/_components/schedule-lazy';
 import type { DayActions, DayMoment } from '@/app/dashboard/[eventId]/schedule/_components/day-types';
 import { DETAILS_SCHEDULE_INSPECTOR_SLOT } from '@/lib/maker-details-items';
 import { fromDatetimeLocalValue } from '@/lib/schedule-datetime-local';
 import { scheduleAudienceForWrite } from '@/lib/schedule-audience';
-import { LiveLoveStoryBook } from '@/app/dashboard/[eventId]/website/our-story/_components/love-story-live';
+import { LiveLoveStoryBook, editLoveStory, liveStoryOf } from '@/app/dashboard/[eventId]/website/our-story/_components/love-story-live';
+import { SlotsUploadStandIn } from '@/app/dashboard/[eventId]/website/our-story/_components/moment-order-cards';
+import { MomentNotKept } from '@/app/dashboard/[eventId]/website/our-story/_components/moment-sheet';
+import { applyMomentIntent } from '@/lib/love-story-moment-intent';
+import { resolveMoments } from '@/lib/love-story-moments';
+import { labUploadStandIn } from './lab-upload-stand-in';
 import type { LoveStoryBlob } from '@/app/dashboard/[eventId]/website/our-story/_components/story-fields';
 import type { HubDraftActionResult } from '@/lib/hub-draft';
 
@@ -175,35 +180,69 @@ const STORY: LoveStoryBlob = {
 /** No draft leaves the lab: every save "lands". */
 const labDraftAction = async (): Promise<HubDraftActionResult> => ({ ok: true, intent: 'save', applied: 0, held: [] });
 
+/**
+ * 🧪 WHAT ONLY THE SERVER MAY DECIDE, DECIDED IN MEMORY. In the Maker a change that brings a NEW photo goes to the
+ * server action (it screens the photo, then keeps the moment in the draft). The lab has no server: the SAME moment
+ * form is applied to the fixture with the server's own function (`applyMomentIntent`) and kept through the instant
+ * book's own door (`editLoveStory`) — so the row, its square and its count are the shipped ones. Nothing is screened.
+ */
+async function labMomentAction(fd: FormData): Promise<void> {
+  const now = liveStoryOf(STORY);
+  const before = resolveMoments(now);
+  const intent = String(fd.get('intent'));
+  const keep = (moments: typeof before) => editLoveStory({ eventId: EVENT, next: { ...now, moments }, server: STORY, what: 'That moment', draftAction: labDraftAction as never });
+  if (intent !== 'add' && intent !== 'edit') throw new Error('The lab cannot do that one — open this in the Maker.');
+  const r = applyMomentIntent(before, intent, fd);
+  if (!r.ok) throw new MomentNotKept(r.error);
+  await keep(r.after);
+}
+
 /** Studio › Love Story on fixtures — the instant scrapbook the Maker draws, its writes kept in memory. */
 export function LabStudioLoveStory() {
+  /* The pictures the lab can draw: the fixture's two, plus every photo picked here (held in the browser's memory). */
+  const [urls, setUrls] = useState<Record<string, string>>(LAB_PHOTOS);
+  const held = useRef<string[]>([]);
+  const standIn = useMemo(
+    () =>
+      labUploadStandIn((ref, url) => {
+        held.current.push(url);
+        setUrls((all) => ({ ...all, [ref]: url }));
+      }),
+    [],
+  );
+  /* Leaving the lab lets the browser forget them. */
+  useEffect(
+    () => () => {
+      for (const url of held.current.splice(0)) URL.revokeObjectURL(url);
+    },
+    [],
+  );
   return (
-    <LiveLoveStoryBook
-      story={STORY}
-      draftAction={labDraftAction as never}
-      inMaker
-      eventId={EVENT}
-      names="Maria & Jose"
-      partners={['Maria', 'Jose']}
-      eyebrow="December 12, 2026"
-      daysToTheDay={68}
-      themeName="Classic"
-      motionLabel="Gentle"
-      makerHref={`/dashboard/${EVENT}/launch`}
-      guestHref={null}
-      /* Photos on, so the picture square and its slots can be seen (a lab upload has nowhere to go, and says so). */
-      ownsPro
-      storeShell={false}
-      proHref={`/dashboard/${EVENT}/studio/website-pro`}
-      proPrice={null}
-      refused={null}
-      sectionHidden={false}
-      mediaUrls={LAB_PHOTOS}
-      /* A change only the server may decide (a NEW photo) — the lab has no server. */
-      action={async () => {
-        throw new Error('Photos need the database — open this in the Maker.');
-      }}
-      pickSlot={null}
-    />
+    <SlotsUploadStandIn.Provider value={standIn}>
+      <LiveLoveStoryBook
+        story={STORY}
+        draftAction={labDraftAction as never}
+        inMaker
+        eventId={EVENT}
+        names="Maria & Jose"
+        partners={['Maria', 'Jose']}
+        eyebrow="December 12, 2026"
+        daysToTheDay={68}
+        themeName="Classic"
+        motionLabel="Gentle"
+        makerHref={`/dashboard/${EVENT}/launch`}
+        guestHref={null}
+        /* Photos on, so the picture square and its slots can be seen. */
+        ownsPro
+        storeShell={false}
+        proHref={`/dashboard/${EVENT}/studio/website-pro`}
+        proPrice={null}
+        refused={null}
+        sectionHidden={false}
+        mediaUrls={urls}
+        action={labMomentAction}
+        pickSlot={null}
+      />
+    </SlotsUploadStandIn.Provider>
   );
 }

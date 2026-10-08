@@ -1373,7 +1373,7 @@ export function FileUpload({
               role="alert"
               data-upload-failed=""
               title={item.file.name}
-              className="relative col-span-2 flex min-h-[5.75rem] flex-col items-start justify-center gap-1.5 rounded-xl bg-danger-50 py-2 pl-2.5 pr-8"
+              className="relative col-span-2 flex min-h-[5.75rem] flex-col items-start justify-center gap-1.5 rounded-xl bg-danger-50 py-2 pl-2.5 pr-11"
             >
               <span className="flex items-start gap-1 text-[12px] font-semibold leading-tight text-danger-700">
                 <AlertCircle aria-hidden className="mt-px h-3.5 w-3.5 shrink-0" strokeWidth={2} />
@@ -1390,7 +1390,7 @@ export function FileUpload({
               <button
                 type="button"
                 onClick={() => dropFailed(item.id)}
-                className="absolute right-1.5 top-1.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-cream/90 text-ink/70 transition-colors hover:bg-cream hover:text-danger-700"
+                className="absolute right-0 top-0 inline-flex h-11 w-11 items-center justify-center rounded-full text-ink/70 hover:text-danger-700"
                 aria-label={`Remove ${item.file.name}`}
               >
                 <X className="h-3.5 w-3.5" strokeWidth={2} />

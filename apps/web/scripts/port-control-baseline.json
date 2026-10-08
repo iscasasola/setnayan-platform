@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "cfe569516",
+  "generatedFromRef": "2d4d42d11",
   "routeCount": 429,
   "destinations": 959,
   "actions": 672,
-  "blocks": 5847,
+  "blocks": 5849,
   "routes": {
     "/": {
       "files": [
@@ -9615,6 +9615,7 @@
         "dashboard/[eventId]/website/our-story/_components/moment-order-cards.tsx",
         "dashboard/[eventId]/website/our-story/_components/moment-sheet-studio.tsx",
         "dashboard/[eventId]/website/our-story/_components/moment-sheet.tsx",
+        "dashboard/[eventId]/website/our-story/_components/our-events-offer.ts",
         "dashboard/[eventId]/website/our-story/_components/our-events-read.ts",
         "dashboard/[eventId]/website/our-story/_components/our-events-rule.ts",
         "dashboard/[eventId]/website/our-story/_components/panel-follows-the-page.tsx",
@@ -9637,6 +9638,7 @@
         "AddMomentLabel",
         "ChapterMoments",
         "DetailsPieceOnly",
+        "EventsOffer",
         "Field",
         "FileUpload",
         "Fresh",
@@ -9667,6 +9669,7 @@
         "PaidMark",
         "PanelFollowsThePage",
         "PhotoCount",
+        "PickFromEvents",
         "PickFromOurEvents",
         "PickMenu",
         "Precision",

@@ -1,6 +1,6 @@
 {
-  "generatedFromRef": "300d2330c",
-  "routeCount": 428,
+  "generatedFromRef": "2de606a2a",
+  "routeCount": 429,
   "destinations": 954,
   "actions": 671,
   "blocks": 5692,
@@ -5568,9 +5568,7 @@
       "files": [
         "dashboard/[eventId]/budget/_components/budget-allocation-planner.tsx",
         "dashboard/[eventId]/budget/_components/budget-ledger-table.tsx",
-        "dashboard/[eventId]/budget/_components/budget-live-summary.tsx",
-        "dashboard/[eventId]/budget/_components/budget-setter.tsx",
-        "dashboard/[eventId]/budget/_components/budget-summary-ids.ts",
+        "dashboard/[eventId]/budget/_components/budget-summary.tsx",
         "dashboard/[eventId]/budget/_components/costs-with-no-supplier.tsx",
         "dashboard/[eventId]/budget/_components/share-budget-band-toggle.tsx",
         "dashboard/[eventId]/budget/_components/suggest-milestones-button.tsx",
@@ -5595,23 +5593,24 @@
         "AllocationConfig",
         "BudgetAllocationPlanner",
         "BudgetLedgerTable",
-        "BudgetLiveSummary",
-        "BudgetLiveSummaryCard",
-        "BudgetSetter",
-        "BudgetTopSummary",
+        "BudgetSummary",
         "Cell",
         "ChineseTraditionInfoCard",
         "ConfidenceChip",
         "CostsWithNoSupplier",
+        "Count",
         "DeleteCostResult",
         "DeniedState",
         "DueRollup",
         "EmptyBudget",
         "EventMoney",
         "Field",
+        "Figure",
+        "Fill",
         "HTMLButtonElement",
         "HTMLDivElement",
         "HTMLFormElement",
+        "InfoTip",
         "LeafRow",
         "LedgerRow",
         "Link",
@@ -5621,8 +5620,8 @@
         "NoFinalizedVendors",
         "OverspendBanner",
         "PageMasthead",
+        "Peso",
         "PickMenu",
-        "PinnedStat",
         "RecordCostResult",
         "RecordedCostRow",
         "SaveSnapshotResult",
@@ -5631,11 +5630,9 @@
         "SetShareBudgetBandResult",
         "ShareBudgetBandToggle",
         "SuggestMilestonesResult",
-        "SummaryStat",
         "SupplierInvite",
         "TiltEditor",
         "TotalCell",
-        "UpcomingRow",
         "VendorItemizationCard"
       ]
     },
@@ -9664,6 +9661,17 @@
         "Environment",
         "Lab3DBooth",
         "OrbitControls"
+      ]
+    },
+    "/dev/budget-lab": {
+      "files": [
+        "dev/budget-lab/fixture.ts",
+        "dev/budget-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "BudgetSummary"
       ]
     },
     "/dev/details-lab": {

@@ -73,7 +73,7 @@ export function BudgetLedgerTable({ ledger }: { ledger: BudgetLedger }) {
       <dl className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-xl border border-ink/10 bg-white/45 p-3 sm:grid-cols-4">
         {BUDGET_LEDGER_COLUMNS.map((col) => (
           <div key={col} className="space-y-0.5">
-            <dt className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+            <dt className="tabular-nums text-[10px] uppercase tracking-[0.2em] text-ink/55">
               {col}
             </dt>
             <dd className="text-xs text-ink/60">{BUDGET_LEDGER_COLUMN_HINTS[col]}</dd>
@@ -137,7 +137,7 @@ function DueRollup({ totals }: { totals: BudgetLedger['totals'] }) {
         <p className="flex items-center gap-1.5 text-terracotta-700">
           <AlertTriangle aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} />
           <span>
-            <span className="font-mono font-semibold tabular-nums">
+            <span className="font-semibold tabular-nums">
               {formatPhp(totals.overduePhp)}
             </span>{' '}
             overdue across {formatCount(totals.overdueCount)}{' '}
@@ -149,7 +149,7 @@ function DueRollup({ totals }: { totals: BudgetLedger['totals'] }) {
         <p className="flex items-center gap-1.5 text-ink/70">
           <Clock aria-hidden className="h-4 w-4 shrink-0 text-ink/45" strokeWidth={1.75} />
           <span>
-            <span className="font-mono font-semibold tabular-nums">{formatPhp(next30Php)}</span>{' '}
+            <span className="font-semibold tabular-nums">{formatPhp(next30Php)}</span>{' '}
             due in the next 30 days across {formatCount(next30Count)}{' '}
             {next30Count === 1 ? 'payment' : 'payments'}
           </span>
@@ -169,8 +169,8 @@ function tierToneClass(state: LedgerDueTier): string {
 function TotalCell({ label, value }: { label: string; value: string }) {
   return (
     <div className="space-y-1">
-      <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">{label}</p>
-      <p className="font-mono text-lg font-bold tabular-nums text-ink">{value}</p>
+      <p className="tabular-nums text-[10px] uppercase tracking-[0.2em] text-ink/55">{label}</p>
+      <p className="text-lg font-bold tabular-nums text-ink">{value}</p>
     </div>
   );
 }
@@ -187,13 +187,13 @@ function LedgerRow({ row }: { row: BudgetLedgerRow }) {
       <header className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <h3 className="text-sm font-medium text-ink">{row.label}</h3>
         {over ? (
-          <p className="font-mono text-xs font-medium tabular-nums text-terracotta-700">
+          <p className="text-xs font-medium tabular-nums text-terracotta-700">
             {formatPhp(row.overByPhp)} over plan
           </p>
         ) : row.unplanned ? (
           <p className="text-xs text-ink/50">No typical price yet</p>
         ) : row.headroomPhp > 0 ? (
-          <p className="font-mono text-xs tabular-nums text-ink/55">
+          <p className="text-xs tabular-nums text-ink/55">
             {formatPhp(row.headroomPhp)} {row.nothingAgreedYet ? 'not spent yet' : 'under plan'}
           </p>
         ) : null}
@@ -201,7 +201,7 @@ function LedgerRow({ row }: { row: BudgetLedgerRow }) {
 
       {row.nextDue ? (
         <p className={`flex items-center gap-1.5 text-xs ${tierToneClass(row.nextDue.state)}`}>
-          <span className="font-mono font-medium tabular-nums">
+          <span className="font-medium tabular-nums">
             {formatPhp(row.nextDue.amountPhp)}
           </span>
           <span>
@@ -286,9 +286,9 @@ function Cell({
 }) {
   return (
     <div className="space-y-0.5">
-      <dt className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">{label}</dt>
+      <dt className="tabular-nums text-[10px] uppercase tracking-[0.2em] text-ink/55">{label}</dt>
       <dd
-        className={`font-mono text-base font-semibold tabular-nums ${
+        className={`text-base font-semibold tabular-nums ${
           tone === 'warn' ? 'text-terracotta-700' : 'text-ink'
         }`}
       >
@@ -388,7 +388,7 @@ function AbsorptionDisclosure({
           <ul className="space-y-1">
             {absorption.transfers.map((t, i) => (
               <li key={`${t.fromKey}-${t.toKey}-${i}`} className="flex flex-wrap gap-x-1.5 text-[13px]">
-                <span className="font-mono font-medium text-ink">{formatPhp(t.amountPhp)}</span>
+                <span className="tabular-nums font-medium text-ink">{formatPhp(t.amountPhp)}</span>
                 <span className="text-ink/60">
                   from {t.fromLabel} could cover {t.toLabel}
                 </span>

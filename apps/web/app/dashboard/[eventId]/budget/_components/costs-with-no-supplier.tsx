@@ -135,7 +135,7 @@ export function CostsWithNoSupplier({
                     type="text"
                     required
                     maxLength={EVENT_COST_LABEL_MAX}
-                    placeholder="Wedding rings"
+                    placeholder="Rings"
                     disabled={isPending}
                     className="input-field disabled:opacity-60"
                   />
@@ -171,7 +171,7 @@ export function CostsWithNoSupplier({
                     autoComplete="off"
                     placeholder="₱ 40,000"
                     disabled={isPending}
-                    className="input-field font-mono tabular-nums disabled:opacity-60"
+                    className="input-field tabular-nums disabled:opacity-60"
                   />
                 </Field>
 
@@ -188,7 +188,7 @@ export function CostsWithNoSupplier({
                     autoComplete="off"
                     placeholder="₱ 0"
                     disabled={isPending}
-                    className="input-field font-mono tabular-nums disabled:opacity-60"
+                    className="input-field tabular-nums disabled:opacity-60"
                   />
                 </Field>
 
@@ -320,7 +320,7 @@ function SupplierInvite({
         <div className="min-w-0 space-y-1">
           <p
             id="supplier-invite-heading"
-            className="font-mono text-[10px] uppercase tracking-[0.18em] text-success-800"
+            className="tabular-nums text-[10px] uppercase tracking-[0.18em] text-success-800"
           >
             {supplier.name} is booked
           </p>
@@ -344,7 +344,7 @@ function SupplierInvite({
           dangerouslySetInnerHTML={{ __html: supplier.qrSvg }}
         />
         <div className="min-w-0 space-y-2">
-          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/50">
+          <p className="tabular-nums text-[10px] uppercase tracking-[0.18em] text-ink/50">
             Or send them the link
           </p>
           <code className="block break-all rounded-md border border-ink/10 bg-white px-3 py-2 text-xs text-ink/70">
@@ -395,8 +395,8 @@ function RecordedCostRow({
 
       <div className="flex items-center gap-4">
         <div className="text-right">
-          <p className="font-mono text-sm tabular-nums text-ink">{formatPhp(cost.amountPhp)}</p>
-          <p className="font-mono text-[11px] tabular-nums text-ink/55">
+          <p className="text-sm tabular-nums text-ink">{formatPhp(cost.amountPhp)}</p>
+          <p className="text-[11px] tabular-nums text-ink/55">
             {/* Paid and owed, spelled the way the four locked ledger columns
                 spell them, so one page uses one vocabulary. */}
             {formatPhp(cost.paidPhp)} paid · {formatPhp(owed)} owed
@@ -436,7 +436,7 @@ function Field({
     <div className="space-y-1.5">
       <label
         htmlFor={htmlFor}
-        className="block font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55"
+        className="block tabular-nums text-[11px] uppercase tracking-[0.2em] text-ink/55"
       >
         {label}
       </label>

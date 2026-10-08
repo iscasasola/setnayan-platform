@@ -89,8 +89,6 @@ apps/web/app/dashboard/(launcher)/a-celebrated-card-is-not-scored.test.ts
 apps/web/app/dashboard/(launcher)/the-bottom-bar-stays.test.ts
 apps/web/app/dashboard/(launcher)/worth-planning-holds-no-events.test.ts
 apps/web/app/dashboard/[eventId]/_components/one-shell-event-rail.test.ts
-apps/web/app/dashboard/[eventId]/budget/money-wears-the-ledger-face.test.ts
-apps/web/app/dashboard/[eventId]/budget/the-skeleton-matches-the-page.test.ts
 apps/web/app/dashboard/[eventId]/budget/the-supplier-ledger-collapses.test.ts
 apps/web/app/dashboard/[eventId]/galleries/the-hub-never-guesses.test.ts
 apps/web/app/dashboard/[eventId]/gold-is-not-text.test.ts

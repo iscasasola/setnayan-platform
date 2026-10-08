@@ -43,7 +43,7 @@ export function ShareBudgetBandToggle({
             <Users aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
             <h2
               id="share-budget-band-heading"
-              className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta-700"
+              className="tabular-nums text-[11px] uppercase tracking-[0.2em] text-terracotta-700"
             >
               Share budget ranges with suppliers
             </h2>

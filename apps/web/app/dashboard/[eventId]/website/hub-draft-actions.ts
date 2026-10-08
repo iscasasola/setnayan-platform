@@ -99,6 +99,8 @@ import {
   type HubDraftState,
 } from '@/lib/hub-draft';
 import { hubDraftBarAfterSave, readHubDraft, readHubLiveState, writeHubDraft } from '@/lib/hub-draft-store';
+import { isPublishedHubMusicRef } from '@/lib/hub-music-server';
+import { isHubMusicRef } from '@/lib/hub-music-ref';
 import { boardWithMainColours, sanitizeMainColourDraft, sanitizePaintedPalette } from '@/lib/main-colours';
 import { sanitizeSeedPalette } from '@/lib/mood-board-palette-set';
 import { writePaletteFill, type PaletteFillClient } from '@/lib/palette-fill-write';
@@ -355,12 +357,17 @@ export async function hubDraftAction(
        each NEW ref must be an upload into THIS event's own folder — the rule
        `updateSiteChrome` asks live (`eventMediaPolicy`). A ref the page already
        shows is kept as it is. */
+    /* 🎵 …or, for the song, a track on "Our music" (owner 2026-10-08): a ref
+       into `hub-music/` is admitted only while its track is PUBLISHED — asked of
+       the list itself, through the couple's client, fail-closed. */
+    const draftedSong = siteMediaServeRef(current.events.site_bg_music_r2_key);
+    const ourSong = (await isPublishedHubMusicRef(supabase, draftedSong)) ? draftedSong : null;
     const newMediaIsOwn = (column: 'site_bg_music_r2_key' | 'landing_page_hero_video_r2_key' | 'our_photos', value: unknown) => {
       const liveRefs = new Set(
         column === 'our_photos' ? siteMediaServeRefs(live.events.our_photos) : [siteMediaServeRef(live.events[column])].filter(Boolean),
       );
       const refs = column === 'our_photos' ? siteMediaServeRefs(value) : [siteMediaServeRef(value)].filter((r): r is string => Boolean(r));
-      return refs.every((r) => liveRefs.has(r) || parseClientRef(r, eventMediaPolicy(eventId)) !== null);
+      return refs.every((r) => liveRefs.has(r) || parseClientRef(r, eventMediaPolicy(eventId)) !== null || r === ourSong);
     };
 
     /* 🗓 A DRAFTED DATE ASKS `updateEventDate`'S OWN GATES (owner 2026-10-01,
@@ -433,6 +440,12 @@ export async function hubDraftAction(
       }
       if (item.kind === 'event' && item.column === 'ceremony_time' && !nextDay) {
         held.push({ item, reason: 'needs_a_day' });
+        continue;
+      }
+      // 🎵 A song from "Our music" whose track has since left the list: said in
+      // its own words, not as "a photo that is not in your Event Hub".
+      if (item.kind === 'event' && item.column === 'site_bg_music_r2_key' && isHubMusicRef(item.value) && item.value !== ourSong) {
+        held.push({ item, reason: 'song_off_the_list' });
         continue;
       }
       if (

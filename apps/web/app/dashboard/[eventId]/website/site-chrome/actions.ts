@@ -25,6 +25,7 @@ import { lookProAllows } from '@/lib/hub-look-gate';
 import { revalidateGuestSite, revalidateWebsiteEditor } from '@/lib/revalidate-site';
 import { draftEventsAndReturn, isHubDraftWrite } from '@/lib/hub-draft-store';
 import type { HubDraftEvents } from '@/lib/hub-draft';
+import { publishedHubMusicRef } from '@/lib/hub-music-server';
 
 /**
  * 🔴 SEC-1: a client-supplied ref, pinned to THIS event's own media folder.
@@ -96,6 +97,19 @@ export async function updateSiteChrome(
       const musicRef = r2RefOrNull(formData.get('bg_music_url'), eventId);
       events.site_bg_music_r2_key = musicRef;
       events.site_bg_music_enabled = formData.get('bg_music_enabled') === 'on' && Boolean(musicRef);
+    }
+    /* 🎵 OUR MUSIC (owner 2026-10-08) — a pick from the list an admin uploads.
+       The form names a TRACK, never a file: the reference is looked up here,
+       through the couple's own client, and only a PUBLISHED track has one. A
+       pick that no longer resolves writes no song (the one in place stays);
+       `bg_music_keep` is the same panel flipping the switch on a song it is not
+       changing. Either way the switch is written. */
+    if (formData.has('bg_music_track') || formData.has('bg_music_keep')) {
+      const ourRef = formData.has('bg_music_track')
+        ? await publishedHubMusicRef(supabase, formData.get('bg_music_track'))
+        : null;
+      if (ourRef) events.site_bg_music_r2_key = ourRef;
+      events.site_bg_music_enabled = formData.get('bg_music_enabled') === 'on';
     }
     if (formData.has('hero_video_url')) {
       events.landing_page_hero_video_r2_key = r2RefOrNull(formData.get('hero_video_url'), eventId);

@@ -231,7 +231,22 @@ export function MakerLabShell({
     /* 🎵 The song and 🎬 the hero video — the REAL form parts, posting into the lab's stand-in (no file leaves it). */
     music: {
       label: 'Background music',
-      node: <SiteChromePanel action={formDraft} eventId={eventId} part="music" musicRef={null} musicEnabled={false} videoRef={null} />,
+      node: (
+        <SiteChromePanel
+          action={formDraft}
+          eventId={eventId}
+          part="music"
+          musicRef={null}
+          musicEnabled={false}
+          videoRef={null}
+          /* 🎵 Sample songs, so Our music's list can be seen in the lab — no address: nothing is fetched or played here. */
+          ourMusic={[
+            { trackId: '00000000-0000-4000-8000-0000000000a1', ref: 'r2://setnayan-media/hub-music/lab-1.mp3', title: 'First light', moodLabel: 'Romantic', length: '2:27', previewUrl: null },
+            { trackId: '00000000-0000-4000-8000-0000000000a2', ref: 'r2://setnayan-media/hub-music/lab-2.mp3', title: 'Garden vows', moodLabel: 'Romantic', length: '3:05', previewUrl: null },
+            { trackId: '00000000-0000-4000-8000-0000000000a3', ref: 'r2://setnayan-media/hub-music/lab-3.mp3', title: 'Open sky', moodLabel: 'Joyful', length: '2:48', previewUrl: null },
+          ]}
+        />
+      ),
     },
     'hero-video': { label: 'Hero video', node: heroVideo },
     buttons: {

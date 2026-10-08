@@ -51,6 +51,7 @@ const NOT_A_TOOL: Record<string, string> = {
   'lib/vendor-qr-guard-client.ts': 'runs on a file the couple picked (upload pipeline) — there is nothing to run before the pick',
   'app/_components/pill-thumb.tsx': 'the pill selector\'s travelling thumb (owner 2026-10-08, "selectors are pills that slide") — not a panel and nothing a tap waits for: until it has measured, the picked choice paints the pill itself, so the selector is complete and usable without it; it loads right after first paint, by the selector that draws it',
   'lib/watermark.ts': 'runs on a file the couple picked (upload pipeline)',
+  'lib/audio-guard-client.ts': 'reads a song the couple picked, to refuse one that will not play on every phone (upload pipeline) — there is nothing to run before the pick',
   'lib/image-compress.ts': 'runs on a file the couple picked (upload pipeline)',
   'app/onboarding/wedding/_data/ph-places.ts': 'data, not a panel — the ~80 KB PSGC place list City or area searches once the couple TYPES (the curated cities are already in the panel); loaded on the first keystroke exactly as onboarding loads it, never ahead of a search (owner 2026-10-04, B4)',
   'lib/video-compress.ts': 'runs on a video the couple picked (upload pipeline)',

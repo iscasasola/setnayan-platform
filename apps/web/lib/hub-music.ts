@@ -9,6 +9,7 @@
  * what a file name becomes. Table: `hub_music_tracks`
  * (migration 20271266495922_hub_music_tracks.sql).
  */
+import { uploadTypeOf } from '@/lib/upload-type-names';
 
 /**
  * The moods, in the order the couple's list shows them. A CLOSED list: the key
@@ -127,18 +128,6 @@ export type HubMusicContentType = (typeof HUB_MUSIC_CONTENT_TYPES)[number];
 /** What the file picker offers. Extensions too: a browser's own type for .m4a varies. */
 export const HUB_MUSIC_ACCEPT = '.m4a,.mp3,.aac,audio/mp4,audio/x-m4a,audio/mpeg,audio/aac';
 
-const TYPE_ALIASES: Readonly<Record<string, HubMusicContentType>> = {
-  'audio/mp4': 'audio/mp4',
-  'audio/x-m4a': 'audio/mp4',
-  'audio/m4a': 'audio/mp4',
-  'audio/mp4a-latm': 'audio/mp4',
-  'audio/mpeg': 'audio/mpeg',
-  'audio/mp3': 'audio/mpeg',
-  'audio/aac': 'audio/aac',
-  'audio/x-aac': 'audio/aac',
-  'audio/aacp': 'audio/aac',
-};
-
 const EXTENSION_TYPES: Readonly<Record<string, HubMusicContentType>> = {
   m4a: 'audio/mp4',
   mp3: 'audio/mpeg',
@@ -162,7 +151,12 @@ export function hubMusicContentTypeFor(
   browserType: string | null | undefined,
 ): HubMusicContentType | null {
   const stated = (browserType ?? '').split(';')[0]?.trim().toLowerCase() ?? '';
-  if (stated && stated !== 'application/octet-stream') return TYPE_ALIASES[stated] ?? null;
+  if (stated && stated !== 'application/octet-stream') {
+    const canonical = uploadTypeOf(stated);
+    return (HUB_MUSIC_CONTENT_TYPES as readonly string[]).includes(canonical)
+      ? (canonical as HubMusicContentType)
+      : null;
+  }
   const ext = fileName.toLowerCase().split('.').pop() ?? '';
   return EXTENSION_TYPES[ext] ?? null;
 }

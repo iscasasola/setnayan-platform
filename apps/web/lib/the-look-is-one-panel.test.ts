@@ -398,7 +398,12 @@ test('(6) no Save in Look: the song, its switch and the hero video each post the
   assert.ok(panel.length > 500, 'anti-vacuity: the panel was not found');
   assert.doesNotMatch(panel, /SaveButton/, 'a Save button is drawn under the song or the video');
   assert.match(panel, /<HubDraftField \/>/, 'the song and the video no longer write into the draft');
-  assert.equal((panel.match(/onChange=\{draftNow\}/g) ?? []).length, 3, 'the song, the switch and the video do not each draft at once');
+  /* RE-AIMED 2026-10-08 (Our music · Upload your own): the SONG now has two doors — a pick from our list, and the
+     couple's own upload (which also notes that a file is in) — so it drafts from two handlers instead of one bare
+     `onChange={draftNow}`. The claim is unchanged: the song, its switch and the hero video each draft at once. */
+  assert.equal((panel.match(/onChange=\{draftNow\}/g) ?? []).length, 2, 'the switch and the video do not each draft at once');
+  assert.match(panel, /onChange=\{\(value\) => \{\s*setUploaded\(Boolean\(value\)\);\s*draftNow\(\);\s*\}\}/, 'the couple’s own song does not draft at once');
+  assert.match(panel, /setPickedTrack\(trackId\);\s*draftNow\(\);/, 'a song picked from our list does not draft at once');
   // In BOTH Makers — the post is not held back for the shipped one any more.
   assert.match(panel, /const draftNow = \(\) => void window\.requestAnimationFrame\(\(\) => formRef\.current\?\.requestSubmit\(\)\);/, 'a change waits for a Save in one of the Makers');
   // What each part posts — rendered, never read off the source.
@@ -413,7 +418,11 @@ test('(6) no Save in Look: the song, its switch and the hero video each post the
   assert.match(video, /data-site-chrome="video"[\s\S]*>Hero video</);
   assert.doesNotMatch(video, /Background music|name="bg_music_enabled"|audio\/mpeg/, 'the hero video’s form would post the song (and switch it off)');
   // (The upload's own field is written by the uploader once it holds a value — read off the two branches.)
-  const [musicBranch, videoBranch] = panel.slice(panel.indexOf("{part === 'music' ? (")).split(') : (');
+  /* The music branch holds a choice of its own now (Our music ? … : Upload your own), so the two PARTS are split at the
+     part's own else — the last one — not at the first `) : (` in the text. */
+  const parts = panel.slice(panel.indexOf("{part === 'music' ? ("));
+  const elseAt = parts.lastIndexOf(') : (');
+  const [musicBranch, videoBranch] = [parts.slice(0, elseAt), parts.slice(elseAt)];
   assert.match(musicBranch ?? '', /name="bg_music_url"/);
   assert.doesNotMatch(musicBranch ?? '', /name="hero_video_url"/);
   assert.match(videoBranch ?? '', /name="hero_video_url"/);

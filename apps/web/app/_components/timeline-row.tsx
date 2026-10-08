@@ -40,6 +40,7 @@ export function TimelineRow({
   below,
   as: Tag = 'li',
   data,
+  attrs,
 }: {
   /** The when — the ticker's pill, or two with a dash between. Steps aside while the name is open. */
   when: ReactNode;
@@ -70,9 +71,11 @@ export function TimelineRow({
   as?: 'li' | 'div';
   /** `data-timeline-row="<data>"`. */
   data?: string;
+  /** The wearer's own `data-*` hooks for this row. */
+  attrs?: Readonly<Record<`data-${string}`, string>>;
 }) {
   return (
-    <Tag data-timeline-row={data ?? ''} data-timeline-row-editing={editing ? '' : undefined} className="border-t border-ink/10 bg-cream first:border-t-0">
+    <Tag {...attrs} data-timeline-row={data ?? ''} data-timeline-row-editing={editing ? '' : undefined} className="border-t border-ink/10 bg-cream first:border-t-0">
       <div className="flex min-h-[58px] items-center gap-1.5 py-1.5 pl-4 pr-1">
         {editing ? (
           <NameField name={name} placeholder={placeholder} nameLabel={nameLabel} maxLength={maxLength} onKeep={onKeep} onLeave={onLeave} />

@@ -29,3 +29,41 @@ classes the test lists, until the accent token lands.
 
 SPEC IMPACT: None — builds what `INTERACTION_RULES.md` § 9 and the approved
 gallery already say.
+
+## 2026-10-08 · feat(studio): Studio › Schedule wears the Timeline row — start · end · name
+
+Each moment is `start pill – end pill · name · ⋯` (`studio-day.tsx`). A time
+rolls on the ticker and is written ONCE when the ticker closes, through the
+rail's own `updateScheduleBlock` and refusal handling: moving the start moves
+the end with it, an end at or before the start is the next day (and says so),
+rows sort by start, an overlap is one amber line and never blocked. An end time
+was already stored (`event_schedule_blocks.end_at`) — no new storage. A moment
+with no end time says "End", never the rail's 30-minute stand-in.
+
+"+ Add a moment" now adds in place: it starts where the last one ended, one
+hour long, with its name open; left unnamed it is dropped. A named one is ONE
+quiet write — `createScheduleBlock` honours the existing `maker_quiet` field
+(no revalidate → no whole render of the Maker; before: one whole render per
+add) and takes the row's uuid from that quiet write, so the screen needs
+nothing back. +0 server actions; every other caller of the action is unchanged.
+With no event date, or for a coordinator who may stage, the shipped sheet adds.
+
+Guard: `apps/web/lib/studio-schedule-wears-the-timeline-row.test.ts` (5 tests;
+22 sabotages seen red). `port-control-baseline.json` regenerated.
+
+SPEC IMPACT: None.
+
+## 2026-10-08 · feat(studio): Studio › Schedule — the place and For ▾ move behind the row's ⋯
+
+The row is the owner's three things: start · end · name. A moment's place and
+who it is for (For ▾) are behind ⋯ with the rest — the shipped `MomentInspector`
+already draws Where and For ▾ with the same writes, in a phone's sheet and a
+desk's right column, so no ability is lost. ⚠ The controller's recommendation,
+NOT yet confirmed by the owner — its own commit so it can be taken back alone.
+What changes for the eye: the row no longer shows the place or "Only for ·
+Entourage" at a glance.
+
+Guard: test (6) of `studio-schedule-wears-the-timeline-row.test.ts` (5 sabotages
+seen red).
+
+SPEC IMPACT: None until the owner confirms where Place and For ▾ live.

@@ -37,14 +37,8 @@ import { updateQrStyle } from '@/app/dashboard/[eventId]/launch/qr-look-actions'
 import { updateSpecialMessage } from '@/app/dashboard/[eventId]/website/special-message/actions';
 import { labMarchSections } from './march-fixture';
 import { LabStudioLoveStory, LabStudioSchedule } from './studio-lab-fixtures';
-<<<<<<< HEAD
 import { LAB_LOVE_STORY } from './love-story-fixture';
-import { MakerRsvpSettings } from '@/app/dashboard/[eventId]/launch/_components/maker-rsvp-ask';
-||||||| 0570d60c8
-import { MakerRsvpSettings } from '@/app/dashboard/[eventId]/launch/_components/maker-rsvp-ask';
-=======
 import { LabStudioRsvp } from './lab-studio-rsvp';
->>>>>>> ad480bfce
 import { MoodBoardStudio } from '@/app/dashboard/[eventId]/studio/mood-board/_components/mood-board-lazy';
 import { ATTIRE_STYLES, ATTIRE_STYLE_LABEL } from '@/lib/role-dress-code';
 import { HUB_THEMES } from '@/lib/invite-themes';

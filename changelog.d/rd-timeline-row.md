@@ -52,3 +52,18 @@ Guard: `apps/web/lib/studio-schedule-wears-the-timeline-row.test.ts` (5 tests;
 22 sabotages seen red). `port-control-baseline.json` regenerated.
 
 SPEC IMPACT: None.
+
+## 2026-10-08 · feat(studio): Studio › Schedule — the place and For ▾ move behind the row's ⋯
+
+The row is the owner's three things: start · end · name. A moment's place and
+who it is for (For ▾) are behind ⋯ with the rest — the shipped `MomentInspector`
+already draws Where and For ▾ with the same writes, in a phone's sheet and a
+desk's right column, so no ability is lost. ⚠ The controller's recommendation,
+NOT yet confirmed by the owner — its own commit so it can be taken back alone.
+What changes for the eye: the row no longer shows the place or "Only for ·
+Entourage" at a glance.
+
+Guard: test (6) of `studio-schedule-wears-the-timeline-row.test.ts` (5 sabotages
+seen red).
+
+SPEC IMPACT: None until the owner confirms where Place and For ▾ live.

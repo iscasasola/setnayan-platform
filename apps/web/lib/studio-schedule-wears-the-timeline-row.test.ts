@@ -15,6 +15,9 @@
  *       row is dropped and nothing is sent; a named one is ONE quiet write under an id the screen made, with no
  *       render of the Maker and no `router.refresh()`; a refused add leaves the timeline and says so. With no
  *       date, or for a coordinator who may stage, the shipped sheet still adds.
+ *   (6) PLACE AND FOR ▾ ARE BEHIND ⋯ — the row is the owner's three things; the shipped inspector that ⋯ opens
+ *       draws Where and For ▾ with the same writes, on a phone (the sheet) and a desk (the right column), so no
+ *       ability is lost.
  *   (5) THE ACTION — `createScheduleBlock` takes an id only from a quiet Maker write and only a uuid, and
  *       revalidates nothing for that write; from anywhere else it behaves as it always did. No new action.
  */
@@ -66,7 +69,7 @@ async function paintDay(moments: DayMoment[], props: Record<string, unknown> = {
   );
   return { html, writes };
 }
-const rowsOf = (html: string) => html.split(/(?=<li[^>]*data-studio-moment=")/).slice(1);
+const rowsOf = (html: string) => html.split(/(?=<li[^>]*data-studio-moment=")/).slice(1).map((row) => row.slice(0, row.indexOf('</li>')));
 
 test('(1) the row is start pill – end pill · name · ⋯ on the ONE timeline row, in start order, with no picker of its own', async () => {
   const { html, writes } = await paintDay([
@@ -233,4 +236,29 @@ test('(5) createScheduleBlock takes an id only from a quiet Maker write, only a 
   // The Maker's rail does NOT make every create quiet: a part added in ⋯ still comes back with its render.
   const live = read(`${SCHED}/_components/schedule-live.ts`);
   assert.doesNotMatch(live, /createScheduleBlock: quiet/);
+});
+
+test('(6) the place and For ▾ are behind ⋯ — the row is start · end · name, and the inspector ⋯ opens holds both with the same writes', async () => {
+  const { html } = await paintDay([moment('a', 'Entourage photos', '14:00', '14:30', { location: 'Santuario de San Antonio', audience: 'entourage' })]);
+  const row = rowsOf(html)[0]!;
+  // The row: no place box, no For ▾ — three things and ⋯.
+  assert.doesNotMatch(row, /Santuario de San Antonio|Place \(optional\)|data-studio-moment-for-pick|Only for/);
+  assert.equal((row.match(/<input/g) ?? []).length, 0, 'the row holds a field besides its (closed) name');
+  assert.equal((row.match(/<button/g) ?? []).length, 4, 'the row is not start · end · name · ⋯');
+  assert.match(row, /aria-label="More for Entourage photos — place, who it is for, notes, guests, remove"/);
+  const src = read(`${SCHED}/_components/studio-day.tsx`);
+  assert.doesNotMatch(src, /PickMenu|location|audience: /, 'the timeline still edits the place or who it is for itself');
+  // ⋯ opens the shipped inspector for THAT moment — a phone's sheet and a desk's right column.
+  assert.match(src, /onClick=\{\(\) => onMore\(m\.block_id\)\}/);
+  const rail = read(`${SCHED}/_components/day-rail.tsx`);
+  assert.match(rail, /onMore=\{\(id\) => setSelectedId\(id\)\}/);
+  const studio = /if \(studio\) \{[\s\S]*?\n  \}\n/.exec(rail)?.[0] ?? '';
+  assert.match(studio, /\{isDesktop && inspectorSlot \? <InSlot id=\{inspectorSlot\}>\{side\}<\/InSlot> : null\}/);
+  assert.match(studio, /<Sheet open=\{selected !== null && !isDesktop\}[\s\S]*?<MomentInspector/);
+  // The inspector holds BOTH, writing the same fields through the same action the row used.
+  const insp = read(`${SCHED}/_components/moment-inspector.tsx`);
+  assert.match(insp, /const studio = useMaker\(\)\?\.stagesStudio === true;/);
+  assert.match(insp, /\{studio \? \(\s*<div className="mt-4" data-moment-for="">\s*<Eyebrow>For<\/Eyebrow>/, 'For ▾ is not in the Studio’s inspector');
+  assert.match(insp, /updateScheduleBlock\(toFormData\(\{ event_id: eventId, block_id: m\.block_id, audience: key \}\)\)/);
+  assert.match(insp, /<Eyebrow>Where<\/Eyebrow>\s*<input[\s\S]{0,400}?onBlur=\{\(e\) => saveField\('location', e\.target\.value\)\}/, 'the place is not in the inspector');
 });

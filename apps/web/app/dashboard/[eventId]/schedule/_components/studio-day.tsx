@@ -1,18 +1,18 @@
 'use client';
 
-import { useContext, useEffect, useState } from 'react';
+import { useContext, useState } from 'react';
 import { MoreHorizontal, Plus } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { TICKER_PILL_CLASS, TickerPill, TimeTicker } from '@/app/_components/ticker';
 import { TimelineDash, TimelineRow } from '@/app/_components/timeline-row';
 import { daysBetween, formatDateHeading, spanOf, toDatetimeLocal, wallDateKey } from '@/lib/schedule-rail';
 import { fromDatetimeLocalValue } from '@/lib/schedule-datetime-local';
-import { SCHEDULE_AUDIENCE_OPTIONS, readScheduleAudience, scheduleAudienceForWrite, type ScheduleAudience } from '@/lib/schedule-audience';
+import { readScheduleAudience } from '@/lib/schedule-audience';
 import { STUDIO_FOOT_BUTTON } from '@/lib/studio-skin';
 import { byStart, clockWords, moveStart, nextMomentSpan, overlapLine, overlapsAbove, pickEnd, spanLine, type TimeSpan } from '@/lib/timeline';
 import { PickSheetContext } from '../../website/editor/_components/pick-menu-place';
 import type { DayMoment } from './day-types';
-import { PickMenu, toFormData, useDayActions } from './day-ui';
+import { toFormData, useDayActions } from './day-ui';
 
 /**
  * 🗓 STUDIO › SCHEDULE — THE DAY AS TIMELINE ROWS (owner 2026-10-08, `INTERACTION_RULES.md` § 9 "Timeline row +
@@ -36,9 +36,13 @@ import { PickMenu, toFormData, useDayActions } from './day-ui';
  * 🔑 NO NEW WRITE, AND ONE REQUEST A PICK. A time is rolled on screen and written ONCE, when its ticker closes,
  * through the rail's own `updateScheduleBlock` (the SAME quiet actions, `quietDayActions`) and the rail's own
  * override / refusal handling (`onPatch`) — no render of the Maker, no `router.refresh()`. An END TIME IS STORED
- * (`event_schedule_blocks.end_at`), so the end pill reads and writes that column; nothing new is kept. ⋯ opens the
- * shipped `MomentInspector` (phase, visible to guests, suppliers, parts, notes, shift, remove) — nothing the rail
- * could do is lost.
+ * (`event_schedule_blocks.end_at`), so the end pill reads and writes that column; nothing new is kept.
+ *
+ * ⋯ HOLDS THE REST. The row is the owner's three things — start, end, name. The moment's PLACE and who it is FOR
+ * (For ▾, 4c's stored `audience`) are behind ⋯ with everything else: the shipped `MomentInspector` already draws
+ * Where and For ▾ beside phase, visible to guests, suppliers, parts, notes, shift and remove — the same fields,
+ * the same writes — so nothing the row could do is lost. (The row still carries who it is for as
+ * `data-studio-moment-for`.)
  *
  * 🧱 BANDS, NOT BOXES (owner 2026-10-07: *"bands? full width"*): the day and every moment sit on full-width bands
  * with hairlines, never rounded cards.
@@ -62,12 +66,6 @@ export type StudioDayProps = {
   /** A refusal, said under the day. */
   notice: string | null;
 };
-
-/** "For · Everyone" / "Only for · Entourage" — the prototype's button words. */
-export function studioForWords(audience: ScheduleAudience): string {
-  const label = SCHEDULE_AUDIENCE_OPTIONS.find((o) => o.key === audience)?.label ?? 'Everyone';
-  return audience === 'everyone' ? `For · ${label}` : `Only for · ${label}`;
-}
 
 /** The new row, before it has a name — it lives only on this screen. */
 const NEW_ROW = '__new';
@@ -142,15 +140,11 @@ function MomentRow({
   /* ▁ On a phone the ticker rises in the Maker's one sheet (handed down by the shell). */
   const sheet = useContext(PickSheetContext);
   const audience = readScheduleAudience(m.audience ?? null);
-  const forRole = audience !== 'everyone';
   const dateKey = wallDateKey(m.start_at);
   const stored = spanOf(m.start_at, m.end_at);
   const [rolled, setRolled] = useState<Rolled | null>(null);
   const shown: TimeSpan = rolled?.span ?? { startMin: stored.startMin, endMin: stored.endMin };
   const hasEnd = stored.hasEnd || rolled?.end === true;
-  const [place, setPlace] = useState(m.location ?? '');
-  /* A refusal (or a fresh answer) puts the words back — the box follows the moment. */
-  useEffect(() => setPlace(m.location ?? ''), [m.location]);
 
   /** ONE write for whatever the ticker rolled to — sent when it closes, and only if something moved. */
   const writeRolled = () => {
@@ -159,15 +153,11 @@ function MomentRow({
     if (!owed) return;
     onPatch(m.block_id, owed.patch, () => updateScheduleBlock(toFormData({ event_id: eventId, block_id: m.block_id, ...owed.values })));
   };
-  const saveWords = (field: 'label' | 'location', value: string) => {
+  const saveName = (value: string) => {
     const text = value.trim();
-    const was = field === 'label' ? m.label : (m.location ?? '');
-    if (text === was.trim()) return;
     /* A moment is never left without a name: an emptied name stays as it was. */
-    if (field === 'label' && !text) return;
-    onPatch(m.block_id, { [field]: field === 'label' ? text : text || null }, () =>
-      updateScheduleBlock(toFormData({ event_id: eventId, block_id: m.block_id, [field]: text })),
-    );
+    if (!text || text === m.label.trim()) return;
+    onPatch(m.block_id, { label: text }, () => updateScheduleBlock(toFormData({ event_id: eventId, block_id: m.block_id, label: text })));
   };
   const line = hasEnd ? spanLine(shown) : `${clockWords(shown.startMin)} · no end time yet`;
   const named = m.label ? ` · ${m.label}` : '';
@@ -184,7 +174,7 @@ function MomentRow({
       onEdit={onEdit}
       onKeep={(text) => {
         onEndEdit();
-        saveWords('label', text);
+        saveName(text);
       }}
       onLeave={onEndEdit}
       note={clash}
@@ -250,43 +240,6 @@ function MomentRow({
             <MoreHorizontal aria-hidden className="h-5 w-5" strokeWidth={1.75} />
           </button>
         ) : null
-      }
-      below={
-        editing ? null : (
-          <div data-studio-moment-extra="" className="-mt-1 flex items-center gap-2 pb-2 pl-5 pr-4">
-            <input
-              value={place}
-              disabled={!canEdit}
-              maxLength={200}
-              placeholder="Place (optional)"
-              aria-label={`${m.label} — place`}
-              onChange={(e) => setPlace(e.target.value)}
-              onBlur={(e) => saveWords('location', e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-              className="min-h-7 w-full min-w-0 flex-1 bg-transparent text-[13px] text-ink/70 outline-none placeholder:text-ink/40 disabled:opacity-100"
-            />
-            {canEdit ? (
-              <PickMenu
-                label="For"
-                value={audience}
-                buttonText={studioForWords(audience)}
-                options={SCHEDULE_AUDIENCE_OPTIONS.map((o) => ({ key: o.key, label: o.label }))}
-                dataAttr="data-studio-moment-for-pick"
-                compact
-                className={`!min-h-7 !h-7 shrink-0 !rounded-full !px-3 !text-[12px] ring-0 [&>svg]:text-gild ${forRole ? '!bg-gild/15' : '!bg-ink/5'}`}
-                onPick={(key) => {
-                  const next = scheduleAudienceForWrite(key);
-                  if (next === undefined || key === audience) return;
-                  onPatch(m.block_id, { audience: next }, () =>
-                    updateScheduleBlock(toFormData({ event_id: eventId, block_id: m.block_id, audience: key })),
-                  );
-                }}
-              />
-            ) : (
-              <span className="shrink-0 text-[12px] text-ink/60">{studioForWords(audience)}</span>
-            )}
-          </div>
-        )
       }
     />
   );

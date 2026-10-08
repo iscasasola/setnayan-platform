@@ -73,6 +73,7 @@ import {
   SCHEMA_PIN_RE,
   firstFailingLine,
   firstEslintError,
+  failureLine,
   regenerateHint,
   fmtMs,
 } from './lib/preflight-core.mjs';
@@ -616,7 +617,7 @@ function reportTests(group, title, files, result, why) {
   for (const f of failing) {
     const fails = byFile.get(f).fail;
     const more = fails.length > 1 ? `  (+${fails.length - 1} more in this file)` : '';
-    add({ group, check: `${f}${why ? `  [${why(f)}]` : ''}`, status: 'fail', ms: byFile.get(f).ms, line: `${fails[0].name}${fails[0].msg ? ` — ${fails[0].msg}` : ''}${more}`.slice(0, 460), rerun: rerunOf(f), hint: regenerateHint(f) });
+    add({ group, check: `${f}${why ? `  [${why(f)}]` : ''}`, status: 'fail', ms: byFile.get(f).ms, line: `${failureLine(fails[0].name, fails[0].msg)}${more}`, rerun: rerunOf(f), hint: regenerateHint(f) });
   }
   // a file that was asked for and said nothing did NOT pass
   for (const f of silent.slice(0, 20)) {

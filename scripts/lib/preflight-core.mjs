@@ -407,6 +407,34 @@ export function firstFailingLine(output) {
   return (telling ?? lines[0]).slice(0, 240);
 }
 
+/**
+ * A guard test's assertion message opens with the RULE ("A number a person
+ * reads is printed without its commas. Route it through …") and names the
+ * file that broke it several lines down. The line a builder needs is the one
+ * with the file in it — so that is the one shown, after the test's own name.
+ * @param {string} name the failing test
+ * @param {string} msg  its message, lines joined with ' ⏎ '
+ */
+export function failureLine(name, msg, max = 420) {
+  const lines = String(msg ?? '').split(' ⏎ ').map((l) => l.trim()).filter(Boolean);
+  const isDiffNoise = (l) => /^[+-] (actual|expected)|^\+ actual - expected$|^[\[\]{}],?$|^[+-]\s*[\[\]{}],?$/.test(l);
+  const PATH = /(?:apps\/web\/)?(?:app|lib|components|tests|scripts|supabase|public)\/[^\s'"`:,)]+\.[a-z]{2,4}\b/;
+  const bare = (l) => l.replace(/^[+-]\s+/, '').replace(/^['"`]/, '');
+  const withPath = lines.filter((l) => PATH.test(l) && !isDiffNoise(l));
+  // the offender list, not the sentence that happens to cite a helper's file:
+  // a line that STARTS with a path, else one with path:line, else a later line
+  const offender =
+    withPath.find((l) => new RegExp(`^${PATH.source}`).test(bare(l))) ??
+    withPath.find((l) => new RegExp(`${PATH.source}:\\d+`).test(l)) ??
+    withPath.find((l) => lines.indexOf(l) > 0);
+  const first = lines.find((l) => !isDiffNoise(l)) ?? '';
+  const parts = [name];
+  if (first && first !== offender) parts.push(first.length > 150 ? `${first.slice(0, 150)}…` : first);
+  if (offender) parts.push(`→ ${offender.replace(/^[+-]\s+/, '').replace(/^['"`]|['"`],?$/g, '')}`);
+  const out = parts.join(' — ');
+  return out.length > max ? `${out.slice(0, max - 1)}…` : out;
+}
+
 /** `next lint` prints the file on one line and each finding below it. */
 export function firstEslintError(output) {
   const lines = output.replace(STRIP_ANSI, '').split('\n');

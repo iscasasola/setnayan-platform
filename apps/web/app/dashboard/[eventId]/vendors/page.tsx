@@ -38,7 +38,7 @@ import { buildTally, suppliersDateFact, suppliersPlaceFact } from '@/lib/supplie
 import { pickVenueBookingRows, type VenueBookingRow } from '@/lib/event-venues';
 import { regionLabel } from '@/lib/region-source';
 import { plannedTileIdSet } from '@/lib/leaf-suggestions';
-import { addedCategoriesOf } from '@/lib/explore-in-plan';
+import { addedCategoriesOf, resolveBenchRing, ringBuildCount } from '@/lib/explore-in-plan';
 import { popularTilesFor } from '@/lib/supplier-find';
 import { hasVerifiedBadge } from '@/lib/verified-badge';
 import { readUnreadChatCountsByThread } from '@/lib/vendor-unread-threads';
@@ -2518,7 +2518,32 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     //     where the event is, so it is never named here.
     // ⛔ A REFUSED EVENT READ IS NOT "NO DATE YET". With no row the line says it
     // could not load — never "Pick your date" to a couple who has one.
-    const shellTally = buildTally(buildChildren, model.chosenCentavos);
+    // "Build N/M" is counted over THE RING — the category rows Find shows —
+    // through the same `resolveBenchRing` the bench calls, so the segment can
+    // never count a category the list does not show (owner 2026-10-08). The
+    // money stays `buildTally`'s (one sum, the Build body's own). Flag off, the
+    // old shape keeps the plan model's own count.
+    const shellTally = (() => {
+      const money = buildTally(buildChildren, model.chosenCentavos);
+      if (!isExploreReplanEnabled()) return money;
+      const inBuild = new Set([...buildPicksByGroup.values()].flat());
+      const ringTiles = shortlistFolders.flatMap((f) =>
+        f.tiles.map((t) => ({
+          tile: t.tile,
+          planned: t.planned,
+          vendorCount: t.vendors.length,
+          lockedCount: t.vendors.filter((v) => v.status === 'locked').length,
+          buildCount: t.vendors.filter((v) => inBuild.has(v.vendorId)).length,
+        })),
+      );
+      const ring = resolveBenchRing({
+        tiles: ringTiles,
+        excludedTiles,
+        pinnedTile: sp.open ?? null,
+        starterTiles: [...popularTilesFor(ev?.event_type ?? null)],
+      });
+      return { ...money, ...ringBuildCount(ringTiles, ring.inPlan) };
+    })();
     const shellFacts = (() => {
       if (eventCtx.error || !ev) return null;
       const venueRows: VenueBookingRow[] = vendors.map((v) => ({

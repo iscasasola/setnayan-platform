@@ -133,6 +133,57 @@ export function canRemoveTileFromPlan(t: { lockedCount: number }): boolean {
   return t.lockedCount === 0;
 }
 
+/* ── THE RING, FROM THE BENCH'S OWN TILES — ONE CALL, TWO READERS ────────────
+ *
+ * The bench draws the ring's rows; the page counts them for "Build N/M". Both
+ * build the resolver's inputs from the same folders through THIS function, so
+ * the segment can never count categories the list does not show.
+ */
+export type RingTile = {
+  tile: string;
+  /** In the event's own plan (onboarding picks, or added since). */
+  planned: boolean;
+  /** How many of the couple's suppliers sit here. */
+  vendorCount: number;
+  /** …of which booked. */
+  lockedCount: number;
+  /** …of which pinned to the working build. */
+  buildCount?: number;
+};
+
+export function resolveBenchRing(args: {
+  /** Every tile the bench could show, in display order. */
+  tiles: readonly RingTile[];
+  excludedTiles: readonly string[];
+  /** The `?open=` deep-link target — always lands on a row. */
+  pinnedTile?: string | null;
+  /** Absent → the every-tile rule (the old shape). */
+  starterTiles?: readonly string[];
+}): InPlanResolution {
+  return resolveInPlanTiles({
+    allTiles: args.tiles.map((t) => t.tile),
+    plannedTiles: new Set(args.tiles.filter((t) => t.planned).map((t) => t.tile)),
+    tilesWithVendors: new Set(args.tiles.filter((t) => t.vendorCount > 0).map((t) => t.tile)),
+    tilesWithLocks: new Set(args.tiles.filter((t) => t.lockedCount > 0).map((t) => t.tile)),
+    excludedTiles: new Set(args.excludedTiles),
+    pinnedTiles: args.pinnedTile ? new Set([args.pinnedTile]) : undefined,
+    starterTiles: args.starterTiles ? new Set(args.starterTiles) : undefined,
+  });
+}
+
+/**
+ * "Build N/M" over the ring: M = the categories on the event (the rows), N =
+ * those that hold a booked supplier or a build pick. Counted at the SAME grain
+ * as the rows — a count over plan groups could exceed the rows it sits above.
+ */
+export function ringBuildCount(tiles: readonly RingTile[], ring: ReadonlySet<string>): { filled: number; total: number } {
+  const rows = tiles.filter((t) => ring.has(t.tile));
+  return {
+    filled: rows.filter((t) => t.lockedCount > 0 || (t.buildCount ?? 0) > 0).length,
+    total: rows.length,
+  };
+}
+
 /* ── "＋ ADD TO YOUR EVENT" — WHERE AN ADDED CATEGORY IS KEPT ────────────────
  *
  * Owner 2026-10-08: a category added under the ring must STAY on the event.

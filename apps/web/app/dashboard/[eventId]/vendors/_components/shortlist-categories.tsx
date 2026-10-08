@@ -124,7 +124,7 @@ import {
   orderCoverageTiles,
   type CoverageTile,
 } from '@/lib/coverage-strip';
-import { canRemoveTileFromPlan, resolveInPlanTiles } from '@/lib/explore-in-plan';
+import { canRemoveTileFromPlan, resolveBenchRing } from '@/lib/explore-in-plan';
 import {
   ADD_TO_PLAN_HEADING,
   cardAddAnother,
@@ -293,7 +293,7 @@ const SLCAT_CSS = `
 .slcat .cat-st.ok{color:rgb(var(--color-ok))}
 .slcat .cat-st.wn{color:var(--mulberry)}
 .slcat .ring-n{margin:0 0 10px;font-size:14px;font-weight:600;color:rgb(var(--color-ok))}
-.slcat .ring-more{display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:14px 0 4px;border-top:1px solid var(--line-soft);font-size:14px;color:var(--ink-soft)}
+.slcat .addmore{display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:14px 0 4px;border-top:1px solid var(--line-soft);font-size:14px;color:var(--ink-soft)}
 /* ── Level 1 · folder card (collapsible) ── */
 .slcat .fold{margin:0 0 10px;background:var(--card);border:1px solid var(--edge);border-radius: var(--m-r-md);overflow:hidden;box-shadow:var(--edge-lift);transition:box-shadow .3s var(--ease),border-color .3s var(--ease)}
 .slcat .fold.open{box-shadow:var(--edge-lift-open);border-color:rgba(30,26,18,.28)}
@@ -2349,21 +2349,19 @@ export function ShortlistCategories({
   // ~53-row bench to whatever is already shortlisted would be an amputation,
   // not an adaptation). Locks pin a tile in plan no matter what; the deep-link
   // target is pinned too so `?open=` always lands on a row.
-  const allTilesInOrder = folders.flatMap((f) => f.tiles.map((t) => t.tile));
-  const inPlanResolution = resolveInPlanTiles({
-    allTiles: allTilesInOrder,
-    plannedTiles: plannedTileSet,
-    tilesWithVendors: new Set(
-      folders.flatMap((f) => f.tiles.filter((t) => t.vendors.length > 0).map((t) => t.tile)),
+  const inPlanResolution = resolveBenchRing({
+    tiles: folders.flatMap((f) =>
+      f.tiles.map((t) => ({
+        tile: t.tile,
+        planned: t.planned,
+        vendorCount: t.vendors.length,
+        lockedCount: t.vendors.filter((v) => v.status === 'locked').length,
+      })),
     ),
-    tilesWithLocks: new Set(
-      folders.flatMap((f) =>
-        f.tiles.filter((t) => t.vendors.some((v) => v.status === 'locked')).map((t) => t.tile),
-      ),
-    ),
-    excludedTiles: new Set(excludedTiles),
-    pinnedTiles: initialOpenTile ? new Set([initialOpenTile]) : undefined,
-    starterTiles: replan && starterTiles ? new Set(starterTiles) : undefined,
+    excludedTiles,
+    pinnedTile: initialOpenTile,
+    // The starter ring belongs to the one-screen shape only.
+    starterTiles: replan ? starterTiles : undefined,
   });
   // Flag OFF → null everywhere below, so every adaptive branch is skipped and
   // the bench renders exactly as it does in production today.
@@ -3645,7 +3643,7 @@ export function ShortlistCategories({
           Picking one clears any removal, keeps the category on the event
           (`restoreTileToPlan`) and opens its row. */}
       {replan && !searching && poolRows.length > 0 ? (
-        <div className="ring-more" data-add-to-event="">
+        <div className="addmore" data-add-to-event="">
           <span>{ADD_TO_EVENT_ASK}</span>
           <PickMenu
             label={ADD_TO_PLAN_HEADING}

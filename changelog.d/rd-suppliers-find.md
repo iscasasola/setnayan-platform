@@ -28,11 +28,42 @@ Suppliers PR1 (`rd/suppliers-shell-three-modes`).
   shell cannot hand props to — learns which body is on screen and when the
   couple is leaving it.
 
-**Not in this part (said, not dropped — next in PR2a):** the flat category rows
-with their state words ("Covered N of M", "· N yours", "Booked ✓"), the pop and
-unfold, the pinned header and the search scope that follows it ("Search
-‹Category›…"), service cards and verbs by step, "More to compare" always on,
-"＋ Add to your event" as one dropdown, `＋ Add "…"` with the typed name.
+## 2026-10-08 · feat(suppliers): Find is one flat list of category rows; an added category stays (Suppliers PR2a, part 2 · rows)
+
+Owner rulings 2026-10-08 ("1. yes 2. go 3. ok").
+
+- **Which rows an event shows.** Its own onboarding picks — a wedding's too
+  (they were ignored on this page since 2026-06-28, which is why a wedding saw
+  every category) — or, with no plan of its own, the "popular four" for its
+  type (`popularTilesFor`, the Find page's own list). A category that holds one
+  of the couple's suppliers, or a booking, ALWAYS shows. Everything else waits
+  under "+ Add to your event".
+- **An added category stays.** `restoreTileToPlan` (the existing action — +0
+  exported actions, no migration) now also keeps the category in the event's
+  `style_preferences.added_categories`, after a host check, through the shared
+  `writeStylePreferenceKey`. A write that fails is said, never reported as saved.
+- **What this changes on the checklist: nothing.** The onboarding picks list
+  (`interested_categories`) is read — in the onboarding picker's own vocabulary
+  — by the checklist's budget scope, the checklist suggestions, the brief sent
+  to suppliers and the onboarding auto-inquiry fan-out. Appending a category
+  there would have added checklist budget lines for the ~15 categories that
+  share a picker key, done nothing for the rest, and could have been swept into
+  a still-pending fan-out that messages suppliers. So the added category has its
+  own key, which nothing else reads.
+- **No folder level.** Find is one flat list: icon · name · "· N yours" · one
+  state word (Booked ✓ · Covered ✓ · N quote in · N to decide) · chevron. The
+  icon strip that drew the same categories a second time is gone.
+- **"Cover your event · Covered N of M"** — N now counts a category that is
+  booked or covered (it counted only "I'm done"), through `<Count>`.
+- **"+ Add to your event"** is ONE dropdown under the list (it was a chip pool
+  at the foot of each folder); **"Not needed · Remove ‹Category›"** names what
+  it removes and keeps its confirm.
+- **`Build N/M`** is counted over the ring — the rows Find shows — through the
+  same `resolveBenchRing` the list uses.
+
+**Still to come in PR2a part 2:** the pinned row header and the search scope
+that follows it, service cards and verbs by step, "More to compare" always on,
+the supplier sheet. `＋ Add "…"` with the typed name is 2b.
 
 SPEC IMPACT: None — builds the plan's PR2 thumb row as written; what is
 deferred to the next part is listed above and in the PR body.

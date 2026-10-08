@@ -14,7 +14,9 @@ import {
   ADDED_CATEGORIES_KEY,
   addedCategoriesOf,
   canRemoveTileFromPlan,
+  resolveBenchRing,
   resolveInPlanTiles,
+  ringBuildCount,
   withAddedCategory,
 } from './explore-in-plan';
 import { popularTilesFor } from './supplier-find';
@@ -317,5 +319,27 @@ test('kept: the page shows a wedding its own picks plus what it added, and hands
   const bench = stripComments(
     readFileSync(join(process.cwd(), 'app', 'dashboard', '[eventId]', 'vendors', '_components', 'shortlist-categories.tsx'), 'utf8'),
   );
-  assert.match(bench, /starterTiles: replan && starterTiles \? new Set\(starterTiles\) : undefined,/);
+  assert.match(bench, /starterTiles: replan \? starterTiles : undefined,/);
+  // The bench and the page build the ring through the SAME call.
+  assert.match(bench, /const inPlanResolution = resolveBenchRing\(\{/);
+  assert.match(page, /const ring = resolveBenchRing\(\{\s*tiles: ringTiles,\s*excludedTiles,\s*pinnedTile: sp\.open \?\? null,\s*starterTiles: \[\.\.\.popularTilesFor\(ev\?\.event_type \?\? null\)\],\s*\}\);/);
+  assert.match(page, /return \{ \.\.\.money, \.\.\.ringBuildCount\(ringTiles, ring\.inPlan\) \};/);
+});
+
+test('Build N/M is counted over the ring — the rows Find shows, at the rows’ own grain', () => {
+  const tiles = [
+    { tile: 'reception', planned: true, vendorCount: 1, lockedCount: 1 },
+    { tile: 'ceremony_venue', planned: true, vendorCount: 1, lockedCount: 1 },
+    { tile: 'cake', planned: true, vendorCount: 0, lockedCount: 0 },
+    { tile: 'catering', planned: true, vendorCount: 6, lockedCount: 0, buildCount: 1 },
+    { tile: 'bridal_car', planned: true, vendorCount: 0, lockedCount: 0 },
+    { tile: 'florist', planned: false, vendorCount: 0, lockedCount: 0 },
+  ];
+  const ring = resolveBenchRing({ tiles, excludedTiles: [], starterTiles: ['photo_video'] });
+  assert.deepEqual([...ring.inPlan], ['reception', 'ceremony_venue', 'cake', 'catering', 'bridal_car']);
+  // Booked, booked, in the build → 3 of the 5 rows; the unplanned florist is not a row.
+  assert.deepEqual(ringBuildCount(tiles, ring.inPlan), { filled: 3, total: 5 });
+  // A removed row is not counted; a booked one cannot be removed from the count.
+  const cut = resolveBenchRing({ tiles, excludedTiles: ['cake', 'reception'] , starterTiles: [] });
+  assert.deepEqual(ringBuildCount(tiles, cut.inPlan), { filled: 3, total: 4 });
 });

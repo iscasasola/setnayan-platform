@@ -136,7 +136,7 @@ test('T4 · glass: the row has no background; the field is frosted; Add keeps it
 
 test('T5 · Expand all opens every category; a header tap then folds just that one', () => {
   assert.match(BENCH, /const tileOpen = isCategoryOpen\(\{ tile: t\.tile, searching, openTile, openAll, folded \}\);/);
-  assert.match(BENCH, /const folderOpen = searching \|\| openAll \|\| openFolder === folder\.folder;/);
+  assert.match(BENCH, /const folderOpen = replan \|\| searching \|\| openAll \|\| openFolder === folder\.folder;/);
   assert.match(BENCH, /onClick=\{\(\) => \(openAll \? toggleFolded\(t\.tile\) : setOpenTile\(tileOpen \? null : t\.tile\)\)\}/);
   const toggle = BENCH.slice(BENCH.indexOf('function toggleOpenAll()'), BENCH.indexOf('const benchRows'));
   assert.match(toggle, /setFolded\(new Set\(\)\);/, 'a stale fold would survive the next Expand all');

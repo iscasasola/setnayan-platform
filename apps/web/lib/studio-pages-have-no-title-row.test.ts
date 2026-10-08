@@ -11,15 +11,17 @@
  *       out of them.
  *   (2) INSIDE A PAGE THE PILL'S STUDIO HALF OPENS THE CHOICES — "Studio ▾", the house dropdown, the picked half of
  *       the pill; at the Studio home and on the Stages side it is the plain segment, with no ▾.
- *   (3) EVERY DESTINATION THE ROW HAD IS IN IT — "All pages", then the pages this event draws, in the home's order,
- *       each with its mark, its line and Ready / Missing; the current one is the dropdown's value (ticked).
- *   (4) A PICK COSTS WHAT THE ROW'S DID — the same call (`openStudio`), "All pages" the same call as tapping Studio
- *       (`pickSide('studio')`); nothing here asks the server or renders the Maker.
+ *   (3) EVERY DESTINATION THE ROW HAD IS IN IT, AND NOTHING ELSE — exactly the pages this event draws, in the home's
+ *       order, each with its mark, its line and Ready / Missing; the current one is the dropdown's value (ticked).
+ *       No "All pages" row (owner 2026-10-08, on the first build: *"pop up looks good. remove the all pages."*) —
+ *       the home is Stages, then Studio.
+ *   (4) A PICK COSTS WHAT THE ROW'S DID — the same call (`openStudio`); nothing here asks the server or renders the
+ *       Maker.
  *   (5) THE LAB'S SAVE STAND-IN IS HANDED ONLY BY THE LAB — Info's draft door is the real action everywhere else.
  *
  * Mutations seen RED (2026-10-08), each restored: the title row drawn again for every full page → (1); the 52-px
- * offset back on every page → (1); the chooser dropped (a plain segment inside a page) → (2); "All pages" left out
- * → (3); a page left out of the list → (3); a pick that also re-renders the Maker (`router.refresh`) → (4); the
+ * offset back on every page → (1); the chooser dropped (a plain segment inside a page) → (2); an "All pages" row
+ * put back → (3); a page left out of the list → (3); a pick that also re-renders the Maker (`router.refresh`) → (4); the
  * real dashboard handed the lab's stand-in → (5).
  */
 import test from 'node:test';
@@ -105,48 +107,46 @@ test('(2) inside a page the pill’s Studio half is "Studio ▾" and opens the c
   assert.match(read(SHELL), /<StudioSideSwitch side=\{side\} onPick=\{pickSide\} at=\{studioTile\} tiles=\{studio\?\.tiles\} onOpen=\{openStudio\} \/>/);
   // It is the house dropdown — so on a phone it is the Maker's one sheet (dark, blurred, locked), a list on a computer.
   const src = read(PARTS);
-  const sw = src.slice(src.indexOf('export function StudioSideSwitch('), src.indexOf('export const STUDIO_CHOOSER_HOME'));
+  const sw = src.slice(src.indexOf('export function StudioSideSwitch('), src.indexOf('const STUDIO_CHOOSER_SEG'));
   assert.equal(count(sw, /<PickMenu\b/g), 1);
   assert.doesNotMatch(sw, /role="listbox"|<select|createPortal/, 'the chooser is a hand-made list');
   assert.match(sw, /value=\{at\.key\}/, 'the current page is not the one ticked');
 });
 
-test('(3) every destination the row had is in it: "All pages", then this event’s pages in the home’s order, with mark, line and Ready / Missing', async () => {
-  const { studioChooserOptions, STUDIO_CHOOSER_HOME } = await import(`../${PARTS}`);
-  const opts = studioChooserOptions(tiles);
-  assert.deepEqual(opts.map((o: { key: string }) => o.key), ['home', ...STUDIO_TILE_KEYS], 'a page the row offered is missing — or they are out of the home’s order');
-  assert.equal(STUDIO_CHOOSER_HOME, 'home');
-  assert.equal(opts[0].label, 'All pages');
+test('(3) every destination the row had is in it and nothing else: this event’s pages in the home’s order, with mark, line and Ready / Missing', async () => {
+  const { studioChooserOptions } = await import(`../${PARTS}`);
+  const opts = studioChooserOptions(tiles) as Array<{ key: string; label: string; hint?: string; icon?: unknown; trail?: unknown }>;
+  // THE CLAIM: exactly the home's eleven — no page missing, none out of order, and NO extra row ("All pages").
+  assert.deepEqual(opts.map((o) => o.key), [...STUDIO_TILE_KEYS], 'the chooser is not exactly the home’s pages (a page is missing, out of order — or an extra row is back)');
+  assert.ok(!opts.some((o) => /all pages/i.test(o.label)), '"All pages" is back in the chooser');
   for (const [i, t] of tiles.entries()) {
-    const o = opts[i + 1];
+    const o = opts[i]!;
     assert.equal(o.label, t.label);
     assert.equal(o.hint, t.status);
     assert.ok(o.icon, `${t.key} has no mark`);
   }
-  const trail = (k: string) => opts.find((o: { key: string }) => o.key === k).trail;
+  const trail = (k: string) => opts.find((o) => o.key === k)!.trail;
   assert.deepEqual(trail('info'), { text: '✓', tone: 'ok', label: 'Ready' });
   assert.deepEqual(trail('logo'), { text: 'Missing', tone: 'left' });
   assert.equal(trail('rsvp'), undefined, 'a page nobody measured is marked');
   // An event that draws fewer pages lists fewer — never a page it cannot open.
-  assert.deepEqual(studioChooserOptions(tiles.filter((t) => t.key !== 'story' && t.key !== 'march')).map((o: { key: string }) => o.key), ['home', 'info', 'look', 'logo', 'mood', 'schedule', 'seats', 'gifts', 'rsvp', 'prints']);
+  assert.deepEqual(studioChooserOptions(tiles.filter((t) => t.key !== 'story' && t.key !== 'march')).map((o: { key: string }) => o.key), ['info', 'look', 'logo', 'mood', 'schedule', 'seats', 'gifts', 'rsvp', 'prints']);
   // ONE source for the pages: the same models the home's cards are drawn from — no second list here.
   const src = read(PARTS);
   assert.doesNotMatch(src, /STUDIO_TILE_KEYS|STUDIO_TILES\b/, 'the chooser keeps a second list of the pages');
   // …and Look's own lower-third ▾ is the same rows (without marks).
   assert.match(src, /options=\{tiles\.map\(\(t\) => tileOption\(t, false\)\)\}/);
+  // The home is still reached: Stages, then Studio (`pickSide('studio')` always lands on the home).
+  const shell = read(SHELL);
+  assert.match(shell, /if \(next === 'studio'\) setStudioAt\('home'\);/, 'from Stages, Studio no longer lands on the Studio home');
 });
 
-test('(4) a pick costs what the row’s did: the same `openStudio`; "All pages" is the tap on Studio — no request, no render of the Maker', async () => {
-  const { studioChooserPick } = await import(`../${PARTS}`);
-  const went: string[] = [];
-  const to = { home: () => went.push('home'), open: (k: string) => went.push(`open:${k}`) };
-  studioChooserPick('home', to);
-  studioChooserPick('schedule', to);
-  studioChooserPick('info', to);
-  assert.deepEqual(went, ['home', 'open:schedule', 'open:info']);
+test('(4) a pick costs what the row’s did: the same `openStudio` — no request, no render of the Maker', () => {
   const src = read(PARTS);
-  assert.match(src, /onPick=\{\(k\) => studioChooserPick\(k, \{ home: \(\) => onPick\('studio'\), open: onOpen \}\)\}/);
-  const sw = src.slice(src.indexOf('export function StudioSideSwitch('), src.indexOf('export function StudioToolMenu('));
+  /* The switch's OWN source (Look's lower-third ▾ further down has the same line — it must not stand in for this one). */
+  const sw = src.slice(src.indexOf('export function StudioSideSwitch('), src.indexOf('const STUDIO_CHOOSER_SEG'));
+  assert.ok(sw.length > 400, 'anti-vacuity: the switch was not found');
+  assert.match(sw, /onPick=\{\(k\) => onOpen\(k as StudioTileKey\)\}/, 'a pick does not open the page the way the row did');
   assert.doesNotMatch(sw, /fetch\(|router|useRouter|refresh|makerSave|revalidate|href=|location\.|useEffect/, 'choosing a page asks the server, or renders the Maker');
   // `openStudio` itself: state on the phone only — it sets the side and the page, and opens the item already mounted.
   const shell = read(SHELL);

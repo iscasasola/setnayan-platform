@@ -114,3 +114,10 @@ feels consistent with our design"*. Template: the approved gallery § 4; the ele
 - `lib/the-page-card.test.ts` — five tests, eight mutations seen red. `page-card.tsx` joins `TEMPLATE_FILES`.
 
 SPEC IMPACT: None.
+
+## 2026-10-08 · fix(studio): "Studio ▾" lists the pages only — no "All pages" row
+
+Owner, 2026-10-08, on the chooser: *"pop up looks good. remove the all pages."* The sheet is now exactly the Studio
+home's pages (in its order, the current one ticked). The Studio home is still where Stages → Studio lands.
+
+SPEC IMPACT: None.

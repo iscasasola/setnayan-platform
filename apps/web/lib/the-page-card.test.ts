@@ -131,7 +131,7 @@ test('(3) the Studio home: eleven cards, eleven DISTINCT marks, the tile’s own
   assert.match(parts, /import \{ StudioHome, TILE_ICON \} from '\.\/studio-home';/);
   assert.match(parts, /const Icon = TILE_ICON\[t\.key\];/, 'the chooser keeps a second list of marks');
   const { studioChooserOptions } = await import('../app/dashboard/[eventId]/launch/_components/stages-studio-parts');
-  const drawn = await Promise.all(studioChooserOptions(tiles()).slice(1).map((o) => paint(o.icon as React.ReactElement)));
+  const drawn = await Promise.all(studioChooserOptions(tiles()).map((o) => paint(o.icon as React.ReactElement)));
   assert.equal(new Set(drawn.map((d) => d.replace(/class="[^"]*"/, ''))).size, 11, 'two pages share one mark in the chooser');
   // Each has its line and its own ⓘ.
   for (const key of STUDIO_TILE_KEYS) {

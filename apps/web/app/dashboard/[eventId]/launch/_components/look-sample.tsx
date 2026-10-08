@@ -11,6 +11,7 @@ import { lookSampleVersion, readLookSample, subscribeLookSample, type LookSample
 import { boardWithMainColours, mainColoursOf, type MainColourDraft } from '@/lib/main-colours';
 import { LOOK_SECTION_ITEM_KEYS } from '@/lib/maker-details-items';
 import { holdCanvasRedraw } from '@/lib/maker-refresh';
+import { tellFilmLoad } from '@/lib/pick-load';
 import { isStdLibrarySrc } from '@/lib/std-backgrounds';
 import { LoopPicture } from '../../website/editor/_components/background-cards';
 import { StillOverSwatch } from '../../website/editor/_components/main-background-panel';
@@ -155,6 +156,8 @@ export function LookSample({ seed }: { seed: LookSampleSeed }) {
   return (
     <div
       data-look-sample=""
+      /* 🌑 A LIVE PREVIEW STAYS CLEAR behind a pop-up (owner 2026-10-08) — a sheet's dark is cut around this box. */
+      data-popup-clear=""
       data-look-sample-ground={picture ? (moving ? 'film' : 'picture') : scope.ombre ? 'blend' : 'colour'}
       /* The guest scope's own marks — see the docblock. Not `contents`: here the scope IS the box. */
       className={`sn-editorial relative isolate flex min-h-[250px] w-full flex-1 flex-col overflow-hidden bg-cream text-ink ${scope.theme ? seed.fontClassName : ''}`.trim()}
@@ -173,7 +176,8 @@ export function LookSample({ seed }: { seed: LookSampleSeed }) {
       {picture ? (
         <div aria-hidden data-look-sample-picture="" className="absolute inset-0 -z-10 overflow-hidden">
           <div className={`absolute inset-0${drifting ? ' sn-look-sample-drift' : ''}`} style={blur}>
-            <LoopPicture src={picture.clip}>
+            {/* 🥧 The film's own figure (`buffered` / `duration` of THIS element) is told to the pick that waits for it — no request. */}
+            <LoopPicture src={picture.clip} onLoad={(load) => tellFilmLoad(picture.clip, load)}>
               <StillOverSwatch src={picture.still} swatch="transparent" position={picture.position} />
             </LoopPicture>
           </div>

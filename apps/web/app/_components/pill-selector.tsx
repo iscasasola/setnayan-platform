@@ -25,8 +25,8 @@ import type { ComponentType, ReactNode } from 'react';
  *   · SHAPE: a full pill track with 3 px of padding, 44 px tall on a phone; each choice a pill inside it (38 px),
  *     the finger's target the track's whole height.
  *   · ONE COLOUR (owner 2026-10-08: *"pill selector should have a consistent color"* · *"Terracota is our color? and
- *     greyed out when off?"*): the picked choice is the Setnayan terracotta (the `mulberry` token, #C24E25) with
- *     white words; a choice that is off is grey words on the grey track. Every pill selector — there is no other
+ *     greyed out when off?"*): the picked choice is the app's accent (`bg-sn-accent`, `--sn-accent` — today the
+ *     terracotta) with the ink that reads on it (`text-sn-on-accent`); a choice that is off is grey words on the grey track. Every pill selector — there is no other
  *     tone to choose.
  *   · SLIDE, BOUNCE, PULSE (*"and make them animate"* · *"a bit of bounce and a pulse to imitate it has been
  *     pressed"*): one thumb, moving on transform and resizing to the label it lands on, landing with a small
@@ -59,8 +59,12 @@ export const PILL_TRACK_GROUND = 'bg-ink/[0.06]';
  */
 export type PillTone = 'plain' | 'wine';
 
-/** The picked choice: the Setnayan terracotta, white words. The ONE fill of every pill selector (and of its thumb). */
-export const PILL_ON_CLASS = 'bg-mulberry text-white';
+/**
+ * The picked choice: the app's accent, and the ink that reads on it. The ONE fill of every pill selector (and of its
+ * thumb) — and of anything else that is "on". Both come from ONE setting (`--sn-accent` / `--sn-on-accent`,
+ * `globals.css`): never a colour written here (`lib/the-accent-is-one-token.test.ts`).
+ */
+export const PILL_ON_CLASS = 'bg-sn-accent text-sn-on-accent';
 /** A choice that is off: grey words on the grey track. */
 export const PILL_OFF_CLASS = 'text-ink/55 hover:text-ink';
 

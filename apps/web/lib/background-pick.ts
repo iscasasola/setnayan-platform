@@ -27,8 +27,17 @@
  * A refused save or a picture that could not be read puts the OLD background
  * back (`createLookGroundStore`) and says so in place, with Try again.
  *
- * 🔑 A SECOND TAP WINS. Every pick has a number; an answer for an older number
+ * 🔑 A LATER PICK WINS. Every pick has a number; an answer for an older number
  * moves nothing on screen.
+ *
+ * 🥧 A PICK WHOSE FILE MUST LOAD IS HONEST ABOUT IT (owner 2026-10-08,
+ * `INTERACTION_RULES.md` § 9 "Style card while a file loads"; `lib/pick-load.ts`):
+ * its card shows a pie of the MEASURED 0–100 over a dim veil, then a tick
+ * (`backgroundCardLoad`); the other cards of that strip wait — dimmed, not
+ * pressable; a tap on the loading card CANCELS and nothing changes (its save
+ * has not been sent: a file is loaded first, applied second); and a load that
+ * outlasts `BACKGROUND_PICK_CANVAS_WAIT_MS` offers Try again / Cancel. A plain
+ * save has no file: it says its words and never a percentage.
  *
  * Pure. Held by `lib/a-background-pick-shows-at-once.test.ts`.
  */
@@ -45,6 +54,13 @@ export const BACKGROUND_PICK_QUIET_MS = 300;
 /** The owner's own words, in the order they happen. */
 export const BACKGROUND_PICK_LINE = { loading: 'Loading files…', applying: 'Applying to your Hub…' } as const;
 export type BackgroundPickStep = keyof typeof BACKGROUND_PICK_LINE;
+
+/** What the line adds while the loading card can be tapped to stop it. */
+export const BACKGROUND_PICK_CANCEL_HINT = 'tap the card to cancel';
+/** Said once a load was stopped by the couple — nothing was written, the old background is ringed again. */
+export const BACKGROUND_PICK_CANCELLED = 'Cancelled — nothing changed';
+/** Said when a file is still not in after `BACKGROUND_PICK_CANVAS_WAIT_MS` — with Try again and Cancel beside it. */
+export const BACKGROUND_PICK_STALLED = 'This is taking longer than it should.';
 
 /** What a refused pick says when the refusal brought no words of its own — never an empty alert. */
 export const BACKGROUND_PICK_FAILED = 'Your background could not be changed. Please try again.';
@@ -76,6 +92,19 @@ export type BackgroundPick = {
   saved: boolean;
   /** The words of a failure: this pick did not happen, and the old background is back. */
   failed: string | null;
+  /**
+   * 🥧 This pick waits on a FILE whose arrival is measured (a picture's bytes, a film's buffer, an upload) — its card
+   * shows the pie instead of the small mark, and its save is not sent until the file is in (so a cancel changes nothing).
+   */
+  file?: boolean;
+  /** The MEASURED 0–100 of that file (`lib/pick-load.ts`). Null/absent = nothing measured yet — never a guess. */
+  pct?: number | null;
+  /** The strip the pick was tapped in (`data-bg-cards`) — only THAT strip waits. */
+  strip?: string | null;
+  /** The file is still not in after `BACKGROUND_PICK_CANVAS_WAIT_MS`: the line offers Try again / Cancel. */
+  stalled?: boolean;
+  /** An upload: it may take minutes and `FileUpload` watches its own silence — it is never called stalled here. */
+  upload?: boolean;
 };
 
 /**
@@ -87,6 +116,15 @@ export function backgroundPickStep(pick: BackgroundPick | null): BackgroundPickS
   if (pick.failed) return 'failed';
   if (pick.reading || (pick.laid && !pick.shown)) return 'loading';
   return pick.saved && pick.shown ? null : 'applying';
+}
+
+/**
+ * 🥧 Is this pick HOLDING its strip? True while its FILE is on its way and its save has not been sent — the other
+ * cards of the strip wait, a tap on its own card cancels, and nothing has been written. (A pick that is only being
+ * saved, or one the canvas is still painting after its save went out, holds nothing: a later pick wins.)
+ */
+export function backgroundPickHolds(pick: BackgroundPick | null): boolean {
+  return Boolean(pick && !pick.failed && pick.reading);
 }
 
 /** The pick with `patch` laid on it — or null once nothing is on its way any more. Another pick's news changes nothing. */
@@ -105,8 +143,43 @@ export function backgroundPickAfter(pick: BackgroundPick | null, seq: number, pa
 export function backgroundCardLooks(data: string, storedOn: boolean, pick: BackgroundPick | null): { on: boolean; busy: boolean } {
   const step = backgroundPickStep(pick);
   if (!pick || step === 'failed' || step === null) return { on: storedOn, busy: false };
-  if (pick.card !== null) return { on: pick.card === data, busy: pick.card === data };
-  return { on: storedOn, busy: storedOn };
+  /* 🥧 A file whose arrival is measured wears the pie (`backgroundCardLoad`), never the small mark as well. */
+  const mark = pick.file !== true;
+  if (pick.card !== null) return { on: pick.card === data, busy: mark && pick.card === data };
+  return { on: storedOn, busy: mark && storedOn };
+}
+
+/**
+ * 🥧 WHILE A PICK'S FILE LOADS (`backgroundPickHolds`), in the strip it was tapped in:
+ *   · `loading` — THIS is the card on its way: a tap on it cancels;
+ *   · `pie` — its MEASURED 0–100, or null where nothing is measured (then no pie is drawn — never an invented figure);
+ *   · `locked` — another card of that strip: dimmed, cannot be pressed, until the load ends or is cancelled.
+ * A pick that is only being SAVED locks nothing: a plain save is over in one request, and a later pick wins.
+ */
+export function backgroundCardLoad(
+  data: string,
+  storedOn: boolean,
+  pick: BackgroundPick | null,
+  /** `data-bg-cards` of the strip this card is drawn in. */
+  strip: string | null = null,
+): { loading: boolean; pie: number | null; locked: boolean } {
+  const REST = { loading: false, pie: null, locked: false };
+  if (!pick || !backgroundPickHolds(pick)) return REST;
+  if (pick.strip != null && strip != null && pick.strip !== strip) return REST;
+  const mine = pick.card !== null ? pick.card === data : storedOn;
+  if (!mine) return { loading: false, pie: null, locked: true };
+  const pct = pick.file === true && typeof pick.pct === 'number' && Number.isFinite(pick.pct) ? Math.max(0, Math.min(100, Math.floor(pick.pct))) : null;
+  return { loading: true, pie: pct, locked: false };
+}
+
+/**
+ * What a tap on a card DOES: `'cancel'` — it is the card whose file is loading (the load is stopped, nothing changes);
+ * `null` — nothing (it waits behind another card's load, or it is the one already on); `'pick'` — it is picked.
+ */
+export function backgroundCardTap(looks: { on: boolean }, load: { loading: boolean; locked: boolean }): 'cancel' | 'pick' | null {
+  if (load.loading) return 'cancel';
+  if (load.locked || looks.on) return null;
+  return 'pick';
 }
 
 /* ── 2 · what the canvas is told ────────────────────────────────────────── */

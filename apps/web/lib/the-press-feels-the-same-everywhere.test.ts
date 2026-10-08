@@ -111,7 +111,7 @@ test('(3) the ring is opt-in and drawn by the listener — a transient element o
   assert.match(src, /const ringed = el\.matches\('\.sn-press-ring'\) \? el : el\.querySelector<HTMLElement>\('\.sn-press-ring'\);\s*if \(!ringed\) return;/, 'every control grows a ring');
   // Laid over its box, in its own shape, in the terracotta; it never takes a tap; it removes itself.
   assert.match(src, /position:fixed;pointer-events:none;/);
-  assert.match(src, /border:2px solid rgb\(var\(--color-mulberry\) \/ \.45\);border-radius:\$\{getComputedStyle\(ringed\)\.borderRadius\}/);
+  assert.match(src, /border:2px solid rgb\(var\(--sn-accent\) \/ \.45\);border-radius:\$\{getComputedStyle\(ringed\)\.borderRadius\}/);
   assert.match(src, /\.onfinish = \(\) => ring\.remove\(\);/, 'a ring is left in the page after it fades');
   assert.match(src, /ring\.animate\(\[\{ opacity: 1, transform: 'scale\(1\)' \}, \{ opacity: 0, transform: `scale\(\$\{1 \+ 20 \/ r\.width\}, \$\{1 \+ 20 \/ r\.height\}\)` \}\], \{ duration: ms \* 1\.3, easing: 'ease-out' \}\)/);
   assert.doesNotMatch(src, /boxShadow|box-shadow/, 'the ring animates paint');
@@ -138,7 +138,7 @@ test('(5) the Maker’s four switches wear ONE look — grey off, terracotta on,
   const track = rule('.sn-switch');
   assert.match(track, /background-color: rgb\(var\(--color-ink\) \/ 0\.2\);/, 'a switch that is off is not grey');
   const on = rule('.peer:checked ~ .sn-switch');
-  assert.match(on, /background-color: rgb\(var\(--color-mulberry\)\);/, 'a switch that is on is not the terracotta');
+  assert.match(on, /background-color: rgb\(var\(--sn-accent\)\);/, 'a switch that is on is not the accent');
   assert.deepEqual(selectorsBefore('.peer:checked ~ .sn-switch'), [".sn-switch[data-on='true']", '.peer:checked ~ .sn-switch'], 'a switch can be on another way');
   const knob = rule('.sn-switch > .sn-switch-knob');
   assert.match(knob, /transition-duration: var\(--sn-pill-dur\);\s*transition-timing-function: var\(--sn-pill-spring\);/);

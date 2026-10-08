@@ -9,8 +9,9 @@
  * (the Maker shell, Event Details with and without its editor, the part sheet,
  * the RSVP stage's controls, the scene sheet) — every visible
  * `data-phone-chrome` piece added up from the phone height its own classes
- * declare — at 390 × 844 and 375 × 667. The logo studio's two panels live in a
- * very large module and are read from their source tags — the same classes.
+ * declare — at 390 × 844 and 375 × 667. The logo studio's panels are NOT a lower-third tool since
+ * 2026-10-08 (L1 — that fold was the one-layer trap): they sit under the logo, in its own flow, and
+ * their room is measured by `the-logo-maker-opens-ready-to-edit.test.ts`.
  *
  *   · three zones: the top bar (52 px), the page, the lower third
  *     (`MAKER_LT_HEIGHT`) — the page keeps ≥ 55% with or without a tool open;
@@ -215,8 +216,6 @@ const STATES: State[] = [
       return [...(await barsOnly()), ...phoneChromeIn(html)];
     },
   },
-  { name: 'the logo studio’s layers', sheet: true, chrome: async () => [...(await barsOnly()), sourceChrome(`${L}/maker-logo.tsx`, 'data-logo-navigator=""')] },
-  { name: 'the logo studio’s tools', sheet: true, chrome: async () => [...(await barsOnly()), sourceChrome(`${L}/maker-logo.tsx`, 'data-logo-tools=""')] },
 ];
 
 for (const state of STATES) {
@@ -268,14 +267,12 @@ test('🧰 every Maker tool sits in the lower third — none dims the page or fl
     [`${L}/details-workspace.tsx`, /sheetOpen \? MAKER_LT_TOOL : 'max-lg:hidden'/],
     [`${E}/element-sheet.tsx`, /\$\{MAKER_LT_TOOL\}/],
     [`${L}/maker-page.tsx`, /open \? MAKER_LT_TOOL : 'max-lg:hidden'/],
-    [`${L}/maker-logo.tsx`, /data-logo-navigator=""[\s\S]{0,200}\$\{MAKER_LT_TOOL\}/],
-    [`${L}/maker-logo.tsx`, /data-logo-tools=""[\s\S]{0,200}\$\{MAKER_LT_TOOL\}/],
     [`${L}/maker-sheet.tsx`, /if \(inMaker\) \{[\s\S]{0,400}\$\{MAKER_LT_TOOL\}/],
     [`${L}/maker-shell.tsx`, /function MoreSheet[\s\S]*?\$\{MAKER_LT_TOOL\}/],
   ];
   for (const [file, re] of tools) assert.match(stripComments(read(file)), re, `${file}: a tool is not in the lower third`);
   // Each says the lower third has it open — the column names it and closes it.
-  for (const file of [`${L}/details-workspace.tsx`, `${E}/element-sheet.tsx`, `${L}/maker-page.tsx`, `${L}/maker-logo.tsx`, `${L}/maker-sheet.tsx`, `${L}/maker-shell.tsx`]) {
+  for (const file of [`${L}/details-workspace.tsx`, `${E}/element-sheet.tsx`, `${L}/maker-page.tsx`, `${L}/maker-sheet.tsx`, `${L}/maker-shell.tsx`]) {
     assert.match(stripComments(read(file)), /useMakerTool\(/, `${file}: a tool does not tell the lower third it is open`);
   }
   // The scene sheet is the Maker's half sheet, in its lower-third shape.

@@ -180,8 +180,11 @@ export function makerPartsWithAdded(input: {
   page: string | null;
   pages: readonly string[];
   drawn: readonly string[];
+  /** 🧭 The page each drawn key sits on, as a tabbed canvas FILED it (`filedOnCanvas`, `lib/maker-stage-filing.ts`) —
+   *  the canvas is the truth for a part no page's list names. Absent / a key it lacks: the neighbour rule below. */
+  filed?: Readonly<Record<string, string>>;
 }): MakerPartKey[] {
-  const { stage, page, pages, drawn } = input;
+  const { stage, page, pages, drawn, filed } = input;
   if (!page) return [];
   const present = new Set(drawn);
   const own = makerPartsOnPage(stage, page).filter((k) => {
@@ -203,7 +206,7 @@ export function makerPartsWithAdded(input: {
     if (!part || own.includes(part) || added.includes(part)) return;
     const before = drawn.slice(0, i).reverse().find((x) => pageOfKey.has(x));
     const after = drawn.slice(i + 1).find((x) => pageOfKey.has(x));
-    const home = pageOfKey.get((before ?? after)!) ?? null;
+    const home = filed?.[c] ?? pageOfKey.get((before ?? after)!) ?? null;
     if (home === page) added.push(part);
   });
   /* Each added part sits where it is drawn: after the page's part drawn before it. */

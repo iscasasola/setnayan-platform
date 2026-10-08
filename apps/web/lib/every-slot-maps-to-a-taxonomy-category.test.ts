@@ -21,7 +21,10 @@ import { MOODBOARD_SLOT_TRADES } from './moodboard-gallery';
 import { WEDDING_TILE_LABEL } from './taxonomy';
 import { AWAITING_A_SLOT, STUDIO_INSPIRATION_SLOTS } from './inspiration-slots';
 
-const OWNERS_TWELVE = ['Flowers', 'Tables', 'Venue & decor', 'The bride', 'Entourage', 'Cake', 'Bridal bouquet', 'Centrepieces', 'Stage', 'Ceiling', 'Wall', 'Tunnel'];
+/* The owner's twelve parts (2026-10-06/07), with the bride's card named "Bridal gown" and his attire
+   boards added (2026-10-08: Groom's suit drawn on the stored `groom` slot; Groomsmen · Bridesmaids ·
+   Flower girl · Ring bearer awaiting a slot of their own). */
+const OWNERS_TWELVE = ['Flowers', 'Tables', 'Venue & decor', 'Bridal gown', 'Groom’s suit', 'Entourage', 'Cake', 'Bridal bouquet', 'Centrepieces', 'Stage', 'Ceiling', 'Wall', 'Tunnel', 'Groomsmen', 'Bridesmaids', 'Flower girl', 'Ring bearer'];
 
 test('every drawn part is a stored slot with a supplying trade', () => {
   for (const s of STUDIO_INSPIRATION_SLOTS) {

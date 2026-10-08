@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import { STUDIO_AUTO_BUTTON, STUDIO_SAVED_PILL } from '@/lib/studio-skin';
 import { useMaker } from '../../../launch/_components/maker-context';
-import { Check, ChevronDown, Plus, Sparkles, X } from 'lucide-react';
+import { ChevronDown, Plus, Sparkles, X } from 'lucide-react';
 import { useOneOpen } from '@/lib/one-open';
 import { makerSave } from '@/lib/maker-refresh';
 import { compressImageForWeb } from '@/lib/image-compress';
@@ -50,7 +50,8 @@ import type { InspirationItem } from './inspiration-board';
  * (`mood-board-lazy.tsx`, the `maker-mood-board` chunk). Every couple today
  * keeps the shipped board.
  *
- * ONE `ISegmented` — Colours · Attire · Inspiration · Do's & Don'ts — under
+ * ONE `ISegmented` — Palette · Attire · Inspiration · Do's & Don'ts (owner 2026-10-08, "ok"; the
+ * attire boards — Bridal gown · Groom's suit · Entourage — live in Attire next to their role) — under
  * the Studio's Tool ▾ row, with Saved and ✨ Auto above it. Nothing here is a
  * new write:
  *
@@ -101,7 +102,8 @@ export type MoodBoardStudioProps = {
 
 type Tab = 'colours' | 'attire' | 'insp' | 'dos';
 const TABS: ReadonlyArray<[Tab, string]> = [
-  ['colours', 'Colours'],
+  /* "Palette" (owner 2026-10-08, "ok") — the five, the room and the flowers; the key stays `colours`. */
+  ['colours', 'Palette'],
   ['attire', 'Attire'],
   ['insp', 'Inspiration'],
   ['dos', 'Do’s & Don’ts'],
@@ -405,22 +407,76 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
     return { title: t.label, job: 'Adds a colour they wear', current: roleColours(t.key)[0] ?? five[0]!, onPick: (h: string) => pickRole(t.key, t.label, h), extra: null };
   };
 
+  /* 🖼 ONE BOARD PER PART — upload (+) and Search ideas › (the suppliers' photos), drawn in Inspiration, or in Attire for the attire boards. */
+  /** The attire board beside a role (`bride` · `groom` · `entourage`), if that role has one. */
+  const attireBoardFor = (roleKey: string) => STUDIO_INSPIRATION_SLOTS.find((s) => s.attire && s.slotKey === roleKey) ?? null;
+  const slotBoard = (slot: StudioInspirationSlot) => {
+    const row = tiles[slot.slotKey] ?? [];
+    const photos = MOODBOARD_SLOT_POSITIONS.map((p) => ({ pos: p, tile: row[p - 1] })).filter((x) => x.tile);
+    const slotPalette = paletteFromPhotos(photos.flatMap((x) => x.tile!.swatches), 5);
+    return (
+      <section key={slot.slotKey} className="flex flex-col gap-2 border-t border-ink/10 pt-3" data-mood-board-slot={slot.slotKey}>
+        <div className="flex items-center justify-between gap-2">
+          <b className="text-[14.5px] font-semibold text-ink">{slot.label}</b>
+          <button type="button" onClick={() => setSheet({ kind: 'browse', slot })} className="sn-press min-h-11 px-2 text-[13px] font-semibold text-mulberry" data-mood-board-search={slot.slotKey}>
+            Search ideas ›
+          </button>
+        </div>
+        <div className="flex gap-1.5 overflow-x-auto">
+          <button type="button" aria-label={`Add a photo to ${slot.label}`} onClick={() => openUpload(slot.slotKey)} className="sn-press flex h-20 w-20 shrink-0 items-center justify-center rounded-xl bg-ink/5 text-mulberry">
+            <Plus aria-hidden className="h-6 w-6" />
+          </button>
+          {photos.map(({ pos, tile }) => (
+            <span key={pos} className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-ink/5">
+              {tile!.url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={tile!.url} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <span className="flex h-full w-full items-center justify-center text-[11px] text-ink/50">Uploading…</span>
+              )}
+              {photoTag(tile!.credit) ? <em className="absolute bottom-1 left-1 rounded-md bg-ink/55 px-1.5 py-0.5 text-[9.5px] not-italic text-white">{photoTag(tile!.credit)}</em> : null}
+              {tile!.url ? (
+                <button type="button" aria-label="Remove this photo" onClick={() => removePhoto(slot.slotKey, pos)} className="absolute right-0 top-0 flex h-8 w-8 items-center justify-center text-white drop-shadow">
+                  <X aria-hidden className="h-4 w-4" />
+                </button>
+              ) : null}
+            </span>
+          ))}
+        </div>
+        <div className="flex min-h-11 items-center gap-2">
+          {slotPalette.length > 0 ? (
+            <>
+              <span className="flex gap-1" aria-label={`${slot.label}’s palette`}>
+                {slotPalette.map((c, i) => (
+                  <i key={i} className="h-6 w-6 rounded-full border border-ink/10" style={{ background: c }} />
+                ))}
+              </span>
+              {slot.useLabel ? (
+                <button type="button" onClick={() => applySlotPalette(slot, slotPalette)} className="sn-press ml-auto min-h-11 rounded-full bg-ink/5 px-3 text-[12px] font-semibold text-ink" data-mood-board-use-slot={slot.slotKey}>
+                  {slot.useLabel}
+                </button>
+              ) : null}
+            </>
+          ) : (
+            <small className="text-[12px] text-ink/55">Add photos to get its palette</small>
+          )}
+        </div>
+      </section>
+    );
+  };
+
   const bar = (
     <div className="flex min-h-11 items-center gap-1.5" data-mood-board-studio-bar="">
       <button type="button" onClick={() => setSheet({ kind: 'auto' })} className={STUDIO_AUTO_BUTTON} data-mood-board-auto="">
         <Sparkles aria-hidden className="h-4 w-4" /> Auto
       </button>
-      <span
-        className={`${STUDIO_SAVED_PILL} ${save === 'error' ? 'text-terracotta-700' : save === 'saving' ? 'text-ink/50' : 'text-success-700'}`}
-        data-mood-board-save={save}
-        aria-live="polite"
-      >
-        {save === 'saving' ? 'Saving…' : save === 'error' ? 'Not saved — try again' : (
-          <>
-            <Check aria-hidden className="h-4 w-4" /> Saved
-          </>
-        )}
-      </span>
+      {/* 🧾 No "✓ Saved" chip (owner 2026-10-07, *"yes remove the saved."*): edits go to the draft and the ONE
+          signal is ✓ Apply's count. A save that FAILED is still said, in words, here — never silent. */}
+      {save === 'error' ? (
+        <span className={`${STUDIO_SAVED_PILL} text-terracotta-700`} data-mood-board-save="error" role="alert">
+          Not saved — try again
+        </span>
+      ) : null}
     </div>
   );
 
@@ -537,10 +593,17 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                     </span>
                   ) : null}
                   {row.arrives ? <small className="text-[11.5px] text-ink/55">Arrives {row.arrives}</small> : null}
+                  {attireBoardFor(row.key) ? <div data-mood-board-attire-board={row.key}>{slotBoard(attireBoardFor(row.key)!)}</div> : null}
                 </div>
               </div>
             );
           })}
+          {/* 👗 An attire board whose role is not on the list yet still has its place. */}
+          {STUDIO_INSPIRATION_SLOTS.filter((slot) => slot.attire && !props.attire.some((r) => r.key === slot.slotKey)).map((slot) => (
+            <div key={slot.slotKey} data-mood-board-attire-board={slot.slotKey}>
+              {slotBoard(slot)}
+            </div>
+          ))}
         </div>
       ) : null}
 
@@ -549,7 +612,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
           <PickMenu
             label="Upload your own photos — which part is it for?"
             value={null}
-            options={STUDIO_INSPIRATION_SLOTS.map((s) => ({ key: s.slotKey, label: s.label }))}
+            options={STUDIO_INSPIRATION_SLOTS.filter((s) => !s.attire).map((s) => ({ key: s.slotKey, label: s.label }))}
             onPick={(k) => openUpload(k)}
             buttonText="Upload your own photos"
             dataAttr="data-mood-board-upload"
@@ -574,60 +637,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
               <p className="text-[12.5px] text-ink/60">Add photos to get its palette.</p>
             )}
           </div>
-          {STUDIO_INSPIRATION_SLOTS.map((slot) => {
-            const row = tiles[slot.slotKey] ?? [];
-            const photos = MOODBOARD_SLOT_POSITIONS.map((p) => ({ pos: p, tile: row[p - 1] })).filter((x) => x.tile);
-            const slotPalette = paletteFromPhotos(photos.flatMap((x) => x.tile!.swatches), 5);
-            return (
-              <section key={slot.slotKey} className="flex flex-col gap-2 border-t border-ink/10 pt-3" data-mood-board-slot={slot.slotKey}>
-                <div className="flex items-center justify-between gap-2">
-                  <b className="text-[14.5px] font-semibold text-ink">{slot.label}</b>
-                  <button type="button" onClick={() => setSheet({ kind: 'browse', slot })} className="sn-press min-h-11 px-2 text-[13px] font-semibold text-mulberry" data-mood-board-search={slot.slotKey}>
-                    Search ideas ›
-                  </button>
-                </div>
-                <div className="flex gap-1.5 overflow-x-auto">
-                  <button type="button" aria-label={`Add a photo to ${slot.label}`} onClick={() => openUpload(slot.slotKey)} className="sn-press flex h-20 w-20 shrink-0 items-center justify-center rounded-xl bg-ink/5 text-mulberry">
-                    <Plus aria-hidden className="h-6 w-6" />
-                  </button>
-                  {photos.map(({ pos, tile }) => (
-                    <span key={pos} className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-ink/5">
-                      {tile!.url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={tile!.url} alt="" className="h-full w-full object-cover" />
-                      ) : (
-                        <span className="flex h-full w-full items-center justify-center text-[11px] text-ink/50">Uploading…</span>
-                      )}
-                      {photoTag(tile!.credit) ? <em className="absolute bottom-1 left-1 rounded-md bg-ink/55 px-1.5 py-0.5 text-[9.5px] not-italic text-white">{photoTag(tile!.credit)}</em> : null}
-                      {tile!.url ? (
-                        <button type="button" aria-label="Remove this photo" onClick={() => removePhoto(slot.slotKey, pos)} className="absolute right-0 top-0 flex h-8 w-8 items-center justify-center text-white drop-shadow">
-                          <X aria-hidden className="h-4 w-4" />
-                        </button>
-                      ) : null}
-                    </span>
-                  ))}
-                </div>
-                <div className="flex min-h-11 items-center gap-2">
-                  {slotPalette.length > 0 ? (
-                    <>
-                      <span className="flex gap-1" aria-label={`${slot.label}’s palette`}>
-                        {slotPalette.map((c, i) => (
-                          <i key={i} className="h-6 w-6 rounded-full border border-ink/10" style={{ background: c }} />
-                        ))}
-                      </span>
-                      {slot.useLabel ? (
-                        <button type="button" onClick={() => applySlotPalette(slot, slotPalette)} className="sn-press ml-auto min-h-11 rounded-full bg-ink/5 px-3 text-[12px] font-semibold text-ink" data-mood-board-use-slot={slot.slotKey}>
-                          {slot.useLabel}
-                        </button>
-                      ) : null}
-                    </>
-                  ) : (
-                    <small className="text-[12px] text-ink/55">Add photos to get its palette</small>
-                  )}
-                </div>
-              </section>
-            );
-          })}
+          {STUDIO_INSPIRATION_SLOTS.filter((slot) => !slot.attire).map(slotBoard)}
         </div>
       ) : null}
 
@@ -642,6 +652,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                 job={p.job}
                 current={p.current}
                 fromPhotos={photoColours}
+                palette={five}
                 onPick={(h) => {
                   setSheet(null);
                   p.onPick(h);

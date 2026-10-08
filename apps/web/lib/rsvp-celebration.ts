@@ -20,7 +20,7 @@
  * (`sanitizeRsvpAskConfig`). No migration: the column's CHECK is "an object
  * under 2 KB", which one short key keeps.
  *
- * 🗣 "Celebration" is the MAKER's label only (the owner's word for the feature).
+ * 🗣 "When they say yes" is the MAKER's label (owner 2026-10-07: *"Yes rename it to When they say yes"*; it was "Celebration").
  * Nothing a guest reads says it.
  *
  * Pure, and imports nothing — the Maker's panel, the guest page and the draft
@@ -34,7 +34,7 @@ export type RsvpCelebration = (typeof RSVP_CELEBRATIONS)[number];
 export const RSVP_CELEBRATION_DEFAULT: RsvpCelebration = 'none';
 
 /** The Maker's word for the control. */
-export const RSVP_CELEBRATION_LABEL = 'Celebration';
+export const RSVP_CELEBRATION_LABEL = 'When they say yes';
 
 /** Each pick's name in the Maker's dropdown — in the prototype's order (None last). */
 export const RSVP_CELEBRATION_NAME: Readonly<Record<RsvpCelebration, string>> = {

@@ -85,20 +85,32 @@ async function draftFacts(eventId: string, events: Record<string, unknown>): Pro
 
 // ── NAMES ─────────────────────────────────────────────────────────────────────
 
-type PersonName = { first: string; last: string };
+export type PersonName = { first: string; last: string };
 
 export function NamesEditor({
   eventId,
   people,
   initial,
+  onNames,
 }: {
   eventId: string;
   /** The two people's words from the event type (`peopleLabels`). */
   people: readonly [string, string];
   initial: readonly [PersonName, PersonName];
+  /** 🏷 The names as typed — Studio › Info's "Event name" row composes its line from them (no write). */
+  onNames?: (a: PersonName, b: PersonName) => void;
 }) {
-  const [a, setA] = useState<PersonName>(initial[0]);
-  const [b, setB] = useState<PersonName>(initial[1]);
+  const [a, setNameA] = useState<PersonName>(initial[0]);
+  const [b, setNameB] = useState<PersonName>(initial[1]);
+  /* 🏷 Told as typed, from the change itself — never an effect (opening the editor writes and tells nothing). */
+  const setA = (n: PersonName) => {
+    setNameA(n);
+    onNames?.(n, b);
+  };
+  const setB = (n: PersonName) => {
+    setNameB(n);
+    onNames?.(a, n);
+  };
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
 

@@ -3,7 +3,7 @@
 import { HUB_DRAFT_BAR_FIELD, SUPERSEDED, makerLatestWrite, makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { canvasWriteKey, draftedCanvasOr, noteDraftedCanvas } from '@/lib/maker-draft-store';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
-import type { HubDraftActionResult } from '@/lib/hub-draft';
+import { HUB_DRAFT_FIELD, type HubDraftActionResult } from '@/lib/hub-draft';
 import { useEffect, useId, useRef, useState, useTransition, type ReactNode } from 'react';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import {
@@ -383,6 +383,7 @@ export function MakerRsvpSettings({
               pricingMode={replyByOwn.pricingMode}
               fallback={replyByFallback}
               action={replyByAction}
+              draft
             />
           ) : (
             <p role="alert" className="text-[13px] text-terracotta-700">
@@ -524,6 +525,7 @@ export function MakerRsvpSettings({
             pricingMode={replyByOwn.pricingMode}
             fallback={replyByFallback ?? (replyBy?.isDefault ? replyBy.date : null)}
             action={replyByAction}
+            draft
           />
         ) : (
           <p role="alert" className="text-[13px] text-terracotta-700">

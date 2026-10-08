@@ -46,7 +46,7 @@ import { formatCount } from '@/lib/format-number';
 import { previewCacheControl } from '@/lib/print-preview-cache';
 import { sampleView } from '@/lib/print-sample-door.server';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
-import { readHubDraft } from '@/lib/hub-draft-store';
+import { readHubDraft, saveHubDraftPatch } from '@/lib/hub-draft-store';
 import type { HubDraftEvents } from '@/lib/hub-draft';
 import { printDraftOf } from '@/lib/ceremony-time';
 
@@ -565,7 +565,22 @@ export async function POST(req: Request, ctx: { params: Promise<{ piece: string 
   // the A3 poster back to the theme's picture, silently. The words form owns
   // three things — the opening line, the reply line, the include toggles.
   const words = parsePrintDetails({ opening_line: form.get('opening_line'), rsvp, include });
-  const details = { ...stored, openingLine: words.openingLine, rsvp: words.rsvp, include: words.include };
+  /* ⏳ THE OPENING LINE WAITS FOR APPLY IN THE MAKER (owner 2026-10-08, "draft 1-3"): the Maker's
+     words form marks it (`opening_line_to_draft`), and the line goes into the hub DRAFT as ONE key of
+     `print_details` (Apply merges it); the switches and the reply line on the same form stay live.
+     The draft write is the couple's own session (the draft table's RLS is the fence). */
+  const draftLine = form.get('opening_line_to_draft') === '1' && form.has('opening_line');
+  if (draftLine) {
+    try {
+      await saveHubDraftPatch(eventId, { events: { print_details: { opening_line: words.openingLine } } });
+    } catch (e) {
+      logQueryError('hub-print.words.draft', { message: e instanceof Error ? e.message : String(e) } as never, { event_id: eventId }, 'graceful_degrade');
+      if ((req.headers.get('accept') ?? '').includes('application/json')) return NextResponse.json({ ok: false }, { status: 500 });
+      back.searchParams.set('print_error', '1');
+      return NextResponse.redirect(back, 303);
+    }
+  }
+  const details = { ...stored, openingLine: draftLine ? stored.openingLine : words.openingLine, rsvp: words.rsvp, include: words.include };
 
   const { error } = await admin
     .from('events')

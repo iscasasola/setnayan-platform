@@ -46,6 +46,8 @@ export type StudioInspirationSlot = {
   /** What its palette paints, and how the button says it. */
   target: SlotPaletteTarget;
   useLabel: string | null;
+  /** 👗 An attire board — drawn INSIDE Mood Board › Attire, next to its role, not in Inspiration (owner 2026-10-08). */
+  attire?: true;
 };
 
 /**
@@ -59,8 +61,15 @@ export const STUDIO_INSPIRATION_SLOTS: readonly StudioInspirationSlot[] = [
   { slotKey: 'backdrop', label: 'Wall', from: 'stylists and LED walls', target: { kind: 'none' }, useLabel: null },
   { slotKey: 'tunnel', label: 'Tunnel', from: 'stylists', target: { kind: 'none' }, useLabel: null },
   { slotKey: 'overall', label: 'Venue & decor', from: 'venues, stylists and lights', target: { kind: 'room' }, useLabel: 'Use for the room' },
-  { slotKey: 'bride', label: 'The bride', from: 'gown designers and make-up artists', target: { kind: 'role', key: 'bride' }, useLabel: 'Use for the bride’s colours' },
-  { slotKey: 'entourage', label: 'Entourage', from: 'attire makers', target: { kind: 'role', key: 'wedding_party' }, useLabel: 'Use for the entourage' },
+  /* 👗 ATTIRE (owner 2026-10-08, *"Inspiration can go more. Bridal Gown, Groom's Suit, Groomsmen,
+     Bridesmaid, Flowergirl, Ring Bearer"* — *"on attire, they can upload inspiration photos and also
+     search from the photos uploaded by vendors"*): the two with a stored slot are drawn — the bride's
+     card is the gown, the groom's slot (stored since onboarding, never drawn here) is the suit; each
+     uploads and searches its own trades' photos through the shipped picker. The four with no slot of
+     their own wait in `AWAITING_A_SLOT` below. */
+  { slotKey: 'bride', label: 'Bridal gown', from: 'gown designers and make-up artists', target: { kind: 'role', key: 'bride' }, useLabel: 'Use for the bride’s colours', attire: true },
+  { slotKey: 'groom', label: 'Groom’s suit', from: 'suit and barong makers', target: { kind: 'none' }, useLabel: null, attire: true },
+  { slotKey: 'entourage', label: 'Entourage', from: 'attire makers', target: { kind: 'role', key: 'wedding_party' }, useLabel: 'Use for the entourage', attire: true },
   { slotKey: 'cake', label: 'Cake', from: 'cake and dessert makers', target: { kind: 'none' }, useLabel: null },
   /* 💐 Their slots exist since 2026-10-07 (migration 20271265788160, step 4c). */
   { slotKey: 'bridal_bouquet', label: 'Bridal bouquet', from: 'florists', target: { kind: 'florals' }, useLabel: 'Use for the florist’s colours' },
@@ -72,7 +81,16 @@ export const STUDIO_INSPIRATION_SLOTS: readonly StudioInspirationSlot[] = [
  * EXISTING taxonomy tiles (the 2026-09-03 rule — nothing invented); what is
  * missing is storage, i.e. a migration widening the slot CHECK.
  */
-export const AWAITING_A_SLOT: ReadonlyArray<{ label: string; trades: readonly WeddingTile[] }> = [];
+export const AWAITING_A_SLOT: ReadonlyArray<{ label: string; trades: readonly WeddingTile[] }> = [
+  /* 👔 The owner's four attire boards (2026-10-08). Their photos would share the ONE `entourage` slot
+     today; a board of their own each needs `event_inspiration_assets_slot_key_check` widened — a
+     migration re-listing that CHECK vocabulary, which the owner's instruction says to stop on. Their
+     trades are the entourage slot's own (`MOODBOARD_SLOT_TRADES.entourage`), nothing invented. */
+  { label: 'Groomsmen', trades: ['mens_attire', 'filipiniana_barongs'] },
+  { label: 'Bridesmaids', trades: ['womens_attire', 'filipiniana_barongs'] },
+  { label: 'Flower girl', trades: ['womens_attire', 'filipiniana_barongs'] },
+  { label: 'Ring bearer', trades: ['mens_attire', 'filipiniana_barongs'] },
+];
 
 /* ══ SEARCH IDEAS › — the shipped gallery picker's filters ══════════════════ */
 

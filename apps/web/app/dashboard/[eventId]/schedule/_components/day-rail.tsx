@@ -80,6 +80,8 @@ import type {
 import { DayActionsContext, PHASE_TINT, Eyebrow, PickMenu, Tip, ToolButton, toFormData } from './day-ui';
 import { MomentInspector } from './moment-inspector';
 import { AddMomentSheet, RequestsSheet, ShiftSheet } from './day-sheets';
+import { StudioDay } from './studio-day';
+import { useMaker } from '../../launch/_components/maker-context';
 
 type SheetState =
   | { kind: 'add'; dateKey: string | null; startMin: number }
@@ -160,6 +162,9 @@ export function ScheduleDay({
      the rail at once, laid on the stage canvases, and a removed moment leaves
      the rail as soon as its delete lands. The standalone page is unchanged. */
   const live = inspectorSlot !== null;
+  /* 🗓 The new Maker's Studio (`makerStagesStudioEnabled`): the day as the prototype's
+     timeline (`studio-day.tsx`) in place of the rail — the same state, writes and sheets. */
+  const studio = useMaker()?.stagesStudio === true && live;
   const [gone, setGone] = useState<ReadonlySet<string>>(() => new Set());
   const dayActions = useMemo(
     () => (live ? quietDayActions(actions, (id) => setGone((g) => new Set(g).add(id))) : actions),
@@ -487,6 +492,95 @@ export function ScheduleDay({
                 onRequests={() => setSheet({ kind: 'requests' })}
               />
             );
+
+  const addSheet = (
+      <AddMomentSheet
+        open={sheet?.kind === 'add'}
+        onClose={() => setSheet(null)}
+        eventId={eventId}
+        eventType={eventType}
+        dateKey={sheet?.kind === 'add' ? sheet.dateKey : null}
+        startMin={sheet?.kind === 'add' ? sheet.startMin : 14 * 60}
+        canStage={canStage}
+        nextMoment={
+          sheet?.kind === 'add'
+            ? (topLevel
+                .filter(
+                  (m) =>
+                    wallDateKey(m.start_at) === sheet.dateKey && wallMinutes(m.start_at) >= sheet.startMin,
+                )
+                .sort((a, b) => wallMinutes(a.start_at) - wallMinutes(b.start_at))[0] ?? null)
+            : null
+        }
+      />
+  );
+
+  if (studio) {
+    return (
+      <DayActionsContext.Provider value={dayActions}>
+        <StudioDay
+          eventId={eventId}
+          dateKey={lastDateKey}
+          moments={topLevel}
+          canEdit={canEdit}
+          notice={notice}
+          onPatch={(id, patch, send) => {
+            override(id, patch);
+            write([id], send);
+          }}
+          onAdd={() => openAdd(lastDateKey, topLevel.length ? Math.min(lastEnd, 23 * 60) : 14 * 60)}
+          onMore={(id) => setSelectedId(id)}
+        />
+        {/* ⋯ — the shipped inspector (length, notes, show to guests, suppliers, remove): a desk keeps it in
+            Details' right column, as the rail did; a phone opens it from the bottom. */}
+        {isDesktop && inspectorSlot ? <InSlot id={inspectorSlot}>{side}</InSlot> : null}
+        <Sheet open={selected !== null && !isDesktop} onClose={() => setSelectedId(null)} labelledById="studio-moment-more" rise>
+          {selected ? (
+            <div className="pb-4 pt-2" data-studio-moment-sheet="">
+              <h2 id="studio-moment-more" className="sr-only">
+                {selected.label}
+              </h2>
+              <MomentInspector
+                key={selected.block_id}
+                eventId={eventId}
+                eventType={eventType}
+                moment={selected}
+                parts={partsOf.get(selected.block_id) ?? []}
+                suppliers={suppliers}
+                rosEnabled={rosEnabled}
+                canEdit={canEdit}
+                canStage={canStage}
+                request={requests.find((r) => r.block_id === selected.block_id) ?? null}
+                onClose={() => setSelectedId(null)}
+                onShift={() => setSheet({ kind: 'shift', fromId: selected.block_id })}
+                onOpenRequests={() => setSheet({ kind: 'requests' })}
+                onDeleted={() => setSelectedId(null)}
+                onOverride={override}
+                onRevert={revert}
+                onConfirm={confirm}
+                live={live}
+              />
+            </div>
+          ) : null}
+        </Sheet>
+        {addSheet}
+        <ShiftSheet
+          open={sheet?.kind === 'shift'}
+          onClose={() => setSheet(null)}
+          eventId={eventId}
+          moments={merged}
+          fromId={sheet?.kind === 'shift' ? sheet.fromId : null}
+        />
+        <RequestsSheet
+          open={sheet?.kind === 'requests'}
+          onClose={() => setSheet(null)}
+          eventId={eventId}
+          requests={requests}
+          moments={merged}
+        />
+      </DayActionsContext.Provider>
+    );
+  }
 
   return (
     <DayActionsContext.Provider value={dayActions}>
@@ -939,25 +1033,7 @@ export function ScheduleDay({
         </div>
       ) : null}
 
-      <AddMomentSheet
-        open={sheet?.kind === 'add'}
-        onClose={() => setSheet(null)}
-        eventId={eventId}
-        eventType={eventType}
-        dateKey={sheet?.kind === 'add' ? sheet.dateKey : null}
-        startMin={sheet?.kind === 'add' ? sheet.startMin : 14 * 60}
-        canStage={canStage}
-        nextMoment={
-          sheet?.kind === 'add'
-            ? (topLevel
-                .filter(
-                  (m) =>
-                    wallDateKey(m.start_at) === sheet.dateKey && wallMinutes(m.start_at) >= sheet.startMin,
-                )
-                .sort((a, b) => wallMinutes(a.start_at) - wallMinutes(b.start_at))[0] ?? null)
-            : null
-        }
-      />
+      {addSheet}
       <ShiftSheet
         open={sheet?.kind === 'shift'}
         onClose={() => setSheet(null)}

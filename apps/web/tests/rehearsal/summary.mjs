@@ -90,8 +90,8 @@ if (upload.length > 0) {
   say('<details><summary>Commits in this upload</summary>');
   say();
   say('```');
-  for (const l of upload.slice(0, 300)) say(l);
-  if (upload.length > 300) say(`… and ${upload.length - 300} more`);
+  for (const l of upload.slice(0, 150)) say(l);
+  if (upload.length > 150) say(`… and ${upload.length - 150} more (the full list is in diagnostics/in-this-upload.txt)`);
   say('```');
   say('</details>');
   say();

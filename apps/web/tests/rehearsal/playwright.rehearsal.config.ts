@@ -26,6 +26,7 @@ export default defineConfig({
   use: {
     ...devices['Pixel 5'],
     viewport: { width: 375, height: 812 },
+    deviceScaleFactor: 2,
     baseURL: process.env.REHEARSAL_BASE_URL || 'http://localhost:3000',
     headless: true,
     locale: 'en-PH',

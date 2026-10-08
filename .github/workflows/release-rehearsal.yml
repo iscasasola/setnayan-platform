@@ -314,7 +314,7 @@ jobs:
 
       - name: Reuse an identical build
         id: buildcache
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: |
             apps/web/.next
@@ -329,6 +329,18 @@ jobs:
           t0=$(date +%s)
           pnpm --filter @setnayan/web build
           echo "build_seconds=$(( $(date +%s) - t0 ))" >> "$REHEARSAL_OUT/timings.env"
+
+      # Saved straight after the build, not at the end of the job: a rehearsal
+      # that goes red at the walk is exactly the one that gets run again.
+      - name: Keep the build for a re-run
+        if: steps.buildcache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            apps/web/.next
+            !apps/web/.next/cache
+            apps/web/public/sw.js
+          key: rehearsal-build-${{ steps.buildkey.outputs.key }}
 
       - name: Note a reused build
         if: steps.buildcache.outputs.cache-hit == 'true'
@@ -393,7 +405,9 @@ jobs:
         run: |
           set -uo pipefail
           mkdir -p "$REHEARSAL_OUT/screens"
-          curl -sf http://127.0.0.1:54320/__rehearsal/report > "$REHEARSAL_OUT/requests.json" || true
+          # Asking for the report makes the counter write requests.json itself.
+          # (Never redirect this INTO that file: two writers, one corrupt file.)
+          curl -sf http://127.0.0.1:54320/__rehearsal/report -o /dev/null || true
           PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc \
             "select count(*) from rehearsal.swallowed_http" > "$REHEARSAL_OUT/swallowed-http.txt" 2>/dev/null || true
           echo "finished=$(date +%s)" >> "$REHEARSAL_OUT/timings.env"

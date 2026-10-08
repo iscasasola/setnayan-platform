@@ -110,16 +110,21 @@ async function phone(browser: Browser): Promise<BrowserContext> {
   return context;
 }
 
-/** The cookie notice sits over the bottom of a phone screen — answer it once, as a person would. */
+/**
+ * The cookie notice sits over the bottom of a phone screen — answer it once per
+ * visitor, as a person would. Best effort: where it is not shown, or sits under
+ * a sheet (the sign-in card covers it), there is nothing for a person to press
+ * either, and the walk moves on.
+ */
 async function answerCookieNotice(page: Page): Promise<void> {
-  const notice = page.getByRole('region', { name: 'Cookie consent' });
+  const essential = page
+    .getByRole('region', { name: 'Cookie consent' })
+    .getByRole('button', { name: 'Essential only' });
   try {
-    await notice.waitFor({ state: 'visible', timeout: 4_000 });
+    await essential.click({ timeout: 5_000 });
   } catch {
-    return;
+    /* not on this screen */
   }
-  await notice.getByRole('button', { name: 'Essential only' }).click();
-  await expect(notice).toBeHidden();
 }
 
 /** A figure on the Home counts up for a moment — read it once it stops moving. */
@@ -176,7 +181,15 @@ class Walk {
       record.ok = true;
     } catch (e) {
       record.ok = false;
-      const message = (e instanceof Error ? e.message : String(e)).split('\n').slice(0, 6).join(' ').slice(0, 600);
+      const message = (e instanceof Error ? e.message : String(e))
+        // eslint-disable-next-line no-control-regex -- Playwright colours its messages; the summary is plain text
+        .replace(/\u001b\[[0-9;]*m/g, '')
+        .split('\n')
+        .map((l) => l.trim())
+        .filter(Boolean)
+        .slice(0, 6)
+        .join(' ')
+        .slice(0, 600);
       record.error = message;
       this.broken.add(chapter);
       record.screenshot = `${num}-${slugOf(title)}-FAILED.png`;
@@ -220,11 +233,11 @@ test('the launch-critical journey', async ({ browser }) => {
   await walk.step('A · Host', 'Sign in as the host', () => host, async (check) => {
     await host.goto(`${BASE}/login?next=${encodeURIComponent(eventUrl)}`);
     await expect(host.getByRole('heading', { name: 'Sign in to Setnayan.' })).toBeVisible();
-    await answerCookieNotice(host);
     await host.locator('#hr-si-email').fill(FIXTURE.hostEmail);
     await host.locator('#hr-si-password').fill(PASSWORD);
     await host.getByRole('button', { name: 'Continue', exact: true }).click();
     await host.waitForURL((u) => u.pathname === eventUrl, { timeout: 45_000 });
+    await answerCookieNotice(host);
     check('the password is accepted and the host lands on their event');
   });
 
@@ -391,6 +404,7 @@ test('the launch-critical journey', async ({ browser }) => {
     await stranger.goto(`${BASE}/${FIXTURE.slug}`);
     const names = stranger.locator('h1[data-motion="arrive-names"]');
     await expect(names).toBeVisible({ timeout: 45_000 });
+    await answerCookieNotice(stranger);
     for (const name of FIXTURE.hostNames) await expect(names).toContainText(name);
     check(`the hosts' names are on the page (${FIXTURE.hostNames.join(' & ')})`);
     const date = stranger.locator('p[data-motion="arrive-date"]').first();

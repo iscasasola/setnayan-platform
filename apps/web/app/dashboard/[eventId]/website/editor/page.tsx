@@ -41,7 +41,6 @@ import { ButtonsLookRow, ColorsPanel, HeroFrameSync, MainBackgroundPanel, ProLoc
 import { sanitizeSiteRoles } from '@/lib/site-roles';
 import { elementsWears } from '@/lib/site-role-look';
 import { sanitizeHubFontKey } from '@/lib/hub-fonts';
-import { hubThemePageTokens } from '@/lib/hub-theme-tokens';
 import { HUB_TRANSITION_LABEL, resolveTransition } from '@/lib/hub-scenes';
 /* 🔴 `done`/`todo` come from `rail-rows.ts`, NOT from `editor-shell.tsx`. That
    file is `'use client'`, and calling a client export from this server page is
@@ -1009,12 +1008,14 @@ export default async function WebsiteEditorPage({
            without the roles) — never a second derivation. Free. */
         (() => {
           const palette = (drafted as { role_palette?: unknown }).role_palette;
-          const theme = dressedTheme(currentThemeId, palette);
           const worn = guestLookFrom(
             { ...(drafted as Record<string, unknown>), site_roles: null } as unknown as EventShellRow,
             { theme: currentThemeId, accent: '#000000', monogram: '' },
             true,
           );
+          /* The page as its buttons are measured, and the theme's colours as the Mood Board dresses them — the two resolvers. */
+          const page = hubButtonPage(dressedTheme(currentThemeId, palette), worn.vars);
+          const colours = themeColours(currentThemeId, palette).colours;
           return {
             key: 'roles',
             label: 'Fonts and colours by role',
@@ -1033,7 +1034,8 @@ export default async function WebsiteEditorPage({
                   theme: currentThemeId,
                   vars: worn.vars,
                   buttonVars: worn.buttons?.vars ?? null,
-                  tokens: { paper: theme.palette.canvas, ink: theme.palette.ink, accent: theme.palette.accent, cta: hubThemePageTokens(theme).cta },
+                  page: { paper: page.grounds[0]!, fill: page.fill },
+                  tokens: { ink: colours.ink, accent: colours.accent },
                 })}
                 names={(drafted.display_name as string | null) ?? null}
               />

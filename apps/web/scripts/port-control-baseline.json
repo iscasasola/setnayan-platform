@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "cb6014018",
+  "generatedFromRef": "c46974d38",
   "routeCount": 428,
   "destinations": 954,
   "actions": 671,
-  "blocks": 5700,
+  "blocks": 5707,
   "routes": {
     "/": {
       "files": [
@@ -6547,6 +6547,7 @@
         "dashboard/[eventId]/launch/_components/stage-tools.tsx",
         "dashboard/[eventId]/launch/_components/stages-studio-parts.tsx",
         "dashboard/[eventId]/launch/_components/studio-colour-field.tsx",
+        "dashboard/[eventId]/launch/_components/studio-elements.tsx",
         "dashboard/[eventId]/launch/_components/studio-event-name.tsx",
         "dashboard/[eventId]/launch/_components/studio-home.tsx",
         "dashboard/[eventId]/launch/_components/studio-tools.tsx",
@@ -6589,6 +6590,7 @@
         "AutoDraft",
         "Bar",
         "BeforeWeStartScreen",
+        "BgRow",
         "Box",
         "BufferedCanvasFrame",
         "CameraLook",
@@ -6674,6 +6676,7 @@
         "HeroPartSheet",
         "HubDraftDock",
         "HubDraftField",
+        "HubFontKey",
         "HubMainGround",
         "HubProOffer",
         "HubRow",
@@ -6831,6 +6834,8 @@
         "SheetSections",
         "Shown",
         "ShutDoor",
+        "SiteRole",
+        "SiteRoles",
         "SiteStage",
         "Sk",
         "SkLine",
@@ -6854,6 +6859,7 @@
         "StudioColourField",
         "StudioCover",
         "StudioEgifts",
+        "StudioElements",
         "StudioEventName",
         "StudioHeading",
         "StudioHome",
@@ -9363,6 +9369,7 @@
         "StillOverSwatch",
         "StoryPanel",
         "StudioColourField",
+        "StudioTool",
         "StyleCards",
         "StyleCarousel",
         "StyledSceneRow",
@@ -9786,7 +9793,8 @@
         "MakerRsvpStage",
         "MakerShell",
         "MakerWork",
-        "SiteChromePanel"
+        "SiteChromePanel",
+        "StudioElements"
       ]
     },
     "/dev/maker-lab/guest": {

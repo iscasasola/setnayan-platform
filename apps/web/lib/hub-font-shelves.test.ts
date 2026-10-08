@@ -225,6 +225,8 @@ test('5 · the sweep: only the one dropdown offers faces; every font picker moun
   assert.equal(at['part-inspector.tsx'], 1, 'a part’s Font row (scene parts, hero parts, a letter run)');
   assert.equal(at['maker-logo.tsx'], 1, 'the Logo text layer’s Typeface');
   assert.equal(at['pro-panels.tsx'], 1, 'the Colours row’s Typeface (site_font_key)');
+  /* 🔤 Elements by role (2026-10-08, the Look restudy row 3): Details · Buttons · Highlights each pick a font — ONE mount, drawn per role. */
+  assert.equal(at['studio-elements.tsx'], 1, 'a role’s Font ▾ (Details · Buttons · Eyebrows)');
   // The sweep can hit: a second list planted in a real file is caught.
   const planted = sweepFontPickers(['x.tsx'], () => "options={HUB_FONTS.map((f) => ({ key: f.key, fontFamily: hubFontPreviewStack(f.key) }))}");
   assert.ok(planted.length >= 2, 'the sweep catches a planted list');

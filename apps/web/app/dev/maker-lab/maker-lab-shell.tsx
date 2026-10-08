@@ -229,7 +229,8 @@ export function MakerLabShell({
             theme: 'house',
             vars: null,
             buttonVars: null,
-            tokens: { paper: house.palette.canvas, ink: house.palette.ink, accent: house.palette.accent, cta: house.palette.accent },
+            page: { paper: hubButtonPage(house, null).grounds[0]!, fill: hubButtonPage(house, null).fill },
+            tokens: { ink: house.palette.ink, accent: house.palette.accent },
           })}
           names="Maria & Jose"
           draftAction={labDraft as never}

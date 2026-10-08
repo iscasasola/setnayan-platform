@@ -318,9 +318,8 @@ export function guestLookFrom(
      Nothing stored → `{}` and no mark: the bag is exactly what it was. Free. */
   const roles = sanitizeSiteRoles((event as { site_roles?: unknown }).site_roles);
   if (roles) {
-    const paper = vars?.['--color-cream'];
-    const paperHex = paper ? `#${paper.trim().split(/\s+/).map((n) => Number(n).toString(16).padStart(2, '0')).join('')}` : dressed.palette.canvas;
-    vars = { ...(vars ?? {}), ...siteRoleVars(roles, { paper: paperHex }) };
+    /* The paper the page paints — the ONE reading of it (`hubButtonPage`, the same the buttons are measured on). */
+    vars = { ...(vars ?? {}), ...siteRoleVars(roles, { paper: hubButtonPage(dressed, vars).grounds[0]! }) };
   }
 
   // 🔒 LAST: the plate keeps an ink that reads on the plate paper every layer
@@ -343,8 +342,8 @@ export function guestLookFrom(
     art: event.site_art_direction === 'candlelight' ? 'candlelight' : null,
     accent: hub.accent,
     vars: painted,
-    roles: siteRoleMarks(roles),
     buttons,
+    roles: siteRoleMarks(roles),
     colours: dressed.palette,
     ombre,
   };

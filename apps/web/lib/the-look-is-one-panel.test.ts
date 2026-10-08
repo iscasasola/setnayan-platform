@@ -114,7 +114,8 @@ test('(1) Look draws Background · Elements · Music, in that order, each with i
   // Every part belongs to exactly ONE section — a control is never drawn twice, never dropped.
   assert.deepEqual(LOOK_SECTIONS.flatMap((k) => [...LOOK_SECTION_PARTS[k]]).sort(), [...LOOK_PARTS].sort());
   assert.deepEqual(LOOK_SECTION_PARTS.background, ['background', 'page', 'video'], 'the page fill and the hero video are not Background’s');
-  assert.deepEqual(LOOK_SECTION_PARTS.elements, ['colours', 'font', 'buttons']);
+  /* `roles` joined 2026-10-08 (restudy row 3): the Studio's role rows, which hold Font and Buttons there — `elements-are-roles.test.ts`. */
+  assert.deepEqual(LOOK_SECTION_PARTS.elements, ['roles', 'colours', 'font', 'buttons']);
   assert.deepEqual(LOOK_SECTION_PARTS.music, ['music'], 'Music holds something that is not music');
   const html = await paintPanel(ALL);
   assert.deepEqual(sectionsOf(html), ['background', 'elements', 'music'], 'the sections are out of order');
@@ -262,9 +263,9 @@ test('(3) the SAME rows move into Look, and their old places no longer hold them
     assert.ok(isLookRow(row));
   }
   assert.match(work, /look: \{\s*background: backgroundNode,\s*font: fontNode,\s*colours: coloursNode,\s*palette:/);
-  assert.match(work, /buttons: buttonsNode,\s*music: musicNode,\s*page: pageNode,\s*video: videoNode,\s*\},\s*\}\);/, 'Look › Buttons / Music / the page fill / the hero video is not the row the page built');
+  assert.match(work, /buttons: buttonsNode,\s*music: musicNode,\s*page: pageNode,\s*video: videoNode,\s*roles: rolesNode,\s*\},\s*\}\);/, 'Look › Buttons / Music / the page fill / the hero video / the role rows is not the row the page built');
   // …and Look is told again when either of the two moved rows changes.
-  assert.match(work, /\[setLookPages, madeOnce, backgroundNode, fontNode, coloursNode, buttonsNode, musicNode, pageNode, videoNode,/);
+  assert.match(work, /\[setLookPages, madeOnce, backgroundNode, fontNode, coloursNode, buttonsNode, musicNode, pageNode, videoNode, rolesNode,/);
   // The 🎵 panel: the song alone — "backdrop" dropped (owner 2026-10-06, Background covers it).
   const mainRows = /const MAIN_ROWS = (\[[^\]]*\]);/.exec(work)?.[1];
   assert.equal(mainRows, "['music']", 'the Music panel still holds the backdrop or a Look row');

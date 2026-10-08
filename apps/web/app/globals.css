@@ -4327,7 +4327,7 @@ html.dark {
 }
 [data-hub-roles~='button'] :is(.button-primary, .button-secondary, [data-rsvp-answer]),
 [data-hub-roles~='button'] [data-arrival-action] a.bg-mulberry {
-  font-family: var(--hub-btn-font);
+  font-family: var(--hub-role-button-font);
 }
 [data-hub-roles~='heading'] :is(h1, h2, h3, .font-display):is(.text-ink, :not([class*='text-ink'], [class*='text-cream'], [class*='text-white'], [class*='text-terracotta'], [class*='text-gild'], [class*='text-mulberry'], [class*='text-success'], [class*='text-danger'])) {
   color: var(--hub-heading);

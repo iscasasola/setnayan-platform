@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition, type ReactNode } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
-import { hubFontPreviewStack, type HubFontKey } from '@/lib/hub-fonts';
+import type { HubFontKey } from '@/lib/hub-fonts';
 import type { InviteThemeId } from '@/lib/invite-themes';
 import { MAIN_COLOUR_SLOTS as MOOD_COLOUR_NAMES } from '@/lib/colour-access';
 import { contrastRatio } from '@/lib/hub-legibility';
@@ -15,6 +15,7 @@ import {
   fontPairingWrite,
   fontPairings,
   siteRoleContrast,
+  siteRoleFaceStack,
   type ElementsWears,
 } from '@/lib/site-role-look';
 import { STUDIO_ROW_PICK } from '@/lib/studio-skin';
@@ -231,7 +232,7 @@ export function StudioElements({
             key: p.id,
             label: p.name,
             hint: p.faces,
-            ...(p.heading ? { fontFamily: hubFontPreviewStack(p.heading) } : {}),
+            ...(p.heading ? { fontFamily: siteRoleFaceStack(p.heading) } : {}),
           }))}
           onPick={(k) => {
             const p = pairings.find((x) => x.id === k);
@@ -257,14 +258,12 @@ export function StudioElements({
               <span className="w-[84px] shrink-0 text-[14px] text-ink">{SITE_ROLE_LABEL[role]}</span>
               <span
                 data-role-sample={role}
-                className="min-w-0 flex-1 truncate text-[15px] leading-tight"
+                className="min-w-0 flex-1 truncate rounded-md px-2 py-[3px] text-[15px] leading-tight"
                 style={{
-                  ...(face ? { fontFamily: hubFontPreviewStack(face) } : {}),
+                  ...(face ? { fontFamily: siteRoleFaceStack(face) } : {}),
                   /* Drawn on the page colour, so the sample is the pair the badge measures. */
                   color: role === 'button' ? wears.button.fg : colourOf[role],
                   backgroundColor: role === 'button' ? wears.button.bg : wears.paper,
-                  borderRadius: 6,
-                  padding: '3px 8px',
                 }}
               >
                 {role === 'heading' ? names || SAMPLE.heading : SAMPLE[role]}

@@ -42,7 +42,18 @@ import {
   siteRoleMarks,
   siteRoleVars,
 } from './site-role-look';
-import { HUB_DRAFT_EVENT_LABEL, HUB_DRAFT_LOOK_COLUMNS, eventColumnChange, eventItemIsPro, sanitizeHubDraftEventValue } from './hub-draft';
+import {
+  HUB_DRAFT_EVENT_LABEL,
+  HUB_DRAFT_LOOK_COLUMNS,
+  emptyHubDraft,
+  eventColumnChange,
+  eventItemIsPro,
+  mergeHubDraft,
+  overlayHubDraftEvent,
+  planHubDraftApply,
+  sanitizeHubDraftEventValue,
+  undoHubDraft,
+} from './hub-draft';
 import { HUB_FREE_LOOK_EVENT_COLUMNS, hubColumnKind } from './hub-look-pro';
 import { HUB_DRAFT_EVENT_PLACE } from './hub-draft-change-lines';
 import { HUB_FONT_BY_KEY } from './hub-fonts';
@@ -112,7 +123,7 @@ test('(2) nothing set → nothing emitted; a role set → the variables and the 
     // The hover and pressed steps move AWAY from the paper — darker on a light page.
     '--color-terracotta-600': '149 115 66',
     '--color-terracotta-700': '128 100 57',
-    '--hub-btn-font': stack('jost'),
+    '--hub-role-button-font': stack('jost'),
     '--hub-heading': '#5b4a6b',
   });
   assert.equal(siteRoleMarks(roles), 'heading body button eyebrow');
@@ -152,6 +163,19 @@ test('(3) the draft holds the roles, counts a real change once, never asks Pro, 
   assert.equal(hubColumnKind('site_roles'), 'free-look');
   for (const change of ['add', 'change'] as const) assert.equal(eventItemIsPro('site_roles', a, change, null), false, 'a role’s font or colour is asked Pro');
   assert.deepEqual(HUB_DRAFT_EVENT_PLACE.site_roles, { place: 'Look', what: 'Elements' });
+  // The whole road, run: a pick merged into the draft is worn by the host's canvas, undone by Undo, and — for a
+  // couple WITHOUT Pro — written at Apply, never held.
+  const live = { events: { site_roles: null, site_font_key: null }, widgets: [] } as never;
+  const drafted = mergeHubDraft(emptyHubDraft(), { events: { site_roles: a } } as never);
+  assert.deepEqual((overlayHubDraftEvent({ site_roles: null }, drafted) as Record<string, unknown>).site_roles, sanitizeSiteRoles(a), 'the canvas does not wear the drafted roles');
+  assert.equal((overlayHubDraftEvent({ site_roles: null }, undoHubDraft(drafted)) as Record<string, unknown>).site_roles, null, 'Undo does not take the pick back');
+  const plan = planHubDraftApply(drafted, live, false);
+  assert.equal(plan.refused.length, 0, 'a role’s font or colour is held for Pro at Apply');
+  assert.deepEqual(plan.apply.map((i) => [(i as { column?: string }).column, (i as { value?: unknown }).value]), [['site_roles', sanitizeSiteRoles(a)]], 'Apply does not write the drafted roles');
+  // A pairing is ONE draft save of two columns — counted once each, both written, neither held.
+  const pair = planHubDraftApply(mergeHubDraft(emptyHubDraft(), { events: { site_font_key: 'bodoni', site_roles: { body: { font: 'cormorant' } } } } as never), live, false);
+  assert.deepEqual(pair.apply.map((i) => (i as { column?: string }).column).sort(), ['site_font_key', 'site_roles']);
+  assert.equal(pair.refused.length, 0);
   assert.equal(HUB_DRAFT_EVENT_LABEL.site_roles, 'Your fonts and colours by role');
 });
 
@@ -243,10 +267,10 @@ test('(6) the Studio draws Pairing ▾ and four role rows with an AA badge each;
   const { StudioElements } = await import(`../${L}/studio-elements`);
   const { LookPanel } = await import(`../${L}/details-look-pages`);
   const stub = (name: string) => React.createElement('div', { 'data-stub': name });
-  const wears = elementsWears({ theme: 'house', vars: null, buttonVars: null, tokens: { paper: '#ffffff', ink: '#2c2a29', accent: '#8a6a2f', cta: '#5b1a22' } });
+  const wears = elementsWears({ theme: 'house', vars: null, buttonVars: null, page: { paper: '#ffffff', fill: '#5b1a22' }, tokens: { ink: '#2c2a29', accent: '#8a6a2f' } });
   assert.deepEqual(wears, { paper: '#ffffff', ink: '#2c2a29', accent: '#8a6a2f', button: { fg: '#ffffff', bg: '#5b1a22' }, faces: { heading: 'cormorant', body: null, labels: 'cormorantsc' } });
   // Read off the page's OWN variables where the look sets them; an outline is measured over the page.
-  const set = elementsWears({ theme: 'velvet', vars: { '--color-cream': '30 34 41', '--color-ink': '246 241 231', '--color-terracotta': '201 163 106', '--color-mulberry': '1 2 3' }, buttonVars: { '--hub-btn-fill': 'transparent', '--hub-btn-label': '#c9a36a' }, tokens: { paper: '#000000', ink: '#000000', accent: '#000000', cta: '#000000' } });
+  const set = elementsWears({ theme: 'velvet', vars: { '--color-ink': '246 241 231', '--color-terracotta': '201 163 106' }, buttonVars: { '--hub-btn-fill': 'transparent', '--hub-btn-label': '#c9a36a' }, page: { paper: '#1e2229', fill: '#010203' }, tokens: { ink: '#000000', accent: '#000000' } });
   assert.deepEqual([set.paper, set.ink, set.accent, set.button], ['#1e2229', '#f6f1e7', '#c9a36a', { fg: '#c9a36a', bg: '#1e2229' }]);
   const props = { eventId: 'E1', headingFont: null, themeId: 'house' as const, five: ['#5b1a22', '#f7f2ec', '#c9a86a', '#fbfaf7', '#7a8b6f'], wears, names: 'Maria & Jose' };
   const look = { background: null, page: null, video: null, roles: null, colours: stub('colours'), palette: null, font: stub('font-pick'), buttons: stub('buttons-look'), music: null };
@@ -303,6 +327,8 @@ test('(6) the Studio draws Pairing ▾ and four role rows with an AA badge each;
   const page = read('app/dashboard/[eventId]/website/editor/page.tsx');
   assert.match(page, /key: 'roles',[\s\S]{0,400}<StudioTool\s+part="elements-roles"/);
   assert.match(page, /\{ \.\.\.\(drafted as Record<string, unknown>\), site_roles: null \} as unknown as EventShellRow,/, 'the defaults are measured WITH the roles on (a pick would become its own default)');
+  // …read off the page's two resolvers — never a theme's colours read around them.
+  assert.match(page, /const page = hubButtonPage\(dressedTheme\(currentThemeId, palette\), worn\.vars\);\s*const colours = themeColours\(currentThemeId, palette\)\.colours;/);
   assert.match(read(`${E}/editor-shell.tsx`), /const rolesNode = rows\[LOOK_ROW_OF\.roles\]\?\.node \?\? null;[\s\S]*?roles: rolesNode,/);
   assert.doesNotMatch(read(`${L}/details-lazy.tsx`), /studio-elements/, 'the role rows got a lazy door of their own (the Maker’s first load)');
 });

@@ -12,7 +12,7 @@
  *                        ground of its own re-sets for itself (`sceneLegibilityVars`)
  *   Highlights font   → `--font-mono` (eyebrows; + mark `eyebrow`)
  *              colour → `--color-terracotta` and its two steps (eyebrows · links)
- *   Buttons    font   → `--hub-btn-font` (+ mark `button`)
+ *   Buttons    font   → `--hub-role-button-font` (+ mark `button`)
  *   Headings   colour → `--hub-heading` (+ mark `heading`: the headings that
  *                        wear the PAGE's ink wear it instead — `globals.css`)
  *
@@ -45,6 +45,9 @@ function mix(hex: string, toward: 0 | 255, t: number): string {
 }
 const face = (key: HubFontKey) => `var(${HUB_FONT_BY_KEY[key].cssVar}), ${HUB_FONT_BY_KEY[key].fallback}`;
 
+/** A role's face as CSS — for the role's own sample in the Maker (the page gets it through `siteRoleVars`). */
+export const siteRoleFaceStack = face;
+
 /** The custom properties a page's roles add — `{}` when nothing is overridden. */
 export function siteRoleVars(roles: SiteRoles | null, page: { paper: string }): Record<string, string> {
   const vars: Record<string, string> = {};
@@ -59,7 +62,7 @@ export function siteRoleVars(roles: SiteRoles | null, page: { paper: string }): 
     vars['--color-terracotta-600'] = mix(roles.highlight.color, away, 0.12);
     vars['--color-terracotta-700'] = mix(roles.highlight.color, away, 0.24);
   }
-  if (roles.button?.font) vars['--hub-btn-font'] = face(roles.button.font);
+  if (roles.button?.font) vars['--hub-role-button-font'] = face(roles.button.font);
   if (roles.heading?.color) vars['--hub-heading'] = roles.heading.color;
   return vars;
 }
@@ -184,11 +187,13 @@ export function elementsWears(input: {
   vars: Record<string, string> | null;
   /** The resolved buttons' variables (`GuestLook.buttons?.vars`) — null = the theme's own button. */
   buttonVars: Record<string, string> | null;
-  /** The theme's own tokens, for whatever the look leaves to the stylesheet. */
-  tokens: { paper: string; ink: string; accent: string; cta: string };
+  /** The page as its buttons are measured (`hubButtonPage`): the paper they sit on and the fill they wear by default. */
+  page: { paper: string; fill: string };
+  /** The theme's colours as the Mood Board dresses them (`themeColours`), for what the look leaves to the stylesheet. */
+  tokens: { ink: string; accent: string };
 }): ElementsWears {
   const v = input.vars ?? {};
-  const paper = hexOfChannels(v['--color-cream'], input.tokens.paper);
+  const paper = input.page.paper;
   const ink = hexOfChannels(v['--color-ink'], input.tokens.ink);
   const accent = hexOfChannels(v['--color-terracotta'], input.tokens.accent);
   const b = input.buttonVars ?? {};
@@ -199,7 +204,7 @@ export function elementsWears(input: {
   const button =
     label && HEX6.test(label)
       ? { fg: label, bg: fill && HEX6.test(fill) ? fill : paper }
-      : { fg: paper, bg: hexOfChannels(v['--color-mulberry'], input.tokens.cta) };
+      : { fg: paper, bg: input.page.fill };
   const t = INVITE_THEMES[input.theme];
   return {
     paper,

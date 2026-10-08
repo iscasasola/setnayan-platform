@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { NextResponse } from 'next/server';
 import * as Sentry from '@sentry/nextjs';
 import { isPabuyaPublicRouteEnabled } from '@/lib/egift';
+import { formatCount } from '@/lib/format-number';
 import { readGuestSessionForEvent } from '@/lib/guest-one-path.server';
 import { recordGift } from '@/lib/gift-record.server';
 import { GIFT_NOT_ACCEPTING, GIFT_NOT_KEPT, GIFT_NOT_RECOGNISED, GIFT_SHOT_REFUSED, GIFT_TOO_FAST } from '@/lib/gift-record';
@@ -38,7 +39,8 @@ import { enforceRateLimit } from '@/lib/with-rate-limit';
  * refusal — none of them writes.
  */
 
-const MAX_SHOT_BYTES = 8 * 1024 * 1024; // the guest upload route's own ceiling
+const MAX_SHOT_MB = 8; // the guest upload route's own ceiling
+const MAX_SHOT_BYTES = MAX_SHOT_MB * 1024 * 1024;
 const SHOT_MIME = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -72,7 +74,7 @@ export async function giftDoor(purpose: GiftPurpose, body: Record<string, unknow
     const sizeBytes = typeof body.sizeBytes === 'number' ? body.sizeBytes : NaN;
     if (!SHOT_MIME.has(baseType)) return said('Add a picture — a JPEG, PNG or WebP screenshot.', 400);
     if (!Number.isFinite(sizeBytes) || sizeBytes <= 0) return said(GIFT_SHOT_REFUSED, 400);
-    if (sizeBytes > MAX_SHOT_BYTES) return said(`That picture is too large — keep it under ${MAX_SHOT_BYTES / 1024 / 1024} MB.`, 413);
+    if (sizeBytes > MAX_SHOT_BYTES) return said(`That picture is too large — keep it under ${formatCount(MAX_SHOT_MB)} MB.`, 413);
 
     const burst = await enforceRateLimit('gift_shot', session.guest_id, SHOT_LIMIT);
     if (!burst.ok) return said(GIFT_TOO_FAST, 429);

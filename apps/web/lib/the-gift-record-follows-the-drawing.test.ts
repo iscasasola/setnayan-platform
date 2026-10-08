@@ -172,7 +172,7 @@ test('5 · 🔒 the picture goes to the guest’s own PRIVATE folder, minted by 
   assert.doesNotMatch(door, /R2_BUCKETS\.media|publicUrl|publicBucket/i);
   // Picture types only, and the upload route's own size.
   assert.match(door, /const SHOT_MIME = new Set\(\['image\/jpeg', 'image\/png', 'image\/webp'\]\);/);
-  assert.match(door, /const MAX_SHOT_BYTES = 8 \* 1024 \* 1024;/);
+  assert.match(door, /const MAX_SHOT_MB = 8; const MAX_SHOT_BYTES = MAX_SHOT_MB \* 1024 \* 1024;/);
   assert.match(door, /if \(sizeBytes > MAX_SHOT_BYTES\) return said\(/);
 
   // The policies the record write and every later read/delete hold it to — run, not read.

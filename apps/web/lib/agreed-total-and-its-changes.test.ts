@@ -837,7 +837,9 @@ const ENTRY_CALLERS: Record<string, { folds: string[]; readsNoPrice: string[] }>
   // categories this event type books. No pick, so no agreed total to print.
   buildShortlistFolders: {
     folds: ['app/dashboard/[eventId]/vendors/page.tsx'],
-    readsNoPrice: ['app/dashboard/[eventId]/vendors/categories/page.tsx'],
+    // `/dev/suppliers-lab` draws the real Find body on FIXTURE rows — no event,
+    // no database, 404 in production. No couple's agreed total is on it.
+    readsNoPrice: ['app/dashboard/[eventId]/vendors/categories/page.tsx', 'app/dev/suppliers-lab/page.tsx'],
   },
   buildPlanBudgetModel: { folds: ['app/dashboard/[eventId]/vendors/page.tsx'], readsNoPrice: [] },
   bucketVendorsByGroup: {
@@ -848,6 +850,8 @@ const ENTRY_CALLERS: Record<string, { folds: string[]; readsNoPrice: string[] }>
 
 /** NOT A PRICE SHOWN TO A PERSON — each with the reason that makes it so. */
 const NOT_A_PRICE_SHOWN: Record<string, string> = {
+  'app/dev/suppliers-lab/fixtures.ts':
+    'FIXTURE rows for /dev/suppliers-lab (no event, no database, 404 in production) — typed in the lab, never read from event_vendors',
   'app/dashboard/[eventId]/_components/new-manual-vendor-modal.tsx':
     'WRITES the typed price into the form; shows nothing back',
   'app/dashboard/[eventId]/vendors/_components/self-added-price.tsx':

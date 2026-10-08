@@ -739,9 +739,23 @@ export function GuestsScreen(props: GuestsScreenProps) {
                 <span>
                   · <b><Count value={stats.none} id="gs-none" /></b> {RSVP_ROW_WORDS.pending.toLowerCase()}
                 </span>
-                <span className={styles.wine}>
-                  · <b><Count value={stats.toInvite} id="gs-toinv" /></b> to invite
-                </span>
+                {/* 🚪 "N TO INVITE" IS A DOOR (controller 2026-10-08: from the List — the tab people
+                    land on — there was no way to start sending). It opens the ONE send run, the very
+                    place Setup's "Send to N" opens (`guest-setup-rows.tsx` → `/guests/send`); the two
+                    are held equal by `counts-equal-the-rows.test.ts`. With nobody left to invite it is
+                    plain words, never a dead link. A refused read draws none of this line. */}
+                {stats.toInvite > 0 ? (
+                  <span className={styles.wine}>
+                    ·{' '}
+                    <Link href={`/dashboard/${eventId}/guests/send`} className={styles.countsDoor} data-roster-to-invite="door">
+                      <b><Count value={stats.toInvite} id="gs-toinv" /></b> to invite
+                    </Link>
+                  </span>
+                ) : (
+                  <span className={styles.wine} data-roster-to-invite="words">
+                    · <b><Count value={stats.toInvite} id="gs-toinv" /></b> to invite
+                  </span>
+                )}
                 {q ? (
                   <span className={styles.mute}>
                     · <Count value={shown} id="gs-shown" /> of {formatCount(stats.total)} shown

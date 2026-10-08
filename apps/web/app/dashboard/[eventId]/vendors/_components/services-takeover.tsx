@@ -108,7 +108,17 @@ const SECTION_HEADING: Record<BudgetBuildTab, string> = {
  *  measured (as the prototype measures it). */
 const LANDING_CSS =
   '[data-budget-build-takeover] .slcat [id^="slfold-"],[data-budget-build-takeover] .slcat [id^="sltile-"]{scroll-margin-top:calc(var(--stick-h,150px) + 14px)}' +
-  '[data-budget-build-takeover] [id^="svc-"]{scroll-margin-top:calc(var(--stick-h,150px) + 8px)}';
+  '[data-budget-build-takeover] [id^="svc-"]{scroll-margin-top:calc(var(--stick-h,150px) + 8px)}' +
+  // THE PINNED BLOCK TRAVELS WITH THE APP'S TOP BAR. On a phone the bar slides
+  // away as the page scrolls down and back as it scrolls up — `.fd-topwrap` in
+  // `frontdoor/front-door.css`: `transform 0.3s ease-out`, with no
+  // reduced-motion exception. The block's `top` follows the bar's height, so it
+  // must move for the SAME time on the SAME curve, always: it ran on Tailwind's
+  // `ease-out` (a different, faster curve) and stood still under reduced
+  // motion, and each time the bar came back the block reached its place first —
+  // leaving a strip between the bar and the date line where the rows behind
+  // showed through (controller's walk at 375, 2026-10-08).
+  '[data-suppliers-stick]{transition:top .3s ease-out,box-shadow .3s ease-out}';
 
 function prefersReducedMotion(): boolean {
   return (
@@ -317,7 +327,7 @@ export function ServicesTakeover({
       <div
         ref={stickRef}
         data-suppliers-stick=""
-        className="sn-ambient sticky top-[var(--sup-top,0px)] z-[15] -mx-4 px-4 pb-2 pt-2.5 transition-[top,box-shadow] duration-300 ease-out data-[stuck]:shadow-[0_1px_0_rgb(var(--color-ink)/0.1)] motion-reduce:transition-none sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
+        className="sn-ambient sticky top-[var(--sup-top,0px)] z-[15] -mx-4 px-4 pb-2 pt-2.5 data-[stuck]:shadow-[0_1px_0_rgb(var(--color-ink)/0.1)] sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
       >
         {factsSlot}
         <div className="mt-2.5 flex">

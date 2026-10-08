@@ -100,6 +100,20 @@
 .mute {
   color: var(--gs-mute);
 }
+/* "N to invite" as a door to the one send run: the line's own words, underlined, with a
+   44px thumb target drawn around them so the line itself does not grow. */
+.countsDoor {
+  position: relative;
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+.countsDoor::after {
+  content: '';
+  position: absolute;
+  inset: -14px -6px;
+}
 .meter {
   position: relative;
   height: 6px;

@@ -309,6 +309,13 @@ const SLCAT_CSS = `
    unfolds a beat later (the prototype's 420 ms / 120 ms). */
 .slcat .fold.flat .fold-collapse>.fold-body{overflow:visible}
 .slcat .fold.flat .cat.open>.cat-head-row{position:sticky;top:var(--stick-h,150px);z-index:3;background:#F7F5F0;box-shadow:0 1px 0 var(--line-soft)}
+/* …and it MOVES WITH the app's top bar. On a phone that bar slides away as the
+   page scrolls down and back as it scrolls up ('.fd-topwrap': transform .3s
+   ease-out), and '--stick-h' changes in the same instant. A head that jumped to
+   its new place while the bar was still sliding left a strip of the list
+   showing between the pinned block and the head (controller's walk at 375,
+   2026-10-08). Same duration, same curve as the bar, so they travel as one. */
+.slcat .fold.flat .cat.open>.cat-head-row{transition:top .3s ease-out}
 html.dark .slcat .fold.flat .cat.open>.cat-head-row{background:#17160F}
 .slcat .fold.flat .cat.open .cat-collapse{transition-delay:.12s}
 .slcat .fold.flat .cat.open .cat-ic{animation:slcat-pop 420ms var(--ease)}
@@ -322,6 +329,11 @@ html.dark .slcat .fold.flat .cat.open>.cat-head-row{background:#17160F}
    came back with is said on its own line under the row. */
 .slcat .verbs{position:relative;display:flex;flex-wrap:nowrap;align-items:center;gap:6px;min-width:0;margin-top:3px}
 .slcat .verbs .verb-slot{display:contents}
+/* ONE HEIGHT. 'globals.css' gives every <button> a 44 px floor, and a link has
+   none — so in one row "Pay" (a link) drew 40 px tall beside "Your record" (a
+   button) at 44 (controller's walk at 375, 2026-10-08). The button rule is a
+   40 px pill, whatever the element. */
+.slcat .ab{min-height:40px}
 .slcat .verb-err,.slcat .verb-ok{margin:4px 0 0;font-size:11.5px;line-height:1.35;color:var(--ink-soft)}
 .slcat .verb-err{color:rgb(var(--color-danger))}
 .slcat .verbs .verb-err,.slcat .verbs .verb-slot>p,.slcat .verbs .verb-slot>span{position:absolute;left:0;right:0;top:100%;margin:4px 0 0;font-size:11.5px;line-height:1.35}
@@ -1922,6 +1934,8 @@ function MoreToCompare({
   onSeeAll: () => void;
 }) {
   const router = useRouter();
+  // A ref, so the lab's stand-in is never a reason to ask again.
+  const standInRef = useRef(useContext(MoreRowStandInCtx));
   const { groupId: moreGroupId } = benchSearchScopeForTile(tile);
   const moreTile = tile;
   // True from the first paint: the request starts in the effect below, and an
@@ -1948,7 +1962,10 @@ function MoreToCompare({
     setMoreLoading(true);
     setMoreError(null);
     const handle = window.setTimeout(() => {
-      fetchInlineMoreRow({ eventId, groupId: moreGroupId, tile: moreTile, query: moreQ })
+      (standInRef.current
+        ? standInRef.current({ eventId, groupId: moreGroupId, tile: moreTile, query: moreQ })
+        : fetchInlineMoreRow({ eventId, groupId: moreGroupId, tile: moreTile, query: moreQ })
+      )
         .then((res) => {
           if (cancelled) return;
           setMoreRows(res.results);
@@ -2192,6 +2209,17 @@ function MoreToCompare({
 }
 
 const NO_PAY_DUE: Readonly<Record<string, string>> = {};
+
+/**
+ * A STAND-IN FOR THE MARKETPLACE READ — `/dev/suppliers-lab` only. The lab has
+ * no session and no database, so "More to compare" would only ever draw its
+ * "couldn't load" line there; the lab hands in fixture rows through this.
+ * `null` everywhere else (the default): the real page always calls
+ * `fetchInlineMoreRow`.
+ */
+export const MoreRowStandInCtx = createContext<
+  null | ((input: Parameters<typeof fetchInlineMoreRow>[0]) => ReturnType<typeof fetchInlineMoreRow>)
+>(null);
 
 export function ShortlistCategories({
   folders,

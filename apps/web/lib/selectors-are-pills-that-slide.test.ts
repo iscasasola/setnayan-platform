@@ -108,7 +108,7 @@ function choice(x: number, w: number, attrs: Record<string, string> = {}, extra:
 }
 function fakeTrack(choices: FakeChoice[]) {
   const marks: Record<string, string> = {};
-  const picked = (c: FakeChoice) => c.attrs['aria-pressed'] === 'true' || c.attrs['aria-current'] === 'page' || c.attrs['aria-selected'] === 'true';
+  const picked = (c: FakeChoice) => c.attrs['aria-pressed'] === 'true' || c.attrs['aria-current'] === 'page' || c.attrs['aria-selected'] === 'true' || c.attrs['aria-checked'] === 'true';
   return {
     marks,
     querySelectorAll: (sel: string) => (sel.includes('aria-pressed') ? choices.filter(picked) : choices.filter((c) => (c.tag === 'a' ? true : !c.disabled))),
@@ -214,6 +214,18 @@ test('(2) the thumb, RUN: on the picked choice at first paint with no slide-in, 
   createPillThumb(links, t2.el).place();
   assert.equal(t2.el.style.transform, 'translate(3px, 3px)');
 
+  // A RADIO GROUP says it with aria-checked="true" (role="radio" choices: Edit | Off | View) — the same thumb.
+  const radios = [choice(3, 60, { 'aria-checked': 'false' }), choice(65, 50, { 'aria-checked': 'true' }), choice(117, 64, { 'aria-checked': 'false' })];
+  const t5 = fakeThumb();
+  const radioThumb = createPillThumb(fakeTrack(radios), t5.el);
+  radioThumb.place();
+  assert.equal(t5.el.style.transform, 'translate(65px, 3px)', 'a radio group’s picked choice has no thumb');
+  assert.equal(t5.el.style.width, '50px');
+  radios[1]!.attrs['aria-checked'] = 'false';
+  radios[2]!.attrs['aria-checked'] = 'true';
+  radioThumb.place();
+  assert.equal(t5.el.style.transform, 'translate(117px, 3px)');
+
   // AN ICON'S FACE: the thumb lies on the 46 × 38 face inside the 44-px button.
   const tool = choice(47, 46, { 'aria-pressed': 'true' }, { offsetTop: 0, offsetHeight: 44, face: { offsetLeft: 0, offsetTop: 3, offsetWidth: 46, offsetHeight: 38 } });
   const t3 = fakeThumb();
@@ -242,10 +254,10 @@ test('(2) the thumb, RUN: on the picked choice at first paint with no slide-in, 
 
   // The component wires that behaviour to a pick and to a resize — and to nothing else.
   const src = read('app/_components/pill-thumb.tsx');
-  assert.match(src, /const PICKED = ':scope > \[aria-pressed="true"\], :scope > \[aria-current="page"\], :scope > \[aria-selected="true"\]';/);
+  assert.match(src, /const PICKED = ':scope > \[aria-pressed="true"\], :scope > \[aria-current="page"\], :scope > \[aria-selected="true"\], :scope > \[aria-checked="true"\]';/);
   assert.match(src, /useLayoutEffect\(/, 'the thumb is placed after paint — a frame in the wrong place');
   assert.match(src, /thumb\.place\(\);\s*const picks = new MutationObserver\(thumb\.place\);/);
-  assert.match(src, /attributeFilter: \['aria-pressed', 'aria-current', 'aria-selected'\]/, 'the thumb watches more than the pick — its own writes would wake it');
+  assert.match(src, /attributeFilter: \['aria-pressed', 'aria-current', 'aria-selected', 'aria-checked'\]/, 'the thumb watches more — or fewer — than the four ways a choice says it is picked');
   assert.match(src, /new ResizeObserver\(thumb\.place\)/, 'a rotated phone leaves the thumb where it was');
   assert.match(src, /return \(\) => \{[\s\S]*?thumb\.leave\(\);\s*\};/);
 });

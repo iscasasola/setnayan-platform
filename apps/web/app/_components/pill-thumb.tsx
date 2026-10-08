@@ -16,7 +16,8 @@ import { useLayoutEffect, useRef } from 'react';
  * ── ANY TRACK CAN WEAR IT ───────────────────────────────────────────────────
  * Put `<PillThumb />` FIRST inside a `position: relative` track (`PILL_TRACK_CLASS`) whose choices are its direct
  * children — buttons or links. Nothing is passed in: the picked choice is whichever child says so the way it
- * already does (`aria-pressed="true"`, `aria-current="page"` or `aria-selected="true"`). The thumb is ONE colour for
+ * already does (`aria-pressed="true"`, `aria-current="page"`, `aria-selected="true"`, or — a radio group's choice —
+ * `aria-checked="true"`). The thumb is ONE colour for
  * every selector — the terracotta — so no choice names a fill. A choice may add:
  *   · a child marked `data-seg-face` — the thumb lies on THAT box (an icon's 38-px face inside a 44-px button);
  *     the choice itself is then `position: relative`, as every choice wearing `pillSegClass` already is;
@@ -35,7 +36,7 @@ import { useLayoutEffect, useRef } from 'react';
  *   · moves focus with ← → (↑ ↓, Home, End) between the choices; Enter and Space press, as buttons do.
  * Transform and size only; no timer, no request, no dependency.
  */
-const PICKED = ':scope > [aria-pressed="true"], :scope > [aria-current="page"], :scope > [aria-selected="true"]';
+const PICKED = ':scope > [aria-pressed="true"], :scope > [aria-current="page"], :scope > [aria-selected="true"], :scope > [aria-checked="true"]';
 const CHOICES = ':scope > button:not(:disabled), :scope > a[href]';
 const FACE = '[data-seg-face]';
 
@@ -138,7 +139,7 @@ export function PillThumb() {
     const thumb = createPillThumb(track as unknown as PillTrackEl, el as unknown as PillThumbEl, () => document.activeElement);
     thumb.place();
     const picks = new MutationObserver(thumb.place);
-    picks.observe(track, { subtree: true, childList: true, attributes: true, attributeFilter: ['aria-pressed', 'aria-current', 'aria-selected'] });
+    picks.observe(track, { subtree: true, childList: true, attributes: true, attributeFilter: ['aria-pressed', 'aria-current', 'aria-selected', 'aria-checked'] });
     /* Re-measured at every size the track takes — never one cached width. */
     const size = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(thumb.place);
     size?.observe(track);

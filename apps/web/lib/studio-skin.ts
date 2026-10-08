@@ -52,9 +52,13 @@ export const STUDIO_ROW_SUB = 'mt-px block text-[11px] text-ink/50';
 export const STUDIO_ROW_COL = 'flex flex-col gap-0.5 border-t border-ink/10 py-2.5 first:border-t-0';
 export const STUDIO_ROW_COL_LABEL = 'text-[11px] font-semibold uppercase tracking-[0.14em] text-ink/50';
 
-/** `.sw` — the switch: green when on (46×28, a 22 px knob). */
+/**
+ * `.sw` — the switch (46×28, a 22 px knob). Its colours and its knob's landing are the app's ONE switch look,
+ * `.sn-switch` in `globals.css` (owner 2026-10-08: *"switch is teracota or greyed out"*): grey when off, the
+ * terracotta when on.
+ */
 export const STUDIO_SWITCH_TRACK =
-  "relative h-7 w-[46px] shrink-0 rounded-full bg-ink/20 transition-colors after:absolute after:left-[3px] after:top-[3px] after:h-[22px] after:w-[22px] after:rounded-full after:bg-white after:shadow after:transition-[left] after:content-[''] peer-checked:bg-success-600 peer-checked:after:left-[21px] peer-focus-visible:ring-2 peer-focus-visible:ring-success-600/40 peer-disabled:opacity-40";
+  "sn-switch relative h-7 w-[46px] shrink-0 rounded-full after:absolute after:left-[3px] after:top-[3px] after:h-[22px] after:w-[22px] after:rounded-full after:bg-white after:shadow after:transition-[left] after:content-[''] peer-checked:after:left-[21px] peer-focus-visible:ring-2 peer-focus-visible:ring-mulberry/40 peer-disabled:opacity-40";
 
 /** `.quiet` — the form's quiet rows at the very bottom (Restore · Reset · About). */
 export const STUDIO_QUIET_ROW = 'flex min-h-11 items-center justify-between gap-2.5 px-1.5 text-[13px] text-ink/50';

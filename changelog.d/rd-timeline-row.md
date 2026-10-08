@@ -67,3 +67,19 @@ Guard: test (6) of `studio-schedule-wears-the-timeline-row.test.ts` (5 sabotages
 seen red).
 
 SPEC IMPACT: None until the owner confirms where Place and For ▾ live.
+
+## 2026-10-08 · fix(love-story): a moment marked "Together" keeps its anchor
+
+`momentFromForm` (`lib/love-story-moment-intent.ts`) read a moment form's anchor
+as `'met' | 'yes'` — a list written before the third chapter anchor,
+"Together", was added on 2026-10-01. It is the ONLY writer of a moment's anchor
+(the server action and the Maker both go through it), so since that day a
+moment added or edited as "Together" was saved with NO anchor and sat in
+whatever chapter its date gave, while the sheet closed as if kept. It now asks
+the one list (`isMomentAnchor`). Stored stories are not repaired: nothing
+records which moment a couple meant — they pick "Together" again.
+
+Guard: `apps/web/lib/a-moment-keeps-its-anchor.test.ts` (3 tests, run for every
+anchor; seen red against the old line).
+
+SPEC IMPACT: None.

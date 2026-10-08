@@ -59,3 +59,13 @@ to input here"* · *"field follow form row style"*. Designer's map: `STUDIO_INFO
 
 SPEC IMPACT: None applied by this change. For the owner: the designer's four open questions were answered with the
 safe defaults (Who can view stays on Info; live/draft unchanged but the Opening line; date and venue quiet lines).
+
+## 2026-10-08 · fix(studio): Info — no bare "QR code" heading, a message's ✕ on its name's line, Go live under its name
+
+Seen on the review copy at 375 × 812 (controller + builder): with "More for guests" shut, a bare "QR code" heading
+showed under the fold with nothing beneath it (the QR had moved into the fold; the form's last field now holds only
+Restore · Reset… · About, with no heading). A long message's ✕ moves from under the box to the name's line, at the
+right — where every other row has it, and on screen with the keyboard up. The shipped Go live panel sits under its
+row's name at the row's whole width instead of squeezed beside it.
+
+SPEC IMPACT: None.

@@ -125,6 +125,9 @@ const INFO_FIELD = '[data-details-workspace] [data-details-form-field]:has([data
 const STUDIO_INFO_CSS =
   `${INFO_FIELD}{gap:0;padding-top:0;padding-bottom:0}` +
   `${INFO_FIELD} > [data-details-form-heading]{display:none}` +
+  /* The form's last field holds only the quiet rows now (Restore · Reset… · About — the QR moved into the fold): it
+     has no "QR code" heading over them (controller 2026-10-08: a bare heading with nothing under it). */
+  '[data-details-workspace] [data-details-editor]:has(> [data-studio-quiet]) > [data-details-form-heading]{display:none}' +
   /* Two lists of rows in one field (Special message, then What to bring): the hairline between rows, between lists too. */
   '[data-studio-info-rows] + [data-studio-info-rows]{border-top:1px solid rgb(var(--color-ink)/.1)}';
 const W = '[data-maker-studio-full] [data-details-workspace]';

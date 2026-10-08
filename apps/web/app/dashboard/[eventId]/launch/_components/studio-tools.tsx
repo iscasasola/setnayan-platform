@@ -548,9 +548,18 @@ export function StudioHubSettings({
           />
           {hub ? (
             <>
-              <FormRow data="go-live" name="Go live" attrs={{ 'data-studio-hub-row': 'go-live' }}>
-                <LaunchStdButton eventId={eventId} slug={slug} initialLaunched={hub.launched} initialScheduledAt={hub.scheduledAt} />
-              </FormRow>
+              {/* The shipped Go live is a panel of its own (Launch now · Schedule for later · Preview), not a pill: it
+                  sits UNDER the row's name, the row's whole width — never squeezed beside it. */}
+              <FormRow
+                data="go-live"
+                name="Go live"
+                attrs={{ 'data-studio-hub-row': 'go-live' }}
+                below={
+                  <div className="pb-3">
+                    <LaunchStdButton eventId={eventId} slug={slug} initialLaunched={hub.launched} initialScheduledAt={hub.scheduledAt} />
+                  </div>
+                }
+              />
               <ChosenRow
                 data="who-can-view"
                 name="Who can view"

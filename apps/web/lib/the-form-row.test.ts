@@ -211,6 +211,9 @@ test('(5) the open field, rendered: across the row with ONLY ✕ — no ✓; the
   assert.doesNotMatch(long, /<span class="flex rounded-full/);
   assert.equal(count(long, /<button/g), 1);
   assert.ok(long.indexOf('>Event name<') < long.indexOf('<textarea'), 'the long box is not under its name');
+  // Its ✕ is on the NAME's line, above the box — it stays on screen with the keyboard up.
+  assert.ok(long.indexOf('data-form-row-leave') < long.indexOf('<textarea'), 'the long box’s ✕ is under it (off screen behind a phone’s keyboard)');
+  assert.match(long, /<span class="flex items-center justify-between gap-2"><span id="n1"[^>]*>Event name<\/span><button type="button" aria-label="Leave it as it was"/);
   // The wiring of the two ways out, in the source.
   const src = read(ROW);
   assert.match(src, /onBlur: \(\) => end\('tap-out'\)/);

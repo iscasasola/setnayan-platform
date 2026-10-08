@@ -23,6 +23,7 @@ import { Hammer, Check, X, Clock } from 'lucide-react';
 import { haptic } from '@/lib/haptics';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { useSaveLoader } from '@/components/sd-loader';
+import { announceBuildAdded } from '@/lib/budget-build';
 import { setBuildPick, removeBuildPick } from '../build-pick-actions';
 
 const peso = (php: number | null | undefined) =>
@@ -68,10 +69,12 @@ export function AccordionBuildButton({
   const pin = () => {
     haptic('confirm');
     startTransition(async () => {
-      await save.run(
+      const added = await save.run(
         () => setBuildPick({ eventId, planGroupId: groupId, vendorId }),
         { steps: ['Pinning your pick'], hint: 'Saving' },
       );
+      // The cart peeks (the page's shell listens) — only for a pick that saved.
+      if (added.ok) announceBuildAdded({ name: vendorName, category: groupLabel });
       setConfirm(false);
     });
   };

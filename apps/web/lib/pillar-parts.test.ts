@@ -84,14 +84,21 @@ test('Your Team MOUNTS the shipped Budget page as its part, and offers it from t
   const page = read('vendors', 'page.tsx');
   assert.match(page, /import BudgetPage from '\.\.\/budget\/page'/, 'Budget is no longer the shipped page');
   assert.match(page, /if \(sp\.part === YOUR_TEAM_BUDGET_PART\)[\s\S]*?<BudgetPage[\s\S]*?part: YOUR_TEAM_BUDGET_PART/, 'the Budget part is not rendered, or does not tell the page it is embedded');
-  // ⚖ Owner 2026-10-03: Budget is a visible row of "Your planning" (it was
-  // behind ⋯ from 2026-10-01). Still the part from `yourTeamParts`, still a
-  // link to its own URL — only its place moved.
-  assert.match(page, /teamParts=\{teamParts\}/, 'the takeover lost the Your Team parts');
+  // ⚖ Owner 2026-10-07 (the one-screen Suppliers shell, PR1): the five-row
+  // "Your planning" menu is retired, so Budget is no longer a row of it. It
+  // is still the part from `lib/pillar-parts` and still a link to its own URL
+  // — offered from the Booked body, by the payments lens that sits under the
+  // team's rows (2026-10-03 → 2026-10-07: only its place moved).
+  assert.match(page, /budgetSlot=\{<MerkadoBudgetLens eventId=\{eventId\} \/>\}/, 'the Suppliers screen lost the payments lens');
   const takeover = read('vendors', '_components', 'services-takeover.tsx');
-  assert.match(takeover, /<PlanningList budgetHref=\{teamParts\?\.find\(\(p\) => p\.key === 'budget'\)\?\.href\}/, 'the takeover no longer offers the Budget part');
-  const list = read('vendors', '_components', 'planning-list.tsx');
-  assert.match(list, /<Link href=\{budgetHref\}/, 'the Your planning list no longer links Budget');
+  assert.match(
+    takeover,
+    /data-suppliers-body="booked"[\s\S]*?<ServiceSection tab="budget"[\s\S]*?\{budgetSlot \?\?/,
+    'the Booked body no longer holds the payments lens — the Budget part has no door on Suppliers',
+  );
+  const lens = read('vendors', '_components', 'merkado-budget-lens.tsx');
+  assert.match(lens, /const budgetHref = yourTeamBudgetHref\(eventId\);/, 'the lens no longer takes the Budget part’s own address');
+  assert.ok((lens.match(/href=\{budgetHref\}/g) ?? []).length >= 1, 'the lens no longer links the Budget part');
 });
 
 test('/budget lands in Your Team only where Your Team exists', () => {

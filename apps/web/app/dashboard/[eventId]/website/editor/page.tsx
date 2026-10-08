@@ -1013,9 +1013,9 @@ export default async function WebsiteEditorPage({
             { theme: currentThemeId, accent: '#000000', monogram: '' },
             true,
           );
-          /* The page as its buttons are measured, and the theme's colours as the Mood Board dresses them — the two resolvers. */
-          const page = hubButtonPage(dressedTheme(currentThemeId, palette), worn.vars);
-          const colours = themeColours(currentThemeId, palette).colours;
+          /* The theme as the Mood Board dresses it, and the page as its buttons are measured on it — the page's own resolvers. */
+          const dressed = dressedTheme(currentThemeId, palette);
+          const page = hubButtonPage(dressed, worn.vars);
           return {
             key: 'roles',
             label: 'Fonts and colours by role',
@@ -1031,11 +1031,10 @@ export default async function WebsiteEditorPage({
                 themeId={currentThemeId}
                 five={boardSiteColours(palette)?.swatches ?? []}
                 wears={elementsWears({
-                  theme: currentThemeId,
+                  theme: dressed,
                   vars: worn.vars,
                   buttonVars: worn.buttons?.vars ?? null,
                   page: { paper: page.grounds[0]!, fill: page.fill },
-                  tokens: { ink: colours.ink, accent: colours.accent },
                 })}
                 names={(drafted.display_name as string | null) ?? null}
               />

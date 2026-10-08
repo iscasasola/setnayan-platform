@@ -34,6 +34,7 @@ import { SITE_ROLES, SITE_ROLE_FIELDS, sanitizeSiteRoles, withSiteRole } from '.
 import {
   SITE_ROLE_AA,
   SITE_ROLE_LABEL,
+  HOUSE_ROOT,
   elementsWears,
   fontPairingOf,
   fontPairingWrite,
@@ -57,6 +58,7 @@ import {
 import { HUB_FREE_LOOK_EVENT_COLUMNS, hubColumnKind } from './hub-look-pro';
 import { HUB_DRAFT_EVENT_PLACE } from './hub-draft-change-lines';
 import { HUB_FONT_BY_KEY } from './hub-fonts';
+import { hubThemePageTokens } from './hub-theme-tokens';
 import { INVITE_THEMES, INVITE_THEME_IDS } from './invite-themes';
 import { LOOK_PARTS, LOOK_ROW_OF, LOOK_SECTION_PARTS } from './maker-look-sections';
 
@@ -267,10 +269,23 @@ test('(6) the Studio draws Pairing ▾ and four role rows with an AA badge each;
   const { StudioElements } = await import(`../${L}/studio-elements`);
   const { LookPanel } = await import(`../${L}/details-look-pages`);
   const stub = (name: string) => React.createElement('div', { 'data-stub': name });
-  const wears = elementsWears({ theme: 'house', vars: null, buttonVars: null, page: { paper: '#ffffff', fill: '#5b1a22' }, tokens: { ink: '#2c2a29', accent: '#8a6a2f' } });
-  assert.deepEqual(wears, { paper: '#ffffff', ink: '#2c2a29', accent: '#8a6a2f', button: { fg: '#ffffff', bg: '#5b1a22' }, faces: { heading: 'cormorant', body: null, labels: 'cormorantsc' } });
+  /* With nothing set by the look, each default is what the STYLESHEET gives the page — read through the page's own
+     token readers, and House's accent held equal to `globals.css`. */
+  const wears = elementsWears({ theme: INVITE_THEMES.house, vars: null, buttonVars: null, page: { paper: '#ffffff', fill: '#5b1a22' } });
+  assert.deepEqual(wears, { paper: '#ffffff', ink: HOUSE_ROOT.ink, accent: HOUSE_ROOT.accent, button: { fg: '#ffffff', bg: '#5b1a22' }, faces: { heading: 'cormorant', body: null, labels: 'cormorantsc' } });
+  const sheet = readFileSync(join(WEB, 'app/globals.css'), 'utf8');
+  const chan = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(' ');
+  assert.equal(/^\s*--color-ink:\s*(\d+ \d+ \d+);/m.exec(sheet)?.[1], chan(HOUSE_ROOT.ink), 'House’s ink default is not the one the stylesheet paints');
+  assert.equal(/^\s*--color-terracotta:\s*(\d+ \d+ \d+);/m.exec(sheet)?.[1], chan(HOUSE_ROOT.accent), 'House’s accent default is not the one the stylesheet paints');
+  const painted = elementsWears({ theme: INVITE_THEMES.abaca, vars: null, buttonVars: null, page: { paper: '#fbf0e4', fill: '#8b5333' } });
+  assert.equal(painted.accent, hubThemePageTokens(INVITE_THEMES.abaca).eyebrow);
+  assert.equal(painted.ink, hubThemePageTokens(INVITE_THEMES.abaca).ink);
+  // The defaults READ on the page they are the defaults of — a badge never accuses a page nobody changed.
+  for (const w of [wears, painted]) {
+    assert.ok(siteRoleContrast('heading', w.ink, w.paper).passes && siteRoleContrast('body', w.ink, w.paper).passes && siteRoleContrast('highlight', w.accent, w.paper).passes, 'a default is flagged AA ✗');
+  }
   // Read off the page's OWN variables where the look sets them; an outline is measured over the page.
-  const set = elementsWears({ theme: 'velvet', vars: { '--color-ink': '246 241 231', '--color-terracotta': '201 163 106' }, buttonVars: { '--hub-btn-fill': 'transparent', '--hub-btn-label': '#c9a36a' }, page: { paper: '#1e2229', fill: '#010203' }, tokens: { ink: '#000000', accent: '#000000' } });
+  const set = elementsWears({ theme: INVITE_THEMES.velvet, vars: { '--color-ink': '246 241 231', '--color-terracotta': '201 163 106' }, buttonVars: { '--hub-btn-fill': 'transparent', '--hub-btn-label': '#c9a36a' }, page: { paper: '#1e2229', fill: '#010203' } });
   assert.deepEqual([set.paper, set.ink, set.accent, set.button], ['#1e2229', '#f6f1e7', '#c9a36a', { fg: '#c9a36a', bg: '#1e2229' }]);
   const props = { eventId: 'E1', headingFont: null, themeId: 'house' as const, five: ['#5b1a22', '#f7f2ec', '#c9a86a', '#fbfaf7', '#7a8b6f'], wears, names: 'Maria & Jose' };
   const look = { background: null, page: null, video: null, roles: null, colours: stub('colours'), palette: null, font: stub('font-pick'), buttons: stub('buttons-look'), music: null };
@@ -328,7 +343,7 @@ test('(6) the Studio draws Pairing ▾ and four role rows with an AA badge each;
   assert.match(page, /key: 'roles',[\s\S]{0,400}<StudioTool\s+part="elements-roles"/);
   assert.match(page, /\{ \.\.\.\(drafted as Record<string, unknown>\), site_roles: null \} as unknown as EventShellRow,/, 'the defaults are measured WITH the roles on (a pick would become its own default)');
   // …read off the page's two resolvers — never a theme's colours read around them.
-  assert.match(page, /const page = hubButtonPage\(dressedTheme\(currentThemeId, palette\), worn\.vars\);\s*const colours = themeColours\(currentThemeId, palette\)\.colours;/);
+  assert.match(page, /const dressed = dressedTheme\(currentThemeId, palette\);\s*const page = hubButtonPage\(dressed, worn\.vars\);/);
   assert.match(read(`${E}/editor-shell.tsx`), /const rolesNode = rows\[LOOK_ROW_OF\.roles\]\?\.node \?\? null;[\s\S]*?roles: rolesNode,/);
   assert.doesNotMatch(read(`${L}/details-lazy.tsx`), /studio-elements/, 'the role rows got a lazy door of their own (the Maker’s first load)');
 });

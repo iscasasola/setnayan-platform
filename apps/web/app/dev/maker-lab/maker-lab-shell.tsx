@@ -226,11 +226,10 @@ export function MakerLabShell({
           themeId="house"
           five={['#5B1A22', '#F7F2EC', '#C9A86A', '#FBFAF7', '#7A8B6F']}
           wears={elementsWears({
-            theme: 'house',
+            theme: house,
             vars: null,
             buttonVars: null,
             page: { paper: hubButtonPage(house, null).grounds[0]!, fill: hubButtonPage(house, null).fill },
-            tokens: { ink: house.palette.ink, accent: house.palette.accent },
           })}
           names="Maria & Jose"
           draftAction={labDraft as never}

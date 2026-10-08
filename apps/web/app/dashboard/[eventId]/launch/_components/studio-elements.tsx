@@ -256,9 +256,10 @@ export function StudioElements({
               className="sn-press flex min-h-11 w-full items-center gap-2 text-left"
             >
               <span className="w-[84px] shrink-0 text-[14px] text-ink">{SITE_ROLE_LABEL[role]}</span>
+              <span className="flex min-w-0 flex-1">
               <span
                 data-role-sample={role}
-                className="min-w-0 flex-1 truncate rounded-md px-2 py-[3px] text-[15px] leading-tight"
+                className="min-w-0 truncate rounded-md px-2 py-[3px] text-[15px] leading-tight"
                 style={{
                   ...(face ? { fontFamily: siteRoleFaceStack(face) } : {}),
                   /* Drawn on the page colour, so the sample is the pair the badge measures. */
@@ -267,6 +268,7 @@ export function StudioElements({
                 }}
               >
                 {role === 'heading' ? names || SAMPLE.heading : SAMPLE[role]}
+              </span>
               </span>
               <span
                 data-role-aa={r.passes ? 'pass' : 'fail'}

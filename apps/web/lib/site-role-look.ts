@@ -26,7 +26,8 @@
  */
 import { contrastRatio } from '@/lib/hub-legibility';
 import { HUB_FONT_BY_KEY, HUB_FONTS, type HubFontKey } from '@/lib/hub-fonts';
-import { INVITE_THEMES, INVITE_THEME_IDS, type InviteThemeId } from '@/lib/invite-themes';
+import { INVITE_THEMES, INVITE_THEME_IDS, type InviteTheme, type InviteThemeId } from '@/lib/invite-themes';
+import { channels, hubThemePageTokens } from '@/lib/hub-theme-tokens';
 import { SITE_ROLES, type SiteRole, type SiteRoles } from '@/lib/site-roles';
 
 export const SITE_ROLE_LABEL: Readonly<Record<SiteRole, string>> = {
@@ -36,10 +37,6 @@ export const SITE_ROLE_LABEL: Readonly<Record<SiteRole, string>> = {
   highlight: 'Highlights',
 };
 
-/** `#rrggbb` → the `r g b` channels the page's colour tokens hold. */
-function channels(hex: string): string {
-  return [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(' ');
-}
 function mix(hex: string, toward: 0 | 255, t: number): string {
   return [1, 3, 5].map((i) => Math.round(parseInt(hex.slice(i, i + 2), 16) * (1 - t) + toward * t)).join(' ');
 }
@@ -167,6 +164,13 @@ export type ElementsWears = {
   faces: { heading: HubFontKey | null; body: HubFontKey | null; labels: HubFontKey | null };
 };
 
+/**
+ * What House's page wears with no palette — `globals.css` `:root` `--color-ink` and `--color-terracotta`, read
+ * here as hex and HELD EQUAL to the stylesheet by the guard (a default shown in the Maker must be the colour
+ * the page paints, never a neighbour of it).
+ */
+export const HOUSE_ROOT = { ink: '#2c2a29', accent: '#a9834b' } as const;
+
 const HEX6 = /^#[0-9a-f]{6}$/i;
 const hexOfChannels = (ch: string | undefined, fallback: string): string => {
   const parts = (ch ?? '').trim().split(/\s+/).map(Number);
@@ -182,20 +186,22 @@ const hexOfChannels = (ch: string | undefined, fallback: string): string => {
  * sets none. Never a second derivation of a colour.
  */
 export function elementsWears(input: {
-  theme: InviteThemeId;
+  /** The theme the page wears, as the Mood Board dresses it (`dressedTheme`). */
+  theme: InviteTheme;
   /** The look's variables with no role override (`GuestLook.vars`). */
   vars: Record<string, string> | null;
   /** The resolved buttons' variables (`GuestLook.buttons?.vars`) — null = the theme's own button. */
   buttonVars: Record<string, string> | null;
   /** The page as its buttons are measured (`hubButtonPage`): the paper they sit on and the fill they wear by default. */
   page: { paper: string; fill: string };
-  /** The theme's colours as the Mood Board dresses them (`themeColours`), for what the look leaves to the stylesheet. */
-  tokens: { ink: string; accent: string };
 }): ElementsWears {
   const v = input.vars ?? {};
   const paper = input.page.paper;
-  const ink = hexOfChannels(v['--color-ink'], input.tokens.ink);
-  const accent = hexOfChannels(v['--color-terracotta'], input.tokens.accent);
+  /* What the look leaves to the STYLESHEET: a painted theme's block is generated from `hubThemePageTokens`
+     (held to the stylesheet by `invite-themes.test.ts`); House has no block — its page wears the root tokens. */
+  const sheet = input.theme.id === 'house' ? HOUSE_ROOT : { ink: hubThemePageTokens(input.theme).ink, accent: hubThemePageTokens(input.theme).eyebrow };
+  const ink = hexOfChannels(v['--color-ink'], sheet.ink);
+  const accent = hexOfChannels(v['--color-terracotta'], sheet.accent);
   const b = input.buttonVars ?? {};
   const fill = b['--hub-btn-fill'];
   const label = b['--hub-btn-label'];
@@ -205,7 +211,7 @@ export function elementsWears(input: {
     label && HEX6.test(label)
       ? { fg: label, bg: fill && HEX6.test(fill) ? fill : paper }
       : { fg: paper, bg: input.page.fill };
-  const t = INVITE_THEMES[input.theme];
+  const t = input.theme;
   return {
     paper,
     ink,

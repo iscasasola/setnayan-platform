@@ -72,6 +72,17 @@ simple edits. Only jump if it has editing that cannot be done there. Example: Sc
 Tests: new `lib/edit-types-the-words-in-place.test.ts` (6 rules, each seen red). Re-aimed with the reason written in:
 `every-look-draws-a-picture` (the lone-ⓘ row), `maker-parts` (the door's words).
 
+### 3b · four things seen on the review copy
+
+- **Only parts the page drew are parts of the page** (`makerPartIsDrawn`): the plain cover draws no invite line and no
+  link, yet both could be picked — the frame fell back to the whole cover and Edit was blank. And arriving lands on the
+  first drawn part Edit has a row for (`makerArrivalPart`), never an empty tool.
+- **The editing line is shortened from the front** (`stageEditingLine`): "You're editing ·" goes first, then the stage,
+  then the page — the part's name is always whole. The whole path is still what a screen reader hears.
+- **A grey Earlier / Later / Remove says why when tapped** (`makerPartStepWhy`) — the grey is the template's "cannot be
+  used" look (`waiting`); a live step is the neutral button, Remove the danger tone.
+- The open field selects its words: that is the app's typed row everywhere (`FormRowField`), left as it is.
+
 SPEC IMPACT: Yes — supersedes the 2026-10-06/07 "Style | Text | Animate" and "the toolbar is half the screen" rows.
 The controller holds the spec (`TOOLBAR-SPEC-2026-10-09.md`) and applies the corpus rows; nothing in the corpus was
 edited from this branch.

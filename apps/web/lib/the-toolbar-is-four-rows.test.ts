@@ -171,9 +171,12 @@ test('(3) the rows start from the top and nothing scrolls up and down; Edit: the
 
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { StageEdit } = await import('../app/dashboard/[eventId]/launch/_components/stage-panel/stage-edit');
+  const { makerPartStepWhy: partStepWhy } = await import('./maker-parts');
   const { setStagePanelNow } = await import('../app/dashboard/[eventId]/launch/_components/stage-panel/store');
   const draw = (p: { earlier: (() => void) | null; later: (() => void) | null; remove: (() => void) | null }) =>
-    renderToStaticMarkup(React.createElement(StageEdit, { ...p, fields: [], tapped: null, onType: () => {}, onKeep: async () => ({ ok: true as const }), removeWord: 'Remove' }));
+    renderToStaticMarkup(
+      React.createElement(StageEdit, { ...p, fields: [], tapped: null, onType: () => {}, onKeep: async () => ({ ok: true as const }), removeWord: 'Remove', why: partStepWhy('Reveal', false, false), onWhy: () => {} }),
+    );
 
   /* A part with a door (E-Gifts → Studio) that can move both ways and be taken off. (What rows 1–3 hold — the
      part's words typed in place, or its door — is `lib/edit-types-the-words-in-place.test.ts`.) */
@@ -190,7 +193,10 @@ test('(3) the rows start from the top and nothing scrolls up and down; Edit: the
   const place = html.slice(html.indexOf('data-stage-edit-row="place"'));
   const steps = [...place.matchAll(/<button[^>]*aria-label="([^"]+)"[^>]*>/g)];
   assert.deepEqual(steps.map((m) => m[1]), ['Earlier', 'Later', 'Remove'], 'the last row is not ↑ Earlier · ↓ Later · Remove, in that order');
-  for (const m of steps) assert.doesNotMatch(m[0], /aria-disabled|disabled=""/, `${m[1]} is grey on a part that can do it`);
+  for (const m of steps) assert.doesNotMatch(m[0], /aria-disabled|disabled=""|data-waiting/, `${m[1]} is grey on a part that can do it`);
+  /* A LIVE step looks live: the neutral button (ink on the toolbar's ground), and Remove in the danger tone. */
+  assert.match(steps[0]![0], /class="ab ab-neutral /);
+  assert.match(steps[2]![0], /class="ab ab-danger /);
   assert.match(steps[2]![0], /data-tone="danger"/, 'Remove is not the danger button');
   assert.match(steps[0]![0], /class="ab /, 'the steps are not the app’s ONE action button');
 
@@ -201,8 +207,24 @@ test('(3) the rows start from the top and nothing scrolls up and down; Edit: the
   assert.deepEqual(greyed.map((m) => m[1]), ['Earlier', 'Later', 'Remove'], 'a fixed part lost its last row');
   for (const m of greyed) {
     assert.match(m[0], /aria-disabled="true"/, `${m[1]} is not grey on a part that cannot`);
+    /* THE GREY LOOK IS THE TEMPLATE'S "cannot be used" (`waiting`: a grey fill and word, its pill kept) — a look a
+       live step never wears. */
+    assert.match(m[0], /data-waiting=""/, `${m[1]}: grey by a look of its own`);
     assert.doesNotMatch(m[0], / disabled=""/, `${m[1]} is natively disabled — it drops out of a screen reader's path`);
   }
+  const css = readFileSync(join(WEB, 'app/globals.css'), 'utf8');
+  assert.match(css, /:is\(button, a\)\.ab\[data-waiting\],[\s\S]{0,200}\{\s*opacity: 1;[\s\S]{0,160}color: color-mix\(in srgb, rgb\(var\(--color-ink\)\) 45%, transparent\);\s*background: color-mix\(in srgb, rgb\(var\(--color-ink\)\) 6%, transparent\);/, 'the waiting look changed — a grey step may read as live');
+  /* …AND A TAP ON A GREY STEP SAYS WHY — never a dead tap. Each step sits in a wrapper that draws nothing and hears
+     the tap its grey button swallows; a live step's wrapper hears nothing. */
+  const edit = read(`${L}/stage-panel/stage-edit.tsx`);
+  for (const step of ['earlier', 'later', 'remove']) {
+    assert.match(edit, new RegExp(`<span className="contents" data-stage-edit-step="${step}" onClick=\\{${step} \\? undefined : \\(\\) => onWhy\\(why\\.${step}\\)\\}>`), `a grey ${step} is a dead tap`);
+  }
+  assert.match(read(`${L}/stage-tools.tsx`), /why=\{edits\.why\} onWhy=\{\(words\) => setWhy\(\(w\) => \(\{ words, n: \(w\?\.n \?\? 0\) \+ 1 \}\)\)\}/, 'the line is not said through the toolbar’s toast');
+  /* The line, by what the part can do: it does not move at all · it moves but is at an end · it cannot be taken off. */
+  assert.deepEqual(partStepWhy('Names', false, false), { earlier: 'Names keeps its place on this page.', later: 'Names keeps its place on this page.', remove: 'Names stays on this page.' });
+  assert.deepEqual(partStepWhy('Schedule', true, true), { earlier: 'It is already first on this page.', later: 'It is already last on this page.', remove: '' });
+  for (const line of Object.values(partStepWhy('Supplier Stories', false, false))) assert.ok(line.length >= 20 && line.length <= 60 && /\.$/.test(line), `“${line}” is not one short line`);
   setStagePanelNow({ picked: null, quiet: null, about: null });
 
   /* A STEP IS THE GRIP'S OWN WRITE — one function lands a part (`dropOn`, the retired grip's drop), the step ends in
@@ -266,8 +288,8 @@ test('(5) what left the toolbar: the stage ▾, "Tap a part of the page", the pa
   const handle = tools.slice(order[0]! - 80, order[1]!);
   assert.match(handle, /<div aria-hidden data-stage-handle=""/);
   assert.doesNotMatch(handle, /<button|onPointer|onClick/);
-  /* "You're editing · Stage › Page › Part" — the part named once one is picked. */
-  assert.match(tools, /picked \? makerPartLabelOn\(stageKey, picked\) : null\]\s*\.filter\(Boolean\)\s*\.join\(' › '\)/);
+  /* "You're editing · Stage › Page › Part" — the part named once one is picked (how the line is shortened: (7)). */
+  assert.match(tools, /pageLabel && pages\.length > 1 \? pageLabel : null, picked \? makerPartLabelOn\(stageKey, picked\) : null\]\.filter\(/);
   /* The guests' bar is still a bar under the page — its tabs only, where the stage has pages. */
   const bar = tools.slice(tools.indexOf('data-stage-guest-bar=""'), tools.indexOf('</nav>'));
   assert.ok(bar.length > 400, 'anti-vacuity: the guests’ bar was not found');
@@ -306,4 +328,63 @@ test('(6) the shipped Maker never sees any of it: mounted only by the new Maker 
   assert.match(STAGE_BAR_ROW_VARS, /^html:has\(\[data-stage-tools\]\)\{/);
   /* The layout rules are a phone's. */
   assert.match(css, /'@media \(max-width:1023\.98px\)\{' \+/);
+});
+
+test('(7) the editing line is shortened from the FRONT — the part’s name is never the piece that is cut', async () => {
+  const { stageEditingLine, STAGE_BAR_LINE_LEAD, STAGE_BAR_LINE_ABOUT } = await import('./maker-stage-room');
+  const { MAKER_STAGE_PAGES } = await import('./maker-parts');
+  /* The worked example: 375 px cut this to "… › WELCOME › N…". */
+  const pieces = ['Invitation', 'Welcome', 'Names'];
+  assert.deepEqual(stageEditingLine(pieces, 0), { lead: true, words: 'Invitation › Welcome › Names' });
+  assert.deepEqual(stageEditingLine(pieces, 1), { lead: false, words: 'Invitation › Welcome › Names' }, '"You’re editing ·" is not the first thing dropped');
+  assert.deepEqual(stageEditingLine(pieces, 2), { lead: false, words: 'Welcome › Names' }, 'the stage is not dropped before the page');
+  assert.deepEqual(stageEditingLine(pieces, 3), { lead: false, words: 'Names' });
+  /* Past the last level nothing more is dropped — the last piece is never lost. */
+  assert.deepEqual(stageEditingLine(pieces, 9), { lead: false, words: 'Names' });
+  assert.deepEqual(stageEditingLine(['Save the Date', 'Names'], 2), { lead: false, words: 'Names' });
+  assert.deepEqual(stageEditingLine(['Post Event'], 1), { lead: false, words: 'Post Event' });
+  assert.equal(STAGE_BAR_LINE_LEAD, 'You’re editing');
+
+  /* EVERY part, on every page that lists it, at EVERY level: the line ends with the part's whole name, and each
+     level is no longer than the one before. */
+  let asked = 0;
+  for (const [stage, byPage] of Object.entries(MAKER_STAGE_PAGES)) {
+    for (const [page, keys] of Object.entries(byPage)) {
+      for (const k of keys) {
+        const name = MAKER_PARTS[k].label;
+        const trail = [stage, page, name];
+        let before = Infinity;
+        for (let level = 0; level <= trail.length + 1; level++) {
+          const { lead, words } = stageEditingLine(trail, level);
+          assert.ok(words === name || words.endsWith(` › ${name}`), `${stage}/${page}/${k} at level ${level}: “${words}” does not end with the whole name`);
+          const length = (lead ? STAGE_BAR_LINE_LEAD.length + 3 : 0) + words.length;
+          assert.ok(length <= before, `${k}: level ${level} is longer than the level before`);
+          before = length;
+          asked += 1;
+        }
+      }
+    }
+  }
+  assert.ok(asked >= 200, `anti-vacuity: only ${asked} lines`);
+
+  /* THE TOOLBAR STEPS DOWN WHILE THE LINE DOES NOT FIT — measured before the paint, never past the last piece. */
+  const tools = read(`${L}/stage-tools.tsx`);
+  assert.match(tools, /if \(el && el\.scrollWidth > el\.clientWidth \+ 0\.5 && lineLevel < linePieces\.length\) setLineAt\(\(l\) => \(\{ key: lineKey, level: lineLevel \+ 1, n: l\.n \}\)\);\s*\}, \[lineKey, lineLevel, linePieces\.length, lineAt\.n\]\);/);
+  /* …and again from the whole line at another width. */
+  assert.match(tools, /const again = \(\) => setLineAt\(\(l\) => \(\{ key: l\.key, level: 0, n: l\.n \+ 1 \}\)\);\s*window\.addEventListener\('resize', again\);/);
+  assert.match(tools, /const line = stageEditingLine\(linePieces, lineLevel\);/);
+  /* The pieces are stage, page, part — in that order, the part last. */
+  assert.match(tools, /const linePieces = \[makerStageLabel\(stageKey as never\), pageLabel && pages\.length > 1 \? pageLabel : null, picked \? makerPartLabelOn\(stageKey, picked\) : null\]\.filter\(/);
+  /* A new part (or another ⓘ) starts from the whole line again. */
+  assert.match(tools, /const lineLevel = lineAt\.key === lineKey \? lineAt\.level : 0;/);
+  /* What is drawn is the level's words; the WHOLE path is what a screen reader hears. */
+  const at = tools.indexOf('<p ref={lineRef} data-stage-caption=""');
+  const p = tools.slice(at, tools.indexOf('</p>', at));
+  assert.ok(at > 0 && p.length > 200, 'anti-vacuity: the line was not found');
+  assert.match(p, /<span className="sr-only">\s*\{STAGE_BAR_LINE_LEAD\} · \{linePieces\.join\(' › '\)\}\s*<\/span>/, 'the whole path is not said to a screen reader');
+  assert.match(p, /<span aria-hidden>\s*\{line\.lead \? `\$\{STAGE_BAR_LINE_LEAD\} · ` : ''\}\s*<b [^>]*>\{line\.words\}<\/b>\s*<\/span>/);
+  /* No second row, no smaller type: one line of the template's size, with the room the ⓘ needs only when there is one. */
+  assert.ok(has(STAGE_BAR_LINE, 'h-5') && has(STAGE_BAR_LINE, 'truncate') && has(STAGE_BAR_LINE, 'text-[9.5px]') && has(STAGE_BAR_LINE, 'px-2'));
+  assert.equal(STAGE_BAR_LINE_ABOUT, '!px-11');
+  assert.match(p, /className=\{`\$\{STAGE_BAR_LINE\} \$\{hasAbout \? STAGE_BAR_LINE_ABOUT : ''\}`\}/);
 });

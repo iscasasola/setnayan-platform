@@ -35,7 +35,7 @@ import { sceneTypeWrite } from './scene-type-words';
 import { typedDisplayName } from './typed-names';
 import { withTypedWords } from './type-in-place';
 import { canvasWriteKey } from './maker-draft-store';
-import { SP_KEY_BAR, STAGE_BAR_ABOUT, STAGE_BAR_LINE } from './maker-stage-room';
+import { SP_KEY_BAR, STAGE_BAR_ABOUT, STAGE_BAR_LINE_ABOUT } from './maker-stage-room';
 import { phoneHeightPx } from './maker-phone-room';
 
 /* The panel's pieces are compiled with the classic JSX runtime under `tsx` — they read `React` off the scope. */
@@ -118,7 +118,9 @@ test('(2) the rows, rendered: one typed row per text in rows 1–3 and no door; 
   const { setStagePanelNow } = await import(`../${L}/stage-panel/store`);
   const keep = async () => ({ ok: true as const });
   const draw = (fields: Field[], tapped: string | null = null) =>
-    renderToStaticMarkup(React.createElement(StageEdit, { fields, tapped, onType: () => {}, onKeep: keep, earlier: null, later: null, remove: null, removeWord: 'Remove' }));
+    renderToStaticMarkup(
+      React.createElement(StageEdit, { fields, tapped, onType: () => {}, onKeep: keep, earlier: null, later: null, remove: null, removeWord: 'Remove', why: { earlier: 'x', later: 'x', remove: 'x' }, onWhy: () => {} }),
+    );
   const rowsOf = (html: string) => [...html.matchAll(/class="([^"]*)" data-stage-edit-row="([a-z]+)"(?: data-stage-edit-words="([a-z_]+)")?/g)].map((m) => ({ row: /row-start-(\d)/.exec(m[1]!)?.[1], kind: m[2], id: m[3] ?? null }));
   const door = { kind: 'studio' as const, words: 'Open in Studio › Info', open: () => {} };
 
@@ -205,6 +207,9 @@ test('(4) what can be typed is the page’s to say; the page shows the words as 
   assert.match(tools, /readPartWords\(doc, makerPartCanvasOn\(stageKey, picked\), MAKER_PARTS\[picked\]\.el \?\? null, makerPartLabelOn\(stageKey, picked\)\)/);
   /* AS TYPED: on the page only (the bridge's own `typeText`) — never a save. */
   assert.match(tools, /<StageEdit key=\{picked\} fields=\{fields\} tapped=\{tapped\} onType=\{showPartWords\} onKeep=\{keepWords\}/);
+  /* The field opens as the app's typed row opens everywhere (its words selected — the template's own behaviour,
+     `FormRowField`; ✕ leaves them as they were): Edit hands it no rule of its own. */
+  assert.match(read('app/_components/form-row.tsx'), /if \(long\) el\.setSelectionRange\(el\.value\.length, el\.value\.length\);\s*else el\.select\(\);/);
   const show = words.slice(words.indexOf('export function showPartWords('), words.indexOf('export async function keepPartWords('));
   assert.match(show, /t: 'typeText'/);
   assert.doesNotMatch(show, /draftAction|makerSave|makerLatestWrite|fetch\(/, 'a keystroke saves');
@@ -278,13 +283,16 @@ test('(6) one ⓘ: at the right end of the "You’re editing" line, the part’s
   /* Where it is: once, straight after the line, over the handle and the line — never on the selector's band. */
   const tools = read(`${L}/stage-tools.tsx`);
   assert.equal((tools.match(/<StageAbout \/>/g) ?? []).length, 1);
-  assert.match(tools, /<p data-stage-caption="" className=\{STAGE_BAR_LINE\}>[\s\S]{0,200}<\/p>\s*(?:\{\s*\}\s*)?<StageAbout \/>/);
+  assert.match(tools, /<p ref=\{lineRef\} data-stage-caption=""[\s\S]{0,520}<\/p>\s*(?:\{\s*\}\s*)?<StageAbout \/>/);
   const cls = STAGE_BAR_ABOUT.split(' ');
   assert.ok(cls.includes('absolute') && cls.includes('top-0') && cls.includes('right-0.5'));
   assert.ok(cls.includes('h-[38px]') && 38 <= 14 + 20 + 4, 'the ⓘ reaches the selector (14 handle + 20 line + the band’s 4 px)');
   assert.ok(cls.includes('w-11'), 'the ⓘ is under 44 px wide');
-  /* The line keeps clear of it on both sides, so its words stay centred and never run under the ⓘ. */
-  assert.ok(STAGE_BAR_LINE.split(' ').includes('px-11'));
+  /* The line keeps clear of it on both sides when there is one, so its words stay centred and never run under it
+     (`lib/the-toolbar-is-four-rows.test.ts` (7) holds how the line is then shortened). */
+  assert.equal(STAGE_BAR_LINE_ABOUT, '!px-11');
+  assert.match(tools, /className=\{`\$\{STAGE_BAR_LINE\} \$\{hasAbout \? STAGE_BAR_LINE_ABOUT : ''\}`\}/);
+  assert.match(tools, /const hasAbout = Boolean\(useStagePanelNow\(\)\.about\);/);
   /* The sentences are still worked out from the part (the fixed scene's own line and source; a reply page's). */
   assert.match(tools, /setStagePanelNow\(\{ picked, quiet, about \}\);/);
 });

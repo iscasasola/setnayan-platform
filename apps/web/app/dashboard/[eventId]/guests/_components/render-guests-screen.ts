@@ -35,7 +35,7 @@ export const guestRow = (over: Partial<GuestRow> = {}): GuestRow =>
     extra_roles: [],
     side: 'bride',
     rsvp_status: 'pending',
-    entry_source: 'host',
+    entry_source: 'host_seeded',
     passed_away: false,
     invitation_sent_at: '2026-10-01T00:00:00Z',
     plus_one_count: 0,

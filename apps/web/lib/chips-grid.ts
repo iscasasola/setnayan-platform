@@ -5,10 +5,12 @@
  * on the next, a ragged right edge): *"make RSVP ask buttons even"*. ⇒ a set of chips is an EVEN GRID — every chip
  * the same width and the same height, the columns filling the row edge to edge with equal gaps.
  *
- * How many columns (controller's ruling, the same hour):
+ * How many columns (controller's rulings, the same night):
  *   · ALL ON ONE LINE when the row is wide enough for every chip at the widest chip's width;
- *   · otherwise WHAT A 375-PX PHONE GETS — three across if the longest label fits on one line three across in a
- *     phone's row, else two — and the same count on a wider screen (never four on a tablet and two on a phone);
+ *   · otherwise THREE ACROSS when three of the widest fit this row (a computer: six chips are 3 × 2, not two wide
+ *     columns three rows deep) — on a 375-px phone that is three only if the longest label fits three across,
+ *     else two;
+ *   · otherwise WHAT A 375-PX PHONE GETS, and never more than that in between (never four on a tablet);
  *   · never a chip narrower than its words: a label is never shrunk, cut or wrapped — a row too narrow for the
  *     phone's count gets fewer columns.
  *
@@ -53,6 +55,9 @@ export function chipColumns(input: { count: number; widest: number; row: number 
   const { count, widest, row } = input;
   if (count <= 1) return Math.max(1, count);
   if (fits(count, widest, row)) return count;
+  /* Not all on one line: three across where three of the widest fit this row … */
+  if (count > CHIP_PHONE_MOST && fits(CHIP_PHONE_MOST, widest, row)) return CHIP_PHONE_MOST;
+  /* … else the phone's count — fewer only where even that would cut a word. */
   let n = chipPhoneColumns(count, widest);
   while (n > 1 && !fits(n, widest, row)) n -= 1;
   return n;

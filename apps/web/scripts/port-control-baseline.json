@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "980c40594",
+  "generatedFromRef": "0570d60c8",
   "routeCount": 429,
   "destinations": 959,
   "actions": 672,
-  "blocks": 5852,
+  "blocks": 5854,
   "routes": {
     "/": {
       "files": [
@@ -9838,6 +9838,7 @@
     "/dev/details-lab": {
       "files": [
         "dev/details-lab/details-lab-node.tsx",
+        "dev/details-lab/lab-studio-rsvp.tsx",
         "dev/details-lab/lab-upload-stand-in.ts",
         "dev/details-lab/look-lab.tsx",
         "dev/details-lab/march-fixture.ts",
@@ -9860,6 +9861,7 @@
         "HubFontKey",
         "LabFontPick",
         "LabStudioLoveStory",
+        "LabStudioRsvp",
         "LabStudioSchedule",
         "LiveLoveStoryBook",
         "LookLab",
@@ -9971,6 +9973,7 @@
         "MakerWelcomeGiftsEmpty",
         "MakerWelcomeLook",
         "PahinaMasthead",
+        "RsvpCanvasBridge",
         "ScheduleWidget",
         "SpecialMessageWidget",
         "VenueWidget",

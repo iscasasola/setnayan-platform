@@ -16,9 +16,9 @@ import { PILL_ON_CLASS } from './pill-selector';
  *     goes — so a chip is exactly as wide chosen as not.
  *   · AN EVEN GRID (owner 2026-10-08, on six chips that hugged their words into a ragged edge: *"make RSVP ask
  *     buttons even"*): every chip of a set is the SAME width and the same height, the columns fill the row edge to
- *     edge with equal gaps. All on one line where the row is wide enough for that; otherwise what a 375-px phone
- *     gets — three across if the longest word fits, else two — on every screen (`lib/chips-grid.ts`). A word is
- *     never shrunk, cut or wrapped. A set that must hug its words asks for it (`even={false}`); even is the default.
+ *     edge with equal gaps. All on one line where the row is wide enough for that; otherwise three across where
+ *     three of the widest fit (a computer), else what a 375-px phone gets — two when the longest word does not fit
+ *     three across (`lib/chips-grid.ts`). A word is never shrunk, cut or wrapped. A set that must hug its words asks for it (`even={false}`); even is the default.
  *   · 40 px tall, never narrower than 84 px, the word on one line; the finger's target is 44 px (the chip's own
  *     height plus 2 px above and below).
  *   · each chip is a toggle button (`aria-pressed`) in a named group — several may be on at once. ONE of several is

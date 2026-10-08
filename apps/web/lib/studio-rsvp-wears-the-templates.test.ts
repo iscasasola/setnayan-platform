@@ -30,6 +30,10 @@
  *       band is left in Studio), "Play it again" is the house action and only for a pick that plays; nothing is
  *       printed on the after-screens' panels (what each screen is and the {name} rule are behind the rows' ⓘ, word
  *       for word; no "In your draft…"); the typing bar's Done is the app's main button, as the shipped bar draws it.
+ *  (10) THE LAB CAN BE DRIVEN BY HAND (dev-only) — the Maker lab's RSVP stand-in screens carry the part marks the
+ *       real RSVP pages carry and mount their bridge, so a tap on the form PICKS it (EXECUTED: the shipped tap
+ *       reader over the lab's own shape) and never ticks an answer; both labs' Reply-by stand-ins answer as the
+ *       real action does, so a picked day is not read as refused.
  *
  * Mutations seen RED (2026-10-08), each restored: the stage's form given its own list (the words first) → (1); the
  * Studio drawing How guests answer as a dropdown again → (1) and (8); a word's pill no longer reading the page's own
@@ -42,7 +46,8 @@
  * line → (6); the canvas tap still looking for an `<input>` → (7); a hand-made `<input>` back in the panel → (8);
  * the Pro mark dropped from the Celebration row → (9); the Celebration drawn in the store shell without Pro → (9);
  * "Play it again" offered for None → (9); a caption printed on the When yes panel again → (9); the typing bar's
- * Done as a hex pill again → (9).
+ * Done as a hex pill again → (9); the lab's form screen without its `f:rsvp` mark → (10); the lab's screens without
+ * the bridge → (10); the Studio lab's Reply-by stand-in answering nothing → (10).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -428,4 +433,44 @@ test('(9) the rest of the stage: Celebration ▾ in a Form row with the Pro mark
   assert.match(stage, /<span data-type-done="" className=\{SP_KEY_DONE\}>\s*<ActionButton tone="brand" main icon=\{Check\} label="Done" onClick=\{doneTyping\} \/>\s*<\/span>/);
   assert.match(read(`${E}/type-in-place.tsx`), /<span data-type-done="" className=\{SP_KEY_DONE\}>\s*<ActionButton tone="brand" main icon=\{Check\} label="Done" onClick=\{p\.onClose\} \/>/, 'anti-vacuity: the shipped typing bar draws its Done some other way');
   assert.doesNotMatch(stage, /#[0-9a-fA-F]{6}\b|\btext-white\b|\bbg-ink(?![\/\w-])/, 'the RSVP stage writes a colour for a button');
+});
+
+/* ── (10) the lab can be driven by hand ───────────────────────────────── */
+
+test('(10) the lab: its RSVP stand-in screens carry the real pages’ part marks and bridge; a picked day is not read as refused', async () => {
+  const { RSVP_CANVAS_SECTIONS, RSVP_WORD_SECTION, rsvpPartOfTap } = await import('../app/[slug]/_components/rsvp-canvas-parts');
+  const lab = read('app/dev/maker-lab/guest/page.tsx');
+  const at = lab.indexOf('if (rsvp) {');
+  assert.ok(at > 0, 'anti-vacuity: the lab’s RSVP stand-in was not found');
+  const screens = lab.slice(at, lab.indexOf('\n  return (', at + 20));
+  // The bridge that makes a tap PICK (and never tick an answer) is mounted, as on the real pages' canvas.
+  assert.match(screens, /\{play === null \? <RsvpCanvasBridge \/> : null\}/, 'a tap on the lab’s RSVP screens is the form’s own');
+  // The masthead sits in the door's header, so the shipped stamp names its parts and marks it the hero.
+  assert.match(screens, /<div>\s*<header data-door-header="">[\s\S]*?<h1 [^>]*>Maria &amp; Jose<\/h1>[\s\S]*?<span data-el="date">/);
+  // Every part the stand-in draws is marked with the real page's own key — and no key is made up.
+  const marks = [...screens.matchAll(/mark\('(f:[a-z]+)'\)/g)].map((m) => m[1]!);
+  const real = new Set<string>(Object.values(RSVP_CANVAS_SECTIONS).flat());
+  assert.deepEqual([...new Set(marks)], ['f:greeting', 'f:rsvp', 'f:yesnote', 'f:nonote']);
+  for (const k of marks) assert.ok(real.has(k), `${k} is not a part of the real RSVP pages`);
+  // Each word carries its key, in the section the real page puts it in.
+  const words = [...screens.matchAll(/rsvpWordBridgeKey\((?:i === 0 \? 'attending' : 'declined'|'(\w+)')\)/g)].map((m) => m[1] ?? 'attending|declined');
+  assert.deepEqual(words, ['attending|declined', 'thanksHeading', 'thanksMessage', 'declineHeading', 'declineMessage']);
+  assert.equal(RSVP_WORD_SECTION.attending, 'f:rsvp');
+  assert.equal(RSVP_WORD_SECTION.thanksHeading, 'f:yesnote');
+  // EXECUTED — the shipped tap reader over the lab's own shape: marker · form › fieldset › label › span[word].
+  type El = { getAttribute(n: string): string | null; parentElement: El | null; previousElementSibling: El | null };
+  const node = (attrs: Record<string, string>, parent: El | null, before: El | null): El => ({ getAttribute: (n) => attrs[n] ?? null, parentElement: parent, previousElementSibling: before });
+  const marker = node({ 'data-maker-section': 'f:rsvp' }, null, null);
+  const form = node({}, null, marker);
+  const word = node({ 'data-rsvp-word': 'rsvp:attending' }, node({}, node({}, form, null), null), null);
+  assert.deepEqual(rsvpPartOfTap(word as never), { key: 'f:rsvp', el: null, word: 'rsvp:attending' });
+  assert.equal(rsvpPartOfTap(node({}, null, null) as never), null, 'a tap on the ground picks a part');
+  // A picked day is not read as refused: both labs' Reply-by stand-ins answer as the action does when it lands.
+  assert.match(read('app/dev/maker-lab/maker-lab-shell.tsx'), /replyByAction: \(async \(\) => \(\{ ok: true \}\)\) as never,/);
+  const studioLab = read('app/dev/details-lab/lab-studio-rsvp.tsx');
+  assert.match(studioLab, /const replyByLanded = \(async \(\) => \(\{ ok: true \}\)\) as unknown as /);
+  assert.match(studioLab, /<MakerRsvpSettings \{\.\.\.props\} studio replyByAction=\{replyByLanded\} \/>/);
+  assert.match(read('app/dev/details-lab/details-lab-node.tsx'), /<LabStudioRsvp\s+eventId=\{EVENT\}/);
+  // …and the part reads "nothing answered" as refused — which is why the stand-ins must answer.
+  assert.match(read(`${G}/reply-by.tsx`), /if \(res\.ok\) \{\s*saved\.current = next;/);
 });

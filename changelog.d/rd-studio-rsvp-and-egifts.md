@@ -131,3 +131,20 @@ Requests: none added or removed. A Celebration pick is the panel's one drafted w
 
 SPEC IMPACT: None applied. For the corpus (`INTERACTION_RULES.md` § 9, kind 11): "a set of chips is an even grid"
 is the owner's new ruling and is not written there yet.
+
+## 2026-10-09 · fix(ui): six chips are three across on a computer — and the Maker lab's RSVP stage can be driven by hand
+
+- **Chips, the third step** (`lib/chips-grid.ts`, controller's ruling): when not every chip fits on one line, a row
+  wide enough for THREE of the widest gets three across — so Guests › Setup's six asks at 1280 are 3 × 2 (about
+  234 px each) and no longer two 356-px columns three rows deep. A 375-px phone is unchanged: two across ("Song
+  request" does not fit three). Never four or five across.
+- **The Maker lab (dev-only)**: its RSVP stand-in screens (`/dev/maker-lab/guest?rsvp=form|thanks|decline`) carry the
+  part marks the real RSVP pages carry on the Maker's canvas (the door's header, `f:greeting` · `f:rsvp` ·
+  `f:yesnote` · `f:nonote`, each word's key) and mount the real `RsvpCanvasBridge` — a tap on the form now PICKS it
+  and opens its tools; it used to pick nothing and tick the answer, so the stage's tools could not be reached by
+  hand. The Studio lab's Reply by has the same stand-in the stage lab got (`app/dev/details-lab/lab-studio-rsvp.tsx`):
+  a picked day is no longer read as a refused save. Nothing a real user can reach.
+- `lib/the-chips.test.ts` (7) and `lib/studio-rsvp-wears-the-templates.test.ts` (10 tests; test (10) is the lab's) —
+  6 more mutations seen red. Port-control baseline regenerated.
+
+SPEC IMPACT: None.

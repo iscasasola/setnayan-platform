@@ -67,3 +67,31 @@ NOT in this commit (PR 6, steps 2–3): the guest's music button in three design
 song on the device.
 
 SPEC IMPACT: None beyond the contract above.
+
+## 2026-10-08 · perf(look): Our music's list is ONE cached read for every couple — the Maker's render reads it 0 times
+
+Controller's ruling, 2026-10-08 (the owner's least-requests rule): the port above read
+`hub_music_tracks` on EVERY Maker render — and the Maker's open is the page the owner
+measures. The list is the same for every couple (the published rows), so it is now served by
+the repo's own cached-read pattern, exactly as `lib/loader-settings.ts` and
+`lib/brand-settings.ts` do it. Local commit.
+
+- `lib/hub-music-server.ts`: `loadPublishedHubMusicRows` = `unstable_cache` under the tag
+  `hub-music-published` (1-hour backstop), read with the service client — published rows
+  only, by the query's own filter. ROWS are remembered, never a ▶ address (worked out per
+  render). A refused read THROWS inside it, so it is never remembered: the next render asks
+  again, and the picker says "couldn't load".
+- `app/admin/hub-music/actions.ts` (the one writer — add · edit · remove):
+  `revalidateTag(HUB_MUSIC_TAG)` after every successful change.
+- The two GATES are not cached — a pick's lookup and Apply's "is it still published?" re-read.
+
+Requests: the Maker's server render **1 → 0** reads of `hub_music_tracks` (1 for the first
+render after an admin change, or after the hour). A pick and Apply: unchanged.
+
+Guard: `our-music-is-a-pick` (10, new) — the wiring, each way; (5) re-aimed with the reason.
+6 sabotages seen red: the render reading the table itself (two ways) · a refusal remembered
+as an empty list · no tag · unpublished rows in the list · the admin not busting the tag.
+⚠ NOT run: the cache itself (it needs the Next server) and any read of the table (no
+database here). The guard holds the wiring; the first real render is the proof.
+
+SPEC IMPACT: None.

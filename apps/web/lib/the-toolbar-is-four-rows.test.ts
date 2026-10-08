@@ -102,6 +102,11 @@ test('(1) one fixed height: 330 px on a tall phone, ≈ 284 on a short one, neve
   assert.match(tools, /onPx\(stageBarPx\(window\.innerHeight, safe\) - safe\);/, 'the toolbar is not told its one height');
   assert.equal((tools.match(/onPx\(/g) ?? []).length, 3, 'the height is said somewhere else too (away · the one height · unmount)');
   assert.doesNotMatch(tools, /localStorage|MAKER_LT_SIZE_KEY|setPointerCapture|data-stage-folded|data-stage-grab/, 'the toolbar is dragged, folded or remembers a size again');
+  /* The toolbar's own top line takes NO room (an inset shadow that follows the curve, never a border): a border's
+     1 px pushed Edit's rows 1 px below the work area's (measured on the lab, 2026-10-09: 593 vs 592). */
+  const root = /data-stage-tool-now=\{shownTool\}[\s\S]{0,160}className=\{`([^`]*)`\}/.exec(tools)?.[1] ?? '';
+  assert.ok(root.includes('rounded-t-2xl'), 'the toolbar’s top is not curved');
+  assert.doesNotMatch(root, /(?:^|\s)border(?:-t)?(?:\s|$)|(?:^|\s)p[ty]-/, 'the toolbar’s frame takes room above the handle');
   /* The work area's tool lies over exactly the four rows, on the room kept under the last one. */
   assert.match(tools, /\[data-phone-chrome="panel"\]\{left:0!important;right:0!important;bottom:\$\{STAGE_BAR_FOOT_CSS\}!important;height:\$\{STAGE_BAR_GRID_CSS\}!important;/);
 });

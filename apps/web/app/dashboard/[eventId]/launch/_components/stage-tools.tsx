@@ -13,7 +13,6 @@ import {
   MAKER_PART_TOOL_LABEL,
   makerPartOfTap,
   makerPartQuietRow,
-  makerPartSource,
   makerPartToolFor,
   makerPartToolWhy,
   makerPartToolWorks,
@@ -898,13 +897,11 @@ export function StageTools({
       if ('suppliers' in q.to) quiet = { kind: 'suppliers', words: q.words, href: suppliersHref };
       else {
         const to = q.to.studio;
-        /* (On the RSVP stage only the form's and the notes' own words are typed on the page — never the masthead's.) */
-        const typed = picked && !rsvpOpen ? makerPartSource(picked).kind === 'info' : false;
         quiet = {
           kind: to === 'info' ? 'info' : 'studio',
-          /* One button, one line (the button rule: icon + word, no "›" tail). A part whose words are typed on the
-             page still says so — the prototype's "or tap the words". */
-          words: to === 'info' && typed ? `${q.words} · or tap the words` : q.words,
+          /* One button, one line (the button rule: icon + word, no "›" tail). It said "· or tap the words" on a part
+             whose words were typed on the page — a tap only selects now (2026-10-09), so the door says only itself. */
+          words: q.words,
           open: () => {
             resumeAt = picked ? { stage: stageKey, page: shownPage, part: picked } : null;
             /* 🎯 The exact field (`makerPartStudioDoor`), and where to come back to — "Done · back to Names". */
@@ -973,7 +970,7 @@ export function StageTools({
       data-stage-open={open ? '' : undefined}
       data-stage-tool-now={shownTool}
       aria-hidden={away || undefined}
-      className={`flex min-h-0 flex-1 flex-col rounded-t-2xl border-t border-[var(--sp-line2)] bg-[var(--sp-page)] px-[10px] transition-transform ease-out motion-reduce:transition-none ${away ? 'pointer-events-none translate-y-[110%]' : ''}`}
+      className={`flex min-h-0 flex-1 flex-col rounded-t-2xl bg-[var(--sp-page)] px-[10px] shadow-[inset_0_1px_0_var(--sp-line2)] transition-transform ease-out motion-reduce:transition-none ${away ? 'pointer-events-none translate-y-[110%]' : ''}`}
       style={{ transitionDuration: `${STAGE_PANEL_MS}ms` }}
     >
       {/* One rule set, drawn only while this toolbar is (phone only): the prototype's colours and the frame's two

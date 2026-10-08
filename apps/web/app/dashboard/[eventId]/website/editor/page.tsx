@@ -37,7 +37,11 @@ import { hubButtonPage } from '@/lib/hub-buttons';
 import { resolveHero } from '@/lib/event-hero';
 import { MiniTour } from '@/app/_components/mini-tour';
 /* ⚡ The Main background's panel and its hero-colour sync load with the Details pieces — never with the Maker (`details-lazy.tsx`). */
-import { ButtonsLookRow, ColorsPanel, HeroFrameSync, MainBackgroundPanel, ProLockPanel } from '../../launch/_components/details-lazy';
+import { ButtonsLookRow, ColorsPanel, HeroFrameSync, MainBackgroundPanel, ProLockPanel, StudioTool } from '../../launch/_components/details-lazy';
+import { sanitizeSiteRoles } from '@/lib/site-roles';
+import { elementsWears } from '@/lib/site-role-look';
+import { sanitizeHubFontKey } from '@/lib/hub-fonts';
+import { hubThemePageTokens } from '@/lib/hub-theme-tokens';
 import { HUB_TRANSITION_LABEL, resolveTransition } from '@/lib/hub-scenes';
 /* 🔴 `done`/`todo` come from `rail-rows.ts`, NOT from `editor-shell.tsx`. That
    file is `'use client'`, and calling a client export from this server page is
@@ -200,7 +204,7 @@ export default async function WebsiteEditorPage({
   const { data: event, error: eventError } = await supabase
     .from('events')
     .select(
-      `event_id, display_name, slug, event_type, event_date, event_end_date, timezone, venue_name, venue_address, landing_page_visibility, ticket_url, std_launched_at, scheduled_launch_at, website_open_browse, launch_mode, manual_phase, love_story, our_photos, site_bg_music_r2_key, landing_page_hero_image_url, site_art_direction, site_bg_color, site_button_color, site_button_style, site_font_key, site_magic_traveller, special_message, what_to_bring, site_bg_music_enabled, landing_page_hero_video_r2_key, couple_media_bytes, dress_code_config, photo_moments_config, role_palette, std_reveal_template, std_theme, std_background, invite_theme, std_invitation_launch_date, rsvp_backdrop, bride_name, print_details, gifts_on, ${SECTION_CONTENT_EVENT_COLUMNS}`,
+      `event_id, display_name, slug, event_type, event_date, event_end_date, timezone, venue_name, venue_address, landing_page_visibility, ticket_url, std_launched_at, scheduled_launch_at, website_open_browse, launch_mode, manual_phase, love_story, our_photos, site_bg_music_r2_key, landing_page_hero_image_url, site_art_direction, site_bg_color, site_button_color, site_button_style, site_roles, site_font_key, site_magic_traveller, special_message, what_to_bring, site_bg_music_enabled, landing_page_hero_video_r2_key, couple_media_bytes, dress_code_config, photo_moments_config, role_palette, std_reveal_template, std_theme, std_background, invite_theme, std_invitation_launch_date, rsvp_backdrop, bride_name, print_details, gifts_on, ${SECTION_CONTENT_EVENT_COLUMNS}`,
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -995,6 +999,43 @@ export default async function WebsiteEditorPage({
                 style={(drafted as { site_button_style?: string | null }).site_button_style ?? null}
                 colour={(drafted.site_button_color as string | null) ?? null}
                 palette={swatches.length > 0 ? swatches : buttonFallback(themeColours(currentThemeId, (drafted as { role_palette?: unknown }).role_palette).colours)}
+              />
+            ),
+          };
+        })(),
+        /* 🔤 LOOK › ELEMENTS BY ROLE (owner 2026-10-08, the Look restudy row 3) — Pairing ▾ and the four role
+           rows of the new Maker's Studio: a role's own font and colour, into the draft (`events.site_roles`).
+           What each role wears with nothing overridden is read off the page's OWN look (`guestLookFrom`, asked
+           without the roles) — never a second derivation. Free. */
+        (() => {
+          const palette = (drafted as { role_palette?: unknown }).role_palette;
+          const theme = dressedTheme(currentThemeId, palette);
+          const worn = guestLookFrom(
+            { ...(drafted as Record<string, unknown>), site_roles: null } as unknown as EventShellRow,
+            { theme: currentThemeId, accent: '#000000', monogram: '' },
+            true,
+          );
+          return {
+            key: 'roles',
+            label: 'Fonts and colours by role',
+            blurb: 'Headings, details, buttons and highlights — each its own font and colour.',
+            href: `${base}/launch?open=roles`,
+            locked: false,
+            panel: (
+              <StudioTool
+                part="elements-roles"
+                eventId={eventId}
+                roles={sanitizeSiteRoles((drafted as { site_roles?: unknown }).site_roles)}
+                headingFont={sanitizeHubFontKey((drafted as { site_font_key?: string | null }).site_font_key ?? null)}
+                themeId={currentThemeId}
+                five={boardSiteColours(palette)?.swatches ?? []}
+                wears={elementsWears({
+                  theme: currentThemeId,
+                  vars: worn.vars,
+                  buttonVars: worn.buttons?.vars ?? null,
+                  tokens: { paper: theme.palette.canvas, ink: theme.palette.ink, accent: theme.palette.accent, cta: hubThemePageTokens(theme).cta },
+                })}
+                names={(drafted.display_name as string | null) ?? null}
               />
             ),
           };

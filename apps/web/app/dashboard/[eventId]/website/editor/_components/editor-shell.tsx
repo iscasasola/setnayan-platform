@@ -874,6 +874,8 @@ export function MakerWork({
   /* 🌈🎬 The page fill and the hero video — Look › Background's since 2026-10-08 (they were under Colours and Music). */
   const pageNode = rows[LOOK_ROW_OF.page]?.node ?? null;
   const videoNode = rows[LOOK_ROW_OF.video]?.node ?? null;
+  /* 🔤 Elements by role (restudy row 3) — the Studio's; the shipped Maker keeps Font and Buttons as their own parts. */
+  const rolesNode = rows[LOOK_ROW_OF.roles]?.node ?? null;
   const hasDressCode = scenes.some((sc) => sc.type === 'dress_code');
   const revealStagesKey = revealStages.join();
   const twoPeopleOff = sceneFormat?.twoPeople === false;
@@ -918,11 +920,12 @@ export function MakerWork({
         music: musicNode,
         page: pageNode,
         video: videoNode,
+        roles: rolesNode,
       },
     });
     // `sceneFormat` and `eventId` come with the same render as `elementEditing`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setLookPages, madeOnce, backgroundNode, fontNode, coloursNode, buttonsNode, musicNode, pageNode, videoNode, hasDressCode, revealStagesKey, publicLandingUrl, elementEditing, twoPeopleOff, ownsPro, cameraLookNow]);
+  }, [setLookPages, madeOnce, backgroundNode, fontNode, coloursNode, buttonsNode, musicNode, pageNode, videoNode, rolesNode, hasDressCode, revealStagesKey, publicLandingUrl, elementEditing, twoPeopleOff, ownsPro, cameraLookNow]);
   useEffect(() => () => setLookPages?.(null), [setLookPages]);
   useEffect(() => {
     try {

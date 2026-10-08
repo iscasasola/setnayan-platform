@@ -52,6 +52,8 @@ import type { InviteTheme, InviteThemeId } from '@/lib/invite-themes';
 import { ombreLook, parseSiteBackground } from '@/lib/ombre';
 import { hubButtonPage, resolveHubButtons, type HubButtonsLook } from '@/lib/hub-buttons';
 import { pinPlateInk, proSiteVarsFor } from './pro-site-vars';
+import { sanitizeSiteRoles } from '@/lib/site-roles';
+import { siteRoleMarks, siteRoleVars } from '@/lib/site-role-look';
 import { resolveHubTheme, websiteProActiveFor } from './hub-look';
 import { eventPapicGuestActive, fetchGuestQuota } from '@/lib/papic-guest';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
@@ -156,7 +158,7 @@ export const loadEventShell = cache(async (slug: string) => {
   const { data, error } = await admin
     .from('events')
     .select(
-      'event_id, public_id, display_name, event_date, event_end_date, cleared_at, venue_name, venue_address, venue_latitude, venue_longitude, event_type, ceremony_type, secondary_ceremony_type, gender_separation, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, monogram_studio_config, photo_moments_config, landing_page_visibility, scheduled_launch_at, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, site_art_direction, invite_theme, site_bg_color, site_button_color, site_button_style, site_font_key, site_magic_traveller, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, reveal_stages, std_invitation_launch_date, std_theme, std_background, std_media, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, ceremony_venue_address, ceremony_venue_latitude, ceremony_venue_longitude, std_film_accent_hex, is_sample, live_media_public, website_open_browse, launch_mode, manual_phase, guest_list_edit_deadline, guest_count_locked_at, rsvp_ask_config, style_preferences, ticket_url, gifts_on, date_candidates',
+      'event_id, public_id, display_name, event_date, event_end_date, cleared_at, venue_name, venue_address, venue_latitude, venue_longitude, event_type, ceremony_type, secondary_ceremony_type, gender_separation, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, monogram_studio_config, photo_moments_config, landing_page_visibility, scheduled_launch_at, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, site_art_direction, invite_theme, site_bg_color, site_button_color, site_button_style, site_roles, site_font_key, site_magic_traveller, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, reveal_stages, std_invitation_launch_date, std_theme, std_background, std_media, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, ceremony_venue_address, ceremony_venue_latitude, ceremony_venue_longitude, std_film_accent_hex, is_sample, live_media_public, website_open_browse, launch_mode, manual_phase, guest_list_edit_deadline, guest_count_locked_at, rsvp_ask_config, style_preferences, ticket_url, gifts_on, date_candidates',
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -205,6 +207,12 @@ export type GuestLook = {
   accent: string;
   /** Mood-board palette with the Pro colours and face layered on top, or null. */
   vars: Record<string, string> | null;
+  /**
+   * 🔤 The marks of the roles the couple gave a font or colour of their own
+   * (`lib/site-role-look.ts` `siteRoleMarks` → the scope's `data-hub-roles`),
+   * or null — the page then wears nothing new.
+   */
+  roles: string | null;
   /** 🎨 The worn theme's colours as the Mood Board dresses them (`themeColours`) — for what is measured, not painted. */
   colours: InviteTheme['palette'];
   /**
@@ -304,6 +312,17 @@ export function guestLookFrom(
     vars = { ...(vars ?? {}), ...look.vars };
   }
 
+  /* 🔤 A ROLE'S OWN FONT AND COLOUR (owner 2026-10-08, the Look restudy row 3 —
+     `events.site_roles`, `lib/site-role-look.ts`): layered after the palette,
+     the couple's colours and the ombré, so a role's pick is what the role wears.
+     Nothing stored → `{}` and no mark: the bag is exactly what it was. Free. */
+  const roles = sanitizeSiteRoles((event as { site_roles?: unknown }).site_roles);
+  if (roles) {
+    const paper = vars?.['--color-cream'];
+    const paperHex = paper ? `#${paper.trim().split(/\s+/).map((n) => Number(n).toString(16).padStart(2, '0')).join('')}` : dressed.palette.canvas;
+    vars = { ...(vars ?? {}), ...siteRoleVars(roles, { paper: paperHex }) };
+  }
+
   // 🔒 LAST: the plate keeps an ink that reads on the plate paper every layer
   // above left it with (owner 2026-09-30, "I cannot see the venues properly" —
   // a dark theme's light plate ink met a mood-board palette's light plate).
@@ -324,6 +343,7 @@ export function guestLookFrom(
     art: event.site_art_direction === 'candlelight' ? 'candlelight' : null,
     accent: hub.accent,
     vars: painted,
+    roles: siteRoleMarks(roles),
     buttons,
     colours: dressed.palette,
     ombre,

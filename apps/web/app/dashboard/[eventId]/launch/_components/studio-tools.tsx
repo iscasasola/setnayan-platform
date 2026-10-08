@@ -58,6 +58,7 @@ import { MAIN_COLOUR_JOB, MAIN_COLOUR_SLOTS, type MainColourDraft, type MainColo
 import { MAIN_COLOUR_SLOTS as MOOD_MAIN_COLOUR_SLOTS } from '@/lib/colour-access';
 import { InfoTip } from '@/app/_components/info-tip';
 import { StudioEventName } from './studio-event-name';
+import { StudioElements } from './studio-elements';
 import { BACKGROUND_MAIN_INFO } from '@/lib/background-source';
 
 /**
@@ -966,7 +967,9 @@ export type StudioToolProps =
   | ({ part: 'bring' } & Parameters<typeof StudioWhatToBring>[0])
   | ({ part: 'event-name' } & Parameters<typeof StudioEventName>[0])
   /* ⚖ A round-3 piece rides this one lazy door (2026-10-08) — a door of its own cost the Maker's first load. */
-  | ({ part: 'open-in-place' } & Parameters<typeof OpenInPlace>[0]);
+  | ({ part: 'open-in-place' } & Parameters<typeof OpenInPlace>[0])
+  /* 🔤 Look › Elements by role (restudy row 3) rides the same door — a door of its own would cost the Maker's first load. */
+  | ({ part: 'elements-roles' } & Parameters<typeof StudioElements>[0]);
 
 export function StudioTool(props: StudioToolProps) {
   switch (props.part) {
@@ -994,5 +997,7 @@ export function StudioTool(props: StudioToolProps) {
       return <StudioEventName {...props} />;
     case 'open-in-place':
       return <OpenInPlace {...props} />;
+    case 'elements-roles':
+      return <StudioElements {...props} />;
   }
 }

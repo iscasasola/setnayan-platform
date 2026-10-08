@@ -44,6 +44,8 @@ export function lookScopeProps(look: GuestLook | null) {
     ombre: look?.ombre ?? null,
     // 🔘 Look › Buttons — the two attributes every guest button's rule keys on.
     buttons: look?.buttons ? { shape: look.buttons.shape, paint: look.buttons.paint } : null,
+    // 🔤 Look › Elements — which roles wear a font or colour of their own (`data-hub-roles`).
+    roles: look?.roles ?? null,
   };
 }
 

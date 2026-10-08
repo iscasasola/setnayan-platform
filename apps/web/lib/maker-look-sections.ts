@@ -71,13 +71,15 @@ export const LOOK_SECTION_LABEL: Record<LookSection, string> = {
  * that moved on 2026-10-08: the page fill out of Colours, the hero video out of
  * Music.
  */
-export const LOOK_PARTS = ['background', 'page', 'video', 'colours', 'font', 'buttons', 'music'] as const;
+export const LOOK_PARTS = ['background', 'page', 'video', 'roles', 'colours', 'font', 'buttons', 'music'] as const;
 export type LookPart = (typeof LOOK_PARTS)[number];
 
 /** Which parts each section draws, in the order it draws them. */
 export const LOOK_SECTION_PARTS: Readonly<Record<LookSection, readonly LookPart[]>> = {
   background: ['background', 'page', 'video'],
-  elements: ['colours', 'font', 'buttons'],
+  /* `roles` is the new Maker's Studio only (restudy row 3): Pairing ▾ and the four role rows — which HOLD the
+     Font and Buttons controls, so there those two are not drawn a second time (`LookPanel`). */
+  elements: ['roles', 'colours', 'font', 'buttons'],
   music: ['music'],
 };
 
@@ -86,6 +88,7 @@ export const LOOK_PART_LABEL: Readonly<Record<LookPart, string>> = {
   background: 'Background',
   page: 'Page colour',
   video: 'Hero video',
+  roles: 'By role',
   colours: 'Colours',
   font: 'Font',
   buttons: 'Buttons',
@@ -107,6 +110,7 @@ export const LOOK_ROW_OF: Readonly<Record<LookPart, string>> = {
   background: 'main-background',
   page: 'page-colour',
   video: 'hero-video',
+  roles: 'roles',
   colours: 'colors',
   font: 'font',
   buttons: 'buttons',

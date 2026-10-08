@@ -104,8 +104,12 @@ export function LookPanel({
      Focus) itself — so Look does not draw them a second time. Without that panel (the app-store shell builds
      none) they stay rows of Look, as in the shipped Maker. */
   const sourceHolds = maker?.stagesStudio === true && Boolean(look?.background);
+  /* 🔤 …AND ELEMENTS BY ROLE (restudy row 3): in the Studio the role rows HOLD the Font (Headings) and the Buttons
+     control (Buttons) — the same nodes, placed in their role — so those two parts are not drawn again under
+     them. The shipped Maker has no role rows: it keeps Font and Buttons as parts, and never draws `roles`. */
+  const rolesHold = maker?.stagesStudio === true && Boolean(look?.roles);
   const part = (k: LookPart): ReactNode =>
-    !look || (sourceHolds && (k === 'page' || k === 'video'))
+    !look || (sourceHolds && (k === 'page' || k === 'video')) || (rolesHold ? k === 'font' || k === 'buttons' : k === 'roles')
       ? null
       : k === 'colours'
         ? look.colours || look.palette
@@ -134,6 +138,7 @@ export function LookPanel({
         if (look && parts.length === 0) return null;
         /* Elements is three controls of different kinds — each is named; Background and Music name themselves. */
         const named = k === 'elements';
+        const unnamed = (p: LookPart) => p === 'roles';
         return (
           <section key={k} data-look-section={k} className={`flex flex-col gap-2${i > 0 ? ' border-t border-ink/10 pt-4' : ''}`}>
             {/* One section alone is named by its item's row — no second heading. */}
@@ -141,7 +146,7 @@ export function LookPanel({
             {look ? (
               parts.map(({ p, node, more }) => (
                 <div key={p} data-look-part={p} className="flex flex-col gap-2">
-                  {named ? <h4 className="text-[13px] font-semibold text-ink/70">{LOOK_PART_LABEL[p]}</h4> : null}
+                  {named && !unnamed(p) ? <h4 className="text-[13px] font-semibold text-ink/70">{LOOK_PART_LABEL[p]}</h4> : null}
                   {node}
                   {more}
                 </div>

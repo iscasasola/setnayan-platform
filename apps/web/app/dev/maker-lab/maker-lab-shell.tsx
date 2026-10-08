@@ -14,6 +14,8 @@ import { sanitizeRsvpAskConfig } from '@/lib/rsvp-ask';
 import { MainBackgroundPanel, type MovingBackgroundOption } from '@/app/dashboard/[eventId]/website/editor/_components/main-background-panel';
 import { ColorsPanel } from '@/app/dashboard/[eventId]/website/editor/_components/pro-panels';
 import { SiteChromePanel } from '@/app/dashboard/[eventId]/website/editor/_components/media-panels';
+import { StudioElements } from '@/app/dashboard/[eventId]/launch/_components/studio-elements';
+import { elementsWears } from '@/lib/site-role-look';
 import { ButtonsLookRow } from '@/app/dashboard/[eventId]/website/editor/_components/buttons-look-row';
 import { INVITE_THEMES } from '@/lib/invite-themes';
 import { hubButtonPage } from '@/lib/hub-buttons';
@@ -213,6 +215,27 @@ export function MakerLabShell({
       node: <SiteChromePanel action={formDraft} eventId={eventId} part="music" musicRef={null} musicEnabled={false} videoRef={null} />,
     },
     'hero-video': { label: 'Hero video', node: heroVideo },
+    /* 🔤 Elements by role (restudy row 3) — the REAL rows on Classic's own look; picks draft into the lab's stand-in. */
+    roles: {
+      label: 'By role',
+      node: (
+        <StudioElements
+          eventId={eventId}
+          roles={null}
+          headingFont={null}
+          themeId="house"
+          five={['#5B1A22', '#F7F2EC', '#C9A86A', '#FBFAF7', '#7A8B6F']}
+          wears={elementsWears({
+            theme: 'house',
+            vars: null,
+            buttonVars: null,
+            tokens: { paper: house.palette.canvas, ink: house.palette.ink, accent: house.palette.accent, cta: house.palette.accent },
+          })}
+          names="Maria & Jose"
+          draftAction={labDraft as never}
+        />
+      ),
+    },
     buttons: {
       label: 'Buttons',
       node: <ButtonsLookRow eventId={eventId} theme={house} page={hubButtonPage(house, null)} style={null} colour={null} palette={[house.palette.accent, house.palette.ink]} />,

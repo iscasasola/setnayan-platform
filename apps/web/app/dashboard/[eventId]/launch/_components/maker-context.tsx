@@ -285,6 +285,8 @@ export type MakerLookPages = {
     page?: ReactNode | null;
     /** 🎬 Look › Background — the hero video, out of Music (owner 2026-10-08). */
     video?: ReactNode | null;
+    /** 🔤 Look › Elements — Pairing ▾ and the four role rows (the new Maker's Studio; owner 2026-10-08, restudy row 3). */
+    roles?: ReactNode | null;
   } | null;
   /** The Reveal's settings: play it, its fine-tune, where it plays (the RIGHT column). */
   reveal: ReactNode | null;

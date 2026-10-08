@@ -4297,6 +4297,45 @@ html.dark {
   color: var(--hub-btn-solid-label);
 }
 
+/* ── LOOK › ELEMENTS — A ROLE'S OWN FONT AND COLOUR (owner 2026-10-08) ───────
+   `events.site_roles` (`lib/site-roles.ts`). Most of a role's pick travels in
+   variables the page already reads, set inline on the look scope
+   (`lib/site-role-look.ts`): Details → `--font-body` · `--color-ink`,
+   Highlights → `--font-mono` · `--color-terracotta*`. These four rules are for
+   what no existing variable reaches — and each matches ONLY under the mark the
+   scope wears for a role the couple actually changed (`data-hub-roles`), so a
+   page with nothing overridden matches none of them.
+
+   · `body`    — House has no theme block to point the page's own face at
+                 `--font-body` (a painted theme's block already does).
+   · `eyebrow` — `.pahina-eyebrow` names its face directly, not `--font-mono`.
+   · `button`  — a button had no face of its own; it inherited the body's.
+   · `heading` — headings wore the page's ink. The ones that still do (or name
+                 no colour at all) wear `--hub-heading`; a heading with a colour
+                 of its own (cream over a dark plate, an accent) keeps it.
+                 🔑 INSIDE A SCENE WITH A GROUND OF ITS OWN the heading goes back
+                 to that scene's ink: such a frame re-sets `--color-ink` inline
+                 for what was MEASURED over its photo or colour
+                 (`sceneLegibilityVars`), and the couple's heading colour was
+                 never measured there. */
+[data-hub-roles~='body'] {
+  --font-sans: var(--font-body);
+  font-family: var(--font-body);
+}
+[data-hub-roles~='eyebrow'] .pahina-eyebrow {
+  font-family: var(--font-mono);
+}
+[data-hub-roles~='button'] :is(.button-primary, .button-secondary, [data-rsvp-answer]),
+[data-hub-roles~='button'] [data-arrival-action] a.bg-mulberry {
+  font-family: var(--hub-btn-font);
+}
+[data-hub-roles~='heading'] :is(h1, h2, h3, .font-display):is(.text-ink, :not([class*='text-ink'], [class*='text-cream'], [class*='text-white'], [class*='text-terracotta'], [class*='text-gild'], [class*='text-mulberry'], [class*='text-success'], [class*='text-danger'])) {
+  color: var(--hub-heading);
+}
+[data-hub-roles~='heading'] [style*='--color-ink'] :is(h1, h2, h3, .font-display):is(.text-ink, :not([class*='text-ink'], [class*='text-cream'], [class*='text-white'], [class*='text-terracotta'], [class*='text-gild'], [class*='text-mulberry'], [class*='text-success'], [class*='text-danger'])) {
+  color: rgb(var(--color-ink));
+}
+
 /* ── FOIL NAMES (owner 2026-09-25: "i like that shimmer effect") ─────────────
    The `.foil` glint from the Luxe prototype (post_event_auto_story_2026-09-25):
    a gold gradient clipped to the couple's names, a 6 s glint, STATIC under

@@ -329,7 +329,7 @@ export const HUB_WORDS_EVENT_COLUMNS = [
  * THREE DIRECT GLOBAL SETTINGS": *"Colors, and Fonts are all free"*): the
  * paid tier is media and our moving backgrounds, never type.
  */
-export const HUB_FREE_LOOK_EVENT_COLUMNS = ['site_bg_color', 'site_button_color', 'site_button_style', 'site_font_key'] as const;
+export const HUB_FREE_LOOK_EVENT_COLUMNS = ['site_bg_color', 'site_button_color', 'site_button_style', 'site_font_key', 'site_roles'] as const;
 
 /** Is this `events` column the page's look (Pro), a free colour, or words? */
 export function hubColumnKind(column: string): 'look' | 'free-look' | 'words' | 'other' {

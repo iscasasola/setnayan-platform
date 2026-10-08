@@ -472,6 +472,8 @@ test('(9) a card is PHONE-SHAPED: a 3 : 4 portrait frame of a fixed width that c
   assert.match(guest, /const position = mainGroundPosition\(focus\);/, 'the guest page positions its background by a rule of its own');
   assert.doesNotMatch(guest, /'center top'|'center bottom'/, 'the guest page keeps a second copy of the crop rule');
   assert.match(studio, /const heldAt = mainGroundPosition\(takes\.focus \? \(extra\('focus'\) as HubMainFocus \| null\) : null\);/);
+  // …and the card ON the page really is handed that position (a `held` that answers nothing would crop every card at its centre).
+  assert.match(studio, /const held = \(isOn: boolean \| null \| undefined\) => \(isOn \? \{ position: heldAt \} : \{\}\);/, 'the card of the picture on the page is not held where Focus holds it');
   assert.doesNotMatch(studio, /object-(?:top|bottom)|'center top'|'center bottom'/, 'the cards keep a second copy of the crop rule');
   const stills = studio.split('<StillOverSwatch').slice(1).map((c) => c.slice(0, c.indexOf('/>')));
   assert.ok(stills.filter((c) => /\{\.\.\.held\(active/.test(c)).length >= 5, 'a picture that can be ON the page is not cropped where the page crops it');

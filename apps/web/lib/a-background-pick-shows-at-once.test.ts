@@ -404,6 +404,8 @@ test('(6) the canvas lays the still first, the clip when it moves, lets a second
   assert.equal(video.attrs.autoplay, undefined);
   video.fire('playing');
   assert.equal(video.style.opacity, '1');
+  // …and the Maker's stopwatch hears that it moves (`bg-pick:loop-playing`).
+  assert.deepEqual(c.told.at(-1), { seq: 1, playing: true });
   // A clip that cannot play removes itself — the still stays.
   c = fakeCanvas();
   c.p.lay({ seq: 1, lay: FILM });

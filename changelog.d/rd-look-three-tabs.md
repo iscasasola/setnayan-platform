@@ -41,6 +41,20 @@ migration, no new server action.
 - **The Apply sheet** names the moved changes where they live now: "Look · Page
   colour", "Look · Hero video"; the hero video's "Go to" opens Look.
 
+After the controller's walk of the preview (2026-10-08, real event, 375):
+
+- **Nothing in Look says "Guests see this right away".** Buttons, the song and
+  its switch all write the draft; the note the walk read under them was the
+  print words form's own live mark, `sr-only`, drawn under whichever editor is
+  open. It is `hidden` now (the visible one beside that form's Save stays).
+- **No tall gap under Magic Move in the Studio**: a Look colour form sits flush
+  with the rows around it there (its padded block is the shipped Maker's only).
+- **The Studio home's Look tile** reads Background · Elements · Music (derived
+  from the sections list).
+- NOT changed: a cold `?tool=details&item=background` lands on the Studio's
+  home in the new Maker — that is `main`'s rule (DECISION_LOG 2026-10-07 rule 3,
+  `maker-shell.tsx`, untouched by this PR), not a regression.
+
 Guards: `lib/the-look-is-one-panel.test.ts` rewritten to the new shape (8 tests;
 every older assertion re-aimed, none dropped) and re-aimed assertions in
 `studio-round-3-follows-the-owner`, `the-guided-steps-share-one-layout`,

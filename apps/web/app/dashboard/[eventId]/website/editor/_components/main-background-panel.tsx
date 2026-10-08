@@ -1,6 +1,6 @@
 'use client';
 
-import { makerSave } from '@/lib/maker-refresh';
+import { HUB_DRAFT_BAR_FIELD, makerRedrawSave, makerSave } from '@/lib/maker-refresh';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from 'react';
 import { Check } from 'lucide-react';
@@ -50,7 +50,21 @@ import { MAIN_COLOUR_SLOTS as MOOD_COLOUR_NAMES } from '@/lib/colour-access';
 import { STUDIO_ROW_PICK } from '@/lib/studio-skin';
 import { InfoTip } from '@/app/_components/info-tip';
 import { StudioColourField } from '../../../launch/_components/studio-colour-field';
-import { BgCard, BgCards, BgRow, LoopPicture, UploadPicture } from './background-cards';
+import { BgCard, BgCards, BgPickLine, BgRow, LoopPicture, UploadPicture } from './background-cards';
+import {
+  BACKGROUND_PICK_CANVAS_WAIT_MS,
+  BACKGROUND_PICK_FAILED,
+  MAIN_GROUND_PREVIEW,
+  backgroundLayOf,
+  backgroundPickAfter,
+  backgroundPickStep,
+  backgroundPictureKey,
+  createLookGroundStore,
+  mainGroundPreviewMessage,
+  type BackgroundPick,
+  type LookGround,
+  type LookGroundPictures,
+} from '@/lib/background-pick';
 import { mainGroundChoice } from '@/lib/main-ground-choice';
 import { heroFrameWrites } from '@/lib/hero-frame-sync';
 import { IMAGE_MAX_EDGE } from '@/lib/image-max-edge';
@@ -154,12 +168,51 @@ async function saveMain(eventId: string, main: HubMainGround | null, draft: type
   return saveLookWrite(eventId, { main }, draft);
 }
 
-/** ONE draft save for one pick — the main background and/or the page's own colour and art direction (`hubDraftAction` intent=save). */
-async function saveLookWrite(eventId: string, write: LookWrite, draft: typeof hubDraftAction = hubDraftAction) {
+/**
+ * ONE draft save for one pick — the main background and/or the page's own colour and art direction (`hubDraftAction` intent=save).
+ * `bar`: a HELD save (no whole-Maker render follows) asks the action for the Apply bar in its own answer (`HUB_DRAFT_BAR_FIELD`).
+ */
+async function saveLookWrite(eventId: string, write: LookWrite, draft: typeof hubDraftAction = hubDraftAction, bar = false) {
   const fd = new FormData();
   fd.set('intent', 'save');
   fd.set('patch', JSON.stringify(backgroundWritePatch(write)));
+  if (bar) fd.set(HUB_DRAFT_BAR_FIELD, '1');
   return draft(eventId, fd);
+}
+
+/* ══ ⚡ STUDIO › LOOK › BACKGROUND — A PICK SHOWS AT ONCE (`lib/background-pick.ts`) ══════════════
+   Owner 2026-10-08: *"took 8 seconds before a background shows"* · *"when i press, and it has a
+   loading state, we want to know something is pressed and loading files... applying to your Hub."* */
+
+/** The Maker's own copy of the page's background while the server has not caught up — one for the session, like the canvases'. */
+const lookGround = createLookGroundStore();
+/** Every pick's number. Module-wide: the canvas refuses a number lower than the last it laid, and a panel that is closed and opened again must not start over. */
+let lookPickSeq = 0;
+/** The pages the Maker shows — the SAME frames Look › Buttons lays its instant preview on (`buttons-look-row.tsx`). */
+const LOOK_FRAMES = 'iframe[data-maker-page-frame], iframe[data-maker-canvas-frame]';
+
+/** Post to every page the Maker shows; how many heard it (0 = no canvas to wait for). */
+function tellLookCanvas(message: unknown): number {
+  let n = 0;
+  for (const f of document.querySelectorAll<HTMLIFrameElement>(LOOK_FRAMES)) {
+    if (!f.contentWindow) continue;
+    f.contentWindow.postMessage(message, window.location.origin);
+    n += 1;
+  }
+  return n;
+}
+
+/**
+ * ⏱ THE STOPWATCH (`performance.getEntriesByType('mark')`, names `bg-pick:*`): tap · canvas-told · files-read ·
+ * write-sent · write-answered · still-painted · loop-playing · canvas-redrawn. Measured, never guessed — the
+ * "8 seconds" was a path nobody had timed.
+ */
+function pickMark(name: string): void {
+  try {
+    performance.mark(`bg-pick:${name}`);
+  } catch {
+    /* no stopwatch here — nothing depends on it */
+  }
 }
 
 
@@ -372,11 +425,21 @@ export function MainBackgroundPanel({
   /* 🧭 Studio: the source whose cards are on screen (a look, never a write) and whether the upload is open. */
   const [viewed, setViewed] = useState<BackgroundSource | null>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
-  /* 🧭 Studio: the pick is DRAWN AT THE TAP — ringed, named — then saved; the next server render (or a
-     refusal) is the truth again. The shipped Maker keeps waiting for the render, as it always did. */
-  const [tried, setTried] = useState<{ main?: HubMainGround | null; bg?: string | null; art?: 'daylight' | 'candlelight' } | null>(null);
-  useEffect(() => setTried(null), [storedMain, page?.bgColor, page?.artDirection]);
-  const current = tried && 'main' in tried ? (tried.main ?? null) : storedMain;
+  /* 🧭 Studio: the pick is DRAWN AT THE TAP — ringed, named, on the canvas — then saved behind it, HELD (no
+     whole-Maker render): the Maker keeps its own copy of the page's background until a render brings the same
+     (`createLookGroundStore`). The shipped Maker keeps waiting for the render, as it always did. */
+  const server: LookGround = { main: storedMain, bg: page?.bgColor ?? null, art: page?.artDirection ?? null };
+  const serverRef = useRef(server);
+  serverRef.current = server;
+  const lookKey = `look:${eventId}`;
+  const ground = studio ? lookGround.read(lookKey, server) : server;
+  /** ⚡ The pick on its way — which card is ringed and marked, and what the one line says. */
+  const [pick, setPick] = useState<BackgroundPick | null>(null);
+  /** What "Try again" does: the refused pick, once more. */
+  const retry = useRef<(() => void) | null>(null);
+  /** The card just tapped (`data-bg-card`) — the strip says it before the card's own handler runs. */
+  const tapped = useRef<string | null>(null);
+  const current = ground.main;
 
   const theme = useMemo(() => ({ ...INVITE_THEMES[themeId], palette: colours }), [themeId, colours]);
   const own: HubMainOwn | null = isHubMainOwn(current) ? current : null;
@@ -410,41 +473,170 @@ export function MainBackgroundPanel({
     [tint, theme],
   );
 
+  const COULD_NOT_READ =
+    'We could not read the colours of that picture, so it was not used — the words over it could not be checked. Please try another one.';
+
+  /* ── ⚡ the Studio's pick: ringed, on the canvas, then saved — in that order ─────────────────── */
+
+  /** Where the canvas finds a picture the panel already holds an address for (never a guess: unknown = null). */
+  const lookPictures: LookGroundPictures = {
+    loop: (id) => {
+      const l = loops.find((x) => x.id === id);
+      return l ? { still: l.stillUrl, clip: l.loopUrl ?? null } : null;
+    },
+    media: (ref) =>
+      isStdLibrarySrc(ref)
+        ? ref
+        : videoChoice?.ref === ref
+          ? videoChoice.url
+          : (photoChoices.find((p) => p.ref === ref)?.url ??
+            sceneUploads.find((u) => u.ref === ref)?.url ??
+            sceneUploads.find((u) => u.kind === 'snippet' && u.poster === ref)?.posterUrl ??
+            null),
+    cover: hero.photoUrl,
+    themeId,
+  };
+  /** A pick's news from the canvas: the still is painted, its clip moves, or the page has redrawn itself with it. */
+  useEffect(() => {
+    if (!studio) return;
+    const onCanvas = (e: MessageEvent) => {
+      if (e.origin !== window.location.origin) return;
+      const d = e.data as { source?: string; t?: string; seq?: unknown; shown?: unknown; playing?: unknown; redrawn?: unknown } | null;
+      if (!d || d.source !== 'setnayan-site' || d.t !== MAIN_GROUND_PREVIEW) return;
+      if (d.redrawn === true) {
+        pickMark('canvas-redrawn');
+        /* The page's own render is on screen — it holds this pick only if the pick's save had landed before it was asked for. */
+        setPick((p) => (p && p.saved ? backgroundPickAfter(p, p.seq, { shown: true }) : p));
+        return;
+      }
+      const seq = d.seq;
+      if (typeof seq !== 'number') return;
+      if (d.playing === true) return pickMark('loop-playing');
+      if (d.shown === true) pickMark('still-painted');
+      /* A still that could not be laid: nothing false is on the canvas — the pick now waits for the page's own render. */
+      setPick((p) => backgroundPickAfter(p, seq, d.shown === true ? { shown: true } : { laid: false }));
+    };
+    window.addEventListener('message', onCanvas);
+    return () => window.removeEventListener('message', onCanvas);
+  }, [studio]);
+  /** The save has landed and the canvas never said so (no bridge, a frame mid-load): the line does not wait for ever. */
+  useEffect(() => {
+    if (!pick || pick.failed || !pick.saved || pick.shown) return;
+    const seq = pick.seq;
+    const t = window.setTimeout(() => setPick((p) => (p && p.seq === seq ? null : p)), BACKGROUND_PICK_CANVAS_WAIT_MS);
+    return () => window.clearTimeout(t);
+  }, [pick]);
+
+  /**
+   * 🧭 Studio: ONE pick — the main background and/or the page's colour or Candlelight — in four steps:
+   * drawn in the panel (the ring), laid on the canvas (its still or colour), saved behind it HELD
+   * (`makerRedrawSave`: no whole-Maker render; the page redraws itself in place), and said (`BgPickLine`).
+   * A LATER PICK WINS: an answer for an older number moves nothing on screen. A refusal puts the last
+   * landed background back, takes the preview off, and says so with Try again.
+   *   · `began` — the pick was already ringed and laid at the tap (its colours were being read);
+   *   · `render` — nothing here can draw it (a file just uploaded has no address yet): the save brings the
+   *     whole-Maker render, as it always did.
+   */
+  const pickLook = (write: LookWrite, failure: string, opts: { began?: number; render?: boolean } = {}) => {
+    if (!('main' in write) && !write.events) return;
+    const next: LookGround = {
+      main: 'main' in write ? (write.main ?? null) : ground.main,
+      bg: write.events && 'site_bg_color' in write.events ? (write.events.site_bg_color ?? null) : ground.bg,
+      art: write.events?.site_art_direction ?? ground.art,
+    };
+    const fresh = opts.began === undefined;
+    const seq = opts.began ?? ++lookPickSeq;
+    if (fresh) pickMark('tap');
+    /* The canvas wears it NOW — when it is another picture or colour. A Shade, a Blur, a Focus keep the picture:
+       the page's own render brings them, with the veil it measures. */
+    const lay = fresh && !opts.render && backgroundPictureKey(next) !== backgroundPictureKey(ground) ? backgroundLayOf(next, lookPictures) : null;
+    const heard = opts.render ? 0 : lay ? tellLookCanvas(mainGroundPreviewMessage(seq, lay)) : document.querySelectorAll(LOOK_FRAMES).length;
+    if (lay && heard > 0) pickMark('canvas-told');
+    lookGround.draw(lookKey, next, serverRef.current);
+    lookGround.sent();
+    retry.current = () => pickLook(write, failure, opts.render ? { render: true } : {});
+    setError(null);
+    setPick((was) => ({
+      seq,
+      card: null,
+      reading: false,
+      laid: fresh ? Boolean(lay) && heard > 0 : Boolean(was && was.seq === seq && was.laid),
+      /* No canvas to hear it, or a save that brings its own render: there is nothing more to wait for than the save. */
+      shown: heard === 0 || Boolean(!fresh && was && was.seq === seq && was.shown),
+      saved: false,
+      failed: null,
+    }));
+    void (async () => {
+      let ok = false;
+      let said = failure;
+      try {
+        pickMark('write-sent');
+        const r = opts.render
+          ? await makerSave(() => saveLookWrite(eventId, write, draftAction), () => router.refresh())
+          : await makerRedrawSave(() => saveLookWrite(eventId, write, draftAction, true), () => router.refresh());
+        pickMark('write-answered');
+        ok = r.ok === true;
+        if (!r.ok) said = r.error || failure;
+      } catch {
+        ok = false;
+      }
+      const latest = seq === lookPickSeq;
+      lookGround.answered(lookKey, { ok, latest, value: next }, serverRef.current);
+      if (ok) setPick((p) => backgroundPickAfter(p, seq, { saved: true }));
+      else if (latest) {
+        tellLookCanvas(mainGroundPreviewMessage(seq, null));
+        setPick((p) => (p && p.seq === seq ? { ...p, reading: false, failed: said } : p));
+      }
+    })();
+  };
+  /**
+   * 🧭 Studio: a PICTURE whose colours must be read before it may be saved (a scene, their photo or clip, the cover).
+   * The tapped card is ringed and the still is on the canvas AT THE TAP; the read runs behind ("Loading files…");
+   * then the one save. Unreadable = not used: the ring and the canvas go back, and the line says so with Try again.
+   */
+  const pickMeasured = (stillUrl: string | null, provisional: HubMainGround, build: (frame: string[]) => HubMainGround) => {
+    const card = tapped.current;
+    const seq = ++lookPickSeq;
+    pickMark('tap');
+    retry.current = () => {
+      tapped.current = card;
+      pickMeasured(stillUrl, provisional, build);
+    };
+    setError(null);
+    const lay = stillUrl ? backgroundLayOf({ main: provisional, bg: ground.bg }, lookPictures) : null;
+    const heard = lay ? tellLookCanvas(mainGroundPreviewMessage(seq, lay)) : 0;
+    if (heard > 0) pickMark('canvas-told');
+    setPick({ seq, card, reading: Boolean(stillUrl), laid: heard > 0, shown: false, saved: false, failed: stillUrl ? null : COULD_NOT_READ });
+    if (!stillUrl) return;
+    void (async () => {
+      let frame: string[] = [];
+      try {
+        const res = await fetch(stillUrl, { mode: 'cors' });
+        if (!res.ok) throw new Error(String(res.status));
+        frame = await readFrame(await res.blob());
+      } catch {
+        frame = [];
+      }
+      if (seq !== lookPickSeq) return; // a later tap took over
+      if (frame.length === 0) {
+        tellLookCanvas(mainGroundPreviewMessage(seq, null));
+        setPick((p) => (p && p.seq === seq ? { ...p, reading: false, failed: COULD_NOT_READ } : p));
+        return;
+      }
+      pickMark('files-read');
+      pickLook({ main: build(frame) }, BACKGROUND_PICK_FAILED, { began: seq });
+    })();
+  };
+
   const save = (main: HubMainGround | null, failure: string, after?: () => void) => {
-    if (studio) setTried((t) => ({ ...(t ?? {}), main }));
+    if (studio) return pickLook({ main }, failure);
     start(async () => {
       setError(null);
       try {
         const r = await makerSave(() => saveMain(eventId, main, draftAction), () => router.refresh());
-        if (!r.ok) {
-          setTried(null);
-          setError(r.error);
-        } else after?.();
+        if (!r.ok) setError(r.error);
+        else after?.();
       } catch {
-        setTried(null);
-        setError(failure);
-      }
-    });
-  };
-  /** 🧭 Studio: one pick that may touch the page's colour or Candlelight as well as the main background — ONE draft save. */
-  const saveLook = (write: LookWrite, failure: string) => {
-    if (!('main' in write) && !write.events) return;
-    setTried((t) => ({
-      ...(t ?? {}),
-      ...('main' in write ? { main: write.main ?? null } : {}),
-      ...(write.events && 'site_bg_color' in write.events ? { bg: write.events.site_bg_color ?? null } : {}),
-      ...(write.events?.site_art_direction ? { art: write.events.site_art_direction } : {}),
-    }));
-    start(async () => {
-      setError(null);
-      try {
-        const r = await makerSave(() => saveLookWrite(eventId, write, draftAction), () => router.refresh());
-        if (!r.ok) {
-          setTried(null);
-          setError(r.error);
-        }
-      } catch {
-        setTried(null);
         setError(failure);
       }
     });
@@ -469,9 +661,6 @@ export function MainBackgroundPanel({
     })();
   };
 
-  const COULD_NOT_READ =
-    'We could not read the colours of that picture, so it was not used — the words over it could not be checked. Please try another one.';
-
   const onUploaded = async (value: string | string[] | null) => {
     const ref = typeof value === 'string' ? value : null;
     if (!ref) return;
@@ -481,15 +670,15 @@ export function MainBackgroundPanel({
       setError(COULD_NOT_READ);
       return;
     }
-    save(
-      {
-        kind: measured.kind,
-        media: ref,
-        ...(measured.poster ? { poster: measured.poster } : {}),
-        tint: { match: true, frame: measured.frame },
-      },
-      'Your background could not be saved. Please try again.',
-    );
+    const uploaded: HubMainGround = {
+      kind: measured.kind,
+      media: ref,
+      ...(measured.poster ? { poster: measured.poster } : {}),
+      tint: { match: true, frame: measured.frame },
+    };
+    /* A file just uploaded has no address the canvas could wear yet: in the Studio its save brings the Maker's render. */
+    if (studio) pickLook({ main: uploaded }, 'Your background could not be saved. Please try again.', { render: true });
+    else save(uploaded, 'Your background could not be saved. Please try again.');
   };
 
   /* 🖼 ONE OF THE COUPLE'S PICTURES (or a ready-made one), picked in place —
@@ -497,6 +686,14 @@ export function MainBackgroundPanel({
      scenes answer the app's own origin), like the hero's own. A clip is read
      through its still. */
   const pickExisting = (media: { kind: 'photo' | 'snippet'; ref: string; stillUrl: string | null; poster?: string | null }) => {
+    const picked = (frame: string[]): HubMainGround => ({
+      kind: media.kind,
+      media: media.ref,
+      ...(media.kind === 'snippet' && media.poster ? { poster: media.poster } : {}),
+      tint: { match: own?.tint?.match ?? true, frame },
+      ...(media.kind === 'photo' && own?.motion ? { motion: own.motion } : {}),
+    });
+    if (studio) return pickMeasured(media.stillUrl, picked([]), picked);
     if (!media.stillUrl) {
       setError(COULD_NOT_READ);
       return;
@@ -509,16 +706,7 @@ export function MainBackgroundPanel({
         if (!res.ok) throw new Error(String(res.status));
         const frame = await readFrame(await res.blob());
         if (frame.length === 0) throw new Error('empty frame');
-        save(
-          {
-            kind: media.kind,
-            media: media.ref,
-            ...(media.kind === 'snippet' && media.poster ? { poster: media.poster } : {}),
-            tint: { match: own?.tint?.match ?? true, frame },
-            ...(media.kind === 'photo' && own?.motion ? { motion: own.motion } : {}),
-          },
-          'Your background could not be saved. Please try again.',
-        );
+        save(picked(frame), 'Your background could not be saved. Please try again.');
       } catch {
         setError(COULD_NOT_READ);
       } finally {
@@ -571,6 +759,13 @@ export function MainBackgroundPanel({
       if (pending) return;
       if (k === 'src:media') return setChoosingMedia(true);
       setChoosingMedia(false);
+      /* 🧭 Studio: the cover is MEASURED in the pick itself and saved as the follow in ONE save — a bare "nothing
+         stored" would redraw the page on the theme's own ground until `HeroFrameSync` caught up (a flash back). */
+      if (k === 'src:hero' && studio && hero.photoRef) {
+        const of = hero.photoRef;
+        const followed = (frame: string[]): HubMainGround => ({ follow: 'hero', of, tint: { match: true, frame } });
+        return pickMeasured(hero.photoUrl, followed([]), followed);
+      }
       if (k === 'src:hero') return save(null, 'Your background could not be changed. Please try again.');
       if (k === 'src:none') return save({ ground: 'none' }, 'Your background could not be changed. Please try again.');
       const id = loops.find((l) => l.id === k)?.id;
@@ -584,7 +779,7 @@ export function MainBackgroundPanel({
   /* 🔎 The hero's colours are read where the hero is the background — ONE mount, drawn by whichever Maker is on. */
   const heroSync =
     choice === 'hero' && hero.photoRef ? (
-      <HeroFrameSync eventId={eventId} heroRef={hero.photoRef} heroUrl={hero.photoUrl} current={current} liveHeroRef={hero.liveRef} mainDrafted={drafted} />
+      <HeroFrameSync eventId={eventId} heroRef={hero.photoRef} heroUrl={hero.photoUrl} current={current} liveHeroRef={hero.liveRef} mainDrafted={drafted || ground !== server} />
     ) : null;
 
   /* ══ 🧭 STUDIO › LOOK › BACKGROUND — ONE SOURCE ▾ AND ITS PICTURE CARDS ════════════════════════
@@ -593,7 +788,7 @@ export function MainBackgroundPanel({
      page fill and the pictures under "Upload media" held is a card of ONE of five sources, and a tap
      does exactly what its old row did (`pickGround` · `pickExisting` · the same draft door). */
   if (studio) {
-    const FAILED = 'Your background could not be changed. Please try again.';
+    const FAILED = BACKGROUND_PICK_FAILED;
     const proOn = Boolean(proMark);
     const storedSource = backgroundSourceOf(current, {
       themeHasLoop: Boolean(INVITE_THEMES[themeId]?.media),
@@ -603,8 +798,8 @@ export function MainBackgroundPanel({
     /** The cards on screen are the source the page wears — only then is one of them ringed, and its rows drawn. */
     const active = view === storedSource;
     /* 🌈 The page colour: the couple's own (plain or blended), else the one the page wears (the Mood Board's). */
-    const bgStored = tried && 'bg' in tried ? (tried.bg ?? null) : (page?.bgColor ?? null);
-    const art = tried?.art ?? page?.artDirection ?? null;
+    const bgStored = ground.bg;
+    const art = ground.art;
     const bg = parseSiteBackground(bgStored);
     const ownHex = bg ? (bg.kind === 'plain' ? bg.hex : bg.ombre.base) : null;
     const effect: BackgroundEffect = bg?.kind === 'ombre' ? bg.ombre.shape : 'plain';
@@ -617,7 +812,7 @@ export function MainBackgroundPanel({
       const base = hex ?? (nextEffect === 'plain' ? null : paper);
       const value = base ? encodeBackgroundChoice(base, nextEffect) || null : null;
       const stays = storedSource === 'colour' || (keepPattern && storedSource === 'pattern');
-      saveLook(stays ? { events: { site_bg_color: value } } : { events: { site_bg_color: value }, main: NO_PICTURE }, FAILED);
+      pickLook(stays ? { events: { site_bg_color: value } } : { events: { site_bg_color: value }, main: NO_PICTURE }, FAILED);
     };
     const pattern = current && 'ground' in current && current.ground === 'pattern' ? current.pattern : null;
     /* 🌗 Shade · 🌫 Blur · 🎯 Focus — stored on the main background, each only where it means something (`hubMainTakes`). */
@@ -642,7 +837,7 @@ export function MainBackgroundPanel({
       const write: LookWrite = {};
       if (w.art) write.events = { site_art_direction: w.art };
       if (w.stepMoves) write.main = withExtra('shade', w.step);
-      saveLook(write, FAILED);
+      pickLook(write, FAILED);
     };
     const listed =
       own &&
@@ -672,7 +867,7 @@ export function MainBackgroundPanel({
           />
         </BgRow>
 
-        <BgCards label={BACKGROUND_SOURCE_LABEL[view]} source={view}>
+        <BgCards label={BACKGROUND_SOURCE_LABEL[view]} source={view} pick={pick} onTap={(data) => (tapped.current = data)}>
           {view === 'colour'
             ? BACKGROUND_EFFECTS.filter((e) => Boolean(page) || e === 'plain').map((e) => (
                 <BgCard
@@ -806,6 +1001,8 @@ export function MainBackgroundPanel({
             </>
           ) : null}
         </BgCards>
+        {/* ⚡ What the pick is waiting for — "Loading files…", then "Applying to your Hub…"; a failure, in place, with Try again. */}
+        <BgPickLine step={backgroundPickStep(pick)} error={pick?.failed ?? null} onRetry={pick?.failed ? () => retry.current?.() : null} />
 
         {heroSync}
 

@@ -560,7 +560,7 @@ test('(8) the Studio draws and lays a pick BEFORE its save, holds the save, lets
   const pickLook = fn('pickLook', 'const pickMeasured = (');
   const pickMeasured = fn('pickMeasured', 'const save = (');
   // ORDER, in the one pick: the canvas is told, the panel draws it (the ring), the line starts — THEN the save is sent.
-  const order = ['tellLookCanvas(mainGroundPreviewMessage(seq, lay))', 'lookGround.draw(lookKey, next, serverRef.current);', 'setPick((was) => ({', 'await makerRedrawSave('].map((s) => pickLook.indexOf(s));
+  const order = ['tellLookCanvas(mainGroundPreviewMessage(seq, lay))', 'lookDrawnSeq = seq;', 'lookGround.draw(lookKey, next, serverRef.current);', 'setPick((was) => ({', 'await makerRedrawSave('].map((s) => pickLook.indexOf(s));
   assert.ok(order.every((i) => i > 0), `a step of the pick is missing: ${order.join(', ')}`);
   assert.deepEqual([...order].sort((a, b) => a - b), order, 'the pick is not laid and drawn before its save is sent');
   // HELD: the save owes no whole-Maker render (the canvas page redraws itself in place) and answers with the Apply bar.
@@ -574,7 +574,8 @@ test('(8) the Studio draws and lays a pick BEFORE its save, holds the save, lets
   assert.match(fn('save', 'const onFilePicked = ('), /^const save = \(.*\) => \{\s*if \(studio\) return pickLook\(\{ main \}, failure\);/, 'a Studio save still waits on the server');
   // A LATER PICK WINS: every pick takes a new number; an answer is "latest" only for the newest; a stale read is dropped.
   assert.match(pickLook, /const seq = opts\.began \?\? \+\+lookPickSeq;/);
-  assert.match(pickLook, /const latest = seq === lookPickSeq;\s*lookGround\.answered\(lookKey, \{ ok, latest, value: next \}, serverRef\.current\);/);
+  // "Latest" = the last pick DRAWN — a newer tap still reading its picture has drawn nothing, so an older refusal must still put the landed background back.
+  assert.match(pickLook, /const latest = seq === lookDrawnSeq;\s*lookGround\.answered\(lookKey, \{ ok, latest, value: next \}, serverRef\.current\);/);
   assert.match(pickLook, /if \(ok\) setPick\(\(p\) => backgroundPickAfter\(p, seq, \{ saved: true \}\)\);/);
   assert.match(pickMeasured, /if \(seq !== lookPickSeq\) return;/, 'a slow read of an older tap can overwrite the newer pick');
   // A REFUSAL: the preview comes off the canvas, the failure is said — and only for the latest pick.

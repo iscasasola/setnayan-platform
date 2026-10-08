@@ -189,6 +189,12 @@ const lookGround = createLookGroundStore();
 /** Every pick's number. Module-wide: the canvas refuses a number lower than the last it laid, and a panel that is closed and opened again must not start over. */
 let lookPickSeq = 0;
 /**
+ * The number of the last pick DRAWN (in the panel's own copy). A refusal puts the last landed background back only
+ * when it is this one's — a later tap whose picture is still being read has a higher number but has drawn nothing
+ * yet, and must not leave a refused pick on screen as if it had landed.
+ */
+let lookDrawnSeq = 0;
+/**
  * The page the couple is LOOKING AT — the frames Look › Buttons lays its instant preview on (`buttons-look-row.tsx`),
  * less the ones kept behind (a render still loading, another stage kept warm): a preview there would fetch a still
  * and decode a film nobody sees. They get the truth with everyone else — the redraw reaches every frame.
@@ -558,6 +564,7 @@ export function MainBackgroundPanel({
     const lay = fresh && !opts.render && backgroundPictureKey(next) !== backgroundPictureKey(ground) ? backgroundLayOf(next, lookPictures) : null;
     const heard = opts.render ? 0 : lay ? tellLookCanvas(mainGroundPreviewMessage(seq, lay)) : document.querySelectorAll(LOOK_FRAMES).length;
     if (lay && heard > 0) pickMark('canvas-told');
+    lookDrawnSeq = seq;
     lookGround.draw(lookKey, next, serverRef.current);
     lookGround.sent();
     retry.current = () => pickLook(write, failure, opts.render ? { render: true } : {});
@@ -586,7 +593,7 @@ export function MainBackgroundPanel({
       } catch {
         ok = false;
       }
-      const latest = seq === lookPickSeq;
+      const latest = seq === lookDrawnSeq;
       lookGround.answered(lookKey, { ok, latest, value: next }, serverRef.current);
       if (ok) setPick((p) => backgroundPickAfter(p, seq, { saved: true }));
       else if (latest) {

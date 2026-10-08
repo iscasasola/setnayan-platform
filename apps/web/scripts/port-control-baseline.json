@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "3ef76c714",
+  "generatedFromRef": "cd26afa63",
   "routeCount": 428,
   "destinations": 957,
   "actions": 671,
-  "blocks": 5723,
+  "blocks": 5729,
   "routes": {
     "/": {
       "files": [
@@ -9518,14 +9518,17 @@
       "blocks": [
         "AddMomentLabel",
         "ChapterMoments",
+        "ChapterPhotos",
+        "ChapterRow",
         "DetailsPieceOnly",
         "Field",
         "FileUpload",
+        "Fresh",
         "HTMLButtonElement",
         "HTMLDivElement",
         "HTMLElement",
         "HTMLFormElement",
-        "HTMLOListElement",
+        "HTMLTextAreaElement",
         "HubDraftField",
         "InMakerLiveBook",
         "InMakerReturnTo",
@@ -9543,9 +9546,9 @@
         "MomentOrderCards",
         "MomentSheet",
         "MomentSheetStudio",
-        "OpenMoment",
         "PaidMark",
         "PanelFollowsThePage",
+        "PhotoCount",
         "PickFromOurEvents",
         "PickMenu",
         "Precision",
@@ -9555,7 +9558,10 @@
         "StoryChapterFields",
         "StoryFields",
         "SubmitButton",
-        "T"
+        "T",
+        "TickerPill",
+        "TimelineRow",
+        "WhenTicker"
       ]
     },
     "/dashboard/[eventId]/website/photo-moments": {

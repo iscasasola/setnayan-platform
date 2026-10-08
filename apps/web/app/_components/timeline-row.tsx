@@ -23,6 +23,10 @@ import { X } from 'lucide-react';
  *
  * Neutral: nothing here knows the Maker, the Schedule or the Love Story, and no accent colour is written here.
  */
+/** The band a row sits on, and the row's own line — ONE arrangement for a real row, a sample of one and a loading one. */
+export const TIMELINE_BAND_CLASS = 'border-t border-ink/10 bg-cream first:border-t-0';
+export const TIMELINE_ROW_CLASS = 'flex min-h-[58px] items-center gap-1 py-1.5 pl-3 pr-1';
+
 export function TimelineRow({
   when,
   name,
@@ -75,10 +79,10 @@ export function TimelineRow({
   attrs?: Readonly<Record<`data-${string}`, string>>;
 }) {
   return (
-    <Tag {...attrs} data-timeline-row={data ?? ''} data-timeline-row-editing={editing ? '' : undefined} className="border-t border-ink/10 bg-cream first:border-t-0">
+    <Tag {...attrs} data-timeline-row={data ?? ''} data-timeline-row-editing={editing ? '' : undefined} className={TIMELINE_BAND_CLASS}>
       {/* The name is the point of the row: it may run to a SECOND line (the row grows, the when stays centred
           beside it), never a third — then "…". The type never shrinks to fit. */}
-      <div className="flex min-h-[58px] items-center gap-1 py-1.5 pl-3 pr-1">
+      <div className={TIMELINE_ROW_CLASS}>
         {editing ? (
           <NameField name={name} placeholder={placeholder} nameLabel={nameLabel} maxLength={maxLength} onKeep={onKeep} onLeave={onLeave} />
         ) : (
@@ -185,6 +189,77 @@ function NameField({
       >
         <X aria-hidden className="h-[18px] w-[18px]" strokeWidth={2} />
       </button>
+    </div>
+  );
+}
+
+/**
+ * LOADING — soft shapes of the rows that are coming (gallery § 16: *"loading shows soft grey shapes of what is coming,
+ * shimmering, so the page does not jump when it arrives"*). The real row's own band and line, so nothing moves when
+ * the rows land. Says it is busy; never looks like an empty list (that has words and a first action) or a problem.
+ */
+export function TimelineRowsLoading({ label, rows = 3, pills = 1 }: { label: string; rows?: number; pills?: 1 | 2 }) {
+  return (
+    <div role="status" aria-busy="true" aria-label={label} data-timeline-loading="" className="flex animate-pulse flex-col border-y border-ink/10 motion-reduce:animate-none">
+      {Array.from({ length: rows }, (_, i) => (
+        <div key={i} className={TIMELINE_BAND_CLASS}>
+          <div className={TIMELINE_ROW_CLASS}>
+            {Array.from({ length: pills }, (_p, j) => (
+              <span key={j} aria-hidden className="h-10 w-[72px] shrink-0 rounded-full bg-ink/10" />
+            ))}
+            <span aria-hidden className={`ml-1.5 h-3.5 rounded-full bg-ink/10 ${['w-32', 'w-24', 'w-40'][i % 3]}`} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * A PROBLEM — the list could not be read (gallery § 16: *"a problem says so in plain words with Try again, and never
+ * pretends the list is empty"*). Never the empty state's words; `onRetry` is the wearer's (a re-read, once per tap —
+ * no loop).
+ */
+export function TimelineProblem({ title, children, onRetry }: { title: string; children: ReactNode; onRetry?: (() => void) | null }) {
+  return (
+    <div role="alert" data-timeline-problem-state="" className="flex flex-col items-center gap-1.5 px-6 py-8 text-center">
+      <b className="text-[15px] font-semibold text-danger-700">{title}</b>
+      <p className="max-w-[28ch] text-[13.5px] text-ink/70">{children}</p>
+      {onRetry ? (
+        <button type="button" data-timeline-retry="" onClick={onRetry} className="sn-press mt-2 inline-flex min-h-11 items-center rounded-full px-5 text-[14px] font-semibold text-ink ring-1 ring-inset ring-ink/20">
+          Try again
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * EMPTY — nothing here yet: what to do first, and the button to do it (gallery § 16). The action is the wearer's main
+ * action (its look comes in as `actionClassName` — the page's one main-button class).
+ */
+export function TimelineEmpty({
+  title,
+  children,
+  action,
+  onAction,
+  actionClassName,
+}: {
+  title: string;
+  children: ReactNode;
+  action?: ReactNode;
+  onAction?: () => void;
+  actionClassName?: string;
+}) {
+  return (
+    <div data-timeline-empty="" className="flex flex-col items-center gap-1.5 px-6 py-8 text-center">
+      <b className="text-[15px] font-semibold text-ink">{title}</b>
+      <p className="max-w-[28ch] text-[13.5px] text-ink/70">{children}</p>
+      {action && onAction ? (
+        <button type="button" data-timeline-first="" onClick={onAction} className={`mt-2 !w-auto px-6 ${actionClassName ?? ''}`}>
+          {action}
+        </button>
+      ) : null}
     </div>
   );
 }

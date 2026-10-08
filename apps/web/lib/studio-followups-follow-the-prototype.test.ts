@@ -10,8 +10,9 @@
  *       holds the row's rules; the place and For ▾ — 4c's stored audience — are behind ⋯) — and
  *       + Add a moment; drawn by `ScheduleDay` only in the new Maker's Studio, through the rail's
  *       own writes; it fills the screen.
- *   2 · Studio › Love Story is one band per moment (photo · year · title · first line · grip), opened
- *       in place — and an edit made there keeps EVERY field the moment holds (a year changed never
+ *   2 · Studio › Love Story is one band per chapter (the owner's Timeline row, 2026-10-08: when ·
+ *       name · picture square · ⋯; `studio-love-story-wears-the-timeline-row.test.ts` holds its
+ *       rules) — and an edit made there keeps EVERY field the moment holds (a year changed never
  *       drops its place, photos, title, anchor, hidden or order).
  *   3 · Studio › Info's names are ONE row "Event name · Maria & Jose", composed as the hero composes
  *       them, opening the shipped NamesEditor + Name style ▾ in place; a one-person event keeps its own.
@@ -135,7 +136,7 @@ test('2 · Studio › Love Story: an edit made in place keeps every field the mo
   assert.deepEqual(t.ok ? t.after.find((m) => m.id === 'm1')!.media : null, held.media, 'a title edit dropped the photos');
 });
 
-test('2b · Studio › Love Story is the cards — one band per moment, opened in place — not the scrapbook', async () => {
+test('2b · Studio › Love Story is the rows — one band per chapter, opened in place — not the scrapbook', async () => {
   const { LoveStoryBook } = await import(`../${STORY}/love-story-book`);
   const story: LoveStoryMoment[] = [
     { id: 'u', date: { y: 2019 }, title: 'One umbrella', line: 'A rainy Tuesday in Katipunan.', order: 0, canvas: {} },
@@ -179,12 +180,12 @@ test('2b · Studio › Love Story is the cards — one band per moment, opened i
       add: { can: true },
     }),
   );
-  assert.equal((studio.match(/data-studio-story-head="/g) ?? []).length, 3, 'not one card per moment');
-  assert.match(studio, /2019[\s\S]*One umbrella[\s\S]*A rainy Tuesday in Katipunan\.[\s\S]*data-moment-grip="u"/, 'a card is not photo · year · title · first line · grip');
+  assert.equal((studio.match(/data-moment-card="/g) ?? []).length, 3, 'not one row per chapter');
+  assert.match(studio, /2019[\s\S]*One umbrella[\s\S]*data-ticker-pill="photos"[\s\S]*data-studio-story-more="u"/, 'a row is not when · name · picture · ⋯');
   assert.ok(sortMoments(story).map((m) => m.id).join() === 'u,s,d');
   assert.doesNotMatch(studio, /id="love-story-title"|On our <i/, 'Studio still draws the scrapbook around the cards');
-  assert.match(studio, /Add a moment/, 'no + Add a moment');
-  const card = /<li data-moment-card="u"[^>]*>/.exec(studio)?.[0] ?? '';
+  assert.match(studio, /Add a chapter/, 'no + Add a chapter');
+  const card = /<li[^>]*data-moment-card="u"[^>]*>/.exec(studio)?.[0] ?? '';
   assert.match(card, /class="[^"]*border-t border-ink\/10 bg-cream/, 'a moment is not on a band with a hairline');
   assert.doesNotMatch(card, /class="[^"]*rounded/, 'a moment is drawn as a rounded box (owner: “bands? full width”)');
   const shipped = await html(React.createElement(LoveStoryBook, props));

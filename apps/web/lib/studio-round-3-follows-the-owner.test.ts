@@ -325,18 +325,20 @@ test('8 · Love Story: an EMPTY story draws its real arrangement in sample shape
   assert.equal(seen(sample), MOMENT_ANCHORS.map((a: keyof typeof LOVE_STORY_CHAPTER_LABEL) => LOVE_STORY_CHAPTER_LABEL[a]).join(' '), 'the sample carries words that are not the real chapter labels');
   /* The REAL arrangement: the sample card's row, photo box and words column are the real card's own. */
   const rowOf = (li: string) => /<div class="([^"]*)">/.exec(li)?.[1];
-  const realCard = /<li data-moment-card="u"[\s\S]*?<\/li>/.exec(one)?.[0] ?? '';
+  const realCard = /<li[^>]*data-moment-card="u"[\s\S]*?<\/li>/.exec(one)?.[0] ?? '';
   const sampleCard = /<li data-studio-story-sample-card="met"[\s\S]*?<\/li>/.exec(sample)?.[0] ?? '';
   assert.ok(rowOf(realCard) && rowOf(realCard) === rowOf(sampleCard), 'the sample card is not laid out as a real card');
-  const box = (markup: string) => /class="(h-\d+ w-\d+ shrink-0 rounded-md)\b/.exec(markup)?.[1];
+  const box = (markup: string) => /(relative flex h-\d+ w-\d+ shrink-0 items-center justify-center rounded-xl)\b/.exec(markup)?.[1];
   assert.ok(box(realCard) && box(realCard) === box(sampleCard), `the sample’s photo is not the card’s photo box (${box(sampleCard)} vs ${box(realCard)})`);
-  for (const shape of ['photo', 'year', 'title', 'line']) assert.ok(sampleCard.includes(`data-sample-shape="${shape}"`), `the sample card has no ${shape} shape`);
-  assert.match(sampleCard, /lucide-grip-vertical/, 'the sample card has no grip');
+  /* The row's own three things (the owner's Timeline row, 2026-10-08): a when, a name, a picture square. */
+  for (const shape of ['when', 'name', 'photo']) assert.ok(sampleCard.includes(`data-sample-shape="${shape}"`), `the sample row has no ${shape} shape`);
+  /* A sample is STILL — loading shimmers, this never does (the three states must not look alike). */
+  assert.doesNotMatch(sample, /animate-/, 'the sample shimmers like a loading list');
   /* …and it is gone the moment one real moment exists. */
   assert.doesNotMatch(one, /data-studio-story-sample/, 'the sample stays beside a real moment');
-  assert.match(one, /data-studio-story-head="u"/);
-  /* + Add a moment is unchanged, with or without a moment. */
-  for (const out of [empty, one]) assert.match(out, /class="[^"]*sn-glass-row[^"]*"><div class="contents"><button[^>]*>[\s\S]*?Add a moment/, 'the + Add a moment bar changed');
+  assert.match(one, /data-moment-card="u"/);
+  /* + Add a chapter is at the foot, with or without a chapter. */
+  for (const out of [empty, one]) assert.match(out, /class="[^"]*sn-glass-row[^"]*"><button[^>]*data-studio-add-moment=""[^>]*>[\s\S]*?Add a chapter/, 'the + Add a chapter bar changed');
 
   /* The Add-a-moment sheet, in the Studio: each helper line is behind an ⓘ beside its label — never a paragraph. */
   const sheet = read(`${D}/website/our-story/_components/moment-sheet-studio.tsx`);

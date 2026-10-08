@@ -100,3 +100,32 @@ From the controller's look at Studio › Schedule at 375 px:
 - The row's ⋯ wears the accent (`text-mulberry`, until the accent token lands).
 
 SPEC IMPACT: None.
+
+## 2026-10-08 · feat(studio): Studio › Love Story wears the Timeline row — when · name · picture square
+
+Each chapter is `when pill · name · one picture square (with a count) · ⋯`
+(`moment-order-cards.tsx`), on the same `TimelineRow` and ticker as the
+Schedule. The when is a year, a month and year, or a full date — stored as it
+always was (`events.love_story.moments[].date = { y, m?, d? }`: the precision
+is the shape, so no day is ever invented) and saved once, when its ticker
+closes. The square opens the photo slots: three offered (storage already holds
+four per chapter — a chapter with four keeps four; no migration), drawn by the
+shared `FileUpload` with its own measured progress, kept in ONE save when the
+slots close. Photos only — nothing promises video.
+
+⋯ opens, in place, what the open card held: the words, More… (the shipped
+sheet), Move up / Move down (the couple's own order — the list is drawn in the
+order guests get), Remove. "+ Add a chapter" names the chapter in the row, then
+asks its words; unnamed it is dropped, and without words it is not saved and
+says so. The year-only typed box and the grip are gone (the grip's job is Move
+up / Move down). The dev lab's Love Story fixture now shows a year, a month,
+a full date, two photos and a hidden chapter.
+
+Also in `timeline-row.tsx`: the row's band/line classes and the three list
+states (`TimelineRowsLoading`, `TimelineEmpty`, `TimelineProblem`), not yet
+worn by a page.
+
+Guard: `apps/web/lib/studio-love-story-wears-the-timeline-row.test.ts` (7 tests;
+23 sabotages seen red). `port-control-baseline.json` regenerated.
+
+SPEC IMPACT: None.

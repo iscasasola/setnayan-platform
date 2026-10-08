@@ -94,6 +94,7 @@ import type { LoveStoryBlob } from '../our-story/_components/story-fields';
 import { loveStoryRowStatus } from '../our-story/_components/love-story-status';
 import { paletteSwatches } from '@/lib/site-palette';
 import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
+import { mainColoursOf } from '@/lib/main-colours';
 import { updateDressCode } from '../../studio/mood-board/dress-code-actions';
 import { foldEventRoles, normalizeDressCodeConfig } from '../../studio/mood-board/_components/dress-code-fields';
 import { incDressCodeStarter } from '../../studio/mood-board/_components/inc-dress-code-starter';
@@ -1511,7 +1512,15 @@ export default async function WebsiteEditorPage({
            Board over the theme (`themeColours`, owner 2026-10-05). */
         palette: (() => {
           const { colours: pal } = themeColours(currentThemeId, (drafted as { role_palette?: unknown }).role_palette);
-          return { ink: pal.ink, heading: pal.heading, accent: pal.accent, muted: pal.muted, surface: pal.surface };
+          return {
+            ink: pal.ink,
+            heading: pal.heading,
+            accent: pal.accent,
+            muted: pal.muted,
+            surface: pal.surface,
+            /* 🎨 The five main colours, in slot order — the one colour picker's "Your Mood Board" shelf (owner 2026-10-08). */
+            board: mainColoursOf((drafted as { role_palette?: unknown }).role_palette, currentThemeId),
+          };
         })(),
         draftAction: hubDraftAction,
         /* 🔤 "In use" on every font dropdown (owner 2026-09-29: "actively

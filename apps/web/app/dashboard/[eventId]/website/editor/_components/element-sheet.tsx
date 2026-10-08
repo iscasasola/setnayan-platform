@@ -37,7 +37,7 @@ import type { MotionFx } from '@/lib/motion-effects';
 import { IReset, ISeg, ISegmented } from './inspector-kit';
 import { PART_TABS, PartAnimateTab, PartArrangeTab, PartPicker, PartTextTab, type PartTab } from './part-inspector';
 import { elementPreview, refusedChoiceWords, revertAfterFailedSave, type ElementPreviewMessage } from './element-preview';
-import { ColourWell } from './colour-well';
+import { ColourSheet } from './colour-well';
 import { FontPick } from './font-pick';
 import { HUB_EL_DURING_LABEL, HUB_EL_DURING_WORDS, HUB_EL_TIMELINE, HUB_EL_TIMELINE_LABEL } from '@/lib/element-style';
 import { motionFxOn, sameMotionFx } from '@/lib/motion-effects';
@@ -101,7 +101,15 @@ export type ElementPalette = {
   muted: string;
   /** The ground the words sit on — what the contrast warning measures against. */
   surface: string;
+  /**
+   * 🎨 The five main colours in slot order (Dominant … Accent 2, `mainColoursOf` — the Mood Board
+   * drafted over live, a missing slot from the theme): the one colour picker's "Your Mood Board"
+   * shelf for a part's text colour (owner 2026-10-08). Absent (a harness) = the shelf is left out.
+   */
+  board?: readonly string[];
 };
+
+const NO_BOARD: readonly string[] = [];
 
 export type ElementTarget = {
   /** The canvas key that was tapped (`f:hero`, `w:<type>`). */
@@ -157,7 +165,6 @@ export function ElementSheet({
   parts,
   onPart,
   sceneLabel,
-  usedColours = [],
   hideLocked = false,
   saveCanvasWith,
   wordsSlot = null,
@@ -183,8 +190,6 @@ export function ElementSheet({
   onPart?: (el: HubElementKey) => void;
   /** "Names & date" — the scene the part is on, beside the title. */
   sceneLabel?: string;
-  /** Colours this Event Hub already uses — the synced half of "Saved colours". */
-  usedColours?: readonly string[];
   /** The tools column's width and drag handle, shared with the inspector (desktop). */
   resize?: ToolsResize;
   /** ▶ Replay this part's In on the canvas (the bridge's `playEl`). */
@@ -366,18 +371,6 @@ export function ElementSheet({
   const motion: HubElementMotion = style.motion ?? {};
   const moveTo = (part: keyof HubElementMotion, value: string | MotionFx | null) =>
     commit(withElementMotion(latest.current.elements, target.el, part, value), 'motion');
-
-  /* ⚡ A colour DRAG on the wheel or a slider: on the canvas now, nothing saved
-     (the Colour panel commits through `choose` once the hand stops). */
-  const previewColour = (hex: string) => {
-    const els = range
-      ? withRunChoice(latest.current.elements, target.el, range, 'color', hex)
-      : withElementChoice(latest.current.elements, target.el, 'color', hex);
-    const next: HubSectionCanvas = { ...latest.current };
-    if (els) next.elements = els;
-    else delete next.elements;
-    onPreview?.(elementPreview(target.key, target.el, latest.current, next, false));
-  };
 
   /* The contrast warning — measured, never blocking (a quiet accent may be meant). */
   const ground = canvas.kind === 'color' && canvas.color ? canvas.color : palette.surface;
@@ -601,20 +594,18 @@ export function ElementSheet({
             colours={themeColours}
             colour={face.color ?? null}
             onColour={(hex) => choose('color', hex)}
-            customColour={
-              <ColourWell
+            customColour={(close) => (
+              <ColourSheet
                 value={face.color ?? null}
                 shown={palette.ink}
                 what={`the ${HUB_ELEMENT_LABEL[target.el].toLowerCase()}`}
-                themeColours={themeColours}
-                usedColours={usedColours}
-                savedKey={`sn-maker-colours:${eventId}`}
-                alpha
-                onPreview={previewColour}
+                palette={palette.board ?? NO_BOARD}
+                slots={Boolean(palette.board)}
+                readsOn={ground}
                 onPick={(hex) => choose('color', hex)}
-                data="element"
+                onClose={close}
               />
-            }
+            )}
             contrast={
               contrast && !contrast.ok ? (
                 <p className="flex shrink-0 items-center gap-1 text-[12px] font-semibold text-terracotta-700" role="status" data-element-contrast="low">
@@ -639,12 +630,12 @@ export function ElementSheet({
               choose={choose}
               chooseAlign={(v) => commit(withElementAlign(latest.current.elements, target.el, v), 'align')}
               resetText={() => commit(withoutTextStyle(latest.current.elements, target.el), 'style')}
-              themeColours={themeColours}
-              usedColours={usedColours}
+              board={palette.board ?? NO_BOARD}
+              slots={Boolean(palette.board)}
+              readsOn={ground}
               shownColour={palette.ink}
               contrast={contrast}
               eventId={eventId}
-              onPreviewColour={previewColour}
               fontMark={fontMark}
               hideFont={false}
               threeControls={stagesStudio}

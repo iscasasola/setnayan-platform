@@ -43,7 +43,8 @@ test('(1) Edit and Style always work; Animate works exactly where there is a sav
   const no: MakerPartKey[] = [];
   for (const k of KEYS) {
     assert.equal(makerPartToolWorks(k, 'style'), true, `${k}: Style has nothing to set`);
-    assert.equal(makerPartToolWorks(k, 'edit'), true, `${k}: Edit has nothing to set`);
+    /* (The Camera is a full-screen design with ONLY Style live — owner 2026-10-09: its Edit is grey too.) */
+    assert.equal(makerPartToolWorks(k, 'edit'), k !== 'camera', `${k}: Edit`);
     const def = MAKER_PARTS[k];
     const want = Boolean(def.canvas) && (Boolean(def.el) || (def.canvas ?? '').startsWith('w:'));
     assert.equal(makerPartToolWorks(k, 'animate'), want, `${k} · animate`);
@@ -117,13 +118,14 @@ test('(4) the pill: grey and `aria-disabled` (never `disabled`), never pressed w
   assert.ok(!STAGE_TOOL_BUTTON.split(' ').some((c) => c.startsWith('disabled:')), 'the pill still styles a state it never has');
   /* What works: anything while nothing is picked (the tool is remembered for the next part); Edit and Style on every
      part; else the part's own answer — and none of it on the Style-only parts (the Reveal, the Camera, the pass, RSVP). */
-  assert.match(tools, /const toolWorks = \(t: MakerPartTool\) => !picked \|\| t === 'edit' \|\| t === 'style' \|\| \(!styleOnly && makerPartToolWorks\(picked, t\)\);/);
-  assert.match(tools, /const shownTool: MakerPartTool = toolWorks\(tool\) \? tool : 'edit';/);
+  assert.match(tools, /const toolWorks = \(t: MakerPartTool\) => !picked \|\| \(\(t === 'edit' \|\| t === 'style' \|\| !styleOnly\) && makerPartToolWorks\(picked, t\)\);/);
+  /* …and the rows show the FIRST tool that has something here (Edit; Style on the Camera) — never a grey one. */
+  assert.match(tools, /const shownTool: MakerPartTool = toolWorks\(tool\) \? tool : \(MAKER_PART_TOOLS\.find\(toolWorks\) \?\? 'style'\);/);
   /* The tap: the line FIRST and nothing else — no tool is set, no panel is asked for. */
   assert.match(tools, /const pickTool = \(t: MakerPartTool\) => \{\s*if \(!toolWorks\(t\)\) return setWhy\(\(w\) => \(\{ words: makerPartToolWhy\(picked, t\), n: \(w\?\.n \?\? 0\) \+ 1 \}\)\);\s*setTool\(t\);/);
   assert.match(tools, /<PeekToast key=\{why\.n\} tone="note" data="tool-why" onGone=\{\(\) => setWhy\(\(w\) => \(w\?\.n === why\.n \? null : w\)\)\}>\s*\{why\.words\}\s*<\/PeekToast>/, 'the line is not said through the app’s toast');
   /* Picking a part (a tap on the page) opens the tool that HAS something there. */
-  assert.match(tools, /const toolFor = useCallback\(\(k: MakerPartKey \| null\): MakerPartTool => \(k && !makerPartToolWorks\(k, toolRef\.current\) \? 'edit' : toolRef\.current\), \[\]\);/);
+  assert.match(tools, /const toolFor = useCallback\(\(k: MakerPartKey \| null\): MakerPartTool => makerPartToolFor\(k, toolRef\.current\), \[\]\);/);
   assert.equal((tools.match(/askTool\(toolFor\(k\), k\);/g) ?? []).length, 2, 'a pick can still ask the work area for a tool it has no panel for');
   assert.doesNotMatch(tools, /askTool\(toolRef\.current, k\)/);
 });

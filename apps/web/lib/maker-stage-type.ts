@@ -4,17 +4,17 @@
  * (`lib/maker-parts.ts`) into the first load (`scripts/check-maker-js-budget.mjs`).
  */
 /**
- * ⌨ TYPING IS A SECOND TAP (DECISION_LOG 2026-10-07 rule 1; the prototype's `page`
- * click: `if(id===S.sel&&ELS[id].text) startTyping`). A tap on a part's words FIRST
- * picks the part — the panel opens on it; only a tap on the words of the part that
- * is ALREADY picked types. The date and the place are never typed (they are
- * Suppliers'). `picked` is the shell's `data-stage-picked` — `<canvas>|<el>` of the
- * picked part (`stage-tools.tsx`); `key` / `el` are the canvas's type-start.
+ * 👆 A TAP ON THE PAGE ONLY SELECTS (owner 2026-10-09, verbatim: *"on preview screen, you only select. You can
+ * change the content there via edit"* — `TOOLBAR-SPEC-2026-10-09.md`). In the new Maker's Stages a tap on a part's
+ * words picks the part, the first time and every time after; its words are changed in the toolbar's Edit. So the
+ * answer to "may this tap type?" is NO, for every part.
+ *
+ * It was "typing is a second tap" (DECISION_LOG 2026-10-07 rule 1): a tap on the words of the part ALREADY picked
+ * typed them on the page. The two callers still ask here — the work area for the Event Hub canvas
+ * (`editor-shell.tsx`) and the reply pages for theirs (`rsvp-canvas-bridge.tsx`) — and still say which part is
+ * picked (`picked`, the shell's `data-stage-picked`: the reply pages bring it into view with it), so the rule is ONE
+ * line in ONE place, whichever way the owner turns it next.
  */
-export function makerStageMayType(picked: string | null | undefined, key: string, el: string | null | undefined): boolean {
-  if (key === 'f:hero' && (el === 'date' || el === 'venue')) return false;
-  if (!picked) return false;
-  const [pk, pe] = picked.split('|') as [string, string | undefined];
-  if (pk !== key) return false;
-  return !pe || pe === (el ?? '');
+export function makerStageMayType(_picked: string | null | undefined, _key: string, _el: string | null | undefined): boolean {
+  return false;
 }

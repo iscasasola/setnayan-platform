@@ -243,11 +243,12 @@ test('(5) the ▾ is the dropdown’s own accent; the frame and its chips are th
   const edges = read(`${L}/add-part-sheet.tsx`);
   assert.match(edges, /export const PART_ACCENT = 'bg-sn-accent text-sn-on-accent';/);
   assert.match(edges, /export const PART_OUTLINE = 'absolute rounded-lg shadow-\[0_0_0_2px_rgb\(var\(--sn-accent\)\),0_0_0_7px_rgb\(var\(--sn-accent\)\/\.14\)\]';/);
-  /* Every filled mark on the frame names the one pair: ↑ ↓ ✕, ＋, the name, the grip. */
-  assert.equal((edges.match(/\$\{PART_ACCENT\}/g) ?? []).length, 4, 'a mark on the frame has a fill of its own');
-  assert.match(edges, /data-part-outline=""\s+className=\{PART_OUTLINE\}/);
-  assert.match(edges, /absolute h-1 rounded-full bg-sn-accent/, 'the drop line is not the accent');
-  assert.match(edges, /border-\[rgb\(var\(--color-danger\)\)\] bg-white text-\[rgb\(var\(--color-danger\)\)\]/, '🗑 is not the house danger token');
+  /* Every filled mark on the frame names the one pair: ＋ and the name. (🔁 Re-aimed 2026-10-09 — owner: *"on preview
+     screen, you only select"*: ↑ ↓ ✕, the grip, its drop line and 🗑 left the frame, so the pair is named twice, not
+     four times. Remove is Edit's button now and takes its red from the ONE action button's `danger` tone.) */
+  assert.equal((edges.match(/\$\{PART_ACCENT\}/g) ?? []).length, 2, 'a mark on the frame has a fill of its own');
+  assert.match(edges, /data-part-outline="" className=\{PART_OUTLINE\}/);
+  assert.match(read(`${L}/stage-panel/stage-edit.tsx`), /<ActionButton tone="danger" icon=\{Trash2\} label=\{removeWord\}/, 'Remove is not the danger button');
   assert.equal((edges.match(/shrink-0 text-sn-accent" strokeWidth=\{2\.4\}/g) ?? []).length, 2, 'the ＋ sheet’s marks are not the accent');
 });
 

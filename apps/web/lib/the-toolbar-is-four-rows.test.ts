@@ -102,6 +102,11 @@ test('(1) one fixed height: 330 px on a tall phone, ≈ 284 on a short one, neve
   assert.match(tools, /onPx\(stageBarPx\(window\.innerHeight, safe\) - safe\);/, 'the toolbar is not told its one height');
   assert.equal((tools.match(/onPx\(/g) ?? []).length, 3, 'the height is said somewhere else too (away · the one height · unmount)');
   assert.doesNotMatch(tools, /localStorage|MAKER_LT_SIZE_KEY|setPointerCapture|data-stage-folded|data-stage-grab/, 'the toolbar is dragged, folded or remembers a size again');
+  /* The toolbar's own top line takes NO room (an inset shadow that follows the curve, never a border): a border's
+     1 px pushed Edit's rows 1 px below the work area's (measured on the lab, 2026-10-09: 593 vs 592). */
+  const root = /data-stage-tool-now=\{shownTool\}[\s\S]{0,160}className=\{`([^`]*)`\}/.exec(tools)?.[1] ?? '';
+  assert.ok(root.includes('rounded-t-2xl'), 'the toolbar’s top is not curved');
+  assert.doesNotMatch(root, /(?:^|\s)border(?:-t)?(?:\s|$)|(?:^|\s)p[ty]-/, 'the toolbar’s frame takes room above the handle');
   /* The work area's tool lies over exactly the four rows, on the room kept under the last one. */
   assert.match(tools, /\[data-phone-chrome="panel"\]\{left:0!important;right:0!important;bottom:\$\{STAGE_BAR_FOOT_CSS\}!important;height:\$\{STAGE_BAR_GRID_CSS\}!important;/);
 });
@@ -135,12 +140,13 @@ test('(2) four tools — Edit | Style | Background | Animate — words only, eac
   /* What the work area is asked: Animate is its own; the other three are the scene's Format. */
   assert.deepEqual(MAKER_PART_TOOLS.map(makerWorkTool), ['style', 'style', 'style', 'animate']);
 
-  /* Which work, over EVERY part: Edit and Style always; Background only on a scene the couple arranges. */
+  /* Which work, over EVERY part: Style always, Edit on all but the Camera; Background only on a scene the couple arranges. */
   const keys = Object.keys(MAKER_PARTS) as MakerPartKey[];
   assert.ok(keys.length >= 40);
   let bg = 0;
   for (const k of keys) {
-    assert.equal(makerPartToolWorks(k, 'edit'), true, `${k}: Edit`);
+    /* (The Camera is a full-screen design with ONLY Style live — owner 2026-10-09.) */
+    assert.equal(makerPartToolWorks(k, 'edit'), k !== 'camera', `${k}: Edit`);
     assert.equal(makerPartToolWorks(k, 'style'), true, `${k}: Style`);
     const scene = (MAKER_PARTS[k].canvas ?? '').startsWith('w:');
     assert.equal(makerPartToolWorks(k, 'bg'), scene, `${k}: Background`);
@@ -198,13 +204,12 @@ test('(3) the rows start from the top and nothing scrolls up and down; Edit: the
   }
   setStagePanelNow({ picked: null, quiet: null, about: null });
 
-  /* A STEP IS THE GRIP'S OWN WRITE — one function lands a part (`dropOn`), the drag and the step both end in it, and
-     it holds the hook's only order write for a scene: a step can never cost more than a drag did. */
+  /* A STEP IS THE GRIP'S OWN WRITE — one function lands a part (`dropOn`, the retired grip's drop), the step ends in
+     it, and it holds the hook's only order write for a scene: a step can never cost more than a drag did. */
   const edits = read(`${L}/add-part-sheet.tsx`);
   const hook = edits.slice(edits.indexOf('export function usePartEdits('), edits.indexOf('function OwnScenePicker('));
   assert.ok(hook.length > 4000, 'anti-vacuity: the part edits were not found');
   assert.match(hook, /const stepMove = \(dir: -1 \| 1\) => \{\s*const o = askPartOps\(\);\s*const t = o && canMove \? neighbour\(o, dir\) : null;\s*if \(o && t\) dropOn\(o, t, dir < 0 \? 'above' : 'below'\);\s*\};/);
-  assert.match(hook, /dropOn\(o, dropAt\.t, dropAt\.where\);/, 'the grip no longer lands through the same function');
   assert.equal((hook.match(/o\.move\(mv\.id, delta\)/g) ?? []).length, 1, 'a second order write for the picked scene');
   assert.match(hook, /remove: canRemove \? \(\) => setRemoving\(true\) : null,/, 'Remove does not ask first (the one confirm)');
 });

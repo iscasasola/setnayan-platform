@@ -36,16 +36,20 @@ const EDITOR = 'app/dashboard/[eventId]/website/editor/_components';
 
 /* ── 1 · a part tap never opens the shipped TypeBar ──────────────────────── */
 
-test('typing is a second tap on the picked part — never the first, never the date or the place', () => {
+test('a tap on the page only selects — the first tap, a second tap on the picked part, the date, the place: none types', () => {
+  /* 🔁 RE-AIMED 2026-10-09 (owner, verbatim: *"on preview screen, you only select. You can change the content there
+     via edit"*, `TOOLBAR-SPEC-2026-10-09.md`). This held "typing is a SECOND tap on the picked part" (DECISION_LOG
+     2026-10-07 rule 1) and asserted the picked part's words typed. The rule's two callers and what they hand it are
+     unchanged; its ANSWER is now no for every part — the words are changed in the toolbar's Edit. The whole rule,
+     over every part, is `lib/the-preview-only-selects.test.ts` (1). */
   const names = makerStagePickedAttr('names');
   assert.equal(names, 'f:hero|names');
   assert.equal(makerStageMayType(null, 'f:hero', 'names'), false, 'nothing picked: a tap only picks');
   assert.equal(makerStageMayType(makerStagePickedAttr('countdown'), 'f:hero', 'names'), false, 'another part picked: a tap only picks');
-  assert.equal(makerStageMayType(names, 'f:hero', 'names'), true, 'the picked part: a second tap types');
+  assert.equal(makerStageMayType(names, 'f:hero', 'names'), false, 'the picked part: a second tap types on the page again');
   assert.equal(makerStageMayType(makerStagePickedAttr('date'), 'f:hero', 'date'), false, 'the date is Suppliers’ — never typed');
   assert.equal(makerStageMayType(makerStagePickedAttr('place'), 'f:hero', 'venue'), false, 'the place is Suppliers’ — never typed');
-  /* A scene's words (its part has no `el`) type wherever in the scene the words are. */
-  assert.equal(makerStageMayType(makerStagePickedAttr('message'), 'w:special_message', 'body'), true);
+  assert.equal(makerStageMayType(makerStagePickedAttr('message'), 'w:special_message', 'body'), false, 'a scene’s words type on the page again');
 });
 
 test('the work area takes a first tap’s caret back BEFORE it starts the TypeBar', () => {
@@ -274,7 +278,7 @@ test('picking the Digital pass never replaces the canvas in Stages — it is pic
   /* Style only — and Edit, every part's (🔁 re-aimed 2026-10-09: the selector is Edit | Style | Background | Animate,
      `TOOLBAR-SPEC-2026-10-09.md`): Background and Animate have nothing to set there — grey, and a tap says why
      (never `disabled`, which is a dead tap — `a-tool-with-nothing-to-do-says-so`). */
-  assert.match(tools, /const toolWorks = \(t: MakerPartTool\) => !picked \|\| t === 'edit' \|\| t === 'style' \|\| \(!styleOnly && /);
+  assert.match(tools, /const toolWorks = \(t: MakerPartTool\) => !picked \|\| \(\(t === 'edit' \|\| t === 'style' \|\| !styleOnly\) && makerPartToolWorks\(picked, t\)\);/);
   assert.match(tools, /aria-disabled=\{toolWorks\(t\) \? undefined : true\}/);
   const edges = read(`${LAUNCH}/add-part-sheet.tsx`);
   assert.match(edges, /clipPath: `inset\(/, 'the frame is clipped to the canvas');
@@ -309,28 +313,22 @@ test('↓ from part i picks part i+1 in the order the page DRAWS them, and keeps
      the fallback was Style, the first tool then; Edit is the first of the four now.) */
   assert.match(tools, /askTool\(toolFor\(k\), k\);/);
   assert.match(tools, /stagePick: k \}, window\.location\.origin\);/, 'a step’s pick is not heard back by the panel — its tool is never asked for');
-  assert.match(tools, /const toolFor = useCallback\(\(k: MakerPartKey \| null\): MakerPartTool => \(k && !makerPartToolWorks\(k, toolRef\.current\) \? 'edit' : toolRef\.current\), \[\]\);/);
+  /* (…the first tool that HAS something there — `makerPartToolFor`, executed over every part in
+     `lib/the-preview-only-selects.test.ts` (4).) */
+  assert.match(tools, /const toolFor = useCallback\(\(k: MakerPartKey \| null\): MakerPartTool => makerPartToolFor\(k, toolRef\.current\), \[\]\);/);
   const stepFn = tools.slice(tools.indexOf('const step = useCallback('), tools.indexOf('const stepRef = useRef(step);'));
   assert.doesNotMatch(stepFn, /setTool\(/, 'a step changes the remembered tool');
 });
 
-test('the frame carries ↑ upper-left, ↓ lower-left and ✕ lower-right; keys, Esc and a tap on the ground work too', () => {
+test('the frame carries no ↑ ↓ ✕ any more; keys, Esc, a swipe and a tap on the ground still walk and let go', () => {
+  /* 🔁 RE-AIMED 2026-10-09 (owner: *"on preview screen, you only select"* — no buttons on the frame). This held the
+     three chips' corners (↑ upper-left · ↓ lower-left · ✕ lower-right, 2026-10-07). What they DID is kept and still
+     held below: ↑ ↓ between parts is the arrow keys and a swipe across the toolbar, letting go is Esc and a tap on
+     the page's ground. That the frame draws no button but ＋ is `lib/the-preview-only-selects.test.ts` (2). */
   const edges = read(`${LAUNCH}/add-part-sheet.tsx`);
-  for (const [attr, label] of [['data-part-step="prev"', 'Previous part'], ['data-part-step="next"', 'Next part']] as const) {
-    const at = edges.indexOf(attr);
-    assert.ok(at > 0, `${attr} is drawn`);
-    assert.ok(edges.slice(at - 120, at).includes(`aria-label="${label}"`), `${attr} is "${label}"`);
-  }
-  assert.match(edges, /data-part-step="prev" onClick=\{onPrev\}[^>]*chipAt\(box\.left \+ 2, fr!\.top\)/, '↑ upper-left');
-  assert.match(edges, /data-part-step="next" onClick=\{onNext\}[^>]*chipAt\(box\.left \+ 2, fr!\.top \+ fr!\.height\)/, '↓ lower-left');
-  assert.match(edges, /data-part-deselect="" onClick=\{onClose\}[^>]*chipAt\(box\.left \+ box\.width - 2, fr!\.top \+ fr!\.height\)/, '✕ lower-right');
-  assert.match(edges, /const CHIP_BTN = '[^']*!h-8[^']*w-8/, 'a 32 px tap');
+  assert.doesNotMatch(edges, /data-part-step=|data-part-deselect=|aria-label="Previous part"|aria-label="Next part"/, 'a step or let-go chip is back on the frame');
   const tools = read(`${LAUNCH}/stage-tools.tsx`);
-  /* (Re-aimed 2026-10-09: the frame's edits are a hook — `usePartEdits({ … })` — so Edit's last row can draw the
-     same move and remove; the three doors are the same, as an object's fields instead of JSX props.) */
-  assert.match(tools, /onPrev: [^,]*step\(-1\)/);
-  assert.match(tools, /onNext: [^,]*step\(1\)/);
-  assert.match(tools, /onClose: deselect,/);
+  assert.match(tools, /if \(Math\.abs\(dx\) > 44 && Math\.abs\(dx\) > 1\.6 \* Math\.abs\(dy\)\) stepRef\.current\(dx > 0 \? 1 : -1\);/, 'a swipe across the toolbar no longer steps');
   assert.match(tools, /e\.key === 'ArrowDown' \|\| e\.key === 'ArrowUp'/);
   assert.match(tools, /e\.key === 'Escape'\) deselect\(\)/);
   assert.match(tools, /d\.t === 'tapOutside'\) deselectRef\.current\(\)/, 'a tap on the page’s ground lets go');

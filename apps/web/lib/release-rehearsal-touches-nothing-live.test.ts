@@ -125,6 +125,18 @@ test('the workflow can read the repository and nothing more', () => {
   assert.equal(block.trim(), 'contents: read');
 });
 
+test('the rehearsal is a button — nothing starts it but a person', () => {
+  // ~16 minutes of a runner shared with every pull request's checks. On a push
+  // or a schedule it would run dozens of times a day for nobody.
+  const code = workflowCode();
+  const on = /^on:\n((?:(?:[ \t]+.*)?\n)+?)(?=^\S)/m.exec(code)?.[1] ?? '';
+  const triggers = on
+    .split('\n')
+    .filter((l) => /^ {2}\S/.test(l))
+    .map((l) => l.trim().replace(/:.*$/, ''));
+  assert.deepEqual(triggers, ['workflow_dispatch']);
+});
+
 test('the public flags file holds public flags only', () => {
   const lines = readFileSync(join(REHEARSAL, 'flags.env'), 'utf8')
     .split('\n')

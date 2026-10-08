@@ -47,9 +47,14 @@ name: release-rehearsal
 #              migrations count as "already live" and what the summary lists as
 #              "in this upload". Leave it alone unless the tag is wrong.
 #
-# ⛔ DO NOT ADD `push`, `pull_request` OR `schedule` TRIGGERS. It is ~25 minutes
-# of runner per run and it is a button on purpose: a rehearsal is run when a
-# batch is ready, not on every merge.
+# ⛔ DO NOT ADD `push`, `pull_request` OR `schedule` TRIGGERS. A run is ~16
+# minutes of runner (7 when the same ref was already built) and it is a button
+# on purpose: a rehearsal is run when a batch is ready, not on every merge — the
+# runners are shared with every pull request's checks. A unit test holds this
+# (lib/release-rehearsal-touches-nothing-live.test.ts).
+#
+# Measured 2026-10-08 on ubuntu-latest: stack 1m 10s · 1,570 migrations 1m 30s ·
+# build 8m 20s · walk 3m 25s (two of those minutes are the "left open" steps).
 on:
   workflow_dispatch:
     inputs:
@@ -61,11 +66,6 @@ on:
         description: 'What the site is on now (default: the deployed-prod tag)'
         required: false
         default: 'deployed-prod'
-  # ⚠ TEMPORARY — proves the workflow from its own branch before it is on main
-  # (a workflow_dispatch workflow can only be started once the file is on the
-  # default branch). Removed in the last commit of this PR.
-  push:
-    branches: [rd/release-rehearsal]
 
 permissions:
   contents: read

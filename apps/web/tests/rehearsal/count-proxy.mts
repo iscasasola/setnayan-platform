@@ -43,6 +43,8 @@ type StepCount = {
   failed: number;
   /** "<target> → <status>" → hits: WHICH requests the database refused. */
   refused: Record<string, number>;
+  /** The first refusal of each kind: what was asked, and what the database said. */
+  refusedSamples: Record<string, { asked: string; said: string }>;
 };
 
 const upstream = assertLocalUrl(process.env.COUNT_UPSTREAM ?? 'http://127.0.0.1:54321', 'the counter upstream');
@@ -56,6 +58,7 @@ const newStep = (step: string): StepCount => ({
   targets: {},
   failed: 0,
   refused: {},
+  refusedSamples: {},
 });
 
 const steps: StepCount[] = [newStep('(before the walk)')];
@@ -124,10 +127,11 @@ const server = http.createServer((req, res) => {
     step.counts[whoAsked(req)][kind]++;
     step.targets[target] = (step.targets[target] ?? 0) + 1;
   }
-  const refuse = (status: number | string): void => {
+  const refuse = (status: number | string): string => {
     step.failed++;
     const key = `${asked} → ${status}`;
     step.refused[key] = (step.refused[key] ?? 0) + 1;
+    return key;
   };
 
   const proxied = http.request(
@@ -139,7 +143,28 @@ const server = http.createServer((req, res) => {
       headers: { ...req.headers, host: upstream.host },
     },
     (up) => {
-      if (counted && (up.statusCode ?? 0) >= 400) refuse(up.statusCode ?? 0);
+      if (counted && (up.statusCode ?? 0) >= 400) {
+        const key = refuse(up.statusCode ?? 0);
+        // Keep the first refusal of each kind, in the database's own words —
+        // "which request, and why" is the whole value of knowing it was refused.
+        // (PostgREST's message names columns and tables, never a row's contents.)
+        if (!step.refusedSamples[key] && !up.headers['content-encoding']) {
+          const parts: Buffer[] = [];
+          let size = 0;
+          up.on('data', (chunk: Buffer) => {
+            if (size < 600) {
+              parts.push(chunk);
+              size += chunk.length;
+            }
+          });
+          up.on('end', () => {
+            step.refusedSamples[key] = {
+              asked: `${req.method ?? 'GET'} ${(req.url ?? '').slice(0, 400)}`,
+              said: Buffer.concat(parts).toString('utf8').slice(0, 600),
+            };
+          });
+        }
+      }
       res.writeHead(up.statusCode ?? 502, up.headers);
       up.pipe(res);
     },

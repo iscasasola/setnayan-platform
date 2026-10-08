@@ -178,7 +178,13 @@ if (reqSteps.length === 0) {
       .slice(0, 3)
       .map(([k, n]) => `${k.replace(/^(read|write|rpc):/, '')} ×${n}`)
       .join(', ');
-    for (const [k, n] of Object.entries(s.refused ?? {})) refusedLines.push(`- ${cell(s.step)}: \`${cell(k)}\` ×${n}`);
+    for (const [k, n] of Object.entries(s.refused ?? {})) {
+      const sample = s.refusedSamples?.[k];
+      refusedLines.push(
+        `- ${cell(s.step)}: \`${cell(k)}\` ×${n}` +
+          (sample ? `\n  - asked: \`${cell(sample.asked)}\`\n  - the database said: \`${cell(sample.said)}\`` : ''),
+      );
+    }
     const label = s.step === '(the build)' && timings.build_seconds === '0' ? '(the build — an identical build was reused, so nothing was asked)' : s.step;
     say(
       `| ${cell(label)} | ${walked ? walked.app?.screens ?? '' : ''} | ${walked ? walked.app?.presses ?? '' : ''} | ${sum('read')} | ${sum('write')} | ${sum('rpc')} | **${db}** | ${fromPhone} | ${sum('auth')} | ${s.failed ?? 0} | ${cell(top)} |`,

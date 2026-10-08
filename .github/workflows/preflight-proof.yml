@@ -1,0 +1,132 @@
+name: preflight-proof
+
+# ═══ THROWAWAY ═══ lives only on the branch rd/preflight-proof, which is never
+# opened as a PR and is deleted once its run has been read.
+#
+# It proves one claim of PR "pnpm preflight": that preflight goes RED, for the
+# right reason, on the commits that actually failed CI on 2026-10-08. Each leg
+# checks out one of those commits, runs THIS branch's scripts/preflight.mjs on
+# it, and passes only if preflight exited non-zero AND named the fault.
+#
+# It runs here rather than on the dev machine because that machine was serving
+# the owner's review copy, and twelve test fan-outs would have frozen it.
+
+on:
+  push:
+    branches: [rd/preflight-proof]
+
+jobs:
+  proof:
+    name: ${{ matrix.label }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: "6416 @ 0ce5131f4 — BOTH faults that took three CI rounds"
+            sha: 0ce5131f46e412d91effa007ae8d76dcb8316145
+            base: 560e6d0f0ed61b1afd6e9b9663c64b0625bc0754
+            expect: "the-name-style-reaches-every-formal-surface"
+            expect2: "enum-literals-are-real"
+          - label: "6416 @ 058681b9a — enum literal in a fixture (DB replay)"
+            sha: 058681b9a5a8c2860f548824ce663ea38705931e
+            base: 560e6d0f0ed61b1afd6e9b9663c64b0625bc0754
+            expect: "enum-literals-are-real"
+          - label: "6445 @ a9a134132 — react/no-children-prop (eslint)"
+            sha: a9a134132bdda403480975e63999b222aca5cf4d
+            base: origin/main
+            expect: "react/no-children-prop"
+          - label: "6445 @ 38b663a56 — TS2769 left after an un-rerun tsc"
+            sha: 38b663a56da23073015d3b1fc94c96d613e83aa0
+            base: origin/main
+            expect: "TS2769"
+          - label: "6449 @ e50646282 — a bare number (budget-screen)"
+            sha: e506462824b7769acfac70ce783e0e99502f50b9
+            base: origin/main
+            expect: "numbers-carry-commas"
+            expect2: "budget-screen"
+          - label: "6425 @ 2b401778f — a bare number (supplier-sheet)"
+            sha: 2b401778fb59feedc9fda30d0f24667d1ed97ef7
+            base: origin/main
+            expect: "numbers-carry-commas"
+            expect2: "supplier-sheet"
+          - label: "6430 @ 76df5272c — a label that names no switch + a bare number"
+            sha: 76df5272c8045997cbfbb0eb3448b16be871bf64
+            base: origin/main
+            expect: "a-label-controls-its-switch"
+            expect2: "numbers-carry-commas"
+          - label: "6434 @ d2c2a2b04 — a dropped read result (ugat-both-ends, DB replay)"
+            sha: d2c2a2b044a1facf7fb450c61f21874d372fc29e
+            base: origin/main
+            expect: "ugat-both-ends"
+          - label: "6444 @ 085806d5f — hand-typed selects (lint:dup-rule)"
+            sha: 085806d5ff7d5261770921b4c2caa9f777b06b84
+            base: origin/main
+            expect: "FAIL .*Duplicated-rule guards"
+          - label: "6442 @ da27b8035 — the word 'locks'"
+            sha: da27b80351727f0cd01f07b586eec68a7513a8f1
+            base: origin/main
+            expect: "the-couple-books-never-locks"
+          - label: "6450 @ 4c5dffa80 — a typed peso figure + a stale test pin"
+            sha: 4c5dffa8087906a2bf3e92ff9a5fe649f42c9776
+            base: origin/main
+            expect: "public-price-literals"
+            expect2: "the-lock-step-tells-the-truth"
+          - label: "6423 @ 82b43b5e3 — a stale DB test pin (the train)"
+            sha: 82b43b5e3fd38f484c2d03df4614655ad3113acc
+            base: 560e6d0f0ed61b1afd6e9b9663c64b0625bc0754
+            expect: "a-typed-name-and-date-wait-for-apply"
+    steps:
+      - name: Check out this branch (for preflight itself)
+        uses: actions/checkout@v4
+
+      - name: Keep preflight outside the tree it is about to judge
+        run: mkdir -p "$RUNNER_TEMP/pf" && cp -R scripts "$RUNNER_TEMP/pf/scripts"
+
+      - name: Check out the commit that failed CI
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.sha }}
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile=false
+
+      - name: preflight on the failing commit
+        shell: bash
+        env:
+          EXPECT: ${{ matrix.expect }}
+          EXPECT2: ${{ matrix.expect2 }}
+          LABEL: ${{ matrix.label }}
+        run: |
+          set +e
+          start=$(date +%s)
+          node "$RUNNER_TEMP/pf/scripts/preflight.mjs" --base "${{ matrix.base }}" --jobs 3 2>"$RUNNER_TEMP/err.txt" | tee "$RUNNER_TEMP/out.txt"
+          rc=${PIPESTATUS[0]}
+          secs=$(( $(date +%s) - start ))
+          cat "$RUNNER_TEMP/err.txt"
+          verdict=CAUGHT
+          [ "$rc" -eq 1 ] || verdict="NOT CAUGHT (preflight exited $rc)"
+          for want in "$EXPECT" "$EXPECT2"; do
+            [ -z "$want" ] && continue
+            # the fault must be named on a FAIL row or the line under it — not merely appear somewhere
+            if ! grep -A3 -E '^FAIL' "$RUNNER_TEMP/out.txt" | grep -qE "$want"; then verdict="NOT CAUGHT (no FAIL row names $want)"; fi
+          done
+          {
+            echo "### $LABEL"
+            echo
+            echo "**$verdict** · preflight exit $rc · ${secs}s on this runner (--jobs 3)"
+            echo
+            echo '```'
+            cat "$RUNNER_TEMP/out.txt"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "PROOF-RESULT | $LABEL | $verdict | exit $rc | ${secs}s"
+          [ "$verdict" = "CAUGHT" ]

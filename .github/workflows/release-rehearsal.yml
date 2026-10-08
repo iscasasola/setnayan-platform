@@ -83,7 +83,9 @@ jobs:
       # ⚠ TEMPORARY with the push trigger: a fixed commit of main, so a push that
       # only changes the walk reuses the build. Becomes `inputs.ref || 'main'`.
       REHEARSE_REF: ${{ inputs.ref || '482a671b35b2bd764c9ad9b82989f4d207e0d3dd' }}
-      LIVE_REF: ${{ inputs.live_ref || 'deployed-prod' }}
+      # ⚠ TEMPORARY with the push trigger: main as of 2026-10-05, five migrations
+      # behind the ref, so the proving run exercises the "this upload adds" push.
+      LIVE_REF: ${{ inputs.live_ref || '30f9154a073202f68f7a6bae5fd02bfcccf87612' }}
       # The Supabase CLI flushes telemetry on exit; in CI that egress times out
       # and the CLI exits non-zero AFTER the work succeeded (deploy-prod.yml).
       DO_NOT_TRACK: '1'
@@ -275,6 +277,21 @@ jobs:
             exit 1
           fi
 
+      # Started BEFORE the build: a Vercel build reads the production database
+      # while it prerenders, so the rehearsal's build reads the rehearsal one —
+      # and what the build itself asks for is counted on its own row.
+      - name: Start the request counter
+        run: |
+          set -euo pipefail
+          COUNT_UPSTREAM=http://127.0.0.1:54321 COUNT_PORT=54320 COUNT_OUT="$REHEARSAL_OUT/requests.json" \
+            nohup pnpm --filter @setnayan/web exec tsx tests/rehearsal/count-proxy.mts > "$REHEARSAL_OUT/counter.log" 2>&1 &
+          for i in $(seq 1 30); do
+            curl -sf http://127.0.0.1:54320/__rehearsal/report >/dev/null && break
+            sleep 1
+          done
+          curl -sf http://127.0.0.1:54320/__rehearsal/report >/dev/null || { echo "::error::the request counter did not start"; cat "$REHEARSAL_OUT/counter.log"; exit 1; }
+          curl -sf "http://127.0.0.1:54320/__rehearsal/step?name=(the%20build)" >/dev/null
+
       # The build is the slow part (and on Vercel, the whole bill). The same app
       # sources + the same public env give the same build, so a re-run of the
       # walk on an unchanged ref skips it.
@@ -310,16 +327,10 @@ jobs:
         if: steps.buildcache.outputs.cache-hit == 'true'
         run: echo "build_seconds=0" >> "$REHEARSAL_OUT/timings.env"
 
-      - name: Start the request counter and the app
+      - name: Start the app (next start)
         run: |
           set -euo pipefail
-          COUNT_UPSTREAM=http://127.0.0.1:54321 COUNT_PORT=54320 COUNT_OUT="$REHEARSAL_OUT/requests.json" \
-            nohup pnpm --filter @setnayan/web exec tsx tests/rehearsal/count-proxy.mts > "$REHEARSAL_OUT/counter.log" 2>&1 &
-          for i in $(seq 1 30); do
-            curl -sf http://127.0.0.1:54320/__rehearsal/report >/dev/null && break
-            sleep 1
-          done
-          curl -sf http://127.0.0.1:54320/__rehearsal/report >/dev/null || { echo "::error::the request counter did not start"; cat "$REHEARSAL_OUT/counter.log"; exit 1; }
+          curl -sf "http://127.0.0.1:54320/__rehearsal/step?name=(app%20start)" >/dev/null
           nohup pnpm --filter @setnayan/web start > "$REHEARSAL_OUT/app.log" 2>&1 &
           for i in $(seq 1 60); do
             if curl -sf http://localhost:3000/api/health > "$RUNNER_TEMP/health.json"; then break; fi

@@ -272,7 +272,12 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
                     attire={[
                       { tier: 'roles', key: 'bride', label: 'The bride', paletteKey: 'bride', arrives: null },
                       { tier: 'roles', key: 'groom', label: 'The groom', paletteKey: 'groom', arrives: null },
-                      { tier: 'groups', key: 'entourage', label: 'Entourage', paletteKey: 'wedding_party', arrives: '2:00 PM' },
+                      /* The rows `studioAttireRows` really builds (a guest list with bridesmaids, groomsmen and
+                         bearers) — so each attire board is seen under its own role, as in the Maker. */
+                      { tier: 'groups', key: 'bridesmaids', label: 'Bridesmaids', paletteKey: 'bridesmaids', arrives: '2:00 PM' },
+                      { tier: 'groups', key: 'groomsmen', label: 'Groomsmen', paletteKey: 'groomsmen', arrives: '2:00 PM' },
+                      { tier: 'groups', key: 'bearers_flower_girl', label: 'Bearers & Flower Girl', paletteKey: 'bearers_flower_girl', arrives: null },
+                      { tier: 'roles', key: 'guest', label: 'Guests', paletteKey: 'guest', arrives: null },
                     ] as never}
                     dressConfig={{ roles: { bride: { style: ATTIRE_STYLES[0] } } }}
                     attireStyles={ATTIRE_STYLES.map((k) => ({ key: k, label: ATTIRE_STYLE_LABEL[k] }))}

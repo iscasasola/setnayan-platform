@@ -93,6 +93,18 @@ export const MOODBOARD_SLOT_TRADES: Readonly<
   groom: ['grooms_attire', 'mens_attire', 'filipiniana_barongs'],
   principal_sponsor: ['womens_attire', 'mens_attire', 'filipiniana_barongs'],
   entourage: ['womens_attire', 'mens_attire', 'filipiniana_barongs'],
+  // 👗 The four attire boards (owner 2026-10-08), each on the entourage's OWN
+  // tiles and nothing invented: the women's half for the bridesmaids, the men's
+  // half for the groomsmen. 🧒 THERE IS NO CHILDREN'S-ATTIRE TILE in the taxonomy
+  // — a flower girl's dress is a service under Women's Attire
+  // (`flower_girl_dress`) and a ring bearer's suit one under Men's Attire
+  // (`ring_bearer_suit`) — so those two boards name the tile that holds theirs.
+  // `filipiniana_barongs` rides with all four (a barong or a Filipiniana is cut
+  // for a page boy and a flower girl too), as it does with the entourage.
+  bridesmaids: ['womens_attire', 'filipiniana_barongs'],
+  groomsmen: ['mens_attire', 'filipiniana_barongs'],
+  flower_girl: ['womens_attire', 'filipiniana_barongs'],
+  ring_bearer: ['mens_attire', 'filipiniana_barongs'],
   parents: ['womens_attire', 'mens_attire', 'filipiniana_barongs'],
   guests: ['womens_attire', 'mens_attire', 'filipiniana_barongs'],
 };

@@ -195,14 +195,3 @@ export function appPreloader(): Preloader {
   if (!shared) shared = createPreloader(browserPreloadEnv());
   return shared;
 }
-
-/**
- * The chunk files a page's RSC payload names (its client components' code), as
- * `/_next/static/chunks/…` paths, each once, in order. The payload names them
- * as `"static/chunks/<file>.js"` inside its module rows.
- */
-export function routeChunkUrls(payload: string): string[] {
-  const out = new Set<string>();
-  for (const m of payload.matchAll(/"(static\/chunks\/[A-Za-z0-9_.\-\/\[\]%]+?\.js)"/g)) out.add(`/_next/${m[1]}`);
-  return [...out];
-}

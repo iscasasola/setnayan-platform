@@ -3140,13 +3140,13 @@ export const UGAT_JOINTS: UgatJoint[] = [
     title: 'Library photo \u2194 Event (the pick, and the credit that survives it)',
     joint: 'event_inspiration_assets',
     cardinality:
-      'One row per (event, slot_key, slot_position) among ACTIVE rows \u2014 18 slots \u00d7 3 photos; removed rows do not count toward it, so a slot can be re-filled',
+      'One row per (event, slot_key, slot_position) among ACTIVE rows \u2014 24 slots \u00d7 3 photos; removed rows do not count toward it, so a slot can be re-filled',
     implementedBy:
       'event_inspiration_assets.library_asset_id \u2192 moodboard_library_assets, paired with source_kind = \'gallery_pick\' by a CHECK biconditional',
     writtenBy:
       'applyGalleryPick (the couple\u2019s picker), applyRenderPick (MB9 \u2014 another couple\u2019s shared render, saved as a reference, costing nothing) and applyMoodboardTemplate (theme seeding) \u2014 all three in studio/mood-board/actions.ts; uploadMoodboardSlot writes the couple\u2019s OWN photos, which carry no id and no credit',
     guardedBy:
-      'RLS Pattern B \u2014 event_members-scoped select/insert/update, admin all; plus the provenance biconditional and the 18-key slot CHECK',
+      'RLS Pattern B \u2014 event_members-scoped select/insert/update, admin all; plus the provenance biconditional and the 24-key slot CHECK (last widened by 20271266380994 \u2014 the four attire boards)',
     traps:
       'The one-row-per-cell rule is a PARTIAL UNIQUE INDEX (WHERE removed_at IS NULL), not a constraint, so it is invisible to pg_constraint and cannot be claimed above \u2014 verify with \\d event_inspiration_assets. Removal is SOFT (removed_at), so every read must filter it; a count that forgets tells a couple they saved photos they deleted. library_asset_id is ON DELETE CASCADE, so HARD-deleting a library photo (deleteAsset / deleteStylistAsset, which also remove the storage object) removes the tile from every board holding it. RETIRING one (retired_at) does not touch this FK at all and the tile keeps rendering, credited \u2014 the two paths behave completely differently and the UI copy for them must not be shared.',
   },

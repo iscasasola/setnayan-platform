@@ -176,7 +176,7 @@ export function studioFullScreenCss(): string {
        pull-up sheet over the map (`PeopleSheet`), so the lower third steps aside and the map takes the screen. */
     `${ws(['seating'])} [data-details-editor-panel]{display:none}` +
     `[data-maker-studio-full]:has([data-details-workspace]${on(['seating'])}) [data-maker-studio-room]{display:none}` +
-    /* 🌄 Look: its one bar (Background · Colours · Fonts · Music) is the section picker — no second ▾ above it. */
+    /* 🌄 Look: its one bar (Background · Elements · Music) is the section picker — no second ▾ above it. */
     '[data-details-editor-panel]:has([data-details-editor]:not([hidden]) [data-studio-look-bar]) [data-details-sheet-head]{display:none}' +
     /* 🌄 …and Look's panel is the lower third's whole width at half the screen (prototype `.lt`, owner "the toolbar is half the screen"): no column beside it, no
        floating sheet — a hairline over the page, the controls under it. */

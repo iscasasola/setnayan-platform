@@ -270,10 +270,11 @@ test('7 · each of the 11 tiles opens its OWN editor — Look never opens the Lo
   };
   assert.equal(STUDIO_TILE_KEYS.length, 11);
   /* Whatever was open before — the worst cases are the other Look-group items. */
-  for (const before of [null, 'logo', 'mood-board', 'hero', 'reveal', 'names', 'colours']) {
+  /* ('elements' since the 2026-10-08 restudy — Look's sections are Background · Elements · Music; it was 'colours'.) */
+  for (const before of [null, 'logo', 'mood-board', 'hero', 'reveal', 'names', 'elements', 'colours']) {
     for (const k of STUDIO_TILE_KEYS) {
       const got = studioTileItem(k, before);
-      if (k === 'look' && before === 'colours') assert.equal(got, 'colours', 'Look forgot the section it was on');
+      if (k === 'look' && before === 'elements') assert.equal(got, 'elements', 'Look forgot the section it was on');
       else assert.equal(got, want[k], `${k} (after ${before}) opened ${got}`);
     }
   }

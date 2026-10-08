@@ -26,8 +26,11 @@
  * has OPENED and left. Until then the Maker also fetched the stages nobody had
  * opened, hidden, on idle and again after every save — full server renders of
  * the guest page — and that multiplied one person's editing into the load that
- * exhausted the database's connection pool. Section 2 holds the new rule: a
- * frame exists only because its stage was on screen.
+ * exhausted the database's connection pool. Section 2 holds the rule for the
+ * SWITCH: showing a stage, a render and a trim never bring a frame for another
+ * stage into being. The other stages are warmed by ONE thing, once per open
+ * and never after a save (`warmOnce`) — counted, per open and per save, in
+ * `the-other-stages-are-warmed-once.test.ts`.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -112,11 +115,12 @@ test('a stage the couple has opened is SHOWN again — the same frame, nothing l
   assert.deepEqual(u.warm, [eventFrame], 'On the Day stays warm in turn');
 });
 
-test('🧯 a stage nobody opened is never loaded — opening the Maker fetches ONE guest page', () => {
+test('🧯 a render, a save or a trim never loads a stage nobody opened — however many pass', () => {
   // Incident 2026-10-08: the other three stages were fetched hidden as soon as the
   // Maker idled, and again after every save — four full server renders of the
-  // guest page per open and per edit. The only way a frame comes to exist now is
-  // `planCanvasFrames` being handed the frame ON SCREEN.
+  // guest page per open and per edit. `planCanvasFrames` makes a frame for the
+  // stage ON SCREEN only; `trimWarmFrames` makes none. (The one warm an open gets
+  // is `warmOnce`, and a save ends it — the-other-stages-are-warmed-once.test.ts.)
   const wanted = [fr('save_the_date'), fr('event'), fr('editorial')];
   let s: CanvasFrames = { shown: fr('rsvp'), loading: null };
   // However many renders, saves and idle moments pass while the Invitation is shown…
@@ -126,9 +130,11 @@ test('🧯 a stage nobody opened is never loaded — opening the Maker fetches O
     assert.ok(every.every((f) => f.group === 'rsvp:'), `a frame for a stage nobody opened exists after render ${stamp}: ${every.map((f) => f.key).join(' · ')}`);
     assert.ok(every.length <= 2, 'at most the page shown and the newest render of it loading');
   }
-  // …and the module has no way to add one: the only exports that return frames are these.
+  // …and the fetch-ahead that refreshed on every render has no way back in: the switch
+  // (`planCanvasFrames` + `trimWarmFrames`) is the only thing a render runs.
   const buffer = read('app/dashboard/[eventId]/website/editor/_components/buffered-canvas-frame.tsx');
   assert.doesNotMatch(buffer, /nextWarmFrame|requestIdleCallback|WARM_AFTER_MS/, 'the fetch-ahead of unopened stages is back');
+  assert.match(buffer, /setFrames\(\(s\) => trimWarmFrames\(planCanvasFrames\(s, \{ key: frameKey, group, src \}\), wantedRef\.current, warmMax\)\);/);
   assert.equal(trimWarmFrames({ shown: fr('rsvp'), loading: null }, wanted, MAX_WARM_FRAMES).warm, undefined, 'the trim never adds');
   // 🔎 Positive control — a frame IS created the moment its stage is shown, so the
   // "none" above is the rule holding, not a planner that cannot make frames.

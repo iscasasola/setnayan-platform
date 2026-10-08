@@ -99,6 +99,15 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
       'is also a live delivery credential; exporting it lets anyone holding the file push to ' +
       'that device. Disclose that it is held; do not hand over the keys.',
   },
+  {
+    table: 'hub_music_tracks',
+    decision: 'excluded',
+    why:
+      'Setnayan\'s own music catalogue — the tracks an admin uploads for couples to pick ' +
+      '(owner 2026-10-08). `created_by` is the staff account that uploaded a track, an actor ' +
+      'stamp on platform content; the row says nothing about that person, and erasure clears ' +
+      'the stamp (lib/erasure/coverage.ts).',
+  },
 ];
 
 /** Tables that must appear in the export payload, by their payload key. */

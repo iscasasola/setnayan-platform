@@ -11,13 +11,19 @@
  *       price is counted, and with none recorded there is no money to print
  *       (never ₱0);
  *   T4  the date reads at its own precision; the place names a BOOKED venue;
- *       an unset fact is an ask, drawn open.
+ *       an unset fact is an ask, drawn open;
+ *   T5  Find opens one category at a time — until Expand all, when a header
+ *       tap folds just that one, and a search unfolds every row with a hit;
+ *   T6  a row says ONE state word (a booking outranks a done mark; an empty
+ *       category says nothing), and "Covered N of M" counts booked or covered.
  *
  * SABOTAGE, each seen red (2026-10-08; the PR body has the runs):
  *   T1 send `compare` to Find            T2 count a covered category as filled
  *   T3 drop the unpriced count · say there is money when nothing is priced ·
  *      sum without `teamMoney`
  *   T4 print a month-only date as a day · name an area as if it were the venue
+ *   T5 ignore the folded set under Expand all
+ *   T6 let a done mark hide a booking · count only "done" as covered
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -31,7 +37,10 @@ import {
   SUPPLIERS_MODE_LABEL,
   SUPPLIERS_MODE_TAB,
   buildTally,
+  categoryRowState,
+  isCategoryOpen,
   isModeTab,
+  ringCoveredCount,
   suppliersDateFact,
   suppliersModeOfTab,
   suppliersPlaceFact,
@@ -133,6 +142,48 @@ test('T3 · ONE sum — the tally goes through the Build body’s own teamMoney'
   assert.match(src, /import \{ teamMoney \} from '\.\/your-team'/);
   assert.match(src, /teamMoney\(\{ lockedCentavos, lockedUnpricedCount: lockedUnpriced, candidateCostsPhp, budgetPhp: null \}\)/);
   assert.match(src, /import \{ LOCKED_VENDOR_STATUSES \} from '\.\/shortlist-taxonomy'/, 'a second list of what "booked" means');
+});
+
+/* ── T5 · which categories are open ──────────────────────────────────────── */
+
+test('T5 · one open at a time — until Expand all, then a header tap folds just that one', () => {
+  const none = new Set<string>();
+  const at = (tile: string, over: Partial<Parameters<typeof isCategoryOpen>[0]> = {}) =>
+    isCategoryOpen({ tile, searching: false, openTile: null, openAll: false, folded: none, ...over });
+  // Nothing opened: every row is closed.
+  assert.deepEqual(['catering', 'cake'].map((t) => at(t)), [false, false]);
+  // One opened: that one only.
+  assert.deepEqual(['catering', 'cake'].map((t) => at(t, { openTile: 'catering' })), [true, false]);
+  // Expand all: every row — whichever one had been open before.
+  assert.deepEqual(['catering', 'cake'].map((t) => at(t, { openAll: true, openTile: 'catering' })), [true, true]);
+  // …and a tap on one header folds JUST that one.
+  assert.deepEqual(
+    ['catering', 'cake'].map((t) => at(t, { openAll: true, folded: new Set(['cake']) })),
+    [true, false],
+  );
+  // A folded row is not remembered once "all" is off.
+  assert.equal(at('cake', { openAll: false, openTile: 'cake', folded: new Set(['cake']) }), true);
+  // Searching: the rows with hits unfold by themselves, folded or not.
+  assert.equal(at('cake', { searching: true, openAll: true, folded: new Set(['cake']) }), true);
+});
+
+/* ── T6 · a row's state word, and "Covered N of M" ───────────────────────── */
+
+test('T6 · one state word per row — and a booking outranks a "done" mark', () => {
+  const at = (o: Partial<Parameters<typeof categoryRowState>[0]>) =>
+    categoryRowState({ lockedCount: 0, covered: false, vendorCount: 0, quoteInCount: 0, ...o });
+  assert.deepEqual(at({ lockedCount: 1, covered: true, vendorCount: 3 }), { kind: 'booked', n: null, words: 'Booked ✓', tone: 'ok' });
+  assert.deepEqual(at({ covered: true, vendorCount: 2 }), { kind: 'covered', n: null, words: 'Covered ✓', tone: 'ok' });
+  assert.deepEqual(at({ vendorCount: 6, quoteInCount: 2 }), { kind: 'quote_in', n: 2, words: 'quote in', tone: 'attention' });
+  assert.deepEqual(at({ vendorCount: 6 }), { kind: 'to_decide', n: 6, words: 'to decide', tone: 'attention' });
+  // Nobody here yet: no word at all — never "0 to decide".
+  assert.equal(at({}), null);
+});
+
+test('T6 · "Covered N of M" counts a category that is booked OR covered', () => {
+  assert.equal(ringCoveredCount(['locked', 'locked', 'covered', 'covered', 'exploring']), 4);
+  assert.equal(ringCoveredCount(['empty', 'exploring', 'picked', 'asked']), 0);
+  assert.equal(ringCoveredCount([]), 0);
 });
 
 /* ── T4 · the date · place line ──────────────────────────────────────────── */

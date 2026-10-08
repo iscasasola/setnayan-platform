@@ -40,7 +40,7 @@
  * the only inbox door.
  */
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { flushSync } from 'react-dom';
 import Link from 'next/link';
 import { Info, Sparkles, X } from 'lucide-react';
@@ -73,8 +73,10 @@ import {
   EXPLORE_INFO_TITLE,
   EXPLORE_INFO_WHAT,
   EXPLORE_STATE_LEGEND,
+  COVERAGE_STRIP_HEADING,
 } from '@/lib/explore-info-copy';
 import { BuildCart } from './build-cart';
+import { SuppliersModeContext, THUMB_SLIDE_MS } from './suppliers-mode';
 
 // The cross-tab bus (BB_TAB_EVENT + goToBuildTab) and TAB_META live in
 // @/lib/budget-build (2026-06-16) so the layout-mounted nav shares them without
@@ -93,7 +95,9 @@ const sectionId = (tab: BudgetBuildTab) => `svc-${tab}`;
  *  anchors / bus events stay `compare` and `budget`. (PR2–PR4 redraw each
  *  body with its own heading; these are the shipped sections' own.) */
 const SECTION_HEADING: Record<BudgetBuildTab, string> = {
-  shortlist: 'Saved',
+  // The Find body's own heading is the ring's (owner 2026-10-07) — "Saved"
+  // named a bench; the rows under it are the categories on the event.
+  shortlist: isExploreReplanEnabled() ? COVERAGE_STRIP_HEADING : 'Saved',
   build: isExploreReplanEnabled() ? 'Picks' : 'Build your suppliers',
   budget: isExploreReplanEnabled() ? 'Payments' : 'Your budget',
   compare: isExploreReplanEnabled() ? 'Your plans' : 'Compare saved builds',
@@ -105,6 +109,14 @@ const SECTION_HEADING: Record<BudgetBuildTab, string> = {
 const LANDING_CSS =
   '[data-budget-build-takeover] .slcat [id^="slfold-"],[data-budget-build-takeover] .slcat [id^="sltile-"]{scroll-margin-top:calc(var(--stick-h,150px) + 14px)}' +
   '[data-budget-build-takeover] [id^="svc-"]{scroll-margin-top:calc(var(--stick-h,150px) + 8px)}';
+
+function prefersReducedMotion(): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  );
+}
 
 export function ServicesTakeover({
   eventId,
@@ -151,6 +163,21 @@ export function ServicesTakeover({
   const rootRef = useRef<HTMLElement>(null);
   const stickRef = useRef<HTMLDivElement>(null);
 
+  // ── A BODY'S FLOATING ROW LEAVES FIRST (BUTTON_RULE rule 5) ───────────────
+  // Find draws a thumb row into <body> (`find-thumb-row.tsx`). It says here
+  // whether it is up (`thumbUp`); when the couple asks for another body while
+  // it is, the shell says `leaving`, the row slides down, and only then does
+  // the body swap. No row up → no wait.
+  const thumbUp = useRef(false);
+  const [leaving, setLeaving] = useState(false);
+  const leaveTimer = useRef<number | null>(null);
+  useEffect(
+    () => () => {
+      if (leaveTimer.current != null) window.clearTimeout(leaveTimer.current);
+    },
+    [],
+  );
+
   // ── ONE DOOR INTO A SECTION: the segmented control, the bus, `?tab=` ─────
   const goToSection = useCallback((next: BudgetBuildTab, smooth = true) => {
     const nextMode = suppliersModeOfTab(next);
@@ -170,15 +197,28 @@ export function ServicesTakeover({
       }
       document.getElementById(sectionId(next))?.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'start' });
     };
-    modeRef.current = nextMode;
-    // Committed NOW, not on the next render: a caller that scrolls to a row of
-    // the body it just asked for (the Build body's "open this category"
-    // doorway → the bench) must find that body on screen.
-    flushSync(() => {
-      setMode(nextMode);
-      setSeen((s) => (s.has(nextMode) ? s : new Set(s).add(nextMode)));
-    });
-    land();
+    const swap = () => {
+      leaveTimer.current = null;
+      modeRef.current = nextMode;
+      // Committed NOW, not on the next render: a caller that scrolls to a row
+      // of the body it just asked for (the Build body's "open this category"
+      // doorway → the bench) must find that body on screen.
+      flushSync(() => {
+        setMode(nextMode);
+        setSeen((s) => (s.has(nextMode) ? s : new Set(s).add(nextMode)));
+        // The wait is over — and a second press on the body being left ends it
+        // too, so its row comes back up.
+        setLeaving(false);
+      });
+      land();
+    };
+    if (leaveTimer.current != null) window.clearTimeout(leaveTimer.current);
+    if (nextMode !== modeRef.current && thumbUp.current && !prefersReducedMotion()) {
+      setLeaving(true);
+      leaveTimer.current = window.setTimeout(swap, THUMB_SLIDE_MS);
+      return;
+    }
+    swap();
   }, []);
 
   // `?tab=` may have been written (replaceState) while this page was still
@@ -249,6 +289,7 @@ export function ServicesTakeover({
   }, []);
 
   const drawn = (m: SuppliersMode) => m === mode || seen.has(m);
+  const modeState = useMemo(() => ({ mode, leaving, thumbUp }), [mode, leaving]);
 
   return (
     /* 🔴 THE APP'S TOP BAR STAYS ON SUPPLIERS (owner 2026-10-05). This section
@@ -310,10 +351,12 @@ export function ServicesTakeover({
 
       {/* ── ONE BODY ────────────────────────────────────────────────────────
           One column at every width (the prototype's 820 px on a computer). */}
+      <SuppliersModeContext.Provider value={modeState}>
       <div className="min-w-0 pt-4 lg:max-w-[820px]">
         {drawn('find') ? (
           <div data-suppliers-body="find" hidden={mode !== 'find'}>
-            <div>
+            {/* Room for Find's thumb row, so the last row is never under it. */}
+            <div className="max-lg:pb-16">
               {/* ONE Find a supplier opens the Find page — only this event
                   type's categories, grouped the way hosts think (P3,
                   2026-10-01). PR2 unfolds that marketplace in place. */}
@@ -376,6 +419,7 @@ export function ServicesTakeover({
           </div>
         ) : null}
       </div>
+      </SuppliersModeContext.Provider>
 
       <BuildCart tally={tally} />
     </section>
@@ -398,9 +442,9 @@ function ServiceSection({
   children: ReactNode;
 }) {
   const blurb = tabBlurb(tab);
-  // Page-level ⓘ (Explore Replan PR-B · spec §11.1) — the bench only, and only
-  // behind the flag. The heading keeps its exact pre-replan classes when the ⓘ
-  // is absent, so the flag-OFF render is byte-identical.
+  // Page-level ⓘ (Explore Replan PR-B · spec §11.1) — Find only, and only
+  // behind the flag: there the heading is the ring's own ("Cover your event",
+  // plain, with the ⓘ beside it). Every other section keeps its shipped look.
   const showInfo = tab === 'shortlist' && isExploreReplanEnabled();
   return (
     // Lands below the pinned block when scrolled to (`LANDING_CSS`).
@@ -411,12 +455,14 @@ function ServiceSection({
       // last-seen data (lib/last-seen).
       data-money={tab === 'budget' || tab === 'compare' ? '' : undefined}
     >
-      <header className="mb-4">
+      <header className={showInfo ? 'mb-0.5' : 'mb-4'}>
         <h2
           id={`${sectionId(tab)}-h`}
-          className={`font-serif text-xl italic leading-tight text-ink sm:text-2xl${
-            showInfo ? ' flex items-center gap-2' : ''
-          }`}
+          className={
+            showInfo
+              ? 'flex items-center gap-2 font-display text-[21px] font-medium leading-tight text-ink'
+              : 'font-serif text-xl italic leading-tight text-ink sm:text-2xl'
+          }
         >
           {heading}
           {/* The ONE explanatory affordance on the bench: what this page does,
@@ -425,7 +471,8 @@ function ServiceSection({
               lib/explore-info-copy.ts; none is authored here. */}
           {showInfo ? <ExploreInfoToggle /> : null}
         </h2>
-        <p className="mt-0.5 text-sm text-ink/55">{blurb}</p>
+        {/* The ring says its own line under the heading ("Covered N of M"). */}
+        {showInfo ? null : <p className="mt-0.5 text-sm text-ink/55">{blurb}</p>}
       </header>
       <div id={`${sectionId(tab)}-body`}>{children}</div>
     </section>

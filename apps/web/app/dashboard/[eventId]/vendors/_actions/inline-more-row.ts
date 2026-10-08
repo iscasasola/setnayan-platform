@@ -38,6 +38,10 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getBatchVendorAvailableDays } from '@/lib/vendor-availability';
 import { resolveProbeWindow } from '@/lib/build-date-window';
+import { canonicalServicesForTile } from '@/lib/vendor-counts';
+import type { WeddingTile } from '@/lib/taxonomy';
+import { fetchMarketServiceCards } from '@/lib/bench-service-cards';
+import { withholdCardNames, type BenchServiceCard } from '@/lib/bench-service-card';
 import { searchCategoryVendors, type CategoryVendorResult } from './category-search';
 
 export type InlineMoreRowResult = {
@@ -55,12 +59,21 @@ export type InlineMoreRowResult = {
    *  probe window to read calendars over. The row still renders — it simply
    *  sinks nothing, exactly as row 1 does in the same state. */
   noProbeWindow: boolean;
+  /**
+   * marketplace profile id → that supplier's own service card for THIS
+   * category (owner 2026-10-07: a card in the list is the service card).
+   * `null` = the cards could not be read — the list then says nothing about a
+   * price, rather than "Price on request". A supplier absent from the record
+   * simply has no card in this category.
+   */
+  serviceCardByProfileId: Record<string, BenchServiceCard> | null;
 };
 
 const EMPTY: InlineMoreRowResult = {
   results: [],
   freeDaysByProfileId: {},
   noProbeWindow: true,
+  serviceCardByProfileId: {},
 };
 
 export async function fetchInlineMoreRow(input: {
@@ -86,8 +99,27 @@ export async function fetchInlineMoreRow(input: {
     hideUnbookable: true,
   });
   if (search.results.length === 0) {
-    return { results: [], freeDaysByProfileId: {}, noProbeWindow: true };
+    return { results: [], freeDaysByProfileId: {}, noProbeWindow: true, serviceCardByProfileId: {} };
   }
+
+  // The service cards of the suppliers the search ALREADY returned — it has
+  // refused a non-member above, and these are the cards those suppliers
+  // publish on their own shop pages. The category is the row's own tile, read
+  // through the same accessor the search widens from.
+  const tile = String(input.tile ?? '');
+  const marketCards = await fetchMarketServiceCards(
+    createAdminClient(),
+    search.results.map((r) => r.vendorProfileId),
+    [...new Set([...canonicalServicesForTile(tile as WeddingTile), tile])],
+    new Date(),
+  );
+  // A supplier whose name is still withheld is not named by their card's title.
+  const serviceCardByProfileId = marketCards
+    ? withholdCardNames(
+        marketCards,
+        search.results.filter((r) => r.nameAnonymized).map((r) => r.vendorProfileId),
+      )
+    : null;
 
   // The probe window. Read through the couple's OWN client so a non-member
   // cannot use this action to reach an event's dates — `searchCategoryVendors`
@@ -99,7 +131,7 @@ export async function fetchInlineMoreRow(input: {
       .select('event_date, event_date_precision, date_candidates')
       .eq('event_id', eventId)
       .maybeSingle();
-    if (!ev) return { results: search.results, freeDaysByProfileId: {}, noProbeWindow: true };
+    if (!ev) return { results: search.results, freeDaysByProfileId: {}, noProbeWindow: true, serviceCardByProfileId };
 
     const row = ev as {
       event_date: string | null;
@@ -114,7 +146,7 @@ export async function fetchInlineMoreRow(input: {
     // An ANCHORED window costs nothing to read and can sink nothing: the soft
     // tier stands down for the committed-date tier, exactly as the page does.
     if (!probe || probe.anchored) {
-      return { results: search.results, freeDaysByProfileId: {}, noProbeWindow: true };
+      return { results: search.results, freeDaysByProfileId: {}, noProbeWindow: true, serviceCardByProfileId };
     }
 
     const [ys, ms, ds] = probe.rangeStart.split('-').map(Number);
@@ -130,10 +162,10 @@ export async function fetchInlineMoreRow(input: {
     for (const [profileId, days] of avail) {
       freeDaysByProfileId[profileId] = probe.dayKeys.filter((k) => days.has(k));
     }
-    return { results: search.results, freeDaysByProfileId, noProbeWindow: false };
+    return { results: search.results, freeDaysByProfileId, noProbeWindow: false, serviceCardByProfileId };
   } catch {
     // Fail open — the vendors still show, nothing sinks. A calendar read must
     // never cost the couple a vendor, and it must never cost them the row.
-    return { results: search.results, freeDaysByProfileId: {}, noProbeWindow: true };
+    return { results: search.results, freeDaysByProfileId: {}, noProbeWindow: true, serviceCardByProfileId };
   }
 }

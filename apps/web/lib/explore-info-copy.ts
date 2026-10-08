@@ -203,6 +203,15 @@ export function addToPlanChipLabel(label: string): string {
 /** The quiet per-category removal control. */
 export const REMOVE_FROM_PLAN_LABEL = 'Not needed? Remove';
 
+/** The same control on the one-screen Suppliers page — it names what it removes
+ *  (owner 2026-10-07, the prototype's "Not needed · Remove Catering"). */
+export function removeFromEventLabel(label: string): string {
+  return `Not needed · Remove ${label}`;
+}
+
+/** The words before the one "＋ Add to your event" dropdown under the list. */
+export const ADD_TO_EVENT_ASK = 'Need something else?';
+
 /**
  * What removal actually does, said out loud (owner 2026-09-06: *"archive …
  * just means, that category will no longer be on their choices to build"* +
@@ -426,7 +435,7 @@ export function inlineMoreSavedNote(label: string): string {
 /** The undo beside it. See `canUndoInlineSave` for when it may be offered. */
 export const INLINE_MORE_UNDO = 'Undo';
 
-export const INLINE_MORE_LOADING = 'Finding vendors…';
+export const INLINE_MORE_LOADING = 'Finding suppliers…';
 
 /** Empty state. A query that matched nothing is a different fact from a
  *  category with nobody in it, and saying so stops the row reading as broken. */
@@ -447,8 +456,8 @@ export function inlineMoreSunkNote(count: number): string {
 /* Row 2's failures. Each one names a DIFFERENT fact, because "nothing here" and
    "we could not look" must never wear the same words on a surface whose whole
    job is to show the couple more vendors. */
-export const INLINE_MORE_FAILED = "We couldn't load more vendors just now. Try again in a moment.";
-export const INLINE_MORE_SAVE_FAILED = "We couldn't save that vendor. Nothing was added.";
+export const INLINE_MORE_FAILED = "We couldn't load more suppliers just now. Try again in a moment.";
+export const INLINE_MORE_SAVE_FAILED = "We couldn't save that supplier. Nothing was added.";
 /**
  * The refusal when the save was handed an event this account does not host.
  * Separate from the catch-all because it is the one cause a couple can act on —
@@ -459,7 +468,7 @@ export const INLINE_MORE_NOT_YOUR_EVENT =
   "That is not one of your events, so nothing was added. Open the event you are planning and try again.";
 export const INLINE_MORE_UNDO_FAILED = "We couldn't undo that. Check the row above.";
 export const INLINE_MORE_INQUIRE_FAILED = "We couldn't open the conversation. They're saved to your shortlist.";
-export const INLINE_MORE_SIGNED_OUT = 'Sign in again to save vendors.';
+export const INLINE_MORE_SIGNED_OUT = 'Sign in again to save suppliers.';
 
 
 /* ── A CARD'S DATES (owner 2026-09-06) ──────────────────────────────────────
@@ -501,3 +510,26 @@ export function dateOutcomeLine(o: DateOutcome): string | null {
   if (o.kind === 'sets') return `Booking this sets your date to ${formatDayKeyLabel(o.day)}`;
   return `Leaves ${formatCount(o.count)} possible dates — your date is not set yet`;
 }
+
+/* ── "MORE TO COMPARE" (owner 2026-10-07 · Suppliers PR2) ────────────────────
+   The marketplace list under a category row is no longer something the couple
+   opens — it is always there, under their own cards, with a count. These are
+   its words; the decisions are still `lib/inline-more-row.ts`. */
+
+/** The list's heading. With none of their own yet there is nothing to compare
+ *  them WITH, so the word "More" would be untrue. */
+export function moreToCompareHeading(hasOwn: boolean): string {
+  return hasOwn ? 'More to compare' : 'To compare';
+}
+
+/** Nobody to show. A search that matched nobody and a category nobody has
+ *  joined yet are different facts — and only the first has a next step here. */
+export function moreToCompareEmpty(label: string, query: string): string {
+  const q = query.trim();
+  return q
+    ? `Nobody called “${q}” in ${label} yet — add them as your own.`
+    : `Nobody else to compare in ${label} yet.`;
+}
+
+/** The quiet second verb on a card in the list: keep them, ask later. */
+export const MORE_TO_COMPARE_SAVE = 'Save';

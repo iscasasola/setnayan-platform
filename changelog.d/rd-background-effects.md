@@ -34,3 +34,58 @@ the fade bar leaves the effect where it is. 11 sabotages seen red.
 `check-maker-js-budget.mjs` must be read on the first build that includes this commit.
 
 SPEC IMPACT: None beyond the contract above.
+
+## 2026-10-08 · feat(look): the six effects' ONE engine and ONE layer — shapes and a stylesheet, nothing fetched (amendment PR 3, step 2)
+
+Contract: the note's § 2.A "The effects — art direction" and § 8 PR 3; the approved
+prototype's `fxHTML` + `.fx-*`, translated rule for rule. Local commit.
+
+- `lib/ambient-effects.ts` (pure) — Lanterns ◆ · Falling petals ◆ · Sparkles · Capiz glow ◆ ·
+  Gold shimmer ◆ · Bokeh lights: the counts (the note's table; Subtle × 0.6 · Lavish × 1.5;
+  capped at 24), the seeded shapes at three depths (size · blur · opacity), each with a
+  NEGATIVE delay; the colour rule (the picked palette colour is the body, pulled until it
+  stands 2.4:1 off the ground; highlight = 40 % toward white, deep = 35 % toward black); the
+  ground an effect lies on (`ambientGround` — the picture's measured colours under its veil,
+  a blend's ramp, or the page colour); and the stylesheet as one string.
+- `app/[slug]/_components/ambient-effect.tsx` — the one layer: `<i>` shapes and one
+  `<style>`. No client JavaScript, no image, no font. Nothing mounts it yet (next commits).
+- **What moves:** only `transform` · `translate` · `rotate` · `scale` · `opacity`. The
+  prototype's sway animated `margin-left` (layout) — here it is `translate`.
+- **Reduce motion = a finished still:** the animation is PAUSED, never removed.
+  🪤 Measured in a browser: the first build's pause did nothing — each shape's own rule is
+  more specific and its `animation` shorthand set the play state back to running (596
+  animations running under reduce motion). The pause is `!important`; measured again: 0
+  running, 596 paused.
+- **No `color-mix()`:** every wash a glow, a rim or a shell needs is worked out in the
+  engine and handed down as a variable — on a phone without the function the prototype's
+  lantern glow and the whole capiz shell would vanish.
+- **The travel is the layer's own height** (`cqh`, the viewport where a browser lacks it),
+  so the same shapes cross a card, the sample screen and a full phone page.
+
+Reused (Rule 0), said plainly: none of the three shipped engines' CODE — the celebration
+engine is a canvas on requestAnimationFrame for a timed moment, the reveal's petals an
+opening flourish, the spatial backdrop 1024² images; each would put a script, a canvas or
+image requests on every guest page. Reused: the approved prototype's engine, the page's own
+contrast maths (`lib/hub-legibility.ts`), the palette's slot names.
+
+SEEN in a headless browser, on a static page rendered from the engine (not yet the app):
+all six on a light and a dark ground, Original and a palette colour, with their miniatures;
+requests for an effect: 0. ms/frame while scrolling a page under a full-phone Lavish layer
+(375 × 812, 3 s each): 8.3 mean / 9.3 p95 for every effect, the same as a page with none —
+also with the CPU slowed ×4. That is the headless browser's own 120 Hz clock: it says the
+page's thread stays free (the shapes move on the compositor); it does NOT measure a real
+phone's GPU, which is slower. To be measured again on the review copy once mounted.
+
+Guard: `lib/the-effects-are-six-and-cost-nothing.test.ts` (8, new). 23 sabotages: 22 red;
+ONE STAYED GREEN — removing the count cap: no effect reaches 24 shapes today (Sparkles
+Lavish is exactly 24), so the cap cannot be exercised; the table and "never above the cap"
+are what the guard holds.
+
+Deviations from the prototype, each with its reason: the ground's light/dark and the 2.4
+pull are worked out over what the page REALLY draws (the picture under its veil or paper
+scrim), not the raw picture average; Sparkles' Original on a light page (the couple's
+Supporting) is pulled like a picked colour, or a pale one would not show at all.
+NOT built: Low Power Mode / a low battery showing the still (it needs a script on the
+guest page; the layer has none) — the browser's own reduce-motion setting is honoured.
+
+SPEC IMPACT: None beyond the contract above.

@@ -213,6 +213,9 @@ class El {
   removeAttribute(n: string) {
     delete this.attrs[n];
   }
+  hasAttribute(n: string) {
+    return n in this.attrs;
+  }
   appendChild(c: El) {
     return this.insertBefore(c, null);
   }

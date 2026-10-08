@@ -26,7 +26,9 @@
  * `rd/deleted-guest-unlinks`), not by this file — one mechanism, not two.
  */
 
-import { useId, useState } from 'react';
+import { createContext, useContext, useId, useState } from 'react';
+import { Trash2, X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { Sheet } from '@/app/_components/sheet';
 import { formatCount } from '@/lib/format-number';
 import { bulkSoftDeleteGuestsForUndo, restoreDeletedGuests } from '../groups-actions';
@@ -50,6 +52,18 @@ export function deleteWarningText(names: readonly string[]): { title: string; bo
 }
 
 /**
+ * The two writes a removal makes — the SHIPPED server actions by default. The dev lab (`/dev/guests-lab`) hands in
+ * stand-ins that succeed locally, so a press there can be seen (and the Undo toast with it) without reaching the
+ * database. Nothing in the app ever provides this; the default IS the real thing.
+ */
+export type GuestRemovalActions = {
+  bulkSoftDeleteGuestsForUndo: typeof bulkSoftDeleteGuestsForUndo;
+  restoreDeletedGuests: typeof restoreDeletedGuests;
+};
+const REAL_REMOVAL_ACTIONS: GuestRemovalActions = { bulkSoftDeleteGuestsForUndo, restoreDeletedGuests };
+export const GuestRemovalActionsContext = createContext<GuestRemovalActions | null>(null);
+
+/**
  * The delete, optimistic, with Undo. A REFUSAL IS SAID, never swallowed: the
  * rows come back AND the server's own sentence shows as an error toast, so a
  * host never watches a row reappear with no reason (the live-test defect).
@@ -59,6 +73,9 @@ export function deleteWarningText(names: readonly string[]): { title: string; bo
  */
 export function useGuestRemoval(eventId: string) {
   const [removing, setRemoving] = useState(false);
+  /* The shipped actions, unless the dev lab handed in stand-ins. Held under the SAME names, so every call below reads —
+     and every guard that pins "the delete is called from exactly one place, the hook" still reads — as the real call. */
+  const { bulkSoftDeleteGuestsForUndo, restoreDeletedGuests } = useContext(GuestRemovalActionsContext) ?? REAL_REMOVAL_ACTIONS;
 
   /** Resolves to the refusal's own words (shown where the host acted), or null. */
   async function remove(guestIds: string[], onRemoved?: () => void): Promise<string | null> {
@@ -69,48 +86,51 @@ export function useGuestRemoval(eventId: string) {
 
     setRemoving(true);
     guestOptimistic.apply(mutation); // hide rows now
-
-    let result;
+    /* 🔑 A PRESS ENDS ITS OWN PENDING STATE ON EVERY PATH (owner 2026-10-09, a refused delete read "Deleting…" with no
+       word of why): the sheet goes back to "Delete" and the red toast says what was refused, within the press. */
     try {
-      result = await bulkSoftDeleteGuestsForUndo(eventId, ids);
-    } catch {
-      guestOptimistic.clear(mutation); // rollback the hide
+      let result;
+      try {
+        result = await bulkSoftDeleteGuestsForUndo(eventId, ids);
+      } catch {
+        guestOptimistic.clear(mutation); // rollback the hide
+        const said = 'Could not delete — check your connection and try again.';
+        guestToast.error(said);
+        return said;
+      }
+
+      if (!result.ok) {
+        guestOptimistic.clear(mutation); // rollback — and SAY why, where they acted
+        guestToast.error(result.error);
+        return result.error;
+      }
+      // Only now retract the selection bar: a refusal keeps it — and its warning,
+      // with the reason — on screen, instead of vanishing with the rows' return.
+      guestSelection.clear();
+      onRemoved?.();
+
+      // buildUndo carries the released seats through, so restore re-places them.
+      const plan = buildUndo({ kind: 'remove', guestIds: result.removedIds }, [], result.releasedSeats);
+      const n = result.removedIds.length;
+      pushUndo({
+        label: `${formatCount(n)} guest${n === 1 ? '' : 's'} deleted`,
+        undo: async () => {
+          if (plan.kind !== 'restore') return;
+          // Their song requests come back with them (the warning said they go) —
+          // read back from what the database kept at delete time, never sent from here.
+          const r = await restoreDeletedGuests(eventId, plan.guestIds, plan.seats);
+          if (r.ok) {
+            guestOptimistic.clear(mutation); // un-hide the restored rows
+            if (r.warning) guestToast.error(r.warning);
+          } else {
+            guestToast.error('Could not undo — refresh and try again.');
+          }
+        },
+      });
+      return null;
+    } finally {
       setRemoving(false);
-      const said = 'Could not delete — check your connection and try again.';
-      guestToast.error(said);
-      return said;
     }
-    setRemoving(false);
-
-    if (!result.ok) {
-      guestOptimistic.clear(mutation); // rollback — and SAY why, where they acted
-      guestToast.error(result.error);
-      return result.error;
-    }
-    // Only now retract the selection bar: a refusal keeps it — and its warning,
-    // with the reason — on screen, instead of vanishing with the rows' return.
-    guestSelection.clear();
-    onRemoved?.();
-
-    // buildUndo carries the released seats through, so restore re-places them.
-    const plan = buildUndo({ kind: 'remove', guestIds: result.removedIds }, [], result.releasedSeats);
-    const n = result.removedIds.length;
-    pushUndo({
-      label: `${formatCount(n)} guest${n === 1 ? '' : 's'} deleted`,
-      undo: async () => {
-        if (plan.kind !== 'restore') return;
-        // Their song requests come back with them (the warning said they go) —
-        // read back from what the database kept at delete time, never sent from here.
-        const r = await restoreDeletedGuests(eventId, plan.guestIds, plan.seats);
-        if (r.ok) {
-          guestOptimistic.clear(mutation); // un-hide the restored rows
-          if (r.warning) guestToast.error(r.warning);
-        } else {
-          guestToast.error('Could not undo — refresh and try again.');
-        }
-      },
-    });
-    return null;
   }
 
   return { removing, remove };
@@ -137,7 +157,15 @@ export function DeleteGuestSheet({
   onClose: () => void;
 }) {
   const titleId = useId();
-  const words = deleteWarningText(names);
+  /* 🔑 THE HEADING KEEPS THE NAME IT OPENED WITH (owner 2026-10-09: it read "Delete ?" while it ran — the guest's row
+     is already gone from the list by then, so the name was empty). Held from the moment it opens until it closes. */
+  const [held, setHeld] = useState<readonly string[]>(names);
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) setHeld(names);
+  }
+  const words = deleteWarningText(open ? held : names);
   return (
     <Sheet open={open} onClose={onClose} labelledById={titleId} rise>
       <div className="space-y-4 p-5" data-guest-delete-warning="">
@@ -150,22 +178,18 @@ export function DeleteGuestSheet({
             {error}
           </p>
         ) : null}
-        <button
-          type="button"
-          onClick={onConfirm}
-          disabled={busy}
-          data-guest-delete-confirm=""
-          className="inline-flex min-h-[48px] w-full items-center justify-center rounded-full bg-danger-600 px-5 text-sm font-semibold text-cream hover:bg-danger-700 disabled:opacity-60"
-        >
-          {busy ? 'Deleting…' : 'Delete'}
-        </button>
-        <button
-          type="button"
-          onClick={onClose}
-          className="inline-flex min-h-[48px] w-full items-center justify-center rounded-full border border-ink/15 bg-cream px-5 text-sm font-medium text-ink"
-        >
-          Cancel
-        </button>
+        <span className="contents" data-guest-delete-confirm="">
+          <ActionButton
+            tone="danger"
+            main
+            icon={Trash2}
+            label={busy ? 'Deleting…' : 'Delete'}
+            onClick={onConfirm}
+            disabled={busy}
+            className="w-full"
+          />
+        </span>
+        <ActionButton tone="neutral" icon={X} label="Cancel" onClick={onClose} className="w-full" />
       </div>
     </Sheet>
   );

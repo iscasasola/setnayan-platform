@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "c806dd92d",
+  "generatedFromRef": "74bd84e3d",
   "routeCount": 429,
   "destinations": 958,
   "actions": 672,
-  "blocks": 5830,
+  "blocks": 5834,
   "routes": {
     "/": {
       "files": [
@@ -6131,6 +6131,7 @@
         "GuestHelperAccess",
         "GuestListHasSidesContext.Provider",
         "GuestMapCanvas",
+        "GuestRemovalActions",
         "GuestRole",
         "GuestRow",
         "GuestRowLine",
@@ -6310,6 +6311,7 @@
       ],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "CopyButton",
         "GuestSetupRows",
         "InviteLink",
@@ -6567,7 +6569,6 @@
         "dashboard/[eventId]/launch/_components/stage-item-menu.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/camera-look.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/kit.tsx",
-        "dashboard/[eventId]/launch/_components/stage-panel/part-words.ts",
         "dashboard/[eventId]/launch/_components/stage-panel/parts.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/play-status.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/reveal-picture.tsx",
@@ -6895,7 +6896,6 @@
         "SlugField",
         "SoftPost",
         "SpecialMessageField",
-        "StageAbout",
         "StageArrange",
         "StageEdit",
         "StageItemMenu",
@@ -9856,6 +9856,7 @@
     },
     "/dev/guests-lab": {
       "files": [
+        "dev/guests-lab/lab-guest-actions.tsx",
         "dev/guests-lab/page.tsx"
       ],
       "destinations": [
@@ -9868,14 +9869,17 @@
         "BottomDock",
         "DockStandIn",
         "GuestCardBody",
+        "GuestRemovalActionsContext.Provider",
         "GuestRow",
         "GuestSetupRows",
         "GuestsScreen",
         "HomePillNav",
+        "LabGuestActions",
         "MakerRsvpSettings",
         "NotificationsList",
         "RoleNamesProvider",
-        "SendRun"
+        "SendRun",
+        "UndoToastHost"
       ]
     },
     "/dev/hero-lab": {

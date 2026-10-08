@@ -173,7 +173,7 @@ test('⑦ the warning names what goes with them, in page — Delete and Cancel',
   );
   assert.match(html, /Delete Ana Cruz\?/);
   assert.match(html, /Their reply and answers, seat, \+1, song request and the link to their account go with them\./);
-  assert.match(html, /data-guest-delete-confirm=""[^>]*>Delete</);
+  assert.match(html, /data-guest-delete-confirm=""[\s\S]*?<span class="lbl">Delete<\/span>/);
   assert.match(html, />Cancel</);
   assert.equal(deleteWarningText(['A', 'B', 'C']).title, 'Delete 3 guests?', 'the selection does not get ONE warning for all of them');
   const refused = renderToStaticMarkup(

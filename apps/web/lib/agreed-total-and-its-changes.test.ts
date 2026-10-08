@@ -848,6 +848,8 @@ const ENTRY_CALLERS: Record<string, { folds: string[]; readsNoPrice: string[] }>
 
 /** NOT A PRICE SHOWN TO A PERSON — each with the reason that makes it so. */
 const NOT_A_PRICE_SHOWN: Record<string, string> = {
+  'app/dev/budget-lab/fixture.ts':
+    'NOT A READ — the dev lab’s hand-written rows, handed to computeEventMoney (which applies the agreed-total cascade itself); no table is queried and the lab 404s in production',
   'app/dashboard/[eventId]/_components/new-manual-vendor-modal.tsx':
     'WRITES the typed price into the form; shows nothing back',
   'app/dashboard/[eventId]/vendors/_components/self-added-price.tsx':

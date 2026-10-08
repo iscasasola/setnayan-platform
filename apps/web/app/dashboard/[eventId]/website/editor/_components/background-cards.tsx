@@ -72,7 +72,7 @@ export function BgCards({
       role="group"
       aria-label={label}
       data-bg-cards={source}
-      className="-mx-4 flex snap-x snap-mandatory scroll-px-4 items-start gap-2 overflow-x-auto overscroll-x-contain px-4 pb-1 pt-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      className="-mx-4 flex snap-x snap-mandatory scroll-px-4 items-start gap-2 overflow-x-auto overscroll-x-contain px-4 pb-1 pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
     >
       <BgStrip.Provider value={{ pick, ...(onTap ? { onTap } : {}) }}>{children}</BgStrip.Provider>
     </div>
@@ -196,11 +196,14 @@ export function BgCard({
         strip.onTap?.(data);
         onPick();
       }}
-      className={`sn-press flex w-min flex-none snap-start flex-col gap-1.5 text-left disabled:opacity-50 data-[bg-card-dim]:[&>[data-bg-card-picture]]:opacity-45 ${looks.on ? 'text-ink' : 'text-ink/70'}`}
+      className={`sn-press flex w-min flex-none snap-start flex-col gap-1.5 text-left disabled:opacity-50 data-[bg-card-dim]:[&>[data-bg-card-picture]]:opacity-45 ${looks.on ? 'text-mulberry' : 'text-ink/70'}`}
     >
       <span
         data-bg-card-picture=""
-        className={`sn-phone-card ${looks.on ? 'ring-2 ring-terracotta-700' : 'ring-1 ring-ink/10'}`}
+        /* NO FRAME (owner 2026-10-08: "no framing") — the picture fills the card edge to edge; the PICKED card wears a
+           3-px ring in the selector's terracotta, hugging the picture ("Selected Card needs to be highlighted with same
+           terracota"), and its name turns terracotta too. */
+        className={`sn-phone-card ${looks.on ? 'ring-[3px] ring-mulberry' : ''}`.trim()}
         style={{ background: swatch, ...(swatchSize ? { backgroundSize: swatchSize } : {}) }}
       >
         {children}

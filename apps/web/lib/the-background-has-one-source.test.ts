@@ -456,7 +456,12 @@ test('(9) a card is PHONE-SHAPED: a 3 : 4 portrait frame of a fixed width that c
     assert.match(html, /<span class="truncate">[^<]+<\/span>/, `${what}: the name is not cut on one line`);
     if ('pro' in props) assert.match(html, /<\/span><span aria-label="Event Hub Pro" class="shrink-0[^"]*">◆<\/span>/, `${what}: the ◆ can be cut off with the name`);
     // The ring is on the frame itself (a shadow, so it keeps the frame's shape and radius).
-    assert.match(attr(picture, 'class'), props.on ? /(?:^| )ring-2 ring-terracotta-700(?: |$)/ : /(?:^| )ring-1 ring-ink\/10(?: |$)/, `${what}: the ring is not on the frame`);
+    // 🎴 ONE STYLE CARD (owner 2026-10-08, the template gallery: "no framing" · "Selected Card needs to be highlighted with
+    // same terracota"): the PICKED card wears a 3-px ring in the selector's terracotta (`mulberry`, #C24E25 — never the gold
+    // `terracotta-700` token) hugging the picture, and its name turns terracotta; a card that is not picked has NO frame.
+    assert.match(attr(picture, 'class'), props.on ? /(?:^| )ring-\[3px\] ring-mulberry(?: |$)/ : /^sn-phone-card$/, `${what}: ${props.on ? 'the picked ring is not the terracotta on the frame' : 'an unpicked card wears a frame'}`);
+    assert.doesNotMatch(attr(picture, 'class'), /ring-terracotta|ring-gild|ring-ink|border/, `${what}: the frame wears a gold ring or a border`);
+    assert.ok(cls.includes(props.on ? 'text-mulberry' : 'text-ink/70'), `${what}: the name's colour does not say whether it is picked`);
   }
   // The strip scrolls sideways and never stretches its cards to one height or width.
   const strip = renderToStaticMarkup(React.createElement(C.BgCards, { label: 'Video', source: 'video' }, null));

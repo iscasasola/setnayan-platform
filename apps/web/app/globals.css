@@ -4659,9 +4659,10 @@ html.dark {
  * all style across the market hub": every look / style picture card, not only
  * Background's.
  *   · 3 : 4 PORTRAIT — the shape of the page the picture stands for;
- *   · a FIXED inline size (`--phone-card-w`, default 136px ≈ two and a half
- *     cards across a 375px phone) and `flex: none`: a card never grows to fill
- *     a wide panel and never shrinks — the STRIP scrolls sideways;
+ *   · ONE FIXED SIZE, EVERYWHERE — 112 × 149 (owner 2026-10-08, on the template gallery: *"Style Card should be
+ *     limited to that height and width. Adjust it always to that. no framing"*): `--phone-card-w`, default 112px
+ *     (three cards and a peek across a 375px phone), and `flex: none` — a card never grows to fill a wide panel and
+ *     never shrinks; the STRIP scrolls sideways. The picture fills it edge to edge: no border, no inner frame;
  *   · its picture, loop or pattern is cropped the way a phone crops the page
  *     (`object-fit: cover`); where a focus point is stored the caller sets
  *     `object-position` with the guest page's own rule;
@@ -4676,7 +4677,7 @@ html.dark {
   position: relative;
   display: block;
   flex: none;
-  inline-size: var(--phone-card-w, 136px);
+  inline-size: var(--phone-card-w, 112px);
   aspect-ratio: 3 / 4;
   overflow: hidden;
   border-radius: var(--m-r-md);

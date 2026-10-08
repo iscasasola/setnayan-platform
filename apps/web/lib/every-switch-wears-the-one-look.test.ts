@@ -119,6 +119,8 @@ const SWITCH_SWEPT: readonly string[] = [
   'app/login',
   'app/features',
   'app/for-suppliers',
+  /* admin (2026-10-08) */
+  'app/admin',
 ];
 /**
  * Inside a swept area, what is NOT swept — a folder another builder owns, or one switch with a reason. A `has`
@@ -153,10 +155,11 @@ const walk = (rel: string): string[] => {
 const HAND_MADE = /bg-success-\d+|bg-emerald|bg-green|bg-terracotta|bg-mulberry|(?:peer-checked|checked|aria-checked):bg-|--m-orange/;
 const WEARS = /<SwitchTrack\b|\bSWITCH_TRACK\b|(?:["'`\s])sn-switch(?:["'`\s])/;
 
+const SAYS_SWITCH = /role=(?:"switch"|'switch'|\{'switch'\}|\{"switch"\})/g;
 /** Each `role="switch"` in a file, as the source of the whole control: the element, and for a box its track beside it. */
-export function switchesIn(src: string): string[] {
+export function switchesIn(src: string, says: RegExp = SAYS_SWITCH): string[] {
   const out: string[] = [];
-  for (const m of src.matchAll(/role=(?:"switch"|'switch'|\{'switch'\}|\{"switch"\})/g)) {
+  for (const m of src.matchAll(says)) {
     const at = m.index;
     let open = src.lastIndexOf('<', at);
     while (open >= 0 && !/[A-Za-z]/.test(src[open + 1] ?? '')) open = src.lastIndexOf('<', open - 1);
@@ -198,6 +201,29 @@ test('(4) in the swept areas every switch wears the one drawing — and none kee
   assert.ok(seen >= 12, `anti-vacuity: only ${seen} switches were found in the swept areas`);
   /* A named exception that is no longer there is removed from the list, not left to hide the next one. */
   for (const n of SWITCH_NOT_SWEPT.filter((x) => x.has)) assert.ok(stillByHand.has(`${n.path}|${n.has}`), `${n.path} no longer holds “${n.has}” — remove its line`);
+});
+
+/**
+ * DRAWN AS A SWITCH, SAID AS A PRESSED BUTTON. Two admin controls draw the on/off track but say `aria-pressed`
+ * (their name carries "on"/"off", or the whole row is the button). What a screen reader hears is theirs; what the
+ * eye sees is the one drawing. Named, because nothing in the source says "this is a switch".
+ */
+const DRAWN_AS_A_SWITCH: readonly { file: string; says: RegExp; what: string }[] = [
+  { file: 'app/admin/categories/_components/ui.tsx', says: /aria-pressed=\{on\}/g, what: 'a category’s on/off row (a submit button in its own form)' },
+  { file: 'app/admin/reveal-studio/studio.tsx', says: /aria-pressed=\{checked\}/g, what: 'the Reveal studio’s Toggle row' },
+];
+
+test('(4c) a control drawn as a switch wears the one drawing too, whatever it says to a screen reader', () => {
+  for (const { file, says, what } of DRAWN_AS_A_SWITCH) {
+    const found = switchesIn(read(file), says);
+    assert.ok(found.length >= 1, `${file} no longer holds ${what} — remove its line`);
+    for (const sw of found) {
+      assert.match(sw, WEARS, `${file}: ${what} draws its own track`);
+      assert.doesNotMatch(sw, HAND_MADE, `${file}: ${what} keeps a fill of its own`);
+      /* …and no knob pushed along by the page, nor an "on" colour written inline. */
+      assert.doesNotMatch(sw, /translateX\(|translate-x-|background:\s*(?:on|checked)\b/, `${file}: ${what} still moves a knob or paints "on" by hand`);
+    }
+  }
 });
 
 test('(4b) the watch sees a hand-made switch, a bare one, and a box whose track is by hand', () => {

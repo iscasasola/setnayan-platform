@@ -67,3 +67,16 @@ two). They say `role="switch"` but are TICKS by the owner's 2026-08-11 ruling (t
 order) — the Ticks kind's lane. Named in `SWITCH_NOT_SWEPT`, each with why; the list fails when one is gone.
 
 SPEC IMPACT: None.
+
+## 2026-10-08 · feat(ui): every switch is the one switch — admin
+
+Three admin switches wear the one drawing, behaviour unchanged: the website widgets' on/off (it was green), a
+category's on/off row (a submit button in its own form; gold) and the Reveal studio's Toggle row (a hand-written
+wine `--m-mulberry` track; the row's wine tint when on is gone — the track says on). The last two say
+`aria-pressed`, not `role="switch"`; what they say is left as it is and they are named in the guard
+(`DRAWN_AS_A_SWITCH`). `SWITCH_SWEPT` gains `app/admin`.
+
+After this commit, the `role="switch"` controls that do not wear `SwitchTrack` are: the Maker's own files
+(`launch/`, `website/editor/` — their builders' lane), onboarding's two ticks, and the guests' Event Hub (exempt).
+
+SPEC IMPACT: None.

@@ -478,28 +478,18 @@ test('the Dress code part carries ONE Figures ▾ (Drawn · Hidden) writing the 
   assert.match(row, /\{dressCode \? <DressFiguresRow eventId=\{eventId\} dressCode=\{dressCode\} draftAction=\{draftAction\} \/> : null\}/);
 });
 
-/* ── 13 · every look card is as wide as its picture — the Reveal's and the Camera's too (TODO 13) ────── */
+/* ── 13 · the Reveal and Camera look cards (status TODO 13) — amended the same day by the owner's newer ruling:
+      every style card is the ONE phone-shaped frame, so "as wide as its picture" (#6428's F) became "the frame".
+      The walk of every picker is `every-style-card-is-phone-shaped.test.ts`; this keeps the two cards' own facts. ── */
 
-test('the Reveal and Camera look cards are sized by their picture’s shape, like every other look card', async () => {
-  const { spCardWidth, SP_CARD_PICTURE_PX } = await import('./maker-stage-room');
-  const { REVEAL_PICTURE_PX } = await import(`../${LAUNCH}/stage-panel/reveal-picture`);
+test('the Reveal and Camera look cards are the phone-shaped frame — the Camera’s screen fills it, the Reveal is drawn at its shape', () => {
   const reveal = read(`${LAUNCH}/maker-reveal.tsx`);
   const card = reveal.slice(reveal.indexOf('data-maker-reveal-kind={o.id}'), reveal.indexOf('</button>', reveal.indexOf('data-maker-reveal-kind={o.id}')));
-  assert.match(card, /className=\{SP_LAYOUT_CARD\} style=\{spCardWidth\(REVEAL_PICTURE_PX\.w \/ REVEAL_PICTURE_PX\.h\)\}/, 'a Reveal card is still 62% wide, whatever its picture');
-  assert.match(card, /<RevealPicture kind=\{o\.id\} colours=\{look\.colours\} \/>/, 'the picture is drawn at its own size — the card fits it');
-  const w = spCardWidth(REVEAL_PICTURE_PX.w / REVEAL_PICTURE_PX.h)!.width;
-  assert.ok(w >= REVEAL_PICTURE_PX.w + 4 && w < 200, `the Reveal card (${w}px) holds its ${REVEAL_PICTURE_PX.w}px picture and no more`);
-  assert.ok(REVEAL_PICTURE_PX.h <= SP_CARD_PICTURE_PX, 'the picture is taller than the card’s picture box');
+  assert.match(card, /className=\{SP_LOOK_CARD\}>/, 'a Reveal card is not the frame-wide look card');
+  assert.match(card, /className=\{`\$\{SP_PHONE_PICTURE\} /);
+  assert.match(card, /<RevealPicture kind=\{o\.id\} colours=\{look\.colours\} fill \/>/, 'the opening is drawn at the frame’s portrait shape');
   const camera = read(`${LAUNCH}/stage-panel/camera-look.tsx`);
-  assert.match(camera, /className=\{SP_LAYOUT_CARD\} style=\{spCardWidth\(CAMERA_FACE_ASPECT\)\}/, 'a Camera card is still 62% wide');
-  assert.match(camera, /const CAMERA_FACE_ASPECT = 3 \/ 4;/);
-  assert.match(camera, /data-camera-look-face=\{look\} className="[^"]*aspect-\[3\/4\]/, 'the face is no longer the shape the card is sized for');
-  const cw = spCardWidth(3 / 4)!.width;
-  assert.ok(cw >= 76 && cw < 104, `a portrait camera is a narrow card (${cw}px)`);
-  /* No look carousel in the panel is left at the unmeasured 62 %. */
-  for (const [file, src] of [['maker-reveal.tsx', reveal], ['camera-look.tsx', camera], ['pass-card-design-picker.tsx', read(`${LAUNCH}/pass-card-design-picker.tsx`)], ['style-carousel.tsx', read(`${LAUNCH}/stage-panel/style-carousel.tsx`)]] as const) {
-    const cards = src.split('className={SP_LAYOUT_CARD}').length - 1;
-    assert.ok(cards >= 1, `${file}: its look cards were found`);
-    assert.equal(src.split(/className=\{SP_LAYOUT_CARD\}\s*style=\{spCardWidth\(/).length - 1, cards, `${file}: a look card is not sized by its picture`);
-  }
+  assert.match(camera, /className=\{SP_LOOK_CARD\}>/, 'a Camera card is not the frame-wide look card');
+  assert.match(camera, /data-camera-look-face=\{look\} className="absolute inset-0 /, 'the camera screen no longer fills the frame');
+  assert.doesNotMatch(camera + card, /spCardWidth|SP_LAYOUT_CARD/, 'a card is sized apart from the frame again');
 });

@@ -20,8 +20,8 @@ import { finishStreamedHtml } from './streamed-swap';
  * (`canvasOnlyScene` + `canvasStylePreview`, `app/[slug]/_lib/editor-canvas.ts`; both
  * host-canvas only, so a guest's `?style=` changes nothing, and a frame asking for a
  * style never mounts the editor bridge). The page draws the style with the shipped
- * renderer — never a copy of it here — and the frame is scaled to fit the part
- * into the card (contain, centred). Script-less (`sandbox="allow-same-origin"`): a
+ * renderer — never a copy of it here — and the frame is the phone's view of the part
+ * (`phoneViewFit`: the page at phone width, cut to the card's 3 : 4 frame). Script-less (`sandbox="allow-same-origin"`): a
  * miniature cannot play, ask for a camera, or speak to the Maker.
  */
 
@@ -66,6 +66,20 @@ function useCanvasSrc(): { src: string; width: number } | null {
  */
 const FOCUS_CSS =
   '[data-sn-mini-scene] *:not([data-sn-mini-focus]):not([data-sn-mini-focus] *):not(:has([data-sn-mini-focus])){visibility:hidden!important}';
+
+/**
+ * 📱 THE PHONE'S VIEW OF A PART (owner 2026-10-08: *"we are on mobile view, so show in mobile view, not like a
+ * header that is short and wide"*). The card's frame is a small phone screen: the page is drawn at the phone's
+ * own width and scaled so that width IS the frame's — never a wide part shrunk until it fits. The window opens
+ * at the part's top; a part taller than the frame is cut at the frame's foot (cover), a shorter one sits in the
+ * middle of it. Pure — `every-style-card-is-phone-shaped.test.ts` measures it.
+ */
+export function phoneViewFit(part: { top: number; height: number }, box: { w: number; h: number }, pageW: number): { k: number; x: number; y: number; h: number } {
+  const k = box.w / Math.max(1, pageW);
+  const shown = part.height * k;
+  const y = shown < box.h ? (box.h - shown) / 2 - part.top * k : -part.top * k;
+  return { k, x: 0, y, h: part.top + Math.max(part.height, box.h / k) };
+}
 
 /** The block a card is fitted on: the scene, one `data-el` part of it, or one `focus` block (the scene when absent). */
 export function miniaturePart(section: HTMLElement | null, el: string | undefined, focus: string | null | undefined): HTMLElement | null {
@@ -144,14 +158,7 @@ export function StylePreview({
           return;
         }
         window.clearInterval(id);
-        /* Fit the part's box into the card (contain, centred), a little room around it. */
-        const r = drawn;
-        const pad = el ? 12 : 4;
-        const w = Math.max(1, r.width + pad * 2);
-        const h = Math.max(1, r.height + pad * 2);
-        const k = Math.min(b.clientWidth / w, b.clientHeight / h, el ? 1.2 : 1);
-        const top = r.top + (d.defaultView?.scrollY ?? 0) - pad;
-        setFit({ k, x: (b.clientWidth - w * k) / 2 - (r.left - pad) * k, y: (b.clientHeight - h * k) / 2 - top * k, h: top + h + pad });
+        setFit(phoneViewFit({ top: drawn.top + (d.defaultView?.scrollY ?? 0), height: drawn.height }, { w: b.clientWidth, h: b.clientHeight }, d.documentElement.clientWidth || width));
       } catch {
         window.clearInterval(id);
         setEmpty(true);

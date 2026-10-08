@@ -194,8 +194,10 @@ test('a card fitted on one block hides the rest of its scene, and falls back to 
   assert.match(prev, /return focus \? \(section\.querySelector<HTMLElement>\(focus\) \?\? section\) : section;/, 'no block → the scene, never a blank card');
   assert.match(prev, /const part = miniaturePart\(section, el, focus\);/, 'the card is fitted on the block');
   assert.match(prev, /\[data-sn-mini-scene\] \*:not\(\[data-sn-mini-focus\]\)[^']*\{visibility:hidden!important\}/, 'the rest of the scene is not drawn in the card');
-  assert.match(car, /const part = miniaturePart\(sec \?\? null, el, focus\);/, 'the card’s width follows the SAME block’s shape');
-  assert.match(car, /style=\{spCardWidth\(aspect\)\}/, 'sized by aspect like every look card');
+  /* 📱 Since 2026-10-08 ("show in mobile view, not like a header that is short and wide") a card no longer
+     follows its block's shape: it is the ONE phone-shaped frame (`every-style-card-is-phone-shaped.test.ts`). */
+  assert.match(car, /className=\{`\$\{SP_PHONE_PICTURE\} /, 'the card’s picture is the phone-shaped frame, like every look card');
+  assert.doesNotMatch(car, /spCardWidth|miniaturePart/, 'the card is sized by its block again');
 });
 
 /* ── 🔲 EVERY EMPTY SCENE'S LOOK, IN SAMPLE SHAPES (owner 08 Oct: "still cannot see the gallery style? maybe

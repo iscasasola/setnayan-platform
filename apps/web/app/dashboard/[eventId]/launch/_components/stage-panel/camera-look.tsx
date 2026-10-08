@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Trophy } from 'lucide-react';
 import { CAMERA_LOOKS, CAMERA_LOOK_LABEL, CAMERA_LOOK_PREF_KEY, cameraLookTint, type CameraLook } from '@/lib/camera-look';
-import { SP_LAYOUT_CARD, spCardWidth } from '@/lib/maker-stage-room';
+import { SP_LOOK_CARD, SP_LOOK_NAME, SP_PHONE_PICTURE } from '@/lib/maker-stage-room';
 import { makerSave } from '@/lib/maker-refresh';
 import { FocusCorners } from '@/app/papic/guest/_components/camera-focus-corners';
 import { hubDraftAction } from '../../../website/hub-draft-actions';
@@ -59,14 +59,11 @@ function useCanvasBrand(): { logo: string | null; accent: string | null } {
   return got;
 }
 
-/** The camera screen's shape in a card (the face's `aspect-[3/4]`) — the card is that wide at the row's height. */
-const CAMERA_FACE_ASPECT = 3 / 4;
-
 function CameraLookFace({ look, logo, accent }: { look: CameraLook; logo: string | null; accent: string | null }) {
   const tint = cameraLookTint(look, accent);
   return (
-    /* The camera screen, phone-shaped, centred in the card (prototype: the whole camera, small). */
-    <span aria-hidden data-camera-look-face={look} className="absolute inset-y-[5px] left-1/2 aspect-[3/4] -translate-x-1/2 overflow-hidden rounded-md bg-[radial-gradient(ellipse_at_50%_40%,#5a5160,#2a2530_75%)]">
+    /* The camera screen FILLS the phone-shaped frame (`.sn-phone-card`, 3 : 4 — owner 2026-10-08): the whole camera, small. */
+    <span aria-hidden data-camera-look-face={look} className="absolute inset-0 overflow-hidden bg-[radial-gradient(ellipse_at_50%_40%,#5a5160,#2a2530_75%)]">
       <FocusCorners tint={tint} inset="inset-x-2.5 top-2.5 bottom-[52px]" size="h-3 w-3" />
       {look === 'challenges' ? (
         <span className="absolute inset-x-1.5 bottom-[38px] flex gap-1 overflow-hidden">
@@ -144,10 +141,10 @@ export function CameraPartTools() {
               {CAMERA_LOOKS.map((look) => {
                 const on = look === shown;
                 return (
-                  <button key={look} type="button" role="radio" aria-checked={on} data-style-card={look} onClick={() => pick(look)} className={SP_LAYOUT_CARD} style={spCardWidth(CAMERA_FACE_ASPECT)}>
+                  <button key={look} type="button" role="radio" aria-checked={on} data-style-card={look} onClick={() => pick(look)} className={SP_LOOK_CARD}>
                     <span
                       data-style-card-preview=""
-                      className={`relative block h-[104px] shrink-0 overflow-hidden rounded-lg ${
+                      className={`${SP_PHONE_PICTURE} ${
                         on ? 'border-2 border-[var(--sp-cta)] shadow-[0_0_0_3px_var(--sp-cta-wash)]' : 'border border-[var(--sp-line)]'
                       }`}
                     >
@@ -155,7 +152,7 @@ export function CameraPartTools() {
                         <CameraLookFace look={look} logo={brand.logo} accent={brand.accent} />
                       </span>
                     </span>
-                    <span className={`block h-[18px] truncate text-center text-[13px] font-semibold leading-[18px] ${on ? 'text-[var(--sp-ink)]' : 'text-[var(--sp-ink2)]'}`}>
+                    <span className={`${SP_LOOK_NAME} ${on ? 'text-[var(--sp-ink)]' : 'text-[var(--sp-ink2)]'}`}>
                       {CAMERA_LOOK_LABEL[look]}
                     </span>
                   </button>

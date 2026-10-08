@@ -98,6 +98,23 @@ export function spCardWidth(aspect: number | null | undefined): { width: number 
   if (!aspect || !Number.isFinite(aspect) || aspect <= 0) return undefined;
   return { width: Math.round(Math.min(280, Math.max(76, SP_CARD_PICTURE_PX * aspect + 4))) };
 }
+/**
+ * 📱 EVERY STYLE CARD IS PHONE-SHAPED (owner 2026-10-08, DECISION_LOG "A BACKGROUND CARD IS PHONE-SHAPED",
+ * widened: *"we are on mobile view, so show in mobile view, not like a header that is short and wide or at least
+ * square or 4:3 or 3:4"* · *"on all style across the market hub"*). A look's picture is drawn in the ONE shared
+ * frame — `globals.css` `.sn-phone-card` (3 : 4 portrait, a fixed width from `--phone-card-w`, never flexed) —
+ * and the strip scrolls; a card never stretches with the panel. This supersedes the 62 % / follow-the-part card
+ * (`SP_LAYOUT_CARD`, `spCardWidth`) for every look picker; `lib/every-style-card-is-phone-shaped.test.ts` walks
+ * them. The frame's rule lives in the stylesheet alone — never copied here.
+ */
+export const SP_PHONE_CARD = 'sn-phone-card';
+/** The frame as a look card's picture: the shared class, clipped, the page's ground behind it. */
+export const SP_PHONE_PICTURE = `${SP_PHONE_CARD} relative block overflow-hidden rounded-lg bg-[var(--sp-page)]`;
+/** A look card: the frame over its one-line name — exactly as wide as the frame (`w-min`), never a share of the row. */
+export const SP_LOOK_CARD = 'sn-press flex w-min shrink-0 snap-center flex-col items-stretch gap-1.5 text-left';
+/** The card's name under the frame: one line, cut to the frame's width (it never widens the card). */
+export const SP_LOOK_NAME = 'block h-[18px] w-0 min-w-full truncate text-center text-[13px] font-semibold leading-[18px]';
+
 /** A pill in Background's third row (Gallery ▸ · Upload ◆) — a `.dd` that opens a sheet. */
 export const SP_PILL_BUTTON =
   'sn-press flex h-11 min-w-0 flex-1 items-center gap-1.5 rounded-full border border-[var(--sp-line)] bg-white pl-[14px] pr-3 text-left text-[14px] font-medium text-[var(--sp-ink)]';

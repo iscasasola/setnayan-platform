@@ -22,9 +22,9 @@ import { IRow, ISection, ISeg, ISegmented } from '../../website/editor/_componen
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { StageStyle } from './stage-panel/stage-style';
 import { Dd, PanelSwitch } from './stage-panel/kit';
-import { REVEAL_PICTURE_PX, RevealPicture } from './stage-panel/reveal-picture';
+import { RevealPicture } from './stage-panel/reveal-picture';
 import { setStageRevealKind, useStageRevealLook } from './stage-panel/store';
-import { SP_LAYOUT_CARD, spCardWidth } from '@/lib/maker-stage-room';
+import { SP_LOOK_CARD, SP_LOOK_NAME, SP_PHONE_PICTURE } from '@/lib/maker-stage-room';
 
 /**
  * 🎭 THE REVEAL AS A PART (the new Maker's Stages side, plan PR 3 — owner
@@ -688,18 +688,18 @@ function RevealStagePart({
                 {openings.map((o) => {
                   const on = effective === o.id;
                   return (
-                    <button key={o.id} type="button" role="radio" aria-checked={on} data-maker-reveal-kind={o.id} data-style-card={o.id} onClick={() => choose(o.id)} className={SP_LAYOUT_CARD} style={spCardWidth(REVEAL_PICTURE_PX.w / REVEAL_PICTURE_PX.h)}>
+                    <button key={o.id} type="button" role="radio" aria-checked={on} data-maker-reveal-kind={o.id} data-style-card={o.id} onClick={() => choose(o.id)} className={SP_LOOK_CARD}>
                       <span
                         data-style-card-preview=""
-                        className={`relative flex h-[104px] shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--sp-page)] ${
+                        className={`${SP_PHONE_PICTURE} ${
                           on ? 'border-2 border-[var(--sp-cta)] shadow-[0_0_0_3px_var(--sp-cta-wash)]' : 'border border-[var(--sp-line)]'
                         }`}
                       >
-                        <span data-style-preview="render" className="pointer-events-none">
-                          <RevealPicture kind={o.id} colours={look.colours} />
+                        <span data-style-preview="render" className="pointer-events-none absolute inset-0">
+                          <RevealPicture kind={o.id} colours={look.colours} fill />
                         </span>
                       </span>
-                      <span className={`inline-flex h-[18px] items-center justify-center gap-1 truncate text-center text-[13px] font-semibold ${on ? 'text-[var(--sp-ink)]' : 'text-[var(--sp-ink2)]'}`}>
+                      <span className={`${SP_LOOK_NAME} !inline-flex items-center justify-center gap-1 ${on ? 'text-[var(--sp-ink)]' : 'text-[var(--sp-ink2)]'}`}>
                         {o.label}
                         {mark ? <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Hub Pro')} size="xs" /> : null}
                       </span>

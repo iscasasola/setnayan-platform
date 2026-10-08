@@ -1,14 +1,14 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { SP_LAYOUT_CARD, spCardWidth } from '@/lib/maker-stage-room';
-import { findMakerSection } from '@/app/[slug]/_components/maker-section-find';
-import { StylePreview, miniaturePart } from './style-preview';
+import { useEffect, useRef } from 'react';
+import { SP_LOOK_CARD, SP_LOOK_NAME, SP_PHONE_PICTURE } from '@/lib/maker-stage-room';
+import { StylePreview } from './style-preview';
 
 /**
  * 🎠 STYLE › LOOK'S LAYOUTS — the prototype's `.lcar` (owner 2026-10-07: *"should be a
  * preview of the style and not text"*): one card per SHIPPED style of the part's scene
- * (`lib/scene-styles.ts`, never a new family), 62% wide so the next one peeks, each a
+ * (`lib/scene-styles.ts`, never a new family), each a phone-shaped frame (`.sn-phone-card`, owner 2026-10-08:
+ * *"show in mobile view, not like a header that is short and wide"*) holding a
  * REAL miniature (`StylePreview`) over its short name — no description line, no
  * "Recommended" tag. The card worn now is ringed and scrolled to the middle. A tap
  * applies at once (the page above IS the full preview), through the caller's save.
@@ -39,21 +39,6 @@ export function StyleCards({
   sceneType: string;
 }) {
   const car = useRef<HTMLDivElement>(null);
-  /* The part's own proportion on the canvas — every card is that shape at the row's height. */
-  const [aspect, setAspect] = useState<number | null>(null);
-  useEffect(() => {
-    if (!canvasKey) return;
-    try {
-      const d = document.querySelector<HTMLIFrameElement>('iframe[data-maker-canvas-frame="shown"]')?.contentDocument;
-      const [key, el] = canvasKey.split('.');
-      const sec = d ? findMakerSection(d, key!) : null;
-      const part = miniaturePart(sec ?? null, el, focus);
-      const r = part?.getBoundingClientRect();
-      if (r && r.width > 0 && r.height > 0) setAspect((r.width + (el ? 24 : 8)) / (r.height + (el ? 24 : 8)));
-    } catch {
-      /* not measured — the cards keep their shipped width */
-    }
-  }, [canvasKey, focus]);
   useEffect(() => {
     const c = car.current;
     const on = c?.querySelector<HTMLElement>('[aria-checked="true"]');
@@ -79,18 +64,18 @@ export function StyleCards({
             onClick={() => {
               if (!pending && !on) onPick(o.id);
             }}
-            className={SP_LAYOUT_CARD}
-            style={spCardWidth(aspect)}
+            className={SP_LOOK_CARD}
           >
+            {/* 📱 The ONE phone-shaped frame (`.sn-phone-card`, 3 : 4): the part as a guest's phone draws it. */}
             <span
               data-style-card-preview=""
-              className={`relative block h-[104px] shrink-0 overflow-hidden rounded-lg bg-[var(--sp-page)] ${
+              className={`${SP_PHONE_PICTURE} ${
                 on ? 'border-2 border-[var(--sp-cta)] shadow-[0_0_0_3px_var(--sp-cta-wash)]' : 'border border-[var(--sp-line)]'
               }`}
             >
               <StylePreview canvasKey={canvasKey} sceneType={sceneType} styleId={o.id} current={on} focus={focus} />
             </span>
-            <span className={`block h-[18px] truncate text-center text-[13px] font-semibold leading-[18px] ${on ? 'text-[var(--sp-ink)]' : 'text-[var(--sp-ink2)]'}`}>{o.name}</span>
+            <span className={`${SP_LOOK_NAME} ${on ? 'text-[var(--sp-ink)]' : 'text-[var(--sp-ink2)]'}`}>{o.name}</span>
           </button>
         );
       })}

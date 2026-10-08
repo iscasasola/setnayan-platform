@@ -214,7 +214,7 @@ export function BgPickLine({
       <p role="status" aria-live="polite" data-bg-pick-line="stalled" className="flex min-h-[18px] flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-ink/80">
         <span>{BACKGROUND_PICK_STALLED}</span>
         {onRetry ? (
-          <button type="button" data-bg-pick-retry="" onClick={onRetry} className="sn-press shrink-0 font-semibold text-mulberry underline underline-offset-2">
+          <button type="button" data-bg-pick-retry="" onClick={onRetry} className="sn-press shrink-0 font-semibold text-accent underline underline-offset-2">
             Try again
           </button>
         ) : null}
@@ -321,14 +321,14 @@ export function BgCard({
         strip.onTap?.(data);
         onPick();
       }}
-      className={`sn-press flex w-min flex-none flex-col gap-1.5 text-left transition-opacity duration-sn-control ease-sn motion-reduce:transition-none disabled:opacity-50 data-[bg-card-locked]:opacity-40 data-[bg-card-dim]:[&>[data-bg-card-picture]]:opacity-45 ${looks.on ? 'text-mulberry' : 'text-ink/70'}`}
+      className={`sn-press flex w-min flex-none flex-col gap-1.5 text-left transition-opacity duration-sn-control ease-sn motion-reduce:transition-none disabled:opacity-50 data-[bg-card-locked]:opacity-40 data-[bg-card-dim]:[&>[data-bg-card-picture]]:opacity-45 ${looks.on ? 'text-accent' : 'text-ink/70'}`}
     >
       <span
         data-bg-card-picture=""
         /* NO FRAME (owner 2026-10-08: "no framing") — the picture fills the card edge to edge; the PICKED card wears a
-           3-px ring in the selector's terracotta, hugging the picture ("Selected Card needs to be highlighted with same
-           terracota"), and its name turns terracotta too. */
-        className={`sn-phone-card sn-press-ring ${looks.on ? 'ring-[3px] ring-mulberry' : ''}`.trim()}
+           3-px ring in the selector's accent, hugging the picture ("Selected Card needs to be highlighted with same
+           terracota"), and its name turns the accent too (`ring-accent` · `text-accent` — the one setting). */
+        className={`sn-phone-card sn-press-ring ${looks.on ? 'ring-[3px] ring-accent' : ''}`.trim()}
         style={{ background: swatch, ...(swatchSize ? { backgroundSize: swatchSize } : {}) }}
       >
         {children}
@@ -344,7 +344,7 @@ export function BgCard({
             <span
               data-bg-card-pie={ticked ? 100 : pie}
               className="flex h-[52px] w-[52px] items-center justify-center rounded-full shadow-[0_2px_10px_rgb(0_0_0/0.25)]"
-              style={{ background: `conic-gradient(#fff ${ticked ? 100 : pie}%, rgb(255 255 255 / 0.28) 0)` }}
+              style={{ background: `conic-gradient(rgb(255 255 255) ${ticked ? 100 : pie}%, rgb(255 255 255 / 0.28) 0)` }}
             >
               {/* The accent and the ink on it are the selector template's own (`PILL_ON_CLASS`) — one setting, never written here. */}
               <span className={`flex h-10 w-10 items-center justify-center rounded-full text-[12px] font-bold tabular-nums ${PILL_ON_CLASS}`}>

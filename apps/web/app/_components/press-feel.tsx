@@ -54,7 +54,7 @@ export function PressFeel() {
       const ring = document.createElement('span');
       ring.setAttribute('aria-hidden', 'true');
       ring.dataset.pressRing = '';
-      ring.style.cssText = `position:fixed;pointer-events:none;z-index:99;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;box-sizing:border-box;border:2px solid rgb(var(--color-mulberry) / .45);border-radius:${getComputedStyle(ringed).borderRadius}`;
+      ring.style.cssText = `position:fixed;pointer-events:none;z-index:99;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;box-sizing:border-box;border:2px solid rgb(var(--sn-accent) / .45);border-radius:${getComputedStyle(ringed).borderRadius}`;
       document.body.appendChild(ring);
       /* It widens by ten pixels a side and fades — transform and opacity only. */
       ring.animate([{ opacity: 1, transform: 'scale(1)' }, { opacity: 0, transform: `scale(${1 + 20 / r.width}, ${1 + 20 / r.height})` }], { duration: ms * 1.3, easing: 'ease-out' }).onfinish = () => ring.remove();

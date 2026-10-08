@@ -100,6 +100,12 @@ test('the count beside the eyebrow, and the open count behind the door', () => {
   assert.equal(guestWishCount(five), '4 wishes · 1 got');
   assert.equal(guestWishCount([wish({})]), '1 wish');
   assert.equal(guestWishCount([]), null);
+  // The line is a sentence, and the figures in it still carry their commas.
+  const many = [
+    ...Array.from({ length: 1200 }, () => ({ got: false })),
+    ...Array.from({ length: 1050 }, () => ({ got: true })),
+  ];
+  assert.equal(guestWishCount(many), '1,200 wishes · 1,050 got');
   assert.equal(openWishCount(five), 4);
 });
 

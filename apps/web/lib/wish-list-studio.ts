@@ -14,6 +14,7 @@
  * claim more than that (`the-guest-text-is-honest.test.ts` reads it).
  */
 import { EGIFT_KIND_META, isEgiftMethodKind } from '@/lib/egift-kinds';
+import { formatCount } from '@/lib/format-number';
 import { formatPhp } from '@/lib/php';
 import { giftsAreOn } from '@/lib/event-answers';
 import {
@@ -90,7 +91,7 @@ export const WISH_GIFTS_ONLY_YOU = 'Only you see these.';
 export const GIFTS_OFF_TITLE = 'Guests see no E-Gifts.';
 export const GIFTS_OFF_LINE = 'Your ways to give, wish list and gifts are kept for when you switch it back on.';
 
-const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+const plural = (n: number, one: string, many: string) => `${formatCount(n)} ${n === 1 ? one : many}`;
 
 /** Is this wish marked got (by the gifts, or by the couple)? */
 export function studioWishIsGot(w: Pick<StudioWish, 'gotBy'>): boolean {
@@ -107,7 +108,7 @@ export function wishListCount(wishes: readonly Pick<StudioWish, 'gotBy'>[]): str
   if (wishes.length === 0) return null;
   const got = wishes.filter(studioWishIsGot).length;
   const open = wishes.length - got;
-  return `${plural(open, 'wish', 'wishes')}${got ? ` · ${got} got` : ''}`;
+  return `${plural(open, 'wish', 'wishes')}${got ? ` · ${formatCount(got)} got` : ''}`;
 }
 
 /** The link as a row shows it — its address without the scheme. */

@@ -117,16 +117,17 @@ export function WishList({
   const [openId, setOpenId] = useState<string | null>(null);
   const [saidGot, setSaidGot] = useState<string | null>(null);
   const open = openId ? (wishes.find((w) => w.id === openId) ?? null) : null;
-  const count = guestWishCount(wishes);
+  /* A SENTENCE ("4 wishes · 1 got"), not a number — its figures are formatted where it is built. */
+  const summary = guestWishCount(wishes);
   const arrow = shape === 'rows' || shape === 'side';
 
   return (
     <section id="wishlist" data-wish-list="" data-wish-look={shape} className={`mb-8 ${SECTION[shape]}`}>
       <p className={`flex items-baseline font-mono text-xs uppercase tracking-[0.2em] text-terracotta-700 ${shape === 'tiles' || shape === 'ruled' ? 'justify-center' : ''}`}>
         <span>Wish list</span>
-        {count ? (
+        {summary ? (
           <small data-wish-count="" className={`${shape === 'tiles' || shape === 'ruled' ? 'ml-2' : 'ml-auto'} font-sans text-xs font-normal normal-case tracking-normal text-ink/55`}>
-            {count}
+            {summary}
           </small>
         ) : null}
       </p>

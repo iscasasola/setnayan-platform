@@ -29,8 +29,8 @@
  * told the OLD state → (3); the mark drawn outside the name (after the ⓘ) → (4); `onType` not told when ✕ leaves
  * the field → (5); `onType` wired to `onKeep` → (5); a chip hugging its word again (no `w-full`) → (7); the set a
  * wrapping row instead of a grid → (7); three across although the longest word does not fit (the phone's row read
- * as 400 px) → (7); a wider screen given more columns than a phone when not all fit on one line → (7); a label
- * allowed to wrap → (7).
+ * as 400 px) → (7); a wide row given as many columns as fit (four, five) when not all fit on one line → (7); the
+ * three-across step dropped (a computer back to two wide columns) → (7); a label allowed to wrap → (7).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -164,9 +164,15 @@ test('(7) an even grid: one width, one height, edge to edge — all on one line,
   // A wider screen: ALL on one line where they fit with equal widths (6 × 121 + 5 × 8 = 766) …
   assert.equal(six(121, 766), 6);
   assert.equal(six(121, 1200), 6);
-  // … otherwise the phone's count — never four on a tablet and two on a phone.
-  for (const row of [400, 520, 640, 765]) assert.equal(six(121, row), 2, `a ${row}-px row is given more columns than a phone`);
+  // … otherwise THREE across where three of the widest fit the row (3 × 121 + 16 = 379): six chips are 3 × 2 on a
+  // computer — Guests › Setup's 720-px row at 1280 — never two wide columns three rows deep …
+  for (const row of [379, 520, 720, 765]) assert.equal(six(121, row), 3, `a ${row}-px row is not three across`);
+  // … and below that the phone's count: a phone stays at two, and nothing is ever four or five across.
+  for (const row of [343, 360, 378]) assert.equal(six(121, row), 2, `a ${row}-px row is given more columns than a phone`);
+  for (let row = 250; row < 766; row += 7) assert.ok([2, 3].includes(six(121, row)), `a ${row}-px row is ${six(121, row)} across`);
   assert.equal(six(100, 600), 3);
+  // Three or fewer chips that do not fit one line have no "three across" step of their own.
+  assert.equal(G.chipColumns({ count: 3, widest: 121, row: 343 }), 2);
   // Never a chip narrower than its word: a row too narrow for the phone's count gets fewer columns.
   assert.equal(six(121, 250), 2);
   assert.equal(six(121, 249), 1);

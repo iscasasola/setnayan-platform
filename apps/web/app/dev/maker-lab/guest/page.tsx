@@ -21,6 +21,8 @@ import { HERO_PART_LOOK, partLookAttr } from '@/lib/scene-styles-parts';
 import { MakerEmptyScene } from '@/app/[slug]/_components/maker-empty-scene';
 import { WhenYesCelebration } from '@/app/[slug]/_components/when-yes-celebration';
 import { celebrationColours, isRsvpCelebration } from '@/lib/rsvp-celebration';
+import { RsvpCanvasBridge } from '@/app/[slug]/_components/rsvp-canvas-bridge';
+import { rsvpWordBridgeKey } from '@/lib/rsvp-stage-shared';
 
 /** maria-and-jose's run of show and venues (read-only shape, 2026-10-05) — the lab has no database. */
 const LAB_BLOCK = (i: number, label: string, at: string, location: string | null, type = 'pre_ceremony') => ({
@@ -124,10 +126,25 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   if (rsvp) {
     return (
       <main className="min-h-dvh bg-[#FBF9F5] px-5 py-6 text-ink">
-        <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-gild">You&rsquo;re invited</p>
-        <h1 className="mt-1 text-xl font-semibold">Maria &amp; Jose</h1>
-        <p className="mt-0.5 text-[11px] uppercase tracking-[0.14em] text-ink/60">Saturday, December 12, 2026</p>
-        <p className="mt-4 text-sm">Teresita Aquino</p>
+        {/* 🧩 THE REAL RSVP PAGES' PART MARKS, AND THEIR BRIDGE (2026-10-09 — the owner could not reach the RSVP
+            stage's tools by hand in the lab: these screens had no marks, so a tap picked nothing and ticked an
+            answer). As `invite/reply` and `invite/enter` draw them on the Maker's canvas: the masthead inside the
+            door's header (`stampRsvpCanvas` names its parts and marks it `f:hero`), a hidden section marker before
+            each part, and each word's own key. `RsvpCanvasBridge` then makes a tap PICK the part under it — never
+            the form's own. In the Maker's frame only (`play` is the lab's own celebration preview, a plain page). */}
+        {play === null ? <RsvpCanvasBridge /> : null}
+        <div>
+          <header data-door-header="">
+            <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-gild">You&rsquo;re invited</p>
+            <h1 className="mt-1 text-xl font-semibold">Maria &amp; Jose</h1>
+            <p className="mt-0.5 font-mono text-[11px] uppercase tracking-[0.14em] text-ink/60">
+              <span data-el="date">Saturday, December 12, 2026</span>
+            </p>
+          </header>
+        </div>
+        {rsvp === 'form' ? mark('f:greeting') : null}
+        {rsvp === 'form' ? <p className="mt-4 text-sm">Teresita Aquino</p> : null}
+        {rsvp === 'form' ? mark('f:rsvp') : null}
         {rsvp === 'form' ? (
           /* The reply card's own answer markup (`rsvp-widget.tsx`): the tapped
              answer fills with the page's button colour, the other goes plain. */
@@ -141,16 +158,20 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
                   className="flex min-h-12 cursor-pointer items-center justify-center rounded-full bg-white px-5 text-sm font-medium leading-tight text-ink ring-[1.5px] ring-ink transition-colors has-[:checked]:bg-ink has-[:checked]:text-cream"
                 >
                   <input type="radio" name="rsvp_status" value={i === 0 ? 'attending' : 'declined'} className="sr-only" />
-                  {label}
+                  <span data-rsvp-word={rsvpWordBridgeKey(i === 0 ? 'attending' : 'declined')}>{label}</span>
                 </label>
               ))}
             </fieldset>
           </form>
         ) : rsvp === 'thanks' ? (
           <>
-            <p className="mt-6 font-serif text-2xl" data-landing-heading="">
-              See you there, Teresita
-            </p>
+            {mark('f:yesnote')}
+            <div className="mt-6">
+              <p className="font-serif text-2xl" data-landing-heading="" data-rsvp-word={rsvpWordBridgeKey('thanksHeading')} data-rsvp-default="See you there, Teresita" data-rsvp-name="Teresita">
+                See you there, Teresita
+              </p>
+              <p className="mt-2 text-sm text-ink/60" data-rsvp-word={rsvpWordBridgeKey('thanksMessage')} data-rsvp-word-optional="" data-rsvp-name="Teresita" hidden />
+            </div>
             <WhenYesCelebration
               kind={play ?? 'none'}
               colours={celebrationColours(LAB_BOARD)}
@@ -161,7 +182,15 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
             />
           </>
         ) : (
-          <p className="mt-6 font-serif text-2xl italic text-ink/70">We will miss you.</p>
+          <>
+            {mark('f:nonote')}
+            <div className="mt-6">
+              <p className="font-serif text-2xl italic text-ink/70" data-rsvp-word={rsvpWordBridgeKey('declineHeading')} data-rsvp-default="We will miss you." data-rsvp-name="Teresita">
+                We will miss you.
+              </p>
+              <p className="mt-2 text-sm text-ink/60" data-rsvp-word={rsvpWordBridgeKey('declineMessage')} data-rsvp-word-optional="" data-rsvp-name="Teresita" hidden />
+            </div>
+          </>
         )}
       </main>
     );

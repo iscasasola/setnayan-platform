@@ -69,6 +69,7 @@ export function PakantaDeliver({
         multiple={false}
         maxSizeMB={20}
         acceptedTypes={['audio/mpeg', 'audio/mp4', 'audio/aac', 'audio/ogg', 'audio/wav']}
+        audioGuard
         onFilePicked={(file) => setPickedFilename(file.name)}
         onChange={handleChange}
         variant="wide"

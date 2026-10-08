@@ -898,6 +898,7 @@ export function StdBuilderClient({
                   bucket="media"
                   pathPrefix={`events/${eventId}/site-music`}
                   acceptedTypes={['audio/mpeg', 'audio/mp4', 'audio/aac', 'audio/ogg', 'audio/wav']}
+                  audioGuard
                   maxSizeMB={40}
                   variant="wide"
                   currentValue={siteMusicKey}

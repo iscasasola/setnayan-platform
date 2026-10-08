@@ -139,6 +139,7 @@ export default async function SiteChromeEditorPage({
               multiple={false}
               maxSizeMB={20}
               acceptedTypes={['audio/mpeg', 'audio/mp4', 'audio/aac', 'audio/ogg', 'audio/wav']}
+              audioGuard
               currentValue={musicRef}
               initialDisplayUrls={musicDisplay}
               variant="wide"

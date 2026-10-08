@@ -50,6 +50,7 @@ const NOT_A_TOOL: Record<string, string> = {
   'lib/celebration-engine.ts': 'the When yes celebration\'s canvas engine (owner 2026-10-06) — not a panel: it only draws the tiny previews inside the open Celebration ▾ list (the list itself is already loaded) and plays on the guest page frame, which fetches it as the frame opens',
   'lib/vendor-qr-guard-client.ts': 'runs on a file the couple picked (upload pipeline) — there is nothing to run before the pick',
   'lib/watermark.ts': 'runs on a file the couple picked (upload pipeline)',
+  'lib/audio-guard-client.ts': 'reads a song the couple picked, to refuse one that will not play on every phone (upload pipeline) — there is nothing to run before the pick',
   'lib/image-compress.ts': 'runs on a file the couple picked (upload pipeline)',
   'app/onboarding/wedding/_data/ph-places.ts': 'data, not a panel — the ~80 KB PSGC place list City or area searches once the couple TYPES (the curated cities are already in the panel); loaded on the first keystroke exactly as onboarding loads it, never ahead of a search (owner 2026-10-04, B4)',
   'lib/video-compress.ts': 'runs on a video the couple picked (upload pipeline)',

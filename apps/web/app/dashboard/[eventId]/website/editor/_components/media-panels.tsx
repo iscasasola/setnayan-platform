@@ -245,6 +245,7 @@ export function SiteChromePanel({
                 multiple={false}
                 maxSizeMB={20}
                 acceptedTypes={AUDIO_TYPES}
+                audioGuard
                 currentValue={songIsOurs ? null : musicRef}
                 initialDisplayUrls={musicDisplay}
                 label="Background music"

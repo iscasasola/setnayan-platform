@@ -62,6 +62,7 @@ import {
   cheapCommands,
   buildImporters,
   importersOf,
+  testsReaching,
   treeWalkingTests,
   replayBackedTests,
   testsNaming,
@@ -72,6 +73,7 @@ import {
   SCHEMA_PIN_RE,
   firstFailingLine,
   firstEslintError,
+  failureLine,
   regenerateHint,
   fmtMs,
 } from './lib/preflight-core.mjs';
@@ -224,6 +226,29 @@ const changed = [...changedSet].sort();
 const deleted = [...deletedSet].sort();
 const touched = [...changed, ...deleted];
 
+/*
+ * CI does not test your branch. It tests the MERGE of your branch and its base
+ * — and a pull request that conflicts with its base runs NO CI AT ALL: zero
+ * failing and zero running, which reads as "nothing wrong".
+ */
+const mergeState = (() => {
+  let behind = 0;
+  try {
+    behind = Number(git(['rev-list', '--count', `HEAD..${BASE}`], ROOT)) || 0;
+  } catch {
+    return { behind: 0, conflicts: [], known: false };
+  }
+  if (!behind) return { behind, conflicts: [], known: true };
+  try {
+    git(['merge-tree', '--write-tree', '--name-only', '--no-messages', 'HEAD', BASE], ROOT);
+    return { behind, conflicts: [], known: true };
+  } catch (e) {
+    const out = String(e.stdout ?? '').trim().split('\n').slice(1).map((l) => l.trim()).filter(Boolean);
+    // exit 1 = conflicts (listed); anything else = this git cannot say
+    return e.status === 1 ? { behind, conflicts: out, known: true } : { behind, conflicts: [], known: false };
+  }
+})();
+
 const inWeb = (f) => f.startsWith('apps/web/');
 const webRel = (f) => f.slice('apps/web/'.length);
 const changedWeb = changed.filter(inWeb).map(webRel);
@@ -276,13 +301,21 @@ const importers = importersOf(changedTsWeb, graph);
 const walkers = treeWalkingTests(sources, graph);
 const naming = testsNaming(touched, sources);
 
-/* tests a changed file wakes up: changed tests, tests that import it, tests that name it */
+/*
+ * Tests a changed file wakes up, nearest first: the changed tests themselves,
+ * tests that import a changed file, tests that NAME one (the repo's pinning
+ * tests read a file by path), then tests one import further away. The order
+ * matters only when a core module wakes more than PIN_CAP of them.
+ */
+const reaching = testsReaching(changedTsWeb, graph, 2);
 const pinned = new Map();
 for (const f of changedTsWeb) if (isTestFile(f)) pinned.set(f, 'changed');
 for (const f of importers) if (isTestFile(f) && !pinned.has(f)) pinned.set(f, 'imports a changed file');
+for (const [f, d] of reaching) if (d === 1 && !pinned.has(f)) pinned.set(f, 'imports a changed file');
 for (const [f, needle] of naming) if (!pinned.has(f)) pinned.set(f, `names ${needle}`);
+for (const [f, d] of reaching) if (d === 2 && !pinned.has(f)) pinned.set(f, 'imports a file that imports a changed file');
 
-const unitPinsAll = [...pinned.keys()].filter(isUnitTest).sort();
+const unitPinsAll = [...pinned.keys()].filter(isUnitTest);
 const unitPins = unitPinsAll.slice(0, PIN_CAP);
 const unitPinsDropped = unitPinsAll.length - unitPins.length;
 const replayBacked = replayBackedTests(sources, graph);
@@ -417,6 +450,17 @@ if (!changed.length && !deleted.length) say('  (no changed files — the whole-t
 /* ── phase A · every cheap CI guard, plus eslint ────────────────────────────*/
 
 async function runCheap() {
+  if (mergeState.conflicts.length) {
+    add({
+      group: 'guard',
+      check: `merges into ${BASE} without a conflict`,
+      status: 'fail',
+      ms: 0,
+      line: `CONFLICTING in ${mergeState.conflicts.slice(0, 6).join(' · ')}${mergeState.conflicts.length > 6 ? ` (+${mergeState.conflicts.length - 6} more)` : ''} — GitHub runs NO CI on a conflicting PR: zero failing AND zero running`,
+      rerun: `git merge ${BASE}`,
+      hint: 'merge the base in, then REGENERATE every generated file that conflicted with the command its own header names (port:baseline · ugat:screens · exposure:baseline …) — never hand-merge one',
+    });
+  }
   await pool(cheap, JOBS, async (c) => {
     const cwd = path.join(ROOT, c.cwd);
     const needsModules = /lint:dup-rule|check-ugat-screens/.test(c.run);
@@ -573,7 +617,7 @@ function reportTests(group, title, files, result, why) {
   for (const f of failing) {
     const fails = byFile.get(f).fail;
     const more = fails.length > 1 ? `  (+${fails.length - 1} more in this file)` : '';
-    add({ group, check: `${f}${why ? `  [${why(f)}]` : ''}`, status: 'fail', ms: byFile.get(f).ms, line: `${fails[0].name}${fails[0].msg ? ` — ${fails[0].msg}` : ''}${more}`.slice(0, 460), rerun: rerunOf(f), hint: regenerateHint(f) });
+    add({ group, check: `${f}${why ? `  [${why(f)}]` : ''}`, status: 'fail', ms: byFile.get(f).ms, line: `${failureLine(fails[0].name, fails[0].msg)}${more}`, rerun: rerunOf(f), hint: regenerateHint(f) });
   }
   // a file that was asked for and said nothing did NOT pass
   for (const f of silent.slice(0, 20)) {
@@ -654,7 +698,7 @@ const passedGuards = rows.filter((r) => r.group === 'guard' && r.status === 'pas
 const leftToCi = [
   `full typecheck — preflight compiled ${changedTsWeb.length ? tscFiles.length : 0} file(s)${tscNote ? `; ${tscNote}` : ''}`,
   `full eslint — preflight linted ${eslintFiles.length} changed file(s)`,
-  `full unit suite — preflight ran ${unitPins.length + unitWalkers.length + unitReplay.length} of ${allUnit.length} test files${unitPinsDropped ? ` (${unitPinsDropped} pinned files over the cap of ${PIN_CAP} were NOT run)` : ''}`,
+  `full unit suite — preflight ran ${unitPins.length + unitWalkers.length + unitReplay.length} of ${allUnit.length} test files (a test more than two imports away from a changed file is not woken)${unitPinsDropped ? ` — and ${unitPinsDropped} woken files over the cap of ${PIN_CAP} were NOT run` : ''}`,
   `full DB replay — preflight ran ${dbTests.length} of ${allDb.length} DB tests${touchedMigration ? '' : ' (no migration changed, so the schema pins were not run)'}`,
   'production build · Vercel route count · shared bundle size · the Maker\'s first-load JS budget',
   'lighthouse · playwright e2e',
@@ -689,6 +733,11 @@ if (unknownSteps.length) {
   out();
   out(`⚠ ci.yml has ${unknownSteps.length} step(s) preflight does not understand and DID NOT RUN: ${unknownSteps.map((s) => `"${s.step}"`).join(' · ')}`);
   out('  Classify them in scripts/lib/preflight-core.mjs (classifyStep) — scripts/preflight.test.mjs fails CI until you do.');
+}
+if (mergeState.behind && !mergeState.conflicts.length) {
+  out();
+  out(`ℹ ${BASE} is ${mergeState.behind} commit(s) ahead of this branch. CI tests the MERGE of the two; preflight tested your branch alone.`);
+  out(`  It merges without a conflict today. If a check that is green here goes red on GitHub, merge ${BASE} in and run preflight again.`);
 }
 out();
 out('LEFT TO CI — not run here. A green preflight is NOT a full pass:');

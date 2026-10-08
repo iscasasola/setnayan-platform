@@ -21,7 +21,9 @@ export default async function* preflightReporter(source) {
       if (err?.failureType === 'subtestsFailed') continue;
       const cause = err?.cause;
       const msg = String((cause && typeof cause === 'object' ? cause.message : cause) ?? err?.message ?? '');
-      rec.msg = msg.split('\n').map((l) => l.trim()).filter(Boolean).slice(0, 4).join(' ⏎ ').slice(0, 600);
+      // enough of the message to reach the offenders: a guard's assertion opens
+      // with the rule and only then lists the files that broke it
+      rec.msg = msg.split('\n').map((l) => l.trim()).filter(Boolean).slice(0, 40).join(' ⏎ ').slice(0, 4000);
       rec.line = d.line ?? null;
     }
     yield JSON.stringify(rec) + '\n';

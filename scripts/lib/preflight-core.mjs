@@ -316,6 +316,29 @@ export function importersOf(changed, graph) {
 }
 
 /**
+ * The tests a change can reach: a test that imports a changed file (distance 1)
+ * or imports a file that imports it (distance 2 — the test of the page that
+ * uses the changed component). A test is a leaf: nothing is followed past one.
+ * @returns {Map<string, number>} test file → distance
+ */
+export function testsReaching(changed, graph, maxDepth = 2) {
+  const dist = new Map(changed.map((c) => [c, 0]));
+  let frontier = [...changed];
+  for (let d = 1; d <= maxDepth && frontier.length; d++) {
+    const next = [];
+    for (const f of frontier) {
+      for (const imp of graph.importers.get(f) ?? []) {
+        if (dist.has(imp)) continue;
+        dist.set(imp, d);
+        if (!isTestFile(imp)) next.push(imp);
+      }
+    }
+    frontier = next;
+  }
+  return new Map([...dist].filter(([f, d]) => d > 0 && isTestFile(f)));
+}
+
+/**
  * The whole-tree guard tests: a test that walks a directory itself, runs a
  * guard script, or imports a helper module that walks. DISCOVERED, never
  * listed — a guard written tomorrow is in preflight tomorrow.
@@ -354,10 +377,18 @@ export function replayBackedTests(sources, graph) {
 }
 
 /**
- * DB tests that read the schema catalogue as a whole, or compare it with a
- * committed baseline — the ones ANY migration can turn red.
+ * The schema pins: DB tests that compare the WHOLE replayed schema with a
+ * committed file (a baseline, a generated list, the snapshot) or with the Ugat
+ * map — the ones a migration turns red without touching any code they name.
+ *
+ * ⚠ NOT "every test that reads the catalogue". The first version matched
+ * `information_schema` / `pg_proc` / `has_table_privilege` and woke 230 of 377
+ * DB tests — 36 minutes of replays on a migration branch (measured on PR
+ * #6442's stack, 2026-10-08). Most DB tests read the catalogue to check ONE
+ * table of their own; a migration elsewhere cannot move them, and the full
+ * replay in CI is where the rest are run.
  */
-export const SCHEMA_PIN_RE = /\.baseline\.txt|\.generated\.txt|schema-snapshot|exposure-surface|UGAT_TYPES|ugat\/graph|pg_constraint|pg_policies|pg_proc\b|information_schema|has_table_privilege|has_column_privilege|has_function_privilege|role_table_grants|pg_class\b|pg_attribute\b/;
+export const SCHEMA_PIN_RE = /\.baseline\.txt|\.generated\.txt|schema-snapshot|prod-schema\.snapshot|exposure-surface|UGAT_TYPES|ugat\/graph/;
 
 /** Tests whose text names a changed file. */
 export function testsNaming(changedRepoPaths, sources) {
@@ -382,6 +413,34 @@ export function firstFailingLine(output) {
   if (!lines.length) return '(no output)';
   const telling = lines.find((l) => /error TS\d+|\bError:|^not ok\b|\bFAIL\b|✗|✘|❌|\bfailed\b|\bmissing\b|\bstale\b|is not current|\bNEW\b/i.test(l) && !/^>/.test(l));
   return (telling ?? lines[0]).slice(0, 240);
+}
+
+/**
+ * A guard test's assertion message opens with the RULE ("A number a person
+ * reads is printed without its commas. Route it through …") and names the
+ * file that broke it several lines down. The line a builder needs is the one
+ * with the file in it — so that is the one shown, after the test's own name.
+ * @param {string} name the failing test
+ * @param {string} msg  its message, lines joined with ' ⏎ '
+ */
+export function failureLine(name, msg, max = 420) {
+  const lines = String(msg ?? '').split(' ⏎ ').map((l) => l.trim()).filter(Boolean);
+  const isDiffNoise = (l) => /^[+-] (actual|expected)|^\+ actual - expected$|^[\[\]{}],?$|^[+-]\s*[\[\]{}],?$/.test(l);
+  const PATH = /(?:apps\/web\/)?(?:app|lib|components|tests|scripts|supabase|public)\/[^\s'"`:,)]+\.[a-z]{2,4}\b/;
+  const bare = (l) => l.replace(/^[+-]\s+/, '').replace(/^['"`]/, '');
+  const withPath = lines.filter((l) => PATH.test(l) && !isDiffNoise(l));
+  // the offender list, not the sentence that happens to cite a helper's file:
+  // a line that STARTS with a path, else one with path:line, else a later line
+  const offender =
+    withPath.find((l) => new RegExp(`^${PATH.source}`).test(bare(l))) ??
+    withPath.find((l) => new RegExp(`${PATH.source}:\\d+`).test(l)) ??
+    withPath.find((l) => lines.indexOf(l) > 0);
+  const first = lines.find((l) => !isDiffNoise(l)) ?? '';
+  const parts = [name];
+  if (first && first !== offender) parts.push(first.length > 150 ? `${first.slice(0, 150)}…` : first);
+  if (offender) parts.push(`→ ${offender.replace(/^[+-]\s+/, '').replace(/^['"`]|['"`],?$/g, '')}`);
+  const out = parts.join(' — ');
+  return out.length > max ? `${out.slice(0, max - 1)}…` : out;
 }
 
 /** `next lint` prints the file on one line and each finding below it. */

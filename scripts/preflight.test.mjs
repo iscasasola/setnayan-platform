@@ -26,11 +26,13 @@ import {
   resolveImport,
   buildImporters,
   importersOf,
+  testsReaching,
   treeWalkingTests,
   replayBackedTests,
   testsNaming,
   firstFailingLine,
   firstEslintError,
+  failureLine,
   regenerateHint,
   SCHEMA_PIN_RE,
 } from './lib/preflight-core.mjs';
@@ -197,6 +199,20 @@ test('importers follow a barrel, so a type changed behind a re-export reaches it
   assert.deepEqual([...imps].sort(), ['app/shop/lazy.tsx', 'app/shop/page.tsx', 'app/shop/price.tsx', 'lib/index.ts', 'lib/money.test.ts']);
 });
 
+test('a test two imports away is reached; three away is not; a test is never walked through', () => {
+  const tree = new Map([
+    ['lib/core.ts', 'export const c = 1;'],
+    ['lib/mid.ts', "import { c } from './core';"],
+    ['lib/far.ts', "import { m } from './mid';"],
+    ['lib/core.test.ts', "import { c } from './core';"],
+    ['lib/mid.test.ts', "import { m } from './mid';"],
+    ['lib/far.test.ts', "import { f } from './far';"],
+    ['lib/through-a-test.test.ts', "import './core.test';"],
+  ]);
+  const reach = testsReaching(['lib/core.ts'], buildImporters(tree), 2);
+  assert.deepEqual([...reach].sort(), [['lib/core.test.ts', 1], ['lib/mid.test.ts', 2]]);
+});
+
 test('whole-tree guards are discovered three ways — and a replay-backed test is not one of them', () => {
   const graph = buildImporters(TREE);
   const walkers = treeWalkingTests(TREE, graph);
@@ -217,10 +233,14 @@ test('a test that names a changed file is woken — and only by a path tail', ()
   assert.equal(testsNaming(['apps/web/app/shop/price.tsx'], TREE).get('lib/pins-a-file.test.ts'), 'price.tsx');
 });
 
-test('the schema pins are the DB tests that read the catalogue or a committed baseline', () => {
+test('the schema pins compare the whole schema with a committed file — not every test that reads the catalogue', () => {
   assert.match("readFileSync('tests/db/user-fk-behaviour.generated.txt')", SCHEMA_PIN_RE);
-  assert.match('select * from pg_constraint', SCHEMA_PIN_RE);
+  assert.match("join(HERE, 'ugat-concept.baseline.txt')", SCHEMA_PIN_RE);
   assert.match("import { UGAT_TYPES } from '@/lib/ugat/graph'", SCHEMA_PIN_RE);
+  assert.match("import { exposureFacts } from './exposure-surface'", SCHEMA_PIN_RE);
+  // a test that looks one of its own tables up in the catalogue is not moved by a migration elsewhere
+  assert.doesNotMatch('select 1 from information_schema.columns where table_name = $1', SCHEMA_PIN_RE);
+  assert.doesNotMatch("select has_table_privilege('anon', 'public.guests', 'select')", SCHEMA_PIN_RE);
   assert.doesNotMatch("insert into guests (display_name) values ('x')", SCHEMA_PIN_RE);
 });
 
@@ -231,6 +251,29 @@ test('the first failing line is the one that says what is wrong', () => {
   assert.equal(firstFailingLine("lib/a.test.ts(204,39): error TS2769: No overload matches this call."), 'lib/a.test.ts(204,39): error TS2769: No overload matches this call.');
   assert.equal(firstFailingLine(''), '(no output)');
   assert.equal(firstFailingLine('something odd happened'), 'something odd happened');
+});
+
+test('a failing guard is reported by the FILE that broke it, not by the paragraph that explains the rule', () => {
+  // the real shapes of 2026-10-08, as the reporter hands them over
+  const commas = 'A number a person reads is printed without its commas. Route it through `formatCount` (lib/format-number.ts) — or, for money, `formatPhp`. ⏎ app/dashboard/[eventId]/budget/_components/budget-screen.tsx:187 [jsx/name] count ⏎ 1 !== 0';
+  const line = failureLine('T4 · every raw quantity render is formatted', commas);
+  assert.match(line, /^T4 · every raw quantity render is formatted — A number a person reads/);
+  assert.match(line, /→ app\/dashboard\/\[eventId\]\/budget\/_components\/budget-screen\.tsx:187 \[jsx\/name\] count/);
+
+  const style = "a formal surface composes a name without the event’s Name style ⏎ + actual - expected ⏎ + [ ⏎ +   'app/dev/guests-lab/page.tsx:446  guestFullName(…) has no style' ⏎ + ]";
+  assert.equal(failureLine('every formal surface hands its name builder the event’s Name style', style), 'every formal surface hands its name builder the event’s Name style — a formal surface composes a name without the event’s Name style — → app/dev/guests-lab/page.tsx:446  guestFullName(…) has no style');
+
+  const peso = 'Undeclared peso figure(s) in public source: ⏎ app/dev/supplier-lab/page.tsx → ₱2,500 ⏎ Prices are admin-managed and drift.';
+  assert.match(failureLine('every peso figure in a public surface is declared', peso), /→ app\/dev\/supplier-lab\/page\.tsx → ₱2,500$/);
+
+  const ends = 'A connection is missing one of its ends. Both halves may be built; the join is not: ⏎ [supplier] component-no-mount  app/vendor-dashboard/_components/first-steps.tsx ⏎ no runtime importer';
+  assert.match(failureLine('every connection has both ends', ends), /→ \[supplier\] component-no-mount {2}app\/vendor-dashboard\/_components\/first-steps\.tsx$/);
+
+  // no file in the message: the first line, and nothing invented
+  assert.equal(failureLine('adds up', 'one is not two ⏎ 1 !== 2'), 'adds up — one is not two');
+  assert.equal(failureLine('crashed on load', ''), 'crashed on load');
+  assert.ok(failureLine('x', 'y '.repeat(900)).length <= 420);
+  assert.equal(failureLine('n'.repeat(600), `why ⏎ app/a/${'b'.repeat(300)}.tsx:1 here`).length, 420, 'a long name and a long path are cut, never the table');
 });
 
 test('an eslint finding is reported with its file', () => {

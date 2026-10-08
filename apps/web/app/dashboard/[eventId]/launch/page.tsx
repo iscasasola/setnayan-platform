@@ -136,7 +136,7 @@ import { hubNamedGuestPreviewEnabled } from '@/lib/hub-named-guest-flag';
 import { asViewed, viewAsFreeSwitch } from '@/lib/view-as-free.server';
 import { planMyselfOn } from '@/lib/plan-myself';
 import { makerChoiceIsUnread, makerStagesStudioEnabled } from '@/lib/maker-stages-studio-flag';
-import { TimelineRowsLoading } from '@/app/_components/timeline-row';
+import { TimelineRowsLoading } from '@/app/_components/timeline-states';
 import { manualLaunchPhase } from '@/lib/invitation-widgets';
 import { publicEventPath } from '@/lib/public-event-url';
 import { studioTiles, type StudioTileModel } from '@/lib/studio-tiles';

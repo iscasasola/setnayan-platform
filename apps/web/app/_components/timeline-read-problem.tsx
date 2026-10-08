@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useTransition, type ReactNode } from 'react';
-import { TimelineProblem } from './timeline-row';
+import { TimelineProblem } from './timeline-states';
 
 /**
  * A LIST THAT COULD NOT BE READ, WITH ITS "TRY AGAIN" (gallery § 16; owner rule: a failure never renders as success,

@@ -1141,6 +1141,10 @@ export function FileUpload({
             accept={acceptAttr}
             multiple={multiple}
             disabled={disabled}
+            /* ⚡ The picker is opening: fetch the upload run NOW (`lib/upload-send.ts`), while the person chooses a
+               file — so the first upload never waits on it. Not with the page: most pages that show an uploader
+               never upload. A failed fetch is not a problem yet; the upload itself asks again and says so. */
+            onClick={() => void import('@/lib/upload-send').catch(() => {})}
             onChange={onInputChange}
             className="sr-only"
           />

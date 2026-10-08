@@ -121,5 +121,19 @@ After the owner's look at the preview (2026-10-08), three rulings, built on this
 Guests: nothing of theirs changes. The preview layer is drawn by the editor bridge,
 which only ever mounts in the host's Maker canvas.
 
+Amended by the owner on the local copy (2026-10-08, DECISION_LOG "LOOK › BACKGROUND, AMENDED…" and
+"LOOK › ELEMENTS AND MUSIC, AMENDED…") — four removals / renames of things that already existed (the new
+controls are being prototyped first and are NOT in this branch):
+
+- **Source ▾ offers Colour · Scene · Video · Upload.** Pattern left the list; "Your photo or video" is named
+  Upload. An event that already stores a pattern keeps drawing it for guests, and its Source still reads
+  "Pattern" as the current value with that one card ringed — no other pattern can be picked.
+- **Magic Move left Look.** Look's Colours part no longer draws the row and posts no `site_magic_traveller`,
+  which the action reads as unchanged — a mark already set to travel keeps travelling.
+- **The Palette type row left Look.** The stored palette look is untouched; the same control is still in the
+  Dress code scene's own settings.
+- **Buttons is Shape only.** The Fill ▾ and Colour ▾ rows left Look; a stored fill and colour are still worn
+  by the sample and the guest page and carried unchanged by a Shape pick.
+
 SPEC IMPACT: None beyond the approved contract — status in the corpus at
 `LOOK_RESTUDY_BUILD_STATUS_2026-10-08.md` (deviations listed there).

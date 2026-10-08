@@ -222,14 +222,15 @@ test('(4) opening Look writes nothing — the one write sits behind a pick that 
   const src = read('app/dashboard/[eventId]/website/editor/_components/buttons-look-row.tsx');
   // Exactly one write, inside `commit`.
   assert.equal(src.split('hubDraftAction(').length - 1, 1, 'Buttons writes from more than one place');
-  const commit = src.slice(src.indexOf('const commit = '), src.indexOf('const pickColour'));
+  const commit = src.slice(src.indexOf('const commit = '), src.indexOf('const sample = '));
   assert.ok(commit.includes('hubDraftAction('), 'the write is not inside commit');
   assert.match(commit, /if \(before\.shape === next\.shape && before\.fill === next\.fill && before\.colour === next\.colour\) return;/, 'a pick that changes nothing still writes');
   // `commit` is reached only from the dropdowns' onPick.
   const callers = [...src.matchAll(/commit\(/g)].length;
-  const fromPicks = [...src.matchAll(/onPick=\{\(k\) => commit\(/g)].length + (src.match(/const pickColour = [\s\S]*?commit\(/) ? 1 : 0);
+  const fromPicks = [...src.matchAll(/onPick=\{\(k\) => commit\(/g)].length;
   assert.equal(callers, fromPicks, 'commit is called from something other than a pick');
-  assert.match(src, /onPick=\{pickColour\}/);
+  assert.equal(fromPicks, 1, 'Look › Buttons has a pick other than Shape');
+  assert.match(src, /onPick=\{\(k\) => commit\(\{ \.\.\.choice, shape: k as HubButtonShape \}\)\}/, 'a Shape pick does not carry the stored fill and colour with it');
   // No effect writes, previews or posts: the one effect only follows the props.
   for (const m of src.matchAll(/useEffect\(\(\) => \{([\s\S]*?)\n {2}\}, \[/g)) {
     assert.doesNotMatch(m[1]!, /commit\(|preview\(|hubDraftAction|postMessage|makerSave/, 'an effect writes or previews on open');
@@ -259,4 +260,53 @@ test('(5) the choice is drafted, free at Apply, and the host canvas re-wears it 
   assert.match(row, /t: 'buttons'/);
   const bridge = read('app/[slug]/_components/editor-bridge.tsx');
   assert.match(bridge, /data\.t === 'buttons'\) \{\s*const preview = sanitizeButtonsPreview\(data\);\s*if \(preview\) applyButtonsPreview\(document, preview\);/);
+});
+
+/* ── (6) Look › Buttons is Shape only ─────────────────────────────────────── */
+
+test('(6) Look › Buttons offers the SHAPE only — and a fill and colour already stored are still worn, by the sample and by the page', async () => {
+  // Owner 2026-10-08, on the local copy: "Pick Button Shape (color is on the palette already so no need to add)".
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  {
+    // The row imports the draft action (a server module) — only its MARKUP is rendered here, nothing is called.
+    const Mod = require('node:module');
+    const load = Mod._load;
+    Mod._load = function (request: string, ...rest: unknown[]) {
+      if (request === 'server-only' || request === 'client-only') return {};
+      return load.call(this, request, ...rest);
+    };
+  }
+  const { ButtonsLookRow } = await import('../app/dashboard/[eventId]/website/editor/_components/buttons-look-row');
+  const theme = INVITE_THEMES.house;
+  const page = hubButtonPage(theme, null);
+  const row = (style: string | null, colour: string | null) => renderToStaticMarkup(React.createElement(ButtonsLookRow, { eventId: 'E1', theme, page, style, colour }));
+  // An event that ALREADY stores a fill and a colour of its own.
+  const STYLE = 'pill-outline';
+  const COLOUR = '#3a4a1c';
+  const stored = resolveHubButtons({ style: STYLE, colour: COLOUR, theme, page });
+  assert.ok(stored?.paint === 'outline' && stored.vars['--hub-btn-border'], 'anti-vacuity: this stored choice draws no outline on Classic — pick another fixture');
+  const html = row(STYLE, COLOUR);
+  // ONE control: Shape ▾. No Fill ▾, no Colour ▾ — not as a dropdown, not as a row, not as a word.
+  assert.equal((html.match(/aria-haspopup="listbox"/g) ?? []).length, 1, 'Look › Buttons has more than one dropdown');
+  assert.match(html, /data-buttons-shape/);
+  assert.match(html, /aria-label="Button shape: /);
+  assert.doesNotMatch(html, /data-buttons-fill|data-buttons-colour|data-inspector-row="buttons-fill"|data-inspector-row="buttons-colour"|Button fill|Button colour|>Fill<|>Colour</, 'the Fill or Colour control is still in Look');
+  const src = read('app/dashboard/[eventId]/website/editor/_components/buttons-look-row.tsx');
+  assert.doesNotMatch(src, /HUB_BUTTON_FILLS|hubButtonColourOffers|pickColour|label="Fill"|label="Colour"/, 'the Fill or Colour control is still built');
+  // 🔑 THE STORED FILL AND COLOUR ARE STILL WORN — the sample "Reply to the invitation" is painted with the guest page's own answer…
+  const sample = /<span[^>]*data-buttons-sample=""[^>]*>([^<]*)<\/span>/.exec(html);
+  assert.ok(sample, 'the sample Reply button is gone');
+  assert.equal(sample![1], 'Reply to the invitation');
+  const css = /style="([^"]*)"/.exec(sample![0])?.[1] ?? '';
+  assert.ok(css.includes(`border:1.5px solid ${stored!.vars['--hub-btn-border']}`), `the sample no longer wears the stored outline and colour: ${css}`);
+  assert.ok(css.includes(`border-radius:${stored!.vars['--hub-btn-radius']}`), 'the sample no longer wears the stored shape');
+  assert.notEqual(row(STYLE, COLOUR), row('pill-solid', COLOUR), 'a stored fill makes no difference to what Look shows');
+  assert.notEqual(row(STYLE, COLOUR), row(STYLE, null), 'a stored colour makes no difference to what Look shows');
+  // …the guest page still resolves them (rules (1)–(3) above run `resolveHubButtons` for every fill and colour)…
+  for (const fill of HUB_BUTTON_FILLS) assert.ok(resolveHubButtons({ style: `pill-${fill}`, colour: COLOUR, theme, page }) !== undefined);
+  // …and a Shape pick writes BOTH stored columns back as they were, changed only in the shape.
+  assert.match(src, /type Choice = \{ shape: HubButtonShape; fill: HubButtonFill; colour: string \| null \};/);
+  assert.match(src, /const fromProps = \(\): Choice => \(\{ \.\.\.parseHubButtonStyle\(style\), colour: colour \? colour\.toLowerCase\(\) : null \}\);/, 'the stored fill and colour are not read');
+  assert.match(src, /site_button_style: encodeHubButtonStyle\(next\), site_button_color: next\.colour/);
+  assert.equal(encodeHubButtonStyle({ ...parseHubButtonStyle(STYLE), shape: 'square' }), 'square-outline', 'a Shape pick loses the stored fill');
 });

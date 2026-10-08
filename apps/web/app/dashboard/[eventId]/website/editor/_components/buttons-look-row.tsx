@@ -1,7 +1,12 @@
 'use client';
 
 /**
- * 🔘 LOOK › BUTTONS — Shape ▾ · Fill ▾ · Colour ▾, and the Reply button as it will look.
+ * 🔘 LOOK › BUTTONS — Shape ▾, and the Reply button as it will look.
+ *
+ * ✂ SHAPE ONLY (owner 2026-10-08, on the local copy: *"Pick Button Shape (color is on the palette already so no
+ * need to add)"*). The Fill ▾ and Colour ▾ rows left Look. NOTHING STORED IS TOUCHED BY THAT: a button fill and
+ * colour already chosen (`site_button_style`'s fill half, `site_button_color`) are read here, worn by the sample
+ * and by the guest page exactly as stored, and carried UNCHANGED by every Shape pick.
  *
  * Owner, 2026-10-04 (DECISION_LOG "LOOK › BUTTONS — THE HOST STYLES THE EVENT
  * HUB'S BUTTONS"): *"yes we have buttons because the buttons for reply your
@@ -11,8 +16,8 @@
  * effects for seeing what will change but always need to press apply to
  * publish to the actual event hub"*.
  *
- *   · THREE DROPDOWNS, one per row (any set of choices is a dropdown — never a
- *     pill row), each defaulting to "Theme’s". No explainer captions.
+ *   · ONE DROPDOWN (any set of choices is a dropdown — never a pill row),
+ *     defaulting to "Theme’s". No explainer captions.
  *   · REALTIME: a pick is laid on the canvas AT ONCE through the bridge
  *     (`app/[slug]/_components/buttons-preview.ts`) with the guest page's own
  *     resolver (`resolveHubButtons`), then saved into the DRAFT with the one
@@ -20,9 +25,8 @@
  *     answers with the Apply count. Guests see it only at Apply.
  *   · OPENING WRITES NOTHING: the only write is inside `commit`, reached only
  *     from a pick that changed something (`the-buttons-look-is-legible.test.ts`).
- *   · LEGIBILITY: a colour is offered only when its label reaches AA, and
- *     Outline only when the colour reads on the page (`hubButtonColourOffers`,
- *     `hubButtonOutlineOffered`) — the same functions the guest render uses.
+ *   · LEGIBILITY is the guest render's own (`resolveHubButtons`): the sample
+ *     is painted with the very values the page wears.
  *
  * ⚡ Loaded lazily with the Look panel's other rows (`details-lazy.tsx`,
  * "maker-details") — never in the Maker's first load.
@@ -30,13 +34,9 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import {
-  HUB_BUTTON_FILLS,
-  HUB_BUTTON_FILL_LABEL,
   HUB_BUTTON_SHAPES,
   HUB_BUTTON_SHAPE_LABEL,
   encodeHubButtonStyle,
-  hubButtonColourOffers,
-  hubButtonOutlineOffered,
   parseHubButtonStyle,
   resolveHubButtons,
   type HubButtonFill,
@@ -52,8 +52,6 @@ import { PickMenu } from './pick-menu';
 
 /** The guest page's own words on its one main action (`LANDING_WORDS.reply`). */
 const REPLY = 'Reply to the invitation';
-/** "Theme’s" in the Colour menu. */
-const THEME_KEY = 'theme';
 /** The Reply button's own corner when the shape is the theme's (`rounded-lg`). */
 const OWN_RADIUS = '8px';
 
@@ -65,7 +63,6 @@ export function ButtonsLookRow({
   page,
   style,
   colour,
-  palette,
 }: {
   eventId: string;
   /** The theme the canvas wears (drafted over live). */
@@ -76,8 +73,8 @@ export function ButtonsLookRow({
   style: string | null;
   /** `site_button_color`, drafted over live. */
   colour: string | null;
-  /** The event's palette colours (the Mood Board's, else the theme's). */
-  palette: readonly string[];
+  /** The event's palette colours (the Mood Board's, else the theme's) — no longer read here: the Colour ▾ row left Look. */
+  palette?: readonly string[];
 }) {
   const fromProps = (): Choice => ({ ...parseHubButtonStyle(style), colour: colour ? colour.toLowerCase() : null });
   const [choice, setChoice] = useState<Choice>(fromProps);
@@ -92,8 +89,6 @@ export function ButtonsLookRow({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [style, colour]);
 
-  const offers = hubButtonColourOffers({ theme, palette, saved: choice.colour, fill: choice.fill, page });
-  const outline = hubButtonOutlineOffered({ colour: choice.colour, page });
   const look = (c: Choice) => resolveHubButtons({ style: encodeHubButtonStyle(c), colour: c.colour, theme, page });
 
   const preview = (c: Choice) => {
@@ -146,13 +141,6 @@ export function ButtonsLookRow({
     })();
   };
 
-  /* A colour that no longer reads as an Outline leaves Outline for Solid — never an Outline nobody can read. */
-  const pickColour = (key: string) => {
-    const c = key === THEME_KEY ? null : key;
-    const fill = choice.fill === 'outline' && !hubButtonOutlineOffered({ colour: c, page }) ? 'solid' : choice.fill;
-    commit({ ...choice, colour: c, fill });
-  };
-
   const sample = sampleStyle(look(choice), page);
   return (
     <div data-buttons-look="" className="flex flex-col">
@@ -171,32 +159,6 @@ export function ButtonsLookRow({
           onPick={(k) => commit({ ...choice, shape: k as HubButtonShape })}
         />
       </IRow>
-      <IRow label="Fill" data="buttons-fill">
-        <PickMenu
-          label="Button fill"
-          value={choice.fill}
-          dataAttr="data-buttons-fill"
-          className="min-w-0 flex-1"
-          options={HUB_BUTTON_FILLS.filter((f) => f !== 'outline' || outline || choice.fill === 'outline').map((f) => ({
-            key: f,
-            label: HUB_BUTTON_FILL_LABEL[f],
-          }))}
-          onPick={(k) => commit({ ...choice, fill: k as HubButtonFill })}
-        />
-      </IRow>
-      <IRow label="Colour" data="buttons-colour">
-        <PickMenu
-          label="Button colour"
-          value={choice.colour ?? THEME_KEY}
-          dataAttr="data-buttons-colour"
-          className="min-w-0 flex-1"
-          options={[
-            { key: THEME_KEY, label: 'Default', preview: <Swatch hex={page.fill} /> },
-            ...offers.map((o) => ({ key: o.hex, label: o.label, preview: <Swatch hex={o.hex} /> })),
-          ]}
-          onPick={pickColour}
-        />
-      </IRow>
       {error ? (
         <p role="alert" className="pt-2 text-sm text-terracotta-700" data-buttons-error="">
           {error}
@@ -204,10 +166,6 @@ export function ButtonsLookRow({
       ) : null}
     </div>
   );
-}
-
-function Swatch({ hex }: { hex: string }) {
-  return <span aria-hidden className="block h-5 w-5 rounded-full shadow-[inset_0_0_0_1px_rgba(0,0,0,.15)]" style={{ backgroundColor: hex }} />;
 }
 
 /**

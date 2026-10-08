@@ -290,22 +290,34 @@ test('(4) Studio › Look draws the sample screen and mounts no page frame — t
   assert.equal(lookShowsSample('reveal', true), false);
 
   const stub = React.createElement('div', { 'data-stub': 'the-sample' });
+  /* 🧯 THE PAGE FRAME, AS A STATIC RENDER SHOWS IT (re-aimed 2026-10-08): `buffered-canvas-frame.tsx` mounts its
+     `<iframe>` in the browser only ("NO IFRAME IN THE SERVER'S HTML" — a frame in the server's HTML fetched the guest
+     page before the Maker had hydrated, and that render was thrown away). What a render holds is the frame's BOX,
+     naming the page it will show (`data-canvas-src`). Counting `<iframe` here was a proxy main retired; the claim is
+     "this screen mounts the page frame for THIS event's guest page" — or, for Studio › Look, that it mounts none. */
+  const pageFrame = (html: string) => /<div[^>]*\bdata-maker-page-frames="(?:shown|loading)"[^>]*\bdata-canvas-src="(\/maria-and-jose\?[^"]*)"/.exec(html)?.[1] ?? null;
   const studio = await paintLookBody(makerWith({ stagesStudio: true, lookPages: pagesWith(stub) }), 'look');
   assert.match(studio, /data-details-look-sample=""/);
   assert.match(studio, /data-stub="the-sample"/);
   assert.equal((studio.match(/<iframe/g) ?? []).length, 0, 'Studio › Look mounted a guest-page frame');
-  assert.doesNotMatch(studio, /data-maker-page-frame/);
+  assert.doesNotMatch(studio, /data-maker-page-frame/, 'Studio › Look mounted the page frame’s box (it would fetch the guest page once the browser mounts it)');
+  assert.doesNotMatch(studio, /data-canvas-src/, 'Studio › Look names a guest page to load');
+  assert.equal(pageFrame(studio), null);
   // A sample that never arrived SAYS so — never an empty column, and never the page frame as a quiet fallback.
   const missing = await paintLookBody(makerWith({ stagesStudio: true, lookPages: pagesWith(null) }), 'look');
   assert.match(missing, /data-details-look-failed="look"/);
   assert.equal((missing.match(/<iframe/g) ?? []).length, 0);
+  assert.doesNotMatch(missing, /data-maker-page-frame|data-canvas-src/, 'a missing sample fell back to the page frame');
   // The shipped Maker: the page, as before.
   const shipped = await paintLookBody(makerWith({ stagesStudio: false, lookPages: pagesWith(stub) }), 'look');
   assert.doesNotMatch(shipped, /data-details-look-sample/);
-  assert.ok((shipped.match(/<iframe/g) ?? []).length >= 1, 'the shipped Maker’s Look lost its page frame');
+  assert.ok(pageFrame(shipped), 'the shipped Maker’s Look lost its page frame (the box that names this event’s guest page)');
+  assert.match(pageFrame(shipped)!, /editor=1/, 'the shipped Maker’s Look frame is not the host’s own canvas of the page');
+  assert.doesNotMatch(shipped, /data-stub="the-sample"/, 'the shipped Maker’s Look draws the sample screen');
   // The Hero in the Studio is still the page.
   const hero = await paintLookBody(makerWith({ stagesStudio: true, lookPages: pagesWith(stub) }), 'hero');
-  assert.ok((hero.match(/<iframe/g) ?? []).length >= 1, 'the Hero lost its page frame');
+  assert.ok(pageFrame(hero), 'the Hero lost its page frame (the box that names this event’s guest page)');
+  assert.doesNotMatch(hero, /data-details-look-sample|data-stub="the-sample"/, 'the Hero draws the sample screen instead of the page');
 
   // The sample itself: no frame, no request, no timer, no render asked.
   const sample = read(`${L}/look-sample.tsx`);
@@ -633,4 +645,60 @@ test('(7c) ONE engine call for the page, ONE layer for everyone — and nothing 
     assert.doesNotMatch(read(f), /sn-accent|--sn-|mulberry|terracotta|PILL_ON_CLASS/, `${f} names the app’s own colour — it would leak into a guest’s Event Hub`);
   }
   assert.equal(HUB_MAIN_EFFECTS.length, 6);
+});
+
+/* ── (8) 🔘 the buttons' colour has ONE source ────────────────────────────── */
+
+test('(8) a button colour stored before the ruling changes NOTHING a guest’s Event Hub draws — the buttons are the palette’s', () => {
+  /* Owner 2026-10-08, round 3: "button color will be taken from their 5 palette". Measured on production the day
+     this changed (controller, read-only): 0 of 16 events held a `site_button_color`; no screen offers one. */
+  const guestLookFrom = guestLookFromSource();
+  const hub = (theme: InviteThemeId) => ({ theme, accent: '#000000', monogram: '' });
+  let coloured = 0;
+  const failures: string[] = [];
+  everyRow((where, themeId, row) => {
+    if (!row.site_button_color) return;
+    coloured += 1;
+    const none = { ...row, site_button_color: null };
+    /* THE GUEST PAGE'S OWN FUNCTION, run with the stored colour and without it. */
+    const a = guestLookFrom(row, hub(themeId), true);
+    const b = guestLookFrom(none, hub(themeId), true);
+    for (const key of ['vars', 'buttons', 'ombre', 'art', 'theme'] as const) {
+      try {
+        assert.deepEqual(a[key], b[key]);
+      } catch {
+        if (failures.length < 6) failures.push(`${where} · ${key}: with ${row.site_button_color} ${JSON.stringify(a[key])?.slice(0, 140)} ≠ without ${JSON.stringify(b[key])?.slice(0, 140)}`);
+      }
+    }
+    /* …and the same for a guest of an event WITHOUT Event Hub Pro. */
+    try {
+      assert.deepEqual(guestLookFrom(row, hub(themeId), false), guestLookFrom(none, hub(themeId), false));
+    } catch {
+      if (failures.length < 6) failures.push(`${where}: a free event's page still wears the stored colour`);
+    }
+  });
+  assert.ok(coloured >= 1000, `the sweep holds too few stored colours to mean anything (${coloured})`);
+  assert.deepEqual(failures, [], `a stored button colour still reaches the guest page:\n  ${failures.join('\n  ')}`);
+
+  /* Over a picture: its tint reaches the buttons whether or not a colour is stored (there is no "own button" to spare). */
+  for (const themeId of INVITE_THEME_IDS) {
+    for (const shade of [undefined, -60, 50] as const) {
+      const main = photo(shade === undefined ? {} : { shade });
+      assert.deepEqual(
+        lookSampleGround(main, { role_palette: ROSE_BOARD, site_button_color: '#5b4a6b' }, themeId),
+        lookSampleGround(main, { role_palette: ROSE_BOARD, site_button_color: null }, themeId),
+        `${themeId} · fade ${shade}: a stored colour still changes what lies over a picture`,
+      );
+    }
+  }
+  /* The guest's main ground reads it nowhere; the Maker's Background panel is told the same. */
+  const layer = read('app/[slug]/_lib/main-ground-layer.tsx');
+  assert.match(layer, /adaptiveThemeVars\(adaptive, \{ ownButton: false \}\)/);
+  assert.match(layer, /const ownButton: string \| null = null;/);
+  assert.doesNotMatch(layer.slice(0, layer.indexOf('function lookRowOf(')), /event\.site_button_color/, 'the guest’s main ground reads the stored button colour again');
+  assert.match(read('lib/look-sample.ts'), /const ownButton: string \| null = null;/);
+  assert.match(read('app/dashboard/[eventId]/website/editor/page.tsx'), /ownButton: false,/);
+  assert.doesNotMatch(raw('app/[slug]/_lib/loaders.ts').slice(raw('app/[slug]/_lib/loaders.ts').indexOf('export function guestLookFrom(')), /colour: event\.site_button_color/);
+  /* The column is still READ INTO the row (nothing is migrated away) — it is only no longer worn. */
+  assert.ok(raw('app/[slug]/_lib/loaders.ts').includes('site_button_color'));
 });

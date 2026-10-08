@@ -1,6 +1,6 @@
 'use client';
 
-import { useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { ArrowDown, ArrowUp, Image as ImageIcon, MoreHorizontal, Plus, Trash2 } from 'lucide-react';
 import { FileUpload } from '@/app/_components/file-upload';
 import { InfoTip } from '@/app/_components/info-tip';
@@ -12,6 +12,7 @@ import { HUB_DRAFT_FIELD } from '@/lib/hub-draft';
 import { LOVE_STORY_CHAPTER_LABEL, MOMENT_LINE_MAX, MOMENT_TITLE_MAX, type ChapteredMoment, type LoveStoryMoment, type MomentAnchor, type MomentDate } from '@/lib/love-story-moments';
 import { STUDIO_FOOT_BUTTON } from '@/lib/studio-skin';
 import { whenWords, type TimelineWhen } from '@/lib/timeline';
+import type { UploadSend } from '@/lib/upload-send';
 import { PickSheetContext } from '../../editor/_components/pick-menu-place';
 import { useMaker } from '../../../launch/_components/maker-context';
 import { LoveStoryProLine } from './love-story-pro-line';
@@ -92,6 +93,25 @@ export function momentAddForm(fresh: { when: MomentDate; title: string; line: st
   fd.set('title', fresh.title);
   fd.set('line', fresh.line);
   return fd;
+}
+
+/** The most of a moment's words the row carries — the row itself cuts what does not fit, with "…". */
+export const MOMENT_FIRST_LINE_MAX = 120;
+
+/**
+ * THE FIRST LINE OF A MOMENT'S WORDS, for the quiet line under its name (owner 2026-10-08, of a row with only a
+ * name: *"i do not see the subtext?"*; gallery § 13). The first line the couple wrote — never a later one, never
+ * words of ours. Null when there are none yet: the row then shows no second line at all. When more follows than is
+ * handed over (a second line, or a very long first one), it ends in "…" so it never reads as the whole story.
+ */
+export function momentFirstLine(words: string | null | undefined): string | null {
+  const lines = (words ?? '').split(/\r?\n/).map((l) => l.replace(/\s+/g, ' ').trim());
+  const at = lines.findIndex(Boolean);
+  if (at < 0) return null;
+  const first = lines[at]!;
+  const more = lines.slice(at + 1).some(Boolean);
+  if (first.length <= MOMENT_FIRST_LINE_MAX) return more ? `${first.replace(/[\s.…]+$/, '')}…` : first;
+  return `${first.slice(0, MOMENT_FIRST_LINE_MAX).replace(/\s+\S*$/, '').replace(/[\s.,;:—–-]+$/, '')}…`;
 }
 
 /** How many photo slots a moment shows: three — or all it already holds, when that is more. */
@@ -225,6 +245,8 @@ function MomentRow({
         if (text && text !== (m.title ?? '')) void send(momentEditForm(m, { title: text }));
       }}
       onLeave={onEndEdit}
+      /* The start of its words, quiet, under the name (gallery § 13) — as they stand while they are being typed. */
+      sub={momentFirstLine(line)}
       /* A plain save says its words — never an invented percentage. */
       note={keeping ? 'Keeping your photos…' : m.hidden ? 'Off the Event Hub — guests do not see this moment.' : null}
       problem={problem}
@@ -359,6 +381,18 @@ function MomentRow({
   );
 }
 
+/**
+ * 🧪 A STAND-IN FOR STORAGE, for these slots — ONLY the dev lab provides one (it has no storage, so there a photo
+ * could never land and the owner could never see one). Null everywhere a person can reach: the slots then send to
+ * real storage. `lib/the-lab-can-upload.test.ts` holds that nothing outside `app/dev/` provides it.
+ */
+export const SlotsUploadStandIn = createContext<UploadSend | null>(null);
+
+/** What a photo's tile says when it did not upload (owner 2026-10-08: *"it does not upload"*). */
+export const PHOTO_NOT_UPLOADED = 'Couldn’t upload this photo.';
+/** How long a photo may move nothing before the slots stop waiting for it. */
+export const PHOTO_STALL_MS = 15_000;
+
 /** Done's words while a file is on its way: the uploader's measured figure once it has one — never an invented one. */
 export function uploadingWords(pct: number | null): string {
   return pct === null ? 'Uploading…' : `Uploading… ${pct}%`;
@@ -403,6 +437,7 @@ export function MomentPhotos({
   /* The uploader's own words about what is on its way: busy from the pick to the landing, and its measured figure. */
   const [busy, setBusy] = useState(false);
   const [pct, setPct] = useState<number | null>(null);
+  const standIn = useContext(SlotsUploadStandIn);
   return (
     <div data-moment-photos="" className="mx-auto w-full max-w-[300px]">
       <p className="pb-2.5 pt-0.5 text-center text-[13px] font-semibold text-ink/70">Up to {formatCount(MOMENT_PHOTOS_OFFERED)} photos. The first one shows first on your page.</p>
@@ -417,14 +452,21 @@ export function MomentPhotos({
           currentValue={[...media]}
           initialDisplayUrls={{ ...mediaUrls }}
           variant="gallery"
+          /* 🚫 A photo that did not upload SAYS SO on its tile, with Try again and ✕ — never a spinner that stays,
+             never nothing. And one that stops moving is given up on after 15 seconds, not left to spin. */
+          failedSays={PHOTO_NOT_UPLOADED}
+          stallMs={PHOTO_STALL_MS}
+          send={standIn ?? undefined}
           onBusy={(next) => {
             setBusy(next);
             onUploading?.(next);
           }}
           onProgress={setPct}
           onChange={(value) => {
-            setChanged(true);
             onChange(Array.isArray(value) ? value : value ? [value] : []);
+            /* The uploader tells of a change while it is being drawn; this sheet's own line follows a beat later
+               (setting state inside another component's draw is refused by React, and said in the console). */
+            queueMicrotask(() => setChanged(true));
           }}
         />
       ) : (

@@ -1,9 +1,11 @@
 'use client';
 
 import type { ComponentType } from 'react';
-import { Armchair, Clock, FileText, Gift, Heart, LayoutGrid, PersonStanding, Reply } from 'lucide-react';
+import { Armchair, BookOpen, Clock, FileText, Gift, LayoutGrid, MailCheck, Palette, PersonStanding, Printer } from 'lucide-react';
+import { PageCard } from '@/app/_components/page-card';
 import type { StudioTileKey, StudioTileModel } from '@/lib/studio-tiles';
 import { formatCount } from '@/lib/format-number';
+import { STUDIO_PAGE_CARDS, STUDIO_TILE_UNREAD } from '@/lib/studio-page-cards';
 import { STUDIO_PAGE_BG } from '@/lib/studio-skin';
 
 /**
@@ -15,16 +17,19 @@ import { STUDIO_PAGE_BG } from '@/lib/studio-skin';
  * `maker_two_dropdowns_owner_wireframe_2026-10-06_fable.html` `studioHome()`).
  *
  *   Studio                                   n of 11 ready
- *   [ Info ✓ ] [ Look ✓ ] [ Logo · Missing ] …   two columns, full width
+ *   [▣ Info · Ready      Your names, the first words…  ] ⓘ     one column on a phone, two from 768 px
  *
- * Each tile: its picture, ✓ or Missing, its name and one live line — all handed
- * in (`lib/studio-tiles.ts`, built on the server from the SAME "done" the Event
- * Details rows read). A tap opens that tool (the shell opens the shipped editor);
- * Wedding March and Seat plan say "Full screen". A tile whose fact could not be
- * read wears no mark at all — never a Missing nobody measured.
+ * 🚪 EACH TILE IS A PAGE CARD (owner 2026-10-08: *"Logo / Topic / Description and a small (i) that will give a more
+ * detailed explanation"* · *"looks like an app button"*; the template `app/_components/page-card.tsx`, the designer's
+ * eleven `lib/studio-page-cards.ts`): its mark — DISTINCT for each page — its name, one plain line of what is done
+ * there, Ready or Missing with its word, and the ⓘ beside it. The name, ✓ / Missing and which pages an event draws
+ * are all handed in (`lib/studio-tiles.ts`, built on the server from the SAME "done" the Event Details rows read).
+ * A tap opens that tool (the shell opens the shipped editor); Wedding March and Seat plan say "Full screen". A tile
+ * whose fact could not be read SAYS so and wears no mark at all — never a Missing nobody measured.
+ * (The tile's live line — "2 tables · 14 seated" — is still the Tool ▾'s; the card says what the page is FOR.)
  *
- * ⚡ Loaded when Studio is first opened (`details-lazy.tsx`, the `maker-details`
- * chunk) — never in the Maker's first load. 🔒 Opening it writes nothing.
+ * ⚡ Loaded when Studio is first opened (`details-lazy.tsx`, the `maker-details` chunk) — never in the Maker's first
+ * load. 🔒 Opening it writes nothing and asks nothing; a card opens its page exactly as the tile did.
  */
 type TileIcon = ComponentType<{ className?: string; strokeWidth?: number; 'aria-hidden'?: boolean }>;
 
@@ -38,19 +43,19 @@ function MonogramIcon({ className }: { className?: string }) {
   );
 }
 
-/** The prototype's icons (`ICON[k]`): Look and the Mood Board share the board mark, Prints the form. */
-const TILE_ICON: Record<StudioTileKey, TileIcon> = {
+/** One mark a page — never two pages sharing one (the designer's eleven, on icons the app already draws). */
+export const TILE_ICON: Record<StudioTileKey, TileIcon> = {
   info: FileText,
-  look: LayoutGrid,
+  look: Palette,
   logo: MonogramIcon,
   mood: LayoutGrid,
   schedule: Clock,
-  story: Heart,
+  story: BookOpen,
   march: PersonStanding,
   seats: Armchair,
   gifts: Gift,
-  rsvp: Reply,
-  prints: FileText,
+  rsvp: MailCheck,
+  prints: Printer,
 };
 
 export function StudioHome({ tiles, onOpen }: { tiles: readonly StudioTileModel[]; onOpen: (key: StudioTileKey) => void }) {
@@ -63,34 +68,38 @@ export function StudioHome({ tiles, onOpen }: { tiles: readonly StudioTileModel[
           {formatCount(ready)} of {formatCount(tiles.length)} ready
         </p>
       </div>
-      <ul className="grid grid-cols-2 gap-2.5">
+      {/* One column on a phone (two cannot hold a sentence and a 44-px ⓘ); two from 768 px. */}
+      <ul data-studio-cards="" className="grid grid-cols-1 gap-2 md:grid-cols-2 md:gap-2.5">
         {tiles.map((t) => {
           const Icon = TILE_ICON[t.key];
+          const card = STUDIO_PAGE_CARDS[t.key];
           return (
-            <li key={t.key} className="contents">
-              <button
-                type="button"
-                data-studio-tile={t.key}
-                data-studio-done={t.done === undefined ? 'unread' : t.done ? 'yes' : 'no'}
-                onClick={() => onOpen(t.key)}
-                className={`sn-press relative flex min-h-28 flex-col items-start gap-1 rounded-2xl bg-cream py-3 pl-3.5 pr-3 text-left ring-1 transition-shadow duration-sn-control ease-sn ${
-                  t.done === false ? 'ring-terracotta-700/25' : 'ring-ink/10'
-                }`}
-              >
-                <span className="mb-1.5 flex w-full items-center justify-between">
-                  <Icon aria-hidden className="h-[22px] w-[22px] text-gild" strokeWidth={1.9} />
-                  {t.done === true ? (
-                    <span className="rounded-full bg-success-600/12 px-2 py-[3px] text-[10.5px] font-bold text-success-700">✓</span>
-                  ) : t.done === false ? (
-                    <span className="rounded-full bg-terracotta-700/10 px-2 py-[3px] text-[10.5px] font-bold text-terracotta-700">Missing</span>
-                  ) : null}
-                </span>
-                <span className="text-[15px] font-semibold leading-tight text-ink">{t.label}</span>
-                <span className="text-[12px] leading-snug text-ink/70">{t.status}</span>
-                {t.immersive ? (
-                  <span className="absolute bottom-[9px] right-2.5 text-[9.5px] font-bold uppercase tracking-[0.08em] text-ink/50">Full screen</span>
-                ) : null}
-              </button>
+            <li key={t.key} className="min-w-0">
+              <PageCard
+                data={t.key}
+                mark={<Icon aria-hidden strokeWidth={1.9} />}
+                topic={t.label}
+                description={card.description}
+                /* A fact that could not be read is said on the card — never drawn as an ordinary, untouched page. */
+                problem={t.status === STUDIO_TILE_UNREAD ? STUDIO_TILE_UNREAD : null}
+                tag={t.immersive ? 'Full screen' : null}
+                badge={t.done === true ? { tone: 'ok', word: 'Ready' } : t.done === false ? { tone: 'wait', word: 'Missing' } : null}
+                about={{
+                  words: (
+                    <>
+                      <p>{card.controls}</p>
+                      <p>
+                        <b className="font-semibold text-ink">Guests see it:</b> {card.seenAt}
+                      </p>
+                      <p>
+                        <b className="font-semibold text-ink">Do this first:</b> {card.first}
+                      </p>
+                    </>
+                  ),
+                }}
+                onOpen={() => onOpen(t.key)}
+                attrs={{ 'data-studio-tile': t.key, 'data-studio-done': t.done === undefined ? 'unread' : t.done ? 'yes' : 'no' }}
+              />
             </li>
           );
         })}

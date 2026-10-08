@@ -129,10 +129,42 @@ test('the Stages panel’s first render in the browser is the server’s — the
   assert.equal(outsidePortals(browser), server, 'the browser’s first render differs from the server’s HTML');
 });
 
+/**
+ * The hosts the guest bar may be drawn into, read off the panel's source: the name the portal is gated on, and —
+ * where that name is worked out from others (`const guestBarHost = rsvpOpen ? rsvpBarSlot : shellEl;`, the RSVP stage
+ * draws the bar in its own column) — every element it can stand for.
+ * 🔁 RE-AIMED 2026-10-08: this used to pin the spelling `{shellEl && !away ? createPortal(` and went red on the
+ * review copy when another branch gave the bar a second host. The CLAIM is not the name: it is that whatever the
+ * bar is drawn into is NOTHING on the first render — i.e. every host is state that starts at null.
+ */
+export function guestBarHosts(src: string): { gate: string; hosts: string[] } {
+  const gate = /\{(\w+) && !away\s*\? createPortal\(\s*<nav[\s\S]{0,160}data-stage-guest-bar=""/.exec(src)?.[1];
+  assert.ok(gate, 'the guest bar is no longer a portal gated on its host');
+  const derived = new RegExp(`const ${gate} = ([^;]+);`).exec(src)?.[1];
+  /* A host is an element: by this file's own naming, a name ending in El or Slot. A flag (rsvpOpen) is not one. */
+  const hosts = derived ? [...new Set(derived.match(/\b\w+(?:El|Slot)\b/g) ?? [])] : [gate!];
+  /* …and it is worked out from names alone: no lookup, no call, nothing of the page read while rendering. */
+  if (derived) assert.doesNotMatch(derived, /document|window|querySelector|getElementById|\(|\.current/, `the guest bar's host is looked up while rendering: ${derived}`);
+  return { gate: gate!, hosts };
+}
+
 test('the guest bar’s host is found after the first render, never during it', () => {
   assert.doesNotMatch(SRC, /typeof (?:document|window) (?:===|!==) 'undefined'/, 'a render-time "am I in a browser?" branch is back in the Stages panel — the two first renders can differ again');
-  // The bar is still drawn into the shell (it must sit over the page, under the panel) — only the lookup moved.
-  assert.match(SRC, /const \[shellEl, setShellEl\] = useState<HTMLElement \| null>\(null\);/);
+  const { gate, hosts } = guestBarHosts(SRC);
+  assert.ok(hosts.length > 0, `the bar's host (${gate}) names no element this guard can read`);
+  /* EVERY host starts as nothing: state whose first value is null, on the server and in the browser alike. */
+  for (const host of hosts) {
+    const setter = `set${host[0]!.toUpperCase()}${host.slice(1)}`;
+    assert.ok(SRC.includes(`const [${host}, ${setter}] = useState<HTMLElement | null>(null);`), `the guest bar may be drawn into "${host}", which is not state that starts at null — it can exist on the browser's first render and not on the server's`);
+  }
+  /* The shell is one of them, and it is looked up after the panel is on the page (before the browser paints). */
+  assert.ok(hosts.includes('shellEl'), 'the Maker’s shell is no longer a host of the guest bar');
   assert.match(SRC, /useLayoutEffect\(\(\) => setShellEl\(document\.querySelector<HTMLElement>\('\[data-maker-shell\]'\)\), \[\]\);/);
-  assert.match(SRC, /\{shellEl && !away\s*\? createPortal\(\s*<nav[\s\S]{0,120}data-stage-guest-bar=""/, 'the guest bar is no longer the shell’s portal');
+  /* The reader itself, on the two spellings this file has had — and on the fault it must still catch. */
+  const one = `{shellEl && !away\n ? createPortal(\n <nav aria-label="x" data-stage-guest-bar=""`;
+  assert.deepEqual(guestBarHosts(one), { gate: 'shellEl', hosts: ['shellEl'] });
+  const two = `const guestBarHost = rsvpOpen ? rsvpBarSlot : shellEl;\n{guestBarHost && !away\n ? createPortal(\n <nav aria-label="x" data-stage-guest-bar=""`;
+  assert.deepEqual(guestBarHosts(two), { gate: 'guestBarHost', hosts: ['rsvpBarSlot', 'shellEl'] });
+  assert.throws(() => guestBarHosts(two.replace('rsvpBarSlot : shellEl', 'document.body : shellEl')), /looked up while rendering/);
+  assert.throws(() => guestBarHosts(two.replace('rsvpBarSlot : shellEl', 'slotRef.current : shellEl')), /looked up while rendering/);
 });

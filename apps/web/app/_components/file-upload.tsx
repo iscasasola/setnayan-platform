@@ -11,7 +11,7 @@ import {
   X,
 } from 'lucide-react';
 import { trackFailure } from '@/lib/telemetry/track-error';
-import { createStallWatchdog } from '@/lib/stall-watchdog';
+import type { UploadOutcome, UploadSend } from '@/lib/upload-send';
 import { formatCount } from '@/lib/format-number';
 
 /**
@@ -116,6 +116,21 @@ type FileUploadBaseProps = {
    * unaffected.
    */
   onBusy?: (busy: boolean) => void;
+  /**
+   * 🚫 A FILE THAT DID NOT UPLOAD STAYS, SAYING SO (`gallery` only). Given these words ("Couldn't upload this
+   * photo."), a refused, broken or stalled upload leaves a tile in the grid that says them, with **Try again** (the
+   * same file, sent again) and ✕ — instead of the tile vanishing and one shared line above. Nothing of it joins the
+   * value, and `onBusy` goes false. The server's own reason, when it gave one meant for the person (too large, the
+   * allowance is full), is still shown. Optional; without it every caller behaves as before.
+   */
+  failedSays?: string;
+  /** How long nothing may move before an upload is declared dead. Default 45 s (`UPLOAD_STALL_MS`). */
+  stallMs?: number;
+  /**
+   * A stand-in for storage, with `sendToStorage`'s own shape (`lib/upload-send.ts`). ONLY the dev lab passes one (it
+   * has no storage to send to); production never does, and `lib/a-refused-upload-says-so.test.ts` holds that.
+   */
+  send?: UploadSend;
   /**
    * Optional async validator run AFTER the size/MIME checks and BEFORE the
    * upload starts. Return an error string to reject the file (shown to the
@@ -293,6 +308,13 @@ const UPLOAD_STALL_MS = 45_000;
  */
 const UPLOAD_RESPONSE_MS = 300_000;
 
+/**
+ * A `gallery` tile's ✕ — a 44 px ROUND target in the tile's corner, carrying a 24 px disc. (A bare 24 px button is
+ * stretched into a tall oval by the app's 44 px button floor — controller, 2026-10-08, on the Love Story's slots.)
+ */
+const TILE_X = 'absolute right-0 top-0 flex h-11 w-11 items-start justify-end rounded-full p-1.5 text-ink/70 hover:text-danger-700';
+const TILE_X_DISC = 'flex h-6 w-6 items-center justify-center rounded-full bg-cream/90';
+
 type UploadedItem = {
   /** Local-only ID for React keys + cancellation. */
   id: string;
@@ -312,8 +334,12 @@ type InFlightItem = {
   contentType: string;
   size: number;
   progress: number; // 0..100
-  xhr: XMLHttpRequest | null;
+  /** Stops this upload (`UploadRun.cancel`) — null until its run has started. */
+  stop: (() => void) | null;
 };
+
+/** A file that did not upload, kept as a tile so it can be tried again (`failedSays`). Never part of the value. */
+type FailedItem = { id: string; file: File };
 
 function isImage(contentType: string): boolean {
   return contentType.startsWith('image/');
@@ -423,6 +449,9 @@ export function FileUpload({
   onProgress,
   cancelRef,
   onBusy,
+  failedSays,
+  stallMs,
+  send,
 }: FileUploadProps) {
   const inputId = useId();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -430,6 +459,8 @@ export function FileUpload({
   const [items, setItems] = useState<UploadedItem[]>([]);
   const [inFlight, setInFlight] = useState<InFlightItem[]>([]);
   const [error, setError] = useState<string | null>(null);
+  /** Files that did not upload, kept as tiles (`failedSays`). */
+  const [failed, setFailed] = useState<FailedItem[]>([]);
   // In-browser video optimisation (ffmpeg.wasm) runs BEFORE the upload; this
   // surfaces a labelled progress bar while it works. null = not optimising.
   const [optimizing, setOptimizing] = useState<{ label: string; pct: number } | null>(null);
@@ -525,13 +556,17 @@ export function FileUpload({
   }, []);
 
   useEffect(() => {
+    // 🔑 SET ON MOUNT, not only cleared on unmount. In development React's Strict Mode runs every effect's
+    // cleanup once straight after mounting; a flag that is only ever cleared stayed false for the component's
+    // whole life, so every `if (isMountedRef.current)` below was skipped — a refused upload left its tile at 0%
+    // beside a spinner for ever, and one that landed was never shown (owner, 2026-10-08, on the local copy:
+    // "it does not upload").
+    isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
       // Abort any in-flight XHRs so a router navigation doesn't leave a
       // half-finished PUT pinging in the background.
-      for (const item of inFlight) {
-        if (item.xhr) item.xhr.abort();
-      }
+      for (const item of inFlight) item.stop?.();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -829,140 +864,27 @@ export function FileUpload({
         contentType,
         size: file.size,
         progress: 0,
-        xhr: null,
+        stop: null,
       },
     ]);
 
-    // --- Step 1: presign --------------------------------------------------
-    let presign: {
-      uploadUrl: string;
-      r2Ref: string;
-      displayUrl: string;
-    };
-    try {
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          bucket,
-          pathPrefix,
-          filename: file.name,
-          contentType,
-          sizeBytes: file.size,
-        }),
-      });
-      const data = (await res.json()) as
-        | { uploadUrl: string; r2Ref: string; displayUrl: string }
-        | { error: string };
-      if (!res.ok || 'error' in data) {
-        const msg = 'error' in data ? data.error : `Presign failed (${res.status})`;
-        if (isMountedRef.current) {
-          setError(msg);
-          setInFlight((prev) => prev.filter((i) => i.id !== id));
-        }
-        return;
-      }
-      presign = data;
-    } catch (err) {
-      void trackFailure({
-        eventType: 'BUTTON_FAIL',
-        elementName: 'File upload presign request',
-        filePath: 'app/_components/file-upload.tsx',
-        error: err,
-        payload: { bucket, step: 'presign' },
-      });
-      if (isMountedRef.current) {
-        setError(err instanceof Error ? err.message : 'Network error.');
-        setInFlight((prev) => prev.filter((i) => i.id !== id));
-      }
-      return;
-    }
-
-    // --- Step 2: PUT to R2 via XHR ---------------------------------------
-    const xhr = new XMLHttpRequest();
-    setInFlight((prev) =>
-      prev.map((i) => (i.id === id ? { ...i, xhr } : i)),
-    );
-
-    // STALL WATCHDOG. Every other failure below announces itself with an event
-    // — `error`, `abort`, a non-2xx `load`. A transfer that simply DIES fires
-    // none of them: no event, no `setError`, nothing. The chip then sat at 0%
-    // with a spinner forever, which reads as "still working" and is the one
-    // state the person cannot tell from success in progress. Same shape as the
-    // guards in this codebase that refused in silence.
-    //
-    // XHR's own `xhr.timeout` is the wrong instrument: it caps TOTAL duration,
-    // so it would kill a slow-but-healthy 10 MB video on hotel wifi. This one
-    // measures SILENCE — it is reset by every progress event, so it only fires
-    // when no byte has moved for UPLOAD_STALL_MS.
-    const watchdog = createStallWatchdog({
-      timeoutMs: UPLOAD_STALL_MS,
-      onStall: () => {
-        // Aborting fires the `abort` handler, which removes the chip; it does
-        // not clear this message, so the person is told WHY it stopped instead
-        // of watching a spinner that will never move.
-        try {
-          xhr.abort();
-        } catch {
-          /* already dead — nothing left to stop */
-        }
-        // 📋 Problems list: a stalled upload is a failure the person never
-        // caused and the server never saw — this watchdog is the only witness.
-        void trackFailure({
-          eventType: 'UPLOAD_STALLED',
-          elementName: 'File upload',
-          filePath: 'app/_components/file-upload.tsx',
-          error: `no bytes moved for ${UPLOAD_STALL_MS / 1000}s`,
-          payload: { bucket, action: 'upload stalled', page: window.location.pathname },
-        });
-        if (!isMountedRef.current) return;
-        setError(
-          `${file.name} stopped uploading — check your connection and pick it again.`,
-        );
-        setInFlight((prev) => prev.filter((i) => i.id !== id));
-      },
-    });
-
-    // Every byte is now on the network stack. No further upload-progress event
-    // can fire, so hand the clock over to the response budget rather than
-    // leaving the transfer clock armed against a wait it cannot measure.
-    xhr.upload.addEventListener('loadend', () => {
-      watchdog.arm(UPLOAD_RESPONSE_MS);
-    });
-
-    xhr.upload.addEventListener('progress', (evt) => {
-      // Re-armed BEFORE the computable check: bytes moved either way, which is
-      // the only thing this clock is measuring.
-      watchdog.arm();
-      if (!evt.lengthComputable) return;
-      const pct = Math.round((evt.loaded / evt.total) * 100);
-      setInFlight((prev) =>
-        prev.map((i) => (i.id === id ? { ...i, progress: pct } : i)),
-      );
-    });
-
-    xhr.addEventListener('error', () => {
-      watchdog.settle();
+    // --- Steps 1 + 2: sign it, then PUT it to R2 ---------------------------
+    // The run itself lives in `lib/upload-send.ts` (loaded here, at the first
+    // upload — never with the page): it ALWAYS ends, and says how. Every
+    // ending is handled in ONE place, `ended`, so none can be left as a tile
+    // that spins for ever.
+    const keepsFailed = Boolean(failedSays) && variant === 'gallery';
+    let lib: typeof import('@/lib/upload-send') | null = null;
+    const ended = (out: UploadOutcome) => {
       if (!isMountedRef.current) return;
-      setError(`Upload failed for ${file.name}. Check your connection and retry.`);
+      // Whatever the ending, the tile that was in flight is no longer in flight.
       setInFlight((prev) => prev.filter((i) => i.id !== id));
-    });
-
-    xhr.addEventListener('abort', () => {
-      watchdog.settle();
-      if (!isMountedRef.current) return;
-      setInFlight((prev) => prev.filter((i) => i.id !== id));
-    });
-
-    xhr.addEventListener('load', () => {
-      watchdog.settle();
-      if (!isMountedRef.current) return;
-      // R2 returns 200 OR 201 on success — anything 2xx is a win.
-      if (xhr.status >= 200 && xhr.status < 300) {
+      const ending = lib ? lib.uploadEnding(out, keepsFailed) : keepsFailed ? 'tile' : 'line';
+      if (out.ok && ending === 'landed') {
         const completed: UploadedItem = {
           id,
-          r2Ref: presign.r2Ref,
-          displayUrl: presign.displayUrl,
+          r2Ref: out.r2Ref,
+          displayUrl: out.displayUrl,
           filename: file.name,
           contentType,
         };
@@ -971,21 +893,64 @@ export function FileUpload({
           emitChange(next);
           return next;
         });
-        setInFlight((prev) => prev.filter((i) => i.id !== id));
-      } else {
-        setError(
-          `R2 rejected ${file.name} (status ${xhr.status}). Try a different file or contact support.`,
-        );
-        setInFlight((prev) => prev.filter((i) => i.id !== id));
+        return;
       }
-    });
+      // The person stopped it: the tile goes, and there is nothing to say.
+      if (ending === 'stopped') return;
+      if (!out.ok && out.kind === 'network' && out.step === 'presign') {
+        void trackFailure({
+          eventType: 'BUTTON_FAIL',
+          elementName: 'File upload presign request',
+          filePath: 'app/_components/file-upload.tsx',
+          error: out.error,
+          payload: { bucket, step: 'presign' },
+        });
+      }
+      if (ending === 'tile') {
+        // The file stays where its tile was, saying so, with Try again — and nothing of it joins the value.
+        setFailed((prev) => [...prev, { id, file: rawFile }]);
+        const reason = lib?.uploadRefusalReason(out) ?? null;
+        if (reason) setError(reason);
+        return;
+      }
+      setError(lib?.uploadProblemLine(out, file.name) ?? 'Network error.');
+    };
 
-    xhr.open('PUT', presign.uploadUrl, true);
-    xhr.setRequestHeader('Content-Type', contentType);
-    xhr.send(file);
-    // Armed here too, so a request that never connects at all is caught — not
-    // only one that starts and then stops.
-    watchdog.arm();
+    let run: ReturnType<UploadSend>;
+    try {
+      lib = await import('@/lib/upload-send');
+      run = (send ?? lib.sendToStorage)(
+        { file, bucket, pathPrefix, contentType },
+        {
+          stallMs: stallMs ?? UPLOAD_STALL_MS,
+          responseMs: UPLOAD_RESPONSE_MS,
+          onProgress: (pct) => {
+            if (!isMountedRef.current) return;
+            setInFlight((prev) => prev.map((i) => (i.id === id ? { ...i, progress: pct } : i)));
+          },
+          // 📋 Problems list: a stalled upload is a failure the person never
+          // caused and the server never saw — the watchdog is the only witness.
+          onStall: () => {
+            void trackFailure({
+              eventType: 'UPLOAD_STALLED',
+              elementName: 'File upload',
+              filePath: 'app/_components/file-upload.tsx',
+              error: `no bytes moved for ${(stallMs ?? UPLOAD_STALL_MS) / 1000}s`,
+              payload: { bucket, action: 'upload stalled', page: window.location.pathname },
+            });
+          },
+        },
+      );
+      void run.done.then(ended);
+    } catch (error) {
+      // The uploader's own code could not be fetched (offline): still an ending.
+      return ended({ ok: false, kind: 'network', step: 'presign', says: null, status: null, error });
+    }
+    const stop = run.cancel;
+    setInFlight((prev) => prev.map((i) => (i.id === id ? { ...i, stop } : i)));
+    // Back to `handleFiles` once the bytes are on their way (or the run has
+    // already ended) — exactly when its busy window may close.
+    await run.sent;
   }
 
   function removeItem(id: string) {
@@ -998,10 +963,21 @@ export function FileUpload({
 
   function cancelInFlight(id: string) {
     setInFlight((prev) => {
-      const target = prev.find((i) => i.id === id);
-      if (target?.xhr) target.xhr.abort();
+      prev.find((i) => i.id === id)?.stop?.();
       return prev.filter((i) => i.id !== id);
     });
+  }
+
+  /** ✕ on a failed tile: it goes. Nothing of it was ever kept. */
+  function dropFailed(id: string) {
+    setFailed((prev) => prev.filter((f) => f.id !== id));
+  }
+
+  /** Try again: the SAME file, through the same door as a fresh pick (its checks, its room, its busy window). */
+  function retryFailed(item: FailedItem) {
+    // No room left, or the last pick is still being prepared: `handleFiles` says which — and the tile stays.
+    if (!busyRef.current && !atCapacity) dropFailed(item.id);
+    void handleFiles([item.file]);
   }
 
   function onInputChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -1165,6 +1141,10 @@ export function FileUpload({
             accept={acceptAttr}
             multiple={multiple}
             disabled={disabled}
+            /* ⚡ The picker is opening: fetch the upload run NOW (`lib/upload-send.ts`), while the person chooses a
+               file — so the first upload never waits on it. Not with the page: most pages that show an uploader
+               never upload. A failed fetch is not a problem yet; the upload itself asks again and says so. */
+            onClick={() => void import('@/lib/upload-send').catch(() => {})}
             onChange={onInputChange}
             className="sr-only"
           />
@@ -1319,7 +1299,7 @@ export function FileUpload({
           A video renders as a real <video> (muted, preload=metadata) rather
           than a play glyph, so the poster frame shows — same reason as the
           picture: the vendor is checking WHICH clip, not that one exists. */}
-      {isGallery && (inFlight.length > 0 || items.length > 0) ? (
+      {(isGallery && (inFlight.length > 0 || items.length > 0)) || failed.length > 0 ? (
         <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
           {items.map((item) => (
             <li
@@ -1358,13 +1338,10 @@ export function FileUpload({
               >
                 <CheckCircle2 className="h-3.5 w-3.5" strokeWidth={2} />
               </span>
-              <button
-                type="button"
-                onClick={() => removeItem(item.id)}
-                className="absolute right-1.5 top-1.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-cream/90 text-ink/70 transition-colors hover:bg-cream hover:text-danger-700"
-                aria-label={`Remove ${item.filename}`}
-              >
-                <X className="h-3.5 w-3.5" strokeWidth={2} />
+              <button type="button" onClick={() => removeItem(item.id)} className={TILE_X} aria-label={`Remove ${item.filename}`}>
+                <span className={TILE_X_DISC}>
+                  <X className="h-3.5 w-3.5" strokeWidth={2} />
+                </span>
               </button>
             </li>
           ))}
@@ -1372,27 +1349,53 @@ export function FileUpload({
             <li
               key={item.id}
               title={item.filename}
-              className="relative flex aspect-square flex-col items-center justify-center gap-2 rounded-xl border border-ink/10 bg-cream p-2"
+              className="relative flex aspect-square items-center justify-center rounded-xl border border-ink/10 bg-cream"
             >
-              <Loader2 className="h-5 w-5 animate-spin text-terracotta" strokeWidth={1.75} />
-              <span className="w-full">
-                <span className="block h-1.5 w-full overflow-hidden rounded-full bg-ink/10">
-                  <span
-                    className="block h-full rounded-full bg-terracotta transition-all"
-                    style={{ width: `${item.progress}%` }}
-                  />
+              {/* 🥧 ON ITS WAY: the 0–100 PIE, in the accent (owner 2026-10-08: "show a loading screen 0-100 pie to
+                  know how long til it uploads"; gallery § 21). The figure is the upload's own measured one — a
+                  state that steps with the bytes, the same under "reduce motion". No spinner beside it. */}
+              <span
+                data-upload-pie={item.progress}
+                className="flex h-11 w-11 items-center justify-center rounded-full"
+                style={{ background: `conic-gradient(rgb(var(--sn-accent)) ${item.progress}%, rgb(0 0 0 / 0.1) 0)` }}
+              >
+                <span className="flex h-[34px] w-[34px] items-center justify-center rounded-full bg-white text-[10px] font-bold tabular-nums text-sn-accent">
+                  {item.progress}%
                 </span>
               </span>
-              <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-                {item.progress}%
+              <button type="button" onClick={() => cancelInFlight(item.id)} className={TILE_X} aria-label={`Cancel ${item.filename}`}>
+                <span className={TILE_X_DISC}>
+                  <X className="h-3.5 w-3.5" strokeWidth={2} />
+                </span>
+              </button>
+            </li>
+          ))}
+          {/* 🚫 DID NOT UPLOAD — said on the tile, in words, with Try again. Never a spinner, never a tick, never
+              nothing. Two cells wide so the words are read at a size a person can read. */}
+          {failed.map((item) => (
+            <li
+              key={item.id}
+              role="alert"
+              data-upload-failed=""
+              title={item.file.name}
+              className="relative col-span-2 flex min-h-[5.75rem] flex-col items-start justify-center gap-1.5 rounded-xl bg-danger-50 py-2 pl-2.5 pr-11"
+            >
+              <span className="flex items-start gap-1 text-[12px] font-semibold leading-tight text-danger-700">
+                <AlertCircle aria-hidden className="mt-px h-3.5 w-3.5 shrink-0" strokeWidth={2} />
+                {failedSays}
               </span>
               <button
                 type="button"
-                onClick={() => cancelInFlight(item.id)}
-                className="absolute right-1.5 top-1.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-cream/90 text-ink/70 transition-colors hover:bg-cream hover:text-danger-700"
-                aria-label={`Cancel ${item.filename}`}
+                data-upload-retry=""
+                onClick={() => retryFailed(item)}
+                className="inline-flex min-h-9 items-center rounded-full bg-cream px-3 text-[12.5px] font-semibold text-ink ring-1 ring-inset ring-ink/20"
               >
-                <X className="h-3.5 w-3.5" strokeWidth={2} />
+                Try again
+              </button>
+              <button type="button" onClick={() => dropFailed(item.id)} className={TILE_X} aria-label={`Remove ${item.file.name}`}>
+                <span className={TILE_X_DISC}>
+                  <X className="h-3.5 w-3.5" strokeWidth={2} />
+                </span>
               </button>
             </li>
           ))}

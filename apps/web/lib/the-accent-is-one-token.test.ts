@@ -60,11 +60,13 @@ const TEMPLATE_FILES = [
   `${E}/pick-menu.tsx`, //                 2 · Dropdown
   `${E}/pick-menu-place.ts`, //                its looks
   'app/_components/timeline-row.tsx', //   13 · Timeline row (and its three list states)
+  'app/_components/timeline-states.tsx', // 13 · …its loading and problem states (their own small file)
   'app/_components/ticker.tsx', //             its ticker, and the pill + pop that opens it
   'app/_components/switch-track.tsx', //   3 · Switch (its drawing; the colours are `.sn-switch` in globals.css)
   'app/_components/form-row.tsx', //       6 · Form row / 10 · Field (typed · chosen · on/off · a fact shown)
   'app/_components/explain.tsx', //        7 · ⓘ explanation (the centred popup on a phone, the note on a computer)
   'app/_components/fold.tsx', //           19 · Fold
+  'app/_components/page-card.tsx', //      4 · Page card (the app-icon tile is the accent; its ⓘ is `explain.tsx`)
   'app/_components/calendar.tsx', //       8 · Calendar (the month grid; its sheet on a phone, its panel on a computer)
   'app/_components/form-row-date.tsx', //      the Form row with a date (the pill with the calendar mark)
   'app/_components/chips.tsx', //          11 · Chips (choose several from a few)

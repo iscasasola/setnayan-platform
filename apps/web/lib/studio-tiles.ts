@@ -33,6 +33,7 @@ import { hubSetupDone, type HubSetupFacts } from '@/lib/hub-setup-steps';
 export { STUDIO_TILE_KEYS, STUDIO_TILE_ITEM, studioTileItem, type StudioTileKey } from './studio-tile-defs';
 import { STUDIO_TILE_ITEM, STUDIO_TILE_KEYS, type StudioTileKey } from './studio-tile-defs';
 import { LOOK_SECTIONS, LOOK_SECTION_LABEL } from '@/lib/maker-look-sections';
+import { STUDIO_TILE_UNREAD } from './studio-page-cards';
 
 type StudioTileDef = {
   /** The tile's name, and the short name the pill shows. */
@@ -90,7 +91,8 @@ export type StudioTilesInput = {
   marchLabel?: string;
 };
 
-const UNREAD = 'Could not be read just now';
+/* The one sentence for a fact that could not be read — the Studio home's card says it too (`lib/studio-page-cards.ts`). */
+const UNREAD = STUDIO_TILE_UNREAD;
 
 function readsDone(reads: readonly DetailsItemKey[], facts: GuidedDoneFacts): boolean | undefined {
   if (reads.length === 0) return undefined;

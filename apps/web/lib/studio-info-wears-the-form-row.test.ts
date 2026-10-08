@@ -28,7 +28,8 @@
  * arrival although both are named → (1); the fact line given a
  * button → (2); the opening line's pill without its door mark → (3); `studioDraftKeep` through a plain unheld
  * `makerSave` → (4); the print-words `{save}` put back in Info's opening line → (5); a second "right away" line
- * (the address's own no longer hidden) → (6); the old skin restyling the row's field again → (7); a hand-made
+ * (the address's own no longer hidden) → (6); the old skin restyling the row's field again → (7); the bare
+ * "QR code" heading back over the quiet rows → (7); a hand-made
  * `<textarea>` in `studio-info.tsx` → (8).
  */
 import test from 'node:test';
@@ -60,7 +61,8 @@ const NAME = `${L}/studio-event-name.tsx`;
 const TOOLS = `${L}/studio-tools.tsx`;
 const DETAILS = `${L}/maker-details.tsx`;
 const count = (s: string, re: RegExp) => (s.match(re) ?? []).length;
-const h = React.createElement;
+/** Draw a component with a test's props (each test hands exactly the props the component names). */
+const h = (C: unknown, props: Record<string, unknown>) => React.createElement(C as React.FC<Record<string, unknown>>, props);
 
 async function paint(el: React.ReactElement): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
@@ -79,7 +81,7 @@ function fn(src: string, name: string): string {
 
 test('(1) what must be typed is first: each name is a typed row, a first name is required, the style is a dropdown — nothing open, no Save', async () => {
   const { StudioEventName } = await import(`../${NAME}`);
-  const draw = (initial: unknown) => paint(h(StudioEventName, { eventId: 'ev-1', people: ['Bride', 'Groom'], initial, nameStyle: 'full' } as never));
+  const draw = (initial: unknown) => paint(h(StudioEventName, { eventId: 'ev-1', people: ['Bride', 'Groom'], initial, nameStyle: 'full' }));
   const html = await draw([{ first: 'Maria', last: 'Santos' }, { first: 'Jose', last: 'Dela Cruz' }]);
   // ONE row: the line guests read, composed from the two first names, with its ⓘ — its pill opens the two people.
   assert.match(html, /Event name<\/span>[\s\S]*?aria-label="About Event name"[\s\S]*?<button type="button" data-form-row-pill="opens" aria-expanded="false"[^>]*aria-label="Event name: Maria &amp; Jose\. Tap to change"/);
@@ -165,8 +167,12 @@ test('(4) one kept answer = ONE request and no render of the Maker: a held redra
   const keep = fn(src, 'studioDraftKeep');
   // THE CLAIM: `makerRedrawSave` (held — no Maker render is owed) around `makerLatestWrite` around the ONE draft door.
   assert.match(keep, /res = await makerRedrawSave\(\s*\(\) =>\s*makerLatestWrite\(key, \(\) => \{/, 'a kept answer brings a whole render of the Maker, or two quick keeps can land out of order');
-  assert.match(keep, /fd\.set\('intent', 'save'\);\s*fd\.set\('patch', JSON\.stringify\(\{ events \}\)\);\s*fd\.set\(HUB_DRAFT_BAR_FIELD, '1'\);\s*return hubDraftAction\(eventId, fd\);/);
-  assert.equal(count(keep, /hubDraftAction\(/g), 1, 'more than one request per kept answer');
+  assert.match(keep, /fd\.set\('intent', 'save'\);\s*fd\.set\('patch', JSON\.stringify\(\{ events \}\)\);\s*fd\.set\(HUB_DRAFT_BAR_FIELD, '1'\);\s*return door\(eventId, fd\);/);
+  assert.equal(count(keep, /\bdoor\(/g), 1, 'more than one request per kept answer');
+  // The door IS the one draft action — everywhere but the dev lab, which hands its stand-in (nothing else may).
+  assert.match(src, /let door: StudioDraftDoor = hubDraftAction;/, 'a kept answer goes somewhere other than the one draft door');
+  assert.match(src, /export function setStudioDraftDoor\(next: StudioDraftDoor \| null\): void \{\s*door = next \?\? hubDraftAction;\s*\}/);
+  assert.equal(count(src, /\bdoor = /g), 1, 'the door is changed somewhere else');
   assert.match(keep, /if \(Object\.keys\(events\)\.length === 0\) return \{ ok: true \};/, 'an empty patch is still sent');
   // A refusal, and a throw, are answered as NOT kept — with words.
   assert.match(keep, /catch \{\s*return \{ ok: false, error: 'Please try again\.' \};/);
@@ -239,6 +245,9 @@ test('(7) a field that draws rows gives up its heading and padding; the old box 
   assert.ok(css.includes(`${field}{gap:0;padding-top:0;padding-bottom:0}`), 'a row sits inside the old band’s padding');
   assert.ok(css.includes(`${field} > [data-details-form-heading]{display:none}`), 'a row is named twice (the form’s heading over it)');
   assert.ok(css.includes('[data-studio-info-rows] + [data-studio-info-rows]{border-top:1px solid rgb(var(--color-ink)/.1)}'), 'two lists in one field have no line between them');
+  // The last field holds only the quiet rows (the QR is in the fold): no bare "QR code" heading over them.
+  assert.ok(css.includes('[data-details-workspace] [data-details-editor]:has(> [data-studio-quiet]) > [data-details-form-heading]{display:none}'), 'a bare "QR code" heading shows under the fold with nothing beneath it');
+  assert.match(read(TOOLS), /<div data-studio-quiet="" className="mt-4 flex flex-col">/, 'anti-vacuity: the quiet rows’ mark moved');
   // At EVERY width: these three are outside the phone's media block.
   assert.ok(css.indexOf(`${field}{gap:0`) > css.lastIndexOf('@media'), 'anti-vacuity');
   assert.ok(css.indexOf(`${field}{gap:0`) > css.indexOf('[data-music-switch]'), 'the Info rows’ skin is inside the phone-only block');

@@ -221,3 +221,56 @@ said plainly: the sample measures the couple's own page colour as if Event Hub P
 a picked colour may be pulled against a slightly different ground than the sample showed.
 
 SPEC IMPACT: None beyond the contract above.
+
+## 2026-10-08 · fix(look): under reduce motion an effect is a STILL drawn without any animation — it was an empty page in the app
+
+Seen on the review copy's guest page (`/dev/maker-lab/guest`, 375 × 812, headless Chromium,
+reduce motion on): the effect layer was there — fixed, behind the page, 12 lanterns in it —
+with 0 animations running and 0 paused, and NO lantern on screen.
+
+- **Cause:** `globals.css` answers reduce motion for EVERY element, inside `@layer base`:
+  `animation-duration: .001ms · animation-delay: .001ms · animation-iteration-count: 1`, all
+  `!important`. An important declaration in a layer outranks any unlayered one, so the
+  effect's own `animation-play-state: paused !important` (and its negative delays) lost:
+  every animation ended at once, at its START — the petals above the page, the lanterns
+  below it, the glints transparent. Reproduced on a static page with that block added:
+  on screen 0 of 12 petals, 0 of 14 glints, 2 of 8 lanterns.
+- **Why nobody saw it:** my static page had no `globals.css` (there the pause worked: 596
+  paused), and the unit guard read the words of the rule. Two browser looks, two different
+  wrong answers; the suite passed both. Only the app showed this one.
+- **Fix** (`lib/ambient-effects.ts`): the still asks nothing of the animation machinery.
+  Under reduce motion the animation is taken off (`animation-name: none`) and each shape is
+  drawn by plain CSS where it would stand `--p` of the way through its cycle — the very
+  place its negative delay starts it when it moves (`--g`: how bright a glint is there). One
+  static pose per effect, still only transform · rotate · opacity.
+- Measured again on the static page WITH the app's block: on screen 8/8 lanterns, 10/12
+  petals, 16/16 sparkles, 9/9 capiz, 13/14 glints, 9/9 bokeh; 0 animations.
+  ⚠ Not yet seen in the app itself — it needs this commit on the review copy.
+
+Guard: `the-effects-are-six-and-cost-nothing` (2) and (3) rewritten for the still — one
+reduce-motion block, the animation off, a pose for each of the six that leans on none of the
+three properties the app overrides; every shape has its own place in the cycle, equal to
+where its animation starts it; travellers stand on the page; glints are lit. 11 sabotages
+seen red (the first run of them was void — one assertion of mine was already failing on
+the correct code; fixed, then re-run).
+
+Also seen on the guest page (motion on): Sparkles 16 shapes, all 16 animating; Lanterns ◆
+Lavish in Supporting 12 shapes (the lab's guest page is the host's canvas, so a ◆ effect is
+tried on there). The layer: `position: fixed`, z −10, the whole 375 × 812, still at the top
+after scrolling 3,800 px of page, `pointer-events: none`, hidden from a screen reader, the
+band's mask present, one stylesheet. Requests the effect added: 0 (the page's one
+`/api/health` fetch is there with no effect too). ms/frame while scrolling, 3 s each:
+no effect 8.2 mean / 9.1 p95 · Sparkles 8.3 / 9.2 · Lanterns Lavish 8.3 / 9.1 — no frame
+over 20 ms in any. (A headless browser's 120 Hz clock; not a real phone's GPU.)
+
+⚖ **The first-load remedy was measured and does NOT help** — so it is not applied. The
+sanitiser's file (`lib/hub-canvas.ts`), minified and gzipped on its own: before effects
+6,237 B · as committed (three word lists) +248 B · "one pattern" +255–257 B · lists with
+one wrapper +244 B. The weight is the fourteen words themselves and the dozen lines that
+check them; the spelling does not change it. In the real bundle some of those words are
+already there (the palette's slot names), so the true figure is likely lower — but it can
+only be read off a build. If the build is over: the 0.25 KB has to come from somewhere
+else, or the effect's check has to leave the first load (it cannot — the draft is
+sanitised there).
+
+SPEC IMPACT: None.

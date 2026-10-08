@@ -32,6 +32,19 @@ import { hubDraftAction } from '../../website/hub-draft-actions';
 /** The mark every Info row list wears — the Studio's form skin steps aside for them (`lib/studio-details.ts`). */
 export const STUDIO_INFO_ROWS = { 'data-studio-info-rows': '' } as const;
 
+/** The draft door — `hubDraftAction` — as a row calls it. */
+type StudioDraftDoor = typeof hubDraftAction;
+let door: StudioDraftDoor = hubDraftAction;
+/**
+ * 🧪 THE DEV MAKER LAB HANDS ITS OWN STAND-IN, so no write leaves the browser (`app/dev/maker-lab/maker-lab-shell.tsx`
+ * `labDraft` — the same stand-in the lab hands `MainBackgroundPanel` and the RSVP stage as their `draftAction`).
+ * Info's rows are drawn by the server, so there is no prop to hand it through; the lab sets the door once, here.
+ * Nothing else calls this: everywhere but the lab the door is the real action. `null` puts the real one back.
+ */
+export function setStudioDraftDoor(next: StudioDraftDoor | null): void {
+  door = next ?? hubDraftAction;
+}
+
 /**
  * Keep one drafted answer: ONE request, no render of the Maker. Answers whether it landed and, if not, why.
  * `key` names the fact, so two quick keeps of it never land out of order (the later one wins).
@@ -49,7 +62,7 @@ export async function studioDraftKeep(eventId: string, key: string, events: Reco
           fd.set('intent', 'save');
           fd.set('patch', JSON.stringify({ events }));
           fd.set(HUB_DRAFT_BAR_FIELD, '1');
-          return hubDraftAction(eventId, fd);
+          return door(eventId, fd);
         }),
       requestMakerRefresh,
       (r) => r !== SUPERSEDED && r.ok === true,

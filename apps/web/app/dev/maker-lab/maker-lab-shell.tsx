@@ -2,7 +2,8 @@
 
 import type { FixedSceneStyles } from '@/lib/fixed-scene-styles';
 import type { CameraLook } from '@/lib/camera-look';
-import { useMemo, type ComponentProps, type ReactNode } from 'react';
+import { useEffect, useMemo, type ComponentProps, type ReactNode } from 'react';
+import { setStudioDraftDoor } from '@/app/dashboard/[eventId]/launch/_components/studio-info';
 import { MakerShell } from '@/app/dashboard/[eventId]/launch/_components/maker-shell';
 import type { StudioTileModel } from '@/lib/studio-tiles';
 import { MakerRsvpStage } from '@/app/dashboard/[eventId]/launch/_components/maker-rsvp-stage';
@@ -162,6 +163,13 @@ export function MakerLabShell({
   /** Moves with every render of the lab page, as the real Maker's does (`String(Date.now())`). */
   renderStamp?: string;
 }) {
+  /* 🧾 Studio › Info's kept rows (drawn by the server — there is no `draftAction` prop to hand them) save into the
+     lab's stand-in too, so a kept name shows its tick and ✓ Apply's count rises here as it would for a signed-in
+     couple — and nothing leaves the browser. Put back when the lab is left. */
+  useEffect(() => {
+    setStudioDraftDoor(labDraft as never);
+    return () => setStudioDraftDoor(null);
+  }, []);
   const stand = (name: string) => <div data-lab-stand={name} className="rounded-md bg-white/70 p-3 text-[13px] text-ink/60">{name}</div>;
   const rsvpProps = useMemo<ComponentProps<typeof MakerRsvpStage>>(
     () => ({

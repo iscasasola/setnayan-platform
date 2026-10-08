@@ -97,9 +97,6 @@ export function FindThumbRow({
     return () => window.clearTimeout(t);
   }, [text, onSearch]);
 
-  const rowRef = useRef<HTMLDivElement>(null);
-  useFitRow(rowRef);
-
   if (!host) return null;
   const words = `Search ${scope} or add your own`;
   return createPortal(
@@ -107,41 +104,84 @@ export function FindThumbRow({
       data-find-thumb=""
       data-on={up ? 'true' : 'false'}
       inert={!up}
-      className={`pointer-events-none fixed inset-x-0 bottom-[var(--sn-bottomdock-h,64px)] z-[25] px-4 py-2.5 transition-transform ease-out motion-reduce:transition-none lg:bottom-7 lg:left-auto lg:right-7 lg:w-[460px] lg:px-0 ${
+      className={`pointer-events-none fixed inset-x-0 bottom-[var(--sn-bottomdock-h,64px)] z-[25] px-4 py-2.5 transition-transform ease-out motion-reduce:transition-none lg:bottom-7 lg:left-auto lg:right-7 lg:w-[720px] lg:px-0 ${
         up ? 'translate-y-0' : 'translate-y-[calc(100%_+_32px)]'
       }`}
       style={{ transitionDuration: `${THUMB_SLIDE_MS}ms` }}
     >
-      <div ref={rowRef} className="pointer-events-auto flex min-w-0 items-center gap-1.5">
-        <span className="sn-glass-row inline-flex shrink-0 rounded-full">
-          <ActionButton
-            tone="neutral"
-            icon={allOpen ? ChevronsDownUp : ChevronsUpDown}
-            label={allOpen ? 'Collapse all' : 'Expand all'}
-            aria-expanded={allOpen}
-            onClick={onToggleAll}
-            className="!border-transparent"
-          />
-        </span>
-        <label
-          data-glass-row="suppliers-find"
-          data-fit-field=""
-          className="sn-glass-row flex h-10 min-w-0 flex-1 items-center gap-2 rounded-full px-3.5 text-ink"
-        >
-          <Search className="h-4 w-4 shrink-0 text-ink/55" strokeWidth={1.9} aria-hidden />
-          <input
-            type="search"
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder={words}
-            aria-label={words}
-            autoComplete="off"
-            className="h-full min-w-0 flex-1 bg-transparent text-[14px] text-ink outline-none placeholder:text-ink/55"
-          />
-        </label>
-        <ActionButton tone="brand" icon={Plus} label="Add your own" onClick={onAdd} className={ADD_FILLED} />
-      </div>
+      <ThumbControls
+        allOpen={allOpen}
+        onToggleAll={onToggleAll}
+        words={words}
+        text={text}
+        onText={setText}
+        onAdd={onAdd}
+      />
     </div>,
     host,
+  );
+}
+
+/**
+ * The row's three controls — their OWN component, on purpose.
+ *
+ * 🪤 The row is drawn into <body>, so it does not exist on the first render
+ * (`host` is null until mount). `useFitRow` measures in an effect that runs
+ * ONCE for the component that calls it: called from `FindThumbRow`, it ran
+ * while the row was not there yet, found no element, and never ran again — the
+ * buttons kept their words and the field was squeezed to one letter (measured
+ * on the preview at 375, 2026-10-08: the placeholder showed only "S"). Here the
+ * hook mounts WITH the row, so the fit pass always has a row to measure.
+ *
+ * The field's 60 % is also held in CSS (`min-w-[60%]`), so it is true before
+ * any script runs; the buttons are what give.
+ */
+function ThumbControls({
+  allOpen,
+  onToggleAll,
+  words,
+  text,
+  onText,
+  onAdd,
+}: {
+  allOpen: boolean;
+  onToggleAll: () => void;
+  words: string;
+  text: string;
+  onText: (text: string) => void;
+  onAdd: () => void;
+}) {
+  const rowRef = useRef<HTMLDivElement>(null);
+  useFitRow(rowRef);
+  return (
+    <div ref={rowRef} className="pointer-events-auto flex min-w-0 items-center gap-1.5">
+      <span className="sn-glass-row inline-flex shrink-0 rounded-full">
+        <ActionButton
+          tone="neutral"
+          icon={allOpen ? ChevronsDownUp : ChevronsUpDown}
+          label={allOpen ? 'Collapse all' : 'Expand all'}
+          aria-expanded={allOpen}
+          onClick={onToggleAll}
+          className="!border-transparent"
+        />
+      </span>
+      <label
+        data-glass-row="suppliers-find"
+        data-fit-field=""
+        className="sn-glass-row flex h-10 min-w-[60%] flex-1 items-center gap-2 rounded-full px-3.5 text-ink"
+      >
+        <Search className="h-4 w-4 shrink-0 text-ink/55" strokeWidth={1.9} aria-hidden />
+        <input
+          type="search"
+          value={text}
+          onChange={(e) => onText(e.target.value)}
+          placeholder={words}
+          aria-label={words}
+          autoComplete="off"
+          className="h-full min-w-0 flex-1 bg-transparent text-[14px] text-ink outline-none placeholder:text-ink/55"
+        />
+      </label>
+      <ActionButton tone="brand" icon={Plus} label="Add your own" onClick={onAdd} className={ADD_FILLED} />
+    </div>
   );
 }

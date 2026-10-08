@@ -21,7 +21,8 @@
  *
  * SABOTAGE, each seen red (2026-10-08; the PR body has the runs):
  *   T1 draw the folder heads · T2 count over all tiles, bare number
- *   T3 keep the count bubble · T4 chips per folder / every category listed
+ *   T3 keep the count bubble · clip the name · T4 a second plus sign · chips per
+ *      folder / every category listed
  *   T5 the old label
  */
 import test from 'node:test';
@@ -60,7 +61,17 @@ test('T2 · "Cover your event", then "Covered N of M" — counted, and counting 
 });
 
 test('T3 · a row: the name, "· N yours", and ONE state word from the pure rule', () => {
-  assert.match(BENCH, /\{replan && t\.vendors\.length > 0 \? \(\s*<span className="cat-yours">\s*· <Count value=\{t\.vendors\.length\} id=\{`sup-yours-\$\{t\.tile\}`\} \/> yours/);
+  // The name and "· N yours" are ONE run of text inside the name's own span, so
+  // they wrap together — and the name is never cut with an ellipsis (measured
+  // on the preview at 375: "Coordinator…", "Lights & Sou…").
+  assert.match(
+    BENCH,
+    /<span className="cat-nm">\s*\{t\.label\}\s*\{replan && t\.vendors\.length > 0 \? \(\s*<span className="cat-yours">\s*\{' '\}\s*· <Count value=\{t\.vendors\.length\} id=\{`sup-yours-\$\{t\.tile\}`\} \/> yours\s*<\/span>\s*\) : null\}\s*<\/span>/,
+  );
+  const flatName = /\.slcat \.fold\.flat \.cat-nm\{([^}]*)\}/.exec(BENCH)?.[1] ?? '';
+  assert.match(flatName, /white-space:normal/, 'a long category name cannot wrap');
+  assert.match(flatName, /text-overflow:clip/, 'a long category name is cut with an ellipsis');
+  assert.match(flatName, /overflow:visible/);
   assert.match(
     BENCH,
     /categoryRowState\(\{\s*lockedCount: rowCoverage\?\.lockedCount \?\? 0,\s*covered: rowCoverage\?\.covered \?\? false,\s*vendorCount: t\.vendors\.length,\s*quoteInCount: t\.vendors\.filter\(\(v\) => standings\[v\.vendorId\]\?\.needsYou === true\)\.length,\s*\}\)/,
@@ -81,7 +92,11 @@ test('T4 · "+ Add to your event" is ONE dropdown of the categories NOT on the e
   const pool = BENCH.slice(BENCH.indexOf('data-add-to-event=""'), BENCH.indexOf('<FindThumbRow'));
   assert.ok(pool.length > 0, 'the dropdown moved — re-anchor');
   assert.equal((pool.match(/<PickMenu\b/g) ?? []).length, 1);
-  assert.match(pool, /buttonText=\{`\+ \$\{ADD_TO_PLAN_HEADING\}`\}/);
+  // ONE plus mark: the shipped words carry their own, and nothing is prefixed
+  // (measured on the preview: "+ ＋ Add to your event").
+  assert.match(pool, /buttonText=\{ADD_TO_PLAN_HEADING\}/);
+  assert.equal((ADD_TO_PLAN_HEADING.match(/[+＋]/g) ?? []).length, 1);
+  assert.doesNotMatch(pool, /buttonText=\{`[^`]*[+＋]/);
   assert.equal(ADD_TO_PLAN_HEADING.toLowerCase().includes('your event'), true);
   assert.match(pool, /options=\{poolRows\.map\(\(\{ t, f \}\) => \(\{ key: t\.tile, label: t\.label, group: f\.label \}\)\)\}/);
   assert.match(pool, /if \(row && !planEditing\) addTileToPlan\(row\.t\.tile, row\.f\.folder, row\.f\.slug\);/);

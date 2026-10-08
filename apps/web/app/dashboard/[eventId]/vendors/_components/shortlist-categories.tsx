@@ -287,8 +287,8 @@ const SLCAT_CSS = `
 .slcat .fold.flat .cat-head{min-height:56px;padding:10px 0;gap:12px}
 .slcat .fold.flat .cat-l{gap:12px}
 .slcat .fold.flat .cat-ic{width:36px;height:36px;align-items:center;justify-content:center;border-radius:var(--m-r-full);background:rgba(169,131,75,.13)}
-.slcat .fold.flat .cat-nm{font-weight:500;font-size:16px}
-.slcat .cat-yours{flex:0 0 auto;font-size:15px;color:var(--ink-soft);white-space:nowrap}
+.slcat .fold.flat .cat-nm{font-weight:500;font-size:16px;line-height:1.25;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
+.slcat .cat-yours{font-weight:400;font-size:15px;color:var(--ink-soft);white-space:nowrap}
 .slcat .cat-st{font-size:13px;color:var(--ink-soft);white-space:nowrap}
 .slcat .cat-st.ok{color:rgb(var(--color-ok))}
 .slcat .cat-st.wn{color:var(--mulberry)}
@@ -3221,12 +3221,20 @@ export function ShortlistCategories({
                             <span className="cat-ic" aria-hidden>
                               <CatIcon size={15} strokeWidth={1.7} />
                             </span>
-                            <span className="cat-nm">{t.label}</span>
-                            {replan && t.vendors.length > 0 ? (
-                              <span className="cat-yours">
-                                · <Count value={t.vendors.length} id={`sup-yours-${t.tile}`} /> yours
-                              </span>
-                            ) : null}
+                            {/* The name and "· N yours" are ONE run of text that
+                                may wrap to a second line (the prototype's row)
+                                — never an ellipsis: at 375 px "Coordinator…"
+                                and "Lights & Sou…" were clipped beside their
+                                own count (measured on the preview). */}
+                            <span className="cat-nm">
+                              {t.label}
+                              {replan && t.vendors.length > 0 ? (
+                                <span className="cat-yours">
+                                  {' '}
+                                  · <Count value={t.vendors.length} id={`sup-yours-${t.tile}`} /> yours
+                                </span>
+                              ) : null}
+                            </span>
                             <UnreadRollupBadge vendors={t.vendors} />
                           </span>
                           <span className="cat-rt">
@@ -3756,7 +3764,8 @@ export function ShortlistCategories({
           <PickMenu
             label={ADD_TO_PLAN_HEADING}
             value={null}
-            buttonText={`+ ${ADD_TO_PLAN_HEADING}`}
+            // The shipped words already carry their ＋ — one mark, one phrase.
+            buttonText={ADD_TO_PLAN_HEADING}
             dataAttr="data-add-category"
             stickyGroups
             options={poolRows.map(({ t, f }) => ({ key: t.tile, label: t.label, group: f.label }))}

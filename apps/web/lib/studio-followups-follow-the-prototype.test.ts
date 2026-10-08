@@ -14,8 +14,9 @@
  *       name · picture square · ⋯; `studio-love-story-wears-the-timeline-row.test.ts` holds its
  *       rules) — and an edit made there keeps EVERY field the moment holds (a year changed never
  *       drops its place, photos, title, anchor, hidden or order).
- *   3 · Studio › Info's names are ONE row "Event name · Maria & Jose", composed as the hero composes
- *       them, opening the shipped NamesEditor + Name style ▾ in place; a one-person event keeps its own.
+ *   3 · Studio › Info's "Event name · Maria & Jose" is composed as the hero composes it, with its ⓘ; a
+ *       one-person event keeps its own. (Since the 2026-10-08 Info redesign the two people it opens are
+ *       Form rows, each name a pill — `lib/studio-info-wears-the-form-row.test.ts` holds those.)
  *   4 · Studio › Wedding March has no "Parents & hosts" block (parents walk in the march; hosts are
  *       access) and its tray shrinks to the Not-walking strip — the shipped Maker keeps the block.
  *
@@ -193,20 +194,7 @@ test('2b · Studio › Love Story is the rows — one band per chapter, opened i
   assert.doesNotMatch(shipped, /data-moment-order-cards/);
 });
 
-test('3 · Studio › Info: ONE "Event name · Maria & Jose" row that opens the two people + Name style in place', async () => {
-  const { StudioEventName } = await import(`../${L}/studio-event-name`);
-  const out = await html(
-    React.createElement(StudioEventName, {
-      eventId: 'ev-1',
-      people: ['Bride', 'Groom'],
-      initial: [{ first: 'Maria', last: 'Santos' }, { first: 'Jose', last: 'Dela Cruz' }],
-      nameStyle: 'full',
-    }),
-  );
-  assert.match(out, /Event name[\s\S]*?<span[^>]*>Maria &amp; Jose<\/span>/, 'the row does not read “Event name · Maria & Jose” (first names, as the hero composes them)');
-  assert.match(out, /About Event name/, 'Event name has no ⓘ saying where it is read');
-  assert.match(out, /aria-expanded="false"/);
-  assert.match(out, /<div id="[^"]+" hidden="" class="hidden /, 'the names are not folded under the row until it is tapped');
+test('3 · Studio › Info: "Event name · Maria & Jose" is composed as the hero composes it, with its ⓘ — only for a two-person event', () => {
   const md = read(`${L}/maker-details.tsx`);
   assert.match(
     md,
@@ -214,8 +202,9 @@ test('3 · Studio › Info: ONE "Event name · Maria & Jose" row that opens the 
     'Studio › Info does not draw the Event name row — or draws it for a one-person event',
   );
   const body = read(`${L}/studio-event-name.tsx`);
-  assert.match(body, /<NamesEditor eventId=\{eventId\} people=\{people\} initial=\{initial\} onNames=\{onNames\} \/>\s*<NameStylePicker eventId=\{eventId\} saved=\{nameStyle\} \/>/, 'the row does not open the SHIPPED editors');
-  assert.match(body, /coupleNameColumns\(a, b\)\.display_name/, 'the row does not compose the name as the hero does');
+  assert.match(body, /const shown = coupleNameColumns\(names\[0\], names\[1\]\)\.display_name \?\? '';/, 'the row does not compose the name as the hero does');
+  assert.match(body, /name="Event name"\s+about=\{\{/, 'Event name has no ⓘ saying where it is read');
+  assert.match(body, /<OpensRow\s+data="event-name"[\s\S]*?answer=\{shown\}/, 'the Event name is not ONE row that opens the two people in place');
 });
 
 test('4 · Studio › Wedding March: no "Parents & hosts" block; the tray is the Not-walking strip — the shipped Maker keeps it', () => {
@@ -240,12 +229,12 @@ test('5 · no Studio editor says "Saved" or asks for a Save on a drafted field �
   assert.match(bar, /data-mood-board-auto/, 'the Mood Board lost ✨ Auto');
   assert.doesNotMatch(bar, /Saved|Saving/, 'the Mood Board still shows a Saved chip');
   assert.match(bar, /save === 'error' \?/, 'a FAILED Mood Board save is no longer said');
-  /* What to bring is a drafted column: typed → drafted after a pause, no Save button. */
-  const tools = read(`${L}/studio-tools.tsx`);
-  const bring = tools.slice(tools.indexOf('function StudioWhatToBring'), tools.indexOf('export type StudioToolProps'));
-  assert.doesNotMatch(bring, /type="submit"|<TextPanel|>Save</, 'What to bring still has a Save button');
-  assert.match(bring, /JSON\.stringify\(\{ events: \{ what_to_bring:/, 'What to bring no longer writes the draft');
-  assert.match(bring, /hubDraftAction\(eventId, fd\)/, 'What to bring writes outside the one draft door');
+  /* What to bring is a drafted column: a typed Form row — kept on leaving the field, ONE draft write, no Save button. */
+  const info = read(`${L}/studio-info.tsx`);
+  assert.doesNotMatch(info, /type="submit"|<TextPanel|>Save<|>Saved</, 'an Info words row still has a Save button or a Saved chip');
+  assert.match(info, /what_to_bring: \{[\s\S]*?value: \(text: string\): string \| null => text \|\| null,/, 'What to bring no longer writes the draft');
+  assert.match(info, /return studioDraftKeep\(eventId, `events:\$\{fact\}`, \{ \[fact\]: w\.value\(kept\) \}\);/, 'What to bring no longer writes the draft');
+  assert.match(info, /return hubDraftAction\(eventId, fd\);/, 'What to bring writes outside the one draft door');
 });
 
 test('6 · a Studio tile never leaves the Maker — every tile opens its editor in place', async () => {

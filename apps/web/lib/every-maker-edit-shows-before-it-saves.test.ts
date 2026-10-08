@@ -88,6 +88,8 @@ const WAITS_ON_PURPOSE: Record<string, string> = {
     'OPEN — scene/main backgrounds belong to Builder H; reported 2026-09-29 (the choice waits on the save). Remove this line when it is drawn first.',
   'launch/_components/studio-tools.tsx › saveHandle':
     'Studio › E-Gifts (2026-10-07): a way to give\'s number and name — what the couple typed IS the visible change (the inputs\' own state, and "What guests see" redraws from it as they type); this is the save on leaving the field.',
+  'launch/_components/studio-info.tsx › studioDraftKeep':
+    'Studio › Info on the Form row (owner 2026-10-08): the ONE drafted write behind a kept answer. What the couple typed or picked IS the visible change — the row shows the kept words (the switch its new side, the dropdown its pick) BEFORE this is called by `TypedRow`\'s keep, `pickStyle`, the opening line\'s pick and the QR switch; a refusal puts back only what did not save, and says so.',
   'launch/_components/parent-cards.tsx › add':
     'OPEN (Details, Builder K) — adding a parent creates a guest row and its card needs the server\'s new guest id; nothing shows until it lands. Reported 2026-09-29.',
 };

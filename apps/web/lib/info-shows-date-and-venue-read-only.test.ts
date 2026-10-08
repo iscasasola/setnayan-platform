@@ -37,8 +37,8 @@ test('1 · under the flag, Date and Venue are the read-only fact — never their
   const at = details.indexOf('if (props.studio) {');
   assert.ok(at > 0, 'the Studio block moved — re-read this guard');
   const block = details.slice(at, details.indexOf('\n  }\n', at));
-  assert.match(block, /editors\.date = <StudioTool part="fact" value=\{yeIn\.date\.dateDisplay\} line=\{STUDIO_SUPPLIERS_LINE\} data="date" \/>;/);
-  assert.match(block, /editors\.venues = <StudioTool part="fact" value=\{names \|\| null\} line=\{STUDIO_SUPPLIERS_LINE\} data="venues" \/>;/);
+  assert.match(block, /editors\.date = <StudioTool part="fact" label="Date" value=\{yeIn\.date\.dateDisplay\} line=\{STUDIO_SUPPLIERS_LINE\} data="date" \/>;/);
+  assert.match(block, /editors\.venues = <StudioTool part="fact" label=\{ye\?\.rows\.venues\?\.label \?\? 'Venue'\} value=\{names \|\| null\} line=\{STUDIO_SUPPLIERS_LINE\} data="venues" \/>;/);
   assert.doesNotMatch(block, /DateEditor|VenuesEditor|venuesEditorFor|type="date"|type=\{?['"]date/, 'a date or venue field is drawn in Studio › Info');
 });
 

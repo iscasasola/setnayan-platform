@@ -2,7 +2,7 @@
 
 import { StudioColourField } from './studio-colour-field';
 import { OpenInPlace } from './open-in-place';
-import { useContext, useEffect, useId, useRef, useState, useTransition, type ReactNode } from 'react';
+import { useContext, useEffect, useId, useState, useTransition, type ReactNode } from 'react';
 import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { tellLookSample } from '@/lib/look-sample-store';
 import { EGIFT_KIND_META, type EgiftMethodKind } from '@/lib/egift-kinds';
@@ -30,7 +30,6 @@ import {
   type WhichVersion,
 } from '@/lib/which-version-guests-see';
 import { useMaker } from './maker-context';
-import { useSceneWordsBox } from '../../website/editor/_components/canvas-words';
 import { DetailsSelectContext } from './details-go';
 import { ISeg, ISegmented } from '../../website/editor/_components/inspector-kit';
 import { LOOK_SECTION_ITEM_KEYS, type LookSectionItemKey } from '@/lib/maker-details-items';
@@ -58,8 +57,10 @@ import { MAIN_GROUND_SHADES, MAIN_GROUND_SHADE_LABEL } from '@/lib/main-ground-s
 import { fadeWords } from '@/lib/background-fade';
 import { MAIN_COLOUR_JOB, MAIN_COLOUR_SLOTS, type MainColourDraft, type MainColourSlot } from '@/lib/main-colours';
 import { MAIN_COLOUR_SLOTS as MOOD_MAIN_COLOUR_SLOTS } from '@/lib/colour-access';
-import { InfoTip } from '@/app/_components/info-tip';
 import { StudioEventName } from './studio-event-name';
+import { STUDIO_INFO_ROWS, StudioOpeningLine, StudioWords, studioDraftKeep } from './studio-info';
+import { ChosenRow, FactRow, FormRow, FormRows, SwitchRow } from '@/app/_components/form-row';
+import { Fold } from '@/app/_components/fold';
 import { BACKGROUND_MAIN_INFO } from '@/lib/background-source';
 
 /**
@@ -126,12 +127,12 @@ export function StudioSwitch({
  * read it, and where it is set. No field — nothing here can change it.
  */
 export function StudioReadOnlyFact({ label, value, line, data }: { label?: string; value: string | null; line: string; data: string }) {
+  /* 🧾 ONE QUIET LINE (owner 2026-10-08, the Info redesign): the Form row's own shown-not-typed answer — its name,
+     the value as guests read it, and where it is changed. No pill: nothing here can be tapped. */
   return (
-    <div data-studio-read-only={data} className="flex min-h-11 flex-col gap-0.5 py-1">
-      {label ? <span className="text-[14px] font-semibold text-ink">{label}</span> : null}
-      <span className={`whitespace-pre-line text-[14px] ${value ? 'text-ink/80' : 'text-ink/50'}`}>{value ?? 'Not set yet'}</span>
-      <small className="text-[12px] text-ink/55">{line}</small>
-    </div>
+    <FormRows attrs={STUDIO_INFO_ROWS}>
+      <FactRow name={label ?? ''} value={value} where={line} attrs={{ 'data-studio-read-only': data }} />
+    </FormRows>
   );
 }
 
@@ -440,7 +441,7 @@ function stayForm(eventId: string, fields: Record<string, string>): FormData {
   return f;
 }
 
-/** One row of the form: the name on the left, the control on the right. */
+/** One row of a Look form: the name on the left, the control on the right (Look › Background's extras). */
 function HubRow({ label, children, data }: { label: string; children: ReactNode; data: string }) {
   return (
     <div data-studio-hub-row={data} className={`${STUDIO_ROW} flex-wrap`}>
@@ -450,30 +451,51 @@ function HubRow({ label, children, data }: { label: string; children: ReactNode;
   );
 }
 
+/** Said ONCE at the head of the group — the rows under it that do not wait for ✓ Apply (owner: the address and access stay live). */
+export const STUDIO_LIVE_LINE = 'These change your Event Hub right away — not on ✓ Apply: the address, Go live, who can view, which version guests see, and the Event Bar.';
+
 /**
- * 🌐 YOUR EVENT HUB (prototype `infoForm` › "Your Event Hub"): Go live ▾ · Who can
- * view ▾ · Which version guests see ▾ · the Event Bar. Each is the SHIPPED
- * control's write — live, and said so (`HubSavesImmediately`):
- *   · Go live            → `LaunchStdButton` (the ⋯ sheet's own);
- *   · Who can view ▾     → `updateLandingPageVisibility`;
- *   · Which version ▾    → `setLaunchPhase` + `setOpenBrowse` — "All of them" is
- *     open browsing, ONE control (`lib/which-version-guests-see.ts`);
- *   · Event Bar          → the switch the work area registered (`MakerEventBar`).
+ * 🌐 "MORE FOR GUESTS" — the optional part of Info, FOLDED (owner 2026-10-08: *"prioritize only what they need to
+ * input here"*; the designer's map rows 9–15; the gallery's § 19 Fold). Inside, as Form rows:
+ *
+ *   one amber line, once — which of these rows change the live Event Hub at once
+ *   Event Hub address      the shipped `SlugField` (its own "is it free" check and Save: a live link is not kept by a tap out)
+ *   Go live                `LaunchStdButton` (the ⋯ sheet's own)
+ *   Who can view ▾         → `updateLandingPageVisibility`
+ *   Which version ▾        → `setLaunchPhase` + `setOpenBrowse` — "All of them" is open browsing, ONE control
+ *   Event Bar              the switch the work area registered (`MakerEventBar`)
+ *   Show the event QR      drafted (`qr_shown`) — the QR, its look and Copy · Share · Download under it while on
+ *
+ * 🔑 WHICH ROWS SAVE LIVE AND WHICH WAIT FOR ✓ APPLY IS UNCHANGED — each control is the SHIPPED write.
+ * What is inside stays mounted while the fold is shut (`Fold`), so nothing here stops posting.
  */
-export function StudioHubSettings({ eventId, slug, hub }: { eventId: string; slug: string | null; hub: StudioHubFacts | null }) {
+export function StudioHubSettings({
+  eventId,
+  slug,
+  hub,
+  address = null,
+  qrShown = true,
+  qrLook = null,
+  livePath = null,
+}: {
+  eventId: string;
+  slug: string | null;
+  hub: StudioHubFacts | null;
+  /** The address's own editor (`SlugField`), drawn by the server. */
+  address?: ReactNode;
+  /** `events.qr_shown` as it stands (drafted over live). */
+  qrShown?: boolean;
+  /** The QR's Shape · Pattern · Colour (`QrLookControls`), drawn by the server. */
+  qrLook?: ReactNode;
+  /** The live address's path, for Copy · Share · Download. */
+  livePath?: string | null;
+}) {
   const maker = useMaker();
   const [who, setWho] = useState(hub?.visibility ?? 'private');
   const [version, setVersion] = useState<WhichVersion>(() => (hub ? whichVersionNow(hub) : 'auto'));
   const [open, setOpen] = useState(hub?.openBrowse ?? false);
   const [error, setError] = useState<string | null>(null);
   const [, start] = useTransition();
-  if (!hub) {
-    return (
-      <p role="alert" className="text-[13px] text-terracotta-700" data-studio-hub-unread="">
-        Your Event Hub settings could not be read just now. Nothing was changed — please reopen this in a moment.
-      </p>
-    );
-  }
   const pickWho = (next: string) => {
     if (next === who || !WHO_CAN_VIEW.some((w) => w.key === next)) return;
     const before = who;
@@ -510,44 +532,73 @@ export function StudioHubSettings({ eventId, slug, hub }: { eventId: string; slu
     });
   };
   return (
-    <div data-studio-hub="" className="flex flex-col">
-      {/* "Guests see this right away" is said once, by the address right above (its own `HubSavesImmediately`). */}
-      <HubRow label="Go live" data="go-live">
-        <LaunchStdButton eventId={eventId} slug={slug} initialLaunched={hub.launched} initialScheduledAt={hub.scheduledAt} />
-      </HubRow>
-      <HubRow label="Who can view" data="who-can-view">
-        <PickMenu
-          label="Who can view"
-          dataAttr="data-studio-who-pick"
-          value={who}
-          buttonText={WHO_CAN_VIEW.find((w) => w.key === who)?.label ?? 'Private'}
-          options={WHO_CAN_VIEW}
-          onPick={pickWho}
-          className={STUDIO_ROW_PICK}
-        />
-      </HubRow>
-      <HubRow label={WHICH_VERSION_LABEL} data="which-version">
-        <PickMenu
-          label={WHICH_VERSION_LABEL}
-          dataAttr="data-studio-version-pick"
-          value={version}
-          buttonText={whichVersionLabel(version)}
-          options={WHICH_VERSION_OPTIONS}
-          onPick={pickVersion}
-          className={STUDIO_ROW_PICK}
-        />
-      </HubRow>
-      {maker?.eventBar ? (
-        <div className="border-t border-ink/10">
-          <StudioSwitch label="Event Bar" on={maker.eventBar.on} onChange={() => maker.eventBar?.toggle()} data="event-bar" />
-        </div>
-      ) : null}
-      {error ? (
-        <p role="alert" className="text-[13px] text-terracotta-700">
-          {error}
+    <Fold data="more-for-guests" title="More for guests" summary="the address, who can view, the QR">
+      <div data-studio-hub="" {...STUDIO_INFO_ROWS} className="flex flex-col pb-2">
+        {/* 🟠 ONE line, once, for the whole group — never a line per row. The address's own "Guests see this right
+            away" (`HubSavesImmediately`) steps aside for it here. */}
+        <p data-studio-live-line="" className="pb-2 text-[12.5px] font-medium leading-snug text-warn-700">
+          {STUDIO_LIVE_LINE}
         </p>
-      ) : null}
-    </div>
+        <FormRows data="your-event-hub">
+          <FormRow
+            data="address"
+            name="Event Hub address"
+            about={{ words: 'On every link, print and pass. Changing it changes your link — the old one still brings guests to the new one.' }}
+            below={address ? <div className="pb-3 [&_[data-hub-saves-immediately]]:hidden">{address}</div> : null}
+          />
+          {hub ? (
+            <>
+              <FormRow data="go-live" name="Go live" attrs={{ 'data-studio-hub-row': 'go-live' }}>
+                <LaunchStdButton eventId={eventId} slug={slug} initialLaunched={hub.launched} initialScheduledAt={hub.scheduledAt} />
+              </FormRow>
+              <ChosenRow
+                data="who-can-view"
+                name="Who can view"
+                value={who}
+                buttonText={WHO_CAN_VIEW.find((w) => w.key === who)?.label ?? 'Private'}
+                options={WHO_CAN_VIEW}
+                onPick={pickWho}
+                dataAttr="data-studio-who-pick"
+                attrs={{ 'data-studio-hub-row': 'who-can-view' }}
+              />
+              <ChosenRow
+                data="which-version"
+                name={WHICH_VERSION_LABEL}
+                value={version}
+                buttonText={whichVersionLabel(version)}
+                options={WHICH_VERSION_OPTIONS}
+                onPick={pickVersion}
+                dataAttr="data-studio-version-pick"
+                attrs={{ 'data-studio-hub-row': 'which-version' }}
+              />
+              {maker?.eventBar ? (
+                <SwitchRow
+                  data="event-bar"
+                  name="Event Bar"
+                  about={{ words: 'The bar at the foot of your Event Hub that takes guests from page to page.' }}
+                  on={maker.eventBar.on}
+                  onChange={() => maker.eventBar?.toggle()}
+                  attrs={{ 'data-studio-switch': 'event-bar' }}
+                />
+              ) : null}
+            </>
+          ) : (
+            <p role="alert" className="py-3 text-[13px] text-danger-700" data-studio-hub-unread="">
+              Your Event Hub settings could not be read just now. Nothing was changed — please reopen this in a moment.
+            </p>
+          )}
+          <StudioQrShown eventId={eventId} shown={qrShown}>
+            {qrLook}
+            <StudioQrActions slug={slug} path={livePath} />
+          </StudioQrShown>
+        </FormRows>
+        {error ? (
+          <p role="alert" className="pt-1 text-[12.5px] font-semibold text-danger-700">
+            {error}
+          </p>
+        ) : null}
+      </div>
+    </Fold>
   );
 }
 
@@ -865,115 +916,49 @@ export function StudioMainColours({
  * APPROVED"): off leaves the event QR off the prints and the guest page. On is
  * today's behaviour. Drafted (`qr_shown`) — guests see it at Apply.
  */
-export function StudioQrShown({ eventId, shown }: { eventId: string; shown: boolean }) {
+export function StudioQrShown({ eventId, shown, children }: { eventId: string; shown: boolean; children?: ReactNode }) {
   const [on, setOn] = useState(shown);
   useEffect(() => setOn(shown), [shown]);
   const [error, setError] = useState<string | null>(null);
-  const [, start] = useTransition();
   return (
-    <div data-studio-qr-shown="" className="flex flex-col">
-      <StudioSwitch
-        label="Show the event QR"
-        on={on}
-        data="qr-shown"
-        onChange={(next) => {
-          setOn(next);
-          setError(null);
-          start(async () => {
-            const ok = await draftTook(makerSave(() => draftSend(eventId, { events: { qr_shown: next } }), requestMakerRefresh));
-            if (!ok) {
-              setOn(!next);
-              setError('That did not save, so it is back as it was. Please try again.');
-            }
-          });
-        }}
-      />
-      {error ? (
-        <p role="alert" className="text-[13px] text-terracotta-700">
-          {error}
-        </p>
-      ) : null}
-    </div>
+    <SwitchRow
+      data="qr-shown"
+      name="Show the event QR"
+      about={{ words: 'On every print and pass; guests open your Event Hub by scanning it. Off, it leaves the prints and the guest page — at ✓ Apply.' }}
+      on={on}
+      attrs={{ 'data-studio-qr-shown': '', 'data-studio-switch': 'qr-shown' }}
+      onChange={(next) => {
+        setOn(next);
+        setError(null);
+        /* ⚡ ONE drafted write, no render of the Maker (`studioDraftKeep`). */
+        void studioDraftKeep(eventId, 'events:qr_shown', { qr_shown: next }).then((r) => {
+          if (r.ok) return;
+          setOn(!next);
+          setError('That did not save, so it is back as it was. Please try again.');
+        });
+      }}
+      problem={error}
+      /* The QR, its look and Copy · Share · Download sit under the switch — still mounted while it is off. */
+      below={children ? <div hidden={!on} data-studio-qr-under="" className={on ? 'flex flex-col gap-1 pb-3' : 'hidden'}>{children}</div> : null}
+    />
   );
 }
 
 /* ── ONE door for the lazy stand-in (`details-lazy.tsx` `StudioTool`) ────── */
 
-/**
- * ✍ What to bring — its own drafted column (`what_to_bring`, `HUB_DRAFT_WORDS_COLUMNS`), the Event Hub's
- * Reminders box, in place. NO Save button (owner 2026-10-07, *"yes remove the saved."*): typed words are
- * drafted after a pause through the ONE draft door (`hubDraftAction` intent=save — the door the names use),
- * on the canvas as they are typed, and published by ✓ Apply. A refused save is said in words.
- */
-function StudioWhatToBring({ eventId, value }: { eventId: string; value: string | null }) {
-  const [text, setText] = useState(value ?? '');
-  const [error, setError] = useState<string | null>(null);
-  const sent = useRef(value ?? '');
-  const box = useRef<HTMLTextAreaElement>(null);
-  const preview = useSceneWordsBox('w:what_to_bring', box, () => sent.current);
-  /** The draft write — the words are already on the box and the canvas (`preview`) before it is asked. */
-  const save = (typed: string) => {
-    setText(typed); // the box shows exactly what is sent (it already does — typed is its own value)
-    setError(null);
-    const fd = new FormData();
-    fd.set('intent', 'save');
-    fd.set('patch', JSON.stringify({ events: { what_to_bring: typed.trim().slice(0, 600) || null } }));
-    void makerSave(() => hubDraftAction(eventId, fd), requestMakerRefresh)
-      .then((r) => {
-        if (r.ok) sent.current = typed;
-        else setError(`What to bring did not save. ${r.error || 'Please try again.'}`);
-      })
-      .catch(() => setError('What to bring did not save. Please try again.'));
-  };
-  const saveRef = useRef(save);
-  saveRef.current = save;
-  /* A pause after the last keystroke (the names' `AutoDraft` beat), then one draft write. */
-  useEffect(() => {
-    if (text === sent.current) return;
-    const t = window.setTimeout(() => saveRef.current(text), 900);
-    return () => window.clearTimeout(t);
-  }, [text]);
-  return (
-    <div className="flex flex-col gap-1 border-t border-ink/10 pt-4" data-studio-what-to-bring="">
-      {/* ⓘ Where it is read (owner 2026-10-07): the Event Hub's What to bring part (`what-to-bring-widget.tsx`) and the guest's welcome (`guest-welcome.tsx`). */}
-      <InfoTip label="What to bring" labelClassName="text-[14px] font-semibold text-ink" align="start">
-        Shown on your Event Hub in its own What to bring part, and in each guest&rsquo;s welcome.
-      </InfoTip>
-      <textarea
-        id={`bring-${eventId}`}
-        aria-label="What to bring"
-        ref={box}
-        rows={3}
-        maxLength={600}
-        value={text}
-        placeholder="e.g. your invitation QR, a jacket for the garden"
-        data-same-field="what_to_bring"
-        onChange={(e) => {
-          setText(e.target.value);
-          preview(e.target.value);
-        }}
-        className="w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-[15px] text-ink outline-none focus:border-ink/30"
-      />
-      {error ? (
-        <p role="alert" className="text-[13px] text-terracotta-700">
-          {error}
-        </p>
-      ) : null}
-    </div>
-  );
-}
+/* ✍ What to bring, the Special message and the Opening line are `studio-info.tsx`'s rows (the Form row, one drafted
+   write per kept answer) — they ride this one lazy door. */
 
 export type StudioToolProps =
   | ({ part: 'hub' } & Parameters<typeof StudioHubSettings>[0])
   | ({ part: 'fact' } & Parameters<typeof StudioReadOnlyFact>[0])
-  | ({ part: 'qr' } & Parameters<typeof StudioQrActions>[0])
   | { part: 'quiet' }
   | ({ part: 'gifts' } & Parameters<typeof StudioEgifts>[0])
   | ({ part: 'look' } & Parameters<typeof StudioLookBar>[0])
   | ({ part: 'main-extras' } & Parameters<typeof StudioMainExtras>[0])
   | ({ part: 'main-colours' } & Parameters<typeof StudioMainColours>[0])
-  | ({ part: 'qr-shown' } & Parameters<typeof StudioQrShown>[0])
-  | ({ part: 'bring' } & Parameters<typeof StudioWhatToBring>[0])
+  | ({ part: 'words' } & Parameters<typeof StudioWords>[0])
+  | ({ part: 'opening-line' } & Parameters<typeof StudioOpeningLine>[0])
   | ({ part: 'event-name' } & Parameters<typeof StudioEventName>[0])
   /* ⚖ A round-3 piece rides this one lazy door (2026-10-08) — a door of its own cost the Maker's first load. */
   | ({ part: 'open-in-place' } & Parameters<typeof OpenInPlace>[0]);
@@ -984,8 +969,6 @@ export function StudioTool(props: StudioToolProps) {
       return <StudioHubSettings {...props} />;
     case 'fact':
       return <StudioReadOnlyFact {...props} />;
-    case 'qr':
-      return <StudioQrActions {...props} />;
     case 'quiet':
       return <StudioQuietRows />;
     case 'gifts':
@@ -996,10 +979,10 @@ export function StudioTool(props: StudioToolProps) {
       return <StudioMainExtras {...props} />;
     case 'main-colours':
       return <StudioMainColours {...props} />;
-    case 'qr-shown':
-      return <StudioQrShown {...props} />;
-    case 'bring':
-      return <StudioWhatToBring {...props} />;
+    case 'words':
+      return <StudioWords {...props} />;
+    case 'opening-line':
+      return <StudioOpeningLine {...props} />;
     case 'event-name':
       return <StudioEventName {...props} />;
     case 'open-in-place':

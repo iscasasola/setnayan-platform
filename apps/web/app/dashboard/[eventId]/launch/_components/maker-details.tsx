@@ -1017,7 +1017,7 @@ export function MakerDetails(props: MakerDetailsProps) {
     const yeIn = props.yourEvent ?? null;
     /* 📍 Date and Venue are read-only — set in Suppliers (DECISION_LOG "DATE AND VENUE LIVE IN SUPPLIERS"). */
     if (yeIn && editors.date) {
-      editors.date = <StudioTool part="fact" value={yeIn.date.dateDisplay} line={STUDIO_SUPPLIERS_LINE} data="date" />;
+      editors.date = <StudioTool part="fact" label="Date" value={yeIn.date.dateDisplay} line={STUDIO_SUPPLIERS_LINE} data="date" />;
     }
     if (yeIn && editors.venues) {
       const two = yeIn.venues.resolved.length > 1;
@@ -1025,7 +1025,7 @@ export function MakerDetails(props: MakerDetailsProps) {
         .filter((v) => v.name)
         .map((v) => (two ? `${VENUE_ROLE_LABEL[v.role]} · ${v.name}` : v.name!))
         .join('\n');
-      editors.venues = <StudioTool part="fact" value={names || null} line={STUDIO_SUPPLIERS_LINE} data="venues" />;
+      editors.venues = <StudioTool part="fact" label={ye?.rows.venues?.label ?? 'Venue'} value={names || null} line={STUDIO_SUPPLIERS_LINE} data="venues" />;
     }
     /* 🏷 Event name · Maria & Jose — ONE row that opens the two people + Name style ▾ in place
        (owner 2026-10-07 "yes"). The same NamesEditor / NameStylePicker; a one-person event
@@ -1041,32 +1041,48 @@ export function MakerDetails(props: MakerDetailsProps) {
         />
       );
     }
-    /* ✍ What to bring — its own drafted column (`what_to_bring`), the Event Hub's Reminders box, in place. */
-    if (editors['special-message'] !== undefined) {
-      editors['special-message'] = (
-        <div className="flex flex-col gap-4">
-          {editors['special-message']}
-          <StudioTool part="bring" eventId={eventId} value={st.whatToBring} />
-        </div>
+    /* ✍ THE WORDS A COUPLE TYPES, AS FORM ROWS (owner 2026-10-08, the Info redesign): each a pill that opens its
+       field; each kept answer ONE drafted write (`studio-info.tsx`).
+       · The opening line no longer posts the print-words form from here (its black Save is gone): it is drafted on
+         its own. The form's own field stays in the page, HIDDEN and AFTER the row (a jump from Stages lands on the
+         row's pill, the first door in the page), so a Prints save still carries the line. */
+    if (editors['opening-line'] !== undefined) {
+      editors['opening-line'] = (
+        <>
+          <StudioTool part="opening-line" eventId={eventId} value={stored.openingLine} />
+          <div hidden data-studio-words-form-field="opening_line">
+            {openingLine}
+          </div>
+        </>
       );
     }
-    /* 🌐 Your Event Hub — under its address: Go live · Who can view · Which version guests see · Event Bar. */
+    /* · The special message and What to bring (its own drafted column, the Event Hub's Reminders box). */
+    if (editors['special-message'] !== undefined) {
+      editors['special-message'] = (
+        <>
+          <StudioTool part="words" eventId={eventId} fact="special_message" value={specialMessage} />
+          <StudioTool part="words" eventId={eventId} fact="what_to_bring" value={st.whatToBring} />
+        </>
+      );
+    }
+    /* 🌐 "More for guests" — ONE fold under what must be typed (owner: "prioritize only what they need to input
+       here"): the address, Go live · Who can view · Which version guests see · Event Bar, and the event QR with its
+       look and its Copy · Share · Download. Each is its shipped editor; the fold only gathers them. */
     editors.address = (
-      <div className="flex flex-col gap-3">
-        {editors.address}
-        <StudioTool part="hub" eventId={eventId} slug={slug} hub={st.hub} />
-      </div>
+      <StudioTool
+        part="hub"
+        eventId={eventId}
+        slug={slug}
+        hub={st.hub}
+        address={editors.address}
+        /* 🔳 On or off first (owner 2026-10-07) — off, the event QR leaves the prints and the guest page. */
+        qrShown={st.qrShown !== false}
+        qrLook={<QrLookControls eventId={eventId} ownsPro={qr.ownsPro} storeShell={qr.storeShell} style={qr.style} inks={qr.inks} action={qrStyleAction} />}
+        livePath={st.livePath}
+      />
     );
-    /* 🔳 The QR — Shape · Pattern · Colour, then Copy · Share · Download, then the quiet rows. */
-    editors.qr = (
-      <div className="flex flex-col gap-1">
-        {/* 🔳 On or off first (owner 2026-10-07) — off, the event QR leaves the prints and the guest page. */}
-        <StudioTool part="qr-shown" eventId={eventId} shown={st.qrShown !== false} />
-        <QrLookControls eventId={eventId} ownsPro={qr.ownsPro} storeShell={qr.storeShell} style={qr.style} inks={qr.inks} action={qrStyleAction} />
-        <StudioTool part="qr" slug={slug} path={st.livePath} />
-        <StudioTool part="quiet" />
-      </div>
-    );
+    /* The form's quiet rows — Restore · Reset… · About — stay last, outside the fold. */
+    editors.qr = <StudioTool part="quiet" />;
     /* 🖨 The NFC spot is a Finer Details switch here (it still posts with every words Save). */
     editors.details = (
       <>

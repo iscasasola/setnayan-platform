@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "f208e87d8",
+  "generatedFromRef": "36283a3fc",
   "routeCount": 428,
   "destinations": 957,
   "actions": 671,
-  "blocks": 5735,
+  "blocks": 5759,
   "routes": {
     "/": {
       "files": [
@@ -2465,6 +2465,7 @@
         "SubmitButton",
         "Switch",
         "SwitchForm",
+        "SwitchTrack",
         "T",
         "TogglePick",
         "TypeQuestion",
@@ -3687,6 +3688,7 @@
         "RigidReveal",
         "Slider",
         "StdTouchGlow",
+        "SwitchTrack",
         "Toggle",
         "VeilReveal"
       ]
@@ -4440,6 +4442,7 @@
       "actions": [],
       "blocks": [
         "SiteWidgetRow",
+        "SwitchTrack",
         "ToggleSwitch"
       ]
     },
@@ -4969,6 +4972,7 @@
         "SettingsShell",
         "SubmitButton",
         "SwitchRow",
+        "SwitchTrack",
         "TurnstileField"
       ]
     },
@@ -5641,6 +5645,7 @@
         "SuggestMilestonesResult",
         "SummaryStat",
         "SupplierInvite",
+        "SwitchTrack",
         "TiltEditor",
         "TotalCell",
         "UpcomingRow",
@@ -5822,6 +5827,7 @@
         "SpecialMessageField",
         "SubmitButton",
         "Suspense",
+        "SwitchTrack",
         "T"
       ]
     },
@@ -6558,6 +6564,7 @@
         "dashboard/[eventId]/launch/_components/studio-colour-field.tsx",
         "dashboard/[eventId]/launch/_components/studio-event-name.tsx",
         "dashboard/[eventId]/launch/_components/studio-home.tsx",
+        "dashboard/[eventId]/launch/_components/studio-info.tsx",
         "dashboard/[eventId]/launch/_components/studio-tools.tsx",
         "dashboard/[eventId]/launch/_components/theme-pick-context.ts",
         "dashboard/[eventId]/launch/_components/theme-preview-overlay.tsx",
@@ -6611,6 +6618,7 @@
         "ChangedSincePrinted",
         "ChineseSpecialistNudge",
         "Chip",
+        "ChosenRow",
         "CityPick",
         "ColourPickerSheet",
         "ColourRow",
@@ -6637,6 +6645,7 @@
         "DetailsTapContext.Provider",
         "DetailsWorkspace",
         "Dir",
+        "Door",
         "DraftNote",
         "DraftsAsYouGo",
         "Drag",
@@ -6646,13 +6655,17 @@
         "EventPoster",
         "EventSettingsInput",
         "Face",
+        "FactRow",
         "Field",
         "FileUpload",
         "FindDateCandidates",
         "FindDatePicked",
         "FineTune",
         "FocusCorners",
+        "Fold",
         "FontPick",
+        "FormRow",
+        "FormRows",
         "Fragment",
         "Gap",
         "GovernedFields",
@@ -6771,6 +6784,7 @@
         "OneOpenScope",
         "OpenInPlace",
         "OpeningLineField",
+        "OpensRow",
         "OurStoryEditorPage",
         "PabuyaCardList",
         "PabuyaManager",
@@ -6873,6 +6887,7 @@
         "StudioLookBar",
         "StudioMainColours",
         "StudioMainExtras",
+        "StudioOpeningLine",
         "StudioQrActions",
         "StudioQrShown",
         "StudioQuietRows",
@@ -6883,7 +6898,7 @@
         "StudioTool",
         "StudioToolMenu",
         "StudioToolRow",
-        "StudioWhatToBring",
+        "StudioWords",
         "StylePreview",
         "Suspense",
         "Switch",
@@ -6898,6 +6913,7 @@
         "ToolMenu",
         "TuneFold",
         "TuneSlider",
+        "TypedRow",
         "Unread",
         "UpdateQrStyleResult",
         "VenuePhotoPicker",
@@ -6934,6 +6950,7 @@
         "LiveWallControls",
         "PageMasthead",
         "PickMenu",
+        "SwitchTrack",
         "WallMode",
         "WallModeControl"
       ]
@@ -7526,6 +7543,7 @@
         "StudioSeatPlanHead",
         "StudioSeatPlanTools",
         "Suspense",
+        "SwitchTrack",
         "T",
         "TableType"
       ]
@@ -8301,6 +8319,7 @@
         "StudioBuyHero",
         "StylePicker",
         "SubmitButton",
+        "SwitchTrack",
         "TierOption",
         "Unmeasured",
         "UploadsOpenChoice",
@@ -8411,7 +8430,8 @@
         "RecapSocialFeatureToggle",
         "ShareButtons",
         "Stat",
-        "SubmitButton"
+        "SubmitButton",
+        "SwitchTrack"
       ]
     },
     "/dashboard/[eventId]/studio/papic/run-of-show": {
@@ -8636,7 +8656,8 @@
         "StdMedia",
         "StdMediaPicker",
         "StdThemeId",
-        "StudioBuyHero"
+        "StudioBuyHero",
+        "SwitchTrack"
       ]
     },
     "/dashboard/[eventId]/studio/save-the-date/stamp": {
@@ -9054,6 +9075,7 @@
         "ShotListCard",
         "SnapshotChargeLine",
         "SubmitButton",
+        "SwitchTrack",
         "TrustedCircleBadge",
         "VendorDirectPay",
         "VendorItemizationCard",
@@ -11164,6 +11186,7 @@
       "actions": [],
       "blocks": [
         "Link",
+        "SwitchTrack",
         "TourChatThread",
         "TourShortlist",
         "VendorCard"
@@ -12976,6 +12999,7 @@
         "Snapshot",
         "SubLabel",
         "SubmitButton",
+        "SwitchTrack",
         "YourCoverage"
       ]
     },
@@ -13164,6 +13188,7 @@
         "SuggestedCoverageCard",
         "Suspense",
         "Switch",
+        "SwitchTrack",
         "Tally",
         "TeamPanel",
         "ToggleRow",

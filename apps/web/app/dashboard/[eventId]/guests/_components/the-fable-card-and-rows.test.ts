@@ -41,18 +41,9 @@ const CARD = read('guest-card-body.tsx');
 const GUESTS_LIB = stripComments(readFileSync(join(HERE, '..', '..', '..', '..', '..', 'lib', 'guests.ts'), 'utf8'));
 const PARTS = read('guest-ticket-parts.tsx');
 const CELL = read('guest-invite-cell.tsx');
-const ROWS = read('guest-list-multiselect.tsx');
-const CHIPS = read('chip-editors.tsx');
+const ROWS = read('guests-screen.tsx');
 const PAGE = read('..', 'page.tsx');
 const COLS = ['invite', 'rsvp', 'access', 'checkin', 'seat', 'side', 'role', 'groups', 'plus', 'account', 'contact'] as const;
-
-/** A function's source from its name to the next top-level function. */
-function bodyOfFn(src: string, name: string): string {
-  const a = src.indexOf(`function ${name}(`);
-  assert.notEqual(a, -1, `${name} is gone — this guard is blind`);
-  const b = src.indexOf('\nfunction ', a + 10);
-  return src.slice(a, b === -1 ? undefined : b);
-}
 
 const ACTIONS = stripComments(readFileSync(resolve(HERE, '..', '[guestId]', 'actions.ts'), 'utf8'));
 
@@ -141,12 +132,6 @@ test('card: Groups, Also serves as and Table are written ONLY when the card post
 
 // ── THE ROWS ────────────────────────────────────────────────────────────────
 
-test('rows: the reply pill opens ONE dropdown — no tap-to-cycle', () => {
-  assert.doesNotMatch(CHIPS, /RSVP_CYCLE|mobileCycle/, 'the tap-to-cycle is back');
-  assert.doesNotMatch(ROWS, /mobileCycle/);
-  assert.match(CHIPS, /const RSVP_OPTIONS: RsvpStatus\[\] = \['attending', 'pending', 'declined'\];/);
-});
-
 test('rows: "walks with" and Pair are gone from the list', () => {
   assert.doesNotMatch(ROWS, /walks with|<PartnerLine|pairSelectedGuests|unpairGuestAction|Pair these 2/);
 });
@@ -157,37 +142,9 @@ test('rows: no two-person row — every person is their own row, name and face',
   // march … They have their own plus"*. So the list never merges two people:
   // no pair lookup, no "A & B" name, no two-letter pair avatar, no couple
   // short form — each row's name comes from ONE guest.
-  for (const [where, src] of [['guest-list-multiselect.tsx', ROWS], ['guests/page.tsx', PAGE]] as const) {
+  for (const [where, src] of [['guests-screen.tsx', ROWS], ['guests/page.tsx', PAGE]] as const) {
     assert.doesNotMatch(src, /pair_with_guest_id|pairWith|coupleShortName|PairAvatar|` & `|' & '|" & "/, `${where} merges two people into one row`);
   }
-  // Both row shapes name exactly one guest.
-  const names = ROWS.match(/const shownName = [^;]+;/g) ?? [];
-  assert.ok(names.length >= 2, 'the row name was not found — re-aim this guard');
-  for (const n of names) {
-    assert.equal(n, 'const shownName = seatLabel ?? guestFullName(guest) ?? guestDisplayName(guest);', `a row name is built from more than one guest: ${n}`);
-  }
-});
-
-test('rows: the eye left; every column is a slot whose header is ONE dropdown — Name first', () => {
-  // ⤷ 2026-09-30, the full-width list (DECISION_LOG "THE GUEST LIST USES THE
-  // FULL WIDTH…"): Name first, then as many slots as fit, each header a
-  // PickMenu choosing Invite · RSVP · Access · Check-in · Seat · Side · Role ·
-  // Groups · +N · Account · Contact.
-  const head = ROWS.slice(ROWS.indexOf('<thead'), ROWS.indexOf('</thead>'));
-  assert.ok(head.includes('>Name<'), 'Name is no longer the first column');
-  assert.match(head, /desk\.columns\.map\(\(column, slot\) =>[\s\S]*?<ColumnPick\b/, 'a slot header is not a dropdown');
-  assert.doesNotMatch(head, /ArrangeTh/, 'the old sort/group header is back');
-  assert.match(bodyOfFn(ROWS, 'ColumnPick'), /<PickMenu\b/, 'the slot header is not the shipped PickMenu');
-  assert.doesNotMatch(ROWS, /QuickViewButton|mailto:/);
-  assert.match(ROWS, /<GuestMoreMenu\b/, 'a row has no ⋯');
-  // One switch draws every column, on both widths.
-  const cell = bodyOfFn(ROWS, 'RosterCell');
-  for (const c of COLS) assert.match(cell, new RegExp(`case '${c}':`), `RosterCell cannot draw ${c}`);
-  assert.match(cell, /<GuestAccessCell|<RowAccess\b/, 'Access is not the #6191 cell');
-  assert.match(cell, /<GuestCheckinCell\b/, 'Check-in is not the desk’s cell');
-  assert.match(read('guest-checkin-cell.tsx'), /import \{ checkInGuest, undoCheckIn \} from '\.\.\/checkin\/actions';/, 'Check-in grew its own writer');
-  assert.match(bodyOfFn(ROWS, 'MobileListRow'), /<RosterCell column=\{column\}/, 'the phone does not draw its ONE slot through the same cell');
-  assert.match(ROWS, /fixedSlots: 1/, 'the phone shows more than one slot');
 });
 
 test('columns: no column twice, Invite leads while anyone is unsent, Check-in only from the day (executed)', () => {
@@ -216,24 +173,8 @@ test('columns: no column twice, Invite leads while anyone is unsent, Check-in on
   assert.equal(rosterSlotCount(200, COLS.length), 1, 'a squeezed list still shows one column');
 });
 
-test('columns: remembered per device — every storage touch is inside try/catch', () => {
-  const hook = read('use-roster-columns.ts');
-  const touches = hook.match(/window\.localStorage\.\w+\(/g) ?? [];
-  assert.equal(touches.length, 2, 'the hook reads/writes storage more or less than once each');
-  for (const t of ['window.localStorage.getItem(', 'window.localStorage.setItem(']) {
-    const at = hook.indexOf(t);
-    const tryAt = hook.lastIndexOf('try {', at);
-    const catchAt = hook.indexOf('catch', tryAt);
-    assert.ok(tryAt !== -1 && catchAt > at, `${t} is not inside try/catch`);
-  }
-  assert.match(hook, /new ResizeObserver\(/, 'the slot count no longer follows the width');
-  assert.match(PAGE, /data-roster-full-width=""/, 'the Guest list no longer spans the full width');
-  assert.match(PAGE, /sn-col max-w-none/, 'the Guest list is narrowed to the reading column again');
-});
-
 test('rows: requests are never rows between guests — one strip leads to the Requests page', () => {
   assert.doesNotMatch(ROWS, /SelfJoinDesktopRow|MobileSelfJoinCard/);
-  assert.match(ROWS, /\.filter\(\(g\) => !selfJoinIds\.includes\(g\.guest_id\)\)/, 'requests are drawn as rows');
   // ⤷ Maker PR 4f: the strip is the List's first row (GuestsScreen), `👤 Review`.
   const SCREEN = read('guests-screen.tsx');
   assert.match(SCREEN, /data-requests-strip=""/);
@@ -251,17 +192,6 @@ test('rows: a +1 sits right under the guest who brings them (executed)', () => {
   assert.deepEqual(plusOnesUnderBringers(rows).map((r) => r.guest_id), ['ana', 'manuel', 'bea', 'x']);
   // Nobody is dropped or doubled.
   assert.equal(new Set(plusOnesUnderBringers(rows).map((r) => r.guest_id)).size, rows.length);
-  assert.match(ROWS, /plusOnesUnderBringers\(/, 'the roster no longer orders a +1 under its bringer');
-});
-
-test('rows: long-press selects on a phone, and ONE bulk bar holds the four', () => {
-  assert.match(ROWS, /guestSelection\.enter\(\);/, 'a long press no longer starts selecting');
-  const bar = ROWS.slice(ROWS.indexOf('function RosterBulkBar('));
-  for (const w of ['Invite selected', 'label="Set group"', 'label="Set table"', 'label="More for the selected guests"']) {
-    assert.ok(bar.includes(w), `the bulk bar lost ${w}`);
-  }
-  // Bride and groom are never sent to.
-  assert.match(bar, /g\.role !== 'bride' && g\.role !== 'groom'/);
 });
 
 test('list head: the filter row is gone — ONE Sort dropdown regroups the sections (Maker PR 4f, G16/G17)', () => {

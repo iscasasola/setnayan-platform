@@ -19,10 +19,6 @@ import { join } from 'node:path';
  */
 
 const LIB = readFileSync(join(process.cwd(), 'lib', 'guest-account-photos.ts'), 'utf8');
-const LIST = readFileSync(
-  join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests', '_components', 'guest-list-multiselect.tsx'),
-  'utf8',
-);
 const PAGE = readFileSync(
   join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests', 'page.tsx'),
   'utf8',
@@ -40,49 +36,23 @@ test("the couple's own upload wins; the account photo is the fallback", () => {
   // `photo_url` is what the couple (or the guest's RSVP selfie) chose for THIS
   // wedding. Reversing this would let a profile picture overwrite a selfie
   // taken for the seating chart.
-  const at = LIST.indexOf('const faceFor');
-  assert.notEqual(at, -1, 'faceFor is gone — this guard is blind');
-  const body = LIST.slice(at, LIST.indexOf(';', LIST.indexOf('accountFaceByGuest[g.guest_id]', at)));
-  const guestFirst = body.indexOf("photoDisplayUrls[g.photo_url");
-  const accountSecond = body.indexOf('accountFaceByGuest[g.guest_id]');
-  assert.ok(guestFirst !== -1 && accountSecond !== -1, 'faceFor no longer reads both sources');
-  assert.ok(
-    guestFirst < accountSecond,
-    "the account photo is being preferred over the couple's own upload",
-  );
-});
-
-test('every row surface resolves its face through the ONE helper', () => {
-  // 🔑 Six surfaces ask for a face. When each spelled the lookup out itself,
-  // five could gain the fallback and the sixth silently not — a guest with a
-  // face in the list and initials in the grid.
-  const spelledOut = LIST.match(/photoDisplayUrls\[guest\.photo_url/g) ?? [];
-  assert.deepEqual(
-    spelledOut,
-    [],
-    `${spelledOut.length} surface(s) still resolve the face inline instead of calling faceFor`,
-  );
-  // ⚖ SIX BECAME FOUR, BY RULING — owner 2026-09-20: "remove the grid view on
-  // guest list. make it same sa row view only." The two photo-grid surfaces
-  // (the card and its self-join variant) are gone, so a floor of `>= 6` went
-  // red on a deliberate removal.
-  //
-  // 🔑 NAMED, NOT COUNTED — and stricter than the floor it replaces. `>= 6`
-  // let any one surface quietly drop out as long as enough others remained;
-  // it could not say WHICH. This asserts the exact set, so a surface that stops
-  // asking the helper fails by name, and a new one has to be added here on
-  // purpose rather than slipping under a number.
-  const viaHelper = [...LIST.matchAll(/displayUrl=\{faceFor\(guest\)\}/g)].map((m) => {
-    const opened = [...LIST.slice(0, m.index!).matchAll(/<([A-Z][A-Za-z]+)\b/g)];
-    return opened[opened.length - 1]![1];
-  });
-  assert.deepEqual(
-    [...viaHelper].sort(),
-    // ⤷ 2026-09-30: requests are no longer rows (the Fable rows, frame D — one strip
-    // leads to the Requests page), so the two self-join row shapes are gone.
-    ['DesktopRow', 'MobileListRow'],
-    `the row surfaces resolving a face through faceFor are: ${viaHelper.join(', ') || 'none'}`,
-  );
+  // ⤷ 2026-10-09: the Guest list's faces are now built by the PAGE (the retired
+  // GuestListMultiselect held a `faceFor` helper), in two places — the list's
+  // `faceByGuest` and the open card's `photoDisplayUrl`. Each must read the
+  // couple's own upload first.
+  const lines = PAGE.split('\n');
+  const hits = lines.map((l, i) => [l, i] as const).filter(([l]) => l.includes('accountFaceByGuest[') && !l.includes('Object.fromEntries'));
+  assert.ok(hits.length >= 2, 'the page no longer falls back to the account photo in both places — this guard is blind');
+  for (const [, i] of hits) {
+    const window = lines.slice(Math.max(0, i - 1), i + 1).join('\n');
+    const guestFirst = window.indexOf('photoDisplayUrls[');
+    const accountSecond = window.indexOf('accountFaceByGuest[');
+    assert.ok(guestFirst !== -1 && accountSecond !== -1, 'a face is no longer read from both sources');
+    assert.ok(
+      guestFirst < accountSecond,
+      "the account photo is being preferred over the couple's own upload",
+    );
+  }
 });
 
 test('🔒 the admin read is gated by a policy, not by an if', () => {

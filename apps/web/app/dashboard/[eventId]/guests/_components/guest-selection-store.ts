@@ -10,7 +10,7 @@
  *
  * ⤷ 2026-09-30: the phone-only head that held the count / select-all /
  * Assign is gone — a long press on a row starts selecting and the ONE bulk bar
- * (in `GuestListMultiselect`) holds the count and the actions at every width.
+ * (in `GuestsScreen`) holds the count and the actions at every width.
  * The store stays a tiny module-level external store (`useSyncExternalStore`)
  * so the rows, the header checkbox and the bulk bar share one source of truth.
  *

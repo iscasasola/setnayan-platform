@@ -190,13 +190,9 @@ test('⑦ an ACCEPTED guest’s card offers Delete in its ⋯; the couple’s do
   assert.doesNotMatch(couple, /data-guest-delete=""/, 'the couple’s card offers a Delete that can only fail');
 });
 
-test('⑦ swipe, bar and card all go through the one warning and the one delete with Undo', () => {
-  const list = read('_components', 'guest-list-multiselect.tsx');
-  const swipe = list.slice(list.indexOf('function SwipeToDelete('));
-  assert.match(swipe.slice(0, swipe.indexOf('function GroupChipList(')), /<DeleteGuestSheet\b/, 'the swipe deletes without the warning');
-  const bar = list.slice(list.indexOf('function RosterBulkBar('), list.indexOf('function NewGroupInlineForm('));
-  assert.match(bar, /<DeleteGuestSheet\b/, 'the selection bar deletes without the warning');
-  assert.match(bar, /label: `Delete \$\{formatCount\(count\)\}/, 'the bar does not say "Delete N guests"');
+test('⑦ the list and the card both go through the one warning and the one delete with Undo', () => {
+  const screen = read('_components', 'guests-screen.tsx');
+  assert.match(screen, /<DeleteGuestSheet\b/, 'the list deletes without the warning');
   const del = read('_components', 'guest-delete.tsx');
   const hook = del.slice(del.indexOf('export function useGuestRemoval('), del.indexOf('export function DeleteGuestSheet('));
   assert.match(hook, /pushUndo\(/, 'a delete with no Undo');
@@ -353,6 +349,4 @@ test('⑬ a phone row’s ⋯ list is drawn on the page, not clipped inside the 
   assert.match(body, /portalled\(\s*<div\s+ref=\{menuRef\}/, 'the ⋯ list is not the portalled element');
   assert.match(body, /className="fixed z-\[96\]/, 'the ⋯ list is not pinned to the screen');
   assert.match(body, /menuRef\.current\?\.contains\(t\)/, 'a tap inside the list counts as "outside" and closes it first');
-  const list = read('_components', 'guest-list-multiselect.tsx');
-  assert.match(list, /transform: tx === 0 && !dragging \? undefined :/, 'a resting row holds a transform, trapping its sheets inside it');
 });

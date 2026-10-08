@@ -73,7 +73,7 @@ function backToList(eventId: string, params: Record<string, string>): string {
 // last, Apply". That one action reads `role`, `group_id` AND `side` off the same
 // FormData and no-ops on whichever is blank, so the two single-purpose halves
 // have been callerless ever since — the live toolbar (the bulk bar in
-// `_components/guest-list-multiselect.tsx`) binds only the combined one.
+// `_components/guests-screen.tsx`) binds only the combined one.
 //
 // Do not re-split them. One Apply button is the decision, not an accident.
 // -----------------------------------------------------------------------

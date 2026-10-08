@@ -174,39 +174,6 @@ export function DeleteGuestSheet({
 }
 
 /**
- * A small "Delete" beside a name — the +1 note's "3 named · 1 allowed" (frame
- * G). The flow (hook + warning) mounts on the tap, so a list of names drawn on
- * the server, or in a test, never needs the toast host to exist.
- */
-export function DeleteGuestButton({
-  eventId,
-  guestId,
-  guestName,
-}: {
-  eventId: string;
-  guestId: string;
-  guestName: string;
-}) {
-  const [asking, setAsking] = useState(false);
-  return (
-    <>
-      <button
-        type="button"
-        onClick={() => setAsking(true)}
-        aria-label={`Delete ${guestName}`}
-        data-guest-delete=""
-        className="inline-flex min-h-[44px] items-center px-2 text-xs font-medium text-danger-700 underline underline-offset-2 hover:text-danger-800"
-      >
-        Delete
-      </button>
-      {asking ? (
-        <DeleteGuestFlow eventId={eventId} guestId={guestId} guestName={guestName} onClose={() => setAsking(false)} />
-      ) : null}
-    </>
-  );
-}
-
-/**
  * One guest's warning + delete, mounted only once a host asks — so a list of
  * rows (each with a ⋯) carries no delete machinery until someone taps Delete.
  */

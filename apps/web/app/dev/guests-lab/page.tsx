@@ -17,10 +17,7 @@
  *   ?part=head      (retired with the phone title + ⋯ — redirects to part=screen)
  *   ?part=card      a guest's card (Daniel Ramos) — tap Invite or ⋯
  *   ?part=host      the bride's card — a host, ⋯ only
- *   ?part=rows      the Guest list ROWS, on maria-and-jose's real roster shape
- *                   (its 32 names, roles, sides and table names, read
- *                   2026-10-05) — "Sweetheart Table", "Table 9",
- *                   "Principal Sponsors 1"; &by=seat groups by table
+ *   ?part=rows      (retired with the old GuestListMultiselect — redirects to part=screen)
  *   ?part=screen    Guests › List and Map (Maker PR 4f) — the whole screen on
  *                   maria-and-jose's roster, with a stand-in shell bar and
  *                   dock: &gview=map for the map, &q=… to search, &empty=1 for
@@ -57,8 +54,6 @@ import { DEFAULT_NAME_STYLE } from '@/lib/name-style';
 import { sendRunGuests, toInviteCount } from '@/lib/guest-roster-view';
 import { invitationLinkOn } from '@/lib/invitation-link';
 import { SendRun } from '@/app/dashboard/[eventId]/guests/send/_components/send-run';
-import { GuestListMultiselect } from '@/app/dashboard/[eventId]/guests/_components/guest-list-multiselect';
-import type { ArrangeKey } from '@/lib/roster-arrangement';
 import { GuestSetupRows } from '@/app/dashboard/[eventId]/_components/guest-setup/guest-setup-rows';
 import { MakerRsvpSettings } from '@/app/dashboard/[eventId]/launch/_components/maker-rsvp-ask';
 import { guestsGetInPatch, isGuestsGetIn } from '@/lib/who-can-reply';
@@ -462,53 +457,6 @@ export default async function GuestsLabPage({
               facts={{ hostsName: 'Maria & Jose', eventWord: 'wedding', eventDate: '2026-12-12', datePrecision: 'day' }}
               template={null}
             />
-          </div>
-        </main>
-        <DockStandIn />
-      </div>
-    );
-  }
-
-  if (part === 'rows') {
-    const roster = MJ_ROSTER.map(([first, last, role, side], i) =>
-      guest({
-        guest_id: `g-mj-${i}`,
-        public_id: `S89G-LABMJ${String(i).padStart(5, '0')}`,
-        first_name: first,
-        last_name: last,
-        role,
-        side,
-        group_category: 'family',
-      }),
-    );
-    const seatByGuest = Object.fromEntries(
-      MJ_ROSTER.map(([, , , , table], i) => [`g-mj-${i}`, { placed: table, suggested: null }]),
-    );
-    const tables = [...new Set(MJ_ROSTER.map((r) => r[4]))].map((label, i) => ({ tableId: `t-${i}`, label }));
-    const grouping: ArrangeKey[] = sp.by === 'seat' ? ['seat'] : ['role'];
-    return (
-      <div className="sn-ambient min-h-screen">
-        <main className="sn-vt-page">
-          <div data-shell-main>
-            <div className="sn-page-enter">
-              <section className="flex flex-col gap-4 px-4 py-6" data-lab-rows="">
-                <GuestListMultiselect
-                  eventId={EVENT}
-                  guests={roster}
-                  palette={{}}
-                  groups={[]}
-                  groupMemberships={{}}
-                  currentGroupId={null}
-                  selfJoinIds={[]}
-                  seatByGuest={seatByGuest}
-                  photoDisplayUrls={{}}
-                  accountFaceByGuest={{}}
-                  grouping={grouping}
-                  sort="importance"
-                  tables={tables}
-                />
-              </section>
-            </div>
           </div>
         </main>
         <DockStandIn />

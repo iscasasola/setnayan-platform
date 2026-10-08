@@ -68,10 +68,8 @@ test('🔒 a finalized guest list locks extra seats — checked before saving, o
   const check = keep.indexOf('checkExtraSeats(admin, eventId, guestId, chosen.plusOnes)');
   const write = keep.indexOf('.update({ plus_one_count: chosen.plusOnes');
   assert.ok(check > -1 && write > check, 'Keep saves extra seats on a finalized list');
-  // And the roster stops offering the picker.
-  const chip = read(...G, '_components', 'chip-editors.tsx');
-  assert.match(chip, /const finalized = useContext\(GuestListFinalizedContext\);[\s\S]{0,400}if \(finalized\) \{/, 'the + picker is offered on a finalized list');
-  // ⤷ Maker PR 4f: the list's rows edit nothing in place (Edit opens the card),
+  // ⤷ 2026-10-09: the old roster's in-row picker (chip-editors.tsx) and its
+  // finalized lock went with the retired GuestListMultiselect. Maker PR 4f: the list's rows edit nothing in place (Edit opens the card),
   // so the only + picker left is the card's — the row offers none to lock.
   const screen = read(...G, '_components', 'guests-screen.tsx');
   assert.doesNotMatch(screen, /PlusOneChipEditor|PlusOneSeatsSummary/, 'the new list offers an extra-seat picker the finalize lock does not reach');

@@ -108,7 +108,7 @@ const PARTY: Row[] = [
  * the first `useState('colours')` of the render is answered with the tab asked for — the component's
  * own code draws everything else.
  */
-async function drawn(tab: 'colours' | 'attire' | 'insp' | 'dos', attire: Row[]): Promise<string> {
+async function drawn(tab: 'colours' | 'attire' | 'insp' | 'dos', attire: readonly Row[]): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { MoodBoardStudio } = await import(`../${MB}/_components/mood-board-studio`);
   const R = require('react') as { useState: (init: unknown) => unknown };

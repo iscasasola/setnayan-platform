@@ -1,210 +1,446 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { GripVertical, Plus } from 'lucide-react';
+import { useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { ArrowDown, ArrowUp, Image as ImageIcon, MoreHorizontal, Plus, Trash2 } from 'lucide-react';
+import { FileUpload } from '@/app/_components/file-upload';
 import { InfoTip } from '@/app/_components/info-tip';
-import { LOVE_STORY_CHAPTER_LABEL, MOMENT_LINE_MAX, MOMENT_TITLE_MAX, type ChapteredMoment, type LoveStoryMoment, type MomentAnchor } from '@/lib/love-story-moments';
+import { PILL_ON_CLASS } from '@/app/_components/pill-selector';
+import { TickerPill, WhenTicker } from '@/app/_components/ticker';
+import { TIMELINE_BAND_CLASS, TIMELINE_ROW_CLASS, TimelineRow } from '@/app/_components/timeline-row';
+import { HUB_DRAFT_FIELD } from '@/lib/hub-draft';
+import { LOVE_STORY_CHAPTER_LABEL, MOMENT_LINE_MAX, MOMENT_TITLE_MAX, type ChapteredMoment, type LoveStoryMoment, type MomentAnchor, type MomentDate } from '@/lib/love-story-moments';
 import { STUDIO_FOOT_BUTTON } from '@/lib/studio-skin';
+import { whenWords, type TimelineWhen } from '@/lib/timeline';
+import { PickSheetContext } from '../../editor/_components/pick-menu-place';
+import { useMaker } from '../../../launch/_components/maker-context';
+import { LoveStoryProLine } from './love-story-pro-line';
 import { MomentNotKept, type MomentSheet } from './moment-sheet';
 /* 🧭 The Studio's own add/edit sheet (owner 2026-10-08) — rides this lazy chunk, never the first load. */
 import { MomentSheetStudio } from './moment-sheet-studio';
 
 /**
- * ✋ STUDIO › LOVE STORY — ONE CARD PER MOMENT (owner 2026-10-06 DECISION_LOG
- * "STUDIO › SCHEDULE AND LOVE STORY": *"one card per moment — photo · year · title
- * · first line · grip"*; the couple's own order approved 2026-10-07, "THE MISSING
- * FIELDS ARE APPROVED"; redrawn to the prototype 2026-10-07, *"1. okay"* · *"2.
- * bands? full width"*, DECISION_LOG "STUDIO REDRAW ANSWERS").
+ * 📖 STUDIO › LOVE STORY — ONE TIMELINE ROW PER CHAPTER (owner 2026-10-08, `INTERACTION_RULES.md` § 9; approved
+ * gallery `prototypes/control_templates_2026-10-08.html` § 13). Owner, verbatim: *"can also be love story form"* ·
+ * *"add optional for the day it can be month and year only or month year and day or year only"* · *"up to 3 media
+ * files."*
  *
- * Prototype `maker_two_dropdowns_owner_wireframe_2026-10-06_fable.html`
- * `EDITORS.story`: each moment a row — photo · year · title · first line · grip;
- * TAP IT and it opens IN PLACE (Year · Title · the words · Change photo · Remove);
- * + Add a moment at the foot. On full-width white BANDS with hairlines — the
- * prototype's rows and words, never its rounded cards (owner: *"bands? full width"*).
+ *   WHEN (only as exact as they chose) · the chapter's NAME · one PICTURE SQUARE with a count · ⋯
  *
- * 🔑 NO NEW WRITE. Every change is a moment form through the moment action's own
- * intents (`applyMomentIntent`): `edit` (every field the moment holds is carried,
- * so an edit of the year never drops its place or photos), `delete`, and `order` —
- * a drag of the grip (finger or mouse) moves the card as it goes; letting go sends
- * ONE `intent=order` with every id, first to last, into the DRAFT like every
- * other moment edit; guests see it at Apply. The grip answers ↑ / ↓ too. Change
- * photo and + Add a moment open the shipped `MomentSheet` (photos are screened by
- * the server — `momentNeedsServer`).
+ * The row is the app's ONE `TimelineRow` and the when rolls on its ONE ticker — the SAME pieces Studio › Schedule
+ * wears. This file only says what they mean for a story:
+ *   · WHEN — a year, a month and year, or a full date. It is stored as it always was (`events.love_story.moments[]
+ *     .date = { y, m?, d? }`): the precision IS the shape, so "June 2019" has no day in it to be wrong.
+ *   · NAME — the moment's `title`.
+ *   · THE SQUARE — its photos (`media`, already up to four in storage; the sheet offers THREE — a chapter that holds
+ *     four keeps all four). Photos only: no video is accepted, screened or drawn anywhere today, so none is promised.
+ *     The upload is the shared `FileUpload` (device → storage, its own real 0–100 % per file, ✕ to remove).
+ *   · ⋯ — the rest, in place under the row, exactly what the open card held: THE WORDS (a moment's line), More…
+ *     (the shipped sheet: Where · Added by · This one is… · Keep off the Event Hub), Move up / Move down (the
+ *     couple's own order, owner 2026-10-07 — the list is drawn in the order guests get, `sortMoments`), Remove.
  *
- * Drawn only in the new Maker's Studio (`makerStagesStudioEnabled` →
- * `LoveStoryBook studio`). Nothing is written by opening it.
+ * 🔑 NO NEW WRITE. Every change is a moment form through the moment action's own intents (`applyMomentIntent`):
+ * `edit` (every field the moment holds is carried, so a when rolled never drops its place or photos), `add`,
+ * `delete`, `order`. In the Maker they are applied at the tap and saved to the DRAFT (one save after the pause;
+ * guests see nothing until ✓ Apply). A NEW photo is the one thing only the server may keep (it is screened first) —
+ * that form goes to the server action, as it always has.
+ *
+ * Drawn only in the new Maker's Studio (`makerStagesStudioEnabled` → `LoveStoryBook studio`). Opening it writes
+ * nothing.
  */
 
 /** What `MomentSheet` needs besides its moment — the book's own `sheetProps`. */
 export type MomentSheetBase = Omit<React.ComponentProps<typeof MomentSheet>, 'moment' | 'trigger' | 'triggerClassName' | 'opensFor'>;
 
+/** How many photos the Studio offers for a chapter (owner 2026-10-08: *"up to 3 media files."*). Storage holds four. */
+export const CHAPTER_PHOTOS_OFFERED = 3;
+
 /** Every field a moment holds, as the moment form carries it — an edit of one keeps the rest. */
-export function momentEditForm(m: LoveStoryMoment, change: { y?: string; title?: string; line?: string }): FormData {
+export function momentEditForm(
+  m: LoveStoryMoment,
+  change: { y?: string; date?: MomentDate; title?: string; line?: string; media?: readonly string[] },
+): FormData {
   const fd = new FormData();
   fd.set('intent', 'edit');
   fd.set('id', m.id);
-  fd.set('date_y', change.y ?? (m.date?.y ? String(m.date.y) : ''));
-  if (m.date?.m) fd.set('date_m', String(m.date.m));
-  if (m.date?.d) fd.set('date_d', String(m.date.d));
+  /* A when is sent as EXACTLY the parts it has: a year alone sends no month, a month no day. */
+  const date = change.date ?? m.date;
+  fd.set('date_y', change.date ? String(change.date.y) : (change.y ?? (date?.y ? String(date.y) : '')));
+  if (date?.m) fd.set('date_m', String(date.m));
+  if (date?.m && date.d) fd.set('date_d', String(date.d));
   fd.set('title', change.title ?? m.title ?? '');
   fd.set('line', change.line ?? m.line);
   if (m.place) fd.set('place', m.place);
-  for (const ref of m.media ?? []) fd.append('media', ref);
+  for (const ref of change.media ?? m.media ?? []) fd.append('media', ref);
   if (m.added_by) fd.set('added_by', m.added_by);
   if (m.anchor) fd.set('anchor', m.anchor);
   if (m.hidden) fd.set('hidden', 'on');
   return fd;
 }
 
-function OpenMoment({
+/** A new chapter, as the moment form carries it. */
+export function momentAddForm(fresh: { when: MomentDate; title: string; line: string }): FormData {
+  const fd = new FormData();
+  fd.set('intent', 'add');
+  fd.set('date_y', String(fresh.when.y));
+  if (fresh.when.m) fd.set('date_m', String(fresh.when.m));
+  if (fresh.when.m && fresh.when.d) fd.set('date_d', String(fresh.when.d));
+  fd.set('title', fresh.title);
+  fd.set('line', fresh.line);
+  return fd;
+}
+
+/** How many photo slots a chapter shows: three — or all it already holds, when that is more. */
+export function chapterPhotoSlots(held: number): number {
+  return Math.max(CHAPTER_PHOTOS_OFFERED, held);
+}
+
+/** The story with one chapter moved one place — every id, first to last (the moment action's own `intent=order`). */
+export function movedOrder(ids: readonly string[], id: string, by: 1 | -1): string[] | null {
+  const from = ids.indexOf(id);
+  const to = from + by;
+  if (from < 0 || to < 0 || to >= ids.length) return null;
+  const next = [...ids];
+  next.splice(from, 1);
+  next.splice(to, 0, id);
+  return next;
+}
+
+const sameWhen = (a: MomentDate | undefined, b: MomentDate | undefined) => (a?.y ?? 0) === (b?.y ?? 0) && (a?.m ?? 0) === (b?.m ?? 0) && (a?.d ?? 0) === (b?.d ?? 0);
+const sameList = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((v, i) => v === b[i]);
+const whyNot = (e: unknown) => (e instanceof MomentNotKept ? e.message : 'That did not save. Nothing changed — please try again.');
+/** A server action's redirect is not a refusal — it is let through. */
+const isRedirect = (e: unknown) => typeof (e as { digest?: unknown } | null)?.digest === 'string' && (e as { digest: string }).digest.startsWith('NEXT_REDIRECT');
+
+const SQUARE = 'relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl';
+const QUIET_BUTTON = 'sn-press inline-flex h-10 items-center justify-center gap-1.5 rounded-full bg-cream px-3.5 text-[13px] font-semibold text-ink ring-1 ring-ink/15 disabled:opacity-40';
+const WORDS_BOX = 'min-h-[76px] w-full resize-none rounded-2xl bg-white px-3.5 py-2.5 text-[15px] leading-snug text-ink outline-none ring-1 ring-inset ring-ink/20 placeholder:text-ink/40 focus:ring-2 focus:ring-ink/40';
+
+type Action = (formData: FormData) => void | Promise<void>;
+
+/** The new row, before it is saved. */
+const NEW_ROW = '__new';
+
+function ChapterRow({
   m,
+  ids,
   action,
   sheet,
+  mediaUrls,
+  editing,
+  onEdit,
+  onEndEdit,
+  open,
+  onOpen,
 }: {
   m: ChapteredMoment;
-  action: (formData: FormData) => void | Promise<void>;
+  /** Every chapter's id, in the order drawn — for Move up / Move down. */
+  ids: readonly string[];
+  action: Action;
   sheet: MomentSheetBase;
+  mediaUrls: Readonly<Record<string, string>>;
+  editing: boolean;
+  onEdit: () => void;
+  onEndEdit: () => void;
+  /** Is this row's ⋯ open? One at a time. */
+  open: boolean;
+  onOpen: () => void;
 }) {
-  const [y, setY] = useState(m.date?.y ? String(m.date.y) : '');
-  const [title, setTitle] = useState(m.title ?? '');
+  const pickSheet = useContext(PickSheetContext);
+  const maker = useMaker();
+  const [rolled, setRolled] = useState<{ when: TimelineWhen; kept: boolean } | null>(null);
   const [line, setLine] = useState(m.line);
-  const [error, setError] = useState<string | null>(null);
+  const [problem, setProblem] = useState<string | null>(null);
+  const [keeping, setKeeping] = useState(false);
+  /* The photos as the open slots hold them — kept ONCE, when the slots close (three new photos are one save). */
+  const picked = useRef<readonly string[] | null>(null);
   /* A refusal (or a fresh story) puts the words back. */
-  useEffect(() => setY(m.date?.y ? String(m.date.y) : ''), [m.date?.y]);
-  useEffect(() => setTitle(m.title ?? ''), [m.title]);
   useEffect(() => setLine(m.line), [m.line]);
-  const save = (change: { y?: string; title?: string; line?: string }) => {
-    const same =
-      (change.y === undefined || change.y.trim() === String(m.date?.y ?? '')) &&
-      (change.title === undefined || change.title.trim() === (m.title ?? '')) &&
-      (change.line === undefined || change.line.trim() === m.line);
-    if (same) return;
-    setError(null);
-    Promise.resolve(action(momentEditForm(m, change))).catch((e: unknown) => {
-      setError(e instanceof MomentNotKept ? e.message : 'That did not save. Nothing changed — please try again.');
-      setY(m.date?.y ? String(m.date.y) : '');
-      setTitle(m.title ?? '');
-      setLine(m.line);
+  const media = m.media ?? [];
+  const shown: TimelineWhen | null = rolled?.when ?? m.date ?? null;
+
+  const send = (fd: FormData) => {
+    setProblem(null);
+    return Promise.resolve(action(fd)).catch((e: unknown) => {
+      if (isRedirect(e)) throw e;
+      setProblem(whyNot(e));
     });
   };
-  const box = 'min-h-11 w-full rounded-md border border-ink/10 bg-[color-mix(in_srgb,rgb(var(--color-gild))_9%,rgb(var(--color-cream)))] px-3 text-[15px] text-ink outline-none focus:border-ink/30';
+  /** ONE write for whatever the when rolled to — when its ticker closes, and only if it changed. */
+  const writeRolled = () => {
+    const r = rolled;
+    setRolled(null);
+    if (!r || (sameWhen(r.when, m.date) && !(r.kept && !m.date))) return;
+    void send(momentEditForm(m, { date: r.when }));
+  };
+  const saveLine = (value: string) => {
+    const text = value.trim();
+    /* A chapter keeps its words: emptied, they are put back. */
+    if (!text) return setLine(m.line);
+    if (text !== m.line) void send(momentEditForm(m, { line: text }));
+  };
+  const savePhotos = () => {
+    const refs = picked.current;
+    picked.current = null;
+    if (!refs || sameList(refs, media)) return;
+    const fd = momentEditForm(m, { media: refs });
+    /* A NEW photo goes to the server (it screens it): into the DRAFT, and back to this page. */
+    fd.set(HUB_DRAFT_FIELD, '1');
+    if (maker) fd.set('return_to', `/dashboard/${maker.eventId}/launch?tool=love-story`);
+    setKeeping(true);
+    void send(fd).finally(() => setKeeping(false));
+  };
+  const move = (by: 1 | -1) => {
+    const next = movedOrder(ids, m.id, by);
+    if (!next) return;
+    const fd = new FormData();
+    fd.set('intent', 'order');
+    fd.set('order', next.join(','));
+    void send(fd);
+  };
+  const first = media.map((ref) => mediaUrls[ref]).find(Boolean) ?? null;
+  const named = m.title ? ` · ${m.title}` : '';
+  const place = ids.indexOf(m.id);
   return (
-    <div data-studio-story-editor={m.id} className="flex flex-col gap-2 pb-3 pl-4 pr-4">
-      <div className="grid grid-cols-[90px_1fr] gap-2">
-        <input
-          value={y}
-          inputMode="numeric"
-          maxLength={4}
-          aria-label="Year"
-          placeholder="Year"
-          onChange={(e) => setY(e.target.value.replace(/\D/g, ''))}
-          onBlur={(e) => save({ y: e.target.value })}
-          className={box}
+    <TimelineRow
+      data="chapter"
+      attrs={{ 'data-moment-card': m.id, 'data-studio-story-card': open ? 'open' : '' }}
+      name={m.title ?? ''}
+      placeholder="Name this chapter"
+      nameLabel="Name of this chapter"
+      maxLength={MOMENT_TITLE_MAX}
+      editing={editing}
+      onEdit={onEdit}
+      onKeep={(text) => {
+        onEndEdit();
+        /* Emptied: as it was. */
+        if (text && text !== (m.title ?? '')) void send(momentEditForm(m, { title: text }));
+      }}
+      onLeave={onEndEdit}
+      /* A plain save says its words — never an invented percentage. */
+      note={keeping ? 'Keeping your photos…' : m.hidden ? 'Off the Event Hub — guests do not see this chapter.' : null}
+      problem={problem}
+      when={
+        <TickerPill
+          data="when"
+          text={shown ? whenWords(shown) : 'When'}
+          ariaLabel={shown ? `When: ${whenWords(shown, true)}` : 'Set when this was'}
+          title={`When${named}`}
+          sheet={pickSheet}
+          onClosed={writeRolled}
+          className={`min-w-[72px] ${shown ? '' : '!text-ink/55'}`}
+        >
+          {(close) => {
+            const thisYear = new Date().getFullYear();
+            const value = shown ?? { y: thisYear };
+            return (
+              <WhenTicker
+                value={value}
+                thisYear={thisYear}
+                onChange={(when) => setRolled({ when, kept: false })}
+                /* Done on a chapter with no when yet KEEPS the one the ticker shows. */
+                onDone={() => {
+                  setRolled((r) => ({ when: r?.when ?? value, kept: true }));
+                  close();
+                }}
+              />
+            );
+          }}
+        </TickerPill>
+      }
+      trailing={
+        <>
+          <TickerPill
+            data="photos"
+            align="end"
+            text={
+              first ? (
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={first} alt="" className="h-full w-full rounded-xl object-cover" />
+                  <PhotoCount n={media.length} />
+                </>
+              ) : media.length ? (
+                <PhotoCount n={media.length} />
+              ) : (
+                <ImageIcon aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+              )
+            }
+            ariaLabel={media.length ? `${media.length} of ${chapterPhotoSlots(media.length)} photos. Tap to change` : `Add photos, up to ${CHAPTER_PHOTOS_OFFERED}`}
+            title={`Photos${named}`}
+            sheet={pickSheet}
+            onClosed={savePhotos}
+            face={`sn-press sn-press-ring ${SQUARE} ${media.length ? 'bg-ink/10' : 'border border-dashed border-ink/25 bg-white text-sn-accent'}`}
+          >
+            {(close) => (
+              <ChapterPhotos m={m} sheet={sheet} mediaUrls={mediaUrls} onChange={(refs) => (picked.current = refs)} onDone={close} />
+            )}
+          </TickerPill>
+          {/* BUTTON-RULE */}
+          <button
+            type="button"
+            data-studio-story-more={m.id}
+            aria-expanded={open}
+            aria-label={`More for ${m.title || 'this chapter'} — its words, where, order, remove`}
+            onClick={onOpen}
+            className="sn-press flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sn-accent hover:bg-ink/5"
+          >
+            <MoreHorizontal aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+          </button>
+        </>
+      }
+      below={
+        open && !editing ? (
+          <div data-studio-story-editor={m.id} className="flex flex-col gap-2 pb-3 pl-3 pr-3">
+            <textarea
+              value={line}
+              maxLength={MOMENT_LINE_MAX}
+              aria-label="The words"
+              placeholder="What happened, in your words…"
+              rows={3}
+              onChange={(e) => setLine(e.target.value)}
+              onBlur={(e) => saveLine(e.target.value)}
+              className={WORDS_BOX}
+            />
+            <div className="flex flex-wrap gap-2">
+              {/* BUTTON-RULE */}
+              <MomentSheetStudio {...sheet} moment={m} trigger="More…" triggerClassName={QUIET_BUTTON} />
+              {/* BUTTON-RULE */}
+              <button type="button" data-studio-story-up={m.id} disabled={place <= 0} onClick={() => move(-1)} className={QUIET_BUTTON}>
+                <ArrowUp aria-hidden className="h-4 w-4" strokeWidth={2} />
+                Move up
+              </button>
+              {/* BUTTON-RULE */}
+              <button type="button" data-studio-story-down={m.id} disabled={place < 0 || place >= ids.length - 1} onClick={() => move(1)} className={QUIET_BUTTON}>
+                <ArrowDown aria-hidden className="h-4 w-4" strokeWidth={2} />
+                Move down
+              </button>
+              {/* BUTTON-RULE */}
+              <button
+                type="button"
+                data-studio-story-remove={m.id}
+                onClick={() => {
+                  const fd = new FormData();
+                  fd.set('intent', 'delete');
+                  fd.set('id', m.id);
+                  void send(fd);
+                }}
+                className="sn-press inline-flex h-10 items-center justify-center gap-1.5 rounded-full bg-cream px-3.5 text-[13px] font-semibold text-danger-700 ring-1 ring-danger-300"
+              >
+                <Trash2 aria-hidden className="h-4 w-4" strokeWidth={2} />
+                Remove
+              </button>
+            </div>
+          </div>
+        ) : null
+      }
+    />
+  );
+}
+
+/** How many photos the chapter holds — on the picture square. */
+function PhotoCount({ n }: { n: number }) {
+  return (
+    <span data-chapter-photo-count="" className={`absolute -right-1 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[11px] font-bold ring-2 ring-cream ${PILL_ON_CLASS}`}>
+      {n}
+    </span>
+  );
+}
+
+/**
+ * THE PHOTO SLOTS — in the same pop as every other pick. The shared `FileUpload` draws them: a square per photo with
+ * ✕, a square per upload in flight with its own REAL 0–100 % (measured from the upload itself, never invented), and
+ * its drop zone while there is room. It tells this file the set as it stands; the chapter keeps it ONCE, when the
+ * slots close — so three new photos are one save, not three.
+ */
+export function ChapterPhotos({
+  m,
+  sheet,
+  mediaUrls,
+  onChange,
+  onDone,
+}: {
+  m: LoveStoryMoment;
+  sheet: MomentSheetBase;
+  mediaUrls: Readonly<Record<string, string>>;
+  onChange: (refs: readonly string[]) => void;
+  onDone: () => void;
+}) {
+  const media = m.media ?? [];
+  const [changed, setChanged] = useState(false);
+  return (
+    <div data-chapter-photos="" className="mx-auto w-full max-w-[300px]">
+      <p className="pb-2.5 pt-0.5 text-center text-[13px] font-semibold text-ink/70">Up to {CHAPTER_PHOTOS_OFFERED} photos. The first one shows first on your page.</p>
+      {sheet.ownsPro ? (
+        <FileUpload
+          bucket="media"
+          pathPrefix={`events/${sheet.eventId}/love-story`}
+          multiple
+          maxFiles={chapterPhotoSlots(media.length)}
+          maxSizeMB={10}
+          acceptedTypes={['image/jpeg', 'image/jpg', 'image/png', 'image/webp']}
+          currentValue={[...media]}
+          initialDisplayUrls={{ ...mediaUrls }}
+          variant="gallery"
+          onChange={(value) => {
+            setChanged(true);
+            onChange(Array.isArray(value) ? value : value ? [value] : []);
+          }}
         />
-        <input
-          value={title}
-          maxLength={MOMENT_TITLE_MAX}
-          aria-label="A title"
-          placeholder="A title"
-          onChange={(e) => setTitle(e.target.value)}
-          onBlur={(e) => save({ title: e.target.value })}
-          className={box}
-        />
-      </div>
-      <textarea
-        value={line}
-        maxLength={MOMENT_LINE_MAX}
-        aria-label="The words"
-        rows={3}
-        onChange={(e) => setLine(e.target.value)}
-        onBlur={(e) => save({ line: e.target.value })}
-        className={`${box} min-h-[76px] resize-none py-2.5 leading-snug`}
-      />
-      {error ? (
-        <p role="alert" className="text-[12.5px] text-terracotta-700">
-          {error}
+      ) : (
+        <div className="text-center">
+          <LoveStoryProLine storeShell={sheet.storeShell} href={sheet.proHref} price={sheet.proPrice} />
+        </div>
+      )}
+      {/* Said, never silent: what the slots hold is kept when they close. */}
+      {changed ? (
+        <p role="status" data-chapter-photos-not-kept="" className="pt-2 text-center text-[12.5px] font-semibold text-warn-700">
+          Not kept yet — press Done.
         </p>
       ) : null}
-      <div className="flex gap-2">
-        {/* BUTTON-RULE */}
-        <MomentSheetStudio
-          {...sheet}
-          moment={m}
-          trigger="Change photo"
-          triggerClassName="sn-press flex h-10 flex-1 items-center justify-center rounded-full bg-cream text-[13px] font-semibold text-ink ring-1 ring-ink/15"
-        />
-        {/* BUTTON-RULE */}
-        <button
-          type="button"
-          data-studio-story-remove={m.id}
-          onClick={() => {
-            const fd = new FormData();
-            fd.set('intent', 'delete');
-            fd.set('id', m.id);
-            void action(fd);
-          }}
-          className="sn-press flex h-10 shrink-0 items-center justify-center rounded-full bg-cream px-4 text-[13px] font-semibold text-danger-700 ring-1 ring-danger-300"
-        >
-          Remove
-        </button>
-      </div>
+      {/* BUTTON-RULE */}
+      <button type="button" data-chapter-photos-done="" onClick={onDone} className={`sn-press mt-3 flex min-h-12 w-full items-center justify-center rounded-full text-[15px] font-semibold ${PILL_ON_CLASS}`}>
+        Done
+      </button>
     </div>
   );
 }
 
-/* A moment's card — ONE set of boxes for a real moment and for the sample of one (`SampleStory`),
-   so the sample cannot drift from the arrangement it stands for. */
-const CARD_BAND = 'border-t border-ink/10 bg-cream';
-const CARD_ROW = 'flex items-center gap-3 py-2.5 pl-4 pr-1';
-const CARD_PHOTO = 'h-16 w-16 shrink-0 rounded-md';
-const CARD_WORDS = 'flex min-w-0 flex-1 flex-col';
-const CARD_GRIP = 'flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink/35';
-
 /** The three chapters a story is anchored by — `MOMENT_ANCHORS`, spelled (its type holds it): the list itself is not
     read by anything the Maker loads first, and asking for it here would add it to that first load (507 KB). */
 const SAMPLE_CHAPTERS = ['met', 'together', 'yes'] as const satisfies readonly MomentAnchor[];
-
-/** The sample lines' widths — a year, a title, a first line — a little different on each card. */
-const SAMPLE_LINES = [
-  ['w-11', 'w-28', 'w-44'],
-  ['w-11', 'w-20', 'w-36'],
-  ['w-11', 'w-24', 'w-40'],
-] as const;
+/** The sample name's width — a little different on each row. */
+const SAMPLE_NAME = ['w-28', 'w-20', 'w-24'] as const;
 
 /**
- * 🩶 AN EMPTY STORY SHOWS WHAT IT WILL LOOK LIKE (owner 2026-10-08 on the preview, of an event with
- * no moments: *"i cannot see it is blank"*; his standing rule for empty things, the same day:
- * *"maybe show what it could look like with boxes?"*). The approved prototype draws no empty state
- * (`EDITORS.story` maps the moments it has), so this is the shipped card itself — the same band,
- * photo box, three lines and grip (`CARD_*`) — in grey shapes, one under each of the three chapters
- * a story is anchored by (`SAMPLE_CHAPTERS`: How we met · Together · The yes, the real labels).
+ * 🩶 AN EMPTY STORY SHOWS WHAT IT WILL LOOK LIKE (owner 2026-10-08 on the preview, of an event with no moments: *"i
+ * cannot see it is blank"*; his rule for empty things, the same day: *"maybe show what it could look like with
+ * boxes?"*). The real row itself — the same band and line (`TIMELINE_BAND_CLASS` / `TIMELINE_ROW_CLASS`): a when
+ * pill, a name, a picture square — in grey shapes, one under each of the three chapters a story is anchored by.
  *
- * Unmistakably a sample: shapes only (no name, no year, no words of a moment), `aria-hidden`, not
- * tappable — and drawn ONLY while there is no moment, so the first real one replaces it. Editor
- * only: these cards exist in the new Maker's Studio and nowhere a guest can open.
+ * Unmistakably a sample: shapes only (no name, no year, no words of a moment), `aria-hidden`, not tappable, STILL
+ * (loading shimmers; this does not) — and drawn ONLY while there is no chapter, so the first real one replaces it.
  */
 function SampleStory() {
   return (
-    <ol data-studio-story-sample="" aria-hidden className="pointer-events-none flex select-none flex-col border-b border-ink/10">
+    <ol data-studio-story-sample="" aria-hidden className="pointer-events-none flex select-none flex-col border-y border-ink/10">
       {SAMPLE_CHAPTERS.map((chapter, i) => (
-        <li key={chapter} data-studio-story-sample-card={chapter} className={CARD_BAND}>
-          <p className="px-4 pt-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-ink/45">{LOVE_STORY_CHAPTER_LABEL[chapter]}</p>
-          <div className={CARD_ROW}>
-            <span data-sample-shape="photo" className={`${CARD_PHOTO} bg-ink/10`} />
-            <span className={CARD_WORDS}>
-              <span data-sample-shape="year" className={`h-4 ${SAMPLE_LINES[i]![0]} rounded-sm bg-ink/15`} />
-              <span data-sample-shape="title" className={`mt-2 h-3 ${SAMPLE_LINES[i]![1]} rounded-sm bg-ink/15`} />
-              <span data-sample-shape="line" className={`mt-2 h-2.5 ${SAMPLE_LINES[i]![2]} max-w-full rounded-sm bg-ink/10`} />
+        <li key={chapter} data-studio-story-sample-card={chapter} className={TIMELINE_BAND_CLASS}>
+          <p className="px-3 pt-2.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-ink/45">{LOVE_STORY_CHAPTER_LABEL[chapter]}</p>
+          <div className={TIMELINE_ROW_CLASS}>
+            <span data-sample-shape="when" className="h-10 w-[72px] shrink-0 rounded-full bg-ink/10" />
+            <span className="flex min-w-0 flex-1 px-1">
+              <span data-sample-shape="name" className={`h-3.5 ${SAMPLE_NAME[i]} rounded-full bg-ink/15`} />
             </span>
-            <span className={`${CARD_GRIP} opacity-50`}>
-              <GripVertical className="h-5 w-5" strokeWidth={1.75} />
-            </span>
+            <span data-sample-shape="photo" className={`${SQUARE} mr-12 bg-ink/10`} />
           </div>
         </li>
       ))}
     </ol>
   );
 }
+
+/** The new chapter before it is saved — it lives only on this screen until it has a name AND its words. */
+type Fresh = { when: TimelineWhen; title: string };
 
 export function MomentOrderCards({
   action,
@@ -213,142 +449,131 @@ export function MomentOrderCards({
   sheet,
   add,
 }: {
-  /** The moment action (the server's, or the Maker's instant one) — edit · delete · ONE `intent=order` per drop that changed the order. */
-  action: (formData: FormData) => void | Promise<void>;
+  /** The moment action (the server's, or the Maker's instant one) — add · edit · delete · ONE `intent=order` per move. */
+  action: Action;
   /** The story as guests read it (`sortMoments`). */
   moments: readonly ChapteredMoment[];
   mediaUrls: Readonly<Record<string, string>>;
-  /** What the shipped `MomentSheet` needs (Change photo, + Add a moment). */
+  /** What the shipped `MomentSheet` needs (More…). */
   sheet: MomentSheetBase;
-  /** The foot: + Add a moment, or the free-stories line once they are told. */
+  /** The foot: + Add a chapter, or the free-stories line once they are told. */
   add: { can: true } | { can: false; line: ReactNode };
 }) {
   const ids = moments.map((m) => m.id);
-  const key = ids.join(',');
-  const [order, setOrder] = useState<string[]>(ids);
-  const [dragging, setDragging] = useState<string | null>(null);
+  /* ONE row's name is open at a time; ONE row's ⋯ is open at a time. */
+  const [editing, setEditing] = useState<string | null>(null);
   const [open, setOpen] = useState<string | null>(null);
-  const list = useRef<HTMLOListElement>(null);
-  const start = useRef<string>(key);
-  /* A save (or a refusal putting it back) re-draws from the story. */
-  useEffect(() => {
-    if (!dragging) setOrder(key ? key.split(',') : []);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
-  const byId = new Map(moments.map((m) => [m.id, m]));
+  const [fresh, setFresh] = useState<Fresh | null>(null);
+  const [freshLine, setFreshLine] = useState('');
+  const [freshProblem, setFreshProblem] = useState<string | null>(null);
+  const words = useRef<HTMLTextAreaElement>(null);
+  const pickSheet = useContext(PickSheetContext);
 
-  const finish = (next: string[]) => {
-    setDragging(null);
-    if (next.join(',') === start.current) return;
-    /* Every id, first to last — the moment action's own `intent=order`. */
-    const fd = new FormData();
-    fd.set('intent', 'order');
-    fd.set('order', next.join(','));
-    void action(fd);
+  const startFresh = () => {
+    const now = new Date();
+    setFresh({ when: { y: now.getFullYear(), m: now.getMonth() + 1 }, title: '' });
+    setFreshLine('');
+    setFreshProblem(null);
+    setOpen(null);
+    setEditing(NEW_ROW);
   };
-  /** Which place the pointer is over, from the cards' own boxes. */
-  const placeAt = (y: number): number => {
-    const cards = [...(list.current?.querySelectorAll<HTMLElement>('[data-moment-card]') ?? [])];
-    let i = 0;
-    for (const c of cards) {
-      const r = c.getBoundingClientRect();
-      if (y > r.top + r.height / 2) i += 1;
-    }
-    return Math.min(i, cards.length - 1);
+  const dropFresh = () => {
+    setFresh(null);
+    setEditing((cur) => (cur === NEW_ROW ? null : cur));
   };
-  const moveTo = (id: string, to: number, from: readonly string[]) => {
-    const rest = from.filter((x) => x !== id);
-    rest.splice(Math.max(0, Math.min(to, rest.length)), 0, id);
-    return rest;
+  /** The new chapter has its words: add it — ONE moment form. Without words it stays here, unsaved, and says so. */
+  const keepFresh = (value: string) => {
+    const line = value.trim();
+    if (!fresh || !fresh.title || !line) return;
+    setFreshProblem(null);
+    Promise.resolve(action(momentAddForm({ when: fresh.when, title: fresh.title, line }))).then(
+      () => setFresh(null),
+      (e: unknown) => setFreshProblem(whyNot(e)),
+    );
   };
 
   return (
-    <section data-moment-order-cards="" aria-label="Your moments, in order" className="-mx-4 flex min-h-full flex-col text-ink sm:-mx-6">
+    <section data-moment-order-cards="" aria-label="Your story, chapter by chapter" className="-mx-4 flex min-h-full flex-col text-ink sm:-mx-6">
       <div className="flex items-center px-4 pb-2 pt-3 text-[13px] text-ink/60">
-        <InfoTip label={`${moments.length} ${moments.length === 1 ? 'moment' : 'moments'}`} align="center">
-          Your story, one moment at a time — a photo, a year, a few lines. Tap one to change it; drag the grip to reorder.
+        <InfoTip label={`${moments.length} ${moments.length === 1 ? 'chapter' : 'chapters'}`} align="center">
+          Tap the date, the name or the picture to change it. ⋯ holds its words and the rest.
         </InfoTip>
       </div>
-      {moments.length ? (
-        <ol ref={list} className="flex flex-col border-b border-ink/10">
-          {order.map((id, i) => {
-            const m = byId.get(id);
-            if (!m) return null;
-            const photo = (m.media ?? []).map((r) => mediaUrls[r]).find(Boolean) ?? null;
-            const isOpen = open === id;
-            return (
-              <li
-                key={id}
-                data-moment-card={id}
-                data-studio-story-card={isOpen ? 'open' : ''}
-                className={`${CARD_BAND} ${dragging === id ? 'relative z-10 opacity-90 shadow-[0_10px_24px_-18px_rgba(30,26,18,.6)]' : ''}`}
-              >
-                <div className={CARD_ROW}>
-                  <button
-                    type="button"
-                    data-studio-story-head={id}
-                    aria-expanded={isOpen}
-                    onClick={() => setOpen(isOpen ? null : id)}
-                    className="flex min-w-0 flex-1 items-center gap-3 text-left"
-                  >
-                    {photo ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={photo} alt="" className={`${CARD_PHOTO} object-cover`} />
-                    ) : (
-                      <span aria-hidden className={`${CARD_PHOTO} bg-[linear-gradient(135deg,rgb(var(--color-gild)/.35),rgb(var(--color-cream)))]`} />
-                    )}
-                    <span className={CARD_WORDS}>
-                      <b className="font-serif text-[20px] font-medium leading-none text-gild">{m.date?.y ?? '—'}</b>
-                      {m.title ? (
-                        <em className="mt-0.5 truncate text-[14.5px] font-semibold not-italic text-ink">{m.title}</em>
-                      ) : null}
-                      {isOpen ? null : <small className="truncate text-[12.5px] text-ink/70">{m.line.split('\n')[0]}</small>}
-                      {m.hidden ? <small className="text-[11px] text-ink/45">Off the Event Hub</small> : null}
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={`Move ${m.title || 'this moment'} — drag, or use the arrow keys`}
-                    data-moment-grip={id}
-                    className={`${CARD_GRIP} cursor-grab touch-none active:cursor-grabbing`}
-                    onPointerDown={(e) => {
-                      e.preventDefault();
-                      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-                      start.current = order.join(',');
-                      setDragging(id);
-                    }}
-                    onPointerMove={(e) => {
-                      if (dragging !== id) return;
-                      const to = placeAt(e.clientY);
-                      setOrder((o) => (o.indexOf(id) === to ? o : moveTo(id, to, o)));
-                    }}
-                    onPointerUp={() => dragging === id && finish(order)}
-                    onPointerCancel={() => {
-                      setDragging(null);
-                      setOrder(start.current.split(','));
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
-                      e.preventDefault();
-                      const to = i + (e.key === 'ArrowUp' ? -1 : 1);
-                      if (to < 0 || to >= order.length) return;
-                      start.current = order.join(',');
-                      const next = moveTo(id, to, order);
-                      setOrder(next);
-                      finish(next);
-                    }}
-                  >
-                    <GripVertical aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-                  </button>
-                </div>
-                {isOpen ? <OpenMoment m={m} action={action} sheet={sheet} /> : null}
-              </li>
-            );
-          })}
+      {moments.length || fresh ? (
+        <ol className="flex flex-col border-y border-ink/10">
+          {moments.map((m) => (
+            <ChapterRow
+              key={m.id}
+              m={m}
+              ids={ids}
+              action={action}
+              sheet={sheet}
+              mediaUrls={mediaUrls}
+              editing={editing === m.id}
+              onEdit={() => setEditing(m.id)}
+              onEndEdit={() => setEditing((cur) => (cur === m.id ? null : cur))}
+              open={open === m.id}
+              onOpen={() => setOpen((cur) => (cur === m.id ? null : m.id))}
+            />
+          ))}
+          {fresh ? (
+            <TimelineRow
+              data="new"
+              attrs={{ 'data-studio-story-new': '' }}
+              name={fresh.title}
+              placeholder="Name this chapter"
+              nameLabel="Name of this chapter"
+              maxLength={MOMENT_TITLE_MAX}
+              editing={editing === NEW_ROW}
+              onEdit={() => setEditing(NEW_ROW)}
+              onKeep={(text) => {
+                setEditing(null);
+                /* Left unnamed: dropped — nothing was ever sent. */
+                if (!text && !fresh.title) return dropFresh();
+                if (text) setFresh({ ...fresh, title: text });
+                window.setTimeout(() => words.current?.focus(), 0);
+              }}
+              onLeave={() => (fresh.title ? setEditing(null) : dropFresh())}
+              problem={freshProblem}
+              when={
+                <TickerPill data="when" text={whenWords(fresh.when)} ariaLabel={`When: ${whenWords(fresh.when, true)}`} title="When" sheet={pickSheet} className="min-w-[72px]">
+                  {(close) => <WhenTicker value={fresh.when} thisYear={new Date().getFullYear()} onChange={(when) => setFresh({ ...fresh, when })} onDone={close} />}
+                </TickerPill>
+              }
+              below={
+                editing === NEW_ROW ? null : (
+                  <div data-studio-story-new-words="" className="flex flex-col gap-2 pb-3 pl-3 pr-3">
+                    <textarea
+                      ref={words}
+                      value={freshLine}
+                      maxLength={MOMENT_LINE_MAX}
+                      aria-label="The words"
+                      placeholder="What happened, in your words…"
+                      rows={3}
+                      onChange={(e) => setFreshLine(e.target.value)}
+                      onBlur={(e) => keepFresh(e.target.value)}
+                      className={WORDS_BOX}
+                    />
+                    <div className="flex items-center justify-between gap-2">
+                      {/* Said, never silent: a chapter with a name and no words is not saved yet. */}
+                      <p role="status" data-studio-story-not-saved="" className="text-[12.5px] font-semibold text-warn-700">
+                        Not saved yet — a chapter needs a line or two.
+                      </p>
+                      {/* BUTTON-RULE */}
+                      <button type="button" data-studio-story-new-drop="" onClick={dropFresh} className={QUIET_BUTTON}>
+                        <Trash2 aria-hidden className="h-4 w-4" strokeWidth={2} />
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                )
+              }
+            />
+          ) : null}
         </ol>
       ) : (
         <>
-          <p className="px-4 pb-3 pt-1 text-[14px] text-ink/60">No moments yet.</p>
+          <p className="px-4 pb-3 pt-1 text-[14px] text-ink/60">No chapters yet.</p>
           <SampleStory />
         </>
       )}
@@ -357,17 +582,10 @@ export function MomentOrderCards({
       <div className={`z-30 max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:pb-[max(.5rem,env(safe-area-inset-bottom))] lg:sticky lg:bottom-0 lg:mt-4 sn-glass-row shrink-0 px-2.5 py-2`}>
         {add.can ? (
           /* BUTTON-RULE */
-          <MomentSheetStudio
-            {...sheet}
-            opensFor="add"
-            trigger={
-              <span data-studio-add-moment="" className="contents">
-                <Plus aria-hidden className="h-[18px] w-[18px]" strokeWidth={2.2} />
-                Add a moment
-              </span>
-            }
-            triggerClassName={STUDIO_FOOT_BUTTON}
-          />
+          <button type="button" data-studio-add-moment="" disabled={fresh !== null} onClick={startFresh} className={`${STUDIO_FOOT_BUTTON} disabled:opacity-50`}>
+            <Plus aria-hidden className="h-[18px] w-[18px]" strokeWidth={2.2} />
+            Add a chapter
+          </button>
         ) : (
           <div data-love-story-cap="reached" className="px-1 py-1 text-[13px] text-ink/70">
             {add.line}

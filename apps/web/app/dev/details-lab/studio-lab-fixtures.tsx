@@ -152,12 +152,23 @@ export function LabStudioSchedule() {
   );
 }
 
-/** maria-and-jose's Love Story on fixtures — three moments, each with 4c's title, in the couple's own order. */
+/** Two of maria-and-jose's own demo pictures, standing in for stored photos (a lab has no storage to read). */
+const LAB_PHOTOS: Record<string, string> = {
+  'r2://setnayan-media/events/lab/love-story/a.jpg': '/demo/maria-jose/wall-1.webp',
+  'r2://setnayan-media/events/lab/love-story/b.jpg': '/demo/maria-jose/wall-6.webp',
+};
+
+/**
+ * maria-and-jose's Love Story on fixtures — every state the Timeline row has: a chapter known only by its YEAR, one
+ * by MONTH and year, one by FULL date; one with two photos, one kept off the Event Hub; each with 4c's title, in the
+ * couple's own order.
+ */
 const STORY: LoveStoryBlob = {
   moments: [
-    { id: 'ls-umbrella', date: { y: 2019 }, title: 'One umbrella', line: 'A rainy Tuesday in Katipunan — one umbrella, two strangers, no bus for an hour.', anchor: 'met', order: 0, canvas: {} },
-    { id: 'ls-siargao', date: { y: 2022 }, title: 'Siargao', line: 'He asked. She said yes before he finished the question.', place: 'Siargao', anchor: 'yes', order: 1, canvas: {} },
-    { id: 'ls-day', date: { y: 2026, m: 12, d: 12 }, title: 'The day', line: 'And now, with you, the day itself.', order: 2, canvas: {} },
+    { id: 'ls-umbrella', date: { y: 2019 }, title: 'One umbrella', line: 'A rainy Tuesday in Katipunan — one umbrella, two strangers, no bus for an hour.', anchor: 'met', order: 0, media: Object.keys(LAB_PHOTOS), canvas: {} },
+    { id: 'ls-trip', date: { y: 2021, m: 2, d: 14 }, title: 'Our first trip', line: 'Baguio, on a bus that left at four in the morning.', place: 'Baguio', order: 1, canvas: {} },
+    { id: 'ls-siargao', date: { y: 2022, m: 6 }, title: 'Siargao', line: 'He asked. She said yes before he finished the question.', place: 'Siargao', anchor: 'yes', order: 2, canvas: {} },
+    { id: 'ls-fitting', date: { y: 2026, m: 9 }, title: 'The fitting', line: 'Her mother cried first.', hidden: true, order: 3, canvas: {} },
   ],
 } as unknown as LoveStoryBlob;
 
@@ -180,13 +191,14 @@ export function LabStudioLoveStory() {
       motionLabel="Gentle"
       makerHref={`/dashboard/${EVENT}/launch`}
       guestHref={null}
-      ownsPro={false}
+      /* Photos on, so the picture square and its slots can be seen (a lab upload has nowhere to go, and says so). */
+      ownsPro
       storeShell={false}
       proHref={`/dashboard/${EVENT}/studio/website-pro`}
       proPrice={null}
       refused={null}
       sectionHidden={false}
-      mediaUrls={{}}
+      mediaUrls={LAB_PHOTOS}
       /* A change only the server may decide (a NEW photo) — the lab has no server. */
       action={async () => {
         throw new Error('Photos need the database — open this in the Maker.');

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "65724605f",
+  "generatedFromRef": "cb30b0faa",
   "routeCount": 429,
   "destinations": 959,
   "actions": 671,
-  "blocks": 5794,
+  "blocks": 5809,
   "routes": {
     "/": {
       "files": [
@@ -5024,6 +5024,7 @@
         "SettingsShell",
         "SubmitButton",
         "SwitchRow",
+        "SwitchTrack",
         "TurnstileField"
       ]
     },
@@ -5699,6 +5700,7 @@
         "SuggestMilestonesResult",
         "SummaryStat",
         "SupplierInvite",
+        "SwitchTrack",
         "TiltEditor",
         "TotalCell",
         "UpcomingRow",
@@ -5882,6 +5884,7 @@
         "SpecialMessageField",
         "SubmitButton",
         "Suspense",
+        "SwitchTrack",
         "T"
       ]
     },
@@ -6999,6 +7002,7 @@
         "LiveWallControls",
         "PageMasthead",
         "PickMenu",
+        "SwitchTrack",
         "WallMode",
         "WallModeControl"
       ]
@@ -7593,6 +7597,7 @@
         "StudioSeatPlanHead",
         "StudioSeatPlanTools",
         "Suspense",
+        "SwitchTrack",
         "T",
         "TableType"
       ]
@@ -8369,6 +8374,7 @@
         "StudioBuyHero",
         "StylePicker",
         "SubmitButton",
+        "SwitchTrack",
         "TierOption",
         "Unmeasured",
         "UploadsOpenChoice",
@@ -8479,7 +8485,8 @@
         "RecapSocialFeatureToggle",
         "ShareButtons",
         "Stat",
-        "SubmitButton"
+        "SubmitButton",
+        "SwitchTrack"
       ]
     },
     "/dashboard/[eventId]/studio/papic/run-of-show": {
@@ -8704,7 +8711,8 @@
         "StdMedia",
         "StdMediaPicker",
         "StdThemeId",
-        "StudioBuyHero"
+        "StudioBuyHero",
+        "SwitchTrack"
       ]
     },
     "/dashboard/[eventId]/studio/save-the-date/stamp": {
@@ -9122,6 +9130,7 @@
         "ShotListCard",
         "SnapshotChargeLine",
         "SubmitButton",
+        "SwitchTrack",
         "TrustedCircleBadge",
         "VendorDirectPay",
         "VendorItemizationCard",
@@ -9593,14 +9602,17 @@
       "blocks": [
         "AddMomentLabel",
         "ChapterMoments",
+        "ChapterPhotos",
+        "ChapterRow",
         "DetailsPieceOnly",
         "Field",
         "FileUpload",
+        "Fresh",
         "HTMLButtonElement",
         "HTMLDivElement",
         "HTMLElement",
         "HTMLFormElement",
-        "HTMLOListElement",
+        "HTMLTextAreaElement",
         "HubDraftField",
         "InMakerLiveBook",
         "InMakerReturnTo",
@@ -9618,9 +9630,9 @@
         "MomentOrderCards",
         "MomentSheet",
         "MomentSheetStudio",
-        "OpenMoment",
         "PaidMark",
         "PanelFollowsThePage",
+        "PhotoCount",
         "PickFromOurEvents",
         "PickMenu",
         "Precision",
@@ -9630,7 +9642,10 @@
         "StoryChapterFields",
         "StoryFields",
         "SubmitButton",
-        "T"
+        "T",
+        "TickerPill",
+        "TimelineRow",
+        "WhenTicker"
       ]
     },
     "/dashboard/[eventId]/website/photo-moments": {

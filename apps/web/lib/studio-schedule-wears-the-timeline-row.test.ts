@@ -295,7 +295,8 @@ test('(7) "+ Add a moment" is the main button — the accent pill with its label
   assert.doesNotMatch(def, /mulberry|terracotta|#[0-9a-f]{3,8}|\bbg-|text-white/i, 'a colour is written into the foot button by hand');
   // Painted on the page: the accent pill.
   const { html } = await paintDay([moment('a', 'Ceremony', '15:00', '16:00')]);
-  assert.match(html, /<button[^>]*data-studio-add-moment=""[^>]*class="[^"]*\bbg-mulberry text-white\b/);
+  assert.ok(new RegExp(`<button[^>]*data-studio-add-moment=""[^>]*class="[^"]*${PILL_ON_CLASS}`).test(html), 'the Add button is not painted as the main button');
+  assert.equal(PILL_ON_CLASS, 'bg-sn-accent text-sn-on-accent', 'anti-vacuity: the "on" look is no longer the accent token');
   // WHO WEARS IT — exactly these two, each its page's ONE main action ("+ Add a moment"). A third wearer must be
   // added here on purpose, and only if it is a main action too.
   const all = [...sources('app'), ...sources('lib')];
@@ -312,9 +313,9 @@ test('(7) "+ Add a moment" is the main button — the accent pill with its label
   for (const rel of importers) {
     assert.match(readFileSync(join(WEB, rel), 'utf8').slice(0, 200), /^(?:\s|\/\/[^\n]*\n|\/\*[\s\S]*?\*\/)*['"]use client['"]/, `${rel} imports the Studio skin from the server`);
   }
-  // ⋯ is the accent mark (listed: the ONE accent class this page writes, until the accent token lands).
+  // ⋯ is the accent mark — the ONE accent class this page writes, and it is the token (never `mulberry`, never a hex).
   const day = read(`${SCHED}/_components/studio-day.tsx`);
-  assert.deepEqual([...day.matchAll(/[\w:!-]*mulberry[\w/-]*/g)].map((m) => m[0]), ['text-mulberry']);
-  assert.match(html, /<button[^>]*data-studio-moment-more="a"[^>]*class="[^"]*\btext-mulberry\b/);
+  assert.deepEqual([...day.matchAll(/[\w:!-]*(?:mulberry|sn-accent|sn-on-accent)[\w/-]*/g)].map((m) => m[0]), ['text-sn-accent']);
+  assert.match(html, /<button[^>]*data-studio-moment-more="a"[^>]*class="[^"]*\btext-sn-accent\b/);
   assert.doesNotMatch(html, /data-studio-moment-more="a"[^>]*class="[^"]*text-ink\/45/);
 });

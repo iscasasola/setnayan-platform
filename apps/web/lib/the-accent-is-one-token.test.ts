@@ -59,6 +59,8 @@ const TEMPLATE_FILES = [
   `${E}/background-cards.tsx`, //          5 · Style card (and its one status line)
   `${E}/pick-menu.tsx`, //                 2 · Dropdown
   `${E}/pick-menu-place.ts`, //                its looks
+  'app/_components/timeline-row.tsx', //   13 · Timeline row (and its three list states)
+  'app/_components/ticker.tsx', //             its ticker, and the pill + pop that opens it
 ] as const;
 
 /**

@@ -41,7 +41,8 @@
  * (2); a separate reset button back beside Start from ▾ → (2); a dropdown of one choice for a word with no premade
  * line → (2); a message no longer `long` → (2); the asks'
  * frame dropping the part's marks → (3); the get-in sentence drawn under the row instead of behind its ⓘ → (3); the
- * Studio save through an unheld `makerSave` → (4); the Studio save without the latest-write → (4); `previewWord`
+ * Studio save through an unheld `makerSave` → (4); the Studio save under a write key of its own (not the stage's) →
+ * (4); `previewWord`
  * also saving → (4); the Maker's Reply by mounted without `draft` → (5); a word's refusal also said on the panel's
  * line → (6); the canvas tap still looking for an `<input>` → (7); a hand-made `<input>` back in the panel → (8);
  * the Pro mark dropped from the Celebration row → (9); the Celebration drawn in the store shell without Pro → (9);
@@ -271,11 +272,18 @@ const STUDIO_SAVE = /if \(studio\) \{\s*announceRsvpPreview\(next\);/;
 test('(4) a press in Studio = ONE draft write and no render of the Maker; typing sends nothing until the row is left', () => {
   const src = read(PANEL);
   const studio = between(src, STUDIO_SAVE, 'start(async () => {');
-  // THE CLAIM: held (`makerRedrawSave` — no Maker render is owed) around the latest-write around the ONE draft door.
-  assert.match(studio, /res = await makerRedrawSave\(\s*\(\) =>\s*makerLatestWrite\(canvasWriteKey\(RSVP_DRAFT_TYPE\), \(\) => \{/, 'a Studio press brings a whole render of the Maker, or a burst is more than one write');
-  assert.match(studio, /fd\.set\('intent', 'save'\);\s*fd\.set\('patch', JSON\.stringify\(\{ events: \{ rsvp_ask_config: next \} \}\)\);\s*fd\.set\(HUB_DRAFT_BAR_FIELD, '1'\);\s*return draftAction\(eventId, fd\);/, 'the Apply count does not come back with the save');
-  assert.equal(count(studio, /draftAction\(/g), 1, 'more than one request per press');
-  assert.doesNotMatch(studio, /\bmakerSave\(|router\.refresh|makerNeedsRender|setTimeout|setInterval/, 'the Studio save asks for a render, or writes on a timer');
+  // THE CLAIM: a Studio press is kept the ONE way a Studio page keeps a drafted answer — `studioDraftKeep` — once,
+  // under the RSVP stage's own write key (a change in Studio and one on the stage never land out of order).
+  assert.match(studio, /res = await studioDraftKeep\(eventId, canvasWriteKey\(RSVP_DRAFT_TYPE\), \{ rsvp_ask_config: next \}\);/, 'a Studio press is not kept through the one Studio draft helper');
+  assert.equal(count(studio, /studioDraftKeep\(/g), 1, 'more than one request per press');
+  assert.doesNotMatch(studio, /\bmakerSave\(|draftAction\(|hubDraftAction\(|router\.refresh|makerNeedsRender|requestMakerRefresh|setTimeout|setInterval/, 'the Studio save asks for a render, writes on a timer, or goes round the helper');
+  // …and that helper IS the claim (read from its own source, not trusted by name): held (`makerRedrawSave` — no
+  // Maker render is owed) around the latest-write around the ONE draft door, the Apply count in the answer.
+  const keep = between(read(`${L}/studio-info.tsx`), 'export async function studioDraftKeep(', '\n}\n');
+  assert.match(keep, /res = await makerRedrawSave\(\s*\(\) =>\s*makerLatestWrite\(key, \(\) => \{/, 'a kept answer brings a whole render of the Maker, or a burst is more than one write');
+  assert.match(keep, /fd\.set\('intent', 'save'\);\s*fd\.set\('patch', JSON\.stringify\(\{ events \}\)\);\s*fd\.set\(HUB_DRAFT_BAR_FIELD, '1'\);\s*return door\(eventId, fd\);/, 'the Apply count does not come back with the save');
+  assert.equal(count(keep, /\bdoor\(/g), 1, 'more than one request per kept answer');
+  assert.doesNotMatch(keep, /\bmakerSave\(|router\.refresh|makerNeedsRender/);
   // It returns before the unheld path (Event Details' own) can run.
   assert.match(studio, /return \(async \(\): Promise<SaveAnswer> => \{[\s\S]*\}\)\(\);\s*\}\s*$/, 'the Studio save falls through to the unheld save');
   // The panel builds on the Maker's own copy — no render brings the server's back after a save.
@@ -300,9 +308,11 @@ test('(5) everything waits for ✓ Apply: the panel’s only writers are the dra
   // The only actions the panel can call.
   const actions = [...src.matchAll(/import \{([^}]*)\} from '(\.\.\/\.\.\/[^']*actions)';/g)].map((m) => `${m[1]!.trim()} ← ${m[2]}`);
   assert.deepEqual(actions, ['hubDraftAction ← ../../website/hub-draft-actions', 'updatePaxSettings ← ../../actions']);
+  assert.match(src, /import \{ studioDraftKeep \} from '\.\/studio-info';/);
   // Every write of the config is the draft door's `intent=save`.
-  assert.equal(count(src, /fd\.set\('intent', 'save'\);\s*fd\.set\('patch', JSON\.stringify\(\{ events: \{ rsvp_ask_config: next \} \}\)\);/g), 3, 'a door writes the config some other way');
-  assert.equal(count(src, /fd\.set\('intent'/g), 3);
+  assert.equal(count(src, /fd\.set\('intent', 'save'\);\s*fd\.set\('patch', JSON\.stringify\(\{ events: \{ rsvp_ask_config: next \} \}\)\);/g), 2, 'the stage or Event Details writes the config some other way');
+  assert.equal(count(src, /fd\.set\('intent'/g), 2);
+  assert.equal(count(src, /studioDraftKeep\(eventId, canvasWriteKey\(RSVP_DRAFT_TYPE\), \{ rsvp_ask_config: next \}\)/g), 1, 'Studio writes the config some other way');
   // Reply by: the part's one writer, asked for the DRAFT in every mount the Maker has.
   const mounts = src.match(/<ReplyBy\b[\s\S]*?\/>/g) ?? [];
   assert.equal(mounts.length, 2, 'anti-vacuity: the Maker’s Reply by mounts were not found');
@@ -321,8 +331,8 @@ test('(6) a refusal is said once, where it happened: a word’s own row says it;
   // A word kept in its row: `said` — the row's own line and Try again say it (the template's), the panel's stays quiet.
   assert.match(src, /const saveWord = \(key: RsvpWordKey, text: string, said = false\) => save\(\{ words: wordsWith\(key, text\) \}, `“\$\{sceneWordName\(key\)\}”`, said\);/);
   assert.equal(count(src, /if \(!said\) setError\(/g), 2, 'a refusal of a word is also said on the panel’s line (or another control’s is not said at all)');
-  // The save ANSWERS the row: kept, or not — and why.
-  assert.equal(count(src, /return \{ ok: false, error: `It is back as it was\. \$\{res\.error \|\| 'Please try again\.'\}` \};/g), 2);
+  // The save ANSWERS the row: kept, or not — and why (the stage's, then Studio's).
+  assert.equal(count(src, /return \{ ok: false, error: `It is back as it was\. \$\{res\.error(?: \|\| 'Please try again\.')?\}` \};/g), 2);
   // A pick from Start from ▾ and the reset are the row's own saves too: said under the row they belong to.
   const rows = between(src, 'function WordRows(', '\n}\n');
   assert.match(rows, /void onKeep\(text\)\.then\(\(r\) => \{\s*if \(!r\.ok\) setProblem\(`\$\{name\} did not save\. \$\{r\.error\}`\);/);
@@ -471,6 +481,10 @@ test('(10) the lab: its RSVP stand-in screens carry the real pages’ part marks
   assert.match(studioLab, /const replyByLanded = \(async \(\) => \(\{ ok: true \}\)\) as unknown as /);
   assert.match(studioLab, /<MakerRsvpSettings \{\.\.\.props\} studio replyByAction=\{replyByLanded\} \/>/);
   assert.match(read('app/dev/details-lab/details-lab-node.tsx'), /<LabStudioRsvp\s+eventId=\{EVENT\}/);
+  // Every OTHER row of Studio › RSVP reaches the lab's stand-in for the draft door through the ONE seam Info built
+  // (`setStudioDraftDoor`, set once by the lab's shell) — the panel hands no door of its own.
+  assert.match(read('app/dev/maker-lab/maker-lab-shell.tsx'), /setStudioDraftDoor\(labDraft as never\);/);
+  assert.doesNotMatch(read(PANEL), /setStudioDraftDoor/, 'the panel sets a draft door (a second seam)');
   // …and the part reads "nothing answered" as refused — which is why the stand-ins must answer.
   assert.match(read(`${G}/reply-by.tsx`), /if \(res\.ok\) \{\s*saved\.current = next;/);
 });

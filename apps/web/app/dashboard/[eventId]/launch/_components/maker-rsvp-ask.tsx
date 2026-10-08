@@ -1,6 +1,6 @@
 'use client';
 
-import { HUB_DRAFT_BAR_FIELD, SUPERSEDED, makerLatestWrite, makerRedrawSave, makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
+import { HUB_DRAFT_BAR_FIELD, SUPERSEDED, makerLatestWrite, makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { canvasWriteKey, draftedCanvasOr, noteDraftedCanvas } from '@/lib/maker-draft-store';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
 import { HUB_DRAFT_FIELD, type HubDraftActionResult } from '@/lib/hub-draft';
@@ -41,6 +41,7 @@ import type { ReplyByFrame } from '../../_components/guest-setup/reply-by';
 import { formatCount } from '@/lib/format-number';
 import { readCelebrationKey, type RsvpCelebration } from '@/lib/rsvp-celebration';
 import { CelebrationPick } from './celebration-pick';
+import { studioDraftKeep } from './studio-info';
 import { STUDIO_GROUP } from '@/lib/studio-skin';
 
 /**
@@ -261,37 +262,26 @@ export function MakerRsvpSettings({
     }
     if (studio) {
       /* 🧭 STUDIO › RSVP — ONE REQUEST A PRESS, NO RENDER OF THE MAKER (owner rule 2026-10-08: *"the least amount of
-         request for the tasks to be done"*; the way Studio › Info keeps an answer). It was an unheld save: one draft
-         write AND a whole render of the Maker per burst — per keystroke while a word was typed. Now: the panel
-         builds on the Maker's own copy (`noteDraftedCanvas`), the newest change of a burst is the ONE write
-         (`makerLatestWrite`), the Apply count comes back with it (`HUB_DRAFT_BAR_FIELD`), and the pages the Maker
-         shows redraw themselves in place once the last write has landed (`makerRedrawSave`) — the RSVP's own
-         screens are told at once (`announceRsvpPreview`). */
+         request for the tasks to be done"*). It was an unheld save: one draft write AND a whole render of the Maker
+         per burst — per keystroke while a word was typed. Now it is kept THE ONE WAY A STUDIO PAGE KEEPS A DRAFTED
+         ANSWER — `studioDraftKeep` (Studio › Info's): held, the newest change of a burst the ONE write, the Apply
+         count in the answer, the pages the Maker shows redrawn in place once the last write has landed. Its key is
+         the RSVP stage's own (`canvasWriteKey`), so a change made in Studio and one made on the stage never land
+         out of order. The panel builds on the Maker's own copy (`noteDraftedCanvas`), and the RSVP's own screens
+         are told at once (`announceRsvpPreview`). (The dev lab's stand-in for the draft door reaches this page
+         through that same helper — `setStudioDraftDoor`.) */
       announceRsvpPreview(next);
       noteDraftedCanvas(RSVP_DRAFT_TYPE, next as HubSectionCanvas, current as HubSectionCanvas);
       return (async (): Promise<SaveAnswer> => {
-        let res: HubDraftActionResult | typeof SUPERSEDED;
+        let res: SaveAnswer;
         try {
-          res = await makerRedrawSave(
-            () =>
-              makerLatestWrite(canvasWriteKey(RSVP_DRAFT_TYPE), () => {
-                const fd = new FormData();
-                fd.set('intent', 'save');
-                fd.set('patch', JSON.stringify({ events: { rsvp_ask_config: next } }));
-                fd.set(HUB_DRAFT_BAR_FIELD, '1');
-                return draftAction(eventId, fd);
-              }),
-            requestMakerRefresh,
-            (r) => r !== SUPERSEDED && r.ok === true,
-          );
-        } catch {
-          res = { ok: false, intent: 'save', error: 'Please try again.' };
+          res = await studioDraftKeep(eventId, canvasWriteKey(RSVP_DRAFT_TYPE), { rsvp_ask_config: next });
         } finally {
           inFlight.current -= 1;
         }
-        if (res === SUPERSEDED) return KEPT;
         if (res.ok) {
-          saved.current = next;
+          /* Kept — or carried by a later change of the burst, whose own answer decides. */
+          if (tap === newest.current) saved.current = next;
           return KEPT;
         }
         if (tap !== newest.current) return KEPT;
@@ -300,8 +290,8 @@ export function MakerRsvpSettings({
         setLocal(back);
         announceRsvpPreview(back);
         noteDraftedCanvas(RSVP_DRAFT_TYPE, back as HubSectionCanvas, current as HubSectionCanvas);
-        if (!said) setError(`${what ?? rsvpSettingName(patch)} did not save, so it is back as it was. ${res.error || 'Please try again.'}`);
-        return { ok: false, error: `It is back as it was. ${res.error || 'Please try again.'}` };
+        if (!said) setError(`${what ?? rsvpSettingName(patch)} did not save, so it is back as it was. ${res.error}`);
+        return { ok: false, error: `It is back as it was. ${res.error}` };
       })();
     }
     start(async () => {

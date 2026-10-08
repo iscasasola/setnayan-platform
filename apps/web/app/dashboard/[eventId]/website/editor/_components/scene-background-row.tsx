@@ -54,8 +54,10 @@ import { PickMenu } from './pick-menu';
 import { SLIDER_VALUE, Slider } from '@/app/_components/slider';
 import { sceneBgPreviewMessage, type SceneBgPreviewMessage } from './scene-bg-preview-message';
 import { useMaker } from '../../../launch/_components/maker-context';
-import { StageBackground, type StageBgChoice } from '../../../launch/_components/stage-panel/stage-background';
-import { Dd } from '../../../launch/_components/stage-panel/kit';
+import { StageBackground, type StageBgSource, type StageBgTile } from '../../../launch/_components/stage-panel/stage-background';
+import { BACKGROUND_SOURCE_IS_PRO } from '@/lib/background-source';
+import { isStdLibrarySrc } from '@/lib/std-backgrounds';
+import { sceneShadeAt, sceneShadeOf } from '@/lib/scene-shade-bar';
 
 /**
  * 🖼 THE SCENE'S FORMAT → BACKGROUND, as the approved prototype draws it
@@ -109,6 +111,8 @@ const CHOICE_LABEL: Record<Choice, string> = {
   media: 'Upload media',
 };
 const TINTED: readonly Choice[] = ['color', 'diagonal', 'glow', 'glass', 'frost'];
+/** The toolbar's Colour row, in the order it is drawn (None first: the scene with no box of its own). */
+const COLOUR_TILES: readonly Exclude<Choice, 'media'>[] = ['none', 'color', 'diagonal', 'glow', 'glass', 'frost'];
 
 const IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
 const VIDEO_TYPES = ['video/mp4', 'video/quicktime', 'video/webm'];
@@ -209,6 +213,10 @@ export function SceneBackgroundRow({
   }, [canvasJson]);
   /* A new scene is a new question. */
   useEffect(() => setAsking(false), [widgetType]);
+  /* 🧭 The toolbar's Source ▾: a source picked there only SHOWS its choices (`ss` branch below). */
+  const [sourceView, setSourceView] = useState<{ of: string; from: StageBgSource; show: StageBgSource } | null>(null);
+  /** The shade the page was last shown while the bar is dragged — a move that changes nothing sends nothing. */
+  const shadeShown = useRef<string | null>(null);
 
   /* 📤 What was uploaded HERE, this visit — shown from the file itself (a
      local object URL) until the save's refresh brings the signed one. */
@@ -547,98 +555,128 @@ export function SceneBackgroundRow({
   );
 
   if (ss) {
+    /* 🖼 THE TOOLBAR'S BACKGROUND, IN FOUR ROWS (owner 2026-10-09 — `stage-panel/stage-background.tsx`): the SAME
+       saves, sorted by SOURCE as the Look sorts its own (`lib/background-source.ts`). What a scene can store decides
+       what is offered — nothing is invented here:
+         The Event Hub's   the stage's own (no background of this scene's)
+         Colour            None · Plain · Diagonal · Glow · Opaque · Frosted — one colour (+ a glass's opacity)
+         Scene             a ready-made picture (`STD_REALISTIC_BACKGROUNDS`)
+         Upload            the couple's own photo or clip
+       No "Use this background on every scene?" (owner: *"it is meant for just this element"*). */
     const scopeNow = sceneBackgroundScope(scenes, widgetType, shown);
-    const value: StageBgChoice = !bg || scopeNow === 'every' ? 'hub' : (current ?? 'hub');
-    const photoWords =
-      bg?.kind === 'photo'
-        ? (STD_REALISTIC_BACKGROUNDS.find((b) => b.src === bg.media)?.label ?? 'Your photo')
-        : bg?.kind === 'snippet'
-          ? 'Your video'
-          : 'Your pictures';
+    const stored: StageBgSource =
+      !bg || scopeNow === 'every' ? 'hub' : bg.kind === 'photo' ? (isStdLibrarySrc(bg.media) ? 'scene' : 'own') : bg.kind === 'snippet' ? 'own' : 'colour';
+    /* The source on SHOW: the one just picked in the dropdown until a choice of it is taken, else the stored one. */
+    const source: StageBgSource = sourceView && sourceView.of === widgetType && sourceView.from === stored ? sourceView.show : stored;
+    const worn = source === stored;
+    const media = bg?.kind === 'photo' || bg?.kind === 'snippet';
+    const cover = (url: string | null): React.CSSProperties => (url ? { backgroundImage: `url("${url}")` } : { background: 'linear-gradient(135deg, #d9c3a5, #8a6b39 60%, #3a382f)' });
+    const tiles: StageBgTile[] =
+      source === 'colour'
+        ? COLOUR_TILES.map((c) => ({ key: c, name: c === 'none' ? 'None' : CHOICE_LABEL[c], picture: preview(c, tint) }))
+        : source === 'scene'
+          ? STD_REALISTIC_BACKGROUNDS.map((b) => ({ key: b.src, name: b.label, picture: cover(b.src) }))
+          : source === 'own'
+            ? [
+                ...(videoChoice ? [{ key: videoChoice.ref, name: 'Your video', moving: true, picture: cover(videoChoice.poster ? mediaUrl(videoChoice.poster) : null) }] : []),
+                ...uploads.map((u) => (u.kind === 'snippet' ? { key: u.ref, name: 'Your clip', moving: true, picture: cover(u.posterUrl ?? null) } : { key: u.ref, name: 'Your photo', picture: cover(u.url) })),
+                ...photoChoices.map((p) => ({ key: p.ref, name: 'Your photo', picture: cover(p.url) })),
+              ]
+            : [];
+    const shadeAt = sceneShadeAt(shown.shade);
     return (
       <StageBackground
-        value={value}
         pending={pending}
-        offerMedia={offerMedia}
-        mediaMark={Boolean(mediaMark)}
-        onPick={(c) => {
-          if (c === 'hub') {
-            const next = hubBackgroundCanvasFor(scenes, widgetType, latest.current);
-            latest.current = next;
-            setShown(next);
-            save({ widgets: { [widgetType]: { canvas: next } } });
+        source={source}
+        sources={[
+          { key: 'hub', pro: false },
+          { key: 'colour', pro: false },
+          ...(offerMedia ? (['scene', 'own'] as const).map((key) => ({ key, pro: Boolean(mediaMark) && BACKGROUND_SOURCE_IS_PRO[key] })) : []),
+        ]}
+        onSource={(next) => {
+          if (next === 'hub') {
+            /* One choice: taken at once. */
+            setSourceView(null);
+            if (stored === 'hub') return;
+            const canvasNext = hubBackgroundCanvasFor(scenes, widgetType, latest.current);
+            latest.current = canvasNext;
+            setShown(canvasNext);
+            save({ widgets: { [widgetType]: { canvas: canvasNext } } });
             return;
           }
-          pick(c);
+          /* Any other source only SHOWS its choices — nothing is written until one is taken. */
+          setSourceView(next === stored ? null : { of: widgetType, from: stored, show: next });
+        }}
+        tiles={tiles}
+        tile={!worn ? null : source === 'colour' ? (current ?? null) : media ? bg!.media : null}
+        onTile={(key) => {
+          setSourceView(null);
           setAsking(false);
+          if (source === 'colour') {
+            pick(key as Choice);
+            return setAsking(false);
+          }
+          if (source === 'scene') return put(photoBg(key), false);
+          const clip = key === videoChoice?.ref ? { poster: videoChoice.poster } : uploads.find((u) => u.ref === key && u.kind === 'snippet');
+          put(clip ? clipBg(key, clip.poster) : photoBg(key), false);
         }}
-        shape={value === 'hub' || value === 'none' ? null : (shown.shape ?? HUB_DEFAULT_SCENE_SHAPE)}
-        onShape={(k) => putKeys({ shape: k === 'framed' ? undefined : k })}
-        colours={themeColours}
-        colour={value === 'hub' ? null : tint}
-        onColour={(hex) => {
-          const kind: HubBackgroundKind = current && TINTED.includes(current) ? (bg!.kind as HubBackgroundKind) : 'color';
-          put({ kind, color: hex.slice(0, 7), opacity: shown.opacity }, false);
-        }}
+        onUpload={source === 'own'}
+        upload={uploadNode}
+        colour={worn && source === 'colour' && current && TINTED.includes(current) ? tint : null}
         customColour={(close) => (
           <ColourSheet
-            value={value === 'hub' ? null : tint}
+            value={tint}
             shown={tint}
             what="this scene"
             palette={board ?? themeColours}
             slots={Boolean(board)}
-            onPick={(hex) => {
-              const kind: HubBackgroundKind = current && TINTED.includes(current) ? (bg!.kind as HubBackgroundKind) : 'color';
-              put({ kind, color: hex.slice(0, 7), opacity: shown.opacity }, false);
-            }}
+            onPick={(hex) => put({ kind: bg!.kind as HubBackgroundKind, color: hex.slice(0, 7), opacity: shown.opacity }, false)}
             onClose={close}
           />
         )}
-        opacityRow={
-          current === 'media' && value !== 'hub' ? (
-            /* 🌗 DARKER ↔ LIGHTER (owner 2026-10-07; prototype `SHADE`) — once a photo or video is chosen; the
-               veil never takes the words under the contrast floor (`lib/scene-media-shade.ts`). */
-            <div className="flex h-11 shrink-0" data-stage-bg="shade">
-              <Dd
-                small="Darker ↔ Lighter"
-                label="Darker or lighter"
-                data="bg-shade"
-                value={shown.shade ?? 'as-is'}
-                options={[
-                  { key: 'darker', label: 'Darker' },
-                  { key: 'as-is', label: 'As is' },
-                  { key: 'lighter', label: 'Lighter' },
-                ]}
-                onPick={(k) => putKeys({ shade: k === 'darker' || k === 'lighter' ? k : undefined })}
-              />
-            </div>
-          ) : current === 'glass' || current === 'frost' ? (
-            <IRow label="Opacity" data="scene-opacity">
-              <Slider
-                className="flex-1"
-                label="Opacity"
-                data="scene-opacity"
-                min={HUB_GLASS_OPACITY_MIN}
-                max={HUB_GLASS_OPACITY_MAX}
-                step={HUB_GLASS_OPACITY_STEP}
-                value={opacity}
-                valueText={`${opacity}%`}
-                onChange={(n) => {
+        opacity={
+          worn && (current === 'glass' || current === 'frost')
+            ? {
+                value: opacity,
+                min: HUB_GLASS_OPACITY_MIN,
+                max: HUB_GLASS_OPACITY_MAX,
+                step: HUB_GLASS_OPACITY_STEP,
+                onChange: (n) => {
                   setOpacityDraft(n);
                   if (opacityTimer.current) clearTimeout(opacityTimer.current);
                   opacityTimer.current = setTimeout(() => {
                     setOpacityDraft(null);
                     put({ kind: bg!.kind as HubBackgroundKind, color: tint, opacity: n }, false);
                   }, 350);
-                }}
-              />
-              <span className={`${SLIDER_VALUE} w-10`}>{opacity}%</span>
-            </IRow>
-          ) : null
+                },
+              }
+            : null
         }
-        galleryWords={photoWords}
-        gallery={galleryNode}
-        upload={uploadNode}
+        /* 🌗 DARKER ↔ LIGHTER, one bar (`lib/scene-shade-bar.ts`): the page shows the position while the thumb moves
+           (drawn in the browser, nothing saved); the ONE write is on release. The veil never takes the words under
+           the reading floor (`lib/scene-media-shade.ts`). */
+        shade={
+          worn && media
+            ? {
+                at: shadeAt,
+                onMove: (n) => {
+                  const next = sanitizeHubCanvas({ canvas: { ...latest.current, shade: sceneShadeOf(n) } });
+                  const fp = JSON.stringify(next.shade ?? null);
+                  if (fp === shadeShown.current) return;
+                  shadeShown.current = fp;
+                  onPreview?.(sceneBgPreviewMessage([{ type: widgetType, canvas: next }], mediaUrl, theme, mediaUrls));
+                },
+                onKeep: (n) => {
+                  shadeShown.current = null;
+                  putKeys({ shade: sceneShadeOf(n) });
+                },
+              }
+            : null
+        }
+        shape={worn && source !== 'hub' && current !== 'none' && bg ? (shown.shape ?? HUB_DEFAULT_SCENE_SHAPE) : null}
+        onShape={(k) => putKeys({ shape: k === 'framed' ? undefined : k })}
+        motion={worn && bg?.kind === 'photo' ? (shown.mediaMotion ?? 'still') : null}
+        onMotion={(k) => putKeys({ mediaMotion: k === 'parallax' ? 'parallax' : undefined })}
       />
     );
   }

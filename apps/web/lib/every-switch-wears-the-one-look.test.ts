@@ -185,7 +185,6 @@ const SWITCH_NOT_SWEPT: readonly { path: string; has?: string; why: string }[] =
   { path: 'app/dashboard/[eventId]/launch/_components/plan-myself.tsx', why: 'the guided flow’s switch — not the Stages panel' },
   { path: 'app/dashboard/[eventId]/launch/_components/studio-tools.tsx', why: '`StudioSwitch` — Studio’s side (wears `.sn-switch`, `STUDIO_SWITCH_TRACK`); its builder’s lane' },
   { path: 'app/dashboard/[eventId]/launch/_components/maker-rsvp-ask.tsx', why: 'the RSVP stage’s body — G1’s lane (its own hand-made `Switch`)' },
-  { path: 'app/dashboard/[eventId]/launch/_components/maker-reveal.tsx', why: 'the Reveal’s own two switches — the Stages builder’s next commit; its per-stage switches are already `PanelSwitch`' },
   { path: 'app/dashboard/[eventId]/website/editor/', why: 'the Maker’s work area — its own builders’ lane' },
   {
     path: 'app/onboarding/_shared/services-step.tsx',

@@ -106,3 +106,28 @@ test('(4) the pill: grey and `aria-disabled` (never `disabled`), never pressed w
   assert.equal((tools.match(/askTool\(toolFor\(k\), k\);/g) ?? []).length, 2, 'a pick can still ask the work area for a tool it has no panel for');
   assert.doesNotMatch(tools, /askTool\(toolRef\.current, k\)/);
 });
+
+test('(5) a pick asks for its tool only ONCE THE WORK AREA HAS THE PICK — never two frames after posting it', () => {
+  /* Measured on the Maker lab, 2026-10-09 (a tile → Names, Style remembered): the tool was asked for at 487 ms, the
+     pick's own message arrived at 488 ms — so the work area closed nothing, then opened the part's sheet on Text
+     under a pressed Style pill. Names and Logo, every time. */
+  const tools = read(`${L}/stage-tools.tsx`);
+  const pick = tools.slice(tools.indexOf('const pickPart = useCallback('), tools.indexOf('const pickPartRef = useRef(pickPart);'));
+  assert.ok(pick.length > 300, 'anti-vacuity: `pickPart` was not found');
+  /* The pick is posted as the canvas's own message, carrying which part this panel picked… */
+  assert.match(pick, /window\.postMessage\(\{ source: 'setnayan-site', t: 'edit', key: def\.canvas, \.\.\.\(def\.el \? \{ el: def\.el \} : \{\}\), stagePick: k \}, window\.location\.origin\);/);
+  /* …and `pickPart` itself asks for NO tool on that path (the Reveal, the Camera and the RSVP pages have no work-area tool to ask for). */
+  assert.doesNotMatch(pick, /askTool\(/, 'the tool is asked for before the work area has heard the pick');
+  /* The ask is made when this panel hears its OWN message back — the task in which the work area hears it too. */
+  const heard = tools.slice(tools.indexOf('const onCanvas = (e: MessageEvent) => {'), tools.indexOf("if (d.t === 'edit' && typeof d.key === 'string') {"));
+  assert.match(
+    heard,
+    /if \(e\.source === window\) \{\s*if \(d\.t === 'edit' && typeof d\.stagePick === 'string' && d\.stagePick in MAKER_PARTS\) \{\s*const k = d\.stagePick as MakerPartKey;\s*askTool\(toolFor\(k\), k\);\s*\}\s*return;\s*\}/,
+    'the panel does not ask for the tool when its own pick comes back',
+  );
+  /* A message that is not this panel's own pick (the work area's, a stray one) asks for nothing. */
+  assert.match(heard, /if \(d\?\.source !== 'setnayan-site'\) return;/);
+  /* The work area reads the same message it always did: `t`, `key`, `el` — the extra field changes none of them. */
+  const shell = read(`${E}/editor-shell.tsx`);
+  assert.doesNotMatch(shell, /stagePick/, 'the work area started reading the panel’s own mark');
+});

@@ -129,3 +129,41 @@ Requests: none. First load: unchanged.
 Guard: `lib/a-tool-with-nothing-to-do-says-so.test.ts` (12 sabotages, each seen red).
 
 SPEC IMPACT: None.
+
+## 2026-10-09 · feat(maker): the Reveal's own page wears the switch, the slider and the action button
+
+On the Invitation's Welcome page the Reveal part (`RevealStagePart`) was already all templates once A–C landed (look
+cards ringed from the token, `PanelSwitch`, dropdowns). The rest of `maker-reveal.tsx` — the shipped Maker's Reveal
+page — still drew four things by hand:
+
+- **Effects** (Butterflies / Falling petals): a track whose "on" was the gold `terracotta-700` → the one switch.
+- **Where it plays**: three ink pills with a tick, said as switches → each a pill with its stage's name and the one
+  switch (grey off, the accent on).
+- **Fine-tune**: native ranges tinted gold → the app's slider; `Slider` gains `onCommit` (told when the knob is let
+  go), so a knob still saves on release, never on every step.
+- **Play the opening** and **Reset** → the app's action button (second / quiet).
+
+`every-switch-wears-the-one-look` no longer exempts `maker-reveal.tsx`.
+
+Left as they are, said plainly: the page's three ⓘ are still the older hover note (`InfoTip` prints its own label,
+the explanation template has none — moving them redraws three rows of the shipped page, pinned by
+`the-reveal-fine-tunes-and-says-less`); the "Fine-tune ▸" fold is its own, not the shared Fold; "In your draft" /
+error lines keep their `terracotta-700` ink.
+
+Requests: none added or removed (the same saves on the same events).
+
+SPEC IMPACT: None.
+
+## 2026-10-09 · fix(maker): a pick asks for its tool only once the work area has the pick
+
+Seen on the Maker lab while checking the grey pills: a part picked from the panel (a tile, ↑ ↓ on the frame, a swipe,
+Done after typing, back from Studio) with Style remembered opened Names and Logo on TEXT — Font · Colour · Size —
+under a pressed Style pill. Measured: the panel asked the work area for the tool at 487 ms; the pick's own message
+arrived at 488 ms. The work area closed nothing, then opened the part's sheet on its Text section.
+
+The pick's message now carries `stagePick`; the panel hears its own message back in the task the work area hears it,
+and asks for the tool then. A tap ON the page was never affected (its message comes first by construction).
+
+Guard: `a-tool-with-nothing-to-do-says-so` (5) (3 sabotages, each seen red). Requests: none.
+
+SPEC IMPACT: None.

@@ -39,6 +39,7 @@ export function Slider({
   max,
   step = 1,
   onChange,
+  onCommit,
   valueText,
   disabled = false,
   className = '',
@@ -52,6 +53,8 @@ export function Slider({
   step?: number;
   /** The knob moved (every step of a drag). */
   onChange: (value: number) => void;
+  /** The knob was LET GO (finger or key up) — for a slider that saves when released, never on every step. */
+  onCommit?: (value: number) => void;
   /** What the value SAYS ("1.1 s", "86%") — read out instead of the bare number. */
   valueText?: string;
   disabled?: boolean;
@@ -72,6 +75,8 @@ export function Slider({
       aria-valuetext={valueText}
       data-slider={data ?? ''}
       onChange={(e) => onChange(Number(e.target.value))}
+      onPointerUp={onCommit ? (e) => onCommit(Number(e.currentTarget.value)) : undefined}
+      onKeyUp={onCommit ? (e) => onCommit(Number(e.currentTarget.value)) : undefined}
       className={`${SLIDER_CLASS} ${className}`}
       style={{ '--sn-slider-fill': `${sliderFill(value, min, max)}%` } as CSSProperties}
     />

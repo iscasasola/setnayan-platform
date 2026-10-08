@@ -319,39 +319,14 @@
   padding: 11px 13px;
   border-bottom: 1px solid var(--line);
 }
-.seg {
-  display: flex;
-  gap: 4px;
-  background: var(--sunk);
-  padding: 3px;
-  border-radius: var(--m-r-md);
-}
-.seg button {
-  all: unset;
-  flex: 1;
-  text-align: center;
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 600;
-  padding: 8px 6px;
-  border-radius: var(--m-r-sm);
-  color: var(--mute);
-  min-height: 38px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-}
-.seg button.on {
-  background: var(--paper);
-  color: var(--ink);
-  box-shadow: var(--shadow);
-}
-.seg button[aria-disabled='true'] {
+/* Automatic | I choose is drawn by the app's one pill selector (`app/_components/pill-selector.tsx`, owner
+   2026-10-08) — the track, the two choices and the thumb are no longer this file's. What stays here is what only
+   this screen has: a choice that cannot be taken yet, the focus ring, and the shake below. */
+.modeseg button[aria-disabled='true'] {
   opacity: 0.45;
   cursor: not-allowed;
 }
-.seg button:focus-visible {
+.modeseg button:focus-visible {
   outline: 2px solid var(--act);
   outline-offset: 2px;
 }
@@ -367,7 +342,7 @@
     transform: translateX(3px);
   }
 }
-.seg button.nudge {
+.modeseg button.nudge {
   animation: nudge 0.32s ease 2;
   box-shadow: 0 0 0 2px var(--act);
 }

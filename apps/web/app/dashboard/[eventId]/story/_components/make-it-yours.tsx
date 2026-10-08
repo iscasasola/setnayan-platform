@@ -107,6 +107,7 @@ import {
 import { saveArrangement } from '../arrangement-actions';
 import type { MakeItYoursInput } from '../_lib/load-make-it-yours';
 import s from './make-it-yours.module.css';
+import { PILL_TRACK_CLASS, PILL_TRACK_GROUND, PillThumb, pillSegClass } from '@/app/_components/pill-selector';
 import { formatCount } from '@/lib/format-number';
 import { useOneOpen } from '@/lib/one-open';
 
@@ -1601,10 +1602,11 @@ export function MakeItYours({
             </button>
           </div>
           <div className={s.modewrap}>
-            <div className={s.seg} role="group" aria-label="How moments are made">
+            <div className={`${PILL_TRACK_CLASS} ${PILL_TRACK_GROUND} ${s.modeseg}`} role="group" aria-label="How moments are made">
+              <PillThumb />
               <button
                 type="button"
-                className={cx(auto && s.on)}
+                className={pillSegClass(auto)}
                 aria-pressed={auto}
                 aria-disabled={!hasSchedule}
                 onClick={onAutomatic}
@@ -1614,7 +1616,7 @@ export function MakeItYours({
               <button
                 ref={chooseRef}
                 type="button"
-                className={cx(!auto && s.on)}
+                className={pillSegClass(!auto)}
                 aria-pressed={!auto}
                 aria-disabled={false}
                 onClick={onChoose}

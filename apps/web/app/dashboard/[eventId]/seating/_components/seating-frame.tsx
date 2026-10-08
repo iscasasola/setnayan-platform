@@ -22,6 +22,7 @@ import {
 } from 'react';
 import { AlertTriangle, Check, ChevronDown, Loader2, type LucideIcon } from 'lucide-react';
 import { formatCount } from '@/lib/format-number';
+import { PillButton, PillTrack } from '@/app/_components/pill-track';
 import { OneOpenScope, useOneOpen } from '@/lib/one-open';
 
 const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
@@ -406,26 +407,21 @@ export function SeatingViewSegment({
     ...(show3D ? ([{ key: '3d', label: '3D' }] as const) : []),
   ];
   return (
-    <div className="inline-flex shrink-0 rounded-lg border border-ink/15 bg-cream p-0.5">
+    <PillTrack className="shrink-0" data-seating-view-segment="">
       {items.map((it) => {
         const on = active === it.key;
         return (
-          <button
+          <PillButton
             key={it.key}
-            type="button"
+            on={on}
             aria-pressed={on}
             onClick={() => onSelect(it.key)}
             onMouseEnter={it.key === '3d' ? on3DHover : undefined}
-            className={`inline-flex items-center rounded-md px-2.5 py-1 text-xs font-medium transition ${
-              on
-                ? 'bg-mulberry/15 text-mulberry-700 ring-1 ring-mulberry/40'
-                : 'text-ink/55 hover:text-ink'
-            }`}
           >
             {it.label}
-          </button>
+          </PillButton>
         );
       })}
-    </div>
+    </PillTrack>
   );
 }

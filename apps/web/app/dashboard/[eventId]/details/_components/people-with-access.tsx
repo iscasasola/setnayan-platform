@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { UserMinus } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
+import { PillButton, PillTrack } from '@/app/_components/pill-track';
 import { PickMenu, type PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { AREA_LEVEL_WORD, DELEGATE_AREA_DOES, type AreaChoice } from '@/lib/delegate-areas';
@@ -74,6 +75,9 @@ function dayLabel(iso: string): string {
  * A position the area cannot take (Budget / Photos never Edit) is drawn and
  * disabled; a fixed area (Event Hub, Mood Board) is drawn at its value,
  * disabled, with an ⓘ saying why.
+ *
+ * Drawn by the app's ONE pill selector (owner 2026-10-08, `app/_components/pill-track.tsx`): the picked position is
+ * the terracotta, the others grey. It stays a radio group (`aria-checked`).
  */
 function AreaToggle({
   label,
@@ -89,29 +93,27 @@ function AreaToggle({
   onPick: (next: AreaChoice) => void;
 }) {
   return (
-    <div role="radiogroup" aria-label={label} className="inline-flex h-10 shrink-0 rounded-full bg-ink/[0.06] p-0.5" data-area-toggle="">
+    <PillTrack role="radiogroup" aria-label={label} className="shrink-0" data-area-toggle="">
       {AREA_TOGGLE_ORDER.map((pos) => {
         const on = pos === choice;
         const can = !disabled && (choices?.includes(pos) ?? false);
         return (
-          <button
+          <PillButton
             key={pos}
-            type="button"
+            on={on}
             role="radio"
             aria-checked={on}
             disabled={!can && !on}
             aria-disabled={!can}
             onClick={() => (can && !on ? onPick(pos) : undefined)}
-            className={`h-full min-h-0 min-w-[3.25rem] rounded-full px-2.5 text-[12.5px] transition-colors ${
-              on ? 'bg-ink font-semibold text-cream' : can ? 'text-ink/70 hover:text-ink' : 'text-ink/30'
-            } ${on && !can ? 'opacity-60' : ''}`}
+            className={`min-w-[3.25rem] ${on && !can ? 'opacity-60' : ''}`}
             data-area-pos={pos}
           >
             {AREA_LEVEL_WORD[pos]}
-          </button>
+          </PillButton>
         );
       })}
-    </div>
+    </PillTrack>
   );
 }
 

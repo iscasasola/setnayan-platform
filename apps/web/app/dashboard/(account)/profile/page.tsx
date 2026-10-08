@@ -51,6 +51,7 @@ import {
 import { accountFaceProfileEnabled } from '@/lib/account-face-profile';
 import { slugForwardingLabel } from '@/lib/slug-forwarding-window';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { PillButton, PillTrack } from '@/app/_components/pill-track';
 import {
   atTag,
   composeFormalName,
@@ -1626,32 +1627,27 @@ function Segmented({
         <p className="text-sm font-medium text-ink">{label}</p>
         <p className="mt-0.5 text-xs text-ink/60">{help}</p>
       </div>
-      <div
-        role="group"
-        aria-label={label}
-        className="inline-flex shrink-0 gap-1 self-start rounded-md border border-ink/15 bg-cream p-1 sm:self-auto"
-      >
+      {/* 🎚 THE ONE PILL SELECTOR (owner 2026-10-08: "adjust all pill selectors to this") — ONE form, and each
+          choice a submit button carrying `name=value` (it was one form per choice; the thumb needs the choices to
+          be the track's direct children). The picked choice is a plain button: pressing it sends nothing. */}
+      <PillTrack as="form" action={action} role="group" aria-label={label} className="shrink-0 self-start sm:self-auto" data-setting-segmented={name}>
         {options.map((opt) => {
           const isActive = opt.key === value;
           return (
-            <form key={opt.key} action={action}>
-              <input type="hidden" name={name} value={opt.key} />
-              <button
-                type="submit"
-                disabled={isActive}
-                aria-pressed={isActive}
-                className={`rounded-sm px-4 py-1.5 text-sm transition-colors ${
-                  isActive
-                    ? 'bg-terracotta/10 font-semibold text-terracotta-700'
-                    : 'font-medium text-ink/70 hover:text-ink'
-                }`}
-              >
-                {opt.label}
-              </button>
-            </form>
+            <PillButton
+              key={opt.key}
+              on={isActive}
+              type={isActive ? 'button' : 'submit'}
+              name={name}
+              value={opt.key}
+              aria-pressed={isActive}
+              className="px-4"
+            >
+              {opt.label}
+            </PillButton>
           );
         })}
-      </div>
+      </PillTrack>
     </div>
   );
 }

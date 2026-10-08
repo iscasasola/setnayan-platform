@@ -52,7 +52,12 @@ test('2 · the blur behind a guest sheet is light enough to read the + through',
 
 test('4 · the doors are ONE segmented control — List · Map · Setup, one word each (G1)', () => {
   const nav = SCREEN.slice(SCREEN.indexOf('<nav'), SCREEN.indexOf('</nav>'));
-  assert.match(nav, /className=\{styles\.seg\}/, 'the doors are not one segmented control');
+  // 2026-10-08: the doors are drawn by the app's ONE pill selector (owner: "adjust all pill selectors to this"),
+  // no longer by this screen's own `.seg` CSS — so the pin is the template's track and thumb.
+  assert.match(nav, /className=\{`\$\{PILL_TRACK_CLASS\} \$\{PILL_TRACK_GROUND\}`\}/, 'the doors are not one segmented control');
+  assert.match(nav, /<PillThumb \/>/, 'the doors lost the thumb that slides between them');
+  assert.match(SCREEN, /className=\{`\$\{pillSegClass\(gview === key\)\} /, 'a door does not wear the pill selector’s look');
+  assert.doesNotMatch(SCREEN, /styles\.seg\b/, 'the doors are drawn by this screen’s own CSS again');
   const words = [...nav.matchAll(/seg\('(\w+)', '([^']+)'/g)].map((m) => m[2]);
   assert.deepEqual(words, ['List', 'Map', 'Setup'], `the segments read ${words.join(' · ')}`);
 });

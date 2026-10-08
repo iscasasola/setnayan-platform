@@ -52,36 +52,8 @@
   padding: 8px 0 10px;
   transition: top 300ms ease-out;
 }
-.seg {
-  display: flex;
-  background: rgb(var(--color-ink) / 0.06);
-  border-radius: var(--m-r-md);
-  padding: 3px;
-  gap: 2px;
-}
-.seg a {
-  flex: 1;
-  height: 44px;
-  border-radius: var(--m-r-sm);
-  font-size: 13px;
-  font-weight: 600;
-  color: rgb(var(--color-ink) / 0.6);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  text-decoration: none;
-  transition: background 160ms, color 160ms;
-}
-.seg a[aria-current='page'] {
-  background: var(--gs-brand);
-  color: #fff;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
-}
-.seg b {
-  font-weight: 500;
-  opacity: 0.8;
-  margin-left: 4px;
-}
+/* The List · Map · Setup doors are no longer drawn here: they wear the app's one pill selector
+   (`app/_components/pill-selector.tsx`, owner 2026-10-08). */
 .counts {
   display: flex;
   gap: 10px 14px;

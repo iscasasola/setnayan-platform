@@ -742,7 +742,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
                 {/* 🚪 "N TO INVITE" IS A DOOR (controller 2026-10-08: from the List — the tab people
                     land on — there was no way to start sending). It opens the ONE send run, the very
                     place Setup's "Send to N" opens (`guest-setup-rows.tsx` → `/guests/send`); the two
-                    are held equal by `to-invite-is-a-door.test.ts`. With nobody left to invite it is
+                    are held equal by `counts-equal-the-rows.test.ts`. With nobody left to invite it is
                     plain words, never a dead link. A refused read draws none of this line. */}
                 {stats.toInvite > 0 ? (
                   <span className={styles.wine}>

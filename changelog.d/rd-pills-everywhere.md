@@ -67,3 +67,15 @@ SPEC IMPACT: None.
   onboarding, sign-up, sign-in and the public route folders.
 
 SPEC IMPACT: None.
+
+## 2026-10-08 · fix(workspace): an arrow key moves one tab in the two-sided workspace, never two
+
+With the "Chat" link tab first in the strip, → from Quote landed on Files and
+skipped Payments: the key handler was given a tab's place in the whole strip and
+looked it up in the panels-only list. It is now given the tab's own id
+(`nextPanelTabId` in `app/_components/relationship-tab-shell.tsx`). Found while
+the strip became the pill selector; older than that work.
+
+Guard: `lib/workspace-tabs-step-one-at-a-time.test.ts`.
+
+SPEC IMPACT: None.

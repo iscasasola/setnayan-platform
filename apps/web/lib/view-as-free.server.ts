@@ -6,6 +6,7 @@ import {
   viewAsFreeCookieOn,
   viewAsFreeHonoured,
 } from '@/lib/view-as-free';
+import { internalAnswerFrom } from '@/lib/internal-viewer-read';
 
 /**
  * apps/web/lib/view-as-free.server.ts
@@ -70,9 +71,8 @@ const viewerInternalRead = cache(async (): Promise<{ read: boolean; internal: bo
     // Not internal on a failed read: the switch then does nothing, which shows
     // the real (Pro) page — never the other way round.
     logQueryError('viewAsFree.viewerIsInternal', error, { user_id: user.id }, 'graceful_degrade');
-    return { read: false, internal: false };
   }
-  return { read: true, internal: (data as { is_internal?: boolean | null } | null)?.is_internal === true };
+  return internalAnswerFrom({ data, error });
 });
 
 /** Is the viewer an internal (§10a) account? Cached per request. */

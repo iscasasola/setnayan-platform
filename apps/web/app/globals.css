@@ -4363,6 +4363,80 @@ html.dark {
   }
 }
 
+/* ── THE FORM ROW (owner 2026-10-08; `app/_components/form-row.tsx`, the approved gallery § 6 · § 10) ─────────
+   Its MOTION, at the press family's one speed (`--sn-pill-dur`; the gallery's own shares of it):
+     · the field OPENS across the row from the right, with the family's small overshoot;
+     · it FOLDS BACK to the right (*"the collapse should also animate how the Row Name returns"*) — no fill mode:
+       the leaving field's own style is "gone", so nothing is left holding a transform;
+     · then the row's name slides back in from the left and its pill from the right;
+     · a wrong or unfinished answer SHAKES once (*"make it shake so they can find it easily"*).
+   Transform, translate and opacity only — nothing here lays a row out again. None of it runs under "reduce motion"
+   (the red line and the scroll still happen — `shakeIntoView`). */
+@keyframes sn-row-field-in {
+  from { opacity: 0; transform: scaleX(0.7); }
+}
+@keyframes sn-row-field-out {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: scaleX(0.7); }
+}
+@keyframes sn-row-name-back {
+  from { opacity: 0; transform: translateX(-14px); }
+}
+@keyframes sn-row-pill-back {
+  from { opacity: 0; transform: translateX(14px); }
+}
+@keyframes sn-row-shake {
+  0%, 100% { translate: 0; }
+  15% { translate: -7px; }
+  30% { translate: 6px; }
+  45% { translate: -5px; }
+  60% { translate: 4px; }
+  75% { translate: -2px; }
+  90% { translate: 1px; }
+}
+.sn-row-field {
+  transform-origin: right center;
+  animation: sn-row-field-in calc(var(--sn-pill-dur) * 0.87) var(--sn-pill-spring);
+}
+.sn-row-field[data-leaving] {
+  opacity: 0;
+  animation: sn-row-field-out calc(var(--sn-pill-dur) * 0.39) var(--sn-ease);
+}
+[data-form-row-back] > .sn-row-name {
+  animation: sn-row-name-back calc(var(--sn-pill-dur) * 0.65) var(--sn-pill-spring);
+}
+[data-form-row-back] > .sn-row-pill {
+  animation: sn-row-pill-back calc(var(--sn-pill-dur) * 0.65) var(--sn-pill-spring);
+}
+.sn-row-shake {
+  animation: sn-row-shake 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+/* ── THE ⓘ EXPLANATION'S POPUP (`app/_components/explain.tsx`, gallery § 7): it lands in the centre with the
+   family's small bounce. `scale`, not `transform` — the popup is centred with a transform of its own. */
+@keyframes sn-explain-in {
+  from { opacity: 0; scale: 0.94; }
+}
+.sn-explain-pop {
+  animation: sn-explain-in calc(var(--sn-pill-dur) * 0.4) var(--sn-pill-spring);
+}
+@keyframes sn-explain-note-in {
+  from { opacity: 0; translate: 0 6px; }
+}
+.sn-explain-note {
+  animation: sn-explain-note-in calc(var(--sn-pill-dur) * 0.4) var(--sn-ease);
+}
+@media (prefers-reduced-motion: reduce) {
+  .sn-row-field,
+  .sn-row-field[data-leaving],
+  [data-form-row-back] > .sn-row-name,
+  [data-form-row-back] > .sn-row-pill,
+  .sn-row-shake,
+  .sn-explain-pop,
+  .sn-explain-note {
+    animation: none !important;
+  }
+}
+
 /* ── LOOK › BUTTONS (owner 2026-10-04: "create them") ────────────────────────
    The host's ONE choice for every Event Hub button — Shape · Fill · Colour —
    decided by `lib/hub-buttons.ts` (`resolveHubButtons`) and worn by the guest

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "bbeaa6742",
+  "generatedFromRef": "4f15e4296",
   "routeCount": 429,
   "destinations": 955,
   "actions": 671,
-  "blocks": 5703,
+  "blocks": 5706,
   "routes": {
     "/": {
       "files": [
@@ -9178,6 +9178,7 @@
         "dashboard/[eventId]/website/editor/_components/maker-navigator-data.ts",
         "dashboard/[eventId]/website/editor/_components/media-panels.tsx",
         "dashboard/[eventId]/website/editor/_components/motion-fx-rows.tsx",
+        "dashboard/[eventId]/website/editor/_components/our-music.tsx",
         "dashboard/[eventId]/website/editor/_components/page-pick.tsx",
         "dashboard/[eventId]/website/editor/_components/palette-look-row.tsx",
         "dashboard/[eventId]/website/editor/_components/part-inspector.tsx",
@@ -9268,11 +9269,13 @@
         "Fragment",
         "GalleryPanel",
         "GroundCarousel",
+        "HTMLAudioElement",
         "HTMLButtonElement",
         "HTMLDivElement",
         "HTMLElement",
         "HTMLFormElement",
         "HTMLIFrameElement",
+        "HTMLInputElement",
         "HTMLSpanElement",
         "HTMLTextAreaElement",
         "HTMLUListElement",
@@ -9321,6 +9324,7 @@
         "MotionSpeedRow",
         "NameStyle",
         "OpenBrowsePanel",
+        "OurMusicSong",
         "PaidMark",
         "PaletteLookCanvasRow",
         "PaletteLookRow",

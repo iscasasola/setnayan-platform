@@ -237,7 +237,7 @@ export function HubMusicManager({
 
   async function remove(track: HubMusicAdminTrack) {
     const ok = window.confirm(
-      `Remove “${track.title}” from Event Hub music?\n\nCouples can no longer pick it, and its file is deleted. This cannot be undone.`,
+      `Remove “${track.title}” from Event Hub music?\n\nCouples can no longer pick it. An Event Hub already playing it keeps it. This cannot be undone.`,
     );
     if (!ok) return;
     setError(null);

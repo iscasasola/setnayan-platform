@@ -122,6 +122,7 @@ import {
 } from '@/lib/hub-look-pro';
 import { parseRsvpBackdropConfig } from '@/lib/spatial-backdrop';
 import { siteMediaServeRef, siteMediaServeRefs } from '@/lib/site-media-ref';
+import { isHubMusicRef } from '@/lib/hub-music-ref';
 import { QR_STYLE_PREF_KEY, qrStyleFromPreferences, sanitizeQrStyle } from '@/lib/qr-look';
 import { CAMERA_LOOK_PREF_KEY, isCameraLook, type CameraLook } from '@/lib/camera-look-key';
 import {
@@ -1611,6 +1612,12 @@ export function eventItemIsPro(
     // and paid at Apply, like every other look.
     return OMBRE_IS_PRO && isOmbreValue(value);
   }
+  // 🎵 A song from "Our music" (the list Setnayan uploads, owner 2026-10-08 —
+  // the approved Look restudy offers it as "Setnayan’s own songs, by mood ·
+  // free to use") is free to pick. The couple's OWN song stays Event Hub Pro.
+  // Which one it is, is read off the stored reference (`lib/hub-music-ref.ts`);
+  // Apply separately admits that reference only while its track is published.
+  if (column === 'site_bg_music_r2_key' && isHubMusicRef(value)) return false;
   return eventColumnIsPro(column);
 }
 
@@ -2441,6 +2448,8 @@ export type HubDraftRefusal =
   | 'needs_pro'
   | 'apply_on_the_web'
   | 'not_your_photo'
+  /** 🎵 A drafted song from "Our music" whose track is no longer published. */
+  | 'song_off_the_list'
   | 'empty_section'
   | 'missing_section'
   /** 🗓 A drafted date that has already gone by (`eventDateRefusal` → `in_past`). */

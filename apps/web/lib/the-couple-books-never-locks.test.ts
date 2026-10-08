@@ -64,6 +64,7 @@ const ALLOW: readonly WordAllow[] = [
   { prefix: 'lib/user-delete-blockers.ts', why: 'an account locked out on deletion' },
   { prefix: 'app/(shell)/mood-board/', why: 'the mood board ("Nothing here is locked")' },
   { prefix: 'app/dashboard/[eventId]/studio/mood-board/', why: 'a mood-board preview the couple keeps as is' },
+  { prefix: 'app/dashboard/[eventId]/launch/_components/studio-elements.tsx', text: /a pairing never locks anything/, why: 'the Pairing ⓘ in Studio › Look › Elements — a font-and-colour pairing that fixes nothing; the approved prototype’s own words (background_restudy_2026-10-08), like the mood board’s "Nothing here is locked"' },
   { prefix: 'lib/help.ts', text: /locked vision|locked behavior/, why: 'a locked mood-board vision and a locked display-name rule — neither is a booking' },
   { prefix: 'app/(shell)/papic/', why: 'Papic credits — "never locked into what you pick"' },
   { prefix: 'app/dashboard/[eventId]/studio/papic/', why: 'a locked Papic price' },

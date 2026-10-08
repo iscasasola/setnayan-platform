@@ -1,7 +1,8 @@
 'use client';
 
-import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { CHIP_PHONE_ROW_PX, chipColumns, chipWidthFor, guessLabelPx } from '@/lib/chips-grid';
+import { tellTheForm } from '@/lib/tell-the-form';
 import { PILL_ON_CLASS } from './pill-selector';
 
 /**
@@ -61,7 +62,14 @@ export function Chips<K extends string>({
   even = true,
   data,
   className = '',
+  fieldName,
 }: {
+  /**
+   * Inside a `<form>`: the name each chip POSTS under — one visually-hidden checkbox per chip, present (`on`) when the chip is
+   * chosen and ABSENT when not (several may post: multi-valued). A tap tells the form (`tellTheForm`); an Undo's `click()` on a
+   * checkbox drives its chip. Absent = posts nothing. (See `lib/tell-the-form.ts`.)
+   */
+  fieldName?: (key: K) => string;
   /** The even grid (default). False: each chip hugs its word and the set wraps — only for a set that asks. */
   even?: boolean;
   /** The group's name, for a screen reader ("RSVP asks"). */
@@ -76,6 +84,16 @@ export function Chips<K extends string>({
   className?: string;
 }) {
   const group = useRef<HTMLDivElement>(null);
+  /* 📮 Only a PERSON's tap tells the form: the tap names the chip, the next commit tells the form about it and spends the flag. */
+  const boxes = useRef(new Map<K, HTMLInputElement>());
+  const tapped = useRef<K | null>(null);
+  const chosen = value.join('\u0001');
+  useEffect(() => {
+    if (tapped.current === null) return;
+    const box = boxes.current.get(tapped.current);
+    tapped.current = null;
+    tellTheForm(box);
+  }, [chosen]);
   /* What the browser measured: the widest word's chip, and the row. Until then (the server's render, the first
      paint) the words are guessed from their letters and the row is a phone's — the same answer on both sides. */
   const [measured, setMeasured] = useState<{ widest: number; row: number } | null>(null);
@@ -114,14 +132,17 @@ export function Chips<K extends string>({
       {options.map((o) => {
         const on = value.includes(o.key);
         return (
+          <Fragment key={o.key}>
           <button
-            key={o.key}
             type="button"
             aria-pressed={on}
             aria-label={o.ariaLabel}
             disabled={o.disabled}
             data-chip={o.key}
             data-testid={o.testId}
+            onClickCapture={() => {
+              tapped.current = fieldName ? o.key : null;
+            }}
             onClick={() => onToggle(o.key, !on)}
             /* In the grid a chip is its column's width — the same as every other chip of the set. */
             className={`${chipClass(on)}${columns ? ' w-full' : ''}`}
@@ -130,6 +151,24 @@ export function Chips<K extends string>({
               {o.label}
             </span>
           </button>
+          {fieldName ? (
+            <input
+              ref={(el) => {
+                if (el) boxes.current.set(o.key, el);
+                else boxes.current.delete(o.key);
+              }}
+              type="checkbox"
+              name={fieldName(o.key)}
+              checked={on}
+              disabled={o.disabled}
+              onChange={() => onToggle(o.key, !on)}
+              tabIndex={-1}
+              aria-hidden
+              className="sr-only"
+              data-chip-post={o.key}
+            />
+          ) : null}
+          </Fragment>
         );
       })}
     </div>

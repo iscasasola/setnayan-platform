@@ -15,3 +15,9 @@ SPEC IMPACT: None
 Step 4B-0 (test only, no source change). The card is live — its autosave posts the whole form to `updateGuest` — so moving its fields onto the templates must not change one posted name or value. `the-card-posts-the-same-form.test.ts` renders the card's form in twelve states (a guest and the couple, sides, claimed, +1, every toggle on and off, empty texts, several "Invited to" blocks and none, a seated and a declined guest, the tea-ceremony order, awkward characters), builds the FormData a browser would (checked boxes post, unchecked do not; textarea, entities, hidden), and compares it with the committed golden file. No request, no server action, no migration added.
 
 SPEC IMPACT: None
+
+## 2026-10-09 · feat(templates): TypedRow, SwitchRow and Chips can post a named value into a form — only when asked
+
+Step 4B-1. One additive, optional prop each (`fieldName`; on `Chips` a function of the chip's key), so a row inside a LIVE autosaving form (the guest card) posts its answer instead of keeping it only in React state: `TypedRow` carries the kept words in a hidden input and tells the form once, when they are kept; `SwitchRow` carries a real visually-hidden checkbox (present when on, absent when off, like a native one) and tells the form on a tap; `Chips` carries one such checkbox per chip. An Undo's restore drives the controls without telling the form. Without `fieldName` every template draws byte for byte what it drew (golden strings in `the-form-templates-post-only-when-named.test.ts`) and posts nothing. Verified in a real browser against a bundled harness: exactly one form event per tap or keep, none while typing, none for an unchanged keep, none for a restore. No request, no server action, no migration added.
+
+SPEC IMPACT: None

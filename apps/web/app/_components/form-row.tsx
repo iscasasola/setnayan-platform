@@ -18,6 +18,7 @@ import {
   type KeepAnswer,
 } from '@/lib/form-row';
 import { Explain } from './explain';
+import { tellTheForm } from '@/lib/tell-the-form';
 import { SWITCH_BUTTON, SwitchTrack } from './switch-track';
 
 /**
@@ -310,6 +311,7 @@ type Saving = { kind: 'idle' } | { kind: 'saving' } | { kind: 'saved' } | { kind
 /** How long the tick stays in the pencil's place after a save lands. */
 export const FORM_ROW_TICK_MS = 1600;
 
+
 /**
  * A typed answer: the pill with a pencil; a tap opens the field across the row.
  * `onKeep` is told the kept words ONCE — it may answer `{ ok: false, error }` (or throw) when the save did not land.
@@ -336,7 +338,13 @@ export function TypedRow({
   note,
   below,
   openAsk = 0,
+  fieldName,
 }: {
+  /**
+   * Inside a `<form>`: the name this row's kept words are POSTED under (see `lib/tell-the-form.ts`). A hidden input carries them; keeping
+   * them (tap out · Enter) tells the form once; an Undo's `sn-restore` puts them back on screen. Absent = posts nothing.
+   */
+  fieldName?: string;
   /** Bumped by the screen to open this row's field (a jump from elsewhere that lands ON this fact). 0 = never asked. */
   openAsk?: number;
   name: string;
@@ -391,6 +399,19 @@ export function TypedRow({
   const pill = useRef<HTMLButtonElement>(null);
   const after = useRef<(() => void) | null>(null);
   const refocus = useRef(false);
+  /* 📮 The hidden carrier (only with `fieldName`) and the Undo's way back onto the screen. */
+  const carrier = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const el = carrier.current;
+    if (!el) return;
+    const reread = () => setShown(el.value);
+    el.addEventListener('sn-restore', reread);
+    return () => el.removeEventListener('sn-restore', reread);
+  }, [fieldName]);
+
+  const keepTypingHere = (e: { target: EventTarget; stopPropagation: () => void }) => {
+    if (e.target !== carrier.current) e.stopPropagation();
+  };
 
   const open = () => {
     if (mode !== 'shut') return;
@@ -425,6 +446,8 @@ export function TypedRow({
         setState({ kind: 'failed', text, reason: null });
         return;
       }
+      /* 📮 Kept words reach the form ONCE, here (the carrier already holds them: it follows `shown`, set before this runs). */
+      tellTheForm(carrier.current);
       void Promise.resolve(answer).then(
         (r) => {
           if (r && r.ok === false) setState({ kind: 'failed', text, reason: r.error ?? null });
@@ -513,6 +536,10 @@ export function TypedRow({
       data-form-row-needs={needed ? 'answer' : wrong ? 'fix' : undefined}
       data-form-row-state={state.kind}
       className={FORM_ROW_BAND}
+      /* 📮 With a `fieldName` the form hears this row ONCE, from the keep. What is typed in the open field has no name and is not the
+         answer yet — its keystrokes stay in the row (only the carrier's own events pass), so a pause mid-word writes nothing. */
+      onInput={fieldName ? keepTypingHere : undefined}
+      onChange={fieldName ? keepTypingHere : undefined}
     >
       {editing ? (
         <FormRowField
@@ -575,6 +602,7 @@ export function TypedRow({
         </p>
       ) : null}
       {below}
+      {fieldName ? <input ref={carrier} type="hidden" name={fieldName} value={shown} data-form-pick="" /> : null}
     </div>
   );
 }
@@ -872,11 +900,18 @@ export function SwitchRow({
   below,
   data,
   attrs,
+  fieldName,
 }: {
   name: string;
   about?: FormRowAbout | null;
   on: boolean;
   onChange: (next: boolean) => void;
+  /**
+   * Inside a `<form>`: the name this switch POSTS under — a real visually-hidden checkbox, present (`on`) when the switch is on
+   * and ABSENT when off, which is what a native checkbox posts. A tap tells the form (see `lib/tell-the-form.ts`); an Undo's `click()` on
+   * that checkbox drives the switch. Absent = posts nothing.
+   */
+  fieldName?: string;
   disabled?: boolean;
   note?: ReactNode;
   problem?: ReactNode;
@@ -885,11 +920,34 @@ export function SwitchRow({
   data?: string;
   attrs?: Readonly<Record<`data-${string}`, string>>;
 }) {
+  /* 📮 Only a PERSON's tap tells the form — the flag is set by the tap and spent by the next commit (a restore, or a re-seed, never sets it). */
+  const post = useRef<HTMLInputElement>(null);
+  const tapped = useRef(false);
+  useEffect(() => {
+    if (!tapped.current) return;
+    tapped.current = false;
+    tellTheForm(post.current);
+  }, [on]);
   return (
     <FormRow name={name} about={about} note={note} problem={problem} below={below} data={data} attrs={{ ...attrs, 'data-form-row-kind': 'switch' }}>
-      <button type="button" role="switch" aria-checked={on} aria-label={name} disabled={disabled} data-form-row-switch="" onClick={() => onChange(!on)} className={SWITCH_BUTTON}>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={on}
+        aria-label={name}
+        disabled={disabled}
+        data-form-row-switch=""
+        onClick={() => {
+          tapped.current = Boolean(fieldName);
+          onChange(!on);
+        }}
+        className={SWITCH_BUTTON}
+      >
         <SwitchTrack on={on} />
       </button>
+      {fieldName ? (
+        <input ref={post} type="checkbox" name={fieldName} checked={on} disabled={disabled} onChange={() => onChange(!on)} tabIndex={-1} aria-hidden className="sr-only" data-form-switch-post="" />
+      ) : null}
     </FormRow>
   );
 }

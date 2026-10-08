@@ -468,6 +468,13 @@ const PILL_WATCH_SCOPE: readonly string[] = [
   'app/dashboard', // AREA 1 (2026-10-08, rd/pills-everywhere): the couple's whole dashboard — its converted selectors are held one by one in pills-are-everywhere.test.ts
   'app/_components', // AREA 1: the shared pieces (a thread's views, the two-sided workspace tabs)
   'app/vendor-dashboard', // AREA 2: the supplier's dashboard
+  'app/onboarding', // AREA 3: onboarding
+  'app/signup', // AREA 3: sign-up
+  'app/login', // AREA 3: sign-in
+  'app/(shell)', // AREA 3: the public pages (home, explore, pricing, help)
+  'app/for-suppliers', // AREA 3
+  'app/realstories', // AREA 3
+  'app/v', // AREA 3: a supplier's public shop
 ];
 /** The files that ARE the template's drawers — they hold the track on purpose. */
 const PILL_TEMPLATE_DRAWERS: readonly string[] = [`${E}/inspector-kit.tsx`, `${L}/stage-panel/kit.tsx`];

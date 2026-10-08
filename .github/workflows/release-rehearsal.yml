@@ -1,0 +1,399 @@
+name: release-rehearsal
+
+# ─── WHAT THIS IS ─────────────────────────────────────────────────────
+# A dress rehearsal for ONE upload. Owner, 2026-10-08: "we can edit everything
+# locally and just upload 1 big batch" · "like a log of what is on the website
+# now, then we create a batch edit it, correct all bugs, and transfer the data
+# as one go". That day the Vercel bill was $220.63 of Build CPU Minutes with 11
+# days left, production's database (Supabase FREE plan) had been taken down by
+# load, and the Vercel preview shares that production database.
+#
+# So this runs the release on a machine that costs nothing and touches nothing
+# live — a GitHub runner (this repo is public: Actions minutes are free):
+#
+#   1. a throw-away Supabase stack (real Postgres 17 + auth + PostgREST, in
+#      Docker on the runner — `supabase start`);
+#   2. every migration: the live site's set through the repo's own replay
+#      engine, then THIS RELEASE's new ones through the real
+#      `supabase db push --include-all --yes` — the command deploy-prod.yml runs;
+#   3. a small fixture (one host, one event, 30 guests, 12 suppliers, 3 orders);
+#   4. the app built in production mode (`pnpm build`, the script Vercel runs)
+#      and started with `next start`, pointed ONLY at that stack;
+#   5. the launch-critical journey walked in a phone-sized browser (375×812),
+#      one screenshot per step, each step asserting what a person would check;
+#   6. the number of database requests each step cost, as a table.
+#
+# Red = do not upload. Green = the screenshots are in the run's artifact
+# (`release-rehearsal` → rehearsal-screens/) and the table is on the run page.
+#
+# ─── ⛔ NOTHING HERE CAN REACH PRODUCTION — AND IT IS CHECKED, NOT PROMISED ──
+#   · This file names NO secret and NO repository variable. The first step
+#     fails the run if any production credential is in the environment, and a
+#     unit test (lib/release-rehearsal-touches-nothing-live.test.ts) fails CI if
+#     one is ever added here.
+#   · No Vercel build, no deploy hook, no `supabase link`.
+#   · The live hostnames are pointed at this machine in /etc/hosts for the run,
+#     the browser refuses every address that is not this machine, and the
+#     database is sealed: pg_cron jobs are forced inactive and pg_net requests
+#     are swallowed and counted (the migrations schedule calls to
+#     www.setnayan.com/api/notify — on a real Postgres those would FIRE).
+#   · Every script refuses a non-loopback address (tests/rehearsal/local-only.ts).
+#
+# ─── HOW TO RUN IT ────────────────────────────────────────────────────
+#   Actions → release-rehearsal → Run workflow → (branch: main) → Run.
+#   `ref`      what to rehearse — a branch, tag or commit. Default: main.
+#   `live_ref` what the site is on now. Default: the `deployed-prod` tag that
+#              deploy-prod.yml moves after each publish. It decides which
+#              migrations count as "already live" and what the summary lists as
+#              "in this upload". Leave it alone unless the tag is wrong.
+#
+# ⛔ DO NOT ADD `push`, `pull_request` OR `schedule` TRIGGERS. It is ~25 minutes
+# of runner per run and it is a button on purpose: a rehearsal is run when a
+# batch is ready, not on every merge.
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'What to rehearse (branch, tag or commit)'
+        required: false
+        default: 'main'
+      live_ref:
+        description: 'What the site is on now (default: the deployed-prod tag)'
+        required: false
+        default: 'deployed-prod'
+  # ⚠ TEMPORARY — proves the workflow from its own branch before it is on main
+  # (a workflow_dispatch workflow can only be started once the file is on the
+  # default branch). Removed in the last commit of this PR.
+  push:
+    branches: [rd/release-rehearsal]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-rehearsal-${{ inputs.ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rehearse:
+    name: rehearse the release
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      # ⚠ TEMPORARY with the push trigger: a fixed commit of main, so a push that
+      # only changes the walk reuses the build. Becomes `inputs.ref || 'main'`.
+      REHEARSE_REF: ${{ inputs.ref || '482a671b35b2bd764c9ad9b82989f4d207e0d3dd' }}
+      LIVE_REF: ${{ inputs.live_ref || 'deployed-prod' }}
+      # The Supabase CLI flushes telemetry on exit; in CI that egress times out
+      # and the CLI exits non-zero AFTER the work succeeded (deploy-prod.yml).
+      DO_NOT_TRACK: '1'
+      NEXT_TELEMETRY_DISABLED: '1'
+      REHEARSAL_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+      # The app talks to the request counter, which forwards to the local stack.
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54320
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+
+    steps:
+      # ── FIRST, before a single file is fetched ──────────────────────────
+      - name: No production credential is in this run
+        run: |
+          set -euo pipefail
+          bad=$(env | cut -d= -f1 | grep -E '^(SUPABASE_|VERCEL_|R2_|RESEND_|CRON_SECRET|DATABASE_URL|AUTOMERGE_PAT|ENCRYPTION_KEY|MAYA_|ANTHROPIC_|GEMINI_|OPENAI_)' || true)
+          if [ -n "$bad" ]; then
+            echo "::error title=Rehearsal refused::These production-shaped variables are present: $(echo "$bad" | tr '\n' ' '). The rehearsal runs with none. Nothing was run."
+            exit 1
+          fi
+          echo "✅ No production credential in the environment."
+          # Outside the workspace, so the checkout below cannot clean it away.
+          out="$RUNNER_TEMP/rehearsal-out"
+          mkdir -p "$out/screens"
+          echo "REHEARSAL_OUT=$out" >> "$GITHUB_ENV"
+          echo "started=$(date +%s)" > "$out/timings.env"
+
+      - name: Checkout what is being rehearsed
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.REHEARSE_REF }}
+          # Full history + tags: `deployed-prod` and the "in this upload" log
+          # both need them (the same trap deploy-prod.yml documents).
+          fetch-depth: 0
+          fetch-tags: true
+
+      # The app comes from `ref`; the rehearsal itself (this folder) always
+      # comes from the commit this workflow was started on — so an older ref
+      # can still be rehearsed with today's walk.
+      - name: Bring in the rehearsal harness
+        run: |
+          set -euo pipefail
+          mkdir -p "$REHEARSAL_OUT/screens"
+          git fetch --no-tags --quiet origin "$GITHUB_SHA" || true
+          git checkout --quiet "$GITHUB_SHA" -- apps/web/tests/rehearsal
+          wf="$(git show "$GITHUB_SHA:.github/workflows/release-rehearsal.yml")"
+          # ⛔ The workflow may not name a secret or a repository variable.
+          if printf '%s\n' "$wf" | grep -nE '\$\{\{[^}]*\b(secrets|vars)\.' ; then
+            echo "::error title=Rehearsal refused::release-rehearsal.yml names a secret or a repository variable. It must run with none."
+            exit 1
+          fi
+          ref_sha=$(git rev-parse HEAD)
+          echo "REF_SHA=$ref_sha" >> "$GITHUB_ENV"
+          # /api/health and the service worker read this to report the version.
+          echo "VERCEL_GIT_COMMIT_SHA=$ref_sha" >> "$GITHUB_ENV"
+          live_sha=""
+          if git rev-parse -q --verify "refs/tags/$LIVE_REF^{commit}" >/dev/null 2>&1; then
+            live_sha=$(git rev-parse "refs/tags/$LIVE_REF^{commit}")
+          elif git rev-parse -q --verify "origin/$LIVE_REF^{commit}" >/dev/null 2>&1; then
+            live_sha=$(git rev-parse "origin/$LIVE_REF^{commit}")
+          elif git rev-parse -q --verify "$LIVE_REF^{commit}" >/dev/null 2>&1; then
+            live_sha=$(git rev-parse "$LIVE_REF^{commit}")
+          fi
+          # A live commit that is not an ancestor of the ref cannot say what
+          # "this upload adds" — fall back to a full build and say so.
+          if [ -n "$live_sha" ] && ! git merge-base --is-ancestor "$live_sha" "$ref_sha"; then
+            echo "::warning title=live_ref ignored::$LIVE_REF ($live_sha) is not an ancestor of the ref being rehearsed — building the whole database from the files instead."
+            live_sha=""
+          fi
+          echo "LIVE_SHA=$live_sha" >> "$GITHUB_ENV"
+          {
+            echo "ref=$REHEARSE_REF"
+            echo "ref_sha=$ref_sha"
+            echo "live_ref=$LIVE_REF"
+            echo "live_sha=$live_sha"
+          } > "$REHEARSAL_OUT/release.env"
+          if [ -n "$live_sha" ]; then
+            git log --oneline --no-decorate "$live_sha..$ref_sha" > "$REHEARSAL_OUT/in-this-upload.txt"
+            git ls-tree --name-only "$live_sha:supabase/migrations" > "$RUNNER_TEMP/baseline-migrations.txt"
+            echo "BASELINE_LIST=$RUNNER_TEMP/baseline-migrations.txt" >> "$GITHUB_ENV"
+            echo "In this upload: $(wc -l < "$REHEARSAL_OUT/in-this-upload.txt") commits since $LIVE_REF (${live_sha:0:7})."
+          else
+            : > "$REHEARSAL_OUT/in-this-upload.txt"
+            echo "No usable live_ref — every migration is treated as the baseline."
+          fi
+
+      # The live hostnames resolve to this machine for the rest of the run, so
+      # nothing the app's SERVER does can land on the real site, the real media
+      # host or the real database even by accident. (The browser has its own
+      # refusal in the walk; the database has its own seal.)
+      - name: Point the live hostnames at this machine
+        run: |
+          set -euo pipefail
+          for h in setnayan.com www.setnayan.com media.setnayan.com setnayan.ph www.setnayan.ph \
+                   setnayan-platform-web.vercel.app \
+                   njrupjnvkjkitfctetvi.supabase.co db.njrupjnvkjkitfctetvi.supabase.co; do
+            echo "127.0.0.1 $h" | sudo tee -a /etc/hosts >/dev/null
+          done
+          getent hosts www.setnayan.com | grep -q '^127\.0\.0\.1' || { echo "::error::the live hostname still resolves outward"; exit 1; }
+          echo "✅ live hostnames resolve to 127.0.0.1"
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile=false
+
+      # ── 1. THE THROW-AWAY DATABASE ──────────────────────────────────────
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          # The SAME pin as deploy-prod.yml — the rehearsal must push with the
+          # CLI production pushes with. Bump both together.
+          version: 2.111.0
+
+      - name: Start the throw-away Supabase stack
+        run: |
+          set -euo pipefail
+          t0=$(date +%s)
+          mkdir -p "$RUNNER_TEMP/stack/supabase"
+          cp apps/web/tests/rehearsal/stack.config.toml "$RUNNER_TEMP/stack/supabase/config.toml"
+          cd "$RUNNER_TEMP/stack"
+          supabase start -x studio,imgproxy,edge-runtime,logflare,vector,postgres-meta
+          supabase status -o env > "$RUNNER_TEMP/stack.env"
+          anon=$(grep -E '^ANON_KEY=' "$RUNNER_TEMP/stack.env" | cut -d= -f2- | tr -d '"')
+          service=$(grep -E '^SERVICE_ROLE_KEY=' "$RUNNER_TEMP/stack.env" | cut -d= -f2- | tr -d '"')
+          if [ -z "$anon" ] || [ -z "$service" ]; then
+            echo "::error title=Rehearsal stack::the local stack did not report its two keys (ANON_KEY / SERVICE_ROLE_KEY)."
+            cut -d= -f1 "$RUNNER_TEMP/stack.env"
+            exit 1
+          fi
+          # Local, throw-away keys — masked all the same, so nothing key-shaped
+          # is ever printed by a later step.
+          echo "::add-mask::$anon"
+          echo "::add-mask::$service"
+          echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$anon" >> "$GITHUB_ENV"
+          echo "SUPABASE_SERVICE_ROLE_KEY=$service" >> "$GITHUB_ENV"
+          echo "stack_seconds=$(( $(date +%s) - t0 ))" >> "$REHEARSAL_OUT/timings.env"
+
+      - name: Migrations — what the live site has (replay)
+        working-directory: apps/web
+        run: |
+          set -euo pipefail
+          t0=$(date +%s)
+          pnpm exec tsx tests/rehearsal/apply-migrations.mts
+          echo "baseline_seconds=$(( $(date +%s) - t0 ))" >> "$REHEARSAL_OUT/timings.env"
+
+      # The command production runs, against the throw-away database. With a
+      # live_ref it applies THIS RELEASE's migrations in the pipeline's own
+      # order; without one it must find nothing to do.
+      - name: Migrations — what this upload adds (supabase db push --include-all)
+        run: |
+          set -euo pipefail
+          t0=$(date +%s)
+          supabase db push --include-all --yes --db-url "$REHEARSAL_DB_URL" 2>&1 | tee "$REHEARSAL_OUT/db-push.log"
+          echo "push_seconds=$(( $(date +%s) - t0 ))" >> "$REHEARSAL_OUT/timings.env"
+          active=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc "select count(*) from cron.job where active")
+          if [ "$active" != "0" ]; then
+            echo "::error title=Rehearsal seal::$active pg_cron job(s) are active after the push — they could call the live site. Stopping."
+            exit 1
+          fi
+
+      # ── 2. THE FIXTURE ──────────────────────────────────────────────────
+      - name: Seed the fixture (one host, one event, 30 guests, 12 suppliers, 3 orders)
+        working-directory: apps/web
+        run: |
+          set -euo pipefail
+          # A password made here, for an account that exists only on this
+          # runner, masked, never printed.
+          pw="Rh-$(openssl rand -hex 16)"
+          echo "::add-mask::$pw"
+          echo "REHEARSAL_HOST_PASSWORD=$pw" >> "$GITHUB_ENV"
+          REHEARSAL_HOST_PASSWORD="$pw" REHEARSAL_API_URL=http://127.0.0.1:54321 \
+            pnpm exec tsx tests/rehearsal/seed.mts
+          # PostgREST caches the schema; the migrations just changed all of it.
+          PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -qc "NOTIFY pgrst, 'reload schema'"
+
+      # ── 3. THE APP, BUILT THE WAY VERCEL BUILDS IT ───────────────────────
+      - name: Read the public flags this release is built with
+        run: |
+          set -euo pipefail
+          grep -E '^NEXT_PUBLIC_[A-Z0-9_]+=' apps/web/tests/rehearsal/flags.env >> "$GITHUB_ENV" || true
+          # Anything that is not NEXT_PUBLIC_ in that file is refused, loudly.
+          if grep -vE '^(#|$|NEXT_PUBLIC_[A-Z0-9_]+=)' apps/web/tests/rehearsal/flags.env; then
+            echo "::error title=flags.env::only NEXT_PUBLIC_* lines are allowed in tests/rehearsal/flags.env."
+            exit 1
+          fi
+
+      # The build is the slow part (and on Vercel, the whole bill). The same app
+      # sources + the same public env give the same build, so a re-run of the
+      # walk on an unchanged ref skips it.
+      - name: Key the build
+        id: buildkey
+        run: |
+          set -euo pipefail
+          key=$( { git ls-tree -r HEAD -- apps/web packages package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.json \
+                     | grep -v $'\tapps/web/tests/' ;
+                   cat apps/web/tests/rehearsal/flags.env ;
+                   echo "$NEXT_PUBLIC_SUPABASE_URL $NEXT_PUBLIC_APP_URL $REF_SHA" ; } | sha256sum | cut -c1-32 )
+          echo "key=$key" >> "$GITHUB_OUTPUT"
+
+      - name: Reuse an identical build
+        id: buildcache
+        uses: actions/cache@v4
+        with:
+          path: |
+            apps/web/.next
+            !apps/web/.next/cache
+            apps/web/public/sw.js
+          key: rehearsal-build-${{ steps.buildkey.outputs.key }}
+
+      - name: Build the app (production mode — the script Vercel runs)
+        if: steps.buildcache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          t0=$(date +%s)
+          pnpm --filter @setnayan/web build
+          echo "build_seconds=$(( $(date +%s) - t0 ))" >> "$REHEARSAL_OUT/timings.env"
+
+      - name: Note a reused build
+        if: steps.buildcache.outputs.cache-hit == 'true'
+        run: echo "build_seconds=0" >> "$REHEARSAL_OUT/timings.env"
+
+      - name: Start the request counter and the app
+        run: |
+          set -euo pipefail
+          COUNT_UPSTREAM=http://127.0.0.1:54321 COUNT_PORT=54320 COUNT_OUT="$REHEARSAL_OUT/requests.json" \
+            nohup pnpm --filter @setnayan/web exec tsx tests/rehearsal/count-proxy.mts > "$REHEARSAL_OUT/counter.log" 2>&1 &
+          for i in $(seq 1 30); do
+            curl -sf http://127.0.0.1:54320/__rehearsal/report >/dev/null && break
+            sleep 1
+          done
+          curl -sf http://127.0.0.1:54320/__rehearsal/report >/dev/null || { echo "::error::the request counter did not start"; cat "$REHEARSAL_OUT/counter.log"; exit 1; }
+          nohup pnpm --filter @setnayan/web start > "$REHEARSAL_OUT/app.log" 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:3000/api/health > "$RUNNER_TEMP/health.json"; then break; fi
+            sleep 1
+          done
+          if ! curl -sf http://localhost:3000/api/health > "$RUNNER_TEMP/health.json"; then
+            echo "::error title=Rehearsal app::the app did not start in 60s"; tail -50 "$REHEARSAL_OUT/app.log"; exit 1
+          fi
+          cat "$RUNNER_TEMP/health.json"; echo
+          # The running app must BE the ref — the same check the drift monitor
+          # makes against the live site.
+          want="${REF_SHA:0:7}"
+          grep -q "\"version\":\"$want\"" "$RUNNER_TEMP/health.json" || { echo "::error title=Rehearsal app::/api/health does not report version $want"; exit 1; }
+
+      # ── 4. THE WALK ─────────────────────────────────────────────────────
+      - name: Resolve Playwright version
+        id: pw
+        run: echo "version=$(pnpm --filter @setnayan/web exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ steps.pw.outputs.version }}-chromium
+
+      - name: Install Playwright Chromium
+        run: |
+          if [ "${{ steps.pw-cache.outputs.cache-hit }}" = "true" ]; then
+            pnpm --filter @setnayan/web exec playwright install-deps chromium
+          else
+            pnpm --filter @setnayan/web exec playwright install --with-deps chromium
+          fi
+
+      - name: Walk the launch-critical journey (375×812)
+        id: walk
+        working-directory: apps/web
+        env:
+          REHEARSAL_BASE_URL: http://localhost:3000
+          REHEARSAL_COUNTER_URL: http://127.0.0.1:54320
+          CI: 'true'
+        run: |
+          set -euo pipefail
+          t0=$(date +%s)
+          rc=0
+          pnpm exec playwright test -c tests/rehearsal/playwright.rehearsal.config.ts || rc=$?
+          echo "walk_seconds=$(( $(date +%s) - t0 ))" >> "$REHEARSAL_OUT/timings.env"
+          exit $rc
+
+      # ── 5. THE REPORT — always, red or green ────────────────────────────
+      - name: Write REHEARSAL.md and the run summary
+        if: always()
+        run: |
+          set -uo pipefail
+          mkdir -p "$REHEARSAL_OUT/screens"
+          curl -sf http://127.0.0.1:54320/__rehearsal/report > "$REHEARSAL_OUT/requests.json" || true
+          PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc \
+            "select count(*) from rehearsal.swallowed_http" > "$REHEARSAL_OUT/swallowed-http.txt" 2>/dev/null || true
+          echo "finished=$(date +%s)" >> "$REHEARSAL_OUT/timings.env"
+          node apps/web/tests/rehearsal/summary.mjs "$REHEARSAL_OUT" "${{ steps.walk.outcome }}" | tee -a "$GITHUB_STEP_SUMMARY"
+          mkdir -p "$RUNNER_TEMP/artifact/rehearsal-screens" "$RUNNER_TEMP/artifact/diagnostics"
+          cp "$REHEARSAL_OUT"/screens/*.png "$RUNNER_TEMP/artifact/rehearsal-screens/" 2>/dev/null || true
+          cp "$REHEARSAL_OUT/REHEARSAL.md" "$RUNNER_TEMP/artifact/" 2>/dev/null || true
+          for f in requests.json steps.json migrations.json db-push.log in-this-upload.txt blocked-requests.json timings.env; do
+            cp "$REHEARSAL_OUT/$f" "$RUNNER_TEMP/artifact/diagnostics/" 2>/dev/null || true
+          done
+          cp "$REHEARSAL_OUT"/failure-* "$RUNNER_TEMP/artifact/diagnostics/" 2>/dev/null || true
+          tail -400 "$REHEARSAL_OUT/app.log" > "$RUNNER_TEMP/artifact/diagnostics/app-log-tail.txt" 2>/dev/null || true
+
+      - name: Upload the screenshots and REHEARSAL.md
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-rehearsal
+          path: ${{ runner.temp }}/artifact
+          retention-days: 14
+          if-no-files-found: warn

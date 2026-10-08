@@ -36,14 +36,11 @@ import React from 'react';
 import { stripComments } from './strip-comments';
 import {
   BACKGROUND_MAIN_INFO,
-  BACKGROUND_SHADE_CANDLELIGHT,
   BACKGROUND_SOURCES,
   BACKGROUND_SOURCES_OFFERED,
   backgroundSourcesOffered,
   BACKGROUND_SOURCE_IS_PRO,
   BACKGROUND_SOURCE_LABEL,
-  backgroundShadeValue,
-  backgroundShadeWrite,
   backgroundSourceOf,
   backgroundWritePatch,
   coverCardShows,
@@ -54,7 +51,6 @@ import { HUB_MAIN_FOCUSES, HUB_MAIN_PATTERNS, hubMovingBackgroundIds, mainGround
 import { mainGroundChange, sanitizeHubDraftEventValue } from './hub-draft';
 import { STD_REALISTIC_BACKGROUNDS } from './std-backgrounds';
 import { MAIN_GROUND_PATTERN_CSS } from './main-ground-patterns';
-import { MAIN_GROUND_SHADES } from './main-ground-shade';
 import { BACKGROUND_EFFECTS } from './ombre';
 
 (globalThis as unknown as { React: unknown }).React = React;
@@ -284,26 +280,10 @@ test('(5) a Video card is the loop itself: muted, metadata only, playing only on
   assert.match(read('app/dashboard/[eventId]/website/editor/page.tsx'), /loopUrl: resolveThemeGround\(id, \{ ownColours: false \}\)\?\.loop \?\? null,/);
 });
 
-/* ── (6) Shade ▾ ──────────────────────────────────────────────────────── */
+/* ── (6) the fade bar where Shade ▾ was; Candlelight no longer offered ────── */
 
-test('(6) Shade ▾ is on every source and Candlelight is its darkest step — one pick, one draft save', () => {
-  // The value on screen.
-  assert.equal(backgroundShadeValue({ art: null, shade: null }), 'as-is');
-  assert.equal(backgroundShadeValue({ art: 'daylight', shade: 'dark' }), 'dark');
-  assert.equal(backgroundShadeValue({ art: 'candlelight', shade: 'dark' }), BACKGROUND_SHADE_CANDLELIGHT);
-  // What one pick writes — only what changes.
-  const picture = { art: null, shade: null, takesShade: true } as const;
-  assert.equal(backgroundShadeWrite('as-is', picture), null, 'picking what is on writes something');
-  assert.deepEqual(backgroundShadeWrite('darker', picture), { art: null, step: 'darker', stepMoves: true });
-  assert.deepEqual(backgroundShadeWrite(BACKGROUND_SHADE_CANDLELIGHT, picture), { art: 'candlelight', step: null, stepMoves: false });
-  // Candlelight is worn INSTEAD of a veil: picking it takes the veil off, in the same pick.
-  assert.deepEqual(backgroundShadeWrite(BACKGROUND_SHADE_CANDLELIGHT, { art: null, shade: 'dark', takesShade: true }), { art: 'candlelight', step: null, stepMoves: true });
-  // …and leaving Candlelight says Daylight out loud (an absent field would leave it on).
-  assert.deepEqual(backgroundShadeWrite('light', { art: 'candlelight', shade: null, takesShade: true }), { art: 'daylight', step: 'light', stepMoves: true });
-  assert.deepEqual(backgroundShadeWrite('as-is', { art: 'candlelight', shade: null, takesShade: false }), { art: 'daylight', step: null, stepMoves: false });
-  // A flat colour or a pattern has no picture to veil: no step is ever stored on it.
-  assert.deepEqual(backgroundShadeWrite(BACKGROUND_SHADE_CANDLELIGHT, { art: null, shade: null, takesShade: false }), { art: 'candlelight', step: null, stepMoves: false });
-  // ONE save carries both halves, in the shapes the draft holds.
+test('(6) Shade ▾ is gone from the Studio’s Background: ONE fade bar on a picture, and Candlelight is not offered — a stored one is named and can be turned off', () => {
+  // ONE save carries every half of a pick, in the shapes the draft holds.
   const patch = backgroundWritePatch({ main: NONE, events: { site_bg_color: '#aabbcc', site_art_direction: 'candlelight' } });
   assert.deepEqual(patch, { widgets: { hero: { main: NONE } }, events: { site_bg_color: '#aabbcc', site_art_direction: 'candlelight' } });
   assert.deepEqual(backgroundWritePatch({ events: { site_art_direction: 'daylight' } }), { events: { site_art_direction: 'daylight' } });
@@ -312,17 +292,25 @@ test('(6) Shade ▾ is on every source and Candlelight is its darkest step — o
   assert.equal(sanitizeHubDraftEventValue('site_art_direction', 'daylight'), 'daylight');
   assert.equal(sanitizeHubDraftEventValue('site_bg_color', '#AABBCC'), '#aabbcc');
   assert.equal(sanitizeHubDraftEventValue('site_bg_color', null), null, 'the page colour cannot be handed back to the Mood Board');
-  // The panel: the row is drawn for whatever the page wears, with the list its source can take.
   const panel = read(`${E}/main-background-panel.tsx`);
   const studio = panel.slice(panel.indexOf('if (studio) {'), panel.indexOf('<p className="text-[14px] font-semibold text-ink">Behind every scene</p>'));
-  assert.match(studio, /\{active \? \(\s*<>\s*<BgRow label="Shade" data="shade"/, 'Shade is not drawn on every source');
-  assert.match(studio, /\.\.\.MAIN_GROUND_SHADES\.filter\(\(k\) => takes\.shade \|\| k === 'as-is'\)\.map\(\(k\) => \(\{ key: k, label: MAIN_GROUND_SHADE_LABEL\[k\] \}\)\),\s*\{ key: BACKGROUND_SHADE_CANDLELIGHT, label: BACKGROUND_SHADE_CANDLELIGHT_LABEL,/);
-  assert.equal(MAIN_GROUND_SHADES.length, 5);
-  assert.match(studio, /const w = backgroundShadeWrite\(k, \{ art, shade: extra\('shade'\), takesShade: takes\.shade && Boolean\(current\) \}\);/);
-  assert.match(studio, /if \(w\.art\) write\.events = \{ site_art_direction: w\.art \};\s*if \(w\.stepMoves\) write\.main = withExtra\('shade', w\.step\);\s*pickLook\(write, FAILED\);/);
+  // 🎚 The Shade dropdown is GONE from the Studio (owner 2026-10-08: "a line bar … fade to white … fade to black"): no row, no list, no helper.
+  assert.doesNotMatch(studio, /label="Shade"|data-studio-shade-pick|MAIN_GROUND_SHADES|backgroundShadeWrite|backgroundShadeValue/, 'Shade ▾ is still drawn in the Studio’s Background');
+  assert.doesNotMatch(read('lib/background-source.ts'), /export function backgroundShade(?:Write|Value)/, 'the Shade dropdown’s helpers are still exported with nothing to call them');
+  // ONE bar in its place, only where the background has a picture to fade (`takes.shade`) and is the one on the page.
+  assert.match(studio, /\{active \? \(\s*<>\s*\{takes\.shade && current \? \(\s*<BgFadeBar\s+value=\{fadeAt\}/, 'the fade bar is not where Shade ▾ was');
+  assert.equal((studio.match(/<BgFadeBar\b/g) ?? []).length, 1, 'more than one fade bar');
+  assert.match(studio, /const fadeAt = takes\.shade \? fadeOf\(current\) : 0;/);
+  // 🕯 Candlelight is NOT OFFERED (owner 2026-10-08: "remove candlelight"): nothing in the Studio's Background writes it…
+  assert.doesNotMatch(studio, /site_art_direction: 'candlelight'|BACKGROUND_SHADE_CANDLELIGHT\b(?!_LABEL)/, 'the Studio’s Background can still turn Candlelight on');
+  // …an event that already wears it is TOLD so, by name, on any source — and one tap turns it off (Daylight, said out loud).
+  assert.match(studio, /\{art === 'candlelight' \? \(\s*<div data-bg-kept="candlelight"/, 'a stored Candlelight is not named');
+  assert.match(studio, /Showing <b className="font-semibold">\{BACKGROUND_SHADE_CANDLELIGHT_LABEL\}<\/b>/);
+  assert.match(studio, /data-bg-candlelight-off=""\s*onClick=\{\(\) => pickLook\(\{ events: \{ site_art_direction: 'daylight' \} \}, FAILED\)\}/, 'a stored Candlelight cannot be turned off (an absent field would leave it on)');
+  assert.ok(studio.indexOf('data-bg-kept="candlelight"') < studio.indexOf('{active ? ('), 'the Candlelight line shows only on the stored source');
   assert.match(panel, /fd\.set\('patch', JSON\.stringify\(backgroundWritePatch\(write\)\)\);\s*return draft\(eventId, fd\);/, 'a pick is more than one draft save');
-  // Blur · Focus · Motion keep their rows where they mean something.
-  for (const attr of ['data-studio-blur-pick', 'data-studio-focus-pick', 'data-main-ground-motion-pick', 'data-studio-shade-pick']) assert.ok(studio.includes(`dataAttr="${attr}"`), `${attr} is gone`);
+  // Blur · Focus · Motion keep their rows where they mean something — each a list that OPENS (a ▾ never cycles).
+  for (const attr of ['data-studio-blur-pick', 'data-studio-focus-pick', 'data-main-ground-motion-pick']) assert.ok(studio.includes(`dataAttr="${attr}"`), `${attr} is gone`);
 });
 
 /* ── (7) each control once ────────────────────────────────────────────── */

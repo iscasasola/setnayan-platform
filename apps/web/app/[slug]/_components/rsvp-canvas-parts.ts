@@ -90,6 +90,14 @@ export const RSVP_STAGE_ASK_EVENT = 'setnayan:rsvp-stage-ask';
 /** The RSVP stage says which screen it has on show — `detail: scene`. The label follows the canvas, never a guess. */
 export const RSVP_STAGE_SCENE_EVENT = 'setnayan:rsvp-stage-scene';
 
+/**
+ * 🧭 WHERE THE STAGES TAB ROW STANDS ON THE RSVP STAGE: a slot at the FOOT of the stage's own column
+ * (`maker-rsvp-stage.tsx`), a flex sibling AFTER its screens — so the screens end above the row by construction.
+ * (Measured on the preview, 08 Oct: drawn over the foot of the work area as on other stages, the row sat UNDER the
+ * RSVP layer — the layer covers the work area — and no finger could reach Form · When yes · When no.)
+ */
+export const RSVP_STAGE_BAR_SLOT = 'data-rsvp-stage-bar-slot';
+
 /** The RSVP stage's frame for one screen, while it is the one on show (`maker-rsvp-stage.tsx`). */
 export const rsvpStageFrameSelector = (screen: string) => `iframe[data-rsvp-stage-frame="${screen}"]:not([hidden])`;
 

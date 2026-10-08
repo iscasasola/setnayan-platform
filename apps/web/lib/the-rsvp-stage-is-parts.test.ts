@@ -26,6 +26,7 @@ import {
   RSVP_CANVAS_CONTROLS,
   RSVP_CANVAS_HERO,
   RSVP_CANVAS_SECTIONS,
+  RSVP_STAGE_BAR_SLOT,
   RSVP_WORD_SECTION,
   createRsvpCanvasTop,
   rsvpPartOfTap,
@@ -491,16 +492,53 @@ test('5 · WIRING: the tab lets the part go, the stage opens the screen from its
   assert.match(TOOLS, /if \(rsvpOpen\) return screen;/, 'the label is not the screen on show');
 });
 
-test('5 · the tabs read Form · When yes · When no, with the prototype’s icons; the caption keeps the screen’s full name', () => {
+test('5 · the tabs read Form · When yes · When no, with the prototype’s icons — and the label over them says the SAME word', () => {
   assert.deepEqual(RSVP_STAGE_SCENES.map((s) => [s.key, s.tab, s.label]), [
     ['form', 'Form', 'RSVP form'],
     ['thanks', 'When yes', 'When yes'],
     ['decline', 'When no', 'When no'],
   ]);
   assert.match(TOOLS, /const RSVP_TAB_ICON: Record<RsvpStageScene, LucideIcon> = \{ form: Reply, thanks: Check, decline: X \};/);
-  assert.match(TOOLS, /RSVP_STAGE_SCENES\.map\(\(s\) => \(\{ key: s\.key as string, label: s\.label, tab: s\.tab, option: RSVP_STAGE_KEY as string \}\)\)/);
+  /* One word per screen, on the tab and in "You're editing · RSVP › Form" (measured 08 Oct: the label read "RSVP FORM"). */
+  assert.match(TOOLS, /RSVP_STAGE_SCENES\.map\(\(s\) => \(\{ key: s\.key as string, label: s\.tab, tab: s\.tab, option: RSVP_STAGE_KEY as string \}\)\)/);
   assert.match(TOOLS, /\{rsvpTabIcon\(rsvpOpen, p\.key\)\}\s*<span className="max-w-full truncate">\{p\.tab\}<\/span>/);
   assert.match(TOOLS, /pageLabel = pages\.find\(\(p\) => p\.key === shownPage\)\?\.label/);
+});
+
+test('5 · 👆 a FINGER reaches the tabs: the row stands in the RSVP stage’s own column, under its screens — never under the layer', () => {
+  /* Measured on the preview, 08 Oct (375 px): Form · When yes · When no sat at y 706–750, and the point at each
+     one's centre was the RSVP frame — the row was drawn over the work area's foot, and the RSVP stage is a layer
+     OVER the work area. Only a scripted click reached a tab. */
+  const SHELL = src(`${L}/maker-shell.tsx`);
+  const layerZ = Number(/className="absolute inset-0 z-(\d+) flex bg-cream" data-maker-rsvp-layer=""/.exec(SHELL)?.[1]);
+  const barZ = Number(/'absolute inset-x-0 z-\[(\d+)\] border-t[^']*'/.exec(TOOLS)?.[1]);
+  assert.ok(layerZ > 0 && barZ > 0, 'the layer or the row moved — re-point this guard');
+  /* The reason, derived: while the layer is over the row's shell place, the shell is no place for the row here. */
+  assert.ok(layerZ > barZ, 'the RSVP layer no longer covers the work area’s foot — this guard’s premise changed');
+  assert.match(TOOLS, /const guestBarHost = rsvpOpen \? rsvpBarSlot : shellEl;/, 'on the RSVP stage the row is drawn into the shell, under the layer');
+  assert.match(TOOLS, /\{guestBarHost && !away\s*\? createPortal\(\s*<nav[\s\S]*?<\/nav>,\s*guestBarHost,\s*\)/, 'the row is not drawn into its host');
+  /* The host is the stage's own slot, and nothing else. */
+  assert.deepEqual([...TOOLS.matchAll(/setRsvpBarSlot\(([^;]*)\);/g)].map((m) => m[1]), ['null', 'document.querySelector<HTMLElement>(`[${RSVP_STAGE_BAR_SLOT}]`)']);
+  assert.equal(RSVP_STAGE_BAR_SLOT, 'data-rsvp-stage-bar-slot');
+  /* THE STRUCTURE: the screens, then the slot — two children of ONE flex column, in that order, so the screens end
+     above the row at every height of the lower third. */
+  assert.match(
+    STAGE,
+    /page=\{\s*(?:\{\s*\}\s*)?<>\s*\{page\}\s*<div \{\.\.\.\{ \[RSVP_STAGE_BAR_SLOT\]: '' \}\} className="shrink-0 lg:hidden" \/>\s*<\/>\s*\}/,
+    'the slot is not the sibling after the screens',
+  );
+  const PAGE = src(`${L}/maker-page.tsx`);
+  const body = /<section[^>]*data-maker-page-body=""[^>]*className="([^"]*)"[^>]*>\s*\{page\}\s*<\/section>/.exec(PAGE);
+  assert.ok(body, 'the page is no longer the direct child of the Maker page’s body');
+  const column = body![1]!.split(/\s+/);
+  for (const c of ['flex', 'flex-col', 'min-h-0', 'flex-1']) assert.ok(column.includes(c), `the body is not a shrinking flex column (${c})`);
+  /* …the screens take what is left; the slot never shrinks; the row in it is in flow (no place of its own). */
+  const screens = /<div className="([^"]*)" data-rsvp-stage-body="">/.exec(STAGE);
+  assert.ok(screens && ['min-h-0', 'flex-1'].every((c) => screens[1]!.split(/\s+/).includes(c)), 'the screens do not give way to the row');
+  assert.match(TOOLS, /style=\{rsvpOpen \? undefined : \{ bottom: 'calc\(var\(--maker-lt-h\) \+ env\(safe-area-inset-bottom\)\)'/, 'the row is placed over the page on the RSVP stage');
+  assert.match(TOOLS, /className=\{rsvpOpen \? 'relative border-t/, 'the row is taken out of the column’s flow');
+  /* The stage says it is up as it mounts — the panel finds the slot then (it may have mounted first). */
+  assert.match(TOOLS, /if \(!isRsvpStageScene\(s\)\) return;\s*findSlot\(\);/);
 });
 
 /* ══ 6 · THE FRAME ═══════════════════════════════════════════════════════════ */

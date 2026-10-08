@@ -44,6 +44,7 @@ import {
   RSVP_PICKED_MESSAGE,
   RSVP_PICK_MESSAGE,
   RSVP_STAGE_ASK_EVENT,
+  RSVP_STAGE_BAR_SLOT,
   RSVP_STAGE_SCENE_EVENT,
   RSVP_TYPING_MESSAGE,
   rsvpStageFrameSelector,
@@ -268,7 +269,8 @@ export function StageTools({
      all the same), and a stage the canvas draws as ONE page has no tabs at all. The words and the pick are still
      the shell's own Page ▾ options — a page the event's bar drops (no Love Story) is dropped here with it. */
   const pages = useMemo(() => {
-    if (rsvpOpen) return RSVP_STAGE_SCENES.map((s) => ({ key: s.key as string, label: s.label, tab: s.tab, option: RSVP_STAGE_KEY as string }));
+    /* 🗳 The RSVP stage's screens go by ONE word each, on the tab and in the label over it: Form · When yes · When no. */
+    if (rsvpOpen) return RSVP_STAGE_SCENES.map((s) => ({ key: s.key as string, label: s.tab, tab: s.tab, option: RSVP_STAGE_KEY as string }));
     const own = new Set(makerStagesPages(stage).map((p) => p.key));
     return options.flatMap((o) => {
       const pk = makerPagePick(o.key);
@@ -337,8 +339,12 @@ export function StageTools({
      line follow the canvas, never a guess (the rule every Stages tab keeps). `wanted`: a screen asked for before
      the stage was up is asked for again once it says where it is. */
   const wanted = useRef<RsvpStageScene | null>(null);
+  /** 🧭 The slot at the foot of the RSVP stage's own column, where its tab row stands (`RSVP_STAGE_BAR_SLOT`). */
+  const [rsvpBarSlot, setRsvpBarSlot] = useState<HTMLElement | null>(null);
   useEffect(() => {
-    if (!rsvpOpen) return;
+    if (!rsvpOpen) return setRsvpBarSlot(null);
+    const findSlot = () => setRsvpBarSlot(document.querySelector<HTMLElement>(`[${RSVP_STAGE_BAR_SLOT}]`));
+    findSlot();
     const now = document.querySelector('[data-rsvp-stage]')?.getAttribute('data-rsvp-stage');
     if (isRsvpStageScene(now)) {
       /* A screen asked for on the way in (the stage menu's "When yes") is asked for now that the stage is up. */
@@ -348,6 +354,8 @@ export function StageTools({
     const onScene = (e: Event) => {
       const s = (e as CustomEvent<unknown>).detail;
       if (!isRsvpStageScene(s)) return;
+      /* The stage is up (it says so as it mounts): its slot is there to stand the tab row in. */
+      findSlot();
       const w = wanted.current;
       wanted.current = null;
       if (w && w !== s) return askRsvpStage({ scene: w });
@@ -879,6 +887,9 @@ export function StageTools({
   };
   const away = typing || playing;
   const shellEl = typeof document === 'undefined' ? null : document.querySelector<HTMLElement>('[data-maker-shell]');
+  /** Where the tab row is drawn: over the foot of the stage's canvas — or, on the RSVP stage, in that stage's own
+   *  column (never the shell there: the RSVP layer would cover it). */
+  const guestBarHost = rsvpOpen ? rsvpBarSlot : shellEl;
   /* Dragged down to the row alone, an open part's tools fold away (prototype `.lt.min`). */
   const folded = ltNow < STAGE_PANEL_REST_PX + 60;
 
@@ -1060,14 +1071,18 @@ export function StageTools({
       />
 
       {/* ══ THE GUEST'S TAB BAR, at the foot of the page preview — "You're editing · Invitation › Welcome" over it ══ */}
-      {shellEl && !away
+      {/* 🗳 On the RSVP stage it stands IN the stage's own column, under its screens (`RSVP_STAGE_BAR_SLOT`): that
+          stage is a layer over the work area, and a row drawn over the work area's foot was UNDER it — no finger
+          could reach Form · When yes · When no (measured on the preview, 08 Oct). In flow there, the screens end
+          above it at every height of the panel. */}
+      {guestBarHost && !away
         ? createPortal(
             <nav
               aria-label="The guest's pages"
               data-stage-guest-bar=""
-              className="absolute inset-x-0 z-[25] border-t border-[var(--sp-line)] bg-white lg:hidden"
+              className={rsvpOpen ? 'relative border-t border-[var(--sp-line)] bg-white lg:hidden' : 'absolute inset-x-0 z-[25] border-t border-[var(--sp-line)] bg-white lg:hidden'}
               /* It rides the panel's rise and fall (the same 240 ms), never across it. */
-              style={{ bottom: 'calc(var(--maker-lt-h) + env(safe-area-inset-bottom))', transition: `bottom ${STAGE_PANEL_MS}ms cubic-bezier(.16,1,.3,1)` }}
+              style={rsvpOpen ? undefined : { bottom: 'calc(var(--maker-lt-h) + env(safe-area-inset-bottom))', transition: `bottom ${STAGE_PANEL_MS}ms cubic-bezier(.16,1,.3,1)` }}
             >
               <p
                 data-stage-caption=""
@@ -1111,7 +1126,7 @@ export function StageTools({
                 </div>
               ) : null}
             </nav>,
-            shellEl,
+            guestBarHost,
           )
         : null}
     </div>

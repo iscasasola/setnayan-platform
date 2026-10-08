@@ -24,6 +24,7 @@ import {
   type Plan3DScene,
   type Plan3DGuestQr,
 } from '@/app/_actions/plan3d-demo-actions';
+import { SwitchTrack } from '@/app/_components/switch-track';
 
 export function Plan3DDemoOverlay({ current, onClose }: { current: OverlayId; onClose: () => void }) {
   const [scene, setScene] = useState<Plan3DScene | null>(null);
@@ -135,31 +136,7 @@ export function Plan3DDemoOverlay({ current, onClose }: { current: OverlayId; on
                 }}
               >
                 Apply mood board
-                <span
-                  aria-hidden
-                  style={{
-                    width: 34,
-                    height: 20,
-                    borderRadius: 'var(--m-r-full)',
-                    background: themed ? '#8C6932' : 'rgba(42,43,46,.22)',
-                    position: 'relative',
-                    transition: 'background .2s',
-                    flexShrink: 0,
-                  }}
-                >
-                  <span
-                    style={{
-                      position: 'absolute',
-                      top: 2,
-                      left: themed ? 16 : 2,
-                      width: 16,
-                      height: 16,
-                      borderRadius: 'var(--m-r-full)',
-                      background: '#fff',
-                      transition: 'left .2s',
-                    }}
-                  />
-                </span>
+                <SwitchTrack on={themed} />
               </button>
             </div>
           ) : null}
@@ -176,15 +153,17 @@ export function Plan3DDemoOverlay({ current, onClose }: { current: OverlayId; on
                 gap: 8,
                 border: '1px solid rgba(42,43,46,.2)',
                 borderRadius: 'var(--m-r-full)',
-                padding: '6px 14px',
-                background: roaming ? '#2a2925' : 'transparent',
-                color: roaming ? '#fff' : '#2a2925',
+                padding: '5px 6px 5px 12px',
+                background: 'transparent',
+                color: '#2a2925',
                 cursor: 'pointer',
                 fontSize: 12.5,
                 fontWeight: 500,
               }}
             >
               {roaming ? '● Walking the room' : 'Walk around'}
+              {/* The app's one switch (owner 2026-10-08) — it was a pill that filled ink while walking; the words stay. */}
+              <SwitchTrack on={roaming} />
             </button>
             {roaming ? (
               <>

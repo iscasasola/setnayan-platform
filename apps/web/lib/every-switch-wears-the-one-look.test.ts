@@ -111,6 +111,14 @@ const SWITCH_SWEPT: readonly string[] = [
   'app/_components/push-toggle.tsx',
   /* supplier (2026-10-08) */
   'app/vendor-dashboard',
+  /* sign-up and public (2026-10-08) */
+  'app/_components/home',
+  'app/tour',
+  'app/onboarding',
+  'app/signup',
+  'app/login',
+  'app/features',
+  'app/for-suppliers',
 ];
 /**
  * Inside a swept area, what is NOT swept — a folder another builder owns, or one switch with a reason. A `has`
@@ -119,6 +127,16 @@ const SWITCH_SWEPT: readonly string[] = [
 const SWITCH_NOT_SWEPT: readonly { path: string; has?: string; why: string }[] = [
   { path: 'app/dashboard/[eventId]/launch/', why: 'the Maker — its four shared switches already wear `.sn-switch` (the-press-feels-the-same-everywhere); the rest are its own builders’ lane' },
   { path: 'app/dashboard/[eventId]/website/editor/', why: 'the Maker’s work area — its own builders’ lane' },
+  {
+    path: 'app/onboarding/_shared/services-step.tsx',
+    has: 'aria-checked={selection.ai}',
+    why: 'a TICK by the owner’s ruling (2026-08-11, "THE TICK" in the file): "Add … to my event — ₱…" adds a paid line to the order. It is drawn as a tick box and says role="switch"; it belongs to the Ticks kind (11), not here',
+  },
+  {
+    path: 'app/onboarding/_shared/services-step.tsx',
+    has: 'aria-checked={selection.hubPro}',
+    why: 'the same tick, for Event Hub Pro (pinned by lib/onboarding/event-hub-pro-on-the-services-step.test.ts)',
+  },
 ];
 
 const walk = (rel: string): string[] => {

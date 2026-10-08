@@ -53,3 +53,17 @@ Merged the Look stack's `d349cf57b` (the accent is ONE setting: `--sn-accent` / 
 `app/_components/switch-track.tsx` joins `TEMPLATE_FILES` in `lib/the-accent-is-one-token.test.ts`.
 
 SPEC IMPACT: None.
+
+## 2026-10-08 · feat(ui): every switch is the one switch — sign-up and public
+
+Three public switches wear the one drawing, behaviour unchanged: the supplier tour's "Setnayan AI" switch (it was
+a hand-written gold hex) and the home page's 3D demo — "Apply mood board" (a 34 × 20 gold track) and "Walk
+around" (a pill that filled ink while walking; the words stay, the track says on). `SWITCH_SWEPT` gains
+`app/_components/home`, `app/tour`, `app/onboarding`, `app/signup`, `app/login`, `app/features`,
+`app/for-suppliers`.
+
+Listed, not converted: onboarding's "Add … to my event — ₱…" rows (`app/onboarding/_shared/services-step.tsx`,
+two). They say `role="switch"` but are TICKS by the owner's 2026-08-11 ruling (they add a paid line to the
+order) — the Ticks kind's lane. Named in `SWITCH_NOT_SWEPT`, each with why; the list fails when one is gone.
+
+SPEC IMPACT: None.

@@ -26,6 +26,7 @@ import { formatPhpRounded } from '@/lib/php';
 import { NEW_TO_SETNAYAN_LABEL } from '@/lib/reviews';
 import { shopInitials } from '@/lib/shop-initials';
 import { formatCount } from '@/lib/format-number';
+import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 
 /** One display-safe vendor row. Money/rating are display fields; no PII, no
  *  contact, no ids beyond the opaque vendor key (unused on the client). */
@@ -213,15 +214,9 @@ export function TourShortlist({
           aria-checked={aiOn}
           aria-label="Toggle Setnayan AI"
           onClick={() => setAiOn((v) => !v)}
-          className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
-            aiOn ? 'bg-[#8C6932]' : 'bg-[#1B1A17]/20'
-          }`}
+          className={SWITCH_BUTTON}
         >
-          <span
-            className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
-              aiOn ? 'translate-x-[22px]' : 'translate-x-0.5'
-            }`}
-          />
+          <SwitchTrack on={aiOn} />
         </button>
       </section>
 

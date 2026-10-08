@@ -137,16 +137,29 @@ test('menu bar · the switch is read on EVERY day, not only the wedding day', ()
   // If the loader only asks during the live window, the slot silently reverts to
   // "closed" on every other day and the fix above is undone from underneath.
   const L = readFileSync(join(HERE, '..', '_lib', 'loaders.ts'), 'utf8');
+  /* ⏩ 2026-10-08 (#6454): the read is STARTED beside the schedule (`startAhead`) and awaited where it
+     always was — two statements now, the same claim: asked on every day, never behind the live window. */
   assert.match(
     L,
-    /const hostCameraOpen = await eventPapicGuestActive\(admin, event\.event_id\);/,
+    /const hostCameraOpenAhead = startAhead\(eventPapicGuestActive\(admin, event\.event_id\)\);/,
+    'the switch read must be started unconditionally',
+  );
+  assert.match(
+    L,
+    /const hostCameraOpen = await hostCameraOpenAhead;/,
     'hostCameraOpen must be resolved unconditionally',
   );
-  const line = L.slice(L.indexOf('const hostCameraOpen'));
-  assert.ok(
-    !line.slice(0, 200).includes("dayOfPhase === 'live'"),
-    'the switch read is wrapped in a live-window check again',
-  );
+  for (const anchor of ['const hostCameraOpenAhead', 'const hostCameraOpen = await']) {
+    const at = L.indexOf(anchor);
+    // The statement itself, and the 200 characters BEFORE it: a live-window `if (` opening just above
+    // would wrap the read as surely as one on the same line.
+    const around = L.slice(Math.max(0, at - 200), at + 200);
+    assert.ok(
+      !/if\s*\([^)]*dayOfPhase === 'live'[^)]*\)\s*\{?\s*$/m.test(L.slice(Math.max(0, at - 200), at)) &&
+        !around.slice(200).split('\n')[0]!.includes("dayOfPhase === 'live'"),
+      'the switch read is wrapped in a live-window check again',
+    );
+  }
 });
 
 test('menu bar · Papic sits in the MIDDLE of the bar', () => {

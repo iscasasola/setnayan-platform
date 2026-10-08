@@ -14,6 +14,7 @@ import { giftsAreOn } from '@/lib/event-answers';
 import { viewerIsRecognisedForEvent } from '@/lib/pabuya-recognition';
 import { readGuestWishList } from '@/lib/wish-list.server';
 import { wishListShownToGuests } from '@/lib/wish-list-studio';
+import { GIFT_GIVER_FIELDS } from '@/lib/wish-list';
 import { wishListShape } from '@/lib/wish-list-guest';
 import { fixedSceneStyleOf } from '@/lib/fixed-scene-style-of';
 import { partLookAttr } from '@/lib/scene-styles-parts';
@@ -117,7 +118,7 @@ export default async function PabuyaPublicPage({
   const readerRes = guestSession
     ? await admin
         .from('guests')
-        .select('guest_id, display_name, first_name, last_name, deleted_at')
+        .select(GIFT_GIVER_FIELDS)
         .eq('guest_id', guestSession.guest_id)
         .eq('event_id', event.event_id)
         .maybeSingle()

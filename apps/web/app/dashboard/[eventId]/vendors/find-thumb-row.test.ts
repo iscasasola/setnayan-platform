@@ -14,7 +14,10 @@
  *       field is the frosted piece and Add keeps its full colour;
  *   T5  Expand all opens every category and a header tap folds just that one;
  *   T6  ＋ Add your own opens the form for the ONE open category, otherwise it
- *       asks which first — one dropdown of only the categories on the event.
+ *       asks which first — one dropdown of only the categories on the event;
+ *   T7  an open category's header pins; the pinned category is the scope of
+ *       the words, the search and Add; a pinned header's first tap goes back
+ *       to its first card and a tap at its top folds it (rule 6).
  *
  * Source assertions, comments stripped: the row is a portal over
  * `document.body` and this runner has no DOM. The open rule itself is EXECUTED
@@ -26,6 +29,7 @@
  *   keep the in-list box   T3 stay up while Find is hidden · swap without the wait
  *   T4 drop the fit pass · frost Add   T5 a header tap closes them all
  *   T6 list every category in the dropdown
+ *   T7 a scroll-box body · search everything while pinned · fold on the first tap
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -51,7 +55,7 @@ test('T1 · the row owns nothing and writes nothing', () => {
   assert.equal((BENCH.match(/<FindThumbRow\b/g) ?? []).length, 1);
   assert.match(
     BENCH,
-    /<FindThumbRow\s+allOpen=\{openAll\}\s+onToggleAll=\{toggleOpenAll\}\s+scope="all suppliers"\s+onSearch=\{setQuery\}\s+onAdd=\{addYourOwn\}\s+\/>/,
+    /<FindThumbRow\s+allOpen=\{openAll\}\s+onToggleAll=\{toggleOpenAll\}\s+scope=\{scopeRow \? scopeRow\.t\.label : 'all suppliers'\}\s+onSearch=\{setQuery\}\s+onAdd=\{addYourOwn\}\s+\/>/,
   );
   // Every control is the shipped button; nothing hand-made, no › in a control.
   assert.equal((ROW.match(/<ActionButton\b/g) ?? []).length, 2);
@@ -137,7 +141,8 @@ test('T4 · glass: the row has no background; the field is frosted; Add keeps it
 test('T5 · Expand all opens every category; a header tap then folds just that one', () => {
   assert.match(BENCH, /const tileOpen = isCategoryOpen\(\{ tile: t\.tile, searching, openTile, openAll, folded \}\);/);
   assert.match(BENCH, /const folderOpen = replan \|\| searching \|\| openAll \|\| openFolder === folder\.folder;/);
-  assert.match(BENCH, /onClick=\{\(\) => \(openAll \? toggleFolded\(t\.tile\) : setOpenTile\(tileOpen \? null : t\.tile\)\)\}/);
+  assert.match(BENCH, /onClick=\{\(\) => tapRowHead\(t\.tile, tileOpen\)\}/);
+  assert.match(BENCH, /if \(openAll\) toggleFolded\(tile\);\s*else setOpenTile\(isOpen \? null : tile\);/);
   const toggle = BENCH.slice(BENCH.indexOf('function toggleOpenAll()'), BENCH.indexOf('const benchRows'));
   assert.match(toggle, /setFolded\(new Set\(\)\);/, 'a stale fold would survive the next Expand all');
   assert.match(toggle, /setOpenAll\(\(on\) => \{\s*if \(on\) \{\s*setOpenFolder\(null\);\s*setOpenTile\(null\);\s*\}\s*return !on;\s*\}\);/);
@@ -149,7 +154,8 @@ test('T5 · Expand all opens every category; a header tap then folds just that o
 
 test('T6 · Add opens the form for the ONE open category — otherwise it asks which, first', () => {
   const add = BENCH.slice(BENCH.indexOf('function addYourOwn()'), BENCH.indexOf('function openPlan('));
-  assert.match(add, /const open = !openAll && !searching && openTile \? benchRows\.find\(\(r\) => r\.t\.tile === openTile\) : null;/);
+  // The pinned category first; else the one open category.
+  assert.match(add, /const open = scopeRow \?\? \(!openAll && !searching && openTile \? benchRows\.find\(\(r\) => r\.t\.tile === openTile\) : null\);/);
   assert.match(add, /if \(open\) setManual\(\{ category: open\.t\.category, label: open\.t\.label \}\);\s*else setAddAsk\(true\);/);
   // The shipped form — never a second one.
   assert.equal((BENCH.match(/<NewManualVendorModal\b/g) ?? []).length, 2, 'a third manual-supplier form');
@@ -169,4 +175,43 @@ test('T6 · the question is ONE dropdown of only the categories on the event', (
   // A sheet must escape the page's transform.
   assert.match(ask, /createPortal\(\s*<Sheet open onClose=\{\(\) => setAddAsk\(false\)\}[\s\S]*document\.body,\s*\)/);
   assert.doesNotMatch(ask, /<select\b|role="radio"/);
+});
+
+/* ── T7 · the pinned header and the scope that follows it ────────────────── */
+
+test('T7 · an open category’s header pins under the shell’s block, and the body is not a scroll box', () => {
+  assert.match(BENCH, /\.slcat \.fold\.flat \.cat\.open>\.cat-head-row\{position:sticky;top:var\(--stick-h,150px\);z-index:3;background:#F7F5F0;/);
+  assert.match(BENCH, /\.slcat \.fold\.flat \.fold-collapse>\.fold-body\{overflow:visible\}/, 'a hidden-overflow ancestor would stop the head pinning');
+  assert.match(BENCH, /html\.dark \.slcat \.fold\.flat \.cat\.open>\.cat-head-row\{background:#17160F\}/);
+});
+
+test('T7 · the scope is the PINNED category: the words, the search and Add follow it', () => {
+  // Read off the page a beat after the scroll settles — the stuck header.
+  const read = BENCH.slice(BENCH.indexOf('const read = () => {'), BENCH.indexOf('const onScroll = () => {'));
+  assert.match(read, /querySelectorAll<HTMLElement>\('\.cat\.open\[data-tile\]'\)/);
+  assert.match(read, /if \(Math\.abs\(hd\.top - line\) < 3 && row\.getBoundingClientRect\(\)\.bottom > line \+ hd\.height\) \{/);
+  assert.match(read, /setScopeTile\(\(cur\) => \(cur === pinned \? cur : pinned\)\);/);
+  assert.match(BENCH, /timer = window\.setTimeout\(read, 80\);/);
+  assert.match(BENCH, /data-tile=\{t\.tile\}/);
+  // With a category pinned the box searches THAT category; with none, everything.
+  assert.match(BENCH, /const scopeRow = replan && scopeTile \? \(benchRows\.find\(\(r\) => r\.t\.tile === scopeTile\) \?\? null\) : null;/);
+  assert.match(BENCH, /const searching = q\.length > 0 && !scopeRow;/);
+  assert.match(BENCH, /scopedQ && scopeTile === t\.tile\s*\? t\.vendors\.filter\(\(v\) => v\.name\.toLowerCase\(\)\.includes\(scopedQ\)\)\s*: t\.vendors;/);
+  // No hit there is said, in the prototype's words — never an empty category.
+  assert.match(BENCH, /Nobody called “\{query\.trim\(\)\}” in \{t\.label\} yet — add them as your own\./);
+});
+
+test('T7 · rule 6 — pinned and scrolled into: the first tap goes back to the first card; at the top it folds', () => {
+  const tap = BENCH.slice(BENCH.indexOf('function tapRowHead('), BENCH.indexOf('function toggleFolded('));
+  assert.match(
+    tap,
+    /if \(row && isOpen && row\.getBoundingClientRect\(\)\.top < stickLine\(\) - 2\) \{\s*scrollBenchAnchor\(benchTileAnchorId\(tile\)\);\s*return;\s*\}/,
+  );
+  // Opening a row lands its first card under the pinned block.
+  assert.match(tap, /if \(replan && !isOpen\) setLanding\(\(cur\) => \(\{ tile, n: \(cur\?\.n \?\? 0\) \+ 1 \}\)\);/);
+  // …with no guessed delay: a frame after the commit, then once when the unfold has finished.
+  const land = BENCH.slice(BENCH.indexOf('const [landing, setLanding]'), BENCH.indexOf('}, [landing]);'));
+  assert.match(land, /const frame = requestAnimationFrame\(\(\) => scrollBenchAnchor\(id\)\);/);
+  assert.match(land, /if \(e\.propertyName !== 'grid-template-rows'\) return;\s*row\?\.removeEventListener\('transitionend', settle\);\s*scrollBenchAnchor\(id\);/);
+  assert.doesNotMatch(BENCH, /setTimeout\([\s\S]{0,200}benchTileAnchorId/);
 });

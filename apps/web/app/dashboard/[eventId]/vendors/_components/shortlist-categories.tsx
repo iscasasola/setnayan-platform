@@ -294,6 +294,20 @@ const SLCAT_CSS = `
 .slcat .cat-st.wn{color:var(--mulberry)}
 .slcat .rowsum{margin:0 0 10px;font-size:14px;font-weight:600;color:rgb(var(--color-ok))}
 .slcat .addmore{display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:14px 0 4px;border-top:1px solid var(--line-soft);font-size:14px;color:var(--ink-soft)}
+/* A row's head PINS under the shell's pinned block while its category is open
+   (owner 2026-10-07: "category pins … so they can collapse"), so the body must
+   not be a scroll box ('overflow:visible' — a flat folder never collapses). The
+   fill is the page's own ground ('.sn-ambient': #F7F5F0 · dark #17160F), so the
+   pinned head reads as the page, not a bar. The icon pops, then the body
+   unfolds a beat later (the prototype's 420 ms / 120 ms). */
+.slcat .fold.flat .fold-collapse>.fold-body{overflow:visible}
+.slcat .fold.flat .cat.open>.cat-head-row{position:sticky;top:var(--stick-h,150px);z-index:3;background:#F7F5F0;box-shadow:0 1px 0 var(--line-soft)}
+html.dark .slcat .fold.flat .cat.open>.cat-head-row{background:#17160F}
+.slcat .fold.flat .cat.open .cat-collapse{transition-delay:.12s}
+.slcat .fold.flat .cat.open .cat-ic{animation:slcat-pop 420ms var(--ease)}
+@keyframes slcat-pop{0%{transform:scale(1)}35%{transform:scale(1.28) rotate(-6deg)}60%{transform:scale(.92) rotate(4deg)}100%{transform:scale(1) rotate(0)}}
+@media (prefers-reduced-motion:reduce){.slcat .fold.flat .cat.open .cat-ic{animation:none}.slcat .fold.flat .cat.open .cat-collapse{transition-delay:0s}}
+.slcat .scope-none{margin:10px 0 4px;font-size:13px;color:var(--ink-soft)}
 /* ── Level 1 · folder card (collapsible) ── */
 .slcat .fold{margin:0 0 10px;background:var(--card);border:1px solid var(--edge);border-radius: var(--m-r-md);overflow:hidden;box-shadow:var(--edge-lift);transition:box-shadow .3s var(--ease),border-color .3s var(--ease)}
 .slcat .fold.open{box-shadow:var(--edge-lift-open);border-color:rgba(30,26,18,.28)}
@@ -1807,6 +1821,11 @@ export function ShortlistCategories({
   const [folded, setFolded] = useState<ReadonlySet<string>>(() => new Set());
   // "＋ Add your own" with no category open asks which one FIRST.
   const [addAsk, setAddAsk] = useState(false);
+  // THE SCOPE (owner 2026-10-07 late: *"which ever is pinned is where we
+  // search?"* — yes): the open category whose header is stuck under the pinned
+  // block. The thumb row's words, its search and its Add follow it.
+  const [scopeTile, setScopeTile] = useState<string | null>(null);
+  const benchRef = useRef<HTMLDivElement>(null);
   const [manual, setManual] = useState<{ category: string; label: string } | null>(null);
   // ── In-place category search (2026-07-29) ─────────────────────────────────
   // Owner: "clicking find more doesn't search specifically for that category.
@@ -2381,6 +2400,79 @@ export function ShortlistCategories({
   /** tile → its CoverageTile, for each row's own state word. */
   const coverageByTile = new Map([...coverageByFolder.values()].flat().map((t) => [t.tile, t] as const));
 
+  /** Where a row head pins: the top bar plus the shell's pinned block (`--stick-h`). */
+  function stickLine(): number {
+    const el = benchRef.current;
+    return el ? parseFloat(getComputedStyle(el).getPropertyValue('--stick-h')) || 0 : 0;
+  }
+  // Which open category is pinned right now — read a beat after the scroll
+  // settles (the prototype's 80 ms), so the words do not flicker mid-fling.
+  useEffect(() => {
+    if (!replan) return;
+    let timer = 0;
+    const read = () => {
+      const line = stickLine();
+      let pinned: string | null = null;
+      for (const row of benchRef.current?.querySelectorAll<HTMLElement>('.cat.open[data-tile]') ?? []) {
+        const head = row.querySelector<HTMLElement>(':scope > .cat-head-row');
+        if (!head) continue;
+        const hd = head.getBoundingClientRect();
+        if (Math.abs(hd.top - line) < 3 && row.getBoundingClientRect().bottom > line + hd.height) {
+          pinned = row.dataset.tile ?? null;
+          break;
+        }
+      }
+      setScopeTile((cur) => (cur === pinned ? cur : pinned));
+    };
+    const onScroll = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(read, 80);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('scroll', onScroll);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [replan]);
+  /**
+   * A tap on a row's header (BUTTON_RULE rule 6): scrolled INTO the category —
+   * its header pinned, its first card above the line — the first tap goes back
+   * to its first card and folds nothing; at its top, the tap folds it. Opening
+   * a row lands its first card under the pinned block.
+   */
+  function tapRowHead(tile: string, isOpen: boolean) {
+    const row = replan ? document.getElementById(benchTileAnchorId(tile)) : null;
+    if (row && isOpen && row.getBoundingClientRect().top < stickLine() - 2) {
+      scrollBenchAnchor(benchTileAnchorId(tile));
+      return;
+    }
+    if (openAll) toggleFolded(tile);
+    else setOpenTile(isOpen ? null : tile);
+    if (replan && !isOpen) setLanding((cur) => ({ tile, n: (cur?.n ?? 0) + 1 }));
+  }
+  // Opening a row lands its first card under the pinned block. No guessed
+  // delay: one frame after the commit that opened it, and once more when the
+  // unfold (and the fold of whichever row closed above it) has finished —
+  // `transitionend` is the moment the layout is final. The listener answers
+  // ONCE, so folding the row later does not pull the page back to it.
+  const [landing, setLanding] = useState<{ tile: string; n: number } | null>(null);
+  useLayoutEffect(() => {
+    if (!landing) return;
+    const id = benchTileAnchorId(landing.tile);
+    const row = document.getElementById(id);
+    const frame = requestAnimationFrame(() => scrollBenchAnchor(id));
+    const settle = (e: TransitionEvent) => {
+      if (e.propertyName !== 'grid-template-rows') return;
+      row?.removeEventListener('transitionend', settle);
+      scrollBenchAnchor(id);
+    };
+    row?.addEventListener('transitionend', settle);
+    return () => {
+      cancelAnimationFrame(frame);
+      row?.removeEventListener('transitionend', settle);
+    };
+  }, [landing]);
   /** A header tap while every category is open folds, or re-opens, just that one. */
   function toggleFolded(tile: string) {
     setFolded((cur) => {
@@ -2412,7 +2504,7 @@ export function ShortlistCategories({
     : [];
   /** ＋ Add your own: straight into the ONE open category; otherwise ask which first. */
   function addYourOwn() {
-    const open = !openAll && !searching && openTile ? benchRows.find((r) => r.t.tile === openTile) : null;
+    const open = scopeRow ?? (!openAll && !searching && openTile ? benchRows.find((r) => r.t.tile === openTile) : null);
     if (open) setManual({ category: open.t.category, label: open.t.label });
     else setAddAsk(true);
   }
@@ -2474,7 +2566,11 @@ export function ShortlistCategories({
   // Bench search — filter folders to tiles (or their considered vendors) matching
   // the query; while searching, every matching folder + tile shows expanded.
   const q = query.trim().toLowerCase();
-  const searching = q.length > 0;
+  // With a category pinned the box searches THAT category (its cards below);
+  // with none it searches everything and the rows with a hit unfold.
+  const scopeRow = replan && scopeTile ? (benchRows.find((r) => r.t.tile === scopeTile) ?? null) : null;
+  const searching = q.length > 0 && !scopeRow;
+  const scopedQ = scopeRow ? q : '';
   const visibleFolders = searching
     ? folders
         .map((f) => ({
@@ -2677,7 +2773,7 @@ export function ShortlistCategories({
 
   return (
     <UnreadCtx.Provider value={benchUnread}>
-    <div className="slcat">
+    <div className="slcat" ref={benchRef}>
       <style>{SLCAT_CSS}</style>
       {/* The remove confirm. It must live INSIDE the rendered tree or
           `confirm()` resolves against a dialog that was never mounted —
@@ -3004,8 +3100,14 @@ export function ShortlistCategories({
                   // The sink stays LAST because it is a partition over whatever
                   // order was chosen, not a term inside it.
                   const tilePins = pinsByTile[t.tile] ?? [];
+                  // The pinned category's own search: its cards, by name.
+                  const railVendors =
+                    scopedQ && scopeTile === t.tile
+                      ? t.vendors.filter((v) => v.name.toLowerCase().includes(scopedQ))
+                      : t.vendors;
+                  const scopedNone = scopedQ.length > 0 && scopeTile === t.tile && railVendors.length === 0;
                   const arrangedRail = applyBenchArrangement(
-                    sortWithReasons(t.vendors, effectiveSort),
+                    sortWithReasons(railVendors, effectiveSort),
                     tilePins,
                     (e) => e.v.vendorId,
                   );
@@ -3096,6 +3198,7 @@ export function ShortlistCategories({
                       // byte-identical to today.
                       id={replan ? benchTileAnchorId(t.tile) : undefined}
                       className={`cat${tileOpen ? ' open' : ''}`}
+                      data-tile={t.tile}
                     >
                       {/* The category head is a tap target to expand. The
                           "saved request" icon sits beside it as its OWN button
@@ -3105,7 +3208,7 @@ export function ShortlistCategories({
                           type="button"
                           className="cat-head"
                           aria-expanded={tileOpen}
-                          onClick={() => (openAll ? toggleFolded(t.tile) : setOpenTile(tileOpen ? null : t.tile))}
+                          onClick={() => tapRowHead(t.tile, tileOpen)}
                           style={{ flex: 1, minWidth: 0 }}
                         >
                           {/* Visual parity 2026-07-28 — a glyph per leaf row,
@@ -3218,6 +3321,11 @@ export function ShortlistCategories({
                       ) : null}
                       <div className="cat-collapse">
                         <div className="cat-body">
+                          {scopedNone ? (
+                            <p className="scope-none" role="status">
+                              Nobody called “{query.trim()}” in {t.label} yet — add them as your own.
+                            </p>
+                          ) : null}
                           {coveredGroup ? (
                             /* "✓ Covered — reopen" (Explore Replan slice A):
                                the couple answered "I'm done" here, or a
@@ -3672,7 +3780,7 @@ export function ShortlistCategories({
         <FindThumbRow
           allOpen={openAll}
           onToggleAll={toggleOpenAll}
-          scope="all suppliers"
+          scope={scopeRow ? scopeRow.t.label : 'all suppliers'}
           onSearch={setQuery}
           onAdd={addYourOwn}
         />

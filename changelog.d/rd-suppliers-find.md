@@ -61,9 +61,20 @@ Owner rulings 2026-10-08 ("1. yes 2. go 3. ok").
 - **`Build N/M`** is counted over the ring — the rows Find shows — through the
   same `resolveBenchRing` the list uses.
 
-**Still to come in PR2a part 2:** the pinned row header and the search scope
-that follows it, service cards and verbs by step, "More to compare" always on,
-the supplier sheet. `＋ Add "…"` with the typed name is 2b.
+- **An open category's header pins** under the date · place line and the
+  control, so it can be folded from deep in its list; the icon pops and the
+  body unfolds a beat later. Opening a row lands its first card under the
+  pinned block — one frame after the commit, and again when the unfold has
+  finished (no guessed delay).
+- **The pinned category is the scope.** The thumb row's words follow it
+  ("Search Catering or add your own" → "Search all suppliers…" when nothing is
+  pinned); typing filters that category's own cards by name; Add opens the form
+  for it. A pinned header's first tap goes back to its first card; a tap at its
+  top folds it (rule 6).
+
+**Still to come in PR2a part 2:** service cards and verbs by step, "More to
+compare" always on (the scoped search will filter it too), the supplier sheet.
+`＋ Add "…"` with the typed name is 2b.
 
 SPEC IMPACT: None — builds the plan's PR2 thumb row as written; what is
 deferred to the next part is listed above and in the PR body.

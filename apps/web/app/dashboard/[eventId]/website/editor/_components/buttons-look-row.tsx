@@ -44,6 +44,7 @@ import {
   type HubButtonShape,
 } from '@/lib/hub-buttons';
 import type { InviteTheme } from '@/lib/invite-themes';
+import { tellLookSample } from '@/lib/look-sample-store';
 import { HUB_DRAFT_BAR_FIELD, makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { hubDraftAction } from '../../hub-draft-actions';
 import { IRow } from './inspector-kit';
@@ -96,6 +97,8 @@ export function ButtonsLookRow({
   const look = (c: Choice) => resolveHubButtons({ style: encodeHubButtonStyle(c), colour: c.colour, theme, page });
 
   const preview = (c: Choice) => {
+    /* 🪟 Studio › Look's sample screen wears it too — drawn in the browser, no request (`look-sample.tsx`). */
+    tellLookSample(eventId, { buttonStyle: encodeHubButtonStyle(c), buttonColour: c.colour });
     const l = look(c);
     const message = {
       source: 'setnayan-editor',

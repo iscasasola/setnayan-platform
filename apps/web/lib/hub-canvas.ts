@@ -1347,6 +1347,44 @@ export function hubMainFadeAt(shade: HubMainShadeValue | null | undefined): numb
   return shade ? HUB_MAIN_SHADE_AT[shade] : 0;
 }
 
+/* ✨ AN EFFECT ON TOP OF THE BACKGROUND, UNDER THE WORDS (owner 2026-10-08, DECISION_LOG "LOOK EFFECTS ROUND 4" and
+   "LOOK ROUNDS 4–5"; contract `BACKGROUND_SOURCES_AMEND_2026-10-08_fable.md` § 2.A / § 3): six effects, one at a
+   time, each with How much and a Colour. Stored ON the main background it lies over — `main.effect` — on EVERY
+   shape, a plain colour (`{ ground: 'none' }`) included: it is not a treatment of the picture. No migration (the
+   hero row's `config_json`). ABSENT = no effect, and every stored shape without one reads byte for byte as before.
+   `colour` is a palette SLOT (`MAIN_SLOT`'s keys, `lib/site-palette.ts`), never a hex — so the effect follows the
+   Mood Board when the five change; absent = the effect's own colour ("Original").
+   The six are drawn by `lib/ambient-effects.ts`; this file only knows their names. */
+export const HUB_MAIN_EFFECTS = ['lanterns', 'petals', 'sparkles', 'capiz', 'shimmer', 'bokeh'] as const;
+export type HubMainEffectKind = (typeof HUB_MAIN_EFFECTS)[number];
+export const HUB_MAIN_EFFECT_INTENSITIES = ['subtle', 'standard', 'lavish'] as const;
+export type HubMainEffectIntensity = (typeof HUB_MAIN_EFFECT_INTENSITIES)[number];
+export const HUB_MAIN_EFFECT_COLOURS = ['dominant', 'supporting', 'accent', 'neutral', 'accent2'] as const;
+export type HubMainEffectColour = (typeof HUB_MAIN_EFFECT_COLOURS)[number];
+export type HubMainEffect = { kind: HubMainEffectKind; intensity: HubMainEffectIntensity; colour?: HubMainEffectColour };
+/** What every main background may carry, whatever its shape. */
+export type HubMainFx = { effect?: HubMainEffect };
+
+const oneOf = <T extends string>(list: readonly T[], v: unknown): v is T => typeof v === 'string' && (list as readonly string[]).includes(v);
+
+/** Anything → an effect, or nothing. An unknown kind or amount drops it; an unknown colour is the effect's own. */
+export function sanitizeHubMainEffect(raw: unknown): HubMainEffect | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const { kind, intensity, colour } = raw as Record<string, unknown>;
+  if (!oneOf(HUB_MAIN_EFFECTS, kind) || !oneOf(HUB_MAIN_EFFECT_INTENSITIES, intensity)) return undefined;
+  return oneOf(HUB_MAIN_EFFECT_COLOURS, colour) ? { kind, intensity, colour } : { kind, intensity };
+}
+
+function readMainFx(src: Record<string, unknown>): HubMainFx {
+  const effect = sanitizeHubMainEffect(src.effect);
+  return effect ? { effect } : {};
+}
+
+/** The effect a stored main background carries, or null. */
+export function hubMainEffect(m: HubMainGround | null | undefined): HubMainEffect | null {
+  return m?.effect ?? null;
+}
+
 /** The extras a footage ground carries. */
 export type HubMainLook = { shade?: HubMainShadeValue; blur?: HubMainBlur; focus?: HubMainFocus };
 
@@ -1378,7 +1416,7 @@ export function hubMainTakes(m: HubMainGround | null | undefined): { shade: bool
 }
 
 /** The default: the Main background follows the hero; this is the tint read off the hero's photo. */
-export type HubMainFollow = HubMainLook & {
+export type HubMainFollow = HubMainLook & HubMainFx & {
   follow: 'hero';
   /** The hero photo the frame was measured from. The tint applies only while this IS the hero. */
   of: string;
@@ -1386,7 +1424,7 @@ export type HubMainFollow = HubMainLook & {
 };
 
 /** An explicit override — the couple's own clip or photo instead of their hero. */
-export type HubMainOwn = HubMainLook & {
+export type HubMainOwn = HubMainLook & HubMainFx & {
   /** A photo, or a short muted clip (`snippet`) — never a colour; that is `site_bg_color`. */
   kind: 'photo' | 'snippet';
   /** The photo, or the clip. */
@@ -1417,7 +1455,7 @@ export type HubMainOwn = HubMainLook & {
  *   · `none`  — NO picture and NO loop: just the Background colour.
  * Both are free (taking media down never costs anything).
  */
-export type HubMainChoice = { ground: 'theme' | 'none' } | HubMainLoop | HubMainPattern;
+export type HubMainChoice = ({ ground: 'theme' | 'none' } & HubMainFx) | HubMainLoop | HubMainPattern;
 
 /**
  * 🧵 A PATTERN — Fine lines · Dots · Lace · Grid, drawn in the page's ink over
@@ -1425,7 +1463,7 @@ export type HubMainChoice = { ground: 'theme' | 'none' } | HubMainLoop | HubMain
  * stored 2026-10-07). No picture and no loop — like "Just the colour", with a
  * pattern on it. Free.
  */
-export type HubMainPattern = { ground: 'pattern'; pattern: HubMainPatternKey };
+export type HubMainPattern = HubMainFx & { ground: 'pattern'; pattern: HubMainPatternKey };
 
 /**
  * 🎞 A MOVING BACKGROUND — one of Setnayan's own animated loops, picked on its
@@ -1437,7 +1475,7 @@ export type HubMainPattern = { ground: 'pattern'; pattern: HubMainPatternKey };
  * animated loop background"* is paid): tried free in the draft, asked at Apply,
  * drawn for guests only while the event owns Event Hub Pro.
  */
-export type HubMainLoop = HubMainLook & { ground: 'loop'; loop: InviteThemeId };
+export type HubMainLoop = HubMainLook & HubMainFx & { ground: 'loop'; loop: InviteThemeId };
 
 /** The themes whose loop may be picked as a moving background — every shipped theme that has one, in THE one theme order (`INVITE_THEME_IDS`). */
 export function hubMovingBackgroundIds(): InviteThemeId[] {
@@ -1469,21 +1507,23 @@ export function isHubMainLoop(m: HubMainGround | null | undefined): m is HubMain
 export function sanitizeHubMainGround(raw: unknown): HubMainGround | null {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
   const src = raw as Record<string, unknown>;
+  /* ✨ The effect lies on whatever the background is — kept on EVERY shape, last, so a shape without one is unchanged. */
+  const fx = readMainFx(src);
   if (src.follow === 'hero') {
     const of = hubMediaRef(src.of);
     const tint = sanitizeHubTint(src.tint);
-    return of && tint ? { follow: 'hero', of, tint, ...readMainLook(src, { focus: true }) } : null;
+    return of && tint ? { follow: 'hero', of, tint, ...readMainLook(src, { focus: true }), ...fx } : null;
   }
-  if (src.ground === 'theme' || src.ground === 'none') return { ground: src.ground };
+  if (src.ground === 'theme' || src.ground === 'none') return { ground: src.ground, ...fx };
   if (src.ground === 'pattern') {
     return typeof src.pattern === 'string' && (HUB_MAIN_PATTERNS as readonly string[]).includes(src.pattern)
-      ? { ground: 'pattern', pattern: src.pattern as HubMainPatternKey }
+      ? { ground: 'pattern', pattern: src.pattern as HubMainPatternKey, ...fx }
       : null;
   }
   if (src.ground === 'loop') {
     // Only a shipped theme that HAS a loop — anything else is dropped, never guessed.
     return isInviteThemeId(src.loop) && INVITE_THEMES[src.loop].media && INVITE_THEMES[src.loop].ready
-      ? { ground: 'loop', loop: src.loop, ...readMainLook(src, { focus: false }) }
+      ? { ground: 'loop', loop: src.loop, ...readMainLook(src, { focus: false }), ...fx }
       : null;
   }
   const media = hubMediaRef(src.media);
@@ -1494,7 +1534,7 @@ export function sanitizeHubMainGround(raw: unknown): HubMainGround | null {
   const tint = sanitizeHubTint(src.tint);
   if (tint) out.tint = tint;
   if (src.motion === 'parallax' && out.kind === 'photo') out.motion = 'parallax';
-  return { ...out, ...readMainLook(src, { focus: out.kind === 'photo' }) };
+  return { ...out, ...readMainLook(src, { focus: out.kind === 'photo' }), ...fx };
 }
 
 /** The Main background stored on a row's `config_json` (the hero row's), or null. */

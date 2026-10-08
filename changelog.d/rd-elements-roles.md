@@ -44,7 +44,7 @@ prototype's three extra colour presets (Deep & gold · Soft · Garden); Stages �
 Aa "Event Hub font (role)" (plan row 4); the picker's "Against the background"
 shelf (the picker is #6427's).
 
-Guard: `lib/elements-are-roles.test.ts` (7 tests) — eleven sabotages seen red;
+Guard: `lib/elements-are-roles.test.ts` (7 tests) — ten sabotages seen red (an eleventh, on a rule no fixture can make differ, was re-aimed);
 `the-look-is-one-panel` and `hub-font-shelves` re-aimed. The four CSS rules were
 also run in a real browser against the shapes the guest page draws.
 

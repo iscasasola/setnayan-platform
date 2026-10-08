@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, GripVertical, Plus, RotateCw, Trash2, TriangleAlert, X } from 'lucide-react';
+import { Check, Gift, GripVertical, Plus, RotateCw, Trash2, TriangleAlert, X } from 'lucide-react';
 import { FileUpload } from '@/app/_components/file-upload';
 import { InfoTip } from '@/app/_components/info-tip';
 import { Sheet } from '@/app/_components/sheet';
@@ -70,7 +70,7 @@ const FIELD =
   'mt-1.5 min-h-11 w-full scroll-mb-24 rounded-md border border-ink/15 bg-white px-3 py-2 text-[15px] text-ink placeholder:text-ink/45 focus:border-ink/40 focus:outline-none';
 const LABEL = 'flex items-center justify-between gap-2 text-[13px] text-ink/60';
 const FOOT = 'sn-glass-row sticky bottom-0 -mx-5 mt-5 grid grid-cols-2 gap-2 px-5 py-3';
-const PHOTO = 'h-11 w-11 shrink-0 overflow-hidden rounded-md bg-gild/15';
+const PHOTO = 'flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-md bg-gild/15';
 
 type Draft = { name: string; price: string; link: string; note: string; photo: string };
 
@@ -308,7 +308,12 @@ export function StudioWishList({
                       {w.photoUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element -- the couple's own upload in the public media bucket
                         <img src={w.photoUrl} alt="" className="h-full w-full object-cover" />
-                      ) : null}
+                      ) : (
+                        /* 🎁 No photo: ONE neutral gift glyph in the square, never an empty box (controller
+                           2026-10-08, frame 03). The prototype's fryer / cooker / luggage drawings are
+                           stand-ins for the couple's own photos — there is no per-item rule behind them. */
+                        <Gift aria-hidden data-wish-no-photo="" className="h-5 w-5 text-gild" strokeWidth={1.75} />
+                      )}
                     </span>
                     <span className="flex min-w-0 flex-1 flex-col">
                       <b className={`truncate text-[14.5px] font-semibold ${got ? 'text-ink/55' : 'text-ink'}`}>{w.name}</b>

@@ -26,6 +26,7 @@
  * classic runtime (see `lib/studio-screens-follow-the-prototype.test.ts`).
  *
  * 🛡 Sabotaged, each red then restored (2026-10-08):
+ *   • the no-photo glyph removed (an empty square again)         → 1 and 1b red;
  *   • the unread branch removed (falls through to the list)      → 3 red;
  *   • the sample shapes drawn without `aria-hidden`              → 2 red;
  *   • the no-way line dropped                                    → 4 red;
@@ -88,8 +89,24 @@ test('1 · five wishes: the rows, the count, the got wish last, one creating but
 
   assert.equal(html.match(/data-testid="wish-add"/g)?.length, 1, 'ONE creating button');
   assert.match(text, /Gifts sent to you ₱14,500 said sent · 5 gifts/);
+  /* A wish with no photo draws the one gift glyph in its square — never an empty box. */
+  assert.equal(html.match(/data-wish-no-photo=""/g)?.length, 5, 'a wish with no photo drew an empty square');
+  assert.doesNotMatch(html, /<img /, 'the fixture has no photos');
   assert.doesNotMatch(html, /data-wish-no-way/, 'a way to give is on — no warning');
   assert.doesNotMatch(text, /No wishes yet/);
+});
+
+test('1b · a wish WITH a photo draws the photo, and no glyph over it', async () => {
+  const { StudioWishList } = await import(`../${L}/studio-wish-list`);
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const list = labWishList('five');
+  assert.ok(list.read);
+  const wishes = list.wishes.map((w, i) => (i === 0 ? { ...w, photoRef: 'r2://setnayan-media/events/e/wish-list/a.jpg', photoUrl: 'https://media.example/a.jpg' } : w));
+  const html = renderToStaticMarkup(
+    React.createElement(StudioWishList, { eventId: EVENT, methods: WAY_ON, list: { ...list, wishes }, action: async () => ({ ok: true as const }) }),
+  );
+  assert.equal(html.match(/<img src="https:\/\/media\.example\/a\.jpg"/g)?.length, 1);
+  assert.equal(html.match(/data-wish-no-photo=""/g)?.length, 4, 'the glyph is drawn over a real photo, or missing where there is none');
 });
 
 test('2 · empty: the editor’s own sample shapes, "No wishes yet.", the add button — and no gifts row', async () => {

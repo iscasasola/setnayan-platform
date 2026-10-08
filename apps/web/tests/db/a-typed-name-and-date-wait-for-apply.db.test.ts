@@ -159,8 +159,13 @@ test('3 · the NAME STYLE waits for Apply too — a save leaves print_details al
   const before = await printDetails();
   assert.equal(parsePrintDetails(before).nameStyle, 'full', 'anti-vacuity: the style starts as Full');
 
-  const styled = mergeHubDraft(emptyHubDraft(), { events: { print_details: { name_style: 'surname-first', opening_line: 'SNEAKED IN' } as never } });
+  /* ⏳ The blob's DRAFTABLE keys are the Name style, the ticket style and — since 2026-10-08, owner "draft 1-3" —
+     the opening line. Every other key stays the prints' own: the one sneaked in here is `invite_message`
+     (it used to be `opening_line`, which this test pinned as un-draftable until the owner made it wait for Apply). */
+  const styled = mergeHubDraft(emptyHubDraft(), { events: { print_details: { name_style: 'surname-first', invite_message: 'SNEAKED IN' } as never } });
   assert.deepEqual(styled.events.print_details, { name_style: 'surname-first' }, 'the draft holds the Name style and no other key of the blob');
+  const drafted = mergeHubDraft(emptyHubDraft(), { events: { print_details: { opening_line: 'Kindly join us', menu: 'SNEAKED IN' } as never } });
+  assert.deepEqual(drafted.events.print_details, { opening_line: 'Kindly join us' }, 'the opening line waits for Apply; the menu beside it does not ride along');
   const w = await as(
     F.couple,
     `INSERT INTO public.event_site_drafts (event_id, draft_json) VALUES ($1, $2::jsonb)

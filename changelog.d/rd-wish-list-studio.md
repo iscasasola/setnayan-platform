@@ -73,3 +73,48 @@ Tests: `lib/wish-list-studio.test.ts` (14) · `lib/the-wish-list-follows-the-dra
 
 SPEC IMPACT: None beyond wish list 1/5's. Build status in the corpus:
 `EGIFTS_WISH_LIST_BUILD_STATUS_2026-10-08.md`.
+
+## 2026-10-08 · fix(egifts): a wish action costs one request and renders no page (wish list 2/5)
+
+Owner rule, 2026-10-08 ("the program created will create the least amount of
+request for the tasks to be done"); controller's named change 1 for this stack.
+
+**Before** (read from the code): every add · edit · got it · remove · reorder
+in Studio › E-Gifts › Wish list rendered the WHOLE Maker on the server
+**twice** — the door ended with `await revalidateSurfaces()` (and
+`revalidatePath` inside an action makes Next render the action's own route into
+its response), and the screen then asked for the same render again
+(`makerSave(…, requestMakerRefresh)`). A reorder also wrote every wish, one
+after another.
+
+**After:** one request per wish action, **zero** Maker renders.
+
+- `studio-wish-list.tsx` — the five saves are HELD (`makerSave(…, { held: true })`);
+  an edit, the Got it switch and a run of moves fold into ONE write per wish
+  (`makerLatestWrite`); the list is the drawing, and a refusal puts back only
+  the wish it was about (never a snapshot of the whole list). A new wish's row
+  is replaced by the row as kept when the save answers; a reorder waits for a
+  wish still on its way in.
+- `wish-items.server.ts` — a save answers with the row as kept (`wish`: real id,
+  link as stored, the picture's address, the mark after a price change), read
+  back in the SAME write. A reorder writes only the wishes whose place changed,
+  together. A picture address that cannot be built is `null`, never a failed
+  save.
+- `actions.ts` — the wish list's door refreshes the guests' pages AFTER its
+  answer is sent (`after`), so its own route is never rendered into the response.
+
+Supabase requests per action (counted on the real functions over the replayed
+schema, `tests/db/the-wish-list-writes-keep-their-rules.db.test.ts` test 8),
+each plus the door's one sign-in check and, after the answer, one read of the
+event's address: add 2 (was 2) · edit 3 (was 3) · got it 1 · remove 1 ·
+reorder 1 + one per wish that moved, together (was 1 + one per wish that moved,
+one after another). Whole-Maker server renders per action: **0 (was 2)**.
+
+Guards: `lib/the-wish-list-costs-one-request.test.ts` (new, 5 tests) · test 8
+of the DB test (new) · `a-drawn-pick-never-rerenders-the-maker` and
+`every-maker-edit-shows-before-it-saves` each learn that a held save of LIVE
+rows asks for no Apply bar and draws on its own list — one reason per handler,
+a stale or shared reason fails.
+
+SPEC IMPACT: None (no word, no layout and no schema changed; the behaviour the
+design draws — "kept as you type", "guests see it right away" — is unchanged).

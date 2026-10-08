@@ -26,7 +26,9 @@
  *   5. the couple's switch writes both halves of the mark, and takes both off;
  *   6. one drag is the whole order, and an order naming somebody else's wish —
  *      or leaving one out — moves nothing;
- *   7. Remove deletes the wish and keeps its gifts as "Any gift".
+ *   7. Remove deletes the wish and keeps its gifts as "Any gift";
+ *   8. ⚡ as few requests as the task allows, COUNTED on the real functions — and
+ *      a save answers with the row as kept (the reason no re-read is owed).
  *
  * 🛡 Sabotaged, each red then restored (2026-10-08):
  *   • the photo policy check removed                     → 2 red;
@@ -129,19 +131,41 @@ class Q implements PromiseLike<Res> {
       sql = `DELETE FROM public.${ident(this.table)}${where()}`;
       if (this.returning) sql += ` RETURNING ${this.returning}`;
     }
-    await db.exec('SET ROLE authenticated');
-    await setAuthUid(db, this.uid);
-    try {
-      const r = await db.query<Row>(sql, params);
-      return { data: r.rows, error: null };
-    } catch (e) {
-      // Returned, never thrown — exactly as supabase-js hands a refusal back.
-      return { data: null, error: { message: (e as Error).message, code: (e as { code?: string }).code } };
-    } finally {
-      await db.exec('RESET ROLE');
-      await setAuthUid(db, null);
-    }
+    /* ONE STATEMENT AT A TIME. The writers run requests side by side (`Promise.all`), and this
+       client is one connection: without the queue, one statement's RESET ROLE could land before
+       another's query — which would then run as the superuser, past RLS, and "pass". */
+    const turn = queue.then(async (): Promise<Res> => {
+      sent.push(`${this.verb} ${this.table}`);
+      await db.exec('SET ROLE authenticated');
+      await setAuthUid(db, this.uid);
+      try {
+        const r = await db.query<Row>(sql, params);
+        return { data: r.rows, error: null };
+      } catch (e) {
+        // Returned, never thrown — exactly as supabase-js hands a refusal back.
+        return { data: null, error: { message: (e as Error).message, code: (e as { code?: string }).code } };
+      } finally {
+        await db.exec('RESET ROLE');
+        await setAuthUid(db, null);
+      }
+    });
+    queue = turn.then(
+      () => undefined,
+      () => undefined,
+    );
+    return turn;
   }
+}
+
+/** The statements-in-turn queue (see `run`). */
+let queue: Promise<void> = Promise.resolve();
+/** Every request the client sent, in order — "verb table" — for the count in test 8. */
+const sent: string[] = [];
+/** Run `fn` and hand back the requests it sent. */
+async function counted<T>(fn: () => Promise<T>): Promise<{ res: T; sent: string[] }> {
+  const from = sent.length;
+  const res = await fn();
+  return { res, sent: sent.slice(from) };
 }
 
 function clientFor(uid: string): SupabaseClient {
@@ -204,13 +228,15 @@ const byName = async (name: string) => (await wishes()).find((w) => w.name === n
 /** Add a wish as the couple and hand back its row. */
 async function add(name: string, price = ''): Promise<WishRow> {
   const res = await W.saveWishItem(clientFor(COUPLE), EVENT, COUPLE, form({ name, price }));
-  assert.deepEqual(res, { ok: true });
+  assert.equal(res.ok, true);
   return byName(name);
 }
 
 before(async () => {
   replay = await createReplayedDb();
   db = replay.db;
+  /* The public media host, so a kept wish's picture has an address to be answered with. */
+  process.env.R2_PUBLIC_URL = 'https://media.wish-writes.test';
   W = await import('../../app/dashboard/[eventId]/pabuya/wish-items.server');
 
   EVENT = await newEvent('Maria & Jose');
@@ -239,8 +265,15 @@ test('1 · a host adds a wish: it lands last, with its fields, stamped with who 
     COUPLE,
     form({ name: '  Rice cooker  ', price: '', link: 'shop.example/rice-cooker', note: 'the grey one', photo_r2_key: photo }),
   );
-  assert.deepEqual(res, { ok: true });
+  assert.equal(res.ok, true);
   const rice = await byName('Rice cooker');
+  /* The save ANSWERS with the row as kept — its real id, the name trimmed, the link as stored —
+     so the screen lays it over what it drew and no re-read is owed. */
+  assert.ok(res.ok && res.wish);
+  assert.deepEqual(
+    res.wish,
+    { id: rice.wish_item_id, name: 'Rice cooker', pricePhp: null, linkUrl: 'https://shop.example/rice-cooker', note: 'the grey one', photoRef: photo, photoUrl: `https://media.wish-writes.test/events/${EVENT}/wish-list/abc-rice.jpg`, gotBy: null },
+  );
   assert.equal(rice.price_php, null, 'an empty price is "any amount"');
   assert.equal(rice.link_url, 'https://shop.example/rice-cooker', 'a link pasted without its scheme is still a link');
   assert.equal(rice.note, 'the grey one');
@@ -311,24 +344,25 @@ test('4 · editing the price re-settles the automatic Got it — by what guests 
   const edit = (fields: Record<string, string>) =>
     W.saveWishItem(clientFor(COUPLE), EVENT, COUPLE, form({ wish_item_id: lug.wish_item_id, name: 'Luggage set', ...fields }));
 
-  assert.deepEqual(await edit({ price: '8900' }), { ok: true });
+  assert.equal((await edit({ price: '8900' })).ok, true);
   assert.equal((await byName('Luggage set')).got_by, null, 'nothing moved: ₱3,000 of ₱8,900');
 
-  assert.deepEqual(await edit({ price: '3000' }), { ok: true });
+  const reached = await edit({ price: '3000' });
+  assert.ok(reached.ok && reached.wish?.gotBy === 'auto', 'the answer carries the mark the price change made');
   let row = await byName('Luggage set');
   assert.equal(row.got_by, 'auto', 'the price came down to what was sent — it reached');
   assert.ok(row.got_at, 'both halves of the mark are written');
 
-  assert.deepEqual(await edit({ price: '5000' }), { ok: true });
+  assert.equal((await edit({ price: '5000' })).ok, true);
   row = await byName('Luggage set');
   assert.deepEqual([row.got_by, row.got_at], [null, null], 'the price went back above what was sent — open again');
 
-  assert.deepEqual(await edit({ price: '' }), { ok: true });
+  assert.equal((await edit({ price: '' })).ok, true);
   assert.equal((await byName('Luggage set')).got_by, null, 'a wish with no price never marks itself');
 
   // The couple's own mark is theirs: no sum takes it off or rewrites it.
   await W.setWishItemGot(clientFor(COUPLE), EVENT, form({ wish_item_id: lug.wish_item_id, got: '1' }));
-  assert.deepEqual(await edit({ price: '999999' }), { ok: true });
+  assert.equal((await edit({ price: '999999' })).ok, true);
   assert.equal((await byName('Luggage set')).got_by, 'host');
 });
 
@@ -386,4 +420,57 @@ test('7 · Remove deletes the wish and keeps its gifts as "Any gift"', async () 
   assert.deepEqual(rec.rows[0], { wish_item_id: null, amount_php: 500 });
   // A second Remove of the same wish is said, not swallowed.
   assert.equal((await W.deleteWishItem(clientFor(COUPLE), EVENT, form({ wish_item_id: lamp.wish_item_id }))).ok, false);
+});
+
+// ── 8 ───────────────────────────────────────────────────────────────────────
+
+test('8 · ⚡ as few requests as the task allows — counted on the real functions', async () => {
+  const me = clientFor(COUPLE);
+  const list = await wishes();
+  assert.ok(list.length >= 4, 'the count needs a realistic list');
+
+  /* ADD: where the list ends, then the insert — which answers with its own row (no read after). */
+  const added = await counted(() => W.saveWishItem(me, EVENT, COUPLE, form({ name: 'Stand mixer', price: '12500' })));
+  assert.equal(added.res.ok, true);
+  assert.deepEqual(added.sent, ['select event_wish_items', 'insert event_wish_items']);
+  /* A picture's address that cannot be built never turns a KEPT wish into a failure. */
+  const host = process.env.R2_PUBLIC_URL;
+  delete process.env.R2_PUBLIC_URL;
+  const account = process.env.R2_ACCOUNT_ID;
+  delete process.env.R2_ACCOUNT_ID;
+  try {
+    const noHost = await W.saveWishItem(me, EVENT, COUPLE, form({ name: 'Kettle', photo_r2_key: `r2://setnayan-media/events/${EVENT}/wish-list/kettle.jpg` }));
+    assert.ok(noHost.ok && noHost.wish && noHost.wish.photoUrl === null && noHost.wish.photoRef !== null, 'a kept wish was answered as a failure over its picture');
+    await W.deleteWishItem(me, EVENT, form({ wish_item_id: noHost.wish.id }));
+  } finally {
+    process.env.R2_PUBLIC_URL = host;
+    if (account) process.env.R2_ACCOUNT_ID = account;
+  }
+  const mixer = await byName('Stand mixer');
+
+  /* EDIT: the row and what was sent toward it, side by side, then ONE write that answers with the row. */
+  const edited = await counted(() => W.saveWishItem(me, EVENT, COUPLE, form({ wish_item_id: mixer.wish_item_id, name: 'Stand mixer', price: '11999', note: 'the red one' })));
+  assert.ok(edited.res.ok && edited.res.wish?.note === 'the red one');
+  assert.deepEqual([...edited.sent.slice(0, 2)].sort(), ['select event_gift_records', 'select event_wish_items']);
+  assert.deepEqual(edited.sent.slice(2), ['update event_wish_items']);
+
+  /* GOT IT and REMOVE: the write is the whole request. */
+  const got = await counted(() => W.setWishItemGot(me, EVENT, form({ wish_item_id: mixer.wish_item_id, got: '1' })));
+  assert.deepEqual([got.res, got.sent], [{ ok: true }, ['update event_wish_items']]);
+  await W.setWishItemGot(me, EVENT, form({ wish_item_id: mixer.wish_item_id, got: '0' }));
+
+  /* REORDER: one read, then ONLY the wishes whose place changed — two for a swap, whatever the length of the list. */
+  const ids = (await wishes()).map((w) => w.wish_item_id);
+  const swapped = [...ids];
+  [swapped[0], swapped[1]] = [swapped[1]!, swapped[0]!];
+  const moved = await counted(() => W.moveWishItem(me, EVENT, form({ order: swapped.join(',') })));
+  assert.deepEqual(moved.res, { ok: true });
+  assert.deepEqual(moved.sent, ['select event_wish_items', 'update event_wish_items', 'update event_wish_items'], `a swap in a list of ${ids.length} sent ${moved.sent.length} requests`);
+  assert.deepEqual((await wishes()).map((w) => w.wish_item_id), swapped);
+  /* The same order again changes nothing: the read alone. */
+  const same = await counted(() => W.moveWishItem(me, EVENT, form({ order: swapped.join(',') })));
+  assert.deepEqual([same.res, same.sent], [{ ok: true }, ['select event_wish_items']]);
+
+  const gone = await counted(() => W.deleteWishItem(me, EVENT, form({ wish_item_id: mixer.wish_item_id })));
+  assert.deepEqual([gone.res, gone.sent], [{ ok: true }, ['delete event_wish_items']]);
 });

@@ -13,7 +13,9 @@ import {
   type GiftSumRow,
   type WishItemRow,
 } from '@/lib/wish-list';
-import { cleanWishPrice } from '@/lib/wish-list-studio';
+import { publicBucketServeRef } from '@/lib/site-media-ref';
+import { publicUrlForStoredAsset } from '@/lib/uploads';
+import { cleanWishPrice, studioWishKeptFrom, type StudioWishKept } from '@/lib/wish-list-studio';
 
 /**
  * THE WISH LIST'S FOUR WRITES — `saveWishItem` · `deleteWishItem` ·
@@ -43,7 +45,28 @@ import { cleanWishPrice } from '@/lib/wish-list-studio';
  * guests say they sent (`gotAfterGifts`) and is re-settled when the PRICE moves.
  */
 
-export type WishWriteResult = { ok: true } | { ok: false; error: string };
+/**
+ * `wish` — on a SAVE (an add or an edit): the row as it was kept. The screen lays
+ * it over what it drew — the new wish's real id, the link as stored, the
+ * picture's address, the mark after a price change — so the write is the whole
+ * request and no Maker re-read is owed for it (owner rule 2026-10-08).
+ */
+export type WishWriteResult = { ok: true; wish?: StudioWishKept } | { ok: false; error: string };
+
+/**
+ * The row as the answer carries it. The wish photo's address comes from the same
+ * resolver the list read uses (`readStudioWishList`) — and an address that
+ * cannot be built is `null`, never a throw: the wish WAS kept by then, and a
+ * kept write must not be answered as a failure over its picture.
+ */
+const keptWish = (row: WishItemRow): StudioWishKept =>
+  studioWishKeptFrom(row, (ref) => {
+    try {
+      return publicUrlForStoredAsset(publicBucketServeRef(ref));
+    } catch {
+      return null;
+    }
+  });
 
 export const WISH_OPS = ['save', 'delete', 'move', 'got'] as const;
 export type WishOp = (typeof WISH_OPS)[number];
@@ -153,9 +176,10 @@ export async function saveWishItem(
         sort_order: next,
         created_by_user_id: userId,
       })
-      .select('wish_item_id');
-    if (error || !made || made.length === 0) return { ok: false, error: NOT_KEPT };
-    return { ok: true };
+      .select(WISH_ITEM_SELECT);
+    const added = ((made ?? []) as unknown as WishItemRow[])[0];
+    if (error || !added) return { ok: false, error: NOT_KEPT };
+    return { ok: true, wish: keptWish(added) };
   }
 
   /* An edit: read the row (its mark, its price, its photo) and what was sent
@@ -192,10 +216,11 @@ export async function saveWishItem(
     .update(patch)
     .eq('wish_item_id', id)
     .eq('event_id', eventId)
-    .select('wish_item_id');
+    .select(WISH_ITEM_SELECT);
   if (error) return { ok: false, error: NOT_KEPT };
-  if (!kept || kept.length === 0) return { ok: false, error: GONE };
-  return { ok: true };
+  const now = ((kept ?? []) as unknown as WishItemRow[])[0];
+  if (!now) return { ok: false, error: GONE };
+  return { ok: true, wish: keptWish(now) };
 }
 
 /** Remove a wish. Its gifts stay on the couple's list as "Any gift" (the FK sets them free). */
@@ -234,16 +259,21 @@ export async function moveWishItem(supabase: SupabaseClient, eventId: string, fo
   const have = new Map((rows as Array<{ wish_item_id: string; sort_order: number }>).map((r) => [r.wish_item_id, r.sort_order]));
   if (have.size !== order.length || order.some((id) => !have.has(id))) return { ok: false, error: GONE };
 
-  for (const [place, id] of order.entries()) {
-    if (have.get(id) === place) continue;
-    const { data: moved, error } = await supabase
-      .from('event_wish_items')
-      .update({ sort_order: place })
-      .eq('wish_item_id', id)
-      .eq('event_id', eventId)
-      .select('wish_item_id');
-    if (error || !moved || moved.length === 0) return { ok: false, error: NOT_KEPT };
-  }
+  /* Only the wishes whose place CHANGED are written, and they are written together —
+     never one after another (a drag that swaps two wishes is one read and two writes,
+     side by side, whatever the length of the list). */
+  const moves = [...order.entries()].filter(([place, id]) => have.get(id) !== place);
+  const moved = await Promise.all(
+    moves.map(([place, id]) =>
+      supabase
+        .from('event_wish_items')
+        .update({ sort_order: place })
+        .eq('wish_item_id', id)
+        .eq('event_id', eventId)
+        .select('wish_item_id'),
+    ),
+  );
+  if (moved.some((m) => m.error || !m.data || m.data.length === 0)) return { ok: false, error: NOT_KEPT };
   return { ok: true };
 }
 

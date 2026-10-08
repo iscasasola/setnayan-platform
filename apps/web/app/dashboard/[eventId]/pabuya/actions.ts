@@ -2,6 +2,7 @@
 
 import { cleanGiftRegistryUrl, GIFT_REGISTRY_URL_ERROR } from '@/lib/gift-registry';
 import { revalidatePath } from 'next/cache';
+import { after } from 'next/server';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { isEgiftMethodKind } from '@/lib/egift-kinds';
@@ -11,7 +12,7 @@ import { deleteDisplacedPabuyaQr } from '@/lib/pabuya-qr-object.server';
 import { storeRedrawnPabuyaQr } from '@/lib/pabuya-qr-store.server';
 import { cleanPabuyaMessage } from '@/lib/pabuya-message';
 import { isHubDraftWrite, saveHubDraftPatch } from '@/lib/hub-draft-store';
-import { wishListWrite } from './wish-items.server';
+import { wishListWrite, type WishWriteResult } from './wish-items.server';
 
 /**
  * Server actions for the Pabuya e-gift surface (/dashboard/[eventId]/pabuya).
@@ -31,8 +32,13 @@ const MAX_ACCOUNT_NAME = 80;
 const MAX_HANDLE = 200;
 const MAX_NOTE = 240;
 
+/**
+ * `wish` is the wish list's (`wish-items.server.ts`): the row a save kept, so the
+ * Studio lays it over what it drew instead of re-reading the Maker. Every other
+ * caller reads `ok` / `error` exactly as before.
+ */
 export type EgiftActionResult =
-  | { ok: true }
+  | { ok: true; wish?: Extract<WishWriteResult, { ok: true }>['wish'] }
   | { ok: false; error: string };
 
 const GENERIC_WRITE_ERROR =
@@ -108,7 +114,15 @@ export async function saveEgiftMethod(
      give, exactly as before. Live, like every write on this page. */
   if (formData.has('wish_op')) {
     const wish = await wishListWrite(eventId, formData);
-    if (wish.ok) await revalidateSurfaces(eventId);
+    /* ⚡ THE GUESTS' PAGES ARE REFRESHED AFTER THE ANSWER IS SENT (`after`), never
+       before it (owner rule 2026-10-08: a press costs one request and never
+       re-renders the page). `revalidatePath` called INSIDE an action marks the
+       action's own route as revalidated, and Next then renders that whole route
+       into the action's response (`skipFlight: !pathWasRevalidated`) — here the
+       whole Maker, every read of it, for one wish. Run after the response, the
+       same guest paths are invalidated and nothing is rendered: the screen
+       already shows the change, and lays the answer (`wish`) over it. */
+    if (wish.ok) after(() => revalidateSurfaces(eventId));
     return wish;
   }
 

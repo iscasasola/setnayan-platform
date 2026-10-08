@@ -111,7 +111,7 @@ export const SP_PHONE_CARD = 'sn-phone-card';
 /** The frame as a look card's picture: the shared class, clipped, the page's ground behind it. */
 export const SP_PHONE_PICTURE = `${SP_PHONE_CARD} relative block overflow-hidden rounded-lg bg-[var(--sp-page)]`;
 /** A look card: the frame over its one-line name — exactly as wide as the frame (`w-min`), never a share of the row. */
-export const SP_LOOK_CARD = 'sn-press flex w-min shrink-0 snap-center flex-col items-stretch gap-1.5 text-left';
+export const SP_LOOK_CARD = 'sn-press flex min-h-11 w-min shrink-0 snap-center flex-col items-stretch gap-1.5 text-left';
 /** The card's name under the frame: one line, cut to the frame's width (it never widens the card). */
 export const SP_LOOK_NAME = 'block h-[18px] w-0 min-w-full truncate text-center text-[13px] font-semibold leading-[18px]';
 

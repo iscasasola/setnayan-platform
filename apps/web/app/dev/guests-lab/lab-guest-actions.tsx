@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { GuestRemovalActionsContext, type GuestRemovalActions } from '@/app/dashboard/[eventId]/guests/_components/guest-delete';
-import { LAB_GUEST_ACTIONS } from './lab-stand-ins';
+import { LAB_GUEST_ACTIONS, LAB_SETUP_REFUSALS } from './lab-stand-ins';
 import { GuestActionsProvider } from '@/app/dashboard/[eventId]/guests/_components/guest-actions-context';
 
 /**
@@ -15,10 +15,14 @@ import { GuestActionsProvider } from '@/app/dashboard/[eventId]/guests/_componen
  *   · every other write a plain press reaches on the Guests screen (`GuestActionsProvider`): Set… ▾ (bulk), New group, the
  *     + sheet's name box, Quick add (guest · group · role), Add from your people (read + add), Mark as sent.
  *
- * NOT stubbed here (still real): the Setup view's own writes (RSVP asks · reply-by · get-in · finalize · pax — they ride the
- * Maker's save and `hubDraftAction`), the guest CARD (autosave `updateGuest`, release claim, invite by e-mail — the card is a
- * route the lab does not draw) and the one-by-one run (`SendInviteActions`, which the Maker's first load imports and so must
- * not pull this context in).
+ *   · Guests › Setup's three writes (2026-10-09): the asks and how guests get in (`hubDraftAction`, the Maker's draft door),
+ *     Reply by (`updatePaxSettings`) and Finalize / Reopen (`setGuestListFinalized`); with `?refuse=1` they refuse with the
+ *     DATABASE'S OWN WORDS, on purpose, so a guard can prove the host never reads them.
+ *
+ * NOT stubbed here (still real): the guest CARD (autosave `updateGuest`, release claim, invite by e-mail — the card is a
+ * route the lab does not draw), the one-by-one run (`SendInviteActions`, which the Maker's first load imports and so must
+ * not pull this context in), and the Setup rows' two LINKS ("Send to N" → /guests/send, "Pick who" → /guests?select=…),
+ * which are navigations, not writes.
  */
 export function LabGuestActions({ refuse = false, children }: { refuse?: boolean; children: ReactNode }) {
   const stand: GuestRemovalActions = {
@@ -30,7 +34,7 @@ export function LabGuestActions({ refuse = false, children }: { refuse?: boolean
   };
   return (
     <GuestRemovalActionsContext.Provider value={stand}>
-      <GuestActionsProvider actions={LAB_GUEST_ACTIONS}>{children}</GuestActionsProvider>
+      <GuestActionsProvider actions={refuse ? { ...LAB_GUEST_ACTIONS, ...LAB_SETUP_REFUSALS } : LAB_GUEST_ACTIONS}>{children}</GuestActionsProvider>
     </GuestRemovalActionsContext.Provider>
   );
 }

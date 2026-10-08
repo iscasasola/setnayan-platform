@@ -25,7 +25,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import React from 'react';
 import { stripComments } from '@/lib/strip-comments';
-import { LAB_GUEST_ACTIONS } from './lab-stand-ins';
+import { LAB_GUEST_ACTIONS, LAB_SETUP_REFUSALS } from './lab-stand-ins';
+import { isPlainSentence } from '@/app/dashboard/[eventId]/guests/_components/plain-refusal';
 
 (globalThis as unknown as { React: unknown }).React = React;
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -36,8 +37,8 @@ const read = (p: string) => stripComments(readFileSync(p, 'utf8'));
 test('(1) every write the context carries has a lab stand-in — none is left real', () => {
   /* The names the context carries — read from its source (importing it would import every server action). */
   const ctx = read(join(GUESTS, 'guest-actions-context.tsx'));
-  const real = [...ctx.slice(ctx.indexOf('export const REAL_GUEST_ACTIONS')).matchAll(/^\s{2}(\w+)(?::|,)/gm)].map((m) => m[1]).slice(0, 11);
-  assert.equal(real.length, 11, 'the context’s names could not be read');
+  const real = [...ctx.slice(ctx.indexOf('export const REAL_GUEST_ACTIONS')).matchAll(/^\s{2}(\w+)(?::|,)/gm)].map((m) => m[1]).slice(0, 14);
+  assert.equal(real.length, 14, 'the context’s names could not be read');
   assert.deepEqual(Object.keys(LAB_GUEST_ACTIONS).sort(), [...real].sort(), 'a lab press can reach a real action');
   for (const f of ['lab-stand-ins.ts', 'lab-guest-actions.tsx']) {
     assert.doesNotMatch(read(join(HERE, f)), /from '[^']*(?:-actions|\/actions)'|groups-actions|inline-actions/, `${f} imports a real action module`);
@@ -60,6 +61,14 @@ test('(1b) the stand-ins answer like the real ones, locally', async () => {
   assert.ok(sent.ok && typeof sent.sentAt === 'string');
   const unsent = await a.setGuestInvitationSent!('e', 'g1', false);
   assert.ok(unsent.ok && unsent.sentAt === null);
+  const drafted = await a.hubDraftAction!('e', new FormData());
+  assert.ok(drafted.ok, 'the Setup draft write does not answer');
+  const pax = await a.updatePaxSettings!(new FormData());
+  assert.ok(pax.ok);
+  const fin = await a.setGuestListFinalized!('e', true);
+  assert.ok(fin.ok && fin.locked === true);
+  const fin2 = await a.setGuestListFinalized!('e', false);
+  assert.ok(fin2.ok && fin2.locked === false);
   assert.equal(a.sendRunHref!('e', ['a', 'b']), '/dev/guests-lab?part=run&ids=a,b', '"Invite N" leaves the lab for a real route');
 });
 
@@ -72,6 +81,11 @@ test('(2) the call sites take their action from the context and import no action
     ['quick-add-sheet.tsx', 'quickAddGuest, quickCreateGroup, addRoleToGuest, setGuestPrimaryRole'],
     ['add-from-people-sheet.tsx', 'addGuestsFromPeople, listPeopleYouCanInvite'],
   ];
+  /* Guests › Setup's rows live in the shared guest-setup folder. */
+  const setup = read(join(APP, 'dashboard', '[eventId]', '_components', 'guest-setup', 'guest-setup-rows.tsx'));
+  assert.match(setup, /const \{ hubDraftAction, updatePaxSettings \} = useGuestActions\(\);/, 'Setup’s save no longer takes its writes from the context');
+  assert.match(setup, /const \{ setGuestListFinalized \} = useGuestActions\(\);/, 'Finalize no longer takes its write from the context');
+  assert.doesNotMatch(setup, /from '[^']*(?:hub-draft-actions|finalize-actions)'|from '\.\.\/\.\.\/actions'/, 'Setup imports a real action module again');
   for (const [file, names] of sites) {
     const src = read(join(GUESTS, file));
     assert.match(src, new RegExp(`const \\{ ${names} \\} = useGuestActions\\(\\);`), `${file} no longer takes ${names} from the context`);
@@ -97,4 +111,15 @@ test('(3) nothing but the lab provides either context', () => {
 
 test('(3b) the lab screen is drawn inside the stand-ins', () => {
   assert.match(read(join(HERE, 'page.tsx')), /<LabGuestActions refuse=\{sp\.refuse === '1'\}>[\s\S]*<GuestsScreen/);
+});
+
+test('(4) with ?refuse=1 Setup’s writes refuse in the database’s own words — on purpose, so the screen can be shown to say its own sentence', async () => {
+  const r = LAB_SETUP_REFUSALS;
+  assert.deepEqual(Object.keys(r).sort(), ['hubDraftAction', 'setGuestListFinalized', 'updatePaxSettings']);
+  const a = await r.hubDraftAction!('e', new FormData());
+  const b = await r.updatePaxSettings!(new FormData());
+  const c = await r.setGuestListFinalized!('e', true);
+  for (const words of [!a.ok && a.error, !b.ok && b.message, !c.ok && c.error]) {
+    assert.ok(typeof words === 'string' && !isPlainSentence(words), `the lab’s Setup refusal reads as a sentence: ${words}`);
+  }
 });

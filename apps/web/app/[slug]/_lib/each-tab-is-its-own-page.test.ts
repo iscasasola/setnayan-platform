@@ -195,6 +195,9 @@ test('5 · tabs are the Invitation’s and The Day’s, only where a bar is draw
   assert.equal(hubTabsOn({ ...on, stage: 'save_the_date' }), false);
   assert.equal(hubTabsOn({ ...on, stage: 'editorial' }), false);
   assert.equal(hubTabsOn({ ...on, stage: 'rsvp', makerCanvas: true }), false, 'the canvas lists every scene it draws');
+  /* 🧭 The one canvas exception (owner 2026-10-07 "yes pages"): the Stages canvas is tabbed like the guest's page. */
+  assert.equal(hubTabsOn({ ...on, stage: 'rsvp', makerCanvas: true, stagesCanvas: true }), true, 'the Stages canvas is the guest’s tabbed page');
+  assert.equal(hubTabsOn({ ...on, stage: 'save_the_date', makerCanvas: true, stagesCanvas: true }), false, 'Save the Date stays one page');
   assert.equal(hubTabsOn({ ...on, stage: 'rsvp', barDrawn: false }), false, 'no bar, no way to another tab');
 });
 

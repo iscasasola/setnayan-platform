@@ -76,7 +76,12 @@ export type MakerFixedKey =
   | 'find_your_seat'
   | 'photos_of_you'
   | 'announcements'
-  | 'live_hub';
+  | 'live_hub'
+  /* 👆 Two blocks a tap must pick (owner 2026-10-07: "every visible piece of the page must be a pickable part"):
+     the Details page's "THE DETAILS · WHEN · WHERE" block and the day's "Happening now" card. Selectable rows —
+     never navigator tiles of their own (the navigator lists what `makerStageList` builds). */
+  | 'details'
+  | 'spotlight';
 
 export type MakerTile =
   | {
@@ -194,6 +199,8 @@ export const MAKER_FIXED_LABEL: Record<MakerFixedKey, { label: string; why: stri
   photos_of_you: { label: "Each guest's own photos", why: 'Each guest sees the photos they are in, as they are taken.' },
   announcements: { label: 'Announcements', why: 'Your messages to guests appear at the top of the page once you send one.' },
   live_hub: { label: 'Live hub', why: 'Your live stream and live photo wall, when you have them on the day.' },
+  details: { label: 'The details', why: 'Your date and venue, from the venue you booked.' },
+  spotlight: { label: 'Happening now', why: 'On the day, guests are pointed to the live stream here.' },
 };
 
 /**
@@ -296,6 +303,8 @@ export const MAKER_FIXED_SOURCE: Partial<
   photos_of_you: { text: 'Filled from the photos taken on the day.', page: 'galleries', link: 'Open your galleries', from: 'the photos taken on the day' },
   announcements: { text: 'You send them from your schedule on the day.', page: 'schedule', link: 'Open your schedule', from: 'your schedule' },
   live_hub: { text: 'Filled from your live stream and your live photo wall.', page: 'live', link: 'Open your live wall', from: 'your live settings' },
+  details: { text: 'Your date and venue come from the venue you booked.', page: 'schedule', link: 'Open your schedule', from: 'the venue you booked' },
+  spotlight: { text: 'Shown on the day while your live stream is on.', page: 'live', link: 'Open your live wall', from: 'your live settings' },
   greeting: {
     text: 'Each guest sees their own greeting — written from your guest list.',
     page: 'guests',

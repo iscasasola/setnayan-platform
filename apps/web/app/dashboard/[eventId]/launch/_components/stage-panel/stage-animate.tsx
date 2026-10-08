@@ -27,7 +27,38 @@ import { useAnimatePhase, type AnimatePhase } from './store';
  * Shimmer do not exist and are never invented.
  */
 
-export type AnimateDd = { value: string; options: readonly PickOption[]; onPick: (k: string) => void } | null;
+export type AnimateDd = { value: string; options: readonly PickOption[]; onPick: (k: string) => void; buttonText?: string; note?: string } | null;
+/** A time row (prototype `sl('dur'|'delay')`): 0–2 s, step 0.1 — it settles on the shipped value nearest the thumb. */
+export type AnimateTime = { value: number; steps: readonly number[]; onPick: (seconds: number) => void } | null;
+
+function TimeRow({ label, t, data }: { label: string; t: NonNullable<AnimateTime>; data: string }) {
+  const near = (v: number) => t.steps.reduce((a, b) => (Math.abs(b - v) < Math.abs(a - v) ? b : a), t.steps[0]!);
+  return (
+    <div className={SP_ROW} data-stage-time={data}>
+      <span className={SP_ROW_LABEL}>{label}</span>
+      <span className="relative flex h-11 min-w-0 flex-1 items-center px-1">
+        <input
+          type="range"
+          min={0}
+          max={2}
+          step={0.1}
+          value={t.value}
+          aria-label={label}
+          aria-valuetext={`${t.value.toFixed(1)} s`}
+          onChange={(e) => {
+            const v = near(Number(e.target.value));
+            if (v !== t.value) t.onPick(v);
+          }}
+          className="sp-range h-11 w-full cursor-pointer appearance-none bg-transparent"
+          style={{ ['--p' as string]: `${(t.value / 2) * 100}%` }}
+        />
+      </span>
+      <span className="flex h-[38px] min-w-[58px] shrink-0 items-center justify-center rounded-full border border-[var(--sp-line)] bg-white text-[13.5px] font-medium">
+        {t.value.toFixed(1)} s
+      </span>
+    </div>
+  );
+}
 
 /** The arrow is the way the part TRAVELS: Build in ← comes from the right; Build out ↑ leaves to the top (prototype `DIRS`). */
 const DIRS: Record<'in' | 'out', readonly MotionDir[]> = {
@@ -94,12 +125,11 @@ export function StageAnimate({
   onIn,
   onOut,
   rows = null,
-  speed = null,
+  duration = null,
   delay = null,
   does,
   timing,
   next = null,
-  outAbout = null,
   pro = null,
   pending = false,
   error = null,
@@ -112,14 +142,13 @@ export function StageAnimate({
   onOut: (fx: MotionFx | null) => void;
   /** 🧾 A scene of rows (a schedule, the march, the story …): Rows ▾ — the shipped `sequence`. */
   rows?: AnimateDd;
-  speed?: AnimateDd;
-  delay?: AnimateDd;
+  /** Build in's Duration and Delay — the prototype's two sliders, on the shipped steps. */
+  duration?: AnimateTime;
+  delay?: AnimateTime;
   does: AnimateDd;
   timing: AnimateDd;
   /** A scene's move into the next one (null on the stage's last scene, or a part). */
   next?: AnimateDd;
-  /** ⓘ beside Build out — e.g. a part's out plays only as guests scroll. */
-  outAbout?: ReactNode;
   /** 💎 Event Hub Pro, said behind ⓘ once (the ◆ marks on How it moves say it on the row). */
   pro?: ReactNode;
   pending?: boolean;
@@ -141,7 +170,7 @@ export function StageAnimate({
       />
       {how ? (
         <div className="flex h-11 shrink-0 items-center gap-1.5">
-          <Dd small={`◆ ${howWords}`} label={howWords} data="how" tone="how" value={how.value} options={how.options} onPick={how.onPick} />
+          <Dd small={`◆ ${howWords}`} label={howWords} data="how" tone="how" value={how.value} options={how.options} onPick={how.onPick} buttonText={how.buttonText} />
           {pro ? <About label="Animate">{pro}</About> : null}
         </div>
       ) : null}
@@ -153,12 +182,8 @@ export function StageAnimate({
               <Dd small="Rows" label="How its rows arrive" data="rows" value={rows.value} options={rows.options} onPick={rows.onPick} />
             </div>
           ) : null}
-          {speed || delay ? (
-            <div className="flex h-11 shrink-0 gap-1.5">
-              {speed ? <Dd small="Speed" label="How fast it comes in" data="speed" value={speed.value} options={speed.options} onPick={speed.onPick} /> : null}
-              {delay ? <Dd small="Delay" label="Delay" data="delay" value={delay.value} options={delay.options} onPick={delay.onPick} /> : null}
-            </div>
-          ) : null}
+          {duration ? <TimeRow label="Duration" t={duration} data="duration" /> : null}
+          {delay ? <TimeRow label="Delay" t={delay} data="delay" /> : null}
         </>
       ) : phase === 'act' ? (
         <>
@@ -166,6 +191,12 @@ export function StageAnimate({
             <div className="flex h-11 shrink-0">
               <Dd small="Does" label="While on screen" data="does" value={does.value} options={does.options} onPick={does.onPick} />
             </div>
+          ) : null}
+          {does?.note ? (
+            /* The prototype's one line under Does ▾ (`DOES_SUB`) — what the choice does, never a box. */
+            <p className="shrink-0 px-1.5 text-[12px] leading-snug text-[var(--sp-mute)]" data-stage-does-note="">
+              {does.note}
+            </p>
           ) : null}
           {timing ? (
             <div className="flex h-11 shrink-0">
@@ -175,11 +206,6 @@ export function StageAnimate({
         </>
       ) : (
         <>
-          {outAbout ? (
-            <div className="flex h-11 shrink-0 items-center justify-end">
-              <About label="Build out">{outAbout}</About>
-            </div>
-          ) : null}
           <EffectRows end="out" fx={outFx} onChange={onOut} />
         </>
       )}

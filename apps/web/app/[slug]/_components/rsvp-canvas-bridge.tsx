@@ -35,6 +35,9 @@ import { RSVP_BRIDGE_SOURCE, RSVP_SITE_SOURCE } from '@/lib/rsvp-stage-shared';
  */
 export const RSVP_FRAME_ASK_EVENT = 'setnayan:rsvp-frame-ask';
 
+/** The form's own fields — on the Maker's canvas they never take a tap, a press or a keystroke. */
+const INERT_FIELDS = 'input, textarea, select, label, [role="checkbox"], [role="radio"], [role="switch"], [contenteditable="true"]';
+
 export function RsvpCanvasBridge({ inertButtons = false }: { inertButtons?: boolean }) {
   useEffect(() => {
     const origin = window.location.origin;
@@ -91,6 +94,21 @@ export function RsvpCanvasBridge({ inertButtons = false }: { inertButtons?: bool
         e.preventDefault();
         e.stopPropagation();
       }
+      /* 🔒 The couple is LOOKING at the form, never filling it in (owner 2026-10-07: "it is the actual RSVP not an
+         editing way"): a tick, a choice or a field never takes the tap. */
+      if (target?.closest(INERT_FIELDS)) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+    /* …nor the press that would focus a field and raise a keyboard. */
+    const onDown = (e: Event) => {
+      const target = e.target instanceof Element ? e.target : null;
+      if (target?.closest(INERT_FIELDS)) e.preventDefault();
+    };
+    const onKey = (e: Event) => {
+      const target = e.target instanceof Element ? e.target : null;
+      if (target?.closest(INERT_FIELDS)) e.preventDefault();
     };
     const onSubmit = (e: Event) => {
       e.preventDefault();
@@ -98,11 +116,19 @@ export function RsvpCanvasBridge({ inertButtons = false }: { inertButtons?: bool
     };
     window.addEventListener('message', onMessage);
     document.addEventListener('click', onClick, true);
+    document.addEventListener('pointerdown', onDown, true);
+    document.addEventListener('mousedown', onDown, true);
+    document.addEventListener('keydown', onKey, true);
+    document.addEventListener('beforeinput', onKey, true);
     window.addEventListener('submit', onSubmit, true);
     if (window.parent !== window) window.parent.postMessage({ source: RSVP_SITE_SOURCE, t: 'rsvpReady' }, origin);
     return () => {
       window.removeEventListener('message', onMessage);
       document.removeEventListener('click', onClick, true);
+      document.removeEventListener('pointerdown', onDown, true);
+      document.removeEventListener('mousedown', onDown, true);
+      document.removeEventListener('keydown', onKey, true);
+      document.removeEventListener('beforeinput', onKey, true);
       window.removeEventListener('submit', onSubmit, true);
     };
   }, [inertButtons]);

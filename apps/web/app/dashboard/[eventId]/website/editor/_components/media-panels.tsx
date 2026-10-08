@@ -2,7 +2,8 @@
 
 import { LAUNCH_PHASE_CHOICES, launchPhaseLabel, type LaunchPhaseKey } from './launch-phase-choices';
 import { useFormStatus } from 'react-dom';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { useMaker } from '../../../launch/_components/maker-context';
 import { parseTicketUrl, TICKET_URL_ERROR_TEXT, TICKET_URL_MAX } from '@/lib/ticket-url';
 import { HubDraftField, HubSavesImmediately } from '../../_components/hub-draft-field';
 import { FileUpload } from '@/app/_components/file-upload';
@@ -156,8 +157,19 @@ export function SiteChromePanel({
   videoRef: string | null;
   videoDisplay?: Record<string, string>;
 }) {
+  /* 🎵 STUDIO › LOOK › MUSIC HAS NO SAVE (owner 2026-10-08, *"and no save button"*): in the new Maker
+     the form posts itself — into the SAME draft door — the moment an upload lands or the switch
+     flips; Apply publishes it. The shipped editor keeps its Save. */
+  const studio = useMaker()?.stagesStudio === true;
+  const formRef = useRef<HTMLFormElement>(null);
+  const draftNow = () => {
+    if (!studio) return;
+    /* After React has written the new value into the upload's hidden field. */
+    window.requestAnimationFrame(() => formRef.current?.requestSubmit());
+  };
+  const hint = studio ? 'it is added to your draft as soon as it uploads' : 'press Save below';
   return (
-    <form action={action} className={PANEL}>
+    <form ref={formRef} action={action} className={PANEL} data-site-chrome={studio ? 'drafts-as-you-go' : 'save'}>
       {/* Into the draft (`updateSiteChrome`'s door, owner 2026-09-29) — the song
           and the video are tried by every couple; Apply puts them live, with Pro. */}
       <HubDraftField />
@@ -166,7 +178,8 @@ export function SiteChromePanel({
         bucket="media"
         pathPrefix={`events/${eventId}/site-music`}
         name="bg_music_url"
-        unsavedHint="press Save below"
+        unsavedHint={hint}
+        onChange={draftNow}
         multiple={false}
         maxSizeMB={20}
         acceptedTypes={AUDIO_TYPES}
@@ -175,11 +188,15 @@ export function SiteChromePanel({
         label="Background music"
         help="Plays only when a guest taps the speaker — never on its own."
       />
-      <label className="mt-2 flex items-center gap-2 text-xs text-ink/70">
+      {/* 🔀 The Studio draws it as a switch (owner 2026-10-08) — the SAME `bg_music_enabled` checkbox, its
+          look in the Studio's server-drawn CSS (`studioFullScreenCss`), so the Maker's first load carries no styles for it. */}
+      <label className="mt-2 flex items-center gap-2 text-xs text-ink/70" data-music-switch={studio ? '' : undefined}>
         <input
           type="checkbox"
+          role={studio ? 'switch' : undefined}
           name="bg_music_enabled"
           defaultChecked={musicEnabled}
+          onChange={draftNow}
           className="h-3.5 w-3.5 rounded border-ink/30"
         />
         Play music on my Event Hub
@@ -189,7 +206,8 @@ export function SiteChromePanel({
           bucket="media"
           pathPrefix={`events/${eventId}/landing-page-hero-video`}
           name="hero_video_url"
-          unsavedHint="press Save below"
+          unsavedHint={hint}
+          onChange={draftNow}
           multiple={false}
           maxSizeMB={100}
           acceptedTypes={['video/mp4', 'video/quicktime', 'video/webm']}
@@ -199,7 +217,7 @@ export function SiteChromePanel({
           help="Plays in place of the hero photo when set."
         />
       </div>
-      <SaveButton />
+      {studio ? null : <SaveButton />}
     </form>
   );
 }

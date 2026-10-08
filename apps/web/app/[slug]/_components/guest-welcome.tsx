@@ -62,7 +62,10 @@ export function GuestWelcome({
   giftHref,
   mark = () => null,
   maker = false,
+  partLooks = null,
 }: {
+  /** 🎨 E-Gifts' and the guest's look's own styles (`lib/scene-styles-parts.ts`) — null: the shipped look. */
+  partLooks?: { gifts?: string | null; wear?: string | null } | null;
   parts: readonly WelcomePart[];
   words: EventWords;
   look: WelcomeLook | null;
@@ -82,6 +85,7 @@ export function GuestWelcome({
         if (part === 'look') {
           if (look) {
             return (
+              <PartLook key="look" look={partLooks?.wear ?? null}>
               <DressCodeWidget
                 key="look"
                 part="you"
@@ -95,12 +99,13 @@ export function GuestWelcome({
                 paletteLook={look.paletteLook ?? null}
                 hideWhenEmpty
               />
+              </PartLook>
             );
           }
           return maker ? (
             <WelcomeSlot key="look">
               {mark('f:look')}
-              <MakerWelcomeLook />
+              <MakerWelcomeLook look={partLooks?.wear ?? null} />
             </WelcomeSlot>
           ) : null;
         }
@@ -119,14 +124,14 @@ export function GuestWelcome({
           return (
             <WelcomeSlot key="gifts">
               {mark('f:gifts')}
-              <WelcomeGifts href={giftHref} words={words} />
+              <WelcomeGifts href={giftHref} words={words} look={partLooks?.gifts ?? null} />
             </WelcomeSlot>
           );
         }
         return maker ? (
           <WelcomeSlot key="gifts">
             {mark('f:gifts')}
-            <MakerWelcomeGiftsEmpty />
+            <MakerWelcomeGiftsEmpty look={partLooks?.gifts ?? null} />
           </WelcomeSlot>
         ) : null;
       })}
@@ -137,4 +142,15 @@ export function GuestWelcome({
 /** One part's box — its Maker marker and the part as siblings, so the canvas finds the part right after its marker. */
 function WelcomeSlot({ children }: { children: ReactNode }) {
   return <div data-welcome-part="">{children}</div>;
+}
+
+/** 🎨 A part in its own style (`data-part-look`, `globals.css`) — no wrapper at all for the shipped look. */
+function PartLook({ look, children }: { look: string | null; children: ReactNode }) {
+  return look ? (
+    <div data-part-look={look} className="empty:hidden">
+      {children}
+    </div>
+  ) : (
+    <>{children}</>
+  );
 }

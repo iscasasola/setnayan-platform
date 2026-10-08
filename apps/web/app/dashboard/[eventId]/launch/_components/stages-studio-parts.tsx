@@ -2,8 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Check } from 'lucide-react';
-import { MAKER_UNHELD_WRITE_EVENT, makerSavesInFlight } from '@/lib/maker-refresh';
-import { STUDIO_DONE_BUTTON, STUDIO_HEAD_ROW, STUDIO_SAVED_PILL, STUDIO_TOOL_PILL } from '@/lib/studio-skin';
+import { STUDIO_DONE_BUTTON, STUDIO_HEAD_ROW, STUDIO_TOOL_PILL } from '@/lib/studio-skin';
 import { ISeg, ISegmented } from '../../website/editor/_components/inspector-kit';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import type { PickOption } from '../../website/editor/_components/pick-menu-types';
@@ -70,49 +69,6 @@ export function StudioToolMenu({
 }
 
 /**
- * ✓ SAVED — the Tool row's right-hand pill (prototype `.fright.saved`). Every Studio
- * write already says it is under way (`makerSave` / the shell's form posts fire
- * `MAKER_UNHELD_WRITE_EVENT`); this only DRAWS that: "Saving…" while one is in
- * flight, "✓ Saved" once none is. It writes nothing and claims nothing it did not
- * hear — a screen that never wrote shows "✓ Saved" because nothing is pending.
- */
-export function StudioSaved() {
-  const [saving, setSaving] = useState(false);
-  useEffect(() => {
-    let timer: number | null = null;
-    const settle = () => {
-      if (makerSavesInFlight() > 0) {
-        timer = window.setTimeout(settle, 400);
-        return;
-      }
-      timer = null;
-      setSaving(false);
-    };
-    const onWrite = () => {
-      setSaving(true);
-      if (timer === null) timer = window.setTimeout(settle, 400);
-    };
-    window.addEventListener(MAKER_UNHELD_WRITE_EVENT, onWrite);
-    return () => {
-      window.removeEventListener(MAKER_UNHELD_WRITE_EVENT, onWrite);
-      if (timer !== null) window.clearTimeout(timer);
-    };
-  }, []);
-  return (
-    <span data-studio-saved={saving ? 'saving' : 'saved'} aria-live="polite" className={`${STUDIO_SAVED_PILL} ${saving ? 'text-ink/50' : 'text-success-700'}`}>
-      {saving ? (
-        'Saving…'
-      ) : (
-        <>
-          <Check aria-hidden className="h-4 w-4" strokeWidth={2.2} />
-          Saved
-        </>
-      )}
-    </span>
-  );
-}
-
-/**
  * A Studio tool FULL SCREEN — its slim row (prototype `.fhead`; owner 2026-10-06, DECISION_LOG
  * "'ASK ONE BY ONE' … TAPPING STUDIO AGAIN RETURNS TO THE TILES"): Tool ▾ across the row, then
  * ✓ Saved — or ✓ Done where the top nav is hidden (Wedding March, Seat plan). No "‹ Studio" —
@@ -142,11 +98,9 @@ export function StudioToolRow({
           Done
         </button>
       ) : (
-        <div data-studio-row-end="" className="flex shrink-0 items-center gap-1.5">
-          <span data-studio-row-saved="" className="contents">
-            <StudioSaved />
-          </span>
-        </div>
+        /* 🧾 No "✓ Saved" chip (owner 2026-10-07, *"yes remove the saved."*): the ONE state signal is ✓ Apply's
+           count. The end slot stays for a tool's own control (the Mood Board's ✨ Auto). */
+        <div data-studio-row-end="" className="flex shrink-0 items-center gap-1.5" />
       )}
     </div>
   );
@@ -266,6 +220,67 @@ export function LowerThirdGrab({ px, onPx }: { px: number | null; onPx: (px: num
       className="flex h-6 w-full shrink-0 touch-none items-center justify-center"
     >
       <span aria-hidden className={`h-[5px] rounded-full transition-[width,background-color] duration-150 ${dragging ? 'w-14 bg-gild' : 'w-11 bg-ink/20'}`} />
+    </button>
+  );
+}
+
+/**
+ * 🎯 THE STYLE BAR'S JUMP, AND THE WAY BACK (owner 2026-10-07: *"opens to the exact place where to edit it"* · *"if we
+ * did a jump, we need a way to apply and return to where we were editing"*). Mounted by the shell only while a Studio
+ * tool is open FROM a part (`from`): the field is brought into view and focused once the editor has drawn it, and
+ * "✓ Done · back to <part>" sits in the thumb's reach, just above the editor. Lazy: it exists only after a jump.
+ */
+export function StudioBackToPart({
+  from,
+  side,
+  at,
+  full,
+  onBack,
+}: {
+  from: { label: string; focus: string | null };
+  side: MakerSide;
+  /** The Studio tool on screen — the field is looked for again when it changes. */
+  at: unknown;
+  /** The tool is drawn full screen (the button shows only then). */
+  full: boolean;
+  onBack: () => void;
+}) {
+  const focusSel = from.focus;
+  useEffect(() => {
+    if (!focusSel || side !== 'studio') return;
+    let n = 0;
+    const id = window.setInterval(() => {
+      n += 1;
+      const el = document.querySelector<HTMLElement>(`[data-maker-shell] :is(${focusSel})`);
+      /* A field inside a folded row (Studio › Info's "Event name · …") asks that row to open first. */
+      if (el && el.offsetParent === null) el.closest('[data-studio-event-name]')?.setAttribute('data-focus-pending', '');
+      if (el && el.offsetParent !== null) {
+        window.clearInterval(id);
+        el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        el.focus({ preventScroll: true });
+      } else if (n > 40) window.clearInterval(id);
+    }, 100);
+    return () => window.clearInterval(id);
+  }, [focusSel, side, at]);
+  const [hasFoot, setHasFoot] = useState(false);
+  useEffect(() => {
+    const look = () => setHasFoot(Boolean(document.querySelector('[data-maker-shell] :is([data-studio-day], [data-moment-order-cards])')));
+    look();
+    const id = window.setInterval(look, 500);
+    return () => window.clearInterval(id);
+  }, [from, at]);
+  if (!full) return null;
+  return (
+    <button
+      type="button"
+      data-maker-studio-back=""
+      onClick={onBack}
+      /* Above an editor's own pinned foot (the Schedule's / Love Story's "Add a moment", ~64 px). */
+      style={{ bottom: `calc(var(--maker-lt-h) + env(safe-area-inset-bottom) + ${hasFoot ? 76 : 8}px)` }}
+      className="sn-press absolute left-1/2 z-[45] inline-flex h-11 -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full bg-success-600 px-5 text-[14px] font-bold text-cream shadow-[0_10px_24px_-12px_rgba(0,0,0,.5)] hover:bg-success-700 lg:hidden"
+    >
+      <Check aria-hidden className="h-4 w-4" strokeWidth={2.6} />
+      Done · back to {from.label}
     </button>
   );
 }

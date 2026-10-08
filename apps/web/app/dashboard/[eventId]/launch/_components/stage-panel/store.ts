@@ -95,3 +95,9 @@ export function setStageRevealColours(colours: StageRevealLook['colours']): void
 export function useStageRevealLook(): StageRevealLook {
   return useSyncExternalStore(subscribe, () => reveal, () => reveal);
 }
+
+/** Put Animate on a segment (the panel's own control does this through `useAnimatePhase`; a guard renders each). */
+export function setStageAnimatePhase(p: AnimatePhase): void {
+  animatePhase = p;
+  ping();
+}

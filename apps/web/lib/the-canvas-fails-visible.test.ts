@@ -38,6 +38,9 @@ import { HUB_SCENE_SHAPES,
   HUB_OUT,
   HUB_TIMELINE,
   hubCanvasClass,
+  hubSpacingClass,
+  sanitizeHubCanvas,
+  HUB_SCENE_SPACINGS,
 } from './hub-canvas';
 import { HUB_SCENE_CLASSES } from './hub-scenes';
 import { SCENE_TEMPLATE_IDS } from './scene-templates';
@@ -266,6 +269,11 @@ test('⛔ no rule branches on a class the contract can never emit', async () => 
           : { kind, media: `r2://${PUBLIC_R2_BUCKET}/events/E1/a.jpg`, shape };
       for (const c of hubCanvasClass(canvas, true).split(' ')) emitted.add(c);
     }
+  }
+  /* ↕ Arrange › Spacing (2026-10-07) — MEASURED through the real `hubSpacingClass`, for every stored value. */
+  for (const spacing of HUB_SCENE_SPACINGS) {
+    const c = hubSpacingClass(sanitizeHubCanvas({ canvas: { spacing } }));
+    if (c) emitted.add(c);
   }
   // The Scroll · Scrub scenes (hub-scenes.tsx) emit their own small vocabulary,
   // exported beside the contract so it is held to the same rule, not exempted.

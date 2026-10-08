@@ -1,4 +1,4 @@
-import { hasHubCanvas, sanitizeHubCanvas } from '@/lib/hub-canvas';
+import { hasHubCanvas, hubSpacingClass, sanitizeHubCanvas } from '@/lib/hub-canvas';
 import { sceneClipStillUrl, sceneGround } from '@/lib/scene-ground';
 import { SceneClip } from './scene-clip';
 import type { InvitationWidgetRow } from '@/lib/invitation-widgets';
@@ -85,6 +85,17 @@ export function HubCanvasFrame({
       </style>
     ) : null;
   if (!hasHubCanvas(canvas)) {
+    /* ↕ Spacing alone is no frame (a frame brings motion nobody chose) — the scene is
+       wrapped in one plain box carrying its room (`.hub-space-*`). */
+    const spacing = hubSpacingClass(canvas);
+    if (spacing) {
+      return (
+        <>
+          <div className={spacing}>{children}</div>
+          {elementStyle}
+        </>
+      );
+    }
     return elementStyle ? (
       <>
         {children}

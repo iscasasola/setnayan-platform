@@ -201,10 +201,8 @@ test('5 · a Look section press is a client state change: its segments can never
   const { ISeg, ISegmented } = await import(`../app/dashboard/[eventId]/website/editor/_components/inspector-kit`);
   const html = renderToStaticMarkup(
     React.createElement('form', null,
-      React.createElement(ISegmented, {
-        label: 'Look',
-        children: ['Background', 'Colours', 'Fonts', 'Music'].map((k) => React.createElement(ISeg, { key: k, on: k === 'Background', data: k, onClick: () => {}, children: k })),
-      })),
+      React.createElement(ISegmented, { label: 'Look' },
+        ...['Background', 'Colours', 'Fonts', 'Music'].map((k) => React.createElement(ISeg, { key: k, on: k === 'Background', data: k, onClick: () => {} }, k)))),
   );
   const buttons = html.match(/<button\b[^>]*>/g) ?? [];
   assert.equal(buttons.length, 4);

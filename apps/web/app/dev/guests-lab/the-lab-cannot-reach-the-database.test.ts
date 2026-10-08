@@ -25,7 +25,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import React from 'react';
 import { stripComments } from '@/lib/strip-comments';
-import { LAB_GUEST_ACTIONS, LAB_SETUP_REFUSALS } from './lab-stand-ins';
+import { LAB_GUEST_ACTIONS, LAB_NAVIGATE_EVENT, LAB_SETUP_REFUSALS } from './lab-stand-ins';
 import { isPlainSentence } from '@/app/dashboard/[eventId]/guests/_components/plain-refusal';
 
 (globalThis as unknown as { React: unknown }).React = React;
@@ -37,8 +37,8 @@ const read = (p: string) => stripComments(readFileSync(p, 'utf8'));
 test('(1) every write the context carries has a lab stand-in — none is left real', () => {
   /* The names the context carries — read from its source (importing it would import every server action). */
   const ctx = read(join(GUESTS, 'guest-actions-context.tsx'));
-  const real = [...ctx.slice(ctx.indexOf('export const REAL_GUEST_ACTIONS')).matchAll(/^\s{2}(\w+)(?::|,)/gm)].map((m) => m[1]).slice(0, 15);
-  assert.equal(real.length, 15, 'the context’s names could not be read');
+  const real = [...ctx.slice(ctx.indexOf('export const REAL_GUEST_ACTIONS')).matchAll(/^\s{2}(\w+)(?::|,)/gm)].map((m) => m[1]).slice(0, 16);
+  assert.equal(real.length, 16, 'the context’s names could not be read');
   assert.deepEqual(Object.keys(LAB_GUEST_ACTIONS).sort(), [...real].sort(), 'a lab press can reach a real action');
   for (const f of ['lab-stand-ins.ts', 'lab-guest-actions.tsx']) {
     assert.doesNotMatch(read(join(HERE, f)), /from '[^']*(?:-actions|\/actions)'|groups-actions|inline-actions/, `${f} imports a real action module`);
@@ -129,13 +129,12 @@ test('(4) with ?refuse=1 Setup’s writes refuse in the database’s own words �
   }
 });
 
-test('(5) a Finalize / Reopen that lands is SEEN in the lab: the stand-in moves the fixture’s ?hc= and the page redraws', async () => {
-  const seen: string[] = [];
-  const g = globalThis as unknown as { window?: unknown };
-  g.window = {
-    location: { href: 'http://localhost:3480/dev/guests-lab?part=setup' },
-    history: { state: null, replaceState: (_s: unknown, _t: string, url: URL) => seen.push(String(url.search)) },
-  };
+test('(5) a Finalize / Reopen that lands is SEEN in the lab: the stand-in asks the lab to router.replace the fixture’s ?hc=', async () => {
+  const seen: unknown[] = [];
+  const g = globalThis as unknown as { window?: unknown; CustomEvent?: unknown };
+  const realCE = g.CustomEvent;
+  g.CustomEvent = class { type: string; detail: unknown; constructor(t: string, i?: { detail?: unknown }) { this.type = t; this.detail = i?.detail; } };
+  g.window = { dispatchEvent: (e: { type: string; detail: unknown }) => seen.push([e.type, e.detail]) };
   try {
     const fin = await LAB_GUEST_ACTIONS.setGuestListFinalized!('e', true);
     assert.ok(fin.ok && fin.locked === true);
@@ -143,7 +142,37 @@ test('(5) a Finalize / Reopen that lands is SEEN in the lab: the stand-in moves 
     assert.ok(reopen.ok && reopen.locked === false);
   } finally {
     delete g.window;
+    g.CustomEvent = realCE;
   }
-  assert.deepEqual(seen, ['?part=setup&hc=locked', '?part=setup&hc=open'], 'the lab’s headcount does not follow a finalize');
+  assert.deepEqual(seen, [
+    [LAB_NAVIGATE_EVENT, { set: { hc: 'locked' } }],
+    [LAB_NAVIGATE_EVENT, { set: { hc: 'open' } }],
+  ], 'the lab’s headcount does not follow a finalize');
+  /* …and the lab's provider answers with a REFETCH (`router.replace`), never `replaceState` + `refresh()` (measured on :3480: the row stayed). */
+  const prov = read(join(HERE, 'lab-guest-actions.tsx'));
+  assert.match(prov, /router\.replace\(`\$\{path\}\?\$\{next\.toString\(\)\}`, \{ scroll: false \}\)/);
+  assert.doesNotMatch(read(join(HERE, 'lab-stand-ins.ts')), /replaceState/);
   assert.match(read(join(HERE, 'page.tsx')), /headcount=\{\{ locked: hc === 'locked'/, 'the lab’s headcount no longer reads ?hc=');
+});
+
+test('(6) the lab’s CARD writes nothing: inline stand-ins for the card’s three forms, the ⋯ from the context — and ?refuse=1 refuses in database words', () => {
+  const page = read(join(HERE, 'page.tsx'));
+  assert.match(page, /actions=\{\{ update: labUpdate, release: labRelease, partnerLink: labPartnerLink \}\}/, 'the lab’s card posts to the real actions');
+  assert.match(page, /async function labUpdate\(formData: FormData\) \{\s*'use server';/);
+  assert.doesNotMatch(page, /from '[^']*\[guestId\]\/actions'|updateGuest\b|releaseGuestClaim\b|inviteGuestByEmailAction\b/, 'the lab imports a real card action');
+  assert.match(page, /<LabGuestActions refuse=\{labRefuses\}>\s*<GuestCardBody/, 'the card is outside the stand-ins (its ⋯ would call the real release)');
+  const cardBranch = page.slice(page.indexOf("if (part === 'card' || part === 'host')"), page.indexOf("if (part === 'rsvp')"));
+  assert.match(cardBranch, /<UndoToastHost \/>/, 'the lab card has no toast host for the autosave’s Undo');
+  /* The card takes its writes from a prop (the lab) or the shipped actions (everywhere else). */
+  const card = read(join(GUESTS, 'guest-card-body.tsx'));
+  assert.match(card, /const updateAction = actions\?\.update \?\? updateGuest\.bind\(null, eventId, guest\.guest_id\);/);
+  assert.match(card, /const releaseAction = actions\?\.release \?\? releaseGuestClaim\.bind\(null, eventId, guest\.guest_id\);/);
+  assert.match(card, /const partnerLinkAction = actions\?\.partnerLink \?\? inviteGuestByEmailAction\.bind\(null, eventId, guest\.guest_id\);/);
+  /* No real page passes `actions`. */
+  for (const f of [join(APP, 'dashboard', '[eventId]', 'guests', 'page.tsx'), join(APP, 'dashboard', '[eventId]', 'guests', '[guestId]', 'page.tsx'), join(APP, 'dashboard', '[eventId]', 'launch', 'page.tsx')]) {
+    assert.doesNotMatch(read(f), /\bactions=\{\{/, `${f.slice(APP.length)} hands the card other writes`);
+  }
+  /* The ⋯ takes New QR / Unlink from the context. */
+  assert.match(read(join(GUESTS, 'guest-ticket-parts.tsx')), /const \{ releaseGuestClaim \} = useGuestActions\(\);/);
+  assert.match(page, /encodeURIComponent\('new row violates row-level security policy for table "guests"'\)/, 'the lab’s card refusal is not raw-looking (it can no longer prove anything)');
 });

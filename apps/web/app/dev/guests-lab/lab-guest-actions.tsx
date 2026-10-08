@@ -1,8 +1,9 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { GuestRemovalActionsContext, type GuestRemovalActions } from '@/app/dashboard/[eventId]/guests/_components/guest-delete';
-import { LAB_GUEST_ACTIONS, LAB_SETUP_REFUSALS } from './lab-stand-ins';
+import { LAB_GUEST_ACTIONS, LAB_NAVIGATE_EVENT, LAB_SETUP_REFUSALS } from './lab-stand-ins';
 import { GuestActionsProvider } from '@/app/dashboard/[eventId]/guests/_components/guest-actions-context';
 
 /**
@@ -19,12 +20,30 @@ import { GuestActionsProvider } from '@/app/dashboard/[eventId]/guests/_componen
  *     Reply by (`updatePaxSettings`) and Finalize / Reopen (`setGuestListFinalized`); with `?refuse=1` they refuse with the
  *     DATABASE'S OWN WORDS, on purpose, so a guard can prove the host never reads them.
  *
- * NOT stubbed here (still real): the guest CARD (autosave `updateGuest`, release claim, invite by e-mail — the card is a
- * route the lab does not draw), the one-by-one run (`SendInviteActions`, which the Maker's first load imports and so must
- * not pull this context in). The Setup rows' two doors ("Send to N", "Pick who") are stand-ins too: they stay in the lab
- * (`setupDoorHref`), so nothing on the Setup page leaves for a real route.
+ *   · the guest CARD (step 4A): its three forms post the lab's inline stand-ins (`page.tsx` → `GuestCardBody actions`) and its ⋯
+ *     (New QR · Unlink) takes `releaseGuestClaim` from this context; with `?refuse=1` they refuse with the database's own words.
+ *
+ * NOT stubbed here (still real): the one-by-one run's `SendInviteActions` (its Mark as sent — `send-invite.tsx` is in the Maker's
+ * first load and so must not pull this context in); the card's ticket picture and Save ticket (GET reads of
+ * `/api/guest/pass-card`); Write to NFC (a browser API, no database); the card's Access line (a link to Event Details). The
+ * Setup rows' two doors ("Send to N", "Pick who") are stand-ins too: they stay in the lab (`setupDoorHref`).
  */
 export function LabGuestActions({ refuse = false, children }: { refuse?: boolean; children: ReactNode }) {
+  /* A stand-in that must change what the page DRAWS (Finalize → the locked row) moves a search param the fixture reads, with
+     `router.replace` — which refetches the page — never `replaceState` + `refresh()`, which Next does not follow. */
+  const router = useRouter();
+  const path = usePathname();
+  const search = useSearchParams();
+  useEffect(() => {
+    const go = (e: Event) => {
+      const set = (e as CustomEvent<{ set: Record<string, string> }>).detail?.set ?? {};
+      const next = new URLSearchParams(search.toString());
+      for (const [k, v] of Object.entries(set)) next.set(k, v);
+      router.replace(`${path}?${next.toString()}`, { scroll: false });
+    };
+    window.addEventListener(LAB_NAVIGATE_EVENT, go);
+    return () => window.removeEventListener(LAB_NAVIGATE_EVENT, go);
+  }, [router, path, search]);
   const stand: GuestRemovalActions = {
     bulkSoftDeleteGuestsForUndo: async (_eventId, ids) =>
       refuse

@@ -9,6 +9,7 @@ import { setGuestInvitationSent } from '../../invitation/actions';
 import { hubDraftAction } from '../../website/hub-draft-actions';
 import { updatePaxSettings } from '../../actions';
 import { setGuestListFinalized } from '../finalize-actions';
+import { releaseGuestClaim } from '../[guestId]/actions';
 
 /**
  * The guest list's writes that a plain press reaches — the SHIPPED server actions by default.
@@ -38,6 +39,8 @@ export type GuestActions = {
   hubDraftAction: typeof hubDraftAction;
   updatePaxSettings: typeof updatePaxSettings;
   setGuestListFinalized: typeof setGuestListFinalized;
+  /** The guest card's ⋯: New QR · Unlink account (one door, `new_qr` / `unlink_account`). */
+  releaseGuestClaim: typeof releaseGuestClaim;
   /** Where "Invite N" goes: the one-by-one run, with the selected guests who still need an invitation. */
   sendRunHref: (eventId: string, ids: string[]) => string;
   /** Guests › Setup's two doors: "Send to N" (the run, for everyone still to invite) and "Pick who" (the list, in Select mode). */
@@ -58,6 +61,7 @@ export const REAL_GUEST_ACTIONS: GuestActions = {
   hubDraftAction,
   updatePaxSettings,
   setGuestListFinalized,
+  releaseGuestClaim,
   sendRunHref: (eventId, ids) => `/dashboard/${eventId}/guests/send?ids=${ids.join(',')}`,
   setupDoorHref: (eventId, door) => (door === 'send' ? `/dashboard/${eventId}/guests/send` : `/dashboard/${eventId}/guests?select=to-invite`),
 };

@@ -35,7 +35,7 @@ import { bulkSoftDeleteGuestsForUndo, restoreDeletedGuests } from '../groups-act
 import { buildUndo } from '@/lib/guest-optimistic';
 import { guestOptimistic } from './guest-optimistic-store';
 import { guestSelection } from './guest-selection-store';
-import { guestToast, pushUndo } from './undo-toast';
+import { guestToast, pushUndo } from './undo-store';
 import { couldntDelete, plainRefusal } from './plain-refusal';
 
 /** What the warning says goes with them — the owner's list, in his order. */

@@ -9,7 +9,7 @@ import { SaveFileLink } from '@/app/_components/save-file-link';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { GuestConfirmActions, GuestPopup } from './guest-popup';
 import { menuNudge, menuRoomOf, menuWidthIn, nudgeUp, placeMenuIn } from '@/lib/menu-place';
-import { releaseGuestClaim } from '../[guestId]/actions';
+import { useGuestActions } from './guest-actions-context';
 import { ticketFileName, ticketUrl } from './send-invite';
 import { DeleteGuestFlow } from './guest-delete';
 import { useInspectorContext } from '@/app/_components/inspector/inspector-column';
@@ -220,6 +220,8 @@ export function GuestMoreMenu({
   const nudgedAt = useRef(0);
   const confirmId = useId();
   const menuId = useId();
+  /* The shipped action — the dev lab hands in a stand-in (`guest-actions-context.tsx`). */
+  const { releaseGuestClaim } = useGuestActions();
   const release = releaseGuestClaim.bind(null, eventId, guestId);
   useEffect(() => setPortal(document.body), []);
   const portalled = (node: ReactNode) => (portal ? createPortal(node, portal) : node);

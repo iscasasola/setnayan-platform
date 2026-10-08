@@ -94,3 +94,23 @@ there. make this same to the other studio pages"*).
 
 SPEC IMPACT: `INTERACTION_RULES.md` § 3 ("Where you are is one dropdown") now reads, for the Studio, as "Studio ▾ in
 the pill" — the controller records the owner's ruling in the corpus.
+
+## 2026-10-08 · feat(studio): the Page card — the Studio home's eleven tiles read and press like app buttons
+
+Owner, 2026-10-08: *"we can improve the page card as well. how they can be presented — Logo / Topic / Description and
+a small (i) that will give a more detailed explanation"* · *"Improve Page Card so it looks like an app button that
+feels consistent with our design"*. Template: the approved gallery § 4; the eleven and their words:
+`prototypes/studio_home_2026-10-08_fable.html`.
+
+- `app/_components/page-card.tsx` — `PageCard`: the mark as an app-icon tile in the accent, the topic, ONE plain line,
+  a state badge with its word (Ready · Missing), a small tag ("Full screen"), and the ⓘ as its own 44-px button
+  BESIDE the card's button (never inside it) opening `Explain`. A fact that could not be read is said on the card.
+- `lib/studio-page-cards.ts` — the eleven lines and each ⓘ's three short texts (what the page controls · where guests
+  see it · what to do first). Two of the designer's ⓘ texts were corrected to what ships (Prints' pieces; RSVP's
+  questions said without an unverified list).
+- `studio-home.tsx` — the home wears it: one column on a phone, two from 768 px; eleven DISTINCT marks (Look and the
+  Mood Board shared one) — and "Studio ▾" in the top nav reads the same list. `data-studio-tile`, `data-studio-done`
+  and the ready count are kept. Opening the home, a card or an ⓘ asks nothing.
+- `lib/the-page-card.test.ts` — five tests, eight mutations seen red. `page-card.tsx` joins `TEMPLATE_FILES`.
+
+SPEC IMPACT: None.

@@ -23,9 +23,9 @@ import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { ColourSheet } from '../../website/editor/_components/colour-well';
 import { StageStyle } from './stage-panel/stage-style';
 import { Dd, PanelSwitch } from './stage-panel/kit';
-import { RevealPicture } from './stage-panel/reveal-picture';
+import { REVEAL_PICTURE_PX, RevealPicture } from './stage-panel/reveal-picture';
 import { setStageRevealKind, useStageRevealLook } from './stage-panel/store';
-import { SP_LAYOUT_CARD } from '@/lib/maker-stage-room';
+import { SP_LAYOUT_CARD, spCardWidth } from '@/lib/maker-stage-room';
 
 /**
  * 🎭 THE REVEAL AS A PART (the new Maker's Stages side, plan PR 3 — owner
@@ -701,7 +701,7 @@ function RevealStagePart({
                 {openings.map((o) => {
                   const on = effective === o.id;
                   return (
-                    <button key={o.id} type="button" role="radio" aria-checked={on} data-maker-reveal-kind={o.id} data-style-card={o.id} onClick={() => choose(o.id)} className={SP_LAYOUT_CARD}>
+                    <button key={o.id} type="button" role="radio" aria-checked={on} data-maker-reveal-kind={o.id} data-style-card={o.id} onClick={() => choose(o.id)} className={SP_LAYOUT_CARD} style={spCardWidth(REVEAL_PICTURE_PX.w / REVEAL_PICTURE_PX.h)}>
                       <span
                         data-style-card-preview=""
                         className={`relative flex h-[104px] shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--sp-page)] ${
@@ -709,7 +709,7 @@ function RevealStagePart({
                         }`}
                       >
                         <span data-style-preview="render" className="pointer-events-none">
-                          <RevealPicture kind={o.id} colours={look.colours} scale={0.82} />
+                          <RevealPicture kind={o.id} colours={look.colours} />
                         </span>
                       </span>
                       <span className={`inline-flex h-[18px] items-center justify-center gap-1 truncate text-center text-[13px] font-semibold ${on ? 'text-[var(--sp-ink)]' : 'text-[var(--sp-ink2)]'}`}>

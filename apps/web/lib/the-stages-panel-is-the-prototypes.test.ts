@@ -24,6 +24,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import React from 'react';
 import { makerStageMayType } from './maker-stage-type';
+import { stripComments } from './strip-comments';
 import { makerDropSlot, makerRevealEdges, makerSceneHasRows, makerStagePickedAttr } from './maker-parts';
 
 (globalThis as unknown as { React: unknown }).React = React;
@@ -405,5 +406,100 @@ test('a tap on the day’s parts and on THE DETAILS picks them — every marked 
   for (const key of ['f:announcements', 'f:live_hub', 'f:find_your_seat', 'f:photos_of_you', 'f:details', 'f:spotlight']) {
     assert.ok(selectionForCanvasKey(key, []), `${key}: the work area selects it (its panel opens)`);
     assert.ok(makerPartOfCanvas('event', key) ?? makerPartOfCanvas('rsvp', key), `${key}: the Stages panel has a part for it (its frame draws)`);
+  }
+});
+
+/* ── 11 · the Dress code part's Look: its looks are PICTURES (owner's preview check, 08 Oct) ─────────── */
+
+test('the Dress code part’s Look draws its layouts, its palette looks and its Do’s & Don’ts as look cards — no dropdown among them', async () => {
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  /* The work area lays the three under one another: the scene's layouts, then what rides beside them. */
+  const shell = read(`${EDITOR}/editor-shell.tsx`);
+  const look = shell.slice(shell.indexOf('const lookRow ='), shell.indexOf('const backgroundRow ='));
+  assert.match(look, /\{styleRow\}\s*\{paletteRow\}\s*\{layoutRow\}/, 'the layouts lead; the palette and Do’s & Don’ts follow');
+  assert.match(shell, /type === 'dress_code' \? \(\s*<PaletteLookCanvasRow /, 'only the Dress code part carries them');
+  const row = read(`${EDITOR}/scene-style-row.tsx`);
+  const body = row.slice(row.indexOf('export function PaletteLookCanvasRow'), row.indexOf('export function SceneAlignRow'));
+  const stages = body.slice(body.indexOf('if (cards && onDressPart) {'), body.indexOf('if (!drawsPalette || colours.length === 0) return null;'));
+  assert.ok(stages.length > 200, 'the Stages branch was found');
+  assert.match(stages, /\{drawsPalette \? <PaletteLookCards [^\n]*\/> : null\}/, 'the palette’s cards, where the layout draws the look');
+  assert.match(stages, /<DosLookCards value=\{resolveDosLook\(shown\.dos\)\}/, 'the Do’s & Don’ts cards, under every layout');
+  assert.doesNotMatch(stages, /PaletteLookRow|PickMenu|<Dd /, 'a dropdown sits among the Dress code’s looks');
+  /* A pick of the shipped look is an absence, never a stored default. */
+  assert.match(stages, /if \(id === DOS_LOOK_DEFAULT\) delete c\.dos; else c\.dos = id;/);
+  /* …and what the couple sees: two labelled rows of picture cards. */
+  const { PaletteLookCards, DosLookCards } = await import(`../${EDITOR}/palette-look-row`);
+  const html =
+    renderToStaticMarkup(React.createElement(PaletteLookCards, { value: 'fabric', onPick: () => {} })) +
+    renderToStaticMarkup(React.createElement(DosLookCards, { value: 'marks', onPick: () => {} }));
+  assert.match(html, /data-palette-look-label="">Palette look</);
+  assert.match(html, /data-dos-look-label="">Do’s &amp; Don’ts</);
+  assert.equal(html.split('data-style-card-preview=""').length - 1, 5 + 3, 'every card holds a picture');
+  assert.match(html, /aria-checked="true"[^>]*data-style-card="fabric"/);
+  assert.match(html, /aria-checked="true"[^>]*data-style-card="marks"/);
+  assert.doesNotMatch(html, /aria-haspopup/);
+});
+
+/* ── 12 · Figures ▾ Drawn · Hidden — ONE setting, two doors (owner's preview check, 08 Oct) ──────────── */
+
+test('the Dress code part carries ONE Figures ▾ (Drawn · Hidden) writing the Mood Board’s own switch — and never offers Photos', () => {
+  const row = read(`${EDITOR}/scene-style-row.tsx`);
+  const at = row.indexOf('function DressFiguresRow');
+  const fn = row.slice(at, row.indexOf('export function SceneAlignRow'));
+  assert.ok(at > 0 && fn.length > 400, 'the Figures row exists');
+  /* One dropdown, the shipped one, with exactly the two choices the data can honour. */
+  assert.equal(fn.split('<Dd').length - 1, 1, 'one dropdown');
+  const keys = [...fn.slice(fn.indexOf('options={['), fn.indexOf(']}', fn.indexOf('options={['))).matchAll(/key: '([a-z]+)', label: '([A-Za-z]+)'/g)].map((m) => `${m[1]}:${m[2]}`);
+  assert.deepEqual(keys, ['drawn:Drawn', 'hidden:Hidden'], 'the choices are not Drawn · Hidden');
+  assert.match(fn, /small="Figures"/);
+  assert.doesNotMatch(stripComments(fn), /photos|Photos/, 'Photos is offered with no photo per role to show (blocked — see the docblock)');
+  /* The SAME value the Mood Board's switch holds, the whole config, through the one draft door — never a second key. */
+  assert.match(fn, /const next: DressCodeConfig = \{ \.\.\.before, show_figure: show \};/);
+  assert.match(fn, /const saveEvents = useHeldEventsSave\(eventId, draftAction\);/);
+  assert.match(fn, /const res = await saveEvents\(\{ dress_code_config: next \}\);/);
+  const held = read(`${EDITOR}/use-scene-canvas.ts`);
+  const hook = held.slice(held.indexOf('export function useHeldEventsSave'));
+  assert.match(hook, /fd\.set\('intent', 'save'\);\s*fd\.set\('patch', JSON\.stringify\(\{ events \}\)\);/, 'the one draft door, an events patch');
+  assert.match(hook, /return makerRedrawSave\(\(\) => draftAction\(eventId, fd\), \(\) => router\.refresh\(\)\);/, 'held, and the page redrawn in place');
+  assert.match(fn, /value=\{drawn \? 'drawn' : 'hidden'\}/);
+  assert.match(fn, /useState\(dressCode\.show_figure !== false\)/, 'only an explicit false is Hidden — a config saved before the switch stays Drawn');
+  /* A refused save puts the row back and says why — never a pick that reads as landed. */
+  const fail = fn.slice(fn.indexOf('if (!res.ok) {'), fn.indexOf('});', fn.indexOf('if (!res.ok) {')));
+  assert.match(fail, /latest\.current = before;\s*setDrawn\(before\.show_figure !== false\);\s*setError\(res\.error\);/);
+  assert.doesNotMatch(row, /c\.figures|canvas\.figures/, 'a second, canvas-side figures value was invented');
+  /* The guest page reads that one switch, and nothing else decides it. */
+  const widget = read('app/[slug]/_components/dress-code-widget.tsx');
+  assert.match(widget, /const showFigure = config\?\.show_figure !== false;/);
+  /* The config it is handed is the couple's own — never the old panel's starter-filled copy. */
+  const page = read('app/dashboard/[eventId]/website/editor/page.tsx');
+  assert.match(page, /dressCode: normalizeDressCodeConfig\(\(drafted as \{ dress_code_config\?: unknown \}\)\.dress_code_config\),/);
+  const shell = read(`${EDITOR}/editor-shell.tsx`);
+  assert.equal(shell.split('dressCode={sceneFormat.dressCode ?? null}').length - 1, 1, 'only the Stages panel’s Dress code part is handed the config');
+  assert.match(row, /\{dressCode \? <DressFiguresRow eventId=\{eventId\} dressCode=\{dressCode\} draftAction=\{draftAction\} \/> : null\}/);
+});
+
+/* ── 13 · every look card is as wide as its picture — the Reveal's and the Camera's too (TODO 13) ────── */
+
+test('the Reveal and Camera look cards are sized by their picture’s shape, like every other look card', async () => {
+  const { spCardWidth, SP_CARD_PICTURE_PX } = await import('./maker-stage-room');
+  const { REVEAL_PICTURE_PX } = await import(`../${LAUNCH}/stage-panel/reveal-picture`);
+  const reveal = read(`${LAUNCH}/maker-reveal.tsx`);
+  const card = reveal.slice(reveal.indexOf('data-maker-reveal-kind={o.id}'), reveal.indexOf('</button>', reveal.indexOf('data-maker-reveal-kind={o.id}')));
+  assert.match(card, /className=\{SP_LAYOUT_CARD\} style=\{spCardWidth\(REVEAL_PICTURE_PX\.w \/ REVEAL_PICTURE_PX\.h\)\}/, 'a Reveal card is still 62% wide, whatever its picture');
+  assert.match(card, /<RevealPicture kind=\{o\.id\} colours=\{look\.colours\} \/>/, 'the picture is drawn at its own size — the card fits it');
+  const w = spCardWidth(REVEAL_PICTURE_PX.w / REVEAL_PICTURE_PX.h)!.width;
+  assert.ok(w >= REVEAL_PICTURE_PX.w + 4 && w < 200, `the Reveal card (${w}px) holds its ${REVEAL_PICTURE_PX.w}px picture and no more`);
+  assert.ok(REVEAL_PICTURE_PX.h <= SP_CARD_PICTURE_PX, 'the picture is taller than the card’s picture box');
+  const camera = read(`${LAUNCH}/stage-panel/camera-look.tsx`);
+  assert.match(camera, /className=\{SP_LAYOUT_CARD\} style=\{spCardWidth\(CAMERA_FACE_ASPECT\)\}/, 'a Camera card is still 62% wide');
+  assert.match(camera, /const CAMERA_FACE_ASPECT = 3 \/ 4;/);
+  assert.match(camera, /data-camera-look-face=\{look\} className="[^"]*aspect-\[3\/4\]/, 'the face is no longer the shape the card is sized for');
+  const cw = spCardWidth(3 / 4)!.width;
+  assert.ok(cw >= 76 && cw < 104, `a portrait camera is a narrow card (${cw}px)`);
+  /* No look carousel in the panel is left at the unmeasured 62 %. */
+  for (const [file, src] of [['maker-reveal.tsx', reveal], ['camera-look.tsx', camera], ['pass-card-design-picker.tsx', read(`${LAUNCH}/pass-card-design-picker.tsx`)], ['style-carousel.tsx', read(`${LAUNCH}/stage-panel/style-carousel.tsx`)]] as const) {
+    const cards = src.split('className={SP_LAYOUT_CARD}').length - 1;
+    assert.ok(cards >= 1, `${file}: its look cards were found`);
+    assert.equal(src.split(/className=\{SP_LAYOUT_CARD\}\s*style=\{spCardWidth\(/).length - 1, cards, `${file}: a look card is not sized by its picture`);
   }
 });

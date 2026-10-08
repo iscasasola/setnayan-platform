@@ -100,6 +100,7 @@ import { paidMarkLabel } from '@/lib/paid-mark';
 import { InspectorTabs } from './inspector-kit';
 import { SCENE_TABS, SceneArrangeTab, SceneLayoutRow, SceneParts, type SceneTab } from './scene-inspector';
 import { FixedSceneStyleRow, PaletteLookCanvasRow, PostEventScenePanel, PostEventWordsField, SceneAlignRow, SceneStyleCanvasRow } from './scene-styles-lazy';
+import type { DressCodeConfig } from '../../../studio/mood-board/dress-code-actions';
 import { postEventStatusWord, postEventTileLabel, postEventTileNote, type PostEventTile } from './post-event-tile-words';
 import { isFixedStyleScene, type FixedSceneStyles } from '@/lib/fixed-scene-styles';
 import type { CameraLook } from '@/lib/camera-look';
@@ -285,6 +286,8 @@ export function MakerWork({
    * Animate's one lock. Null = the tabs fall back to saying why they are empty.
    */
   sceneFormat?: {
+    /** 👗 The Dress code as saved (drafted over live) — the Stages panel's Figures ▾ writes its one switch back whole. */
+    dressCode?: DressCodeConfig | null;
     colorChoices: readonly string[];
     photoChoices: readonly { ref: string; url: string }[];
     videoChoice: { ref: string; url: string; poster?: string | null } | null;
@@ -1918,7 +1921,7 @@ export function MakerWork({
     /* 🎨 Where "Our colours" is drawn (the Dress code's Colours and roles), its palette look sits under its Style too. */
     const paletteRow =
       elementEditing && sceneFormat && type === 'dress_code' ? (
-        <PaletteLookCanvasRow eventId={eventId} canvas={canvas} eventType={sceneFormat.eventType ?? null} draftAction={elementEditing.draftAction} colours={sceneFormat.colorChoices} />
+        <PaletteLookCanvasRow eventId={eventId} canvas={canvas} eventType={sceneFormat.eventType ?? null} draftAction={elementEditing.draftAction} colours={sceneFormat.colorChoices} dressCode={sceneFormat.dressCode ?? null} />
       ) : null;
     const layoutRow =
       elementEditing && ownScene ? <SceneLayoutRow eventId={eventId} widgetType={type} canvas={canvas} draftAction={elementEditing.draftAction} /> : null;

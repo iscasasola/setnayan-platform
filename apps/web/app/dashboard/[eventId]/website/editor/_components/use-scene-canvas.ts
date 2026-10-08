@@ -70,3 +70,20 @@ export function useSceneCanvas(
   return { shown, save, pending, error };
 }
 
+
+/**
+ * 💾 EVENT FIELDS → THE DRAFT, HELD — for a control beside a scene's looks whose value is the EVENT's, not the
+ * scene's canvas (the Dress code's Figures ▾ = `events.dress_code_config.show_figure`, the Mood Board's own
+ * switch). The same one draft door and the same held save as a look pick: no whole-Maker render, the pages
+ * redrawn in place once it lands, the Apply count carried back with it.
+ */
+export function useHeldEventsSave(eventId: string, draftAction: ElementDraftAction) {
+  const router = useRouter();
+  return (events: Record<string, unknown>) => {
+    const fd = new FormData();
+    fd.set('intent', 'save');
+    fd.set('patch', JSON.stringify({ events }));
+    fd.set(HUB_DRAFT_BAR_FIELD, '1');
+    return makerRedrawSave(() => draftAction(eventId, fd), () => router.refresh());
+  };
+}

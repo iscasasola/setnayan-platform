@@ -16,6 +16,7 @@
  */
 import type { ReactNode } from 'react';
 import type { FixedStyleScene } from '@/lib/fixed-scene-styles';
+import { Box, Line } from './maker-scene-samples';
 
 type DayPart = Exclude<FixedStyleScene, 'entourage'>;
 
@@ -25,13 +26,6 @@ const EYEBROW: Record<DayPart, string> = {
   live_hub: 'Watch live · Live photo wall',
   photos_of_you: '✦ Photos of you',
 };
-
-/** A photo's place. */
-const Box = ({ className = '' }: { className?: string }) => <span aria-hidden data-sample-box="" className={`block rounded-md bg-ink/10 ${className}`} />;
-/** A line of words' place. */
-const Line = ({ w = 'w-2/3', className = '' }: { w?: string; className?: string }) => (
-  <span aria-hidden data-sample-line="" className={`block h-2 rounded-full bg-ink/15 ${w} ${className}`} />
-);
 
 /** Each look's arrangement, keyed `<part>:<style id>` (`lib/scene-styles-stages.ts`). */
 export const DAY_SAMPLE: Record<string, () => ReactNode> = {
@@ -104,29 +98,36 @@ export const DAY_SAMPLE: Record<string, () => ReactNode> = {
       <Line w="w-1/3" className="mx-auto" />
     </span>
   ),
-  /* ── Photos of you ── */
+  /* ── Photos of you — the three gallery styles, as `photos-of-you-gallery.tsx` / `photos-of-you-styles.tsx` lay
+        them (owner 08 Oct: *"this needs to present different gallery styles"*): three across with the count ·
+        the latest large, its line, then a strip that slides · instant prints two across, each with its time. ── */
   'photos_of_you:grid': () => (
-    <span className="grid grid-cols-3 gap-1.5">
-      {[0, 1, 2, 3, 4, 5].map((i) => (
-        <Box key={i} className="aspect-square" />
-      ))}
+    <span className="block space-y-3 text-left">
+      <span className="grid grid-cols-3 gap-2">
+        {[0, 1, 2, 3, 4, 5].map((i) => (
+          <Box key={i} className="aspect-square" />
+        ))}
+      </span>
+      <Line w="w-1/3" />
     </span>
   ),
   'photos_of_you:lead': () => (
-    <span className="block space-y-1.5">
-      <Box className="aspect-[4/3] w-full" />
-      <span className="grid grid-cols-3 gap-1.5">
-        {[0, 1, 2].map((i) => (
-          <Box key={i} className="aspect-square" />
+    <span className="block space-y-2 text-left">
+      <Box className="aspect-square w-full" />
+      <Line w="w-2/5" />
+      <span className="flex gap-2 overflow-hidden pb-1">
+        {[0, 1, 2, 3].map((i) => (
+          <Box key={i} className="aspect-square w-32 shrink-0" />
         ))}
       </span>
     </span>
   ),
   'photos_of_you:polaroids': () => (
-    <span className="flex justify-center gap-2 py-2">
-      {['-rotate-6', 'rotate-3', '-rotate-2'].map((r) => (
-        <span key={r} className={`block w-1/4 border border-ink/15 p-1.5 pb-4 shadow ${r}`}>
+    <span className="grid grid-cols-2 gap-4">
+      {['-rotate-1', 'rotate-1', '-rotate-1', 'rotate-1'].map((r, i) => (
+        <span key={i} className={`block border border-ink/15 p-2 pb-3 shadow-md ${r}`}>
           <Box className="aspect-square rounded-none" />
+          <Line w="w-1/3" className="mx-auto mt-2" />
         </span>
       ))}
     </span>
@@ -146,7 +147,11 @@ export function MakerDayPartStandIn({ part, styleName, styleId = null }: { part:
       <p className="pahina-eyebrow justify-center">
         <span>{EYEBROW[part]}</span>
       </p>
-      {DAY_SAMPLE[key]!()}
+      {/* 🔲 Shapes only, hidden from a screen reader, and fenced to the Maker's canvas like every look's sample
+          (`globals.css` `[data-maker-sample]`). The section itself is the part's box — the pick frame hugs it. */}
+      <div aria-hidden data-maker-sample={key}>
+        {DAY_SAMPLE[key]!()}
+      </div>
       {styleName ? <p className="text-xs text-ink/70">Sample of “{styleName}” — each guest sees their own.</p> : null}
     </section>
   );

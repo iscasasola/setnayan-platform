@@ -20,9 +20,44 @@
  */
 
 import type { CSSProperties, ReactNode } from 'react';
-import { PALETTE_LOOKS, type PaletteLookId } from '@/lib/palette-looks';
+import { PALETTE_LOOKS, PALETTE_LOOK_CARD_FOCUS, PALETTE_LOOK_PREVIEW_TYPE, type PaletteLookId } from '@/lib/palette-looks';
+import { DOS_LOOKS, DOS_LOOK_CARD_FOCUS, DOS_LOOK_PREVIEW_TYPE, type DosLookId } from '@/lib/dress-code-looks';
+import { SP_DD_LABEL } from '@/lib/maker-stage-room';
 import { IRow } from './inspector-kit';
 import { PickMenu } from './pick-menu';
+import { StyleCards } from '../../../launch/_components/stage-panel/style-carousel';
+
+/**
+ * 🖼 THE PALETTE'S LOOKS, AS PICTURES — the Stages panel's Dress code part (owner's preview check, 08 Oct:
+ * *"palette should show the actual previews like the other styles"*). The SAME five looks (`PALETTE_LOOKS`)
+ * and the same save as the dropdown below, drawn by the shared look-card renderer (`StyleCards`): each card is
+ * the couple's own page, asked for the Dress code scene with its colours in that look
+ * (`?style=dress_code_palette:<id>` → `canvas.palette`, `app/[slug]/_lib/style-preview.ts`), fitted on "Our
+ * colours" and sized by its shape like every other look card. A tap applies at once. No dropdown here.
+ */
+export function PaletteLookCards({ value, onPick, pending = false }: { value: PaletteLookId; onPick: (id: PaletteLookId) => void; pending?: boolean }) {
+  return (
+    <>
+      <p className={`${SP_DD_LABEL} !max-w-none shrink-0 px-1 pt-1`} data-palette-look-label="">
+        Palette look
+      </p>
+      <StyleCards
+        label="Palette look"
+        data="palette"
+        options={PALETTE_LOOKS}
+        value={value}
+        pending={pending}
+        canvasKey="w:dress_code"
+        sceneType={PALETTE_LOOK_PREVIEW_TYPE}
+        focus={PALETTE_LOOK_CARD_FOCUS}
+        onPick={(id) => {
+          const look = PALETTE_LOOKS.find((o) => o.id === id)?.id;
+          if (look && look !== value) onPick(look);
+        }}
+      />
+    </>
+  );
+}
 
 export function PaletteLookRow({
   value,
@@ -56,6 +91,36 @@ export function PaletteLookRow({
         }}
       />
     </IRow>
+  );
+}
+
+/**
+ * 🧾 THE DO'S & DON'TS' LOOKS, AS PICTURES (owner 08 Oct: *"the presentation of do's and don'ts doesn't look
+ * good with the rest of the website"* — `lib/dress-code-looks.ts`). The same shared look-card carousel: each
+ * card is the couple's own page asked for the Dress code scene with its two lists in that look
+ * (`?style=dress_code_dos:<id>` → `canvas.dos`), fitted on the lists. A tap applies at once.
+ */
+export function DosLookCards({ value, onPick, pending = false }: { value: DosLookId; onPick: (id: DosLookId) => void; pending?: boolean }) {
+  return (
+    <>
+      <p className={`${SP_DD_LABEL} !max-w-none shrink-0 px-1 pt-1`} data-dos-look-label="">
+        Do&rsquo;s &amp; Don&rsquo;ts
+      </p>
+      <StyleCards
+        label="Do’s & Don’ts"
+        data="dos"
+        options={DOS_LOOKS}
+        value={value}
+        pending={pending}
+        canvasKey="w:dress_code"
+        sceneType={DOS_LOOK_PREVIEW_TYPE}
+        focus={DOS_LOOK_CARD_FOCUS}
+        onPick={(id) => {
+          const look = DOS_LOOKS.find((o) => o.id === id)?.id;
+          if (look && look !== value) onPick(look);
+        }}
+      />
+    </>
   );
 }
 

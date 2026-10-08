@@ -59,7 +59,34 @@ function useCanvasSrc(): { src: string; width: number } | null {
   return got;
 }
 
-export function StylePreview({ canvasKey, sceneType, styleId, current }: { canvasKey: string | null; sceneType: string; styleId: string; current: boolean }) {
+/**
+ * 🔎 A CARD FITTED ON ONE BLOCK OF ITS SCENE (`focus`, a selector inside the scene — the Dress code's "Our
+ * colours" for a palette look, its Do's & Don'ts for theirs): the rest of the scene keeps its place but is not
+ * drawn, so a look of another shape never shows a neighbour's words in its margin. Asked of the miniature only.
+ */
+const FOCUS_CSS =
+  '[data-sn-mini-scene] *:not([data-sn-mini-focus]):not([data-sn-mini-focus] *):not(:has([data-sn-mini-focus])){visibility:hidden!important}';
+
+/** The block a card is fitted on: the scene, one `data-el` part of it, or one `focus` block (the scene when absent). */
+export function miniaturePart(section: HTMLElement | null, el: string | undefined, focus: string | null | undefined): HTMLElement | null {
+  if (!section) return null;
+  if (el) return section.querySelector<HTMLElement>(`[data-el="${el}"]`);
+  return focus ? (section.querySelector<HTMLElement>(focus) ?? section) : section;
+}
+
+export function StylePreview({
+  canvasKey,
+  sceneType,
+  styleId,
+  current,
+  focus = null,
+}: {
+  canvasKey: string | null;
+  sceneType: string;
+  styleId: string;
+  current: boolean;
+  focus?: string | null;
+}) {
   const canvas = useCanvasSrc();
   const src = canvas && canvasKey ? stylePreviewSrc(canvas.src, canvasKey, sceneType, styleId, window.location.origin) : null;
   const width = canvas?.width ?? 375;
@@ -99,7 +126,15 @@ export function StylePreview({ canvasKey, sceneType, styleId, current }: { canva
         }
         const [key, el] = canvasKey.split('.');
         const section = findMakerSection(d, key!);
-        const part = el ? (section?.querySelector<HTMLElement>(`[data-el="${el}"]`) ?? null) : section;
+        const part = miniaturePart(section, el, focus);
+        if (focus && section && part && part !== section && !d.querySelector('style[data-sn-mini-focus-css]')) {
+          section.setAttribute('data-sn-mini-scene', '');
+          part.setAttribute('data-sn-mini-focus', '');
+          const only = d.createElement('style');
+          only.setAttribute('data-sn-mini-focus-css', '');
+          only.textContent = FOCUS_CSS;
+          d.head.appendChild(only);
+        }
         const drawn = part ? part.getBoundingClientRect() : null;
         if (!part || !drawn || drawn.width < 1 || drawn.height < 1) {
           if (n > 200) {
@@ -123,7 +158,7 @@ export function StylePreview({ canvasKey, sceneType, styleId, current }: { canva
       }
     }, 60);
     return () => window.clearInterval(id);
-  }, [src, canvasKey, loads]);
+  }, [src, canvasKey, loads, focus]);
 
   return (
     <span

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Trophy } from 'lucide-react';
 import { CAMERA_LOOKS, CAMERA_LOOK_LABEL, CAMERA_LOOK_PREF_KEY, cameraLookTint, type CameraLook } from '@/lib/camera-look';
-import { SP_LAYOUT_CARD } from '@/lib/maker-stage-room';
+import { SP_LAYOUT_CARD, spCardWidth } from '@/lib/maker-stage-room';
 import { makerSave } from '@/lib/maker-refresh';
 import { FocusCorners } from '@/app/papic/guest/_components/camera-focus-corners';
 import { hubDraftAction } from '../../../website/hub-draft-actions';
@@ -58,6 +58,9 @@ function useCanvasBrand(): { logo: string | null; accent: string | null } {
   }, []);
   return got;
 }
+
+/** The camera screen's shape in a card (the face's `aspect-[3/4]`) — the card is that wide at the row's height. */
+const CAMERA_FACE_ASPECT = 3 / 4;
 
 function CameraLookFace({ look, logo, accent }: { look: CameraLook; logo: string | null; accent: string | null }) {
   const tint = cameraLookTint(look, accent);
@@ -141,7 +144,7 @@ export function CameraPartTools() {
               {CAMERA_LOOKS.map((look) => {
                 const on = look === shown;
                 return (
-                  <button key={look} type="button" role="radio" aria-checked={on} data-style-card={look} onClick={() => pick(look)} className={SP_LAYOUT_CARD}>
+                  <button key={look} type="button" role="radio" aria-checked={on} data-style-card={look} onClick={() => pick(look)} className={SP_LAYOUT_CARD} style={spCardWidth(CAMERA_FACE_ASPECT)}>
                     <span
                       data-style-card-preview=""
                       className={`relative block h-[104px] shrink-0 overflow-hidden rounded-lg ${

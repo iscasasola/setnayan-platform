@@ -669,3 +669,151 @@ test('countdown · Offset, Line and Circle (owner 2026-10-07 "allow offset" — 
     assert.equal(out, '', `a wake drew a countdown in style ${id}`);
   }
 });
+
+// ── 🔲 EMPTY SCENES, IN SAMPLE SHAPES (owner 08 Oct: "maybe show what it could look like with boxes?") ──
+
+test('🔲 an empty scene: the Maker’s dispatcher draws the look the ROW picked in sample shapes; a guest’s dispatcher draws none', async () => {
+  const { PublicHideableWidget } = await import('./public-hideable-widget');
+  const { sceneStylesOn, sceneStyleTypeOfWidget, resolveSceneStyle } = await import('@/lib/scene-styles');
+  const event = {
+    event_id: 'e1', slug: 'x', display_name: 'Cale & Ice', event_type: 'birthday', event_date: null,
+    venue_name: null, venue_address: null, venue_latitude: null, venue_longitude: null,
+    love_story: null, special_message: null, what_to_bring: null, our_photos: [],
+    dress_code_config: null, photo_moments_config: null, role_palette: null,
+  } as never;
+  const draw = (type: string, stage: string, style: string | null, maker: boolean) =>
+    html(
+      h(PublicHideableWidget, {
+        widget: { widget_id: `id-${type}`, event_id: 'e1', widget_type: type, display_order: 1, is_visible: true, is_always_on: false, tier: 'basic', config_json: style ? { canvas: { style } } : {}, created_at: '', updated_at: '', mode: 'auto' },
+        event,
+        words: WEDDING_WORDS,
+        scheduleBlocks: [],
+        isLive: false,
+        ourPhotoUrls: [],
+        stage,
+        guestView: !maker,
+        makerEmpty: maker,
+      } as never),
+    );
+  const scenes: Array<[string, 'save_the_date' | 'rsvp']> = [
+    ['special_message', 'rsvp'], ['schedule', 'rsvp'], ['venue_map', 'rsvp'], ['what_to_bring', 'rsvp'], ['our_love_story', 'rsvp'], ['countdown', 'rsvp'], ['our_photos', 'save_the_date'],
+  ];
+  for (const [type, stage] of scenes) {
+    const scene = sceneStyleTypeOfWidget(type);
+    const looks = sceneStylesOn(scene, stage, 'birthday');
+    assert.ok(looks.length >= 2, `${type}: offers looks on ${stage}`);
+    for (const look of looks) {
+      assert.match(draw(type, stage, look.id, true), new RegExp(`data-maker-sample="${scene}:${look.id}"`), `${type}: the canvas does not draw the picked look "${look.id}"`);
+    }
+    /* No pick, and a stored value this version does not draw: the stage's default — never a blank, never a crash. */
+    const fallback = resolveSceneStyle(scene, stage, null, 'birthday');
+    for (const stored of [null, 'no-such-style']) {
+      assert.match(draw(type, stage, stored, true), new RegExp(`data-maker-sample="${scene}:${fallback}"`), `${type}: stored ${stored} did not fall back to ${fallback}`);
+    }
+    /* A guest: the empty scene is left out whole — no placeholder, no sample, no shape. */
+    for (const look of looks) {
+      assert.doesNotMatch(draw(type, stage, look.id, false), /data-maker-(sample|empty)|data-sample-/, `${type}: a guest was served the Maker’s sample`);
+    }
+  }
+  /* The Dress code is never "empty-drawn" by the dispatcher — its own widget draws the sample, for the Maker alone. */
+  assert.match(draw('dress_code', 'rsvp', 'line', false), /^$/, 'a guest of an event with no dress code is served nothing');
+  const makerDress = html(
+    h(PublicHideableWidget, {
+      widget: { widget_id: 'd', event_id: 'e1', widget_type: 'dress_code', display_order: 1, is_visible: true, is_always_on: false, tier: 'basic', config_json: { canvas: { style: 'line' } }, created_at: '', updated_at: '', mode: 'auto' },
+      event, words: WEDDING_WORDS, scheduleBlocks: [], isLive: false, ourPhotoUrls: [], stage: 'rsvp', guestView: false, makerEmpty: false,
+    } as never),
+  );
+  assert.match(makerDress, /data-maker-sample="dress_code:line"/);
+});
+
+// ── 🧾 DO'S & DON'TS (owner 08 Oct: "the presentation of do's and don'ts doesn't look good with the rest of the website") ──
+
+/** The markup of the Dress code's `data-dress-code="dos"` block (up to its matching close). */
+function dosBlock(markup: string): string {
+  const at = markup.indexOf('data-dress-code="dos"');
+  if (at < 0) return '';
+  const open = markup.lastIndexOf('<', at);
+  let depth = 0;
+  const re = /<(\/?)div\b[^>]*>/g;
+  re.lastIndex = open;
+  for (let m = re.exec(markup); m; m = re.exec(markup)) {
+    depth += m[1] ? -1 : 1;
+    if (depth === 0) return markup.slice(open, re.lastIndex);
+  }
+  return '';
+}
+const DOS = ['Wear Filipiniana or long gowns', 'Bring a shawl'];
+const DONTS = ['Wear white or ivory', 'Wear the entourage’s plum', 'Arrive in denim'];
+const DRESS_LISTS = { ...DRESS, dos: DOS, donts: DONTS };
+
+test('do’s & don’ts · the two new looks draw both lists in the hub’s own type, ✓ and ✕ before each line — and NO filled box', async () => {
+  const { DressCodeWidget } = await import('./dress-code-widget');
+  const { DOS_LOOK_IDS, DOS_LOOK_DEFAULT } = await import('@/lib/dress-code-looks');
+  const looks = DOS_LOOK_IDS.filter((id) => id !== DOS_LOOK_DEFAULT);
+  assert.ok(looks.length >= 2, 'at least two looks beside the shipped notes');
+  const drawn = new Set<string>();
+  for (const dosLook of looks) {
+    for (const sceneStyle of [null, 'colours-and-roles', 'palette', 'line']) {
+      const what = `${dosLook} under ${sceneStyle ?? 'the default layout'}`;
+      const block = decode(dosBlock(html(h(DressCodeWidget, { words: WEDDING_WORDS, config: DRESS_LISTS, rolePalette: BOARD, sceneStyle, dosLook } as never))));
+      assert.match(block, new RegExp(`data-dos-look="${dosLook}"`), `${what}: the look is not drawn`);
+      /* No grey box: nothing in the block is filled — not the veil, not the deep paper, not any fill at all. */
+      assert.doesNotMatch(block, /(^|[\s"])bg-/, `${what}: a filled box came back`);
+      assert.doesNotMatch(block, /font-mono/, `${what}: the headings are app labels, not the page’s type`);
+      /* The Event Hub's own type and colours: the display face for the headings, ink and gild for the rest. */
+      assert.equal(block.split('class="font-pahina ').length - 1, 2, `${what}: Do and Don’t are not both in the page’s display face`);
+      assert.match(block, /text-gild/);
+      assert.match(block, /text-ink/);
+      /* Every line, in order, each behind its mark. */
+      const words = block.replace(/<[^>]+>/g, '|');
+      let at = -1;
+      for (const row of [...DOS, ...DONTS]) {
+        const next = words.indexOf(row, at + 1);
+        assert.ok(next > at, `${what}: "${row}" is missing or out of order`);
+        at = next;
+      }
+      assert.equal(block.split('>✓<').length - 1, DOS.length, `${what}: a ✓ before each do`);
+      assert.equal(block.split('>✕<').length - 1, DONTS.length, `${what}: a ✕ before each don’t`);
+      assert.equal(block.split('aria-hidden="true" data-dos-mark=""').length - 1, DOS.length + DONTS.length, `${what}: the marks are read aloud as words`);
+      if (sceneStyle === null) drawn.add(block);
+    }
+  }
+  assert.equal(drawn.size, looks.length, 'two looks draw the same picture');
+  /* One list alone still draws, under its own heading — never an empty column. */
+  for (const dosLook of looks) {
+    const only = decode(dosBlock(html(h(DressCodeWidget, { words: WEDDING_WORDS, config: { ...DRESS, donts: DONTS }, rolePalette: BOARD, dosLook } as never))));
+    assert.equal(only.split('class="font-pahina ').length - 1, 1);
+    assert.doesNotMatch(only, /✓|grid-cols-2|border-l /, `${dosLook}: one list is laid out as two`);
+  }
+  /* The reader's own panel (a known guest's Welcome) wears the same look. */
+  const mine = decode(dosBlock(html(h(DressCodeWidget, { words: WEDDING_WORDS, config: DRESS_LISTS, rolePalette: BOARD, guestRole: 'principal_sponsor_ninang', part: 'you', dosLook: 'marks' } as never))));
+  assert.match(mine, /data-dos-look="marks"/);
+});
+
+test('🔒 do’s & don’ts · no pick, "notes" and a stored id this version does not draw are the SHIPPED notes — on every layout', async () => {
+  const { DressCodeWidget } = await import('./dress-code-widget');
+  const { dosLookOfRow } = await import('@/lib/scene-style-of-row');
+  const { sanitizeHubCanvas, hasHubCanvas } = await import('@/lib/hub-canvas');
+  const { DOS_LOOK_IDS, DOS_LOOK_DEFAULT, resolveDosLook } = await import('@/lib/dress-code-looks');
+  assert.equal(DOS_LOOK_DEFAULT, 'notes');
+  assert.deepEqual([...DOS_LOOK_IDS], ['notes', 'marks', 'side-by-side'], 'a stored look id was renamed or dropped');
+  for (const sceneStyle of [null, 'palette', 'line']) {
+    const shipped = html(h(DressCodeWidget, { words: WEDDING_WORDS, config: DRESS_LISTS, rolePalette: BOARD, ...(sceneStyle ? { sceneStyle } : {}) } as never));
+    for (const config_json of [null, {}, { canvas: {} }, { canvas: { dos: 'notes' } }, { canvas: { dos: 'no-such-look' } }, { canvas: { dos: 7 } }, { dos: 'notes' }]) {
+      const dosLook = dosLookOfRow({ config_json });
+      assert.equal(dosLook, 'notes', `${JSON.stringify(config_json)} did not read as the shipped notes`);
+      const now = html(h(DressCodeWidget, { words: WEDDING_WORDS, config: DRESS_LISTS, rolePalette: BOARD, ...(sceneStyle ? { sceneStyle } : {}), dosLook } as never));
+      assert.equal(now, shipped, `${sceneStyle ?? 'default layout'} · ${JSON.stringify(config_json)}: a page that never picked changed`);
+    }
+    assert.doesNotMatch(shipped, /data-dos-look|✓|✕/, 'the shipped notes grew marks nobody picked');
+  }
+  /* The default layout's notes are the markup guests have today — its two fills and its "·" lines, pinned. */
+  const a = decode(dosBlock(html(h(DressCodeWidget, { words: WEDDING_WORDS, config: DRESS_LISTS, rolePalette: BOARD } as never))));
+  assert.match(a, /^<div class="grid grid-cols-1 gap-4 sm:grid-cols-2" data-dress-code="dos"><div class="space-y-2 border-l-2 border-gild bg-veil\/50 p-4 text-sm text-ink\/80"><p class="font-mono text-\[0\.66rem\] uppercase tracking-\[0\.28em\] text-gild">Do<\/p><ul class="space-y-1"><li>· Wear Filipiniana or long gowns<\/li>/);
+  assert.match(a, /<div class="space-y-2 border-l-2 border-ink\/30 bg-paper-deep p-4 text-sm text-ink\/75">/);
+  /* A pick is stored beside the palette look, survives the sanitiser, and frames nothing (no motion nobody chose). */
+  assert.deepEqual(sanitizeHubCanvas({ canvas: { dos: 'marks', palette: 'ribbon' } }), { palette: 'ribbon', dos: 'marks' });
+  assert.equal(hasHubCanvas({ dos: 'marks' }), false);
+  assert.equal(dosLookOfRow({ config_json: { canvas: { dos: 'side-by-side' } } }), 'side-by-side');
+  assert.equal(resolveDosLook('marks'), 'marks');
+});

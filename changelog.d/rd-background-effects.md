@@ -168,3 +168,56 @@ NOT SEEN in a browser at commit time (no server of my own): the strip, the rows 
 note in the real Maker. Rendered to HTML in the guard; to be looked at on the review copy.
 
 SPEC IMPACT: None beyond the contract above.
+
+## 2026-10-08 · feat(look): the guest's Event Hub wears the effect — by the sample screen's own answer (amendment PR 3, step 4)
+
+Local commit. Seen on the review copy before this step (steps 2–3 merged): the carousel, the
+rows and the Pro note work as built; ◆ shows in the lab; ms/frame on the real sample screen
+at Lavish — 8.3 mean / 9.3 p95 for every effect, the same as no effect (one 58 ms frame in
+354 during petals, on a Mac shared by three builders). A headless browser's 120 Hz clock:
+the page's thread stays free; a real phone's GPU is slower and is not measured by this.
+
+- **The guest page** (`app/[slug]/_lib/main-ground-layer.tsx`): `mainGroundLayerFor` is now
+  ONE way out — the background as it was always resolved (`mainGroundOf`, its code untouched
+  and naming no effect), then `effectOver`: the effect stored on the main background, laid
+  over it by the one layer (`fixed inset-0 -z-10`, after the background in the page — over
+  its veil, under the words). On EVERY background: a picture, a film, a pattern, a plain
+  colour, and the page's own ground. It also reaches the RSVP page, whose background follows
+  the Event Hub's (the same function).
+- **The same answer as the sample:** `lookSampleEffect(effect, lookEffectOn(…))` — the sample
+  asks it of the drafted row, the guest page of the event's own six look columns
+  (`lookRowOf`). What the effect lies on is measured from what the page's own rules already
+  measure: the picture's colours under its Fade veil or paper scrim, a blend's ramp, or the
+  page colour (the couple's own, Candlelight included). `shown` is the background as REALLY
+  drawn for this viewer (null where the page falls back to its own ground).
+- **◆ for guests:** a Pro effect is drawn only while the event owns Event Hub Pro (asked only
+  when a Pro effect is stored — the request's cached read), and on the host's own canvas as
+  it would look. A free effect asks nothing.
+- **It wears the couple's colours only** — the engine and the layer name none of the app's
+  (`the-accent-is-one-token` walks `app/[slug]`; a line in this guard too).
+- Zero client JavaScript and zero requests added to a guest's page: the layer is HTML and
+  one inline stylesheet, drawn only where an effect is on.
+
+Requests per guest-page render (read from the loader, not counted with a stub): no effect —
+unchanged; a free effect — +0; a Pro effect — the event's Pro, which the theme gate and the
+watermark already ask in the same request (cached), so +0 where they ran.
+
+Guard: `the-look-sample-is-the-guest-look` (+3 tests, 10 in all): (7) over one row in
+nineteen of the 4,200-look sweep × ten backgrounds × three effects, what the guest page
+measures (nothing in hand) equals what the sample measures (its own scope and veil handed
+in), and both draw the engine's own spec; the ground follows a dark page colour, a blend's
+whole ramp, Candlelight and a Fade; (7b) the guest file's one way out, the Pro gate before
+the effect is worked out, the same six columns; (7c) one engine call for the page, one
+layer for everyone, nothing of the app's colour. 19 sabotages: 18 red; ONE WAS MINE — it
+put a comment where the guard strips comments, so it changed nothing; re-aimed as code, red.
+`the-main-background-offers-every-choice` and `the-background-has-one-source` pin the
+background's own returns — the first draft of this step wrapped each return and both went
+red; the wrapper leaves those lines exactly as they were (no guard re-aimed).
+
+NOT SEEN in a browser at commit time: the effect on a guest page (the lab's guest page asks
+this same function with the lab's saved background — to be looked at once merged). Edge,
+said plainly: the sample measures the couple's own page colour as if Event Hub Pro were on
+(it is the host's try-on); a guest of an event WITHOUT Pro sees the theme's paper, so there
+a picked colour may be pulled against a slightly different ground than the sample showed.
+
+SPEC IMPACT: None beyond the contract above.

@@ -39,6 +39,7 @@ export function TimelineRow({
   onKeep,
   onLeave,
   trailing,
+  sub,
   note,
   problem,
   below,
@@ -66,6 +67,12 @@ export function TimelineRow({
   onLeave?: () => void;
   /** After the name — ⋯, a picture square. Steps aside while the name is open. */
   trailing?: ReactNode;
+  /**
+   * ONE quiet line under the name, inside the same tap (gallery § 13: a Love Story moment's first words; a
+   * preparation's "who it is with"). One line, then "…" — the row grows by this line and never more. Drawn on the
+   * row whose name can be tapped.
+   */
+  sub?: string | null;
   /** ONE amber line under the row — said, never blocking ("Starts before Ceremony ends (4:00 PM)."). */
   note?: string | null;
   /** ONE line under the row for something that is WRONG or did not save. */
@@ -93,9 +100,14 @@ export function TimelineRow({
                 type="button"
                 data-timeline-name=""
                 onClick={onEdit}
-                className={`sn-press flex min-h-11 min-w-0 flex-1 items-center rounded-xl px-1 text-left text-[15px] leading-tight ${name ? 'font-medium text-ink' : 'font-normal text-ink/45'}`}
+                className={`sn-press flex min-h-11 min-w-0 flex-1 ${sub ? 'flex-col justify-center' : 'items-center'} rounded-xl px-1 text-left text-[15px] leading-tight ${name ? 'font-medium text-ink' : 'font-normal text-ink/45'}`}
               >
                 <span className="line-clamp-2 min-w-0 break-words">{name || placeholder}</span>
+                {sub ? (
+                  <span data-timeline-sub="" className="mt-0.5 truncate text-[12.5px] font-normal text-ink/55">
+                    {sub}
+                  </span>
+                ) : null}
               </button>
             ) : (
               <span data-timeline-name="" className="line-clamp-2 min-w-0 flex-1 break-words px-1 text-[15px] font-medium leading-tight text-ink">

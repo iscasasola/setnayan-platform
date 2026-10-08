@@ -95,6 +95,25 @@ export function momentAddForm(fresh: { when: MomentDate; title: string; line: st
   return fd;
 }
 
+/** The most of a moment's words the row carries — the row itself cuts what does not fit, with "…". */
+export const MOMENT_FIRST_LINE_MAX = 120;
+
+/**
+ * THE FIRST LINE OF A MOMENT'S WORDS, for the quiet line under its name (owner 2026-10-08, of a row with only a
+ * name: *"i do not see the subtext?"*; gallery § 13). The first line the couple wrote — never a later one, never
+ * words of ours. Null when there are none yet: the row then shows no second line at all. When more follows than is
+ * handed over (a second line, or a very long first one), it ends in "…" so it never reads as the whole story.
+ */
+export function momentFirstLine(words: string | null | undefined): string | null {
+  const lines = (words ?? '').split(/\r?\n/).map((l) => l.replace(/\s+/g, ' ').trim());
+  const at = lines.findIndex(Boolean);
+  if (at < 0) return null;
+  const first = lines[at]!;
+  const more = lines.slice(at + 1).some(Boolean);
+  if (first.length <= MOMENT_FIRST_LINE_MAX) return more ? `${first.replace(/[\s.…]+$/, '')}…` : first;
+  return `${first.slice(0, MOMENT_FIRST_LINE_MAX).replace(/\s+\S*$/, '').replace(/[\s.,;:—–-]+$/, '')}…`;
+}
+
 /** How many photo slots a moment shows: three — or all it already holds, when that is more. */
 export function momentPhotoSlots(held: number): number {
   return Math.max(MOMENT_PHOTOS_OFFERED, held);
@@ -226,6 +245,8 @@ function MomentRow({
         if (text && text !== (m.title ?? '')) void send(momentEditForm(m, { title: text }));
       }}
       onLeave={onEndEdit}
+      /* The start of its words, quiet, under the name (gallery § 13) — as they stand while they are being typed. */
+      sub={momentFirstLine(line)}
       /* A plain save says its words — never an invented percentage. */
       note={keeping ? 'Keeping your photos…' : m.hidden ? 'Off the Event Hub — guests do not see this moment.' : null}
       problem={problem}
@@ -442,8 +463,10 @@ export function MomentPhotos({
           }}
           onProgress={setPct}
           onChange={(value) => {
-            setChanged(true);
             onChange(Array.isArray(value) ? value : value ? [value] : []);
+            /* The uploader tells of a change while it is being drawn; this sheet's own line follows a beat later
+               (setting state inside another component's draw is refused by React, and said in the console). */
+            queueMicrotask(() => setChanged(true));
           }}
         />
       ) : (

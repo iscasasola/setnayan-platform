@@ -189,6 +189,9 @@ test('(4) the pop: under its button, flipped up with no room, never taller than 
   // The phone line is the app's one line (1024), and a handed-in sheet wins over this file's own.
   assert.equal(T.TICKER_SHEET_BELOW_PX, 1024);
   assert.match(src, /asSheet\s*\?\s*sheet\s*\?\s*sheet\(\{ label: title, onClose: close/);
+  // A pop can be HELD open (something inside would be lost): every closing goes through one door, shut while held.
+  assert.match(src, /if \(!next && held\.current\.hold\) return held\.current\.onHeld\?\.\(\);/);
+  assert.equal((src.match(/setOpenNow\(/g) ?? []).length, 1);
   // Whoever rolled it is told ONCE when it closes — the one moment a write is owed.
   assert.match(src, /if \(was\.current && !open\) closed\.current\?\.\(\)/);
 });

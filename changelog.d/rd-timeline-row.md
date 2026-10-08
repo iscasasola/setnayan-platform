@@ -163,3 +163,25 @@ of `studio-love-story-wears-the-timeline-row.test.ts`.
 
 SPEC IMPACT: `INTERACTION_RULES.md` § 9 and the gallery say "chapter" for the
 Love Story row's entry — the controller is correcting the word there.
+
+## 2026-10-08 · fix(studio): Love Story — a photo still uploading cannot be lost by closing its slots
+
+While a file is on its way (picked and being prepared, or in flight) the photo
+slots cannot be closed: Done reads "Uploading… N%" with the uploader's own
+figure and cannot be pressed; a tap on the dark part, outside, Esc, the square
+itself or another thing opening is refused and the slots say "A photo is still
+uploading." When the last one lands (or fails) Done is back.
+
+- `FileUpload` gains ONE optional prop, `onBusy(busy)`: true from the pick until
+  the last file has landed or failed — the same two windows it already guards a
+  form's submit with (`busyRef` + `inFlight`). No change for other callers.
+- `TickerPill` gains `hold` / `onHeld`: every way of closing goes through one
+  door, shut while held.
+- `lib/the-showcase-is-a-gallery.test.ts`: the Love Story's photo slots are
+  admitted to the uploader's `gallery` layout on purpose (photos — the picture
+  is the subject). That guard was red from the Love Story commit until now.
+
+Guard: test (9) of `studio-love-story-wears-the-timeline-row.test.ts` (9
+sabotages seen red, "closing mid-upload drops the file" among them).
+
+SPEC IMPACT: None.

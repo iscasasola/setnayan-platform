@@ -18,6 +18,9 @@
  *   (6) ADD A CHAPTER — named in the row, then its words; unnamed is dropped; with no words it is NOT saved and
  *       says so; with both it is ONE `add` form.
  *   (7) A moment kept off the Event Hub says so on its row; this page writes exactly the accent classes listed.
+ *   (9) A PHOTO IS NEVER LOST SILENTLY — while a file is on its way (picked, being prepared, or in flight) the slots
+ *       cannot be closed by ANY route, Done reads "Uploading… N%" with the uploader's own figure and cannot be
+ *       pressed, and a refused closing says "A photo is still uploading."
  *   (8) THE WORD — an entry is a MOMENT; "chapter" is kept for the story's six sections, and never said of an entry.
  */
 import test from 'node:test';
@@ -285,4 +288,45 @@ test('(8) the word: an entry is a MOMENT — "chapter" is said only of the story
   const strings = [...src().matchAll(/(?:placeholder|nameLabel|aria-label|ariaLabel|title|label)=(?:"([^"]*)"|\{`([^`]*)`\})|'([^'\n]{12,})'|>\s*([A-Z][^<>{}\n]{10,})\s*</g)].map((m) => m[1] ?? m[2] ?? m[3] ?? m[4] ?? '');
   assert.ok(strings.length > 12, `anti-vacuity: only ${strings.length} strings were read`);
   for (const text of strings) assert.doesNotMatch(text, /\bchapters?\b/i, `“${text}” calls a moment a chapter`);
+});
+
+test('(9) a photo is never lost silently: while a file is on its way the slots cannot close, Done says "Uploading… N%", and a refused closing is said', async () => {
+  const { uploadingWords } = await import(`../${STORY}/moment-order-cards`);
+  // Done's words: the uploader's own figure once there is one — never a made-up one.
+  assert.equal(uploadingWords(null), 'Uploading…');
+  assert.equal(uploadingWords(0), 'Uploading… 0%');
+  assert.equal(uploadingWords(64), 'Uploading… 64%');
+  const s = src();
+  // THE UPLOADER SAYS when a file is on its way — from the pick, through preparing, until it lands or fails…
+  const up = read('app/_components/file-upload.tsx');
+  assert.match(up, /const onItsWay = preparing \|\| inFlight\.length > 0;/, 'the busy window forgets a file being prepared, or one in flight');
+  assert.match(up, /busyRef\.current = true;\s*setPreparing\(true\);\s*try \{/);
+  assert.match(up, /\} finally \{\s*busyRef\.current = false;\s*if \(isMountedRef\.current\) setPreparing\(false\);\s*\}/, 'a failed file would leave the slots held shut for ever');
+  assert.match(up, /useEffect\(\(\) => \{\s*tellBusy\.current\?\.\(onItsWay\);\s*\}, \[onItsWay\]\);/);
+  // …the slots listen, and tell the row…
+  assert.match(s, /onBusy=\{\(next\) => \{\s*setBusy\(next\);\s*onUploading\?\.\(next\);\s*\}\}/);
+  assert.match(s, /onProgress=\{setPct\}/);
+  assert.match(s, /onUploading=\{\(busy\) => \{\s*setUploading\(busy\);\s*if \(!busy\) setRefusedClose\(false\);\s*\}\}/);
+  // …and the row HOLDS the pop open meanwhile, and hears every refused closing.
+  assert.match(s, /data="photos"[\s\S]{0,1400}?hold=\{uploading\}\s*onHeld=\{\(\) => setRefusedClose\(true\)\}/, 'closing the slots mid-upload drops the file');
+  // The pop has ONE door for closing and it is shut while held — Done, the dark part, a tap outside, Esc, the pill
+  // itself and another thing opening all go through it (nothing else may set it closed).
+  const pop = read('app/_components/ticker.tsx');
+  assert.match(pop, /const setOpen = \(next: boolean\) => \{\s*if \(!next && held\.current\.hold\) return held\.current\.onHeld\?\.\(\);\s*setOpenNow\(next\);\s*\};/);
+  assert.equal((pop.match(/setOpenNow\(/g) ?? []).length, 1, 'something closes the pop around its one door');
+  assert.match(pop, /useOneOpen\(open, setOpen\);/, 'another thing opening closes a held pop');
+  assert.match(pop, /for \(const settleNow of rolling\) settleNow\(\);\s*setOpen\(false\);/);
+  assert.match(pop, /setOpen\(!open\);/);
+  // Done cannot be pressed while a file is on its way, and reads the uploader's figure.
+  assert.match(s, /data-moment-photos-done=""\s*disabled=\{busy\}\s*onClick=\{onDone\}/);
+  assert.match(s, /\{busy \? uploadingWords\(pct\) : 'Done'\}/);
+  // The refusal is said in one line; "press Done" is not offered while Done is unavailable.
+  assert.match(s, /\{refusedClose && busy \? \(\s*<p role="status" data-moment-photos-still-uploading=""[^>]*>\s*A photo is still uploading\.\s*<\/p>\s*\) : changed && !busy \? \(/);
+  // Painted at rest: Done is Done, nothing is held, nothing is said.
+  const { MomentPhotos } = await import(`../${STORY}/moment-order-cards`);
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const sheet = { action: async () => {}, moments: [held], partners: [], ownsPro: true, storeShell: false, proHref: '/pro', proPrice: null, eventId: 'ev-1', mediaUrls: {} };
+  const rest = renderToStaticMarkup(React.createElement(MomentPhotos, { m: held, sheet, mediaUrls: {}, onChange: () => {}, onDone: () => {}, refusedClose: true }));
+  assert.match(rest, /<button type="button" data-moment-photos-done=""[^>]*>Done</);
+  assert.doesNotMatch(rest, /disabled=""[^>]*>Done|still uploading|Uploading…/, 'the slots say a photo is uploading when none is');
 });

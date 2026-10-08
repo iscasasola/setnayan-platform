@@ -109,6 +109,14 @@ type FileUploadBaseProps = {
   /** Filled with "stop what is in flight" (the same stop as the row's own ✕) — for a parent whose own control cancels. */
   cancelRef?: { current: (() => void) | null };
   /**
+   * 🚧 Is a file on its way — picked and being prepared (compressed, signed), or in flight? True from the pick until
+   * the last one has landed or failed. For a parent that must not let the uploader be CLOSED meanwhile (a pop that
+   * unmounts it would drop the file — the Love Story's photo slots, 2026-10-08). The same two windows this component
+   * already guards a form's submit with (`busyRef` + `inFlight`); never a request. Optional; existing callers are
+   * unaffected.
+   */
+  onBusy?: (busy: boolean) => void;
+  /**
    * Optional async validator run AFTER the size/MIME checks and BEFORE the
    * upload starts. Return an error string to reject the file (shown to the
    * user, upload skipped) or null to accept. Fail-open: if the validator
@@ -414,6 +422,7 @@ export function FileUpload({
   unsavedHint,
   onProgress,
   cancelRef,
+  onBusy,
 }: FileUploadProps) {
   const inputId = useId();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -436,6 +445,8 @@ export function FileUpload({
   // orphaned R2 object. Covering only the validator sub-window (the prior fix)
   // left the far longer compression window open.
   const busyRef = useRef(false);
+  /** `busyRef`'s window, as state — only so `onBusy` hears it open and close. */
+  const [preparing, setPreparing] = useState(false);
   /** The root node, used only to find the enclosing <form>. */
   const rootRef = useRef<HTMLDivElement>(null);
   /** Set when a submit was refused, so the refusal is never silent. */
@@ -532,6 +543,13 @@ export function FileUpload({
   useEffect(() => {
     tellProgress.current?.(flyingPct);
   }, [flyingPct]);
+  /* 🚧 …and whether anything is on its way at all (see `onBusy`). */
+  const onItsWay = preparing || inFlight.length > 0;
+  const tellBusy = useRef(onBusy);
+  tellBusy.current = onBusy;
+  useEffect(() => {
+    tellBusy.current?.(onItsWay);
+  }, [onItsWay]);
   useEffect(() => {
     if (!cancelRef) return;
     cancelRef.current = () => {
@@ -596,6 +614,7 @@ export function FileUpload({
       }
 
       busyRef.current = true;
+      setPreparing(true);
       try {
         for (const file of toUpload) {
           // Client-side validation. The server runs this same set in the
@@ -670,6 +689,7 @@ export function FileUpload({
         }
       } finally {
         busyRef.current = false;
+        if (isMountedRef.current) setPreparing(false);
       }
 
       // Reset the underlying input so picking the same file twice still

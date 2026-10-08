@@ -69,6 +69,9 @@ test('both showcase fields — photos AND video — ask for the gallery', () => 
 test('🔑 NOTHING ELSE opted in — the other uploader surfaces are untouched', () => {
   const offenders = everyTsx(APP)
     .filter((f) => !f.endsWith('showcase-media-fields.tsx'))
+    /* 📖 Studio › Love Story's photo slots (2026-10-08, the Timeline row): a moment's PHOTOS — the picture is the
+       subject there too, three squares with ✕, exactly what the gallery layout is for. Opted in on purpose. */
+    .filter((f) => !f.endsWith('website/our-story/_components/moment-order-cards.tsx'))
     .filter((f) => /variant="gallery"/.test(stripComments(readFileSync(f, 'utf8'))))
     .map((f) => f.slice(APP.length + 1));
   assert.deepEqual(

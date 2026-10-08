@@ -157,6 +157,10 @@ function MomentRow({
   const [keeping, setKeeping] = useState(false);
   /* The photos as the open slots hold them — kept ONCE, when the slots close (three new photos are one save). */
   const picked = useRef<readonly string[] | null>(null);
+  /* 🚧 A PHOTO IS NEVER LOST SILENTLY: while a file is on its way the slots cannot be closed (closing unmounts the
+     uploader and would drop it) — and a refused closing is said, in words. */
+  const [uploading, setUploading] = useState(false);
+  const [refusedClose, setRefusedClose] = useState(false);
   /* A refusal (or a fresh story) puts the words back. */
   useEffect(() => setLine(m.line), [m.line]);
   const media = m.media ?? [];
@@ -273,10 +277,23 @@ function MomentRow({
             title={`Photos${named}`}
             sheet={pickSheet}
             onClosed={savePhotos}
+            hold={uploading}
+            onHeld={() => setRefusedClose(true)}
             face={`sn-press sn-press-ring ${SQUARE} ${media.length ? 'bg-ink/10' : 'border border-dashed border-ink/25 bg-white text-sn-accent'}`}
           >
             {(close) => (
-              <MomentPhotos m={m} sheet={sheet} mediaUrls={mediaUrls} onChange={(refs) => (picked.current = refs)} onDone={close} />
+              <MomentPhotos
+                m={m}
+                sheet={sheet}
+                mediaUrls={mediaUrls}
+                onChange={(refs) => (picked.current = refs)}
+                onUploading={(busy) => {
+                  setUploading(busy);
+                  if (!busy) setRefusedClose(false);
+                }}
+                refusedClose={refusedClose}
+                onDone={close}
+              />
             )}
           </TickerPill>
           {/* BUTTON-RULE */}
@@ -341,6 +358,11 @@ function MomentRow({
   );
 }
 
+/** Done's words while a file is on its way: the uploader's measured figure once it has one — never an invented one. */
+export function uploadingWords(pct: number | null): string {
+  return pct === null ? 'Uploading…' : `Uploading… ${pct}%`;
+}
+
 /** How many photos the moment holds — on the picture square. */
 function PhotoCount({ n }: { n: number }) {
   return (
@@ -361,16 +383,25 @@ export function MomentPhotos({
   sheet,
   mediaUrls,
   onChange,
+  onUploading,
+  refusedClose = false,
   onDone,
 }: {
   m: LoveStoryMoment;
   sheet: MomentSheetBase;
   mediaUrls: Readonly<Record<string, string>>;
   onChange: (refs: readonly string[]) => void;
+  /** A file is on its way (or the last one has landed) — the slots are held open meanwhile. */
+  onUploading?: (busy: boolean) => void;
+  /** A closing was just refused because a photo is still uploading — said in one line. */
+  refusedClose?: boolean;
   onDone: () => void;
 }) {
   const media = m.media ?? [];
   const [changed, setChanged] = useState(false);
+  /* The uploader's own words about what is on its way: busy from the pick to the landing, and its measured figure. */
+  const [busy, setBusy] = useState(false);
+  const [pct, setPct] = useState<number | null>(null);
   return (
     <div data-moment-photos="" className="mx-auto w-full max-w-[300px]">
       <p className="pb-2.5 pt-0.5 text-center text-[13px] font-semibold text-ink/70">Up to {MOMENT_PHOTOS_OFFERED} photos. The first one shows first on your page.</p>
@@ -385,6 +416,11 @@ export function MomentPhotos({
           currentValue={[...media]}
           initialDisplayUrls={{ ...mediaUrls }}
           variant="gallery"
+          onBusy={(next) => {
+            setBusy(next);
+            onUploading?.(next);
+          }}
+          onProgress={setPct}
           onChange={(value) => {
             setChanged(true);
             onChange(Array.isArray(value) ? value : value ? [value] : []);
@@ -396,14 +432,25 @@ export function MomentPhotos({
         </div>
       )}
       {/* Said, never silent: what the slots hold is kept when they close. */}
-      {changed ? (
+      {refusedClose && busy ? (
+        <p role="status" data-moment-photos-still-uploading="" className="pt-2 text-center text-[12.5px] font-semibold text-warn-700">
+          A photo is still uploading.
+        </p>
+      ) : changed && !busy ? (
         <p role="status" data-moment-photos-not-kept="" className="pt-2 text-center text-[12.5px] font-semibold text-warn-700">
           Not kept yet — press Done.
         </p>
       ) : null}
       {/* BUTTON-RULE */}
-      <button type="button" data-moment-photos-done="" onClick={onDone} className={`sn-press mt-3 flex min-h-12 w-full items-center justify-center rounded-full text-[15px] font-semibold ${PILL_ON_CLASS}`}>
-        Done
+      {/* While a file is on its way Done is not available: it says so with the uploader's own figure. */}
+      <button
+        type="button"
+        data-moment-photos-done=""
+        disabled={busy}
+        onClick={onDone}
+        className={`sn-press mt-3 flex min-h-12 w-full items-center justify-center rounded-full text-[15px] font-semibold disabled:cursor-default disabled:opacity-60 ${PILL_ON_CLASS}`}
+      >
+        {busy ? uploadingWords(pct) : 'Done'}
       </button>
     </div>
   );

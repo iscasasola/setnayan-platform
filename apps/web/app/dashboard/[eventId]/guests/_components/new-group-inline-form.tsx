@@ -1,7 +1,7 @@
 'use client';
 
 import { useContext } from 'react';
-import { createGuestGroup } from '../groups-actions';
+import { useGuestActions } from './guest-actions-context';
 import { TEAM_SIDE_LABELS, type GuestGroupTeamSide } from '@/lib/guests';
 import { GuestListHasSidesContext } from './guest-list-has-sides-context';
 
@@ -17,6 +17,7 @@ export function NewGroupInlineForm({
   // A sideless event's group has no team side to pick: the action stores
   // 'both' when the field is absent (createGuestGroup).
   const hasSides = useContext(GuestListHasSidesContext);
+  const { createGuestGroup } = useGuestActions();
   return (
     <form
       action={createGuestGroup.bind(null, eventId)}

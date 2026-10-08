@@ -5,7 +5,7 @@ import { Link2, Send, Share2, Undo2 } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { buildGuestInviteMessage, type InviteEventFacts } from '@/lib/guest-invite-message';
 import { saveImageToDevice } from '@/lib/save-to-device';
-import { setGuestInvitationSent } from '../../invitation/actions';
+import { useGuestActions } from './guest-actions-context';
 import { Popover } from './overlay-primitives';
 import {
   shareInvite,
@@ -139,6 +139,7 @@ export function GuestInviteCell({
     | null
   >(null);
   const [pending, startTransition] = useTransition();
+  const { setGuestInvitationSent } = useGuestActions();
   const ref = useRef<HTMLButtonElement>(null);
   const titleId = useId();
   const first = guest.firstName?.trim() || guest.fullName.split(/\s+/)[0] || 'them';

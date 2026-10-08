@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { usePopupBehind } from '@/lib/use-popup-behind';
 import { createPortal } from 'react-dom';
-import { Check, ChevronDown, ChevronUp, GripVertical, Plus, Trash2, X } from 'lucide-react';
+import { Check, Plus, Trash2, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
 import { findMakerSection } from '@/app/[slug]/_components/maker-section-find';
@@ -13,7 +13,7 @@ import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
 import { isCustomSectionType } from '@/lib/custom-sections';
 import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { makerPageCanvasSrc } from '@/lib/maker-made-once-pages';
-import { MAKER_PARTS, makerDropSlot, makerRevealEdges, makerStageIsFixedPages, type MakerPartKey, type MakerStageKey } from '@/lib/maker-parts';
+import { MAKER_PARTS, makerRevealEdges, makerStageIsFixedPages, type MakerPartKey, type MakerStageKey } from '@/lib/maker-parts';
 import {
   makerDropDelta,
   makerOwnScenesLeft,
@@ -50,11 +50,17 @@ import { useMaker } from './maker-context';
  *        → the parts NOT on this page, grouped (`lib/maker-part-groups.ts`),
  *        then "A scene of your own ◆ · n of 6 left" → the SHIPPED template
  *        picker (`scene-template-picker.tsx`).
- *   grip drag the picked part up or down → ONE order write (the work area's
- *        own move, `lib/maker-reorder.ts`; Post Event: its run).
+ *   ↑ ↓  one place earlier / later among the parts the page draws → ONE order
+ *        write (the work area's own move, `lib/maker-reorder.ts`; Post Event:
+ *        its run). It was a grip dragged on the frame; since 2026-10-09 it is
+ *        the toolbar's Edit › ↑ Earlier · ↓ Later (`PartEditsNow`).
  *   🗑   "Remove from this page?" (the eye — its words stay in Studio) or, for a
  *        scene of their own, "Delete this scene?" (the shipped Remove for good)
- *        — the ONLY confirm in the Maker.
+ *        — the ONLY confirm in the Maker. Asked from Edit › Remove.
+ *
+ * 🚫 THE FRAME HAS NO BUTTONS (owner 2026-10-09: *"on preview screen, you only
+ * select"*): its outline and its name, and — until the owner says where a part is
+ * added — ＋.
  *
  * 🔑 EVERY WRITE IS THE WORK AREA'S OWN (`maker-part-ops.ts`): the eye, the move,
  * Remove for good, "+ Add a scene", Post Event's switch and run. Opening any of
@@ -132,15 +138,6 @@ export function readDrawnOrder(): string[] {
     /* a canvas we cannot read draws nothing here */
   }
   return out;
-}
-
-/** The Reveal part drawn at the top of the page in Stages, or null (`stage-tools.tsx`). */
-function readRevealPart(): Element | null {
-  try {
-    return document.querySelector<HTMLIFrameElement>(SHOWN_FRAME)?.contentDocument?.querySelector('[data-maker-reveal-part]') ?? null;
-  } catch {
-    return null;
-  }
 }
 
 /** A part's box on the SCREEN (the canvas is a same-origin frame; it may be drawn scaled). `frameSel`: the frame the
@@ -228,22 +225,16 @@ const EDGE_BTN = 'sn-press pointer-events-auto absolute inline-flex h-11 w-11 it
 /**
  * 🎯 THE FRAME AND ITS MARKS WEAR THE APP'S ACCENT (owner 2026-10-08: *"if we change our color to blue, it will be easy
  * to change the button colors"*; `INTERACTION_RULES.md` § 9 — the mark that says "you can tap this" is the accent).
- * One fill, one ink, both read from the token; nothing here writes a colour. 🗑 keeps the house danger token
- * (`--color-danger`, the button rule's `danger` tone). Held by `lib/the-stages-panel-wears-the-accent.test.ts`.
+ * One fill, one ink, both read from the token; nothing here writes a colour. (Remove is Edit's danger button now —
+ * the button rule's `danger` tone.) Held by `lib/the-stages-panel-wears-the-accent.test.ts`.
  */
 export const PART_ACCENT = 'bg-sn-accent text-sn-on-accent';
 /** The outline: 2 px of the accent and its soft halo. */
 export const PART_OUTLINE = 'absolute rounded-lg shadow-[0_0_0_2px_rgb(var(--sn-accent)),0_0_0_7px_rgb(var(--sn-accent)/.14)]';
-/** 🗑 — the house danger colour on white. */
-export const PART_REMOVE_FACE =
-  'inline-flex h-7 w-7 items-center justify-center rounded-full border-[1.5px] border-[rgb(var(--color-danger))] bg-white text-[rgb(var(--color-danger))] shadow-[0_2px_6px_-2px_rgba(0,0,0,.3)]';
-/** ↑ ↓ ✕ — a 32 px tap (the owner's floor for these), its 24 px face in the frame's accent. */
-const CHIP_BTN = 'sn-press pointer-events-auto absolute inline-flex !h-8 !min-h-0 w-8 items-center justify-center rounded-full';
-const CHIP_FACE = `inline-flex h-6 w-6 items-center justify-center rounded-full ${PART_ACCENT} shadow-[0_0_0_2px_#fff]`;
 const ADD_FACE = `inline-flex h-[26px] w-[26px] items-center justify-center rounded-full ${PART_ACCENT} font-sans text-[18px] font-semibold leading-none shadow-[0_0_0_3px_#fff,0_4px_10px_-4px_rgba(0,0,0,.4)]`;
 
 /**
- * THE PICKED PART'S EDGES — ＋ on its top and bottom, the grip, 🗑. Drawn over
+ * THE PICKED PART'S FRAME — its outline, its name, ＋ on its top and bottom. Drawn over
  * the canvas at the part's own place, following the page as it scrolls; kept
  * inside the visible band. `picked` null: nothing is drawn. Layered just over
  * the Maker shell (z-80) and under every sheet (the picker z-90, `MakerSheet` z-95).
@@ -252,12 +243,8 @@ type PartEditsProps = {
   stage: MakerStageKey;
   picked: MakerPartKey | null;
   /** The frame the stage's page is drawn in, when it is not the shown canvas — the RSVP stage's own three screens
-   *  (`rsvpStageFrameSelector`). The frame, its name tab, ↑ ↓ ✕ and the gap-middle ＋ are the same everywhere. */
+   *  (`rsvpStageFrameSelector`). The frame and its name tab are the same everywhere. */
   frame?: string;
-  /** ↑ / ↓ the part above / below (null: nowhere to go — its chip is not drawn) · ✕ let it go (owner 2026-10-07). */
-  onPrev?: (() => void) | null;
-  onNext?: (() => void) | null;
-  onClose?: (() => void) | null;
 };
 
 /**
@@ -281,7 +268,7 @@ export function PartEdits(props: PartEditsProps) {
   return usePartEdits(props).node;
 }
 
-export function usePartEdits({ stage, picked, onPrev = null, onNext = null, onClose = null, frame }: PartEditsProps): PartEditsNow {
+export function usePartEdits({ stage, picked, frame }: PartEditsProps): PartEditsNow {
   const isReveal = picked === 'reveal';
   const canvas = isReveal ? REVEAL_STUB : picked ? makerPartCanvasOn(stage, picked) : null;
   const el = picked ? (MAKER_PARTS[picked].el ?? null) : null;
@@ -291,7 +278,6 @@ export function usePartEdits({ stage, picked, onPrev = null, onNext = null, onCl
   const [ownOpen, setOwnOpen] = useState(false);
   /* ＋ Which edge "A scene of your own" was asked from — it lands there (owner 2026-10-07). */
   const [ownWhere, setOwnWhere] = useState<'above' | 'below' | null>(null);
-  const [drag, setDrag] = useState<{ dy: number; line: number | null } | null>(null);
   const [error, setError] = useState<string | null>(null);
   /* What just happened, said at once ("Song added below") — the app's ONE toast (`PeekToast`: it peeks from the top
      and leaves by itself). `n` keys it, so a second message is a new toast, never the first one's words swapped. */
@@ -356,7 +342,7 @@ export function usePartEdits({ stage, picked, onPrev = null, onNext = null, onCl
       .catch(() => setError('That change could not be saved. Please try again — nothing was lost.'));
   }, [setToast]);
 
-  /* ── ↕ the grip ── */
+  /* ── ↑ ↓ a step earlier / later ── */
   type MoveTarget = { key: string; id: string; mid: number; top: number; bottom: number };
   /** The parts the picked one can move among: the same kind, DRAWN on this page, top to bottom (never itself). */
   const moveTargets = (o: MakerPartOps): MoveTarget[] => {
@@ -371,45 +357,6 @@ export function usePartEdits({ stage, picked, onPrev = null, onNext = null, onCl
       targets.push({ key, id: t.kind === 'scene' ? t.widgetId : t.kind === 'post-event' ? (t.runKey ?? t.scene) : key, mid: b.top + b.height / 2, top: b.top, bottom: b.top + b.height });
     }
     return targets.sort((a, b) => a.mid - b.mid);
-  };
-  const dragRef = useRef<{ y0: number; targets: MoveTarget[] } | null>(null);
-  const targetAt = (d: typeof dragRef.current, y: number) => {
-    if (!d || d.targets.length === 0) return null;
-    for (const t of d.targets) if (y < t.mid) return { t, where: 'above' as const };
-    return { t: d.targets[d.targets.length - 1]!, where: 'below' as const };
-  };
-  const onGripDown = (e: React.PointerEvent<HTMLButtonElement>) => {
-    const o = askPartOps();
-    if (!o || !canMove || !canvas) return;
-    e.preventDefault();
-    e.stopPropagation();
-    try {
-      e.currentTarget.setPointerCapture?.(e.pointerId);
-    } catch {
-      /* a pointer the browser no longer tracks — the drag still follows the button's own events */
-    }
-    dragRef.current = { y0: e.clientY, targets: moveTargets(o) };
-    setDrag({ dy: 0, line: null });
-  };
-  const onGripMove = (e: React.PointerEvent<HTMLButtonElement>) => {
-    const d = dragRef.current;
-    if (!d) return;
-    const at = targetAt(d, e.clientY);
-    setDrag({ dy: e.clientY - d.y0, line: at ? (at.where === 'above' ? at.t.top : at.t.bottom) : null });
-  };
-  const onGripUp = (e: React.PointerEvent<HTMLButtonElement>) => {
-    const d = dragRef.current;
-    dragRef.current = null;
-    setDrag(null);
-    if (!d || Math.abs(e.clientY - d.y0) < 8) return;
-    const at = targetAt(d, e.clientY);
-    const o = askPartOps();
-    if (!at || !o) return;
-    /* 🎭 Nothing lands above the Reveal: slot 0 (above it) becomes slot 1 — above the page's first other part. */
-    const revealLeads = readRevealPart() !== null;
-    const slot = makerDropSlot(revealLeads ? d.targets.indexOf(at.t) + (at.where === 'below' ? 2 : 1) : d.targets.indexOf(at.t) + (at.where === 'below' ? 1 : 0), revealLeads);
-    const dropAt = revealLeads && slot === 1 && d.targets[0] ? { t: d.targets[0], where: 'above' as const } : at;
-    dropOn(o, dropAt.t, dropAt.where);
   };
   /** Land the picked part above / below `t` — ONE order write (the work area's own move; Post Event: its run). */
   const dropOn = (o: MakerPartOps, t: MoveTarget, where: 'above' | 'below') => {
@@ -523,112 +470,46 @@ export function usePartEdits({ stage, picked, onPrev = null, onNext = null, onCl
      on the top-right corner — each a 44 px tap around its face. Kept inside the screen. */
   const vw = typeof window === 'undefined' ? 375 : window.innerWidth;
   const at = (x: number, y: number) => ({ left: Math.max(0, Math.min(vw - 44, x - 22)), top: y - 22 });
-  /** A control on a frame edge whose tap is only as tall as the gap there (`partFrameEdges`). */
-  const chipAt = (x: number, y: number) => ({ left: Math.max(0, Math.min(vw - 32, x - 16)), top: y - 16 });
   const tapAt = (x: number, y: number, h: number) => ({ ...at(x, y), top: y - h / 2, height: h, minHeight: 0 });
   const node = createPortal(
     <>
       {edges && box ? (
         <div
-          aria-hidden={drag ? true : undefined}
           data-part-edges={picked}
           className="pointer-events-none fixed inset-0 z-[86] lg:hidden"
-          /* The frame lives ON the canvas: clipped to the page's visible band, never over the "You're editing"
-             strip, the page tabs or the panel (owner 2026-10-07). */
+          /* The frame lives ON the canvas: clipped to the page's visible band, never over the page tabs or the
+             toolbar (owner 2026-10-07). */
           style={band ? { clipPath: `inset(${Math.max(0, band.top)}px 0 ${Math.max(0, window.innerHeight - band.bottom)}px 0)` } : undefined}
         >
-          <div
-            data-part-outline=""
-            className={PART_OUTLINE}
-            style={{ top: fr!.top, left: fr!.left, width: fr!.width, height: fr!.height, transform: drag ? `translateY(${drag.dy}px)` : undefined }}
-          />
-          {drag ? null : (
-            <span
-              data-part-name=""
-              className={`absolute z-[1] rounded-sm ${PART_ACCENT} px-[7px] py-[3px] font-sans text-[9px] font-bold uppercase leading-[1.2] tracking-[0.14em]`}
-              style={{ top: clampY(fr!.top) - 11, left: Math.max(2, box.left - 2) + (onPrev ? 30 : 0) }}
-            >
-              {label}
-            </span>
-          )}
-          {drag?.line != null ? <div className="absolute h-1 rounded-full bg-sn-accent" style={{ top: drag.line - 2, left: box.left, width: box.width }} /> : null}
-          {drag ? null : (
+          <div data-part-outline="" className={PART_OUTLINE} style={{ top: fr!.top, left: fr!.left, width: fr!.width, height: fr!.height }} />
+          <span
+            data-part-name=""
+            className={`absolute z-[1] rounded-sm ${PART_ACCENT} px-[7px] py-[3px] font-sans text-[9px] font-bold uppercase leading-[1.2] tracking-[0.14em]`}
+            style={{ top: clampY(fr!.top) - 11, left: Math.max(2, box.left - 2) }}
+          >
+            {label}
+          </span>
+          {/* 🚫 NO BUTTONS ON THE FRAME (owner 2026-10-09: "on preview screen, you only select" — the frame and its
+              name say what is picked, nothing more). ↑ ↓ ✕, the grip and 🗑 were here: moving and removing are Edit's
+              last row now (↑ Earlier · ↓ Later · Remove — `PartEditsNow`), ↑ ↓ between parts is a swipe across the
+              toolbar, and a tap on the page's ground lets go.
+              ＋ STAYS FOR NOW: where a part is added is an OPEN owner question (`TOOLBAR-SPEC-2026-10-09.md` "Things
+              with no home yet") — and it is the only way a removed part comes back. Never on a fixed page (the RSVP
+              stage's screens, `makerStageIsFixedPages`). */}
+          {fixedPages ? null : (
             <>
-              {/* ＋ — never on a fixed page (the RSVP stage's screens, `makerStageIsFixedPages`). */}
-              {fixedPages ? null : (
-                <>
-                  {edgesOf.addAbove ? (
-                    <button type="button" aria-label={`Add above ${label}`} data-part-add="above" onClick={() => setAdding('above')} className={EDGE_BTN} style={{ ...tapAt(box.left + box.width / 2, fr!.top, fe!.tapAbove), visibility: onEdge(fr!.top) ? undefined : 'hidden' }}>
-                      <span className={ADD_FACE}>+</span>
-                    </button>
-                  ) : null}
-                  {edgesOf.addBelow && onEdge(fr!.top + fr!.height) ? (
-                    <button type="button" aria-label={`Add below ${label}`} data-part-add="below" onClick={() => setAdding('below')} className={EDGE_BTN} style={tapAt(box.left + box.width / 2, fr!.top + fr!.height, fe!.tapBelow)}>
-                      <span className={ADD_FACE}>+</span>
-                    </button>
-                  ) : null}
-                </>
-              )}
-              {/* ↑ upper-left · ↓ lower-left · ✕ lower-right (owner 2026-10-07, verbatim: "upper left of the highlight is
-                  go to the element above · lower left of the highlight is to go to the next element under · lower
-                  right is deselect"). Each a 32 px tap on the frame's corner, a face in the frame's own orange. */}
-              {onPrev && onEdge(fr!.top) ? (
-                <button type="button" aria-label="Previous part" data-part-step="prev" onClick={onPrev} className={CHIP_BTN} style={chipAt(box.left + 2, fr!.top)}>
-                  <span className={CHIP_FACE}>
-                    <ChevronUp aria-hidden className="h-4 w-4" strokeWidth={2.6} />
-                  </span>
+              {edgesOf.addAbove ? (
+                <button type="button" aria-label={`Add above ${label}`} data-part-add="above" onClick={() => setAdding('above')} className={EDGE_BTN} style={{ ...tapAt(box.left + box.width / 2, fr!.top, fe!.tapAbove), visibility: onEdge(fr!.top) ? undefined : 'hidden' }}>
+                  <span className={ADD_FACE}>+</span>
                 </button>
               ) : null}
-              {onNext && onEdge(fr!.top + fr!.height) ? (
-                <button type="button" aria-label="Next part" data-part-step="next" onClick={onNext} className={CHIP_BTN} style={chipAt(box.left + 2, fr!.top + fr!.height)}>
-                  <span className={CHIP_FACE}>
-                    <ChevronDown aria-hidden className="h-4 w-4" strokeWidth={2.6} />
-                  </span>
-                </button>
-              ) : null}
-              {onClose && onEdge(fr!.top + fr!.height) ? (
-                <button type="button" aria-label={`Let go of ${label}`} data-part-deselect="" onClick={onClose} className={CHIP_BTN} style={chipAt(box.left + box.width - 2, fr!.top + fr!.height)}>
-                  <span className={CHIP_FACE}>
-                    <X aria-hidden className="h-4 w-4" strokeWidth={2.6} />
-                  </span>
-                </button>
-              ) : null}
-              {canRemove ? (
-                <button
-                  type="button"
-                  aria-label={ownScene ? `Delete ${label}` : `Remove ${label} from this page`}
-                  data-part-remove=""
-                  onClick={() => setRemoving(true)}
-                  className={EDGE_BTN}
-                  style={at(box.left + box.width - 6, clampY(fr!.top))}
-                >
-                  <span className={PART_REMOVE_FACE}>
-                    <Trash2 aria-hidden className="h-[15px] w-[15px]" strokeWidth={2} />
-                  </span>
+              {edgesOf.addBelow && onEdge(fr!.top + fr!.height) ? (
+                <button type="button" aria-label={`Add below ${label}`} data-part-add="below" onClick={() => setAdding('below')} className={EDGE_BTN} style={tapAt(box.left + box.width / 2, fr!.top + fr!.height, fe!.tapBelow)}>
+                  <span className={ADD_FACE}>+</span>
                 </button>
               ) : null}
             </>
           )}
-          {canMove ? (
-            <button
-              type="button"
-              aria-label={`Drag to move ${label}`}
-              data-part-grip=""
-              onPointerDown={onGripDown}
-              onPointerMove={onGripMove}
-              onPointerUp={onGripUp}
-              onPointerCancel={() => {
-                dragRef.current = null;
-                setDrag(null);
-              }}
-              className={`${EDGE_BTN} touch-none`}
-              style={{ ...at(box.left + box.width - 5, clampY(box.top + box.height / 2)), transform: drag ? `translateY(${drag.dy}px)` : undefined }}
-            >
-              <span className={`inline-flex h-[22px] w-[30px] items-center justify-center rounded-md ${PART_ACCENT} shadow-[0_0_0_3px_#fff]`}>
-                <GripVertical aria-hidden className="h-4 w-4" strokeWidth={2.4} />
-              </span>
-            </button>
-          ) : null}
         </div>
       ) : null}
       {toast && !error ? (

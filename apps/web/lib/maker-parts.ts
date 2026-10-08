@@ -367,8 +367,10 @@ export function makerPartQuietRow(key: MakerPartKey): { words: string; to: { stu
  * slides to "Animate" over a panel still showing Style's cards is exactly that. Tapped on the Maker lab, 2026-10-08:
  * E-Gifts and What to wear did it.)
  *
- *   Edit        always — every part has a door or a name, and its place on the page.
+ *   Edit        every part but the Camera — a door or a name, and its place on the page.
  *   Style       always — every part has a look.
+ *   🎛 The Camera is a full-screen design with ONLY Style live (owner 2026-10-09): Edit, Background and Animate are
+ *   grey on it, and it has no move row.
  *   Background  only where the work area has a background to save TODAY: a scene the couple arranges (`w:`). A
  *               single line inside the cover (`el`) sits on the cover's own — grey for good (owner 2026-10-09). The
  *               fixed blocks (the March, E-Gifts, The details, What to wear, the seat, the pass …) are to get one
@@ -379,7 +381,9 @@ export function makerPartQuietRow(key: MakerPartKey): { words: string; to: { stu
  * A Post Event scene (`p:`), and the parts the canvas does not draw (the Reveal, the Camera) have neither.
  */
 export function makerPartToolWorks(key: MakerPartKey, tool: MakerPartTool): boolean {
-  if (tool === 'edit' || tool === 'style') return true;
+  if (tool === 'style') return true;
+  if (key === 'camera') return false;
+  if (tool === 'edit') return true;
   const def = MAKER_PARTS[key];
   if (!def.canvas) return false;
   if (tool === 'bg') return def.canvas.startsWith('w:');
@@ -396,6 +400,16 @@ export function makerPartToolWhy(key: MakerPartKey | null, tool: MakerPartTool):
   const src = key ? makerPartSource(key) : null;
   if (src?.kind === 'studio') return 'Nothing to change here — edit it in Studio.';
   return `${MAKER_PART_TOOL_LABEL[tool]} has nothing to change on this part.`;
+}
+
+/**
+ * 🧠 THE TOOL A PART OPENS ON: the one last used — or, where that one has nothing to set on this part, the FIRST of
+ * the four that has (the prototype's `pickPart`: `tool = toolKeys().find(t => works(k, t))`). The remembered tool is
+ * not rewritten: it comes back on the next part that has it.
+ */
+export function makerPartToolFor(key: MakerPartKey | null, remembered: MakerPartTool): MakerPartTool {
+  if (!key || makerPartToolWorks(key, remembered)) return remembered;
+  return MAKER_PART_TOOLS.find((t) => makerPartToolWorks(key, t)) ?? 'style';
 }
 
 /* ── the pages (prototype `TABS`, on the SHIPPED guest bar's page keys) ──── */

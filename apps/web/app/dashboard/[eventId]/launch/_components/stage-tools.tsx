@@ -14,6 +14,7 @@ import {
   makerPartOfTap,
   makerPartQuietRow,
   makerPartSource,
+  makerPartToolFor,
   makerPartToolWhy,
   makerPartToolWorks,
   makerPartsOnPage,
@@ -121,6 +122,9 @@ function safeBottomPx(): number {
   }
 }
 
+/** 🧠 The tool last used — kept while the toolbar is away (Studio, a Studio tool opened from Edit's door), so it is
+ *  the one the next part opens on when the couple comes back (owner 2026-10-09: the last-used tool is remembered). */
+let lastTool: MakerPartTool = 'edit';
 /** Where Style's quiet row last took the couple — the panel picks the same part when they come back (‹). */
 let resumeAt: { stage: MakerStageKey; page: string | null; part: MakerPartKey } | null = null;
 /** 🧭 The tab that was on screen when this panel last stood — it is put back when the couple returns from Studio
@@ -257,7 +261,11 @@ export function StageTools({
   const openTool = maker?.tool ?? null;
   const stageKey: MakerStageKey = rsvpOpen ? RSVP_STAGE_KEY : stage;
   const [screen, setScreen] = useState<RsvpStageScene>('form');
-  const [tool, setTool] = useState<MakerPartTool>('edit');
+  const [tool, setToolNow] = useState<MakerPartTool>(lastTool);
+  const setTool = useCallback((t: MakerPartTool) => {
+    lastTool = t;
+    setToolNow(t);
+  }, []);
   const [picked, setPicked] = useState<MakerPartKey | null>(null);
   const [typing, setTyping] = useState(false);
   const [playing, setPlaying] = useState(false);
@@ -499,9 +507,9 @@ export function StageTools({
   rsvpOpenRef.current = rsvpOpen;
   const toolRef = useRef(tool);
   toolRef.current = tool;
-  /** The tool to open on a part: the one last used — or Edit, the first, where that one has nothing to set there (it
-   *  is remembered all the same, and comes back on the next part that has it). */
-  const toolFor = useCallback((k: MakerPartKey | null): MakerPartTool => (k && !makerPartToolWorks(k, toolRef.current) ? 'edit' : toolRef.current), []);
+  /** The tool to open on a part: the one last used — or the first that has something to set there (it is remembered
+   *  all the same, and comes back on the next part that has it — `makerPartToolFor`). */
+  const toolFor = useCallback((k: MakerPartKey | null): MakerPartTool => makerPartToolFor(k, toolRef.current), []);
   const pickPart = useCallback(
     (k: MakerPartKey) => {
       setPicked(k);
@@ -539,9 +547,6 @@ export function StageTools({
   deselectRef.current = deselect;
   /** The page's parts in their VISUAL order (measured on the canvas) — the order ↑ ↓ and the swipe walk. */
   const ordered = useCallback(() => partsInPageOrder(parts, (k) => makerPartTopOnScreen(stageKey, k, frameSel)), [frameSel, parts, stageKey]);
-  const placeOf = picked ? ordered().indexOf(picked) : -1;
-  const isFirstPage = pages.findIndex((p) => p.key === shownPage) <= 0;
-  const isLastPage = pages.findIndex((p) => p.key === shownPage) >= pages.length - 1;
   /* A part tapped ON THE PAGE: the panel follows it (the work area has already opened its tools). */
   const where = useRef({ stageKey, shownPage });
   where.current = { stageKey, shownPage };
@@ -565,7 +570,8 @@ export function StageTools({
         setPicked(k);
         askTool(toolFor(k), k);
       } else if (d.t === 'type' && d.phase === 'start') {
-        /* ⌨ Only the picked part's words type (the work area takes a first tap's caret back). */
+        /* 👆 A tap on the page only selects: the rule answers no for every part (`makerStageMayType`, 2026-10-09) —
+           the work area takes the tap's caret back, and the toolbar stays. */
         const attr = document.querySelector('[data-maker-shell]')?.getAttribute('data-stage-picked') ?? null;
         if (makerStageMayType(attr, typeof d.key === 'string' ? d.key : '', typeof d.el === 'string' ? d.el : null)) setTyping(true);
       }
@@ -610,7 +616,8 @@ export function StageTools({
     window.addEventListener(MAKER_STAGE_PICK_EVENT, onPick);
     return () => window.removeEventListener(MAKER_STAGE_PICK_EVENT, onPick);
   }, [pickPart]);
-  /* 🔑 Which part is picked, on the shell — the work area reads it before it lets a tap type. */
+  /* 🔑 Which part is picked, on the shell — the work area and the reply pages read it with every tap (the typing
+     rule's `picked`; the answer is "select only" now, and the reply pages bring the picked part into view with it). */
   useEffect(() => {
     const shell = document.querySelector<HTMLElement>('[data-maker-shell]');
     const attr = open ? makerStagePickedAttr(picked) : null;
@@ -618,8 +625,8 @@ export function StageTools({
     else shell?.removeAttribute('data-stage-picked');
     return () => shell?.removeAttribute('data-stage-picked');
   }, [open, picked]);
-  /* 🗳 …and the RSVP stage's screens are told which part is picked: a tap on ITS words types them there
-     (`makerStageMayType`, asked on the page in the tap itself — a phone raises its keyboard only then). */
+  /* 🗳 …and the RSVP stage's screens are told which part is picked (they bring it into view; `makerStageMayType`
+     is asked on the page in the tap itself, and answers that a tap only selects). */
   const sendRsvpPicked = useCallback(() => {
     const now = document.querySelector('[data-maker-shell]')?.getAttribute('data-stage-picked') ?? null;
     document.querySelectorAll<HTMLIFrameElement>('iframe[data-rsvp-stage-frame]').forEach((f) => {
@@ -698,6 +705,28 @@ export function StageTools({
   }, [parts, pickPart]);
   const stepRef = useRef(step);
   stepRef.current = step;
+  /* 👆 SOMETHING IS ALWAYS PICKED ON ARRIVING (owner 2026-10-09, the prototype's `body()`; the controller's call: the
+     first part the page DRAWS — `ordered()`, measured on the canvas, never the map's order). Once per arrival at a
+     stage's page: a tap on the page's ground still lets go, and the toolbar's rows stay empty until the next pick.
+     A step into the page (‹ › / a swipe) and a return from Studio pick their own part — this one stands back. */
+  const pickedRef = useRef(picked);
+  pickedRef.current = picked;
+  const orderedRef = useRef(ordered);
+  orderedRef.current = ordered;
+  const arrivedAt = useRef<string | null>(null);
+  useEffect(() => {
+    const at = `${stageKey}/${shownPage ?? ''}`;
+    if (arrivedAt.current === at || parts.length === 0 || typing || playing) return;
+    /* After the page has laid the tab out (the same wait the parts are read with). */
+    const t = window.setTimeout(() => {
+      if (arrivedAt.current === at) return;
+      const first = orderedRef.current()[0] ?? null;
+      if (!first) return;
+      arrivedAt.current = at;
+      if (!pickedRef.current && pendingStep.current === null) pickPartRef.current(first);
+    }, 160);
+    return () => window.clearTimeout(t);
+  }, [parts, playing, shownPage, stageKey, typing]);
   /* ⌨ ↑ / ↓ step, Esc lets go — never while typing into a field or on the page. */
   useEffect(() => {
     if (!picked || typing) return;
@@ -896,11 +925,11 @@ export function StageTools({
 
   /* 🚫 A TOOL WITH NOTHING TO SET ON THE PICKED PART (`makerPartToolWorks`): grey, `aria-disabled`, and a tap says
      one line why. Edit and Style are every part's. The Reveal, the Camera, the pass and the RSVP pages have no
-     Background or Animate; nor has any part with no save for it (E-Gifts, What to wear …). With nothing picked every
-     tool is live — the rows under it are empty until a part is. */
-  const toolWorks = (t: MakerPartTool) => !picked || t === 'edit' || t === 'style' || (!styleOnly && makerPartToolWorks(picked, t));
-  /** The tool the rows are showing: the remembered one, or Edit — the first — where that one has nothing here. */
-  const shownTool: MakerPartTool = toolWorks(tool) ? tool : 'edit';
+     Background or Animate — and the Camera, a full-screen design, has Style alone; nor has any part with no save for
+     it (E-Gifts, What to wear …). With nothing picked every tool is live — the rows under it are empty until a part is. */
+  const toolWorks = (t: MakerPartTool) => !picked || ((t === 'edit' || t === 'style' || !styleOnly) && makerPartToolWorks(picked, t));
+  /** The tool the rows are showing: the remembered one, or the first that has something here (Edit; Style on the Camera). */
+  const shownTool: MakerPartTool = toolWorks(tool) ? tool : (MAKER_PART_TOOLS.find(toolWorks) ?? 'style');
   /* …said to the work area's body under the selector (`StageStyle` shows that tool's part of the scene's Format). */
   useEffect(() => setStageTool(shownTool), [shownTool]);
   const [why, setWhy] = useState<{ words: string; n: number } | null>(null);
@@ -924,14 +953,11 @@ export function StageTools({
   /** Where the tab row is drawn: over the foot of the stage's canvas — or, on the RSVP stage, in that stage's own
    *  column (never the shell there: the RSVP layer would cover it). */
   const guestBarHost = rsvpOpen ? rsvpBarSlot : shellEl;
-  /* ── ↑ ↓ 🗑 the picked part's frame over the page — and its place, for Edit's last row (`usePartEdits`) ── */
+  /* ── the picked part's frame over the page (its outline, its name) — and its place, for Edit's last row ── */
   const edits = usePartEdits({
     stage: stageKey,
     picked: open && !cameraOpen ? picked : null,
     frame: rsvpOpen ? frameSel : undefined,
-    onPrev: placeOf > 0 || (placeOf === 0 && !isFirstPage) ? () => step(-1) : null,
-    onNext: placeOf >= 0 && (placeOf < ordered().length - 1 || !isLastPage) ? () => step(1) : null,
-    onClose: deselect,
   });
   /** Edit's rows are this toolbar's own; every other tool's are the work area's (or the Reveal's / the Camera's). */
   const editOn = picked !== null && shownTool === 'edit';

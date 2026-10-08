@@ -31,6 +31,25 @@ Tests: new `lib/the-toolbar-is-four-rows.test.ts` (6 rules, each seen red). Re-a
 `scripts/port-control-baseline.json` regenerated: − `PartEdits` (the same frame, drawn by the hook now), − `Phases`
 (Style's second selector), + `StageEdit`.
 
+### 2 · the preview only selects
+
+Owner: "on preview screen, you only select. You can change the content there via edit".
+
+- **A tap never types** — `makerStageMayType` (the one rule the Event Hub canvas and the reply pages both ask) answers
+  no for every part; it was "typing is a second tap on the picked part". The words are changed in Edit.
+- **No buttons on the frame** — ↑ ↓ ✕, the grip and 🗑 are gone; the outline and the name stay. Moving and removing are
+  Edit › ↑ Earlier · ↓ Later · Remove (the same landing function the grip had; one order write a step). ＋ stays: it is
+  the one control left on the preview and the way a removed part comes back (owner 2026-10-09, decided).
+- **Something is always picked on arriving** at a stage's page: the first part the page DRAWS (`ordered()`), once per
+  arrival; a tap on the ground still lets go.
+- **The last-used tool is remembered** (also while the toolbar is away in Studio), and a part opens on the first tool
+  that has something to set there (`makerPartToolFor`).
+- **The Camera has only Style** (owner: a full-screen design) — Edit, Background and Animate are grey on it.
+
+Tests: new `lib/the-preview-only-selects.test.ts` (5 rules, each seen red). Re-aimed with the reason written in:
+`the-stages-panel-is-the-prototypes` (typing, the frame's chips), `the-rsvp-stage-is-parts` (typing, the fixed page),
+`the-stages-panel-wears-the-accent` (the frame's marks), `one-drag-is-one-order-write` (the grip → a step).
+
 SPEC IMPACT: Yes — supersedes the 2026-10-06/07 "Style | Text | Animate" and "the toolbar is half the screen" rows.
 The controller holds the spec (`TOOLBAR-SPEC-2026-10-09.md`) and applies the corpus rows; nothing in the corpus was
 edited from this branch.

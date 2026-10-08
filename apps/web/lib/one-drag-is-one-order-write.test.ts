@@ -14,6 +14,11 @@
  * Sabotage (seen red): call the move once per place in the grip's drop
  * (`for (…) o.move(mv.id, Math.sign(delta))`), or lend the work area's
  * form-post chain instead of `move`.
+ *
+ * 🔁 RE-AIMED 2026-10-09 (owner: *"on preview screen, you only select"* — no buttons on the frame;
+ * `TOOLBAR-SPEC-2026-10-09.md`): the grip is gone and a part moves by the toolbar's Edit › ↑ Earlier · ↓ Later.
+ * The claim is the same and so is the code that makes it true: ONE function lands a part (`dropOn`, the grip's own
+ * drop, kept) and it writes once. A step calls it once; nothing else moves a picked part.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -46,15 +51,18 @@ test('a drop is one signed move in the stage’s full order (hidden rows counted
   assert.deepEqual(order, ['c', 'a', 'hid', 'b', 'off']);
 });
 
-test('the grip calls the work area’s move ONCE per drop — the one-save draft write', () => {
+test('a step calls the work area’s move ONCE — the one-save draft write', () => {
   const src = read(SHEET);
-  const drop = src.slice(src.indexOf('const onGripUp ='), src.indexOf('/* ── ＋ add a part ── */'));
-  assert.ok(drop.length > 200, 'the grip’s drop is drawn');
-  assert.equal((drop.match(/\bo\.move\(/g) ?? []).length, 1, 'one move per drop');
+  const drop = src.slice(src.indexOf('const dropOn ='), src.indexOf('/* ── ＋ add a part ── */'));
+  assert.ok(drop.length > 200, 'the part’s landing is drawn');
+  assert.equal((drop.match(/\bo\.move\(/g) ?? []).length, 1, 'one move per landing');
   assert.doesNotMatch(drop, /\bfor\s*\(|\bwhile\s*\(|forEach/, 'never one write per place');
   assert.doesNotMatch(drop, /moveWidget(Up|Down)/, 'never the form-post chain');
-  /* The drop reads the drag it captured — the ref is cleared first (a phone check caught a drop that read the cleared ref and moved nothing). */
-  assert.match(drop, /const at = targetAt\(d, e\.clientY\)/, 'the drop’s target is read from the captured drag');
+  /* A step lands ONCE, on the neighbour the page draws above / below — read when the button is pressed. */
+  assert.equal((drop.match(/\bdropOn\(/g) ?? []).length, 1, 'a step lands more than once');
+  assert.match(drop, /const t = o && canMove \? neighbour\(o, dir\) : null;\s*if \(o && t\) dropOn\(o, t, dir < 0 \? 'above' : 'below'\);/);
+  /* …and nothing else in the file moves the picked part. */
+  assert.equal((src.match(/\bo\.move\(mv\.id,/g) ?? []).length, 1);
   /* …and that move IS the navigator's one-save move. */
   const shell = read(SHELL);
   const lent = shell.slice(shell.indexOf('partOps.current = {'), shell.indexOf('window.addEventListener(MAKER_PART_OPS_EVENT'));

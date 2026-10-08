@@ -382,12 +382,15 @@ test('3 · no control of a sample page can take focus — by a tap, the Tab key 
 
 /* ══ 4 · TYPING IS A SECOND TAP ══════════════════════════════════════════════ */
 
-test('4 · a first tap only picks; the words of the part ALREADY picked type — by the Event Hub canvas’s own gate', () => {
+test('4 · a tap only picks — the first, and one on the part already picked — by the Event Hub canvas’s own gate', () => {
+  /* 🔁 RE-AIMED 2026-10-09 (owner: *"on preview screen, you only select. You can change the content there via edit"*):
+     the gate answered yes for the part already picked; it answers no for every part now (`lib/maker-stage-type.ts`).
+     The reply pages still ask the SAME gate with the SAME picked part — the wiring test below is unchanged. */
   for (const [part, key] of [['yesnote', 'f:yesnote'], ['nonote', 'f:nonote'], ['rsvp', 'f:rsvp']] as const) {
     const picked = makerStagePickedAttr(part);
     assert.equal(makerStageMayType(null, key, null), false, `${part}: a first tap typed`);
     assert.equal(makerStageMayType(makerStagePickedAttr('logo'), key, null), false, `${part}: typed while another part was picked`);
-    assert.equal(makerStageMayType(picked, key, null), true, `${part}: its words cannot be typed once it is picked`);
+    assert.equal(makerStageMayType(picked, key, null), false, `${part}: a tap on the picked part types on the reply page again`);
   }
   /* The words typed are the couple's; the reply-by line is a date, set in the form's tools. */
   for (const word of RSVP_WORD_KEYS) assert.equal(rsvpWordIsTyped(rsvpWordBridgeKey(word)), true, word);
@@ -564,27 +567,28 @@ test('6 · the frame, its name tab and ↑ ↓ ✕ are drawn on the RSVP screen�
   assert.match(TOOLS, /d\.t === 'ready' \|\| d\.t === 'rsvpReady'/);
 });
 
-test('6 · a reply page is a FIXED page: its parts have the frame and ↑ ↓ ✕ — never ＋, a grip or 🗑', () => {
+test('6 · a reply page is a FIXED page: its parts have the frame — never ＋, and nothing there moves or is taken off', () => {
   /* Nothing can be added to, moved on or taken off a reply page — and the ＋ sheet asks the work area, which stays
      mounted UNDER the RSVP stage: it would offer the Invitation's hidden scenes, a write to another stage. */
+  /* 🔁 RE-AIMED 2026-10-09: the frame has no ↑ ↓ ✕, grip or 🗑 anywhere now (owner: *"on preview screen, you only
+     select"*) — moving and removing are the toolbar's Edit › Earlier · Later · Remove, which read the SAME two
+     answers (`canMove` / `canRemove`), so a reply page's three are grey. The gate's end is the frame's own end. */
   assert.deepEqual(MAKER_STAGE_KEYS.filter(makerStageIsFixedPages), [RSVP_STAGE_KEY]);
   assert.match(EDGES, /const fixedPages = makerStageIsFixedPages\(stage\);/);
   /* Both ＋ sit inside the one gate. */
   const gate = EDGES.indexOf('{fixedPages ? null : (');
-  const gateEnd = EDGES.indexOf('{onPrev && onEdge');
+  const gateEnd = EDGES.indexOf('{toast && !error ? (');
   assert.ok(gate > 0 && gateEnd > gate, '＋ is offered on a reply page');
   for (const add of ['data-part-add="above"', 'data-part-add="below"']) {
     const at = EDGES.indexOf(add);
     assert.ok(at > gate && at < gateEnd, `${add} is outside the fixed-page gate`);
   }
+  assert.equal((EDGES.match(/data-part-add=/g) ?? []).length, 2, 'a third ＋ is drawn, outside the gate');
   assert.match(EDGES, /const canRemove = edgesOf\.remove && [^;]* && !fixedPages;/);
   assert.match(EDGES, /const canMove = edgesOf\.grip && [^;]* && !fixedPages;/);
-  /* ↑ ↓ ✕ are not gated by it. */
-  for (const chip of ['onPrev && onEdge', 'onNext && onEdge', 'onClose && onEdge']) {
-    const at = EDGES.indexOf(`{${chip}`);
-    assert.ok(at > 0, `${chip} is gone`);
-    assert.doesNotMatch(EDGES.slice(at, at + 80), /fixedPages/, `${chip} is taken off a reply page`);
-  }
+  /* …and those two answers are all Edit's last row is offered. */
+  assert.match(EDGES, /const canStep = \(dir: -1 \| 1\) => Boolean\(typeof document !== 'undefined' && canMove && /);
+  assert.match(EDGES, /remove: canRemove \? \(\) => setRemoving\(true\) : null,/);
 });
 
 /* ══ 7 · A GUEST'S PAGES ARE UNTOUCHED ═══════════════════════════════════════ */

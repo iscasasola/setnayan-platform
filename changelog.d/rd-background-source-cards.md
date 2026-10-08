@@ -81,24 +81,34 @@ After the owner's look at the preview (2026-10-08), three rulings, built on this
   a background shows"* · *"when i press, and it has a loading state, we want to know
   something is pressed and loading files... applying to your Hub."* In the Studio a
   pick is now four things in order: the tapped card is ringed and wears a small
-  progress mark from the tap; the canvas wears the pick (its still first, its loop
-  when it moves; a colour or pattern at once) on a layer the editor bridge owns; the
-  draft save runs behind it HELD (`makerRedrawSave` — no whole-Maker render; the
-  canvas page re-renders itself in place and only then does the preview step aside);
-  and ONE polite line says "Loading files…", then "Applying to your Hub…" — never
-  flashed for a wait under ~300 ms, gone when the canvas shows it. A later tap wins
-  (every pick has a number; an older answer moves nothing). A refused save or a
-  picture that could not be read puts the old background back, takes the preview off
-  the canvas and says so in place with Try again — never a success look.
+  progress mark from the tap; the canvas wears the pick on a layer the editor bridge
+  owns — the still first, the loop when it moves, held where Focus holds it, under the
+  scrim and the tint the page's own functions measure for it (`resolveAdaptiveTheme`,
+  `adaptiveThemeVars` — the two calls `main-ground-layer.tsx` makes); the draft save
+  runs behind it; and ONE polite line says "Loading files…", then "Applying to your
+  Hub…" — never flashed for a wait under ~300 ms, gone when the canvas shows it.
+  **One write, no render** (the minimum-request rules, 2026-10-08): where the canvas
+  can wear the change exactly — a video, a scene, their photo or clip, the cover, a
+  pattern, "Just the colour" on an unchanged colour, Focus, Blur, Match / Keep — the
+  save is held and asks the server for nothing more; the layer stays, and steps aside
+  only when the page next renders for another reason, for a render asked AFTER the
+  save landed. What only the server measures still redraws the canvas page once, in
+  place (`backgroundPickRedraws`): a page colour or blend (the words' ink and the
+  blend's veil are the layout's), a Shade and anything under one (the veil and the
+  words' inks), Candlelight, Motion (parallax). A file just uploaded still brings the
+  Maker's render (it has no address the canvas could wear yet).
+  A later tap wins (every pick has a number; an older answer moves nothing). A refused
+  save or a picture that could not be read puts the old background back, takes the
+  preview off the canvas and says so in place with Try again — never a success look.
   Before: the pick waited on its save, the save owed a whole-Maker render, and that
   render loaded a NEW canvas document (`editor-shell.tsx`, `setCanvasStamp(next)` →
-  `BufferedCanvasFrame frameKey`). The stopwatch is in the code
-  (`performance.mark('bg-pick:*')`). New: `lib/background-pick.ts`,
-  `app/[slug]/_components/main-ground-preview.ts` (the bridge's half — every field of
-  a message is checked before it becomes CSS). Guard:
-  `lib/a-background-pick-shows-at-once.test.ts` (8 tests).
-  The shipped Maker (flag off) is unchanged. A file just uploaded still brings the
-  Maker's render (it has no address the canvas could wear yet).
+  `BufferedCanvasFrame frameKey`) — one write and TWO server renders per tap. The
+  stopwatch is in the code (`performance.mark('bg-pick:*')`). New:
+  `lib/background-pick.ts`, `app/[slug]/_components/main-ground-preview.ts` (the
+  bridge's half — every field of a message is checked before it becomes CSS). Guard:
+  `lib/a-background-pick-shows-at-once.test.ts` (8 tests). The shipped Maker (flag
+  off) is unchanged. Two one-shot timeouts, neither asks anything: the line's 300 ms
+  quiet, and an 8 s stop on waiting for a canvas that never answers.
 - **No "hero" card without a cover photo** — *"why same as hero? i thought our hero
   uses no background to use our main background?"* The card that follows the cover is
   drawn only when the event has a cover photo, shows that photo, and is named "Your

@@ -359,6 +359,11 @@ function MomentRow({
   );
 }
 
+/** What a photo's tile says when it did not upload (owner 2026-10-08: *"it does not upload"*). */
+export const PHOTO_NOT_UPLOADED = 'Couldn’t upload this photo.';
+/** How long a photo may move nothing before the slots stop waiting for it. */
+export const PHOTO_STALL_MS = 15_000;
+
 /** Done's words while a file is on its way: the uploader's measured figure once it has one — never an invented one. */
 export function uploadingWords(pct: number | null): string {
   return pct === null ? 'Uploading…' : `Uploading… ${pct}%`;
@@ -417,6 +422,10 @@ export function MomentPhotos({
           currentValue={[...media]}
           initialDisplayUrls={{ ...mediaUrls }}
           variant="gallery"
+          /* 🚫 A photo that did not upload SAYS SO on its tile, with Try again and ✕ — never a spinner that stays,
+             never nothing. And one that stops moving is given up on after 15 seconds, not left to spin. */
+          failedSays={PHOTO_NOT_UPLOADED}
+          stallMs={PHOTO_STALL_MS}
           onBusy={(next) => {
             setBusy(next);
             onUploading?.(next);

@@ -246,7 +246,7 @@ export function StudioWishList({
       <section data-studio-wish-list="unread" className="flex flex-col">
         <WishHead count={null} />
         <div role="alert" className="flex flex-col items-start gap-2.5 border-t border-ink/10 pb-1 pt-4 text-[14px]">
-          <b className="font-medium text-terracotta-700">{WISH_LIST_UNREAD_TITLE}</b>
+          <b className="font-medium text-danger-800">{WISH_LIST_UNREAD_TITLE}</b>
           <span className="text-ink/60">{WISH_LIST_UNREAD_LINE}</span>
           <ActionButton tone="neutral" icon={RotateCw} label="Try again" data-testid="wish-retry" onClick={() => requestMakerRefresh()} />
         </div>
@@ -464,11 +464,11 @@ function WishFields({
     <div className="mt-4 flex flex-col gap-4">
       <div>
         <span className={LABEL}>Photo</span>
-        <div className="mt-1.5 w-[120px]" data-wish-photo="">
+        {/* The shipped upload, as it ships (its own drop zone and words) — the label above names it. */}
+        <div className="mt-1.5 max-w-[220px]" data-wish-photo="">
           <FileUpload
             bucket="media"
             pathPrefix={`events/${eventId}/wish-list`}
-            label="Add a photo"
             acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
             maxSizeMB={10}
             variant="square"

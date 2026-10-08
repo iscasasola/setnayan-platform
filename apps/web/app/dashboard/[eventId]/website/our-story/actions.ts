@@ -34,6 +34,7 @@ import { requireHostMembership } from '@/lib/host-gate';
 import { draftEventsAndReturn, draftedEventColumn, isHubDraftWrite } from '@/lib/hub-draft-store';
 import { screenNewPhotoRefs } from '@/lib/love-story-screen';
 import { ourEventPhotoRefs } from './_components/our-events-read';
+import { readOurEventsOffer } from './_components/our-events-offer';
 import {
   chapterOf,
   formatMomentDate,
@@ -136,7 +137,7 @@ export async function updateOurStory(eventId: string, formData: FormData): Promi
    writes live, like `updateOurStory` always has. Phase 4's upload path + 100 MB
    meter take over the photo input when they land; clips wait on them. */
 
-const MOMENT_INTENTS = ['add', 'edit', 'delete', 'arrange', 'order', 'pick'] as const;
+const MOMENT_INTENTS = ['add', 'edit', 'delete', 'arrange', 'order', 'pick', 'offer'] as const;
 type MomentIntent = (typeof MOMENT_INTENTS)[number];
 
 /* add · edit · delete · arrange are applied by `applyMomentIntent`
@@ -152,6 +153,14 @@ export async function loveStoryMomentAction(eventId: string, formData: FormData)
   const intentRaw = String(formData.get('intent') ?? '');
   if (!(MOMENT_INTENTS as readonly string[]).includes(intentRaw)) fail('That did not save. Please try again.');
   const intent = intentRaw as MomentIntent;
+
+  /* 🔎 'offer' — THE ONE QUESTION THIS ACTION ANSWERS (2026-10-08). Studio › Love Story asks which of the pair's
+     OTHER events may lend a photo only when "Pick from our events" is opened — before, the page read them on every
+     open of Love Story, picked from or not. It writes nothing, revalidates nothing and redirects nowhere, so its
+     answer is the value alone (no render of the Maker). The scope is `readOurEvents`' own (the asker must be this
+     event's couple, else null) — the same read, and the same answer, the page used to draw. Answered here rather
+     than by a new action: the route budget has no room for one. */
+  if (intent === 'offer') return { offer: await readOurEventsOffer(user.id, eventId) } as unknown as void;
 
   const supabase = await createClient();
   /* 💾 THE DRAFT DOOR (2026-09-25). From the scrapbook the moments go into the

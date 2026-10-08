@@ -1625,6 +1625,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
             params={Promise.resolve({ eventId })}
             searchParams={Promise.resolve({
               maker: '1',
+              studio: stagesStudio ? '1' : undefined,
               saved: one(search.saved),
               drafted: one(search.drafted),
               error: one(search.error),

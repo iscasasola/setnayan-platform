@@ -132,6 +132,12 @@ type FileUploadBaseProps = {
    */
   send?: UploadSend;
   /**
+   * A few words drawn along the foot of a finished `gallery` tile, by its stored ref — or null for none. For a file
+   * that is not this field's own to change ("From Our engagement": a photo picked from another event). Words, not
+   * an icon — they are also what a screen reader says. Optional.
+   */
+  tileNote?: (r2Ref: string) => string | null;
+  /**
    * Optional async validator run AFTER the size/MIME checks and BEFORE the
    * upload starts. Return an error string to reject the file (shown to the
    * user, upload skipped) or null to accept. Fail-open: if the validator
@@ -452,6 +458,7 @@ export function FileUpload({
   failedSays,
   stallMs,
   send,
+  tileNote,
 }: FileUploadProps) {
   const inputId = useId();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1332,6 +1339,11 @@ export function FileUpload({
                 </span>
               )}
               <span className="sr-only">{item.filename} — uploaded</span>
+              {tileNote?.(item.r2Ref) ? (
+                <span data-upload-tile-note="" className="absolute inset-x-0 bottom-0 truncate bg-ink/70 px-1.5 py-0.5 text-[10px] font-medium text-cream">
+                  {tileNote(item.r2Ref)}
+                </span>
+              ) : null}
               <span
                 aria-hidden
                 className="absolute left-1.5 top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-cream/90 text-success-700"

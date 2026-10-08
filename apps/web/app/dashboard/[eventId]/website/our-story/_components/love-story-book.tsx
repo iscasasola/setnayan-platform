@@ -63,6 +63,8 @@ export type LoveStoryBookProps = {
   /** Is the Love Story section itself off the Event Hub (widget mode hidden)? */
   sectionHidden: boolean;
   mediaUrls: Readonly<Record<string, string>>;
+  /** Photos that were picked from ANOTHER event: ref → that event's name ('' when it could not be read). */
+  photoFrom?: Readonly<Record<string, string>>;
   action: (formData: FormData) => void | Promise<void>;
   /** The "Pick from our events" block, drawn by the page (it reads other events). */
   pickSlot: React.ReactNode;
@@ -135,6 +137,7 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
       action={p.action}
       moments={sortMoments(p.moments)}
       mediaUrls={p.mediaUrls}
+      photoFrom={p.photoFrom}
       sheet={sheetProps}
       add={canAdd ? { can: true } : { can: false, line: proLine }}
     />

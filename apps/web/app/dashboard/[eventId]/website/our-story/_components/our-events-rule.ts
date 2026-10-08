@@ -63,3 +63,25 @@ export function newestFirst<T extends { eventId: string; date: string | null }>(
     return x.eventId.localeCompare(y.eventId);
   });
 }
+
+/**
+ * WHERE A STORED PHOTO CAME FROM — read off the ref itself. Every photo an event shows is uploaded under that
+ * event's own folder (`r2://<bucket>/events/<event id>/our-photos/…`, `…/landing-page-hero/…`, `…/love-story/…`),
+ * and "Pick from our events" stores the SAME ref without copying. So a moment's photo whose folder names another
+ * event was picked from that event — nothing else records it, and nothing else needs to.
+ * Null for a ref with no event folder (a legacy address): its source is not known, and it is treated as their own.
+ */
+export function eventOfPhotoRef(ref: string): string | null {
+  const m = /^r2:\/\/[^/]+\/events\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\//i.exec(ref);
+  return m ? m[1]!.toLowerCase() : null;
+}
+
+/** The photos among `refs` that came from ANOTHER event: ref → that event's id. */
+export function photosFromOtherEvents(refs: readonly string[], thisEventId: string): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const ref of refs) {
+    const from = eventOfPhotoRef(ref);
+    if (from && from !== thisEventId.toLowerCase()) out.set(ref, from);
+  }
+  return out;
+}

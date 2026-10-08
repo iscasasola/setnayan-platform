@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
-import { ArrowDown, ArrowUp, Image as ImageIcon, MoreHorizontal, Plus, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Check, ChevronLeft, ChevronRight, Image as ImageIcon, MoreHorizontal, Plus, Trash2 } from 'lucide-react';
 import { FileUpload } from '@/app/_components/file-upload';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PILL_ON_CLASS } from '@/app/_components/pill-selector';
@@ -9,6 +9,7 @@ import { TickerPill, WhenTicker } from '@/app/_components/ticker';
 import { TIMELINE_BAND_CLASS, TIMELINE_ROW_CLASS, TimelineRow } from '@/app/_components/timeline-row';
 import { formatCount } from '@/lib/format-number';
 import { HUB_DRAFT_FIELD } from '@/lib/hub-draft';
+import { MAKER_STAY_FIELD } from '@/lib/maker-stay';
 import { LOVE_STORY_CHAPTER_LABEL, MOMENT_LINE_MAX, MOMENT_TITLE_MAX, type ChapteredMoment, type LoveStoryMoment, type MomentAnchor, type MomentDate } from '@/lib/love-story-moments';
 import { STUDIO_FOOT_BUTTON } from '@/lib/studio-skin';
 import { whenWords, type TimelineWhen } from '@/lib/timeline';
@@ -17,6 +18,7 @@ import { PickSheetContext } from '../../editor/_components/pick-menu-place';
 import { useMaker } from '../../../launch/_components/maker-context';
 import { LoveStoryProLine } from './love-story-pro-line';
 import { MomentNotKept, type MomentSheet } from './moment-sheet';
+import type { OtherEvent } from './pick-from-our-events';
 /* 🧭 The Studio's own add/edit sheet (owner 2026-10-08) — rides this lazy chunk, never the first load. */
 import { MomentSheetStudio } from './moment-sheet-studio';
 
@@ -130,6 +132,80 @@ export function movedOrder(ids: readonly string[], id: string, by: 1 | -1): stri
   return next;
 }
 
+/* ── PHOTOS TWO WAYS: upload, or pick from their other events (owner 2026-10-08) ───────────────────────────────── */
+
+/**
+ * WHAT "PICK FROM OUR EVENTS" KNOWS SO FAR. Asked of the server ONCE per visit to this page — by the first tap that
+ * opens it, never by opening Love Story — and kept for every moment's slots after that.
+ */
+export type EventsOffer = { state: 'idle' | 'asking' | 'failed' } | { state: 'have'; events: readonly OtherEvent[] };
+
+/**
+ * The pair's other events, asked through the moment action's own `intent=offer` (the one question it answers — it
+ * writes nothing and re-draws nothing). Null when it could not be read: the screen then says so with Try again,
+ * never "no other events".
+ */
+export async function askOurEvents(action: Action): Promise<readonly OtherEvent[] | null> {
+  const fd = new FormData();
+  fd.set('intent', 'offer');
+  try {
+    const answer = (await action(fd)) as unknown as { offer?: unknown } | undefined;
+    return Array.isArray(answer?.offer) ? (answer.offer as OtherEvent[]) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** A pick, as the moment form carries it — the SHIPPED `intent=pick`: these photos join THIS moment. */
+export function momentPickForm(momentId: string, refs: readonly string[]): FormData {
+  const fd = new FormData();
+  fd.set('intent', 'pick');
+  fd.set('id', momentId);
+  for (const ref of refs) fd.append('media', ref);
+  return fd;
+}
+
+/**
+ * A change only the server may decide (a new photo is screened; a pick is checked against what is theirs): into the
+ * DRAFT, landing on the address the couple is already on (`lib/maker-stay.ts`) — so the Maker is re-drawn in place,
+ * never reloaded from nothing. `here` is null outside the Maker.
+ */
+export function draftInPlace(fd: FormData, here: string | null): FormData {
+  fd.set(HUB_DRAFT_FIELD, '1');
+  if (here) {
+    fd.set('return_to', here);
+    fd.set(MAKER_STAY_FIELD, '1');
+  }
+  return fd;
+}
+
+/** How many more photos this moment has room for, given what its slots hold right now. */
+export function momentPhotoRoom(held: number, now: number): number {
+  return Math.max(0, momentPhotoSlots(held) - now);
+}
+
+/** Tick or untick one offered photo — never past the room there is. */
+export function tickedPhotos(ticked: readonly string[], ref: string, room: number): readonly string[] {
+  if (ticked.includes(ref)) return ticked.filter((r) => r !== ref);
+  return ticked.length >= room ? ticked : [...ticked, ref];
+}
+
+/**
+ * What a photo's square says when it was picked from ANOTHER event — or null for one of this moment's own. Such a
+ * photo can be removed from the moment here; it is not this page's to change. The name is the event's; when it
+ * could not be read the words say so plainly rather than guess.
+ */
+export function photoFromWords(photoFrom: Readonly<Record<string, string>> | undefined, ref: string): string | null {
+  if (!photoFrom || !(ref in photoFrom)) return null;
+  return photoFrom[ref] ? `From ${photoFrom[ref]}` : 'From another of your events';
+}
+
+/** An event's day, said in full ("December 12, 2026") — or nothing when it has no date yet. */
+function eventDayWords(iso: string | null): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso ?? '');
+  return m ? whenWords({ y: Number(m[1]), m: Number(m[2]), d: Number(m[3]) }, true) : '';
+}
+
 const sameWhen = (a: MomentDate | undefined, b: MomentDate | undefined) => (a?.y ?? 0) === (b?.y ?? 0) && (a?.m ?? 0) === (b?.m ?? 0) && (a?.d ?? 0) === (b?.d ?? 0);
 const sameList = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((v, i) => v === b[i]);
 const whyNot = (e: unknown) => (e instanceof MomentNotKept ? e.message : 'That did not save. Nothing changed — please try again.');
@@ -151,6 +227,9 @@ function MomentRow({
   action,
   sheet,
   mediaUrls,
+  photoFrom,
+  offer,
+  onAskOffer,
   editing,
   onEdit,
   onEndEdit,
@@ -163,6 +242,9 @@ function MomentRow({
   action: Action;
   sheet: MomentSheetBase;
   mediaUrls: Readonly<Record<string, string>>;
+  photoFrom?: Readonly<Record<string, string>>;
+  offer: EventsOffer;
+  onAskOffer: () => void;
   editing: boolean;
   onEdit: () => void;
   onEndEdit: () => void;
@@ -187,13 +269,17 @@ function MomentRow({
   const media = m.media ?? [];
   const shown: TimelineWhen | null = rolled?.when ?? m.date ?? null;
 
+  /** Resolves `false` when the change was refused (and said on the row). */
   const send = (fd: FormData) => {
     setProblem(null);
     return Promise.resolve(action(fd)).catch((e: unknown) => {
       if (isRedirect(e)) throw e;
       setProblem(whyNot(e));
+      return false as const;
     });
   };
+  /** A photo form for the server: into the DRAFT, re-drawn in place. */
+  const photosForm = (refs: readonly string[]) => draftInPlace(momentEditForm(m, { media: refs }), maker ? `${window.location.pathname}${window.location.search}` : null);
   /** ONE write for whatever the when rolled to — when its ticker closes, and only if it changed. */
   const writeRolled = () => {
     const r = rolled;
@@ -211,12 +297,24 @@ function MomentRow({
     const refs = picked.current;
     picked.current = null;
     if (!refs || sameList(refs, media)) return;
-    const fd = momentEditForm(m, { media: refs });
-    /* A NEW photo goes to the server (it screens it): into the DRAFT, and back to this page. */
-    fd.set(HUB_DRAFT_FIELD, '1');
-    if (maker) fd.set('return_to', `/dashboard/${maker.eventId}/launch?tool=love-story`);
+    /* A NEW photo goes to the server (it screens it): into the DRAFT, and re-drawn where the couple is. */
     setKeeping(true);
-    void send(fd).finally(() => setKeeping(false));
+    void send(photosForm(refs)).finally(() => setKeeping(false));
+  };
+  /**
+   * PICKED FROM ANOTHER EVENT — the shipped `intent=pick`, with this moment's id. ONE write. If the slots also hold
+   * something not kept yet (a photo just uploaded or removed), that is kept FIRST by its own save and the pick
+   * follows it — one after the other, so neither can overwrite the other; a refused first save stops the second.
+   */
+  const pickFrom = (refs: readonly string[]) => {
+    const pending = picked.current;
+    picked.current = null;
+    if (refs.length === 0) return;
+    setKeeping(true);
+    void (async () => {
+      if (pending && !sameList(pending, media) && (await send(photosForm(pending))) === false) return;
+      await send(draftInPlace(momentPickForm(m.id, refs), maker ? `${window.location.pathname}${window.location.search}` : null));
+    })().finally(() => setKeeping(false));
   };
   const move = (by: 1 | -1) => {
     const next = movedOrder(ids, m.id, by);
@@ -309,6 +407,13 @@ function MomentRow({
                 m={m}
                 sheet={sheet}
                 mediaUrls={mediaUrls}
+                photoFrom={photoFrom}
+                offer={offer}
+                onAskOffer={onAskOffer}
+                onPick={(refs) => {
+                  pickFrom(refs);
+                  close();
+                }}
                 onChange={(refs) => (picked.current = refs)}
                 onUploading={(busy) => {
                   setUploading(busy);
@@ -417,6 +522,10 @@ export function MomentPhotos({
   m,
   sheet,
   mediaUrls,
+  photoFrom,
+  offer = { state: 'idle' },
+  onAskOffer,
+  onPick,
   onChange,
   onUploading,
   refusedClose = false,
@@ -425,6 +534,14 @@ export function MomentPhotos({
   m: LoveStoryMoment;
   sheet: MomentSheetBase;
   mediaUrls: Readonly<Record<string, string>>;
+  /** Photos here that were picked from another event: ref → its name ('' when unknown). */
+  photoFrom?: Readonly<Record<string, string>>;
+  /** What "Pick from our events" knows so far (the page's — asked once, shared by every moment). */
+  offer?: EventsOffer;
+  /** Ask for the pair's other events (the first opening; Try again). */
+  onAskOffer?: () => void;
+  /** These offered photos join this moment — and the slots close. */
+  onPick?: (refs: readonly string[]) => void;
   onChange: (refs: readonly string[]) => void;
   /** A file is on its way (or the last one has landed) — the slots are held open meanwhile. */
   onUploading?: (busy: boolean) => void;
@@ -438,10 +555,25 @@ export function MomentPhotos({
   const [busy, setBusy] = useState(false);
   const [pct, setPct] = useState<number | null>(null);
   const standIn = useContext(SlotsUploadStandIn);
+  /* What the slots hold right now (photos kept + added − removed), for the room a pick may fill. */
+  const [now, setNow] = useState<readonly string[]>(media);
+  /* The second way, opened IN this sheet — never a second screen. The uploader stays mounted behind it. */
+  const [picking, setPicking] = useState(false);
+  const room = momentPhotoRoom(media.length, now.length);
+  /* They were asked and have none: the choice stays, quiet, and says why. */
+  const none = offer.state === 'have' && offer.events.length === 0;
   return (
     <div data-moment-photos="" className="mx-auto w-full max-w-[300px]">
+      {picking && onPick ? (
+        <PickFromEvents offer={offer} onAsk={() => onAskOffer?.()} room={room} here={now} onBack={() => setPicking(false)} onAdd={onPick} />
+      ) : null}
+      <div hidden={picking}>
       <p className="pb-2.5 pt-0.5 text-center text-[13px] font-semibold text-ink/70">Up to {formatCount(MOMENT_PHOTOS_OFFERED)} photos. The first one shows first on your page.</p>
       {sheet.ownsPro ? (
+        <>
+        {/* THREE across on every width: the uploader's gallery goes to four on a computer, where this pop is 300 px
+            wide — and at four a tile is too small for its pie and its ✕ to stand clear of each other. */}
+        <div data-moment-photos-tiles="" className="[&_ul]:!grid-cols-3">
         <FileUpload
           bucket="media"
           pathPrefix={`events/${sheet.eventId}/love-story`}
@@ -462,13 +594,46 @@ export function MomentPhotos({
             onUploading?.(next);
           }}
           onProgress={setPct}
+          /* 🔗 A photo picked from another event says where it is from. It can be removed here (✕); it is not
+             this page's to change. */
+          tileNote={(ref) => photoFromWords(photoFrom, ref)}
           onChange={(value) => {
-            onChange(Array.isArray(value) ? value : value ? [value] : []);
+            const refs = Array.isArray(value) ? value : value ? [value] : [];
+            onChange(refs);
             /* The uploader tells of a change while it is being drawn; this sheet's own line follows a beat later
                (setting state inside another component's draw is refused by React, and said in the console). */
-            queueMicrotask(() => setChanged(true));
+            queueMicrotask(() => {
+              setChanged(true);
+              setNow(refs);
+            });
           }}
         />
+        </div>
+        {/* THE SECOND WAY — a photo one of their other events already shows. Asked for only when this is tapped. */}
+        {onPick ? (
+          <>
+            {/* BUTTON-RULE */}
+            <button
+              type="button"
+              data-moment-photos-pick=""
+              disabled={busy || none || room === 0}
+              onClick={() => {
+                onAskOffer?.();
+                setPicking(true);
+              }}
+              className="sn-press mt-2.5 flex min-h-11 w-full items-center justify-between gap-2 rounded-full bg-cream pl-4 pr-3 text-left text-[14px] font-semibold text-ink ring-1 ring-inset ring-ink/15 disabled:opacity-50"
+            >
+              Pick from our events
+              <ChevronRight aria-hidden className="h-[18px] w-[18px] shrink-0 text-sn-accent" strokeWidth={2} />
+            </button>
+            {none || room === 0 ? (
+              <p data-moment-photos-pick-why="" className="pt-1.5 text-center text-[12.5px] text-ink/60">
+                {none ? 'You have no other events yet.' : 'This moment is full. Remove a photo to add another.'}
+              </p>
+            ) : null}
+          </>
+        ) : null}
+        </>
       ) : (
         <div className="text-center">
           <LoveStoryProLine storeShell={sheet.storeShell} href={sheet.proHref} price={sheet.proPrice} />
@@ -495,6 +660,155 @@ export function MomentPhotos({
       >
         {busy ? uploadingWords(pct) : 'Done'}
       </button>
+      </div>
+    </div>
+  );
+}
+
+const PICK_ROW = 'flex min-h-[52px] w-full items-center justify-between gap-2 border-t border-ink/10 py-2 pl-1 pr-0.5 text-left first:border-t-0';
+
+/**
+ * PICK FROM OUR EVENTS — in the slots' own sheet. First the pair's other events, one list row each (its name, its
+ * day, what it can lend); open one and its photos are a grid of fixed squares to tick — as many as the moment has
+ * room for — then ONE button adds them. An event that is someone else's, or shows no photos yet, is listed and says
+ * so; it cannot be opened. Loading, none and "could not look" never look alike.
+ */
+export function PickFromEvents({
+  offer,
+  onAsk,
+  room,
+  here,
+  onBack,
+  onAdd,
+}: {
+  offer: EventsOffer;
+  onAsk: () => void;
+  /** How many more photos the moment has room for. */
+  room: number;
+  /** The photos the moment's slots hold now — one of these cannot be picked again. */
+  here: readonly string[];
+  onBack: () => void;
+  onAdd: (refs: readonly string[]) => void;
+}) {
+  const [open, setOpen] = useState<string | null>(null);
+  const [ticked, setTicked] = useState<readonly string[]>([]);
+  const event = offer.state === 'have' ? (offer.events.find((e) => e.eventId === open) ?? null) : null;
+  const back = () => {
+    if (!event) return onBack();
+    setOpen(null);
+    setTicked([]);
+  };
+  return (
+    <div data-moment-pick={event ? 'photos' : 'events'}>
+      <div className="flex items-center gap-1 pb-1">
+        {/* BUTTON-RULE */}
+        <button type="button" data-moment-pick-back="" onClick={back} className="sn-press -ml-1.5 inline-flex min-h-11 shrink-0 items-center gap-0.5 rounded-full pl-1 pr-2.5 text-[13.5px] font-semibold text-ink">
+          <ChevronLeft aria-hidden className="h-[18px] w-[18px] text-sn-accent" strokeWidth={2} />
+          {event ? 'Our events' : 'Photos'}
+        </button>
+        <p className="min-w-0 flex-1 truncate pr-1 text-right text-[13px] font-semibold text-ink/70">{event ? event.name : 'Pick from our events'}</p>
+      </div>
+      {event ? (
+        <>
+          <p role="status" data-moment-pick-room="" className="pb-2 text-center text-[12.5px] font-semibold text-ink/70">
+            {ticked.length
+              ? `${formatCount(ticked.length)} of ${formatCount(room)} picked.`
+              : `Tap up to ${formatCount(room)} ${room === 1 ? 'photo' : 'photos'} — the room this moment has.`}
+          </p>
+          <ul className="grid grid-cols-3 gap-2">
+            {event.photos.map((ph, i) => {
+              const held = here.includes(ph.ref);
+              const on = ticked.includes(ph.ref);
+              return (
+                <li key={ph.ref}>
+                  {/* BUTTON-RULE */}
+                  <button
+                    type="button"
+                    data-moment-pick-photo={ph.ref}
+                    aria-pressed={on}
+                    disabled={held || (!on && ticked.length >= room)}
+                    aria-label={held ? `Photo ${formatCount(i + 1)} — already in this moment` : `Photo ${formatCount(i + 1)} from ${event.name}`}
+                    onClick={() => setTicked((t) => tickedPhotos(t, ph.ref, room))}
+                    className={`sn-press relative block aspect-square w-full overflow-hidden rounded-xl bg-ink/10 disabled:opacity-40 ${on ? 'ring-2 ring-sn-accent ring-offset-2 ring-offset-white' : ''}`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={ph.url} alt="" className="h-full w-full object-cover" />
+                    {on ? (
+                      <span aria-hidden data-moment-pick-tick="" className={`absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full ${PILL_ON_CLASS}`}>
+                        <Check className="h-3 w-3" strokeWidth={3} />
+                      </span>
+                    ) : null}
+                    {held ? <span className="absolute inset-x-0 bottom-0 bg-ink/70 py-0.5 text-center text-[10px] font-medium text-cream">Already here</span> : null}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+          {/* BUTTON-RULE */}
+          <button
+            type="button"
+            data-moment-pick-add=""
+            disabled={ticked.length === 0}
+            onClick={() => onAdd(ticked)}
+            className={`sn-press mt-3 flex min-h-12 w-full items-center justify-center rounded-full text-[15px] font-semibold disabled:cursor-default disabled:opacity-50 ${PILL_ON_CLASS}`}
+          >
+            {ticked.length ? `Add ${formatCount(ticked.length)} ${ticked.length === 1 ? 'photo' : 'photos'}` : 'Add photos'}
+          </button>
+        </>
+      ) : offer.state === 'have' ? (
+        offer.events.length === 0 ? (
+          <p data-moment-pick-none="" className="px-2 py-6 text-center text-[13.5px] text-ink/70">
+            You have no other events yet.
+          </p>
+        ) : (
+          <ul data-moment-pick-list="" className="flex flex-col pb-1">
+            {offer.events.map((e) => {
+              const can = e.hosted && e.photos.length > 0;
+              const lends = !e.hosted ? 'Someone else’s event' : e.photos.length === 0 ? 'No photos yet' : `${formatCount(e.photos.length)} ${e.photos.length === 1 ? 'photo' : 'photos'}`;
+              const words = (
+                <span className="min-w-0">
+                  <span className={`block truncate text-[14.5px] font-semibold ${can ? 'text-ink' : 'text-ink/55'}`}>{e.name}</span>
+                  <span className="block truncate text-[12.5px] text-ink/55">{[eventDayWords(e.date), lends].filter(Boolean).join(' · ')}</span>
+                </span>
+              );
+              return (
+                <li key={e.eventId} className="contents">
+                  {can ? (
+                    /* BUTTON-RULE */
+                    <button type="button" data-moment-pick-event={e.eventId} onClick={() => setOpen(e.eventId)} className={`sn-press ${PICK_ROW}`}>
+                      {words}
+                      <ChevronRight aria-hidden className="h-[18px] w-[18px] shrink-0 text-sn-accent" strokeWidth={2} />
+                    </button>
+                  ) : (
+                    <div data-moment-pick-event-closed={e.eventId} className={PICK_ROW}>
+                      {words}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )
+      ) : offer.state === 'failed' ? (
+        <div role="alert" data-moment-pick-failed="" className="flex flex-col items-center gap-2 px-2 py-5 text-center">
+          <p className="text-[13.5px] font-semibold text-danger-700">We could not look up your other events.</p>
+          {/* BUTTON-RULE */}
+          <button type="button" data-moment-pick-retry="" onClick={onAsk} className="sn-press inline-flex min-h-11 items-center rounded-full px-5 text-[14px] font-semibold text-ink ring-1 ring-inset ring-ink/20">
+            Try again
+          </button>
+        </div>
+      ) : (
+        <div role="status" aria-busy="true" aria-label="Looking up your other events" data-moment-pick-loading="" className="flex animate-pulse flex-col motion-reduce:animate-none">
+          {[0, 1].map((i) => (
+            <div key={i} aria-hidden className={PICK_ROW}>
+              <span className="flex flex-col gap-1.5">
+                <span className={`h-3.5 rounded-full bg-ink/10 ${i ? 'w-32' : 'w-40'}`} />
+                <span className="h-2.5 w-24 rounded-full bg-ink/10" />
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -540,6 +854,7 @@ export function MomentOrderCards({
   action,
   moments,
   mediaUrls,
+  photoFrom,
   sheet,
   add,
 }: {
@@ -548,6 +863,8 @@ export function MomentOrderCards({
   /** The story as guests read it (`sortMoments`). */
   moments: readonly ChapteredMoment[];
   mediaUrls: Readonly<Record<string, string>>;
+  /** Photos that were picked from another event: ref → that event's name ('' when it could not be read). */
+  photoFrom?: Readonly<Record<string, string>>;
   /** What the shipped `MomentSheet` needs (More…). */
   sheet: MomentSheetBase;
   /** The foot: + Add a moment, or the free-stories line once they are told. */
@@ -562,6 +879,19 @@ export function MomentOrderCards({
   const [freshProblem, setFreshProblem] = useState<string | null>(null);
   const words = useRef<HTMLTextAreaElement>(null);
   const pickSheet = useContext(PickSheetContext);
+  /* 🔎 THE PAIR'S OTHER EVENTS — asked ONCE, by the first "Pick from our events" opened on this page (never by
+     opening Love Story), then shared by every moment's slots. A refusal can be tried again; nothing asks by itself. */
+  const [offer, setOffer] = useState<EventsOffer>({ state: 'idle' });
+  const asking = useRef(false);
+  const askOffer = () => {
+    if (asking.current || offer.state === 'have') return;
+    asking.current = true;
+    setOffer({ state: 'asking' });
+    void askOurEvents(action).then((events) => {
+      asking.current = false;
+      setOffer(events ? { state: 'have', events } : { state: 'failed' });
+    });
+  };
 
   const startFresh = () => {
     const now = new Date();
@@ -603,6 +933,9 @@ export function MomentOrderCards({
               action={action}
               sheet={sheet}
               mediaUrls={mediaUrls}
+              photoFrom={photoFrom}
+              offer={offer}
+              onAskOffer={askOffer}
               editing={editing === m.id}
               onEdit={() => setEditing(m.id)}
               onEndEdit={() => setEditing((cur) => (cur === m.id ? null : cur))}

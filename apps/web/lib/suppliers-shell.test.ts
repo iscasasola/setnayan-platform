@@ -8,14 +8,16 @@
  *   T2  "Build N/M" counts a category that holds a booked supplier or a build
  *       pick, out of the categories that hold anybody — covered ≠ filled;
  *   T3  the build's money is the prices that EXIST; a pick with no recorded
- *       price is counted, and with none recorded there is no figure (never ₱0);
+ *       price is counted, and with none recorded there is no money to print
+ *       (never ₱0);
  *   T4  the date reads at its own precision; the place names a BOOKED venue;
  *       an unset fact is an ask, drawn open.
  *
- * SABOTAGE, each seen red before this shipped (PR body has the runs):
+ * SABOTAGE, each seen red (2026-10-08; the PR body has the runs):
  *   T1 send `compare` to Find            T2 count a covered category as filled
- *   T3 add an unpriced pick as ₱0 — i.e. print the figure when nothing is priced
- *   T4 print a month-only date as a day
+ *   T3 drop the unpriced count · say there is money when nothing is priced ·
+ *      sum without `teamMoney`
+ *   T4 print a month-only date as a day · name an area as if it were the venue
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -29,7 +31,6 @@ import {
   SUPPLIERS_MODE_LABEL,
   SUPPLIERS_MODE_TAB,
   buildTally,
-  buildTallyLine,
   isModeTab,
   suppliersDateFact,
   suppliersModeOfTab,
@@ -107,15 +108,24 @@ test('T3 · the money is the prices that exist — an unpriced pick is counted, 
   const t = buildTally(CHILDREN, LOCKED_CENTAVOS);
   assert.equal(t.knownPhp, 1_056_000 + 198_000, 'booked + still to book; the unpicked candidates are not in the build');
   assert.equal(t.unpriced, 1, 'the ceremony venue is booked with no price recorded');
-  assert.equal(buildTallyLine(t, tallyHasMoney(t)), '3 of 5 · ₱1,254,000');
+  assert.equal(tallyHasMoney(t), true);
+});
+
+test('T3 · a build pick with no price is counted as unpriced and adds nothing', () => {
+  const t = buildTally(
+    [
+      { picks: [pick('kusina', 'shortlisted', 198_000)], buildPickVendorIds: ['kusina'] },
+      { picks: [pick('lola', 'considering', null)], buildPickVendorIds: ['lola'] },
+    ],
+    0,
+  );
+  assert.deepEqual([t.filled, t.total, t.knownPhp, t.unpriced], [2, 2, 198_000, 1]);
 });
 
 test('T3 · nothing priced → no figure at all', () => {
   const t = buildTally([CHILDREN[1]!, CHILDREN[4]!], 0);
   assert.deepEqual([t.filled, t.total, t.knownPhp, t.unpriced], [1, 2, 0, 1]);
-  assert.equal(tallyHasMoney(t), false);
-  assert.equal(buildTallyLine(t, tallyHasMoney(t)), '1 of 2');
-  assert.doesNotMatch(buildTallyLine(t, tallyHasMoney(t)), /₱/);
+  assert.equal(tallyHasMoney(t), false, 'with nothing priced the peek would print ₱0 as the build’s total');
 });
 
 test('T3 · ONE sum — the tally goes through the Build body’s own teamMoney', () => {

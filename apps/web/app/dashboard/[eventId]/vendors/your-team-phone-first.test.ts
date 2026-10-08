@@ -85,7 +85,11 @@ test('(a) the order: the date · place line, Find · Build · Booked, then one b
   assert.match(body, /<Count value=\{tally\.filled\} id="sup-seg-filled" \/>\/<Count value=\{tally\.total\} id="sup-seg-total" \/>/);
   assert.match(body, /<Count value=\{bookedCount\} id="sup-seg-booked" \/>/);
   // No Jump bar and no page-name row on a phone: the visible name is desktop-only.
-  assert.match(body, /<p aria-hidden className="[^"]*\bhidden\b[^"]*\blg:block\b[^"]*">\s*Suppliers\s*<\/p>/);
+  assert.match(
+    body,
+    /<p aria-hidden className="(?:[^" ]+ )*hidden (?:[^" ]+ )*lg:block(?: [^" ]+)*">\s*Suppliers\s*<\/p>/,
+    'the page-name row shows on a phone',
+  );
   assert.doesNotMatch(body, /Jump to|<select\b/);
 });
 

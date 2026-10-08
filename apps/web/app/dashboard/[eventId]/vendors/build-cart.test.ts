@@ -1,7 +1,7 @@
 /**
- * build-cart.test.ts — THE THUMB PILL AND THE CART PEEK of the one-screen
- * Suppliers page (owner 2026-10-07: *"when you click add to build a small pop
- * up showing our build (like a shopping cart pop up)"*; corpus
+ * build-cart.test.ts — THE CART PEEK of the one-screen Suppliers page (owner
+ * 2026-10-07: *"when you click add to build a small pop up showing our build
+ * (like a shopping cart pop up)"*; corpus
  * `SUPPLIERS_HANDOFF_2026-10-07_fable.md` PR1).
  *
  *   T1  the cart peeks only for a pick that SAVED — both shipped "Add to
@@ -9,19 +9,19 @@
  *       and a refused pick says nothing;
  *   T2  the peek stays 2.5 s, names who was added, then the build's own count
  *       and total — and its button opens Build over the shipped bus;
- *   T3  the pill is the shipped ActionButton (neutral · main = the ink fill),
- *       its figures run on the one counting engine, and it is offered in Find
- *       only, once anything is picked — sliding down before the body swaps;
- *   T4  both are drawn into <body> (the dashboard's page wrapper captures
- *       `position: fixed`), and neither writes anything.
+ *   T3  there is NO "View this build" pill in the thumb bar (owner 2026-10-07
+ *       evening: *the Build segment and the cart peek are the doors*; the
+ *       prototype at corpus HEAD draws none);
+ *   T4  the peek is drawn into <body> (the dashboard's page wrapper captures
+ *       `position: fixed`), and writes nothing.
  *
- * Source assertions, comments stripped — the pieces are a portal over
- * `document.body` and this runner has no DOM. The words and the numbers they
- * print are EXECUTED in `lib/suppliers-shell.test.ts` (`buildTallyLine`).
+ * Source assertions, comments stripped — the peek is a portal over
+ * `document.body` and this runner has no DOM. The numbers it prints are
+ * EXECUTED in `lib/suppliers-shell.test.ts` (`buildTally`, `tallyHasMoney`).
  *
- * SABOTAGE, each seen red before this shipped (PR body has the runs):
+ * SABOTAGE, each seen red (2026-10-08; the PR body has the runs):
  *   T1 announce before the save answers     T2 keep the peek up for 25 s
- *   T3 offer the pill in every mode         T4 draw the pill in place (no portal)
+ *   T3 mount a "View this build" pill       T4 draw the peek in place (no portal)
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -84,47 +84,22 @@ test('T2 · two lines — who was added, then the build’s own count and total'
   assert.match(CART, /const viewBuild = \(\) => \{\s*setPeekOn\(false\);\s*goToBuildTab\('build'\);\s*\};/);
 });
 
-/* ── T3 · the pill ───────────────────────────────────────────────────────── */
+/* ── T3 · no pill ────────────────────────────────────────────────────────── */
 
-test('T3 · the pill is the shipped button, filled in ink, with counted figures', () => {
-  const pill = CART.slice(CART.indexOf('data-build-pill'), CART.indexOf('data-cart-peek'));
-  assert.match(pill, /<ActionButton\s+tone="neutral"\s+main\s+icon=\{Hammer\}/);
-  assert.match(pill, /label=\{`View this build · \$\{buildTallyLine\(\{ filled, total, knownPhp \}, withMoney\)\}`\}/);
-  assert.match(pill, /onClick=\{viewBuild\}/);
+test('T3 · the thumb bar holds no "View this build" pill — the segment and the peek are the doors', () => {
+  // The only "View this build" on the screen is the peek's own button…
+  assert.equal((CART.match(/View this build/g) ?? []).length, 1);
+  assert.equal((CART.match(/<ActionButton\b/g) ?? []).length, 1, 'a second button in the cart file — the pill is back');
+  assert.doesNotMatch(CART, /data-build-pill|pillOn|\bmain\b/);
+  // …and the shell mounts the cart with the tally alone: nothing asks for a pill.
+  assert.match(SHELL, /<BuildCart tally=\{tally\} \/>/);
+  assert.doesNotMatch(SHELL, /View this build|pillOn|pillWanted|data-build-pill/);
   assert.doesNotMatch(CART, /<button\b|›/, 'a hand-made button, or a › inside a control');
-  // Every number counts to its value — the one engine, keyed so a re-render does not replay.
-  for (const [name, id] of [['filled', 'sup-pill-filled'], ['total', 'sup-pill-total'], ['knownPhp', 'sup-pill-php']] as const) {
-    assert.match(CART, new RegExp(`const ${name} = useCountTo\\(tally\\.${name}, \\{ id: '${id}' \\}\\);`));
-  }
-  // Whether there is a peso figure at all is decided from the REAL tally.
-  assert.match(CART, /const withMoney = tallyHasMoney\(tally\);/);
-});
-
-test('T3 · the pill is offered in Find only, once anything is picked — and slides before the body swaps', () => {
-  assert.match(SHELL, /const pillWanted = mode === 'find' && tally\.filled > 0;/);
-  assert.match(SHELL, /const pillOn = risen && !leavingFind;/);
-  assert.match(SHELL, /<BuildCart tally=\{tally\} pillOn=\{pillOn\} \/>/);
-  // It slides UP once the mode has rendered (two frames), never pops in — and
-  // is taken down the moment it is not wanted.
-  const rise = SHELL.slice(SHELL.indexOf('const pillWanted'), SHELL.indexOf('const [leavingFind'));
-  assert.match(rise, /if \(!pillWanted\) \{\s*risenRef\.current = false;\s*setRisen\(false\);\s*return;\s*\}/);
-  assert.match(rise, /requestAnimationFrame\(\(\) => \{\s*inner = requestAnimationFrame\(\(\) => \{\s*risenRef\.current = true;\s*setRisen\(true\);/);
-  // …and slides DOWN first when the couple leaves Find (reduced motion: at once).
-  const goTo = SHELL.slice(SHELL.indexOf('const goToSection'), SHELL.indexOf('}, []);', SHELL.indexOf('const goToSection')));
-  assert.match(
-    goTo,
-    /if \(nextMode !== modeRef\.current && risenRef\.current && !prefersReducedMotion\(\)\) \{\s*setLeavingFind\(true\);\s*leaving\.current = window\.setTimeout\(swap, THUMB_SLIDE_MS\);\s*return;\s*\}/,
-  );
-  // The swap ends the leaving — so a second press on Find brings the pill back.
-  assert.match(goTo, /flushSync\(\(\) => \{[\s\S]*?setLeavingFind\(false\);\s*\}\);/);
-  assert.match(CART, /export const THUMB_SLIDE_MS = 300;/);
-  assert.match(CART, /style=\{\{ transitionDuration: `\$\{THUMB_SLIDE_MS\}ms` \}\}/, 'the slide and the wait before the swap can drift apart');
-  assert.match(CART, /inert=\{!pillOn\}/);
 });
 
 /* ── T4 · drawn into <body>, and writes nothing ──────────────────────────── */
 
-test('T4 · both pieces are drawn into <body>, after mount', () => {
+test('T4 · the peek is drawn into <body>, after mount', () => {
   assert.match(CART, /import \{ createPortal \} from 'react-dom';/);
   assert.match(CART, /useEffect\(\(\) => setHost\(document\.body\), \[\]\);/);
   assert.match(CART, /if \(!host\) return null;\s*return createPortal\(/);

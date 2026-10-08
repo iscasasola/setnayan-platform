@@ -16,8 +16,6 @@
 import type { BudgetBuildTab } from './budget-build';
 import { LOCKED_VENDOR_STATUSES } from './shortlist-taxonomy';
 import { teamMoney } from './your-team';
-import { formatCount } from './format-number';
-import { formatPhpRounded } from './php';
 
 /* ── THE THREE MODES ─────────────────────────────────────────────────────── */
 
@@ -85,7 +83,7 @@ const isLocked = (p: { raw_status?: string | null }) => Boolean(p.raw_status && 
  * `build-locked.tsx` calls `lockedRows` and `toLockRows`).
  *
  * 🔑 ONE SUM. The money goes through `teamMoney` — the function behind the
- * Build body's own tiles — so the pill and the tiles cannot disagree, and a
+ * Build body's own tiles — so the peek and the tiles cannot disagree, and a
  * supplier with no recorded price is COUNTED (`unpriced`), never added as ₱0.
  */
 export function buildTally(children: ReadonlyArray<TallyChild>, lockedCentavos: number): BuildTally {
@@ -116,21 +114,6 @@ export function buildTally(children: ReadonlyArray<TallyChild>, lockedCentavos: 
 /** Is there a peso figure to print? None recorded → no figure, never "₱0". */
 export function tallyHasMoney(t: Pick<BuildTally, 'knownPhp'>): boolean {
   return t.knownPhp > 0;
-}
-
-/**
- * "2 of 5 · ₱1,056,000" — the words after the verb on the thumb pill and on
- * the cart peek's second line. `shown` is the figure on screen THIS FRAME (the
- * numbers count to their value); whether the peso part exists at all is
- * decided by the caller from the real tally (`tallyHasMoney`), so a count that
- * is still climbing from zero cannot drop the figure and resize the pill.
- */
-export function buildTallyLine(
-  shown: Pick<BuildTally, 'filled' | 'total' | 'knownPhp'>,
-  withMoney: boolean,
-): string {
-  const count = `${formatCount(shown.filled, 0)} of ${formatCount(shown.total, 0)}`;
-  return withMoney ? `${count} · ${formatPhpRounded(shown.knownPhp)}` : count;
 }
 
 /* ── THE DATE · PLACE LINE ───────────────────────────────────────────────── */

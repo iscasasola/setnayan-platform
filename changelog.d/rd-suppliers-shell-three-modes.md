@@ -19,9 +19,6 @@ from PR0; prototype `prototypes/suppliers_page_2026-10-07_fable.html`.
 - **One body that swaps**, opening at its top. A body is drawn when first shown and
   then kept (hidden, never unmounted), so its own state survives a switch and the
   first paint draws one body, not three.
-- **The thumb pill** "View this build · 2 of 5 · ₱…" in Find once anything is
-  picked (the shipped `ActionButton`, ink fill); it slides up after the mode
-  renders and slides down before the body swaps.
 - **The cart peek** — a two-line ink card for 2.5 s when a supplier is added to the
   build: who was added, then the build's count and total, and "View this build".
   It peeks only for a pick that SAVED.
@@ -46,7 +43,7 @@ peek.
 **No new read, no new schema, +0 server actions.** "Build N/M" and the build's
 money come from the plan model `BuildLocked` already draws, summed by the same
 `teamMoney` (an unpriced pick is counted, never added as ₱0; with nothing priced
-there is no peso figure at all). "Booked N" is `teamCountsLine` over the rows the
+the peek prints no peso figure at all). "Booked N" is `teamCountsLine` over the rows the
 Booked body draws. The place is the BOOKED venue by the Event Hub's own rule
 (`pickVenueBookingRows`) plus the event's area.
 
@@ -66,10 +63,14 @@ block sits under the bar), `marketplace-masthead-and-layout`, `pillar-parts`
 (a second chat door stays gone). Regenerated: `port-control-baseline.json`
 (the three deliberate removals), `lib/ugat/screens.generated.json`.
 
+**No "View this build" pill.** The first PR1 text drew a black pill in the thumb
+bar; the owner's 2026-10-07 evening ruling took it out ("the Build segment and
+the cart peek after Add to build are the doors") and the prototype at corpus
+HEAD draws none. In Find the thumb bar is the search · add row, which is PR2.
+
 **Not in this PR (said, not dropped):** the in-place date and venue sheets (PR5 —
 the two values open the shipped Event Details field for now, which leaves this
-page); the Find thumb bar's search / add / expand (PR2 — the plan's 2026-10-07
-evening update moves the "View this build" pill out of the bar when that lands);
+page); the Find thumb bar's expand · search · add (PR2);
 `BuildLocked`'s own Date and Location tiles still show inside the Build stub
 until PR3 redraws it.
 

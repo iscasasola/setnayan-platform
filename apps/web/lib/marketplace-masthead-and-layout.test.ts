@@ -129,7 +129,7 @@ test('ONE pinned block, and nothing in the takeover is fixed', () => {
   // The line and the control stay as the page scrolls (owner 2026-10-07: "this
   // will stay prominent when scrolled up?"). A SECOND pinned bar under it is
   // the stacked-bars defect `lint-no-stacked-pinned-bars.mjs` exists for; the
-  // thumb pill and the cart peek are `build-cart.tsx`'s, drawn into <body>.
+  // cart peek is `build-cart.tsx`'s, drawn into <body>.
   const src = code(TAKEOVER);
   assert.equal((src.match(/(?<![:\w-])sticky(?![\w-])/g) ?? []).length, 1, 'a second pinned bar');
   assert.doesNotMatch(src, /(?<![:\w-])fixed(?![\w-])/);

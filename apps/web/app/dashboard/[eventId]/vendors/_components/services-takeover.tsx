@@ -9,7 +9,8 @@
  *   the date · place line        the ONLY place the date and the place appear
  *   Find · Build N/M · Booked N  ONE segmented control (`ISegmented`, wine)
  *   one body                     that swaps — nothing else on the page
- *   the thumb pill · cart peek   `build-cart.tsx`
+ *   the cart peek                `build-cart.tsx` — rises when a supplier is
+ *                                added to the build
  *
  * The line and the control are pinned under the app's top bar as the body
  * scrolls. The page's own name ("Suppliers") is the masthead's h1 for a screen
@@ -73,7 +74,7 @@ import {
   EXPLORE_INFO_WHAT,
   EXPLORE_STATE_LEGEND,
 } from '@/lib/explore-info-copy';
-import { BuildCart, THUMB_SLIDE_MS } from './build-cart';
+import { BuildCart } from './build-cart';
 
 // The cross-tab bus (BB_TAB_EVENT + goToBuildTab) and TAB_META live in
 // @/lib/budget-build (2026-06-16) so the layout-mounted nav shares them without
@@ -104,14 +105,6 @@ const SECTION_HEADING: Record<BudgetBuildTab, string> = {
 const LANDING_CSS =
   '[data-budget-build-takeover] .slcat [id^="slfold-"],[data-budget-build-takeover] .slcat [id^="sltile-"]{scroll-margin-top:calc(var(--stick-h,150px) + 14px)}' +
   '[data-budget-build-takeover] [id^="svc-"]{scroll-margin-top:calc(var(--stick-h,150px) + 8px)}';
-
-function prefersReducedMotion(): boolean {
-  return (
-    typeof window !== 'undefined' &&
-    typeof window.matchMedia === 'function' &&
-    window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  );
-}
 
 export function ServicesTakeover({
   eventId,
@@ -158,42 +151,6 @@ export function ServicesTakeover({
   const rootRef = useRef<HTMLElement>(null);
   const stickRef = useRef<HTMLDivElement>(null);
 
-  // ── THE THUMB PILL (Find, once anything is picked) ───────────────────────
-  // It slides up once the mode has rendered and slides down FIRST when the
-  // couple leaves Find (BUTTON_RULE rule 5) — never pops in or vanishes.
-  //   risen        two frames after Find (with a pick) is on screen
-  //   leavingFind  the ~300 ms between asking for another body and the swap
-  const pillWanted = mode === 'find' && tally.filled > 0;
-  const [risen, setRisen] = useState(false);
-  const risenRef = useRef(false);
-  useEffect(() => {
-    if (!pillWanted) {
-      risenRef.current = false;
-      setRisen(false);
-      return;
-    }
-    let inner = 0;
-    const outer = requestAnimationFrame(() => {
-      inner = requestAnimationFrame(() => {
-        risenRef.current = true;
-        setRisen(true);
-      });
-    });
-    return () => {
-      cancelAnimationFrame(outer);
-      cancelAnimationFrame(inner);
-    };
-  }, [pillWanted]);
-  const [leavingFind, setLeavingFind] = useState(false);
-  const leaving = useRef<number | null>(null);
-  useEffect(
-    () => () => {
-      if (leaving.current != null) window.clearTimeout(leaving.current);
-    },
-    [],
-  );
-  const pillOn = risen && !leavingFind;
-
   // ── ONE DOOR INTO A SECTION: the segmented control, the bus, `?tab=` ─────
   const goToSection = useCallback((next: BudgetBuildTab, smooth = true) => {
     const nextMode = suppliersModeOfTab(next);
@@ -213,27 +170,15 @@ export function ServicesTakeover({
       }
       document.getElementById(sectionId(next))?.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'start' });
     };
-    const swap = () => {
-      leaving.current = null;
-      modeRef.current = nextMode;
-      // Committed NOW, not on the next render: a caller that scrolls to a row
-      // of the body it just asked for (the Build body's "open this category"
-      // doorway → the bench) must find that body on screen.
-      flushSync(() => {
-        setMode(nextMode);
-        setSeen((s) => (s.has(nextMode) ? s : new Set(s).add(nextMode)));
-        // Back on Find before the swap happened (a second press) → the pill returns.
-        setLeavingFind(false);
-      });
-      land();
-    };
-    if (leaving.current != null) window.clearTimeout(leaving.current);
-    if (nextMode !== modeRef.current && risenRef.current && !prefersReducedMotion()) {
-      setLeavingFind(true);
-      leaving.current = window.setTimeout(swap, THUMB_SLIDE_MS);
-      return;
-    }
-    swap();
+    modeRef.current = nextMode;
+    // Committed NOW, not on the next render: a caller that scrolls to a row of
+    // the body it just asked for (the Build body's "open this category"
+    // doorway → the bench) must find that body on screen.
+    flushSync(() => {
+      setMode(nextMode);
+      setSeen((s) => (s.has(nextMode) ? s : new Set(s).add(nextMode)));
+    });
+    land();
   }, []);
 
   // `?tab=` may have been written (replaceState) while this page was still
@@ -368,8 +313,7 @@ export function ServicesTakeover({
       <div className="min-w-0 pt-4 lg:max-w-[820px]">
         {drawn('find') ? (
           <div data-suppliers-body="find" hidden={mode !== 'find'}>
-            {/* Room for the thumb pill, so the last row is never under it. */}
-            <div className={tally.filled > 0 ? 'max-lg:pb-16' : undefined}>
+            <div>
               {/* ONE Find a supplier opens the Find page — only this event
                   type's categories, grouped the way hosts think (P3,
                   2026-10-01). PR2 unfolds that marketplace in place. */}
@@ -433,7 +377,7 @@ export function ServicesTakeover({
         ) : null}
       </div>
 
-      <BuildCart tally={tally} pillOn={pillOn} />
+      <BuildCart tally={tally} />
     </section>
   );
 }

@@ -1842,7 +1842,7 @@ export async function resolveEventMoney(
           vendorRows as unknown as EventVendorRow[],
         ).catch((e: unknown) => {
           pricingRefused = true;
-          refused('vendor pricing lookup', e);
+          refused('supplier pricing lookup', e);
           return new Map() as VendorPricingLookup;
         });
 

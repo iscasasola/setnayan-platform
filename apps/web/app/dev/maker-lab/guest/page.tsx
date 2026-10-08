@@ -23,6 +23,10 @@ import { WhenYesCelebration } from '@/app/[slug]/_components/when-yes-celebratio
 import { celebrationColours, isRsvpCelebration } from '@/lib/rsvp-celebration';
 import { RsvpCanvasBridge } from '@/app/[slug]/_components/rsvp-canvas-bridge';
 import { rsvpWordBridgeKey } from '@/lib/rsvp-stage-shared';
+import { postEventSceneDrawn } from '@/lib/post-event-scenes';
+import { postEventLookOf } from '@/lib/post-event-draft';
+import { resolvePostEventStyle } from '@/lib/post-event-style-resolve';
+import { LAB_EDITORIAL_COOKIE, labEditorialDraft, labPostEventRead } from '../lab-post-event';
 
 /** maria-and-jose's run of show and venues (read-only shape, 2026-10-05) — the lab has no database. */
 const LAB_BLOCK = (i: number, label: string, at: string, location: string | null, type = 'pre_ceremony') => ({
@@ -122,6 +126,19 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
     }),
   );
   const words = await eventWordsFor('wedding').catch(() => null);
+  /* 🎞 The lab's Post Event story as guests would meet it: the scenes drawn, in the run's order, each with the marker
+     its tile scrolls to, the style it is drawn in and the couple's own words where they wrote some. */
+  const labStory = phase === 'editorial' ? labPostEventRead(labEditorialDraft((await cookies()).get(LAB_EDITORIAL_COOKIE)?.value)) : null;
+  let chaptersMarked = false;
+  const postEventScenes = (labStory?.rows ?? [])
+    .filter((r) => postEventSceneDrawn(r.status, r.hidden))
+    .map((r) => {
+      const chapter = r.block === 'chapters';
+      const marker = chapter ? (chaptersMarked ? null : 'ch-1') : r.key;
+      if (chapter) chaptersMarked = true;
+      const look = postEventLookOf(labStory!.arrangement, r.key);
+      return { key: r.key, name: r.name, source: r.source, marker, style: resolvePostEventStyle(r.key, look.style, 'wedding'), words: look.words ?? null };
+    });
   const mark = (key: string) => <span hidden data-maker-section={key} />;
   if (rsvp) {
     return (
@@ -295,6 +312,33 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
           </p>
         </section>
       </div>
+      {/* 🎞 POST EVENT'S OWN SCENES (the Post Event stage only) — a stand-in for each scene guests would meet, in the
+          run's order, behind the marker the real story page puts before it (`p:<scene>`; the day's chapters share
+          one, as they move together). The SAME rows the lab hands the Maker (`../lab-post-event.ts`), with the lab's
+          drafted story keys laid over — so a scene hidden, moved, restyled or reworded in the panel is seen here. */}
+      {phase === 'editorial' ? (
+        <div className="sn-editorial" data-lab-post-event="">
+          {postEventScenes.map((r) => (
+            <div key={r.key} className="contents">
+              {r.marker ? mark(`p:${r.marker}`) : null}
+              <section data-lab-post-event-scene={r.key} data-lab-post-event-style={r.style ?? undefined} className="border-t border-ink/10 px-4 py-10 text-left">
+                <p className="pahina-eyebrow">
+                  <span data-el="label">{r.words?.label ?? r.name}</span>
+                </p>
+                <p className="mt-3 font-serif text-2xl" data-el="heading">
+                  {r.words?.heading ?? r.source}
+                </p>
+                {r.words?.body ? (
+                  <p className="mt-2 text-sm text-ink/70" data-el="body">
+                    {r.words.body}
+                  </p>
+                ) : null}
+                {r.style ? <p className="mt-3 text-[11px] uppercase tracking-[0.14em] text-ink/45">Style · {r.style}</p> : null}
+              </section>
+            </div>
+          ))}
+        </div>
+      ) : null}
       {/* The Maker's two-way bridge, as the real canvas mounts it — its `ready` swaps a buffered frame in. Never in a miniature. */}
       {sp.editor === '1' && !preview ? <EditorBridge /> : null}
       {only ? <style>{canvasOnlyCss(only)}</style> : null}

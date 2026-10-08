@@ -161,3 +161,17 @@ reaches every RSVP row in the Studio lab: no press there leaves the browser, and
 - `lib/studio-rsvp-wears-the-templates.test.ts` (4) · (5) · (10) brought to it; 4 mutations seen red.
 
 SPEC IMPACT: None.
+
+## 2026-10-09 · chore(lab): the Maker lab has a Post Event story — its panel can be opened and pressed
+
+The dev lab (`/dev/maker-lab`, 404 in production) handed the Maker `postEvent: null` and drew the Invitation for the
+Post Event stage, so the Post Event panel could not be seen without a database. Lab files only:
+
+- `app/dev/maker-lab/lab-post-event.ts` — maria-and-jose's day as facts (`PostEventSources`), compiled by the real
+  `compilePostEventScenes` and listed by the real `postEventSceneList`; the lab's drafted story keys (`lab_editorial`
+  cookie) are laid over it with `overlayPostEventDraftJson`, as the real Maker lays the hub draft.
+- `page.tsx` hands that story to the Maker; `maker-lab-shell.tsx`'s save stand-in keeps a patch's `editorial` keys;
+  `guest/page.tsx` draws a stand-in per drawn scene behind the real page's own marker (`p:<scene>`).
+- `lib/the-maker-lab-has-a-post-event-story.test.ts` — 3 tests, 5 mutations seen red.
+
+SPEC IMPACT: None.

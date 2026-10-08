@@ -13,6 +13,7 @@ import { resolveThemeGround } from '@/app/[slug]/_lib/theme-ground';
 import type { InvitationWidgetRow, WidgetType } from '@/lib/invitation-widgets';
 import { detailsLabNode } from '../details-lab/details-lab-node';
 import { MakerLabShell } from './maker-lab-shell';
+import { LAB_EDITORIAL_COOKIE, labEditorialDraft, labPostEventRead } from './lab-post-event';
 import { STUDIO_TILE_KEYS, STUDIO_TILES } from '@/lib/studio-tiles';
 
 /**
@@ -92,8 +93,11 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
     mode: 'auto',
   }));
   const pal = INVITE_THEMES.house.palette;
+  /* 🎞 The lab's Post Event story — the day's facts compiled by the real compiler, the lab's drafted story keys
+     (`lab_editorial`) laid over (`./lab-post-event.ts`). It was `null`: the Post Event panel could not be opened. */
+  const labPostEvent = labPostEventRead(labEditorialDraft((await cookies()).get(LAB_EDITORIAL_COOKIE)?.value));
   const navigator = buildMakerNavigatorData({
-    postEvent: null,
+    postEvent: labPostEvent,
     plan: {
       widgets: rows,
       openBrowse: true,

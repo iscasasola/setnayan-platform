@@ -3,6 +3,7 @@
 import type { FixedSceneStyles } from '@/lib/fixed-scene-styles';
 import type { CameraLook } from '@/lib/camera-look';
 import { useEffect, useMemo, type ComponentProps, type ReactNode } from 'react';
+import { LAB_EDITORIAL_COOKIE } from './lab-post-event';
 import { setStudioDraftDoor } from '@/app/dashboard/[eventId]/launch/_components/studio-info';
 import { MakerShell } from '@/app/dashboard/[eventId]/launch/_components/maker-shell';
 import type { StudioTileModel } from '@/lib/studio-tiles';
@@ -81,6 +82,24 @@ async function labDraft(_eventId: string, fd: FormData): Promise<HubDraftActionR
     if (changed) document.cookie = `lab_widgets=${encodeURIComponent(JSON.stringify(held))}; path=/; SameSite=Lax`;
   } catch {
     /* not a scene patch */
+  }
+  /* 🎞 The Post Event story's drafted keys (`editorial` — a scene shown or hidden, the run's order, a scene's style
+     and words) ride `lab_editorial`: each key replaced whole, as the real draft keeps them. The lab's page and its
+     canvas read it back (`./lab-post-event.ts`), so the Post Event panel's presses survive the render that follows. */
+  try {
+    const patch = JSON.parse(String(fd.get('patch') ?? '{}')) as { editorial?: Record<string, unknown> };
+    if (patch.editorial && typeof patch.editorial === 'object') {
+      const raw = document.cookie.split('; ').find((c) => c.startsWith(`${LAB_EDITORIAL_COOKIE}=`))?.slice(LAB_EDITORIAL_COOKIE.length + 1);
+      let held: Record<string, unknown> = {};
+      try {
+        held = raw ? (JSON.parse(decodeURIComponent(raw)) as Record<string, unknown>) : {};
+      } catch {
+        held = {};
+      }
+      document.cookie = `${LAB_EDITORIAL_COOKIE}=${encodeURIComponent(JSON.stringify({ ...held, ...patch.editorial }))}; path=/; SameSite=Lax`;
+    }
+  } catch {
+    /* not a story patch */
   }
   /* 🎨 A part's style (`fixedStyles`) rides `lab_styles`; 🎛 the camera's look rides `lab_camera` — the lab's
      stand-ins for `style_preferences.scene_styles` and `.camera_look`. */

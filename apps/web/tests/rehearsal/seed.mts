@@ -13,10 +13,10 @@
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { FIXTURE } from './fixture';
 import { assertLocalUrl } from './local-only';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-export const HOST_EMAIL = 'host@rehearsal.test';
 
 async function main(): Promise<void> {
   const api = assertLocalUrl(process.env.REHEARSAL_API_URL ?? '', 'the rehearsal auth API');
@@ -33,10 +33,10 @@ async function main(): Promise<void> {
       authorization: `Bearer ${serviceKey}`,
     },
     body: JSON.stringify({
-      email: HOST_EMAIL,
+      email: FIXTURE.hostEmail,
       password,
       email_confirm: true,
-      user_metadata: { full_name: 'Maria Santos', display_name: 'Maria Santos' },
+      user_metadata: { full_name: FIXTURE.groomName },
     }),
   });
   if (!res.ok) {
@@ -45,7 +45,24 @@ async function main(): Promise<void> {
 
   const r = spawnSync(
     'psql',
-    ['-X', '-q', '-v', 'ON_ERROR_STOP=1', '-1', '-f', path.join(HERE, 'seed.sql')],
+    [
+      '-X', '-q', '-v', 'ON_ERROR_STOP=1', '-1',
+      ...Object.entries({
+        host_email: FIXTURE.hostEmail,
+        event_id: FIXTURE.eventId,
+        slug: FIXTURE.slug,
+        event_name: FIXTURE.eventName,
+        bride_name: FIXTURE.brideName,
+        groom_name: FIXTURE.groomName,
+        guest_id: FIXTURE.invitedGuest.id,
+        guest_first: FIXTURE.invitedGuest.firstName,
+        guest_last: FIXTURE.invitedGuest.lastName,
+        guest_token: FIXTURE.invitedGuest.qrToken,
+        other_guests: String(FIXTURE.otherGuests),
+        attending: String(FIXTURE.attendingAtStart),
+      }).flatMap(([k, v]) => ['-v', `${k}=${v}`]),
+      '-f', path.join(HERE, 'seed.sql'),
+    ],
     {
       env: {
         ...process.env,

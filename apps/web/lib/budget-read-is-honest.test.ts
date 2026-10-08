@@ -275,3 +275,34 @@ test('the budget page does not print totals from a ledger with a refused source'
     'a partial ledger must not reach the figures that assume a whole one',
   );
 });
+
+// ── B1 · the measurement reaches the pixels ────────────────────────────────
+
+test('on a refused read the summary is handed UNKNOWN figures — not legacy numbers, not ₱0', () => {
+  const src = page();
+  assert.match(
+    src,
+    /const ledgerRefused = moneyRead !== null && !moneyReadsAllOk\(moneyRead\);/,
+    'the page must know that the resolver ran and a source failed',
+  );
+  assert.match(
+    src,
+    /ledgerRefused\s*\?\s*\{ agreedPhp: null, paidPhp: null, owedPhp: null \}/,
+    'Agreed · Paid · Owed are sums over all three sources: with one refused they are unknown',
+  );
+  assert.match(src, /const nextPayment: NextPayment \| null = ledgerRefused\s*\?\s*null/, 'and no "Next" payment is named from half a ledger');
+});
+
+test('an unknown figure is drawn as a dash, and its meter draws no bar', () => {
+  const summary = stripComments(
+    readFileSync(join(HERE, '..', 'app/dashboard/[eventId]/budget/_components/budget-summary.tsx'), 'utf8'),
+  );
+  const figure = summary.slice(summary.indexOf('function Figure('));
+  assert.match(
+    figure,
+    /if \(value === null\) \{\s*return <div className=\{`\$\{styles\.v\} \$\{styles\.vMuted\}`\}>—<\/div>;/,
+    'a null figure must print "—"; falling through to <Peso value={0}> is the defect',
+  );
+  assert.doesNotMatch(summary, /\?\?\s*0\b/, 'no `?? 0` in the summary — that is how unknown becomes ₱0');
+  assert.match(summary, /budgetMeter\(\{ targetPhp, agreedPhp, paidPhp \}\)/, 'the meter is handed the same nullable figures');
+});

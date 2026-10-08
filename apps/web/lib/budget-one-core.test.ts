@@ -42,14 +42,27 @@ const MONEY_SURFACES = [
   // The Merkado lens and the Home first screen read the SAME helper — lib/budget-live-read.ts
   // is where `budgetLiveSummaryMoney` runs for both (the lens used to carry its own copy).
   'lib/budget-live-read.ts',
-  // BA2 · the Realtime refetch. Not a render surface — a server action — but it
-  // WRITES the same card `budget/page.tsx` first-painted, so it is a money
-  // surface by every meaning that matters. It returned the raw legacy summary
-  // until 2026-09-02, which meant the /budget card swapped from the committed
-  // total to "every vendor's itemized total, whatever their status" the moment
-  // a payment landed: an unconfirmed supplier's quote, back on the page.
-  'app/dashboard/[eventId]/budget/actions.ts',
+  // ⤷ 2026-10-08 (Budget B1): `budget/actions.ts` was the third entry — the
+  // Realtime refetch (`getBudgetLiveSummary`), a SECOND writer of the card
+  // `budget/page.tsx` first-painted. The card and its refetch are deleted; a
+  // Realtime change now re-runs the page's own render, so there is one writer.
+  // The test below holds that the second writer does not come back.
 ] as const;
+
+test('the /budget summary has ONE writer — no server action refetches its figures', () => {
+  const actions = code(
+    readFileSync(resolve(WEB, 'app/dashboard/[eventId]/budget/actions.ts'), 'utf8'),
+  );
+  for (const name of ['buildBudgetLiveSummary', 'budgetLiveSummaryMoney', 'resolveEventMoney', 'fetchBudgetSnapshot']) {
+    assert.equal(
+      count(actions, new RegExp(`\\b${name}\\b`, 'g')),
+      0,
+      `budget/actions.ts reads ${name} again — a server action that recomputes the summary is a ` +
+        `second writer of the number the page renders (BA2: it swapped ₱0 for an unconfirmed ` +
+        `supplier's ₱80,000 quote the moment a payment landed). Refresh the page instead.`,
+    );
+  }
+});
 
 /** Strip comments — a docblock mentioning a helper must not count as calling it. */
 function code(src: string): string {

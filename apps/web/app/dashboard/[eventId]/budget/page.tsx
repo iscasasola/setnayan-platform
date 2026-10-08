@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
 import { redirect } from 'next/navigation';
-import { Download, Printer, TrendingUp, Gift, ArrowRight, Sparkles } from 'lucide-react';
+import { Download, Printer, Gift, ArrowRight, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { isChineseWedding, isMuslimWedding } from '@/lib/chinese-wedding';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -34,18 +34,16 @@ import { fetchPublishedMethodsForCouple } from '@/lib/vendor-payment-methods.ser
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
 import { fetchPlanForCouple } from '@/lib/vendor-service-payment-schedules.server';
 import type { PlanInstance } from '@/lib/vendor-service-payment-schedules';
-import { BudgetSetter } from './_components/budget-setter';
 import { BudgetAllocationPlanner } from './_components/budget-allocation-planner';
 import { ShareBudgetBandToggle } from './_components/share-budget-band-toggle';
-import { BudgetLiveSummaryCard } from './_components/budget-live-summary';
-import { BUDGET_TOP_SUMMARY_HEADER_ID } from './_components/budget-summary-ids';
+import { BudgetSummary } from './_components/budget-summary';
+import { pickNextPayment, type NextPayment } from '@/lib/budget-page-view';
 import { BudgetLedgerTable } from './_components/budget-ledger-table';
 import {
   CostsWithNoSupplier,
   type RecordedCost,
 } from './_components/costs-with-no-supplier';
 import { costCategoryOptions } from '@/lib/event-costs';
-import type { BudgetStripMoney } from '@/lib/budget-page-money';
 import { VendorItemizationCard } from '../_components/vendor-itemization-card';
 import {
   ACCEPTED_QUOTE_SELECT,
@@ -328,6 +326,39 @@ export default async function BudgetPage({ params, searchParams }: Props) {
     legacy: buildBudgetLiveSummary(snapshot),
   });
 
+  // ── B1 · WHAT THE SUMMARY MAY STATE ───────────────────────────────────────
+  // `moneyRead` non-null with a refused source = the resolver RAN and one of
+  // its three reads failed. Agreed and Paid are sums over all three, so they
+  // are unknown — drawn "—", never a legacy figure and never ₱0. (`moneyRead`
+  // null is the kill-switch: the resolver was not asked at all, and the legacy
+  // arithmetic in `stripMoney` / `liveSummaryMoney` is the figure, as before.)
+  const ledgerRefused = moneyRead !== null && !moneyReadsAllOk(moneyRead);
+  const summaryFigures: { agreedPhp: number | null; paidPhp: number | null; owedPhp: number | null } =
+    ledgerRefused
+      ? { agreedPhp: null, paidPhp: null, owedPhp: null }
+      : {
+          agreedPhp: stripMoney.committedPhp,
+          paidPhp: liveSummaryMoney.paid,
+          owedPhp: liveSummaryMoney.remaining,
+        };
+  // The ONE "Next" line. From the resolver's own lines — agreed money only —
+  // so it cannot name a payment to a supplier the couple never booked. With
+  // the resolver switched off, the legacy list's first row (what this page
+  // listed under "Next payments" before).
+  const legacyNext = liveSummaryMoney.upcoming[0];
+  const nextPayment: NextPayment | null = ledgerRefused
+    ? null
+    : money
+      ? pickNextPayment(money.lines)
+      : legacyNext
+        ? {
+            amountPhp: legacyNext.remainingPhp,
+            name: legacyNext.vendorName,
+            dueDate: legacyNext.dueDate,
+            vendorId: legacyNext.vendorId,
+          }
+        : null;
+
   // Which vendors get a card. CONFIRMED ONLY, in both flag states (BA2, owner
   // ruling 2026-09-02: "no quotes here. we only add the finalized budgets").
   // A shortlisted supplier's quote belongs in the Merkado, where the couple is
@@ -559,20 +590,24 @@ export default async function BudgetPage({ params, searchParams }: Props) {
         }
       />
 
-      {/* Budget Setter — the single number that powers
-       *  BudgetCountdownHeader on event home. Lives at the top of the
-       *  page because it's the first thing a host needs to set before
-       *  the rest of the budget math has anchors. */}
-      {/* 🔒 SETTING the target is the couple's alone — locked D1, "budget never
-          exceeds view in V1", stated in `moderator_area_level`'s own comment in
-          production and mirrored in `resolveAreaLevel`. A delegate who may READ
-          the money (one holding checkout) still never moves it, so the control
-          is not rendered rather than rendered-and-refused. */}
-      {budgetAccess.mayEdit ? (
-        <BudgetSetter eventId={eventId} initialBudgetCentavos={initialBudgetCentavos} />
-      ) : null}
-
-      <BudgetTopSummary eventId={eventId} money={stripMoney} initialLive={liveSummaryMoney} />
+      {/* B1 (2026-10-08) · THE SUMMARY, AS ROWS. Target · Agreed · Paid · Owed two
+       *  by two, one meter, one "Next" line — `BudgetSummary`. It replaced the
+       *  setter form, the boxed four-stat tile and the live card with its
+       *  pinned bar.
+       *
+       *  🔒 SETTING the target is the couple's alone — locked D1, "budget never
+       *  exceeds view in V1". A delegate who may READ the money still never
+       *  moves it, so `canEdit` draws the figure instead of the field. */}
+      <BudgetSummary
+        eventId={eventId}
+        canEdit={budgetAccess.mayEdit}
+        targetPhp={stripMoney.targetPhp}
+        agreedPhp={summaryFigures.agreedPhp}
+        paidPhp={summaryFigures.paidPhp}
+        owedPhp={summaryFigures.owedPhp}
+        next={nextPayment}
+        payHref="#budget-payments"
+      />
 
       {isMuslimCeremony ? (
         <MahrInfoCard eventId={eventId} mahrDescription={mahrDescription} />
@@ -596,7 +631,7 @@ export default async function BudgetPage({ params, searchParams }: Props) {
           <div className="space-y-2">
             <h2 className="sn-sec text-2xl sm:text-3xl">Suggested budget split</h2>
             <p className="max-w-prose text-sm text-ink/65">
-              A starting point from typical Filipino wedding costs — nudge anything;
+              A starting point from typical Filipino costs — nudge anything;
               it&rsquo;s a guide, not a rule.
             </p>
           </div>
@@ -695,106 +730,6 @@ export default async function BudgetPage({ params, searchParams }: Props) {
   );
 }
 
-/**
- * BA4 · ONE money summary, not two. Used to be "Current commitments" (Target
- * / Committed / Budget left) sitting above "Payment progress" (Total to pay /
- * Paid so far / Balance) — four overlapping words for different quantities on
- * one screen. Now a single card: Target · Agreed · Paid · Owed (the same
- * vocabulary BA3's ledger locked), the live progress bar, and the
- * upcoming-payments list, with a condensed version that pins once this header
- * scrolls away (`BudgetLiveSummaryCard`).
- *
- * Renders even when no vendors are confirmed yet, so the host sees their
- * target reflected back to them as soon as they save.
- */
-function BudgetTopSummary({
-  eventId,
-  money,
-  initialLive,
-}: {
-  eventId: string;
-  money: BudgetStripMoney;
-  initialLive: BudgetLiveSummary;
-}) {
-  const { targetPhp, committedPhp: agreedPhp, isOverBudget } = money;
-  const { paid: paidPhp, remaining: owedPhp } = initialLive;
-
-  return (
-    <section aria-labelledby="budget-summary-heading" className="sn-tile space-y-4">
-      {/* No border of its own — the pinned bar in BudgetLiveSummaryCard
-       *  measures THIS element's box, not the outer .sn-tile card's (which
-       *  carries a 1px border and would drift the pin a pixel off). */}
-      <header id={BUDGET_TOP_SUMMARY_HEADER_ID} className="flex items-baseline gap-2">
-        <h2 id="budget-summary-heading" className="sn-eye">
-          <TrendingUp aria-hidden strokeWidth={1.75} />
-          Your budget
-        </h2>
-      </header>
-
-      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <SummaryStat
-          label="Target"
-          value={targetPhp !== null ? formatPhp(targetPhp) : '—'}
-          hint={targetPhp !== null ? 'Your stated budget' : 'No target set yet'}
-        />
-        <SummaryStat
-          label="Agreed"
-          value={formatPhp(agreedPhp)}
-          tone={isOverBudget ? 'warn' : 'default'}
-          hint={
-            targetPhp === null
-              ? agreedPhp > 0
-                ? 'What you signed for'
-                : 'Nothing signed yet'
-              : isOverBudget
-                ? `${formatPhp(agreedPhp - targetPhp)} over your target`
-                : `${formatPhp(targetPhp - agreedPhp)} left of target`
-          }
-        />
-        <SummaryStat label="Paid" value={formatPhp(paidPhp)} tone="good" hint="Handed over so far" />
-        <SummaryStat
-          label="Owed"
-          value={formatPhp(owedPhp)}
-          tone={owedPhp > 0 ? 'warn' : 'default'}
-          hint={owedPhp > 0 ? 'Agreed minus paid' : 'Nothing outstanding'}
-        />
-      </ul>
-
-      <BudgetLiveSummaryCard eventId={eventId} initial={initialLive} targetPhp={targetPhp} />
-    </section>
-  );
-}
-
-function SummaryStat({
-  label,
-  value,
-  hint,
-  tone = 'default',
-}: {
-  label: string;
-  value: string;
-  hint: string;
-  tone?: 'default' | 'warn' | 'good';
-}) {
-  return (
-    <li className="space-y-1">
-      <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">{label}</p>
-      <p
-        className={`font-mono text-2xl font-bold ${
-          tone === 'warn'
-            ? 'text-terracotta-700'
-            : tone === 'good'
-              ? 'text-success-700'
-              : 'text-ink'
-        }`}
-      >
-        {value}
-      </p>
-      <p className="text-xs text-ink/55">{hint}</p>
-    </li>
-  );
-}
-
 // The Mahr — a Muslim wedding's groom-to-bride gift. Deliberately rendered as a
 // distinct, NON-billable card (emerald, "gift" framing) so it never reads as a
 // Setnayan/vendor charge and is never folded into the committed/overspend math.
@@ -817,7 +752,7 @@ function MahrInfoCard({
         <Gift aria-hidden className="h-4 w-4 text-emerald-700" strokeWidth={1.75} />
         <h2
           id="mahr-info-heading"
-          className="font-mono text-[11px] uppercase tracking-[0.2em] text-emerald-800"
+          className="tabular-nums text-[11px] uppercase tracking-[0.2em] text-emerald-800"
         >
           Mahr — a gift to the bride
         </h2>
@@ -873,13 +808,13 @@ function ChineseTraditionInfoCard({ pax }: { pax: number | null }) {
         <Sparkles aria-hidden className="h-4 w-4 text-emerald-700" strokeWidth={1.75} />
         <h2
           id="chinese-tradition-heading"
-          className="font-mono text-[11px] uppercase tracking-[0.2em] text-emerald-800"
+          className="tabular-nums text-[11px] uppercase tracking-[0.2em] text-emerald-800"
         >
           Chinese traditions — a budget note
         </h2>
       </div>
       <p className="mt-2 text-sm text-ink/75">
-        A Chinese wedding carries a few costs worth planning for. Ang pao — red
+        Chinese traditions carry a few costs worth planning for. Ang pao — red
         envelopes — are given to elders during the tea ceremony, kept aside from
         your supplier spend. The lauriat banquet is typically the main reception
         cost, and it&rsquo;s priced per table — about {formatCount(LAURIAT_PAX_PER_TABLE)}{' '}

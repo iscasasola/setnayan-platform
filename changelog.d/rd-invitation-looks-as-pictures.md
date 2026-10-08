@@ -42,6 +42,9 @@ Owner's preview checks, 08 Oct (Stages panel), built in the order A · E · D ·
   role is not stored (the Attire boards hold three slots — bride · groom · entourage; the other four wait on
   a migration widening `event_inspiration_assets_slot_key_check`) and guests cannot read
   `event_inspiration_assets` (host-members-only RLS; no guest loader reads it).
+- **F · The Reveal and Camera look cards are sized by their picture** (status TODO 13). Both carousels now
+  use the shared `spCardWidth` — a Reveal card is as wide as its 150 × 96 picture (drawn at full size, no longer
+  shrunk into a 62 % card), a Camera card as narrow as its portrait screen — so more looks show per swipe.
 
 SPEC IMPACT: `STAGES_PANEL_BUILD_STATUS_2026-10-08.md` gains "Round 5 — looks as pictures" (status only; no
 decision changed).

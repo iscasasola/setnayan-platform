@@ -14,7 +14,10 @@ export type RevealColours = { dominant: string; supporting: string; accent: stri
 
 const piece = (css: string) => `<i style="position:absolute;display:block;${css}"></i>`;
 
-export function revealPictureHtml(kind: string, c: RevealColours, w = 150, h = 96): string {
+/** The picture's own size — a look card is as wide as this shape at the row's height (`spCardWidth`). */
+export const REVEAL_PICTURE_PX = { w: 150, h: 96 } as const;
+
+export function revealPictureHtml(kind: string, c: RevealColours, w: number = REVEAL_PICTURE_PX.w, h: number = REVEAL_PICTURE_PX.h): string {
   const box = `position:relative;width:${w}px;height:${h}px;margin:0 auto;border-radius:var(--m-r-sm,8px);overflow:hidden;border:1px solid rgba(0,0,0,.08);box-shadow:0 8px 20px -12px rgba(44,42,41,.45);`;
   const d = `background:${c.dominant};`;
   switch (kind) {

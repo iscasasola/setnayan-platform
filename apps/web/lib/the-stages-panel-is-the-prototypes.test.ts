@@ -476,3 +476,29 @@ test('the Dress code part carries ONE Figures ▾ (Drawn · Hidden) writing the 
   assert.equal(shell.split('dressCode={sceneFormat.dressCode ?? null}').length - 1, 1, 'only the Stages panel’s Dress code part is handed the config');
   assert.match(row, /\{dressCode \? <DressFiguresRow eventId=\{eventId\} dressCode=\{dressCode\} draftAction=\{draftAction\} \/> : null\}/);
 });
+
+/* ── 13 · every look card is as wide as its picture — the Reveal's and the Camera's too (TODO 13) ────── */
+
+test('the Reveal and Camera look cards are sized by their picture’s shape, like every other look card', async () => {
+  const { spCardWidth, SP_CARD_PICTURE_PX } = await import('./maker-stage-room');
+  const { REVEAL_PICTURE_PX } = await import(`../${LAUNCH}/stage-panel/reveal-picture`);
+  const reveal = read(`${LAUNCH}/maker-reveal.tsx`);
+  const card = reveal.slice(reveal.indexOf('data-maker-reveal-kind={o.id}'), reveal.indexOf('</button>', reveal.indexOf('data-maker-reveal-kind={o.id}')));
+  assert.match(card, /className=\{SP_LAYOUT_CARD\} style=\{spCardWidth\(REVEAL_PICTURE_PX\.w \/ REVEAL_PICTURE_PX\.h\)\}/, 'a Reveal card is still 62% wide, whatever its picture');
+  assert.match(card, /<RevealPicture kind=\{o\.id\} colours=\{look\.colours\} \/>/, 'the picture is drawn at its own size — the card fits it');
+  const w = spCardWidth(REVEAL_PICTURE_PX.w / REVEAL_PICTURE_PX.h)!.width;
+  assert.ok(w >= REVEAL_PICTURE_PX.w + 4 && w < 200, `the Reveal card (${w}px) holds its ${REVEAL_PICTURE_PX.w}px picture and no more`);
+  assert.ok(REVEAL_PICTURE_PX.h <= SP_CARD_PICTURE_PX, 'the picture is taller than the card’s picture box');
+  const camera = read(`${LAUNCH}/stage-panel/camera-look.tsx`);
+  assert.match(camera, /className=\{SP_LAYOUT_CARD\} style=\{spCardWidth\(CAMERA_FACE_ASPECT\)\}/, 'a Camera card is still 62% wide');
+  assert.match(camera, /const CAMERA_FACE_ASPECT = 3 \/ 4;/);
+  assert.match(camera, /data-camera-look-face=\{look\} className="[^"]*aspect-\[3\/4\]/, 'the face is no longer the shape the card is sized for');
+  const cw = spCardWidth(3 / 4)!.width;
+  assert.ok(cw >= 76 && cw < 104, `a portrait camera is a narrow card (${cw}px)`);
+  /* No look carousel in the panel is left at the unmeasured 62 %. */
+  for (const [file, src] of [['maker-reveal.tsx', reveal], ['camera-look.tsx', camera], ['pass-card-design-picker.tsx', read(`${LAUNCH}/pass-card-design-picker.tsx`)], ['style-carousel.tsx', read(`${LAUNCH}/stage-panel/style-carousel.tsx`)]] as const) {
+    const cards = src.split('className={SP_LAYOUT_CARD}').length - 1;
+    assert.ok(cards >= 1, `${file}: its look cards were found`);
+    assert.equal(src.split(/className=\{SP_LAYOUT_CARD\}\s*style=\{spCardWidth\(/).length - 1, cards, `${file}: a look card is not sized by its picture`);
+  }
+});

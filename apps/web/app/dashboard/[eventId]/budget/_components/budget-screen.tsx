@@ -44,6 +44,7 @@ import {
   type SupplierRow,
 } from '@/lib/budget-page-view';
 import type { CostCategoryOption } from '@/lib/event-costs';
+import { formatCount } from '@/lib/format-number';
 import { BudgetSummary, Peso } from './budget-summary';
 import styles from './budget-page.module.css';
 
@@ -184,7 +185,7 @@ function GroupHead({ title, count }: { title: string; count: number | null }) {
   return (
     <div className={styles.grp}>
       <h2>{title}</h2>
-      {count === null ? null : <span className={`${styles.cnt} ${styles.num}`}>{count}</span>}
+      {count === null ? null : <span className={`${styles.cnt} ${styles.num}`}>{formatCount(count)}</span>}
     </div>
   );
 }

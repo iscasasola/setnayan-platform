@@ -188,7 +188,7 @@ import { InvitationShell } from './invitation-shell';
 import { PublicHideableWidget } from './public-hideable-widget';
 import { HubScenes } from './hub-scenes';
 import { RsvpWidget } from './rsvp-widget';
-import { sceneStyleOfRow, paletteLookOfRow } from '@/lib/scene-style-of-row';
+import { sceneStyleOfRow, paletteLookOfRow, dosLookOfRow } from '@/lib/scene-style-of-row';
 import type { FixedStyleScene, StyledScene } from '@/lib/fixed-scene-styles';
 import { HERO_PART_LOOK, partLookAttr } from '@/lib/scene-styles-parts';
 import { fixedSceneStyleOf } from '@/lib/fixed-scene-style-of';
@@ -2411,6 +2411,7 @@ export async function SiteBody({
       march: marchPlaceOf(entourage, guest.guest_id),
       rolePalette: event.role_palette,
       paletteLook: paletteLookOfRow(widgetByType(widgets, 'dress_code')),
+      dosLook: dosLookOfRow(widgetByType(widgets, 'dress_code')),
     };
     const welcome = welcomeParts({
       stage: pageStage,

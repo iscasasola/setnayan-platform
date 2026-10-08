@@ -13,7 +13,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { phoneHeightPx } from './maker-phone-room';
-import { SP_GRAB, STAGE_TAP_TARGETS, stagePanelOpenPx } from './maker-stage-room';
+import { SP_GRAB, SP_LOOK_CARD, STAGE_TAP_TARGETS, stagePanelOpenPx } from './maker-stage-room';
 
 const WEB = join(__dirname, '..');
 const L = 'app/dashboard/[eventId]/launch/_components';
@@ -33,6 +33,16 @@ test('every control in the panel is at least 44 px tall', () => {
     assert.ok(px !== null, `${name}: declares a phone height`);
     assert.ok(px! >= 44, `${name}: ${px}px is under Apple's 44`);
   }
+});
+
+test('a look card is as tall as its phone-shaped frame — far over 44 px', () => {
+  const css = readFileSync(join(WEB, 'app/globals.css'), 'utf8');
+  const rule = /\n\.sn-phone-card \{([^}]*)\}/.exec(css)?.[1] ?? '';
+  const w = Number(/inline-size:\s*var\(--phone-card-w,\s*(\d+)px\)/.exec(rule)?.[1]);
+  assert.ok(Number.isFinite(w) && w > 0, 'the frame declares its default width');
+  assert.match(rule, /aspect-ratio:\s*3 \/ 4/);
+  assert.ok((w * 4) / 3 >= 44, `the frame is ${(w * 4) / 3}px tall`);
+  assert.ok(SP_LOOK_CARD.split(' ').includes('min-h-11'), 'and the card keeps the 44 px floor whatever width a strip sets');
 });
 
 test('the panel draws those same strings for every button', () => {
@@ -56,7 +66,9 @@ test('the panel draws those same strings for every button', () => {
     assert.ok(buttons.length >= (file.startsWith('stage-panel/') ? 1 : 2), `${file}: its buttons were found (${buttons.length})`);
     for (const cls of buttons) {
       assert.ok(
-        Object.keys(STAGE_TAP_TARGETS).some((n) => cls.includes(n)) || cls.includes('SP_GRAB'),
+        /* 📱 `SP_LOOK_CARD` (owner 2026-10-08, every style card is phone-shaped): its height is its FRAME's
+           (`.sn-phone-card`, 3 : 4), not a height class — measured from the stylesheet in the test below. */
+        Object.keys(STAGE_TAP_TARGETS).some((n) => cls.includes(n)) || cls.includes('SP_GRAB') || cls.includes('SP_LOOK_CARD'),
         `${file}: a button wears its own classes (${cls.slice(0, 60)}…) — use a STAGE_* string from lib/maker-stage-room.ts`,
       );
     }

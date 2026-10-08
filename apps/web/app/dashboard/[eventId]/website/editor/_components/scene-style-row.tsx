@@ -22,19 +22,23 @@
  *     makes the row appear, with no change here.
  */
 
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { sceneStyleOptions, sceneStyleTypeOfWidget, resolveSceneStyle } from '@/lib/scene-styles';
 import { recommendedStageSceneStyle } from '@/lib/scene-styles-stages';
 import type { HubSectionCanvas, HubStage } from '@/lib/hub-canvas';
 import { IRow, ISeg, ISegmented } from './inspector-kit';
 import { PickMenu } from './pick-menu';
-import { useSceneCanvas } from './use-scene-canvas';
+import { useHeldEventsSave, useSceneCanvas } from './use-scene-canvas';
 import { noteDraftedCanvas } from '@/lib/maker-draft-store';
 import type { ElementDraftAction } from './element-sheet';
-import { PaletteLookRow } from './palette-look-row';
+import { DosLookCards, PaletteLookCards, PaletteLookRow } from './palette-look-row';
+import { DOS_LOOK_DEFAULT, resolveDosLook } from '@/lib/dress-code-looks';
+import type { DressCodeConfig } from '../../../studio/mood-board/dress-code-actions';
 import { PALETTE_LOOK_DEFAULT, layoutDrawsPaletteLook, resolvePaletteLook } from '@/lib/palette-looks';
 import { useMaker } from '../../../launch/_components/maker-context';
 import { StyleCards } from '../../../launch/_components/stage-panel/style-carousel';
 import { Dd } from '../../../launch/_components/stage-panel/kit';
+import { useStagePanelNow } from '../../../launch/_components/stage-panel/store';
 import {
   HUB_ELEMENT_ALIGNS,
   HUB_ELEMENT_ALIGN_LABEL,
@@ -224,7 +228,13 @@ export function PaletteLookCanvasRow({
   eventType,
   draftAction,
   colours,
+  dressCode = null,
 }: {
+  /**
+   * 👗 The Dress code as saved (drafted over live, `normalizeDressCodeConfig`) — handed by the Stages panel's
+   * Dress code part alone, for its Figures ▾ (`DressFiguresRow`). Absent = no Figures row.
+   */
+  dressCode?: DressCodeConfig | null;
   eventId: string;
   /** The Dress code scene's canvas (drafted over live). */
   canvas: HubSectionCanvas;
@@ -243,15 +253,41 @@ export function PaletteLookCanvasRow({
     { redraw: true },
   );
   const layout = resolveSceneStyle('dress_code', 'rsvp', shown.style, eventType);
-  if (colours.length === 0 || !layoutDrawsPaletteLook(layout)) return null;
+  /* 🖼 The Stages panel, on the Dress code part: the looks are PICTURES (owner 08 Oct: *"palette should show the
+     actual previews like the other styles"*), drawn by the shared look-card renderer. Studio › Look › Colours
+     keeps the dropdown — the page under it may be a stage that draws no Dress code to picture. */
+  const cards = useMaker()?.stagesStudio === true;
+  const onDressPart = useStagePanelNow().picked === 'dress';
+  const drawsPalette = layoutDrawsPaletteLook(layout);
+  /* Tags is the default, and "Auto is an absence": picking it clears the key. */
+  const pick = (id: string) => save((c) => { if (id === PALETTE_LOOK_DEFAULT) delete c.palette; else c.palette = id; });
+  if (cards && onDressPart) {
+    /* The cards are the page itself, which draws "Our colours" and the two lists in sample shapes until they
+       exist (owner 08 Oct) — so they are offered before a colour or a line is written. The palette's cards
+       only where the layout draws the look; the Do's & Don'ts' under every layout. */
+    return (
+      <>
+        {drawsPalette ? <PaletteLookCards value={resolvePaletteLook(shown.palette)} pending={pending} onPick={pick} /> : null}
+        {/* 🧾 The shipped notes are the default and an absence, like Tags. */}
+        <DosLookCards value={resolveDosLook(shown.dos)} pending={pending} onPick={(id) => save((c) => { if (id === DOS_LOOK_DEFAULT) delete c.dos; else c.dos = id; })} />
+        {dressCode ? <DressFiguresRow eventId={eventId} dressCode={dressCode} draftAction={draftAction} /> : null}
+        {error ? (
+          <p role="alert" className="shrink-0 py-1 text-[12.5px] font-semibold text-terracotta-700">
+            {error}
+          </p>
+        ) : null}
+      </>
+    );
+  }
+  /* The dropdown's thumbnails are the couple's colours — with none there is nothing to show in it. */
+  if (!drawsPalette || colours.length === 0) return null;
   return (
     <div data-look-palette="">
       <PaletteLookRow
         value={resolvePaletteLook(shown.palette)}
         colours={colours}
         pending={pending}
-        /* Tags is the default, and "Auto is an absence": picking it clears the key. */
-        onPick={(id) => save((c) => { if (id === PALETTE_LOOK_DEFAULT) delete c.palette; else c.palette = id; })}
+        onPick={pick}
       />
       {error ? (
         <p role="alert" className="py-2 text-[12.5px] font-semibold text-terracotta-700">
@@ -259,6 +295,81 @@ export function PaletteLookCanvasRow({
         </p>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * 👗 FIGURES ▾ — the small drawn person beside each role's colours (owner's preview check, 08 Oct, verbatim:
+ * *"allow an option not to show this also or pick a style to show or upload a photo for each?"*).
+ *
+ * ONE dropdown, **Drawn · Hidden**, and ONE setting with two doors: it reads and writes the SAME
+ * `events.dress_code_config.show_figure` the Mood Board's own switch does (owner 2026-09-30, *"they can opt not
+ * to add this"*; `studio/mood-board/_components/dress-code-fields.tsx`), the whole config through the one draft
+ * door (`{ events: { dress_code_config: next } }`, as `mood-board-studio.tsx` sends it; `useHeldEventsSave`) —
+ * so the two can never disagree, and guests keep the live page until ✓ Apply. Held and redrawn in place, like a
+ * look pick.
+ *
+ * ⛔ **Photos is NOT offered.** A photo per role does not exist to show: the Mood Board's Attire boards store
+ * three slots only (`bride`, `groom`, `entourage` — Groomsmen · Bridesmaids · Flower girl · Ring bearer wait in
+ * `AWAITING_A_SLOT`, `lib/inspiration-slots.ts`, on a migration widening `event_inspiration_assets_slot_key_
+ * check`), and guests cannot read `event_inspiration_assets` at all (host-members-only RLS; the guest page's
+ * loader does not read it, and its rows hold pasted third-party URLs and suppliers' photos). An option that
+ * could only fall back to Drawn for every role would be a pick that changes nothing — so it is left out, not
+ * drawn disabled.
+ */
+function DressFiguresRow({ eventId, dressCode, draftAction }: { eventId: string; dressCode: DressCodeConfig; draftAction: ElementDraftAction }) {
+  const saveEvents = useHeldEventsSave(eventId, draftAction);
+  const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const latest = useRef(dressCode);
+  const [drawn, setDrawn] = useState(dressCode.show_figure !== false);
+  const json = JSON.stringify(dressCode);
+  useEffect(() => {
+    latest.current = dressCode;
+    setDrawn(dressCode.show_figure !== false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [json]);
+  const pick = (k: string) => {
+    const show = k !== 'hidden';
+    if (pending || show === drawn) return;
+    const before = latest.current;
+    /* The WHOLE config, with the one switch changed — what the Mood Board's door sends. */
+    const next: DressCodeConfig = { ...before, show_figure: show };
+    latest.current = next;
+    setDrawn(show);
+    setError(null);
+    start(async () => {
+      const res = await saveEvents({ dress_code_config: next });
+      if (!res.ok) {
+        /* A failure never reads as a pick that landed: the row goes back, and says why. */
+        latest.current = before;
+        setDrawn(before.show_figure !== false);
+        setError(res.error);
+      }
+    });
+  };
+  return (
+    <>
+      <div className="flex h-11 shrink-0 gap-1.5" data-stage-figures="">
+        <Dd
+          small="Figures"
+          label="Figures"
+          data="dress-figures"
+          about="The small drawn person beside each role’s colours."
+          value={drawn ? 'drawn' : 'hidden'}
+          options={[
+            { key: 'drawn', label: 'Drawn' },
+            { key: 'hidden', label: 'Hidden' },
+          ]}
+          onPick={pick}
+        />
+      </div>
+      {error ? (
+        <p role="alert" className="shrink-0 py-1 text-[12.5px] font-semibold text-terracotta-700">
+          {error}
+        </p>
+      ) : null}
+    </>
   );
 }
 

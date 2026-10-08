@@ -17,6 +17,9 @@
  *      the single `{ id: 'offset', name: 'Offset', … }` row INSIDE the countdown set of
  *      `lib/scene-styles-stages.ts`; anywhere else 'Offset' is still red.
  *   4. Only the Camera keeps its own three (owner 2026-10-06).
+ *   5. The Dress code's cards BESIDE its layouts — its palette looks and its Do's & Don'ts looks (owner 08 Oct) —
+ *      are their registries' own lists (`lib/palette-looks.ts`, `lib/dress-code-looks.ts`), never a list in the
+ *      Maker; and no id a page may have stored is ever renamed or dropped: every one still draws ITSELF.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -78,4 +81,46 @@ test('only the Camera keeps its own three layouts', () => {
   const own = MAKER_PART_KEYS.filter((k) => MAKER_PARTS[k].layouts.kind === 'own');
   assert.deepEqual(own, ['camera']);
   assert.deepEqual([...MAKER_CAMERA_LAYOUTS], ['Classic', 'Your brand', 'Challenges']);
+});
+
+test('the Dress code’s palette and Do’s & Don’ts cards are their registries’ lists — the Maker has none of its own', () => {
+  const row = readFileSync(join(WEB, 'app/dashboard/[eventId]/website/editor/_components/palette-look-row.tsx'), 'utf8');
+  for (const [fn, list] of [['PaletteLookCards', 'PALETTE_LOOKS'], ['DosLookCards', 'DOS_LOOKS']] as const) {
+    const at = row.indexOf(`export function ${fn}`);
+    assert.ok(at > 0, `${fn} exists`);
+    const body = row.slice(at, row.indexOf('\nexport function ', at + 1) > 0 ? row.indexOf('\nexport function ', at + 1) : row.indexOf('\n/* The zigzag', at));
+    assert.match(body, new RegExp(`<StyleCards[\\s\\S]*options=\\{${list}\\}`), `${fn} draws the registry’s options through the shared look-card renderer`);
+    assert.ok(!/\[\s*'[A-Z][a-z]+'\s*,\s*'[A-Z][a-z]+'/.test(body), `${fn} carries a literal list of look names`);
+    assert.doesNotMatch(body, /<PickMenu/, `${fn} is a dropdown`);
+  }
+});
+
+test('🔒 no stored look id is renamed or dropped — every shipped id still draws itself', async () => {
+  const { resolveSceneStyle } = await import('./scene-styles');
+  const { PALETTE_LOOK_IDS, PALETTE_LOOK_DEFAULT, resolvePaletteLook } = await import('./palette-looks');
+  const { DOS_LOOK_DEFAULT, resolveDosLook } = await import('./dress-code-looks');
+  /* The ids live pages may hold today (frozen here on 2026-10-08, the morning invitations went out). */
+  const SHIPPED: ReadonlyArray<readonly [string, 'save_the_date' | 'rsvp' | 'event', readonly string[]]> = [
+    ['dress_code', 'rsvp', ['colours-and-roles', 'palette', 'line']],
+    ['gallery', 'save_the_date', ['mosaic', 'grid', 'film-strip']],
+    ['photos_of_you', 'event', ['grid', 'lead', 'polaroids']],
+    ['special_message', 'rsvp', ['note', 'letter', 'quote']],
+    ['schedule', 'rsvp', ['programme-rail', 'one-per-screen', 'clock-face']],
+    ['venue_map', 'rsvp', ['photo-card', 'full-photo', 'journey']],
+    ['what_to_bring', 'rsvp', ['note', 'list', 'gift-line']],
+    ['our_love_story', 'rsvp', ['chapters', 'essay', 'years']],
+    ['countdown', 'rsvp', ['four-tiles', 'big-number', 'offset', 'line', 'circle']],
+  ];
+  for (const [type, stage, ids] of SHIPPED) {
+    for (const id of ids) assert.equal(resolveSceneStyle(type, stage, id, 'wedding'), id, `${type}: a page that stored "${id}" no longer draws it`);
+    /* …and a value nobody draws falls back to the stage's first shipped look — never to nothing. */
+    assert.equal(resolveSceneStyle(type, stage, 'no-such-style', 'wedding'), resolveSceneStyle(type, stage, null, 'wedding'));
+    assert.ok(ids.includes(resolveSceneStyle(type, stage, null, 'wedding')!), `${type}: the default is not a shipped look`);
+  }
+  assert.deepEqual([...PALETTE_LOOK_IDS], ['tags', 'fabric', 'chips', 'circles', 'ribbon']);
+  for (const id of PALETTE_LOOK_IDS) assert.equal(resolvePaletteLook(id), id);
+  assert.equal(resolvePaletteLook(undefined), PALETTE_LOOK_DEFAULT);
+  assert.equal(PALETTE_LOOK_DEFAULT, 'tags', 'an absent palette pick no longer draws today’s tags');
+  assert.equal(resolveDosLook(undefined), DOS_LOOK_DEFAULT);
+  assert.equal(DOS_LOOK_DEFAULT, 'notes', 'an absent Do’s & Don’ts pick no longer draws today’s notes');
 });

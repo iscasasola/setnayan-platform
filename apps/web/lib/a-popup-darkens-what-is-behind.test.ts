@@ -25,7 +25,7 @@ import { join } from 'node:path';
 import React from 'react';
 
 import { stripComments } from './strip-comments';
-import { POPUP_CLEAR_ATTR, inertBehind, popupClearRect, popupHolePath } from './popup-behind';
+import { POPUP_CLEAR_ATTR, inertBehind, popupClearRect, popupHolePath, visibleBox } from './popup-behind';
 
 (globalThis as unknown as { React: unknown }).React = React;
 {
@@ -84,13 +84,74 @@ test('(1) the dark is cut around a live preview — the whole screen less its bo
   assert.equal(popupHolePath({ left: 10, top: 10, right: 10, bottom: 200 }, phone), null);
   assert.equal(popupHolePath({ left: 0, top: 0, right: 100, bottom: 100 }, { width: 0, height: 0 }), null);
 
-  // Which box: the first element wearing the mark that has something on screen.
-  const box = (w: number, h: number, top = 100) => ({ getBoundingClientRect: () => ({ left: 0, top, right: w, bottom: top + h, width: w, height: h }) });
-  const doc = (els: unknown[]) => ({ querySelectorAll: (sel: string) => (assert.equal(sel, '[data-popup-clear]'), els) }) as unknown as Document;
+  // Which box: the first element wearing the mark that has something on screen — here nothing lies over it.
+  const box = (w: number, h: number, top = 100) => {
+    const el = { getBoundingClientRect: () => ({ left: 0, top, right: w, bottom: top + h, width: w, height: h }), contains: (o: unknown) => o === el };
+    return el;
+  };
+  const doc = (els: Array<ReturnType<typeof box>>, over: (x: number, y: number) => unknown[] = () => []) =>
+    ({
+      querySelectorAll: (sel: string) => (assert.equal(sel, '[data-popup-clear]'), els),
+      /* Top-most first: whatever lies `over` the point, then the preview whose box holds it. */
+      elementsFromPoint: (x: number, y: number) => [...over(x, y), ...els.filter((e) => { const r = e.getBoundingClientRect(); return x >= r.left && x < r.right && y >= r.top && y < r.bottom; })],
+    }) as unknown as Document;
   assert.equal(POPUP_CLEAR_ATTR, 'data-popup-clear');
   assert.deepEqual(popupClearRect(doc([box(0, 0), box(375, 250)])), { left: 0, top: 100, right: 375, bottom: 350 }, 'a hidden preview is taken for the one on screen');
   assert.equal(popupClearRect(doc([box(0, 0)])), null);
   assert.equal(popupClearRect(doc([])), null);
+});
+
+/* ── (1b) ONLY the preview ────────────────────────────────────────────── */
+
+test('(1b) only the preview is clear — the part of its box that lies under the tabs and the Source row is dark like the rest', () => {
+  // THE REVIEW COPY, AS MEASURED (controller, 2026-10-08, 375 × 812): the sample's own box runs y 52 → 576, but the
+  // Maker's lower third lies over it from y 432 — the Background | Elements | Music pill (≈ 440–488) and the Source
+  // row (≈ 497–545) are drawn there. The sheet's top edge is at 564.
+  const phone = { width: 375, height: 812 };
+  const sampleBox = { left: 0, top: 52, right: 375, bottom: 576 };
+  const LOWER_THIRD = 432;
+  const sample = { getBoundingClientRect: () => ({ ...sampleBox, width: 375, height: 524 }), contains: (o: unknown): boolean => o === sample || o === sampleChild };
+  const sampleChild = { name: 'the names' };
+  const panel = { name: 'the lower third' };
+  const scrim = { name: 'the sheet’s own close button' };
+  const sheet = { contains: (o: unknown) => o === scrim };
+  let asked = 0;
+  const doc = {
+    querySelectorAll: () => [sample],
+    elementsFromPoint: (x: number, y: number) => {
+      asked += 1;
+      const inBox = x >= 0 && x < 375 && y >= 52 && y < 576;
+      return [scrim, ...(y >= LOWER_THIRD ? [panel] : []), ...(inBox ? [sampleChild, sample] : [])];
+    },
+  } as unknown as Document;
+  const seen = popupClearRect(doc, sheet as unknown as Element);
+  assert.deepEqual(seen, { left: 0, top: 52, right: 375, bottom: LOWER_THIRD }, 'the hole is not the part of the sample that shows');
+  const path = popupHolePath(seen, phone)!;
+  const inHole = (x: number, y: number) => x >= seen!.left && x < seen!.right && y >= seen!.top && y < seen!.bottom;
+  assert.ok(path.includes('0px 52px, 0px 432px, 375px 432px, 375px 52px'), `the dark is cut somewhere else: ${path}`);
+  // THE CLAIM, at the points the controller named: the sample is clear; the tabs row and the Source row are DARK.
+  assert.equal(inHole(187, 240), true, 'the sample is darkened');
+  assert.equal(inHole(187, 464), false, 'the Background | Elements | Music row is left bright behind the sheet');
+  assert.equal(inHole(187, 521), false, 'the Source row is left bright behind the sheet');
+  assert.equal(inHole(187, 30), false, 'the top bar is left bright');
+  // The sheet's own layers are looked THROUGH — else nothing would ever seem to show.
+  assert.equal(popupClearRect(doc, null), null, 'anti-vacuity: with the sheet’s own button counted, the sample should seem covered everywhere');
+  // Asked once per open — a few hundred hit tests at most, never a poll.
+  asked = 0;
+  popupClearRect(doc, sheet as unknown as Element);
+  assert.ok(asked > 20 && asked < 400, `${asked} hit tests for one measure`);
+
+  // The measure itself (`visibleBox`), to the pixel, whatever the step lands on.
+  const whole = { left: 10, top: 100, right: 310, bottom: 500 };
+  assert.deepEqual(visibleBox(whole, () => true), whole, 'a preview nothing covers is tightened');
+  assert.deepEqual(visibleBox(whole, (_x, y) => y < 333), { ...whole, bottom: 333 }, 'covered from below: the edge is not found to the pixel');
+  assert.deepEqual(visibleBox(whole, (_x, y) => y >= 151), { ...whole, top: 151 }, 'covered from above (a bar over its head)');
+  assert.deepEqual(visibleBox(whole, (x) => x < 207), { ...whole, right: 207 }, 'covered from the side (a desktop’s controls column)');
+  assert.deepEqual(visibleBox(whole, (x, y) => y < 333 && x >= 43), { left: 43, top: 100, right: 310, bottom: 333 });
+  // Two stretches show (a strip lies across the middle): the longer one is the preview.
+  assert.deepEqual(visibleBox(whole, (_x, y) => y < 140 || y >= 200), { ...whole, top: 200 });
+  // It shows nowhere along its middle: no hole.
+  assert.equal(visibleBox(whole, () => false), null, 'a hole is cut for a preview that is wholly covered');
 });
 
 /* ── (2) nothing behind works ─────────────────────────────────────────── */
@@ -234,11 +295,17 @@ test('(5) on open: inert behind, no scroll behind, the preview measured; on clos
   assert.ok(sheet.length > 400, 'anti-vacuity: MakerSheet was not found');
   const effect = sheet.slice(sheet.indexOf('useLayoutEffect(() => {'), sheet.indexOf('}, []);'));
   // Open: the page behind is put out of reach, and the preview's box is measured.
-  assert.match(effect, /const undo = inertBehind\(el\);/, 'the page behind is not put out of reach');
-  assert.match(effect, /const measure = \(\) => setHole\(popupHolePath\(popupClearRect\(document\), \{ width: window\.innerWidth, height: window\.innerHeight \}\)\);\s*measure\(\);/);
+  // The preview is measured FIRST (an inert branch answers no hit test — measured after, it would seem to show nowhere),
+  // looking through this sheet's own layers; on a resize the page is woken for the length of the measure.
+  assert.match(
+    effect,
+    /const measure = \(\) => setHole\(popupHolePath\(popupClearRect\(document, el\), \{ width: window\.innerWidth, height: window\.innerHeight \}\)\);\s*measure\(\);\s*let undo = inertBehind\(el\);/,
+    'the page behind is not put out of reach — or it is, before the preview is measured',
+  );
+  assert.match(effect, /const again = \(\) => \{\s*undo\(\);\s*measure\(\);\s*undo = inertBehind\(el\);\s*\};/, 'a resize measures a page that cannot answer');
   // Close: everything put back.
   const cleanup = effect.slice(effect.indexOf('return () => {'));
-  for (const back of ['undo();', "window.removeEventListener('resize', measure);"]) {
+  for (const back of ['undo();', "window.removeEventListener('resize', again);"]) {
     assert.ok(cleanup.includes(back), `closing the sheet does not run \`${back}\``);
   }
   // No scroll behind, Escape, the Tab trap: the app's ONE modal contract — CALLED, on the dialog (a sheet over a

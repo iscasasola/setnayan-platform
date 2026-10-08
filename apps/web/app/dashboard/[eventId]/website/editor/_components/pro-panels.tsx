@@ -3,7 +3,8 @@
 import { sanitizeHubFontKey } from '@/lib/hub-fonts';
 import { tellLookSample } from '@/lib/look-sample-store';
 import { FontPick } from './font-pick';
-import dynamic from 'next/dynamic';
+/* 🔤 The Studio's four font rows — a lazy door (they hold the draft door, a server action), warmed with the Maker's other pieces. */
+import { FontsLookRows } from './scene-styles-lazy';
 
 import { MAGIC_TRAVELLERS, MAGIC_TRAVELLER_LABEL } from '@/lib/magic-move';
 import Link from 'next/link';
@@ -90,10 +91,6 @@ export function ProLockPanel({
     </div>
   );
 }
-
-/* 🔤 The Studio's four font rows (`fonts-look-rows.tsx`) — loaded when the Studio's Font part is drawn: they hold the
-   draft door (a server action), which this file's other callers — and its static renders — must not pull in. */
-const FontsLookRows = dynamic(() => import('./fonts-look-rows').then((m) => m.FontsLookRows));
 
 export function ColorsPanel({
   action,

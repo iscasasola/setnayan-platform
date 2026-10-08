@@ -13,6 +13,7 @@ import {
 import { trackFailure } from '@/lib/telemetry/track-error';
 import type { UploadOutcome, UploadSend } from '@/lib/upload-send';
 import { formatCount } from '@/lib/format-number';
+import { uploadTypeOf } from '@/lib/upload-type-names';
 
 /**
  * Reusable file-upload widget that targets Cloudflare R2 via the
@@ -257,6 +258,16 @@ type FileUploadBaseProps = {
    * authoritative gate for images is the save-time server scan.
    */
   qrGuard?: boolean;
+  /**
+   * Song guard (2026-10-08): reject a picked audio file that will not play on
+   * every phone — an .m4a holding Opus (what the music generator exports) is
+   * silent on some iPhones, and nothing but the file's own bytes says so. Set
+   * on every upload that becomes an Event Hub's song. A serializable boolean,
+   * like `qrGuard`, so a server component can turn it on; the reader is
+   * lazy-loaded (`lib/audio-guard-client.ts`) and runs after `validateFile`.
+   * The refusal is the widget's own error line, in place. Fail-open.
+   */
+  audioGuard?: boolean;
 };
 
 /**
@@ -281,6 +292,7 @@ export type FileUploadFormBinding =
 export type FileUploadProps = FileUploadBaseProps & FileUploadFormBinding;
 
 const DEFAULT_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+
 
 /**
  * How long an upload may move ZERO bytes before it is declared dead.
@@ -451,6 +463,7 @@ export function FileUpload({
   videoCompressProfile,
   videoSilent = false,
   qrGuard = false,
+  audioGuard = false,
   unsavedHint,
   onProgress,
   cancelRef,
@@ -680,7 +693,7 @@ export function FileUpload({
             );
             continue;
           }
-          if (file.type && !acceptedTypes.includes(file.type)) {
+          if (file.type && !acceptedTypes.includes(uploadTypeOf(file.type))) {
             setError(
               `${file.name} is ${file.type || 'an unknown type'} — allowed: ${acceptedTypes.join(', ')}.`,
             );
@@ -691,7 +704,7 @@ export function FileUpload({
           // error string rejects the file; a validator crash fails OPEN so a
           // broken metadata read can never brick the upload path. Surface the
           // existing `optimizing` strip while it awaits.
-          if (validateFile || qrGuard) {
+          if (validateFile || qrGuard || audioGuard) {
             let problem: string | null = null;
             setOptimizing({ label: `Checking ${file.name}…`, pct: 0 });
             try {
@@ -704,6 +717,14 @@ export function FileUpload({
                   '@/lib/vendor-qr-guard-client'
                 );
                 problem = await validateNoVendorQrInFile(file);
+              }
+              // Song guard, same shape: a song that will not play on every
+              // phone is refused here, before a byte is uploaded.
+              if (!problem && audioGuard) {
+                const { validateSongPlaysOnPhones } = await import(
+                  '@/lib/audio-guard-client'
+                );
+                problem = await validateSongPlaysOnPhones(file);
               }
             } catch {
               problem = null;
@@ -752,6 +773,7 @@ export function FileUpload({
       multiple,
       validateFile,
       qrGuard,
+      audioGuard,
     ],
   );
 
@@ -768,7 +790,7 @@ export function FileUpload({
   async function uploadOne(rawFile: File) {
     const id = `up-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const initialContentType =
-      rawFile.type || (rawFile.name.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream');
+      uploadTypeOf(rawFile.type) || (rawFile.name.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream');
 
     // --- Step 0: watermark (if opted in and the file is an image) ---------
     // Done client-side before presign so the signed `content-length` matches
@@ -843,7 +865,7 @@ export function FileUpload({
       }
     }
 
-    const contentType = file.type || initialContentType;
+    const contentType = uploadTypeOf(file.type) || initialContentType;
 
     // ── COMPRESS FIRST, THEN CHECK — the other half of the reorder above ────
     // `handleFiles` skipped the size gate for anything it knew this instance

@@ -73,6 +73,7 @@ import { updateOurPhotos } from '../our-photos/actions';
 import { updateSiteChrome } from '../site-chrome/actions';
 import { updateLandingPageVisibility } from '../privacy/actions';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { fetchHubMusicChoices } from '@/lib/hub-music-server';
 import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { SectionsPanel } from './_components/sections-panel';
 import {
@@ -350,11 +351,14 @@ export default async function WebsiteEditorPage({
     );
     return out;
   };
-  const [heroDisplay, galleryDisplay, chromeDisplay, stdBgDisplay] = await Promise.all([
+  const [heroDisplay, galleryDisplay, chromeDisplay, stdBgDisplay, ourMusic] = await Promise.all([
     displayFor([heroRef]),
     displayFor([...new Set([...galleryRefs, ...panelGalleryRefs])]),
     displayFor([musicRef, videoRef, panelMusicRef, panelVideoRef]),
     displayFor([stdBgRef]),
+    // 🎵 Look › Music › Our music — the published tracks (owner 2026-10-08).
+    // A refused read is `{ ok: false }`, drawn as "couldn't load", never as none.
+    fetchHubMusicChoices(supabase),
   ]);
 
   /* 💾 THE 100 MB ALLOWANCE, shown where the uploads happen (Upload media on a
@@ -1024,6 +1028,7 @@ export default async function WebsiteEditorPage({
               musicDisplay={chromeDisplay}
               videoRef={panelVideoRef}
               videoDisplay={chromeDisplay}
+              ourMusic={ourMusic.ok ? ourMusic.choices : null}
             />
           ),
         },

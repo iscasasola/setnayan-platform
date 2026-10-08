@@ -374,3 +374,31 @@ export function hubMusicFileVerdict(
       : `This file’s audio is in a format that does not play on every phone. ${instead}`,
   };
 }
+
+/**
+ * A COUPLE'S OWN SONG ("Your music") — the sentence that refuses it, or null.
+ *
+ * NARROWER THAN THE CATALOGUE'S RULE ABOVE, ON PURPOSE. `hubMusicFileVerdict`
+ * decides what Setnayan itself offers every couple, so it accepts only what it
+ * can vouch for. This decides what a couple may put on their OWN Event Hub, so
+ * it refuses only what is KNOWN not to play on every phone:
+ *
+ *   · an .m4a / .mp4 whose sound is not AAC or MP3 — Opus (what the music
+ *     generator exports: silent on some iPhones), Apple Lossless (silent on
+ *     Android), and anything else in that wrapper;
+ *   · an .m4a / .mp4 with no sound track at all.
+ *
+ * Everything else passes: MP3, AAC, WAV — and a file this reader cannot place.
+ * It is not a full demuxer, and a song that plays must never be turned away
+ * because its header is unusual. (Ogg is on the shipped list of formats and is
+ * left alone here; whether to keep offering it is an owner call.)
+ */
+export function ownSongProblem(sniff: AudioSniff): string | null {
+  if (!sniff.ok) {
+    if (sniff.reason !== 'no-audio-track') return null;
+  } else if (sniff.container !== 'mp4') {
+    return null;
+  }
+  const verdict = hubMusicFileVerdict(sniff);
+  return verdict.ok ? null : verdict.error;
+}

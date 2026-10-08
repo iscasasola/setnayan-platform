@@ -108,6 +108,7 @@ const HELD_REASON: Record<HubDraftRefusal, string> = {
   needs_pro: 'needs Event Hub Pro — it stays in your draft',
   apply_on_the_web: 'can be applied on the web — it stays in your draft',
   not_your_photo: 'uses a photo that is not in your Event Hub',
+  song_off_the_list: 'is no longer on our music list — pick another song',
   empty_section: 'has nothing in it yet, so it cannot be shown',
   missing_section: 'no longer exists',
   date_in_past: 'has already gone by — pick a day ahead; it stays in your draft',

@@ -85,7 +85,7 @@ test('(2) a real checkbox is the same switch — terracotta on, the approved siz
 
 test('(3) the drawing is the approved template — 50 × 30, a 24-px knob travelling 20 px — and has no colour of its own', () => {
   const cls = SWITCH_TRACK.split(/\s+/);
-  for (const need of ['sn-switch', 'sn-press-ring', 'h-[30px]', 'w-[50px]', 'rounded-full', 'after:h-6', 'after:w-6', 'after:left-[3px]', 'after:top-[3px]', "after:content-['']", 'after:transition-transform']) {
+  for (const need of ['sn-switch', 'sn-press-ring', 'h-[30px]', 'w-[50px]', 'rounded-full', 'after:h-6', 'after:w-6', 'after:left-[3px]', 'after:top-[3px]', "after:content-['']"]) {
     assert.ok(cls.includes(need), `the track lost “${need}”`);
   }
   /* On, both ways a switch is built: `data-on` on the track, or a checked `.peer` before it — the same 20 px. */
@@ -97,6 +97,11 @@ test('(3) the drawing is the approved template — 50 × 30, a 24-px knob travel
   assert.doesNotMatch(SWITCH_TRACK, /#[0-9a-f]{3,8}\b|rgba?\(/i, 'a colour is written by hand');
   /* `duration-[…]` emits nothing in this repo (tailwindcss-animate); the speed is the stylesheet's token. */
   assert.doesNotMatch(SWITCH_TRACK, /duration-/);
+  /* …and NO transition utility on the knob: a variant utility (`after:transition-transform`) is emitted at the END
+     of the compiled sheet and, at the same weight, outranks `.sn-switch::after` — the knob then moves in 150 ms with
+     no spring (measured on the compiled sheet, 2026-10-08). With none, the family's speed and spring are the only
+     transition the knob has. */
+  assert.doesNotMatch(SWITCH_TRACK, /(?:^|\s)(?:[\w-]+:)*after:(?:transition|ease|duration|delay)/, 'a utility on the knob outranks the family’s speed — the knob would jump in 150 ms');
   /* The bare button around it is a 44-px target with no paint — or the app's 44-px floor makes the track an oval. */
   assert.ok(SWITCH_BUTTON.split(/\s+/).includes('min-h-11'));
   assert.doesNotMatch(SWITCH_BUTTON, /(?:^|\s)(?:bg|border|text)-|(?:^|\s)h-/, 'the button paints or sizes itself — the track is the drawing');

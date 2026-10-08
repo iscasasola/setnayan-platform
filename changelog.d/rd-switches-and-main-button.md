@@ -80,3 +80,17 @@ After this commit, the `role="switch"` controls that do not wear `SwitchTrack` a
 (`launch/`, `website/editor/` — their builders' lane), onboarding's two ticks, and the guests' Event Hub (exempt).
 
 SPEC IMPACT: None.
+
+## 2026-10-08 · fix(ui): the one switch's knob really travels at the family's speed
+
+Measured on the compiled stylesheet in headless Chromium (a static page, no server): the drawing's knob moved in
+`0.15s cubic-bezier(.4,0,.2,1)` — not the family's 0.7 s spring. Cause: `after:transition-transform` is a Tailwind
+VARIANT utility, and variant utilities are emitted at the END of the compiled sheet, after every rule written in
+`globals.css`; at the same weight it outranked `.sn-switch::after`. `SWITCH_TRACK` no longer carries a transition
+utility on the knob, so the family's rule is the only one: now `0.7s cubic-bezier(.34,1.56,.64,1)` on all three
+forms (button, hidden checkbox, real checkbox). The guard refuses any `after:transition|ease|duration|delay`.
+
+Same measurement, NOT fixed here (Maker files, another lane): `StudioSwitch` (`after:transition-[left]`) and the
+Maker's `Toggle` (`after:transition-transform`) have the same defect — their knobs read 0.15 s, no spring.
+
+SPEC IMPACT: None.

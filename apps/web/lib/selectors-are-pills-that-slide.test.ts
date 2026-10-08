@@ -53,8 +53,11 @@ test('(1) the app’s selector is a full pill in ONE colour — terracotta with 
     for (const c of ['rounded-full', 'relative', 'p-[3px]', 'group/seg', 'flex']) assert.ok(has(track, c), `${what} lost ${c}`);
     noRect(track, what);
   }
-  // ONE colour: the terracotta (#C24E25 — the `mulberry` token) with white words; off = grey words, no fill.
-  assert.equal(P.PILL_ON_CLASS, 'bg-mulberry text-white');
+  // ONE colour: the app's accent with the ink that reads on it; off = grey words, no fill. (Re-aimed 2026-10-08, owner:
+  // "if we change our color to blue, it will be easy to change the button colors" — the template names the accent by
+  // its JOB (`--sn-accent`), which holds the terracotta today; `the-accent-is-one-token.test.ts` holds the rest.)
+  assert.equal(P.PILL_ON_CLASS, 'bg-accent text-on-accent');
+  assert.match(raw('app/globals.css'), /--sn-accent: var\(--color-mulberry\);/, 'the accent is no longer the terracotta token');
   assert.match(raw('app/globals.css'), /--color-mulberry: 194 78 37;\s*\/\* CTA → #C24E25/, 'anti-vacuity: the terracotta token moved');
   assert.match(P.PILL_OFF_CLASS, /^text-ink\/\d\d hover:text-ink$/);
   for (const seg of [P.pillSegClass, K.iSegClass] as ((on: boolean, tone?: 'plain' | 'wine') => string)[]) {
@@ -73,7 +76,7 @@ test('(1) the app’s selector is a full pill in ONE colour — terracotta with 
         for (const c of ['transition-colors', 'duration-sn-pill', 'ease-sn', 'motion-reduce:transition-none']) assert.ok(has(cls, c), `a choice lost ${c}`);
       }
     }
-    assert.ok(has(seg(true), 'bg-mulberry') && has(seg(true), 'text-white'), 'the picked choice is not the terracotta');
+    assert.ok(has(seg(true), 'bg-accent') && has(seg(true), 'text-on-accent'), 'the picked choice is not the accent');
     assert.ok(!has(seg(true), 'bg-white') && !has(seg(true), 'text-ink'), 'a white selector is back');
     // The picked choice hands its fill to the thumb once the thumb is laid — and only the picked one does.
     assert.ok(has(seg(true), 'group-data-[seg-thumb]/seg:bg-transparent'), 'two pills would be drawn (the choice and the thumb)');
@@ -263,7 +266,7 @@ test('(2) the thumb, RUN: on the picked choice at first paint with no slide-in, 
 });
 
 test('(3) it lands with a bounce and pulses once on a pick — transform, size, scale and opacity only, at ONE speed; nothing under “reduce motion”', () => {
-  for (const c of ['sn-pill-thumb', 'absolute', 'rounded-full', 'pointer-events-none', 'bg-mulberry', 'transition-[transform,width,height]', 'duration-sn-pill', 'ease-sn-spring', 'motion-reduce:transition-none']) {
+  for (const c of ['sn-pill-thumb', 'absolute', 'rounded-full', 'pointer-events-none', 'bg-accent', 'transition-[transform,width,height]', 'duration-sn-pill', 'ease-sn-spring', 'motion-reduce:transition-none']) {
     assert.ok(has(PILL_THUMB_CLASS, c), `the thumb lost ${c}`);
   }
   assert.doesNotMatch(PILL_THUMB_CLASS, /transition-all|transition-\[[^\]]*(?:left|top|margin|padding|background)/, 'the thumb animates layout or paint');
@@ -349,7 +352,7 @@ test('(5) the four Maker selectors wear the ONE thumb — Stages | Studio, Look�
   assert.match(html, /<button type="button" aria-pressed="false"[^>]*data-seg="elements"/);
   assert.doesNotMatch(html, /role="tab/);
   // The server's paint: the picked choice paints the pill itself, and nothing says a thumb is laid — nothing to jump.
-  assert.match(html, /aria-pressed="true"[^>]*class="[^"]*\bbg-mulberry\b/);
+  assert.match(html, /aria-pressed="true"[^>]*class="[^"]*\bbg-accent\b/);
   // …and Look's bar is the SAME terracotta as Stages | Studio — no white selector.
   assert.doesNotMatch(html, /\bbg-white\b|data-seg-tone|data-seg-fill/);
   assert.doesNotMatch(html, /data-seg-thumb=""/);
@@ -366,7 +369,7 @@ test('(5) the four Maker selectors wear the ONE thumb — Stages | Studio, Look�
   for (const c of ['group/seg', 'relative', 'rounded-full', 'h-11', 'w-full']) assert.ok(has(SP_PHASES, c), `Phases’ track lost ${c}`);
   noRect(SP_PHASES, 'Phases’ track');
   // A real 44-px button (the panel's own rule) whose pill is clipped 3 px inside — and the thumb is laid inside the same 3 px.
-  for (const c of ['rounded-full', 'relative', 'z-[1]', 'h-11', 'border-[3px]', 'border-transparent', 'bg-clip-padding', 'flex-1', 'duration-sn-pill', 'motion-reduce:transition-none', 'aria-pressed:bg-mulberry', 'aria-pressed:text-white', 'group-data-[seg-thumb]/seg:aria-pressed:bg-transparent']) {
+  for (const c of ['rounded-full', 'relative', 'z-[1]', 'h-11', 'border-[3px]', 'border-transparent', 'bg-clip-padding', 'flex-1', 'duration-sn-pill', 'motion-reduce:transition-none', 'aria-pressed:bg-accent', 'aria-pressed:text-on-accent', 'group-data-[seg-thumb]/seg:aria-pressed:bg-transparent']) {
     assert.ok(has(SP_PHASE, c), `a Phases segment lost ${c}`);
   }
   noRect(SP_PHASE, 'a Phases segment');
@@ -382,7 +385,7 @@ test('(5) the four Maker selectors wear the ONE thumb — Stages | Studio, Look�
   // 4 · THE TOOL GROUP (Style · Text · Animate): the dark face TRAVELS — one thumb, on each tool's 46 × 38 face.
   for (const c of ['group/seg', 'relative', 'rounded-full', 'h-11']) assert.ok(has(STAGE_TOOL_PILL, c), `the tool group’s track lost ${c}`);
   for (const c of ['relative', 'z-[1]', 'h-11', 'w-[46px]']) assert.ok(has(STAGE_TOOL_BUTTON, c), `a tool lost ${c}`);
-  for (const c of ['h-[38px]', 'w-[46px]', 'rounded-full', 'duration-sn-pill', 'motion-reduce:transition-none', 'group-aria-pressed:bg-mulberry', 'group-aria-pressed:text-white', 'group-data-[seg-thumb]/seg:group-aria-pressed:bg-transparent']) {
+  for (const c of ['h-[38px]', 'w-[46px]', 'rounded-full', 'duration-sn-pill', 'motion-reduce:transition-none', 'group-aria-pressed:bg-accent', 'group-aria-pressed:text-on-accent', 'group-data-[seg-thumb]/seg:group-aria-pressed:bg-transparent']) {
     assert.ok(has(STAGE_TOOL_FACE, c), `a tool’s face lost ${c}`);
   }
   const tools = read(`${L}/stage-tools.tsx`);
@@ -425,17 +428,17 @@ test('(6) PillSelector — buttons or links, an icon-only variant, a row of togg
   const buttons = paint({ label: 'Look', value: 'elements', options: [{ key: 'background', label: 'Background' }, { key: 'elements', label: 'Elements' }, { key: 'music', label: 'Music', disabled: true }], onPick: () => {} });
   assert.match(buttons, /^<div role="group" aria-label="Look" data-pill-selector="" class="[^"]*\brounded-full\b[^"]*\bbg-ink\/\[0\.06\]/);
   assert.equal((buttons.match(/<button /g) ?? []).length, 3);
-  assert.match(buttons, /<button type="button" aria-pressed="true"[^>]*class="[^"]*\bbg-mulberry\b[^"]*"[^>]*data-seg="elements"/);
+  assert.match(buttons, /<button type="button" aria-pressed="true"[^>]*class="[^"]*\bbg-accent\b[^"]*"[^>]*data-seg="elements"/);
   assert.match(buttons, /<button type="button" aria-pressed="false" disabled=""[^>]*data-seg="music"/);
   // Links: each view has its own address — the picked one is aria-current, in the wine.
   const links = paint({ label: 'Schedule view', value: 'day', options: [{ key: 'day', label: 'Day', href: '/s?view=day' }, { key: 'prep', label: 'Preparation', href: '/s?view=prep' }] });
-  assert.match(links, /<a href="\/s\?view=day" class="[^"]*\bbg-mulberry\b[^"]*"[^>]*data-seg="day" aria-current="page">Day<\/a>/);
+  assert.match(links, /<a href="\/s\?view=day" class="[^"]*\bbg-accent\b[^"]*"[^>]*data-seg="day" aria-current="page">Day<\/a>/);
   assert.match(links, /<a href="\/s\?view=prep" class="[^"]*"[^>]*>Preparation<\/a>/);
   assert.doesNotMatch(links, /<button/);
   assert.equal((links.match(/aria-current/g) ?? []).length, 1);
   // Icon-only: fixed faces, each named for a screen reader — in the same one colour.
   const icons = paint({ label: 'Edit with', value: 'style', icon: true, grow: false, options: [{ key: 'style', label: '🖌', ariaLabel: 'Style' }, { key: 'text', label: 'Aa', ariaLabel: 'Text' }] });
-  assert.match(icons, /class="[^"]*\bbg-mulberry\b[^"]*\bw-\[46px\] flex-none px-0"[^>]*data-seg="style" aria-label="Style"/);
+  assert.match(icons, /class="[^"]*\bbg-accent\b[^"]*\bw-\[46px\] flex-none px-0"[^>]*data-seg="style" aria-label="Style"/);
   // No caller chooses a colour: the selector takes no tone and no fill.
   assert.doesNotMatch(read('app/_components/pill-selector.tsx'), /\bfill\?:|tone = '|data-seg-fill|data-seg-tone/, 'a pill selector can be recoloured per use');
   assert.match(icons, /class="[^"]*\binline-flex\b[^"]*"/);

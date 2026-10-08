@@ -93,3 +93,42 @@ the report (a rendered check cannot tell a constant from the same words typed ou
 accent watch in the next commit holds that one).
 
 SPEC IMPACT: None.
+
+## 2026-10-08 · feat(ui): the app's accent is ONE setting, named by its job — and the templates read it
+
+Owner, verbatim (2026-10-08, right after approving the template gallery;
+`INTERACTION_RULES.md` § 9 "Our colour is ONE setting"): *"if we change our color to
+blue, it will be easy to change the button colors"*.
+
+- **The token.** `globals.css` `:root`: `--sn-accent` (what is on / picked / tappable on a
+  template — today `var(--color-mulberry)`, the terracotta) and `--sn-on-accent` (the ink
+  of words on it — white; in the dormant dark block the page's ink-black, where white
+  reads 2.9:1). Tailwind: `accent` and `on-accent` → `bg-accent` · `text-accent` ·
+  `ring-accent` · `border-accent` · `text-on-accent`.
+- **To make the app's accent blue, change ONE line** in `apps/web/app/globals.css`:
+  `--sn-accent: var(--color-mulberry);` → `--sn-accent: 37 99 235;`.
+- **`mulberry` is NOT renamed or repointed.** The hundreds of pages not yet moved onto the
+  templates still read it and are unchanged.
+- **The templates moved onto it** (nothing else): `pill-selector.tsx` (`PILL_ON_CLASS` =
+  `bg-accent text-on-accent`, same export name) · `pill-thumb.tsx` · `press-feel.tsx`'s
+  ring · `.sn-switch` when on · the style card's picked ring, name and loading pie, and the
+  status line's Try again (`background-cards.tsx`) · the pill selector as the Stages tool
+  group and Phases draw it by hand (`STAGE_TOOL_FACE`, `SP_PHASE` in
+  `lib/maker-stage-room.ts`).
+- Tailwind's `accent` slot was `var(--accent)` (the kit's gold); no class anywhere used it
+  (measured) — it now names the app's accent. `accent-soft` / `accent-deep` (the blog's
+  gold wash) are unchanged.
+- **Pixels today: unchanged** — the same terracotta, the same white words. (Dark mode is
+  dormant; there the ink on the accent becomes the page's ink-black.)
+
+Guards — `lib/the-accent-is-one-token.test.ts` (4, new): (1) the watch — a template file
+holds no `mulberry`, no hex colour, no `text-white` (the list of template files is in the
+test; extend it as kinds become templates); (2) the two values keep 4.5:1, computed from
+the stylesheet; (3) the one line swapped to a blue in a stand-in stylesheet — every
+template's "on" colour resolves to it through the real Tailwind config (resolution by
+reading, not a browser painting); (4) nothing under `app/[slug]` names the token or a
+template. Re-aimed with the reason: `selectors-are-pills-that-slide`,
+`the-press-feels-the-same-everywhere`, `a-background-pick-shows-at-once`,
+`the-background-has-one-source` (the class names they pin).
+
+SPEC IMPACT: None (the rule is already in `INTERACTION_RULES.md` § 9).

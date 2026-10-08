@@ -290,7 +290,7 @@ test('(5) rendered: a veil and the pie on the loading card, the others dimmed an
   assert.match(open(mine), /data-bg-card-loading=""/);
   assert.doesNotMatch(open(mine), /\sdisabled=""/, 'the loading card cannot be tapped — it could not be cancelled');
   assert.match(mine, /<span data-bg-card-load="loading" aria-hidden="true" class="[^"]*absolute inset-0[^"]*bg-ink\/40[^"]*">/, 'no dim veil over the loading card');
-  assert.match(mine, /data-bg-card-pie="45"[^>]*style="background:conic-gradient\(#fff 45%, rgb\(255 255 255 \/ 0\.28\) 0\)"/, 'the pie is not filled to the measured figure');
+  assert.match(mine, /data-bg-card-pie="45"[^>]*style="background:conic-gradient\(rgb\(255 255 255\) 45%, rgb\(255 255 255 \/ 0\.28\) 0\)"/, 'the pie is not filled to the measured figure');
   assert.match(mine, />45%<\/span>/);
   assert.doesNotMatch(mine, /data-bg-card-busy/, 'the small mark is drawn beside the pie');
   // The accent and the ink on it are the selector template's own — one setting, never written on the card.

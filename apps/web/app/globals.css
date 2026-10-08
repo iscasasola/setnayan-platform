@@ -172,6 +172,20 @@
     --color-mulberry: 194 78 37;         /* CTA → #C24E25 · cream label 4.61:1 AA ✓ */
     --color-mulberry-600: 176 71 34;    /* CTA hover → #B04722 (5.39:1) */
     --color-mulberry-700: 157 63 30;     /* CTA deepest → #9D3F1E (6.42:1) */
+    /* ── THE ACCENT, BY ITS JOB — ONE SETTING (owner 2026-10-08, right after approving the template gallery: "if we
+     * change our color to blue, it will be easy to change the button colors"). `--sn-accent` is what is ON, PICKED or
+     * TAPPABLE on every template (pill selector, switch, style card, dropdown, the press ring); `--sn-on-accent` is
+     * the ink of words that sit ON it. Tailwind: `bg-accent` · `text-accent` · `ring-accent` · `border-accent` ·
+     * `text-on-accent`. A template never writes a colour of its own — `lib/the-accent-is-one-token.test.ts` watches.
+     *
+     * TO CHANGE THE APP'S ACCENT, change the ONE line below (three numbers, red green blue — e.g. `37 99 235`), and
+     * check the ink under it still reads: the same test fails under 4.5:1.
+     *
+     * Today it is the terracotta `--color-mulberry` holds. `mulberry` and its classes are NOT renamed or repointed:
+     * hundreds of pages not yet moved onto the templates still read them. Never read inside the guest's Event Hub
+     * (`.sn-editorial`), which wears the couple's own colours (`--hub-accent*`). */
+    --sn-accent: var(--color-mulberry);
+    --sn-on-accent: 255 255 255;         /* words on the accent → white · 4.76:1 on #C24E25 */
     /* Links + secondary buttons — NEW SLOT 2026-08-01. The app had no link
      * token; anchors inherited ink. Scope is deliberately NARROW (owner):
      * inline links and secondary/ghost buttons only. It is NOT a decorative
@@ -233,6 +247,7 @@
     --color-mulberry: 229 121 78;        /* CTA → lightened terracotta #E5794E · 6.20:1 AA on the dark page */
     --color-mulberry-600: 236 138 95;   /* CTA hover lighter → #EC8A5F (7.22:1 AAA) */
     --color-mulberry-700: 194 78 37;     /* CTA deepest → the light-mode #C24E25 */
+    --sn-on-accent: 23 22 15;            /* words on the accent, dark (inert like the rest of this block): the page's ink-black on #E5794E — white reads 2.9:1 there */
     --color-link: 157 178 206;         /* link → lightened slate indigo #9DB2CE · 8.37:1 AAA */
     --color-link-600: 175 194 218;     /* link hover → #AFC2DA (9.97:1) */
     /* Button-rule tones, dark (inert like the rest of this block). Against the
@@ -4323,7 +4338,7 @@ html.dark {
 }
 
 /* ── THE SWITCH (owner 2026-10-08: *"switch is teracota or greyed out"*) ──────────────────────────────────────
-   ONE shared look for a switch's track — `.sn-switch`: grey when off, the terracotta when on, the same two colours
+   ONE shared look for a switch's track — `.sn-switch`: grey when off, the accent (`--sn-accent`) when on, the same two colours
    as a pill selector — and its knob lands with the press family's spring at the family's speed. On =
    `data-on="true"` on the track, or a checked `.peer` before it (the two ways the Maker's switches are built).
    (A press rings the track: the track also wears `sn-press-ring`, drawn by `app/_components/press-feel.tsx`.) */
@@ -4333,7 +4348,7 @@ html.dark {
 }
 .sn-switch[data-on='true'],
 .peer:checked ~ .sn-switch {
-  background-color: rgb(var(--color-mulberry));
+  background-color: rgb(var(--sn-accent));
 }
 .sn-switch::after,
 .sn-switch > .sn-switch-knob {

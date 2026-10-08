@@ -146,7 +146,7 @@ test('(2) the tapped card is ringed and wears the progress mark from the tap —
   const fresh = cardOf('loop:new');
   const old = cardOf('loop:old');
   assert.match(fresh, /aria-pressed="true"/, 'the tapped card is not pressed until the save answers');
-  assert.match(fresh, /data-bg-card-picture=""[^>]*class="sn-phone-card sn-press-ring ring-\[3px\] ring-mulberry"/, 'the ring is not on the tapped card');
+  assert.match(fresh, /data-bg-card-picture=""[^>]*class="sn-phone-card sn-press-ring ring-\[3px\] ring-accent"/, 'the ring is not on the tapped card');
   assert.match(fresh, /data-bg-card-busy=""/, 'the tapped card wears no progress mark');
   assert.match(fresh, /aria-busy="true"/);
   assert.match(old, /aria-pressed="false"/, 'the old card is still pressed');

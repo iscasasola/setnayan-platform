@@ -254,7 +254,15 @@ const config: Config = {
         },
         // Canonical semantic tokens for new code. Older code referencing
         // `cream` / `ink` / `terracotta` continues to work via the slots above.
-        accent: 'var(--accent)',
+        // `accent` / `on-accent` — THE APP'S ACCENT BY ITS JOB (owner 2026-10-08: "if we
+        // change our color to blue, it will be easy to change the button colors"):
+        // what is on / picked / tappable on every template, and the ink of words on
+        // it. ONE setting — `--sn-accent` / `--sn-on-accent` in globals.css. (This
+        // slot was `var(--accent)`, the kit's gold, and no class anywhere used it —
+        // measured 2026-10-08; `accent-deep` / `accent-soft` below are that older
+        // gold family and are unchanged.)
+        accent: 'rgb(var(--sn-accent) / <alpha-value>)',
+        'on-accent': 'rgb(var(--sn-on-accent) / <alpha-value>)',
         'accent-deep': 'var(--accent-deep)',
         'accent-soft': 'var(--accent-soft)',
         surface: 'var(--surface)',

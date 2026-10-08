@@ -2,7 +2,7 @@
 
 import { makerSave } from '@/lib/maker-refresh';
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from 'react';
 import { Check } from 'lucide-react';
 import { FileUpload } from '@/app/_components/file-upload';
 import { extractPosterFrame } from '../../../_components/std-media-picker';
@@ -13,18 +13,45 @@ import { INVITE_THEMES, type InviteTheme, type InviteThemeId } from '@/lib/invit
 import { PaidMark } from '@/app/_components/paid-mark';
 import { makerProMark, paidMarkLabel, type PaidMarkState } from '@/lib/paid-mark';
 import {
+  HUB_MAIN_BLURS,
+  HUB_MAIN_FOCUSES,
+  HUB_MAIN_PATTERNS,
+  HUB_MAIN_PATTERN_LABEL,
   HUB_MEDIA_MOTIONS,
   HUB_MEDIA_MOTION_LABEL,
+  hubMainTakes,
   isHubMainFollow,
   isHubMainLoop,
   isHubMainOwn,
   type HubMainGround,
   type HubMainOwn,
 } from '@/lib/hub-canvas';
+import { MAIN_GROUND_SHADES, MAIN_GROUND_SHADE_LABEL } from '@/lib/main-ground-shade';
+import { MAIN_GROUND_PATTERN_CSS } from '@/lib/main-ground-patterns';
+import { BACKGROUND_EFFECTS, BACKGROUND_EFFECT_LABEL, encodeBackgroundChoice, ombreCss, parseSiteBackground, type BackgroundEffect } from '@/lib/ombre';
+import {
+  BACKGROUND_MAIN_INFO,
+  BACKGROUND_SHADE_CANDLELIGHT,
+  BACKGROUND_SHADE_CANDLELIGHT_LABEL,
+  BACKGROUND_SOURCES,
+  BACKGROUND_SOURCE_IS_PRO,
+  BACKGROUND_SOURCE_LABEL,
+  backgroundShadeValue,
+  backgroundShadeWrite,
+  backgroundSourceOf,
+  backgroundWritePatch,
+  type BackgroundSource,
+  type BackgroundWrite,
+} from '@/lib/background-source';
+import { MAIN_COLOUR_SLOTS as MOOD_COLOUR_NAMES } from '@/lib/colour-access';
+import { STUDIO_ROW_PICK } from '@/lib/studio-skin';
+import { InfoTip } from '@/app/_components/info-tip';
+import { StudioColourField } from '../../../launch/_components/studio-colour-field';
+import { BgCard, BgCards, BgRow, LoopPicture, UploadPicture } from './background-cards';
 import { mainGroundChoice } from '@/lib/main-ground-choice';
 import { heroFrameWrites } from '@/lib/hero-frame-sync';
 import { IMAGE_MAX_EDGE } from '@/lib/image-max-edge';
-import { STD_REALISTIC_BACKGROUNDS } from '@/lib/std-backgrounds';
+import { STD_REALISTIC_BACKGROUNDS, isStdLibrarySrc } from '@/lib/std-backgrounds';
 import { ClipTile, PhotoTile, type SceneUpload } from './scene-background-row';
 import { PickMenu } from './pick-menu';
 import type { PickOption } from './pick-menu-types';
@@ -64,7 +91,35 @@ import { MakerMediaMeter } from '@/app/_components/maker-media-meter';
  */
 
 /** One moving background of ours, as the dropdown lists it (built on the server). */
-export type MovingBackgroundOption = { id: InviteThemeId; name: string; stillUrl: string | null };
+export type MovingBackgroundOption = {
+  id: InviteThemeId;
+  name: string;
+  stillUrl: string | null;
+  /** 🎞 The loop itself (its public address) — Studio › Look › Background's Video card plays it. Absent = the still only. */
+  loopUrl?: string | null;
+};
+
+/** 🌈 The page colour as Studio › Look › Background's Colour source sets it — the drafted look over live. */
+export type MainBackgroundPage = {
+  /** `events.site_bg_color` as stored — a plain hex or an encoded ombré (`lib/ombre.ts`); null = the Mood Board's. */
+  bgColor: string | null;
+  /** The colour the page wears while that is blank — the Mood Board's, else the theme's paper. */
+  resolved: string;
+  /** The Mood Board's five — the colour picker's first row. */
+  five: readonly string[];
+  /** `events.site_art_direction` — Candlelight is Shade ▾'s darkest step. */
+  artDirection: 'daylight' | 'candlelight' | null;
+};
+
+type LookWrite = BackgroundWrite;
+
+const PRO_TRAIL = { text: '◆', tone: 'muted' as const, label: 'Event Hub Pro' };
+/** "Just the colour" — nothing laid over the page colour. */
+const NO_PICTURE: HubMainGround = { ground: 'none' };
+/** A card with no picture of its own yet — paper, never a blank. */
+const PAPER_SWATCH = 'rgb(var(--color-ink) / 0.05)';
+const BLUR_LABEL = { soft: 'Soft', strong: 'Strong' } as const;
+const FOCUS_LABEL = { top: 'Top', bottom: 'Bottom' } as const;
 
 const IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
 const VIDEO_TYPES = ['video/mp4', 'video/quicktime', 'video/webm'];
@@ -93,9 +148,14 @@ async function readFrame(blob: Blob): Promise<string[]> {
 }
 
 async function saveMain(eventId: string, main: HubMainGround | null, draft: typeof hubDraftAction = hubDraftAction) {
+  return saveLookWrite(eventId, { main }, draft);
+}
+
+/** ONE draft save for one pick — the main background and/or the page's own colour and art direction (`hubDraftAction` intent=save). */
+async function saveLookWrite(eventId: string, write: LookWrite, draft: typeof hubDraftAction = hubDraftAction) {
   const fd = new FormData();
   fd.set('intent', 'save');
-  fd.set('patch', JSON.stringify({ widgets: { hero: { main } } }));
+  fd.set('patch', JSON.stringify(backgroundWritePatch(write)));
   return draft(eventId, fd);
 }
 
@@ -248,7 +308,7 @@ function Choice({
 export function MainBackgroundPanel({
   eventId,
   themeId,
-  current,
+  current: storedMain,
   hero,
   overrideStillUrl,
   drafted,
@@ -260,7 +320,13 @@ export function MainBackgroundPanel({
   mediaUsedBytes,
   colours,
   draftAction = hubDraftAction,
+  page = null,
+  heroVideo = null,
 }: {
+  /** 🌈 Studio › Look › Background's Colour source and Shade ▾ (the new Maker). Absent = the colour is set elsewhere (the lab). */
+  page?: MainBackgroundPage | null;
+  /** 🎬 The hero video's own uploader (Look › Background since 2026-10-08) — the Studio draws it under "Your photo or video". */
+  heroVideo?: ReactNode;
   eventId: string;
   /** The couple's saved theme. Classic has no moving background at all. */
   themeId: InviteThemeId;
@@ -299,6 +365,15 @@ export function MainBackgroundPanel({
   const [reading, setReading] = useState(false);
   const [choosingMedia, setChoosingMedia] = useState(false);
   const measuring = useRef<Promise<Measured | null> | null>(null);
+  const studio = useMaker()?.stagesStudio === true;
+  /* 🧭 Studio: the source whose cards are on screen (a look, never a write) and whether the upload is open. */
+  const [viewed, setViewed] = useState<BackgroundSource | null>(null);
+  const [uploadOpen, setUploadOpen] = useState(false);
+  /* 🧭 Studio: the pick is DRAWN AT THE TAP — ringed, named — then saved; the next server render (or a
+     refusal) is the truth again. The shipped Maker keeps waiting for the render, as it always did. */
+  const [tried, setTried] = useState<{ main?: HubMainGround | null; bg?: string | null; art?: 'daylight' | 'candlelight' } | null>(null);
+  useEffect(() => setTried(null), [storedMain, page?.bgColor, page?.artDirection]);
+  const current = tried && 'main' in tried ? (tried.main ?? null) : storedMain;
 
   const theme = useMemo(() => ({ ...INVITE_THEMES[themeId], palette: colours }), [themeId, colours]);
   const own: HubMainOwn | null = isHubMainOwn(current) ? current : null;
@@ -332,17 +407,45 @@ export function MainBackgroundPanel({
     [tint, theme],
   );
 
-  const save = (main: HubMainGround | null, failure: string, after?: () => void) =>
+  const save = (main: HubMainGround | null, failure: string, after?: () => void) => {
+    if (studio) setTried((t) => ({ ...(t ?? {}), main }));
     start(async () => {
       setError(null);
       try {
         const r = await makerSave(() => saveMain(eventId, main, draftAction), () => router.refresh());
-        if (!r.ok) setError(r.error);
-        else after?.();
+        if (!r.ok) {
+          setTried(null);
+          setError(r.error);
+        } else after?.();
       } catch {
+        setTried(null);
         setError(failure);
       }
     });
+  };
+  /** 🧭 Studio: one pick that may touch the page's colour or Candlelight as well as the main background — ONE draft save. */
+  const saveLook = (write: LookWrite, failure: string) => {
+    if (!('main' in write) && !write.events) return;
+    setTried((t) => ({
+      ...(t ?? {}),
+      ...('main' in write ? { main: write.main ?? null } : {}),
+      ...(write.events && 'site_bg_color' in write.events ? { bg: write.events.site_bg_color ?? null } : {}),
+      ...(write.events?.site_art_direction ? { art: write.events.site_art_direction } : {}),
+    }));
+    start(async () => {
+      setError(null);
+      try {
+        const r = await makerSave(() => saveLookWrite(eventId, write, draftAction), () => router.refresh());
+        if (!r.ok) {
+          setTried(null);
+          setError(r.error);
+        }
+      } catch {
+        setTried(null);
+        setError(failure);
+      }
+    });
+  };
 
   const onFilePicked = (file: File) => {
     setError(null);
@@ -461,7 +564,6 @@ export function MainBackgroundPanel({
     },
     { key: 'src:none', label: 'Just the colour', group: 'Plain' },
   ];
-  const groundOptions: PickOption[] = [...loops.map(groundLoopOption), ...groundOwnOptions];
   const pickGround = (k: string) => {
       if (pending) return;
       if (k === 'src:media') return setChoosingMedia(true);
@@ -475,14 +577,392 @@ export function MainBackgroundPanel({
         'Your background could not be changed. Please try again.',
       );
   };
-  const studio = useMaker()?.stagesStudio === true;
+
+  /* 🔎 The hero's colours are read where the hero is the background — ONE mount, drawn by whichever Maker is on. */
+  const heroSync =
+    choice === 'hero' && hero.photoRef ? (
+      <HeroFrameSync eventId={eventId} heroRef={hero.photoRef} heroUrl={hero.photoUrl} current={current} liveHeroRef={hero.liveRef} mainDrafted={drafted} />
+    ) : null;
+
+  /* ══ 🧭 STUDIO › LOOK › BACKGROUND — ONE SOURCE ▾ AND ITS PICTURE CARDS ════════════════════════
+     (the new Maker; owner 2026-10-08, the Look restudy — `lib/background-source.ts`, prototype
+     `background_restudy_2026-10-08_fable.html`). EVERY choice the dropdown, the "Pattern ▾" row, the
+     page fill and the pictures under "Upload media" held is a card of ONE of five sources, and a tap
+     does exactly what its old row did (`pickGround` · `pickExisting` · the same draft door). */
+  if (studio) {
+    const FAILED = 'Your background could not be changed. Please try again.';
+    const proOn = Boolean(proMark);
+    const storedSource = backgroundSourceOf(current, {
+      themeHasLoop: Boolean(INVITE_THEMES[themeId]?.media),
+      followsHero: !current && Boolean(hero.photoRef) && themeId !== 'house',
+    });
+    const view = viewed ?? storedSource;
+    /** The cards on screen are the source the page wears — only then is one of them ringed, and its rows drawn. */
+    const active = view === storedSource;
+    /* 🌈 The page colour: the couple's own (plain or blended), else the one the page wears (the Mood Board's). */
+    const bgStored = tried && 'bg' in tried ? (tried.bg ?? null) : (page?.bgColor ?? null);
+    const art = tried?.art ?? page?.artDirection ?? null;
+    const bg = parseSiteBackground(bgStored);
+    const ownHex = bg ? (bg.kind === 'plain' ? bg.hex : bg.ombre.base) : null;
+    const effect: BackgroundEffect = bg?.kind === 'ombre' ? bg.ombre.shape : 'plain';
+    const paper = ownHex ?? page?.resolved ?? colours.canvas;
+    const five = page?.five ?? [];
+    const slot = five.findIndex((c) => c.toLowerCase() === paper.toLowerCase());
+    const colourName = slot >= 0 ? (MOOD_COLOUR_NAMES[slot] ?? 'Your Mood Board') : ownHex ? 'Your own' : 'Your Mood Board';
+    /** The page colour and its blend. Picked from a picture, a video or (a Colour card) a pattern, the colour IS the background now. */
+    const pickPage = (nextEffect: BackgroundEffect, hex: string | null, keepPattern: boolean) => {
+      const base = hex ?? (nextEffect === 'plain' ? null : paper);
+      const value = base ? encodeBackgroundChoice(base, nextEffect) || null : null;
+      const stays = storedSource === 'colour' || (keepPattern && storedSource === 'pattern');
+      saveLook(stays ? { events: { site_bg_color: value } } : { events: { site_bg_color: value }, main: NO_PICTURE }, FAILED);
+    };
+    const pattern = current && 'ground' in current && current.ground === 'pattern' ? current.pattern : null;
+    /* 🌗 Shade · 🌫 Blur · 🎯 Focus — stored on the main background, each only where it means something (`hubMainTakes`). */
+    const takes = hubMainTakes(current);
+    const extra = (key: 'shade' | 'blur' | 'focus'): string | null => {
+      const v = (current as Record<string, unknown> | null)?.[key];
+      return typeof v === 'string' ? v : null;
+    };
+    const withExtra = (key: 'shade' | 'blur' | 'focus', value: string | null): HubMainGround => {
+      const { [key]: _drop, ...rest } = current as Record<string, unknown>;
+      return (value ? { ...rest, [key]: value } : rest) as HubMainGround;
+    };
+    const shadeNow = backgroundShadeValue({ art, shade: takes.shade ? extra('shade') : null });
+    /** ONE list, one pick: a veil step is worn INSTEAD of Candlelight, and Candlelight instead of a veil. */
+    const pickShade = (k: string) => {
+      const w = backgroundShadeWrite(k, { art, shade: extra('shade'), takesShade: takes.shade && Boolean(current) });
+      if (!w) return;
+      const write: LookWrite = {};
+      if (w.art) write.events = { site_art_direction: w.art };
+      if (w.stepMoves) write.main = withExtra('shade', w.step);
+      saveLook(write, FAILED);
+    };
+    const listed =
+      own &&
+      (isStdLibrarySrc(own.media) ||
+        videoChoice?.ref === own.media ||
+        sceneUploads.some((u) => u.ref === own.media) ||
+        photoChoices.some((p) => p.ref === own.media));
+    const matches = tint && ((choice === 'hero' && follow) || own) ? tint.match : null;
+    return (
+      <section className="flex flex-col gap-2" data-maker-main-background="" data-bg-source={view} data-bg-source-stored={storedSource}>
+        {/* ONE dropdown for the set of sources (owner: "any set of choices is ONE dropdown"); what it is, behind ⓘ. */}
+        <BgRow label="Source" data="source" info={BACKGROUND_MAIN_INFO}>
+          <PickMenu
+            label="Background"
+            dataAttr="data-bg-source-pick"
+            className={STUDIO_ROW_PICK}
+            value={view}
+            options={BACKGROUND_SOURCES.filter((k) => k !== 'video' || loops.length > 0).map((k) => ({
+              key: k,
+              label: BACKGROUND_SOURCE_LABEL[k],
+              ...(proOn && BACKGROUND_SOURCE_IS_PRO[k] ? { trail: PRO_TRAIL } : {}),
+            }))}
+            onPick={(k) => {
+              setUploadOpen(false);
+              setViewed(k as BackgroundSource);
+            }}
+          />
+        </BgRow>
+
+        <BgCards label={BACKGROUND_SOURCE_LABEL[view]} source={view}>
+          {view === 'colour'
+            ? BACKGROUND_EFFECTS.filter((e) => Boolean(page) || e === 'plain').map((e) => (
+                <BgCard
+                  key={e}
+                  name={BACKGROUND_EFFECT_LABEL[e]}
+                  data={`fill:${e}`}
+                  on={active && effect === e}
+                  swatch={e === 'plain' ? paper : ombreCss({ shape: e, base: paper })}
+                  onPick={() => (page ? pickPage(e, ownHex, false) : pickGround('src:none'))}
+                />
+              ))
+            : null}
+          {view === 'pattern'
+            ? HUB_MAIN_PATTERNS.map((k) => (
+                <BgCard
+                  key={k}
+                  name={HUB_MAIN_PATTERN_LABEL[k]}
+                  data={`pattern:${k}`}
+                  on={active && pattern === k}
+                  swatch={`${MAIN_GROUND_PATTERN_CSS[k].image}, ${paper}`}
+                  swatchSize={MAIN_GROUND_PATTERN_CSS[k].size}
+                  onPick={() => save({ ground: 'pattern', pattern: k }, FAILED)}
+                />
+              ))
+            : null}
+          {view === 'scene'
+            ? STD_REALISTIC_BACKGROUNDS.map((b) => (
+                <BgCard
+                  key={b.id}
+                  name={b.label}
+                  data={`scene:${b.id}`}
+                  pro={proOn}
+                  on={active && own?.media === b.src}
+                  swatch={PAPER_SWATCH}
+                  onPick={() => pickExisting({ kind: 'photo', ref: b.src, stillUrl: b.src })}
+                >
+                  <StillOverSwatch src={b.src} swatch={PAPER_SWATCH} />
+                </BgCard>
+              ))
+            : null}
+          {view === 'video'
+            ? loops.map((l) => (
+                <BgCard
+                  key={l.id}
+                  name={l.name}
+                  data={`loop:${l.id}`}
+                  moving
+                  pro={proOn && !(l.id === themeId && INVITE_THEMES[themeId]?.tier === 'free')}
+                  on={active && loopNow === l.id}
+                  swatch={loopSwatch(l.id, colours.canvas)}
+                  onPick={() => pickGround(l.id)}
+                >
+                  {/* The loop itself, muted, over its poster, over its own two colours — never a broken image. */}
+                  <LoopPicture src={l.loopUrl ?? null}>
+                    <StillOverSwatch src={l.stillUrl} swatch={loopSwatch(l.id, colours.canvas)} />
+                  </LoopPicture>
+                </BgCard>
+              ))
+            : null}
+          {view === 'own' ? (
+            <>
+              {/* "Your cover photo" follows a MEASURED hero (`HeroFrameSync`), which Classic never runs — Classic offers its own upload. */}
+              {themeId === 'house' ? null : (
+                <BgCard
+                  name="Your cover photo"
+                  data="src:hero"
+                  pro={proOn}
+                  on={active && choice === 'hero'}
+                  disabled={!hero.photoRef}
+                  swatch={PAPER_SWATCH}
+                  onPick={() => pickGround('src:hero')}
+                >
+                  {hero.photoUrl ? (
+                    <StillOverSwatch src={hero.photoUrl} swatch={PAPER_SWATCH} />
+                  ) : (
+                    <span className="absolute inset-0 flex items-center justify-center px-1 text-center text-[10.5px] leading-tight text-ink/60">Add a cover photo first</span>
+                  )}
+                </BgCard>
+              )}
+              {videoChoice ? (
+                <BgCard
+                  name="Your video"
+                  data={`clip:${videoChoice.ref}`}
+                  moving
+                  pro={proOn}
+                  on={active && own?.kind === 'snippet' && own.media === videoChoice.ref}
+                  swatch={PAPER_SWATCH}
+                  onPick={() => pickExisting({ kind: 'snippet', ref: videoChoice.ref, stillUrl: urlOf(videoChoice.poster), poster: videoChoice.poster })}
+                >
+                  <StillOverSwatch src={urlOf(videoChoice.poster)} swatch={PAPER_SWATCH} />
+                </BgCard>
+              ) : null}
+              {sceneUploads.map((u) => (
+                <BgCard
+                  key={u.ref}
+                  name={u.kind === 'snippet' ? 'Your clip' : 'Your photo'}
+                  data={`own:${u.ref}`}
+                  moving={u.kind === 'snippet'}
+                  pro={proOn}
+                  on={active && own?.media === u.ref}
+                  swatch={PAPER_SWATCH}
+                  onPick={() =>
+                    u.kind === 'snippet'
+                      ? pickExisting({ kind: 'snippet', ref: u.ref, stillUrl: u.posterUrl ?? null, poster: u.poster })
+                      : pickExisting({ kind: 'photo', ref: u.ref, stillUrl: u.url })
+                  }
+                >
+                  <StillOverSwatch src={u.kind === 'snippet' ? (u.posterUrl ?? null) : u.url} swatch={PAPER_SWATCH} />
+                </BgCard>
+              ))}
+              {photoChoices.map((p) => (
+                <BgCard
+                  key={p.ref}
+                  name="Your photo"
+                  data={`own:${p.ref}`}
+                  pro={proOn}
+                  on={active && own?.media === p.ref}
+                  swatch={PAPER_SWATCH}
+                  onPick={() => pickExisting({ kind: 'photo', ref: p.ref, stillUrl: p.url })}
+                >
+                  <StillOverSwatch src={p.url} swatch={PAPER_SWATCH} />
+                </BgCard>
+              ))}
+              {/* The background they uploaded here is a card too — ringed, so "what is on" is never empty. */}
+              {own && !listed ? (
+                <BgCard name="Your upload" data="own:upload" moving={own.kind === 'snippet'} pro={proOn} on={active} swatch={PAPER_SWATCH} onPick={() => {}}>
+                  <StillOverSwatch src={overrideStillUrl} swatch={PAPER_SWATCH} />
+                </BgCard>
+              ) : null}
+              <BgCard name="Photo or video" data="upload" pro={proOn} on={false} swatch={PAPER_SWATCH} onPick={() => setUploadOpen((o) => !o)}>
+                <UploadPicture />
+              </BgCard>
+            </>
+          ) : null}
+        </BgCards>
+
+        {heroSync}
+
+        {view === 'own' && uploadOpen ? (
+          <div className="flex flex-col gap-2" data-main-ground-media="">
+            {/* The shipped uploader, in place — compressed on the phone before it uploads. */}
+            <FileUpload
+              bucket="media"
+              pathPrefix={`events/${eventId}/main-background`}
+              multiple={false}
+              maxSizeMB={100}
+              acceptedTypes={[...IMAGE_TYPES, ...VIDEO_TYPES]}
+              compressImage
+              compressVideo
+              videoCompressProfile="maker"
+              videoSilent
+              maxVideoDurationS={MAKER_MAX_CLIP_SECONDS}
+              validateFile={makeMakerVideoDurationValidator()}
+              onFilePicked={onFilePicked}
+              onChange={onUploaded}
+              disabled={pending}
+              label="Upload a photo or clip"
+            />
+            {typeof mediaUsedBytes === 'number' ? <MakerMediaMeter usedBytes={mediaUsedBytes} /> : null}
+            <span className="text-[12px] text-ink/70" data-main-ground-tip="">
+              <InfoTip label="Best size" align="start">
+                An upright (portrait) photo, {IMAGE_MAX_EDGE.toLocaleString('en-US')} pixels or more on its long side. Faces near the middle — the edges are cropped. Clips up to{' '}
+                {MAKER_MAX_CLIP_SECONDS} seconds.
+              </InfoTip>
+            </span>
+          </div>
+        ) : null}
+        {reading ? (
+          <p role="status" className="text-[12px] text-ink/60">
+            Reading its colours…
+          </p>
+        ) : null}
+
+        {/* 🎨 The colour the page (and a pattern) is drawn in — the Mood Board's ONE picker. */}
+        {page && (view === 'colour' || view === 'pattern') ? (
+          <BgRow label="Colour" data="colour" info="Your Mood Board’s five colours first, then colours that go with them.">
+            <span className="min-w-0 flex-1 [&>button]:mb-0">
+              <StudioColourField
+                data="background"
+                name={colourName}
+                job="Background · paper"
+                value={paper}
+                palette={five}
+                onPick={(hex) => pickPage(view === 'pattern' ? 'plain' : effect, hex, view === 'pattern')}
+                {...(ownHex ? { reset: { label: 'Use your Mood Board’s', onReset: () => pickPage('plain', null, view === 'pattern') } } : {})}
+              />
+            </span>
+          </BgRow>
+        ) : null}
+
+        {active ? (
+          <>
+            <BgRow label="Shade" data="shade" info="Darkens or lightens the background so the words stay clear. The words turn light on a dark shade.">
+              <PickMenu
+                label="Shade"
+                dataAttr="data-studio-shade-pick"
+                className={STUDIO_ROW_PICK}
+                value={shadeNow}
+                options={[
+                  /* A flat colour or a pattern has no picture to veil — there the list is As is and Candlelight. */
+                  ...MAIN_GROUND_SHADES.filter((k) => takes.shade || k === 'as-is').map((k) => ({ key: k, label: MAIN_GROUND_SHADE_LABEL[k] })),
+                  { key: BACKGROUND_SHADE_CANDLELIGHT, label: BACKGROUND_SHADE_CANDLELIGHT_LABEL, ...(proOn ? { trail: PRO_TRAIL } : {}) },
+                ]}
+                onPick={pickShade}
+              />
+            </BgRow>
+            {own?.kind === 'photo' ? (
+              <BgRow label="Motion" data="motion" info="Parallax: the picture moves a little slower than the page as guests scroll. Off under “reduce motion”.">
+                <PickMenu
+                  label="How the photo moves"
+                  dataAttr="data-main-ground-motion-pick"
+                  className={STUDIO_ROW_PICK}
+                  value={own.motion ?? 'still'}
+                  options={HUB_MEDIA_MOTIONS.map((m) => ({ key: m, label: HUB_MEDIA_MOTION_LABEL[m], ...(proOn && m === 'parallax' ? { trail: PRO_TRAIL } : {}) }))}
+                  onPick={(k) => {
+                    if (k === (own.motion ?? 'still')) return;
+                    const { motion: _m, ...rest } = own;
+                    save(k === 'parallax' ? { ...rest, motion: 'parallax' } : rest, FAILED);
+                  }}
+                />
+              </BgRow>
+            ) : null}
+            {takes.blur ? (
+              <BgRow label="Blur" data="blur">
+                <PickMenu
+                  label="Blur"
+                  dataAttr="data-studio-blur-pick"
+                  className={STUDIO_ROW_PICK}
+                  value={extra('blur') ?? 'none'}
+                  options={[{ key: 'none', label: 'None' }, ...HUB_MAIN_BLURS.map((k) => ({ key: k, label: BLUR_LABEL[k] }))]}
+                  onPick={(k) => k !== (extra('blur') ?? 'none') && save(withExtra('blur', k === 'none' ? null : k), FAILED)}
+                />
+              </BgRow>
+            ) : null}
+            {takes.focus ? (
+              <BgRow label="Focus" data="focus">
+                <PickMenu
+                  label="Focus"
+                  dataAttr="data-studio-focus-pick"
+                  className={STUDIO_ROW_PICK}
+                  value={extra('focus') ?? 'centre'}
+                  options={[{ key: 'centre', label: 'Centre' }, ...HUB_MAIN_FOCUSES.map((k) => ({ key: k, label: FOCUS_LABEL[k] }))]}
+                  onPick={(k) => k !== (extra('focus') ?? 'centre') && save(withExtra('focus', k === 'centre' ? null : k), FAILED)}
+                />
+              </BgRow>
+            ) : null}
+            {/* 🎨 Their own picture may lend the page its colours — ONE dropdown; what it measures, behind ⓘ. */}
+            {tint && matches !== null ? (
+              <BgRow
+                label="Colours"
+                data="match"
+                info={
+                  <>
+                    {adaptive ? `Words read at ${adaptive.bodyContrast.toFixed(1)}:1 over it${adaptive.scrim > 0 ? ` with a ${Math.round(adaptive.scrim * 100)}% veil` : ''}. ` : ''}
+                    {matched ? 'Match moves your buttons, accents and ornaments toward it.' : 'It has no strong colour to follow, so your colours stay as they are.'}
+                  </>
+                }
+              >
+                <PickMenu
+                  label="Colours"
+                  dataAttr="data-main-ground-match-pick"
+                  className={STUDIO_ROW_PICK}
+                  value={matches ? 'match' : 'keep'}
+                  options={[
+                    { key: 'match', label: `Match my ${own ? noun : 'photo'}’s colours` },
+                    { key: 'keep', label: 'Keep my colours' },
+                  ]}
+                  onPick={(k) => {
+                    const value = k === 'match';
+                    if (value === matches) return;
+                    save(own ? { ...own, tint: { ...tint, match: value } } : { ...follow!, tint: { ...tint, match: value } }, 'Your choice could not be saved. Please try again.');
+                  }}
+                />
+              </BgRow>
+            ) : null}
+            {adaptive && adaptive.scrim >= CALMER_CLIP_SCRIM && (choice === 'hero' ? follow : own) ? (
+              <p role="status" className="text-[12px] text-ink/75" data-main-ground-advice="">
+                Your words need a strong veil over this {own ? noun : 'photo'}, so less of it shows. A calmer one shows more of itself.
+              </p>
+            ) : null}
+          </>
+        ) : null}
+
+        {/* 🎬 The hero video (it was under Music) — beside the other pictures of theirs. */}
+        {view === 'own' ? heroVideo : null}
+
+        {error ? (
+          <p role="alert" className="text-[12px] text-terracotta-700">
+            {error}
+          </p>
+        ) : null}
+      </section>
+    );
+  }
 
   return (
-    <section className={studio ? 'flex flex-col gap-3' : 'flex flex-col gap-3 rounded-md bg-white/70 px-3 py-3'} data-maker-main-background="">
-      {studio ? (
-        <GroundCarousel options={groundOptions} value={groundValue} plain={colours.canvas} onPick={pickGround} source={choice} />
-      ) : (
-      <>
+    <section className="flex flex-col gap-3 rounded-md bg-white/70 px-3 py-3" data-maker-main-background="">
       <p className="text-[14px] font-semibold text-ink">Behind every scene</p>
 
       {/* 🧭 ONE DROPDOWN (owner rule "any set of choices is a dropdown"; controller sweep
@@ -500,11 +980,7 @@ export function MainBackgroundPanel({
           className="w-full justify-between text-ink"
         />
       </div>
-      </>
-      )}
-      {choice === 'hero' && hero.photoRef ? (
-        <HeroFrameSync eventId={eventId} heroRef={hero.photoRef} heroUrl={hero.photoUrl} current={current} liveHeroRef={hero.liveRef} mainDrafted={drafted} />
-      ) : null}
+      {heroSync}
 
       {choice === 'media' ? (
         <div className="flex flex-col gap-2" data-main-ground-media="">
@@ -695,68 +1171,4 @@ export function StillOverSwatch({ src, swatch }: { src: string | null | undefine
 export function loopSwatch(id: string, plain: string): string {
   const samples = (INVITE_THEMES as Record<string, InviteTheme | undefined>)[id]?.media?.samples;
   return samples ? `linear-gradient(160deg, ${samples.light}, ${samples.dark})` : plain;
-}
-
-/**
- * 🧭 STUDIO › LOOK › BACKGROUND (owner 2026-10-07 side-by-side M29; prototype `lookBackground`):
- * the SAME choices as the dropdown, as a carousel of real pictures — each moving background's
- * still, the hero, the couple's own upload, the plain page colour — the name under each, the one
- * on screen ringed. A tap does exactly what its dropdown row does (`pickGround`); a ◆ rides its name.
- */
-function GroundCarousel({
-  options,
-  value,
-  plain,
-  onPick,
-  source,
-}: {
-  options: readonly PickOption[];
-  value: string | null;
-  plain: string;
-  onPick: (key: string) => void;
-  source: string;
-}) {
-  return (
-    <div
-      role="group"
-      aria-label="Behind every scene"
-      data-main-ground-carousel=""
-      data-main-ground-source={source}
-      className="-mx-4 flex snap-x snap-mandatory gap-2 overflow-x-auto overscroll-x-contain px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-    >
-      {/* The plain colour first, as the prototype draws it ("Plain colour"), then every picture. */}
-      {[...options.filter((o) => o.key === 'src:none'), ...options.filter((o) => o.key !== 'src:none')].map((o) => {
-        const on = o.key === value;
-        const off = Boolean(o.disabledNote);
-        return (
-          <button
-            key={o.key}
-            type="button"
-            disabled={off}
-            aria-pressed={on}
-            data-main-ground-card={o.key}
-            onClick={() => !on && onPick(o.key)}
-            className="sn-press flex w-[46%] shrink-0 snap-start flex-col items-stretch gap-1.5 text-left disabled:opacity-50"
-          >
-            <span
-              className={`relative block h-[86px] overflow-hidden rounded-xl ring-1 ${on ? 'ring-2 ring-terracotta-700' : 'ring-ink/10'}`}
-              style={o.thumb ? undefined : { background: o.key === 'src:none' ? plain : o.key.startsWith('src:') ? undefined : loopSwatch(o.key, plain) }}
-            >
-              {o.thumb ? (
-                <StillOverSwatch src={o.thumb} swatch={o.key.startsWith('src:') ? 'rgb(var(--color-ink) / 0.04)' : loopSwatch(o.key, plain)} />
-              ) : o.key === 'src:media' ? (
-                <span aria-hidden className="flex h-full w-full items-center justify-center bg-ink/[0.04] text-[22px] text-ink/40">＋</span>
-              ) : o.key === 'src:hero' ? (
-                <span aria-hidden className="flex h-full w-full items-center justify-center bg-ink/[0.04] text-[12px] text-ink/45">Your hero</span>
-              ) : null}
-            </span>
-            <span className={`flex items-center justify-center gap-1 truncate text-center text-[13px] ${on ? 'font-semibold text-ink' : 'font-medium text-ink/70'}`}>
-              <span className="truncate">{o.label}</span>
-              {o.trail ? <span aria-label={o.trail.label} className="shrink-0 text-[11px] text-ink/45">{o.trail.text}</span> : null}
-            </span>
-          </button>
-        );
-      })}
-    </div>
-  );
 }

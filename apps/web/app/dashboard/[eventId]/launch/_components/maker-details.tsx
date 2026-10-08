@@ -19,7 +19,6 @@ import {
   Mail,
   MailCheck,
   Music,
-  Type,
   Paintbrush,
   MessageSquareText,
   MailOpen,
@@ -87,12 +86,11 @@ import {
   ScheduleSlots,
   SpecialMessageField,
 } from './details-lazy';
-import { LOOK_ITEM_SECTIONS } from '@/lib/maker-look-sections';
+import { LOOK_ITEM_SECTIONS, type LookPart } from '@/lib/maker-look-sections';
 /* 🧭 The new Maker's Studio tools (`studio`) — lazy, so the shipped Maker's first load carries none of them. */
 import { StudioTool } from './details-lazy';
 import { DEFAULT_NAME_STYLE } from '@/lib/name-style';
 import type { StudioHubFacts } from './studio-tools';
-import type { StdLegibility } from '@/lib/std-backgrounds';
 import type { HubMainGround } from '@/lib/hub-canvas';
 import type { MainColourDraft } from '@/lib/main-colours';
 import type { ManagerMethod } from '../../pabuya/_components/pabuya-manager';
@@ -249,9 +247,12 @@ export type MakerDetailsProps = {
     tour: boolean;
     /** The couple has chosen a theme (saved or drafted) — the item's "done". */
     chosen: boolean;
-    /** 🎞 The Save the Date film keeps a background of its own (draft over live) — Theme offers "Same as theme". */
+    /**
+     * 🎞 The Save the Date film keeps a background of its own (draft over live), and its Readability.
+     * NOT READ since 2026-10-08: the "Same as the Event Hub" line left Look (the Look restudy, plan row 1);
+     * the launch page still hands them until the film's own background retires (plan row 6 removes both).
+     */
     filmOwnBackground?: boolean;
-    /** …and its Readability, kept when it follows the theme. */
     filmLegibility?: 'auto' | 'lighten' | 'darken';
     /** They wear their own page colour, button colour or typeface (`hasOwnLook`) — re-tapping the current theme hands it back. */
     ownLook?: boolean;
@@ -535,8 +536,8 @@ export function MakerDetails(props: MakerDetailsProps) {
       return row;
     }
     if ((LOOK_SECTION_ITEM_KEYS as readonly string[]).includes(k)) {
-      /* 🎨 Background · Colours · Font · Music — each the Look panel on its own
-         section(s) (owner 2026-10-06, "EVENT DETAILS IS REBUILT"). */
+      /* 🎨 Background · Elements · Music — each the Look panel on its own
+         section (owner 2026-10-06, "EVENT DETAILS IS REBUILT"; three since 2026-10-08). */
       return lookSectionRow(k as LookSectionItemKey, theme.chosen);
     }
     if (k === 'theme') {
@@ -545,7 +546,7 @@ export function MakerDetails(props: MakerDetailsProps) {
          Buttons, no theme to pick since 2026-10-05. */
       return {
         label: 'Look',
-        sub: 'Background · font · colours · buttons',
+        sub: 'Background · elements · music',
         panelLabel: 'Look',
         done: theme.chosen,
         usedOn: ['every stage', 'every print'],
@@ -800,8 +801,6 @@ export function MakerDetails(props: MakerDetailsProps) {
   /* ✍ The two print-only words — each ONE field in two doors (its Words item
      and its print's switch), posting through the print words form. */
   const openingLine = <OpeningLineField initial={stored.openingLine} form={WORDS_FORM} titled={false} />;
-  /* 🎞 Under Look › Background, only while the Save the Date film keeps a background of its own. */
-  const filmLine = theme.filmOwnBackground ? <FilmFollowsTheme eventId={eventId} legibility={theme.filmLegibility} /> : null;
   const kindlyReply = <KindlyReplyField hosts={hosts} choice={replyChoice} manual={stored.rsvp?.kind === 'manual' ? stored.rsvp.text : ''} />;
   /* The NFC spot rides the print words form — ONE switch, drawn under the QR (or, in the new Maker's
      Studio, among the Finer Details switches: Info's QR is the Event Hub's, Prints holds what prints). */
@@ -824,11 +823,10 @@ export function MakerDetails(props: MakerDetailsProps) {
      in place from another item — `LateEditor` reads it when it renders, after this returns. */
   const late: Partial<Record<DetailsItemKey, ReactNode>> = {};
   const editors: Partial<Record<DetailsItemKey, ReactNode>> = {
-    /* 🎨 LOOK IS ONE PANEL — Background · Font · Colours · Buttons (`lib/maker-look-sections.ts`). */
-    theme: <LookPanel filmLine={filmLine} item="theme" />,
-    background: <LookPanel filmLine={filmLine} sections={LOOK_ITEM_SECTIONS.background} item="background" />,
-    colours: <LookPanel sections={LOOK_ITEM_SECTIONS.colours} item="colours" />,
-    font: <LookPanel sections={LOOK_ITEM_SECTIONS.font} item="font" />,
+    /* 🎨 LOOK IS ONE PANEL — Background · Elements · Music (`lib/maker-look-sections.ts`, owner 2026-10-08). */
+    theme: <LookPanel item="theme" />,
+    background: <LookPanel sections={LOOK_ITEM_SECTIONS.background} item="background" />,
+    elements: <LookPanel sections={LOOK_ITEM_SECTIONS.elements} item="elements" />,
     music: <LookPanel sections={LOOK_ITEM_SECTIONS.music} item="music" />,
     /* ── Your Event Hub address — the one place it is edited (owner: "Add the
        slug to details"). The shipped SlugField: 3–32 characters, live
@@ -1076,17 +1074,21 @@ export function MakerDetails(props: MakerDetailsProps) {
         {nfcToggle}
       </>
     );
-    /* 🌄 Look — ONE bar over the four sections (Background · Colours · Fonts · Music), the same editors under it. */
+    /* 🌄 Look — ONE bar over the three sections (Background · Elements · Music, owner 2026-10-08), the same editors under it.
+       What the Studio adds rides under the part it belongs to (`LookPanel` `extras`): the main background's extras — Pattern ·
+       Focus · Blur · Shade — under the main background, and 🎨 the five main colours, one at a time, under Elements › Colours
+       (owner 2026-10-07). */
+    const lookExtras: Partial<Record<LookSectionItemKey, Partial<Record<LookPart, ReactNode>>>> = {
+      background: st.main !== undefined ? { background: <StudioTool part="main-extras" eventId={eventId} main={st.main ?? null} /> } : undefined,
+      elements: st.mainColours
+        ? { colours: <StudioTool part="main-colours" eventId={eventId} colours={st.mainColours} drafted={st.mainColourDraft ?? {}} /> }
+        : undefined,
+    };
     for (const k of LOOK_SECTION_ITEM_KEYS) {
       editors[k] = (
         <>
           <StudioTool part="look" item={k} />
-          {editors[k]}
-          {/* 🌄 Background's extras — Pattern · Focus · Blur · Shade — and 🎨 the five main colours, one at a time (owner 2026-10-07). */}
-          {k === 'background' && st.main !== undefined ? <StudioTool part="main-extras" eventId={eventId} main={st.main ?? null} /> : null}
-          {k === 'colours' && st.mainColours ? (
-            <StudioTool part="main-colours" eventId={eventId} colours={st.mainColours} drafted={st.mainColourDraft ?? {}} />
-          ) : null}
+          <LookPanel sections={LOOK_ITEM_SECTIONS[k]} item={k} extras={lookExtras[k]} />
         </>
       );
     }
@@ -1125,8 +1127,8 @@ export function MakerDetails(props: MakerDetailsProps) {
         initial={startItem}
         guide={guide}
         coverUrl={props.coverUrl ?? null}
-        /* 🖼 Background · Colours · Font · Music show the ONE page the whole Look shows. */
-        bodyAlias={{ background: 'theme', colours: 'theme', font: 'theme', music: 'theme' }}
+        /* 🖼 Background · Elements · Music show the ONE page the whole Look shows. */
+        bodyAlias={{ background: 'theme', elements: 'theme', music: 'theme' }}
         /* 🗂 The new Maker's Studio forms, grouped as the prototype draws them (`.gh`). */
         formHeads={
           props.studio
@@ -1251,11 +1253,9 @@ function lookSectionRow(k: LookSectionItemKey, chosen: boolean): Omit<DetailsIte
   const icon = { className: 'h-4 w-4', strokeWidth: 1.75, 'aria-hidden': true } as const;
   switch (k) {
     case 'background':
-      return { label: 'Background', sub: 'A colour, a moving background or your own photo', done: chosen, usedOn: ['every stage'], icon: <ImageIcon {...icon} /> };
-    case 'colours':
-      return { label: 'Colours', sub: 'Page · text · buttons', usedOn: ['every stage', 'every print'], icon: <Paintbrush {...icon} /> };
-    case 'font':
-      return { label: 'Font', usedOn: ['every stage', 'every print'], icon: <Type {...icon} /> };
+      return { label: 'Background', sub: 'A colour, a moving background, your own photo or video', done: chosen, usedOn: ['every stage'], icon: <ImageIcon {...icon} /> };
+    case 'elements':
+      return { label: 'Elements', sub: 'Colours · font · buttons', usedOn: ['every stage', 'every print'], icon: <Paintbrush {...icon} /> };
     case 'music':
       return { label: 'Music', sub: 'On or off · the song', usedOn: ['every stage'], icon: <Music {...icon} /> };
   }
@@ -1333,12 +1333,9 @@ export function Toggle({
   );
 }
 
-/* ⚖ Studio round 3's two pieces load through the ONE lazy `StudioTool` door (the Maker's first load, 507 KB). */
+/* ⚖ Studio round 3's in-place door loads through the ONE lazy `StudioTool` door (the Maker's first load, 507 KB). */
 function OpenInPlace(props: { open: string; back: string; data: string; children: ReactNode }) {
   return <StudioTool part="open-in-place" {...props} />;
-}
-function FilmFollowsTheme(props: { eventId: string; legibility?: StdLegibility }) {
-  return <StudioTool part="film-follows" {...props} />;
 }
 
 /** ↪ An item's editor as `MakerDetails` finally composed it — read at render, after the composition. */

@@ -13,10 +13,11 @@ import type { HubDraftActionResult, HubDraftSummary } from '@/lib/hub-draft';
 import { sanitizeRsvpAskConfig } from '@/lib/rsvp-ask';
 import { MainBackgroundPanel, type MovingBackgroundOption } from '@/app/dashboard/[eventId]/website/editor/_components/main-background-panel';
 import { ColorsPanel } from '@/app/dashboard/[eventId]/website/editor/_components/pro-panels';
+import { SiteChromePanel } from '@/app/dashboard/[eventId]/website/editor/_components/media-panels';
 import { ButtonsLookRow } from '@/app/dashboard/[eventId]/website/editor/_components/buttons-look-row';
 import { INVITE_THEMES } from '@/lib/invite-themes';
 import { hubButtonPage } from '@/lib/hub-buttons';
-import type { HubSectionCanvas } from '@/lib/hub-canvas';
+import type { HubMainGround, HubSectionCanvas } from '@/lib/hub-canvas';
 import { celebrationColours, celebrationDraftIsPro } from '@/lib/rsvp-celebration';
 import { MakerRevealPicker } from '@/app/dashboard/[eventId]/launch/_components/maker-reveal';
 import { MakerLogoDoor } from '@/app/dashboard/[eventId]/launch/_components/details-lazy';
@@ -115,6 +116,7 @@ export function MakerLabShell({
   navigator,
   details,
   loops = [],
+  mainBackground = null,
   openDetails = false,
   canvases = {},
   renderStamp = 'lab',
@@ -134,6 +136,8 @@ export function MakerLabShell({
   navigator: MakerNavigatorData;
   details: ReactNode;
   loops?: readonly MovingBackgroundOption[];
+  /** 🌄 `?bg=` — the main background the lab starts on, so each Source of Studio › Look › Background can be seen (default: just the colour). */
+  mainBackground?: HubMainGround | null;
   openDetails?: boolean;
   /** The lab's "server" canvases — what its draft holds (`lab_widgets`), read on every render. */
   canvases?: Record<string, HubSectionCanvas>;
@@ -158,11 +162,12 @@ export function MakerLabShell({
     }),
     [eventId],
   );
-  /* 🎨 Look's rows — the REAL controls (Background · Font · Colours · Buttons), on
+  /* 🎨 Look's rows — the REAL controls (Background · Page colour · Colours · Font · Buttons), on
      maria-and-jose's shape: Classic, no hero photo, nothing chosen yet. A
      Background pick drafts into the lab (`window.__labDrafts`), never a database. */
   const house = INVITE_THEMES.house;
   const formDraft = (fd: FormData) => void labDraft(eventId, fd);
+  const heroVideo = <SiteChromePanel action={formDraft} eventId={eventId} part="video" musicRef={null} musicEnabled={false} videoRef={null} />;
   const lookRows = {
     'main-background': {
       label: 'Behind every scene',
@@ -171,13 +176,16 @@ export function MakerLabShell({
           eventId={eventId}
           themeId="house"
           colours={house.palette}
-          current={null}
+          current={mainBackground}
           hero={{ photoRef: null, photoUrl: null, hasClip: false, liveRef: null }}
           overrideStillUrl={null}
           drafted={false}
           ownsPro={false}
           loops={loops}
+          /* 🌈 Studio › Look › Background's Colour source — Classic's paper and maria-and-jose's five. */
+          page={{ bgColor: null, resolved: house.palette.canvas, five: ['#5B1A22', '#F7F2EC', '#C9A86A', '#FBFAF7', '#7A8B6F'], artDirection: null }}
           draftAction={labDraft as never}
+          heroVideo={heroVideo}
         />
       ),
     },
@@ -185,12 +193,23 @@ export function MakerLabShell({
       label: 'Font',
       node: <ColorsPanel action={formDraft} eventId={eventId} rowKey="font" part="font" bgColor={null} buttonColor={null} artDirection={null} fontKey={null} proMark="try" />,
     },
+    /* 🌈 The page fill — Look › Background's since 2026-10-08 (`LOOK_ROW_OF.page`). */
+    'page-colour': {
+      label: 'Page colour',
+      node: <ColorsPanel action={formDraft} eventId={eventId} rowKey="page-colour" part="page" bgColor={null} buttonColor={null} artDirection={null} />,
+    },
     colors: {
       label: 'Colours',
       node: (
-        <ColorsPanel action={formDraft} eventId={eventId} rowKey="colors" part="colours" bgColor={null} buttonColor={null} artDirection={null} fontKey={null} magicTraveller={null} proMark="try" />
+        <ColorsPanel action={formDraft} eventId={eventId} rowKey="colors" part="art" bgColor={null} buttonColor={null} artDirection={null} fontKey={null} magicTraveller={null} proMark="try" />
       ),
     },
+    /* 🎵 The song and 🎬 the hero video — the REAL form parts, posting into the lab's stand-in (no file leaves it). */
+    music: {
+      label: 'Background music',
+      node: <SiteChromePanel action={formDraft} eventId={eventId} part="music" musicRef={null} musicEnabled={false} videoRef={null} />,
+    },
+    'hero-video': { label: 'Hero video', node: heroVideo },
     buttons: {
       label: 'Buttons',
       node: <ButtonsLookRow eventId={eventId} theme={house} page={hubButtonPage(house, null)} style={null} colour={null} palette={[house.palette.accent, house.palette.ink]} />,

@@ -65,11 +65,12 @@ const MB = 'app/dashboard/[eventId]/studio/mood-board';
 
 /* ── (1) the Look ─────────────────────────────────────────────────────── */
 
-test('(1) the Look is Background · Colours · Font · Music · Mood Board · Logo · Cover page · Reveal, in the owner’s order', () => {
+test('(1) the Look is Background · Elements · Music · Mood Board · Logo · Cover page · Reveal, in the owner’s order', () => {
   /* 🗂 2026-10-06 ("EVENT DETAILS IS REBUILT"): the Look's own sections are rows;
      `theme` (the whole panel) stays an item, hidden — the guided Look step's. */
   const look = DETAILS_ITEM_GROUPS.find((g) => g.group === 'look')!;
-  assert.deepEqual([...look.keys], ['background', 'colours', 'font', 'music', 'mood-board', 'logo', 'hero', 'reveal']);
+  /* Three Look sections since the 2026-10-08 restudy (it was Background · Colours · Font · Music) — `LOOK_SECTIONS`. */
+  assert.deepEqual([...look.keys], ['background', 'elements', 'music', 'mood-board', 'logo', 'hero', 'reveal']);
   assert.deepEqual([...LOOK_ITEM_KEYS], ['mood-board', 'logo', 'hero', 'reveal']);
   assert.equal(DETAILS_ITEM_KEYS[0], 'background', 'Background is the first item and the cold open');
   assert.ok(DETAILS_ITEM_GROUPS.find((g) => g.group === 'elsewhere')?.keys.includes('theme'), 'the whole Look is no longer addressable');
@@ -338,7 +339,7 @@ test('(6) a birthday and a wake get the whole Look — and Page ▾ names the sa
   const { makerPageMenu } = await import(`../${L}/maker-bar`);
   for (const p of [BIRTHDAY, WAKE_PROFILE, WEDDING_PROFILE]) {
     const look = detailsNavigatorKeys(ctx(p), ALL).find((g) => g.group === 'look');
-    assert.deepEqual(look?.keys, ['background', 'colours', 'font', 'music', ...LOOK_ITEM_KEYS], `${p.eventType}: the Look lost an item`);
+    assert.deepEqual(look?.keys, ['background', 'elements', 'music', ...LOOK_ITEM_KEYS], `${p.eventType}: the Look lost an item`);
   }
   assert.equal(ctx(WAKE_PROFILE).solemn, true, 'the wake fixture is not the solemn register');
   // Page ▾ (the Maker in 4) names the stages in their ONE vocabulary

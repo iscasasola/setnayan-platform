@@ -21,7 +21,7 @@ import { CAMERA_LOOK_LABEL } from '@/lib/camera-look';
 import { WIDGET_CATALOG_BY_TYPE, WIDGET_PHASES, type WidgetType } from '@/lib/invitation-widgets';
 import { makerSceneLabel } from '@/lib/maker-scene-list';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
-import { LOOK_SECTION_LABEL } from '@/lib/maker-look-sections';
+import { LOOK_PART_LABEL, LOOK_SECTION_LABEL } from '@/lib/maker-look-sections';
 import { sanitizeHubCanvas, type HubSectionCanvas } from '@/lib/hub-canvas';
 import {
   FIXED_STYLE_LABEL,
@@ -60,15 +60,17 @@ export const HUB_DRAFT_EVENT_PLACE: Record<HubDraftEventColumn, { place: string;
   // 🎨 Named with the theme it came from — "Mood Board · Colours from Cyber Neon" (`hubDraftChangePlace`).
   role_palette: { place: 'Mood Board', what: 'Colours' },
   site_art_direction: { place: LOOK, what: 'Candlelight' },
-  site_font_key: { place: LOOK, what: LOOK_SECTION_LABEL.font },
-  site_bg_color: { place: LOOK, what: LOOK_SECTION_LABEL.colours },
-  site_button_color: { place: LOOK, what: LOOK_SECTION_LABEL.buttons },
-  site_button_style: { place: LOOK, what: LOOK_SECTION_LABEL.buttons },
+  site_font_key: { place: LOOK, what: LOOK_PART_LABEL.font },
+  // 🌈 The page fill is Look › Background's since 2026-10-08 — named for itself, so it never reads as the main background's line.
+  site_bg_color: { place: LOOK, what: LOOK_PART_LABEL.page },
+  site_button_color: { place: LOOK, what: LOOK_PART_LABEL.buttons },
+  site_button_style: { place: LOOK, what: LOOK_PART_LABEL.buttons },
   site_magic_traveller: { place: LOOK, what: 'Magic move' },
   site_bg_music_r2_key: { place: 'Music', what: 'Background music' },
   site_bg_music_enabled: { place: 'Music', what: 'On or off' },
   landing_page_hero_image_url: { place: 'Names & date', what: 'Photo' },
-  landing_page_hero_video_r2_key: { place: 'Names & date', what: 'Video' },
+  // 🎬 The hero video is set in Look › Background since 2026-10-08 (it was under Music).
+  landing_page_hero_video_r2_key: { place: LOOK, what: LOOK_PART_LABEL.video },
   rsvp_backdrop: { place: 'RSVP', what: 'Backdrop' },
   rsvp_ask_config: { place: 'RSVP', what: 'What you ask your guests' },
   std_reveal_template: { place: 'Save the Date', what: 'Reveal' },
@@ -110,8 +112,8 @@ export const HUB_DRAFT_EVENT_PLACE: Record<HubDraftEventColumn, { place: string;
   cover_photo_wanted: { place: DETAILS, what: 'Event photo' },
   // 🔳 Info › Your Event Hub › QR on/off (owner 2026-10-07).
   qr_shown: { place: 'Info', what: 'Event QR on or off' },
-  // 🎨 One of the five main colours, edited in Studio › Look › Colours (owner 2026-10-07).
-  main_colours: { place: LOOK, what: LOOK_SECTION_LABEL.colours },
+  // 🎨 One of the five main colours, edited in Studio › Look › Elements › Colours (owner 2026-10-07; Elements since 2026-10-08).
+  main_colours: { place: LOOK, what: LOOK_PART_LABEL.colours },
 };
 
 /** A scene canvas facet group → the word on the sheet. */

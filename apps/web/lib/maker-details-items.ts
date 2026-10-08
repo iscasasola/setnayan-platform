@@ -81,14 +81,21 @@ export type AnswerItemKey = 'papic' | 'gifts';
 export const ANSWER_ITEM_KEYS: readonly AnswerItemKey[] = ['papic', 'gifts'];
 /**
  * 🎨 THE LOOK'S OWN SECTIONS AS ITEMS (owner 2026-10-06, DECISION_LOG "APPROVED —
- * EVENT DETAILS IS REBUILT: ONE BUTTON, OWN-EDITOR ITEMS, ONE 'YOUR EVENT' FORM"):
- * Background · Colours · Font · Music each a row of the Look group. Each opens
+ * EVENT DETAILS IS REBUILT: ONE BUTTON, OWN-EDITOR ITEMS, ONE 'YOUR EVENT' FORM";
+ * restudied 2026-10-08, "APPROVED — THE LOOK RESTUDY: BACKGROUND · ELEMENTS ·
+ * MUSIC"): Background · Elements · Music each a row of the Look group. Each opens
  * the SAME Look panel (`LookPanel`) on its one section — never a second control.
  * `theme` stays an item (hidden from the list) — the whole panel the guided
- * "Look" step and an old `?item=theme` open.
+ * "Look" step and an old `?item=theme` open. They ARE `LOOK_SECTIONS`
+ * (`lib/maker-look-sections.ts`), held equal by `the-look-is-one-panel.test.ts`.
  */
-export type LookSectionItemKey = 'background' | 'colours' | 'font' | 'music';
-export const LOOK_SECTION_ITEM_KEYS: readonly LookSectionItemKey[] = ['background', 'colours', 'font', 'music'];
+export type LookSectionItemKey = 'background' | 'elements' | 'music';
+export const LOOK_SECTION_ITEM_KEYS: readonly LookSectionItemKey[] = ['background', 'elements', 'music'];
+/**
+ * 🔗 An address written before 2026-10-08 (`?item=colours`, `?item=font`) still
+ * opens where those controls live now — Elements — never the first row.
+ */
+const RETIRED_LOOK_ITEM: Readonly<Record<string, LookSectionItemKey>> = { colours: 'elements', font: 'elements' };
 export type DetailsItemKey = 'theme' | LookSectionItemKey | LookItemKey | EventItemKey | AnswerItemKey | SeatPlanItemKey | PlanItemKey | HubItemKey | WordsItemKey | StoryItemKey | PrintSetKey | FreePrintKey | DownloadItemKey;
 
 export const HUB_ITEM_KEYS: readonly HubItemKey[] = ['address', 'qr'];
@@ -122,7 +129,7 @@ export type DetailsItemGroup = 'look' | 'story' | 'event' | 'elsewhere' | 'set' 
 /**
  * 🗂 THE LIST, AS THE OWNER APPROVED IT (2026-10-06, "EVENT DETAILS IS REBUILT"):
  *
- *   Look          — Background · Colours · Font · Music · Mood Board · Logo · Cover page · Reveal
+ *   Look          — Background · Elements · Music · Mood Board · Logo · Cover page · Reveal
  *   Story & plans — the items with an editor of their own: Wedding March (it holds
  *                   Parents & hosts too) · Love Story · Schedule · Seat plan
  *   Your event    — ONE scrolling form (`form: true` — one row; its items' editors
@@ -233,6 +240,7 @@ export function detailsItemFor(search: {
   menuFlash?: boolean;
 }): DetailsItemKey {
   if (isDetailsItemKey(search.item)) return search.item;
+  if (search.item === 'colours' || search.item === 'font') return RETIRED_LOOK_ITEM[search.item]!;
   if (search.menuFlash) return 'menu';
   if (search.printTheme) return 'background';
   const moved = movedPageItem(search.tool);
@@ -259,8 +267,7 @@ const ITEM_LAYOUT: Partial<Record<DetailsItemKey, DetailsItemLayout>> = {
      fills the body, so every Look change shows on it; Look is the right column. */
   theme: 'fill',
   background: 'fill',
-  colours: 'fill',
-  font: 'fill',
+  elements: 'fill',
   music: 'fill',
   hero: 'fill',
   reveal: 'fill',

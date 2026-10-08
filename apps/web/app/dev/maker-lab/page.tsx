@@ -8,7 +8,7 @@ import { makerSceneLabel } from '@/lib/maker-scene-list';
 import { resolveWeddingOnlyParts } from '@/lib/wedding-only-parts';
 import { WEDDING_PROFILE } from '@/lib/event-type-profile';
 import { INVITE_THEMES, themeBackgroundName } from '@/lib/invite-themes';
-import { hubMovingBackgroundIds } from '@/lib/hub-canvas';
+import { hubMovingBackgroundIds, sanitizeHubMainGround } from '@/lib/hub-canvas';
 import { resolveThemeGround } from '@/app/[slug]/_lib/theme-ground';
 import type { InvitationWidgetRow, WidgetType } from '@/lib/invitation-widgets';
 import { detailsLabNode } from '../details-lab/details-lab-node';
@@ -147,7 +147,18 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
         id,
         name: themeBackgroundName(id),
         stillUrl: resolveThemeGround(id, { ownColours: false })?.poster ?? null,
+        loopUrl: resolveThemeGround(id, { ownColours: false })?.loop ?? null,
       }))}
+      /* 🌄 `?bg=video|pattern|scene` — start Look › Background on that Source (nothing is written; a fixture). */
+      mainBackground={
+        sp.bg === 'video'
+          ? sanitizeHubMainGround({ ground: 'loop', loop: hubMovingBackgroundIds()[0] })
+          : sp.bg === 'pattern'
+            ? sanitizeHubMainGround({ ground: 'pattern', pattern: 'dots' })
+            : sp.bg === 'scene'
+              ? sanitizeHubMainGround({ kind: 'photo', media: '/std/backgrounds/golden-hour.webp', tint: { match: false, frame: ['#f0d5b4', '#291d10'] }, shade: 'dark' })
+              : null
+      }
       openDetails={sp.tool === 'details' || typeof sp.guide === 'string'}
       canvases={canvases}
       fixedStyles={fixedStyles}

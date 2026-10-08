@@ -2,7 +2,6 @@
 
 import { StudioColourField } from './studio-colour-field';
 import { OpenInPlace } from './open-in-place';
-import { FilmFollowsTheme } from './film-follows-theme';
 import { useContext, useEffect, useId, useRef, useState, useTransition, type ReactNode } from 'react';
 import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { EGIFT_KIND_META, type EgiftMethodKind } from '@/lib/egift-kinds';
@@ -59,6 +58,7 @@ import { MAIN_COLOUR_JOB, MAIN_COLOUR_SLOTS, type MainColourDraft, type MainColo
 import { MAIN_COLOUR_SLOTS as MOOD_MAIN_COLOUR_SLOTS } from '@/lib/colour-access';
 import { InfoTip } from '@/app/_components/info-tip';
 import { StudioEventName } from './studio-event-name';
+import { BACKGROUND_MAIN_INFO } from '@/lib/background-source';
 
 /**
  * 🧭 THE NEW MAKER'S STUDIO TOOLS, REDRAWN TO THE PROTOTYPE (owner 2026-10-06;
@@ -617,23 +617,22 @@ export function StudioQuietRows() {
 
 /* ── 🌄 STUDIO › LOOK ────────────────────────────────────────────────────── */
 
-/** The four, in the owner's words (DECISION_LOG 2026-10-06 "STUDIO › LOOK IS THE GLOBAL LOOK"). */
+/** The three, in the owner's words (DECISION_LOG 2026-10-08 "APPROVED — THE LOOK RESTUDY: BACKGROUND · ELEMENTS · MUSIC"). */
 export const STUDIO_LOOK_LABEL: Readonly<Record<LookSectionItemKey, string>> = {
   background: 'Background',
-  colours: 'Colours',
-  font: 'Fonts',
+  elements: 'Elements',
   music: 'Music',
 };
 
-/** Said once, at the top of Background (the owner: *"explain that this is the main background"*). */
-export const STUDIO_MAIN_BACKGROUND_LINE =
-  'The main background — behind every stage and every page, the cover included; a part’s own Background can still change just that part';
+/** What the main background IS (the owner: *"explain that this is the main background"*) — behind the Source row's ⓘ since 2026-10-08 (`BACKGROUND_MAIN_INFO`). */
+export const STUDIO_MAIN_BACKGROUND_LINE = BACKGROUND_MAIN_INFO;
 
 /**
- * 🌄 Look's ONE full-width bar — Background · Colours · Fonts · Music (sections =
- * one `ISegmented`, INTERACTION_RULES §8). A press opens that section's item —
+ * 🌄 Look's ONE full-width bar — Background · Elements · Music (sections =
+ * one `ISegmented`, INTERACTION_RULES §8; three since the 2026-10-08 restudy). A press opens that section's item —
  * the SAME Look editor Details draws (`LookPanel`), never a copy; opening
- * writes nothing. Background opens with the one line that says what it is.
+ * writes nothing. What the main background IS sits behind the Source row's ⓘ
+ * (helper text lives behind ⓘ), no longer a paragraph under this bar.
  */
 export function StudioLookBar({ item }: { item: LookSectionItemKey }) {
   const select = useContext(DetailsSelectContext);
@@ -646,12 +645,6 @@ export function StudioLookBar({ item }: { item: LookSectionItemKey }) {
           </ISeg>
         ))}
       </ISegmented>
-      {item === 'background' ? (
-        <p data-studio-main-background-line="" className="text-[13px] leading-snug text-ink/70">
-          <b className="font-semibold text-ink">The main background</b>
-          {STUDIO_MAIN_BACKGROUND_LINE.slice('The main background'.length)}
-        </p>
-      ) : null}
     </div>
   );
 }
@@ -973,9 +966,8 @@ export type StudioToolProps =
   | ({ part: 'qr-shown' } & Parameters<typeof StudioQrShown>[0])
   | ({ part: 'bring' } & Parameters<typeof StudioWhatToBring>[0])
   | ({ part: 'event-name' } & Parameters<typeof StudioEventName>[0])
-  /* ⚖ Two round-3 pieces ride this one lazy door (2026-10-08) — a door of their own each cost the Maker's first load. */
-  | ({ part: 'open-in-place' } & Parameters<typeof OpenInPlace>[0])
-  | ({ part: 'film-follows' } & Parameters<typeof FilmFollowsTheme>[0]);
+  /* ⚖ A round-3 piece rides this one lazy door (2026-10-08) — a door of its own cost the Maker's first load. */
+  | ({ part: 'open-in-place' } & Parameters<typeof OpenInPlace>[0]);
 
 export function StudioTool(props: StudioToolProps) {
   switch (props.part) {
@@ -1003,7 +995,5 @@ export function StudioTool(props: StudioToolProps) {
       return <StudioEventName {...props} />;
     case 'open-in-place':
       return <OpenInPlace {...props} />;
-    case 'film-follows':
-      return <FilmFollowsTheme {...props} />;
   }
 }

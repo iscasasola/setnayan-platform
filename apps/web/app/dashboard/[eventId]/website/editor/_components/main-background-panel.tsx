@@ -442,6 +442,9 @@ export function MainBackgroundPanel({
   const [choosingMedia, setChoosingMedia] = useState(false);
   const measuring = useRef<Promise<Measured | null> | null>(null);
   const studio = useMaker()?.stagesStudio === true;
+  /* 🪟 Studio › Look's sample screen is what the couple looks at (`look-sample.tsx`) — a pick is on screen the moment it is told. */
+  const sampleNode = useMaker()?.lookPages?.look?.sample;
+  const onSample = studio && Boolean(sampleNode);
   /* 🧭 Studio: the source whose cards are on screen (a look, never a write) and whether the upload is open. */
   const [viewed, setViewed] = useState<BackgroundSource | null>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -593,7 +596,7 @@ export function MainBackgroundPanel({
       reading: false,
       laid: Boolean(lay) && heard > 0,
       /* No canvas to hear it, or a save that brings its own render: there is nothing more to wait for than the save. */
-      shown: heard === 0 || Boolean(!lay && !fresh && was && was.seq === seq && was.shown),
+      shown: heard === 0 || Boolean(!lay && !fresh && was && was.seq === seq && was.shown) || onSample,
       saved: false,
       failed: null,
     }));

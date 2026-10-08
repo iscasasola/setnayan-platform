@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useSyncExternalStore, type CSSProperties } from 'react';
+import { useEffect, useMemo, useSyncExternalStore, type CSSProperties } from 'react';
 import { backgroundLayOf, lookGroundPictures, type LookGroundSources } from '@/lib/background-pick';
 import { LANDING_WORDS } from '@/lib/guest-landing';
 import { isHubMainFollow, type HubMainGround } from '@/lib/hub-canvas';
@@ -9,6 +9,8 @@ import type { InviteThemeId } from '@/lib/invite-themes';
 import { lookSampleGround, lookSampleScope, type LookSampleRow } from '@/lib/look-sample';
 import { lookSampleVersion, readLookSample, subscribeLookSample, type LookSampleValues } from '@/lib/look-sample-store';
 import { boardWithMainColours, mainColoursOf, type MainColourDraft } from '@/lib/main-colours';
+import { LOOK_SECTION_ITEM_KEYS } from '@/lib/maker-details-items';
+import { holdCanvasRedraw } from '@/lib/maker-refresh';
 import { isStdLibrarySrc } from '@/lib/std-backgrounds';
 import { LoopPicture } from '../../website/editor/_components/background-cards';
 import { StillOverSwatch } from '../../website/editor/_components/main-background-panel';
@@ -79,9 +81,22 @@ function useLookSample(seed: LookSampleSeed) {
   return { ...now, fivePicked: now.five.join() === server.five.join() ? null : now.five };
 }
 
+/** Is Look's sample the screen — a Look item open in the Maker's Details? (`theme` = the whole Look.) */
+export function lookSampleOnScreen(selection: { kind: string; key?: string } | null | undefined, detailsItem: string | null | undefined): boolean {
+  if (!selection || selection.kind !== 'tool' || selection.key !== 'details') return false;
+  return detailsItem === 'theme' || (LOOK_SECTION_ITEM_KEYS as readonly string[]).includes(detailsItem ?? '');
+}
+
 export function LookSample({ seed }: { seed: LookSampleSeed }) {
   const maker = useMaker();
   const now = useLookSample(seed);
+  /* ⚡ While the sample is the screen the stage canvas is hidden — it is not re-rendered per pick. It redraws once,
+     when Stages (or any page) is shown again, and only if a pick asked (`holdCanvasRedraw`). */
+  const onScreen = lookSampleOnScreen(maker?.selection ?? null, maker?.detailsItem ?? null);
+  useEffect(() => {
+    holdCanvasRedraw(onScreen);
+    return () => holdCanvasRedraw(false);
+  }, [onScreen]);
   const five = now.fivePicked;
   const fiveKey = five ? five.join() : '';
 

@@ -4762,6 +4762,90 @@ html.dark {
   object-fit: cover;
 }
 
+/* `.sn-slider` — THE ONE SLIDER (owner 2026-10-08, the approved gallery § 17 "Counter and slider"; on the knob:
+ * "animation press effect"). The look of `app/_components/slider.tsx`, written here because a range's line and
+ * knob are pseudo-elements. The line fills in the app's accent up to the knob (`--sn-slider-fill`, set by the
+ * component) and is grey after it; the knob is white with the accent's ring; HELD, it dips, fills with the accent and
+ * shows a soft ring, and springs back — a share of the family's one speed (`--sn-pill-dur`), the family's spring.
+ * Every colour is `--sn-accent` or the page's ink: change the accent and the slider follows. Nothing moves under
+ * "reduce motion". Held by `lib/the-slider-is-one-drawing.test.ts`. */
+.sn-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  background: none;
+  touch-action: pan-y;
+}
+.sn-slider::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: var(--m-r-full);
+  background: linear-gradient(90deg, rgb(var(--sn-accent)) var(--sn-slider-fill, 50%), rgb(var(--color-ink) / 0.16) 0);
+}
+.sn-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 26px;
+  height: 26px;
+  margin-top: -10px;
+  border-radius: var(--m-r-full);
+  background: rgb(255 255 255);
+  border: 2px solid rgb(var(--sn-accent));
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.18), 0 0 0 0 rgb(var(--sn-accent) / 0.2);
+  transition:
+    transform calc(var(--sn-pill-dur) * 0.3) var(--sn-pill-spring),
+    box-shadow calc(var(--sn-pill-dur) * 0.3) var(--sn-ease),
+    background-color calc(var(--sn-pill-dur) * 0.2) var(--sn-ease);
+}
+.sn-slider:active::-webkit-slider-thumb {
+  transform: scale(0.9);
+  background: rgb(var(--sn-accent));
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.18), 0 0 0 10px rgb(var(--sn-accent) / 0.18);
+}
+.sn-slider::-moz-range-track {
+  height: 6px;
+  border-radius: var(--m-r-full);
+  background: rgb(var(--color-ink) / 0.16);
+}
+.sn-slider::-moz-range-progress {
+  height: 6px;
+  border-radius: var(--m-r-full);
+  background: rgb(var(--sn-accent));
+}
+.sn-slider::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--m-r-full);
+  background: rgb(255 255 255);
+  border: 2px solid rgb(var(--sn-accent));
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.18);
+  transition:
+    transform calc(var(--sn-pill-dur) * 0.3) var(--sn-pill-spring),
+    box-shadow calc(var(--sn-pill-dur) * 0.3) var(--sn-ease),
+    background-color calc(var(--sn-pill-dur) * 0.2) var(--sn-ease);
+}
+.sn-slider:active::-moz-range-thumb {
+  transform: scale(0.9);
+  background: rgb(var(--sn-accent));
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.18), 0 0 0 10px rgb(var(--sn-accent) / 0.18);
+}
+.sn-slider:focus-visible {
+  outline: 2px solid rgb(var(--sn-accent) / 0.5);
+  outline-offset: 2px;
+  border-radius: var(--m-r-full);
+}
+.sn-slider:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sn-slider::-webkit-slider-thumb,
+  .sn-slider::-moz-range-thumb {
+    transition: none;
+  }
+  .sn-slider:active::-webkit-slider-thumb,
+  .sn-slider:active::-moz-range-thumb {
+    transform: none;
+  }
+}
+
 /* `.sn-popup-dark` — THE DARK BEHIND ANYTHING POPPED UP OVER THE PAGE.
  * Owner 2026-10-08 (INTERACTION_RULES § 9): "when there is a pop up. the rest of
  * the screen darkens (except for when there is preview) … The darkened area will

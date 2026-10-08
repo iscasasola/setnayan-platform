@@ -148,9 +148,11 @@ test('(5) the Maker’s four switches wear ONE look — grey off, terracotta on,
   assert.doesNotMatch(STUDIO_SWITCH_TRACK, OWN, 'StudioSwitch keeps its own colour');
   assert.doesNotMatch(STUDIO_SWITCH_TRACK, /(?:^|\s)bg-ink\//, 'StudioSwitch keeps its own off colour');
   const panel = read(`${L}/stage-panel/kit.tsx`);
-  const panelSwitch = panel.slice(panel.indexOf('export function PanelSwitch'), panel.indexOf('export function Dir'));
-  assert.match(panelSwitch, /<span aria-hidden data-on=\{on\} className="sn-switch sn-press-ring relative h-8 w-\[54px\] rounded-full">/);
-  assert.match(panelSwitch, /className=\{`sn-switch-knob absolute /);
+  const panelSwitch = panel.slice(panel.indexOf('export function PanelSwitch'), panel.indexOf('export function Swatch'));
+  /* The Stages panel's switch is the app's ONE drawing since 2026-10-09 (`SwitchTrack`, 50 × 30 — which wears
+     `.sn-switch` itself, `every-switch-wears-the-one-look` (3)); it draws no track or knob of its own. */
+  assert.match(panelSwitch, /className=\{SP_SWITCH\}>\s*<SwitchTrack on=\{on\} \/>\s*<\/button>/, 'PanelSwitch');
+  assert.doesNotMatch(panelSwitch, /sn-switch-knob|h-8 w-\[54px\]/, 'PanelSwitch still draws a track of its own');
   assert.doesNotMatch(panelSwitch, OWN, 'PanelSwitch keeps its own colour');
   const details = read(`${L}/maker-details.tsx`);
   const toggle = details.slice(details.indexOf('export function Toggle'), details.indexOf('{note ? <div className="text-xs text-ink/60">'));

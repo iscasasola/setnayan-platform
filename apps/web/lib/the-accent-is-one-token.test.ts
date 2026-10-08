@@ -71,6 +71,7 @@ const TEMPLATE_FILES = [
   'app/_components/form-row-date.tsx', //      the Form row with a date (the pill with the calendar mark)
   'app/_components/chips.tsx', //          11 · Chips (choose several from a few)
   'app/_components/toast/peek-toast.tsx', // 12 · Messages — the toast that peeks from the top
+  'app/_components/slider.tsx', //         17 · Slider (its drawing; the colours are `.sn-slider` in globals.css)
 ] as const;
 
 /**

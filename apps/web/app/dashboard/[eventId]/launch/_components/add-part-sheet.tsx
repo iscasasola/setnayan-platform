@@ -7,7 +7,7 @@ import { Check, ChevronDown, ChevronUp, GripVertical, Plus, Trash2, X } from 'lu
 import { ActionButton } from '@/components/action-button';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
 import { findMakerSection } from '@/app/[slug]/_components/maker-section-find';
-import { InfoTip } from '@/app/_components/info-tip';
+import { Explain } from '@/app/_components/explain';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
 import { isCustomSectionType } from '@/lib/custom-sections';
@@ -727,9 +727,7 @@ function AddPartSheet({
                   ) : (
                     <div className={`${STAGE_SHEET_ROW} text-ink/45`} data-add-part-waiting={p.key}>
                       <span className="min-w-0 flex-1 truncate">{p.label}</span>
-                      <InfoTip label="" ariaLabel={`About ${p.label}`} align="end">
-                        {p.path.note}
-                      </InfoTip>
+                      <Explain title={p.label}>{p.path.note}</Explain>
                     </div>
                   )}
                 </li>

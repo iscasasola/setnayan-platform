@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { PillSelector } from '@/app/_components/pill-selector';
+import { SLIDER_VALUE, Slider } from '@/app/_components/slider';
 import { MOTION_SIZE_LABEL, motionArrow, motionDirLabel, motionDirName, withMotionFx, type MotionDir, type MotionFx } from '@/lib/motion-effects';
 import { SP_PANE, SP_ROW, SP_ROW_LABEL } from '@/lib/maker-stage-room';
 import type { PickOption } from '../../../website/editor/_components/pick-menu-types';
@@ -39,26 +40,23 @@ function TimeRow({ label, t, data }: { label: string; t: NonNullable<AnimateTime
   return (
     <div className={SP_ROW} data-stage-time={data}>
       <span className={SP_ROW_LABEL}>{label}</span>
+      {/* The app's ONE slider (`Slider`): the accent's fill, the knob that answers a press, the value beside it. */}
       <span className="relative flex h-11 min-w-0 flex-1 items-center px-1">
-        <input
-          type="range"
+        <Slider
+          label={label}
+          data={data}
           min={0}
           max={2}
           step={0.1}
           value={t.value}
-          aria-label={label}
-          aria-valuetext={`${t.value.toFixed(1)} s`}
-          onChange={(e) => {
-            const v = near(Number(e.target.value));
+          valueText={`${t.value.toFixed(1)} s`}
+          onChange={(raw) => {
+            const v = near(raw);
             if (v !== t.value) t.onPick(v);
           }}
-          className="sp-range h-11 w-full cursor-pointer appearance-none bg-transparent"
-          style={{ ['--p' as string]: `${(t.value / 2) * 100}%` }}
         />
       </span>
-      <span className="flex h-[38px] min-w-[58px] shrink-0 items-center justify-center rounded-full border border-[var(--sp-line)] bg-white text-[13.5px] font-medium">
-        {t.value.toFixed(1)} s
-      </span>
+      <span className={`${SLIDER_VALUE} w-[44px]`}>{t.value.toFixed(1)} s</span>
     </div>
   );
 }

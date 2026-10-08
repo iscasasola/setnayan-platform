@@ -43,7 +43,7 @@ test('no Animate segment renders a row holding only an ⓘ', async () => {
     const rows = html.split(/(?=<div class="flex h-11 )/).slice(1);
     assert.ok(rows.length >= 2, `${phase}: rows were found`);
     for (const r of rows) {
-      const withoutAbout = r.replace(/<span[^>]*data-stage-about=""[\s\S]*?<\/span><\/span>/g, '');
+      const withoutAbout = r.replace(/<span[^>]*data-stage-about=""[\s\S]*?<\/button><\/span>/g, '');
       const visible = withoutAbout.replace(/<[^>]+>/g, '').trim();
       const controls = /<(button|input)\b/.test(withoutAbout);
       assert.ok(visible.length > 0 || controls, `${phase}: a row holds only an ⓘ — ${r.slice(0, 120)}`);
@@ -94,7 +94,7 @@ test('no part’s Style › Look opens on a row holding only an ⓘ — the pass
     doorless += 1;
     setStagePanelNow({ picked: k, quiet: null, about: `What ${k} is, and where it comes from.` });
     const html = renderToStaticMarkup(React.createElement(QuietBar));
-    const visible = html.replace(/<span[^>]*data-stage-about=""[\s\S]*?<\/span><\/span>/g, '').replace(/<[^>]+>/g, '').trim();
+    const visible = html.replace(/<span[^>]*data-stage-about=""[\s\S]*?<\/button><\/span>/g, '').replace(/<[^>]+>/g, '').trim();
     assert.ok(visible.length > 0, `${k}: its Look opens on a lone ⓘ`);
   }
   assert.ok(doorless > 0, 'parts without a door were found (the pass among them)');

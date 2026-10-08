@@ -2,7 +2,8 @@
 
 import { useRef, type ReactNode } from 'react';
 import { FileText, PencilLine, Store } from 'lucide-react';
-import { InfoTip } from '@/app/_components/info-tip';
+import { Explain } from '@/app/_components/explain';
+import { SwitchTrack } from '@/app/_components/switch-track';
 import { PillThumb } from '@/app/_components/pill-selector';
 import { ActionButton } from '@/components/action-button';
 import { SP_DD, SP_DD_BUTTON, SP_DD_LABEL, SP_PHASE, SP_PHASE_INSET, SP_PHASES, SP_SWATCH, SP_SWATCH_FACE, SP_SWATCH_MORE, SP_SWATCH_ON, SP_SWITCH } from '@/lib/maker-stage-room';
@@ -17,10 +18,11 @@ import { MAKER_PARTS, type MakerPartKey } from '@/lib/maker-parts';
  *   Phases    `.sub.phases` — Look | Background | Arrange · Build in | Action | Build out
  *   Dd        `.dd` — a white pill: SMALL CAPS label · value · gold ▾ (the shipped PickMenu,
  *             whose list opens as the Maker's bottom sheet — owner: "every pop-up opens from the bottom")
- *   PanelSwitch `.sw` — 54 × 32, green when on (named apart from the Maker's other `Switch` rows)
+ *   PanelSwitch `.sw` — the app's ONE switch (`SwitchTrack`, 50 × 30: grey off, the accent on) on a 44 px tap
  *   Swatch    a colour circle (the approved gallery's kind 21) — Text's and Background's five, and their "+"
  *   QuietBar  `.pane>.jump` — Style › Look's one door ("Edit the E-Gifts"), the app's secondary action button
- *   About     ⓘ — helper words are never a box on the panel (owner rule), only behind ⓘ
+ *   About     ⓘ — helper words are never a box on the panel (owner rule), only behind ⓘ: the app's explanation
+ *             template (`Explain` — a centred pop-up with "Got it" on a phone, a note by the ⓘ on a computer)
  *
  * (Move's ← → ↓ ↑ were four buttons of their own here; a direction is one of four VALUES, so it is a dropdown now —
  * `stage-animate.tsx`, `INTERACTION_RULES.md` § 9.)
@@ -112,27 +114,32 @@ export function Dd({
   );
 }
 
-/** ⓘ — the only place the panel says anything in sentences. */
+/**
+ * ⓘ — the only place the panel says anything in sentences: the app's EXPLANATION template (`Explain`,
+ * `app/_components/explain.tsx` — owner 2026-10-08: on a phone a pop-up in the centre of the screen with one "Got
+ * it", the rest dark and blurred; on a computer a small note by the ⓘ). `label` names what is explained — it heads
+ * the pop-up. A 44 px tap of its own, 32 px wide in the row so a pill beside it keeps its room.
+ */
 export function About({ label, children }: { label: string; children: ReactNode }) {
+  const title = label.charAt(0).toUpperCase() + label.slice(1);
   return (
     <span className="inline-flex h-11 w-8 shrink-0 items-center justify-center" data-stage-about="">
-      <InfoTip label="" ariaLabel={`About ${label}`} align="end">
+      <Explain title={title} className="!w-8">
         {children}
-      </InfoTip>
+      </Explain>
     </span>
   );
 }
 
-/** The prototype's switch (`.sw`). */
+/**
+ * The panel's switch: the app's ONE drawing (`SwitchTrack` — 50 × 30, a 24-px knob travelling 20 px; grey off, the
+ * accent on, the knob landing with the family's spring) inside the panel's own 44 px tap. The handler, the name and
+ * `aria-checked` are the caller's, as they were.
+ */
 export function PanelSwitch({ on, label, onChange, data }: { on: boolean; label: string; onChange: (on: boolean) => void; data: string }) {
   return (
     <button type="button" role="switch" aria-checked={on} aria-label={label} data-stage-switch={data} onClick={() => onChange(!on)} className={SP_SWITCH}>
-      {/* The app's ONE switch look (`.sn-switch`, globals.css — owner 2026-10-08: "switch is teracota or greyed out"). */}
-      <span aria-hidden data-on={on} className="sn-switch sn-press-ring relative h-8 w-[54px] rounded-full">
-        <span
-          className={`sn-switch-knob absolute top-[3px] h-[26px] w-[26px] rounded-full bg-white shadow-[0_1px_2px_rgba(0,0,0,.25)] transition-[left] ${on ? 'left-[25px]' : 'left-[3px]'}`}
-        />
-      </span>
+      <SwitchTrack on={on} />
     </button>
   );
 }
@@ -182,7 +189,7 @@ export function QuietBar() {
     return (
       <div className="flex h-11 shrink-0 items-center gap-1.5" data-stage-quiet-row="" data-stage-quiet-name="">
         <span className="min-w-0 flex-1 truncate px-1 text-[13px] font-semibold text-[var(--sp-ink2)]">{name ?? 'This part'}</span>
-        <About label="this part">{about}</About>
+        <About label={name ?? 'this part'}>{about}</About>
       </div>
     );
   }
@@ -194,7 +201,7 @@ export function QuietBar() {
       ) : (
         <ActionButton tone="neutral" icon={quiet.kind === 'info' ? FileText : PencilLine} label={quiet.words} onClick={quiet.open} className={QUIET_DOOR} />
       )}
-      {about ? <About label="this part">{about}</About> : null}
+      {about ? <About label={name ?? 'this part'}>{about}</About> : null}
     </div>
   );
 }

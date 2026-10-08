@@ -104,14 +104,11 @@ export function LookPanel({
      Focus) itself — so Look does not draw them a second time. Without that panel (the app-store shell builds
      none) they stay rows of Look, as in the shipped Maker. */
   const sourceHolds = maker?.stagesStudio === true && Boolean(look?.background);
-  const part = (k: LookPart): ReactNode =>
-    !look || (sourceHolds && (k === 'page' || k === 'video'))
-      ? null
-      : k === 'colours'
-        ? look.colours || look.palette
-          ? <>{look.colours}{look.palette}</>
-          : null
-        : (look[k] ?? null);
+  /* 🎨 THE PALETTE-TYPE ROW LEFT LOOK (owner 2026-10-08, on the local copy: *"remove Palette Type"*). `look.palette`
+     ("Palette · Fabric swatches ▾") is no longer drawn under Colours. Nothing is written by leaving it out: the
+     stored palette look stays as it is and keeps drawing on the guest page, and the SAME control is still where
+     the palette itself lives — the Dress code scene's own settings (`editor-shell.tsx` `paletteRow`). */
+  const part = (k: LookPart): ReactNode => (!look || (sourceHolds && (k === 'page' || k === 'video')) ? null : (look[k] ?? null));
   /** A section's parts that are there — each with what rides under it. */
   const partsOf = (k: LookSection) =>
     LOOK_SECTION_PARTS[k].flatMap((p) => {

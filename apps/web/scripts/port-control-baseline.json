@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "90ca25e2b",
-  "routeCount": 428,
-  "destinations": 954,
+  "generatedFromRef": "76df5272c",
+  "routeCount": 429,
+  "destinations": 955,
   "actions": 671,
-  "blocks": 5691,
+  "blocks": 5704,
   "routes": {
     "/": {
       "files": [
@@ -1934,6 +1934,7 @@
         "/admin/fraud",
         "/admin/gifts",
         "/admin/help",
+        "/admin/hub-music",
         "/admin/integrations",
         "/admin/integrity-watch",
         "/admin/live-studio-channels",
@@ -3052,6 +3053,29 @@
         "FilterChip",
         "PageMasthead",
         "SubmitButton"
+      ]
+    },
+    "/admin/hub-music": {
+      "files": [
+        "admin/hub-music/actions.ts",
+        "admin/hub-music/hub-music-manager.tsx",
+        "admin/hub-music/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "ConsoleTable",
+        "EditTrack",
+        "HTMLAudioElement",
+        "HTMLInputElement",
+        "HubMusicManager",
+        "HubMusicResult",
+        "InfoTip",
+        "MoodSelect",
+        "PageMasthead",
+        "Picked",
+        "Sheet",
+        "Switch"
       ]
     },
     "/admin/insights": {
@@ -6486,6 +6510,7 @@
         "dashboard/[eventId]/launch/_components/details-your-event-load.tsx",
         "dashboard/[eventId]/launch/_components/details-your-event-parts.tsx",
         "dashboard/[eventId]/launch/_components/details-your-event.tsx",
+        "dashboard/[eventId]/launch/_components/film-follows-theme.tsx",
         "dashboard/[eventId]/launch/_components/hub-pro-offer.tsx",
         "dashboard/[eventId]/launch/_components/hub-stage.tsx",
         "dashboard/[eventId]/launch/_components/icon-pill.tsx",
@@ -6637,6 +6662,7 @@
         "Face",
         "Field",
         "FileUpload",
+        "FilmFollowsTheme",
         "FindDateCandidates",
         "FindDatePicked",
         "FineTune",

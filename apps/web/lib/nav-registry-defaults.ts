@@ -2392,6 +2392,18 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 43,
   },
   {
+    key: "admin.sidebar.hub-music",
+    scope: "admin",
+    area: "admin-sidebar",
+    route: "/admin/hub-music",
+    label: "Event Hub music",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "Music4",
+    customRef: null,
+    sortOrder: 43,
+  },
+  {
     key: "admin.sidebar.reveal-studio",
     scope: "admin",
     area: "admin-sidebar",

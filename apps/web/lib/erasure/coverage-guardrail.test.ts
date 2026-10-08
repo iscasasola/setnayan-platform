@@ -143,6 +143,11 @@ const PURGED_WITHOUT_SUBJECT_COLUMN: ReadonlySet<string> = new Set([
   // until 2026-09-18, when the table was DROPPED (migration 20271234094457) and
   // its OWN_ROW_DELETES_BY_EMAIL rule removed with it. G7 measures PURGED minus
   // in-scope, so the pin had to leave in the same change.
+  // Event Hub music (2026-10-08). Its one user column is `created_by` →
+  // auth.users: the admin who uploaded a track. Neither a `*_user_id` name nor
+  // an inline FK to public.users, so the detector cannot see it; the stamp is
+  // nulled all the same (AUTHOR_UUID_NULLS).
+  'hub_music_tracks',
   'oauth_state',
   'vendor_ig_oauth_state',
   'patiktok_oauth_state',

@@ -214,3 +214,45 @@ Guard: `apps/web/lib/photos-two-ways.test.ts` (7 tests; 31 sabotages seen red).
 
 SPEC IMPACT: None to the corpus rules; the owner's three sentences above are the
 ruling — the controller records them in `DECISION_LOG.md`.
+
+**Two notes for whoever comes next (controller, 2026-10-08):**
+
+- *The one place the moment action answers with a value.* `loveStoryMomentAction`
+  is declared `Promise<void>` (it is also a form's `action`). Its `intent=offer`
+  returns `{ offer }` through a cast at that one line; the only reader is
+  `askOurEvents` (`moment-order-cards.tsx`), which treats anything that is not
+  an array as "could not look". If a second answer is ever needed, give the
+  action a real return type rather than a second cast.
+- *What a QUIET pick would need* (today a pick costs one render of the Maker, in
+  place — accepted as shipped): the action would have to (1) honour
+  `maker_quiet` on its draft branch (write the draft, land nowhere) and (2)
+  answer with the photos it actually kept (a picked ref can be dropped by the
+  allow-list or the photo screen); the client would then (3) lay those on the
+  Maker's own copy of the story (`noteDraftedCanvas` — a new exported door in
+  `love-story-live.tsx`, since `editLoveStory` also saves), (4) draw them from
+  the addresses the offer already gave (nothing to sign), (5) reload the stage
+  canvases once (`markMakerCanvasStale`), and (6) update "Apply N changes",
+  which today arrives only with a render or a held save's answer
+  (`hubDraftAction`'s `applied`). Step 6 is the one with no door yet.
+
+## 2026-10-08 · fix(lab): the lab's Love Story is ONE story for both of its readers
+
+Found by picking two photos in a row in the lab: the second replaced the first;
+and renaming two moments in turn un-named the first. The lab drew Studio › Love
+Story's list on maria-and-jose's story and the Details words panel beside it on
+an EMPTY one — two "server" stories for one event. The Maker keeps one copy of
+the story being edited and trusts it only while it is built on the story the
+server last drew (`lib/maker-draft-store.ts`); with two different ones each save
+left the copy "built on" the other reader's story, and the next change read the
+fixture afresh. The fixture is now a plain file
+(`app/dev/details-lab/love-story-fixture.ts`) handed to both.
+
+Lab-only as far as this branch can tell: in the real Maker both readers are
+handed the story the same request read. (Worth one look on a signed-in Maker:
+rename one moment, then another — the first must keep its new name.)
+
+Guard: test (5) of `apps/web/lib/the-lab-can-upload.test.ts` — the store's own
+mechanism RUN with two readers on two stories (the change before is lost) and on
+one (it is kept); 2 sabotages seen red.
+
+SPEC IMPACT: None.

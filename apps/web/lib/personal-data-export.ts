@@ -6,6 +6,7 @@ import { displayUrlsForStoredAssets } from '@/lib/uploads';
 import { listOutcome, singleOutcome, collectIncomplete } from '@/lib/export-integrity';
 import { VENDOR_PROFILE_EXPORT_SELECT } from '@/lib/export-vendor-profile-columns';
 import { readOwnFaceEnrollments } from '@/lib/export-own-face-enrollments';
+import { readOwnGiftRecords } from '@/lib/export-own-gift-records';
 import { displayUrlForPrivateStoredAsset } from '@/lib/uploads';
 import { budgetPaymentProofPolicy } from '@/lib/r2-client-ref';
 import {
@@ -282,6 +283,7 @@ export async function buildPersonalDataExport(
     ordersRes,
     paymentsRes,
     faceEnrollmentsRes,
+    giftRecordsRes,
     dependentsRes,
     godparentsRes,
     communityMembershipsRes,
@@ -427,6 +429,16 @@ export async function buildPersonalDataExport(
     // face_vector (the raw embedding) is never exported — RA 10173 discloses
     // what biometric data we hold, not the biometric itself.
     readOwnFaceEnrollments(supabase, user.id),
+    // What the subject told a host through "I sent it" on a gift page (the
+    // E-Gifts wish list, 2026-10-08). 🔑 SCOPED TO THE SUBJECT'S OWN GUEST ROWS,
+    // exactly as the face section above: the table has no user column, its only
+    // SELECT policy admits the HOSTS, and a host's or an admin's read would
+    // otherwise carry every guest's gift. Read via the SERVICE-ROLE client
+    // because a guest has no SELECT policy on it at all — see
+    // lib/export-own-gift-records and the bounded-bypass block at the top of
+    // this file. The screenshot itself is not copied into the file; the row
+    // says whether one is held.
+    readOwnGiftRecords(supabase, admin, user.id),
     // RA 10173 (2026-07-17) — Alaga (dependents) records: what the subject
     // stores as a guardian, what they claimed as their own profile, and what
     // they handed over (read-only history). Spouse-SHARED rows the OTHER
@@ -826,6 +838,7 @@ export async function buildPersonalDataExport(
   const orders = listOutcome('orders', ordersRes);
   const payments = listOutcome('payments', paymentsRes);
   const faceEnrollments = listOutcome('face_enrollments', faceEnrollmentsRes);
+  const giftRecords = listOutcome('gifts_you_said_you_sent', giftRecordsRes, adminUnavailable);
   const dependents = listOutcome('alaga_dependents', dependentsRes);
   const godparents = listOutcome('alaga_godparents', godparentsRes);
   const communityMemberships = listOutcome('samahan_memberships', communityMembershipsRes);
@@ -942,6 +955,7 @@ export async function buildPersonalDataExport(
     orders,
     payments,
     faceEnrollments,
+    giftRecords,
     dependents,
     godparents,
     communityMemberships,
@@ -1020,6 +1034,11 @@ export async function buildPersonalDataExport(
     // Biometric CONSENT metadata only — raw face_vector embeddings are
     // intentionally excluded from the export.
     face_enrollments: faceEnrollments.rows,
+    // What you told a host you sent as a gift, in your own words — the amount,
+    // your message, the name it carries and when. Setnayan never held or saw
+    // the money. A screenshot you attached is held privately for that host
+    // (`screenshot_held`); it is not copied into this file.
+    gifts_you_said_you_sent: giftRecords.rows,
     // RA 10173 (2026-07-17) — Alaga records (guardian-stored, claimed-as-own,
     // and handed-over history) + godparent edges. Consent stamps included.
     alaga_dependents: dependents.rows,

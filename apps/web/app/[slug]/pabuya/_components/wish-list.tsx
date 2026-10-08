@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
-import { ArrowRight, Gift, ShieldCheck, X } from 'lucide-react';
+import { useEffect, useState, type ReactNode } from 'react';
+import dynamic from 'next/dynamic';
+import { ArrowRight, Check, Gift, ShieldCheck, X } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import {
   GUEST_WISH_ALREADY_GOT,
@@ -11,9 +12,22 @@ import {
   guestWishMeter,
   sendSheetLine,
   sendSheetTitle,
+  withOwnGift,
   type GuestWish,
   type WishListShape,
 } from '@/lib/wish-list-guest';
+
+/* The record sheet (and its upload) is fetched only when a guest presses "I sent it". */
+const GiftRecordSheet = dynamic(() => import('./gift-record-sheet'), { ssr: false, loading: () => null });
+
+/** What "I sent it" needs to know about the reader — handed in by the page, which read the invitation. */
+export type GiftRecordReader = {
+  eventId: string;
+  /** The invitation's own name; '' when it has none (the sheet then asks). */
+  giverName: string;
+  /** The event knows this reader as its guest. If not, the sheet says how to be known. */
+  recognised: boolean;
+};
 
 /**
  * 🎁 THE WISH LIST ON THE GUEST'S E-GIFTS PAGE (owner 2026-10-08, "ok wish list" ·
@@ -40,9 +54,10 @@ import {
  * 🔒 A guest sees ONE figure per wish: what guests say they SENT. `GuestWish`
  * has no field for another guest's name, amount, words or screenshot.
  *
- * "✓ I sent it" (the guest showing the couple their screenshot) is wish list
- * 4/5: until `sent` is handed in, the sheet draws ✕ Close alone and makes no
- * promise about a step that is not there.
+ * "✓ I sent it" opens "Show Maria & Jose" (`gift-record-sheet.tsx`, loaded on
+ * that press): the guest's screenshot, the amount and a word. It is drawn when
+ * the page hands in `record` — who the reader is; with none, the sheet draws
+ * ✕ Close alone and makes no promise about a step that is not there.
  *
  * Guest route — never in the Maker's first load.
  */
@@ -92,12 +107,12 @@ const WORDS: Record<WishListShape, string> = {
 };
 
 export function WishList({
-  wishes,
+  wishes: served,
   shape,
   hostName,
   hostPossessive,
   ways,
-  sent,
+  record,
 }: {
   /** Open wishes first, then the got ones (`guestWishListFrom`). Never empty — the page draws no list for none. */
   wishes: readonly GuestWish[];
@@ -108,14 +123,21 @@ export function WishList({
   hostPossessive: string;
   /** The page's own ways to give, already drawn (identifiers withheld exactly as the page withholds them). */
   ways: ReactNode;
-  /**
-   * Wish list 4/5: the foot's "✓ I sent it" — given the wish it was pressed for.
-   * Absent = the sheet closes and that is all.
-   */
-  sent?: (wish: GuestWish) => ReactNode;
+  /** Who is reading — switches on "✓ I sent it" and the sentence that promises it. Absent = ✕ Close alone. */
+  record?: GiftRecordReader;
 }) {
+  /* ⚡ THE LIST AS IT IS DRAWN. It starts as the page's own read; when this reader's gift is kept
+     it is redrawn from the WRITE'S ANSWER (`withOwnGift`) — the page is never rendered again
+     for it. Whatever a later read of the page brings replaces it. */
+  const [wishes, setWishes] = useState<readonly GuestWish[]>(served);
+  useEffect(() => {
+    setWishes(served);
+  }, [served]);
   const [openId, setOpenId] = useState<string | null>(null);
   const [saidGot, setSaidGot] = useState<string | null>(null);
+  /* The wish a guest pressed "I sent it" for — the record sheet replaces the send sheet. */
+  const [recordId, setRecordId] = useState<string | null>(null);
+  const recording = recordId ? (wishes.find((w) => w.id === recordId) ?? null) : null;
   const open = openId ? (wishes.find((w) => w.id === openId) ?? null) : null;
   /* A SENTENCE ("4 wishes · 1 got"), not a number — its figures are formatted where it is built. */
   const summary = guestWishCount(wishes);
@@ -166,7 +188,8 @@ export function WishList({
                 </b>
                 <span
                   {...(said ? { role: 'status' } : {})}
-                  className={`mt-0.5 block text-[13px] ${w.got ? 'font-semibold text-success-700' : 'text-ink/70'}`}
+                  {...(!w.got && w.minePhp > 0 ? { 'data-wish-mine': '' } : {})}
+                  className={`mt-0.5 block text-[13px] ${w.got || w.minePhp > 0 ? 'font-semibold text-ink/80' : 'text-ink/70'}`}
                 >
                   {said ? GUEST_WISH_ALREADY_GOT : guestWishLine(w)}
                 </span>
@@ -198,7 +221,7 @@ export function WishList({
                 <ShieldCheck aria-hidden className="mt-px h-4 w-4 shrink-0 text-success-700" strokeWidth={1.75} />
                 <span>
                   <b className="font-semibold text-ink">Setnayan never touches your money.</b>
-                  {sent ? ` Once you’ve sent it, show ${hostName} your screenshot — that is how this wish fills up.` : null}
+                  {record ? ` Once you’ve sent it, show ${hostName} your screenshot — that is how this wish fills up.` : null}
                 </span>
               </p>
               <div data-wish-send-foot="" className="sn-glass-row sticky bottom-0 -mx-5 mt-5 flex gap-2 px-5 py-3">
@@ -211,11 +234,36 @@ export function WishList({
                   <X aria-hidden className="h-4 w-4" strokeWidth={2.2} />
                   Close
                 </button>
-                {sent ? sent(open) : null}
+                {record ? (
+                  <button
+                    type="button"
+                    data-wish-i-sent-it=""
+                    onClick={() => {
+                      setRecordId(open.id);
+                      setOpenId(null);
+                    }}
+                    className="sn-press inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-full bg-mulberry px-4 text-[14px] font-semibold text-cream"
+                  >
+                    <Check aria-hidden className="h-4 w-4" strokeWidth={2.2} />
+                    I sent it
+                  </button>
+                ) : null}
               </div>
             </div>
           </Sheet>
         </div>
+      ) : null}
+
+      {record && recording ? (
+        <GiftRecordSheet
+          eventId={record.eventId}
+          hostName={hostName}
+          wish={{ id: recording.id, name: recording.name, pricePhp: recording.pricePhp, sentPhp: recording.sentPhp }}
+          giverName={record.giverName}
+          recognised={record.recognised}
+          onClose={() => setRecordId(null)}
+          onKept={(kept) => setWishes((cur) => withOwnGift(cur, { wishId: recording.id, amountPhp: kept.amountPhp, nowGot: kept.nowGot }))}
+        />
       ) : null}
     </section>
   );

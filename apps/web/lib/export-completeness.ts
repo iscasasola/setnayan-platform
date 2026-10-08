@@ -57,6 +57,9 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
   { table: 'orders', decision: 'exported', as: 'orders' },
   { table: 'payments', decision: 'exported', as: 'payments' },
   { table: 'guest_face_enrollments', decision: 'exported', as: 'face_enrollments' },
+  // A guest's "I sent it" (E-Gifts wish list, 2026-10-08) — keyed to a guest, like
+  // the face records; scoped to the subject's own guest ids.
+  { table: 'event_gift_records', decision: 'exported', as: 'gifts_you_said_you_sent' },
   { table: 'dependents', decision: 'exported', as: 'alaga_dependents' },
   { table: 'godparents', decision: 'exported', as: 'alaga_godparents' },
   { table: 'community_members', decision: 'exported', as: 'samahan_memberships' },

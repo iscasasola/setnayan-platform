@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "d6e9448ae",
+  "generatedFromRef": "e6915ec5a",
   "routeCount": 428,
   "destinations": 957,
   "actions": 672,
-  "blocks": 5714,
+  "blocks": 5719,
   "routes": {
     "/": {
       "files": [
@@ -1663,6 +1663,8 @@
     },
     "/[slug]/pabuya": {
       "files": [
+        "[slug]/pabuya/_components/gift-record-sheet.tsx",
+        "[slug]/pabuya/_components/gift-tell.tsx",
         "[slug]/pabuya/_components/wish-list.tsx",
         "[slug]/pabuya/page.tsx"
       ],
@@ -1671,6 +1673,10 @@
       ],
       "actions": [],
       "blocks": [
+        "GiftRecordSheet",
+        "GiftTell",
+        "HTMLInputElement",
+        "Kept",
         "Link",
         "Logo",
         "PabuyaCardList",
@@ -9817,6 +9823,7 @@
       "blocks": [
         "CountdownWidget",
         "EditorBridge",
+        "GiftTell",
         "HubCanvasFrame",
         "MakerEmptyScene",
         "MakerWelcomeGiftsEmpty",

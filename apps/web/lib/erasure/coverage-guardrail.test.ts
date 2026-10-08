@@ -131,6 +131,10 @@ const PURGED: ReadonlySet<string> = new Set([
  */
 const PURGED_WITHOUT_SUBJECT_COLUMN: ReadonlySet<string> = new Set([
   'guest_face_enrollments', // keyed by (event_id, guest_id)
+  // Keyed by giver_guest_id — a guest's "I sent it" (E-Gifts wish list,
+  // 2026-10-08). No user column at all, so the detector cannot see it; erasure
+  // reaches it through the subject's guest ids and removes the screenshot.
+  'event_gift_records',
   'vendor_push_tokens', // keyed by vendor_profile_id
   // Keyed by vendor_profile_id. Its ONLY *_user_id column is `admin_user_id` —
   // the reviewing staff member, which the detector correctly treats as a staff
@@ -358,6 +362,8 @@ const PARTIALLY_PURGED: Record<string, string> = {
 
   events:
     'PURGED: birth/consent data, the photo-delivery account + credential, and the wizard_state personal payload. DEFERRED: bride/groom names, venue, and ~20 jointly-authored jsonb blobs (love_story, our_photos, std_media, reception_design …) — the shared-record DPO question.',
+  event_gift_records:
+    'PURGED: the screenshot the subject attached to "I sent it" — the object in the private bucket and the pointer to it (their own bank or e-wallet screen: financial personal data, theirs alone). DEFERRED: giver_name, amount_php and message — the row is also the HOST’s list of who gave what and what they wrote with it, the same own-vs-shared line already drawn for `guests`. Open for the DPO/owner: whether the words a guest wrote with a gift should go with the account too.',
   guests:
     'PURGED: the subject’s face enrolments, the R2 selfies behind them, and their selfie display photo. DEFERRED: first/last name, email, mobile, address on the same rows — that row is also the host’s record of their invitee.',
   chat_messages:
@@ -609,6 +615,8 @@ test('G9 · every table where the own-vs-shared line runs THROUGH it is document
     'event_paperwork',
     'oauth_grants',
     'vendor_verification_applications',
+    // Added 2026-10-08 — the screenshot goes, the host's list of gifts stays.
+    'event_gift_records',
   ];
   const undocumented = partialByDesign.filter((t) => !(t in PARTIALLY_PURGED));
   assert.deepEqual(

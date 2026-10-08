@@ -233,10 +233,14 @@ test('a test that names a changed file is woken — and only by a path tail', ()
   assert.equal(testsNaming(['apps/web/app/shop/price.tsx'], TREE).get('lib/pins-a-file.test.ts'), 'price.tsx');
 });
 
-test('the schema pins are the DB tests that read the catalogue or a committed baseline', () => {
+test('the schema pins compare the whole schema with a committed file — not every test that reads the catalogue', () => {
   assert.match("readFileSync('tests/db/user-fk-behaviour.generated.txt')", SCHEMA_PIN_RE);
-  assert.match('select * from pg_constraint', SCHEMA_PIN_RE);
+  assert.match("join(HERE, 'ugat-concept.baseline.txt')", SCHEMA_PIN_RE);
   assert.match("import { UGAT_TYPES } from '@/lib/ugat/graph'", SCHEMA_PIN_RE);
+  assert.match("import { exposureFacts } from './exposure-surface'", SCHEMA_PIN_RE);
+  // a test that looks one of its own tables up in the catalogue is not moved by a migration elsewhere
+  assert.doesNotMatch('select 1 from information_schema.columns where table_name = $1', SCHEMA_PIN_RE);
+  assert.doesNotMatch("select has_table_privilege('anon', 'public.guests', 'select')", SCHEMA_PIN_RE);
   assert.doesNotMatch("insert into guests (display_name) values ('x')", SCHEMA_PIN_RE);
 });
 

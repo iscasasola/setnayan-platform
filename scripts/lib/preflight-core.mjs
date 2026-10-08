@@ -377,10 +377,18 @@ export function replayBackedTests(sources, graph) {
 }
 
 /**
- * DB tests that read the schema catalogue as a whole, or compare it with a
- * committed baseline — the ones ANY migration can turn red.
+ * The schema pins: DB tests that compare the WHOLE replayed schema with a
+ * committed file (a baseline, a generated list, the snapshot) or with the Ugat
+ * map — the ones a migration turns red without touching any code they name.
+ *
+ * ⚠ NOT "every test that reads the catalogue". The first version matched
+ * `information_schema` / `pg_proc` / `has_table_privilege` and woke 230 of 377
+ * DB tests — 36 minutes of replays on a migration branch (measured on PR
+ * #6442's stack, 2026-10-08). Most DB tests read the catalogue to check ONE
+ * table of their own; a migration elsewhere cannot move them, and the full
+ * replay in CI is where the rest are run.
  */
-export const SCHEMA_PIN_RE = /\.baseline\.txt|\.generated\.txt|schema-snapshot|exposure-surface|UGAT_TYPES|ugat\/graph|pg_constraint|pg_policies|pg_proc\b|information_schema|has_table_privilege|has_column_privilege|has_function_privilege|role_table_grants|pg_class\b|pg_attribute\b/;
+export const SCHEMA_PIN_RE = /\.baseline\.txt|\.generated\.txt|schema-snapshot|prod-schema\.snapshot|exposure-surface|UGAT_TYPES|ugat\/graph/;
 
 /** Tests whose text names a changed file. */
 export function testsNaming(changedRepoPaths, sources) {

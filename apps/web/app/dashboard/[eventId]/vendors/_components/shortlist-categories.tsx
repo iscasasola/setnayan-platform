@@ -337,6 +337,12 @@ html.dark .slcat .fold.flat .cat.open>.cat-head-row{background:#17160F}
    button) at 44 (controller's walk at 375, 2026-10-08). The button rule is a
    40 px pill, whatever the element. */
 .slcat .ab{min-height:40px}
+/* A PRESS ANSWERS AT ONCE (owner 2026-10-08): the card that was pressed looks
+   pressed the moment the finger lands — before the sheet's chunk has arrived. */
+.slcat .fold.flat .vcw:has(>.vc:active){transform:scale(.985);border-color:var(--gold)}
+.slcat .fold.flat .vcw{transition:transform 90ms ease-out,border-color 90ms ease-out}
+.slcat .fold.flat .vcw.mrc>.vc[role='button']{cursor:pointer}
+@media (prefers-reduced-motion:reduce){.slcat .fold.flat .vcw:has(>.vc:active){transform:none}.slcat .fold.flat .vcw{transition:none}}
 .slcat .verb-err,.slcat .verb-ok{margin:4px 0 0;font-size:11.5px;line-height:1.35;color:var(--ink-soft)}
 .slcat .verb-err{color:rgb(var(--color-danger))}
 .slcat .verbs .verb-err,.slcat .verbs .verb-slot>p,.slcat .verbs .verb-slot>span{position:absolute;left:0;right:0;top:100%;margin:4px 0 0;font-size:11.5px;line-height:1.35}

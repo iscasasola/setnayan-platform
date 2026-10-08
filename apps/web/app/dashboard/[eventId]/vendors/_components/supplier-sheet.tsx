@@ -227,6 +227,9 @@ export default function SupplierSheet({
   return createPortal(
     <Sheet open onClose={onClose} labelledById="supplier-sheet-name" wide rise>
       <div className="space-y-4 px-5 pb-4 pt-5" data-supplier-sheet={target.vendorProfileId ?? 'own'}>
+        {/* One height: a <button> is floored at 44 px by globals.css and a link
+            is not — the button rule is a 40 px pill, whatever the element. */}
+        <style>{'[data-supplier-sheet] .ab{min-height:40px}'}</style>
         <header className="pr-10">
           <p className={k2}>{eyebrow}</p>
           <h2 id="supplier-sheet-name" className="mt-1 font-display text-[22px] leading-tight text-ink">
@@ -384,11 +387,10 @@ export default function SupplierSheet({
           <div className="sticky bottom-0 -mx-5 bg-cream px-5 pb-1 pt-2.5" data-sheet-cta="">
             <div ref={ctaRef} className="flex flex-nowrap items-center gap-2">
               {target.threadId ? (
-                <ActionButton tone={chat.tone} main icon={MessageCircle} label="Open chat" href={`/dashboard/${eventId}/messages/${target.threadId}`} prefetch={false} />
+                <ActionButton tone={chat.tone} icon={MessageCircle} label="Open chat" href={`/dashboard/${eventId}/messages/${target.threadId}`} prefetch={false} />
               ) : target.booked ? null : (
                 <ActionButton
                   tone={quote.tone}
-                  main
                   icon={MessageCircle}
                   label={busy ? 'Asking…' : quote.label}
                   disabled={busy}

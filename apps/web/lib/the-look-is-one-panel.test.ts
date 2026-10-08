@@ -286,7 +286,7 @@ test('(3) the SAME rows move into Look, and their old places no longer hold them
   // Each control is still built ONCE, by the editor page.
   const page = read('app/dashboard/[eventId]/website/editor/page.tsx');
   assert.equal(page.split('<MainBackgroundPanel').length - 1, 1, 'the Main background is built twice');
-  // 🔤 Font · 🌈 the page fill · 🎨 Candlelight and Magic Move — the ONE Colors panel, drawn as its three parts.
+  // 🔤 Font · 🌈 the page fill · 🎨 Candlelight — the ONE Colors panel, drawn as its three parts.
   assert.equal(page.split('<ColorsPanel').length - 1, 3, 'Font, the page fill and Colours are not the one panel, drawn as three parts');
   assert.match(page, /key: 'font',[\s\S]*?part="font"/);
   assert.match(page, /key: 'page-colour',[\s\S]*?part="page"/, 'the page fill is not a row of its own (Look › Background)');
@@ -319,10 +319,23 @@ test('(4) Font posts only the typeface; the page fill only the page; Colours nei
   assert.match(pageFill, /name="bg_color"/);
   for (const e of ['plain', 'dawn', 'diagonal', 'glow']) assert.match(pageFill, new RegExp(`data-background-effect="${e}"`), `the page fill lost ${e}`);
   assert.doesNotMatch(pageFill, /name="button_color"|name="site_font_key"|name="site_art_direction"|name="site_magic_traveller"/, 'the page fill would post a colour of the Elements');
-  // 🎨 Look › Elements › Colours: Candlelight and Magic Move — never the page.
-  const colours = renderToStaticMarkup(React.createElement(ColorsPanel, { ...base, rowKey: 'colors', part: 'art' }));
+  // 🎨 Look › Elements › Colours: Candlelight — never the page.
+  const colours = renderToStaticMarkup(React.createElement(ColorsPanel, { ...base, rowKey: 'colors', part: 'art', magicTraveller: 'mark' }));
   assert.match(colours, /name="site_art_direction"/);
-  assert.match(colours, /name="site_magic_traveller"/);
+  // ✈ MAGIC MOVE LEFT LOOK (owner 2026-10-08, on the local copy: "remove magic move") — no row, no field…
+  assert.doesNotMatch(colours, /name="site_magic_traveller"|data-look-magic-move|data-magic-move-pick|Magic Move/, 'Magic Move is still a control of Look');
+  // …and a mark ALREADY set to travel keeps travelling: an absent field is "unchanged" in the one action, the
+  // guest page still reads the column, and the control still exists outside Look (the record's whole Colours row).
+  const coloursAction = read('app/dashboard/[eventId]/website/colors/actions.ts');
+  // EVERY write of the column is conditional on the field having been posted (the draft door and the live one).
+  const writes = coloursAction.match(/site_magic_traveller: magic\b/g) ?? [];
+  const guarded = coloursAction.match(/magic !== undefined \? \{ site_magic_traveller: magic \} : \{\}/g) ?? [];
+  assert.ok(writes.length >= 2, 'anti-vacuity: the action no longer writes Magic Move where this looks');
+  assert.equal(guarded.length, writes.length, 'a form that posts no Magic Move would CLEAR the stored one');
+  assert.match(coloursAction, /const magicRaw = formData\.get\('site_magic_traveller'\);/);
+  assert.match(read('app/[slug]/_components/site-body.tsx') + read('app/[slug]/page.tsx'), /site_magic_traveller|magicTraveller/, 'the guest page no longer reads the stored Magic Move');
+  const wholeRow = renderToStaticMarkup(React.createElement(ColorsPanel, { ...base, rowKey: 'colors', part: 'colours', magicTraveller: 'mark' }));
+  assert.match(wholeRow, /<input type="hidden" name="site_magic_traveller" value="mark"\/>/, 'anti-vacuity: the control this test looks for is gone everywhere — the assertion above would pass on anything');
   assert.doesNotMatch(colours, /name="bg_color"|data-background-effect=/, 'the page fill is drawn under Colours again');
   // 🔘 The button colour moved to Look › Buttons (2026-10-04): Colours no longer
   // posts it, which the action reads as "unchanged" — one field, one place.

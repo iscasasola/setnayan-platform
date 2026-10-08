@@ -364,7 +364,9 @@ test('(7) Look draws each control ONCE: in the Studio the Background holds the p
       React.createElement(MakerContext.Provider, { value: { stagesStudio, lookPages: { look: look(background) } } }, React.createElement(ColorsPanel, base)),
     );
   assert.doesNotMatch(art(true, stub('bg')), /name="site_art_direction"/, 'Candlelight is set in two places in the Studio');
-  assert.match(art(true, stub('bg')), /name="site_magic_traveller"/, 'Magic Move left with it');
+  // ✈ Magic Move left Look (owner 2026-10-08): with Candlelight under Shade ▾, the Studio's Colours part draws NOTHING — not an empty form.
+  assert.equal(art(true, stub('bg')), '', 'the Studio still draws a Colours form with nothing in it (or Magic Move is back)');
+  assert.doesNotMatch(art(false, stub('bg')) + art(true, null), /name="site_magic_traveller"|Magic Move/, 'Magic Move is still a control of Look');
   assert.match(art(false, stub('bg')), /name="site_art_direction"/, 'the shipped Maker lost Candlelight');
   assert.match(art(true, null), /name="site_art_direction"/, 'with no Background panel, Candlelight has no home');
 });

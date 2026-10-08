@@ -933,7 +933,7 @@ export default async function WebsiteEditorPage({
         {
           key: 'colors',
           label: 'Colours',
-          blurb: 'Candlelight and Magic Move.',
+          blurb: 'Candlelight.',
           href: `${w}/colors`,
           /* 🆓 Colours are free (2026-10-05); Candlelight keeps its own ◆ on its control. */
           pro: false,

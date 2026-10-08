@@ -18,6 +18,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { ChevronDown, Plus, X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import type { GuestSide } from '@/lib/guests';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
@@ -55,16 +56,16 @@ const OTHER_WAYS = [
  */
 export function OpenAddGuestButton({ label }: { label: string }) {
   return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      onClick={() => window.dispatchEvent(new CustomEvent(OPEN_EVENT))}
-      data-guests-add-plus=""
-      className="flex h-11 w-11 items-center justify-center rounded-full bg-ink text-cream hover:bg-ink/90"
-    >
-      <Plus className="h-5 w-5" strokeWidth={2} aria-hidden />
-    </button>
+    <span className="contents" data-guests-add-plus="">
+      <ActionButton
+        tone="brand"
+        main
+        iconOnly
+        icon={Plus}
+        label={label}
+        onClick={() => window.dispatchEvent(new CustomEvent(OPEN_EVENT))}
+      />
+    </span>
   );
 }
 
@@ -75,15 +76,15 @@ export function OpenAddGuestButton({ label }: { label: string }) {
  */
 export function OpenAddGuestTextButton({ label }: { label: string }) {
   return (
-    <button
-      type="button"
-      onClick={() => window.dispatchEvent(new CustomEvent(OPEN_EVENT))}
-      data-guests-empty-add=""
-      className="button-primary inline-flex min-h-[44px] items-center gap-2"
-    >
-      <Plus className="h-4 w-4" strokeWidth={2} aria-hidden />
-      {label}
-    </button>
+    <span className="contents" data-guests-empty-add="">
+      <ActionButton
+        tone="brand"
+        main
+        icon={Plus}
+        label={label}
+        onClick={() => window.dispatchEvent(new CustomEvent(OPEN_EVENT))}
+      />
+    </span>
   );
 }
 

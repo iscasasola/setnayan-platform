@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState, useTransition } from 'react';
 import { Check, Copy, Download, Send, Undo2 } from 'lucide-react';
 import { SaveFileLink } from '@/app/_components/save-file-link';
+import { ActionButton, actionButtonClass } from '@/components/action-button';
 import {
   buildGuestInviteMessage,
   defaultInviteTemplate,
@@ -266,37 +267,35 @@ export function SendInviteActions({
   }
 
   const big = size === 'run';
-  const primary = big
-    ? 'inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-full bg-ink px-5 text-base font-medium text-cream disabled:opacity-60'
-    : 'inline-flex min-h-[44px] items-center gap-2 rounded-full bg-ink px-4 text-sm font-medium text-cream disabled:opacity-60';
-  const secondary = big
-    ? 'inline-flex min-h-[48px] flex-1 items-center justify-center gap-2 rounded-full border border-ink/20 bg-cream px-4 text-sm font-medium text-ink disabled:opacity-60'
-    : 'inline-flex min-h-[44px] items-center gap-2 rounded-full border border-ink/20 bg-cream px-4 text-sm font-medium text-ink disabled:opacity-60';
-  const quiet =
-    'inline-flex min-h-[44px] items-center gap-1.5 rounded-full px-3 text-sm font-medium text-ink/70 underline-offset-4 hover:text-ink hover:underline disabled:opacity-60';
+  /* THE BUTTON RULE (`components/action-button.tsx`): the forward step is the filled brand button; Copy is its
+     neighbour (neutral); Undo is the quiet one. The run's full-width phone buttons are the same buttons, stretched. */
+  const wide = big ? 'w-full' : undefined;
 
   return (
     <div data-send-invite="" className="space-y-2">
       <div className={big ? 'flex flex-col gap-2' : 'flex flex-wrap items-center gap-2'}>
-        <button type="button" onClick={send} disabled={pending} className={primary} data-send-invite-share="">
-          <Send aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          {big ? `Send to ${first}` : sentAt ? 'Send again' : 'Send invite'}
-        </button>
-        <div className={big ? 'flex gap-2' : 'contents'}>
-          <button
-            type="button"
-            onClick={() => copyText('copied')}
+        <span className="contents" data-send-invite-share="">
+          <ActionButton
+            tone="brand"
+            main
+            icon={Send}
+            label={big ? `Send to ${first}` : sentAt ? 'Send again' : 'Send invite'}
+            onClick={send}
             disabled={pending}
-            className={secondary}
-            data-send-invite-copy=""
-          >
-            {said?.kind === 'copied' ? (
-              <Check aria-hidden className="h-4 w-4 text-success-600" strokeWidth={2.25} />
-            ) : (
-              <Copy aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            )}
-            {said?.kind === 'copied' ? 'Copied ✓' : 'Copy message'}
-          </button>
+            className={wide}
+          />
+        </span>
+        <div className={big ? 'flex gap-2' : 'contents'}>
+          <span className="contents" data-send-invite-copy="">
+            <ActionButton
+              tone="neutral"
+              icon={said?.kind === 'copied' ? Check : Copy}
+              label={said?.kind === 'copied' ? 'Copied ✓' : 'Copy message'}
+              onClick={() => copyText('copied')}
+              disabled={pending}
+              className={big ? 'flex-1' : undefined}
+            />
+          </span>
           {extra}
         </div>
       </div>
@@ -311,10 +310,7 @@ export function SendInviteActions({
               {/* A fixed zone: the server (UTC) and the phone must draw the same day, or the card fails to hydrate. */}
               {new Date(sentAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}
             </span>
-            <button type="button" onClick={() => mark(false)} disabled={pending} className={quiet}>
-              <Undo2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-              Undo
-            </button>
+            <ActionButton tone="neutral" quiet icon={Undo2} label="Undo" onClick={() => mark(false)} disabled={pending} />
           </p>
         ) : null}
 
@@ -330,27 +326,27 @@ export function SendInviteActions({
                 <SaveFileLink
                   href={ticketUrl(guest.guestId)}
                   filename={ticketFileName(guest.fullName)}
-                  className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-3 text-sm font-medium text-ink/80"
+                  className={`${actionButtonClass('neutral')} min-h-11`}
                 >
                   {(state) => (
                     <>
-                      <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                      {state === 'saving' ? 'Saving…' : 'Download ticket'}
+                      <Download aria-hidden strokeWidth={1.9} />
+                      <span className="lbl">{state === 'saving' ? 'Saving…' : 'Download ticket'}</span>
                     </>
                   )}
                 </SaveFileLink>
               ) : null}
               {sentAt ? null : (
-                <button
-                  type="button"
-                  onClick={() => mark(true)}
-                  disabled={pending}
-                  className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 text-sm font-medium text-cream disabled:opacity-60"
-                  data-send-invite-mark=""
-                >
-                  <Check aria-hidden className="h-4 w-4" strokeWidth={2} />
-                  {pending ? 'Saving…' : 'Mark as sent'}
-                </button>
+                <span className="contents" data-send-invite-mark="">
+                  <ActionButton
+                    tone="brand"
+                    main
+                    icon={Check}
+                    label={pending ? 'Saving…' : 'Mark as sent'}
+                    onClick={() => mark(true)}
+                    disabled={pending}
+                  />
+                </span>
               )}
             </div>
           </div>
@@ -369,10 +365,7 @@ export function SendInviteActions({
               rows={8}
             />
             {sentAt ? null : (
-              <button type="button" onClick={() => mark(true)} disabled={pending} className={quiet}>
-                <Check aria-hidden className="h-4 w-4" strokeWidth={2} />
-                Mark as sent
-              </button>
+              <ActionButton tone="neutral" quiet icon={Check} label="Mark as sent" onClick={() => mark(true)} disabled={pending} />
             )}
           </div>
         ) : null}
@@ -471,22 +464,15 @@ export function InviteMessageEditor({
         <p className="mt-1.5 whitespace-pre-wrap break-words text-sm leading-relaxed text-ink/85">{preview}</p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={() => save(text)}
-          disabled={pending}
-          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-ink px-4 text-sm font-medium text-cream disabled:opacity-60"
-        >
-          {pending ? 'Saving…' : 'Save for every guest'}
-        </button>
-        <button
-          type="button"
+        <ActionButton tone="brand" main icon={Check} label={pending ? 'Saving…' : 'Save for every guest'} onClick={() => save(text)} disabled={pending} />
+        <ActionButton
+          tone="neutral"
+          quiet
+          icon={Undo2}
+          label="Use our wording"
           onClick={() => save('')}
           disabled={pending || (template === null && text === ours)}
-          className="inline-flex min-h-[44px] items-center rounded-full px-3 text-sm font-medium text-ink/70 underline-offset-4 hover:underline disabled:opacity-40"
-        >
-          Use our wording
-        </button>
+        />
         <span aria-live="polite" className="text-sm">
           {state === 'saved' ? <span className="text-success-700">Saved ✓</span> : null}
           {state === 'error' ? <span className="text-danger-700">We couldn’t save it — try again.</span> : null}

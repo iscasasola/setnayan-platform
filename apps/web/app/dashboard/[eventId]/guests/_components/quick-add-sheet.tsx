@@ -10,7 +10,9 @@ import {
   useTransition,
 } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertTriangle, X } from 'lucide-react';
+import { AlertTriangle, Check, Plus, UserCheck, UserRoundPen, X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { PickMenu } from '../../website/editor/_components/pick-menu';
 import {
   guestRoleLabel,
   guestRolePickLabel,
@@ -428,54 +430,48 @@ export function QuickAddSheet({
                     principals; the grid drops to 3 columns so Role and Group
                     keep their widths instead of stretching over the gap. */}
                 {hasSides ? (
-                <label className="col-span-1 block space-y-1">
+                <div className="col-span-1 block space-y-1">
                   <span className="block font-mono text-[9px] uppercase tracking-[0.14em] text-ink/45">
                     Side
                   </span>
-                  <select
-                    aria-label="Side"
+                  <PickMenu
+                    label="Side"
                     value={side}
-                    onChange={(e) => setSide(e.target.value as GuestSide)}
-                    className={`w-full rounded-lg border-2 bg-cream px-2 py-2 text-sm text-ink focus:outline-none ${SIDE_BORDER[side]}`}
-                  >
-                    {(['bride', 'groom', 'both'] as GuestSide[]).map((s) => (
-                      <option key={s} value={s}>
-                        {SIDE_SHORT[s]}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                    options={(['bride', 'groom', 'both'] as GuestSide[]).map((s) => ({ key: s, label: SIDE_SHORT[s] }))}
+                    onPick={(key) => setSide(key as GuestSide)}
+                    className={`w-full justify-between border-2 ${SIDE_BORDER[side]}`}
+                  />
+                </div>
                 ) : null}
 
                 {/* role (2 cols — the long labels need the room) */}
-                <label className="col-span-2 block space-y-1">
+                <div className="col-span-2 block space-y-1">
                   <span className="block font-mono text-[9px] uppercase tracking-[0.14em] text-ink/45">
                     Role
                   </span>
-                  <select
-                    aria-label="Role"
+                  <PickMenu
+                    label="Role"
                     value={role}
-                    onChange={(e) => setRole(e.target.value as GuestRole)}
-                    className="w-full rounded-lg border border-ink/20 bg-cream px-2 py-2 text-sm text-ink focus:border-ink/40 focus:outline-none"
-                  >
-                    {offeredRoles.map((r) => (
-                      <option key={r} value={r}>
-                        {guestRolePickLabel(r, roleNames)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                    options={offeredRoles.map((r) => ({ key: r, label: guestRolePickLabel(r, roleNames) }))}
+                    onPick={(key) => setRole(key as GuestRole)}
+                    className="w-full justify-between"
+                  />
+                </div>
 
                 {/* group (1 col — always present; "No group" by default) */}
-                <label className="col-span-1 block space-y-1">
+                <div className="col-span-1 block space-y-1">
                   <span className="block font-mono text-[9px] uppercase tracking-[0.14em] text-ink/45">
                     Group
                   </span>
-                  <select
-                    aria-label="Group"
+                  <PickMenu
+                    label="Group"
                     value={newGroupMode ? '__new__' : groupId}
-                    onChange={(e) => {
-                      const v = e.target.value;
+                    options={[
+                      { key: '', label: 'No group' },
+                      ...allGroups.map((g) => ({ key: g.group_id, label: g.label })),
+                      { key: '__new__', label: '＋ New group…' },
+                    ]}
+                    onPick={(v) => {
                       if (v === '__new__') {
                         startNewGroup();
                       } else {
@@ -483,17 +479,9 @@ export function QuickAddSheet({
                         if (newGroupMode) cancelNewGroup();
                       }
                     }}
-                    className="w-full rounded-lg border border-ink/20 bg-cream px-2 py-2 text-sm text-ink focus:border-ink/40 focus:outline-none"
-                  >
-                    <option value="">No group</option>
-                    {allGroups.map((g) => (
-                      <option key={g.group_id} value={g.group_id}>
-                        {g.label}
-                      </option>
-                    ))}
-                    <option value="__new__">＋ New group…</option>
-                  </select>
-                </label>
+                    className="w-full justify-between"
+                  />
+                </div>
               </div>
 
               {/* inline create-group strip — only while naming a new group */}
@@ -521,23 +509,23 @@ export function QuickAddSheet({
                       maxLength={64}
                       className="input-field min-w-0 flex-1"
                     />
-                    <button
-                      type="button"
+                    <ActionButton
+                      tone="brand"
+                      main
+                      icon={Check}
+                      label={isGroupPending ? 'Creating…' : 'Create'}
                       onClick={createGroup}
                       disabled={isGroupPending || !newGroupName.trim()}
-                      className="flex-none rounded-lg bg-mulberry px-3 py-2 text-sm font-semibold text-cream hover:bg-mulberry-600 disabled:opacity-50"
-                    >
-                      {isGroupPending ? '…' : 'Create'}
-                    </button>
-                    <button
-                      type="button"
-                      aria-label="Cancel new group"
+                    />
+                    <ActionButton
+                      tone="neutral"
+                      quiet
+                      iconOnly
+                      icon={X}
+                      label="Cancel new group"
                       onClick={cancelNewGroup}
                       disabled={isGroupPending}
-                      className="flex-none text-ink/45 hover:text-ink"
-                    >
-                      <X aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-                    </button>
+                    />
                   </div>
                   {groupError ? (
                     <p role="alert" className="text-xs text-danger-700">
@@ -630,61 +618,64 @@ export function QuickAddSheet({
                       /* same name, different role — resolve, don't dupe */
                       <div className="space-y-1.5 pt-0.5">
                         {!pickedIsSingleton ? (
-                          <button
-                            type="button"
+                          <ActionButton
+                            tone="brand"
+                            main
+                            icon={Plus}
+                            label={`Add ${guestRoleLabel(role, roleNames)} too — keep both roles`}
                             onClick={() => applyAddRole(target)}
                             disabled={isPending}
-                            className="w-full rounded-lg bg-mulberry py-2 text-sm font-semibold text-cream hover:bg-mulberry-600 disabled:opacity-60"
-                          >
-                            ＋ Add {guestRoleLabel(role, roleNames)} too — keep both roles
-                          </button>
+                            className="!h-auto min-h-11 w-full !whitespace-normal py-2"
+                          />
                         ) : null}
-                        <button
-                          type="button"
+                        <ActionButton
+                          tone="neutral"
+                          icon={UserRoundPen}
+                          label={`Change ${target.first_name} to ${guestRoleLabel(role, roleNames)}`}
                           onClick={() => applyChangeRole(target)}
                           disabled={isPending}
-                          className="w-full rounded-lg border border-ink/20 bg-cream py-2 text-sm font-medium text-ink hover:border-ink/40 disabled:opacity-60"
-                        >
-                          Change {target.first_name} to {guestRoleLabel(role, roleNames)}
-                        </button>
+                          className="!h-auto min-h-11 w-full !whitespace-normal py-2"
+                        />
                         <div className="flex gap-2">
-                          <button
-                            type="button"
+                          <ActionButton
+                            tone="neutral"
+                            icon={Plus}
+                            label="Different person"
                             onClick={() => forceAdd(true)}
                             disabled={isPending}
-                            className="flex-1 rounded-lg border border-ink/15 bg-cream py-2 text-xs font-medium text-ink/70 hover:border-ink/30"
-                          >
-                            Different person
-                          </button>
-                          <button
-                            type="button"
+                            className="flex-1"
+                          />
+                          <ActionButton
+                            tone="neutral"
+                            quiet
+                            icon={UserCheck}
+                            label="Keep as is"
                             onClick={skipDuplicate}
                             disabled={isPending}
-                            className="flex-1 rounded-lg py-2 text-xs font-medium text-ink/55 hover:text-ink"
-                          >
-                            Keep as is
-                          </button>
+                            className="flex-1"
+                          />
                         </div>
                       </div>
                     ) : (
                       /* already on the list with this same role — a true dup */
                       <div className="flex gap-2 pt-0.5">
-                        <button
-                          type="button"
+                        <ActionButton
+                          tone="neutral"
+                          icon={Plus}
+                          label="Different person"
                           onClick={() => forceAdd(true)}
                           disabled={isPending}
-                          className="flex-1 rounded-lg border border-ink/15 bg-cream py-2 text-sm font-medium text-ink/70 hover:border-ink/30"
-                        >
-                          ＋ Different person
-                        </button>
-                        <button
-                          type="button"
+                          className="flex-1"
+                        />
+                        <ActionButton
+                          tone="neutral"
+                          quiet
+                          icon={UserCheck}
+                          label="Keep as is"
                           onClick={skipDuplicate}
                           disabled={isPending}
-                          className="flex-1 rounded-lg py-2 text-sm font-medium text-ink/55 hover:text-ink"
-                        >
-                          Keep as is
-                        </button>
+                          className="flex-1"
+                        />
                       </div>
                     )}
                   </div>
@@ -700,14 +691,15 @@ export function QuickAddSheet({
 
             {/* footer — one button; the ↵ loop does the rapid adds */}
             <div className="border-t border-ink/10 px-5 py-4">
-              <button
-                type="button"
+              <ActionButton
+                tone="brand"
+                main
+                icon={Check}
+                label={isPending ? 'Adding…' : 'Done'}
                 onClick={done}
                 disabled={isPending}
-                className="w-full rounded-lg bg-mulberry px-5 py-3 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-600 disabled:opacity-60"
-              >
-                {isPending ? 'Adding…' : 'Done'}
-              </button>
+                className="w-full"
+              />
             </div>
           </div>
 

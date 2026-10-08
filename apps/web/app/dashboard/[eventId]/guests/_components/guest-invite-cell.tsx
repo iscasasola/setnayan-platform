@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useId, useRef, useState, useTransition } from 'react';
-import { Link2, Share2, Undo2 } from 'lucide-react';
+import { Link2, Send, Share2, Undo2 } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { buildGuestInviteMessage, type InviteEventFacts } from '@/lib/guest-invite-message';
 import { saveImageToDevice } from '@/lib/save-to-device';
 import { setGuestInvitationSent } from '../../invitation/actions';
@@ -321,21 +322,22 @@ export function GuestInviteCell({
       data-guest-invite-pair={layout}
     >
       <div className="flex flex-wrap items-center gap-1.5">
-        <button
-          ref={ref}
-          type="button"
-          onClick={invite}
-          disabled={pending}
-          aria-haspopup="dialog"
-          aria-label={sentAt ? `Invite ${guest.fullName} — sent ${sentDay}` : `Invite ${guest.fullName}`}
-          data-guest-invite-cell=""
-          data-sent={sentAt ? 'true' : undefined}
-          className={`relative z-20 inline-flex min-h-[44px] shrink-0 items-center justify-center whitespace-nowrap rounded-full bg-ink font-medium text-cream transition-colors hover:bg-ink/85 disabled:opacity-60 ${
-            layout === 'card' ? 'px-5 text-sm sm:min-w-[132px] sm:px-6' : 'px-4 text-[13px]'
-          }`}
-        >
-          Invite
-        </button>
+        {/* The forward step is the filled brand button (components/action-button.tsx). Its longer name — who it is for,
+            and whether it went — rides the title; the button's own word is "Invite". */}
+        <span className="contents" data-guest-invite-cell="" data-sent={sentAt ? 'true' : undefined}>
+          <ActionButton
+            ref={ref}
+            tone="brand"
+            main
+            icon={Send}
+            label="Invite"
+            title={sentAt ? `Invite ${guest.fullName} — sent ${sentDay}` : `Invite ${guest.fullName}`}
+            onClick={invite}
+            disabled={pending}
+            aria-haspopup="dialog"
+            className="relative z-20"
+          />
+        </span>
         {more}
       </div>
       {status}
@@ -375,15 +377,7 @@ export function GuestInviteCell({
               <p className="flex min-h-[44px] items-center gap-2.5 px-2.5 text-[13px] text-ink" data-guest-invite-sent="">
                 {num(3, true)}
                 <span className="flex-1">Sent {sentDay}</span>
-                <button
-                  type="button"
-                  onClick={() => mark(false)}
-                  disabled={pending}
-                  className="inline-flex min-h-[44px] items-center gap-1 rounded-full px-2 text-[13px] font-medium text-ink/70 hover:text-ink disabled:opacity-60"
-                >
-                  <Undo2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                  Undo
-                </button>
+                <ActionButton tone="neutral" quiet icon={Undo2} label="Undo" onClick={() => mark(false)} disabled={pending} />
               </p>
             ) : (
               <button type="button" onClick={() => mark(true)} disabled={pending} className={step} data-guest-invite-mark="">

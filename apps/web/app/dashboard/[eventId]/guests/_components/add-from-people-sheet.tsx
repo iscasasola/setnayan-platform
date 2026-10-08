@@ -38,7 +38,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Users } from 'lucide-react';
+import { Check, Search, Users, X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { Drawer } from './overlay-primitives';
 import {
   chooseAllShown,
@@ -266,13 +267,7 @@ export function AddFromPeopleSheet({
             your group.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={close}
-          className="rounded-md px-2 py-1 text-sm text-ink/50 hover:bg-ink/5 hover:text-ink"
-        >
-          Close
-        </button>
+        <ActionButton tone="neutral" quiet icon={X} label="Close" onClick={close} />
       </div>
 
       <div className="mt-4 flex items-center gap-2">
@@ -296,19 +291,15 @@ export function AddFromPeopleSheet({
           {samahanGroups.map((g) => {
             const active = activeGroup === g;
             return (
-              <button
+              <ActionButton
                 key={g}
-                type="button"
+                tone={active ? 'brand' : 'neutral'}
+                main={active}
+                icon={active ? Check : Users}
+                label={g}
                 onClick={() => setActiveGroup(active ? null : g)}
                 aria-pressed={active}
-                className={`rounded-full border px-3 py-1 text-sm ${
-                  active
-                    ? 'border-mulberry/60 bg-mulberry/10 text-mulberry-700'
-                    : 'border-ink/15 text-ink/70 hover:border-ink/30'
-                }`}
-              >
-                {g}
-              </button>
+              />
             );
           })}
         </div>
@@ -333,20 +324,21 @@ export function AddFromPeopleSheet({
 
       {!loading && addableShown.length > 1 ? (
         <div className="mt-3 flex items-center justify-between gap-3 border-t border-ink/10 pt-3">
-          <button
-            type="button"
+          <ActionButton
+            tone="neutral"
+            icon={allShownPicked ? X : Check}
+            label={
+              allShownPicked
+                ? `Clear these ${addableShown.length}`
+                : `Choose all ${addableShown.length} shown`
+            }
             onClick={() => {
               // Toggle: the same control that picks everyone shown lets go of
               // them again. Rows already on the list are never touched — adding
               // somebody twice is the mistake this sheet exists to prevent.
               setPicked((prev) => chooseAllShown(prev, addableShown, allShownPicked));
             }}
-            className="text-sm font-medium text-mulberry-700 underline underline-offset-4"
-          >
-            {allShownPicked
-              ? `Clear these ${addableShown.length}`
-              : `Choose all ${addableShown.length} shown`}
-          </button>
+          />
           {pickedKeys.length > 0 ? (
             <span className="text-[11px] text-ink/55">{pickedKeys.length} chosen</span>
           ) : null}
@@ -434,18 +426,21 @@ export function AddFromPeopleSheet({
         <span className="text-sm text-ink/55">
           {pickedKeys.length === 0 ? 'Nobody picked' : `${pickedKeys.length} picked`}
         </span>
-        <button
-          type="button"
+        <ActionButton
+          tone="brand"
+          main
+          icon={Check}
+          label={
+            pending
+              ? 'Adding…'
+              : pickedKeys.length > 1
+                ? `Add ${formatCount(pickedKeys.length)} guests`
+                : 'Add guest'
+          }
           onClick={submit}
-          disabled={pickedKeys.length === 0 || pending}
-          className="button-primary disabled:opacity-50"
-        >
-          {pending
-            ? 'Adding…'
-            : pickedKeys.length > 1
-              ? `Add ${formatCount(pickedKeys.length)} guests`
-              : 'Add guest'}
-        </button>
+          disabled={pending}
+          waiting={pickedKeys.length === 0 && !pending}
+        />
       </div>
     </Drawer>
   );

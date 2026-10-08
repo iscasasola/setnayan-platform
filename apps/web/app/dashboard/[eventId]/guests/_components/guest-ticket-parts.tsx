@@ -2,7 +2,8 @@
 
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { MoreHorizontal, QrCode, Trash2, Unlink, X } from 'lucide-react';
+import { Download, MoreHorizontal, QrCode, Trash2, Unlink, X } from 'lucide-react';
+import { ActionButton, actionButtonClass } from '@/components/action-button';
 import { NfcWriteButton } from '@/app/_components/nfc-write-button';
 import { SaveFileLink } from '@/app/_components/save-file-link';
 import { Sheet } from '@/app/_components/sheet';
@@ -173,9 +174,14 @@ export function GuestTicketThumb({
                 <SaveFileLink
                   href={src}
                   filename={ticketFileName(name)}
-                  className="inline-flex min-h-[48px] w-full items-center justify-center rounded-full bg-ink px-5 text-sm font-medium text-cream"
+                  className={actionButtonClass('brand', { main: true, extra: 'w-full min-h-11' })}
                 >
-                  {(state) => (state === 'saving' ? 'Saving…' : 'Save ticket')}
+                  {(state) => (
+                    <>
+                      <Download aria-hidden strokeWidth={1.9} />
+                      <span className="lbl">{state === 'saving' ? 'Saving…' : 'Save ticket'}</span>
+                    </>
+                  )}
                 </SaveFileLink>
                 <p className="text-center text-xs text-ink/55">Saves it as one image — the QR is on it.</p>
               </div>
@@ -338,21 +344,20 @@ export function GuestMoreMenu({
 
   return (
     <div ref={wrapRef} className="relative" data-guest-more-menu="">
-      <button
+      <ActionButton
         ref={buttonRef}
-        type="button"
+        tone="neutral"
+        iconOnly
+        icon={MoreHorizontal}
+        label={`More for ${guestName}`}
         onClick={() => {
           if (!open) place();
           setOpen((o) => !o);
         }}
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-controls={open ? menuId : undefined}
-        aria-label={`More for ${guestName}`}
-        className="relative z-20 inline-flex h-11 w-11 items-center justify-center rounded-full border border-ink/15 bg-cream text-ink/70 transition-colors hover:border-ink/30 hover:text-ink"
-      >
-        <MoreHorizontal aria-hidden className="h-4 w-4" strokeWidth={2} />
-      </button>
+        className="relative z-20"
+      />
       {/* Kept mounted while closed (hidden), so the NFC sheet its button opens
           outlives the menu closing behind it. */}
       {/* Drawn in place until the page has mounted (so the server and the first
@@ -468,18 +473,12 @@ export function GuestMoreMenu({
             </>
           )}
           <SubmitButton
-            className="inline-flex min-h-[48px] w-full items-center justify-center rounded-full bg-mulberry px-5 text-sm font-medium text-cream disabled:opacity-60"
+            className={actionButtonClass('brand', { main: true, extra: 'w-full min-h-11' })}
             pendingLabel={confirm === 'new_qr' ? 'Making a new QR…' : 'Unlinking…'}
           >
             {confirm === 'new_qr' ? 'Make a new QR' : 'Unlink account'}
           </SubmitButton>
-          <button
-            type="button"
-            onClick={() => setConfirm(null)}
-            className="inline-flex min-h-[48px] w-full items-center justify-center rounded-full border border-ink/15 bg-cream px-5 text-sm font-medium text-ink"
-          >
-            Cancel
-          </button>
+          <ActionButton tone="neutral" icon={X} label="Cancel" onClick={() => setConfirm(null)} className="w-full" />
         </form>
       </Sheet>
     </div>

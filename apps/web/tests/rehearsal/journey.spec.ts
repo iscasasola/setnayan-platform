@@ -268,10 +268,13 @@ test('the launch-critical journey', async ({ browser }) => {
 
   await walk.step('B · Event Hub', 'Change the draft — a new note to guests', () => host, async (check) => {
     await host.locator('[data-studio-tile="info"]').click();
-    const box = host.getByLabel('Special message — your closing words to guests');
-    await box.scrollIntoViewIfNeeded({ timeout: 30_000 });
+    // The Info form keeps every field mounted; the one on screen is the one a person types in.
+    const box = host.locator('textarea[data-same-field="special_message"]:visible').first();
+    await expect(box).toBeVisible({ timeout: 30_000 });
+    await box.scrollIntoViewIfNeeded();
+    await expect(box).toHaveAttribute('aria-label', 'Special message — your closing words to guests');
     await box.fill(note);
-    await expect(host.locator('[data-special-save-state="saved"]')).toHaveCount(1, { timeout: 20_000 });
+    await expect(host.locator('[data-special-save-state="saved"]').first()).toBeAttached({ timeout: 20_000 });
     check('typing saves to the draft (no Save button)');
     await expect(host.locator('[data-maker-apply-count]:visible').first()).toBeVisible();
     await expect(host.locator('[data-maker-apply] button:visible').first()).toBeEnabled();
@@ -322,8 +325,10 @@ test('the launch-critical journey', async ({ browser }) => {
 
   await walk.step('C · Guests', 'Send to one guest — copy their invitation link', () => host, async (check) => {
     await host.goto(`${BASE}${eventUrl}/guests/${invited.id}`);
-    const cell = host.getByRole('button', { name: `Invite ${invited.fullName}`, exact: true }).first();
+    const cell = host.locator('button[data-guest-invite-cell]:visible').first();
     await expect(cell).toBeVisible({ timeout: 45_000 });
+    await expect(cell).toHaveAttribute('aria-label', `Invite ${invited.fullName}`);
+    check(`the card is ${invited.fullName}'s, and they have not been invited yet`);
     await cell.click();
     const panel = host.locator('[data-guest-invite-panel]');
     await expect(panel).toBeVisible();

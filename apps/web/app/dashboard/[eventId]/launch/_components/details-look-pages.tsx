@@ -269,17 +269,6 @@ function HeroPartSheet() {
   if (!parts || !piece || !isHubElementKey(piece)) return null;
   const el: HubElementKey = piece;
   const canvases = parts.canvases;
-  const usedColours = (() => {
-    const out = new Set<string>();
-    for (const c of Object.values(canvases)) {
-      if (c.color) out.add(c.color);
-      for (const st of Object.values(c.elements ?? {})) {
-        if (st?.color) out.add(st.color.slice(0, 7));
-        for (const r of st?.runs ?? []) if (r.color) out.add(r.color.slice(0, 7));
-      }
-    }
-    return [...out].slice(0, 15);
-  })();
   const post = (message: unknown) => heroFrame()?.contentWindow?.postMessage(message, window.location.origin);
   return (
     <div
@@ -300,7 +289,6 @@ function HeroPartSheet() {
           setPiece(next);
         }}
         sceneLabel="Hero"
-        usedColours={usedColours}
         onPreview={(message) => post(message)}
         onPlay={() => post({ source: 'setnayan-editor', t: 'playEl', key: HERO_KEY, el })}
         onClose={() => {

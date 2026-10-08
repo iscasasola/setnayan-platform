@@ -2,7 +2,7 @@
 
 import { makerSave } from '@/lib/maker-refresh';
 import { useRouter } from 'next/navigation';
-import { createContext, useContext, useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useTransition, type ReactNode } from 'react';
 import { Check, Play } from 'lucide-react';
 import { hubDraftAction } from '../../website/hub-draft-actions';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
@@ -20,6 +20,7 @@ import { PaidMark } from '@/app/_components/paid-mark';
 import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
 import { IRow, ISection, ISeg, ISegmented } from '../../website/editor/_components/inspector-kit';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
+import { ColourSheet } from '../../website/editor/_components/colour-well';
 import { StageStyle } from './stage-panel/stage-style';
 import { Dd, PanelSwitch } from './stage-panel/kit';
 import { RevealPicture } from './stage-panel/reveal-picture';
@@ -95,8 +96,11 @@ export function MakerRevealPicker({
   ownsPro,
   storeShell,
   stdWindowDays,
+  mainColours = NO_COLOURS,
   part = 'all',
 }: {
+  /** 🎨 The five main colours in slot order (`mainColoursOf`) — the veil's colour rows open the one picker on them. */
+  mainColours?: readonly string[];
   /**
    * 🧩 Which of the picker's three parts to draw (DECISION_LOG "A TOOL MOVED
    * INTO THE MAKER IS REBUILT INTO THE THREE PARTS"): in Details the openings
@@ -355,6 +359,7 @@ export function MakerRevealPicker({
           drafted={effectsDrafted}
           /* Never locked: each change is shown at once and saved behind it. */
           pending={false}
+          colours={mainColours}
           onChange={setEffects}
         />
       ) : null}
@@ -398,6 +403,7 @@ export function MakerRevealPicker({
   );
 }
 
+const NO_COLOURS: readonly string[] = [];
 const ENVELOPES = new Set(['four-flap', 'two-flap-vertical', 'two-flap-horizontal']);
 
 /**
@@ -411,8 +417,11 @@ function FineTune({
   tuneHouse,
   drafted,
   pending,
+  colours,
   onChange,
 }: {
+  /** The five main colours — the colour rows' picker offers them first. */
+  colours: readonly string[];
   opening: string;
   effects: RevealEffects;
   tuneHouse: RevealTuneHouse;
@@ -464,12 +473,14 @@ function FineTune({
             label="Veil colour"
             value={effects.veilColor}
             disabled={pending}
+            palette={colours}
             onCommit={(hex) => onChange({ ...effects, veilColor: hex })}
           />
           <ColourRow
             label="Petal colour"
             value={effects.petalColor}
             disabled={pending}
+            palette={colours}
             onCommit={(hex) => onChange({ ...effects, petalColor: hex })}
           />
         </>
@@ -588,45 +599,44 @@ function TuneSlider({
   );
 }
 
-/** A colour, or "from your Mood Board" (null). Saved when the picker settles. */
+/**
+ * A colour, or "from your Mood Board" (null). The row opens the ONE colour picker — the Mood
+ * Board's sheet (owner 2026-10-08: *"apply that same concept on … any other color rules parts"*);
+ * a pick is saved at once, as the native wheel's settled value was.
+ */
 function ColourRow({
   label,
   value,
   disabled,
+  palette,
   onCommit,
 }: {
   label: string;
   value: string | null;
   disabled: boolean;
+  /** The five main colours, in slot order — the picker's "Your Mood Board" shelf. */
+  palette: readonly string[];
   onCommit: (hex: string | null) => void;
 }) {
-  const [local, setLocal] = useState(value ?? '#f3ece1');
-  const timer = useRef<number | null>(null);
-  useEffect(() => setLocal(value ?? '#f3ece1'), [value]);
-  useEffect(() => () => {
-    if (timer.current) window.clearTimeout(timer.current);
-  }, []);
+  const [open, setOpen] = useState(false);
+  const shown = value ?? '#f3ece1';
   return (
     <div className="flex min-h-12 items-center gap-3 rounded-md bg-white/70 px-3 py-2">
-      <label className="flex min-w-0 flex-1 items-center gap-3">
-        <input
-          type="color"
-          value={local}
-          disabled={disabled}
-          aria-label={label}
-          onChange={(e) => {
-            const hex = e.target.value;
-            setLocal(hex);
-            if (timer.current) window.clearTimeout(timer.current);
-            timer.current = window.setTimeout(() => onCommit(hex), 700);
-          }}
-          className="h-10 w-10 shrink-0 cursor-pointer rounded-full border border-ink/15 bg-transparent p-0.5"
-        />
+      <button
+        type="button"
+        disabled={disabled}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        data-reveal-colour=""
+        onClick={() => setOpen(true)}
+        className="sn-press flex min-w-0 flex-1 items-center gap-3 text-left"
+      >
+        <span aria-hidden className="h-10 w-10 shrink-0 rounded-full border border-ink/15" style={{ background: shown }} />
         <span className="min-w-0">
           <span className="block text-[13.5px] font-semibold text-ink">{label}</span>
           <span className="block text-[12px] text-ink/60">{value ? value.toUpperCase() : 'From your Mood Board'}</span>
         </span>
-      </label>
+      </button>
       {value ? (
         <button
           type="button"
@@ -636,6 +646,9 @@ function ColourRow({
         >
           Reset
         </button>
+      ) : null}
+      {open ? (
+        <ColourSheet title={label} what="" value={value} shown={shown} palette={palette} slots={palette.length > 0} onPick={onCommit} onClose={() => setOpen(false)} />
       ) : null}
     </div>
   );

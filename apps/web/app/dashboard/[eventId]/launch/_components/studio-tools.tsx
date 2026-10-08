@@ -835,6 +835,7 @@ export function StudioMainColours({
             job={MAIN_COLOUR_JOB[slot]}
             value={five[slot] ?? '#000000'}
             palette={colours}
+            slots
             onPick={(hex) => pick(slot, hex)}
           />
         </div>

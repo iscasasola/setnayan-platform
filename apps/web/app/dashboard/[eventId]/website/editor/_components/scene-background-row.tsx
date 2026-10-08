@@ -46,7 +46,7 @@ import {
   withBackground,
   type SceneOnStage,
 } from '@/lib/scene-background-scope';
-import { ColourWell } from './colour-well';
+import { ColourSheet, ColourWell } from './colour-well';
 import type { ElementDraftAction } from './element-sheet';
 import { IButton, IHint, IRow, ISection, ISeg, ISegmented } from './inspector-kit';
 import { backgroundPickRedrawsBox } from './element-preview';
@@ -130,7 +130,7 @@ export function SceneBackgroundRow({
   stageLabel,
   draftAction,
   themeColours,
-  usedColours = [],
+  board,
   photoChoices = [],
   videoChoice = null,
   sceneUploads = [],
@@ -170,9 +170,10 @@ export function SceneBackgroundRow({
   /** "Invitation" — what "every scene" reaches, said out loud. */
   stageLabel: string;
   draftAction: ElementDraftAction;
-  /** The couple's palette — the theme swatches in the Colour panel. */
+  /** The couple's palette — the Stages row's five swatches. */
   themeColours: readonly string[];
-  usedColours?: readonly string[];
+  /** The five main colours in slot order (Dominant … Accent 2) — the one picker's "Your Mood Board" shelf, named. Absent = `themeColours`, unnamed. */
+  board?: readonly string[];
   photoChoices?: readonly { ref: string; url: string }[];
   /** The event's one video; `poster` = its still (the hero photo) for guests. */
   videoChoice?: { ref: string; url: string; poster?: string | null } | null;
@@ -574,21 +575,20 @@ export function SceneBackgroundRow({
           const kind: HubBackgroundKind = current && TINTED.includes(current) ? (bg!.kind as HubBackgroundKind) : 'color';
           put({ kind, color: hex.slice(0, 7), opacity: shown.opacity }, false);
         }}
-        customColour={
-          <ColourWell
+        customColour={(close) => (
+          <ColourSheet
             value={value === 'hub' ? null : tint}
             shown={tint}
             what="this scene"
-            themeColours={themeColours}
-            usedColours={usedColours}
-            savedKey={`sn-maker-colours:${eventId}`}
+            palette={board ?? themeColours}
+            slots={Boolean(board)}
             onPick={(hex) => {
               const kind: HubBackgroundKind = current && TINTED.includes(current) ? (bg!.kind as HubBackgroundKind) : 'color';
               put({ kind, color: hex.slice(0, 7), opacity: shown.opacity }, false);
             }}
-            data="scene"
+            onClose={close}
           />
-        }
+        )}
         opacityRow={
           current === 'media' && value !== 'hub' ? (
             /* 🌗 DARKER ↔ LIGHTER (owner 2026-10-07; prototype `SHADE`) — once a photo or video is chosen; the
@@ -754,9 +754,8 @@ export function SceneBackgroundRow({
             value={tint}
             shown={tint}
             what="this scene"
-            themeColours={themeColours}
-            usedColours={usedColours}
-            savedKey={`sn-maker-colours:${eventId}`}
+            palette={board ?? themeColours}
+            slots={Boolean(board)}
             onPick={(hex) => put({ kind: bg!.kind as HubBackgroundKind, color: hex.slice(0, 7), opacity: shown.opacity })}
             data="scene"
           />

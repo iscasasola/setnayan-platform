@@ -16,7 +16,7 @@ import { SP_PANE, SP_ROW, SP_ROW_LABEL, SP_SWATCH } from '@/lib/maker-stage-room
  *
  *   Font    Aa Cormorant Garamond ▾     the shipped one font dropdown (`FontPick`)
  *   Colour  ▨ ■ ■ ■ ■ ● +               the theme's own (striped), the Event Hub's colours,
- *                                       ink, then any colour (the shipped `ColourWell`)
+ *                                       ink, then any colour ("+" opens the one colour picker)
  *   Size    ━━━━●━━━━━  100%            the shipped steps (`HUB_ELEMENT_SIZE_STEPS`), inside
  *                                       the part's bounds; 100% is the theme's own
  *
@@ -43,7 +43,8 @@ export function StageText({
   colours: readonly string[];
   colour: string | null;
   onColour: (hex: string | null) => void;
-  customColour: ReactNode;
+  /** "+" opens the ONE colour picker (`ColourSheet`, colour-well.tsx) — handed the way to close it. */
+  customColour: (close: () => void) => ReactNode;
   size: number | null | undefined;
   onSize: (step: number | null) => void;
   /** "Hard to read here" — measured, never blocking. */
@@ -82,14 +83,14 @@ export function StageText({
         <div className="flex min-w-0 flex-1 items-center justify-between gap-1">
           {swatch('theme', now === null, 'The theme’s colour', <span className="absolute inset-0 bg-[repeating-linear-gradient(45deg,#fff_0_4px,#EDE8DF_4px_8px)]" />, () => onColour(null))}
           {colours.map((c) => swatch(c, now === c.slice(0, 7).toLowerCase(), `Colour ${c}`, <span className="absolute inset-0" style={{ background: c }} />, () => onColour(c)))}
-          <button type="button" aria-expanded={custom} aria-label="Any colour" data-stage-text-colour="more" onClick={() => setCustom((o) => !o)} className={`${SP_SWATCH} max-w-[34px]`}>
+          <button type="button" aria-haspopup="dialog" aria-expanded={custom} aria-label="Any colour" data-stage-text-colour="more" onClick={() => setCustom(true)} className={`${SP_SWATCH} max-w-[34px]`}>
             <span aria-hidden className="flex h-9 w-full items-center justify-center rounded-md border border-dashed border-black/10 bg-white text-[14px] font-semibold text-[var(--sp-ink2)]">
               +
             </span>
           </button>
         </div>
       </div>
-      {custom ? <div className="shrink-0">{customColour}</div> : null}
+      {custom ? customColour(() => setCustom(false)) : null}
       {contrast}
       <div className={SP_ROW} data-stage-text-row="size">
         <span className={SP_ROW_LABEL}>Size</span>

@@ -1898,18 +1898,6 @@ export function MakerWork({
     const sc = sceneById.get(id);
     return sc ? [{ type: sc.type, canvas: canvasOf(sc.type) }] : [];
   });
-  /** The colours this Event Hub already uses — the synced half of "Saved colours". */
-  const usedColours = (() => {
-    const out = new Set<string>();
-    for (const c of Object.values(elementEditing?.canvases ?? {})) {
-      if (c.color) out.add(c.color);
-      for (const st of Object.values(c.elements ?? {})) {
-        if (st?.color) out.add(st.color.slice(0, 7));
-        for (const r of st?.runs ?? []) if (r.color) out.add(r.color.slice(0, 7));
-      }
-    }
-    return [...out].slice(0, 15);
-  })();
   const postToCanvas = (message: unknown) => {
     broadcastToCanvas(message);
     scheduleSnapshots(600);
@@ -1964,7 +1952,7 @@ export function MakerWork({
               stageLabel={PUBLIC_STAGE_LABELS[stage]}
               draftAction={elementEditing.draftAction}
               themeColours={sceneFormat.colorChoices}
-              usedColours={usedColours}
+              board={elementEditing.palette.board}
               photoChoices={sceneFormat.photoChoices}
               videoChoice={sceneFormat.videoChoice}
               sceneUploads={sceneFormat.sceneUploads}
@@ -2993,7 +2981,6 @@ export function MakerWork({
           }
           /* ✋ No "Open the Hero editor" from a part (owner 2026-10-05): the names
              and date are made in place — `onOpenHero` is not handed in. */
-          usedColours={usedColours}
           onPreview={(message) => {
             broadcastToCanvas(message);
             // The navigator's tiles are pictures of the canvas — re-take them.

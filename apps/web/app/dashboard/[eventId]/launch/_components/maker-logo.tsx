@@ -998,6 +998,7 @@ function LayerTools({
               job={layer.kind === 'image' && layer.color === null ? 'Its own colours' : 'This part of your logo'}
               value={layer.color ?? LOGO_DEFAULT_INK}
               palette={studio.five}
+              slots
               onPick={(c) => onChange({ color: c })}
               reset={layer.kind === 'image' && layer.color !== null ? { label: 'Its own colours', onReset: () => onChange({ color: null }) } : undefined}
             />

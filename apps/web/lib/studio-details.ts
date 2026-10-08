@@ -92,8 +92,9 @@ export const STUDIO_FORM_ITEMS: readonly DetailsItemKey[] = [
   ...FREE_PRINT_KEYS,
   'download',
 ];
-/* 🎨 Mood Board & Dress Code (plan PR 5) fills the screen too — its four tabs and their tools are all in its body. */
-export const STUDIO_PAGE_ITEMS: readonly DetailsItemKey[] = ['love-story', 'mood-board'];
+/* 🎨 Mood Board & Dress Code (plan PR 5) fills the screen too — its four tabs and their tools are all in its body.
+   🗓 So does the Schedule (owner 2026-10-07 "1. okay"): its timeline, + Add a moment and ⋯ are all in its body. */
+export const STUDIO_PAGE_ITEMS: readonly DetailsItemKey[] = ['love-story', 'mood-board', 'schedule'];
 
 /** The top nav (52 px) and the tool's row (52 px) — the panel fills the rest, edge to edge (prototype `.full`).
  *  The panel's own height is `--maker-lt-h` less 8 px (`MAKER_LT_TOOL`), so this is 104 − 8. */
@@ -120,6 +121,8 @@ const STUDIO_SKIN_CSS =
   `${W} [data-details-form-heading]{font-size:14px;font-weight:600;line-height:1.3}` +
   /* The print words' Save: the prototype's one ink pill, its "The card redraws." helper gone (helper text lives behind ⓘ). */
   `${W} [data-save-words-note]{display:none}` +
+  /* 🏷 The Event name row names itself ("Event name · Maria & Jose") — no "Names" heading over it. */
+  `${W} [data-details-editor]:has([data-studio-event-name]) > [data-details-form-heading]{display:none}` +
   /* A print's row names it (Studio › Prints, `data-print-studio`) — the form's own heading would say it twice. */
   `${W} [data-details-editor]:has(> [data-print-studio]) > [data-details-form-heading]{display:none}` +
   /* The tool's name is the Tool ▾ row's — no second masthead over the march, the Mood Board, the Logo (prototype `.full`). */
@@ -131,6 +134,29 @@ const STUDIO_SKIN_CSS =
   `${W} input[role=switch]:checked+span{background-color:#4f6b4a}` +
   `${W} input[role=switch]:checked+span::after{transform:translateX(18px)}` +
   `${W} [data-details-editor] :is(input:not([type]),input[type=text],input[type=url],input[type=tel],input[type=email],input[type=search],input[type=date],textarea){min-height:44px;border-radius:var(--m-r-sm);border-color:rgb(var(--color-ink)/.1);background:${STUDIO_PAGE};font-size:14px}`;
+
+/**
+ * 🚶 STUDIO › WEDDING MARCH GETS THE SCREEN FOR THE WALKS (owner 2026-10-07, verbatim *"yes parents
+ * is automatically part of the wedding march, hosts are just access so this can live under the
+ * guestlist since there is a access column already"*; DECISION_LOG "STUDIO REDRAW ANSWERS" (4)).
+ * Parents keep their place IN the march — they walk, their rows are the march's own; hosts are
+ * access, set in ONE place — Event Details › People with access (owner 2026-10-07, *"put people
+ * with access in event details"*). So the tray's "Parents & hosts" block
+ * (`[data-march-parents]`) steps aside in Studio — hidden, never unmounted — and the lower part
+ * shrinks to the prototype's Not-walking strip (`.mx-tray`): the heading and one row of names,
+ * the rest behind "+N more" (`fitChips`, scroll-less). The shipped Maker (flag off) is unchanged.
+ */
+export const STUDIO_MARCH_TRAY_PX = 112;
+const STUDIO_MARCH_CSS =
+  '[data-maker-studio-full] [data-march-parents]{display:none}' +
+  `[data-maker-studio-full]:has([data-details-workspace][data-details-item="march"]){--maker-lt-h:${STUDIO_MARCH_TRAY_PX}px!important}`;
+
+/** 🔀 Look › Music's "Play music on my Event Hub" as a switch (owner 2026-10-08) — drawn here, by the server, so the Maker's first load carries none of it. */
+const STUDIO_MUSIC_SWITCH_CSS =
+  '[data-music-switch]{min-height:44px;justify-content:space-between;flex-direction:row-reverse;font-size:14px;color:rgb(var(--color-ink))}' +
+  '[data-music-switch] input[role=switch]{appearance:none;-webkit-appearance:none;position:relative;width:46px;height:28px;border:0;border-radius:9999px;background:rgb(var(--color-ink)/.2);cursor:pointer;flex:none;transition:background-color .2s}' +
+  '[data-music-switch] input[role=switch]::after{content:"";position:absolute;left:3px;top:3px;width:22px;height:22px;border-radius:9999px;background:#fff;box-shadow:0 1px 2px rgb(0 0 0/.2);transition:left .2s}' +
+  '[data-music-switch] input[role=switch]:checked{background:#4f6b4a}[data-music-switch] input[role=switch]:checked::after{left:21px}';
 
 export function studioFullScreenCss(): string {
   const on = (keys: readonly DetailsItemKey[]) => `:is(${keys.map((k) => `[data-details-item="${k}"]`).join(',')})`;
@@ -144,10 +170,12 @@ export function studioFullScreenCss(): string {
        page behind it, no floating sheet (no inset, no rounded top, no ring). */
     `[data-maker-studio-full] [data-details-workspace] [data-details-editor-panel][data-phone-chrome="panel"]{left:0;right:0;bottom:0;border-radius:0;box-shadow:none;background:${STUDIO_PAGE}}` +
     `[data-maker-studio-full] [data-details-workspace]{background:${STUDIO_PAGE}}` +
-    /* The Tool row's own ✓ Saved steps aside where the tool portals its own (the Mood Board's Saved · ✨ Auto). */
-    '[data-studio-row-end]:has([data-mood-board-studio-bar]) [data-studio-row-saved]{display:none}' +
     `${form} [data-details-body],${form} [data-details-sheet-head]{display:none}` +
     `${page} [data-details-editor-panel]{display:none}` +
+    /* 🪑 Seat plan (owner 2026-10-08, *"there is no space to see the whole seatplan"*): its people are a
+       pull-up sheet over the map (`PeopleSheet`), so the lower third steps aside and the map takes the screen. */
+    `${ws(['seating'])} [data-details-editor-panel]{display:none}` +
+    `[data-maker-studio-full]:has([data-details-workspace]${on(['seating'])}) [data-maker-studio-room]{display:none}` +
     /* 🌄 Look: its one bar (Background · Colours · Fonts · Music) is the section picker — no second ▾ above it. */
     '[data-details-editor-panel]:has([data-details-editor]:not([hidden]) [data-studio-look-bar]) [data-details-sheet-head]{display:none}' +
     /* 🌄 …and Look's panel is the lower third's whole width at half the screen (prototype `.lt`, owner "the toolbar is half the screen"): no column beside it, no
@@ -155,6 +183,8 @@ export function studioFullScreenCss(): string {
     '[data-details-workspace] [data-details-editor-panel][data-phone-chrome="panel"]:has([data-details-editor]:not([hidden]) [data-studio-look-bar]){left:0;right:0;bottom:0;height:calc(50dvh - 26px);border-radius:0;box-shadow:none;border-top:1px solid rgb(var(--color-ink)/.1)}' +
     `[data-maker-studio-full]:has([data-details-workspace]${on([...STUDIO_FORM_ITEMS, ...STUDIO_PAGE_ITEMS])}) [data-maker-studio-room]{display:none}` +
     STUDIO_SKIN_CSS +
-    '}'
+    STUDIO_MARCH_CSS +
+    '}' +
+    STUDIO_MUSIC_SWITCH_CSS
   );
 }

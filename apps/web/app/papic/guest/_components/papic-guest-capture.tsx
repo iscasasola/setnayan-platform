@@ -46,6 +46,7 @@ import {
 import { formatCount } from '@/lib/format-number';
 import { cameraExitHref, type HubTabKey } from '@/app/[slug]/_lib/hub-tabs';
 import { cameraLookDrawsLogo, type CameraLook } from '@/lib/camera-look';
+import { FocusCorners } from './camera-focus-corners';
 
 // NO PER-PHOTO TAG LIMIT (owner 2026-08-06: "no tag limit. we can tag as many").
 // This file used to hardcode TAG_CAP = 10 and show a counter — while the DATABASE
@@ -2087,23 +2088,5 @@ export function PapicGuestCapture({
 
       <canvas ref={canvasRef} className="hidden" />
     </main>
-  );
-}
-
-/**
- * 🎯 THE FOCUS CORNERS — four L-shaped corners framing the viewfinder, drawn in
- * `tint` (white for Classic and Challenges, the theme's colour for Your brand).
- * Decorative only: no hit area, nothing a screen reader reads.
- */
-function FocusCorners({ tint }: { tint: string }) {
-  const arm = 'absolute h-7 w-7';
-  const line = { borderColor: tint };
-  return (
-    <div aria-hidden data-focus-corners="" className="pointer-events-none absolute inset-8">
-      <span className={`${arm} left-0 top-0 border-l-2 border-t-2`} style={line} />
-      <span className={`${arm} right-0 top-0 border-r-2 border-t-2`} style={line} />
-      <span className={`${arm} bottom-0 left-0 border-b-2 border-l-2`} style={line} />
-      <span className={`${arm} bottom-0 right-0 border-b-2 border-r-2`} style={line} />
-    </div>
   );
 }

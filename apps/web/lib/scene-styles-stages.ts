@@ -55,9 +55,13 @@ export const STAGE_SCENE_STYLE_SETS: readonly SceneStyleSet[] = [
     type: 'countdown',
     label: 'Countdown',
     styles: [
-      { id: 'four-tiles', name: 'Four tiles', line: 'Days · hours · minutes · seconds, a tile each.', stages: STD_INV },
+      /* Names per the 2026-10-06 Maker prototype (`maker_two_dropdowns_owner_wireframe_2026-10-06_fable.html`,
+         countdown presets Big number · Boxes · … · Line · Circle); ids unchanged so no chosen look moves. */
+      { id: 'four-tiles', name: 'Boxes', line: 'Days · hours · minutes · seconds, a box each.', stages: STD_INV },
       { id: 'big-number', name: 'Big number', line: 'The days, large; the rest in one line.', template: 12, stages: STD_INV },
-      { id: 'calendar', name: 'The calendar', line: 'The month, the day marked, the count under it.', stages: STD_INV },
+      { id: 'offset', name: 'Offset', line: 'The days large at the left; "days to go" beside them.', stages: STD_INV },
+      { id: 'line', name: 'Line', line: 'Days, hours and minutes in one quiet line between rules.', stages: STD_INV },
+      { id: 'circle', name: 'Circle', line: 'The days inside a filled circle.', stages: STD_INV },
     ],
   },
   {

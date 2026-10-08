@@ -56,6 +56,7 @@ import type { SceneTemplateId } from '@/lib/scene-templates';
 import type { HubStage } from '@/lib/hub-canvas';
 import { POST_EVENT_SCENE_STYLE_SETS } from '@/lib/scene-styles-post-event';
 import { STAGE_SCENE_STYLE_SETS } from '@/lib/scene-styles-stages';
+import { PART_SCENE_STYLE_SETS } from '@/lib/scene-styles-parts';
 import { SCENE_STYLE_ID_RE, sanitizeSceneStyleId } from '@/lib/scene-style-id';
 
 export type SceneStyle = {
@@ -124,6 +125,8 @@ export function mergeSceneStyleSets(...lists: ReadonlyArray<readonly SceneStyleS
 export const SCENE_STYLE_SETS: Readonly<Record<string, SceneStyleSet>> = mergeSceneStyleSets(
   POST_EVENT_SCENE_STYLE_SETS,
   STAGE_SCENE_STYLE_SETS,
+  /* 🎨 The parts' own (Names · Date · Place · Logo · Title · E-Gifts · the guest's own — owner 2026-10-07). */
+  PART_SCENE_STYLE_SETS,
 );
 
 export function sceneStyleSet(type: string | null | undefined): SceneStyleSet | null {

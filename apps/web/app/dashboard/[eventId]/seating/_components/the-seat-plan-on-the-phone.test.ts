@@ -205,9 +205,12 @@ test('7 · REACHABLE: Details › Seat plan → the editor → on a phone the he
   const page = code('page.tsx');
   assert.match(page, /if \(inMaker\) \{[\s\S]*editorFor\(/, 'the Maker no longer draws the editor');
   const ed = editor();
-  assert.match(ed, /\{isPhone \? phoneHead : doorStrip\}/, 'a phone still gets the desk bar instead of its head');
+  /* The Studio's phone draws its compact head (studio round 3, 2026-10-08); every other phone the shipped one. */
+  assert.match(ed, /\{studioSeat \? studioHead : isPhone \? phoneHead : doorStrip\}/, 'a phone still gets the desk bar instead of its head');
   assert.match(ed, /\{isPhone \? null : \(\s*<CommandBar>/);
-  const more = ed.slice(ed.indexOf('more={'), ed.indexOf('view={details?.lab'));
+  /* ⋯'s menu is one copy (`phoneMore`), drawn by the shipped head and the Studio's (2026-10-08). */
+  const more = ed.slice(ed.indexOf('const phoneMore = ('), ed.indexOf('const phoneTrailing = ('));
+  assert.match(ed, /<PhoneSeatPlanHead[\s\S]{0,600}?more=\{phoneMore\}/, 'the phone head no longer draws ⋯’s menu');
   assert.match(more, /\{shareMenuBody\}/, '⋯ does not hold Share & print');
   assert.match(more, /\{addMenuBody\}/, '⋯ does not hold Add a table/element');
   assert.match(ed, /href=\{`\/dashboard\/\$\{eventId\}\/seating\/export\?mode=moodboard`\}/, 'Share & print does not reach the A3 seat plan');

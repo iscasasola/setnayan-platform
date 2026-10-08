@@ -113,6 +113,7 @@ export function PhotoMomentsWidget({
         <p className="rounded-lg border border-dashed border-ink/20 bg-cream p-5 text-center text-sm italic text-ink/60">
           Your hosts will share their photo guidance closer to the {words.eventWord}.
         </p>
+        <PhotoMomentsSample style={sceneStyle} />
       </section>
     );
   }
@@ -180,5 +181,53 @@ function PhotoMomentModeBadge({ mode }: { mode: PhotoMomentMode }) {
       <CircleSlash aria-hidden className="h-3 w-3" strokeWidth={2} />
       Phone-down
     </span>
+  );
+}
+
+/**
+ * 🔲 THE LOOK'S SHAPE WITH NOTHING IN IT YET (owner 08 Oct: *"still cannot see the gallery style? maybe show what it
+ * could look like with boxes?"*): with no moments, Cards · Down the day · Yes and no drew the same sentence, so their
+ * look cards were identical. Grey lines where a moment's words go, in each look's own arrangement — shapes, never
+ * sample content. Shown ONLY on the Maker's canvas: `globals.css` hides `[data-maker-sample]` on any page that
+ * carries no `[data-maker-section]` marker, which only the host-verified editor canvas draws.
+ */
+function PhotoMomentsSample({ style }: { style: string | null }) {
+  const line = (w: string) => <span aria-hidden className={`block h-2 rounded-full bg-ink/15 ${w}`} />;
+  if (style === 'down-the-day') {
+    return (
+      <div data-maker-sample="down-the-day" className="space-y-3 border-l border-ink/20 pl-4">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="space-y-1.5">
+            {line('w-12')}
+            {line('w-2/3')}
+          </div>
+        ))}
+      </div>
+    );
+  }
+  if (style === 'yes-and-no') {
+    return (
+      <div data-maker-sample="yes-and-no" className="grid grid-cols-2 gap-4">
+        {['✓', '✕'].map((m) => (
+          <div key={m} className="space-y-2">
+            <span aria-hidden className="block text-center text-sm text-ink/40">
+              {m}
+            </span>
+            {line('w-full')}
+            {line('w-3/4')}
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return (
+    <div data-maker-sample="cards" className="grid grid-cols-3 gap-2">
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="space-y-1.5 bg-ink/5 p-3">
+          {line('w-1/2')}
+          {line('w-full')}
+        </div>
+      ))}
+    </div>
   );
 }

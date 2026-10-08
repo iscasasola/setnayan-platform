@@ -131,6 +131,13 @@ export const MAKER_PART_KEYS = [
   'wishes',
   'suppliers',
   'film',
+  /* 👆 EVERY VISIBLE PIECE IS A PART (owner 2026-10-07: "every visible piece of the page must be a pickable part") —
+     the cover's invite line and its link, the Details block, the day's "Happening now" card. */
+  'heroline',
+  'herolink',
+  'details',
+  'spotlight',
+  'livehub',
   /* 🎞 THE NINE POST EVENT SCENES THE ＋ SHEET ADDS (PR 3, DECISION_LOG 2026-10-06
      "POST EVENT: EVERY SHIPPED AUTO SCENE CAN BE ADDED") — not on a page by default. */
   'road',
@@ -239,19 +246,19 @@ const scene = (type: string): MakerPartLayouts => ({ kind: 'scene', type });
 const NONE: MakerPartLayouts = { kind: 'none' };
 
 /**
- * THE PART MAP (prototype `ELS`). The hero's own parts share the hero's styles
- * (none registered today — the hero's design is Studio › Look's); a section's
- * parts share its scene's styles.
+ * THE PART MAP (prototype `ELS`). The hero's own parts, E-Gifts and the four
+ * for-each-guest parts wear their OWN registered styles (`lib/scene-styles-parts.ts`,
+ * owner 2026-10-07); a section's parts share its scene's styles.
  */
 export const MAKER_PARTS: Readonly<Record<MakerPartKey, MakerPartDef>> = {
   /* The Reveal is the first part of three stages — its kinds are PR 3's (`maker-reveal.tsx`). */
   reveal: { label: 'Reveal', source: 'tool', canvas: null, layouts: NONE },
-  logo: { label: 'Logo', source: 'studio:logo', canvas: 'f:hero', el: 'mark', layouts: NONE },
+  logo: { label: 'Logo', source: 'studio:logo', canvas: 'f:hero', el: 'mark', layouts: scene('hero_mark') },
   /* The stage's first line ("Save the date", "The wedding of") — typed on the page; NOT the Event Name. */
-  ename: { label: 'Title', source: 'info:title', canvas: 'f:hero', el: 'eyebrow', layouts: NONE },
-  names: { label: 'Names', source: 'info:display_name', canvas: 'f:hero', el: 'names', layouts: NONE },
-  date: { label: 'Date', source: 'supplier:date', canvas: 'f:hero', el: 'date', layouts: NONE },
-  place: { label: 'Place', source: 'supplier:venue', canvas: 'f:hero', el: 'venue', layouts: NONE },
+  ename: { label: 'Title', source: 'info:title', canvas: 'f:hero', el: 'eyebrow', layouts: scene('hero_eyebrow') },
+  names: { label: 'Names', source: 'info:display_name', canvas: 'f:hero', el: 'names', layouts: scene('hero_names') },
+  date: { label: 'Date', source: 'supplier:date', canvas: 'f:hero', el: 'date', layouts: scene('hero_date') },
+  place: { label: 'Place', source: 'supplier:venue', canvas: 'f:hero', el: 'venue', layouts: scene('hero_venue') },
   countdown: { label: 'Countdown', source: 'info:countdown_line', canvas: 'w:countdown', layouts: scene('countdown') },
   message: { label: 'Message', source: 'info:special_message', canvas: 'w:special_message', layouts: scene('special_message') },
   rsvp: { label: 'RSVP', source: 'studio:rsvp', canvas: 'f:rsvp', layouts: scene('rsvp') },
@@ -261,7 +268,7 @@ export const MAKER_PARTS: Readonly<Record<MakerPartKey, MakerPartDef>> = {
   opening: { label: 'Opening line', source: 'info:opening_line', canvas: null, layouts: NONE },
   /* The Welcome's own short notes (2026-10-06 full pass) — not drawn on the Invitation's Welcome yet. */
   reminders: { label: 'Reminders', source: 'tool', canvas: null, layouts: NONE },
-  gifts: { label: 'E-Gifts', source: 'studio:gifts', canvas: 'f:gifts', layouts: NONE },
+  gifts: { label: 'E-Gifts', source: 'studio:gifts', canvas: 'f:gifts', layouts: scene('gifts') },
   schedule: { label: 'Schedule', source: 'studio:schedule', canvas: 'w:schedule', layouts: scene('schedule') },
   venue: { label: 'Venue', source: 'supplier:venue', canvas: 'w:venue_map', layouts: scene('venue_map') },
   dress: { label: 'Dress code', source: 'studio:mood', canvas: 'w:dress_code', layouts: scene('dress_code') },
@@ -269,11 +276,11 @@ export const MAKER_PARTS: Readonly<Record<MakerPartKey, MakerPartDef>> = {
   bring: { label: 'What to bring', source: 'info:what_to_bring', canvas: 'w:what_to_bring', layouts: scene('what_to_bring') },
   story: { label: 'Love Story', source: 'studio:story', canvas: 'w:our_love_story', layouts: scene('our_love_story') },
   /* 👤 FOR EACH GUEST — one part per fact, from that guest's own row (owner 2026-10-06); drawn in PR 6. */
-  myrole: { label: 'Your role', source: 'studio:march', canvas: null, layouts: NONE, my: 'role' },
+  myrole: { label: 'Your role', source: 'studio:march', canvas: null, layouts: scene('my_role'), my: 'role' },
   /* The Invitation's "Guest's look" stand-in (`f:look`) IS this part on the canvas — each guest's own outfit and colours. */
-  mywear: { label: 'What to wear', source: 'studio:mood', canvas: 'f:look', layouts: NONE, my: 'wear' },
-  myarrive: { label: 'Arrive by', source: 'studio:schedule', canvas: null, layouts: NONE, my: 'arrive' },
-  myguests: { label: 'Coming with you', source: 'tool', canvas: null, layouts: NONE, my: 'guests' },
+  mywear: { label: 'What to wear', source: 'studio:mood', canvas: 'f:look', layouts: scene('my_wear'), my: 'wear' },
+  myarrive: { label: 'Arrive by', source: 'studio:schedule', canvas: null, layouts: scene('my_arrive'), my: 'arrive' },
+  myguests: { label: 'Coming with you', source: 'tool', canvas: null, layouts: scene('my_guests'), my: 'guests' },
   seats: { label: 'Your seat', source: 'studio:seats', canvas: 'f:find_your_seat', layouts: scene('find_your_seat') },
   pass: { label: 'Digital pass', source: 'tool', canvas: 'f:pass', layouts: NONE },
   announce: { label: 'Announcements', source: 'tool', canvas: 'f:announcements', layouts: scene('announcements') },
@@ -287,6 +294,17 @@ export const MAKER_PARTS: Readonly<Record<MakerPartKey, MakerPartDef>> = {
   wishes: { label: 'Wishes', source: 'tool', canvas: 'p:wishes', layouts: scene('photo-notes') },
   suppliers: { label: 'Supplier Stories', source: 'tool', canvas: 'p:vendors', layouts: scene('supplier-stories') },
   film: { label: 'Watch Live', source: 'tool', canvas: 'p:film', layouts: scene('live-stream') },
+  /* 👆 The cover's own two lines ("invite you to celebrate their wedding" · "the day, the place, the story ↓") —
+     hero parts (`HUB_HERO_ELEMENT_KEYS` 'line' / 'link'), typed on the page on the second tap. */
+  heroline: { label: 'Invite line', source: 'tool', canvas: 'f:hero', el: 'line', layouts: NONE },
+  herolink: { label: 'Link', source: 'tool', canvas: 'f:hero', el: 'link', layouts: NONE },
+  /* The Details page's "THE DETAILS · WHEN · WHERE" block (`PublicEventDetails`) — its date and place come from the
+     booked venue, so its door is Suppliers'; its looks are the shipped event_details styles. */
+  details: { label: 'The details', source: 'supplier:date', canvas: 'f:details', layouts: scene('event_details') },
+  /* The Day's "Happening now · Watch the event live →" card (`SpotlightCard`). */
+  spotlight: { label: 'Happening now', source: 'tool', canvas: 'f:spotlight', layouts: NONE },
+  /* The Day's "Watch live · Live photo wall" part (`MakerDayPartStandIn` `live_hub`) — a tap on it picked nothing. */
+  livehub: { label: 'Live hub', source: 'tool', canvas: 'f:live_hub', layouts: scene('live_hub') },
   /* 🎞 The nine Post Event scenes the ＋ sheet adds — each by its SHIPPED name and
      key (`lib/post-event-scenes.ts` `POST_EVENT_SCENE_NAMES`), never retyped; their
      looks are Post Event's own (`post-event-style-resolve.ts`), not a scene's. */
@@ -337,7 +355,7 @@ export function makerPartQuietRow(key: MakerPartKey): { words: string; to: { stu
  */
 export const MAKER_STAGE_PAGES: Readonly<Record<MakerStageKey, Readonly<Record<string, readonly MakerPartKey[]>>>> = {
   save_the_date: {
-    home: ['reveal', 'logo', 'ename', 'names', 'date', 'place', 'countdown', 'message'],
+    home: ['reveal', 'logo', 'ename', 'names', 'heroline', 'date', 'place', 'herolink', 'countdown', 'message'],
     story: ['story'],
     me: ['pass'],
   },
@@ -347,13 +365,13 @@ export const MAKER_STAGE_PAGES: Readonly<Record<MakerStageKey, Readonly<Record<s
     decline: ['nonote'],
   },
   rsvp: {
-    home: ['reveal', 'logo', 'ename', 'names', 'date', 'place', 'rsvpcard', 'countdown', 'opening', 'greeting', 'message', 'reminders', 'gifts'],
-    details: ['schedule', 'venue', 'dress', 'march', 'bring'],
+    home: ['reveal', 'logo', 'ename', 'names', 'heroline', 'date', 'place', 'herolink', 'rsvpcard', 'countdown', 'opening', 'greeting', 'message', 'reminders', 'gifts'],
+    details: ['details', 'schedule', 'venue', 'dress', 'march', 'bring'],
     story: ['story'],
     me: ['rsvpcard', 'myrole', 'mywear', 'myarrive', 'myguests', 'seats'],
   },
   event: {
-    live: ['reveal', 'announce', 'logo', 'names', 'date', 'place', 'schedule'],
+    live: ['reveal', 'spotlight', 'announce', 'livehub', 'logo', 'ename', 'names', 'heroline', 'date', 'place', 'herolink', 'schedule'],
     home: ['venue', 'dress', 'march', 'bring'],
     camera: ['camera'],
     gallery: ['gallery', 'myphotos'],
@@ -379,8 +397,13 @@ export function makerPartsOnPage(stage: MakerStageKey, page: string | null | und
  */
 export function makerPartsTappable(stage: MakerStageKey, page: string | null | undefined, present: ReadonlySet<string>): MakerPartKey[] {
   return makerPartsOnPage(stage, page).filter((k) => {
-    const c = MAKER_PARTS[k].canvas;
-    return c !== null && present.has(c);
+    const { canvas: c, el } = MAKER_PARTS[k];
+    if (c === null || !present.has(c)) return false;
+    /* A part of a section (the hero's invite line, its link): a tile only when the page DREW that part — when the
+       reader also listed the section's parts (`canvas|el`); a reader that did not is answered by the section. */
+    if (!el) return true;
+    const listed = [...present].some((p) => p.startsWith(`${c}|`));
+    return !listed || present.has(`${c}|${el}`);
   });
 }
 
@@ -409,6 +432,9 @@ export function makerStepPart(input: {
   return { page: pages[q]!, part: null };
 }
 
+/** Hero pieces drawn inside another part (`pahina-masthead.tsx`): a tap on one picks the part it sits in. */
+export const HERO_EL_INSIDE: Readonly<Record<string, string>> = { joiner: 'names', time: 'date' };
+
 /** The part whose canvas key (and part) a tap on the page named — the first in this page's order. */
 export function makerPartOfTap(
   stage: MakerStageKey,
@@ -417,6 +443,8 @@ export function makerPartOfTap(
   el: string | null | undefined,
 ): MakerPartKey | null {
   const on = makerPartsOnPage(stage, page);
+  /* A piece INSIDE a part is that part: the names' "&", the date's time. */
+  el = el ? (HERO_EL_INSIDE[el] ?? el) : el;
   const exact = on.find((k) => MAKER_PARTS[k].canvas === key && (MAKER_PARTS[k].el ?? null) === (el ?? null));
   if (exact) return exact;
   /* A tap inside a section on a part the map does not split (a scene's heading) is that section's part. */
@@ -467,7 +495,7 @@ export function makerStagePickedAttr(key: MakerPartKey | null): string | null {
  * part keeps all four.
  */
 export function makerRevealEdges(isReveal: boolean): { grip: boolean; addAbove: boolean; addBelow: boolean; remove: boolean } {
-  return isReveal ? { grip: false, addAbove: false, addBelow: true, remove: false } : { grip: true, addAbove: true, addBelow: true, remove: true };
+  return isReveal ? { grip: false, addAbove: false, addBelow: false, remove: false } : { grip: true, addAbove: true, addBelow: true, remove: true };
 }
 
 /**
@@ -476,4 +504,25 @@ export function makerRevealEdges(isReveal: boolean): { grip: boolean; addAbove: 
  */
 export function makerDropSlot(index: number, revealLeads: boolean): number {
   return revealLeads ? Math.max(1, index) : Math.max(0, index);
+}
+
+/**
+ * 🎯 THE STYLE BAR OPENS THE EXACT PLACE (owner 2026-10-07, verbatim: *"it should jump to whatever studio it
+ * goes and opens to the exact place where to edit it"*; prototype `editin:info:<field>`, `#item=info&focus=name`).
+ * The field a part's words live in, in its Studio editor — the SAME `data-same-field` door that editor draws
+ * (`same-field.ts`). Null: the editor opens at its top (the field has no door of its own yet — the countdown
+ * line, the greeting, the stage's title: `MAKER_INFO_DOORS`), or the part is the editor's whole subject
+ * (the Schedule, the March, E-Gifts …). Held by `lib/the-stages-panel-is-the-prototypes.test.ts`.
+ */
+export const MAKER_PART_FOCUS: Partial<Record<MakerPartKey, string>> = {
+  names: '[data-same-field="display_name"], [data-details-names] input',
+  opening: '[data-same-field="opening_line"]',
+  message: '[data-same-field="special_message"]',
+};
+
+/** Where a part's Style bar goes: its Studio tile, and the field focused there (or null). */
+export function makerPartStudioDoor(key: MakerPartKey): { tile: MakerStudioTool | 'info'; focus: string | null } | null {
+  const q = makerPartQuietRow(key);
+  if (!q || 'suppliers' in q.to) return null;
+  return { tile: q.to.studio, focus: MAKER_PART_FOCUS[key] ?? null };
 }

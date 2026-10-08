@@ -26,13 +26,15 @@ import {
 } from '@/lib/element-style';
 import { postEventElementScope } from '@/lib/post-event-styles';
 import { findMakerSection, sectionAfter } from './maker-section-find';
+import { HUB_TAB_FREES, createPageTop, openHubTab, showHubTab, shownHubTab } from './hub-tab-dom';
 import { applySceneBgPreview, sanitizeSceneBgPreview } from './scene-bg-preview';
 import { applyButtonsPreview, sanitizeButtonsPreview } from './buttons-preview';
 import { applyPartRuns, applySceneRuns, type RunsDoc } from './part-runs';
 import { applySceneCardPreview } from '@/lib/scene-card-look';
 import { createCanvasTyping, markSceneWords, readSceneTypeWords, sceneTypeField, typeablePart } from './type-in-place-canvas';
 import { createCanvasBringUp } from './canvas-bring-up';
-import { replaySceneIn } from './scene-replay';
+import { replaySceneIn, sceneFrameOf } from './scene-replay';
+import { playSequence } from './play-sequence';
 
 /**
  * EditorBridge — the guest site's half of the unified-editor two-way sync
@@ -57,7 +59,9 @@ import { replaySceneIn } from './scene-replay';
  *   parent → frame  { source:'setnayan-editor', t:'elStyle',  key, el, elements, motion, replay }
  *   parent → frame  { source:'setnayan-editor', t:'sceneBg',  scenes:[{ key, classes, vars }] }
  *   parent → frame  { source:'setnayan-editor', t:'sceneShow', key, shown }
- *   frame  → parent { source:'setnayan-site',   t:'ready',    order, bar }
+ *   frame  → parent { source:'setnayan-site',   t:'ready',    order, bar, tab }
+ *   parent → frame  { source:'setnayan-editor', t:'hubTab',   tab } — 🧭 Stages: show that tab's page, from its top
+ *   frame  → parent { source:'setnayan-site',   t:'hubTab',   tab } — the tab now on screen (after any switch)
  *   parent → frame  { source:'setnayan-editor', t:'refresh' } — 🖼 a pick the bridge cannot draw
  *                    was saved: the page re-renders itself in place (`router.refresh()`)
  *   parent → frame  { source:'setnayan-editor', t:'settle', forget? } — 📱 the Maker's last editing
@@ -124,8 +128,25 @@ export function readMakerBar(doc: Document): unknown[] | null {
   }
 }
 
+/* 🧭 The Stages canvas's tabs (each its own page): `./hub-tab-dom` — a file with no imports, which the Maker's
+   panel reads too. Re-exported here for the bridge's callers. */
+export { shownHubTab, showHubTab } from './hub-tab-dom';
+
 /** Every section the canvas actually DREW, in page order — the navigator must equal this. */
 export function drawnMakerOrder(doc: Document): string[] {
+  /* 🧭 A tabbed Stages canvas draws each tab's groups and hides all but one: a scene on another tab is still
+     DRAWN (it is reached by switching tabs), so every group is shown for this one synchronous measure — no paint
+     happens in between — and put back. Never dropped from the navigator. */
+  const tucked = [...doc.querySelectorAll<HTMLElement>('[data-hub-tab][hidden]')];
+  tucked.forEach((g) => (g.hidden = false));
+  try {
+    return drawnOrderNow(doc);
+  } finally {
+    tucked.forEach((g) => (g.hidden = true));
+  }
+}
+
+function drawnOrderNow(doc: Document): string[] {
   const keys: string[] = [];
   const nodes = doc.querySelectorAll('[data-maker-section], #site-entourage, #site-story');
   nodes.forEach((n) => {
@@ -586,6 +607,18 @@ export function EditorBridge() {
             replayPart: (part) => replayElementIn(part as unknown as HTMLElement, false),
             later: (fn, ms) => window.setTimeout(fn, ms),
           });
+    /** ▶ The picked part's sequence now playing (`playSeq`) — stopped by the next one or by `playStop`. */
+    let seqStop: (() => void) | null = null;
+    /** 🔝 A page that just opened is held at its top until the couple touches it or picks a part (`createPageTop`). */
+    const pageTop = createPageTop(window);
+    const onPageScroll = () => void pageTop.onScroll();
+    const theirTouch = () => pageTop.release();
+    window.addEventListener('scroll', onPageScroll, { passive: true });
+    for (const t of ['pointerdown', 'touchstart', 'wheel', 'keydown'] as const) window.addEventListener(t, theirTouch, { passive: true, capture: true });
+    cleanups.push(() => {
+      window.removeEventListener('scroll', onPageScroll);
+      for (const t of ['pointerdown', 'touchstart', 'wheel', 'keydown'] as const) window.removeEventListener(t, theirTouch, { capture: true });
+    });
     /** ▶ The whole stage, scene after scene — the parent hears `playDone` when it ends. */
     const stage = (() => {
       let timer: number | null = null;
@@ -711,10 +744,33 @@ export function EditorBridge() {
            each scene in turn, brought into view and replaying its own arrival; a
            tap anywhere on the page, or `playStop`, ends it. */
         stage.stop(false);
+        seqStop?.();
+        seqStop = null;
+        pageTop.release();
         if (data.t === 'playStage') stage.start();
         return;
       }
+      if (data && data.source === 'setnayan-editor' && data.t === 'hubTab') {
+        /* 🧭 THE STAGES CANVAS'S TABS — each its own page, switched in place exactly as the guest's hub shell does
+           (`hub-shell.tsx` `showTab`): every group but the tab's is `hidden`, and the page starts at its top —
+           and STAYS there (`holdTop`): the Maker's page pick also asks for its first scene, which used to scroll
+           the fresh page down (owner 2026-10-07: *"a bookmark on a single page that just jumps. this was not the
+           plan"*). The Maker is told the tab that is on screen. */
+        const tab = (data as { tab?: unknown }).tab;
+        if (typeof tab !== 'string' || !tab) return;
+        /* 🔥 A stage warmed BEHIND the canvas is not on screen: a tab picked on the page in front is not for it
+           (both stages have a Welcome) — it keeps its first page until it is shown. */
+        if (window.frameElement?.getAttribute('data-maker-canvas-frame') === 'warm') return;
+        /* 🔝 From the top, the old page's resting place forgotten (`openHubTab`) — so the `settle` that follows a
+           tab tap (it closes the part being edited) cannot send the page back down. */
+        if (!openHubTab(document, window, lift, tab)) return;
+        pageTop.hold();
+        window.parent?.postMessage({ source: 'setnayan-site', t: 'hubTab', tab }, origin);
+        return;
+      }
       if (!data || data.source !== 'setnayan-editor' || typeof data.key !== 'string') return;
+      /* 🔝 A part picked or played may be brought into view — the page is the couple's again. */
+      if (HUB_TAB_FREES.includes(data.t ?? '')) pageTop.release();
       if (data.t === 'typeText') {
         /* ✍ A Wording ▾ / Format ▾ pick, the other pane's keystroke, or a
            refused save's words put back — on the part now. */
@@ -737,6 +793,18 @@ export function EditorBridge() {
            reloads. Putting a scene back is never drawn here: a scene the page
            did not draw has nothing to show, so that write reloads. */
         el.style.display = (data as { shown?: unknown }).shown === false ? 'none' : '';
+        return;
+      }
+      if (data.t === 'playSeq') {
+        /* ▶ THE PICKED PART'S WHOLE LIFE — Build in · Action · Build out · rest (`play-sequence.ts`); each
+           phase, and what it has none of, told to the Maker so it can say so. */
+        seqStop?.();
+        const part = typeof data.el === 'string' ? el.querySelector<HTMLElement>(`[data-el="${CSS.escape(data.el)}"]`) : null;
+        const target = part ?? (sceneFrameOf(el as never) as unknown as HTMLElement | null) ?? el;
+        seqStop = playSequence(target, !part, (r) => {
+          if (r.phase === 'rest') seqStop = null;
+          window.parent?.postMessage({ source: 'setnayan-site', t: 'playSeq', phase: r.phase, skipped: r.skipped }, origin);
+        });
         return;
       }
       if (data.t === 'playEl') {
@@ -803,6 +871,14 @@ export function EditorBridge() {
         return;
       }
       if (data.t === 'scrollTo') {
+        /* 🧭 A page just opened stays at its top (see `hubTab`). */
+        if (pageTop.held()) return;
+        /* 🧭 …and a scene on ANOTHER page is reached by opening its page first — never a scroll to a hidden part. */
+        const here = shownHubTab(document);
+        const away = here === null ? null : (el.closest('[data-hub-tab]')?.getAttribute('data-hub-tab') ?? null);
+        if (away && away !== here && showHubTab(document, away)) {
+          window.parent?.postMessage({ source: 'setnayan-site', t: 'hubTab', tab: away }, origin);
+        }
         /* To the scene's TOP, always (owner 2026-09-27: "a scene is as tall as
            its content — never a forced full screen"). A short scene lands with
            the next one below it on the same screen; nothing is resized. */
@@ -823,7 +899,7 @@ export function EditorBridge() {
 
     // Tell the parent the frame is ready, with the order it actually drew.
     window.parent?.postMessage(
-      { source: 'setnayan-site', t: 'ready', order: drawnMakerOrder(document), bar: readMakerBar(document) },
+      { source: 'setnayan-site', t: 'ready', order: drawnMakerOrder(document), bar: readMakerBar(document), tab: shownHubTab(document) },
       origin,
     );
 

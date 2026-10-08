@@ -29,6 +29,7 @@
  */
 import { oklchDistance, oklchOfHex, type Oklch } from './color-space';
 import { applyTouch } from './mood-board-board-ops';
+import { candidatesFor, harmonySuggestions, shadeSuggestions } from './palette-recommender';
 import { PALETTE_LIMITS, type PaletteKey, type RolePalette } from './mood-board';
 
 const HEX = /^#[0-9A-F]{6}$/i;
@@ -195,6 +196,42 @@ export const PICKER_SWATCHES = [
 export function cleanHexInput(raw: string): string | null {
   const v = raw.trim().replace(/^#?/, '#').toUpperCase();
   return HEX.test(v) ? v : null;
+}
+
+/**
+ * 🎨 THE PICKER'S SUGGESTIONS, IN THE OWNER'S ORDER (2026-10-08, verbatim *"the color suggestions
+ * should rely on the moodboard as well. so the mood board colors, then the complementing colors for
+ * them"*): the Mood Board's five first, then the colours that go with them — the Mood Board's OWN
+ * harmony (`candidatesFor`, lib/palette-recommender.ts: complement · split · analogous · triadic ·
+ * lighter · deeper · muted · richer off every one of the five, kept only where it reads apart from
+ * ALL five) — never a second harmony. Each list deduplicated, upper-case `#RRGGBB`; the photos,
+ * swatches and Custom follow in the sheet. Display only: nothing is written until one is tapped.
+ */
+export function pickerSuggestions(palette: readonly string[], max = 8): { palette: string[]; goesWith: string[] } {
+  const five = [...new Set(palette.map((c) => cleanHexInput(c)).filter((c): c is string => c !== null))].slice(0, 5);
+  if (five.length === 0) return { palette: [], goesWith: [] };
+  /* Each of the five's own candidates (its harmony first), kept only where it reads apart from all
+     five — `candidatesFor` with that colour leading — then taken in turn, one from each colour, so the
+     row answers the whole palette and not only its first colour. */
+  const per = five.map((c, i) => {
+    const own = new Set([...harmonySuggestions(c), ...shadeSuggestions(c)].map((x) => x.hex.toUpperCase()));
+    const lead = [c, ...five.slice(0, i), ...five.slice(i + 1)];
+    return candidatesFor(lead)
+      .map((x) => cleanHexInput(x.hex))
+      .filter((h): h is string => h !== null && own.has(h));
+  });
+  const seen = new Set(five);
+  const goesWith: string[] = [];
+  for (let round = 0; goesWith.length < max && per.some((l) => l.length > round); round++) {
+    for (const list of per) {
+      const hex = list[round];
+      if (!hex || seen.has(hex)) continue;
+      seen.add(hex);
+      goesWith.push(hex);
+      if (goesWith.length >= max) break;
+    }
+  }
+  return { palette: five, goesWith };
 }
 
 /* ══ ATTIRE — Wear ▾ ═══════════════════════════════════════════════════════ */

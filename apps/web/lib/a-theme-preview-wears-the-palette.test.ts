@@ -409,6 +409,12 @@ const SWEEP_ALLOWED_LINES: Record<string, Record<string, string>> = {
     'const metal = oklchOfHex(theme.palette.accent);': 'tint of the theme it is handed',
     'const inks = [theme.palette.accentInk, theme.palette.lightInk, theme.palette.darkInk];': 'tint of the theme it is handed',
   },
+  // 🌗 A scene photo's Darker ↔ Lighter (2026-10-07): the veil and its words are the inks of the theme it is
+  //    handed — the same theme `sceneFrameLook` hands `sceneLegibilityVars` beside it.
+  'lib/scene-media-shade.ts': {
+    'const dark = theme.palette.darkInk;': 'shade veil of the theme it is handed',
+    'const light = theme.palette.lightInk;': 'shade words of the theme it is handed',
+  },
   'lib/ombre.ts': { "'--color-ink-on-plate': hexChannels(theme.palette.ink),": 'ombré legibility of the theme it is handed' },
   'lib/hub-buttons.ts': {
     "?? (house ? HOUSE_PAPER : theme.palette.canvas);": 'buttons measured on the theme it is handed, when no layer painted a paper',

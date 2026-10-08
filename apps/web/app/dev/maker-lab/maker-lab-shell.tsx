@@ -1,5 +1,7 @@
 'use client';
 
+import type { FixedSceneStyles } from '@/lib/fixed-scene-styles';
+import type { CameraLook } from '@/lib/camera-look';
 import { useMemo, type ComponentProps, type ReactNode } from 'react';
 import { MakerShell } from '@/app/dashboard/[eventId]/launch/_components/maker-shell';
 import type { StudioTileModel } from '@/lib/studio-tiles';
@@ -17,6 +19,7 @@ import { hubButtonPage } from '@/lib/hub-buttons';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
 import { celebrationColours, celebrationDraftIsPro } from '@/lib/rsvp-celebration';
 import { MakerRevealPicker } from '@/app/dashboard/[eventId]/launch/_components/maker-reveal';
+import { MakerLogoDoor } from '@/app/dashboard/[eventId]/launch/_components/details-lazy';
 import { REVEAL_LIBRARY } from '@/app/[slug]/_components/reveal/reveal-templates';
 import { DEFAULT_REVEAL_EFFECTS } from '@/lib/std-reveal-effects';
 
@@ -65,6 +68,29 @@ async function labDraft(_eventId: string, fd: FormData): Promise<HubDraftActionR
   } catch {
     /* not a scene patch */
   }
+  /* 🎨 A part's style (`fixedStyles`) rides `lab_styles`; 🎛 the camera's look rides `lab_camera` — the lab's
+     stand-ins for `style_preferences.scene_styles` and `.camera_look`. */
+  try {
+    const patch = JSON.parse(String(fd.get('patch') ?? '{}')) as { fixedStyles?: Record<string, unknown>; events?: { style_preferences?: { camera_look?: unknown } } };
+    if (patch.fixedStyles) {
+      const raw = document.cookie.split('; ').find((c) => c.startsWith('lab_styles='))?.slice('lab_styles='.length);
+      let held: Record<string, unknown> = {};
+      try {
+        held = raw ? (JSON.parse(decodeURIComponent(raw)) as Record<string, unknown>) : {};
+      } catch {
+        held = {};
+      }
+      for (const [k, v] of Object.entries(patch.fixedStyles)) {
+        if (v === null) delete held[k];
+        else held[k] = v;
+      }
+      document.cookie = `lab_styles=${encodeURIComponent(JSON.stringify(held))}; path=/; SameSite=Lax`;
+    }
+    const cam = patch.events?.style_preferences?.camera_look;
+    if (typeof cam === 'string') document.cookie = `lab_camera=${cam}; path=/; SameSite=Lax`;
+  } catch {
+    /* not a style patch */
+  }
   labChanges += 1;
   /* ⏱ `?slow=1`: a save takes as long as production's (~1.5 s), so a race can show. */
   if (new URLSearchParams(window.location.search).get('slow') === '1') await new Promise((r) => setTimeout(r, 1500));
@@ -94,7 +120,12 @@ export function MakerLabShell({
   renderStamp = 'lab',
   stagesStudio = false,
   studio = null,
+  fixedStyles = {},
+  cameraLook = 'classic',
 }: {
+  /** 🎨 The lab's drafted part styles (`lab_styles`) and 🎛 camera look (`lab_camera`). */
+  fixedStyles?: FixedSceneStyles;
+  cameraLook?: CameraLook;
   /** 🧭 `?studio=1` — the new Maker ("Stages | Studio"), with its tiles. */
   stagesStudio?: boolean;
   studio?: { tiles: readonly StudioTileModel[] } | null;
@@ -229,7 +260,18 @@ export function MakerLabShell({
               part="settings"
             />
           ),
-          logo: stand('The logo studio'),
+          /* ⭐ The REAL logo editor on maria-and-jose's initials (no saved logo — `names`), so Studio › Logo can be
+             checked in place against the prototype (owner 2026-10-07: it must never leave the Maker) and the Logo
+             replot's side-by-side (2026-10-08). It saves only after a touch (`maker-logo-save-gate`), and the lab's
+             event id is not a real event — writes fail here. */
+          logo: (
+            <MakerLogoDoor
+              eventId={eventId}
+              opening={{ source: 'names', layers: [], svg: null, names: 'M&J', anim: null }}
+              motionMark={null}
+              mainColours={['#5B1A22', '#F7F2EC', '#C9A86A', '#FBFAF7', '#7A8B6F']}
+            />
+          ),
         }}
         elementEditing={{
           canvases,
@@ -250,6 +292,8 @@ export function MakerLabShell({
           heroCard: true,
           heroPhoto: false,
           ticketStyle: 'classic',
+          fixedStyles,
+          cameraLook,
         }}
       />
     </MakerShell>

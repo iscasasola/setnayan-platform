@@ -17,14 +17,20 @@
 # Cleanup slice B 2026-10-02: 3 unmounted-component rows deleted with their files; 2 rows ADDED because the
 # removed Maya route / supplies pricing lib were the ONLY callers of manual_payment_logs and
 # resolve_supplies_pricing(); the tables/RPC are kept (code-only cleanup) so they now read as no-writer / no-caller. 44 -> 43.
+# E-Gifts wish list 2026-10-08 (wish list 1/5, migration 20271266228704): 2 rows ADDED, and each has a NAMED
+# payer — the owner-approved plan lands the two tables first and their writers in the PRs behind them:
+#   event_wish_items   — paid down by wish list 2/5 (Studio › Wish list: saveWishItem and friends) → delete its row there;
+#   event_gift_records — paid down by wish list 4/5 (the guest's "I sent it" → recordGift)         → delete its row there.
+# A staged build, not an orphan nobody owns. If either PR is dropped, drop its table too. 43 -> 45.
 
-# ══ MONEY — a payment, fee, price or ledger with a missing end (11) ══
+# ══ MONEY — a payment, fee, price or ledger with a missing end (12) ══
 rpc-no-caller	_apply_token_purchase_credit	1	no '_apply_token_purchase_credit' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 rpc-no-caller	confirm_vendor_subscription_by_reference	1	no 'confirm_vendor_subscription_by_reference' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 rpc-no-caller	consume_lead_token_hold	1	no 'consume_lead_token_hold' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 rpc-no-caller	grant_admin_direct_tokens	1	no 'grant_admin_direct_tokens' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 rpc-no-caller	resolve_supplies_pricing	1	no 'resolve_supplies_pricing' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 table-no-writer	concierge_plan_templates	1	no .from('concierge_plan_templates').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
+table-no-writer	event_gift_records	1	no .from('event_gift_records').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
 table-no-writer	manual_payment_logs	1	no .from('manual_payment_logs').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
 table-no-writer	vendor_ad_subscriptions	1	no .from('vendor_ad_subscriptions').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
 notice-no-emitter	vendor_token_purchase_pending	1	a notification_type enum label with no member in the TS union — nothing in the app can emit it
@@ -36,10 +42,11 @@ rpc-no-caller	finalize_guest_claim	1	no 'finalize_guest_claim' literal in any ap
 rpc-no-caller	guest_visible_messages	1	no 'guest_visible_messages' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 rpc-no-caller	set_service_slot_day_capacity	1	no 'set_service_slot_day_capacity' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 table-no-writer	feature_reviews	1	no .from('feature_reviews').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
-# ══ COUPLE-FACING — guests, invitations, the celebration itself (13) ══
+# ══ COUPLE-FACING — guests, invitations, the celebration itself (14) ══
 rpc-no-caller	open_submit_song_request	1	no 'open_submit_song_request' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 table-no-writer	event_feature_policy_override	1	no .from('event_feature_policy_override').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
 table-no-writer	event_scene_objects	1	no .from('event_scene_objects').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
+table-no-writer	event_wish_items	1	no .from('event_wish_items').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
 table-no-writer	papic_seat_day_usage	1	no .from('papic_seat_day_usage').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
 table-no-writer	vendor_guest_deliveries	1	no .from('vendor_guest_deliveries').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
 table-no-writer	vendor_papic_capture_grants	1	no .from('vendor_papic_capture_grants').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay

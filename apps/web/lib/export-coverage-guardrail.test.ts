@@ -182,6 +182,14 @@ function exportedTables(routeSrc: string): Set<string> {
  * exporting the row is itself unsafe. These are answers, not debt.
  */
 const DELIBERATE_EXCLUSIONS: Record<string, string> = {
+  // ── added 2026-10-08 with the table itself (the E-Gifts wish list) ──
+  event_wish_items:
+    'What an EVENT’s hosts would love as a gift — a name, an optional ' +
+    'price, a photo, a link. Its only subject-identifying column is ' +
+    '`created_by_user_id` — which host pressed "Add an item" — and the row is ' +
+    'about the event’s shared list, not about that person: every host sees ' +
+    'it in full in Studio › E-Gifts and guests see it on the gift page. ' +
+    'Erasure nulls the stamp (AUTHOR_UUID_NULLS).',
   // ── added 2026-10-02 with the tables themselves (the clashing-date flow) ──
   event_date_change_requests:
     'An EVENT\u2019s ask to its booked suppliers to move the date. Its only ' +

@@ -1,36 +1,49 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { MoreHorizontal, Plus } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
-import { formatClock, formatDateHeading, spanOf, toDatetimeLocal, wallDateKey, wallMinutes } from '@/lib/schedule-rail';
+import { TICKER_PILL_CLASS, TickerPill, TimeTicker } from '@/app/_components/ticker';
+import { TimelineDash, TimelineRow } from '@/app/_components/timeline-row';
+import { daysBetween, formatDateHeading, spanOf, toDatetimeLocal, wallDateKey } from '@/lib/schedule-rail';
 import { fromDatetimeLocalValue } from '@/lib/schedule-datetime-local';
 import { SCHEDULE_AUDIENCE_OPTIONS, readScheduleAudience, scheduleAudienceForWrite, type ScheduleAudience } from '@/lib/schedule-audience';
 import { STUDIO_FOOT_BUTTON } from '@/lib/studio-skin';
+import { byStart, clockWords, moveStart, nextMomentSpan, overlapLine, overlapsAbove, pickEnd, spanLine, type TimeSpan } from '@/lib/timeline';
+import { PickSheetContext } from '../../website/editor/_components/pick-menu-place';
 import type { DayMoment } from './day-types';
 import { PickMenu, toFormData, useDayActions } from './day-ui';
 
 /**
- * 🗓 STUDIO › SCHEDULE — THE DAY AS A TIMELINE (owner 2026-10-07, verbatim *"1. okay"*
- * on the Studio redraw answers, DECISION_LOG "STUDIO REDRAW ANSWERS"; prototype
- * `maker_two_dropdowns_owner_wireframe_2026-10-06_fable.html` `EDITORS.schedule`).
+ * 🗓 STUDIO › SCHEDULE — THE DAY AS TIMELINE ROWS (owner 2026-10-08, `INTERACTION_RULES.md` § 9 "Timeline row +
+ * the time ticker"; approved gallery `prototypes/control_templates_2026-10-08.html` § 13). Owner, verbatim:
+ * *"i though of a good way to create the schedule maker. tap the time start and time end and name of that
+ * schedule"* · *"the popup exceeded the screen when it went up on schedule row. center the time. how about a
+ * ticker instead so it does not eat too much space"*.
  *
  *   the day (its date, ⓘ: set in Suppliers) · one row per moment —
- *   time pill · moment · place · For ▾ · ⋯ — · + Add a moment
+ *   START pill – END pill · name · ⋯ — · + Add a moment
  *
- * Drawn by `ScheduleDay` in place of the rail, only in the new Maker's Studio
- * (`makerStagesStudioEnabled`). 🔑 NO NEW WRITE: every field posts through the
- * rail's own `updateScheduleBlock` (the SAME quiet actions, `quietDayActions`) and
- * the rail's own override / refusal handling (`onPatch`); For ▾ is 4c's stored
- * `audience`. ⋯ opens the shipped `MomentInspector` (length, notes, show to
- * guests, suppliers, remove) — nothing the rail could do is lost.
+ * The row is the app's ONE `TimelineRow` and the times roll on its ONE ticker (`app/_components/`); this file only
+ * says what a roll MEANS here:
+ *   · moving the START moves the END with it (the length is kept);
+ *   · the END's line says the length ("5:00 PM – 6:00 PM · 1 h"); an end at or before the start is THE NEXT DAY,
+ *     and says so;
+ *   · rows sort by start; an overlap is ONE amber line under the later row, never blocked;
+ *   · "+ Add a moment" starts where the last one ended, one hour long, with its name ready to type — and a new row
+ *     left unnamed is dropped, never saved.
  *
- * 🧱 BANDS, NOT BOXES (owner 2026-10-07: *"bands? full width"*): the day and every
- * moment sit on full-width white bands with hairlines — the prototype's rows,
- * heights and words, never its rounded cards.
+ * 🔑 NO NEW WRITE, AND ONE REQUEST A PICK. A time is rolled on screen and written ONCE, when its ticker closes,
+ * through the rail's own `updateScheduleBlock` (the SAME quiet actions, `quietDayActions`) and the rail's own
+ * override / refusal handling (`onPatch`) — no render of the Maker, no `router.refresh()`. An END TIME IS STORED
+ * (`event_schedule_blocks.end_at`), so the end pill reads and writes that column; nothing new is kept. ⋯ opens the
+ * shipped `MomentInspector` (phase, visible to guests, suppliers, parts, notes, shift, remove) — nothing the rail
+ * could do is lost.
+ *
+ * 🧱 BANDS, NOT BOXES (owner 2026-10-07: *"bands? full width"*): the day and every moment sit on full-width bands
+ * with hairlines, never rounded cards.
  */
 
-/** A moment's row on the timeline — its time, words and audience. */
 export type StudioDayProps = {
   eventId: string;
   dateKey: string | null;
@@ -39,7 +52,12 @@ export type StudioDayProps = {
   canEdit: boolean;
   /** Draw a guess now, write it, and on a refusal put it back and say so (the rail's `write`). */
   onPatch: (id: string, patch: Partial<DayMoment>, send: () => Promise<unknown>) => void;
+  /** The shipped add sheet — where the day has no date yet, or a coordinator may stage a moment. */
   onAdd: () => void;
+  /** Add this named moment in place (ONE write, no render). Null: only the shipped sheet can add here. */
+  onCreate?: ((moment: { label: string; startMin: number; endMin: number }) => void) | null;
+  /** Moments whose add has not landed yet — shown, not yet editable. */
+  pendingIds?: ReadonlySet<string>;
   onMore: (id: string) => void;
   /** A refusal, said under the day. */
   notice: string | null;
@@ -51,157 +69,286 @@ export function studioForWords(audience: ScheduleAudience): string {
   return audience === 'everyone' ? `For · ${label}` : `Only for · ${label}`;
 }
 
-/** "HH:MM" for a time input, from minutes after midnight. */
-const hhmm = (min: number) => `${String(Math.floor(min / 60) % 24).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
+/** The new row, before it has a name — it lives only on this screen. */
+const NEW_ROW = '__new';
+
+/** What a ticker has rolled to and not written yet. `end`: an end time has been chosen (a moment may have none). */
+export type Rolled = { span: TimeSpan; end: boolean };
+
+/**
+ * THE ONE WRITE A CLOSED TICKER OWES — or null when nothing moved (then nothing is sent). Pure, so the rule is
+ * tested: a moved start takes the end with it (the length is kept); an end past midnight lands on the next date;
+ * a moment with NO end time keeps none unless an end was chosen.
+ */
+export function rolledTimesWrite(input: {
+  dateKey: string;
+  stored: { startMin: number; endMin: number; hasEnd: boolean };
+  rolled: Rolled | null;
+}): { values: { start_at?: string; end_at?: string }; patch: Pick<Partial<DayMoment>, 'start_at' | 'end_at'> } | null {
+  const { dateKey, stored, rolled: r } = input;
+  if (!r) return null;
+  const startMoved = r.span.startMin !== stored.startMin;
+  const endMoved = r.end && (!stored.hasEnd || r.span.endMin !== stored.endMin);
+  if (!startMoved && !endMoved) return null;
+  const values: { start_at?: string; end_at?: string } = {};
+  const patch: Pick<Partial<DayMoment>, 'start_at' | 'end_at'> = {};
+  if (startMoved) {
+    values.start_at = toDatetimeLocal(dateKey, r.span.startMin);
+    patch.start_at = fromDatetimeLocalValue(values.start_at) ?? undefined;
+  }
+  /* The end goes with a moved start — unless the moment has no end time at all. */
+  if (stored.hasEnd || r.end) {
+    values.end_at = toDatetimeLocal(dateKey, r.span.endMin);
+    patch.end_at = fromDatetimeLocalValue(values.end_at);
+  }
+  return { values, patch };
+}
+
+/** Where "+ Add a moment" starts: where the last one ended ON THE DAY BEING ADDED TO, one hour long. */
+export function freshMomentSpan(moments: readonly DayMoment[], dateKey: string | null): TimeSpan {
+  return nextMomentSpan(moments.filter((m) => wallDateKey(m.start_at) === dateKey).map((m) => spanOf(m.start_at, m.end_at)));
+}
+
+/** What the new row becomes when its name is kept: a moment to add — or NOTHING when it was left unnamed. */
+export function freshMomentToAdd(span: TimeSpan | null, text: string | null): { label: string; startMin: number; endMin: number } | null {
+  const label = (text ?? '').trim();
+  return span && label ? { label, startMin: span.startMin, endMin: span.endMin } : null;
+}
 
 function MomentRow({
   m,
   eventId,
   canEdit,
+  editing,
+  onEdit,
+  onEndEdit,
   onPatch,
   onMore,
+  clash,
 }: {
   m: DayMoment;
   eventId: string;
   canEdit: boolean;
+  /** Is this row's name open? One row at a time — the day's state. */
+  editing: boolean;
+  onEdit: () => void;
+  onEndEdit: () => void;
   onPatch: StudioDayProps['onPatch'];
   onMore: (id: string) => void;
+  /** "Starts before Ceremony ends (4:00 PM)." — or null. */
+  clash: string | null;
 }) {
   const { updateScheduleBlock } = useDayActions();
+  /* ▁ On a phone the ticker rises in the Maker's one sheet (handed down by the shell). */
+  const sheet = useContext(PickSheetContext);
   const audience = readScheduleAudience(m.audience ?? null);
   const forRole = audience !== 'everyone';
   const dateKey = wallDateKey(m.start_at);
-  const span = spanOf(m.start_at, m.end_at);
-  const [label, setLabel] = useState(m.label);
+  const stored = spanOf(m.start_at, m.end_at);
+  const [rolled, setRolled] = useState<Rolled | null>(null);
+  const shown: TimeSpan = rolled?.span ?? { startMin: stored.startMin, endMin: stored.endMin };
+  const hasEnd = stored.hasEnd || rolled?.end === true;
   const [place, setPlace] = useState(m.location ?? '');
-  /* A refusal (or a fresh answer) puts the words back — the boxes follow the moment. */
-  useEffect(() => setLabel(m.label), [m.label]);
+  /* A refusal (or a fresh answer) puts the words back — the box follows the moment. */
   useEffect(() => setPlace(m.location ?? ''), [m.location]);
 
+  /** ONE write for whatever the ticker rolled to — sent when it closes, and only if something moved. */
+  const writeRolled = () => {
+    const owed = rolledTimesWrite({ dateKey, stored, rolled });
+    setRolled(null);
+    if (!owed) return;
+    onPatch(m.block_id, owed.patch, () => updateScheduleBlock(toFormData({ event_id: eventId, block_id: m.block_id, ...owed.values })));
+  };
   const saveWords = (field: 'label' | 'location', value: string) => {
     const text = value.trim();
     const was = field === 'label' ? m.label : (m.location ?? '');
     if (text === was.trim()) return;
-    if (field === 'label' && !text) {
-      setLabel(m.label);
-      return;
-    }
+    /* A moment is never left without a name: an emptied name stays as it was. */
+    if (field === 'label' && !text) return;
     onPatch(m.block_id, { [field]: field === 'label' ? text : text || null }, () =>
       updateScheduleBlock(toFormData({ event_id: eventId, block_id: m.block_id, [field]: text })),
     );
   };
-  const saveTime = (value: string) => {
-    const [h, mm] = value.split(':').map(Number);
-    if (!Number.isFinite(h) || !Number.isFinite(mm)) return;
-    const start = h! * 60 + mm!;
-    if (start === span.startMin) return;
-    /* The moment keeps its length: its end moves with its start. */
-    const end = span.hasEnd ? start + (span.endMin - span.startMin) : null;
-    const values: Record<string, string> = { event_id: eventId, block_id: m.block_id, start_at: toDatetimeLocal(dateKey, start) };
-    const patch: Partial<DayMoment> = { start_at: fromDatetimeLocalValue(toDatetimeLocal(dateKey, start)) ?? m.start_at };
-    if (end !== null) {
-      values.end_at = toDatetimeLocal(dateKey, end);
-      patch.end_at = fromDatetimeLocalValue(values.end_at);
-    }
-    onPatch(m.block_id, patch, () => updateScheduleBlock(toFormData(values)));
-  };
-  const field = 'w-full min-w-0 bg-transparent outline-none placeholder:text-ink/40 disabled:opacity-100';
+  const line = hasEnd ? spanLine(shown) : `${clockWords(shown.startMin)} · no end time yet`;
+  const named = m.label ? ` · ${m.label}` : '';
   return (
-    <li
-      data-studio-moment={m.block_id}
-      data-studio-moment-for={audience}
-      className="relative flex items-start gap-2.5 border-t border-ink/10 bg-cream py-2.5 pl-4 pr-1"
-    >
-      {/* The timeline's line, running behind the pills from row to row. */}
-      <span aria-hidden className="absolute bottom-0 left-[54px] top-0 w-0.5 bg-ink/10" />
-      <label
-        data-studio-moment-time=""
-        className={`relative z-[1] flex h-9 w-[78px] shrink-0 items-center justify-center rounded-full text-[12.5px] font-bold text-white ${
-          forRole ? 'bg-gild' : 'bg-ink'
-        }`}
-      >
-        <span aria-hidden>{formatClock(span.startMin)}</span>
-        {/* The native time picker (a phone's wheel), laid over the pill — the pill is its face. */}
-        <input
-          type="time"
-          step={300}
-          value={hhmm(span.startMin)}
-          disabled={!canEdit}
-          aria-label={`${m.label} — time`}
-          onChange={(e) => saveTime(e.target.value)}
-          className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-default"
-        />
-      </label>
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <input
-          value={label}
-          disabled={!canEdit}
-          maxLength={120}
-          aria-label="The moment"
-          onChange={(e) => setLabel(e.target.value)}
-          onBlur={(e) => saveWords('label', e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-          className={`${field} min-h-7 text-[15px] font-semibold text-ink`}
-        />
-        <input
-          value={place}
-          disabled={!canEdit}
-          maxLength={200}
-          placeholder="Place (optional)"
-          aria-label={`${m.label} — place`}
-          onChange={(e) => setPlace(e.target.value)}
-          onBlur={(e) => saveWords('location', e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-          className={`${field} min-h-6 text-[13px] text-ink/70`}
-        />
-        <div className="pt-1">
-          {canEdit ? (
-            <PickMenu
-              label="For"
-              value={audience}
-              buttonText={studioForWords(audience)}
-              options={SCHEDULE_AUDIENCE_OPTIONS.map((o) => ({ key: o.key, label: o.label }))}
-              dataAttr="data-studio-moment-for-pick"
-              compact
-              className={`!min-h-7 !h-7 !rounded-full !px-3 !text-[12px] ring-0 [&>svg]:text-gild ${
-                forRole ? '!bg-gild/15' : '!bg-ink/5'
-              }`}
-              onPick={(key) => {
-                const stored = scheduleAudienceForWrite(key);
-                if (stored === undefined || key === audience) return;
-                onPatch(m.block_id, { audience: stored }, () =>
-                  updateScheduleBlock(toFormData({ event_id: eventId, block_id: m.block_id, audience: key })),
-                );
-              }}
+    <TimelineRow
+      data="moment"
+      attrs={{ 'data-studio-moment': m.block_id, 'data-studio-moment-for': audience }}
+      name={m.label}
+      placeholder="Name this moment"
+      nameLabel="Name of this moment"
+      maxLength={120}
+      canEdit={canEdit}
+      editing={editing}
+      onEdit={onEdit}
+      onKeep={(text) => {
+        onEndEdit();
+        saveWords('label', text);
+      }}
+      onLeave={onEndEdit}
+      note={clash}
+      when={
+        <>
+          <TickerPill
+            data="start"
+            text={clockWords(shown.startMin)}
+            ariaLabel={`Starts ${clockWords(shown.startMin)}`}
+            title={`Starts${named}`}
+            disabled={!canEdit}
+            sheet={sheet}
+            onClosed={writeRolled}
+            className="min-w-[80px]"
+          >
+            {(close) => (
+              <TimeTicker
+                minutes={shown.startMin}
+                line={line}
+                onDone={close}
+                /* The start moved: the end moves with it. */
+                onChange={(min) => setRolled({ span: moveStart(shown, min), end: rolled?.end === true })}
+              />
+            )}
+          </TickerPill>
+          <TimelineDash />
+          <TickerPill
+            data="end"
+            text={hasEnd ? clockWords(shown.endMin) : 'End'}
+            ariaLabel={hasEnd ? `Ends ${clockWords(shown.endMin)}` : 'Set when it ends'}
+            title={`Ends${named}`}
+            disabled={!canEdit}
+            sheet={sheet}
+            onClosed={writeRolled}
+            className={`min-w-[80px] ${hasEnd ? '' : '!text-ink/55'}`}
+          >
+            {(close) => (
+              <TimeTicker
+                minutes={shown.endMin % (24 * 60)}
+                line={spanLine(shown)}
+                /* Done on a moment with no end yet KEEPS the end the ticker shows. */
+                onDone={() => {
+                  setRolled({ span: shown, end: true });
+                  close();
+                }}
+                /* An end at or before the start is the next day. */
+                onChange={(min) => setRolled({ span: pickEnd(shown, min), end: true })}
+              />
+            )}
+          </TickerPill>
+        </>
+      }
+      trailing={
+        canEdit ? (
+          // BUTTON-RULE
+          <button
+            type="button"
+            data-studio-moment-more={m.block_id}
+            aria-label={`More for ${m.label} — place, who it is for, notes, guests, remove`}
+            onClick={() => onMore(m.block_id)}
+            className="sn-press flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink/45 hover:bg-ink/5"
+          >
+            <MoreHorizontal aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+          </button>
+        ) : null
+      }
+      below={
+        editing ? null : (
+          <div data-studio-moment-extra="" className="-mt-1 flex items-center gap-2 pb-2 pl-5 pr-4">
+            <input
+              value={place}
+              disabled={!canEdit}
+              maxLength={200}
+              placeholder="Place (optional)"
+              aria-label={`${m.label} — place`}
+              onChange={(e) => setPlace(e.target.value)}
+              onBlur={(e) => saveWords('location', e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+              className="min-h-7 w-full min-w-0 flex-1 bg-transparent text-[13px] text-ink/70 outline-none placeholder:text-ink/40 disabled:opacity-100"
             />
-          ) : (
-            <span className="text-[12px] text-ink/60">{studioForWords(audience)}</span>
-          )}
-        </div>
-      </div>
-      {canEdit ? (
-        // BUTTON-RULE
-        <button
-          type="button"
-          data-studio-moment-more={m.block_id}
-          aria-label={`More for ${m.label} — length, notes, guests, remove`}
-          onClick={() => onMore(m.block_id)}
-          className="sn-press flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink/45 hover:bg-ink/5"
-        >
-          <MoreHorizontal aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-        </button>
-      ) : null}
-    </li>
+            {canEdit ? (
+              <PickMenu
+                label="For"
+                value={audience}
+                buttonText={studioForWords(audience)}
+                options={SCHEDULE_AUDIENCE_OPTIONS.map((o) => ({ key: o.key, label: o.label }))}
+                dataAttr="data-studio-moment-for-pick"
+                compact
+                className={`!min-h-7 !h-7 shrink-0 !rounded-full !px-3 !text-[12px] ring-0 [&>svg]:text-gild ${forRole ? '!bg-gild/15' : '!bg-ink/5'}`}
+                onPick={(key) => {
+                  const next = scheduleAudienceForWrite(key);
+                  if (next === undefined || key === audience) return;
+                  onPatch(m.block_id, { audience: next }, () =>
+                    updateScheduleBlock(toFormData({ event_id: eventId, block_id: m.block_id, audience: key })),
+                  );
+                }}
+              />
+            ) : (
+              <span className="shrink-0 text-[12px] text-ink/60">{studioForWords(audience)}</span>
+            )}
+          </div>
+        )
+      }
+    />
   );
 }
 
-export function StudioDay({ eventId, dateKey, moments, canEdit, onPatch, onAdd, onMore, notice }: StudioDayProps) {
-  const list = useRef<HTMLOListElement>(null);
-  const ordered = [...moments].sort(
-    (a, b) => wallDateKey(a.start_at).localeCompare(wallDateKey(b.start_at)) || wallMinutes(a.start_at) - wallMinutes(b.start_at),
+/** The new moment before it is named: its times shown, its name open — on this screen only. */
+function NewMomentRow({ span, onKeep, onLeave }: { span: TimeSpan; onKeep: (text: string) => void; onLeave: () => void }) {
+  const pill = `${TICKER_PILL_CLASS} min-w-[80px]`;
+  return (
+    <TimelineRow
+      data="new"
+      attrs={{ 'data-studio-moment-new': '' }}
+      name=""
+      placeholder="Name this moment"
+      nameLabel="Name of this moment"
+      maxLength={120}
+      editing
+      onKeep={onKeep}
+      onLeave={onLeave}
+      when={
+        <>
+          <span className={pill}>{clockWords(span.startMin)}</span>
+          <TimelineDash />
+          <span className={pill}>{clockWords(span.endMin)}</span>
+        </>
+      }
+    />
   );
+}
+
+export function StudioDay({ eventId, dateKey, moments, canEdit, onPatch, onAdd, onCreate = null, pendingIds, onMore, notice }: StudioDayProps) {
+  /* ONE row's name is open at a time — a moment's id, the new row, or none. */
+  const [editing, setEditing] = useState<string | null>(null);
+  const [fresh, setFresh] = useState<TimeSpan | null>(null);
+  /* The day's order: by start (a rehearsal the night before is its own date, ahead of the day). Minutes are counted
+     from the FIRST date's midnight so "starts before the one above ends" is asked across the whole list. */
+  const firstKey = moments.map((m) => wallDateKey(m.start_at)).filter(Boolean).sort()[0] ?? '';
+  const absolute = (m: DayMoment): TimeSpan => {
+    const s = spanOf(m.start_at, m.end_at);
+    const off = (daysBetween(firstKey, wallDateKey(m.start_at)) ?? 0) * 24 * 60;
+    return { startMin: off + s.startMin, endMin: off + s.endMin };
+  };
+  const ordered = byStart(moments, (m) => absolute(m).startMin);
+  const clashes = overlapsAbove(ordered, absolute);
   /* "Saturday 12 December 2026" — the rail's own heading, with its year (the prototype's day line). */
   const heading = dateKey ? `${formatDateHeading(dateKey)} ${dateKey.slice(0, 4)}` : 'No date yet';
+
+  const add = () => {
+    /* No date yet, or a coordinator who may stage: the shipped sheet (it asks the date; it can stage). */
+    if (!onCreate) return onAdd();
+    setFresh(freshMomentSpan(moments, dateKey));
+    setEditing(NEW_ROW);
+  };
+  const endFresh = (text: string | null) => {
+    const span = fresh;
+    setFresh(null);
+    setEditing((cur) => (cur === NEW_ROW ? null : cur));
+    /* Left unnamed: dropped — nothing was ever sent. */
+    const toAdd = freshMomentToAdd(span, text);
+    if (toAdd && onCreate) onCreate(toAdd);
+  };
+
   return (
     <div data-studio-day="" className="-mx-4 flex min-h-full flex-col">
       <section data-studio-day-head="" className="border-b border-ink/10 bg-cream px-4 py-3">
@@ -214,11 +361,27 @@ export function StudioDay({ eventId, dateKey, moments, canEdit, onPatch, onAdd, 
           {notice}
         </p>
       ) : null}
-      {ordered.length ? (
-        <ol ref={list} aria-label="The day, in order" className="mt-3 flex flex-col border-b border-ink/10">
-          {ordered.map((m) => (
-            <MomentRow key={m.block_id} m={m} eventId={eventId} canEdit={canEdit} onPatch={onPatch} onMore={onMore} />
-          ))}
+      {ordered.length || fresh ? (
+        <ol aria-label="The day, in order" className="mt-3 flex flex-col border-b border-t border-ink/10">
+          {ordered.map((m, i) => {
+            const clash = clashes.get(i);
+            const landed = !pendingIds?.has(m.block_id);
+            return (
+              <MomentRow
+                key={m.block_id}
+                m={m}
+                eventId={eventId}
+                canEdit={canEdit && landed}
+                editing={editing === m.block_id}
+                onEdit={() => setEditing(m.block_id)}
+                onEndEdit={() => setEditing((cur) => (cur === m.block_id ? null : cur))}
+                onPatch={onPatch}
+                onMore={onMore}
+                clash={clash ? overlapLine(clash.above.label, spanOf(clash.above.start_at, clash.above.end_at).endMin) : null}
+              />
+            );
+          })}
+          {fresh ? <NewMomentRow span={fresh} onKeep={(text) => endFresh(text)} onLeave={() => endFresh(null)} /> : null}
         </ol>
       ) : (
         <p className="px-4 pt-6 text-center text-[14px] text-ink/60">No moments yet.</p>
@@ -228,7 +391,7 @@ export function StudioDay({ eventId, dateKey, moments, canEdit, onPatch, onAdd, 
       {canEdit ? (
         <div className={`z-30 max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:pb-[max(.5rem,env(safe-area-inset-bottom))] lg:sticky lg:bottom-0 lg:mt-4 sn-glass-row shrink-0 px-2.5 py-2`}>
           {/* BUTTON-RULE */}
-          <button type="button" data-studio-add-moment="" onClick={onAdd} className={STUDIO_FOOT_BUTTON}>
+          <button type="button" data-studio-add-moment="" onClick={add} className={STUDIO_FOOT_BUTTON}>
             <Plus aria-hidden className="h-[18px] w-[18px]" strokeWidth={2.2} />
             Add a moment
           </button>

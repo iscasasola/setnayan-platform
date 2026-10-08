@@ -41,7 +41,7 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from 'react';
 import { SCHEDULE_FOCUS_EVENT, takeQueuedScheduleFocus } from './schedule-focus';
-import { quietDayActions } from './schedule-live';
+import { SCHEDULE_CANVAS_STALE_EVENT, SCHEDULE_QUIET_FIELD, quietDayActions } from './schedule-live';
 import { InSlot, pickDetailsPiece } from '../../launch/_components/details-piece';
 import { CalendarClock, Check, Eye, EyeOff, MessageSquare, Mic, MoveVertical, Plus } from 'lucide-react';
 import { useIsDesktop } from '@/lib/use-responsive';
@@ -166,6 +166,10 @@ export function ScheduleDay({
      timeline (`studio-day.tsx`) in place of the rail — the same state, writes and sheets. */
   const studio = useMaker()?.stagesStudio === true && live;
   const [gone, setGone] = useState<ReadonlySet<string>>(() => new Set());
+  /* ➕ Studio's "Add a moment": a moment added in place is on the timeline at once — no render of the Maker brings
+     it (its write is quiet) — and cannot be edited until its add has landed (`pending`). */
+  const [added, setAdded] = useState<readonly DayMoment[]>([]);
+  const [pending, setPending] = useState<ReadonlySet<string>>(() => new Set());
   const dayActions = useMemo(
     () => (live ? quietDayActions(actions, (id) => setGone((g) => new Set(g).add(id))) : actions),
     [actions, live],
@@ -193,6 +197,7 @@ export function ScheduleDay({
     overridesRef.current = {};
     setOverrides({});
     setGone(new Set());
+    setAdded([]);
     confirmed.current = {};
   }, [moments]);
 
@@ -237,10 +242,10 @@ export function ScheduleDay({
 
   const merged = useMemo(
     () =>
-      moments
+      [...moments, ...added.filter((a) => !moments.some((m) => m.block_id === a.block_id))]
         .filter((m) => !gone.has(m.block_id) && !(m.parent_block_id && gone.has(m.parent_block_id)))
         .map((m) => ({ ...m, ...(overrides[m.block_id] ?? {}) })),
-    [moments, overrides, gone],
+    [moments, added, overrides, gone],
   );
   const topLevel = useMemo(() => merged.filter((m) => m.parent_block_id === null), [merged]);
   const partsOf = useMemo(() => {
@@ -441,6 +446,59 @@ export function ScheduleDay({
     setSheet({ kind: 'add', dateKey, startMin });
   }
 
+  /**
+   * ➕ STUDIO › SCHEDULE'S "ADD A MOMENT", IN PLACE: ONE write, no render. The row is on the timeline at the tap,
+   * under an id made HERE (the block's own uuid, which the action takes only from a quiet Maker write) — so the
+   * answer need carry nothing back and the next edit names the same row. A refused add takes the row off again and
+   * says so; it never stays looking saved.
+   */
+  function createInline(input: { label: string; startMin: number; endMin: number }) {
+    const dateKey = lastDateKey;
+    if (!canEdit || !dateKey) return;
+    const id = crypto.randomUUID();
+    const start = toDatetimeLocal(dateKey, input.startMin);
+    const end = toDatetimeLocal(dateKey, input.endMin);
+    setNotice(null);
+    setAdded((all) => [
+      ...all,
+      {
+        block_id: id,
+        label: input.label,
+        block_type: 'custom',
+        start_at: isoAt(dateKey, input.startMin),
+        end_at: isoAt(dateKey, input.endMin),
+        location: null,
+        notes: null,
+        is_public: true,
+        parent_block_id: null,
+        run_state: 'upcoming',
+        staged: false,
+        responsible_party: null,
+        responsible_vendor_ids: [],
+        audience: null,
+      },
+    ]);
+    setPending((p) => new Set(p).add(id));
+    startTransition(async () => {
+      try {
+        await dayActions.createScheduleBlock(
+          toFormData({ event_id: eventId, block_id: id, label: input.label, block_type: 'custom', start_at: start, end_at: end, is_public: 'on', [SCHEDULE_QUIET_FIELD]: '1' }),
+        );
+        /* The stage canvases draw the day's moments: they load again once, now that it is saved. */
+        window.dispatchEvent(new Event(SCHEDULE_CANVAS_STALE_EVENT));
+      } catch {
+        setAdded((all) => all.filter((m) => m.block_id !== id));
+        setNotice(`“${input.label}” was not added. Check your connection and try again.`);
+      } finally {
+        setPending((p) => {
+          const next = new Set(p);
+          next.delete(id);
+          return next;
+        });
+      }
+    });
+  }
+
   const lastEnd = topLevel.reduce((acc, m) => Math.max(acc, spanOf(m.start_at, m.end_at).endMin), 0);
   const lastDateKey = rails.length > 0 ? rails[rails.length - 1]!.dateKey : eventDateKey;
 
@@ -529,6 +587,9 @@ export function ScheduleDay({
             write([id], send);
           }}
           onAdd={() => openAdd(lastDateKey, topLevel.length ? Math.min(lastEnd, 23 * 60) : 14 * 60)}
+          /* In place where the day has a date and nothing is staged; else the shipped sheet (it asks the date, it stages). */
+          onCreate={lastDateKey && !canStage ? createInline : null}
+          pendingIds={pending}
           onMore={(id) => setSelectedId(id)}
         />
         {/* ⋯ — the shipped inspector (length, notes, show to guests, suppliers, remove): a desk keeps it in

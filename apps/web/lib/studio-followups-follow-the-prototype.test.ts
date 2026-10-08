@@ -5,9 +5,11 @@
  * *"yes"* on the Event name row; DECISION_LOG "STUDIO REDRAW ANSWERS" and "'EVENT NAME · MARIA &
  * JOSE' IS ONE ROW…"). Prototype `maker_two_dropdowns_owner_wireframe_2026-10-06_fable.html`.
  *
- *   1 · Studio › Schedule is the prototype's timeline — one band per moment: time pill · moment ·
- *       place · For ▾ (4c's stored audience) — and + Add a moment; drawn by `ScheduleDay` only in
- *       the new Maker's Studio, through the rail's own writes; it fills the screen.
+ *   1 · Studio › Schedule is the timeline — one band per moment: START pill – END pill · name
+ *       (the owner's Timeline row, 2026-10-08; `studio-schedule-wears-the-timeline-row.test.ts`
+ *       holds the row's rules), place · For ▾ (4c's stored audience) — and + Add a moment; drawn
+ *       by `ScheduleDay` only in the new Maker's Studio, through the rail's own writes; it fills
+ *       the screen.
  *   2 · Studio › Love Story is one band per moment (photo · year · title · first line · grip), opened
  *       in place — and an edit made there keeps EVERY field the moment holds (a year changed never
  *       drops its place, photos, title, anchor, hidden or order).
@@ -59,7 +61,7 @@ const moment = (id: string, label: string, hhmm: string, place: string | null, a
   audience,
 });
 
-test('1 · Studio › Schedule: one band per moment — time pill · moment · place · For ▾ — and + Add a moment', async () => {
+test('1 · Studio › Schedule: one band per moment — start – end · name, place · For ▾ — and + Add a moment', async () => {
   const { StudioDay, studioForWords } = await import(`../${SCHED}/studio-day`);
   const { DayActionsContext } = await import(`../${SCHED}/day-ui`);
   const writes: string[] = [];
@@ -85,7 +87,7 @@ test('1 · Studio › Schedule: one band per moment — time pill · moment · p
   assert.deepEqual(rows, ['a', 'b', 'c'], 'the moments are not laid out in the day’s order');
   assert.match(out, /Saturday 12 December 2026/, 'the day’s band does not name the day');
   assert.match(out, /2:00 PM[\s\S]*3:00 PM[\s\S]*5:30 PM/, 'a moment has no time pill');
-  assert.match(out, /value="Entourage photos"[\s\S]*value="Santuario de San Antonio"/, 'the moment and its place are not fields on the row');
+  assert.match(out, /data-timeline-name=""[^>]*>Entourage photos<[\s\S]*value="Santuario de San Antonio"/, 'the moment’s name and its place are not on the row');
   assert.match(out, /placeholder="Place \(optional\)"/);
   assert.equal(studioForWords('everyone'), 'For · Everyone');
   assert.equal(studioForWords('entourage'), 'Only for · Entourage');
@@ -93,7 +95,7 @@ test('1 · Studio › Schedule: one band per moment — time pill · moment · p
   assert.equal((out.match(/>For · Everyone</g) ?? []).length, 2);
   assert.match(out, /data-studio-add-moment=""[^>]*>[\s\S]*?Add a moment/, 'no + Add a moment');
   /* 🧱 Bands, not boxes: a row is a full-width band with a hairline, never a rounded card. */
-  const row = /<li data-studio-moment="a"[^>]*>/.exec(out)?.[0] ?? '';
+  const row = /<li[^>]*data-studio-moment="a"[^>]*>/.exec(out)?.[0] ?? '';
   assert.match(row, /class="[^"]*border-t border-ink\/10 bg-cream/, 'a moment is not on a band with a hairline');
   assert.doesNotMatch(row, /class="[^"]*rounded/, 'a moment is drawn as a rounded box (owner: “bands? full width”)');
   assert.deepEqual(writes, [], 'drawing the day wrote something');

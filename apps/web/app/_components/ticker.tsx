@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as KE, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as KE, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useOneOpen } from '@/lib/one-open';
 import { useModalA11y } from '@/lib/use-modal-a11y';
@@ -57,6 +57,12 @@ export type TickerSheet = (p: { label: string; onClose: () => void; children: Re
 
 type Choice<V> = { v: V; t: string };
 
+/**
+ * A roll that has not come to rest yet is not lost when the pop closes: every column of an open pop can be asked
+ * to settle NOW (`TickerPill` asks, just before it closes — by Done, the dark part, a tap outside or Esc).
+ */
+const SettleNow = createContext<Set<() => void> | null>(null);
+
 const still = () => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
 
 /* ── ONE ROLLING COLUMN ─────────────────────────────────────────────────── */
@@ -85,20 +91,30 @@ function TickerColumn<V extends string | number | boolean>({
     const c = el.current;
     if (c && settledIndex(c.scrollTop, choices.length) !== index) c.scrollTop = index * TICKER_ROW_PX;
   }, [index, choices.length]);
-  useEffect(
-    () => () => {
-      if (timer.current) clearTimeout(timer.current);
-    },
-    [],
-  );
-
   const settle = () => {
+    timer.current = null;
     const c = el.current;
     if (!c) return;
     const { choices: list, value: was, onSettle: tell } = now.current;
     const next = list[settledIndex(c.scrollTop, list.length)];
     if (next && next.v !== was) tell(next.v);
   };
+  const settleRef = useRef(settle);
+  settleRef.current = settle;
+  const pop = useContext(SettleNow);
+  useEffect(() => {
+    /* Still rolling when the pop closes: settle where it is, now. */
+    const now_ = () => {
+      if (timer.current === null) return;
+      clearTimeout(timer.current);
+      settleRef.current();
+    };
+    pop?.add(now_);
+    return () => {
+      pop?.delete(now_);
+      if (timer.current) clearTimeout(timer.current);
+    };
+  }, [pop]);
   const rollTo = (i: number) => {
     const c = el.current;
     if (!c) return;
@@ -411,8 +427,12 @@ export function TickerPill({
     },
     [],
   );
-  const close = () => setOpen(false);
-  const body = open ? children(close) : null;
+  const rolling = useRef(new Set<() => void>()).current;
+  const close = () => {
+    for (const settleNow of rolling) settleNow();
+    setOpen(false);
+  };
+  const body = open ? <SettleNow.Provider value={rolling}>{children(close)}</SettleNow.Provider> : null;
   return (
     <>
       <button

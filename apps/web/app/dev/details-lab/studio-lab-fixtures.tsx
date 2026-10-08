@@ -96,7 +96,8 @@ export function LabStudioSchedule() {
         setMoments((all) => [
           ...all,
           {
-            block_id: `m-new-${all.length}`,
+            /* The Studio's in-place add names its own row (`createInline`, day-rail.tsx). */
+            block_id: str(fd, 'block_id') ?? `m-new-${all.length}`,
             label: str(fd, 'label') || 'New moment',
             block_type: 'custom',
             start_at: start,

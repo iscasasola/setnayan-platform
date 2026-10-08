@@ -366,27 +366,17 @@
   }
   /*
    * 🫳 ONE PRESS FEEL, EVERYWHERE THAT IS SETNAYAN'S (owner 2026-10-08: *"the animation when tapped on selector must
-   * feel the same on the rest when pressed"* · *"we want the whole app to be adaptive to the same feel"* · *"the only
-   * part that does not follow our rules is their customized event hub"*). Every control the rule above already
-   * reaches — every button, every `.sn-press` card — dips a little deeper under the finger (.93, quickly) and SPRINGS
-   * back with a small overshoot, at the press family's one speed (`--sn-pill-dur`). Scale only; no script, no timer.
+   * feel the same on the rest when pressed"* · *"the only part that does not follow our rules is their customized
+   * event hub"*). The dip and the spring back are PLAYED BY ONE LISTENER (`app/_components/press-feel.tsx`, mounted
+   * once in the root layout): an animation composes with whatever `transition-*` utility a control carries, where a
+   * CSS `scale` on `:active` snapped on every control that had one. So here, for every control that listener
+   * reaches, the stylesheet's own press SCALE is taken off — the two must never double — and only the dimming above
+   * stays as the answer when there is no script.
    *
-   * THE ONE EXEMPTION is the couple's customised Event Hub — the guest's page. It is marked in the DOM by the guest
-   * shell's root, `.sn-editorial` (`GuestLookScope`, the wrapper `app/[slug]/layout.tsx` puts around every guest
-   * page): nothing inside it is touched, so it keeps the press above and its own colours. An EXCLUSION, never a
-   * list of surfaces — a new screen gets the feel by default. (Same weight as the rule above plus the `:not()`, and
-   * after it: it wins wherever it applies.) Under "reduce motion" the block below snaps it.
+   * THE ONE EXEMPTION is the couple's customised Event Hub — the guest's page, marked in the DOM by the guest
+   * shell's root, `.sn-editorial` (`GuestLookScope`): nothing inside it is touched here or by the listener, so it
+   * keeps the press above. An EXCLUSION, never a list of surfaces — a new screen gets the feel by default.
    */
-  button:not(.sn-editorial *),
-  [role='button']:not(.sn-editorial *),
-  a.button:not(.sn-editorial *),
-  .sn-press:not(.sn-editorial *),
-  input[type='submit']:not(.sn-editorial *),
-  input[type='button']:not(.sn-editorial *),
-  summary:not(.sn-editorial *) {
-    transition: scale var(--sn-pill-dur) var(--sn-pill-spring),
-      filter 0.13s ease;
-  }
   button:not(:disabled):active:not(.sn-editorial *),
   [role='button']:not([aria-disabled='true']):active:not(.sn-editorial *),
   a.button:active:not(.sn-editorial *),
@@ -394,16 +384,7 @@
   input[type='submit']:not(:disabled):active:not(.sn-editorial *),
   input[type='button']:not(:disabled):active:not(.sn-editorial *),
   summary:active:not(.sn-editorial *) {
-    scale: 0.93;
-    transition: scale 90ms var(--sn-ease),
-      filter 90ms ease;
-  }
-  /* `.sn-press-ring` — the OPT-IN ring of the same press: one soft terracotta ring that shows under the finger and,
-   * on release, widens and fades. Opt-in because a ring is wrong around a full-width row, an inline link or a tiny
-   * badge, and because it is drawn with `::after` (a control that already uses `::after` cannot wear it). Worn by
-   * the template controls (a dropdown's button today). Base layer: an `absolute` utility on the same element wins. */
-  .sn-press-ring:not(.sn-editorial *) {
-    position: relative;
+    scale: none;
   }
   button:disabled,
   [aria-disabled='true'] {
@@ -4341,33 +4322,11 @@ html.dark {
   }
 }
 
-/* ── 🫳 THE PRESS RING (opt-in, `.sn-press-ring` — see the universal press rule in `@layer base`) and THE SWITCH ──
-   The ring: under the finger it is there at once; on release it widens and fades (scale and opacity only), 1.3 ×
-   the family's speed. Never inside the guest's Event Hub (`.sn-editorial`).
-
-   THE SWITCH (owner 2026-10-08: *"switch is teracota or greyed out"*): ONE shared look for a switch's track —
-   `.sn-switch`: grey when off, the terracotta when on, the same two colours as a pill selector — and its knob lands
-   with the family's spring at the family's speed. On = `data-on="true"` on the track, or a checked `.peer` before
-   it (the two ways the Maker's switches are built). A press rings the track, not the whole row. */
-.sn-press-ring:not(.sn-editorial *)::after,
-.sn-switch::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  border: 2px solid rgb(var(--color-mulberry) / 0.45);
-  opacity: 0;
-  scale: 1.18;
-  pointer-events: none;
-  transition: opacity calc(var(--sn-pill-dur) * 1.3) ease-out, scale calc(var(--sn-pill-dur) * 1.3) ease-out;
-}
-.sn-press-ring:not(.sn-editorial *):active::after,
-label:active > .sn-switch::before,
-button:active > .sn-switch::before {
-  opacity: 1;
-  scale: 1;
-  transition: none;
-}
+/* ── THE SWITCH (owner 2026-10-08: *"switch is teracota or greyed out"*) ──────────────────────────────────────
+   ONE shared look for a switch's track — `.sn-switch`: grey when off, the terracotta when on, the same two colours
+   as a pill selector — and its knob lands with the press family's spring at the family's speed. On =
+   `data-on="true"` on the track, or a checked `.peer` before it (the two ways the Maker's switches are built).
+   (A press rings the track: the track also wears `sn-press-ring`, drawn by `app/_components/press-feel.tsx`.) */
 .sn-switch {
   background-color: rgb(var(--color-ink) / 0.2);
   transition: background-color var(--sn-pill-dur) var(--sn-ease);
@@ -4382,9 +4341,7 @@ button:active > .sn-switch::before {
   transition-timing-function: var(--sn-pill-spring);
 }
 @media (prefers-reduced-motion: reduce) {
-  .sn-press-ring::after,
   .sn-switch,
-  .sn-switch::before,
   .sn-switch::after,
   .sn-switch > .sn-switch-knob {
     transition: none !important;

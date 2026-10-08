@@ -203,7 +203,7 @@ export function BgCard({
         /* NO FRAME (owner 2026-10-08: "no framing") — the picture fills the card edge to edge; the PICKED card wears a
            3-px ring in the selector's terracotta, hugging the picture ("Selected Card needs to be highlighted with same
            terracota"), and its name turns terracotta too. */
-        className={`sn-phone-card ${looks.on ? 'ring-[3px] ring-mulberry' : ''}`.trim()}
+        className={`sn-phone-card sn-press-ring ${looks.on ? 'ring-[3px] ring-mulberry' : ''}`.trim()}
         style={{ background: swatch, ...(swatchSize ? { backgroundSize: swatchSize } : {}) }}
       >
         {children}

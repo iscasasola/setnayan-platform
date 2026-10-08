@@ -133,7 +133,7 @@ export function Switch({
         aria-hidden
         /* The app's ONE switch look (`.sn-switch`, globals.css — owner 2026-10-08: "switch is teracota or greyed out"). */
         data-on={on}
-        className="sn-switch relative h-6 w-10 flex-none rounded-full"
+        className="sn-switch sn-press-ring relative h-6 w-10 flex-none rounded-full"
       >
         <span
           className={`sn-switch-knob absolute left-[3px] top-[3px] h-[18px] w-[18px] rounded-full bg-white shadow transition-transform ${on ? 'translate-x-4' : ''}`}

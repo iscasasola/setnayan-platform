@@ -58,7 +58,7 @@ export const STUDIO_ROW_COL_LABEL = 'text-[11px] font-semibold uppercase trackin
  * terracotta when on.
  */
 export const STUDIO_SWITCH_TRACK =
-  "sn-switch relative h-7 w-[46px] shrink-0 rounded-full after:absolute after:left-[3px] after:top-[3px] after:h-[22px] after:w-[22px] after:rounded-full after:bg-white after:shadow after:transition-[left] after:content-[''] peer-checked:after:left-[21px] peer-focus-visible:ring-2 peer-focus-visible:ring-mulberry/40 peer-disabled:opacity-40";
+  "sn-switch sn-press-ring relative h-7 w-[46px] shrink-0 rounded-full after:absolute after:left-[3px] after:top-[3px] after:h-[22px] after:w-[22px] after:rounded-full after:bg-white after:shadow after:transition-[left] after:content-[''] peer-checked:after:left-[21px] peer-focus-visible:ring-2 peer-focus-visible:ring-mulberry/40 peer-disabled:opacity-40";
 
 /** `.quiet` — the form's quiet rows at the very bottom (Restore · Reset · About). */
 export const STUDIO_QUIET_ROW = 'flex min-h-11 items-center justify-between gap-2.5 px-1.5 text-[13px] text-ink/50';

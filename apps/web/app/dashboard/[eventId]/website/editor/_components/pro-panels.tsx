@@ -202,6 +202,11 @@ export function ColorsPanel({
   const flush = maker?.stagesStudio === true && (part === 'art' || part === 'page' || part === 'font');
   /* A Pro half that is locked with no lock to show (the app-store shell) has nothing to draw. */
   if (part === 'art' && proLocked && !proLock) return null;
+  /* ✈ MAGIC MOVE LEFT LOOK (owner 2026-10-08, on the local copy: *"remove magic move"*). Look's Colours part
+     (`part="art"`) no longer draws it — and posts no `site_magic_traveller`, which the action reads as UNCHANGED:
+     a mark already set to travel keeps travelling on the guest page (`the-mark-travels-or-sits-still.test.ts`).
+     In the Studio, where Candlelight is Background › Shade ▾'s, that leaves this part with nothing to draw. */
+  if (shadeHoldsArt) return null;
   return (
     <form action={action} data-look-form={part ?? undefined} className={flush ? 'flex flex-col' : 'border-t border-dashed border-ink/10 bg-cream/40 p-3'}>
       {/* Into the draft (`updateSiteColors`' door) — a free couple may TRY the
@@ -264,7 +269,7 @@ export function ColorsPanel({
           "unchanged", exactly as the typeface above does. A couple must be able
           to take this back, and this is the first motion on the guest page that
           moves an element ACROSS the viewport. */}
-      <MagicMovePick value={magicTraveller} mark={mark} leads={shadeHoldsArt} />
+      {part === 'art' ? null : <MagicMovePick value={magicTraveller} mark={mark} />}
       </>
       )}
       </>

@@ -83,3 +83,20 @@ Guard: `apps/web/lib/a-moment-keeps-its-anchor.test.ts` (3 tests, run for every
 anchor; seen red against the old line).
 
 SPEC IMPACT: None.
+
+## 2026-10-08 · fix(studio): the Timeline row's name wraps; "+ Add a moment" is the main button; ⋯ is the accent mark
+
+From the controller's look at Studio › Schedule at 375 px:
+
+- A row's name runs to a SECOND line (the row grows, the pills stay centred),
+  then "…" — it is never cut to one line or shrunk. Pills are 72 px with slim
+  sides and the row's gaps are 4 px, so the name gets ~139 px of words (was
+  ~107). Every target stays 44 px.
+- `STUDIO_FOOT_BUTTON` (`lib/studio-skin.ts`) is the main-button look — the
+  accent pill with its label ink, taken from the pill selector's
+  `PILL_ON_CLASS`, not written by hand. It was a black bar. Its wearers are the
+  two pages whose main action it is: Studio › Schedule and Studio › Love Story
+  ("+ Add a moment").
+- The row's ⋯ wears the accent (`text-mulberry`, until the accent token lands).
+
+SPEC IMPACT: None.

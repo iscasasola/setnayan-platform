@@ -109,7 +109,7 @@ test('(3) nothing was lost: timeline-row.tsx re-exports all four, and they are t
   const loading = renderToStaticMarkup(React.createElement(states.TimelineRowsLoading, { label: 'Loading your Love Story', rows: 3 }));
   assert.match(loading, /^<div role="status" aria-busy="true" aria-label="Loading your Love Story" data-timeline-loading=""/);
   assert.equal((loading.match(/h-10 w-\[72px\] shrink-0 rounded-full bg-ink\/10/g) ?? []).length, 3);
-  const problem = renderToStaticMarkup(React.createElement(states.TimelineProblem, { title: 'We could not load your Love Story', onRetry: () => {}, children: 'Your moments are safe.' }));
+  const problem = renderToStaticMarkup(React.createElement(states.TimelineProblem as React.ComponentType<Record<string, unknown>>, { title: 'We could not load your Love Story', onRetry: () => {} }, 'Your moments are safe.'));
   assert.match(problem, /^<div role="alert" data-timeline-problem-state=""/);
   assert.match(problem, /<button type="button" data-timeline-retry=""[^>]*>Try again<\/button>/);
   // The row still sits on the same band and line as the shimmer — one arrangement.

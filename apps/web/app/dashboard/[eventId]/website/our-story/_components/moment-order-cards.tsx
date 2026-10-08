@@ -12,7 +12,7 @@ import { HUB_DRAFT_FIELD } from '@/lib/hub-draft';
 import { MAKER_STAY_FIELD } from '@/lib/maker-stay';
 import { LOVE_STORY_CHAPTER_LABEL, MOMENT_LINE_MAX, MOMENT_TITLE_MAX, type ChapteredMoment, type LoveStoryMoment, type MomentAnchor, type MomentDate } from '@/lib/love-story-moments';
 import { STUDIO_FOOT_BUTTON } from '@/lib/studio-skin';
-import { whenWords, type TimelineWhen } from '@/lib/timeline';
+import { WIDEST_WHEN_WORDS, whenWords, type TimelineWhen } from '@/lib/timeline';
 import type { UploadSend } from '@/lib/upload-send';
 import { PickSheetContext } from '../../editor/_components/pick-menu-place';
 import { useMaker } from '../../../launch/_components/maker-context';
@@ -206,6 +206,9 @@ function eventDayWords(iso: string | null): string {
   return m ? whenWords({ y: Number(m[1]), m: Number(m[2]), d: Number(m[3]) }, true) : '';
 }
 
+/** Everything a moment's when pill can read at its widest: a full date in any month — and "When", before one is set. */
+export const MOMENT_WHEN_WIDEST: readonly string[] = [...WIDEST_WHEN_WORDS, 'When'];
+
 const sameWhen = (a: MomentDate | undefined, b: MomentDate | undefined) => (a?.y ?? 0) === (b?.y ?? 0) && (a?.m ?? 0) === (b?.m ?? 0) && (a?.d ?? 0) === (b?.d ?? 0);
 const sameList = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((v, i) => v === b[i]);
 const whyNot = (e: unknown) => (e instanceof MomentNotKept ? e.message : 'That did not save. Nothing changed — please try again.');
@@ -356,6 +359,8 @@ function MomentRow({
           title={`When${named}`}
           sheet={pickSheet}
           onClosed={writeRolled}
+          /* Every when in the list is one width, so the names start on one line. */
+          widest={MOMENT_WHEN_WIDEST}
           className={`min-w-[72px] ${shown ? '' : '!text-ink/55'}`}
         >
           {(close) => {
@@ -963,7 +968,7 @@ export function MomentOrderCards({
               onLeave={() => (fresh.title ? setEditing(null) : dropFresh())}
               problem={freshProblem}
               when={
-                <TickerPill data="when" text={whenWords(fresh.when)} ariaLabel={`When: ${whenWords(fresh.when, true)}`} title="When" sheet={pickSheet} className="min-w-[72px]">
+                <TickerPill data="when" text={whenWords(fresh.when)} ariaLabel={`When: ${whenWords(fresh.when, true)}`} title="When" sheet={pickSheet} widest={MOMENT_WHEN_WIDEST} className="min-w-[72px]">
                   {(close) => <WhenTicker value={fresh.when} thisYear={new Date().getFullYear()} onChange={(when) => setFresh({ ...fresh, when })} onDone={close} />}
                 </TickerPill>
               }

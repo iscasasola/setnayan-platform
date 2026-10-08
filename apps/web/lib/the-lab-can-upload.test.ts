@@ -14,6 +14,9 @@
  *       the uploader, and the lab's route refuses production.
  *   (4) THE LAB KEEPS WHAT WAS ADDED: the fixture applies the same moment form in memory with the server's own
  *       function, and draws the picked photo from the browser's memory.
+ *   (5) …AND KEEPS WHAT CAME BEFORE IT: the lab shows the story in two places (the list, and the Details words panel
+ *       beside it), and both are handed the SAME story — with two different ones a second change lost the first
+ *       (seen in the lab: a second picked photo replaced the first; a second rename un-named the first).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -23,6 +26,9 @@ import { stripComments } from './strip-comments';
 import { readMomentMedia } from './love-story-moments';
 import type { UploadOutcome } from './upload-send';
 import { LAB_REF_PREFIX, LAB_UPLOAD_STEP_MS, LAB_UPLOAD_STEPS, labUploadStandIn } from '../app/dev/details-lab/lab-upload-stand-in';
+import { LAB_LOVE_STORY } from '../app/dev/details-lab/love-story-fixture';
+import { createDraftedCanvases } from './maker-draft-store';
+import { resolveMoments } from './love-story-moments';
 
 const WEB = join(__dirname, '..');
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
@@ -209,4 +215,36 @@ test('(4) the lab keeps what was added: the same moment form, applied in memory 
   assert.match(action, /const keep = \(moments: typeof before\) => editLoveStory\(\{ eventId: EVENT, next: \{ \.\.\.now, moments \}, server: STORY,/);
   assert.match(action, /const r = applyMomentIntent\(before, intent, fd\);\s*if \(!r\.ok\) throw new MomentNotKept\(r\.error\);\s*await keep\(r\.after\);/);
   assert.doesNotMatch(lab, /fetch\(|XMLHttpRequest|'use server'/, 'the lab reaches for a server');
+});
+
+test('(5) one event has ONE story in the lab: both of its readers are handed the same one — two different ones lose the change before', () => {
+  // THE MECHANISM, RUN on the Maker's own store: a copy is trusted only while it is built on the story its reader
+  // was last drawn with. Two readers on two different stories take that away from each other.
+  const one = { moments: [{ id: 'a', line: 'x' }] };
+  const other = {};
+  const changed = { moments: [{ id: 'a', line: 'x', title: 'Renamed' }] };
+  const run = (panelStory: object) => {
+    let saving = true;
+    const store = createDraftedCanvases<object>(() => saving);
+    store.note('events:love_story', changed, one); // the list changes the story…
+    store.read('events:love_story', one); // …and re-draws, while its save is on its way,
+    store.read('events:love_story', panelStory); // …and so does the words panel beside it.
+    saving = false;
+    return store.read('events:love_story', one); // the NEXT change builds on this
+  };
+  assert.deepEqual(run(other), one, 'anti-vacuity: two readers on two stories no longer lose the change — this test guards nothing');
+  assert.deepEqual(run(one), changed, 'with ONE story the change before is still lost');
+
+  // THE LAB hands both readers the same story.
+  const list = read('app/dev/details-lab/studio-lab-fixtures.tsx');
+  assert.match(list, /import \{ LAB_LOVE_STORY, LAB_PHOTOS \} from '\.\/love-story-fixture';/);
+  assert.match(list, /const STORY = LAB_LOVE_STORY;/);
+  assert.match(list, /story=\{STORY\}/);
+  assert.match(list, /const now = liveStoryOf\(STORY\);/);
+  assert.match(list, /server: STORY,/);
+  const node = read('app/dev/details-lab/details-lab-node.tsx');
+  assert.match(node, /loveStory: \{ story: one\('studio'\) === '1' \? LAB_LOVE_STORY : \{\}, ownsPro: pro \},/, 'the words panel beside the list is on another story');
+  // The fixture is a plain file (a server file must be able to hand its VALUE on, not a reference to a client file).
+  assert.doesNotMatch(readFileSync(join(WEB, 'app/dev/details-lab/love-story-fixture.ts'), 'utf8'), /^\s*['"]use client['"]/m);
+  assert.deepEqual(resolveMoments(LAB_LOVE_STORY).map((m) => m.id), ['ls-umbrella', 'ls-trip', 'ls-siargao', 'ls-fitting']);
 });

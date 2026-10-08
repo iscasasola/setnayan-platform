@@ -37,6 +37,7 @@ import { updateQrStyle } from '@/app/dashboard/[eventId]/launch/qr-look-actions'
 import { updateSpecialMessage } from '@/app/dashboard/[eventId]/website/special-message/actions';
 import { labMarchSections } from './march-fixture';
 import { LabStudioLoveStory, LabStudioSchedule } from './studio-lab-fixtures';
+import { LAB_LOVE_STORY } from './love-story-fixture';
 import { MakerRsvpSettings } from '@/app/dashboard/[eventId]/launch/_components/maker-rsvp-ask';
 import { MoodBoardStudio } from '@/app/dashboard/[eventId]/studio/mood-board/_components/mood-board-lazy';
 import { ATTIRE_STYLES, ATTIRE_STYLE_LABEL } from '@/lib/role-dress-code';
@@ -64,7 +65,9 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
     specialMessage,
     specialMessageAction: updateSpecialMessage.bind(null, EVENT),
     pabuyaMessage,
-    loveStory: { story: {}, ownsPro: pro },
+    /* `?studio=1` draws Studio › Love Story's list on maria-and-jose's story — this words panel is handed the SAME
+       one (two different stories for one event lose each other's changes; see `love-story-fixture.ts`). */
+    loveStory: { story: one('studio') === '1' ? LAB_LOVE_STORY : {}, ownsPro: pro },
   });
   /* 🪜 The guided flow (part 5): Your event on fixtures, so its first steps are real items. */
   const guideAddr = parseGuideParam(one('guide'));

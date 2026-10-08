@@ -27,7 +27,7 @@ import { applyMomentIntent } from '@/lib/love-story-moment-intent';
 import { readMomentMedia, resolveMoments } from '@/lib/love-story-moments';
 import type { OtherEvent } from '@/app/dashboard/[eventId]/website/our-story/_components/pick-from-our-events';
 import { labUploadStandIn } from './lab-upload-stand-in';
-import type { LoveStoryBlob } from '@/app/dashboard/[eventId]/website/our-story/_components/story-fields';
+import { LAB_LOVE_STORY, LAB_PHOTOS } from './love-story-fixture';
 import type { HubDraftActionResult } from '@/lib/hub-draft';
 
 const EVENT = '00000000-0000-4000-8000-000000000000';
@@ -158,25 +158,9 @@ export function LabStudioSchedule() {
   );
 }
 
-/** Two of maria-and-jose's own demo pictures, standing in for stored photos (a lab has no storage to read). */
-const LAB_PHOTOS: Record<string, string> = {
-  'r2://setnayan-media/events/lab/love-story/a.jpg': '/demo/maria-jose/wall-1.webp',
-  'r2://setnayan-media/events/lab/love-story/b.jpg': '/demo/maria-jose/wall-6.webp',
-};
-
-/**
- * maria-and-jose's Love Story on fixtures — every state the Timeline row has: a chapter known only by its YEAR, one
- * by MONTH and year, one by FULL date; one with two photos, one kept off the Event Hub; each with 4c's title, in the
- * couple's own order.
- */
-const STORY: LoveStoryBlob = {
-  moments: [
-    { id: 'ls-umbrella', date: { y: 2019 }, title: 'One umbrella', line: 'A rainy Tuesday in Katipunan — one umbrella, two strangers, no bus for an hour.', anchor: 'met', order: 0, media: Object.keys(LAB_PHOTOS), canvas: {} },
-    { id: 'ls-trip', date: { y: 2021, m: 2, d: 14 }, title: 'Our first trip', line: 'Baguio, on a bus that left at four in the morning.', place: 'Baguio', order: 1, canvas: {} },
-    { id: 'ls-siargao', date: { y: 2022, m: 6 }, title: 'Siargao', line: 'He asked. She said yes before he finished the question.', place: 'Siargao', anchor: 'yes', order: 2, canvas: {} },
-    { id: 'ls-fitting', date: { y: 2026, m: 9 }, title: 'The fitting', line: 'Her mother cried first.', hidden: true, order: 3, canvas: {} },
-  ],
-} as unknown as LoveStoryBlob;
+/* maria-and-jose's Love Story and its two stand-in pictures live in `love-story-fixture.ts` — a plain file, so the
+   lab's Details words panel (drawn by a server file) is handed the SAME story as this list. */
+const STORY = LAB_LOVE_STORY;
 
 /** No draft leaves the lab: every save "lands". */
 const labDraftAction = async (): Promise<HubDraftActionResult> => ({ ok: true, intent: 'save', applied: 0, held: [] });

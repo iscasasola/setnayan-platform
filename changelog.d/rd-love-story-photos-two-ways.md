@@ -214,3 +214,75 @@ Guard: `apps/web/lib/photos-two-ways.test.ts` (7 tests; 31 sabotages seen red).
 
 SPEC IMPACT: None to the corpus rules; the owner's three sentences above are the
 ruling — the controller records them in `DECISION_LOG.md`.
+
+**Two notes for whoever comes next (controller, 2026-10-08):**
+
+- *The one place the moment action answers with a value.* `loveStoryMomentAction`
+  is declared `Promise<void>` (it is also a form's `action`). Its `intent=offer`
+  returns `{ offer }` through a cast at that one line; the only reader is
+  `askOurEvents` (`moment-order-cards.tsx`), which treats anything that is not
+  an array as "could not look". If a second answer is ever needed, give the
+  action a real return type rather than a second cast.
+- *What a QUIET pick would need* (today a pick costs one render of the Maker, in
+  place — accepted as shipped): the action would have to (1) honour
+  `maker_quiet` on its draft branch (write the draft, land nowhere) and (2)
+  answer with the photos it actually kept (a picked ref can be dropped by the
+  allow-list or the photo screen); the client would then (3) lay those on the
+  Maker's own copy of the story (`noteDraftedCanvas` — a new exported door in
+  `love-story-live.tsx`, since `editLoveStory` also saves), (4) draw them from
+  the addresses the offer already gave (nothing to sign), (5) reload the stage
+  canvases once (`markMakerCanvasStale`), and (6) update "Apply N changes",
+  which today arrives only with a render or a held save's answer
+  (`hubDraftAction`'s `applied`). Step 6 is the one with no door yet.
+
+## 2026-10-08 · fix(lab): the lab's Love Story is ONE story for both of its readers
+
+Found by picking two photos in a row in the lab: the second replaced the first;
+and renaming two moments in turn un-named the first. The lab drew Studio › Love
+Story's list on maria-and-jose's story and the Details words panel beside it on
+an EMPTY one — two "server" stories for one event. The Maker keeps one copy of
+the story being edited and trusts it only while it is built on the story the
+server last drew (`lib/maker-draft-store.ts`); with two different ones each save
+left the copy "built on" the other reader's story, and the next change read the
+fixture afresh. The fixture is now a plain file
+(`app/dev/details-lab/love-story-fixture.ts`) handed to both.
+
+Lab-only as far as this branch can tell: in the real Maker both readers are
+handed the story the same request read. (Worth one look on a signed-in Maker:
+rename one moment, then another — the first must keep its new name.)
+
+Guard: test (5) of `apps/web/lib/the-lab-can-upload.test.ts` — the store's own
+mechanism RUN with two readers on two stories (the change before is lost) and on
+one (it is kept); 2 sabotages seen red.
+
+SPEC IMPACT: None.
+
+## 2026-10-08 · fix(ui): down a list, every "when" pill is one width — the names start on one line
+
+Owner, on Studio › Love Story's ragged names (he asked what the controller
+recommends; the answer was aligned): the pill hugged its words — "2019" 72 px,
+"Feb 14, 2021" 91 px — so at 375 px "One umbrella" began at x = 92 and "Our first
+trip" at x = 111.
+
+A when pill is now as wide as the WIDEST value its control can show needs, the
+value centred in it; the name takes the rest; a pill never cuts its value. No
+width is written anywhere: `TickerPill` takes `widest` — the widest values the
+pill can read — and carries them inside its own button, unseen, with no height,
+in its own type, so the browser measures. `lib/timeline.ts` makes the lists from
+the formatters themselves: `WIDEST_WHEN_WORDS` (a full date in each of the
+twelve months) and `WIDEST_CLOCK_WORDS` (a two-digit hour, AM and PM); each
+wearer adds the word its pill reads before a value is set ("When" · "End").
+Digits are drawn at one width (`tabular-nums`), so any day and year are covered.
+
+Both wearers of the Timeline row use it: Studio › Love Story (the row and the new
+row) and Studio › Schedule (start and end). The Schedule's pills were already one
+width (72 px: every time fits the pill's floor) — see the report for what moved.
+
+Guard: `apps/web/lib/the-when-pills-are-one-width.test.ts` (4 tests; 16
+sabotages seen red) — the browser's arithmetic (a pill is as wide as the widest
+words it holds) RUN on painted rows under 200 made-up typefaces: a short when and
+a long one give the same pill width, so the same offset for the name.
+
+SPEC IMPACT: `INTERACTION_RULES.md` § 9 (Timeline row) should gain the ruling —
+"every when pill in a list is one width; the names start on one line" — the
+controller records it.

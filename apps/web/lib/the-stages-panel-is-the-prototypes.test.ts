@@ -238,7 +238,11 @@ test('a page tab still takes the canvas to its page under Stages (only a picked 
   /* 🧭 AMENDED 08 Oct — owner, on the Stages view: *"i do not see the individual pages. i still see invitation as a
      1 long page that scrolls down"*. A tab tap now tells the CANVAS to swap first (`goToPage`), then the shell's
      Page ▾ exactly as before — the picked part is still let go, and the shell's door is still the one pressed. */
-  assert.match(tools, /setPicked\(null\);\s*goToPage\(p\.key, p\.option\);/, 'another page lets the picked part go');
+  /* 🧹 AMENDED 08 Oct (measured on the preview): after a tab change the panel KEPT the look options of the part
+     picked on the page before — `setPicked(null)` dropped the frame but left the work area's tool open, so its
+     rows stayed. A tab tap now lets go exactly as ✕ does (`deselect`: the pick AND its tools). */
+  assert.match(tools, /deselect\(\);\s*goToPage\(p\.key, p\.option\);/, 'another page lets the picked part go — its tools too');
+  assert.match(tools, /const deselect = useCallback\(\(\) => \{\s*setPicked\(null\);\s*openToolRef\.current\?\.close\(\);\s*\}, \[\]\);/, 'letting go closes the part’s tools');
   assert.match(tools, /const goToPage = useCallback\(\s*\(key: string, option: string\) => \{\s*postToCanvas\(\{ source: 'setnayan-editor', t: 'hubTab', key: '', tab: key \}\);\s*onPickPage\(option\);/, 'the canvas swaps, and the shell’s Page ▾ is still told');
 });
 

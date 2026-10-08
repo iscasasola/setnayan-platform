@@ -24,6 +24,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import React from 'react';
 import { makerStageMayType } from './maker-stage-type';
+import { stripComments } from './strip-comments';
 import { makerDropSlot, makerRevealEdges, makerSceneHasRows, makerStagePickedAttr } from './maker-parts';
 
 (globalThis as unknown as { React: unknown }).React = React;
@@ -451,7 +452,7 @@ test('the Dress code part carries ONE Figures ▾ (Drawn · Hidden) writing the 
   const keys = [...fn.slice(fn.indexOf('options={['), fn.indexOf(']}', fn.indexOf('options={['))).matchAll(/key: '([a-z]+)', label: '([A-Za-z]+)'/g)].map((m) => `${m[1]}:${m[2]}`);
   assert.deepEqual(keys, ['drawn:Drawn', 'hidden:Hidden'], 'the choices are not Drawn · Hidden');
   assert.match(fn, /small="Figures"/);
-  assert.doesNotMatch(fn.replace(/\/\*[\s\S]*?\*\//g, ''), /photos|Photos/, 'Photos is offered with no photo per role to show (blocked — see the docblock)');
+  assert.doesNotMatch(stripComments(fn), /photos|Photos/, 'Photos is offered with no photo per role to show (blocked — see the docblock)');
   /* The SAME value the Mood Board's switch holds, the whole config, through the one draft door — never a second key. */
   assert.match(fn, /const next: DressCodeConfig = \{ \.\.\.before, show_figure: show \};/);
   assert.match(fn, /const saveEvents = useHeldEventsSave\(eventId, draftAction\);/);

@@ -41,8 +41,9 @@ function List({ heading, rows, mark, tone, kind }: { heading: ReactNode; rows: r
   );
 }
 
-export function DressCodeDos({ dos, donts, look }: { dos: readonly string[]; donts: readonly string[]; look: Exclude<DosLookId, typeof DOS_LOOK_DEFAULT> }) {
-  if (dos.length === 0 && donts.length === 0) return null;
+export function DressCodeDos({ dos, donts, look }: { dos: readonly string[]; donts: readonly string[]; look: DosLookId }) {
+  /* The shipped notes are the callers' own markup — asked for them, this draws nothing rather than a guess. */
+  if (look === DOS_LOOK_DEFAULT || (dos.length === 0 && donts.length === 0)) return null;
   const side = look === 'side-by-side';
   const both = dos.length > 0 && donts.length > 0;
   return (

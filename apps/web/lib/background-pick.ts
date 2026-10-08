@@ -219,7 +219,9 @@ export function backgroundLayOf(
  * page must redraw itself once:
  *   · the page COLOUR (plain or blended): the words' ink and a blend's veil are the layout's;
  *   · CANDLELIGHT: the whole look turns;
- *   · anything under or changing a SHADE: the veil is measured over the picture and the words' inks follow it;
+ *   · a background that WEARS a SHADE: the veil is measured over the picture and the words' inks follow it.
+ *     (Leaving a shade needs none: the old veil and its inks live on the ground the preview hides and the
+ *     stylesheet it lifts — `main-ground.tsx`'s one `<style data-main-ground-style>`.)
  *   · MOTION (parallax): the drift is the server layer's own script;
  *   · a picture's TINT when the panel cannot say whether the buttons are the couple's own (`canTint`).
  */
@@ -228,7 +230,7 @@ export function backgroundPickRedraws(prev: LookGround, next: LookGround, canTin
   const drifts = (g: LookGround) => isHubMainOwn(g.main) && g.main.motion === 'parallax';
   if ((prev.art ?? null) !== (next.art ?? null)) return true;
   if ((prev.bg ?? null) !== (next.bg ?? null)) return true;
-  if (shade(prev) || shade(next)) return true;
+  if (shade(next)) return true;
   if (drifts(prev) !== drifts(next) || drifts(next)) return true;
   if ((isHubMainOwn(next.main) || isHubMainFollow(next.main)) && !canTint) return true;
   return false;

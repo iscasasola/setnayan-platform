@@ -50,6 +50,10 @@ const MJ_ROWS: ReadonlyArray<[WidgetType, boolean]> = [
   ['our_love_story', false],
 ];
 
+/** Stand-ins for a moving background's still and loop when the lab has no public media address — files this repo ships. */
+const LAB_STILLS = ['ballroom', 'starlit', 'fairy-lights', 'rose-archway', 'seascape', 'sunrise', 'aurora', 'peonies', 'bridgerton'];
+const LAB_CLIPS = ['jack-jill-vclip', 'jack-rose-vclip', 'maria-juan-vclip', 'john-jane-vclip', 'peter-mary-vclip'];
+
 export default async function MakerLabPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
@@ -157,11 +161,13 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
       navigator={navigator}
       details={detailsLabNode({ ...sp, shape: 'mj', ...(sp.studio === '1' || sp.ss === '1' ? { look: '1' } : {}) })}
       /* 🎞 Look › Background's moving backgrounds, built as the editor page builds them. */
-      loops={hubMovingBackgroundIds().map((id) => ({
+      loops={hubMovingBackgroundIds().map((id, i) => ({
         id,
         name: themeBackgroundName(id),
-        stillUrl: resolveThemeGround(id, { ownColours: false })?.poster ?? null,
-        loopUrl: resolveThemeGround(id, { ownColours: false })?.loop ?? null,
+        /* Where this machine has no address for our public art (no media settings in the lab's env), a LOCAL stand-in
+           still and clip — so the cards, the instant preview and the stopwatch have a real picture and a real film. */
+        stillUrl: resolveThemeGround(id, { ownColours: false })?.poster ?? `/std/backgrounds/${LAB_STILLS[i % LAB_STILLS.length]}.webp`,
+        loopUrl: resolveThemeGround(id, { ownColours: false })?.loop ?? `/realstories/${LAB_CLIPS[i % LAB_CLIPS.length]}.mp4`,
       }))}
       pageColour={sp.paper === 'dark' ? '#1e2229' : null}
       /* 🌄 `?bg=video|pattern|scene` — start Look › Background on that Source (nothing is written; a fixture). */

@@ -303,6 +303,9 @@ test('(4) every background the panel can pick lays something the canvas accepts 
     ['Focus ▾', g(PHOTO), g({ ...PHOTO, focus: 'top' })],
     ['Blur ▾', g(PHOTO), g({ ...PHOTO, blur: 'soft' })],
     ['Match ▾ → Keep', g(PHOTO), g({ ...PHOTO, tint: { match: false, frame: FRAME } })],
+    // Leaving a shade: its veil and its word inks live on the ground the preview hides and the stylesheet it lifts.
+    ['a Shade taken off', g({ ...PHOTO, shade: 'dark' }), g(PHOTO)],
+    ['a shaded picture left for another', g({ ...PHOTO, shade: 'dark' }), g(STD_SCENE)],
   ];
   for (const [what, a, b] of zero) assert.equal(backgroundPickRedraws(a, b, true), false, `${what}: the page is re-rendered for a change the canvas can wear`);
   const once: Array<[string, LookGround, LookGround]> = [
@@ -311,7 +314,6 @@ test('(4) every background the panel can pick lays something the canvas accepts 
     ['a picture to a colour of its own', g(PHOTO), g({ ground: 'none' }, '#5b1a22')],
     ['Candlelight', g(PHOTO), g(PHOTO, null, 'candlelight')],
     ['a Shade', g(PHOTO), g({ ...PHOTO, shade: 'dark' })],
-    ['a Shade taken off', g({ ...PHOTO, shade: 'dark' }), g(PHOTO)],
     ['a Blur under a Shade', g({ ...PHOTO, shade: 'dark' }), g({ ...PHOTO, shade: 'dark', blur: 'soft' })],
     ['Motion ▾ → Parallax', g(PHOTO), g({ ...PHOTO, motion: 'parallax' })],
     ['Motion ▾ → Still', g({ ...PHOTO, motion: 'parallax' }), g(PHOTO)],
@@ -702,6 +704,9 @@ test('(8) the Studio draws and lays a pick BEFORE its save, holds the save, lets
   assert.match(pickLook, /backgroundLayOf\(next, lookPictures, wornFor\(next\), !redraws\)/);
   const server = read('app/[slug]/_lib/main-ground-layer.tsx');
   assert.match(server, /const adaptive = resolveAdaptiveTheme\(dressedTheme\(theme, event\.role_palette\), mainGround\.tint\);/, 'anti-vacuity: the page measures its scrim some other way now');
+  // "Leaving a shade needs no render" rests on this: the shade's word inks ride the SAME stylesheet the preview lifts, and its veil the layer it hides.
+  assert.match(server, /vars=\{\{\s*\.\.\.adaptiveThemeVars\(adaptive, \{ ownButton: Boolean\(event\.site_button_color\) \}\),\s*\.\.\.\(shade \? shadeWordVars\(shade, page\) : \{\}\),\s*\.\.\.\(shade \? shadeFollowers\(shade, page, mainGround, theme, event, adaptive\) : \{\}\),\s*\}\}/, 'a shade’s inks no longer ride the ground’s one stylesheet — leaving a shade would keep them');
+  assert.match(read(`${G}/main-ground.tsx`), /<style data-main-ground-style="">\{css\}<\/style>/);
   assert.match(server, /\.\.\.adaptiveThemeVars\(adaptive, \{ ownButton: Boolean\(event\.site_button_color\) \}\),/);
   assert.match(read('app/dashboard/[eventId]/website/editor/page.tsx'), /ownButton: Boolean\(drafted\.site_button_color\),/, 'the panel is not told whose colour the buttons wear — every picture pick would redraw the page');
   assert.match(panel, /if \(bar\) fd\.set\(HUB_DRAFT_BAR_FIELD, '1'\);/, 'a held pick does not ask for the Apply bar — its count would wait for a render that never comes');

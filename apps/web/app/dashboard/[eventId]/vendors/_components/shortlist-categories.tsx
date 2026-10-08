@@ -1934,7 +1934,8 @@ function MoreToCompare({
   onSeeAll: () => void;
 }) {
   const router = useRouter();
-  const standIn = useContext(MoreRowStandInCtx);
+  // A ref, so the lab's stand-in is never a reason to ask again.
+  const standInRef = useRef(useContext(MoreRowStandInCtx));
   const { groupId: moreGroupId } = benchSearchScopeForTile(tile);
   const moreTile = tile;
   // True from the first paint: the request starts in the effect below, and an
@@ -1961,8 +1962,8 @@ function MoreToCompare({
     setMoreLoading(true);
     setMoreError(null);
     const handle = window.setTimeout(() => {
-      (standIn
-        ? standIn({ eventId, groupId: moreGroupId, tile: moreTile, query: moreQ })
+      (standInRef.current
+        ? standInRef.current({ eventId, groupId: moreGroupId, tile: moreTile, query: moreQ })
         : fetchInlineMoreRow({ eventId, groupId: moreGroupId, tile: moreTile, query: moreQ })
       )
         .then((res) => {
@@ -1988,7 +1989,7 @@ function MoreToCompare({
       cancelled = true;
       window.clearTimeout(handle);
     };
-  }, [eventId, moreTile, moreGroupId, moreQ, standIn]);
+  }, [eventId, moreTile, moreGroupId, moreQ]);
 
   // Save from the list → the couple's *considering* list, which is what the
   // cards above show. The SAME `saveVendorToPicks` the full sheet's Add already

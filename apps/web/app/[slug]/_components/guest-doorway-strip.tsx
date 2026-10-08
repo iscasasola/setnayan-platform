@@ -1,4 +1,5 @@
 import { giftIsMoneyDance, type EventWords } from '../_lib/event-words';
+import { wishDoorLine } from '@/lib/wish-list-guest';
 import Link from 'next/link';
 import { ArrowRight, Gift, Heart, Radio } from 'lucide-react';
 
@@ -50,6 +51,7 @@ export function GuestDoorwayStrip({
   dateLabel,
   words,
   tabAttrs = {},
+  wishes = 0,
 }: {
   /** The event type's own words. */
   words: EventWords;
@@ -59,6 +61,8 @@ export function GuestDoorwayStrip({
   tabAttrs?: { 'data-hub-tab'?: string; hidden?: boolean };
   /** `/[slug]/pabuya`, or null → do not draw. */
   pabuya: string | null;
+  /** 🎁 Open wishes behind the gift door (`resolveGuestDoorways(...).wishes`) — 0: the door says nothing of a list. */
+  wishes?: number;
   /** `/[slug]/venue` — `resolveGuestDoorways(...).venueWalk` on The Day, null
    *  on every other stage or when the seat rule keeps the room shut. */
   venueWalk?: string | null;
@@ -75,7 +79,7 @@ export function GuestDoorwayStrip({
       className="mx-auto mt-6 w-full max-w-3xl space-y-3 px-4"
       aria-label="More for guests"
     >
-      {pabuya ? <GiftDoorCard href={pabuya} words={words} /> : null}
+      {pabuya ? <GiftDoorCard href={pabuya} words={words} wishes={wishes} /> : null}
 
       {venueWalk ? (
         /* A quiet line, not a card — one main action per page (#6308). */
@@ -118,10 +122,14 @@ export function GuestDoorwayStrip({
 }
 
 /** The E-Gifts door — one card, drawn here at the foot or on the Invitation's Welcome page, never both. */
-function GiftDoorCard({ href, words }: { href: string; words: EventWords }) {
+function GiftDoorCard({ href, words, wishes = 0 }: { href: string; words: EventWords; wishes?: number }) {
   return (
     <DoorCard
       href={href}
+      /* 🎁 The door says what is new behind it (owner 2026-10-08, wish list frame 12): one line
+         while a wish is still open. Not on a solemn page — "things they'd love" is a
+         celebration's sentence, and no quiet one has been written. */
+      extra={words.solemn ? null : wishDoorLine(wishes)}
       icon={words.solemn ? <Heart aria-hidden className="h-4 w-4" strokeWidth={1.75} /> : <Gift aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
       title="E-Gifts"
       detail={
@@ -144,14 +152,25 @@ function GiftDoorCard({ href, words }: { href: string; words: EventWords }) {
  * Invitation's Welcome page (`lib/invitation-welcome.ts`). `href` is
  * `resolveGuestDoorways(...).pabuya` — null means no card, never an empty one.
  */
-export function WelcomeGifts({ href, words, look = null }: { href: string; words: EventWords; look?: string | null }) {
+export function WelcomeGifts({
+  href,
+  words,
+  look = null,
+  wishes = 0,
+}: {
+  href: string;
+  words: EventWords;
+  look?: string | null;
+  /** 🎁 Open wishes on the couple's wish list — the door's one extra line. */
+  wishes?: number;
+}) {
   return (
     /* 🎨 Its own style when the couple picked one (`lib/scene-styles-parts.ts`) — absent, as shipped. */
     <section className="space-y-3" data-welcome-gifts="" {...(look ? { 'data-part-look': look } : {})}>
       <p className="pahina-eyebrow">
         <span>E-Gifts</span>
       </p>
-      <GiftDoorCard href={href} words={words} />
+      <GiftDoorCard href={href} words={words} wishes={wishes} />
     </section>
   );
 }
@@ -162,11 +181,14 @@ function DoorCard({
   icon,
   title,
   detail,
+  extra = null,
 }: {
   href: string;
   icon: React.ReactNode;
   title: string;
   detail: string;
+  /** One more line under the detail, in the event's main colour — null draws nothing. */
+  extra?: string | null;
 }) {
   return (
     <Link
@@ -179,6 +201,11 @@ function DoorCard({
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-medium text-ink">{title}</span>
         <span className="mt-0.5 block text-sm text-ink/60">{detail}</span>
+        {extra ? (
+          <span data-door-extra="" className="mt-0.5 block text-[13px] font-semibold text-mulberry">
+            {extra}
+          </span>
+        ) : null}
       </span>
       <ArrowRight
         aria-hidden

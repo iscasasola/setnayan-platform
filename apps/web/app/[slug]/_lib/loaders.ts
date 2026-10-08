@@ -66,6 +66,8 @@ import { resolveGuestCamera } from '@/lib/papic-limited';
 import { guestsMaySeeSeatsFor } from '@/lib/guests-may-see-seats';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { fetchEgiftMethods, isPabuyaPublicRouteEnabled } from '@/lib/egift';
+import { readGuestWishList } from '@/lib/wish-list.server';
+import { openWishCount } from '@/lib/wish-list-guest';
 import { DEFAULT_STUDIO_ANIM, heroMarkSvg } from '@/lib/hero-monogram-data';
 import { sanitizeStudioConfig, markAnimationSwitchedOff } from '@/lib/monogram-studio-shared';
 import type { StudioAnim } from '@/app/_components/studio-reveal-player';
@@ -1215,6 +1217,7 @@ export const loadDoorwayFacts = cache(
     seatingPublished: boolean;
     pabuyaRouteEnabled: boolean;
     enabledEgiftCount: number;
+    openWishCount: number;
   }> => {
     const seatingSurfaceEnabled = surfaceEnabled(
       await resolveProfile(eventType ?? 'wedding'),
@@ -1227,7 +1230,18 @@ export const loadDoorwayFacts = cache(
         ? fetchEgiftMethods(admin, eventId, { enabledOnly: true }).then((m) => m.length)
         : Promise.resolve(0),
     ]);
-    return { seatingSurfaceEnabled, seatingPublished, pabuyaRouteEnabled, enabledEgiftCount };
+    /* 🎁 The wish list's open wishes (owner 2026-10-08) — asked through the SAME reader the
+       gift page stands on (`readGuestWishList`), and only when that page would draw the list:
+       the route is on and a way to give is switched on. A read that fails counts as none —
+       the door then simply does not mention a list. */
+    const wishRead = pabuyaRouteEnabled && enabledEgiftCount > 0 ? await readGuestWishList(admin, eventId) : null;
+    return {
+      seatingSurfaceEnabled,
+      seatingPublished,
+      pabuyaRouteEnabled,
+      enabledEgiftCount,
+      openWishCount: wishRead?.read ? openWishCount(wishRead.wishes) : 0,
+    };
   },
 );
 

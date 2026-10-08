@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "540bbd12e",
+  "generatedFromRef": "0e1719a38",
   "routeCount": 428,
   "destinations": 954,
   "actions": 672,
-  "blocks": 5705,
+  "blocks": 5712,
   "routes": {
     "/": {
       "files": [
@@ -1663,6 +1663,7 @@
     },
     "/[slug]/pabuya": {
       "files": [
+        "[slug]/pabuya/_components/wish-list.tsx",
         "[slug]/pabuya/page.tsx"
       ],
       "destinations": [
@@ -1674,7 +1675,10 @@
         "Logo",
         "PabuyaCardList",
         "PabuyaTrustNote",
-        "RoomFooter"
+        "RoomFooter",
+        "SendLine",
+        "Sheet",
+        "WishList"
       ]
     },
     "/[slug]/print": {
@@ -9799,7 +9803,8 @@
     },
     "/dev/maker-lab/guest": {
       "files": [
-        "dev/maker-lab/guest/page.tsx"
+        "dev/maker-lab/guest/page.tsx",
+        "dev/maker-lab/guest/wish-lab.tsx"
       ],
       "destinations": [],
       "actions": [],
@@ -9810,12 +9815,16 @@
         "MakerEmptyScene",
         "MakerWelcomeGiftsEmpty",
         "MakerWelcomeLook",
+        "PabuyaCardList",
+        "PabuyaTrustNote",
         "PahinaMasthead",
         "ScheduleWidget",
         "SpecialMessageWidget",
         "VenueWidget",
         "WelcomeGifts",
-        "WhenYesCelebration"
+        "WhenYesCelebration",
+        "WishLab",
+        "WishList"
       ]
     },
     "/dev/schedule-lab": {

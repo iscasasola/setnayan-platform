@@ -244,6 +244,9 @@ const GIFT_SURFACES = [
   'lib/wish-list.ts',
   'lib/wish-list-studio.ts',
   'lib/wish-list.server.ts',
+  // wish list 3/5 — the guest's side
+  'lib/wish-list-guest.ts',
+  'app/[slug]/pabuya/_components/wish-list.tsx',
 ];
 const CLAIMS_MORE_THAN_SENT = /\b(receiv\w*|verif\w*|funded|funding|paid|payment\w*|confirm(?:ed|s|ation)?)\b/gi;
 
@@ -260,6 +263,10 @@ test('wish list · no gift surface says received, verified, paid, confirmed or f
   const tour = tours.slice(from, tours.indexOf('\n  },\n', from));
   for (const m of tour.matchAll(CLAIMS_MORE_THAN_SENT)) offenders.push(`lib/tours.ts customer_wish_list_v1 · "${m[0]}"`);
   assert.deepEqual(offenders, [], 'a gift surface claims more than a guest can know');
+
+  // The guest's own lines say "sent", and the list never says what is "left to pay".
+  const guest = stripComments(read(join(APP, '..', 'lib', 'wish-list-guest.ts')));
+  assert.ok((guest.match(/\bsent\b/g)?.length ?? 0) >= 2, 'the guest lines no longer say "sent"');
 
   // …and the surfaces are really being read: each says "sent" where it prints a figure.
   const studio = stripComments(read(join(APP, '..', 'lib', 'wish-list-studio.ts')));

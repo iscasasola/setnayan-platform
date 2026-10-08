@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import { WishLab } from './wish-lab';
 import { cookies } from 'next/headers';
 import { mainGroundLayerFor } from '@/app/[slug]/_lib/main-ground-layer';
 import { CountdownWidget } from '@/app/[slug]/_components/countdown';
@@ -57,6 +58,10 @@ const LAB_BOARD = ['#5B1A22', '#6B7A3A', '#E0A52B', '#8E2E3C', '#F2C8C2'];
 export default async function MakerLabGuestPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
+  /* 🎁 `?wish=…` — the guest's wish list on fixtures (`wish-lab.tsx`), instead of the canvas. */
+  if (typeof sp.wish === 'string') {
+    return <WishLab state={sp.wish} look={typeof sp.look === 'string' ? sp.look : undefined} known={sp.known !== '0'} />;
+  }
   const rsvp = typeof sp.rsvp === 'string' ? sp.rsvp : null;
   /* 🎉 `?play=<pick>` plays the When yes celebration as a guest who just said
      yes (`&freeze=<s>` holds one still frame for a screenshot); without it the

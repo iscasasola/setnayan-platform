@@ -60,6 +60,7 @@ export function GuestWelcome({
   march = null,
   venue = null,
   giftHref,
+  giftWishes = 0,
   mark = () => null,
   maker = false,
   partLooks = null,
@@ -75,6 +76,8 @@ export function GuestWelcome({
   /** 🗺 The day's ONE venue with directions (`lib/day-venue-now.ts`), drawn by the caller. */
   venue?: ReactNode;
   giftHref: string | null;
+  /** 🎁 Open wishes behind the gift door (`resolveGuestDoorways(...).wishes`) — its one extra line. */
+  giftWishes?: number;
   mark?: (key: string) => ReactNode;
   maker?: boolean;
 }) {
@@ -124,7 +127,7 @@ export function GuestWelcome({
           return (
             <WelcomeSlot key="gifts">
               {mark('f:gifts')}
-              <WelcomeGifts href={giftHref} words={words} look={partLooks?.gifts ?? null} />
+              <WelcomeGifts href={giftHref} words={words} look={partLooks?.gifts ?? null} wishes={giftWishes} />
             </WelcomeSlot>
           );
         }

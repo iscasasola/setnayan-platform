@@ -14,6 +14,7 @@
  */
 import type { GiftRecordRow, WishItemRow } from '@/lib/wish-list';
 import { studioWishListFrom, type StudioWishList } from '@/lib/wish-list-studio';
+import { guestWishListFrom, type GuestWishList } from '@/lib/wish-list-guest';
 
 const EVENT = '00000000-0000-4000-8000-000000000000';
 const id = (n: number) => `00000000-0000-4000-8000-0000000001${String(n).padStart(2, '0')}`;
@@ -50,7 +51,7 @@ const gift = (n: number, toward: number | null, who: string, amount: number, kin
 });
 
 const WISHES: WishItemRow[] = [
-  wish(1, 'Air fryer', 4500),
+  { ...wish(1, 'Air fryer', 4500), note: 'the 6 L one, black' },
   wish(2, 'Rice cooker', 3200),
   wish(3, 'Luggage set', 8900),
   wish(4, 'Coffee maker', 6000),
@@ -76,4 +77,46 @@ export function labWishList(state: LabWishState): StudioWishList {
   if (state === 'fail') return { read: false };
   if (state === 'empty') return studioWishListFrom([], [], () => null);
   return studioWishListFrom(WISHES, GIFTS, () => null);
+}
+
+/* ── the guest's side (`/dev/maker-lab/guest?wish=…`) ────────────────────── */
+
+/** The prototype's `MORE` — nine more wishes for the long list (frame 22); the last two are got. */
+const MORE: Array<[string, number]> = [
+  ['Indoor plant', 900],
+  ['Reading lamp', 1800],
+  ['Bath towels', 1500],
+  ['Stand mixer', 12500],
+  ['Dinner plates', 3400],
+  ['Picture frames', 1200],
+  ['Electric kettle', 1600],
+  ['Throw pillows', 2200],
+  ['Wall clock', 1900],
+];
+
+export type LabGuestWishState = 'five' | 'got' | 'long' | 'noprice' | 'fail';
+
+export function labGuestWishState(raw: string | undefined): LabGuestWishState {
+  return raw === 'got' || raw === 'long' || raw === 'noprice' || raw === 'fail' ? raw : 'five';
+}
+
+/** The same seed, through the REAL guest view builder — one sum per wish, no giver's name. */
+export function labGuestWishList(state: LabGuestWishState): GuestWishList {
+  if (state === 'fail') return { read: false };
+  let wishes = WISHES;
+  let gifts = GIFTS;
+  if (state === 'got') {
+    /* Frame 21: one more ₱500 reaches the air fryer's ₱4,500 — marked for the couple. */
+    wishes = WISHES.map((w) => (w.name === 'Air fryer' ? { ...w, got_at: '2026-10-07T02:00:00.000Z', got_by: 'auto' as const } : w));
+    gifts = [gift(9, 1, 'Tita Nene', 500, 'gcash', '2026-10-07T02:00:00.000Z', ''), ...GIFTS];
+  }
+  if (state === 'long') {
+    const more = MORE.map(([name, price], i) => wish(10 + i, name, price, i > 6 ? 'auto' : null));
+    wishes = [...WISHES, ...more];
+    gifts = [...GIFTS, ...MORE.flatMap(([, price], i) => (i > 6 ? [gift(20 + i, 10 + i, 'Ate Grace', price, 'gcash', '2026-10-03T03:20:00.000Z', '')] : []))];
+  }
+  if (state === 'noprice') {
+    wishes = WISHES.map((w) => ({ ...w, price_php: null, note: null, got_at: null, got_by: null }));
+  }
+  return guestWishListFrom(wishes, gifts, () => null);
 }

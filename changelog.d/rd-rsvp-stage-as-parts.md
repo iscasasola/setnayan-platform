@@ -14,14 +14,17 @@ what the rsvp looks like after the reply yes or no"*. The stage drew the real re
   itself (`stampRsvpCanvas`), so the door every guest is served is not edited. `MAKER_PARTS.yesnote` / `nonote` have
   canvases; the two after-screens list the mark, the names and the invitation line as parts too.
 - **A tap picks; nothing is live.** `rsvp-canvas-bridge.tsx` stops EVERY click before React (no link, no button, no
-  field — the one-question walker's Next included) and says which part was tapped (`rsvpPick { key, el }`, the pair the
+  field — the one-question walker's Next included), makes every control `inert` (no focus by a tap, the Tab key or a
+  script) and says which part was tapped (`rsvpPick { key, el }`, the pair the
   Event Hub canvas posts with its `edit`). ⚠ Under the RSVP stage's own message names: the work area stays mounted
   beneath this stage and answers `edit` from any frame — it would move the Maker's selection and close the stage.
   A tap on the ground lets the part go. The submit stop, the inert fields and `submitInviteReply`'s sample-guest refusal
   all stand.
 - **The frame.** `PartEdits` / `partBox` / `centrePart` / the drawn-order read take the frame the page is in — on the
   RSVP stage, `iframe[data-rsvp-stage-frame="<screen>"]:not([hidden])`; `rsvpOpen` is out of the frame's gate, so the
-  outline, the name tab, ↑ ↓ ✕ and the gap-middle ＋ are the ones every stage has. Tiles are only the parts the screen drew.
+  outline (stopping mid-gap), the name tab and ↑ ↓ ✕ are the ones every stage has. Tiles are only the parts the screen
+  drew. A reply page is a FIXED page (`makerStageIsFixedPages`): no ＋, grip or 🗑 — nothing can be added to one, and
+  the ＋ sheet asks the work area mounted beneath, which would offer the Invitation's hidden scenes.
 - **The tools are the picked part's.** The form and the two notes open the stage's own controls under "Edit the RSVP ·
   Studio ›"; the mark, the names, the date and the place show their own door (Logo · Info · Suppliers); each guest's own
   name, their ticket and the fixed opening words show their name and ⓘ.
@@ -37,7 +40,7 @@ what the rsvp looks like after the reply yes or no"*. The stage drew the real re
 New words (host-only, behind ⓘ): "Every reply page opens with these words." (the Title on the form) · "Your invitation
 line. You type it on the Invitation’s Welcome page." (the line on the after-screens).
 
-Guard: `lib/the-rsvp-stage-is-parts.test.ts` (19 tests, each seen red by sabotage); `the-stage-pages-are-the-prototypes`
+Guard: `lib/the-rsvp-stage-is-parts.test.ts` (22 tests, each rule seen red by sabotage); `the-stage-pages-are-the-prototypes`
 names the three masthead parts added to the after-screens.
 
 SPEC IMPACT: `STAGES_PANEL_BUILD_STATUS_2026-10-08.md` — "Round 5 — RSVP as parts" (corpus, this PR's status section).

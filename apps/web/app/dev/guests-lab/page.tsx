@@ -255,6 +255,18 @@ function DockStandIn() {
   );
 }
 
+/**
+ * The Digital Pass picture on the lab's Setup page: a small picture drawn INLINE (a `data:` image — the page's CSP allows it),
+ * never the production address it once pointed at (`https://setnayan.com/api/hub-print/pass…`: refused by the page's own
+ * `img-src` three times, and a lab page has no business asking the live site for anything). The REAL Setup view hands a
+ * same-origin path (`/api/hub-print/pass?event=…`), which the CSP allows.
+ */
+const LAB_PASS_SRC =
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="426" viewBox="0 0 320 426"><rect width="320" height="426" rx="20" fill="#fbf7f0" stroke="#d9cfbf"/><text x="160" y="150" font-family="Georgia,serif" font-size="26" text-anchor="middle" fill="#1e1a12">Maria &amp; Jose</text><text x="160" y="184" font-family="sans-serif" font-size="13" text-anchor="middle" fill="#6b6455">Digital Pass (lab sample)</text><rect x="100" y="224" width="120" height="120" rx="8" fill="#fff" stroke="#d9cfbf"/></svg>',
+  );
+
 export default async function GuestsLabPage({
   searchParams,
 }: {
@@ -338,7 +350,7 @@ export default async function GuestsLabPage({
                       drafted={false}
                       reply={{ own: '2027-01-14', pricingMode: 'realtime', fallback: null }}
                       toInvite={toInviteCount(sp.fail === '1' ? [] : planningRoster(), sp.fail !== '1')}
-                      passSrc="https://setnayan.com/api/hub-print/pass?sample=1&mode=screen"
+                      passSrc={LAB_PASS_SRC}
                       oneLink={{
                         url: 'https://setnayan.com/cale-ice/invite',
                         qrSvg: await renderStyledUrlQrSvg('https://setnayan.com/cale-ice/invite', undefined, 240),

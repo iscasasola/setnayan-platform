@@ -50,7 +50,11 @@ test('the three shared parts get the SAME frames as the Maker (source against so
   /* Reply by differs by one thing, on purpose: Setup keeps the sentence behind its ⓘ. */
   const mk = frameSrc(MAKER, 'replyByFrame');
   const su = frameSrc(FRAMES, 'replyByFrame');
-  assert.equal(su.replace(' about={{ words: REPLY_BY_LINE }}', ''), mk, 'Reply by differs from the Maker’s by more than its ⓘ');
+  assert.equal(
+    su.replace(' about={{ words: REPLY_BY_LINE }}', '').replace('onKeep={keepInPlainWords(row.keep)}', 'onKeep={row.keep}'),
+    mk,
+    'Reply by differs from the Maker’s by more than its ⓘ and its plain refusal',
+  );
   assert.match(su, /about=\{\{ words: REPLY_BY_LINE \}\}/);
 });
 

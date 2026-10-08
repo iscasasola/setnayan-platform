@@ -180,3 +180,23 @@ buttons (`/usr/bin/grep -rcE --include='*.tsx' '<class>' <area>`, tests excluded
 Guard: `lib/the-main-button-is-the-accent.test.ts` (6). 19 sabotages seen red there and 3 on the lint.
 
 SPEC IMPACT: None (the ruling is in `INTERACTION_RULES.md` § 9's APPROVED block).
+
+## 2026-10-08 · feat(ui): the tappable mark is the accent — in the shared pieces that draw one
+
+Owner, verbatim (2026-10-08), on a list row's grey arrow: *"teracota?"* (and on the dropdown: *"Chevron should be
+teracota color?"*). Six marks in five shared components wear `text-sn-accent` (they were grey `text-ink/40`, or
+went gold on hover): `BackButton`'s arrow · the arrow at the end of a conversation row (`chat/thread-list-card`) and
+of a contract row (`contracts/contract-card`) · a conversation's ⋮ (`chat-thread-menu`) · a Studio service page's
+back arrow and row arrow (`app-store/layout`). All five are drawn on dashboards only.
+
+Measured, so nobody over-reads this: there is NO one source for these marks. `PageMasthead` draws neither a back
+arrow nor a ⋯ (it is the page's hidden heading and an actions slot), and `.sn-row` is a surface with no arrow of
+its own. Left for the area sweeps — placed by each page, outside the guests' Event Hub: a back arrow in 117
+files, a row arrow in 41 (17 of the 94 files that use `.sn-row`), a pencil in 34, ⋯/⋮ in 8
+(`/usr/bin/grep -rlE --include='*.tsx' '<(ArrowLeft|ChevronLeft)\b' apps/web/app apps/web/components`, and the like).
+Also left: marks that sit ON a button (the run-of-show's ink buttons, the tour's Back/Next) and the service card's
+gold "View details ›" — they belong to the action-button lane.
+
+Guard: `lib/the-tappable-mark-is-the-accent.test.ts` (2), by a named list. 7 sabotages seen red.
+
+SPEC IMPACT: None.

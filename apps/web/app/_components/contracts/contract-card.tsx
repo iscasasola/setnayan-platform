@@ -98,7 +98,7 @@ export function ContractCard({
         </div>
         <ArrowRight
           aria-hidden
-          className="h-4 w-4 shrink-0 text-ink/40"
+          className="h-4 w-4 shrink-0 text-sn-accent"
           strokeWidth={1.75}
         />
       </Link>

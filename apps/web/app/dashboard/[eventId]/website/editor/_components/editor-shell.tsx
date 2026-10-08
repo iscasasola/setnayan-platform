@@ -964,9 +964,13 @@ export function MakerWork({
      page that is already loaded. Keyed exactly as the shown frame would be, so
      a switch finds its frame. None while "view as" is on, and none on a
      small-memory phone or a save-data connection (`warmCanvasBudget`).
-     🧯 2026-10-08: a stage nobody opened is no longer fetched ahead — each one
-     is a full server render of the guest page, repeated after every save. */
+     🧯 2026-10-08: no save ever fetches a stage nobody is looking at — each
+     one is a full server render of the guest page. They are warmed ONCE per
+     open, on idle, and the first save ends it (`warmOnce`; `warmOver` is how
+     the canvas hears of a Maker render that came after the open). */
   const [warmBudget, setWarmBudget] = useState(0);
+  const [openStamp] = useState(maker?.renderStamp ?? '');
+  const warmOver = (maker?.renderStamp ?? '') !== openStamp;
   useEffect(() => {
     const nav = window.navigator as Navigator & { deviceMemory?: number; connection?: { saveData?: boolean } };
     setWarmBudget(
@@ -2731,6 +2735,7 @@ export function MakerWork({
             broadcastRef={canvasBroadcast}
             warm={warmStages}
             warmMax={warmBudget}
+            warmOver={warmOver}
             anchorKey={() => selectedKeyRef.current}
             onShown={setShownFrameKey}
             onSwapped={onCanvasSwapped}
@@ -3263,7 +3268,7 @@ export function MakerWork({
  * (the scrapbook, or the story as guests see it). Details is the shell's.
  */
 /** Details and RSVP are drawn by the SHELL (`maker-shell.tsx`) over this area. */
-/** The other stages, nearest first (`PUBLIC_STAGE_ORDER`) — the order they are kept in when the budget is short. */
+/** The other stages, nearest first (`PUBLIC_STAGE_ORDER`) — the order they are warmed in, and kept in when the budget is short. */
 function warmStageOrder(stage: LifecyclePhase): LifecyclePhase[] {
   const order: readonly LifecyclePhase[] = PUBLIC_STAGE_ORDER;
   const at = order.indexOf(stage);

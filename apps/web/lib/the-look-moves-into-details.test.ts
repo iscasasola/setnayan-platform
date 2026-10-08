@@ -253,10 +253,12 @@ const LOOK = {
 test('(4) Details draws the Logo studio as the body, the Hero and Reveal pages with their controls on the right', async () => {
   assert.match(await paintLook('body', 'logo', LOOK), /data-details-look="logo"[\s\S]*data-stub="logo-studio"/);
   const hero = await paintLook('body', 'hero', LOOK);
-  assert.match(hero, /src="\/ana-ben\?phase=rsvp&amp;editor=1&amp;only=hero"/, 'the Hero page is the hero alone, on the host canvas');
+  // (The frame itself is mounted by the client — `buffered-canvas-frame.tsx`, "NO IFRAME IN THE SERVER'S HTML" —
+  // so the server's HTML names the page on the frame's box.)
+  assert.match(hero, /data-canvas-src="\/ana-ben\?phase=rsvp&amp;editor=1&amp;only=hero"/, 'the Hero page is the hero alone, on the host canvas');
   assert.match(await paintLook('editor', 'hero', LOOK), /data-stub="hero-controls"/);
   const reveal = await paintLook('body', 'reveal', LOOK);
-  assert.match(reveal, /src="\/ana-ben\?phase=rsvp&amp;preview=draft"/, 'the Reveal plays on its first chosen stage');
+  assert.match(reveal, /data-canvas-src="\/ana-ben\?phase=rsvp&amp;preview=draft"/, 'the Reveal plays on its first chosen stage');
   assert.match(reveal, /data-maker-page-switch=""/, 'with two chosen stages the page offers both');
   assert.match(await paintLook('editor', 'reveal', LOOK), /data-stub="reveal-controls"/);
 });

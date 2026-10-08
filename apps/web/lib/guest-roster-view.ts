@@ -90,20 +90,101 @@ export type RosterFacts = {
   songsOf?: (guestId: string) => readonly string[];
 };
 
+/** What the invite rule reads off a guest — every field optional, so any guest read can ask it. */
+export type InviteFacts = {
+  role?: string | null;
+  entry_source?: string | null;
+  passed_away?: boolean | null;
+  invitation_sent_at?: string | null;
+  rsvp_status?: string | null;
+};
+
 /**
- * "To invite" — the shipped counts line's own definition (page.tsx, owner
- * 2026-09-30): a living guest, never the couple, never a request, whose
- * invitation is not sent and who has not said they can't come.
+ * MAY THIS GUEST BE SENT AN INVITATION AT ALL — sent already or not. A living,
+ * accepted guest who is not the couple or the celebrant and has NOT declined
+ * (owner 2026-10-08, verbatim: *"no. declined guests don't get an invitation"*).
+ * The send run's "Everyone" is exactly these; nothing else decides it.
  */
-export function isToInvite(g: Pick<GuestRow, 'role' | 'entry_source' | 'passed_away' | 'invitation_sent_at' | 'rsvp_status'>): boolean {
+export function mayBeInvited(g: InviteFacts): boolean {
   return (
     g.role !== 'bride' &&
     g.role !== 'groom' &&
-    !isHonoreeRole(g.role) &&
+    !isHonoreeRole(g.role as GuestRow['role']) &&
     countsTowardEvent(g) &&
-    !g.invitation_sent_at &&
     g.rsvp_status !== 'declined'
   );
+}
+
+/**
+ * 🔑 "TO INVITE" — ONE DEFINITION, EVERYWHERE (owner 2026-09-30 for the counts
+ * line; made the only rule 2026-10-08): a guest who `mayBeInvited` and has no
+ * invitation sent. The List's "N to invite" and its door, the "to invite" word
+ * search ("Pick who"), Setup's "Send to N" (`toInviteCount`), the send run's
+ * queue and its "Not sent yet (N)" (`sendRunGuests`), and Home's "Send N
+ * invitations" (`homeGuestsRead`) all ask THIS — so the three numbers are one
+ * number and a declined guest is never queued. A blank stamp is not a send.
+ * Held by `lib/to-invite-is-one-rule.test.ts`.
+ */
+export function isToInvite(g: InviteFacts): boolean {
+  return mayBeInvited(g) && (!g.invitation_sent_at || String(g.invitation_sent_at).trim() === '');
+}
+
+/** "N to invite" off a guest read — `null` when the read was REFUSED (unknown, never 0). */
+export function toInviteCount(rows: readonly InviteFacts[], measured: boolean): number | null {
+  return measured ? rows.filter((g) => isToInvite(g)).length : null;
+}
+
+/**
+ * THE SEND RUN'S PEOPLE — everyone who `mayBeInvited` (its "Everyone"); of
+ * them, the ones `isToInvite` are its "Not sent yet" and its opening queue.
+ * `picked` (the List's "Invite N", `?ids=`) narrows to the ticked guests, in
+ * the order they were ticked — a ticked guest who has declined is still left out.
+ */
+export function sendRunGuests<G extends InviteFacts & { guest_id: string }>(rows: readonly G[], picked: readonly string[] = []): G[] {
+  const order = new Map(picked.map((id, i) => [id, i] as const));
+  return rows
+    .filter((g) => mayBeInvited(g))
+    .filter((g) => picked.length === 0 || order.has(g.guest_id))
+    .sort((a, b) => (order.get(a.guest_id) ?? 0) - (order.get(b.guest_id) ?? 0));
+}
+
+/** A guest as the run holds them (`SendInviteGuest` has these). */
+type RunGuest = { guestId: string; sentAt: string | null };
+
+/**
+ * WHERE THE RUN STANDS AGAINST THE LATEST READ. The queue is a snapshot (a send
+ * must not reshuffle it under the couple's thumb), but every read after it can
+ * take people OUT: `latest` is `sendRunGuests` again, so a guest who declined —
+ * or was removed — since the run opened is no longer in it and is stepped over,
+ * never offered. Counting is over the people still in it ("1 of N").
+ */
+export function runStanding<G extends RunGuest>(
+  queue: readonly G[],
+  latest: readonly RunGuest[],
+  at: number,
+): { index: number; current: G | null; upNext: G | null; position: number; total: number } {
+  const live = new Set(latest.map((g) => g.guestId));
+  const stillIn = (g: G | undefined): g is G => Boolean(g) && live.has(g!.guestId);
+  let index = Math.max(0, at);
+  while (index < queue.length && !stillIn(queue[index])) index += 1;
+  let next = index + 1;
+  while (next < queue.length && !stillIn(queue[next])) next += 1;
+  return {
+    index,
+    current: queue[index] ?? null,
+    upNext: queue[next] ?? null,
+    position: queue.slice(0, index).filter((g) => stillIn(g)).length + 1,
+    total: queue.filter((g) => stillIn(g)).length,
+  };
+}
+
+/**
+ * WHO JOINED SINCE THE RUN LAST LOOKED — a guest the run has never been handed
+ * (their "can't come" was changed back, or they were just added). They go on
+ * the END of the queue: under "Not sent yet" only while nothing is sent to them.
+ */
+export function runArrivals<G extends RunGuest>(known: ReadonlySet<string>, latest: readonly G[], who: 'unsent' | 'everyone'): G[] {
+  return latest.filter((g) => !known.has(g.guestId) && (who === 'everyone' || !g.sentAt));
 }
 
 /**

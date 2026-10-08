@@ -29,10 +29,15 @@
  *                   (375×667), where a menu has no room under it
  *   ?part=setup     Guests › Setup (2026-10-07) — the REAL `GuestSetupRows` on
  *                   fixture data: &getin=list|personal|requests|one_qr_approve|one_qr,
- *                   &hc=open|locked. The Digital Pass is the shipped
+ *                   &hc=open|locked; "Send to N" is counted off the lab roster
+ *                   by the one rule (`toInviteCount`). The Digital Pass is the shipped
  *                   SAMPLE event's pass (`?sample=1`, the public sample door) —
  *                   a lab has no event of its own. Saves go nowhere real: the
  *                   fixture event id fails the host fence, and a refusal says so.
+ *   ?part=run       the send run (`/guests/send`) on the same roster — the REAL
+ *                   `SendRun` over `sendRunGuests`; its "Not sent yet (N)" is
+ *                   the List's "N to invite" and Setup's "Send to N". The QR
+ *                   and the ticket are a real event's, so they do not draw here.
  *   ?part=rsvp      the Maker's Studio › RSVP (`MakerRsvpSettings studio`) on the
  *                   same fixture, so the two doors can be compared side by side
  */
@@ -47,7 +52,10 @@ import { GuestCardBody } from '@/app/dashboard/[eventId]/guests/_components/gues
 import { GuestInviteCell } from '@/app/dashboard/[eventId]/guests/_components/guest-invite-cell';
 import { GuestMoreMenu, GuestTicketThumb } from '@/app/dashboard/[eventId]/guests/_components/guest-ticket-parts';
 import type { GuestCardData } from '@/app/dashboard/[eventId]/guests/_components/guest-card-data';
-import type { GuestRow } from '@/lib/guests';
+import { guestDisplayName, guestFullName, type GuestRow } from '@/lib/guests';
+import { sendRunGuests, toInviteCount } from '@/lib/guest-roster-view';
+import { invitationLinkOn } from '@/lib/invitation-link';
+import { SendRun } from '@/app/dashboard/[eventId]/guests/send/_components/send-run';
 import { GuestListMultiselect } from '@/app/dashboard/[eventId]/guests/_components/guest-list-multiselect';
 import type { ArrangeKey } from '@/lib/roster-arrangement';
 import { GuestSetupRows } from '@/app/dashboard/[eventId]/_components/guest-setup/guest-setup-rows';
@@ -58,6 +66,8 @@ import { GuestsScreen } from '@/app/dashboard/[eventId]/guests/_components/guest
 import { RoleNamesProvider } from '@/app/dashboard/[eventId]/guests/_components/role-names-context';
 
 const EVENT = '00000000-0000-4000-8000-000000000000';
+/** A stand-in Event Hub address for the run's personal links (the shipped builder makes the link). */
+const LAB_HUB = 'https://setnayan.com/maria-and-jose';
 
 const NOTICES: NotificationRow[] = [
   {
@@ -207,6 +217,31 @@ const MJ_ROSTER: ReadonlyArray<[string, string, GuestRow['role'], GuestRow['side
   ['Efren', 'Ramos', 'guest', 'groom', 'Table 9'],
 ];
 
+/**
+ * maria-and-jose's roster with the replies, invitations and groups a planning
+ * couple has a month out — so every section, pill and count of the prototype
+ * has something real to draw. Two of them (Rosa Santos, Cita Ramos) said they
+ * can't come before anything was sent: they are in NO "to invite" count.
+ */
+function planningRoster(): GuestRow[] {
+  const RSVP: GuestRow['rsvp_status'][] = ['attending', 'attending', 'attending', 'pending', 'maybe', 'attending', 'declined', 'pending'];
+  return MJ_ROSTER.map(([first, last, role, side], i) =>
+    guest({
+      guest_id: `g-mj-${i}`,
+      public_id: `S89G-LABMJ${String(i).padStart(5, '0')}`,
+      first_name: first,
+      last_name: last,
+      role,
+      side,
+      group_category: 'family',
+      rsvp_status: role === 'bride' || role === 'groom' ? 'attending' : RSVP[i % RSVP.length]!,
+      invitation_sent_at: i % 5 === 4 || i > 26 ? null : '2026-09-20T00:00:00Z',
+      plus_one_count: i === 6 ? 1 : 0,
+      plus_one_allowed: i === 6,
+    }),
+  ).map((g) => (g.invitation_sent_at === null && g.rsvp_status !== 'declined' ? { ...g, rsvp_status: 'pending' as const } : g));
+}
+
 /** A stand-in bottom bar, in the REAL anchored dock (z-30, outside <main>). */
 function DockStandIn() {
   return (
@@ -304,7 +339,7 @@ export default async function GuestsLabPage({
                       config={config}
                       drafted={false}
                       reply={{ own: '2027-01-14', pricingMode: 'realtime', fallback: null }}
-                      toInvite={3}
+                      toInvite={toInviteCount(sp.fail === '1' ? [] : planningRoster(), sp.fail !== '1')}
                       passSrc="https://setnayan.com/api/hub-print/pass?sample=1&mode=screen"
                       oneLink={{
                         url: 'https://setnayan.com/cale-ice/invite',
@@ -340,25 +375,7 @@ export default async function GuestsLabPage({
   }
 
   if (part === 'screen' || part === 'setup') {
-    // maria-and-jose's roster with the replies, invitations and groups a
-    // planning couple has a month out — so every section, pill and count of the
-    // prototype has something real to draw.
-    const RSVP: GuestRow['rsvp_status'][] = ['attending', 'attending', 'attending', 'pending', 'maybe', 'attending', 'declined', 'pending'];
-    const roster = MJ_ROSTER.map(([first, last, role, side], i) =>
-      guest({
-        guest_id: `g-mj-${i}`,
-        public_id: `S89G-LABMJ${String(i).padStart(5, '0')}`,
-        first_name: first,
-        last_name: last,
-        role,
-        side,
-        group_category: 'family',
-        rsvp_status: role === 'bride' || role === 'groom' ? 'attending' : RSVP[i % RSVP.length]!,
-        invitation_sent_at: i % 5 === 4 || i > 26 ? null : '2026-09-20T00:00:00Z',
-        plus_one_count: i === 6 ? 1 : 0,
-        plus_one_allowed: i === 6,
-      }),
-    ).map((g) => (g.invitation_sent_at === null && g.rsvp_status !== 'declined' ? { ...g, rsvp_status: 'pending' as const } : g));
+    const roster = planningRoster();
     const GROUPS: Record<string, string[]> = {
       'g-mj-24': ['Barkada'],
       'g-mj-25': ['Barkada'],
@@ -418,6 +435,36 @@ export default async function GuestsLabPage({
           <AddGuestSheet eventId={EVENT} defaultSide="both" />
         </div>
       </RoleNamesProvider>
+    );
+  }
+
+  if (part === 'run') {
+    // The REAL run over the REAL rule's list (`sendRunGuests`) — the page's own two lines.
+    const failed = sp.fail === '1';
+    const runGuests = sendRunGuests(failed ? [] : planningRoster()).map((g) => ({
+      guestId: g.guest_id,
+      formalName: guestFullName(g),
+      firstName: g.first_name,
+      fullName: guestDisplayName(g),
+      inviteUrl: invitationLinkOn(LAB_HUB, g.guest_id),
+      sentAt: g.invitation_sent_at,
+    }));
+    return (
+      <div className="sn-ambient min-h-screen">
+        <main className="sn-vt-page">
+          <div className="mx-auto w-full max-w-xl px-4 pb-24 pt-4 sm:px-6" data-lab-run="">
+            <h1 className="mt-1 text-2xl font-semibold tracking-tight text-ink">Send invites one by one</h1>
+            <SendRun
+              eventId={EVENT}
+              guests={runGuests}
+              measured={!failed}
+              facts={{ hostsName: 'Maria & Jose', eventWord: 'wedding', eventDate: '2026-12-12', datePrecision: 'day' }}
+              template={null}
+            />
+          </div>
+        </main>
+        <DockStandIn />
+      </div>
     );
   }
 

@@ -14,4 +14,11 @@ Owner (2026-10-07): *"pressing this will show all guests who accepted requests"*
 - Tests: `counts-equal-the-rows.test.ts` now DRAWS the real screen and the real Setup rows (`render-guests-screen.ts`, the sibling of `render-setup.ts`) — N > 0 is a link into the run; N = 0 is plain words; a refused read prints no count; the List's door and Setup's door open the same place. `home-tiles-open-their-guests.test.ts` holds the one `rosterStats` call. `the-home-leads-with-one-next.test.ts` is re-aimed at the new shape. Nine sabotages, each seen red.
 - Merged `origin/main` (#6405 as merged, #6409 Guests › Setup, #6418); port-control baseline regenerated.
 
+**Added 2026-10-08 (owner: *"no. declined guests don't get an invitation"*) — "to invite" is ONE rule everywhere:**
+
+- `isToInvite` (`lib/guest-roster-view.ts`: no invitation sent · has not declined · never the couple, the celebrant, a request or a guest who passed away) is now the only definition. Guests › Setup's "Send to N" (`toInviteCount`), the send run — who it holds, "Not sent yet (N)", "1 of N" (`sendRunGuests`) — and Home's "Send N invitations" (`homeGuestsRead`) used to count every non-couple guest with nothing sent, so a guest who had already said no was queued and one screen could print two numbers. The List's count and door, "Pick who" and "Invite N" already asked it.
+- The run re-reads after every send: a guest who declines after it opened is stepped over and left out of "1 of N" (`runStanding`); one whose reply changes back joins the end of the queue (`runArrivals`). Who counts as declined is unchanged. A refused read is still `null` / "We couldn't count…", never 0.
+- New guard `lib/to-invite-is-one-rule.test.ts`: one roster with a declined-and-never-invited guest, run through every surface's own function and through the drawn Setup rows and the drawn run. Eleven sabotages, each seen red.
+- `/dev/guests-lab`: Setup's "Send to N" is counted off the lab roster by the rule (it was a typed-in 3), and `?part=run` draws the real run.
+
 SPEC IMPACT: None — "no reply" moves to the owner's own words (HOME_AND_GUESTS G4/G18 count and search); flagged in the PR for sign-off since it reverses 4f's "invited and silent" split.

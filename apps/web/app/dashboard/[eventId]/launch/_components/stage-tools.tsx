@@ -2,6 +2,7 @@
 
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { PillThumb } from '@/app/_components/pill-selector';
+import { PeekToast } from '@/app/_components/toast/peek-toast';
 import { createPortal } from 'react-dom';
 import { ALargeSmall, Check, FileText, Orbit, PencilLine, Play, Reply, Square, Store, SwatchBook, X, type LucideIcon } from 'lucide-react';
 import { RSVP_STAGE_KEY } from '@/lib/rsvp-stage-shared';
@@ -13,6 +14,8 @@ import {
   makerPartOfTap,
   makerPartQuietRow,
   makerPartSource,
+  makerPartToolWhy,
+  makerPartToolWorks,
   makerPartsOnPage,
   makerPartsTappable,
   makerStepPart,
@@ -501,6 +504,9 @@ export function StageTools({
   rsvpOpenRef.current = rsvpOpen;
   const toolRef = useRef(tool);
   toolRef.current = tool;
+  /** The tool to open on a part: the one last used — or Style where that one has nothing to set there (it is
+   *  remembered all the same, and comes back on the next part that has it). */
+  const toolFor = useCallback((k: MakerPartKey | null): MakerPartTool => (k && !makerPartToolWorks(k, toolRef.current) ? 'style' : toolRef.current), []);
   const pickPart = useCallback(
     (k: MakerPartKey) => {
       setPicked(k);
@@ -519,9 +525,9 @@ export function StageTools({
       if (!def.canvas) return;
       /* 🔑 The canvas's own message — the same selection a tap on the page makes. */
       window.postMessage({ source: 'setnayan-site', t: 'edit', key: def.canvas, ...(def.el ? { el: def.el } : {}) }, window.location.origin);
-      askTool(toolRef.current, k);
+      askTool(toolFor(k), k);
     },
-    [askTool, rsvpOpen],
+    [askTool, rsvpOpen, toolFor],
   );
   const pickPartRef = useRef(pickPart);
   pickPartRef.current = pickPart;
@@ -551,7 +557,7 @@ export function StageTools({
           makerPartOfTap(where.current.stageKey, where.current.shownPage, d.key, typeof d.el === 'string' ? d.el : null) ??
           makerPartOfCanvas(where.current.stageKey, d.key);
         setPicked(k);
-        askTool(toolRef.current, k);
+        askTool(toolFor(k), k);
       } else if (d.t === 'type' && d.phase === 'start') {
         /* ⌨ Only the picked part's words type (the work area takes a first tap's caret back). */
         const attr = document.querySelector('[data-maker-shell]')?.getAttribute('data-stage-picked') ?? null;
@@ -582,7 +588,7 @@ export function StageTools({
     };
     window.addEventListener('message', onCanvas);
     return () => window.removeEventListener('message', onCanvas);
-  }, [askTool]);
+  }, [askTool, toolFor]);
 
   /* ⌨ A FIRST tap on a part's words (the work area took the caret back): the part is picked. */
   useEffect(() => {
@@ -882,7 +888,15 @@ export function StageTools({
   }, [picked, rsvpOpen, suppliersHref, stageKey, shownPage, onOpenStudio, fixedHere]);
   useEffect(() => () => setStagePanelNow({ picked: null, quiet: null, about: null }), []);
 
+  /* 🚫 A TOOL WITH NOTHING TO SET ON THE PICKED PART (`makerPartToolWorks`): grey, `aria-disabled`, and a tap says
+     one line why — the Reveal, the Camera, the pass and the RSVP pages (Style only) and every part with no Text or
+     Animate save (E-Gifts, What to wear …). With nothing picked every tool is live: a tap raises the page's parts. */
+  const toolWorks = (t: MakerPartTool) => t === 'style' || (!styleOnly && (!picked || !open || makerPartToolWorks(picked, t)));
+  /** The tool the panel under the row is showing: the remembered one, or Style where that one has nothing here. */
+  const shownTool: MakerPartTool = toolWorks(tool) ? tool : 'style';
+  const [why, setWhy] = useState<{ words: string; n: number } | null>(null);
   const pickTool = (t: MakerPartTool) => {
+    if (!toolWorks(t)) return setWhy((w) => ({ words: makerPartToolWhy(picked, t), n: (w?.n ?? 0) + 1 }));
     setTool(t);
     if (picked === 'reveal') return;
     if (!picked || !open) return setToolOnly(true);
@@ -942,6 +956,12 @@ export function StageTools({
       {/* ══ ▶ WHAT IS PLAYING — Build in · Action · Build out, the one now in bold, and any phase the part has none of
           named ("Build out: none"), so a blank never reads as a fault. Shown over the page while it plays. ══ */}
       {seq && (playing || seq.skipped.length > 0) ? <StagePlayStatus phase={seq.phase} skipped={seq.skipped} /> : null}
+      {/* ══ 🚫 WHY A GREY TOOL DID NOTHING — one line, the app's toast, gone by itself ══ */}
+      {why ? (
+        <PeekToast key={why.n} tone="note" data="tool-why" onGone={() => setWhy((w) => (w?.n === why.n ? null : w))}>
+          {why.words}
+        </PeekToast>
+      ) : null}
 
       {/* ══ ↕ THE GRAB — 44 × 5 in a 14 px strip; the tap reaches 15 px above and below ══ */}
       <button
@@ -1006,9 +1026,10 @@ export function StageTools({
                 {i > 0 ? <span aria-hidden data-stage-tool-divider="" className={STAGE_TOOL_DIVIDER} /> : null}
                 <button
                   type="button"
-                  aria-pressed={open && (styleOnly ? t === 'style' : tool === t)}
-                  /* The Reveal, the Camera, the Digital pass and the RSVP stage's three screens have no Text or Animate saves of their own. */
-                  disabled={styleOnly && t !== 'style'}
+                  /* Never pressed while it has nothing to set: the thumb rests on the tool whose panel is on screen. */
+                  aria-pressed={open && shownTool === t}
+                  /* Grey, and it still hears a tap — the tap says why (`pickTool`). Never `disabled`: that is a dead tap. */
+                  aria-disabled={toolWorks(t) ? undefined : true}
                   aria-label={MAKER_PART_TOOL_LABEL[t]}
                   title={MAKER_PART_TOOL_LABEL[t]}
                   data-stage-tool={t}

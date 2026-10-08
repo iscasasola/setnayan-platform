@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Check, TriangleAlert } from 'lucide-react';
+import { Check, Info, TriangleAlert } from 'lucide-react';
 
 /**
  * TOAST — A NOTIFICATION THAT PEEKS DOWN FROM THE TOP (`INTERACTION_RULES.md` § 9, kind 12 "Messages"; the approved
@@ -16,6 +16,10 @@ import { Check, TriangleAlert } from 'lucide-react';
  *   · A FAILURE never looks like success: the house danger token darkened (the app's red sits close to the
  *     terracotta, so colour alone is never the sign), a warning mark, the words that say what failed, and — where the
  *     caller can do it again — "Try again";
+ *   · A NOTE is neither: something the person should know that is not a result ("Nothing to change here — edit it
+ *     in Studio."). White with a hairline and ink words — the second button's look — and an ⓘ, so it is never read
+ *     as "done" (the accent with a ✓) nor as a fault. ⚠ The approved gallery draws the two results only; this third
+ *     look is the controller's reading, kept apart from both, awaiting the owner's look;
  *   · IT LEAVES BY ITSELF (`PEEK_TOAST_MS`: 2.2 s, 4.2 s for a failure) and tells the caller (`onGone`);
  *   · IT NEVER DARKENS THE PAGE and takes no tap of its own — the person keeps working. Only "Try again" is pressable;
  *   · MOTION: it slides down with the family's spring, at a share of the family's one speed (`--sn-pill-dur`), and
@@ -29,10 +33,10 @@ import { Check, TriangleAlert } from 'lucide-react';
  * No request, no timer but its own leaving. Guard: `lib/the-toast-peeks-from-the-top.test.ts`.
  */
 
-export type PeekToastTone = 'ok' | 'bad';
+export type PeekToastTone = 'ok' | 'bad' | 'note';
 
 /** How long a toast stays before it leaves — the approved gallery's own figures. */
-export const PEEK_TOAST_MS: Readonly<Record<PeekToastTone, number>> = { ok: 2200, bad: 4200 };
+export const PEEK_TOAST_MS: Readonly<Record<PeekToastTone, number>> = { ok: 2200, bad: 4200, note: 3200 };
 /** The room the slide back up is given before the caller is told it has gone. */
 export const PEEK_TOAST_LEAVE_MS = 420;
 /** The slide's share of the family's one speed (the gallery's 120 of the pill's 230). */
@@ -47,6 +51,7 @@ export const PEEK_TOAST_PILL =
 export const PEEK_TOAST_TONE: Readonly<Record<PeekToastTone, string>> = {
   ok: 'bg-sn-accent text-sn-on-accent',
   bad: 'bg-[color-mix(in_srgb,rgb(var(--color-danger))_68%,black)] !pl-[18px] !pr-2 text-cream',
+  note: 'bg-white text-ink ring-1 ring-inset ring-ink/15',
 };
 
 export function PeekToast({
@@ -82,7 +87,7 @@ export function PeekToast({
       window.clearTimeout(left);
     };
   }, [tone]);
-  const Mark = tone === 'bad' ? TriangleAlert : Check;
+  const Mark = tone === 'bad' ? TriangleAlert : tone === 'note' ? Info : Check;
   return (
     <div data-peek-toast={data ?? ''} data-tone={tone} className={PEEK_TOAST_PLACE}>
       <div

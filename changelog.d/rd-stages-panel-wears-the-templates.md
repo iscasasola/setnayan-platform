@@ -106,3 +106,26 @@ Guards: `lib/the-slider-is-one-drawing.test.ts`, `lib/the-stages-panel-wears-the
 each seen red).
 
 SPEC IMPACT: None.
+
+## 2026-10-09 · fix(maker): a tool with nothing to set on the picked part is grey and says so — D
+
+Tapped on the Maker lab (Invitation, 375 × 812): on E-Gifts and on What to wear a tap on Text slid the pill to Text
+while the panel still showed Style's cards — Animate the same; on the Reveal the two were greyed and a tap said
+nothing. A pill over the wrong panel is a failure drawn as success; a silent tap is a dead one.
+
+- `makerPartToolWorks(part, tool)` (`lib/maker-parts.ts`): Style always; Text and Animate only where the work area
+  has a save — a part with words of its own, or a scene. It mirrors the work area's own two branches, and a guard
+  fails if the work area gains a third.
+- A tool with nothing to set is grey and `aria-disabled` (never `disabled`), is never the pressed one, and a tap
+  says one line through the app's toast: "Nothing to change here — edit it in Studio." for a part whose content is
+  Studio's, "Text has nothing to change on this part." otherwise. The Reveal, the Camera, the pass and the RSVP
+  pages answer the same way.
+- Picking such a part opens Style; the tool last used is remembered and returns on the next part that has it.
+- `PeekToast` gains a third look, `note` (white, a hairline, ink words, an ⓘ): something to know that is neither a
+  result nor a fault. The approved gallery draws the two results only — this look awaits the owner.
+
+Requests: none. First load: unchanged.
+
+Guard: `lib/a-tool-with-nothing-to-do-says-so.test.ts` (12 sabotages, each seen red).
+
+SPEC IMPACT: None.

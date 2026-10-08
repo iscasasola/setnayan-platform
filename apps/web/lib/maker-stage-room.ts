@@ -53,7 +53,8 @@ export const STAGE_ITEM_BUTTON =
  */
 export const STAGE_TOOL_PILL = 'group/seg relative inline-flex h-11 shrink-0 items-center rounded-full border border-[var(--sp-line)] bg-white';
 /** One of Style | Text | Animate — 44 px tall to the thumb; its 46 × 38 face (`STAGE_TOOL_FACE`) is the prototype's `.tb`. Above the travelling thumb (`z-[1]`). */
-export const STAGE_TOOL_BUTTON = 'sn-press group relative z-[1] inline-flex h-11 w-[46px] items-center justify-center text-[var(--sp-mute)] disabled:opacity-30';
+/* A tool with nothing to set on the picked part is GREY and still hears a tap (`aria-disabled`, never `disabled`): the tap says why. */
+export const STAGE_TOOL_BUTTON = 'sn-press group relative z-[1] inline-flex h-11 w-[46px] items-center justify-center text-[var(--sp-mute)] aria-disabled:opacity-30';
 /** The face: it paints the dark pill itself until the thumb is laid, then hands the fill over (never a frame with none, never two). */
 export const STAGE_TOOL_FACE =
   'inline-flex h-[38px] w-[46px] items-center justify-center rounded-full transition-colors duration-sn-pill ease-sn motion-reduce:transition-none group-aria-pressed:bg-sn-accent group-aria-pressed:text-sn-on-accent group-data-[seg-thumb]/seg:group-aria-pressed:bg-transparent';

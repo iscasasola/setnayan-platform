@@ -85,10 +85,18 @@ test('every door into Event Details lands on Studio’s home, never over the Sta
   const src = read(`${LAUNCH}/maker-shell.tsx`);
   const at = src.indexOf("if (!ss || side !== 'stages' || selection?.kind !== 'tool' || selection.key !== 'details') return;");
   assert.ok(at > 0, 'the Stages side sends a Details selection away');
-  const body = src.slice(at, at + 200);
-  assert.match(body, /setSide\('studio'\)/);
-  assert.match(body, /setStudioAt\('home'\)/);
-  assert.match(body, /select\(null\)/);
+  /* 🔁 AMENDED 08 Oct — owner, live: *"clicking on music reset the maker and reloaded"*. A new version had arrived
+     and the page reloaded itself; this rule then treated the page's OWN reload as a door and dropped him on the
+     tiles. The rule is KEPT for every real door, and its landing is now one executed function
+     (`makerDoorLanding`, `lib/maker-resume.ts` — `a-reload-returns-to-the-same-place.test.ts` runs every case):
+     a cold door (`back` null) still lands on Studio's home with the selection dropped. */
+  const body = src.slice(at, at + 1400);
+  assert.match(body, /const land = makerDoorLanding\(back, /);
+  assert.match(body, /if \(land\.side === 'studio'\) setSide\('studio'\);/);
+  assert.match(body, /setStudioAt\(land\.at as StudioTileKey \| 'home'\);/);
+  assert.match(body, /if \(!land\.keep\) select\(null\);/);
+  const { makerDoorLanding } = require('./maker-resume') as typeof import('./maker-resume');
+  assert.deepEqual(makerDoorLanding(null, ['look', 'info']), { side: 'studio', at: 'home', keep: false }, 'a cold door: Studio’s home, the selection dropped');
 });
 
 /* ── 3 · Style › Look's layouts are real miniatures ──────────────────────── */

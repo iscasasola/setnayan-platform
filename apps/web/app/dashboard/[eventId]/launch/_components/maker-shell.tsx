@@ -43,7 +43,8 @@ import {
   type MakerSelection,
   type MakerState,
 } from './maker-context';
-import { DETAILS_FIRST_ITEM, DETAILS_LT_SECTION_FIRST, detailsLtSection, movedPageItem, type DetailsItemKey, type DetailsLtSection } from '@/lib/maker-details-items';
+import { DETAILS_FIRST_ITEM, DETAILS_LT_SECTION_FIRST, detailsLtSection, isDetailsItemKey, movedPageItem, type DetailsItemKey, type DetailsLtSection } from '@/lib/maker-details-items';
+import { makerCameBackToItself, makerDoorLanding, makerLoadNow, makerResumeKey, noteMakerResume, takeMakerResume } from '@/lib/maker-resume';
 import { makerGuestPages } from '@/lib/maker-guest-pages';
 import { SEE_AS, SEE_AS_EDITING, type SeeAs } from '@/lib/see-as';
 import { MAKER_PLAY_SCENE_EVENT, PreviewStageLink } from './maker-play-menu';
@@ -89,7 +90,7 @@ import { useMakerTool, type MakerEventBar, type MakerTool } from './maker-contex
 import type { MakerSide } from './maker-bar';
 import { PickSheetContext, type PickSheet } from '../../website/editor/_components/pick-menu-place';
 /* 🧭 The new Maker's own chrome — lazy, so the shipped Maker's first load carries none of it. */
-import { LowerThirdGrab, MakerSheet, MakerTour, StageTools, StudioBackToPart, StudioCover, StudioSideSwitch, StudioToolMenu, StudioToolRow } from './details-lazy';
+import { LowerThirdGrab, MakerSheet, MakerTour, MakerUpdating, StageTools, StudioBackToPart, StudioCover, StudioSideSwitch, StudioToolMenu, StudioToolRow } from './details-lazy';
 import { MAKER_LT_HALF } from '@/lib/maker-phone-room';
 import { detailsItemLayout } from '@/lib/maker-details-items';
 import { studioTileItem, type StudioTileKey } from '@/lib/studio-tile-defs';
@@ -327,6 +328,8 @@ export function MakerShell({
   */
   const memoryKey = `sn-maker:${eventId}`;
   const restored = useRef(false);
+  /** 🔁 Where the Maker was before this page reloaded itself (`lib/maker-resume.ts`) — read once, by the rule below. */
+  const cameBack = useRef<{ side: MakerSide; at: string; until: number } | null>(null);
   /** The address named what to open — memory then never moves Details' item. */
   const addressNamed = useRef(initialSelection !== null && !opensOnGuide);
   const openedOnGuide = useRef(opensOnGuide);
@@ -352,8 +355,18 @@ export function MakerShell({
       setSelection((cur) => cur ?? moved.selection);
       if (moved.item && !addressNamed.current) setDetailsItem((d) => d ?? moved.item);
     }
+    /* 🔁 THIS PAGE RELOADED ITSELF (a new version arriving under an open Maker — `lib/maker-resume.ts`): it opens
+       where it was, not on a cold door's landing. The note is one-shot and only this tab's; from anywhere else
+       it is thrown away. Kept a moment for the rule below, which decides where a Details selection lands. */
+    const back = stagesStudio ? takeMakerResume(window.sessionStorage, makerResumeKey(memoryKey), makerCameBackToItself(makerLoadNow())) : null;
+    if (back) {
+      cameBack.current = { ...back, until: Date.now() + 3000 };
+      if (isDetailsItemKey(back.item)) setDetailsItem(back.item);
+      // Studio's home has no tool selected, so the rule below never runs for it: put its side back here.
+      if (back.side === 'studio' && back.at === 'home') setSide('studio');
+    }
     restored.current = true;
-  }, [memoryKey]);
+  }, [memoryKey, stagesStudio]);
   useEffect(() => {
     if (!restored.current) return;
     try {
@@ -733,10 +746,23 @@ export function MakerShell({
      tab's remembered tool) — never covers the Stages side. Such a door lands on Studio's home instead. */
   useEffect(() => {
     if (!ss || side !== 'stages' || selection?.kind !== 'tool' || selection.key !== 'details') return;
-    setSide('studio');
-    setStudioAt('home');
-    select(null);
-  }, [ss, side, selection, select]);
+    /* 🔁 …EXCEPT THE PAGE'S OWN RELOAD (owner 08 Oct, live: *"clicking on music reset the maker and reloaded"* — a
+       new version had arrived; the reload was treated as a door and dropped him on Studio's tiles). A page that
+       came back to itself is put back where it was: on the stage, or in the Studio tool it had open. One-shot. */
+    const back = cameBack.current && Date.now() < cameBack.current.until ? cameBack.current : null;
+    cameBack.current = null;
+    const land = makerDoorLanding(back, studio?.tiles.map((t) => t.key) ?? []);
+    if (land.side === 'studio') setSide('studio');
+    setStudioAt(land.at as StudioTileKey | 'home');
+    // A tool put back opens as its tile opens it (`openStudio`): Look on its controls, any other with its editor up.
+    if (!land.keep) select(null);
+    else if (land.at !== 'look') setDetailsDoor((n) => n + 1);
+  }, [ss, side, selection, select, studio]);
+  /* 🔁 …and the note that makes it possible: where the Maker is, kept as it changes (this tab only). */
+  useEffect(() => {
+    if (!restored.current || !stagesStudio) return;
+    noteMakerResume(window.sessionStorage, makerResumeKey(memoryKey), { side, at: studioAt, item: detailsItem });
+  }, [memoryKey, stagesStudio, side, studioAt, detailsItem]);
   /* 🎯 THE STYLE BAR'S JUMP (owner 2026-10-07: *"opens to the exact place where to edit it"* · *"if we did a jump,
      we need a way to apply and return to where we were editing"*): the field is brought into view and focused
      once the editor has drawn it; "✓ Done · back to <part>" returns to the same stage and part (the edit stays
@@ -1195,6 +1221,8 @@ export function MakerShell({
             never over the first open's line. */}
         {stage === 'editorial' && !hint ? postEventTour : null}
 
+        {/* 🔁 Says "Updating Setnayan…" before the page reloads itself (a new version arriving mid-session). */}
+        <MakerUpdating />
         {tour ? (
           <MakerTour
             slides={tourSlides}

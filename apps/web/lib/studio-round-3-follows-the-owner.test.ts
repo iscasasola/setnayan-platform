@@ -284,10 +284,17 @@ test('7 · Mood Board: Palette · Attire · Inspiration · Do’s & Don’ts; th
   const src = read(`${D}/studio/mood-board/_components/mood-board-studio.tsx`);
   assert.match(src, /\['colours', 'Palette'\],\s*\['attire', 'Attire'\],\s*\['insp', 'Inspiration'\],\s*\['dos', 'Do’s & Don’ts'\],/, 'the tabs are not Palette · Attire · Inspiration · Do’s & Don’ts (keys kept)');
   const attire = STUDIO_INSPIRATION_SLOTS.filter((s) => s.attire).map((s) => [s.slotKey, s.label]);
-  assert.deepEqual(attire, [['bride', 'Bridal gown'], ['groom', 'Groom’s suit'], ['entourage', 'Entourage']], 'the attire boards are not the stored bride · groom · entourage slots');
-  assert.deepEqual(AWAITING_A_SLOT.map((a) => a.label), ['Groomsmen', 'Bridesmaids', 'Flower girl', 'Ring bearer'], 'the four boards with no slot are not recorded as waiting');
+  /* 👗 Seven since 2026-10-08 (owner: "go" on the four's slots, migration 20271266380994) — his order, the
+     whole party's board kept last. `four-more-attire-boards.test.ts` draws them. */
+  assert.deepEqual(
+    attire,
+    [['bride', 'Bridal gown'], ['groom', 'Groom’s suit'], ['bridesmaids', 'Bridesmaids'], ['groomsmen', 'Groomsmen'], ['flower_girl', 'Flower girl'], ['ring_bearer', 'Ring bearer'], ['entourage', 'Entourage']],
+    'the attire boards are not Bridal gown · Groom’s suit · Bridesmaids · Groomsmen · Flower girl · Ring bearer · Entourage',
+  );
+  assert.deepEqual(AWAITING_A_SLOT.map((a) => a.label), [], 'a board that has its slot is still recorded as waiting');
   assert.match(src, /STUDIO_INSPIRATION_SLOTS\.filter\(\(slot\) => !slot\.attire\)\.map\(slotBoard\)/, 'Inspiration still draws the attire boards');
-  assert.match(src, /attireBoardFor\(row\.key\) \? <div data-mood-board-attire-board=\{row\.key\}>\{slotBoard\(attireBoardFor\(row\.key\)!\)\}<\/div> : null/, 'an attire board is not beside its role');
+  assert.match(src, /\{attireBoardsUnder\(row\.key\)\.map\(\(slot\) => \(\s*<div key=\{slot\.slotKey\} data-mood-board-attire-board=\{slot\.slotKey\}>\s*\{slotBoard\(slot\)\}\s*<\/div>\s*\)\)\}/, 'an attire board is not beside its role');
+  assert.match(src, /\{attireBoardsAfter\(props\.attire\.map\(\(r\) => r\.key\)\)\.map\(\(slot\) => \(\s*<div key=\{slot\.slotKey\} data-mood-board-attire-board=\{slot\.slotKey\}>\s*\{slotBoard\(slot\)\}/, 'a board whose role is not on the list yet has no place');
   /* Both sources on every board: its own upload (+) and the suppliers' photos (Search ideas ›). */
   const board = src.slice(src.indexOf('const slotBoard = '), src.indexOf('const bar = ('));
   assert.match(board, /onClick=\{\(\) => openUpload\(slot\.slotKey\)\}/, 'a board cannot take the couple’s own photo');

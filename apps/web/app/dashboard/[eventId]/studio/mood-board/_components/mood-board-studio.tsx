@@ -14,7 +14,7 @@ import { MOODBOARD_SLOT_POSITIONS } from '@/lib/moodboard-slots';
 import { PALETTE_LIMITS, sanitizePaletteStyle, type PaletteKey, type RolePalette, type RoomDressing } from '@/lib/mood-board';
 import { derivedBoardFor, displayColorsFor } from '@/lib/mood-board-derive';
 import { FLORIST_LANE_PARTS, MAIN_COLOUR_SLOTS, ROOM_LANE_PARTS, lanePartColour, type LanePart } from '@/lib/colour-access';
-import { STUDIO_INSPIRATION_SLOTS, photoTag, type StudioInspirationSlot } from '@/lib/inspiration-slots';
+import { STUDIO_INSPIRATION_SLOTS, attireBoardsAfter, attireBoardsUnder, photoTag, type StudioInspirationSlot } from '@/lib/inspiration-slots';
 import {
   MAIN_COLOUR_JOBS,
   paletteFromPhotos,
@@ -51,7 +51,8 @@ import type { InspirationItem } from './inspiration-board';
  * keeps the shipped board.
  *
  * ONE `ISegmented` — Palette · Attire · Inspiration · Do's & Don'ts (owner 2026-10-08, "ok"; the
- * attire boards — Bridal gown · Groom's suit · Entourage — live in Attire next to their role) — under
+ * attire boards — Bridal gown · Groom's suit · Bridesmaids · Groomsmen · Flower girl · Ring bearer ·
+ * Entourage — live in Attire next to their role) — under
  * the Studio's Tool ▾ row, with Saved and ✨ Auto above it. Nothing here is a
  * new write:
  *
@@ -319,7 +320,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
       set('lighting_warmth', dom);
       commit(next, `${slot.label}’s palette is now the room’s — linens, chairs and lights.`);
     } else if (t.kind === 'role') {
-      commit(withRoleColours(palette, t.key, colours), `${slot.label}’s palette is now ${t.key === 'bride' ? 'the bride’s colours' : 'the entourage’s colours'}.`);
+      commit(withRoleColours(palette, t.key, colours), `${slot.label}’s palette is now ${ROLE_COLOURS_SAID[t.key]}.`);
     }
   };
 
@@ -408,8 +409,8 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
   };
 
   /* 🖼 ONE BOARD PER PART — upload (+) and Search ideas › (the suppliers' photos), drawn in Inspiration, or in Attire for the attire boards. */
-  /** The attire board beside a role (`bride` · `groom` · `entourage`), if that role has one. */
-  const attireBoardFor = (roleKey: string) => STUDIO_INSPIRATION_SLOTS.find((s) => s.attire && s.slotKey === roleKey) ?? null;
+  /* 👗 The attire boards sit under their role's row (`attireBoardsUnder` — one for most, two for the bearers:
+     Flower girl · Ring bearer); a board whose role is not on the list yet is drawn after the rows (`attireBoardsAfter`). */
   const slotBoard = (slot: StudioInspirationSlot) => {
     const row = tiles[slot.slotKey] ?? [];
     const photos = MOODBOARD_SLOT_POSITIONS.map((p) => ({ pos: p, tile: row[p - 1] })).filter((x) => x.tile);
@@ -506,6 +507,10 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
         </p>
       ) : null}
 
+      {/* 📎 ONE file input for every board's ＋, mounted WHICHEVER tab is open. It used to live inside the
+          Inspiration tab, so a board in Attire tapped ＋ and nothing opened — a refusal with no words. */}
+      <input ref={fileFor} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" data-mood-board-file="" onChange={(e) => { void onFile(e.target.files?.[0]); e.target.value = ''; }} />
+
       {tab === 'colours' ? (
         <div className="flex flex-col" data-mood-board-colours="">
           {openChanges.map((c) => (
@@ -593,13 +598,17 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                     </span>
                   ) : null}
                   {row.arrives ? <small className="text-[11.5px] text-ink/55">Arrives {row.arrives}</small> : null}
-                  {attireBoardFor(row.key) ? <div data-mood-board-attire-board={row.key}>{slotBoard(attireBoardFor(row.key)!)}</div> : null}
+                  {attireBoardsUnder(row.key).map((slot) => (
+                    <div key={slot.slotKey} data-mood-board-attire-board={slot.slotKey}>
+                      {slotBoard(slot)}
+                    </div>
+                  ))}
                 </div>
               </div>
             );
           })}
           {/* 👗 An attire board whose role is not on the list yet still has its place. */}
-          {STUDIO_INSPIRATION_SLOTS.filter((slot) => slot.attire && !props.attire.some((r) => r.key === slot.slotKey)).map((slot) => (
+          {attireBoardsAfter(props.attire.map((r) => r.key)).map((slot) => (
             <div key={slot.slotKey} data-mood-board-attire-board={slot.slotKey}>
               {slotBoard(slot)}
             </div>
@@ -618,7 +627,6 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
             dataAttr="data-mood-board-upload"
             className="min-h-14 w-full justify-center !bg-mulberry/10 text-[15px]"
           />
-          <input ref={fileFor} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => { void onFile(e.target.files?.[0]); e.target.value = ''; }} />
           <div className="flex flex-col gap-2" data-mood-board-main-palette="">
             <Heading title="Your main palette" tip="Read from all your photos. Each part below has its own too." />
             {photoFive ? (
@@ -692,6 +700,14 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
 }
 
 /* ── small parts ─────────────────────────────────────────────────────────── */
+
+/** "…’s palette is now ___." — whose colours a board's palette became. */
+const ROLE_COLOURS_SAID = {
+  bride: 'the bride’s colours',
+  wedding_party: 'the entourage’s colours',
+  bridesmaids: 'the bridesmaids’ colours',
+  groomsmen: 'the groomsmen’s colours',
+} as const;
 
 function Heading({ title, tip }: { title: string; tip: string }) {
   return (

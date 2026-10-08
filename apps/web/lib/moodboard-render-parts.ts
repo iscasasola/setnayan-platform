@@ -176,6 +176,29 @@ const SLOT_ROLE: Record<MoodboardSlotKey, SlotRole> = {
     kind: 'not_a_part',
     why: 'an inspiration card (florists, stylists, caterers), not a render part — the tables zone keeps its own trades',
   },
+  // 👗 The four attire boards (2026-10-08): inspiration boards of their own, NOT
+  // render parts — the same answer step 4c gave, for the same reason. Aliasing
+  // them onto an attire role would move what a paid render is conditioned on
+  // and who may sign that role off (`inspirationSlotsForPart` feeds both), and
+  // the bearers' part keeps trades the owner decided on 2026-09-04
+  // (`MOODBOARD_PART_TRADES`), which a slot alias would silently replace. The
+  // whole party's reference photos stay the `entourage` slot's.
+  bridesmaids: {
+    kind: 'not_a_part',
+    why: 'an attire inspiration board, not a render part — the wedding party’s part is fed by the entourage slot',
+  },
+  groomsmen: {
+    kind: 'not_a_part',
+    why: 'an attire inspiration board, not a render part — the wedding party’s part is fed by the entourage slot',
+  },
+  flower_girl: {
+    kind: 'not_a_part',
+    why: 'an attire inspiration board, not a render part — the bearers’ part keeps its own owner-decided trades',
+  },
+  ring_bearer: {
+    kind: 'not_a_part',
+    why: 'an attire inspiration board, not a render part — the bearers’ part keeps its own owner-decided trades',
+  },
   palette: {
     kind: 'not_a_part',
     why: 'a colour source, not a place — it conditions every render rather than being one',

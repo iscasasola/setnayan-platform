@@ -1510,7 +1510,8 @@ function VendorCard({
             aria-label={`Move ${v.name} earlier`}
             onClick={() => arrange.onMove('left')}
           >
-            ←
+            {/* The one-screen page stacks the cards, so "earlier" is up. */}
+            {look.face ? '↑' : '←'}
           </button>
           <button
             type="button"
@@ -1519,7 +1520,7 @@ function VendorCard({
             aria-label={`Move ${v.name} later`}
             onClick={() => arrange.onMove('right')}
           >
-            →
+            {look.face ? '↓' : '→'}
           </button>
         </div>
       ) : null}
@@ -3698,7 +3699,9 @@ export function ShortlistCategories({
                                 ) : null}
                                 <span className="arrt">
                                   {isArranging
-                                    ? 'Drag a card, or use ← → to move it. Long-press any card to start.'
+                                    ? replan
+                                      ? 'Drag a card, or use ↑ ↓ to move it. Long-press any card to start.'
+                                      : 'Drag a card, or use ← → to move it. Long-press any card to start.'
                                     : arrangementNote(effectiveSortLabel)}
                                 </span>
                                 {showsArrangement ? (

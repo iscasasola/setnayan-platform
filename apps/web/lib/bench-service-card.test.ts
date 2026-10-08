@@ -159,3 +159,11 @@ test('the gift is the one shared sentence, gated on the yes', () => {
   assert.equal(mounts.length, 2, 'both card shapes — the couple’s own and the marketplace one');
   assert.equal((BENCH.match(/<SetnayanGiftLine\b/g) ?? []).length, 2, 'a gift line that is not gated on the yes');
 });
+
+test('in a stacked list "earlier" is up — the arrange arrows and their hint say so', () => {
+  assert.match(BENCH, /\{look\.face \? '↑' : '←'\}/);
+  assert.match(BENCH, /\{look\.face \? '↓' : '→'\}/);
+  assert.match(BENCH, /\? replan\s*\? 'Drag a card, or use ↑ ↓ to move it\. Long-press any card to start\.'\s*: 'Drag a card, or use ← → to move it\./);
+  // The names a screen reader hears were always direction-free.
+  assert.match(BENCH, /aria-label=\{`Move \$\{v\.name\} earlier`\}/);
+});

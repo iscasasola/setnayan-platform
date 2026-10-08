@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "4d80389cb",
+  "generatedFromRef": "963868ee0",
   "routeCount": 428,
-  "destinations": 952,
+  "destinations": 953,
   "actions": 671,
-  "blocks": 5708,
+  "blocks": 5711,
   "routes": {
     "/": {
       "files": [
@@ -8731,6 +8731,7 @@
         "dashboard/[eventId]/vendors/_components/self-added-price.tsx",
         "dashboard/[eventId]/vendors/_components/services-takeover.tsx",
         "dashboard/[eventId]/vendors/_components/shortlist-categories.tsx",
+        "dashboard/[eventId]/vendors/_components/supplier-sheet-actions.tsx",
         "dashboard/[eventId]/vendors/_components/suppliers-mode.tsx",
         "dashboard/[eventId]/vendors/_components/team-controls.tsx",
         "dashboard/[eventId]/vendors/_components/team-rows.tsx",
@@ -8751,6 +8752,7 @@
       "destinations": [
         "/dashboard/[seg]/budget",
         "/dashboard/[seg]/disputes",
+        "/dashboard/[seg]/messages/[seg]",
         "/dashboard/[seg]/studio/setnayan-ai",
         "/dashboard/[seg]/vendors/[seg]/review",
         "/dashboard/[seg]/vendors/[seg]/workspace",
@@ -8799,6 +8801,7 @@
         "ChangePickButton",
         "ChildRail",
         "CompareSheet",
+        "CompareVerbs",
         "ConnectSupplierModal",
         "ContactShortlistVendorButton",
         "ContactShortlistVendorResult",
@@ -8883,6 +8886,7 @@
         "SelfAddedPrice",
         "SelfAddedSupplierPrefill",
         "ServiceCardCtx.Provider",
+        "ServiceCardFace",
         "ServiceCardLook",
         "ServiceOpenOverlay",
         "ServiceSection",
@@ -8895,6 +8899,7 @@
         "SubmitButton",
         "SuccessToast",
         "SupplierInviteView",
+        "SupplierSheetActions",
         "SuppliersMode",
         "SuppliersModeContext.Provider",
         "SuppliersModeState",

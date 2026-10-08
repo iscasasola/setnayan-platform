@@ -160,8 +160,34 @@ service cards with **Ask for a quote** (main) and **Save**.
   same value). Words: the list says "supplier".
 - No migration.
 
-**Still to come in PR2a:** the supplier sheet. `＋ Add "…"` with the typed name
-and the record sheet are 2b.
+## 2026-10-08 · feat(suppliers): pressing a card opens the supplier sheet (Suppliers PR2a)
+
+On the one-screen page a tap on a supplier's card no longer leaves for another
+page on a phone: it opens the **supplier sheet** in place — the page's shipped
+quick-view (`VendorQuickViewInspector`), now at every width
+(`InspectorLayout mobileSheet`, the Guests list's own mechanism), extended in
+the plan's order:
+
+- badges → **the service card** (the shipped `ServiceCardFace`, drawn from the
+  same decided card the row shows) → **Proof · why they fit** (the reach ·
+  budget · date badges, the rating) → **what couples wrote** (stars · month ·
+  words, newest three) → **their work through Setnayan** (the kind of event and
+  the month) → your price → **Ask for a quote / Open chat**.
+- Nothing on it can name a guest, a couple or an event: a review is its stars,
+  month and words; a piece of work is a kind and a month (`lib/supplier-sheet`).
+- The two extra reads (`lib/supplier-sheet-read.ts` — shipped readers) run only
+  while a sheet is open and only for a supplier who is on Setnayan. Reviews that
+  could not be read say so; the sheet never says "no reviews" or "0 events".
+- The one verb is the conversation: Open chat when there is one, else Ask for a
+  quote through the same inquiry path the card uses. A supplier the couple
+  added themselves still opens their own record from the card.
+- +0 exported server actions · no migration. The pre-replan quick-view is
+  unchanged (every addition is behind the `sheet` prop).
+
+**Not in this part (each needs a new read and its own privacy rule):** the photo
+grids of their work, "the rest of their portfolio → Ask about X", Follow and
+Share, and the sheet for a marketplace card that is not yet the couple's.
+`＋ Add "…"` with the typed name and the record sheet are 2b.
 
 SPEC IMPACT: None — builds the plan's PR2 thumb row as written; what is
 deferred to the next part is listed above and in the PR body.

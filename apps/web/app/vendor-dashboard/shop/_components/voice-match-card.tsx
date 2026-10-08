@@ -23,6 +23,7 @@ import {
   type VoiceSaveResult,
 } from '../autoreply-actions';
 import { formatCount } from '@/lib/format-number';
+import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 
 /**
  * My Shop → "Your voice" — the Vendor AI **ADVANCED** voice-match panel
@@ -395,14 +396,9 @@ function Switch({ on, onClick, label }: { on: boolean; onClick: () => void; labe
       aria-checked={on}
       aria-label={label}
       onClick={onClick}
-      className="relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors"
-      style={{ background: on ? 'var(--m-orange)' : 'var(--m-line)' }}
+      className={SWITCH_BUTTON}
     >
-      <span
-        aria-hidden
-        className="inline-block h-4 w-4 rounded-full bg-white transition-transform"
-        style={{ transform: on ? 'translateX(18px)' : 'translateX(2px)' }}
-      />
+      <SwitchTrack on={on} />
     </button>
   );
 }

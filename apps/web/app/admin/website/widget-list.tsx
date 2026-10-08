@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { GripVertical } from 'lucide-react';
 import { widgetLabel, type SiteWidgetRow } from '@/lib/site-widgets';
 import { useSaveLoader } from '@/components/sd-loader';
+import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 
 /**
  * Drag-drop widget list for the admin Website editor (/admin/website).
@@ -268,16 +269,9 @@ function ToggleSwitch({
       aria-label={label}
       disabled={disabled}
       onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors disabled:opacity-50 ${
-        checked ? 'bg-success-500' : 'bg-ink/15'
-      }`}
+      className={SWITCH_BUTTON}
     >
-      <span
-        aria-hidden
-        className={`inline-block h-4 w-4 transform rounded-full bg-cream shadow-sm transition-transform ${
-          checked ? 'translate-x-4' : 'translate-x-0.5'
-        }`}
-      />
+      <SwitchTrack on={checked} />
     </button>
   );
 }

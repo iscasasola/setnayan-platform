@@ -19,6 +19,7 @@ import {
   setWallGuestMirror,
   unhideWallTile,
 } from './live-wall-actions';
+import { SwitchTrack } from '@/app/_components/switch-track';
 
 export type WallScreenRow = {
   sessionId: string;
@@ -110,18 +111,18 @@ export function LiveWallControls({
           aria-checked={mirror}
           onClick={flipMirror}
           disabled={pending}
-          className={`mt-2.5 inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition disabled:opacity-60 ${
-            mirror
-              ? 'bg-mulberry text-cream hover:bg-mulberry-600'
-              : 'bg-ink/5 text-ink/80 hover:bg-ink/10'
-          }`}
+          className="mt-2.5 flex min-h-11 w-full items-center justify-between gap-3 text-left text-sm font-medium text-ink disabled:opacity-60"
         >
-          {pending ? (
-            <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={2} />
-          ) : (
-            <Smartphone aria-hidden className="h-4 w-4" strokeWidth={2} />
-          )}
-          {mirror ? 'On guests’ phones — tap to stop' : 'Venue screens only — tap to allow phones'}
+          <span className="inline-flex min-w-0 items-center gap-2">
+            {pending ? (
+              <Loader2 aria-hidden className="h-4 w-4 shrink-0 animate-spin" strokeWidth={2} />
+            ) : (
+              <Smartphone aria-hidden className="h-4 w-4 shrink-0" strokeWidth={2} />
+            )}
+            {mirror ? 'On guests’ phones — tap to stop' : 'Venue screens only — tap to allow phones'}
+          </span>
+          {/* The app's one switch (owner 2026-10-08) — the words stay; the fill that said "on" is the track's now. */}
+          <SwitchTrack on={mirror} />
         </button>
         {mirrorError ? (
           <p role="alert" className="mt-2 text-xs text-terracotta">

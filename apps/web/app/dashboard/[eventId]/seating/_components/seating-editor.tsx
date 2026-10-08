@@ -209,6 +209,7 @@ import { useMaker } from '../../launch/_components/maker-context';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { SeatPlanPortal } from './seat-plan-slots';
 import { useOneOpen } from '@/lib/one-open';
+import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 
 // True when a thrown error is the server lock-guard's "you no longer hold the
 // editor lock" signal (SeatingLockError · code 'seating_lock_not_held'). Server
@@ -5816,12 +5817,9 @@ export function SeatingEditor({
         aria-label="Show guests their seats early"
         data-seat-plan-door-switch=""
         onClick={() => flipDoor(!doorOpen)}
-        className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors duration-sn-control ease-sn ${doorOpen ? 'bg-success-700' : 'bg-ink/25'}`}
+        className={SWITCH_BUTTON}
       >
-        <span
-          aria-hidden
-          className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform duration-sn-control ease-sn ${doorOpen ? 'translate-x-6' : 'translate-x-1'}`}
-        />
+        <SwitchTrack on={doorOpen} />
       </button>
     </div>
   ) : null;

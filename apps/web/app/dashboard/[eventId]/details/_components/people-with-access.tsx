@@ -24,6 +24,7 @@ import {
 } from '@/lib/people-with-access';
 import { setDelegateArea, removeHost } from '@/app/dashboard/[eventId]/hosts/actions';
 import { setGuestAccess } from '@/app/dashboard/[eventId]/guests/[guestId]/access-actions';
+import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 
 /**
  * people-with-access.tsx — Event Details › PEOPLE WITH ACCESS (owner
@@ -237,16 +238,9 @@ function CoordinatorSwitch({ eventId, row, readOnly }: { eventId: string; row: P
             aria-label={`${COORDINATOR_SWITCH_LABEL} — ${row.name}`}
             disabled={locked}
             onClick={flip}
-            className={`relative h-[25px] min-h-0 w-11 flex-none rounded-full transition-colors after:absolute after:-inset-2.5 after:content-[''] disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta ${
-              on && !row.ended ? 'bg-success-600' : 'bg-ink/15'
-            }`}
+            className={SWITCH_BUTTON}
           >
-            <span
-              aria-hidden
-              className={`absolute top-[2.5px] h-5 w-5 rounded-full bg-cream shadow transition-transform ${
-                on && !row.ended ? 'left-[2.5px] translate-x-[19px]' : 'left-[2.5px]'
-              }`}
-            />
+            <SwitchTrack on={on && !row.ended} />
           </button>
         </span>
       </div>

@@ -27,6 +27,7 @@ import { FourFlapEnvelope } from '@/app/[slug]/_components/reveal/four-flap';
 import { RigidReveal } from '@/app/[slug]/_components/reveal/rigid-reveal';
 import { StdTouchGlow } from '@/app/[slug]/_components/reveal/std-touch-glow';
 import { saveRevealStudio } from './actions';
+import { SwitchTrack } from '@/app/_components/switch-track';
 
 // gold/molten retired as reveal openings 2026-06-22 (now monogram-editor motions);
 // the studio calibrates only the five envelope/veil openings.
@@ -170,7 +171,7 @@ function Toggle({
       type="button"
       onClick={() => onChange(!checked)}
       className="flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors"
-      style={{ borderColor: LINE, background: checked ? 'rgba(125,43,79,0.06)' : 'transparent' }}
+      style={{ borderColor: LINE }}
       aria-pressed={checked}
     >
       <span>
@@ -183,15 +184,7 @@ function Toggle({
           </span>
         ) : null}
       </span>
-      <span
-        className="relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors"
-        style={{ background: checked ? ACCENT : '#cdcbc4' }}
-      >
-        <span
-          className="inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform"
-          style={{ transform: checked ? 'translateX(18px)' : 'translateX(2px)' }}
-        />
-      </span>
+      <SwitchTrack on={checked} />
     </button>
   );
 }

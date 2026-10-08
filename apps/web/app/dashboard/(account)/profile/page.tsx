@@ -78,6 +78,7 @@ import {
   setAccountFaceProfileConsent,
   forgetMyFaceEverywhere,
 } from './face-profile-actions';
+import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 
 export const metadata = { title: 'Profile' };
 
@@ -1585,16 +1586,9 @@ function SwitchRow({
         role="switch"
         aria-checked={on}
         aria-labelledby={`${id}-label`}
-        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
-          on ? 'bg-terracotta' : 'bg-ink/20'
-        }`}
+        className={SWITCH_BUTTON}
       >
-        <span
-          aria-hidden
-          className={`inline-block h-5 w-5 transform rounded-full bg-cream shadow transition-transform ${
-            on ? 'translate-x-[22px]' : 'translate-x-0.5'
-          }`}
-        />
+        <SwitchTrack on={on} />
       </button>
     </form>
   );

@@ -22,6 +22,18 @@
  *   7. the Reveal's picture is the same drawing at the frame's shape, never new artwork.
  *
  * A picker whose choices are WORDS stays one dropdown and is not here (the audit lists them).
+ *
+ * 🔁 RE-AIMED 2026-10-09, FOR THE TOOLBAR'S STYLE CARDS ONLY (`StyleCards`). The owner's newer sentences, on the
+ * approved toolbar prototype (`TOOLBAR-SPEC-2026-10-09.md` § STYLE): *"maximize the height … portrait"*, long
+ * one-line text up to 60 % width, the picked one centred with previous and next in view, each picture centred and
+ * scaled to fit, never cut. So, for those cards:
+ *   · the frame is still the ONE `.sn-phone-card` (3 : 4, one rule) — worn by the CARD, AS TALL AS THE ROWS it has
+ *     (1 above), not the fixed 112 × 149 with its name under it (2, 3);
+ *   · a look that draws ONE LONG LINE gets a wider card, 60 % of the toolbar's inner width (3) — the one case a card
+ *     follows its part's shape again, and only that far;
+ *   · inside it the part is shown WHOLE — centred, scaled to fit — instead of the page at the card's width cut at
+ *     the card's foot (6).
+ * The Reveal's, the Camera's, the pass's and the Themes' cards are untouched and held exactly as before.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -29,7 +41,7 @@ import React from 'react';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from './strip-comments';
-import { SP_LOOK_CARD, SP_PHONE_CARD, SP_PHONE_PICTURE } from './maker-stage-room';
+import { SP_LOOK_CARD, SP_PHONE_CARD, SP_PHONE_PICTURE, SP_STYLE_CARD, SP_STYLE_CARD_WIDE, SP_STYLE_NAME, SP_STYLE_PICTURE, SP_STYLE_WIDE_ASPECT, styleCardFit, styleCardIsWide } from './maker-stage-room';
 
 (globalThis as unknown as { React: unknown }).React = React;
 
@@ -46,9 +58,10 @@ const PICKERS: ReadonlyArray<{ what: string; file: string; anchor: RegExp; cards
   {
     what: 'every part’s scene styles · the hero’s parts · palette looks · Do’s & Don’ts (StyleCards)',
     file: `${LAUNCH}/stage-panel/style-carousel.tsx`,
-    anchor: /<span\s+data-style-card-preview=""[^>]*>/g,
+    /* (2026-10-09) The frame is the CARD here — the button — with its picture and its name inside. */
+    anchor: /<button\s[^>]*data-style-card=\{o\.id\}[^>]*>/g,
     cards: 1,
-    frame: /className=\{`\$\{SP_PHONE_PICTURE\} /,
+    frame: /className=\{SP_STYLE_CARD\}/,
   },
   { what: 'Reveal openings (None + each opening)', file: `${LAUNCH}/maker-reveal.tsx`, anchor: /<span\s+data-style-card-preview=""[^>]*>/g, cards: 2, frame: /className=\{`\$\{SP_PHONE_PICTURE\} / },
   { what: 'Camera looks', file: `${LAUNCH}/stage-panel/camera-look.tsx`, anchor: /<span\s+data-style-card-preview=""[^>]*>/g, cards: 1, frame: /className=\{`\$\{SP_PHONE_PICTURE\} / },
@@ -60,6 +73,7 @@ const PICKERS: ReadonlyArray<{ what: string; file: string; anchor: RegExp; cards
 test('every audited picker draws each of its picture cards inside the ONE phone-shaped frame', () => {
   assert.equal(SP_PHONE_CARD, 'sn-phone-card');
   assert.ok(SP_PHONE_PICTURE.split(' ').includes(SP_PHONE_CARD), 'the look card’s picture is no longer the shared frame');
+  assert.ok(SP_STYLE_CARD.split(' ').includes(SP_PHONE_CARD), 'the toolbar’s Style card is no longer the shared frame');
   let framed = 0;
   for (const p of PICKERS) {
     const src = read(p.file);
@@ -75,7 +89,7 @@ test('every audited picker draws each of its picture cards inside the ONE phone-
   assert.equal(framed, PICKERS.reduce((n, p) => n + p.cards, 0));
 });
 
-test('what the couple sees: every look card of a part, of the palette and of the Do’s & Don’ts is a frame as wide as itself', async () => {
+test('what the couple sees: every look card of a part, of the palette and of the Do’s & Don’ts is the frame, as tall as its rows', async () => {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { StyleCards } = await import(`../${LAUNCH}/stage-panel/style-carousel`);
   const { PaletteLookCards, DosLookCards } = await import(`../${EDITOR}/palette-look-row`);
@@ -90,34 +104,58 @@ test('what the couple sees: every look card of a part, of the palette and of the
   sets.push(['dos', renderToStaticMarkup(React.createElement(DosLookCards, { value: 'notes', onPick: () => {} })), 3]);
   let cards = 0;
   for (const [what, html, n] of sets) {
-    const pictures = [...html.matchAll(/<span data-style-card-preview="" class="([^"]*)"/g)].map((m) => m[1]!.split(' '));
-    assert.equal(pictures.length, n, `${what}: one picture per look`);
-    for (const cls of pictures) {
-      assert.ok(cls.includes('sn-phone-card'), `${what}: a card’s picture is not the phone-shaped frame`);
-      assert.ok(!cls.some((c) => /^(h|w|aspect)-/.test(c)), `${what}: the picture carries a size of its own (${cls.join(' ')})`);
-    }
-    /* The card is as wide as its frame — never a share of the row, and its name never widens it. */
+    /* The CARD is the frame — as tall as the strip it stands in, its width following (3 : 4); never a share of the
+       row, never stretched or shrunk by the strip. */
     const buttons = [...html.matchAll(/<button[^>]*role="radio"[^>]*class="([^"]*)"[^>]*>/g)].map((m) => m[1]!);
-    assert.equal(buttons.length, n);
+    assert.equal(buttons.length, n, `${what}: one card per look`);
     for (const b of buttons) {
-      assert.equal(b, SP_LOOK_CARD);
-      assert.ok(b.split(' ').includes('w-min') && b.split(' ').includes('shrink-0'), `${what}: the card can stretch`);
-      assert.doesNotMatch(b, /w-\[\d+%\]|flex-1|basis-/, `${what}: the card is a share of the row`);
+      assert.equal(b, SP_STYLE_CARD);
+      const cls = b.split(' ');
+      assert.ok(cls.includes('sn-phone-card'), `${what}: a card is not the phone-shaped frame`);
+      assert.ok(cls.includes('!h-full') && cls.includes('![inline-size:auto]'), `${what}: the card is not as tall as its rows`);
+      assert.ok(!cls.some((c) => /^(w-\[\d|w-\d|flex-1$|basis-|grow$|aspect-)/.test(c)), `${what}: the card carries a size of its own (${b})`);
     }
-    assert.doesNotMatch(html, /<button[^>]*role="radio"[^>]*style="[^"]*width/, `${what}: a card is still sized by its part’s shape`);
-    assert.equal(html.split('w-0 min-w-full truncate').length - 1, n, `${what}: a long name would widen its card`);
+    /* Its picture is all of the card above its name; the name is one line that never widens the card. */
+    const pictures = [...html.matchAll(/<span data-style-card-preview="" class="([^"]*)"/g)].map((m) => m[1]!);
+    assert.equal(pictures.length, n, `${what}: one picture per look`);
+    for (const pic of pictures) assert.equal(pic, SP_STYLE_PICTURE);
+    assert.equal(html.split(`class="${SP_STYLE_NAME}"`).length - 1, n, `${what}: a card’s name is not the one-line foot`);
+    assert.ok(SP_STYLE_NAME.split(' ').includes('truncate') && SP_STYLE_NAME.split(' ').includes('w-full'), 'a long name would widen its card');
+    /* No card is sized by an inline width — the wide card is a mark (`data-wide`), set only once its part is measured. */
+    assert.doesNotMatch(html, /<button[^>]*role="radio"[^>]*style="[^"]*width/, `${what}: a card is sized inline`);
+    assert.doesNotMatch(html, /data-wide/, `${what}: a card is wide before its part was measured`);
     cards += n;
   }
   console.log(`# phone-shaped: ${cards} rendered look cards checked across ${sets.length} sets`);
 });
 
-test('no audited picker still sizes a card as a share of the row or by its part’s shape', () => {
+test('no audited picker sizes a card as a share of the row or by its part’s shape — but for ONE long line in the toolbar’s Style', () => {
   for (const p of PICKERS.slice(0, 4)) {
     const src = read(p.file);
     assert.doesNotMatch(src, /SP_LAYOUT_CARD|spCardWidth\(/, `${p.file}: the 62 % / follow-the-part card is back`);
-    assert.match(src, /className=\{SP_LOOK_CARD\}/, `${p.file}: its cards are not the frame-wide look card`);
-    assert.equal(src.split('className={SP_LOOK_CARD}').length - 1, p.cards);
+    const card = p.file.endsWith('style-carousel.tsx') ? 'SP_STYLE_CARD' : 'SP_LOOK_CARD';
+    assert.match(src, new RegExp(`className=\\{${card}\\}`), `${p.file}: its cards are not the frame`);
+    assert.equal(src.split(`className={${card}}`).length - 1, p.cards);
   }
+  /* The Reveal, the Camera and the pass keep the 2026-10-08 card: as wide as its fixed frame. */
+  assert.ok(SP_LOOK_CARD.split(' ').includes('w-min') && SP_LOOK_CARD.split(' ').includes('shrink-0'));
+  /* THE ONE EXCEPTION (owner 2026-10-09: long one-line text up to 60 % width): a look whose part is drawn at least
+     four times wider than tall — the Title, the Date, the Names in a row — gets a card 60 % of the toolbar's inner
+     width, as tall as the others. Nothing shorter or squarer is ever widened. */
+  assert.equal(SP_STYLE_WIDE_ASPECT, 4);
+  assert.equal(SP_STYLE_CARD_WIDE, 0.6);
+  assert.equal(styleCardIsWide({ w: 327, h: 24 }), true, 'one line of words (the Title)');
+  assert.equal(styleCardIsWide({ w: 327, h: 60 }), true, 'the Names in a row');
+  assert.equal(styleCardIsWide({ w: 327, h: 150 }), false, 'the Names stacked');
+  assert.equal(styleCardIsWide({ w: 375, h: 220 }), false, 'a scene (the Countdown)');
+  assert.equal(styleCardIsWide({ w: 375, h: 1400 }), false, 'a tall scene (the Schedule)');
+  assert.equal(styleCardIsWide(null), false, 'a part not measured yet');
+  const cls = SP_STYLE_CARD.split(' ');
+  assert.ok(cls.includes('data-[wide]:![inline-size:calc((100%_-_20px)_*_0.6)]'), 'a wide card is not 60 % of the toolbar’s inner width');
+  assert.ok(cls.includes('data-[wide]:![aspect-ratio:auto]'), 'a wide card would be taller than its rows');
+  const car = read(`${LAUNCH}/stage-panel/style-carousel.tsx`);
+  assert.match(car, /data-wide=\{wide\[o\.id\] \? '' : undefined\}/);
+  assert.match(car, /const w = styleCardIsWide\(shape\);/, 'a card is widened by something other than its part’s measured shape');
 });
 
 test('a picker that draws look cards and is not in the audit fails — it joins the list', () => {
@@ -163,25 +201,44 @@ test('the frame is ONE rule in ONE stylesheet — 3 : 4, a fixed width — and n
   assert.deepEqual(second, [], `a second phone-card frame (or a hard-coded width for it) was written: ${second.join(', ')}`);
 });
 
-test('inside the frame is the PHONE’S view of the part — never a wide part shrunk until it fits', async () => {
-  const { phoneViewFit } = await import(`../${LAUNCH}/stage-panel/style-preview`);
-  const box = { w: 120, h: 160 };
-  /* A one-line part (the Names): 327 × 60 at 500 px down a 375 px page. */
-  const line = phoneViewFit({ top: 500, height: 60 }, box, 375);
-  assert.equal(line.k, 120 / 375, 'the page is drawn at phone width — its width IS the frame’s');
-  assert.equal(line.x, 0);
-  assert.equal(Math.round(500 * line.k + line.y), Math.round((160 - 60 * line.k) / 2), 'a short part sits in the middle of the frame');
-  /* A tall scene (the Schedule): the frame opens at its top and cuts it at the foot — cover, not letterbox. */
-  const tall = phoneViewFit({ top: 900, height: 1400 }, box, 375);
-  assert.equal(tall.k, 120 / 375);
-  assert.equal(Math.round(900 * tall.k + tall.y), 0, 'a tall part starts at the frame’s top');
-  assert.ok(1400 * tall.k > box.h, 'and runs past its foot (cut, never squeezed in)');
-  assert.ok(tall.h >= 900 + 160 / tall.k, 'the miniature is tall enough to fill the frame');
-  /* The same scale whatever the part's shape — the old contain-fit made a wide part's words 2–3× a tall one's. */
-  assert.equal(line.k, tall.k);
+test('inside the toolbar’s Style card the part is shown WHOLE — centred, scaled to fit, never cut, never enlarged', () => {
+  /* 🔁 RE-AIMED 2026-10-09 (see the header). This held `phoneViewFit`: the page at the card's width, a tall part cut
+     at the card's foot ("cover, not letterbox"). The owner's newer sentence for the toolbar is the other way round —
+     scaled to fit, never cut — so the claim is now the prototype's `fitPreviews`. */
+  const box = { w: 117, h: 134 };
+  const inside = (part: { top: number; left: number; width: number; height: number }) => {
+    const f = styleCardFit(part, box);
+    return { f, left: part.left * f.k + f.x, top: part.top * f.k + f.y, w: part.width * f.k, h: part.height * f.k };
+  };
+  for (const [what, part] of [
+    ['one line (the Title)', { top: 500, left: 24, width: 327, height: 24 }],
+    ['a square-ish scene (the Countdown)', { top: 300, left: 0, width: 375, height: 220 }],
+    ['a tall scene (the Schedule)', { top: 900, left: 0, width: 375, height: 1400 }],
+    ['a small part (the Logo)', { top: 80, left: 150, width: 76, height: 76 }],
+  ] as const) {
+    const at = inside(part);
+    /* NEVER CUT: all of it lies inside the card, 6 px clear of every edge. */
+    assert.ok(at.left >= 6 - 0.01 && at.top >= 6 - 0.01, `${what}: cut at the top or the left`);
+    assert.ok(at.left + at.w <= box.w - 6 + 0.01 && at.top + at.h <= box.h - 6 + 0.01, `${what}: cut at the foot or the right`);
+    /* CENTRED: as much room left as right, above as below. */
+    assert.ok(Math.abs(at.left - (box.w - at.left - at.w)) < 0.01, `${what}: not centred across`);
+    assert.ok(Math.abs(at.top - (box.h - at.top - at.h)) < 0.01, `${what}: not centred up and down`);
+    /* SCALED TO FIT: it touches the room's edge on its tighter side — unless that would enlarge it. */
+    assert.ok(at.f.k <= 1, `${what}: enlarged`);
+    if (at.f.k < 1) assert.ok(Math.abs(at.w - (box.w - 12)) < 0.01 || Math.abs(at.h - (box.h - 12)) < 0.01, `${what}: smaller than it need be`);
+  }
+  /* A part smaller than the card is drawn at its own size, in the middle. */
+  assert.equal(inside({ top: 80, left: 150, width: 76, height: 76 }).f.k, 1);
+  /* A wide card shows one line far larger than a 3 : 4 one would — the reason it is wide. */
+  const line = { top: 500, left: 24, width: 327, height: 24 };
+  assert.ok(styleCardFit(line, { w: 213, h: 134 }).k > 1.8 * styleCardFit(line, box).k);
   const prev = read(`${LAUNCH}/stage-panel/style-preview.tsx`);
-  assert.match(prev, /setFit\(phoneViewFit\(/);
-  assert.doesNotMatch(prev, /Math\.min\(b\.clientWidth \/ w, b\.clientHeight \/ h/, 'the contain fit is back');
+  assert.match(prev, /const f = styleCardFit\(part, \{ w: b\.clientWidth, h: b\.clientHeight \}\);/);
+  assert.doesNotMatch(prev, /phoneViewFit/, 'the cut-at-the-foot fit is back');
+  /* …fitted again whenever the card changes size (a one-line card widens after it is measured). */
+  assert.match(prev, /const ro = new ResizeObserver\(\(\) => layRef\.current\(\)\);\s*ro\.observe\(b\);/);
+  /* The card stands on the page's own ground — never a grey band round a small part. */
+  assert.match(prev, /const bg = getComputedStyle\(d\.body\)\.backgroundColor;/);
 });
 
 test('the Reveal’s card is the same drawing at the frame’s shape — never new artwork', async () => {

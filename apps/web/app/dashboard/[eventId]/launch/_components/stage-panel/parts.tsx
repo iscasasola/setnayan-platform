@@ -17,7 +17,7 @@ export type StagePanelPartProps =
 export function StagePanelPart(props: StagePanelPartProps) {
   if (props.part === 'style') {
     const { part: _p, arrange, ...rest } = props;
-    return <StageStyle {...rest} arrange={asStageArrange(arrange)} />;
+    return <StageStyle {...rest} arrange={asStageArrange(arrange)} rows />;
   }
   const { part: _p, ...rest } = props;
   return <StageArrange {...rest} />;

@@ -83,6 +83,32 @@ Tests: new `lib/edit-types-the-words-in-place.test.ts` (6 rules, each seen red).
   used" look (`waiting`); a live step is the neutral button, Remove the danger tone.
 - The open field selects its words: that is the app's typed row everywhere (`FormRowField`), left as it is.
 
+### 4 · Style is cards, Colour and Size
+
+Owner: "maximize the height … portrait" · "color and size share the same row" · "Color just 1 circle…" · "row 3 is
+palette style".
+
+- **Rows 1–3: the look cards**, a strip as tall as its rows, a card as tall as the strip (the one phone-shaped frame
+  at the rows' height), the picked one in the middle with the previous and the next in view; each picture centred and
+  scaled to fit, never cut (`styleCardFit`), on the page's own ground. A look that draws one long line gets a wider
+  card — 60 % of the toolbar's inner width (`styleCardIsWide`). The Reveal's, the Camera's, the pass's and the Themes'
+  cards are unchanged.
+- **Row 4: Colour (one circle → the one colour picker) + Size (the app's slider)**, drawn by the toolbar for the picked
+  part's own words (a line of the cover; a scene's heading) — the part sheet's own write (`stage-panel/part-look.ts`:
+  `withElementChoice`, the same queue key, held). A part with neither has no row and its cards take all four.
+- **Dress code**: cards over ONE row of the five palette looks (`PaletteLookStrip`), then Colour + Size — it was three
+  carousels and a dropdown, 614 px in a 210-px box.
+- **No longer drawn in the toolbar** (stored values still honoured): Font, Alignment, Spacing (commit 1); the Dress
+  code's Do's & Don'ts look (owner, decided: Studio › Mood Board & Dress Code — not built here) and its Figures ▾ (the
+  Mood Board's own switch is the same setting); an editor of a part's content under Style (the Love Story page's —
+  it is Edit's door).
+
+Tests: new `lib/style-is-cards-colour-and-size.test.ts` (6 rules, each seen red). Re-aimed with the reason written in:
+`every-style-card-is-phone-shaped` (the toolbar's Style cards only — the owner's newer sentence), `every-look-draws-a-
+picture`, `the-stages-panel-is-the-prototypes` (Dress code), `the-stage-panel-fits-a-phone`,
+`every-studio-colour-opens-the-one-picker` (+1 trigger). `scripts/port-control-baseline.json` regenerated: −
+`DosLookCards`, − `DressFiguresRow`, − `PaletteLookCards` (the three above), + `PaletteLookStrip`, + `StageLookRow`.
+
 SPEC IMPACT: Yes — supersedes the 2026-10-06/07 "Style | Text | Animate" and "the toolbar is half the screen" rows.
 The controller holds the spec (`TOOLBAR-SPEC-2026-10-09.md`) and applies the corpus rows; nothing in the corpus was
 edited from this branch.

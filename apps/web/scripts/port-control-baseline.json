@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "1ab132444",
+  "generatedFromRef": "7612d32ef",
   "routeCount": 429,
   "destinations": 959,
   "actions": 672,
-  "blocks": 5865,
+  "blocks": 5871,
   "routes": {
     "/": {
       "files": [
@@ -9398,11 +9398,14 @@
         "ElementSheet",
         "ElementTarget",
         "ErrorLine",
+        "FactRow",
         "FileUpload",
         "FixedSceneStyleRow",
         "FontChoice",
         "FontPick",
         "FontsLookRows",
+        "FormRow",
+        "FormRows",
         "Fragment",
         "GalleryPanel",
         "HTMLAudioElement",
@@ -9494,6 +9497,7 @@
         "ReturnTo",
         "RowBlock",
         "RsvpBackdropPanel",
+        "SaveAnswer",
         "SaveButton",
         "SceneAlignRow",
         "SceneAnimateTab",
@@ -9530,6 +9534,7 @@
         "StyledSceneRow",
         "SubmitButton",
         "Swatch",
+        "SwitchRow",
         "T",
         "TextPanel",
         "Thumb",
@@ -9539,6 +9544,7 @@
         "TypeBar",
         "TypeSession",
         "TypeStart",
+        "TypedRow",
         "UploadPicture",
         "VisibilityPanel",
         "Window",
@@ -9948,6 +9954,7 @@
     },
     "/dev/maker-lab": {
       "files": [
+        "dev/maker-lab/lab-post-event.ts",
         "dev/maker-lab/maker-lab-shell.tsx",
         "dev/maker-lab/page.tsx"
       ],

@@ -175,3 +175,36 @@ Post Event stage, so the Post Event panel could not be seen without a database. 
 - `lib/the-maker-lab-has-a-post-event-story.test.ts` — 3 tests, 5 mutations seen red.
 
 SPEC IMPACT: None.
+
+## 2026-10-09 · feat(maker): the Post Event panel's rows are on the templates
+
+Owner, 2026-10-08: *"Then Stages that matter to Invitation and RSVP / Then the rest of event hub"* · *"we want the
+whole app to be adaptive to the same feel"*. `post-event-scene-panel.tsx` was the old inspector. Inside that file
+only — what each control saves, and when, is unchanged:
+
+- **Shown** — the ONE switch (`SwitchRow`, "Shown to guests"). It was a pill whose words flipped on a tap ("Shown to
+  guests" ⇄ "Hidden from guests"): a control that cycles.
+- **Order** — the Reorder kind's arrows as house actions (↑ Earlier · ↓ Later, `ActionButton`). Not a drag: the panel
+  holds one scene; the page's own ↑ ↓ ✕ on the picked part is the list.
+- **Its parts** — house actions, one per part the scene's style draws, each opening that part's sheet.
+- **This scene** / **Place** — quiet rows: the state in a word and when it was written, what fills it, where a pinned
+  scene is fixed. They were a status line and a `<dl>`.
+- **A part's words** (`PostEventWordsField`, in the part sheet) — a typed Form row (the body a long box): tapping out
+  or Enter keeps, ✕ leaves it; "Use the written line" is the quiet action under it, only once the couple wrote their
+  own. It was a bare box that saved on blur and an underlined link.
+- **Nothing is printed but facts and failures**: the five sentences the panel printed are behind the ⓘ of the row
+  each explains, word for word (`POST_EVENT_ABOUT`); "Saved to your draft — guests see it after you press Apply." is
+  gone (the count on ✓ says it); "Your story's scenes could not be read just now…" stays ON the panel, in the danger
+  red; a refused save is red too (it was the gold).
+- Each row is a self-contained piece, so the panel can be re-laid later without touching its logic. It is NOT yet
+  inside the Stages panel's Look | Background | Arrange (that is a change in `editor-shell.tsx`, held for the
+  bottom-toolbar reshape).
+
+Requests: unchanged in this commit — every control is still 1 draft write + 1 whole render of the Maker per burst.
+The held save is the next commit; it needs the Maker's own copy of the story's arrangement first (each patch
+replaces a whole key built from the last render, so a second edit without a render would undo the first).
+
+- `lib/the-post-event-panel-wears-the-templates.test.ts` — 7 tests, 15 mutations seen red. Port-control baseline
+  regenerated.
+
+SPEC IMPACT: None.

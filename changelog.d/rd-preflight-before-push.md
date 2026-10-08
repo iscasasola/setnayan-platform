@@ -28,6 +28,11 @@ about four hours — for two one-line faults, because the unit guard hid the DB 
   and every file's result is read back through a reporter, `scripts/lib/preflight-reporter.mjs`). A missing
   `node_modules` is a failure, not a clean run that resolved nothing. A targeted compile that does not fit in
   memory is reported `NOT RUN`, never as a pass.
+- **It is gentle on a shared 16 GB machine.** Low priority (nice 19), two test files at a time, one when the
+  1-minute load is already above 80% of the cores — and it prints which, and why. The phases run one after
+  another. Measured the same day: two test fan-outs at four files each took the load average to 37 and the
+  owner's local review copy needed four minutes to draw a page. `--only guards,lint,types,pins` is the quick
+  half for iterating; `--jobs N` is for an idle machine.
 - `scripts/preflight.test.mjs` — a new step in the required "migration timestamp guard" job. It fails when
   `ci.yml` gains a step nobody classified, so CI and preflight cannot drift apart silently.
 - `CLAUDE.md` › Rules for every session › rule 5: run it before every push; paste the table in the PR body.

@@ -30,11 +30,23 @@
  * CI and the table says so every time. A green preflight means "the cheap
  * faults are gone", never "this will merge".
  *
- * It takes no heavy lock: nothing here is a full `tsc`, a build or a full
- * suite. `--jobs` bounds how many test files run at once (default 4).
+ * IT IS GENTLE ON PURPOSE. This machine has 16 GB and is usually serving
+ * someone's dev server at the same time. On 2026-10-08 two test fan-outs at
+ * four files each pushed the load average to 37 and the owner's review copy
+ * took four minutes to draw a page. So:
+ *   · it runs at LOW PRIORITY (nice 19) — a dev server always wins the CPU;
+ *   · it runs TWO test files at a time, and ONE when the machine is already
+ *     busy (1-minute load above 80% of the cores) — and says which, and why;
+ *   · the phases run one after another, never the heavy ones together;
+ *   · it takes no heavy lock, because nothing here is a full `tsc`, a build
+ *     or a full suite.
+ * `--jobs N` overrides the two/one. Slower is fine; a frozen laptop is not.
  *
  *   node scripts/preflight.mjs                  the normal run
  *   node scripts/preflight.mjs --base <ref>     a stacked branch: diff against its parent
+ *   node scripts/preflight.mjs --only guards,lint,types,pins   the quick half (seconds to a
+ *                                               couple of minutes) while you iterate
+ *   node scripts/preflight.mjs --jobs 4         more test files at once (an idle machine)
  *   node scripts/preflight.mjs --list           say what would run; run nothing
  *   node scripts/preflight.mjs --inventory      every CI step and its tier
  *   node scripts/preflight.mjs --inventory --run <id>   …with seconds from a real run (needs gh)
@@ -80,8 +92,25 @@ if (flag('--help') || flag('-h')) {
   process.exit(0);
 }
 const BASE = opt('--base', 'origin/main');
-const JOBS = Math.max(1, Number(opt('--jobs', Math.min(4, Math.max(2, Math.floor(os.cpus().length / 2))))));
-const PHASES = ['guards', 'lint', 'types', 'unit', 'db'];
+const CORES = os.cpus().length;
+const LOAD = os.loadavg()[0];
+/** Above this the machine is already working for somebody else. 8 on a 10-core Mac. */
+const BUSY_AT = Math.max(2, Math.round(CORES * 0.8));
+const BUSY = LOAD > BUSY_AT;
+const JOBS_ASKED = opt('--jobs', null);
+const JOBS = JOBS_ASKED ? Math.max(1, Number(JOBS_ASKED) || 1) : BUSY ? 1 : 2;
+// Every child inherits this: the dev server next door keeps the CPU.
+try {
+  os.setPriority(os.constants.priority.PRIORITY_LOW);
+} catch {
+  /* a platform that refuses is still correct, only less polite */
+}
+const GENTLE = JOBS_ASKED
+  ? `${JOBS} test file(s) at a time (--jobs), low priority · load ${LOAD.toFixed(1)} on ${CORES} cores`
+  : BUSY
+    ? `⚠ this machine is BUSY (1-minute load ${LOAD.toFixed(1)}, above ${BUSY_AT} on ${CORES} cores): ONE test file at a time, low priority. Slower — nothing is skipped.`
+    : `gentle: 2 test files at a time, low priority · load ${LOAD.toFixed(1)} on ${CORES} cores (--jobs N for more on an idle machine)`;
+const PHASES = ['guards', 'lint', 'types', 'pins', 'tree', 'db'];
 const ONLY = opt('--only', null)?.split(',').map((x) => x.trim()).filter(Boolean) ?? null;
 if (ONLY && ONLY.some((p) => !PHASES.includes(p))) {
   console.error(`preflight: --only takes ${PHASES.join(',')} (got ${ONLY.join(',')})`);
@@ -283,6 +312,7 @@ const unknownSteps = inventory(ciText).filter((s) => s.tier === 'unknown');
 
 if (flag('--list')) {
   console.log(`preflight --list · ${branch} @ ${head} · base ${BASE} (${mergeBase.slice(0, 9)}) · ${changed.length} changed, ${deleted.length} deleted`);
+  console.log(GENTLE);
   console.log(`\ncheap guards from ci.yml (${cheap.length}):`);
   for (const c of cheap) console.log(`  ${c.cwd === '.' ? '' : `(cd ${c.cwd}) `}${c.run}`);
   console.log(`\neslint (${eslintFiles.length} files)`);
@@ -380,7 +410,8 @@ const gitDir = (() => {
 const OUT_DIR = path.join(gitDir, 'preflight');
 fs.mkdirSync(OUT_DIR, { recursive: true });
 
-say(`preflight · ${branch} @ ${head} · base ${BASE} (${mergeBase.slice(0, 9)}) · ${changed.length} changed, ${deleted.length} deleted · jobs ${JOBS}`);
+say(`preflight · ${branch} @ ${head} · base ${BASE} (${mergeBase.slice(0, 9)}) · ${changed.length} changed, ${deleted.length} deleted`);
+say(`  ${GENTLE}`);
 if (!changed.length && !deleted.length) say('  (no changed files — the whole-tree guards still run)');
 
 /* ── phase A · every cheap CI guard, plus eslint ────────────────────────────*/
@@ -558,7 +589,10 @@ function reportTests(group, title, files, result, why) {
 }
 
 async function runUnit() {
-  const files = [...unitPins, ...unitWalkers, ...unitReplay];
+  const pins = want('pins') ? unitPins : [];
+  const tree = want('tree') ? unitWalkers : [];
+  const replay = want('tree') ? unitReplay : [];
+  const files = [...pins, ...tree, ...replay];
   if (!files.length) return;
   if (!hasModules) {
     add({ group: 'unit', check: 'unit tests', status: 'fail', ms: 0, line: NO_MODULES, rerun: 'pnpm install' });
@@ -566,9 +600,9 @@ async function runUnit() {
   }
   // ONE batch, three rows
   const result = await runTests('unit', files, JOBS);
-  reportTests('unit', 'tests that name or import a changed file', unitPins, result, (f) => pinned.get(f));
-  reportTests('unit', 'whole-tree guard tests', unitWalkers, result);
-  reportTests('unit', 'unit tests that replay the migrations', unitReplay, result);
+  reportTests('unit', 'tests that name or import a changed file', pins, result, (f) => pinned.get(f));
+  reportTests('unit', 'whole-tree guard tests', tree, result);
+  reportTests('unit', 'unit tests that replay the migrations', replay, result);
 }
 
 /* ── phase C · the DB tests ─────────────────────────────────────────────────*/
@@ -579,8 +613,8 @@ async function runDb() {
     add({ group: 'db', check: 'DB tests', status: 'fail', ms: 0, line: NO_MODULES, rerun: 'pnpm install' });
     return;
   }
-  // every DB test replays all the migrations into its own PGlite: few at a time
-  const result = await runTests('db', dbTests, Math.min(JOBS, 3));
+  // every DB test replays all the migrations into its own PGlite: two at most
+  const result = await runTests('db', dbTests, Math.min(JOBS, 2));
   reportTests('db', touchedMigration || touchedDbHarness ? 'DB tests: source scanners + schema pins' : 'DB tests that scan source', dbTests, result, dbWhy);
 }
 
@@ -602,7 +636,9 @@ const skip = async () => undefined;
 say(`  A · ${cheap.length} cheap CI guards + eslint on ${eslintFiles.length} files`);
 const [, , hadGitleaks] = await Promise.all([want('guards') ? runCheap() : skip(), want('lint') ? runEslint() : skip(), want('guards') ? runGitleaks() : skip()]);
 say(`  B · tsc on ${tscFiles.length} files · unit tests: ${unitPins.length} pinned + ${unitWalkers.length} whole-tree${unitReplay.length ? ` + ${unitReplay.length} replay-backed` : ''}`);
-await Promise.all([want('types') ? runTsc() : skip(), want('unit') ? runUnit() : skip()]);
+// one after the other: the compile and the test batch are the two things here that eat a machine
+if (want('types')) await runTsc();
+if (want('pins') || want('tree')) await runUnit();
 say(`  C · ${dbTests.length} DB tests${touchedRust ? ' · native encoder' : ''}`);
 const [, cargoState] = await Promise.all([want('db') ? runDb() : skip(), want('guards') ? runCargo() : skip()]);
 const wall = Date.now() - started;
@@ -631,6 +667,7 @@ const lines = [];
 const out = (s = '') => lines.push(s);
 
 out(`PREFLIGHT · ${branch} @ ${head} · base ${BASE} · ${changed.length} changed, ${deleted.length} deleted`);
+out(GENTLE);
 if (ONLY) out(`⚠ PARTIAL RUN (--only ${ONLY.join(',')}) — the other phases did NOT run. Run it without --only before you push.`);
 out();
 out(`${'result'.padEnd(8)}${'time'.padStart(8)}  check`);

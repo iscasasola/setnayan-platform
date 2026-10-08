@@ -308,6 +308,16 @@ html.dark .slcat .fold.flat .cat.open>.cat-head-row{background:#17160F}
 @keyframes slcat-pop{0%{transform:scale(1)}35%{transform:scale(1.28) rotate(-6deg)}60%{transform:scale(.92) rotate(4deg)}100%{transform:scale(1) rotate(0)}}
 @media (prefers-reduced-motion:reduce){.slcat .fold.flat .cat.open .cat-ic{animation:none}.slcat .fold.flat .cat.open .cat-collapse{transition-delay:0s}}
 .slcat .scope-none{margin:10px 0 4px;font-size:13px;color:var(--ink-soft)}
+/* THE VERB ROW (owner 2026-10-07: "this should fit in a single row") — one
+   line under the card; 'useFitRow' drops the words as one (icon + word → word →
+   icon). The three shipped buttons keep their own wrappers ('.verb-slot',
+   'display:contents', so the button itself is the row's child); what a press
+   came back with is said on its own line under the row. */
+.slcat .verbs{position:relative;display:flex;flex-wrap:nowrap;align-items:center;gap:6px;min-width:0;margin-top:3px}
+.slcat .verbs .verb-slot{display:contents}
+.slcat .verb-err,.slcat .verb-ok{margin:4px 0 0;font-size:11.5px;line-height:1.35;color:var(--ink-soft)}
+.slcat .verb-err{color:rgb(var(--color-danger))}
+.slcat .verbs .verb-err,.slcat .verbs .verb-slot>p,.slcat .verbs .verb-slot>span{position:absolute;left:0;right:0;top:100%;margin:4px 0 0;font-size:11.5px;line-height:1.35}
 /* ── Level 1 · folder card (collapsible) ── */
 .slcat .fold{margin:0 0 10px;background:var(--card);border:1px solid var(--edge);border-radius: var(--m-r-md);overflow:hidden;box-shadow:var(--edge-lift);transition:box-shadow .3s var(--ease),border-color .3s var(--ease)}
 .slcat .fold.open{box-shadow:var(--edge-lift-open);border-color:rgba(30,26,18,.28)}
@@ -1103,6 +1113,14 @@ function BenchRollUp({ folders, standings }: { folders: ShortlistFolder[]; stand
    absent provider must not be able to tell a couple their inbox is clear. */
 const UnreadCtx = createContext<BenchUnread>(UNREAD_UNKNOWN);
 
+/**
+ * vendorId → where "Pay" goes, for a booked supplier with a payment DUE NOW.
+ * The page builds it from the Booked body's own rows (`teamRows`), so a card's
+ * Pay and that row's Pay are one derivation — a card never decides for itself
+ * that something is owed. Empty → no card offers Pay (it offers "Payments").
+ */
+const PayDueCtx = createContext<Readonly<Record<string, string>>>({});
+
 /** One supplier's unread count. Shows on linked copies too — see `bench-unread.ts`. */
 function UnreadBadge({ threadId }: { threadId: string | null }) {
   const n = cardUnread(useContext(UnreadCtx), threadId);
@@ -1194,6 +1212,7 @@ function VendorCard({
   // flag-OFF render stays byte-identical (actions is null there) and ONE value
   // decides both the [Connect] button and this tap.
   const selfAdded = Boolean(actions?.connect);
+  const payHrefs = useContext(PayDueCtx);
   const router = useRouter();
   const [detailsLoading, startDetails] = useTransition();
   const [details, setDetails] = useState<SelfAddedSupplierPrefill | null>(null);
@@ -1203,6 +1222,11 @@ function VendorCard({
     // a non-primary button all go to the full page, exactly as before.
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
     e.preventDefault();
+    loadDetails();
+  }
+  /** Open the couple's own record of this supplier — the card tap and the
+   *  "Your record" verb are the same door. */
+  function loadDetails() {
     if (detailsLoading) return;
     startDetails(async () => {
       const res = await loadSelfAddedSupplier(eventId, v.vendorId);
@@ -1400,6 +1424,12 @@ function VendorCard({
         groupLabel={tileLabel}
         verifiedState={v.verifiedState}
         lockRequestExpiresAt={v.lockRequestExpiresAt}
+        booked={v.status === 'locked'}
+        hasPrice={v.totalCostPhp != null}
+        quoteIn={standing?.needsYou === true}
+        payHref={payHrefs[v.vendorId] ?? null}
+        workspaceHref={v.href}
+        onRecord={selfAdded ? loadDetails : undefined}
       />
       {/* The details sheet a tap opens on a self-added supplier — the SAME
           one-screen sheet used to add them, in edit mode. */}
@@ -1660,6 +1690,8 @@ function InlineMoreCard({
   );
 }
 
+const NO_PAY_DUE: Readonly<Record<string, string>> = {};
+
 export function ShortlistCategories({
   folders,
   eventId,
@@ -1671,6 +1703,7 @@ export function ShortlistCategories({
   daysUntilWedding = null,
   excludedTiles = [],
   starterTiles,
+  payHrefByVendorId = NO_PAY_DUE,
   convergence = null,
   buildWindow = null,
   probeDayKeys = [],
@@ -1753,6 +1786,9 @@ export function ShortlistCategories({
    * bench keeps every category, as before.
    */
   starterTiles?: readonly string[];
+  /** vendorId → the Pay link of a booked supplier with a payment due now
+   *  (`PayDueCtx`). Absent → nobody is offered Pay from a card. */
+  payHrefByVendorId?: Readonly<Record<string, string>>;
   /**
    * Explore Replan PR-G1 — the build's shared-date convergence banner, resolved
    * server-side by `convergenceBanner`. Null = render nothing: an open window
@@ -2773,6 +2809,7 @@ export function ShortlistCategories({
 
   return (
     <UnreadCtx.Provider value={benchUnread}>
+    <PayDueCtx.Provider value={payHrefByVendorId}>
     <div className="slcat" ref={benchRef}>
       <style>{SLCAT_CSS}</style>
       {/* The remove confirm. It must live INSIDE the rendered tree or
@@ -3905,6 +3942,7 @@ export function ShortlistCategories({
         )
       ) : null}
     </div>
+    </PayDueCtx.Provider>
     </UnreadCtx.Provider>
   );
 }

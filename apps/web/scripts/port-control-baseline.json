@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "b7cc2b84b",
+  "generatedFromRef": "5733ba34e",
   "routeCount": 428,
-  "destinations": 953,
+  "destinations": 952,
   "actions": 671,
-  "blocks": 5703,
+  "blocks": 5704,
   "routes": {
     "/": {
       "files": [
@@ -8751,7 +8751,6 @@
       "destinations": [
         "/dashboard/[seg]/budget",
         "/dashboard/[seg]/disputes",
-        "/dashboard/[seg]/messages/[seg]",
         "/dashboard/[seg]/studio/setnayan-ai",
         "/dashboard/[seg]/vendors/[seg]/review",
         "/dashboard/[seg]/vendors/[seg]/workspace",
@@ -8858,6 +8857,7 @@
         "NewManualVendorModal",
         "NotSharedWithYou",
         "PageMasthead",
+        "PayDueCtx.Provider",
         "PendingLockProposals",
         "PickMenu",
         "PillarPartPicker",

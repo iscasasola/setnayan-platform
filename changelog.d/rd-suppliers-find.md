@@ -72,9 +72,45 @@ Owner rulings 2026-10-08 ("1. yes 2. go 3. ok").
   for it. A pinned header's first tap goes back to its first card; a tap at its
   top folds it (rule 6).
 
-**Still to come in PR2a part 2:** service cards and verbs by step, "More to
-compare" always on (the scoped search will filter it too), the supplier sheet.
-`＋ Add "…"` with the typed name is 2b.
+## 2026-10-08 · feat(suppliers): the verbs on a supplier's card, by step (Suppliers PR2a · verbs) + three faults measured at 375
+
+**Faults the controller measured on the preview (375 px), fixed:**
+- "+ ＋ Add to your event" → one plus mark (the shipped words carry their own).
+- The thumb row's search field showed only "S": the row is a portal and did not
+  exist on the first render, so the fit pass ran once on nothing and never
+  again. The controls are their own component now, so it mounts WITH the row;
+  the field's 60 % is also held in CSS.
+- "Coordinator…" / "Lights & Sou…": the name and "· N yours" are one run of
+  text that wraps, never an ellipsis.
+
+**Verbs by step** (`lib/supplier-card-verbs.ts`, one table, executed in its test):
+saved → *Ask for a quote · Remove* · asked for a quote → *Nudge · Chat · Remove* ·
+quote in → *Read their reply · Remove* · taken on the date → *Ask about another
+day · Remove* · priced → *Add to build | In your build · Book · Chat | Your
+record · Remove* · added by you, no price → *Your record · Remove* · asked to
+book → *Nudge · Chat · Withdraw* · booked → *Pay | Payments | Set price · Your
+record · Chat · Workspace*. One colour per meaning; one main verb per row; the
+row drops its words as one (`useFitRow`).
+
+- The table decides which buttons show. Whether an action is ALLOWED is still
+  `resolveBenchCardActions`; a verb is offered only when that already holds it
+  (no Chat or Nudge without a conversation, no Book without a lock id, no
+  Remove on a booked or asked supplier, no Pay unless one is due).
+- Every control is the shipped `ActionButton`; Book is still the one lock
+  path (`AccordionLockButton`), Ask for a quote the one inquiry path, Withdraw
+  the one withdraw path — each now carries its word in the label span.
+- **Remove** on a card (it existed only as an undo): asks first, runs the
+  shipped `deleteVendor`, and a refusal is said in words.
+- **Nudge** posts one line — the prototype's — in the EXISTING conversation,
+  through `sendChatMessageCore`, so the one-follow-up-before-they-accept rule
+  applies and a refused nudge is reported in the core's own words. It rides the
+  existing `contactShortlistVendor` action: **+0 exported server actions**.
+- **Pay** on a card is the Booked row's own link (`teamRows`), passed down; a
+  booked supplier with nothing due shows "Payments".
+
+**Still to come in PR2a:** service cards (the `ServiceCardFace` shape), "More to
+compare" always on with a count and its own sort, the supplier sheet.
+`＋ Add "…"` with the typed name and the record sheet are 2b.
 
 SPEC IMPACT: None — builds the plan's PR2 thumb row as written; what is
 deferred to the next part is listed above and in the PR body.

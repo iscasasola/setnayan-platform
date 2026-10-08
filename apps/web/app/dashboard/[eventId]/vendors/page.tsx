@@ -2122,6 +2122,10 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         // The starter ring for an event with no plan of its own — the four a
         // host of its type books first (the Find page's own "Popular" list).
         starterTiles={[...popularTilesFor(ev?.event_type ?? null)]}
+        // A card's Pay is the Booked row's Pay — one derivation (`teamRows`).
+        payHrefByVendorId={Object.fromEntries(
+          teamRowList.flatMap((r) => (r.action?.kind === 'pay' ? [[r.vendorId, r.action.href] as const] : [])),
+        )}
         // Explore Replan PR-G1 — the convergence banner between the Coverage
         // Strip and the bench. Null on an open window (nothing to report yet)
         // and whenever the tier isn't running.

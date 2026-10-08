@@ -31,3 +31,25 @@ knob; a checked box is the colour a track is when on; in the areas listed in `SW
 wears the drawing and keeps no fill of its own. 29 sabotages seen red.
 
 SPEC IMPACT: None (the rule and the drawing are already in `INTERACTION_RULES.md` § 9).
+
+## 2026-10-08 · feat(ui): every switch is the one switch — supplier area
+
+Same ruling, same drawing (`app/_components/switch-track.tsx`). Four supplier switches moved onto it, behaviour
+unchanged: the shop's Auto-reply, Voice match and shop-page editors' on/off rows — each had its
+own orange (`--m-orange`) 36 × 20 track — and a service card's "show on Explore" (an eye icon that filled ink
+when live; it is the switch now, with the same name and the same form). `SWITCH_SWEPT` gains `app/vendor-dashboard`.
+
+Listed, not converted (a yes/no drawn as two answer buttons): "Include a Setnayan gift — Yes, include it · No,
+not on this card" in `services-manager.tsx`, `canvas-maker.tsx` and `service-wizard.tsx`.
+
+SPEC IMPACT: None.
+
+## 2026-10-08 · refactor(ui): the switch reads the app's accent token
+
+Merged the Look stack's `d349cf57b` (the accent is ONE setting: `--sn-accent` / `--sn-on-accent`, classes
+`bg-sn-accent` · `ring-sn-accent` …). The switch's two colour lines move onto it: a checked real checkbox
+(`input.sn-switch:checked`) is `rgb(var(--sn-accent))` — the same declaration the track's "on" now is, which
+`every-switch-wears-the-one-look` (2) holds equal — and the drawing's keyboard-focus ring is `ring-sn-accent/40`.
+`app/_components/switch-track.tsx` joins `TEMPLATE_FILES` in `lib/the-accent-is-one-token.test.ts`.
+
+SPEC IMPACT: None.

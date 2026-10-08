@@ -6,7 +6,7 @@
  * feel"*. A page never draws its own track: it keeps its own `<button role="switch">` (or its real checkbox) — the
  * handler, the form field, `aria-checked`, the name, the disabled state — and puts THIS inside it.
  *
- * The look is `.sn-switch` in `app/globals.css` (grey off, the accent on, the knob landing with the press family's
+ * The look is `.sn-switch` in `app/globals.css` (grey off, the app's accent `--sn-accent` on, the knob landing with the press family's
  * spring at `--sn-pill-dur`); this file adds only the template's SIZE: a 50 × 30 track, a 24-px knob, 3 px in,
  * travelling 20 px. No colour is chosen here — the knob is white, everything else is the stylesheet's.
  *
@@ -22,7 +22,7 @@
 
 /** The track and its knob. On = `data-on="true"` on it, or a checked `.peer` before it. */
 export const SWITCH_TRACK =
-  "sn-switch sn-press-ring relative block h-[30px] w-[50px] flex-none rounded-full after:absolute after:left-[3px] after:top-[3px] after:h-6 after:w-6 after:rounded-full after:bg-white after:shadow after:transition-transform after:content-[''] data-[on=true]:after:translate-x-5 peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-mulberry/40 peer-disabled:opacity-40";
+  "sn-switch sn-press-ring relative block h-[30px] w-[50px] flex-none rounded-full after:absolute after:left-[3px] after:top-[3px] after:h-6 after:w-6 after:rounded-full after:bg-white after:shadow after:transition-transform after:content-[''] data-[on=true]:after:translate-x-5 peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-sn-accent/40 peer-disabled:opacity-40";
 
 /**
  * A button that is nothing but the switch: a 44-px target around the 30-px track (the app's `min-height: 44px` on

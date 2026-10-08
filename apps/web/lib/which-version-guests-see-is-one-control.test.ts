@@ -48,17 +48,20 @@ test('3 · Studio › Info draws ONE dropdown over the shipped actions — no se
   const tools = read('app/dashboard/[eventId]/launch/_components/studio-tools.tsx');
   const hub = tools.slice(tools.indexOf('export function StudioHubSettings('), tools.indexOf('export function StudioQrActions('));
   assert.ok(hub.length > 200, 'StudioHubSettings moved — re-read this guard');
-  assert.equal((hub.match(/<PickMenu\b/g) ?? []).length, 2, 'Your Event Hub is Who can view ▾ and Which version ▾ — one dropdown each');
+  /* Each is the Form row's chosen answer (`ChosenRow` — the house `PickMenu` inside it), since the 2026-10-08 Info redesign. */
+  assert.equal((hub.match(/<ChosenRow\b/g) ?? []).length, 2, 'Your Event Hub is Who can view ▾ and Which version ▾ — one dropdown each');
+  assert.doesNotMatch(hub, /<PickMenu\b/, 'a dropdown is hand-made beside the Form row’s');
   assert.equal((hub.match(/options=\{WHICH_VERSION_OPTIONS\}/g) ?? []).length, 1);
   assert.match(hub, /setOpenBrowse\(stayForm\(eventId, \{ open_browse:/, 'All of them no longer writes the shipped open_browse');
   assert.match(hub, /setLaunchPhase\(stayForm\(eventId, \{ launch_phase: writes\.launchPhase \}\)\)/, 'the pick no longer writes the shipped launch_mode');
   assert.match(tools, /import \{ setLaunchPhase, setOpenBrowse \} from '\.\.\/\.\.\/website\/editor\/actions';/);
   assert.doesNotMatch(hub, /Open browsing|OpenBrowsePanel|open-browse/i, 'a separate Open browsing control is drawn behind the flag');
-  const studioSwitches = [...hub.matchAll(/<StudioSwitch\b[^>]*label="([^"]+)"/g)].map((m) => m[1]);
+  const studioSwitches = [...hub.matchAll(/<SwitchRow\b[\s\S]*?name="([^"]+)"/g)].map((m) => m[1]);
+  assert.doesNotMatch(hub, /<StudioSwitch\b/, 'a switch is hand-made beside the Form row’s');
   assert.deepEqual(studioSwitches, ['Event Bar'], 'a switch other than the Event Bar is drawn in Your Event Hub');
   /* …and Info is where it is drawn: MakerDetails mounts it only under `studio`. */
   const details = read('app/dashboard/[eventId]/launch/_components/maker-details.tsx');
   const block = details.slice(details.indexOf('if (props.studio) {'));
-  assert.match(block, /<StudioTool part="hub" eventId=\{eventId\} slug=\{slug\} hub=\{st\.hub\} \/>/);
+  assert.match(block, /<StudioTool\s+part="hub"\s+eventId=\{eventId\}\s+slug=\{slug\}\s+hub=\{st\.hub\}/);
   assert.doesNotMatch(details, /OpenBrowsePanel/, 'Details draws the old Open browsing panel');
 });

@@ -62,9 +62,10 @@ export function studioDetailsGroups<I extends { key: DetailsItemKey }>(groups: r
  * group starts at. Info: "Your event" then "Your Event Hub" (from its address on). Prints: "Your
  * invitation set" then "For the day". Words only — no field, no write.
  */
+/* 🧾 INFO HAS NO HEADINGS NOW (owner 2026-10-08: *"prioritize only what they need to input here"*; the Info redesign
+   opens on the first input) — "Your event" and "Your Event Hub" are gone: what must be typed is simply first, and
+   the optional rows are the fold "More for guests". */
 export const STUDIO_FORM_HEADS: Partial<Record<DetailsItemKey, { title: string; line?: string }>> = {
-  names: { title: 'Your event' },
-  address: { title: 'Your Event Hub' },
   invitation: { title: 'Your invitation set' },
   [FREE_PRINT_KEYS[0]!]: { title: 'For the day', line: 'free for every event' },
 };
@@ -114,6 +115,18 @@ const STUDIO_PAGE = 'color-mix(in srgb,rgb(var(--color-gild)) 9%,rgb(var(--color
  *
  * CSS only, drawn by the server beside Details — the shipped Maker (flag off) never has the attribute.
  */
+/** A form field that holds Form rows (`data-studio-info-rows`, Studio › Info): the rows ARE the form — no heading over them, no band padding around them. */
+const INFO_FIELD = '[data-details-workspace] [data-details-form-field]:has([data-studio-info-rows])';
+/**
+ * 🧾 STUDIO › INFO IS FORM ROWS (owner 2026-10-08; `app/_components/form-row.tsx`). Each field of the form that draws
+ * rows gives up its own heading (the row names itself) and its own spacing (a row is 52 px on one hairline — the
+ * field's own top line is that hairline). At every width; the phone's white band comes from the skin below.
+ */
+const STUDIO_INFO_CSS =
+  `${INFO_FIELD}{gap:0;padding-top:0;padding-bottom:0}` +
+  `${INFO_FIELD} > [data-details-form-heading]{display:none}` +
+  /* Two lists of rows in one field (Special message, then What to bring): the hairline between rows, between lists too. */
+  '[data-studio-info-rows] + [data-studio-info-rows]{border-top:1px solid rgb(var(--color-ink)/.1)}';
 const W = '[data-maker-studio-full] [data-details-workspace]';
 const STUDIO_SKIN_CSS =
   `${W} [data-details-form-field]{background:rgb(var(--color-cream));margin-left:-16px;margin-right:-16px;padding:12px 16px;border-top:1px solid rgb(var(--color-ink)/.1)}` +
@@ -133,7 +146,8 @@ const STUDIO_SKIN_CSS =
   `${W} input[role=switch]+span::after{width:22px;height:22px;left:3px;top:3px}` +
   `${W} input[role=switch]:checked+span{background-color:#4f6b4a}` +
   `${W} input[role=switch]:checked+span::after{transform:translateX(18px)}` +
-  `${W} [data-details-editor] :is(input:not([type]),input[type=text],input[type=url],input[type=tel],input[type=email],input[type=search],input[type=date],textarea){min-height:44px;border-radius:var(--m-r-sm);border-color:rgb(var(--color-ink)/.1);background:${STUDIO_PAGE};font-size:14px}`;
+  /* …but never a Form row's own field (`data-form-row-input`): that one is the template's pill, 16 px so a phone does not zoom. */
+  `${W} [data-details-editor] :is(input:not([type]),input[type=text],input[type=url],input[type=tel],input[type=email],input[type=search],input[type=date],textarea):not([data-form-row-input]){min-height:44px;border-radius:var(--m-r-sm);border-color:rgb(var(--color-ink)/.1);background:${STUDIO_PAGE};font-size:14px}`;
 
 /**
  * 🚶 STUDIO › WEDDING MARCH GETS THE SCREEN FOR THE WALKS (owner 2026-10-07, verbatim *"yes parents
@@ -185,6 +199,7 @@ export function studioFullScreenCss(): string {
     STUDIO_SKIN_CSS +
     STUDIO_MARCH_CSS +
     '}' +
-    STUDIO_MUSIC_SWITCH_CSS
+    STUDIO_MUSIC_SWITCH_CSS +
+    STUDIO_INFO_CSS
   );
 }

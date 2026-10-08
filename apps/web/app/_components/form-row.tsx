@@ -1,7 +1,8 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Check, Pencil, X } from 'lucide-react';
+import { Check, ChevronDown, Pencil, X } from 'lucide-react';
+import { OneOpenScope, useOneOpen } from '@/lib/one-open';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import type { PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu-types';
 import {
@@ -34,7 +35,8 @@ import { SWITCH_BUTTON, SwitchTrack } from './switch-track';
  *
  * ── EVERY ANSWER IS THE SAME WHITE PILL ─────────────────────────────────────
  * …and one small accent mark at its right says what a tap does: a pencil = type (`TypedRow`) · an arrow = choose
- * (`ChosenRow`, the house `PickMenu`) · on/off is the one switch (`SwitchRow`, `SwitchTrack`). The pills of one list
+ * (`ChosenRow`, the house `PickMenu`) · on/off is the one switch (`SwitchRow`, `SwitchTrack`) · an answer made of
+ * parts opens them under it (`OpensRow`, the arrow again). The pills of one list
  * (`FormRows`) are ONE width, so their right edges and their marks line up and a pill never changes size when its
  * answer does: `short` (150 px) or `wide` (200 px) — a size per LIST, never one for the whole app.
  *
@@ -90,12 +92,25 @@ const RowsContext = createContext<Rows | null>(null);
  * A list of rows: its pills share ONE width, and one of its fields is open at a time.
  * (Rows drawn outside a list still work — each keeps its own state and takes the `wide` pill.)
  */
-export function FormRows({ width = 'wide', children, data, className = '' }: { width?: FormPillWidth; children: ReactNode; data?: string; className?: string }) {
+export function FormRows({
+  width = 'wide',
+  children,
+  data,
+  attrs,
+  className = '',
+}: {
+  width?: FormPillWidth;
+  children: ReactNode;
+  data?: string;
+  /** The screen's own `data-*` hooks on the list. */
+  attrs?: Readonly<Record<`data-${string}`, string>>;
+  className?: string;
+}) {
   const [open, setOpen] = useState<string | null>(null);
   const value = useMemo(() => ({ width, open, setOpen }), [width, open]);
   return (
     <RowsContext.Provider value={value}>
-      <div data-form-rows={data ?? ''} data-form-pill-width={width} className={`flex flex-col ${className}`}>
+      <div {...attrs} data-form-rows={data ?? ''} data-form-pill-width={width} className={`flex flex-col ${className}`}>
         {children}
       </div>
     </RowsContext.Provider>
@@ -278,6 +293,7 @@ export function TypedRow({
   amount = false,
   required = false,
   check = null,
+  clean = null,
   onKeep,
   inputMode,
   autoCapitalize,
@@ -286,7 +302,10 @@ export function TypedRow({
   pillAttrs,
   note,
   below,
+  openAsk = 0,
 }: {
+  /** Bumped by the screen to open this row's field (a jump from elsewhere that lands ON this fact). 0 = never asked. */
+  openAsk?: number;
   name: string;
   about?: FormRowAbout | null;
   /** The answer as it stands ('' = none yet). For an amount: its digits ("250000"). */
@@ -303,6 +322,8 @@ export function TypedRow({
   required?: boolean;
   /** What is wrong with these words, in plain words — or null. */
   check?: ((text: string) => string | null) | null;
+  /** The screen's own tidying of what was typed (a name's allowed letters) — what the pill then shows IS what is kept. */
+  clean?: ((text: string) => string) | null;
   /** Keep these words (trimmed; an amount's digits). */
   onKeep: (text: string) => KeepAnswer | Promise<KeepAnswer>;
   inputMode?: 'text' | 'numeric' | 'tel' | 'email' | 'url';
@@ -337,6 +358,16 @@ export function TypedRow({
     rows?.setOpen(id);
     setMode('open');
   };
+  /* The screen asked for this field (never on mount: opening a page opens no field and writes nothing). */
+  const asked = useRef(openAsk);
+  useEffect(() => {
+    if (openAsk === asked.current) return;
+    asked.current = openAsk;
+    rows?.setOpen(id);
+    setMode((m) => (m === 'shut' ? 'open' : m));
+    // Only the ask itself opens it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openAsk]);
   /* One row open at a time: when another row of the list opens, this one keeps what it holds and closes (its field's
      own tap-out has usually done so already — `done` in the field makes the second ask a no-op). */
   const field = useRef<{ end: (exit: FieldExit) => void } | null>(null);
@@ -374,7 +405,7 @@ export function TypedRow({
 
   const end = (exit: FieldExit, typed: string) => {
     if (mode !== 'open') return;
-    const out = keepOutcome({ exit, typed: amount ? amountDigits(typed) : typed, before: shown, long, required, check });
+    const out = keepOutcome({ exit, typed: amount ? amountDigits(typed) : clean ? clean(typed) : typed, before: shown, long, required, check });
     if (out.kind === 'send') {
       setShown(out.text);
       after.current = () => send(out.text);
@@ -580,6 +611,7 @@ export function FormRowField({
     maxLength,
     placeholder,
     'aria-labelledby': nameId,
+    'data-form-row-input': '',
     autoCapitalize,
     onBlur: () => end('tap-out'),
     className: 'min-w-0 flex-1 border-0 bg-transparent p-0 text-[16px] text-ink outline-none placeholder:text-ink/40',
@@ -691,6 +723,82 @@ export function ChosenRow({
   );
 }
 
+/* ── an answer made of parts ───────────────────────────────────────────── */
+
+/**
+ * An answer that is MADE OF PARTS (an event's name = two people's names and how they are written): ONE row whose
+ * pill shows the whole answer and, with the arrow, opens its parts in place under it — each part a row of its own.
+ *   · the arrow turns over while open; the parts open downward at the family's speed (still under "reduce motion");
+ *   · ONE open at a time on the screen with every fold (`useOneOpen`) — a dropdown opened among the parts never
+ *     closes it (`OneOpenScope`);
+ *   · the parts STAY MOUNTED while shut — only out of reach (`inert`);
+ *   · `needed`: a part that must be filled is still empty — the shut row wears the highlight and "Required", so it
+ *     is found without opening it.
+ */
+export function OpensRow({
+  name,
+  about,
+  answer,
+  empty = 'Not set yet',
+  needed = false,
+  defaultOpen = false,
+  openAsk = 0,
+  children,
+  data,
+  attrs,
+}: {
+  name: string;
+  about?: FormRowAbout | null;
+  /** The whole answer, as it reads ('' = none yet). */
+  answer: string;
+  empty?: string;
+  needed?: boolean;
+  defaultOpen?: boolean;
+  /** Bumped by the screen to open the parts. 0 = never asked. */
+  openAsk?: number;
+  /** The parts — rows of their own. */
+  children: ReactNode;
+  data?: string;
+  attrs?: Readonly<Record<`data-${string}`, string>>;
+}) {
+  const width = usePillWidth();
+  const [open, setOpen] = useState(defaultOpen);
+  const scope = useOneOpen(open, setOpen);
+  const asked = useRef(openAsk);
+  useEffect(() => {
+    if (openAsk === asked.current) return;
+    asked.current = openAsk;
+    setOpen(true);
+  }, [openAsk]);
+  const id = useId();
+  const still = needed && !open;
+  return (
+    <div {...attrs} data-form-row={data ?? ''} data-form-row-kind="opens" data-form-row-open={open ? '' : undefined} data-form-row-needs={still ? 'answer' : undefined} className={FORM_ROW_BAND}>
+      <div className={FORM_ROW_LINE}>
+        <RowName name={name} about={about} needed={still} />
+        <button
+          type="button"
+          data-form-row-pill="opens"
+          aria-expanded={open}
+          aria-controls={id}
+          aria-label={`${name}: ${answer || 'not set yet'}. ${open ? 'Close' : 'Tap to change'}`}
+          onClick={() => setOpen((o) => !o)}
+          className={`${FORM_PILL_CLASS} ${width} ${still ? 'border-sn-accent ring-[3px] ring-sn-accent/15' : 'border-ink/15'}`}
+        >
+          <PillWords text={answer || empty} quiet={!answer} />
+          <ChevronDown aria-hidden data-form-row-mark="arrow" className={`${MARK} text-sn-accent transition-transform duration-sn-pill ease-sn-spring motion-reduce:transition-none ${open ? 'rotate-180' : ''}`} strokeWidth={2} />
+        </button>
+      </div>
+      <div id={id} data-form-row-parts="" inert={!open} className={`grid transition-[grid-template-rows] duration-sn-pill ease-sn motion-reduce:transition-none ${open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
+        {/* The parts sit a step in from the row they belong to; 4 px of room so a focus ring is not cut. */}
+        <div className={`-mr-1 min-h-0 overflow-hidden pl-3 pr-1 transition-opacity duration-sn-pill ease-sn motion-reduce:transition-none ${open ? 'opacity-100' : 'opacity-0'}`}>
+          <OneOpenScope id={scope}>{children}</OneOpenScope>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── on / off ──────────────────────────────────────────────────────────── */
 
 /** On or off: the one switch, at the row's right edge. */
@@ -702,6 +810,7 @@ export function SwitchRow({
   disabled = false,
   note,
   problem,
+  below,
   data,
   attrs,
 }: {
@@ -712,11 +821,13 @@ export function SwitchRow({
   disabled?: boolean;
   note?: ReactNode;
   problem?: ReactNode;
+  /** More of this row, under it (what the switch shows while it is on). */
+  below?: ReactNode;
   data?: string;
   attrs?: Readonly<Record<`data-${string}`, string>>;
 }) {
   return (
-    <FormRow name={name} about={about} note={note} problem={problem} data={data} attrs={{ ...attrs, 'data-form-row-kind': 'switch' }}>
+    <FormRow name={name} about={about} note={note} problem={problem} below={below} data={data} attrs={{ ...attrs, 'data-form-row-kind': 'switch' }}>
       <button type="button" role="switch" aria-checked={on} aria-label={name} disabled={disabled} data-form-row-switch="" onClick={() => onChange(!on)} className={SWITCH_BUTTON}>
         <SwitchTrack on={on} />
       </button>

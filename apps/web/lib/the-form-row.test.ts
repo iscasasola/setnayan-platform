@@ -27,12 +27,14 @@
  *   (8) THE ⓘ — its own 44-px button; a phone gets the centred popup (dark, blurred, locked, "Got it"), a computer
  *       the attached note; one open at a time.
  *   (9) THE FOLD — opens downward, the arrow turns, one open at a time; what is inside stays mounted, out of reach.
+ *  (9b) AN ANSWER MADE OF PARTS — one row whose pill (the arrow) opens its parts under it; mounted while shut.
  *  (10) THE WATCH — the shared pieces import nothing of the Maker's and write no colour for the accent.
  *
  * Mutations seen RED (2026-10-08), each restored: `exitKeeps` also keeping `x` → (1); the rest at each end 1000 →
  * 400 ms → (2); the typed pill given `w-auto` instead of the list's width → (3); "Required" left on a filled row →
  * (4); a ✓ button added to the open field → (5); the failed line dropped → (6); `forwards` on the fold-back → (7);
- * the popup's dark layer removed → (8); the fold unmounting what is inside → (9).
+ * the popup's dark layer removed → (8); the fold unmounting what is inside → (9); an opens-row unmounting its shut
+ * parts → (9b).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -315,6 +317,27 @@ test('(9) the fold opens downward, its arrow turns, one is open at a time — an
   assert.match(src, /const scope = useOneOpen\(open, setOpen\);/, 'opening one fold does not close another');
   assert.match(src, /<OneOpenScope id=\{scope\}>\{children\}<\/OneOpenScope>/, 'a dropdown opened inside the fold would close it');
   assert.match(src, /duration-sn-pill/);
+});
+
+test('(9b) an answer made of parts is ONE row whose pill opens them under it — mounted while shut, out of reach', async () => {
+  const { OpensRow, TypedRow } = await rows();
+  const part = h(TypedRow, { name: 'First name', value: 'Maria', onKeep: () => {} });
+  const shut = await paint(h(OpensRow, { name: 'Event name', answer: 'Maria & Jose', children: part }));
+  assert.match(shut, /<button type="button" data-form-row-pill="opens" aria-expanded="false"[^>]*aria-label="Event name: Maria &amp; Jose\. Tap to change"/);
+  assert.match(shut, /data-form-row-parts="" inert=""/, 'a shut row’s parts can still be reached');
+  assert.match(shut, /aria-label="First name: Maria\. Tap to change"/, 'a shut row unmounts its parts');
+  assert.match(shut, /<svg[^>]*text-sn-accent[^>]*data-form-row-mark="arrow"/, 'the arrow is not the accent');
+  assert.doesNotMatch(shut, /rotate-180/);
+  const open = await paint(h(OpensRow, { name: 'Event name', answer: '', needed: true, defaultOpen: true, children: part }));
+  assert.match(open, /aria-expanded="true"/);
+  assert.match(open, /rotate-180/, 'the arrow does not turn over');
+  assert.doesNotMatch(open, /inert/);
+  // Still needed and SHUT: the row itself says so (it is found without opening it); open, its parts say it.
+  assert.doesNotMatch(open, /data-form-row-required/);
+  assert.match(await paint(h(OpensRow, { name: 'Event name', answer: '', needed: true, children: part })), /data-form-row-required=""[^>]*>Required</);
+  const src = read(ROW);
+  assert.match(src, /const scope = useOneOpen\(open, setOpen\);/);
+  assert.match(src, /<OneOpenScope id=\{scope\}>\{children\}<\/OneOpenScope>/);
 });
 
 test('(10) the watch: the shared pieces know no screen and write no colour for the accent', () => {

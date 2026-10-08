@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { PillThumb } from '@/app/_components/pill-selector';
 import { createPortal } from 'react-dom';
 import { ALargeSmall, FileText, Orbit, PencilLine, Play, Square, Store, SwatchBook } from 'lucide-react';
@@ -779,7 +779,12 @@ export function StageTools({
     askTool(t, picked);
   };
   const away = typing || playing;
-  const shellEl = typeof document === 'undefined' ? null : document.querySelector<HTMLElement>('[data-maker-shell]');
+  /* 🧷 THE FIRST RENDER IN THE BROWSER IS THE SERVER'S. The guest bar is drawn into the Maker's shell, and the shell
+     was looked up WHILE RENDERING — nothing on the server, the element in the browser — so the browser's first render
+     held a <nav> the server's HTML did not, and React refused the server's panel and rebuilt it. The shell is now
+     found once the panel is on the page (before the browser paints, so the bar never arrives a frame late). */
+  const [shellEl, setShellEl] = useState<HTMLElement | null>(null);
+  useLayoutEffect(() => setShellEl(document.querySelector<HTMLElement>('[data-maker-shell]')), []);
   /* Dragged down to the row alone, an open part's tools fold away (prototype `.lt.min`). */
   const folded = ltNow < STAGE_PANEL_REST_PX + 60;
 

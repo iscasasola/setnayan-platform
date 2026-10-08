@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "2d4d42d11",
+  "generatedFromRef": "bf91be468",
   "routeCount": 429,
   "destinations": 959,
   "actions": 672,
-  "blocks": 5849,
+  "blocks": 5850,
   "routes": {
     "/": {
       "files": [
@@ -1064,6 +1064,7 @@
         "BackgroundMusic",
         "Bar",
         "BeforeAfterScene",
+        "BeforeRedrawCommits",
         "Blob",
         "Box",
         "ByRoleGroup",

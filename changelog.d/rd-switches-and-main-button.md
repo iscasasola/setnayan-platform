@@ -122,3 +122,61 @@ property; every class string in the app that wears `sn-switch` may put a timing 
 `after:transition…` (one more variant would outweigh the rule again in one state). 6 sabotages seen red.
 
 SPEC IMPACT: None.
+
+## 2026-10-08 · feat(ui): on the dashboards the main button is the app's accent, a pill
+
+Owner, verbatim (2026-10-08): *"for all the design templates you gave me, i am now satisfied on all of these"* (the
+gallery's § 9: main = terracotta with white words, a pill; second = white, a hairline, ink words; "cannot be used
+yet" = grey) · *"if we change our color to blue, it will be easy to change the button colors"*.
+
+`.button-primary` is ONE class with three renderings. ONLY the dashboards' (`.app-surface …`: couple, supplier,
+admin) changed — `app/globals.css`, that one block:
+
+- **Main:** fill `rgb(var(--sn-accent))`, words `rgb(var(--sn-on-accent))` — one declaration each (was gold
+  `--sn-gold-700` with `#fffdf8`). A hover no longer repaints it (it lifts, with the accent's shadow), so there is no
+  second pair to read badly one interaction away.
+- **Second:** white (`--sn-surface`), a 1-px hairline (`--sn-line`), ink words (was a 1.5-px ink outline on nothing,
+  turning into an ink button on hover). Its hover darkens the border and lifts.
+- **Both** are the full pill (`--m-r-full`), whatever radius a page asked for.
+- **Cannot be used yet** (`:disabled` or `aria-disabled="true"`): grey (`--sn-hairline` under `--sn-ink-300`), flat,
+  no lift — and no longer faded to 60% on top of that.
+- **Reach:** 163 lines carry `button-primary` and 119 `button-secondary` under the three dashboards
+  (`/usr/bin/grep -rc --include='*.tsx' button-primary apps/web/app/{dashboard,vendor-dashboard,admin}`).
+
+Contrast, each pair that changed (the lint's own arithmetic):
+
+| Pair | Before | After |
+|---|---|---|
+| main, at rest | #FFFDF8 on #8A6B39 — 4.87:1 | #FFFFFF on #C24E25 — 4.76:1 |
+| main, hover | #FFFDF8 on #5C4726 — 8.66:1 | the same pair as at rest — 4.76:1 |
+| second, at rest | #1B1A17 on the page (#FBFAF7) — 16.67:1 | #1B1A17 on #FFFFFF — 17.40:1 |
+| second, hover | #FBFAF7 on #1B1A17 — 16.67:1 | the same pair as at rest — 17.40:1 |
+| cannot be used | the live pair at 60% opacity | #A09A8E on #EDE8DE — 2.29:1 (an inactive control; exempt, and meant to read "off") |
+
+**Guest and public pages render as before — measured, not only read.** The compiled stylesheet (the repo's own
+Tailwind config) on a static page in headless Chromium, before and after: a public button, a guest button in
+`.sn-editorial`, and a guest button under a host's Buttons choice read the SAME values at rest and on hover (fill,
+words, radius, border, opacity, shadow, lift); only the buttons under `.app-surface` changed. Why, from the cascade:
+every rule here starts with `.app-surface`, which only the three dashboard layouts set. One guest-look island
+lives INSIDE a dashboard — the Maker's Look sample: at rest it reads the same; on hover it used to borrow the
+dashboard's gold fill and lift (a leak) and now does not — everything new is written `:not(.sn-editorial *)`.
+
+**The contrast lint can read it.** `lint-label-on-fill-contrast` resolved a hex and `var(--x)` but not
+`rgb(var(--x))` — the form every Tailwind-facing token takes — so a rule pairing two such tokens was skipped in
+silence. It reads that form now: 7 pairings that were never measured are (all pass), and the main button's is
+one it would catch (ink words on the accent → 3.00:1, red).
+
+NOT in this commit: the hand-made buttons. Counted for the next lane — lines carrying the class, not all of them
+buttons (`/usr/bin/grep -rcE --include='*.tsx' '<class>' <area>`, tests excluded):
+
+| Area | `bg-ink` | `bg-terracotta-700` (gold) | `bg-mulberry` | `bg-terracotta` / gold hex | inline `style` background |
+|---|---|---|---|---|---|
+| app/dashboard | 127 | 77 | 190 | 45 | 165 |
+| app/vendor-dashboard | 73 | 15 | 18 | 12 | 201 |
+| app/admin | 38 | 17 | 42 | 12 | 45 |
+| app/_components (shared) | 29 | 18 | 56 | 12 | 73 |
+| app/onboarding · signup · login | 1 | 0 | 4 | 2 | 8 |
+
+Guard: `lib/the-main-button-is-the-accent.test.ts` (6). 19 sabotages seen red there and 3 on the lint.
+
+SPEC IMPACT: None (the ruling is in `INTERACTION_RULES.md` § 9's APPROVED block).

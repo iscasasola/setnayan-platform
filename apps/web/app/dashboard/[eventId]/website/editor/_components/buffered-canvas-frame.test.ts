@@ -45,7 +45,7 @@ test('a new stage or "view as" swaps at once — the couple asked for a differen
   assert.deepEqual(s.shown, f('save_the_date:2:', 'save_the_date:'));
   assert.equal(s.loading, null, 'shown at once, never buffered behind the old stage');
   // 🔥 2026-09-28: the stage LEFT stays warm behind it (switching back is instant);
-  // the render that was still loading for it is dropped. `nextWarmFrame` trims
+  // the render that was still loading for it is dropped. `trimWarmFrames` trims
   // whatever the Maker does not want kept (switching-stage-or-page-never-navigates.test.ts).
   assert.deepEqual(s.warm, [f('rsvp:1:')]);
 });

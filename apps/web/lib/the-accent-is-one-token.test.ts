@@ -62,6 +62,9 @@ const TEMPLATE_FILES = [
   'app/_components/timeline-row.tsx', //   13 · Timeline row (and its three list states)
   'app/_components/ticker.tsx', //             its ticker, and the pill + pop that opens it
   'app/_components/switch-track.tsx', //   3 · Switch (its drawing; the colours are `.sn-switch` in globals.css)
+  'app/_components/form-row.tsx', //       6 · Form row / 10 · Field (typed · chosen · on/off · a fact shown)
+  'app/_components/explain.tsx', //        7 · ⓘ explanation (the centred popup on a phone, the note on a computer)
+  'app/_components/fold.tsx', //           19 · Fold
 ] as const;
 
 /**

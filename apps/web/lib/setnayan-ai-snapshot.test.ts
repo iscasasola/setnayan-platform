@@ -96,6 +96,7 @@ const bucket = (bucketId: string, committedPhp: number): MoneyBucket => ({
 });
 
 const money = (over: Partial<EventMoney>): EventMoney => ({
+  reads: { suppliers: 'ok', orders: 'ok', costs: 'ok' },
   targetPhp: 200000,
   estimated: 0,
   committed: 0,

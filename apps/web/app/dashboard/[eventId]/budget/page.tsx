@@ -12,7 +12,12 @@ import {
   type BudgetLiveSummary,
 } from '@/lib/budget';
 import { formatPhp } from '@/lib/orders';
-import { resolveEventMoney, bucketLabel, type EventMoney } from '@/lib/budget-truth';
+import {
+  resolveEventMoneySettled,
+  moneyReadsAllOk,
+  bucketLabel,
+  type EventMoney,
+} from '@/lib/budget-truth';
 
 import { isBudgetTruthEnabled } from '@/lib/budget-truth-flag';
 import {
@@ -139,7 +144,7 @@ export default async function BudgetPage({ params, searchParams }: Props) {
   // extra query, so the page's cost profile is unchanged in production.
   const budgetTruth = isBudgetTruthEnabled();
 
-  const [eventRes, snapshot, paidOrdersRes, allocInputs, money, savedPlanPhp] = await Promise.all([
+  const [eventRes, snapshot, paidOrdersRes, allocInputs, moneyRead, savedPlanPhp] = await Promise.all([
     supabase
       // SEC-2b: public.events_host, not public.events — this select names a column
       // (budget / birth data / Drive folder) that is SELECT-denied to `authenticated`
@@ -164,16 +169,26 @@ export default async function BudgetPage({ params, searchParams }: Props) {
     // config) resolved server-side once; the planner client component re-runs
     // the pure engine on every tilt. Reuses the same authed supabase client.
     resolveAllocationInputs(supabase, eventId),
-    // Degrade to the legacy figures on ANY resolver failure rather than
-    // printing a confident ₱0 — a budget page that silently zeroes is worse
-    // than one that is merely out of date.
+    // B0 (2026-10-08) · the resolver is asked in the form that NEVER rejects and
+    // says, per source, whether it answered (`EventMoney.reads`). No catch here
+    // that turns a failure into `null` — a `null` cannot say WHICH read failed,
+    // and the render needs to know.
     budgetTruth
-      ? resolveEventMoney(supabase, eventId).catch((): EventMoney | null => null)
+      ? resolveEventMoneySettled(supabase, eventId)
       : Promise.resolve<EventMoney | null>(null),
     // BA3 · the couple's OWN saved plan, per category. Fails empty, never
     // partial — the ledger then falls back to the suggestion and says so.
     fetchSavedAllocationPlan(supabase, eventId),
   ]);
+
+  // ── A PARTIAL LEDGER IS NOT A LEDGER (B0) ─────────────────────────────────
+  // Every figure this page prints from `money` today is a sum over ALL three
+  // sources. With one refused, that sum is not a smaller answer, it is a wrong
+  // one — so a ledger with a failed read is treated exactly as an absent one
+  // was: the strip degrades to the legacy figures, the category table is
+  // withheld, and the costs section says it could not load. `moneyRead` keeps
+  // the per-source status for the render that switches on it.
+  const money = moneyRead !== null && moneyReadsAllOk(moneyRead) ? moneyRead : null;
 
   // Migration-drift fallback (mirrors app/dashboard/[eventId]/page.tsx): the
   // explicit select above names mahr_description (migration 20270308998862). On

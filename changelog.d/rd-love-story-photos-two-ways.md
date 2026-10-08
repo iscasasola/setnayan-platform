@@ -79,3 +79,30 @@ Guard: `apps/web/lib/the-lab-can-upload.test.ts` (4 tests — the stand-in is RU
 with hand-turned timers; 14 sabotages seen red).
 
 SPEC IMPACT: None.
+
+## 2026-10-08 · feat(studio): a Love Story row shows the first line of its story under its name
+
+Owner, on Studio › Love Story: *"i do not see the subtext? unlike the Sep 2026"*
+— the only row with a line under its name was the moment kept off the Event Hub
+(its amber notice). The approved drawing (gallery § 13) gives every row the FIRST
+LINE of its story as a quiet second line.
+
+- `TimelineRow` gains one optional prop, `sub`: one quiet line under the name,
+  inside the same tap, cut with "…". The row grows by that ONE line and never
+  more (the name still stops at two). A row handed none — every Schedule row — is
+  drawn exactly as it was.
+- Love Story hands each row `momentFirstLine(its words)`: the first line the
+  couple wrote (never a later one, never words of ours), "…" when more follows,
+  nothing when there are no words. It follows the words as they are typed in ⋯.
+  The amber "Off the Event Hub — guests do not see this moment." stays its own
+  line below; a new moment with a name and no words still says "Not saved yet — a
+  moment needs a line or two."
+
+Also: the photo slots no longer set their "Not kept yet" line while the uploader
+is drawing (React's dev-only "Cannot update a component while rendering a
+different component" — it showed as a red "1 Issue" badge on the local copy).
+
+Guard: `apps/web/lib/a-moment-shows-its-first-line.test.ts` (4 tests; 13
+sabotages seen red). No request added: the words are already on the page.
+
+SPEC IMPACT: None — builds the approved gallery § 13.

@@ -33,6 +33,7 @@ import {
   encodeOmbre,
   encodeSiteBackground,
   isOmbreValue,
+  backgroundPlainOffered,
   ombreAnchors,
   ombreCss,
   ombreLegibility,
@@ -270,4 +271,118 @@ test('the ombré ships FREE: OMBRE_IS_PRO is false and no site_bg_color write is
   assert.equal(ombreLookChange(null, 'ombre:dawn:#ffffff'), 'none');
   assert.equal(ombreLookChange('ombre:dawn:#ffffff', '#ffffff'), 'none');
   assert.equal(ombreLookChange('#ffffff', undefined), 'none');
+});
+
+/* ── 🎨🎨 a second colour (owner 2026-10-08, "LOOK › BACKGROUND, AMENDED") ──────── */
+
+/** Pairs a couple could set: light → dark, dark → light, two mid-tones, complements, a colour and itself's neighbour, the edges. */
+const PAIRS: readonly (readonly [string, string])[] = [
+  ['#f6f1e7', '#c5a059'],
+  ['#c5a059', '#f6f1e7'],
+  ['#ffffff', '#000000'],
+  ['#000000', '#ffffff'],
+  ['#1a0b2e', '#e0392b'],
+  ['#e0392b', '#2b4fe0'],
+  ['#777777', '#8a9eae'],
+  ['#fbf7ef', '#f4ecdd'],
+  ['#0e0504', '#1a0b2e'],
+  ['#3a4a1c', '#c9aab3'],
+  ['#9ca98b', '#c9a9a6'],
+  ['#fbfbfa', '#d8c7b0'],
+];
+
+test('🎨🎨 the column reads three or four segments and nothing else; both round-trip; one colour is written exactly as before', () => {
+  // Three segments: unchanged, byte for byte.
+  assert.equal(encodeOmbre({ shape: 'dawn', base: '#f4ecdd' }), 'ombre:dawn:#f4ecdd');
+  assert.deepEqual(parseOmbre('ombre:dawn:#f4ecdd'), { shape: 'dawn', base: '#f4ecdd' });
+  assert.equal('to' in parseOmbre('ombre:dawn:#f4ecdd')!, false, 'a one-colour value grew a second colour');
+  // Four: the second colour, canonical, within the column's small budget.
+  for (const shape of OMBRE_SHAPES) {
+    const spec: OmbreSpec = { shape, base: '#f6f1e7', to: '#c5a059' };
+    const stored = encodeOmbre(spec);
+    assert.equal(stored, `ombre:${shape}:#f6f1e7:#c5a059`);
+    assert.ok(stored.length <= 30, `${stored} is longer than 30 characters`);
+    assert.deepEqual(parseSiteBackground(stored), { kind: 'ombre', ombre: spec });
+    assert.equal(encodeSiteBackground(parseSiteBackground(stored)!), stored);
+    assert.equal(isOmbreValue(stored), true);
+  }
+  assert.deepEqual(parseOmbre(' ombre:glow:#F6F1E7:#C5A059 '), { shape: 'glow', base: '#f6f1e7', to: '#c5a059' });
+  // Anything else is dropped whole — never half-read as the one-colour value it starts with.
+  for (const junk of ['ombre:dawn:#ffffff:', 'ombre:dawn:#ffffff:#zzzzzz', 'ombre:dawn:#ffffff:#000', 'ombre:dawn:#ffffff:#000000:#111111', 'ombre:dawn:#ffffff:url(x)', 'ombre:dawn::#000000', 'ombre:swirl:#ffffff:#000000']) {
+    assert.equal(parseSiteBackground(junk), null, `accepted ${junk}`);
+  }
+  // The choice: a second colour rides a blend, never Plain — and Plain is not offered while there are two.
+  assert.equal(encodeBackgroundChoice('#F6F1E7', 'diagonal', '#C5A059'), 'ombre:diagonal:#f6f1e7:#c5a059');
+  assert.equal(encodeBackgroundChoice('#F6F1E7', 'diagonal', null), 'ombre:diagonal:#f6f1e7');
+  assert.equal(encodeBackgroundChoice('#F6F1E7', 'diagonal', 'nonsense'), 'ombre:diagonal:#f6f1e7');
+  assert.equal(encodeBackgroundChoice('#F6F1E7', 'plain', '#C5A059'), '#f6f1e7', 'Plain is always one bare hex');
+  assert.equal(encodeBackgroundChoice(null, 'glow', '#C5A059'), '', 'no first colour → nothing to store');
+  assert.equal(backgroundPlainOffered('#c5a059'), false, 'Plain is writable with two colours');
+  assert.equal(backgroundPlainOffered(null), true, 'removing the second colour does not restore Plain');
+  assert.equal(backgroundPlainOffered(undefined), true);
+});
+
+test('🎨🎨 with two colours the ramp runs from the first to the second — the same nine OKLCH steps, each end exactly the colour picked', () => {
+  for (const [a, b] of PAIRS) {
+    assert.deepEqual(ombreAnchors(a, b), [a, b], 'the two colours are not the anchors, in the order set');
+    for (const shape of OMBRE_SHAPES) {
+      const ramp = ombreRamp({ shape, base: a, to: b });
+      assert.equal(ramp.length, OMBRE_RAMP_STEPS);
+      assert.equal(ramp[0], a, `${shape}: the blend does not start on the first colour`);
+      assert.equal(ramp[ramp.length - 1], b, `${shape}: the blend does not end on the second colour`);
+      // Lightness moves ONE way between the two (never out past either end and back).
+      const L = ramp.map((c) => oklchOfHex(c).L);
+      const dir = Math.sign(L[L.length - 1]! - L[0]!);
+      for (let i = 1; i < L.length; i++) assert.ok((L[i]! - L[i - 1]!) * dir >= -0.012, `${a} → ${b} ${shape}: lightness turns back at step ${i}`);
+      const [lo, hi] = [Math.min(L[0]!, L[L.length - 1]!), Math.max(L[0]!, L[L.length - 1]!)];
+      for (const l of L) assert.ok(l >= lo - 0.012 && l <= hi + 0.012, `${a} → ${b} ${shape}: a step leaves the two colours' range`);
+    }
+  }
+  // One colour: the ramp is the shipped one — its own lighter and darker anchors, untouched by any of this.
+  assert.deepEqual(ombreAnchors('#f4ecdd'), ombreAnchors('#f4ecdd', null));
+  assert.deepEqual(ombreAnchors('#f4ecdd'), ombreAnchors('#f4ecdd', 'not a colour'));
+  assert.equal(ombreAnchors('#c9aab3', null).length, 3);
+  assert.notDeepEqual(ombreRamp({ shape: 'dawn', base: '#f4ecdd' }), ombreRamp({ shape: 'dawn', base: '#f4ecdd', to: '#c5a059' }));
+});
+
+test('🎨🎨 the CSS runs first colour → second colour in the direction each blend reads — and one colour draws exactly as it did', () => {
+  const SAFE = /^[a-z0-9#(),.% -]+$/;
+  const [a, b] = ['#f6f1e7', '#c5a059'] as const;
+  // Dawn: the first colour above, the second below (one colour stays dark above, light at the horizon).
+  assert.match(ombreCss({ shape: 'dawn', base: a, to: b }), new RegExp(`^linear-gradient\\(180deg, ${a} 0\\.0%, .* ${b} 100\\.0%\\)$`));
+  // Diagonal: the first colour's bloom in the lit corner, running to the second.
+  assert.match(ombreCss({ shape: 'diagonal', base: a, to: b }), new RegExp(`^radial-gradient\\(ellipse .*\\), linear-gradient\\(160deg, ${a} 0\\.0%, .* ${b} 100\\.0%\\)$`));
+  // Glow: the first colour at the centre, the second at the edge.
+  assert.match(ombreCss({ shape: 'glow', base: a, to: b }), new RegExp(`^radial-gradient\\(ellipse [^,]*, ${a} 0\\.0%, .* ${b} 100\\.0%\\)$`));
+  for (const [x, y] of PAIRS) for (const shape of OMBRE_SHAPES) assert.match(ombreCss({ shape, base: x, to: y }), SAFE);
+  // The shipped one-colour Dawn, as stored in events today: unchanged.
+  const anchors = ombreAnchors('#f4ecdd');
+  assert.match(ombreCss({ shape: 'dawn', base: '#f4ecdd' }), new RegExp(`^linear-gradient\\(180deg, ${anchors[anchors.length - 1]} 0\\.0%, .* ${anchors[0]} 100\\.0%\\)$`));
+});
+
+test('🎨🎨 every theme × every pair × every blend → the words clear AA over the WHOLE two-colour ramp (veiled when they must be)', () => {
+  let measured = 0;
+  let veiled = 0;
+  for (const theme of HUB_THEMES) {
+    for (const [base, to] of PAIRS) {
+      for (const shape of OMBRE_SHAPES) {
+        const spec: OmbreSpec = { shape, base, to };
+        const ramp = ombreRamp(spec);
+        const leg = ombreLegibility(theme, spec);
+        assertReads(`${theme.id} ${shape} ${base} → ${to} body`, leg.ink, ramp, leg.scrim, AA_BODY);
+        assertReads(`${theme.id} ${shape} ${base} → ${to} heading`, leg.heading, ramp, leg.scrim, AA_LARGE);
+        assertReads(`${theme.id} ${shape} ${base} → ${to} accent`, leg.accent, ramp, leg.scrim, AA_BODY);
+        assert.ok([theme.palette.lightInk, theme.palette.darkInk].includes(leg.ink), `${theme.id}: the ink left the theme`);
+        if (leg.scrim.opacity > 0) veiled += 1;
+        // The look: the paper token is the FIRST colour (the page colour), and the veil is baked into the CSS.
+        const look = ombreLook(theme, spec);
+        assert.equal(look.vars['--color-cream'], ch(base));
+        assert.equal(look.css, ombreCss(spec, leg.scrim));
+        measured += 1;
+      }
+    }
+  }
+  assert.equal(measured, HUB_THEMES.length * PAIRS.length * OMBRE_SHAPES.length, 'a case was skipped');
+  // Anti-vacuity: black → white cannot read bare with either ink — the sweep must really raise veils.
+  assert.ok(veiled >= HUB_THEMES.length * OMBRE_SHAPES.length, `only ${veiled} blends needed a veil — the sweep is too gentle to test the rule`);
 });

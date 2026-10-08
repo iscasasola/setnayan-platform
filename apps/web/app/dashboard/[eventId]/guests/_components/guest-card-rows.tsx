@@ -23,6 +23,7 @@ import type {
   CardToggleProps,
 } from './guest-card-kit';
 import { useAutosaveOutcome } from './guest-card-autosave';
+import { isPlainSentence } from './plain-refusal';
 
 /**
  * guest-card-rows.tsx — THE GUEST CARD'S LEAF CONTROLS, DRAWN BY THE APP'S TEMPLATES (step 4B, 2026-10-09).
@@ -214,11 +215,15 @@ export function CardTip({ label, children }: CardTipProps) {
  * "Couldn’t save." with a real button — Try again — when it did not (kept until the next save lands). The facts are the
  * autosave's own (`useAutosaveOutcome`); a failed save is never drawn as a saved one.
  */
-export function CardSaveState() {
+export function CardSaveState({ copy }: { copy?: Record<string, string> }) {
   const { pending } = useFormStatus();
   const { outcome, retry } = useAutosaveOutcome();
   const [shown, setShown] = useState(false);
   const seen = useRef(0);
+  /* The action's own sentence for a refusal, when it has one: a code the card knows, or words plainly written for a person. The
+     database's words (a returned `error.message`) are never printed — there is just "Couldn’t save." and Try again. */
+  const why = outcome.kind === 'failed' ? outcome.why : undefined;
+  const said = why ? (copy?.[why] ?? (isPlainSentence(why) ? why : null)) : null;
   useEffect(() => {
     if (outcome.kind !== 'saved' || outcome.n === seen.current) return;
     seen.current = outcome.n;
@@ -227,12 +232,13 @@ export function CardSaveState() {
     return () => clearTimeout(t);
   }, [outcome]);
   return (
-    <span role={outcome.kind === 'failed' && !pending ? 'alert' : 'status'} aria-live="polite" data-autosave-line="" className="inline-flex min-h-[1.25rem] items-center gap-2 text-xs text-ink/55">
+    <span role={outcome.kind === 'failed' && !pending ? 'alert' : 'status'} aria-live="polite" data-autosave-line="" className="inline-flex min-h-[1.25rem] flex-wrap items-center justify-end gap-x-2 text-xs text-ink/55">
       {pending ? (
         'Saving…'
       ) : outcome.kind === 'failed' ? (
         <>
           <span className="font-semibold text-danger-700">Couldn’t save.</span>
+          {said ? <span data-autosave-why="" className="text-danger-700">{said}</span> : null}
           <ActionButton tone="danger" label="Try again" icon={Check} onClick={retry} data-testid="autosave-retry" />
         </>
       ) : outcome.kind === 'saved' && shown ? (

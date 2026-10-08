@@ -174,5 +174,8 @@ test('(6) the lab’s CARD writes nothing: inline stand-ins for the card’s thr
   }
   /* The ⋯ takes New QR / Unlink from the context. */
   assert.match(read(join(GUESTS, 'guest-ticket-parts.tsx')), /const \{ releaseGuestClaim \} = useGuestActions\(\);/);
-  assert.match(page, /encodeURIComponent\('new row violates row-level security policy for table "guests"'\)/, 'the lab’s card refusal is not raw-looking (it can no longer prove anything)');
+  assert.match(page, /const labWords = 'new row violates row-level security policy for table "guests"';/, 'the lab’s card refusal is not raw-looking (it can no longer prove anything)');
+  assert.match(page, /encodeURIComponent\(labWords\)/, 'the lab’s redirect refusal no longer carries the database’s words');
+  /* Like the real `updateGuest`: the autosave's QUIET post is RETURNED the refusal, any other post is redirected (step 4E). */
+  assert.match(page, /if \(formData\.get\('quiet'\) === '1'\) return \{ refused: labWords \};\s*redirect\(labRefusal\);/);
 });

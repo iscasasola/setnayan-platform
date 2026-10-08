@@ -182,7 +182,8 @@ export const GUEST_CARD_ERROR_COPY: Record<string, string> = {
  * not an import of the lab's: this file is drawn inside the Maker's first load and must not learn about it.
  */
 export type GuestCardActions = {
-  update: (formData: FormData) => void | Promise<void>;
+  /** A QUIET save (the autosave's) RETURNS `{ refused }` for a refusal; every other post redirects, as before. */
+  update: (formData: FormData) => void | { refused: string } | Promise<void | { refused: string }>;
   release: (formData: FormData) => void | Promise<void>;
   partnerLink: () => void | Promise<void>;
 };
@@ -508,7 +509,7 @@ export function GuestCardBody({
           <div className="flex items-baseline justify-between gap-3">
             <h2 className="sn-eye">Name · mobile</h2>
             <span className="flex items-center gap-2 text-xs text-ink/45">
-              <K.SaveState />
+              <K.SaveState copy={templated ? GUEST_CARD_ERROR_COPY : undefined} />
             </span>
           </div>
           {/* 🔒 A linked person keeps their own name — a plus-one who linked

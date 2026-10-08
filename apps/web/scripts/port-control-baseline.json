@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "360bb560b",
+  "generatedFromRef": "bd9f4a32f",
   "routeCount": 429,
   "destinations": 956,
   "actions": 672,
-  "blocks": 5864,
+  "blocks": 5871,
   "routes": {
     "/": {
       "files": [
@@ -6049,6 +6049,7 @@
         "dashboard/[eventId]/guests/_components/guest-card-autosave.tsx",
         "dashboard/[eventId]/guests/_components/guest-card-body.tsx",
         "dashboard/[eventId]/guests/_components/guest-card-data.ts",
+        "dashboard/[eventId]/guests/_components/guest-card-error-copy.ts",
         "dashboard/[eventId]/guests/_components/guest-card-kit.ts",
         "dashboard/[eventId]/guests/_components/guest-card-rows.tsx",
         "dashboard/[eventId]/guests/_components/guest-card-template-kit.ts",
@@ -6107,10 +6108,10 @@
         "/dashboard/profile"
       ],
       "actions": [
-        "action",
         "partnerLinkAction",
         "release",
         "releaseAction",
+        "run",
         "updateAction"
       ],
       "blocks": [
@@ -6120,7 +6121,7 @@
         "AddFromPeopleSheet",
         "AddGuestSheet",
         "AutosaveForm",
-        "AutosaveState",
+        "AutosaveOutcome",
         "CaptureBar",
         "CardBoxProps",
         "CardFieldProps",
@@ -6128,6 +6129,8 @@
         "CardInvitedToProps",
         "CardLockedProps",
         "CardPickProps",
+        "CardSubmitProps",
+        "CardTipProps",
         "CardToggleProps",
         "ChangeAccessLink",
         "CoordinatorColourDomains",
@@ -6138,6 +6141,7 @@
         "DeleteGuestSheet",
         "DeleteGuestWarning",
         "EmptyState",
+        "Explain",
         "FactRow",
         "File",
         "Fill",
@@ -6188,6 +6192,9 @@
         "K.List",
         "K.Locked",
         "K.Pick",
+        "K.SaveState",
+        "K.Submit",
+        "K.Tip",
         "K.Toggle",
         "LastSeenCapture",
         "LastSeenFallback",
@@ -6205,6 +6212,7 @@
         "OpenAddGuestTextButton",
         "OpenDeleteGuestSheet",
         "OpenQuickAddButton",
+        "OutcomeContext.Provider",
         "PageMasthead",
         "PeekSay",
         "PeekToast",

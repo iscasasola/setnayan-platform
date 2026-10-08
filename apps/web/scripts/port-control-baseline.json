@@ -1,5 +1,5 @@
 {
-  "generatedFromRef": "bcbbf4f0e",
+  "generatedFromRef": "8ff9e88195",
   "routeCount": 429,
   "destinations": 959,
   "actions": 671,
@@ -6949,6 +6949,7 @@
         "StudioBackToPart",
         "StudioColourField",
         "StudioCover",
+        "StudioDoneBar",
         "StudioEgifts",
         "StudioEventName",
         "StudioHeading",
@@ -6967,7 +6968,6 @@
         "StudioTileKey",
         "StudioTool",
         "StudioToolMenu",
-        "StudioToolRow",
         "StudioWords",
         "StylePreview",
         "Suspense",

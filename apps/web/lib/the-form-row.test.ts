@@ -191,7 +191,7 @@ test('(4) required = the accent highlight and the word "Required", gone once fil
 test('(5) the open field, rendered: across the row with ONLY ✕ — no ✓; the name is its placeholder; a long one is a tall box', async () => {
   const { FormRowField } = await rows();
   const open = (extra: Record<string, unknown>) =>
-    paint(h(FormRowField, { handle: { current: null }, name: 'Event name', nameId: 'n1', start: 'Maria & Jose', placeholder: 'Event name', long: false, maxLength: 240, mark: null, leaving: false, onEnd: () => {}, onGone: () => {}, ...extra } as never));
+    paint(h(FormRowField as React.FC<Record<string, unknown>>, { handle: { current: null }, name: 'Event name', nameId: 'n1', start: 'Maria & Jose', placeholder: 'Event name', long: false, maxLength: 240, mark: null, leaving: false, onEnd: () => {}, onGone: () => {}, ...extra }));
   const line = await open({});
   assert.equal(count(line, /<button/g), 1, 'the open field has more than its one ✕');
   assert.match(line, /<button[^>]*aria-label="Leave it as it was"[^>]*data-form-row-leave=""/);

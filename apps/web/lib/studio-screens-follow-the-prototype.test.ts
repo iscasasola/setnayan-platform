@@ -53,20 +53,16 @@ async function html(el: React.ReactElement): Promise<string> {
   return renderToStaticMarkup(el);
 }
 
-test('1 · the Tool row: Tool ▾ across the row, ✓ Saved at its end — ✓ Done (and no Saved) on a full-screen tool', async () => {
-  const { StudioToolRow } = await import(`../${L}/stages-studio-parts`);
-  const noop = () => {};
-  const info = await html(React.createElement(StudioToolRow, { tile: tiles[0], tiles, onOpen: noop, onDone: noop }));
-  assert.match(info, /data-maker-studio-tool/, 'no Tool ▾');
-  assert.match(info, /data-studio-row-end=""/, 'no end slot for a tool’s own control (the Mood Board’s ✨ Auto)');
-  /* 🧾 No ✓ Saved chip any more (owner 2026-10-07, "yes remove the saved."): ✓ Apply's count is the one signal. */
-  assert.doesNotMatch(info, /Saved/, 'the Tool row still shows a Saved chip');
-  assert.match(info, /uppercase/, 'the Tool ▾ pill is not the prototype’s capitals');
-  assert.doesNotMatch(info, /data-maker-studio-done/);
-  const march = tiles.find((t) => t.key === 'march')!;
-  const full = await html(React.createElement(StudioToolRow, { tile: march, tiles, onOpen: noop, onDone: noop }));
+test('1 · no Tool row: a Studio page has no title pill under the top bar — ✓ Done alone stays on the two full-screen pages', async () => {
+  /* Owner 2026-10-08, on the "INFO ▾" row: "we will not have these." The way to another page is "Studio ▾" in the
+     top nav (`lib/studio-pages-have-no-title-row.test.ts`); the Mood Board's ✨ Auto, which rode the row's end, is
+     drawn in the Mood Board's own place (its own fallback when no row end is found). */
+  const parts = await import(`../${L}/stages-studio-parts`);
+  assert.equal((parts as Record<string, unknown>).StudioToolRow, undefined, 'the Tool row is still exported');
+  const full = await html(React.createElement(parts.StudioDoneBar, { onDone: () => {} }));
   assert.match(full, /data-maker-studio-done=""/, 'the Wedding March has no ✓ Done');
-  assert.doesNotMatch(full, /data-studio-saved/, 'a full-screen tool shows Saved where Done belongs');
+  assert.doesNotMatch(full, /data-maker-studio-tool|aria-haspopup|uppercase|Saved/, 'the Done bar still carries a Tool ▾ or a Saved chip');
+  assert.match(read('app/dashboard/[eventId]/studio/mood-board/_components/mood-board-studio.tsx'), /\{rowEnd \? createPortal\(bar, rowEnd\) : bar\}/, 'the Mood Board’s ✨ Auto has nowhere to be drawn without the row');
 });
 
 test('1b · the Studio home: eleven tiles on the warm page, ✓ / Missing as read', async () => {

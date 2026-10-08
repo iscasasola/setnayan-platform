@@ -97,9 +97,10 @@ export const STUDIO_FORM_ITEMS: readonly DetailsItemKey[] = [
    🗓 So does the Schedule (owner 2026-10-07 "1. okay"): its timeline, + Add a moment and ⋯ are all in its body. */
 export const STUDIO_PAGE_ITEMS: readonly DetailsItemKey[] = ['love-story', 'mood-board', 'schedule'];
 
-/** The top nav (52 px) and the tool's row (52 px) — the panel fills the rest, edge to edge (prototype `.full`).
- *  The panel's own height is `--maker-lt-h` less 8 px (`MAKER_LT_TOOL`), so this is 104 − 8. */
-const UNDER_THE_ROWS = 'calc(100dvh - 96px)';
+/** The top nav (52 px) — the panel fills the rest, edge to edge (prototype `.full`). The panel's own height is
+ *  `--maker-lt-h` less 8 px (`MAKER_LT_TOOL`), so this is 52 − 8. (It was 104 − 8 while a 52-px title row — "INFO ▾" —
+ *  sat under the top nav; owner 2026-10-08: *"we will not have these."* The page has that height now.) */
+const UNDER_THE_ROWS = 'calc(100dvh - 44px)';
 /** The prototype's warm page (`--page` #F3F0EA), on the app's tokens — the same mix as `STUDIO_PAGE_BG`. */
 const STUDIO_PAGE = 'color-mix(in srgb,rgb(var(--color-gild)) 9%,rgb(var(--color-cream)))';
 
@@ -188,6 +189,9 @@ export function studioFullScreenCss(): string {
     `[data-maker-studio-full] [data-details-workspace] [data-details-editor-panel][data-phone-chrome="panel"]{left:0;right:0;bottom:0;border-radius:0;box-shadow:none;background:${STUDIO_PAGE}}` +
     `[data-maker-studio-full] [data-details-workspace]{background:${STUDIO_PAGE}}` +
     `${form} [data-details-body],${form} [data-details-sheet-head]{display:none}` +
+    /* No empty band over a form: its first field starts right under the top nav (the 8-px strip that showed under
+       the old title row is gone with it). */
+    `${form} div:has(> [data-details-form-field]){padding-top:0}` +
     `${page} [data-details-editor-panel]{display:none}` +
     /* 🪑 Seat plan (owner 2026-10-08, *"there is no space to see the whole seatplan"*): its people are a
        pull-up sheet over the map (`PeopleSheet`), so the lower third steps aside and the map takes the screen. */

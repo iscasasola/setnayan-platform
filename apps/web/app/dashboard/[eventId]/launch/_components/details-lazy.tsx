@@ -166,13 +166,13 @@ export const MakerLogoDoor = dynamic(() => import(/* webpackChunkName: "maker-de
 export const MakerRevealPicker = dynamic(() => import(/* webpackChunkName: "maker-details" */ './maker-reveal').then((m) => m.MakerRevealPicker), { loading: SlotRows });
 
 /* ── 🧭 The new Maker's own chrome (owner 2026-10-06, `makerStagesStudioEnabled`) — Stages | Studio, Studio's
-   home and its Tool ▾ row, the grab handle, the one bottom sheet. Drawn only while the new Maker is on, so none
+   home and its ✓ Done bar, the grab handle, the one bottom sheet. Drawn only while the new Maker is on, so none
    of it is in the Maker's first load (`scripts/check-maker-js-budget.mjs`); warmed at idle with the rest. ── */
 export const StudioSideSwitch = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.StudioSideSwitch), {
   loading: () => <span aria-hidden className="block h-11 w-full rounded-lg bg-ink/[0.06]" />,
 });
 export const StudioToolMenu = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.StudioToolMenu), { loading: SlotButton });
-export const StudioToolRow = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.StudioToolRow), { loading: SlotNone });
+export const StudioDoneBar = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.StudioDoneBar), { loading: SlotNone });
 /* 🎓 "About the Maker" (Page ▾) — the tour is drawn only when the couple asks for it, never on a first open, so its
    slides' frame and words load with the first ask (08 Oct: #6413's Maker first load was 0.4 KB over its budget). */
 export const MakerTour = dynamic(() => import(/* webpackChunkName: "maker-details" */ './maker-tour').then((m) => m.MakerTour), { loading: SlotNone });

@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { Check } from 'lucide-react';
+import { Check, LayoutGrid } from 'lucide-react';
+import { PILL_ON_CLASS } from '@/app/_components/pill-selector';
 import { inertBehind, popupClearRect, popupHolePath } from '@/lib/popup-behind';
-import { STUDIO_DONE_BUTTON, STUDIO_HEAD_ROW, STUDIO_TOOL_PILL } from '@/lib/studio-skin';
+import { STUDIO_DONE_BUTTON, STUDIO_HEAD_ROW } from '@/lib/studio-skin';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { ISeg, ISegmented } from '../../website/editor/_components/inspector-kit';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
@@ -11,7 +12,7 @@ import type { PickOption } from '../../website/editor/_components/pick-menu-type
 import { MAKER_LT_SIZE_KEY, MAKER_LT_TAP_PX, makerLtClampPx, makerLtStoredPx, makerLtTapPx } from '@/lib/maker-lt-size';
 import type { StudioTileKey, StudioTileModel } from '@/lib/studio-tiles';
 import { MAKER_SIDE_LABEL, type MakerSide } from './maker-bar';
-import { StudioHome } from './studio-home';
+import { StudioHome, TILE_ICON } from './studio-home';
 
 /**
  * 🧭 THE NEW MAKER'S PARTS — "Stages | Studio" (owner 2026-10-06; plan
@@ -23,20 +24,105 @@ import { StudioHome } from './studio-home';
  * keeps the state; these only draw it. 🔒 Nothing here writes to the event.
  */
 
-/** Stages | Studio — ONE segmented control in the top nav (sections = one `ISegmented`, INTERACTION_RULES §8). */
-export function StudioSideSwitch({ side, onPick }: { side: MakerSide; onPick: (side: MakerSide) => void }) {
+/**
+ * Stages | Studio — ONE segmented control in the top nav (sections = one `ISegmented`, INTERACTION_RULES §8).
+ *
+ * 🧭 INSIDE A STUDIO PAGE THE STUDIO HALF IS "STUDIO ▾" — THE WAY TO ANOTHER PAGE (owner 2026-10-08, on the
+ * "INFO ▾" pill row that sat under the top bar: *"we will not have these."* · *"Tapping studio will open a popup
+ * instead for us to choose which one?"*). The row is gone; its eleven destinations are HERE:
+ *   · coming from Stages, a tap on Studio lands on the Studio home (the cards), as it always did;
+ *   · at the Studio home there is no ▾ (a tap on Studio does nothing new — it is where you are);
+ *   · inside a page (`at`), the Studio half shows a small ▾ and a tap OPENS THE CHOICES — the house dropdown
+ *     (`PickMenu`): a sheet from the bottom on a phone (the Maker's one sheet — dark, blurred, nothing behind works),
+ *     a list under the pill on a computer. First "All pages" (→ the home), then the pages this event draws, each
+ *     with its mark, its name and Ready / Missing, the current one ticked. A ▾ never cycles, and the thumb does not
+ *     move on that tap (it is already on Studio).
+ * A pick is the SAME call the row's Tool ▾ made (`onOpen` → the shell's `openStudio`): state on the phone, no
+ * request, no render of the Maker.
+ */
+export function StudioSideSwitch({
+  side,
+  onPick,
+  at = null,
+  tiles = [],
+  onOpen,
+}: {
+  side: MakerSide;
+  onPick: (side: MakerSide) => void;
+  /** The Studio page that is open — null at the Studio home, on Look's own bar… and on the Stages side. */
+  at?: StudioTileModel | null;
+  /** The pages this event draws (`lib/studio-tiles.ts`) — the home's own list, in its order. */
+  tiles?: readonly StudioTileModel[];
+  /** Open a page — the shell's `openStudio`. */
+  onOpen?: (key: StudioTileKey) => void;
+}) {
+  const choose = side === 'studio' && at !== null && onOpen !== undefined;
   return (
     <ISegmented label="Stages or Studio">
-      {(['stages', 'studio'] as const).map((k) => (
-        <ISeg key={k} tone="wine" on={side === k} data={k} onClick={() => onPick(k)}>
-          {MAKER_SIDE_LABEL[k]}
+      <ISeg tone="wine" on={side === 'stages'} data="stages" onClick={() => onPick('stages')}>
+        {MAKER_SIDE_LABEL.stages}
+      </ISeg>
+      {choose ? (
+        /* The picked half of the pill (`aria-current` is how the thumb finds it) — and inside it, the dropdown. */
+        <span aria-current="page" data-seg="studio" data-studio-chooser="" className={STUDIO_CHOOSER_SEG}>
+          <PickMenu
+            label="Studio pages"
+            dataAttr="data-studio-chooser-pick"
+            value={at.key}
+            buttonText={MAKER_SIDE_LABEL.studio}
+            options={studioChooserOptions(tiles)}
+            onPick={(k) => studioChooserPick(k, { home: () => onPick('studio'), open: onOpen })}
+            className={STUDIO_CHOOSER_PICK}
+          />
+        </span>
+      ) : (
+        <ISeg tone="wine" on={side === 'studio'} data="studio" onClick={() => onPick('studio')}>
+          {MAKER_SIDE_LABEL.studio}
         </ISeg>
-      ))}
+      )}
     </ISegmented>
   );
 }
 
-/** The eleven tools as ONE dropdown (each opening as the one bottom sheet), each with its line and ✓ / Missing. */
+/** The chooser's first row: back to the Studio home, where every page is a card. */
+export const STUDIO_CHOOSER_HOME = 'home';
+
+/** The picked half of the pill while it holds the chooser: the pill's own "on" look until the thumb has measured, then the thumb's. */
+const STUDIO_CHOOSER_SEG = `relative z-[1] inline-flex min-h-[38px] flex-1 items-stretch justify-center rounded-full ${PILL_ON_CLASS} group-data-[seg-thumb]/seg:bg-transparent lg:min-h-8`;
+/** The dropdown's button worn as that half: no fill of its own, the label ink, its ▾ in the same ink. */
+const STUDIO_CHOOSER_PICK =
+  'w-full justify-center !min-h-0 !bg-transparent hover:!bg-transparent !px-2.5 !text-[12.5px] !text-sn-on-accent [&>svg]:!text-sn-on-accent';
+
+/** A page's rows in a list of pages: its line, and ✓ Ready / Missing as the home's card says it. */
+function tileOption(t: StudioTileModel, withIcon: boolean): PickOption {
+  const Icon = TILE_ICON[t.key];
+  return {
+    key: t.key,
+    label: t.label,
+    hint: t.status,
+    ...(withIcon ? { icon: <Icon aria-hidden className="h-[18px] w-[18px] text-sn-accent" strokeWidth={1.9} /> } : {}),
+    ...(t.done === true ? { trail: { text: '✓', tone: 'ok' as const, label: 'Ready' } } : t.done === false ? { trail: { text: 'Missing', tone: 'left' as const } } : {}),
+  };
+}
+
+/**
+ * What "Studio ▾" lists: "All pages", then the pages this event draws — the SAME list, in the SAME order, as the
+ * Studio home's cards and the row it replaces (one source: `tiles`).
+ */
+export function studioChooserOptions(tiles: readonly StudioTileModel[]): PickOption[] {
+  return [
+    { key: STUDIO_CHOOSER_HOME, label: 'All pages', hint: 'The Studio home', icon: <LayoutGrid aria-hidden className="h-[18px] w-[18px] text-sn-accent" strokeWidth={1.9} /> },
+    ...tiles.map((t) => tileOption(t, true)),
+  ];
+}
+
+/** A pick: "All pages" goes home; a page opens — at once, from what is already on the phone. */
+export function studioChooserPick(key: string, to: { home: () => void; open: (key: StudioTileKey) => void }): void {
+  if (key === STUDIO_CHOOSER_HOME) to.home();
+  else to.open(key as StudioTileKey);
+}
+
+/** The eleven tools as ONE dropdown (Studio › Look's lower third), each with its line and ✓ / Missing. */
 export function StudioToolMenu({
   tiles,
   value,
@@ -48,22 +134,15 @@ export function StudioToolMenu({
   value: StudioTileKey;
   onOpen: (key: StudioTileKey) => void;
   dataAttr: string;
-  /** The pill's look — the Tool row's is the prototype's `.ddp` (`STUDIO_TOOL_PILL`). */
   className?: string;
 }) {
-  const options: PickOption[] = tiles.map((t) => ({
-    key: t.key,
-    label: t.label,
-    hint: t.status,
-    ...(t.done === true ? { trail: { text: '✓', tone: 'ok' as const, label: 'Ready' } } : t.done === false ? { trail: { text: 'Missing', tone: 'left' as const } } : {}),
-  }));
   return (
     <PickMenu
       label="Studio tool"
       dataAttr={dataAttr}
       value={value}
       buttonText={tiles.find((t) => t.key === value)?.short ?? 'Studio'}
-      options={options}
+      options={tiles.map((t) => tileOption(t, false))}
       onPick={(k) => onOpen(k as StudioTileKey)}
       className={className}
     />
@@ -71,39 +150,19 @@ export function StudioToolMenu({
 }
 
 /**
- * A Studio tool FULL SCREEN — its slim row (prototype `.fhead`; owner 2026-10-06, DECISION_LOG
- * "'ASK ONE BY ONE' … TAPPING STUDIO AGAIN RETURNS TO THE TILES"): Tool ▾ across the row, then
- * ✓ Saved — or ✓ Done where the top nav is hidden (Wedding March, Seat plan). No "‹ Studio" —
- * tapping Studio in the top nav returns to the tiles.
- *
- * `[data-studio-row-end]` is the row's right end: a tool with a control of its own there (the
- * Mood Board's ✨ Auto and its own Saved, prototype `.autob`) portals it in, and the row's own
- * Saved steps aside for it (`studioFullScreenCss`).
+ * ✓ DONE — the way out of the two Studio pages that take the whole screen (Wedding March, Seat plan: the top nav is
+ * hidden there, owner 2026-10-06 "yes for those 2"). It is ALL that is left of the slim row that sat under the top
+ * bar: the row's "INFO ▾" pill is gone from every Studio page (owner 2026-10-08, *"we will not have these."*) — the
+ * way to another page is "Studio ▾" in the top nav. On these two pages there is no top nav to hold it, so ✓ Done
+ * stays, on the same band, and returns to the Studio home.
  */
-export function StudioToolRow({
-  tile,
-  tiles,
-  onOpen,
-  onDone,
-}: {
-  tile: StudioTileModel;
-  tiles: readonly StudioTileModel[];
-  onOpen: (key: StudioTileKey) => void;
-  onDone: () => void;
-}) {
+export function StudioDoneBar({ onDone }: { onDone: () => void }) {
   return (
-    <div data-maker-studio-row="" className={STUDIO_HEAD_ROW}>
-      <StudioToolMenu tiles={tiles} value={tile.key} onOpen={onOpen} dataAttr="data-maker-studio-tool" className={STUDIO_TOOL_PILL} />
-      {tile.immersive ? (
-        <button type="button" data-maker-studio-done="" onClick={onDone} className={STUDIO_DONE_BUTTON}>
-          <Check aria-hidden className="h-[15px] w-[15px]" strokeWidth={2.6} />
-          Done
-        </button>
-      ) : (
-        /* 🧾 No "✓ Saved" chip (owner 2026-10-07, *"yes remove the saved."*): the ONE state signal is ✓ Apply's
-           count. The end slot stays for a tool's own control (the Mood Board's ✨ Auto). */
-        <div data-studio-row-end="" className="flex shrink-0 items-center gap-1.5" />
-      )}
+    <div data-maker-studio-done-bar="" className={`${STUDIO_HEAD_ROW} justify-end`}>
+      <button type="button" data-maker-studio-done="" onClick={onDone} className={STUDIO_DONE_BUTTON}>
+        <Check aria-hidden className="h-[15px] w-[15px]" strokeWidth={2.6} />
+        Done
+      </button>
     </div>
   );
 }

@@ -12,6 +12,7 @@
 import { sanitizeHubCanvas, type HubStage } from '@/lib/hub-canvas';
 import { resolveSceneStyle, sceneStyleTypeOfWidget } from '@/lib/scene-styles';
 import { resolvePaletteLook, type PaletteLookId } from '@/lib/palette-looks';
+import { resolveDosLook, type DosLookId } from '@/lib/dress-code-looks';
 
 export function sceneStyleOfRow(
   row: { widget_type: string; config_json?: unknown } | null | undefined,
@@ -36,6 +37,13 @@ export function paletteLookOfRow(row: { config_json?: unknown } | null | undefin
   return resolvePaletteLook(row ? sanitizeHubCanvas(row.config_json).palette : undefined);
 }
 
+/**
+ * 🧾 THE LOOK A ROW'S DO'S & DON'TS ARE DRAWN IN — `canvas.dos`, beside `canvas.palette`
+ * (`lib/dress-code-looks.ts`). No row, no pick or an unknown id → the shipped two notes.
+ */
+export function dosLookOfRow(row: { config_json?: unknown } | null | undefined): DosLookId {
+  return resolveDosLook(row ? sanitizeHubCanvas(row.config_json).dos : undefined);
+}
 
 /**
  * 🏛 THE VENUE SCENE'S MAP — `canvas.venueMap` (owner 2026-09-30, "VENUE STYLES

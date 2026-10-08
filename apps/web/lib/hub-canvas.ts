@@ -351,6 +351,12 @@ export type HubSectionCanvas = {
    */
   palette?: string;
   /**
+   * 🧾 HOW THE DRESS CODE'S DO'S & DON'TS ARE DRAWN (owner 2026-10-08) — one of the looks in
+   * `lib/dress-code-looks.ts`, beside `palette` and stored the same way. FREE: not a look key. Absent = the
+   * shipped two notes.
+   */
+  dos?: string;
+  /**
    * 🏛 THE VENUE SCENE'S MAP SWITCH (owner 2026-09-30, "VENUE STYLES APPROVED":
    * *Map: One map for both / No map*). Only `'none'` is stored; absent = one map
    * for both, the default. FREE: not a look key. Read by `venueMapOfRow`.
@@ -722,6 +728,8 @@ export function sanitizeHubCanvas(raw: unknown): HubSectionCanvas {
   if (style) out.style = style;
   const palette = sanitizeSceneStyleId(canvas.palette);
   if (palette) out.palette = palette;
+  const dos = sanitizeSceneStyleId(canvas.dos);
+  if (dos) out.dos = dos;
   if (canvas.venueMap === 'none') out.venueMap = 'none';
   if (isPostEventPresetId(canvas.postEventPreset)) out.postEventPreset = canvas.postEventPreset;
   const slots = hubSceneSlots(canvas.slots);
@@ -1180,6 +1188,7 @@ export function hasHubCanvas(canvas: HubSectionCanvas): boolean {
       k !== 'details' &&
       k !== 'style' &&
       k !== 'palette' &&
+      k !== 'dos' &&
       k !== 'venueMap' &&
       k !== 'postEventPreset' &&
       /* ↕ …nor Spacing: room above and below is drawn without a frame (`hubSpacingClass`). */

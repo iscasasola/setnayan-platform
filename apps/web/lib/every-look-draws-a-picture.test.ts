@@ -265,7 +265,7 @@ test('an EMPTY Dress code draws its three layouts and its five palette looks in 
   const real = renderToStaticMarkup(
     React.createElement(DressCodeWidget, { words, config: { title: 'Garden formal' } as never, rolePalette: { reception: ['#7A1F2B', '#C9A24B'] }, makerSample: true }),
   );
-  assert.doesNotMatch(real, /data-maker-sample|data-sample-/, 'a sample sits beside the couple’s real colours');
+  assert.doesNotMatch(real, /data-maker-sample="(palette|dress_code):|data-sample-palette/, 'a sample sits beside the couple’s real colours');
   /* Off the Maker's canvas the widget draws none at all. */
   assert.doesNotMatch(empty('colours-and-roles', 'ribbon', false), /data-maker-sample|data-sample-/);
 });
@@ -302,16 +302,61 @@ test('a sample can never reach a page without a Maker marker', async () => {
     }
   };
   find('app');
-  assert.deepEqual(callers.sort(), ['dress-code-widget.tsx', 'maker-empty-scene.tsx', 'maker-fixed-parts.tsx', 'maker-guest-scenes.tsx']);
-  const dress = readFileSync('app/[slug]/_components/dress-code-widget.tsx', 'utf8');
-  for (const m of dress.matchAll(/<SceneSample|paletteSample\(look\)/g)) {
-    const before = dress.slice(Math.max(0, m.index! - 260), m.index!);
-    assert.match(before, /makerSample (\?|&&)/, 'the Dress code draws a sample without asking whether this is the Maker’s canvas');
+  assert.deepEqual(callers.sort(), ['dress-code-styles.tsx', 'dress-code-widget.tsx', 'maker-empty-scene.tsx', 'maker-fixed-parts.tsx', 'maker-guest-scenes.tsx']);
+  let asked = 0;
+  for (const f of ['dress-code-widget.tsx', 'dress-code-styles.tsx']) {
+    const dress = readFileSync(`app/[slug]/_components/${f}`, 'utf8');
+    for (const m of dress.matchAll(/<SceneSample|paletteSample\(look\)|dosSample\((?!look: )/g)) {
+      const before = dress.slice(Math.max(0, m.index! - 260), m.index!);
+      assert.match(before, /makerSample (\?|&&)/, `${f}: the Dress code draws a sample without asking whether this is the Maker’s canvas`);
+      asked += 1;
+    }
   }
+  assert.ok(asked >= 5, `the Dress code’s sample draws were found (${asked})`);
   for (const f of ['public-hideable-widget.tsx', 'hideable-widget-render.tsx']) {
     const src = readFileSync(`app/[slug]/_components/${f}`, 'utf8');
     assert.equal(src.split('makerSample={!guestView}').length - 1, 1, `${f}: the Dress code’s sample is not tied to the Maker canvas`);
     assert.doesNotMatch(src, /makerSample(?!=\{!guestView\})/, `${f}: another makerSample was passed`);
   }
   assert.doesNotMatch(body, /guestView=\{(?!!isMakerCanvas\})/, 'a mount passes a guest view that is not “not the Maker canvas”');
+});
+
+/* ── 🧾 THE DO'S & DON'TS' LOOKS ARE PICTURES TOO ───────────────────────────────────────────────── */
+
+test('the Do’s & Don’ts looks are picture cards — one page each, laid on canvas.dos, and drawn in sample shapes while there is no list', async () => {
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { DosLookCards } = await import('../app/dashboard/[eventId]/website/editor/_components/palette-look-row');
+  const { DOS_LOOK_IDS, DOS_LOOK_PREVIEW_TYPE, DOS_LOOK_CARD_FOCUS } = await import('./dress-code-looks');
+  const { stylePreviewSrc } = await import(`${PANEL}/style-preview`);
+  const { withStylePreview } = await import('../app/[slug]/_lib/style-preview');
+  const { canvasStylePreview } = await import('../app/[slug]/_lib/editor-canvas');
+  const { dosLookOfRow, paletteLookOfRow } = await import('./scene-style-of-row');
+  const { DressCodeWidget } = await import('../app/[slug]/_components/dress-code-widget');
+  const html = renderToStaticMarkup(React.createElement(DosLookCards, { value: 'notes', onPick: () => {} }));
+  assert.deepEqual([...html.matchAll(/data-style-card="([a-z-]+)"/g)].map((m) => m[1]), [...DOS_LOOK_IDS]);
+  assert.match(html, /role="radiogroup"[^>]*data-style-carousel="dos"/);
+  assert.doesNotMatch(html, /aria-haspopup|<select/, 'a set of looks is pictures, not a dropdown');
+  const rows = [{ widget_type: 'dress_code', config_json: { canvas: { palette: 'ribbon' } } }];
+  const words = { eventWord: 'wedding', solemn: false, twoPeople: true } as never;
+  const withLists: string[] = [];
+  const empty: string[] = [];
+  for (const id of DOS_LOOK_IDS) {
+    const src = stylePreviewSrc('/maria-and-jose?phase=rsvp&editor=1', 'w:dress_code', DOS_LOOK_PREVIEW_TYPE, id, 'http://x.test')!;
+    const asked = canvasStylePreview({ style: new URL(src, 'http://x.test').searchParams.get('style')! }, true);
+    const { widgets } = withStylePreview({}, rows, asked);
+    assert.equal(dosLookOfRow(widgets[0]), id, `${id}: laid on canvas.dos`);
+    assert.equal(paletteLookOfRow(widgets[0]), 'ribbon', `${id}: the palette look beside it is left alone`);
+    const draw = (config: unknown) =>
+      renderToStaticMarkup(React.createElement(DressCodeWidget, { words, config: config as never, rolePalette: { reception: ['#7A1F2B'] }, dosLook: dosLookOfRow(widgets[0]), makerSample: true }));
+    const real = draw({ title: 'Garden formal', dos: ['Wear long gowns'], donts: ['Wear white'] });
+    assert.match(real, /data-dress-code="dos"/, `${id}: the block the card is fitted on (${DOS_LOOK_CARD_FOCUS})`);
+    assert.doesNotMatch(real, /data-maker-sample="dos:/, `${id}: a sample sits beside the couple’s own lines`);
+    withLists.push(real);
+    const none = draw({ title: 'Garden formal' });
+    assert.match(none, new RegExp(`aria-hidden="true" data-dress-code="dos" data-maker-sample="dos:${id}"`), `${id}: no list yet → its place in sample shapes`);
+    assert.equal(wordsIn(none.slice(none.indexOf('data-maker-sample="dos:')).replace(/^[^>]*>/, '')), '', `${id}: the sample prints words`);
+    empty.push(none);
+  }
+  assert.equal(new Set(withLists).size, DOS_LOOK_IDS.length, 'two looks draw the couple’s lists alike');
+  assert.equal(new Set(empty).size, DOS_LOOK_IDS.length, 'two looks draw alike while there is no list');
 });

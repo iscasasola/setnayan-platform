@@ -1,4 +1,7 @@
 import type { EveryoneDressRow } from '@/lib/dress-code-for-everyone';
+import { DOS_LOOK_DEFAULT, type DosLookId } from '@/lib/dress-code-looks';
+import { DressCodeDos } from './dress-code-dos';
+import { dosSample } from './maker-scene-samples';
 
 /**
  * THE DRESS CODE'S OTHER TWO STYLES — B · The palette and C · The line
@@ -21,14 +24,29 @@ export type DressCodeGeneral = {
   dos: readonly string[];
   donts: readonly string[];
   genderNote: string | null;
+  /** 🧾 The Do's & Don'ts look (`canvas.dos`) — absent = these layouts' own shipped lists. */
+  dosLook?: DosLookId;
+  /** 🔲 The Maker's canvas only: no list yet → the look's place in sample shapes. */
+  makerSample?: boolean;
 };
 
 const SWATCH_EDGE = 'outline outline-1 outline-ink/20 [outline-offset:-1px]';
 
-function DosAndDonts({ dos, donts }: { dos: readonly string[]; donts: readonly string[] }) {
-  if (dos.length === 0 && donts.length === 0) return null;
+function DosAndDonts({
+  dos,
+  donts,
+  look = DOS_LOOK_DEFAULT,
+  makerSample = false,
+}: {
+  dos: readonly string[];
+  donts: readonly string[];
+  look?: DosLookId;
+  makerSample?: boolean;
+}) {
+  if (dos.length === 0 && donts.length === 0) return makerSample ? <>{dosSample(look)}</> : null;
+  if (look !== DOS_LOOK_DEFAULT) return <DressCodeDos dos={dos} donts={donts} look={look} />;
   return (
-    <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+    <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2" data-dress-code="dos">
       {dos.length > 0 ? (
         <div className="space-y-1 border-l-2 border-gild pl-3 text-ink/80">
           <p className="font-sans text-xs uppercase tracking-[0.2em] text-gild">Do</p>
@@ -54,7 +72,7 @@ function DosAndDonts({ dos, donts }: { dos: readonly string[]; donts: readonly s
 }
 
 /** B · The palette — the colours first, large, each with who wears it; the words after. */
-export function DressCodePalette({ title, description, palette, rows, dos, donts, genderNote }: DressCodeGeneral) {
+export function DressCodePalette({ title, description, palette, rows, dos, donts, genderNote, dosLook, makerSample }: DressCodeGeneral) {
   // One band per wearer — the couple's colours first, then each dressed role —
   // so every colour is named with who wears it, once.
   const bands = [
@@ -104,14 +122,14 @@ export function DressCodePalette({ title, description, palette, rows, dos, donts
           )}
         </ul>
       ) : null}
-      <DosAndDonts dos={dos} donts={donts} />
+      <DosAndDonts dos={dos} donts={donts} look={dosLook} makerSample={makerSample} />
       {genderNote ? <p className="max-w-prose text-sm font-medium text-ink/75">{genderNote}</p> : null}
     </section>
   );
 }
 
 /** C · The line — words first in the display face, the palette as one ribbon, roles as a quiet table. */
-export function DressCodeLine({ title, description, palette, rows, dos, donts, genderNote }: DressCodeGeneral) {
+export function DressCodeLine({ title, description, palette, rows, dos, donts, genderNote, dosLook, makerSample }: DressCodeGeneral) {
   const seen = new Set<string>();
   const ribbon = [...palette.map((p) => p.hex), ...rows.flatMap((r) => r.hexes)].filter((hex) => {
     const k = hex.toUpperCase();
@@ -159,7 +177,7 @@ export function DressCodeLine({ title, description, palette, rows, dos, donts, g
         </table>
       ) : null}
       <div className="text-left">
-        <DosAndDonts dos={dos} donts={donts} />
+        <DosAndDonts dos={dos} donts={donts} look={dosLook} makerSample={makerSample} />
       </div>
       {genderNote ? <p className="mx-auto max-w-prose text-sm font-medium text-ink/75">{genderNote}</p> : null}
     </section>

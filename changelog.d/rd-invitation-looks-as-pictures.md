@@ -18,6 +18,16 @@ Owner's preview checks, 08 Oct (Stages panel), built in the order A · E · D ·
   registry's own ids). Shapes only — never a name, date or photo; `aria-hidden`; replaced whole by real
   content. A guest is never served one: the callers mount them only on the verified host canvas, and
   `globals.css` hides `[data-maker-sample]` on any page without a Maker marker.
+- **D · Do's & Don'ts in the Event Hub's own type** (*"the presentation of do's and don'ts doesn't look good
+  with the rest of the website"*). Two looks beside the shipped notes (`lib/dress-code-looks.ts`, drawn by
+  `dress-code-dos.tsx`): **Ticks and crosses** and **Side by side** — headings in the page's display face,
+  lines at the scene's body size, a ✓ (gild) before each do and a ✕ (ink) before each don't, NO filled box.
+  Picked as picture cards on the Dress code part ("Do's & Don'ts", three cards), stored beside the palette look
+  as `config_json.canvas.dos` (no migration), followed by all three layouts and the guest's own panel. **The
+  shipped two notes stay the default and an absence** — a page that never picked is byte-identical (guests are
+  opening invitations the morning this ships); flipping the default is one constant, on the owner's word. The
+  approved prototype draws no guest-page looks for this part, so the two are built from the owner's words and
+  the shipped tokens.
 
 SPEC IMPACT: `STAGES_PANEL_BUILD_STATUS_2026-10-08.md` gains "Round 5 — looks as pictures" (status only; no
 decision changed).

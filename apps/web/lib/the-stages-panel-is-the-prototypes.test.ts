@@ -407,3 +407,34 @@ test('a tap on the day’s parts and on THE DETAILS picks them — every marked 
     assert.ok(makerPartOfCanvas('event', key) ?? makerPartOfCanvas('rsvp', key), `${key}: the Stages panel has a part for it (its frame draws)`);
   }
 });
+
+/* ── 11 · the Dress code part's Look: its looks are PICTURES (owner's preview check, 08 Oct) ─────────── */
+
+test('the Dress code part’s Look draws its layouts, its palette looks and its Do’s & Don’ts as look cards — no dropdown among them', async () => {
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  /* The work area lays the three under one another: the scene's layouts, then what rides beside them. */
+  const shell = read(`${EDITOR}/editor-shell.tsx`);
+  const look = shell.slice(shell.indexOf('const lookRow ='), shell.indexOf('const backgroundRow ='));
+  assert.match(look, /\{styleRow\}\s*\{paletteRow\}\s*\{layoutRow\}/, 'the layouts lead; the palette and Do’s & Don’ts follow');
+  assert.match(shell, /type === 'dress_code' \? \(\s*<PaletteLookCanvasRow /, 'only the Dress code part carries them');
+  const row = read(`${EDITOR}/scene-style-row.tsx`);
+  const body = row.slice(row.indexOf('export function PaletteLookCanvasRow'), row.indexOf('export function SceneAlignRow'));
+  const stages = body.slice(body.indexOf('if (cards && onDressPart) {'), body.indexOf('if (!drawsPalette || colours.length === 0) return null;'));
+  assert.ok(stages.length > 200, 'the Stages branch was found');
+  assert.match(stages, /\{drawsPalette \? <PaletteLookCards [^\n]*\/> : null\}/, 'the palette’s cards, where the layout draws the look');
+  assert.match(stages, /<DosLookCards value=\{resolveDosLook\(shown\.dos\)\}/, 'the Do’s & Don’ts cards, under every layout');
+  assert.doesNotMatch(stages, /PaletteLookRow|PickMenu|<Dd /, 'a dropdown sits among the Dress code’s looks');
+  /* A pick of the shipped look is an absence, never a stored default. */
+  assert.match(stages, /if \(id === DOS_LOOK_DEFAULT\) delete c\.dos; else c\.dos = id;/);
+  /* …and what the couple sees: two labelled rows of picture cards. */
+  const { PaletteLookCards, DosLookCards } = await import(`../${EDITOR}/palette-look-row`);
+  const html =
+    renderToStaticMarkup(React.createElement(PaletteLookCards, { value: 'fabric', onPick: () => {} })) +
+    renderToStaticMarkup(React.createElement(DosLookCards, { value: 'marks', onPick: () => {} }));
+  assert.match(html, /data-palette-look-label="">Palette look</);
+  assert.match(html, /data-dos-look-label="">Do’s &amp; Don’ts</);
+  assert.equal(html.split('data-style-card-preview=""').length - 1, 5 + 3, 'every card holds a picture');
+  assert.match(html, /aria-checked="true"[^>]*data-style-card="fabric"/);
+  assert.match(html, /aria-checked="true"[^>]*data-style-card="marks"/);
+  assert.doesNotMatch(html, /aria-haspopup/);
+});

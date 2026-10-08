@@ -27,6 +27,7 @@
  */
 import type { ReactNode } from 'react';
 import { PALETTE_LOOK_DEFAULT, type PaletteLookId } from '@/lib/palette-looks';
+import { DOS_LOOK_DEFAULT, type DosLookId } from '@/lib/dress-code-looks';
 
 /** A photo's place. */
 export const Box = ({ className = '' }: { className?: string }) => <span aria-hidden data-sample-box="" className={`block rounded-md bg-ink/10 ${className}`} />;
@@ -110,6 +111,62 @@ export const PALETTE_SAMPLE: Record<PaletteLookId, () => ReactNode> = {
 /** The palette look's arrangement (Tags when the id is not one this version draws). */
 export function paletteSample(look: string | null | undefined): ReactNode {
   return (PALETTE_SAMPLE[look as PaletteLookId] ?? PALETTE_SAMPLE[PALETTE_LOOK_DEFAULT])();
+}
+
+/** One list of the Do's & Don'ts: a heading, then lines — each behind a mark when the look draws marks. */
+const DosList = ({ marks, widths }: { marks: boolean; widths: readonly string[] }) => (
+  <span className="block space-y-2">
+    <Head w="w-12" />
+    {widths.map((w) => (
+      <span key={w} className="flex items-center gap-3">
+        {marks ? <span aria-hidden data-sample-box="" className="block h-2.5 w-2.5 shrink-0 rounded-full bg-ink/30" /> : null}
+        <Line w={w} />
+      </span>
+    ))}
+  </span>
+);
+
+/**
+ * 🧾 THE DO'S & DON'TS, AS EACH LOOK ARRANGES THEM (`lib/dress-code-looks.ts`) — Two notes (two filled notes,
+ * side by side from a tablet up) · Ticks and crosses (one list under the other, a mark before each line) · Side
+ * by side (two columns under one rule). The Dress code scene draws this where the lists will go while the
+ * couple has written none.
+ */
+export const DOS_SAMPLE: Record<DosLookId, () => ReactNode> = {
+  notes: () => (
+    <span className="grid grid-cols-1 gap-3 text-left">
+      <span className="block border-l-2 border-ink/25 bg-ink/5 p-4">
+        <DosList marks={false} widths={['w-3/4', 'w-1/2']} />
+      </span>
+      <span className="block border-l-2 border-ink/15 bg-ink/10 p-4">
+        <DosList marks={false} widths={['w-2/3', 'w-3/5']} />
+      </span>
+    </span>
+  ),
+  marks: () => (
+    <span className="block space-y-5 text-left">
+      <DosList marks widths={['w-3/4', 'w-1/2']} />
+      <DosList marks widths={['w-2/3', 'w-3/5']} />
+    </span>
+  ),
+  'side-by-side': () => (
+    <span className="grid grid-cols-2 gap-x-6 border-y border-ink/15 py-5 text-left">
+      <DosList marks widths={['w-full', 'w-2/3']} />
+      <span className="block border-l border-ink/15 pl-6">
+        <DosList marks widths={['w-5/6', 'w-full']} />
+      </span>
+    </span>
+  ),
+};
+
+/** The Do's & Don'ts sample block for a look (the shipped notes when the id is not one this version draws). */
+export function dosSample(look: string | null | undefined): ReactNode {
+  const id = (DOS_SAMPLE[look as DosLookId] ? look : DOS_LOOK_DEFAULT) as DosLookId;
+  return (
+    <div aria-hidden data-dress-code="dos" data-maker-sample={`dos:${id}`} className="mx-auto w-full max-w-md">
+      {DOS_SAMPLE[id]()}
+    </div>
+  );
 }
 
 /** A row per role: its name and outfit at the left, its colours at the right. */
@@ -455,7 +512,7 @@ export function SceneSample({
   const key = sceneSampleKey(sceneType, styleId);
   if (!key) return null;
   return (
-    <div aria-hidden data-maker-sample={key} {...(stepsAside ? { 'data-maker-empty-prompt': '' } : {})} className={`mx-auto w-full max-w-sm ${className}`}>
+    <div aria-hidden data-maker-sample={key} {...(stepsAside ? { 'data-maker-empty-prompt': '' } : {})} className={`mx-auto w-full max-w-md ${className}`}>
       {SCENE_SAMPLE[key]!({ paletteLook })}
     </div>
   );

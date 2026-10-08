@@ -21,6 +21,7 @@
 
 import type { CSSProperties, ReactNode } from 'react';
 import { PALETTE_LOOKS, PALETTE_LOOK_CARD_FOCUS, PALETTE_LOOK_PREVIEW_TYPE, type PaletteLookId } from '@/lib/palette-looks';
+import { DOS_LOOKS, DOS_LOOK_CARD_FOCUS, DOS_LOOK_PREVIEW_TYPE, type DosLookId } from '@/lib/dress-code-looks';
 import { SP_DD_LABEL } from '@/lib/maker-stage-room';
 import { IRow } from './inspector-kit';
 import { PickMenu } from './pick-menu';
@@ -90,6 +91,36 @@ export function PaletteLookRow({
         }}
       />
     </IRow>
+  );
+}
+
+/**
+ * 🧾 THE DO'S & DON'TS' LOOKS, AS PICTURES (owner 08 Oct: *"the presentation of do's and don'ts doesn't look
+ * good with the rest of the website"* — `lib/dress-code-looks.ts`). The same shared look-card carousel: each
+ * card is the couple's own page asked for the Dress code scene with its two lists in that look
+ * (`?style=dress_code_dos:<id>` → `canvas.dos`), fitted on the lists. A tap applies at once.
+ */
+export function DosLookCards({ value, onPick, pending = false }: { value: DosLookId; onPick: (id: DosLookId) => void; pending?: boolean }) {
+  return (
+    <>
+      <p className={`${SP_DD_LABEL} !max-w-none shrink-0 px-1 pt-1`} data-dos-look-label="">
+        Do&rsquo;s &amp; Don&rsquo;ts
+      </p>
+      <StyleCards
+        label="Do’s & Don’ts"
+        data="dos"
+        options={DOS_LOOKS}
+        value={value}
+        pending={pending}
+        canvasKey="w:dress_code"
+        sceneType={DOS_LOOK_PREVIEW_TYPE}
+        focus={DOS_LOOK_CARD_FOCUS}
+        onPick={(id) => {
+          const look = DOS_LOOKS.find((o) => o.id === id)?.id;
+          if (look && look !== value) onPick(look);
+        }}
+      />
+    </>
   );
 }
 

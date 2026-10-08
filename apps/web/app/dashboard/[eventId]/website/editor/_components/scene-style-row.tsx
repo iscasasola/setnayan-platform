@@ -30,7 +30,8 @@ import { PickMenu } from './pick-menu';
 import { useSceneCanvas } from './use-scene-canvas';
 import { noteDraftedCanvas } from '@/lib/maker-draft-store';
 import type { ElementDraftAction } from './element-sheet';
-import { PaletteLookCards, PaletteLookRow } from './palette-look-row';
+import { DosLookCards, PaletteLookCards, PaletteLookRow } from './palette-look-row';
+import { DOS_LOOK_DEFAULT, resolveDosLook } from '@/lib/dress-code-looks';
 import { PALETTE_LOOK_DEFAULT, layoutDrawsPaletteLook, resolvePaletteLook } from '@/lib/palette-looks';
 import { useMaker } from '../../../launch/_components/maker-context';
 import { StyleCards } from '../../../launch/_components/stage-panel/style-carousel';
@@ -249,16 +250,18 @@ export function PaletteLookCanvasRow({
      keeps the dropdown — the page under it may be a stage that draws no Dress code to picture. */
   const cards = useMaker()?.stagesStudio === true;
   const onDressPart = useStagePanelNow().picked === 'dress';
-  if (!layoutDrawsPaletteLook(layout)) return null;
-  /* The dropdown's thumbnails are the couple's colours — with none there is nothing to show in it. The cards
-     are the page itself, which draws "Our colours" in sample shapes until a colour exists (owner 08 Oct). */
-  if (colours.length === 0 && !(cards && onDressPart)) return null;
+  const drawsPalette = layoutDrawsPaletteLook(layout);
   /* Tags is the default, and "Auto is an absence": picking it clears the key. */
   const pick = (id: string) => save((c) => { if (id === PALETTE_LOOK_DEFAULT) delete c.palette; else c.palette = id; });
   if (cards && onDressPart) {
+    /* The cards are the page itself, which draws "Our colours" and the two lists in sample shapes until they
+       exist (owner 08 Oct) — so they are offered before a colour or a line is written. The palette's cards
+       only where the layout draws the look; the Do's & Don'ts' under every layout. */
     return (
       <>
-        <PaletteLookCards value={resolvePaletteLook(shown.palette)} pending={pending} onPick={pick} />
+        {drawsPalette ? <PaletteLookCards value={resolvePaletteLook(shown.palette)} pending={pending} onPick={pick} /> : null}
+        {/* 🧾 The shipped notes are the default and an absence, like Tags. */}
+        <DosLookCards value={resolveDosLook(shown.dos)} pending={pending} onPick={(id) => save((c) => { if (id === DOS_LOOK_DEFAULT) delete c.dos; else c.dos = id; })} />
         {error ? (
           <p role="alert" className="shrink-0 py-1 text-[12.5px] font-semibold text-terracotta-700">
             {error}
@@ -267,6 +270,8 @@ export function PaletteLookCanvasRow({
       </>
     );
   }
+  /* The dropdown's thumbnails are the couple's colours — with none there is nothing to show in it. */
+  if (!drawsPalette || colours.length === 0) return null;
   return (
     <div data-look-palette="">
       <PaletteLookRow

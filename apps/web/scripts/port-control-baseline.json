@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "5301dd163",
-  "routeCount": 428,
-  "destinations": 954,
+  "generatedFromRef": "991736415",
+  "routeCount": 429,
+  "destinations": 955,
   "actions": 671,
-  "blocks": 5641,
+  "blocks": 5653,
   "routes": {
     "/": {
       "files": [
@@ -1920,6 +1920,7 @@
         "/admin/fraud",
         "/admin/gifts",
         "/admin/help",
+        "/admin/hub-music",
         "/admin/integrations",
         "/admin/integrity-watch",
         "/admin/live-studio-channels",
@@ -3038,6 +3039,29 @@
         "FilterChip",
         "PageMasthead",
         "SubmitButton"
+      ]
+    },
+    "/admin/hub-music": {
+      "files": [
+        "admin/hub-music/actions.ts",
+        "admin/hub-music/hub-music-manager.tsx",
+        "admin/hub-music/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "ConsoleTable",
+        "EditTrack",
+        "HTMLAudioElement",
+        "HTMLInputElement",
+        "HubMusicManager",
+        "HubMusicResult",
+        "InfoTip",
+        "MoodSelect",
+        "PageMasthead",
+        "Picked",
+        "Sheet",
+        "Switch"
       ]
     },
     "/admin/insights": {

@@ -754,6 +754,11 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     why: 'Which admin last swapped a homepage clip. Six seeded rows of marketing config.',
   },
   {
+    table: 'hub_music_tracks',
+    column: 'created_by',
+    why: 'Which admin uploaded an Event Hub music track. The track is Setnayan’s own catalogue and stays; the stamp goes.',
+  },
+  {
     table: 'manpower_gigs',
     column: 'posted_by_user_id',
     why: 'Who posted the gig. A host↔vendor business record read by both; only the poster’s identity goes.',

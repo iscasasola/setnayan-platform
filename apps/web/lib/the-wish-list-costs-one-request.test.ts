@@ -129,16 +129,18 @@ test('3 · the screen: five sends, each inside a HELD makerSave; only "Try again
   const s = flat(SCREEN);
   /* Every makerSave in the file, with everything up to its closing options. */
   const saves = [...s.matchAll(/\bmakerSave\( ?(.*?),? ?requestMakerRefresh, (\{[^}]*\}),? ?\);/g)].map((m) => [m[0], m[1]!.replace(/[\s,]+$/, ''), m[2]!] as const);
-  assert.equal(saves.length, 5, `${saves.length} held saves found — add · edit · got · remove · reorder is five`);
-  assert.equal(s.match(/\bmakerSave\(/g)?.length, 5, 'a makerSave in this file is not held (it would re-render the whole Maker)');
+  /* Five wish writes — and, from wish list 5/5, the ONE save a gift record's three changes share (`changeGift`). */
+  assert.equal(saves.length, 6, `${saves.length} held saves found — add · edit · got · remove · reorder · a gift record is six`);
+  assert.equal(s.match(/\bmakerSave\(/g)?.length, 6, 'a makerSave in this file is not held (it would re-render the whole Maker)');
   const ops: Record<string, string> = {};
   for (const [, send, opts] of saves) {
-    const op = /wish_op: '(\w+)'(, wish_item_id)?/.exec(send);
+    /* The gift record's save carries its op in `fields` (gift-amount · gift-move · gift-remove). */
+    const op = /wish_op: '(\w+)'(, wish_item_id)?/.exec(send) ?? (/^\(\) => action\(form\(\{ gift_record_id: id, \.\.\.fields \}\)\)$/.test(send) ? (['', 'gift'] as unknown as RegExpExecArray) : null);
     assert.ok(op, `a save sends no wish_op: ${send.slice(0, 80)}`);
     assert.match(opts, /\bheld: true\b/, `the "${op[1]}" save is not held — a whole-Maker render per press`);
     ops[`${op[1]}${op[1] === 'save' ? (op[2] ? ':edit' : ':add') : ''}`] = send;
   }
-  assert.deepEqual(Object.keys(ops).sort(), ['delete', 'got', 'move', 'save:add', 'save:edit']);
+  assert.deepEqual(Object.keys(ops).sort(), ['delete', 'gift', 'got', 'move', 'save:add', 'save:edit']);
   /* The three a couple can repeat quickly fold into one write per wish (or per list). */
   assert.match(ops['save:edit']!, /^\(\) => makerLatestWrite\(`wish:\$\{id\}`, \(\) => action\(form\(\{ wish_op: 'save', wish_item_id: id,/);
   assert.match(ops.got!, /^\(\) => makerLatestWrite\(`wish-got:\$\{id\}`, \(\) => action\(form\(\{ wish_op: 'got', wish_item_id: id,/);

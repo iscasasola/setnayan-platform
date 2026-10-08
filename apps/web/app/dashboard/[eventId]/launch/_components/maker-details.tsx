@@ -1115,6 +1115,9 @@ export function MakerDetails(props: MakerDetailsProps) {
     } else if (editors.gifts && st.egiftMethods) {
       const wishList = st.wishList;
       editors.gifts = (
+        /* 🎁 While the wish list shows "Gifts sent to you" it is a screen of its own: everything
+           else in this wrapper stands down — by one rule in globals.css keyed on
+           `data-details-egifts` (wish list 5/5; no script here, nothing unmounted). */
         <div className="flex flex-col gap-3" data-details-egifts="">
           {ap.editors.gifts}
           <StudioTool

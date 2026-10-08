@@ -12,6 +12,7 @@ import { loadInviteSetup } from '../_components/invite-message-setup';
 import type { SendInviteGuest } from '../_components/send-invite';
 import { SendRun } from './_components/send-run';
 import { invitationLinkOn } from '@/lib/invitation-link';
+import { sendRunGuests } from '@/lib/guest-roster-view';
 
 export const metadata = { title: 'Send invites one by one' };
 
@@ -59,14 +60,14 @@ export default async function SendInvitesPage({ params, searchParams }: Props) {
   ]);
   const invitationBase = await fetchInvitationBase(eventId, setup.slug);
 
-  // The couple do not invite themselves.
+  // WHO THE RUN HOLDS — `sendRunGuests`, the ONE "to invite" rule's own list
+  // (lib/guest-roster-view.ts): never the couple or the celebrant, and never a
+  // guest who declined (owner 2026-10-08: "declined guests don't get an
+  // invitation"). Read again on every load, so a guest who declines after the
+  // run was opened is gone from the next read, and one who changes back returns.
   // "Invite selected" (owner 2026-09-30, the Fable rows): the ticked guests
   // only, one share sheet each, in the order they were ticked.
-  const order = new Map(picked.map((id, i) => [id, i] as const));
-  const guests: SendInviteGuest[] = rows
-    .filter((g) => g.role !== 'bride' && g.role !== 'groom')
-    .filter((g) => picked.length === 0 || order.has(g.guest_id))
-    .sort((a, b) => (order.get(a.guest_id) ?? 0) - (order.get(b.guest_id) ?? 0))
+  const guests: SendInviteGuest[] = sendRunGuests(rows, picked)
     .map((g) => ({
       guestId: g.guest_id,
       formalName: guestFullName(g, setup.facts.nameStyle),

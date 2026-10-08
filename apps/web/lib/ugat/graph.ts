@@ -3450,6 +3450,65 @@ export const UGAT_JOINTS: UgatJoint[] = [
     traps:
       'An unlocked booking is NOT deleted — it walks back to considering and keeps its payment log, because force_majeure_flags.event_vendor_id CASCADEs and the admin case must survive. The case is flag_type \'other\', never \'vendor_cancellation\' (that one counts against the supplier in vendor-activity). A supplier\'s answer is keyed on the vendor_profile_id stamped AT ASK TIME, matched to current_vendor_profile_ids().',
   },
+  {
+    /**
+     * 🎁 THE E-GIFTS WISH LIST (owner 2026-10-08, DECISION_LOG "E-GIFTS WISH
+     * LIST"; migration 20271266228704). What the couple would love, and what a
+     * guest SAYS they sent toward it through the couple's own GCash or bank:
+     * *"when people send gcash, they also give screenshot of their payment and
+     * the vallue and their message for the couple. this will be the way to
+     * measure."* Gifts add up per wish, and a wish is marked got *"when amount
+     * is reached."*
+     *
+     * 🔑 A RECORD IS A CLAIM, NEVER MONEY. Setnayan holds nothing: there is no
+     * order, no ledger and no settlement state on either table — claimed below
+     * as ABSENCES, so the day someone adds one this joint goes red and the
+     * question gets asked.
+     */
+    id: 'J52',
+    claims: [
+      { kind: 'table', table: 'event_wish_items' },
+      { kind: 'table', table: 'event_gift_records' },
+      { kind: 'fk', table: 'event_wish_items', column: 'event_id', references: 'events' },
+      { kind: 'fk', table: 'event_gift_records', column: 'event_id', references: 'events' },
+      { kind: 'fk', table: 'event_gift_records', column: 'wish_item_id', references: 'event_wish_items' },
+      { kind: 'fk', table: 'event_gift_records', column: 'giver_guest_id', references: 'guests' },
+      { kind: 'column', table: 'event_wish_items', column: 'price_php' },
+      { kind: 'column', table: 'event_wish_items', column: 'got_at' },
+      { kind: 'column', table: 'event_wish_items', column: 'got_by' },
+      { kind: 'check', table: 'event_wish_items', name: 'event_wish_items_got_pair_check', mentions: 'got_by' },
+      { kind: 'column', table: 'event_gift_records', column: 'amount_php' },
+      { kind: 'column', table: 'event_gift_records', column: 'screenshot_r2_key' },
+      { kind: 'column', table: 'event_gift_records', column: 'giver_name' },
+      { kind: 'column', table: 'event_gift_records', column: 'removed_at' },
+      { kind: 'unique', table: 'event_wish_items', columns: ['public_id'] },
+      { kind: 'unique', table: 'event_gift_records', columns: ['public_id'] },
+      // 🔑 CLAIMED AS ABSENCES: nothing here is an order, a verification or a payout.
+      { kind: 'no_column', table: 'event_gift_records', column: 'order_id' },
+      { kind: 'no_column', table: 'event_gift_records', column: 'verified_at' },
+      { kind: 'no_column', table: 'event_gift_records', column: 'received_at' },
+      { kind: 'no_column', table: 'event_gift_records', column: 'status' },
+      // A record has no author account: a guest is a guest row, never a login.
+      { kind: 'no_column', table: 'event_gift_records', column: 'user_id' },
+      // The ways to give are the sibling this hangs beside, not a parent it points at.
+      { kind: 'table', table: 'event_egift_methods' },
+      { kind: 'no_column', table: 'event_gift_records', column: 'egift_method_id' },
+    ],
+    chain: 3,
+    pair: ['TYPE-EVENTS', 'TYPE-GUESTS'],
+    title: 'Event ↔ Guest (a wish, and a gift a guest says they sent)',
+    joint: 'event_gift_records',
+    cardinality:
+      'Many wishes per event · many gift records per wish (several guests add up on one) · a record with no wish is "Any gift"',
+    implementedBy:
+      'event_wish_items (name · optional price_php · photo · link · note · sort_order · got_at + got_by auto|host) + event_gift_records (amount_php · screenshot_r2_key · message · giver_name · giver_guest_id → guests SET NULL · wish_item_id → event_wish_items SET NULL · removed_at = the couple’s soft Remove). The sums are lib/wish-list.ts (sumSent · reachedPrice)',
+    writtenBy:
+      'Wishes: the hosts, live, from Studio › E-Gifts › Wish list. Records: ONLY the server — a guest’s "I sent it" passes the recognition rule and is inserted with the service role; authenticated holds SELECT + UPDATE on records (correct the amount · move it · soft-remove) and no INSERT or DELETE. got_at/got_by are written by those actions, never by a trigger',
+    guardedBy:
+      'RLS on both: the event_egift_methods_host_all predicate (accepted, not-removed moderators · legacy couple member · is_admin()) FOR ALL TO authenticated; NO anon policy and NO anon grant — guest pages read wishes and per-wish sums with the service role behind the published gate · the-wish-list-is-the-hosts-alone.db.test.ts',
+    traps:
+      'A record is what a guest SAID, so no reader may call it received, paid, verified or funded. A removed record (removed_at) still exists and must be left out of every sum. A wish with price_php NULL never marks itself got. event_gift_records.wish_item_id is a single-column FK — nothing in the table ties it to the SAME event, so every reader filters on event_id as well. Deleting a wish keeps its gifts (they fall back to "Any gift"). Public ids: wishes S89H- (a letter chat_threads also uses), records S89Y- (the E-Gifts letter, shared with event_egift_methods) — all 26 letters are taken, the letter is a reading aid and never a key.',
+  },
 ];
 
 const UGAT_JOINT_PAIR_INDEX: Record<string, UgatJoint[]> = {};

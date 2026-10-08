@@ -106,7 +106,9 @@ const words = (html: string) =>
   [html.replace(/<[^>]+>/g, ' '), ...(html.match(/(?:aria-label|title)="[^"]*"/g) ?? [])].join(' ');
 const count = (html: string, needle: string) => html.split(needle).length - 1;
 
-const ARROWS = /[→↗›»]|&rarr;|&#x2197;|\bEdit in\b/;
+// "›" is allowed: the owner's own money line reads "0% paid · Budget ›" (2026-10-07) —
+// the tile itself is the door; the chevron marks it, it does not send you to edit elsewhere.
+const ARROWS = /[→↗»]|&rarr;|&#x2197;|\bEdit in\b/;
 
 test('no arrow link copy on the rendered Home — read, failed, and every Next card', () => {
   const kinds: HomeNextInput[] = [

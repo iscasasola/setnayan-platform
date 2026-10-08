@@ -76,7 +76,7 @@ export function themeSeedPalettes(): Record<string, RolePalette> {
 }
 
 /** The colour half of a theme's generated page block (`globals.css` "THE TEN THEMES ON THE PAGE"). */
-function themeBlockVars(t: InviteTheme): Record<string, string> {
+export function themeBlockVars(t: InviteTheme): Record<string, string> {
   const p = t.palette;
   const k = hubThemePageTokens(t);
   return {

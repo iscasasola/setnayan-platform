@@ -10,9 +10,9 @@
  *   (1) ONE SOURCE, TWO DOORS — Studio › RSVP and the stage's form draw the SAME rows, in the same order (rendered:
  *       the two lists are the same markup), on the Studio's white band and in the stage's panel.
  *   (2) EACH ROW IS ITS KIND, RENDERED — How guests answer is a pill selector; each word a typed pill reading the
- *       page's own words in grey until the couple writes theirs, with Start from ▾ under it and the quiet reset only
- *       once there is something to reset; a message opens the taller box. No box, no native field, no switch, no
- *       Save and no "Saved" in ANY door's rows — the two after-screens included.
+ *       page's own words in grey until the couple writes theirs, with Start from ▾ under it — whose first choice,
+ *       Automatic, IS the reset (one control per answer; no separate button); a message opens the taller box. No
+ *       box, no native field, no switch, no Save and no "Saved" in ANY door's rows — the two after-screens included.
  *   (3) THE SHARED PARTS, IN THE MAKER'S FRAME — Reply by is the date pill, How guests get in a dropdown in a row
  *       (its sentence behind the ⓘ), the six asks chips in a row; each still carries its part's own marks, and no
  *       part wraps its row. The chips are the SAME markup in Guests › Setup.
@@ -24,15 +24,25 @@
  *   (6) A REFUSAL IS SAID ONCE, WHERE IT HAPPENED — a word's own row says it (with Try again) and the panel's line
  *       stays quiet; every other control says it on the panel's one line, in red.
  *   (7) A WORD TAPPED ON THE CANVAS still brings its row up — and opens it.
- *   (8) THE WATCH — the panel hand-makes no field, switch, dropdown, date input or toggle button.
+ *   (8) THE WATCH — the panel and the Celebration pick hand-make no field, switch, dropdown, date input or button.
+ *   (9) THE REST OF THE STAGE — When yes opens on Celebration ▾ in a Form row with the Pro mark beside its name
+ *       (◆ PRO while tried, the diamond once owned; not drawn at all in the store shell without Pro — and no empty
+ *       band is left in Studio), "Play it again" is the house action and only for a pick that plays; nothing is
+ *       printed on the after-screens' panels (what each screen is and the {name} rule are behind the rows' ⓘ, word
+ *       for word; no "In your draft…"); the typing bar's Done is the app's main button, as the shipped bar draws it.
  *
  * Mutations seen RED (2026-10-08), each restored: the stage's form given its own list (the words first) → (1); the
  * Studio drawing How guests answer as a dropdown again → (1) and (8); a word's pill no longer reading the page's own
- * words → (2); the reset drawn while there is nothing to reset → (2); a message no longer `long` → (2); the asks'
+ * words → (2); Automatic no longer the first choice of Start from ▾ → (2); picking Automatic not clearing the words →
+ * (2); a separate reset button back beside Start from ▾ → (2); a dropdown of one choice for a word with no premade
+ * line → (2); a message no longer `long` → (2); the asks'
  * frame dropping the part's marks → (3); the get-in sentence drawn under the row instead of behind its ⓘ → (3); the
  * Studio save through an unheld `makerSave` → (4); the Studio save without the latest-write → (4); `previewWord`
  * also saving → (4); the Maker's Reply by mounted without `draft` → (5); a word's refusal also said on the panel's
- * line → (6); the canvas tap still looking for an `<input>` → (7); a hand-made `<input>` back in the panel → (8).
+ * line → (6); the canvas tap still looking for an `<input>` → (7); a hand-made `<input>` back in the panel → (8);
+ * the Pro mark dropped from the Celebration row → (9); the Celebration drawn in the store shell without Pro → (9);
+ * "Play it again" offered for None → (9); a caption printed on the When yes panel again → (9); the typing bar's
+ * Done as a hex pill again → (9).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -59,6 +69,8 @@ const L = 'app/dashboard/[eventId]/launch/_components';
 const G = 'app/dashboard/[eventId]/_components/guest-setup';
 const PANEL = `${L}/maker-rsvp-ask.tsx`;
 const STAGE = `${L}/maker-rsvp-stage.tsx`;
+const PICK = `${L}/celebration-pick.tsx`;
+const E = 'app/dashboard/[eventId]/website/editor/_components';
 const ROW = 'app/_components/form-row.tsx';
 const PILL = 'app/_components/pill-selector.tsx';
 const count = (s: string, re: RegExp) => (s.match(re) ?? []).length;
@@ -165,8 +177,7 @@ test('(2) each row is its kind: a pill selector, typed pills with Start from ▾
   assert.match(empty, /data-form-row-pill="typed" aria-label="Yes answer: not set yet\. Tap to change"[^>]*>(?:<span[^>]*text-ink\/45[^>]*>)<span>Joyfully accepts<\/span>/, 'an unwritten answer does not read the page’s own words');
   assert.match(empty, /aria-label="No answer: not set yet\. Tap to change"[^>]*><span[^>]*text-ink\/45[^>]*><span>Regretfully declines<\/span>/);
   assert.equal(count(empty, /data-form-row-pill="typed"/g), 2);
-  assert.equal(count(empty, /aria-label="Yes answer — start from: Choose"|aria-label="No answer — start from: Choose"/g), 2, 'Start from ▾ is not under each answer');
-  assert.doesNotMatch(empty, /Use the automatic words/, 'the reset is offered while there is nothing to reset');
+  assert.equal(count(empty, /aria-label="Yes answer — start from: Automatic"|aria-label="No answer — start from: Automatic"/g), 2, 'Start from ▾ is not under each answer, or does not say the page’s own words are in use');
   // Every pill of the list is the list's ONE width — typed and chosen alike.
   for (const m of empty.matchAll(/data-form-row-pill="typed"[^>]*class="([^"]*)"/g)) assert.ok(m[1]!.split(' ').includes(FORM_PILL_WIDTH.wide));
   // Written: the pill reads them; Start from names the premade line (or "Your own"); the quiet reset appears.
@@ -174,14 +185,22 @@ test('(2) each row is its kind: a pill selector, typed pills with Start from ▾
   assert.match(written, /aria-label="Yes answer: Count me in\. Tap to change"/);
   assert.match(written, /aria-label="Yes answer — start from: Count me in"/);
   assert.match(written, /aria-label="No answer — start from: Your own"/);
-  const resets = [...written.matchAll(/<div class="flex justify-end pb-2" data-rsvp-word-reset="(\w+)"><button type="button" aria-label="Use the automatic words"[^>]*class="([^"]*)"/g)];
-  assert.deepEqual(resets.map((m) => m[1]), ['attending', 'declined']);
-  for (const m of resets) assert.deepEqual(m[2]!.split(' ').filter((c) => c === 'ab' || c === 'quiet' || c === 'ab-main'), ['ab', 'quiet'], 'the reset is not the house quiet action');
+  // ONE control per answer: the reset is Start from ▾'s own first choice — never a button of its own beside it.
+  assert.doesNotMatch(written, /Use the automatic words|data-rsvp-word-reset/, 'a separate reset is drawn beside Start from ▾');
+  const rowsSrc = between(read(PANEL), 'function WordRows(', '\n}\n');
+  assert.match(rowsSrc, /options=\{\[\s*\{ key: AUTOMATIC_WORDS, label: 'Automatic', hint: automatic\.replace\(\/\^Automatic — \/, ''\) \},\s*\.\.\.lines\.map\(/, 'Automatic is not the first choice of Start from ▾');
+  assert.match(rowsSrc, /const next = line === AUTOMATIC_WORDS \? '' : line;\s*if \(next !== value\) put\(next\);/, 'picking Automatic does not put the page’s own words back');
+  assert.match(rowsSrc, /value=\{value === '' \? AUTOMATIC_WORDS : \(picked \?\? OWN_WORDS\)\}/);
+  assert.doesNotMatch(rowsSrc, /ActionButton|<button\b/, 'the answer has a second control');
   // THE AFTER-SCREENS: a heading (one line) and a message (the taller box), the {name} sentence behind each ⓘ.
   for (const [scene, heading, message] of [['thanks', 'thanksHeading', 'thanksMessage'], ['decline', 'declineHeading', 'declineMessage']] as const) {
     const html = await panel({ scene }, { words: { [message]: 'Thank you for telling us' } });
     const rows = block(html, `<div data-form-rows="rsvp-${scene}"`);
     assert.deepEqual([...rows.matchAll(/data-rsvp-word-field="(\w+)"/g)].map((m) => m[1]), [heading, message]);
+    // A word with no premade line and nothing written has nothing to start from: no Start from row for it.
+    const bare = block(await panel({ scene }), `<div data-form-rows="rsvp-${scene}"`);
+    assert.equal(/data-form-row="word-declineMessage-start"/.test(bare), false, 'a dropdown of one choice is drawn');
+    assert.equal(/data-form-row="word-thanksMessage-start"/.test(bare), scene === 'thanks');
     assert.equal(count(rows, /aria-label="About (Heading|Message)"/g), 2, 'the {name} sentence is not behind each row’s ⓘ');
     assert.match(rows, /aria-label="Message: Thank you for telling us\. Tap to change"/);
     assert.match(rows, /aria-label="Heading: not set yet\. Tap to change"/);
@@ -226,9 +245,13 @@ test('(3) the shared parts in the Maker’s frame: a date pill, a dropdown in a 
   assert.match(asks, /^<div data-form-rows="rsvp"[^>]*><div data-setup-row="asks" data-made-once="rsvp-ask" data-form-row="asks"/, 'the asks’ row is wrapped, or lost its part’s marks');
   assert.match(asks, /aria-label="About RSVP asks"/);
   assert.doesNotMatch(asks, /Yes or no is always asked\./, 'the asks’ sentence is printed on the panel');
-  const chips = [...asks.matchAll(/<button type="button" aria-pressed="(true|false)" data-chip="(\w+)" data-testid="rsvp-ask-(\w+)" class="([^"]*)">([^<]+)</g)];
+  const chips = [...asks.matchAll(/<button type="button" aria-pressed="(true|false)" data-chip="(\w+)" data-testid="rsvp-ask-(\w+)" class="([^"]*)"><span data-chip-label="" class="whitespace-nowrap">([^<]+)</g)];
   assert.deepEqual(chips.map((m) => `${m[2]}:${m[1]}:${m[5]}`), ['plus_ones:true:Plus-ones', 'meal:false:Meal', 'dietary:true:Dietary', 'song_request:true:Song request', 'note:true:A note', 'mobile:false:Mobile']);
   for (const m of chips) assert.equal(PILL_ON_CLASS.split(' ').every((c: string) => m[4]!.split(' ').includes(c)), m[1] === 'true', `${m[2]}: the chip's look is not its state`);
+  // EVEN (owner 2026-10-08: *"make RSVP ask buttons even"*): one grid — two across on a phone, "Song request" being
+  // too long for three — every chip its column's width.
+  assert.match(asks, /data-chips="rsvp-asks" data-chips-columns="2" style="grid-template-columns:repeat\(2, minmax\(0, 1fr\)\)" class="grid gap-2 "/, 'the six asks are not an even grid');
+  for (const m of chips) assert.ok(m[4]!.split(' ').includes('w-full'), `${m[2]}: the chip hugs its word`);
   // ONE LOOK IN BOTH DOORS: Guests › Setup's own row holds the very same chips.
   const setup = await paint(h(RsvpAsks, { config: { meal: false, mobile: false }, onToggle: () => {} } as Record<string, unknown>));
   assert.match(setup, /^<section [^>]*data-setup-row="asks"[^>]*>[\s\S]*Yes or no is always asked\./, 'anti-vacuity: Guests › Setup’s row was not drawn');
@@ -333,17 +356,76 @@ const HAND_MADE: Array<{ what: string; re: RegExp }> = [
   { what: 'a "Saved" word', re: />\s*Saved\b/ },
 ];
 
-test('(8) the watch: the RSVP panel hand-makes no field, switch, dropdown, date input or toggle', () => {
+test('(8) the watch: the RSVP panel and the Celebration pick hand-make no field, switch, dropdown, date input or button', () => {
   const src = read(PANEL);
   assert.ok(src.length > 8000, 'anti-vacuity: the panel was not read');
-  assert.match(src, /<(TypedRow|ChosenRow|FormRow)\b/);
-  for (const { what, re } of HAND_MADE) {
-    const line = src.split('\n').find((l) => re.test(l));
-    assert.equal(line, undefined, `the RSVP panel draws ${what}: ${line?.trim().slice(0, 120)}`);
+  for (const file of [PANEL, PICK]) {
+    const code = read(file);
+    assert.ok(code.length > 1500, `anti-vacuity: ${file} was not read`);
+    assert.match(code, /<(TypedRow|ChosenRow|FormRow)\b/, `${file} draws no Form row`);
+    for (const { what, re } of HAND_MADE) {
+      const line = code.split('\n').find((l) => re.test(l));
+      assert.equal(line, undefined, `${file} draws ${what}: ${line?.trim().slice(0, 120)}`);
+    }
   }
   // The templates it wears are the shared ones — imported, never copied.
   assert.match(src, /import \{ ChosenRow, FormRow, FormRows, TypedRow, type FormRowAbout \} from '@\/app\/_components\/form-row';/);
   assert.match(src, /import \{ DateRow \} from '@\/app\/_components\/form-row-date';/);
   assert.match(src, /import \{ PillSelector \} from '@\/app\/_components\/pill-selector';/);
-  assert.match(src, /import \{ ActionButton \} from '@\/components\/action-button';/);
+  assert.doesNotMatch(src, /ActionButton/, 'the panel has an action of its own again (the reset is Start from ▾’s first choice)');
+});
+
+/* ── (9) the rest of the stage ────────────────────────────────────────── */
+
+test('(9) the rest of the stage: Celebration ▾ in a Form row with the Pro mark; nothing printed on the after-screens; Done is the main button', async () => {
+  const free = { celebration: { ownsPro: false, storeShell: false, colours: ['#5B1A22'] } };
+  // WHEN YES opens on the Celebration, then the heading and the message — ONE list.
+  const yes = await panel({ scene: 'thanks', ...free }, { celebration: 'confetti' });
+  const rows = block(yes, '<div data-form-rows="rsvp-thanks"');
+  assert.deepEqual([...rows.matchAll(/data-form-row="([^"]+)"/g)].map((m) => m[1]), ['celebration', 'word-thanksHeading', 'word-thanksHeading-start', 'word-thanksMessage', 'word-thanksMessage-start']);
+  // The row: the name, the Pro mark BESIDE the name (◆ PRO while it is only tried), the pick in the row's own pill.
+  const row = block(rows, '<div data-rsvp-setting="celebration"');
+  assert.match(row, /data-rsvp-setting="celebration" data-form-row-kind="chosen" data-form-row="celebration"/);
+  assert.match(row, />When they say yes<span data-form-row-name-mark=""[^>]*><span data-paid-mark="try"/, 'the Pro mark is not beside the name');
+  assert.match(row, /data-rsvp-celebration-pick=""/);
+  assert.match(row, /Confetti ◆/, 'a tried Pro pick does not carry its ◆ on the pill');
+  // Owned: the diamond, no "PRO" word, no ◆ on the pill.
+  const owned = block(await panel({ scene: 'thanks', celebration: { ...free.celebration, ownsPro: true } }, { celebration: 'confetti' }), '<div data-rsvp-setting="celebration"');
+  assert.match(owned, /data-paid-mark="unlocked"/);
+  assert.doesNotMatch(owned, /Confetti ◆/);
+  // "Play it again": the house action, and only for a pick that plays.
+  const again = /<div class="flex justify-end pb-2" data-rsvp-celebration-again=""><button type="button" aria-label="Play it again"[^>]*class="([^"]*)"/.exec(row);
+  assert.ok(again && again[1]!.split(' ').includes('ab'), '"Play it again" is not the house action');
+  assert.doesNotMatch(await panel({ scene: 'thanks', ...free }, {}), /Play it again/, '"Play it again" is offered while nothing plays');
+  // THE PRO BEHAVIOUR IS UNCHANGED: in the store shell without Pro the pick is not drawn at all — on the stage, and
+  // in Studio where no empty band is left behind; with Pro (or on the web) it is.
+  const shell = { celebration: { ...free.celebration, storeShell: true } };
+  assert.doesNotMatch(await panel({ scene: 'thanks', ...shell }), /data-rsvp-setting="celebration"|When they say yes/);
+  const studioShell = await panel({ studio: true, ...shell });
+  assert.doesNotMatch(studioShell, /data-rsvp-setting="celebration"|data-form-rows="rsvp-celebration"/);
+  assert.equal(count(studioShell, /class="mb-2\.5 flex flex-col border-y /g), 1, 'an empty band is left where the Celebration is not shown');
+  const studioWeb = await panel({ studio: true, ...free });
+  assert.match(studioWeb, /data-form-rows="rsvp-celebration"[\s\S]*data-rsvp-setting="celebration"/);
+  assert.equal(count(studioWeb, /class="mb-2\.5 flex flex-col border-y /g), 2);
+  assert.match(studioWeb, /data-rsvp-setting="celebration"[\s\S]*?>None</, 'a new event does not start on None');
+  const pick = read(PICK);
+  assert.match(pick, /if \(!makerProUsable\(\{ owns: ownsPro, storeShell \}\)\) return null;/);
+  assert.match(pick, /text: mark === 'try' \? '◆ Pro' : '◆'/);
+  assert.match(pick, /: \{ text: 'Free', tone: 'muted' as const \}/);
+  assert.match(pick, /if \(key !== value\) onPick\(key\);\s*announceCelebrate\(key\);/, 'a pick is not drafted, or not played');
+  // NOTHING IS PRINTED ON THE AFTER-SCREENS' PANELS — each sentence is behind a row's ⓘ, word for word.
+  for (const scene of ['thanks', 'decline'] as const) {
+    const html = await panel({ scene, ...free }, { words: { thanksHeading: 'x' } });
+    assert.doesNotMatch(html, /What a guest sees|Type \{name\}|In your draft|data-made-once-drafted|<p class="text-\[13px\] text-ink\/65">/, `${scene}: a caption is printed on the panel`);
+  }
+  const src = read(PANEL);
+  assert.match(src, /thanks: 'What a guest sees right after they say yes — with their Digital tickets under it\.',\s*decline: 'What a guest sees after they say they can’t come\.',/, 'the screens’ own sentences were reworded');
+  assert.match(src, /if \(key !== RSVP_SCENE_WORDS\[scene\]\[0\]\) return RSVP_NAME_HINT;\s*return \(\s*<>\s*<span>\{RSVP_SCREEN_LINE\[scene\]\}<\/span>\s*<span>\{RSVP_NAME_HINT\}<\/span>\s*<\/>\s*\);/);
+  assert.match(src, /about=\{of === 'form' \? null : \{ words: wordAbout\(of, key\) \}\}/);
+  assert.doesNotMatch(src, /DraftNote/);
+  // THE TYPING BAR'S DONE — the app's main button, drawn as the shipped typing bar draws it; no colour written here.
+  const stage = read(STAGE);
+  assert.match(stage, /<span data-type-done="" className=\{SP_KEY_DONE\}>\s*<ActionButton tone="brand" main icon=\{Check\} label="Done" onClick=\{doneTyping\} \/>\s*<\/span>/);
+  assert.match(read(`${E}/type-in-place.tsx`), /<span data-type-done="" className=\{SP_KEY_DONE\}>\s*<ActionButton tone="brand" main icon=\{Check\} label="Done" onClick=\{p\.onClose\} \/>/, 'anti-vacuity: the shipped typing bar draws its Done some other way');
+  assert.doesNotMatch(stage, /#[0-9a-fA-F]{6}\b|\btext-white\b|\bbg-ink(?![\/\w-])/, 'the RSVP stage writes a colour for a button');
 });

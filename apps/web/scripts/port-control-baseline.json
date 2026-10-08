@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "2d4d42d11",
+  "generatedFromRef": "d0418ee61",
   "routeCount": 429,
   "destinations": 959,
   "actions": 672,
-  "blocks": 5849,
+  "blocks": 5848,
   "routes": {
     "/": {
       "files": [
@@ -6716,7 +6716,6 @@
         "DetailsTapContext.Provider",
         "DetailsWorkspace",
         "Door",
-        "DraftNote",
         "DraftsAsYouGo",
         "Drag",
         "EffectRows",

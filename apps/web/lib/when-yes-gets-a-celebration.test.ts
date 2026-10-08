@@ -245,15 +245,20 @@ test('the watchdog ends it even if frames stop (a hidden tab)', { timeout: 8_000
 
 /* ── 4 · the Maker ─────────────────────────────────────────────────────── */
 
-test('the Maker offers ONE Celebration ▾ PickMenu on When yes, drafted through the one-object save', () => {
+test('the Maker offers ONE Celebration ▾ dropdown on When yes, drafted through the one-object save', () => {
   const pick = code('app/dashboard/[eventId]/launch/_components/celebration-pick.tsx');
-  assert.match(pick, /<PickMenu\s+label=\{RSVP_CELEBRATION_LABEL\}/, 'one dropdown');
+  /* The ONE dropdown, in the app's Form row since 2026-10-08 (`ChosenRow` draws the house `PickMenu`; it was a
+     bare `PickMenu` with its label laid over the button). */
+  assert.match(pick, /<ChosenRow\s+data="celebration"[\s\S]*?name=\{RSVP_CELEBRATION_LABEL\}/, 'one dropdown');
+  assert.equal((pick.match(/<ChosenRow\b/g) ?? []).length, 1, 'one dropdown');
+  assert.doesNotMatch(pick, /<PickMenu\b/, 'a second, bare dropdown');
   assert.doesNotMatch(pick, /role="radiogroup"|aria-pressed/, 'never a pill row');
   assert.match(pick, /makerProUsable\(/, 'hidden in the store shell for a couple without Pro');
   assert.match(pick, /'◆ Pro'/);
   assert.match(pick, /'Free'/);
   const panel = code('app/dashboard/[eventId]/launch/_components/maker-rsvp-ask.tsx');
-  assert.match(panel, /scene === 'thanks' && celebration \? \(\s*<CelebrationPick/, 'When yes only');
+  assert.match(panel, /\{scene === 'thanks' \? celebrationRow\(\) : null\}/, 'When yes only');
+  assert.match(panel, /const celebrationRow = \(wrap\?: \(row: ReactNode\) => ReactNode\) =>\s*celebration \? \(\s*<CelebrationPick/);
   assert.match(panel, /save\(\{ celebration: next === 'none' \? undefined : next \}/, 'the pick is drafted like every other key');
   const stage = code('app/dashboard/[eventId]/launch/_components/maker-rsvp-stage.tsx');
   assert.match(stage, /frames\.current\.thanks\?\.contentWindow/, 'played on the When yes page');

@@ -5,11 +5,9 @@ import { canvasWriteKey, draftedCanvasOr, noteDraftedCanvas } from '@/lib/maker-
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
 import { HUB_DRAFT_FIELD, type HubDraftActionResult } from '@/lib/hub-draft';
 import { useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
-import { RotateCcw } from 'lucide-react';
 import { ChosenRow, FormRow, FormRows, TypedRow, type FormRowAbout } from '@/app/_components/form-row';
 import { DateRow } from '@/app/_components/form-row-date';
 import { PillSelector } from '@/app/_components/pill-selector';
-import { ActionButton } from '@/components/action-button';
 import {
   RSVP_DRAFT_TYPE,
   RSVP_PREVIEW_EVENT,
@@ -432,7 +430,7 @@ export function MakerRsvpSettings({
         value={words[key] ?? ''}
         automatic={key === 'attending' || key === 'declined' ? rsvpAnswerWord(null, key, solemn) : sceneWordPlaceholder(key)}
         lines={RSVP_WORD_LINES[key][solemn ? 'solemn' : 'celebrate']}
-        about={of === 'form' ? null : { words: RSVP_NAME_HINT }}
+        about={of === 'form' ? null : { words: wordAbout(of, key) }}
         onType={(text) => previewWord(key, text)}
         onKeep={(text) => saveWord(key, text, true)}
       />
@@ -450,6 +448,18 @@ export function MakerRsvpSettings({
   /* ✓ The six asks — the shared part draws the chips (Guests › Setup draws the same); the row around them is the app's. */
   const toggleAsk = (field: (typeof RSVP_ASK_FIELDS)[number], v: boolean) => void save({ [field]: v });
   const asksRow = <RsvpAsks frame={asksFrame} config={local} onToggle={toggleAsk} />;
+  /* 🎉 Celebration ▾ ◆ — drafted in the same one object (None is stored as no key, so picking it back is no change). */
+  const celebrationRow = (wrap?: (row: ReactNode) => ReactNode) =>
+    celebration ? (
+      <CelebrationPick
+        value={readCelebrationKey(local)}
+        ownsPro={celebration.ownsPro}
+        storeShell={celebration.storeShell}
+        colours={celebration.colours}
+        wrap={wrap}
+        onPick={(next: RsvpCelebration) => void save({ celebration: next === 'none' ? undefined : next }, `“Celebration”`)}
+      />
+    ) : null;
   /** The reply's own rows, in the Studio's order — the list Studio › RSVP and the stage's form both draw. */
   const formRows = (
     <FormRows data="rsvp">
@@ -473,28 +483,15 @@ export function MakerRsvpSettings({
      LOOKS; THE GUEST LIST MANAGES THE PEOPLE"). */
   if (scene !== undefined) {
     if (scene !== 'form') {
+      /* The after-screens: ONE list — on When yes the Celebration first (the prototype's panel opens on it), then
+         the heading and the message. Nothing else is printed on the panel: what each screen IS and the {name} rule
+         are behind the rows' ⓘ, word for word; "In your draft…" is the count on ✓ Apply. */
       return (
-        <div className="flex flex-col gap-5 px-1" data-rsvp-stage-controls={scene}>
-          <p className="text-[13px] text-ink/65">
-            {scene === 'thanks'
-              ? 'What a guest sees right after they say yes — with their Digital tickets under it.'
-              : 'What a guest sees after they say they can’t come.'}
-          </p>
-          {/* 🎉 Celebration ▾ — When yes only, FIRST (the prototype's panel opens on it); drafted in the same one object
-              (None is stored as no key, so picking it back is no change). */}
-          {scene === 'thanks' && celebration ? (
-            <CelebrationPick
-              value={readCelebrationKey(local)}
-              ownsPro={celebration.ownsPro}
-              storeShell={celebration.storeShell}
-              colours={celebration.colours}
-              onPick={(next: RsvpCelebration) =>
-                void save({ celebration: next === 'none' ? undefined : next }, `“Celebration”`)
-              }
-            />
-          ) : null}
-          <FormRows data={`rsvp-${scene}`}>{wordRows(scene)}</FormRows>
-          {drafted || newest.current > 0 ? <DraftNote /> : null}
+        <div className="flex flex-col px-1" data-rsvp-stage-controls={scene}>
+          <FormRows data={`rsvp-${scene}`}>
+            {scene === 'thanks' ? celebrationRow() : null}
+            {wordRows(scene)}
+          </FormRows>
           {status}
         </div>
       );
@@ -514,17 +511,13 @@ export function MakerRsvpSettings({
     return (
       <div className="flex flex-col" data-studio-rsvp="">
         <div className={STUDIO_GROUP}>{formRows}</div>
-        {celebration ? (
+        {/* 🎉 When yes — on a band of its own under the reply's rows. The band is the row's (`wrap`): where the pick
+            is not shown at all (the store shell, without Pro) no empty band is left behind. */}
+        {celebrationRow((row) => (
           <div className={STUDIO_GROUP}>
-            <CelebrationPick
-              value={readCelebrationKey(local)}
-              ownsPro={celebration.ownsPro}
-              storeShell={celebration.storeShell}
-              colours={celebration.colours}
-              onPick={(next: RsvpCelebration) => void save({ celebration: next === 'none' ? undefined : next }, `“Celebration”`)}
-            />
+            <FormRows data="rsvp-celebration">{row}</FormRows>
           </div>
-        ) : null}
+        ))}
         {status}
       </div>
     );
@@ -666,17 +659,24 @@ function sceneWordPlaceholder(key: RsvpWordKey): string {
   return 'No message';
 }
 
-function DraftNote() {
+/** Said behind the ⓘ of an after-screen's words — the panel's own sentences, word for word (they were printed on it). */
+const RSVP_NAME_HINT = 'Type {name} and each guest sees their own name.';
+const RSVP_SCREEN_LINE: Record<Exclude<RsvpStageScene, 'form'>, string> = {
+  thanks: 'What a guest sees right after they say yes — with their Digital tickets under it.',
+  decline: 'What a guest sees after they say they can’t come.',
+};
+/** A word's ⓘ: the screen's first row says what the screen IS, then the {name} rule; its second, the rule alone. */
+function wordAbout(scene: Exclude<RsvpStageScene, 'form'>, key: RsvpWordKey): ReactNode {
+  if (key !== RSVP_SCENE_WORDS[scene][0]) return RSVP_NAME_HINT;
   return (
-    <p className="text-[12px] font-semibold text-terracotta-700" data-made-once-drafted="">
-      In your draft — guests see it after you Apply.
-    </p>
+    <>
+      <span>{RSVP_SCREEN_LINE[scene]}</span>
+      <span>{RSVP_NAME_HINT}</span>
+    </>
   );
 }
-
-/** Said behind the ⓘ of an after-screen's words — the panel's own sentence, word for word. */
-const RSVP_NAME_HINT = 'Type {name} and each guest sees their own name.';
-/** "Start from ▾": what the couple wrote themselves. */
+/** "Start from ▾": the page's own words (nothing of the couple's) · what the couple wrote themselves. */
+const AUTOMATIC_WORDS = 'automatic';
 const OWN_WORDS = 'own';
 
 /**
@@ -687,9 +687,11 @@ const OWN_WORDS = 'own';
  *   · the row's pill holds the couple's words — empty, it reads the words the page uses by itself, in grey;
  *   · a tap opens the field across the row (a message: the taller box). Tapping out or Enter keeps — ONE drafted
  *     write; ✕ leaves it as it was. While it is typed the page shows it (`onType`), and nothing is kept;
- *   · "Start from ▾" under it drops a premade line into the row (it FILLS the answer, it does not become it) —
- *     the same row Studio › Info's Opening line has;
- *   · the house quiet action puts the page's own words back (it was an underlined link).
+ *   · "Start from ▾" under it is the ONE other control of the answer: its first choice, **Automatic**, puts the
+ *     page's own words back (it IS the reset — it was an underlined link, then a separate quiet button; controller
+ *     2026-10-08: one control per answer, and no extra 44-px line in the short stage panel); a premade line FILLS
+ *     the row (it does not become the answer); "Your own" names what the couple wrote. A word with no premade
+ *     line and nothing written has nothing to start from and nothing to put back: no row.
  * `data-rsvp-word-field` lets a tap on the canvas bring its row up.
  */
 function WordRows({
@@ -713,18 +715,13 @@ function WordRows({
   const name = RSVP_WORD_LABEL[wordKey];
   const picked = lines.includes(value) ? value : null;
   const [problem, setProblem] = useState<string | null>(null);
-  /* A pick or the reset is this row's own save too: a refusal is said under the row it belongs to. */
+  /* A pick from Start from ▾ is this answer's own save too: a refusal is said under the row it belongs to. */
   const put = (text: string) => {
     setProblem(null);
     void onKeep(text).then((r) => {
       if (!r.ok) setProblem(`${name} did not save. ${r.error}`);
     });
   };
-  const reset = value ? (
-    <div className="flex justify-end pb-2" data-rsvp-word-reset={wordKey}>
-      <ActionButton tone="neutral" quiet icon={RotateCcw} label="Use the automatic words" onClick={() => put('')} />
-    </div>
-  ) : null;
   return (
     <>
       <TypedRow
@@ -742,27 +739,27 @@ function WordRows({
           setProblem(null);
           return onKeep(text);
         }}
-        below={lines.length === 0 ? reset : null}
       />
-      {lines.length > 0 ? (
-        <ChosenRow
-          data={`word-${wordKey}-start`}
-          name="Start from"
-          label={`${name} — start from`}
-          dataAttr="data-rsvp-word-lines"
-          value={picked ?? (value ? OWN_WORDS : null)}
-          buttonText={picked ?? (value ? 'Your own' : 'Choose')}
-          options={[...lines.map((line) => ({ key: line, label: line })), ...(value && !picked ? [{ key: OWN_WORDS, label: 'Your own', hint: 'Keep what you wrote' }] : [])]}
-          onPick={(line) => {
-            if (line !== OWN_WORDS && line !== value) put(line);
-          }}
-          problem={problem}
-          below={reset}
-        />
-      ) : problem ? (
-        <p role="alert" className="pb-2.5 pl-0.5 text-[12.5px] font-semibold text-danger-700">
-          {problem}
-        </p>
+      {lines.length > 0 || value !== '' ? (
+      <ChosenRow
+        data={`word-${wordKey}-start`}
+        name="Start from"
+        label={`${name} — start from`}
+        dataAttr="data-rsvp-word-lines"
+        value={value === '' ? AUTOMATIC_WORDS : (picked ?? OWN_WORDS)}
+        buttonText={value === '' ? 'Automatic' : (picked ?? 'Your own')}
+        options={[
+          { key: AUTOMATIC_WORDS, label: 'Automatic', hint: automatic.replace(/^Automatic — /, '') },
+          ...lines.map((line) => ({ key: line, label: line })),
+          ...(value && !picked ? [{ key: OWN_WORDS, label: 'Your own', hint: 'Keep what you wrote' }] : []),
+        ]}
+        onPick={(line) => {
+          if (line === OWN_WORDS) return;
+          const next = line === AUTOMATIC_WORDS ? '' : line;
+          if (next !== value) put(next);
+        }}
+        problem={problem}
+      />
       ) : null}
     </>
   );

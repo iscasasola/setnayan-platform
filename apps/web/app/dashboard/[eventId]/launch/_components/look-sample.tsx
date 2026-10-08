@@ -6,6 +6,8 @@ import { LANDING_WORDS } from '@/lib/guest-landing';
 import { AmbientEffectLayer } from '@/app/[slug]/_components/ambient-effect';
 import { ambientWash } from '@/lib/ambient-effects';
 import { hubMainEffect, isHubMainFollow, type HubMainGround } from '@/lib/hub-canvas';
+import type { HubMusicButton } from '@/lib/hub-music-button';
+import { MUSIC_BUTTON_CLASS, MusicButtonFace } from '@/app/[slug]/_components/music-button-face';
 import type { InviteThemeId } from '@/lib/invite-themes';
 import { lookEffectOn, lookSampleEffect, lookSampleGround, lookSampleScope, type LookSampleRow } from '@/lib/look-sample';
 import { lookSampleVersion, readLookSample, subscribeLookSample, tellLookSampleWorn, type LookSampleValues } from '@/lib/look-sample-store';
@@ -60,6 +62,8 @@ export type LookSampleSeed = {
   sources: LookGroundSources;
   words: { names: string | null; date: string | null; line: string | null };
   musicOn: boolean;
+  /** 🎵 The music button's design, the draft over live (`hubMusicButton`). */
+  musicButton: HubMusicButton;
 };
 
 /** The sample's own words where the event has none yet — never an empty header. */
@@ -79,6 +83,7 @@ function useLookSample(seed: LookSampleSeed) {
     roles: seed.row.site_roles ?? null,
     buttonStyle: seed.row.site_button_style,
     buttonColour: seed.row.site_button_color,
+    musicButton: seed.musicButton,
     music: seed.musicOn,
   };
   const now = readLookSample(seed.eventId, server);
@@ -276,13 +281,11 @@ export function LookSample({ seed }: { seed: LookSampleSeed }) {
         </p>
       </div>
 
-      {/* 🔊 Music: the speaker a guest taps, on the sample while Music is the tab open. It plays nothing here. */}
+      {/* 🔊 Music: the button a guest taps, in the couple's design, on the sample while Music is the tab open — the
+          real control (`MusicButtonFace`), drawn as it looks while the song plays. It plays nothing here. */}
       {speaker ? (
-        <span aria-hidden data-look-sample-speaker="" className="absolute bottom-2.5 right-2.5 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/80 text-terracotta-700 ring-1 ring-black/10">
-          <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M11 5 6 9H3v6h3l5 4V5z" />
-            <path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13" />
-          </svg>
+        <span aria-hidden data-look-sample-speaker={now.musicButton} className={`absolute bottom-2.5 right-2.5 z-10 ${MUSIC_BUTTON_CLASS}`}>
+          <MusicButtonFace design={now.musicButton} playing />
         </span>
       ) : null}
     </div>

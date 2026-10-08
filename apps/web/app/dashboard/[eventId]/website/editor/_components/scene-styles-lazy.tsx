@@ -68,6 +68,13 @@ export const OurMusicSong = dynamic(
   { loading: SlotRows },
 );
 
+/* 🎵 Look › Music › Music button — the guest's button in three designs (owner 2026-10-08, round 5). It holds the
+   draft door (a server action) and the three drawn controls, so the Music form reaches it here. */
+export const MusicButtonRow = dynamic(
+  () => import(/* webpackChunkName: "maker-details" */ './music-button-row').then((m) => m.MusicButtonRow),
+  { loading: SlotRows },
+);
+
 /* 🔤 Look › Elements › Fonts — the Studio's four font rows and Fonts ▾ (owner 2026-10-08, round 5). They hold the
    draft door (a server action), so the Colours panel reaches them here rather than importing them. */
 export const FontsLookRows = dynamic(

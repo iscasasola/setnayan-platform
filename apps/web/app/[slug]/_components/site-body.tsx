@@ -165,6 +165,7 @@ import { FaceDataNotice } from './face-data-notice';
 import { ScanTrailNotice } from './scan-trail-notice';
 import { HeroBackgroundMedia } from './hero-background-media';
 import { hubCanvasMediaRefs, hubSlotClipStillRefs, sanitizeHubCanvas } from '@/lib/hub-canvas';
+import { hubMusicButton } from '@/lib/hub-music-button';
 import { HUB_ELEMENT_EXCLUDED_WIDGETS, hubElementInlineStyle, hubSceneRunsAttr } from '@/lib/element-style';
 import { placeCardName } from '@/lib/formal-name';
 import { HubSceneRuns } from './hub-scene-runs';
@@ -3900,7 +3901,7 @@ export async function SiteBody({
           tap. Suppressing it here would silence a paid Event Hub PRO feature
           for the whole invitation phase to solve a clash that cannot happen. */}
       {/* 🖼 Not in the Maker's canvas — the song is set in the inspector. */}
-      {plan.backgroundMusic && bgMusicUrl && !isEditorCanvas ? <BackgroundMusic src={bgMusicUrl} /> : null}
+      {plan.backgroundMusic && bgMusicUrl && !isEditorCanvas ? <BackgroundMusic src={bgMusicUrl} design={hubMusicButton(heroRow?.config_json)} /> : null}
       {/* THE SUPPLIER DOORWAY. Rendered here, above the tier fork, because a
           booked supplier can arrive as EITHER tier — as a guest if the couple
           also invited them, or anonymously with just the link. Gating it inside

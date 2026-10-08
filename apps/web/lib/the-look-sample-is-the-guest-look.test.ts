@@ -367,6 +367,7 @@ test('(4b) the sample screen renders the header text, the two real buttons and t
     sources: { loops: [{ id: 'velvet', stillUrl: 'https://media.example/velvet.jpg', loopUrl: 'https://media.example/velvet.mp4' }], photoChoices: [], videoChoice: null, sceneUploads: [], cover: null, themeId: 'house' },
     words: { names: 'Maria & Jose', date: 'December 12, 2026', line: 'Seda Vertis North' },
     musicOn: true,
+    musicButton: 'record' as 'bars' | 'record' | 'note',
   };
   const paint = (s: typeof seed, detailsItem = 'background') =>
     renderToStaticMarkup(React.createElement(MakerContext.Provider, { value: { detailsItem } as never }, React.createElement(LookSample, { seed: s })));
@@ -398,6 +399,10 @@ test('(4b) the sample screen renders the header text, the two real buttons and t
   // The speaker is on the sample only while Music is the tab open (and music is on).
   assert.doesNotMatch(html, /data-look-sample-speaker/);
   assert.match(paint(seed, 'music'), /data-look-sample-speaker/);
+  // …and it is the couple's own design, the guest's real control, drawn as it looks while the song plays.
+  assert.match(paint(seed, 'music'), /data-look-sample-speaker="record"[^>]*>\s*<svg[^>]*data-music-face="record"[^>]*sn-music-spin/);
+  assert.match(paint({ ...seed, eventId: 'ev-note', musicButton: 'note' }, 'music'), /data-look-sample-speaker="note"[^>]*>\s*<span[^>]*data-music-face="note"/);
+  assert.match(paint({ ...seed, eventId: 'ev-bars', musicButton: 'bars' }, 'music'), /data-look-sample-speaker="bars"[^>]*>\s*<span[^>]*><span class="sn-eq-bar/);
   assert.doesNotMatch(paint({ ...seed, eventId: 'ev-quiet', musicOn: false }, 'music'), /data-look-sample-speaker/);
   // A colour: the paper alone; a blend: the ombré's own CSS; Candlelight: the scope's own attribute.
   const colour = paint({ ...seed, eventId: 'ev-colour', main: { ground: 'none' } as HubMainGround });

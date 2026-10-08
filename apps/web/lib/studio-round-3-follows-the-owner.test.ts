@@ -276,12 +276,32 @@ test('6 · Look › Music has no Save: an upload or the switch drafts at once; "
   /* No Save in EITHER Maker since the 2026-10-08 restudy ("no Save anywhere") — round 3 took it off the Studio only. */
   assert.doesNotMatch(panel, /SaveButton/, 'a Save is drawn under Music');
   assert.match(panel, /<HubDraftField \/>/, 'Music no longer writes into the draft');
-  assert.equal((panel.match(/onChange=\{draftNow\}/g) ?? []).length, 3, 'the song, the switch and the video do not each draft at once');
+  /* RE-AIMED 2026-10-09: this counted three spellings of `onChange={draftNow}`, and went red when the song's upload
+     began to note "a file was uploaded" BEFORE drafting (the Our music port, 2026-10-08) — the upload still drafts at
+     once. The claim is per control: the song, the switch and the video each reach `draftNow` from their own change. */
+  for (const field of ['bg_music_url', 'bg_music_enabled', 'hero_video_url']) {
+    assert.match(
+      panel,
+      new RegExp(`name="${field}"[^>]*?onChange=\\{(?:draftNow\\}|\\([^)]*\\) => \\{[^}]*\\bdraftNow\\(\\);)`),
+      `${field} does not draft at once`,
+    );
+  }
   assert.match(panel, /formRef\.current\?\.requestSubmit\(\)/, 'nothing posts the form when a change lands');
   assert.match(panel, /type="checkbox"\s*role=\{studio \? 'switch' : undefined\}\s*name="bg_music_enabled"/, '“Play music on my Event Hub” is not a switch in the Studio (same field)');
   assert.match((await import('./studio-details')).studioFullScreenCss(), /\[data-music-switch\] input\[role=switch\]:checked/, 'the Studio’s CSS does not draw the music switch');
   const action = read(`${D}/website/site-chrome/actions.ts`);
-  assert.match(action, /if \(isHubDraftWrite\(formData\)\) \{[\s\S]{0,500}site_bg_music_r2_key[\s\S]{0,400}landing_page_hero_video_r2_key/, 'the song and the video are not hub-draft fields');
+  /* RE-AIMED 2026-10-09: this measured the DISTANCE between the two names (≤ 400 characters), and went red when Our
+     music's pick was added between them (2026-10-08). The claim is that the draft branch writes both into the draft:
+     the branch is cut out whole — from its `if` to its own draft return — and must set each on `events`. */
+  const draftFrom = action.indexOf('if (isHubDraftWrite(formData)) {');
+  const draftTo = action.indexOf('return draftEventsAndReturn(', draftFrom);
+  assert.ok(draftFrom > 0 && draftTo > draftFrom, 'the song and the video no longer have a draft branch');
+  const draftBranch = action.slice(draftFrom, draftTo);
+  assert.doesNotMatch(draftBranch, /\n  \}\n/, 'the draft branch closes before it returns into the draft');
+  /* Each form field's OWN block sets its column (Our music's pick sets the song's too — that is not the upload's). */
+  for (const [field, column] of [['bg_music_url', 'site_bg_music_r2_key'], ['hero_video_url', 'landing_page_hero_video_r2_key']] as const) {
+    assert.match(draftBranch, new RegExp(`if \\(formData\\.has\\('${field}'\\)\\) \\{[^}]*\\bevents\\.${column} = `), `${field} is not a hub-draft field`);
+  }
 });
 
 test('7 · Mood Board: Palette · Attire · Inspiration · Do’s & Don’ts; the attire boards live in Attire beside their role', async () => {

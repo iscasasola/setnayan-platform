@@ -6258,6 +6258,41 @@ html:active-view-transition .sn-page-enter { animation: none; }
     transform: scaleY(0.8);
   }
 }
+/* 🎵 THE MUSIC BUTTON'S OTHER TWO DESIGNS (owner 2026-10-08, round 5 — `music-button-face.tsx` `MusicButtonFace`):
+   the record TURNS and the note's rings PULSE OUT — only while the song plays (the classes are worn only then),
+   on `transform` and `opacity` alone. Under "reduce motion" nothing moves: the disc rests, the rings are not drawn. */
+@keyframes sn-music-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes sn-music-ring {
+  from {
+    transform: scale(0.55);
+    opacity: 0.7;
+  }
+  to {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+.sn-music-spin {
+  transform-origin: center;
+  animation: sn-music-spin 3.2s linear infinite;
+}
+.sn-music-ring {
+  opacity: 0;
+  animation: sn-music-ring 1.8s ease-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sn-music-spin {
+    animation: none;
+  }
+  .sn-music-ring {
+    animation: none;
+    opacity: 0;
+  }
+}
 
 /* The invitation top bar's right-hand label gives way to the fixed top-right
    controls (music · a guest's Account). They are pinned to the viewport

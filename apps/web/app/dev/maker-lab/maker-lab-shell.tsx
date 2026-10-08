@@ -267,6 +267,9 @@ export function MakerLabShell({
           musicRef={null}
           musicEnabled={false}
           videoRef={null}
+          /* 🎵 The music button's three designs — drawn once a sample song is picked; the pick goes to the lab's stand-in. */
+          musicButton="bars"
+          draftAction={labDraft as never}
           /* 🎵 Sample songs, so Our music's list can be seen in the lab — no address: nothing is fetched or played here. */
           ourMusic={[
             { trackId: '00000000-0000-4000-8000-0000000000a1', ref: 'r2://setnayan-media/hub-music/lab-1.mp3', title: 'First light', moodLabel: 'Romantic', length: '2:27', previewUrl: null },
@@ -344,7 +347,9 @@ export function MakerLabShell({
                 coverRef: null,
                 sources: { loops, photoChoices: [], videoChoice: null, sceneUploads: [], cover: null, themeId: 'house' },
                 words: { names: 'Maria & Jose', date: 'December 12, 2026', line: 'Seda Vertis North' },
-                musicOn: false,
+                /* On, so the sample shows the music button while Music is the tab open. */
+                musicOn: true,
+                musicButton: 'bars',
               }}
             />
           ),

@@ -95,3 +95,74 @@ as an empty list · no tag · unpublished rows in the list · the admin not bust
 database here). The guard holds the wiring; the first real render is the proof.
 
 SPEC IMPACT: None.
+
+## 2026-10-09 · feat(look): the guest's music button comes in three designs — Moving bars · Record · Note
+
+Owner, 2026-10-08, round 5 (DECISION_LOG "LOOK ROUNDS 4–5";
+`BACKGROUND_SOURCES_AMEND_2026-10-08_fable.md` § 2.E), verbatim: *"music icon can be that
+animated moving bars. can we make them choose 2 more designs?"* Local commit.
+
+**What a couple sees.** Studio › Look › Music, under "Play music on my Event Hub": a row
+"Music button" with the three designs drawn as the REAL control (the guest's own round, each
+moving as it does while the song plays), the picked one ringed. A tap rings it, shows it on the
+sample screen at once, and adds "Your music button" to the draft; ✓ Apply puts it live. With
+no song chosen the row is one quiet line: "Pick a song first". Free.
+
+**What a guest sees.** The same round button in the same corner. Moving bars is the shipped
+face, byte for byte (three bars while the song plays, the muted speaker before). Record is a
+disc that turns while the song plays and rests when it stops; Note is a note with two rings
+pulsing out while the song plays, none when it stops. Nothing moves before the guest's own
+tap, and nothing moves under "reduce motion". One colour — the page's accent-as-text token
+the button already wore, so it follows the five and the ground as the eyebrows do.
+
+- `lib/hub-music-button.ts` (new, pure): the three designs, `sanitizeHubMusic`,
+  `hubMusicButton(config)`, `hubMusicButtonWrite`. Stored at the hero row's
+  `config_json.music.button`, beside `main` — **no migration**. Only `record` / `note` are
+  ever stored; "bars" takes the key off, so an event that never chose reads as before.
+  ⚠ DEVIATION from the contract's wording ("`sanitizeHubMainGround`'s file gains
+  `sanitizeHubMusic`"): it is its own small file, so the guest page's music button does not
+  pull the whole canvas library for one three-word check. Same key, same reader shape.
+- `app/[slug]/_components/music-button-face.tsx` (new): `MusicButtonFace({ design, playing })`
+  and `MUSIC_BUTTON_CLASS` — the ONE drawing of the control, worn by the guest's button, the
+  Maker's three cards and the sample screen. `background-music.tsx` takes `design` and draws
+  it; `site-body.tsx` hands it `hubMusicButton(heroRow?.config_json)`.
+- `app/globals.css`: `sn-music-spin` · `sn-music-ring` — transform and opacity only, worn
+  only while playing, named off under reduce motion.
+- The draft: `widgets.hero.music` in `lib/hub-draft.ts` (sanitise · overlay · classify, free ·
+  label "Your music button"), the Apply key in `hub-draft-actions.ts`, the change line
+  "Music · Music button".
+- `editor/_components/music-button-row.tsx` (new, lazy through `scene-styles-lazy.tsx`,
+  mounted by the Music form): control → kind: the three → **Choice cards** (the thing itself,
+  like the button shapes). The sample screen's speaker is now the real control in the
+  couple's design (`look-sample.tsx`, `look-sample-store.ts` key `musicButton`).
+
+Requests: opening Music **+0** (the design rides the hero row the Maker already read); a pick
+= **1** held draft write (`makerSave(…, { held: true })` — no whole-Maker render, no canvas
+redraw); the guest page **+0** requests and no image (spans and inline SVG).
+
+Weight, measured by file (minified + gzip), not on a build: `hub-draft.ts` +136 B ·
+`hub-music-button.ts` 306 B whole (the draft library uses the key and the sanitiser only).
+The row, the face and the CSS are outside the Maker's first load.
+
+Guard: `lib/the-music-button-has-three-designs.test.ts` (6, new) — what is stored · every
+face rendered at rest and playing · the CSS · the guest mount · the draft both ways · the
+Maker's row rendered. `the-look-sample-is-the-guest-look` (4b) now asks for the design on the
+sample. 36 sabotages seen red (34 in the new guard, 2 in the sample's), each restored.
+
+**Three guards that were RED since the Our music port (7fade4ab7) and are re-aimed here —
+each pinned a spelling or a distance, not its claim; the product was right:**
+- `studio-round-3-follows-the-owner` (6): counted three `onChange={draftNow}` → now asks,
+  per control, that the song, the switch and the video each reach `draftNow`; and measured
+  ≤ 400 characters between two column names → now cuts the draft branch out whole and asks
+  that each form field's own block sets its column. 6 sabotages red.
+- `try-then-pay-the-last-three` (1): looked for the draft return within 900 characters of the
+  door → now asks for the ORDER (the door returns into the draft before the first Pro
+  question). 2 sabotages red.
+- `our-music-is-a-pick` (7): pinned the import line to one name → now asks that the list
+  comes through the lazy door and from nowhere else. 1 sabotage red.
+
+⚠ NOT seen in a browser yet at the time of this entry, and NOT run: any save (no database
+here), the real Maker (sign-in), a real phone.
+
+SPEC IMPACT: None — the contract's § 2.E is built as written, except the file the sanitiser
+lives in (above).

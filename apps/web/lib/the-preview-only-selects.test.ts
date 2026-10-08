@@ -27,7 +27,10 @@ import { stripComments } from './strip-comments';
 import {
   MAKER_PARTS,
   MAKER_PART_TOOLS,
+  makerArrivalPart,
+  makerPartIsDrawn,
   makerPartToolFor,
+  makerPartsTappable,
   makerPartToolWhy,
   makerPartToolWorks,
   makerStagePickedAttr,
@@ -94,7 +97,7 @@ test('(2) no buttons on the frame: its outline and its name — and ＋, the one
   /* Moving and removing did not go away: they are the toolbar's Edit › Earlier · Later · Remove, from the same hook. */
   assert.match(edges, /earlier: canStep\(-1\) \? \(\) => stepMove\(-1\) : null,\s*later: canStep\(1\) \? \(\) => stepMove\(1\) : null,\s*remove: canRemove \? \(\) => setRemoving\(true\) : null,/);
   const tools = read(`${L}/stage-tools.tsx`);
-  assert.match(tools, /<StageEdit [^>]*earlier=\{edits\.earlier\} later=\{edits\.later\} remove=\{edits\.remove\} removeWord=\{edits\.removeWord\} \/>/);
+  assert.match(tools, /<StageEdit [^>]*earlier=\{edits\.earlier\} later=\{edits\.later\} remove=\{edits\.remove\} removeWord=\{edits\.removeWord\} /);
   /* The page's own outline is put away too — one highlight (the frame), nothing of the canvas's to press. */
   assert.match(tools, /\[data-setnayan-editor-bound\],\[data-setnayan-editor-bound\] \*\{outline:none!important\}/);
 });
@@ -112,10 +115,32 @@ test('(3) something is always picked on arriving: the first part the page DRAWS,
   assert.match(arrive, /const at = `\$\{stageKey\}\/\$\{shownPage \?\? ''\}`;/);
   /* ONCE: an arrival already answered asks for nothing (a tap on the ground lets go and it stays let go). */
   assert.match(arrive, /if \(arrivedAt\.current === at \|\| parts\.length === 0 \|\| typing \|\| playing\) return;/);
-  /* The first DRAWN part — the measured order's first — and never the map's. */
-  /* …but never the Reveal, which leads three pages and has only Style (the controller's call, 2026-10-09): the
-     first drawn part AFTER it. A tap still picks the Reveal. */
-  assert.match(arrive, /const first = orderedRef\.current\(\)\.find\(\(k\) => k !== 'reveal'\) \?\? null;\s*if \(!first\) return;\s*arrivedAt\.current = at;/, 'the arrival does not pick the first part the page draws (after the Reveal)');
+  /* The first DRAWN part Edit has a row for — the measured order's, never the map's; never the Reveal (it leads
+     three pages and has only Style), never an empty tool (the controller's calls, 2026-10-09). EXECUTED: */
+  const row = new Set<MakerPartKey>(['ename', 'names', 'schedule']);
+  const has = (k: MakerPartKey) => row.has(k);
+  assert.equal(makerArrivalPart(['reveal', 'ename', 'names'], has), 'ename', 'the arrival lands on the Reveal');
+  assert.equal(makerArrivalPart(['pass', 'gallery', 'schedule', 'names'], has), 'schedule', 'the arrival lands on a part with nothing in Edit’s rows');
+  assert.equal(makerArrivalPart(['date', 'names'], has), 'names', 'not the FIRST part with a row, in the page’s order');
+  /* A page whose parts all have no row still picks its first; a page that draws nothing (or only the Reveal) picks nothing. */
+  assert.equal(makerArrivalPart(['reveal', 'pass', 'gallery'], has), 'pass');
+  assert.equal(makerArrivalPart(['reveal'], has), null);
+  assert.equal(makerArrivalPart([], has), null);
+  assert.match(arrive, /const first = makerArrivalPart\(orderedRef\.current\(\), hasEditRowRef\.current\);\s*if \(!first\) return;\s*arrivedAt\.current = at;/, 'the arrival does not pick the first drawn part that has an Edit row');
+  /* "Has a row" is what Edit would draw: the part's one door, or words the page draws for it. */
+  assert.match(tools, /const hasEditRow = \(k: MakerPartKey\): boolean => \{\s*if \(rsvpOpen\) return rsvpQuietRow\(k\) !== null;\s*if \(makerPartQuietRow\(k\) !== null\) return true;[\s\S]{0,200}return readPartWords\(doc, makerPartCanvasOn\(stageKey, k\), MAKER_PARTS\[k\]\.el \?\? null, ''\)\.length > 0;/);
+
+  /* 🖼 ONLY PARTS THE PAGE DREW ARE PARTS OF THE PAGE. Seen on the lab (2026-10-09): the plain cover draws no invite
+     line and no link, both were picked all the same — the frame fell back to the whole cover, Edit was blank. */
+  const lab = new Set(['f:hero', 'f:hero|eyebrow', 'f:hero|mark', 'f:hero|names', 'f:hero|joiner', 'f:hero|date', 'f:hero|venue', 'w:countdown']);
+  for (const k of ['ename', 'logo', 'names', 'date', 'place', 'countdown'] as const) assert.equal(makerPartIsDrawn(k, lab), true, `${k} is drawn and is not a part`);
+  for (const k of ['heroline', 'herolink'] as const) assert.equal(makerPartIsDrawn(k, lab), false, `${k}: the cover did not draw it and it is still a part of the page`);
+  assert.equal(makerPartIsDrawn('schedule', lab), false, 'a scene the page did not draw is a part');
+  /* A reader that lists no parts of the section is answered by the section (the other stages' readers). */
+  assert.equal(makerPartIsDrawn('heroline', new Set(['f:hero'])), true);
+  /* The toolbar's parts go through it (as the reply pages' always did). */
+  assert.match(tools, /makerPartsWithAdded\(\{[^}]*\}\)\.filter\(\(k\) => makerPartIsDrawn\(k, present\)\);/, 'a part the page did not draw can be picked');
+  assert.deepEqual(makerPartsTappable('rsvp', 'home', lab).filter((k) => !makerPartIsDrawn(k, lab)), []);
   assert.doesNotMatch(arrive, /parts\[0\]|makerPartsOnPage/, 'the arrival picks by the map’s order');
   /* It stands back for a part already picked (a tap, a return from Studio) and for a step into the page. */
   assert.match(arrive, /if \(!pickedRef\.current && pendingStep\.current === null\) pickPartRef\.current\(first\);/);

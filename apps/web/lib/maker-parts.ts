@@ -469,15 +469,48 @@ export function makerPartsOnPage(stage: MakerStageKey, page: string | null | und
  * did not draw is not a tile: a tap on it would do nothing.
  */
 export function makerPartsTappable(stage: MakerStageKey, page: string | null | undefined, present: ReadonlySet<string>): MakerPartKey[] {
-  return makerPartsOnPage(stage, page).filter((k) => {
-    const { canvas: c, el } = MAKER_PARTS[k];
-    if (c === null || !present.has(c)) return false;
-    /* A part of a section (the hero's invite line, its link): a tile only when the page DREW that part — when the
-       reader also listed the section's parts (`canvas|el`); a reader that did not is answered by the section. */
-    if (!el) return true;
-    const listed = [...present].some((p) => p.startsWith(`${c}|`));
-    return !listed || present.has(`${c}|${el}`);
-  });
+  return makerPartsOnPage(stage, page).filter((k) => makerPartIsDrawn(k, present));
+}
+
+/**
+ * 🖼 DID THE PAGE DRAW THIS PART? `present` is what the canvas drew: each section's key, and — for a section whose
+ * parts it lists (the cover, `f:hero|<el>`) — each part inside it. A part of a section (the cover's invite line, its
+ * link) is drawn only when the page DREW that part: a cover without an invite line has no "Invite line" to pick.
+ * (Seen on the Maker lab, 2026-10-09: the plain masthead draws no `line` and no `link`, yet both were parts of the
+ * page — picked, the frame fell back to the whole cover and Edit had nothing to show.) A reader that did not list a
+ * section's parts is answered by the section.
+ */
+export function makerPartIsDrawn(key: MakerPartKey, present: ReadonlySet<string>): boolean {
+  const { canvas: c, el } = MAKER_PARTS[key];
+  if (c === null || !present.has(c)) return false;
+  if (!el) return true;
+  const listed = [...present].some((p) => p.startsWith(`${c}|`));
+  return !listed || present.has(`${c}|${el}`);
+}
+
+/**
+ * WHY A STEP OF EDIT'S LAST ROW IS GREY (↑ Earlier · ↓ Later · Remove) — said when it is tapped, never a dead tap. A part that does not move at all (a line of the cover, a fixed block,
+ * the Reveal, a reply page's part) keeps its place; one that moves but has no neighbour on that side is already first
+ * or last; a part that cannot be taken off stays.
+ */
+export function makerPartStepWhy(label: string, canMove: boolean, canRemove: boolean): { earlier: string; later: string; remove: string } {
+  return {
+    /* (First / last: the approved prototype's own two lines.) */
+    earlier: canMove ? 'It is already first on this page.' : `${label} keeps its place on this page.`,
+    later: canMove ? 'It is already last on this page.' : `${label} keeps its place on this page.`,
+    remove: canRemove ? '' : `${label} stays on this page.`,
+  };
+}
+
+/**
+ * 👆 THE PART PICKED ON ARRIVING at a stage's page (owner 2026-10-09: something is always picked): the first part the
+ * page DRAWS (`ordered`, top to bottom) that Edit has a row for — its words to type, or its one door — so the first
+ * thing seen is never an empty tool. Never the Reveal (it leads three pages and has only Style). A page whose parts
+ * all have no row lands on its first part all the same; a page that draws nothing picks nothing.
+ */
+export function makerArrivalPart(ordered: readonly MakerPartKey[], hasEditRow: (k: MakerPartKey) => boolean): MakerPartKey | null {
+  const parts = ordered.filter((k) => k !== 'reveal');
+  return parts.find(hasEditRow) ?? parts[0] ?? null;
 }
 
 /**

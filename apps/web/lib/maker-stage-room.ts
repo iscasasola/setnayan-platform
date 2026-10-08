@@ -111,10 +111,24 @@ export const STAGE_BAR_GRID_CSS = `calc(${STAGE_BAR_ROWS} * var(--sp-rh) + ${STA
 export const STAGE_BAR_FOOT_CSS = `max(${STAGE_BAR_FOOT_PX}px, env(safe-area-inset-bottom))`;
 /** The handle: the prototype's 40 × 4 pill in a 14 px strip. Drawn, never pressed — the toolbar is one height. */
 export const STAGE_BAR_HANDLE = 'flex h-[14px] shrink-0 items-center justify-center';
-/** "You're editing · Stage › Page › Part" — one line of small caps, cut with … and never wrapped (prototype `.edit`);
- *  kept clear of the ⓘ at its right end, and as far on the left so its words stay in the middle. */
+/** "You're editing · Stage › Page › Part" — one line of small caps, never wrapped (prototype `.edit`). */
 export const STAGE_BAR_LINE =
-  'h-5 shrink-0 truncate px-11 pb-2 pt-0.5 text-center text-[9.5px] font-semibold uppercase leading-none tracking-[0.16em] text-[var(--sp-mute)]';
+  'h-5 shrink-0 truncate px-2 pb-2 pt-0.5 text-center text-[9.5px] font-semibold uppercase leading-none tracking-[0.16em] text-[var(--sp-mute)]';
+/** …kept clear of the ⓘ when the picked part has one — on both sides, so its words stay in the middle. */
+export const STAGE_BAR_LINE_ABOUT = '!px-11';
+/** The words that open the line. */
+export const STAGE_BAR_LINE_LEAD = 'You’re editing';
+/**
+ * ✂ THE LINE IS SHORTENED FROM THE FRONT — THE PART'S NAME IS ALWAYS WHOLE (owner's review, 2026-10-09: at 375 it
+ * read "YOU'RE EDITING · INVITATION › WELCOME › N…" — the one word that matters was the one cut). `pieces` are the
+ * stage, the page and the part, in that order (those there are). Level 0 is the whole line; each level after drops
+ * one thing from the FRONT: first "You're editing ·", then the stage, then the page — the last piece is never
+ * dropped. The toolbar steps a level down while the line does not fit (`stage-tools.tsx`).
+ */
+export function stageEditingLine(pieces: readonly string[], level: number): { lead: boolean; words: string } {
+  const l = Math.max(0, Math.min(pieces.length, Math.floor(level)));
+  return l === 0 ? { lead: true, words: pieces.join(' › ') } : { lead: false, words: pieces.slice(l - 1).join(' › ') };
+}
 /**
  * ⓘ The toolbar's ONE explanation: at the right end of the "You're editing" line, over the handle and the line (38 px
  * of the toolbar's top — it stops where the selector's band begins, so its tap never lies on ▶), 44 px wide.

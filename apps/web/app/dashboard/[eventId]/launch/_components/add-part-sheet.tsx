@@ -13,7 +13,7 @@ import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
 import { isCustomSectionType } from '@/lib/custom-sections';
 import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { makerPageCanvasSrc } from '@/lib/maker-made-once-pages';
-import { MAKER_PARTS, makerRevealEdges, makerStageIsFixedPages, type MakerPartKey, type MakerStageKey } from '@/lib/maker-parts';
+import { MAKER_PARTS, makerPartStepWhy, makerRevealEdges, makerStageIsFixedPages, type MakerPartKey, type MakerStageKey } from '@/lib/maker-parts';
 import {
   makerDropDelta,
   makerOwnScenesLeft,
@@ -264,6 +264,8 @@ export type PartEditsNow = {
   remove: (() => void) | null;
   /** "Delete" for a scene of their own (gone for good at Apply), "Remove" for any other. */
   removeWord: 'Remove' | 'Delete';
+  /** The one plain line a tap on a grey step answers with — never a dead tap. */
+  why: { earlier: string; later: string; remove: string };
 };
 
 export function PartEdits(props: PartEditsProps) {
@@ -459,6 +461,7 @@ export function usePartEdits({ stage, picked, frame }: PartEditsProps): PartEdit
     later: canStep(1) ? () => stepMove(1) : null,
     remove: canRemove ? () => setRemoving(true) : null,
     removeWord: ownScene ? 'Delete' : 'Remove',
+    why: makerPartStepWhy(label || 'This part', canMove, canRemove),
   };
   if (typeof document === 'undefined') return { node: null, ...now };
   /* What just happened is said even once the part is let go (a move re-renders the page). */

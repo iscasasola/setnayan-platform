@@ -11,6 +11,8 @@ import {
   MAKER_PARTS,
   MAKER_PART_TOOLS,
   MAKER_PART_TOOL_LABEL,
+  makerArrivalPart,
+  makerPartIsDrawn,
   makerPartOfTap,
   makerPartQuietRow,
   makerPartToolFor,
@@ -29,6 +31,8 @@ import {
   STAGE_BAR_GRID_CSS,
   STAGE_BAR_HANDLE,
   STAGE_BAR_LINE,
+  STAGE_BAR_LINE_ABOUT,
+  STAGE_BAR_LINE_LEAD,
   SP_KEY_BAR,
   SP_KEY_DONE,
   STAGE_BAR_ROW_VARS,
@@ -42,6 +46,7 @@ import {
   STAGE_TOOL_INSET,
   STAGE_TOOL_PILL,
   stageBarPx,
+  stageEditingLine,
 } from '@/lib/maker-stage-room';
 import { fixedOfKey, fixedScenePanel } from '@/lib/maker-selection';
 import { makerPartStudioDoor, makerStagePickedAttr, makerStageMayType } from '@/lib/maker-parts';
@@ -57,7 +62,7 @@ import {
   RSVP_TYPING_MESSAGE,
   rsvpStageFrameSelector,
 } from '@/app/[slug]/_components/rsvp-canvas-parts';
-import { setStagePanelNow, setStageRevealColours, setStageTool, useStageRevealLook, type StageQuiet } from './stage-panel/store';
+import { setStagePanelNow, setStageRevealColours, setStageTool, useStagePanelNow, useStageRevealLook, type StageQuiet } from './stage-panel/store';
 import { StageEdit } from './stage-panel/stage-edit';
 import { StageAbout } from './stage-panel/kit';
 import { keepPartWords, readPartWords, showPartWords, type PartWordsField } from './stage-panel/part-words';
@@ -323,7 +328,8 @@ export function StageTools({
   const revealStage = rsvpOpen ? null : revealStageOf(stage);
   const tappableOn = useCallback(
     (page: string | null): MakerPartKey[] => {
-      const drawnHere = makerPartsWithAdded({ stage, page, pages: pages.map((p) => p.key), drawn: [...present], filed });
+      /* …and only the parts the page DREW (`makerPartIsDrawn`): a cover with no invite line has no "Invite line". */
+      const drawnHere = makerPartsWithAdded({ stage, page, pages: pages.map((p) => p.key), drawn: [...present], filed }).filter((k) => makerPartIsDrawn(k, present));
       const withReveal = revealStage && page && makerPartsOnPage(stage, page)[0] === 'reveal' ? (['reveal', ...drawnHere] as MakerPartKey[]) : drawnHere;
       /* 🎛 The Camera is never drawn on the editing page (`the-maker-canvas-draws-no-camera`) — on its own page its
          tile is the page map's, and its tools are this panel's own (`CameraPartTools`). */
@@ -721,6 +727,15 @@ export function StageTools({
   pickedRef.current = picked;
   const orderedRef = useRef(ordered);
   orderedRef.current = ordered;
+  /** Does Edit have a row for this part — words the page draws for it, or its one door? */
+  const hasEditRow = (k: MakerPartKey): boolean => {
+    if (rsvpOpen) return rsvpQuietRow(k) !== null;
+    if (makerPartQuietRow(k) !== null) return true;
+    const doc = document.querySelector<HTMLIFrameElement>(SHOWN_FRAME)?.contentDocument ?? null;
+    return readPartWords(doc, makerPartCanvasOn(stageKey, k), MAKER_PARTS[k].el ?? null, '').length > 0;
+  };
+  const hasEditRowRef = useRef(hasEditRow);
+  hasEditRowRef.current = hasEditRow;
   const arrivedAt = useRef<string | null>(null);
   useEffect(() => {
     const at = `${stageKey}/${shownPage ?? ''}`;
@@ -728,9 +743,9 @@ export function StageTools({
     /* After the page has laid the tab out (the same wait the parts are read with). */
     const t = window.setTimeout(() => {
       if (arrivedAt.current === at) return;
-      /* …but never the Reveal, which leads three pages and has only Style: the first part AFTER it (the controller's
-         call, 2026-10-09 — "three grey-ish tools is a poor first impression"). A tap still picks the Reveal. */
-      const first = orderedRef.current().find((k) => k !== 'reveal') ?? null;
+      /* …the first of them Edit has a row for (its words, or its door) — never an empty tool, never the Reveal
+         (`makerArrivalPart`; the controller's calls, 2026-10-09). A tap still picks any part. */
+      const first = makerArrivalPart(orderedRef.current(), hasEditRowRef.current);
       if (!first) return;
       arrivedAt.current = at;
       if (!pickedRef.current && pendingStep.current === null) pickPartRef.current(first);
@@ -1005,10 +1020,29 @@ export function StageTools({
   }, [frameSel, pickedEl, pickedKey]);
   /** Edit's rows are this toolbar's own; every other tool's are the work area's (or the Reveal's / the Camera's). */
   const editOn = picked !== null && shownTool === 'edit';
-  /** "You're editing · Stage › Page › Part" — the page only where the stage has several, the part once one is picked. */
-  const editingTrail = [makerStageLabel(stageKey as never), pageLabel && pages.length > 1 ? pageLabel : null, picked ? makerPartLabelOn(stageKey, picked) : null]
-    .filter(Boolean)
-    .join(' › ');
+  /* "You're editing · Stage › Page › Part" — the page only where the stage has several, the part once one is picked.
+     ✂ SHORTENED FROM THE FRONT while it does not fit, so the part's name is always whole (`stageEditingLine`): the
+     line is drawn, measured before the browser paints, and stepped a level down while it overflows. The whole path
+     stays what a screen reader hears. */
+  const linePieces = [makerStageLabel(stageKey as never), pageLabel && pages.length > 1 ? pageLabel : null, picked ? makerPartLabelOn(stageKey, picked) : null].filter(
+    (x): x is string => Boolean(x),
+  );
+  const hasAbout = Boolean(useStagePanelNow().about);
+  const lineKey = `${linePieces.join('›')}|${hasAbout ? 1 : 0}`;
+  const [lineAt, setLineAt] = useState<{ key: string; level: number; n: number }>({ key: lineKey, level: 0, n: 0 });
+  const lineLevel = lineAt.key === lineKey ? lineAt.level : 0;
+  const lineRef = useRef<HTMLParagraphElement>(null);
+  useLayoutEffect(() => {
+    const el = lineRef.current;
+    if (el && el.scrollWidth > el.clientWidth + 0.5 && lineLevel < linePieces.length) setLineAt((l) => ({ key: lineKey, level: lineLevel + 1, n: l.n }));
+  }, [lineKey, lineLevel, linePieces.length, lineAt.n]);
+  /* Another width (the phone turned) starts from the whole line again, and measures again. */
+  useEffect(() => {
+    const again = () => setLineAt((l) => ({ key: l.key, level: 0, n: l.n + 1 }));
+    window.addEventListener('resize', again);
+    return () => window.removeEventListener('resize', again);
+  }, []);
+  const line = stageEditingLine(linePieces, lineLevel);
 
   return (
     <div
@@ -1064,8 +1098,14 @@ export function StageTools({
       </div>
 
       {/* ══ YOU'RE EDITING · STAGE › PAGE › PART — under the handle, over the selector ══ */}
-      <p data-stage-caption="" className={STAGE_BAR_LINE}>
-        You’re editing · <b className="font-semibold text-[var(--sp-ink)]">{editingTrail}</b>
+      <p ref={lineRef} data-stage-caption="" data-stage-caption-level={lineLevel} className={`${STAGE_BAR_LINE} ${hasAbout ? STAGE_BAR_LINE_ABOUT : ''}`}>
+        <span className="sr-only">
+          {STAGE_BAR_LINE_LEAD} · {linePieces.join(' › ')}
+        </span>
+        <span aria-hidden>
+          {line.lead ? `${STAGE_BAR_LINE_LEAD} · ` : ''}
+          <b className="font-semibold text-[var(--sp-ink)]">{line.words}</b>
+        </span>
       </p>
       {/* ══ ⓘ — the toolbar's ONE explanation, at the right end of that line (nothing when the part has none) ══ */}
       <StageAbout />
@@ -1113,7 +1153,7 @@ export function StageTools({
           Nothing picked: empty (the prototype's `drawStrip` with no part). ══ */}
       <div data-stage-rows="" className="flex min-h-0 flex-1 flex-col [&>*]:!mt-0">
         {editOn ? (
-          <StageEdit key={picked} fields={fields} tapped={tapped} onType={showPartWords} onKeep={keepWords} earlier={edits.earlier} later={edits.later} remove={edits.remove} removeWord={edits.removeWord} />
+          <StageEdit key={picked} fields={fields} tapped={tapped} onType={showPartWords} onKeep={keepWords} earlier={edits.earlier} later={edits.later} remove={edits.remove} removeWord={edits.removeWord} why={edits.why} onWhy={(words) => setWhy((w) => ({ words, n: (w?.n ?? 0) + 1 }))} />
         ) : null}
         {/* ══ 🎭 THE REVEAL'S TOOLS — its kinds, Extras ▾ — under Style. Mounted unseen while another part (or Edit)
             is on, so the page's Reveal draws the opening chosen. ══ */}

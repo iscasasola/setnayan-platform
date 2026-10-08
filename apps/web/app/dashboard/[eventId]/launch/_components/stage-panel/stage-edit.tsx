@@ -20,7 +20,8 @@ import { orderPartWords, partWordsId, type PartWordsField } from './part-words';
  *             be done there. Example: Schedule, Love Story, Wedding March, Logo"*), its ONE door in row 1
  *             ("Open in Studio › Schedule"; the date and the place: "Change it in Suppliers") — `QuietBar`.
  *   row 4     ↑ Earlier · ↓ Later · Remove — ALWAYS the last row (owner: *"always set this as the last row"*), on
- *             every part: a part that cannot move or cannot be taken off keeps the button, grey (`waiting`).
+ *             every part: a part that cannot move or cannot be taken off keeps the button, grey (`waiting`), and a
+ *             tap on a grey one says why.
  *
  * The toolbar's OWN rows: nothing here is the work area's, so Edit is the same on every part. The moves are the
  * frame's own writes (`usePartEdits`, `add-part-sheet.tsx`) — one order write a step, the one confirm before a remove.
@@ -42,6 +43,8 @@ export function StageEdit({
   later,
   remove,
   removeWord,
+  why,
+  onWhy,
 }: {
   /** The texts the page draws for the picked part — none: the part keeps its one door. */
   fields: readonly PartWordsField[];
@@ -57,6 +60,9 @@ export function StageEdit({
   /** Ask to take the part off (it asks first) — null: a part that stays (the button is grey). */
   remove: (() => void) | null;
   removeWord: string;
+  /** Why a grey step cannot, by step — said when it is tapped (never a dead tap). */
+  why: { earlier: string; later: string; remove: string };
+  onWhy: (words: string) => void;
 }) {
   const shown = orderPartWords(fields, tapped).slice(0, WORDS_ROW.length);
   return (
@@ -84,10 +90,19 @@ export function StageEdit({
         </div>
       )}
       <div className={`${SP_ROWS_ROW} row-start-4`} data-stage-edit-row="place">
-        {/* A step with nowhere to go is still a button — grey, its pill kept (`waiting`, the approved gallery § 9). */}
-        <ActionButton tone="neutral" icon={ArrowUp} label="Earlier" waiting={!earlier} onClick={earlier ?? undefined} className={EDIT_STEP} />
-        <ActionButton tone="neutral" icon={ArrowDown} label="Later" waiting={!later} onClick={later ?? undefined} className={EDIT_STEP} />
-        <ActionButton tone="danger" icon={Trash2} label={removeWord} waiting={!remove} onClick={remove ?? undefined} className={EDIT_STEP} />
+        {/* A step with nowhere to go is still a button — grey, its pill kept (`waiting`, the approved gallery § 9: "a
+            button that cannot be used yet is grey") — and a tap on it says why (its own press does nothing; the tap
+            is heard on the wrapper, which draws nothing). A live step is the neutral button: ink on the toolbar's
+            ground; Remove is the danger tone, red word and line. */}
+        <span className="contents" data-stage-edit-step="earlier" onClick={earlier ? undefined : () => onWhy(why.earlier)}>
+          <ActionButton tone="neutral" icon={ArrowUp} label="Earlier" waiting={!earlier} onClick={earlier ?? undefined} className={EDIT_STEP} />
+        </span>
+        <span className="contents" data-stage-edit-step="later" onClick={later ? undefined : () => onWhy(why.later)}>
+          <ActionButton tone="neutral" icon={ArrowDown} label="Later" waiting={!later} onClick={later ?? undefined} className={EDIT_STEP} />
+        </span>
+        <span className="contents" data-stage-edit-step="remove" onClick={remove ? undefined : () => onWhy(why.remove)}>
+          <ActionButton tone="danger" icon={Trash2} label={removeWord} waiting={!remove} onClick={remove ?? undefined} className={EDIT_STEP} />
+        </span>
       </div>
     </div>
   );

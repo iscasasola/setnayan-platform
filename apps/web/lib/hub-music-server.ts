@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { unstable_cache } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { R2_BUCKETS } from '@/lib/r2';
 import { displayUrlForStoredAsset, encodeR2Ref } from '@/lib/uploads';
@@ -91,26 +92,53 @@ type Reader = { from: ReturnType<typeof createAdminClient>['from'] };
 
 export type HubMusicChoicesRead = { ok: true; choices: HubMusicChoice[] } | { ok: false };
 
+/** Busted by the admin's own writer (`app/admin/hub-music/actions.ts`) after every add · edit · remove. */
+export const HUB_MUSIC_TAG = 'hub-music-published';
+
+type PublishedTrackRow = Pick<HubMusicRow, 'track_id' | 'title' | 'mood' | 'r2_key' | 'duration_seconds' | 'sort_order'>;
+
 /**
- * The published tracks, in the list's order, for the couple's picker.
- *
- * Read through the CALLER's client: `hub_music_tracks` shows a signed-in person
- * the published rows and nothing else (RLS), and the filter says so again in
- * the query. A refused read is `{ ok: false }` — the picker then says it could
- * not load, never "no music".
+ * ⚡ THE PUBLISHED LIST IS THE SAME FOR EVERY COUPLE — SO IT IS READ ONCE, NOT ONCE PER MAKER RENDER (owner's
+ * least-requests rule, 2026-10-08; controller's ruling the same night). The repo's cached-read pattern, as
+ * `lib/loader-settings.ts` and `lib/brand-settings.ts` use it: `unstable_cache` under a tag, the read made with the
+ * service client (no viewer in it — nothing personal can be remembered), busted by `revalidateTag` from the one
+ * writer. The hour is only a backstop.
+ *   · PUBLISHED ROWS ONLY — the filter is the query's own; this is the list RLS shows every signed-in person.
+ *   · ROWS, NOT ADDRESSES — a row's ▶ address is worked out per render (`hubMusicPlayUrl`), never remembered.
+ *   · A REFUSED READ IS NEVER REMEMBERED — it THROWS here (a thrown read is not stored), so the next render asks
+ *     again; the caller turns it into "couldn't load".
+ * The two GATES (`publishedHubMusicRef` at a pick, `isPublishedHubMusicRef` at Apply) are NOT cached: a gate re-reads.
  */
-export async function fetchHubMusicChoices(supabase: Reader): Promise<HubMusicChoicesRead> {
-  try {
-    const { data, error } = await supabase
+const loadPublishedHubMusicRows = unstable_cache(
+  async (): Promise<PublishedTrackRow[]> => {
+    const { data, error } = await createAdminClient()
       .from('hub_music_tracks')
       .select('track_id, title, mood, r2_key, duration_seconds, sort_order')
       .eq('is_published', true);
-    // The picker says "couldn't load" either way; the reason goes to the log so
-    // a refused read is not also a silent one.
-    if (error) console.error('[supabase-error] lib/hub-music-server.ts · from:hub_music_tracks.select (fetchHubMusicChoices)', error);
-    if (error || !data) return { ok: false };
+    if (error || !data) throw new Error(error?.message ?? 'hub_music_tracks: no answer');
+    return data as PublishedTrackRow[];
+  },
+  ['hub-music-published-v1'],
+  { tags: [HUB_MUSIC_TAG], revalidate: 3600 },
+);
+
+/**
+ * The published tracks, in the list's order, for the couple's picker — from the cached list above (0 reads on a
+ * Maker render, but for the first after an admin change). A refused read is `{ ok: false }` — the picker then says
+ * it could not load, never "no music".
+ */
+export async function fetchHubMusicChoices(): Promise<HubMusicChoicesRead> {
+  try {
+    let data: PublishedTrackRow[];
+    try {
+      data = await loadPublishedHubMusicRows();
+    } catch (error) {
+      // The picker says "couldn't load"; the reason goes to the log so a refused read is not also a silent one.
+      console.error('[supabase-error] lib/hub-music-server.ts · from:hub_music_tracks.select (fetchHubMusicChoices)', error);
+      return { ok: false };
+    }
     const rows = sortHubMusicTracks(
-      (data as Array<Pick<HubMusicRow, 'track_id' | 'title' | 'mood' | 'r2_key' | 'duration_seconds' | 'sort_order'>>)
+      data
         .filter((r) => isHubMusicMood(r.mood) && isHubMusicKey(r.r2_key))
         .map((r) => ({ ...r, sortOrder: r.sort_order })),
     );

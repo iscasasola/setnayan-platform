@@ -145,9 +145,13 @@ test('5 · the form names a track; the server looks its file up, and only a publ
   const lookup = reader.slice(reader.indexOf('export async function publishedHubMusicRef('), reader.indexOf('export async function isPublishedHubMusicRef('));
   assert.match(lookup, /\.eq\('track_id', trackId\)\s*\.eq\('is_published', true\)/, 'published only — by filter, on top of RLS');
   assert.match(lookup, /return key && isHubMusicKey\(key\) \? hubMusicRefForKey\(key\) : null;/);
+  /* RE-AIMED 2026-10-08 (the least-requests rule): the LIST is one cached read for every couple (test 10 below), so
+     its filter and its refusal are read where the read now is. The claims are unchanged: published rows only, and a
+     refused read is "couldn't load" — never an empty list. */
+  const cached = reader.slice(reader.indexOf('const loadPublishedHubMusicRows = unstable_cache('), reader.indexOf('export async function fetchHubMusicChoices('));
+  assert.match(cached, /\.eq\('is_published', true\)/);
   const list = reader.slice(reader.indexOf('export async function fetchHubMusicChoices('), reader.indexOf('export async function publishedHubMusicRef('));
-  assert.match(list, /\.eq\('is_published', true\)/);
-  assert.match(list, /if \(error \|\| !data\) return \{ ok: false \};/, 'a refused read is not an empty list');
+  assert.match(list, /catch \(error\) \{[\s\S]{0,260}return \{ ok: false \};/, 'a refused read is not an empty list');
 });
 
 test('6 · Apply admits one of our songs only while its track is published, and says so when it is not', () => {
@@ -197,7 +201,8 @@ test('7 · Source ▾ is one dropdown that writes nothing, and the list is not i
   assert.equal(panel.split('name="bg_music_keep"').length - 1, 2);
 
   const page = code('app/dashboard/[eventId]/website/editor/page.tsx');
-  assert.match(page, /fetchHubMusicChoices\(supabase\)/, 'read with the couple’s own client');
+  // (It was `fetchHubMusicChoices(supabase)` — one read per Maker render. The list is the same for everyone: test 10.)
+  assert.match(page, /fetchHubMusicChoices\(\),/);
   assert.match(page, /ourMusic=\{ourMusic\.ok \? ourMusic\.choices : null\}/);
 });
 
@@ -244,4 +249,46 @@ test('9 · a track removed from the list keeps its file while an Event Hub still
   assert.match(resolver, /\.from\('events'\)\s*\.select\('site_bg_music_r2_key'\)\s*\.like\('site_bg_music_r2_key', `\$\{hubMusicRefForKey\(HUB_MUSIC_PREFIX\)\}%`\)/);
   assert.match(resolver, /if \(playingError\) \{\s*return \{\s*ok: false,/, 'an unread events list proves nothing — the file stays');
   assert.match(resolver, /const key = hubMusicKeyFromRef\(\(row as \{ site_bg_music_r2_key: string \| null \}\)\.site_bg_music_r2_key\);\s*if \(key\) keys\.add\(key\);/);
+});
+
+/* ── 10 · the list costs the Maker's render nothing ───────────────────────── */
+
+test('10 · the published list is ONE cached read for every couple — the Maker’s render reads no `hub_music_tracks`, an admin change busts it, a refusal is never remembered', () => {
+  /* Owner's least-requests rule (2026-10-08; controller's ruling the same night): the Maker's open is the page he
+     measures, and this list is the same for every couple. The repo's own cached-read pattern (`lib/loader-settings.ts`,
+     `lib/brand-settings.ts`): `unstable_cache` under a tag, the service client, `revalidateTag` from the writer.
+     ⚠ What this cannot do: run the cache (it needs the Next server). It holds the wiring, each way. */
+  const reader = code('lib/hub-music-server.ts');
+  const cached = reader.slice(reader.indexOf('const loadPublishedHubMusicRows = unstable_cache('), reader.indexOf('export async function fetchHubMusicChoices('));
+  assert.ok(cached.length > 200, 'anti-vacuity: the cached read was not found');
+  /* The read: the service client (no viewer in it), published rows only, under the tag, with a backstop. */
+  assert.match(cached, /await createAdminClient\(\)\s*\.from\('hub_music_tracks'\)\s*\.select\('track_id, title, mood, r2_key, duration_seconds, sort_order'\)\s*\.eq\('is_published', true\);/);
+  assert.match(cached, /\['hub-music-published-v1'\],\s*\{ tags: \[HUB_MUSIC_TAG\], revalidate: 3600 \},/);
+  /* A refusal THROWS — a thrown read is not stored, so "couldn't load" is not remembered for an hour. */
+  assert.match(cached, /if \(error \|\| !data\) throw new Error\(/, 'a refused read would be cached as an answer');
+  assert.doesNotMatch(cached, /return \{ ok: false \}|return \[\];/);
+  /* Nothing personal and nothing that expires is remembered: rows only — a ▶ address is worked out per render. */
+  assert.doesNotMatch(cached, /hubMusicPlayUrl|displayUrlForStoredAsset|previewUrl|supabase\b|cookies\(|headers\(/);
+  /* THE MAKER'S RENDER PATH: `fetchHubMusicChoices` takes no client and reads the table nowhere but through the cache. */
+  const list = reader.slice(reader.indexOf('export async function fetchHubMusicChoices('), reader.indexOf('export async function publishedHubMusicRef('));
+  assert.match(list, /^export async function fetchHubMusicChoices\(\): Promise<HubMusicChoicesRead> \{/);
+  assert.match(list, /data = await loadPublishedHubMusicRows\(\);/);
+  assert.doesNotMatch(list, /\.from\(/, 'the list is read from the table again on every Maker render');
+  const page = code('app/dashboard/[eventId]/website/editor/page.tsx');
+  assert.equal(page.split('fetchHubMusicChoices(').length - 1, 1);
+  assert.doesNotMatch(page, /hub_music_tracks/, 'the Maker page reads the table itself');
+  /* In the whole file the table is read exactly where it must be: the cached list, the two GATES (never cached —
+     a gate re-reads), and the admin's own "which files are in use" sweep. */
+  assert.equal((reader.match(/\.from\('hub_music_tracks'\)/g) ?? []).length, 4, 'a new read of hub_music_tracks — is it on a render path?');
+  for (const gate of ['publishedHubMusicRef', 'isPublishedHubMusicRef']) {
+    const at = reader.indexOf(`export async function ${gate}(`);
+    const body = reader.slice(at, reader.indexOf('\n}\n', at));
+    assert.match(body, /await supabase\s*\.from\('hub_music_tracks'\)/, `${gate} no longer asks the table itself`);
+    assert.doesNotMatch(body, /loadPublishedHubMusicRows|unstable_cache/, `${gate} is a gate — it must not answer from the cache`);
+  }
+  /* THE WRITER BUSTS IT: the admin's one action, on every successful add · edit · remove. */
+  const admin = code('app/admin/hub-music/actions.ts');
+  assert.match(admin, /if \(result\.ok\) \{\s*revalidatePath\(PAGE\);\s*revalidateTag\(HUB_MUSIC_TAG\);\s*\}/, 'an admin change does not reach the couples’ list');
+  assert.match(admin, /HUB_MUSIC_TAG,[\s\S]{0,80}\} from '@\/lib\/hub-music-server';/);
+  assert.equal((admin.match(/export async function /g) ?? []).length, 1, 'a second admin writer — does it bust the tag?');
 });

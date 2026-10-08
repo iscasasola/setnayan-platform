@@ -358,7 +358,8 @@ export default async function WebsiteEditorPage({
     displayFor([stdBgRef]),
     // 🎵 Look › Music › Our music — the published tracks (owner 2026-10-08).
     // A refused read is `{ ok: false }`, drawn as "couldn't load", never as none.
-    fetchHubMusicChoices(supabase),
+    /* ⚡ The same list for every couple: a cached read (`HUB_MUSIC_TAG`), not one per Maker render. */
+    fetchHubMusicChoices(),
   ]);
 
   /* 💾 THE 100 MB ALLOWANCE, shown where the uploads happen (Upload media on a

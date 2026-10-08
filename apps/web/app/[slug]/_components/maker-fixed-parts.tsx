@@ -16,6 +16,7 @@
  */
 import type { ReactNode } from 'react';
 import type { FixedStyleScene } from '@/lib/fixed-scene-styles';
+import { Box, Line } from './maker-scene-samples';
 
 type DayPart = Exclude<FixedStyleScene, 'entourage'>;
 
@@ -25,13 +26,6 @@ const EYEBROW: Record<DayPart, string> = {
   live_hub: 'Watch live · Live photo wall',
   photos_of_you: '✦ Photos of you',
 };
-
-/** A photo's place. */
-const Box = ({ className = '' }: { className?: string }) => <span aria-hidden data-sample-box="" className={`block rounded-md bg-ink/10 ${className}`} />;
-/** A line of words' place. */
-const Line = ({ w = 'w-2/3', className = '' }: { w?: string; className?: string }) => (
-  <span aria-hidden data-sample-line="" className={`block h-2 rounded-full bg-ink/15 ${w} ${className}`} />
-);
 
 /** Each look's arrangement, keyed `<part>:<style id>` (`lib/scene-styles-stages.ts`). */
 export const DAY_SAMPLE: Record<string, () => ReactNode> = {

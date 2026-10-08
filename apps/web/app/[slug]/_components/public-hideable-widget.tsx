@@ -95,6 +95,7 @@ export function PublicHideableWidget(props: PublicHideableWidgetProps) {
           type={props.widget.widget_type}
           look={makerWordsLook(props.widget.widget_type)}
           setupLocks={hubSetupApplies(props.event.event_type)}
+          styleId={sceneStyleOfRow(props.widget, props.stage ?? null, props.event.event_type)}
         />
       ) : (
         PublicHideableWidgetBody(props)
@@ -186,7 +187,7 @@ function PublicHideableWidgetBody({
          nobody is identified here — so this is always the general view.
          `role_palette` is already on this row: `loadEventShell` selects it
          with the admin client, the same read the page's theme colours use. */
-      return <DressCodeWidget words={words} config={event.dress_code_config ?? null} ceremonyType={dressRiteOf(event)} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} rolePalette={event.role_palette} roleNames={roleNames} hideWhenEmpty={guestView} sceneStyle={sceneStyle} paletteLook={paletteLookOfRow(widget)} />;
+      return <DressCodeWidget words={words} config={event.dress_code_config ?? null} ceremonyType={dressRiteOf(event)} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} rolePalette={event.role_palette} roleNames={roleNames} hideWhenEmpty={guestView} sceneStyle={sceneStyle} paletteLook={paletteLookOfRow(widget)} makerSample={!guestView} />;
 
     case 'photo_moments':
       return <PhotoMomentsWidget words={words} config={event.photo_moments_config} hideWhenEmpty={guestView} bare={bare} sceneStyle={sceneStyle} />;

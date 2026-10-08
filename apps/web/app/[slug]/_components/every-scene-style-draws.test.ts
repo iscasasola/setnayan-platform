@@ -669,3 +669,59 @@ test('countdown · Offset, Line and Circle (owner 2026-10-07 "allow offset" — 
     assert.equal(out, '', `a wake drew a countdown in style ${id}`);
   }
 });
+
+// ── 🔲 EMPTY SCENES, IN SAMPLE SHAPES (owner 08 Oct: "maybe show what it could look like with boxes?") ──
+
+test('🔲 an empty scene: the Maker’s dispatcher draws the look the ROW picked in sample shapes; a guest’s dispatcher draws none', async () => {
+  const { PublicHideableWidget } = await import('./public-hideable-widget');
+  const { sceneStylesOn, sceneStyleTypeOfWidget, resolveSceneStyle } = await import('@/lib/scene-styles');
+  const event = {
+    event_id: 'e1', slug: 'x', display_name: 'Cale & Ice', event_type: 'birthday', event_date: null,
+    venue_name: null, venue_address: null, venue_latitude: null, venue_longitude: null,
+    love_story: null, special_message: null, what_to_bring: null, our_photos: [],
+    dress_code_config: null, photo_moments_config: null, role_palette: null,
+  } as never;
+  const draw = (type: string, stage: string, style: string | null, maker: boolean) =>
+    html(
+      h(PublicHideableWidget, {
+        widget: { widget_id: `id-${type}`, event_id: 'e1', widget_type: type, display_order: 1, is_visible: true, is_always_on: false, tier: 'basic', config_json: style ? { canvas: { style } } : {}, created_at: '', updated_at: '', mode: 'auto' },
+        event,
+        words: WEDDING_WORDS,
+        scheduleBlocks: [],
+        isLive: false,
+        ourPhotoUrls: [],
+        stage,
+        guestView: !maker,
+        makerEmpty: maker,
+      } as never),
+    );
+  const scenes: Array<[string, 'save_the_date' | 'rsvp']> = [
+    ['special_message', 'rsvp'], ['schedule', 'rsvp'], ['venue_map', 'rsvp'], ['what_to_bring', 'rsvp'], ['our_love_story', 'rsvp'], ['countdown', 'rsvp'], ['our_photos', 'save_the_date'],
+  ];
+  for (const [type, stage] of scenes) {
+    const scene = sceneStyleTypeOfWidget(type);
+    const looks = sceneStylesOn(scene, stage, 'birthday');
+    assert.ok(looks.length >= 2, `${type}: offers looks on ${stage}`);
+    for (const look of looks) {
+      assert.match(draw(type, stage, look.id, true), new RegExp(`data-maker-sample="${scene}:${look.id}"`), `${type}: the canvas does not draw the picked look "${look.id}"`);
+    }
+    /* No pick, and a stored value this version does not draw: the stage's default — never a blank, never a crash. */
+    const fallback = resolveSceneStyle(scene, stage, null, 'birthday');
+    for (const stored of [null, 'no-such-style']) {
+      assert.match(draw(type, stage, stored, true), new RegExp(`data-maker-sample="${scene}:${fallback}"`), `${type}: stored ${stored} did not fall back to ${fallback}`);
+    }
+    /* A guest: the empty scene is left out whole — no placeholder, no sample, no shape. */
+    for (const look of looks) {
+      assert.doesNotMatch(draw(type, stage, look.id, false), /data-maker-(sample|empty)|data-sample-/, `${type}: a guest was served the Maker’s sample`);
+    }
+  }
+  /* The Dress code is never "empty-drawn" by the dispatcher — its own widget draws the sample, for the Maker alone. */
+  assert.match(draw('dress_code', 'rsvp', 'line', false), /^$/, 'a guest of an event with no dress code is served nothing');
+  const makerDress = html(
+    h(PublicHideableWidget, {
+      widget: { widget_id: 'd', event_id: 'e1', widget_type: 'dress_code', display_order: 1, is_visible: true, is_always_on: false, tier: 'basic', config_json: { canvas: { style: 'line' } }, created_at: '', updated_at: '', mode: 'auto' },
+      event, words: WEDDING_WORDS, scheduleBlocks: [], isLive: false, ourPhotoUrls: [], stage: 'rsvp', guestView: false, makerEmpty: false,
+    } as never),
+  );
+  assert.match(makerDress, /data-maker-sample="dress_code:line"/);
+});

@@ -197,3 +197,121 @@ test('a card fitted on one block hides the rest of its scene, and falls back to 
   assert.match(car, /const part = miniaturePart\(sec \?\? null, el, focus\);/, 'the card’s width follows the SAME block’s shape');
   assert.match(car, /style=\{spCardWidth\(aspect\)\}/, 'sized by aspect like every look card');
 });
+
+/* ── 🔲 EVERY EMPTY SCENE'S LOOK, IN SAMPLE SHAPES (owner 08 Oct: "still cannot see the gallery style? maybe
+      show what it could look like with boxes?" — applied in the place every card and the canvas share) ── */
+
+/** The words inside a block of markup. */
+const wordsIn = (markup: string) => markup.replace(/<[^>]+>/g, '').trim();
+
+test('an EMPTY Invitation scene draws each look as its own picture — no two look cards alike', async () => {
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { MakerEmptyScene } = await import('../app/[slug]/_components/maker-empty-scene');
+  const { SCENE_SAMPLE, SceneSample, sceneSampleKey } = await import('../app/[slug]/_components/maker-scene-samples');
+  const { MAKER_EMPTY_DRAWN } = await import('./maker-scene-list');
+  const { sceneStylesOn, sceneStyleTypeOfWidget } = await import('./scene-styles');
+  let scenes = 0;
+  for (const widget of MAKER_EMPTY_DRAWN) {
+    const type = sceneStyleTypeOfWidget(widget);
+    for (const stage of ['save_the_date', 'rsvp', 'event'] as const) {
+      const looks = sceneStylesOn(type, stage, 'wedding');
+      if (looks.length < 2) continue;
+      scenes += 1;
+      const cards = looks.map((l: { id: string }) => renderToStaticMarkup(React.createElement(MakerEmptyScene, { type: widget as never, styleId: l.id })));
+      assert.equal(new Set(cards).size, looks.length, `${widget} on ${stage}: two looks of the empty scene draw the same picture`);
+      for (const [i, card] of cards.entries()) {
+        const id = looks[i]!.id;
+        /* Its OWN arrangement — never another look's standing in for it. */
+        assert.ok(SCENE_SAMPLE[`${type}:${id}`], `${widget}: the look "${id}" has no arrangement of its own (maker-scene-samples.tsx)`);
+        assert.match(card, new RegExp(`aria-hidden="true" data-maker-sample="${type}:${id}"`), `${widget} · ${id}: the sample is not marked`);
+        assert.match(card, /data-sample-(box|line)=""/, `${widget} · ${id}: shapes, not a sentence`);
+        /* Unmistakably a sample: not one word inside it — no name, no date, no place. */
+        const alone = renderToStaticMarkup(React.createElement(SceneSample, { sceneType: type, styleId: id }));
+        assert.equal(wordsIn(alone), '', `${widget} · ${id}: the sample prints words a couple could take for their own`);
+      }
+    }
+  }
+  assert.ok(scenes >= 7, `the empty-drawn scenes were found on their stages (${scenes})`);
+  /* A stored style this version does not draw still draws a sample — the scene's first, never a blank. */
+  assert.equal(sceneSampleKey('countdown', 'the-calendar'), 'countdown:four-tiles');
+  assert.equal(sceneSampleKey('rsvp', 'reply-card'), null, 'a scene that is never empty has none');
+});
+
+test('an EMPTY Dress code draws its three layouts and its five palette looks in sample shapes', async () => {
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { DressCodeWidget } = await import('../app/[slug]/_components/dress-code-widget');
+  const { PALETTE_LOOK_IDS } = await import('./palette-looks');
+  const { sceneStylesOn } = await import('./scene-styles');
+  const words = { eventWord: 'wedding', solemn: false, twoPeople: true } as never;
+  const empty = (sceneStyle: string | null, paletteLook: string | null, makerSample = true) =>
+    renderToStaticMarkup(React.createElement(DressCodeWidget, { words, config: null, sceneStyle, paletteLook: paletteLook as never, makerSample }));
+  const layouts = sceneStylesOn('dress_code', 'rsvp', 'wedding').map((l: { id: string }) => l.id);
+  assert.equal(layouts.length, 3);
+  const byLayout = layouts.map((id: string) => empty(id, null));
+  assert.equal(new Set(byLayout).size, 3, 'Colours and roles · The palette · The line draw alike when empty');
+  for (const [i, h] of byLayout.entries()) assert.match(h, new RegExp(`data-maker-sample="dress_code:${layouts[i]}"`));
+  const byPalette = PALETTE_LOOK_IDS.map((id) => empty('colours-and-roles', id));
+  assert.equal(new Set(byPalette).size, PALETTE_LOOK_IDS.length, 'two palette looks draw alike on an empty Dress code');
+  for (const [i, h] of byPalette.entries()) {
+    assert.match(h, new RegExp(`data-dress-code="ours" data-sample-palette="${PALETTE_LOOK_IDS[i]}"`), 'the palette card’s own block is drawn');
+  }
+  /* A Dress code with words but no colours yet: the palette's place is still pictured, per look. */
+  const noColours = PALETTE_LOOK_IDS.map((id) =>
+    renderToStaticMarkup(React.createElement(DressCodeWidget, { words, config: { title: 'Garden formal' } as never, paletteLook: id, makerSample: true })),
+  );
+  assert.equal(new Set(noColours).size, PALETTE_LOOK_IDS.length);
+  for (const [i, h] of noColours.entries()) assert.match(h, new RegExp(`data-dress-code="ours" data-maker-sample="palette:${PALETTE_LOOK_IDS[i]}"`));
+  /* …and it vanishes when real colours exist. */
+  const real = renderToStaticMarkup(
+    React.createElement(DressCodeWidget, { words, config: { title: 'Garden formal' } as never, rolePalette: { reception: ['#7A1F2B', '#C9A24B'] }, makerSample: true }),
+  );
+  assert.doesNotMatch(real, /data-maker-sample|data-sample-/, 'a sample sits beside the couple’s real colours');
+  /* Off the Maker's canvas the widget draws none at all. */
+  assert.doesNotMatch(empty('colours-and-roles', 'ribbon', false), /data-maker-sample|data-sample-/);
+});
+
+test('a sample can never reach a page without a Maker marker', async () => {
+  const { readFileSync, readdirSync, statSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const css = readFileSync('app/globals.css', 'utf8');
+  assert.match(css, /body:not\(:has\(\[data-maker-section\]\)\) \[data-maker-sample\] \{ display: none !important; \}/, 'the page-level fence is gone');
+  /* 1 · The marker itself is the verified host canvas's alone. */
+  const body = readFileSync('app/[slug]/_components/site-body.tsx', 'utf8');
+  assert.match(body, /const makerMark = \(key: string\) =>\s*isEditorCanvas && editorBridge \? <span hidden data-maker-section=\{key\} \/> : null;/);
+  /* 2 · Every sample block carries the attribute the fence hides: no file draws a sample shape outside one. */
+  const drawers: string[] = [];
+  const walk = (dir: string) => {
+    for (const name of readdirSync(dir)) {
+      const p = join(dir, name);
+      if (statSync(p).isDirectory()) walk(p);
+      else if (/\.tsx$/.test(name) && /data-sample-(box|line)=""/.test(readFileSync(p, 'utf8'))) drawers.push(p.replace(/\\/g, '/'));
+    }
+  };
+  walk('app');
+  assert.deepEqual(drawers.sort(), ['app/[slug]/_components/maker-fixed-parts.tsx', 'app/[slug]/_components/maker-scene-samples.tsx'], 'a new file draws sample shapes — fence it');
+  const samples = readFileSync('app/[slug]/_components/maker-scene-samples.tsx', 'utf8');
+  assert.match(samples, /<div aria-hidden data-maker-sample=\{key\}/, 'SceneSample is the fenced block every scene sample is drawn in');
+  /* 3 · …and its callers mount it only for the Maker: the empty scene, the Maker's E-Gifts place, the Dress code's
+         `makerSample` (both dispatchers pass `!guestView`, and the body passes `guestView={!isMakerCanvas}`). */
+  const callers: string[] = [];
+  const find = (dir: string) => {
+    for (const name of readdirSync(dir)) {
+      const p = join(dir, name);
+      if (statSync(p).isDirectory()) find(p);
+      else if (/\.tsx$/.test(name) && !name.includes('maker-scene-samples') && /from '\.\/maker-scene-samples'/.test(readFileSync(p, 'utf8'))) callers.push(name);
+    }
+  };
+  find('app');
+  assert.deepEqual(callers.sort(), ['dress-code-widget.tsx', 'maker-empty-scene.tsx', 'maker-fixed-parts.tsx', 'maker-guest-scenes.tsx']);
+  const dress = readFileSync('app/[slug]/_components/dress-code-widget.tsx', 'utf8');
+  for (const m of dress.matchAll(/<SceneSample|paletteSample\(look\)/g)) {
+    const before = dress.slice(Math.max(0, m.index! - 260), m.index!);
+    assert.match(before, /makerSample (\?|&&)/, 'the Dress code draws a sample without asking whether this is the Maker’s canvas');
+  }
+  for (const f of ['public-hideable-widget.tsx', 'hideable-widget-render.tsx']) {
+    const src = readFileSync(`app/[slug]/_components/${f}`, 'utf8');
+    assert.equal(src.split('makerSample={!guestView}').length - 1, 1, `${f}: the Dress code’s sample is not tied to the Maker canvas`);
+    assert.doesNotMatch(src, /makerSample(?!=\{!guestView\})/, `${f}: another makerSample was passed`);
+  }
+  assert.doesNotMatch(body, /guestView=\{(?!!isMakerCanvas\})/, 'a mount passes a guest view that is not “not the Maker canvas”');
+});

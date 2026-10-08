@@ -19,6 +19,7 @@ import { marchPlaceLine, type MarchPlace } from '@/lib/march-place';
 import { DressCodeLine, DressCodePalette } from './dress-code-styles';
 import { PaletteLookList } from './dress-code-palette-looks';
 import { PALETTE_LOOK_DEFAULT, type PaletteLookId } from '@/lib/palette-looks';
+import { SceneSample, paletteSample } from './maker-scene-samples';
 
 /*
  * 🧵 THE SILK CHIP, VISIBLE ON ANY GROUND. `.pahina-swatch` shades a chip with
@@ -111,7 +112,16 @@ export function DressCodeWidget({
   part = 'all',
   sceneStyle = null,
   paletteLook = null,
+  makerSample = false,
 }: {
+  /**
+   * 🔲 THE MAKER'S CANVAS ONLY (owner 08 Oct: *"maybe show what it could look like with boxes?"*): while the
+   * couple has given this scene nothing — or no colours — its look is drawn in sample shapes
+   * (`maker-scene-samples.tsx`): the layout picked, and "Our colours" in the palette look picked, in greys.
+   * Never set for a guest (both dispatchers pass `!guestView`); `[data-maker-sample]` is also hidden by
+   * `globals.css` on any page without a Maker marker.
+   */
+  makerSample?: boolean;
   /**
    * 🏠 WHICH HALF (owner 2026-09-30, DECISION_LOG "THE INVITATION'S HOME IS THE
    * GUEST'S OWN PAGE"). `'you'` is the Welcome page's: only this reader's own
@@ -396,6 +406,7 @@ export function DressCodeWidget({
             Coming together
           </h3>
         </header>
+        {makerSample ? <SceneSample sceneType="dress_code" styleId={sceneStyle} paletteLook={look} /> : null}
         <p className="max-w-prose text-base leading-relaxed text-ink/65">
           Your hosts haven&rsquo;t shared the dress code yet — check back closer to
           the {words.eventWord}.
@@ -547,6 +558,13 @@ export function DressCodeWidget({
               ))}
             </ul>
           )}
+        </div>
+      ) : null}
+      {/* 🔲 The Maker's canvas, no colours yet: where "Our colours" will go, in the palette look picked — in
+          greys, so each palette look's card is its own picture before a colour exists. Never a guest's. */}
+      {makerSample && part === 'all' && !mine && !march && palette.length === 0 ? (
+        <div aria-hidden className="space-y-2" data-dress-code="ours" data-maker-sample={`palette:${look}`}>
+          {paletteSample(look)}
         </div>
       ) : null}
       {/* 👥 EVERY ROLE'S COLOURS — the general view's second half. One tidy row

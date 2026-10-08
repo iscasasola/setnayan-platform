@@ -249,7 +249,10 @@ export function PaletteLookCanvasRow({
      keeps the dropdown — the page under it may be a stage that draws no Dress code to picture. */
   const cards = useMaker()?.stagesStudio === true;
   const onDressPart = useStagePanelNow().picked === 'dress';
-  if (colours.length === 0 || !layoutDrawsPaletteLook(layout)) return null;
+  if (!layoutDrawsPaletteLook(layout)) return null;
+  /* The dropdown's thumbnails are the couple's colours — with none there is nothing to show in it. The cards
+     are the page itself, which draws "Our colours" in sample shapes until a colour exists (owner 08 Oct). */
+  if (colours.length === 0 && !(cards && onDressPart)) return null;
   /* Tags is the default, and "Auto is an absence": picking it clears the key. */
   const pick = (id: string) => save((c) => { if (id === PALETTE_LOOK_DEFAULT) delete c.palette; else c.palette = id; });
   if (cards && onDressPart) {

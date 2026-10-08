@@ -9,6 +9,15 @@ Owner's preview checks, 08 Oct (Stages panel), built in the order A · E · D ·
   host canvas only, nothing written), fitted on "Our colours" and sized by its shape. The stored value, its
   default (Tags = absent) and the guest page are unchanged. Studio › Look › Colours keeps the dropdown (the page
   under it may be a stage that draws no Dress code to picture).
+- **E · An empty scene draws its look in sample shapes** (*"still cannot see the gallery style? maybe show what
+  it could look like with boxes?"*). In the place every look card and the canvas share — the scene's own empty
+  state on the Maker's canvas (`MakerEmptyScene`) — each look now draws its real arrangement in grey boxes
+  (photos) and short grey lines (words): Special message · Schedule · Venue map · Reminders · Love Story ·
+  Photos (the gallery) · Countdown, plus an empty Dress code (its three layouts and, under Colours and roles,
+  its five palette looks) and the E-Gifts door (`app/[slug]/_components/maker-scene-samples.tsx`, keyed by the
+  registry's own ids). Shapes only — never a name, date or photo; `aria-hidden`; replaced whole by real
+  content. A guest is never served one: the callers mount them only on the verified host canvas, and
+  `globals.css` hides `[data-maker-sample]` on any page without a Maker marker.
 
 SPEC IMPACT: `STAGES_PANEL_BUILD_STATUS_2026-10-08.md` gains "Round 5 — looks as pictures" (status only; no
 decision changed).

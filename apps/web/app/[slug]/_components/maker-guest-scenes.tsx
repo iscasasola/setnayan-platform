@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { formatEventDate } from '@/lib/events';
+import { SceneSample } from './maker-scene-samples';
 
 /**
  * 👤 THE GUEST-LINK SCENES, AS THE MAKER DRAWS THEM — never as a guest sees them.
@@ -102,6 +103,8 @@ export function MakerWelcomeGiftsEmpty({ look = null }: { look?: string | null }
       <p className="pahina-eyebrow">
         <span>E-Gifts</span>
       </p>
+      {/* 🔲 The door's shape, in greys (owner 08 Oct) — the four looks lay it by `data-part-look`, as they lay the real door. */}
+      <SceneSample sceneType="gifts" className="!mx-0 py-1" />
       <p className="font-pahina text-xl font-light italic text-ink/60">Add a way to receive gifts.</p>
       <p className="text-xs uppercase tracking-[0.2em] text-ink/40">Only you see this · guests see it once a gift method is on</p>
     </section>

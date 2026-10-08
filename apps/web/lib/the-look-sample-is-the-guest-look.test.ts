@@ -33,7 +33,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import React from 'react';
 import ts from 'typescript';
@@ -44,7 +44,9 @@ import { hubButtonPage, resolveHubButtons } from './hub-buttons';
 import { compositeOver } from './hub-legibility';
 import type { HubMainGround } from './hub-canvas';
 import { INVITE_THEMES, INVITE_THEME_IDS, type InviteThemeId } from './invite-themes';
-import { lookSampleGround, lookSampleScope, lookSampleTint, type LookSampleRow } from './look-sample';
+import { lookEffectOn, lookSampleEffect, lookSampleGround, lookSampleScope, lookSampleTint, type LookSampleRow } from './look-sample';
+import { ambientEffectSpec, ambientGroundIsDark } from './ambient-effects';
+import { HUB_MAIN_EFFECTS, sanitizeHubMainGround, type HubMainEffect } from './hub-canvas';
 import { createLookSampleStore } from './look-sample-store';
 import { mainGroundShade, shadeWordVars } from './main-ground-shade';
 import { ombreLook, ombreRamp, parseSiteBackground } from './ombre';
@@ -514,4 +516,121 @@ test('(6) while the sample is the screen the hidden stage canvas is not re-rende
   const panel = read(`${E}/main-background-panel.tsx`);
   assert.match(panel, /const sampleNode = useMaker\(\)\?\.lookPages\?\.look\?\.sample;\s*const onSample = studio && Boolean\(sampleNode\);/);
   assert.match(panel, /shown: heard === 0 \|\| Boolean\(!lay && !fresh && was && was\.seq === seq && was\.shown\) \|\| onSample,/, 'a pick waits for a page nobody sees before its line clears');
+});
+
+/* ── (7) ✨ the effect on top ─────────────────────────────────────────────── */
+
+test('(7) an effect on the guest page is the sample screen’s own answer — one function for what it lies on, one for what it draws', () => {
+  const REF = 'r2://setnayan-media/events/EV/hero/a.jpg';
+  const frame = { match: true, frame: ['#101820', '#30404a'] };
+  const mains: Record<string, HubMainGround | null> = {
+    'nothing stored': null,
+    'the page’s own': { ground: 'theme' },
+    'a plain colour': { ground: 'none' },
+    'a pattern': { ground: 'pattern', pattern: 'lace' },
+    'a video, as is': { ground: 'loop', loop: 'velvet' },
+    'a video, faded dark': { ground: 'loop', loop: 'velvet', shade: -70 },
+    'their photo, as is': { kind: 'photo', media: REF, tint: frame },
+    'their photo, faded light': { kind: 'photo', media: REF, tint: frame, shade: 80 },
+    'their photo, faded dark': { kind: 'photo', media: REF, tint: frame, shade: -80 },
+    'the cover': { follow: 'hero', of: REF, tint: frame },
+  };
+  for (const [name, m] of Object.entries(mains)) if (m) assert.deepEqual(sanitizeHubMainGround(m), m, `${name}: not a background the app stores`);
+  const effects: HubMainEffect[] = [{ kind: 'lanterns', intensity: 'standard' }, { kind: 'petals', intensity: 'lavish', colour: 'accent2' }, { kind: 'sparkles', intensity: 'subtle', colour: 'dominant' }];
+  let rows = 0;
+  let compared = 0;
+  const grounds = new Set<string>();
+  everyRow((where, themeId, row) => {
+    rows += 1;
+    if (rows % 19 !== 0) return; // one row in nineteen (19 shares no factor with the sweep's own sizes) — every theme, board, background and art direction is still met
+    for (const [name, main] of Object.entries(mains)) {
+      /* The GUEST page asks with nothing in hand; the SAMPLE hands over the scope and veil it already worked out. */
+      const guest = lookEffectOn(main, row, themeId, true);
+      const sample = lookEffectOn(main, row, themeId, true, { scope: lookSampleScope(row, themeId), ground: lookSampleGround(main, row, themeId, true) });
+      assert.deepEqual(sample, guest, `${where} · ${name}: the sample measures a different ground than the guest page`);
+      assert.match(guest.ground, /^#[0-9a-f]{6}$/i, `${where} · ${name}: the ground is not a colour`);
+      assert.equal(guest.five.length, 5);
+      grounds.add(guest.ground.toLowerCase());
+      for (const effect of effects) {
+        assert.deepEqual(lookSampleEffect(effect, sample), lookSampleEffect(effect, guest));
+        assert.deepEqual(lookSampleEffect(effect, guest), ambientEffectSpec(effect, guest.ground, guest.five), 'the one answer is not the one engine');
+        compared += 1;
+      }
+    }
+  });
+  assert.ok(compared > 5_000, `the sweep is too small to mean anything (${compared})`);
+  assert.ok(grounds.size > 60, `the ground barely changes over the sweep (${grounds.size}) — it is not being measured`);
+  assert.equal(lookSampleEffect(null, lookEffectOn(null, { role_palette: null, site_bg_color: null, site_button_color: null, site_button_style: null, site_font_key: null, site_art_direction: null }, 'velvet')), null, 'no effect stored, and one is drawn');
+
+  /* What it lies on FOLLOWS the page: the couple's own dark colour, Candlelight, a Fade — each turns the effect to its dark-ground drawing. */
+  const plain: LookSampleRow = { role_palette: null, site_bg_color: null, site_button_color: null, site_button_style: null, site_font_key: null, site_art_direction: null };
+  const dark = (main: HubMainGround | null, row: LookSampleRow, theme: InviteThemeId = 'house') => ambientGroundIsDark(lookEffectOn(main, row, theme).ground);
+  assert.equal(dark({ ground: 'none' }, plain), false, 'Classic’s paper is read as dark');
+  assert.equal(dark({ ground: 'none' }, { ...plain, site_bg_color: '#1a1410' }), true, 'the couple’s own dark page colour is not what the effect lies on');
+  assert.equal(dark({ ground: 'none' }, { ...plain, site_bg_color: 'ombre:dawn:#1e2229' }), true, 'a dark blend is not what the effect lies on');
+  assert.equal(dark({ ground: 'none' }, { ...plain, site_art_direction: 'candlelight' }), true, 'Candlelight’s page is read as light');
+  /* A blend is measured over its whole ramp — not only the colour it starts from. */
+  assert.notEqual(
+    lookEffectOn({ ground: 'none' }, { ...plain, site_bg_color: 'ombre:diagonal:#f6f1e7:#3a2a20' }, 'house').ground,
+    lookEffectOn({ ground: 'none' }, { ...plain, site_bg_color: '#f6f1e7' }, 'house').ground,
+    'a blend to a dark colour is read as its first colour alone',
+  );
+  assert.equal(dark(mains['their photo, faded dark']!, plain), true, 'a Fade to black is not counted');
+  assert.equal(dark(mains['their photo, faded light']!, plain), false, 'a Fade to white is not counted');
+  /* The five are the Mood Board's, with a missing slot from the theme — the page's own five. */
+  assert.deepEqual(lookEffectOn(null, { ...plain, role_palette: ROSE_BOARD }, 'house').five, ROSE_BOARD.reception.map((h) => h.toUpperCase()));
+});
+
+test('(7b) the guest page draws that answer on EVERY background, by the one layer — and a Pro effect only where the event owns Pro', () => {
+  const layer = read('app/[slug]/_lib/main-ground-layer.tsx');
+  /* ONE way out: the background as it was always resolved, then the effect over it — no branch can forget it. */
+  assert.match(layer, /export async function mainGroundLayerFor\(input: MainGroundInput\): Promise<ReactNode> \{\s*return effectOver\(await mainGroundOf\(input\), input\);\s*\}/, 'a background can leave mainGroundLayerFor without its effect');
+  assert.equal((layer.match(/\beffectOver\(/g) ?? []).length, 2, 'effectOver is called from somewhere else, or no longer from the one way out');
+  /* …and the background's own function is untouched by effects: it names none. */
+  const own = layer.slice(layer.indexOf('async function mainGroundOf('), layer.indexOf('async function effectOver('));
+  assert.ok(own.includes('return <PatternGround') && own.includes('<MainGroundNone />') && own.includes('<MainGround'), 'mainGroundOf no longer resolves every background');
+  assert.doesNotMatch(own, /effect|Ambient/i, 'the background’s own resolution now knows about effects — keep the two apart');
+  const fx = layer.slice(layer.indexOf('async function effectOver('), layer.indexOf('function lookRowOf('));
+  assert.match(fx, /const effect = hubMainEffect\(main\);\s*if \(!effect\) return ground;/, 'a page with no effect is not returned exactly as it was');
+  assert.match(fx, /const spec = lookSampleEffect\(effect, lookEffectOn\(shown, lookRowOf\(event\), theme, true\)\);/, 'the guest page no longer asks the sample’s own two functions');
+  /* What it lies on is what is REALLY drawn: the stored background where a layer was resolved, else the page's own ground. */
+  assert.match(fx, /const shown = ground === null \? null : main;/);
+  assert.match(fx, /<>\s*\{ground\}\s*<AmbientEffectLayer spec=\{spec\} className="fixed inset-0 -z-10" \/>\s*<\/>/, 'the effect is not laid over the background, fixed behind the page');
+  /* ◆ gated BEFORE it is worked out — for a guest by the event's own entitlement; the host's own canvas tries it on. */
+  const gate = fx.indexOf('if (AMBIENT_EFFECT_IS_PRO[effect.kind] && !tryOn && !(await websiteProActiveFor(event.event_id).catch(() => false))) return ground;');
+  assert.ok(gate > 0 && gate < fx.indexOf('const spec = lookSampleEffect('), 'a Pro effect is worked out, or drawn, before the event’s Pro is asked');
+  /* The row the guest page measures from is the row the sample drafts over — the same six columns, by name. */
+  const rowType = /export type LookSampleRow = \{([\s\S]*?)\n\};/.exec(read('lib/look-sample.ts'))?.[1] ?? '';
+  const columns = [...rowType.matchAll(/\n {2}(\w+):/g)].map((m) => m[1]!).sort();
+  const lookRowAt = layer.indexOf('function lookRowOf(');
+  const lookRow = layer.slice(lookRowAt, layer.indexOf('\n}\n', lookRowAt));
+  assert.deepEqual([...lookRow.slice(lookRow.indexOf('return {')).matchAll(/\n {4}(\w+):/g)].map((m) => m[1]!).sort(), columns, 'the guest page measures an effect from different columns than the sample');
+  assert.equal(columns.length, 6);
+  /* …and the page's shell row really reads the ones an effect's ground turns on. */
+  const shell = raw('app/[slug]/_lib/loaders.ts');
+  for (const col of ['site_bg_color', 'site_art_direction', 'role_palette']) assert.ok(shell.includes(col), `the guest shell no longer reads ${col}`);
+});
+
+test('(7c) ONE engine call for the page, ONE layer for everyone — and nothing of the app’s own colour in it', () => {
+  const walk = (dir: string): string[] =>
+    readdirSync(join(WEB, dir), { withFileTypes: true }).flatMap((d) =>
+      d.isDirectory() ? (d.name === 'node_modules' || d.name.startsWith('.') ? [] : walk(`${dir}/${d.name}`)) : /\.(ts|tsx)$/.test(d.name) && !/\.test\./.test(d.name) ? [`${dir}/${d.name}`] : [],
+    );
+  /* Each file is read once, and only those that name an effect at all are stripped of their comments. */
+  const files = [...walk('app'), ...walk('lib')].flatMap((f) => {
+    const text = raw(f);
+    return /ambient|Ambient/.test(text) ? [[f, stripComments(text)] as const] : [];
+  });
+  const using = (needle: RegExp) => files.filter(([, text]) => needle.test(text)).map(([f]) => f).sort();
+  /* The spec is worked out in two places only: the page's one answer, and the carousel's miniatures. */
+  assert.deepEqual(using(/\bambientEffectSpec\(/), [`${E}/background-effects.tsx`, 'lib/ambient-effects.ts', 'lib/look-sample.ts']);
+  /* The marked element is drawn by the one layer. */
+  assert.deepEqual(using(/data-ambient-effect=\{/), ['app/[slug]/_components/ambient-effect.tsx']);
+  /* The layer is mounted by the guest page, the sample screen and the cards — nobody else. */
+  assert.deepEqual(using(/<AmbientEffectLayer\b/), ['app/[slug]/_lib/main-ground-layer.tsx', `${L}/look-sample.tsx`, `${E}/background-effects.tsx`].sort());
+  /* The couple's page wears the couple's colours: the engine and the layer name none of the app's. */
+  for (const f of ['lib/ambient-effects.ts', 'app/[slug]/_components/ambient-effect.tsx']) {
+    assert.doesNotMatch(read(f), /sn-accent|--sn-|mulberry|terracotta|PILL_ON_CLASS/, `${f} names the app’s own colour — it would leak into a guest’s Event Hub`);
+  }
+  assert.equal(HUB_MAIN_EFFECTS.length, 6);
 });

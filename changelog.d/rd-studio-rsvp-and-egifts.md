@@ -148,3 +148,16 @@ is the owner's new ruling and is not written there yet.
   6 more mutations seen red. Port-control baseline regenerated.
 
 SPEC IMPACT: None.
+
+## 2026-10-09 · fix(studio): Studio › RSVP keeps its answers through the one Studio draft helper
+
+Studio › RSVP's save wrote its own copy of what Studio › Info's `studioDraftKeep` already does (held, the newest
+write of a burst, the Apply count in the answer, the Maker's pages redrawn in place). It calls that helper now —
+ONE way a Studio page keeps a drafted answer — under the RSVP stage's own write key, so a change made in Studio and
+one made on the stage never land out of order. Requests are unchanged (1 draft write per press, no render of the
+Maker). And the dev lab's stand-in for the draft door (`setStudioDraftDoor`, set once by the lab's shell) now
+reaches every RSVP row in the Studio lab: no press there leaves the browser, and the ✓ Apply count moves.
+
+- `lib/studio-rsvp-wears-the-templates.test.ts` (4) · (5) · (10) brought to it; 4 mutations seen red.
+
+SPEC IMPACT: None.

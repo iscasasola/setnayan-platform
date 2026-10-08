@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { ChevronDown, Gift, Layers, Plus, Tag, X } from 'lucide-react';
+import { PillButton, PillTrack } from '@/app/_components/pill-track';
 
 /**
  * Repeatable list editors for a service card (service-card redesign · Phase 3b).
@@ -355,31 +356,16 @@ export function DiscountsEditor({
                   {/* Unit toggle — a hidden input carries the value so getAll()
                       stays index-aligned regardless of which button is active. */}
                   <input type="hidden" name="discount_unit" value={r.unit} />
-                  <div
-                    className="inline-flex overflow-hidden rounded-lg border"
-                    style={{ borderColor: line }}
-                    role="group"
-                    aria-label="Discount unit"
-                  >
+                  <PillTrack role="group" aria-label="Discount unit">
                     {(['pct', 'php'] as const).map((u) => {
                       const on = r.unit === u;
                       return (
-                        <button
-                          key={u}
-                          type="button"
-                          onClick={() => patch(r.key, { unit: u })}
-                          aria-pressed={on}
-                          className="px-3 py-2 text-xs font-medium"
-                          style={{
-                            background: on ? 'var(--m-ink)' : 'var(--m-paper-2)',
-                            color: on ? 'var(--m-paper)' : 'var(--m-slate-2)',
-                          }}
-                        >
+                        <PillButton key={u} on={on} onClick={() => patch(r.key, { unit: u })} aria-pressed={on} className="px-3">
                           {u === 'pct' ? '%' : '₱'}
-                        </button>
+                        </PillButton>
                       );
                     })}
-                  </div>
+                  </PillTrack>
                 </div>
 
                 <div className="grid gap-2 sm:grid-cols-2">

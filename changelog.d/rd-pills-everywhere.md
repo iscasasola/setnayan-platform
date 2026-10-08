@@ -35,3 +35,22 @@ handler, address, role and name is as it was. Adds no request.
   and thumb instead of the screen's own `.seg` class.
 
 SPEC IMPACT: None — `INTERACTION_RULES.md` § 9 already names the pill selector as the one source; this applies it.
+
+## 2026-10-08 · feat(ui): every segmented selector is the one pill — area 2, the supplier's dashboard
+
+Same ruling, same template; shape, colour and motion only. Adds no request.
+
+- **Converted (8):** Momentum window (Daily | Monthly | Annual) · Billing cycle
+  (Monthly | Annual) · Your services sections (Coverage | Service cards) · QR
+  type on the dashboard card and on the QR Code Generator (Shortlist | Locked) ·
+  Discount unit (% | ₱) · how a payment is set (% of total | Fixed ₱) · Billing
+  term on a custom plan (Every 28 days | Yearly — a radio group, so the pill in
+  shape and colour; it does not slide yet).
+- **Two small accessibility words changed so the thumb can find the picked
+  choice:** the picked Billing cycle link says `aria-current="page"` (it said
+  "true"); the two sides of "how a payment is set" now say `aria-pressed` (they
+  said nothing).
+- **Guards:** 8 lines added to `lib/pills-are-everywhere.test.ts`; the watch
+  widened to `app/vendor-dashboard` (nothing added to its baseline).
+
+SPEC IMPACT: None.

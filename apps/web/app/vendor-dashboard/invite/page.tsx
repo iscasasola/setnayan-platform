@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { QrCode, Users, ArrowLeft, Lock } from 'lucide-react';
+import { PillLink, PillTrack } from '@/app/_components/pill-track';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { renderUrlQrSvg } from '@/lib/qr';
@@ -103,32 +104,14 @@ export default async function VendorQrGeneratorPage({
           <QrCode className="h-6 w-6 text-terracotta" strokeWidth={1.75} /> QR Code Generator
         </h1>
         {/* Shortlist ↔ Locked toggle */}
-        <div
-          className="inline-flex rounded-full border border-ink/15 bg-white/70 p-0.5"
-          role="tablist"
-          aria-label="QR type"
-        >
-          <Link
-            href="/vendor-dashboard/invite?mode=shortlist"
-            role="tab"
-            aria-selected={mode === 'shortlist'}
-            className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-              mode === 'shortlist' ? 'bg-ink text-cream' : 'text-ink/60 hover:text-ink'
-            }`}
-          >
+        <PillTrack role="tablist" aria-label="QR type">
+          <PillLink on={mode === 'shortlist'} href="/vendor-dashboard/invite?mode=shortlist" role="tab" aria-selected={mode === 'shortlist'} className="px-4">
             Shortlist
-          </Link>
-          <Link
-            href="/vendor-dashboard/invite?mode=locked"
-            role="tab"
-            aria-selected={mode === 'locked'}
-            className={`inline-flex items-center gap-1 rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-              mode === 'locked' ? 'bg-ink text-cream' : 'text-ink/60 hover:text-ink'
-            }`}
-          >
+          </PillLink>
+          <PillLink on={mode === 'locked'} href="/vendor-dashboard/invite?mode=locked" role="tab" aria-selected={mode === 'locked'} className="px-4">
             <Lock className="h-3.5 w-3.5" strokeWidth={1.75} /> Locked
-          </Link>
-        </div>
+          </PillLink>
+        </PillTrack>
         <p className="text-sm text-ink/60">
           {mode === 'locked'
             ? 'Lock in a customer who already paid a first payment. They scan it once — the booking, payment plan and first payment land on their plan automatically.'

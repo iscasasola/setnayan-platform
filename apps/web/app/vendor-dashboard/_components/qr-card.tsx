@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { QrCode } from 'lucide-react';
 
 import { Collapsible } from './collapsible';
+import { PillButton, PillTrack } from '@/app/_components/pill-track';
 
 /**
  * QR row card for My Shop. One card, two modes via a segmented toggle —
@@ -39,12 +40,7 @@ export function QrCard({
             </span>
           </div>
 
-          <div
-            className="inline-flex overflow-hidden rounded-lg border"
-            role="tablist"
-            aria-label="QR type"
-            style={{ borderColor: 'var(--m-line)' }}
-          >
+          <PillTrack role="tablist" aria-label="QR type">
             <SegButton
               active={mode === 'shortlist'}
               onClick={() => setMode('shortlist')}
@@ -54,7 +50,7 @@ export function QrCard({
             <SegButton active={mode === 'locked'} onClick={() => setMode('locked')}>
               Locked
             </SegButton>
-          </div>
+          </PillTrack>
         </div>
 
         <Collapsible open={mode === 'shortlist'}>
@@ -78,19 +74,8 @@ function SegButton({
   children: React.ReactNode;
 }) {
   return (
-    <button
-      type="button"
-      role="tab"
-      aria-selected={active}
-      onClick={onClick}
-      className="px-4 py-1.5 text-sm font-medium transition-colors"
-      style={
-        active
-          ? { background: 'var(--m-ink)', color: 'var(--m-paper)' }
-          : { background: 'transparent', color: 'var(--m-slate)' }
-      }
-    >
+    <PillButton on={active} role="tab" aria-selected={active} onClick={onClick} className="px-4">
       {children}
-    </button>
+    </PillButton>
   );
 }

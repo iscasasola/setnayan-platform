@@ -1,5 +1,6 @@
 'use client';
 
+import { PillButton, PillTrack } from '@/app/_components/pill-track';
 import type { MomentumMode } from './momentum-card';
 
 /**
@@ -20,18 +21,13 @@ export function MomentumWindowToggle({
   const effectiveMode: MomentumMode = !isFull && mode === 'day' ? 'month' : mode;
 
   return (
-    <div
-      className="inline-flex rounded-full border p-0.5"
-      style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
-      role="tablist"
-      aria-label="Momentum window"
-    >
+    <PillTrack role="tablist" aria-label="Momentum window">
       {isFull && (
         <ToggleButton label="Daily" value="day" active={effectiveMode === 'day'} onSelect={onSelect} />
       )}
       <ToggleButton label="Monthly" value="month" active={effectiveMode === 'month'} onSelect={onSelect} />
       <ToggleButton label="Annual" value="year" active={effectiveMode === 'year'} onSelect={onSelect} />
-    </div>
+    </PillTrack>
   );
 }
 
@@ -47,19 +43,8 @@ function ToggleButton({
   onSelect: (value: MomentumMode) => void;
 }) {
   return (
-    <button
-      type="button"
-      onClick={() => onSelect(value)}
-      role="tab"
-      aria-selected={active}
-      className="rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors"
-      style={
-        active
-          ? { background: 'var(--m-ink)', color: 'var(--m-paper)' }
-          : { color: 'var(--m-slate)' }
-      }
-    >
+    <PillButton on={active} onClick={() => onSelect(value)} role="tab" aria-selected={active} className="px-3.5">
       {label}
-    </button>
+    </PillButton>
   );
 }

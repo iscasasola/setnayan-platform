@@ -36,6 +36,7 @@ const has = (classes: string, c: string) => classes.split(/\s+/).includes(c);
 
 const D = 'app/dashboard/[eventId]';
 const A = 'app/dashboard/(account)';
+const V = 'app/vendor-dashboard';
 
 /**
  * ONE CONVERTED SELECTOR.
@@ -78,6 +79,15 @@ export const CONVERTED: readonly Converted[] = [
   { area: 'couple', what: 'Order the reel (By significance | By time)', file: `${A}/life-flash/_components/scroll-reel.tsx`, anchor: 'aria-label="Order the reel"', via: 'track', thumb: 'slides', gone: 'flex rounded-full border border-ink/15 p-0.5 text-xs' },
   { area: 'shared', what: 'A thread’s views (Chat | Decisions | Files)', file: 'app/_components/chat-thread-views.tsx', anchor: 'aria-label="Show"', via: 'classes', thumb: 'slides', gone: 'inline-flex overflow-hidden rounded-lg border border-ink/15' },
   { area: 'shared', what: 'Workspace sections (Chat · Quote · Payments · Files · Call · Details) — both sides', file: 'app/_components/relationship-tab-shell.tsx', anchor: 'aria-label="Workspace sections"', via: 'classes', thumb: 'slides', gone: 'rounded-xl border border-ink/10 bg-cream/70 p-1' },
+  /* ── area 2 · the supplier's dashboard ── */
+  { area: 'supplier', what: 'Momentum window (Daily | Monthly | Annual)', file: `${V}/performance/_components/momentum-window-toggle.tsx`, anchor: 'aria-label="Momentum window"', via: 'track', thumb: 'slides', gone: "background: 'var(--m-ink)', color: 'var(--m-paper)'" },
+  { area: 'supplier', what: 'Billing cycle (Monthly | Annual)', file: `${V}/subscription/_components/cycle-toggle.tsx`, anchor: 'data-cycle-toggle=""', via: 'track', thumb: 'slides', gone: 'bg-ink text-paper sn-bounce' },
+  { area: 'supplier', what: 'Your services sections (Coverage | Service cards)', file: `${V}/services/_components/manager-tabs.tsx`, anchor: 'aria-label="Your services sections"', via: 'track', thumb: 'slides', gone: 'var(--m-orange-3)' },
+  { area: 'supplier', what: 'QR type on the dashboard card (Shortlist | Locked)', file: `${V}/_components/qr-card.tsx`, anchor: 'aria-label="QR type"', via: 'track', thumb: 'slides', gone: 'inline-flex overflow-hidden rounded-lg border' },
+  { area: 'supplier', what: 'QR type on the QR Code Generator (Shortlist | Locked)', file: `${V}/invite/page.tsx`, anchor: 'aria-label="QR type"', via: 'track', thumb: 'slides', gone: 'rounded-full border border-ink/15 bg-white/70 p-0.5' },
+  { area: 'supplier', what: 'Discount unit (% | ₱)', file: `${V}/services/_components/service-list-editors.tsx`, anchor: 'aria-label="Discount unit"', via: 'track', thumb: 'slides', gone: "background: on ? 'var(--m-ink)' : 'var(--m-paper-2)'" },
+  { area: 'supplier', what: 'How a payment is set (% of total | Fixed ₱)', file: `${V}/services/_components/payment-schedule-editor.tsx`, anchor: 'data-payment-amount-kind=""', via: 'track', thumb: 'slides', gone: 'inline-flex overflow-hidden rounded-md border border-ink/20' },
+  { area: 'supplier', what: 'Billing term (Every 28 days | Yearly)', file: `${V}/subscription/custom/_components/custom-configurator.tsx`, anchor: 'aria-label="Billing term"', via: 'track', thumb: 'waits', why: RADIO, gone: 'rounded-lg border border-ink/12 p-1' },
 ];
 
 /** From the opening `<` of the element the anchor sits on, a window long enough to hold the selector. */
@@ -152,7 +162,7 @@ test('(1) pill-track.tsx — the template, as three elements a server page can w
 });
 
 test('(2)(3) every converted selector is drawn by the template — its track, its choices, its thumb; the hand-made look is gone', () => {
-  assert.ok(CONVERTED.length >= 16, `anti-vacuity: only ${CONVERTED.length} selectors are held`);
+  assert.ok(CONVERTED.length >= 24, `anti-vacuity: only ${CONVERTED.length} selectors are held`);
   const report: string[] = [];
   for (const c of CONVERTED) {
     const faults = pillFaults(read(c.file), c);

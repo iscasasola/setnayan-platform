@@ -131,10 +131,12 @@ export function Switch({
       </span>
       <span
         aria-hidden
-        className={`relative h-6 w-10 flex-none rounded-full transition-colors ${on ? 'bg-success-600' : 'bg-ink/15'}`}
+        /* The app's ONE switch look (`.sn-switch`, globals.css — owner 2026-10-08: "switch is teracota or greyed out"). */
+        data-on={on}
+        className="sn-switch relative h-6 w-10 flex-none rounded-full"
       >
         <span
-          className={`absolute left-[3px] top-[3px] h-[18px] w-[18px] rounded-full bg-white shadow transition-transform ${on ? 'translate-x-4' : ''}`}
+          className={`sn-switch-knob absolute left-[3px] top-[3px] h-[18px] w-[18px] rounded-full bg-white shadow transition-transform ${on ? 'translate-x-4' : ''}`}
         />
       </span>
     </button>

@@ -117,23 +117,13 @@ export function coverCardShows(input: { classic: boolean; photoRef: string | nul
 }
 
 /**
- * SHADE ▾ — ONE LIST. Darker · Dark · As is · Light · Lighter are the shipped
- * veil over a PICTURE (`lib/main-ground-shade.ts`, stored on the main
- * background); **Candlelight** is the shipped dark art direction
- * (`events.site_art_direction`) offered as the darkest shade (restudy § 3.1: it
- * is a palette flip, and beside per-role colours it would override them
- * silently). One is picked at a time: Candlelight is worn INSTEAD of a veil.
- *
- * A flat colour or a pattern has no picture to veil, so there the list is As is
- * and Candlelight (a deeper colour is picked as a colour).
+ * 🕯 CANDLELIGHT IS NO LONGER OFFERED IN LOOK (owner 2026-10-08, DECISION_LOG "LOOK EFFECTS ROUND 4": *"remove
+ * candlelight"*). It was Shade ▾'s darkest row (restudy § 3.1); Shade ▾ itself is now the fade bar
+ * (`lib/background-fade.ts`), whose left end is fade-to-black only. The Pattern rule holds for an event that
+ * already wears it (`events.site_art_direction = 'candlelight'`): it keeps wearing it, the panel names it, and
+ * one tap turns it off — nothing in Look turns it on.
  */
-export const BACKGROUND_SHADE_CANDLELIGHT = 'candlelight';
 export const BACKGROUND_SHADE_CANDLELIGHT_LABEL = 'Candlelight';
-
-/** The Shade ▾ value on screen: Candlelight when the page wears it, else the stored veil step. */
-export function backgroundShadeValue(input: { art: 'daylight' | 'candlelight' | null; shade: string | null }): string {
-  return input.art === 'candlelight' ? BACKGROUND_SHADE_CANDLELIGHT : (input.shade ?? 'as-is');
-}
 
 /**
  * What the Source row's ⓘ says — the line Studio › Look › Background has carried
@@ -163,26 +153,6 @@ export function backgroundWritePatch(write: BackgroundWrite): {
   return {
     ...('main' in write ? { widgets: { hero: { main: write.main ?? null } } } : {}),
     ...(write.events && Object.keys(write.events).length > 0 ? { events: write.events } : {}),
-  };
-}
-
-/**
- * What ONE Shade ▾ pick writes, from what is stored. A veil step is stored on a
- * main background that has a picture (`takesShade`); Candlelight is the page's
- * art direction. Only what CHANGES is written — picking the value already on
- * writes nothing (`null`).
- */
-export function backgroundShadeWrite(
-  pick: string,
-  now: { art: 'daylight' | 'candlelight' | null; shade: string | null; takesShade: boolean },
-): { art: 'daylight' | 'candlelight' | null; step: string | null; stepMoves: boolean } | null {
-  if (pick === backgroundShadeValue({ art: now.art, shade: now.takesShade ? now.shade : null })) return null;
-  const candle = pick === BACKGROUND_SHADE_CANDLELIGHT;
-  const step = candle || pick === 'as-is' ? null : pick;
-  return {
-    art: candle ? 'candlelight' : now.art === 'candlelight' ? 'daylight' : null,
-    step,
-    stepMoves: now.takesShade && (now.shade ?? null) !== step,
   };
 }
 

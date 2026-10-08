@@ -265,7 +265,7 @@ test('(3) it lands with a bounce and pulses once on a pick — transform, size, 
   const css = raw('app/globals.css');
   assert.equal((css.match(/--sn-pill-dur:/g) ?? []).length, 1, 'the family’s speed is declared more than once');
   const ms = Number(/--sn-pill-dur:\s*(\d+)ms;/.exec(css)?.[1]);
-  assert.ok(ms >= 400 && ms <= 520, `the speed (${ms} ms) is not “in between normal (220) and slow motion (880)” — the gallery’s 460`);
+  assert.equal(ms, 700, `the speed (${ms} ms) is not the owner’s “0.7 seconds” (after trying normal · in between · slow on the gallery)`);
   const tw = raw('tailwind.config.ts');
   assert.match(tw, /'sn-pill': 'var\(--sn-pill-dur\)'/, '`duration-sn-pill` does not read the token');
   assert.match(tw, /'sn-spring': 'var\(--sn-pill-spring\)'/);

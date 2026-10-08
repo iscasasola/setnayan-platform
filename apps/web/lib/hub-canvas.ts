@@ -1328,14 +1328,41 @@ export function mainGroundPosition(focus: HubMainFocus | null | undefined): 'cen
 export const HUB_MAIN_SHADES = ['darker', 'dark', 'as-is', 'light', 'lighter'] as const;
 export type HubMainShade = (typeof HUB_MAIN_SHADES)[number];
 
+/**
+ * 🎚 THE FADE BAR'S POSITION (owner 2026-10-08, DECISION_LOG "LOOK › BACKGROUND, AMENDED": *"a line bar where it can
+ * fade to white or fade to black · fade to white drag line bar to right · fade to black drag to left · snap to
+ * center"*). The same `shade` key also holds a whole number, −100…100: left of 0 the page's INK is laid over the
+ * picture (at least |n| %), right of 0 the page's PAPER (at least n %). 0 is "as is" and is NEVER stored (absent).
+ * A format extension — the four words stored before the bar keep reading, at the positions `HUB_MAIN_SHADE_AT`
+ * gives them, and are never rewritten.
+ */
+export const HUB_MAIN_FADE_MIN = -100;
+export const HUB_MAIN_FADE_MAX = 100;
+/** Where each stored word sits on the bar. */
+export const HUB_MAIN_SHADE_AT: Readonly<Record<HubMainShade, number>> = { darker: -70, dark: -45, 'as-is': 0, light: 45, lighter: 70 };
+/** What `shade` may hold: one of the four words, or a bar position (a non-zero whole number, −100…100). */
+export type HubMainShadeValue = Exclude<HubMainShade, 'as-is'> | number;
+
+/** A raw value → what may be stored, or undefined (unknown, out of range, a fraction, "as is", 0). */
+export function sanitizeHubMainShade(raw: unknown): HubMainShadeValue | undefined {
+  if (typeof raw === 'string') return raw !== 'as-is' && (HUB_MAIN_SHADES as readonly string[]).includes(raw) ? (raw as Exclude<HubMainShade, 'as-is'>) : undefined;
+  if (typeof raw !== 'number' || !Number.isInteger(raw) || raw === 0) return undefined;
+  return raw >= HUB_MAIN_FADE_MIN && raw <= HUB_MAIN_FADE_MAX ? raw : undefined;
+}
+
+/** The bar position a stored `shade` reads at — a word at its place, a number as it is, nothing = 0 (as is). */
+export function hubMainFadeAt(shade: HubMainShadeValue | null | undefined): number {
+  if (typeof shade === 'number') return shade;
+  return shade ? HUB_MAIN_SHADE_AT[shade] : 0;
+}
+
 /** The extras a footage ground carries. */
-export type HubMainLook = { shade?: Exclude<HubMainShade, 'as-is'>; blur?: HubMainBlur; focus?: HubMainFocus };
+export type HubMainLook = { shade?: HubMainShadeValue; blur?: HubMainBlur; focus?: HubMainFocus };
 
 function readMainLook(src: Record<string, unknown>, allow: { focus: boolean }): HubMainLook {
   const out: HubMainLook = {};
-  if (typeof src.shade === 'string' && src.shade !== 'as-is' && (HUB_MAIN_SHADES as readonly string[]).includes(src.shade)) {
-    out.shade = src.shade as Exclude<HubMainShade, 'as-is'>;
-  }
+  const shade = sanitizeHubMainShade(src.shade);
+  if (shade !== undefined) out.shade = shade;
   if (typeof src.blur === 'string' && (HUB_MAIN_BLURS as readonly string[]).includes(src.blur)) out.blur = src.blur as HubMainBlur;
   if (allow.focus && typeof src.focus === 'string' && (HUB_MAIN_FOCUSES as readonly string[]).includes(src.focus)) {
     out.focus = src.focus as HubMainFocus;

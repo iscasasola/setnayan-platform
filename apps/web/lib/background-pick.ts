@@ -263,7 +263,8 @@ export function backgroundLayOf(
  *   · a picture's TINT when the panel cannot say whether the buttons are the couple's own (`canTint`).
  */
 export function backgroundPickRedraws(prev: LookGround, next: LookGround, canTint: boolean): boolean {
-  const shade = (g: LookGround) => (g.main as { shade?: string } | null)?.shade ?? null;
+  /* A stored word, or the fade bar's position (a non-zero number) — either is a veil the server measures. */
+  const shade = (g: LookGround) => (g.main as { shade?: string | number } | null)?.shade ?? null;
   const drifts = (g: LookGround) => isHubMainOwn(g.main) && g.main.motion === 'parallax';
   if ((prev.art ?? null) !== (next.art ?? null)) return true;
   if ((prev.bg ?? null) !== (next.bg ?? null)) return true;

@@ -33,6 +33,20 @@ test('each extra is kept only where it means something', () => {
   assert.equal(sanitizeHubMainGround({ ground: 'pattern', pattern: 'paisley' }), null, 'an unknown pattern is dropped, never guessed');
   const asIs = sanitizeHubMainGround({ kind: 'photo', media: 'r2://setnayan-media/events/E1/main-background/c.jpg', shade: 'as-is', blur: 'huge' });
   assert.ok(asIs && !('shade' in asIs) && !('blur' in asIs), '"As is" and an unknown blur are never stored');
+  // 🎚 The fade bar's position (owner 2026-10-08): a whole number, −100…100, in the same key. 0 is "as is" and is never stored.
+  const PHOTO = { kind: 'photo', media: 'r2://setnayan-media/events/E1/main-background/c.jpg', tint: TINT };
+  const shadeOf = (shade: unknown) => {
+    const m = sanitizeHubMainGround({ ...PHOTO, shade });
+    return m && 'shade' in m ? m.shade : undefined;
+  };
+  for (const n of [-100, -70, -9, -1, 1, 45, 60, 100]) assert.equal(shadeOf(n), n, `${n} is not stored as it is`);
+  for (const word of ['darker', 'dark', 'light', 'lighter']) assert.equal(shadeOf(word), word, `a stored “${word}” no longer reads`);
+  for (const junk of [0, -0, 101, -101, 12.5, NaN, Infinity, '60', 'as-is', 'dusk', null, true, [60], { n: 60 }]) {
+    assert.equal(shadeOf(junk), undefined, `${JSON.stringify(junk)} was stored as a fade`);
+  }
+  assert.equal((sanitizeHubMainGround({ ground: 'loop', loop: 'velvet', shade: -35 }) as { shade?: unknown }).shade, -35, 'a loop of ours takes no fade');
+  assert.deepEqual(sanitizeHubMainGround({ ground: 'none', shade: 60 }), { ground: 'none' }, 'the plain colour takes no fade');
+  assert.deepEqual(sanitizeHubMainGround({ ground: 'pattern', pattern: 'dots', shade: 60 }), { ground: 'pattern', pattern: 'dots' });
   assert.deepEqual(hubMainTakes({ ground: 'none' }), { shade: false, blur: false, focus: false });
   assert.deepEqual(hubMainTakes(photo), { shade: true, blur: true, focus: true });
 });

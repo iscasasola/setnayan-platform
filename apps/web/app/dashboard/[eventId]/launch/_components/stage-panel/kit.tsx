@@ -134,9 +134,10 @@ export function About({ label, children }: { label: string; children: ReactNode 
 export function PanelSwitch({ on, label, onChange, data }: { on: boolean; label: string; onChange: (on: boolean) => void; data: string }) {
   return (
     <button type="button" role="switch" aria-checked={on} aria-label={label} data-stage-switch={data} onClick={() => onChange(!on)} className={SP_SWITCH}>
-      <span aria-hidden className={`relative h-8 w-[54px] rounded-full transition-colors duration-200 ${on ? 'bg-[var(--sp-ok)]' : 'bg-[var(--sp-line2)]'}`}>
+      {/* The app's ONE switch look (`.sn-switch`, globals.css — owner 2026-10-08: "switch is teracota or greyed out"). */}
+      <span aria-hidden data-on={on} className="sn-switch relative h-8 w-[54px] rounded-full">
         <span
-          className={`absolute top-[3px] h-[26px] w-[26px] rounded-full bg-white shadow-[0_1px_2px_rgba(0,0,0,.25)] transition-[left] duration-200 ${on ? 'left-[25px]' : 'left-[3px]'}`}
+          className={`sn-switch-knob absolute top-[3px] h-[26px] w-[26px] rounded-full bg-white shadow-[0_1px_2px_rgba(0,0,0,.25)] transition-[left] ${on ? 'left-[25px]' : 'left-[3px]'}`}
         />
       </span>
     </button>

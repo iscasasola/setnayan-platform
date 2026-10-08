@@ -3,7 +3,7 @@
 import { HUB_DRAFT_BAR_FIELD, makerRedrawSave, makerSave } from '@/lib/maker-refresh';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from 'react';
-import { Check } from 'lucide-react';
+import { Check, Undo2 } from 'lucide-react';
 import { FileUpload } from '@/app/_components/file-upload';
 import { extractPosterFrame } from '../../../_components/std-media-picker';
 import { hubDraftAction } from '../../hub-draft-actions';
@@ -28,18 +28,14 @@ import {
   type HubMainGround,
   type HubMainOwn,
 } from '@/lib/hub-canvas';
-import { MAIN_GROUND_SHADES, MAIN_GROUND_SHADE_LABEL } from '@/lib/main-ground-shade';
 import { patternCardSwatch } from '@/lib/main-ground-pattern-cards';
 import { BACKGROUND_EFFECTS, BACKGROUND_EFFECT_LABEL, backgroundPlainOffered, encodeBackgroundChoice, ombreLook, parseSiteBackground, type BackgroundEffect } from '@/lib/ombre';
 import {
   BACKGROUND_MAIN_INFO,
-  BACKGROUND_SHADE_CANDLELIGHT,
   BACKGROUND_SHADE_CANDLELIGHT_LABEL,
   backgroundSourcesOffered,
   BACKGROUND_SOURCE_IS_PRO,
   BACKGROUND_SOURCE_LABEL,
-  backgroundShadeValue,
-  backgroundShadeWrite,
   backgroundSourceOf,
   coverCardShows,
   backgroundWritePatch,
@@ -47,11 +43,13 @@ import {
   type BackgroundWrite,
 } from '@/lib/background-source';
 import { MAIN_COLOUR_SLOTS as MOOD_COLOUR_NAMES } from '@/lib/colour-access';
-import { STUDIO_ROW_PICK } from '@/lib/studio-skin';
+import { STUDIO_ROW, STUDIO_ROW_PICK } from '@/lib/studio-skin';
 import { InfoTip } from '@/app/_components/info-tip';
 import { StudioColourField } from '../../../launch/_components/studio-colour-field';
 import { BgCard, BgCards, BgPickLine, BgRow, LoopPicture, UploadPicture } from './background-cards';
 import { BgColourWells } from './background-colour-wells';
+import { BgFadeBar } from './background-fade-bar';
+import { fadeMain, fadeOf } from '@/lib/background-fade';
 import {
   BACKGROUND_PICK_CANVAS_WAIT_MS,
   BACKGROUND_PICK_FAILED,
@@ -888,16 +886,11 @@ export function MainBackgroundPanel({
        Every other card is held at its centre: that is how the page would wear it the moment it is picked. */
     const heldAt = mainGroundPosition(takes.focus ? (extra('focus') as HubMainFocus | null) : null);
     const held = (isOn: boolean | null | undefined) => (isOn ? { position: heldAt } : {});
-    const shadeNow = backgroundShadeValue({ art, shade: takes.shade ? extra('shade') : null });
-    /** ONE list, one pick: a veil step is worn INSTEAD of Candlelight, and Candlelight instead of a veil. */
-    const pickShade = (k: string) => {
-      const w = backgroundShadeWrite(k, { art, shade: extra('shade'), takesShade: takes.shade && Boolean(current) });
-      if (!w) return;
-      const write: LookWrite = {};
-      if (w.art) write.events = { site_art_direction: w.art };
-      if (w.stepMoves) write.main = withExtra('shade', w.step);
-      pickLook(write, FAILED);
-    };
+    /* 🎚 THE FADE BAR (owner 2026-10-08: *"a line bar where it can fade to white or fade to black … snap to center"*) —
+       ONE bar where Shade ▾ was, on a background that has a picture (`takes.shade`). While the thumb moves, the sample
+       screen wears each position (no write); the ONE write is the release. */
+    const fadeAt = takes.shade ? fadeOf(current) : 0;
+    const fadeTo = (at: number) => (current ? fadeMain(current, at) : current);
     const listed =
       own &&
       (isStdLibrarySrc(own.media) ||
@@ -1158,22 +1151,39 @@ export function MainBackgroundPanel({
           </BgRow>
         ) : null}
 
+        {/* 🕯 CANDLELIGHT IS NO LONGER OFFERED (owner 2026-10-08: *"remove candlelight"*) — the Pattern rule: an event
+            that already wears it keeps wearing it, is told so by name, and can turn it off here in one tap (an absent
+            field would leave it on, so "off" says Daylight out loud). Nothing in Look can turn it on. */}
+        {art === 'candlelight' ? (
+          <div data-bg-kept="candlelight" className={`${STUDIO_ROW} justify-between`}>
+            <span className="flex min-w-0 flex-1 flex-col leading-tight">
+              <span className="text-[14px] text-ink">
+                Showing <b className="font-semibold">{BACKGROUND_SHADE_CANDLELIGHT_LABEL}</b>
+              </span>
+              <small className="text-[11.5px] text-ink/55">An older look — it stays until you turn it off</small>
+            </span>
+            <button
+              type="button"
+              data-bg-candlelight-off=""
+              onClick={() => pickLook({ events: { site_art_direction: 'daylight' } }, FAILED)}
+              className="sn-press relative inline-flex h-8 min-h-0 shrink-0 items-center gap-1.5 rounded-full bg-white px-3 text-[12.5px] font-semibold text-ink ring-1 ring-ink/15 after:absolute after:-inset-y-1.5 after:inset-x-0 after:content-['']"
+            >
+              <Undo2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+              Turn off
+            </button>
+          </div>
+        ) : null}
         {active ? (
           <>
-            <BgRow label="Shade" data="shade" info="Darkens or lightens the background so the words stay clear. The words turn light on a dark shade.">
-              <PickMenu
-                label="Shade"
-                dataAttr="data-studio-shade-pick"
-                className={STUDIO_ROW_PICK}
-                value={shadeNow}
-                options={[
-                  /* A flat colour or a pattern has no picture to veil — there the list is As is and Candlelight. */
-                  ...MAIN_GROUND_SHADES.filter((k) => takes.shade || k === 'as-is').map((k) => ({ key: k, label: MAIN_GROUND_SHADE_LABEL[k] })),
-                  { key: BACKGROUND_SHADE_CANDLELIGHT, label: BACKGROUND_SHADE_CANDLELIGHT_LABEL, ...(proOn ? { trail: PRO_TRAIL } : {}) },
-                ]}
-                onPick={pickShade}
+            {takes.shade && current ? (
+              <BgFadeBar
+                value={fadeAt}
+                /* Each position, on the sample screen at once — drawn in the browser, nothing saved. */
+                onMove={(at) => tellLookSample(eventId, { main: fadeTo(at) })}
+                /* The release: ONE draft write (0 is "as is": the key is taken off, never stored). */
+                onCommit={(at) => pickLook({ main: fadeTo(at) }, FAILED)}
               />
-            </BgRow>
+            ) : null}
             {own?.kind === 'photo' ? (
               <BgRow label="Motion" data="motion" info="Parallax: the picture moves a little slower than the page as guests scroll. Off under “reduce motion”.">
                 <PickMenu

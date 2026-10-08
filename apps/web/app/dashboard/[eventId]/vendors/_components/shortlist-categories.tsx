@@ -34,6 +34,7 @@ import {
   useTransition,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { loadSelfAddedSupplier, type SelfAddedSupplierPrefill } from '../actions';
@@ -102,6 +103,9 @@ import { isExploreReplanEnabled } from '@/lib/explore-replan-flag';
 import { benchFolderAnchorId, benchTileAnchorId, scrollBenchAnchor } from '@/lib/bench-anchors';
 import { benchSearchScopeForTile } from '@/lib/bench-category-search';
 import { CategorySearchOverlay } from './category-search-overlay';
+import { FindThumbRow } from './find-thumb-row';
+import { isCategoryOpen } from '@/lib/suppliers-shell';
+import { Sheet } from '@/app/_components/sheet';
 import { cardDates, dateOutcome, type CardDates, type DateOutcome } from '@/lib/card-dates';
 import { formatDayKeyLabel } from '@/lib/build-date-window';
 import {
@@ -1775,6 +1779,14 @@ export function ShortlistCategories({
     deepLinkFolder ? initialOpenTile : null,
   );
   // The category whose "Add manually" modal is open (every category has Find + Add).
+  // ── FIND'S THUMB ROW (owner 2026-10-07 evening · `find-thumb-row.tsx`) ────
+  // "Expand all" opens every category; a tap on a header then folds JUST that
+  // one (`folded`); "Collapse all" closes them. The one-open-at-a-time state
+  // above is untouched — it is what a header tap means while not all are open.
+  const [openAll, setOpenAll] = useState(false);
+  const [folded, setFolded] = useState<ReadonlySet<string>>(() => new Set());
+  // "＋ Add your own" with no category open asks which one FIRST.
+  const [addAsk, setAddAsk] = useState(false);
   const [manual, setManual] = useState<{ category: string; label: string } | null>(null);
   // ── In-place category search (2026-07-29) ─────────────────────────────────
   // Owner: "clicking find more doesn't search specifically for that category.
@@ -2350,6 +2362,38 @@ export function ShortlistCategories({
   const RING_R = 13.5;
   const RING_C = 2 * Math.PI * RING_R;
 
+  /** A header tap while every category is open folds, or re-opens, just that one. */
+  function toggleFolded(tile: string) {
+    setFolded((cur) => {
+      const next = new Set(cur);
+      if (next.has(tile)) next.delete(tile);
+      else next.add(tile);
+      return next;
+    });
+  }
+  /** ⇕ Expand all / Collapse all — as the prototype: a clean slate each way, from the top. */
+  function toggleOpenAll() {
+    setFolded(new Set());
+    setOpenAll((on) => {
+      if (on) {
+        setOpenFolder(null);
+        setOpenTile(null);
+      }
+      return !on;
+    });
+    window.scrollTo({ top: 0 });
+  }
+  /** The rows on the bench — what "the categories on your event" means here. */
+  const benchRows = folders.flatMap((f) =>
+    f.tiles.filter((t) => !inPlanTiles || inPlanTiles.has(t.tile)).map((t) => ({ t, group: f.label })),
+  );
+  /** ＋ Add your own: straight into the ONE open category; otherwise ask which first. */
+  function addYourOwn() {
+    const open = !openAll && !searching && openTile ? benchRows.find((r) => r.t.tile === openTile) : null;
+    if (open) setManual({ category: open.t.category, label: open.t.label });
+    else setAddAsk(true);
+  }
+
   function openPlan(folder: string, tile: string, slug: string) {
     setOpenFolder(folder);
     setOpenTile(tile);
@@ -2785,6 +2829,7 @@ export function ShortlistCategories({
           className="border border-ink/15"
         />
       </div>
+      {replan ? null : (
       <div className="bench-search">
         <Search size={16} strokeWidth={1.75} aria-hidden />
         <input
@@ -2800,6 +2845,7 @@ export function ShortlistCategories({
           </button>
         ) : null}
       </div>
+      )}
       {searching && (mktLoading || mktResults.length > 0) ? (
         <div className="bench-mkt-results">
           <div className="bmr-head">From the whole marketplace</div>
@@ -2854,7 +2900,7 @@ export function ShortlistCategories({
         </div>
       ) : null}
       {visibleFolders.map((folder) => {
-        const folderOpen = searching || openFolder === folder.folder;
+        const folderOpen = searching || openAll || openFolder === folder.folder;
         // Folder-head summary (Explore Replan PR-B · decision #8). Computed over
         // the FULL folder (not the search-filtered slice) so the numbers stay
         // true while a query narrows the visible rows.
@@ -2886,6 +2932,9 @@ export function ShortlistCategories({
               aria-expanded={folderOpen}
               style={{ flex: 1, minWidth: 0 }}
               onClick={() => {
+                // With every category open, a folder head leaves them so:
+                // "Collapse all" is the control that closes them.
+                if (openAll) return;
                 setOpenFolder(folderOpen ? null : folder.folder);
                 setOpenTile(null);
               }}
@@ -2956,7 +3005,7 @@ export function ShortlistCategories({
             <div className="fold-collapse">
               <div className="fold-body">
                 {rowTiles.map((t) => {
-                  const tileOpen = searching || openTile === t.tile;
+                  const tileOpen = isCategoryOpen({ tile: t.tile, searching, openTile, openAll, folded });
                   const coveredGroup = coveredByTile[t.tile] ?? null;
                   // Phase 1b PR-4 — the leaf canonical with a saved requirements
                   // row for this tile (if any) drives the "saved request" icon.
@@ -3095,7 +3144,7 @@ export function ShortlistCategories({
                           type="button"
                           className="cat-head"
                           aria-expanded={tileOpen}
-                          onClick={() => setOpenTile(tileOpen ? null : t.tile)}
+                          onClick={() => (openAll ? toggleFolded(t.tile) : setOpenTile(tileOpen ? null : t.tile))}
                           style={{ flex: 1, minWidth: 0 }}
                         >
                           {/* Visual parity 2026-07-28 — a glyph per leaf row,
@@ -3644,6 +3693,49 @@ export function ShortlistCategories({
           </section>
         );
       })}
+      {/* FIND'S THUMB ROW — expand / collapse all · search · add your own. The
+          three controls are the bench's own; the row is only where they live
+          now (the search box used to sit above the folders). */}
+      {replan ? (
+        <FindThumbRow
+          allOpen={openAll}
+          onToggleAll={toggleOpenAll}
+          scope="all suppliers"
+          onSearch={setQuery}
+          onAdd={addYourOwn}
+        />
+      ) : null}
+      {/* "＋ Add your own" with no category open: which category, first — ONE
+          dropdown of ONLY the categories on the event (owner 2026-10-07: *"it
+          should only show on the existing categories, not all"*). A new
+          category is added under the list first. Drawn into <body>, like every
+          sheet here: the page wrapper captures `position: fixed`. */}
+      {addAsk && typeof document !== 'undefined'
+        ? createPortal(
+            <Sheet open onClose={() => setAddAsk(false)} labelledById="add-own-ask" title="Add your own">
+              <div className="space-y-3 px-1 pb-4">
+                <p id="add-own-ask" className="text-sm text-ink/70">
+                  What they do
+                </p>
+                <PickMenu
+                  label="What they do"
+                  value={null}
+                  buttonText="Pick a category"
+                  dataAttr="data-add-own-category"
+                  stickyGroups
+                  options={benchRows.map(({ t, group }) => ({ key: t.tile, label: t.label, group }))}
+                  onPick={(tile) => {
+                    const row = benchRows.find((r) => r.t.tile === tile);
+                    setAddAsk(false);
+                    if (row) setManual({ category: row.t.category, label: row.t.label });
+                  }}
+                  className="w-full border border-ink/15"
+                />
+              </div>
+            </Sheet>,
+            document.body,
+          )
+        : null}
       {manual ? (
         <NewManualVendorModal
           eventId={eventId}

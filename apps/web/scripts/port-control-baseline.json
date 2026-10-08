@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "895430597",
+  "generatedFromRef": "b5bb86507",
   "routeCount": 428,
   "destinations": 953,
   "actions": 671,
-  "blocks": 5648,
+  "blocks": 5652,
   "routes": {
     "/": {
       "files": [
@@ -8680,6 +8680,7 @@
         "dashboard/[eventId]/vendors/_components/category-search-overlay.tsx",
         "dashboard/[eventId]/vendors/_components/contact-shortlist-vendor-button.tsx",
         "dashboard/[eventId]/vendors/_components/date-place-line.tsx",
+        "dashboard/[eventId]/vendors/_components/find-thumb-row.tsx",
         "dashboard/[eventId]/vendors/_components/lock-milestone.tsx",
         "dashboard/[eventId]/vendors/_components/merkado-budget-lens.tsx",
         "dashboard/[eventId]/vendors/_components/merkado-guard-banner.tsx",
@@ -8691,6 +8692,7 @@
         "dashboard/[eventId]/vendors/_components/self-added-price.tsx",
         "dashboard/[eventId]/vendors/_components/services-takeover.tsx",
         "dashboard/[eventId]/vendors/_components/shortlist-categories.tsx",
+        "dashboard/[eventId]/vendors/_components/suppliers-mode.tsx",
         "dashboard/[eventId]/vendors/_components/team-controls.tsx",
         "dashboard/[eventId]/vendors/_components/team-rows.tsx",
         "dashboard/[eventId]/vendors/_components/trusted-circle-badge.tsx",
@@ -8778,6 +8780,7 @@
         "FallbackPanel",
         "FillableCategory",
         "FinalizeVendorResult",
+        "FindThumbRow",
         "FitBadges",
         "FolderIcon",
         "FolderSection",
@@ -8843,6 +8846,7 @@
         "ServiceOpenOverlay",
         "ServiceSection",
         "ServicesTakeover",
+        "Sheet",
         "ShortlistCategories",
         "SlotPickerModal",
         "StartServiceInquiryResult",
@@ -8850,6 +8854,8 @@
         "SuccessToast",
         "SupplierInviteView",
         "SuppliersMode",
+        "SuppliersModeContext.Provider",
+        "SuppliersModeState",
         "TeamClearCandidates",
         "TeamDecisionDoorway",
         "TeamRemoveCandidate",

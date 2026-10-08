@@ -40,7 +40,7 @@
  * the only inbox door.
  */
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { flushSync } from 'react-dom';
 import Link from 'next/link';
 import { Info, Sparkles, X } from 'lucide-react';
@@ -75,6 +75,7 @@ import {
   EXPLORE_STATE_LEGEND,
 } from '@/lib/explore-info-copy';
 import { BuildCart } from './build-cart';
+import { SuppliersModeContext, THUMB_SLIDE_MS } from './suppliers-mode';
 
 // The cross-tab bus (BB_TAB_EVENT + goToBuildTab) and TAB_META live in
 // @/lib/budget-build (2026-06-16) so the layout-mounted nav shares them without
@@ -105,6 +106,14 @@ const SECTION_HEADING: Record<BudgetBuildTab, string> = {
 const LANDING_CSS =
   '[data-budget-build-takeover] .slcat [id^="slfold-"],[data-budget-build-takeover] .slcat [id^="sltile-"]{scroll-margin-top:calc(var(--stick-h,150px) + 14px)}' +
   '[data-budget-build-takeover] [id^="svc-"]{scroll-margin-top:calc(var(--stick-h,150px) + 8px)}';
+
+function prefersReducedMotion(): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  );
+}
 
 export function ServicesTakeover({
   eventId,
@@ -151,6 +160,21 @@ export function ServicesTakeover({
   const rootRef = useRef<HTMLElement>(null);
   const stickRef = useRef<HTMLDivElement>(null);
 
+  // ── A BODY'S FLOATING ROW LEAVES FIRST (BUTTON_RULE rule 5) ───────────────
+  // Find draws a thumb row into <body> (`find-thumb-row.tsx`). It says here
+  // whether it is up (`thumbUp`); when the couple asks for another body while
+  // it is, the shell says `leaving`, the row slides down, and only then does
+  // the body swap. No row up → no wait.
+  const thumbUp = useRef(false);
+  const [leaving, setLeaving] = useState(false);
+  const leaveTimer = useRef<number | null>(null);
+  useEffect(
+    () => () => {
+      if (leaveTimer.current != null) window.clearTimeout(leaveTimer.current);
+    },
+    [],
+  );
+
   // ── ONE DOOR INTO A SECTION: the segmented control, the bus, `?tab=` ─────
   const goToSection = useCallback((next: BudgetBuildTab, smooth = true) => {
     const nextMode = suppliersModeOfTab(next);
@@ -170,15 +194,28 @@ export function ServicesTakeover({
       }
       document.getElementById(sectionId(next))?.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'start' });
     };
-    modeRef.current = nextMode;
-    // Committed NOW, not on the next render: a caller that scrolls to a row of
-    // the body it just asked for (the Build body's "open this category"
-    // doorway → the bench) must find that body on screen.
-    flushSync(() => {
-      setMode(nextMode);
-      setSeen((s) => (s.has(nextMode) ? s : new Set(s).add(nextMode)));
-    });
-    land();
+    const swap = () => {
+      leaveTimer.current = null;
+      modeRef.current = nextMode;
+      // Committed NOW, not on the next render: a caller that scrolls to a row
+      // of the body it just asked for (the Build body's "open this category"
+      // doorway → the bench) must find that body on screen.
+      flushSync(() => {
+        setMode(nextMode);
+        setSeen((s) => (s.has(nextMode) ? s : new Set(s).add(nextMode)));
+        // The wait is over — and a second press on the body being left ends it
+        // too, so its row comes back up.
+        setLeaving(false);
+      });
+      land();
+    };
+    if (leaveTimer.current != null) window.clearTimeout(leaveTimer.current);
+    if (nextMode !== modeRef.current && thumbUp.current && !prefersReducedMotion()) {
+      setLeaving(true);
+      leaveTimer.current = window.setTimeout(swap, THUMB_SLIDE_MS);
+      return;
+    }
+    swap();
   }, []);
 
   // `?tab=` may have been written (replaceState) while this page was still
@@ -249,6 +286,7 @@ export function ServicesTakeover({
   }, []);
 
   const drawn = (m: SuppliersMode) => m === mode || seen.has(m);
+  const modeState = useMemo(() => ({ mode, leaving, thumbUp }), [mode, leaving]);
 
   return (
     /* 🔴 THE APP'S TOP BAR STAYS ON SUPPLIERS (owner 2026-10-05). This section
@@ -310,10 +348,12 @@ export function ServicesTakeover({
 
       {/* ── ONE BODY ────────────────────────────────────────────────────────
           One column at every width (the prototype's 820 px on a computer). */}
+      <SuppliersModeContext.Provider value={modeState}>
       <div className="min-w-0 pt-4 lg:max-w-[820px]">
         {drawn('find') ? (
           <div data-suppliers-body="find" hidden={mode !== 'find'}>
-            <div>
+            {/* Room for Find's thumb row, so the last row is never under it. */}
+            <div className="max-lg:pb-16">
               {/* ONE Find a supplier opens the Find page — only this event
                   type's categories, grouped the way hosts think (P3,
                   2026-10-01). PR2 unfolds that marketplace in place. */}
@@ -376,6 +416,7 @@ export function ServicesTakeover({
           </div>
         ) : null}
       </div>
+      </SuppliersModeContext.Provider>
 
       <BuildCart tally={tally} />
     </section>

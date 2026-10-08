@@ -116,6 +116,28 @@ export function tallyHasMoney(t: Pick<BuildTally, 'knownPhp'>): boolean {
   return t.knownPhp > 0;
 }
 
+/* ── FIND: WHICH CATEGORIES ARE OPEN ─────────────────────────────────────── */
+
+/**
+ * Is this category's row open? (Find's thumb row, owner 2026-10-07 evening.)
+ *
+ *   · searching        every row with a hit is open — the hits unfold by themselves;
+ *   · "Expand all"     every row is open, EXCEPT the ones folded by a tap on
+ *                      their own header since;
+ *   · otherwise        the one row the couple opened.
+ */
+export function isCategoryOpen(s: {
+  tile: string;
+  searching: boolean;
+  openTile: string | null;
+  openAll: boolean;
+  folded: ReadonlySet<string>;
+}): boolean {
+  if (s.searching) return true;
+  if (s.openAll) return !s.folded.has(s.tile);
+  return s.openTile === s.tile;
+}
+
 /* ── THE DATE · PLACE LINE ───────────────────────────────────────────────── */
 
 export type SuppliersFact = {

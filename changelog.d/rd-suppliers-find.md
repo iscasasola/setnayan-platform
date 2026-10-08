@@ -108,9 +108,33 @@ row drops its words as one (`useFitRow`).
 - **Pay** on a card is the Booked row's own link (`teamRows`), passed down; a
   booked supplier with nothing due shows "Payments".
 
-**Still to come in PR2a:** service cards (the `ServiceCardFace` shape), "More to
-compare" always on with a count and its own sort, the supplier sheet.
-`＋ Add "…"` with the typed name and the record sheet are 2b.
+## 2026-10-08 · feat(suppliers): a card in a row is the supplier's service card (Suppliers PR2a)
+
+Inside a category row the couple's suppliers are now a LIST of service cards
+(the `ServiceCardFace` shape — 80×112 cover, the service's name and running
+offer, who and where, the price, what is included and what is not), with the
+verb row across the foot. Nothing the bench card said was taken away: the
+corner, the reason pill, the badges, the fit badges, the recorded price, the
+free-dates line and the standing sentence are the same elements, re-arranged
+under `.fold.flat` only. The pre-replan bench is untouched.
+
+- **One derivation of the price.** `lib/bench-service-card.ts` asks
+  `snapshotFromService` (what the supplier's own list and the chat card read)
+  and only WITHHOLDS: a shop that hides its prices publicly shows no peso
+  figure here either (no price, no offer pill, no "₱X free", no transport fee);
+  an offer that has ended is not advertised; no "Untitled service", no "from ₱—".
+- **The read** (`lib/bench-service-cards.ts`) rides the page's existing photo
+  pass — the service ids come from the couple's own RLS-scoped read of their
+  picks; only switched-on cards are returned; a failed read is `null`, and a
+  card then says nothing about a service card (never "Price on request").
+- The Setnayan gift line is the one shared sentence (`SetnayanGiftLine`).
+- On this page every card has verbs, so a card with no conversation no longer
+  renders bare (a booked supplier still gets Payments · Workspace).
+- +0 exported server actions · no migration.
+
+**Still to come in PR2a:** "More to compare" always on with a count and its own
+sort, the supplier sheet. `＋ Add "…"` with the typed name and the record sheet
+are 2b.
 
 SPEC IMPACT: None — builds the plan's PR2 thumb row as written; what is
 deferred to the next part is listed above and in the PR body.

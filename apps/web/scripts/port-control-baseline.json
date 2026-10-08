@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "5733ba34e",
+  "generatedFromRef": "7c710c451",
   "routeCount": 428,
   "destinations": 952,
   "actions": 671,
-  "blocks": 5704,
+  "blocks": 5707,
   "routes": {
     "/": {
       "files": [
@@ -8881,9 +8881,12 @@
         "SectionStub",
         "SelfAddedPrice",
         "SelfAddedSupplierPrefill",
+        "ServiceCardCtx.Provider",
+        "ServiceCardLook",
         "ServiceOpenOverlay",
         "ServiceSection",
         "ServicesTakeover",
+        "SetnayanGiftLine",
         "Sheet",
         "ShortlistCategories",
         "SlotPickerModal",

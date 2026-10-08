@@ -55,6 +55,8 @@ import {
   Plus,
   Lock,
   SlidersHorizontal,
+  Gift,
+  AlertCircle,
 } from 'lucide-react';
 import { formatPhp } from '@/lib/orders';
 import {
@@ -212,6 +214,8 @@ import {
   type TeamCalendarMember,
 } from '@/lib/build-date-window';
 import { BenchVendorActions } from './bench-vendor-actions';
+import { PRICE_ON_REQUEST, type BenchServiceCard } from '@/lib/bench-service-card';
+import { SetnayanGiftLine } from '@/app/_components/setnayan-gift-line';
 import { resolveReachBadge } from '@/lib/vendor-service-radius';
 import {
   RequirementsModal,
@@ -318,6 +322,53 @@ html.dark .slcat .fold.flat .cat.open>.cat-head-row{background:#17160F}
 .slcat .verb-err,.slcat .verb-ok{margin:4px 0 0;font-size:11.5px;line-height:1.35;color:var(--ink-soft)}
 .slcat .verb-err{color:rgb(var(--color-danger))}
 .slcat .verbs .verb-err,.slcat .verbs .verb-slot>p,.slcat .verbs .verb-slot>span{position:absolute;left:0;right:0;top:100%;margin:4px 0 0;font-size:11.5px;line-height:1.35}
+/* THE SERVICE CARD (owner 2026-10-07 · PR2) — inside a flat row the couple's
+   cards are a LIST of service cards, not a sideways rail: an 80×112 cover, the
+   service's name and offer, who and where, the price, what is included and what
+   is not; then every line the bench card already carried; then the verb row
+   across the foot. Same elements, same order of truth — only the arrangement
+   changes, and only under '.fold.flat'. */
+.slcat .fold.flat .rail{flex-direction:column;gap:8px;overflow:visible;scroll-snap-type:none;padding:4px 0}
+.slcat .fold.flat .vcw{flex:0 0 auto;width:100%;gap:8px;padding:12px;border:1px solid var(--line);border-radius:var(--m-r-md);background:var(--card)}
+.slcat .fold.flat .vcw>.vc{flex:0 0 auto;display:grid;grid-template-columns:80px minmax(0,1fr);gap:4px 12px;align-items:start;border:0;border-radius:0;background:none;overflow:visible}
+.slcat .fold.flat .vcw>.vc:hover{box-shadow:none}
+.slcat .fold.flat .vcw>.vc[data-inspector-selected='true']{box-shadow:none}
+.slcat .fold.flat .vcw:has(>.vc[data-inspector-selected='true']){border-color:transparent;box-shadow:0 0 0 2px var(--gold)}
+.slcat .fold.flat .vc .img{width:80px;height:112px;flex:none;border-radius:var(--m-r-sm);overflow:hidden}
+.slcat .fold.flat .vc .ini{font-size:22px}
+.slcat .fold.flat .vc .pcorner{top:auto;left:6px;right:6px;bottom:6px;padding:3px 4px;text-align:center}
+.slcat .fold.flat .vc .rpill{top:6px;left:6px;max-width:68px;padding:3px 6px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;display:block}
+.slcat .fold.flat .vc .meta{padding:0;flex-direction:row;flex-wrap:wrap;align-items:baseline;gap:3px 8px;min-width:0}
+.slcat .fold.flat .vc .meta>*{flex:0 0 100%;min-width:0}
+.slcat .fold.flat .vc .meta>.vn,.slcat .fold.flat .vc .meta>.unrd,.slcat .fold.flat .vc .meta>.sub,.slcat .fold.flat .vc .meta>.stars,.slcat .fold.flat .vc .meta>.sc-own{flex:0 1 auto}
+.slcat .fold.flat .vc .vn{font-weight:500;font-size:12px;color:var(--ink-soft)}
+.slcat .fold.flat .vc .price{margin-top:0;padding-top:0;font-size:15px}
+.slcat .fold.flat .vc .incl{margin-top:0;padding-top:0}
+.slcat .fold.flat .vc .stand{margin-top:2px}
+.slcat .sc-name{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-family:var(--sans);font-size:14px;font-weight:600;line-height:1.25;color:var(--ink);overflow-wrap:anywhere}
+.slcat .sc-disc{font-size:10px;font-weight:500;line-height:1.3;padding:2px 8px;border-radius:var(--m-r-full);background:rgba(46,125,79,.1);color:#1F5C39}
+.slcat .sc-own{font-size:11.5px;color:var(--ink-soft)}
+.slcat .sc-price{font-size:12.5px;font-weight:500;color:var(--m-orange-2,var(--gold-deep))}
+.slcat .sc-price.none{color:var(--ink-soft);font-weight:400}
+.slcat .sc-inc{display:flex;align-items:flex-start;gap:4px;font-size:11.5px;font-weight:500;line-height:1.35;color:#2e7d4f}
+.slcat .sc-inc>svg,.slcat .sc-not>svg{flex:none;margin-top:2px}
+.slcat .sc-not{display:flex;align-items:flex-start;gap:4px;font-size:11px;line-height:1.35;padding:3px 8px;border-radius:var(--m-r-xs);background:rgba(169,131,75,.16);color:#6F5A2E}
+.slcat .sc-gift{display:flex;align-items:center;gap:4px;margin:0;font-size:10.5px;line-height:1.35;color:var(--m-orange-2,var(--gold-deep))}
+html.dark .slcat .sc-disc{color:#7bc79a;background:rgba(46,125,79,.18)}
+html.dark .slcat .sc-inc{color:#7bc79a}
+html.dark .slcat .sc-not{color:#e2b968;background:rgba(169,131,75,.2)}
+/* The sunk tiers keep their labelled dividers — laid flat, as rules. */
+.slcat .fold.flat .raildiv{align-self:auto;padding:6px 0 0}
+.slcat .fold.flat .raildiv>span{display:block;width:100%;writing-mode:horizontal-tb;transform:none;border-left:0;border-top:0.5px solid rgba(169,131,75,.42);padding:7px 0 0}
+.slcat .fold.flat .raildiv.hard>span{border-top-color:rgba(194,78,37,.45)}
+.slcat .fold.flat .arrctl{justify-content:flex-start}
+.slcat .fold.flat .vcw .verbs{margin-top:0}
+/* What a press came back with sits under the verb row — give it room inside
+   the card instead of letting it fall onto the next one. */
+.slcat .fold.flat .vcw:has(.verbs .verb-err,.verbs .verb-slot>p,.verbs .verb-slot>span){padding-bottom:36px}
+/* The rail's two end tiles become one quiet line of two buttons. */
+.slcat .fold.flat .act{flex:0 0 auto;display:inline-flex}
+.slcat .fold.flat .act>*{min-height:40px;flex-direction:row;gap:6px;padding:0 14px;border-radius:var(--m-r-full)}
 /* ── Level 1 · folder card (collapsible) ── */
 .slcat .fold{margin:0 0 10px;background:var(--card);border:1px solid var(--edge);border-radius: var(--m-r-md);overflow:hidden;box-shadow:var(--edge-lift);transition:box-shadow .3s var(--ease),border-color .3s var(--ease)}
 .slcat .fold.open{box-shadow:var(--edge-lift-open);border-color:rgba(30,26,18,.28)}
@@ -1121,6 +1172,22 @@ const UnreadCtx = createContext<BenchUnread>(UNREAD_UNKNOWN);
  */
 const PayDueCtx = createContext<Readonly<Record<string, string>>>({});
 
+/**
+ * THE SERVICE CARD A BENCH CARD WEARS (owner 2026-10-07 · PR2). On the
+ * one-screen Suppliers page a card is the supplier's SERVICE CARD — cover,
+ * the service's name and running offer, the price, what is included and what
+ * is not — with everything the bench card already said kept under it.
+ *
+ *   `face`  — draw that shape. False (the default, and the pre-replan bench)
+ *             leaves every card exactly as it shipped.
+ *   `cards` — pick id → its card. `null` means the read FAILED: the card then
+ *             says nothing about a service card. It must never fall through to
+ *             "Price on request", which is a statement about the supplier.
+ */
+type ServiceCardLook = { face: boolean; cards: Readonly<Record<string, BenchServiceCard>> | null };
+const NO_SERVICE_CARDS: ServiceCardLook = { face: false, cards: null };
+const ServiceCardCtx = createContext<ServiceCardLook>(NO_SERVICE_CARDS);
+
 /** One supplier's unread count. Shows on linked copies too — see `bench-unread.ts`. */
 function UnreadBadge({ threadId }: { threadId: string | null }) {
   const n = cardUnread(useContext(UnreadCtx), threadId);
@@ -1213,6 +1280,9 @@ function VendorCard({
   // decides both the [Connect] button and this tap.
   const selfAdded = Boolean(actions?.connect);
   const payHrefs = useContext(PayDueCtx);
+  const look = useContext(ServiceCardCtx);
+  const svc = look.face ? (look.cards?.[v.vendorId] ?? null) : null;
+  const hasRecordedPrice = v.totalCostPhp != null && v.totalCostPhp > 0;
   const router = useRouter();
   const [detailsLoading, startDetails] = useTransition();
   const [details, setDetails] = useState<SelfAddedSupplierPrefill | null>(null);
@@ -1274,8 +1344,19 @@ function VendorCard({
         ) : null}
       </span>
       <span className="meta">
+        {/* The service's own name leads (the supplier's title, else the
+            category), with its running offer beside it. A card with no service
+            card — added by the couple, or not linked to one — is named by the
+            category it sits in. */}
+        {look.face ? (
+          <span className="sc-name">
+            {svc?.name ?? tileLabel}
+            {svc?.discountBadge ? <span className="sc-disc">{svc.discountBadge}</span> : null}
+          </span>
+        ) : null}
         <span className="vn">{v.name}</span>
         <UnreadBadge threadId={v.threadId} />
+        {look.face && selfAdded ? <span className="sc-own">added by you</span> : null}
         {v.city ? (
           <span className="sub">
             <MapPin size={11} strokeWidth={1.75} aria-hidden /> {v.city}
@@ -1311,6 +1392,32 @@ function VendorCard({
         {v.totalCostPhp != null && v.totalCostPhp > 0 ? (
           <span className="price">{formatPhp(v.totalCostPhp)}</span>
         ) : null}
+        {/* No price recorded with THIS couple yet → the service card's own
+            "from ₱X". Withheld by the shop, or never set → "Price on request",
+            and only when the cards were actually read. */}
+        {look.face && !hasRecordedPrice && !v.includedWith ? (
+          svc?.priceText ? (
+            <span className="sc-price">{svc.priceText}</span>
+          ) : selfAdded ? (
+            <span className="sc-price none">No price recorded</span>
+          ) : look.cards ? (
+            <span className="sc-price none">{PRICE_ON_REQUEST}</span>
+          ) : null
+        ) : null}
+        {svc?.includesLine ? (
+          <span className="sc-inc">
+            <Gift size={12} strokeWidth={1.75} aria-hidden />
+            <span>{svc.includesLine}</span>
+          </span>
+        ) : null}
+        {svc && svc.notIncluded.length > 0 ? (
+          <span className="sc-not">
+            <AlertCircle size={12} strokeWidth={1.75} aria-hidden />
+            <span>Not included: {svc.notIncluded.join(' · ')}</span>
+          </span>
+        ) : null}
+        {/* The one shared sentence — never re-typed, never a number. */}
+        {svc?.givesSetnayanGift ? <SetnayanGiftLine className="sc-gift" /> : null}
         {/* The same supplier, shown again in a category their package also
             covers. No price here by design — it is one booking with one price,
             which lives on the card in the category it was added under. */}
@@ -1337,9 +1444,13 @@ function VendorCard({
   // rendered, so the portal would have been missing on exactly the card it was
   // built for, while every resolver test passed. `bench-connect-reaches-the-card
   // .test.ts` pins this clause.
+  // ⚠ ON THE ONE-SCREEN PAGE EVERY CARD HAS VERBS (`cardVerbs` — a booked
+  // supplier with no conversation still gets Payments · Workspace, a saved one
+  // still gets Remove), so `look.face` never takes the bare branch.
   if (
     !actions ||
-    (!actions.build &&
+    (!look.face &&
+      !actions.build &&
       !actions.inquiry &&
       !actions.lockGroupId &&
       !actions.withdraw &&
@@ -1704,6 +1815,7 @@ export function ShortlistCategories({
   excludedTiles = [],
   starterTiles,
   payHrefByVendorId = NO_PAY_DUE,
+  serviceCardByVendorId = null,
   convergence = null,
   buildWindow = null,
   probeDayKeys = [],
@@ -1789,6 +1901,9 @@ export function ShortlistCategories({
   /** vendorId → the Pay link of a booked supplier with a payment due now
    *  (`PayDueCtx`). Absent → nobody is offered Pay from a card. */
   payHrefByVendorId?: Readonly<Record<string, string>>;
+  /** Pick id → the supplier's own service card. `null` = the read failed (or
+   *  the pre-replan bench, which draws none). */
+  serviceCardByVendorId?: Readonly<Record<string, BenchServiceCard>> | null;
   /**
    * Explore Replan PR-G1 — the build's shared-date convergence banner, resolved
    * server-side by `convergenceBanner`. Null = render nothing: an open window
@@ -2213,6 +2328,11 @@ export function ShortlistCategories({
   // the page already fetched for the plan model. No new query, no new schema.
   // While the flag is OFF none of it renders and the surface is unchanged.
   const replan = isExploreReplanEnabled();
+  // The one-screen page draws each card as the supplier's service card.
+  const serviceLook = useMemo<ServiceCardLook>(
+    () => ({ face: replan, cards: serviceCardByVendorId }),
+    [replan, serviceCardByVendorId],
+  );
   const buildPickSet = new Set(buildPickVendorIds);
   const plannedTileSet = new Set<string>(plannedList.map((p) => p.tile));
 
@@ -2810,6 +2930,7 @@ export function ShortlistCategories({
   return (
     <UnreadCtx.Provider value={benchUnread}>
     <PayDueCtx.Provider value={payHrefByVendorId}>
+    <ServiceCardCtx.Provider value={serviceLook}>
     <div className="slcat" ref={benchRef}>
       <style>{SLCAT_CSS}</style>
       {/* The remove confirm. It must live INSIDE the rendered tree or
@@ -3942,6 +4063,7 @@ export function ShortlistCategories({
         )
       ) : null}
     </div>
+    </ServiceCardCtx.Provider>
     </PayDueCtx.Provider>
     </UnreadCtx.Provider>
   );

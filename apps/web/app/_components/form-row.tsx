@@ -48,7 +48,8 @@ import { SWITCH_BUTTON, SwitchTrack } from './switch-track';
  *   · ONE row is open at a time;
  *   · closing is animated too: the field folds back to the right, the name slides back in from the left;
  *   · after a save lands the pencil shows a tick for a moment (no "Saved" word in the row);
- *   · a long message opens a taller box with large rounded corners under its name (Enter is a new line there);
+ *   · a long message opens a taller box with large rounded corners under its name — the ✕ on the name's line, at
+ *     the right, so it stays in view above the keyboard (Enter is a new line there);
  *   · an amount keeps its ₱;
  *   · an answer too long for its pill scrolls slowly to its end, rests one second, returns and repeats — its own
  *     strip moved with `transform`, only while on screen, stopped while the row is edited, still under "reduce
@@ -648,8 +649,13 @@ export function FormRowField({
   if (long) {
     return (
       <div ref={wrap} data-form-row-field="long" data-leaving={leaving ? '' : undefined} onAnimationEnd={gone} className="sn-row-field flex flex-col gap-2 pb-3 pt-2.5">
-        <span id={nameId} className="text-[12px] font-bold text-sn-accent">
-          {name}
+        {/* Its name on the left, the ✕ at the right of the SAME line — where every other row has it, and above the
+            box, so it stays on screen with the keyboard up (controller, 2026-10-08). */}
+        <span className="flex items-center justify-between gap-2">
+          <span id={nameId} className="min-w-0 text-[12px] font-bold text-sn-accent">
+            {name}
+          </span>
+          {x}
         </span>
         {/* The box IS the field: a message cannot be a pill, so it wears the large corner. */}
         <textarea
@@ -660,7 +666,6 @@ export function FormRowField({
           onChange={(e) => setText(e.target.value)}
           onKeyDown={onKeys}
         />
-        <span className="flex justify-end">{x}</span>
       </div>
     );
   }

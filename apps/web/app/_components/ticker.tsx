@@ -291,6 +291,9 @@ export function WhenTicker({
 export const TICKER_PILL_CLASS =
   'sn-press sn-press-ring inline-flex min-h-10 shrink-0 items-center justify-center whitespace-nowrap rounded-full bg-white px-2 text-[13px] font-semibold tabular-nums text-sn-accent ring-1 ring-inset ring-ink/15 aria-expanded:ring-sn-accent disabled:cursor-default disabled:text-ink/70';
 
+/** A pill that carries its widest values (`widest`): one column as wide as the widest, the value centred in it. */
+export const TICKER_PILL_FIT_CLASS = '!inline-grid grid-cols-1 content-center justify-items-center';
+
 /** This file's own phone sheet, for a surface that hands none in: dark and blurred behind, never taller than the screen. */
 function OwnSheet({ label, onClose, children }: { label: string; onClose: () => void; children: ReactNode }) {
   const panel = useRef<HTMLDivElement>(null);
@@ -386,6 +389,7 @@ export function TickerPill({
   onHeld,
   className = '',
   face,
+  widest,
   data,
   children,
 }: {
@@ -412,6 +416,14 @@ export function TickerPill({
   className?: string;
   /** A face other than the pill's (a picture square): the whole button's classes. */
   face?: string;
+  /**
+   * ↔ ONE WIDTH DOWN A LIST (owner 2026-10-08: every "when" pill in a list is the same width, so the names start on
+   * one line). The widest values this pill can ever show (`WIDEST_WHEN_WORDS` / `WIDEST_CLOCK_WORDS`, lib/timeline):
+   * they are carried inside the pill, unseen and with no height, in its own type — so the pill is as wide as the
+   * widest of them needs, measured by the browser, and the value sits centred. It can only GROW the pill: a value
+   * wider than all of them is still shown whole, never cut.
+   */
+  widest?: readonly string[];
   /** `data-ticker-pill="<data>"`. */
   data?: string;
   /** What the pop holds; `close` is its Done. */
@@ -463,9 +475,14 @@ export function TickerPill({
           if (!open) setAsSheet(window.innerWidth < TICKER_SHEET_BELOW_PX);
           setOpen(!open);
         }}
-        className={face ?? `${TICKER_PILL_CLASS} ${className}`}
+        className={face ?? `${TICKER_PILL_CLASS} ${widest?.length ? TICKER_PILL_FIT_CLASS : ''} ${className}`}
       >
         {text}
+        {widest?.map((w) => (
+          <span key={w} aria-hidden data-ticker-pill-fit="" className="invisible h-0 overflow-hidden">
+            {w}
+          </span>
+        ))}
       </button>
       {!open || typeof document === 'undefined'
         ? null

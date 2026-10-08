@@ -176,6 +176,18 @@ export function whenWords(w: TimelineWhen | null | undefined, long = false): str
   return w.d ? `${month} ${w.d}, ${w.y}` : `${month} ${w.y}`;
 }
 
+/**
+ * THE WIDEST A WHEN CAN READ — one for each month, as a full date ("Sep 20, 2000"). Every when pill in a LIST is
+ * as wide as the widest of these needs (owner 2026-10-08, on names that started at two different places down the
+ * Love Story list): the pill carries them, unseen, so the browser itself measures the width — no number is written
+ * anywhere, and a change of typeface keeps the list aligned. Digits are drawn at one width (`tabular-nums`), so any
+ * day and any year are as wide as these; a month alone, a year alone and "When" are narrower.
+ */
+export const WIDEST_WHEN_WORDS: readonly string[] = MONTH_NAMES.map((_, i) => whenWords({ y: 2000, m: i + 1, d: 20 }));
+
+/** …and the widest a clock time can read: a two-digit hour, in the morning and in the afternoon. */
+export const WIDEST_CLOCK_WORDS: readonly string[] = [clockWords(10 * 60), clockWords(22 * 60)];
+
 /** Sort key: a year alone sorts at the START of its year, a month at the start of its month. No when sorts first. */
 export function whenKey(w: TimelineWhen | null | undefined): number {
   if (!w) return -Infinity;

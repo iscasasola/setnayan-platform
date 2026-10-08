@@ -256,3 +256,33 @@ mechanism RUN with two readers on two stories (the change before is lost) and on
 one (it is kept); 2 sabotages seen red.
 
 SPEC IMPACT: None.
+
+## 2026-10-08 · fix(ui): down a list, every "when" pill is one width — the names start on one line
+
+Owner, on Studio › Love Story's ragged names (he asked what the controller
+recommends; the answer was aligned): the pill hugged its words — "2019" 72 px,
+"Feb 14, 2021" 91 px — so at 375 px "One umbrella" began at x = 92 and "Our first
+trip" at x = 111.
+
+A when pill is now as wide as the WIDEST value its control can show needs, the
+value centred in it; the name takes the rest; a pill never cuts its value. No
+width is written anywhere: `TickerPill` takes `widest` — the widest values the
+pill can read — and carries them inside its own button, unseen, with no height,
+in its own type, so the browser measures. `lib/timeline.ts` makes the lists from
+the formatters themselves: `WIDEST_WHEN_WORDS` (a full date in each of the
+twelve months) and `WIDEST_CLOCK_WORDS` (a two-digit hour, AM and PM); each
+wearer adds the word its pill reads before a value is set ("When" · "End").
+Digits are drawn at one width (`tabular-nums`), so any day and year are covered.
+
+Both wearers of the Timeline row use it: Studio › Love Story (the row and the new
+row) and Studio › Schedule (start and end). The Schedule's pills were already one
+width (72 px: every time fits the pill's floor) — see the report for what moved.
+
+Guard: `apps/web/lib/the-when-pills-are-one-width.test.ts` (4 tests; 16
+sabotages seen red) — the browser's arithmetic (a pill is as wide as the widest
+words it holds) RUN on painted rows under 200 made-up typefaces: a short when and
+a long one give the same pill width, so the same offset for the name.
+
+SPEC IMPACT: `INTERACTION_RULES.md` § 9 (Timeline row) should gain the ruling —
+"every when pill in a list is one width; the names start on one line" — the
+controller records it.

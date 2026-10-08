@@ -9,7 +9,7 @@ import { daysBetween, formatDateHeading, spanOf, toDatetimeLocal, wallDateKey } 
 import { fromDatetimeLocalValue } from '@/lib/schedule-datetime-local';
 import { readScheduleAudience } from '@/lib/schedule-audience';
 import { STUDIO_FOOT_BUTTON } from '@/lib/studio-skin';
-import { byStart, clockWords, moveStart, nextMomentSpan, overlapLine, overlapsAbove, pickEnd, spanLine, type TimeSpan } from '@/lib/timeline';
+import { WIDEST_CLOCK_WORDS, byStart, clockWords, moveStart, nextMomentSpan, overlapLine, overlapsAbove, pickEnd, spanLine, type TimeSpan } from '@/lib/timeline';
 import { PickSheetContext } from '../../website/editor/_components/pick-menu-place';
 import type { DayMoment } from './day-types';
 import { toFormData, useDayActions } from './day-ui';
@@ -188,6 +188,8 @@ function MomentRow({
             disabled={!canEdit}
             sheet={sheet}
             onClosed={writeRolled}
+            /* Every time in the list is one width, so the names start on one line. */
+            widest={MOMENT_TIME_WIDEST}
             className="min-w-[72px]"
           >
             {(close) => (
@@ -209,6 +211,7 @@ function MomentRow({
             disabled={!canEdit}
             sheet={sheet}
             onClosed={writeRolled}
+            widest={MOMENT_TIME_WIDEST}
             className={`min-w-[72px] ${hasEnd ? '' : '!text-ink/55'}`}
           >
             {(close) => (
@@ -245,6 +248,9 @@ function MomentRow({
     />
   );
 }
+
+/** Everything a moment's time pill can read at its widest: a two-digit hour, morning or afternoon — and "End", before one is set. */
+export const MOMENT_TIME_WIDEST: readonly string[] = [...WIDEST_CLOCK_WORDS, 'End'];
 
 /** The new moment before it is named: its times shown, its name open — on this screen only. */
 function NewMomentRow({ span, onKeep, onLeave }: { span: TimeSpan; onKeep: (text: string) => void; onLeave: () => void }) {

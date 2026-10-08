@@ -153,6 +153,10 @@ export function classifyStep(s) {
   if (/^pnpm install\b/.test(run)) return { tier: 'infra', why: 'install' };
   if (/^git fetch\b/.test(run)) return { tier: 'infra', why: 'fetches origin/main for the allocator rule' };
 
+  // These two read THIS CI RUN's own results (the jobs' outcomes, a shard's
+  // log). There is nothing for them to read on a builder's machine.
+  if (/\bscripts\/(ci-gate|ci-test-summary)\.mjs\b/.test(run)) return { tier: 'infra', why: "reads this CI run's own results" };
+
   if (BUILD_JOBS.has(s.job)) {
     return { tier: 'heavy', why: 'needs a production build (`next build` does not fit on the dev machine)' };
   }

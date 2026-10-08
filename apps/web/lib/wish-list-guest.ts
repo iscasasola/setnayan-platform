@@ -81,6 +81,28 @@ export function guestWishListFrom(
   return { read: true, wishes: [...view.filter((w) => !w.got), ...view.filter((w) => w.got)] };
 }
 
+/**
+ * THE LIST AFTER THIS READER'S OWN GIFT WAS KEPT — drawn from the write's own
+ * answer, so the page is not rendered again for it (owner rule 2026-10-08: a
+ * press costs one request and never re-renders the page).
+ *
+ * Exactly what the next read would hand back for this reader: the wish's sum
+ * and their own line both grow by what they said they sent, the wish is got if
+ * the write says it now is ("when amount is reached."), and a got wish sinks to
+ * the end — the same order `guestWishListFrom` builds. Every other wish is
+ * untouched. A wish that is not on the list changes nothing.
+ */
+export function withOwnGift(
+  wishes: readonly GuestWish[],
+  gift: { wishId: string; amountPhp: number; nowGot: boolean },
+): GuestWish[] {
+  const amount = Number.isFinite(gift.amountPhp) && gift.amountPhp > 0 ? gift.amountPhp : 0;
+  const view = wishes.map((w) =>
+    w.id === gift.wishId ? { ...w, sentPhp: w.sentPhp + amount, minePhp: w.minePhp + amount, got: w.got || gift.nowGot } : w,
+  );
+  return [...view.filter((w) => !w.got), ...view.filter((w) => w.got)];
+}
+
 const plural = (n: number, one: string, many: string) => `${formatCount(n)} ${n === 1 ? one : many}`;
 
 /** "4 wishes · 1 got" — beside the list's eyebrow. Null for an empty list. */

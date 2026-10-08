@@ -1,6 +1,5 @@
 import 'server-only';
 import { randomUUID } from 'node:crypto';
-import { revalidatePath } from 'next/cache';
 import { NextResponse } from 'next/server';
 import * as Sentry from '@sentry/nextjs';
 import { isPabuyaPublicRouteEnabled } from '@/lib/egift';
@@ -9,6 +8,7 @@ import { readGuestSessionForEvent } from '@/lib/guest-one-path.server';
 import { recordGift } from '@/lib/gift-record.server';
 import { GIFT_NOT_ACCEPTING, GIFT_NOT_KEPT, GIFT_NOT_RECOGNISED, GIFT_SHOT_REFUSED, GIFT_TOO_FAST } from '@/lib/gift-record';
 import { R2_BUCKETS, isR2Configured } from '@/lib/r2';
+import { revalidateGuestSite } from '@/lib/revalidate-site';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { encodeR2Ref, presignUploadUrl } from '@/lib/uploads';
 import { enforceRateLimit } from '@/lib/with-rate-limit';
@@ -111,11 +111,11 @@ export async function giftDoor(purpose: GiftPurpose, body: Record<string, unknow
   }
   if (!result.ok) return said(result.error, 422);
 
-  /* The guest's pages show the new sum (and a wish that reached its price) on their next read. */
-  if (result.slug) {
-    revalidatePath(`/${result.slug}/pabuya`);
-    revalidatePath(`/${result.slug}`);
-  }
+  /* The guests' pages show the new sum (and a wish that reached its price) on their next read —
+     through the ONE door every writer of event facts ends with (`lib/revalidate-site.ts`; no
+     path is revalidated by hand here). The sender's own page is not rendered again at all: the
+     sheet draws this answer (`gift-record-sheet.tsx` → `withOwnGift`). */
+  revalidateGuestSite(result.slug);
   const { slug: _slug, ...shown } = result;
   void _slug;
   return NextResponse.json(shown, { status: 200 });

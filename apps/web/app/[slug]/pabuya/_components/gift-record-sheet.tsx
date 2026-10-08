@@ -1,7 +1,6 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { Check, Heart, ImagePlus, Send, X } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { GIFT_GIVER_NAME_MAX, GIFT_MESSAGE_MAX, leftToReach } from '@/lib/wish-list';
@@ -49,7 +48,9 @@ import {
 
 export type GiftRecordTarget = { id: string; name: string; pricePhp: number | null; sentPhp: number } | null;
 
-type Kept = { giverName: string; amountPhp: number; wishName: string | null; hasShot: boolean; hasMessage: boolean; nowGot: boolean };
+/** What the server answers a kept record with (`recordGift`) — the thank-you's words and the list's new line are both drawn from it. */
+export type GiftKept = { giverName: string; amountPhp: number; wishName: string | null; hasShot: boolean; hasMessage: boolean; nowGot: boolean };
+type Kept = GiftKept;
 
 const FIELD =
   'mt-1.5 min-h-11 w-full scroll-mb-24 rounded-md border border-ink/15 bg-cream px-3 py-2 text-[15px] text-ink placeholder:text-ink/45 focus:border-ink/40 focus:outline-none';
@@ -63,6 +64,7 @@ export default function GiftRecordSheet({
   giverName,
   recognised,
   onClose,
+  onKept,
 }: {
   eventId: string;
   hostName: string;
@@ -73,8 +75,13 @@ export default function GiftRecordSheet({
   /** Does the event know this reader as its guest? If not, the sheet says how to be known. */
   recognised: boolean;
   onClose: () => void;
+  /**
+   * The record was kept: what the server answered with. The list behind the
+   * sheet draws it (`withOwnGift`). A gift toward no wish hands in none — it is
+   * on no wish's line, so nothing on the page changes.
+   */
+  onKept?: (kept: GiftKept) => void;
 }) {
-  const router = useRouter();
   const left = wish ? leftToReach(wish.pricePhp, wish.sentPhp) : null;
   const [amount, setAmount] = useState(left && left > 0 ? String(left) : '');
   const [message, setMessage] = useState('');
@@ -144,9 +151,11 @@ export default function GiftRecordSheet({
         setRefused(typeof res.data?.error === 'string' ? res.data.error : GIFT_NOT_KEPT);
         return;
       }
-      setKept(res.data as unknown as Kept);
-      /* The list behind the sheet reads the new sum (and a wish that reached its price). */
-      router.refresh();
+      const answer = res.data as unknown as Kept;
+      setKept(answer);
+      /* ⚡ The list behind the sheet is drawn from THIS answer — the new sum, "You sent ₱ ✓", a
+         wish that reached its price — never by rendering the page again (owner rule 2026-10-08). */
+      onKept?.(answer);
     } catch {
       setRefused(GIFT_NOT_KEPT);
     } finally {

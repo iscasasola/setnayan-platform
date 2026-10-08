@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import dynamic from 'next/dynamic';
 import { ArrowRight, Check, Gift, ShieldCheck, X } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
@@ -12,6 +12,7 @@ import {
   guestWishMeter,
   sendSheetLine,
   sendSheetTitle,
+  withOwnGift,
   type GuestWish,
   type WishListShape,
 } from '@/lib/wish-list-guest';
@@ -106,7 +107,7 @@ const WORDS: Record<WishListShape, string> = {
 };
 
 export function WishList({
-  wishes,
+  wishes: served,
   shape,
   hostName,
   hostPossessive,
@@ -125,6 +126,13 @@ export function WishList({
   /** Who is reading — switches on "✓ I sent it" and the sentence that promises it. Absent = ✕ Close alone. */
   record?: GiftRecordReader;
 }) {
+  /* ⚡ THE LIST AS IT IS DRAWN. It starts as the page's own read; when this reader's gift is kept
+     it is redrawn from the WRITE'S ANSWER (`withOwnGift`) — the page is never rendered again
+     for it. Whatever a later read of the page brings replaces it. */
+  const [wishes, setWishes] = useState<readonly GuestWish[]>(served);
+  useEffect(() => {
+    setWishes(served);
+  }, [served]);
   const [openId, setOpenId] = useState<string | null>(null);
   const [saidGot, setSaidGot] = useState<string | null>(null);
   /* The wish a guest pressed "I sent it" for — the record sheet replaces the send sheet. */
@@ -254,6 +262,7 @@ export function WishList({
           giverName={record.giverName}
           recognised={record.recognised}
           onClose={() => setRecordId(null)}
+          onKept={(kept) => setWishes((cur) => withOwnGift(cur, { wishId: recording.id, amountPhp: kept.amountPhp, nowGot: kept.nowGot }))}
         />
       ) : null}
     </section>

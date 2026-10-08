@@ -83,7 +83,7 @@ export function BgCards({
  * ⚡ THE ONE LINE THAT SAYS WHAT A PICK IS WAITING FOR — the owner's words, in order: "Loading files…" while the
  * still and loop are fetched, "Applying to your Hub…" while the draft write is in flight; gone when the canvas shows
  * it. Polite (`aria-live`), in the flow of the panel — never a toast, never a layer over the cards.
- *   · NOT FLASHED: a wait shorter than `quietMs` (~300 ms) is never said;
+ *   · NOT FLASHED: a step shorter than `quietMs` (~300 ms) is never said;
  *   · A FAILURE IS SAID AT ONCE, in place, with Try again — and never looks like a wait or a success.
  * The live region is always there (empty at rest), so its words are announced the moment they arrive.
  */
@@ -99,14 +99,18 @@ export function BgPickLine({
   onRetry: (() => void) | null;
   quietMs?: number;
 }) {
-  const waiting = step === 'loading' || step === 'applying';
-  const [loud, setLoud] = useState(quietMs <= 0);
+  /** The step being waited on — null at rest and on a failure. */
+  const now: BackgroundPickStep | null = step === 'loading' || step === 'applying' ? step : null;
+  /* What is SAID: a step only once IT has lasted longer than a blink — so a pick that lands at once says nothing, and
+     a second tap never flashes "Loading files…" for the few milliseconds its still takes. One one-shot timeout; it
+     asks nothing. While a new step waits out its blink, the words already up stay (never a blank between two steps). */
+  const [said, setSaid] = useState<BackgroundPickStep | null>(quietMs <= 0 ? now : null);
   useEffect(() => {
-    if (quietMs <= 0) return;
-    if (!waiting) return setLoud(false);
-    const t = window.setTimeout(() => setLoud(true), quietMs);
+    if (!now) return setSaid(null);
+    if (quietMs <= 0) return setSaid(now);
+    const t = window.setTimeout(() => setSaid(now), quietMs);
     return () => window.clearTimeout(t);
-  }, [waiting, quietMs]);
+  }, [now, quietMs]);
   if (step === 'failed') {
     return (
       <p role="alert" data-bg-pick-line="failed" className="flex min-h-[18px] flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-terracotta-700">
@@ -119,11 +123,11 @@ export function BgPickLine({
       </p>
     );
   }
-  const said = waiting && loud ? step : null;
+  const words = now ? said : null;
   return (
-    <p role="status" aria-live="polite" data-bg-pick-line={said ?? ''} className="flex min-h-[18px] items-center gap-1.5 text-[12px] text-ink/70">
-      {said ? <Loader2 aria-hidden className="h-3 w-3 shrink-0 animate-spin motion-reduce:animate-none" strokeWidth={2.25} /> : null}
-      {said ? BACKGROUND_PICK_LINE[said] : null}
+    <p role="status" aria-live="polite" data-bg-pick-line={words ?? ''} className="flex min-h-[18px] items-center gap-1.5 text-[12px] text-ink/70">
+      {words ? <Loader2 aria-hidden className="h-3 w-3 shrink-0 animate-spin motion-reduce:animate-none" strokeWidth={2.25} /> : null}
+      {words ? BACKGROUND_PICK_LINE[words] : null}
     </p>
   );
 }

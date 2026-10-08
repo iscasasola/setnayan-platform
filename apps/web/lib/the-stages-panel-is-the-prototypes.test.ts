@@ -303,6 +303,7 @@ test('↓ from part i picks part i+1 in the order the page DRAWS them, and keeps
   /* The tool is never CHANGED by a step: `pickPart` asks for the SAME tool — or, on a part where that tool has
      nothing to set, Style for that part only (`toolFor`; the remembered tool is not written). */
   assert.match(tools, /askTool\(toolFor\(k\), k\);/);
+  assert.match(tools, /stagePick: k \}, window\.location\.origin\);/, 'a step’s pick is not heard back by the panel — its tool is never asked for');
   assert.match(tools, /const toolFor = useCallback\(\(k: MakerPartKey \| null\): MakerPartTool => \(k && !makerPartToolWorks\(k, toolRef\.current\) \? 'style' : toolRef\.current\), \[\]\);/);
   const stepFn = tools.slice(tools.indexOf('const step = useCallback('), tools.indexOf('const stepRef = useRef(step);'));
   assert.doesNotMatch(stepFn, /setTool\(/, 'a step changes the remembered tool');

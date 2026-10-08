@@ -153,3 +153,17 @@ error lines keep their `terracotta-700` ink.
 Requests: none added or removed (the same saves on the same events).
 
 SPEC IMPACT: None.
+
+## 2026-10-09 · fix(maker): a pick asks for its tool only once the work area has the pick
+
+Seen on the Maker lab while checking the grey pills: a part picked from the panel (a tile, ↑ ↓ on the frame, a swipe,
+Done after typing, back from Studio) with Style remembered opened Names and Logo on TEXT — Font · Colour · Size —
+under a pressed Style pill. Measured: the panel asked the work area for the tool at 487 ms; the pick's own message
+arrived at 488 ms. The work area closed nothing, then opened the part's sheet on its Text section.
+
+The pick's message now carries `stagePick`; the panel hears its own message back in the task the work area hears it,
+and asks for the tool then. A tap ON the page was never affected (its message comes first by construction).
+
+Guard: `a-tool-with-nothing-to-do-says-so` (5) (3 sabotages, each seen red). Requests: none.
+
+SPEC IMPACT: None.

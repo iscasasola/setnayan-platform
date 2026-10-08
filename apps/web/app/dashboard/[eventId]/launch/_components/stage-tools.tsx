@@ -523,11 +523,14 @@ export function StageTools({
       }
       const def = MAKER_PARTS[k];
       if (!def.canvas) return;
-      /* 🔑 The canvas's own message — the same selection a tap on the page makes. */
-      window.postMessage({ source: 'setnayan-site', t: 'edit', key: def.canvas, ...(def.el ? { el: def.el } : {}) }, window.location.origin);
-      askTool(toolFor(k), k);
+      /* 🔑 The canvas's own message — the same selection a tap on the page makes. It carries `stagePick`: this panel
+         hears its OWN message back in the very task the work area hears it (`onCanvas` below) and asks for the tool
+         only then. Asked from here, two frames on, the ask could run BEFORE the message was delivered — the work area
+         then opened the part's sheet on Text under a pressed Style pill (measured on the Maker lab, 2026-10-09:
+         the tool was asked for at 487 ms, the pick arrived at 488 ms; Names and Logo, every time). */
+      window.postMessage({ source: 'setnayan-site', t: 'edit', key: def.canvas, ...(def.el ? { el: def.el } : {}), stagePick: k }, window.location.origin);
     },
-    [askTool, rsvpOpen, toolFor],
+    [rsvpOpen],
   );
   const pickPartRef = useRef(pickPart);
   pickPartRef.current = pickPart;
@@ -549,9 +552,17 @@ export function StageTools({
   where.current = { stageKey, shownPage };
   useEffect(() => {
     const onCanvas = (e: MessageEvent) => {
-      if (e.origin !== window.location.origin || e.source === window) return;
-      const d = e.data as { source?: unknown; t?: unknown; key?: unknown; el?: unknown; phase?: unknown } | null;
+      if (e.origin !== window.location.origin) return;
+      const d = e.data as { source?: unknown; t?: unknown; key?: unknown; el?: unknown; phase?: unknown; stagePick?: unknown } | null;
       if (d?.source !== 'setnayan-site') return;
+      if (e.source === window) {
+        /* This panel's own pick, heard back (`pickPart`): the work area has the selection now — ask for the tool. */
+        if (d.t === 'edit' && typeof d.stagePick === 'string' && d.stagePick in MAKER_PARTS) {
+          const k = d.stagePick as MakerPartKey;
+          askTool(toolFor(k), k);
+        }
+        return;
+      }
       if (d.t === 'edit' && typeof d.key === 'string') {
         const k =
           makerPartOfTap(where.current.stageKey, where.current.shownPage, d.key, typeof d.el === 'string' ? d.el : null) ??

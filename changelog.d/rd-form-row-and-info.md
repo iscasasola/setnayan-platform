@@ -180,3 +180,32 @@ the top nav show where we are at"* · *"with a go back button?"*.
   re-aimed; `scripts/port-control-baseline.json` regenerated (`StudioDoneBar` → `StudioPageHead`).
 
 SPEC IMPACT: `INTERACTION_RULES.md` § 3 / § 8 (the Maker's top bar) — the controller records the owner's ruling.
+
+## 2026-10-09 · feat(maker): the top bar's pill says where you are — both halves are dropdowns, always the same width
+
+Owner, 2026-10-08, on the head that named only the page and then on the prototype of its replacement
+(`public/review/studio-head-prototype.html`): *"what if we just replace the Studio with a chevron? since that is a drop
+down"* · *"and we just change that name of the studio"* · *"studio is not showing drop down"* · *"Stages and Studio both
+has dropdown"* · *"keep selector always balanced in width no matter what is pressed?"*
+
+    in a stage          [ ✕ ]  [ Invitation ▾ | Studio ▾ ]      [ ↺ ] [ ✓ ]
+    in a Studio page    [ ✕ ]  [ Stages ▾ | Love Story ▾ ]      [ ↺ ] [ ✓ ]
+
+- `StudioSideSwitch` (lazy, `stages-studio-parts.tsx`): the half you are ON reads the stage or the Studio page and is
+  the picked half (the accent, the one thumb); the other reads the plain word. Both carry a ▾. A tap on either opens
+  that side's list and never changes side — a pick does. Names: "Stage: Invitation — choose a stage" · "Studio page:
+  Love Story — choose a page" · "Stages — choose a stage" · "Studio pages — choose a page".
+- The two halves are always the same width and the pill fills its place edge to edge (the 4-px side padding of its
+  place is gone: 203 → 211 px at 375), so nothing in the bar moves when a stage or a page changes. A name never
+  truncates or wraps: it tightens (both halves together), then a page writes its short name ("Mood Board", "March").
+- The list of stages is the Stages panel's own `StageItemMenu` — its list, its sheet — drawn with no button (`bar`
+  prop, additive); HERE ✓ only on the Stages side. The list of pages is the chooser sheet; the page on screen is ticked
+  only on the Studio side. A stage picked from Studio goes to the Stages side at that stage (`pickSide` → `pickPage`).
+- ✕ Exit is the left control everywhere: the ‹ and the page-only head (`StudioPageHead`, `StudioBack`) are gone.
+- The Studio home of cards is NOT deleted, but nothing in the bar leads to it now (owner's answer pending).
+- First load shrank: `maker-shell.tsx` 9,005 → 8,982 bytes (esbuild min + gzip), `details-lazy.tsx` 1,456 → 1,447.
+- `lib/studio-pages-have-no-title-row.test.ts` rewritten to this rule (eight tests; all sixteen names painted, both
+  sides, both ▾; twenty mutations seen red); five guards re-aimed (seven more mutations seen red);
+  `scripts/port-control-baseline.json` regenerated.
+
+SPEC IMPACT: `INTERACTION_RULES.md` § 3 / § 8 (the Maker's top bar) — the controller records the owner's ruling.

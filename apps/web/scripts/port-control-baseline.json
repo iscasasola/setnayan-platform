@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "ada01eec6",
+  "generatedFromRef": "0e0e79d57",
   "routeCount": 429,
   "destinations": 959,
   "actions": 672,
-  "blocks": 5861,
+  "blocks": 5859,
   "routes": {
     "/": {
       "files": [
@@ -6957,7 +6957,7 @@
         "StudioCover",
         "StudioEgifts",
         "StudioEventName",
-        "StudioHeadFit",
+        "StudioHalf",
         "StudioHeading",
         "StudioHome",
         "StudioHubSettings",
@@ -6965,8 +6965,6 @@
         "StudioMainColours",
         "StudioMainExtras",
         "StudioOpeningLine",
-        "StudioPageHead",
-        "StudioPageName",
         "StudioQrActions",
         "StudioQrShown",
         "StudioQuietRows",

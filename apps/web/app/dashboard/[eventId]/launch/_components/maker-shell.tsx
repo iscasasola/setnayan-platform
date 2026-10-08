@@ -90,7 +90,7 @@ import { useMakerTool, type MakerEventBar, type MakerTool } from './maker-contex
 import type { MakerSide } from './maker-bar';
 import { PickSheetContext, type PickSheet } from '../../website/editor/_components/pick-menu-place';
 /* 🧭 The new Maker's own chrome — lazy, so the shipped Maker's first load carries none of it. */
-import { LowerThirdGrab, MakerSheet, MakerTour, StageTools, StudioBackToPart, StudioCover, StudioPageHead, StudioSideSwitch, StudioToolMenu } from './details-lazy';
+import { LowerThirdGrab, MakerSheet, MakerTour, StageTools, StudioBackToPart, StudioCover, StudioSideSwitch, StudioToolMenu } from './details-lazy';
 import { MAKER_LT_HALF } from '@/lib/maker-phone-room';
 import { detailsItemLayout } from '@/lib/maker-details-items';
 import { studioTileItem, type StudioTileKey } from '@/lib/studio-tile-defs';
@@ -748,7 +748,9 @@ export function MakerShell({
     setStudioFrom(null);
     pickSide('stages');
   };
-  /** Stages | Studio — tapping Studio (again) returns to its tiles; Stages puts the stage back. */
+  /** Change side. `stages`: a stage picked from Studio's side (the bar's "Stages ▾"), and the way back to a part.
+      `studio`: the Studio home of cards — the bar no longer leads there (owner 2026-10-08: both halves are
+      dropdowns, a pick opens a page); kept until the owner says whether the home goes. */
   const pickSide = (next: MakerSide) => {
     if (next === 'studio') setStudioFrom(null);
     if (next === 'studio') setStudioAt('home');
@@ -1025,12 +1027,6 @@ export function MakerShell({
               the three step."*): the Maker covers the app's own bar and rail, so ✕ → this event → ☰ → Events was
               three taps. ✕ opens the Maker's one sheet — Back to this event · All events (`MakerExitSheet`) — and
               no longer leaves by itself. */}
-          {/* 🧭 INSIDE A STUDIO PAGE the bar's first two places are the page's own head — ‹ back to the Studio home, and
-              the page's name ▾ (owner 2026-10-08: "make the top nav show where we are at" · "with a go back button?").
-              ✕ Exit and Stages | Studio are on the Studio home, one tap back; ↺ and ✓ stay where they are. */}
-          {studioTile ? (
-            <StudioPageHead tile={studioTile} tiles={studio?.tiles} onOpen={openStudio} onBack={() => pickSide('studio')} />
-          ) : (
           <IconPill tone="exit">
             <button
               type="button"
@@ -1048,7 +1044,6 @@ export function MakerShell({
               <ChevronLeft aria-hidden className="hidden h-6 w-6 lg:block" strokeWidth={2} />
             </button>
           </IconPill>
-          )}
           {/* 🚪 The way out, over everything (the sheet is fixed to the screen — portalled, like every Maker sheet). */}
           {exitOpen && typeof document !== 'undefined'
             ? createPortal(<MakerExitSheet eventId={eventId} changes={draft?.count ?? 0} onClose={() => setExitOpen(false)} />, document.body)
@@ -1057,10 +1052,13 @@ export function MakerShell({
           {/* 📱 THE SCREEN YOU ARE ON (owner 2026-10-05: "RSVP · When yes") — the
               stage and its page ("Invitation · Welcome"), or the Maker page that
               covers it; one line that truncates. */}
-          {studioTile ? null : stagesStudio ? (
-            /* 🧭 THE NEW MAKER: ONE segmented control, Stages | Studio, where the screen's name was. */
-            <div data-maker-tool="side" data-bar-item="Stages or Studio" data-bar-fill="" className={`flex min-w-0 flex-1 px-1 lg:hidden ${MAKER_BAR_PHONE.side}`}>
-              <StudioSideSwitch side={side} onPick={pickSide} />
+          {stagesStudio ? (
+            /* 🧭 THE NEW MAKER: ONE segmented control where the screen's name was — and it says where you are (owner
+               2026-10-08): the half you are on reads the stage or the Studio page, the other the plain word; both are
+               dropdowns (a tap opens that side's list, a pick goes there), always the same width. It fills its place
+               edge to edge — the room the names are measured in (`StudioSideSwitch`). */
+            <div data-maker-tool="side" data-bar-item="Stages or Studio" data-bar-fill="" className={`flex min-w-0 flex-1 lg:hidden ${MAKER_BAR_PHONE.side}`}>
+              <StudioSideSwitch side={side} onPick={pickSide} stage={ltPick} options={page.options} onStage={pickPage} page={studioTile} tiles={studio?.tiles} onOpen={openStudio} />
             </div>
           ) : (
           <p
@@ -1162,7 +1160,7 @@ export function MakerShell({
           ) : null}
           {/* 🧭 THE NEW MAKER'S STUDIO, over the work area (appended last, so the shipped Maker's tree is
               unchanged): its HOME of cards (`studio-home.tsx`, loaded when first opened). A Studio PAGE draws
-              nothing here: its head is in the top bar's own place (`StudioPageHead`, above) — no row is added. */}
+              nothing here: where you are is said in the top bar's pill (`StudioSideSwitch`, above) — no row is added. */}
           {studioHomeOn ? (
             <StudioCover tiles={studio?.tiles ?? null} onOpen={openStudio} />
           ) : null}

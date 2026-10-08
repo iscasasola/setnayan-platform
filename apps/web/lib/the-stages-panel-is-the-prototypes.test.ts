@@ -218,9 +218,9 @@ test('every part with a Studio bar has a door; every focused field exists in the
   assert.match(read(`${LAUNCH}/stages-studio-parts.tsx`), /Done · back to \{from\.label\}/, 'the way back names the part');
   assert.match(shell, /\{studioFrom \? <StudioBackToPart from=\{studioFrom\} side=\{side\} at=\{studioAt\} full=\{studioFull\} onBack=\{backToPart\} \/> : null\}/, 'the shell mounts it for a jump');
   assert.match(read(`${LAUNCH}/details-lazy.tsx`), /export const StudioBackToPart = dynamic\(\(\) => import\(\/\* webpackChunkName: "maker-details" \*\/ '\.\/stages-studio-parts'\)/, 'lazily');
-  /* The top "✓ Done" band is gone (owner 2026-10-08: one head for every Studio page — ‹ · name ▾). After a jump the way
-     back to the part is THIS button alone; the head's ‹ says "Back to Studio" and goes to the Studio home. */
-  assert.match(shell, /onBack=\{\(\) => pickSide\('studio'\)\}/, 'the head’s ‹ no longer goes to the Studio home');
+  /* The top "✓ Done" band is gone (owner 2026-10-08: no row over a Studio page). After a jump the way back to the part
+     is THIS button alone; the bar has no ‹ — its left control is ✕ Exit everywhere, and "Stages ▾" lists the stages. */
+  assert.doesNotMatch(shell, /StudioBack\b(?!ToPart)|Back to Studio/, 'a ‹ is back in the bar');
   assert.doesNotMatch(shell, /onDone=/, 'a top Done is back');
 });
 

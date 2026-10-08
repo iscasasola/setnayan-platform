@@ -30,11 +30,15 @@ export function PutAwayCard({
   eventId,
   archived,
   eventName,
+  bare = false,
 }: {
   eventId: string;
   archived: boolean;
   eventName: string;
+  /** Inside Event Details' last row (2026-10-08): no box and no heading of its own — the row is both. */
+  bare?: boolean;
 }) {
+  const box = bare ? '' : 'rounded-2xl border border-ink/12 bg-white/60 p-5 sm:p-6';
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -82,11 +86,13 @@ export function PutAwayCard({
 
   if (archived) {
     return (
-      <div className="rounded-2xl border border-ink/12 bg-white/60 p-5 sm:p-6">
-        <h2 className="flex items-center gap-2 text-base font-bold text-ink">
-          <Archive aria-hidden className="h-[18px] w-[18px] text-[color:var(--sn-ink-400)]" />
-          Put away
-        </h2>
+      <div className={box} data-put-away="">
+        {bare ? null : (
+          <h2 className="flex items-center gap-2 text-base font-bold text-ink">
+            <Archive aria-hidden className="h-[18px] w-[18px] text-[color:var(--sn-ink-400)]" />
+            Put away
+          </h2>
+        )}
         {/*
           ⚠ THIS SENTENCE STILL CARRIED THE OLD PROMISE FOR HALF A DAY AFTER THE
           OTHER ONE WAS FIXED. The pre-press copy was corrected in the morning —
@@ -128,11 +134,13 @@ export function PutAwayCard({
   }
 
   return (
-    <div className="rounded-2xl border border-ink/12 bg-white/60 p-5 sm:p-6">
-      <h2 className="flex items-center gap-2 text-base font-bold text-ink">
-        <Archive aria-hidden className="h-[18px] w-[18px] text-[color:var(--sn-ink-400)]" />
-        Put this away
-      </h2>
+    <div className={box} data-put-away="">
+      {bare ? null : (
+        <h2 className="flex items-center gap-2 text-base font-bold text-ink">
+          <Archive aria-hidden className="h-[18px] w-[18px] text-[color:var(--sn-ink-400)]" />
+          Put this away
+        </h2>
+      )}
       {/*
         ⚠ THIS SENTENCE BECAME FALSE THE MOMENT THE CAMERAS LEARNED ABOUT
         PUT-AWAY, and it is the cross-PR defect neither review of the two halves

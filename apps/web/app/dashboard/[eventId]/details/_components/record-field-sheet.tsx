@@ -3,10 +3,8 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { usePathname, useRouter } from 'next/navigation';
-import { OneOpenScope } from '@/lib/one-open';
 import { recordRowOfPath } from '@/lib/event-details-record';
 import { MakerHalfSheet } from '../../launch/_components/maker-sheet';
-import { recordFoldId } from './record-fold';
 
 /** A desktop, by the Maker's own breakpoint (`lg`): the field sits in place there. */
 function onDesktop(): boolean {
@@ -26,24 +24,19 @@ function onDesktop(): boolean {
  *     into the row's slot, `record-row-link.tsx`).
  *
  * The editor inside is the Maker's own for that fact, handed in from the server
- * (`record-editor.tsx`) — never a second form for one fact. Its dropdowns are
- * the row's fold's children (`OneOpenScope`), so opening one never folds the
- * group it is editing.
+ * (`record-editor.tsx`) — never a second form for one fact.
  *
  * 🔒 NOTHING HERE WRITES. × is a navigation back to the record; opening,
  * dragging, peeking and collapsing are the half sheet's own draw state.
  */
 export function RecordFieldSheet({
   row,
-  group,
   title,
   recordHref,
   children,
 }: {
   /** The row whose field this is (`RECORD_ROW_EDITOR`'s key) — the sheet's target. */
   row: string;
-  /** The fold the row sits in (`RECORD_ROW_GROUP`). */
-  group: string;
   title: string;
   /** The record with nothing open. */
   recordHref: string;
@@ -69,7 +62,6 @@ export function RecordFieldSheet({
     mq.addEventListener('change', find);
     return () => mq.removeEventListener('change', find);
   }, [row]);
-  const foldId = recordFoldId(group);
   const sheet = (
     <MakerHalfSheet
       label={`${title} — change it here`}
@@ -90,7 +82,7 @@ export function RecordFieldSheet({
         data-record-field={row}
         className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(16px+env(safe-area-inset-bottom))] pt-2 lg:overflow-visible lg:pb-4"
       >
-        {foldId ? <OneOpenScope id={foldId}>{children}</OneOpenScope> : children}
+        {children}
       </div>
     </MakerHalfSheet>
   );

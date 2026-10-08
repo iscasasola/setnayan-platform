@@ -35,66 +35,40 @@ export const COULD_NOT_LOAD = 'Could not load this right now — refresh to try 
 export const HIDDEN_BY_THE_COUPLE = 'Hidden by the couple';
 
 /**
- * The record's sections, in the order the page draws them, each inside one of
- * the groups (`RECORD_GROUPS`, `lib/event-details-record.ts` — owner
- * 2026-10-04, "FOUR FIXES BEFORE BUILD" (2): How it looks · How it works · Your
- * event · Guests & money; and, owner 2026-10-07, Event access — its own fold). `key` is what the page marks each section with;
- * `group` is the fold it sits in. Put this away stays last, outside the folds.
+ * THE MAP, as the page draws it (re-measured 2026-10-08 for the three
+ * segments, DECISION_LOG "EVENT DETAILS IS THREE SEGMENTS"): every build-spec
+ * row that has an "Event Details row" column → the fact, the SEGMENT it shows
+ * in, and the ROW that carries it (`data-details-row`). A fact whose editing
+ * lives elsewhere is carried by its jump row — the Event Hub's look and words
+ * by *Event Hub* ›, the guest names by *Guests* › — never dropped silently.
+ * Copied from the spec's MAP table (2026-10-01), never derived from the page —
+ * the guard reads the page against THIS.
  */
-export const EVENT_DETAILS_SECTIONS = [
-  { key: 'look', title: 'Your Event Hub look', group: 'looks' },
-  { key: 'rsvp', title: 'RSVP', group: 'works' },
-  { key: 'hub', title: 'Your Event Hub', group: 'works' },
-  { key: 'basics', title: 'The basics', group: 'event' },
-  { key: 'key-dates', title: 'Key dates', group: 'event' },
-  { key: 'venues', title: 'Venues', group: 'event' },
-  { key: 'love-story', title: 'Love Story & message', group: 'event' },
-  { key: 'wears', title: 'What everyone wears', group: 'event' },
-  { key: 'guests', title: 'Guests', group: 'guests-money' },
-  { key: 'budget', title: 'Budget', group: 'guests-money' },
-  { key: 'suppliers', title: 'Your suppliers', group: 'guests-money' },
-  { key: 'services', title: 'Services', group: 'guests-money' },
-  { key: 'purchases', title: 'Purchases', group: 'guests-money' },
-  { key: 'access', title: 'People with access', group: 'access' },
-  { key: 'put-away', title: 'Put this away', group: null },
-] as const;
-export type EventDetailsSectionKey = (typeof EVENT_DETAILS_SECTIONS)[number]['key'];
-
-export function sectionTitle(key: EventDetailsSectionKey): string {
-  return EVENT_DETAILS_SECTIONS.find((s) => s.key === key)!.title;
-}
-
-/**
- * THE MAP, as the page draws it: every build-spec row that has an "Event
- * Details row" column → the fact the page marks (`fact="…"`) and the section it
- * sits in. Copied from the spec's MAP table (2026-10-01), never derived from
- * the page — the guard reads the page against THIS.
- */
-export const EVENT_DETAILS_MAP: ReadonlyArray<{ asked: string; question: string; fact: string; section: EventDetailsSectionKey }> = [
-  { asked: 'A1', question: 'Who is getting married?', fact: 'names', section: 'basics' },
-  { asked: 'A2', question: 'What kind of wedding?', fact: 'kind', section: 'basics' },
-  { asked: 'A3', question: 'When is it?', fact: 'date', section: 'key-dates' },
-  { asked: 'A4', question: 'Where will it be?', fact: 'area', section: 'basics' },
-  { asked: 'A4b', question: 'We already have our venue', fact: 'venues', section: 'venues' },
-  { asked: 'A5', question: 'How do guests get in?', fact: 'guests-get-in', section: 'rsvp' },
-  { asked: 'A6', question: 'About how many guests?', fact: 'estimate', section: 'guests' },
-  { asked: 'A7', question: 'About how much is your budget?', fact: 'budget-target', section: 'budget' },
-  { asked: 'A-Hub', question: 'Cover photo', fact: 'cover', section: 'look' },
+export type DetailsMapRow = { asked: string; question: string; fact: string; segment: 'event' | 'access' | 'settings'; row: string };
+export const EVENT_DETAILS_MAP: ReadonlyArray<DetailsMapRow> = [
+  { asked: 'A1', question: 'Who is getting married?', fact: 'names', segment: 'event', row: 'event-name' },
+  { asked: 'A2', question: 'What kind of wedding?', fact: 'kind', segment: 'event', row: 'kind' },
+  { asked: 'A3', question: 'When is it?', fact: 'date', segment: 'event', row: 'date' },
+  { asked: 'A4', question: 'Where will it be?', fact: 'area', segment: 'event', row: 'area' },
+  { asked: 'A4b', question: 'We already have our venue', fact: 'venues', segment: 'event', row: 'venue' },
+  { asked: 'A5', question: 'How do guests get in?', fact: 'guests-get-in', segment: 'event', row: 'guests' },
+  { asked: 'A6', question: 'About how many guests?', fact: 'estimate', segment: 'event', row: 'estimate' },
+  { asked: 'A7', question: 'About how much is your budget?', fact: 'budget-target', segment: 'event', row: 'money' },
+  { asked: 'A-Hub', question: 'Cover photo', fact: 'cover', segment: 'event', row: 'hub' },
   // (A-Hub "Theme" left 2026-10-05 — DECISION_LOG "THEMES ARE REPLACED BY THREE
-  // DIRECT GLOBAL SETTINGS": a couple no longer picks a theme; its Look is the
-  // Background, Colours, Fonts and Buttons rows here.)
-  { asked: 'A-Hub', question: 'Colours', fact: 'colours', section: 'look' },
-  { asked: 'A-Hub', question: 'Fonts', fact: 'fonts', section: 'look' },
-  { asked: 'A-Hub', question: 'Music', fact: 'music', section: 'look' },
-  { asked: 'A-C', question: 'Event Hub Pro · Setnayan AI · Papic', fact: 'services', section: 'services' },
-  { asked: 'A-C', question: 'One bill', fact: 'purchases', section: 'purchases' },
-  { asked: 'B1', question: 'When should guests arrive?', fact: 'arrive', section: 'key-dates' },
-  { asked: 'B2', question: 'Parish / Reception', fact: 'venues', section: 'venues' },
-  { asked: 'B3', question: 'Love Story', fact: 'love-story', section: 'love-story' },
-  { asked: 'B4', question: 'What everyone wears', fact: 'wears', section: 'wears' },
-  { asked: 'B5–6', question: 'What to ask guests', fact: 'rsvp-questions', section: 'rsvp' },
-  { asked: 'B5–6', question: 'Reply-by', fact: 'reply-by', section: 'rsvp' },
-  { asked: 'B7', question: 'Guest names', fact: 'listed', section: 'guests' },
+  // DIRECT GLOBAL SETTINGS".)
+  { asked: 'A-Hub', question: 'Colours', fact: 'colours', segment: 'event', row: 'hub' },
+  { asked: 'A-Hub', question: 'Fonts', fact: 'fonts', segment: 'event', row: 'hub' },
+  { asked: 'A-Hub', question: 'Music', fact: 'music', segment: 'event', row: 'hub' },
+  { asked: 'A-C', question: 'Event Hub Pro · Setnayan AI · Papic', fact: 'services', segment: 'event', row: 'purchases' },
+  { asked: 'A-C', question: 'One bill', fact: 'purchases', segment: 'event', row: 'purchases' },
+  { asked: 'B1', question: 'When should guests arrive?', fact: 'arrive', segment: 'event', row: 'hub' },
+  { asked: 'B2', question: 'Parish / Reception', fact: 'venues', segment: 'event', row: 'venue' },
+  { asked: 'B3', question: 'Love Story', fact: 'love-story', segment: 'event', row: 'hub' },
+  { asked: 'B4', question: 'What everyone wears', fact: 'wears', segment: 'event', row: 'hub' },
+  { asked: 'B5–6', question: 'What to ask guests', fact: 'rsvp-questions', segment: 'event', row: 'guests' },
+  { asked: 'B5–6', question: 'Reply-by', fact: 'reply-by', segment: 'event', row: 'guests' },
+  { asked: 'B7', question: 'Guest names', fact: 'listed', segment: 'event', row: 'guests' },
 ];
 
 /**

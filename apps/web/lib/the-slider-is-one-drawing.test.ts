@@ -56,6 +56,13 @@ test('(1) the drawing: the platform’s range, named, 44 px to the finger, fille
   const src = read('app/_components/slider.tsx');
   assert.doesNotMatch(src, /useState|useEffect|'use client'|fetch\(/, 'the slider holds state, or cannot render on the server');
   assert.match(src, /onChange=\{\(e\) => onChange\(Number\(e\.target\.value\)\)\}/, 'the caller is not told the NUMBER the knob is at');
+  /* A slider that saves when LET GO: told once, on finger-up or key-up — and only where the caller asked. */
+  let commits = 0;
+  const html2 = renderToStaticMarkup(React.createElement(Slider, { label: 'Speed', min: 0, max: 10, value: 4, onChange: () => {}, onCommit: () => (commits += 1) }));
+  assert.match(html2, /^<input type="range"/);
+  assert.equal(commits, 0, 'a slider commits while it is only being drawn');
+  assert.match(src, /onPointerUp=\{onCommit \? \(e\) => onCommit\(Number\(e\.currentTarget\.value\)\) : undefined\}/);
+  assert.match(src, /onKeyUp=\{onCommit \? \(e\) => onCommit\(Number\(e\.currentTarget\.value\)\) : undefined\}/);
 });
 
 test('(2) the fill is the value’s place along the line — measured over the ranges the panel draws', () => {
@@ -112,7 +119,7 @@ test('(3) the line and the knob’s ring are the accent; held, the knob dips, fi
 });
 
 test('(4) the Stages panel and the scene’s Background row draw no range by hand — and the panel’s private range look is gone', () => {
-  const FILES = [`${L}/stage-panel/stage-animate.tsx`, `${L}/stage-panel/stage-text.tsx`, `${L}/stage-panel/kit.tsx`, `${L}/stage-panel/stage-background.tsx`, `${E}/scene-background-row.tsx`, `${L}/stage-tools.tsx`];
+  const FILES = [`${L}/stage-panel/stage-animate.tsx`, `${L}/stage-panel/stage-text.tsx`, `${L}/stage-panel/kit.tsx`, `${L}/stage-panel/stage-background.tsx`, `${E}/scene-background-row.tsx`, `${L}/stage-tools.tsx`, `${L}/maker-reveal.tsx`];
   let drawn = 0;
   for (const f of FILES) {
     const src = read(f);
@@ -120,8 +127,9 @@ test('(4) the Stages panel and the scene’s Background row draw no range by han
     assert.doesNotMatch(src, /sp-range|accent-ink|slider-thumb|range-thumb/, `${f} still carries a private range look`);
     drawn += (src.match(/<Slider\b/g) ?? []).length;
   }
-  /* Duration and Delay (one row drawn twice) · Text size · Opacity in both shapes of the Background row. */
-  assert.equal(drawn, 4, 'a slider the panel drew is gone, or a new one is not counted here');
+  /* Duration and Delay (one row drawn twice) · Text size · Opacity in both shapes of the Background row · the
+     Reveal's Fine-tune knobs (one row mapped over them). */
+  assert.equal(drawn, 5, 'a slider the panel drew is gone, or a new one is not counted here');
   assert.equal((read(`${L}/stage-panel/stage-animate.tsx`).match(/<TimeRow\b/g) ?? []).length, 2, 'Duration or Delay is gone');
   /* Each says what its value means, beside it and to a screen reader. */
   assert.match(read(`${L}/stage-panel/stage-animate.tsx`), /valueText=\{`\$\{t\.value\.toFixed\(1\)\} s`\}[\s\S]{0,400}<span className=\{`\$\{SLIDER_VALUE\} w-\[44px\]`\}>\{t\.value\.toFixed\(1\)\} s<\/span>/);

@@ -3,7 +3,7 @@
 import { makerSave } from '@/lib/maker-refresh';
 import { useRouter } from 'next/navigation';
 import { createContext, useContext, useEffect, useState, useTransition, type ReactNode } from 'react';
-import { Check, Play } from 'lucide-react';
+import { Check, Play, RotateCcw } from 'lucide-react';
 import { hubDraftAction } from '../../website/hub-draft-actions';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { REVEAL_STAGE_CHOICES, revealStagesWith, type RevealStage } from '@/lib/reveal-stages';
@@ -15,6 +15,9 @@ import {
   type RevealTuneKnob,
 } from '@/lib/std-reveal-effects';
 import { InfoTip } from '@/app/_components/info-tip';
+import { Slider } from '@/app/_components/slider';
+import { SwitchTrack } from '@/app/_components/switch-track';
+import { ActionButton } from '@/components/action-button';
 import { useMaker } from './maker-context';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
@@ -376,14 +379,7 @@ export function MakerRevealPicker({
         </p>
       ) : null}
       {effective !== 'none' ? (
-        <button
-          type="button"
-          onClick={replay}
-          className="sn-press inline-flex min-h-10 items-center gap-1.5 self-start rounded-full bg-ink/5 px-4 text-[13px] font-semibold text-ink hover:bg-ink/10"
-        >
-          <Play aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-          Play the opening
-        </button>
+        <ActionButton tone="neutral" icon={Play} label="Play the opening" onClick={replay} className="self-start" />
       ) : null}
       {effective !== 'none' ? (
         <FineTune
@@ -416,12 +412,11 @@ export function MakerRevealPicker({
                 aria-checked={on}
                 data-maker-reveal-stage={s}
                 onClick={() => toggleStage(s)}
-                className={`sn-press inline-flex min-h-11 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-semibold transition-colors duration-sn-control ease-sn disabled:opacity-60 ${
-                  on ? 'bg-ink text-cream' : 'bg-white/70 text-ink/75 hover:bg-white'
-                }`}
+                className="sn-press inline-flex min-h-11 items-center gap-2 rounded-full bg-white/70 pl-3.5 pr-2 text-[13px] font-semibold text-ink hover:bg-white disabled:opacity-60"
               >
-                {on ? <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.25} /> : null}
                 {PUBLIC_STAGE_LABELS[s]}
+                {/* The app's ONE switch (`SwitchTrack`): grey off, the accent on — where an ink pill with a tick stood. */}
+                <SwitchTrack on={on} />
               </button>
             );
           })}
@@ -475,14 +470,8 @@ function FineTune({
       className="sn-press flex min-h-12 w-full items-center gap-3 rounded-md bg-white/70 px-3 py-2 text-left hover:bg-white disabled:opacity-60"
     >
       <span className="min-w-0 flex-1 text-[13.5px] font-semibold text-ink">{label}</span>
-      <span
-        aria-hidden
-        className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${on ? 'bg-terracotta-700' : 'bg-ink/20'}`}
-      >
-        <span
-          className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${on ? 'translate-x-5' : 'translate-x-0.5'}`}
-        />
-      </span>
+      {/* The app's ONE switch (`SwitchTrack`) — its "on" was the gold `terracotta-700`, a colour of this file's own. */}
+      <SwitchTrack on={on} />
     </button>
   );
   return (
@@ -614,19 +603,8 @@ function TuneSlider({
       <span className="text-[12.5px] font-semibold text-ink">{knob.label}</span>
       <span className="mt-1 flex items-center gap-3 text-[12px] text-ink/60">
         <span className="w-12 shrink-0">{knob.lo}</span>
-        <input
-          type="range"
-          min={knob.min}
-          max={knob.max}
-          step={knob.step}
-          value={local}
-          disabled={disabled}
-          aria-label={knob.label}
-          onChange={(e) => setLocal(Number(e.target.value))}
-          onPointerUp={(e) => onCommit(Number(e.currentTarget.value))}
-          onKeyUp={(e) => onCommit(Number(e.currentTarget.value))}
-          className="min-h-11 min-w-0 flex-1 accent-terracotta-700"
-        />
+        {/* The app's ONE slider (`Slider`): it moves freely (`onChange`) and SAVES WHEN LET GO (`onCommit`). */}
+        <Slider label={knob.label} data={knob.key} className="flex-1" min={knob.min} max={knob.max} step={knob.step} value={local} disabled={disabled} onChange={setLocal} onCommit={onCommit} />
         <span className="w-12 shrink-0 text-right">{knob.hi}</span>
       </span>
     </label>
@@ -672,14 +650,7 @@ function ColourRow({
         </span>
       </button>
       {value ? (
-        <button
-          type="button"
-          disabled={disabled}
-          onClick={() => onCommit(null)}
-          className="sn-press inline-flex min-h-10 items-center rounded-full bg-ink/5 px-3 text-[12px] font-semibold text-ink hover:bg-ink/10"
-        >
-          Reset
-        </button>
+        <ActionButton tone="neutral" quiet icon={RotateCcw} label="Reset" disabled={disabled} onClick={() => onCommit(null)} />
       ) : null}
       {open ? (
         <ColourSheet title={label} what="" value={value} shown={shown} palette={palette} slots={palette.length > 0} onPick={onCommit} onClose={() => setOpen(false)} />

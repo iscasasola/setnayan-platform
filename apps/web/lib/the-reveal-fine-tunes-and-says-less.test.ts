@@ -158,9 +158,12 @@ test('the fine-tune sliders fold shut by default and save when let go', () => {
   assert.match(fold, /aria-expanded=\{open\}/);
   assert.match(fold, /\{open \? \(/, 'the sliders must render only when open');
   const slider = src.slice(src.indexOf('function TuneSlider('), src.indexOf('function ColourRow('));
-  assert.match(slider, /type="range"/);
-  assert.match(slider, /onPointerUp=\{\(e\) => onCommit\(/, 'a slider saves when let go');
-  assert.match(slider, /onKeyUp=\{\(e\) => onCommit\(/);
+  /* The app's one slider since 2026-10-09 (`app/_components/slider.tsx`): it is the range, and IT commits on let-go. */
+  assert.match(slider, /<Slider\b[^>]*onChange=\{setLocal\} onCommit=\{onCommit\} \/>/, 'a slider saves when let go');
+  const shared = stripComments(read('app/_components/slider.tsx'));
+  assert.match(shared, /type="range"/);
+  assert.match(shared, /onPointerUp=\{onCommit \? \(e\) => onCommit\(Number\(e\.currentTarget\.value\)\) : undefined\}/, 'a slider saves when let go');
+  assert.match(shared, /onKeyUp=\{onCommit \? \(e\) => onCommit\(Number\(e\.currentTarget\.value\)\) : undefined\}/);
   assert.doesNotMatch(slider, /onChange=\{[^}]*onCommit/, 'a slider must not save on every tick');
   assert.match(src, /<TuneFold\s+knobs=\{revealTuneKnobsFor\(opening, effects\)\}/);
 });

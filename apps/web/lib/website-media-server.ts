@@ -184,11 +184,35 @@ async function readNavIconRefs(): Promise<ReferenceLookup> {
 }
 
 /**
+ * References held by `hub_music_tracks.r2_key` — the Event Hub "Our music"
+ * list. Every row counts, published or not: an unpublished track is still a
+ * track, and its file is not a leftover.
+ */
+async function readHubMusicRefs(): Promise<ReferenceLookup> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase.from('hub_music_tracks').select('r2_key');
+
+  if (error) {
+    return { ok: false, reason: `Could not read the Event Hub music list (${error.message}).` };
+  }
+
+  const keys = new Set<string>();
+  for (const row of data ?? []) {
+    const k = (row as { r2_key: string | null }).r2_key;
+    if (!k) continue;
+    keys.add(k);
+    const parsed = keyFromRef(k);
+    if (parsed) keys.add(parsed);
+  }
+  return { ok: true, keys };
+}
+
+/**
  * Which read backs which prefix. Exhaustive by construction — an unmapped
  * prefix throws at build/dev time rather than defaulting to a permanently
  * `unknown` folder.
  */
-type LookupSource = 'backgroundVideos' | 'hero' | 'platformSettings' | 'navIcons';
+type LookupSource = 'backgroundVideos' | 'hero' | 'platformSettings' | 'navIcons' | 'hubMusic';
 
 const SOURCE_FOR_PREFIX: Record<string, LookupSource> = {
   'homepage-bg/': 'backgroundVideos',
@@ -197,6 +221,7 @@ const SOURCE_FOR_PREFIX: Record<string, LookupSource> = {
   'onboarding/': 'platformSettings',
   'brand-icon/': 'platformSettings',
   'nav-icons/': 'navIcons',
+  'hub-music/': 'hubMusic',
 };
 
 /**
@@ -209,7 +234,7 @@ const SOURCE_FOR_PREFIX: Record<string, LookupSource> = {
  * classify its two groups from different reads.
  */
 async function readAllSources(): Promise<Record<LookupSource, ReferenceLookup>> {
-  const [backgroundVideos, hero, platformSettings, navIcons] = await Promise.all([
+  const [backgroundVideos, hero, platformSettings, navIcons, hubMusic] = await Promise.all([
     readBackgroundVideoRefs().catch(
       (e: unknown): ReferenceLookup => ({
         ok: false,
@@ -234,8 +259,14 @@ async function readAllSources(): Promise<Record<LookupSource, ReferenceLookup>> 
         reason: `Could not read the menu icons (${e instanceof Error ? e.message : String(e)}).`,
       }),
     ),
+    readHubMusicRefs().catch(
+      (e: unknown): ReferenceLookup => ({
+        ok: false,
+        reason: `Could not read the Event Hub music list (${e instanceof Error ? e.message : String(e)}).`,
+      }),
+    ),
   ]);
-  return { backgroundVideos, hero, platformSettings, navIcons };
+  return { backgroundVideos, hero, platformSettings, navIcons, hubMusic };
 }
 
 export type WebsiteMediaReport = {

@@ -42,6 +42,8 @@ import { eventHasPapicUnlock } from '@/lib/entitlements';
 import { captureWindowState } from '@/lib/papic-window';
 import { COUPLE_MEDIA_FULL_CODE, coupleMediaFullMessage, isCoupleMediaMeterPath } from '@/lib/couple-media-allowance';
 import { reserveCoupleMediaBytes } from '@/lib/couple-media-allowance.server';
+import { hubMusicUploadRefusal, hubMusicUploadRule } from '@/lib/hub-music';
+import { isAdminProfile } from '@/lib/admin/admin-predicate';
 
 /**
  * Presigned-URL endpoint used by `<FileUpload>` to upload files directly to
@@ -898,6 +900,31 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       },
       { status: 413 },
     );
+  }
+
+  // ── EVENT HUB MUSIC IS AN ADMIN'S FOLDER (owner 2026-10-08) ────────────────
+  // `hub-music/` holds the tracks every couple is offered in Look › Music, so a
+  // presign there is the one flat prefix that asks WHO is calling: an admin,
+  // one of three audio kinds, 20 MB. The rule and its sentences are
+  // `lib/hub-music.ts`; the admin test is the console's own `isAdminProfile`.
+  // What is INSIDE the file (an .m4a can hold Opus, which is silent on some
+  // iPhones) is read from the stored bytes when the track is added —
+  // app/admin/hub-music/actions.ts.
+  if (!seatMode && hubMusicUploadRule(pathPrefix)) {
+    const { data: me } = await supabase
+      .from('users')
+      .select('is_internal, is_team_member, account_type')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    const refusal = hubMusicUploadRefusal({
+      bucketKey,
+      isAdmin: isAdminProfile(me),
+      contentType: baseContentType,
+      sizeBytes,
+    });
+    if (refusal) {
+      return NextResponse.json({ error: refusal.error }, { status: refusal.status });
+    }
   }
 
   // ── THE 100 MB ALLOWANCE IS A CAP (DECISION_LOG 2026-09-25) ────────────────

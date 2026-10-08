@@ -111,6 +111,8 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
     'Upload and manage the homepage hero + pillar loop videos — the live pipeline behind the public landing page.',
   'website-media':
     'Everything stored for the site’s own pictures and videos, and which files nothing points at any more. Download a copy, then free the space. Guest photos and documents are not shown here.',
+  'hub-music':
+    'Upload the instrumental tracks couples can pick as their Event Hub music. Add one file or many, set each track’s mood, listen, and publish.',
   'reveal-studio': 'The Save-the-Date cinematic reveal openings — design and manage.',
   'real-stories':
     'Feature and order which consented wedding editorials surface on the public /realstories page, and pick the hero.',

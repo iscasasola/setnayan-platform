@@ -62,11 +62,14 @@ import { jobPrefillIsRead } from './prefill-consumers';
  * exactly how the previous guard in this feature came to pass while the thing
  * it guarded was broken.
  */
-export const MODEL_CHOICE_CAP = 142;
+export const MODEL_CHOICE_CAP = 143;
 // 141 → 142 on 2026-10-02, measured with the probe this docblock describes:
 // "Categories & event types" folded six admin pages into one (88 pages now)
 // and the -y/-ies match let the owner's word "category" reach every job on
 // /admin/categories (54 jobs share a word with the flagship). 88 + 54 = 142.
+// 142 → 143 on 2026-10-08: /admin/hub-music (Event Hub music) is the 89th page.
+// Measured the same way — at 142 "every admin page still reaches the model"
+// went red with 88 of 89 pages kept. 89 + 54 = 143.
 
 export type ModelChoice = { label: string; href: string };
 

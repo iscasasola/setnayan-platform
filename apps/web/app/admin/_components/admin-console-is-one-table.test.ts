@@ -188,6 +188,10 @@ const CONVERTED = [
   'events/[eventId]/page.tsx',
   // The per-supplier admin page, 2026-10-01 — its newest payouts.
   'vendors/[vendorProfileId]/page.tsx',
+  // /admin/hub-music, 2026-10-08 — the Event Hub music list. Born on the
+  // archetype: its reader hands a refused read back as its own answer, and the
+  // table is told "not measured" (`rows={readError ? null : visible}`).
+  'hub-music/hub-music-manager.tsx',
 ];
 
 /* ══════════════════════════════════════════════════════════════════════════

@@ -3,7 +3,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PillThumb } from '@/app/_components/pill-selector';
 import { createPortal } from 'react-dom';
-import { Brush, Check, Diamond, FileText, PencilLine, Play, Reply, Square, Store, X, type LucideIcon } from 'lucide-react';
+import { ALargeSmall, Check, FileText, Orbit, PencilLine, Play, Reply, Square, Store, SwatchBook, X, type LucideIcon } from 'lucide-react';
 import { RSVP_STAGE_KEY } from '@/lib/rsvp-stage-shared';
 import { RSVP_STAGE_SCENES, isRsvpStageScene, type RsvpStageScene } from '@/lib/rsvp-stage';
 import {
@@ -993,8 +993,8 @@ export function StageTools({
         />
         {(
           <span role="group" aria-label="Edit with" className={STAGE_TOOL_PILL} data-stage-tpill="">
-            {/* 🎚 ONE dark thumb that TRAVELS from tool to tool (owner 2026-10-08: "apply the same pill selector") — the
-                app's thumb, lying on the picked tool's 46 × 38 face (`data-seg-face`) in the panel's own ink. The
+            {/* 🎚 ONE thumb that TRAVELS from tool to tool (owner 2026-10-08: "apply the same pill selector") — the app's
+                thumb, in the selector's one terracotta, lying on the picked tool's 46 × 38 face (`data-seg-face`). The
                 tools and the hairlines are the track's DIRECT children, so the thumb can find the picked one and a
                 hairline can tell it sits beside it. */}
             <PillThumb />
@@ -1009,17 +1009,18 @@ export function StageTools({
                   aria-label={MAKER_PART_TOOL_LABEL[t]}
                   title={MAKER_PART_TOOL_LABEL[t]}
                   data-stage-tool={t}
-                  data-seg-fill="var(--sp-ink)"
                   onClick={() => pickTool(t)}
                   className={STAGE_TOOL_BUTTON}
                 >
                   <span data-seg-face="" className={STAGE_TOOL_FACE}>
+                    {/* The owner's pick (2026-10-08, the "Bolder" set S5 · T4 · A5): one icon per tool, 18 px, stroke 2 —
+                        grey when off, white on the terracotta thumb. Names for a screen reader are the button's. */}
                     {t === 'style' ? (
-                      <Brush aria-hidden className="h-[18px] w-[18px]" strokeWidth={2} />
+                      <SwatchBook aria-hidden className="h-[18px] w-[18px]" strokeWidth={2} />
                     ) : t === 'text' ? (
-                      <em className="font-serif text-[17px] font-semibold not-italic leading-none">Aa</em>
+                      <ALargeSmall aria-hidden className="h-[18px] w-[18px]" strokeWidth={2} />
                     ) : (
-                      <Diamond aria-hidden className="h-[18px] w-[18px]" strokeWidth={2} />
+                      <Orbit aria-hidden className="h-[18px] w-[18px]" strokeWidth={2} />
                     )}
                   </span>
                 </button>
@@ -1047,7 +1048,7 @@ export function StageTools({
               return (
                 <button key={k} type="button" aria-pressed={picked === k} data-stage-part={k} onClick={() => pickPart(k)} className={STAGE_PART_TILE}>
                   <span aria-hidden className="flex flex-1 items-center justify-center border-b border-[var(--sp-line)] bg-white p-1.5 text-[var(--sp-gold)]">
-                    {src.kind === 'studio' ? <PencilLine className="h-5 w-5" strokeWidth={2} /> : src.kind === 'info' ? <FileText className="h-5 w-5" strokeWidth={2} /> : src.kind === 'supplier' ? <Store className="h-5 w-5" strokeWidth={2} /> : <Brush className="h-5 w-5" strokeWidth={2} />}
+                    {src.kind === 'studio' ? <PencilLine className="h-5 w-5" strokeWidth={2} /> : src.kind === 'info' ? <FileText className="h-5 w-5" strokeWidth={2} /> : src.kind === 'supplier' ? <Store className="h-5 w-5" strokeWidth={2} /> : <SwatchBook className="h-5 w-5" strokeWidth={2} />}
                   </span>
                   <span className="block truncate px-1 pt-1.5 text-[12.5px] font-medium text-[var(--sp-ink2)]">{makerPartLabelOn(stageKey, k)}</span>
                   <span className="block h-[15px] truncate px-1 pb-1 text-[9px] font-bold uppercase tracking-[0.1em] text-[var(--sp-gold)]">{tag ?? ''}</span>

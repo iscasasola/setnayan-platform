@@ -6,14 +6,16 @@
  * them animate"* · *"apply the same pill selector"* · *"adjust all pill selectors to this if possible"*. Rule:
  * `BACKGROUND_SOURCES_AMEND_2026-10-08_fable.md` § 2.E.
  *
- *   (1) SHAPE — the app's selector (`app/_components/pill-selector.tsx`) is a full pill: a 44-px track with 3 px of
- *       padding, each choice a pill inside it, the finger's target the whole height. The Maker's `ISegmented` /
- *       `ISeg` draw it, in the fills they always had (white; the wine where it was wine).
+ *   (1) SHAPE AND COLOUR — the app's selector (`app/_components/pill-selector.tsx`) is a full pill: a 44-px track
+ *       with 3 px of padding, each choice a pill inside it, the finger's target the whole height. ONE colour for
+ *       every selector (owner: *"pill selector should have a consistent color"* · *"Terracota is our color? and
+ *       greyed out when off?"*): the terracotta with white words when on, grey words when off.
  *   (2) ONE THUMB — RUN against a stand-in track: it lies exactly on the picked choice on FIRST paint with no
  *       slide-in, moves when the pick changes, re-measures at a new width, lies on an icon's face, wears the
  *       choice's own fill, and steps aside when the row is not an either-or.
- *   (3) MOTION — transform and size only, 220 ms on the house ease; instant under "reduce motion"; no timer, no
- *       dependency.
+ *   (3) MOTION — transform and size only; it LANDS WITH A BOUNCE and PULSES ONCE ON A PICK (owner: *"a bit of bounce
+ *       and a pulse to imitate it has been pressed"*), at the family's ONE speed (`--sn-pill-dur`, owner: *"in
+ *       between normal and slow motion"*); nothing moves under "reduce motion"; no timer, no dependency.
  *   (4) KEYS — ← → (↑ ↓, Home, End) move focus between the choices and wrap; they never pick.
  *   (5) THE FOUR MAKER SELECTORS — Stages | Studio, Look's Background · Elements · Music, the Stages tool group
  *       (Style · Text · Animate) and `Phases` (Look | Background | Arrange · Build in | Action | Build out) all wear
@@ -44,32 +46,39 @@ const L = 'app/dashboard/[eventId]/launch/_components';
 const has = (classes: string, c: string) => classes.split(/\s+/).includes(c);
 const noRect = (classes: string, what: string) => assert.doesNotMatch(classes, /(?:^|\s)rounded-(?:sm|md|lg|xl|2xl|\[)/, `${what} is a rounded rectangle`);
 
-test('(1) the app’s selector is a full pill — a 44-px track, 3 px of padding, pills inside, the fills it always had', async () => {
+test('(1) the app’s selector is a full pill in ONE colour — terracotta with white words when on, grey words when off', async () => {
   const P = await import('../app/_components/pill-selector');
   const K = await import(`../${E}/inspector-kit`);
   for (const [what, track] of [['the app’s track', `${P.PILL_TRACK_CLASS} ${P.PILL_TRACK_GROUND}`], ['the Maker’s ISegmented', K.I_SEGMENTED_CLASS as string]] as const) {
     for (const c of ['rounded-full', 'relative', 'p-[3px]', 'group/seg', 'flex']) assert.ok(has(track, c), `${what} lost ${c}`);
     noRect(track, what);
   }
+  // ONE colour: the terracotta (#C24E25 — the `mulberry` token) with white words; off = grey words, no fill.
+  assert.equal(P.PILL_ON_CLASS, 'bg-mulberry text-white');
+  assert.match(raw('app/globals.css'), /--color-mulberry: 194 78 37;\s*\/\* CTA → #C24E25/, 'anti-vacuity: the terracotta token moved');
+  assert.match(P.PILL_OFF_CLASS, /^text-ink\/\d\d hover:text-ink$/);
   for (const seg of [P.pillSegClass, K.iSegClass] as ((on: boolean, tone?: 'plain' | 'wine') => string)[]) {
-    for (const [on, tone] of [[true, 'plain'], [false, 'plain'], [true, 'wine'], [false, 'wine']] as const) {
-      const cls = seg(on, tone);
-      assert.ok(has(cls, 'rounded-full'), 'a choice is not a pill');
-      noRect(cls, 'a choice');
-      // 38 px of pill + 3 + 3 of track = 44; the target reaches the track's edges; the words sit above the thumb.
-      assert.ok(has(cls, 'min-h-[38px]'), 'the track is no longer 44 px tall on a phone');
-      for (const c of ['relative', 'z-[1]', 'after:absolute', 'after:-inset-y-[3px]']) assert.ok(has(cls, c), `a choice lost ${c}`);
-      // The words cross-fade over the thumb's own 220 ms — and not at all under reduce motion.
-      for (const c of ['transition-colors', 'duration-[220ms]', 'ease-sn', 'motion-reduce:transition-none']) assert.ok(has(cls, c), `a choice lost ${c}`);
+    for (const tone of [undefined, 'plain', 'wine'] as const) {
+      // Whatever tone a caller still passes, the look is the same — there is no other colour to choose.
+      assert.equal(seg(true, tone), seg(true), 'a tone still recolours the picked choice');
+      assert.equal(seg(false, tone), seg(false));
+      for (const on of [true, false]) {
+        const cls = seg(on, tone);
+        assert.ok(has(cls, 'rounded-full'), 'a choice is not a pill');
+        noRect(cls, 'a choice');
+        // 38 px of pill + 3 + 3 of track = 44; the target reaches the track's edges; the words sit above the thumb.
+        assert.ok(has(cls, 'min-h-[38px]'), 'the track is no longer 44 px tall on a phone');
+        for (const c of ['relative', 'z-[1]', 'after:absolute', 'after:-inset-y-[3px]']) assert.ok(has(cls, c), `a choice lost ${c}`);
+        // The words cross-fade at the family's one speed — and not at all under reduce motion.
+        for (const c of ['transition-colors', 'duration-sn-pill', 'ease-sn', 'motion-reduce:transition-none']) assert.ok(has(cls, c), `a choice lost ${c}`);
+      }
     }
-    // The fills are the ones it had — the ruling is shape and motion, not a recolour.
-    assert.ok(has(seg(true, 'plain'), 'bg-white') && has(seg(true, 'plain'), 'text-ink'));
-    assert.ok(has(seg(true, 'wine'), 'bg-mulberry') && has(seg(true, 'wine'), 'text-white'));
+    assert.ok(has(seg(true), 'bg-mulberry') && has(seg(true), 'text-white'), 'the picked choice is not the terracotta');
+    assert.ok(!has(seg(true), 'bg-white') && !has(seg(true), 'text-ink'), 'a white selector is back');
     // The picked choice hands its fill to the thumb once the thumb is laid — and only the picked one does.
-    for (const tone of ['plain', 'wine'] as const) {
-      assert.ok(has(seg(true, tone), 'group-data-[seg-thumb]/seg:bg-transparent'), 'two pills would be drawn (the choice and the thumb)');
-      assert.ok(!seg(false, tone).includes('seg-thumb') && !/(?:^|\s)bg-/.test(seg(false, tone)), 'an unpicked choice is filled');
-    }
+    assert.ok(has(seg(true), 'group-data-[seg-thumb]/seg:bg-transparent'), 'two pills would be drawn (the choice and the thumb)');
+    assert.ok(!seg(false).includes('seg-thumb') && !/(?:^|\s)bg-/.test(seg(false)), 'an unpicked choice is filled');
+    assert.ok(seg(false).includes(P.PILL_OFF_CLASS));
   }
   // The Maker's selector IS the app's: one look, drawn — never a second string.
   assert.match(read(`${E}/inspector-kit.tsx`), /export const I_SEGMENTED_CLASS = `\$\{PILL_TRACK_CLASS\} flex-wrap gap-0\.5 \$\{PILL_TRACK_GROUND\}`;/);
@@ -118,7 +127,23 @@ function fakeThumb() {
       return true;
     },
   });
-  return { log, el: { style: proxy, dataset: {} as Record<string, string | undefined>, offsetWidth: 0 } };
+  const attrs: Record<string, string> = {};
+  return {
+    log,
+    attrs,
+    el: {
+      style: proxy,
+      offsetWidth: 0,
+      setAttribute: (n: string, v: string) => {
+        log.push(`+${n}`);
+        attrs[n] = v;
+      },
+      removeAttribute: (n: string) => {
+        if (n in attrs) log.push(`-${n}`);
+        delete attrs[n];
+      },
+    },
+  };
 }
 
 test('(2) the thumb, RUN: on the picked choice at first paint with no slide-in, moving on a pick, re-measured on a resize', () => {
@@ -127,7 +152,7 @@ test('(2) the thumb, RUN: on the picked choice at first paint with no slide-in, 
   const b = choice(101, 71, { 'aria-pressed': 'true' });
   const c = choice(174, 120);
   const track = fakeTrack([a, b, c]);
-  const { el, log } = fakeThumb();
+  const { el, log, attrs } = fakeThumb();
   const thumb = createPillThumb(track, el);
 
   // FIRST PAINT: laid exactly on the picked choice, with the transition OFF — then handed back for later moves.
@@ -138,6 +163,7 @@ test('(2) the thumb, RUN: on the picked choice at first paint with no slide-in, 
   assert.equal(el.style.opacity, '1');
   assert.deepEqual(log, ['transition=none', 'transform=translate(101px, 3px)', 'transition='], 'the first placement can slide in from the left');
   assert.equal(track.marks['data-seg-thumb'], '', 'the picked choice is never told to drop its fill — two pills are drawn');
+  assert.equal('data-pulse' in attrs, false, 'the thumb pulses on mount — nothing was pressed');
 
   // A PICK: the thumb travels (its transition is NOT switched off again) and resizes to the label it lands on.
   log.length = 0;
@@ -146,13 +172,24 @@ test('(2) the thumb, RUN: on the picked choice at first paint with no slide-in, 
   thumb.place();
   assert.equal(el.style.transform, 'translate(174px, 3px)');
   assert.equal(el.style.width, '120px');
-  assert.deepEqual(log, ['transform=translate(174px, 3px)'], 'a pick does not travel (its transition was switched off)');
+  assert.deepEqual(log, ['transform=translate(174px, 3px)', '+data-pulse'], 'a pick does not travel (its transition was switched off) — or does not pulse');
+  // …and PULSES once — and again, from its start, at the next pick (taken off, the move committed, put back).
+  log.length = 0;
+  delete c.attrs['aria-pressed'];
+  b.attrs['aria-pressed'] = 'true';
+  thumb.place();
+  assert.deepEqual(log, ['-data-pulse', 'transform=translate(101px, 3px)', '+data-pulse'], 'a second pick does not restart the pulse');
+  delete b.attrs['aria-pressed'];
+  c.attrs['aria-pressed'] = 'true';
+  thumb.place();
 
-  // A RESIZE (876 px wide, three equal segments): measured again — never one cached width.
+  // A RESIZE (876 px wide, three equal segments): measured again — never one cached width — and NO pulse (nothing was pressed).
   for (const [i, ch] of [a, b, c].entries()) Object.assign(ch, { offsetLeft: 3 + i * 290, offsetWidth: 290 });
+  log.length = 0;
   thumb.place();
   assert.equal(el.style.transform, 'translate(583px, 3px)');
   assert.equal(el.style.width, '290px');
+  assert.ok(!log.includes('-data-pulse') && !log.includes('+data-pulse'), 'a resize pulses the thumb');
 
   // NOT AN EITHER-OR: several pressed, or none — the thumb steps aside and the choices keep their own fills.
   a.attrs['aria-pressed'] = 'true';
@@ -177,15 +214,14 @@ test('(2) the thumb, RUN: on the picked choice at first paint with no slide-in, 
   createPillThumb(links, t2.el).place();
   assert.equal(t2.el.style.transform, 'translate(3px, 3px)');
 
-  // AN ICON'S FACE: the thumb lies on the 46 × 38 face inside the 44-px button, in the choice's own fill.
+  // AN ICON'S FACE: the thumb lies on the 46 × 38 face inside the 44-px button.
   const tool = choice(47, 46, { 'aria-pressed': 'true' }, { offsetTop: 0, offsetHeight: 44, face: { offsetLeft: 0, offsetTop: 3, offsetWidth: 46, offsetHeight: 38 } });
-  tool.dataset.segFill = 'var(--sp-ink)';
   const t3 = fakeThumb();
   createPillThumb(fakeTrack([choice(0, 46), tool]), t3.el).place();
   assert.equal(t3.el.style.transform, 'translate(47px, 3px)');
   assert.equal(t3.el.style.height, '38px');
-  assert.equal(t3.el.style.background, 'var(--sp-ink)');
-  assert.equal(t3.el.dataset.tone, 'own');
+  // ONE colour: the thumb never takes a fill from a choice.
+  assert.equal(t3.el.style.background, undefined, 'a choice recoloured the thumb');
 
   // A CLEAR MARGIN: a 44-px segment whose pill is clipped 3 px inside (Phases) — the thumb lies inside the same 3 px.
   const phase = choice(292, 292, { 'aria-pressed': 'true' }, { offsetTop: 0, offsetHeight: 44 });
@@ -201,8 +237,7 @@ test('(2) the thumb, RUN: on the picked choice at first paint with no slide-in, 
   assert.equal('data-seg-thumb' in track.marks, false);
 
   // The pure lay.
-  assert.deepEqual(pillThumbLay([{ x: 3, y: 43, w: 120, h: 38, tone: 'wine' }]), { transform: 'translate(3px, 43px)', width: '120px', height: '38px', tone: 'wine', fill: '' });
-  assert.equal(pillThumbLay([{ x: 0, y: 0, w: 10, h: 10, tone: 'neon' }])!.tone, 'plain', 'an unknown tone is an unstyled thumb');
+  assert.deepEqual(pillThumbLay([{ x: 3, y: 43, w: 120, h: 38 }]), { transform: 'translate(3px, 43px)', width: '120px', height: '38px' });
   assert.equal(pillThumbLay([{ x: 0, y: 0, w: 0, h: 0 }]), null, 'a choice not laid out yet (a hidden panel) drew a thumb at 0 × 0');
 
   // The component wires that behaviour to a pick and to a resize — and to nothing else.
@@ -215,16 +250,52 @@ test('(2) the thumb, RUN: on the picked choice at first paint with no slide-in, 
   assert.match(src, /return \(\) => \{[\s\S]*?thumb\.leave\(\);\s*\};/);
 });
 
-test('(3) it moves on transform and size only, 220 ms on the house ease — and not at all under “reduce motion”', () => {
-  for (const c of ['absolute', 'rounded-full', 'pointer-events-none', 'transition-[transform,width,height]', 'duration-[220ms]', 'ease-sn', 'motion-reduce:transition-none']) {
+test('(3) it lands with a bounce and pulses once on a pick — transform, size, scale and opacity only, at ONE speed; nothing under “reduce motion”', () => {
+  for (const c of ['sn-pill-thumb', 'absolute', 'rounded-full', 'pointer-events-none', 'bg-mulberry', 'transition-[transform,width,height]', 'duration-sn-pill', 'ease-sn-spring', 'motion-reduce:transition-none']) {
     assert.ok(has(PILL_THUMB_CLASS, c), `the thumb lost ${c}`);
   }
   assert.doesNotMatch(PILL_THUMB_CLASS, /transition-all|transition-\[[^\]]*(?:left|top|margin|padding|background)/, 'the thumb animates layout or paint');
-  assert.ok(has(PILL_THUMB_CLASS, 'data-[tone=plain]:bg-white') && has(PILL_THUMB_CLASS, 'data-[tone=wine]:bg-mulberry'), 'the thumb is not the picked choice’s own fill');
+  assert.doesNotMatch(PILL_THUMB_CLASS, /bg-white|data-\[tone/, 'the thumb has a second colour');
   const src = read('app/_components/pill-thumb.tsx');
   assert.match(src, /className=\{PILL_THUMB_CLASS\}/);
   assert.doesNotMatch(src, /setTimeout|setInterval|requestAnimationFrame|framer-motion|@radix-ui/, 'a timer or an animation library');
   assert.doesNotMatch(raw('package.json'), /"framer-motion"|"@radix-ui\/react-toggle-group"/, 'a dependency was added for the selector');
+
+  // ONE SPEED for the family, in ONE place: the thumb's travel, the words, the pulse; the ring is a multiple of it.
+  const css = raw('app/globals.css');
+  assert.equal((css.match(/--sn-pill-dur:/g) ?? []).length, 1, 'the family’s speed is declared more than once');
+  const ms = Number(/--sn-pill-dur:\s*(\d+)ms;/.exec(css)?.[1]);
+  assert.ok(ms >= 400 && ms <= 520, `the speed (${ms} ms) is not “in between normal (220) and slow motion (880)” — the gallery’s 460`);
+  const tw = raw('tailwind.config.ts');
+  assert.match(tw, /'sn-pill': 'var\(--sn-pill-dur\)'/, '`duration-sn-pill` does not read the token');
+  assert.match(tw, /'sn-spring': 'var\(--sn-pill-spring\)'/);
+  // The landing overshoots (a control point above 1) — a bounce.
+  const spring = (/--sn-pill-spring:\s*cubic-bezier\(([^)]+)\);/.exec(css)?.[1] ?? '').split(',').map(Number);
+  assert.ok(spring.length === 4 && spring[1]! > 1, `the thumb's landing does not overshoot (${spring.join(', ')})`);
+  // ⚠ Never an arbitrary `duration-[…]`: with tailwindcss-animate loaded Tailwind emits NOTHING for it (seen in the
+  //   review copy: the thumb ran at the 150 ms default while its class said 220).
+  assert.match(tw, /plugins: \[tailwindcssAnimate\]/, 'anti-vacuity: the animate plugin left — arbitrary durations may be safe again');
+  for (const f of ['app/_components/pill-selector.tsx', 'app/_components/pill-thumb.tsx', `${E}/inspector-kit.tsx`]) assert.doesNotMatch(read(f), /duration-\[/, `${f}: an arbitrary duration is never emitted`);
+  for (const [name, cls] of Object.entries({ SP_PHASE, STAGE_TOOL_FACE, STAGE_TOOL_DIVIDER })) {
+    assert.ok(has(cls, 'duration-sn-pill'), `${name} does not move at the family's speed`);
+    assert.doesNotMatch(cls, /duration-\[/, `${name}: an arbitrary duration is never emitted`);
+  }
+
+  // THE PULSE: a dip in scale and back, and one ring that widens and fades — scale and opacity only.
+  const frames = (name: string) => new RegExp(`@keyframes ${name} \\{([\\s\\S]*?)\\n\\}`).exec(css)?.[1] ?? '';
+  assert.match(frames('sn-pill-press'), /0% \{ scale: 1; \}\s*35% \{ scale: 0\.9\d*; \}\s*100% \{ scale: 1; \}/);
+  assert.match(frames('sn-pill-ring'), /0% \{ opacity: 0\.\d+; scale: 1; \}\s*100% \{ opacity: 0; scale: [\d. ]+; \}/);
+  for (const name of ['sn-pill-press', 'sn-pill-ring']) {
+    const props = [...frames(name).matchAll(/([a-z-]+):/g)].map((m) => m[1]);
+    assert.ok(props.length >= 3 && props.every((p) => p === 'scale' || p === 'opacity'), `${name} animates ${[...new Set(props)].join(', ')}`);
+  }
+  assert.match(css, /\.sn-pill-thumb\[data-pulse\] \{\s*animation: sn-pill-press var\(--sn-pill-dur\) var\(--sn-ease\);\s*\}/);
+  assert.match(css, /\.sn-pill-thumb\[data-pulse\]::after \{\s*animation: sn-pill-ring calc\(var\(--sn-pill-dur\) \* 1\.3\) ease-out;\s*\}/);
+  // The ring is the thumb's own colour and shape — and under "reduce motion" there is no pulse, no ring, no travel.
+  assert.match(css, /\.sn-pill-thumb::after \{[^}]*border-radius: inherit;[^}]*background: inherit;[^}]*opacity: 0;/);
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{\s*\.sn-pill-thumb,\s*\.sn-pill-thumb::after \{\s*animation: none !important;\s*transition: none !important;\s*\}\s*\}/);
+  // It pulses on a PICK only (the RUN above): the attribute is the thumb's own, set when the picked choice changed.
+  assert.match(src, /const pick = laid && last !== null && last !== on;/);
 });
 
 test('(4) ← → (↑ ↓, Home, End) move focus between the choices and wrap; they never pick; every other key is the button’s', () => {
@@ -262,11 +333,13 @@ test('(5) the four Maker selectors wear the ONE thumb — Stages | Studio, Look�
   );
   // A named group of pressed-or-not buttons — as it was. No tablist (the lower third's rule).
   assert.match(html, /^<div role="group" aria-label="Look" class="[^"]*\brounded-full\b[^"]*">/);
-  assert.match(html, /<button type="button" aria-pressed="true"[^>]*data-seg="background" data-seg-tone="plain"/);
+  assert.match(html, /<button type="button" aria-pressed="true"[^>]*data-seg="background"/);
   assert.match(html, /<button type="button" aria-pressed="false"[^>]*data-seg="elements"/);
   assert.doesNotMatch(html, /role="tab/);
   // The server's paint: the picked choice paints the pill itself, and nothing says a thumb is laid — nothing to jump.
-  assert.match(html, /aria-pressed="true"[^>]*class="[^"]*\bbg-white\b/);
+  assert.match(html, /aria-pressed="true"[^>]*class="[^"]*\bbg-mulberry\b/);
+  // …and Look's bar is the SAME terracotta as Stages | Studio — no white selector.
+  assert.doesNotMatch(html, /\bbg-white\b|data-seg-tone|data-seg-fill/);
   assert.doesNotMatch(html, /data-seg-thumb=""/);
 
   const kit = read(`${E}/inspector-kit.tsx`);
@@ -281,10 +354,11 @@ test('(5) the four Maker selectors wear the ONE thumb — Stages | Studio, Look�
   for (const c of ['group/seg', 'relative', 'rounded-full', 'h-11', 'w-full']) assert.ok(has(SP_PHASES, c), `Phases’ track lost ${c}`);
   noRect(SP_PHASES, 'Phases’ track');
   // A real 44-px button (the panel's own rule) whose pill is clipped 3 px inside — and the thumb is laid inside the same 3 px.
-  for (const c of ['rounded-full', 'relative', 'z-[1]', 'h-11', 'border-[3px]', 'border-transparent', 'bg-clip-padding', 'flex-1', 'duration-[220ms]', 'motion-reduce:transition-none', 'aria-pressed:bg-white', 'group-data-[seg-thumb]/seg:aria-pressed:bg-transparent']) {
+  for (const c of ['rounded-full', 'relative', 'z-[1]', 'h-11', 'border-[3px]', 'border-transparent', 'bg-clip-padding', 'flex-1', 'duration-sn-pill', 'motion-reduce:transition-none', 'aria-pressed:bg-mulberry', 'aria-pressed:text-white', 'group-data-[seg-thumb]/seg:aria-pressed:bg-transparent']) {
     assert.ok(has(SP_PHASE, c), `a Phases segment lost ${c}`);
   }
   noRect(SP_PHASE, 'a Phases segment');
+  assert.doesNotMatch(SP_PHASE, /aria-pressed:bg-white|aria-pressed:text-\[var\(--sp-ink\)\]/, 'Phases is still the white selector');
   const stageKit = read(`${L}/stage-panel/kit.tsx`);
   assert.match(stageKit, /<div role="group" aria-label=\{label\} className=\{SP_PHASES\} data-stage-phases=\{data\}>\s*(?:\{\s*\}\s*)?<PillThumb \/>\s*\{options\.map\(/, 'Phases does not wear the thumb');
   assert.match(stageKit, /<button key=\{k\} type="button" aria-pressed=\{k === value\} data-stage-phase=\{k\} data-seg-inset=\{SP_PHASE_INSET\} onClick=\{\(\) => onPick\(k\)\} className=\{SP_PHASE\}>/);
@@ -296,18 +370,26 @@ test('(5) the four Maker selectors wear the ONE thumb — Stages | Studio, Look�
   // 4 · THE TOOL GROUP (Style · Text · Animate): the dark face TRAVELS — one thumb, on each tool's 46 × 38 face.
   for (const c of ['group/seg', 'relative', 'rounded-full', 'h-11']) assert.ok(has(STAGE_TOOL_PILL, c), `the tool group’s track lost ${c}`);
   for (const c of ['relative', 'z-[1]', 'h-11', 'w-[46px]']) assert.ok(has(STAGE_TOOL_BUTTON, c), `a tool lost ${c}`);
-  for (const c of ['h-[38px]', 'w-[46px]', 'rounded-full', 'duration-[220ms]', 'motion-reduce:transition-none', 'group-aria-pressed:bg-[var(--sp-ink)]', 'group-aria-pressed:text-white', 'group-data-[seg-thumb]/seg:group-aria-pressed:bg-transparent']) {
+  for (const c of ['h-[38px]', 'w-[46px]', 'rounded-full', 'duration-sn-pill', 'motion-reduce:transition-none', 'group-aria-pressed:bg-mulberry', 'group-aria-pressed:text-white', 'group-data-[seg-thumb]/seg:group-aria-pressed:bg-transparent']) {
     assert.ok(has(STAGE_TOOL_FACE, c), `a tool’s face lost ${c}`);
   }
   const tools = read(`${L}/stage-tools.tsx`);
   const group = tools.slice(tools.indexOf('data-stage-tpill=""'), tools.indexOf('data-stage-play=""'));
   assert.match(group, /^data-stage-tpill="">\s*(?:\{\s*\}\s*)?<PillThumb \/>\s*\{MAKER_PART_TOOLS\.map\(\(t, i\) => \(\s*<Fragment key=\{t\}>/, 'the tool group does not wear the thumb, or its tools are not the track’s direct children');
   assert.doesNotMatch(group, /className="contents"/, 'a wrapper hides the tools from the thumb');
-  assert.match(group, /data-stage-tool=\{t\}\s*data-seg-fill="var\(--sp-ink\)"/, 'the thumb is not the panel’s ink');
+  assert.doesNotMatch(group, /data-seg-fill|--sp-ink\)/, 'the tool group still has a colour of its own');
   assert.match(group, /<span data-seg-face="" className=\{STAGE_TOOL_FACE\}>/, 'the thumb fills the whole 44-px button, not the 38-px face');
+  // ONE ICON PER TOOL (owner 2026-10-08, the "Bolder" set S5 · T4 · A5): swatch book · A-large-small · orbit — 18 px, stroke 2.
+  for (const [tool, icon] of [['style', 'SwatchBook'], ['text', 'ALargeSmall'], ['animate', 'Orbit']] as const) {
+    assert.match(group, new RegExp(`<${icon} aria-hidden className="h-\\[18px\\] w-\\[18px\\]" strokeWidth=\\{2\\} />`), `${tool} lost its icon (${icon})`);
+  }
+  assert.match(group, /t === 'style' \? \(\s*<SwatchBook [^>]*\/>\s*\) : t === 'text' \? \(\s*<ALargeSmall [^>]*\/>\s*\) : \(\s*<Orbit [^>]*\/>/, 'a tool wears another tool’s icon');
+  assert.doesNotMatch(group, /<Brush\b|<Diamond\b|<Zap\b|>Aa</, 'an old tool icon is still drawn');
+  // The names a screen reader hears are unchanged.
+  assert.match(group, /aria-label=\{MAKER_PART_TOOL_LABEL\[t\]\}/);
   // The hairline beside the picked tool fades — the thumb is never cut by a line (as iOS draws it).
   assert.match(group, /\{i > 0 \? <span aria-hidden data-stage-tool-divider="" className=\{STAGE_TOOL_DIVIDER\} \/> : null\}/);
-  for (const c of ['has-[+[aria-pressed=true]]:opacity-0', '[[aria-pressed=true]+&]:opacity-0', 'transition-opacity', 'duration-[220ms]', 'motion-reduce:transition-none']) {
+  for (const c of ['has-[+[aria-pressed=true]]:opacity-0', '[[aria-pressed=true]+&]:opacity-0', 'transition-opacity', 'duration-sn-pill', 'motion-reduce:transition-none']) {
     assert.ok(has(STAGE_TOOL_DIVIDER, c), `the hairline lost ${c}`);
   }
 
@@ -331,17 +413,19 @@ test('(6) PillSelector — buttons or links, an icon-only variant, a row of togg
   const buttons = paint({ label: 'Look', value: 'elements', options: [{ key: 'background', label: 'Background' }, { key: 'elements', label: 'Elements' }, { key: 'music', label: 'Music', disabled: true }], onPick: () => {} });
   assert.match(buttons, /^<div role="group" aria-label="Look" data-pill-selector="" class="[^"]*\brounded-full\b[^"]*\bbg-ink\/\[0\.06\]/);
   assert.equal((buttons.match(/<button /g) ?? []).length, 3);
-  assert.match(buttons, /<button type="button" aria-pressed="true"[^>]*class="[^"]*\bbg-white\b[^"]*"[^>]*data-seg="elements"/);
+  assert.match(buttons, /<button type="button" aria-pressed="true"[^>]*class="[^"]*\bbg-mulberry\b[^"]*"[^>]*data-seg="elements"/);
   assert.match(buttons, /<button type="button" aria-pressed="false" disabled=""[^>]*data-seg="music"/);
   // Links: each view has its own address — the picked one is aria-current, in the wine.
-  const links = paint({ label: 'Schedule view', value: 'day', tone: 'wine', options: [{ key: 'day', label: 'Day', href: '/s?view=day' }, { key: 'prep', label: 'Preparation', href: '/s?view=prep' }] });
-  assert.match(links, /<a href="\/s\?view=day" class="[^"]*\bbg-mulberry\b[^"]*"[^>]*data-seg-tone="wine" aria-current="page">Day<\/a>/);
+  const links = paint({ label: 'Schedule view', value: 'day', options: [{ key: 'day', label: 'Day', href: '/s?view=day' }, { key: 'prep', label: 'Preparation', href: '/s?view=prep' }] });
+  assert.match(links, /<a href="\/s\?view=day" class="[^"]*\bbg-mulberry\b[^"]*"[^>]*data-seg="day" aria-current="page">Day<\/a>/);
   assert.match(links, /<a href="\/s\?view=prep" class="[^"]*"[^>]*>Preparation<\/a>/);
   assert.doesNotMatch(links, /<button/);
   assert.equal((links.match(/aria-current/g) ?? []).length, 1);
-  // Icon-only: fixed faces, each named for a screen reader; the thumb's fill is the caller's own.
-  const icons = paint({ label: 'Edit with', value: 'style', icon: true, grow: false, fill: 'var(--my-ink)', options: [{ key: 'style', label: '🖌', ariaLabel: 'Style' }, { key: 'text', label: 'Aa', ariaLabel: 'Text' }] });
-  assert.match(icons, /class="[^"]*\bw-\[46px\] flex-none px-0"[^>]*data-seg="style" data-seg-tone="plain" data-seg-fill="var\(--my-ink\)" aria-label="Style"/);
+  // Icon-only: fixed faces, each named for a screen reader — in the same one colour.
+  const icons = paint({ label: 'Edit with', value: 'style', icon: true, grow: false, options: [{ key: 'style', label: '🖌', ariaLabel: 'Style' }, { key: 'text', label: 'Aa', ariaLabel: 'Text' }] });
+  assert.match(icons, /class="[^"]*\bbg-mulberry\b[^"]*\bw-\[46px\] flex-none px-0"[^>]*data-seg="style" aria-label="Style"/);
+  // No caller chooses a colour: the selector takes no tone and no fill.
+  assert.doesNotMatch(read('app/_components/pill-selector.tsx'), /\bfill\?:|tone = '|data-seg-fill|data-seg-tone/, 'a pill selector can be recoloured per use');
   assert.match(icons, /class="[^"]*\binline-flex\b[^"]*"/);
   // The caller's own ground replaces the house one.
   assert.doesNotMatch(paint({ label: 'x', value: null, className: 'bg-white ring-1', options: [{ key: 'a', label: 'A' }] }), /bg-ink\/\[0\.06\]/);

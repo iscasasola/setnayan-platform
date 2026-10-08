@@ -166,7 +166,10 @@ export function ISeg({
   title?: string;
   data?: string;
   className?: string;
-  /** `wine` — the chosen segment filled in the Setnayan wine (`mulberry`, the CTA token) with white words: a SECTION switch (the part sheet's Text · Motion · Arrange). */
+  /**
+   * @deprecated Ignored since 2026-10-08 (owner: *"pill selector should have a consistent color"*): EVERY selector is
+   * the terracotta when on and grey when off (`app/_components/pill-selector.tsx`). Kept so its callers compile.
+   */
   tone?: 'plain' | 'wine';
 }) {
   return (
@@ -176,7 +179,6 @@ export function ISeg({
       disabled={disabled}
       title={title}
       data-seg={data}
-      data-seg-tone={tone}
       onClick={onClick}
       className={`${iSegClass(on, tone)} ${className}`}
     >

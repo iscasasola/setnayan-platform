@@ -15,11 +15,22 @@
  *   (5) THE FORM ROW'S `onType` — the words as they are typed, and once more what the row is left holding; it is
  *       never the save.
  *   (6) THE WATCH — chips know no screen and write no accent.
+ *   (7) AN EVEN GRID (owner 2026-10-08, on six chips that hugged their words: *"make RSVP ask buttons even"*) —
+ *       every chip of a set is the same width and the same height and the columns fill the row edge to edge: all
+ *       on one line where the row is wide enough, otherwise what a 375-px phone gets (three across if the longest
+ *       word fits, else two) on every screen; a word is never shrunk, cut or wrapped. Painted: one grid, every chip
+ *       its column's width. `even={false}` is the only way to hug.
+ *       ⤷ MEASURED IN THE BROWSER (Chromium, 375 × 812, the review copy, 2026-10-09): "Song request" at the chip's
+ *       14-px semibold is 83 px of words → a 121-px chip; three of those need 379 px and a phone's row has 343 → two
+ *       across, three rows. `scratchpad/G1/setup.mjs` repeats the measure on the page itself.
  *
  * Mutations seen RED (2026-10-08), each restored: a chosen chip filled with a colour of its own → (1); a tick icon
  * drawn only on a chosen chip → (2); `font-bold` only when chosen → (2); `aria-pressed` dropped → (3); `onToggle`
  * told the OLD state → (3); the mark drawn outside the name (after the ⓘ) → (4); `onType` not told when ✕ leaves
- * the field → (5); `onType` wired to `onKeep` → (5).
+ * the field → (5); `onType` wired to `onKeep` → (5); a chip hugging its word again (no `w-full`) → (7); the set a
+ * wrapping row instead of a grid → (7); three across although the longest word does not fit (the phone's row read
+ * as 400 px) → (7); a wider screen given more columns than a phone when not all fit on one line → (7); a label
+ * allowed to wrap → (7).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -90,11 +101,14 @@ test('(3) rendered: a named group of toggles, several on at once; a press says t
   assert.equal(count(html, /<button type="button" aria-pressed="(true|false)"/g), 4);
   assert.deepEqual([...html.matchAll(/aria-pressed="(true|false)"[^>]*data-chip="(\w+)"/g)].map((m) => `${m[2]}:${m[1]}`), ['family:true', 'friends:false', 'work:true', 'sponsors:false']);
   assert.match(html, /data-chip="work" data-testid="chip-work"/);
-  assert.match(html, />Family<\/button>/);
+  assert.match(html, /><span data-chip-label="" class="whitespace-nowrap">Family<\/span><\/button>/);
   const src = read(CHIPS);
   assert.match(src, /const on = value\.includes\(o\.key\);/);
   assert.match(src, /onClick=\{\(\) => onToggle\(o\.key, !on\)\}/, 'a press does not say what the chip is now');
-  assert.doesNotMatch(src, /useState|useReducer|useEffect/, 'the chips keep a state of their own');
+  // The only thing the chips remember is what they MEASURED (their widest word, their row) — never what is chosen.
+  assert.equal(count(src, /useState</g), 1);
+  assert.match(src, /const \[measured, setMeasured\] = useState<\{ widest: number; row: number \} \| null>\(null\);/);
+  assert.doesNotMatch(src, /useReducer|setMeasured\([^)]*value|useState<[^>]*\bK\b/, 'the chips keep a state of what is chosen');
 });
 
 test('(4) the Form row’s mark: a small mark after the row’s NAME — on a plain row and on a chosen one', async () => {
@@ -128,4 +142,61 @@ test('(6) the watch: chips know no screen and write no accent', () => {
   assert.doesNotMatch(src, /mulberry|#[0-9a-fA-F]{3,8}\b|\btext-white\b/, 'the chips write a colour for the accent');
   const watch = readFileSync(join(WEB, 'lib/the-accent-is-one-token.test.ts'), 'utf8');
   assert.ok(watch.includes(`'${CHIPS}'`), 'chips.tsx is not on the accent watch (TEMPLATE_FILES)');
+});
+
+/* ── (7) an even grid ─────────────────────────────────────────────────── */
+
+test('(7) an even grid: one width, one height, edge to edge — all on one line, or what a phone gets; a word is never cut', async () => {
+  const G = await import('./chips-grid');
+  // THE RULE. "Song request" measures 83 px in the browser → a 121-px chip (18 + 1 each side).
+  assert.equal(G.chipWidthFor(83), 121);
+  assert.equal(G.chipWidthFor(20), G.CHIP_MIN_PX, 'a short word makes a chip narrower than the template’s floor');
+  assert.equal(G.CHIP_PHONE_ROW_PX, 375 - 16 * 2);
+  const six = (widest: number, row: number) => G.chipColumns({ count: 6, widest, row });
+  // A phone: three across only if the LONGEST fits three across — 3 × 121 + 2 × 8 = 379 does not fit 343.
+  assert.equal(six(121, 343), 2, 'three across although the longest word does not fit');
+  assert.equal(six(121, 347), 2);
+  assert.equal(six(109, 343), 3, 'two across although three fit (3 × 109 + 16 = 343)');
+  assert.equal(six(110, 343), 2);
+  assert.equal(G.chipPhoneColumns(6, 121), 2);
+  assert.equal(G.chipPhoneColumns(6, 100), 3);
+  assert.equal(G.chipPhoneColumns(2, 84), 2, 'two chips are not side by side');
+  // A wider screen: ALL on one line where they fit with equal widths (6 × 121 + 5 × 8 = 766) …
+  assert.equal(six(121, 766), 6);
+  assert.equal(six(121, 1200), 6);
+  // … otherwise the phone's count — never four on a tablet and two on a phone.
+  for (const row of [400, 520, 640, 765]) assert.equal(six(121, row), 2, `a ${row}-px row is given more columns than a phone`);
+  assert.equal(six(100, 600), 3);
+  // Never a chip narrower than its word: a row too narrow for the phone's count gets fewer columns.
+  assert.equal(six(121, 250), 2);
+  assert.equal(six(121, 249), 1);
+  assert.equal(G.chipColumns({ count: 1, widest: 121, row: 343 }), 1);
+  // Before the browser has measured, a word is guessed a little WIDE (too narrow would cut it): never under the measure.
+  assert.ok(G.guessLabelPx('Song request') >= 83, 'the first paint can cut the longest word');
+  assert.equal(G.chipColumns({ count: 6, widest: G.chipWidthFor(G.guessLabelPx('Song request')), row: G.CHIP_PHONE_ROW_PX }), 2, 'the first paint and the measured one disagree on a phone');
+
+  // PAINTED: ONE grid; every chip its column's width; the words on one line.
+  const { Chips } = await import(`../${CHIPS}`);
+  const ASKS = ['Plus-ones', 'Meal', 'Dietary', 'Song request', 'A note', 'Mobile'].map((label, i) => ({ key: `k${i}`, label }));
+  const html = await paint(h(Chips, { label: 'RSVP asks', options: ASKS, value: ['k0'], onToggle: () => {} } as Record<string, unknown>));
+  assert.match(html, /^<div role="group" aria-label="RSVP asks" data-chips="" data-chips-columns="2" style="grid-template-columns:repeat\(2, minmax\(0, 1fr\)\)" class="grid gap-2 "/, 'the set is not one even grid');
+  const chips = [...html.matchAll(/<button type="button" aria-pressed="(?:true|false)" data-chip="k\d" class="([^"]*)"><span data-chip-label="" class="whitespace-nowrap">/g)].map((m) => m[1]!.split(' '));
+  assert.equal(chips.length, 6, 'anti-vacuity: the six chips were not found');
+  for (const c of chips) {
+    assert.ok(c.includes('w-full'), 'a chip hugs its word (it is not its column’s width)');
+    assert.ok(c.includes('h-10') && c.includes('min-h-10'), 'a chip is not the one height');
+  }
+  // Three short words fit three across; all four of the earlier set do not fit one line on a phone.
+  assert.match(await paint(h(Chips, { label: 'x', options: OPTIONS, value: [], onToggle: () => {} } as Record<string, unknown>)), /data-chips-columns="3"/);
+  // Hugging is asked for, never the default.
+  const hug = await paint(h(Chips, { label: 'x', options: ASKS, value: [], onToggle: () => {}, even: false } as Record<string, unknown>));
+  assert.match(hug, /^<div role="group" aria-label="x" data-chips="" class="flex flex-wrap gap-2 "/);
+  assert.doesNotMatch(hug, /w-full|grid-template-columns|data-chips-columns/);
+  const src = read(CHIPS);
+  assert.match(src, /even = true,/, 'even is not the default');
+  // A word is never shrunk, cut or wrapped — and what is measured is the WORD, in the browser.
+  assert.doesNotMatch(src, /truncate|text-ellipsis|overflow-hidden|line-clamp|whitespace-normal|text-\[1[0-3]px\]/, 'a chip may cut, wrap or shrink its word');
+  assert.match(src, /el\.querySelectorAll<HTMLElement>\('\[data-chip-label\]'\)\.forEach\(\(w\) => \{\s*label = Math\.max\(label, w\.getBoundingClientRect\(\)\.width\);/);
+  assert.match(src, /const next = \{ widest: chipWidthFor\(label\), row: el\.clientWidth \};/);
+  assert.match(src, /new ResizeObserver\(measure\)/, 'a turned phone keeps the old columns');
 });

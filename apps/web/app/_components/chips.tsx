@@ -1,6 +1,7 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { CHIP_PHONE_ROW_PX, chipColumns, chipWidthFor, guessLabelPx } from '@/lib/chips-grid';
 import { PILL_ON_CLASS } from './pill-selector';
 
 /**
@@ -13,14 +14,20 @@ import { PILL_ON_CLASS } from './pill-selector';
  *   · ONE LOOK, TWO STATES: chosen = the app's accent with the ink that reads on it (the pill selector's own "on",
  *     `PILL_ON_CLASS`); not chosen = grey words on white with a hairline. No third colour, no icon that comes and
  *     goes — so a chip is exactly as wide chosen as not.
+ *   · AN EVEN GRID (owner 2026-10-08, on six chips that hugged their words into a ragged edge: *"make RSVP ask
+ *     buttons even"*): every chip of a set is the SAME width and the same height, the columns fill the row edge to
+ *     edge with equal gaps. All on one line where the row is wide enough for that; otherwise what a 375-px phone
+ *     gets — three across if the longest word fits, else two — on every screen (`lib/chips-grid.ts`). A word is
+ *     never shrunk, cut or wrapped. A set that must hug its words asks for it (`even={false}`); even is the default.
  *   · 40 px tall, never narrower than 84 px, the word on one line; the finger's target is 44 px (the chip's own
  *     height plus 2 px above and below).
  *   · each chip is a toggle button (`aria-pressed`) in a named group — several may be on at once. ONE of several is
  *     a Dropdown, two named things a Pill selector, on / off a Switch: never chips.
  *   · the press is the family's (`sn-press`); the fill changes at the control speed, still under "reduce motion".
  *
- * Neutral: it knows no screen and keeps no state — the screen says what is chosen and hears a toggle. No accent
- * colour is written here (`lib/the-accent-is-one-token.test.ts`).
+ * Neutral: it knows no screen and keeps no state about WHAT is chosen — the screen says so and hears a toggle (the
+ * only thing it remembers is what it measured: its widest word and its row). No accent colour is written here
+ * (`lib/the-accent-is-one-token.test.ts`).
  */
 
 /** One chip's shape — the same chosen or not. */
@@ -51,9 +58,12 @@ export function Chips<K extends string>({
   options,
   value,
   onToggle,
+  even = true,
   data,
   className = '',
 }: {
+  /** The even grid (default). False: each chip hugs its word and the set wraps — only for a set that asks. */
+  even?: boolean;
   /** The group's name, for a screen reader ("RSVP asks"). */
   label: string;
   options: readonly ChipOption<K>[];
@@ -65,8 +75,42 @@ export function Chips<K extends string>({
   data?: string;
   className?: string;
 }) {
+  const group = useRef<HTMLDivElement>(null);
+  /* What the browser measured: the widest word's chip, and the row. Until then (the server's render, the first
+     paint) the words are guessed from their letters and the row is a phone's — the same answer on both sides. */
+  const [measured, setMeasured] = useState<{ widest: number; row: number } | null>(null);
+  const words = options.map((o) => (typeof o.label === 'string' ? o.label : '')).join('\u0001');
+  useLayoutEffect(() => {
+    const el = group.current;
+    if (!even || !el) return;
+    const measure = () => {
+      let label = 0;
+      el.querySelectorAll<HTMLElement>('[data-chip-label]').forEach((w) => {
+        label = Math.max(label, w.getBoundingClientRect().width);
+      });
+      const next = { widest: chipWidthFor(label), row: el.clientWidth };
+      if (!(next.row > 0)) return;
+      setMeasured((was) => (was && was.widest === next.widest && was.row === next.row ? was : next));
+    };
+    measure();
+    /* The row changes width (a turned phone, a resized window), and the words change width when their font lands. */
+    const watch = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
+    watch?.observe(el);
+    void document.fonts?.ready.then(measure);
+    return () => watch?.disconnect();
+  }, [even, words]);
+  const widest = measured?.widest ?? chipWidthFor(Math.max(0, ...options.map((o) => (typeof o.label === 'string' ? guessLabelPx(o.label) : 0))));
+  const columns = even ? chipColumns({ count: options.length, widest, row: measured?.row ?? CHIP_PHONE_ROW_PX }) : null;
   return (
-    <div role="group" aria-label={label} data-chips={data ?? ''} className={`flex flex-wrap gap-2 ${className}`}>
+    <div
+      ref={group}
+      role="group"
+      aria-label={label}
+      data-chips={data ?? ''}
+      data-chips-columns={columns ?? undefined}
+      style={columns ? { gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` } : undefined}
+      className={`${columns ? 'grid' : 'flex flex-wrap'} gap-2 ${className}`}
+    >
       {options.map((o) => {
         const on = value.includes(o.key);
         return (
@@ -79,9 +123,12 @@ export function Chips<K extends string>({
             data-chip={o.key}
             data-testid={o.testId}
             onClick={() => onToggle(o.key, !on)}
-            className={chipClass(on)}
+            /* In the grid a chip is its column's width — the same as every other chip of the set. */
+            className={`${chipClass(on)}${columns ? ' w-full' : ''}`}
           >
-            {o.label}
+            <span data-chip-label="" className="whitespace-nowrap">
+              {o.label}
+            </span>
           </button>
         );
       })}

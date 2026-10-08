@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "bf91be468",
+  "generatedFromRef": "980c40594",
   "routeCount": 429,
   "destinations": 959,
   "actions": 672,
-  "blocks": 5850,
+  "blocks": 5852,
   "routes": {
     "/": {
       "files": [
@@ -6717,7 +6717,6 @@
         "DetailsTapContext.Provider",
         "DetailsWorkspace",
         "Door",
-        "DraftNote",
         "DraftsAsYouGo",
         "Drag",
         "EffectRows",
@@ -9280,6 +9279,7 @@
         "dashboard/[eventId]/website/editor/_components/element-sheet.tsx",
         "dashboard/[eventId]/website/editor/_components/fixed-scene-style-row.tsx",
         "dashboard/[eventId]/website/editor/_components/font-pick.tsx",
+        "dashboard/[eventId]/website/editor/_components/fonts-look-rows.tsx",
         "dashboard/[eventId]/website/editor/_components/inspector-kit.tsx",
         "dashboard/[eventId]/website/editor/_components/launch-phase-choices.ts",
         "dashboard/[eventId]/website/editor/_components/main-background-panel.tsx",
@@ -9392,7 +9392,9 @@
         "ErrorLine",
         "FileUpload",
         "FixedSceneStyleRow",
+        "FontChoice",
         "FontPick",
+        "FontsLookRows",
         "Fragment",
         "GalleryPanel",
         "HTMLButtonElement",
@@ -9941,6 +9943,7 @@
       "blocks": [
         "ButtonsLookRow",
         "ColorsPanel",
+        "FontsLookRows",
         "HubDraftActionResult",
         "HubDraftToolbar",
         "LookSample",

@@ -37,6 +37,8 @@ import {
   RSVP_WORD_TYPED_EVENT,
 } from '@/app/[slug]/_components/rsvp-canvas-parts';
 import { SP_KEY_BAR, SP_KEY_DONE } from '@/lib/maker-stage-room';
+import { Check } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { useStagePanelNow } from './stage-panel/store';
 import {
   RSVP_CELEBRATE_EVENT,
@@ -425,9 +427,12 @@ export function MakerRsvpStage({
               className={`fixed inset-x-0 z-[85] ${SP_KEY_BAR}`}
             >
               <span className="min-w-0 truncate">Typing · {RSVP_WORD_LABEL[typingKey as RsvpWordKey] ?? 'Words'}</span>
-              <button type="button" onClick={doneTyping} data-type-done="" className={SP_KEY_DONE}>
-                <span className="inline-flex h-8 items-center rounded-full bg-[#2C2A29] px-4 text-[13px] font-semibold text-white">Done</span>
-              </button>
+              {/* Done is the bar's ONE action: the app's main button (the accent — `ActionButton`), never an ink pill —
+                  drawn exactly as the shipped typing bar draws it (`type-in-place.tsx`). It was a black pill written
+                  as a hex (owner 2026-10-08, the approved gallery § 9). */}
+              <span data-type-done="" className={SP_KEY_DONE}>
+                <ActionButton tone="brand" main icon={Check} label="Done" onClick={doneTyping} />
+              </span>
             </div>,
             document.body,
           )

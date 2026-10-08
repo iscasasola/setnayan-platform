@@ -94,3 +94,40 @@ typing bar's "Done".
 
 SPEC IMPACT: None applied. For the owner: "Ask one question at a time" (a switch) and "How guests answer ▾" (a
 dropdown) are now ONE pill selector named "How guests answer" in every door.
+
+## 2026-10-09 · feat(maker): the rest of the RSVP stage on the templates — and chips are an even grid
+
+Owner, 2026-10-08, looking at Studio › RSVP on the local copy: *"studio RSVP ok. but make RSVP ask buttons even"*.
+Controller's rulings the same night: the reset folds into "Start from ▾"; captions go behind a row's ⓘ word for
+word; the typing bar's Done is drawn as the shipped typing bar now draws it.
+
+- **Chips are an even grid** (`app/_components/chips.tsx`, the rule in `lib/chips-grid.ts`) — the template's default
+  for every set: each chip the same width and height, the columns filling the row edge to edge with equal gaps. All
+  on one line where the row is wide enough; otherwise what a 375-px phone gets (three across if the longest word
+  fits, else two) on every screen. A word is never shrunk, cut or wrapped; `even={false}` is the only way to hug.
+  Measured in the browser: "Song request" is 83 px of words → a 121-px chip; three need 379 px, a phone's row has
+  343 → the six RSVP asks are two across, three rows (Studio › RSVP, the stage and Guests › Setup alike).
+- **Start from ▾ is the answer's one other control**: its first choice, "Automatic", puts the page's own words back.
+  The separate "Use the automatic words" button is gone (it added a 44-px line under each written answer). A word
+  with no premade line and nothing written has no Start from row.
+- **When yes — Celebration ▾** is a Form row: "When they say yes" with the Pro mark beside its name (◆ PRO while it
+  is only tried, the diamond once owned), the pick in the row's pill, "Play it again" as the house action under it
+  and only for a pick that plays. What is Pro, who may try it and what ✓ Apply does are unchanged; in the store
+  shell without Pro it is still not drawn — and Studio no longer leaves an empty band there.
+- **Nothing is printed on the after-screens' panels**: "What a guest sees right after they say yes — with their
+  Digital tickets under it." / "What a guest sees after they say they can't come." and "Type {name} and each guest
+  sees their own name." are behind the rows' ⓘ, word for word; "In your draft — guests see it after you Apply." is
+  gone (the count on ✓ Apply says it).
+- **The typing bar's Done** on the RSVP stage is `ActionButton tone="brand" main` — the same drawing as
+  `type-in-place.tsx`. It was a black pill written as a hex.
+- The Maker lab's Reply-by stub answers as `updatePaxSettings` does (it answered nothing, which reads as a refusal).
+- Left as they are, on purpose: the desktop-only scene list and the old Maker's lower-third tiles.
+
+Requests: none added or removed. A Celebration pick is the panel's one drafted write, as before.
+
+- `lib/the-chips.test.ts` (7 tests; 5 more mutations seen red) · `lib/studio-rsvp-wears-the-templates.test.ts`
+  (9 tests; 10 more mutations seen red) · `when-yes-gets-a-celebration` brought to the row.
+  `scripts/port-control-baseline.json` regenerated (`DraftNote` gone).
+
+SPEC IMPACT: None applied. For the corpus (`INTERACTION_RULES.md` § 9, kind 11): "a set of chips is an even grid"
+is the owner's new ruling and is not written there yet.

@@ -184,7 +184,8 @@ export function MakerLabShell({
       replyByFallback: '2026-11-12',
       frameSrc: (scene) => `/dev/maker-lab/guest?rsvp=${scene}`,
       draftAction: labDraft as never,
-      replyByAction: formNoop as never,
+      /* Answers as `updatePaxSettings` does — a stub that answers nothing reads as a refused save ("Reply by did not save"). */
+      replyByAction: (async () => ({ ok: true })) as never,
       celebration: { ownsPro: false, colours: celebrationColours(['#5B1A22', '#6B7A3A', '#E0A52B', '#8E2E3C', '#F2C8C2']) },
     }),
     [eventId],

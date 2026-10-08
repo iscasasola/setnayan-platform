@@ -2,9 +2,9 @@
 
 import { useState, type ReactNode } from 'react';
 import { ChevronRight, Plus } from 'lucide-react';
-import { SP_PILL_BUTTON, SP_ROW, SP_ROW_LABEL, SP_SWATCH } from '@/lib/maker-stage-room';
+import { SP_PILL_BUTTON, SP_ROW, SP_ROW_LABEL } from '@/lib/maker-stage-room';
 import { MakerSheet } from '../stages-studio-parts';
-import { About, Dd } from './kit';
+import { About, Dd, Swatch, SwatchMore } from './kit';
 
 /**
  * 🖼 STYLE › BACKGROUND — the prototype's three rows (`S.sphase === 'bg'`), on the
@@ -13,8 +13,9 @@ import { About, Dd } from './kit';
  *   BACKGROUND  The Event Hub's ▾ · WIDTH  Framed ▾     ONE dropdown, its first choice
  *                                                       "The Event Hub's" (the scene wears
  *                                                       the stage's own); Width once it has one
- *   Colour      ■ ■ ■ ■ ■ +                             the five colours, then any colour ("+" opens
- *                                                       the one colour picker, owner 2026-10-08)
+ *   Colour      ● ● ● ● ● +                             the five colour CIRCLES (the approved gallery's
+ *                                                       kind 21), then any colour ("+" opens the one
+ *                                                       colour picker, owner 2026-10-08)
  *   GALLERY ▸ · UPLOAD ◆                                the couple's pictures and the ready-made
  *                                                       scenes in one sheet; the in-place upload
  *
@@ -97,23 +98,9 @@ export function StageBackground({
         <div className="flex min-w-0 flex-1 items-center justify-between gap-1.5">
           {colours.slice(0, 5).map((c) => {
             const on = tinted && colour?.slice(0, 7).toLowerCase() === c.slice(0, 7).toLowerCase();
-            return (
-              <button key={c} type="button" aria-pressed={on} aria-label={`Background colour ${c}`} data-stage-swatch={c} onClick={() => onColour(c)} className={SP_SWATCH}>
-                <span
-                  aria-hidden
-                  className={`relative block h-9 w-full rounded-md border border-black/10 ${on ? 'shadow-[0_0_0_2px_#fff,0_0_0_3.5px_var(--sp-cta)]' : ''}`}
-                  style={{ background: c }}
-                >
-                  {on ? <span className="absolute left-1/2 top-1/2 -ml-[3px] -mt-[3px] h-1.5 w-1.5 rounded-full bg-white shadow-[0_0_0_1px_rgba(0,0,0,.2)]" /> : null}
-                </span>
-              </button>
-            );
+            return <Swatch key={c} on={on} label={`Background colour ${c}`} face={<span className="absolute inset-0" style={{ background: c }} />} onPick={() => onColour(c)} data={{ 'data-stage-swatch': c }} />;
           })}
-          <button type="button" aria-haspopup="dialog" aria-expanded={custom} aria-label="Any colour" data-stage-swatch="more" onClick={() => setCustom(true)} className={`${SP_SWATCH} max-w-[34px]`}>
-            <span aria-hidden className="flex h-9 w-full items-center justify-center rounded-md border border-dashed border-black/10 bg-white text-[14px] font-semibold text-[var(--sp-ink2)]">
-              +
-            </span>
-          </button>
+          <SwatchMore open={custom} onOpen={() => setCustom(true)} data={{ 'data-stage-swatch': 'more' }} />
         </div>
       </div>
       {custom ? customColour(() => setCustom(false)) : null}
@@ -122,13 +109,13 @@ export function StageBackground({
         <button type="button" data-stage-bg-gallery="" onClick={() => setSheet('gallery')} className={SP_PILL_BUTTON}>
           <small className="shrink-0 text-[9.5px] font-bold uppercase tracking-[0.1em] text-[var(--sp-mute)]">Gallery</small>
           <span className="min-w-0 flex-1 truncate">{galleryWords}</span>
-          <ChevronRight aria-hidden className="h-3.5 w-3.5 shrink-0 text-[var(--sp-gold)]" strokeWidth={2.2} />
+          <ChevronRight aria-hidden className="h-3.5 w-3.5 shrink-0 text-sn-accent" strokeWidth={2.2} />
         </button>
         {offerMedia ? (
           <button type="button" data-stage-bg-upload="" onClick={() => setSheet('upload')} className={SP_PILL_BUTTON}>
             <small className="shrink-0 text-[9.5px] font-bold uppercase tracking-[0.1em] text-[var(--sp-mute)]">Upload{mediaMark ? ' ◆' : ''}</small>
             <span className="min-w-0 flex-1 truncate">Photo or video</span>
-            <Plus aria-hidden className="h-3.5 w-3.5 shrink-0 text-[var(--sp-gold)]" strokeWidth={2.2} />
+            <Plus aria-hidden className="h-3.5 w-3.5 shrink-0 text-sn-accent" strokeWidth={2.2} />
           </button>
         ) : null}
         <About label="Background">

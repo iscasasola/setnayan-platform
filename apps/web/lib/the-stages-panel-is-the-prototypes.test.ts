@@ -68,7 +68,7 @@ test('under the flag the TypeBar is the keyboard’s ONE bar: Done — no Wordin
   const end = src.indexOf('document.body,\n    );\n  }', at);
   const bar = src.slice(at, end);
   assert.match(bar, /data-type-bar-keys/);
-  assert.match(bar, />Done</);
+  assert.match(bar, /label="Done"/);
   for (const old of ['Wording', 'Style ▾', 'Hide', 'data-type-style', 'data-type-hide']) {
     assert.ok(!bar.includes(old), `the flag-on bar carries no "${old}"`);
   }

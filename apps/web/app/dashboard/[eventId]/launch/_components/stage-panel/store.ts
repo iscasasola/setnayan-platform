@@ -16,9 +16,9 @@
 import { useSyncExternalStore } from 'react';
 
 export type StageQuiet =
-  | { kind: 'info'; words: string; small: string; open: () => void }
-  | { kind: 'studio'; words: string; small: string; open: () => void }
-  | { kind: 'suppliers'; words: string; small: string; href: string };
+  | { kind: 'info'; words: string; open: () => void }
+  | { kind: 'studio'; words: string; open: () => void }
+  | { kind: 'suppliers'; words: string; href: string };
 
 export type StagePanelNow = {
   /** The part picked on the page (`lib/maker-parts.ts` key) — null: none. */

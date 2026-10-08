@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { EyeOff, Eye, Check } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { HUB_DRAFT_BAR_FIELD, SUPERSEDED, makerLatestWrite, makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { canvasFingerprint, canvasWriteKey, draftedCanvasOr, draftedOwnWordsOr, noteDraftedCanvas, noteDraftedOwnWords } from '@/lib/maker-draft-store';
 import { announceMakerSave } from '@/lib/maker-save-status';
@@ -580,9 +581,10 @@ export function TypeBar(p: TypeBarProps) {
         className={`fixed inset-x-0 z-[85] ${SP_KEY_BAR}`}
       >
         <span className="min-w-0 truncate">Typing · {field ? SCENE_FIELD_LABEL[field] : HUB_ELEMENT_LABEL[el]}</span>
-        <button type="button" onClick={p.onClose} data-type-done="" className={SP_KEY_DONE}>
-          <span className="inline-flex h-8 items-center rounded-full bg-[#2C2A29] px-4 text-[13px] font-semibold text-white">Done</span>
-        </button>
+        {/* Done is the bar's ONE action: the app's main button (the accent — `ActionButton`), never an ink pill. */}
+        <span data-type-done="" className={SP_KEY_DONE}>
+          <ActionButton tone="brand" main icon={Check} label="Done" onClick={p.onClose} />
+        </span>
         {error ? (
           <p role="alert" className="absolute inset-x-3 -top-9 rounded-lg bg-white px-2 py-1 text-[12px] font-semibold text-terracotta-700 shadow">
             {error}

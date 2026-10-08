@@ -4,18 +4,8 @@ import { useRef, type ReactNode } from 'react';
 import { FileText, PencilLine, Store } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PillThumb } from '@/app/_components/pill-selector';
-import {
-  SP_DD,
-  SP_DD_BUTTON,
-  SP_DD_LABEL,
-  SP_DIR,
-  SP_PHASE,
-  SP_PHASE_INSET,
-  SP_PHASES,
-  SP_SWITCH,
-  STAGE_QUIET_ROW,
-  STAGE_QUIET_SUPPLIERS,
-} from '@/lib/maker-stage-room';
+import { ActionButton } from '@/components/action-button';
+import { SP_DD, SP_DD_BUTTON, SP_DD_LABEL, SP_PHASE, SP_PHASE_INSET, SP_PHASES, SP_SWATCH, SP_SWATCH_FACE, SP_SWATCH_MORE, SP_SWATCH_ON, SP_SWITCH } from '@/lib/maker-stage-room';
 import { PickMenu } from '../../../website/editor/_components/pick-menu';
 import type { PickOption } from '../../../website/editor/_components/pick-menu-types';
 import { useStagePanelNow } from './store';
@@ -28,9 +18,12 @@ import { MAKER_PARTS, type MakerPartKey } from '@/lib/maker-parts';
  *   Dd        `.dd` — a white pill: SMALL CAPS label · value · gold ▾ (the shipped PickMenu,
  *             whose list opens as the Maker's bottom sheet — owner: "every pop-up opens from the bottom")
  *   PanelSwitch `.sw` — 54 × 32, green when on (named apart from the Maker's other `Switch` rows)
- *   Dir       `.dir` — one of ← → ↓ ↑
- *   QuietBar  `.pane>.jump` — Style › Look's one dark bar ("Edit the E-Gifts · Studio ›")
+ *   Swatch    a colour circle (the approved gallery's kind 21) — Text's and Background's five, and their "+"
+ *   QuietBar  `.pane>.jump` — Style › Look's one door ("Edit the E-Gifts"), the app's secondary action button
  *   About     ⓘ — helper words are never a box on the panel (owner rule), only behind ⓘ
+ *
+ * (Move's ← → ↓ ↑ were four buttons of their own here; a direction is one of four VALUES, so it is a dropdown now —
+ * `stage-animate.tsx`, `INTERACTION_RULES.md` § 9.)
  *
  * Every class string is `lib/maker-stage-room.ts`'s, where the guard measures it.
  */
@@ -144,26 +137,41 @@ export function PanelSwitch({ on, label, onChange, data }: { on: boolean; label:
   );
 }
 
-/** One of ← → ↓ ↑ (`.dir`). */
-export function Dir({ on, glyph, label, onPick }: { on: boolean; glyph: string; label: string; onPick: () => void }) {
+/**
+ * 🎨 A COLOUR CIRCLE (approved gallery, kind 21 — owner 2026-10-08; the Look's own two are circles too): the colour
+ * edge to edge in a 32 px circle on a 44 px tap. Picked, it wears the accent's ring; a press rings it like every
+ * template. `face` paints the circle (a colour, or the theme's stripes).
+ */
+export function Swatch({ on, label, face, onPick, data }: { on: boolean; label: string; face: ReactNode; onPick: () => void; data: Record<string, string> }) {
   return (
-    <button type="button" aria-pressed={on} aria-label={label} data-stage-dir={label} onClick={onPick} className={SP_DIR}>
-      <span
-        aria-hidden
-        className={`inline-flex h-[38px] w-10 items-center justify-center rounded-md border text-[17px] ${
-          on ? 'border-[var(--sp-ink)] bg-[var(--sp-ink)] text-white' : 'border-[var(--sp-line)] bg-white text-[var(--sp-ink2)]'
-        }`}
-      >
-        {glyph}
+    <button type="button" aria-pressed={on} aria-label={label} onClick={onPick} className={SP_SWATCH} {...data}>
+      <span aria-hidden className={`${SP_SWATCH_FACE} ${on ? SP_SWATCH_ON : ''}`}>
+        {face}
+      </span>
+    </button>
+  );
+}
+
+/** "+" — any colour: opens the ONE colour picker. */
+export function SwatchMore({ open, onOpen, data }: { open: boolean; onOpen: () => void; data: Record<string, string> }) {
+  return (
+    <button type="button" aria-haspopup="dialog" aria-expanded={open} aria-label="Any colour" onClick={onOpen} className={SP_SWATCH} {...data}>
+      <span aria-hidden className={SP_SWATCH_MORE}>
+        +
       </span>
     </button>
   );
 }
 
 /**
- * Style › Look's ONE quiet bar — the part's words come from Studio (or Suppliers),
- * and this is the only door there. The part's own sentence sits behind ⓘ beside it.
+ * Style › Look's ONE door — the part's words come from Studio (or Suppliers), and this is the only way there. It is
+ * the app's SECONDARY ACTION BUTTON (`ActionButton`, `components/action-button.tsx` — owner 2026-10-08, the approved
+ * gallery's kind 9: one main button a screen, the rest quieter), never an ink-black bar of the panel's own: icon and
+ * word, the pill, the press. The part's own sentence sits behind ⓘ beside it.
  */
+/** The door, laid along the row: it takes the row's width, its word starts at the left and is cut, never wrapped. */
+const QUIET_DOOR = '!h-11 min-w-0 !flex-1 !justify-start overflow-hidden [&>.lbl]:min-w-0 [&>.lbl]:truncate';
+
 export function QuietBar() {
   const { quiet, about, picked } = useStagePanelNow();
   const name = picked && picked in MAKER_PARTS ? MAKER_PARTS[picked as MakerPartKey].label : null;
@@ -179,26 +187,13 @@ export function QuietBar() {
     );
   }
   return (
-    <div className="flex h-11 shrink-0 items-center gap-1.5" data-stage-quiet-row="">
-      {quiet ? (
-        quiet.kind === 'suppliers' ? (
-          <a href={quiet.href} data-stage-quiet="suppliers" className={STAGE_QUIET_SUPPLIERS}>
-            <Store aria-hidden className="h-4 w-4 shrink-0 text-[var(--sp-cta)]" strokeWidth={2} />
-            <span className="min-w-0 flex-1 truncate">{quiet.words}</span>
-            <small className="shrink-0 text-[10.5px] font-bold uppercase tracking-[0.12em] text-[var(--sp-cta)]">{quiet.small}</small>
-          </a>
-        ) : (
-          <button type="button" data-stage-quiet={quiet.kind} onClick={quiet.open} className={STAGE_QUIET_ROW}>
-            {quiet.kind === 'info' ? (
-              <FileText aria-hidden className="h-4 w-4 shrink-0 opacity-85" strokeWidth={2} />
-            ) : (
-              <PencilLine aria-hidden className="h-4 w-4 shrink-0 opacity-85" strokeWidth={2} />
-            )}
-            <span className="min-w-0 flex-1 truncate">{quiet.words}</span>
-            <small className="shrink-0 text-[10.5px] font-bold uppercase tracking-[0.12em] opacity-85">{quiet.small}</small>
-          </button>
-        )
-      ) : null}
+    <div className="flex h-11 shrink-0 items-center gap-1.5" data-stage-quiet-row="" data-stage-quiet={quiet.kind}>
+      {quiet.kind === 'suppliers' ? (
+        /* Suppliers is another page of the app: a plain door, never fetched before it is pressed. */
+        <ActionButton tone="neutral" icon={Store} label={quiet.words} href={quiet.href} prefetch={false} className={QUIET_DOOR} />
+      ) : (
+        <ActionButton tone="neutral" icon={quiet.kind === 'info' ? FileText : PencilLine} label={quiet.words} onClick={quiet.open} className={QUIET_DOOR} />
+      )}
       {about ? <About label="this part">{about}</About> : null}
     </div>
   );

@@ -2,7 +2,8 @@
 
 import { useContext, useEffect, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { Check } from 'lucide-react';
+import { Check, X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { MAIN_COLOUR_NAMES, PICKER_SWATCHES, cleanHexInput, pickerReadsOn, pickerShelves, type PickerRow } from '@/lib/mood-board-studio';
 import { PickSheetContext, pickOpensAsSheet } from '../../../website/editor/_components/pick-menu-place';
 
@@ -82,7 +83,7 @@ export function ColourPickerSheet({
         aria-label={c}
         aria-pressed={on}
         onClick={() => onPick(c)}
-        className={`aspect-square min-h-9 w-full rounded-full border border-ink/15 ${on ? 'ring-2 ring-mulberry ring-offset-2 ring-offset-white' : ''}`}
+        className={`aspect-square min-h-9 w-full rounded-full border border-ink/15 ${on ? 'ring-2 ring-sn-accent ring-offset-2 ring-offset-white' : ''}`}
         style={{ background: c }}
         data-picker-swatch={c}
       />
@@ -98,13 +99,13 @@ export function ColourPickerSheet({
         aria-label={r.name ? `${r.name} ${r.hex}` : r.hex}
         aria-pressed={on}
         onClick={() => onPick(r.hex)}
-        className={`sn-press flex min-h-11 w-full items-center gap-3 rounded-2xl px-3 text-left ${on ? 'bg-terracotta/10' : ''}`}
+        className={`sn-press flex min-h-11 w-full items-center gap-3 rounded-2xl px-3 text-left ${on ? 'bg-sn-accent/10' : ''}`}
         data-picker-swatch={r.hex}
       >
         <span aria-hidden className="h-7 w-7 shrink-0 rounded-full ring-1 ring-inset ring-ink/15" style={{ background: r.hex }} />
         {r.name ? <span className={`min-w-0 truncate text-[14px] text-ink ${on ? 'font-semibold' : ''}`}>{r.name}</span> : null}
         <small className="shrink-0 font-mono text-[11px] text-ink/50">{r.hex}</small>
-        {on ? <Check aria-hidden className="ml-auto h-4 w-4 shrink-0 text-terracotta-700" strokeWidth={2.4} /> : null}
+        {on ? <Check aria-hidden className="ml-auto h-4 w-4 shrink-0 text-sn-accent" strokeWidth={2.4} /> : null}
       </button>
     );
   };
@@ -169,25 +170,14 @@ export function ColourPickerSheet({
             aria-label="Colour code"
             className="min-h-11 min-w-0 flex-1 rounded-full bg-ink/5 px-4 font-mono text-[15px] text-ink"
           />
-          <button
-            type="button"
-            disabled={!typed}
-            onClick={() => typed && onPick(typed)}
-            className="sn-press inline-flex min-h-11 shrink-0 items-center gap-1 rounded-full bg-ink px-4 text-[13px] font-semibold text-cream disabled:opacity-40"
-          >
-            <Check aria-hidden className="h-4 w-4" /> Use
-          </button>
+          {/* The sheet's ONE main action: the app's main button (the accent), never an ink pill of its own. */}
+          <ActionButton tone="brand" main icon={Check} label="Use" disabled={!typed} onClick={() => typed && onPick(typed)} className="!h-11" />
         </div>
         {extra}
         {onRemove ? (
-          <button
-            type="button"
-            data-picker-remove=""
-            onClick={onRemove}
-            className="sn-press min-h-11 self-start rounded-full bg-terracotta-700/10 px-4 text-[13px] font-semibold text-terracotta-700"
-          >
-            Remove this colour
-          </button>
+          <span data-picker-remove="" className="self-start">
+            <ActionButton tone="neutral" icon={X} label="Remove this colour" onClick={onRemove} className="!h-11" />
+          </span>
         ) : null}
       </div>
     </StudioSheet>

@@ -8,15 +8,17 @@ import {
   hubElementSizePct,
   type HubElementKey,
 } from '@/lib/element-style';
-import { SP_PANE, SP_ROW, SP_ROW_LABEL, SP_SWATCH } from '@/lib/maker-stage-room';
+import { SP_PANE, SP_ROW, SP_ROW_LABEL } from '@/lib/maker-stage-room';
+import { Swatch, SwatchMore } from './kit';
 
 /**
  * 🔤 TEXT — Font · Colour · Size, and nothing else (DECISION_LOG "TEXT STYLING STAYS
  * THREE CONTROLS"; the prototype's `S.tool === 'text'`, three 44 px rows):
  *
  *   Font    Aa Cormorant Garamond ▾     the shipped one font dropdown (`FontPick`)
- *   Colour  ▨ ■ ■ ■ ■ ● +               the theme's own (striped), the Event Hub's colours,
- *                                       ink, then any colour ("+" opens the one colour picker)
+ *   Colour  ◍ ● ● ● ● ● +               colour CIRCLES (the approved gallery's kind 21): the theme's own
+ *                                       (striped), the Event Hub's colours, ink, then any colour ("+" opens
+ *                                       the one colour picker); the picked one wears the accent's ring
  *   Size    ━━━━●━━━━━  100%            the shipped steps (`HUB_ELEMENT_SIZE_STEPS`), inside
  *                                       the part's bounds; 100% is the theme's own
  *
@@ -60,15 +62,7 @@ export function StageText({
   const at = Math.max(0, steps.indexOf(pct));
   const fill = steps.length > 1 ? (at / (steps.length - 1)) * 100 : 50;
   const swatch = (key: string, on: boolean, label: string, face: ReactNode, pick: () => void) => (
-    <button key={key} type="button" aria-pressed={on} aria-label={label} data-stage-text-colour={key} onClick={pick} className={SP_SWATCH}>
-      <span
-        aria-hidden
-        className={`relative block h-9 w-full overflow-hidden rounded-md border border-black/10 ${on ? 'shadow-[0_0_0_2px_#fff,0_0_0_3.5px_var(--sp-cta)]' : ''}`}
-      >
-        {face}
-        {on ? <span className="absolute left-1/2 top-1/2 -ml-[3px] -mt-[3px] h-1.5 w-1.5 rounded-full bg-white shadow-[0_0_0_1px_rgba(0,0,0,.2)]" /> : null}
-      </span>
-    </button>
+    <Swatch key={key} on={on} label={label} face={face} onPick={pick} data={{ 'data-stage-text-colour': key }} />
   );
   const now = colour?.slice(0, 7).toLowerCase() ?? null;
   return (
@@ -83,11 +77,7 @@ export function StageText({
         <div className="flex min-w-0 flex-1 items-center justify-between gap-1">
           {swatch('theme', now === null, 'The theme’s colour', <span className="absolute inset-0 bg-[repeating-linear-gradient(45deg,#fff_0_4px,#EDE8DF_4px_8px)]" />, () => onColour(null))}
           {colours.map((c) => swatch(c, now === c.slice(0, 7).toLowerCase(), `Colour ${c}`, <span className="absolute inset-0" style={{ background: c }} />, () => onColour(c)))}
-          <button type="button" aria-haspopup="dialog" aria-expanded={custom} aria-label="Any colour" data-stage-text-colour="more" onClick={() => setCustom(true)} className={`${SP_SWATCH} max-w-[34px]`}>
-            <span aria-hidden className="flex h-9 w-full items-center justify-center rounded-md border border-dashed border-black/10 bg-white text-[14px] font-semibold text-[var(--sp-ink2)]">
-              +
-            </span>
-          </button>
+          <SwatchMore open={custom} onOpen={() => setCustom(true)} data={{ 'data-stage-text-colour': 'more' }} />
         </div>
       </div>
       {custom ? customColour(() => setCustom(false)) : null}

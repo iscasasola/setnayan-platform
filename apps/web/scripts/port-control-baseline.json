@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "4dab3a3f0",
+  "generatedFromRef": "0546d459c",
   "routeCount": 429,
   "destinations": 959,
   "actions": 672,
-  "blocks": 5838,
+  "blocks": 5844,
   "routes": {
     "/": {
       "files": [
@@ -6713,7 +6713,6 @@
         "DetailsSelectContext.Provider",
         "DetailsTapContext.Provider",
         "DetailsWorkspace",
-        "Dir",
         "Door",
         "DraftNote",
         "DraftsAsYouGo",
@@ -6859,6 +6858,7 @@
         "PabuyaCardList",
         "PabuyaManager",
         "PabuyaMessageEditor",
+        "PageCard",
         "PageMasthead",
         "PaidMark",
         "PanelSwitch",
@@ -6867,6 +6867,7 @@
         "PassCardDesign",
         "PassCardDesignPicker",
         "PassCardsPanel",
+        "PeekToast",
         "PeopleBody",
         "PeopleControls",
         "PeoplePieces",
@@ -6876,6 +6877,7 @@
         "PickMenu",
         "PickOption",
         "PickSheetContext.Provider",
+        "PillSelector",
         "PillThumb",
         "PlanMyselfBody",
         "PlanMyselfSwitch",
@@ -6971,6 +6973,8 @@
         "StudioWords",
         "StylePreview",
         "Suspense",
+        "Swatch",
+        "SwatchMore",
         "Switch",
         "SwitchRow",
         "ThemePick",
@@ -7992,6 +7996,7 @@
       ],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "ActionResult",
         "ApplyResult",
         "ApplySummary",
@@ -9337,6 +9342,7 @@
       ],
       "blocks": [
         "AbortController",
+        "ActionButton",
         "AmbientEffectLayer",
         "AmbientEffectStyle",
         "ArtDirectionPick",

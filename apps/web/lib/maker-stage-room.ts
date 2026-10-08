@@ -20,11 +20,19 @@ import { makerLtClampPx } from './maker-lt-size';
  * `:root`), set once on the Maker shell while the Stages panel is drawn (`stage-tools.tsx`)
  * and read by every string below as `var(--sp-…)` — the panel is the prototype's, not a
  * reinterpretation (DECISION_LOG 2026-10-07 "THE STAGES PANEL IS REDRAWN FROM THE PROTOTYPE").
+ *
+ * 🎯 WHAT IS ON, PICKED OR TAPPABLE IS THE APP'S ACCENT — NOT A COLOUR WRITTEN HERE (owner 2026-10-08: *"if we change
+ * our color to blue, it will be easy to change the button colors"*, `INTERACTION_RULES.md` § 9). `--sp-cta` and its
+ * wash READ `--sn-accent` (`globals.css`), and `--sp-bad` reads the house danger token (`--color-danger`): the picked
+ * card's ring, the colour circle's ring, the slider's fill and every `var(--sp-cta)` in the panel follow the one
+ * setting. The thirteen left are NEUTRALS and the gold — grounds, inks and hairlines, never "on":
+ * page · paper · ink · ink2 · mute · gold · gold-soft · gold-wash · line · line2 · pill · pill-on · ok.
+ * Held by `lib/the-stages-panel-wears-the-accent.test.ts`.
  */
 export const STAGE_PANEL_VARS =
   '--sp-page:#F3F0EA;--sp-paper:#FFFFFF;--sp-ink:#2C2A29;--sp-ink2:#5A5755;--sp-mute:#8A8580;--sp-gold:#A9834B;' +
-  '--sp-gold-soft:#E6D8BE;--sp-gold-wash:#F8F3E9;--sp-cta:#C24E25;--sp-cta-wash:#FBEDE6;--sp-line:#E6E1D8;' +
-  '--sp-line2:#D9D3C8;--sp-pill:#F1EEE8;--sp-pill-on:#D8D3CA;--sp-ok:#2F6B4F;--sp-bad:#B3261E';
+  '--sp-gold-soft:#E6D8BE;--sp-gold-wash:#F8F3E9;--sp-cta:rgb(var(--sn-accent));--sp-cta-wash:rgb(var(--sn-accent) / .1);--sp-line:#E6E1D8;' +
+  '--sp-line2:#D9D3C8;--sp-pill:#F1EEE8;--sp-pill-on:#D8D3CA;--sp-ok:#2F6B4F;--sp-bad:rgb(var(--color-danger))';
 
 /** The panel's one row — [ stage ▾ ] · [ Style | Text | Animate ] · ▶ (prototype `.row1`, 44 px, gap 6). */
 export const STAGE_ROW = 'flex h-11 shrink-0 items-center gap-1.5';
@@ -61,15 +69,6 @@ export const STAGE_PART_TILE =
 /** A row of the stage ▾ sheet (a stage, or one of its pages). */
 export const STAGE_SHEET_ROW =
   'sn-press flex h-12 w-full items-center gap-2.5 rounded-xl px-3 text-left text-[15px] text-ink transition-colors duration-sn-control ease-sn hover:bg-ink/5 disabled:text-ink/40';
-/**
- * Style › Look's ONE quiet dark bar (prototype `.pane>.jump`: ink, white words, 44 px) —
- * "Edit in Studio › Info · or tap the words ›", "Edit the E-Gifts · Studio ›". The
- * Suppliers line (`STAGE_QUIET_SUPPLIERS`) wears the CTA wash.
- */
-export const STAGE_QUIET_ROW =
-  'sn-press flex h-11 min-w-0 flex-1 items-center gap-2 rounded-full border border-[var(--sp-ink)] bg-[var(--sp-ink)] px-[14px] text-left text-[14px] font-semibold text-white';
-export const STAGE_QUIET_SUPPLIERS =
-  'sn-press flex h-11 min-w-0 flex-1 items-center gap-2 rounded-full border border-[#F0D3C7] bg-[var(--sp-cta-wash)] px-[14px] text-left text-[14px] font-semibold text-[var(--sp-ink)]';
 /** A page of the guest's tab bar under the page preview (prototype `.gbar button`: words only, 44 px). */
 export const STAGE_GUEST_TAB =
   'sn-press relative flex h-11 min-w-0 flex-1 items-center justify-center whitespace-nowrap px-1 text-[12px] font-semibold text-[var(--sp-mute)] aria-[current=page]:text-[var(--sp-ink)]';
@@ -98,18 +97,28 @@ export const SP_PHASE_INSET = 3;
 export const SP_DD = 'relative flex h-11 min-w-0 flex-1 items-center rounded-full bg-white pl-[14px] ring-1 ring-inset ring-[var(--sp-line)]';
 /** The small caps word before a dropdown's value (prototype `.dd small`). */
 export const SP_DD_LABEL = 'max-w-[48%] shrink-0 truncate text-[9.5px] font-bold uppercase tracking-[0.1em] text-[var(--sp-mute)]';
-/** The shipped PickMenu inside `SP_DD` — transparent, the whole pill its tap. */
-export const SP_DD_BUTTON =
-  'h-11 !min-h-0 min-w-0 flex-1 !justify-between !rounded-full !bg-transparent !pl-1.5 !pr-3 !text-[14px] !font-medium [&>svg]:!text-[var(--sp-gold)]';
+/**
+ * The shipped PickMenu inside `SP_DD` — transparent, the whole pill its tap. Its ▾ is the dropdown template's own
+ * (`pickArrowClass`: the accent — owner 2026-10-08 *"Dropdown — Chevron should be teracota color?"*); nothing here
+ * repaints it.
+ */
+export const SP_DD_BUTTON = 'h-11 !min-h-0 min-w-0 flex-1 !justify-between !rounded-full !bg-transparent !pl-1.5 !pr-3 !text-[14px] !font-medium';
 /** A row of one label and its control (prototype `.r` / `.ar`). */
 export const SP_ROW = 'flex h-11 shrink-0 items-center gap-2.5';
 export const SP_ROW_LABEL = 'w-[70px] shrink-0 text-[13px] font-semibold text-[var(--sp-ink2)]';
 /** An on / off switch (prototype `.sw`, 54 × 32 face) on a 44 px tap. */
 export const SP_SWITCH = 'sn-press relative inline-flex h-11 w-[54px] shrink-0 items-center';
-/** A direction (← → ↓ ↑) — prototype `.dir`, 40 × 38 face on a 44 px tap. */
-export const SP_DIR = 'sn-press inline-flex h-11 w-10 items-center justify-center';
-/** A colour swatch — prototype `.swatch`, 36 px face on a 44 px tap. */
+/**
+ * A colour CIRCLE (the approved gallery's kind 21, "the five colour circles" — owner 2026-10-08): a 32 px circle on a
+ * 44 px tap. Picked, it wears the accent's ring with a gap of the panel's ground (`SP_SWATCH_ON`).
+ */
 export const SP_SWATCH = 'sn-press inline-flex h-11 min-w-0 max-w-[44px] flex-1 items-center justify-center';
+/** The circle itself — `sn-press-ring` so a press rings it like every other template. */
+export const SP_SWATCH_FACE = 'sn-press-ring relative block h-8 w-8 shrink-0 overflow-hidden rounded-full shadow-[inset_0_0_0_1px_var(--sp-line2)]';
+/** The picked circle: a gap of the panel's ground, then the accent (never a colour written here). */
+export const SP_SWATCH_ON = '!shadow-[0_0_0_2px_var(--sp-page),0_0_0_4px_rgb(var(--sn-accent))]';
+/** "+" — any colour: a dashed circle, its mark in the accent (the mark that says "you can tap this"). */
+export const SP_SWATCH_MORE = 'flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-dashed border-[var(--sp-line2)] bg-white text-[16px] font-semibold leading-none text-sn-accent';
 /** A layout card (prototype `.lcard`: 62% wide, the real miniature 104 px, its name 18 px). */
 export const SP_LAYOUT_CARD = 'sn-press flex h-32 w-[62%] shrink-0 snap-center flex-col items-stretch gap-1.5 text-left';
 /** The picture's height in a look card (`h-[104px]`). */
@@ -161,8 +170,6 @@ export const STAGE_TAP_TARGETS = {
   STAGE_TOOL_BUTTON,
   STAGE_PART_TILE,
   STAGE_SHEET_ROW,
-  STAGE_QUIET_ROW,
-  STAGE_QUIET_SUPPLIERS,
   STAGE_GUEST_TAB,
   SP_PHASES,
   SP_PHASE,
@@ -170,7 +177,6 @@ export const STAGE_TAP_TARGETS = {
   SP_DD_BUTTON,
   SP_ROW,
   SP_SWITCH,
-  SP_DIR,
   SP_SWATCH,
   SP_LAYOUT_CARD,
   SP_PILL_BUTTON,

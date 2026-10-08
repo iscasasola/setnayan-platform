@@ -79,7 +79,7 @@ test('A · the one picker draws Against the background · Your Mood Board · Goe
   assert.match(src, /const read = pickerReadsOn\(current, readsOn\);/, 'the AA line is not measured from the colour chosen now');
   assert.match(src, /\{read \? \(/, 'the AA shelf is drawn without a ground to measure against');
   assert.match(src, /\{read\.grade === 'clear' \? 'AA' : 'AA ✗'\}/, 'the AA badge does not say AA ✗ when it fails');
-  assert.match(src, /<Check aria-hidden className="h-4 w-4" \/> Use/, 'Custom has no ✓ Use');
+  assert.match(src, /<ActionButton tone="brand" main icon=\{Check\} label="Use"/, 'Custom has no ✓ Use');
 });
 
 test('B · the suggestions: the Mood Board’s five, then what goes with them — from every one of the five', () => {
@@ -217,7 +217,8 @@ test('E · every well in Stages and Look reaches the sheet with the Mood Board�
   /* The Stages rows' "+" opens the picker itself and is handed the way to close it. */
   for (const f of ['stage-background.tsx', 'stage-text.tsx']) {
     const src = read(`${L}/stage-panel/${f}`);
-    assert.match(src, /aria-label="Any colour"[^>]*onClick=\{\(\) => setCustom\(true\)\}/, `${f}: “+” does not open the picker`);
+    /* (“+” is the panel's shared colour circle since 2026-10-08 — `SwatchMore`, `kit.tsx`: the row hands it the open.) */
+    assert.match(src, /<SwatchMore open=\{custom\} onOpen=\{\(\) => setCustom\(true\)\}/, `${f}: “+” does not open the picker`);
     assert.match(src, /\{custom \? customColour\(\(\) => setCustom\(false\)\) : null\}/, `${f}: the picker cannot close its “+”`);
   }
   /* The five reach the wells from ONE server reading (`mainColoursOf`, the Mood Board drafted over live). */

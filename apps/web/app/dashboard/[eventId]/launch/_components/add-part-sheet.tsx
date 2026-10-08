@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDown, ChevronUp, GripVertical, Plus, Trash2, X } from 'lucide-react';
+import { Check, ChevronDown, ChevronUp, GripVertical, Plus, Trash2, X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { PeekToast } from '@/app/_components/toast/peek-toast';
 import { findMakerSection } from '@/app/[slug]/_components/maker-section-find';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PaidMark } from '@/app/_components/paid-mark';
@@ -222,11 +224,22 @@ type Box = { top: number; left: number; width: number; height: number; gapAbove?
 /** How far outside the part its frame is drawn — half a 44 px tap, so a ＋ on the frame never covers the part. */
 export const PART_PAD = 22;
 const EDGE_BTN = 'sn-press pointer-events-auto absolute inline-flex h-11 w-11 items-center justify-center rounded-full';
-/** ↑ ↓ ✕ — a 32 px tap (the owner's floor for these), its 24 px face in the frame's orange. */
+/**
+ * 🎯 THE FRAME AND ITS MARKS WEAR THE APP'S ACCENT (owner 2026-10-08: *"if we change our color to blue, it will be easy
+ * to change the button colors"*; `INTERACTION_RULES.md` § 9 — the mark that says "you can tap this" is the accent).
+ * One fill, one ink, both read from the token; nothing here writes a colour. 🗑 keeps the house danger token
+ * (`--color-danger`, the button rule's `danger` tone). Held by `lib/the-stages-panel-wears-the-accent.test.ts`.
+ */
+export const PART_ACCENT = 'bg-sn-accent text-sn-on-accent';
+/** The outline: 2 px of the accent and its soft halo. */
+export const PART_OUTLINE = 'absolute rounded-lg shadow-[0_0_0_2px_rgb(var(--sn-accent)),0_0_0_7px_rgb(var(--sn-accent)/.14)]';
+/** 🗑 — the house danger colour on white. */
+export const PART_REMOVE_FACE =
+  'inline-flex h-7 w-7 items-center justify-center rounded-full border-[1.5px] border-[rgb(var(--color-danger))] bg-white text-[rgb(var(--color-danger))] shadow-[0_2px_6px_-2px_rgba(0,0,0,.3)]';
+/** ↑ ↓ ✕ — a 32 px tap (the owner's floor for these), its 24 px face in the frame's accent. */
 const CHIP_BTN = 'sn-press pointer-events-auto absolute inline-flex !h-8 !min-h-0 w-8 items-center justify-center rounded-full';
-const CHIP_FACE = 'inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#C24E25] text-white shadow-[0_0_0_2px_#fff]';
-const ADD_FACE =
-  'inline-flex h-[26px] w-[26px] items-center justify-center rounded-full bg-[#C24E25] font-sans text-[18px] font-semibold leading-none text-white shadow-[0_0_0_3px_#fff,0_4px_10px_-4px_rgba(0,0,0,.4)]';
+const CHIP_FACE = `inline-flex h-6 w-6 items-center justify-center rounded-full ${PART_ACCENT} shadow-[0_0_0_2px_#fff]`;
+const ADD_FACE = `inline-flex h-[26px] w-[26px] items-center justify-center rounded-full ${PART_ACCENT} font-sans text-[18px] font-semibold leading-none shadow-[0_0_0_3px_#fff,0_4px_10px_-4px_rgba(0,0,0,.4)]`;
 
 /**
  * THE PICKED PART'S EDGES — ＋ on its top and bottom, the grip, 🗑. Drawn over
@@ -263,13 +276,10 @@ export function PartEdits({
   const [ownWhere, setOwnWhere] = useState<'above' | 'below' | null>(null);
   const [drag, setDrag] = useState<{ dy: number; line: number | null } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  /* The prototype's toast — what just happened, said at once ("Song added below"). */
-  const [toast, setToast] = useState<string | null>(null);
-  useEffect(() => {
-    if (!toast) return;
-    const t = window.setTimeout(() => setToast(null), 2400);
-    return () => window.clearTimeout(t);
-  }, [toast]);
+  /* What just happened, said at once ("Song added below") — the app's ONE toast (`PeekToast`: it peeks from the top
+     and leaves by itself). `n` keys it, so a second message is a new toast, never the first one's words swapped. */
+  const [toast, setToastNow] = useState<{ words: string; n: number } | null>(null);
+  const setToast = useCallback((words: string) => setToastNow((t) => ({ words, n: (t?.n ?? 0) + 1 })), []);
   const [ops, setOps] = useState<MakerPartOps | null>(null);
 
   /* The part's box, every frame while it is picked (one rect read — the canvas scrolls under it). */
@@ -327,7 +337,7 @@ export function PartEdits({
         if (!r.ok) setError(r.error);
       })
       .catch(() => setError('That change could not be saved. Please try again — nothing was lost.'));
-  }, []);
+  }, [setToast]);
 
   /* ── ↕ the grip ── */
   const dragRef = useRef<{ y0: number; targets: Array<{ key: string; id: string; mid: number; top: number; bottom: number }> } | null>(null);
@@ -482,19 +492,19 @@ export function PartEdits({
         >
           <div
             data-part-outline=""
-            className="absolute rounded-lg shadow-[0_0_0_2px_#C24E25,0_0_0_7px_rgba(194,78,37,.14)]"
+            className={PART_OUTLINE}
             style={{ top: fr!.top, left: fr!.left, width: fr!.width, height: fr!.height, transform: drag ? `translateY(${drag.dy}px)` : undefined }}
           />
           {drag ? null : (
             <span
               data-part-name=""
-              className="absolute z-[1] rounded-sm bg-[#C24E25] px-[7px] py-[3px] font-sans text-[9px] font-bold uppercase leading-[1.2] tracking-[0.14em] text-white"
+              className={`absolute z-[1] rounded-sm ${PART_ACCENT} px-[7px] py-[3px] font-sans text-[9px] font-bold uppercase leading-[1.2] tracking-[0.14em]`}
               style={{ top: clampY(fr!.top) - 11, left: Math.max(2, box.left - 2) + (onPrev ? 30 : 0) }}
             >
               {label}
             </span>
           )}
-          {drag?.line != null ? <div className="absolute h-1 rounded-full bg-[#C24E25]" style={{ top: drag.line - 2, left: box.left, width: box.width }} /> : null}
+          {drag?.line != null ? <div className="absolute h-1 rounded-full bg-sn-accent" style={{ top: drag.line - 2, left: box.left, width: box.width }} /> : null}
           {drag ? null : (
             <>
               {/* ＋ — never on a fixed page (the RSVP stage's screens, `makerStageIsFixedPages`). */}
@@ -545,7 +555,7 @@ export function PartEdits({
                   className={EDGE_BTN}
                   style={at(box.left + box.width - 6, clampY(fr!.top))}
                 >
-                  <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border-[1.5px] border-[#B3261E] bg-white text-[#B3261E] shadow-[0_2px_6px_-2px_rgba(0,0,0,.3)]">
+                  <span className={PART_REMOVE_FACE}>
                     <Trash2 aria-hidden className="h-[15px] w-[15px]" strokeWidth={2} />
                   </span>
                 </button>
@@ -567,7 +577,7 @@ export function PartEdits({
               className={`${EDGE_BTN} touch-none`}
               style={{ ...at(box.left + box.width - 5, clampY(box.top + box.height / 2)), transform: drag ? `translateY(${drag.dy}px)` : undefined }}
             >
-              <span className="inline-flex h-[22px] w-[30px] items-center justify-center rounded-md bg-[#C24E25] text-white shadow-[0_0_0_3px_#fff]">
+              <span className={`inline-flex h-[22px] w-[30px] items-center justify-center rounded-md ${PART_ACCENT} shadow-[0_0_0_3px_#fff]`}>
                 <GripVertical aria-hidden className="h-4 w-4" strokeWidth={2.4} />
               </span>
             </button>
@@ -575,12 +585,12 @@ export function PartEdits({
         </div>
       ) : null}
       {toast && !error ? (
-        <p role="status" data-part-toast="" className="pointer-events-none fixed inset-x-3 top-16 z-[87] mx-auto w-fit max-w-[calc(100%-24px)] truncate rounded-full bg-ink px-4 py-2 text-[13px] font-semibold text-cream shadow lg:hidden">
-          {toast}
-        </p>
+        <PeekToast key={toast.n} data="part" onGone={() => setToastNow((t) => (t?.n === toast.n ? null : t))}>
+          {toast.words}
+        </PeekToast>
       ) : null}
       {error ? (
-        <p role="alert" className="fixed inset-x-3 top-16 z-[87] rounded-xl bg-white px-3 py-2 text-[13px] font-semibold text-terracotta-700 shadow lg:hidden">
+        <p role="alert" data-part-error="" className="fixed inset-x-3 top-16 z-[87] rounded-xl bg-white px-3 py-2 text-[13px] font-semibold text-[rgb(var(--color-danger))] shadow lg:hidden">
           {error}
         </p>
       ) : null}
@@ -691,7 +701,7 @@ function AddPartSheet({
                   {p.path.kind === 'add' ? (
                     <button type="button" data-add-part={p.key} onClick={() => onAdd(p.key)} className={STAGE_SHEET_ROW}>
                       <span className="min-w-0 flex-1 truncate">{p.label}</span>
-                      <Plus aria-hidden className="h-4 w-4 shrink-0 text-mulberry" strokeWidth={2.4} />
+                      <Plus aria-hidden className="h-4 w-4 shrink-0 text-sn-accent" strokeWidth={2.4} />
                     </button>
                   ) : (
                     <div className={`${STAGE_SHEET_ROW} text-ink/45`} data-add-part-waiting={p.key}>
@@ -716,7 +726,7 @@ function AddPartSheet({
             {'action' in own ? (
               <button type="button" disabled={left === 0} data-add-part-own-open="" onClick={onOwn} className={STAGE_SHEET_ROW}>
                 <span className="min-w-0 flex-1 truncate">{left === 0 ? 'All six are in use' : 'Choose a template'}</span>
-                {left === 0 ? null : <Plus aria-hidden className="h-4 w-4 shrink-0 text-mulberry" strokeWidth={2.4} />}
+                {left === 0 ? null : <Plus aria-hidden className="h-4 w-4 shrink-0 text-sn-accent" strokeWidth={2.4} />}
               </button>
             ) : (
               <p className="px-3 py-2 text-[13px] text-ink/60">{own.note}</p>
@@ -760,18 +770,14 @@ function RemovePartSheet({
         {own ? (
           <div ref={ref} className="flex flex-col gap-2 [&_summary]:hidden [&_details]:m-0 [&_form>span]:hidden [&_button[type=submit]]:h-11 [&_button[type=submit]]:w-full [&_button[type=submit]]:text-[14px]">
             {remover ?? <p className="text-[13px] text-ink/60">This scene cannot be deleted here.</p>}
-            <button type="button" onClick={onClose} className="sn-press h-11 rounded-full bg-ink/[0.06] text-[14px] font-semibold text-ink">
-              Keep it
-            </button>
+            <ActionButton tone="neutral" icon={Check} label="Keep it" onClick={onClose} className="!h-11 w-full" />
           </div>
         ) : (
-          <div className="flex gap-2">
-            <button type="button" onClick={onClose} className="sn-press h-11 flex-1 rounded-full bg-ink/[0.06] text-[14px] font-semibold text-ink">
-              Keep it
-            </button>
-            <button type="button" data-remove-part-yes="" onClick={onYes} className="sn-press h-11 flex-1 rounded-full bg-danger-600 text-[14px] font-semibold text-white">
-              {w.yes}
-            </button>
+          /* The confirm's two answers are the app's action buttons (`ActionButton`): the second button keeps, the
+             delete button — the house danger tone, never a second terracotta — takes it off. */
+          <div className="flex gap-2" data-remove-part-answers="">
+            <ActionButton tone="neutral" icon={Check} label="Keep it" onClick={onClose} className="!h-11 !flex-1" />
+            <ActionButton tone="danger" icon={Trash2} label={w.yes} onClick={onYes} data-testid="remove-part-yes" className="!h-11 !flex-1" />
           </div>
         )}
       </div>

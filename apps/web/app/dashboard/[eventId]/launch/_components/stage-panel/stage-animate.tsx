@@ -1,10 +1,11 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { motionArrow, motionDirName, withMotionFx, type MotionDir, type MotionFx } from '@/lib/motion-effects';
-import { SP_DIR, SP_PANE, SP_ROW, SP_ROW_LABEL } from '@/lib/maker-stage-room';
+import { PillSelector } from '@/app/_components/pill-selector';
+import { MOTION_SIZE_LABEL, motionArrow, motionDirLabel, motionDirName, withMotionFx, type MotionDir, type MotionFx } from '@/lib/motion-effects';
+import { SP_PANE, SP_ROW, SP_ROW_LABEL } from '@/lib/maker-stage-room';
 import type { PickOption } from '../../../website/editor/_components/pick-menu-types';
-import { About, Dd, Dir, PanelSwitch, Phases } from './kit';
+import { About, Dd, PanelSwitch, Phases } from './kit';
 import { useAnimatePhase, type AnimatePhase } from './store';
 
 /**
@@ -13,7 +14,9 @@ import { useAnimatePhase, type AnimatePhase } from './store';
  *
  *   [ Build in | Action | Build out ]
  *   ◆ HOW IT MOVES  Auto ▾                         the scene's preset (a part: its own, or the scene's)
- *   Build in   Fade ⬤ · Blur ⬤ · Move ⬤ ← → ↓ ↑ · Size ⬤ Grow | Shrink
+ *   Build in   Fade ⬤ · Blur ⬤ · Move ⬤ FROM the bottom ▾ · Size ⬤ [ Grow | Shrink ]
+ *              (a direction is one of four VALUES → the dropdown; Grow | Shrink is a two-way choice → the app's pill
+ *              selector, its thumb sliding — `INTERACTION_RULES.md` § 9, owner 2026-10-08)
  *              ROWS  All at once ▾                 a scene of rows (owner 2026-10-07 "put it in build in")
  *              SPEED ▾ · DELAY ▾                   a part's (shipped)
  *   Action     DOES  Still ▾ · TIMING  Plays once ▾
@@ -65,6 +68,11 @@ const DIRS: Record<'in' | 'out', readonly MotionDir[]> = {
   in: ['right', 'left', 'above', 'below'],
   out: ['above', 'left', 'right', 'below'],
 };
+/** Size's two ways — the shipped words (`MOTION_SIZE_LABEL`). */
+const SIZES = [
+  { key: 'grow', label: MOTION_SIZE_LABEL.grow },
+  { key: 'shrink', label: MOTION_SIZE_LABEL.shrink },
+] as const;
 /** Move switched on with no way chosen: the prototype's default (Build in ↑ from the bottom · Build out ↑ to the top). */
 const FIRST_DIR: Record<'in' | 'out', MotionDir> = { in: 'below', out: 'above' };
 
@@ -89,28 +97,40 @@ function EffectRows({ end, fx, onChange }: { end: 'in' | 'out'; fx: MotionFx | n
         <span className={SP_ROW_LABEL}>Move</span>
         <PanelSwitch on={Boolean(fx?.move)} label={`Move ${verb}`} data={`${end}-move`} onChange={(on) => set('move', on ? (fx?.move ?? FIRST_DIR[end]) : null)} />
         <span className={`${right} gap-1`}>
-          {fx?.move
-            ? DIRS[end].map((d) => <Dir key={d} on={fx.move === d} glyph={motionArrow(d, end)} label={motionDirName(d, end)} onPick={() => set('move', d)} />)
-            : note('Stays in place')}
+          {fx?.move ? (
+            /* ONE dropdown, where the four ink buttons stood: it says the way in words and opens its four choices. */
+            <Dd
+              small={end === 'in' ? 'From' : 'To'}
+              label={end === 'in' ? 'Comes in from' : 'Goes out to'}
+              data={`${end}-move-dir`}
+              value={fx.move}
+              options={DIRS[end].map((d) => ({ key: d, label: `${motionArrow(d, end)}  ${motionDirName(d, end)}` }))}
+              buttonText={motionDirLabel(fx.move, end).replace(/^(?:From|To) /, '')}
+              onPick={(d) => set('move', d)}
+            />
+          ) : (
+            note('Stays in place')
+          )}
         </span>
       </div>
       <div className={SP_ROW} data-stage-effect={`${end}-size`}>
         <span className={SP_ROW_LABEL}>Size</span>
         <PanelSwitch on={Boolean(fx?.size)} label={`Size ${verb}`} data={`${end}-size`} onChange={(on) => set('size', on ? (fx?.size ?? 'grow') : null)} />
         <span className={`${right} gap-1`}>
-          {fx?.size
-            ? (['grow', 'shrink'] as const).map((s) => (
-                <button key={s} type="button" aria-pressed={fx.size === s} data-stage-size={s} onClick={() => set('size', s)} className={SP_DIR + ' !w-auto'}>
-                  <span
-                    className={`inline-flex h-[38px] items-center rounded-md border px-2.5 text-[12.5px] font-semibold ${
-                      fx.size === s ? 'border-[var(--sp-ink)] bg-[var(--sp-ink)] text-white' : 'border-[var(--sp-line)] bg-white text-[var(--sp-ink2)]'
-                    }`}
-                  >
-                    {s === 'grow' ? 'Grow' : 'Shrink'}
-                  </span>
-                </button>
-              ))
-            : note('Same size')}
+          {fx?.size ? (
+            /* The app's pill selector (a two-way choice): the picked one is the accent and the thumb slides between them.
+               A stored "Settle back" is neither, so nothing is picked until one is. */
+            <PillSelector
+              label={`Size ${verb}`}
+              data={`${end}-size`}
+              grow={false}
+              value={fx.size === 'grow' || fx.size === 'shrink' ? fx.size : null}
+              options={SIZES}
+              onPick={(s) => set('size', s)}
+            />
+          ) : (
+            note('Same size')
+          )}
         </span>
       </div>
     </>
@@ -215,7 +235,7 @@ export function StageAnimate({
         </div>
       ) : null}
       {error ? (
-        <p role="alert" className="shrink-0 py-1 text-[12.5px] font-semibold text-terracotta-700">
+        <p role="alert" className="shrink-0 py-1 text-[12.5px] font-semibold text-[rgb(var(--color-danger))]">
           {error}
         </p>
       ) : null}

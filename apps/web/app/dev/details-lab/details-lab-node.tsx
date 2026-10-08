@@ -42,6 +42,7 @@ import { MoodBoardStudio } from '@/app/dashboard/[eventId]/studio/mood-board/_co
 import { ATTIRE_STYLES, ATTIRE_STYLE_LABEL } from '@/lib/role-dress-code';
 import { HUB_THEMES } from '@/lib/invite-themes';
 import { themeSeedPalette } from '@/lib/theme-colours';
+import { labWishList, labWishState } from './wish-list-fixture';
 
 const EVENT = '00000000-0000-4000-8000-000000000000';
 
@@ -81,6 +82,7 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
   const marchLab = one('item') === 'march';
   /* 🧭 `?studio=1` — the new Maker's Studio tools on fixtures (`MakerDetails`'s `studio`). */
   const studioLab = one('studio') === '1';
+  const wishState = labWishState(one('wish'));
   const yourEvent: YourEventInput | null = guideAddr || marchLab || studioLab
     ? {
         kind: {
@@ -206,8 +208,10 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
             ? {
                 hub: { visibility: 'unlisted', pinned: null, openBrowse: false, launched: false, scheduledAt: null },
                 egiftMethods: [
-                  { egift_method_id: 'g1', method_kind: 'gcash', label: 'GCash', account_name: 'Maria Santos', handle: '0917 555 0101', qr_r2_key: null, note: null, is_enabled: true, qrDisplayUrl: null },
+                  { egift_method_id: 'g1', method_kind: 'gcash', label: 'GCash', account_name: 'Maria Santos', handle: '0917 555 0101', qr_r2_key: null, note: null, is_enabled: wishState !== 'noway', qrDisplayUrl: null },
                 ],
+                /* 🎁 The wish list on the prototype's seed (`?wish=` five · empty · fail · noway · off). */
+                wishList: labWishList(wishState),
                 whatToBring: 'Your invitation QR · a jacket for the garden',
                 livePath: null,
                 /* 🧱 The missing fields (2026-10-07) on fixtures — a registry link, the QR on,
@@ -224,7 +228,7 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
         hasGifts={false}
         answers={
           studioLab
-            ? { solemn: false, twoPeople: true, giftsMode: 'gifts', papic: { offered: false, value: null }, gifts: { offered: true, value: true }, logo: null, cover: null }
+            ? { solemn: false, twoPeople: true, giftsMode: 'gifts', papic: { offered: false, value: null }, gifts: { offered: true, value: wishState !== 'off' }, logo: null, cover: null }
             : null
         }
         flash={null}

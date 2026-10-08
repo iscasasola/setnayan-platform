@@ -505,7 +505,18 @@ test('a made-once page frame is double-buffered, never an iframe keyed on the re
 const ON_CANVAS = new Set([...CANVAS_POST, 'onSaving', 'hideOnCanvas', 'preview']);
 
 /** `held` handlers that draw nothing, and why that is right. */
-const HELD_WITHOUT_DRAWING: Record<string, string> = {};
+const HELD_WITHOUT_DRAWING: Record<string, string> = {
+  /* 🎁 E-Gifts › Wish list (owner 2026-10-08: "live"; owner rule the same day: a press costs one
+     request and never re-renders the page). A wish is a LIVE row, not a part of the drafted
+     canvas, and the place it is drawn is the list on this very screen — each handler writes that
+     list BEFORE its save (test A judges every one of them), and an add or an edit is answered
+     with the row as kept. Nothing a Maker render would bring back is missing, so none is owed. */
+  'launch/_components/studio-wish-list.tsx › addWish': 'The new wish is on the Studio’s list at the tap; the save answers with its real row.',
+  'launch/_components/studio-wish-list.tsx › keepWish': 'The row shows the edit at once; the save answers with the row as kept.',
+  'launch/_components/studio-wish-list.tsx › gotWish': 'The Got it switch and its row are drawn first; a refusal puts that one wish back.',
+  'launch/_components/studio-wish-list.tsx › removeWish': 'The row leaves at the second tap, and comes back in its place if refused.',
+  'launch/_components/studio-wish-list.tsx › finish': 'The list is already in its new order when the grip is let go; this is the one write behind it.',
+};
 
 function optionsHold(call: ts.CallExpression): boolean {
   const opts = call.arguments[2];
@@ -535,6 +546,7 @@ function canvasFirst(call: ts.Node, handler: ts.Node): boolean {
 
 test('E · every held save (no render behind it) is a change the canvas already shows', () => {
   const blind: Hit[] = [];
+  const heldExcused = new Set<string>();
   let held = 0;
   for (const full of FILES) {
     const sf = parse(full);
@@ -543,11 +555,17 @@ test('E · every held save (no render behind it) is a change the canvas already 
       held += 1;
       const h = handlerOf(n);
       const key = `${rel(full)} › ${h?.name ?? '<top>'}`;
-      if (key in HELD_WITHOUT_DRAWING) return;
+      if (key in HELD_WITHOUT_DRAWING) {
+        /* One reason excuses ONE handler (as WAITS_ON_PURPOSE): a second save riding it is judged. */
+        if (heldExcused.has(key)) blind.push({ file: rel(full), handler: `${h?.name ?? '<top>'} (a second held save under one reason)`, line: sf.getLineAndCharacterOfPosition(n.getStart()).line + 1 });
+        heldExcused.add(key);
+        return;
+      }
       if (!h || !canvasFirst(n, h.fn)) blind.push({ file: rel(full), handler: h?.name ?? '<top>', line: sf.getLineAndCharacterOfPosition(n.getStart()).line + 1 });
     });
   }
   console.log(`[every-maker-edit] held saves: ${held}`);
+  assert.deepEqual(Object.keys(HELD_WITHOUT_DRAWING).filter((k) => !heldExcused.has(k)), [], 'HELD_WITHOUT_DRAWING lists handlers that no longer hold a save — remove them');
   assert.ok(held >= 4, `only ${held} held saves found — the scan is not reading the Maker`);
   assert.deepEqual(
     blind,

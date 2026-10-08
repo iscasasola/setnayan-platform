@@ -102,6 +102,7 @@ import { printPreviewVersion } from '@/lib/print-preview-cache';
 import { printDraftOf } from '@/lib/ceremony-time';
 import { updateSpecialMessage } from '../website/special-message/actions';
 import { fetchEgiftMethods, isPabuyaPublicRouteEnabled, readEgiftMethods } from '@/lib/egift';
+import { readStudioWishList } from '@/lib/wish-list.server';
 import { HubSavesImmediately } from '../website/_components/hub-draft-field';
 // ⚡ Through the lazy stand-in — never the manager's own module (the Maker's first-load budget).
 import { PabuyaManager } from './_components/details-lazy';
@@ -1063,6 +1064,9 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     const printAdmin = createAdminClient();
     /* 🎁 Started beside the reads below, awaited where the E-Gifts field is built. */
     const egiftAllP = readEgiftMethods(supabase, eventId);
+    /* 🎁 The wish list (owner 2026-10-08) — read through the couple's own client (hosts-only under
+       RLS), and only while the new Maker's Studio is on: nothing else draws it. */
+    const wishListP = stagesStudio ? readStudioWishList(supabase, eventId) : null;
     const egiftVisibilityP = supabase.from('events').select('landing_page_visibility').eq('event_id', eventId).maybeSingle();
     /* 🧭 Studio › Info's Your Event Hub rows and What to bring — read only while the new Maker is on. */
     const studioHubP = stagesStudio
@@ -1637,7 +1641,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
          refused read is said by the form, never a guessed "Private" or an empty gift list. */
       const studioDetails = studioHubP
         ? await (async () => {
-            const [hubRes, gifts, missing] = await Promise.all([studioHubP, egiftAllP, studioMissingP]);
+            const [hubRes, gifts, missing, wishList] = await Promise.all([studioHubP, egiftAllP, studioMissingP, wishListP ?? undefined]);
             const [fieldsRes, heroRes] = missing ?? [null, null];
             if (fieldsRes?.error) logQueryError('LaunchPage.studioMissingFields', fieldsRes.error, { event_id: eventId }, 'graceful_degrade');
             if (heroRes?.error) logQueryError('LaunchPage.studioMainGround', heroRes.error, { event_id: eventId }, 'graceful_degrade');
@@ -1684,6 +1688,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
                   : ((row?.what_to_bring as string | null | undefined) ?? null),
               livePath: hubSlug ? publicEventPath(hubSlug) : null,
               registryUrl: fields ? (fields.gift_registry_url ?? null) : undefined,
+              /* A refused read travels as `{ read: false }` — the section says so, never "No wishes yet". */
+              wishList,
               qrShown: ('qr_shown' in draftedEvents ? draftedEvents.qr_shown : fields?.qr_shown) !== false,
               main: studioMain,
               mainColours: mainColoursOf(dressedRow.role_palette, dressedRow.invite_theme),

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "b4a51a84b",
+  "generatedFromRef": "f9af89492",
   "routeCount": 428,
   "destinations": 957,
-  "actions": 671,
-  "blocks": 5693,
+  "actions": 672,
+  "blocks": 5707,
   "routes": {
     "/": {
       "files": [
@@ -6553,6 +6553,7 @@
         "dashboard/[eventId]/launch/_components/studio-event-name.tsx",
         "dashboard/[eventId]/launch/_components/studio-home.tsx",
         "dashboard/[eventId]/launch/_components/studio-tools.tsx",
+        "dashboard/[eventId]/launch/_components/studio-wish-list.tsx",
         "dashboard/[eventId]/launch/_components/theme-pick-context.ts",
         "dashboard/[eventId]/launch/_components/theme-preview-overlay.tsx",
         "dashboard/[eventId]/launch/_components/view-as-free.tsx",
@@ -6577,13 +6578,16 @@
         "qrStyleAction",
         "removeHeroPhoto",
         "replyByAction",
+        "saveEgiftMethod",
         "setPlanningMode",
         "uploadHeroPhoto"
       ],
       "blocks": [
         "About",
+        "ActionButton",
         "AddBtn",
         "AddPartSheet",
+        "AddWish",
         "AddressPinField",
         "AnimatePhase",
         "AnimateTime",
@@ -6610,6 +6614,7 @@
         "ColourRow",
         "CouldNotLoad",
         "CouldNotOpen",
+        "Count",
         "CoupleSchedulePage",
         "CoupleSeatingPage",
         "DateBody",
@@ -6631,6 +6636,7 @@
         "DetailsTapContext.Provider",
         "DetailsWorkspace",
         "Dir",
+        "Draft",
         "DraftNote",
         "DraftsAsYouGo",
         "Drag",
@@ -6642,6 +6648,7 @@
         "Face",
         "Field",
         "FileUpload",
+        "Fill",
         "FilmFollowsTheme",
         "FindDateCandidates",
         "FindDatePicked",
@@ -6764,6 +6771,7 @@
         "OneNameEditor",
         "OneOpenScope",
         "OpenInPlace",
+        "OpenWish",
         "OpeningLineField",
         "OurStoryEditorPage",
         "PabuyaCardList",
@@ -6831,6 +6839,7 @@
         "SeeAs",
         "Segmented",
         "SetupStage",
+        "Sheet",
         "SheetHead",
         "SheetSections",
         "Shown",
@@ -6876,6 +6885,8 @@
         "StudioToolMenu",
         "StudioToolRow",
         "StudioWhatToBring",
+        "StudioWishList",
+        "StudioWishListLive",
         "StylePreview",
         "Suspense",
         "Switch",
@@ -6903,6 +6914,10 @@
         "WhatsLeftDoor",
         "WhichVersion",
         "Window",
+        "WishFields",
+        "WishHead",
+        "WishResult",
+        "WishSheet",
         "WordField",
         "WordsCard",
         "YourEventInput"
@@ -7152,7 +7167,8 @@
         "dashboard/[eventId]/pabuya/_components/pabuya-message-editor.tsx",
         "dashboard/[eventId]/pabuya/actions.ts",
         "dashboard/[eventId]/pabuya/loading.tsx",
-        "dashboard/[eventId]/pabuya/page.tsx"
+        "dashboard/[eventId]/pabuya/page.tsx",
+        "dashboard/[eventId]/pabuya/wish-items.server.ts"
       ],
       "destinations": [],
       "actions": [],
@@ -7171,7 +7187,8 @@
         "PageMasthead",
         "PickMenu",
         "ShippedEditor",
-        "StudioThanks"
+        "StudioThanks",
+        "WishWriteResult"
       ]
     },
     "/dashboard/[eventId]/paperwork": {
@@ -9676,7 +9693,8 @@
         "dev/details-lab/look-lab.tsx",
         "dev/details-lab/march-fixture.ts",
         "dev/details-lab/page.tsx",
-        "dev/details-lab/studio-lab-fixtures.tsx"
+        "dev/details-lab/studio-lab-fixtures.tsx",
+        "dev/details-lab/wish-list-fixture.ts"
       ],
       "destinations": [],
       "actions": [

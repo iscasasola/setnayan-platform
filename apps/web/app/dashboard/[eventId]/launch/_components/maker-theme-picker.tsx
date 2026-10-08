@@ -416,7 +416,7 @@ export function MakerThemeMenu({
   themes: ThemeTile[];
   ownsPro: boolean;
   storeShell: boolean;
-  /** 🎞 The one line under Theme while the Save the Date film keeps its own background (`FilmFollowsTheme`). */
+  /** 🎞 A line under Theme (it was the Save the Date film's "Same as the Event Hub", which left Look 2026-10-08 — nothing hands one today). */
   filmLine?: ReactNode;
 }) {
   const { picked, error, pick } = usePick();

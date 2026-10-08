@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "b4a51a84b",
+  "generatedFromRef": "90ca25e2b",
   "routeCount": 428,
-  "destinations": 957,
+  "destinations": 954,
   "actions": 671,
-  "blocks": 5693,
+  "blocks": 5691,
   "routes": {
     "/": {
       "files": [
@@ -5252,8 +5252,6 @@
         "/dashboard/[seg]/guests",
         "/dashboard/[seg]/guests/send",
         "/dashboard/[seg]/guests/tea-ceremony",
-        "/dashboard/[seg]/guests?q=coming",
-        "/dashboard/[seg]/guests?q=no+reply",
         "/dashboard/[seg]/guests?select=to-invite",
         "/dashboard/[seg]/invitation",
         "/dashboard/[seg]/launch",
@@ -5983,7 +5981,6 @@
         "dashboard/[eventId]/guests/_components/phone-column-channel.ts",
         "dashboard/[eventId]/guests/_components/plus-one-seats-note.tsx",
         "dashboard/[eventId]/guests/_components/quick-add-sheet.tsx",
-        "dashboard/[eventId]/guests/_components/render-guests-screen.ts",
         "dashboard/[eventId]/guests/_components/role-names-context.tsx",
         "dashboard/[eventId]/guests/_components/row-tap.ts",
         "dashboard/[eventId]/guests/_components/seat-chip.tsx",
@@ -6012,7 +6009,6 @@
         "/dashboard/[seg]/guests/claims",
         "/dashboard/[seg]/guests/import",
         "/dashboard/[seg]/guests/quick",
-        "/dashboard/[seg]/guests/send",
         "/dashboard/[seg]/guests/send?ids=[seg]",
         "/dashboard/[seg]/guests?inspect=[seg]",
         "/dashboard/[seg]/story",
@@ -6490,7 +6486,6 @@
         "dashboard/[eventId]/launch/_components/details-your-event-load.tsx",
         "dashboard/[eventId]/launch/_components/details-your-event-parts.tsx",
         "dashboard/[eventId]/launch/_components/details-your-event.tsx",
-        "dashboard/[eventId]/launch/_components/film-follows-theme.tsx",
         "dashboard/[eventId]/launch/_components/hub-pro-offer.tsx",
         "dashboard/[eventId]/launch/_components/hub-stage.tsx",
         "dashboard/[eventId]/launch/_components/icon-pill.tsx",
@@ -6642,7 +6637,6 @@
         "Face",
         "Field",
         "FileUpload",
-        "FilmFollowsTheme",
         "FindDateCandidates",
         "FindDatePicked",
         "FineTune",
@@ -9727,8 +9721,7 @@
         "HomePillNav",
         "MakerRsvpSettings",
         "NotificationsList",
-        "RoleNamesProvider",
-        "SendRun"
+        "RoleNamesProvider"
       ]
     },
     "/dev/hero-lab": {

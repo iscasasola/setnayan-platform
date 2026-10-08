@@ -31,7 +31,7 @@ export const STUDIO_TILE_ITEM: Readonly<Record<StudioTileKey, DetailsItemKey>> =
 
 /**
  * 🧭 THE EDITOR A TILE OPENS — each tile its OWN (owner 2026-10-07: Look opened the Logo editor). Look keeps
- * the Look section the couple was on (Background · Colours · Font · Music) and otherwise opens on
+ * the Look section the couple was on (Background · Elements · Music) and otherwise opens on
  * Background — never another Look-group item (Logo, Mood Board, Cover page, Reveal), which the lower
  * third's "stay where you were" used to carry over. Every other tile opens its own item.
  */

@@ -32,6 +32,7 @@ import { hubSetupDone, type HubSetupFacts } from '@/lib/hub-setup-steps';
 
 export { STUDIO_TILE_KEYS, STUDIO_TILE_ITEM, studioTileItem, type StudioTileKey } from './studio-tile-defs';
 import { STUDIO_TILE_ITEM, STUDIO_TILE_KEYS, type StudioTileKey } from './studio-tile-defs';
+import { LOOK_SECTIONS, LOOK_SECTION_LABEL } from '@/lib/maker-look-sections';
 
 type StudioTileDef = {
   /** The tile's name, and the short name the pill shows. */
@@ -49,7 +50,8 @@ type StudioTileDef = {
 
 export const STUDIO_TILES: Readonly<Record<StudioTileKey, StudioTileDef>> = {
   info: { label: 'Info', short: 'Info', item: STUDIO_TILE_ITEM.info, reads: ['names', 'date', 'venues'], sub: 'Your event · Your Event Hub' },
-  look: { label: 'Look', short: 'Look', item: STUDIO_TILE_ITEM.look, reads: ['theme'], sub: 'Background · Colours · Font · Music' },
+  /* Its line IS Look's sections (`LOOK_SECTIONS` — Background · Elements · Music since 2026-10-08), never a second list of them. */
+  look: { label: 'Look', short: 'Look', item: STUDIO_TILE_ITEM.look, reads: ['theme'], sub: LOOK_SECTIONS.map((k) => LOOK_SECTION_LABEL[k]).join(' · ') },
   logo: { label: 'Logo', short: 'Logo', item: STUDIO_TILE_ITEM.logo, reads: ['logo'], sub: 'Mark · fonts · animation' },
   mood: { label: 'Mood Board & Dress Code', short: 'Mood Board', item: STUDIO_TILE_ITEM.mood, reads: ['mood-board'], sub: 'Five colours · attire by role' },
   schedule: { label: 'Schedule', short: 'Schedule', item: STUDIO_TILE_ITEM.schedule, reads: ['schedule'], sub: 'Times and moments' },

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "c1ef1b9d1",
+  "generatedFromRef": "b35ded81c",
   "routeCount": 429,
   "destinations": 958,
   "actions": 672,
-  "blocks": 5827,
+  "blocks": 5829,
   "routes": {
     "/": {
       "files": [
@@ -6064,6 +6064,7 @@
         "dashboard/[eventId]/guests/_components/role-section-order.ts",
         "dashboard/[eventId]/guests/_components/send-invite.tsx",
         "dashboard/[eventId]/guests/_components/undo-toast.tsx",
+        "dashboard/[eventId]/guests/_components/use-peek-toast.tsx",
         "dashboard/[eventId]/guests/_components/use-row-state.ts",
         "dashboard/[eventId]/guests/entourage-order-actions.ts",
         "dashboard/[eventId]/guests/finalize-actions.ts",
@@ -6167,6 +6168,8 @@
         "OpenAddGuestTextButton",
         "OpenQuickAddButton",
         "PageMasthead",
+        "PeekSay",
+        "PeekToast",
         "PickMenu",
         "PillThumb",
         "Popover",

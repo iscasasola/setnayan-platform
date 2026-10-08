@@ -12,6 +12,8 @@
  *   (4) IT LEAVES BY ITSELF and tells the caller — 2.2 s, 4.2 s for a failure; one life per message, cleaned up.
  *   (5) MOTION — the family's speed and spring, read from the tokens; nothing under "reduce motion".
  *   (6) IT NEVER DARKENS THE PAGE — it is not a pop-up.
+ *   (8) AN ACTION (owner 2026-10-09 — the guest list's Undo): optional, a small pill at the right, the toast stays 6 s,
+ *       only that pill takes a tap, announced as a live region — and with no action the markup is today's, byte for byte.
  *   (7) ONE DRAWING — the Stages panel's "added / removed / moved" is this toast, not a strip of its own.
  */
 import test from 'node:test';
@@ -21,7 +23,7 @@ import { join } from 'node:path';
 import React from 'react';
 
 import { stripComments } from './strip-comments';
-import { PEEK_TOAST_LEAVE_MS, PEEK_TOAST_MS, PEEK_TOAST_PILL, PEEK_TOAST_PLACE, PEEK_TOAST_SLIDE, PEEK_TOAST_TONE, PeekToast } from '../app/_components/toast/peek-toast';
+import { PEEK_TOAST_ACTION_MS, PEEK_TOAST_LEAVE_MS, PEEK_TOAST_MS, PEEK_TOAST_PILL, PEEK_TOAST_PLACE, PEEK_TOAST_SLIDE, PEEK_TOAST_TONE, PeekToast } from '../app/_components/toast/peek-toast';
 
 (globalThis as unknown as { React: unknown }).React = React;
 
@@ -86,9 +88,10 @@ test('(3b) a NOTE is neither a result nor a fault: white with a hairline and ink
 test('(4) it leaves by itself and tells the caller — one life per message, cleaned up', () => {
   assert.deepEqual(PEEK_TOAST_MS, { ok: 2200, bad: 4200, note: 3200 });
   assert.ok(PEEK_TOAST_LEAVE_MS >= 364, 'the caller is told it has gone before it has slid away (0.52 × 700 ms)');
-  assert.match(SRC, /const leave = window\.setTimeout\(\(\) => setDown\(false\), PEEK_TOAST_MS\[tone\]\);/);
-  assert.match(SRC, /const left = window\.setTimeout\(\(\) => gone\.current\?\.\(\), PEEK_TOAST_MS\[tone\] \+ PEEK_TOAST_LEAVE_MS\);/);
-  assert.match(SRC, /return \(\) => \{\s*window\.cancelAnimationFrame\(raf\);\s*window\.clearTimeout\(leave\);\s*window\.clearTimeout\(left\);\s*\};\s*\}, \[tone\]\);/, 'a toast that unmounts early leaves a timer behind');
+  assert.match(SRC, /const life = hasAction \? PEEK_TOAST_ACTION_MS : PEEK_TOAST_MS\[tone\];/);
+  assert.match(SRC, /const leave = window\.setTimeout\(\(\) => setDown\(false\), life\);/);
+  assert.match(SRC, /const left = window\.setTimeout\(\(\) => gone\.current\?\.\(\), life \+ PEEK_TOAST_LEAVE_MS\);/);
+  assert.match(SRC, /return \(\) => \{\s*window\.cancelAnimationFrame\(raf\);\s*window\.clearTimeout\(leave\);\s*window\.clearTimeout\(left\);\s*\};\s*\}, \[tone, hasAction\]\);/, 'a toast that unmounts early leaves a timer behind');
   assert.doesNotMatch(SRC, /setInterval|fetch\(|router\.|useToast/, 'the toast polls, asks the server, or leans on the older provider');
 });
 
@@ -116,4 +119,31 @@ test('(7) the Stages panel says what happened with THIS toast — no strip of it
   /* Each message is a new toast (its own life), and the four things said are still said. */
   assert.match(sheet, /const setToast = useCallback\(\(words: string\) => setToastNow\(\(t\) => \(\{ words, n: \(t\?\.n \?\? 0\) \+ 1 \}\)\), \[\]\);/);
   assert.equal((sheet.match(/setToast\(/g) ?? []).length, 4, 'a message the panel used to say is gone (moved · added · added · removed)');
+});
+
+test('(8) an action: a small pill at the right, 6 s, the only tap — and without one the toast is today\'s, byte for byte', async () => {
+  assert.equal(PEEK_TOAST_ACTION_MS, 6000);
+  const plain = await draw({}, 'Removed Maria');
+  const withAction = await draw({ action: { label: 'Undo', onPress: () => {} } }, 'Removed Maria');
+  /* The pill: after the words, a real button, taking the tap the toast otherwise refuses. */
+  assert.match(withAction, /<span class="min-w-0 truncate">Removed Maria<\/span><button type="button" data-peek-toast-action="" class="[^"]*pointer-events-auto[^"]*">Undo<\/button>/);
+  assert.match(withAction, /role="status" aria-live="polite"/, 'a toast with an action is not announced');
+  assert.match(withAction, /class="[^"]*!pr-2[^"]*"/, 'the pill has no room at the right');
+  /* The place still refuses every tap but the pill's. */
+  assert.ok(has(PEEK_TOAST_PLACE, 'pointer-events-none'));
+  /* No action → nothing of it in the markup, and the markup is exactly the pre-action markup. */
+  assert.doesNotMatch(plain, /data-peek-toast-action|aria-live|<button/);
+  assert.equal(
+    plain,
+    await draw({ tone: 'ok', action: undefined }, 'Removed Maria'),
+    'an undefined action changes the markup',
+  );
+  assert.equal(
+    plain.replace(/<svg[\s\S]*?<\/svg>/, '<MARK/>'),
+    '<div data-peek-toast="" data-tone="ok" class="' + PEEK_TOAST_PLACE + '"><div role="status" data-down="false" style="transform:translateY(calc(-100% - 12px - env(safe-area-inset-top) - 24px));transition:transform calc(var(--sn-pill-dur) * 0.52) var(--sn-pill-spring)" class="' + PEEK_TOAST_PILL + ' ' + PEEK_TOAST_TONE.ok + '"><MARK/><span class="min-w-0 truncate">Removed Maria</span></div></div>',
+    'the no-action markup is no longer what it was',
+  );
+  /* An action-bearing failure still shows "Try again" too, and a plain "Try again" toast has no action pill. */
+  assert.doesNotMatch(await draw({ tone: 'bad', onRetry: () => {} }), /data-peek-toast-action/);
+  assert.doesNotMatch(SRC, /setInterval|useToast/, 'the action leans on a poll or the older provider');
 });

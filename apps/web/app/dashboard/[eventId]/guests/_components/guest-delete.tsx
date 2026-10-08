@@ -28,13 +28,12 @@
 
 import { useId, useState } from 'react';
 import { Sheet } from '@/app/_components/sheet';
-import { useToast } from '@/app/_components/toast/toast-provider';
 import { formatCount } from '@/lib/format-number';
 import { bulkSoftDeleteGuestsForUndo, restoreDeletedGuests } from '../groups-actions';
 import { buildUndo } from '@/lib/guest-optimistic';
 import { guestOptimistic } from './guest-optimistic-store';
 import { guestSelection } from './guest-selection-store';
-import { pushUndo } from './undo-toast';
+import { guestToast, pushUndo } from './undo-toast';
 
 /** What the warning says goes with them — the owner's list, in his order. */
 export function deleteWarningText(names: readonly string[]): { title: string; body: string } {
@@ -59,7 +58,6 @@ export function deleteWarningText(names: readonly string[]): { title: string; bo
  *   gesture, the card closes itself).
  */
 export function useGuestRemoval(eventId: string) {
-  const toast = useToast();
   const [removing, setRemoving] = useState(false);
 
   /** Resolves to the refusal's own words (shown where the host acted), or null. */
@@ -79,14 +77,14 @@ export function useGuestRemoval(eventId: string) {
       guestOptimistic.clear(mutation); // rollback the hide
       setRemoving(false);
       const said = 'Could not delete — check your connection and try again.';
-      toast.error(said);
+      guestToast.error(said);
       return said;
     }
     setRemoving(false);
 
     if (!result.ok) {
       guestOptimistic.clear(mutation); // rollback — and SAY why, where they acted
-      toast.error(result.error);
+      guestToast.error(result.error);
       return result.error;
     }
     // Only now retract the selection bar: a refusal keeps it — and its warning,
@@ -106,9 +104,9 @@ export function useGuestRemoval(eventId: string) {
         const r = await restoreDeletedGuests(eventId, plan.guestIds, plan.seats);
         if (r.ok) {
           guestOptimistic.clear(mutation); // un-hide the restored rows
-          if (r.warning) toast.error(r.warning);
+          if (r.warning) guestToast.error(r.warning);
         } else {
-          toast.error('Could not undo — refresh and try again.');
+          guestToast.error('Could not undo — refresh and try again.');
         }
       },
     });

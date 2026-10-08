@@ -70,7 +70,7 @@ import { PickMenu, type PickOption } from '@/app/dashboard/[eventId]/website/edi
 import { useInspectorContext } from '@/app/_components/inspector/inspector-column';
 import { PILL_TRACK_CLASS, PILL_TRACK_GROUND, PillThumb, pillSegClass } from '@/app/_components/pill-selector';
 import { Sheet } from '@/app/_components/sheet';
-import { useToast } from '@/app/_components/toast/toast-provider';
+import { usePeekToast } from './use-peek-toast';
 import {
   countsTowardEvent,
   guestDisplayName,
@@ -223,7 +223,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
     empty,
   } = props;
   const router = useRouter();
-  const toast = useToast();
+  const [toast, toastNode] = usePeekToast();
   const inspector = useInspectorContext();
   const roleNames = useRoleNames();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -719,6 +719,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
 
   return (
     <GuestListHasSidesContext.Provider value={hasSides}>
+      {toastNode}
       <div ref={rootRef} className={styles.screen} data-settled={settled ? 'true' : 'false'} data-guests-screen={gview}>
         <div ref={stickRef} className={styles.stick} data-guests-stick="">
           {/* 🎚 THE ONE PILL SELECTOR (owner 2026-10-08: "adjust all pill selectors to this") — the app's template

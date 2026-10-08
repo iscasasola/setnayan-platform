@@ -101,6 +101,14 @@ type FileUploadBaseProps = {
    */
   onFilePicked?: (file: File) => void;
   /**
+   * 🥧 The figure this component already prints for the upload in flight (0–100, from `xhr.upload` progress), handed
+   * up as is — null when nothing is in flight. For a parent that draws the same number elsewhere (the Maker's style
+   * card pie, owner 2026-10-08). Never a second measurement, never a request. Optional; existing callers are unaffected.
+   */
+  onProgress?: (pct: number | null) => void;
+  /** Filled with "stop what is in flight" (the same stop as the row's own ✕) — for a parent whose own control cancels. */
+  cancelRef?: { current: (() => void) | null };
+  /**
    * Optional async validator run AFTER the size/MIME checks and BEFORE the
    * upload starts. Return an error string to reject the file (shown to the
    * user, upload skipped) or null to accept. Fail-open: if the validator
@@ -404,6 +412,8 @@ export function FileUpload({
   videoSilent = false,
   qrGuard = false,
   unsavedHint,
+  onProgress,
+  cancelRef,
 }: FileUploadProps) {
   const inputId = useId();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -514,6 +524,24 @@ export function FileUpload({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /* 🥧 The parent hears the printed figure of the upload in flight, and holds its stop (see the props). */
+  const flyingPct = inFlight.length > 0 ? inFlight[0]!.progress : null;
+  const tellProgress = useRef(onProgress);
+  tellProgress.current = onProgress;
+  useEffect(() => {
+    tellProgress.current?.(flyingPct);
+  }, [flyingPct]);
+  useEffect(() => {
+    if (!cancelRef) return;
+    cancelRef.current = () => {
+      for (const item of inFlight) cancelInFlight(item.id);
+    };
+    return () => {
+      cancelRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `cancelInFlight` is this render's own
+  }, [cancelRef, inFlight]);
 
   const acceptAttr = useMemo(() => acceptedTypes.join(','), [acceptedTypes]);
   const maxBytes = maxSizeMB * 1024 * 1024;

@@ -347,6 +347,35 @@ export function makerPartQuietRow(key: MakerPartKey): { words: string; to: { stu
   return null;
 }
 
+/**
+ * 🚫 DOES A TOOL HAVE ANYTHING TO SET ON THIS PART? (owner rule: a failure never renders as success — a pill that
+ * slides to "Text" over a panel still showing Style's cards is exactly that. Tapped on the Maker lab, 2026-10-08:
+ * E-Gifts and What to wear did it.)
+ *
+ *   Style    always — every part has a look.
+ *   Text     }  only where the work area has a save for it (`editor-shell.tsx` `onTool`, `stage-tools.tsx`
+ *   Animate  }  `askTool`): a part of a bigger section with words of its own (`el` → the part's sheet), or a scene
+ *               the couple arranges (`w:` → the scene's heading, the scene's motion).
+ * A fixed part with no `el` (E-Gifts, What to wear, the March, the details, the seat, the pass …), a Post Event
+ * scene (`p:`), and the parts the canvas does not draw (the Reveal, the Camera) have neither.
+ */
+export function makerPartToolWorks(key: MakerPartKey, tool: MakerPartTool): boolean {
+  if (tool === 'style') return true;
+  const def = MAKER_PARTS[key];
+  if (!def.canvas) return false;
+  return Boolean(def.el) || def.canvas.startsWith('w:');
+}
+
+/**
+ * The ONE plain line a tap on a tool with nothing to set answers with — never a dead tap, never a silent one. A
+ * part whose content is Studio's says where it IS changed; any other names the tool.
+ */
+export function makerPartToolWhy(key: MakerPartKey | null, tool: MakerPartTool): string {
+  const src = key ? makerPartSource(key) : null;
+  if (src?.kind === 'studio') return 'Nothing to change here — edit it in Studio.';
+  return `${MAKER_PART_TOOL_LABEL[tool]} has nothing to change on this part.`;
+}
+
 /* ── the pages (prototype `TABS`, on the SHIPPED guest bar's page keys) ──── */
 
 /**

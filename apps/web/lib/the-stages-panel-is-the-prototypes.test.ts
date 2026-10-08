@@ -271,7 +271,10 @@ test('picking the Digital pass never replaces the canvas in Stages — it is pic
   assert.match(shell.slice(at, at + 400), /\$\{maker\?\.stagesStudio \? ' hidden' : ''\}/, 'the ticket view is put away under Stages');
   const tools = read(`${LAUNCH}/stage-tools.tsx`);
   assert.match(tools, /const styleOnly = revealOpen \|\| cameraOpen \|\| rsvpOpen \|\| picked === 'pass';/);
-  assert.match(tools, /disabled=\{styleOnly && t !== 'style'\}/);
+  /* Style only: Text and Animate have nothing to set there — grey, and a tap says why (2026-10-09; never `disabled`,
+     which is a dead tap — `a-tool-with-nothing-to-do-says-so`). */
+  assert.match(tools, /const toolWorks = \(t: MakerPartTool\) => t === 'style' \|\| \(!styleOnly && /);
+  assert.match(tools, /aria-disabled=\{toolWorks\(t\) \? undefined : true\}/);
   const edges = read(`${LAUNCH}/add-part-sheet.tsx`);
   assert.match(edges, /clipPath: `inset\(/, 'the frame is clipped to the canvas');
 });
@@ -300,8 +303,12 @@ test('↓ from part i picks part i+1 in the order the page DRAWS them, and keeps
   assert.deepEqual(makerStepPart({ parts: ordered, at: 'place', pages, page: 'home', dir: 1 }), { page: 'details', part: null }, 'the last part goes on to the next tab');
   const tools = read(`${LAUNCH}/stage-tools.tsx`);
   assert.match(tools, /const here = home === shownPage \? \(drawnHere\.length \? drawnHere : parts\) : tappableOn\(home\);/, 'the step walks the drawn order');
-  /* The tool is never touched by a step: `pickPart` asks for the SAME tool (`askTool(toolRef.current, k)`). */
-  assert.match(tools, /askTool\(toolRef\.current, k\);/);
+  /* The tool is never CHANGED by a step: `pickPart` asks for the SAME tool — or, on a part where that tool has
+     nothing to set, Style for that part only (`toolFor`; the remembered tool is not written). */
+  assert.match(tools, /askTool\(toolFor\(k\), k\);/);
+  assert.match(tools, /const toolFor = useCallback\(\(k: MakerPartKey \| null\): MakerPartTool => \(k && !makerPartToolWorks\(k, toolRef\.current\) \? 'style' : toolRef\.current\), \[\]\);/);
+  const stepFn = tools.slice(tools.indexOf('const step = useCallback('), tools.indexOf('const stepRef = useRef(step);'));
+  assert.doesNotMatch(stepFn, /setTool\(/, 'a step changes the remembered tool');
 });
 
 test('the frame carries ↑ upper-left, ↓ lower-left and ✕ lower-right; keys, Esc and a tap on the ground work too', () => {

@@ -72,8 +72,19 @@ test('(3) a failure never looks like success: the danger token, a warning mark, 
   assert.doesNotMatch(await draw({ tone: 'ok', onRetry: () => {} }), /Try again/);
 });
 
+test('(3b) a NOTE is neither a result nor a fault: white with a hairline and ink words, an ⓘ — never the tick, the accent or the red', async () => {
+  const note = await draw({ tone: 'note' }, 'Nothing to change here — edit it in Studio.');
+  assert.match(note, /data-tone="note"/);
+  assert.match(note, /role="status"/, 'a note is announced as a fault');
+  assert.equal(PEEK_TOAST_TONE.note, 'bg-white text-ink ring-1 ring-inset ring-ink/15');
+  assert.doesNotMatch(PEEK_TOAST_TONE.note, /sn-accent|danger/, 'a note wears a result’s colour');
+  assert.match(note, /<svg[^>]*lucide-info\b/, 'a note has no mark of its own');
+  assert.doesNotMatch(note, /lucide-check\b|lucide-triangle-alert\b|Try again/, 'a note reads as done, or as a fault');
+  assert.match(note, /<span class="min-w-0 truncate">Nothing to change here — edit it in Studio\.<\/span>/);
+});
+
 test('(4) it leaves by itself and tells the caller — one life per message, cleaned up', () => {
-  assert.deepEqual(PEEK_TOAST_MS, { ok: 2200, bad: 4200 });
+  assert.deepEqual(PEEK_TOAST_MS, { ok: 2200, bad: 4200, note: 3200 });
   assert.ok(PEEK_TOAST_LEAVE_MS >= 364, 'the caller is told it has gone before it has slid away (0.52 × 700 ms)');
   assert.match(SRC, /const leave = window\.setTimeout\(\(\) => setDown\(false\), PEEK_TOAST_MS\[tone\]\);/);
   assert.match(SRC, /const left = window\.setTimeout\(\(\) => gone\.current\?\.\(\), PEEK_TOAST_MS\[tone\] \+ PEEK_TOAST_LEAVE_MS\);/);

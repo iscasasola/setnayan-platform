@@ -978,28 +978,13 @@ function StudioWhatToBring({ eventId, value }: { eventId: string; value: string 
 
 /**
  * 🎁 THE WISH LIST, WIRED TO ITS ONE DOOR (owner 2026-10-08, E-Gifts › Wish list).
- * `StudioWishList` draws and asks; THIS hands it the write: the E-Gifts page's own
- * `saveEgiftMethod`, carrying `wish_op` (save · delete · move · got) — LIVE, like
- * every write above it, and +0 server actions. The Maker re-reads once the save
- * lands (`makerSave`), which is also what Try again asks for.
+ * `StudioWishList` draws, and saves behind what it drew; THIS hands it the write:
+ * the E-Gifts page's own `saveEgiftMethod`, which a form carrying `wish_op`
+ * (save · delete · move · got) turns into a wish-list write — LIVE, like every
+ * write above it, and +0 server actions.
  */
-function StudioWishListLive({ eventId, methods, list }: Pick<Parameters<typeof StudioWishList>[0], 'eventId' | 'methods' | 'list'>) {
-  return (
-    <StudioWishList
-      eventId={eventId}
-      methods={methods}
-      list={list}
-      retry={requestMakerRefresh}
-      send={(fields) =>
-        makerSave(() => {
-          const form = new FormData();
-          form.set('event_id', eventId);
-          for (const [k, v] of Object.entries(fields)) form.set(k, v);
-          return saveEgiftMethod(form);
-        }, requestMakerRefresh)
-      }
-    />
-  );
+function StudioWishListLive(props: Omit<Parameters<typeof StudioWishList>[0], 'action'>) {
+  return <StudioWishList {...props} action={saveEgiftMethod} />;
 }
 
 export type StudioToolProps =

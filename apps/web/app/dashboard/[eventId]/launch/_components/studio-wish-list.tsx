@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useRef, useState, useTransition, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, GripVertical, Plus, RotateCw, Trash2, TriangleAlert, X } from 'lucide-react';
 import { FileUpload } from '@/app/_components/file-upload';
@@ -8,6 +8,7 @@ import { InfoTip } from '@/app/_components/info-tip';
 import { Sheet } from '@/app/_components/sheet';
 import { ActionButton } from '@/components/action-button';
 import { Count, Fill } from '@/components/count';
+import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { formatPhp } from '@/lib/php';
 import { STUDIO_GROUP_HEAD, STUDIO_GROUP_HEAD_LINE, STUDIO_SWITCH_TRACK } from '@/lib/studio-skin';
 import { WISH_LINK_MAX, WISH_NAME_MAX, WISH_NOTE_MAX } from '@/lib/wish-list';
@@ -88,15 +89,25 @@ const sameDraft = (a: Draft, b: Draft) =>
   a.note.trim() === b.note.trim() &&
   a.photo === b.photo;
 
-/** One wish-list write — `wish_op` and its fields — and what came back. */
-export type WishSend = (fields: Record<string, string>) => Promise<{ ok: true } | { ok: false; error: string }>;
+/** The E-Gifts page's one write door, as the lazy Studio tools hand it in (`saveEgiftMethod`). */
+export type WishAction = (form: FormData) => Promise<{ ok: true } | { ok: false; error: string }>;
+
+/** What a draft becomes on a row, before the server's own row replaces it. */
+const drawn = (w: StudioWish, d: Draft): StudioWish => ({
+  ...w,
+  name: d.name.trim() || w.name,
+  pricePhp: cleanWishPrice(d.price) ?? null,
+  linkUrl: d.link.trim() || null,
+  note: d.note.trim() || null,
+  photoRef: d.photo || null,
+  photoUrl: d.photo && d.photo === w.photoRef ? w.photoUrl : null,
+});
 
 export function StudioWishList({
   eventId,
   methods,
   list,
-  send,
-  retry,
+  action,
 }: {
   eventId: string;
   /** The ways to give as the server last read them — is one switched on? */
@@ -106,9 +117,7 @@ export function StudioWishList({
    * The write. Handed in by the Studio's lazy door (`studio-tools.tsx`), which
    * owns the E-Gifts page's one action — so this file imports no server action.
    */
-  send: WishSend;
-  /** Read it again (Try again on a refused read). */
-  retry: () => void;
+  action: WishAction;
 }) {
   const served = list.read ? list.wishes : null;
   const [wishes, setWishes] = useState<StudioWish[]>(served ?? []);
@@ -119,7 +128,76 @@ export function StudioWishList({
 
   const [sheet, setSheet] = useState<{ kind: 'add' } | { kind: 'edit'; id: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [, start] = useTransition();
+  /* An item the server refused comes back into the add sheet, as it was typed. */
+  const [addSeed, setAddSeed] = useState<Draft | null>(null);
+  const pendingNo = useRef(0);
+  const form = (fields: Record<string, string>): FormData => {
+    const f = new FormData();
+    f.set('event_id', eventId);
+    for (const [k, v] of Object.entries(fields)) f.set(k, v);
+    return f;
+  };
+
+  /* ⚡ EVERY WRITE IS DRAWN FIRST, THEN SAVED BEHIND IT (`makerSave` — one Maker
+     re-read per burst), and put back if the server refuses it
+     (`every-maker-edit-shows-before-it-saves.test.ts`). */
+
+  /** ＋ Add it: the wish is on the list at the tap; its real row replaces it when the Maker re-reads. */
+  const addWish = async (draft: Draft) => {
+    pendingNo.current += 1;
+    const temp: StudioWish = drawn(
+      { id: `pending:${pendingNo.current}`, name: '', pricePhp: null, photoRef: null, photoUrl: null, linkUrl: null, note: null, gotBy: null, sentPhp: 0, gifts: [] },
+      draft,
+    );
+    setWishes((cur) => [...cur, temp]);
+    setSheet(null);
+    setAddSeed(null);
+    setError(null);
+    const res = await makerSave(
+      () => action(form({ wish_op: 'save', name: draft.name, price: draft.price, link: draft.link, note: draft.note, photo_r2_key: draft.photo })),
+      requestMakerRefresh,
+    );
+    if (res.ok) return;
+    setWishes((cur) => cur.filter((w) => w.id !== temp.id));
+    setAddSeed(draft);
+    setSheet({ kind: 'add' });
+    setError(res.error);
+  };
+
+  /** A field was left (or the sheet closed): the row shows it at once. Returns what the server said, if it refused. */
+  const keepWish = async (id: string, draft: Draft): Promise<string | null> => {
+    const was = wishes;
+    setWishes((cur) => cur.map((w) => (w.id === id ? drawn(w, draft) : w)));
+    const res = await makerSave(
+      () => action(form({ wish_op: 'save', wish_item_id: id, name: draft.name, price: draft.price, link: draft.link, note: draft.note, photo_r2_key: draft.photo })),
+      requestMakerRefresh,
+    );
+    if (res.ok) return null;
+    setWishes(was);
+    return res.error;
+  };
+
+  /** The couple's own Got it switch. */
+  const gotWish = async (id: string, got: boolean): Promise<string | null> => {
+    const was = wishes;
+    setWishes((cur) => cur.map((w) => (w.id === id ? { ...w, gotBy: got ? 'host' : null } : w)));
+    const res = await makerSave(() => action(form({ wish_op: 'got', wish_item_id: id, got: got ? '1' : '0' })), requestMakerRefresh);
+    if (res.ok) return null;
+    setWishes(was);
+    return res.error;
+  };
+
+  /** 🗑 Remove it? — the second tap: the row leaves at once, and comes back if the server refuses. */
+  const removeWish = async (id: string) => {
+    const was = wishes;
+    setWishes((cur) => cur.filter((w) => w.id !== id));
+    setSheet(null);
+    setError(null);
+    const res = await makerSave(() => action(form({ wish_op: 'delete', wish_item_id: id })), requestMakerRefresh);
+    if (res.ok) return;
+    setWishes(was);
+    setError(res.error);
+  };
 
   /* ── reorder: hold the grip, or the arrow keys — one drag, one write ── */
   const rows = useRef(new Map<string, HTMLElement>());
@@ -151,18 +229,16 @@ export function StudioWishList({
     }
     return at;
   };
-  const finish = (order: readonly StudioWish[]) => {
+  /** The drop: the list already shows the new order (`moveTo`); this is the one write behind it. */
+  const finish = async (order: readonly StudioWish[]) => {
     setDragging(null);
     const was = before.current;
     if (order.map((w) => w.id).join(',') === was.map((w) => w.id).join(',')) return;
     setError(null);
-    start(async () => {
-      const res = await send({ wish_op: 'move', order: order.map((w) => w.id).join(',') });
-      if (!res.ok) {
-        setWishes(was);
-        setError(res.error);
-      }
-    });
+    const res = await makerSave(() => action(form({ wish_op: 'move', order: order.map((w) => w.id).join(',') })), requestMakerRefresh);
+    if (res.ok) return;
+    setWishes(was);
+    setError(res.error);
   };
 
   if (!list.read) {
@@ -172,7 +248,7 @@ export function StudioWishList({
         <div role="alert" className="flex flex-col items-start gap-2.5 border-t border-ink/10 pb-1 pt-4 text-[14px]">
           <b className="font-medium text-terracotta-700">{WISH_LIST_UNREAD_TITLE}</b>
           <span className="text-ink/60">{WISH_LIST_UNREAD_LINE}</span>
-          <ActionButton tone="neutral" icon={RotateCw} label="Try again" data-testid="wish-retry" onClick={() => retry()} />
+          <ActionButton tone="neutral" icon={RotateCw} label="Try again" data-testid="wish-retry" onClick={() => requestMakerRefresh()} />
         </div>
       </section>
     );
@@ -267,7 +343,9 @@ export function StudioWishList({
                     onPointerMove={(e) => {
                       if (dragging === w.id) moveTo(w.id, placeAt(e.clientY));
                     }}
-                    onPointerUp={() => dragging === w.id && finish(shown)}
+                    onPointerUp={() => {
+                      if (dragging === w.id) void finish(shown);
+                    }}
                     onPointerCancel={() => {
                       setDragging(null);
                       setWishes(before.current);
@@ -281,7 +359,7 @@ export function StudioWishList({
                       const next = shown.filter((x) => x.id !== w.id);
                       next.splice(to, 0, w);
                       setWishes(next);
-                      finish(next);
+                      void finish(next);
                     }}
                   >
                     <GripVertical aria-hidden className="h-4 w-4" strokeWidth={1.75} />
@@ -304,40 +382,15 @@ export function StudioWishList({
           </div>
         </>
       )}
-      {error ? (
+      {error && sheet?.kind !== 'add' ? (
         <p role="alert" className="pt-2 text-[13px] text-terracotta-700">
-          {error}
+          {error} Nothing else was changed.
         </p>
       ) : null}
 
       {sheet?.kind === 'add' ? (
         <WishSheet title="Add an item" titleId="wish-add-title" onClose={() => setSheet(null)}>
-          <AddWish
-            eventId={eventId}
-            onNotNow={() => setSheet(null)}
-            onAdd={async (draft) => {
-              const res = await send({ wish_op: 'save', name: draft.name, price: draft.price, link: draft.link, note: draft.note, photo_r2_key: draft.photo });
-              if (!res.ok) return res.error;
-              /* Shown at once; the server's row (with its id) replaces it when the Maker re-reads. */
-              setWishes((cur) => [
-                ...cur,
-                {
-                  id: `pending:${cur.length}`,
-                  name: draft.name.trim(),
-                  pricePhp: cleanWishPrice(draft.price) ?? null,
-                  photoRef: draft.photo || null,
-                  photoUrl: null,
-                  linkUrl: draft.link.trim() || null,
-                  note: draft.note.trim() || null,
-                  gotBy: null,
-                  sentPhp: 0,
-                  gifts: [],
-                },
-              ]);
-              setSheet(null);
-              return null;
-            }}
-          />
+          <AddWish eventId={eventId} seed={addSeed} refused={addSeed ? error : null} onNotNow={() => setSheet(null)} onAdd={(draft) => void addWish(draft)} />
         </WishSheet>
       ) : null}
 
@@ -347,43 +400,9 @@ export function StudioWishList({
           eventId={eventId}
           wish={open}
           onClose={() => setSheet(null)}
-          onKeep={async (draft) => {
-            const res = await send({ wish_op: 'save', wish_item_id: open.id, name: draft.name, price: draft.price, link: draft.link, note: draft.note, photo_r2_key: draft.photo });
-            if (!res.ok) return res.error;
-            setWishes((cur) =>
-              cur.map((w) =>
-                w.id === open.id
-                  ? {
-                      ...w,
-                      name: draft.name.trim() || w.name,
-                      pricePhp: cleanWishPrice(draft.price) ?? null,
-                      linkUrl: draft.link.trim() || null,
-                      note: draft.note.trim() || null,
-                      photoRef: draft.photo || null,
-                      photoUrl: draft.photo && draft.photo === w.photoRef ? w.photoUrl : null,
-                    }
-                  : w,
-              ),
-            );
-            return null;
-          }}
-          onGot={async (got) => {
-            const was = wishes;
-            setWishes((cur) => cur.map((w) => (w.id === open.id ? { ...w, gotBy: got ? 'host' : null } : w)));
-            const res = await send({ wish_op: 'got', wish_item_id: open.id, got: got ? '1' : '0' });
-            if (!res.ok) {
-              setWishes(was);
-              return res.error;
-            }
-            return null;
-          }}
-          onRemove={async () => {
-            const res = await send({ wish_op: 'delete', wish_item_id: open.id });
-            if (!res.ok) return res.error;
-            setSheet(null);
-            setWishes((cur) => cur.filter((w) => w.id !== open.id));
-            return null;
-          }}
+          onKeep={(draft) => keepWish(open.id, draft)}
+          onGot={(got) => gotWish(open.id, got)}
+          onRemove={() => void removeWish(open.id)}
         />
       ) : null}
     </section>
@@ -533,32 +552,45 @@ function WishFields({
 }
 
 /** ＋ Add an item — the one creating sheet: ✕ Not now · ＋ Add it. */
-function AddWish({ eventId, onNotNow, onAdd }: { eventId: string; onNotNow: () => void; onAdd: (draft: Draft) => Promise<string | null> }) {
-  const [draft, setDraft] = useState<Draft>(() => draftOf(null));
-  const [refused, setRefused] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const add = async () => {
-    if (draft.name.trim() === '') {
-      setRefused('Give it a name.');
-      return;
-    }
-    setRefused(null);
-    setBusy(true);
-    const said = await onAdd(draft);
-    setBusy(false);
-    if (said) setRefused(said);
-  };
+function AddWish({
+  eventId,
+  seed,
+  refused,
+  onNotNow,
+  onAdd,
+}: {
+  eventId: string;
+  /** What was typed, when the server refused it — the sheet comes back as it was. */
+  seed: Draft | null;
+  refused: string | null;
+  onNotNow: () => void;
+  onAdd: (draft: Draft) => void;
+}) {
+  const [draft, setDraft] = useState<Draft>(() => seed ?? draftOf(null));
+  const [unnamed, setUnnamed] = useState(false);
+  const said = unnamed ? 'Give it a name.' : refused;
   return (
     <>
       <WishFields eventId={eventId} draft={draft} set={(p) => setDraft((d) => ({ ...d, ...p }))} photoUrl={null} onPhoto={(photo) => setDraft((d) => ({ ...d, photo }))} />
-      {refused ? (
+      {said ? (
         <p role="alert" className="pt-3 text-[14px] text-terracotta-700">
-          {refused}
+          {said}
         </p>
       ) : null}
       <div data-wish-sheet-foot="add" className={FOOT}>
         <ActionButton tone="neutral" icon={X} label="Not now" className="w-full" data-testid="wish-not-now" onClick={onNotNow} />
-        <ActionButton tone="brand" main icon={Plus} label="Add it" className="w-full" data-testid="wish-add-it" disabled={busy} onClick={() => void add()} />
+        <ActionButton
+          tone="brand"
+          main
+          icon={Plus}
+          label="Add it"
+          className="w-full"
+          data-testid="wish-add-it"
+          onClick={() => {
+            if (draft.name.trim() === '') setUnnamed(true);
+            else onAdd(draft);
+          }}
+        />
       </div>
     </>
   );
@@ -581,7 +613,7 @@ function OpenWish({
   onClose: () => void;
   onKeep: (draft: Draft) => Promise<string | null>;
   onGot: (got: boolean) => Promise<string | null>;
-  onRemove: () => Promise<string | null>;
+  onRemove: () => void;
 }) {
   const [draft, setDraft] = useState<Draft>(() => draftOf(wish));
   const kept = useRef<Draft>(draftOf(wish));
@@ -702,16 +734,9 @@ function OpenWish({
           label={asked ? 'Remove it?' : 'Remove'}
           className="w-full"
           data-testid={asked ? 'wish-remove-asked' : 'wish-remove'}
-          onClick={async () => {
-            if (!asked) {
-              setAsked(true);
-              return;
-            }
-            const said = await onRemove();
-            if (said) {
-              setAsked(false);
-              setRefused(said);
-            }
+          onClick={() => {
+            if (asked) onRemove();
+            else setAsked(true);
           }}
         />
         <ActionButton tone="neutral" main icon={Check} label="Done" className="w-full" data-testid="wish-done" onClick={() => void close()} />

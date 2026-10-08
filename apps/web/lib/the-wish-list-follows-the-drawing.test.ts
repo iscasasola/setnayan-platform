@@ -57,8 +57,8 @@ const WAY_OFF = [{ is_enabled: false }];
 async function section(state: Parameters<typeof labWishList>[0], methods = WAY_ON): Promise<string> {
   const { StudioWishList } = await import(`../${L}/studio-wish-list`);
   const { renderToStaticMarkup } = await import('react-dom/server');
-  const send = async () => ({ ok: true as const });
-  return renderToStaticMarkup(React.createElement(StudioWishList, { eventId: EVENT, methods, list: labWishList(state), send, retry: () => {} }));
+  const action = async () => ({ ok: true as const });
+  return renderToStaticMarkup(React.createElement(StudioWishList, { eventId: EVENT, methods, list: labWishList(state), action }));
 }
 
 /** What a person reads: tags out, entities back, spaces settled. */
@@ -203,11 +203,12 @@ test('8 · +0 server actions: four writes, one existing door', () => {
   for (const fn of ['saveWishItem', 'deleteWishItem', 'moveWishItem', 'setWishItemGot']) {
     assert.match(writes, new RegExp(`export async function ${fn}\\(`), `${fn} is missing`);
   }
-  /* The screen asks through the ONE door the lazy Studio tools hand it — and imports no action itself. */
+  /* The screen saves through the ONE door the lazy Studio tools hand it — and imports no action itself. */
   const wl = read(`${L}/studio-wish-list.tsx`);
   assert.doesNotMatch(wl, /pabuya\/actions|hub-draft-actions/, 'the wish list imports a server action of its own');
+  assert.equal(wl.match(/makerSave\(\s*\(\) => action\(form\(\{ wish_op: /g)?.length, 5, 'every wish write goes through makerSave and the one action');
   const tools = read(`${L}/studio-tools.tsx`);
   const live = tools.slice(tools.indexOf('function StudioWishListLive('), tools.indexOf('export type StudioToolProps'));
-  assert.match(live, /makerSave\(\(\) => \{[\s\S]{0,260}return saveEgiftMethod\(form\);\s*\}, requestMakerRefresh\)/);
+  assert.match(live, /<StudioWishList \{\.\.\.props\} action=\{saveEgiftMethod\} \/>/);
   for (const op of ['save', 'delete', 'move', 'got']) assert.match(wl, new RegExp(`wish_op: '${op}'`), `the screen never asks for "${op}"`);
 });

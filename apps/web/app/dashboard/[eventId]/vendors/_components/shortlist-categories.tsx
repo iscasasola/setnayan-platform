@@ -292,7 +292,7 @@ const SLCAT_CSS = `
 .slcat .cat-st{font-size:13px;color:var(--ink-soft);white-space:nowrap}
 .slcat .cat-st.ok{color:rgb(var(--color-ok))}
 .slcat .cat-st.wn{color:var(--mulberry)}
-.slcat .ring-n{margin:0 0 10px;font-size:14px;font-weight:600;color:rgb(var(--color-ok))}
+.slcat .rowsum{margin:0 0 10px;font-size:14px;font-weight:600;color:rgb(var(--color-ok))}
 .slcat .addmore{display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:14px 0 4px;border-top:1px solid var(--line-soft);font-size:14px;color:var(--ink-soft)}
 /* ── Level 1 · folder card (collapsible) ── */
 .slcat .fold{margin:0 0 10px;background:var(--card);border:1px solid var(--edge);border-radius: var(--m-r-md);overflow:hidden;box-shadow:var(--edge-lift);transition:box-shadow .3s var(--ease),border-color .3s var(--ease)}
@@ -2696,7 +2696,7 @@ export function ShortlistCategories({
            count stays, and it counts a category that is BOOKED as covered, as
            the prototype does (the strip counted only "I'm done"). The heading
            "Cover your event" is the section's own, in the shell. */
-        <p className="ring-n" data-ring-count="">
+        <p className="rowsum" data-ring-count="">
           Covered <Count value={ringCovered} id="sup-ring-covered" /> of{' '}
           <Count value={stripTiles.length} id="sup-ring-total" />
         </p>

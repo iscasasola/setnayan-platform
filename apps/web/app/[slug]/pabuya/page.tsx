@@ -17,7 +17,10 @@ import { wishListShownToGuests } from '@/lib/wish-list-studio';
 import { wishListShape } from '@/lib/wish-list-guest';
 import { fixedSceneStyleOf } from '@/lib/fixed-scene-style-of';
 import { partLookAttr } from '@/lib/scene-styles-parts';
-import { WishList } from './_components/wish-list';
+import { WishList, type GiftRecordReader } from './_components/wish-list';
+import { GiftTell } from './_components/gift-tell';
+import { readGuestSessionForEvent } from '@/lib/guest-one-path.server';
+import { guestDisplayName } from '@/lib/guests';
 import {
   PabuyaCardList,
   PabuyaTrustNote,
@@ -102,11 +105,39 @@ export default async function PabuyaPublicPage({
   /* 🎁 The wish list is read beside the ways to give — same service-role client, same gate
      above (owner 2026-10-08). It reads ONE sum per wish and no giver's name, words or
      screenshot (`readGuestWishList`). */
+  /*
+    🎁 WHO IS READING, FOR "I SENT IT" (owner 2026-10-08). The RSVP's own identity read —
+    this browser's invitation for THIS event, or the signed-in account's own seat at it —
+    and then the guest row itself, which must be this event's and not removed. It decides
+    two things only: whose name the record sheet shows ("from your invitation"), and whose
+    own gifts are marked "You sent". The WRITE asks all of it again on the server
+    (`lib/gift-record.server.ts`); nothing here is trusted by it.
+  */
+  const guestSession = await readGuestSessionForEvent(event.event_id);
+  const readerRes = guestSession
+    ? await admin
+        .from('guests')
+        .select('guest_id, display_name, first_name, last_name, deleted_at')
+        .eq('guest_id', guestSession.guest_id)
+        .eq('event_id', event.event_id)
+        .maybeSingle()
+    : null;
+  const readerRow =
+    readerRes && !readerRes.error
+      ? (readerRes.data as { guest_id: string; display_name: string | null; first_name: string | null; last_name: string | null; deleted_at: string | null } | null)
+      : null;
+  const reader = readerRow && readerRow.deleted_at == null ? readerRow : null;
+  const giftReader: GiftRecordReader = {
+    eventId: event.event_id,
+    giverName: reader ? guestDisplayName({ display_name: reader.display_name, first_name: reader.first_name ?? '', last_name: reader.last_name ?? '' }) : '',
+    recognised: reader != null,
+  };
+
   const [methods, wishRead] = await Promise.all([
     fetchEgiftMethods(admin, event.event_id, {
       enabledOnly: true,
     }),
-    readGuestWishList(admin, event.event_id),
+    readGuestWishList(admin, event.event_id, reader?.guest_id ?? null),
   ]);
   /*
     IS THE LIST SHOWN? One rule, the Studio's own (`wishListShownToGuests`): gifts
@@ -342,6 +373,7 @@ export default async function PabuyaPublicPage({
                 ) : null}
               </>
             }
+            record={giftReader}
           />
         ) : null}
 
@@ -364,6 +396,8 @@ export default async function PabuyaPublicPage({
                 invitation link, or scan your QR, and the account numbers appear here.
               </p>
             ) : null}
+            {/* 🎁 A gift toward NO wish: the same "show them" sheet, with no wish named. */}
+            <GiftTell hostName={hostName} record={giftReader} />
           </>
         ) : registryHref ? null : (
           <p className="rounded-2xl border border-dashed border-ink/20 bg-cream/60 px-4 py-10 text-center text-sm text-ink/60">

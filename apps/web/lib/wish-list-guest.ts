@@ -21,6 +21,7 @@
  * received, paid, verified or funded (`the-guest-text-is-honest.test.ts`).
  */
 import { formatPhp } from '@/lib/php';
+import { youSentLine } from '@/lib/gift-record';
 import { leftToReach, meterPercent, sentByWish, type GiftSumRow, type WishItemRow } from '@/lib/wish-list';
 
 /** One wish, as a guest's page draws it. */
@@ -36,6 +37,8 @@ export type GuestWish = {
   got: boolean;
   /** Pesos guests say they sent toward it — a sum, never a list. */
   sentPhp: number;
+  /** What THIS reader says they sent toward it (their own records only) — 0 for none, or for a reader with no invitation. */
+  minePhp: number;
 };
 
 /**
@@ -59,8 +62,11 @@ export function guestWishListFrom(
   wishes: readonly GuestWishRow[],
   sums: readonly GiftSumRow[],
   photoUrlFor: (ref: string | null) => string | null,
+  /** The READER's own records (the same three columns) — theirs alone; omitted for a reader with no invitation. */
+  mine: readonly GiftSumRow[] = [],
 ): GuestWishList {
   const sent = sentByWish(sums);
+  const own = sentByWish(mine);
   const view = wishes.map((w): GuestWish => ({
     id: w.public_id,
     name: w.name,
@@ -69,6 +75,7 @@ export function guestWishListFrom(
     note: w.note,
     got: w.got_at != null,
     sentPhp: sent.get(w.wish_item_id)?.sentPhp ?? 0,
+    minePhp: own.get(w.wish_item_id)?.sentPhp ?? 0,
   }));
   return { read: true, wishes: [...view.filter((w) => !w.got), ...view.filter((w) => w.got)] };
 }
@@ -98,8 +105,10 @@ export const GUEST_WISH_HOW = 'Tap a wish to send toward it — or give any amou
  *   gifts so far   → "₱4,000 of ₱4,500 sent"
  *   nothing yet    → "₱3,200" (+ " · the grey one")
  */
-export function guestWishLine(w: Pick<GuestWish, 'got' | 'pricePhp' | 'sentPhp' | 'note'>): string {
+export function guestWishLine(w: Pick<GuestWish, 'got' | 'pricePhp' | 'sentPhp' | 'note'> & { minePhp?: number }): string {
   if (w.got) return GUEST_WISH_GOT;
+  /* The reader's own gift toward it: "You sent ₱500 ✓ · ₱4,500 of ₱4,500". */
+  if ((w.minePhp ?? 0) > 0) return youSentLine(w.minePhp!, w);
   if (w.pricePhp == null) return `Any amount${w.sentPhp > 0 ? ` · ${formatPhp(w.sentPhp)} sent so far` : ''}`;
   if (w.sentPhp > 0) return `${formatPhp(w.sentPhp)} of ${formatPhp(w.pricePhp)} sent`;
   return `${formatPhp(w.pricePhp)}${w.note ? ` · ${w.note}` : ''}`;

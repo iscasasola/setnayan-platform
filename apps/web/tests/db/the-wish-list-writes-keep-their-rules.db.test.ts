@@ -37,10 +37,10 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
-import type { SupabaseClient } from '@supabase/supabase-js';
 
 import './supabase-over-pglite'; // installs the `server-only` shim before the writers load
-import { createReplayedDb, setAuthUid, type ReplayResult } from './replay-migrations';
+import { createReplayedDb, type ReplayResult } from './replay-migrations';
+import { clientAs } from './pglite-client';
 
 type Writers = typeof import('../../app/dashboard/[eventId]/pabuya/wish-items.server');
 let W: Writers;
@@ -52,110 +52,8 @@ let OTHER_EVENT = '';
 let COUPLE = '';
 let STRANGER = '';
 
-/* ── a supabase-js-shaped client that IS the signed-in person ────────────── */
-
-type Row = Record<string, unknown>;
-type Res = { data: Row[] | null; error: { message: string; code?: string } | null };
-const IDENT = /^[a-z_][a-z0-9_]*$/;
-const ident = (s: string) => {
-  if (!IDENT.test(s)) throw new Error(`[wish adapter] not an identifier: ${s}`);
-  return s;
-};
-const cols = (list: string) =>
-  list
-    .split(',')
-    .map((c) => ident(c.trim()))
-    .join(', ');
-
-class Q implements PromiseLike<Res> {
-  private eqs: Array<[string, unknown]> = [];
-  private orders: string[] = [];
-  private lim: number | null = null;
-  private returning: string | null = null;
-  private one = false;
-  constructor(
-    private uid: string,
-    private table: string,
-    private verb: 'select' | 'insert' | 'update' | 'delete',
-    private payload: Row | null,
-    private selected: string | null,
-  ) {}
-  select(list: string) {
-    if (this.verb === 'select') throw new Error('[wish adapter] select().select() is not modelled');
-    this.returning = cols(list);
-    return this;
-  }
-  eq(col: string, value: unknown) {
-    this.eqs.push([ident(col), value]);
-    return this;
-  }
-  order(col: string, opts?: { ascending?: boolean }) {
-    this.orders.push(`${ident(col)} ${opts?.ascending === false ? 'DESC' : 'ASC'}`);
-    return this;
-  }
-  limit(n: number) {
-    this.lim = n;
-    return this;
-  }
-  maybeSingle(): PromiseLike<{ data: Row | null; error: Res['error'] }> {
-    this.one = true;
-    return this.run().then((r) => ({ data: r.data?.[0] ?? null, error: r.error }));
-  }
-  then<A = Res, B = never>(ok?: ((v: Res) => A | PromiseLike<A>) | null, no?: ((e: unknown) => B | PromiseLike<B>) | null): PromiseLike<A | B> {
-    return this.run().then(ok, no);
-  }
-  private async run(): Promise<Res> {
-    const params: unknown[] = [];
-    const p = (v: unknown) => {
-      params.push(v);
-      return `$${params.length}`;
-    };
-    const where = () => (this.eqs.length ? ` WHERE ${this.eqs.map(([c, v]) => `${c} = ${p(v)}`).join(' AND ')}` : '');
-    let sql: string;
-    if (this.verb === 'select') {
-      sql = `SELECT ${this.selected} FROM public.${ident(this.table)}${where()}`;
-      if (this.orders.length) sql += ` ORDER BY ${this.orders.join(', ')}`;
-      if (this.lim != null || this.one) sql += ` LIMIT ${this.one ? 1 : this.lim}`;
-    } else if (this.verb === 'insert') {
-      const keys = Object.keys(this.payload!);
-      sql = `INSERT INTO public.${ident(this.table)} (${keys.map(ident).join(', ')}) VALUES (${keys.map((k) => p(this.payload![k])).join(', ')})`;
-      if (this.returning) sql += ` RETURNING ${this.returning}`;
-    } else if (this.verb === 'update') {
-      const keys = Object.keys(this.payload!);
-      const set = keys.map((k) => `${ident(k)} = ${p(this.payload![k])}`).join(', ');
-      sql = `UPDATE public.${ident(this.table)} SET ${set}${where()}`;
-      if (this.returning) sql += ` RETURNING ${this.returning}`;
-    } else {
-      sql = `DELETE FROM public.${ident(this.table)}${where()}`;
-      if (this.returning) sql += ` RETURNING ${this.returning}`;
-    }
-    await db.exec('SET ROLE authenticated');
-    await setAuthUid(db, this.uid);
-    try {
-      const r = await db.query<Row>(sql, params);
-      return { data: r.rows, error: null };
-    } catch (e) {
-      // Returned, never thrown — exactly as supabase-js hands a refusal back.
-      return { data: null, error: { message: (e as Error).message, code: (e as { code?: string }).code } };
-    } finally {
-      await db.exec('RESET ROLE');
-      await setAuthUid(db, null);
-    }
-  }
-}
-
-function clientFor(uid: string): SupabaseClient {
-  return {
-    from(table: string) {
-      return {
-        select: (list: string) => new Q(uid, table, 'select', null, cols(list)),
-        insert: (row: Row) => new Q(uid, table, 'insert', row, null),
-        update: (patch: Row) => new Q(uid, table, 'update', patch, null),
-        delete: () => new Q(uid, table, 'delete', null, null),
-      };
-    },
-  } as unknown as SupabaseClient;
-}
+/* The signed-in person, as a supabase-js-shaped client over the replay (`pglite-client.ts`). */
+const clientFor = (uid: string) => clientAs(db, uid);
 
 /* ── fixtures ─────────────────────────────────────────────────────────────── */
 

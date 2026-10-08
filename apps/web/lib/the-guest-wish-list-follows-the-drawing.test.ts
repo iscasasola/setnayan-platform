@@ -20,7 +20,7 @@
  *       sheet the page's own (withheld) cards;
  *   7 · the guest read takes the sum's three columns and the guest's wish columns
  *       — never the couple's full record;
- *   8 · the sheet promises no step that is not built ("I sent it" is wish list 4/5).
+ *   8 · "I sent it" and the sentence that promises it are drawn only when the page says who is reading.
  *
  * 🛡 Sabotaged, each red then restored (2026-10-08):
  *   • the got styling (struck / dashed) dropped                         → 1 red;
@@ -30,7 +30,7 @@
  *   • the sheet handed `methods` (identifiers not withheld)             → 6 red;
  *   • the page drawing the list without `wishListShownToGuests`         → 6 red;
  *   • the guest read selecting `GIFT_RECORD_SELECT`                     → 7 red;
- *   • the screenshot sentence printed with no `sent` step               → 8 red.
+ *   • the screenshot sentence printed with no reader handed in         → 8 red.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -230,13 +230,15 @@ test('7 · the guest read takes the sum and the guest’s wish columns — never
   assert.match(loaders, /openWishCount: wishRead\?\.read \? openWishCount\(wishRead\.wishes\) : 0,/);
 });
 
-test('8 · the sheet promises no step that is not built', async () => {
+test('8 · "I sent it" is drawn only when the page says who is reading', async () => {
   const wl = flat('app/[slug]/pabuya/_components/wish-list.tsx');
   /* The screenshot sentence and "I sent it" exist only when the next step is handed in. */
-  assert.match(wl, /\{sent \? ` Once you’ve sent it, show \$\{hostName\} your screenshot — that is how this wish fills up\.` : null\}/);
-  assert.match(wl, /\{sent \? sent\(open\) : null\}/);
+  assert.match(wl, /\{record \? ` Once you’ve sent it, show \$\{hostName\} your screenshot — that is how this wish fills up\.` : null\}/);
+  assert.match(wl, /\{record \? \( <button type="button" data-wish-i-sent-it=""/, '"I sent it" is drawn without knowing who is reading');
+  /* The step IS built since wish list 4/5: the page hands in who is reading. */
   const page = flat('app/[slug]/pabuya/page.tsx');
-  assert.doesNotMatch(page, /<WishList[^>]*\bsent=/, 'the page hands in a step this PR does not build');
+  const mount = page.slice(page.indexOf('<WishList'), page.indexOf('{cards.length > 0 ?'));
+  assert.match(mount, /record=\{giftReader\} \/>/, 'the page no longer hands the list its reader');
   /* Closed, the list renders no sheet at all. */
   assert.doesNotMatch(await list('five'), /I sent it|screenshot/);
 });

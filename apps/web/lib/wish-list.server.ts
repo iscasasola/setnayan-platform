@@ -74,8 +74,13 @@ export async function readStudioWishList(supabase: SupabaseClient, eventId: stri
  * 🔑 A refused read is `{ read: false }` — no list, never a list with nothing
  * sent beside every wish. Both reads filter on `event_id`.
  */
-export async function readGuestWishList(admin: SupabaseClient, eventId: string): Promise<GuestWishList> {
-  const [wishRes, sumRes] = await Promise.all([
+export async function readGuestWishList(
+  admin: SupabaseClient,
+  eventId: string,
+  /** The reader's own guest row on THIS event, when the page knows them — their own gifts are then marked "You sent". */
+  readerGuestId: string | null = null,
+): Promise<GuestWishList> {
+  const [wishRes, sumRes, mineRes] = await Promise.all([
     admin
       .from('event_wish_items')
       .select(WISH_GUEST_FIELDS)
@@ -83,13 +88,21 @@ export async function readGuestWishList(admin: SupabaseClient, eventId: string):
       .order('sort_order', { ascending: true })
       .order('created_at', { ascending: true }),
     admin.from('event_gift_records').select(GIFT_SUM_FIELDS).eq('event_id', eventId),
+    /* The READER's own records — the same three columns, theirs alone (filtered on their
+       own guest id AND this event). Nobody else's record is ever read by name. */
+    readerGuestId
+      ? admin.from('event_gift_records').select(GIFT_SUM_FIELDS).eq('event_id', eventId).eq('giver_guest_id', readerGuestId)
+      : Promise.resolve({ data: [] as unknown[], error: null }),
   ]);
   if (wishRes.error) logQueryError('readGuestWishList.wishes', wishRes.error, { event_id: eventId }, 'graceful_degrade');
   if (sumRes.error) logQueryError('readGuestWishList.sums', sumRes.error, { event_id: eventId }, 'graceful_degrade');
+  if (mineRes.error) logQueryError('readGuestWishList.mine', mineRes.error, { event_id: eventId }, 'graceful_degrade');
   if (wishRes.error || sumRes.error || !wishRes.data || !sumRes.data) return { read: false };
   return guestWishListFrom(
     wishRes.data as unknown as GuestWishRow[],
     sumRes.data as unknown as GiftSumRow[],
     (ref) => publicUrlForStoredAsset(publicBucketServeRef(ref)),
+    /* A reader's own line that could not be read is simply not drawn — the wish's sum still is. */
+    mineRes.error ? [] : ((mineRes.data ?? []) as unknown as GiftSumRow[]),
   );
 }

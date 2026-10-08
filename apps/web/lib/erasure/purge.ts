@@ -67,6 +67,7 @@ import {
 } from '@/lib/erasure/coverage';
 import {
   chatAttachmentScope,
+  giftShotScope,
   guestSelfieScope,
   paperworkScope,
   profilePhotoScope,
@@ -1242,6 +1243,61 @@ export async function purgeUserGuestBiometrics(
     ...personLinkedGuests,
   ]);
   if (guestIds.length === 0) return;
+
+  // ── THE GIFT SCREENSHOTS THIS SUBJECT SHOWED A HOST (E-Gifts wish list, 2026-10-08) ──
+  // A guest who says "I sent it" may attach a screenshot of their OWN bank or
+  // e-wallet app. That picture is the subject's financial personal data and it
+  // is theirs alone — so it goes: the object out of the private bucket, then
+  // the pointer to it. NOT biometric; it rides this step only because the
+  // subject's guest identities are resolved here (`event_gift_records` has no
+  // user column — a record is keyed to a GUEST).
+  //
+  // ⚖ DEFERRED ON PURPOSE (lib/erasure/coverage-guardrail · PARTIALLY_PURGED):
+  // the giver's name, the amount and their words stay. That row is also the
+  // HOST's list of who gave what — the same own-vs-shared line already drawn
+  // for `guests` (the host's record of their invitee survives the invitee).
+  //
+  // Self-contained: a failure here is audited and the biometric steps below
+  // still run. The pointer is nulled ONLY for objects storage accepted — a
+  // nulled key over a surviving object would orphan the file out of the reach
+  // of the event's own media sweep.
+  {
+    const { data: shots, error: gsErr } = await admin
+      .from('event_gift_records')
+      .select('gift_record_id, event_id, giver_guest_id, screenshot_r2_key')
+      .in('giver_guest_id', guestIds)
+      .not('screenshot_r2_key', 'is', null);
+    if (gsErr) {
+      await auditFail('gift-shot-lookup', gsErr.message);
+    } else {
+      const gone: string[] = [];
+      for (const row of shots ?? []) {
+        const rec = row as {
+          gift_record_id?: string | null;
+          event_id?: string | null;
+          giver_guest_id?: string | null;
+          screenshot_r2_key?: string | null;
+        };
+        const ref = rec.screenshot_r2_key;
+        if (typeof ref !== 'string' || ref.length === 0 || !rec.gift_record_id) continue;
+        try {
+          // 🔒 Held to this guest's own gift-shots/<event>/<guest>/ folder.
+          await io.deleteStoredAsset(ref, giftShotScope(rec.event_id, rec.giver_guest_id));
+          gone.push(rec.gift_record_id);
+        } catch (e) {
+          await auditFail('gift-shot-r2-delete', e instanceof Error ? e.message : String(e));
+        }
+      }
+      if (gone.length > 0) {
+        const { error: gnErr } = await admin
+          .from('event_gift_records')
+          .update({ screenshot_r2_key: null })
+          .in('gift_record_id', gone)
+          .in('giver_guest_id', guestIds);
+        if (gnErr) await auditFail('gift-shot-key-null', gnErr.message);
+      }
+    }
+  }
 
   // Pull enrolment asset refs (ALL rows, incl. superseded/revoked — every selfie
   // this subject ever enrolled for these events must go) before deleting.

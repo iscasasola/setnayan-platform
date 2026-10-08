@@ -247,10 +247,17 @@ const GIFT_SURFACES = [
   // wish list 3/5 — the guest's side
   'lib/wish-list-guest.ts',
   'app/[slug]/pabuya/_components/wish-list.tsx',
+  // wish list 4/5 — "I sent it": the record sheet, its door and its writer
+  'lib/gift-record.ts',
+  'lib/gift-record.server.ts',
+  'lib/gift-door.server.ts',
+  'app/[slug]/pabuya/_components/gift-record-sheet.tsx',
+  'app/[slug]/pabuya/_components/gift-tell.tsx',
 ];
-const CLAIMS_MORE_THAN_SENT = /\b(receiv\w*|verif\w*|funded|funding|paid|payment\w*|confirm(?:ed|s|ation)?)\b/gi;
+// `refund…` joined 2026-10-08 (wish list 4/5): Setnayan never holds the money, so it has none to give back.
+const CLAIMS_MORE_THAN_SENT = /\b(receiv\w*|verif\w*|funded|funding|paid|payment\w*|confirm(?:ed|s|ation)?|refund\w*)\b/gi;
 
-test('wish list · no gift surface says received, verified, paid, confirmed or funded — the word is "sent"', () => {
+test('wish list · no gift surface says received, verified, paid, confirmed, funded or refund — the word is "sent"', () => {
   const offenders: string[] = [];
   for (const rel of GIFT_SURFACES) {
     const src = stripComments(read(join(APP, '..', rel)));
@@ -267,6 +274,11 @@ test('wish list · no gift surface says received, verified, paid, confirmed or f
   // The guest's own lines say "sent", and the list never says what is "left to pay".
   const guest = stripComments(read(join(APP, '..', 'lib', 'wish-list-guest.ts')));
   assert.ok((guest.match(/\bsent\b/g)?.length ?? 0) >= 2, 'the guest lines no longer say "sent"');
+
+  // "I sent it": the record's own words say sent, and say who alone is shown them.
+  const record = stripComments(read(join(APP, '..', 'lib', 'gift-record.ts')));
+  assert.ok((record.match(/\b[Ss]ent\b/g)?.length ?? 0) >= 2, 'the record sheet’s words no longer say "sent"');
+  assert.match(record, /go to \$\{hostName\} only/, 'the sheet no longer says who alone is shown the screenshot');
 
   // …and the surfaces are really being read: each says "sent" where it prints a figure.
   const studio = stripComments(read(join(APP, '..', 'lib', 'wish-list-studio.ts')));

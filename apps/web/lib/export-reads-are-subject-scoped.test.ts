@@ -33,6 +33,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url)); // apps/web/lib
 // can prepare the same file (P5a §2e). Same reads, one builder, both callers.
 const ROUTE = path.resolve(HERE, 'personal-data-export.ts');
 const FACE = path.resolve(HERE, 'export-own-face-enrollments.ts');
+const GIFT = path.resolve(HERE, 'export-own-gift-records.ts');
 
 const UID = String.raw`user\.id`; // the route's server-verified session identity
 const eqUid = (col: string) => new RegExp(String.raw`\.eq\(\s*'${col}'\s*,\s*${UID}\s*\)`);
@@ -48,6 +49,8 @@ const ANCHORS: Record<string, RegExp> = {
   orders: eqUid('user_id'),
   payments: eqUid('user_id'),
   guest_face_enrollments: /\.in\(\s*'guest_id'\s*,\s*ownGuestIds\s*\)/, // pinned below
+  // a guest's "I sent it" — keyed to a guest, host-only under RLS; pinned below
+  event_gift_records: /\.in\(\s*'giver_guest_id'\s*,\s*ownGuestIds\s*\)/,
   // two reads: the dependents export (three own lanes) + the claimed-ids lookup
   dependents: new RegExp(
     String.raw`\.or\(\s*\x60owner_user_id\.eq\.\$\{${UID}\},claimed_user_id\.eq\.\$\{${UID}\},handed_over_by_user_id\.eq\.\$\{${UID}\}\x60` +
@@ -130,7 +133,7 @@ function readsIn(file: string): Read[] {
 }
 
 test('every table read in the export names its subject, read by read', () => {
-  const reads = [...readsIn(ROUTE), ...readsIn(FACE)];
+  const reads = [...readsIn(ROUTE), ...readsIn(FACE), ...readsIn(GIFT)];
   const unanchored = reads.filter((r) => !(r.table in ANCHORS) || !ANCHORS[r.table]!.test(r.chain));
   console.log(
     `export reads: ${reads.length} · subject-anchored: ${reads.length - unanchored.length} · unanchored: ${unanchored.length}`,
@@ -152,6 +155,21 @@ test('the route reads face records only through the subject-scoped helper', () =
   const route = stripComments(fs.readFileSync(ROUTE, 'utf8'));
   assert.match(route, /readOwnFaceEnrollments\(\s*supabase\s*,\s*user\.id\s*\)/);
   assert.doesNotMatch(route, /\.from\(\s*'guest_face_enrollments'\s*\)/);
+});
+
+test('the route reads gift records only through the subject-scoped helper', () => {
+  const route = stripComments(fs.readFileSync(ROUTE, 'utf8'));
+  assert.match(route, /readOwnGiftRecords\(\s*supabase\s*,\s*admin\s*,\s*user\.id\s*\)/);
+  assert.doesNotMatch(route, /\.from\(\s*'event_gift_records'\s*\)/);
+  // own guest ids ← the subject's OWN membership rows, and nothing else
+  const gift = stripComments(fs.readFileSync(GIFT, 'utf8'));
+  assert.match(
+    gift,
+    /const mine = await client\s*\.from\('event_members'\)\s*\.select\('guest_id'\)\s*\.eq\('user_id', userId\)[\s\S]{0,300}?const ownGuestIds = distinctGuestIds\(mine\.data/,
+    'ownGuestIds must come from event_members filtered to the subject (user_id = the caller)',
+  );
+  // the screenshot's storage key never leaves in the file
+  assert.match(gift, /const \{ screenshot_r2_key: shot, \.\.\.said \} = row;/);
 });
 
 test('the derived ids are the subject’s own (where each anchor’s list comes from)', () => {

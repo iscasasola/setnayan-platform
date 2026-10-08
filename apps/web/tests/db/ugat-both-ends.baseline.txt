@@ -24,15 +24,17 @@
 # A staged build, not an orphan nobody owns. If either PR is dropped, drop its table too. 43 -> 45.
 # Wish list 2/5 (Studio › Wish list, 2026-10-08): event_wish_items PAID DOWN — its four writes ship
 # (app/dashboard/[eventId]/pabuya/wish-items.server.ts). event_gift_records still waits for 4/5. 45 -> 44.
+# Wish list 4/5 (the guest's "I sent it", 2026-10-08): event_gift_records PAID DOWN — its one writer ships
+# (lib/gift-record.server.ts · recordGift, service role behind the guest-session door). Both staged rows are
+# now gone; the wish list owes this file nothing. 44 -> 43.
 
-# ══ MONEY — a payment, fee, price or ledger with a missing end (12) ══
+# ══ MONEY — a payment, fee, price or ledger with a missing end (11) ══
 rpc-no-caller	_apply_token_purchase_credit	1	no '_apply_token_purchase_credit' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 rpc-no-caller	confirm_vendor_subscription_by_reference	1	no 'confirm_vendor_subscription_by_reference' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 rpc-no-caller	consume_lead_token_hold	1	no 'consume_lead_token_hold' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 rpc-no-caller	grant_admin_direct_tokens	1	no 'grant_admin_direct_tokens' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 rpc-no-caller	resolve_supplies_pricing	1	no 'resolve_supplies_pricing' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 table-no-writer	concierge_plan_templates	1	no .from('concierge_plan_templates').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
-table-no-writer	event_gift_records	1	no .from('event_gift_records').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
 table-no-writer	manual_payment_logs	1	no .from('manual_payment_logs').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
 table-no-writer	vendor_ad_subscriptions	1	no .from('vendor_ad_subscriptions').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
 notice-no-emitter	vendor_token_purchase_pending	1	a notification_type enum label with no member in the TS union — nothing in the app can emit it

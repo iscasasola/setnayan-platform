@@ -1471,6 +1471,11 @@ export const ERASURE_COLUMN_WRITES: Readonly<Record<string, readonly string[]>> 
   guest_claims: ['claimer_name', 'claimer_email', 'otp_sent_to'],
   help_messages: ['sender_email', 'sender_name', 'subject', 'body'],
   guests: ['photo_url', 'photo_source', 'photo_updated_at'],
+  // The screenshot a guest attached to "I sent it" (E-Gifts wish list,
+  // 2026-10-08) — the pointer is nulled after the object itself is deleted.
+  // The name, the amount and their words stay: see PARTIALLY_PURGED in the
+  // guardrail (the row is also the host's list of who gave what).
+  event_gift_records: ['screenshot_r2_key'],
   // DERIVED from CLAIM_TOKEN_ROTATIONS, never re-typed. Hand-copying the column
   // names here would make the guardrail compare two hand-typed lists, which
   // drift together and stay green — the exact failure G1 exists to catch. This
@@ -1537,6 +1542,10 @@ export const ERASURE_FILTER_COLUMNS: Readonly<Record<string, readonly string[]>>
   event_paperwork: ['event_id', 'subject_user_id'],
   // The fail-closed residue probe reads oauth_grants by event + attribution.
   oauth_grants: ['event_id', 'granted_by_user_id'],
+  // A gift record has no user column — it is keyed to a GUEST. The screenshot
+  // purge finds the subject's records by their guest ids and nulls each pointer
+  // by its own primary key, held to the same guest ids.
+  event_gift_records: ['giver_guest_id', 'gift_record_id'],
 };
 
 /**

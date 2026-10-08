@@ -20,6 +20,7 @@
  * Setnayan never holds or sees the money, so no line here says a gift was
  * received, paid, verified or funded (`the-guest-text-is-honest.test.ts`).
  */
+import { formatCount } from '@/lib/format-number';
 import { formatPhp } from '@/lib/php';
 import { youSentLine } from '@/lib/gift-record';
 import { leftToReach, meterPercent, sentByWish, type GiftSumRow, type WishItemRow } from '@/lib/wish-list';
@@ -80,13 +81,13 @@ export function guestWishListFrom(
   return { read: true, wishes: [...view.filter((w) => !w.got), ...view.filter((w) => w.got)] };
 }
 
-const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+const plural = (n: number, one: string, many: string) => `${formatCount(n)} ${n === 1 ? one : many}`;
 
 /** "4 wishes · 1 got" — beside the list's eyebrow. Null for an empty list. */
 export function guestWishCount(wishes: readonly Pick<GuestWish, 'got'>[]): string | null {
   if (wishes.length === 0) return null;
   const got = wishes.filter((w) => w.got).length;
-  return `${plural(wishes.length - got, 'wish', 'wishes')}${got ? ` · ${got} got` : ''}`;
+  return `${plural(wishes.length - got, 'wish', 'wishes')}${got ? ` · ${formatCount(got)} got` : ''}`;
 }
 
 /** How many wishes are still open. */

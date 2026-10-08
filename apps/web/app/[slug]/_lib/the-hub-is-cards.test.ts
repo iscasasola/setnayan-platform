@@ -49,7 +49,16 @@ test('both pages wrap the hub sections in the card wrapper', () => {
     /const sceneNodes = \(list: typeof detailsScenes\) => \(\s*<HubScenes widgets=\{list\}/,
     "the stranger's hub goes through the same scenes",
   );
-  assert.match(body, /const detailsAround = splitAroundEntourage\(pageStage, detailsSceneList\);/);
+  /* 📱 2026-10-08 (owner: the guest's pages follow the Maker's filing): the Details section draws the scenes whose
+     page it is (`hereScenes` — every scene on a page that is one scroll); a scene filed on another tab is drawn
+     there, in the SAME wrapper. */
+  assert.match(body, /const detailsAround = splitAroundEntourage\(pageStage, hereScenes\);/);
+  assert.match(body, /group\(p, <div id=\{p === first \? mark : undefined\} className=\{`sn-hub-cards \$\{gap\} space-y-4 scroll-mt-6`\}>\{sceneNodes\(mine\)\}<\/div>\)/, "the stranger's scenes on another tab");
+  assert.match(
+    body,
+    /<div className="sn-hub-cards space-y-4">\s*<HubScenes widgets=\{mine\}[^>]*>\s*\{mine\.map\(renderScene\)\}/,
+    "the guest's scenes on another tab",
+  );
   assert.match(body, /const publicWidgetNodes = sceneNodes\(detailsAround\.before\);/);
 });
 

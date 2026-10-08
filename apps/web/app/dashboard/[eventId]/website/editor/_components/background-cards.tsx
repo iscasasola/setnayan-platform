@@ -159,8 +159,14 @@ export function BgCard({
   pro = false,
   disabled = false,
   moving = false,
+  dim = false,
+  note,
   children,
 }: {
+  /** 🎨 A choice that cannot be taken as things stand (Plain, while there are two colours): drawn faint, still tappable — the tap says why. */
+  dim?: boolean;
+  /** A few quiet words after the name ("one colour"). */
+  note?: string;
   name: string;
   on: boolean;
   onPick: () => void;
@@ -184,12 +190,13 @@ export function BgCard({
       {...(looks.busy ? { 'aria-busy': true } : {})}
       disabled={disabled}
       data-bg-card={data}
+      {...(dim ? { 'data-bg-card-dim': '' } : {})}
       onClick={() => {
         if (looks.on) return;
         strip.onTap?.(data);
         onPick();
       }}
-      className={`sn-press flex w-min flex-none snap-start flex-col gap-1.5 text-left disabled:opacity-50 ${looks.on ? 'text-ink' : 'text-ink/70'}`}
+      className={`sn-press flex w-min flex-none snap-start flex-col gap-1.5 text-left disabled:opacity-50 data-[bg-card-dim]:[&>[data-bg-card-picture]]:opacity-45 ${looks.on ? 'text-ink' : 'text-ink/70'}`}
     >
       <span
         data-bg-card-picture=""
@@ -211,6 +218,7 @@ export function BgCard({
       {/* `w-0 min-w-full`: the name never widens the card — the picture's fixed width is the card's. */}
       <span data-bg-card-name="" className={`flex min-h-[18px] w-0 min-w-full items-center justify-center gap-1 text-center text-[12px] ${looks.on ? 'font-semibold' : 'font-medium'}`}>
         <span className="truncate">{name}</span>
+        {note ? <small className="shrink-0 text-[11px] font-normal text-ink/50">· {note}</small> : null}
         {pro ? (
           <span aria-label="Event Hub Pro" className="shrink-0 text-[10px] text-ink/45">
             ◆

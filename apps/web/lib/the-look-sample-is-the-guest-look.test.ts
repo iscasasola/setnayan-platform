@@ -74,7 +74,7 @@ const E = 'app/dashboard/[eventId]/website/editor/_components';
 const ROSE_BOARD = { reception: ['#525252', '#C5A059', '#373B31', '#C9A9A6', '#E8D9BD'] };
 const PINK_BOARD = { reception: ['#C97B4B', '#CEA7AE', '#FAF7F2'], ceremony: ['#D3AE93'] };
 const BOARDS: Record<string, unknown> = { 'no board': null, 'a rose board': ROSE_BOARD, 'a light board': PINK_BOARD };
-const BACKGROUNDS: readonly (string | null)[] = [null, '#ffffff', '#d9c7a8', '#1a1410', 'ombre:glow:#f3e2d8', 'ombre:dawn:#1e2229', 'ombre:diagonal:#8fa58a'];
+const BACKGROUNDS: readonly (string | null)[] = [null, '#ffffff', '#d9c7a8', '#1a1410', 'ombre:glow:#f3e2d8', 'ombre:dawn:#1e2229', 'ombre:diagonal:#8fa58a', 'ombre:diagonal:#f6f1e7:#c5a059', 'ombre:dawn:#1a1410:#c9a9a6'];
 const BUTTONS: readonly { style: string | null; colour: string | null }[] = [
   { style: null, colour: null },
   { style: 'pill-theme', colour: null },

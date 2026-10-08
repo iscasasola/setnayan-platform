@@ -367,7 +367,9 @@ function BackgroundField({
   const [hex, setHex] = useState<string>(stored ? (stored.kind === 'plain' ? stored.hex : stored.ombre.base) : '');
   const [effect, setEffect] = useState<BackgroundEffect>(stored?.kind === 'ombre' ? stored.ombre.shape : 'plain');
 
-  const posted = encodeBackgroundChoice(hex, effect);
+  /* 🎨🎨 A second colour set in the Studio (`ombre:<effect>:<hex>:<hex>`, owner 2026-10-08) is KEPT by this one-colour
+     field: it shows and edits the first colour and the effect, and posts the second back with any blend. */
+  const posted = encodeBackgroundChoice(hex, effect, stored?.kind === 'ombre' ? stored.ombre.to : null);
   /* 🎨 The colour every preview derives from: the couple's pick, else THE
      COLOUR THE PAGE ACTUALLY WEARS — the Mood Board's (`moodBoardSiteColours`,
      the guest page's own resolver), else the theme's. Never a fixed cream. */

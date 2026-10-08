@@ -30,7 +30,7 @@ import {
 } from '@/lib/hub-canvas';
 import { MAIN_GROUND_SHADES, MAIN_GROUND_SHADE_LABEL } from '@/lib/main-ground-shade';
 import { patternCardSwatch } from '@/lib/main-ground-pattern-cards';
-import { BACKGROUND_EFFECTS, BACKGROUND_EFFECT_LABEL, encodeBackgroundChoice, ombreCss, parseSiteBackground, type BackgroundEffect } from '@/lib/ombre';
+import { BACKGROUND_EFFECTS, BACKGROUND_EFFECT_LABEL, backgroundPlainOffered, encodeBackgroundChoice, ombreCss, parseSiteBackground, type BackgroundEffect } from '@/lib/ombre';
 import {
   BACKGROUND_MAIN_INFO,
   BACKGROUND_SHADE_CANDLELIGHT,
@@ -51,6 +51,7 @@ import { STUDIO_ROW_PICK } from '@/lib/studio-skin';
 import { InfoTip } from '@/app/_components/info-tip';
 import { StudioColourField } from '../../../launch/_components/studio-colour-field';
 import { BgCard, BgCards, BgPickLine, BgRow, LoopPicture, UploadPicture } from './background-cards';
+import { BgColourWells } from './background-colour-wells';
 import {
   BACKGROUND_PICK_CANVAS_WAIT_MS,
   BACKGROUND_PICK_FAILED,
@@ -146,6 +147,10 @@ const NO_PICTURE: HubMainGround = { ground: 'none' };
 /** A card with no picture of its own yet — paper, never a blank. */
 const PAPER_SWATCH = 'rgb(var(--color-ink) / 0.05)';
 const BLUR_LABEL = { soft: 'Soft', strong: 'Strong' } as const;
+/** The Colour row's ⓘ and the line a tap on a faint Plain says — the approved prototype's words. */
+const COLOUR_INFO =
+  'The first circle is your page colour. Add a second and Dawn · Diagonal · Glow blend from the first to the second. Plain uses one colour — remove the second to pick it.';
+const PLAIN_NEEDS_ONE = 'Plain uses one colour — remove the second first';
 const FOCUS_LABEL = { top: 'Top', bottom: 'Bottom' } as const;
 
 const IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
@@ -448,6 +453,8 @@ export function MainBackgroundPanel({
   /* 🧭 Studio: the source whose cards are on screen (a look, never a write) and whether the upload is open. */
   const [viewed, setViewed] = useState<BackgroundSource | null>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
+  /* 🎨 One quiet line under the cards for a tap that changed nothing, and why ("Plain uses one colour…") — gone at the next pick. */
+  const [note, setNote] = useState<string | null>(null);
   /* 🧭 Studio: the pick is DRAWN AT THE TAP — ringed, named, on the canvas — then saved behind it, HELD (no
      whole-Maker render): the Maker keeps its own copy of the page's background until a render brings the same
      (`createLookGroundStore`). The shipped Maker keeps waiting for the render, as it always did. */
@@ -590,6 +597,7 @@ export function MainBackgroundPanel({
     lookGround.sent();
     retry.current = () => pickLook(write, failure, opts.render ? { render: true } : {});
     setError(null);
+    setNote(null);
     setPick((was) => ({
       seq,
       card: null,
@@ -852,14 +860,16 @@ export function MainBackgroundPanel({
     const bg = parseSiteBackground(bgStored);
     const ownHex = bg ? (bg.kind === 'plain' ? bg.hex : bg.ombre.base) : null;
     const effect: BackgroundEffect = bg?.kind === 'ombre' ? bg.ombre.shape : 'plain';
+    /* 🎨🎨 The second colour a blend runs to (owner 2026-10-08) — only a blend holds one; Plain is always one colour. */
+    const second = bg?.kind === 'ombre' ? (bg.ombre.to ?? null) : null;
     const paper = ownHex ?? page?.resolved ?? colours.canvas;
     const five = page?.five ?? [];
     const slot = five.findIndex((c) => c.toLowerCase() === paper.toLowerCase());
     const colourName = slot >= 0 ? (MOOD_COLOUR_NAMES[slot] ?? 'Your Mood Board') : ownHex ? 'Your own' : 'Your Mood Board';
     /** The page colour and its blend. Picked from a picture, a video or (a Colour card) a pattern, the colour IS the background now. */
-    const pickPage = (nextEffect: BackgroundEffect, hex: string | null, keepPattern: boolean) => {
+    const pickPage = (nextEffect: BackgroundEffect, hex: string | null, keepPattern: boolean, to: string | null = second) => {
       const base = hex ?? (nextEffect === 'plain' ? null : paper);
-      const value = base ? encodeBackgroundChoice(base, nextEffect) || null : null;
+      const value = base ? encodeBackgroundChoice(base, nextEffect, to) || null : null;
       const stays = storedSource === 'colour' || (keepPattern && storedSource === 'pattern');
       pickLook(stays ? { events: { site_bg_color: value } } : { events: { site_bg_color: value }, main: NO_PICTURE }, FAILED);
     };
@@ -924,8 +934,17 @@ export function MainBackgroundPanel({
                   name={BACKGROUND_EFFECT_LABEL[e]}
                   data={`fill:${e}`}
                   on={active && effect === e}
-                  swatch={e === 'plain' ? paper : ombreCss({ shape: e, base: paper })}
-                  onPick={() => (page ? pickPage(e, ownHex, false) : pickGround('src:none'))}
+                  /* 🎨🎨 With two colours the cards ARE the blend, first → second, redrawn as the colours change — and
+                     Plain, which is one colour, is drawn faint and says so (it never drops a colour by a mis-tap). */
+                  swatch={e === 'plain' ? paper : ombreCss(second ? { shape: e, base: paper, to: second } : { shape: e, base: paper })}
+                  {...(e === 'plain' && !backgroundPlainOffered(second) ? { dim: true, note: 'one colour' } : {})}
+                  onPick={() =>
+                    !page
+                      ? pickGround('src:none')
+                      : e === 'plain' && !backgroundPlainOffered(second)
+                        ? setNote(PLAIN_NEEDS_ONE)
+                        : pickPage(e, ownHex, false)
+                  }
                 />
               ))
             : null}
@@ -1053,6 +1072,11 @@ export function MainBackgroundPanel({
         </BgCards>
         {/* ⚡ What the pick is waiting for — "Loading files…", then "Applying to your Hub…"; a failure, in place, with Try again. */}
         <BgPickLine step={backgroundPickStep(pick)} error={pick?.failed ?? null} onRetry={pick?.failed ? () => retry.current?.() : null} />
+        {note ? (
+          <p role="status" data-bg-note="" className="text-[12px] text-ink/70">
+            {note}
+          </p>
+        ) : null}
 
         {heroSync}
 
@@ -1092,7 +1116,31 @@ export function MainBackgroundPanel({
         ) : null}
 
         {/* 🎨 The colour the page (and a pattern) is drawn in — the Mood Board's ONE picker. */}
-        {page && (view === 'colour' || view === 'pattern') ? (
+        {/* 🎨🎨 COLOUR — two circles like the Mood Board's: the page colour, and an optional second the blend runs to. */}
+        {page && view === 'colour' ? (
+          <BgRow label="Colour" data="colour" info={COLOUR_INFO}>
+            <BgColourWells
+              first={paper}
+              second={second}
+              palette={five}
+              /* One colour: back to following the Mood Board (nothing stored). Two: the Mood Board's colour becomes the
+                 blend's first — the second and the blend stay. */
+              firstReset={
+                ownHex
+                  ? { label: 'Use your Mood Board’s', onReset: () => (second ? pickPage(effect, page.resolved, false) : pickPage('plain', null, false)) }
+                  : null
+              }
+              onFirst={(hex) => pickPage(effect, hex, false)}
+              /* A second colour needs a blend to run through: from Plain it lands on Diagonal (the prototype's own). */
+              onSecond={(hex) => pickPage(effect === 'plain' ? 'diagonal' : effect, ownHex, false, hex)}
+              onRemoveSecond={() => {
+                pickPage(effect, ownHex, false, null);
+                setNote('Second colour removed');
+              }}
+            />
+          </BgRow>
+        ) : null}
+        {page && view === 'pattern' ? (
           <BgRow label="Colour" data="colour" info="Your Mood Board’s five colours first, then colours that go with them.">
             <span className="min-w-0 flex-1 [&>button]:mb-0">
               <StudioColourField

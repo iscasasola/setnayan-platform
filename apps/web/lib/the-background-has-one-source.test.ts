@@ -545,3 +545,77 @@ test('(10) "Your cover photo" is drawn only when there is one — no empty card,
   assert.equal(resolveMainGround(FOLLOW, { photoRef: (FOLLOW as { of: string }).of, videoRef: null }, gate)?.source, 'hero');
   assert.equal(backgroundSourceOf(FOLLOW, { themeHasLoop: true, followsHero: true }), 'own');
 });
+
+/* ── (11) 🎨🎨 two colours (owner 2026-10-08, "LOOK › BACKGROUND, AMENDED") ──────── */
+
+test('(11) Colour is two circles like the Mood Board’s: the second is optional, a blend runs first → second, Plain is one colour, and ✕ takes the second off in one tap', async () => {
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const W = await import(`../${E}/background-colour-wells`);
+  const C = await import(`../${E}/background-cards`);
+  const noop = () => {};
+  const wells = (second: string | null) => renderToStaticMarkup(React.createElement(W.BgColourWells, { first: '#f6f1e7', second, palette: ['#111111'], onFirst: noop, onSecond: noop, onRemoveSecond: noop }));
+
+  // ONE colour: the page colour, then a ringed "+" — no ✕, nothing to remove.
+  const one = wells(null);
+  assert.match(one, /data-bg-colour-wells="one"/);
+  assert.equal((one.match(/data-bg-colour-well="1"/g) ?? []).length, 1);
+  assert.match(one, /data-bg-colour-well="add"[^>]*aria-label="Add a second colour"/);
+  assert.doesNotMatch(one, /data-bg-colour-well="2"|data-bg-colour-remove/);
+  // TWO: both circles, and the ✕ — a button of its own beside the circle (never inside its button).
+  const two = wells('#c5a059');
+  assert.match(two, /data-bg-colour-wells="two"/);
+  assert.match(two, /data-bg-colour-well="2"[^>]*aria-label="Second colour #c5a059 — change it"/);
+  assert.match(two, /<\/button><button[^>]*data-bg-colour-remove=""[^>]*aria-label="Remove the second colour"/);
+  assert.doesNotMatch(two, /data-bg-colour-well="add"/);
+  // The Mood Board's circle: a 44-px target around a 28-px colour — for every circle and the "+".
+  const mood = read('app/dashboard/[eventId]/studio/mood-board/_components/mood-board-studio.tsx');
+  assert.match(mood, /className="sn-press inline-flex h-11 w-11 items-center justify-center rounded-full"\s*>\s*<i aria-hidden className="h-7 w-7 rounded-full border border-ink\/10"/, 'anti-vacuity: the Mood Board draws its palette circle some other way now');
+  for (const html of [one, two]) {
+    const targets = [...html.matchAll(/<button[^>]*data-bg-colour-well="[^"]+"[^>]*>/g)].map((m) => m[0]);
+    assert.equal(targets.length, 2);
+    for (const t of targets) assert.match(t, /class="[^"]*\bh-11 w-11\b[^"]*rounded-full/, 'a colour circle is not a 44-px target');
+  }
+  assert.equal((two.match(/<i aria-hidden="true" class="h-7 w-7 rounded-full border border-ink\/10"/g) ?? []).length, 2, 'the two colours are not the Mood Board’s circles');
+  // The colours themselves are drawn — never a placeholder.
+  assert.match(two, /style="background:#f6f1e7"/);
+  assert.match(two, /style="background:#c5a059"/);
+  // Opening writes nothing: the sheet is not even mounted until a circle is tapped.
+  assert.doesNotMatch(two, /data-colour-picker/);
+  const wellsSrc = read(`${E}/background-colour-wells.tsx`);
+  assert.equal((wellsSrc.match(/<ColourPickerSheet/g) ?? []).length, 2, 'the circles open something other than the ONE colour sheet');
+  assert.doesNotMatch(wellsSrc, /type="color"|<input/, 'a second colour picker');
+  assert.match(wellsSrc, /title="Second colour"\s*job="The blend runs from the first colour to this one"/);
+  assert.match(wellsSrc, /Remove the second colour/);
+
+  // A faint Plain: still a card, still tappable (the tap says why), its picture faint, "one colour" after its name.
+  const plain = renderToStaticMarkup(React.createElement(C.BgCard, { name: 'Plain', data: 'fill:plain', on: false, onPick: noop, swatch: '#f6f1e7', dim: true, note: 'one colour' }));
+  assert.match(plain, /<button[^>]*data-bg-card-dim=""/);
+  assert.doesNotMatch(/<button[^>]*>/.exec(plain)![0], /\sdisabled=""/, 'a faint Plain cannot say why');
+  assert.match(plain, /<span class="truncate">Plain<\/span><small[^>]*>· one colour<\/small>/);
+  assert.doesNotMatch(renderToStaticMarkup(React.createElement(C.BgCard, { name: 'Plain', data: 'fill:plain', on: true, onPick: noop, swatch: '#f6f1e7' })), /data-bg-card-dim|one colour/);
+
+  // The panel: what each tap writes.
+  const panel = read(`${E}/main-background-panel.tsx`);
+  const studio = panel.slice(panel.indexOf('if (studio) {'), panel.indexOf('return (\n    <section className="flex flex-col gap-3 rounded-md bg-white/70'));
+  assert.match(studio, /const second = bg\?\.kind === 'ombre' \? \(bg\.ombre\.to \?\? null\) : null;/, 'the second colour is not read off the stored blend');
+  assert.match(studio, /const pickPage = \(nextEffect: BackgroundEffect, hex: string \| null, keepPattern: boolean, to: string \| null = second\) => \{\s*const base = hex \?\? \(nextEffect === 'plain' \? null : paper\);\s*const value = base \? encodeBackgroundChoice\(base, nextEffect, to\) \|\| null : null;/, 'a page-colour pick drops the second colour');
+  // The cards are the blend of the two, live.
+  assert.match(studio, /swatch=\{e === 'plain' \? paper : ombreCss\(second \? \{ shape: e, base: paper, to: second \} : \{ shape: e, base: paper \}\)\}/);
+  // Plain with two colours: faint, and its tap WRITES NOTHING — it says why.
+  assert.match(studio, /\{\.\.\.\(e === 'plain' && !backgroundPlainOffered\(second\) \? \{ dim: true, note: 'one colour' \} : \{\}\)\}/);
+  assert.match(studio, /: e === 'plain' && !backgroundPlainOffered\(second\)\s*\? setNote\(PLAIN_NEEDS_ONE\)\s*: pickPage\(e, ownHex, false\)/, 'Plain is writable with two colours');
+  assert.match(panel, /const PLAIN_NEEDS_ONE = 'Plain uses one colour — remove the second first';/);
+  // The circles sit on the Colour row of the Colour source, in place of the one field.
+  const row = studio.slice(studio.indexOf("{page && view === 'colour' ? ("), studio.indexOf("{page && view === 'pattern' ? ("));
+  assert.match(row, /<BgRow label="Colour" data="colour" info=\{COLOUR_INFO\}>\s*<BgColourWells\s+first=\{paper\}\s+second=\{second\}\s+palette=\{five\}/);
+  assert.doesNotMatch(row, /StudioColourField/, 'the Colour source still draws the one-colour field');
+  // A second colour needs a blend: from Plain it lands on Diagonal. Changing either colour keeps the other and the blend.
+  assert.match(row, /onFirst=\{\(hex\) => pickPage\(effect, hex, false\)\}/);
+  assert.match(row, /onSecond=\{\(hex\) => pickPage\(effect === 'plain' \? 'diagonal' : effect, ownHex, false, hex\)\}/);
+  // ✕: ONE action, one write — the second colour off, the blend and the first colour as they were; Plain is offered again.
+  assert.match(row, /onRemoveSecond=\{\(\) => \{\s*pickPage\(effect, ownHex, false, null\);\s*setNote\('Second colour removed'\);\s*\}\}/);
+  // …and every one of those is the Studio's one pick (one draft write; the sample wears it at the tap).
+  assert.match(studio, /pickLook\(stays \? \{ events: \{ site_bg_color: value \} \} : \{ events: \{ site_bg_color: value \}, main: NO_PICTURE \}, FAILED\);/);
+  // The shipped Maker's one-colour field KEEPS a second colour set here.
+  assert.match(read(`${E}/pro-panels.tsx`), /const posted = encodeBackgroundChoice\(hex, effect, stored\?\.kind === 'ombre' \? stored\.ombre\.to : null\);/, 'the shipped page-colour field drops a second colour');
+});

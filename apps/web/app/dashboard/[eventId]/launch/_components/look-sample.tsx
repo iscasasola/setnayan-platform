@@ -156,6 +156,8 @@ export function LookSample({ seed }: { seed: LookSampleSeed }) {
   return (
     <div
       data-look-sample=""
+      /* 🌑 A LIVE PREVIEW STAYS CLEAR behind a pop-up (owner 2026-10-08) — a sheet's dark is cut around this box. */
+      data-popup-clear=""
       data-look-sample-ground={picture ? (moving ? 'film' : 'picture') : scope.ombre ? 'blend' : 'colour'}
       /* The guest scope's own marks — see the docblock. Not `contents`: here the scope IS the box. */
       className={`sn-editorial relative isolate flex min-h-[250px] w-full flex-1 flex-col overflow-hidden bg-cream text-ink ${scope.theme ? seed.fontClassName : ''}`.trim()}

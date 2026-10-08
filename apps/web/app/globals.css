@@ -4645,6 +4645,32 @@ html.dark {
   object-fit: cover;
 }
 
+/* `.sn-popup-dark` — THE DARK BEHIND ANYTHING POPPED UP OVER THE PAGE.
+ * Owner 2026-10-08 (INTERACTION_RULES § 9): "when there is a pop up. the rest of
+ * the screen darkens (except for when there is preview) … The darkened area will
+ * be blurred and nothing behind it will work." ONE look for every pop-up's
+ * backdrop: the page's ink at 42 % with a 6-px blur (the template gallery's own
+ * figures). DARK ALONE — a little deeper, so the pop-up still stands off the page
+ * — where the browser cannot blur a backdrop, and where the device asks for less
+ * transparency. No motion; nothing here animates. */
+.sn-popup-dark {
+  background-color: rgb(var(--color-ink) / 0.42);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .sn-popup-dark {
+    background-color: rgb(var(--color-ink) / 0.55);
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .sn-popup-dark {
+    background-color: rgb(var(--color-ink) / 0.55);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
 /* `.sn-canvas-drift` — the brief's "barely-perceptible, slow-moving gradient".
  * OPT-IN ONLY. The owner flattened the ground on 2026-07-28 ("clean/modern
  * digital means an even ground", see `.sn-ambient`), so this is never a

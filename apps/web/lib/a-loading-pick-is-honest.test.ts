@@ -51,6 +51,7 @@ import {
   type LookGround,
 } from './background-pick';
 import { createFilmLoads, filmLoadPct, loadPct, readBlobWithProgress, responseTotal } from './pick-load';
+import { centredScrollLeft } from './centre-in-row';
 
 (globalThis as unknown as { React: unknown }).React = React;
 {
@@ -292,6 +293,9 @@ test('(5) rendered: a veil and the pie on the loading card, the others dimmed an
   assert.match(mine, /data-bg-card-pie="45"[^>]*style="background:conic-gradient\(#fff 45%, rgb\(255 255 255 \/ 0\.28\) 0\)"/, 'the pie is not filled to the measured figure');
   assert.match(mine, />45%<\/span>/);
   assert.doesNotMatch(mine, /data-bg-card-busy/, 'the small mark is drawn beside the pie');
+  // The accent and the ink on it are the selector template's own — one setting, never written on the card.
+  const { PILL_ON_CLASS } = await import('../app/_components/pill-selector');
+  assert.ok(mine.includes(`tabular-nums ${PILL_ON_CLASS}">45%</span>`), 'the pie’s centre wears a colour of its own, not the template’s');
   // THE OTHERS: dimmed and NOT pressable — the stored one too.
   for (const other of ['scene:old', 'scene:y']) {
     const o = open(cardOf(html, other));
@@ -426,4 +430,36 @@ test('(6) loaded first, applied second — a cancel has written nothing; one req
   assert.match(panel, /pick \?\? \(uploadPct !== null \? \{ seq: 0, card: 'upload', strip: 'own', file: true, pct: uploadPct, upload: true, reading: true,/);
   // …an upload may take minutes: it is never called stalled at 8 seconds.
   assert.match(stall, /const heldSeq = backgroundPickHolds\(pick\) && !pick!\.stalled \? pick!\.seq : null;/, 'the stop watches something other than the pick (an upload has none)');
+});
+
+/* ── (7) the picked card centres itself ───────────────────────────────── */
+
+test('(7) a picked card sits in the middle of its strip, as far as the ends allow — at once on opening, travelling on a pick', () => {
+  // 375-px phone, 16-px inset, 112-px cards 8 px apart, nine cards: content = 16 + 9·112 + 8·8 + 16.
+  const row = { width: 375, scrollWidth: 16 + 9 * 112 + 8 * 8 + 16 };
+  const card = (i: number) => ({ left: 16 + i * 120, width: 112 });
+  const centreOf = (i: number, scrollLeft: number) => card(i).left + 56 - scrollLeft;
+  // A card in the middle of the row: its centre is the strip's centre.
+  for (const i of [2, 3, 4, 5, 6]) {
+    const at = centredScrollLeft(card(i), row);
+    assert.ok(Math.abs(centreOf(i, at) - 187.5) <= 0.5, `card ${i} is ${centreOf(i, at)} px in — not in the middle`);
+  }
+  // The first and the last stop at their edge — the row is never scrolled past an end.
+  assert.equal(centredScrollLeft(card(0), row), 0);
+  assert.equal(centredScrollLeft(card(8), row), row.scrollWidth - row.width);
+  assert.ok(centredScrollLeft(card(1), row) >= 0 && centredScrollLeft(card(1), row) <= 5);
+  // A row that does not scroll is left alone.
+  assert.equal(centredScrollLeft(card(1), { width: 375, scrollWidth: 300 }), 0);
+
+  const cards = read(`${E}/background-cards.tsx`);
+  // Read off the ringed card after a render; instant when the strip was just opened, travelling on a pick.
+  assert.match(cards, /const on = el\.querySelector<HTMLElement>\('\[data-bg-card\]\[aria-pressed="true"\]'\);/);
+  assert.match(cards, /if \(was && was\.source === source && was\.card === card\) return;\s*centred\.current = \{ source, card \};\s*if \(on\) centreInRow\(el, on, Boolean\(was && was\.source === source\)\);/, 'the strip is not centred on its pick');
+  const centre = read('lib/centre-in-row.ts');
+  assert.match(centre, /row\.scrollTo\(\{ left, behavior: travel && !still \? 'smooth' : 'auto' \}\);/, 'the strip travels under "reduce motion", or on opening');
+  assert.match(centre, /window\.matchMedia\('\(prefers-reduced-motion: reduce\)'\)\.matches/);
+  // Nothing snaps the strip back off its centre (the approved gallery scrolls freely).
+  const strip = cards.slice(cards.indexOf('export function BgCards('), cards.indexOf('export function BgPickLine('));
+  assert.doesNotMatch(strip + cards.slice(cards.indexOf('export function BgCard(')), /snap-mandatory|snap-start|snap-x/, 'scroll snapping pulls the picked card back off the middle');
+  assert.doesNotMatch(strip, /setInterval|requestAnimationFrame/);
 });

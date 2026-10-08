@@ -19,7 +19,9 @@ import {
   type BackgroundPick,
   type BackgroundPickStep,
 } from '@/lib/background-pick';
+import { centreInRow } from '@/lib/centre-in-row';
 import { filmLoadPct, type FilmLoad } from '@/lib/pick-load';
+import { PILL_ON_CLASS } from '@/app/_components/pill-selector';
 
 /**
  * 🖼 STUDIO › LOOK › BACKGROUND — THE PICTURE CARDS AND THEIR ROWS (owner 2026-10-08,
@@ -121,13 +123,30 @@ export function BgCards({
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `here` is read by its number and figure
   }, [loadingSeq, saidSeq, step, seq, here?.pct]);
+  /* 🎯 THE PICKED CARD CENTRES ITSELF (owner 2026-10-08: "when something is selected, must center as much as possible"):
+     on a pick the strip scrolls so the ringed card sits in the middle, as far as its ends allow; a strip that has just
+     been opened starts there, at once. Read off the DOM after a render — the ring may come from the tap, a cancel or
+     the server. No snapping fights it: the strip scrolls freely, as the approved gallery's does. */
+  const row = useRef<HTMLDivElement>(null);
+  const centred = useRef<{ source: string; card: string | null } | null>(null);
+  useEffect(() => {
+    const el = row.current;
+    if (!el) return;
+    const on = el.querySelector<HTMLElement>('[data-bg-card][aria-pressed="true"]');
+    const card = on?.getAttribute('data-bg-card') ?? null;
+    const was = centred.current;
+    if (was && was.source === source && was.card === card) return;
+    centred.current = { source, card };
+    if (on) centreInRow(el, on, Boolean(was && was.source === source));
+  });
   return (
     <div
+      ref={row}
       role="group"
       aria-label={label}
       data-bg-cards={source}
       {...(here ? { 'data-bg-cards-loading': '' } : {})}
-      className="-mx-4 flex snap-x snap-mandatory scroll-px-4 items-start gap-2 overflow-x-auto overscroll-x-contain px-4 pb-1 pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      className="-mx-4 flex items-start gap-2 overflow-x-auto overscroll-x-contain px-4 pb-1 pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
     >
       <BgStrip.Provider value={{ pick, source, saidSeq, tick, ...(onTap ? { onTap } : {}), ...(onCancel ? { onCancel } : {}) }}>{children}</BgStrip.Provider>
     </div>
@@ -302,7 +321,7 @@ export function BgCard({
         strip.onTap?.(data);
         onPick();
       }}
-      className={`sn-press flex w-min flex-none snap-start flex-col gap-1.5 text-left transition-opacity duration-sn-control ease-sn motion-reduce:transition-none disabled:opacity-50 data-[bg-card-locked]:opacity-40 data-[bg-card-dim]:[&>[data-bg-card-picture]]:opacity-45 ${looks.on ? 'text-mulberry' : 'text-ink/70'}`}
+      className={`sn-press flex w-min flex-none flex-col gap-1.5 text-left transition-opacity duration-sn-control ease-sn motion-reduce:transition-none disabled:opacity-50 data-[bg-card-locked]:opacity-40 data-[bg-card-dim]:[&>[data-bg-card-picture]]:opacity-45 ${looks.on ? 'text-mulberry' : 'text-ink/70'}`}
     >
       <span
         data-bg-card-picture=""
@@ -327,7 +346,8 @@ export function BgCard({
               className="flex h-[52px] w-[52px] items-center justify-center rounded-full shadow-[0_2px_10px_rgb(0_0_0/0.25)]"
               style={{ background: `conic-gradient(#fff ${ticked ? 100 : pie}%, rgb(255 255 255 / 0.28) 0)` }}
             >
-              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-mulberry text-[12px] font-bold tabular-nums text-white">
+              {/* The accent and the ink on it are the selector template's own (`PILL_ON_CLASS`) — one setting, never written here. */}
+              <span className={`flex h-10 w-10 items-center justify-center rounded-full text-[12px] font-bold tabular-nums ${PILL_ON_CLASS}`}>
                 {ticked ? <Check className="h-4 w-4" strokeWidth={3} /> : `${pie}%`}
               </span>
             </span>

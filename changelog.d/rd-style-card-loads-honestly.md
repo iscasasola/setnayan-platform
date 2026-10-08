@@ -51,3 +51,45 @@ and the hint "· tap the card to cancel" (the gallery's own). The owner's are "L
 files…", "Applying to your Hub…" and "Cancelled — nothing changed".
 
 SPEC IMPACT: None (the rule is already in `INTERACTION_RULES.md` § 9).
+
+## 2026-10-08 · feat(maker): the Maker's sheet follows the pop-up rule — dark and blurred behind, nothing behind works, a live preview stays clear
+
+Owner, verbatim (2026-10-08; `INTERACTION_RULES.md` § 9 "Anything popped up over the
+page"): *"when there is a pop up. the rest of the screen darkens (except for when there
+is preview) i think you know what I mean. The darkened area will be blurred and nothing
+behind it will work. pressing on the dark part removes the pop up. the background will
+not be scrollable when darkened blurred"*.
+
+- `MakerSheet` (`stages-studio-parts.tsx` — every ▾ and sheet of the new Maker on a
+  phone): the dim was ink at 20 %, no blur, and the page behind stayed reachable by
+  keyboard and screen reader. Now:
+  - **dark + blurred** — ONE class, `.sn-popup-dark` (ink 42 % + 6-px blur, the approved
+    gallery's figures); **dark alone** (ink 55 %) where `backdrop-filter` is not
+    supported or the device asks for less transparency;
+  - **nothing behind works** — every branch of the page but the sheet's own is `inert`
+    (`lib/popup-behind.ts` `inertBehind`), put back exactly on close;
+  - **no scroll behind, Escape, Tab stays inside** — the app's one modal contract
+    (`useModalA11y`), called; the list's picked row keeps the focus it took, and the focus
+    goes back to the ▾ that opened the sheet;
+  - **a tap outside closes** — one whole-screen button under the dark;
+  - **a live preview stays clear** — Studio › Look's sample wears `data-popup-clear`; the
+    dark is cut around its box (`clip-path`, even-odd), measured at open and on a resize,
+    never polled. So a pick in a Look sheet is seen at once.
+- Requests: none added, none removed (opening a sheet asks nothing).
+
+Also in this commit (the controller's note after the gallery was approved):
+- **The picked style card centres itself** in the Background strip (owner: *"when
+  something is selected, must center as much as possible"*; `lib/centre-in-row.ts`): at
+  once when a strip is opened, travelling on a pick, at once under reduce motion; the
+  first and last cards stop at their edge. The strip no longer scroll-snaps (the approved
+  gallery's strip does not) — a snap pulled the card back off the middle.
+- The loading pie's centre takes its fill and ink from the selector template's own
+  constant (`PILL_ON_CLASS`) instead of writing them.
+
+Guards: `a-popup-darkens-what-is-behind` (5, new) · `a-loading-pick-is-honest` (+1: the
+centring) · `modal-a11y-adoption` (unchanged — it caught the first draft, which claimed
+`aria-modal` without the contract). 27 sabotages seen red; 1 stayed green and is said in
+the report (a rendered check cannot tell a constant from the same words typed out — the
+accent watch in the next commit holds that one).
+
+SPEC IMPACT: None.

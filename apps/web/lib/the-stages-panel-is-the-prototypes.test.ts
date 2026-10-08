@@ -169,9 +169,11 @@ test('Rows ▾ writes the scene’s `sequence` — and Action carries no Parts r
   assert.match(ss, /rows=\{\s*makerSceneHasRows\(widgetType\)/);
   assert.match(ss, /onPick: \(q\) => save\(\(c\) => \{ if \(q === 'auto'\) delete c\.sequence; else c\.sequence = q; \}\)/);
   const animate = read(`${LAUNCH}/stage-panel/stage-animate.tsx`);
-  const act = animate.slice(animate.indexOf("phase === 'act' ?"), animate.indexOf(') : (\n        <>\n          {outAbout'));
-  assert.ok(!/rows|Parts/.test(act), 'Action keeps Does ▾ and Timing ▾ only');
-  assert.match(animate.slice(animate.indexOf("phase === 'in' ?"), animate.indexOf("phase === 'act' ?")), /small="Rows"/, 'Rows ▾ is Build in’s');
+  /* 🔁 RE-AIMED 2026-10-09 (Animate is four rows): the three phases are no longer three branches of one column —
+     Rows ▾ is drawn in row 4 beside Movement, and only while the phase is Build in. Action still carries none. */
+  const rowsDrawn = [...animate.matchAll(/\{([^{}]*?) \? <Dd stacked small="Rows"/g)].map((m) => m[1]);
+  assert.deepEqual(rowsDrawn, ["phase === 'in' && rows"], 'Rows ▾ is Build in’s, and only its');
+  assert.ok(!/Parts/.test(animate), 'Action carries a Parts row');
 });
 
 /* ── 6 · a tap on the page never leaves the stage ───────────────────────── */

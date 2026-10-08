@@ -147,6 +147,39 @@ calls the Look's `sanitizeHubMainShade` (one rule, not two). `lib/hub-canvas.ts`
 alone it is 17 bytes smaller raw and 4 bytes larger gzipped — the real budget check is the controller's build.
 `lib/scene-shade-bar.ts` loses its three stops (a release rests where it is let go, snapping to the centre).
 
+### 5c · a page change never ends on nothing picked (seen on the review copy)
+
+A tap on a guest tab let the picked part go BEFORE asking the canvas for the page; the lab's sample — drawn as one
+page — refused the switch, and the toolbar was left on Welcome with nothing picked and every tool an empty box. The
+tap itself did reach the tab (the swipe handler takes nothing from it). Now: a tab tap asks for the page and lets go
+of nothing; the part is let go when the canvas HAS switched and the part is not on the new page; a canvas that did
+not switch within 450 ms gets that page's first part Edit has a row for; arriving replaces a part held from another
+stage or left on a hidden page (`makerArrivalKeeps`, `lib/maker-parts.ts`). Background: a source that is only being
+looked at opens at its first choice (it kept the last source's scroll place). Guard: `the-preview-only-selects`
+(3b), three sabotages red.
+
+### 6 · Animate is four rows
+
+It was one column of eleven rows (364–416 px in a 210-px box, scrolling). Now (`stage-panel/stage-animate.tsx`,
+`TOOLBAR-SPEC-2026-10-09.md` § ANIMATE + decision 8):
+
+- row 1 Build in | Action | Build out;
+- row 2 Build in / Build out: Fade · Blur · Move · Size, each on or off (the app's row of toggles); Action: the two
+  shipped words (a part Still | Drift, a scene Still | Slow lift);
+- row 3 only what the ON ones need, a half each: From / To ▾ for Move, Grow | Shrink for Size;
+- row 4 Build in: Movement ◆ + Rows (a scene of rows) + Delay (a part); Action: Movement ◆; Build out: Movement ◆ +
+  Next scene ◆ — no Delay.
+
+Not drawn any more, and NOT touched in what is stored (it still plays): Duration (a part's `speed`, a scene's
+`duration`), Timing (a part's / a scene's `timeline`), the line under "Does", the ⓘ of its own. Delay is a dropdown of
+the three shipped steps (it was a slider that settled on them). One behaviour added: a part's Build out makes it
+follow the scroll (shipped) — and the last one switched off now puts it back to playing once, because Timing ▾ was
+the only other way back. A save's error takes row 3 while it stands. Two or three dropdowns share a row as the
+prototype's two-line pill (`Dd stacked`); its classes live in `lib/maker-animate-rows.ts`, imported only by the
+toolbar's lazy pieces, so the Maker's first-load JS gains nothing. Guard: `lib/animate-is-four-rows.test.ts` (6
+rules, one sabotage each seen red); five pinning tests re-aimed with the reason written in. Flag-off and desktop:
+the older editor's Animate (`scene-animate-tab.tsx` outside `ss`, `PartAnimateTab`) is not touched.
+
 SPEC IMPACT: Yes — supersedes the 2026-10-06/07 "Style | Text | Animate" and "the toolbar is half the screen" rows.
 The controller holds the spec (`TOOLBAR-SPEC-2026-10-09.md`) and applies the corpus rows; nothing in the corpus was
 edited from this branch.

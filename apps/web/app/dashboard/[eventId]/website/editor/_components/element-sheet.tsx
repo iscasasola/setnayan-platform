@@ -39,10 +39,10 @@ import { PART_TABS, PartAnimateTab, PartArrangeTab, PartPicker, PartTextTab, typ
 import { elementPreview, refusedChoiceWords, revertAfterFailedSave, type ElementPreviewMessage } from './element-preview';
 import { ColourSheet } from './colour-well';
 import { FontPick } from './font-pick';
-import { HUB_EL_DURING_LABEL, HUB_EL_DURING_WORDS, HUB_EL_TIMELINE, HUB_EL_TIMELINE_LABEL } from '@/lib/element-style';
+import { HUB_EL_DURING_LABEL } from '@/lib/element-style';
 import { motionFxOn, sameMotionFx } from '@/lib/motion-effects';
 import { HUB_MOTION_PRESETS, HUB_MOTION_PRESET_LABEL, HUB_PRESET_BODY, hubShippedFx, type HubMotionPreset } from '@/lib/hub-canvas';
-import { HUB_TRANSITIONS, HUB_TRANSITION_LABEL, resolveTransition, type HubTransition } from '@/lib/hub-scenes';
+import { HUB_TRANSITIONS, HUB_TRANSITION_LABEL, type HubTransition } from '@/lib/hub-scenes';
 import { SP_DD, SP_DD_BUTTON } from '@/lib/maker-stage-room';
 import { StageText } from '../../../launch/_components/stage-panel/stage-text';
 import { StageAnimate } from '../../../launch/_components/stage-panel/stage-animate';
@@ -498,7 +498,6 @@ export function ElementSheet({
           <StageAnimate
             pending={pending}
             error={error}
-            pro={animateMark ? 'How a part moves is Event Hub Pro — try it here; it goes live when you Apply with it.' : null}
             how={{
               /* The prototype's five (`HOW`): Auto · Still · Calm · Editorial · Cinematic — the SHIPPED presets
                  (`HUB_PRESET_BODY`). A pick lays the preset's Build in / Build out on the switches; a switch moved
@@ -524,19 +523,11 @@ export function ElementSheet({
               /* A part's Build out plays as guests scroll on — choosing one makes it follow the scroll. */
               if (fx && motion.timeline !== 'scroll') moveTo('timeline', 'scroll');
               moveTo('out', fx);
+              /* …and the last one switched off puts it back to playing once (Timing ▾ left the toolbar 2026-10-09:
+                 without this a part that tried a Build out could never get its Delay back). */
+              if (!fx && motion.out && motion.timeline === 'scroll') moveTo('timeline', null);
             }}
-            duration={
-              motionFxOn(motion.in)
-                ? {
-                    value: PART_SPEED_S[motion.speed ?? 'regular'],
-                    steps: Object.values(PART_SPEED_S),
-                    onPick: (sec) => {
-                      const v = (Object.keys(PART_SPEED_S) as Array<keyof typeof PART_SPEED_S>).find((k) => PART_SPEED_S[k] === sec) ?? 'regular';
-                      moveTo('speed', v === 'regular' ? null : v);
-                    },
-                  }
-                : null
-            }
+            /* No Duration and no Timing (owner 2026-10-09) — a stored `speed` / `timeline` is not touched and still plays. */
             delay={
               motionFxOn(motion.in) && motion.timeline !== 'scroll'
                 ? {
@@ -550,20 +541,14 @@ export function ElementSheet({
                 : null
             }
             does={{
+              /* Still | Drift, in the owner's order. A stored word that is neither (an older one) presses nothing. */
               value: motion.during ?? 'still',
-              options: HUB_EL_DURING_WORDS.map((v) => ({ key: v, label: HUB_EL_DURING_LABEL[v] })),
+              options: (['still', 'drift'] as const).map((v) => ({ key: v, label: HUB_EL_DURING_LABEL[v] })),
               onPick: (v) => moveTo('during', v === 'still' ? null : v),
-              note: PART_DOES_NOTE[motion.during ?? 'still'],
-            }}
-            timing={{
-              value: motion.timeline ?? 'once',
-              options: HUB_EL_TIMELINE.map((t) => ({ key: t, label: HUB_EL_TIMELINE_LABEL[t] })),
-              onPick: (t) => moveTo('timeline', t === 'once' ? null : t),
             }}
             next={{
               /* ◆ Into the next scene — the part's scene's own (Stage default = no pick of its own). */
               value: canvas.transition ?? 'stage',
-              buttonText: canvas.transition ? undefined : `Stage default · ${HUB_TRANSITION_LABEL[resolveTransition({})]}`,
               options: [{ key: 'stage', label: 'Stage default' }, ...HUB_TRANSITIONS.map((t) => ({ key: t, label: HUB_TRANSITION_LABEL[t] }))],
               onPick: (t) =>
                 commit(latest.current.elements ?? null, 'motion', (c) => {
@@ -701,11 +686,5 @@ function partPresetFx(p: HubMotionPreset, scroll: boolean): { in: MotionFx | nul
   const b = HUB_PRESET_BODY[p];
   return { in: hubShippedFx(b.in, b.inFrom), out: scroll ? hubShippedFx(b.out, b.outTo) : null };
 }
-/** The shipped part speeds and delays in seconds (`lib/element-style.ts` DURATION_S · DELAY_S) — the sliders' stops. */
-const PART_SPEED_S = { fast: 0.6, regular: 1.1, gentle: 1.8 } as const;
+/** The shipped part delays in seconds (`lib/element-style.ts` DELAY_S) — Delay ▾'s choices. */
 const PART_DELAY_S = { none: 0, short: 0.3, long: 0.8 } as const;
-/** The prototype's line under Does ▾ (`DOES_SUB`), for the shipped words. */
-const PART_DOES_NOTE: Record<string, string> = {
-  still: 'Nothing happens while it is on screen',
-  drift: 'Drifts up and down, slowly',
-};

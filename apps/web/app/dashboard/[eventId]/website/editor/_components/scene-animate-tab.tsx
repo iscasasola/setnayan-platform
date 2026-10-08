@@ -29,7 +29,7 @@ import { IButton, IHint, IReset, IRow, ISection } from './inspector-kit';
 import { PickMenu } from './pick-menu';
 import { MotionFxRows } from './motion-fx-rows';
 import type { MotionFx } from '@/lib/motion-effects';
-import { HUB_DURATION, HUB_DURING_LABEL, HUB_SEQUENCES } from '@/lib/hub-canvas';
+import { HUB_DURING_LABEL, HUB_SEQUENCES, type HubDuring } from '@/lib/hub-canvas';
 import { makerSceneHasRows } from '@/lib/maker-parts';
 import { useMaker } from '../../../launch/_components/maker-context';
 import { StageAnimate } from '../../../launch/_components/stage-panel/stage-animate';
@@ -115,7 +115,6 @@ export function SceneAnimateTab({
         <StageAnimate
           pending={pending}
           error={error}
-          pro={mark ? 'How a scene moves is Event Hub Pro — try it here; it goes live when you Apply with it.' : null}
           how={{
             /* A switch moved by hand (its own In / Out over the preset) reads "Custom" — the prototype's word. */
             value: preset ?? 'auto',
@@ -124,11 +123,7 @@ export function SceneAnimateTab({
             /* A preset is laid whole: its own Build in / Build out replace any hand-set switch. */
             onPick: (k) => save((c) => { for (const f of ['in', 'inFrom', 'inFx', 'out', 'outTo', 'outFx'] as const) delete c[f]; if (k === 'auto') delete c.preset; else c.preset = k; }),
           }}
-          duration={{
-            value: m.duration,
-            steps: HUB_DURATION,
-            onPick: (sec) => save((c) => { c.duration = sec; }),
-          }}
+          /* No Duration and no Timing (owner 2026-10-09) — a stored `duration` / `timeline` is not touched and still plays. */
           inFx={m.inFx}
           outFx={m.outFx}
           onIn={(fx) => save((c) => sceneFx(c, 'in', fx))}
@@ -146,15 +141,10 @@ export function SceneAnimateTab({
               : null
           }
           does={{
-            value: shown.during ?? 'auto',
-            options: [{ key: 'auto', label: 'Auto' }, ...(['still', 'lift'] as const).map((d) => ({ key: d, label: HUB_DURING_LABEL[d] }))],
-            onPick: (d) => save((c) => { if (d === 'auto') delete c.during; else c.during = d; }),
-            note: (shown.during ?? m.during) === 'lift' ? 'Rises slowly while it is on screen' : 'Nothing happens while it is on screen',
-          }}
-          timing={{
-            value: shown.timeline ?? 'auto',
-            options: (['auto', 'time', 'scrub'] as const).map((t) => ({ key: t, label: t === 'auto' ? 'Auto' : HUB_TIMELINE_LABEL[t] })),
-            onPick: (t) => save((c) => { if (t === 'auto') delete c.timeline; else c.timeline = t; }),
+            /* Still | Slow lift — the pressed one is what guests see now (its own pick, else the preset's). */
+            value: shown.during ?? m.during,
+            options: (['still', 'lift'] as const).map((d) => ({ key: d, label: HUB_DURING_LABEL[d] })),
+            onPick: (d) => save((c) => { c.during = d as HubDuring; }),
           }}
           next={
             isLast

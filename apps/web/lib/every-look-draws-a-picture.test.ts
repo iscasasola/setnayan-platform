@@ -20,7 +20,7 @@ test('no Animate segment renders a row holding only an ⓘ', async () => {
   const { StageAnimate } = await import(`${PANEL}/stage-animate`);
   const { setStageAnimatePhase } = await import(`${PANEL}/store`);
   const dd = { value: 'auto', options: [{ key: 'auto', label: 'Auto' }], onPick: () => {} };
-  const time = { value: 1.1, steps: [0.6, 1.1, 1.8], onPick: () => {} };
+  const time = { value: 0.3, steps: [0, 0.3, 0.8], onPick: () => {} };
   for (const phase of ['in', 'act', 'out'] as const) {
     setStageAnimatePhase(phase);
     const html = renderToStaticMarkup(
@@ -31,16 +31,15 @@ test('no Animate segment renders a row holding only an ⓘ', async () => {
         onIn: () => {},
         onOut: () => {},
         rows: dd,
-        duration: time,
         delay: time,
-        does: { ...dd, note: 'Nothing happens while it is on screen' },
-        timing: dd,
+        does: dd,
         next: dd,
-        pro: 'Event Hub Pro',
       }),
     );
-    /* Each 44 px row of the pane: its markup, split at the pane's direct row openings. */
-    const rows = html.split(/(?=<div class="flex h-11 )/).slice(1);
+    /* 🔁 RE-AIMED 2026-10-09 (Animate is four rows — `animate-is-four-rows.test.ts`): a row is a child of the
+       four-row grid (`row-start-N`), no longer a 44 px line of a scrolling column; and Animate draws no ⓘ of its
+       own any more (the one ⓘ is on the "You're editing" line). The claim stays: no row is empty of a control. */
+    const rows = html.split(/(?=<(?:div|p) class="[^"]*\brow-start-\d)/).slice(1);
     assert.ok(rows.length >= 2, `${phase}: rows were found`);
     for (const r of rows) {
       const withoutAbout = r.replace(/<span[^>]*data-stage-about=""[\s\S]*?<\/button><\/span>/g, '');

@@ -248,7 +248,7 @@ test('(6) Add a chapter: named in the row, then its words — unnamed is dropped
   assert.match(s, /\.then\(\s*\(\) => setFresh\(null\),\s*\(e: unknown\) => setFreshProblem\(whyNot\(e\)\),\s*\)/);
   // Painted: the main button, and the free-stories line in its place once the cap is met.
   const html = await paint(story);
-  assert.match(html, /<button[^>]*data-studio-add-moment=""[^>]*class="[^"]*\bbg-mulberry text-white\b[^"]*"[^>]*>[\s\S]*?Add a chapter</);
+  assert.match(html, /<button[^>]*data-studio-add-moment=""[^>]*class="[^"]*\bbg-sn-accent text-sn-on-accent\b[^"]*"[^>]*>[\s\S]*?Add a chapter</);
   const capped = await paint(story, { add: { can: false, line: 'Five of five free stories told' } });
   assert.doesNotMatch(capped, /data-studio-add-moment/);
   assert.match(capped, /data-love-story-cap="reached"[^>]*>Five of five free stories told</);
@@ -258,8 +258,8 @@ test('(7) a chapter kept off the Event Hub says so on its row; the page writes e
   const rows = rowsOf(await paint(story));
   assert.match(rows[2]!, /data-timeline-note=""[^>]*>Off the Event Hub — guests do not see this chapter\.</);
   assert.doesNotMatch(rows[0]!, /data-timeline-note/);
-  // THE ACCENT, LISTED — until the accent token lands: the empty picture square's mark and ⋯. Fills are `PILL_ON_CLASS`.
-  assert.deepEqual([...src().matchAll(/[\w:!-]*mulberry[\w/-]*/g)].map((m) => m[0]), ['text-mulberry', 'text-mulberry']);
+  // THE ACCENT IS THE ONE TOKEN: the empty picture square's mark and ⋯ (never `mulberry`). Fills are `PILL_ON_CLASS`.
+  assert.deepEqual([...src().matchAll(/[\w:!-]*(?:mulberry|sn-accent|sn-on-accent)[\w/-]*/g)].map((m) => m[0]), ['text-sn-accent', 'text-sn-accent']);
   assert.doesNotMatch(src(), /#[0-9a-fA-F]{3,8}\b|\b(?:bg|text|ring|border)-(?:terracotta|gild|gold)\b/, 'a colour is written by hand');
-  assert.match(rows[0]!, /data-studio-story-more="u"[^>]*class="[^"]*\btext-mulberry\b/);
+  assert.match(rows[0]!, /data-studio-story-more="u"[^>]*class="[^"]*\btext-sn-accent\b/);
 });

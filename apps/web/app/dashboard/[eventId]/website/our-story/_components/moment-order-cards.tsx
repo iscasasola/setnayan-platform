@@ -269,7 +269,7 @@ function ChapterRow({
             title={`Photos${named}`}
             sheet={pickSheet}
             onClosed={savePhotos}
-            face={`sn-press sn-press-ring ${SQUARE} ${media.length ? 'bg-ink/10' : 'border border-dashed border-ink/25 bg-white text-mulberry'}`}
+            face={`sn-press sn-press-ring ${SQUARE} ${media.length ? 'bg-ink/10' : 'border border-dashed border-ink/25 bg-white text-sn-accent'}`}
           >
             {(close) => (
               <ChapterPhotos m={m} sheet={sheet} mediaUrls={mediaUrls} onChange={(refs) => (picked.current = refs)} onDone={close} />
@@ -282,7 +282,7 @@ function ChapterRow({
             aria-expanded={open}
             aria-label={`More for ${m.title || 'this chapter'} — its words, where, order, remove`}
             onClick={onOpen}
-            className="sn-press flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-mulberry hover:bg-ink/5"
+            className="sn-press flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sn-accent hover:bg-ink/5"
           >
             <MoreHorizontal aria-hidden className="h-5 w-5" strokeWidth={1.75} />
           </button>

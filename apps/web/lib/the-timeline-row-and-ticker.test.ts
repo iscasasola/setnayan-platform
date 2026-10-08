@@ -249,10 +249,10 @@ test('(6) the watch: the shared pieces are neutral and write no accent of their 
     assert.doesNotMatch(src, /#[0-9a-fA-F]{3,8}\b/, `${rel} holds a hex colour`);
     assert.doesNotMatch(src, /\b(?:bg|text|ring|border|fill|stroke|from|to|via|outline|decoration)-(?:terracotta|gild|gold|wine|rose|red|orange|amber|emerald|green|blue)\b/, `${rel} names a colour`);
   }
-  // THE ACCENT, LISTED — until the accent token lands, exactly these `mulberry` uses and no others (the fill and its
+  // THE ACCENT IS THE ONE TOKEN (`--sn-accent`, lib/the-accent-is-one-token.test.ts watches both files) — exactly these uses (the fill and its
   // words come from the pill selector's `PILL_ON_CLASS`). A new one must be added HERE, on purpose.
-  const accent = (rel: string) => [...read(rel).matchAll(/[\w:-]*mulberry[\w/-]*/g)].map((m) => m[0]).sort();
-  assert.deepEqual(accent(TICKER), ['aria-expanded:ring-mulberry', 'text-mulberry']);
+  const accent = (rel: string) => [...read(rel).matchAll(/[\w:-]*(?:mulberry|sn-accent|sn-on-accent)[\w/-]*/g)].map((m) => m[0]).sort();
+  assert.deepEqual(accent(TICKER), ['aria-expanded:ring-sn-accent', 'text-sn-accent']);
   assert.deepEqual(accent(ROW), []);
   assert.match(read(TICKER), /rounded-full text-\[15px\] font-semibold \$\{PILL_ON_CLASS\}/, 'Done is not the one "on" fill');
   // The ticker joins ONE-OPEN-AT-A-TIME, and its precision is the house pill selector — not a hand-made one.

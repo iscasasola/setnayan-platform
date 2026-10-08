@@ -236,7 +236,7 @@ function MomentRow({
             aria-label={`More for ${m.label} — place, who it is for, notes, guests, remove`}
             onClick={() => onMore(m.block_id)}
             /* ⋯ is a mark that says "you can tap this" — the accent, like the pencil and the arrow (owner 2026-10-08). */
-            className="sn-press flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-mulberry hover:bg-ink/5"
+            className="sn-press flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sn-accent hover:bg-ink/5"
           >
             <MoreHorizontal aria-hidden className="h-5 w-5" strokeWidth={1.75} />
           </button>

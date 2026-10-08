@@ -45,7 +45,7 @@ import type { NotificationRow } from '@/lib/notifications';
 import { HomePillNav } from '@/app/dashboard/(launcher)/_components/home-pill-nav';
 import { BottomDock } from '@/app/_components/nav/bottom-nav';
 import { AddGuestSheet } from '@/app/dashboard/[eventId]/guests/_components/add-guest-sheet';
-import { GuestCardBody } from '@/app/dashboard/[eventId]/guests/_components/guest-card-body';
+import { GuestCardBody, GUEST_CARD_ERROR_COPY } from '@/app/dashboard/[eventId]/guests/_components/guest-card-body';
 import { GuestInviteCell } from '@/app/dashboard/[eventId]/guests/_components/guest-invite-cell';
 import { GuestMoreMenu, GuestTicketThumb } from '@/app/dashboard/[eventId]/guests/_components/guest-ticket-parts';
 import type { GuestCardData } from '@/app/dashboard/[eventId]/guests/_components/guest-card-data';
@@ -274,6 +274,29 @@ export default async function GuestsLabPage({
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
+
+  /* 🧪 THE CARD'S WRITES, AS STAND-INS (step 4A, 2026-10-09). The card binds the shipped `updateGuest` / `releaseGuestClaim` /
+     `inviteGuestByEmailAction` in the page that draws it; the lab hands in its own — INLINE server actions (not exported, so
+     the server-action budget does not see them) that write NOTHING, so the lab's card can be pressed without reaching the
+     database. `?refuse=1` makes them refuse the way the real ones do — a redirect back with `?error=` — in the DATABASE'S OWN
+     WORDS, on purpose, so a guard can prove the card never prints them. */
+  const labRefuses = sp.refuse === '1';
+  const labBack = `/dev/guests-lab?part=${sp.part === 'host' ? 'host' : 'card'}${labRefuses ? '&refuse=1' : ''}`;
+  const labRefusal = `${labBack}&error=${encodeURIComponent('new row violates row-level security policy for table "guests"')}`;
+  async function labUpdate(formData: FormData) {
+    'use server';
+    void formData;
+    if (labRefuses) redirect(labRefusal);
+  }
+  async function labRelease(formData: FormData) {
+    'use server';
+    void formData;
+    if (labRefuses) redirect(labRefusal);
+  }
+  async function labPartnerLink() {
+    'use server';
+    if (labRefuses) redirect(labRefusal);
+  }
   const part = typeof sp.part === 'string' ? sp.part : 'head';
 
   if (part === 'notices') {
@@ -310,14 +333,16 @@ export default async function GuestsLabPage({
               {/* The panel over the Guest list, as a phone shows it: inset from the left. */}
               <div className="ml-12 min-h-dvh rounded-l-3xl bg-cream px-[18px] pb-10 pt-6 shadow-xl" data-lab-card="">
                 {low ? <div aria-hidden className="h-[440px]" data-lab-low="" /> : null}
+                <LabGuestActions refuse={labRefuses}>
                 <GuestCardBody
                   eventId={EVENT}
                   data={cardData(g, host)}
                   invitationBase="https://www.setnayan.com/maria-and-jose"
                   photoDisplayUrl={null}
                   variant="page"
-                  returnTo="/dev/guests-lab"
-                  errorMessage={null}
+                  returnTo={labBack}
+                  errorMessage={typeof sp.error === 'string' ? (GUEST_CARD_ERROR_COPY[sp.error] ?? decodeURIComponent(sp.error)) : null}
+                  actions={{ update: labUpdate, release: labRelease, partnerLink: labPartnerLink }}
                   inviteFlash={null}
                   inviteSetup={{
                     facts: { hostsName: 'Maria & Jose', eventWord: 'wedding', eventDate: '2026-12-12', datePrecision: 'day' },
@@ -328,11 +353,14 @@ export default async function GuestsLabPage({
                   TicketThumb={GuestTicketThumb}
                   MoreMenu={GuestMoreMenu}
                 />
+                </LabGuestActions>
               </div>
             </div>
           </div>
         </main>
         <DockStandIn />
+        {/* What the real card page mounts: the host that draws the autosave's Undo toast. */}
+        <UndoToastHost />
       </div>
     );
   }

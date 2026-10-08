@@ -1,7 +1,7 @@
 {
-  "generatedFromRef": "d349624b7",
+  "generatedFromRef": "e15f019e5",
   "routeCount": 429,
-  "destinations": 957,
+  "destinations": 956,
   "actions": 672,
   "blocks": 5846,
   "routes": {
@@ -9875,7 +9875,6 @@
         "dev/guests-lab/page.tsx"
       ],
       "destinations": [
-        "/dev/guests-lab",
         "/dev/guests-lab?part=notices"
       ],
       "actions": [],

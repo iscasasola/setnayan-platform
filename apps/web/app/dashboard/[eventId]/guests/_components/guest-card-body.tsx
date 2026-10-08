@@ -173,6 +173,17 @@ export const GUEST_CARD_ERROR_COPY: Record<string, string> = {
   ...THIS_IS_ME_REFUSAL_COPY,
 };
 
+/**
+ * The three writes the card's own forms post — the SHIPPED server actions, bound to this guest, unless a page hands others in.
+ * Only the dev lab does (its stand-ins write nothing, so its card can be pressed); every real page leaves it out. A prop,
+ * not an import of the lab's: this file is drawn inside the Maker's first load and must not learn about it.
+ */
+export type GuestCardActions = {
+  update: (formData: FormData) => void | Promise<void>;
+  release: (formData: FormData) => void | Promise<void>;
+  partnerLink: () => void | Promise<void>;
+};
+
 export function GuestCardBody({
   eventId,
   data,
@@ -188,6 +199,7 @@ export function GuestCardBody({
   TicketThumb,
   MoreMenu,
   helperAccess,
+  actions,
 }: {
   eventId: string;
   data: GuestCardData;
@@ -228,6 +240,8 @@ export function GuestCardBody({
    * Rendered by the Guest list's card screens; absent (the Maker) → none.
    */
   helperAccess?: React.ReactNode;
+  /** Other writes for the card's forms — the dev lab's stand-ins. Absent = the shipped actions. */
+  actions?: GuestCardActions;
 }) {
   const {
     guest,
@@ -262,9 +276,9 @@ export function GuestCardBody({
   const lockedName = composeFormalName(guest) ?? guestDisplayName(guest);
   const accessTagLabel = access ? accessTag(access) : null;
 
-  const updateAction = updateGuest.bind(null, eventId, guest.guest_id);
-  const releaseAction = releaseGuestClaim.bind(null, eventId, guest.guest_id);
-  const partnerLinkAction = inviteGuestByEmailAction.bind(null, eventId, guest.guest_id);
+  const updateAction = actions?.update ?? updateGuest.bind(null, eventId, guest.guest_id);
+  const releaseAction = actions?.release ?? releaseGuestClaim.bind(null, eventId, guest.guest_id);
+  const partnerLinkAction = actions?.partnerLink ?? inviteGuestByEmailAction.bind(null, eventId, guest.guest_id);
 
   const name = guestDisplayName(guest);
   const inviteUrl = invitationBase && guest.qr_token ? invitationLinkOn(invitationBase, guest.qr_token) : null;

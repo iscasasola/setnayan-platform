@@ -269,13 +269,13 @@ export function HomeFirstScreen({
             </div>
           ) : (
             <>
-              <Link href={`/dashboard/${eventId}/guests`} className="home-tile">
+              <Link href={`/dashboard/${eventId}/guests?q=coming`} className="home-tile" data-home-tile="coming">
                 <div className="home-v">
                   <Figure n={figures?.coming} word={coming} id="home-coming" />
                 </div>
                 <div className="home-k">coming</div>
               </Link>
-              <Link href={`/dashboard/${eventId}/guests`} className="home-tile">
+              <Link href={`/dashboard/${eventId}/guests?q=no+reply`} className="home-tile" data-home-tile="no-reply">
                 {/* Plain ink, as the prototype draws it — the count speaks; no alarm colour. */}
                 <div className="home-v" data-waiting={noReplyWaiting ? '' : undefined}>
                   <Figure n={figures?.noReply} word={noReply} id="home-noreply" />
@@ -324,7 +324,7 @@ export function HomeFirstScreen({
                     <Count value={paidPct} format="pct" id="home-paid-pct" /> paid ·{' '}
                   </>
                 ) : null}
-                opens your budget in Suppliers
+                Budget ›
               </div>
             </Link>
           )

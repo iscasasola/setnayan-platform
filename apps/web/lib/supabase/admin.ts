@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { createLoggingFetch } from './db-error-log';
+import { markServiceRoleClient } from '@/lib/request-once';
 
 /**
  * Server-only Supabase client that uses the `service_role` key and bypasses RLS.
@@ -44,12 +45,17 @@ export function createAdminClient() {
   if (!url || !key) {
     throw new Error('Missing SUPABASE env vars for admin client.');
   }
-  return createClient(url, key, {
-    auth: { autoRefreshToken: false, persistSession: false },
-    // Surface failed PostgREST calls instead of letting them resolve to
-    // `data: null` and render as an empty list. See ./db-error-log.
-    global: { fetch: createLoggingFetch('admin') },
-  });
+  // Marked as a service-role client so a render can tell that two of these —
+  // a new object on every call — are the SAME authority asking the same
+  // question (lib/request-once.ts). The mark is set here and nowhere else.
+  return markServiceRoleClient(
+    createClient(url, key, {
+      auth: { autoRefreshToken: false, persistSession: false },
+      // Surface failed PostgREST calls instead of letting them resolve to
+      // `data: null` and render as an empty list. See ./db-error-log.
+      global: { fetch: createLoggingFetch('admin') },
+    }),
+  );
 }
 
 /**

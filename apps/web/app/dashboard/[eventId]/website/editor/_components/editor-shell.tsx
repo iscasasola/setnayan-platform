@@ -962,14 +962,15 @@ export function MakerWork({
     ? `${publicLandingUrl}?phase=${stage}&editor=1${guestBars ? '&bars=1' : ''}${seeAs ? `&${SEE_AS_PARAM}=${seeAs}` : ''}${stagesTabs}`
     : null;
   const canvasSrc = previewSrc;
-  /* 🔥 LOAD EVERYTHING UP FRONT (owner 2026-09-28: *"is it possible to load
-     everything so it runs smoothly?"*). The other three stages, as the host's
-     editing canvas, loaded hidden behind this one once it is up and the tab is
-     idle (`buffered-canvas-frame.tsx`) — nearest stage first — so a stage
-     switch shows a page that is already loaded. Keyed exactly as the shown
-     frame would be, so a switch finds its frame. None while "view as" is on,
-     and none on a small-memory phone or a save-data connection
-     (`warmCanvasBudget`, decided once the device is known). */
+  /* 🔥 A STAGE THE COUPLE HAS OPENED STAYS LOADED (owner 2026-09-28: *"is it
+     possible to load everything so it runs smoothly?"*). The other stages, as
+     the host's editing canvas, may be KEPT hidden behind this one once they
+     have been shown (`buffered-canvas-frame.tsx`), so switching back shows a
+     page that is already loaded. Keyed exactly as the shown frame would be, so
+     a switch finds its frame. None while "view as" is on, and none on a
+     small-memory phone or a save-data connection (`warmCanvasBudget`).
+     🧯 2026-10-08: a stage nobody opened is no longer fetched ahead — each one
+     is a full server render of the guest page, repeated after every save. */
   const [warmBudget, setWarmBudget] = useState(0);
   useEffect(() => {
     const nav = window.navigator as Navigator & { deviceMemory?: number; connection?: { saveData?: boolean } };
@@ -2735,7 +2736,6 @@ export function MakerWork({
             broadcastRef={canvasBroadcast}
             warm={warmStages}
             warmMax={warmBudget}
-            warmGen={maker.renderStamp}
             anchorKey={() => selectedKeyRef.current}
             onShown={setShownFrameKey}
             onSwapped={onCanvasSwapped}
@@ -3268,7 +3268,7 @@ export function MakerWork({
  * (the scrapbook, or the story as guests see it). Details is the shell's.
  */
 /** Details and RSVP are drawn by the SHELL (`maker-shell.tsx`) over this area. */
-/** The other stages, nearest first (`PUBLIC_STAGE_ORDER`) — the order they are warmed in. */
+/** The other stages, nearest first (`PUBLIC_STAGE_ORDER`) — the order they are kept in when the budget is short. */
 function warmStageOrder(stage: LifecyclePhase): LifecyclePhase[] {
   const order: readonly LifecyclePhase[] = PUBLIC_STAGE_ORDER;
   const at = order.indexOf(stage);

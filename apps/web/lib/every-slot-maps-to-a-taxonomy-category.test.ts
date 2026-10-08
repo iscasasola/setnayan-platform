@@ -23,7 +23,8 @@ import { AWAITING_A_SLOT, STUDIO_INSPIRATION_SLOTS } from './inspiration-slots';
 
 /* The owner's twelve parts (2026-10-06/07), with the bride's card named "Bridal gown" and his attire
    boards added (2026-10-08: Groom's suit drawn on the stored `groom` slot; Groomsmen · Bridesmaids ·
-   Flower girl · Ring bearer awaiting a slot of their own). */
+   Flower girl · Ring bearer each on a slot of their own since migration 20271266380994 — DRAWN, no
+   longer waiting; `four-more-attire-boards.test.ts` holds the four). */
 const OWNERS_TWELVE = ['Flowers', 'Tables', 'Venue & decor', 'Bridal gown', 'Groom’s suit', 'Entourage', 'Cake', 'Bridal bouquet', 'Centrepieces', 'Stage', 'Ceiling', 'Wall', 'Tunnel', 'Groomsmen', 'Bridesmaids', 'Flower girl', 'Ring bearer'];
 
 test('every drawn part is a stored slot with a supplying trade', () => {
@@ -47,4 +48,9 @@ test('a part with no slot yet still maps to existing taxonomy tiles — and is n
 test('the owner’s twelve are every one accounted for', () => {
   const named = [...STUDIO_INSPIRATION_SLOTS.map((s) => s.label), ...AWAITING_A_SLOT.map((a) => a.label)];
   assert.deepEqual([...named].sort(), [...OWNERS_TWELVE].sort());
+  /* 👗 The four attire boards are accounted for by being DRAWN (a stored slot each), not by waiting. */
+  for (const label of ['Groomsmen', 'Bridesmaids', 'Flower girl', 'Ring bearer']) {
+    assert.ok(STUDIO_INSPIRATION_SLOTS.some((s) => s.label === label), `${label} is not drawn`);
+    assert.ok(!AWAITING_A_SLOT.some((a) => a.label === label), `${label} still waits for a slot`);
+  }
 });

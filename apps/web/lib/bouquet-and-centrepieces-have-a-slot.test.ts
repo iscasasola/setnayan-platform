@@ -43,12 +43,20 @@ test('the app carries them: the vocabulary, their trades, a Studio card and a bo
   }
   assert.deepEqual([...MOODBOARD_SLOT_TRADES.bridal_bouquet], ['florist']);
   assert.deepEqual([...MOODBOARD_SLOT_TRADES.centrepieces], ['florist', 'stylist_decorator', 'catering']);
-  /* The two are no longer waiting (the owner's attire boards wait there since 2026-10-08). */
+  /* The two are no longer waiting (nor are the owner's four attire boards, since 20271266380994). */
   assert.ok(!AWAITING_A_SLOT.some((a) => ['Bridal bouquet', 'Centrepieces'].includes(a.label)), 'a part with a slot still waits for one');
   const board = readFileSync(join(__dirname, '../app/dashboard/[eventId]/studio/mood-board/_components/inspiration-board.tsx'), 'utf8');
   assert.match(board, /\{ k: 'bridal_bouquet', label: 'Bridal bouquet' \}/);
   assert.match(board, /\{ k: 'centrepieces', label: 'Centrepieces' \}/);
-  // …and the app list is exactly the DB's list (the three gates agree).
+  // …and the app list is exactly the DB's list (the three gates agree). The gates' LATEST word is
+  // 20271266380994 (the four attire boards, 2026-10-08), which re-lists this file's twenty verbatim
+  // and adds four — so step 4c's list is held as a subset, and the latest one as the whole.
   const ours = sql('_studio_missing_fields.sql');
-  assert.deepEqual([...list(ours, 'ADD CONSTRAINT event_inspiration_assets_slot_key_check_v3')].sort(), [...MOODBOARD_SLOT_KEYS].sort());
+  const fourC = list(ours, 'ADD CONSTRAINT event_inspiration_assets_slot_key_check_v3');
+  for (const k of fourC) assert.ok((MOODBOARD_SLOT_KEYS as readonly string[]).includes(k), `${k} was in step 4c's gate and the app lost it`);
+  const latest = sql('_attire_boards_four_more_slots.sql');
+  for (const gate of ['ADD CONSTRAINT event_inspiration_assets_slot_key_check_v3', 'ADD CONSTRAINT moodboard_library_assets_supplier_gallery_shape']) {
+    assert.deepEqual(list(latest, gate).slice(0, fourC.length), fourC, `${gate}: the latest re-listing changed a value step 4c held`);
+    assert.deepEqual([...list(latest, gate)].sort(), [...MOODBOARD_SLOT_KEYS].sort(), `${gate}: the app and the database disagree`);
+  }
 });

@@ -5,6 +5,7 @@ import { fetchGuestsByEventMeasured } from '@/lib/guests';
 import { readHubDraft } from '@/lib/hub-draft-store';
 import { readFinalizeState, resolveLivePax } from '@/lib/pax';
 import { resolveReplyBy, sanitizeRsvpAskConfig } from '@/lib/rsvp-ask';
+import { toInviteCount } from '@/lib/guest-roster-view';
 import { GuestSetupRows } from '../../../_components/guest-setup/guest-setup-rows';
 import { readOneLink } from '../../../_components/guest-setup/one-link.server';
 
@@ -74,9 +75,9 @@ export async function InvitePanel({ eventId }: { eventId: string }) {
   const drafted = Boolean(draft && 'rsvp_ask_config' in draft.events);
   const config = sanitizeRsvpAskConfig(drafted ? draft!.events.rsvp_ask_config : row.rsvp_ask_config);
 
-  /* The couple do not invite themselves (the send run's own filter). */
-  const invitable = guests.rows.filter((g) => g.role !== 'bride' && g.role !== 'groom');
-  const toInvite = guests.measured ? invitable.filter((g) => !g.invitation_sent_at).length : null;
+  /* "Send to N" — the ONE "to invite" rule (`isToInvite`): the List's number, and the
+     send run's. A refused read is null ("We couldn't count…"), never 0. */
+  const toInvite = toInviteCount(guests.rows, guests.measured);
   const attending = guests.measured ? guests.rows.filter((g) => g.rsvp_status === 'attending').length : null;
 
   return (

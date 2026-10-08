@@ -53,6 +53,7 @@ import { GuestInviteCell } from '@/app/dashboard/[eventId]/guests/_components/gu
 import { GuestMoreMenu, GuestTicketThumb } from '@/app/dashboard/[eventId]/guests/_components/guest-ticket-parts';
 import type { GuestCardData } from '@/app/dashboard/[eventId]/guests/_components/guest-card-data';
 import { guestDisplayName, guestFullName, type GuestRow } from '@/lib/guests';
+import { DEFAULT_NAME_STYLE } from '@/lib/name-style';
 import { sendRunGuests, toInviteCount } from '@/lib/guest-roster-view';
 import { invitationLinkOn } from '@/lib/invitation-link';
 import { SendRun } from '@/app/dashboard/[eventId]/guests/send/_components/send-run';
@@ -443,7 +444,7 @@ export default async function GuestsLabPage({
     const failed = sp.fail === '1';
     const runGuests = sendRunGuests(failed ? [] : planningRoster()).map((g) => ({
       guestId: g.guest_id,
-      formalName: guestFullName(g),
+      formalName: guestFullName(g, DEFAULT_NAME_STYLE),
       firstName: g.first_name,
       fullName: guestDisplayName(g),
       inviteUrl: invitationLinkOn(LAB_HUB, g.guest_id),

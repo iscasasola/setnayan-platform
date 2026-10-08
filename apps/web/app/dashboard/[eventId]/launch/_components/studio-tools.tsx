@@ -55,6 +55,7 @@ import {
   type HubMainGround,
 } from '@/lib/hub-canvas';
 import { MAIN_GROUND_SHADES, MAIN_GROUND_SHADE_LABEL } from '@/lib/main-ground-shade';
+import { fadeWords } from '@/lib/background-fade';
 import { MAIN_COLOUR_JOB, MAIN_COLOUR_SLOTS, type MainColourDraft, type MainColourSlot } from '@/lib/main-colours';
 import { MAIN_COLOUR_SLOTS as MOOD_MAIN_COLOUR_SLOTS } from '@/lib/colour-access';
 import { InfoTip } from '@/app/_components/info-tip';
@@ -695,6 +696,8 @@ export function StudioMainExtras({ eventId, main }: { eventId: string; main: Hub
   const [error, setError] = useState<string | null>(null);
   const [, start] = useTransition();
   const takes = hubMainTakes(now);
+  const shadeNow = (now as { shade?: unknown } | null)?.shade;
+  const fadeSet = typeof shadeNow === 'number' ? shadeNow : null;
   const save = (next: HubMainGround) => {
     const before = now;
     setNow(next);
@@ -763,9 +766,11 @@ export function StudioMainExtras({ eventId, main }: { eventId: string; main: Hub
             label="Shade"
             dataAttr="data-studio-shade-pick"
             className={STUDIO_ROW_PICK}
-            value={extra('shade') ?? 'as-is'}
-            options={MAIN_GROUND_SHADES.map((k) => ({ key: k, label: MAIN_GROUND_SHADE_LABEL[k] }))}
-            onPick={(k) => k !== (extra('shade') ?? 'as-is') && save(withExtra('shade', k === 'as-is' ? null : k))}
+            /* 🎚 A position set on the Studio's fade bar (a number — `lib/background-fade.ts`) is shown as what it IS,
+               ticked, never as "As is": this older list only offers the five named steps beside it. */
+            value={fadeSet !== null ? 'fade' : (extra('shade') ?? 'as-is')}
+            options={[...(fadeSet !== null ? [{ key: 'fade', label: fadeWords(fadeSet) }] : []), ...MAIN_GROUND_SHADES.map((k) => ({ key: k, label: MAIN_GROUND_SHADE_LABEL[k] }))]}
+            onPick={(k) => k !== 'fade' && (fadeSet !== null || k !== (extra('shade') ?? 'as-is')) && save(withExtra('shade', k === 'as-is' ? null : k))}
           />
         </HubRow>
       ) : null}

@@ -29,7 +29,7 @@ import { stripComments } from './strip-comments';
 import { MAKER_PARTS, type MakerPartKey } from './maker-parts';
 import { HUB_ELEMENT_FIELDS, HUB_ELEMENT_SIZE_BASE, withElementChoice } from './element-style';
 import { canvasWriteKey } from './maker-draft-store';
-import { SP_LOOK_ROW, SP_PALETTE_PICK, SP_PALETTE_ROW, SP_STYLE_CARD, SP_STYLE_PANE, SP_STYLE_STRIP, STAGE_BAR_FOOT_CSS } from './maker-stage-room';
+import { SP_LOOK_ROW, SP_PALETTE_PICK, SP_PALETTE_ROW, SP_STYLE_CARD, SP_STYLE_PANE, SP_STYLE_STRIP, STAGE_BAR_FOOT_CSS, STAGE_STRIP_RING_PX, stageBarRow } from './maker-stage-room';
 import { phoneHeightPx } from './maker-phone-room';
 import { PALETTE_LOOK_IDS } from './palette-looks';
 
@@ -49,6 +49,14 @@ test('(1) the cards take the rows left to them, nothing scrolls up and down, and
   assert.ok(!SP_STYLE_PANE.split(' ').some((c) => /^overflow-(y-)?(auto|scroll)$/.test(c)), 'Style scrolls up and down');
   /* The strip: what is left of the pane (`flex-1`), swiped sideways only, a card snapping to its middle. */
   for (const c of ['flex-1', 'min-h-0', 'overflow-x-auto', 'overflow-y-hidden', 'snap-x', 'snap-mandatory', 'items-stretch']) assert.ok(has(SP_STYLE_STRIP, c), `the strip lost ${c}`);
+  /* 🫧 A ROW'S GAP ABOVE THE CARDS (seen on the review copy: the cards touched the selector's band and the picked
+     card's ring was cut at the top): the strip's top margin plus its own padding is exactly one gap (`--sp-rg`), and
+     that padding — the room the ring is drawn in — is as wide as the ring, above and below. */
+  assert.equal(STAGE_STRIP_RING_PX, 4);
+  assert.ok(has(SP_STYLE_STRIP, 'mt-[calc(var(--sp-rg)_-_4px)]') && has(SP_STYLE_STRIP, 'py-1'), 'the cards do not start one gap under the selector’s band');
+  assert.ok(has(SP_STYLE_STRIP, '-mb-1') && !has(SP_STYLE_STRIP, '-my-1') && !has(SP_STYLE_STRIP, '-mt-1'), 'the strip reaches up over the band again — the ring is cut');
+  assert.match(SP_STYLE_CARD, /aria-checked:shadow-\[0_0_0_1px_var\(--sp-cta\),0_0_0_4px_var\(--sp-cta-wash\)\]/, 'the ring is wider than the room kept for it');
+  for (const h of [568, 667, 812]) assert.ok(stageBarRow(h).gap >= STAGE_STRIP_RING_PX, `${h}px tall: a gap is narrower than the ring`);
   /* The card: as tall as the strip, its width following (the one 3 : 4 frame); it snaps by its centre. */
   for (const c of ['sn-phone-card', '!h-full', '![inline-size:auto]', 'snap-center']) assert.ok(has(SP_STYLE_CARD, c), `the card lost ${c}`);
   /* Picked, it wears the accent's line and ring — on the card itself (the prototype's `.lc[aria-checked=true]`). */
@@ -76,6 +84,14 @@ test('(1) the cards take the rows left to them, nothing scrolls up and down, and
   assert.match(car, /useLayoutEffect\(\(\) => centre\(false\), \[centre, ends\.first, ends\.last, wide, options\.length\]\);/);
   assert.match(car, /picked\.current = value;\s*centre\(true\);/);
   assert.match(car, /new ResizeObserver\(\(\) => centre\(false\)\)/);
+  /* THE ROOM BESIDE THE FIRST / LAST CARD IS THE STRIP'S OWN (the first look picked leaves the left third empty —
+     the owner's rule is the picked one in the middle, no wrap-around): it is inside the strip, so a swipe that
+     starts there swipes the cards; it has no handler of its own; and the toolbar's swipe-to-the-next-part stands
+     back for anything inside the strip. Never dead space that swallows a swipe. */
+  assert.match(html, /^<div[^>]*data-look-cards=""[^>]*><span aria-hidden="true" data-look-end="first"/);
+  assert.match(html, /<span aria-hidden="true" data-look-end="last" class="shrink-0"[^>]*><\/span><\/div>$/);
+  assert.doesNotMatch(car, /data-look-end="(first|last)"[^>]*on(Click|Pointer|Touch)/);
+  assert.match(read(`${L}/stage-tools.tsx`), /const skip = t\?\.closest\?\.\('[^']*\[data-style-carousel\][^']*'\);/, 'a swipe on the strip also steps to the next part');
 
   /* THE WORK AREA'S PARTS ARE LAID IN THAT PANE under Style (`rows`); a body that is not the work area's keeps its own. */
   const h = React.createElement;
@@ -201,7 +217,7 @@ test('(4) the Dress code: the palette’s five looks are ONE row of five picture
   assert.match(html, new RegExp(`^<div role="radiogroup" aria-label="Palette style" data-look-row="palette" data-palette-strip="" class="${SP_PALETTE_ROW.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}">`));
   const picks = [...html.matchAll(/<button[^>]*data-palette-pick="([a-z]+)"[^>]*class="([^"]*)"/g)];
   assert.deepEqual(picks.map((m) => m[1]), [...PALETTE_LOOK_IDS], 'not the five looks, in the registry’s order');
-  for (const m of picks) assert.equal(m[2], SP_PALETTE_PICK);
+  for (const m of picks) assert.equal(m[2]!.replace(/&amp;/g, '&').replace(/&gt;/g, '>'), SP_PALETTE_PICK);
   /* ONE row tall, five EQUAL buttons, 44 px each. */
   assert.ok(has(SP_PALETTE_ROW, 'h-[var(--sp-rh)]') && has(SP_PALETTE_ROW, 'shrink-0') && has(SP_PALETTE_ROW, 'flex') && !has(SP_PALETTE_ROW, 'flex-wrap'));
   assert.ok(has(SP_PALETTE_PICK, 'flex-1') && has(SP_PALETTE_PICK, 'min-w-0'));
@@ -211,6 +227,11 @@ test('(4) the Dress code: the palette’s five looks are ONE row of five picture
   const empty = renderToStaticMarkup(React.createElement(PaletteLookStrip, { value: 'tags', colours: [], onPick: () => {} }));
   assert.equal((empty.match(/role="radio"/g) ?? []).length, 5, 'with no colours yet the row is gone');
   assert.doesNotMatch(empty, /#A9834B/i);
+  /* ONE frame a look: the picture fills its button (the dropdown thumbnail's own small box and line are put away). */
+  for (const c of ['overflow-hidden', 'items-stretch', '[&>[data-palette-thumb]]:!w-full', '[&>[data-palette-thumb]]:!h-auto', '[&>[data-palette-thumb]]:!shadow-none', '[&>[data-palette-thumb]]:!rounded-none']) {
+    assert.ok(has(SP_PALETTE_PICK, c), `a palette picture is a box inside a box (no ${c})`);
+  }
+  assert.equal((html.match(/data-palette-thumb="/g) ?? []).length, 5, 'anti-vacuity: the thumbnail’s mark moved');
   /* It is a row of Style (kept under the cards), never a card strip of its own. */
   assert.doesNotMatch(html, /data-look-cards|data-style-carousel/);
 });

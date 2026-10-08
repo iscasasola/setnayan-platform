@@ -150,6 +150,16 @@ test('no audited picker sizes a card as a share of the row or by its part’s sh
   assert.equal(styleCardIsWide({ w: 375, h: 220 }), false, 'a scene (the Countdown)');
   assert.equal(styleCardIsWide({ w: 375, h: 1400 }), false, 'a tall scene (the Schedule)');
   assert.equal(styleCardIsWide(null), false, 'a part not measured yet');
+  /* …measured on what the part DRAWS (its words, its picture), never on its block — a block is as wide as the page
+     whatever stands in it (seen on the review copy, 2026-10-09: the Logo's cards came out wide). */
+  const prev = read(`${LAUNCH}/stage-panel/style-preview.tsx`);
+  assert.match(prev, /onDrawnRef\.current\?\.\(drawnContent\(d, part\) \?\? \{ w: drawn\.width, h: drawn\.height \}\);/, 'a card is widened by its block’s shape');
+  const content = prev.slice(prev.indexOf('export function drawnContent('), prev.indexOf('export function StylePreview('));
+  assert.match(content, /doc\.createTreeWalker\(part, 4 /, 'the words are not measured run by run');
+  assert.match(content, /range\.selectNodeContents\(n\);\s*for \(const r of Array\.from\(range\.getClientRects\(\)\)\) take\(r\);/);
+  assert.match(content, /part\.querySelectorAll\('img, svg, video, canvas'\)/);
+  assert.doesNotMatch(content, /part\.getBoundingClientRect\(\)/, 'the part’s own block is measured');
+  assert.equal(styleCardIsWide({ w: 60, h: 24 }), false, 'the Logo’s words in its circle');
   const cls = SP_STYLE_CARD.split(' ');
   assert.ok(cls.includes('data-[wide]:![inline-size:calc((100%_-_20px)_*_0.6)]'), 'a wide card is not 60 % of the toolbar’s inner width');
   assert.ok(cls.includes('data-[wide]:![aspect-ratio:auto]'), 'a wide card would be taller than its rows');

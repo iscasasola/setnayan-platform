@@ -51,6 +51,24 @@ const MJ_ROWS: ReadonlyArray<[WidgetType, boolean]> = [
 ];
 
 /** Stand-ins for a moving background's still and loop when the lab has no public media address — files this repo ships. */
+/**
+ * 🧪 The Studio cards' states in the lab — a stand-in for what the server measures on a real event (`studioTiles`):
+ * a MIX, so a Ready card, a Missing one and a page nobody could measure (no badge) are each on screen, and the head's
+ * "n of 11 ready" can be read against them (6 here). Fixture only — nothing is read or written.
+ */
+const LAB_STUDIO_DONE: Record<(typeof STUDIO_TILE_KEYS)[number], boolean | undefined> = {
+  info: true,
+  look: true,
+  logo: false,
+  mood: true,
+  schedule: true,
+  story: false,
+  march: false,
+  seats: false,
+  gifts: undefined,
+  rsvp: true,
+  prints: true,
+};
 const LAB_STILLS = ['ballroom', 'starlit', 'fairy-lights', 'rose-archway', 'seascape', 'sunrise', 'aurora', 'peonies', 'bridgerton'];
 const LAB_CLIPS = ['jack-jill-vclip', 'jack-rose-vclip', 'maria-juan-vclip', 'john-jane-vclip', 'peter-mary-vclip'];
 
@@ -190,7 +208,7 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
       changes={Math.max(0, Math.min(99, Math.floor(Number(sp.changes) || 0)))}
       /* Moves with every render, as the real Maker's stamp does — a save's refresh reaches the canvas. */
       renderStamp={String(Date.now())}
-      /* 🧭 `?studio=1` (or `?ss=1`) — the new Maker on the lab's fixtures (no ✓ claimed: nothing was measured here). */
+      /* 🧭 `?studio=1` (or `?ss=1`) — the new Maker on the lab's fixtures (its cards' states are the lab's stand-in, `LAB_STUDIO_DONE`). */
       stagesStudio={sp.studio === '1' || sp.ss === '1'}
       studio={
         sp.studio === '1' || sp.ss === '1'
@@ -201,7 +219,9 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
                 short: STUDIO_TILES[key].short,
                 item: STUDIO_TILES[key].item,
                 immersive: STUDIO_TILES[key].immersive === true,
-                done: undefined,
+                /* 🧪 The lab's stand-in for what the server measures (the real Maker reads each from the event): a mix,
+                   so Ready, Missing and "no claim" can each be seen on a card — and the head's count beside them. */
+                done: LAB_STUDIO_DONE[key],
                 status: STUDIO_TILES[key].sub,
               })),
             }

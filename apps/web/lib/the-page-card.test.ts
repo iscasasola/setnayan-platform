@@ -146,6 +146,7 @@ test('(3) the Studio home: eleven cards, eleven DISTINCT marks, the tile’s own
 
 test('(4) the words: eleven lines that are sentences — never nouns joined by dots — in the house’s words', () => {
   assert.deepEqual(Object.keys(STUDIO_PAGE_CARDS), [...STUDIO_TILE_KEYS]);
+  assert.equal(STUDIO_PAGE_CARDS.story.description, 'How you met, told moment by moment, with photos.');
   for (const key of STUDIO_TILE_KEYS) {
     const c = STUDIO_PAGE_CARDS[key];
     assert.match(c.description, /^[A-Z].*\.$/, `${key}’s line is not a sentence`);
@@ -154,6 +155,10 @@ test('(4) the words: eleven lines that are sentences — never nouns joined by d
     for (const text of [c.description, c.controls, c.seenAt, c.first]) {
       assert.ok(text.trim().length > 12, `${key} has an empty text`);
       assert.doesNotMatch(text, /\bwebsite\b|\bvendor|\bcelebration/i, `${key} uses a word the house does not (${text})`);
+      // A Love Story is told in MOMENTS (owner 2026-10-08) — "chapter" is nowhere on a card or behind its ⓘ.
+      assert.doesNotMatch(text, /chapter/i, `${key} says "chapter" (${text})`);
+      // Places a guest does not have, and things the app does not do.
+      assert.doesNotMatch(text, /Day page|Details page|travels into the bar|programmes|RSVP card|song request/i, `${key} promises something that does not ship (${text})`);
     }
   }
 });

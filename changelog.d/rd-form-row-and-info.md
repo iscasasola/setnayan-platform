@@ -138,3 +138,14 @@ Owner, 2026-10-08, with a picture of Studio › Info's last rows: *"we better fi
 - `lib/studio-quiet-rows-wear-the-templates.test.ts` — three tests, six mutations seen red.
 
 SPEC IMPACT: None.
+
+## 2026-10-08 · fix(studio): the page cards say "moments", promise only what ships, and the lab shows their badges
+
+- Love Story's line is "How you met, told moment by moment, with photos." (owner: they are MOMENTS, and a moment holds
+  up to 3 photos); "chapter" is gone from every card and ⓘ.
+- Each ⓘ text was read against what ships; reworded: Logo (no "travels into the bar"), Mood Board, Schedule, Wedding
+  March, Seat plan, E-Gifts and RSVP no longer name a "Day page" / "Details page" guests do not have.
+- The dev Maker lab hands the cards a mix of measured states (its stand-in, `LAB_STUDIO_DONE`), so Ready, Missing and
+  a page with no badge can each be seen beside the head's count ("6 of 11 ready").
+
+SPEC IMPACT: None.

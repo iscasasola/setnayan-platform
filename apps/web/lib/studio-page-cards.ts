@@ -7,6 +7,11 @@
  * dots), and the three short things its ⓘ explains: what the page controls · where a guest sees it · what to do
  * first. Words only — the card's name, its ✓ / Missing and which pages an event draws are `lib/studio-tiles.ts`'s.
  *
+ * 🔎 EVERY SENTENCE HERE WAS READ AGAINST WHAT SHIPS (2026-10-08): a line that promised something the app does not do
+ * was cut or reworded (the Logo "travelling into the bar", a "Day page" and a "Details page" guests do not have, an
+ * RSVP card and programmes among the prints, RSVP's "meal, plus-one, song requests"). A Love Story is told in
+ * MOMENTS — never chapters (owner 2026-10-08).
+ *
  * Pure strings: no React, no I/O. `studio-home.tsx` (loaded when Studio is first opened) reads them; nothing here
  * reaches the Maker's first load.
  */
@@ -41,51 +46,52 @@ export const STUDIO_PAGE_CARDS: Readonly<Record<StudioTileKey, StudioPageCard>> 
   },
   logo: {
     description: 'A mark made from your names, and how it moves.',
-    controls: 'A monogram or a drawn mark from your initials, its fonts, and whether it travels into the bar as guests scroll.',
-    seenAt: 'At the top of the Event Hub and on the invitation.',
+    controls: 'A monogram or a drawn mark from your initials, its fonts, and how it moves.',
+    seenAt: 'On the cover of your Event Hub.',
     first: 'Try the monogram first — it is made for you from your names.',
   },
   mood: {
     description: 'Your five colours, and what guests should wear.',
     controls: 'The five colours every page is dressed from, your inspiration photos, and the attire for each role — guests, sponsors, the entourage.',
-    seenAt: 'The colours on every page; the dress code on the Details page.',
-    first: 'Set the five colours — Look, buttons and the music button all follow them.',
+    seenAt: 'The colours on every page; the dress code on your Event Hub.',
+    first: 'Set the five colours — every page is dressed from them.',
   },
   schedule: {
     description: 'The times of the day, moment by moment.',
     controls: 'The ceremony, the reception and every moment in between, with times, and announcements for the day.',
-    seenAt: 'On the Day page and the countdown.',
+    seenAt: 'On your Event Hub, as the schedule of the day.',
     first: 'Put in the ceremony time; the rest can be added as you book.',
   },
   story: {
-    description: 'How you met, told in short chapters with a photo each.',
-    controls: 'Chapters of your story, each with a title, a few lines and a photo; the order they are read in.',
+    /* MOMENTS, never chapters (owner 2026-10-08) — and a moment holds up to 3 photos. */
+    description: 'How you met, told moment by moment, with photos.',
+    controls: 'The moments of your story, each with a title, a few lines and up to 3 photos, and the order they are read in.',
     seenAt: 'On the Our Love Story page.',
-    first: 'Write one chapter — how you met — and add a photo.',
+    first: 'Write one moment — how you met — and add a photo.',
   },
   march: {
     description: 'Who walks, in what order, down both aisles.',
     controls: 'The entourage in two columns, dragged into the order they walk; parents, sponsors and the bridal party.',
-    seenAt: 'On the Details page as the wedding march.',
+    seenAt: 'On your Event Hub, as your entourage, and on The Entourage card.',
     first: 'Add your parents and sponsors first; the rest fills in as you confirm people.',
   },
   seats: {
     description: 'The tables, and who sits where.',
     controls: 'Your tables, their sizes and shapes, and each guest’s seat; the room as a map.',
-    seenAt: 'On a guest’s pass (their table) and on the Day page.',
+    seenAt: 'On a guest’s pass (their table), and where guests find their seat on the day.',
     first: 'Make the tables; seat people once replies are in.',
   },
   gifts: {
     description: 'How guests can send a gift, and your thank-you.',
     controls: 'Where gifts are received — GCash, Maya, a bank, PayPal, a registry link — and the thank-you message a guest sees after giving.',
-    seenAt: 'On the Gifts page of the Event Hub.',
+    seenAt: 'On the E-Gifts page of your Event Hub.',
     first: 'Add one way to give; write the thank-you later.',
   },
   rsvp: {
     description: 'What the reply form asks, and the date to reply by.',
     /* The designer's line named "meal, plus-one, song requests" — not checked against what the form ships; said without the list. */
     controls: 'What the reply form asks your guests, who may reply, and the reply-by date.',
-    seenAt: 'On the RSVP page, and in the reminder emails.',
+    seenAt: 'On your Event Hub’s reply form, and in the reminder emails.',
     first: 'Set the reply-by date; the questions have good defaults.',
   },
   prints: {

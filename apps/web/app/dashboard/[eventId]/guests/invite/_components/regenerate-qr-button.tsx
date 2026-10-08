@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { RefreshCw } from 'lucide-react';
 import { useConfirm } from '@/app/_components/confirm-dialog';
+import { plainRefusal } from '../../_components/plain-refusal';
 import { usePeekToast } from '../../_components/use-peek-toast';
 import { ActionButton } from '@/components/action-button';
 import { useSaveLoader } from '@/components/sd-loader';
@@ -52,7 +53,7 @@ export function RegenerateQrButton({ eventId }: { eventId: string }) {
     setBusy(false);
 
     if (!result.ok) {
-      toast.error(result.error);
+      toast.error(plainRefusal(result.error, 'Couldn’t make a new QR. Try again.'));
       return;
     }
     toast.success('New invite QR ready. Share the fresh link with your guests.');

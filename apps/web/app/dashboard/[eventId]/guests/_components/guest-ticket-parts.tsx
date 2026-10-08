@@ -6,9 +6,8 @@ import { Download, MoreHorizontal, QrCode, Trash2, Unlink, X } from 'lucide-reac
 import { ActionButton, actionButtonClass } from '@/components/action-button';
 import { NfcWriteButton } from '@/app/_components/nfc-write-button';
 import { SaveFileLink } from '@/app/_components/save-file-link';
-import { Sheet } from '@/app/_components/sheet';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { useModalA11y } from '@/lib/use-modal-a11y';
+import { GuestPopup } from './guest-popup';
 import { menuNudge, menuRoomOf, menuWidthIn, nudgeUp, placeMenuIn } from '@/lib/menu-place';
 import { releaseGuestClaim } from '../[guestId]/actions';
 import { ticketFileName, ticketUrl } from './send-invite';
@@ -55,7 +54,6 @@ export function GuestTicketThumb({
   const [mounted, setMounted] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const titleId = useId();
-  const boxRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const src = ticketUrl(guestId);
   useEffect(() => setMounted(true), []);
@@ -74,7 +72,6 @@ export function GuestTicketThumb({
     const img = imgRef.current;
     if (mounted && img?.complete && img.naturalWidth > 0) setLoaded(true);
   }, [mounted, src]);
-  useModalA11y({ open, onClose: () => setOpen(false), containerRef: boxRef });
 
   if (!available || broken) {
     return (
@@ -135,60 +132,41 @@ export function GuestTicketThumb({
           <span className="hidden lg:inline">Click to view</span>
         </span>
       </button>
-      {open && mounted
-        ? createPortal(
-            <div
-              ref={boxRef}
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby={titleId}
-              className="fixed inset-0 z-[96] flex items-center justify-center p-4"
-              data-guest-ticket-view=""
-            >
-              <button
-                type="button"
-                aria-label="Close"
-                onClick={() => setOpen(false)}
-                className="absolute inset-0 bg-ink/50 backdrop-blur-sm"
-              />
-              <div className="relative flex max-h-[92dvh] w-full max-w-[380px] flex-col items-center gap-3 rounded-3xl bg-cream p-4 shadow-[0_30px_80px_-30px_rgba(26,26,26,0.5)]">
-                <div className="flex w-full items-center justify-between">
-                  <p id={titleId} className="sn-eye">
-                    Their ticket
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setOpen(false)}
-                    aria-label="Close"
-                    className="inline-flex h-11 w-11 items-center justify-center rounded-full text-ink/60 hover:bg-ink/5"
-                  >
-                    <X aria-hidden className="h-4 w-4" strokeWidth={2} />
-                  </button>
-                </div>
-                {/* eslint-disable-next-line @next/next/no-img-element -- the guest's own ticket, exactly as they see it on Me */}
-                <img
-                  src={src}
-                  alt={`${name}'s ticket`}
-                  className="max-h-[62dvh] w-auto rounded-xl object-contain ring-1 ring-ink/10"
-                />
-                <SaveFileLink
-                  href={src}
-                  filename={ticketFileName(name)}
-                  className={actionButtonClass('brand', { main: true, extra: 'w-full min-h-11' })}
-                >
-                  {(state) => (
-                    <>
-                      <Download aria-hidden strokeWidth={1.9} />
-                      <span className="lbl">{state === 'saving' ? 'Saving…' : 'Save ticket'}</span>
-                    </>
-                  )}
-                </SaveFileLink>
-                <p className="text-center text-xs text-ink/55">Saves it as one image — the QR is on it.</p>
-              </div>
-            </div>,
-            document.body,
-          )
-        : null}
+      {open && mounted ? (
+        <GuestPopup
+          onClose={() => setOpen(false)}
+          rootClassName="fixed inset-0 z-[96] flex items-center justify-center p-4"
+          rootData={{ 'data-guest-ticket-view': '' }}
+          panelClassName="relative flex max-h-[92dvh] w-full max-w-[380px] flex-col items-center gap-3 rounded-3xl bg-cream p-4 shadow-[0_30px_80px_-30px_rgba(26,26,26,0.5)]"
+          labelledById={titleId}
+        >
+          <div className="flex w-full items-center justify-between">
+            <p id={titleId} className="sn-eye">
+              Their ticket
+            </p>
+            <ActionButton tone="neutral" quiet iconOnly icon={X} label="Close" onClick={() => setOpen(false)} />
+          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element -- the guest's own ticket, exactly as they see it on Me */}
+          <img
+            src={src}
+            alt={`${name}'s ticket`}
+            className="max-h-[62dvh] w-auto rounded-xl object-contain ring-1 ring-ink/10"
+          />
+          <SaveFileLink
+            href={src}
+            filename={ticketFileName(name)}
+            className={actionButtonClass('brand', { main: true, extra: 'w-full min-h-11' })}
+          >
+            {(state) => (
+              <>
+                <Download aria-hidden strokeWidth={1.9} />
+                <span className="lbl">{state === 'saving' ? 'Saving…' : 'Save ticket'}</span>
+              </>
+            )}
+          </SaveFileLink>
+          <p className="text-center text-xs text-ink/55">Saves it as one image — the QR is on it.</p>
+        </GuestPopup>
+      ) : null}
     </>
   );
 }
@@ -446,7 +424,13 @@ export function GuestMoreMenu({
         />
       ) : null}
 
-      <Sheet open={confirm !== null} onClose={() => setConfirm(null)} labelledById={confirmId} rise>
+      {confirm !== null ? (
+      <GuestPopup
+        onClose={() => setConfirm(null)}
+        rootClassName="fixed inset-0 z-[96] flex items-end justify-center lg:items-center"
+        panelClassName="relative w-full max-w-md rounded-t-3xl bg-cream pb-[max(env(safe-area-inset-bottom),16px)] shadow-[0_-30px_80px_-40px_rgba(26,26,26,0.4)] lg:rounded-3xl"
+        labelledById={confirmId}
+      >
         <form action={release} className="space-y-4 p-5" data-guest-confirm={confirm ?? ''}>
           {confirm === 'new_qr' ? (
             <>
@@ -480,7 +464,8 @@ export function GuestMoreMenu({
           </SubmitButton>
           <ActionButton tone="neutral" icon={X} label="Cancel" onClick={() => setConfirm(null)} className="w-full" />
         </form>
-      </Sheet>
+      </GuestPopup>
+      ) : null}
     </div>
   );
 }

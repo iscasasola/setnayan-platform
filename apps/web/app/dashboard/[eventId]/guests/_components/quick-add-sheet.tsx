@@ -12,6 +12,8 @@ import {
 import { useRouter } from 'next/navigation';
 import { AlertTriangle, Check, Plus, UserCheck, UserRoundPen, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
+import { GuestPopup } from './guest-popup';
+import { plainRefusal } from './plain-refusal';
 import { usePeekToast } from './use-peek-toast';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import {
@@ -194,19 +196,11 @@ export function QuickAddSheet({
     window.addEventListener(OPEN_EVENT, onOpen);
     return () => window.removeEventListener(OPEN_EVENT, onOpen);
   }, []);
+  /* The page behind does not scroll, Escape closes and Tab stays in the panel — all `GuestPopup`'s (usePopupBehind). */
   useEffect(() => {
     if (!open) return;
-    document.body.style.overflow = 'hidden';
     const t = setTimeout(() => fnRef.current?.focus(), 80);
-    const onEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
-    };
-    window.addEventListener('keydown', onEsc);
-    return () => {
-      document.body.style.overflow = '';
-      clearTimeout(t);
-      window.removeEventListener('keydown', onEsc);
-    };
+    return () => clearTimeout(t);
   }, [open]);
 
   /* The approved toast from the top (`usePeekToast`) — a result is the accent with a ✓; "Skipped" is a note. */
@@ -252,7 +246,7 @@ export function QuickAddSheet({
           group_id: groupId || null,
         });
         if (!res.ok) {
-          setError(res.error);
+          setError(plainRefusal(res.error, 'Couldn’t save that. Try again.'));
           return;
         }
         // dedupe back-to-back rapid adds against the just-saved name
@@ -308,7 +302,7 @@ export function QuickAddSheet({
       startTransition(async () => {
         const res = await addRoleToGuest(eventId, g.guest_id, role);
         if (!res.ok) {
-          setError(res.error);
+          setError(plainRefusal(res.error, 'Couldn’t save that. Try again.'));
           return;
         }
         setRoleOverrides((prev) => ({
@@ -329,7 +323,7 @@ export function QuickAddSheet({
       startTransition(async () => {
         const res = await setGuestPrimaryRole(eventId, g.guest_id, role);
         if (!res.ok) {
-          setError(res.error);
+          setError(plainRefusal(res.error, 'Couldn’t save that. Try again.'));
           return;
         }
         setRoleOverrides((prev) => ({
@@ -373,7 +367,7 @@ export function QuickAddSheet({
     startGroupTransition(async () => {
       const res = await quickCreateGroup(eventId, label);
       if (!res.ok) {
-        setGroupError(res.error);
+        setGroupError(plainRefusal(res.error, 'Couldn’t make that group. Try again.'));
         return;
       }
       setLocalGroups((prev) =>
@@ -397,25 +391,16 @@ export function QuickAddSheet({
           (QuickAddInlineForm). This sheet opens on desktop only, via
           OpenQuickAddButton → OPEN_EVENT. */}
       {open ? (
-        <div className="fixed inset-0 z-40">
-          <button
-            type="button"
-            aria-label="Close"
-            onClick={() => setOpen(false)}
-            className="absolute inset-0 bg-ink/40"
-          />
-          <div className="absolute inset-x-0 bottom-0 flex max-h-[92vh] flex-col rounded-t-2xl bg-cream shadow-2xl sm:inset-auto sm:left-1/2 sm:top-1/2 sm:max-h-[86vh] sm:w-[440px] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl">
+        <GuestPopup
+          onClose={() => setOpen(false)}
+          rootClassName="fixed inset-0 z-40"
+          panelClassName="absolute inset-x-0 bottom-0 flex max-h-[92vh] flex-col rounded-t-2xl bg-cream shadow-2xl sm:inset-auto sm:left-1/2 sm:top-1/2 sm:max-h-[86vh] sm:w-[440px] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl"
+          label="Quick add"
+        >
             {/* header */}
             <div className="flex items-center justify-between border-b border-ink/10 px-5 py-4">
               <h2 className="text-lg font-semibold text-ink">Quick add</h2>
-              <button
-                type="button"
-                aria-label="Close"
-                onClick={() => setOpen(false)}
-                className="text-ink/50 hover:text-ink"
-              >
-                <X aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-              </button>
+              <ActionButton tone="neutral" quiet iconOnly icon={X} label="Close" onClick={() => setOpen(false)} />
             </div>
 
             {/* body */}
@@ -699,9 +684,7 @@ export function QuickAddSheet({
                 className="w-full"
               />
             </div>
-          </div>
-
-        </div>
+        </GuestPopup>
       ) : null}
     </>
   );

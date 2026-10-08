@@ -15,3 +15,9 @@ SPEC IMPACT: None
 A press now ends its own "Deleting…" on every path (`finally`), rolls the hide back and says the refusal in the red top toast and in the sheet; the sheet's heading keeps the name it opened with ("Delete Daniel Ramos?" while it runs, not "Delete ?"). The Undo toast no longer vanishes at 6.0 s: the undo window closes (Undo is a no-op from then) and the toast slides back up like every other `PeekToast`, cleared when it has gone. `DeleteGuestSheet`'s Delete (danger, main) / Cancel (neutral) and the invite page's Regenerate QR are `ActionButton`. The dev lab's delete and undo are local stand-ins (`?refuse=1` makes them refuse) and the lab mounts the toast host the real page mounts. No request, no server action, no migration added.
 
 SPEC IMPACT: None
+
+## 2026-10-09 · refactor(guests): the guest list's pop-ups follow the pop-up rule; a refusal is told in plain words
+
+The add-a-guest sheet, quick add, the ticket view, the New QR / Unlink confirm, "Add from your people", the Delete warning and the New-group sheet are drawn by one `GuestPopup` (`usePopupBehind` + `.sn-popup-dark`): dark and blurred behind, a tap on the dark closes it, nothing behind works or scrolls, Escape closes, focus is managed — and drawn on <body>, so the Delete warning's Cancel is no longer half hidden under the bottom bar. Content and behaviour of each are unchanged. A refused action is told in one plain sentence of the page's own ("Couldn’t delete Daniel Ramos. Try again."), never the database's words; the raw text goes only to the fault report. The shared `Sheet` is not changed (it does not follow the rule — listed). No request, no server action, no migration added.
+
+SPEC IMPACT: None

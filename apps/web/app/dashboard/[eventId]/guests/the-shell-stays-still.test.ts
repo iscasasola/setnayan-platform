@@ -18,7 +18,9 @@ test('opening the add box never scrolls the page', () => {
   // bit when pressed." Measured: a plain focus() scrolls the focused box into
   // view. ⤷ 2026-10-01: the name box lives in the round +'s add sheet now, so
   // the rule follows it there.
-  const src = read('add-guest-sheet.tsx');
+  // ⤷ 2026-10-09: the sheet is `GuestPopup` now — its first-input focus lives there, and the add sheet asks for it.
+  assert.match(read('add-guest-sheet.tsx'), /<GuestPopup[\s\S]{0,700}focusFirstInput/, 'the add sheet no longer focuses its name box');
+  const src = read('guest-popup.tsx');
   const calls = src.match(/\.focus\(([^)]*)\)/g) ?? [];
   assert.ok(calls.length >= 1, 'found no focus() call — this guard is blind');
   for (const c of calls) {

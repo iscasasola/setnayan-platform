@@ -40,7 +40,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 import { useRouter } from 'next/navigation';
 import { Check, Search, Users, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
-import { Drawer } from './overlay-primitives';
+import { GuestPopup } from './guest-popup';
+import { plainRefusal } from './plain-refusal';
 import {
   chooseAllShown,
   isInSamahan,
@@ -231,14 +232,14 @@ export function AddFromPeopleSheet({
         side,
       );
       if (!res.ok) {
-        setError(res.error);
+        setError(plainRefusal(res.error, 'Couldn’t add them just now. Try again.'));
         return;
       }
       if (res.failed > 0 && res.firstError) {
         // PARTIAL SUCCESS IS STATED. Closing on a silent partial is how a host
         // ends up adding the missing two a second time.
         setError(
-          `Added ${res.added}. ${res.failed} didn’t go on — ${res.firstError}`,
+          `Added ${res.added}. ${res.failed} didn’t go on — ${plainRefusal(res.firstError, 'try those again.').replace(/[.!?]$/, '')}.`,
         );
         setPicked({});
         // The sheet STAYS OPEN on a partial, so this one is not redundant with
@@ -256,7 +257,12 @@ export function AddFromPeopleSheet({
   if (!open) return null;
 
   return (
-    <Drawer onClose={close} labelledById="add-from-people-title">
+    <GuestPopup
+      onClose={close}
+      rootClassName="fixed inset-0 z-[80]"
+      panelClassName="gl-drawer absolute inset-x-0 bottom-0 max-h-[90vh] w-full overflow-y-auto rounded-t-2xl border border-ink/10 bg-paper p-5 pb-[max(env(safe-area-inset-bottom),1.25rem)] shadow-xl sm:inset-y-0 sm:left-auto sm:right-0 sm:max-h-none sm:w-[24rem] sm:max-w-[92vw] sm:rounded-none sm:rounded-l-2xl"
+      labelledById="add-from-people-title"
+    >
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 id="add-from-people-title" className="text-lg font-extrabold tracking-tight text-ink">
@@ -442,6 +448,6 @@ export function AddFromPeopleSheet({
           waiting={pickedKeys.length === 0 && !pending}
         />
       </div>
-    </Drawer>
+    </GuestPopup>
   );
 }

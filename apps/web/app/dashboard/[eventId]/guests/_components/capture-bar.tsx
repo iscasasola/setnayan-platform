@@ -25,6 +25,7 @@
 import { useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { ClipboardList, ListPlus, Plus, Upload, Users } from 'lucide-react';
+import { plainRefusal } from './plain-refusal';
 import { usePeekToast } from './use-peek-toast';
 import { parseGuestInput } from '@/lib/guest-parse';
 import type { GuestSide } from '@/lib/guests';
@@ -68,7 +69,7 @@ export function CaptureBar({
       const res = await addSingleGuest(eventId, draft);
       if (!res.ok) {
         // Keep the text so the host can fix it (e.g. add a last name).
-        toast.error(res.error);
+        toast.error(plainRefusal(res.error, 'Couldn’t add that guest. Try again.'));
         return;
       }
       setValue('');

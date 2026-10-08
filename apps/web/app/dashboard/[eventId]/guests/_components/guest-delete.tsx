@@ -29,13 +29,14 @@
 import { createContext, useContext, useId, useState } from 'react';
 import { Trash2, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
-import { Sheet } from '@/app/_components/sheet';
+import { GuestPopup } from './guest-popup';
 import { formatCount } from '@/lib/format-number';
 import { bulkSoftDeleteGuestsForUndo, restoreDeletedGuests } from '../groups-actions';
 import { buildUndo } from '@/lib/guest-optimistic';
 import { guestOptimistic } from './guest-optimistic-store';
 import { guestSelection } from './guest-selection-store';
 import { guestToast, pushUndo } from './undo-toast';
+import { couldntDelete, plainRefusal } from './plain-refusal';
 
 /** What the warning says goes with them — the owner's list, in his order. */
 export function deleteWarningText(names: readonly string[]): { title: string; body: string } {
@@ -78,11 +79,13 @@ export function useGuestRemoval(eventId: string) {
   const { bulkSoftDeleteGuestsForUndo, restoreDeletedGuests } = useContext(GuestRemovalActionsContext) ?? REAL_REMOVAL_ACTIONS;
 
   /** Resolves to the refusal's own words (shown where the host acted), or null. */
-  async function remove(guestIds: string[], onRemoved?: () => void): Promise<string | null> {
+  async function remove(guestIds: string[], onRemoved?: () => void, who?: string): Promise<string | null> {
     if (removing) return null;
     const ids = [...guestIds];
     if (ids.length === 0) return null;
     const mutation = { kind: 'remove' as const, guestIds: ids };
+    /* Who, in the host's words, for the one plain sentence a refusal is told in (never the action's own raw text). */
+    const whom = who ?? (ids.length === 1 ? 'that guest' : `${formatCount(ids.length)} guests`);
 
     setRemoving(true);
     guestOptimistic.apply(mutation); // hide rows now
@@ -100,9 +103,10 @@ export function useGuestRemoval(eventId: string) {
       }
 
       if (!result.ok) {
-        guestOptimistic.clear(mutation); // rollback — and SAY why, where they acted
-        guestToast.error(result.error);
-        return result.error;
+        guestOptimistic.clear(mutation); // rollback — and SAY it, in plain words, where they acted
+        const said = plainRefusal(result.error, couldntDelete(whom));
+        guestToast.error(said);
+        return said;
       }
       // Only now retract the selection bar: a refusal keeps it — and its warning,
       // with the reason — on screen, instead of vanishing with the rows' return.
@@ -121,7 +125,7 @@ export function useGuestRemoval(eventId: string) {
           const r = await restoreDeletedGuests(eventId, plan.guestIds, plan.seats);
           if (r.ok) {
             guestOptimistic.clear(mutation); // un-hide the restored rows
-            if (r.warning) guestToast.error(r.warning);
+            if (r.warning) guestToast.error(plainRefusal(r.warning, 'Brought back — but part of it did not come back with them.'));
           } else {
             guestToast.error('Could not undo — refresh and try again.');
           }
@@ -137,7 +141,12 @@ export function useGuestRemoval(eventId: string) {
 }
 
 /**
- * The one in-page warning — a sheet, never `window.confirm()`. Delete · Cancel.
+ * The one in-page warning — a pop-up, never `window.confirm()`. Delete · Cancel.
+ *
+ * Under the POP-UP RULE (`GuestPopup`): drawn on <body> — above the app's bottom bar, with the safe-area padding — dark
+ * and blurred behind, a tap on the dark closes it, nothing behind works or scrolls. (It was the shared `Sheet`, which is
+ * drawn inside the dashboard's transformed box and so sat UNDER the bottom bar, "Cancel" half hidden — controller,
+ * 2026-10-09.) Mounted only while open, so the names it opened with are held until it closes.
  */
 export function DeleteGuestSheet({
   open,
@@ -156,42 +165,80 @@ export function DeleteGuestSheet({
   onConfirm: () => void;
   onClose: () => void;
 }) {
+  if (!open) return null;
+  return <OpenDeleteGuestSheet names={names} busy={busy} error={error} onConfirm={onConfirm} onClose={onClose} />;
+}
+
+function OpenDeleteGuestSheet({
+  names,
+  busy,
+  error,
+  onConfirm,
+  onClose,
+}: {
+  names: readonly string[];
+  busy: boolean;
+  error: string | null;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
   const titleId = useId();
   /* 🔑 THE HEADING KEEPS THE NAME IT OPENED WITH (owner 2026-10-09: it read "Delete ?" while it ran — the guest's row
-     is already gone from the list by then, so the name was empty). Held from the moment it opens until it closes. */
-  const [held, setHeld] = useState<readonly string[]>(names);
-  const [wasOpen, setWasOpen] = useState(open);
-  if (open !== wasOpen) {
-    setWasOpen(open);
-    if (open) setHeld(names);
-  }
-  const words = deleteWarningText(open ? held : names);
+     is already gone from the list by then, so the name was empty). This mounts when the sheet opens: held until it closes. */
+  const [held] = useState<readonly string[]>(names);
   return (
-    <Sheet open={open} onClose={onClose} labelledById={titleId} rise>
-      <div className="space-y-4 p-5" data-guest-delete-warning="">
-        <h2 id={titleId} className="font-display text-xl text-ink">
-          {words.title}
-        </h2>
-        <p className="text-sm leading-relaxed text-ink/70">{words.body}</p>
-        {error ? (
-          <p role="alert" className="text-sm text-danger-700" data-guest-delete-refused="">
-            {error}
-          </p>
-        ) : null}
-        <span className="contents" data-guest-delete-confirm="">
-          <ActionButton
-            tone="danger"
-            main
-            icon={Trash2}
-            label={busy ? 'Deleting…' : 'Delete'}
-            onClick={onConfirm}
-            disabled={busy}
-            className="w-full"
-          />
-        </span>
-        <ActionButton tone="neutral" icon={X} label="Cancel" onClick={onClose} className="w-full" />
-      </div>
-    </Sheet>
+    <GuestPopup
+      onClose={onClose}
+      rootClassName="fixed inset-0 z-[96] flex items-end justify-center lg:items-center"
+      panelClassName="relative w-full max-w-md rounded-t-3xl bg-cream pb-[max(env(safe-area-inset-bottom),16px)] shadow-[0_-30px_80px_-40px_rgba(26,26,26,0.4)] lg:rounded-3xl"
+      labelledById={titleId}
+    >
+      <DeleteGuestWarning titleId={titleId} names={held} busy={busy} error={error} onConfirm={onConfirm} onClose={onClose} />
+    </GuestPopup>
+  );
+}
+
+/** The warning's own words and its two buttons — what is inside the pop-up. */
+export function DeleteGuestWarning({
+  titleId,
+  names,
+  busy = false,
+  error = null,
+  onConfirm,
+  onClose,
+}: {
+  titleId: string;
+  names: readonly string[];
+  busy?: boolean;
+  error?: string | null;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  const words = deleteWarningText(names);
+  return (
+    <div className="space-y-4 p-5" data-guest-delete-warning="">
+      <h2 id={titleId} className="font-display text-xl text-ink">
+        {words.title}
+      </h2>
+      <p className="text-sm leading-relaxed text-ink/70">{words.body}</p>
+      {error ? (
+        <p role="alert" className="text-sm text-danger-700" data-guest-delete-refused="">
+          {error}
+        </p>
+      ) : null}
+      <span className="contents" data-guest-delete-confirm="">
+        <ActionButton
+          tone="danger"
+          main
+          icon={Trash2}
+          label={busy ? 'Deleting…' : 'Delete'}
+          onClick={onConfirm}
+          disabled={busy}
+          className="w-full"
+        />
+      </span>
+      <ActionButton tone="neutral" icon={X} label="Cancel" onClick={onClose} className="w-full" />
+    </div>
   );
 }
 
@@ -223,10 +270,14 @@ export function DeleteGuestFlow({
       error={error}
       onClose={onClose}
       onConfirm={async () => {
-        const refused = await remove([guestId], () => {
-          onClose();
-          onDeleted?.();
-        });
+        const refused = await remove(
+          [guestId],
+          () => {
+            onClose();
+            onDeleted?.();
+          },
+          guestName,
+        );
         if (refused) setError(refused);
       }}
     />

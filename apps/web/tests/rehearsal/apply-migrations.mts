@@ -156,6 +156,47 @@ function sealTheDatabase(): void {
   );
 }
 
+/**
+ * 🔑 PRODUCTION'S DEFAULT PRIVILEGES, DECLARED — the same three lines the
+ * PGlite replay's BOOTSTRAP declares, for the reason written there.
+ *
+ * In production every table, sequence and function `postgres` creates in
+ * `public` is granted to anon / authenticated / service_role AT CREATE TIME
+ * (verified against prod 2026-07-26, see tests/db/replay-migrations.ts). The
+ * migrations are written on top of that: dozens of them REVOKE and then check,
+ * as a post-condition, that the other roles still hold what they held.
+ *
+ * The stack `supabase start` builds does not carry those defaults for
+ * `postgres` (measured on the first rehearsal run, 2026-10-08: 22 files failed
+ * their own post-conditions — "service_role lost SELECT on vendor_profiles" —
+ * on a database where service_role had never been granted it). So they are
+ * declared here, before the first migration, exactly as the repo's own replay
+ * does. What the stack had beforehand is printed, so this is never a guess.
+ */
+function declareProductionDefaultPrivileges(): void {
+  const before = psql([
+    '-At',
+    '-c',
+    `SELECT defaclrole::regrole || ' / ' || coalesce(defaclnamespace::regnamespace::text, '(all schemas)')
+            || ' / ' || defaclobjtype || ' / ' || defaclacl::text
+       FROM pg_default_acl ORDER BY 1`,
+  ]);
+  console.log('[rehearsal] default privileges the local stack came with:');
+  console.log(before.ok ? before.stdout.trim().replace(/^/gm, '[rehearsal]   ') || '[rehearsal]   (none)' : `[rehearsal]   unreadable: ${before.error}`);
+  must(
+    [
+      '-c',
+      `
+      GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
+      ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
+      ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
+      ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO anon, authenticated, service_role;
+      `,
+    ],
+    "declaring production's default privileges",
+  );
+}
+
 function prepareLedgerAndOwner(): void {
   must(
     [
@@ -244,6 +285,7 @@ async function main(): Promise<void> {
   );
 
   sealTheDatabase();
+  declareProductionDefaultPrivileges();
   prepareLedgerAndOwner();
 
   let done = 0;

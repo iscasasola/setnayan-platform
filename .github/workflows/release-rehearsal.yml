@@ -211,7 +211,14 @@ jobs:
           mkdir -p "$RUNNER_TEMP/stack/supabase"
           cp apps/web/tests/rehearsal/stack.config.toml "$RUNNER_TEMP/stack/supabase/config.toml"
           cd "$RUNNER_TEMP/stack"
-          supabase start -x studio,imgproxy,edge-runtime,logflare,vector,postgres-meta
+          # Its banner prints the stack's keys. They are the local demo keys every
+          # `supabase start` on earth prints — and still nothing key-shaped
+          # belongs in a public run log, so the banner goes to a file.
+          if ! supabase start -x studio,imgproxy,edge-runtime,logflare,vector,postgres-meta > "$RUNNER_TEMP/stack-start.log" 2>&1; then
+            echo "::error title=Rehearsal stack::supabase start failed"
+            grep -vE 'Key|Secret|Publishable|sb_|eyJ' "$RUNNER_TEMP/stack-start.log" | tail -40
+            exit 1
+          fi
           supabase status -o env > "$RUNNER_TEMP/stack.env"
           anon=$(grep -E '^ANON_KEY=' "$RUNNER_TEMP/stack.env" | cut -d= -f2- | tr -d '"')
           service=$(grep -E '^SERVICE_ROLE_KEY=' "$RUNNER_TEMP/stack.env" | cut -d= -f2- | tr -d '"')

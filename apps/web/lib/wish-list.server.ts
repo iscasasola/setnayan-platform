@@ -1,5 +1,6 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { askedOnce } from '@/lib/request-once';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { publicUrlForStoredAsset } from '@/lib/uploads';
 import { publicBucketServeRef } from '@/lib/site-media-ref';
@@ -59,8 +60,46 @@ export async function readStudioWishList(supabase: SupabaseClient, eventId: stri
 }
 
 /**
- * THE GUEST'S READ — the wishes and ONE sum per wish, for `/[slug]/pabuya` and
- * the Welcome door's line (owner 2026-10-08).
+ * HOW MANY WISHES ARE STILL OPEN — the Welcome gift door's one fact ("Wish list ·
+ * 4 things they'd love", owner 2026-10-08).
+ *
+ * ⚡ ONE REQUEST, AND NO ROW LEAVES THE DATABASE: a count of this event's wishes
+ * with no Got it mark — the same "open" the list itself draws
+ * (`openWishCount`: `got_at` is null). The door used to stand on the gift
+ * page's whole read (every wish AND every gift's sum — two reads, one after the
+ * egift read) on EVERY guest page view; it needs one number.
+ *
+ * 🌍 EVENT-LEVEL ON PURPOSE. It takes the event id and nothing about the
+ * reader — no guest id, no cookie, no session — so the answer is the same for
+ * every viewer of this event and can be cached with the event's public bundle
+ * later. Never add a viewer to this function.
+ *
+ * Asked at most ONCE per render (`askedOnce`), whoever asks and whichever
+ * service-role client they hold — the doorway loader is reached from the page,
+ * the room footer and the guest context, each with a client of its own.
+ *
+ * 🔑 `null` = it could not be read. The door then mentions no list (the gift
+ * page itself says so when IT cannot read one); never "0 things".
+ */
+export function readOpenWishCount(admin: SupabaseClient, eventId: string): Promise<number | null> {
+  return askedOnce(admin, 'open-wish-count', [eventId], async () => {
+    const { count, error } = await admin
+      .from('event_wish_items')
+      .select('wish_item_id', { count: 'exact', head: true })
+      .eq('event_id', eventId)
+      .is('got_at', null);
+    if (error) {
+      logQueryError('readOpenWishCount', error, { event_id: eventId }, 'graceful_degrade');
+      return null;
+    }
+    return typeof count === 'number' ? count : null;
+  });
+}
+
+/**
+ * THE GUEST'S READ — the wishes and ONE sum per wish, for `/[slug]/pabuya`
+ * (owner 2026-10-08). The Welcome door's line does NOT stand on this read: it
+ * needs one number (`readOpenWishCount`).
  *
  * Handed the SERVICE-ROLE client, behind the page's own published gate — the
  * two tables have no anon policy and no anon grant, exactly as the ways to give

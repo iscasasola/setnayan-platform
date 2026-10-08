@@ -521,7 +521,6 @@ const PILL_WATCH_BASELINE: readonly { file: string; has: string; why: string }[]
   //    for the controller's decision instead of being converted. Deciding one removes its line.
   { file: 'app/dashboard/[eventId]/studio/save-the-date/_components/StdBuilderClient.tsx', has: 'inline-flex rounded-xl border border-ink/15 bg-cream p-1', why: 'LISTED: Save the Date › Readability picks one of 3 values (Auto · Lighten · Darken) — a dropdown by the house rule; the controller’s decision' },
   { file: 'app/dashboard/[eventId]/schedule/_components/prep-kind-picker.tsx', has: 'aria-label="Item type"', why: 'LISTED: a preparation item’s Type picks one of 3 values (a radio group) — a dropdown by the house rule; the controller’s decision' },
-  { file: 'app/dashboard/[eventId]/guests/_components/chip-editors.tsx', has: 'flex items-center gap-1 rounded-lg bg-ink/[0.04] p-0.5', why: 'NOT A SELECTOR ROW: an either-or pair of roles INSIDE the role menu (menuitemradio, “or” between them) — a menu’s own items, left as the menu draws them' },
 ];
 
 /**

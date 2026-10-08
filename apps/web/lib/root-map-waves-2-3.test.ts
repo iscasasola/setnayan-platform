@@ -176,9 +176,8 @@ test('a screen quotes each fixed rule by its name, not by a copy of the number',
 /* ── The same fact, drawn once ── */
 
 test('one rendering per fact: the shared words and the shared reads', () => {
-  // The RSVP answers' words — one list, three surfaces.
+  // The RSVP answers' words — one list, every surface.
   for (const file of [
-    'app/dashboard/[eventId]/guests/_components/chip-editors.tsx',
     'app/dashboard/[eventId]/guests/_components/guest-card-body.tsx',
     // ⤷ Maker PR 4f: the filter row (roster-controls.tsx) and the page's counts
     // line are retired; the screen and its sections carry the words now.

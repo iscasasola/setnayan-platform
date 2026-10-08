@@ -5666,7 +5666,7 @@ div:has(> [data-apply-pro-sheet]),
   box-shadow: inset 0 0 0 1.5px var(--sn-gold-500);
 }
 /* …except the Guests roster, where the trigger is only the name cell of a wider
- * <tr>: the WHOLE row wears the gold selected tint (set in guest-list-multiselect
+ * <tr>: the WHOLE row wears the gold selected tint (set in the retired guest-list-multiselect
  * DesktopRow) instead, so the name link opts out of the default per-element wash
  * to avoid double-marking. */
 .sn-guest-namelink[data-inspector-selected='true'] {

@@ -6,10 +6,9 @@
  * it"*).
  *
  * What it holds, each as a property of the source rather than a phrasing:
- *   1. BOTH row shapes draw it — the desktop table row and the phone list row —
- *      and the header declares the column, so the table stays one cell per head.
- *   2. The couple's own rows and a guest marked Passed away get NO control:
- *      the same rule the card's Send invite keeps (`guest-card-body.tsx`).
+ *   (2026-10-09: the roster's table/phone rows and their Invite column went with
+ *   the retired GuestListMultiselect, and the two tests that pinned them with
+ *   it. The cell itself is still the card's Invite control, so the rest holds.)
  *   3. It is NOT a second sender. The cell (`guest-invite-cell.tsx`, its own
  *      file only to stay out of the Maker's first load) imports and goes
  *      through the SAME share (`shareInvite`), the same Digital ticket file (`useTicketFile`),
@@ -19,9 +18,6 @@
  *   4. The page reads the event's words once and hands them to the list, and
  *      mounts the first-visit tour through the shipped `MiniTour`.
  *   5. No "email" anywhere a couple reads it — Setnayan sends guests nothing.
- *
- * 🛡 Sabotaged once (see the PR): dropping `<RowInvite` from the phone row turns
- * test 1 red.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -33,7 +29,6 @@ import { TOURS, TOUR_KEYS } from '@/lib/tours';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const read = (...p: string[]) => stripComments(readFileSync(join(HERE, ...p), 'utf8'));
-const ROSTER = read('guest-list-multiselect.tsx');
 const SEND = read('send-invite.tsx');
 const CELL = read('guest-invite-cell.tsx');
 const PAGE = read('..', 'page.tsx');
@@ -60,28 +55,7 @@ function bodyOf(src: string, name: string): string {
   throw new Error(`unbalanced braces in ${name}`);
 }
 
-test('both row shapes draw the Invite control, and the header declares its column', () => {
-  // Since 2026-09-30 (the full-width list) every cell comes through ONE switch,
-  // RosterCell, which both row shapes draw.
-  for (const row of ['DesktopRow', 'MobileListRow']) {
-    assert.match(bodyOf(ROSTER, row), /<RosterCell\b/, `${row} no longer draws its cells through RosterCell`);
-  }
-  const n = (bodyOf(ROSTER, 'RosterCell').match(/<RowInvite\b/g) ?? []).length;
-  assert.equal(n, 1, `RosterCell draws ${n} Invite controls — the Invite column needs exactly one`);
-  const head = ROSTER.slice(ROSTER.indexOf('<thead'), ROSTER.indexOf('</thead>'));
-  assert.match(head, /<InfoTip\s+label="Invite"/, 'the table has no Invite column header with its (i)');
-});
-
-test('the couple and a guest marked Passed away get no Invite — the card’s own rule', () => {
-  const body = bodyOf(ROSTER, 'RowInvite');
-  const guardAt = body.search(/guest\.role === 'bride' \|\| guest\.role === 'groom' \|\| guest\.passed_away\) return null/);
-  const cellAt = body.indexOf('<GuestInviteCell');
-  assert.notEqual(guardAt, -1, 'RowInvite no longer returns nothing for the couple / Passed away');
-  assert.ok(cellAt > guardAt, 'the Invite control is drawn before the couple check can stop it');
-});
-
 test('the cell is the card’s Send invite in a row’s width, not a second sender', () => {
-  assert.match(ROSTER, /import \{ GuestInviteCell \} from '\.\/guest-invite-cell';/);
   // Its deciding pieces come FROM send-invite.tsx — the column only draws.
   assert.match(CELL, /import \{[^}]*\bshareInvite\b[^}]*\buseTicketFile\b[^}]*\} from '\.\/send-invite';/);
   assert.doesNotMatch(CELL, /\bnav(igator)?\.share\(/, 'the column calls the share sheet itself instead of shareInvite');
@@ -123,8 +97,6 @@ test('the column hands over the Digital ticket, not the QR — and says so', () 
   const tour = TOURS.customer_guest_invite_v1.slides.map((s) => `${s.title} ${s.body}`).join(' ');
   assert.match(tour, /ticket/);
   assert.doesNotMatch(tour, /\bQR\b/);
-  const head = ROSTER.slice(ROSTER.indexOf('<thead'), ROSTER.indexOf('</thead>'));
-  assert.match(head, /their\s+ticket/);
 });
 
 test('nothing a couple reads says "email" — Setnayan sends guests nothing', () => {

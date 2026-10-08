@@ -145,15 +145,10 @@ const SHOWS_THE_USUAL_WORD_ON_PURPOSE: Array<[file: string, line: string, why: s
   ['lib/guests.ts', 'There’s already a', 'singleton messages — same'],
   ['lib/guests.ts', '?? ROLE_LABELS[role];', 'the fallback inside guestRoleLabel itself'],
   ['lib/emcee-script.ts', '?? ROLE_LABELS[role])', 'the fallback for several, after the couple’s `many`'],
-  ['app/dashboard/[eventId]/guests/_components/chip-editors.tsx', 'is the foundation of the event', 'bride/groom lock — not renamable'],
-  ['app/dashboard/[eventId]/guests/_components/chip-editors.tsx', 'the event is theirs', 'bride/groom RSVP lock — not renamable'],
-  ['app/dashboard/[eventId]/guests/_components/chip-editors.tsx', 'const usual = ROLE_LABELS[role]', 'the rename box names the USUAL word it is renaming'],
   // ⤷ 2026-10-03: the guest search moved out of guests/page.tsx into its ONE matcher.
   ['lib/guest-search.ts', 'out.push(ROLE_LABELS[r], guestRoleLabel(r, names),', 'search matches the usual word AND theirs'],
   ['lib/guest-search.ts', 'out.push(ROLE_GROUP_LABELS[grp], roleGroupLabel(grp, names));', 'search matches the usual group heading AND theirs'],
   ['app/dashboard/[eventId]/guests/page.tsx', ': ROLE_GROUP_LABELS[grp];', 'a SORT KEY — renamed only where the heading is drawn'],
-  ['app/dashboard/[eventId]/guests/_components/guest-list-multiselect.tsx', ': ROLE_GROUP_LABELS[grp];', 'the same SORT KEY on the client — the heading is re-said by sectionHeadingInTheirWords'],
-  ['app/dashboard/[eventId]/guests/_components/guest-list-multiselect.tsx', "label: grp === 'guest' ? 'Guests' : ROLE_GROUP_LABELS[grp],", 'the honoree heading — bride/groom/celebrant, never renamed'],
 ];
 
 test('every screen that shows a role word is handed the couple’s words', () => {

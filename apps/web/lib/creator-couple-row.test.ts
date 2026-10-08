@@ -120,7 +120,6 @@ test('④ wiring: onboarding links the creator, the card offers one "This is me"
   assert.match(data, /offersThisIsMe\(\{/, 'the card loader no longer decides "This is me" by the one rule');
 
   for (const p of [
-    ['app', 'dashboard', '[eventId]', 'guests', '_components', 'guest-access-cell.tsx'],
     ['app', 'dashboard', '[eventId]', 'guests', '_components', 'guest-access-control.tsx'],
   ]) {
     assert.match(read(...p), /\baccessWordFor\(/, `${p.at(-1)} prints access without the creator's word`);

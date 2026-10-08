@@ -10,26 +10,15 @@
  * copy of the fold test — two places for one rule.
  *
  * Now the build makes every section WHOLE and ONE function (`foldSections`)
- * empties the folded ones, for every key alike; both the table and the phone
- * list draw only from its output.
+ * empties the folded ones, for every key alike.
  *
  * 🛡 Sabotaged (see the PR): making `foldSections` skip the 'honoree' key turns
- * the first test red; drawing the phone list from `builtSections` turns the
- * second red.
+ * the test red. (2026-10-09: the second test, which pinned the retired
+ * GuestListMultiselect's two draw sites, went with that component.)
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { stripComments } from '@/lib/strip-comments';
 import { foldSections } from '@/lib/roster-arrangement';
-
-const SRC = stripComments(
-  readFileSync(
-    join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests', '_components', 'guest-list-multiselect.tsx'),
-    'utf8',
-  ),
-);
 
 const SECTIONS = [
   { key: 'honoree', label: 'Bride & Groom', count: 2, guests: ['maria', 'jose'], pinned: true },
@@ -58,26 +47,4 @@ test('every heading folds and unfolds — the pinned honoree exactly like the re
   // Everything shut at once — the pinned heading too.
   const all = foldSections(SECTIONS, new Set(SECTIONS.map((s) => s.key)));
   assert.ok(all.every((s) => s.guests.length === 0), 'a heading stayed open when every heading was folded');
-});
-
-test('the list draws only folded sections, and the fold lives in ONE place', () => {
-  // The build makes sections whole — it never reads what is folded.
-  const at = SRC.indexOf('const builtSections = useMemo(');
-  assert.ok(at > -1, 'the section build moved — re-point this guard');
-  const end = SRC.indexOf('const sections = useMemo(', at);
-  assert.ok(end > at, 'the folded `sections` are no longer derived after the build');
-  const build = SRC.slice(at, end);
-  assert.doesNotMatch(build, /collapsed/, 'the section build tests `collapsed` itself again — a second place for the fold rule');
-  assert.match(build, /key: 'honoree'/, 'the pinned honoree section is no longer built with the rest');
-  // ONE fold, for every key.
-  assert.match(
-    SRC,
-    /const sections = useMemo\(\(\) => foldSections\(builtSections, collapsed\), \[builtSections, collapsed\]\);/,
-    'the folded sections no longer come from foldSections',
-  );
-  // Both surfaces (computer table + phone list) draw from `sections`, never the whole build.
-  assert.equal((SRC.match(/\{sections\.map\(\(sec\) =>/g) ?? []).length, 2, 'the table and the phone list must both draw from `sections`');
-  assert.doesNotMatch(SRC.slice(end), /builtSections\.map/, 'a surface draws the UNFOLDED build — its headings cannot fold');
-  // Every heading is a toggle that reports its state.
-  assert.equal((SRC.match(/onToggle=\{\(\) => toggleSection\(sec\.key\)\}/g) ?? []).length, 2);
 });

@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
 
 /**
- * Five owner corrections to the guest-list shell (2026-09-21), each one a
+ * Owner corrections to the guest-list shell (2026-09-21), each one a
  * defect every other check passed: the typecheck, all 32 CI guards and the
  * full suite were green while each of these was on the owner's screen.
  */
@@ -31,22 +31,9 @@ test('opening the add box never scrolls the page', () => {
 // header was deleted (every column header is ONE slot dropdown now, and Sort ▾
 // above the list is the one place for order), so they left with it.
 
-test('the honoree heading folds like every other one', () => {
-  // Owner: "these rows should be able to make the content of that grouping
-  // collapse and expand like an accordion." Pinned means FIRST, not open.
-  // ⤷ 2026-10-03 (measured live: the pinned heading flipped aria-expanded and
-  // its cards stayed): the fold lives in ONE place now, `foldSections`, for the
-  // honoree exactly as for every other key — held in full by
-  // `_components/every-heading-folds.test.ts`.
-  const src = read('guest-list-multiselect.tsx');
-  assert.match(src, /key: 'honoree',/, 'the pinned Bride & Groom section is gone');
-  assert.match(
-    src,
-    /const sections = useMemo\(\(\) => foldSections\(builtSections, collapsed\)/,
-    'the pinned Bride & Groom section ignores its own fold',
-  );
-  assert.ok(!/if \(!onToggle \|\| pinned\)/.test(src), 'a pinned heading renders without its fold button again');
-});
+// ⤷ 2026-10-09: 'the honoree heading folds like every other one' pinned the retired
+// GuestListMultiselect's section build; the fold rule itself is held in full by
+// `_components/every-heading-folds.test.ts` (`foldSections`).
 
 test('the add icon sits INSIDE its box, at the end', () => {
   // Owner: "place this at the end of the text box inside the search text box

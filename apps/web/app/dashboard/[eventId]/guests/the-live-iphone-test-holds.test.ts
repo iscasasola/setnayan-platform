@@ -150,7 +150,6 @@ test('④ the copied link is spelled by the one speller buildInvitationUrl ends 
   // Property: nothing on the Guests pages hand-spells `?invite=<token>`.
   for (const f of [
     ['_components', 'guest-card-body.tsx'],
-    ['_components', 'guest-list-multiselect.tsx'],
     ['send', 'page.tsx'],
     ['claims', 'page.tsx'],
   ]) {
@@ -183,14 +182,10 @@ test('⑤ unticking the last guest leaves select mode; entering on purpose does 
   guestSelection.exit();
 });
 
-test('⑤ Done is on screen whenever the list is selecting, and a reload never redraws select mode', () => {
-  const list = read('_components', 'guest-list-multiselect.tsx');
-  const barAt = list.indexOf('<RosterBulkBar');
-  const cond = list.slice(Math.max(0, barAt - 120), barAt);
-  assert.match(cond, /selectedIds\.length > 0 \|\| selectMode \?/, 'the bar (and its Done) hides while select mode is still on');
-  assert.match(bodyOf(list, 'RosterBulkBar'), /\{selectMode \? 'Done' : 'Clear'\}/);
+test('⑤ a page mid-selection is never kept as last-seen, and a reload never redraws select mode', () => {
+  const list = read('_components', 'guests-screen.tsx');
   // The last-seen copy is never taken mid-selection.
-  assert.match(bodyOf(list, 'RosterBulkBar'), /data-last-seen-hold=""/, 'the bar no longer holds the last-seen capture');
+  assert.match(list, /data-last-seen-hold=\{selectMode \? '' : undefined\}/, 'the screen no longer holds the last-seen capture while selecting');
   const snap = bodyOf(readWeb('lib', 'last-seen', 'snapshot-dom.ts'), 'snapshotFromRoot');
   const holdAt = snap.search(/querySelector\('\[data-last-seen-hold\]'\)\)\s*return null/);
   assert.ok(holdAt > 0 && holdAt < snap.indexOf('cloneNode('), 'a page mid-selection is still kept as last-seen');

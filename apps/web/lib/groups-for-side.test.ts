@@ -36,10 +36,9 @@ test('a group made from a guest’s own + belongs to their side', () => {
 
 const read = (...p: string[]) => stripComments(readFileSync(join(process.cwd(), ...p), 'utf8'));
 
-test('the + popup and its create both use the side rule', () => {
-  const chip = read('app', 'dashboard', '[eventId]', 'guests', '_components', 'chip-editors.tsx');
-  assert.match(chip, /const available = groupsForSide\(groups, guest\.side\)/, 'the + offers every group again');
-  assert.match(chip, /quickCreateGroup\(eventId, label, teamSideForNewGroup\(guest\.side\)\)/, 'a group made from the + lands on no side');
+test('the create-a-group action uses the side rule', () => {
+  // (2026-10-09: the + popup in chip-editors.tsx, which called groupsForSide and
+  // teamSideForNewGroup, went with the retired GuestListMultiselect.)
   const action = read('app', 'dashboard', '[eventId]', 'guests', 'quick-add-actions.ts');
   assert.match(action, /const teamSide = rawSide === 'bride' \|\| rawSide === 'groom' \? rawSide : 'both';/, 'the create ignores the side, or trusts any value');
 });

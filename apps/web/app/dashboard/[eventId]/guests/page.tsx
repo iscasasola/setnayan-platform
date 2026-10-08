@@ -56,7 +56,7 @@ import { guestPhotoDisplayUrls } from '@/lib/uploads';
 import { accountPhotoRefsByGuest } from '@/lib/guest-account-photos';
 import { accountNamesByGuest } from '@/lib/linked-profile-names';
 import { withProfileName } from '@/lib/formal-name';
-import { ROLE_SECTION_ORDER } from './_components/guest-list-multiselect';
+import { ROLE_SECTION_ORDER } from './_components/role-section-order';
 import { GuestsScreen } from './_components/guests-screen';
 import { mapRootLabel } from '@/lib/guest-roster-view';
 import { InvitePanel } from './invite/_components/invite-panel';
@@ -140,7 +140,7 @@ const ALL_VIEW_FILTERS: { key: string; label: string }[] = [
   // wedding-role cluster (MOH/MoH/best man/bridesmaid/groomsman) that
   // mirrors the sibling role-group filters (Principal Sponsors,
   // Secondary Sponsors, Bearers, Officiants). Position matches the
-  // BULK_ROLE_SECTIONS ordering in guest-list-multiselect.tsx for
+  // bulk role picker's ordering (lib/bulk-role-vocabulary.ts) for
   // muscle-memory consistency between sidebar + bulk toolbar.
   // Split 2026-09-14, same as the roster sections and the bulk picker — a VIEW
   // lens that still said "Wedding Party" would filter to a group the list no

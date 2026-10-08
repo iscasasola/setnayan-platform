@@ -57,6 +57,7 @@ import { DayOfModeGrid } from './_components/day-of-mode/grid';
 import { SetDateNudge } from './_components/set-date-nudge';
 import { readHomeGuide } from './_components/details-guide-home-card';
 import { HomeFirstScreen } from './_components/home-first-screen';
+import { rosterStats } from '@/lib/guest-roster-view';
 import { HomeWhatsNext } from './_components/home-parts';
 import { getNavSlotMap } from '@/lib/nav-registry';
 import { homeCoverFor } from '@/lib/home-cover.server';
@@ -624,11 +625,15 @@ export default async function EventHomePage({
   // no reply, Paid / Still owing (`lib/home-facts.ts`). The first screen DRAWS
   // them and the dashboard below is handed `daysOut` + the guest counts, so the
   // two can never count one fact two ways.
+  // 👥 ONE SOURCE for the two guest tiles: `rosterStats` — the very function the
+  // Guests summary line reads ("N attending · N no reply") — so Home's COMING and
+  // NO REPLY can never count the list a second way.
+  const homeRoster = rosterStats(guests);
   const facts = homeFacts({
     eventDate: (event.event_date as string | null) ?? null,
     precision: (event as { event_date_precision?: string | null }).event_date_precision,
     timezone: (event as { timezone?: string | null }).timezone,
-    guests: { stats: guestStats, measured: guestsMeasured },
+    guests: { stats: guestStats, measured: guestsMeasured, noReply: homeRoster.none, coming: homeRoster.yes },
     money: moneyNow,
   });
   const homeServiceRow = homeServices({

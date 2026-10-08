@@ -154,6 +154,13 @@ const config: Config = {
           // cream and would vanish on the light surface; those set
           // `--color-ink-on-light` in globals.css.
           'on-light': 'rgb(var(--color-ink-on-light, var(--color-ink)) / <alpha-value>)',
+          // The ink for words set straight on the PLATE paper (`bg-paper-deep`)
+          // outside a `.pahina-plate` — the host's ribbon. Falls back to
+          // `--color-ink`, so it IS `text-ink` on every look whose plate ink is
+          // the page's; where the page ink flipped light under a couple's dark
+          // background, the plate keeps its own (`pinPlateInk`,
+          // app/[slug]/_lib/pro-site-vars.ts) and so does this.
+          'on-plate': 'rgb(var(--color-ink-on-plate, var(--color-ink)) / <alpha-value>)',
         },
         terracotta: {
           DEFAULT: 'rgb(var(--color-terracotta) / <alpha-value>)',

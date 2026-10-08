@@ -839,6 +839,11 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     why: '⚠ This stamp records WHO FIRST PRESSED ADD, not whose account it is — the update path rewrites the handle and account name but never this column. So a row now holding the OTHER partner’s GCash number still carries the leaver’s uuid. Nulling is the only safe move; see PARTIALLY_PURGED for what is deliberately retained.',
   },
   {
+    table: 'event_wish_items',
+    column: 'created_by_user_id',
+    why: 'Which host pressed "Add an item" on the E-Gifts wish list (2026-10-08). The wish belongs to the EVENT — it is the couple’s shared list, guests may already have sent toward it, and its gift records hang off it — so deleting it because one partner or a co-host left would take a wish, and the meter guests are filling, away from the people still standing. Same stamp, same call as event_egift_methods beside it: selected by no reader, shown in no label, consulted by no RLS policy (the gate is the moderators / couple-member predicate). Nullable with ON DELETE SET NULL from the day it shipped. ⚠ Its sibling event_gift_records carries NO account column at all — a giver is a guest row plus the name they typed — so this detector cannot see it; what a guest wrote there is the couple’s record of a gift and is not touched by this rule.',
+  },
+  {
     table: 'vendor_invites',
     column: 'invited_by_user_id',
     why: 'Who tapped "Invite to Setnayan". MOVED here from SUBJECT_ROW_DELETES by owner ruling 2026-09-06, together with migration 20271210831005 which made the column nullable + SET NULL. The old reason read "CASCADE + NOT NULL — the schema’s own verdict that an invitation dies with whoever sent it", which argued FROM the constraint to the disposition and so could never notice the constraint was wrong. It was: the row is a LIVE CLAIM CREDENTIAL held by the INVITEE and carrying THEIR email, so deleting it kills a claim link a supplier is holding and applyClaimAutoLink answers INVITE_NOT_FOUND to somebody who did nothing. The invitee’s email is third-party data this file already excludes from erasure elsewhere. The sender is de-identified either way; the delete only added a second victim. Its sibling claimed_by_user_id was already nulled here, so the table now treats both stamps alike.',

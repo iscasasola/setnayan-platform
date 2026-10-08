@@ -459,10 +459,10 @@ test('the stage canvas iframe is keyed on the held stamp, never on every render'
   const frame = src.slice(src.indexOf('<BufferedCanvasFrame'), src.indexOf('/>', src.indexOf('<BufferedCanvasFrame')));
   assert.ok(frame.length > 0, 'the stage canvas is the buffered frame');
   assert.match(frame, /frameKey=\{`\$\{stage\}:\$\{canvasStamp\}/, 'the stage canvas must be keyed on canvasStamp');
-  // `warmGen` is not a key: it only tells the buffer a render landed, a moment to
-  // warm the OTHER stages (2026-09-28). Everything else must never see renderStamp.
-  assert.match(frame, /warmGen=\{maker\.renderStamp\}/);
-  assert.doesNotMatch(frame.replace('warmGen={maker.renderStamp}', ''), /renderStamp/, 'a key on renderStamp reloads the canvas on every element save');
+  // Nothing on the frame may see renderStamp. (Until 2026-10-08 a `warmGen` prop
+  // carried it, to fetch the OTHER stages again after every render — the load
+  // that exhausted the database's connection pool. It is gone, not renamed.)
+  assert.doesNotMatch(frame, /renderStamp/, 'a key on renderStamp reloads the canvas on every element save');
   assert.match(src, /canvasKeepsItsPage\(canvasHold\.current/);
   assert.match(src, /onSaving=\{\(widgetType, canvas\) => \{\s*canvasHold\.current = holdCanvas\(/);
 });

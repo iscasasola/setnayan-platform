@@ -6,6 +6,7 @@ import {
   viewAsFreeCookieOn,
   viewAsFreeHonoured,
 } from '@/lib/view-as-free';
+import { internalAnswerFrom } from '@/lib/internal-viewer-read';
 
 /**
  * apps/web/lib/view-as-free.server.ts
@@ -41,15 +42,25 @@ import {
  * request `cookies()` throws, which reads as OFF.
  */
 
-/** Is the viewer an internal (§10a) account? Cached per request. */
-export const viewerIsInternal = cache(async (): Promise<boolean> => {
+/**
+ * The read behind `viewerIsInternal`, with a FAILED read kept apart from "no".
+ *
+ * 🧯 2026-10-08 (production incident): while PostgREST was refusing
+ * connections this read timed out, "not internal" came back, and the Maker's
+ * gate — which is on for an internal viewer — drew the OLD Maker for the
+ * owner. A read that did not answer picked a different product. The view
+ * switch may still treat a failure as "off" (it then shows the real page);
+ * the Maker's gate may not, so it asks `read` (`viewAsFreeSwitch().measured`,
+ * `lib/maker-stages-studio-flag.ts` `makerChoiceIsUnread`).
+ */
+const viewerInternalRead = cache(async (): Promise<{ read: boolean; internal: boolean }> => {
   const [{ getCurrentUser }, { createClient }, { logQueryError }] = await Promise.all([
     import('@/lib/auth'),
     import('@/lib/supabase/server'),
     import('@/lib/supabase/error-detect'),
   ]);
   const user = await getCurrentUser().catch(() => null);
-  if (!user) return false;
+  if (!user) return { read: true, internal: false };
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('users')
@@ -60,10 +71,12 @@ export const viewerIsInternal = cache(async (): Promise<boolean> => {
     // Not internal on a failed read: the switch then does nothing, which shows
     // the real (Pro) page — never the other way round.
     logQueryError('viewAsFree.viewerIsInternal', error, { user_id: user.id }, 'graceful_degrade');
-    return false;
   }
-  return (data as { is_internal?: boolean | null } | null)?.is_internal === true;
+  return internalAnswerFrom({ data, error });
 });
+
+/** Is the viewer an internal (§10a) account? Cached per request. */
+export const viewerIsInternal = cache(async (): Promise<boolean> => (await viewerInternalRead()).internal);
 
 async function readCookie(): Promise<string | null> {
   try {
@@ -84,10 +97,19 @@ export const viewingAsFreeCouple = cache(async (): Promise<boolean> => {
   return viewAsFreeHonoured({ cookie, isInternal });
 });
 
-/** What the Maker needs to draw the switch: whether to offer it at all, and its state. */
-export async function viewAsFreeSwitch(): Promise<{ offered: boolean; on: boolean }> {
+/**
+ * What the Maker needs to draw the switch: whether to offer it at all, and its
+ * state — and `measured`: did the read behind `offered` ANSWER? `offered` is
+ * false both for "not internal" and for "the read failed"; only `measured`
+ * tells them apart, and the Maker's gate must (see `viewerInternalRead`).
+ */
+export async function viewAsFreeSwitch(): Promise<{ offered: boolean; on: boolean; measured: boolean }> {
   const [offered, on] = await Promise.all([viewerIsInternal().catch(() => false), viewingAsFreeCouple()]);
-  return { offered, on: offered && on };
+  const measured = await viewerInternalRead().then(
+    (r) => r.read,
+    () => false,
+  );
+  return { offered, on: offered && on, measured };
 }
 
 /**

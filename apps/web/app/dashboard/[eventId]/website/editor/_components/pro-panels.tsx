@@ -196,10 +196,14 @@ export function ColorsPanel({
       />
     </fieldset>
   );
+  /* 🧭 IN THE NEW MAKER'S STUDIO a Look part sits FLUSH with the rows around it (owner's preview walk 2026-10-08:
+     a tall empty gap, with a hairline, between Magic Move and Palette — it was this form's own padding and rule
+     stacked on the next row's). The shipped Maker keeps the panel's padded block. */
+  const flush = maker?.stagesStudio === true && (part === 'art' || part === 'page' || part === 'font');
   /* A Pro half that is locked with no lock to show (the app-store shell) has nothing to draw. */
   if (part === 'art' && proLocked && !proLock) return null;
   return (
-    <form action={action} className="border-t border-dashed border-ink/10 bg-cream/40 p-3">
+    <form action={action} data-look-form={part ?? undefined} className={flush ? 'flex flex-col' : 'border-t border-dashed border-ink/10 bg-cream/40 p-3'}>
       {/* Into the draft (`updateSiteColors`' door) — a free couple may TRY the
           Pro half here and pays at Apply. */}
       <HubDraftField />

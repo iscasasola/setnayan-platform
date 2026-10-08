@@ -1,9 +1,10 @@
 'use client';
 
-import { useId, useRef, useState } from 'react';
-import { Check, ChevronRight, RotateCcw, Trash2 } from 'lucide-react';
+import { useEffect, useId, useRef, useState } from 'react';
+import { Check, ChevronRight, Image as ShotGlyph, RotateCcw, RotateCw, Trash2 } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { ActionButton } from '@/components/action-button';
+import { PickMenu, type PickOption } from '../../website/editor/_components/pick-menu';
 import { cleanGiftAmount } from '@/lib/gift-record';
 import { formatPhp } from '@/lib/php';
 import { STUDIO_DONE_BUTTON } from '@/lib/studio-skin';
@@ -20,6 +21,7 @@ import {
   GIFT_NO_SHOT,
   GIFT_REMOVED_LINE,
   GIFT_SHOT_IS_NOT_MONEY,
+  GIFT_SHOT_LOADING,
   GIFT_SHOT_UNREAD,
   giftRowLine,
   giftWhenLine,
@@ -35,16 +37,20 @@ import { FIELD, FOOT, LABEL, WishSheet } from './studio-wish-sheet';
  * `EGIFTS_WISH_LIST_2026-10-08_fable.md` § 2 "One gift open" · "Gifts sent to
  * you"; prototype frames 05 · 07 · 08).
  *
- *   · a gift's ROW — the screenshot's thumbnail (or "no shot"), who, the way and
- *     when, their words, the amount and the word "sent". A row is a button;
+ *   · a gift's ROW — a small mark that says a screenshot was added (or the words
+ *     "no shot"), who, the way and when, their words, the amount and the word
+ *     "sent". A row is a button. A row draws NO picture: a list of pictures is a
+ *     request per row, and there is no stored thumbnail to show;
  *   · GIFTS SENT TO YOU — every record, newest first, with what guests say they
  *     sent in all; removed ones wait at the end so they can be put back;
  *   · ONE GIFT, OPEN — the screenshot large, their words, "Amount they said"
  *     (kept when the field is left — no Save), "Counts toward" (another wish, or
  *     "Any gift"), 🗑 Remove in two taps, and for a removed one, Put it back.
  *
- * 🔒 ONLY THE COUPLE. The screenshot's address is a short-lived signed one the
- * server made for a host; there is no public address for it anywhere.
+ * 🔒 ONLY THE COUPLE, AND ONLY THE GIFT THAT IS OPEN. The screenshot is asked for
+ * when ONE gift's sheet opens (`onShot` — one request, through the E-Gifts page's
+ * one door): a short-lived signed address the server makes for a host. There is
+ * no public address for it anywhere, and none is made for a row of a list.
  *
  * The word is "sent". A screenshot is what a guest showed the couple — this
  * screen never says a gift arrived, and tells them where the truth is.
@@ -55,15 +61,18 @@ import { FIELD, FOOT, LABEL, WishSheet } from './studio-wish-sheet';
 
 const THUMB = 'flex h-14 w-11 shrink-0 items-center justify-center overflow-hidden rounded-md border border-ink/10 bg-white px-0.5 text-center text-[10px] leading-tight text-ink/50';
 
-/** The small picture at the head of a row — the screenshot itself, or the words "no shot". */
+/**
+ * The small frame at the head of a row: a mark that a screenshot was added, or
+ * the words "no shot". Never the picture — that is the opened gift's alone.
+ */
 function GiftThumb({ gift }: { gift: StudioWishGift }) {
   return (
     <span data-wish-gift-shot={gift.hasShot ? 'yes' : 'none'} className={THUMB}>
-      {gift.shotUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element -- a signed, host-only address of the guest's screenshot
-        <img src={gift.shotUrl} alt="" className="h-full w-full object-cover" />
-      ) : gift.hasShot ? (
-        'shot'
+      {gift.hasShot ? (
+        <>
+          <ShotGlyph aria-hidden className="h-5 w-5 text-ink/45" strokeWidth={1.6} />
+          <span className="sr-only">screenshot added</span>
+        </>
       ) : (
         'no shot'
       )}
@@ -183,6 +192,7 @@ export function OpenGift({
   onAmount,
   onMove,
   onRemove,
+  onShot,
 }: {
   gift: StudioWishGift;
   wishes: readonly Pick<StudioWish, 'id' | 'name'>[];
@@ -190,13 +200,42 @@ export function OpenGift({
   onAmount: (amountPhp: number) => Promise<string | null>;
   onMove: (wishId: string | null) => Promise<string | null>;
   onRemove: (removed: boolean) => Promise<string | null>;
+  /** Ask for THIS gift's screenshot — resolves to its address (null = none), rejects when it could not be loaded. */
+  onShot: () => Promise<string | null>;
 }) {
+  /* 🖼 ONE PICTURE, FOR THE ONE GIFT THAT IS OPEN — asked for when this sheet opens, and only
+     if the record says it has one. `gift.shotUrl` is the dev lab's stand-in (the server's list
+     read never fills it). Nothing retries by itself: a refusal is said, with Try again. */
+  const [shot, setShot] = useState<{ state: 'none' | 'loading' | 'unread' } | { state: 'shown'; url: string }>(() =>
+    !gift.hasShot ? { state: 'none' } : gift.shotUrl ? { state: 'shown', url: gift.shotUrl } : { state: 'loading' },
+  );
+  const askShot = useRef(onShot);
+  askShot.current = onShot;
+  const [shotTry, setShotTry] = useState(0);
+  const needsShot = gift.hasShot && !gift.shotUrl;
+  useEffect(() => {
+    if (!needsShot) return;
+    let open = true;
+    askShot.current().then(
+      (url) => {
+        if (open) setShot(url ? { state: 'shown', url } : { state: 'none' });
+      },
+      () => {
+        if (open) setShot({ state: 'unread' });
+      },
+    );
+    return () => {
+      open = false;
+    };
+  }, [needsShot, shotTry]);
+
   const [typed, setTyped] = useState(String(gift.amountPhp));
   const kept = useRef(gift.amountPhp);
   const [refused, setRefused] = useState<string | null>(null);
   const [asked, setAsked] = useState(false);
   const id = useId();
   const when = giftWhenLine(gift);
+  const toward: PickOption[] = [...wishes.map((w) => ({ key: w.id, label: w.name })), { key: '', label: GIFT_ANY }];
 
   /** Keep the typed amount, when it differs from what is kept. */
   const keep = async (): Promise<boolean> => {
@@ -232,12 +271,36 @@ export function OpenGift({
         ) : null
       }
     >
-      <div data-gift-open-shot={gift.shotUrl ? 'shown' : gift.hasShot ? 'unread' : 'none'} className="mt-3 flex min-h-24 items-center justify-center overflow-hidden rounded-md border border-ink/10 bg-white">
-        {gift.shotUrl ? (
+      <div data-gift-open-shot={shot.state} className="mt-3 flex min-h-24 flex-col items-center justify-center gap-2 overflow-hidden rounded-md border border-ink/10 bg-white">
+        {shot.state === 'shown' ? (
           // eslint-disable-next-line @next/next/no-img-element -- a signed, host-only address of the guest's screenshot
-          <img src={gift.shotUrl} alt={`The screenshot ${gift.giverName} added`} className="max-h-[60dvh] w-auto max-w-full object-contain" />
+          <img
+            src={shot.url}
+            alt={`The screenshot ${gift.giverName} added`}
+            loading="lazy"
+            decoding="async"
+            onError={() => setShot({ state: 'unread' })}
+            className="max-h-[60dvh] w-auto max-w-full object-contain"
+          />
+        ) : shot.state === 'unread' ? (
+          <>
+            <span role="alert" className="px-4 pt-5 text-center text-[13px] text-danger-800">
+              {GIFT_SHOT_UNREAD}
+            </span>
+            <ActionButton
+              tone="neutral"
+              icon={RotateCw}
+              label="Try again"
+              className="mb-4"
+              data-testid="gift-shot-retry"
+              onClick={() => {
+                setShot({ state: 'loading' });
+                setShotTry((n) => n + 1);
+              }}
+            />
+          </>
         ) : (
-          <span className="px-4 py-6 text-center text-[13px] text-ink/55">{gift.hasShot ? GIFT_SHOT_UNREAD : GIFT_NO_SHOT}</span>
+          <span className="px-4 py-6 text-center text-[13px] text-ink/55">{shot.state === 'loading' ? GIFT_SHOT_LOADING : GIFT_NO_SHOT}</span>
         )}
       </div>
 
@@ -269,27 +332,21 @@ export function OpenGift({
             </span>
           </div>
           <div className="mt-3 border-t border-ink/10 pt-3">
-            <label className={LABEL} htmlFor={`${id}-toward`}>
-              {GIFT_TOWARD_LABEL}
-            </label>
-            <select
-              id={`${id}-toward`}
-              data-gift-field="toward"
+            <span className={LABEL}>{GIFT_TOWARD_LABEL}</span>
+            {/* ONE dropdown — the Maker's own (`PickMenu`): every wish, then "Any gift". Kept at the pick. */}
+            <PickMenu
+              label={GIFT_TOWARD_LABEL}
               value={gift.wishId ?? ''}
-              onChange={async (e) => {
+              options={toward}
+              dataAttr="data-gift-toward"
+              className="mt-1.5"
+              onPick={async (key) => {
+                if (key === (gift.wishId ?? '')) return;
                 setRefused(null);
-                const said = await onMove(e.target.value === '' ? null : e.target.value);
+                const said = await onMove(key === '' ? null : key);
                 if (said) setRefused(said);
               }}
-              className={FIELD}
-            >
-              {wishes.map((w) => (
-                <option key={w.id} value={w.id}>
-                  {w.name}
-                </option>
-              ))}
-              <option value="">{GIFT_ANY}</option>
-            </select>
+            />
           </div>
         </>
       )}

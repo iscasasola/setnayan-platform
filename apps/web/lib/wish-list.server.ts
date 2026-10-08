@@ -6,6 +6,7 @@ import { displayUrlForPrivateStoredAsset, publicUrlForStoredAsset } from '@/lib/
 import { publicBucketServeRef } from '@/lib/site-media-ref';
 import {
   GIFT_RECORD_SELECT,
+  GIFT_SHOT_FIELDS,
   GIFT_SUM_FIELDS,
   WISH_GUEST_FIELDS,
   WISH_ITEM_SELECT,
@@ -52,34 +53,63 @@ export async function readStudioWishList(supabase: SupabaseClient, eventId: stri
   if (giftRes.error) logQueryError('readStudioWishList.gifts', giftRes.error, { event_id: eventId }, 'graceful_degrade');
   if (wishRes.error || giftRes.error || !wishRes.data || !giftRes.data) return { read: false };
 
-  const records = giftRes.data as unknown as GiftRecordRow[];
-  /* 🔒 THE SCREENSHOTS, FOR A HOST ONLY. This read is the host's own (RLS hands a
-     non-host no record at all), so each screenshot a record names gets a
-     short-lived SIGNED address here — never a public one, and only for a ref that
-     sits in THIS event's own private gift-shots folder (`giftShotEventPolicy`);
-     anything else stays unsigned and the screen says it could not be loaded. */
-  const shotPolicy = giftShotEventPolicy(eventId);
-  const shotUrls = new Map<string, string | null>();
-  await Promise.all(
-    records.map(async (r) => {
-      const ref = r.screenshot_r2_key;
-      if (!ref || shotUrls.has(ref)) return;
-      shotUrls.set(ref, null);
-      if (!parseClientRef(ref, shotPolicy)) return;
-      try {
-        shotUrls.set(ref, await displayUrlForPrivateStoredAsset(ref, shotPolicy));
-      } catch (err) {
-        logQueryError('readStudioWishList.shot', err, { event_id: eventId }, 'graceful_degrade');
-      }
-    }),
-  );
-
+  /* 🔒 NO SCREENSHOT IS SIGNED HERE. This read runs on every render of the Maker,
+     and a signed address is new on every render: signing one per record would
+     hand the browser a fresh, uncacheable picture per row, per render. The list
+     says only WHETHER a record has a screenshot (`hasShot`); the picture itself
+     is asked for when the couple opens that ONE gift (`readGiftShotUrl`). */
   return studioWishListFrom(
     wishRes.data as unknown as WishItemRow[],
-    records,
+    giftRes.data as unknown as GiftRecordRow[],
     (ref) => publicUrlForStoredAsset(publicBucketServeRef(ref)),
-    (ref) => (ref ? (shotUrls.get(ref) ?? null) : null),
   );
+}
+
+/** How long one opened screenshot's address lives — long enough to look at it, never a day. */
+export const GIFT_SHOT_TTL_SECONDS = 600;
+
+/** What `readGiftShotUrl` answers. `url: null` = that record has no screenshot. */
+export type GiftShotRead = { read: true; url: string | null } | { read: false; gone: boolean };
+
+/**
+ * ONE GIFT'S SCREENSHOT, FOR THE COUPLE WHO OPENED IT (wish list 5/5).
+ *
+ * 🔒 ONLY A HOST. Read through the signed-in person's OWN client:
+ * `event_gift_records_host_all` hands a non-host no row at all, so there is
+ * nothing to sign for them. The address is short-lived and signed — there is no
+ * public address for a guest's screenshot anywhere — and only for a ref inside
+ * THIS event's own private gift-shots folder (`giftShotEventPolicy`): a row
+ * naming anything else is refused, never signed.
+ *
+ * ONE request: the record, by its id AND its event. Signing asks nobody.
+ *
+ * 🔑 A refused read is `{ read: false }` — "couldn't be loaded", never "they
+ * added no screenshot". `gone` = RLS or the id matched no row.
+ */
+export async function readGiftShotUrl(supabase: SupabaseClient, eventId: string, giftRecordId: string): Promise<GiftShotRead> {
+  const res = await supabase
+    .from('event_gift_records')
+    .select(GIFT_SHOT_FIELDS)
+    .eq('gift_record_id', giftRecordId)
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (res.error) {
+    logQueryError('readGiftShotUrl', res.error, { event_id: eventId }, 'graceful_degrade');
+    return { read: false, gone: false };
+  }
+  const row = res.data as { screenshot_r2_key: string | null } | null;
+  if (!row) return { read: false, gone: true };
+  const ref = row.screenshot_r2_key;
+  if (!ref) return { read: true, url: null };
+  const shotPolicy = giftShotEventPolicy(eventId);
+  if (!parseClientRef(ref, shotPolicy)) return { read: false, gone: false };
+  try {
+    const url = await displayUrlForPrivateStoredAsset(ref, shotPolicy, { ttlSeconds: GIFT_SHOT_TTL_SECONDS });
+    return url ? { read: true, url } : { read: false, gone: false };
+  } catch (err) {
+    logQueryError('readGiftShotUrl.sign', err, { event_id: eventId }, 'graceful_degrade');
+    return { read: false, gone: false };
+  }
 }
 
 /**

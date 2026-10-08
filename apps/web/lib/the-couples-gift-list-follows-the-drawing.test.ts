@@ -17,23 +17,17 @@
  *   4 · one gift open is the drawing: the screenshot, their words, "Amount they
  *       said", "Counts toward", the honest line — 🗑 Remove (two taps) · ✓ Done;
  *   5 · a wish's own gifts are rows that open, kept-first;
- *   6 · every change is DRAWN first, saved through the one door, and put back
- *       (and the truth re-read) when the server refuses;
+ *   6 · every change is DRAWN first, saved through the one door as a HELD save
+ *       (no Maker re-read), and put back when the server refuses;
  *   7 · +0 server actions, +0 routes — and the writer never deletes or inserts;
- *   8 · 🔒 the screenshot is signed for a HOST's read only, from this event's
- *       own private folder — the guest's read never signs anything;
- *   9 · the screens ride the lazy Studio chunk, never the Maker's first load.
+ *   8 · 🔒 the screenshot is signed for a HOST only, for the ONE gift that was
+ *       opened, from this event's own private folder — the list read signs
+ *       nothing, a row draws no picture, the guest's read never signs anything;
+ *   9 · the screens ride the lazy Studio chunk, never the Maker's first load;
+ *  10 · ⚡ a press costs one request and renders no page: the door refreshes the
+ *       guests' pages AFTER its answer is sent, and the read refreshes nothing.
  *
- * 🛡 Sabotaged, each red then restored (2026-10-08):
- *   • the door drawn as the old count-only row                         → 1 red;
- *   • a removed record counted in the sentence                         → 3 red;
- *   • Remove on the first tap                                          → 4 red;
- *   • the save sent before anything is drawn                           → 6 red;
- *   • a refusal that does not put the record back                      → 6 red;
- *   • the writer deleting the row on Remove                            → 7 red;
- *   • a write that forgets the event                                   → 7 red;
- *   • the screenshot signed without the event's folder check           → 8 red;
- *   • the guest's read signing a screenshot                            → 8 red.
+ * 🛡 Sabotaged, each red then restored (2026-10-08, builder EH) — listed in the PR body.
  *
  * Run from apps/web:  npx tsx --test lib/the-couples-gift-list-follows-the-drawing.test.ts
  */
@@ -123,16 +117,20 @@ test('2 · the list: every record newest first, the sentence, each row’s line,
 
   const rows = [...html.matchAll(/<li data-gift-row="counted"[^>]*>(.*?)<\/li>/gs)].map((m) => words(m[1]!));
   assert.deepEqual(rows, [
-    'Tita Nene Air fryer · GCash · Tue 3:12 pm "For your merienda machine! Love you both" ₱2,000 sent',
+    'screenshot added Tita Nene Air fryer · GCash · Tue 3:12 pm "For your merienda machine! Love you both" ₱2,000 sent',
     'no shot Kuya Jun Air fryer · Bank transfer · Mon 9:40 am "Congrats, mga bata." ₱2,000 sent',
-    'Ate Grace Luggage set · GCash · Sun 7:05 pm "For the honeymoon!" ₱3,000 sent',
-    'Ninong Bert Any gift · GCash · Sun 2:30 pm "Congratulations to you both!" ₱5,000 sent',
-    'Lola Cely Bed linen · GCash · Sat 11:20 am "Sweet dreams, apo." ₱2,500 sent',
+    'screenshot added Ate Grace Luggage set · GCash · Sun 7:05 pm "For the honeymoon!" ₱3,000 sent',
+    'screenshot added Ninong Bert Any gift · GCash · Sun 2:30 pm "Congratulations to you both!" ₱5,000 sent',
+    'screenshot added Lola Cely Bed linen · GCash · Sat 11:20 am "Sweet dreams, apo." ₱2,500 sent',
   ]);
-  /* Each row is a button that opens that gift; a screenshot is drawn as the picture itself. */
+  /* Each row is a button that opens that gift. A row says a screenshot was added with a mark —
+     it draws NO picture, even when the reader already holds an address (the lab's fixture does):
+     a list of pictures is a request per row. */
   assert.equal(html.match(/<button type="button" data-gift-open="/g)?.length, 5);
-  assert.equal(html.match(/data-wish-gift-shot="yes"[^>]*><img /g)?.length, 4);
+  assert.ok(gifts.filter((g) => g.shotUrl).length >= 4, 'the fixture no longer hands rows an address to be tempted by');
+  assert.equal(html.match(/data-wish-gift-shot="yes"[^>]*><svg /g)?.length, 4);
   assert.equal(html.match(/data-wish-gift-shot="none"/g)?.length, 1);
+  assert.doesNotMatch(html, /<img /, 'the list of gifts draws a picture per row');
   assert.doesNotMatch(html, /data-gifts-removed-rows/);
 
   assert.ok(text.endsWith(GIFTS_SENT_FOOT.replace('’', '’')), 'the footer says who alone sees these');
@@ -171,8 +169,8 @@ test('4 · one gift open: the screenshot, their words, the amount, "Counts towar
       '{GIFT_AMOUNT_HINT}',
       'data-gift-field="amount"',
       '{GIFT_TOWARD_LABEL}',
-      'data-gift-field="toward"',
-      '<option value="">{GIFT_ANY}</option>',
+      '<PickMenu',
+      'dataAttr="data-gift-toward"',
       '{GIFT_SHOT_IS_NOT_MONEY}',
       'data-gift-refused=""',
       'data-wish-sheet-foot="gift"',
@@ -181,12 +179,19 @@ test('4 · one gift open: the screenshot, their words, the amount, "Counts towar
     ],
     'the open gift',
   );
-  /* The picture, or the truth about it — never an empty frame. */
-  assert.match(open, /\{gift\.shotUrl \? \( <img src=\{gift\.shotUrl\}[^>]*\/> \) : \( <span[^>]*>\{gift\.hasShot \? GIFT_SHOT_UNREAD : GIFT_NO_SHOT\}<\/span> \)\}/);
+  /* The picture, or the truth about it — never an empty frame: shown · couldn't be loaded
+     (said, with Try again — nothing retries by itself) · loading · none. */
+  assert.match(open, /\{shot\.state === 'shown' \? \( <img src=\{shot\.url\}[^>]*loading="lazy"[^>]*onError=\{\(\) => setShot\(\{ state: 'unread' \}\)\}[^>]*\/> \) : shot\.state === 'unread' \? \(/);
+  assert.match(open, /<span role="alert"[^>]*> \{GIFT_SHOT_UNREAD\} <\/span> <ActionButton tone="neutral" icon=\{RotateCw\} label="Try again"/);
+  assert.match(open, /\{shot\.state === 'loading' \? GIFT_SHOT_LOADING : GIFT_NO_SHOT\}/);
+  assert.doesNotMatch(open, /setInterval|setTimeout/, 'the screenshot is retried on a timer');
+  /* "Counts toward" is ONE dropdown — the Maker's own — holding every wish, then "Any gift". */
+  assert.match(open, /const toward: PickOption\[\] = \[\.\.\.wishes\.map\(\(w\) => \(\{ key: w\.id, label: w\.name \}\)\), \{ key: '', label: GIFT_ANY \}\];/);
+  assert.match(open, /<PickMenu label=\{GIFT_TOWARD_LABEL\} value=\{gift\.wishId \?\? ''\} options=\{toward\}/);
+  assert.doesNotMatch(s, /<select|<option/, 'a second kind of dropdown');
   /* Kept when the field is left — no Save — and each control is its label's. */
   assert.match(open, /onBlur=\{\(\) => void keep\(\)\}/);
   assert.match(open, /<label className=\{LABEL\} htmlFor=\{`\$\{id\}-amount`\}>/);
-  assert.match(open, /<label className=\{LABEL\} htmlFor=\{`\$\{id\}-toward`\}>/);
   assert.doesNotMatch(open, /label="Save"|>Save</);
   /* Two taps: the first only asks. */
   assert.match(open, /if \(!asked\) \{ setAsked\(true\); return; \} setRefused\(null\); const said = await onRemove\(true\);/);
@@ -209,9 +214,9 @@ test('5 · a wish’s own gifts are rows that open — what is typed is kept fir
   assert.doesNotMatch(list, /'no shot'/, 'the read-only "shot / no shot" row is gone from the wish’s sheet');
 });
 
-test('6 · every change is drawn first, saved through the one door, and put back when refused', () => {
+test('6 · every change is drawn first, saved through the one door as a held save, and put back when refused', () => {
   const list = flat(LIST);
-  const fn = list.slice(list.indexOf('const changeGift = async ('), list.indexOf('const view = wishesWithGifts(wishes, gifts);'));
+  const fn = list.slice(list.indexOf('const changeGift = async ('), list.indexOf('const shots = useRef('));
   assert.ok(fn.length > 300, 'changeGift was not found');
   inOrder(
     fn,
@@ -220,14 +225,16 @@ test('6 · every change is drawn first, saved through the one door, and put back
       'const next = gifts.map((g) => (g.id === id ? { ...g, ...change } : g));',
       'setGifts(next);',
       'setWishes((cur) => settleDrawn(cur, next, [had.wishId, change.wishId ?? null]));',
-      'const res = await makerSave(() => action(form({ gift_record_id: id, ...fields })), requestMakerRefresh);',
+      'const res = await makerSave(() => action(form({ gift_record_id: id, ...fields })), requestMakerRefresh, { held: true });',
       'if (res.ok) return null;',
-      'setGifts(wasGifts); setWishes(wasWishes);',
-      'requestMakerRefresh();',
+      'if (res.kept) setWishes(',
+      'else { setGifts(wasGifts); setWishes(wasWishes); }',
       'return res.error;',
     ],
     'changeGift',
   );
+  /* ⚡ Nothing in it asks the Maker to render again — not after a kept change, not after a refusal. */
+  assert.doesNotMatch(fn, /requestMakerRefresh\(\)|router\.refresh|location\.reload/, 'a gift change re-renders the Maker');
   /* The three things a couple can do to a record — and nothing else is sent. */
   assert.match(list, /onAmount=\{\(amountPhp\) => changeGift\(giftOpen\.id, \{ amountPhp \}, \{ wish_op: 'gift-amount', amount: String\(amountPhp\) \}\)\}/);
   assert.match(list, /onMove=\{\(wishId\) => changeGift\(giftOpen\.id, \{ wishId \}, \{ wish_op: 'gift-move', wish_item_id: wishId \?\? '' \}\)\}/);
@@ -265,44 +272,101 @@ test('7 · +0 server actions, +0 routes — and the writer corrects, never delet
   assert.deepEqual(api.filter((p) => /gift|wish/i.test(String(p))), []);
 
   const w = flat(WRITER);
-  assert.match(w, /export const GIFT_OPS = \['gift-amount', 'gift-move', 'gift-remove'\] as const;/);
+  assert.match(w, /export const GIFT_WRITE_OPS = \['gift-amount', 'gift-move', 'gift-remove'\] as const;/);
+  assert.match(w, /export const GIFT_READ_OP = 'gift-shot';/);
+  assert.match(w, /export const GIFT_OPS = \[\.\.\.GIFT_WRITE_OPS, GIFT_READ_OP\] as const;/);
   assert.doesNotMatch(w, /\.delete\(|\.insert\(|\.upsert\(|createAdminClient/, 'the couple’s writer deletes, invents or reaches past RLS');
   /* Remove is a timestamp. */
   assert.match(w, /patch = \{ removed_at: removed === '1' \? new Date\(\)\.toISOString\(\) : null \};/);
   /* 🔒 Every read and every write names the event — a record's wish key alone does not. */
   const calls = w.split(/\.from\('(?:event_gift_records|event_wish_items)'\)/).slice(1).map((c) => c.split(';')[0]!);
   assert.equal(calls.length, 6, `the writer’s six table calls were not all found (${calls.length})`);
+  /* ⚡ ONE write per change; the wishes it touched are added up in ONE pass — never a read per wish. */
+  assert.equal([...w.matchAll(/\.from\('event_gift_records'\) \.update\(/g)].length, 1, 'a change to a record is one write');
+  assert.doesNotMatch(w, /for \(const \w+ of[^)]*\) \{[^}]*await/, 'a request per wish, one after another');
+  assert.match(w, /\.eq\('event_id', eventId\)\.in\('wish_item_id', ids\)/);
   for (const c of calls) assert.match(c, /\.eq\('event_id', eventId\)/, `a call forgets the event: ${c.slice(0, 120)}`);
   /* A zero-row write is said, never reported as kept. */
-  assert.match(w, /if \(!kept \|\| kept\.length === 0\) return \{ ok: false, error: GIFT_GONE \};/);
-  /* Got it follows the sum on every wish touched — the one it left and the one it joined. */
-  assert.match(w, /touched\.push\(to\);/);
-  assert.match(w, /for \(const wishId of new Set\(touched\.filter\(\(w\): w is string => typeof w === 'string'\)\)\) \{ if \(!\(await settleWishGot\(supabase, eventId, wishId\)\)\) settled = false; \}/);
-  assert.match(w, /return settled \? \{ ok: true \} : \{ ok: false, error: GIFT_MARK_NOT_SETTLED \};/);
+  assert.match(w, /if \(!now\) return \{ ok: false, error: GIFT_GONE \};/);
+  /* Got it follows the sum on every wish touched — the one it left and the one it counts toward now. */
+  assert.match(w, /left = rec\.wish_item_id;/);
+  assert.match(w, /const touched = \[left, now\.wish_item_id\]\.filter\(\(w\): w is string => typeof w === 'string'\);/);
+  assert.match(w, /if \(await settleWishesGot\(supabase, eventId, touched\)\) return \{ ok: true \};/);
+  /* …and a change that was kept while its mark was not is SAID, and marked as kept. */
+  assert.match(w, /return \{ ok: false, error: GIFT_MARK_NOT_SETTLED, kept: true \};/);
   assert.equal(existsSync(join(WEB, P, 'gift-actions.ts')), false);
 });
 
-test('8 · 🔒 the screenshot is signed for a host’s read only, from this event’s own private folder', () => {
+test('8 · 🔒 the screenshot is signed for a host only, for the one gift that was opened', () => {
   const s = flat('lib/wish-list.server.ts');
-  const host = s.slice(s.indexOf('export async function readStudioWishList('), s.indexOf('export async function readGuestWishList('));
+  const host = s.slice(s.indexOf('export async function readStudioWishList('), s.indexOf('export const GIFT_SHOT_TTL_SECONDS'));
+  const one = s.slice(s.indexOf('export async function readGiftShotUrl('), s.indexOf('export async function readGuestWishList('));
   const guest = s.slice(s.indexOf('export async function readGuestWishList('));
-  inOrder(
-    host,
-    [
-      'const shotPolicy = giftShotEventPolicy(eventId);',
-      'if (!parseClientRef(ref, shotPolicy)) return;',
-      'shotUrls.set(ref, await displayUrlForPrivateStoredAsset(ref, shotPolicy));',
-    ],
-    'the host read',
-  );
-  /* A screenshot never goes through the PUBLIC resolver. */
+  assert.ok(host.length > 200 && one.length > 200 && guest.length > 200);
+
+  /* ⚡ THE LIST READ SIGNS NOTHING — it runs on every render of the Maker, and a signed address
+     is new on every render. Two reads, side by side; no screenshot resolver is handed in. */
+  assert.doesNotMatch(host, /displayUrlForPrivateStoredAsset|giftShotEventPolicy|presign|shotUrl/, 'the couple’s list read signs a screenshot per record');
+  assert.equal([...host.matchAll(/supabase \.from\(/g)].length, 2, 'the list is one read per table');
+  assert.match(host, /await Promise\.all\(\[ supabase \.from\('event_wish_items'\)/);
   assert.equal([...host.matchAll(/publicUrlForStoredAsset\(/g)].length, 1, 'only the wish PHOTO is public');
-  assert.match(host, /\(ref\) => \(ref \? \(shotUrls\.get\(ref\) \?\? null\) : null\),/);
+  assert.match(host, /return studioWishListFrom\( wishRes\.data as unknown as WishItemRow\[\], giftRes\.data as unknown as GiftRecordRow\[\], \(ref\) => publicUrlForStoredAsset\(publicBucketServeRef\(ref\)\), \);/);
+
+  /* 🔒 ONE GIFT'S: the host's own client, that record by id AND event, this event's folder, short-lived. */
+  inOrder(
+    one,
+    [
+      ".from('event_gift_records')",
+      '.select(GIFT_SHOT_FIELDS)',
+      ".eq('gift_record_id', giftRecordId)",
+      ".eq('event_id', eventId)",
+      '.maybeSingle();',
+      'if (!row) return { read: false, gone: true };',
+      'if (!ref) return { read: true, url: null };',
+      'const shotPolicy = giftShotEventPolicy(eventId);',
+      'if (!parseClientRef(ref, shotPolicy)) return { read: false, gone: false };',
+      'await displayUrlForPrivateStoredAsset(ref, shotPolicy, { ttlSeconds: GIFT_SHOT_TTL_SECONDS });',
+    ],
+    'readGiftShotUrl',
+  );
+  assert.equal([...one.matchAll(/\.from\(/g)].length, 1, 'an opened screenshot is one read');
+  assert.doesNotMatch(one, /createAdminClient|publicUrlForStoredAsset/, 'a screenshot goes through the service role or the public resolver');
+  assert.match(s, /export const GIFT_SHOT_TTL_SECONDS = 600;/);
+
   /* The guest's read holds no screenshot, and signs nothing. */
-  assert.doesNotMatch(guest, /displayUrlForPrivateStoredAsset|giftShotEventPolicy|shotUrls|screenshot_r2_key|GIFT_RECORD_SELECT/);
-  /* The only picture address the couple's screens draw is the one the read handed them. */
+  assert.doesNotMatch(guest, /displayUrlForPrivateStoredAsset|giftShotEventPolicy|shotUrl|screenshot_r2_key|GIFT_RECORD_SELECT|GIFT_SHOT_FIELDS/);
+
+  /* The writer hands the read on, and says a refusal as a refusal — never "no screenshot". */
+  const w = flat(WRITER);
+  assert.match(w, /if \(op === 'gift-shot'\) \{ const shot = await readGiftShotUrl\(supabase, eventId, id\); if \(shot\.read\) return \{ ok: true, shotUrl: shot\.url \}; return \{ ok: false, error: shot\.gone \? GIFT_GONE : GIFT_SHOT_UNREAD \}; \}/);
+
+  /* THE SCREEN: one picture, in the one open gift — asked for when its sheet opens, only if the
+     record has one; reused while its address lives; a refusal forgotten so Try again asks again. */
   const ui = flat(GIFTS);
-  assert.deepEqual([...ui.matchAll(/<img src=\{([^}]+)\}/g)].map((m) => m[1]), ['gift.shotUrl', 'gift.shotUrl']);
+  assert.deepEqual([...ui.matchAll(/<img src=\{([^}]+)\}/g)].map((m) => m[1]), ['shot.url']);
+  const row = ui.slice(ui.indexOf('function GiftThumb('), ui.indexOf('export function GiftRow('));
+  assert.doesNotMatch(row, /<img|shotUrl/, 'a row of the list draws the screenshot');
+  assert.match(ui, /const needsShot = gift\.hasShot && !gift\.shotUrl; useEffect\(\(\) => \{ if \(!needsShot\) return; let open = true; askShot\.current\(\)\.then\(/);
+  assert.match(ui, /\}, \[needsShot, shotTry\]\);/);
+  const list = flat(LIST);
+  const see = list.slice(list.indexOf('const shots = useRef('), list.indexOf('const rows = useRef('));
+  inOrder(
+    see,
+    [
+      'const held = shots.current.get(id);',
+      'if (held && Date.now() - held.at < SHOT_REUSE_MS) return held.url;',
+      "const url = action(form({ wish_op: 'gift-shot', gift_record_id: id })).then((res) => {",
+      'if (!res.ok) throw new Error(res.error);',
+      'shots.current.set(id, { at: Date.now(), url });',
+      'url.catch(() => { if (shots.current.get(id)?.url === url) shots.current.delete(id); });',
+    ],
+    'seeShot',
+  );
+  assert.match(list, /const SHOT_REUSE_MS = 8 \* 60 \* 1000;/);
+  assert.match(list, /onShot=\{\(\) => seeShot\(giftOpen\.id\)\}/);
+  /* It is asked for by an OPEN gift only — never while the list is drawn. */
+  assert.equal([...list.matchAll(/seeShot\(/g)].length, 1);
+  assert.equal([...list.matchAll(/'gift-shot'/g)].length, 1);
 });
 
 test('9 · the gift screens ride the lazy Studio chunk — one importer, never the Maker’s first load', () => {
@@ -322,4 +386,31 @@ test('9 · the gift screens ride the lazy Studio chunk — one importer, never t
   /* …and the wish list itself is still reached only through the lazy tools door. */
   const tools = read(`${L}/studio-tools.tsx`);
   assert.match(tools, /import \{ StudioWishList \} from '\.\/studio-wish-list';/);
+});
+
+
+test('10 · ⚡ a press costs one request and renders no page', () => {
+  const door = flat(`${P}/actions.ts`);
+  const at = door.indexOf("if (formData.has('wish_op')) {");
+  assert.ok(at > 0);
+  const branch = door.slice(at, door.indexOf('const methodKind', at));
+  /* `revalidatePath` inside an action makes Next render the action's own route into its answer
+     (the whole Maker). So the guests' pages are refreshed AFTER the answer is sent — and the one
+     READ that rides this door refreshes nothing at all. */
+  inOrder(
+    branch,
+    [
+      'const wish = await wishListWrite(eventId, formData);',
+      "const changed = wish.ok || ('kept' in wish && wish.kept === true);",
+      "if (changed && formData.get('wish_op') !== GIFT_READ_OP) after(() => revalidateSurfaces(eventId));",
+      'return wish;',
+    ],
+    'the wish list’s door',
+  );
+  assert.doesNotMatch(branch, /await revalidateSurfaces|revalidatePath\(|revalidateTag\(|redirect\(/, 'the door renders the Maker into its own answer');
+  assert.match(door, /import \{ after \} from 'next\/server';/);
+  /* The writers themselves refresh nothing, and set no cookie of their own. */
+  for (const f of [WRITER, `${P}/wish-items.server.ts`]) assert.doesNotMatch(read(f), /revalidatePath|revalidateTag|from 'next\/cache'|cookies\(\)/, `${f} revalidates`);
+  /* The screens: no timer, no poll, no refresh of their own. */
+  for (const f of [GIFTS, `${L}/studio-wish-sheet.tsx`]) assert.doesNotMatch(read(f), /setInterval|setTimeout|router\.refresh|requestMakerRefresh|useRouter/, `${f} polls or refreshes`);
 });

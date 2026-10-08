@@ -20,7 +20,11 @@
  *       never marks itself;
  *   7 · 🔒 a stranger, a guest of this very event and another event's host can
  *       change NOTHING — and are told so, never "kept";
- *   8 · 🔒 a host can correct a record, never invent one and never destroy one.
+ *   8 · 🔒 a host can correct a record, never invent one and never destroy one;
+ *   9 · 🔒 the screenshot of ONE opened gift: a host is handed a short-lived
+ *       signed address of it, from this event's own folder only — a stranger, a
+ *       guest of this very event and another event's host are handed nothing;
+ *  10 · ⚡ as few requests as the task allows — counted on the real functions.
  *
  * 🛡 Sabotaged, each red then restored (2026-10-08) — see the PR body.
  *
@@ -35,6 +39,8 @@ import { clientAs } from './pglite-client';
 
 type Writer = typeof import('../../app/dashboard/[eventId]/pabuya/gift-records.server');
 let W: Writer;
+type Reader = typeof import('../../lib/wish-list.server');
+let L: Reader;
 let replay: ReplayResult;
 let db: PGlite;
 
@@ -108,7 +114,13 @@ const remove = (uid: string, id: string, removed: '1' | '0', eventId = EVENT) =>
 before(async () => {
   replay = await createReplayedDb();
   db = replay.db;
+  /* Signing asks nobody — it is arithmetic over the key — so made-up credentials sign a
+     made-up address here. No bucket is contacted by this file. */
+  process.env.R2_ACCOUNT_ID ||= 'test-account';
+  process.env.R2_ACCESS_KEY_ID ||= 'test-key';
+  process.env.R2_SECRET_ACCESS_KEY ||= 'test-secret';
   W = await import('../../app/dashboard/[eventId]/pabuya/gift-records.server');
+  L = await import('../../lib/wish-list.server');
 
   HOST = await newUser('couple@gifts-one-by-one.test');
   OTHER_HOST = await newUser('other-couple@gifts-one-by-one.test');
@@ -251,7 +263,7 @@ test('7 · 🔒 a stranger, a guest of this event and another event’s host cha
   assert.deepEqual(await got(AIR), { got_by: null, marked: false });
 
   /* The mark itself cannot be settled by them either. */
-  assert.equal(await W.settleWishGot(as(STRANGER), EVENT, AIR), true, 'they read no wish, so there is no mark to settle — and nothing was written');
+  assert.equal(await W.settleWishesGot(as(STRANGER), EVENT, [AIR]), true, 'they read no wish, so there is no mark to settle — and nothing was written');
   assert.deepEqual(await got(AIR), { got_by: null, marked: false });
 });
 
@@ -262,4 +274,140 @@ test('8 · 🔒 a host can correct a record — never invent one, never destroy 
   const gone = await host.from('event_gift_records').delete().eq('gift_record_id', R1).select('gift_record_id');
   assert.ok(gone.error || (gone.data ?? []).length === 0, 'a host’s browser role destroyed a gift record');
   assert.equal((await rec(R1)).giver_name, 'Tita Nene');
+});
+
+const shot = (uid: string, id: string, eventId = EVENT) => W.giftRecordWrite(as(uid), eventId, 'gift-shot', form({ gift_record_id: id }));
+
+test('9 · 🔒 the screenshot of one opened gift — a host only, this event’s own folder only', async () => {
+  const guest = (await db.query<{ guest_id: string }>(`SELECT guest_id FROM public.guests WHERE event_id = $1 LIMIT 1`, [EVENT])).rows[0]!.guest_id;
+  const mine = `r2://setnayan-thread-files/gift-shots/${EVENT}/${guest}/a1.jpg`;
+  await db.query(`UPDATE public.event_gift_records SET screenshot_r2_key = $2 WHERE gift_record_id = $1`, [R1, mine]);
+
+  /* The host: a signed address of THAT object, short-lived. */
+  const res = await shot(HOST, R1);
+  assert.ok(res.ok, 'the host was refused their own guest’s screenshot');
+  const url = new URL(res.shotUrl!);
+  assert.match(url.pathname, new RegExp(`/setnayan-thread-files/gift-shots/${EVENT}/${guest}/a1\\.jpg$|^/gift-shots/${EVENT}/${guest}/a1\\.jpg$`));
+  assert.ok(url.searchParams.get('X-Amz-Signature'), 'the address is not signed');
+  assert.equal(url.searchParams.get('X-Amz-Expires'), String(L.GIFT_SHOT_TTL_SECONDS), 'the address must be short-lived');
+  assert.ok(L.GIFT_SHOT_TTL_SECONDS <= 900, 'ten minutes, not a day');
+
+  /* A record with no screenshot: said as none — never an error, never an address. */
+  assert.deepEqual(await shot(HOST, R2), { ok: true, shotUrl: null });
+
+  /* 🔒 Nobody else is handed anything — and each is told so in words. */
+  for (const [who, uid] of [
+    ['a stranger', STRANGER],
+    ['a guest of this event', GUEST_USER],
+    ['another event’s host', OTHER_HOST],
+  ] as const) {
+    const no = await shot(uid, R1);
+    assert.equal(no.ok, false, `${who} was handed a guest’s screenshot`);
+    assert.ok(!no.ok && no.error.length > 10);
+    assert.deepEqual(await L.readGiftShotUrl(as(uid), EVENT, R1), { read: false, gone: true });
+  }
+  /* …nor through another event's door, by its own host. */
+  assert.equal((await shot(OTHER_HOST, R1, OTHER_EVENT)).ok, false);
+
+  /* 🔒 A row that names anything outside this event's own private folder is refused, never signed. */
+  for (const outside of [
+    `r2://setnayan-thread-files/gift-shots/${OTHER_EVENT}/${guest}/x.jpg`, // another event's folder
+    `r2://setnayan-media/gift-shots/${EVENT}/${guest}/x.jpg`, // the PUBLIC bucket
+    `r2://setnayan-thread-files/thread-files/whatever.jpg`, // another private folder
+    'https://example.com/shot.jpg', // a plain address
+  ]) {
+    await db.query(`UPDATE public.event_gift_records SET screenshot_r2_key = $2 WHERE gift_record_id = $1`, [R1, outside]);
+    assert.deepEqual(await L.readGiftShotUrl(as(HOST), EVENT, R1), { read: false, gone: false }, `signed or passed on: ${outside}`);
+    assert.equal((await shot(HOST, R1)).ok, false);
+  }
+  await db.query(`UPDATE public.event_gift_records SET screenshot_r2_key = NULL WHERE gift_record_id = $1`, [R1]);
+});
+
+/** The same client, counting every request it sends (one per awaited table call). */
+function counting(uid: string) {
+  const real = as(uid);
+  const sent: string[] = [];
+  const client = {
+    from(table: string) {
+      const q = real.from(table) as unknown as Record<string, unknown>;
+      let verb = 'select';
+      const wrap = (inner: Record<string, unknown>): unknown =>
+        new Proxy(inner, {
+          get(target, prop, receiver) {
+            if (prop === 'then') {
+              sent.push(`${verb} ${table}`);
+              const then = Reflect.get(target, prop, receiver) as (...a: unknown[]) => unknown;
+              return then.bind(target);
+            }
+            const v = Reflect.get(target, prop, receiver);
+            if (typeof v !== 'function') return v;
+            return (...args: unknown[]) => {
+              if (prop === 'update' || prop === 'insert' || prop === 'delete' || prop === 'upsert') verb = String(prop);
+              const out = (v as (...a: unknown[]) => unknown).apply(target, args);
+              if (prop === 'maybeSingle') {
+                sent.push(`${verb} ${table}`);
+                return out;
+              }
+              return out && typeof out === 'object' ? wrap(out as Record<string, unknown>) : out;
+            };
+          },
+        });
+      return wrap(q);
+    },
+  };
+  return { client: client as unknown as ReturnType<typeof as>, sent };
+}
+
+test('10 · ⚡ as few requests as the task allows — counted on the real functions', async () => {
+  /* The couple's whole list: ONE read per table, side by side — whatever the number of wishes or gifts. */
+  const list = counting(HOST);
+  const view = await L.readStudioWishList(list.client, EVENT);
+  assert.ok(view.read);
+  assert.deepEqual(list.sent.sort(), ['select event_gift_records', 'select event_wish_items']);
+  assert.ok(view.gifts.every((g) => g.shotUrl === null), 'the list read signed a screenshot');
+
+  /* A gift toward NO wish, corrected: the write is the whole request. */
+  const any = counting(HOST);
+  assert.deepEqual(await W.giftRecordWrite(any.client, EVENT, 'gift-amount', form({ gift_record_id: R3, amount: '5000' })), { ok: true });
+  assert.deepEqual(any.sent, ['update event_gift_records']);
+
+  /* A gift toward a wish, corrected, the mark unchanged: one write, then the two reads that add it up. */
+  const one = counting(HOST);
+  assert.deepEqual(await W.giftRecordWrite(one.client, EVENT, 'gift-amount', form({ gift_record_id: R1, amount: '2100' })), { ok: true });
+  assert.deepEqual(one.sent[0], 'update event_gift_records');
+  assert.deepEqual(one.sent.slice(1).sort(), ['select event_gift_records', 'select event_wish_items']);
+
+  /* …and when the sum reaches the price, ONE more write: the mark. */
+  const reach = counting(HOST);
+  assert.deepEqual(await W.giftRecordWrite(reach.client, EVENT, 'gift-amount', form({ gift_record_id: R1, amount: '2500' })), { ok: true });
+  assert.equal(reach.sent.length, 4);
+  assert.equal(reach.sent[3], 'update event_wish_items');
+
+  /* Removed and put back: the same shape as a correction. */
+  const gone = counting(HOST);
+  assert.deepEqual(await W.giftRecordWrite(gone.client, EVENT, 'gift-remove', form({ gift_record_id: R1, removed: '1' })), { ok: true });
+  assert.equal(gone.sent.length, 4, 'remove: the write, two reads, and the mark that opens again');
+  const back = counting(HOST);
+  assert.deepEqual(await W.giftRecordWrite(back.client, EVENT, 'gift-remove', form({ gift_record_id: R1, removed: '0' })), { ok: true });
+  assert.equal(back.sent.length, 4);
+
+  /* A move between two wishes: two reads side by side, the write, then BOTH wishes added up in
+     one pass (two reads — not two per wish) and a mark only where it changes. */
+  const moved = counting(HOST);
+  assert.deepEqual(await W.giftRecordWrite(moved.client, EVENT, 'gift-move', form({ gift_record_id: R1, wish_item_id: RICE })), { ok: true });
+  assert.deepEqual(moved.sent.slice(0, 2).sort(), ['select event_gift_records', 'select event_wish_items']);
+  assert.equal(moved.sent[2], 'update event_gift_records');
+  assert.deepEqual(moved.sent.slice(3, 5).sort(), ['select event_gift_records', 'select event_wish_items']);
+  assert.ok(moved.sent.length <= 7, `a move sent ${moved.sent.length} requests`);
+  const home = counting(HOST);
+  assert.deepEqual(await W.giftRecordWrite(home.client, EVENT, 'gift-move', form({ gift_record_id: R1, wish_item_id: AIR })), { ok: true });
+  assert.ok(home.sent.length <= 7);
+  assert.deepEqual(await amount(HOST, R1, '2000'), { ok: true });
+  assert.deepEqual(await got(AIR), { got_by: null, marked: false });
+  assert.deepEqual(await got(RICE), { got_by: null, marked: false });
+
+  /* The opened gift's screenshot: ONE read. */
+  const see = counting(HOST);
+  await W.giftRecordWrite(see.client, EVENT, 'gift-shot', form({ gift_record_id: R2 }));
+  assert.deepEqual(see.sent, ['select event_gift_records']);
 });

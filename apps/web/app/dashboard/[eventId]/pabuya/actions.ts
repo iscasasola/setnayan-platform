@@ -2,6 +2,7 @@
 
 import { cleanGiftRegistryUrl, GIFT_REGISTRY_URL_ERROR } from '@/lib/gift-registry';
 import { revalidatePath } from 'next/cache';
+import { after } from 'next/server';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { isEgiftMethodKind } from '@/lib/egift-kinds';
@@ -12,6 +13,7 @@ import { storeRedrawnPabuyaQr } from '@/lib/pabuya-qr-store.server';
 import { cleanPabuyaMessage } from '@/lib/pabuya-message';
 import { isHubDraftWrite, saveHubDraftPatch } from '@/lib/hub-draft-store';
 import { wishListWrite } from './wish-items.server';
+import { GIFT_READ_OP } from './gift-records.server';
 
 /**
  * Server actions for the Pabuya e-gift surface (/dashboard/[eventId]/pabuya).
@@ -31,9 +33,15 @@ const MAX_ACCOUNT_NAME = 80;
 const MAX_HANDLE = 200;
 const MAX_NOTE = 240;
 
+/**
+ * `shotUrl` and `kept` are the wish list's (`gift-records.server.ts`): the
+ * opened gift's screenshot on the one read that rides this door, and "the
+ * record was changed, its wish's mark was not" on a late refusal. Every other
+ * caller reads `ok` / `error` exactly as before.
+ */
 export type EgiftActionResult =
-  | { ok: true }
-  | { ok: false; error: string };
+  | { ok: true; shotUrl?: string | null }
+  | { ok: false; error: string; kept?: true };
 
 const GENERIC_WRITE_ERROR =
   'Couldn’t save that. If it keeps happening, reach out from /help.';
@@ -108,7 +116,18 @@ export async function saveEgiftMethod(
      give, exactly as before. Live, like every write on this page. */
   if (formData.has('wish_op')) {
     const wish = await wishListWrite(eventId, formData);
-    if (wish.ok) await revalidateSurfaces(eventId);
+    /* ⚡ THE GUESTS' PAGES ARE REFRESHED AFTER THE ANSWER IS SENT (`after`), never
+       before it (owner rule 2026-10-08: a press costs one request and never
+       re-renders the page). `revalidatePath` called INSIDE an action marks the
+       action's own route as revalidated, and Next then renders that whole route
+       into the action's response (`skipFlight: !pathWasRevalidated`) — here the
+       whole Maker, every read of it, for one corrected amount. Run after the
+       response, the same two guest paths are invalidated and nothing is rendered.
+       A change that was KEPT but late-refused (`kept`) refreshes them too.
+       The one READ that rides this door (`gift-shot`) changed nothing: it
+       refreshes nothing. */
+    const changed = wish.ok || ('kept' in wish && wish.kept === true);
+    if (changed && formData.get('wish_op') !== GIFT_READ_OP) after(() => revalidateSurfaces(eventId));
     return wish;
   }
 

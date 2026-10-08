@@ -41,9 +41,11 @@ export type StudioWishGift = {
   /** Did they add a screenshot? */
   hasShot: boolean;
   /**
-   * A short-lived SIGNED address of the screenshot, made by the server for a
-   * host (`readStudioWishList`) — null when there is none, or it could not be
-   * signed (the screen then says so; it never draws an empty frame).
+   * An address of the screenshot this reader ALREADY holds — the dev lab's
+   * stand-in drawing, and nothing else. The server's list read never fills it
+   * (`readStudioWishList` signs nothing: a signed address is new on every
+   * render). The real picture is asked for when ONE gift is opened, and only
+   * that gift's (`readGiftShotUrl`); a ROW never draws a picture at all.
    */
   shotUrl: string | null;
   /** The wish it counts toward — null = "Any gift". */
@@ -116,7 +118,8 @@ export const GIFT_AMOUNT_NOT_A_NUMBER = 'Type the amount as a number.';
 export const GIFT_TOWARD_LABEL = 'Counts toward';
 export const GIFT_SHOT_IS_NOT_MONEY = 'A screenshot is what they sent you, not money in your account — check GCash or your bank.';
 export const GIFT_NO_SHOT = 'They added no screenshot.';
-export const GIFT_SHOT_UNREAD = 'The screenshot couldn’t be loaded — close this and open it again.';
+export const GIFT_SHOT_UNREAD = 'The screenshot couldn’t be loaded.';
+export const GIFT_SHOT_LOADING = 'Loading their screenshot…';
 export const GIFT_REMOVED_LINE = 'Removed — it no longer counts toward any wish. Put it back to count it again.';
 export const GIFTS_OFF_TITLE = 'Guests see no E-Gifts.';
 export const GIFTS_OFF_LINE = 'Your ways to give, wish list and gifts are kept for when you switch it back on.';
@@ -349,7 +352,7 @@ export function studioWishListFrom(
   wishes: readonly WishItemRow[],
   records: readonly GiftRecordRow[],
   photoUrlFor: (ref: string | null) => string | null,
-  /** The screenshot's signed, host-only address — the server's; a unit test hands none. */
+  /** The dev lab's stand-in picture for a record. The server hands NONE — see `StudioWishGift.shotUrl`. */
   shotUrlFor: (ref: string | null) => string | null = () => null,
 ): StudioWishList {
   const sums = sentByWish(records);

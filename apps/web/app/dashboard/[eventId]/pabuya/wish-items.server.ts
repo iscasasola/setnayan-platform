@@ -14,7 +14,7 @@ import {
   type WishItemRow,
 } from '@/lib/wish-list';
 import { cleanWishPrice } from '@/lib/wish-list-studio';
-import { giftOpOf, giftRecordWrite } from './gift-records.server';
+import { giftOpOf, giftRecordWrite, type GiftWriteResult } from './gift-records.server';
 
 /**
  * THE WISH LIST'S FOUR WRITES — `saveWishItem` · `deleteWishItem` ·
@@ -64,9 +64,10 @@ function str(formData: FormData, key: string): string {
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** The one door `actions.ts` opens: which of the four, then that write. */
-export async function wishListWrite(eventId: string, formData: FormData): Promise<WishWriteResult> {
+export async function wishListWrite(eventId: string, formData: FormData): Promise<WishWriteResult | GiftWriteResult> {
   const op = wishOpOf(formData.get('wish_op'));
-  /* 🎁 wish list 5/5 — the couple's three writes on a gift RECORD ride the same door. */
+  /* 🎁 wish list 5/5 — the couple's three writes on a gift RECORD (and the one read of an
+     opened gift's screenshot) ride the same door. */
   const giftOp = giftOpOf(formData.get('wish_op'));
   if (!op && !giftOp) return { ok: false, error: NOT_KEPT };
   const supabase = await createClient();

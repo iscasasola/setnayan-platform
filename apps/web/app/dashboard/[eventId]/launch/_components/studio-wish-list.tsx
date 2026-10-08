@@ -90,8 +90,15 @@ const sameDraft = (a: Draft, b: Draft) =>
   a.note.trim() === b.note.trim() &&
   a.photo === b.photo;
 
-/** The E-Gifts page's one write door, as the lazy Studio tools hand it in (`saveEgiftMethod`). */
-export type WishAction = (form: FormData) => Promise<{ ok: true } | { ok: false; error: string }>;
+/**
+ * The E-Gifts page's one door, as the lazy Studio tools hand it in (`saveEgiftMethod`).
+ * `shotUrl` answers the one READ that rides it (an opened gift's screenshot);
+ * `kept` marks a refusal that came after the record itself was changed.
+ */
+export type WishAction = (form: FormData) => Promise<{ ok: true; shotUrl?: string | null } | { ok: false; error: string; kept?: true }>;
+
+/** How long an opened screenshot's address is reused before it is asked for again (the server's lives 10 minutes). */
+const SHOT_REUSE_MS = 8 * 60 * 1000;
 
 /** What a draft becomes on a row, before the server's own row replaces it. */
 const drawn = (w: StudioWish, d: Draft): StudioWish => ({
@@ -217,9 +224,17 @@ export function StudioWishList({
   };
 
   /**
-   * 🎁 A gift record — correct the amount · move it · remove it / put it back. Drawn first: the
-   * record changes, and Got it follows the sum on every wish it counted (or now counts) toward,
-   * by the same rule the server writes. Returns what the server said, if it refused.
+   * 🎁 A gift record — correct the amount · move it · remove it / put it back.
+   *
+   * ⚡ ONE PRESS, ONE REQUEST, AND THE PAGE IS NOT RENDERED AGAIN (owner rule
+   * 2026-10-08). Drawn first: the record changes, and Got it follows the sum on
+   * every wish it counted (or now counts) toward, by the same rule the server
+   * writes (`settleDrawn` ⇄ `gotAfterGifts`). The save goes behind it as a HELD
+   * Maker save — what is on the screen already IS the answer, so no Maker
+   * re-read is owed for it, and none is asked for on a refusal either: the
+   * record is put back and the refusal is said in the sheet.
+   *
+   * Returns what the server said, if it refused.
    */
   const changeGift = async (id: string, change: Partial<StudioWishGift>, fields: Record<string, string>): Promise<string | null> => {
     const wasGifts = gifts;
@@ -229,13 +244,38 @@ export function StudioWishList({
     const next = gifts.map((g) => (g.id === id ? { ...g, ...change } : g));
     setGifts(next);
     setWishes((cur) => settleDrawn(cur, next, [had.wishId, change.wishId ?? null]));
-    const res = await makerSave(() => action(form({ gift_record_id: id, ...fields })), requestMakerRefresh);
+    const res = await makerSave(() => action(form({ gift_record_id: id, ...fields })), requestMakerRefresh, { held: true });
     if (res.ok) return null;
-    setGifts(wasGifts);
-    setWishes(wasWishes);
-    /* Refused — or kept with its wish's mark not brought up to date: read the truth back either way. */
-    requestMakerRefresh();
+    /* Late refusal: the RECORD was changed, its wish's mark was not — the record stays as
+       drawn, and the marks go back to what they were (the couple is told to set it). */
+    if (res.kept) setWishes((cur) => cur.map((w) => ({ ...w, gotBy: wasWishes.find((x) => x.id === w.id)?.gotBy ?? w.gotBy })));
+    else {
+      setGifts(wasGifts);
+      setWishes(wasWishes);
+    }
     return res.error;
+  };
+
+  /**
+   * 🖼 THE SCREENSHOT OF THE GIFT THAT WAS OPENED — asked for once, when its sheet
+   * opens (never per row of a list): ONE request through the same door, which
+   * answers with a short-lived address only a host is given. Reused while it
+   * lives, so opening the same gift again asks nothing. A refusal is forgotten,
+   * so "Try again" really asks again — and nothing retries by itself.
+   */
+  const shots = useRef(new Map<string, { at: number; url: Promise<string | null> }>());
+  const seeShot = (id: string): Promise<string | null> => {
+    const held = shots.current.get(id);
+    if (held && Date.now() - held.at < SHOT_REUSE_MS) return held.url;
+    const url = action(form({ wish_op: 'gift-shot', gift_record_id: id })).then((res) => {
+      if (!res.ok) throw new Error(res.error);
+      return res.shotUrl ?? null;
+    });
+    shots.current.set(id, { at: Date.now(), url });
+    url.catch(() => {
+      if (shots.current.get(id)?.url === url) shots.current.delete(id);
+    });
+    return url;
   };
 
   /* ── reorder: hold the grip, or the arrow keys — one drag, one write ── */
@@ -316,6 +356,7 @@ export function StudioWishList({
       onAmount={(amountPhp) => changeGift(giftOpen.id, { amountPhp }, { wish_op: 'gift-amount', amount: String(amountPhp) })}
       onMove={(wishId) => changeGift(giftOpen.id, { wishId }, { wish_op: 'gift-move', wish_item_id: wishId ?? '' })}
       onRemove={(removed) => changeGift(giftOpen.id, { removed }, { wish_op: 'gift-remove', removed: removed ? '1' : '0' })}
+      onShot={() => seeShot(giftOpen.id)}
     />
   ) : null;
 

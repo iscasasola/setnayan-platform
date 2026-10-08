@@ -589,6 +589,9 @@ test('(8) the Studio draws and lays a pick BEFORE its save, holds the save, lets
   // The canvas's news is believed only from this origin, and a redraw counts only for a pick whose save had landed.
   const ear = panel.slice(panel.indexOf('const onCanvas = ('), panel.indexOf("window.addEventListener('message', onCanvas);"));
   assert.match(ear, /if \(e\.origin !== window\.location\.origin\) return;/);
+  // …and only from the page the couple is looking at; the preview is laid there alone (never on a stage kept warm behind).
+  assert.match(panel, /const LOOK_FRAMES = 'iframe\[data-maker-page-frame\], iframe\[data-maker-canvas-frame="shown"\]';/, 'a preview is laid on frames nobody sees — each would fetch a still and decode a film');
+  assert.match(ear, /if \(!\[\.\.\.document\.querySelectorAll<HTMLIFrameElement>\(LOOK_FRAMES\)\]\.some\(\(f\) => f\.contentWindow === e\.source\)\) return;/, 'a warm stage’s redraw ends the pick before the shown page has it');
   assert.match(ear, /setPick\(\(p\) => \(p && p\.saved \? backgroundPickAfter\(p, p\.seq, \{ shown: true \}\) : p\)\);/, 'an older redraw ends a pick whose save has not landed');
   assert.match(ear, /d\.shown === true \? \{ shown: true \} : \{ laid: false \}/, 'a still that could not be laid is treated as shown');
   // The Maker never imports the guest page's module (the message shape is a type on each side).

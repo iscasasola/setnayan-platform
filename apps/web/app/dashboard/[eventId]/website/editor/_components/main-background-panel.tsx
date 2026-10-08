@@ -188,8 +188,12 @@ async function saveLookWrite(eventId: string, write: LookWrite, draft: typeof hu
 const lookGround = createLookGroundStore();
 /** Every pick's number. Module-wide: the canvas refuses a number lower than the last it laid, and a panel that is closed and opened again must not start over. */
 let lookPickSeq = 0;
-/** The pages the Maker shows — the SAME frames Look › Buttons lays its instant preview on (`buttons-look-row.tsx`). */
-const LOOK_FRAMES = 'iframe[data-maker-page-frame], iframe[data-maker-canvas-frame]';
+/**
+ * The page the couple is LOOKING AT — the frames Look › Buttons lays its instant preview on (`buttons-look-row.tsx`),
+ * less the ones kept behind (a render still loading, another stage kept warm): a preview there would fetch a still
+ * and decode a film nobody sees. They get the truth with everyone else — the redraw reaches every frame.
+ */
+const LOOK_FRAMES = 'iframe[data-maker-page-frame], iframe[data-maker-canvas-frame="shown"]';
 
 /** Post to every page the Maker shows; how many heard it (0 = no canvas to wait for). */
 function tellLookCanvas(message: unknown): number {
@@ -503,6 +507,8 @@ export function MainBackgroundPanel({
       if (e.origin !== window.location.origin) return;
       const d = e.data as { source?: string; t?: string; seq?: unknown; shown?: unknown; playing?: unknown; redrawn?: unknown } | null;
       if (!d || d.source !== 'setnayan-site' || d.t !== MAIN_GROUND_PREVIEW) return;
+      /* Only the page the couple is looking at is believed — a stage kept warm redraws too, and may finish first. */
+      if (![...document.querySelectorAll<HTMLIFrameElement>(LOOK_FRAMES)].some((f) => f.contentWindow === e.source)) return;
       if (d.redrawn === true) {
         pickMark('canvas-redrawn');
         /* The page's own render is on screen — it holds this pick only if the pick's save had landed before it was asked for. */

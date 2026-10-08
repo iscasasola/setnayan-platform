@@ -385,7 +385,7 @@ test('the launch-critical journey', async ({ browser }) => {
     check('✓ Apply now shows a change waiting');
     // A draft is the host's alone until Apply.
     await stranger.goto(`${BASE}/${FIXTURE.slug}`);
-    await expect(stranger.locator('h1[data-motion="arrive-names"]')).toBeVisible();
+    await expect(stranger.locator('h1[data-motion="arrive-names"]:visible').first()).toBeVisible();
     await expect(stranger.getByText(note)).toHaveCount(0);
     check('the guest page does NOT show the draft yet');
     await rest(stranger);
@@ -412,8 +412,13 @@ test('the launch-critical journey', async ({ browser }) => {
 
   await walk.step('B · Event Hub', 'The guest page shows the change', () => stranger, async (check) => {
     await stranger.goto(`${BASE}/${FIXTURE.slug}`);
-    await expect(stranger.getByText(note).first()).toBeVisible({ timeout: 30_000 });
-    check('the new note is on the guest page');
+    await expect(stranger.locator('h1[data-motion="arrive-names"]:visible').first()).toBeVisible({ timeout: 45_000 });
+    await answerCookieNotice(stranger);
+    // The note lives under the page's Details tab — where a guest would look for it.
+    await stranger.getByRole('link', { name: 'Details', exact: true }).first().click();
+    await stranger.waitForURL((u) => u.searchParams.get('tab') === 'details', { timeout: 30_000 });
+    await expect(stranger.locator('.pahina-plate:visible', { hasText: note }).first()).toBeVisible({ timeout: 30_000 });
+    check('the new note is on the guest page, under Details');
   }, ['A · Host']);
 
   // ── C · INVITE → REPLY ──────────────────────────────────────────────────
@@ -484,7 +489,7 @@ test('the launch-critical journey', async ({ browser }) => {
   await walk.step('C · Guests', 'The host sees the guest is coming', () => host, async (check) => {
     await rest(guest);
     await host.goto(`${BASE}${eventUrl}/guests?q=${encodeURIComponent(invited.lastName)}`);
-    const row = host.locator(`[data-guest-row][data-guest-id="${invited.id}"]`);
+    const row = host.locator(`[data-guest-row][data-guest-id="${invited.id}"]:visible`).first();
     await expect(row).toBeVisible({ timeout: 45_000 });
     await expect(row).toContainText('Attending');
     check(`${invited.fullName} is marked Attending in the guest list`);
@@ -511,12 +516,12 @@ test('the launch-critical journey', async ({ browser }) => {
     await rest(guest);
     await strangerCtx.clearCookies();
     await stranger.goto(`${BASE}/${FIXTURE.slug}`);
-    const names = stranger.locator('h1[data-motion="arrive-names"]');
+    const names = stranger.locator('h1[data-motion="arrive-names"]:visible').first();
     await expect(names).toBeVisible({ timeout: 45_000 });
     await answerCookieNotice(stranger);
     for (const name of FIXTURE.hostNames) await expect(names).toContainText(name);
     check(`the hosts' names are on the page (${FIXTURE.hostNames.join(' & ')})`);
-    const date = stranger.locator('p[data-motion="arrive-date"]').first();
+    const date = stranger.locator('p[data-motion="arrive-date"]:visible').first();
     await expect(date).toBeVisible();
     await expect(date).toContainText(/\d/);
     check(`the date reads "${(await date.innerText()).trim().replace(/\s+/g, ' ')}"`);
@@ -525,7 +530,7 @@ test('the launch-critical journey', async ({ browser }) => {
   });
 
   await walk.step('E · Left open', `The guest page, left open for ${IDLE_SECONDS} seconds`, () => stranger, async (check) => {
-    const names = stranger.locator('h1[data-motion="arrive-names"]');
+    const names = stranger.locator('h1[data-motion="arrive-names"]:visible').first();
     await expect(names).toBeVisible();
     await stranger.waitForTimeout(IDLE_SECONDS * 1000);
     await expect(names).toBeVisible();

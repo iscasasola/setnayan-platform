@@ -36,6 +36,7 @@ import { photoMatchesColours } from '@/lib/mood-board-studio';
 import { PickMenu } from '../../../website/editor/_components/pick-menu';
 import { EventLinkedBadge } from './event-linked-badge';
 import { formatCount } from '@/lib/format-number';
+import { SWITCH_TRACK } from '@/app/_components/switch-track';
 
 /**
  * 🔍 STUDIO'S "SEARCH IDEAS ›" — the SAME picker, with search on top (owner
@@ -226,10 +227,7 @@ export function GalleryPicker({
           <label className="flex min-h-11 cursor-pointer items-center justify-between gap-3" data-gallery-match="">
             <span className="text-[14px] font-semibold text-ink">Matches my colours</span>
             <input type="checkbox" role="switch" checked={matchMine} onChange={(e) => setMatchMine(e.target.checked)} className="peer sr-only" />
-            <span
-              aria-hidden
-              className="relative h-6 w-11 shrink-0 rounded-full bg-ink/20 transition-colors after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:bg-terracotta-700 peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-mulberry"
-            />
+            <span aria-hidden className={SWITCH_TRACK} />
           </label>
         </div>
       ) : null}

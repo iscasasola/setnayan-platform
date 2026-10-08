@@ -5204,26 +5204,60 @@ html.dark {
    * #8A6B39 and #5C4726. If it reads too dark on the hover, the answer is a new
    * mid tone, which is a design call and his, not a build decision.
    */
+  /*
+   * 🔶 THE MAIN ACTION BUTTON IS THE APP'S ACCENT (owner 2026-10-08, approving the template gallery —
+   * `prototypes/control_templates_2026-10-08.html` § 9: main = the accent with its ink, a pill; second = white, a
+   * hairline, ink words, the same pill; "cannot be used yet" = grey). This replaces the gold recipe above on the
+   * dashboards (couple · supplier · admin): the measurements in that note are history, not the fill.
+   *
+   * 🔑 ONE DECLARATION EACH. The fill is `--sn-accent` and the words are `--sn-on-accent` (owner: "if we change our
+   * color to blue, it will be easy to change the button colors") — the pair `lib/the-accent-is-one-token.test.ts`
+   * holds at 4.5:1 or better. NOTHING ELSE HERE PUTS WORDS ON A FILL: a hover does not change the fill (it lifts),
+   * so there is no second pair to go unread one interaction away — the defect the note above records.
+   *
+   * 🚪 NEVER INSIDE A GUEST-LOOK ISLAND. The Maker's Look sample is a piece of the guest page drawn INSIDE the
+   * dashboard (`.sn-editorial`, `[data-look-sample]`). The two rules that keep the old selectors set only what that
+   * sample already hands back (`[data-look-sample] .button-primary/-secondary`, unlayered, later, same weight);
+   * everything NEW — the pill, the hover, the grey — is written `:not(.sn-editorial *)`, so it cannot reach it.
+   * `lib/the-main-button-is-the-accent.test.ts` holds both halves.
+   */
   .app-surface .button-primary {
-    background: var(--sn-gold-700);
-    color: #fffdf8;
+    background: rgb(var(--sn-accent));
+    color: rgb(var(--sn-on-accent));
   }
-  .app-surface .button-primary:hover {
-    background: var(--sn-gold-800);
+  .app-surface .button-primary:not(.sn-editorial *):hover {
     transform: translateY(-2px);
-    box-shadow: 0 14px 26px -12px var(--sn-gold-500);
+    box-shadow: 0 14px 26px -12px rgb(var(--sn-accent) / 0.6);
   }
   .app-surface .button-secondary {
-    background: transparent;
+    background: var(--sn-surface);
     color: var(--sn-ink-900);
-    border-color: var(--sn-ink-900);
-    border-width: 1.5px;
+    border-color: var(--sn-line);
+    border-width: 1px;
   }
-  .app-surface .button-secondary:hover {
-    background: var(--sn-ink-900);
-    color: var(--sn-paper);
+  .app-surface .button-secondary:not(.sn-editorial *):hover {
     border-color: var(--sn-ink-900);
     transform: translateY(-2px);
+  }
+  /* The same pill for both. */
+  .app-surface .button-primary:not(.sn-editorial *),
+  .app-surface .button-secondary:not(.sn-editorial *) {
+    border-radius: var(--m-r-full);
+  }
+  /* "Cannot be used yet" — grey, flat, and no longer faded on top of that (the base rule's 60% opacity).
+     Each selector is written out — no `:is(a, b)` — because `lint-label-on-fill-contrast` reads a selector list by its
+     commas and excuses an inactive control only where the selector itself says `:disabled` / `[aria-disabled=`. */
+  .app-surface .button-primary:not(.sn-editorial *):disabled,
+  .app-surface .button-primary:not(.sn-editorial *)[aria-disabled='true'],
+  .app-surface .button-secondary:not(.sn-editorial *):disabled,
+  .app-surface .button-secondary:not(.sn-editorial *)[aria-disabled='true'] {
+    background: var(--sn-hairline);
+    color: var(--sn-ink-300);
+    border-color: var(--sn-line);
+    opacity: 1;
+    transform: none;
+    box-shadow: none;
+    cursor: not-allowed;
   }
   .app-surface .input-field:hover { border-color: var(--sn-gold-500); }
   .app-surface .input-field:focus {
@@ -8082,7 +8116,6 @@ input.sn-switch:focus-visible {
   outline: 2px solid currentColor;
   outline-offset: 2px;
 }
-
 /* ── THE KNOB'S SPEED OUTRANKS A UTILITY (2026-10-08, measured on the compiled sheet in Chromium).
    A switch whose knob is its `::after` usually carries a Tailwind VARIANT utility for the move
    (`after:transition-[left]`, `after:transition-transform`). Variant utilities are emitted at the END of the

@@ -271,19 +271,21 @@ export function HubDraftToolbar({
   actRef.current = act;
   const setDraftDoor = maker?.setDraft;
   const canRestore = !pending && summary.hasChanges;
+  /** The ✓ count — also told to the shell, whose ✕ sheet says the changes are kept (`maker-exit-sheet.tsx`). */
+  const applyCount = summary.hasChanges ? summary.changeCount : 0;
   useEffect(() => {
     if (!setDraftDoor) return;
     setDraftDoor({
       canRestore,
       restore: () => actRef.current({ intent: 'restore' }),
+      count: applyCount,
     });
     return () => setDraftDoor(null);
-  }, [setDraftDoor, canRestore]);
+  }, [setDraftDoor, canRestore, applyCount]);
   /* ✓ APPLY IS AN ICON NOW (owner 2026-10-04, *"apply icon · undo icon · exit
      icon"*): its name says the count — "Apply 3 changes" — and its FIRST tap
      opens the Apply sheet; only the sheet's labelled Apply publishes, so a
      mis-tap on a 44 px circle never puts anything live. */
-  const applyCount = summary.hasChanges ? summary.changeCount : 0;
   const applyName = `Apply ${formatCount(applyCount)} ${applyCount === 1 ? 'change' : 'changes'}`;
   /* The panel always closes: its × , Cancel, a tap outside it, Esc — and a tap
      on the canvas, which is a frame of its own (a tap there never reaches this

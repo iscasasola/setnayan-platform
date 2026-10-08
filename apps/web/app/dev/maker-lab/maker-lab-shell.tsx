@@ -122,7 +122,10 @@ export function MakerLabShell({
   studio = null,
   fixedStyles = {},
   cameraLook = 'classic',
+  changes = 0,
 }: {
+  /** ✓ `?changes=N` — the draft's unapplied count, as the draft bar would report it (the ✕ sheet's "kept" line). */
+  changes?: number;
   /** 🎨 The lab's drafted part styles (`lab_styles`) and 🎛 camera look (`lab_camera`). */
   fixedStyles?: FixedSceneStyles;
   cameraLook?: CameraLook;
@@ -211,7 +214,7 @@ export function MakerLabShell({
       completeTourAction={noop}
       renderStamp={renderStamp}
       more={null}
-      applySlot={<HubDraftToolbar eventId={eventId} summary={labSummary(0)} storeShell={false} priceLabel={null} proHref={null} />}
+      applySlot={<HubDraftToolbar eventId={eventId} summary={labSummary(changes)} storeShell={false} priceLabel={null} proHref={null} />}
       details={{ page: details, controls: null }}
       rsvpStage={<MakerRsvpStage {...rsvpProps} />}
       hasWork

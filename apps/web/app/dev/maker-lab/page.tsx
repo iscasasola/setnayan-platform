@@ -152,6 +152,8 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
       canvases={canvases}
       fixedStyles={fixedStyles}
       cameraLook={cameraLook}
+      /* ✓ `?changes=3` — a draft with unapplied changes (lab only; nothing is stored). */
+      changes={Math.max(0, Math.min(99, Math.floor(Number(sp.changes) || 0)))}
       /* Moves with every render, as the real Maker's stamp does — a save's refresh reaches the canvas. */
       renderStamp={String(Date.now())}
       /* 🧭 `?studio=1` (or `?ss=1`) — the new Maker on the lab's fixtures (no ✓ claimed: nothing was measured here). */

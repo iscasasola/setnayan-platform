@@ -272,7 +272,19 @@ const writer = createLatestWriter({
  * Resolves to the save's own result, or `SUPERSEDED` when a later pick carried it.
  */
 export function makerLatestWrite<T>(key: string, send: () => Promise<T>): Promise<T | Superseded> {
+  started += 1;
   return writer.write(key, send);
+}
+
+/**
+ * Every Maker write this document has STARTED, ever (a pick waiting for its
+ * beat, a draft save, a form the shell submits). The canvas warms the other
+ * stages once per open and stops at the first write — it compares this with
+ * what it read when it mounted (`buffered-canvas-frame.tsx` `warmOnce`).
+ */
+let started = 0;
+export function makerSavesStarted(): number {
+  return started;
 }
 
 /** Writes for `key` still waiting or in flight — the client's copy of that canvas is newer than the server's. */
@@ -290,6 +302,7 @@ export function makerWritesPending(key?: string): number {
 export function makerSave<T>(send: () => Promise<T>, refresh: () => void, options: MakerSaveOptions<T> = {}): Promise<T> {
   if (!options.held) announceUnheldWrite();
   if (!options.held) unheldInFlight += 1;
+  started += 1;
   const saved = shared.save(send, refresh, options.ok, Boolean(options.held));
   return saved
     .finally(() => {
@@ -328,10 +341,7 @@ export function requestMakerRefresh(): void {
   window.dispatchEvent(new Event(MAKER_REFRESH_EVENT));
 }
 
-/**
- * Maker saves still in flight — the canvas warms no stage while one is (it
- * could miss the save). A pick still waiting for its beat counts.
- */
+/** Maker saves still in flight. A pick still waiting for its beat counts. */
 export function makerSavesInFlight(): number {
   return shared.inFlight() + writer.pending();
 }
@@ -342,6 +352,7 @@ export function makerSavesInFlight(): number {
  * (the router runs actions in the order they are sent).
  */
 export function announceUnheldWrite(): void {
+  started += 1;
   writer.flush();
   if (typeof window === 'undefined') return;
   window.dispatchEvent(new Event(MAKER_UNHELD_WRITE_EVENT));

@@ -36,6 +36,7 @@ import { updateEventSlug } from '@/app/dashboard/[eventId]/invitation/actions';
 import { updateQrStyle } from '@/app/dashboard/[eventId]/launch/qr-look-actions';
 import { updateSpecialMessage } from '@/app/dashboard/[eventId]/website/special-message/actions';
 import { labMarchSections } from './march-fixture';
+import { LabStudioLoveStory, LabStudioSchedule } from './studio-lab-fixtures';
 import { MakerRsvpSettings } from '@/app/dashboard/[eventId]/launch/_components/maker-rsvp-ask';
 import { MoodBoardStudio } from '@/app/dashboard/[eventId]/studio/mood-board/_components/mood-board-lazy';
 import { ATTIRE_STYLES, ATTIRE_STYLE_LABEL } from '@/lib/role-dress-code';
@@ -171,8 +172,18 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
         pabuyaMessage={pabuyaMessage}
         specialMessage={specialMessage}
         facts={facts}
-        loveStory={{ book: needsDb('The Love Story'), moments: 0 }}
-        schedule={{ page: needsDb('The schedule'), moments: null, pieces: [] }}
+        /* 🧪 `?studio=1`: Studio › Love Story and Studio › Schedule on fixtures (`studio-lab-fixtures.tsx`) —
+           the real scrapbook and day, their writes in memory — so both can be laid beside the prototype. */
+        loveStory={
+          studioLab
+            ? { book: <LabStudioLoveStory />, moments: 3 }
+            : { book: needsDb('The Love Story'), moments: 0 }
+        }
+        schedule={
+          studioLab
+            ? { page: <LabStudioSchedule />, moments: 6, pieces: [] }
+            : { page: needsDb('The schedule'), moments: null, pieces: [] }
+        }
         rsvp={{
           page: needsDb('The guest’s RSVP'),
           settings: studioLab ? (

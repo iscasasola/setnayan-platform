@@ -1,5 +1,7 @@
 'use server';
 
+import { isHubDraftWrite, saveHubDraftPatch } from '@/lib/hub-draft-store';
+
 // Every `revalidatePath()` below uses `'layout'` mode (not default 'page')
 // so the dashboard layout invalidates too. Event-level writes (date / name /
 // venue / settings) change fields the sidebar chrome reads from the layout's
@@ -1188,6 +1190,22 @@ export async function updatePaxSettings(formData: FormData): Promise<GovernedFie
     .select('guest_list_edit_deadline, adaptive_pricing_mode')
     .eq('event_id', eventId)
     .maybeSingle();
+  /* ⏳ REPLY BY WAITS FOR APPLY IN THE MAKER (owner 2026-10-08, "draft 1-3"): a Maker form
+     (`HubDraftField`) puts the DATE into the hub draft — guests' replies close on the live date
+     until ✓ Apply (which writes it through the admin client, with this same audit row). The pricing
+     view posted beside it is not this ruling's field: it stays live, written only if it changed. */
+  if (isHubDraftWrite(formData)) {
+    try {
+      await saveHubDraftPatch(eventId, { events: { guest_list_edit_deadline: deadline } });
+    } catch {
+      return { ok: false, code: 'db_error', message: 'Could not save your reply-by date. Please try again.' };
+    }
+    if (before && (before as { adaptive_pricing_mode?: string | null }).adaptive_pricing_mode !== mode) {
+      const { error: modeErr } = await admin.from('events').update({ adaptive_pricing_mode: mode }).eq('event_id', eventId);
+      if (modeErr) return { ok: false, code: 'db_error', message: modeErr.message };
+    }
+    return { ok: true };
+  }
   const { error } = await admin
     .from('events')
     .update({ guest_list_edit_deadline: deadline, adaptive_pricing_mode: mode })

@@ -94,10 +94,10 @@ test('a free couple: the drafted effect is HELD at Apply, named, and counted onc
   assert.equal(sum.changeCount, 1);
   assert.equal(sum.proCount, 1, 'the Apply ◆');
   const lines = hubDraftChangeLines(draftOf({ celebration: 'confetti' }), live(null), false);
-  assert.deepEqual(lines, [{ place: 'RSVP', what: 'Celebration · Confetti', pro: true, held: true }]);
+  assert.deepEqual(lines, [{ place: 'RSVP', what: 'When they say yes · Confetti', pro: true, held: true }]);
   const effects = hubDraftProEffects(draftOf({ celebration: 'confetti' }), live(null), false);
   assert.equal(effects.length, 1);
-  assert.equal(effects[0]!.what, 'Celebration · Confetti');
+  assert.equal(effects[0]!.what, 'When they say yes · Confetti');
 });
 
 test('a free couple: the words drafted BESIDE a held effect still go live — without the effect', () => {
@@ -111,7 +111,7 @@ test('a free couple: the words drafted BESIDE a held effect still go live — wi
   assert.deepEqual(plan.remaining.events.rsvp_ask_config, drafted, 'the whole drafted config is kept');
   const lines = hubDraftChangeLines(draftOf(drafted), live({ meal: false }), false);
   assert.equal(lines.length, 1, 'one change, not two — the free part is its twin');
-  assert.equal(lines[0]!.what, 'What you ask your guests, Celebration · Sparklers');
+  assert.equal(lines[0]!.what, 'What you ask your guests, When they say yes · Sparklers');
   assert.equal(lines[0]!.held, true);
   // "Remove" on the Pro sheet takes the effect off and KEEPS the words.
   const effect = hubDraftProEffects(draftOf(drafted), live({ meal: false }), false)[0]!;

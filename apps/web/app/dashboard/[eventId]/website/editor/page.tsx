@@ -1,3 +1,4 @@
+import { cameraLookFromPreferences } from '@/lib/camera-look';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { redirect } from 'next/navigation';
 import { after } from 'next/server';
@@ -477,6 +478,11 @@ export default async function WebsiteEditorPage({
     .eq('event_id', eventId)
     .maybeSingle();
   if (prefsErr) logQueryError('WebsiteEditorPage.fixedStyles', prefsErr, { eventId }, 'graceful_degrade');
+  /* 🎛 The Camera's look — live with the drafted one laid on (`lib/camera-look.ts`). */
+  const cameraLook = cameraLookFromPreferences({
+    ...(((prefsRow as { style_preferences?: unknown } | null)?.style_preferences as Record<string, unknown> | null) ?? {}),
+    ...((hubDraft?.events.style_preferences as Record<string, unknown> | null | undefined) ?? {}),
+  });
   const fixedStyles = fixedSceneStylesAfter(
     fixedSceneStylesFromPreferences((prefsRow as { style_preferences?: unknown } | null)?.style_preferences),
     hubDraft?.fixedStyles,
@@ -1557,6 +1563,7 @@ export default async function WebsiteEditorPage({
           !(await eventWordsFor((event.event_type as string | null) ?? 'wedding')).solemn && !(heroRef || videoRef),
         heroPhoto: Boolean(heroRef || videoRef),
         fixedStyles,
+        cameraLook,
         names: { style: nameStyleOfPrintDetails(drafted.print_details), person: nameExample },
         /* 🎫 The Ticket style being edited — drafted over live (owner Q7 2026-10-02: it waits for Apply). */
         ticketStyle: passCardDesignFrom((drafted.print_details as { pass_design?: unknown } | null | undefined)?.pass_design),

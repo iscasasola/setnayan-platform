@@ -3,7 +3,7 @@
 import { HUB_DRAFT_BAR_FIELD, SUPERSEDED, makerLatestWrite, makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { canvasWriteKey, draftedCanvasOr, noteDraftedCanvas } from '@/lib/maker-draft-store';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
-import type { HubDraftActionResult } from '@/lib/hub-draft';
+import { HUB_DRAFT_FIELD, type HubDraftActionResult } from '@/lib/hub-draft';
 import { useEffect, useId, useRef, useState, useTransition, type ReactNode } from 'react';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import {
@@ -383,6 +383,7 @@ export function MakerRsvpSettings({
               pricingMode={replyByOwn.pricingMode}
               fallback={replyByFallback}
               action={replyByAction}
+              draft
             />
           ) : (
             <p role="alert" className="text-[13px] text-terracotta-700">
@@ -405,20 +406,24 @@ export function MakerRsvpSettings({
     return (
       <div className="flex flex-col" data-studio-rsvp="">
         <div className={STUDIO_GROUP}>
-          {/* 📅 Reply by — PRINTED here, read only (HOME_AND_GUESTS_CHECK § "Setup ↔ Event Hub Maker":
-              the date is set on Guests › Setup or in Event Details). */}
+          {/* 📅 Reply by — CHANGED right here, on its row (owner on the preview 2026-10-08: *"where it the
+              reply by date?"* → *"date is not changeable on studio."* It was printed read-only, "set on
+              Guests › Setup or in Event Details" — a go-elsewhere). The shared part, `draft`: the pick
+              waits in the hub draft for ✓ Apply ("draft 1-3") and moves its count. */}
           {replyByOwn ? (
             <ReplyBy
-              layout="print"
+              layout="studio"
               eventId={eventId}
               own={replyByOwn.deadline}
               pricingMode={replyByOwn.pricingMode}
               fallback={replyByFallback ?? (replyBy?.isDefault ? replyBy.date : null)}
               rowClassName={STUDIO_ROW}
+              action={replyByAction}
+              draft
             />
           ) : (
             <p role="alert" className="py-2 text-[13px] text-terracotta-700">
-              We couldn&rsquo;t read your reply-by date just now.
+              We couldn&rsquo;t read your reply-by date just now, so it can&rsquo;t be changed here. Nothing was changed.
             </p>
           )}
           {/* ❓ How guests answer ▾ — ONE dropdown over the shipped `oneAtATime` (drafted, counted on ✓). */}
@@ -524,6 +529,7 @@ export function MakerRsvpSettings({
             pricingMode={replyByOwn.pricingMode}
             fallback={replyByFallback ?? (replyBy?.isDefault ? replyBy.date : null)}
             action={replyByAction}
+            draft
           />
         ) : (
           <p role="alert" className="text-[13px] text-terracotta-700">

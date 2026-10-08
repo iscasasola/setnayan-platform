@@ -20,13 +20,13 @@ import {
   suggestRequestMatch,
 } from '@/lib/guest-requests';
 import { PageMasthead } from '@/app/_components/page-masthead';
-import { LinkPicker } from './link-picker';
-import { KeepQuickAdd } from './keep-quick-add';
+/* ⚖ Through the lazy door, never straight from their files: the Maker's page imports THIS page (RSVP ›
+   Requests), and a static import here puts all three in the Maker's first load (507 KB, never raised). */
+import { KeepQuickAdd, LinkPicker, SendInviteActions } from '../../_components/guest-setup/guest-setup-lazy';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { keepGuestAction, removeGuestAction, linkGuestAction, undoAcceptAction, undoDeclineAction } from './actions';
 import { Check, Undo2, X } from 'lucide-react';
-import { SendInviteActions } from '../_components/send-invite';
 import { loadInviteSetup } from '../_components/invite-message-setup';
 import { fetchInvitationBase } from '../_components/guest-card-data';
 import { REQUEST_WORDS, undoStillOpen } from '@/lib/request-key';

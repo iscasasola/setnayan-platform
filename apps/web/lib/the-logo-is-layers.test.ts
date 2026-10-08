@@ -424,9 +424,9 @@ test('6 · the Logo page has no header bar, and adds Text · Image · Frame', ()
   assert.match(page, /aria-label="Logo layers"/);
   assert.match(page, /aria-label="Layer tools"/);
   for (const kind of ['Text', 'Image', 'Frame']) assert.match(page, new RegExp(`<AddBtn label="${kind}"`), `no "+ ${kind}"`);
-  // Phone: both panels are TOOLS of the Maker's lower third (owner 2026-10-05, "approve") — opened from its tiles.
-  assert.equal((page.match(/sn-glass-bare flex-col \$\{MAKER_LT_TOOL\}/g) ?? []).length, 2, 'a logo panel is not a lower-third tool');
-  assert.match(page, /<IntoLowerThird to=\{ltNav\}>/, 'the logo’s Layers · Edit no longer open from the lower third');
+  // Phone: both panels sit UNDER the logo, never a lower-third tool (L1 2026-10-08, the one-layer trap) —
+  // the full contract is `the-logo-maker-opens-ready-to-edit.test.ts`.
+  assert.equal((page.match(/sn-glass-bare flex-col \$\{LOGO_PANEL_PHONE\}/g) ?? []).length, 2, 'a logo panel is not under the logo');
   // The status is the toolbar's, not a bar of the page's own.
   assert.match(page, /announceMakerSave\(\{ state: 'saving' \}\)/);
   const bar = code('app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx');

@@ -1,5 +1,5 @@
 import { sampleBoardFor } from '@/lib/sample-board.server';
-import { asksForHostCanvas, asksForEditorBridge, canvasOnlyScene, canvasTriedTheme, previewWayBackHref } from './_lib/editor-canvas';
+import { asksForHostCanvas, asksForEditorBridge, canvasOnlyScene, canvasStylePreview, canvasTriedTheme, previewWayBackHref } from './_lib/editor-canvas';
 import type { InviteThemeId } from '@/lib/invite-themes';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { eventShortcutMetadata } from '@/lib/event-app-icon';
@@ -177,9 +177,15 @@ type Props = {
     // tab bar back into the canvas (never the host's). Canvas-only; inert
     // everywhere else.
     bars?: string;
+    /** 🧭 The Maker Stages canvas asks for its tabs as pages (`stagesTabs`). */
+    tabs?: string;
     // 🖼 The Maker's made-once Hero page — `?only=hero` draws one scene alone.
     // Canvas-only (host-verified); inert everywhere else.
     only?: string;
+    // 🖼 A style's true miniature (the Stages panel's Style › Look) — `?style=<type>:<id>`
+    // draws that one scene or part in that style. Canvas-only (host-verified,
+    // `canvasStylePreview`); inert everywhere else.
+    style?: string;
     // 🎨 A theme tile on the Maker's Details page — `?theme=<id>` draws the
     // couple's page in that theme, bridge-less. Canvas-only (host-verified,
     // `canvasTriedTheme`); inert everywhere else.
@@ -1365,6 +1371,8 @@ async function InvitationBody({
     // the Maker, which would hear its bridge as the canvas's.
     themeTile: triedTheme !== null,
     canvasGuestBars: isEditorCanvas && search.bars === '1',
+    /* 🧭 The Maker's Stages canvas: each tab its own page, as guests get it (owner 2026-10-07 "yes pages"). */
+    stagesTabs: isEditorCanvas && search.tabs === '1',
     // 🎟 Public events only — `visibility` is the effective one this page
     // renders from, so a private or unlisted event never draws the button.
     ticketUrl: publicTicketUrl({ visibility, ticketUrl: event.ticket_url }),
@@ -1372,6 +1380,9 @@ async function InvitationBody({
     // only: `canvasOnlyScene` is null unless `isEditorCanvas` (a guest's
     // `?only=` is ignored). See `_lib/editor-canvas.ts`.
     canvasOnly: canvasOnlyScene(search, isEditorCanvas),
+    // 🖼 `?style=<type>:<id>` — a style's true miniature for the Maker's carousel. Host
+    // canvas only (`canvasStylePreview` is null unless `isEditorCanvas`).
+    stylePreview: canvasStylePreview(search, isEditorCanvas),
     // ↩ "Back to the Maker" — the preview tab only (`?preview=draft`), a
     // verified host only; null for a guest, the canvas, a tile or a one-scene
     // page. See `_lib/editor-canvas.ts`.

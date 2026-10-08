@@ -48,7 +48,10 @@ test('the Maker mounts the parts in its Studio, its stage form and its Details e
   console.log(`maker mounts: GuestsGetIn ${count(MAKER, /<GuestsGetIn\b/g)} · RsvpAsks ${count(MAKER, /<RsvpAsks\b/g)} · ReplyBy ${count(MAKER, /<ReplyBy\b/g)}`);
   assert.equal(count(MAKER, /<GuestsGetIn\b/g), 2, 'the shared getIn element + the Studio mount');
   assert.equal(count(MAKER, /<RsvpAsks\b/g), 2, 'the shared asks element + the Studio mount');
-  assert.ok(/<ReplyBy\s+layout="print"/.test(MAKER), 'Studio › RSVP prints Reply by (read only)');
+  /* Owner on the preview 2026-10-08: *"where it the reply by date?"* → *"date is not changeable on studio."* —
+     Studio › RSVP mounts the part as an EDITABLE row (it printed the date read-only), drafted. */
+  assert.ok(/<ReplyBy\s+layout="studio"[^>]*\baction=\{replyByAction\}\s+draft\s*\/>/.test(MAKER), 'Studio › RSVP does not mount an editable, drafted Reply by row');
+  assert.ok(!/layout="print"/.test(MAKER), 'Studio › RSVP prints Reply by read-only again');
 });
 
 test('neither door draws a get-in dropdown or an ask switch of its own', () => {

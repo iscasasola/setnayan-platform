@@ -170,6 +170,10 @@ export const StudioSideSwitch = dynamic(() => import(/* webpackChunkName: "maker
 });
 export const StudioToolMenu = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.StudioToolMenu), { loading: SlotButton });
 export const StudioToolRow = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.StudioToolRow), { loading: SlotNone });
+/* 🎓 "About the Maker" (Page ▾) — the tour is drawn only when the couple asks for it, never on a first open, so its
+   slides' frame and words load with the first ask (08 Oct: #6413's Maker first load was 0.4 KB over its budget). */
+export const MakerTour = dynamic(() => import(/* webpackChunkName: "maker-details" */ './maker-tour').then((m) => m.MakerTour), { loading: SlotNone });
+export const StudioBackToPart = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.StudioBackToPart), { loading: SlotNone });
 export const StudioCover = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.StudioCover), { loading: SlotFill });
 export const LowerThirdGrab = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.LowerThirdGrab), { loading: SlotNone });
 export const MakerSheet = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.MakerSheet), { loading: SlotNone });
@@ -190,3 +194,7 @@ export const PhotoMomentsEditor = dynamic(
   () => import(/* webpackChunkName: "maker-details" */ '../../website/photo-moments/_components/photo-moments-editor').then((m) => m.PhotoMomentsEditor),
   { loading: SlotRows },
 );
+/* ▶ The Stages ▶'s status line — first pressed, then loaded (`stage-panel/play-status.tsx`). */
+export const StagePlayStatus = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stage-panel/play-status').then((m) => m.StagePlayStatus));
+/* 🎛 The Camera's own looks in Stages — loaded the first time the Camera is picked (`stage-panel/camera-look.tsx`). */
+export const CameraPartTools = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stage-panel/camera-look').then((m) => m.CameraPartTools), { loading: SlotRows });

@@ -29,7 +29,7 @@ import { Dd, PanelSwitch } from './stage-panel/kit';
 import { RevealPicture } from './stage-panel/reveal-picture';
 import { REVEAL_NONE_ID, revealIsNone, revealPickPatch, revealSwitchOn, revealSwitchPatch, type RevealPatch } from '@/lib/reveal-none';
 import { setStageRevealKind, useStageRevealLook } from './stage-panel/store';
-import { SP_LOOK_CARD, SP_LOOK_NAME, SP_PHONE_PICTURE } from '@/lib/maker-stage-room';
+import { SP_LOOK_CARD, SP_LOOK_MARK, SP_LOOK_NAME, SP_LOOK_NAME_WHOLE, SP_PHONE_PICTURE } from '@/lib/maker-stage-room';
 
 /**
  * 🎭 THE REVEAL AS A PART (the new Maker's Stages side, plan PR 3 — owner
@@ -739,10 +739,16 @@ function RevealStagePart({
                           <RevealPicture kind={o.id} colours={look.colours} fill />
                         </span>
                       </span>
-                      <span className={`${SP_LOOK_NAME} !inline-flex items-center justify-center gap-1 ${on ? 'text-[var(--sp-ink)]' : 'text-[var(--sp-ink2)]'}`}>
+                      {/* The name reads WHOLE (two lines where it needs them, never a cut word); its ◆ Pro mark has a line of
+                          its own under it — side by side they were clipped at both ends of the 112-px frame. */}
+                      <span data-reveal-kind-name="" className={`${SP_LOOK_NAME_WHOLE} ${on ? 'text-[var(--sp-ink)]' : 'text-[var(--sp-ink2)]'}`}>
                         {o.label}
-                        {mark ? <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Hub Pro')} size="xs" /> : null}
                       </span>
+                      {mark ? (
+                        <span data-reveal-kind-mark="" className={SP_LOOK_MARK}>
+                          <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Hub Pro')} size="xs" />
+                        </span>
+                      ) : null}
                     </button>
                   );
                 })}

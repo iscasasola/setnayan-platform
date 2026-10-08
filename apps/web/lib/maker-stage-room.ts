@@ -149,6 +149,15 @@ export const SP_PHONE_PICTURE = `${SP_PHONE_CARD} relative block overflow-hidden
 export const SP_LOOK_CARD = 'sn-press flex min-h-11 w-min shrink-0 snap-center flex-col items-stretch gap-1.5 text-left';
 /** The card's name under the frame: one line, cut to the frame's width (it never widens the card). */
 export const SP_LOOK_NAME = 'block h-[18px] w-0 min-w-full truncate text-center text-[13px] font-semibold leading-[18px]';
+/**
+ * A card's name that must READ WHOLE (the Reveal's openings — "Four-flap envelope" is wider than the 112-px frame, and
+ * with its ◆ Pro mark beside it the words were cut from BOTH ends: "r-flap envelope ◆ PR"; controller 2026-10-09:
+ * *"the name must read whole … never clip a word"*). It takes a second line at a space or a hyphen, never mid-word
+ * and never cut; it still never widens the card (`w-0 min-w-full`). The mark goes on its own line (`SP_LOOK_MARK`).
+ */
+export const SP_LOOK_NAME_WHOLE = 'block w-0 min-w-full whitespace-normal text-center text-[13px] font-semibold leading-[18px] [overflow-wrap:normal]';
+/** The line under such a name that holds the card's mark (◆ Pro) — centred, as wide as the frame, 18 px. */
+export const SP_LOOK_MARK = 'flex h-[18px] w-0 min-w-full items-center justify-center';
 
 /** A pill in Background's third row (Gallery ▸ · Upload ◆) — a `.dd` that opens a sheet. */
 export const SP_PILL_BUTTON =

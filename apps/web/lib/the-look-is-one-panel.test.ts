@@ -434,7 +434,7 @@ test('(6) no Save in Look: the song, its switch and the hero video each post the
 test('(7) nothing in Look says "Guests see this right away": its controls draft, and the print form’s note is out of the reading order', async () => {
   // The three the owner's preview walk named (2026-10-08) — each writes the DRAFT, by its own code path.
   const buttons = read(`${E}/buttons-look-row.tsx`);
-  assert.match(buttons, /makerSave\(\(\) => hubDraftAction\(eventId, fd\)/, 'Buttons (shape · fill · colour) no longer saves through the draft door');
+  assert.match(buttons, /makerSave\(\(\) => hubDraftAction\(eventId, fd\)/, 'Buttons (its shape) no longer saves through the draft door');
   const src = read(`${E}/media-panels.tsx`);
   const music = src.slice(src.indexOf('export function SiteChromePanel('), src.indexOf('export function VisibilityPanel('));
   assert.match(music, /<HubDraftField \/>/, 'the song / its switch / the hero video no longer post into the draft');

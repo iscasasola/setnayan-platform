@@ -10,7 +10,10 @@ import { mainGroundClipRefForGuests } from '@/lib/guest-hero-video';
 import { websiteProActiveFor } from './hub-look';
 import type { HeroEventInput } from '@/lib/event-hero';
 import { adaptiveThemeVars, pagePaperAndInk, resolveAdaptiveTheme } from '@/lib/adaptive-theme';
-import { dressedTheme } from '@/lib/theme-colours';
+import { dressedTheme, paletteColourVars } from '@/lib/theme-colours';
+import { buildCustomSiteColorVars } from '@/lib/site-palette';
+import { compositeOver } from '@/lib/hub-legibility';
+import { pageWordBase, shadeWordInks } from './pro-site-vars';
 import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { displayUrlForStoredAsset, publicUrlForStoredAsset } from '@/lib/uploads';
 import { MainGround, MainGroundNone, PatternGround } from '../_components/main-ground';
@@ -135,6 +138,7 @@ export async function mainGroundLayerFor({
         vars={{
           ...adaptiveThemeVars(adaptive, { ownButton: Boolean(event.site_button_color) }),
           ...(shade ? shadeWordVars(shade, page) : {}),
+          ...(shade ? shadeFollowers(shade, page, mainGround, theme, event, adaptive) : {}),
         }}
         veil={shade ? { color: shade.veil, opacity: shade.opacity } : null}
         blur={look.blur ?? null}
@@ -162,6 +166,34 @@ function shadeOf(mainGround: ResolvedMainGround, dressed: Parameters<typeof page
   const page = pagePaperAndInk(dressed);
   const shade = look.shade ? mainGroundShade(look.shade, page, mainGround.tint?.frame ?? []) : null;
   return { look, page, shade };
+}
+
+/**
+ * 🔤 A DARK SHADE CHANGES THE PAGE'S SIDE, so the coloured words follow the
+ * flipped paper too (`shadeWordInks` — the rule a dark ombré gets): the button's
+ * fill, whose label IS the paper, and the accent's steps, sized against what
+ * they resolved to before the flip (the board or the theme, the footage tint)
+ * and measured over the footage as the veil leaves it. The couple's own button
+ * colour stands. `{}` for a paper veil, which flips nothing.
+ */
+function shadeFollowers(
+  shade: NonNullable<ReturnType<typeof shadeOf>['shade']>,
+  page: ReturnType<typeof pagePaperAndInk>,
+  mainGround: ResolvedMainGround,
+  theme: InviteThemeId,
+  event: { site_button_color?: unknown; role_palette?: unknown },
+  adaptive: Parameters<typeof adaptiveThemeVars>[0],
+): Record<string, string> {
+  const ownButton = typeof event.site_button_color === 'string' ? event.site_button_color : null;
+  return shadeWordInks(
+    shadeWordVars(shade, page),
+    {
+      ...pageWordBase(theme, paletteColourVars(event.role_palette, theme)),
+      ...adaptiveThemeVars(adaptive, { ownButton: Boolean(ownButton) }),
+    },
+    (mainGround.tint?.frame ?? []).map((sample) => compositeOver(shade.veil, shade.opacity, sample)),
+    buildCustomSiteColorVars(null, ownButton) ?? {},
+  );
 }
 
 /** A loop takes Shade and Blur, never Focus (it is not a photo). */

@@ -108,6 +108,13 @@ test('B · the Maker writes each into the DRAFT, never the live column', () => {
   const stackMounts = makerRsvp.match(/<ReplyBy\s+layout="stack"[\s\S]*?\/>/g) ?? [];
   assert.ok(stackMounts.length >= 2, `the Maker mounts ${stackMounts.length} editable Reply by fields — the stage and Event Details each have one`);
   for (const mount of stackMounts) assert.match(mount, /\baction=\{replyByAction\}\s+draft\s*\/>$/, 'a Maker Reply by field writes the live date');
+  /* ⤷ Owner on the preview 2026-10-08: *"where it the reply by date?"* → *"date is not changeable on studio."*
+     Studio › RSVP printed the date read-only, so on a phone the new Maker had NO place to change it. Its row
+     is the field now (`layout="studio"`), and like every Maker mount it is drafted — no mount is left without `draft`. */
+  const everyMount = makerRsvp.match(/<ReplyBy\b[\s\S]*?\/>/g) ?? [];
+  assert.equal(everyMount.length, 3, `the Maker mounts Reply by ${everyMount.length} times — Studio, the stage and Event Details`);
+  for (const mount of everyMount) assert.match(mount, /\baction=\{replyByAction\}\s+draft\s*\/>$/, 'a Maker door shows Reply by without the field, or writes it live');
+  assert.match(makerRsvp, /if \(studio\) \{[\s\S]{0,900}?<ReplyBy\s+layout="studio"[\s\S]{0,400}?rowClassName=\{STUDIO_ROW\}\s+action=\{replyByAction\}\s+draft\s*\/>/, 'Studio › RSVP has no editable Reply by row');
   assert.doesNotMatch(read(`${D}/_components/guest-setup/guest-setup-rows.tsx`), /<ReplyBy\b[^>]*\bdraft\b/, 'Guests › Setup drafts Reply by — it has no Apply to publish it');
   /* ⤷ Train 2026-10-08: a drafted pick is HELD (no render rides on it) and `updatePaxSettings` answers with no
      bar, so nothing moved the count on ✓ Apply until something else rendered — and the field said "Saved."

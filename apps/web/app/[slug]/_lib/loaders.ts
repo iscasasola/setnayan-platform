@@ -911,6 +911,9 @@ export const loadLiveLayer = cache(
     // Schedule widget. fetchPublicScheduleBlocks already takes the admin
     // client + event_id and returns only the rows the host has marked
     // public — safe to show to anonymous visitors.
+    /* ⏩ Started beside the schedule, awaited where it always was (`lib/start-ahead.ts`):
+       "is the host's camera open?" is asked on every path below and needs nothing from them. */
+    const hostCameraOpenAhead = startAhead(eventPapicGuestActive(admin, event.event_id));
     const scheduleBlocks = await fetchPublicScheduleBlocks(
       admin,
       event.event_id,
@@ -1167,7 +1170,7 @@ export const loadLiveLayer = cache(
     // SWITCH, not the calendar — and the menu's camera slot needs to know the
     // switch's real state on every day, not just the wedding day, so it can be
     // drawn LOCKED with an honest reason rather than silently vanishing.
-    const hostCameraOpen = await eventPapicGuestActive(admin, event.event_id);
+    const hostCameraOpen = await hostCameraOpenAhead;
     // The day-of BAR keeps its original live-window rule: that surface is the
     // on-the-day chrome and has no meaning before it. Only the menu slot follows
     // the switch alone.

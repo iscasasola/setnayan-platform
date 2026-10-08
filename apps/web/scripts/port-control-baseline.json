@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "0a247fc62",
+  "generatedFromRef": "3e4df42f7",
   "routeCount": 428,
   "destinations": 957,
   "actions": 671,
-  "blocks": 5706,
+  "blocks": 5707,
   "routes": {
     "/": {
       "files": [
@@ -9226,6 +9226,7 @@
         "BackgroundEffect",
         "BackgroundField",
         "BackgroundPick",
+        "BackgroundPickStep",
         "BackgroundSource",
         "BgCard",
         "BgCards",

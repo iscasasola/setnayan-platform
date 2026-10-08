@@ -20,9 +20,17 @@
  * Guard: `lib/every-switch-wears-the-one-look.test.ts`.
  */
 
-/** The track and its knob. On = `data-on="true"` on it, or a checked `.peer` before it. */
+/**
+ * The track and its knob. On = `data-on="true"` on it, or a checked `.peer` before it.
+ *
+ * ⚠ NO `after:transition-*` HERE, ON PURPOSE. The knob's speed and spring are `.sn-switch::after` in the stylesheet.
+ * A Tailwind VARIANT utility (`after:…`, `peer-checked:…`) is emitted at the END of the compiled sheet — after every
+ * rule written in `globals.css` — so `after:transition-transform` (150 ms, no spring) outranks that rule at the
+ * same weight. Measured 2026-10-08 on the compiled sheet in Chromium: with it the knob read
+ * `transform 0.15s cubic-bezier(.4,0,.2,1)`; without it, the family's `0.7s cubic-bezier(.34,1.56,.64,1)`.
+ */
 export const SWITCH_TRACK =
-  "sn-switch sn-press-ring relative block h-[30px] w-[50px] flex-none rounded-full after:absolute after:left-[3px] after:top-[3px] after:h-6 after:w-6 after:rounded-full after:bg-white after:shadow after:transition-transform after:content-[''] data-[on=true]:after:translate-x-5 peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-sn-accent/40 peer-disabled:opacity-40";
+  "sn-switch sn-press-ring relative block h-[30px] w-[50px] flex-none rounded-full after:absolute after:left-[3px] after:top-[3px] after:h-6 after:w-6 after:rounded-full after:bg-white after:shadow after:content-[''] data-[on=true]:after:translate-x-5 peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-sn-accent/40 peer-disabled:opacity-40";
 
 /**
  * A button that is nothing but the switch: a 44-px target around the 30-px track (the app's `min-height: 44px` on

@@ -217,13 +217,9 @@ test('4 · Studio › Wedding March: no "Parents & hosts" block; the tray is the
 });
 
 test('5 · no Studio editor says "Saved" or asks for a Save on a drafted field — ✓ Apply’s count is the one signal', async () => {
-  const { StudioToolRow } = await import(`../${L}/stages-studio-parts`);
-  const { STUDIO_TILE_KEYS, STUDIO_TILES } = await import('./studio-tiles');
-  const tiles = STUDIO_TILE_KEYS.map((key) => ({ key, label: STUDIO_TILES[key].label, short: STUDIO_TILES[key].short, item: STUDIO_TILES[key].item, immersive: STUDIO_TILES[key].immersive === true, done: true, status: '' }));
-  for (const tile of tiles) {
-    const row = await html(React.createElement(StudioToolRow, { tile, tiles, onOpen: () => {}, onDone: () => {} }));
-    assert.doesNotMatch(row, /Saved|Saving/, `the ${tile.label} row still shows a Saved chip`);
-  }
+  /* The Tool row is gone (owner 2026-10-08) — what is left of it, ✓ Done on the two full-screen pages, says no "Saved". */
+  const { StudioDoneBar } = await import(`../${L}/stages-studio-parts`);
+  assert.doesNotMatch(await html(React.createElement(StudioDoneBar, { onDone: () => {} })), /Saved|Saving/, 'the Done bar shows a Saved chip');
   const mood = read('app/dashboard/[eventId]/studio/mood-board/_components/mood-board-studio.tsx');
   const bar = mood.slice(mood.indexOf('const bar = ('), mood.indexOf('return (', mood.indexOf('const bar = (')));
   assert.match(bar, /data-mood-board-auto/, 'the Mood Board lost ✨ Auto');
@@ -234,7 +230,8 @@ test('5 · no Studio editor says "Saved" or asks for a Save on a drafted field �
   assert.doesNotMatch(info, /type="submit"|<TextPanel|>Save<|>Saved</, 'an Info words row still has a Save button or a Saved chip');
   assert.match(info, /what_to_bring: \{[\s\S]*?value: \(text: string\): string \| null => text \|\| null,/, 'What to bring no longer writes the draft');
   assert.match(info, /return studioDraftKeep\(eventId, `events:\$\{fact\}`, \{ \[fact\]: w\.value\(kept\) \}\);/, 'What to bring no longer writes the draft');
-  assert.match(info, /return hubDraftAction\(eventId, fd\);/, 'What to bring writes outside the one draft door');
+  assert.match(info, /let door: StudioDraftDoor = hubDraftAction;/, 'What to bring writes outside the one draft door');
+  assert.match(info, /return door\(eventId, fd\);/, 'What to bring writes outside the one draft door');
 });
 
 test('6 · a Studio tile never leaves the Maker — every tile opens its editor in place', async () => {

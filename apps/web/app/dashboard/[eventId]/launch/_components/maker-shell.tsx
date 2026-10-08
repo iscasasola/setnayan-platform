@@ -90,7 +90,7 @@ import { useMakerTool, type MakerEventBar, type MakerTool } from './maker-contex
 import type { MakerSide } from './maker-bar';
 import { PickSheetContext, type PickSheet } from '../../website/editor/_components/pick-menu-place';
 /* 🧭 The new Maker's own chrome — lazy, so the shipped Maker's first load carries none of it. */
-import { LowerThirdGrab, MakerSheet, MakerTour, StageTools, StudioBackToPart, StudioCover, StudioSideSwitch, StudioToolMenu, StudioToolRow } from './details-lazy';
+import { LowerThirdGrab, MakerSheet, MakerTour, StageTools, StudioBackToPart, StudioCover, StudioDoneBar, StudioSideSwitch, StudioToolMenu } from './details-lazy';
 import { MAKER_LT_HALF } from '@/lib/maker-phone-room';
 import { detailsItemLayout } from '@/lib/maker-details-items';
 import { studioTileItem, type StudioTileKey } from '@/lib/studio-tile-defs';
@@ -1055,7 +1055,7 @@ export function MakerShell({
           {stagesStudio ? (
             /* 🧭 THE NEW MAKER: ONE segmented control, Stages | Studio, where the screen's name was. */
             <div data-maker-tool="side" data-bar-item="Stages or Studio" data-bar-fill="" className={`flex min-w-0 flex-1 px-1 lg:hidden ${MAKER_BAR_PHONE.side}`}>
-              <StudioSideSwitch side={side} onPick={pickSide} />
+              <StudioSideSwitch side={side} onPick={pickSide} at={studioTile} tiles={studio?.tiles} onOpen={openStudio} />
             </div>
           ) : (
           <p
@@ -1128,7 +1128,7 @@ export function MakerShell({
               a page in the body, never a dialog. Look, Details and Page ▾ › Prints
               all open THIS one page, on their own part. */}
           {hasWork && selection?.kind === 'tool' && selection.key === 'details' ? (
-            <div className={`absolute inset-0 z-30 flex bg-cream${studioFull ? ' max-lg:top-[52px]' : ''}`} data-maker-details-layer="">
+            <div className={`absolute inset-0 z-30 flex bg-cream${studioImmersive ? ' max-lg:top-[52px]' : ''}`} data-maker-details-layer="">
               <MakerPage
                 pageKey="details"
                 page={
@@ -1156,13 +1156,13 @@ export function MakerShell({
             </div>
           ) : null}
           {/* 🧭 THE NEW MAKER'S STUDIO, over the work area (appended last, so the shipped Maker's tree is
-              unchanged): its HOME of tiles (`studio-home.tsx`, loaded when first opened), or — a tool open
-              full screen — that tool's slim row: Tool ▾ (the eleven, one sheet), and ✓ Done where the top
-              nav is hidden. Tapping Studio returns to the tiles; there is no "‹ Studio" here. */}
+              unchanged): its HOME of cards (`studio-home.tsx`, loaded when first opened), or — on the two pages
+              that hide the top nav — ✓ Done. No title row under the top bar (owner 2026-10-08, "we will not have
+              these."): the way to another page is "Studio ▾" in the top nav, and the page has that height. */}
           {studioHomeOn ? (
             <StudioCover tiles={studio?.tiles ?? null} onOpen={openStudio} />
-          ) : studioFull && studioTile ? (
-            <StudioToolRow tile={studioTile} tiles={studio?.tiles ?? []} onOpen={(k) => openStudio(k)} onDone={() => (studioFrom ? backToPart() : pickSide('studio'))} />
+          ) : studioImmersive ? (
+            <StudioDoneBar onDone={() => (studioFrom ? backToPart() : pickSide('studio'))} />
           ) : null}
         </div>
 

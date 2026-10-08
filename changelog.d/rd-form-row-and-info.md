@@ -69,3 +69,28 @@ right — where every other row has it, and on screen with the keyboard up. The 
 row's name at the row's whole width instead of squeezed beside it.
 
 SPEC IMPACT: None.
+
+## 2026-10-08 · feat(studio): no title row under the top bar — "Studio ▾" in the pill chooses the page
+
+Owner, 2026-10-08, with a picture of the "INFO ▾" pill row under the top bar: *"we will not have these."* · *"Tapping
+studio will open a popup instead for us to choose which one?"* (and earlier, on Look: *"there is no more look title
+there. make this same to the other studio pages"*).
+
+- The slim Tool ▾ row (`StudioToolRow`) is no longer drawn on any Studio page; the page starts right under the top nav
+  and has that height (the 52-px offset and the 8-px strip over a form are gone).
+- Inside a Studio page the pill's Studio half is **"Studio ▾"**: a tap opens the house dropdown — a sheet from the
+  bottom on a phone, a list under the pill on a computer — listing "All pages" (the Studio home) and the pages this
+  event draws, in the home's order, each with its mark, its line and Ready / Missing, the current one ticked. At the
+  Studio home and on the Stages side it is the plain segment, with no ▾. A pick is the same `openStudio` the row
+  called: no request, no render of the Maker.
+- **✓ Done stays** on Wedding March and Seat plan (`StudioDoneBar`): those two hide the top nav, so the row's ✓ Done
+  was the only way out of them.
+- The dev Maker lab hands Studio › Info's kept rows its save stand-in (`setStudioDraftDoor`, called by the lab only),
+  so a kept name shows its tick and ✓ Apply's count rises there without a signed-in account.
+- `lib/studio-pages-have-no-title-row.test.ts` — five tests, seven mutations seen red. Four guards re-aimed
+  (`maker-stages-studio-ships-dark`, `studio-screens-follow-the-prototype`, `studio-followups-follow-the-prototype`,
+  `selectors-are-pills-that-slide`); `scripts/port-control-baseline.json` regenerated (`StudioToolRow` →
+  `StudioDoneBar`).
+
+SPEC IMPACT: `INTERACTION_RULES.md` § 3 ("Where you are is one dropdown") now reads, for the Studio, as "Studio ▾ in
+the pill" — the controller records the owner's ruling in the corpus.

@@ -61,7 +61,8 @@ const NAME = `${L}/studio-event-name.tsx`;
 const TOOLS = `${L}/studio-tools.tsx`;
 const DETAILS = `${L}/maker-details.tsx`;
 const count = (s: string, re: RegExp) => (s.match(re) ?? []).length;
-const h = React.createElement;
+/** Draw a component with a test's props (each test hands exactly the props the component names). */
+const h = (C: unknown, props: Record<string, unknown>) => React.createElement(C as React.FC<Record<string, unknown>>, props);
 
 async function paint(el: React.ReactElement): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
@@ -80,7 +81,7 @@ function fn(src: string, name: string): string {
 
 test('(1) what must be typed is first: each name is a typed row, a first name is required, the style is a dropdown — nothing open, no Save', async () => {
   const { StudioEventName } = await import(`../${NAME}`);
-  const draw = (initial: unknown) => paint(h(StudioEventName, { eventId: 'ev-1', people: ['Bride', 'Groom'], initial, nameStyle: 'full' } as never));
+  const draw = (initial: unknown) => paint(h(StudioEventName, { eventId: 'ev-1', people: ['Bride', 'Groom'], initial, nameStyle: 'full' }));
   const html = await draw([{ first: 'Maria', last: 'Santos' }, { first: 'Jose', last: 'Dela Cruz' }]);
   // ONE row: the line guests read, composed from the two first names, with its ⓘ — its pill opens the two people.
   assert.match(html, /Event name<\/span>[\s\S]*?aria-label="About Event name"[\s\S]*?<button type="button" data-form-row-pill="opens" aria-expanded="false"[^>]*aria-label="Event name: Maria &amp; Jose\. Tap to change"/);
@@ -166,8 +167,12 @@ test('(4) one kept answer = ONE request and no render of the Maker: a held redra
   const keep = fn(src, 'studioDraftKeep');
   // THE CLAIM: `makerRedrawSave` (held — no Maker render is owed) around `makerLatestWrite` around the ONE draft door.
   assert.match(keep, /res = await makerRedrawSave\(\s*\(\) =>\s*makerLatestWrite\(key, \(\) => \{/, 'a kept answer brings a whole render of the Maker, or two quick keeps can land out of order');
-  assert.match(keep, /fd\.set\('intent', 'save'\);\s*fd\.set\('patch', JSON\.stringify\(\{ events \}\)\);\s*fd\.set\(HUB_DRAFT_BAR_FIELD, '1'\);\s*return hubDraftAction\(eventId, fd\);/);
-  assert.equal(count(keep, /hubDraftAction\(/g), 1, 'more than one request per kept answer');
+  assert.match(keep, /fd\.set\('intent', 'save'\);\s*fd\.set\('patch', JSON\.stringify\(\{ events \}\)\);\s*fd\.set\(HUB_DRAFT_BAR_FIELD, '1'\);\s*return door\(eventId, fd\);/);
+  assert.equal(count(keep, /\bdoor\(/g), 1, 'more than one request per kept answer');
+  // The door IS the one draft action — everywhere but the dev lab, which hands its stand-in (nothing else may).
+  assert.match(src, /let door: StudioDraftDoor = hubDraftAction;/, 'a kept answer goes somewhere other than the one draft door');
+  assert.match(src, /export function setStudioDraftDoor\(next: StudioDraftDoor \| null\): void \{\s*door = next \?\? hubDraftAction;\s*\}/);
+  assert.equal(count(src, /\bdoor = /g), 1, 'the door is changed somewhere else');
   assert.match(keep, /if \(Object\.keys\(events\)\.length === 0\) return \{ ok: true \};/, 'an empty patch is still sent');
   // A refusal, and a throw, are answered as NOT kept — with words.
   assert.match(keep, /catch \{\s*return \{ ok: false, error: 'Please try again\.' \};/);

@@ -39,7 +39,7 @@ function MonogramIcon({ className }: { className?: string }) {
 }
 
 /** The prototype's icons (`ICON[k]`): Look and the Mood Board share the board mark, Prints the form. */
-const TILE_ICON: Record<StudioTileKey, TileIcon> = {
+export const TILE_ICON: Record<StudioTileKey, TileIcon> = {
   info: FileText,
   look: LayoutGrid,
   logo: MonogramIcon,

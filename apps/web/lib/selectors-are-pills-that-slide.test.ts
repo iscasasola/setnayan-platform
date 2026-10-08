@@ -362,7 +362,13 @@ test('(5) the four Maker selectors wear the ONE thumb — Stages | Studio, Look�
   assert.match(kit, /slide = true,/);
   assert.match(kit, /className=\{`\$\{iSegClass\(on, tone\)\} \$\{className\}`\}/);
   // 1 · Stages | Studio, in its wine. 2 · Look's Background · Elements · Music.
-  assert.match(read(`${L}/stages-studio-parts.tsx`), /<ISegmented label="Stages or Studio">\s*\{\(\['stages', 'studio'\] as const\)\.map\(\(k\) => \(\s*<ISeg key=\{k\} tone="wine"/);
+  /* Stages is a segment; Studio is a segment too — or, inside a Studio page, the picked half that holds "Studio ▾"
+     (`aria-current`, which the thumb reads exactly as it reads `aria-pressed`). Still ONE track, ONE thumb. */
+  const side = read(`${L}/stages-studio-parts.tsx`);
+  assert.match(side, /<ISegmented label="Stages or Studio">\s*<ISeg tone="wine" on=\{side === 'stages'\} data="stages"/);
+  assert.match(side, /<span aria-current="page" data-seg="studio" data-studio-chooser="" className=\{STUDIO_CHOOSER_SEG\}>/);
+  assert.match(side, /<ISeg tone="wine" on=\{side === 'studio'\} data="studio" onClick=\{\(\) => onPick\('studio'\)\}>/);
+  assert.match(read('app/_components/pill-thumb.tsx'), /:scope > \[aria-current="page"\]/, 'the thumb would not find the Studio half while it holds the chooser');
   assert.match(read(`${L}/studio-tools.tsx`), /<ISegmented label="Look">\s*\{LOOK_SECTION_ITEM_KEYS\.map\(\(k\) => \(\s*<ISeg /);
 
   // 3 · PHASES (Look | Background | Arrange · Build in | Action | Build out) — every use: the thumb is in the component.

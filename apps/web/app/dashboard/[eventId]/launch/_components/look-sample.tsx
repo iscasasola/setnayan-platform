@@ -25,9 +25,11 @@ import { useMaker } from './maker-context';
  * here."*
  *
  * WHAT IT DRAWS, top to bottom — the prototype's `.spec`: the small label · the names in the Headings face with
- * the "&" in Accent 2 · a short rule · the date · one line of text · the two real buttons. Under the words: the
- * page's own paper (a colour or a blend), or the picture / film behind every scene with the veil the page's rule
- * measures over it.
+ * the "&" in Accent 2 · a short rule · the date · one line of text · the two real buttons · and one row that
+ * carries the styles the rest of the page uses: a section heading ("Our day"), a link ("Directions") and a caption
+ * with a code in the fixed mono — so EVERY text style a font or colour change touches is on the sample (round 3,
+ * note § 2.B "two fonts, nine text styles, one fixed mono"). Under the words: the page's own paper (a colour or a
+ * blend), or the picture / film behind every scene with the veil the page's rule measures over it.
  *
  * 🔑 IT IS A PIECE OF THE GUEST PAGE, NOT A DRAWING OF ONE. The root wears exactly what the guest scope wears
  * (`GuestLookScope`: `sn-editorial`, `data-hub-theme`, `data-art`, the Buttons attributes, the inline variables),
@@ -192,7 +194,9 @@ export function LookSample({ seed }: { seed: LookSampleSeed }) {
       </span>
 
       <div className="relative z-[1] flex min-h-0 flex-1 flex-col items-center justify-center px-[22px] py-3 text-center">
-        <p data-look-sample-eyebrow="" className="mb-1.5 font-sans text-[9.5px] uppercase tracking-[0.22em] text-terracotta">
+        {/* The small label — the guest page's own eyebrow style (`EYEBROW` in `post-event-scene-views.tsx`: the labels
+            face, small caps spacing, the Accent deepened to read). */}
+        <p data-look-sample-eyebrow="" className="mb-1.5 font-mono text-[9.5px] font-semibold uppercase tracking-[0.22em] text-terracotta-700">
           {EYEBROW}
         </p>
         <p data-look-sample-names="" className="font-display text-[30px] font-medium leading-[1.05] text-ink">
@@ -224,6 +228,22 @@ export function LookSample({ seed }: { seed: LookSampleSeed }) {
             Details
           </span>
         </div>
+        {/* Every other text style on the page, in one row: a section heading (the Headings face), a link, and a
+            caption whose code is the fixed mono no font choice changes (`--font-space-mono`). */}
+        <p aria-hidden data-look-sample-styles="" className="mt-2.5 flex items-baseline gap-3 font-sans text-[11.5px] text-ink">
+          <span data-look-sample-style="heading" className="font-display text-[14px]">
+            Our day
+          </span>
+          <span data-look-sample-style="link" className="font-medium text-link underline underline-offset-2">
+            Directions
+          </span>
+          <span data-look-sample-style="caption" className="opacity-75">
+            Table 7 · code{' '}
+            <b data-look-sample-style="code" className="font-medium" style={{ fontFamily: 'var(--font-space-mono), ui-monospace, Menlo, monospace' }}>
+              {sampleCode(first, second, seed.words.date)}
+            </b>
+          </span>
+        </p>
       </div>
 
       {/* 🔊 Music: the speaker a guest taps, on the sample while Music is the tab open. It plays nothing here. */}
@@ -237,6 +257,14 @@ export function LookSample({ seed }: { seed: LookSampleSeed }) {
       ) : null}
     </div>
   );
+}
+
+/** The caption's code — the couple's own initials and year ("M&J-2026"), as a guest's pass prints one. */
+export function sampleCode(first: string, second: string | null, date: string | null): string {
+  const year = /\b(?:19|20)\d\d\b/.exec(date ?? '')?.[0] ?? '2026';
+  const a = first.trim().charAt(0).toUpperCase() || 'M';
+  const b = second?.trim().charAt(0).toUpperCase();
+  return b ? `${a}&${b}-${year}` : `${a}-${year}`;
 }
 
 /** "Maria & Jose" → the two names around the "&"; one name (or none) stays whole. */

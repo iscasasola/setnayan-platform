@@ -361,6 +361,14 @@ test('(4b) the sample screen renders the header text, the two real buttons and t
   assert.match(html, /Seda Vertis North/);
   assert.match(html, /class="button-primary[^"]*"[^>]*>Reply to the invitation</);
   assert.match(html, /class="button-secondary[^"]*"[^>]*>Details</);
+  // EVERY text style is on the sample (round 3): the small label in the labels face and the Accent, a section
+  // heading in the Headings face, a link in the page's link ink, and a code in the FIXED mono no font choice moves.
+  assert.match(html, /<p data-look-sample-eyebrow="" class="[^"]*\bfont-mono\b[^"]*\buppercase\b[^"]*\btext-terracotta-700\b[^"]*">Together with their families<\/p>/);
+  assert.match(html, /data-look-sample-style="heading" class="font-display [^"]*">Our day</);
+  assert.match(html, /data-look-sample-style="link" class="[^"]*\btext-link underline\b[^"]*">Directions</);
+  assert.match(html, /Table 7 · code[\s\S]{0,40}<b data-look-sample-style="code"[^>]*style="font-family:var\(--font-space-mono\)[^"]*"[^>]*>M&amp;J-2026<\/b>/);
+  // The guest page's own eyebrow: the same face, spacing and ink.
+  assert.match(read('app/[slug]/_components/editorial/post-event-scene-views.tsx'), /const EYEBROW = 'pahina-eyebrow m-0 font-mono text-xs font-semibold uppercase tracking-\[0\.22em\] text-terracotta-700';/, 'anti-vacuity: the guest page draws its small label some other way now');
   // The shape is worn as the guest scope wears it, and the Headings face is the couple's.
   assert.match(html, /data-hub-btn-shape="pill"/);
   assert.match(html, /--hub-btn-radius:/);
@@ -388,6 +396,10 @@ test('(4b) the sample screen renders the header text, the two real buttons and t
   assert.deepEqual(splitNames('Maria and Jose'), ['Maria', 'Jose']);
   assert.deepEqual(splitNames('Lola Remedios at 80'), ['Lola Remedios at 80', null]);
   assert.deepEqual(splitNames(null), ['Your names', null]);
+  const { sampleCode } = await import(`../${L}/look-sample`);
+  assert.equal(sampleCode('Maria', 'Jose', 'December 12, 2026'), 'M&J-2026');
+  assert.equal(sampleCode('Lola Remedios at 80', null, 'March 3, 2027'), 'L-2027');
+  assert.equal(sampleCode('ana', 'ben', null), 'A&B-2026');
 });
 
 /* ── (5) at the tap ──────────────────────────────────────────────────────── */

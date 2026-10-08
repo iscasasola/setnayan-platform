@@ -6,6 +6,7 @@
 import type { ReactNode } from 'react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import type { BackState } from './back';
+import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 
 /** The four hidden fields every form posts, so a save lands back here. */
 export function BackFields({ state, form }: { state: BackState; form?: string }) {
@@ -104,13 +105,10 @@ export function SwitchForm({
       <SubmitButton
         aria-pressed={on}
         aria-label={`${label}: ${on ? 'on' : 'off'}`}
-        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${on ? 'bg-terracotta' : 'bg-ink/20'}`}
+        className={SWITCH_BUTTON}
         pendingLabel="…"
       >
-        <span
-          aria-hidden
-          className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${on ? 'translate-x-5' : 'translate-x-0.5'}`}
-        />
+        <SwitchTrack on={on} />
       </SubmitButton>
     </form>
   );

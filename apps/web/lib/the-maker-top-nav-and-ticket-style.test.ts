@@ -121,8 +121,12 @@ async function shell(): Promise<string> {
 
 test('2a · ✕ Exit is red, an X, its own pill — "‹" never again', async () => {
   const header = (await shell()).split('<header')[1]!.split('</header>')[0]!;
-  const exit = /<span data-icon-pill="exit"[^>]*><a\b[^>]*data-maker-tool="exit"[^>]*>([\s\S]*?)<\/a><\/span>/.exec(header);
+  /* 🚪 AMENDED 08 Oct — owner, live at 896 px: *"why can't i go back to events?"* → *"Okay, fix the three step."*
+     ✕ is now a BUTTON that opens the way-out sheet (Back to this event · All events) instead of a link that left
+     by itself. Its look — red, an X, its own pill — is unchanged and still held here. */
+  const exit = /<span data-icon-pill="exit"[^>]*><button\b[^>]*data-maker-tool="exit"[^>]*>([\s\S]*?)<\/button><\/span>/.exec(header);
   assert.ok(exit, 'Exit is not its own pill');
+  assert.match(exit[0], /aria-haspopup="dialog"/, '✕ does not say it opens the way-out sheet');
   assert.match(exit[0], /\bmax-lg:bg-\[#B3261E\]/, 'Exit is not red on a phone');
   assert.doesNotMatch(exit[0], /(?:^|\s)bg-\[#B3261E\]/, 'the red leaks onto a desktop');
   assert.match(exit[1]!, /lucide-x\b/, 'Exit is not an X');

@@ -26,9 +26,7 @@ import {
   headcountOpenLine,
 } from '@/lib/headcount-row';
 import { InfoTip } from '@/app/_components/info-tip';
-import { hubDraftAction } from '../../website/hub-draft-actions';
-import { updatePaxSettings } from '../../actions';
-import { setGuestListFinalized } from '../../guests/finalize-actions';
+import { useGuestActions } from '../../guests/_components/guest-actions-context';
 import { GuestsGetIn } from './guests-get-in';
 import { RsvpAsks } from './rsvp-asks';
 import { ReplyBy } from './reply-by';
@@ -98,6 +96,8 @@ export function GuestSetupRows({
   oneLink: OneLink;
   headcount: HeadcountView;
 }) {
+  /* The shipped actions — the dev lab hands in stand-ins (`guest-actions-context.tsx`). Held under their own names. */
+  const { hubDraftAction, updatePaxSettings } = useGuestActions();
   const [local, setLocal] = useState<RsvpAskConfig>(config);
   const latest = useRef<RsvpAskConfig>(config);
   const saved = useRef<RsvpAskConfig>(config);
@@ -324,6 +324,7 @@ function OneLinkRow({ link }: { link: OneLink }) {
  */
 function FinalizeRow({ eventId, view }: { eventId: string; view: HeadcountView }) {
   const router = useRouter();
+  const { setGuestListFinalized } = useGuestActions();
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);

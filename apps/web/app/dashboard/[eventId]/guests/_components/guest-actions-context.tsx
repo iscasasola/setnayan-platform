@@ -6,6 +6,9 @@ import { addSingleGuest } from '../inline-actions';
 import { addRoleToGuest, quickAddGuest, quickCreateGroup, setGuestPrimaryRole } from '../quick-add-actions';
 import { addGuestsFromPeople, listPeopleYouCanInvite } from '../people-add-actions';
 import { setGuestInvitationSent } from '../../invitation/actions';
+import { hubDraftAction } from '../../website/hub-draft-actions';
+import { updatePaxSettings } from '../../actions';
+import { setGuestListFinalized } from '../finalize-actions';
 
 /**
  * The guest list's writes that a plain press reaches — the SHIPPED server actions by default.
@@ -31,6 +34,10 @@ export type GuestActions = {
   addGuestsFromPeople: typeof addGuestsFromPeople;
   listPeopleYouCanInvite: typeof listPeopleYouCanInvite;
   setGuestInvitationSent: typeof setGuestInvitationSent;
+  /** Guests › Setup's three writes: the asks and how guests get in (the Maker's draft door), Reply by, Finalize. */
+  hubDraftAction: typeof hubDraftAction;
+  updatePaxSettings: typeof updatePaxSettings;
+  setGuestListFinalized: typeof setGuestListFinalized;
   /** Where "Invite N" goes: the one-by-one run, with the selected guests who still need an invitation. */
   sendRunHref: (eventId: string, ids: string[]) => string;
 };
@@ -46,6 +53,9 @@ export const REAL_GUEST_ACTIONS: GuestActions = {
   addGuestsFromPeople,
   listPeopleYouCanInvite,
   setGuestInvitationSent,
+  hubDraftAction,
+  updatePaxSettings,
+  setGuestListFinalized,
   sendRunHref: (eventId, ids) => `/dashboard/${eventId}/guests/send?ids=${ids.join(',')}`,
 };
 

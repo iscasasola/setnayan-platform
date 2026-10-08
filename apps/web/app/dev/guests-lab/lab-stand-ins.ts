@@ -45,6 +45,20 @@ export const LAB_GUEST_ACTIONS: Partial<GuestActions> = {
   addGuestsFromPeople: async (_eventId, picks) => ({ ok: true, added: picks.length, failed: 0, firstError: null }),
   /* "Invite N" opens the lab's own one-by-one run (the REAL run on fixtures), not a real route. */
   sendRunHref: (_eventId, ids) => `/dev/guests-lab?part=run&ids=${ids.join(',')}`,
+  /* Guests › Setup: the asks / how guests get in (the Maker's draft door), Reply by, Finalize — all local. */
+  hubDraftAction: async () => ({ ok: true, intent: 'save', applied: 0, held: [] }),
+  updatePaxSettings: async () => ({ ok: true }),
+  setGuestListFinalized: async (_eventId, finalized) => ({ ok: true, locked: finalized }),
   setGuestInvitationSent: async (_eventId, _guestId, sent) => ({ ok: true, sentAt: sent ? new Date().toISOString() : null }),
 };
 
+
+/**
+ * `?refuse=1`: Setup's three writes REFUSE with the database's own words, on purpose — so a guard (and a look at 375) can
+ * prove the host never reads them: the row says one plain sentence of the page's own.
+ */
+export const LAB_SETUP_REFUSALS: Partial<GuestActions> = {
+  hubDraftAction: async () => ({ ok: false, intent: 'save', error: 'new row violates row-level security policy for table "events"' }),
+  updatePaxSettings: async () => ({ ok: false, code: 'db_error', message: 'invalid input syntax for type date: "2027-02-30"' }),
+  setGuestListFinalized: async () => ({ ok: false, error: 'column events.final_pax does not exist' }),
+};

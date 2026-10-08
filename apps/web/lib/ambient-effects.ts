@@ -18,8 +18,8 @@
  * properties: no layout, no paint of the page). So:
  *   · ZERO REQUESTS — no image, no font, no script is fetched for an effect;
  *   · ZERO JAVASCRIPT on the guest page — the layer is plain HTML and one `<style>`;
- *   · REDUCE MOTION = A FINISHED STILL — every shape has a negative delay, so pausing the animation (never
- *     removing it) leaves each one mid-flight;
+ *   · REDUCE MOTION = A FINISHED STILL — the animation is taken off and each shape is drawn, in plain CSS, where it
+ *     would stand part-way through its cycle (never hidden, never left at its start off the page);
  *   · A READABLE BAND — the layer is masked to half strength across the middle, where the words sit;
  *   · LIGHT AND DARK GROUNDS — glows and blends swap (`data-ambient-ground`).
  *
@@ -238,6 +238,7 @@ export function ambientEffectSpec(effect: HubMainEffect, ground: string, five: r
     const y = r() * 90 + 4;
     const d = base * (0.75 + r() * 0.6);
     const dl = -r() * base;
+    const still = (-dl / d) % 1;
     const body = bodies.length > 1 ? bodies[Math.floor(r() * bodies.length)]! : bodies[0]!;
     particles.push({
       '--x': `${x.toFixed(1)}%`,
@@ -247,6 +248,9 @@ export function ambientEffectSpec(effect: HubMainEffect, ground: string, five: r
       '--o': (0.5 + depth * 0.5).toFixed(2),
       '--d': `${d.toFixed(1)}s`,
       '--dl': `${dl.toFixed(1)}s`,
+      /* The STILL (reduce motion): how far through its cycle the shape stands — the place its negative delay starts it. */
+      '--p': still.toFixed(3),
+      ...(kind === 'shimmer' ? { '--g': (still < 0.45 ? still / 0.45 : (1 - still) / 0.55).toFixed(3) } : {}),
       ...(bodies.length > 1 ? { '--c1': body } : {}),
     });
   }
@@ -322,7 +326,21 @@ export const AMBIENT_EFFECT_CSS =
   `${K('shimmer')}:after{content:"";position:absolute;left:46%;top:-4px;width:8%;height:9px;border-radius:50%;background:radial-gradient(ellipse,var(--c2),transparent 70%)}` +
   `${LIGHT('shimmer')}{mix-blend-mode:multiply}` +
   '@keyframes sn-fx-glint{0%{opacity:0;transform:rotate(-32deg) translate(calc(-30px*var(--s)),calc(14px*var(--s)))}45%{opacity:var(--o)}100%{opacity:0;transform:rotate(-32deg) translate(calc(40px*var(--s)),calc(-18px*var(--s)))}}' +
-  /* Reduce motion: every shape stops where its negative delay put it — a finished picture, never an empty one.
-     🪤 `!important`, MEASURED IN A BROWSER: each shape's own rule is more specific than this one and its `animation`
-     shorthand resets the play state to running — without it the query matched and every shape kept moving. */
-  `@media (prefers-reduced-motion:reduce){${A} i{animation-play-state:paused!important}}`;
+  /* REDUCE MOTION = A FINISHED STILL, DRAWN WITHOUT ANY ANIMATION. Each shape stands where it would be `--p` of the way
+     through its cycle (`--g`: a glint's brightness there) — a static pose, per effect.
+     🪤 TWICE MEASURED IN A BROWSER, twice wrong before this:
+       1 · a plain `animation-play-state:paused` lost to each shape's own rule (596 animations kept running);
+       2 · pausing with `!important` worked on a bare page and NOT in the app: `globals.css` (`@layer base`) answers
+           reduce motion for every element with `animation-duration:.001ms · animation-delay:.001ms · iteration-count:1`,
+           all `!important` — and an important declaration in a layer outranks any unlayered one. So every animation
+           ended at once at its START: the petals above the page, the lanterns below it, the glints transparent
+           (on screen: 0 of 12 petals, 0 of 14 glints, 2 of 8 lanterns).
+     So the still asks nothing of the animation machinery: the animation is taken off and the pose is plain CSS. */
+  `@media (prefers-reduced-motion:reduce){${A} i{animation-name:none!important}` +
+  `${K('lanterns')}{transform:translateY(calc(-1*var(--p)*var(--T))) rotate(calc(4deg*var(--p) - 2deg))}` +
+  `${K('petals')}{transform:translateY(calc(var(--p)*var(--T)));rotate:calc(90deg*var(--p) - 40deg)}` +
+  `${K('sparkles')}{opacity:calc(.05 + (var(--o) - .05)*var(--p));transform:scale(calc(.4 + .6*var(--p))) rotate(calc(25deg*var(--p)))}` +
+  `${K('capiz')}{rotate:calc(12deg*var(--p) - 6deg)}` +
+  `${K('bokeh')}{transform:translate(calc(26px*var(--s)*var(--p)),calc(-18px*var(--s)*var(--p))) scale(calc(.9 + .2*var(--p)))}` +
+  `${K('shimmer')}{opacity:calc(var(--o)*var(--g));transform:rotate(-32deg) translate(calc((70px*var(--p) - 30px)*var(--s)),calc((14px - 32px*var(--p))*var(--s)))}` +
+  '}';

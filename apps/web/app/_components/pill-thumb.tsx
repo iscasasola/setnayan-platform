@@ -7,16 +7,17 @@ import { useLayoutEffect, useRef } from 'react';
  * pill selector is the right control at all).
  *
  * Owner, 2026-10-08 (DECISION_LOG "SELECTORS ARE PILLS THAT SLIDE"): *"i like this pill type instead of the rounded
- * edges selector"* · *"and make them animate"* · *"adjust all pill selectors to this if possible"*. Rule
- * (`BACKGROUND_SOURCES_AMEND_2026-10-08_fable.md` § 2.E): ONE thumb travels from the old choice to the new and
- * resizes to the label it lands on, 220 ms on the house ease; instant under "reduce motion".
+ * edges selector"* · *"and make them animate"* · *"adjust all pill selectors to this if possible"* · *"let's add a
+ * bit of bounce and a pulse to imitate it has been pressed"*. Rule (`BACKGROUND_SOURCES_AMEND_2026-10-08_fable.md`
+ * § 2.E): ONE terracotta thumb travels from the old choice to the new and resizes to the label it lands on, landing
+ * with a small overshoot and pulsing once on a pick; the family's one speed is `--sn-pill-dur`; instant, with no
+ * pulse, under "reduce motion".
  *
  * ── ANY TRACK CAN WEAR IT ───────────────────────────────────────────────────
  * Put `<PillThumb />` FIRST inside a `position: relative` track (`PILL_TRACK_CLASS`) whose choices are its direct
  * children — buttons or links. Nothing is passed in: the picked choice is whichever child says so the way it
- * already does (`aria-pressed="true"`, `aria-current="page"` or `aria-selected="true"`). A choice may add:
- *   · `data-seg-tone="plain|wine"` — which of the two house fills the thumb wears (default plain = white);
- *   · `data-seg-fill="<css colour>"` — its own fill instead (a screen's own token, e.g. `var(--sp-ink)`);
+ * already does (`aria-pressed="true"`, `aria-current="page"` or `aria-selected="true"`). The thumb is ONE colour for
+ * every selector — the terracotta — so no choice names a fill. A choice may add:
  *   · a child marked `data-seg-face` — the thumb lies on THAT box (an icon's 38-px face inside a 44-px button);
  *     the choice itself is then `position: relative`, as every choice wearing `pillSegClass` already is;
  *   · `data-seg-inset="<px>"` — the thumb lies that far INSIDE the choice's box (a 44-px button whose pill is
@@ -26,7 +27,9 @@ import { useLayoutEffect, useRef } from 'react';
  *   · marks the track `data-seg-thumb` — the cue for the picked choice to drop its own fill. Until then the choice
  *     paints the pill itself, so the server's first paint is already right and the thumb takes over IN PLACE: it is
  *     laid with no transition the first time and never slides in from the left;
- *   · follows a pick (`MutationObserver` on those three attributes) and a resize (`ResizeObserver` on the track — a
+ *   · follows a pick (`MutationObserver` on those three attributes — a microtask, not a frame: it is told even in a
+ *     hidden tab, where only the CSS travel itself is paused) and PULSES once when the picked choice changed
+ *     (`data-pulse`; never on mount, never on a resize); follows a resize (`ResizeObserver` on the track — a
  *     rotated phone, a wide window, a late font, a longer label). It reads, then writes to ITSELF only;
  *   · steps aside when the track is not an either-or (none or several picked — a row of toggles keeps its fills);
  *   · moves focus with ← → (↑ ↓, Home, End) between the choices; Enter and Space press, as buttons do.
@@ -39,7 +42,7 @@ const FACE = '[data-seg-face]';
 /** The little of the DOM the thumb touches — so its behaviour can be driven without a browser. */
 type Box = { offsetLeft: number; offsetTop: number; offsetWidth: number; offsetHeight: number };
 export type PillChoiceEl = Box & {
-  dataset: { segTone?: string; segFill?: string; segInset?: string };
+  dataset: { segInset?: string };
   querySelector(selector: string): Box | null;
   focus?: () => void;
 };
@@ -48,7 +51,12 @@ export type PillTrackEl = {
   setAttribute(name: string, value: string): void;
   removeAttribute(name: string): void;
 };
-export type PillThumbEl = { style: Record<string, string>; dataset: Record<string, string | undefined>; offsetWidth: number };
+export type PillThumbEl = {
+  style: Record<string, string>;
+  offsetWidth: number;
+  setAttribute(name: string, value: string): void;
+  removeAttribute(name: string): void;
+};
 
 /**
  * The thumb's whole behaviour for one track. `place()` lays it on the picked choice (the first time with no
@@ -56,10 +64,13 @@ export type PillThumbEl = { style: Record<string, string>; dataset: Record<strin
  */
 export function createPillThumb(track: PillTrackEl, thumb: PillThumbEl, activeChoice: () => unknown = () => null) {
   let laid = false;
+  /** The choice the thumb last lay on — a different one next time is a PICK (it pulses); the same one is a resize. */
+  let last: PillChoiceEl | null = null;
   const place = () => {
     /* Read, then write. */
+    const picked = Array.from(track.querySelectorAll(PICKED));
     const lay = pillThumbLay(
-      Array.from(track.querySelectorAll(PICKED)).map((on) => {
+      picked.map((on) => {
         /* A face is measured inside its choice (the choice is `position: relative`, so the face's offsets are from it). */
         const face = on.querySelector(FACE);
         /* …or the choice names the clear margin its pill keeps inside its own box (a 44-px button with a 38-px pill). */
@@ -69,31 +80,36 @@ export function createPillThumb(track: PillTrackEl, thumb: PillThumbEl, activeCh
           y: on.offsetTop + (face?.offsetTop ?? 0) + inset,
           w: (face ?? on).offsetWidth - 2 * inset,
           h: (face ?? on).offsetHeight - 2 * inset,
-          tone: on.dataset.segTone,
-          fill: on.dataset.segFill,
         };
       }),
     );
     if (!lay) {
       track.removeAttribute('data-seg-thumb');
       thumb.style.opacity = '0';
+      thumb.removeAttribute('data-pulse');
       laid = false;
+      last = null;
       return;
     }
+    const on = picked[0]!;
+    /* A PICK: the thumb was already lying on another choice. (Not the first placement; not a resize.) */
+    const pick = laid && last !== null && last !== on;
     if (!laid) thumb.style.transition = 'none';
+    /* The pulse plays from its start each time: taken off before the move, put back after it is committed. */
+    if (pick) thumb.removeAttribute('data-pulse');
     thumb.style.transform = lay.transform;
     thumb.style.width = lay.width;
     thumb.style.height = lay.height;
-    thumb.style.background = lay.fill;
-    thumb.dataset.tone = lay.tone;
     thumb.style.opacity = '1';
     track.setAttribute('data-seg-thumb', '');
+    if (!laid || pick) void thumb.offsetWidth;
     if (!laid) {
       /* The first placement is committed as it is — only later moves travel. */
-      void thumb.offsetWidth;
       thumb.style.transition = '';
       laid = true;
     }
+    if (pick) thumb.setAttribute('data-pulse', '');
+    last = on;
   };
   return {
     place,
@@ -140,29 +156,25 @@ export function PillThumb() {
   return <span ref={ref} aria-hidden data-seg-thumb-el="" className={PILL_THUMB_CLASS} />;
 }
 
-/** The thumb's look: a pill under the choices, moving on transform and size only — and not at all under "reduce motion". */
+/**
+ * The thumb's look: ONE terracotta pill under the choices (`bg-mulberry`, the fill a picked choice wears —
+ * `PILL_ON_CLASS`), travelling on transform and size at the family's one speed (`duration-sn-pill`) and landing with
+ * a small overshoot (`ease-sn-spring`). `sn-pill-thumb` is its pulse (`globals.css`). Nothing moves under "reduce
+ * motion".
+ */
 export const PILL_THUMB_CLASS =
-  'pointer-events-none absolute left-0 top-0 z-0 rounded-full opacity-0 shadow-sm transition-[transform,width,height] duration-[220ms] ease-sn motion-reduce:transition-none data-[tone=plain]:bg-white data-[tone=wine]:bg-mulberry';
+  'sn-pill-thumb pointer-events-none absolute left-0 top-0 z-0 rounded-full bg-mulberry opacity-0 shadow-sm transition-[transform,width,height] duration-sn-pill ease-sn-spring motion-reduce:transition-none';
 
 /**
  * Where the thumb lies for the choices that say they are picked — or null when the track is not an either-or right
  * now (none picked, several picked, or the picked one not laid out yet): the thumb then steps aside and each choice
  * keeps its own fill.
  */
-export function pillThumbLay(
-  picked: readonly { x: number; y: number; w: number; h: number; tone?: string | undefined; fill?: string | undefined }[],
-): { transform: string; width: string; height: string; tone: string; fill: string } | null {
+export function pillThumbLay(picked: readonly { x: number; y: number; w: number; h: number }[]): { transform: string; width: string; height: string } | null {
   if (picked.length !== 1) return null;
   const on = picked[0]!;
   if (on.w <= 0 || on.h <= 0) return null;
-  return {
-    transform: `translate(${on.x}px, ${on.y}px)`,
-    width: `${on.w}px`,
-    height: `${on.h}px`,
-    /* A choice's own fill wins; else one of the two house tones (an unknown tone is plain — never an unstyled thumb). */
-    tone: on.fill ? 'own' : on.tone === 'wine' ? 'wine' : 'plain',
-    fill: on.fill ?? '',
-  };
+  return { transform: `translate(${on.x}px, ${on.y}px)`, width: `${on.w}px`, height: `${on.h}px` };
 }
 
 /** Which way a key moves focus along the selector — or null for a key that is not the selector's. */

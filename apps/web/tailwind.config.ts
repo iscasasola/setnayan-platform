@@ -103,10 +103,16 @@ const config: Config = {
         // The brief's "duration-300" — the house element duration (320ms).
         'sn-elem': 'var(--sn-dur-elem)',
         'sn-enter': 'var(--sn-dur-enter)',
+        // The pill selector's ONE speed (`app/_components/pill-selector.tsx`): its thumb's travel, its words' cross-fade.
+        // ⚠ Named, never `duration-[…ms]`: with `tailwindcss-animate` loaded an arbitrary `duration-[…]` is ambiguous
+        // (transition- or animation-duration) and Tailwind emits NOTHING for it.
+        'sn-pill': 'var(--sn-pill-dur)',
       },
       transitionTimingFunction: {
         sn: 'var(--sn-ease)',
         'sn-out': 'var(--sn-ease-out)',
+        // A landing with a small overshoot — the pill selector's thumb.
+        'sn-spring': 'var(--sn-pill-spring)',
       },
       colors: {
         // Themeable surface tokens — values resolve at runtime from CSS vars

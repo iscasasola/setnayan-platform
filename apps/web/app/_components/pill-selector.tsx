@@ -24,8 +24,15 @@ import type { ComponentType, ReactNode } from 'react';
  * ── THE RULE (`BACKGROUND_SOURCES_AMEND_2026-10-08_fable.md` § 2.E) ──────────
  *   · SHAPE: a full pill track with 3 px of padding, 44 px tall on a phone; each choice a pill inside it (38 px),
  *     the finger's target the track's whole height.
- *   · SLIDE: one thumb, moving on transform and resizing to the label it lands on, 220 ms on the house ease
- *     (`ease-sn`); the words cross-fade over the same 220 ms. Instant under "reduce motion".
+ *   · ONE COLOUR (owner 2026-10-08: *"pill selector should have a consistent color"* · *"Terracota is our color? and
+ *     greyed out when off?"*): the picked choice is the Setnayan terracotta (the `mulberry` token, #C24E25) with
+ *     white words; a choice that is off is grey words on the grey track. Every pill selector — there is no other
+ *     tone to choose.
+ *   · SLIDE, BOUNCE, PULSE (*"and make them animate"* · *"a bit of bounce and a pulse to imitate it has been
+ *     pressed"*): one thumb, moving on transform and resizing to the label it lands on, landing with a small
+ *     overshoot (`ease-sn-spring`); on a pick it pulses once (a dip in scale, one soft ring). The words cross-fade
+ *     over the same time. ONE speed for the family — `--sn-pill-dur` in `globals.css` (*"in between normal and slow
+ *     motion"*), worn as `duration-sn-pill`. Instant, with no pulse, under "reduce motion".
  *   · FIRST PAINT IS ALREADY RIGHT: until the thumb has measured, the picked choice paints the pill itself; the
  *     thumb then takes over in place (`pill-thumb.tsx`). It loads after first paint — a screen that draws a pill
  *     selector carries no measuring code in its first load.
@@ -36,8 +43,7 @@ import type { ComponentType, ReactNode } from 'react';
  *      `ariaLabel` and `icon` on the selector draws fixed 46-px faces.
  *   2. A track you already draw yourself: wear `PILL_TRACK_CLASS` on it, `pillSegClass(on, tone)` on each choice,
  *      and put `<PillThumb />` first inside it (the Maker's `ISegmented` / `ISeg` and `Phases` do exactly this).
- * Colours are the caller's: two house tones (`plain` = white, `wine` = the Setnayan wine) or any fill of its own
- * (`fill`, or `data-seg-fill` on a hand-drawn choice). Nothing here knows any one screen.
+ * Nothing here knows any one screen, and no caller chooses a colour.
  */
 export const PillThumb = dynamic(() => import('./pill-thumb').then((m) => m.PillThumb), { ssr: false });
 
@@ -46,17 +52,26 @@ export const PILL_TRACK_CLASS = 'group/seg relative flex min-w-0 rounded-full p-
 /** The house ground of a track: a quiet ink wash. */
 export const PILL_TRACK_GROUND = 'bg-ink/[0.06]';
 
+/**
+ * @deprecated There is ONE tone now (owner 2026-10-08, "pill selector should have a consistent color"). The name is
+ * kept so the callers that still pass one compile; whatever is passed, the selector is terracotta when on and grey
+ * when off.
+ */
 export type PillTone = 'plain' | 'wine';
+
+/** The picked choice: the Setnayan terracotta, white words. The ONE fill of every pill selector (and of its thumb). */
+export const PILL_ON_CLASS = 'bg-mulberry text-white';
+/** A choice that is off: grey words on the grey track. */
+export const PILL_OFF_CLASS = 'text-ink/55 hover:text-ink';
 
 /**
  * One choice's look, picked or not. A picked choice paints its own pill until the thumb is laid, then hands the
  * fill over (`group-data-[seg-thumb]/seg:`) — so there is never a frame with no pill, and never two.
+ * `_tone` is ignored (see `PillTone`).
  */
-export function pillSegClass(on: boolean, tone: PillTone = 'plain'): string {
-  return `sn-press relative z-[1] inline-flex min-h-[38px] flex-1 items-center justify-center gap-1 whitespace-nowrap rounded-full px-2.5 text-[12.5px] font-semibold transition-colors duration-[220ms] ease-sn after:absolute after:inset-x-0 after:-inset-y-[3px] after:content-[''] motion-reduce:transition-none disabled:cursor-not-allowed disabled:opacity-40 ${
-    on
-      ? `${tone === 'wine' ? 'bg-mulberry text-white' : 'bg-white text-ink'} shadow-sm group-data-[seg-thumb]/seg:bg-transparent group-data-[seg-thumb]/seg:shadow-none`
-      : 'text-ink/60 hover:text-ink'
+export function pillSegClass(on: boolean, _tone?: PillTone): string {
+  return `sn-press relative z-[1] inline-flex min-h-[38px] flex-1 items-center justify-center gap-1 whitespace-nowrap rounded-full px-2.5 text-[12.5px] font-semibold transition-colors duration-sn-pill ease-sn after:absolute after:inset-x-0 after:-inset-y-[3px] after:content-[''] motion-reduce:transition-none disabled:cursor-not-allowed disabled:opacity-40 ${
+    on ? `${PILL_ON_CLASS} shadow-sm group-data-[seg-thumb]/seg:bg-transparent group-data-[seg-thumb]/seg:shadow-none` : PILL_OFF_CLASS
   }`;
 }
 
@@ -76,8 +91,6 @@ export function PillSelector<K extends string>({
   value,
   options,
   onPick,
-  tone = 'plain',
-  fill,
   grow = true,
   slide = true,
   icon = false,
@@ -92,9 +105,6 @@ export function PillSelector<K extends string>({
   options: readonly PillOption<K>[];
   /** A button choice was pressed. (A link choice navigates by itself.) */
   onPick?: (key: K) => void;
-  tone?: PillTone;
-  /** The thumb's fill, when it is neither house tone — any CSS colour (a screen's own token). */
-  fill?: string;
   /** Fill the row it sits in (default) — false keeps the selector as wide as its choices. */
   grow?: boolean;
   /** The travelling thumb. False for a row that is not an either-or. */
@@ -115,8 +125,8 @@ export function PillSelector<K extends string>({
       {slide && !several ? <PillThumb /> : null}
       {options.map((o) => {
         const on = picked(o.key);
-        const cls = `${pillSegClass(on, tone)}${icon ? ' w-[46px] flex-none px-0' : ''}`;
-        const marks = { 'data-seg': o.key, 'data-seg-tone': tone, ...(fill ? { 'data-seg-fill': fill } : {}), ...(o.ariaLabel ? { 'aria-label': o.ariaLabel } : {}), ...(o.title ? { title: o.title } : {}) };
+        const cls = `${pillSegClass(on)}${icon ? ' w-[46px] flex-none px-0' : ''}`;
+        const marks = { 'data-seg': o.key, ...(o.ariaLabel ? { 'aria-label': o.ariaLabel } : {}), ...(o.title ? { title: o.title } : {}) };
         return o.href && !o.disabled ? (
           <LinkAs key={o.key} href={o.href} className={cls} {...marks} {...(on ? { 'aria-current': 'page' as const } : {})}>
             {o.label}

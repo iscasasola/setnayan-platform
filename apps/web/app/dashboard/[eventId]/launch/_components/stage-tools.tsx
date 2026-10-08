@@ -881,8 +881,8 @@ export function StageTools({
         />
         {(
           <span role="group" aria-label="Edit with" className={STAGE_TOOL_PILL} data-stage-tpill="">
-            {/* 🎚 ONE dark thumb that TRAVELS from tool to tool (owner 2026-10-08: "apply the same pill selector") — the
-                app's thumb, lying on the picked tool's 46 × 38 face (`data-seg-face`) in the panel's own ink. The
+            {/* 🎚 ONE thumb that TRAVELS from tool to tool (owner 2026-10-08: "apply the same pill selector") — the app's
+                thumb, in the selector's one terracotta, lying on the picked tool's 46 × 38 face (`data-seg-face`). The
                 tools and the hairlines are the track's DIRECT children, so the thumb can find the picked one and a
                 hairline can tell it sits beside it. */}
             <PillThumb />
@@ -897,7 +897,6 @@ export function StageTools({
                   aria-label={MAKER_PART_TOOL_LABEL[t]}
                   title={MAKER_PART_TOOL_LABEL[t]}
                   data-stage-tool={t}
-                  data-seg-fill="var(--sp-ink)"
                   onClick={() => pickTool(t)}
                   className={STAGE_TOOL_BUTTON}
                 >

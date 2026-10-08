@@ -33,7 +33,24 @@ selector"* · *"and make them animate"* · *"apply the same pill selector"* ·
   file draws a segmented track by hand; two tracks older than the template are
   named on a baseline that only shrinks.
 
+- **One colour, a bounce, a pulse, one speed** (owner, on the template gallery:
+  *"pill selector should have a consistent color"* · *"Terracota is our color?
+  and greyed out when off?"* · *"let's add a bit of bounce and a pulse to imitate
+  it has been pressed"* · *"in between normal and slow motion"*): every pill
+  selector is the terracotta (`mulberry`, #C24E25) with white words when on and
+  grey words when off — Look's white thumb and the tool group's ink thumb
+  included; `tone` is accepted and ignored, `fill` is gone. The thumb lands with
+  a small overshoot and pulses once on a pick (a dip in scale, one soft ring —
+  scale and opacity only; never on mount, never on a resize, never under "reduce
+  motion"). ONE speed for the family: `--sn-pill-dur` (460 ms) in `globals.css`,
+  worn as `duration-sn-pill`.
+- ⚠ Found on the way: with `tailwindcss-animate` loaded, an arbitrary
+  `duration-[…ms]` class is ambiguous and Tailwind emits nothing for it (the
+  thumb ran at the 150 ms default while its class said 220). The selector uses
+  the named token; the other `duration-[…]` classes in the app are NOT touched
+  here.
+
 Guard: `lib/selectors-are-pills-that-slide.test.ts` (8 tests; the thumb is RUN
-against a stand-in track). 24 sabotages seen red.
+against a stand-in track). 38 sabotages seen red.
 
 SPEC IMPACT: None beyond the rule and the template above.

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { RefreshCw } from 'lucide-react';
 import { useConfirm } from '@/app/_components/confirm-dialog';
 import { usePeekToast } from '../../_components/use-peek-toast';
+import { ActionButton } from '@/components/action-button';
 import { useSaveLoader } from '@/components/sd-loader';
 import { regenerateInviteQr } from '../actions';
 
@@ -64,19 +65,13 @@ export function RegenerateQrButton({ eventId }: { eventId: string }) {
     <>
       {dialog}
       {toastNode}
-      <button
-        type="button"
+      <ActionButton
+        tone="neutral"
+        icon={<RefreshCw aria-hidden className={working ? 'animate-spin' : ''} strokeWidth={2} />}
+        label={working ? 'Regenerating…' : 'Regenerate QR'}
         onClick={handleClick}
         disabled={working}
-        className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-2 text-sm font-medium text-ink/70 transition-colors hover:bg-ink/5 hover:text-ink disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        <RefreshCw
-          aria-hidden
-          className={`h-4 w-4 ${working ? 'animate-spin' : ''}`}
-          strokeWidth={2}
-        />
-        {working ? 'Regenerating…' : 'Regenerate QR'}
-      </button>
+      />
     </>
   );
 }

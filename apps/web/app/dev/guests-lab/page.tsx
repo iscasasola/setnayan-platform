@@ -59,6 +59,8 @@ import { MakerRsvpSettings } from '@/app/dashboard/[eventId]/launch/_components/
 import { guestsGetInPatch, isGuestsGetIn } from '@/lib/who-can-reply';
 import { renderStyledUrlQrSvg } from '@/lib/qr';
 import { GuestsScreen } from '@/app/dashboard/[eventId]/guests/_components/guests-screen';
+import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
+import { LabGuestActions } from './lab-guest-actions';
 import { RoleNamesProvider } from '@/app/dashboard/[eventId]/guests/_components/role-names-context';
 
 const EVENT = '00000000-0000-4000-8000-000000000000';
@@ -395,6 +397,7 @@ export default async function GuestsLabPage({
             <div data-shell-main>
               <div className="mx-auto w-full px-4 pb-6 pt-3 sm:px-6 sm:pt-6 lg:px-8">
                 <section className="sn-col max-w-none flex flex-col gap-6" data-lab-screen="">
+                  <LabGuestActions refuse={sp.refuse === '1'}>
                   <GuestsScreen
                     eventId={EVENT}
                     gview={gview}
@@ -423,12 +426,15 @@ export default async function GuestsLabPage({
                       ) : null
                     }
                   />
+                  </LabGuestActions>
                 </section>
               </div>
             </div>
           </main>
           <DockStandIn />
           <AddGuestSheet eventId={EVENT} defaultSide="both" />
+          {/* What the real page mounts (guests/page.tsx): the host that draws the Undo toast and every guest-list result. */}
+          <UndoToastHost />
         </div>
       </RoleNamesProvider>
     );

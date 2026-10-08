@@ -14,13 +14,17 @@
  * SABOTAGE (each seen RED, then restored): `useToast` put back in `capture-bar.tsx` · the Undo window changed in
  * `undo-toast.tsx` · the host's Undo no longer runs `runUndo` · the bottom `bg-ink` pill put back in `quick-add-sheet.tsx`.
  */
-import { test } from 'node:test';
+import { test, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
+import React from 'react';
 import { PEEK_TOAST_ACTION_MS } from '@/app/_components/toast/peek-toast';
+import { getUndoToast, pushUndo, runUndo, dismissUndo } from './undo-toast';
+
+(globalThis as unknown as { React: unknown }).React = React;
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const GUESTS = join(HERE, '..');
@@ -76,7 +80,7 @@ test('the removal toast: the approved toast with an Undo action — same functio
   const u = read('undo-toast.tsx');
   assert.match(u, /const UNDO_WINDOW_MS = 6000;/);
   assert.equal(PEEK_TOAST_ACTION_MS, 6000, 'the toast leaves before (or after) the undo window ends');
-  assert.match(u, /timer = setTimeout\(\(\) => \{\s*if \(current\?\.id === id\) set\(null\);\s*\}, UNDO_WINDOW_MS\);/);
+  assert.match(u, /timer = setTimeout\(\(\) => \{[\s\S]{0,400}state: 'expired'[\s\S]{0,40}\}, UNDO_WINDOW_MS\);/, 'the window no longer closes at 6 s');
   assert.match(u, /<PeekToast[\s\S]{0,200}action=\{\{ label: toast\.state === 'undoing' \? 'Undoing…' : 'Undo', onPress: runUndo \}\}/, 'Undo does not run runUndo');
   assert.match(u, /await t\.undo\(\);/);
   assert.doesNotMatch(u, /bottom-\[max\(env|gl-toast|text-terracotta/, 'the bottom snackbar is back');
@@ -90,4 +94,37 @@ test('the removal toast: the approved toast with an Undo action — same functio
 test('the older provider is untouched: it is still the app-wide toast', () => {
   const p = readFileSync(join(HERE, '..', '..', '..', '..', '_components', 'toast', 'toast-provider.tsx'), 'utf8');
   assert.match(p, /export function useToast/);
+});
+
+test('the Undo toast LEAVES like every other toast: the window closes at 6 s, the toast is not torn down', async () => {
+  const u = read('undo-toast.tsx');
+  /* The host clears an undo toast only when the toast itself has finished leaving. */
+  assert.match(u, /action=\{\{[^}]*onPress: runUndo \}\}\s*onGone=\{\(\) => \{\s*if \(current\?\.kind === 'undo' && current\.id === toast\.id\) set\(null\);/, 'the undo toast is never cleared by its own leaving');
+  assert.doesNotMatch(u, /if \(current\?\.id === id\) set\(null\);\s*\}, UNDO_WINDOW_MS/, 'the window tears the toast down at 6.0 s');
+  /* Behaviour: pressed at 5.9 s it runs; at 6 s it is EXPIRED but still there; Undo then does nothing. */
+  mock.timers.enable({ apis: ['setTimeout'] });
+  try {
+    let undone = 0;
+    pushUndo({ label: '2 guests deleted', undo: async () => void undone++ });
+    mock.timers.tick(5999);
+    const now = () => {
+      const x = getUndoToast();
+      return x && x.kind === 'undo' ? x.state : null;
+    };
+    assert.equal(now(), 'idle', 'the window closed early');
+    mock.timers.tick(1);
+    const t = getUndoToast();
+    assert.ok(t, 'the toast vanished at 6.0 s');
+    assert.equal(now(), 'expired', 'the window did not close');
+    await runUndo();
+    assert.equal(undone, 0, 'Undo ran after its window closed');
+    dismissUndo();
+    assert.equal(getUndoToast(), null);
+    pushUndo({ label: 'x', undo: async () => void undone++ });
+    await runUndo();
+    assert.equal(undone, 1, 'Undo inside the window does not run');
+  } finally {
+    mock.timers.reset();
+    dismissUndo();
+  }
 });

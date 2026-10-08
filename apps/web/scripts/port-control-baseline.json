@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "b35ded81c",
+  "generatedFromRef": "74bd84e3d",
   "routeCount": 429,
   "destinations": 958,
   "actions": 672,
-  "blocks": 5829,
+  "blocks": 5834,
   "routes": {
     "/": {
       "files": [
@@ -6131,6 +6131,7 @@
         "GuestHelperAccess",
         "GuestListHasSidesContext.Provider",
         "GuestMapCanvas",
+        "GuestRemovalActions",
         "GuestRole",
         "GuestRow",
         "GuestRowLine",
@@ -6310,6 +6311,7 @@
       ],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "CopyButton",
         "GuestSetupRows",
         "InviteLink",
@@ -9854,6 +9856,7 @@
     },
     "/dev/guests-lab": {
       "files": [
+        "dev/guests-lab/lab-guest-actions.tsx",
         "dev/guests-lab/page.tsx"
       ],
       "destinations": [
@@ -9866,14 +9869,17 @@
         "BottomDock",
         "DockStandIn",
         "GuestCardBody",
+        "GuestRemovalActionsContext.Provider",
         "GuestRow",
         "GuestSetupRows",
         "GuestsScreen",
         "HomePillNav",
+        "LabGuestActions",
         "MakerRsvpSettings",
         "NotificationsList",
         "RoleNamesProvider",
-        "SendRun"
+        "SendRun",
+        "UndoToastHost"
       ]
     },
     "/dev/hero-lab": {

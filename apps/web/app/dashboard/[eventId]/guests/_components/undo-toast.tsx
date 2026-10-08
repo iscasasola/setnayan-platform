@@ -32,7 +32,8 @@ type UndoToast =
       id: number;
       label: string;
       undo: () => Promise<void>;
-      state: 'idle' | 'undoing';
+      /* 'expired' — the window has closed: Undo does nothing, and the toast is on its way out (it leaves like any other). */
+      state: 'idle' | 'undoing' | 'expired';
     }
   | { kind: 'say'; id: number; tone: PeekToastTone; words: string };
 
@@ -73,7 +74,9 @@ export function pushUndo({
   const id = seq;
   set({ kind: 'undo', id, label, undo, state: 'idle' });
   timer = setTimeout(() => {
-    if (current?.id === id) set(null);
+    /* The window closes HERE — but the toast is not torn down: it slides back up like every other PeekToast (its own
+       6 s ends at the same moment) and the host clears it once it has gone. Until then Undo is a no-op. */
+    if (current?.kind === 'undo' && current.id === id) set({ ...current, state: 'expired' });
   }, UNDO_WINDOW_MS);
 }
 
@@ -96,9 +99,10 @@ export function dismissUndo(): void {
   set(null);
 }
 
-async function runUndo() {
+/** Undo's own handler — exported so the guard can press it. */
+export async function runUndo() {
   const t = current;
-  if (!t || t.kind !== 'undo' || t.state === 'undoing') return;
+  if (!t || t.kind !== 'undo' || t.state !== 'idle') return;
   clearTimer();
   set({ ...t, state: 'undoing' });
   try {
@@ -115,6 +119,11 @@ function subscribe(cb: () => void) {
   return () => {
     listeners.delete(cb);
   };
+}
+
+/** The toast on screen, read-only — exported so the guard can watch the window close. */
+export function getUndoToast(): UndoToast | null {
+  return current;
 }
 
 function getSnapshot() {
@@ -141,6 +150,9 @@ export function UndoToastHost() {
         tone="ok"
         data="undo"
         action={{ label: toast.state === 'undoing' ? 'Undoing…' : 'Undo', onPress: runUndo }}
+        onGone={() => {
+          if (current?.kind === 'undo' && current.id === toast.id) set(null);
+        }}
       >
         {toast.label}
       </PeekToast>

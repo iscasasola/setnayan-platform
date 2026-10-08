@@ -1100,7 +1100,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         defaultSide={!hasSides ? SIDELESS_SIDE : teamFilter === 'all' ? 'both' : teamFilter}
       />
 
-      {/* UndoToastHost is the single bottom snackbar for optimistic deletes.
+      {/* UndoToastHost is the single toast host (the approved toast, from the top) for optimistic deletes, Undo and the list's results.
           The quick-view sheet host that used to sit beside it is gone: the
           guest card is server-rendered from `?inspect=` and presented by
           InspectorLayout at every width. */}

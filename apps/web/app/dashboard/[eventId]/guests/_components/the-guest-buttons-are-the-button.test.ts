@@ -53,7 +53,7 @@ export function buttonOpeningTags(source: string): string[] {
 }
 
 /* A utility on the button itself — not `hover:bg-ink/5` (a variant), not a part of another word. */
-const OWN_COLOUR = /(?<![:\w-])(bg-ink|bg-mulberry|bg-terracotta[\w-]*|button-primary|button-secondary|border-mulberry|text-mulberry)(?![\w-])/;
+const OWN_COLOUR = /(?<![:\w-])(bg-ink|bg-mulberry|bg-terracotta[\w-]*|bg-danger-\d+|button-primary|button-secondary|border-mulberry|text-mulberry)(?![\w-])/;
 /* A scrim is the whole-screen dismiss layer under a pop-up — the pop-up rule's business (step 2C), not a button. */
 const SCRIM = /\babsolute inset-0\b/;
 
@@ -77,6 +77,8 @@ const FILES = [
   'add-guest-sheet.tsx',
   'quick-add-sheet.tsx',
   'add-from-people-sheet.tsx',
+  'guest-delete.tsx',
+  '../invite/_components/regenerate-qr-button.tsx',
 ] as const;
 
 test('no button in the six live guest files wears its own fill or accent', () => {
@@ -139,6 +141,18 @@ test('a button that cannot be used yet is WAITING, still a button (Add guest wit
   assert.ok(el && /waiting=\{pickedKeys\.length === 0 && !pending\}/.test(el), 'Add guest with nobody picked is not "waiting"');
   const sub = read('add-from-people-sheet.tsx');
   assert.match(sub, /if \(pickedKeys\.length === 0 \|\| pending\) return;/, 'the submit lost its own empty-pick guard');
+});
+
+test('Delete is the danger main button, Cancel the neutral one; Regenerate QR is a button too', () => {
+  const del = actionButtonWith(read('guest-delete.tsx'), /label=\{busy \? 'Deleting…' : 'Delete'\}/);
+  assert.ok(del && /tone="danger"/.test(del) && /\bmain\b/.test(del), 'Delete is not the danger main button');
+  assert.match(del!, /onClick=\{onConfirm\}/);
+  assert.match(del!, /disabled=\{busy\}/);
+  const cancel = actionButtonWith(read('guest-delete.tsx'), /label="Cancel"/);
+  assert.ok(cancel && /tone="neutral"/.test(cancel), 'Cancel is not the neutral button');
+  assert.match(read('guest-delete.tsx'), /data-guest-delete-confirm=""/, 'the delete mark moved off the confirm');
+  const regen = actionButtonWith(read('../invite/_components/regenerate-qr-button.tsx'), /Regenerate QR/);
+  assert.ok(regen && /onClick=\{handleClick\}/.test(regen) && /disabled=\{working\}/.test(regen), 'Regenerate QR lost its handler or its disabled state');
 });
 
 test('the file-save link and the submit button wear the shared button class, not a colour of their own', () => {

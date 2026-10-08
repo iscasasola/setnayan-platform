@@ -107,12 +107,30 @@ test('(2) the stylesheet moves only what the compositor moves, fetches nothing, 
   const band = 'linear-gradient(180deg,#000 0 12%,rgba(0,0,0,.5) 26%,rgba(0,0,0,.5) 82%,#000 94%)';
   assert.ok(css.includes(`-webkit-mask-image:${band};mask-image:${band}`), 'the band that keeps the words readable is gone, or no longer at half strength across the middle');
   assert.match(css, /\[data-ambient-effect\]\[data-ambient-mini\]\{-webkit-mask-image:none;mask-image:none\}/);
-  /* Reduce motion PAUSES — the shapes stay where they are. Nothing hides them, nothing removes the animation. */
-  /* 🪤 Seen in a browser: every shape's own rule is MORE specific than the pause and its `animation` shorthand sets
-     the play state back to running — so the pause must be `!important`, or reduce motion changes nothing. Checked
-     here the only way a suite with no browser can: the pause outranks every rule that names an animation. */
-  assert.match(css, /@media \(prefers-reduced-motion:reduce\)\{\[data-ambient-effect\] i\{animation-play-state:paused!important\}\}$/);
-  assert.equal([...css.matchAll(/animation:[^;}]*!important|animation-play-state:running/g)].length, 0, 'a shape’s own rule outranks the reduce-motion pause');
+  /* REDUCE MOTION = A STILL DRAWN WITHOUT ANY ANIMATION.
+     🪤 Twice seen wrong in a browser, and this suite passed both times: (1) a plain pause lost to each shape's own
+     rule; (2) an `!important` pause worked on a bare page and not in the app — `globals.css` answers reduce motion
+     for EVERY element, in `@layer base`, with `animation-duration` · `animation-delay` · `iteration-count`, all
+     `!important`, and a layered important declaration outranks any unlayered one: every animation ended at once at
+     its START (0 of 12 petals on screen). So the still must ask nothing of those three properties. */
+  const reduceAt = css.indexOf('@media (prefers-reduced-motion:reduce){');
+  assert.ok(reduceAt > 0 && css.endsWith('}}'), 'the reduce-motion block is gone, or no longer the last word of the stylesheet');
+  const reduce = css.slice(reduceAt + '@media (prefers-reduced-motion:reduce){'.length, -1);
+  assert.equal(css.indexOf('prefers-reduced-motion'), css.lastIndexOf('prefers-reduced-motion'), 'two reduce-motion blocks — one may undo the other');
+  assert.ok(reduce.startsWith('[data-ambient-effect] i{animation-name:none!important}'), 'under reduce motion the shapes are still animated — the app’s own rule then ends each one at its start, off the page');
+  const poses = Object.fromEntries([...reduce.matchAll(/\[data-ambient-effect\]\[data-ambient-effect="([a-z]+)"\] i\{([^}]*)\}/g)].map((m) => [m[1]!, m[2]!]));
+  assert.deepEqual(Object.keys(poses).sort(), [...HUB_MAIN_EFFECTS].sort(), 'an effect has no still of its own under reduce motion');
+  for (const [kind, pose] of Object.entries(poses)) {
+    assert.ok(pose.includes('var(--p)'), `${kind}: its still does not stand each shape at its own place in the cycle`);
+    for (const decl of pose.split(';').filter(Boolean)) assert.ok(MOVES.has(decl.split(':')[0]!.trim()), `${kind}: the still sets "${decl.split(':')[0]}"`);
+  }
+  /* Nothing in the block leans on what the app's layer overrides. */
+  assert.doesNotMatch(reduce, /animation-(?:play-state|delay|duration|iteration-count)/, 'the still depends on a property the app’s own reduce-motion rule overrides');
+  /* A glint is transparent at rest: its still must say how bright it is, or it is a still of nothing. */
+  assert.match(poses.shimmer!, /opacity:calc\(var\(--o\)\*var\(--g\)\)/);
+  /* The travellers are moved along their own path — up for a lantern, down for a petal — by the layer's own height. */
+  assert.match(poses.lanterns!, /transform:translateY\(calc\(-1\*var\(--p\)\*var\(--T\)\)\)/);
+  assert.match(poses.petals!, /transform:translateY\(calc\(var\(--p\)\*var\(--T\)\)\)/);
   assert.doesNotMatch(css, /animation:none|display:none|visibility:hidden/);
   /* A rule for each of the six, and a light-ground variant where the glow or the blend must swap. */
   for (const kind of HUB_MAIN_EFFECTS) assert.ok(css.includes(`[data-ambient-effect="${kind}"] i{`), `no shape for ${kind}`);
@@ -123,13 +141,33 @@ test('(2) the stylesheet moves only what the compositor moves, fetches nothing, 
   assert.doesNotMatch(css, /\[data-ambient-effect\]\{[^}]*position:/);
 });
 
-test('(3) every shape starts mid-flight, so a paused frame is a finished picture — and nothing but a twinkle is quick', () => {
+test('(3) every shape starts mid-flight and has a still of its own — and nothing but a twinkle is quick', () => {
   for (const kind of HUB_MAIN_EFFECTS) {
     for (const intensity of HUB_MAIN_EFFECT_INTENSITIES) {
       const { particles } = ambientEffectSpec({ kind, intensity }, '#2A2420', FIVE);
       const delays = particles.map((p) => parseFloat(p['--dl']!));
       assert.ok(delays.every((d) => d <= 0), `${kind}: a shape has a positive delay — under reduce motion it would never appear`);
       assert.ok(new Set(delays).size > particles.length / 2, `${kind}: the shapes share a delay — a paused frame would show them in a row`);
+      /* The STILL: each shape's place in its cycle, 0…1 — its own, and the very place its negative delay starts it. */
+      const stills = particles.map((p) => Number(p['--p']));
+      assert.ok(stills.every((v) => Number.isFinite(v) && v >= 0 && v < 1), `${kind}: a still outside its cycle (${stills.join(' ')})`);
+      assert.ok(new Set(stills).size > particles.length / 2, `${kind}: the shapes share one place — the still would draw them in a row`);
+      particles.forEach((p, i) => {
+        const at = (-parseFloat(p['--dl']!) / parseFloat(p['--d']!)) % 1;
+        /* Round the cycle: 0.99 and 0.00 are neighbours; the delay and the period are printed to a tenth of a second. */
+        const apart = Math.min(Math.abs(at - stills[i]!), 1 - Math.abs(at - stills[i]!));
+        assert.ok(apart < 0.06, `${kind}: shape ${i}'s still (${stills[i]}) is not where its animation starts it (${at.toFixed(3)})`);
+      });
+      /* A traveller stands ON the page in most of its cycle: the still is not an empty one. (Lanterns start 14 % below
+         the layer and petals 10 % above it, and travel 125 % of its height.) */
+      if (kind === 'lanterns' || kind === 'petals') {
+        const onPage = stills.filter((v) => v * 125 > (kind === 'lanterns' ? 14 : 10) && v * 125 < 114).length;
+        assert.ok(onPage >= particles.length * 0.6, `${kind} ${intensity}: only ${onPage} of ${particles.length} shapes stand on the page in the still`);
+      }
+      if (kind === 'shimmer') {
+        const glow = particles.map((p) => Number(p['--g']));
+        assert.ok(glow.every((v) => v >= 0 && v <= 1) && glow.filter((v) => v > 0.15).length >= particles.length / 2, `shimmer ${intensity}: the still is mostly transparent glints`); // a glint fades in and out: any one moment has about half of them lit
+      } else assert.ok(particles.every((p) => !('--g' in p)));
       const periods = particles.map((p) => parseFloat(p['--d']!));
       assert.ok(Math.min(...periods) >= (kind === 'sparkles' ? 2.4 : 3), `${kind}: a cycle of ${Math.min(...periods)} s — nothing but a twinkle runs under 3 s`);
       /* Three depths: near shapes crisp and large, far ones soft and small. */

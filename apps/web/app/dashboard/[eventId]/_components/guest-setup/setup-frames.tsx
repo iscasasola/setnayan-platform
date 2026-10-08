@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { ChosenRow, FormRow } from '@/app/_components/form-row';
+import { plainRefusal } from '../../guests/_components/plain-refusal';
 import { DateRow } from '@/app/_components/form-row-date';
 import type { GuestsGetInFrame } from './guests-get-in';
 import { REPLY_BY_LINE, type ReplyByFrame } from './reply-by';
@@ -22,7 +23,14 @@ import { REPLY_BY_LINE, type ReplyByFrame } from './reply-by';
  */
 
 /** 📅 Reply by → the Form row with a date: the pill with the calendar mark, the one calendar behind it. */
-export const replyByFrame = (row: ReplyByFrame) => <DateRow data="reply-by" name={row.name} about={{ words: REPLY_BY_LINE }} value={row.own} shown={row.fallback} onKeep={row.keep} attrs={row.attrs} />;
+export const replyByFrame = (row: ReplyByFrame) => <DateRow data="reply-by" name={row.name} about={{ words: REPLY_BY_LINE }} value={row.own} shown={row.fallback} onKeep={keepInPlainWords(row.keep)} attrs={row.attrs} />;
+/** A refused date is told in a sentence of the page's own, never the database's (the part's answer is "It is back as it was. <the action's words>"). */
+export const keepInPlainWords =
+  (keep: ReplyByFrame['keep']): ReplyByFrame['keep'] =>
+  async (day) => {
+    const r = await keep(day);
+    return r.ok ? r : { ok: false, error: plainRefusal(r.error, 'The reply-by date did not save, so it is back as it was.') };
+  };
 /** 🎟 How guests get in → the dropdown in a Form row; the picked choice's one sentence is behind its ⓘ. */
 export const getInFrame = (row: GuestsGetInFrame) => (
   <ChosenRow data="get-in" name={row.name} about={{ words: row.hint }} value={row.value} buttonText={row.buttonText} options={row.options} onPick={row.onPick} dataAttr={row.dataAttr} attrs={row.attrs} />

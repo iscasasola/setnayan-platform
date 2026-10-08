@@ -1,12 +1,10 @@
 'use client';
 
 import { useEffect, useRef, useState, useTransition } from 'react';
-import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { Check, Copy, Mail, RotateCcw, Share2, SquareCheck, X } from 'lucide-react';
 import { ActionButton, useFitRow } from '@/components/action-button';
 import { Count } from '@/components/count';
-import { Sheet } from '@/app/_components/sheet';
 import { FormRow, FormRows } from '@/app/_components/form-row';
 import type { RsvpAskConfig } from '@/lib/rsvp-ask';
 import {
@@ -27,6 +25,8 @@ import {
   headcountOpenLine,
 } from '@/lib/headcount-row';
 import { useGuestActions } from '../../guests/_components/guest-actions-context';
+import { GuestPopup } from '../../guests/_components/guest-popup';
+import { plainRefusal } from '../../guests/_components/plain-refusal';
 import { GuestsGetIn } from './guests-get-in';
 import { RsvpAsks } from './rsvp-asks';
 import { ReplyBy } from './reply-by';
@@ -137,13 +137,14 @@ export function GuestSetupRows({
         if (r.ok) {
           saved.current = next;
           setWaiting(true);
-        } else refused = r.error || 'Please try again.';
+        } else refused = plainRefusal(r.error, 'Please try again.');
       } catch {
         refused = 'Please try again.';
       }
       if (refused !== null && tap === newest.current) {
         latest.current = saved.current;
         setLocal(saved.current);
+        /* The action's own words only if they are a plain sentence — never the database's (`plain-refusal.ts`). */
         setError(`${what} did not save, so it is back as it was. ${refused}`);
       }
     })();
@@ -336,7 +337,7 @@ function FinalizeRow({ eventId, view }: { eventId: string; view: HeadcountView }
       setError(null);
       const res = await setGuestListFinalized(eventId, true);
       if (!res.ok) {
-        setError(res.error);
+        setError(plainRefusal(res.error, 'Couldn’t finalize the list. Try again.'));
         return;
       }
       setOpen(false);
@@ -349,7 +350,7 @@ function FinalizeRow({ eventId, view }: { eventId: string; view: HeadcountView }
       setError(null);
       const res = await setGuestListFinalized(eventId, false);
       if (!res.ok) {
-        setError(res.error);
+        setError(plainRefusal(res.error, 'Couldn’t reopen the list. Try again.'));
         return;
       }
       router.refresh();
@@ -394,39 +395,42 @@ function FinalizeRow({ eventId, view }: { eventId: string; view: HeadcountView }
           )}
         </span>
       </FormRow>
-      {/* Portalled to <body>: the Guests screen is its own stacking context, and a sheet left
-          inside it drew UNDER the bottom nav — its Finalize · Not now hidden (measured in the lab). */}
-      {open && typeof document !== 'undefined'
-        ? createPortal(
-      <Sheet open={open} onClose={() => (pending ? undefined : setOpen(false))} labelledById="setup-finalize-title" rise>
-        <div className="flex flex-col gap-2 p-5" data-finalize-sheet="">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink/55">{FINALIZE_SHEET.eyebrow}</p>
-          <p id="setup-finalize-title" className="font-serif text-xl text-ink">
-            {FINALIZE_SHEET.title(heads)}
-          </p>
-          <p className="text-[14px] text-ink/75">{FINALIZE_SHEET.body()}</p>
-          <div className="mt-3 flex items-center gap-2">
-            <ActionButton
-              tone="ok"
-              main
-              icon={Check}
-              label={pending ? 'Finalizing…' : FINALIZE_SHEET.confirm}
-              disabled={pending}
-              onClick={finalize}
-              data-testid="setup-finalize-go"
-            />
-            <ActionButton tone="danger" icon={X} label={FINALIZE_SHEET.cancel} disabled={pending} onClick={() => setOpen(false)} />
-          </div>
-          {error ? (
-            <p role="alert" className="text-[13px] text-terracotta-700">
-              {error}
+      {/* The pop-up rule (owner 2026-10-08): `GuestPopup` draws it on <body> — above the bottom bar, dark and blurred behind, a tap
+          on the dark closes it, nothing behind works or scrolls. (It was the shared `Sheet` in a hand portal.) A press in
+          flight cannot be closed away. */}
+      {open ? (
+        <GuestPopup
+          onClose={() => (pending ? undefined : setOpen(false))}
+          rootClassName="fixed inset-0 z-[96] flex items-end justify-center lg:items-center"
+          panelClassName="relative w-full max-w-md rounded-t-3xl bg-cream pb-[max(env(safe-area-inset-bottom),16px)] shadow-[0_-30px_80px_-40px_rgba(26,26,26,0.4)] lg:rounded-3xl"
+          labelledById="setup-finalize-title"
+        >
+          <div className="flex flex-col gap-2 p-5" data-finalize-sheet="">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink/55">{FINALIZE_SHEET.eyebrow}</p>
+            <p id="setup-finalize-title" className="font-serif text-xl text-ink">
+              {FINALIZE_SHEET.title(heads)}
             </p>
-          ) : null}
-        </div>
-      </Sheet>,
-            document.body,
-          )
-        : null}
+            <p className="text-[14px] text-ink/75">{FINALIZE_SHEET.body()}</p>
+            {error ? (
+              <p role="alert" className="text-[13px] font-semibold text-danger-700">
+                {error}
+              </p>
+            ) : null}
+            <div className="mt-3 flex items-center gap-2">
+              <ActionButton
+                tone="ok"
+                main
+                icon={Check}
+                label={pending ? 'Finalizing…' : FINALIZE_SHEET.confirm}
+                disabled={pending}
+                onClick={finalize}
+                data-testid="setup-finalize-go"
+              />
+              <ActionButton tone="neutral" icon={X} label={FINALIZE_SHEET.cancel} disabled={pending} onClick={() => setOpen(false)} />
+            </div>
+          </div>
+        </GuestPopup>
+      ) : null}
     </>
   );
 }

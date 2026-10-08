@@ -19,6 +19,7 @@ import {
   Camera,
   CheckCircle2,
   EyeOff,
+  Gift,
   Heart,
   Images,
   Laptop,
@@ -121,6 +122,7 @@ export type TourKey =
   | 'customer_guest_invite_v1'
   | 'customer_apply_pro_v1'
   | 'customer_event_menu_v1'
+  | 'customer_wish_list_v1'
   | 'discover_upcoming_v1'
   | 'admin_users_v1'
   | 'admin_force_majeure_v1'
@@ -159,6 +161,7 @@ export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'customer_guest_invite_v1',
   'customer_apply_pro_v1',
   'customer_event_menu_v1',
+  'customer_wish_list_v1',
   'discover_upcoming_v1',
   'admin_users_v1',
   'admin_force_majeure_v1',
@@ -987,6 +990,27 @@ export const TOURS: Record<TourKey, TourDefinition> = {
      first-visit tour). Mounted on the event's Home (`[eventId]/page.tsx`),
      after the couple welcome, so the two never stack. Words fit every event
      type — no "wedding", no "couple". No price is named, so nothing here sells. */
+  /*
+    🎁 E-GIFTS › WISH LIST (owner 2026-10-08, "ok wish list"; prototype
+    `egifts_wish_list_2026-10-08_fable.html` frame 26). First visit to Studio ›
+    E-Gifts once the wish list is there. One slide, the prototype's own words.
+    Sells nothing — the wish list is free ("free.").
+    ⛔ The word is "sent": a guest's screenshot is what they SAY they sent, so
+    this slide tells the couple to check their own account, and never says a gift
+    was received or verified.
+  */
+  customer_wish_list_v1: {
+    key: 'customer_wish_list_v1',
+    label: 'Your wish list',
+    blurb: 'First visit to E-Gifts: what a wish is, how guests send toward one, and when it marks itself.',
+    slides: [
+      {
+        Icon: Gift,
+        title: 'Your wish list',
+        body: 'Add what you\u2019d love. Guests send toward a wish through your own GCash or bank and show you a screenshot \u2014 the money never passes through Setnayan. A wish marks itself <strong>Got it</strong> when what they sent reaches its price; check your account first.',
+      },
+    ],
+  },
   customer_event_menu_v1: {
     key: 'customer_event_menu_v1',
     label: 'Your event menu',

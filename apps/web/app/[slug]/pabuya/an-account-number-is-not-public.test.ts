@@ -178,3 +178,23 @@ test('🔑 the page says something is withheld, so a gate cannot read as a bug',
     'the explanation is gone — a card with no number and no sentence reads as a couple who filled the form in wrong',
   );
 });
+
+// ── THE WISH LIST'S SEND SHEET IS A SECOND PLACE THE WAYS ARE DRAWN ─────────
+//
+// Owner 2026-10-08 (E-Gifts › Wish list): tapping a wish opens "Send for the
+// Air fryer" with the couple's own ways to give inside it. A second drawing of
+// the methods is a second door onto the identifiers — so it is fed the page's
+// OWN `cards` (already withheld from a reader the event does not recognise),
+// never the rows; and the sheet says that something is withheld, as the page
+// does.
+test('🔒 the wish list’s send sheet withholds identifiers exactly as the page does', () => {
+  const src = pageBody();
+  const mounts = src.match(/<PabuyaCardList methods=\{(\w+)\}/g) ?? [];
+  assert.equal(mounts.length, 2, 'the page draws the ways to give some other number of times than two (the page, the send sheet)');
+  for (const m of mounts) assert.match(m, /methods=\{cards\}/, `a list of ways is drawn from something other than the withheld cards: ${m}`);
+  assert.match(src, /<PabuyaCardList methods=\{cards\} idScope="wish-send-handle" \/> \{identifiersWithheld \? \(/, 'the send sheet does not say that something is withheld');
+
+  const list = stripComments(readFileSync(join(process.cwd(), 'app/[slug]/pabuya/_components/wish-list.tsx'), 'utf8'));
+  assert.doesNotMatch(list, /fetchEgiftMethods|event_egift_methods|qrDisplayUrl|\bhandle\b/, 'the wish list reads a payment identifier itself');
+  assert.match(list, /ways: ReactNode;/, 'the sheet no longer takes the page’s ready-drawn ways');
+});

@@ -344,3 +344,43 @@ test("🔒 another celebration's gift QR is refused, not deleted", () => {
   assert.equal(plan.deletes.length, 0, 'the sweep became a destruction primitive');
   assert.equal(plan.refused, 2, 'refusals must be COUNTED, not silently dropped');
 });
+
+// ── Wish photos are deleted with the celebration (E-Gifts › Wish list, 2026-10-08) ──
+
+test('a wish photo is planned for deletion with the event', () => {
+  const eventId = '044f7e64-95aa-4dcb-84c1-7263bf494eaa';
+  const plan = planEventMediaDeletes({
+    eventId,
+    photos: [],
+    guestCaptures: [],
+    captures: [],
+    event: null,
+    egiftMethods: [],
+    wishItems: [{ photo_r2_key: `r2://setnayan-media/events/${eventId}/wish-list/a-fryer.jpg` }, { photo_r2_key: null }],
+  });
+  assert.deepEqual(
+    plan.deletes.map((d) => `${d.bucket}/${d.key}`),
+    [`setnayan-media/events/${eventId}/wish-list/a-fryer.jpg`],
+    'a wish photo survived "Remove for good"',
+  );
+  assert.equal(plan.refused, 0);
+});
+
+test("🔒 a wish row naming another celebration's file, or a private bucket, is refused", () => {
+  const eventId = '044f7e64-95aa-4dcb-84c1-7263bf494eaa';
+  const other = '11111111-2222-3333-4444-555555555555';
+  const plan = planEventMediaDeletes({
+    eventId,
+    photos: [],
+    guestCaptures: [],
+    captures: [],
+    event: null,
+    egiftMethods: [],
+    wishItems: [
+      { photo_r2_key: `r2://setnayan-media/events/${other}/wish-list/x.jpg` },
+      { photo_r2_key: `r2://setnayan-thread-files/pabuya-qr/${eventId}/qr.jpg` },
+    ],
+  });
+  assert.equal(plan.deletes.length, 0, 'the wish list became a way to delete somebody else’s file');
+  assert.equal(plan.refused, 2);
+});

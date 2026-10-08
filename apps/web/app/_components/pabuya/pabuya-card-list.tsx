@@ -48,10 +48,17 @@ function KindIcon({ kind }: { kind: string }) {
 export function PabuyaCardList({
   methods,
   emptyHint,
+  idScope = 'egift-handle',
 }: {
   methods: PabuyaMethodCard[];
   /** Shown when there are no methods — omit to render nothing. */
   emptyHint?: string;
+  /**
+   * The prefix of each number's element id. A page that draws the list TWICE
+   * (the gift page, and again inside the wish list's send sheet) gives the second
+   * one its own, so a failed copy selects the number the guest is looking at.
+   */
+  idScope?: string;
 }) {
   if (methods.length === 0) {
     return emptyHint ? (
@@ -119,7 +126,7 @@ export function PabuyaCardList({
                       {meta.handleLabel}
                     </p>
                     <p
-                      id={`egift-handle-${i}`}
+                      id={`${idScope}-${i}`}
                       className="mt-0.5 select-all break-all font-mono text-[15px] font-medium text-mulberry"
                     >
                       {m.handle}
@@ -138,7 +145,7 @@ export function PabuyaCardList({
                   handle={m.handle}
                   qrUrl={m.qrUrl}
                   label={m.label || meta.defaultLabel}
-                  handleElementId={`egift-handle-${i}`}
+                  handleElementId={`${idScope}-${i}`}
                 />
               </div>
               {m.qrUrl && !qrFirst ? (

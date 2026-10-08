@@ -12,6 +12,12 @@ import { canViewSlugEvent } from '@/lib/slug-access';
 import { fetchEgiftMethods, isPabuyaPublicRouteEnabled } from '@/lib/egift';
 import { giftsAreOn } from '@/lib/event-answers';
 import { viewerIsRecognisedForEvent } from '@/lib/pabuya-recognition';
+import { readGuestWishList } from '@/lib/wish-list.server';
+import { wishListShownToGuests } from '@/lib/wish-list-studio';
+import { wishListShape } from '@/lib/wish-list-guest';
+import { fixedSceneStyleOf } from '@/lib/fixed-scene-style-of';
+import { partLookAttr } from '@/lib/scene-styles-parts';
+import { WishList } from './_components/wish-list';
 import {
   PabuyaCardList,
   PabuyaTrustNote,
@@ -46,7 +52,7 @@ const fetchEvent = cache(async (slug: string) => {
   const { data } = await admin
     .from('events')
     .select(
-      'event_id, slug, display_name, event_type, role_palette, invite_theme, std_background, monogram_text, monogram_color, site_button_color, landing_page_visibility, pabuya_message, gifts_on, gift_registry_url',
+      'event_id, slug, display_name, event_type, role_palette, invite_theme, std_background, monogram_text, monogram_color, site_button_color, landing_page_visibility, pabuya_message, gifts_on, gift_registry_url, style_preferences',
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -60,6 +66,7 @@ const fetchEvent = cache(async (slug: string) => {
     pabuya_message: string | null;
     gifts_on?: boolean | null;
     gift_registry_url?: string | null;
+    style_preferences?: unknown;
   } | null;
 });
 
@@ -92,9 +99,30 @@ export default async function PabuyaPublicPage({
   }
 
   const admin = createAdminClient();
-  const methods = await fetchEgiftMethods(admin, event.event_id, {
-    enabledOnly: true,
-  });
+  /* 🎁 The wish list is read beside the ways to give — same service-role client, same gate
+     above (owner 2026-10-08). It reads ONE sum per wish and no giver's name, words or
+     screenshot (`readGuestWishList`). */
+  const [methods, wishRead] = await Promise.all([
+    fetchEgiftMethods(admin, event.event_id, {
+      enabledOnly: true,
+    }),
+    readGuestWishList(admin, event.event_id),
+  ]);
+  /*
+    IS THE LIST SHOWN? One rule, the Studio's own (`wishListShownToGuests`): gifts
+    accepted · at least one way to give switched on · at least one wish. With no way
+    to give a guest could not send for a wish, so the list is KEPT but not drawn —
+    and the Studio says so to the couple. A read that failed draws no list either:
+    never wishes with nothing sent beside them.
+  */
+  const wishes =
+    wishRead.read &&
+    wishListShownToGuests({ giftsOn: event.gifts_on, methods, wishCount: wishRead.wishes.length })
+      ? wishRead.wishes
+      : [];
+  /* The list wears the E-Gifts look already picked in Stages › Style (the Invitation's
+     gift door) — no second picker. */
+  const wishShape = wishListShape(partLookAttr('gifts', fixedSceneStyleOf(event.style_preferences, 'gifts', 'rsvp', event.event_type)));
 
   /*
     THE THEME REACHES HERE TOO (owner 2026-09-22: every guest page). A couple
@@ -294,8 +322,37 @@ export default async function PabuyaPublicPage({
           </p>
         ) : null}
 
+        {/* 🎁 THE WISH LIST — above the ways to give: a wish is what you give toward, the ways
+            are how. Its send sheet is handed the page's OWN cards (`cards`, identifiers
+            already withheld from a reader the event does not recognise), drawn a second
+            time under their own element ids. */}
+        {wishes.length > 0 ? (
+          <WishList
+            wishes={wishes}
+            shape={wishShape}
+            hostName={hostName}
+            hostPossessive={event.display_name ? `${event.display_name}\u2019s` : words.theOrganizerPossessive}
+            ways={
+              <>
+                <PabuyaCardList methods={cards} idScope="wish-send-handle" />
+                {identifiersWithheld ? (
+                  <p className="mt-3 text-center text-sm text-ink/65">
+                    Payment details are shown to invited guests. Open your own invitation link, or scan your QR, and the account numbers appear here.
+                  </p>
+                ) : null}
+              </>
+            }
+          />
+        ) : null}
+
         {cards.length > 0 ? (
           <>
+            {/* With a wish list above them, the ways to give are named — without one the page is unchanged. */}
+            {wishes.length > 0 ? (
+              <p data-ways-to-give-eyebrow="" className="mb-2 font-mono text-xs uppercase tracking-[0.2em] text-terracotta-700">
+                Ways to give
+              </p>
+            ) : null}
             <PabuyaCardList methods={cards} />
             {/* 🔑 SAY THAT SOMETHING IS WITHHELD, AND WHY. A card showing a bank
                 with no number and no QR, and no sentence, reads as a couple who

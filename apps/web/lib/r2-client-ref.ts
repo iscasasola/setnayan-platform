@@ -361,6 +361,16 @@ export function eventMediaPolicy(eventId: string): ClientRefPolicy {
   return { prefixes: [`events/${eventId}/`] };
 }
 
+/**
+ * A wish's photo on the E-Gifts wish list (owner 2026-10-08). PUBLIC on purpose:
+ * it is a picture of a thing the couple would love, drawn on the guest's gift
+ * page — never a payment detail. Its own folder under the event, so a ref posted
+ * for a wish can name nothing else of the event's (not the hero, not a QR).
+ */
+export function wishPhotoPolicy(eventId: string): ClientRefPolicy {
+  return { prefixes: [`events/${eventId}/wish-list/`] };
+}
+
 /** Pabuya / e-gift QR images the couple uploads for their guests. */
 /**
  * Where a NEW Pabuya gift QR may be written: the private bucket, under its own

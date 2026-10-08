@@ -53,18 +53,21 @@ async function html(el: React.ReactElement): Promise<string> {
   return renderToStaticMarkup(el);
 }
 
-test('1 · no Tool row and no Done band: a Studio page’s head is in the top bar’s own place — ‹ and the page’s name ▾', async () => {
-  /* Owner 2026-10-08: "we will not have these." (the "INFO ▾" row) → "make the top nav show where we are at" · "with a
-     go back button?". The head's own claims are `lib/studio-pages-have-no-title-row.test.ts`; here: the row and the
-     band are gone, the head paints the page, and the Mood Board's ✨ Auto (which rode the row's end) is drawn in the
+test('1 · no Tool row and no Done band: the top bar says where you are — the pill’s Studio half is the page’s name ▾, "Stages ▾" beside it', async () => {
+  /* Owner 2026-10-08: "we will not have these." (the "INFO ▾" row) → "make the top nav show where we are at" → "what
+     if we just replace the Studio with a chevron?" · "and we just change that name of the studio" → "Stages and Studio
+     both has dropdown". The pill's own claims are `lib/studio-pages-have-no-title-row.test.ts`; here: the row and the
+     band are gone, the bar paints the page, and the Mood Board's ✨ Auto (which rode the row's end) is drawn in the
      Mood Board's own place. */
   const parts = await import(`../${L}/stages-studio-parts`);
   assert.equal((parts as Record<string, unknown>).StudioToolRow, undefined, 'the Tool row is still exported');
   assert.equal((parts as Record<string, unknown>).StudioDoneBar, undefined, 'the Done band is still exported');
   const march = tiles.find((t) => t.key === 'march')!;
-  const head = await html(React.createElement(parts.StudioPageHead, { tile: march, tiles, onOpen: () => {}, onBack: () => {} }));
-  assert.match(head, /aria-label="Back to Studio"/, 'the Wedding March has no way back');
-  assert.match(head, /aria-label="Wedding March — choose another Studio page"/);
+  assert.equal((parts as Record<string, unknown>).StudioPageHead, undefined, 'the head that named only the page is still exported');
+  assert.equal((parts as Record<string, unknown>).StudioBack, undefined, 'a ‹ is exported again — the list is one tap away from anywhere');
+  const head = await html(React.createElement(parts.StudioSideSwitch, { side: 'studio', onPick: () => {}, stage: 'rsvp', page: march, tiles, onOpen: () => {} }));
+  assert.match(head, /aria-pressed="true"[^>]*aria-label="Studio page: Wedding March — choose a page"/);
+  assert.match(head, /aria-pressed="false"[^>]*aria-label="Stages — choose a stage"/, 'inside a page the way to the stages is gone');
   assert.doesNotMatch(head, /data-maker-studio-tool|data-maker-studio-done|uppercase|Saved/, 'the head still carries the old Tool ▾, ✓ Done or a Saved chip');
   assert.match(read('app/dashboard/[eventId]/studio/mood-board/_components/mood-board-studio.tsx'), /\{rowEnd \? createPortal\(bar, rowEnd\) : bar\}/, 'the Mood Board’s ✨ Auto has nowhere to be drawn without the row');
 });

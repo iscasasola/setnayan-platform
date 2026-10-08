@@ -20,7 +20,6 @@
  * users + enforcement actions remain valid for audit + appeal.
  */
 
-import Link from 'next/link';
 import { AlertTriangle, ShieldAlert, ShieldCheck, Users as UsersIcon } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -40,6 +39,7 @@ import {
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { ReadFailed } from '../_components/read-failed';
+import { AbuseTabs } from './_components/abuse-tabs';
 import { formatCount } from '@/lib/format-number';
 export const metadata = { title: "Setnayan AI enforcement · Admin" };
 
@@ -191,28 +191,11 @@ export default async function ConciergeAbusePage({ searchParams }: Props) {
         </p>
       </div>
 
-      <nav className="mb-6 flex flex-wrap gap-2">
-        <Link
-          href="/admin/concierge-abuse?tab=queue"
-          className={`rounded-full px-3 py-1.5 text-sm font-medium ${
-            tab === 'queue'
-              ? 'bg-terracotta text-cream'
-              : 'bg-ink/5 text-ink/70 hover:bg-ink/10 hover:text-ink'
-          }`}
-        >
-          Pending review ({pendingUnread ? '—' : pendingFlags.length})
-        </Link>
-        <Link
-          href="/admin/concierge-abuse?tab=enforcement"
-          className={`rounded-full px-3 py-1.5 text-sm font-medium ${
-            tab === 'enforcement'
-              ? 'bg-terracotta text-cream'
-              : 'bg-ink/5 text-ink/70 hover:bg-ink/10 hover:text-ink'
-          }`}
-        >
-          Enforcement decisions ({enforcementUnread ? '—' : enforcementUsers.length})
-        </Link>
-      </nav>
+      <AbuseTabs
+        tab={tab}
+        pending={pendingUnread ? null : pendingFlags.length}
+        enforcement={enforcementUnread ? null : enforcementUsers.length}
+      />
 
       {/* Status banners */}
       {search.error ? (

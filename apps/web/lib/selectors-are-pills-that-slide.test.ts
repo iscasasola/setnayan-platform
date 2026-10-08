@@ -475,6 +475,7 @@ const PILL_WATCH_SCOPE: readonly string[] = [
   'app/for-suppliers', // AREA 3
   'app/realstories', // AREA 3
   'app/v', // AREA 3: a supplier's public shop
+  'app/admin', // AREA 4: admin (selector shape only)
 ];
 /** The files that ARE the template's drawers — they hold the track on purpose. */
 const PILL_TEMPLATE_DRAWERS: readonly string[] = [`${E}/inspector-kit.tsx`, `${L}/stage-panel/kit.tsx`];

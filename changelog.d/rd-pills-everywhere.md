@@ -79,3 +79,28 @@ the strip became the pill selector; older than that work.
 Guard: `lib/workspace-tabs-step-one-at-a-time.test.ts`.
 
 SPEC IMPACT: None.
+
+## 2026-10-08 · feat(ui): every segmented selector is the one pill — area 4, admin (selector shape only)
+
+Owner: *"the only part that does not follow our rules is their customized event
+hub"* — so admin is included. Nothing else on these pages changed.
+
+- **Converted (6):** Verify › Verification surfaces (Applications | Listing
+  visibility) · Pricing › Price state (On sale | Switched off) · Connection logs
+  (Active issues | Resolved archive) · Custom plans › pay channel (BDO | GCASH) ·
+  Integrity watch sections (Reviews | Listings | Inquiries | Prices) · Concierge
+  abuse sections (Pending review | Enforcement decisions — moved into a small
+  client file, `concierge-abuse/_components/abuse-tabs.tsx`, so it can keep real
+  `<Link>`s and still read the template's class strings).
+- **Four rows now SAY which choice is picked** (they said nothing; the thumb
+  finds the picked one by it): `aria-pressed` on the connection-log tabs and the
+  pay channel; `aria-current="page"` on the integrity-watch and concierge-abuse
+  section links.
+- **Not converted:** the `?tab=` section rows with five or more sections
+  (Accounts 6 · Numbers 11 · Catalog 7 · Settings 5 · Root map 5 · Compliance 5 ·
+  the account card 6) — "more than four sections" is one open owner question —
+  and every status / filter chip row with three or more filters.
+- **Guards:** 6 lines in `lib/pills-are-everywhere.test.ts`; the watch widened
+  to `app/admin` (nothing added to its baseline).
+
+SPEC IMPACT: None.

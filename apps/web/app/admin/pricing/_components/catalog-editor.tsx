@@ -49,6 +49,7 @@ import {
 } from '@/app/admin/pricing/actions';
 import { INITIAL_ROW_STATE, INITIAL_REMOVE_ALL_STATE } from '@/app/admin/pricing/_components/action-state';
 import { formatCount } from '@/lib/format-number';
+import { PillButton, PillTrack } from '@/app/_components/pill-track';
 
 // ─── Shared row shape ──────────────────────────────────────────────────────
 
@@ -263,32 +264,28 @@ export function PriceCatalogBrowser({
         </div>
       </div>
 
-      <div role="tablist" aria-label="Price state" className="mb-3 flex flex-wrap items-center gap-1 border-b border-ink/10">
+      <PillTrack role="tablist" aria-label="Price state" className="mb-3">
         {(
           [
             ['sale', 'On sale'],
             ['off', 'Switched off'],
           ] as [ViewState, string][]
         ).map(([key, label]) => (
-          <button
+          <PillButton
             key={key}
-            type="button"
+            on={view === key}
             role="tab"
             onClick={() => {
               setView(key);
               setOpenCode(null);
             }}
             aria-selected={view === key}
-            className={`border-b-2 px-3 py-2 text-sm font-medium transition ${
-              view === key
-                ? 'border-terracotta-700 text-ink'
-                : 'border-transparent text-ink/55 hover:bg-ink/5 hover:text-ink'
-            }`}
+            className="px-3"
           >
-            {label} <span className="ml-1 font-mono text-[11px] text-ink/45">{formatCount(counts[key])}</span>
-          </button>
+            {label} <span className={`font-mono text-[11px] ${view === key ? 'text-white/80' : 'text-ink/45'}`}>{formatCount(counts[key])}</span>
+          </PillButton>
         ))}
-      </div>
+      </PillTrack>
 
       <div className="mb-4 flex flex-wrap gap-1.5">
         {(['all', 'Customer', 'Bundles', 'Supplier'] as const).map((s) => (

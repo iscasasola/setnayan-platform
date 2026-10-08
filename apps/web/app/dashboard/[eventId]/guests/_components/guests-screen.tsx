@@ -523,7 +523,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
           icon={Mail}
           label={`Invite ${selected.size}`}
           className={styles.grow}
-          disabled={selected.size === 0}
+          waiting={selected.size === 0}
           onClick={() => {
             // Invite N is the ONE run (`/guests/send`), with only the selected
             // who still need theirs — never the couple, never the already sent.
@@ -556,7 +556,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
             tone="danger"
             icon={X}
             label={`Remove ${removable.length}`}
-            disabled={removable.length === 0}
+            waiting={removable.length === 0}
             onClick={() => {
               setRemoveError(null);
               setToRemove(removable);

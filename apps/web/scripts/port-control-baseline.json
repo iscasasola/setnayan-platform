@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "cc3fe85a5",
+  "generatedFromRef": "effd190f9",
   "routeCount": 429,
   "destinations": 958,
   "actions": 672,
-  "blocks": 5837,
+  "blocks": 5835,
   "routes": {
     "/": {
       "files": [
@@ -6046,6 +6046,7 @@
         "dashboard/[eventId]/guests/_components/guest-delete.tsx",
         "dashboard/[eventId]/guests/_components/guest-helper-access.tsx",
         "dashboard/[eventId]/guests/_components/guest-invite-cell.tsx",
+        "dashboard/[eventId]/guests/_components/guest-list-error-copy.ts",
         "dashboard/[eventId]/guests/_components/guest-list-has-sides-context.ts",
         "dashboard/[eventId]/guests/_components/guest-map-canvas.tsx",
         "dashboard/[eventId]/guests/_components/guest-name-fields.tsx",
@@ -6572,7 +6573,6 @@
         "dashboard/[eventId]/launch/_components/stage-item-menu.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/camera-look.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/kit.tsx",
-        "dashboard/[eventId]/launch/_components/stage-panel/part-words.ts",
         "dashboard/[eventId]/launch/_components/stage-panel/parts.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/play-status.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/reveal-picture.tsx",
@@ -6721,7 +6721,6 @@
         "HTMLImageElement",
         "HTMLInputElement",
         "HTMLOListElement",
-        "HTMLParagraphElement",
         "HTMLSpanElement",
         "HTMLTextAreaElement",
         "HTMLUListElement",
@@ -6901,7 +6900,6 @@
         "SlugField",
         "SoftPost",
         "SpecialMessageField",
-        "StageAbout",
         "StageArrange",
         "StageEdit",
         "StageItemMenu",

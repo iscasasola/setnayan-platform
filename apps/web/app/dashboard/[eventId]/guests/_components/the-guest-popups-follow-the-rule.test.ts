@@ -80,3 +80,11 @@ test('the ticket pop-up keeps its marker and its Save ticket', () => {
   assert.match(t, /rootData=\{\{ 'data-guest-ticket-view': '' \}\}/);
   assert.match(t, /Save ticket/);
 });
+
+test('in the Delete warning the sentence keeps its gap above Delete (a box, not a `contents` span, carries the mark)', () => {
+  const del = read('guest-delete.tsx');
+  const warning = del.slice(del.indexOf('export function DeleteGuestWarning('));
+  assert.match(warning, /<div data-guest-delete-confirm="">\s*<ActionButton/, 'the Delete button sits in a `contents` span — space-y gives it no gap');
+  assert.doesNotMatch(warning, /className="contents"/, 'a `contents` wrapper in the spaced warning has no margin box');
+  assert.match(warning, /<div className="space-y-4 p-5" data-guest-delete-warning="">/, 'the warning lost its one gap');
+});

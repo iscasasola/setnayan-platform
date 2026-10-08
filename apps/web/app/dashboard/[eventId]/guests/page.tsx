@@ -66,6 +66,7 @@ import { UndoToastHost } from './_components/undo-toast';
 import { GuestCardBody, GUEST_CARD_ERROR_COPY, guestCardEyebrow, guestCardReply } from './_components/guest-card-body';
 import { GuestInviteCell } from './_components/guest-invite-cell';
 import { GuestMoreMenu, GuestTicketThumb } from './_components/guest-ticket-parts';
+import { guestListErrorCopy } from './_components/guest-list-error-copy';
 import { loadInviteSetup } from './_components/invite-message-setup';
 import { fetchInvitationBase, loadGuestCard } from './_components/guest-card-data';
 import { isUuid } from '@/lib/is-uuid';
@@ -257,48 +258,6 @@ type Props = {
 };
 
 
-/**
- * Turn an `?error=` value into something a host can act on.
- *
- * This banner used to render `decodeURIComponent(search.error)` directly, so a
- * server action that redirected with a CODE put the CODE on screen — a host
- * assigning "Bride's Parents" in the bulk bar was shown the literal word
- * `invalid_role` (reported 2026-09-14). Meanwhile some actions redirect with
- * ready-made prose (the one-Bride-per-event message), which must pass through
- * untouched.
- *
- * So: known codes map to a sentence; anything else falls through as-is when it
- * reads like prose, and degrades to a neutral line when it reads like an
- * unmapped code. A raw snake_case token must never reach a couple's screen.
- */
-function guestListErrorCopy(raw: string): string {
-  const decoded = (() => {
-    try {
-      return decodeURIComponent(raw);
-    } catch {
-      // A malformed %-sequence throws; the raw value is still better than a crash.
-      return raw;
-    }
-  })();
-
-  const COPY: Record<string, string> = {
-    invalid_role: "That role isn't available for this celebration — pick one from the list.",
-    invalid_side: 'Pick Bride, Groom, or Both.',
-    no_selection: 'Select at least one guest first.',
-    missing_name: 'Please enter both a first and last name.',
-    missing_side: 'Pick a side first.',
-    missing_group: 'Pick a group first.',
-    not_found: "We couldn't find that guest — it may have been removed.",
-    forbidden: "You don't have access to change that.",
-  };
-  if (COPY[decoded]) return COPY[decoded] as string;
-
-  // Prose (has a space) is a message an action wrote for the host — show it.
-  // A bare token is an unmapped code and is never shown as-is.
-  return decoded.includes(' ')
-    ? decoded
-    : "That didn't go through — please try again.";
-}
 
 export default async function GuestsPage({ params, searchParams }: Props) {
   const { eventId } = await params;

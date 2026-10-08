@@ -92,3 +92,19 @@ test('the lab’s refusal is a raw-looking string ON PURPOSE — so this guard c
   assert.equal(isPlainSentence(m![1] as string), false, 'the lab’s refusal reads as a plain sentence — it can no longer prove anything');
   assert.equal(plainRefusal(m![1] as string, couldntDelete('Daniel Ramos')), 'Couldn’t delete Daniel Ramos. Try again.');
 });
+
+test('the list page’s ?error= banner never prints a database message (it has spaces, so it used to pass as "prose")', async () => {
+  const { guestListErrorCopy } = await import('./guest-list-error-copy');
+  const neutral = "That didn't go through — please try again.";
+  assert.equal(guestListErrorCopy(encodeURIComponent('invalid input syntax for type uuid: "g-mj-3"')), neutral);
+  assert.equal(guestListErrorCopy(encodeURIComponent('new row violates row-level security policy for table "guests"')), neutral);
+  assert.equal(guestListErrorCopy('invalid_group'), neutral, 'an unmapped code is shown');
+  assert.equal(guestListErrorCopy('no_selection'), 'Select at least one guest first.');
+  assert.equal(
+    guestListErrorCopy(encodeURIComponent('The table could not be set just now. Please try again.')),
+    'The table could not be set just now. Please try again.',
+    'a sentence an action wrote for the host is lost',
+  );
+  assert.match(read('..', 'page.tsx'), /import \{ guestListErrorCopy \} from '\.\/_components\/guest-list-error-copy';/);
+  assert.match(read('guest-list-error-copy.ts'), /return plainRefusal\(decoded, /);
+});

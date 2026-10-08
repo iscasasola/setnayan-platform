@@ -83,9 +83,9 @@ export function MakerGuestScenes({
  * the couple sees where each lands, after its own marker (`f:look`, `f:gifts`),
  * so a tap selects it. Never sample content; a guest never receives this markup.
  */
-export function MakerWelcomeLook() {
+export function MakerWelcomeLook({ look = null }: { look?: string | null } = {}) {
   return (
-    <section className="space-y-2" data-maker-guest-scene="look">
+    <section className="space-y-2" data-maker-guest-scene="look" {...(look ? { 'data-part-look': look } : {})}>
       <p className="pahina-eyebrow">
         <span>What to wear</span>
       </p>
@@ -96,9 +96,9 @@ export function MakerWelcomeLook() {
 }
 
 /** The E-Gifts place with no gift method on yet — the page draws the real door once there is one. */
-export function MakerWelcomeGiftsEmpty() {
+export function MakerWelcomeGiftsEmpty({ look = null }: { look?: string | null } = {}) {
   return (
-    <section className="space-y-2" data-maker-guest-scene="gifts">
+    <section className="space-y-2" data-maker-guest-scene="gifts" {...(look ? { 'data-part-look': look } : {})}>
       <p className="pahina-eyebrow">
         <span>E-Gifts</span>
       </p>

@@ -21,7 +21,7 @@ import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
 import { IRow, ISection, ISeg, ISegmented } from '../../website/editor/_components/inspector-kit';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { StageStyle } from './stage-panel/stage-style';
-import { Dd } from './stage-panel/kit';
+import { Dd, PanelSwitch } from './stage-panel/kit';
 import { RevealPicture } from './stage-panel/reveal-picture';
 import { setStageRevealKind, useStageRevealLook } from './stage-panel/store';
 import { SP_LAYOUT_CARD } from '@/lib/maker-stage-room';
@@ -316,7 +316,7 @@ export function MakerRevealPicker({
   if (onStage) {
     /* Shown / Hidden write THIS stage only, through the one helper. */
     const showHere = (on: boolean) => (on ? setStages(revealStagesWith(stages, onStage, true)) : setStages(revealStagesWith(stages, onStage, false)));
-    return <RevealStagePart onStage={onStage} openings={openings} effective={effective} choose={choose} shownHere={stages.includes(onStage)} showHere={showHere} effects={effects} setEffects={setEffects} ownsPro={ownsPro} storeShell={storeShell} failed={failed} />;
+    return <RevealStagePart onStage={onStage} openings={openings} effective={effective} choose={choose} shownHere={stages.includes(onStage)} showHere={showHere} stages={stages} toggleStage={toggleStage} effects={effects} setEffects={setEffects} ownsPro={ownsPro} storeShell={storeShell} failed={failed} />;
   }
   /* 🧩 The navigator's part: the openings alone. */
   if (part === 'options') {
@@ -648,12 +648,17 @@ function RevealStagePart({
   choose,
   shownHere,
   showHere,
+  stages,
+  toggleStage,
   effects,
   setEffects,
   ownsPro,
   storeShell,
   failed,
 }: {
+  /** Where the reveal plays — the ONE source (`events.reveal_stages`, drafted) Arrange's "On this stage" also writes. */
+  stages: readonly RevealStage[];
+  toggleStage: (s: RevealStage) => void;
   onStage: RevealStage;
   openings: MakerRevealOpening[];
   effective: string;
@@ -703,6 +708,17 @@ function RevealStagePart({
                 })}
               </div>
             ) : null}
+            {/* 🎚 WHERE IT PLAYS — one switch per stage that can carry a reveal (owner 2026-10-07: "reveal will have a
+                toggle for each stage it is at. to know where they want this to activate"). The same drafted list
+                Arrange › On this stage writes — one source, two doors. */}
+            <div className="grid shrink-0 grid-cols-3 gap-1.5" data-reveal-stage-switches="">
+              {REVEAL_STAGE_CHOICES.map((st) => (
+                <span key={st} className="flex min-w-0 flex-col items-center gap-0.5" data-reveal-stage-switch={st}>
+                  <span className="max-w-full truncate text-[12px] font-semibold text-[var(--sp-ink2)]">{PUBLIC_STAGE_LABELS[st]}</span>
+                  <PanelSwitch on={stages.includes(st)} label={`Reveal on ${PUBLIC_STAGE_LABELS[st]}`} onChange={() => toggleStage(st)} data={`reveal-${st}`} />
+                </span>
+              ))}
+            </div>
             {extras.length > 1 ? (
               <div className="flex h-11 shrink-0">
                 <Dd

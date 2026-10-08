@@ -7,6 +7,8 @@ import { passDesignDraftPatch } from '@/lib/pass-design-save';
 import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { hubDraftAction } from '../../website/hub-draft-actions';
 import { PrintPreview } from './print-preview';
+import { SP_LAYOUT_CARD, spCardWidth } from '@/lib/maker-stage-room';
+import { PASS_CARD_PX } from '@/lib/pass-card';
 
 /**
  * 🎫 THE TICKET STYLE — ONE dropdown (Classic · Ticket · Photo poster) and
@@ -35,6 +37,7 @@ export function PassCardDesignPicker({
   previews,
   preview = true,
   onShown,
+  cards = false,
 }: {
   eventId: string;
   /** The look the couple is editing — the drafted one when the draft holds it, else the live one. */
@@ -45,6 +48,8 @@ export function PassCardDesignPicker({
   preview?: boolean;
   /** The look on screen — every pick at once, and a refused one put back. */
   onShown?: (design: PassCardDesign) => void;
+  /** 🧭 The new Maker's Style › Look: the looks as a row of PICTURES (each card its own ticket), not a dropdown. */
+  cards?: boolean;
 }) {
   const [shown, setShown] = useState<PassCardDesign>(saved);
   const [error, setError] = useState<string | null>(null);
@@ -79,6 +84,44 @@ export function PassCardDesignPicker({
       }
     });
   };
+
+  if (cards) {
+    return (
+      <div className="flex flex-col gap-1" data-pass-card-design={shown} aria-busy={pending || undefined}>
+        <div
+          role="radiogroup"
+          aria-label={PASS_CARD_WORDS.style}
+          data-style-carousel=""
+          className="-mx-[2px] flex shrink-0 snap-x snap-mandatory gap-2 overflow-x-auto overflow-y-hidden px-[2px] pb-1 pt-[2px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          {PASS_CARD_DESIGNS.map((d) => {
+            const on = d === shown;
+            return (
+              <button key={d} type="button" role="radio" aria-checked={on} data-style-card={d} data-pass-card-design-pick={d} onClick={() => pick(d)} className={SP_LAYOUT_CARD} style={spCardWidth(PASS_CARD_PX.w / PASS_CARD_PX.h)}>
+                <span
+                  data-style-card-preview=""
+                  className={`relative block h-[104px] shrink-0 overflow-hidden rounded-lg bg-[var(--sp-page)] ${
+                    on ? 'border-2 border-[var(--sp-cta)] shadow-[0_0_0_3px_var(--sp-cta-wash)]' : 'border border-[var(--sp-line)]'
+                  }`}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element -- the drawn ticket PNG, already warm */}
+                  <img src={previews[d]} alt="" aria-hidden className="absolute inset-0 h-full w-full object-contain p-1" loading="eager" />
+                </span>
+                <span className={`block h-[18px] truncate text-center text-[13px] font-semibold leading-[18px] ${on ? 'text-[var(--sp-ink)]' : 'text-[var(--sp-ink2)]'}`}>
+                  {PASS_CARD_DESIGN_LABEL[d]}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        {error ? (
+          <p role="alert" className="px-1 text-[12.5px] text-terracotta-700">
+            {error}
+          </p>
+        ) : null}
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-2" data-pass-card-design={shown} aria-busy={pending || undefined}>

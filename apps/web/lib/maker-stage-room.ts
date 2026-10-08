@@ -87,6 +87,17 @@ export const SP_DIR = 'sn-press inline-flex h-11 w-10 items-center justify-cente
 export const SP_SWATCH = 'sn-press inline-flex h-11 min-w-0 max-w-[44px] flex-1 items-center justify-center';
 /** A layout card (prototype `.lcard`: 62% wide, the real miniature 104 px, its name 18 px). */
 export const SP_LAYOUT_CARD = 'sn-press flex h-32 w-[62%] shrink-0 snap-center flex-col items-stretch gap-1.5 text-left';
+/** The picture's height in a look card (`h-[104px]`). */
+export const SP_CARD_PICTURE_PX = 104;
+/**
+ * A look card's WIDTH follows its picture (owner 2026-10-07: *"should not extend the element. it should just be the
+ * size in proportion to the height"*): the row's fixed height × the picture's width/height — a portrait ticket is a
+ * narrow card, a wide title a wide one, so more looks show per swipe. Null aspect (not measured yet) keeps 62 %.
+ */
+export function spCardWidth(aspect: number | null | undefined): { width: number } | undefined {
+  if (!aspect || !Number.isFinite(aspect) || aspect <= 0) return undefined;
+  return { width: Math.round(Math.min(280, Math.max(76, SP_CARD_PICTURE_PX * aspect + 4))) };
+}
 /** A pill in Background's third row (Gallery ▸ · Upload ◆) — a `.dd` that opens a sheet. */
 export const SP_PILL_BUTTON =
   'sn-press flex h-11 min-w-0 flex-1 items-center gap-1.5 rounded-full border border-[var(--sp-line)] bg-white pl-[14px] pr-3 text-left text-[14px] font-medium text-[var(--sp-ink)]';
@@ -136,3 +147,22 @@ export function stagePanelOpenPx(viewportH: number): number {
 
 /** How long the panel takes to rise or fold (the prototype's 240 ms). */
 export const STAGE_PANEL_MS = 240;
+
+/**
+ * 🖼 THE PICKED PART'S FRAME, BETWEEN ITS NEIGHBOURS (owner 2026-10-07: the Logo's frame and ＋ sat ON "TOGETHER WITH
+ * THEIR FAMILIES" — "the frame hugs its part's real box, the ＋ sits in the gap BETWEEN parts and never over another
+ * part's content, and a tap on another part's visible text always picks that part"). Each edge sits at most `pad` px
+ * out, and never past the MIDDLE of the gap to the neighbour on that side; a control on that edge is at most as tall
+ * as the gap (never under 26 px, the ＋'s own face), so its tap stops where the neighbour's words begin.
+ * `gapAbove` / `gapBelow` null: nothing drawn on that side (the page's own margin) — the full pad and a 44 px tap.
+ */
+export function partFrameEdges(
+  box: { top: number; height: number },
+  gapAbove: number | null,
+  gapBelow: number | null,
+  pad = 22,
+): { top: number; bottom: number; tapAbove: number; tapBelow: number } {
+  const half = (g: number | null) => (g === null ? pad : Math.max(0, Math.min(pad, g / 2)));
+  const tap = (g: number | null) => (g === null ? 44 : Math.max(26, Math.min(44, g)));
+  return { top: box.top - half(gapAbove), bottom: box.top + box.height + half(gapBelow), tapAbove: tap(gapAbove), tapBelow: tap(gapBelow) };
+}

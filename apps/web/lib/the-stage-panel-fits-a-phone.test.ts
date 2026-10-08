@@ -41,7 +41,7 @@ test('the panel draws those same strings for every button', () => {
     'stage-item-menu.tsx',
     /* 🎨 The redraw's own pieces (DECISION_LOG 2026-10-07): every button wears a measured STAGE_ / SP_ string. */
     'stage-panel/kit.tsx',
-    'stage-panel/stage-arrange.tsx',
+    /* (stage-arrange.tsx draws no button of its own since Order went — owner 2026-10-07; its rows are kit's Dd.) */
     'stage-panel/stage-background.tsx',
     'stage-panel/stage-animate.tsx',
     'stage-panel/stage-text.tsx',

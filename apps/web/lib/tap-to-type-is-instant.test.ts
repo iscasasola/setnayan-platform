@@ -382,9 +382,10 @@ test('7a · picking a Name style writes NO live row before Apply — both contro
   assert.match(bar, /nameStyleDraftPatch\(picked\)/);
   assert.match(details, /nameStyleDraftPatch\(style\)/);
   // The draft holds ONE key of the blob, and only a real style.
-  assert.deepEqual(sanitizeHubDraftEventValue('print_details', { name_style: 'surname-first', opening_line: 'x', menu: [] }), { name_style: 'surname-first' });
+  /* …and (2026-10-08, owner "draft 1-3") the opening line beside it; the menu and every other key stay undrafted. */
+  assert.deepEqual(sanitizeHubDraftEventValue('print_details', { name_style: 'surname-first', opening_line: 'x', menu: [] }), { name_style: 'surname-first', opening_line: 'x' });
   assert.equal(sanitizeHubDraftEventValue('print_details', { name_style: 'fancy' }), undefined, 'a fourth style is never kept');
-  assert.equal(sanitizeHubDraftEventValue('print_details', { opening_line: 'x' }), undefined, 'the prints’ other keys are never drafted');
+  assert.equal(sanitizeHubDraftEventValue('print_details', { menu: ['x'], poster_photo: null }), undefined, 'the prints’ other keys are never drafted');
   assert.equal(sanitizeHubDraftEventValue('print_details', 'full'), undefined);
   // A pick is a draft change, free, counted once, and nothing when it equals live.
   const picked = mergeHubDraft(emptyHubDraft(), { events: { print_details: { name_style: 'middle-initial' } } });

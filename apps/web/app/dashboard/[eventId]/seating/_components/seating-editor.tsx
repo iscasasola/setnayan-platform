@@ -200,7 +200,7 @@ import {
   SEAT_PLAN_MAP_PIECE,
   type SeatPlanGuestOptions,
 } from '@/lib/seat-plan-details';
-import { MoveGuestSheet, PhoneSeatPlanFoot, PhoneSeatPlanHead } from './seat-plan-phone';
+import { MoveGuestSheet, PeopleSheet, PhoneSeatPlanFoot, PhoneSeatPlanHead, StudioSeatPlanHead, StudioSeatPlanTools } from './seat-plan-phone';
 import { BlueprintStudio } from '../../studio/indoor-blueprint/_components/blueprint-studio';
 import { saveEntrance } from '../../studio/indoor-blueprint/actions';
 import { InfoTip } from '@/app/_components/info-tip';
@@ -5695,12 +5695,58 @@ export function SeatingEditor({
   //   RIGHT  the guests (`seatPlanGuestSections`): Unseated first, "Seat at… ▾",
   //          a picked table's own guests and empty seats, "+ Seat next unseated".
   const [, setSeatPiece] = useDetailsPiece('seating');
-  const openDetailsEditor = useDetailsEditorOpener();
+  /* 🧭 STUDIO › SEAT PLAN on a phone (owner 2026-10-08, studio round 3): the map gets the screen —
+     one compact head row, the tools in the thumb zone, the people list a pull-up sheet over the map
+     (`seat-plan-phone.tsx`). Every opener of the Details editor (the people, a table, the rules,
+     a new table) raises that sheet instead; the guests are drawn there, not in the lower third. */
+  const studioSeat = details !== null && isPhone && maker?.stagesStudio === true;
+  const [peopleOpen, setPeopleOpen] = useState(false);
+  const openDetailsEditorShipped = useDetailsEditorOpener();
+  const openDetailsEditor = () => (studioSeat ? setPeopleOpen(true) : openDetailsEditorShipped());
+  /* 📐 Studio: the WHOLE room on open — fitted to the map's own box, and fitted again while that box
+     settles (the head, the tools and the sheet arrive after the first frame), until the couple moves
+     the view themselves (the zoom or pan then differs from the last fit, and it is left alone). */
+  const studioFitRef = useRef<{ z: number; x: number; y: number } | null>(null);
+  useEffect(() => {
+    if (!studioSeat || view !== 'plan') return;
+    const region = regionRef.current;
+    if (!region) return;
+    let frame = 0;
+    const fit = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const last = studioFitRef.current;
+        const moved = last && (last.z !== zoomRef.current || last.x !== panRef.current.x || last.y !== panRef.current.y);
+        if (moved) return;
+        const canvas = canvasRef.current;
+        const world = worldRef.current;
+        if (!canvas || !world) return;
+        if (venueScaled) {
+          applyView(1, { x: 0, y: 0 });
+          const box = canvas.getBoundingClientRect();
+          const z = roomOverviewZoom(box, [...world.querySelectorAll('*')].map((el) => el.getBoundingClientRect()));
+          applyView(z, { x: (box.width * (1 - z)) / 2, y: (box.height * (1 - z)) / 2 });
+        } else {
+          fitView();
+        }
+        studioFitRef.current = { z: zoomRef.current, x: panRef.current.x, y: panRef.current.y };
+      });
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(region);
+    return () => {
+      cancelAnimationFrame(frame);
+      ro.disconnect();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fit once per open of the plan; the observer refits while the box settles
+  }, [studioSeat, view, venueScaled]);
   const seatPieceKey = seatPlanPieceKey({ table: highlightId, marker: selMarker });
   useEffect(() => {
     if (!details) return;
     // The picked object is the navigator's picked piece; on a phone its part opens.
     setSeatPiece(seatPieceKey, seatPieceKey ? { openEditor: true } : undefined);
+    if (studioSeat && seatPieceKey) setPeopleOpen(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the setter is rebuilt every render; only the pick matters
   }, [seatPieceKey]);
   // The right part shows the guests, the rules, the Guests' map (the Indoor
@@ -6257,6 +6303,57 @@ export function SeatingEditor({
       openDetailsEditor();
     } else if (isNarrow) setDrawerSnap('half');
   };
+  /* The head's three menus — one copy, drawn by the shipped phone head and by the Studio's. */
+  const phoneRules = (
+    <>
+      <p className="px-1 pb-1 font-mono text-[10px] uppercase tracking-[0.14em] text-ink/45">Who sits together</p>
+      {roleRulesList}
+      {details ? (
+        <button
+          type="button"
+          data-close=""
+          onClick={() => {
+            setShowAddTable(false);
+            setGuestsMode('rules');
+            openDetailsEditor();
+          }}
+          className="mt-1 flex min-h-11 w-full items-center px-1 text-left text-[13px] text-mulberry-700"
+        >
+          Seating priority &amp; who sits apart ›
+        </button>
+      ) : null}
+    </>
+  );
+  const phoneMore = (
+    <>
+      {doorStrip}
+      <MenuCaption>Add a table or element</MenuCaption>
+      {addMenuBody}
+      <MenuDivider />
+      <MenuCaption>Share &amp; print</MenuCaption>
+      {shareMenuBody}
+      <MenuDivider />
+      <MenuCaption>The room</MenuCaption>
+      {arrangeMenuBody}
+    </>
+  );
+  const phoneTrailing = (
+    <>
+      {!canEdit ? (
+        <button
+          type="button"
+          onClick={lock.acquire}
+          disabled={lock.status === 'acquiring'}
+          className="inline-flex h-9 shrink-0 items-center gap-1 rounded-full border border-ink/15 px-3 text-[12px] font-medium text-ink/70"
+        >
+          <Eye className="h-3.5 w-3.5" />
+          {lock.status === 'acquiring' ? 'Opening…' : lock.status === 'stale_takeover_available' ? 'Take over' : 'Edit'}
+        </button>
+      ) : saveState !== 'saved' ? (
+        <SaveStatusChip state={saveState} unsavedCount={unsavedCount} savedAt={savedAt} onSave={saveLayout} disabled={!canEdit} />
+      ) : null}
+    </>
+  );
   const phoneHead = isPhone ? (
     <PhoneSeatPlanHead
       countLabel={headline.count}
@@ -6266,64 +6363,49 @@ export function SeatingEditor({
       onAutoArrange={runAutoArrange}
       autoDisabled={!canEdit || tables.length === 0}
       autoBusy={isPending}
-      rules={
-        <>
-          <p className="px-1 pb-1 font-mono text-[10px] uppercase tracking-[0.14em] text-ink/45">Who sits together</p>
-          {roleRulesList}
-          {details ? (
-            <button
-              type="button"
-              data-close=""
-              onClick={() => {
-                setShowAddTable(false);
-                setGuestsMode('rules');
-                openDetailsEditor();
-              }}
-              className="mt-1 flex min-h-11 w-full items-center px-1 text-left text-[13px] text-mulberry-700"
-            >
-              Seating priority &amp; who sits apart ›
-            </button>
-          ) : null}
-        </>
-      }
-      more={
-        <>
-          {doorStrip}
-          <MenuCaption>Add a table or element</MenuCaption>
-          {addMenuBody}
-          <MenuDivider />
-          <MenuCaption>Share &amp; print</MenuCaption>
-          {shareMenuBody}
-          <MenuDivider />
-          <MenuCaption>The room</MenuCaption>
-          {arrangeMenuBody}
-        </>
-      }
+      rules={phoneRules}
+      more={phoneMore}
       view={details?.lab ? '3d' : view === 'list' ? 'list' : '2d'}
       onView={onSelectView}
       show3D={process.env.NEXT_PUBLIC_SEATING_3D !== 'false'}
       toast={autoRun ? { text: autoRun.text, onUndo: autoRun.undo ? undoAutoRun : null, onDismiss: () => setAutoRun(null) } : null}
-      trailing={
-        <>
-          {!canEdit ? (
-            <button
-              type="button"
-              onClick={lock.acquire}
-              disabled={lock.status === 'acquiring'}
-              className="inline-flex h-9 shrink-0 items-center gap-1 rounded-full border border-ink/15 px-3 text-[12px] font-medium text-ink/70"
-            >
-              <Eye className="h-3.5 w-3.5" />
-              {lock.status === 'acquiring' ? 'Opening…' : lock.status === 'stale_takeover_available' ? 'Take over' : 'Edit'}
-            </button>
-          ) : saveState !== 'saved' ? (
-            <SaveStatusChip state={saveState} unsavedCount={unsavedCount} savedAt={savedAt} onSave={saveLayout} disabled={!canEdit} />
-          ) : null}
-        </>
-      }
+      trailing={phoneTrailing}
     />
   ) : null;
+  /* 🧭 Studio: the compact head, the thumb-zone tools, the people sheet — the SAME handlers and
+     counts as the shipped head above; the 3D door card is gone (View ▾ holds 3D). */
+  const studioHead = studioSeat ? (
+    <StudioSeatPlanHead countLabel={headline.count} more={phoneMore} trailing={phoneTrailing} />
+  ) : null;
+  const studioPeople =
+    studioSeat ? (
+      <PeopleSheet
+        guests={guests.length}
+        unseated={unseatedComing}
+        open={peopleOpen}
+        onOpen={() => setPeopleOpen(true)}
+        onClose={() => {
+          setPeopleOpen(false);
+          clearSelection();
+        }}
+        tools={
+          <StudioSeatPlanTools
+            onAutoArrange={runAutoArrange}
+            autoDisabled={!canEdit || tables.length === 0}
+            autoBusy={isPending}
+            rules={phoneRules}
+            view={details?.lab ? '3d' : view === 'list' ? 'list' : '2d'}
+            onView={onSelectView}
+            show3D={process.env.NEXT_PUBLIC_SEATING_3D !== 'false'}
+            toast={autoRun ? { text: autoRun.text, onUndo: autoRun.undo ? undoAutoRun : null, onDismiss: () => setAutoRun(null) } : null}
+          />
+        }
+      >
+        {guestsNode}
+      </PeopleSheet>
+    ) : null;
   const phoneFoot =
-    isPhone && view === 'plan' && !details?.lab ? (
+    isPhone && view === 'plan' && !details?.lab && !studioSeat ? (
       <PhoneSeatPlanFoot
         room={venueScaled ? `${roomName} · ${formatCount(venue.width)} × ${formatCount(venue.length)} m${pxPerMeter ? ` · walkway ${aisleM.toFixed(1)} m` : ''}` : roomName}
         onOpen3D={process.env.NEXT_PUBLIC_SEATING_3D !== 'false' ? () => onSelectView('3d') : null}
@@ -6334,7 +6416,7 @@ export function SeatingEditor({
     <SeatingFrame fill={details !== null}>
       {/* 🪑 Details: the door guests' seats open on, above the plan. */}
       {/* 📱 A phone gets its own head (the approved frame 1) — the desk keeps the bar. */}
-      {isPhone ? phoneHead : doorStrip}
+      {studioSeat ? studioHead : isPhone ? phoneHead : doorStrip}
       {/* ═══════════ ROW 1 — COMMAND BAR (the page's only blurred surface) ═══════════ */}
       {isPhone ? null : (
       <CommandBar>
@@ -7632,7 +7714,8 @@ export function SeatingEditor({
           ) : null}
 
           {/* zoom controls — §5.9: Fit first/largest, every target ≥44px. */}
-          <div className="absolute bottom-[64px] right-3 z-20 flex flex-col overflow-hidden rounded-lg border border-ink/15 bg-cream/90 shadow-sm backdrop-blur-sm lg:bottom-3">
+          {/* 🧭 Studio: the thumb-zone tools and the people peek own the foot of the map, so the zoom rides at the top. */}
+          <div data-seat-plan-zoom="" className={`absolute right-3 z-20 flex flex-col overflow-hidden rounded-lg border border-ink/15 bg-cream/90 shadow-sm backdrop-blur-sm ${studioSeat ? 'top-3' : 'bottom-[64px] lg:bottom-3'}`}>
             <button
               type="button"
               onClick={fitView}
@@ -8010,6 +8093,8 @@ export function SeatingEditor({
             {details.lab}
           </div>
         ) : null}
+        {/* 🧭 Studio: the thumb-zone tools and the people, pulled up over the map. */}
+        {studioPeople}
       </div>
       </FrameBody>
       {/* 📱 Under the plan: the room in one line, and the 3D door (one layout). */}
@@ -8206,7 +8291,7 @@ export function SeatingEditor({
           <SeatPlanPortal name="place" on>
             {placeList}
           </SeatPlanPortal>
-          <SeatPlanPortal name="guests" on>
+          <SeatPlanPortal name="guests" on={!studioSeat}>
             {guestsNode}
           </SeatPlanPortal>
         </>

@@ -12,6 +12,10 @@
  *      own options) — it has no list of its own.
  *   3. No literal 'Statement' / 'Offset' family anywhere under apps/web.
  *      Sabotage: add `const L5 = ['Classic','Stacked','Offset','Modern','Statement']` → red.
+ *      ONE exception, the narrowest: the COUNTDOWN's own 'Offset' look (owner 2026-10-07, verbatim: *"allow
+ *      offset"* — the prototype's countdown five: Big number · Boxes · Offset · Line · Circle). Allowed only as
+ *      the single `{ id: 'offset', name: 'Offset', … }` row INSIDE the countdown set of
+ *      `lib/scene-styles-stages.ts`; anywhere else 'Offset' is still red.
  *   4. Only the Camera keeps its own three (owner 2026-10-06).
  */
 import { test } from 'node:test';
@@ -48,7 +52,14 @@ test("no invented 'Statement' / 'Offset' family anywhere under apps/web", () => 
       const p = join(dir, name);
       if (statSync(p).isDirectory()) walk(p);
       else if (/\.(ts|tsx|mjs|js)$/.test(name) && !name.endsWith('.test.ts')) {
-        const src = readFileSync(p, 'utf8');
+        let src = readFileSync(p, 'utf8');
+        if (relative(WEB, p) === join('lib', 'scene-styles-stages.ts')) {
+          /* The countdown's Offset (owner 2026-10-07 "allow offset") — that one row, in that one set. */
+          const cd = src.indexOf("type: 'countdown'");
+          const next = src.indexOf("type: '", cd + 1);
+          const row = /\{ id: 'offset', name: 'Offset', [^\n]*\}/.exec(src);
+          if (row && cd >= 0 && row.index > cd && row.index < next) src = src.replace(row[0], '');
+        }
         if (/['"`](Statement|Offset)['"`]/.test(src)) hits.push(relative(WEB, p));
       }
     }

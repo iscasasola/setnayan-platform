@@ -29,7 +29,7 @@ import { IButton, IHint, IReset, IRow, ISection } from './inspector-kit';
 import { PickMenu } from './pick-menu';
 import { MotionFxRows } from './motion-fx-rows';
 import type { MotionFx } from '@/lib/motion-effects';
-import { HUB_DURING_LABEL, HUB_SEQUENCES } from '@/lib/hub-canvas';
+import { HUB_DURATION, HUB_DURING_LABEL, HUB_SEQUENCES } from '@/lib/hub-canvas';
 import { makerSceneHasRows } from '@/lib/maker-parts';
 import { useMaker } from '../../../launch/_components/maker-context';
 import { StageAnimate } from '../../../launch/_components/stage-panel/stage-animate';
@@ -117,9 +117,17 @@ export function SceneAnimateTab({
           error={error}
           pro={mark ? 'How a scene moves is Event Hub Pro — try it here; it goes live when you Apply with it.' : null}
           how={{
+            /* A switch moved by hand (its own In / Out over the preset) reads "Custom" — the prototype's word. */
             value: preset ?? 'auto',
+            buttonText: shown.inFx || shown.outFx || shown.in || shown.out ? 'Custom' : undefined,
             options: [{ key: 'auto', label: 'Auto' }, ...HUB_MOTION_PRESETS.map((p) => ({ key: p, label: HUB_MOTION_PRESET_LABEL[p] }))],
-            onPick: (k) => save((c) => { if (k === 'auto') delete c.preset; else c.preset = k; }),
+            /* A preset is laid whole: its own Build in / Build out replace any hand-set switch. */
+            onPick: (k) => save((c) => { for (const f of ['in', 'inFrom', 'inFx', 'out', 'outTo', 'outFx'] as const) delete c[f]; if (k === 'auto') delete c.preset; else c.preset = k; }),
+          }}
+          duration={{
+            value: m.duration,
+            steps: HUB_DURATION,
+            onPick: (sec) => save((c) => { c.duration = sec; }),
           }}
           inFx={m.inFx}
           outFx={m.outFx}
@@ -141,6 +149,7 @@ export function SceneAnimateTab({
             value: shown.during ?? 'auto',
             options: [{ key: 'auto', label: 'Auto' }, ...(['still', 'lift'] as const).map((d) => ({ key: d, label: HUB_DURING_LABEL[d] }))],
             onPick: (d) => save((c) => { if (d === 'auto') delete c.during; else c.during = d; }),
+            note: (shown.during ?? m.during) === 'lift' ? 'Rises slowly while it is on screen' : 'Nothing happens while it is on screen',
           }}
           timing={{
             value: shown.timeline ?? 'auto',

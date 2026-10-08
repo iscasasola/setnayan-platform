@@ -1,8 +1,9 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { SUPERSEDED, makerLatestWrite, makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
+import { SUPERSEDED, makerLatestWrite, makerNeedsRender, makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { RSVP_REPLY_BY_EVENT, rsvpReplyByLine } from '@/lib/rsvp-stage';
+import { HUB_DRAFT_FIELD } from '@/lib/hub-draft';
 import type { updatePaxSettings } from '../../actions';
 import { HubSavesImmediately } from '../../website/_components/hub-draft-field';
 import { SETUP_ROW, SETUP_SUB, SETUP_TITLE } from './setup-skin';
@@ -27,17 +28,27 @@ type PaxAction = typeof updatePaxSettings;
  *   · `layout="row"`   Guests › Setup — the words left, the date field right;
  *   · `layout="stack"` Event Details' RSVP item and the RSVP stage's form — the
  *                      date, "· your date / · 30 days before", Use the default;
- *   · `layout="print"` the Maker's Studio › RSVP — the date PRINTED, read only
- *                      ("Reply by December 12, 2026"); it is set on Setup or in
- *                      Event Details.
+ *   · `layout="studio"` the Maker's Studio › RSVP — ONE row: "Reply by" left, the
+ *                      date field right, nothing else. (It PRINTED the date, read
+ *                      only, until the owner's preview check 2026-10-08: *"where it
+ *                      the reply by date?"* → *"date is not changeable on studio."*
+ *                      — no go-elsewhere: the control is right there. Always
+ *                      mounted with `draft`.)
  *
  * One writer: `updatePaxSettings` (it writes the pricing view beside the date,
  * so the current one is posted back unchanged). Saved behind the pick, one
  * write per pause (`makerLatestWrite`), `held` + `maker_quiet` (no page render
  * rides on the answer); a refused save puts the date back and says so. The
  * stage's frames hear the new line (`RSVP_REPLY_BY_EVENT`); off the Maker
- * nobody listens and nothing happens. It is not drafted — the deadline belongs
- * to the guest list, not the Event Hub's look.
+ * nobody listens and nothing happens.
+ *
+ * ⏳ TWO DOORS, ONE RULE EACH (owner 2026-10-08, "draft 1-3", over the 2026-10-07
+ * part): in the MAKER (`draft`) the date goes into the hub draft and reaches
+ * guests at ✓ Apply — `updatePaxSettings` reads `HUB_DRAFT_FIELD` — so it does
+ * not say "Guests see this right away", never says "Saved.", and a drafted pick
+ * ends in the one render that moves the count on ✓ Apply (`makerNeedsRender`).
+ * On Guests › Setup there is no Apply: the date writes live, as before, and the
+ * stack layout says so.
  */
 export function ReplyBy({
   eventId,
@@ -47,6 +58,7 @@ export function ReplyBy({
   action,
   layout,
   rowClassName,
+  draft = false,
 }: {
   eventId: string;
   /** The couple's own date (null = the 30-day default). */
@@ -55,25 +67,16 @@ export function ReplyBy({
   /** The 30-day default the field reads while no date of their own is set. */
   fallback?: string | null;
   action?: PaxAction;
-  layout: 'row' | 'stack' | 'print';
+  layout: 'row' | 'stack' | 'studio';
   rowClassName?: string;
+  /** ⏳ The Maker's door: the date waits in the hub draft for ✓ Apply (owner 2026-10-08, "draft 1-3"). */
+  draft?: boolean;
 }) {
   const [value, setValue] = useState(own ?? '');
   const saved = useRef(own ?? '');
   const newest = useRef(0);
   const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
   const shown = value || fallback;
-
-  if (layout === 'print') {
-    return (
-      <section className={rowClassName ?? SETUP_ROW} data-setup-row="reply-by" data-rsvp-setting="reply-by" data-reply-by-field="print">
-        <p className={SETUP_TITLE}>{REPLY_BY_LABEL}</p>
-        <p className="text-[14px] font-semibold text-ink" data-reply-by={shown ?? ''}>
-          {shown ? formatReplyDay(shown) : 'Set your event date first.'}
-        </p>
-      </section>
-    );
-  }
 
   const pick = (next: string) => {
     if (!action) return;
@@ -92,6 +95,8 @@ export function ReplyBy({
               fd.set('guest_list_edit_deadline', next);
               fd.set('adaptive_pricing_mode', pricingMode);
               fd.set('maker_quiet', '1');
+              /* ⏳ Reply by waits for ✓ Apply in the Maker (owner 2026-10-08, "draft 1-3"). */
+              if (draft) fd.set(HUB_DRAFT_FIELD, '1');
               return action(fd);
             }),
           requestMakerRefresh,
@@ -103,7 +108,11 @@ export function ReplyBy({
       if (res === SUPERSEDED || tap !== newest.current) return;
       if (res.ok) {
         saved.current = next;
-        setNote({ ok: true, text: 'Saved.' });
+        /* ⏳ Drafted (the Maker): the pick is held and its answer carries no bar, so nothing moved the
+           count on ✓ Apply — ask for the ONE render a held burst owes (`makerNeedsRender`, as the
+           thank-you words do), and say nothing: a date guests do not read yet is not "Saved." */
+        if (draft) makerNeedsRender();
+        else setNote({ ok: true, text: 'Saved.' });
         return;
       }
       setValue(saved.current);
@@ -117,7 +126,7 @@ export function ReplyBy({
       type="date"
       value={value || fallback || ''}
       onChange={(e) => pick(e.target.value)}
-      aria-label={layout === 'row' ? REPLY_BY_LABEL : 'Reply by — your own date'}
+      aria-label={layout === 'stack' ? 'Reply by — your own date' : REPLY_BY_LABEL}
       className="min-h-10 rounded-full border border-ink/15 bg-white px-3 text-[13px] text-ink"
     />
   );
@@ -126,6 +135,18 @@ export function ReplyBy({
       {note.text}
     </p>
   ) : null;
+
+  /* 🧭 Studio › RSVP: the label and the field on ONE row — no box, no sentence, no "Saved", no
+     "Guests see this right away" (the date waits for ✓ Apply). A refused pick is still SAID, under the row. */
+  if (layout === 'studio') {
+    return (
+      <section className={`${rowClassName ?? SETUP_ROW}${note && !note.ok ? ' flex-wrap' : ''}`} data-setup-row="reply-by" data-rsvp-setting="reply-by" data-reply-by-field="draft">
+        <p className="min-w-0 flex-1 text-[14.5px] font-semibold text-ink">{REPLY_BY_LABEL}</p>
+        {field}
+        {note && !note.ok ? <div className="basis-full">{status}</div> : null}
+      </section>
+    );
+  }
 
   if (layout === 'row') {
     return (
@@ -164,7 +185,8 @@ export function ReplyBy({
           </button>
         ) : null}
       </div>
-      <HubSavesImmediately />
+      {/* ⏳ Drafted in the Maker since 2026-10-08 ("draft 1-3") — no "Guests see this right away" there. */}
+      {draft ? null : <HubSavesImmediately />}
       {status}
     </div>
   );

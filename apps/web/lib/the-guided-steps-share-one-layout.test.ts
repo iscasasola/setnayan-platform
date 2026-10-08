@@ -233,7 +233,8 @@ test('(5) no step’s own field brings back a Save — each drafts as it changes
 test('(6) the logo step: "Do you want a logo?" is in its sheet; the logo shows without guide lines, fitted above the sheet', () => {
   const details = read(`${L}/maker-details.tsx`);
   assert.match(details, /if \(logoA\) editors\.logo = logoA\.node;/, 'the logo’s answer is not the step’s field');
-  assert.match(details, /max-lg:group-data-\[details-mode=guided\]\/ws:hidden" data-details-logo-strip=""/, 'the answer strip still shows over the logo in the flow');
+  // ✏ L1 (owner 2026-10-08, "no more asking do you want a logo?"): no answer strip over the logo at all — only the flow's step asks.
+  assert.doesNotMatch(details, /data-details-logo-strip/, 'the "Do you want a logo?" strip is back over the Logo studio');
   const ws = read(`${L}/details-workspace.tsx`);
   assert.match(ws, /className="group\/ws flex h-full/, 'the workspace no longer names the group the tools dress by');
   assert.match(ws, /\{editorsBody\(false\)\}\s*(\{\s*(\/\*[\s\S]*?\*\/)?\s*\}\s*)?\{at\?\.kind === 'step'( && !marchHere)? \? \(/, 'a step whose item draws its own tools hides its field');
@@ -474,7 +475,13 @@ test('(20) a control that writes live says so plainly: "Guests see this right aw
   assert.match(field, /export const HUB_LIVE_WORDS = 'Guests see this right away';/);
   assert.match(field, /<InfoTip label=\{HUB_LIVE_WORDS\}/, 'the live mark shows the plain words, not "Saves immediately"');
   assert.doesNotMatch(field, /['">]Saves immediately/, 'the old words are gone from the mark');
-  assert.match(read('app/dashboard/[eventId]/_components/guest-setup/reply-by.tsx'), /<HubSavesImmediately\b/, 'Reply by no longer says it writes live (owner: it stays instant)');
+  /* Two doors (preview merge 2026-10-08): on Guests › Setup — no Apply there — Reply by still writes live and says so
+     (owner 2026-10-05: it stays instant)… */
+  const replyByPart = read('app/dashboard/[eventId]/_components/guest-setup/reply-by.tsx');
+  assert.match(replyByPart, /<HubSavesImmediately\b/, 'Reply by no longer says it writes live (owner: it stays instant)');
+  /* ⏳ …and, superseding it IN THE MAKER (owner 2026-10-08, "draft 1-3"): Reply by waits for Apply — so it must NOT say it is live. */
+  assert.doesNotMatch(read(`${L}/maker-rsvp-ask.tsx`), /<HubSavesImmediately\b/, 'a drafted Reply by says it writes live');
+  assert.match(replyByPart, /\{draft \? null : <HubSavesImmediately \/>\}/, 'the shared Reply by part says it writes live even when the Maker drafts it');
   // 🚶 The Wedding March left the live writers on 2026-10-06 (owner: *"Wait for apply"*) — it drafts, and says nothing of the kind.
   assert.doesNotMatch(read(`${L}/details-march.tsx`), /<HubSavesImmediately\b/, 'the march says it writes live, but it waits for Apply');
 });
@@ -649,7 +656,10 @@ test('(23) "Same as theme": first in the film\'s background picker and the defau
   // ("Same as theme" until 2026-10-05 — in Look there is no theme to name any more; the film follows the Event Hub.)
   const { FilmFollowsTheme } = await import(`../${L}/film-follows-theme`);
   const line = renderToStaticMarkup(React.createElement(FilmFollowsTheme, { eventId: 'e' }));
-  assert.match(line, /Your Save the Date film keeps its own background ·[\s\S]*<button[^>]*>Same as the Event Hub<\/button>/);
+  /* 🔀 A switch since 2026-10-08 (owner, studio round 3: "Same as the Event Hub" becomes a switch) — off while the film keeps its own. */
+  assert.match(line, /Save the Date film · Same as the Event Hub[\s\S]*Your film keeps its own background\.[\s\S]*<input[^>]*role="switch"/);
+  assert.doesNotMatch(line, /checked=""/, 'the switch draws ON while the film keeps its own background');
+  assert.doesNotMatch(line, /underline/, '"Same as the Event Hub" is a link again');
   const picker2 = read(`${L}/film-follows-theme.tsx`);
   assert.match(picker2, /fd\.set\('patch', JSON\.stringify\(\{ events: \{ std_background: stdFollowTheme\(legibility\) \} \}\)\);\s*const r = await makerSave\(\(\) => hubDraftAction\(eventId, fd\)/, 'the tap does not go into the draft (with the film\'s Readability)');
 

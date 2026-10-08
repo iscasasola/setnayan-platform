@@ -645,3 +645,27 @@ test('🔒 the five fixed parts with no pick render byte-identically to the ship
     }
   }
 });
+
+test('countdown · Offset, Line and Circle (owner 2026-10-07 "allow offset" — the prototype’s five): drawn, clock-free, never for a wake', async () => {
+  const { CountdownWidget } = await import('./countdown');
+  const { EventWordsProvider } = await import('./event-words-provider');
+  const words = { theOrganizer: 'the family', TheOrganizer: 'The family', theOrganizerPossessive: 'the family’s', eventWord: 'wake', occasion: 'gathering', solemn: true };
+  for (const id of ['offset', 'line', 'circle']) {
+    const at = (now: number) => {
+      const real = Date.now;
+      Date.now = () => now;
+      try {
+        return renderToString(h(CountdownWidget, { targetIso: '2026-12-18', timeZone: 'Asia/Manila', sceneStyle: id }));
+      } finally {
+        Date.now = real;
+      }
+    };
+    const a = at(Date.UTC(2026, 8, 29));
+    assert.equal(a, at(Date.UTC(2026, 11, 17, 15, 59, 59)), `${id}: the server markup changed with the clock (#418)`);
+    assertStyled(a, id, `countdown ${id}`);
+    assert.match(a, /––/, `${id}: the shell holds a placeholder, never digits`);
+    assert.match(decode(a), /Until we say/, `${id}: the wedding's line is kept`);
+    const out = html(h(EventWordsProvider, { words, children: h(CountdownWidget, { targetIso: '2026-12-18', sceneStyle: id }) }));
+    assert.equal(out, '', `a wake drew a countdown in style ${id}`);
+  }
+});

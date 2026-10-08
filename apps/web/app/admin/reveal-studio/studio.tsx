@@ -46,10 +46,10 @@ const PREVIEW_TPLS: Array<[PreviewTpl, string]> = [
 
 const TEMPLATE_LABELS: Record<RevealTemplateId, string> = {
   'four-flap': 'Four-flap envelope',
-  'two-flap-vertical': 'Two-flap · side open',
-  'two-flap-horizontal': 'Two-flap · top open',
+  'two-flap-vertical': 'Two-flap side',
+  'two-flap-horizontal': 'Two-flap top',
   'church-doors': 'Church doors',
-  'veil-sheer': 'Sheer bridal veil',
+  'veil-sheer': 'Sheer veil',
 };
 
 type SliderDef = { key: keyof VeilLook; label: string; min: number; max: number; step?: number };

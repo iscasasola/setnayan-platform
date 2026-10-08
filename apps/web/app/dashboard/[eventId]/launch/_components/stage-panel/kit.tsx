@@ -6,7 +6,7 @@ import { Explain } from '@/app/_components/explain';
 import { SwitchTrack } from '@/app/_components/switch-track';
 import { PillThumb } from '@/app/_components/pill-selector';
 import { ActionButton } from '@/components/action-button';
-import { SP_DD, SP_DD_BUTTON, SP_DD_LABEL, SP_PHASE, SP_PHASE_INSET, SP_PHASES, SP_SWATCH, SP_SWATCH_FACE, SP_SWATCH_MORE, SP_SWATCH_ON, SP_SWITCH } from '@/lib/maker-stage-room';
+import { SP_DD, SP_DD_BUTTON, SP_DD_LABEL, SP_PHASE, SP_PHASE_INSET, SP_PHASES, SP_SWATCH, SP_SWATCH_FACE, SP_SWATCH_MORE, SP_SWATCH_ON, SP_SWITCH, STAGE_BAR_ABOUT } from '@/lib/maker-stage-room';
 import { PickMenu } from '../../../website/editor/_components/pick-menu';
 import type { PickOption } from '../../../website/editor/_components/pick-menu-types';
 import { useStagePanelNow } from './store';
@@ -20,7 +20,7 @@ import { MAKER_PARTS, type MakerPartKey } from '@/lib/maker-parts';
  *             whose list opens as the Maker's bottom sheet — owner: "every pop-up opens from the bottom")
  *   PanelSwitch `.sw` — the app's ONE switch (`SwitchTrack`, 50 × 30: grey off, the accent on) on a 44 px tap
  *   Swatch    a colour circle (the approved gallery's kind 21) — Text's and Background's five, and their "+"
- *   QuietBar  `.pane>.jump` — Style › Look's one door ("Edit the E-Gifts"), the app's secondary action button
+ *   QuietBar  `.pane>.jump` — Edit's one door ("Open in Studio › E-Gifts"), the app's secondary action button
  *   About     ⓘ — helper words are never a box on the panel (owner rule), only behind ⓘ: the app's explanation
  *             template (`Explain` — a centred pop-up with "Got it" on a phone, a note by the ⓘ on a computer)
  *
@@ -174,25 +174,16 @@ export function SwatchMore({ open, onOpen, data }: { open: boolean; onOpen: () =
  * Style › Look's ONE door — the part's words come from Studio (or Suppliers), and this is the only way there. It is
  * the app's SECONDARY ACTION BUTTON (`ActionButton`, `components/action-button.tsx` — owner 2026-10-08, the approved
  * gallery's kind 9: one main button a screen, the rest quieter), never an ink-black bar of the panel's own: icon and
- * word, the pill, the press. The part's own sentence sits behind ⓘ beside it.
+ * word, the pill, the press. The part's own sentence sits behind the ONE ⓘ on the "You're editing" line (`StageAbout`).
  */
 /** The door, laid along the row: it takes the row's width, its word starts at the left and is cut, never wrapped. */
 const QUIET_DOOR = '!h-11 min-w-0 !flex-1 !justify-start overflow-hidden [&>.lbl]:min-w-0 [&>.lbl]:truncate';
 
 export function QuietBar() {
-  const { quiet, about, picked } = useStagePanelNow();
-  const name = picked && picked in MAKER_PARTS ? MAKER_PARTS[picked as MakerPartKey].label : null;
-  if (!quiet && !about) return null;
-  /* No door to name: the part's NAME heads the row and its sentences sit behind ⓘ — once, never a row holding
-     only an ⓘ (owner, the pass: "a lone ⓘ" → "the copy appears once, behind ⓘ"). */
-  if (!quiet) {
-    return (
-      <div className="flex h-11 shrink-0 items-center gap-1.5" data-stage-quiet-row="" data-stage-quiet-name="">
-        <span className="min-w-0 flex-1 truncate px-1 text-[13px] font-semibold text-[var(--sp-ink2)]">{name ?? 'This part'}</span>
-        <About label={name ?? 'this part'}>{about}</About>
-      </div>
-    );
-  }
+  const { quiet } = useStagePanelNow();
+  /* No door to name: nothing is drawn — the part's sentences are behind the ONE ⓘ on the "You're editing" line
+     (`StageAbout`, owner 2026-10-09: the explanations do not get rows), never a row holding only an ⓘ. */
+  if (!quiet) return null;
   return (
     <div className="flex h-11 shrink-0 items-center gap-1.5" data-stage-quiet-row="" data-stage-quiet={quiet.kind}>
       {quiet.kind === 'suppliers' ? (
@@ -201,7 +192,25 @@ export function QuietBar() {
       ) : (
         <ActionButton tone="neutral" icon={quiet.kind === 'info' ? FileText : PencilLine} label={quiet.words} onClick={quiet.open} className={QUIET_DOOR} />
       )}
-      {about ? <About label={name ?? 'this part'}>{about}</About> : null}
     </div>
+  );
+}
+
+/**
+ * ⓘ THE ONE EXPLANATION OF THE TOOLBAR — at the right end of the "You're editing" line (owner 2026-10-09, decided:
+ * *the ⓘ explanations do not get rows*). It opens the app's centred pop-up (`Explain`, "Got it") with the picked
+ * part's own words — what it is and where its content comes from, the SAME sentences that sat behind the ⓘ beside
+ * its door. Nothing is drawn when the part has none.
+ */
+export function StageAbout() {
+  const { about, picked } = useStagePanelNow();
+  if (!about) return null;
+  const name = picked && picked in MAKER_PARTS ? MAKER_PARTS[picked as MakerPartKey].label : 'This part';
+  return (
+    <span className={STAGE_BAR_ABOUT} data-stage-about="">
+      <Explain title={name} className="!h-[38px] !w-11 pt-2.5">
+        {about}
+      </Explain>
+    </span>
   );
 }

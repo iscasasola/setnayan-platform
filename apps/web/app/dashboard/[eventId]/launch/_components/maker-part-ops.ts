@@ -67,6 +67,9 @@ export type MakerPartOps = {
   postEvent: PostEventArrangement | null;
   /** The one draft door (`hubDraftAction`). */
   draftAction: ElementDraftAction | null;
+  /** ✍ For Edit's typed words (`stage-panel/part-words.ts`): the hero's canvas and each scene of their own's words, as the last render had them. */
+  heroCanvas: NonNullable<WorkProps['elementEditing']>['canvases'][string] | null;
+  ownWords: NonNullable<WorkProps['elementEditing']>['ownWords'] | null;
   /** "+ Add a scene" — the shipped picker's form, or why a scene cannot be added here; null = not on this stage. */
   addOwn:
     | {

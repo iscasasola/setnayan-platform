@@ -94,7 +94,7 @@ test('(2) no buttons on the frame: its outline and its name — and ＋, the one
   /* Moving and removing did not go away: they are the toolbar's Edit › Earlier · Later · Remove, from the same hook. */
   assert.match(edges, /earlier: canStep\(-1\) \? \(\) => stepMove\(-1\) : null,\s*later: canStep\(1\) \? \(\) => stepMove\(1\) : null,\s*remove: canRemove \? \(\) => setRemoving\(true\) : null,/);
   const tools = read(`${L}/stage-tools.tsx`);
-  assert.match(tools, /<StageEdit earlier=\{edits\.earlier\} later=\{edits\.later\} remove=\{edits\.remove\} removeWord=\{edits\.removeWord\} \/>/);
+  assert.match(tools, /<StageEdit [^>]*earlier=\{edits\.earlier\} later=\{edits\.later\} remove=\{edits\.remove\} removeWord=\{edits\.removeWord\} \/>/);
   /* The page's own outline is put away too — one highlight (the frame), nothing of the canvas's to press. */
   assert.match(tools, /\[data-setnayan-editor-bound\],\[data-setnayan-editor-bound\] \*\{outline:none!important\}/);
 });
@@ -113,7 +113,9 @@ test('(3) something is always picked on arriving: the first part the page DRAWS,
   /* ONCE: an arrival already answered asks for nothing (a tap on the ground lets go and it stays let go). */
   assert.match(arrive, /if \(arrivedAt\.current === at \|\| parts\.length === 0 \|\| typing \|\| playing\) return;/);
   /* The first DRAWN part — the measured order's first — and never the map's. */
-  assert.match(arrive, /const first = orderedRef\.current\(\)\[0\] \?\? null;\s*if \(!first\) return;\s*arrivedAt\.current = at;/, 'the arrival does not pick the first part the page draws');
+  /* …but never the Reveal, which leads three pages and has only Style (the controller's call, 2026-10-09): the
+     first drawn part AFTER it. A tap still picks the Reveal. */
+  assert.match(arrive, /const first = orderedRef\.current\(\)\.find\(\(k\) => k !== 'reveal'\) \?\? null;\s*if \(!first\) return;\s*arrivedAt\.current = at;/, 'the arrival does not pick the first part the page draws (after the Reveal)');
   assert.doesNotMatch(arrive, /parts\[0\]|makerPartsOnPage/, 'the arrival picks by the map’s order');
   /* It stands back for a part already picked (a tap, a return from Studio) and for a step into the page. */
   assert.match(arrive, /if \(!pickedRef\.current && pendingStep\.current === null\) pickPartRef\.current\(first\);/);

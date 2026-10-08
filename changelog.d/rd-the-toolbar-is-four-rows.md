@@ -50,6 +50,28 @@ Tests: new `lib/the-preview-only-selects.test.ts` (5 rules, each seen red). Re-a
 `the-stages-panel-is-the-prototypes` (typing, the frame's chips), `the-rsvp-stage-is-parts` (typing, the fixed page),
 `the-stages-panel-wears-the-accent` (the frame's marks), `one-drag-is-one-order-write` (the grip → a step).
 
+### 3 · Edit types the words in place
+
+Owner: "if the edit is just text, then don't need to jump. but it can both adapt to whichever is edited. same goes to
+simple edits. Only jump if it has editing that cannot be done there. Example: Schedule, Love Story, Wedding March, Logo".
+
+- **Rows 1–3 are the part's words**, one typed Form row (`TypedRow`) per text the page draws for it — the title, the
+  names, the invite line, the link; Your message; Your reminders; a scene of their own's Heading and Words — the text
+  last tapped first. The page shows the words as they are typed; keeping (tap out / Enter) is ONE draft write, the
+  shipped one (`stage-panel/part-words.ts`: `typedDisplayName` / `withTypedWords` / `sceneTypeWrite`, the typing bar's
+  own write keys, held). No new storage.
+- **A part that cannot be edited in three rows keeps ONE door** in row 1, in the prototype's words: "Open in Studio ›
+  <page>" (Schedule, Love Story, Wedding March, Logo, E-Gifts, RSVP, Mood Board & Dress Code, Seat plan) · "Change it
+  in Suppliers" (date, place, venue, the details).
+- **The typing bar**: while a field is open the toolbar is "Typing · <part>" + Done (the app's main button) over that
+  one field, above the keyboard.
+- **One ⓘ**, at the right end of the "You're editing" line, opens the centred explanation with the picked part's own
+  sentences (word for word); nothing when it has none. No ⓘ and no name-only row in Edit.
+- Arriving at a page never lands on the Reveal: the first drawn part after it (a tap still picks the Reveal).
+
+Tests: new `lib/edit-types-the-words-in-place.test.ts` (6 rules, each seen red). Re-aimed with the reason written in:
+`every-look-draws-a-picture` (the lone-ⓘ row), `maker-parts` (the door's words).
+
 SPEC IMPACT: Yes — supersedes the 2026-10-06/07 "Style | Text | Animate" and "the toolbar is half the screen" rows.
 The controller holds the spec (`TOOLBAR-SPEC-2026-10-09.md`) and applies the corpus rows; nothing in the corpus was
 edited from this branch.

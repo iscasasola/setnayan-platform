@@ -111,9 +111,15 @@ export const STAGE_BAR_GRID_CSS = `calc(${STAGE_BAR_ROWS} * var(--sp-rh) + ${STA
 export const STAGE_BAR_FOOT_CSS = `max(${STAGE_BAR_FOOT_PX}px, env(safe-area-inset-bottom))`;
 /** The handle: the prototype's 40 × 4 pill in a 14 px strip. Drawn, never pressed — the toolbar is one height. */
 export const STAGE_BAR_HANDLE = 'flex h-[14px] shrink-0 items-center justify-center';
-/** "You're editing · Stage › Page › Part" — one line of small caps, cut with … and never wrapped (prototype `.edit`). */
+/** "You're editing · Stage › Page › Part" — one line of small caps, cut with … and never wrapped (prototype `.edit`);
+ *  kept clear of the ⓘ at its right end, and as far on the left so its words stay in the middle. */
 export const STAGE_BAR_LINE =
-  'h-5 shrink-0 truncate px-2 pb-2 pt-0.5 text-center text-[9.5px] font-semibold uppercase leading-none tracking-[0.16em] text-[var(--sp-mute)]';
+  'h-5 shrink-0 truncate px-11 pb-2 pt-0.5 text-center text-[9.5px] font-semibold uppercase leading-none tracking-[0.16em] text-[var(--sp-mute)]';
+/**
+ * ⓘ The toolbar's ONE explanation: at the right end of the "You're editing" line, over the handle and the line (38 px
+ * of the toolbar's top — it stops where the selector's band begins, so its tap never lies on ▶), 44 px wide.
+ */
+export const STAGE_BAR_ABOUT = 'absolute right-0.5 top-0 z-[2] inline-flex h-[38px] w-11 items-start justify-center';
 /**
  * 🧱 THE FOUR ROWS (prototype `.g4`): a grid of exactly four rows — *"the rule is always start from the top"*: a tool
  * fills from row 1, its empty rows are at the bottom, nothing is centred up and down and nothing scrolls up and down

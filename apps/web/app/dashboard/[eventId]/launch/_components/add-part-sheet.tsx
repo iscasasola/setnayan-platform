@@ -96,6 +96,8 @@ export function partOpsOf(raw: MakerPartRaw): MakerPartOps {
     removers: raw.sceneRemovers,
     postEvent: nav && nav !== 'unreadable' ? nav.arrangement : null,
     draftAction: raw.elementEditing?.draftAction ?? null,
+    heroCanvas: raw.elementEditing?.canvases.hero ?? null,
+    ownWords: raw.elementEditing?.ownWords ?? null,
     /* "+ Add a scene" exactly as the navigator offers it (`editor-shell.tsx` `setAddScene`). */
     addOwn:
       stage === 'editorial' && pe

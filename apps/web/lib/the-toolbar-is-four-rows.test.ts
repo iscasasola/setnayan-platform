@@ -173,10 +173,11 @@ test('(3) the rows start from the top and nothing scrolls up and down; Edit: the
   const { StageEdit } = await import('../app/dashboard/[eventId]/launch/_components/stage-panel/stage-edit');
   const { setStagePanelNow } = await import('../app/dashboard/[eventId]/launch/_components/stage-panel/store');
   const draw = (p: { earlier: (() => void) | null; later: (() => void) | null; remove: (() => void) | null }) =>
-    renderToStaticMarkup(React.createElement(StageEdit, { ...p, removeWord: 'Remove' }));
+    renderToStaticMarkup(React.createElement(StageEdit, { ...p, fields: [], tapped: null, onType: () => {}, onKeep: async () => ({ ok: true as const }), removeWord: 'Remove' }));
 
-  /* A part with a door (E-Gifts → Studio) that can move both ways and be taken off. */
-  setStagePanelNow({ picked: 'gifts', quiet: { kind: 'studio', words: 'Edit the E-Gifts', open: () => {} }, about: null });
+  /* A part with a door (E-Gifts → Studio) that can move both ways and be taken off. (What rows 1–3 hold — the
+     part's words typed in place, or its door — is `lib/edit-types-the-words-in-place.test.ts`.) */
+  setStagePanelNow({ picked: 'gifts', quiet: { kind: 'studio', words: 'Open in Studio › E-Gifts', open: () => {} }, about: null });
   const go = () => {};
   const html = draw({ earlier: go, later: go, remove: go });
   const rows = [...html.matchAll(/data-stage-edit-row="([a-z]+)"/g)].map((m) => m[1]);
@@ -185,7 +186,7 @@ test('(3) the rows start from the top and nothing scrolls up and down; Edit: the
   assert.ok(rowClass('door').includes('row-start-1'), 'the door is not row 1');
   assert.ok(rowClass('place').includes('row-start-4'), 'Earlier · Later · Remove is not the LAST row');
   const door = html.slice(html.indexOf('data-stage-edit-row="door"'), html.indexOf('data-stage-edit-row="place"'));
-  assert.match(door, /aria-label="Edit the E-Gifts"/, 'row 1 is not the part’s door');
+  assert.match(door, /aria-label="Open in Studio › E-Gifts"/, 'row 1 is not the part’s door');
   const place = html.slice(html.indexOf('data-stage-edit-row="place"'));
   const steps = [...place.matchAll(/<button[^>]*aria-label="([^"]+)"[^>]*>/g)];
   assert.deepEqual(steps.map((m) => m[1]), ['Earlier', 'Later', 'Remove'], 'the last row is not ↑ Earlier · ↓ Later · Remove, in that order');
@@ -297,7 +298,8 @@ test('(6) the shipped Maker never sees any of it: mounted only by the new Maker 
   const selectors = [...css.matchAll(/'((?:\[data-|html)[^{']*)\{/g), ...css.matchAll(/`((?:\[data-|html)[^{`]*)\{/g)].map((m) => m[1]!);
   assert.ok(selectors.length >= 5, `anti-vacuity: only ${selectors.length} rules read`);
   for (const sel of selectors) {
-    for (const one of sel.split(',')) {
+    /* Each selector of a list on its own — a comma inside `:is(…)` is not a new selector. */
+    for (const one of sel.split(/,(?![^()]*\))/)) {
       assert.match(one, /\[data-stage-tools\]|\[data-stage-tool-now="edit"\]|\[data-stage-playing\]/, `a rule reaches a Maker with no toolbar: ${one}`);
     }
   }

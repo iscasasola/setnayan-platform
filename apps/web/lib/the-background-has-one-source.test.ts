@@ -38,6 +38,8 @@ import {
   BACKGROUND_MAIN_INFO,
   BACKGROUND_SHADE_CANDLELIGHT,
   BACKGROUND_SOURCES,
+  BACKGROUND_SOURCES_OFFERED,
+  backgroundSourcesOffered,
   BACKGROUND_SOURCE_IS_PRO,
   BACKGROUND_SOURCE_LABEL,
   backgroundShadeValue,
@@ -119,12 +121,23 @@ test('(1) the source is what the stored main background IS — nothing new is st
 
 /* ── (2) five sources, ◆ where the shipped rule asks for Pro ──────────── */
 
-test('(2) Colour · Pattern · Scene · Video · Your photo or video — ◆ exactly where Apply asks for Event Hub Pro', () => {
+test('(2) Source ▾ offers Colour · Scene · Video · Upload — no Pattern to pick; a stored pattern is still said — ◆ exactly where Apply asks for Event Hub Pro', () => {
+  // Owner 2026-10-08, on the local copy: "Color · no more Pattern · Scene · Video · Upload".
+  assert.deepEqual([...BACKGROUND_SOURCES_OFFERED], ['colour', 'scene', 'video', 'own']);
+  assert.deepEqual(BACKGROUND_SOURCES_OFFERED.map((k) => BACKGROUND_SOURCE_LABEL[k]), ['Colour', 'Scene', 'Video', 'Upload']);
+  for (const stored of ['colour', 'scene', 'video', 'own'] as const) {
+    assert.deepEqual([...backgroundSourcesOffered(stored)], ['colour', 'scene', 'video', 'own'], `${stored}: Pattern is offered`);
+  }
+  for (const label of Object.values(BACKGROUND_SOURCE_LABEL)) assert.doesNotMatch(label, /your photo or video/i, 'the source is still named "Your photo or video"');
+  // 🔑 A pattern ALREADY stored is still read, said and drawn: the Source names it as the current value — never "Colour" over a page that wears dots.
+  assert.equal(backgroundSourceOf(PATTERN, { themeHasLoop: true, followsHero: false }), 'pattern');
+  assert.deepEqual([...backgroundSourcesOffered('pattern')], ['colour', 'pattern', 'scene', 'video', 'own']);
+  assert.equal(BACKGROUND_SOURCE_LABEL.pattern, 'Pattern');
+  // …what a stored background can BE is still all five (guests keep their pattern).
   assert.deepEqual([...BACKGROUND_SOURCES], ['colour', 'pattern', 'scene', 'video', 'own']);
-  assert.deepEqual(
-    BACKGROUND_SOURCES.map((k) => BACKGROUND_SOURCE_LABEL[k]),
-    ['Colour', 'Pattern', 'Scene', 'Video', 'Your photo or video'],
-  );
+  assert.match(read(`${G}/main-ground.tsx`), /export function PatternGround\(/, 'the guest page no longer draws a stored pattern');
+  assert.match(read('app/[slug]/_lib/main-ground-layer.tsx'), /if \(main && 'ground' in main && main\.ground === 'pattern'\) \{\s*return <PatternGround pattern=\{main\.pattern\}/, 'a stored pattern is no longer drawn for guests');
+  assert.ok(Object.keys(MAIN_GROUND_PATTERN_CSS).length >= 4, 'the patterns’ own definitions are gone');
   // The mark is the SHIPPED rule, run: going to this source from "just the colour" adds a look, or it does not.
   const reach: Record<BackgroundSource, HubMainGround> = { colour: NONE, pattern: PATTERN, scene: SCENE, video: LOOP, own: OWN_PHOTO };
   for (const k of BACKGROUND_SOURCES) {
@@ -142,7 +155,9 @@ test('(3) the Studio draws ONE Source dropdown and the cards of the source on sc
   assert.ok(studio.length > 2000, 'anti-vacuity: the Studio branch was not found');
   // ONE dropdown for the set of sources — never a segmented bar, never a second list.
   assert.equal((studio.match(/dataAttr="data-bg-source-pick"/g) ?? []).length, 1);
-  assert.match(studio, /options=\{BACKGROUND_SOURCES\.filter\(\(k\) => k !== 'video' \|\| loops\.length > 0\)\.map\(\(k\) => \(\{\s*key: k,\s*label: BACKGROUND_SOURCE_LABEL\[k\],/);
+  assert.match(studio, /options=\{backgroundSourcesOffered\(storedSource\)\.filter\(\(k\) => k !== 'video' \|\| loops\.length > 0\)\.map\(\(k\) => \(\{\s*key: k,\s*label: BACKGROUND_SOURCE_LABEL\[k\],/, 'the dropdown does not list what the rule offers');
+  // A stored pattern draws ONLY its own card (ringed) — no other pattern can be picked any more.
+  assert.match(studio, /\{view === 'pattern'\s*\? HUB_MAIN_PATTERNS\.filter\(\(k\) => k === pattern\)\.map\(\(k\) => \(/, 'a new pattern can still be picked');
   assert.match(studio, /proOn && BACKGROUND_SOURCE_IS_PRO\[k\] \? \{ trail: PRO_TRAIL \}/, 'a Pro source is not marked ◆');
   // Picking a source LOOKS — it never writes (the page changes when a card is tapped).
   const pickSource = /onPick=\{\(k\) => \{\s*setUploadOpen\(false\);\s*setViewed\(k as BackgroundSource\);\s*\}\}/;
@@ -153,7 +168,7 @@ test('(3) the Studio draws ONE Source dropdown and the cards of the source on sc
   assert.doesNotMatch(read(`${L}/studio-tools.tsx`), /data-studio-main-background-line/, 'the line is a paragraph under the bar again');
   // Each source's cards are the shipped list, and the tap is the shipped save.
   assert.match(studio, /view === 'colour'\s*\? BACKGROUND_EFFECTS\.filter\(\(e\) => Boolean\(page\) \|\| e === 'plain'\)\.map/);
-  assert.match(studio, /view === 'pattern'\s*\? HUB_MAIN_PATTERNS\.map[\s\S]{0,520}onPick=\{\(\) => save\(\{ ground: 'pattern', pattern: k \}, FAILED\)\}/);
+  assert.match(studio, /view === 'pattern'\s*\? HUB_MAIN_PATTERNS\.filter\(\(k\) => k === pattern\)\.map[\s\S]{0,520}onPick=\{\(\) => save\(\{ ground: 'pattern', pattern: k \}, FAILED\)\}/);
   assert.match(studio, /view === 'scene'\s*\? STD_REALISTIC_BACKGROUNDS\.map[\s\S]{0,520}onPick=\{\(\) => pickExisting\(\{ kind: 'photo', ref: b\.src, stillUrl: b\.src \}\)\}/);
   assert.match(studio, /view === 'video'\s*\? loops\.map[\s\S]{0,620}onPick=\{\(\) => pickGround\(l\.id\)\}/);
   assert.match(studio, /name="Your cover photo"[\s\S]{0,260}onPick=\{\(\) => pickGround\('src:hero'\)\}/);

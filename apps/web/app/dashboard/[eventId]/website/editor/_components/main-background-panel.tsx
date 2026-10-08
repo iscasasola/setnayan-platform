@@ -35,7 +35,7 @@ import {
   BACKGROUND_MAIN_INFO,
   BACKGROUND_SHADE_CANDLELIGHT,
   BACKGROUND_SHADE_CANDLELIGHT_LABEL,
-  BACKGROUND_SOURCES,
+  backgroundSourcesOffered,
   BACKGROUND_SOURCE_IS_PRO,
   BACKGROUND_SOURCE_LABEL,
   backgroundShadeValue,
@@ -904,7 +904,7 @@ export function MainBackgroundPanel({
             dataAttr="data-bg-source-pick"
             className={STUDIO_ROW_PICK}
             value={view}
-            options={BACKGROUND_SOURCES.filter((k) => k !== 'video' || loops.length > 0).map((k) => ({
+            options={backgroundSourcesOffered(storedSource).filter((k) => k !== 'video' || loops.length > 0).map((k) => ({
               key: k,
               label: BACKGROUND_SOURCE_LABEL[k],
               ...(proOn && BACKGROUND_SOURCE_IS_PRO[k] ? { trail: PRO_TRAIL } : {}),
@@ -930,8 +930,9 @@ export function MainBackgroundPanel({
               ))
             : null}
           {/* 🧵 The page's own pattern, in an ink that SHOWS on this paper (`patternCardSwatch`) — on a dark page colour the dashboard's ink drew four identical dark cards. */}
+          {/* 📋 Pattern is no longer a choice to pick (owner 2026-10-08) — only the pattern this event ALREADY wears is drawn, ringed. */}
           {view === 'pattern'
-            ? HUB_MAIN_PATTERNS.map((k) => (
+            ? HUB_MAIN_PATTERNS.filter((k) => k === pattern).map((k) => (
                 <BgCard
                   key={k}
                   name={HUB_MAIN_PATTERN_LABEL[k]}

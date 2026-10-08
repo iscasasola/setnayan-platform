@@ -9,16 +9,19 @@
  *
  * Everything the main background can be already ships; it was spread over a
  * carousel, a "Pattern · None ▾" row, the page fill and the Music tab. It is ONE
- * dropdown of five sources, and the picture cards of the source on screen:
+ * dropdown, and the picture cards of the source on screen. A stored background is one of five
+ * (`BACKGROUND_SOURCES`); the dropdown OFFERS four (`BACKGROUND_SOURCES_OFFERED` — Pattern left the
+ * list on 2026-10-08, and "Your photo or video" is named Upload):
  *
  *   Colour               — the page colour, plain or blended (`events.site_bg_color`,
  *                          `lib/ombre.ts`) with nothing laid over it (`{ ground: 'none' }`);
- *   Pattern              — Fine lines · Dots · Lace · Grid on that colour (`{ ground: 'pattern' }`);
+ *   Pattern              — Fine lines · Dots · Lace · Grid on that colour (`{ ground: 'pattern' }`) —
+ *                          no longer offered; still read, said and drawn where it is already stored;
  *   Scene ◆              — one of the ten ready-made stills (`STD_REALISTIC_BACKGROUNDS`),
  *                          stored as the couple's own photo (`HubMainOwn`, a library `media`);
  *   Video ◆              — one of the nine theme loops (`{ ground: 'loop' }`, or the page's
  *                          own — `{ ground: 'theme' }`);
- *   Your photo or video ◆ — the cover photo (the hero follow), a picture or clip of
+ *   Upload ◆             — the cover photo (the hero follow), a picture or clip of
  *                          theirs, or a new upload (`HubMainOwn`).
  *
  * 🔑 NOTHING NEW IS STORED. The source is READ off what is stored
@@ -36,6 +39,7 @@
 import { isHubMainFollow, isHubMainLoop, isHubMainOwn, type HubMainGround } from './hub-canvas';
 import { isStdLibrarySrc } from './std-backgrounds';
 
+/** Everything a STORED main background can be — what `backgroundSourceOf` answers. */
 export const BACKGROUND_SOURCES = ['colour', 'pattern', 'scene', 'video', 'own'] as const;
 export type BackgroundSource = (typeof BACKGROUND_SOURCES)[number];
 
@@ -44,8 +48,22 @@ export const BACKGROUND_SOURCE_LABEL: Readonly<Record<BackgroundSource, string>>
   pattern: 'Pattern',
   scene: 'Scene',
   video: 'Video',
-  own: 'Your photo or video',
+  own: 'Upload',
 };
+
+/**
+ * 📋 WHAT SOURCE ▾ OFFERS — owner 2026-10-08, on the local copy (DECISION_LOG "LOOK › BACKGROUND, AMENDED"):
+ * *"Color · no more Pattern · Scene · Video · Upload"*. Four choices; Pattern is no longer one to PICK.
+ *
+ * 🔑 A PATTERN ALREADY STORED IS STILL SAID. An event saved with a pattern keeps drawing it for guests
+ * (`main-ground.tsx` `PatternGround` — untouched), so the dropdown still names "Pattern" for THAT event — as the
+ * current value, with its one card ringed — until the couple picks something else. Never a Source that reads
+ * "Colour" over a page that wears dots. Once they leave it, Pattern is gone from their list.
+ */
+export const BACKGROUND_SOURCES_OFFERED = ['colour', 'scene', 'video', 'own'] as const satisfies readonly BackgroundSource[];
+export function backgroundSourcesOffered(stored: BackgroundSource): readonly BackgroundSource[] {
+  return stored === 'pattern' ? BACKGROUND_SOURCES : BACKGROUND_SOURCES_OFFERED;
+}
 
 /** Which sources Apply asks Event Hub Pro for — exactly what `mainGroundChange` holds as an addition. */
 export const BACKGROUND_SOURCE_IS_PRO: Readonly<Record<BackgroundSource, boolean>> = {

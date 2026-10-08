@@ -1,8 +1,9 @@
 'use client';
 
+import { Chips } from '@/app/_components/chips';
 import { PillSelector } from '@/app/_components/pill-selector';
 import { MOTION_SIZE_LABEL, motionArrow, motionDirLabel, motionDirName, withMotionFx, type MotionDir, type MotionFx } from '@/lib/motion-effects';
-import { SP_ANIMATE_HALF } from '@/lib/maker-animate-rows';
+import { SP_ANIMATE_CHIPS, SP_ANIMATE_HALF } from '@/lib/maker-animate-rows';
 import { SP_ROWS, SP_ROWS_ROW } from '@/lib/maker-stage-room';
 import type { PickOption } from '../../../website/editor/_components/pick-menu-types';
 import { Dd, Phases } from './kit';
@@ -13,7 +14,7 @@ import { useAnimatePhase, type AnimatePhase } from './store';
  * column of eleven rows, 364–416 px in a 210-px box):
  *
  *   row 1   [ Build in | Action | Build out ]
- *   row 2   Build in / Build out — Fade · Blur · Move · Size, each on or off      Action — Still | Drift
+ *   row 2   Build in / Build out — Fade · Blur · Move · Size, four chips, each on or off      Action — Still | Drift
  *   row 3   only what the ON ones need: From / To ▾ (Move) · Grow | Shrink (Size), a half each
  *   row 4   Build in  — Movement ◆ + Rows (a scene of rows) + Delay (a part)
  *           Action    — Movement ◆
@@ -117,8 +118,9 @@ export function StageAnimate({
       {/* ══ ROW 2 — what it does ══ */}
       {end ? (
         <div className={`${SP_ROWS_ROW} row-start-2`} data-stage-effects={end}>
-          {/* Four that are each on or off — the app's row of toggles (several pressed, no thumb travels). */}
-          <PillSelector label={`Build ${verb}`} data={`${end}-effects`} value={EFFECTS.filter((e) => Boolean(fx?.[e.key])).map((e) => e.key)} options={EFFECTS} onPick={(e) => keep(toggleMotionFx(fx, end, e))} />
+          {/* Four that are each on or off — the app's CHIPS (filled when on, plain when off), never segments of a
+              track: a different kind of control from row 1's one-of-three, so it looks different. */}
+          <Chips even={false} className={SP_ANIMATE_CHIPS} label={`Build ${verb}`} data={`${end}-effects`} value={EFFECTS.filter((e) => Boolean(fx?.[e.key])).map((e) => e.key)} options={EFFECTS} onToggle={(e) => keep(toggleMotionFx(fx, end, e))} />
         </div>
       ) : does ? (
         <div className={`${SP_ROWS_ROW} row-start-2`} data-stage-does="">

@@ -180,6 +180,18 @@ toolbar's lazy pieces, so the Maker's first-load JS gains nothing. Guard: `lib/a
 rules, one sabotage each seen red); five pinning tests re-aimed with the reason written in. Flag-off and desktop:
 the older editor's Animate (`scene-animate-tab.tsx` outside `ss`, `PartAnimateTab`) is not touched.
 
+### 6b · three things seen on the review copy
+
+- Animate's row 2: Fade · Blur · Move · Size sat in one grey track like row 1's selector and read as a single choice
+  with nothing picked. They are four on/offs, so they are the app's CHIPS now (`app/_components/chips.tsx` — each
+  its own pill, filled when on), four even on one line (`SP_ANIMATE_CHIPS`). Still | Drift keeps the selector.
+- The two-line dropdown's name was 10.5 px, under the template's smallest type; it is 12 px (the Form row's small
+  line) over a 14-px value (the Form row's pill), and the two lines with their margins are the pill's 44 px.
+- Background's Darker ↔ Lighter bar filled from the left end; it fills from the CENTRE out to the knob, and nothing
+  at rest. `Slider` gains ONE optional prop, `from="centre"` (one attribute; left out, the markup is byte-identical —
+  guarded) and `.sn-slider[data-slider-from='centre']` draws it from the same `--sn-slider-fill`. `slider.tsx` is
+  imported only by the Maker's lazy pieces.
+
 SPEC IMPACT: Yes — supersedes the 2026-10-06/07 "Style | Text | Animate" and "the toolbar is half the screen" rows.
 The controller holds the spec (`TOOLBAR-SPEC-2026-10-09.md`) and applies the corpus rows; nothing in the corpus was
 edited from this branch.

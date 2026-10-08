@@ -152,6 +152,7 @@ export function StageBackground({
             <Slider
               label="Darker or lighter"
               data="scene-shade"
+              from="centre"
               min={SCENE_SHADE_MIN}
               max={SCENE_SHADE_MAX}
               step={1}

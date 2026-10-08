@@ -146,3 +146,33 @@ test('(4) the Stages panel and the scene’s Background row draw no range by han
   /* The watch can see one. */
   assert.match('<input type="range" className="sp-range" />', /type=(?:"range"|'range'|\{['"]range['"]\})/);
 });
+
+test('(5) from the centre — an additive prop: left out, the slider is byte-identical; given, the accent runs from the middle to the knob', async () => {
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const base = { label: 'Darker or lighter', min: -100, max: 100, value: -67, onChange: () => {} };
+  const plain = renderToStaticMarkup(React.createElement(Slider, base));
+  const centre = renderToStaticMarkup(React.createElement(Slider, { ...base, from: 'centre' as const }));
+  /* Left out: no attribute, no other style — every slider drawn before this prop is the same bytes. */
+  assert.doesNotMatch(plain, /data-slider-from/);
+  assert.equal(centre.replace(' data-slider-from="centre"', ''), plain, 'the prop changes more than its one attribute');
+  assert.match(centre, /data-slider="" data-slider-from="centre"/);
+  /* The look is the stylesheet's, from the SAME one measure (`--sn-slider-fill`): grey up to the nearer of the middle
+     and the knob, the accent between them, grey after the further one. At rest (50 %) nothing is filled. */
+  const GREY = 'rgb(var(--color-ink) / 0.16)';
+  const ACC = 'rgb(var(--sn-accent))';
+  const NEAR = 'min(50%, var(--sn-slider-fill, 50%))';
+  const FAR = 'max(50%, var(--sn-slider-fill, 50%))';
+  const line = `background: linear-gradient(90deg, ${GREY} ${NEAR}, ${ACC} ${NEAR}, ${ACC} ${FAR}, ${GREY} ${FAR});`;
+  assert.equal(rule(".sn-slider[data-slider-from='centre']::-webkit-slider-runnable-track"), line, 'the line is not filled from the centre');
+  assert.equal(rule(".sn-slider[data-slider-from='centre']::-moz-range-track"), line);
+  assert.equal(rule(".sn-slider[data-slider-from='centre']::-moz-range-progress"), 'background: none;', 'Firefox still fills from the left end under it');
+  /* The knob always covers the fill's end: the two differ by |13 − 26·f| px (a 26-px knob), never more than its radius. */
+  for (let f = 0; f <= 1.0001; f += 0.05) assert.ok(Math.abs(13 - 26 * f) <= 13 + 1e-9);
+  /* WHO USES IT: the Background's Darker ↔ Lighter bar — a value that rests in the middle. Its Opacity (a plain
+     "more") and every other slider fill from the left end as they did. */
+  const bg = read(`${L}/stage-panel/stage-background.tsx`);
+  const sliders = [...bg.matchAll(/<Slider\b[\s\S]*?\/>/g)].map((m) => m[0]);
+  assert.equal(sliders.length, 2);
+  assert.deepEqual(sliders.map((x) => [/data="([\w-]+)"/.exec(x)?.[1], /\bfrom="centre"/.test(x)]), [['scene-opacity', false], ['scene-shade', true]]);
+  for (const f of [`${L}/stage-panel/stage-text.tsx`, `${L}/stage-panel/stage-look-row.tsx`, `${L}/maker-reveal.tsx`, `${E}/scene-background-row.tsx`]) assert.doesNotMatch(read(f), /\bfrom="centre"/, `${f} fills from the centre`);
+});

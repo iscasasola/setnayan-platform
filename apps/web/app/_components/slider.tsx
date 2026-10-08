@@ -44,6 +44,7 @@ export function Slider({
   disabled = false,
   className = '',
   data,
+  from,
 }: {
   /** The slider's name, for a screen reader ("Text size", "Opacity"). */
   label: string;
@@ -62,6 +63,12 @@ export function Slider({
   className?: string;
   /** `data-slider="<data>"`. */
   data?: string;
+  /**
+   * Where the fill starts. Left out: the line's left end, up to the knob. `'centre'`: the MIDDLE of the line, out to
+   * the knob on either side — for a value that rests in the middle and goes both ways (Darker ↔ Lighter). The look
+   * is the stylesheet's (`.sn-slider[data-slider-from='centre']`); nothing else changes.
+   */
+  from?: 'centre';
 }) {
   return (
     <input
@@ -74,6 +81,7 @@ export function Slider({
       aria-label={label}
       aria-valuetext={valueText}
       data-slider={data ?? ''}
+      data-slider-from={from}
       onChange={(e) => onChange(Number(e.target.value))}
       onPointerUp={onCommit ? (e) => onCommit(Number(e.currentTarget.value)) : undefined}
       onKeyUp={onCommit ? (e) => onCommit(Number(e.currentTarget.value)) : undefined}

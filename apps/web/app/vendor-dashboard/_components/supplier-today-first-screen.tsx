@@ -1,21 +1,48 @@
 import Link from 'next/link';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import type { ReactElement, ReactNode } from 'react';
+import {
+  ArrowRight,
+  CalendarDays,
+  Check,
+  ChevronRight,
+  Eye,
+  LogOut,
+  MessageSquare,
+  Play,
+  RotateCw,
+  Send,
+  Users,
+  Wallet,
+  type LucideIcon,
+} from 'lucide-react';
 import { NextCard } from '@/app/_components/next-card';
-import type { SupplierNext, SupplierNextTarget } from '@/lib/supplier-today';
-import type { UpcomingEventRow } from '@/lib/vendor-overview';
+import { ActionButton } from '@/components/action-button';
+import { Count } from '@/components/count';
+import type {
+  SupplierIcon,
+  SupplierNext,
+  SupplierNextSecond,
+  SupplierNextTarget,
+  SupplierTone,
+  SupplierWaitingDoor,
+} from '@/lib/supplier-today';
+import type { UpcomingEventRow, WhatsNewCard } from '@/lib/vendor-overview';
 import { vendorBookingFeePayPath } from '@/lib/vendor-booking-fees';
 import { customerLandingHref } from '@/app/vendor-dashboard/customers/anchors';
+import { customerCardHref } from '@/lib/upcoming-schedule-door';
+import { SupplierSubmit } from './supplier-submit';
 
 /**
- * Where the one Next button goes. Written as `href:` literals ON PURPOSE — the
- * port-controls scan (`scripts/port-controls.mjs`) only sees an `href` followed
- * by a literal, which is why the host's `nextHref` is shaped the same way.
+ * Where a Next button (or an Also-waiting door) goes. Written as `href:`
+ * literals ON PURPOSE — the port-controls scan (`scripts/port-controls.mjs`)
+ * only sees an `href` followed by a literal, which is why the host's `nextHref`
+ * is shaped the same way.
  *
  * The three Customers-hub doors (quote · contract · payday) are the exception:
  * they come from the anchors module so each lands ON its own fold, opened and in
  * view — never the bare stub that reloads the roster.
  */
-function nextHref(t: SupplierNextTarget): string {
+export function nextHref(t: SupplierNextTarget): string {
   switch (t.to) {
     case 'thread': {
       const href = `/vendor-dashboard/messages/${t.threadId}`;
@@ -52,7 +79,9 @@ function nextHref(t: SupplierNextTarget): string {
       return href;
     }
     case 'today': {
-      const href = '/vendor-dashboard#today-all';
+      // The answers given on this page sit under "Also waiting" (the id is the
+      // one every older link already names).
+      const href = '/vendor-dashboard#whats-new';
       return href;
     }
     case 'given':
@@ -60,56 +89,225 @@ function nextHref(t: SupplierNextTarget): string {
   }
 }
 
-/** "3" + "Sat" for a Coming-up row, read in Manila like every date on this page. */
-function dayBlock(iso: string): { day: string; weekday: string } {
+/** "Sat 3" for a Coming-up row, read in Manila like every date on this page. */
+function dayWord(iso: string): string {
   const d = new Date(`${iso}T00:00:00+08:00`);
-  return {
-    day: d.toLocaleDateString('en-PH', { timeZone: 'Asia/Manila', day: 'numeric' }),
-    weekday: d.toLocaleDateString('en-PH', { timeZone: 'Asia/Manila', weekday: 'short' }),
-  };
+  const weekday = d.toLocaleDateString('en-PH', { timeZone: 'Asia/Manila', weekday: 'short' });
+  const day = d.toLocaleDateString('en-PH', { timeZone: 'Asia/Manila', day: 'numeric' });
+  return `${weekday} ${day}`;
 }
 
+const ICONS: Record<SupplierIcon, LucideIcon> = {
+  reply: MessageSquare,
+  check: Check,
+  play: Play,
+  send: Send,
+  calendar: CalendarDays,
+  wallet: Wallet,
+  retry: RotateCw,
+  forward: ArrowRight,
+  people: Users,
+  eye: Eye,
+};
+
+/*
+  🛑 A SERVER COMPONENT HANDS `ActionButton` (a client component) AN ELEMENT,
+  NEVER A COMPONENT — a function does not cross to the client and the whole
+  Today render fails (the couple's Home learned this on 2026-10-07).
+*/
+function icon(name: SupplierIcon): ReactElement {
+  const I = ICONS[name];
+  return <I aria-hidden="true" strokeWidth={1.9} />;
+}
+
+/** A small word on a tinted pill — "2 of 3" (waiting), "Live" (good). */
+export function TodayPill({ tone, children }: { tone: 'warn' | 'ok' | 'quiet'; children: ReactNode }) {
+  const token = tone === 'warn' ? '--color-warn' : tone === 'ok' ? '--color-ok' : '--color-ink';
+  return (
+    <span
+      data-today-pill={tone}
+      className="shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[12px]"
+      style={{
+        color: tone === 'quiet' ? 'color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent)' : `rgb(var(${token}))`,
+        background: `color-mix(in srgb, rgb(var(${token})) ${tone === 'quiet' ? 7 : 12}%, transparent)`,
+      }}
+    >
+      {children}
+    </span>
+  );
+}
+
+/** The small capitals over a list, with one optional door on the right. */
+export function TodayEyebrow({ children, door }: { children: ReactNode; door?: { label: string; href: string } }) {
+  return (
+    <p className="home-k2 flex items-center gap-2">
+      {children}
+      {door ? (
+        <Link href={door.href} className="ml-auto inline-flex items-center gap-0.5 text-[12.5px] font-medium normal-case tracking-normal text-mulberry-700">
+          {door.label}
+          <ChevronRight aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+        </Link>
+      ) : null}
+    </p>
+  );
+}
+
+/** One hairline row — label · one line · (a pill) · the chevron. No box. */
+export function TodayRow({ href, label, line, pill, lineTone, marker }: {
+  href: string;
+  label: string;
+  line: string | null;
+  pill?: ReactNode;
+  lineTone?: 'warn';
+  marker?: string;
+}) {
+  return (
+    <Link href={href} className="home-row" {...(marker ? { 'data-today-row': marker } : {})}>
+      <span className="min-w-0">
+        <span className="home-t block truncate text-[15px] leading-tight text-ink">{label}</span>
+        {line ? (
+          <span
+            className="block truncate text-[13px] text-ink/60"
+            style={lineTone === 'warn' ? { color: 'rgb(var(--color-warn))' } : undefined}
+          >
+            {line}
+          </span>
+        ) : null}
+      </span>
+      <span className="flex items-center gap-2 text-ink/45">
+        {pill}
+        <ChevronRight aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+      </span>
+    </Link>
+  );
+}
+
+export type SupplierTodayNumbers = {
+  /** Answers owed to customers — already worded ("3", "2+"), or null when the desk could not be read. */
+  waiting: string | null;
+  /** True when at least one is waiting — the number wears the waiting colour. */
+  waitingNow: boolean;
+  /** Booked events in the next seven days — already worded ("2", "5+"). */
+  thisWeek: string;
+  /** Still to come in from booked customers — already worded ("₱48K"), or null when payday could not be read. */
+  toComeIn: string | null;
+};
+
 export type SupplierTodayFirstScreenProps = {
-  /** The shop line — "Photo & video · Live" over the shop's name. */
-  cover: { eyebrow: string; name: string };
   next: SupplierNext;
-  /** Already worded: a count, "5+", or "—" when the read did not happen. */
-  numbers: { inquiries: string; thisWeek: string; owed: string };
+  /** The Next card's main button — colour and icon (`nextLook`). */
+  look: { tone: SupplierTone; icon: SupplierIcon };
+  /** The second, grey button, or null (`nextSecond`). */
+  second: SupplierNextSecond | null;
+  /** "1 of 3", or null. */
+  counter: string | null;
+  /** A few words after the eyebrow ("Waiting 2 h"), or null. */
+  meta: string | null;
+  /**
+   * 🗓 The Next card IS a date-change request: it carries the two answers
+   * itself (prototype frame 31). The shipped action, the shipped hidden
+   * fields — the same form the desk row below keeps.
+   */
+  dateChange?: {
+    card: Extract<WhatsNewCard, { kind: 'date_change' }>;
+    answer: (formData: FormData) => void | Promise<void>;
+  } | null;
+  numbers: SupplierTodayNumbers;
   /** The next three booked events (already sliced). */
   comingUp: readonly UpcomingEventRow[];
+  /** "Also waiting" — the desk's remaining asks, drawn by the page (they post server actions). */
+  alsoWaiting?: ReactNode;
+  /**
+   * True when `alsoWaiting` draws its own "Also waiting" heading (there is an
+   * ask row, or the desk could not be read). When it does not, the doors below
+   * carry the heading themselves — a row is never drawn under the wrong one.
+   */
+  alsoWaitingHeaded?: boolean;
+  /** The rules that are not a customer's ask, each a door (`supplierWaiting().doors`). */
+  doors?: readonly SupplierWaitingDoor[];
+  /** The one Shop row: the shop's name, and its state in a few words. */
+  shop: { name: string; line: string; live: boolean };
 };
 
 /**
- * 📱 THE SUPPLIER'S TODAY, FIRST SCREEN — owner-APPROVED 2026-10-01 (DECISION_LOG
- * "THE SUPPLIER PHONE APP — APPROVED, WITH THE THREE RECOMMENDED ANSWERS",
- * prototype `supplier_app_simple_2026-10-01_fable.html` frame 1).
+ * 📱 THE SUPPLIER'S TODAY — redrawn 2026-10-08 to the owner-approved redesign
+ * (corpus `SUPPLIER_DASHBOARD_REDESIGN_2026-10-08_fable.md` § 2 "Today" + § 3;
+ * prototype `prototypes/supplier_dashboard_2026-10-08_fable.html` frames 01 ·
+ * 02 · 15 · 31). The first screen approved on 2026-10-01 is kept; what was
+ * "See everything" under it is now part of the same column:
  *
- *   shop line → ONE Next card (one button) → three numbers → Coming up (3)
- *   → "See everything" (the rest of Today, unchanged, just below).
+ *   ONE Next card (its main verb + a grey second; "1 of 3") → three numbers →
+ *   Coming up (3) → Also waiting (the rest of the queue) → one Shop row.
  *
- * A server component, like the host's `HomeFirstScreen` it copies: every figure
- * arrives already read and already worded, so this adds no client weight.
+ * A server component: every figure arrives already read and already worded.
  *
- * 🔒 THE NEXT CARD IS THE FIRST THING YOU CAN TAP. The shop line above it is
- * text, not a link; `the-today-page-speaks-to-every-supplier.test.ts` renders
- * this and fails if any link or button comes before the Next button.
+ * 🔘 Every control is an `ActionButton` with a tone — Reply is a message
+ * (info), Agree and money are a commit (ok), Run the day is the forward step
+ * (brand) — or, where it posts a form, a `SupplierSubmit`.
  *
- * On a phone it fills the screen (minus the top bar and the measured dock), so
- * nothing else sits above the fold; from `lg` up the height is released.
+ * 🌑 On an event day the card goes ink (`day`), its title is the event, and
+ * its button is **Run the day**.
+ *
+ * 🔴 A failed read never reads as success: an unread desk says "Some answers
+ * couldn't load" on the Next card (the danger wash) and "couldn't load" on its
+ * number; an unread payday says "couldn't load" where the money would be —
+ * never ₱0, and never a number that quietly is not there.
+ *
+ * 🔒 THE NEXT CARD IS THE FIRST THING YOU CAN TAP. Nothing tappable is drawn
+ * above it; `the-today-page-speaks-to-every-supplier.test.ts` renders this and
+ * fails if a link or button comes before the Next card's own.
  */
-export function SupplierTodayFirstScreen({ cover, next, numbers, comingUp }: SupplierTodayFirstScreenProps) {
-  return (
-    <section
-      data-today-first-screen
-      aria-label="Today"
-      className="mx-auto flex w-full max-w-xl flex-col gap-3 max-lg:min-h-[calc(100svh-var(--sn-bottomdock-h,5.5rem)-5rem)]"
-    >
-      <div className="rounded-2xl bg-mulberry px-4 py-3 text-cream">
-        <p className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-cream/75">{cover.eyebrow}</p>
-        <p className="font-display text-[22px] leading-tight">{cover.name}</p>
-      </div>
+export function SupplierTodayFirstScreen({
+  next,
+  look,
+  second,
+  counter,
+  meta,
+  dateChange = null,
+  numbers,
+  comingUp,
+  alsoWaiting,
+  alsoWaitingHeaded = false,
+  doors = [],
+  shop,
+}: SupplierTodayFirstScreenProps) {
+  const day = next.kind === 'run_day';
+  const unread = next.kind === 'unread';
+  const greyClass = day ? 'home-cover-ab' : undefined;
 
-      {/* ① THE ONE NEXT CARD — the shared one, with exactly one button. */}
+  const actions = dateChange ? (
+    /* 🗓 Move · Unlock — the request's own two answers, ON the card (frame 31).
+       `contents` keeps both forms in the card's one button row. */
+    <>
+      <form action={dateChange.answer} className="contents" data-date-change-next={dateChange.card.eventVendorId}>
+        <input type="hidden" name="vendor_id" value={dateChange.card.eventVendorId} />
+        <input type="hidden" name="answer" value="moved" />
+        <SupplierSubmit tone="ok" main icon={<Check aria-hidden="true" strokeWidth={1.9} />} label="Move" pendingLabel="Saving…" />
+      </form>
+      <form action={dateChange.answer} className="contents">
+        <input type="hidden" name="vendor_id" value={dateChange.card.eventVendorId} />
+        <input type="hidden" name="answer" value="unlocked" />
+        <SupplierSubmit tone="neutral" icon={<LogOut aria-hidden="true" strokeWidth={1.9} />} label="Unlock" pendingLabel="Releasing…" />
+      </form>
+    </>
+  ) : (
+    <>
+      <ActionButton tone={look.tone} main icon={icon(look.icon)} label={next.action} href={unread ? '/vendor-dashboard' : nextHref(next.target)} />
+      {second ? (
+        <ActionButton
+          tone="neutral"
+          icon={icon(second.label === 'Chat' ? 'reply' : 'eye')}
+          label={second.label}
+          href={second.to === 'card' ? customerCardHref(second.eventId, 'details') : second.href}
+          className={greyClass}
+        />
+      ) : null}
+    </>
+  );
+
+  return (
+    <section data-today-first-screen aria-label="Today" className="mx-auto flex w-full max-w-xl flex-col">
+      {/* ① THE ONE NEXT CARD — the shared card, drawn with the button rule's row. */}
       <NextCard
         marker="data-today-next"
         kind={next.kind}
@@ -117,60 +315,114 @@ export function SupplierTodayFirstScreen({ cover, next, numbers, comingUp }: Sup
         body={next.body}
         action={next.action}
         href={nextHref(next.target)}
+        bad={unread}
+        day={day}
+        soft
+        counter={counter}
+        meta={meta}
+        actions={actions}
+        note={
+          dateChange
+            ? 'Unlocking releases this booking. Any payment is settled by the cancellation terms on the booking — Setnayan never decides a refund.'
+            : undefined
+        }
       />
 
-      {/* ② THREE NUMBERS — each goes to the list it counts; "—" when unread, never 0. */}
-      <div className="grid grid-cols-3 gap-2" data-today-numbers>
-        <Link href="/vendor-dashboard/customers?lane=waiting#customers" className="sn-glass-bare sn-press rounded-xl px-2 py-3 text-center">
-          <span className="block font-display text-[26px] leading-none text-ink">{numbers.inquiries}</span>
-          <span className="mt-1 block text-[11.5px] text-ink/55">new inquiries</span>
+      {/* ② THREE NUMBERS — each goes to the list it counts. A read that failed
+          says so in words, in the number's own place — never 0, never ₱0. */}
+      <div className="mt-3 grid grid-cols-3 gap-1 border-y border-ink/10 py-3" data-today-numbers>
+        <Link href="/vendor-dashboard/customers?lane=waiting#customers" className="grid gap-0.5 text-center" data-today-number="waiting">
+          {numbers.waiting === null ? (
+            <Unread />
+          ) : (
+            <>
+              <span
+                className="block text-[26px] font-semibold leading-none tabular-nums text-ink"
+                style={numbers.waitingNow ? { color: 'rgb(var(--color-mulberry-700))' } : undefined}
+              >
+                <Figure word={numbers.waiting} id="today-waiting" />
+              </span>
+              <span className="block text-[11.5px] text-ink/60">waiting on you</span>
+            </>
+          )}
         </Link>
-        <Link href="/vendor-dashboard/calendar" className="sn-glass-bare sn-press rounded-xl px-2 py-3 text-center">
-          <span className="block font-display text-[26px] leading-none text-ink">{numbers.thisWeek}</span>
-          <span className="mt-1 block text-[11.5px] text-ink/55">events this week</span>
+        <Link href="/vendor-dashboard/calendar" className="grid gap-0.5 text-center" data-today-number="week">
+          <span className="block text-[26px] font-semibold leading-none tabular-nums text-ink">
+            <Figure word={numbers.thisWeek} id="today-week" />
+          </span>
+          <span className="block text-[11.5px] text-ink/60">events this week</span>
         </Link>
-        <Link href={customerLandingHref('payday')} className="sn-glass-bare sn-press rounded-xl px-2 py-3 text-center">
-          <span className="block font-display text-[26px] leading-none text-ink">{numbers.owed}</span>
-          <span className="mt-1 block text-[11.5px] text-ink/55">owed to you</span>
+        <Link href={customerLandingHref('payday')} className="grid gap-0.5 text-center" data-today-number="money" data-money="">
+          {numbers.toComeIn === null ? (
+            <Unread />
+          ) : (
+            <>
+              <span className="block text-[26px] font-semibold leading-none tabular-nums text-ink">{numbers.toComeIn}</span>
+              <span className="block text-[11.5px] text-ink/60">to come in</span>
+            </>
+          )}
         </Link>
       </div>
 
-      {/* ③ COMING UP — the next three booked events, each opening its customer card. */}
-      <div className="sn-glass-bare rounded-2xl px-3 py-2" data-today-coming-up>
-        <p className="px-1 pt-1 font-mono text-[10.5px] uppercase tracking-[0.18em] text-terracotta-700">Coming up</p>
+      {/* ③ COMING UP — the next three booked events, each opening its customer. */}
+      <div data-today-coming-up>
+        <TodayEyebrow door={{ label: 'All dates', href: '/vendor-dashboard/calendar' }}>Coming up</TodayEyebrow>
         {comingUp.length === 0 ? (
-          <p className="px-1 py-2 text-sm text-ink/55">No booked events yet.</p>
+          <p className="py-2 text-sm text-ink/60">No booked events yet.</p>
         ) : (
-          <ul className="divide-y divide-ink/10">
-            {comingUp.map((row) => {
-              const { day, weekday } = dayBlock(row.date);
-              return (
-                <li key={row.id}>
-                  <Link href={row.href} className="flex items-center gap-3 px-1 py-2.5">
-                    <span className="w-9 shrink-0 text-center">
-                      <span className="block font-display text-[20px] leading-none text-ink">{day}</span>
-                      <span className="block text-[10.5px] uppercase text-ink/50">{weekday}</span>
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate font-display text-[16px] text-ink">{row.eventName}</span>
-                      {row.place ? <span className="block truncate text-[12.5px] text-ink/55">{row.place}</span> : null}
-                    </span>
-                    <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-ink/40" strokeWidth={1.75} />
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
+          <div className="[&>a:first-child]:border-t-0">
+            {comingUp.map((row) => (
+              <TodayRow key={row.id} href={row.href} label={`${dayWord(row.date)} · ${row.eventName}`} line={row.place} marker="coming-up" />
+            ))}
+          </div>
         )}
       </div>
 
-      <a
-        href="#today-all"
-        className="mt-auto inline-flex items-center justify-center gap-1 self-center py-2 text-[13px] font-medium text-ink/55 hover:text-ink lg:hidden"
-      >
-        See everything
-        <ChevronDown aria-hidden className="h-4 w-4" strokeWidth={2} />
-      </a>
+      {/* ④ ALSO WAITING — the rest of the queue: the asks (answered in place),
+          then the rules that are not a customer's ask, each a door. */}
+      {alsoWaiting}
+      {doors.length > 0 ? (
+        <div data-today-doors className={alsoWaitingHeaded ? undefined : '[&>a:first-of-type]:border-t-0'}>
+          {alsoWaitingHeaded ? null : <TodayEyebrow>Also waiting</TodayEyebrow>}
+          {doors.map((d) => (
+            <TodayRow key={d.id} href={nextHref(d.target)} label={d.label} line={d.line} lineTone="warn" marker={d.id} />
+          ))}
+        </div>
+      ) : null}
+
+      {/* ⑤ THE ONE SHOP ROW — what the shop line at the top used to say. */}
+      <div data-today-shop>
+        <TodayEyebrow door={{ label: 'Open', href: '/vendor-dashboard/shop' }}>Shop</TodayEyebrow>
+        <div className="[&>a:first-child]:border-t-0">
+          <TodayRow
+            href="/vendor-dashboard/shop"
+            label={shop.name}
+            line={shop.line}
+            pill={shop.live ? <TodayPill tone="ok">Live</TodayPill> : undefined}
+            marker="shop"
+          />
+        </div>
+      </div>
     </section>
+  );
+}
+
+/** A number counts to its value (`Count`); a word ("5+", "2+") is shown as it is. */
+function Figure({ word, id }: { word: string; id: string }) {
+  const n = /^\d+$/.test(word) ? Number(word) : null;
+  return n === null ? <>{word}</> : <Count value={n} id={id} />;
+}
+
+/** The read did not happen — said in the number's own place. */
+function Unread() {
+  return (
+    <>
+      <span className="block text-[26px] font-semibold leading-none" style={{ color: 'rgb(var(--color-warn))' }} aria-hidden>
+        —
+      </span>
+      <span className="block text-[11.5px] text-ink/60" data-today-unread="">
+        couldn&rsquo;t load
+      </span>
+    </>
   );
 }

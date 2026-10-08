@@ -37,6 +37,11 @@ export function NextCard({
   later = null,
   actions,
   bad = false,
+  meta,
+  counter = null,
+  day = false,
+  note,
+  soft = false,
 }: {
   marker: 'data-home-next' | 'data-today-next';
   kind: string;
@@ -56,14 +61,57 @@ export function NextCard({
   actions?: ReactNode;
   /** A read failed — the card says so in the danger wash (H3), never as success. */
   bad?: boolean;
+  /**
+   * 🧾 THE SUPPLIER'S TODAY (redesign S-PR1, 2026-10-08 —
+   * `prototypes/supplier_dashboard_2026-10-08_fable.html` frames 01 · 02 · 31).
+   * All four are optional and only read by the `actions` variant; a caller
+   * that passes none (the couple's Home) gets the card exactly as it was.
+   *   `meta`    a few words after the eyebrow ("waiting 2 h" · "answer today")
+   *   `counter` where this is in the queue ("1 of 3"), top right
+   *   `day`     an event is TODAY — the card goes ink, its words paper
+   *   `note`    one line under the buttons, said BEFORE the press
+   *   `soft`    the supplier prototype's card: a soft gold ground with no edge
+   *             and a 24 px title (`.next` in the prototype). Never on a `bad`
+   *             or a `day` card — a failure and an event day keep their own.
+   */
+  meta?: ReactNode;
+  counter?: string | null;
+  day?: boolean;
+  note?: ReactNode;
+  soft?: boolean;
 }) {
   if (actions !== undefined) {
     return (
-      <div {...{ [marker]: kind }} data-next-bad={bad ? '' : undefined} className={`home-card${bad ? ' home-card-bad' : ''}`}>
-        <p className="home-eyebrow">Your next step</p>
+      <div
+        {...{ [marker]: kind }}
+        data-next-bad={bad ? '' : undefined}
+        data-next-day={day ? '' : undefined}
+        data-next-soft={soft && !bad && !day ? '' : undefined}
+        className={`home-card${bad ? ' home-card-bad' : ''}${
+          day ? ' relative !border-ink !bg-ink !text-cream [&_.home-card-body]:!text-cream/70 [&_.home-eyebrow]:!text-cream/70' : counter ? ' relative' : ''
+        }${soft ? ' !p-4 [&_.home-card-title]:!text-[24px] [&_.home-card-title]:!font-medium [&_.home-card-title]:!leading-[1.1]' : ''}`}
+        /* Mixed from the two tokens that flip with the theme, so the soft gold
+           is soft on a dark page too (a fixed #F3ECDF would put light ink on a
+           light fill). */
+        style={
+          soft && !bad && !day
+            ? { background: 'color-mix(in srgb, rgb(var(--color-terracotta)) 16%, rgb(var(--color-cream)))', borderColor: 'transparent' }
+            : undefined
+        }
+      >
+        {counter ? (
+          <span data-next-counter="" className={`absolute right-3.5 top-3 text-[12px] ${day ? 'text-cream/70' : 'text-ink/60'}`}>
+            {counter}
+          </span>
+        ) : null}
+        <p className="home-eyebrow">
+          Your next step
+          {meta ? <> · {meta}</> : null}
+        </p>
         <h2 className="home-card-title">{title}</h2>
         <p className="home-card-body">{body}</p>
         <div className="home-acts">{actions}</div>
+        {note ? <p data-next-note="" className={`mt-2 text-[12.5px] leading-snug ${day ? 'text-cream/70' : 'text-ink/60'}`}>{note}</p> : null}
       </div>
     );
   }

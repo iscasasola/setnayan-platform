@@ -50,9 +50,14 @@ test('every headline count on Today has a destination', () => {
   assert.equal(links.length, 3, `${links.length} of the three numbers are links`);
   // A literal door, or one of the Customers hub's named landings (the anchors module).
   for (const l of links) assert.match(l, /href=(?:"\/vendor-dashboard[^"]*"|\{customerLandingHref\('\w+'\)\})/, `a number links nowhere real: ${l}`);
-  for (const word of ['new inquiries', 'events this week', 'owed to you']) {
+  // The redesign's words (2026-10-08, prototype frame 01): waiting on you ·
+  // events this week · to come in.
+  for (const word of ['waiting on you', 'events this week', 'to come in']) {
     assert.ok(block.includes(word), `the "${word}" number is gone`);
   }
+  // A number that could not be read is STILL inside its link — "couldn't load"
+  // goes to the list it could not count, it does not become a dead label.
+  assert.equal((block.match(/<Unread \/>/g) ?? []).length, 2, 'the two numbers that can fail to read each say so in place');
 });
 
 test('the destinations exist as routes', () => {
@@ -78,5 +83,8 @@ test('the money number goes to the money — Payday', () => {
 test('each Coming-up row opens its customer — the list under the numbers links too', () => {
   const s = src();
   const coming = s.slice(s.indexOf('data-today-coming-up'));
-  assert.match(coming, /<Link href=\{row\.href\}/, 'a Coming-up row is drawn but goes nowhere');
+  // The row is the shared hairline row now (`TodayRow`, one <Link>).
+  assert.match(coming, /<TodayRow key=\{row\.id\} href=\{row\.href\}/, 'a Coming-up row is drawn but goes nowhere');
+  const rowFn = s.slice(s.indexOf('export function TodayRow('));
+  assert.match(rowFn, /<Link href=\{href\} className="home-row"/, 'the shared row is not a link');
 });

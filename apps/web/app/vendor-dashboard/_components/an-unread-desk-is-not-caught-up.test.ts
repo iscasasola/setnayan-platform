@@ -78,8 +78,37 @@ test('a desk with cards whose reads did not finish still says so above the cards
   assert.match(html, COULDNT);
 });
 
-test('a desk that read in full and is empty is "all caught up" (the control)', async () => {
+/*
+  THE CONTROL MOVED WITH THE REDRAW (supplier redesign S-PR1, 2026-10-08). The
+  desk is the "Also waiting" list now, and an empty list that WAS read in full
+  draws nothing at all — "all caught up" is said once, by the Next card above
+  it (`pickSupplierNext` → `clear`). So the two halves of this property are
+  asserted where each now lives:
+    · the list: read-in-full + empty → nothing drawn, and no "couldn't load";
+    · the card: `clear` says "caught up"; `unread` never does.
+  SABOTAGE: `if (rows.length === 0 && !incomplete) return null` → `if
+  (rows.length === 0) return null` turns test 1 RED (an unread desk draws
+  nothing — byte-identical to a desk with nothing waiting).
+*/
+test('a desk that read in full and is empty draws nothing — the Next card says "all caught up" (the control)', async () => {
   const html = await renderFeed(false);
-  assert.match(html, CAUGHT_UP);
-  assert.doesNotMatch(html, COULDNT);
+  assert.equal(html, '', 'an empty, fully-read list is furniture — it should not be drawn');
+  const { pickSupplierNext } = await import('@/lib/supplier-today');
+  const base = {
+    answer: null,
+    answerSince: null,
+    upcoming: [],
+    setupStep: null,
+    findability: null,
+    fee: null,
+    owedPhp: null,
+    now: Date.UTC(2026, 9, 1),
+  };
+  const clear = pickSupplierNext({ ...base, deskIncomplete: false });
+  assert.equal(clear.kind, 'clear');
+  assert.match(clear.title, /all caught up/i);
+  const unread = pickSupplierNext({ ...base, deskIncomplete: true });
+  assert.equal(unread.kind, 'unread');
+  assert.doesNotMatch(`${unread.title} ${unread.body}`, CAUGHT_UP);
+  assert.match(unread.title, /couldn’t load/);
 });

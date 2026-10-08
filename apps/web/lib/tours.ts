@@ -1137,7 +1137,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: Wallet,
         title: 'Three numbers',
-        body: 'New inquiries, events this week, and what is still owed to you. Tap any of them to see the list behind it.',
+        body: 'Waiting on you, events this week, and what is still to come in. Tap any of them to see the list behind it.',
       },
       {
         Icon: Settings,

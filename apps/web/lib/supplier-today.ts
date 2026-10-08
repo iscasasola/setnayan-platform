@@ -205,7 +205,11 @@ export function answerNext(card: WhatsNewCard, since: Date | null, now: number):
         title: 'A couple wants to remove a celebration',
         body: 'Only you can release it. Read what they asked first.',
         action: 'Answer',
-        target: { to: 'card', eventId: card.eventId, tab: 'details' },
+        // 🔴 WAS the customer card's details — a page that has never carried
+        // this answer (`vendorAgreeToDeletion` is mounted by Today alone), so
+        // the button opened a card with nothing to press. The answer is given
+        // on this page, in its own row; the button goes to it (2026-10-08).
+        target: { to: 'today' },
       };
     case 'mark_complete':
       return {
@@ -366,4 +370,225 @@ export function owedToYouPhp(
 ): number | null {
   if (!earnings || !earnings.paydayMeasured) return null;
   return Math.max(0, earnings.expectedPhp - earnings.confirmedPhp);
+}
+
+/* ─── THE QUEUE — the Next card's place in it, and what is "Also waiting" ───
+ *
+ * Supplier dashboard redesign S-PR1 (corpus
+ * `SUPPLIER_DASHBOARD_REDESIGN_2026-10-08_fable.md` § 2 "Today" + § 3; prototype
+ * `supplier_dashboard_2026-10-08_fable.html` frames 01 · 02 · 15 · 31):
+ *
+ *   ONE Next card ("1 of 3") → three numbers → Coming up (3) → Also waiting
+ *   (the rest of the queue) → one Shop row.
+ *
+ * `pickSupplierNext` above is UNCHANGED — the nine rules, in their order. This
+ * section only says how the card is drawn (tone · icon · the second, grey
+ * button) and which of the page's existing things sit under "Also waiting".
+ *
+ * 🔑 THE ASKS ARE NUMBERED; THE DOORS ARE NOT. "1 of 3" counts the answers this
+ * shop owes customers (the desk, oldest first) — the same count as the
+ * "waiting on you" number beside it. The rules that are not a customer's ask
+ * (finish setting up · couples can't find you · a credit is about to expire ·
+ * couples can't see where to pay you) are rows under the asks with no number:
+ * each appears whenever its rule applies and it is not the Next card itself, so
+ * none of them can be hidden by a busier rule above it.
+ *
+ * 💸 THE BOOKING FEE IS NOT ONE OF THOSE ROWS. `pickSupplierNext` knows ONE
+ * bill (the first), and only when nothing above it applies; a shop can owe
+ * several. Today therefore keeps the shipped `<BookingFeeBills>` — every unpaid
+ * bill, each with its own Pay — which `the-fee-finds-the-supplier.test.ts`
+ * holds on this page (owner 2026-09-20: "i never saw the payment screen to pay
+ * us"). The page leaves out only the bill the Next card is already showing.
+ */
+
+/** One colour per meaning (`components/action-button.tsx`), named here as data. */
+export type SupplierTone = 'brand' | 'ok' | 'info' | 'warn' | 'danger' | 'neutral';
+export type SupplierIcon = 'reply' | 'check' | 'play' | 'send' | 'calendar' | 'wallet' | 'retry' | 'forward' | 'people' | 'eye';
+
+/** A desk card's main verb: Reply is a message, Agree and money are a commit, the rest go forward. */
+const ANSWER_LOOK: Record<WhatsNewCard['kind'], { tone: SupplierTone; icon: SupplierIcon }> = {
+  inquiry: { tone: 'info', icon: 'reply' },
+  message: { tone: 'info', icon: 'reply' },
+  review: { tone: 'info', icon: 'reply' },
+  lock_request: { tone: 'ok', icon: 'check' },
+  lock: { tone: 'ok', icon: 'check' },
+  mark_complete: { tone: 'ok', icon: 'check' },
+  date_change: { tone: 'ok', icon: 'check' },
+  // Removing an event is not a commit to celebrate — the button only OPENS the answer.
+  delete_request: { tone: 'neutral', icon: 'forward' },
+  meeting: { tone: 'brand', icon: 'calendar' },
+  quote_draft: { tone: 'brand', icon: 'send' },
+  contract_draft: { tone: 'brand', icon: 'send' },
+  lock_request_lapsed: { tone: 'neutral', icon: 'forward' },
+  dispute: { tone: 'neutral', icon: 'forward' },
+};
+
+const RULE_LOOK: Record<Exclude<SupplierNextKind, 'answer'>, { tone: SupplierTone; icon: SupplierIcon }> = {
+  run_day: { tone: 'brand', icon: 'play' },
+  unread: { tone: 'neutral', icon: 'retry' },
+  setup: { tone: 'brand', icon: 'forward' },
+  findable: { tone: 'brand', icon: 'forward' },
+  tomorrow: { tone: 'brand', icon: 'calendar' },
+  fee: { tone: 'ok', icon: 'wallet' },
+  payday: { tone: 'brand', icon: 'wallet' },
+  clear: { tone: 'neutral', icon: 'people' },
+};
+
+/** The Next card's main button — its colour and its icon. */
+export function nextLook(kind: SupplierNextKind, answer: WhatsNewCard | null): { tone: SupplierTone; icon: SupplierIcon } {
+  if (kind === 'answer') return answer ? ANSWER_LOOK[answer.kind] : { tone: 'brand', icon: 'forward' };
+  return RULE_LOOK[kind];
+}
+
+/**
+ * The second, grey button (the plan: "Their brief / Chat"). A card whose main
+ * button opens the CHAT gets the customer's brief; on an event day it is that
+ * event's chat. `null` when there is no second place to go.
+ *
+ * ⚠ NO "Chat" WITHOUT A THREAD ID. A booking ask, a logged payment, a meeting
+ * and a date change carry the event, not the thread, and a bare client route
+ * only reaches the chat by a redirect (`the-upcoming-row-opens-the-customer-
+ * card.test.ts`: "a bare route IS the chat" — by accident). A grey button that
+ * lands somewhere by accident is worse than none, so those cards have one
+ * button until the desk reads carry the thread.
+ */
+export type SupplierNextSecond =
+  | { label: 'Their brief'; to: 'card'; eventId: string }
+  | { label: 'Chat'; to: 'given'; href: string };
+
+export function nextSecond(next: SupplierNext, answer: WhatsNewCard | null, upcoming: readonly UpcomingEventRow[]): SupplierNextSecond | null {
+  if (next.kind === 'run_day') {
+    const first = upcoming[0];
+    return first?.threadHref && first.threadHref !== first.href ? { label: 'Chat', to: 'given', href: first.threadHref } : null;
+  }
+  if (next.kind !== 'answer' || !answer) return null;
+  // A pre-accept inquiry has no customer card yet — the thread is the whole brief.
+  if (answer.kind === 'message' && answer.eventId) return { label: 'Their brief', to: 'card', eventId: answer.eventId };
+  return null;
+}
+
+/**
+ * The few words after the Next card's eyebrow — "waiting 2 h" (prototype frame
+ * 01: "Next · waiting 2 h"). Only for an ask whose own line does not already
+ * say it: an inquiry, a reply owed and a meeting carry "Waiting 2 h." in the
+ * body, and a date change carries its deadline there. `null` otherwise — the
+ * card never says one thing twice.
+ */
+export function nextMeta(answer: WhatsNewCard | null, since: Date | null, now: number): string | null {
+  if (!answer || !since) return null;
+  if (answer.kind === 'inquiry' || answer.kind === 'message' || answer.kind === 'meeting' || answer.kind === 'date_change') return null;
+  return waitingAge(since.toISOString(), now)?.label ?? null;
+}
+
+/**
+ * 🗝 THE TWO ANSWERS GIVEN ONLY ON TODAY. Every other answer has a second home
+ * (the thread, the customer card, the reviews page, the Customers folds). These
+ * two are mounted by no other page — measured 2026-10-08: `vendorAnswerDateChange`
+ * and `vendorAgreeToDeletion` / `vendorDeclineDeletion` are imported by Today
+ * alone. A date change is answered ON the Next card (prototype frame 31: Move ·
+ * Unlock · Chat); a delete request, when it is the Next card, also keeps its
+ * row under "Also waiting", open, so the card's button has somewhere to land.
+ */
+export const ANSWERED_ONLY_ON_TODAY: readonly WhatsNewCard['kind'][] = ['date_change', 'delete_request'];
+
+export type SupplierWaitingAsk = {
+  card: WhatsNewCard;
+  /** The same words the Next card would say for this ask. */
+  label: string;
+  line: string;
+  /** "2 of 3" — its place among the asks. */
+  position: number;
+  /** Starts open: it is the Next card's own ask, and it is answered here. */
+  open: boolean;
+};
+
+export type SupplierWaitingDoorId = 'setup' | 'findable' | 'credit' | 'payout';
+
+export type SupplierWaitingDoor = {
+  id: SupplierWaitingDoorId;
+  label: string;
+  line: string;
+  target: SupplierNextTarget;
+};
+
+export type SupplierWaiting = {
+  /** How many answers this shop owes customers. */
+  total: number;
+  /** "1 of 3" for the Next card, or null when the Next card is not one of the asks (or it is the only one). */
+  counter: string | null;
+  /** The Next card's own ask — skipped from the rows unless it is answered only here. */
+  nextAskId: string | null;
+  asks: SupplierWaitingAsk[];
+  doors: SupplierWaitingDoor[];
+};
+
+export function supplierWaiting(args: {
+  next: SupplierNext;
+  /** The Needs-your-answer half of the desk, oldest waiting first (never re-sorted here). */
+  needsAnswer: readonly WhatsNewCard[];
+  since: (card: WhatsNewCard) => Date | null;
+  setupStep: SupplierNextInput['setupStep'];
+  findability: SupplierNextInput['findability'];
+  /** The credit-about-to-expire notice (`todayCreditNotice`) — it has no rule above, so it is always a row. */
+  credit: { title: string; body: string; href: string } | null;
+  /** Couples cannot see where to pay this shop (`PayoutMethodNudge`'s rule) — no rule above either. */
+  payout: { title: string; body: string; href: string } | null;
+  now: number;
+}): SupplierWaiting {
+  const { next, needsAnswer, now } = args;
+  const nextAsk = next.kind === 'answer' ? nextAnswerOf(needsAnswer) : null;
+  const total = needsAnswer.length;
+  // The Next ask is number 1; the rest keep the desk's own order after it.
+  const ordered = nextAsk ? [nextAsk, ...needsAnswer.filter((c) => c.id !== nextAsk.id)] : [...needsAnswer];
+  const asks: SupplierWaitingAsk[] = [];
+  ordered.forEach((card, i) => {
+    const isNext = nextAsk !== null && card.id === nextAsk.id;
+    // The Next card already says it — unless its answer is given only on this
+    // page and the card itself cannot take it (a delete request).
+    if (isNext && card.kind !== 'delete_request') return;
+    const said = answerNext(card, args.since(card), now);
+    asks.push({ card, label: said.title, line: said.body, position: i + 1, open: isNext });
+  });
+
+  const doors: SupplierWaitingDoor[] = [];
+  if (args.setupStep && next.kind !== 'setup') {
+    doors.push({
+      id: 'setup',
+      label: args.setupStep.title,
+      line: args.setupStep.body,
+      target: args.setupStep.href ? { to: 'given', href: args.setupStep.href } : { to: 'today' },
+    });
+  }
+  if (args.findability && next.kind !== 'findable') {
+    doors.push({
+      id: 'findable',
+      label: args.findability.title,
+      line: args.findability.body,
+      target: args.findability.cta ? { to: 'given', href: args.findability.cta.href } : { to: 'today' },
+    });
+  }
+  if (args.credit) {
+    doors.push({ id: 'credit', label: args.credit.title, line: args.credit.body, target: { to: 'given', href: args.credit.href } });
+  }
+  if (args.payout) {
+    doors.push({ id: 'payout', label: args.payout.title, line: args.payout.body, target: { to: 'given', href: args.payout.href } });
+  }
+
+  return {
+    total,
+    counter: nextAsk && total > 1 ? `1 of ${formatCount(total)}` : null,
+    nextAskId: nextAsk?.id ?? null,
+    asks,
+    doors,
+  };
+}
+
+/**
+ * The first number — "waiting on you". `null` when the desk could not be fully
+ * read AND shows nothing: the tile then says "couldn't load", never 0. A short
+ * read that still found some says "2+", never a count that is quietly short.
+ */
+export function waitingOnYou(count: number, deskIncomplete: boolean): string | null {
+  if (!deskIncomplete) return formatCount(count);
+  return count > 0 ? `${formatCount(count)}+` : null;
 }

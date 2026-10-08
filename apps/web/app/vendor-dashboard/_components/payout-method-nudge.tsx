@@ -38,13 +38,17 @@ import type { PayoutReadiness } from '@/lib/deposit-pay-step';
  */
 export const PAYMENT_OPTIONS_HREF = '/vendor-dashboard/shop?open=payments#shop-folds';
 
-export function PayoutMethodNudge({
-  readiness,
-  context,
-}: {
-  readiness: PayoutReadiness;
-  context: 'lock' | 'client' | 'today';
-}) {
+/**
+ * THE NUDGE'S WORDS, ONCE. The tile below draws them; the supplier's Today
+ * draws the same two strings as one row under "Also waiting" (redesign S-PR1,
+ * 2026-10-08) — one source, so the row and the tile can never say two things.
+ * `null` when there is nothing to say: a ready shop, or a read that did not
+ * happen (`unreadable` renders NOTHING — never "you have no way to be paid").
+ */
+export function payoutNudgeCopy(
+  readiness: PayoutReadiness,
+  context: 'lock' | 'client' | 'today',
+): { body: string; cta: string } | null {
   if (readiness === 'ready' || readiness === 'unreadable') return null;
 
   const inReview = readiness === 'in_review';
@@ -55,6 +59,19 @@ export function PayoutMethodNudge({
       : context === 'today'
         ? 'You have bookings, and your couples can’t see anywhere to pay you yet. Add your bank, e-wallet or QR so their payments can reach you.'
         : 'This couple can’t see anywhere to pay you. Add your bank, e-wallet or QR so their payment can reach you.';
+  return { body, cta: inReview ? 'View your payment options' : 'Add a payment method' };
+}
+
+export function PayoutMethodNudge({
+  readiness,
+  context,
+}: {
+  readiness: PayoutReadiness;
+  context: 'lock' | 'client' | 'today';
+}) {
+  const copy = payoutNudgeCopy(readiness, context);
+  if (!copy) return null;
+  const { body, cta } = copy;
 
   return (
     <div
@@ -74,7 +91,7 @@ export function PayoutMethodNudge({
           href={PAYMENT_OPTIONS_HREF}
           className="inline-flex text-sm font-semibold text-ink underline underline-offset-2"
         >
-          {inReview ? 'View your payment options' : 'Add a payment method'}
+          {cta}
         </Link>
       </div>
     </div>

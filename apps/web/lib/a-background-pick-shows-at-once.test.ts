@@ -335,7 +335,7 @@ function fakeCanvas(opts: { reducedMotion?: boolean } = {}) {
     replaceChildren(...kids: El[]) { this.children = kids; for (const k of kids) k.parent = this; }
     append(k: El) { this.children.push(k); k.parent = this; }
     remove() { if (this.parent) this.parent.children = this.parent.children.filter((c) => c !== this); }
-    contains(o: El) { return this.children.includes(o) || this.children.some((c) => c.contains(o)); }
+    contains(o: El): boolean { return this.children.includes(o) || this.children.some((c): boolean => c.contains(o)); }
     querySelector(sel: string) { return this.children.find((c) => c.tagName === sel.toUpperCase()) ?? null; }
     addEventListener(t: string, fn: Listener) { (this.listeners[t] ??= []).push(fn); }
     fire(t: string) { const l = this.listeners[t] ?? []; this.listeners[t] = []; for (const fn of l) fn(); }

@@ -41,6 +41,8 @@ type StepCount = {
   /** table or function name → hits, for the "what asked so much?" follow-up. */
   targets: Record<string, number>;
   failed: number;
+  /** "<target> → <status>" → hits: WHICH requests the database refused. */
+  refused: Record<string, number>;
 };
 
 const upstream = assertLocalUrl(process.env.COUNT_UPSTREAM ?? 'http://127.0.0.1:54321', 'the counter upstream');
@@ -53,6 +55,7 @@ const newStep = (step: string): StepCount => ({
   counts: { server: emptyKinds(), browser: emptyKinds() },
   targets: {},
   failed: 0,
+  refused: {},
 });
 
 const steps: StepCount[] = [newStep('(before the walk)')];
@@ -106,11 +109,18 @@ const server = http.createServer((req, res) => {
   // CORS preflights are the browser asking permission, not a request for data.
   const counted = req.method !== 'OPTIONS';
   const step = current();
+  let asked = '';
   if (counted) {
     const { kind, target } = classify(req.method ?? 'GET', u.pathname);
+    asked = target;
     step.counts[whoAsked(req)][kind]++;
     step.targets[target] = (step.targets[target] ?? 0) + 1;
   }
+  const refuse = (status: number | string): void => {
+    step.failed++;
+    const key = `${asked} → ${status}`;
+    step.refused[key] = (step.refused[key] ?? 0) + 1;
+  };
 
   const proxied = http.request(
     {
@@ -121,13 +131,13 @@ const server = http.createServer((req, res) => {
       headers: { ...req.headers, host: upstream.host },
     },
     (up) => {
-      if (counted && (up.statusCode ?? 0) >= 400) step.failed++;
+      if (counted && (up.statusCode ?? 0) >= 400) refuse(up.statusCode ?? 0);
       res.writeHead(up.statusCode ?? 502, up.headers);
       up.pipe(res);
     },
   );
   proxied.on('error', (e) => {
-    if (counted) step.failed++;
+    if (counted) refuse('unreachable');
     if (!res.headersSent) res.writeHead(502, { 'content-type': 'text/plain' });
     res.end(`rehearsal counter: upstream unreachable (${e.message})`);
   });

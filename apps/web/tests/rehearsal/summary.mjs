@@ -160,28 +160,39 @@ if (reqSteps.length === 0) {
   say('Counted at the door between the app and the database, for the fixture (30 guests, 12 suppliers, 3 orders).');
   say('"DB" = PostgREST requests (reads + writes + function calls). "from the phone" = sent by the browser itself, the rest by the app\'s server.');
   say();
-  say('| Step | DB reads | DB writes | DB function calls | **DB total** | from the phone | auth | failed | Asked most |');
-  say('|---|---:|---:|---:|---:|---:|---:|---:|---|');
+  say('| Step | Screens opened | Other screens preloaded | DB reads | DB writes | DB function calls | **DB total** | from the phone | auth | refused | Asked most |');
+  say('|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|');
   let grand = 0;
+  const refusedLines = [];
   for (const s of reqSteps) {
     const sv = s.counts?.server ?? {};
     const br = s.counts?.browser ?? {};
     const sum = (k) => (sv[k] ?? 0) + (br[k] ?? 0);
     const db = sum('read') + sum('write') + sum('rpc');
     const fromPhone = (br.read ?? 0) + (br.write ?? 0) + (br.rpc ?? 0);
-    grand += db;
+    if (!s.step.startsWith('(')) grand += db;
+    const walked = stepList.find((r) => r.counted === s.step);
     const top = Object.entries(s.targets ?? {})
       .filter(([k]) => !k.startsWith('auth:') && !k.startsWith('other:'))
       .sort((a, b) => b[1] - a[1])
       .slice(0, 3)
       .map(([k, n]) => `${k.replace(/^(read|write|rpc):/, '')} ×${n}`)
       .join(', ');
+    for (const [k, n] of Object.entries(s.refused ?? {})) refusedLines.push(`- ${cell(s.step)}: \`${cell(k)}\` ×${n}`);
     say(
-      `| ${cell(s.step)} | ${sum('read')} | ${sum('write')} | ${sum('rpc')} | **${db}** | ${fromPhone} | ${sum('auth')} | ${s.failed ?? 0} | ${cell(top)} |`,
+      `| ${cell(s.step)} | ${walked ? walked.app?.screens ?? '' : ''} | ${walked ? walked.app?.preloads ?? '' : ''} | ${sum('read')} | ${sum('write')} | ${sum('rpc')} | **${db}** | ${fromPhone} | ${sum('auth')} | ${s.failed ?? 0} | ${cell(top)} |`,
     );
   }
-  say(`| **Whole walk** | | | | **${grand}** | | | | |`);
+  say(`| **Whole walk** (steps only) | | | | | | **${grand}** | | | | |`);
   say();
+  say('"Other screens preloaded" is why a host screen costs what it costs: the app loads the screens its links point to, in the background, and each of those reads the database too. Every number in a row is everything that row set off.');
+  say();
+  if (refusedLines.length > 0) {
+    say(`**Requests the database refused (${refusedLines.length} kinds)** — each is worth a look before the upload:`);
+    say();
+    for (const l of refusedLines.slice(0, 40)) say(l);
+    say();
+  }
   say('> `auth` is HIGHER here than on the live site: the local stack signs sessions the legacy way, so the app asks the auth server on each navigation; production checks the token itself. The DB columns are not affected.');
 }
 say();

@@ -38,16 +38,31 @@ const COUNTER = process.env.REHEARSAL_COUNTER_URL
   : '';
 const PASSWORD = process.env.REHEARSAL_HOST_PASSWORD ?? '';
 
+/** What the phone asked the APP for during a step — the reason behind its database count. */
+type AppAsks = {
+  /** Screens the person opened (a page load or an in-app navigation). */
+  screens: number;
+  /** OTHER screens the app loaded in the background, unasked (link preloads). */
+  preloads: number;
+  /** Presses that reached the server (server actions). */
+  presses: number;
+};
+
 type StepRecord = {
   chapter: string;
   title: string;
+  /** The name this step has in the request counter's report. */
+  counted?: string;
   ok: boolean | null;
   checks: string[];
+  app: AppAsks;
   screenshot?: string;
   error?: string;
 };
 
 const records: StepRecord[] = [];
+/** The step now running — the browser's requests to the app are filed under it. */
+let running: StepRecord | null = null;
 const blocked = new Map<string, number>();
 let finished = false;
 
@@ -78,8 +93,17 @@ async function phone(browser: Browser): Promise<BrowserContext> {
     reducedMotion: 'reduce',
   });
   await context.route('**/*', async (route) => {
-    const url = route.request().url();
-    if (isLocalUrl(url)) return route.continue();
+    const request = route.request();
+    const url = request.url();
+    if (isLocalUrl(url)) {
+      if (running && url.startsWith(BASE)) {
+        const h = request.headers();
+        if (h['next-router-prefetch']) running.app.preloads += 1;
+        else if (h['next-action']) running.app.presses += 1;
+        else if (request.resourceType() === 'document' || h['rsc']) running.app.screens += 1;
+      }
+      return route.continue();
+    }
     let host = 'unparseable';
     try {
       host = new URL(url).hostname;
@@ -158,7 +182,7 @@ class Walk {
   ): Promise<void> {
     this.n += 1;
     const num = String(this.n).padStart(2, '0');
-    const record: StepRecord = { chapter, title, ok: null, checks: [] };
+    const record: StepRecord = { chapter, title, ok: null, checks: [], app: { screens: 0, preloads: 0, presses: 0 } };
     records.push(record);
 
     const waitingOn = this.blockedBy([chapter, ...needs]);
@@ -168,14 +192,18 @@ class Walk {
       return;
     }
 
+    record.counted = `${num} ${title}`;
     if (COUNTER) {
-      await fetch(`${COUNTER}/__rehearsal/step?name=${encodeURIComponent(`${num} ${title}`)}`).catch(() => {});
+      await fetch(`${COUNTER}/__rehearsal/step?name=${encodeURIComponent(record.counted)}`).catch(() => {});
     }
+    running = record;
 
     try {
       await run((what) => record.checks.push(what));
-      // Let the screen settle the way an eye would before the picture is taken.
-      await page().waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
+      // Let the screen settle the way an eye would before the picture is taken
+      // — and so the background loads it set off are counted under THIS step.
+      await page().waitForLoadState('networkidle', { timeout: 20_000 }).catch(() => {});
+      await page().evaluate(() => window.scrollTo(0, 0)).catch(() => {});
       record.screenshot = `${num}-${slugOf(title)}.png`;
       await page().screenshot({ path: path.join(SCREENS, record.screenshot) });
       record.ok = true;
@@ -242,6 +270,9 @@ test('the launch-critical journey', async ({ browser }) => {
   });
 
   await walk.step('A · Host', 'The event Home', () => host, async (check) => {
+    // Opened again on its own, so this row of the request table is the Home's
+    // cost and nothing else's (the row above also holds the sign-in).
+    await host.reload();
     const home = host.locator('section[aria-label="Home"]');
     await expect(home).toBeVisible();
     await expect(host.locator('[data-home-cover] h1').first()).toContainText(FIXTURE.eventName);

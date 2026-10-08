@@ -140,6 +140,12 @@ jobs:
           echo "REF_SHA=$ref_sha" >> "$GITHUB_ENV"
           # /api/health and the service worker read this to report the version.
           echo "VERCEL_GIT_COMMIT_SHA=$ref_sha" >> "$GITHUB_ENV"
+          # STUB — file storage. The app builds every picture's address from
+          # this base and the Maker refuses to draw without one (lib/r2.ts
+          # `publicUrlFor`). It points at this machine, at a port nothing
+          # listens on: addresses are built, no picture loads, nothing leaves.
+          # No R2 KEY is given, so uploads take the app's "not configured" path.
+          echo "R2_PUBLIC_URL=http://127.0.0.1:54330" >> "$GITHUB_ENV"
           live_sha=""
           if git rev-parse -q --verify "refs/tags/$LIVE_REF^{commit}" >/dev/null 2>&1; then
             live_sha=$(git rev-parse "refs/tags/$LIVE_REF^{commit}")

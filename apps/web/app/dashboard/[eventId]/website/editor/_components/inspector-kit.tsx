@@ -2,6 +2,7 @@
 
 import { PickMenu } from './pick-menu';
 import type { ReactNode } from 'react';
+import { PILL_TRACK_CLASS, PILL_TRACK_GROUND, PillThumb, pillSegClass } from '@/app/_components/pill-selector';
 import { Minus, Plus, RotateCcw } from 'lucide-react';
 
 /**
@@ -102,28 +103,47 @@ export function IHint({ children, data }: { children: ReactNode; data?: string }
   );
 }
 
-/** A segmented control (Pages' pill group). */
-/** The segmented control's track — shared by `ISegmented` and any segmented row of LINKS (`/schedule`'s views). */
-export const I_SEGMENTED_CLASS = 'flex min-w-0 flex-wrap gap-0.5 rounded-lg bg-ink/[0.06] p-0.5';
+/**
+ * A SEGMENTED SELECTOR IS A PILL WHOSE THUMB SLIDES (owner 2026-10-08, DECISION_LOG "SELECTORS ARE PILLS THAT
+ * SLIDE"). The shape, the motion and the thumb are the APP's — `app/_components/pill-selector.tsx` (read its
+ * docblock for the rule and for when a selector is the wrong control). `ISegmented` / `ISeg` stay here, where the
+ * Maker imports them, and DRAW it: the shared track, the shared choice look, the shared thumb.
+ */
+
+/** The selector's track — shared by `ISegmented` and any segmented row of LINKS (`/schedule`'s views). */
+export const I_SEGMENTED_CLASS = `${PILL_TRACK_CLASS} flex-wrap gap-0.5 ${PILL_TRACK_GROUND}`;
 
 /**
  * One segment's look, on or off — `ISeg`'s, exported so a segment that must stay
  * a LINK (a view with its own address: open in a new tab, deep link, Back) wears
- * exactly the same control instead of a second one.
+ * exactly the same control instead of a second one. The desktop's right column keeps its tighter rows (`lg:`).
  */
 export function iSegClass(on: boolean, tone: 'plain' | 'wine' = 'plain'): string {
-  return `sn-press inline-flex min-h-11 flex-1 items-center justify-center gap-1 whitespace-nowrap rounded-lg px-2.5 text-[12.5px] font-semibold transition-colors duration-sn-control ease-sn disabled:cursor-not-allowed disabled:opacity-40 lg:min-h-8 ${
-    on ? (tone === 'wine' ? 'bg-mulberry text-white shadow-sm' : 'bg-white text-ink shadow-sm') : 'text-ink/60 hover:text-ink'
-  }`;
+  return `${pillSegClass(on, tone)} lg:min-h-8`;
 }
 
-export function ISegmented({ children, label, grow = true }: { children: ReactNode; label?: string; grow?: boolean }) {
+export function ISegmented({
+  children,
+  label,
+  grow = true,
+  slide = true,
+}: {
+  children: ReactNode;
+  label?: string;
+  grow?: boolean;
+  /**
+   * The thumb that travels between the choices. `false` for a row that is NOT an either-or — several may be on at
+   * once (Bold · Italic · Underline): each then keeps its own fill and nothing slides.
+   */
+  slide?: boolean;
+}) {
   return (
     <div
       role="group"
       aria-label={label}
       className={`${I_SEGMENTED_CLASS} ${grow ? 'flex-1' : ''}`}
     >
+      {slide ? <PillThumb /> : null}
       {children}
     </div>
   );
@@ -156,6 +176,7 @@ export function ISeg({
       disabled={disabled}
       title={title}
       data-seg={data}
+      data-seg-tone={tone}
       onClick={onClick}
       className={`${iSegClass(on, tone)} ${className}`}
     >

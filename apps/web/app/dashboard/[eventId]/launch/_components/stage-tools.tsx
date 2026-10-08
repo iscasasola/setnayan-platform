@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { PillThumb } from '@/app/_components/pill-selector';
 import { createPortal } from 'react-dom';
 import { Brush, Diamond, FileText, PencilLine, Play, Square, Store } from 'lucide-react';
 import { RSVP_STAGE_KEY } from '@/lib/rsvp-stage-shared';
@@ -29,6 +30,7 @@ import {
   STAGE_PART_TILE,
   STAGE_ROW,
   STAGE_TOOL_BUTTON,
+  STAGE_TOOL_DIVIDER,
   STAGE_TOOL_FACE,
   STAGE_TOOL_PILL,
   stagePanelOpenPx,
@@ -879,9 +881,14 @@ export function StageTools({
         />
         {(
           <span role="group" aria-label="Edit with" className={STAGE_TOOL_PILL} data-stage-tpill="">
+            {/* 🎚 ONE dark thumb that TRAVELS from tool to tool (owner 2026-10-08: "apply the same pill selector") — the
+                app's thumb, lying on the picked tool's 46 × 38 face (`data-seg-face`) in the panel's own ink. The
+                tools and the hairlines are the track's DIRECT children, so the thumb can find the picked one and a
+                hairline can tell it sits beside it. */}
+            <PillThumb />
             {MAKER_PART_TOOLS.map((t, i) => (
-              <span key={t} className="contents">
-                {i > 0 ? <span aria-hidden className="mx-px h-5 w-px bg-[var(--sp-line2)]" /> : null}
+              <Fragment key={t}>
+                {i > 0 ? <span aria-hidden data-stage-tool-divider="" className={STAGE_TOOL_DIVIDER} /> : null}
                 <button
                   type="button"
                   aria-pressed={open && (styleOnly ? t === 'style' : tool === t)}
@@ -890,10 +897,11 @@ export function StageTools({
                   aria-label={MAKER_PART_TOOL_LABEL[t]}
                   title={MAKER_PART_TOOL_LABEL[t]}
                   data-stage-tool={t}
+                  data-seg-fill="var(--sp-ink)"
                   onClick={() => pickTool(t)}
                   className={STAGE_TOOL_BUTTON}
                 >
-                  <span className={STAGE_TOOL_FACE}>
+                  <span data-seg-face="" className={STAGE_TOOL_FACE}>
                     {t === 'style' ? (
                       <Brush aria-hidden className="h-[18px] w-[18px]" strokeWidth={2} />
                     ) : t === 'text' ? (
@@ -903,7 +911,7 @@ export function StageTools({
                     )}
                   </span>
                 </button>
-              </span>
+              </Fragment>
             ))}
           </span>
         )}

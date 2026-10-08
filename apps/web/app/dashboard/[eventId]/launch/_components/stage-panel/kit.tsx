@@ -3,12 +3,14 @@
 import { useRef, type ReactNode } from 'react';
 import { FileText, PencilLine, Store } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
+import { PillThumb } from '@/app/_components/pill-selector';
 import {
   SP_DD,
   SP_DD_BUTTON,
   SP_DD_LABEL,
   SP_DIR,
   SP_PHASE,
+  SP_PHASE_INSET,
   SP_PHASES,
   SP_SWITCH,
   STAGE_QUIET_ROW,
@@ -48,8 +50,11 @@ export function Phases<K extends string>({
 }) {
   return (
     <div role="group" aria-label={label} className={SP_PHASES} data-stage-phases={data}>
+      {/* 🎚 The app's travelling thumb (owner 2026-10-08: "apple the same pill selector") — it measures the picked
+          segment, at any width, and again whenever the panel is resized. */}
+      <PillThumb />
       {options.map(([k, words]) => (
-        <button key={k} type="button" aria-pressed={k === value} data-stage-phase={k} onClick={() => onPick(k)} className={SP_PHASE}>
+        <button key={k} type="button" aria-pressed={k === value} data-stage-phase={k} data-seg-inset={SP_PHASE_INSET} onClick={() => onPick(k)} className={SP_PHASE}>
           {words}
         </button>
       ))}

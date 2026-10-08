@@ -11,7 +11,8 @@
  *   (3) NO DURATION, NO TIMING — not drawn in any phase, not a prop, and neither caller writes a `speed`, a
  *       `duration` or (a scene) a `timeline` from here; what was stored is left alone. Sabotage: Delay named
  *       Duration → red.
- *   (4) ROW 2 — Build in / Build out: Fade · Blur · Move · Size, each on or off, the pressed ones the ON ones, and a
+ *   (4) ROW 2 — Build in / Build out: Fade · Blur · Move · Size as the app's CHIPS (never a selector's track — a
+ *       different kind looks different), four on one line, each on or off, the pressed ones the ON ones, and a
  *       press writes the shipped four-effect value (EXECUTED: Move on takes the phase's first way, the last one off
  *       stores nothing). Action: the caller's two words, the picked one pressed. Sabotage: Move's first way → red.
  *   (5) ROW 3 IS ONLY WHAT THE ON ONES NEED — nothing while Move and Size are off; From / To ▾ for Move, Grow |
@@ -27,7 +28,7 @@ import { join } from 'node:path';
 import React from 'react';
 
 import { stripComments } from './strip-comments';
-import { SP_ANIMATE_HALF, SP_DD_STACKED, SP_DD_STACKED_BUTTON } from './maker-animate-rows';
+import { SP_ANIMATE_CHIPS, SP_ANIMATE_HALF, SP_DD_STACKED, SP_DD_STACKED_BUTTON, SP_DD_STACKED_LABEL } from './maker-animate-rows';
 import { SP_PHASES, SP_ROWS, stageBarRow } from './maker-stage-room';
 
 /* The panel's pieces are compiled with the classic JSX runtime under `tsx` — they read `React` off the scope. */
@@ -111,6 +112,16 @@ test('(1) four rows of the one grid in every phase — nothing is a fifth row an
   const P = await import('../app/_components/pill-selector');
   assert.match(P.pillSegClass(true), /\bmin-h-\[38px\]/, 'a pill selector’s choice is no longer 38 px');
   assert.ok(has(P.PILL_TRACK_CLASS, 'p-[3px]'), 'a pill selector’s track is no longer 3 px round its choices (38 + 6 = 44)');
+  /* 🔤 THE TWO-LINE PILL IS READABLE: its name is never under the Form row's small line (12 px; the template's smallest
+     type is 11) and its value is the Form row's pill (14 px) — and the two lines with their margins ARE the 44 px. */
+  const px = (cls: string, re: RegExp) => Number(re.exec(cls)?.[1] ?? Number.NaN);
+  const name = { top: px(SP_DD_STACKED_LABEL, /\btop-\[(\d+)px\]/), size: px(SP_DD_STACKED_LABEL, /\btext-\[([\d.]+)px\]/), line: px(SP_DD_STACKED_LABEL, /\bleading-\[(\d+)px\]/) };
+  const value = { size: px(SP_DD_STACKED_BUTTON, /!text-\[([\d.]+)px\]/), line: px(SP_DD_STACKED_BUTTON, /!leading-\[(\d+)px\]/), foot: px(SP_DD_STACKED_BUTTON, /!pb-\[(\d+)px\]/) };
+  assert.ok(name.size >= 12, `the pill’s name is ${name.size} px — under the Form row’s small line`);
+  assert.ok(value.size >= 14 && value.size > name.size, `the pill’s value is ${value.size} px`);
+  assert.ok(name.line >= name.size && value.line >= value.size, 'a line is shorter than its letters');
+  assert.ok(name.top + name.line <= 44 - value.foot - value.line, `the name (to ${name.top + name.line}px) runs into the value (from ${44 - value.foot - value.line}px)`);
+  assert.match(read('app/_components/form-row.tsx'), /data-form-row-where="" className="block text-\[12px\]/, 'anti-vacuity: the Form row’s small line is no longer 12 px');
   /* …and no control of Animate is taller: the source names no height above 44 px and no text row of its own. */
   const src = read(`${L}/stage-panel/stage-animate.tsx`);
   assert.doesNotMatch(src, /\bh-(?:1[2-9]|[2-9]\d)\b|\bmin-h-\[(?:4[5-9]|[5-9]\d|\d{3,})px\]/, 'a control taller than a row');
@@ -166,13 +177,27 @@ test('(3) no Duration and no Timing — not drawn, not a prop, and nothing store
 
 test('(4) row 2 — four that are each on or off, and a press writes the shipped value; Action is the caller’s two', async () => {
   const { toggleMotionFx } = await import(`${PANEL}/stage-animate`);
+  const C = await import('../app/_components/chips');
   for (const end of ['in', 'out'] as const) {
     const row = rowOf(await draw(end, { fade: true, move: 'left' }), 2);
-    assert.match(row, new RegExp(`role="group" aria-label="Build ${end}" data-pill-selector="${end}-effects"`));
-    const pressed = [...row.matchAll(/<button type="button" aria-pressed="(true|false)" class="[^"]*" data-seg="(\w+)"[^>]*>([^<]*)</g)].map((m) => `${m[3]}:${m[1]}`);
-    assert.deepEqual(pressed, ['Fade:true', 'Blur:false', 'Move:true', 'Size:false']);
-    assert.doesNotMatch(row, /sn-pill-thumb|data-seg-thumb/, 'a row of toggles wears a travelling thumb');
+    /* 🧩 A DIFFERENT KIND LOOKS DIFFERENT (seen on the review copy 2026-10-09: four on/offs in one grey track read as a
+       single choice with nothing picked): they are the app's CHIPS — each its own bordered pill, filled when on —
+       and never a pill selector's segments. */
+    assert.match(row, new RegExp(`role="group" aria-label="Build ${end}" data-chips="${end}-effects"`));
+    assert.doesNotMatch(row, /data-pill-selector|data-seg=|sn-pill-thumb|data-seg-thumb/, 'row 2 is a selector’s track again');
+    const chips = [...row.matchAll(/<button type="button" aria-pressed="(true|false)" data-chip="(\w+)" class="([^"]*)"><span[^>]*>([^<]*)</g)];
+    assert.deepEqual(chips.map((m) => `${m[4]}:${m[1]}`), ['Fade:true', 'Blur:false', 'Move:true', 'Size:false']);
+    for (const m of chips) assert.equal(m[3]!.replace(/&amp;/g, '&').replace(/&#x27;/g, "'").trim(), C.chipClass(m[1] === 'true'), `${m[4]} does not wear the app’s chip`);
+    /* Four even chips on ONE line — the set is told so; it does not measure itself into three across and a second line. */
+    const group = /<div role="group"[^>]*class="([^"]*)"/.exec(row)?.[1] ?? '';
+    for (const c of SP_ANIMATE_CHIPS.split(' ')) assert.ok(has(group, c), `the chips’ row lost ${c}`);
+    assert.doesNotMatch(row, /data-chips-columns|grid-template-columns/, 'the chips lay themselves out in fewer columns');
   }
+  for (const c of ['!grid', '!grid-cols-4', 'flex-1']) assert.ok(has(SP_ANIMATE_CHIPS, c), `four chips on one line: no ${c}`);
+  /* 375-px phone: the pane's 355 px less three gaps leaves each chip its 84-px minimum — and a chip is 40 px with a 44-px tap. */
+  const gap = Number(/!gap-(\d+(?:\.\d+)?)\b/.exec(SP_ANIMATE_CHIPS)?.[1]) * 4;
+  assert.ok(gap > 0 && (355 - 3 * gap) / 4 >= 84, `a chip is narrower than the kind's 84 px (gap ${gap})`);
+  assert.match(C.CHIP_CLASS, /\bh-10\b[\s\S]*\bmin-w-\[84px\]/);
   /* EXECUTED — what a press stores. */
   assert.deepEqual(toggleMotionFx(null, 'in', 'fade'), { fade: true });
   assert.deepEqual(toggleMotionFx(null, 'in', 'move'), { move: 'below' }, 'Build in’s Move starts from the bottom');

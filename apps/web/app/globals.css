@@ -4780,6 +4780,11 @@ html.dark {
   border-radius: var(--m-r-full);
   background: linear-gradient(90deg, rgb(var(--sn-accent)) var(--sn-slider-fill, 50%), rgb(var(--color-ink) / 0.16) 0);
 }
+/* FROM THE CENTRE (`<Slider from="centre">` — a value that rests in the middle and goes both ways, Darker ↔ Lighter):
+ * the accent runs from the middle of the line out to the knob, on whichever side it is; at rest nothing is filled. */
+.sn-slider[data-slider-from='centre']::-webkit-slider-runnable-track {
+  background: linear-gradient(90deg, rgb(var(--color-ink) / 0.16) min(50%, var(--sn-slider-fill, 50%)), rgb(var(--sn-accent)) min(50%, var(--sn-slider-fill, 50%)), rgb(var(--sn-accent)) max(50%, var(--sn-slider-fill, 50%)), rgb(var(--color-ink) / 0.16) max(50%, var(--sn-slider-fill, 50%)));
+}
 .sn-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   width: 26px;
@@ -4808,6 +4813,12 @@ html.dark {
   height: 6px;
   border-radius: var(--m-r-full);
   background: rgb(var(--sn-accent));
+}
+.sn-slider[data-slider-from='centre']::-moz-range-track {
+  background: linear-gradient(90deg, rgb(var(--color-ink) / 0.16) min(50%, var(--sn-slider-fill, 50%)), rgb(var(--sn-accent)) min(50%, var(--sn-slider-fill, 50%)), rgb(var(--sn-accent)) max(50%, var(--sn-slider-fill, 50%)), rgb(var(--color-ink) / 0.16) max(50%, var(--sn-slider-fill, 50%)));
+}
+.sn-slider[data-slider-from='centre']::-moz-range-progress {
+  background: none;
 }
 .sn-slider::-moz-range-thumb {
   width: 22px;

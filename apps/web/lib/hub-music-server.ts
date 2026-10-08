@@ -105,6 +105,9 @@ export async function fetchHubMusicChoices(supabase: Reader): Promise<HubMusicCh
       .from('hub_music_tracks')
       .select('track_id, title, mood, r2_key, duration_seconds, sort_order')
       .eq('is_published', true);
+    // The picker says "couldn't load" either way; the reason goes to the log so
+    // a refused read is not also a silent one.
+    if (error) console.error('[supabase-error] lib/hub-music-server.ts · from:hub_music_tracks.select (fetchHubMusicChoices)', error);
     if (error || !data) return { ok: false };
     const rows = sortHubMusicTracks(
       (data as Array<Pick<HubMusicRow, 'track_id' | 'title' | 'mood' | 'r2_key' | 'duration_seconds' | 'sort_order'>>)
@@ -141,6 +144,8 @@ export async function publishedHubMusicRef(supabase: Reader, trackId: unknown): 
       .eq('track_id', trackId)
       .eq('is_published', true)
       .maybeSingle();
+    // Fails closed (no song is written) — and says why, where someone can read it.
+    if (error) console.error('[supabase-error] lib/hub-music-server.ts · from:hub_music_tracks.select (publishedHubMusicRef)', error);
     const key = error ? null : ((data as { r2_key: string } | null)?.r2_key ?? null);
     return key && isHubMusicKey(key) ? hubMusicRefForKey(key) : null;
   } catch {
@@ -163,6 +168,7 @@ export async function isPublishedHubMusicRef(supabase: Reader, ref: unknown): Pr
       .eq('r2_key', key)
       .eq('is_published', true)
       .maybeSingle();
+    if (error) console.error('[supabase-error] lib/hub-music-server.ts · from:hub_music_tracks.select (isPublishedHubMusicRef)', error);
     return !error && Boolean(data);
   } catch {
     return false;

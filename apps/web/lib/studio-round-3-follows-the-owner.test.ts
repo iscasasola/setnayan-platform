@@ -419,7 +419,10 @@ test('9 · Studio › RSVP: Reply by is CHANGED on its row — the label, the da
   await html(React.createElement(ReplyBy, { ...props, own: null, layout: 'frame', draft: true, frame: ((r: Row) => ((handed = r), null)) as never }));
   assert.deepEqual({ ...(handed as unknown as Row), keep: typeof (handed as unknown as Row).keep }, { name: 'Reply by', own: '', fallback: '2026-11-12', keep: 'function', attrs: { 'data-setup-row': 'reply-by', 'data-rsvp-setting': 'reply-by', 'data-reply-by-field': 'draft' } });
   /* The other doors are as they were: Setup's row keeps its sentence and its live mark; Event Details' stack its default link. */
-  assert.match(await html(React.createElement(ReplyBy, { ...props, layout: 'row' })), /data-reply-by-field="live" data-writes-live=""[\s\S]*Your invitation asks guests to reply by this day\./, 'Guests › Setup’s Reply by row changed');
+  /* ⤷ 2026-10-09 (step 3): Guests › Setup draws the SAME frame, live — the part says so with its marks, and the sentence is Setup's frame's (behind its ⓘ). */
+  let live: Row | null = null;
+  await html(React.createElement(ReplyBy, { ...props, layout: 'frame', frame: ((r: Row) => ((live = r), null)) as never }));
+  assert.deepEqual((live as unknown as Row).attrs, { 'data-setup-row': 'reply-by', 'data-rsvp-setting': 'reply-by', 'data-reply-by-field': 'live', 'data-writes-live': '' }, 'Guests › Setup’s Reply by row is not marked live');
   assert.match(await html(React.createElement(ReplyBy, { ...props, layout: 'stack', draft: true })), /January 14, 2027[\s\S]*· your date[\s\S]*Use the default/, 'Event Details’ Reply by field changed');
   /* Mounted ONCE for the reply's rows — which Studio › RSVP and the stage's form both draw — drafted, with the writer. */
   const ask = read(`${L}/maker-rsvp-ask.tsx`);

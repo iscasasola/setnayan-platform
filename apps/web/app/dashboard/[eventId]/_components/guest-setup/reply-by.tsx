@@ -6,7 +6,6 @@ import { RSVP_REPLY_BY_EVENT, rsvpReplyByLine } from '@/lib/rsvp-stage';
 import { HUB_DRAFT_FIELD } from '@/lib/hub-draft';
 import type { updatePaxSettings } from '../../actions';
 import { HubSavesImmediately } from '../../website/_components/hub-draft-field';
-import { SETUP_ROW, SETUP_SUB, SETUP_TITLE } from './setup-skin';
 
 export const REPLY_BY_LABEL = 'Reply by';
 /**
@@ -25,7 +24,8 @@ type PaxAction = typeof updatePaxSettings;
  * 📅 REPLY BY — `events.guest_list_edit_deadline`, ONE part in every door
  * (owner 2026-10-07, HOME_AND_GUESTS_CHECK G31 and § "Setup ↔ Event Hub Maker"):
  *
- *   · `layout="row"`   Guests › Setup — the words left, the date field right;
+ *   · `layout="frame"` also Guests › Setup (2026-10-09, step 3) — the SAME frame the Maker hands in, with `draft` off: the date
+ *                      writes live (there is no Apply there), the row says so with `data-writes-live`;
  *   · `layout="stack"` Event Details' RSVP item and the RSVP stage's form — the
  *                      date, "· your date / · 30 days before", Use the default;
  *   · `layout="frame"` the Maker's Studio › RSVP and the RSVP stage's form — ONE
@@ -77,7 +77,6 @@ export function ReplyBy({
   fallback = null,
   action,
   layout,
-  rowClassName,
   draft = false,
   frame,
 }: {
@@ -90,8 +89,7 @@ export function ReplyBy({
   /** The 30-day default the field reads while no date of their own is set. */
   fallback?: string | null;
   action?: PaxAction;
-  layout: 'row' | 'stack' | 'frame';
-  rowClassName?: string;
+  layout: 'stack' | 'frame';
   /** ⏳ The Maker's door: the date waits in the hub draft for ✓ Apply (owner 2026-10-08, "draft 1-3"). */
   draft?: boolean;
 }) {
@@ -151,7 +149,7 @@ export function ReplyBy({
      "Saved", no "Guests see this right away" (the date waits for ✓ Apply). A refused pick is SAID by the row itself
      (`keep` answers why), and the date is already back as it was. */
   if (layout === 'frame') {
-    return <>{frame ? frame({ name: REPLY_BY_LABEL, own: value, fallback, keep: pick, attrs: { 'data-setup-row': 'reply-by', 'data-rsvp-setting': 'reply-by', 'data-reply-by-field': 'draft' } }) : null}</>;
+    return <>{frame ? frame({ name: REPLY_BY_LABEL, own: value, fallback, keep: pick, attrs: draft ? { 'data-setup-row': 'reply-by', 'data-rsvp-setting': 'reply-by', 'data-reply-by-field': 'draft' } : { 'data-setup-row': 'reply-by', 'data-rsvp-setting': 'reply-by', 'data-reply-by-field': 'live', 'data-writes-live': '' } }) : null}</>;
   }
 
   const field = (
@@ -168,19 +166,6 @@ export function ReplyBy({
       {note.text}
     </p>
   ) : null;
-
-  if (layout === 'row') {
-    return (
-      <section className={rowClassName ?? SETUP_ROW} data-setup-row="reply-by" data-reply-by-field="live" data-writes-live="">
-        <div className="min-w-0">
-          <p className={SETUP_TITLE}>{REPLY_BY_LABEL}</p>
-          <p className={SETUP_SUB}>{REPLY_BY_LINE}</p>
-          {note && !note.ok ? status : null}
-        </div>
-        {field}
-      </section>
-    );
-  }
 
   return (
     <div className="flex flex-col gap-1.5" data-reply-by-field="live" data-writes-live="">

@@ -31,7 +31,7 @@ import { SETUP_PICK, SETUP_ROW, SETUP_SUB, SETUP_TITLE } from './setup-skin';
  * RSVP stage hand in the app's Form row (`ChosenRow` — the same dropdown, in the row's
  * own pill). THIS part still decides the name, the choices, what the closed button
  * says and which pick is a change; the frame only draws them. So this file carries no
- * template, and Guests › Setup keeps its own row.
+ * template; Guests › Setup hands in the SAME frame as the Maker (`setup-frames.tsx`, 2026-10-09).
  */
 /** What a door's own frame is handed to draw the dropdown with. */
 export type GuestsGetInFrame = {

@@ -13,7 +13,7 @@ import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
 import { logoPlaysFor } from '@/lib/logo-plays.server';
 import { resolveMonogram } from '@/lib/monogram';
 import { fetchRevealConfig } from '@/lib/reveal-config';
-import { REVEAL_NONE } from '@/lib/reveal-access';
+import { REVEAL_NONE, revealAllowedFor } from '@/lib/reveal-access';
 import { INVITE_THEMES, normalizeThemeId, type InviteThemeId } from '@/lib/invite-themes';
 import { revealMaterialsFor } from '@/lib/reveal-materials';
 import { makerLogoOpening } from '@/lib/maker-logo-opening';
@@ -283,6 +283,20 @@ export async function MakerRevealPanel({
     blurb: t.blurb,
   }));
   const current = typeof m.drafted.std_reveal_template === 'string' ? m.drafted.std_reveal_template : null;
+  /* 🎭 WHAT PLAYS WHEN NOTHING IS CHOSEN — asked of the guest page's OWN rule (`revealAllowedFor`,
+     the one `RevealMount` asks), never re-stated here. The theme's opening is only where it
+     STARTS: an opening the Reveal Studio has switched off does not play — the house default (or
+     the first opening still on) plays instead — so the panel must not ring, or name as "your
+     theme's opening", a card that is not on its own strip. (Seen 2026-10-08: Cyber Neon's
+     opening is "Two-flap top", switched off in the Reveal Studio; the strip offered Sheer veil
+     alone, yet the panel was told the default was Two-flap top.) */
+  const playsByDefault = revealAllowedFor({
+    ownsPro: true,
+    chosenTemplate: themeOpening === REVEAL_NONE ? null : themeOpening,
+    adminDefault: config?.defaultTemplate ?? null,
+    isStaffPreview: false,
+    allowed: config?.templates ?? null,
+  });
   return (
     <MakerRevealPicker
       eventId={eventId}
@@ -292,8 +306,8 @@ export async function MakerRevealPanel({
       /* What plays when nothing is chosen — the guest page's own rule
          (`site-body.tsx`): the theme's opening, or for Classic the Reveal
          Studio's house default (`revealAllowedFor`: chosen ?? admin default ?? four-flap). */
-      defaultOpening={themeOpening === REVEAL_NONE ? (config?.defaultTemplate ?? 'four-flap') : themeOpening}
-      defaultIsTheme={themeOpening !== REVEAL_NONE}
+      defaultOpening={playsByDefault}
+      defaultIsTheme={themeOpening !== REVEAL_NONE && playsByDefault === themeOpening}
       dressing={materials?.name ?? null}
       openings={
         /* 🔒 Store shell, not owning Pro: every opening is a Pro control, so it

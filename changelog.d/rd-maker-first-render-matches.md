@@ -38,13 +38,36 @@ Measured in a headless browser on the review server BEFORE the fix (old code):
 fresh tab → 0 hydration errors · Studio › Look, then load again → 1 hydration error (the
 diff above) · memory cleared, load again → 0.
 
-⚠ **Found, not fixed** (measured the same way, old code, dev server): the server's Stages
-panel element is NOT the one on the page after the Maker settles on ANY of the three loads
-— with or without an error it is replaced by one built in the browser. Reading of it (not
-proven): the shell's own mount effects change its state (the device → phone, the lower
-third's slot, the remembered view) before the panel's lazy boundary has hydrated, and React
-then builds a boundary that received an update in the browser instead of hydrating it. This
-fix removes the error; it does not make the server's panel survive. That needs its own
-change (and a measure on a production build — a dev server loads the panel's file late).
+Measured AFTER (controller, headless Chromium on the review copy, 375 × 812): the second
+load with the remembered view present → 0 hydration errors (it was 1 before, every time).
+
+⚠ **Found, not fixed — for the speed lane, to be measured on a production build** (the
+controller's ruling, 2026-10-08: do not start it here; a dev server exaggerates it; the
+rehearsal workflow that builds and runs `next start` on a GitHub runner is where to measure).
+
+- **What was measured** (headless Chromium on the review server, dev build, 375 × 812, old
+  code; script `hyd2.mjs` in the builder's scratch folder): the server's `[data-stage-tools]`
+  element was tagged as the browser parsed it, and looked for again three seconds after the
+  Maker settled. On ALL THREE loads — fresh tab, remembered view, memory cleared — it was no
+  longer in the page: a browser-built panel stood in its place. Two of those loads logged no
+  error at all. So the server's Stages panel is thrown away whether or not React reports it.
+- **Reading** (fits every measurement; not proven line by line): the panel arrives in its own
+  lazy boundary (`next/dynamic` → `<Suspense>`), which React leaves to hydrate last. Before it
+  does, the shell's own mount effects change the shell's state — `setDevice('phone')`, the
+  lower third's slot, the remembered stage / view. A boundary that receives an update before
+  it has hydrated is first tried at a higher priority; if its file has not arrived yet, React
+  gives up on the server's HTML and builds the boundary in the browser — silently. With a
+  remembered view the higher-priority try does run, which is the only reason the mismatch
+  fixed above was ever reported.
+- **The idea, and its risk:** apply the shell's mount-time state inside a transition
+  (`startTransition`) — React then holds that update until the boundary has hydrated, and the
+  server's panel survives. RISK: `device` starts as `'desktop'` and may drive the canvas
+  frame; holding the switch to `'phone'` until the panel's file arrives could load the
+  canvas once as desktop and again as phone — a second guest-page render, the opposite of
+  the goal. It needs: what `device` feeds on first paint, the canvas requests counted before
+  and after, and a production build (a dev server compiles the panel's file on demand, so
+  the file is late there far more often than it will be for a couple).
+- **What this commit did and did not do:** it removed the reported failure (the first
+  render now matches). It did NOT make the server's panel survive.
 
 SPEC IMPACT: None.

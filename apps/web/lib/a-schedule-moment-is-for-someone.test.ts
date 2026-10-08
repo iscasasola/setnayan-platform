@@ -52,8 +52,12 @@ test('the guests’ schedule is the Everyone moments only; a role reads its own 
 
 test('the public fetch leaves role moments out, by the stored NULL', () => {
   const src = read('lib/schedule.ts');
+  // The filter lives in the ONE guests' fence, and the public fetch asks through it
+  // (`lib/the-guests-schedule-has-one-fence.test.ts` runs both against real rows).
+  const fence = src.slice(src.indexOf('export function onlyWhatGuestsMaySee'));
+  assert.match(fence.slice(0, fence.indexOf('\n}\n')), /\.is\('audience', null\)/, 'the guests\u2019 fence no longer filters to Everyone');
   const fn = src.slice(src.indexOf('export async function fetchPublicScheduleBlocks'));
-  assert.match(fn.slice(0, fn.indexOf('\n}\n')), /\.is\('audience', null\)/, 'fetchPublicScheduleBlocks no longer filters to Everyone');
+  assert.match(fn.slice(0, fn.indexOf('\n}\n')), /onlyWhatGuestsMaySee\(/, 'fetchPublicScheduleBlocks no longer asks through the guests\u2019 fence');
   assert.match(src, /const SELECT =\s*\n\s*'[^']*\baudience'/, 'the canonical schedule SELECT does not read audience');
 });
 

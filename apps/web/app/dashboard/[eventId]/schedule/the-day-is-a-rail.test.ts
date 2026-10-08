@@ -308,8 +308,12 @@ test('8 · Announce before the day: hosts always · coordinator only with schedu
 
 test('9 · the guest-facing schedule scene reads the rows the rail writes', () => {
   const lib = readWeb('lib/schedule.ts');
+  // The public read asks through the ONE guests' fence (`onlyWhatGuestsMaySee`),
+  // and it is the fence that asks for `is_public` — the column the eye flips.
   const pub = lib.slice(lib.indexOf('export async function fetchPublicScheduleBlocks'));
-  assert.match(pub, /\.from\('event_schedule_blocks'\)[\s\S]*?\.eq\('is_public', true\)/);
+  assert.match(pub.slice(0, pub.indexOf('\n}\n')), /onlyWhatGuestsMaySee\(\s*supabase\.from\('event_schedule_blocks'\)/);
+  const fence = lib.slice(lib.indexOf('export function onlyWhatGuestsMaySee'));
+  assert.match(fence.slice(0, fence.indexOf('\n}\n')), /\.eq\('is_public', true\)/);
   // The Event Hub scene mounts on that read…
   const hub = readWeb('app/[slug]/hub/page.tsx');
   assert.match(hub, /const scheduleBlocks = await fetchPublicScheduleBlocks\(/);

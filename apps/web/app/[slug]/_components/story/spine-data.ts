@@ -33,7 +33,7 @@ import {
 } from '@/lib/story-day-window';
 import { isYouTubeVideoId } from '@/lib/panood-watch';
 import { plannedInstant } from '@/lib/run-of-show';
-import { DEFAULT_EVENT_TZ } from '@/lib/schedule';
+import { DEFAULT_EVENT_TZ, onlyWhatGuestsMaySee } from '@/lib/schedule';
 import {
   dialBucketMinutes,
   manilaInstantAt,
@@ -517,9 +517,13 @@ export async function loadStorySpineFacts(args: {
   // morning's block. `plannedInstant` lifts it, and a block whose time will not
   // parse is SKIPPED rather than guessed at.
   //
-  // 🔒 `is_public` IS PART OF THE QUERY. A block the couple marked private is
-  // one they deliberately kept off the guest schedule; naming it on a public
-  // story page publishes the thing they hid.
+  // 🔒 THE GUESTS' FENCE IS PART OF THE QUERY — `onlyWhatGuestsMaySee`, the ONE
+  // rule the guests' schedule reads by (lib/schedule.ts). A block the couple
+  // marked private is one they deliberately kept off the guest schedule; naming
+  // it on a public story page publishes the thing they hid. So is a moment they
+  // made "Only for · Entourage", and so is a coordinator's unreleased prep
+  // block — this query once asked only `is_public`, and named both (2026-10-08).
+  // `admin` is the service-role client: nothing below this filter hides a row.
   // Who runs which block, resolved once. `responsible_vendor_ids` points at
   // `event_vendors.vendor_id`, and the shipped payload's `vendors` list carries
   // no id — so the names come from the same table the ids point into rather
@@ -540,11 +544,12 @@ export async function loadStorySpineFacts(args: {
   }
 
   try {
-    const { data } = await admin
-      .from('event_schedule_blocks')
-      .select('label, block_type, start_at, end_at, location, responsible_vendor_ids')
-      .eq('event_id', args.eventId)
-      .eq('is_public', true);
+    const { data } = await onlyWhatGuestsMaySee(
+      admin
+        .from('event_schedule_blocks')
+        .select('label, block_type, start_at, end_at, location, responsible_vendor_ids')
+        .eq('event_id', args.eventId),
+    );
     const raw = (data ?? []) as Array<Record<string, unknown>>;
     const lifted: VenueBlock[] = [];
     for (const b of raw) {

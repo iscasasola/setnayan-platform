@@ -161,3 +161,22 @@ so no caller that passes it today changes. A guard fails if any other file under
 `ActionButton`.
 
 SPEC IMPACT: None.
+
+## 2026-10-08 · feat(studio): one head for every Studio page, in the top bar's place — ‹ · the page's name ▾ · ↺ · ✓
+
+Owner, 2026-10-08, after the title row went: *"removing the header actually made me not know where we are at.. how can
+we identify it without adding a row?"* → *"i think we are better off making all stages go full screen?"* · *"and make
+the top nav show where we are at"* · *"with a go back button?"*.
+
+- `StudioPageHead` (lazy, `stages-studio-parts.tsx`): inside a Studio page the top bar's first two places are **‹**
+  ("Back to Studio" — the Studio home) and **the page's mark + name + ▾** (a dropdown's button named "<page> — choose
+  another Studio page"; a tap opens the same chooser sheet). ↺ Undo and ✓ Apply are the bar's own, untouched.
+  A name never truncates or wraps: the full name, else the short one, else the short one without its mark.
+- ✕ Exit and the Stages | Studio pill are drawn on the Studio home and the Stages side only — one tap back from a page.
+- Wedding March and Seat plan wear the same head: their ✓ Done band (`StudioDoneBar`) and the hidden top bar are gone.
+- No row is added and nothing is drawn over a page; first-load code shrank (maker-shell.tsx 9,048 → 9,005 bytes
+  min+gzip by esbuild; details-lazy.tsx 1,457 → 1,456).
+- `lib/studio-pages-have-no-title-row.test.ts` rewritten (seven tests, twelve mutations seen red); five guards
+  re-aimed; `scripts/port-control-baseline.json` regenerated (`StudioDoneBar` → `StudioPageHead`).
+
+SPEC IMPACT: `INTERACTION_RULES.md` § 3 / § 8 (the Maker's top bar) — the controller records the owner's ruling.

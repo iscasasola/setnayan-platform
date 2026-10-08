@@ -135,10 +135,10 @@ test('3 · the new chrome is unreachable with the flag off — Studio is a lazy 
   assert.match(shell, /const studioTile = studioOn && /);
   assert.equal((shell.match(/<StudioCover\b/g) ?? []).length, 1);
   assert.match(shell, /\{studioHomeOn \? \(\s*<StudioCover\b/, 'Studio\'s home is drawn outside its flag-gated door');
-  /* No title row under the top bar any more (owner 2026-10-08, "we will not have these."): only ✓ Done, on the two
-     pages that hide the top nav — behind the same flag-gated door. */
-  assert.match(shell, /\) : studioImmersive \? \(\s*<StudioDoneBar\b/, 'the full-screen pages\' ✓ Done is drawn outside its flag-gated door');
-  assert.doesNotMatch(shell, /StudioToolRow/, 'the title row is back under the top bar');
+  /* No row over a Studio page (owner 2026-10-08): its head — ‹ · name ▾ — is in the top bar's own place, drawn only
+     while a Studio page is open (`studioTile` is null unless the flag is on, on a phone, on the Studio side). */
+  assert.match(shell, /\{studioTile \? \(\s*<StudioPageHead\b/, 'a Studio page\'s head is drawn outside its flag-gated door');
+  assert.doesNotMatch(shell, /StudioToolRow|StudioDoneBar/, 'a row or a Done band is back over a Studio page');
   assert.match(shell, /const ltItemMenu = !ss \? null :/, 'the item ▾ is drawn without the flag');
   /* PR 2: on the Stages side the lower third's top slot is the Stages panel (`stage-tools.tsx`) — the same `ss` door. */
   assert.match(
@@ -147,12 +147,13 @@ test('3 · the new chrome is unreachable with the flag off — Studio is a lazy 
     'the grab handle or the Stages panel is drawn without the flag',
   );
   assert.equal((shell.match(/<StageTools\b/g) ?? []).length, 1, 'the Stages panel has one door');
-  assert.match(shell, /<StudioSideSwitch side=\{side\} onPick=\{pickSide\} at=\{studioTile\} tiles=\{studio\?\.tiles\} onOpen=\{openStudio\} \/>/);
-  assert.match(shell, /\{stagesStudio \? \(\s*(?:\/\*[\s\S]*?\*\/\s*)?<div data-maker-tool="side"/, 'Stages | Studio is drawn without the flag');
+  assert.match(shell, /<StudioSideSwitch side=\{side\} onPick=\{pickSide\} \/>/);
+  /* Still behind the flag — and not drawn at all while a Studio page is open (that page's head takes its place). */
+  assert.match(shell, /\{studioTile \? null : stagesStudio \? \(\s*(?:\/\*[\s\S]*?\*\/\s*)?<div data-maker-tool="side"/, 'Stages | Studio is drawn without the flag');
   assert.match(shell, /withPickSheet\(\s*stagesStudio,/, 'the one bottom sheet is handed down without the flag');
   // The new chrome is never in a static import of the Maker — only the lazy stand-ins load it.
   const lazy = read(`${L}/details-lazy.tsx`);
-  for (const name of ['StudioSideSwitch', 'StudioToolMenu', 'StudioDoneBar', 'StudioCover', 'LowerThirdGrab', 'MakerSheet']) {
+  for (const name of ['StudioSideSwitch', 'StudioToolMenu', 'StudioPageHead', 'StudioCover', 'LowerThirdGrab', 'MakerSheet']) {
     assert.match(lazy, new RegExp(`export const ${name} = dynamic\\(\\(\\) => import\\(\\s*'\\./stages-studio-parts'\\)`), `${name} is not a lazy piece`);
   }
   for (const f of [`${L}/maker-shell.tsx`, `${L}/maker-lower-third.tsx`, 'app/dashboard/[eventId]/launch/page.tsx', `${L}/maker-details.tsx`]) {

@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { Check } from 'lucide-react';
-import { PILL_ON_CLASS } from '@/app/_components/pill-selector';
+import { Check, ChevronDown, ChevronLeft } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { useOneOpen } from '@/lib/one-open';
+import { pickArrowClass, pickButtonClass, pickOptionClass, pickTickClass, pickTrailClass } from '../../website/editor/_components/pick-menu-place';
 import { inertBehind, popupClearRect, popupHolePath } from '@/lib/popup-behind';
-import { STUDIO_DONE_BUTTON, STUDIO_HEAD_ROW } from '@/lib/studio-skin';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { ISeg, ISegmented } from '../../website/editor/_components/inspector-kit';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
@@ -25,71 +26,188 @@ import { StudioHome, TILE_ICON } from './studio-home';
  */
 
 /**
- * Stages | Studio — ONE segmented control in the top nav (sections = one `ISegmented`, INTERACTION_RULES §8).
- *
- * 🧭 INSIDE A STUDIO PAGE THE STUDIO HALF IS "STUDIO ▾" — THE WAY TO ANOTHER PAGE (owner 2026-10-08, on the
- * "INFO ▾" pill row that sat under the top bar: *"we will not have these."* · *"Tapping studio will open a popup
- * instead for us to choose which one?"*). The row is gone; its eleven destinations are HERE:
- *   · coming from Stages, a tap on Studio lands on the Studio home (the cards), as it always did;
- *   · at the Studio home there is no ▾ (a tap on Studio does nothing new — it is where you are);
- *   · inside a page (`at`), the Studio half shows a small ▾ and a tap OPENS THE CHOICES — the house dropdown
- *     (`PickMenu`): a sheet from the bottom on a phone (the Maker's one sheet — dark, blurred, nothing behind works),
- *     a list under the pill on a computer. The pages this event draws — exactly the Studio home's, in its order —
- *     each with its mark, its name and Ready / Missing, the current one ticked. NO "All pages" row (owner
- *     2026-10-08, on the first build: *"pop up looks good. remove the all pages."*): the home is one tap on Stages
- *     and one on Studio away. A ▾ never cycles, and the thumb does not move on that tap (it is already on Studio).
- * A pick is the SAME call the row's Tool ▾ made (`onOpen` → the shell's `openStudio`): state on the phone, no
- * request, no render of the Maker.
+ * Stages | Studio — ONE segmented control in the top nav (sections = one `ISegmented`, INTERACTION_RULES §8). It is
+ * drawn on the Stages side and on the Studio HOME; inside a Studio page the bar's first places are that page's own
+ * head (`StudioPageHead`), and there is nothing to select between.
  */
-export function StudioSideSwitch({
-  side,
-  onPick,
-  at = null,
-  tiles = [],
-  onOpen,
-}: {
-  side: MakerSide;
-  onPick: (side: MakerSide) => void;
-  /** The Studio page that is open — null at the Studio home, on Look's own bar… and on the Stages side. */
-  at?: StudioTileModel | null;
-  /** The pages this event draws (`lib/studio-tiles.ts`) — the home's own list, in its order. */
-  tiles?: readonly StudioTileModel[];
-  /** Open a page — the shell's `openStudio`. */
-  onOpen?: (key: StudioTileKey) => void;
-}) {
-  const choose = side === 'studio' && at !== null && onOpen !== undefined;
+export function StudioSideSwitch({ side, onPick }: { side: MakerSide; onPick: (side: MakerSide) => void }) {
   return (
     <ISegmented label="Stages or Studio">
-      <ISeg tone="wine" on={side === 'stages'} data="stages" onClick={() => onPick('stages')}>
-        {MAKER_SIDE_LABEL.stages}
-      </ISeg>
-      {choose ? (
-        /* The picked half of the pill (`aria-current` is how the thumb finds it) — and inside it, the dropdown. */
-        <span aria-current="page" data-seg="studio" data-studio-chooser="" className={STUDIO_CHOOSER_SEG}>
-          <PickMenu
-            label="Studio pages"
-            dataAttr="data-studio-chooser-pick"
-            value={at.key}
-            buttonText={MAKER_SIDE_LABEL.studio}
-            options={studioChooserOptions(tiles)}
-            onPick={(k) => onOpen(k as StudioTileKey)}
-            className={STUDIO_CHOOSER_PICK}
-          />
-        </span>
-      ) : (
-        <ISeg tone="wine" on={side === 'studio'} data="studio" onClick={() => onPick('studio')}>
-          {MAKER_SIDE_LABEL.studio}
+      {(['stages', 'studio'] as const).map((k) => (
+        <ISeg key={k} tone="wine" on={side === k} data={k} onClick={() => onPick(k)}>
+          {MAKER_SIDE_LABEL[k]}
         </ISeg>
-      )}
+      ))}
     </ISegmented>
   );
 }
 
-/** The picked half of the pill while it holds the chooser: the pill's own "on" look until the thumb has measured, then the thumb's. */
-const STUDIO_CHOOSER_SEG = `relative z-[1] inline-flex min-h-[38px] flex-1 items-stretch justify-center rounded-full ${PILL_ON_CLASS} group-data-[seg-thumb]/seg:bg-transparent lg:min-h-8`;
-/** The dropdown's button worn as that half: no fill of its own, the label ink, its ▾ in the same ink. */
-const STUDIO_CHOOSER_PICK =
-  'w-full justify-center !min-h-0 !bg-transparent hover:!bg-transparent !px-2.5 !text-[12.5px] !text-sn-on-accent [&>svg]:!text-sn-on-accent';
+/* ── 🧭 A STUDIO PAGE'S HEAD — in the top bar's own place ─────────────────── */
+
+/** How much of the page's name fits: its full name with its mark → its short name with its mark → its short name alone. */
+export type StudioHeadFit = 'full' | 'short' | 'bare';
+export const STUDIO_HEAD_FITS: readonly StudioHeadFit[] = ['full', 'short', 'bare'];
+
+/** What the head writes at a fit — never a cut name, never two lines: a shorter NAME, then no mark. */
+export function studioHeadName(tile: Pick<StudioTileModel, 'label' | 'short'>, fit: StudioHeadFit): { name: string; mark: boolean } {
+  return { name: fit === 'full' ? tile.label : tile.short, mark: fit !== 'bare' };
+}
+
+/** The next, smaller fit — or null when there is none left to try. */
+export function studioHeadShrink(fit: StudioHeadFit): StudioHeadFit | null {
+  return STUDIO_HEAD_FITS[STUDIO_HEAD_FITS.indexOf(fit) + 1] ?? null;
+}
+
+/** The name button's accessible name — where you are, and what a tap does. */
+export function studioHeadLabel(tile: Pick<StudioTileModel, 'label'>): string {
+  return `${tile.label} — choose another Studio page`;
+}
+
+/** ‹ — the bar's own round 44-px control (the size and press of ✕), on the bar's grey ground, its mark the accent. */
+const STUDIO_HEAD_BACK = 'sn-press sn-press-ring inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-ink/[0.06] text-sn-accent';
+
+/**
+ * 🧭 A STUDIO PAGE'S HEAD (owner 2026-10-08, after the "INFO ▾" row went: *"removing the header actually made me not
+ * know where we are at.. how can we identify it without adding a row?"* → *"i think we are better off making all
+ * stages go full screen?"* · *"and make the top nav show where we are at"* · *"with a go back button?"*).
+ *
+ *   [ ‹ ]  [ ▣ Info ▾ ]  ··········  [ ↺ ]  [ ✓ ]      ← the top bar's own place: no row is added
+ *
+ * ONE head for all eleven pages (Wedding March and Seat plan included — their own ✓ Done band is gone):
+ *   · ‹ BACK, where ✕ sits on the Studio home — "Back to Studio": the home of cards. State on the phone only.
+ *   · THE PAGE'S NAME, where the Stages | Studio pill sits: its mark + its name + ▾. It is a dropdown's button (there
+ *     is nothing to select between inside a page): a tap opens the SAME chooser — the Maker's one sheet, the pages
+ *     this event draws, each with its mark, its line and Ready / Missing, the current one ticked.
+ *   · the name NEVER truncates and never wraps: if the full name does not fit, the short one is written; if that does
+ *     not fit either, the mark steps aside (`studioHeadName`). Measured on the phone, again on a resize.
+ *   · ↺ Undo and ✓ Apply are the top bar's own, untouched, to its right.
+ * ✕ Exit and Stages | Studio are on the Studio home — one tap back.
+ *
+ * The list is the ONE list (the tiles the home's cards and the chooser read; `TILE_ICON` for the marks).
+ */
+export function StudioPageHead({
+  tile,
+  tiles = [],
+  onOpen,
+  onBack,
+}: {
+  /** The page that is open. */
+  tile: StudioTileModel;
+  /** The pages this event draws. */
+  tiles?: readonly StudioTileModel[];
+  /** Open a page — the shell's `openStudio`. */
+  onOpen: (key: StudioTileKey) => void;
+  /** Back to the Studio home — the shell's `pickSide('studio')`. */
+  onBack: () => void;
+}) {
+  return (
+    <>
+      <span data-icon-pill="back" className="inline-flex shrink-0 items-center rounded-full lg:hidden">
+        <button type="button" aria-label="Back to Studio" title="Back to Studio" data-maker-tool="studio-back" data-bar-item="Back to Studio" onClick={onBack} className={STUDIO_HEAD_BACK}>
+          <ChevronLeft aria-hidden className="h-6 w-6" strokeWidth={2.2} />
+        </button>
+      </span>
+      <div data-maker-tool="studio-page" data-bar-item="Studio page" data-bar-fill="" className="flex min-w-0 flex-1 px-1 lg:hidden">
+        {/* Keyed by the page: a new page measures its own name from the full one again. */}
+        <StudioPageName key={tile.key} tile={tile} tiles={tiles} onOpen={onOpen} />
+      </div>
+    </>
+  );
+}
+
+/** The page's name as a dropdown's button, and the chooser it opens. */
+function StudioPageName({ tile, tiles, onOpen }: { tile: StudioTileModel; tiles: readonly StudioTileModel[]; onOpen: (key: StudioTileKey) => void }) {
+  const [open, setOpen] = useState(false);
+  useOneOpen(open, setOpen);
+  const [fit, setFit] = useState<StudioHeadFit>('full');
+  const btn = useRef<HTMLButtonElement>(null);
+  /* Does the name fit its place? Before the browser paints: step down once per pass until it does (at most twice). */
+  useLayoutEffect(() => {
+    const el = btn.current;
+    if (!el || el.scrollWidth <= el.clientWidth + 1) return;
+    const next = studioHeadShrink(fit);
+    if (next) setFit(next);
+  }, [fit]);
+  /* A wider (or narrower) screen: try the full name again. */
+  useEffect(() => {
+    const again = () => setFit('full');
+    window.addEventListener('resize', again);
+    return () => window.removeEventListener('resize', again);
+  }, []);
+  const Icon = TILE_ICON[tile.key];
+  const { name, mark } = studioHeadName(tile, fit);
+  const close = () => setOpen(false);
+  return (
+    <>
+      <button
+        ref={btn}
+        type="button"
+        aria-label={studioHeadLabel(tile)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        data-studio-page-name={tile.key}
+        data-studio-page-fit={fit}
+        onClick={() => setOpen((o) => !o)}
+        className={`${pickButtonClass(false)} !min-h-11 !gap-2 overflow-hidden !px-3.5 !text-[15px] !font-medium`}
+      >
+        {mark ? <Icon aria-hidden className="h-[18px] w-[18px] shrink-0 text-sn-accent" strokeWidth={1.9} /> : null}
+        <span data-studio-page-name-words="" className="whitespace-nowrap">
+          {name}
+        </span>
+        <ChevronDown aria-hidden className={pickArrowClass(open)} strokeWidth={2} />
+      </button>
+      {open && typeof document !== 'undefined'
+        ? createPortal(
+            <MakerSheet label="Studio pages" onClose={close}>
+              {/* The dropdown's own rows (its looks: `pick-menu-place.ts`) — the list the home's cards are drawn from. */}
+              <ul role="listbox" aria-label="Studio pages" data-pick-side="sheet" className="p-0.5">
+                {studioChooserOptions(tiles).map((o) => {
+                  const here = o.key === tile.key;
+                  return (
+                    <li key={o.key} role="none">
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={here}
+                        data-pick-option={o.key}
+                        onClick={() => {
+                          close();
+                          if (!here) onOpen(o.key as StudioTileKey);
+                        }}
+                        className={pickOptionClass(Boolean(o.hint), here)}
+                      >
+                        {o.icon ? (
+                          <span aria-hidden className="inline-flex shrink-0">
+                            {o.icon}
+                          </span>
+                        ) : null}
+                        <span className="min-w-0">
+                          <span className="block font-semibold">{o.label}</span>
+                          {o.hint ? <span className="block text-[12px] font-medium leading-snug opacity-75">{o.hint}</span> : null}
+                        </span>
+                        {o.trail ? (
+                          <span data-pick-trail={o.trail.tone} className={pickTrailClass(o.trail.tone, false)}>
+                            <span aria-hidden>{o.trail.text}</span>
+                            {o.trail.label ? <span className="sr-only">{o.trail.label}</span> : null}
+                          </span>
+                        ) : null}
+                        {here ? (
+                          <span aria-hidden data-pick-tick="" className={pickTickClass(false, Boolean(o.trail))}>
+                            ✓
+                          </span>
+                        ) : null}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </MakerSheet>,
+            document.body,
+          )
+        : null}
+    </>
+  );
+}
 
 /** A page's rows in a list of pages: its line, and ✓ Ready / Missing as the home's card says it. */
 function tileOption(t: StudioTileModel, withIcon: boolean): PickOption {
@@ -135,24 +253,6 @@ export function StudioToolMenu({
       onPick={(k) => onOpen(k as StudioTileKey)}
       className={className}
     />
-  );
-}
-
-/**
- * ✓ DONE — the way out of the two Studio pages that take the whole screen (Wedding March, Seat plan: the top nav is
- * hidden there, owner 2026-10-06 "yes for those 2"). It is ALL that is left of the slim row that sat under the top
- * bar: the row's "INFO ▾" pill is gone from every Studio page (owner 2026-10-08, *"we will not have these."*) — the
- * way to another page is "Studio ▾" in the top nav. On these two pages there is no top nav to hold it, so ✓ Done
- * stays, on the same band, and returns to the Studio home.
- */
-export function StudioDoneBar({ onDone }: { onDone: () => void }) {
-  return (
-    <div data-maker-studio-done-bar="" className={`${STUDIO_HEAD_ROW} justify-end`}>
-      <button type="button" data-maker-studio-done="" onClick={onDone} className={STUDIO_DONE_BUTTON}>
-        <Check aria-hidden className="h-[15px] w-[15px]" strokeWidth={2.6} />
-        Done
-      </button>
-    </div>
   );
 }
 

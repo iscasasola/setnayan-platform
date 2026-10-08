@@ -217,9 +217,14 @@ test('4 · Studio › Wedding March: no "Parents & hosts" block; the tray is the
 });
 
 test('5 · no Studio editor says "Saved" or asks for a Save on a drafted field — ✓ Apply’s count is the one signal', async () => {
-  /* The Tool row is gone (owner 2026-10-08) — what is left of it, ✓ Done on the two full-screen pages, says no "Saved". */
-  const { StudioDoneBar } = await import(`../${L}/stages-studio-parts`);
-  assert.doesNotMatch(await html(React.createElement(StudioDoneBar, { onDone: () => {} })), /Saved|Saving/, 'the Done bar shows a Saved chip');
+  /* The Tool row and the Done band are gone (owner 2026-10-08) — a Studio page's head says no "Saved" either. */
+  const { StudioPageHead } = await import(`../${L}/stages-studio-parts`);
+  const { STUDIO_TILE_KEYS, STUDIO_TILES } = await import('./studio-tiles');
+  const tiles = STUDIO_TILE_KEYS.map((key) => ({ key, label: STUDIO_TILES[key].label, short: STUDIO_TILES[key].short, item: STUDIO_TILES[key].item, immersive: STUDIO_TILES[key].immersive === true, done: true, status: '' }));
+  for (const tile of tiles) {
+    const head = await html(React.createElement(StudioPageHead, { tile, tiles, onOpen: () => {}, onBack: () => {} }));
+    assert.doesNotMatch(head, /Saved|Saving/, `the ${tile.label} head shows a Saved chip`);
+  }
   const mood = read('app/dashboard/[eventId]/studio/mood-board/_components/mood-board-studio.tsx');
   const bar = mood.slice(mood.indexOf('const bar = ('), mood.indexOf('return (', mood.indexOf('const bar = (')));
   assert.match(bar, /data-mood-board-auto/, 'the Mood Board lost ✨ Auto');

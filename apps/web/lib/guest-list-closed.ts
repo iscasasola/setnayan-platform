@@ -19,7 +19,9 @@
  *
  * So `events.guest_count_locked_at` is now the host's own act, written only by
  * `finalizeGuestList` (lib/pax.ts), after a confirm, and cleared again by
- * `reopenGuestList`. `guest_list_edit_deadline` stays as the reply-by date the
+ * `reopenGuestList` — the event's HOSTS only, never a supplier, the
+ * coordinator or a helper (owner 2026-10-07).
+ * `guest_list_edit_deadline` stays as the reply-by date the
  * invitation PRINTS. It asks guests to reply by then and closes nothing.
  *
  * Pure by design (no DB, no React, no server-only imports), so the public event

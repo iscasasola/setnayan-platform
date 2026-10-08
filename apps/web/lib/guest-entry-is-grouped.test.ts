@@ -2,7 +2,8 @@
  * 🗂 THE FIVE GUEST-ENTRY CHOICES ARE SHOWN UNDER THE THREE RULES
  * (owner 2026-10-02, DECISION_LOG row of that name). Wording and grouping only:
  * the SAME five stored values, listed in ONE dropdown under three headings —
- * List only · Accept · Open — and the closed button reads heading + choice.
+ * Only my list · My list + requests · Open (plain names, owner 2026-10-07) —
+ * and the closed button reads heading + choice.
  *
  * SABOTAGE (run 2026-10-02): moving `one_qr` from Open into Accept in
  * `GUESTS_GET_IN_CHOICES` turns tests 1 and 3 red (a group heading is gone and
@@ -32,9 +33,9 @@ test('1 · the dropdown has 3 headings and 5 choices, in the owner\'s order', ()
   assert.deepEqual(
     runs.map((r) => [r.group, r.options.map((o) => o.label)]),
     [
-      ['List only', ['Guests reply', 'No reply, each gets their own QR']],
-      ['Accept', ['Guests reply', 'No reply, one QR, I approve each']],
-      ['Open', ['One QR for everyone']],
+      ['Only my list', ['They reply', 'No reply']],
+      ['My list + requests', ['They reply', 'No reply']],
+      ['Open', ['Anyone with the link']],
     ],
   );
   assert.equal(runs.flatMap((r) => r.options).length, 5);
@@ -54,18 +55,19 @@ test('2 · round trip: each of the five choices stores, then reads back, as itse
 
 test('3 · the closed button and every display say heading + choice, from ONE helper', () => {
   const said: Record<GuestsGetIn, string> = {
-    list: 'List only · Guests reply',
-    personal: 'List only · No reply, each gets their own QR',
-    requests: 'Accept · Guests reply',
-    one_qr_approve: 'Accept · No reply, one QR, I approve each',
-    one_qr: 'Open · One QR for everyone',
+    list: 'Only my list · They reply',
+    personal: 'Only my list · No reply',
+    requests: 'My list + requests · They reply',
+    one_qr_approve: 'My list + requests · No reply',
+    one_qr: 'Open · Anyone with the link',
   };
   for (const c of GUESTS_GET_IN_CHOICES) assert.equal(guestsGetInLabel(c.value), said[c.value]);
 
-  const maker = read('app/dashboard/[eventId]/launch/_components/maker-rsvp-ask.tsx');
-  assert.match(maker, /buttonText=\{guestsGetInLabel\(getInNow\)\}/);
+  /* The one dropdown is the shared `GuestsGetIn` part (2026-10-07) — the Maker and Guests › Setup both mount it. */
+  const maker = read('app/dashboard/[eventId]/_components/guest-setup/guests-get-in.tsx');
+  assert.match(maker, /buttonText=\{guestsGetInLabel\(value\)\}/);
   assert.match(maker, /options=\{guestsGetInOptions\(\)\}/);
-  const invite = read('app/dashboard/[eventId]/guests/invite/_components/invite-panel.tsx');
+  const invite = read('app/dashboard/[eventId]/guests/invite/_components/share-link-panel.tsx');
   assert.match(invite, /guestsGetInLabel\(readGuestsGetIn\(/);
   const sheet = read('lib/event-details-sheet.ts');
   assert.match(sheet, /guestsGetInLabel\(readGuestsGetIn\(/);

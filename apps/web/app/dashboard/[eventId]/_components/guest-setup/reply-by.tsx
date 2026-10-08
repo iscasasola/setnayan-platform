@@ -1,0 +1,188 @@
+'use client';
+
+import { useRef, useState } from 'react';
+import { SUPERSEDED, makerLatestWrite, makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
+import { RSVP_REPLY_BY_EVENT, rsvpReplyByLine } from '@/lib/rsvp-stage';
+import type { updatePaxSettings } from '../../actions';
+import { HubSavesImmediately } from '../../website/_components/hub-draft-field';
+import { SETUP_ROW, SETUP_SUB, SETUP_TITLE } from './setup-skin';
+
+export const REPLY_BY_LABEL = 'Reply by';
+/**
+ * The row's sentence. ⚠ DELIBERATELY NOT the prototype's *"Replies close that
+ * day and the headcount locks"*: since the owner's 2026-09-30 ruling ("i must
+ * click a finalize to finalize it", `lib/guest-list-closed.ts`) NO date closes
+ * replies or locks the count — only Finalize does. The reply-by date is what
+ * the invitation PRINTS. Saying it closes anything would be a false promise
+ * about money (a caterer prices the locked count).
+ */
+export const REPLY_BY_LINE = 'Your invitation asks guests to reply by this day.';
+
+type PaxAction = typeof updatePaxSettings;
+
+/**
+ * 📅 REPLY BY — `events.guest_list_edit_deadline`, ONE part in every door
+ * (owner 2026-10-07, HOME_AND_GUESTS_CHECK G31 and § "Setup ↔ Event Hub Maker"):
+ *
+ *   · `layout="row"`   Guests › Setup — the words left, the date field right;
+ *   · `layout="stack"` Event Details' RSVP item and the RSVP stage's form — the
+ *                      date, "· your date / · 30 days before", Use the default;
+ *   · `layout="print"` the Maker's Studio › RSVP — the date PRINTED, read only
+ *                      ("Reply by December 12, 2026"); it is set on Setup or in
+ *                      Event Details.
+ *
+ * One writer: `updatePaxSettings` (it writes the pricing view beside the date,
+ * so the current one is posted back unchanged). Saved behind the pick, one
+ * write per pause (`makerLatestWrite`), `held` + `maker_quiet` (no page render
+ * rides on the answer); a refused save puts the date back and says so. The
+ * stage's frames hear the new line (`RSVP_REPLY_BY_EVENT`); off the Maker
+ * nobody listens and nothing happens. It is not drafted — the deadline belongs
+ * to the guest list, not the Event Hub's look.
+ */
+export function ReplyBy({
+  eventId,
+  own,
+  pricingMode,
+  fallback = null,
+  action,
+  layout,
+  rowClassName,
+}: {
+  eventId: string;
+  /** The couple's own date (null = the 30-day default). */
+  own: string | null;
+  pricingMode: 'realtime' | 'final_only';
+  /** The 30-day default the field reads while no date of their own is set. */
+  fallback?: string | null;
+  action?: PaxAction;
+  layout: 'row' | 'stack' | 'print';
+  rowClassName?: string;
+}) {
+  const [value, setValue] = useState(own ?? '');
+  const saved = useRef(own ?? '');
+  const newest = useRef(0);
+  const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
+  const shown = value || fallback;
+
+  if (layout === 'print') {
+    return (
+      <section className={rowClassName ?? SETUP_ROW} data-setup-row="reply-by" data-rsvp-setting="reply-by" data-reply-by-field="print">
+        <p className={SETUP_TITLE}>{REPLY_BY_LABEL}</p>
+        <p className="text-[14px] font-semibold text-ink" data-reply-by={shown ?? ''}>
+          {shown ? formatReplyDay(shown) : 'Set your event date first.'}
+        </p>
+      </section>
+    );
+  }
+
+  const pick = (next: string) => {
+    if (!action) return;
+    setValue(next);
+    setNote(null);
+    announceReplyByLine(rsvpReplyByLine(next || fallback));
+    const tap = ++newest.current;
+    void (async () => {
+      let res: { ok: boolean; message?: string } | typeof SUPERSEDED;
+      try {
+        res = await makerSave(
+          () =>
+            makerLatestWrite('events.guest_list_edit_deadline', () => {
+              const fd = new FormData();
+              fd.set('event_id', eventId);
+              fd.set('guest_list_edit_deadline', next);
+              fd.set('adaptive_pricing_mode', pricingMode);
+              fd.set('maker_quiet', '1');
+              return action(fd);
+            }),
+          requestMakerRefresh,
+          { held: true, ok: (r) => r !== SUPERSEDED && r.ok === true },
+        );
+      } catch {
+        res = { ok: false, message: 'Please try again.' };
+      }
+      if (res === SUPERSEDED || tap !== newest.current) return;
+      if (res.ok) {
+        saved.current = next;
+        setNote({ ok: true, text: 'Saved.' });
+        return;
+      }
+      setValue(saved.current);
+      announceReplyByLine(rsvpReplyByLine(saved.current || fallback));
+      setNote({ ok: false, text: `The reply-by date did not save, so it is back as it was. ${res.message ?? ''}`.trim() });
+    })();
+  };
+
+  const field = (
+    <input
+      type="date"
+      value={value || fallback || ''}
+      onChange={(e) => pick(e.target.value)}
+      aria-label={layout === 'row' ? REPLY_BY_LABEL : 'Reply by — your own date'}
+      className="min-h-10 rounded-full border border-ink/15 bg-white px-3 text-[13px] text-ink"
+    />
+  );
+  const status = note ? (
+    <p role={note.ok ? 'status' : 'alert'} className={`text-[13px] ${note.ok ? 'text-success-800' : 'text-terracotta-700'}`}>
+      {note.text}
+    </p>
+  ) : null;
+
+  if (layout === 'row') {
+    return (
+      <section className={rowClassName ?? SETUP_ROW} data-setup-row="reply-by" data-reply-by-field="live" data-writes-live="">
+        <div className="min-w-0">
+          <p className={SETUP_TITLE}>{REPLY_BY_LABEL}</p>
+          <p className={SETUP_SUB}>{REPLY_BY_LINE}</p>
+          {note && !note.ok ? status : null}
+        </div>
+        {field}
+      </section>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-1.5" data-reply-by-field="live" data-writes-live="">
+      {shown ? (
+        <p className="flex flex-wrap items-baseline gap-x-2">
+          <span className="text-base font-semibold text-ink" data-reply-by={shown}>
+            {formatReplyDay(shown)}
+          </span>
+          <span className="text-sm text-ink/60">{value ? '· your date' : '· 30 days before'}</span>
+        </p>
+      ) : (
+        <p className="text-sm text-ink/60">Set your event date first.</p>
+      )}
+      <div className="flex flex-wrap items-center gap-2">
+        {field}
+        {value ? (
+          <button
+            type="button"
+            onClick={() => pick('')}
+            className="sn-press inline-flex min-h-11 items-center px-2 text-[13px] font-semibold text-ink/70 underline underline-offset-2"
+          >
+            Use the default
+          </button>
+        ) : null}
+      </div>
+      <HubSavesImmediately />
+      {status}
+    </div>
+  );
+}
+
+/** "December 12, 2026" from `YYYY-MM-DD`, without a timezone shift — the Maker's one date format (owner 2026-10-05). */
+export function formatReplyDay(ymd: string): string {
+  const [y, m, d] = ymd.split('-').map(Number);
+  if (!y || !m || !d) return ymd;
+  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-US', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+}
+
+/** The reply-by sentence, drawn — the RSVP stage lays it on the form's "Please reply by …". */
+function announceReplyByLine(line: string): void {
+  window.dispatchEvent(new CustomEvent(RSVP_REPLY_BY_EVENT, { detail: { line } }));
+}

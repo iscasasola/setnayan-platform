@@ -42,7 +42,7 @@ const PAGE = 'app/dashboard/[eventId]/guests/invite/page.tsx';
 // doors render — the invite page and the guest list's Share the link tab. The
 // assertions that were about what the page COMPUTES now read the panel; the
 // ones about what reaches the picker read every door that renders it.
-const PANEL = 'app/dashboard/[eventId]/guests/invite/_components/invite-panel.tsx';
+const PANEL = 'app/dashboard/[eventId]/guests/invite/_components/share-link-panel.tsx';
 const GUESTS = 'app/dashboard/[eventId]/guests/page.tsx';
 const ACTIONS = 'app/dashboard/[eventId]/guests/invite/actions.ts';
 

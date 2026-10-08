@@ -221,18 +221,22 @@ test('6 · every change is drawn first, saved through the one door as a held sav
   inOrder(
     fn,
     [
-      'const wasGifts = gifts; const wasWishes = wishes;',
+      'const had = gifts.find((g) => g.id === id);',
+      'const touched = [had.wishId, change.wishId ?? null];',
+      'const marks = new Map(wishes.map((w) => [w.id, w.gotBy]));',
       'const next = gifts.map((g) => (g.id === id ? { ...g, ...change } : g));',
       'setGifts(next);',
-      'setWishes((cur) => settleDrawn(cur, next, [had.wishId, change.wishId ?? null]));',
+      'setWishes((cur) => settleDrawn(cur, next, touched));',
       'const res = await makerSave(() => action(form({ gift_record_id: id, ...fields })), requestMakerRefresh, { held: true });',
       'if (res.ok) return null;',
-      'if (res.kept) setWishes(',
-      'else { setGifts(wasGifts); setWishes(wasWishes); }',
+      /* Refused: only THIS record goes back — and not even that when the record itself was kept. */
+      'if (!res.kept) setGifts((cur) => cur.map((g) => (g.id === id ? had : g)));',
+      'setWishes((cur) => cur.map((w) => (touched.includes(w.id) && marks.has(w.id) ? { ...w, gotBy: marks.get(w.id) ?? null } : w)));',
       'return res.error;',
     ],
     'changeGift',
   );
+  assert.doesNotMatch(fn, /setGifts\(was|setWishes\(was/, 'a refusal restores a snapshot of the whole list');
   /* ⚡ Nothing in it asks the Maker to render again — not after a kept change, not after a refusal. */
   assert.doesNotMatch(fn, /requestMakerRefresh\(\)|router\.refresh|location\.reload/, 'a gift change re-renders the Maker');
   /* The three things a couple can do to a record — and nothing else is sent. */
@@ -241,7 +245,8 @@ test('6 · every change is drawn first, saved through the one door as a held sav
   assert.match(list, /onRemove=\{\(removed\) => changeGift\(giftOpen\.id, \{ removed \}, \{ wish_op: 'gift-remove', removed: removed \? '1' : '0' \}\)\}/);
   /* A wish that is removed frees its gifts on the screen too ("Any gift"), and takes them back if refused. */
   assert.match(list, /setGifts\(\(cur\) => cur\.map\(\(g\) => \(g\.wishId === id \? \{ \.\.\.g, wishId: null \} : g\)\)\);/);
-  assert.match(list, /setWishes\(was\); setGifts\(wasGifts\); setError\(res\.error\);/);
+  assert.match(list, /const freed = gifts\.filter\(\(g\) => g\.wishId === id\)\.map\(\(g\) => g\.id\);/);
+  assert.match(list, /setGifts\(\(cur\) => cur\.map\(\(g\) => \(freed\.includes\(g\.id\) && g\.wishId === null \? \{ \.\.\.g, wishId: id \} : g\)\)\); setError\(res\.error\);/);
   /* Everything on the screen is drawn from the records. */
   assert.match(list, /const view = wishesWithGifts\(wishes, gifts\); const shown = studioWishesInOrder\(view\);/);
 });
@@ -300,7 +305,7 @@ test('7 · +0 server actions, +0 routes — and the writer corrects, never delet
 test('8 · 🔒 the screenshot is signed for a host only, for the one gift that was opened', () => {
   const s = flat('lib/wish-list.server.ts');
   const host = s.slice(s.indexOf('export async function readStudioWishList('), s.indexOf('export const GIFT_SHOT_TTL_SECONDS'));
-  const one = s.slice(s.indexOf('export async function readGiftShotUrl('), s.indexOf('export async function readGuestWishList('));
+  const one = s.slice(s.indexOf('export async function readGiftShotUrl('), s.indexOf('export function readOpenWishCount('));
   const guest = s.slice(s.indexOf('export async function readGuestWishList('));
   assert.ok(host.length > 200 && one.length > 200 && guest.length > 200);
 
@@ -413,4 +418,22 @@ test('10 · ⚡ a press costs one request and renders no page', () => {
   for (const f of [WRITER, `${P}/wish-items.server.ts`]) assert.doesNotMatch(read(f), /revalidatePath|revalidateTag|from 'next\/cache'|cookies\(\)/, `${f} revalidates`);
   /* The screens: no timer, no poll, no refresh of their own. */
   for (const f of [GIFTS, `${L}/studio-wish-sheet.tsx`]) assert.doesNotMatch(read(f), /setInterval|setTimeout|router\.refresh|requestMakerRefresh|useRouter/, `${f} polls or refreshes`);
+});
+
+test('11 · "Gifts sent to you" is a screen of its own — the rest of E-Gifts stands down while it is open', () => {
+  /* One CSS rule on the E-Gifts wrapper: while a child holds the gifts screen, every OTHER child
+     is hidden. No script — and nothing added to the files the Maker loads first. */
+  const css = readFileSync(join(WEB, 'app/globals.css'), 'utf8').replace(/\s+/g, ' ');
+  assert.match(
+    css,
+    /\[data-details-egifts\]:has\(\[data-studio-wish-list='gifts'\]\) > :not\(\[data-studio-wish-list='gifts'\]\):not\(:has\(\[data-studio-wish-list='gifts'\]\)\) \{ display: none; \}/,
+  );
+  const details = flat(`${L}/maker-details.tsx`);
+  assert.match(details, /<div className="flex flex-col gap-3" data-details-egifts="">\s*\{ap\.editors\.gifts\}\s*<StudioTool part="gifts"/, 'the wrapper the rule keys on is gone');
+  /* …and the mark it keys on is the one the wish list wears while the gifts screen is open — and only then. */
+  const list = flat(LIST);
+  assert.match(list, /if \(allGifts\) \{ return \( <section data-studio-wish-list="gifts" className="flex flex-col"> <GiftsSent/);
+  assert.equal([...list.matchAll(/data-studio-wish-list="gifts"/g)].length, 1);
+  /* ✓ Done brings everything back; nothing was unmounted to hide it. */
+  assert.match(list, /onDone=\{\(\) => setAllGifts\(false\)\}/);
 });

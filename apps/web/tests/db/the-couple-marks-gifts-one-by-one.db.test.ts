@@ -35,7 +35,7 @@ import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
 import './supabase-over-pglite'; // installs the `server-only` shim before the writer loads
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
-import { clientAs } from './pglite-client';
+import { clientAs, counted } from './pglite-client';
 
 type Writer = typeof import('../../app/dashboard/[eventId]/pabuya/gift-records.server');
 let W: Writer;
@@ -323,91 +323,55 @@ test('9 · 🔒 the screenshot of one opened gift — a host only, this event’
   await db.query(`UPDATE public.event_gift_records SET screenshot_r2_key = NULL WHERE gift_record_id = $1`, [R1]);
 });
 
-/** The same client, counting every request it sends (one per awaited table call). */
-function counting(uid: string) {
-  const real = as(uid);
-  const sent: string[] = [];
-  const client = {
-    from(table: string) {
-      const q = real.from(table) as unknown as Record<string, unknown>;
-      let verb = 'select';
-      const wrap = (inner: Record<string, unknown>): unknown =>
-        new Proxy(inner, {
-          get(target, prop, receiver) {
-            if (prop === 'then') {
-              sent.push(`${verb} ${table}`);
-              const then = Reflect.get(target, prop, receiver) as (...a: unknown[]) => unknown;
-              return then.bind(target);
-            }
-            const v = Reflect.get(target, prop, receiver);
-            if (typeof v !== 'function') return v;
-            return (...args: unknown[]) => {
-              if (prop === 'update' || prop === 'insert' || prop === 'delete' || prop === 'upsert') verb = String(prop);
-              const out = (v as (...a: unknown[]) => unknown).apply(target, args);
-              if (prop === 'maybeSingle') {
-                sent.push(`${verb} ${table}`);
-                return out;
-              }
-              return out && typeof out === 'object' ? wrap(out as Record<string, unknown>) : out;
-            };
-          },
-        });
-      return wrap(q);
-    },
-  };
-  return { client: client as unknown as ReturnType<typeof as>, sent };
-}
+/** Run one of the couple's calls and hand back the requests it sent (`counted`, pglite-client.ts). */
+const sentBy = <T>(fn: (client: ReturnType<typeof as>) => Promise<T>) => counted(() => fn(as(HOST)));
 
 test('10 · ⚡ as few requests as the task allows — counted on the real functions', async () => {
+  const write = (op: Parameters<Writer['giftRecordWrite']>[2], fields: Record<string, string>) => sentBy((c) => W.giftRecordWrite(c, EVENT, op, form(fields)));
+
   /* The couple's whole list: ONE read per table, side by side — whatever the number of wishes or gifts. */
-  const list = counting(HOST);
-  const view = await L.readStudioWishList(list.client, EVENT);
-  assert.ok(view.read);
-  assert.deepEqual(list.sent.sort(), ['select event_gift_records', 'select event_wish_items']);
-  assert.ok(view.gifts.every((g) => g.shotUrl === null), 'the list read signed a screenshot');
+  const list = await sentBy((c) => L.readStudioWishList(c, EVENT));
+  assert.ok(list.res.read);
+  assert.deepEqual([...list.sent].sort(), ['select event_gift_records', 'select event_wish_items']);
+  assert.ok(list.res.gifts.every((g) => g.shotUrl === null), 'the list read signed a screenshot');
 
   /* A gift toward NO wish, corrected: the write is the whole request. */
-  const any = counting(HOST);
-  assert.deepEqual(await W.giftRecordWrite(any.client, EVENT, 'gift-amount', form({ gift_record_id: R3, amount: '5000' })), { ok: true });
-  assert.deepEqual(any.sent, ['update event_gift_records']);
+  const any = await write('gift-amount', { gift_record_id: R3, amount: '5000' });
+  assert.deepEqual([any.res, any.sent], [{ ok: true }, ['update event_gift_records']]);
 
   /* A gift toward a wish, corrected, the mark unchanged: one write, then the two reads that add it up. */
-  const one = counting(HOST);
-  assert.deepEqual(await W.giftRecordWrite(one.client, EVENT, 'gift-amount', form({ gift_record_id: R1, amount: '2100' })), { ok: true });
-  assert.deepEqual(one.sent[0], 'update event_gift_records');
+  const one = await write('gift-amount', { gift_record_id: R1, amount: '2100' });
+  assert.deepEqual(one.res, { ok: true });
+  assert.equal(one.sent[0], 'update event_gift_records');
   assert.deepEqual(one.sent.slice(1).sort(), ['select event_gift_records', 'select event_wish_items']);
 
   /* …and when the sum reaches the price, ONE more write: the mark. */
-  const reach = counting(HOST);
-  assert.deepEqual(await W.giftRecordWrite(reach.client, EVENT, 'gift-amount', form({ gift_record_id: R1, amount: '2500' })), { ok: true });
+  const reach = await write('gift-amount', { gift_record_id: R1, amount: '2500' });
+  assert.deepEqual(reach.res, { ok: true });
   assert.equal(reach.sent.length, 4);
   assert.equal(reach.sent[3], 'update event_wish_items');
 
   /* Removed and put back: the same shape as a correction. */
-  const gone = counting(HOST);
-  assert.deepEqual(await W.giftRecordWrite(gone.client, EVENT, 'gift-remove', form({ gift_record_id: R1, removed: '1' })), { ok: true });
-  assert.equal(gone.sent.length, 4, 'remove: the write, two reads, and the mark that opens again');
-  const back = counting(HOST);
-  assert.deepEqual(await W.giftRecordWrite(back.client, EVENT, 'gift-remove', form({ gift_record_id: R1, removed: '0' })), { ok: true });
-  assert.equal(back.sent.length, 4);
+  const gone = await write('gift-remove', { gift_record_id: R1, removed: '1' });
+  assert.deepEqual([gone.res, gone.sent.length], [{ ok: true }, 4], 'remove: the write, two reads, and the mark that opens again');
+  const back = await write('gift-remove', { gift_record_id: R1, removed: '0' });
+  assert.deepEqual([back.res, back.sent.length], [{ ok: true }, 4]);
 
   /* A move between two wishes: two reads side by side, the write, then BOTH wishes added up in
      one pass (two reads — not two per wish) and a mark only where it changes. */
-  const moved = counting(HOST);
-  assert.deepEqual(await W.giftRecordWrite(moved.client, EVENT, 'gift-move', form({ gift_record_id: R1, wish_item_id: RICE })), { ok: true });
+  const moved = await write('gift-move', { gift_record_id: R1, wish_item_id: RICE });
+  assert.deepEqual(moved.res, { ok: true });
   assert.deepEqual(moved.sent.slice(0, 2).sort(), ['select event_gift_records', 'select event_wish_items']);
   assert.equal(moved.sent[2], 'update event_gift_records');
   assert.deepEqual(moved.sent.slice(3, 5).sort(), ['select event_gift_records', 'select event_wish_items']);
   assert.ok(moved.sent.length <= 7, `a move sent ${moved.sent.length} requests`);
-  const home = counting(HOST);
-  assert.deepEqual(await W.giftRecordWrite(home.client, EVENT, 'gift-move', form({ gift_record_id: R1, wish_item_id: AIR })), { ok: true });
-  assert.ok(home.sent.length <= 7);
+  const home = await write('gift-move', { gift_record_id: R1, wish_item_id: AIR });
+  assert.ok(home.res.ok && home.sent.length <= 7);
   assert.deepEqual(await amount(HOST, R1, '2000'), { ok: true });
   assert.deepEqual(await got(AIR), { got_by: null, marked: false });
   assert.deepEqual(await got(RICE), { got_by: null, marked: false });
 
   /* The opened gift's screenshot: ONE read. */
-  const see = counting(HOST);
-  await W.giftRecordWrite(see.client, EVENT, 'gift-shot', form({ gift_record_id: R2 }));
-  assert.deepEqual(see.sent, ['select event_gift_records']);
+  const see = await write('gift-shot', { gift_record_id: R2 });
+  assert.deepEqual([see.res, see.sent], [{ ok: true, shotUrl: null }, ['select event_gift_records']]);
 });

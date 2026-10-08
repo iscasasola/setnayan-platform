@@ -210,7 +210,9 @@ export function OpenGift({
     !gift.hasShot ? { state: 'none' } : gift.shotUrl ? { state: 'shown', url: gift.shotUrl } : { state: 'loading' },
   );
   const askShot = useRef(onShot);
-  askShot.current = onShot;
+  useEffect(() => {
+    askShot.current = onShot;
+  });
   const [shotTry, setShotTry] = useState(0);
   const needsShot = gift.hasShot && !gift.shotUrl;
   useEffect(() => {

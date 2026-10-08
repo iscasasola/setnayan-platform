@@ -8177,7 +8177,11 @@ input.sn-switch:focus-visible {
  * and quiet rules below are written at the same weight or higher, AFTER these,
  * so a tone can only be overridden on purpose. Held by
  * lib/action-button-is-icon-and-word.test.ts. */
-:is(button, a).ab.ab-brand { --ab-tone: var(--color-mulberry); --ab-word: var(--color-mulberry-700); }
+/* 🎯 BRAND IS THE APP'S ACCENT, BY ITS JOB (owner 2026-10-08: "if we change our color to blue, it will be easy to change
+ * the button colors"): the fill reads `--sn-accent` — today the terracotta `--color-mulberry` holds, so nothing moves on
+ * screen — and the filled main verb's word reads `--sn-on-accent` (the rule after `.ab-main`, below). The outlined
+ * word keeps mulberry-700 (measured on the 9% wash, above). Held by `lib/the-stages-panel-wears-the-accent.test.ts`. */
+:is(button, a).ab.ab-brand { --ab-tone: var(--sn-accent); --ab-word: var(--color-mulberry-700); }
 :is(button, a).ab.ab-ok { --ab-tone: var(--color-ok); }
 :is(button, a).ab.ab-info { --ab-tone: var(--color-info); }
 :is(button, a).ab.ab-warn { --ab-tone: var(--color-warn); }
@@ -8197,6 +8201,9 @@ input.sn-switch:focus-visible {
   color: #fff;
 }
 html.dark :is(button, a).ab.ab-main { color: #161513; }
+/* The main button in the accent: its word is the ink that reads ON the accent — one setting, both themes. */
+:is(button, a).ab.ab-brand.ab-main,
+html.dark :is(button, a).ab.ab-brand.ab-main { color: rgb(var(--sn-on-accent)); }
 @media (prefers-reduced-motion: reduce) { .ab { transition: none; } .ab:active { transform: none; } }
 
 /* Fill — the meter rule's bar (components/count.tsx). Width is set inline by

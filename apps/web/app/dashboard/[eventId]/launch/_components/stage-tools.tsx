@@ -854,15 +854,16 @@ export function StageTools({
     const q = rsvpOpen ? rsvpQuietRow(picked) : picked && picked !== 'reveal' ? makerPartQuietRow(picked) : null;
     let quiet: StageQuiet | null = null;
     if (q) {
-      if ('suppliers' in q.to) quiet = { kind: 'suppliers', words: q.words, small: 'Suppliers ›', href: suppliersHref };
+      if ('suppliers' in q.to) quiet = { kind: 'suppliers', words: q.words, href: suppliersHref };
       else {
         const to = q.to.studio;
         /* (On the RSVP stage only the form's and the notes' own words are typed on the page — never the masthead's.) */
         const typed = picked && !rsvpOpen ? makerPartSource(picked).kind === 'info' : false;
         quiet = {
           kind: to === 'info' ? 'info' : 'studio',
-          words: q.words,
-          small: to === 'info' ? (typed ? 'or tap the words ›' : 'Info ›') : 'Studio ›',
+          /* One button, one line (the button rule: icon + word, no "›" tail). A part whose words are typed on the
+             page still says so — the prototype's "or tap the words". */
+          words: to === 'info' && typed ? `${q.words} · or tap the words` : q.words,
           open: () => {
             resumeAt = picked ? { stage: stageKey, page: shownPage, part: picked } : null;
             /* 🎯 The exact field (`makerPartStudioDoor`), and where to come back to — "Done · back to Names". */

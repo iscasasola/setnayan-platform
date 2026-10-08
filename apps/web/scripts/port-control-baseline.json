@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "69efa9635",
+  "generatedFromRef": "8bbd556bc",
   "routeCount": 429,
   "destinations": 959,
   "actions": 671,
-  "blocks": 5835,
+  "blocks": 5840,
   "routes": {
     "/": {
       "files": [
@@ -6713,7 +6713,6 @@
         "DetailsSelectContext.Provider",
         "DetailsTapContext.Provider",
         "DetailsWorkspace",
-        "Dir",
         "Door",
         "DraftNote",
         "DraftsAsYouGo",
@@ -6867,6 +6866,7 @@
         "PassCardDesign",
         "PassCardDesignPicker",
         "PassCardsPanel",
+        "PeekToast",
         "PeopleBody",
         "PeopleControls",
         "PeoplePieces",
@@ -6876,6 +6876,7 @@
         "PickMenu",
         "PickOption",
         "PickSheetContext.Provider",
+        "PillSelector",
         "PillThumb",
         "PlanMyselfBody",
         "PlanMyselfSwitch",
@@ -6971,6 +6972,8 @@
         "StudioWords",
         "StylePreview",
         "Suspense",
+        "Swatch",
+        "SwatchMore",
         "Switch",
         "SwitchRow",
         "ThemePick",
@@ -7992,6 +7995,7 @@
       ],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "ActionResult",
         "ApplyResult",
         "ApplySummary",
@@ -9337,6 +9341,7 @@
       ],
       "blocks": [
         "AbortController",
+        "ActionButton",
         "AmbientEffectLayer",
         "AmbientEffectStyle",
         "ArtDirectionPick",

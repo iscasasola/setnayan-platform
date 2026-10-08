@@ -65,6 +65,7 @@ const TEMPLATE_FILES = [
   'app/_components/form-row.tsx', //       6 · Form row / 10 · Field (typed · chosen · on/off · a fact shown)
   'app/_components/explain.tsx', //        7 · ⓘ explanation (the centred popup on a phone, the note on a computer)
   'app/_components/fold.tsx', //           19 · Fold
+  'app/_components/toast/peek-toast.tsx', // 12 · Messages — the toast that peeks from the top
 ] as const;
 
 /**

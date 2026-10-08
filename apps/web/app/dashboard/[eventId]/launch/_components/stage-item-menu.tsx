@@ -111,7 +111,7 @@ export function StageItemMenu({
         className={STAGE_ITEM_BUTTON}
       >
         <span className="min-w-0 truncate">{label}</span>
-        <ChevronDown aria-hidden className={`h-3.5 w-3.5 shrink-0 text-[var(--sp-gold)] transition-transform duration-[220ms] motion-reduce:transition-none ${open ? 'rotate-180' : ''}`} strokeWidth={2.2} />
+        <ChevronDown aria-hidden className={`h-3.5 w-3.5 shrink-0 text-sn-accent transition-transform duration-[220ms] motion-reduce:transition-none ${open ? 'rotate-180' : ''}`} strokeWidth={2.2} />
       </button>
       {/* ▁ Portalled to <body>: the panel moves (it slides away while typing), and a moved box would hold a fixed sheet. */}
       {open && typeof document !== 'undefined' ? createPortal(

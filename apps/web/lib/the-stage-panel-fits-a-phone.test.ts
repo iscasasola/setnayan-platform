@@ -53,8 +53,8 @@ test('the panel draws those same strings for every button', () => {
     'stage-panel/kit.tsx',
     /* (stage-arrange.tsx draws no button of its own since Order went — owner 2026-10-07; its rows are kit's Dd.) */
     'stage-panel/stage-background.tsx',
-    'stage-panel/stage-animate.tsx',
-    'stage-panel/stage-text.tsx',
+    /* (stage-animate.tsx and stage-text.tsx draw no button of their own since 2026-10-08: Move's direction is kit's
+       Dd, Grow | Shrink is the app's `PillSelector`, the colour circles are kit's `Swatch` — all measured there.) */
     'stage-panel/style-carousel.tsx',
   ]) {
     const src = readFileSync(join(WEB, L, file), 'utf8');
@@ -72,6 +72,17 @@ test('the panel draws those same strings for every button', () => {
         `${file}: a button wears its own classes (${cls.slice(0, 60)}…) — use a STAGE_* string from lib/maker-stage-room.ts`,
       );
     }
+  }
+});
+
+test('the panel’s two files that draw no button of their own hand every tap to a measured piece', () => {
+  for (const [file, pieces] of [
+    ['stage-panel/stage-animate.tsx', ['<Dd', '<PanelSwitch', '<PillSelector', '<Phases']],
+    ['stage-panel/stage-text.tsx', ['<Swatch', '<SwatchMore']],
+  ] as const) {
+    const src = readFileSync(join(WEB, L, file), 'utf8');
+    assert.equal((src.match(/<(?:button|a)\s/g) ?? []).length, 0, `${file}: a button of its own is back — give it a STAGE_* string and list the file above`);
+    for (const p of pieces) assert.ok(src.includes(p), `${file}: no longer draws ${p}`);
   }
 });
 

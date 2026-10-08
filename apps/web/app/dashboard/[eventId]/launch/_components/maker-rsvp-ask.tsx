@@ -13,6 +13,7 @@ import {
   RSVP_WORD_LABEL,
   type RsvpStageScene,
 } from '@/lib/rsvp-stage';
+import { RSVP_WORD_TYPED_EVENT } from '@/app/[slug]/_components/rsvp-canvas-parts';
 import { hubDraftAction } from '../../website/hub-draft-actions';
 import { updatePaxSettings } from '../../actions';
 import { DetailsPieceOnly } from './details-piece';
@@ -21,6 +22,7 @@ import {
   RSVP_ASK_LABEL,
   readOneAtATime,
   rsvpAnswerWord,
+  RSVP_WORD_KEYS,
   RSVP_WORD_LINES,
   RSVP_WORD_MAX,
   type RsvpAskConfig,
@@ -283,6 +285,21 @@ export function MakerRsvpSettings({
     else words[key] = text.slice(0, RSVP_WORD_MAX[key]);
     save({ words }, `“${sceneWordName(key)}”`);
   };
+  /* ⌨ A WORD TYPED ON THE PAGE (the RSVP stage's canvas, a second tap on the picked part's words —
+     `rsvp-canvas-bridge.tsx`) IS THIS BOX'S OWN SAVE: one value, two doors. On the canvas first, drafted behind it,
+     published only at Apply — exactly as a keystroke in the box below. */
+  const saveWordRef = useRef(saveWord);
+  saveWordRef.current = saveWord;
+  useEffect(() => {
+    if (!stage) return;
+    const onTyped = (e: Event) => {
+      const d = (e as CustomEvent<{ key?: unknown; text?: unknown }>).detail;
+      if (typeof d?.text !== 'string' || !(RSVP_WORD_KEYS as readonly unknown[]).includes(d.key)) return;
+      saveWordRef.current(d.key as RsvpWordKey, d.text);
+    };
+    window.addEventListener(RSVP_WORD_TYPED_EVENT, onTyped);
+    return () => window.removeEventListener(RSVP_WORD_TYPED_EVENT, onTyped);
+  }, [stage]);
 
   const oneAtATime = readOneAtATime(local);
   /* 🎟 HOW GUESTS GET IN — "Will guests reply? / Entry" and the guest-list type

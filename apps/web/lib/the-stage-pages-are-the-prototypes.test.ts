@@ -51,6 +51,10 @@ const ADDED: Record<string, readonly string[]> = {
   'rsvp/details': ['details'],
   /* …the day's "Happening now" card, and the day's cover draws its Title too. */
   'event/live': ['spotlight', 'livehub', 'ename', 'heroline', 'herolink'],
+  /* …and the RSVP stage's two after-screens draw the couple's mark, their names and their invitation line over the
+     note (`invite/enter`'s masthead) — each a part there (`lib/the-rsvp-stage-is-parts.test.ts`). */
+  'rsvp_stage/thanks': ['logo', 'names', 'heroline'],
+  'rsvp_stage/decline': ['logo', 'names', 'heroline'],
 };
 /** Pages the code has that the prototype does not — each a tab the SHIPPED guest bar draws. */
 const BAR_PAGES: Record<string, readonly string[]> = {

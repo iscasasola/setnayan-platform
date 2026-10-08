@@ -7,6 +7,7 @@ import { InfoTip } from '@/app/_components/info-tip';
 import { PILL_ON_CLASS } from '@/app/_components/pill-selector';
 import { TickerPill, WhenTicker } from '@/app/_components/ticker';
 import { TIMELINE_BAND_CLASS, TIMELINE_ROW_CLASS, TimelineRow } from '@/app/_components/timeline-row';
+import { formatCount } from '@/lib/format-number';
 import { HUB_DRAFT_FIELD } from '@/lib/hub-draft';
 import { LOVE_STORY_CHAPTER_LABEL, MOMENT_LINE_MAX, MOMENT_TITLE_MAX, type ChapteredMoment, type LoveStoryMoment, type MomentAnchor, type MomentDate } from '@/lib/love-story-moments';
 import { STUDIO_FOOT_BUTTON } from '@/lib/studio-skin';
@@ -273,7 +274,7 @@ function MomentRow({
                 <ImageIcon aria-hidden className="h-5 w-5" strokeWidth={1.75} />
               )
             }
-            ariaLabel={media.length ? `${media.length} of ${momentPhotoSlots(media.length)} photos. Tap to change` : `Add photos, up to ${MOMENT_PHOTOS_OFFERED}`}
+            ariaLabel={media.length ? `${formatCount(media.length)} of ${momentPhotoSlots(media.length)} photos. Tap to change` : `Add photos, up to ${formatCount(MOMENT_PHOTOS_OFFERED)}`}
             title={`Photos${named}`}
             sheet={pickSheet}
             onClosed={savePhotos}
@@ -404,7 +405,7 @@ export function MomentPhotos({
   const [pct, setPct] = useState<number | null>(null);
   return (
     <div data-moment-photos="" className="mx-auto w-full max-w-[300px]">
-      <p className="pb-2.5 pt-0.5 text-center text-[13px] font-semibold text-ink/70">Up to {MOMENT_PHOTOS_OFFERED} photos. The first one shows first on your page.</p>
+      <p className="pb-2.5 pt-0.5 text-center text-[13px] font-semibold text-ink/70">Up to {formatCount(MOMENT_PHOTOS_OFFERED)} photos. The first one shows first on your page.</p>
       {sheet.ownsPro ? (
         <FileUpload
           bucket="media"

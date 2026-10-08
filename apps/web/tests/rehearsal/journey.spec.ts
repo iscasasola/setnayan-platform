@@ -309,10 +309,10 @@ test('the launch-critical journey', async ({ browser }) => {
   // ── A · THE HOST ────────────────────────────────────────────────────────
   await walk.step('A · Host', 'Sign in as the host', () => host, async (check) => {
     await host.goto(`${BASE}/login?next=${encodeURIComponent(eventUrl)}`);
-    await expect(host.getByRole('heading', { name: 'Sign in to Setnayan.' })).toBeVisible();
-    await host.locator('#hr-si-email').fill(FIXTURE.hostEmail);
-    await host.locator('#hr-si-password').fill(PASSWORD);
-    await host.getByRole('button', { name: 'Continue', exact: true }).click();
+    await expect(host.getByRole('heading', { name: 'Sign in to Setnayan.' }).first()).toBeVisible();
+    await host.locator('#hr-si-email:visible').first().fill(FIXTURE.hostEmail);
+    await host.locator('#hr-si-password:visible').first().fill(PASSWORD);
+    await host.getByRole('button', { name: 'Continue', exact: true }).first().click();
     await host.waitForURL((u) => u.pathname === eventUrl, { timeout: 45_000 });
     await answerCookieNotice(host);
     check('the password is accepted and the host lands on their event');
@@ -322,12 +322,12 @@ test('the launch-critical journey', async ({ browser }) => {
     // Opened again on its own, so this row of the request table is the Home's
     // cost and nothing else's (the row above also holds the sign-in).
     await host.reload();
-    const home = host.locator('section[aria-label="Home"]');
+    const home = host.locator('section[aria-label="Home"]:visible').first();
     await expect(home).toBeVisible();
     await expect(host.locator('[data-home-cover] h1').first()).toContainText(FIXTURE.eventName);
     check(`the event is "${FIXTURE.eventName}"`);
     await expect(host.locator('[data-home-guests-unread]')).toHaveCount(0);
-    const coming = host.locator('a[data-home-tile="coming"]');
+    const coming = host.locator('a[data-home-tile="coming"]:visible').first();
     await expect(coming).toBeVisible();
     comingBefore = await settledNumber(coming);
     // The seed made this many say yes; the couple's own two rows may count too.
@@ -341,14 +341,14 @@ test('the launch-critical journey', async ({ browser }) => {
   // ── B · THE EVENT HUB MAKER ─────────────────────────────────────────────
   await walk.step('B · Event Hub', 'Open the Event Hub Maker — Stages', () => host, async (check) => {
     await host.goto(`${BASE}${eventUrl}/launch`);
-    await expect(host.locator('[data-maker-shell]').first()).toBeVisible({ timeout: 45_000 });
-    const sides = host.getByRole('group', { name: 'Stages or Studio' });
+    await expect(host.locator('[data-maker-shell]:visible').first()).toBeVisible({ timeout: 45_000 });
+    const sides = host.getByRole('group', { name: 'Stages or Studio' }).first();
     await expect(sides).toBeVisible();
     check('the Maker opens with Stages | Studio on top');
     // A new event's Maker opens on Studio (by design: nothing covers Stages).
-    await sides.locator('[data-seg="stages"]').click();
-    await expect(sides.locator('[data-seg="stages"]')).toHaveAttribute('aria-pressed', 'true');
-    await expect(host.locator('[data-stage-tools]').first()).toBeVisible({ timeout: 30_000 });
+    await sides.locator('[data-seg="stages"]:visible').first().click();
+    await expect(sides.locator('[data-seg="stages"]:visible').first()).toHaveAttribute('aria-pressed', 'true');
+    await expect(host.locator('[data-stage-tools]:visible').first()).toBeVisible({ timeout: 30_000 });
     const canvas = host.frameLocator('iframe[data-maker-canvas-frame="shown"]');
     for (const name of FIXTURE.hostNames) {
       await expect(canvas.getByText(name, { exact: false }).first()).toBeVisible({ timeout: 45_000 });
@@ -359,19 +359,19 @@ test('the launch-critical journey', async ({ browser }) => {
   }, ['A · Host']);
 
   await walk.step('B · Event Hub', 'Studio', () => host, async (check) => {
-    const sides = host.getByRole('group', { name: 'Stages or Studio' });
-    await sides.locator('[data-seg="studio"]').click();
-    await expect(sides.locator('[data-seg="studio"]')).toHaveAttribute('aria-pressed', 'true');
-    await expect(host.locator('[data-studio-home]')).toBeVisible();
-    await expect(host.locator('[data-studio-tile]')).toHaveCount(11);
+    const sides = host.getByRole('group', { name: 'Stages or Studio' }).first();
+    await sides.locator('[data-seg="studio"]:visible').first().click();
+    await expect(sides.locator('[data-seg="studio"]:visible').first()).toHaveAttribute('aria-pressed', 'true');
+    await expect(host.locator('[data-studio-home]:visible').first()).toBeVisible();
+    await expect(host.locator('[data-studio-home]:visible').first().locator('[data-studio-tile]')).toHaveCount(11);
     check('Studio shows its eleven tiles');
-    await expect(host.locator('[data-studio-tile="info"]')).toBeVisible();
-    await expect(host.locator('[data-studio-ready]')).toContainText('of 11 ready');
-    check(`it says "${(await host.locator('[data-studio-ready]').innerText()).trim()}"`);
+    await expect(host.locator('[data-studio-tile="info"]:visible').first()).toBeVisible();
+    await expect(host.locator('[data-studio-ready]:visible').first()).toContainText('of 11 ready');
+    check(`it says "${(await host.locator('[data-studio-ready]:visible').first().innerText()).trim()}"`);
   }, ['A · Host']);
 
   await walk.step('B · Event Hub', 'Change the draft — a new note to guests', () => host, async (check) => {
-    await host.locator('[data-studio-tile="info"]').click();
+    await host.locator('[data-studio-tile="info"]:visible').first().click();
     // The Info form keeps every field mounted; the one on screen is the one a person types in.
     const box = host.locator('textarea[data-same-field="special_message"]:visible').first();
     await expect(box).toBeVisible({ timeout: 30_000 });
@@ -393,15 +393,15 @@ test('the launch-critical journey', async ({ browser }) => {
 
   await walk.step('B · Event Hub', '✓ Apply', () => host, async (check) => {
     await host.locator('[data-maker-apply] button:visible').first().click();
-    const sheet = host.locator('[data-apply-pro-sheet]');
+    const sheet = host.locator('[data-apply-pro-sheet]:visible').first();
     await expect(sheet).toBeVisible();
-    const withoutPro = sheet.locator('[data-apply-pro-without]');
+    const withoutPro = sheet.locator('[data-apply-pro-without]:visible').first();
     if (await withoutPro.count()) {
       await withoutPro.click();
       check('Apply asked about Pro effects; applied without them');
     } else {
       await expect(sheet).toContainText('Ready to apply');
-      await sheet.getByRole('button', { name: 'Apply', exact: true }).click();
+      await sheet.getByRole('button', { name: 'Apply', exact: true }).first().click();
       check('the sheet says "Ready to apply"');
     }
     await expect(sheet).toBeHidden({ timeout: 30_000 });
@@ -425,10 +425,10 @@ test('the launch-critical journey', async ({ browser }) => {
   await walk.step('C · Guests', 'Guests › Setup', () => host, async (check) => {
     await rest(stranger);
     await host.goto(`${BASE}${eventUrl}/guests?gview=share`);
-    await expect(host.locator('[data-guest-setup]')).toBeVisible({ timeout: 45_000 });
-    await expect(host.locator('a[data-guests-seg="share"]')).toHaveAttribute('aria-current', 'page');
+    await expect(host.locator('[data-guest-setup]:visible').first()).toBeVisible({ timeout: 45_000 });
+    await expect(host.locator('a[data-guests-seg="share"]:visible').first()).toHaveAttribute('aria-current', 'page');
     check('Setup is the open view of the guest list');
-    const send = host.locator('[data-testid="setup-send"]');
+    const send = host.locator('[data-testid="setup-send"]:visible').first();
     await expect(send).toBeVisible();
     await expect(send).toContainText(/Send to \d+/);
     check(`Invitations offers "${(await send.innerText()).trim().replace(/\s+/g, ' ')}"`);
@@ -441,10 +441,10 @@ test('the launch-critical journey', async ({ browser }) => {
     await expect(cell).toHaveAttribute('aria-label', `Invite ${invited.fullName}`);
     check(`the card is ${invited.fullName}'s, and they have not been invited yet`);
     await cell.click();
-    const panel = host.locator('[data-guest-invite-panel]');
+    const panel = host.locator('[data-guest-invite-panel]:visible').first();
     await expect(panel).toBeVisible();
-    await panel.locator('[data-guest-invite-copy-link]').click();
-    await expect(panel.locator('[data-guest-invite-copy-link]')).toContainText('Copied');
+    await panel.locator('[data-guest-invite-copy-link]:visible').first().click();
+    await expect(panel.locator('[data-guest-invite-copy-link]:visible').first()).toContainText('Copied');
     const copied = await host.evaluate(() => (window as unknown as { __rehearsalCopied?: string[] }).__rehearsalCopied ?? []);
     inviteLink = copied[copied.length - 1] ?? '';
     const link = assertLocalUrl(inviteLink, 'the copied invitation link');
@@ -459,30 +459,30 @@ test('the launch-critical journey', async ({ browser }) => {
     await guest.goto(inviteLink);
     await guest.waitForURL((u) => u.pathname.includes('/invite/'), { timeout: 45_000 });
     await answerCookieNotice(guest);
-    const door = guest.locator('[data-door-header]');
+    const door = guest.locator('[data-door-header]:visible').first();
     await expect(door).toBeVisible();
     for (const name of FIXTURE.hostNames) await expect(door).toContainText(name);
     check(`the door names the hosts (${FIXTURE.hostNames.join(' & ')})`);
-    await expect(guest.locator('a[data-landing-reply]')).toBeVisible();
+    await expect(guest.locator('a[data-landing-reply]:visible').first()).toBeVisible();
     check('"Reply to the invitation" is offered');
   }, ['A · Host']);
 
   await walk.step('C · Guests', 'The guest replies yes', () => guest, async (check) => {
-    await guest.locator('a[data-landing-reply]').click();
+    await guest.locator('a[data-landing-reply]:visible').first().click();
     await guest.waitForURL((u) => u.pathname.endsWith('/invite/reply'), { timeout: 45_000 });
-    await expect(guest.locator('[data-reply-for]')).toContainText(invited.firstName);
+    await expect(guest.locator('[data-reply-for]:visible').first()).toContainText(invited.firstName);
     check(`the reply is addressed to ${invited.fullName}`);
-    await guest.locator('label[data-rsvp-answer]', { hasText: 'Joyfully accepts' }).click();
-    await guest.locator('#contact_mobile').fill('09171234567');
-    await guest.locator('#rsvp_terms').check();
-    await guest.getByRole('button', { name: 'Send my reply' }).click();
+    await guest.locator('label[data-rsvp-answer]:visible', { hasText: 'Joyfully accepts' }).first().click();
+    await guest.locator('#contact_mobile:visible').first().fill('09171234567');
+    await guest.locator('#rsvp_terms:visible').first().check();
+    await guest.getByRole('button', { name: 'Send my reply' }).first().click();
     await guest.waitForURL((u) => u.searchParams.get('rsvp') === 'ok', { timeout: 45_000 });
-    const popup = guest.locator('[data-ticket-popup]');
+    const popup = guest.locator('[data-ticket-popup]:visible').first();
     if (await popup.isVisible().catch(() => false)) {
       await popup.getByRole('button', { name: 'Close' }).first().click();
     }
-    await expect(guest.locator('[data-landing-done]')).toBeVisible();
-    await expect(guest.locator('[data-landing-heading]')).toContainText('You replied');
+    await expect(guest.locator('[data-landing-done]:visible').first()).toBeVisible();
+    await expect(guest.locator('[data-landing-heading]:visible').first()).toContainText('You replied');
     check('the page answers "You replied — see you there"');
   }, ['A · Host']);
 
@@ -494,7 +494,7 @@ test('the launch-critical journey', async ({ browser }) => {
     await expect(row).toContainText('Attending');
     check(`${invited.fullName} is marked Attending in the guest list`);
     await host.goto(`${BASE}${eventUrl}`);
-    await expect(host.locator('a[data-home-tile="coming"]')).toContainText(String(comingBefore + 1), { timeout: 20_000 });
+    await expect(host.locator('a[data-home-tile="coming"]:visible').first()).toContainText(String(comingBefore + 1), { timeout: 20_000 });
     check(`the Home's "coming" count went ${comingBefore} → ${comingBefore + 1}`);
   }, ['A · Host']);
 
@@ -503,9 +503,9 @@ test('the launch-critical journey', async ({ browser }) => {
   await walk.step('E · Left open', `The host's Home, left open for ${IDLE_SECONDS} seconds`, () => host, async (check) => {
     // The step above ended on the Home and waited for it to go quiet. Nothing
     // is pressed here: whatever is counted now, the app asked on its own.
-    await expect(host.locator('section[aria-label="Home"]')).toBeVisible();
+    await expect(host.locator('section[aria-label="Home"]:visible').first()).toBeVisible();
     await host.waitForTimeout(IDLE_SECONDS * 1000);
-    await expect(host.locator('section[aria-label="Home"]')).toBeVisible();
+    await expect(host.locator('section[aria-label="Home"]:visible').first()).toBeVisible();
     const { stepDb } = await counted();
     check(`nothing was pressed for ${IDLE_SECONDS} s — the app made ${stepDb < 0 ? 'an unread number of' : stepDb} database requests on its own`);
   }, ['A · Host', 'C · Guests']);

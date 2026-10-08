@@ -105,7 +105,7 @@ export function ContactShortlistVendorButton({
         ) : (
           <MessageCircle className="h-3.5 w-3.5" strokeWidth={1.9} aria-hidden />
         )}
-        {pending ? pendingLabel : label}
+        <span className="lbl">{pending ? pendingLabel : label}</span>
       </button>
       {err ? <p className={errorClassName}>{err}</p> : null}
     </div>

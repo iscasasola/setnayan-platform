@@ -27,7 +27,8 @@
  * SABOTAGE, each seen red (2026-10-08; the PR body has the runs):
  *   T1 the row calls the search action itself   T2 search on every keystroke ·
  *   keep the in-list box   T3 stay up while Find is hidden · swap without the wait
- *   T4 drop the fit pass · frost Add   T5 a header tap closes them all
+ *   T4 drop the fit pass · call it where the row is not mounted · let the field
+ *      shrink · frost Add   T5 a header tap closes them all
  *   T6 list every category in the dropdown
  *   T7 a scroll-box body · search everything while pinned · fold on the first tap
  */
@@ -68,7 +69,8 @@ test('T2 · the search runs 250 ms after the last keystroke, and typing never re
   assert.match(ROW, /export const THUMB_SEARCH_DEBOUNCE_MS = 250;/);
   // The box's text is the row's own state — the list is told later.
   assert.match(ROW, /const \[text, setText\] = useState\(''\);/);
-  assert.match(ROW, /value=\{text\}\s+onChange=\{\(e\) => setText\(e\.target\.value\)\}/);
+  assert.match(ROW, /value=\{text\}\s+onChange=\{\(e\) => onText\(e\.target\.value\)\}/);
+  assert.match(ROW, /text=\{text\}\s+onText=\{setText\}/);
   assert.match(
     ROW,
     /const t = window\.setTimeout\(\(\) => \{\s*said\.current = text;\s*onSearch\(text\);\s*\}, THUMB_SEARCH_DEBOUNCE_MS\);\s*return \(\) => window\.clearTimeout\(t\);/,
@@ -118,10 +120,28 @@ test('T3 · the body swaps only AFTER the row has slid down — and only when a 
 /* ── T4 · rules 3 and 7 ──────────────────────────────────────────────────── */
 
 test('T4 · one fit state for the row; the field keeps its share', () => {
-  assert.match(ROW, /const rowRef = useRef<HTMLDivElement>\(null\);\s*useFitRow\(rowRef\);/);
-  assert.match(ROW, /<div ref=\{rowRef\} className="[^"]*\bmin-w-0\b[^"]*">/);
-  // The LABEL is the field the fit pass measures (it holds the icon and the input).
+  // The LABEL is the field the fit pass measures (it holds the icon and the input)…
   assert.match(ROW, /<label\s+data-glass-row="suppliers-find"\s+data-fit-field=""/);
+  // …and its 60 % is held in CSS too, so it is true before any script runs.
+  const field = /<label\s+data-glass-row="suppliers-find"\s+data-fit-field=""\s+className="([^"]*)"/.exec(ROW)?.[1] ?? '';
+  assert.match(field, /(^| )min-w-\[60%\]( |$)/, 'the field can be squeezed below 60 % of the row');
+  assert.match(field, /(^| )flex-1( |$)/);
+  assert.match(ROW, /<div ref=\{rowRef\} className="[^"]*\bmin-w-0\b[^"]*">/);
+});
+
+test('T4 · the fit pass MOUNTS WITH THE ROW — the row is a portal and does not exist on the first render', () => {
+  // Measured on the preview at 375 (2026-10-08): the placeholder showed only
+  // "S". `useFitRow` ran once in the component that returns null until <body>
+  // is known, found no row, and never ran again. It must be called by the
+  // component that RENDERS the row.
+  const outer = ROW.slice(ROW.indexOf('export function FindThumbRow('), ROW.indexOf('function ThumbControls('));
+  const inner = ROW.slice(ROW.indexOf('function ThumbControls('));
+  assert.ok(outer.length > 0 && inner.length > 0, 'the row moved — re-anchor');
+  assert.match(outer, /if \(!host\) return null;/);
+  assert.doesNotMatch(outer, /useFitRow\(/, 'the fit pass is called where the row does not exist yet');
+  assert.match(inner, /const rowRef = useRef<HTMLDivElement>\(null\);\s*useFitRow\(rowRef\);\s*return \(\s*<div ref=\{rowRef\}/);
+  assert.equal((ROW.match(/useFitRow\(rowRef\)/g) ?? []).length, 1);
+  assert.match(outer, /<ThumbControls\b/);
 });
 
 test('T4 · glass: the row has no background; the field is frosted; Add keeps its full colour', () => {

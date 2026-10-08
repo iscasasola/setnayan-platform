@@ -97,6 +97,7 @@ import type { HubMainGround } from '@/lib/hub-canvas';
 import type { MainColourDraft } from '@/lib/main-colours';
 import type { ManagerMethod } from '../../pabuya/_components/pabuya-manager';
 import { studioDetailsGroups, studioFullScreenCss, STUDIO_FORM_HEADS, STUDIO_SUPPLIERS_LINE } from '@/lib/studio-details';
+import { GIFTS_OFF_LINE, GIFTS_OFF_TITLE, studioWishIsGot, type StudioWishList } from '@/lib/wish-list-studio';
 import { MoodBoardPieces } from '../../studio/mood-board/_components/mood-board-parts';
 import { ItemPieces } from './details-piece';
 import { DetailsGoTo } from './details-go';
@@ -222,6 +223,12 @@ export type MakerDetailsProps = {
      * could not be read) with the slots already drafted.
      */
     registryUrl?: string | null;
+    /**
+     * 🎁 E-Gifts › Wish list (owner 2026-10-08): every wish with what guests say
+     * they sent toward it. `{ read: false }` = it could not be read — the section
+     * then says so, never "No wishes yet". Absent = no wish list is drawn at all.
+     */
+    wishList?: StudioWishList;
     qrShown?: boolean;
     main?: HubMainGround | null;
     mainColours?: string[] | null;
@@ -1017,6 +1024,8 @@ export function MakerDetails(props: MakerDetailsProps) {
   if (props.studio) {
     const st = props.studio;
     const yeIn = props.yourEvent ?? null;
+    /* 🎁 "Accept gifts?" answered No (drafted over live, like every answer here). */
+    const giftsOff = props.answers?.gifts.offered === true && props.answers.gifts.value === false;
     /* 📍 Date and Venue are read-only — set in Suppliers (DECISION_LOG "DATE AND VENUE LIVE IN SUPPLIERS"). */
     if (yeIn && editors.date) {
       editors.date = <StudioTool part="fact" value={yeIn.date.dateDisplay} line={STUDIO_SUPPLIERS_LINE} data="date" />;
@@ -1091,11 +1100,34 @@ export function MakerDetails(props: MakerDetailsProps) {
       );
     }
     /* 🎁 E-Gifts — the answer, then one switch per way to give with its field (the manager's own writes). */
-    if (editors.gifts && st.egiftMethods) {
+    if (editors.gifts && giftsOff) {
+      /* 🎁 "Accept gifts? — No" (owner 2026-10-08, wish list frame 10): nothing below the answer —
+         the ways to give, the wish list and the gifts are KEPT, and said so. */
+      editors.gifts = (
+        <div className="flex flex-col gap-3" data-details-egifts="off">
+          {ap.editors.gifts}
+          <p data-details-egifts-off="" className="px-1.5 pt-4 text-center text-[14px] text-ink">
+            {GIFTS_OFF_TITLE}
+          </p>
+          <p className="px-1.5 text-center text-[12px] text-ink/50">{GIFTS_OFF_LINE}</p>
+        </div>
+      );
+    } else if (editors.gifts && st.egiftMethods) {
+      const wishList = st.wishList;
       editors.gifts = (
         <div className="flex flex-col gap-3" data-details-egifts="">
           {ap.editors.gifts}
-          <StudioTool part="gifts" eventId={eventId} methods={st.egiftMethods} registryUrl={st.registryUrl} />
+          <StudioTool
+            part="gifts"
+            eventId={eventId}
+            methods={st.egiftMethods}
+            registryUrl={st.registryUrl}
+            openWishes={wishList?.read ? wishList.wishes.filter((w) => !studioWishIsGot(w)).length : undefined}
+          />
+          {/* 🎁 The wish list — between the ways to give and the thank-you words, under the SAME
+              "Guests see this right away" line (it saves live, like the rows above it). */}
+          {wishList ? <StudioTool part="wish-list" eventId={eventId} methods={st.egiftMethods} list={wishList} /> : null}
+          {wishList && theme.tour ? <MiniTour tourKey="customer_wish_list_v1" storeShell={theme.storeShell} /> : null}
         </div>
       );
     }
@@ -1119,7 +1151,16 @@ export function MakerDetails(props: MakerDetailsProps) {
     >
       <DetailsWorkspace
         /* 🧭 The new Maker's Studio: Info · E-Gifts · Prints are forms of their own (`lib/studio-details.ts`). */
-        groups={props.studio ? studioDetailsGroups(groups) : groups}
+        /* 🎁 Accept gifts? — No: the thank-you words fold away with everything else of E-Gifts (kept, not shown). */
+        groups={
+          props.studio
+            ? studioDetailsGroups(
+                props.answers?.gifts.offered === true && props.answers.gifts.value === false
+                  ? groups.map((g) => ({ ...g, items: g.items.filter((i) => i.key !== 'thank-you') }))
+                  : groups,
+              )
+            : groups
+        }
         bodies={bodies}
         editors={editors}
         initial={startItem}

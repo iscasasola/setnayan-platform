@@ -3,6 +3,8 @@
 import { StudioColourField } from './studio-colour-field';
 import { OpenInPlace } from './open-in-place';
 import { FilmFollowsTheme } from './film-follows-theme';
+import { StudioWishList } from './studio-wish-list';
+import { wishListSeenLine } from '@/lib/wish-list-studio';
 import { useContext, useEffect, useId, useRef, useState, useTransition, type ReactNode } from 'react';
 import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { EGIFT_KIND_META, type EgiftMethodKind } from '@/lib/egift-kinds';
@@ -173,6 +175,7 @@ export function StudioEgifts({
   methods,
   thanks,
   registryUrl,
+  openWishes,
 }: {
   eventId: string;
   methods: readonly ManagerMethod[];
@@ -184,6 +187,12 @@ export function StudioEgifts({
    * then not drawn, never shown empty over a link that exists.
    */
   registryUrl?: string | null;
+  /**
+   * 🎁 How many wishes are still open (owner 2026-10-08, E-Gifts › Wish list) —
+   * "What guests see" then says so, while a way to give is on. Absent = the wish
+   * list was not read, and the line says nothing about it.
+   */
+  openWishes?: number;
 }) {
   const [rows, setRows] = useState(() => rowsFrom(methods));
   const [registry, setRegistry] = useState(registryUrl ?? '');
@@ -301,6 +310,8 @@ export function StudioEgifts({
     });
   };
   const shownLink = cleanGiftRegistryUrl(registrySaved);
+  /* 🎁 The wish list as guests see it — only while a way to give is on (the one-setting rule). */
+  const wishSeen = wishListSeenLine(openWishes ?? 0, methods);
   const seen = STUDIO_GIFT_KINDS.filter((k) => rows[k].on && rows[k].handle.trim()).map((k) => ({
     kind: k,
     label: methods.find((m) => m.egift_method_id === rows[k].id)?.label ?? EGIFT_KIND_META[k].defaultLabel,
@@ -317,6 +328,11 @@ export function StudioEgifts({
         {shownLink ? (
           <p data-studio-egifts-registry-preview="" className="pt-2 text-[13px] text-ink/75">
             Registry · <span className="underline underline-offset-2">{new URL(shownLink).hostname}</span>
+            {wishSeen ? ` · ${wishSeen}` : null}
+          </p>
+        ) : wishSeen ? (
+          <p data-studio-egifts-wish-preview="" className="pt-2 text-[13px] text-ink/75">
+            {wishSeen}
           </p>
         ) : null}
       </div>
@@ -960,6 +976,32 @@ function StudioWhatToBring({ eventId, value }: { eventId: string; value: string 
   );
 }
 
+/**
+ * 🎁 THE WISH LIST, WIRED TO ITS ONE DOOR (owner 2026-10-08, E-Gifts › Wish list).
+ * `StudioWishList` draws and asks; THIS hands it the write: the E-Gifts page's own
+ * `saveEgiftMethod`, carrying `wish_op` (save · delete · move · got) — LIVE, like
+ * every write above it, and +0 server actions. The Maker re-reads once the save
+ * lands (`makerSave`), which is also what Try again asks for.
+ */
+function StudioWishListLive({ eventId, methods, list }: Pick<Parameters<typeof StudioWishList>[0], 'eventId' | 'methods' | 'list'>) {
+  return (
+    <StudioWishList
+      eventId={eventId}
+      methods={methods}
+      list={list}
+      retry={requestMakerRefresh}
+      send={(fields) =>
+        makerSave(() => {
+          const form = new FormData();
+          form.set('event_id', eventId);
+          for (const [k, v] of Object.entries(fields)) form.set(k, v);
+          return saveEgiftMethod(form);
+        }, requestMakerRefresh)
+      }
+    />
+  );
+}
+
 export type StudioToolProps =
   | ({ part: 'hub' } & Parameters<typeof StudioHubSettings>[0])
   | ({ part: 'fact' } & Parameters<typeof StudioReadOnlyFact>[0])
@@ -974,7 +1016,9 @@ export type StudioToolProps =
   | ({ part: 'event-name' } & Parameters<typeof StudioEventName>[0])
   /* ⚖ Two round-3 pieces ride this one lazy door (2026-10-08) — a door of their own each cost the Maker's first load. */
   | ({ part: 'open-in-place' } & Parameters<typeof OpenInPlace>[0])
-  | ({ part: 'film-follows' } & Parameters<typeof FilmFollowsTheme>[0]);
+  | ({ part: 'film-follows' } & Parameters<typeof FilmFollowsTheme>[0])
+  /* 🎁 E-Gifts › Wish list (owner 2026-10-08) rides the same door — never the Maker's first load. */
+  | ({ part: 'wish-list' } & Parameters<typeof StudioWishListLive>[0]);
 
 export function StudioTool(props: StudioToolProps) {
   switch (props.part) {
@@ -1004,5 +1048,7 @@ export function StudioTool(props: StudioToolProps) {
       return <OpenInPlace {...props} />;
     case 'film-follows':
       return <FilmFollowsTheme {...props} />;
+    case 'wish-list':
+      return <StudioWishListLive {...props} />;
   }
 }

@@ -11,6 +11,7 @@ import { deleteDisplacedPabuyaQr } from '@/lib/pabuya-qr-object.server';
 import { storeRedrawnPabuyaQr } from '@/lib/pabuya-qr-store.server';
 import { cleanPabuyaMessage } from '@/lib/pabuya-message';
 import { isHubDraftWrite, saveHubDraftPatch } from '@/lib/hub-draft-store';
+import { wishListWrite } from './wish-items.server';
 
 /**
  * Server actions for the Pabuya e-gift surface (/dashboard/[eventId]/pabuya).
@@ -96,6 +97,19 @@ export async function saveEgiftMethod(
     eventId = await requireEventId(formData);
   } catch {
     return { ok: false, error: 'Missing event reference. Please refresh.' };
+  }
+
+  /* 🎁 THE WISH LIST RIDES THIS ONE DOOR (owner 2026-10-08, E-Gifts › Wish list).
+     A form that carries `wish_op` (save · delete · move · got) is a write to
+     `event_wish_items`, done by `wish-items.server.ts` — a plain server module,
+     not four more exported actions: each export here is a Vercel route and the
+     ceiling is near (`scripts/lint-server-action-budget.mjs`). Same shape as
+     `saveCustomSection`'s six intents. A form WITHOUT the field is a way to
+     give, exactly as before. Live, like every write on this page. */
+  if (formData.has('wish_op')) {
+    const wish = await wishListWrite(eventId, formData);
+    if (wish.ok) await revalidateSurfaces(eventId);
+    return wish;
   }
 
   const methodKind = str(formData, 'method_kind');

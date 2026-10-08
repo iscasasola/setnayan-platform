@@ -86,7 +86,10 @@ test('(2) a Buttons choice reaches the rendered Reply button’s CSS', async () 
   assert.match(select, /\bsite_button_style\b/, 'the guest loader never reads the choice');
   assert.match(select, /\bsite_button_color\b/);
   const from = loaders.slice(loaders.indexOf('export function guestLookFrom'));
-  assert.match(from, /resolveHubButtons\(\{\s*style: event\.site_button_style,\s*colour: event\.site_button_color,/);
+  /* 🔘 RE-AIMED 2026-10-08 (owner, round 3: "button color will be taken from their 5 palette"): the SHAPE and FILL still
+     come from the row; the COLOUR no longer does — the page resolves its buttons with no colour of the couple's own
+     (`colour: null`), so their fill is the palette's. It used to pin `colour: event.site_button_color`. */
+  assert.match(from, /resolveHubButtons\(\{\s*style: event\.site_button_style,\s*colour: null,/, 'the guest page reads a stored button colour again, or lost the stored shape');
   // 🎨 …on the theme as the Mood Board dresses it (`dressedTheme`, 2026-10-05).
   assert.match(from, /page: hubButtonPage\(dressed, painted\)/, 'the buttons are not measured against the painted page');
   assert.match(from, /vars: painted,\s*buttons,/, 'the look leaves the loader without its buttons');

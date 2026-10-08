@@ -160,7 +160,8 @@ async function mainGroundOf({
         parallax={mainGround.parallax === true}
         adaptive={adaptive}
         vars={{
-          ...adaptiveThemeVars(adaptive, { ownButton: Boolean(event.site_button_color) }),
+          /* 🔘 A stored `site_button_color` is no longer read (owner 2026-10-08, `pro-site-vars.ts`): no own button to spare. */
+          ...adaptiveThemeVars(adaptive, { ownButton: false }),
           ...(shade ? shadeWordVars(shade, page) : {}),
           ...(shade ? shadeFollowers(shade, page, mainGround, theme, event, adaptive) : {}),
         }}
@@ -208,7 +209,8 @@ function shadeFollowers(
   event: { site_button_color?: unknown; role_palette?: unknown },
   adaptive: Parameters<typeof adaptiveThemeVars>[0],
 ): Record<string, string> {
-  const ownButton = typeof event.site_button_color === 'string' ? event.site_button_color : null;
+  /* 🔘 The buttons are the palette's (owner 2026-10-08): a stored `site_button_color` is no longer read. */
+  const ownButton: string | null = null;
   return shadeWordInks(
     shadeWordVars(shade, page),
     {

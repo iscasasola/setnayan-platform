@@ -50,3 +50,36 @@ Deviations, each with its reason:
 NOT SEEN in a browser at commit time.
 
 SPEC IMPACT: None beyond the contract above.
+
+## 2026-10-08 · fix(look): the buttons' colour has ONE source — a colour stored before the ruling is no longer read by the guest's Event Hub
+
+Owner, verbatim (2026-10-08, round 3): *"button color will be taken from their 5 palette"*.
+The note's condition for this step — "the controller confirms the count" — was met the same
+night (controller, read-only on production): 16 events · 0 hold a `site_button_color`. No
+screen has offered one since the Colour ▾ row left Look. Local commit.
+
+- `proSiteVarsFor` builds no button colour (`buildCustomSiteColorVars(bgHex, null)`);
+  `guestLookFrom` resolves the buttons with no colour of the couple's own; the main ground no
+  longer spares "their own button" from a picture's tint. Studio › Look's sample and the
+  Background panel are told the same (`lib/look-sample.ts`, `ownButton: false`).
+- The column stays (no migration) and is still read into the row — it is only no longer worn.
+- This removes deviation 1 of the entry above.
+
+Guards: `the-look-sample-is-the-guest-look` (8, new) — the guest page's own function, run
+over every swept look that holds a stored colour (1,000+), with it and without it: the same
+variables, the same buttons — for a Pro event and a free one; over a picture, with and
+without a Fade. Re-aimed, each with the reason written in the test (they held the OLD rule):
+`look-buttons-reach-every-button` (2) · `a-dark-look-keeps-its-words` (4: "the couple's own
+button colour is never moved") · `free-vs-pro-redrawn` (💎 the button colour) ·
+`app/[slug]/_lib/free-bg-colour-paints` (3 tests) · `a-background-pick-shows-at-once` (8: two
+pinned lines). 5 sabotages seen red.
+
+⚠ STILL READ ELSEWHERE — not changed here, each a guest or public surface of its own:
+the invitation door's button (`invite/_lib/load-invite-look.ts` → `resolveInviteButton`),
+`/[slug]/recap` and `/[slug]/pabuya` (`_lib/hub-look.ts`), the Discover card
+(`lib/discover-events.ts`), the print set (`lib/print-set.server.ts`), the celebration card
+(`lib/celebration-card-identity.ts`), and the shipped Colours action still accepts a
+`button_color` field no screen draws. With 0 rows holding a colour none of them can show one
+today; whether they follow this ruling is a call per surface.
+
+SPEC IMPACT: None beyond the contract above.

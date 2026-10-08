@@ -26,6 +26,7 @@ import {
   resolveImport,
   buildImporters,
   importersOf,
+  testsReaching,
   treeWalkingTests,
   replayBackedTests,
   testsNaming,
@@ -195,6 +196,20 @@ test('importers follow a barrel, so a type changed behind a re-export reaches it
   const graph = buildImporters(TREE);
   const imps = importersOf(['lib/money.ts'], graph);
   assert.deepEqual([...imps].sort(), ['app/shop/lazy.tsx', 'app/shop/page.tsx', 'app/shop/price.tsx', 'lib/index.ts', 'lib/money.test.ts']);
+});
+
+test('a test two imports away is reached; three away is not; a test is never walked through', () => {
+  const tree = new Map([
+    ['lib/core.ts', 'export const c = 1;'],
+    ['lib/mid.ts', "import { c } from './core';"],
+    ['lib/far.ts', "import { m } from './mid';"],
+    ['lib/core.test.ts', "import { c } from './core';"],
+    ['lib/mid.test.ts', "import { m } from './mid';"],
+    ['lib/far.test.ts', "import { f } from './far';"],
+    ['lib/through-a-test.test.ts', "import './core.test';"],
+  ]);
+  const reach = testsReaching(['lib/core.ts'], buildImporters(tree), 2);
+  assert.deepEqual([...reach].sort(), [['lib/core.test.ts', 1], ['lib/mid.test.ts', 2]]);
 });
 
 test('whole-tree guards are discovered three ways — and a replay-backed test is not one of them', () => {

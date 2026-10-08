@@ -316,6 +316,29 @@ export function importersOf(changed, graph) {
 }
 
 /**
+ * The tests a change can reach: a test that imports a changed file (distance 1)
+ * or imports a file that imports it (distance 2 — the test of the page that
+ * uses the changed component). A test is a leaf: nothing is followed past one.
+ * @returns {Map<string, number>} test file → distance
+ */
+export function testsReaching(changed, graph, maxDepth = 2) {
+  const dist = new Map(changed.map((c) => [c, 0]));
+  let frontier = [...changed];
+  for (let d = 1; d <= maxDepth && frontier.length; d++) {
+    const next = [];
+    for (const f of frontier) {
+      for (const imp of graph.importers.get(f) ?? []) {
+        if (dist.has(imp)) continue;
+        dist.set(imp, d);
+        if (!isTestFile(imp)) next.push(imp);
+      }
+    }
+    frontier = next;
+  }
+  return new Map([...dist].filter(([f, d]) => d > 0 && isTestFile(f)));
+}
+
+/**
  * The whole-tree guard tests: a test that walks a directory itself, runs a
  * guard script, or imports a helper module that walks. DISCOVERED, never
  * listed — a guard written tomorrow is in preflight tomorrow.

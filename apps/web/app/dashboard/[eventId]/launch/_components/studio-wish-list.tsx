@@ -244,7 +244,7 @@ export function StudioWishList({
   if (!list.read) {
     return (
       <section data-studio-wish-list="unread" className="flex flex-col">
-        <WishHead count={null} />
+        <WishHead summary={null} />
         <div role="alert" className="flex flex-col items-start gap-2.5 border-t border-ink/10 pb-1 pt-4 text-[14px]">
           <b className="font-medium text-danger-800">{WISH_LIST_UNREAD_TITLE}</b>
           <span className="text-ink/60">{WISH_LIST_UNREAD_LINE}</span>
@@ -262,7 +262,7 @@ export function StudioWishList({
 
   return (
     <section data-studio-wish-list={wishes.length ? 'list' : 'empty'} className="flex flex-col">
-      <WishHead count={wishListCount(wishes)} />
+      <WishHead summary={wishListCount(wishes)} />
       {wishes.length === 0 ? (
         <>
           {/* Sample shapes — the editor's own, never a guest's: three grey rows that say "a list goes here". */}
@@ -410,13 +410,13 @@ export function StudioWishList({
 }
 
 /** The eyebrow: "Wish list" ⓘ — and "4 wishes · 1 got" on the right. */
-function WishHead({ count }: { count: string | null }) {
+function WishHead({ summary }: { summary: string | null }) {
   return (
     <div data-studio-heading="wish-list" className={STUDIO_GROUP_HEAD}>
       <InfoTip label="Wish list" align="start">
         {WISH_LIST_TIP}
       </InfoTip>
-      {count ? <small className={STUDIO_GROUP_HEAD_LINE}>{count}</small> : null}
+      {summary ? <small className={STUDIO_GROUP_HEAD_LINE}>{summary}</small> : null}
     </div>
   );
 }

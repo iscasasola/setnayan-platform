@@ -131,7 +131,7 @@ export function DressCodeFields({
           off to show the colours only.
         </InfoTip>
         <input type="hidden" name="show_figure" value="off" />
-        {/* The label is the 44px tap target around the 24px switch. */}
+        {/* The label is the 44px tap target around the switch — the app's one look, as a real checkbox (`input.sn-switch`, globals.css). */}
         <label className="inline-flex min-h-11 min-w-11 shrink-0 cursor-pointer items-center justify-end">
           <input
             type="checkbox"
@@ -140,7 +140,7 @@ export function DressCodeFields({
             value="on"
             defaultChecked={config.show_figure}
             aria-label="Show the outfit figure"
-            className="h-6 w-11 shrink-0 cursor-pointer appearance-none rounded-full bg-ink/20 transition-colors before:block before:h-5 before:w-5 before:translate-x-0.5 before:translate-y-0.5 before:rounded-full before:bg-cream before:shadow before:transition-transform before:content-[''] checked:bg-terracotta checked:before:translate-x-[1.375rem] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+            className="sn-switch"
           />
         </label>
       </div>

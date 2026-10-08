@@ -7918,41 +7918,51 @@ html:has(.hub-shape-full) { overflow-x: clip; }
   }
 }
 
-/* ── .sn-switch — a yes/no answer drawn as a switch (owner 2026-09-30, the
-   Fable guest card: "Yes/No = toggles"). A real checkbox underneath, so it posts
-   `on` like any box, works with the keyboard and a screen reader, and the
-   autosave's undo can click it back. */
-.sn-switch {
+/* ── input.sn-switch — the SAME switch, when it is a real checkbox (owner 2026-09-30, the
+   Fable guest card: "Yes/No = toggles"; owner 2026-10-08: *"switch is teracota or greyed out"*).
+   A real checkbox underneath, so it posts `on` like any box, works with the keyboard and a
+   screen reader, and the autosave's undo can click it back.
+
+   🔑 SCOPED TO THE INPUT. This rule was a bare `.sn-switch` — the same name the span track above
+   (`THE SWITCH`) took on 2026-10-08 — and, being later in the file at the same weight, it forced
+   its own size, a second knob and a `transform`-only transition onto every span track. An input
+   needs a drawn knob and a size of its own; a span track brings its own. They share the name and
+   the colours, nothing else: the grey "off" and both speeds come from the rule above; only "on"
+   is said here, because a box is on by `:checked`.
+   Size = the approved template (50 × 30, a 24-px knob, 3 px in, travelling 20 px). */
+input.sn-switch {
   appearance: none;
   -webkit-appearance: none;
   position: relative;
   flex-shrink: 0;
-  width: 2.75rem;
-  height: 1.625rem;
+  width: 3.125rem;
+  height: 1.875rem;
   border-radius: 9999px;
-  background: rgb(26 26 26 / 0.18);
   cursor: pointer;
-  transition: background-color 0.2s ease;
 }
-.sn-switch::after {
+input.sn-switch::after {
   content: '';
   position: absolute;
   top: 0.1875rem;
   left: 0.1875rem;
-  width: 1.25rem;
-  height: 1.25rem;
+  width: 1.5rem;
+  height: 1.5rem;
   border-radius: 9999px;
   background: #fffdf8;
   box-shadow: 0 1px 3px rgb(26 26 26 / 0.3);
-  transition: transform 0.2s ease;
+  transition-property: transform;
 }
-.sn-switch:checked {
-  background: #4f6b4a;
+input.sn-switch:checked {
+  background-color: rgb(var(--color-mulberry));
 }
-.sn-switch:checked::after {
-  transform: translateX(1.125rem);
+input.sn-switch:checked::after {
+  transform: translateX(1.25rem);
 }
-.sn-switch:focus-visible {
+input.sn-switch:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+input.sn-switch:focus-visible {
   outline: 2px solid currentColor;
   outline-offset: 2px;
 }

@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { Loader2 } from 'lucide-react';
 import { setPoolGalleryOpen } from './pool-gallery-actions';
+import { SwitchTrack } from '@/app/_components/switch-track';
 
 /**
  * The Shared Pool Gallery open/close switch — client half of PoolGalleryCard.
@@ -45,16 +46,16 @@ export function PoolGalleryToggle({
         aria-checked={open}
         onClick={flip}
         disabled={isPending}
-        className={`inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition disabled:opacity-60 ${
-          open
-            ? 'bg-mulberry text-cream hover:bg-mulberry-600'
-            : 'bg-ink/5 text-ink/80 hover:bg-ink/10'
-        }`}
+        className="flex min-h-11 w-full items-center justify-between gap-3 text-left text-sm font-medium text-ink disabled:opacity-60"
       >
-        {isPending ? (
-          <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={2} />
-        ) : null}
-        {open ? 'Open to guests — tap to close' : 'Closed — tap to open to guests'}
+        <span className="inline-flex min-w-0 items-center gap-2">
+          {isPending ? (
+            <Loader2 aria-hidden className="h-4 w-4 shrink-0 animate-spin" strokeWidth={2} />
+          ) : null}
+          {open ? 'Open to guests — tap to close' : 'Closed — tap to open to guests'}
+        </span>
+        {/* The app's one switch (owner 2026-10-08) — the words stay; the fill that said "on" is the track's now. */}
+        <SwitchTrack on={open} />
       </button>
       {error ? (
         <p role="alert" className="mt-2 text-xs text-terracotta">

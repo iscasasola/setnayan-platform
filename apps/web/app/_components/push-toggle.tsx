@@ -31,6 +31,7 @@ import { useEffect, useState } from 'react';
 import { Bell } from 'lucide-react';
 import { savePushSubscription, removePushSubscription } from '@/lib/push-actions';
 import { unblockSteps, type UnblockGuide } from '@/lib/push-unblock-steps';
+import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? '';
 
@@ -253,15 +254,9 @@ export function PushToggle({ audience = 'couple' }: { audience?: PushAudience } 
         aria-label="Push notifications"
         disabled={!interactive || busy}
         onClick={on ? disable : enable}
-        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
-          on ? 'bg-terracotta' : 'bg-ink/20'
-        } ${!interactive || busy ? 'cursor-not-allowed opacity-50' : ''}`}
+        className={SWITCH_BUTTON}
       >
-        <span
-          className={`inline-block h-5 w-5 transform rounded-full bg-cream shadow transition-transform ${
-            on ? 'translate-x-[22px]' : 'translate-x-0.5'
-          }`}
-        />
+        <SwitchTrack on={on} />
       </button>
       </div>
 

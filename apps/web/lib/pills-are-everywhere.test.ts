@@ -157,7 +157,7 @@ test('(1) pill-track.tsx — the template, as three elements a server page can w
   const nav = paint(h(T.PillTrack as never, { as: 'nav', grow: true, 'aria-label': 'Views' } as never, h(T.PillLink as never, { on: true, href: '/x?tab=a', 'aria-current': 'page' } as never, 'A')));
   assert.match(nav, /^<nav aria-label="Views" data-pill-track="" class="[^"]*\bflex-1\b[^"]*">/);
   assert.match(nav, /<a [^>]*aria-current="page"[^>]*href="\/x\?tab=a"|<a [^>]*href="\/x\?tab=a"[^>]*aria-current="page"/);
-  assert.match(nav, /<a [^>]*class="[^"]*\bbg-mulberry\b[^"]*\brounded-full\b|<a [^>]*class="[^"]*\brounded-full\b[^"]*\bbg-mulberry\b/);
+  assert.match(nav, /<a [^>]*class="[^"]*\bbg-sn-accent\b[^"]*\brounded-full\b|<a [^>]*class="[^"]*\brounded-full\b[^"]*\bbg-sn-accent\b/);
   const form = paint(h(T.PillTrack as never, { as: 'form', role: 'group', 'aria-label': 'Mode' } as never, h(T.PillButton as never, { on: false, type: 'submit', name: 'mode', value: 'diy', 'aria-pressed': false } as never, 'DIY')));
   assert.match(form, /^<form role="group" aria-label="Mode" data-pill-track=""/);
   const submit = /<button [^>]*>/.exec(form)?.[0] ?? '';

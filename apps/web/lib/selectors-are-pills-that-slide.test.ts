@@ -379,6 +379,14 @@ test('(5) the four Maker selectors wear the ONE thumb — Stages | Studio, Look�
   assert.doesNotMatch(group, /className="contents"/, 'a wrapper hides the tools from the thumb');
   assert.doesNotMatch(group, /data-seg-fill|--sp-ink\)/, 'the tool group still has a colour of its own');
   assert.match(group, /<span data-seg-face="" className=\{STAGE_TOOL_FACE\}>/, 'the thumb fills the whole 44-px button, not the 38-px face');
+  // ONE ICON PER TOOL (owner 2026-10-08, the "Bolder" set S5 · T4 · A5): swatch book · A-large-small · orbit — 18 px, stroke 2.
+  for (const [tool, icon] of [['style', 'SwatchBook'], ['text', 'ALargeSmall'], ['animate', 'Orbit']] as const) {
+    assert.match(group, new RegExp(`<${icon} aria-hidden className="h-\\[18px\\] w-\\[18px\\]" strokeWidth=\\{2\\} />`), `${tool} lost its icon (${icon})`);
+  }
+  assert.match(group, /t === 'style' \? \(\s*<SwatchBook [^>]*\/>\s*\) : t === 'text' \? \(\s*<ALargeSmall [^>]*\/>\s*\) : \(\s*<Orbit [^>]*\/>/, 'a tool wears another tool’s icon');
+  assert.doesNotMatch(group, /<Brush\b|<Diamond\b|<Zap\b|>Aa</, 'an old tool icon is still drawn');
+  // The names a screen reader hears are unchanged.
+  assert.match(group, /aria-label=\{MAKER_PART_TOOL_LABEL\[t\]\}/);
   // The hairline beside the picked tool fades — the thumb is never cut by a line (as iOS draws it).
   assert.match(group, /\{i > 0 \? <span aria-hidden data-stage-tool-divider="" className=\{STAGE_TOOL_DIVIDER\} \/> : null\}/);
   for (const c of ['has-[+[aria-pressed=true]]:opacity-0', '[[aria-pressed=true]+&]:opacity-0', 'transition-opacity', 'duration-sn-pill', 'motion-reduce:transition-none']) {

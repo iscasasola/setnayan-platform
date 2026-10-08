@@ -695,15 +695,22 @@ const failed = rows.filter((r) => r.status === 'fail');
 const notRun = rows.filter((r) => r.status === 'notrun');
 const passedGuards = rows.filter((r) => r.group === 'guard' && r.status === 'pass');
 
+/* what ACTUALLY ran — a phase switched off by --only ran nothing, and must not be counted as if it had */
+const ranTsc = want('types') && changedTsWeb.length ? tscFiles.length : 0;
+const ranEslint = want('lint') ? eslintFiles.length : 0;
+const ranUnit = (want('pins') ? unitPins.length : 0) + (want('tree') ? unitWalkers.length + unitReplay.length : 0);
+const ranDb = want('db') ? dbTests.length : 0;
+const skippedPhases = PHASES.filter((p) => !want(p));
+
 const leftToCi = [
-  `full typecheck — preflight compiled ${changedTsWeb.length ? tscFiles.length : 0} file(s)${tscNote ? `; ${tscNote}` : ''}`,
-  `full eslint — preflight linted ${eslintFiles.length} changed file(s)`,
-  `full unit suite — preflight ran ${unitPins.length + unitWalkers.length + unitReplay.length} of ${allUnit.length} test files (a test more than two imports away from a changed file is not woken)${unitPinsDropped ? ` — and ${unitPinsDropped} woken files over the cap of ${PIN_CAP} were NOT run` : ''}`,
-  `full DB replay — preflight ran ${dbTests.length} of ${allDb.length} DB tests${touchedMigration ? '' : ' (no migration changed, so the schema pins were not run)'}`,
+  `full typecheck — preflight compiled ${ranTsc} file(s)${tscNote ? `; ${tscNote}` : ''}`,
+  `full eslint — preflight linted ${ranEslint} changed file(s)`,
+  `full unit suite — preflight ran ${ranUnit} of ${allUnit.length} test files (a test more than two imports away from a changed file is not woken)${unitPinsDropped && want('pins') ? ` — and ${unitPinsDropped} woken files over the cap of ${PIN_CAP} were NOT run` : ''}`,
+  `full DB replay — preflight ran ${ranDb} of ${allDb.length} DB tests${!want('db') ? '' : touchedMigration || touchedDbHarness ? '' : ' (no migration changed, so the schema pins were not run)'}`,
   'production build · Vercel route count · shared bundle size · the Maker\'s first-load JS budget',
   'lighthouse · playwright e2e',
-  ...(hadGitleaks ? [] : ['secret scan (gitleaks is not installed on this machine)']),
-  ...(cargoState === 'ran' ? [] : [`native encoder tests (${cargoState === 'no-cargo' ? 'src-tauri changed but cargo is not installed' : 'src-tauri untouched'})`]),
+  ...(hadGitleaks ? [] : [want('guards') ? 'secret scan (gitleaks is not installed on this machine)' : 'secret scan']),
+  ...(cargoState === 'ran' ? [] : [`native encoder tests (${cargoState === 'no-cargo' ? 'src-tauri changed but cargo is not installed' : cargoState === 'untouched' ? 'src-tauri untouched' : 'not run'})`]),
 ];
 
 const mark = { pass: 'PASS', fail: 'FAIL', notrun: 'NOT RUN' };
@@ -712,7 +719,7 @@ const out = (s = '') => lines.push(s);
 
 out(`PREFLIGHT · ${branch} @ ${head} · base ${BASE} · ${changed.length} changed, ${deleted.length} deleted`);
 out(GENTLE);
-if (ONLY) out(`⚠ PARTIAL RUN (--only ${ONLY.join(',')}) — the other phases did NOT run. Run it without --only before you push.`);
+if (ONLY) out(`⚠ PARTIAL RUN (--only ${ONLY.join(',')}) — NOT RUN: ${skippedPhases.join(', ')}. This is not a preflight; run it without --only before you push.`);
 out();
 out(`${'result'.padEnd(8)}${'time'.padStart(8)}  check`);
 out(`${'-'.repeat(8)}${'-'.repeat(8)}  ${'-'.repeat(60)}`);
@@ -744,14 +751,21 @@ out('LEFT TO CI — not run here. A green preflight is NOT a full pass:');
 for (const l of leftToCi) out(`  · ${l}`);
 for (const r of notRun) out(`  · ${r.check}: ${r.line}`);
 out();
-out(failed.length ? `RESULT: ${failed.length} FAILED · ${rows.length - failed.length - notRun.length} passed · wall ${fmtMs(wall)}` : `RESULT: the cheap faults are clear (${rows.length - notRun.length} checks) · wall ${fmtMs(wall)} · CI still has to run the rest`);
+const partial = ONLY ? ` · PARTIAL — ${skippedPhases.join(', ')} NOT RUN` : '';
+out(
+  failed.length
+    ? `RESULT: ${failed.length} FAILED · ${rows.length - failed.length - notRun.length} passed${partial} · wall ${fmtMs(wall)}`
+    : ONLY
+      ? `RESULT: nothing failed in the phases that ran (${rows.length - notRun.length} checks)${partial} · wall ${fmtMs(wall)}`
+      : `RESULT: the cheap faults are clear (${rows.length - notRun.length} checks) · wall ${fmtMs(wall)} · CI still has to run the rest`,
+);
 
 console.log(lines.join('\n'));
 
 /* a copy for the PR body */
 const md = [];
-if (ONLY) md.push(`⚠ PARTIAL RUN (--only ${ONLY.join(',')})`);
-md.push(`**preflight** · \`${branch}\` @ \`${head}\` · base \`${BASE}\` · ${changed.length} changed · wall ${fmtMs(wall)} · ${failed.length ? `**${failed.length} FAILED**` : 'cheap faults clear'}`);
+if (ONLY) md.push(`⚠ PARTIAL RUN (--only ${ONLY.join(',')}) — NOT RUN: ${skippedPhases.join(', ')}`);
+md.push(`**preflight** · \`${branch}\` @ \`${head}\` · base \`${BASE}\` · ${changed.length} changed · wall ${fmtMs(wall)} · ${failed.length ? `**${failed.length} FAILED**` : ONLY ? 'nothing failed in the phases that ran' : 'cheap faults clear'}`);
 md.push('');
 md.push('| check | result | time | first failing line | re-run |');
 md.push('|---|---|--:|---|---|');

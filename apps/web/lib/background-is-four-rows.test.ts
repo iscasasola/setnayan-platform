@@ -13,6 +13,9 @@
  *       "every scene?". Sabotage: the source dropdown writing a background → red.
  *   (4) THE BAR — the page follows the thumb (drawn in the browser, nothing saved) and ONE write is made on release,
  *       on the stop it settles on; the centre stores nothing. EXECUTED. Sabotage: a write per move → red.
+ *   (6) THE VEIL FOR EVERY POSITION — executed for every theme and every place on the bar: the words never fall
+ *       under the reading floor; the two words stored before the bar lay EXACTLY the veils they laid; further from
+ *       the centre is never a weaker veil. Sabotage: the floor taken off the dark side → red.
  *   (5) NOT DRAWN ANY MORE — In frame, How close, "Use where", "More", the ⓘ sentence, "Remove this scene's photo";
  *       what was stored for them is still read by the page.
  */
@@ -27,7 +30,12 @@ import { BACKGROUND_SOURCE_IS_PRO, BACKGROUND_SOURCE_LABEL } from './background-
 import { HUB_BACKGROUND_KINDS, resolveHubBackground, sanitizeHubCanvas } from './hub-canvas';
 import { SP_BG_ROW, SP_BG_STRIP, SP_BG_TILE, SP_ROWS } from './maker-stage-room';
 import { phoneHeightPx } from './maker-phone-room';
-import { SCENE_SHADE_MAX, SCENE_SHADE_MIN, sceneShadeAt, sceneShadeOf, sceneShadeSettled, sceneShadeWords } from './scene-shade-bar';
+import { SCENE_SHADE_MAX, SCENE_SHADE_MIN, SCENE_SHADE_STOPS, sceneShadeAt, sceneShadeOf, sceneShadeSettled, sceneShadeWords } from './scene-shade-bar';
+import { FADE_SNAP } from './background-fade';
+import { sceneMediaShade, sceneMediaShadeVars, sceneShadeStep } from './scene-media-shade';
+import { AA_BODY, requiredScrim } from './hub-legibility';
+import { INVITE_THEMES } from './invite-themes';
+import { SCENE_MEDIA_SCRIM } from './scene-legibility';
 
 /* The panel's pieces are compiled with the classic JSX runtime under `tsx` — they read `React` off the scope. */
 (globalThis as unknown as { React: unknown }).React = React;
@@ -177,26 +185,38 @@ test('(3) a source picked only shows its choices; a choice writes once through t
 });
 
 test('(4) the bar: the page follows the thumb with nothing saved; one write on release, on the stop it settles on; the centre stores nothing', async () => {
-  /* The arithmetic, executed. Three stops today: a scene stores one of two words. */
+  /* The arithmetic, executed. The scene stores the POSITION (the Look's own shape): a release rests where it is let
+     go, and within the Look's snap of the centre it IS the centre. */
+  assert.equal(SCENE_SHADE_STOPS, null, 'the bar has stops again — the stored shape lost its number');
   assert.equal(sceneShadeAt(undefined), 0);
+  /* The two words stored before the bar read at the Look's own places for them, and are not rewritten by reading. */
   assert.equal(sceneShadeAt('darker'), -70);
   assert.equal(sceneShadeAt('lighter'), 70);
   for (let at = SCENE_SHADE_MIN; at <= SCENE_SHADE_MAX; at += 1) {
     const settled = sceneShadeSettled(at);
     const stored = sceneShadeOf(at);
+    assert.equal(settled, Math.abs(at) <= FADE_SNAP ? 0 : at, `${at}: a release does not rest where it is let go`);
     /* What is stored reads back at the place it settled on — the thumb never jumps after a save. */
     assert.equal(sceneShadeAt(stored), settled, `${at}: stored ${String(stored)} reads at ${sceneShadeAt(stored)}, settled ${settled}`);
-    /* The sanitizer keeps it beside a picture. */
+    /* The sanitizer keeps it beside a picture — and never beside a colour. */
     const kept = sanitizeHubCanvas({ canvas: { media: 'https://x.test/a.jpg', own: true, shade: stored } });
     assert.equal(kept.shade, stored, `${at}: the page would not keep ${String(stored)}`);
+    assert.equal(sanitizeHubCanvas({ canvas: { kind: 'color', color: '#c7a27c', own: true, shade: stored } }).shade, undefined, `${at}: a colour keeps a veil`);
     assert.equal(settled === 0, stored === undefined, `${at}: the centre stores something, or a side stores nothing`);
     assert.ok(sceneShadeWords(at).length > 3);
   }
-  assert.equal(sceneShadeOf(-100), 'darker');
-  assert.equal(sceneShadeOf(100), 'lighter');
+  assert.equal(sceneShadeOf(-100), -100);
+  assert.equal(sceneShadeOf(37), 37);
   assert.equal(sceneShadeOf(0), undefined);
+  /* What may NOT be stored: the centre, a fraction, a position off the bar, anything that is not a place on it. */
+  for (const bad of [0, 12.5, 101, -101, 'as-is', 'bright', null, true]) {
+    assert.equal(sanitizeHubCanvas({ canvas: { media: 'https://x.test/a.jpg', own: true, shade: bad } }).shade, undefined, `${String(bad)} is stored`);
+  }
+  /* The words stored before the bar are still kept as they are. */
+  for (const word of ['darker', 'lighter'] as const) assert.equal(sanitizeHubCanvas({ canvas: { media: 'https://x.test/a.jpg', own: true, shade: word } }).shade, word);
   /* Left of the centre the words turn light — said to a screen reader. */
-  assert.equal(sceneShadeWords(-80), 'Darker · light words');
+  assert.equal(sceneShadeWords(-80), 'Darker 80% · light words');
+  assert.equal(sceneShadeWords(40), 'Lighter 40%');
   assert.equal(sceneShadeWords(4), 'As is');
 
   /* THE BAR: a move shows, a release keeps — once, and only a change. */
@@ -233,4 +253,70 @@ test('(5) not drawn any more: In frame, How close, "Use where", "More", the ⓘ,
   assert.match(read('lib/hub-canvas.ts'), /if \(inSet\(HUB_FOCAL_POINTS, canvas\.focal\)\) out\.focal = canvas\.focal;\s*if \(inSet\(HUB_ZOOMS, canvas\.zoom\)\) out\.zoom = canvas\.zoom;/);
   /* A pick here builds on the stored canvas — it never drops the crop a couple set before (`withBackground` / `putKeys` keep the rest). */
   assert.match(row, /const next = sanitizeHubCanvas\(\{ canvas: \{ \.\.\.latest\.current, \.\.\.keys \} \}\);/);
+});
+
+test('(6) the veil for every position: never under the reading floor, the stored words unchanged, further is never weaker', () => {
+  const themes = Object.values(INVITE_THEMES);
+  assert.ok(themes.length >= 3, 'anti-vacuity: the themes were not read');
+  let asked = 0;
+  for (const theme of themes) {
+    /* THE TWO WORDS STORED BEFORE THE BAR lay the veils they always laid — recomputed here by the rule as it was
+       (a dark veil from 0.55, a paper veil from 0.86, each raised until the words read). */
+    const was = {
+      darker: requiredScrim(theme.palette.lightInk, theme.palette.darkInk, ['#000000', '#ffffff'], 0.55, AA_BODY),
+      lighter: requiredScrim(theme.palette.darkInk, '#ffffff', ['#000000', '#ffffff'], Math.max(0.86, SCENE_MEDIA_SCRIM), AA_BODY),
+    };
+    for (const word of ['darker', 'lighter'] as const) {
+      const now = sceneMediaShade(word, theme);
+      assert.equal(now.opacity, was[word], `${theme.id}: a scene stored as "${word}" draws another veil than before`);
+      assert.equal(now.opacityEnd, Math.min(1, was[word] + (word === 'darker' ? 0.12 : 0.08)));
+      /* …and the word and its place on the bar are the same veil. */
+      assert.deepEqual(sceneMediaShade(sceneShadeAt(word), theme), now, `${theme.id}: "${word}" and its place draw differently — the thumb's first move would jump`);
+    }
+    let dark = 0;
+    let paper = 0;
+    for (let at = SCENE_SHADE_MIN; at <= SCENE_SHADE_MAX; at += 1) {
+      if (at === 0) continue;
+      const r = sceneMediaShade(at, theme);
+      /* NEVER UNDER THE READING FLOOR, over the darkest and the lightest pixel a picture can have. */
+      assert.ok(r.bodyContrast >= AA_BODY, `${theme.id} at ${at}: ${r.bodyContrast.toFixed(2)}:1`);
+      assert.ok(r.opacity > 0 && r.opacity <= 1 && r.opacityEnd >= r.opacity && r.opacityEnd <= 1);
+      /* LEFT of the centre: the theme's dark ink, the words its light ink; RIGHT: paper, the words its dark ink. */
+      assert.equal(r.veil, at < 0 ? theme.palette.darkInk : '#ffffff', `${theme.id} at ${at}: the wrong veil`);
+      assert.equal(r.text, at < 0 ? theme.palette.lightInk : theme.palette.darkInk);
+      /* The words the page paints are the ink that was measured. */
+      const vars = sceneMediaShadeVars(at, theme);
+      assert.match(vars['--hub-scrim-top'] ?? '', /^rgb\(\d+ \d+ \d+ \/ \d\.\d\d\)$/);
+      if (at < 0) {
+        const hex = `#${vars['--color-ink']!.split(' ').map((n) => Number(n).toString(16).padStart(2, '0')).join('')}`;
+        assert.equal(hex.toLowerCase(), theme.palette.lightInk.toLowerCase(), `${theme.id} at ${at}: the page paints another ink than the one measured`);
+      }
+      asked += 1;
+    }
+    /* FURTHER FROM THE CENTRE IS NEVER A WEAKER VEIL, on either side. */
+    for (let at = -1; at >= SCENE_SHADE_MIN; at -= 1) {
+      const o = sceneMediaShade(at, theme).opacity;
+      assert.ok(o >= dark - 1e-9, `${theme.id}: darker at ${at} is a weaker veil than at ${at + 1}`);
+      dark = o;
+    }
+    for (let at = 1; at <= SCENE_SHADE_MAX; at += 1) {
+      const o = sceneMediaShade(at, theme).opacity;
+      assert.ok(o >= paper - 1e-9, `${theme.id}: lighter at ${at} is a weaker veil than at ${at - 1}`);
+      /* Lighter is only ever MORE of the shipped scrim. */
+      assert.ok(o >= SCENE_MEDIA_SCRIM, `${theme.id} at ${at}: less veil than "as is"`);
+      paper = o;
+    }
+  }
+  assert.ok(asked >= 600, `anti-vacuity: only ${asked} positions measured`);
+  /* The least a position lays is its distance from the centre, anchored on the two words' own floors. */
+  assert.deepEqual(sceneShadeStep(-70), { veil: 'dark', floor: 0.55, to: 0.12 });
+  assert.equal(sceneShadeStep(70).veil, 'paper');
+  assert.ok(Math.abs(sceneShadeStep(70).floor - 0.86) < 1e-9);
+  assert.ok(sceneShadeStep(-35).floor < sceneShadeStep(-70).floor && sceneShadeStep(-100).floor > sceneShadeStep(-70).floor);
+  /* ONE sanitizer for the Look's and a scene's shade — the first-load file grew by the one call, not a second rule. */
+  const canvas = read('lib/hub-canvas.ts');
+  assert.match(canvas, /const shade = sanitizeHubMainShade\(canvas\.shade\);\s*if \(shade !== undefined && \(ground\?\.kind === 'photo' \|\| ground\?\.kind === 'snippet'\)\) out\.shade = shade;/);
+  assert.equal((canvas.match(/export function sanitizeHubMainShade\(/g) ?? []).length, 1);
+  /* The frame draws whatever is stored through that one rule. */
+  assert.match(read('lib/scene-frame-look.ts'), /canvas\.shade\s*\? sceneMediaShadeVars\(canvas\.shade, theme\)/);
 });

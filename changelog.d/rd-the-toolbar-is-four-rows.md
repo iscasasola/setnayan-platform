@@ -137,6 +137,16 @@ where just automatic center" · "remove how close" · "it is meant for just this
 Tests: new `lib/background-is-four-rows.test.ts` (5 rules, each seen red). Re-aimed with the reason written in:
 `every-studio-colour-opens-the-one-picker`, `the-slider-is-one-drawing`, `the-stages-panel-wears-the-accent`.
 
+### 5b · a scene's Darker ↔ Lighter is a place on the bar (its own commit — revert it alone to go back to three stops)
+
+`HubSectionCanvas.shade` takes the Look's own shape (`HubMainShadeValue`): 'darker' | 'lighter' as before, or a
+non-zero whole number −100…100; the centre is never stored. No migration: the two words stored before keep reading,
+at the Look's places for them (−70 · +70), and lay exactly the veils they laid (`lib/scene-media-shade.ts`
+`sceneShadeStep`, guarded for every theme and every position — never under the reading floor). The scene sanitizer
+calls the Look's `sanitizeHubMainShade` (one rule, not two). `lib/hub-canvas.ts` is a Maker first-load file: minified
+alone it is 17 bytes smaller raw and 4 bytes larger gzipped — the real budget check is the controller's build.
+`lib/scene-shade-bar.ts` loses its three stops (a release rests where it is let go, snapping to the centre).
+
 SPEC IMPACT: Yes — supersedes the 2026-10-06/07 "Style | Text | Animate" and "the toolbar is half the screen" rows.
 The controller holds the spec (`TOOLBAR-SPEC-2026-10-09.md`) and applies the corpus rows; nothing in the corpus was
 edited from this branch.

@@ -360,3 +360,44 @@ test('the Do’s & Don’ts looks are picture cards — one page each, laid on c
   assert.equal(new Set(withLists).size, DOS_LOOK_IDS.length, 'two looks draw the couple’s lists alike');
   assert.equal(new Set(empty).size, DOS_LOOK_IDS.length, 'two looks draw alike while there is no list');
 });
+
+/* ── 📸 PHOTOS OF YOU — the three gallery styles, pictured (owner 08 Oct: "this needs to present different
+      gallery styles") ───────────────────────────────────────────────────────────────────────────── */
+
+test('Photos of you draws The grid · The big one · Polaroids as the real gallery lays them — in sample photos, and its box is the frame’s', async () => {
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { readFileSync } = await import('node:fs');
+  const { MakerDayPartStandIn } = await import('../app/[slug]/_components/maker-fixed-parts');
+  const { sceneStylesOn } = await import('./scene-styles');
+  const looks = sceneStylesOn('photos_of_you', 'event', 'wedding');
+  assert.deepEqual(looks.map((l: { name: string }) => l.name), ['The grid', 'The big one', 'Polaroids']);
+  const draw = (id: string, name: string) => renderToStaticMarkup(React.createElement(MakerDayPartStandIn, { part: 'photos_of_you', styleName: name, styleId: id }));
+  const real = readFileSync('app/[slug]/_components/photos-of-you-styles.tsx', 'utf8') + readFileSync('app/[slug]/_components/photos-of-you-gallery.tsx', 'utf8');
+  /* Each sample is laid by the SAME arrangement the shipped look uses — read from the shipped renderer, so a
+     look redrawn there and not here goes red. */
+  const arrangement: Record<string, RegExp[]> = {
+    grid: [/grid grid-cols-3 gap-2/],
+    lead: [/flex (snap-x )?gap-2 overflow-/, /w-32 shrink-0/],
+    polaroids: [/grid grid-cols-2 gap-4/, /p-2 pb-3 shadow-md/, /-rotate-1/],
+  };
+  const pictures: string[] = [];
+  for (const look of looks) {
+    const html = draw(look.id, look.name);
+    for (const re of arrangement[look.id]!) {
+      assert.match(real, re, `${look.id}: the shipped look no longer uses ${re} — redraw the sample to match it`);
+      assert.match(html, new RegExp(re.source.replace('(snap-x )?', '')), `${look.id}: the sample is not the shipped look’s arrangement`);
+    }
+    const sample = /<div aria-hidden="true" data-maker-sample="photos_of_you:[a-z]+">([\s\S]*?)<\/div>/.exec(html);
+    assert.ok(sample, `${look.id}: the sample is not fenced to the Maker’s canvas`);
+    assert.equal(wordsIn(sample[1]!), '', `${look.id}: the sample prints words`);
+    assert.ok(sample[1]!.split('data-sample-box=""').length - 1 >= 4, `${look.id}: sample photos, not one plate`);
+    /* The part is ONE section — the box the pick frame measures (`findMakerSection` → the marker's next sibling). */
+    assert.match(html, /^<section class="[^"]*" data-maker-day-part="photos_of_you"/);
+    assert.equal(html.split('<section').length - 1, 1);
+    pictures.push(sample[1]!);
+  }
+  assert.equal(new Set(pictures).size, 3, 'two gallery styles draw the same picture');
+  const body = readFileSync('app/[slug]/_components/site-body.tsx', 'utf8');
+  assert.match(body, /\{makerMark\(`f:\$\{part\}`\)\}\s*<MakerDayPartStandIn/, 'the stand-in is no longer the marker’s next sibling — the frame would measure something else');
+  assert.match(body, /styleId=\{fixedStyle\(part as FixedStyleScene\)\}/, 'the canvas draws the look PICKED, not the first');
+});

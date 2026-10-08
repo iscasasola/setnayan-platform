@@ -28,6 +28,12 @@ Owner's preview checks, 08 Oct (Stages panel), built in the order A · E · D ·
   opening invitations the morning this ships); flipping the default is one constant, on the owner's word. The
   approved prototype draws no guest-page looks for this part, so the two are built from the owner's words and
   the shipped tokens.
+- **B · Photos of you presents its three gallery styles** (*"this needs to present different gallery
+  styles"*). The Maker's stand-in (`MakerDayPartStandIn`) now lays its sample photos exactly as the shipped
+  looks do — The grid (three across, the count under) · The big one (the latest large, its line, a strip that
+  slides) · Polaroids (instant prints two across, each with its time) — read against the shipped renderer by
+  the test, fenced like every sample (`data-maker-sample`, `aria-hidden`), and still ONE section right after
+  its marker, so the pick frame is the part's own box.
 
 SPEC IMPACT: `STAGES_PANEL_BUILD_STATUS_2026-10-08.md` gains "Round 5 — looks as pictures" (status only; no
 decision changed).

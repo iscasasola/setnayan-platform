@@ -454,8 +454,12 @@ test('the Dress code part carries ONE Figures ▾ (Drawn · Hidden) writing the 
   assert.doesNotMatch(fn.replace(/\/\*[\s\S]*?\*\//g, ''), /photos|Photos/, 'Photos is offered with no photo per role to show (blocked — see the docblock)');
   /* The SAME value the Mood Board's switch holds, the whole config, through the one draft door — never a second key. */
   assert.match(fn, /const next: DressCodeConfig = \{ \.\.\.before, show_figure: show \};/);
-  assert.match(fn, /fd\.set\('intent', 'save'\);\s*fd\.set\('patch', JSON\.stringify\(\{ events: \{ dress_code_config: next \} \}\)\);/);
-  assert.match(fn, /makerRedrawSave\(\(\) => draftAction\(eventId, fd\)/, 'held, and the page redrawn in place');
+  assert.match(fn, /const saveEvents = useHeldEventsSave\(eventId, draftAction\);/);
+  assert.match(fn, /const res = await saveEvents\(\{ dress_code_config: next \}\);/);
+  const held = read(`${EDITOR}/use-scene-canvas.ts`);
+  const hook = held.slice(held.indexOf('export function useHeldEventsSave'));
+  assert.match(hook, /fd\.set\('intent', 'save'\);\s*fd\.set\('patch', JSON\.stringify\(\{ events \}\)\);/, 'the one draft door, an events patch');
+  assert.match(hook, /return makerRedrawSave\(\(\) => draftAction\(eventId, fd\), \(\) => router\.refresh\(\)\);/, 'held, and the page redrawn in place');
   assert.match(fn, /value=\{drawn \? 'drawn' : 'hidden'\}/);
   assert.match(fn, /useState\(dressCode\.show_figure !== false\)/, 'only an explicit false is Hidden — a config saved before the switch stays Drawn');
   /* A refused save puts the row back and says why — never a pick that reads as landed. */

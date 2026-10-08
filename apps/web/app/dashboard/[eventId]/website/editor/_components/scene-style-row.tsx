@@ -23,14 +23,12 @@
  */
 
 import { useEffect, useRef, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
-import { HUB_DRAFT_BAR_FIELD, makerRedrawSave } from '@/lib/maker-refresh';
 import { sceneStyleOptions, sceneStyleTypeOfWidget, resolveSceneStyle } from '@/lib/scene-styles';
 import { recommendedStageSceneStyle } from '@/lib/scene-styles-stages';
 import type { HubSectionCanvas, HubStage } from '@/lib/hub-canvas';
 import { IRow, ISeg, ISegmented } from './inspector-kit';
 import { PickMenu } from './pick-menu';
-import { useSceneCanvas } from './use-scene-canvas';
+import { useHeldEventsSave, useSceneCanvas } from './use-scene-canvas';
 import { noteDraftedCanvas } from '@/lib/maker-draft-store';
 import type { ElementDraftAction } from './element-sheet';
 import { DosLookCards, PaletteLookCards, PaletteLookRow } from './palette-look-row';
@@ -307,8 +305,9 @@ export function PaletteLookCanvasRow({
  * ONE dropdown, **Drawn · Hidden**, and ONE setting with two doors: it reads and writes the SAME
  * `events.dress_code_config.show_figure` the Mood Board's own switch does (owner 2026-09-30, *"they can opt not
  * to add this"*; `studio/mood-board/_components/dress-code-fields.tsx`), the whole config through the one draft
- * door (`{ events: { dress_code_config: next } }`, as `mood-board-studio.tsx` sends it) — so the two can never
- * disagree, and guests keep the live page until ✓ Apply. Held and redrawn in place, like a look pick.
+ * door (`{ events: { dress_code_config: next } }`, as `mood-board-studio.tsx` sends it; `useHeldEventsSave`) —
+ * so the two can never disagree, and guests keep the live page until ✓ Apply. Held and redrawn in place, like a
+ * look pick.
  *
  * ⛔ **Photos is NOT offered.** A photo per role does not exist to show: the Mood Board's Attire boards store
  * three slots only (`bride`, `groom`, `entourage` — Groomsmen · Bridesmaids · Flower girl · Ring bearer wait in
@@ -319,7 +318,7 @@ export function PaletteLookCanvasRow({
  * drawn disabled.
  */
 function DressFiguresRow({ eventId, dressCode, draftAction }: { eventId: string; dressCode: DressCodeConfig; draftAction: ElementDraftAction }) {
-  const router = useRouter();
+  const saveEvents = useHeldEventsSave(eventId, draftAction);
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const latest = useRef(dressCode);
@@ -340,11 +339,7 @@ function DressFiguresRow({ eventId, dressCode, draftAction }: { eventId: string;
     setDrawn(show);
     setError(null);
     start(async () => {
-      const fd = new FormData();
-      fd.set('intent', 'save');
-      fd.set('patch', JSON.stringify({ events: { dress_code_config: next } }));
-      fd.set(HUB_DRAFT_BAR_FIELD, '1');
-      const res = await makerRedrawSave(() => draftAction(eventId, fd), () => router.refresh());
+      const res = await saveEvents({ dress_code_config: next });
       if (!res.ok) {
         /* A failure never reads as a pick that landed: the row goes back, and says why. */
         latest.current = before;

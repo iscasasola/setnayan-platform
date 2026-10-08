@@ -158,13 +158,13 @@ export function PillThumb() {
 }
 
 /**
- * The thumb's look: ONE accent pill under the choices (`bg-accent`, the fill a picked choice wears —
+ * The thumb's look: ONE accent pill under the choices (`bg-sn-accent`, the fill a picked choice wears —
  * `PILL_ON_CLASS`), travelling on transform and size at the family's one speed (`duration-sn-pill`) and landing with
  * a small overshoot (`ease-sn-spring`). `sn-pill-thumb` is its pulse (`globals.css`). Nothing moves under "reduce
  * motion".
  */
 export const PILL_THUMB_CLASS =
-  'sn-pill-thumb pointer-events-none absolute left-0 top-0 z-0 rounded-full bg-accent opacity-0 shadow-sm transition-[transform,width,height] duration-sn-pill ease-sn-spring motion-reduce:transition-none';
+  'sn-pill-thumb pointer-events-none absolute left-0 top-0 z-0 rounded-full bg-sn-accent opacity-0 shadow-sm transition-[transform,width,height] duration-sn-pill ease-sn-spring motion-reduce:transition-none';
 
 /**
  * Where the thumb lies for the choices that say they are picked — or null when the track is not an either-or right

@@ -214,7 +214,7 @@ export function BgPickLine({
       <p role="status" aria-live="polite" data-bg-pick-line="stalled" className="flex min-h-[18px] flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-ink/80">
         <span>{BACKGROUND_PICK_STALLED}</span>
         {onRetry ? (
-          <button type="button" data-bg-pick-retry="" onClick={onRetry} className="sn-press shrink-0 font-semibold text-accent underline underline-offset-2">
+          <button type="button" data-bg-pick-retry="" onClick={onRetry} className="sn-press shrink-0 font-semibold text-sn-accent underline underline-offset-2">
             Try again
           </button>
         ) : null}
@@ -321,14 +321,14 @@ export function BgCard({
         strip.onTap?.(data);
         onPick();
       }}
-      className={`sn-press flex w-min flex-none flex-col gap-1.5 text-left transition-opacity duration-sn-control ease-sn motion-reduce:transition-none disabled:opacity-50 data-[bg-card-locked]:opacity-40 data-[bg-card-dim]:[&>[data-bg-card-picture]]:opacity-45 ${looks.on ? 'text-accent' : 'text-ink/70'}`}
+      className={`sn-press flex w-min flex-none flex-col gap-1.5 text-left transition-opacity duration-sn-control ease-sn motion-reduce:transition-none disabled:opacity-50 data-[bg-card-locked]:opacity-40 data-[bg-card-dim]:[&>[data-bg-card-picture]]:opacity-45 ${looks.on ? 'text-sn-accent' : 'text-ink/70'}`}
     >
       <span
         data-bg-card-picture=""
         /* NO FRAME (owner 2026-10-08: "no framing") — the picture fills the card edge to edge; the PICKED card wears a
            3-px ring in the selector's accent, hugging the picture ("Selected Card needs to be highlighted with same
-           terracota"), and its name turns the accent too (`ring-accent` · `text-accent` — the one setting). */
-        className={`sn-phone-card sn-press-ring ${looks.on ? 'ring-[3px] ring-accent' : ''}`.trim()}
+           terracota"), and its name turns the accent too (`ring-sn-accent` · `text-sn-accent` — the one setting). */
+        className={`sn-phone-card sn-press-ring ${looks.on ? 'ring-[3px] ring-sn-accent' : ''}`.trim()}
         style={{ background: swatch, ...(swatchSize ? { backgroundSize: swatchSize } : {}) }}
       >
         {children}

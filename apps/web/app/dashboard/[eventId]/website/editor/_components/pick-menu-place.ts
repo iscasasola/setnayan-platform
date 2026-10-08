@@ -129,9 +129,42 @@ export function pickButtonClass(compact: boolean): string {
   }`;
 }
 
-/** One option's row — `chosen` is the single-pick value (filled ink). */
-export function pickOptionClass(roomy: boolean, chosen: boolean): string {
+/**
+ * 🎨 THE DROPDOWN'S COLOURS (owner 2026-10-08, the approved template gallery: *"Dropdown — Chevron should be teracota
+ * color?"* · "what is ON or PICKED is terracotta; what is off is grey"). Everywhere but the guest's Event Hub:
+ *   · the ▾ is the accent — the small mark that says "you can tap this";
+ *   · the PICKED option is said by accent words and an accent ✓ at its end — no longer a filled ink row;
+ *   · a multi-pick's ✓ is the accent too (it was green).
+ * The accent is the ONE token by its job (`accent`, `globals.css` `--sn-accent`) — never a colour written here.
+ *
+ * 🚪 THE ONE EXEMPTION — inside the guest's Event Hub (`.sn-editorial`, `app/[slug]`) nothing is app-styled: the ▾
+ * takes the page's own ink (a CSS rule on the button's side, so it holds on the first paint), and the list — which
+ * is portalled to <body>, outside the hub's box — is told by `pickInHub` and keeps the look it always had there.
+ */
+export function pickInHub(button: Element | null): boolean {
+  return Boolean(button?.closest('.sn-editorial'));
+}
+
+/** The ▾ in the button: the accent; inside the guest's Event Hub, the page's own ink. Turns over while open. */
+export function pickArrowClass(open: boolean): string {
+  return `h-3.5 w-3.5 shrink-0 text-sn-accent transition-transform duration-300 [.sn-editorial_&]:text-inherit ${open ? 'rotate-180' : ''}`;
+}
+
+/** One option's row — `chosen` is the single-pick value: accent words (`plain`, the guest hub: the filled ink row it always was). */
+export function pickOptionClass(roomy: boolean, chosen: boolean, plain = false): string {
   return `flex min-h-11 w-full items-center gap-2 rounded-xl px-3 text-left text-[14px] transition-colors duration-300 ease-in-out disabled:cursor-default disabled:text-ink/40 ${
     roomy ? 'py-2' : ''
-  } ${chosen ? 'bg-ink text-cream' : 'text-ink hover:bg-ink/5'}`;
+  } ${chosen ? (plain ? 'bg-ink text-cream' : 'text-sn-accent hover:bg-ink/5') : 'text-ink hover:bg-ink/5'}`;
+}
+
+/** The ✓ at the end of a picked option (single- or multi-pick). After a trail it sits beside it, not pushed apart. */
+export function pickTickClass(plain: boolean, afterTrail = false): string {
+  return `${afterTrail ? 'pl-2' : 'ml-auto pl-3'} shrink-0 text-[14px] font-semibold ${plain ? 'text-success-700' : 'text-sn-accent'}`;
+}
+
+/** An option's trailing word or mark, in its tone — `onFill`: it sits on the hub's filled ink row and takes that row's ink. */
+export function pickTrailClass(tone: 'ok' | 'left' | 'muted', onFill: boolean): string {
+  return `ml-auto shrink-0 pl-3 text-[13px] font-semibold ${
+    onFill ? 'opacity-80' : tone === 'ok' ? 'text-success-700' : tone === 'left' ? 'text-terracotta-700' : 'text-ink/50'
+  }`;
 }

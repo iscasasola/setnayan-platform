@@ -664,6 +664,40 @@ export function MainBackgroundPanel({
 
 
 /**
+ * 🖼 A picture that can never show as broken (owner 2026-10-08, studio round 3: *"Modern gallery
+ * walls" (and the next one) rendered as BROKEN images — "never show a broken image, and fall back
+ * to a drawn swatch"*). The still is drawn over its swatch; until it loads it is invisible, and if
+ * it fails (`onError`, or an address that answered with nothing) it is removed — the swatch stays.
+ * Eager, not lazy: a lazy image in a sideways carousel that is hidden on mount can be skipped and
+ * left as the browser's broken glyph, and there are only ten small stills.
+ */
+export function StillOverSwatch({ src, swatch }: { src: string | null | undefined; swatch: string }) {
+  const [state, setState] = useState<'loading' | 'shown' | 'failed'>('loading');
+  useEffect(() => setState('loading'), [src]);
+  return (
+    <span aria-hidden data-still-over-swatch={state} className="absolute inset-0 block" style={{ background: swatch }}>
+      {src && state !== 'failed' ? (
+        /* eslint-disable-next-line @next/next/no-img-element -- a loop's public still / the couple's own picture, already signed */
+        <img
+          src={src}
+          alt=""
+          decoding="async"
+          onLoad={(e) => setState(e.currentTarget.naturalWidth > 0 ? 'shown' : 'failed')}
+          onError={() => setState('failed')}
+          className={`h-full w-full object-cover transition-opacity duration-200 ${state === 'shown' ? 'opacity-100' : 'opacity-0'}`}
+        />
+      ) : null}
+    </span>
+  );
+}
+
+/** A moving background's drawn swatch — its own two sampled colours (`media.samples`), never a guess. */
+export function loopSwatch(id: string, plain: string): string {
+  const samples = (INVITE_THEMES as Record<string, InviteTheme | undefined>)[id]?.media?.samples;
+  return samples ? `linear-gradient(160deg, ${samples.light}, ${samples.dark})` : plain;
+}
+
+/**
  * 🧭 STUDIO › LOOK › BACKGROUND (owner 2026-10-07 side-by-side M29; prototype `lookBackground`):
  * the SAME choices as the dropdown, as a carousel of real pictures — each moving background's
  * still, the hero, the couple's own upload, the plain page colour — the name under each, the one
@@ -706,11 +740,10 @@ function GroundCarousel({
           >
             <span
               className={`relative block h-[86px] overflow-hidden rounded-xl ring-1 ${on ? 'ring-2 ring-terracotta-700' : 'ring-ink/10'}`}
-              style={o.thumb ? undefined : { background: o.key === 'src:none' ? plain : undefined }}
+              style={o.thumb ? undefined : { background: o.key === 'src:none' ? plain : o.key.startsWith('src:') ? undefined : loopSwatch(o.key, plain) }}
             >
               {o.thumb ? (
-                /* eslint-disable-next-line @next/next/no-img-element -- a loop's public still / the couple's own picture, already signed */
-                <img src={o.thumb} alt="" aria-hidden loading="lazy" className="h-full w-full object-cover" />
+                <StillOverSwatch src={o.thumb} swatch={o.key.startsWith('src:') ? 'rgb(var(--color-ink) / 0.04)' : loopSwatch(o.key, plain)} />
               ) : o.key === 'src:media' ? (
                 <span aria-hidden className="flex h-full w-full items-center justify-center bg-ink/[0.04] text-[22px] text-ink/40">＋</span>
               ) : o.key === 'src:hero' ? (

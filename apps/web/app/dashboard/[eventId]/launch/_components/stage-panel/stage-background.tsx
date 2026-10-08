@@ -17,9 +17,9 @@ import { About, Dd } from './kit';
  *   GALLERY ▸ · UPLOAD ◆                                the couple's pictures and the ready-made
  *                                                       scenes in one sheet; the in-place upload
  *
- * Opacity rides under the two glasses (shipped, kept). Darker ↔ Lighter is the
- * prototype's for a photo — a scene's canvas has no shade field, so it is NOT drawn
- * (never an invented control); the photo's own Motion and crop live in the Gallery sheet.
+ * Opacity rides under the two glasses (shipped, kept); Darker ↔ Lighter rides in the
+ * same slot once a photo or video is chosen (`HubSectionCanvas.shade`, owner
+ * 2026-10-07); the photo's own Motion and crop live in the Gallery sheet.
  */
 export type StageBgChoice = 'hub' | 'none' | 'color' | 'diagonal' | 'glow' | 'glass' | 'frost' | 'media';
 

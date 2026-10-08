@@ -43,7 +43,8 @@ test('the app carries them: the vocabulary, their trades, a Studio card and a bo
   }
   assert.deepEqual([...MOODBOARD_SLOT_TRADES.bridal_bouquet], ['florist']);
   assert.deepEqual([...MOODBOARD_SLOT_TRADES.centrepieces], ['florist', 'stylist_decorator', 'catering']);
-  assert.equal(AWAITING_A_SLOT.length, 0);
+  /* The two are no longer waiting (the owner's attire boards wait there since 2026-10-08). */
+  assert.ok(!AWAITING_A_SLOT.some((a) => ['Bridal bouquet', 'Centrepieces'].includes(a.label)), 'a part with a slot still waits for one');
   const board = readFileSync(join(__dirname, '../app/dashboard/[eventId]/studio/mood-board/_components/inspiration-board.tsx'), 'utf8');
   assert.match(board, /\{ k: 'bridal_bouquet', label: 'Bridal bouquet' \}/);
   assert.match(board, /\{ k: 'centrepieces', label: 'Centrepieces' \}/);

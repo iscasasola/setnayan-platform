@@ -24,11 +24,11 @@
  *
  * Pure. No I/O. Client-safe.
  */
-export const CAMERA_LOOKS = ['classic', 'brand', 'challenges'] as const;
-export type CameraLook = (typeof CAMERA_LOOKS)[number];
-
-/** The key inside `events.style_preferences`. */
-export const CAMERA_LOOK_PREF_KEY = 'camera_look';
+/* ⚡ The three keys, the stored key and the check live in `./camera-look-key` — the ONLY part the hub draft
+   (`lib/hub-draft.ts`, on the Maker's first load) needs. Importing this whole file from there put the labels, the
+   tint and the ink maths into every Maker's first load (08 Oct, first-load budget). Re-exported: one spelling. */
+import { CAMERA_LOOKS, CAMERA_LOOK_PREF_KEY, isCameraLook, type CameraLook } from './camera-look-key';
+export { CAMERA_LOOKS, CAMERA_LOOK_PREF_KEY, isCameraLook, type CameraLook };
 
 /** Each look's word — the Maker's `MAKER_CAMERA_LAYOUTS`, same order (restated so the
  *  camera's chunk does not carry the Maker's part map; `the-camera-tab-is-the-camera.test.ts`
@@ -39,9 +39,6 @@ export const CAMERA_LOOK_LABEL: Readonly<Record<CameraLook, string>> = {
   challenges: 'Challenges',
 };
 
-export function isCameraLook(v: unknown): v is CameraLook {
-  return typeof v === 'string' && (CAMERA_LOOKS as readonly string[]).includes(v);
-}
 
 /** The look out of an `events.style_preferences` blob (unknown shape). Absent → Classic. */
 export function cameraLookFromPreferences(stylePreferences: unknown): CameraLook {

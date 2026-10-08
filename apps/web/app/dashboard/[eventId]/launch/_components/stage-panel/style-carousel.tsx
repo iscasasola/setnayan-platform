@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { SP_LAYOUT_CARD } from '@/lib/maker-stage-room';
+import { useEffect, useRef, useState } from 'react';
+import { SP_LAYOUT_CARD, spCardWidth } from '@/lib/maker-stage-room';
+import { findMakerSection } from '@/app/[slug]/_components/maker-section-find';
 import { StylePreview } from './style-preview';
 
 /**
@@ -29,6 +30,21 @@ export function StyleCards({
   sceneType: string;
 }) {
   const car = useRef<HTMLDivElement>(null);
+  /* The part's own proportion on the canvas — every card is that shape at the row's height. */
+  const [aspect, setAspect] = useState<number | null>(null);
+  useEffect(() => {
+    if (!canvasKey) return;
+    try {
+      const d = document.querySelector<HTMLIFrameElement>('iframe[data-maker-canvas-frame="shown"]')?.contentDocument;
+      const [key, el] = canvasKey.split('.');
+      const sec = d ? findMakerSection(d, key!) : null;
+      const part = el ? sec?.querySelector<HTMLElement>(`[data-el="${el}"]`) : sec;
+      const r = part?.getBoundingClientRect();
+      if (r && r.width > 0 && r.height > 0) setAspect((r.width + (el ? 24 : 8)) / (r.height + (el ? 24 : 8)));
+    } catch {
+      /* not measured — the cards keep their shipped width */
+    }
+  }, [canvasKey]);
   useEffect(() => {
     const c = car.current;
     const on = c?.querySelector<HTMLElement>('[aria-checked="true"]');
@@ -55,6 +71,7 @@ export function StyleCards({
               if (!pending && !on) onPick(o.id);
             }}
             className={SP_LAYOUT_CARD}
+            style={spCardWidth(aspect)}
           >
             <span
               data-style-card-preview=""

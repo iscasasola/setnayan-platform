@@ -1,5 +1,6 @@
 'use client';
 
+import type { CameraLook } from '@/lib/camera-look';
 import { createContext, useContext, useEffect, useRef, type ComponentType, type ReactNode } from 'react';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import type { DetailsItemKey } from '@/lib/maker-details-items';
@@ -307,6 +308,8 @@ export type MakerLookPages = {
   fontsInUse?: readonly HubFontKey[];
   /** The guest page's address (`/<slug>`), or null before there is one. */
   publicLandingUrl: string | null;
+  /** 🎛 The Camera part's look, drafted over live (`events.style_preferences.camera_look`) — Stages' Camera › Style. */
+  camera?: { look: CameraLook } | null;
 };
 
 export const MakerContext = createContext<MakerState | null>(null);

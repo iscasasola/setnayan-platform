@@ -1,0 +1,15 @@
+## 2026-10-07 · feat(maker): Studio follow-ups — Schedule and Love Story redrawn, one Event name row, hosts leave the march (Builder SF)
+
+Owner, verbatim (2026-10-07): *"1. okay"* · *"2. bands? full width"* · *"yes"* · *"4. move it elsewhere. yes parents is automatically part of the wedding march, hosts are just access so this can live under the guestlist since there is a access column already."* (DECISION_LOG "STUDIO REDRAW ANSWERS" and "'EVENT NAME · MARIA & JOSE' IS ONE ROW…"). Prototype `maker_two_dropdowns_owner_wireframe_2026-10-06_fable.html`. All behind the new Maker (`makerStagesStudioEnabled`); the shipped Maker renders as before.
+
+- **Lab fixtures first** — `/dev/maker-lab?studio=1` now draws Studio › Schedule (six moments, one For ▾ Entourage) and Studio › Love Story (three moments with titles, in the couple's own order) on the REAL components, writes in memory (`app/dev/details-lab/studio-lab-fixtures.tsx`).
+- **Studio › Schedule** (`schedule/_components/studio-day.tsx`) — the day as a timeline on full-width bands: time pill (the phone's own time wheel) · moment · place · For ▾ (4c's stored audience) · ⋯ (the shipped inspector: length, notes, guests, remove) · + Add a moment (the shipped add sheet). Drawn by `ScheduleDay` in place of the rail; every edit goes through the rail's own `updateScheduleBlock` and refusal handling. Fills the screen (`STUDIO_PAGE_ITEMS`).
+- **Studio › Love Story** (`moment-order-cards.tsx`) — the screen IS the cards: one band per moment (photo · year · title · first line · grip), tapped open in place (Year · Title · words · Change photo · Remove), + Add a moment at the foot. An in-place edit carries every field the moment holds (`momentEditForm`), so a year changed never drops its place or photos. Same moment action intents (edit · delete · order); photos still go to the server.
+- **Studio › Info** — one row "Event name · Maria & Jose" (composed as the hero composes it, following what is typed) that opens the shipped `NamesEditor` + Name style ▾ in place (`studio-event-name.tsx`). One-person events keep their single name field.
+- **Studio › Wedding March** — the "Parents & hosts" block leaves the tray (parents walk in the march; hosts are access) and the tray shrinks to the Not-walking strip, so the walks get the screen. CSS only, Studio only.
+- **Hosts** — set only in Event Details › People with access (owner 2026-10-07, *"put people with access in event details"*); the Guest list's Access column is removed by PR 4f, not here.
+- **No ✓ Saved chip, no per-field Save** in Studio (owner 2026-10-07, *"yes remove the saved."*): the Tool row's Saved and the Mood Board's Saved are gone (a FAILED save is still said in words); What to bring drafts as it is typed. The Opening line stays on its Save — it is not a draft field (see the PR).
+- **Venue** reads "Venue" in Studio › Info unless there are several.
+- New test `lib/studio-followups-follow-the-prototype.test.ts` (5), each seen to fail under sabotage.
+
+SPEC IMPACT: None — builds the owner's 2026-10-07 answers already logged in DECISION_LOG ("STUDIO REDRAW ANSWERS", "'EVENT NAME · MARIA & JOSE' IS ONE ROW…").

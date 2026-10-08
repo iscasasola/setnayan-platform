@@ -46,7 +46,6 @@ import {
 import { DETAILS_FIRST_ITEM, DETAILS_LT_SECTION_FIRST, detailsLtSection, movedPageItem, type DetailsItemKey, type DetailsLtSection } from '@/lib/maker-details-items';
 import { makerGuestPages } from '@/lib/maker-guest-pages';
 import { SEE_AS, SEE_AS_EDITING, type SeeAs } from '@/lib/see-as';
-import { MakerTour } from './maker-tour';
 import { MAKER_PLAY_SCENE_EVENT, PreviewStageLink } from './maker-play-menu';
 import { MAKER_OPEN_RESET_EVENT } from '../../website/_components/maker-open-reset';
 import { MakerPage } from './maker-page';
@@ -90,10 +89,11 @@ import { useMakerTool, type MakerEventBar, type MakerTool } from './maker-contex
 import type { MakerSide } from './maker-bar';
 import { PickSheetContext, type PickSheet } from '../../website/editor/_components/pick-menu-place';
 /* 🧭 The new Maker's own chrome — lazy, so the shipped Maker's first load carries none of it. */
-import { LowerThirdGrab, MakerSheet, StageTools, StudioCover, StudioSideSwitch, StudioToolMenu, StudioToolRow } from './details-lazy';
+import { LowerThirdGrab, MakerSheet, MakerTour, StageTools, StudioBackToPart, StudioCover, StudioSideSwitch, StudioToolMenu, StudioToolRow } from './details-lazy';
 import { MAKER_LT_HALF } from '@/lib/maker-phone-room';
 import { detailsItemLayout } from '@/lib/maker-details-items';
-import type { StudioTileKey, StudioTileModel } from '@/lib/studio-tiles';
+import { studioTileItem, type StudioTileKey } from '@/lib/studio-tile-defs';
+import type { StudioTileModel } from '@/lib/studio-tiles';
 import { BookOpen, ClipboardList, Info, PanelsTopLeft, Printer, RotateCcw, Undo, Users } from 'lucide-react';
 
 /**
@@ -710,13 +710,21 @@ export function MakerShell({
   };
   /* ══ 🧭 THE NEW MAKER — Stages | Studio (`stagesStudio`, phone) ══ */
   /** A Studio tile opens its tool: Look in the lower third, every other the shipped Event Details item, full screen. */
-  const openStudio = (key: StudioTileKey) => {
+  const openStudio = (key: StudioTileKey, from?: { label: string; focus: string | null }) => {
     const tile = studio?.tiles.find((t) => t.key === key);
     if (!tile || !hasWork) return;
+    /* 🎯 Opened from a part's Style bar: where to come back to, and the field to land on. A tile opens fresh. */
+    setStudioFrom(from ?? null);
     setSide('studio');
     setStudioAt(key);
-    if (key === 'look') return openSection('look');
-    openDetailsItem(tile.item);
+    /* 🎨 Look opens a Look SECTION — never the Logo (or another Look-group item) the couple last had open. */
+    if (key === 'look') {
+      setDetailsItem(studioTileItem('look', detailsItem));
+      setLookVisit((n) => n + 1);
+      select({ kind: 'tool', key: 'details' });
+      return;
+    }
+    openDetailsItem(studioTileItem(key, detailsItem));
     setDetailsDoor((n) => n + 1);
     select({ kind: 'tool', key: 'details' });
   };
@@ -729,8 +737,19 @@ export function MakerShell({
     setStudioAt('home');
     select(null);
   }, [ss, side, selection, select]);
+  /* 🎯 THE STYLE BAR'S JUMP (owner 2026-10-07: *"opens to the exact place where to edit it"* · *"if we did a jump,
+     we need a way to apply and return to where we were editing"*): the field is brought into view and focused
+     once the editor has drawn it; "✓ Done · back to <part>" returns to the same stage and part (the edit stays
+     in the draft — the top ✓ still publishes). ⚡ The focusing and the button are `StudioBackToPart`, in the lazy
+     chunk (`details-lazy.tsx`) — they exist only after a Style-bar jump, so they never ride the Maker's first load. */
+  const [studioFrom, setStudioFrom] = useState<{ label: string; focus: string | null } | null>(null);
+  const backToPart = () => {
+    setStudioFrom(null);
+    pickSide('stages');
+  };
   /** Stages | Studio — tapping Studio (again) returns to its tiles; Stages puts the stage back. */
   const pickSide = (next: MakerSide) => {
+    if (next === 'studio') setStudioFrom(null);
     if (next === 'studio') setStudioAt('home');
     if (selection && (next === 'studio' || side === 'studio')) select(null);
     setSide(next);
@@ -1129,10 +1148,12 @@ export function MakerShell({
           {studioHomeOn ? (
             <StudioCover tiles={studio?.tiles ?? null} onOpen={openStudio} />
           ) : studioFull && studioTile ? (
-            <StudioToolRow tile={studioTile} tiles={studio?.tiles ?? []} onOpen={openStudio} onDone={() => pickSide('studio')} />
+            <StudioToolRow tile={studioTile} tiles={studio?.tiles ?? []} onOpen={(k) => openStudio(k)} onDone={() => (studioFrom ? backToPart() : pickSide('studio'))} />
           ) : null}
         </div>
 
+        {/* 🎯 Opened from a part's Style bar: the way back, in the thumb's reach, just above the editor. */}
+        {studioFrom ? <StudioBackToPart from={studioFrom} side={side} at={studioAt} full={studioFull} onBack={backToPart} /> : null}
         {/* ══ 🧰 THE LOWER THIRD ══ (phone) — where you are · the navigator; a tool
             open folds them into the left column and takes the rest. It REPLACES
             the bottom bar (Page ▾ · Look · Event Details) and the canvas's

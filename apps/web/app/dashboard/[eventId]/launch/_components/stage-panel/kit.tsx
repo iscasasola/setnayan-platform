@@ -17,6 +17,7 @@ import {
 import { PickMenu } from '../../../website/editor/_components/pick-menu';
 import type { PickOption } from '../../../website/editor/_components/pick-menu-types';
 import { useStagePanelNow } from './store';
+import { MAKER_PARTS, type MakerPartKey } from '@/lib/maker-parts';
 
 /**
  * 🧩 THE PROTOTYPE'S PIECES, IN REACT (`maker_two_dropdowns_owner_wireframe_2026-10-06_fable.html`):
@@ -67,7 +68,10 @@ export function Dd({
   data,
   className = '',
   tone = 'plain',
+  about,
 }: {
+  /** What the row does, behind ⓘ beside the pill (owner 2026-10-07: each Arrange row has an ⓘ). */
+  about?: ReactNode;
   /** The small caps word on the pill ("Background", "◆ How it moves"). */
   small: string;
   /** What the dropdown is, for a screen reader. */
@@ -82,7 +86,7 @@ export function Dd({
   tone?: 'plain' | 'how';
 }) {
   const box = useRef<HTMLDivElement>(null);
-  return (
+  const pill = (
     <div
       ref={box}
       className={`${SP_DD} ${tone === 'how' ? '!bg-[var(--sp-gold-wash)] !ring-[var(--sp-gold-soft)]' : ''} ${className}`}
@@ -99,6 +103,14 @@ export function Dd({
       </span>
       <PickMenu label={label} value={value} options={options} onPick={onPick} buttonText={buttonText} className={SP_DD_BUTTON} />
     </div>
+  );
+  return about ? (
+    <div className="flex min-w-0 flex-1 items-center gap-0.5" data-stage-dd-row={data}>
+      {pill}
+      <About label={small}>{about}</About>
+    </div>
+  ) : (
+    pill
   );
 }
 
@@ -147,8 +159,19 @@ export function Dir({ on, glyph, label, onPick }: { on: boolean; glyph: string; 
  * and this is the only door there. The part's own sentence sits behind ⓘ beside it.
  */
 export function QuietBar() {
-  const { quiet, about } = useStagePanelNow();
+  const { quiet, about, picked } = useStagePanelNow();
+  const name = picked && picked in MAKER_PARTS ? MAKER_PARTS[picked as MakerPartKey].label : null;
   if (!quiet && !about) return null;
+  /* No door to name: the part's NAME heads the row and its sentences sit behind ⓘ — once, never a row holding
+     only an ⓘ (owner, the pass: "a lone ⓘ" → "the copy appears once, behind ⓘ"). */
+  if (!quiet) {
+    return (
+      <div className="flex h-11 shrink-0 items-center gap-1.5" data-stage-quiet-row="" data-stage-quiet-name="">
+        <span className="min-w-0 flex-1 truncate px-1 text-[13px] font-semibold text-[var(--sp-ink2)]">{name ?? 'This part'}</span>
+        <About label="this part">{about}</About>
+      </div>
+    );
+  }
   return (
     <div className="flex h-11 shrink-0 items-center gap-1.5" data-stage-quiet-row="">
       {quiet ? (
@@ -169,9 +192,7 @@ export function QuietBar() {
             <small className="shrink-0 text-[10.5px] font-bold uppercase tracking-[0.12em] opacity-85">{quiet.small}</small>
           </button>
         )
-      ) : (
-        <span className="flex-1" />
-      )}
+      ) : null}
       {about ? <About label="this part">{about}</About> : null}
     </div>
   );

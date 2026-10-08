@@ -69,7 +69,7 @@ type Picked = {
 function problemBeforeUpload(file: File, contentType: HubMusicContentType | null): string | null {
   if (!contentType) return 'Not an M4A, MP3 or AAC file.';
   if (file.size > HUB_MUSIC_MAX_BYTES) {
-    return `${(file.size / 1024 / 1024).toFixed(1)} MB — a track can be up to 20 MB.`;
+    return `${formatCount(file.size / 1024 / 1024, 1)} MB — a track can be up to 20 MB.`;
   }
   if (file.size === 0) return 'This file is empty.';
   return null;
@@ -641,6 +641,7 @@ function EditTrack({
   const [title, setTitle] = useState(track.title);
   const [order, setOrder] = useState(String(track.sortOrder));
   const moodId = useId();
+  const orderId = useId();
 
   return (
     <div className="space-y-4 px-5 pb-4 pt-5" data-hub-music-edit-sheet="">
@@ -648,7 +649,7 @@ function EditTrack({
         {track.title}
       </h2>
       <p className="font-mono text-xs text-ink/70">
-        {formatHubMusicLength(track.durationSeconds)} · {(track.fileBytes / 1024 / 1024).toFixed(1)} MB · {track.publicId}
+        {formatHubMusicLength(track.durationSeconds)} · {formatCount(track.fileBytes / 1024 / 1024, 1)} MB · {track.publicId}
       </p>
       {error ? (
         <p role="alert" className="rounded-md bg-[var(--sn-warning-soft)] px-3 py-2 text-sm text-ink">
@@ -704,11 +705,14 @@ function EditTrack({
           onChange={(next) => onChange({ isPublished: next })}
         />
       </div>
-      <label className={LABEL}>
+      {/* `htmlFor`, because the ⓘ is a button: a label with no `for` belongs to
+          its FIRST control, so a tap on the row would press the ⓘ, not the field. */}
+      <label className={LABEL} htmlFor={orderId}>
         <InfoTip label="Order in its mood" labelClassName="text-xs font-medium text-ink/70" align="start">
           Lower numbers come first within a mood. Tracks with the same number go by title.
         </InfoTip>
         <input
+          id={orderId}
           type="number"
           inputMode="numeric"
           min={0}

@@ -21,3 +21,9 @@ SPEC IMPACT: None
 Step 3D. A guard renders Setup for all five "How guests get in" choices × Finalize open / locked × the invite count read / 0 / refused, and asserts every ⓘ is the approved Explain, every button is one the templates draw, and no row has two filled forward steps; the Guests-only Setup files hold no bare button, native select/input, older tip, `Sheet` or old-skin string. No code change besides the guard.
 
 SPEC IMPACT: None
+
+## 2026-10-09 · refactor(guests): every confirm box is the approved centred box with its two buttons side by side; the lab's Finalize is seen
+
+Step 3D. Read from the approved gallery (§ 12 Messages, `.cfm`; INTERACTION_RULES § 9): a confirm box pops up in the CENTRE, its words centred, and its two buttons sit side by side, equal, the safe answer first ("Keep") and the doing one second ("Delete"); tapping the dark closes it as "keep". `GuestPopup kind="confirm"` + `GuestConfirmActions` carry that, once — the Delete warning, Setup's Finalize ("Not now" · "Finalize") and the New QR / Unlink account confirm are the same box, and a sheet cannot choose its own layout. In the dev lab a Finalize that lands moves the fixture's `?hc=` and Setup redraws, so "Reopen guest list" and the locked headcount can be seen and pressed. Plus the audit guard (every ⓘ is Explain, every button the one ActionButton, one filled step per row, in every state). No request, no server action, no migration added.
+
+SPEC IMPACT: None

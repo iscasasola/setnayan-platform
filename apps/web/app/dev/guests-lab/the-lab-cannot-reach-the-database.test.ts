@@ -128,3 +128,22 @@ test('(4) with ?refuse=1 Setup’s writes refuse in the database’s own words �
     assert.ok(typeof words === 'string' && !isPlainSentence(words), `the lab’s Setup refusal reads as a sentence: ${words}`);
   }
 });
+
+test('(5) a Finalize / Reopen that lands is SEEN in the lab: the stand-in moves the fixture’s ?hc= and the page redraws', async () => {
+  const seen: string[] = [];
+  const g = globalThis as unknown as { window?: unknown };
+  g.window = {
+    location: { href: 'http://localhost:3480/dev/guests-lab?part=setup' },
+    history: { state: null, replaceState: (_s: unknown, _t: string, url: URL) => seen.push(String(url.search)) },
+  };
+  try {
+    const fin = await LAB_GUEST_ACTIONS.setGuestListFinalized!('e', true);
+    assert.ok(fin.ok && fin.locked === true);
+    const reopen = await LAB_GUEST_ACTIONS.setGuestListFinalized!('e', false);
+    assert.ok(reopen.ok && reopen.locked === false);
+  } finally {
+    delete g.window;
+  }
+  assert.deepEqual(seen, ['?part=setup&hc=locked', '?part=setup&hc=open'], 'the lab’s headcount does not follow a finalize');
+  assert.match(read(join(HERE, 'page.tsx')), /headcount=\{\{ locked: hc === 'locked'/, 'the lab’s headcount no longer reads ?hc=');
+});

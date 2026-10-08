@@ -25,7 +25,7 @@ import {
   headcountOpenLine,
 } from '@/lib/headcount-row';
 import { useGuestActions } from '../../guests/_components/guest-actions-context';
-import { GuestPopup } from '../../guests/_components/guest-popup';
+import { GuestConfirmActions, GuestPopup } from '../../guests/_components/guest-popup';
 import { plainRefusal } from '../../guests/_components/plain-refusal';
 import { GuestsGetIn } from './guests-get-in';
 import { RsvpAsks } from './rsvp-asks';
@@ -395,17 +395,12 @@ function FinalizeRow({ eventId, view }: { eventId: string; view: HeadcountView }
           )}
         </span>
       </FormRow>
-      {/* The pop-up rule (owner 2026-10-08): `GuestPopup` draws it on <body> — above the bottom bar, dark and blurred behind, a tap
-          on the dark closes it, nothing behind works or scrolls. (It was the shared `Sheet` in a hand portal.) A press in
-          flight cannot be closed away. */}
+      {/* A confirm box (the approved gallery § 12): `GuestPopup kind="confirm"` draws it centred on <body> — above the bottom bar,
+          dark and blurred behind, a tap on the dark closes it as "Not now", nothing behind works or scrolls. (It was the shared
+          `Sheet` in a hand portal.) A press in flight cannot be closed away. */}
       {open ? (
-        <GuestPopup
-          onClose={() => (pending ? undefined : setOpen(false))}
-          rootClassName="fixed inset-0 z-[96] flex items-end justify-center lg:items-center"
-          panelClassName="relative w-full max-w-md rounded-t-3xl bg-cream pb-[max(env(safe-area-inset-bottom),16px)] shadow-[0_-30px_80px_-40px_rgba(26,26,26,0.4)] lg:rounded-3xl"
-          labelledById="setup-finalize-title"
-        >
-          <div className="flex flex-col gap-2 p-5" data-finalize-sheet="">
+        <GuestPopup kind="confirm" onClose={() => (pending ? undefined : setOpen(false))} labelledById="setup-finalize-title">
+          <div className="flex flex-col gap-2" data-finalize-sheet="">
             <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink/55">{FINALIZE_SHEET.eyebrow}</p>
             <p id="setup-finalize-title" className="font-serif text-xl text-ink">
               {FINALIZE_SHEET.title(heads)}
@@ -416,17 +411,22 @@ function FinalizeRow({ eventId, view }: { eventId: string; view: HeadcountView }
                 {error}
               </p>
             ) : null}
-            <div className="mt-3 flex items-center gap-2">
-              <ActionButton
-                tone="ok"
-                main
-                icon={Check}
-                label={pending ? 'Finalizing…' : FINALIZE_SHEET.confirm}
-                disabled={pending}
-                onClick={finalize}
-                data-testid="setup-finalize-go"
+            {/* The confirm box's two buttons, side by side, the safe answer first (`GuestConfirmActions`). */}
+            <div className="mt-2">
+              <GuestConfirmActions
+                keep={<ActionButton tone="neutral" icon={X} label={FINALIZE_SHEET.cancel} disabled={pending} onClick={() => setOpen(false)} />}
+                go={
+                  <ActionButton
+                    tone="ok"
+                    main
+                    icon={Check}
+                    label={pending ? 'Finalizing…' : FINALIZE_SHEET.confirm}
+                    disabled={pending}
+                    onClick={finalize}
+                    data-testid="setup-finalize-go"
+                  />
+                }
               />
-              <ActionButton tone="neutral" icon={X} label={FINALIZE_SHEET.cancel} disabled={pending} onClick={() => setOpen(false)} />
             </div>
           </div>
         </GuestPopup>

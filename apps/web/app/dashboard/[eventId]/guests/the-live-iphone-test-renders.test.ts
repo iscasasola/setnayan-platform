@@ -167,9 +167,9 @@ test('⑥ the card renders its Reply as the guest’s current answer, inside the
 // ── ⑦ delete, any reply, one warning ────────────────────────────────────────
 test('⑦ the warning names what goes with them, in page — Delete and Cancel', async () => {
   const { renderToStaticMarkup } = await import('react-dom/server');
-  const { DeleteGuestSheet, deleteWarningText } = await import('./_components/guest-delete');
+  const { DeleteGuestWarning, deleteWarningText } = await import('./_components/guest-delete');
   const html = renderToStaticMarkup(
-    React.createElement(DeleteGuestSheet, { open: true, names: ['Ana Cruz'], onConfirm() {}, onClose() {} }),
+    React.createElement(DeleteGuestWarning, { titleId: 't', names: ['Ana Cruz'], onConfirm() {}, onClose() {} }),
   );
   assert.match(html, /Delete Ana Cruz\?/);
   assert.match(html, /Their reply and answers, seat, \+1, song request and the link to their account go with them\./);
@@ -177,7 +177,7 @@ test('⑦ the warning names what goes with them, in page — Delete and Cancel',
   assert.match(html, />Cancel</);
   assert.equal(deleteWarningText(['A', 'B', 'C']).title, 'Delete 3 guests?', 'the selection does not get ONE warning for all of them');
   const refused = renderToStaticMarkup(
-    React.createElement(DeleteGuestSheet, { open: true, names: ['Ana Cruz'], error: 'Nope.', onConfirm() {}, onClose() {} }),
+    React.createElement(DeleteGuestWarning, { titleId: 't', names: ['Ana Cruz'], error: 'Nope.', onConfirm() {}, onClose() {} }),
   );
   assert.match(refused, /role="alert"[^>]*>Nope\.</, 'a refused delete is not said where the host pressed Delete');
 });
@@ -197,7 +197,7 @@ test('⑦ the list and the card both go through the one warning and the one dele
   const hook = del.slice(del.indexOf('export function useGuestRemoval('), del.indexOf('export function DeleteGuestSheet('));
   assert.match(hook, /pushUndo\(/, 'a delete with no Undo');
   assert.match(hook, /restoreDeletedGuests\(/, 'Undo does not restore the guest');
-  assert.match(hook, /if \(!result\.ok\)[\s\S]{0,200}guestToast\.error\(result\.error\)[\s\S]{0,40}return result\.error/, 'a refusal is swallowed again');
+  assert.match(hook, /if \(!result\.ok\)[\s\S]{0,200}guestToast\.error\(said\)[\s\S]{0,40}return said/, 'a refusal is swallowed again');
   const action = read('groups-actions.ts');
   const fn = action.slice(action.indexOf('export async function bulkSoftDeleteGuestsForUndo('), action.indexOf('export async function restoreDeletedGuests('));
   assert.match(fn, /\.in\('plus_one_of_guest_id'/, 'their +1 stays behind although the warning says it goes with them');

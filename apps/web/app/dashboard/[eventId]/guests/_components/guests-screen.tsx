@@ -69,7 +69,7 @@ import { formatCount } from '@/lib/format-number';
 import { PickMenu, type PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { useInspectorContext } from '@/app/_components/inspector/inspector-column';
 import { PILL_TRACK_CLASS, PILL_TRACK_GROUND, PillThumb, pillSegClass } from '@/app/_components/pill-selector';
-import { Sheet } from '@/app/_components/sheet';
+import { GuestPopup } from './guest-popup';
 import { usePeekToast } from './use-peek-toast';
 import {
   countsTowardEvent,
@@ -379,6 +379,11 @@ export function GuestsScreen(props: GuestsScreenProps) {
   const [toRemove, setToRemove] = useState<string[] | null>(null);
   const [removeError, setRemoveError] = useState<string | null>(null);
   const byId = useMemo(() => new Map(roster.map((g) => [g.guest_id, g] as const)), [roster]);
+  /* The names the delete sheet opened with — read while those rows are still on the list (a refusal is told by name). */
+  const removeNames = (toRemove ?? []).map((id) => {
+    const g = byId.get(id);
+    return g ? (guestFullName(g) ?? guestDisplayName(g)) : '';
+  });
 
   // ── Set… ▾ (group · table · side) — the shipped bulk writer, one field at a time.
   const [newGroup, setNewGroup] = useState(false);
@@ -807,30 +812,39 @@ export function GuestsScreen(props: GuestsScreenProps) {
 
         <DeleteGuestSheet
           open={toRemove !== null}
-          names={(toRemove ?? []).map((id) => {
-            const g = byId.get(id);
-            return g ? (guestFullName(g) ?? guestDisplayName(g)) : '';
-          })}
+          names={removeNames}
           busy={removing}
           error={removeError}
           onClose={() => setToRemove(null)}
           onConfirm={async () => {
             const ids = toRemove ?? [];
-            const refused = await remove(ids, () => {
-              setToRemove(null);
-              if (selectMode) leaveSelect();
-            });
+            const who = ids.length === 1 ? removeNames[0] || 'that guest' : `${formatCount(ids.length)} guests`;
+            const refused = await remove(
+              ids,
+              () => {
+                setToRemove(null);
+                if (selectMode) leaveSelect();
+              },
+              who,
+            );
             setRemoveError(refused);
           }}
         />
-        <Sheet open={newGroup} onClose={() => setNewGroup(false)} labelledById="gs-new-group-title" rise>
+        {newGroup ? (
+        <GuestPopup
+          onClose={() => setNewGroup(false)}
+          rootClassName="fixed inset-0 z-[96] flex items-end justify-center lg:items-center"
+          panelClassName="relative w-full max-w-md rounded-t-3xl bg-cream pb-[max(env(safe-area-inset-bottom),16px)] shadow-[0_-30px_80px_-40px_rgba(26,26,26,0.4)] lg:rounded-3xl"
+          labelledById="gs-new-group-title"
+        >
           <div className="space-y-3 p-5 text-ink">
             <h2 id="gs-new-group-title" className="font-display text-xl">
               New group for {selected.size} {selected.size === 1 ? 'guest' : 'guests'}
             </h2>
             <NewGroupInlineForm eventId={eventId} selectedIds={selectedIds} onClose={() => setNewGroup(false)} />
           </div>
-        </Sheet>
+        </GuestPopup>
+        ) : null}
       </div>
     </GuestListHasSidesContext.Provider>
   );

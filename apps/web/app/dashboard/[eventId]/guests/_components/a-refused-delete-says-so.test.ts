@@ -30,11 +30,11 @@ const hook = DEL.slice(DEL.indexOf('export function useGuestRemoval('), DEL.inde
 test('(1) the hook ends its pending state on every path, rolls the hide back, and says the refusal', () => {
   assert.match(hook, /setRemoving\(true\);[\s\S]*?try \{[\s\S]*\} finally \{\s*setRemoving\(false\);\s*\}\s*\}/, 'the pending state is not ended in a finally');
   assert.equal((hook.match(/setRemoving\(false\)/g) ?? []).length, 1, 'the pending state is ended in more than one place — one finally owns it');
-  assert.match(hook, /if \(!result\.ok\) \{\s*guestOptimistic\.clear\(mutation\);[^}]*guestToast\.error\(result\.error\);\s*return result\.error;/, 'a refusal is not rolled back and said');
+  assert.match(hook, /if \(!result\.ok\) \{\s*guestOptimistic\.clear\(mutation\);[^}]*guestToast\.error\(said\);\s*return said;/, 'a refusal is not rolled back and said');
   assert.match(hook, /catch \{\s*guestOptimistic\.clear\(mutation\);[^}]*guestToast\.error\(said\);\s*return said;/, 'a thrown call is not rolled back and said');
   /* The sheet shows the refusal where it was pressed, and goes back to "Delete". */
   const screen = read(HERE, 'guests-screen.tsx');
-  assert.match(screen, /const refused = await remove\(ids, \(\) => \{[\s\S]{0,160}\}\);\s*setRemoveError\(refused\);/, 'the screen drops the refusal');
+  assert.match(screen, /const refused = await remove\([\s\S]{0,260}who,\s*\);\s*setRemoveError\(refused\);/, 'the screen drops the refusal');
   assert.match(DEL, /label=\{busy \? 'Deleting…' : 'Delete'\}/);
 });
 
@@ -45,9 +45,10 @@ test('(2) the toast host is mounted where the delete is — the real pages and t
 });
 
 test('(3) the heading keeps the name the sheet opened with', () => {
-  assert.match(DEL, /const \[held, setHeld\] = useState<readonly string\[\]>\(names\);/);
-  assert.match(DEL, /if \(open !== wasOpen\) \{\s*setWasOpen\(open\);\s*if \(open\) setHeld\(names\);\s*\}/);
-  assert.match(DEL, /const words = deleteWarningText\(open \? held : names\);/, 'the heading reads the live names again');
+  /* The sheet's body mounts when it opens (mount = open), so the names are held until it closes. */
+  assert.match(DEL, /const \[held\] = useState<readonly string\[\]>\(names\);/);
+  assert.match(DEL, /<DeleteGuestWarning titleId=\{titleId\} names=\{held\}/, 'the heading reads the live names again');
+  assert.match(DEL, /if \(!open\) return null;\s*return <OpenDeleteGuestSheet/, 'the sheet is no longer mounted only while open');
 });
 
 test('(4) the lab\'s delete and undo are stand-ins that never reach the database', () => {

@@ -163,7 +163,10 @@ test('(4) photos: three offered (four kept), photos only, the shared FileUpload,
   assert.deepEqual(less.ok ? less.after[0] : null, { ...held, media: [B] }, 'removing a photo changed something else');
   const s = src();
   // …and that server form is a DRAFT write that comes back to this page (never a live write by accident).
-  assert.match(s, /const fd = momentEditForm\(m, \{ media: refs \}\);\s*fd\.set\(HUB_DRAFT_FIELD, '1'\);\s*if \(maker\) fd\.set\('return_to', `\/dashboard\/\$\{maker\.eventId\}\/launch\?tool=love-story`\);/);
+  // (Since 2026-10-08 it lands on the address the couple is ALREADY on — `draftInPlace`, the Maker re-drawn in place —
+  // not on `?tool=love-story`, a different address that remounted the whole Maker. `lib/photos-two-ways.test.ts` runs it.)
+  assert.match(s, /const photosForm = \(refs: readonly string\[\]\) => draftInPlace\(momentEditForm\(m, \{ media: refs \}\), maker \? `\$\{window\.location\.pathname\}\$\{window\.location\.search\}` : null\);/);
+  assert.match(s, /setKeeping\(true\);\s*void send\(photosForm\(refs\)\)\.finally\(\(\) => setKeeping\(false\)\);/);
   // ONE save for the whole visit to the slots — when they CLOSE — and none when nothing changed.
   assert.match(s, /const refs = picked\.current;\s*picked\.current = null;\s*if \(!refs \|\| sameList\(refs, media\)\) return;/, 'opening the slots writes');
   assert.match(s, /data="photos"[\s\S]{0,1200}?onClosed=\{savePhotos\}/, 'the photos are not kept when the slots close');
@@ -263,7 +266,12 @@ test('(7) a chapter kept off the Event Hub says so on its row; the page writes e
   assert.match(rows[2]!, /data-timeline-note=""[^>]*>Off the Event Hub — guests do not see this moment\.</);
   assert.doesNotMatch(rows[0]!, /data-timeline-note/);
   // THE ACCENT IS THE ONE TOKEN: the empty picture square's mark and ⋯ (never `mulberry`). Fills are `PILL_ON_CLASS`.
-  assert.deepEqual([...src().matchAll(/[\w:!-]*(?:mulberry|sn-accent|sn-on-accent)[\w/-]*/g)].map((m) => m[0]), ['text-sn-accent', 'text-sn-accent']);
+  // …and, since "Pick from our events" (2026-10-08): the arrow on that choice, the back arrow, the ring on a picked
+  // photo, and the arrow at the end of an event's row — the small marks that say "you can tap this" (§ 9).
+  assert.deepEqual(
+    [...src().matchAll(/[\w:!-]*(?:mulberry|sn-accent|sn-on-accent)[\w/-]*/g)].map((m) => m[0]),
+    ['text-sn-accent', 'text-sn-accent', 'text-sn-accent', 'text-sn-accent', 'ring-sn-accent', 'text-sn-accent'],
+  );
   assert.doesNotMatch(src(), /#[0-9a-fA-F]{3,8}\b|\b(?:bg|text|ring|border)-(?:terracotta|gild|gold)\b/, 'a colour is written by hand');
   assert.match(rows[0]!, /data-studio-story-more="u"[^>]*class="[^"]*\btext-sn-accent\b/);
 });

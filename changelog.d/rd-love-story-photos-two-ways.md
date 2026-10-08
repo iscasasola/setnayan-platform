@@ -159,3 +159,58 @@ every static import from the Maker's page (4 tests; 8 sabotages seen red, "a
 first-load file imports timeline-row.tsx again" among them).
 
 SPEC IMPACT: None.
+
+## 2026-10-08 · feat(studio): a Love Story moment's photos, two ways — upload, or pick from their other events
+
+Owner: *"love story they can add manually or add from their stories"* → *"their
+collection of photos from other events, they can add them as well."* · *"they can
+always edit it if manual, but if added via their memories, cannot edit."*
+
+In a moment's photo slots (Studio › Love Story) there are now two ways, in the
+one sheet: **Upload** (as before) and **Pick from our events** — the SHIPPED
+ability (`our-events-read.ts` + the moment action's `intent=pick`), drawn inside
+the slots: the pair's other events as list rows (name · day · what it can lend);
+open one and its photos are fixed squares to tick, as many as the moment has
+room for; one button adds them to THIS moment through the same `pick`, into the
+draft (guests see them after ✓ Apply — unchanged).
+
+**Requests.** The Love Story page read the pair's other events on EVERY open —
+2 reads with no other event, 3 with one or more (counted on the real read with a
+stand-in client) — though the Studio never drew them. Now:
+- opening Love Story in the Studio: 0 reads for other events (the launch page
+  tells the Love Story page it is the Studio; outside it the shipped block and
+  its read are unchanged);
+- the first "Pick from our events" opened on a visit: ONE server action
+  (`intent=offer` on the existing `loveStoryMomentAction` — it answers right
+  after "who is asking", before the story or the draft is read; it writes,
+  revalidates and redirects nothing, so no render of the Maker). Every later
+  opening on that visit: nothing. +0 exported server actions;
+- a pick: 1 server action + 1 render of the Maker in place — what the shipped
+  pick costs. It (and a newly uploaded photo's save) now lands on the address the
+  couple is already on (`draftInPlace` → `maker_stay`), where the Studio's photo
+  save used to redirect to `?tool=love-story` and remount the whole Maker.
+
+**A photo that came from another event** is known by its own ref — every photo
+an event shows is stored under that event's folder (`events/<event id>/…`) and a
+pick stores the same ref, so nothing new is stored. Its square says "From
+<event's name>" in words along its foot; it has its ✕ (it can be removed from the
+moment) and nothing else. The Studio reads those events' names in ONE read, made
+only when the story holds such a photo; a name that cannot be read says "From
+another of your events", never a guess.
+
+Also: with no other event the choice stays, quiet, with "You have no other events
+yet."; a full moment says "This moment is full. Remove a photo to add another.";
+loading, none and "could not look" (with Try again) never look alike; the slots
+are three across on every width (at four the ✕ touched the pie). The dev lab has
+two other events — one that lends four photos, one that is someone else's.
+
+`FileUpload` gains one optional prop, `tileNote` (a few words along the foot of a
+finished gallery tile). `readOurEventsOffer` moved, unchanged, from the page to
+`_components/our-events-offer.ts` so the page and `intent=offer` share it.
+
+Guard: `apps/web/lib/photos-two-ways.test.ts` (7 tests; 31 sabotages seen red).
+`studio-love-story-wears-the-timeline-row` (4) and (7) and
+`pick-shows-every-event-we-were-both-at` (🤝) re-pointed at the new shapes.
+
+SPEC IMPACT: None to the corpus rules; the owner's three sentences above are the
+ruling — the controller records them in `DECISION_LOG.md`.

@@ -24,7 +24,8 @@ import { LiveLoveStoryBook, editLoveStory, liveStoryOf } from '@/app/dashboard/[
 import { SlotsUploadStandIn } from '@/app/dashboard/[eventId]/website/our-story/_components/moment-order-cards';
 import { MomentNotKept } from '@/app/dashboard/[eventId]/website/our-story/_components/moment-sheet';
 import { applyMomentIntent } from '@/lib/love-story-moment-intent';
-import { resolveMoments } from '@/lib/love-story-moments';
+import { readMomentMedia, resolveMoments } from '@/lib/love-story-moments';
+import type { OtherEvent } from '@/app/dashboard/[eventId]/website/our-story/_components/pick-from-our-events';
 import { labUploadStandIn } from './lab-upload-stand-in';
 import type { LoveStoryBlob } from '@/app/dashboard/[eventId]/website/our-story/_components/story-fields';
 import type { HubDraftActionResult } from '@/lib/hub-draft';
@@ -181,6 +182,29 @@ const STORY: LoveStoryBlob = {
 const labDraftAction = async (): Promise<HubDraftActionResult> => ({ ok: true, intent: 'save', applied: 0, held: [] });
 
 /**
+ * 🧪 THE PAIR'S OTHER EVENTS, for "Pick from our events" — two, as the page can meet them: one they host that shows
+ * photos (four of maria-and-jose's demo pictures stand in for its gallery), and one that is someone else's (listed,
+ * and it lends nothing). Each photo's ref sits under ITS event's folder, exactly as a stored one does — that folder
+ * is how a picked photo is known to have come from another event.
+ */
+const ENGAGEMENT = '11111111-1111-4111-8111-111111111111';
+const LAB_OTHER_EVENTS: OtherEvent[] = [
+  {
+    eventId: ENGAGEMENT,
+    name: 'Maria & Jose — the engagement',
+    date: '2025-06-21',
+    hosted: true,
+    photos: [2, 3, 4, 5].map((n) => ({ ref: `r2://setnayan-media/events/${ENGAGEMENT}/our-photos/wall-${n}.webp`, url: `/demo/maria-jose/wall-${n}.webp` })),
+  },
+  { eventId: '22222222-2222-4222-8222-222222222222', name: 'Ana & Luis', date: '2024-02-10', hosted: false, photos: [] },
+];
+const LAB_OFFERED = LAB_OTHER_EVENTS.flatMap((e) => e.photos);
+/** Every picture the lab can draw from the start: the fixture's two and the other event's four. */
+const LAB_PICTURES: Record<string, string> = { ...LAB_PHOTOS, ...Object.fromEntries(LAB_OFFERED.map((ph) => [ph.ref, ph.url])) };
+/** Where each offered photo is from — what the page works out from a stored ref and one read of the event's name. */
+const LAB_PHOTO_FROM: Record<string, string> = Object.fromEntries(LAB_OTHER_EVENTS.flatMap((e) => e.photos.map((ph) => [ph.ref, e.name])));
+
+/**
  * 🧪 WHAT ONLY THE SERVER MAY DECIDE, DECIDED IN MEMORY. In the Maker a change that brings a NEW photo goes to the
  * server action (it screens the photo, then keeps the moment in the draft). The lab has no server: the SAME moment
  * form is applied to the fixture with the server's own function (`applyMomentIntent`) and kept through the instant
@@ -191,6 +215,20 @@ async function labMomentAction(fd: FormData): Promise<void> {
   const before = resolveMoments(now);
   const intent = String(fd.get('intent'));
   const keep = (moments: typeof before) => editLoveStory({ eventId: EVENT, next: { ...now, moments }, server: STORY, what: 'That moment', draftAction: labDraftAction as never });
+  /* The one question the action answers — after a beat, so the loading rows can be seen. */
+  if (intent === 'offer') {
+    await new Promise((r) => setTimeout(r, 600));
+    return { offer: LAB_OTHER_EVENTS } as unknown as void;
+  }
+  /* A pick, as the action decides it: only photos the offer holds, added after the moment's own, capped as stored. */
+  if (intent === 'pick') {
+    const prior = before.find((m) => m.id === String(fd.get('id')));
+    if (!prior) throw new MomentNotKept('Choose the moment to add these to.');
+    const allowed = readMomentMedia(fd.getAll('media')).filter((ref) => LAB_OFFERED.some((ph) => ph.ref === ref));
+    const media = readMomentMedia([...(prior.media ?? []), ...allowed]);
+    await keep(before.map((m) => (m.id === prior.id ? { ...m, ...(media.length ? { media } : {}) } : m)));
+    return;
+  }
   if (intent !== 'add' && intent !== 'edit') throw new Error('The lab cannot do that one — open this in the Maker.');
   const r = applyMomentIntent(before, intent, fd);
   if (!r.ok) throw new MomentNotKept(r.error);
@@ -200,7 +238,7 @@ async function labMomentAction(fd: FormData): Promise<void> {
 /** Studio › Love Story on fixtures — the instant scrapbook the Maker draws, its writes kept in memory. */
 export function LabStudioLoveStory() {
   /* The pictures the lab can draw: the fixture's two, plus every photo picked here (held in the browser's memory). */
-  const [urls, setUrls] = useState<Record<string, string>>(LAB_PHOTOS);
+  const [urls, setUrls] = useState<Record<string, string>>(LAB_PICTURES);
   const held = useRef<string[]>([]);
   const standIn = useMemo(
     () =>
@@ -240,6 +278,7 @@ export function LabStudioLoveStory() {
         refused={null}
         sectionHidden={false}
         mediaUrls={urls}
+        photoFrom={LAB_PHOTO_FROM}
         action={labMomentAction}
         pickSlot={null}
       />

@@ -60,6 +60,7 @@ const TEMPLATE_FILES = [
   `${E}/pick-menu.tsx`, //                 2 · Dropdown
   `${E}/pick-menu-place.ts`, //                its looks
   'app/_components/timeline-row.tsx', //   13 · Timeline row (and its three list states)
+  'app/_components/timeline-states.tsx', // 13 · …its loading and problem states (their own small file)
   'app/_components/ticker.tsx', //             its ticker, and the pill + pop that opens it
   'app/_components/switch-track.tsx', //   3 · Switch (its drawing; the colours are `.sn-switch` in globals.css)
   'app/_components/form-row.tsx', //       6 · Form row / 10 · Field (typed · chosen · on/off · a fact shown)

@@ -392,6 +392,9 @@ test('(10) the wiring: the flag is set on mount; ONE place handles every ending;
   assert.doesNotMatch(up, /XMLHttpRequest|fetch\('\/api\/upload'|createStallWatchdog/, 'the uploader signs or PUTs by itself again — outside the run that always ends');
   assert.match(up, /lib = await import\('@\/lib\/upload-send'\);\s*run = \(send \?\? lib\.sendToStorage\)\(/);
   assert.match(up, /stallMs: stallMs \?\? UPLOAD_STALL_MS,\s*responseMs: UPLOAD_RESPONSE_MS,/);
+  // …and fetched the moment the file picker is opened, so the first upload does not wait on it (a failed fetch is
+  // swallowed THERE only: the upload itself asks again, and says so).
+  assert.match(up, /type="file"[\s\S]{0,900}?onClick=\{\(\) => void import\('@\/lib\/upload-send'\)\.catch\(\(\) => \{\}\)\}/, 'the first upload waits on its own code');
   // ONE place handles every ending, however the run ended — and the code that could not even be loaded is one too.
   assert.match(up, /void run\.done\.then\(ended\);/);
   assert.match(up, /\} catch \(error\) \{\s*return ended\(\{ ok: false, kind: 'network', step: 'presign', says: null, status: null, error \}\);\s*\}/);

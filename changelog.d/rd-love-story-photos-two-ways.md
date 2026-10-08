@@ -132,3 +132,30 @@ Guard: `apps/web/lib/a-photo-on-its-way-is-a-pie.test.ts` (3 tests; 10 sabotages
 seen red).
 
 SPEC IMPACT: None.
+
+## 2026-10-08 · perf(maker): the Maker's first load no longer carries the Timeline row
+
+`app/_components/timeline-row.tsx` — the row, its name field, the empty state and
+their handlers — rode the Maker's first load only because the Maker's page
+imported its loading shimmer and `timeline-read-problem.tsx` its problem state.
+Those two pieces and the two class constants now live in
+`app/_components/timeline-states.tsx` (no hooks, no "use client": the shimmer is
+plain server HTML); `timeline-row.tsx` re-exports all four, so no wearer changes.
+`launch/page.tsx` and `timeline-read-problem.tsx` import the small file.
+
+Measured the only way a tree without a build can be (esbuild minify + gzip of
+what the first load imports): `timeline-row.tsx` 1,742 B → `timeline-states.tsx`
+713 B (about −1.0 KB; the row itself, 1,421 B, now loads with the Schedule's day
+and the Love Story's rows). With this branch's other first-load changes (the
+uploader, the watchdog it no longer imports): 7,275 B at the base → 6,394 B.
+
+Also: the uploader fetches the upload run (`lib/upload-send.ts`) the moment its
+file picker is opened, so the first upload does not wait on that chunk — and
+`maker-tools-are-all-preloaded` names it in NOT_A_TOOL with that reason (it was
+red on the review copy since the run became a later load).
+
+Guard: `apps/web/lib/the-maker-first-load-leaves-the-row-behind.test.ts` — walks
+every static import from the Maker's page (4 tests; 8 sabotages seen red, "a
+first-load file imports timeline-row.tsx again" among them).
+
+SPEC IMPACT: None.

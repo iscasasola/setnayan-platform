@@ -192,7 +192,7 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
               studio
               current={{}}
               drafted={false}
-              replyBy={{ date: 'November 12, 2026', isDefault: true }}
+              replyBy={{ date: '2026-11-12', isDefault: true }}
               replyByOwn={{ deadline: null, pricingMode: 'realtime' }}
               requests={{ count: 0, list: null }}
               celebration={{ ownsPro: pro, storeShell: false, colours: ['#5B1A22', '#6B7A3A', '#E0A52B', '#8E2E3C', '#F2C8C2'] }}

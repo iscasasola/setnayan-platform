@@ -201,12 +201,16 @@ export function MakerRsvpStage({
     if (owner) setScene(owner);
     setControlsOpen(true);
     window.setTimeout(() => {
-      const box =
+      /* The words' row is a Form row now (2026-10-08): its pill is brought up — and pressed, which opens its field
+         with the words selected (the box a tap on the canvas has always brought up). Reply by's pill is only
+         brought into view and focused: its calendar opens on the couple's own tap. */
+      const pill =
         key === 'reply-by'
-          ? document.querySelector<HTMLElement>('[data-rsvp-stage-controls] [data-reply-by-field] input')
-          : document.querySelector<HTMLElement>(`[data-rsvp-word-field="${key}"] input, [data-rsvp-word-field="${key}"] textarea`);
-      box?.focus();
-      box?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+          ? document.querySelector<HTMLElement>('[data-rsvp-stage-controls] [data-reply-by-field] [data-form-row-pill]')
+          : document.querySelector<HTMLElement>(`[data-rsvp-word-field="${key}"] [data-form-row-pill]`);
+      pill?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      if (key === 'reply-by') pill?.focus({ preventScroll: true });
+      else pill?.click();
     }, 60);
   }, []);
 

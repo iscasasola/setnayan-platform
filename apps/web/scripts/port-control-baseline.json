@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "b35ded81c",
+  "generatedFromRef": "c806dd92d",
   "routeCount": 429,
   "destinations": 958,
   "actions": 672,
-  "blocks": 5829,
+  "blocks": 5830,
   "routes": {
     "/": {
       "files": [
@@ -6567,6 +6567,7 @@
         "dashboard/[eventId]/launch/_components/stage-item-menu.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/camera-look.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/kit.tsx",
+        "dashboard/[eventId]/launch/_components/stage-panel/part-words.ts",
         "dashboard/[eventId]/launch/_components/stage-panel/parts.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/play-status.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/reveal-picture.tsx",
@@ -6894,6 +6895,7 @@
         "SlugField",
         "SoftPost",
         "SpecialMessageField",
+        "StageAbout",
         "StageArrange",
         "StageEdit",
         "StageItemMenu",

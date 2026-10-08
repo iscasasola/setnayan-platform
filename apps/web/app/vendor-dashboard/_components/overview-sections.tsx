@@ -1,11 +1,5 @@
 import Link from 'next/link';
-import {
-  AlertTriangle,
-  ArrowRight,
-  FileText,
-  Star,
-  MessageSquare,
-} from 'lucide-react';
+import { ChevronDown, FileText } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { waitingAge } from '@/lib/waiting-age';
 import { formatLongDate, monthDay } from '@/lib/format-date';
@@ -20,12 +14,9 @@ import { VENDOR_REPLY_MAX_CHARS } from '@/lib/reviews';
 import { APPOINTMENT_KIND_LABEL } from '@/lib/appointments';
 import { formatPhp } from '@/lib/orders';
 import { formatCentavosPhp } from '@/lib/php';
-import type {
-  OngoingTask,
-  UpcomingEventRow,
-  WhatsNewCard,
-} from '@/lib/vendor-overview';
+import type { WhatsNewCard } from '@/lib/vendor-overview';
 import { formatCount } from '@/lib/format-number';
+import { TodayPill } from './supplier-today-first-screen';
 
 /**
  * overview-sections.tsx — the presentational sections of the vendor Overview.
@@ -36,6 +27,13 @@ import { formatCount } from '@/lib/format-number';
  * eyebrows), the What's-new feed is `.sn-card`s with warm-semantic tone chips,
  * and Ongoing / Upcoming are `.sn-tile` panels of opaque `.sn-row` items with
  * mono date blocks.
+ *
+ * 📋 ROWS, NOT CARDS (2026-10-08, supplier dashboard redesign S-PR1 — corpus
+ * `SUPPLIER_DASHBOARD_REDESIGN_2026-10-08_fable.md` § 2 "Today"). The desk is
+ * the "Also waiting" list now: one hairline row per ask, opening its answer in
+ * place. The answers themselves — every form, every action, every sentence
+ * said before a press — are the ones below, unchanged. "Ongoing" and "Upcoming
+ * schedules" are gone from this file: both repeated the queue and Coming up.
  *
  * ⏹ THE FOCAL TILE AND THE KPI BENTO ARE RETIRED (2026-10-01, DECISION_LOG "THE
  * SUPPLIER PHONE APP — APPROVED, WITH THE THREE RECOMMENDED ANSWERS"). Today's
@@ -175,23 +173,14 @@ function cardTone(card: WhatsNewCard): CardTone {
   };
 }
 
-/** A small gold diamond that leads a section head (matches the event surface). */
-const spark = (
-  <span
-    aria-hidden
-    className="mr-2 inline-block h-1.5 w-1.5 rotate-45 align-middle"
-    style={{ background: 'var(--sn-gold-500)' }}
-  />
-);
-
 /** Meta line joined with " · ", dropping empties. */
 function metaLine(parts: Array<string | null | undefined>): string {
   return parts.filter((p): p is string => Boolean(p && p.trim())).join(' · ');
 }
 
 // ---------------------------------------------------------------------------
-// 1 · WHAT'S NEW — the decision feed (`.sn-card`s, warm-semantic tone chips).
-//     Every Ongoing row anchors here (id="whats-new").
+// 1 · ALSO WAITING — the answers desk, as rows that open in place.
+//     Every open-task link anchors here (id="whats-new").
 // ---------------------------------------------------------------------------
 
 export function WhatsNewFeed({
@@ -212,8 +201,17 @@ export function WhatsNewFeed({
   feeForecasts = {},
   incomplete = false,
   statusLine = '',
+  asks,
 }: {
   cards: WhatsNewCard[];
+  /**
+   * 📋 ALSO WAITING (supplier redesign S-PR1, 2026-10-08). Which of `cards` are
+   * rows here, with the words and the "2 of 3" each one wears —
+   * `supplierWaiting().asks` (`lib/supplier-today.ts`). The Next card's own ask
+   * is left out by that rule, not by this component. Absent → every card is a
+   * row, numbered in the order given (a caller with no Next card).
+   */
+  asks?: ReadonlyArray<{ card: WhatsNewCard; label: string; line: string; position: number; open: boolean }>;
   /**
    * A booking-ask or deposit read did not reach the end. Said above the list,
    * and the "all caught up" empty state is never drawn on top of it — an empty
@@ -257,48 +255,64 @@ export function WhatsNewFeed({
    */
   statusLine?: string;
 }) {
+  const rows =
+    asks ??
+    cards.map((card, i) => ({ card, label: cardTone(card).eyebrow, line: '', position: i + 1, open: false }));
+  const total = cards.length;
+  // Nothing waits and everything was read: the Next card says "all caught up".
+  // An empty list here would be furniture — and an empty list that could NOT be
+  // read is not empty, so that case still speaks, below.
+  if (rows.length === 0 && !incomplete) return null;
   return (
     /*
-      🔒 THE ID STAYS `whats-new` THOUGH THE HEADING NO LONGER DOES. Two shipped
-      doors point at this fragment — the focal tile's "Answer them" and every
-      Ongoing row's `/vendor-dashboard#whats-new` — and a fragment link to an id
-      that does not exist scrolls nowhere and throws nothing. Renaming the
-      anchor to match the new words would break both, silently, on the one page
-      every supplier opens.
+      🔒 THE ID STAYS `whats-new`. Shipped doors point at this fragment — every
+      open-task link (`/vendor-dashboard#whats-new`), older notifications, and
+      the Next card's own button when its answer is given on this page — and a
+      fragment link to an id that does not exist scrolls nowhere and throws
+      nothing.
+
+      📋 ROWS, NOT CARDS (redesign S-PR1). One hairline row per ask — its words,
+      one line, "2 of 3" — and the row OPENS THE ANSWER IN PLACE: the same forms
+      and the same actions that were the desk's cards, unchanged. The plan drew
+      each row as a door to the customer card "where the shipped inline forms
+      already live"; two of them do not live there (a date change and a delete
+      request are answered on this page and nowhere else), so the row is a fold
+      and the answer stays where it works. One open at a time (`name`).
     */
-    <section id="whats-new" className="mb-8 scroll-mt-24">
-      <SectionHeader
-        /*
-          RENAMED 2026-09-22 to the words the owner approved on 2026-08-26
-          ("yes i agree"). His note on the shipped page: the block "is called
-          **What's new**, a news name on a to-do list". Everything under this
-          heading now renders at least one control — the closed lines moved to
-          `NothingToAnswerFeed` below.
-        */
-        title="Needs your answer"
-        count={cards.length}
-        subtitle={statusLine || undefined}
-        // ⛔ "Mark all seen" REMOVED — it was a bare <span> with no onClick, no
-        // href and no form: a control that looked pressable and did nothing.
-        // No bulk-acknowledge action exists for these cards, so the honest fix is
-        // to remove the affordance rather than to fake one. ("No fake doors.")
-        action={null}
-      />
+    <section id="whats-new" data-also-waiting="" className="scroll-mt-24" aria-label="Also waiting">
+      <p className="home-k2">
+        Also waiting
+        {statusLine ? <span className="sr-only"> — {statusLine}</span> : null}
+      </p>
       {incomplete ? (
-        <p role="status" className="sn-tile mb-3 p-4 text-sm text-ink/80">
+        <p role="status" className="pb-2 text-[13px]" style={{ color: 'rgb(var(--color-warn))' }}>
           Some booking asks and payments couldn&rsquo;t load, so this list may be
           missing some. Refresh the page to try again.
         </p>
       ) : null}
-      {cards.length === 0 && incomplete ? null : cards.length === 0 ? (
-        <EmptyCard
-          icon={<Star className="h-5 w-5" strokeWidth={1.5} style={{ color: 'var(--sn-ink-400)' }} />}
-          text="You're all caught up. Every answer you owe anybody — new inquiries, booking asks, replies, reviews, meeting times, quotes and contracts you haven't sent — lands here, the longest wait first."
-        />
-      ) : (
-        <ul className="space-y-3">
-          {cards.map((card) => (
-            <li key={card.id}>
+      <div className="[&>details:first-child]:border-t-0">
+        {rows.map(({ card, label, line, position, open }) => (
+          <details
+            key={card.id}
+            name="today-ask"
+            id={`ask-${card.id}`}
+            open={open}
+            data-today-ask={card.kind}
+            className="group border-t border-ink/10"
+          >
+            <summary className="home-row cursor-pointer list-none !border-t-0 [&::-webkit-details-marker]:hidden">
+              <span className="min-w-0">
+                <span className="home-t block truncate text-[15px] leading-tight text-ink">{label}</span>
+                {line ? <span className="block truncate text-[13px] text-ink/60">{line}</span> : null}
+              </span>
+              <span className="flex items-center gap-2 text-ink/45">
+                <TodayPill tone="warn">
+                  {formatCount(position)} of {formatCount(total)}
+                </TodayPill>
+                <ChevronDown aria-hidden className="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" strokeWidth={1.75} />
+              </span>
+            </summary>
+            <div className="pb-3 pl-3">
               <FeedCard
                 card={card}
                 acceptInquiry={acceptInquiry}
@@ -316,10 +330,10 @@ export function WhatsNewFeed({
                 payoutReadiness={payoutReadiness}
                 feeForecasts={feeForecasts}
               />
-            </li>
-          ))}
-        </ul>
-      )}
+            </div>
+          </details>
+        ))}
+      </div>
     </section>
   );
 }
@@ -368,20 +382,32 @@ export function NothingToAnswerFeed({
 }) {
   if (cards.length === 0) return null;
   return (
-    <section id="nothing-to-answer" className="mb-8 scroll-mt-24">
-      <SectionHeader title="Nothing to answer" count={cards.length} />
-      <ul className="space-y-3">
+    /* The same hairline rows as "Also waiting" above, with no number: nothing
+       here is waiting on the shop. Each opens the note it carries. */
+    <section id="nothing-to-answer" data-nothing-to-answer="" className="scroll-mt-24" aria-label="Nothing to answer">
+      <p className="home-k2">Nothing to answer</p>
+      <div className="[&>details:first-child]:border-t-0">
         {cards.map((card) => (
-          <li key={card.id}>
-            <FeedCard
-              card={card}
-              {...actions}
-              payoutReadiness="unreadable"
-              feeForecasts={{}}
-            />
-          </li>
+          <details key={card.id} name="today-ask" data-today-news={card.kind} className="group border-t border-ink/10">
+            <summary className="home-row cursor-pointer list-none !border-t-0 [&::-webkit-details-marker]:hidden">
+              <span className="min-w-0">
+                <span className="home-t block truncate text-[15px] leading-tight text-ink">{cardTone(card).eyebrow}</span>
+              </span>
+              <span className="flex items-center gap-2 text-ink/45">
+                <ChevronDown aria-hidden className="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" strokeWidth={1.75} />
+              </span>
+            </summary>
+            <div className="pb-3 pl-3">
+              <FeedCard
+                card={card}
+                {...actions}
+                payoutReadiness="unreadable"
+                feeForecasts={{}}
+              />
+            </div>
+          </details>
         ))}
-      </ul>
+      </div>
     </section>
   );
 }
@@ -424,13 +450,9 @@ function FeedCard({
 }) {
   const tone = cardTone(card);
   return (
-    <div className="sn-card relative overflow-hidden py-4 pl-5 pr-4">
-      {/* Left color accent + eyebrow — one palette entry per card. */}
-      <span
-        aria-hidden
-        className="absolute inset-y-0 left-0 w-1"
-        style={{ background: tone.accent }}
-      />
+    /* No box (redesign S-PR1): the answer sits inside its row's fold, on the
+       page's own ground. The eyebrow keeps the kind's one colour. */
+    <div data-feed-card={card.kind}>
       <p className="sn-eye mb-1" style={{ color: tone.eye }}>
         {tone.eyebrow}
       </p>
@@ -1371,235 +1393,5 @@ function ContractDraftBody({
         </Link>
       </div>
     </>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// 3 · ONGOING — open tasks (a `.sn-tile` panel of opaque `.sn-row` items).
-// ---------------------------------------------------------------------------
-
-export function OngoingTasks({ tasks }: { tasks: OngoingTask[] }) {
-  return (
-    <section className="mb-8">
-      <SectionHeader
-        title="Ongoing"
-        count={tasks.length}
-        action={
-          tasks.length > 0 ? (
-            <Link
-              href="/vendor-dashboard/clients"
-              className="text-xs font-semibold hover:underline"
-              style={{ color: 'var(--sn-gold-700)' }}
-            >
-              View all
-            </Link>
-          ) : null
-        }
-      />
-      {tasks.length === 0 ? (
-        <EmptyCard text="No open tasks right now. Contracts to send, payments to confirm, and unanswered inquiries will show up here." />
-      ) : (
-        <div className="sn-tile p-2 sm:p-2.5">
-          <ul className="space-y-1">
-            {tasks.map((task) => (
-              <li key={task.id}>
-                <Link
-                  href={task.href}
-                  className="sn-row group flex items-center gap-3 px-3.5 py-3 transition-transform hover:translate-x-0.5"
-                >
-                  {/* Decorative status marker — the task completes on its own surface. */}
-                  <span
-                    aria-hidden
-                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border"
-                    style={{ borderColor: 'var(--sn-ink-400)' }}
-                  />
-                  <span className="min-w-0 flex-1 truncate text-sm text-ink">
-                    {task.label}
-                  </span>
-                  <span
-                    className="shrink-0 rounded-full px-2 py-0.5 font-mono text-[11px] font-semibold"
-                    style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-800)' }}
-                  >
-                    {task.dueChip}
-                  </span>
-                  <ArrowRight
-                    className="h-3.5 w-3.5 shrink-0 text-ink/35 transition-colors group-hover:text-[var(--sn-gold-600)]"
-                    strokeWidth={1.75}
-                    aria-hidden
-                  />
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </section>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// 4 · UPCOMING SCHEDULES — next 5 booked events (`.sn-tile` panel + `.sn-row`
-//     rows with obsidian mono date blocks).
-// ---------------------------------------------------------------------------
-
-/** Split a YYYY-MM-DD into the date-block parts (JUL / 05 / Sun). */
-function dateBlock(iso: string): { month: string; day: string; weekday: string } {
-  const d = new Date(`${iso}T00:00:00`);
-  return {
-    month: d.toLocaleDateString('en-US', { month: 'short' }).toUpperCase(),
-    day: d.toLocaleDateString('en-US', { day: '2-digit' }),
-    weekday: d.toLocaleDateString('en-US', { weekday: 'short' }),
-  };
-}
-
-function inDaysLabel(n: number): string {
-  if (n <= 0) return 'today';
-  if (n === 1) return 'in 1 day';
-  return `in ${n} days`;
-}
-
-export function UpcomingSchedules({ rows }: { rows: UpcomingEventRow[] }) {
-  return (
-    <section>
-      <SectionHeader
-        title="Upcoming schedules"
-        subtitle="Next 5"
-        action={
-          <Link
-            href="/vendor-dashboard/calendar"
-            className="text-xs font-semibold hover:underline"
-            style={{ color: 'var(--sn-gold-700)' }}
-          >
-            Open calendar
-          </Link>
-        }
-      />
-      {rows.length === 0 ? (
-        <EmptyCard text="No booked events yet. Once a couple books you, your next dates show here." />
-      ) : (
-        <div className="sn-tile p-2 sm:p-2.5">
-          <ul className="space-y-1.5">
-            {rows.map((row) => {
-              const block = dateBlock(row.date);
-              return (
-                <li key={row.id} className="sn-row group flex items-center gap-2 p-2.5">
-                  <Link
-                    href={row.href}
-                    className="flex min-w-0 flex-1 items-center gap-4 transition-transform group-hover:translate-x-0.5"
-                  >
-                    <span
-                      className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-xl"
-                      style={{ background: 'var(--sn-ink-900)', color: 'var(--sn-gold-100)' }}
-                    >
-                      <span
-                        className="font-mono text-[10px] font-bold tracking-wider"
-                        style={{ color: 'var(--sn-gold-300)' }}
-                      >
-                        {block.month}
-                      </span>
-                      <span className="font-mono text-lg font-bold leading-none">
-                        {block.day}
-                      </span>
-                      <span className="font-mono text-[9px]" style={{ color: 'rgba(243,236,223,.5)' }}>
-                        {block.weekday}
-                      </span>
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-semibold text-ink">
-                        {row.eventName}
-                      </span>
-                      <span className="mt-0.5 block truncate text-xs text-ink/55">
-                        {metaLine([row.place, row.category]) || 'Booked event'}
-                      </span>
-                    </span>
-                    <span className="shrink-0 font-mono text-xs font-semibold text-ink/45">
-                      {inDaysLabel(row.inDays)}
-                    </span>
-                  </Link>
-                  {/*
-                    THE CONVERSATION IS STILL ONE TAP AWAY. The row itself now
-                    opens the customer card — the booking's money, brief and
-                    next steps — which is what the owner asked for; some
-                    suppliers still want the chat, and taking it away to give
-                    them the card would just move the complaint. Rendered only
-                    when the row is NOT already the thread (the no-card
-                    fallback), so the same destination is never offered twice.
-                    ⚠ A sibling, not a child: an <a> inside an <a> is invalid
-                    HTML and the inner one is what stops working.
-                  */}
-                  {row.threadHref && row.threadHref !== row.href ? (
-                    <Link
-                      href={row.threadHref}
-                      aria-label={`Message ${row.eventName}`}
-                      className="inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:text-ink"
-                      style={{ borderColor: 'var(--sn-line)' }}
-                    >
-                      <MessageSquare aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                      Message
-                    </Link>
-                  ) : null}
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      )}
-    </section>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Shared bits
-// ---------------------------------------------------------------------------
-
-function SectionHeader({
-  title,
-  count,
-  subtitle,
-  action,
-}: {
-  title: string;
-  count?: number;
-  subtitle?: string;
-  action?: React.ReactNode;
-}) {
-  return (
-    <div className="mb-3 flex items-baseline justify-between gap-3">
-      <h2 className="flex items-baseline gap-2">
-        <span className="sn-sec">
-          {spark}
-          {title}
-        </span>
-        {typeof count === 'number' && count > 0 ? (
-          <span
-            className="rounded-full px-2 py-0.5 font-mono text-[11px] font-bold"
-            style={{ background: 'var(--sn-ink-900)', color: 'var(--sn-gold-100)' }}
-          >
-            {formatCount(count)}
-          </span>
-        ) : null}
-        {subtitle ? <span className="sn-sec-sub">{subtitle}</span> : null}
-      </h2>
-      {action}
-    </div>
-  );
-}
-
-function EmptyCard({ icon, text }: { icon?: React.ReactNode; text: string }) {
-  return (
-    <div
-      className="flex items-start gap-3 rounded-2xl border border-dashed p-5 text-sm text-ink/60"
-      style={{ borderColor: 'var(--sn-line)' }}
-    >
-      {icon ?? (
-        <AlertTriangle
-          className="mt-0.5 h-4 w-4 shrink-0"
-          strokeWidth={1.5}
-          style={{ color: 'var(--sn-ink-400)' }}
-          aria-hidden
-        />
-      )}
-      <p>{text}</p>
-    </div>
   );
 }

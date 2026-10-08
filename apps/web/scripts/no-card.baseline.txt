@@ -2,7 +2,7 @@
 # radius (rounded-lg|xl|2xl|3xl|card|tile). GENERATED — never hand-edit:
 #   node apps/web/scripts/lint-no-card.mjs --update-baseline
 # A RATCHET: a count may fall, never rise; a file not listed may hold none.
-# 716 files · 1984 lines
+# 714 files · 1982 lines
 4 apps/web/app/_components/account-switcher/account-switcher.tsx
 3 apps/web/app/_components/alaala/lens-body.tsx
 1 apps/web/app/_components/amendment-builder.tsx
@@ -585,7 +585,6 @@
 1 apps/web/app/vendor-dashboard/_components/instagram-connect-card.tsx
 4 apps/web/app/vendor-dashboard/_components/kit.tsx
 1 apps/web/app/vendor-dashboard/_components/list-pager.tsx
-1 apps/web/app/vendor-dashboard/_components/overview-sections.tsx
 1 apps/web/app/vendor-dashboard/_components/payments-paused-note.tsx
 1 apps/web/app/vendor-dashboard/_components/payout-method-nudge.tsx
 2 apps/web/app/vendor-dashboard/_components/pipeline-pressure-line.tsx
@@ -657,7 +656,6 @@
 4 apps/web/app/vendor-dashboard/on-the-day/page.tsx
 6 apps/web/app/vendor-dashboard/packages/_components/package-editor.tsx
 2 apps/web/app/vendor-dashboard/packages/page.tsx
-1 apps/web/app/vendor-dashboard/page.tsx
 2 apps/web/app/vendor-dashboard/partnerships/page.tsx
 1 apps/web/app/vendor-dashboard/payday/surface.tsx
 1 apps/web/app/vendor-dashboard/payment-options/_components/add-payment-method.tsx

@@ -94,10 +94,14 @@ async function renderToday(target: unknown, action = 'Go'): Promise<string> {
   const { SupplierTodayFirstScreen } = await import('./_components/supplier-today-first-screen');
   return renderToStaticMarkup(
     React.createElement(SupplierTodayFirstScreen, {
-      cover: { eyebrow: 'Photo & video · Live', name: 'Shop' },
       next: { kind: 'answer', title: 'T', body: 'B', action, target } as never,
-      numbers: { inquiries: '1', thisWeek: '2', owed: '3' },
+      look: { tone: 'brand', icon: 'forward' },
+      second: null,
+      counter: null,
+      meta: null,
+      numbers: { waiting: '1', waitingNow: true, thisWeek: '2', toComeIn: '3' },
       comingUp: [],
+      shop: { name: 'Shop', line: 'Photo & video · Live', live: true },
     }),
   );
 }
@@ -113,11 +117,11 @@ test('1c · the Next card’s Send quote / Send contract / Payday buttons land o
   }
 });
 
-test('1d · the "owed to you" tile lands on payday, in view', async () => {
+test('1d · the "to come in" number lands on payday, in view', async () => {
   const html = await renderToday({ to: 'today' });
   const tiles = html.slice(html.indexOf('data-today-numbers'), html.indexOf('data-today-coming-up'));
-  const owed = tiles.match(/<a [^>]*href="([^"]+)"[^>]*>(?:(?!<\/a>).)*owed to you/s);
-  assert.ok(owed, 'the owed-to-you tile did not render as a link');
+  const owed = tiles.match(/<a [^>]*href="([^"]+)"[^>]*>(?:(?!<\/a>).)*to come in/s);
+  assert.ok(owed, 'the to-come-in number did not render as a link');
   assert.equal(owed[1], customerLandingHref('payday'));
 });
 

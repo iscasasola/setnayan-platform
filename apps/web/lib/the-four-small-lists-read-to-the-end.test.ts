@@ -348,10 +348,12 @@ test('screens: the Earned tile and the payouts totals never print a short or unr
   const lib = read('lib/vendor-overview.ts');
   assert.equal((lib.match(/fetchVendorLedgerEarnings\(admin, vendorProfileId\)\.catch\(\(\) => \[\]\)/g) ?? []).length, 0);
   assert.match(lib, /earningsMeasured: earnings !== null/);
-  // The Earned tile became Today's money line on 2026-10-01 (DECISION_LOG "THE
-  // SUPPLIER PHONE APP — APPROVED"); it prints "—" when the ledger was not read.
+  // The Earned tile was Today's money line from 2026-10-01 to 2026-10-08; the
+  // supplier redesign (S-PR1) took both money tiles off Today — the figure
+  // lives on Earnings, held just below. Today must not print it again without
+  // asking whether the ledger was read.
   const today = read('app/vendor-dashboard/page.tsx');
-  assert.match(today, /earnings\.earningsMeasured \? formatPhp\(earnings\.earnedThisYearPhp\) : '—'/);
+  assert.doesNotMatch(today, /earnedThisYearPhp/, 'Today prints "Earned this year" again — it must ask earningsMeasured first');
 
   const earn = read('app/vendor-dashboard/earnings/surface.tsx');
   assert.doesNotMatch(earn, /\.from\('vendor_payouts'\)[\s\S]{0,900}?\.limit\(/);

@@ -24,6 +24,8 @@
  *   · a bare `<button>` added to `SupplierThumbRow`      → names that component
  *   · the fixture's second component given the button    → names the SECOND one
  *   · the cutter told to return one slice per file       → the fixture test fails
+ *   · (S-PR1) a bare `<button>` added to `TodayRow`       → names `TodayRow`,
+ *     not the five other components in the same file
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -43,6 +45,14 @@ const WEB = join(HERE, '..', '..');
 export const SWEPT: ReadonlyArray<readonly [file: string, components: readonly string[]]> = [
   ['app/vendor-dashboard/_components/supplier-thumb-row.tsx', ['SupplierThumbRow']],
   ['app/vendor-dashboard/_components/supplier-submit.tsx', ['SupplierSubmit']],
+  // S-PR1 · Today. `overview-sections.tsx` is NOT here yet, on purpose: the
+  // answers inside the Also-waiting folds keep their shipped buttons (one bare
+  // `<button>` in `MarkCompleteBody`, the rest hand-classed `SubmitButton`s),
+  // and nine guard files pin those forms by their exact text. They are swept
+  // in their own PR, with their own side-by-side.
+  ['app/vendor-dashboard/page.tsx', ['AgentHome', 'VendorOverviewPage']],
+  ['app/vendor-dashboard/_components/supplier-today-first-screen.tsx', ['TodayPill', 'TodayEyebrow', 'TodayRow', 'SupplierTodayFirstScreen', 'Figure', 'Unread']],
+  ['app/vendor-dashboard/_components/supplier-toast.tsx', ['SupplierToast']],
 ];
 
 export type ComponentCount = { component: string; bare: number; ruled: number };

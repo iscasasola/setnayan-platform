@@ -3,9 +3,9 @@ import { DATE_ANSWER_NOTICE } from '@/lib/date-change';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { readSupplierPayoutReadiness } from '@/lib/vendor-payment-methods.server';
 import type { PayoutReadiness } from '@/lib/deposit-pay-step';
-import { PayoutMethodNudge } from './_components/payout-method-nudge';
+import { PAYMENT_OPTIONS_HREF, payoutNudgeCopy } from './_components/payout-method-nudge';
 import { redirect } from 'next/navigation';
-import { AlertTriangle, ArrowRight, EyeOff, Hourglass, Info, PartyPopper } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { todayCreditNotice } from '@/lib/vendor-credit-warning';
@@ -34,22 +34,15 @@ import {
 // `respondAppointment` still refuses an answer from the side that proposed.
 import { postVendorReply } from './reviews/actions';
 import { respondAppointment } from '@/app/_components/appointments-actions';
-import {
-  WhatsNewFeed,
-  NothingToAnswerFeed,
-  OngoingTasks,
-  UpcomingSchedules,
-} from './_components/overview-sections';
+import { WhatsNewFeed, NothingToAnswerFeed } from './_components/overview-sections';
 import {
   splitDesk,
   oldestAskWaitDays,
   deskStatusLine,
 } from '@/lib/vendor-desk-disposition';
-import { SpotlightAwardBanner } from './_components/spotlight-award-banner';
-import { VendorFirstSteps } from './_components/first-steps';
 import { fetchVendorFirstStepsState } from '@/lib/vendor-first-steps.server';
 import type { FirstStepsRail } from '@/lib/vendor-first-steps';
-import { fetchVendorCurrentAwards } from '@/lib/spotlight-awards';
+import { AWARD_LABELS, fetchVendorCurrentAwards } from '@/lib/spotlight-awards';
 import { businessMilestone } from '@/lib/vendor-milestone';
 import { fetchVendorBusinessStartDate } from '@/lib/vendor-profile';
 import { manilaToday } from '@/lib/std-views';
@@ -77,15 +70,19 @@ import {
 } from '@/lib/booking-fee-disclosure';
 import { BookingFeeBills } from '@/app/_components/booking-fee-notice';
 import { SupplierTodayFirstScreen } from './_components/supplier-today-first-screen';
+import { SupplierToast } from './_components/supplier-toast';
 import {
   pickSupplierNext,
   nextAnswerOf,
+  nextLook,
+  nextMeta,
+  nextSecond,
+  supplierWaiting,
+  waitingOnYou,
   eventsThisWeek,
   owedToYouPhp,
 } from '@/lib/supplier-today';
 import { formatPesoCompact } from '@/lib/vendors-plan-budget';
-import { formatPhp } from '@/lib/php';
-import { formatCount } from '@/lib/format-number';
 import { displayServiceLabel } from '@/lib/vendors';
 import { MiniTour } from '@/app/_components/mini-tour';
 
@@ -316,7 +313,7 @@ export default async function VendorOverviewPage({
     );
   }
 
-  const { whatsNew, ongoing, upcoming, deskIncomplete } = data;
+  const { whatsNew, upcoming, deskIncomplete } = data;
 
   /*
     ── THE DESK IS CUT IN TWO (2026-09-22) ─────────────────────────────────
@@ -407,12 +404,6 @@ export default async function VendorOverviewPage({
 
   timer.flush();
 
-  // The first of the first screen's three numbers ("new inquiries").
-  // Reads the ASK half. An inquiry is always an ask, so this number does not
-  // move today — but taking it from `whatsNew` would mean the hero counted a
-  // list the feed below no longer shows, the moment a kind changes side.
-  const heroInquiries = needsAnswer.filter((c) => c.kind === 'inquiry').length;
-
   // WHY COUPLES CAN'T FIND YOU — decided once, in `lib/vendor-shop-findable.ts`,
   // from the `public_visibility` already on this row (no extra query) and from
   // whether the first-steps rail is on screen (so the two can never argue).
@@ -452,314 +443,198 @@ export default async function VendorOverviewPage({
     : null;
 
   /*
-    ── 📱 THE FIRST SCREEN (owner-APPROVED 2026-10-01, DECISION_LOG "THE
-    SUPPLIER PHONE APP — APPROVED, WITH THE THREE RECOMMENDED ANSWERS") ────
-    The shop line → ONE Next card → three numbers → the next three events.
-    Before this, the first inquiry landed under the fold (~900 px down, read off
-    the component order). Nothing below was removed: the desk, the notes, the
-    bills and the lists all still render, in the same order, under "Everything
-    else" (#today-all). The "Today at" tile and the KPI bento are what the Next
-    card and the three numbers replaced.
+    ── 📱 TODAY, AS ROWS (supplier dashboard redesign S-PR1, 2026-10-08 — corpus
+    `SUPPLIER_DASHBOARD_REDESIGN_2026-10-08_fable.md` § 2 "Today" + § 3;
+    prototype `supplier_dashboard_2026-10-08_fable.html` frames 01 · 02 · 15 ·
+    31) ─────────────────────────────────────────────────────────────────────
+    ONE Next card ("1 of 3") → three numbers → Coming up (3) → Also waiting
+    (the rest of the queue) → one Shop row. The first screen approved on
+    2026-10-01 is kept; "Everything else" under it is gone.
+
+    WHERE EACH THING THAT WAS BELOW THE FOLD WENT — nothing is dropped unsaid:
+      · the desk ("Needs your answer")   → Also waiting: one row per ask, the
+        answer opening in place (the same forms, the same actions)
+      · the findability banner           → `pickSupplierNext` rule `findable`
+      · the first-steps rail             → rule `setup` (its current step)
+        (each is the Next card when it wins, and a row under Also waiting when
+        a busier rule wins — `supplierWaiting().doors`)
+      · the booking-fee bills            → rule `fee` when it wins; and KEPT
+        below, every unpaid bill with its own Pay — the rule knows one bill and
+        a shop can owe several (`the-fee-finds-the-supplier.test.ts`)
+      · the credit-expiring banner       → NO rule in `pickSupplierNext`, so its
+        meaning is kept as a row (`doors`, id `credit`)
+      · the payout nudge                 → NO rule either; kept as a row (`payout`)
+      · the Spotlight Award banner       → its planned home (Shop › Page ›
+        Reviews) is S-PR7; until then its label rides on the Shop row's line
+      · the business-milestone pill      → on the Shop row's line
+      · the two "Your money" tiles       → the "to come in" number here; the
+        figures themselves are on Earnings and Payday (Customers › Money, S-PR4)
+      · "Nothing to answer"              → kept, as quiet rows: a lapsed
+        booking window and a flagged delay are shown nowhere else
+      · the token note · Ongoing · Upcoming schedules → removed (the queue and
+        Coming up already say them)
   */
   const owedPhp = owedToYouPhp(earnings);
   const firstCategory = (profile.services ?? [])[0] as string | undefined;
   // The shared resolver, never an inline humaniser (`one-word-per-category.test.ts`).
-  const categoryWord = firstCategory ? displayServiceLabel(firstCategory) : 'Your shop';
+  const categoryWord = firstCategory ? displayServiceLabel(firstCategory) : null;
   const shopState = firstSteps ? 'Not live yet' : findability.findable ? 'Live' : 'Not listed';
   // 🗓 A date-change request (3-day deadline) is the Next card whenever one waits.
   const nextAnswer = nextAnswerOf(needsAnswer);
+  const now = Date.now();
+  const setupStep = firstSteps?.current
+    ? {
+        title: firstSteps.current.title,
+        body: firstSteps.current.body,
+        cta: firstSteps.current.cta,
+        href: firstSteps.current.href,
+      }
+    : null;
+  const findabilityRule = findabilityBanner
+    ? { title: findabilityBanner.title, body: findabilityBanner.body, cta: findabilityBanner.cta ?? null }
+    : null;
+  const feeRule = todayFeeBills[0]
+    ? { bill: todayFeeBills[0], copy: feeDueCopy(todayFeeBills[0], manilaToday()) }
+    : null;
   const next = pickSupplierNext({
     answer: nextAnswer,
     answerSince: nextAnswer ? cardTimestamp(nextAnswer) : null,
     deskIncomplete,
     upcoming,
-    setupStep: firstSteps?.current
-      ? {
-          title: firstSteps.current.title,
-          body: firstSteps.current.body,
-          cta: firstSteps.current.cta,
-          href: firstSteps.current.href,
-        }
-      : null,
-    findability: findabilityBanner
-      ? { title: findabilityBanner.title, body: findabilityBanner.body, cta: findabilityBanner.cta ?? null }
-      : null,
-    fee: todayFeeBills[0]
-      ? { bill: todayFeeBills[0], copy: feeDueCopy(todayFeeBills[0], manilaToday()) }
-      : null,
+    setupStep,
+    findability: findabilityRule,
+    fee: feeRule,
     owedPhp,
-    now: Date.now(),
+    now,
   });
+  // The door to "How clients pay you" while a booked couple cannot see anywhere
+  // to pay. Not when a booking ask is on screen: that ask's own answer carries
+  // the same nudge, and one screen says it once.
+  const payoutCopy = hasBooking && !hasLockAsk ? payoutNudgeCopy(payoutReadiness, 'today') : null;
+  const waiting = supplierWaiting({
+    next,
+    needsAnswer,
+    since: cardTimestamp,
+    setupStep,
+    findability: findabilityRule,
+    credit: creditNotice ? { title: creditNotice.title, body: creditNotice.body, href: creditNotice.href } : null,
+    payout: payoutCopy ? { title: payoutCopy.cta, body: payoutCopy.body, href: PAYMENT_OPTIONS_HREF } : null,
+    now,
+  });
+  const nextIsAnswer = next.kind === 'answer' ? nextAnswer : null;
+
+  // The one Shop row's line — what the shop line at the top used to say, plus
+  // the two things that used to be banners about the shop itself.
+  const milestoneWord = milestone
+    ? `your ${milestone.label}${
+        milestone.daysUntil > 92
+          ? ''
+          : milestone.daysUntil <= 0
+            ? ' today'
+            : milestone.daysUntil === 1
+              ? ' tomorrow'
+              : ` in ${milestone.daysUntil} days`
+      }`
+    : null;
+  const awardWord = [...new Set(spotlightAwards)].map((a) => AWARD_LABELS[a]).join(' · ') || null;
+  const shopLine = [categoryWord, shopState, awardWord, milestoneWord].filter((p): p is string => Boolean(p)).join(' · ');
+
+  // The outcome of an answer given ON this page — one sentence, as a toast.
+  const outcome = lockAnswer
+    ? { text: lockAnswer.text, refused: lockAnswer.tone === 'refused' }
+    : dateAnswer
+      ? { text: dateAnswer, refused: search.date_answer !== 'moved' && search.date_answer !== 'unlocked' }
+      : depositAnswer
+        ? { text: depositAnswer, refused: search.deposit_answer !== 'ok' }
+        : null;
 
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-4 sm:px-6 sm:py-10 lg:px-8">
-      {/* The outcome of a booking ask answered ON this page. A refusal here is
-          the whole point: without it the supplier presses Agree, is refused,
-          and sees the same page with the same card and no explanation. It sits
-          ABOVE the first screen because it answers the tap the supplier just
-          made — text only, nothing to press. */}
-      {lockAnswer ? (
-        <div
-          role="status"
-          className="sn-tile mb-4 flex items-start gap-3 p-4 text-sm text-ink/80"
-        >
-          {lockAnswer.tone === 'refused' ? (
-            <AlertTriangle
-              aria-hidden
-              className="mt-0.5 h-4 w-4 shrink-0"
-              strokeWidth={1.75}
-              style={{ color: 'var(--m-blush-deep)' }}
-            />
-          ) : (
-            <Info
-              aria-hidden
-              className="mt-0.5 h-4 w-4 shrink-0"
-              strokeWidth={1.75}
-              style={{ color: 'var(--sn-gold-700)' }}
-            />
-          )}
-          <p>{lockAnswer.text}</p>
-        </div>
-      ) : null}
-
-      {/* The outcome of an answer given ON this page, said where it was given. */}
-      {dateAnswer ? (
-        <div role="status" className="sn-tile mb-4 flex items-start gap-3 p-4 text-sm text-ink/80" data-date-answer="">
-          <Info aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} style={{ color: 'var(--sn-gold-700)' }} />
-          <p>{dateAnswer}</p>
-        </div>
-      ) : null}
-
-      {depositAnswer ? (
-        <div
-          role="status"
-          className="sn-tile mb-4 flex items-start gap-3 p-4 text-sm text-ink/80"
-        >
-          <Info
-            aria-hidden
-            className="mt-0.5 h-4 w-4 shrink-0"
-            strokeWidth={1.75}
-            style={{ color: 'var(--sn-gold-700)' }}
-          />
-          <p>{depositAnswer}</p>
-        </div>
-      ) : null}
+      {/* The outcome of an answer given ON this page (a booking ask · a date
+          change · a payment that never arrived). A refusal is the whole point:
+          without it the supplier presses Agree, is refused, and sees the same
+          page with no explanation. Text only — nothing to press — so the Next
+          card below is still the first thing you can tap. */}
+      {outcome ? <SupplierToast text={outcome.text} refused={outcome.refused} /> : null}
 
       <SupplierTodayFirstScreen
-        cover={{ eyebrow: `${categoryWord} · ${shopState}`, name: profile.business_name }}
         next={next}
+        look={nextLook(next.kind, nextIsAnswer)}
+        second={nextSecond(next, nextIsAnswer, upcoming)}
+        counter={waiting.counter}
+        meta={nextMeta(nextIsAnswer, nextIsAnswer ? cardTimestamp(nextIsAnswer) : null, now)}
+        dateChange={
+          nextIsAnswer?.kind === 'date_change' ? { card: nextIsAnswer, answer: vendorAnswerDateChange } : null
+        }
         numbers={{
-          inquiries: formatCount(heroInquiries),
+          waiting: waitingOnYou(needsAnswer.length, deskIncomplete),
+          waitingNow: needsAnswer.length > 0,
           thisWeek: eventsThisWeek(upcoming),
-          // ₱48K, not ₱48,000 — three numbers share one phone row. The exact
-          // figure is one tap away on Payday.
-          owed: owedPhp === null ? '—' : formatPesoCompact(owedPhp * 100),
+          // ₱48K, not ₱48,000 — three numbers share one phone row. `null` when
+          // payday was not read: the number then says "couldn't load", never ₱0.
+          toComeIn: owedPhp === null ? null : formatPesoCompact(owedPhp * 100),
         }}
         comingUp={upcoming.slice(0, 3)}
+        doors={waiting.doors}
+        shop={{ name: profile.business_name, line: shopLine, live: shopState === 'Live' }}
+        alsoWaiting={
+          <>
+            {/* The asks, each opening its answer in place — the booking fee is
+                still read BEFORE Agree, the receipt before Confirm. */}
+            <WhatsNewFeed
+              cards={needsAnswer}
+              asks={waiting.asks}
+              statusLine={askStatus}
+              incomplete={deskIncomplete}
+              acceptInquiry={acceptInquiry}
+              declineInquiry={declineInquiry}
+              confirmLock={vendorAcknowledgeDeposit}
+              rejectLock={vendorRejectDeposit}
+              agreeLock={vendorAgreeToLock}
+              declineLock={vendorDeclineLock}
+              agreeDeletion={vendorAgreeToDeletion}
+              declineDeletion={vendorDeclineDeletion}
+              answerDateChange={vendorAnswerDateChange}
+              postReviewReply={postVendorReply}
+              respondMeeting={respondAppointment}
+              markServiceComplete={vendorMarkServiceComplete}
+              payoutReadiness={payoutReadiness}
+              feeForecasts={feeForecasts}
+            />
+            {/* The closed lines. Renders nothing when empty. */}
+            <NothingToAnswerFeed
+              cards={nothingToAnswer}
+              acceptInquiry={acceptInquiry}
+              declineInquiry={declineInquiry}
+              confirmLock={vendorAcknowledgeDeposit}
+              rejectLock={vendorRejectDeposit}
+              agreeLock={vendorAgreeToLock}
+              declineLock={vendorDeclineLock}
+              agreeDeletion={vendorAgreeToDeletion}
+              declineDeletion={vendorDeclineDeletion}
+              answerDateChange={vendorAnswerDateChange}
+              postReviewReply={postVendorReply}
+              respondMeeting={respondAppointment}
+              markServiceComplete={vendorMarkServiceComplete}
+            />
+            {/* WHAT YOU OWE SETNAYAN — every unpaid booking fee, each with its
+                own Pay (owner 2026-09-20: "i never saw the payment screen to
+                pay us"). The Next card shows ONE bill, and only when nothing
+                busier wins; this shows the rest, always. Renders nothing when
+                there is no unpaid fee, and nothing when the read failed — an
+                unread bill list is not "you owe nothing". */}
+            <BookingFeeBills
+              bills={next.kind === 'fee' ? todayFeeBills.slice(1) : todayFeeBills}
+              copyFor={(b) => feeDueCopy(b, manilaToday())}
+            />
+          </>
+        }
       />
 
       {/* First visit only — the shipped MiniTour (owner rule: every feature
           gets a first-visit tour). Waits for the welcome tour so two never
           stack on one first visit. */}
       <MiniTour tourKey="vendor_today_v1" after="vendor_welcome_v1" />
-
-      {/* ── EVERYTHING ELSE — one tap below, nothing removed ─────────────── */}
-      <div id="today-all" className="mt-8 scroll-mt-24">
-      <header className="mb-4 space-y-1">
-        <h2 className="sn-sec">Everything else</h2>
-        <p className="text-[12.5px] text-ink/55">{todayLabel()}</p>
-        {milestone ? (
-          <div className="pt-1.5">
-            <span
-              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold"
-              style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-ink-900)' }}
-            >
-              <PartyPopper aria-hidden className="h-3.5 w-3.5" style={{ color: 'var(--sn-gold-700)' }} />
-              {profile.business_name} — your {milestone.label}
-              {/* A countdown only when it's near; a far-off anniversary reads as
-                  a proud badge, not an early countdown. */}
-              {milestone.daysUntil <= 92 ? (
-                <span style={{ color: 'var(--sn-ink-400)' }}>
-                  ·{' '}
-                  {milestone.daysUntil <= 0
-                    ? 'today'
-                    : milestone.daysUntil === 1
-                      ? 'tomorrow'
-                      : `in ${milestone.daysUntil} days`}
-                </span>
-              ) : null}
-            </span>
-          </div>
-        ) : null}
-      </header>
-
-      {/*
-        YOUR MONEY — the two figures the old "Today at" tile and cash-flow ring
-        carried, kept one scroll down (owner rule for this redraw: nothing
-        removed). Each opens the ledger it summarises; "—" when a read failed,
-        never ₱0.
-      */}
-      {earnings ? (
-        <div className="mb-6 grid grid-cols-2 gap-2" data-today-money>
-          <Link href="/vendor-dashboard/earnings" className="sn-glass-bare sn-press rounded-xl px-3 py-3">
-            <span className="block text-[11.5px] text-ink/55">Earned this year</span>
-            <span className="block font-display text-[20px] leading-tight text-ink">
-              {earnings.earningsMeasured ? formatPhp(earnings.earnedThisYearPhp) : '—'}
-            </span>
-          </Link>
-          <Link href="/vendor-dashboard/payday" className="sn-glass-bare sn-press rounded-xl px-3 py-3">
-            <span className="block text-[11.5px] text-ink/55">Received of booked</span>
-            <span className="block font-display text-[20px] leading-tight text-ink">
-              {earnings.paydayMeasured
-                ? `${formatPhp(earnings.confirmedPhp)} / ${formatPhp(earnings.expectedPhp)}`
-                : '—'}
-            </span>
-          </Link>
-        </div>
-      ) : null}
-
-      {/* Why couples can't find you. Mutually exclusive with the rail below by
-          construction — `shopFindability` returns the silent state whenever the
-          rail is showing — so this is never a second voice on the same subject.
-          It sits FIRST because an invisible shop has nothing else worth reading
-          on this page: every count below it is a count of people who could not
-          reach it. */}
-      {findabilityBanner ? (
-        <div
-          className="mb-6 flex items-start gap-3 rounded-xl border px-4 py-3.5"
-          style={{
-            borderColor: 'var(--m-orange-3)',
-            background: 'var(--m-orange-4)',
-            color: 'var(--m-orange-deep)',
-          }}
-        >
-          <EyeOff aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
-          <div className="min-w-0 text-sm leading-relaxed">
-            <p className="font-semibold">{findabilityBanner.title}</p>
-            <p className="mt-0.5">{findabilityBanner.body}</p>
-            {findabilityBanner.cta ? (
-              <Link
-                href={findabilityBanner.cta.href}
-                className="mt-2 inline-flex items-center gap-1 font-semibold underline"
-              >
-                {findabilityBanner.cta.label}
-                <ArrowRight aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-              </Link>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
-
-      {/* ⏳ Credit about to expire — the Today half of the 7-day warning (d5). */}
-      {creditNotice ? (
-        <div
-          data-credit-expiring=""
-          className="mb-6 flex items-start gap-3 rounded-xl px-4 py-3.5"
-          style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }}
-        >
-          <Hourglass aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
-          <div className="min-w-0 text-sm leading-relaxed">
-            <p className="font-semibold">{creditNotice.title}</p>
-            <p className="mt-0.5">{creditNotice.body}</p>
-            <Link href={creditNotice.href} className="mt-2 inline-flex items-center gap-1 font-semibold underline">
-              Renew your plan
-              <ArrowRight aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-            </Link>
-          </div>
-        </div>
-      ) : null}
-
-      {/* First steps — the order of operations, ABOVE the focal tile and the
-          feed. For a shop that isn't approved yet those are all zeros and an
-          empty feed, so the one useful thing on this page is what to do next.
-          Renders nothing once the shop is verified (rail is null). */}
-      {firstSteps ? <VendorFirstSteps rail={firstSteps} /> : null}
-
-      {/* Spotlight Award — celebratory banner, shown only when this vendor holds
-          at least one current-period award (empty list renders nothing). */}
-      <SpotlightAwardBanner awards={spotlightAwards} />
-
-      {/* The door to "How clients pay you" while a booked couple cannot see
-          anywhere to pay. Not when a booking ask is on screen: that card
-          carries the same nudge, and one screen says it once. */}
-      {hasBooking && !hasLockAsk ? (
-        <div className="mb-6">
-          <PayoutMethodNudge readiness={payoutReadiness} context="today" />
-        </div>
-      ) : null}
-
-      {/* WHAT YOU OWE SETNAYAN. Above the feed because it is money with a due
-          date on it, and because the supplier's own earnings sit just above.
-          Renders nothing when there is no unpaid fee — the filter decides that,
-          not a second condition here. */}
-      {todayFeeBills.length > 0 ? (
-        <div className="mb-6">
-          <BookingFeeBills
-            bills={todayFeeBills}
-            copyFor={(b) => feeDueCopy(b, manilaToday())}
-          />
-        </div>
-      ) : null}
-
-      {/* 1 · Needs your answer — the decision feed (centrepiece) */}
-      <WhatsNewFeed
-        cards={needsAnswer}
-        statusLine={askStatus}
-        incomplete={deskIncomplete}
-        acceptInquiry={acceptInquiry}
-        declineInquiry={declineInquiry}
-        confirmLock={vendorAcknowledgeDeposit}
-        rejectLock={vendorRejectDeposit}
-        agreeLock={vendorAgreeToLock}
-        declineLock={vendorDeclineLock}
-        agreeDeletion={vendorAgreeToDeletion}
-        declineDeletion={vendorDeclineDeletion}
-        answerDateChange={vendorAnswerDateChange}
-        postReviewReply={postVendorReply}
-        respondMeeting={respondAppointment}
-        markServiceComplete={vendorMarkServiceComplete}
-        payoutReadiness={payoutReadiness}
-        feeForecasts={feeForecasts}
-      />
-
-      {/* 2 · Token note — cost follows the customer's event location. A subtle
-          glass tile with a gold info accent (not a loud banner). */}
-      <div className="sn-tile mb-8 flex items-start gap-3 p-4 text-sm text-ink/75">
-        <Info
-          aria-hidden
-          className="mt-0.5 h-4 w-4 shrink-0"
-          strokeWidth={1.75}
-          style={{ color: 'var(--sn-gold-700)' }}
-        />
-        <p>
-          Answering couples is free — reply to any lead at no cost, anywhere in
-          the Philippines.
-        </p>
-      </div>
-
-      {/* 2b · Nothing to answer — the closed lines. Renders nothing when empty. */}
-      <NothingToAnswerFeed
-        cards={nothingToAnswer}
-        acceptInquiry={acceptInquiry}
-        declineInquiry={declineInquiry}
-        confirmLock={vendorAcknowledgeDeposit}
-        rejectLock={vendorRejectDeposit}
-        agreeLock={vendorAgreeToLock}
-        declineLock={vendorDeclineLock}
-        agreeDeletion={vendorAgreeToDeletion}
-        declineDeletion={vendorDeclineDeletion}
-        answerDateChange={vendorAnswerDateChange}
-        postReviewReply={postVendorReply}
-        respondMeeting={respondAppointment}
-        markServiceComplete={vendorMarkServiceComplete}
-      />
-
-      {/* 3 · Ongoing — open tasks */}
-      <OngoingTasks tasks={ongoing} />
-
-      {/* 4 · Upcoming schedules — next 5 booked events */}
-      <UpcomingSchedules rows={upcoming} />
-      </div>
     </div>
   );
 }

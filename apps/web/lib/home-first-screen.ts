@@ -31,6 +31,7 @@
 import { formatCount } from '@/lib/format-number';
 import { formatPhp } from '@/lib/php';
 import { SERVICE_NAMES } from '@/lib/service-names';
+import { isToInvite, type InviteFacts } from '@/lib/guest-roster-view';
 
 export type HomeNextKind = 'guide' | 'date' | 'unread' | 'guests' | 'invite' | 'papic' | 'ai' | 'plan';
 
@@ -82,20 +83,21 @@ export type HomeNext = {
 export type HomeGuestsRead = {
   /** Guests on the living, accepted list, the couple themselves excluded. */
   total: number;
-  /** …of whom no invitation has been sent (`invitation_sent_at` empty). */
+  /** …of whom are still TO INVITE — the one rule, `isToInvite` (lib/guest-roster-view.ts):
+   *  no invitation sent, has not declined, not a celebrant. */
   unsent: number;
 } | null;
 
-/** Count the Home's guests read — the same set `/guests/send` offers to send to. */
-export function homeGuestsRead(
-  rows: readonly { role?: string | null; invitation_sent_at?: string | null }[],
-  measured: boolean,
-): HomeGuestsRead {
+/**
+ * Count the Home's guests read. `unsent` is `isToInvite` — the number the
+ * Guests list calls "N to invite", Setup calls "Send to N" and the send run
+ * opens with — so "Send N invitations" can never name a different N.
+ */
+export function homeGuestsRead(rows: readonly InviteFacts[], measured: boolean): HomeGuestsRead {
   if (!measured) return null;
-  const invitable = rows.filter((g) => g.role !== 'bride' && g.role !== 'groom');
   return {
-    total: invitable.length,
-    unsent: invitable.filter((g) => !(typeof g.invitation_sent_at === 'string' && g.invitation_sent_at.trim() !== '')).length,
+    total: rows.filter((g) => g.role !== 'bride' && g.role !== 'groom').length,
+    unsent: rows.filter((g) => isToInvite(g)).length,
   };
 }
 

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "963868ee0",
-  "routeCount": 428,
+  "generatedFromRef": "2b401778f",
+  "routeCount": 429,
   "destinations": 953,
   "actions": 671,
-  "blocks": 5711,
+  "blocks": 5724,
   "routes": {
     "/": {
       "files": [
@@ -9839,6 +9839,31 @@
         "ScheduleDay",
         "ScheduleLabClient",
         "Switch"
+      ]
+    },
+    "/dev/suppliers-lab": {
+      "files": [
+        "dev/suppliers-lab/fixtures.ts",
+        "dev/suppliers-lab/lab-bench.tsx",
+        "dev/suppliers-lab/lab-stage.tsx",
+        "dev/suppliers-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "BenchServiceCard",
+        "BottomDock",
+        "CategoryVendorResult",
+        "DatePlaceLine",
+        "EventVendorRowInput",
+        "InspectorLayout",
+        "LabBench",
+        "MoreRowStandInCtx.Provider",
+        "ServicesTakeover",
+        "ShortlistCategories",
+        "SupplierSheetActions",
+        "SuppliersLabStage",
+        "VendorQuickViewInspector"
       ]
     },
     "/download": {

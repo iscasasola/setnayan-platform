@@ -41,7 +41,7 @@ const WEB = join(HERE, '..', '..');
  * the file fails here, instead of silently leaving the sweep.
  */
 export const SWEPT: ReadonlyArray<readonly [file: string, components: readonly string[]]> = [
-  ['app/vendor-dashboard/_components/supplier-thumb-row.tsx', ['SupplierThumbRow']],
+  ['app/vendor-dashboard/_components/supplier-thumb-row.tsx', ['SupplierThumbRow', 'ThumbFit']],
   ['app/vendor-dashboard/_components/supplier-submit.tsx', ['SupplierSubmit']],
 ];
 

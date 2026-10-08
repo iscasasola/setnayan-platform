@@ -13,6 +13,7 @@
  *     `lib/floating-rows-are-glass.test.ts`, which lists this row too)
  *   · the envelope seeded from the notification count        → test 4
  *   · `vendor_shop_v1` mounted on Today                      → test 5
+ *   · `useFitRow` called in the shell that renders null      → test 2
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -64,6 +65,17 @@ test('2 · the thumb row is the shared glass, portalled, fitted and slid — wit
   assert.match(row, /createPortal\(/, 'no longer portalled — `position: fixed` is not fixed under a transformed ancestor');
   assert.match(row, /document\.body,\s*\)/, 'the portal target is not <body>');
   assert.match(row, /useFitRow\(fitRef\)/, 'the buttons no longer change state as one (rule 3a)');
+  // 🔴 The fit hook must run where its node EXISTS. The outer row returns null
+  // until mounted, so a hook called there measures nothing, once, and four
+  // buttons overflow a phone (seen on the 375 side-by-side: "Ca").
+  // SABOTAGE: move `useFitRow(fitRef)` back into SupplierThumbRow → RED.
+  const outer = row.slice(row.indexOf('export function SupplierThumbRow('), row.indexOf('function ThumbFit('));
+  const inner = row.slice(row.indexOf('function ThumbFit('));
+  assert.ok(outer.length > 500 && inner.length > 100, 'the row is no longer split into the mounted shell and the fitted inner row');
+  assert.match(outer, /if \(!mounted\) return null;/);
+  assert.doesNotMatch(outer, /useFitRow\(/, 'the fit hook is called in the component that renders nothing before mount — it measures null and never runs again');
+  assert.match(inner, /const fitRef = useRef<HTMLDivElement>\(null\);\s*useFitRow\(fitRef\);[\s\S]*<div ref=\{fitRef\}/, 'the fitted row does not own both the ref and the hook');
+  assert.match(outer, /<ThumbFit>\{children\}<\/ThumbFit>/);
   assert.match(row, /data-on=\{on \? 'true' : 'false'\}/, 'the slide has no state to read');
   assert.match(row, /if \(leavesThePage\(/, 'it no longer slides down first on leaving (rule 5)');
   assert.match(row, /addEventListener\('pagehide'/);

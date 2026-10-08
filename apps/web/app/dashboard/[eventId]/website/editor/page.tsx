@@ -988,7 +988,7 @@ export default async function WebsiteEditorPage({
           return {
             key: 'buttons',
             label: 'Buttons',
-            blurb: 'The shape, fill and colour of every button on your Event Hub.',
+            blurb: 'The shape of every button on your Event Hub.',
             href: `${base}/launch?open=buttons`,
             locked: false,
             panel: (

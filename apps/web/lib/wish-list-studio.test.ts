@@ -35,7 +35,15 @@ import {
   wishRowLineParts,
   wishRowMeter,
   wishSheetPill,
+  GIFTS_SENT_NONE,
+  GIFT_ANY,
+  giftRowLine,
+  giftTotals,
+  giftsSentLeadParts,
+  settleDrawn,
+  wishesWithGifts,
   type StudioWish,
+  type StudioWishGift,
 } from './wish-list-studio';
 
 const wish = (over: Partial<StudioWish>): StudioWish => ({
@@ -51,7 +59,7 @@ const wish = (over: Partial<StudioWish>): StudioWish => ({
   gifts: [],
   ...over,
 });
-const g = (n: number) => Array.from({ length: n }, (_, i) => ({ id: `g${i}`, giverName: 'Tita Nene', methodKind: 'gcash', at: '2026-10-06T07:12:00.000Z', message: null, amountPhp: 2000, hasShot: true }));
+const g = (n: number) => Array.from({ length: n }, (_, i) => ({ id: `g${i}`, giverName: 'Tita Nene', methodKind: 'gcash', at: '2026-10-06T07:12:00.000Z', message: null, amountPhp: 2000, hasShot: true, shotUrl: null, wishId: 'w', removed: false }));
 
 test('a row’s line: sent of price and the gift count — the prototype’s own lines', () => {
   assert.equal(wishRowLine(wish({ sentPhp: 4000, gifts: g(2) })), '₱4,000 sent of ₱4,500 · 2 gifts');
@@ -205,4 +213,114 @@ test('the photo is resolved by the caller’s resolver — a ref it refuses draw
   assert.equal(shown.read && shown.wishes[0]!.photoUrl, 'https://media.example/a.jpg');
   assert.equal(refused.read && refused.wishes[0]!.photoUrl, null);
   assert.equal(refused.read && refused.wishes[0]!.photoRef, withPhoto.photo_r2_key, 'the stored ref is still handed back for the field');
+});
+
+/* ── wish list 5/5 — Gifts sent to you ───────────────────────────────────── */
+
+const flat = (id: string, wishId: string | null, amountPhp: number, over: Partial<StudioWishGift> = {}): StudioWishGift => ({
+  id,
+  giverName: 'Tita Nene',
+  methodKind: 'gcash',
+  at: '2026-10-06T07:12:00.000Z',
+  message: null,
+  amountPhp,
+  hasShot: false,
+  shotUrl: null,
+  wishId,
+  removed: false,
+  ...over,
+});
+
+test('the view also hands over EVERY record — its wish, its screenshot’s address, and whether it was set aside', () => {
+  const view = studioWishListFrom(
+    [row('air', 4500)],
+    [rec('r1', 'air', 2000), rec('r2', 'air', 2000), rec('r3', null, 5000), rec('r4', 'air', 700, '2026-10-07T00:00:00.000Z'), rec('r5', 'a-wish-that-is-gone', 300)],
+    () => null,
+    (ref) => (ref ? `signed:${ref}` : null),
+  );
+  assert.equal(view.read, true);
+  if (!view.read) return;
+  assert.deepEqual(
+    view.gifts.map((x) => [x.id, x.wishId, x.removed, x.hasShot, x.shotUrl]),
+    [
+      ['r1', 'air', false, true, 'signed:r2://setnayan-thread-files/gift-shots/e/x.jpg'],
+      ['r2', 'air', false, false, null],
+      ['r3', null, false, true, 'signed:r2://setnayan-thread-files/gift-shots/e/x.jpg'],
+      ['r4', 'air', true, true, 'signed:r2://setnayan-thread-files/gift-shots/e/x.jpg'],
+      // A record whose wish this read does not hold counts toward no wish: "Any gift".
+      ['r5', null, false, true, 'signed:r2://setnayan-thread-files/gift-shots/e/x.jpg'],
+    ],
+  );
+  // A removed record is on the flat list (it can be put back) and in NO wish's list or sum.
+  const air = view.wishes.find((w) => w.id === 'air')!;
+  assert.deepEqual(air.gifts.map((x) => x.id), ['r1', 'r2']);
+  assert.equal(air.sentPhp, 4000);
+  // With no signer handed in (a unit test, a lab) no address is invented.
+  const bare = studioWishListFrom([row('air', 4500)], [rec('r1', 'air', 2000)], () => null);
+  assert.equal(bare.read && bare.gifts[0]!.shotUrl, null);
+});
+
+test('"Gifts sent to you": the sentence over the list, and each row’s line', () => {
+  assert.deepEqual(giftsSentLeadParts(14500, 5), {
+    before: 'What guests say they sent — ',
+    sent: '₱14,500',
+    after: ' in 5 gifts. Check your GCash or bank before you count one.',
+  });
+  assert.equal(giftsSentLeadParts(2000, 1).after, ' in 1 gift. Check your GCash or bank before you count one.');
+  assert.deepEqual(giftsSentLeadParts(0, 0), { before: GIFTS_SENT_NONE, sent: null, after: '' });
+
+  const wishes = [{ id: 'air', name: 'Air fryer' }];
+  assert.equal(giftRowLine(flat('g1', 'air', 2000), wishes), 'Air fryer · GCash · Tue 3:12 pm');
+  assert.equal(giftRowLine(flat('g2', null, 5000), wishes), `${GIFT_ANY} · GCash · Tue 3:12 pm`);
+  assert.equal(giftRowLine(flat('g3', 'gone', 5000, { methodKind: null }), wishes), `${GIFT_ANY} · Tue 3:12 pm`, 'a wish that is gone reads as no wish');
+});
+
+test('the totals and each wish are drawn from the records — a removed one counts nowhere', () => {
+  const gifts = [flat('g1', 'air', 2000), flat('g2', 'air', 2000), flat('g3', null, 5000), flat('g4', 'air', 900, { removed: true })];
+  assert.deepEqual(giftTotals(gifts), { sentPhp: 9000, counted: 3 });
+  assert.deepEqual(giftTotals([]), { sentPhp: 0, counted: 0 });
+
+  const drawn = wishesWithGifts([wish({ id: 'air', sentPhp: 123, gifts: [] }), wish({ id: 'rice', pricePhp: 3200, sentPhp: 9 })], gifts);
+  assert.equal(drawn[0]!.sentPhp, 4000);
+  assert.deepEqual(drawn[0]!.gifts.map((x) => x.id), ['g1', 'g2']);
+  assert.equal(drawn[1]!.sentPhp, 0);
+  assert.deepEqual(drawn[1]!.gifts, []);
+  // A sum alone never re-marks a wish: gotBy is exactly what it was.
+  const reopened = wishesWithGifts([wish({ id: 'air', gotBy: null })], [flat('g1', 'air', 9999)]);
+  assert.equal(reopened[0]!.gotBy, null, 'a wish the couple opened again must not mark itself on every draw');
+});
+
+test('🔒 "when amount is reached": a changed record settles the wishes it touched — and only those', () => {
+  const air = wish({ id: 'air', pricePhp: 4500 });
+  const rice = wish({ id: 'rice', pricePhp: 3200 });
+  const fund = wish({ id: 'fund', pricePhp: null });
+  const mine = wish({ id: 'coffee', pricePhp: 6000, gotBy: 'host' });
+
+  // A correction reaches the price → marked for them.
+  let out = settleDrawn([air, rice], [flat('g1', 'air', 2500), flat('g2', 'air', 2000)], ['air', null]);
+  assert.equal(out.find((w) => w.id === 'air')!.gotBy, 'auto');
+  assert.equal(out.find((w) => w.id === 'rice')!.gotBy, null);
+
+  // …and falls back below → an automatic mark opens again.
+  out = settleDrawn([{ ...air, gotBy: 'auto' }], [flat('g1', 'air', 2000), flat('g2', 'air', 2000)], ['air']);
+  assert.equal(out[0]!.gotBy, null);
+
+  // A move settles BOTH the wish it left and the wish it joined.
+  out = settleDrawn([{ ...air, gotBy: 'auto' }, rice], [flat('g1', 'rice', 4500)], ['air', 'rice']);
+  assert.equal(out.find((w) => w.id === 'air')!.gotBy, null);
+  assert.equal(out.find((w) => w.id === 'rice')!.gotBy, 'auto');
+
+  // A removed record no longer counts.
+  out = settleDrawn([{ ...air, gotBy: 'auto' }], [flat('g1', 'air', 4500, { removed: true })], ['air']);
+  assert.equal(out[0]!.gotBy, null);
+
+  // The couple's own mark is never touched; a wish with no price never marks itself.
+  out = settleDrawn([mine, fund], [flat('g1', 'coffee', 1), flat('g2', 'fund', 999999)], ['coffee', 'fund']);
+  assert.equal(out.find((w) => w.id === 'coffee')!.gotBy, 'host');
+  assert.equal(out.find((w) => w.id === 'fund')!.gotBy, null);
+
+  // 🔒 A wish the record did NOT touch is not judged — one the couple opened again stays open.
+  out = settleDrawn([air, rice], [flat('g1', 'air', 9000), flat('g2', 'rice', 100)], ['rice']);
+  assert.equal(out.find((w) => w.id === 'air')!.gotBy, null, 'an untouched wish was re-marked by somebody else’s change');
+  assert.equal(out.find((w) => w.id === 'air')!.sentPhp, 9000, '…though its sum is still drawn');
 });

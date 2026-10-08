@@ -19,6 +19,7 @@ import { formatPhp } from '@/lib/php';
 import { giftsAreOn } from '@/lib/event-answers';
 import {
   countSent,
+  gotAfterGifts,
   meterPercent,
   sentByWish,
   sumSent,
@@ -37,8 +38,18 @@ export type StudioWishGift = {
   at: string;
   message: string | null;
   amountPhp: number;
-  /** Did they add a screenshot? (The picture itself is served by wish list 5/5.) */
+  /** Did they add a screenshot? */
   hasShot: boolean;
+  /**
+   * A short-lived SIGNED address of the screenshot, made by the server for a
+   * host (`readStudioWishList`) — null when there is none, or it could not be
+   * signed (the screen then says so; it never draws an empty frame).
+   */
+  shotUrl: string | null;
+  /** The wish it counts toward — null = "Any gift". */
+  wishId: string | null;
+  /** The couple set it aside (soft): it counts toward nothing, and can be put back. */
+  removed: boolean;
 };
 
 /** One wish, as Studio › E-Gifts draws it. */
@@ -73,6 +84,8 @@ export type StudioWishList =
       /** Everything guests say they sent — toward a wish or toward none. */
       totalSentPhp: number;
       totalGifts: number;
+      /** EVERY record of the event, newest first — the removed ones too (they can be put back). */
+      gifts: StudioWishGift[];
     };
 
 /* ── the words ───────────────────────────────────────────────────────────── */
@@ -87,7 +100,24 @@ export const WISH_LIST_NO_WAY =
 export const WISH_LIST_UNREAD_TITLE = 'Couldn’t load your wish list.';
 export const WISH_LIST_UNREAD_LINE = 'Your wishes and gifts are still there — this phone couldn’t fetch them.';
 export const WISH_SHEET_KEEPS = 'Changes keep as you type';
-export const WISH_GIFTS_ONLY_YOU = 'Only you see these.';
+export const WISH_GIFTS_ONLY_YOU = 'Only you see these. Tap one to correct or remove it.';
+
+/* Gifts sent to you (wish list 5/5 — prototype frames 07 · 08) */
+export const GIFTS_SENT_TITLE = 'Gifts sent to you';
+export const GIFTS_SENT_TIP =
+  'A screenshot is what a guest showed you, not money in your account. Setnayan never holds or sees it — your own GCash or bank is the truth.';
+export const GIFTS_SENT_FOOT = 'Only you see these. Guests see each wish’s total, never a name, amount or screenshot.';
+export const GIFTS_SENT_NONE = 'No gifts yet. When a guest shows you what they sent, it lands here.';
+export const GIFTS_REMOVED_HEAD = 'Removed';
+export const GIFT_ANY = 'Any gift';
+export const GIFT_AMOUNT_LABEL = 'Amount they said';
+export const GIFT_AMOUNT_HINT = 'correct it if the screenshot differs';
+export const GIFT_AMOUNT_NOT_A_NUMBER = 'Type the amount as a number.';
+export const GIFT_TOWARD_LABEL = 'Counts toward';
+export const GIFT_SHOT_IS_NOT_MONEY = 'A screenshot is what they sent you, not money in your account — check GCash or your bank.';
+export const GIFT_NO_SHOT = 'They added no screenshot.';
+export const GIFT_SHOT_UNREAD = 'The screenshot couldn’t be loaded — close this and open it again.';
+export const GIFT_REMOVED_LINE = 'Removed — it no longer counts toward any wish. Put it back to count it again.';
 export const GIFTS_OFF_TITLE = 'Guests see no E-Gifts.';
 export const GIFTS_OFF_LINE = 'Your ways to give, wish list and gifts are kept for when you switch it back on.';
 
@@ -177,6 +207,70 @@ export function giftsSentLine(totalSentPhp: number, totalGifts: number): string 
   return `${formatPhp(totalSentPhp)} said sent · ${plural(totalGifts, 'gift', 'gifts')}`;
 }
 
+/**
+ * The sentence over "Gifts sent to you", in three pieces so the figure can be
+ * drawn heavier: "What guests say they sent — ₱14,500 in 5 gifts. Check your
+ * GCash or bank before you count one." With no gift it is one plain sentence.
+ */
+export function giftsSentLeadParts(totalSentPhp: number, totalGifts: number): { before: string; sent: string | null; after: string } {
+  if (totalGifts === 0) return { before: GIFTS_SENT_NONE, sent: null, after: '' };
+  return {
+    before: 'What guests say they sent — ',
+    sent: formatPhp(totalSentPhp),
+    after: ` in ${plural(totalGifts, 'gift', 'gifts')}. Check your GCash or bank before you count one.`,
+  };
+}
+
+/** A row of "Gifts sent to you": "Air fryer · GCash · Tue 3:12 pm" — or "Any gift · …". */
+export function giftRowLine(
+  g: Pick<StudioWishGift, 'wishId' | 'methodKind' | 'at'>,
+  wishes: readonly Pick<StudioWish, 'id' | 'name'>[],
+  timeZone = 'Asia/Manila',
+): string {
+  const toward = (g.wishId ? wishes.find((w) => w.id === g.wishId)?.name : null) ?? GIFT_ANY;
+  return [toward, giftWhenLine(g, timeZone)].filter(Boolean).join(' · ');
+}
+
+/** What guests say they sent in all, from the records themselves (removed ones never count). */
+export function giftTotals(gifts: readonly Pick<StudioWishGift, 'amountPhp' | 'removed'>[]): { sentPhp: number; counted: number } {
+  let sentPhp = 0;
+  let counted = 0;
+  for (const g of gifts) {
+    if (g.removed) continue;
+    sentPhp += g.amountPhp;
+    counted += 1;
+  }
+  return { sentPhp, counted };
+}
+
+/**
+ * Each wish with the gifts that count toward it NOW — its sum and its list
+ * rebuilt from the records, so a correction, a move or a remove shows at once
+ * on the row, the meter and the pill. `gotBy` is left as it is (see
+ * `settleDrawn`): a sum alone never re-marks a wish the couple opened again.
+ */
+export function wishesWithGifts(wishes: readonly StudioWish[], gifts: readonly StudioWishGift[]): StudioWish[] {
+  return wishes.map((w) => {
+    const own = gifts.filter((g) => !g.removed && g.wishId === w.id);
+    return { ...w, gifts: own, sentPhp: own.reduce((sum, g) => sum + g.amountPhp, 0) };
+  });
+}
+
+/**
+ * "when amount is reached." — the wishes a changed record TOUCHED, with their
+ * Got it settled by the same rule the server writes (`gotAfterGifts`): marked
+ * when the gifts reach the price, opened again when an automatic mark is no
+ * longer reached, and the couple's own mark never touched. Only the touched
+ * wishes are judged — exactly as the server judges them.
+ */
+export function settleDrawn(wishes: readonly StudioWish[], gifts: readonly StudioWishGift[], touched: readonly (string | null)[]): StudioWish[] {
+  return wishesWithGifts(wishes, gifts).map((w) => {
+    if (!touched.includes(w.id)) return w;
+    const settle = gotAfterGifts({ price_php: w.pricePhp, got_by: w.gotBy }, w.sentPhp);
+    return settle ? { ...w, gotBy: settle.got_by } : w;
+  });
+}
+
 /** "GCash · Tue 3:12 pm" — the way they said they used, and when. */
 export function giftWhenLine(g: Pick<StudioWishGift, 'methodKind' | 'at'>, timeZone = 'Asia/Manila'): string {
   const way = g.methodKind && isEgiftMethodKind(g.methodKind) ? EGIFT_KIND_META[g.methodKind].defaultLabel : null;
@@ -255,22 +349,30 @@ export function studioWishListFrom(
   wishes: readonly WishItemRow[],
   records: readonly GiftRecordRow[],
   photoUrlFor: (ref: string | null) => string | null,
+  /** The screenshot's signed, host-only address — the server's; a unit test hands none. */
+  shotUrlFor: (ref: string | null) => string | null = () => null,
 ): StudioWishList {
   const sums = sentByWish(records);
+  const known = new Set(wishes.map((w) => w.wish_item_id));
+  const all: StudioWishGift[] = records.map((r) => ({
+    id: r.gift_record_id,
+    giverName: r.giver_name,
+    methodKind: r.method_kind ?? null,
+    at: r.created_at,
+    message: r.message,
+    amountPhp: r.amount_php,
+    hasShot: Boolean(r.screenshot_r2_key),
+    shotUrl: r.screenshot_r2_key ? shotUrlFor(r.screenshot_r2_key) : null,
+    /* A wish this read does not hold is no wish to count toward: "Any gift". */
+    wishId: r.wish_item_id != null && known.has(r.wish_item_id) ? r.wish_item_id : null,
+    removed: r.removed_at != null,
+  }));
   const giftsOf = new Map<string, StudioWishGift[]>();
-  for (const r of records) {
-    if (r.removed_at != null || r.wish_item_id == null) continue;
-    const list = giftsOf.get(r.wish_item_id) ?? [];
-    list.push({
-      id: r.gift_record_id,
-      giverName: r.giver_name,
-      methodKind: r.method_kind ?? null,
-      at: r.created_at,
-      message: r.message,
-      amountPhp: r.amount_php,
-      hasShot: Boolean(r.screenshot_r2_key),
-    });
-    giftsOf.set(r.wish_item_id, list);
+  for (const g of all) {
+    if (g.removed || g.wishId == null) continue;
+    const list = giftsOf.get(g.wishId) ?? [];
+    list.push(g);
+    giftsOf.set(g.wishId, list);
   }
   const view: StudioWish[] = wishes.map((w) => ({
     id: w.wish_item_id,
@@ -284,5 +386,5 @@ export function studioWishListFrom(
     sentPhp: sums.get(w.wish_item_id)?.sentPhp ?? 0,
     gifts: giftsOf.get(w.wish_item_id) ?? [],
   }));
-  return { read: true, wishes: view, totalSentPhp: sumSent(records), totalGifts: countSent(records) };
+  return { read: true, wishes: view, totalSentPhp: sumSent(records), totalGifts: countSent(records), gifts: all };
 }

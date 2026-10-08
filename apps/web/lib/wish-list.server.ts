@@ -1,7 +1,8 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { publicUrlForStoredAsset } from '@/lib/uploads';
+import { giftShotEventPolicy, parseClientRef } from '@/lib/r2-client-ref';
+import { displayUrlForPrivateStoredAsset, publicUrlForStoredAsset } from '@/lib/uploads';
 import { publicBucketServeRef } from '@/lib/site-media-ref';
 import {
   GIFT_RECORD_SELECT,
@@ -51,10 +52,33 @@ export async function readStudioWishList(supabase: SupabaseClient, eventId: stri
   if (giftRes.error) logQueryError('readStudioWishList.gifts', giftRes.error, { event_id: eventId }, 'graceful_degrade');
   if (wishRes.error || giftRes.error || !wishRes.data || !giftRes.data) return { read: false };
 
+  const records = giftRes.data as unknown as GiftRecordRow[];
+  /* 🔒 THE SCREENSHOTS, FOR A HOST ONLY. This read is the host's own (RLS hands a
+     non-host no record at all), so each screenshot a record names gets a
+     short-lived SIGNED address here — never a public one, and only for a ref that
+     sits in THIS event's own private gift-shots folder (`giftShotEventPolicy`);
+     anything else stays unsigned and the screen says it could not be loaded. */
+  const shotPolicy = giftShotEventPolicy(eventId);
+  const shotUrls = new Map<string, string | null>();
+  await Promise.all(
+    records.map(async (r) => {
+      const ref = r.screenshot_r2_key;
+      if (!ref || shotUrls.has(ref)) return;
+      shotUrls.set(ref, null);
+      if (!parseClientRef(ref, shotPolicy)) return;
+      try {
+        shotUrls.set(ref, await displayUrlForPrivateStoredAsset(ref, shotPolicy));
+      } catch (err) {
+        logQueryError('readStudioWishList.shot', err, { event_id: eventId }, 'graceful_degrade');
+      }
+    }),
+  );
+
   return studioWishListFrom(
     wishRes.data as unknown as WishItemRow[],
-    giftRes.data as unknown as GiftRecordRow[],
+    records,
     (ref) => publicUrlForStoredAsset(publicBucketServeRef(ref)),
+    (ref) => (ref ? (shotUrls.get(ref) ?? null) : null),
   );
 }
 

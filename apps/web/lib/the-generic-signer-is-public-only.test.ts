@@ -156,7 +156,7 @@ test('the list, logo and guest-photo helpers all go through the gated signer', (
  * private-bucket WRITER (test below) and following each column to its readers:
  *   payments.screenshot_url · force_majeure_flags.evidence_urls ·
  *   event_paperwork.document_r2_key · event_vendor_payments.proof_r2_key ·
- *   event_vendors.deposit_proof_url ·
+ *   event_vendors.deposit_proof_url · event_gift_records.screenshot_r2_key ·
  *   vendor_verification_applications.doc_uploads · the catalogue's sample art.
  * (Chat attachments and mood-board renders have their own dedicated routes —
  * lib/chat-attachment-signs-only-its-own-thread.test.ts, every-render-read-is-pinned.)
@@ -172,6 +172,10 @@ const PRIVATE_READERS: Array<[file: string, needle: RegExp]> = [
   // event_vendors.deposit_proof_url — N5: moved off the public bucket; its
   // readers all go through this one helper (lib/deposit-proofs-are-private.test.ts).
   ['lib/deposit-proof.server.ts', /displayUrlForPrivateStoredAsset\(value, policy\)/],
+  // event_gift_records.screenshot_r2_key — a guest's "I sent it" screenshot, signed for a HOST only, and only
+  // from this event's own gift-shots folder (shotPolicy = giftShotEventPolicy(eventId), pinned in
+  // lib/the-couples-gift-list-follows-the-drawing.test.ts).
+  ['lib/wish-list.server.ts', /displayUrlForPrivateStoredAsset\(ref, shotPolicy\)/],
   ['app/vendor-dashboard/shop/inline-docs-actions.ts', /displayUrlForPrivateStoredAsset\(ref, vendorVerificationDocPolicy\(vendorProfileId\)\)/],
   ['app/(shell)/explore/page.tsx', /displayUrlForCatalogueArt\(ref\)/],
   ['app/admin/categories/_components/load.ts', /displayUrlForCatalogueArt\(raw\)/],

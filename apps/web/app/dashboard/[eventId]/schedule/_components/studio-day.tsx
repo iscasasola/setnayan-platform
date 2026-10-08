@@ -188,7 +188,7 @@ function MomentRow({
             disabled={!canEdit}
             sheet={sheet}
             onClosed={writeRolled}
-            className="min-w-[80px]"
+            className="min-w-[72px]"
           >
             {(close) => (
               <TimeTicker
@@ -209,7 +209,7 @@ function MomentRow({
             disabled={!canEdit}
             sheet={sheet}
             onClosed={writeRolled}
-            className={`min-w-[80px] ${hasEnd ? '' : '!text-ink/55'}`}
+            className={`min-w-[72px] ${hasEnd ? '' : '!text-ink/55'}`}
           >
             {(close) => (
               <TimeTicker
@@ -235,7 +235,8 @@ function MomentRow({
             data-studio-moment-more={m.block_id}
             aria-label={`More for ${m.label} — place, who it is for, notes, guests, remove`}
             onClick={() => onMore(m.block_id)}
-            className="sn-press flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink/45 hover:bg-ink/5"
+            /* ⋯ is a mark that says "you can tap this" — the accent, like the pencil and the arrow (owner 2026-10-08). */
+            className="sn-press flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-mulberry hover:bg-ink/5"
           >
             <MoreHorizontal aria-hidden className="h-5 w-5" strokeWidth={1.75} />
           </button>
@@ -247,7 +248,7 @@ function MomentRow({
 
 /** The new moment before it is named: its times shown, its name open — on this screen only. */
 function NewMomentRow({ span, onKeep, onLeave }: { span: TimeSpan; onKeep: (text: string) => void; onLeave: () => void }) {
-  const pill = `${TICKER_PILL_CLASS} min-w-[80px]`;
+  const pill = `${TICKER_PILL_CLASS} min-w-[72px]`;
   return (
     <TimelineRow
       data="new"

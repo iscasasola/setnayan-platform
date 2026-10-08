@@ -20,6 +20,7 @@
  *
  * Pure strings: no React, nothing reaches the Maker's first load on its own.
  */
+import { PILL_ON_CLASS } from '@/app/_components/pill-selector';
 
 /** The warm page under every Studio screen (prototype `--page` #F3F0EA). */
 export const STUDIO_PAGE_BG = 'bg-[color-mix(in_srgb,rgb(var(--color-gild))_9%,rgb(var(--color-cream)))]';
@@ -64,8 +65,15 @@ export const STUDIO_SWITCH_TRACK =
 export const STUDIO_QUIET_ROW = 'flex min-h-11 items-center justify-between gap-2.5 px-1.5 text-[13px] text-ink/50';
 export const STUDIO_QUIET_BUTTON = 'sn-press inline-flex h-[34px] shrink-0 items-center rounded-full bg-cream px-3 text-[12.5px] font-semibold text-ink ring-1 ring-ink/10 disabled:opacity-40';
 
-/** `.pr-sv` — a print's Save button; `.pr-all` / `.ebot-btn` — the one ink button at the foot. */
+/** `.pr-sv` — a print's Save button. */
 export const STUDIO_SAVE_CHIP = 'sn-press inline-flex h-9 items-center rounded-md bg-cream px-3 text-[12.5px] font-semibold text-ink ring-1 ring-ink/15';
-export const STUDIO_FOOT_BUTTON = 'sn-press flex h-11 w-full items-center justify-center gap-2 rounded-full bg-ink text-[14px] font-semibold text-cream';
+/**
+ * `.pr-all` / `.ebot-btn` — the page's ONE main action, pinned at its foot ("+ Add a moment"). THE MAIN BUTTON IS THE
+ * ACCENT PILL WITH ITS LABEL INK (owner 2026-10-08, the approved gallery § 9 "Action button": main = terracotta;
+ * he is replacing the black and gold buttons app-wide) — its fill and its words are the pill selector's ONE "on"
+ * look (`PILL_ON_CLASS`), never a colour written here. It was `bg-ink text-cream` (a black bar) until then.
+ * Only a page's MAIN action wears this; a second, quieter button has its own class.
+ */
+export const STUDIO_FOOT_BUTTON = `sn-press flex h-11 w-full items-center justify-center gap-2 rounded-full text-[14px] font-semibold ${PILL_ON_CLASS}`;
 /** `.dd` — a dropdown on the right of a row (white pill, gold chevron). */
 export const STUDIO_ROW_PICK = '!min-h-9 !h-9 !rounded-full !bg-cream ring-1 ring-ink/10 !px-3 !text-[13px] !font-medium [&>svg]:text-gild';

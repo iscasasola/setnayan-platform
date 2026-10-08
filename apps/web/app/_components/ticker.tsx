@@ -289,7 +289,7 @@ export function WhenTicker({
 
 /** The pill's look — one height, the width follows its words, the same whether open or not. */
 export const TICKER_PILL_CLASS =
-  'sn-press sn-press-ring inline-flex min-h-10 shrink-0 items-center justify-center whitespace-nowrap rounded-full bg-white px-2.5 text-[13px] font-semibold tabular-nums text-mulberry ring-1 ring-inset ring-ink/15 aria-expanded:ring-mulberry disabled:cursor-default disabled:text-ink/70';
+  'sn-press sn-press-ring inline-flex min-h-10 shrink-0 items-center justify-center whitespace-nowrap rounded-full bg-white px-2 text-[13px] font-semibold tabular-nums text-mulberry ring-1 ring-inset ring-ink/15 aria-expanded:ring-mulberry disabled:cursor-default disabled:text-ink/70';
 
 /** This file's own phone sheet, for a surface that hands none in: dark and blurred behind, never taller than the screen. */
 function OwnSheet({ label, onClose, children }: { label: string; onClose: () => void; children: ReactNode }) {

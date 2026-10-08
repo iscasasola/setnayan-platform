@@ -20,6 +20,7 @@ import {
   MOMENT_LINE_MAX,
   MOMENT_PLACE_MAX,
   MOMENT_TITLE_MAX,
+  isMomentAnchor,
   newMomentId,
   readMomentDate,
   readMomentMedia,
@@ -47,7 +48,9 @@ export function momentFromForm(formData: StoryFormRead, prior: LoveStoryMoment |
   const title = titleRaw === null ? (prior?.title ?? '') : storyStr(titleRaw, MOMENT_TITLE_MAX).replace(/\s+/g, ' ');
   const addedBy = storyStr(formData.get('added_by'), MOMENT_BY_MAX);
   const anchorRaw = formData.get('anchor');
-  const anchor = anchorRaw === 'met' || anchorRaw === 'yes' ? anchorRaw : undefined;
+  /* EVERY anchor the story has (`MOMENT_ANCHORS`: met · together · yes) — asked of the one list, never spelled
+     here. Spelled as 'met' | 'yes' it silently dropped "Together" (added 2026-10-01) on every add and edit. */
+  const anchor = isMomentAnchor(anchorRaw) ? anchorRaw : undefined;
   const media = readMomentMedia(formData.getAll('media'));
   return {
     id,

@@ -18,13 +18,16 @@
  *   (6) PLACE AND FOR ▾ ARE BEHIND ⋯ — the row is the owner's three things; the shipped inspector that ⋯ opens
  *       draws Where and For ▾ with the same writes, on a phone (the sheet) and a desk (the right column), so no
  *       ability is lost.
+ *   (7) THE MAIN BUTTON AND THE MARK — "+ Add a moment" is the accent pill with its label ink (the Studio skin's
+ *       `STUDIO_FOOT_BUTTON`, coloured by the selector's `PILL_ON_CLASS`, never by hand; only the two pages whose
+ *       MAIN action it is wear it), and the row's ⋯ is the accent mark.
  *   (5) THE ACTION — `createScheduleBlock` takes an id only from a quiet Maker write and only a uuid, and
  *       revalidates nothing for that write; from anywhere else it behaves as it always did. No new action.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import React from 'react';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from './strip-comments';
 import type { DayMoment } from '../app/dashboard/[eventId]/schedule/_components/day-types';
@@ -88,7 +91,11 @@ test('(1) the row is start pill – end pill · name · ⋯ on the ONE timeline 
   assert.deepEqual([...order].sort((x, y) => x - y), order, 'the row is not start · end · name · ⋯');
   assert.match(a, /<button[^>]*aria-label="Starts 3:00 PM"[^>]*data-ticker-pill="start"[^>]*>3:00 PM</);
   assert.match(a, /<button[^>]*aria-label="Ends 4:00 PM"[^>]*data-ticker-pill="end"[^>]*>4:00 PM</);
-  assert.match(a, /<button[^>]*data-timeline-name=""[^>]*>Ceremony</);
+  assert.match(a, /<button[^>]*data-timeline-name=""[^>]*><span[^>]*>Ceremony</);
+  // Room for the name at 375 px: the pills sit at a 72-px floor with slim sides, and nothing is under a 44-px target
+  // (every <button> has the app's 44-px floor; ⋯ is 44 × 44).
+  assert.match(a, /data-ticker-pill="start"[^>]*class="[^"]*\bpx-2\b[^"]*\bmin-w-\[72px\]/);
+  assert.match(a, /data-studio-moment-more="a"[^>]*class="[^"]*\bh-11 w-11\b/);
   // A ticker is closed until it is tapped: drawing the day draws no columns, and writes nothing.
   assert.doesNotMatch(html, /data-ticker-column/);
   assert.deepEqual(writes, []);
@@ -261,4 +268,53 @@ test('(6) the place and For ▾ are behind ⋯ — the row is start · end · na
   assert.match(insp, /\{studio \? \(\s*<div className="mt-4" data-moment-for="">\s*<Eyebrow>For<\/Eyebrow>/, 'For ▾ is not in the Studio’s inspector');
   assert.match(insp, /updateScheduleBlock\(toFormData\(\{ event_id: eventId, block_id: m\.block_id, audience: key \}\)\)/);
   assert.match(insp, /<Eyebrow>Where<\/Eyebrow>\s*<input[\s\S]{0,400}?onBlur=\{\(e\) => saveField\('location', e\.target\.value\)\}/, 'the place is not in the inspector');
+});
+
+/** Every source file under a folder (tests and generated output aside). */
+function sources(dir: string, out: string[] = []): string[] {
+  for (const name of readdirSync(join(WEB, dir))) {
+    if (name === 'node_modules' || name.startsWith('.')) continue;
+    const rel = `${dir}/${name}`;
+    if (statSync(join(WEB, rel)).isDirectory()) sources(rel, out);
+    else if (/\.tsx?$/.test(name) && !/\.test\.tsx?$/.test(name)) out.push(rel);
+  }
+  return out;
+}
+
+test('(7) "+ Add a moment" is the main button — the accent pill with its label ink, from ONE source — and ⋯ is the accent mark', async () => {
+  const { STUDIO_FOOT_BUTTON } = await import('./studio-skin');
+  const { PILL_ON_CLASS } = await import('../app/_components/pill-selector');
+  // The main button's fill and words ARE the selector's one "on" look; the black bar is gone.
+  for (const c of PILL_ON_CLASS.split(' ')) assert.ok(STUDIO_FOOT_BUTTON.split(' ').includes(c), `the foot button lost ${c}`);
+  assert.doesNotMatch(STUDIO_FOOT_BUTTON, /\bbg-ink\b|\btext-cream\b|\bbg-gild\b|\bbg-terracotta/, 'the foot button is black or gold again');
+  for (const c of ['rounded-full', 'h-11', 'w-full', 'sn-press']) assert.ok(STUDIO_FOOT_BUTTON.split(' ').includes(c), `the foot button lost ${c}`);
+  // …and the colour is not WRITTEN in the skin: it is imported.
+  const skin = read('lib/studio-skin.ts');
+  const def = /export const STUDIO_FOOT_BUTTON = `([^`]*)`;/.exec(skin)?.[1] ?? '';
+  assert.match(def, /\$\{PILL_ON_CLASS\}$/, 'the foot button’s colour is not the selector’s');
+  assert.doesNotMatch(def, /mulberry|terracotta|#[0-9a-f]{3,8}|\bbg-|text-white/i, 'a colour is written into the foot button by hand');
+  // Painted on the page: the accent pill.
+  const { html } = await paintDay([moment('a', 'Ceremony', '15:00', '16:00')]);
+  assert.match(html, /<button[^>]*data-studio-add-moment=""[^>]*class="[^"]*\bbg-mulberry text-white\b/);
+  // WHO WEARS IT — exactly these two, each its page's ONE main action ("+ Add a moment"). A third wearer must be
+  // added here on purpose, and only if it is a main action too.
+  const all = [...sources('app'), ...sources('lib')];
+  const wearers = all.filter((rel) => /\bSTUDIO_FOOT_BUTTON\b/.test(read(rel)) && rel !== 'lib/studio-skin.ts').sort();
+  assert.deepEqual(wearers, [
+    'app/dashboard/[eventId]/schedule/_components/studio-day.tsx',
+    'app/dashboard/[eventId]/website/our-story/_components/moment-order-cards.tsx',
+  ]);
+  for (const rel of wearers) assert.match(read(rel), /Add a (?:moment|chapter)/, `${rel} wears the main button on something else`);
+  // The skin reads a constant from a CLIENT module — safe only while every file that imports the skin is a client
+  // file too (on the server that import would be a reference, not a string).
+  const importers = all.filter((rel) => /from ['"](?:@\/lib\/|\.\/|\.\.\/)+studio-skin['"]/.test(read(rel)));
+  assert.ok(importers.length >= 8, `anti-vacuity: only ${importers.length} importers of the Studio skin were found`);
+  for (const rel of importers) {
+    assert.match(readFileSync(join(WEB, rel), 'utf8').slice(0, 200), /^(?:\s|\/\/[^\n]*\n|\/\*[\s\S]*?\*\/)*['"]use client['"]/, `${rel} imports the Studio skin from the server`);
+  }
+  // ⋯ is the accent mark (listed: the ONE accent class this page writes, until the accent token lands).
+  const day = read(`${SCHED}/_components/studio-day.tsx`);
+  assert.deepEqual([...day.matchAll(/[\w:!-]*mulberry[\w/-]*/g)].map((m) => m[0]), ['text-mulberry']);
+  assert.match(html, /<button[^>]*data-studio-moment-more="a"[^>]*class="[^"]*\btext-mulberry\b/);
+  assert.doesNotMatch(html, /data-studio-moment-more="a"[^>]*class="[^"]*text-ink\/45/);
 });

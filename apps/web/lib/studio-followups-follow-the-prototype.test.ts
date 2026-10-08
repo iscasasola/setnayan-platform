@@ -87,7 +87,7 @@ test('1 · Studio › Schedule: one band per moment — start – end · name ·
   assert.deepEqual(rows, ['a', 'b', 'c'], 'the moments are not laid out in the day’s order');
   assert.match(out, /Saturday 12 December 2026/, 'the day’s band does not name the day');
   assert.match(out, /2:00 PM[\s\S]*3:00 PM[\s\S]*5:30 PM/, 'a moment has no time pill');
-  assert.match(out, /data-timeline-name=""[^>]*>Entourage photos</, 'the moment’s name is not on the row');
+  assert.match(out, /data-timeline-name=""[^>]*><span[^>]*>Entourage photos</, 'the moment’s name is not on the row');
   /* Who it is for is still carried by the row (4c's stored audience); the control is behind ⋯. */
   assert.match(out, /data-studio-moment-for="entourage"/, 'the row lost 4c’s stored audience');
   assert.equal((out.match(/data-studio-moment-for="everyone"/g) ?? []).length, 2);

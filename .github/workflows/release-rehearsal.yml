@@ -65,7 +65,7 @@ on:
   # (a workflow_dispatch workflow can only be started once the file is on the
   # default branch). Removed in the last commit of this PR.
   push:
-    branches: [rd/release-rehearsal, rd/release-rehearsal-proof]
+    branches: [rd/release-rehearsal]
 
 permissions:
   contents: read
@@ -80,12 +80,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
-      # ⚠ TEMPORARY with the push trigger: a fixed commit of main, so a push that
-      # only changes the walk reuses the build. Becomes `inputs.ref || 'main'`.
-      REHEARSE_REF: ${{ inputs.ref || '482a671b35b2bd764c9ad9b82989f4d207e0d3dd' }}
-      # ⚠ TEMPORARY with the push trigger: main as of 2026-10-05, five migrations
-      # behind the ref, so the proving run exercises the "this upload adds" push.
-      LIVE_REF: ${{ inputs.live_ref || '30f9154a073202f68f7a6bae5fd02bfcccf87612' }}
+      REHEARSE_REF: ${{ inputs.ref || 'main' }}
+      LIVE_REF: ${{ inputs.live_ref || 'deployed-prod' }}
       # The Supabase CLI flushes telemetry on exit; in CI that egress times out
       # and the CLI exits non-zero AFTER the work succeeded (deploy-prod.yml).
       DO_NOT_TRACK: '1'

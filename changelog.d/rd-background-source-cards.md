@@ -40,6 +40,18 @@ every tap is the save its old row made, through the same draft door.
   not draw the page fill, the hero video or the old extras a second time; with
   no panel (the app-store shell) they stay rows of Look.
 
+After the controller's walk of the preview (2026-10-08, real event, 375):
+
+- **A Pattern card shows its pattern on any page colour.** On a dark paper
+  (`#1e2229`) Fine lines · Dots · Lace were three identical dark rectangles: the
+  card drew the page's pattern in the DASHBOARD's ink. Measured by running the
+  page's own look resolver — the guest page was right (its ink flips light:
+  the stroke reads 1.17–1.34 : 1 there, against 1.00–1.01 : 1 on the card). The
+  card now draws the same definition in an ink measured for its paper, strong
+  enough to tell apart at card size (`lib/main-ground-pattern-cards.ts`,
+  ≥ 1.6 : 1, held for eight papers). The guest page is untouched.
+- The card strip snaps to the panel's padding (the first card's ring was cut).
+
 Deviations from the prototype, each said in the PR: Scene carries ◆ (the shipped
 Pro rule holds a ready-made scene as own media); on a flat colour or pattern
 Shade ▾ lists As is · Candlelight (the shipped veil is measured over a picture);

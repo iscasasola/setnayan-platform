@@ -185,7 +185,36 @@ test('(4) every card has a drawn fallback under its picture — never a broken i
   for (const k of HUB_MAIN_PATTERNS) assert.match(MAIN_GROUND_PATTERN_CSS[k].image, /rgb\(var\(--color-ink\) \/ 0\.\d+\)/, `${k} is not drawn in the page's ink`);
   assert.match(read(`${G}/main-ground.tsx`), /const PATTERN_CSS = MAIN_GROUND_PATTERN_CSS;/, 'the guest page draws a second copy of the patterns');
   const panel = read(`${E}/main-background-panel.tsx`);
-  assert.match(panel, /swatch=\{`\$\{MAIN_GROUND_PATTERN_CSS\[k\]\.image\}, \$\{paper\}`\}/);
+  assert.match(panel, /swatch=\{patternCardSwatch\(k, paper\)\.image\}\s*swatchSize=\{patternCardSwatch\(k, paper\)\.size\}/);
+  /* 🧵 A PATTERN CARD MUST SHOW ITS PATTERN — on ANY page colour (the preview walk 2026-10-08: on a dark paper,
+     `#1e2229`, Fine lines · Dots · Lace were three identical dark rectangles). The card's stroke is MEASURED
+     here against its paper, for light, dark and mid papers; and the four cards are four different pictures. */
+  const { patternCardSwatch, patternCardInk, PATTERN_CARD_MIN_CONTRAST, PATTERN_CARD_INKS } = await import('./main-ground-pattern-cards');
+  const { compositeOver, contrastRatio } = await import('./hub-legibility');
+  assert.equal(patternCardInk('#1e2229'), PATTERN_CARD_INKS.light, 'a dark paper gets the dark ink (invisible)');
+  assert.equal(patternCardInk('#ffffff'), PATTERN_CARD_INKS.dark);
+  for (const paper of ['#1e2229', '#000000', '#17160f', '#ffffff', '#f6f1e7', '#808080', '#5b1a22', '#d9c4cf']) {
+    const pictures = HUB_MAIN_PATTERNS.map((k) => patternCardSwatch(k, paper));
+    assert.equal(new Set(pictures.map((p) => p.image)).size, HUB_MAIN_PATTERNS.length, `on ${paper} two pattern cards are the same picture`);
+    HUB_MAIN_PATTERNS.forEach((k, i) => {
+      const { image, size } = pictures[i]!;
+      assert.ok(image.endsWith(`, ${paper}`), `${k} on ${paper}: the page colour is not under the pattern`);
+      assert.equal(size, MAIN_GROUND_PATTERN_CSS[k].size);
+      assert.doesNotMatch(image, /var\(--color-ink\)/, `${k} on ${paper}: drawn in the DASHBOARD's ink, not one measured for this paper`);
+      const strokes = [...image.matchAll(/rgb\((\d+) (\d+) (\d+) \/ ([\d.]+)\)/g)];
+      assert.ok(strokes.length >= 1, `anti-vacuity: no stroke found in ${k}`);
+      for (const [, r, g, b, a] of strokes) {
+        const ink = '#' + [r, g, b].map((n) => Number(n).toString(16).padStart(2, '0')).join('');
+        const seen = contrastRatio(compositeOver(ink, Number(a), paper), paper);
+        assert.ok(seen >= PATTERN_CARD_MIN_CONTRAST, `${k} on ${paper}: the stroke reads ${seen.toFixed(2)}:1 — a card that does not show its pattern`);
+      }
+      // Never a second drawing: with the page's ink put back, the card IS the one definition.
+      const back = image.slice(0, -`, ${paper}`.length).replace(/rgb\(\d+ \d+ \d+ \/ [\d.]+\)/g, 'INK');
+      assert.equal(back, MAIN_GROUND_PATTERN_CSS[k].image.replace(/rgb\(var\(--color-ink\) \/ 0?\.\d+\)/g, 'INK'), `${k}: the card is a different drawing from the guest page's`);
+    });
+  }
+  // The guest page keeps the page's OWN ink (it flips light on a dark paper by the look resolver) — untouched.
+  for (const k of HUB_MAIN_PATTERNS) assert.match(MAIN_GROUND_PATTERN_CSS[k].image, /rgb\(var\(--color-ink\) \/ 0?\.\d+\)/);
   // Every `<BgCard` of the panel names its fallback; every picture is laid over one (`StillOverSwatch`).
   const cards = panel.split(/<BgCard(?=[\s>])/).slice(1);
   assert.ok(cards.length >= 9, `anti-vacuity: only ${cards.length} cards found`);

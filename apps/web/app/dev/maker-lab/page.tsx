@@ -149,6 +149,7 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
         stillUrl: resolveThemeGround(id, { ownColours: false })?.poster ?? null,
         loopUrl: resolveThemeGround(id, { ownColours: false })?.loop ?? null,
       }))}
+      pageColour={sp.paper === 'dark' ? '#1e2229' : null}
       /* 🌄 `?bg=video|pattern|scene` — start Look › Background on that Source (nothing is written; a fixture). */
       mainBackground={
         sp.bg === 'video'

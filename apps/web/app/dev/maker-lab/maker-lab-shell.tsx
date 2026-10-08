@@ -117,6 +117,7 @@ export function MakerLabShell({
   details,
   loops = [],
   mainBackground = null,
+  pageColour = null,
   openDetails = false,
   canvases = {},
   renderStamp = 'lab',
@@ -138,6 +139,8 @@ export function MakerLabShell({
   loops?: readonly MovingBackgroundOption[];
   /** 🌄 `?bg=` — the main background the lab starts on, so each Source of Studio › Look › Background can be seen (default: just the colour). */
   mainBackground?: HubMainGround | null;
+  /** 🌈 `?paper=dark` — the page colour the lab starts on (a dark one shows whether a Pattern card still shows its pattern). */
+  pageColour?: string | null;
   openDetails?: boolean;
   /** The lab's "server" canvases — what its draft holds (`lab_widgets`), read on every render. */
   canvases?: Record<string, HubSectionCanvas>;
@@ -183,7 +186,7 @@ export function MakerLabShell({
           ownsPro={false}
           loops={loops}
           /* 🌈 Studio › Look › Background's Colour source — Classic's paper and maria-and-jose's five. */
-          page={{ bgColor: null, resolved: house.palette.canvas, five: ['#5B1A22', '#F7F2EC', '#C9A86A', '#FBFAF7', '#7A8B6F'], artDirection: null }}
+          page={{ bgColor: pageColour, resolved: house.palette.canvas, five: ['#5B1A22', '#F7F2EC', '#C9A86A', '#FBFAF7', '#7A8B6F'], artDirection: null }}
           draftAction={labDraft as never}
           heroVideo={heroVideo}
         />

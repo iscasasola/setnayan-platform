@@ -27,7 +27,7 @@ import {
   type HubMainOwn,
 } from '@/lib/hub-canvas';
 import { MAIN_GROUND_SHADES, MAIN_GROUND_SHADE_LABEL } from '@/lib/main-ground-shade';
-import { MAIN_GROUND_PATTERN_CSS } from '@/lib/main-ground-patterns';
+import { patternCardSwatch } from '@/lib/main-ground-pattern-cards';
 import { BACKGROUND_EFFECTS, BACKGROUND_EFFECT_LABEL, encodeBackgroundChoice, ombreCss, parseSiteBackground, type BackgroundEffect } from '@/lib/ombre';
 import {
   BACKGROUND_MAIN_INFO,
@@ -678,6 +678,7 @@ export function MainBackgroundPanel({
                 />
               ))
             : null}
+          {/* 🧵 The page's own pattern, in an ink that SHOWS on this paper (`patternCardSwatch`) — on a dark page colour the dashboard's ink drew four identical dark cards. */}
           {view === 'pattern'
             ? HUB_MAIN_PATTERNS.map((k) => (
                 <BgCard
@@ -685,8 +686,8 @@ export function MainBackgroundPanel({
                   name={HUB_MAIN_PATTERN_LABEL[k]}
                   data={`pattern:${k}`}
                   on={active && pattern === k}
-                  swatch={`${MAIN_GROUND_PATTERN_CSS[k].image}, ${paper}`}
-                  swatchSize={MAIN_GROUND_PATTERN_CSS[k].size}
+                  swatch={patternCardSwatch(k, paper).image}
+                  swatchSize={patternCardSwatch(k, paper).size}
                   onPick={() => save({ ground: 'pattern', pattern: k }, FAILED)}
                 />
               ))

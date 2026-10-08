@@ -7,7 +7,7 @@ import { ActionButton, actionButtonClass } from '@/components/action-button';
 import { NfcWriteButton } from '@/app/_components/nfc-write-button';
 import { SaveFileLink } from '@/app/_components/save-file-link';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { GuestPopup } from './guest-popup';
+import { GuestConfirmActions, GuestPopup } from './guest-popup';
 import { menuNudge, menuRoomOf, menuWidthIn, nudgeUp, placeMenuIn } from '@/lib/menu-place';
 import { releaseGuestClaim } from '../[guestId]/actions';
 import { ticketFileName, ticketUrl } from './send-invite';
@@ -425,13 +425,8 @@ export function GuestMoreMenu({
       ) : null}
 
       {confirm !== null ? (
-      <GuestPopup
-        onClose={() => setConfirm(null)}
-        rootClassName="fixed inset-0 z-[96] flex items-end justify-center lg:items-center"
-        panelClassName="relative w-full max-w-md rounded-t-3xl bg-cream pb-[max(env(safe-area-inset-bottom),16px)] shadow-[0_-30px_80px_-40px_rgba(26,26,26,0.4)] lg:rounded-3xl"
-        labelledById={confirmId}
-      >
-        <form action={release} className="space-y-4 p-5" data-guest-confirm={confirm ?? ''}>
+      <GuestPopup kind="confirm" onClose={() => setConfirm(null)} labelledById={confirmId}>
+        <form action={release} className="space-y-3" data-guest-confirm={confirm ?? ''}>
           {confirm === 'new_qr' ? (
             <>
               <input type="hidden" name="new_qr" value="1" />
@@ -456,13 +451,17 @@ export function GuestMoreMenu({
               </p>
             </>
           )}
-          <SubmitButton
-            className={actionButtonClass('brand', { main: true, extra: 'w-full min-h-11' })}
-            pendingLabel={confirm === 'new_qr' ? 'Making a new QR…' : 'Unlinking…'}
-          >
-            {confirm === 'new_qr' ? 'Make a new QR' : 'Unlink account'}
-          </SubmitButton>
-          <ActionButton tone="neutral" icon={X} label="Cancel" onClick={() => setConfirm(null)} className="w-full" />
+          <GuestConfirmActions
+            keep={<ActionButton tone="neutral" icon={X} label="Cancel" onClick={() => setConfirm(null)} />}
+            go={
+              <SubmitButton
+                className={actionButtonClass('brand', { main: true, extra: 'min-h-11' })}
+                pendingLabel={confirm === 'new_qr' ? 'Making a new QR…' : 'Unlinking…'}
+              >
+                {confirm === 'new_qr' ? 'Make a new QR' : 'Unlink account'}
+              </SubmitButton>
+            }
+          />
         </form>
       </GuestPopup>
       ) : null}

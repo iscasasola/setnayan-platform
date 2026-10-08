@@ -15,3 +15,15 @@ SPEC IMPACT: None
 Step 3C. "Finalize guest list" opens a `GuestPopup` (on <body>, above the bottom bar, dark and blurred behind, nothing behind works) instead of the shared `Sheet` in a hand portal; "Not now" is the neutral button and "Finalize" the OK-toned filled one. A refused save of the asks / how guests get in, a refused Finalize or Reopen, and a refused Reply by date are each told in a plain sentence of the page's own — never the database's words. The lab's `?part=setup` no longer draws the Digital Pass from the production address (the page's own CSP refused it three times; the lab draws a small inline picture, the real Setup view hands a same-origin path), and the screen's two server-handed slots (`setup`, `empty`) are single children, which silences React's dev "unique key" warning. No request, no server action, no migration added.
 
 SPEC IMPACT: None
+
+## 2026-10-09 · test(guests): Guests › Setup holds no hand-made control, in any state
+
+Step 3D. A guard renders Setup for all five "How guests get in" choices × Finalize open / locked × the invite count read / 0 / refused, and asserts every ⓘ is the approved Explain, every button is one the templates draw, and no row has two filled forward steps; the Guests-only Setup files hold no bare button, native select/input, older tip, `Sheet` or old-skin string. No code change besides the guard.
+
+SPEC IMPACT: None
+
+## 2026-10-09 · refactor(guests): every confirm box is the approved centred box with its two buttons side by side; the lab's Finalize is seen
+
+Step 3D. Read from the approved gallery (§ 12 Messages, `.cfm`; INTERACTION_RULES § 9): a confirm box pops up in the CENTRE, its words centred, and its two buttons sit side by side, equal, the safe answer first ("Keep") and the doing one second ("Delete"); tapping the dark closes it as "keep". `GuestPopup kind="confirm"` + `GuestConfirmActions` carry that, once — the Delete warning, Setup's Finalize ("Not now" · "Finalize") and the New QR / Unlink account confirm are the same box, and a sheet cannot choose its own layout. In the dev lab a Finalize that lands moves the fixture's `?hc=` and Setup redraws, so "Reopen guest list" and the locked headcount can be seen and pressed. Plus the audit guard (every ⓘ is Explain, every button the one ActionButton, one filled step per row, in every state). No request, no server action, no migration added.
+
+SPEC IMPACT: None

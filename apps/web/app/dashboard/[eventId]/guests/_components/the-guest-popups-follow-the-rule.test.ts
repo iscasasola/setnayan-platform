@@ -69,10 +69,28 @@ test('none of them draws a layer, wash, blur, Drawer or Sheet of its own', () =>
   assert.doesNotMatch(q, /document\.body\.style\.overflow|addEventListener\('keydown'/, 'quick add runs its own scroll lock / Escape again');
 });
 
-test('the Delete warning (any width) rises above the bottom bar with the safe-area padding', () => {
+test('the Delete warning is the CONFIRM BOX: centred, over the bottom bar, its two buttons side by side with the safe answer first', () => {
   const del = read('guest-delete.tsx');
-  assert.match(del, /rootClassName="fixed inset-0 z-\[96\] flex items-end justify-center lg:items-center"/);
-  assert.match(del, /pb-\[max\(env\(safe-area-inset-bottom\),16px\)\]/, 'Cancel can sit under the home indicator');
+  assert.match(del, /<GuestPopup kind="confirm" onClose=\{onClose\} labelledById=\{titleId\}>/);
+  assert.match(del, /<GuestConfirmActions\s+keep=\{<ActionButton tone="neutral" icon=\{X\} label="Cancel" onClick=\{onClose\} \/>\}\s+go=\{/);
+  assert.doesNotMatch(del, /rootClassName|items-end/, 'the Delete warning chooses its own layout');
+  assert.match(POPUP, /export const CONFIRM_ROOT = 'fixed inset-0 z-\[96\] flex items-center justify-center p-6';/, 'a confirm box is not centred over the bottom bar');
+});
+
+test('every confirm box in the guest list is a GuestPopup kind="confirm" with GuestConfirmActions — a sheet cannot choose the layout', () => {
+  for (const f of ['guest-delete.tsx', 'guest-ticket-parts.tsx']) {
+    const src = read(f);
+    assert.match(src, /<GuestPopup kind="confirm"/, `${f}: a confirm is not a confirm box`);
+    assert.match(src, /<GuestConfirmActions\b/, `${f}: a confirm lays out its own buttons`);
+    assert.match(src, /import \{[^}]*\bGuestConfirmActions\b[^}]*\} from '\.\/guest-popup'/, `${f}: uses GuestConfirmActions without importing it (renders as a ReferenceError)`);
+  }
+  const setup = readFileSync(join(HERE, '..', '..', '_components', 'guest-setup', 'guest-setup-rows.tsx'), 'utf8');
+  assert.match(setup, /<GuestPopup kind="confirm"/);
+  assert.match(setup, /<GuestConfirmActions\b/);
+  /* The layout: ONE row, equal, keep first and the doing one second. */
+  assert.match(POPUP, /className="flex items-stretch gap-2 pt-1 \[&>\*\]:min-w-0 \[&>\*\]:flex-1 \[&_\.ab\]:w-full"/);
+  assert.ok(POPUP.indexOf('<div>{keep}</div>') < POPUP.indexOf('<div>{go}</div>'), 'the doing button comes before the safe one');
+  assert.match(POPUP, /text-center/, 'a confirm box’s words are not centred');
 });
 
 test('the ticket pop-up keeps its marker and its Save ticket', () => {
@@ -84,7 +102,8 @@ test('the ticket pop-up keeps its marker and its Save ticket', () => {
 test('in the Delete warning the sentence keeps its gap above Delete (a box, not a `contents` span, carries the mark)', () => {
   const del = read('guest-delete.tsx');
   const warning = del.slice(del.indexOf('export function DeleteGuestWarning('));
-  assert.match(warning, /<div data-guest-delete-confirm="">\s*<ActionButton/, 'the Delete button sits in a `contents` span — space-y gives it no gap');
+  /* ⤷ 2026-10-09: the two buttons are the confirm box's row (`GuestConfirmActions`); the mark sits on a real box inside it. */
+  assert.match(warning, /go=\{\s*<div data-guest-delete-confirm="">\s*<ActionButton/, 'the Delete button sits in a `contents` span — it has no box');
   assert.doesNotMatch(warning, /className="contents"/, 'a `contents` wrapper in the spaced warning has no margin box');
-  assert.match(warning, /<div className="space-y-4 p-5" data-guest-delete-warning="">/, 'the warning lost its one gap');
+  assert.match(warning, /<div className="space-y-3" data-guest-delete-warning="">/, 'the warning lost its one gap');
 });

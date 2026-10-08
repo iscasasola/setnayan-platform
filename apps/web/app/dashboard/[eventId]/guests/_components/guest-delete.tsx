@@ -29,7 +29,7 @@
 import { createContext, useContext, useId, useState } from 'react';
 import { Trash2, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
-import { GuestPopup } from './guest-popup';
+import { GuestConfirmActions, GuestPopup } from './guest-popup';
 import { formatCount } from '@/lib/format-number';
 import { bulkSoftDeleteGuestsForUndo, restoreDeletedGuests } from '../groups-actions';
 import { buildUndo } from '@/lib/guest-optimistic';
@@ -187,12 +187,7 @@ function OpenDeleteGuestSheet({
      is already gone from the list by then, so the name was empty). This mounts when the sheet opens: held until it closes. */
   const [held] = useState<readonly string[]>(names);
   return (
-    <GuestPopup
-      onClose={onClose}
-      rootClassName="fixed inset-0 z-[96] flex items-end justify-center lg:items-center"
-      panelClassName="relative w-full max-w-md rounded-t-3xl bg-cream pb-[max(env(safe-area-inset-bottom),16px)] shadow-[0_-30px_80px_-40px_rgba(26,26,26,0.4)] lg:rounded-3xl"
-      labelledById={titleId}
-    >
+    <GuestPopup kind="confirm" onClose={onClose} labelledById={titleId}>
       <DeleteGuestWarning titleId={titleId} names={held} busy={busy} error={error} onConfirm={onConfirm} onClose={onClose} />
     </GuestPopup>
   );
@@ -216,7 +211,7 @@ export function DeleteGuestWarning({
 }) {
   const words = deleteWarningText(names);
   return (
-    <div className="space-y-4 p-5" data-guest-delete-warning="">
+    <div className="space-y-3" data-guest-delete-warning="">
       <h2 id={titleId} className="font-display text-xl text-ink">
         {words.title}
       </h2>
@@ -226,20 +221,15 @@ export function DeleteGuestWarning({
           {error}
         </p>
       ) : null}
-      {/* A box, not a `contents` span: `space-y-4` puts its gap above a box, and a `contents` element has none — the
-          sentence touched the Delete button (controller, 2026-10-09). */}
-      <div data-guest-delete-confirm="">
-        <ActionButton
-          tone="danger"
-          main
-          icon={Trash2}
-          label={busy ? 'Deleting…' : 'Delete'}
-          onClick={onConfirm}
-          disabled={busy}
-          className="w-full"
-        />
-      </div>
-      <ActionButton tone="neutral" icon={X} label="Cancel" onClick={onClose} className="w-full" />
+      {/* The confirm box's two buttons, side by side, the safe answer first (`GuestConfirmActions`). */}
+      <GuestConfirmActions
+        keep={<ActionButton tone="neutral" icon={X} label="Cancel" onClick={onClose} />}
+        go={
+          <div data-guest-delete-confirm="">
+            <ActionButton tone="danger" main icon={Trash2} label={busy ? 'Deleting…' : 'Delete'} onClick={onConfirm} disabled={busy} />
+          </div>
+        }
+      />
     </div>
   );
 }

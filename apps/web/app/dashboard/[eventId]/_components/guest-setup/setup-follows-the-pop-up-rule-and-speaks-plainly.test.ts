@@ -23,20 +23,19 @@ import { keepInPlainWords } from './setup-frames';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROWS = stripComments(readFileSync(join(HERE, 'guest-setup-rows.tsx'), 'utf8'));
 
-test('(1) the Finalize pop-up is GuestPopup, mounted only while open, and cannot be closed mid-press', () => {
-  assert.match(ROWS, /\{open \? \(\s*<GuestPopup\s+onClose=\{\(\) => \(pending \? undefined : setOpen\(false\)\)\}/);
-  assert.match(ROWS, /rootClassName="fixed inset-0 z-\[96\] flex items-end justify-center lg:items-center"/);
-  assert.match(ROWS, /pb-\[max\(env\(safe-area-inset-bottom\),16px\)\]/, 'the buttons can sit under the home indicator');
+test('(1) the Finalize pop-up is the CONFIRM BOX — GuestPopup kind="confirm", mounted only while open, not closable mid-press', () => {
+  assert.match(ROWS, /\{open \? \(\s*<GuestPopup kind="confirm" onClose=\{\(\) => \(pending \? undefined : setOpen\(false\)\)\} labelledById="setup-finalize-title">/);
+  assert.match(ROWS, /<GuestConfirmActions\s+keep=\{<ActionButton tone="neutral"/, 'Not now is not the neutral, first button');
   assert.match(ROWS, /data-finalize-sheet=""/);
-  assert.doesNotMatch(ROWS, /@\/app\/_components\/sheet|<Sheet\b|createPortal|react-dom|terracotta|bg-ink\/|backdrop-blur/, 'the old sheet, a hand portal, terracotta or a wash is back');
+  assert.doesNotMatch(ROWS, /rootClassName|panelClassName|@\/app\/_components\/sheet|<Sheet\b|createPortal|react-dom|terracotta|bg-ink\/|backdrop-blur/, 'the old sheet, a hand layout, a hand portal, terracotta or a wash is back');
 });
 
 test('(1b) Finalize is the OK-toned filled step, Not now is neutral — one filled step in the pop-up', () => {
-  const go = ROWS.slice(ROWS.indexOf('label={pending ? \'Finalizing…\''), ROWS.indexOf('data-testid="setup-finalize-go"'));
-  assert.ok(go.length > 20, 'the confirm button is gone');
-  const before = ROWS.slice(ROWS.indexOf('label={pending ? \'Finalizing…\'') - 80, ROWS.indexOf('label={pending ? \'Finalizing…\''));
-  assert.match(before, /tone="ok"\s+main/);
-  assert.match(ROWS, /<ActionButton tone="neutral" icon=\{X\} label=\{FINALIZE_SHEET\.cancel\}/);
+  const at = ROWS.indexOf("label={pending ? 'Finalizing…'");
+  assert.ok(at > 0, 'the confirm button is gone');
+  assert.match(ROWS.slice(at - 120, at), /tone="ok"\s+main/);
+  assert.match(ROWS, /keep=\{<ActionButton tone="neutral" icon=\{X\} label=\{FINALIZE_SHEET\.cancel\}/);
+  assert.ok(ROWS.indexOf('keep={') < ROWS.indexOf('go={'), 'the doing button comes first');
 });
 
 test('(2) a refused save, Finalize and Reopen are told in the page’s own sentence', () => {

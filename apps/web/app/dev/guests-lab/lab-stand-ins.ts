@@ -50,7 +50,16 @@ export const LAB_GUEST_ACTIONS: Partial<GuestActions> = {
   /* Guests › Setup: the asks / how guests get in (the Maker's draft door), Reply by, Finalize — all local. */
   hubDraftAction: async () => ({ ok: true, intent: 'save', applied: 0, held: [] }),
   updatePaxSettings: async () => ({ ok: true }),
-  setGuestListFinalized: async (_eventId, finalized) => ({ ok: true, locked: finalized }),
+  /* A finalize that lands is SEEN: the lab's headcount comes from its `?hc=` fixture param, so the stand-in moves the param and
+     Setup's own `router.refresh()` redraws the row — "Reopen guest list" and the locked headcount line, and back again. */
+  setGuestListFinalized: async (_eventId, finalized) => {
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.set('hc', finalized ? 'locked' : 'open');
+      window.history.replaceState(window.history.state, '', url);
+    }
+    return { ok: true, locked: finalized };
+  },
   setGuestInvitationSent: async (_eventId, _guestId, sent) => ({ ok: true, sentAt: sent ? new Date().toISOString() : null }),
 };
 

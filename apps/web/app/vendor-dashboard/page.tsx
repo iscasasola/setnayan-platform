@@ -574,7 +574,9 @@ export default async function VendorOverviewPage({
           // payday was not read: the number then says "couldn't load", never ₱0.
           toComeIn: owedPhp === null ? null : formatPesoCompact(owedPhp * 100),
         }}
-        comingUp={upcoming.slice(0, 3)}
+        // On an event day the card IS today's event; Coming up is what follows it.
+        comingUp={(next.kind === 'run_day' ? upcoming.slice(1) : upcoming).slice(0, 3)}
+        alsoWaitingHeaded={waiting.asks.length > 0 || deskIncomplete}
         doors={waiting.doors}
         shop={{ name: profile.business_name, line: shopLine, live: shopState === 'Live' }}
         alsoWaiting={

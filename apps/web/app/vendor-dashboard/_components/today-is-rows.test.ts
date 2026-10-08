@@ -127,7 +127,8 @@ async function render(o: Opts): Promise<string> {
         thisWeek: L.eventsThisWeek(input.upcoming),
         toComeIn: input.owedPhp === null ? null : `₱${input.owedPhp}`,
       },
-      comingUp: input.upcoming.slice(0, 3),
+      comingUp: (next.kind === 'run_day' ? input.upcoming.slice(1) : input.upcoming).slice(0, 3),
+      alsoWaitingHeaded: waiting.asks.length > 0 || input.deskIncomplete,
       doors: waiting.doors,
       shop: { name: 'Lumina Studio', line: 'Photo & video · Live', live: true },
       alsoWaiting: React.createElement(WhatsNewFeed, { cards: needsAnswer, asks: waiting.asks, incomplete: input.deskIncomplete, ...actions }),
@@ -170,6 +171,25 @@ test('1c · on an event day the card is the day, and every ask is a row numbered
   assert.deepEqual(waiting.asks.map((a) => a.position), [1, 2]);
   const html = await render({ needsAnswer: [REPLY, BOOKING], upcoming: [today] });
   assert.match(text(html), /1 of 2.*2 of 2/);
+  // The card IS today's event — it is not listed again under Coming up.
+  const coming = html.slice(html.indexOf('data-today-coming-up'), html.indexOf('data-also-waiting'));
+  assert.doesNotMatch(text(coming), /Cruz wedding/, 'today’s event is on the card AND under Coming up');
+  assert.match(code('app/vendor-dashboard/page.tsx'), /comingUp=\{\(next\.kind === 'run_day' \? upcoming\.slice\(1\) : upcoming\)\.slice\(0, 3\)\}/);
+  // A lone ask has no "1 of 1".
+  const one = await render({ needsAnswer: [BOOKING], upcoming: [today] });
+  assert.match(one, /data-today-ask="lock_request"/);
+  assert.doesNotMatch(text(one), /1 of 1/);
+});
+
+test('1d · the doors are never drawn under the wrong heading', async () => {
+  const credit = { title: 'Your ₱2,500 credit expires in 3 days', body: 'Renew to keep it.', href: '/vendor-dashboard/subscription' };
+  // No ask row: the doors carry "Also waiting" themselves.
+  const alone = await render({ needsAnswer: [REPLY], credit });
+  assert.doesNotMatch(alone, /data-also-waiting/);
+  assert.match(text(alone.slice(alone.indexOf('data-today-doors'), alone.indexOf('data-today-shop'))), /> Also waiting Your ₱2,500 credit expires in 3 days/);
+  // With ask rows: one heading, above the asks.
+  const both = await render({ needsAnswer: [REPLY, BOOKING], credit });
+  assert.equal((text(both).match(/Also waiting/g) ?? []).length, 1);
 });
 
 /* ═══ 2 · NO ANSWER IS LEFT WITH NOWHERE TO BE GIVEN ═══════════════════════ */

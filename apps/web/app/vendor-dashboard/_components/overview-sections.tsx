@@ -306,9 +306,12 @@ export function WhatsNewFeed({
                 {line ? <span className="block truncate text-[13px] text-ink/60">{line}</span> : null}
               </span>
               <span className="flex items-center gap-2 text-ink/45">
-                <TodayPill tone="warn">
-                  {formatCount(position)} of {formatCount(total)}
-                </TodayPill>
+                {/* "1 of 1" is noise — a lone ask has no place in a queue to name. */}
+                {total > 1 ? (
+                  <TodayPill tone="warn">
+                    {formatCount(position)} of {formatCount(total)}
+                  </TodayPill>
+                ) : null}
                 <ChevronDown aria-hidden className="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" strokeWidth={1.75} />
               </span>
             </summary>

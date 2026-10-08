@@ -217,6 +217,12 @@ export type SupplierTodayFirstScreenProps = {
   comingUp: readonly UpcomingEventRow[];
   /** "Also waiting" — the desk's remaining asks, drawn by the page (they post server actions). */
   alsoWaiting?: ReactNode;
+  /**
+   * True when `alsoWaiting` draws its own "Also waiting" heading (there is an
+   * ask row, or the desk could not be read). When it does not, the doors below
+   * carry the heading themselves — a row is never drawn under the wrong one.
+   */
+  alsoWaitingHeaded?: boolean;
   /** The rules that are not a customer's ask, each a door (`supplierWaiting().doors`). */
   doors?: readonly SupplierWaitingDoor[];
   /** The one Shop row: the shop's name, and its state in a few words. */
@@ -261,6 +267,7 @@ export function SupplierTodayFirstScreen({
   numbers,
   comingUp,
   alsoWaiting,
+  alsoWaitingHeaded = false,
   doors = [],
   shop,
 }: SupplierTodayFirstScreenProps) {
@@ -310,6 +317,7 @@ export function SupplierTodayFirstScreen({
         href={nextHref(next.target)}
         bad={unread}
         day={day}
+        soft
         counter={counter}
         meta={meta}
         actions={actions}
@@ -374,7 +382,8 @@ export function SupplierTodayFirstScreen({
           then the rules that are not a customer's ask, each a door. */}
       {alsoWaiting}
       {doors.length > 0 ? (
-        <div data-today-doors>
+        <div data-today-doors className={alsoWaitingHeaded ? undefined : '[&>a:first-of-type]:border-t-0'}>
+          {alsoWaitingHeaded ? null : <TodayEyebrow>Also waiting</TodayEyebrow>}
           {doors.map((d) => (
             <TodayRow key={d.id} href={nextHref(d.target)} label={d.label} line={d.line} lineTone="warn" marker={d.id} />
           ))}

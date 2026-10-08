@@ -230,7 +230,8 @@ function TodayLab({ state, toast }: { state: TodayState; toast: string | undefin
           thisWeek: eventsThisWeek(state.upcoming),
           toComeIn: state.owedPhp === null ? null : formatPesoCompact(state.owedPhp * 100),
         }}
-        comingUp={state.upcoming.slice(0, 3)}
+        comingUp={(next.kind === 'run_day' ? state.upcoming.slice(1) : state.upcoming).slice(0, 3)}
+        alsoWaitingHeaded={waiting.asks.length > 0 || state.deskIncomplete}
         doors={waiting.doors}
         shop={{ name: 'Lumina Studio', line: 'Photo & video · Live', live: true }}
         alsoWaiting={

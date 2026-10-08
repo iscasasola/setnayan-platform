@@ -41,6 +41,7 @@ export function NextCard({
   counter = null,
   day = false,
   note,
+  soft = false,
 }: {
   marker: 'data-home-next' | 'data-today-next';
   kind: string;
@@ -69,11 +70,15 @@ export function NextCard({
    *   `counter` where this is in the queue ("1 of 3"), top right
    *   `day`     an event is TODAY — the card goes ink, its words paper
    *   `note`    one line under the buttons, said BEFORE the press
+   *   `soft`    the supplier prototype's card: a soft gold ground with no edge
+   *             and a 24 px title (`.next` in the prototype). Never on a `bad`
+   *             or a `day` card — a failure and an event day keep their own.
    */
   meta?: ReactNode;
   counter?: string | null;
   day?: boolean;
   note?: ReactNode;
+  soft?: boolean;
 }) {
   if (actions !== undefined) {
     return (
@@ -81,9 +86,18 @@ export function NextCard({
         {...{ [marker]: kind }}
         data-next-bad={bad ? '' : undefined}
         data-next-day={day ? '' : undefined}
+        data-next-soft={soft && !bad && !day ? '' : undefined}
         className={`home-card${bad ? ' home-card-bad' : ''}${
           day ? ' relative !border-ink !bg-ink !text-cream [&_.home-card-body]:!text-cream/70 [&_.home-eyebrow]:!text-cream/70' : counter ? ' relative' : ''
-        }`}
+        }${soft ? ' !p-4 [&_.home-card-title]:!text-[24px] [&_.home-card-title]:!font-medium [&_.home-card-title]:!leading-[1.1]' : ''}`}
+        /* Mixed from the two tokens that flip with the theme, so the soft gold
+           is soft on a dark page too (a fixed #F3ECDF would put light ink on a
+           light fill). */
+        style={
+          soft && !bad && !day
+            ? { background: 'color-mix(in srgb, rgb(var(--color-terracotta)) 16%, rgb(var(--color-cream)))', borderColor: 'transparent' }
+            : undefined
+        }
       >
         {counter ? (
           <span data-next-counter="" className={`absolute right-3.5 top-3 text-[12px] ${day ? 'text-cream/70' : 'text-ink/60'}`}>

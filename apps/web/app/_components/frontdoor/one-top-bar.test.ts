@@ -56,7 +56,9 @@ const TREES = [
   {
     name: 'the shop',
     file: join(APP, 'vendor-dashboard', 'layout.tsx'),
-    doors: ['UnreadBellBadge', 'AccountSwitcher'],
+    // ✉ + the envelope (supplier redesign S-PR0, 2026-10-08): Messages is one
+    // tap from every supplier page, the same live badge the event bar carries.
+    doors: ['UnreadMessagesBadge', 'UnreadBellBadge', 'AccountSwitcher'],
   },
   {
     name: 'Setnayan HQ',

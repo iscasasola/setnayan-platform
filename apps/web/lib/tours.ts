@@ -127,7 +127,12 @@ export type TourKey =
   // The supplier phone app (DECISION_LOG 2026-10-01 "THE SUPPLIER PHONE APP —
   // APPROVED, WITH THE THREE RECOMMENDED ANSWERS").
   | 'vendor_today_v1'
-  | 'vendor_customers_v1';
+  | 'vendor_customers_v1'
+  // The supplier dashboard redesign (corpus SUPPLIER_DASHBOARD_REDESIGN_2026-10-08
+  // § 4 NEW 1): one slide each for Shop and the Event Hub. Registered in S-PR0;
+  // each MOUNTS with the page it describes (S-PR6 · S-PR11), never before.
+  | 'vendor_shop_v1'
+  | 'vendor_hub_v1';
 
 export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'couple_welcome_v1',
@@ -164,6 +169,8 @@ export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'admin_force_majeure_v1',
   'vendor_today_v1',
   'vendor_customers_v1',
+  'vendor_shop_v1',
+  'vendor_hub_v1',
 ];
 
 export type TourDefinition = {
@@ -1158,6 +1165,37 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         Icon: Calendar,
         title: 'Add an outside client',
         body: 'Took a booking outside Setnayan? The round + adds it, free, so the date is held and you are never double-booked.',
+      },
+    ],
+  },
+  // 🧭 THE SUPPLIER DASHBOARD REDESIGN — one slide per page (owner-approved
+  // prototype `supplier_dashboard_2026-10-08_fable.html`, its `TOUR` map, word
+  // for word). ⚠ NOT MOUNTED YET, ON PURPOSE: a tour that names Services ·
+  // Page · Insights before Shop has those three segments would describe a page
+  // that is not there. `vendor_shop_v1` mounts with S-PR6 and `vendor_hub_v1`
+  // with S-PR11 — `a-supplier-tour-mounts-with-its-page.test.ts` holds both
+  // the keys and the "not before its page" half.
+  vendor_shop_v1: {
+    key: 'vendor_shop_v1',
+    label: 'Supplier — Shop mini-tour',
+    blurb: 'Services, Page and Insights — the three segments of Shop.',
+    slides: [
+      {
+        Icon: Briefcase,
+        title: 'Services · Page · Insights',
+        body: 'What you sell, how your page looks, how it is doing.',
+      },
+    ],
+  },
+  vendor_hub_v1: {
+    key: 'vendor_hub_v1',
+    label: 'Supplier — Event Hub mini-tour',
+    blurb: 'Running one event on its day.',
+    slides: [
+      {
+        Icon: Calendar,
+        title: 'Run the day',
+        body: 'Scan, schedule, shot list, headcount — for this event only.',
       },
     ],
   },

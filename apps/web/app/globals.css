@@ -4482,6 +4482,41 @@ html.dark {
   }
 }
 
+/* `.sn-phone-card` — EVERY PICTURE CARD IN THE MAKER IS PHONE-SHAPED.
+ * Owner 2026-10-08, on Look › Background's cards drawn as short, wide strips:
+ * "we are on mobile view, so show in mobile view, not like a header that is
+ * short and wide or at least square or 4:3 or 3:4" — and, a minute later, "on
+ * all style across the market hub": every look / style picture card, not only
+ * Background's.
+ *   · 3 : 4 PORTRAIT — the shape of the page the picture stands for;
+ *   · a FIXED inline size (`--phone-card-w`, default 136px ≈ two and a half
+ *     cards across a 375px phone) and `flex: none`: a card never grows to fill
+ *     a wide panel and never shrinks — the STRIP scrolls sideways;
+ *   · its picture, loop or pattern is cropped the way a phone crops the page
+ *     (`object-fit: cover`); where a focus point is stored the caller sets
+ *     `object-position` with the guest page's own rule;
+ *   · the house radius; whatever falls outside the frame is clipped.
+ * The FRAME only — the name under it, the picked ring and what a tap does stay
+ * the card's own. CSS only: no script, nothing on the Maker's first-load JS.
+ * UNLAYERED on purpose (the opposite of `.sn-glass-row` above): an unlayered
+ * rule beats every Tailwind utility, so a stray `w-full`, `flex-1` or
+ * `aspect-video` on a card cannot turn it back into a strip. Size a strip's
+ * cards with `--phone-card-w`, never with a width utility. */
+.sn-phone-card {
+  position: relative;
+  display: block;
+  flex: none;
+  inline-size: var(--phone-card-w, 136px);
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  border-radius: var(--m-r-md);
+}
+.sn-phone-card :is(img, video) {
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+}
+
 /* `.sn-canvas-drift` — the brief's "barely-perceptible, slow-moving gradient".
  * OPT-IN ONLY. The owner flattened the ground on 2026-07-28 ("clean/modern
  * digital means an even ground", see `.sn-ambient`), so this is never a

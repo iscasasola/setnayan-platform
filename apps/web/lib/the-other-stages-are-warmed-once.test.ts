@@ -81,14 +81,12 @@ class MakerOpen {
   private all(): CanvasFrame[] {
     return [this.s.shown, this.s.loading, ...(this.s.warm ?? [])].filter((f): f is CanvasFrame => f !== null);
   }
+  /** An iframe that leaves the state is unmounted: the same frame coming back is a NEW load. */
   private see() {
-    for (const f of this.all()) {
-      const id = canvasFrameId(f);
-      if (!this.mounted.has(id)) {
-        this.mounted.add(id);
-        this.loads.push(id);
-      }
-    }
+    const now = new Set(this.all().map(canvasFrameId));
+    for (const id of now) if (!this.mounted.has(id)) this.loads.push(id);
+    for (const id of this.mounted) if (!now.has(id)) this.up.delete(id);
+    this.mounted = now;
   }
   fetches(): number {
     return this.loads.length + this.refreshes.length;
@@ -216,6 +214,31 @@ test('save-data, and a small phone: no budget, nothing warmed', () => {
   const one = new MakerOpen('rsvp', 1);
   one.warmFully();
   assert.equal(one.fetches(), 2);
+  // The budget is known a moment after the canvas mounts (the shell reads the device in an effect):
+  // "no budget yet" is a WAIT, never a spent warm — or no laptop would ever be warmed.
+  const late = new MakerOpen('rsvp', 0);
+  late.warmFully();
+  assert.equal(late.left, null);
+  late.max = MAX_WARM_FRAMES;
+  late.warmFully();
+  assert.equal(late.fetches(), 4);
+});
+
+test('the warm is ONE list, decided once: a stage let go afterwards is not fetched again by an idle moment', () => {
+  const m = new MakerOpen('rsvp');
+  m.warmFully();
+  assert.equal(m.fetches(), 4);
+  // "View as" lets go of every kept stage; back from it, the Maker idles for as long as you like.
+  m.seeAs = true;
+  m.show('rsvp');
+  assert.equal(m.s.warm, undefined, 'the kept stages were let go');
+  m.seeAs = false;
+  m.show('rsvp');
+  m.warmFully();
+  assert.equal(m.fetches(), 4, `a stage was warmed a second time in one open: ${m.loads.join(' · ')}`);
+  // The couple opening one themselves still loads it — that is a tap, not a warm.
+  m.show('event');
+  assert.equal(m.fetches(), 5);
 });
 
 test('"view as" warms nothing, and a stage the couple opened themselves is not fetched a second time', () => {

@@ -198,7 +198,11 @@ test('4 · "Updating Setnayan…" is said only when the page reloads ITSELF by s
 
 test('5 · a Look section press is a client state change: its segments can never submit a form', async () => {
   const { renderToStaticMarkup } = await import('react-dom/server');
-  const { ISeg, ISegmented } = await import(`../app/dashboard/[eventId]/website/editor/_components/inspector-kit`);
+  const kit = await import(`../app/dashboard/[eventId]/website/editor/_components/inspector-kit`);
+  // Both take their content as children — passed the way createElement takes
+  // them, which its types only allow once `children` is not a required prop.
+  const ISegmented = kit.ISegmented as unknown as React.FunctionComponent<Record<string, unknown>>;
+  const ISeg = kit.ISeg as unknown as React.FunctionComponent<Record<string, unknown>>;
   const html = renderToStaticMarkup(
     React.createElement('form', null,
       React.createElement(ISegmented, { label: 'Look' },

@@ -48,6 +48,7 @@ import { lookEffectOn, lookSampleEffect, lookSampleGround, lookSampleScope, look
 import { ambientEffectSpec, ambientGroundIsDark } from './ambient-effects';
 import { HUB_MAIN_EFFECTS, sanitizeHubMainGround, type HubMainEffect } from './hub-canvas';
 import { createLookSampleStore } from './look-sample-store';
+import { siteFontLook } from './site-role-look';
 import { mainGroundShade, shadeWordVars } from './main-ground-shade';
 import { ombreLook, ombreRamp, parseSiteBackground } from './ombre';
 import { dressedTheme, paletteColourVars } from './theme-colours';
@@ -84,7 +85,9 @@ const BUTTONS: readonly { style: string | null; colour: string | null }[] = [
   { style: 'rounded-outline', colour: '#c24e25' },
   { style: 'theme-theme', colour: '#f3dde3' },
 ];
+/* 🔤 The fonts: none — or Names with the other three roles (`events.site_roles`), so the sweep moves all four. */
 const FACES: readonly (string | null)[] = [null, 'playfair'];
+const ROLES_WITH: Record<string, unknown> = { playfair: { heading: { font: 'cinzel' }, body: { font: 'cormorant' }, highlight: { font: 'cormorantsc' } } };
 const ARTS: readonly ('candlelight' | null)[] = [null, 'candlelight'];
 
 function everyRow(fn: (where: string, themeId: InviteThemeId, row: LookSampleRow) => void): number {
@@ -102,6 +105,7 @@ function everyRow(fn: (where: string, themeId: InviteThemeId, row: LookSampleRow
                 site_button_color: b.colour,
                 site_button_style: b.style,
                 site_font_key,
+                site_roles: site_font_key ? (ROLES_WITH[site_font_key] ?? null) : null,
                 site_art_direction,
               });
             }
@@ -126,7 +130,7 @@ function guestLookFromSource(): (event: unknown, hub: { theme: InviteThemeId; ac
   const end = loaders.indexOf('\n}\n', start);
   const source = loaders.slice(start, end + 2).replace('export function', 'function');
   const js = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } }).outputText;
-  const deps = { paletteColourVars, proSiteVarsFor, parseSiteBackground, dressedTheme, ombreLook, ombreRamp, compositeOver, pinWordInks, pageWordBase, pinPlateInk, resolveHubButtons, hubButtonPage };
+  const deps = { paletteColourVars, proSiteVarsFor, parseSiteBackground, dressedTheme, ombreLook, ombreRamp, compositeOver, pinWordInks, pageWordBase, pinPlateInk, resolveHubButtons, hubButtonPage, siteFontLook };
   /* A name the guest function uses and this list lacks is a ReferenceError — a new layer the sample must learn too. */
   return new Function(...Object.keys(deps), `${js}\nreturn guestLookFrom;`)(...Object.values(deps));
 }
@@ -143,7 +147,7 @@ test('(1) the sample wears the guest page’s own look — guestLookFrom is run 
     if (sample.vars) painted++;
     if (sample.ombre) blended++;
     if (sample.buttons) buttoned++;
-    for (const key of ['theme', 'art', 'vars', 'ombre', 'buttons'] as const) {
+    for (const key of ['theme', 'art', 'vars', 'ombre', 'buttons', 'roles'] as const) {
       try {
         assert.deepEqual(sample[key], guest[key]);
       } catch {
@@ -357,7 +361,7 @@ test('(4b) the sample screen renders the header text, the two real buttons and t
     eventId: 'ev-render',
     themeId: 'house' as InviteThemeId,
     fontClassName: '',
-    row: { role_palette: ROSE_BOARD, site_bg_color: '#f6f1e7', site_button_color: null, site_button_style: 'pill-theme', site_font_key: 'playfair', site_art_direction: null } as LookSampleRow,
+    row: { role_palette: ROSE_BOARD, site_bg_color: '#f6f1e7', site_button_color: null, site_button_style: 'pill-theme', site_font_key: 'playfair', site_art_direction: null, site_roles: null } as LookSampleRow,
     main: { ground: 'loop', loop: 'velvet' } as HubMainGround,
     coverRef: null,
     sources: { loops: [{ id: 'velvet', stillUrl: 'https://media.example/velvet.jpg', loopUrl: 'https://media.example/velvet.mp4' }], photoChoices: [], videoChoice: null, sceneUploads: [], cover: null, themeId: 'house' },
@@ -572,10 +576,10 @@ test('(7) an effect on the guest page is the sample screen’s own answer — on
   });
   assert.ok(compared > 5_000, `the sweep is too small to mean anything (${compared})`);
   assert.ok(grounds.size > 60, `the ground barely changes over the sweep (${grounds.size}) — it is not being measured`);
-  assert.equal(lookSampleEffect(null, lookEffectOn(null, { role_palette: null, site_bg_color: null, site_button_color: null, site_button_style: null, site_font_key: null, site_art_direction: null }, 'velvet')), null, 'no effect stored, and one is drawn');
+  assert.equal(lookSampleEffect(null, lookEffectOn(null, { role_palette: null, site_bg_color: null, site_button_color: null, site_button_style: null, site_font_key: null, site_art_direction: null, site_roles: null }, 'velvet')), null, 'no effect stored, and one is drawn');
 
   /* What it lies on FOLLOWS the page: the couple's own dark colour, Candlelight, a Fade — each turns the effect to its dark-ground drawing. */
-  const plain: LookSampleRow = { role_palette: null, site_bg_color: null, site_button_color: null, site_button_style: null, site_font_key: null, site_art_direction: null };
+  const plain: LookSampleRow = { role_palette: null, site_bg_color: null, site_button_color: null, site_button_style: null, site_font_key: null, site_art_direction: null, site_roles: null };
   const dark = (main: HubMainGround | null, row: LookSampleRow, theme: InviteThemeId = 'house') => ambientGroundIsDark(lookEffectOn(main, row, theme).ground);
   assert.equal(dark({ ground: 'none' }, plain), false, 'Classic’s paper is read as dark');
   assert.equal(dark({ ground: 'none' }, { ...plain, site_bg_color: '#1a1410' }), true, 'the couple’s own dark page colour is not what the effect lies on');
@@ -617,7 +621,7 @@ test('(7b) the guest page draws that answer on EVERY background, by the one laye
   const lookRowAt = layer.indexOf('function lookRowOf(');
   const lookRow = layer.slice(lookRowAt, layer.indexOf('\n}\n', lookRowAt));
   assert.deepEqual([...lookRow.slice(lookRow.indexOf('return {')).matchAll(/\n {4}(\w+):/g)].map((m) => m[1]!).sort(), columns, 'the guest page measures an effect from different columns than the sample');
-  assert.equal(columns.length, 6);
+  assert.equal(columns.length, 7);
   /* …and the page's shell row really reads the ones an effect's ground turns on. */
   const shell = raw('app/[slug]/_lib/loaders.ts');
   for (const col of ['site_bg_color', 'site_art_direction', 'role_palette']) assert.ok(shell.includes(col), `the guest shell no longer reads ${col}`);

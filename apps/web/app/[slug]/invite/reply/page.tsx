@@ -286,6 +286,8 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
         brand="foot"
         eyebrow="You’re invited"
         title={(event.display_name as string | null) || guestName}
+        /* 🔤 The couple's names — they wear the Names font where one was chosen. (A guest's own name is not theirs.) */
+        titleIsNames={Boolean(event.display_name)}
         meta={canvas ? canvasWhenWhere(event) : joinDoorMeta({
           event_date: event.event_date as string | null,
           event_date_precision: event.event_date_precision as string | null,

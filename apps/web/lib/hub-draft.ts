@@ -142,6 +142,7 @@ import { resolveRevealEffects } from '@/lib/std-reveal-effects';
 import { sanitizeHubFontKey } from '@/lib/hub-fonts';
 import { sanitizeMagicTraveller } from '@/lib/magic-move';
 import { sanitizeHubButtonStyle } from '@/lib/hub-buttons';
+import { sanitizeSiteRoles } from '@/lib/site-roles';
 import { OMBRE_IS_PRO, encodeSiteBackground, isOmbreValue, parseSiteBackground } from '@/lib/ombre';
 import { MOMENT_MAX, momentCapRefusal, readMoment, resolveMoments, type LoveStoryMoment } from '@/lib/love-story-moments';
 import { sanitizeRsvpAskConfig } from '@/lib/rsvp-ask';
@@ -343,6 +344,9 @@ export const HUB_DRAFT_LOOK_COLUMNS = [
   // 🔘 LOOK › BUTTONS (owner 2026-10-04, "create them") — shape + fill as one
   // value (`lib/hub-buttons.ts`); the colour stays `site_button_color` above.
   'site_button_style',
+  // 🔤 LOOK › ELEMENTS (owner 2026-10-08, round 5) — the Headings · Text · Labels & buttons fonts, ONE jsonb
+  // (`lib/site-roles.ts`). The Names font stays `site_font_key`: one fact, one column.
+  'site_roles',
   // 🎨 THE MOOD BOARD PALETTE A THEME PICK FILLS (owner 2026-10-05, "THE MOOD
   // BOARD PALETTE IS THE PRIORITY": *"If the mood board does not have a
   // palette, use our original theme and place it on the moodboard's
@@ -814,6 +818,10 @@ export function sanitizeHubDraftEventValue(
     // 🔘 Look › Buttons — a known '<shape>-<fill>', or back to the theme's.
     case 'site_button_style':
       return sanitizeHubButtonStyle(raw);
+    // 🔤 Look › Elements — three roles, a real font key each; an empty value is not held (handing every font back is
+    // `null`, taken above).
+    case 'site_roles':
+      return sanitizeSiteRoles(raw) ?? undefined;
     // 🎨 A theme's own colours as the board's main colours — nothing else.
     case 'role_palette':
       // …or a board the couple PAINTED (the Mood Board's own sanitizer — step 4c, 2026-10-07).
@@ -1491,6 +1499,15 @@ export function eventColumnChange(column: HubDraftEventColumn, live: unknown, ne
     case 'main_colours':
       // 🎨 Only the slots the draft HOLDS, against the five the page wears live.
       return mainColoursChanged(live, next) ? 'change' : 'none';
+    case 'site_roles': {
+      // 🔤 Compared as the page reads it — through the sanitiser, key order ignored (jsonb hands keys back in its
+      // own order), and NULL ≡ {} ≡ a value with nothing the page would wear.
+      const key = (v: unknown) => {
+        const roles = sanitizeSiteRoles(v);
+        return roles ? canonicalJson(roles) : null;
+      };
+      return refChange(key(live), key(next));
+    }
     case 'site_art_direction': {
       // Exactly as `siteLookChange` reads it: only Candlelight is a choice;
       // Daylight and "never chosen" are the same page.
@@ -2540,6 +2557,7 @@ export const HUB_DRAFT_EVENT_LABEL: Record<HubDraftEventColumn, string> = {
   site_font_key: 'Your typeface',
   site_magic_traveller: 'Magic move',
   site_button_style: 'Your buttons',
+  site_roles: 'Your fonts',
   invite_theme: 'Your theme',
   role_palette: 'Your Mood Board colours',
   site_bg_music_r2_key: 'Your background music',

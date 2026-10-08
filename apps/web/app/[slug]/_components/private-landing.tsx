@@ -71,7 +71,8 @@ export async function PrivateLanding({
           />
         </div>
         <div className="space-y-3">
-          <h1 className="font-display text-4xl font-medium tracking-tight sm:text-5xl">
+          {/* 🔤 The couple's names — they wear the Names font where one was chosen (`data-hub-names`, globals.css). */}
+          <h1 data-hub-names="" className="font-display text-4xl font-medium tracking-tight sm:text-5xl">
             {event.display_name}
           </h1>
           {event.event_date ? (

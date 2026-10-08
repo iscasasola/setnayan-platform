@@ -65,6 +65,8 @@ export const HUB_DRAFT_EVENT_PLACE: Record<HubDraftEventColumn, { place: string;
   site_bg_color: { place: LOOK, what: LOOK_PART_LABEL.page },
   site_button_color: { place: LOOK, what: LOOK_PART_LABEL.buttons },
   site_button_style: { place: LOOK, what: LOOK_PART_LABEL.buttons },
+  // 🔤 The Headings · Text · Labels & buttons fonts — Look › Elements (owner 2026-10-08).
+  site_roles: { place: LOOK, what: LOOK_PART_LABEL.font },
   site_magic_traveller: { place: LOOK, what: 'Magic move' },
   site_bg_music_r2_key: { place: 'Music', what: 'Background music' },
   site_bg_music_enabled: { place: 'Music', what: 'On or off' },

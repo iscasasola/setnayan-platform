@@ -74,6 +74,7 @@ type MainGroundInput = {
     site_button_style?: unknown;
     site_font_key?: unknown;
     site_art_direction?: unknown;
+    site_roles?: unknown;
   };
   viewerIsHost: boolean;
   /** Refs the caller already signed, so a ref is never signed twice. */
@@ -298,5 +299,6 @@ function lookRowOf(event: MainGroundInput['event']): LookSampleRow {
     site_button_style: text(event.site_button_style),
     site_font_key: text(event.site_font_key),
     site_art_direction: event.site_art_direction === 'candlelight' ? 'candlelight' : event.site_art_direction === 'daylight' ? 'daylight' : null,
+    site_roles: event.site_roles,
   };
 }

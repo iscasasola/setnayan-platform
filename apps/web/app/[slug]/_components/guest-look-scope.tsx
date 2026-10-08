@@ -83,6 +83,7 @@ export function GuestLookScope({
   ground = null,
   ombre = null,
   buttons = null,
+  roles = null,
   children,
 }: {
   theme: Exclude<InviteThemeId, 'house'> | null;
@@ -108,6 +109,11 @@ export function GuestLookScope({
    * values travel in `style`. Null = the theme's buttons, nothing worn.
    */
   buttons?: { shape: string | null; paint: string | null } | null;
+  /**
+   * 🔤 LOOK › ELEMENTS (`lib/site-role-look.ts`): which of the couple's four fonts the page wears a rule for, as the
+   * marks `globals.css` keys on — worn as `data-hub-roles`; the faces themselves travel in `style`. Null = none.
+   */
+  roles?: string | null;
   children: React.ReactNode;
 }) {
   const worn = lookIsWorn(useSelectedLayoutSegment(), { theme, art, style, ombre });
@@ -130,6 +136,7 @@ export function GuestLookScope({
       data-hub-foil={worn && ground?.foil && !ombre ? '' : undefined}
       data-hub-btn-shape={worn && buttons?.shape ? buttons.shape : undefined}
       data-hub-btn-paint={worn && buttons?.paint ? buttons.paint : undefined}
+      data-hub-roles={worn && roles ? roles : undefined}
       style={worn && style ? (style as React.CSSProperties) : undefined}
     >
       {/* 🧱 The ONE page-ground rule (`lib/page-ground.ts`): the base is always

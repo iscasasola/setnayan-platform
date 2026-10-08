@@ -83,3 +83,87 @@ the invitation door's button (`invite/_lib/load-invite-look.ts` → `resolveInvi
 today; whether they follow this ruling is a call per surface.
 
 SPEC IMPACT: None beyond the contract above.
+
+## 2026-10-08 · feat(look): Elements › Fonts is four rows — Names · Headings · Text · Labels & buttons — and Fonts ▾ fills all four (amendment PR 5, step 2)
+
+Owner, verbatim (2026-10-08, round 5): *"i think there are more than just 2 types of fonts to
+edit"*. Contract: `BACKGROUND_SOURCES_AMEND_2026-10-08_fable.md` § 2.E, prototype frames B06 ·
+B06b. Controller's rulings the same night: the stored shape is fonts only; ruling **A** on the
+names (below). Local commit.
+
+📌 **THE PRE-EXISTING FACT, ON RECORD** (computed in a headless browser on the review copy's
+guest page, 2026-10-08 — not read from code): the Event Hub masthead's names
+(`<h1 class="… font-pahina …">`) computed to **Fraunces** while the scope's `--font-display`
+was **Cormorant**. `font-pahina` is the fixed variable `--font-pahina-display`; no theme and
+no couple's font re-points it. Counted in `app/[slug]`: `font-pahina` 106 uses (the masthead's
+names, venue names, many small titles) · `font-serif` 160 + `font-display` 37 (these follow
+`--font-display`). So the couple's one "Headings font" (`site_font_key`) moved about two
+hundred headings and NEVER their own names on the hero — and Studio › Look's sample drew its
+names with `font-display`, a face the page did not use for them. **Of the two, the SAMPLE
+was wrong.** Measured on production by the controller that night: 16 events · 0 hold a
+`site_font_key` · 0 hold a `site_roles` — so nothing below changes a live page.
+
+- **Storage — no migration.** Names = `events.site_font_key` (as before). Headings · Text ·
+  Labels & buttons = `events.site_roles.{heading,body,highlight}.font` — the column main
+  already has (#6458), read as FONTS ONLY (`lib/site-roles.ts`): the colours and the separate
+  button font it was first drawn for (#6442, never shipped) are dropped on read.
+- **On the guest page** (`lib/site-role-look.ts`, layered last in `guestLookFrom`):
+  - **Names** → `--hub-names-face`, worn by the big names on the three hero surfaces —
+    the Event Hub masthead (its three designs), the private landing, the invitation's header
+    where its title is the couple's names — through ONE mark (`data-hub-names`) and ONE rule
+    that matches only where a Names font was chosen (`data-hub-roles~='names'`). **Names now
+    reach the names.**
+  - **Headings** → `--font-display` · `--pahina-face`. With no font of their own, **Headings
+    follow Names** — the two variables stay `site_font_key`'s, exactly as today.
+  - **Text** → `--font-body` · **Labels & buttons** → `--font-mono` (eyebrows) and the buttons'
+    face. Three more small rules, each only under its own mark.
+  - Nothing chosen → no variable, no mark: the page is byte for byte what it was.
+  - NOT touched: the other ~100 `font-pahina` texts (venue names, small titles) stay Fraunces
+    — no row reaches them, as before.
+- **In the Studio** (`fonts-look-rows.tsx`, drawn by the Colours panel for the Studio's Font
+  part): **Fonts ▾** — the shipped themes' pairings; one tap fills all four; "Your own mix"
+  once a row is changed alone — then **Names ▾ · Headings ▾ · Text ▾ · Labels & buttons ▾**,
+  each the shipped font dropdown (every face named in its own face). A row with nothing of
+  its own reads "Event Hub font"; Headings reads "Same as Names". The shipped Maker keeps its
+  one Typeface row (it is the Names font).
+- **The sample screen** now draws its names as the hero does (`font-pahina` + the mark) and
+  wears the scope's own marks, so the page's own rules apply to it; it no longer spreads the
+  Names font a second time over the scope (that would have put Names back over Headings).
+
+control → kind: five rows → Form row (ⓘ beside "Fonts"); the five ▾ → Dropdown.
+
+Requests (read from the one write path, not counted with a stub): a font pick = **1 draft
+write, held** (`makerRedrawSave`) — no whole-Maker render, no `router.refresh()`; the hidden
+page redraws once when it is next shown. Opening a ▾ = 0. The Maker's own read of the event
+gains one column in a read it already makes (+0 requests); the guest page's shell read gains
+the same column (+0).
+
+Guards: `lib/the-four-fonts-reach-the-page.test.ts` (8, new) — the shape; each font's
+variables and marks; THE GUEST PAGE'S OWN FUNCTION run both ways over every theme × five
+looks (no font → the very bag a row with no font columns gets, no mark; a font → its variable
+and mark; Headings follow Names; a Headings font beats the Names font; Headings alone do not
+mark the names); the mark drawn in exactly four files, the ONE names rule and the four marked
+rules read out of the stylesheet, and no rule or variable that would move `font-pahina`;
+the sample; the draft; the rows rendered. `the-look-sample-is-the-guest-look`: its 4,200-look
+sweep now carries the four fonts and compares the marks too (11/11). 20 sabotages seen red.
+⚠ What no test here does: compute a font in a browser. The rule's words and reach are held;
+the computed face is a look on the review copy.
+
+⚖ First-load weight, on record (standalone, minified + gzipped; a real bundle shares words):
+the effects' sanitiser +248 B · this step: `lib/site-roles.ts` 264 B + the draft library
++45 B = **+309 B** · sum ≈ **0.56 KB** against 0.1 KB of room. (My earlier estimate for this
+step was 0.15–0.2 KB — low.) The controller owns finding the bytes at bundling.
+
+Deviations and things to know:
+1. **Headings alone + no Names font:** the masthead's names stay Fraunces (untouched), but
+   the private landing's and the invitation header's names are `font-display` / `font-serif`
+   text and so follow the Headings font, as they always followed the headings' face. Choosing
+   a Names font sets all three.
+2. The invitation ENTER door's title is not marked (it is "<hosts> · Today" or a sentence);
+   only the RSVP/reply header is, and only when its title is the couple's names.
+3. Event Details' Font row and the shipped Maker keep the one Typeface dropdown.
+4. The lab draws the four rows on its own draft stand-in.
+
+NOT SEEN in a browser at commit time.
+
+SPEC IMPACT: None beyond the contract above (the fact above is recorded here for the corpus).

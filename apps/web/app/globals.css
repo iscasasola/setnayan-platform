@@ -4483,6 +4483,34 @@ html.dark {
 [data-hub-btn-paint] [data-arrival-action] a.bg-mulberry:hover {
   background-color: var(--hub-btn-hover);
 }
+/* ── 🔤 THE COUPLE'S FOUR FONTS (owner 2026-10-08, round 5: "i think there are more than just 2 types of fonts to
+   edit") ── Names · Headings · Text · Labels & buttons. Their faces ride the look scope's inline bag
+   (`lib/site-role-look.ts`); most of the page already reads those variables. These four rules are for what no
+   existing variable reaches — and each matches ONLY under the mark the scope wears for a font the couple actually
+   chose (`data-hub-roles`), so a page with nothing chosen matches none of them.
+
+   · `names`   — the big names on the three hero surfaces (`[data-hub-names]`: the Event Hub's masthead, the
+                 private landing, the invitation's header). MEASURED 2026-10-08: the masthead's names are
+                 `font-pahina`, a fixed Fraunces that no theme and no couple's font ever reached. This is the ONE
+                 place that changes; every other `font-pahina` text is untouched.
+   · `body`    — Classic has no theme block to point the page's own face at `--font-body` (a painted theme's
+                 block already does).
+   · `eyebrow` — `.pahina-eyebrow` names its face directly, not `--font-mono`.
+   · `button`  — a button had no face of its own; it inherited the text's. */
+[data-hub-roles~='names'] [data-hub-names] {
+  font-family: var(--hub-names-face);
+}
+[data-hub-roles~='body'] {
+  --font-sans: var(--font-body);
+  font-family: var(--font-body);
+}
+[data-hub-roles~='eyebrow'] .pahina-eyebrow {
+  font-family: var(--font-mono);
+}
+[data-hub-roles~='button'] :is(.button-primary, .button-secondary, [data-rsvp-answer]),
+[data-hub-roles~='button'] [data-arrival-action] a.bg-mulberry {
+  font-family: var(--hub-role-button-font);
+}
 /* 🔘 THE TAPPED ANSWER FILLS, THE OTHER GOES PLAIN (owner 2026-10-06, DECISION_LOG
    '"WHEN YES" GETS A CELEBRATION (PRO)': "the tapped answer fills with the Look ›
    Buttons colour, the other goes plain — no separate colour setting"). With no

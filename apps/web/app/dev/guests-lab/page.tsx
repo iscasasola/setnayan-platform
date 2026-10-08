@@ -59,6 +59,7 @@ import { MakerRsvpSettings } from '@/app/dashboard/[eventId]/launch/_components/
 import { guestsGetInPatch, isGuestsGetIn } from '@/lib/who-can-reply';
 import { renderStyledUrlQrSvg } from '@/lib/qr';
 import { GuestsScreen } from '@/app/dashboard/[eventId]/guests/_components/guests-screen';
+import { TEMPLATE_KIT } from '@/app/dashboard/[eventId]/guests/_components/guest-card-template-kit';
 import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
 import { LabGuestActions } from './lab-guest-actions';
 import { RoleNamesProvider } from '@/app/dashboard/[eventId]/guests/_components/role-names-context';
@@ -352,6 +353,7 @@ export default async function GuestsLabPage({
                   SendInvite={GuestInviteCell}
                   TicketThumb={GuestTicketThumb}
                   MoreMenu={GuestMoreMenu}
+                  kit={TEMPLATE_KIT}
                 />
                 </LabGuestActions>
               </div>

@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState, useTransition } from 'react';
 import { Link2, Send, Share2, Undo2 } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
+import { Handed } from './handed';
 import { buildGuestInviteMessage, type InviteEventFacts } from '@/lib/guest-invite-message';
 import { saveImageToDevice } from '@/lib/save-to-device';
 import { useGuestActions } from './guest-actions-context';
@@ -188,7 +189,7 @@ export function GuestInviteCell({
           >
             No link yet
           </span>
-          {more}
+          {more ? <Handed>{more}</Handed> : null}
         </div>
         {status}
       </div>
@@ -339,7 +340,7 @@ export function GuestInviteCell({
             className="relative z-20"
           />
         </span>
-        {more}
+        {more ? <Handed>{more}</Handed> : null}
       </div>
       {status}
       {open ? (

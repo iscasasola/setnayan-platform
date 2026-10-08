@@ -76,7 +76,8 @@ test('card top: the ticket (tap → full view + Save ticket), ONE Invite, ⋯, t
 test('card body: every choice is ONE shipped PickMenu — never a native select, never a pill row', () => {
   assert.doesNotMatch(CARD, /<select\b|type="radio"/, 'a native select or a radio pill row is back on the card');
   for (const name of ['name_prefix', 'side', 'group_category', 'role', 'extra_roles', 'group_ids', 'rsvp_status', 'plus_one_count', 'meal_preference', 'table_id', 'attire']) {
-    assert.match(CARD, new RegExp(`<FormPick\\s+name="${name}"`), `${name} is not a dropdown on the card`);
+    assert.match(CARD, new RegExp(`<K\\.Pick\\s+name="${name}"`), `${name} is not a dropdown on the card`);
+    // ⤷ 2026-10-09 (4B): the body names the field; the kit draws it — a FormPick in the Maker's card, a Form row on the Guests pages.
   }
   // The two "several choices" are checkmark dropdowns.
   assert.match(CARD, /name="extra_roles"[\s\S]{0,200}\bmulti\b/);
@@ -87,12 +88,14 @@ test('card body: every choice is ONE shipped PickMenu — never a native select,
 
 test('card body: the name is open; the rest fold, one open at a time', () => {
   const nameAt = CARD.indexOf('data-guest-card-name=""');
-  const firstFold = CARD.indexOf('<Fold summary=');
+  const firstFold = CARD.indexOf('<K.Fold summary=');
   assert.ok(nameAt > 0 && firstFold > nameAt, 'the name is not open above the rows');
   for (const s of ['Details', 'RSVP', 'Seat', 'Photos', 'Private note', 'Access']) {
-    assert.match(CARD, new RegExp(`<Fold summary="${s}"`), `the ${s} row is gone`);
+    assert.match(CARD, new RegExp(`<K\\.Fold summary="${s}"`), `the ${s} row is gone`);
   }
-  assert.match(CARD, /<details name="guest-card-row"/, 'the rows are not one exclusive accordion');
+  assert.match(CARD, /<details name="guest-card-row"/, 'the Maker’s card is not one exclusive accordion');
+  // …and on the Guests pages the shared Fold is one-open-at-a-time too (`useOneOpen`).
+  assert.match(read('guest-card-rows.tsx'), /<Fold title=\{summary\}/, 'the templated card’s rows are not the shared Fold');
   assert.match(CARD, /data-guest-card-tags=""/, 'Tags is gone');
 });
 

@@ -286,12 +286,13 @@ test('the Guest list and the profile type a Prefix in the guest side’s dropdow
            PickMenu (`FormPick`, owner 2026-09-28 "any set of choices is a
            dropdown") — the same list as PrefixSelect when it is built from
            `prefixChoicesFor` (NAME_PREFIX_CHOICES). */
-        if (tag === 'FormPick') {
+        /* ⤷ 2026-10-09 (4B): the card's body names the field (`K.Pick`); its kit draws it — a FormPick (the Maker's card) or a Form row. */
+        if (tag === 'FormPick' || tag === 'K.Pick') {
           const attrs = n.attributes.properties.filter(ts.isJsxAttribute);
           const val = (k: string) => attrs.find((a) => a.name.getText(sf) === k)?.initializer?.getText(sf) ?? '';
           if (val('name') === '"name_prefix"' && /prefixChoicesFor\(/.test(val('options'))) selects += 1;
         }
-        if (tag === 'input' || tag === 'Field') {
+        if (tag === 'input' || tag === 'Field' || tag === 'K.Field') {
           const attrs = n.attributes.properties.filter(ts.isJsxAttribute);
           const val = (k: string) => attrs.find((a) => a.name.getText(sf) === k)?.initializer?.getText(sf) ?? '';
           const hidden = /hidden/.test(val('type'));

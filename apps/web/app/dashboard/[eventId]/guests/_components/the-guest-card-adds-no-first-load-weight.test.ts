@@ -26,8 +26,8 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const read = (f: string) => stripComments(readFileSync(join(HERE, f), 'utf8'));
 
 /** What the card (a server file) pulls into the Maker's first load, as far as the guests folder is concerned. */
-const FIRST_LOAD = ['guest-card-body.tsx', 'guest-card-autosave.tsx', 'card-fields.tsx', 'invited-to-chips.tsx', 'guest-access-control.tsx', 'undo-store.ts'] as const;
-const HEAVY = /form-row|toast\/peek-toast|guest-popup|undo-toast'|use-peek-toast|guest-actions-context|guest-delete|add-guest-sheet|quick-add-sheet|overlay-primitives|\/sheet'/;
+const FIRST_LOAD = ['guest-card-body.tsx', 'guest-card-autosave.tsx', 'card-fields.tsx', 'invited-to-chips.tsx', 'guest-access-control.tsx', 'undo-store.ts', 'guest-card-kit.ts'] as const;
+const HEAVY = /form-row|toast\/peek-toast|guest-card-rows|guest-card-template-kit|_components\/chips|_components\/fold|switch-track|guest-popup|undo-toast'|use-peek-toast|guest-actions-context|guest-delete|add-guest-sheet|quick-add-sheet|overlay-primitives|\/sheet'/;
 
 test('the card’s first-load files import no toast, portal, template or pop-up (value imports)', () => {
   for (const f of FIRST_LOAD) {
@@ -54,4 +54,19 @@ test('the autosave and the delete flow use the STORE; only the pages use the hos
   for (const page of [join('..', 'page.tsx'), join('..', '[guestId]', 'page.tsx')]) {
     assert.match(read(page), /import \{ UndoToastHost \} from '(?:\.\.\/_components|\.\/_components)\/undo-toast';/, `${page} does not mount the host`);
   }
+});
+
+test('the templates reach the card ONLY through the kit the Guests pages hand in — never the Maker (4B, measured 505.7 of 507.0 KB)', () => {
+  /* The card takes the kit as a prop and falls back to its own hand-drawn leaves; the kit file is TYPES only. */
+  const body = read('guest-card-body.tsx');
+  assert.match(body, /import type \{[^}]*\bCardKit\b[^}]*\} from '\.\/guest-card-kit';/);
+  assert.match(body, /const K: CardKit = kit \?\? OLD_KIT;/);
+  assert.doesNotMatch(read('guest-card-kit.ts'), /^import\s+(?!type\b)/m, 'the kit file has a runtime import');
+  /* The pages that draw the card for the host hand the kit in; the Maker's launch page does not. */
+  for (const page of [join('..', 'page.tsx'), join('..', '[guestId]', 'page.tsx')]) {
+    assert.match(read(page), /import \{ TEMPLATE_KIT \} from '(?:\.\/|\.\.\/)_components\/guest-card-template-kit';/, `${page} does not import the kit`);
+    assert.match(read(page), /\bkit=\{TEMPLATE_KIT\}/, `${page} does not hand the kit in`);
+  }
+  const launch = readFileSync(join(HERE, '..', '..', 'launch', 'page.tsx'), 'utf8');
+  assert.doesNotMatch(launch, /guest-card-template-kit|guest-card-rows|TEMPLATE_KIT|\bkit=\{/, 'the Maker’s first load imports the templates through the card');
 });

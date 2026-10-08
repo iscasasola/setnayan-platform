@@ -60,3 +60,10 @@ export const PresetTiles = dynamic(
   () => import(/* webpackChunkName: "maker-details" */ './post-event-preset-tiles').then((m) => m.PresetTiles),
   { loading: SlotRows },
 );
+/* 🎵 Look › Music › Source ▾ "Our music" — its Song row and list by mood (owner
+   2026-10-08). Drawn only while that source is picked, so it rides here: the
+   same chunk, warmed with the rest when the Maker is idle. */
+export const OurMusicSong = dynamic(
+  () => import(/* webpackChunkName: "maker-details" */ './our-music').then((m) => m.OurMusicSong),
+  { loading: SlotRows },
+);

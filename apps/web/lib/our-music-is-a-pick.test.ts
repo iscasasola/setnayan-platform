@@ -28,11 +28,11 @@
  *   • the Our-music line removed from `eventItemIsPro`         → 3 red;
  *   • …and widened to every song (`!== null`)                  → 3 red (own song free);
  *   • `eventSiteMediaScope` widened to `hub-music/`            → 4 red;
- *   • the action writes `formData.get('bg_music_track')` as-is → 5 red;
+ *   • the helper writes `formData.get('bg_music_track')` as-is → 5 red;
  *   • `.eq('is_published', true)` dropped from the lookup      → 5 red;
  *   • Apply's `|| r === ourSong` → `|| isHubMusicRef(r)`       → 6 red;
  *   • the Source pick made to submit the form                  → 7 red;
- *   • `our-music` imported statically by media-panels          → 7 red;
+ *   • `our-music` imported by media-panels itself              → 7 red;
  *   • the unread list drawn as the empty one                   → 8 red;
  *   • the events read dropped from the sweep's resolver        → 9 red.
  */
@@ -128,18 +128,23 @@ test('4 · deleting an event never deletes a shared track’s file', () => {
 
 test('5 · the form names a track; the server looks its file up, and only a published track has one', () => {
   const action = code('app/dashboard/[eventId]/website/site-chrome/actions.ts');
-  const draftBranch = action.slice(action.indexOf('if (isHubDraftWrite(formData)) {'), action.indexOf("if (formData.has('bg_music_url')) {\n    const musicRef = r2RefOrNull(formData.get('bg_music_url'), eventId);\n    // Checkbox"));
+  const door = action.indexOf('if (isHubDraftWrite(formData)) {');
+  const draftBranch = action.slice(door, action.indexOf('return draftEventsAndReturn(', door));
+  assert.match(draftBranch, /await draftOurMusic\(supabase, formData, events\);/, 'the draft door takes an Our-music pick');
+  const helper = action.slice(action.indexOf('async function draftOurMusic('), action.indexOf('export async function updateSiteChrome('));
   assert.match(
-    draftBranch,
-    /const ourRef = formData\.has\('bg_music_track'\)\s*\? await publishedHubMusicRef\(supabase, formData\.get\('bg_music_track'\)\)\s*: null;\s*if \(ourRef\) events\.site_bg_music_r2_key = ourRef;/,
+    helper,
+    /const ourRef = picked \? await publishedHubMusicRef\(supabase, formData\.get\('bg_music_track'\)\) : null;\s*if \(ourRef\) events\.site_bg_music_r2_key = ourRef;/,
     'the pick is resolved on the server, and an unresolved pick writes no song',
   );
+  assert.match(helper, /if \(!picked && !\(formData\.has\('bg_music_keep'\) && !formData\.has\('bg_music_url'\)\)\) return;/, 'a fresh upload in the same post is not overridden');
+  assert.equal(action.slice(action.indexOf('return draftEventsAndReturn(', door)).includes('bg_music_track'), false, 'the live path never reads a posted track');
   assert.equal(
     action.split("formData.get('bg_music_track')").length - 1,
     1,
     'the posted track id goes to the lookup and nowhere else',
   );
-  assert.match(draftBranch, /events\.site_bg_music_enabled = formData\.get\('bg_music_enabled'\) === 'on';/, 'the switch is written with it');
+  assert.match(helper, /events\.site_bg_music_enabled = formData\.get\('bg_music_enabled'\) === 'on';/, 'the switch is written with it');
 
   const reader = code('lib/hub-music-server.ts');
   const lookup = reader.slice(reader.indexOf('export async function publishedHubMusicRef('), reader.indexOf('export async function isPublishedHubMusicRef('));
@@ -172,23 +177,28 @@ test('6 · Apply admits one of our songs only while its track is published, and 
 
 test('7 · Source ▾ is one dropdown that writes nothing, and the list is not in the Maker’s first load', () => {
   const panel = code('app/dashboard/[eventId]/website/editor/_components/media-panels.tsx');
-  const source = panel.slice(panel.indexOf('data-music-source={source}'), panel.indexOf("{source === 'ours' ? ("));
+  const source = panel.slice(panel.indexOf('data-music-source={source}'), panel.indexOf("{source === 'ours' && ("));
   assert.match(source, /<PickMenu\s+label="Music source"\s+value=\{source\}/);
   assert.match(source, /\{ key: 'ours', label: 'Our music', hint: 'Setnayan’s own songs, by mood · free to use' \}/);
   assert.match(source, /\{ key: 'yours', label: 'Your music', hint: 'A song from your phone' \}/);
   assert.match(source, /onPick=\{\(k\) => setSource\(k === 'ours' \? 'ours' : 'yours'\)\}/, 'a source pick only changes what is drawn');
   assert.doesNotMatch(source, /draftNow|requestSubmit/);
 
-  assert.match(panel, /const OurMusicSong = dynamic\(/);
-  // Comments are stripped above, so the chunk name is read from the raw file.
-  const raw = readFileSync(join(WEB, 'app/dashboard/[eventId]/website/editor/_components/media-panels.tsx'), 'utf8');
-  assert.match(raw, /import\(\/\* webpackChunkName: "maker-details" \*\/ '\.\/our-music'\)/, 'in the existing chunk — a new one grows every page’s runtime');
-  assert.doesNotMatch(panel, /^import .* from '\.\/our-music';/m, 'reached only through import()');
+  // The panel reaches the list through its lazy stand-in, never the piece itself.
+  assert.match(panel, /^import \{ OurMusicSong \} from '\.\/scene-styles-lazy';/m);
+  assert.doesNotMatch(panel, /from '\.\/our-music'/, 'reached only through import()');
+  // Comments are stripped by `code()`, so the chunk name is read from the raw file.
+  const lazy = readFileSync(join(WEB, 'app/dashboard/[eventId]/website/editor/_components/scene-styles-lazy.tsx'), 'utf8');
+  assert.match(
+    lazy,
+    /export const OurMusicSong = dynamic\(\s*\(\) => import\(\/\* webpackChunkName: "maker-details" \*\/ '\.\/our-music'\)\.then\(\(m\) => m\.OurMusicSong\)/,
+    'in the existing chunk — a new one grows every page’s runtime',
+  );
 
   // The couple's own upload never shows one of OUR files as theirs.
   assert.match(panel, /currentValue=\{songIsOurs \? null : musicRef\}/);
   // A pick posts the track; the switch can still be saved when nothing is picked.
-  assert.match(panel, /<input type="hidden" name="bg_music_track" value=\{ourTrack\} \/>/);
+  assert.match(panel, /\{ourTrack \? <input type="hidden" name="bg_music_track" value=\{ourTrack\} \/> : null\}/);
   assert.equal(panel.split('name="bg_music_keep"').length - 1, 2);
 
   const page = code('app/dashboard/[eventId]/website/editor/page.tsx');

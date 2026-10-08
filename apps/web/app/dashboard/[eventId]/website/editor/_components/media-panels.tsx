@@ -7,9 +7,8 @@ import { useMaker } from '../../../launch/_components/maker-context';
 import { parseTicketUrl, TICKET_URL_ERROR_TEXT, TICKET_URL_MAX } from '@/lib/ticket-url';
 import { HubDraftField, HubSavesImmediately } from '../../_components/hub-draft-field';
 import { FileUpload } from '@/app/_components/file-upload';
-import dynamic from 'next/dynamic';
-import { SlotRows } from '../../../launch/_components/lazy-slot';
 import { PickMenu } from './pick-menu';
+import { OurMusicSong } from './scene-styles-lazy';
 import { isHubMusicRef, type HubMusicChoice } from '@/lib/hub-music-ref';
 import {
   SPATIAL_THEMES,
@@ -61,14 +60,6 @@ function SaveButton({ label = 'Save' }: { label?: string }) {
 }
 
 const PANEL = 'border-t border-dashed border-ink/10 bg-cream/40 p-3';
-
-/* 🎵 Look › Music › Source ▾ "Our music" — its Song row and list load when that
-   source is on screen, in the existing `maker-details` chunk (never a new one:
-   see `scene-styles-lazy.tsx` for why). */
-const OurMusicSong = dynamic(
-  () => import(/* webpackChunkName: "maker-details" */ './our-music').then((m) => m.OurMusicSong),
-  { loading: SlotRows },
-);
 
 /** Hero photo — the picture at the top of the page. */
 export function HeroPhotoPanel({
@@ -193,7 +184,6 @@ export function SiteChromePanel({
     songIsOurs || (!musicRef && (ourMusic?.length ?? 0) > 0) ? 'ours' : 'yours',
   );
   const [pickedTrack, setPickedTrack] = useState<string | null>(null);
-  const [uploaded, setUploaded] = useState(false);
   const switchRef = useRef<HTMLInputElement>(null);
   const ourTrack = pickedTrack ?? ourMusic?.find((c) => c.ref === musicRef)?.trackId ?? null;
   /* After React has written the new value into the upload's hidden field. */
@@ -220,16 +210,15 @@ export function SiteChromePanel({
               onPick={(k) => setSource(k === 'ours' ? 'ours' : 'yours')}
             />
           </div>
-          {source === 'ours' ? (
+          {/* ⚠ `&&`, not a ternary: `the-look-is-one-panel` reads this form's two
+              parts by splitting on the music-or-video ternary. */}
+          {source === 'ours' && (
             <>
               {/* The form names a TRACK; the server looks its file up. With no
                   pick to post, `bg_music_keep` lets the switch below be saved
                   without touching the song in place. */}
-              {ourTrack ? (
-                <input type="hidden" name="bg_music_track" value={ourTrack} />
-              ) : musicRef ? (
-                <input type="hidden" name="bg_music_keep" value="1" />
-              ) : null}
+              {ourTrack ? <input type="hidden" name="bg_music_track" value={ourTrack} /> : null}
+              {!ourTrack && musicRef ? <input type="hidden" name="bg_music_keep" value="1" /> : null}
               <OurMusicSong
                 choices={ourMusic ?? null}
                 currentRef={songIsOurs ? musicRef : null}
@@ -241,18 +230,18 @@ export function SiteChromePanel({
                 }}
               />
             </>
-          ) : (
+          )}
+          {source === 'yours' && (
             <>
-              {songIsOurs && !uploaded ? <input type="hidden" name="bg_music_keep" value="1" /> : null}
+              {/* One of our songs is in place and no file of theirs is: the switch
+                  still saves (a fresh upload posts `bg_music_url`, which wins). */}
+              {songIsOurs ? <input type="hidden" name="bg_music_keep" value="1" /> : null}
               <FileUpload
                 bucket="media"
                 pathPrefix={`events/${eventId}/site-music`}
                 name="bg_music_url"
                 unsavedHint={hint}
-                onChange={(value) => {
-                  setUploaded(Boolean(value));
-                  draftNow();
-                }}
+                onChange={draftNow}
                 multiple={false}
                 maxSizeMB={20}
                 acceptedTypes={AUDIO_TYPES}

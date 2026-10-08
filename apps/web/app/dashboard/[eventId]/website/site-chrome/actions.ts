@@ -53,6 +53,30 @@ function r2RefOrNull(
   return parseClientRef(v, eventMediaPolicy(eventId)) ? v : null;
 }
 
+/**
+ * 🎵 OUR MUSIC (owner 2026-10-08) — a pick from the list an admin uploads at
+ * /admin/hub-music, into the DRAFT.
+ *
+ * The form names a TRACK, never a file: the reference is looked up here, through
+ * the couple's own client, and only a PUBLISHED track has one
+ * (`publishedHubMusicRef`). A pick that no longer resolves writes no song — the
+ * one in place stays. `bg_music_keep` is the same panel flipping its switch on a
+ * song it is not changing (the upload field posts nothing until it holds a new
+ * file). Either way the switch is written; a fresh upload in the same post is
+ * `bg_music_url`'s to write, so this steps aside for it.
+ */
+async function draftOurMusic(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  formData: FormData,
+  events: HubDraftEvents,
+): Promise<void> {
+  const picked = formData.has('bg_music_track');
+  if (!picked && !(formData.has('bg_music_keep') && !formData.has('bg_music_url'))) return;
+  const ourRef = picked ? await publishedHubMusicRef(supabase, formData.get('bg_music_track')) : null;
+  if (ourRef) events.site_bg_music_r2_key = ourRef;
+  events.site_bg_music_enabled = formData.get('bg_music_enabled') === 'on';
+}
+
 export async function updateSiteChrome(
   eventId: string,
   formData: FormData,
@@ -98,19 +122,7 @@ export async function updateSiteChrome(
       events.site_bg_music_r2_key = musicRef;
       events.site_bg_music_enabled = formData.get('bg_music_enabled') === 'on' && Boolean(musicRef);
     }
-    /* 🎵 OUR MUSIC (owner 2026-10-08) — a pick from the list an admin uploads.
-       The form names a TRACK, never a file: the reference is looked up here,
-       through the couple's own client, and only a PUBLISHED track has one. A
-       pick that no longer resolves writes no song (the one in place stays);
-       `bg_music_keep` is the same panel flipping the switch on a song it is not
-       changing. Either way the switch is written. */
-    if (formData.has('bg_music_track') || formData.has('bg_music_keep')) {
-      const ourRef = formData.has('bg_music_track')
-        ? await publishedHubMusicRef(supabase, formData.get('bg_music_track'))
-        : null;
-      if (ourRef) events.site_bg_music_r2_key = ourRef;
-      events.site_bg_music_enabled = formData.get('bg_music_enabled') === 'on';
-    }
+    await draftOurMusic(supabase, formData, events);
     if (formData.has('hero_video_url')) {
       events.landing_page_hero_video_r2_key = r2RefOrNull(formData.get('hero_video_url'), eventId);
     }

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "bc46ff712",
+  "generatedFromRef": "cc3fe85a5",
   "routeCount": 429,
   "destinations": 958,
   "actions": 672,
-  "blocks": 5835,
+  "blocks": 5837,
   "routes": {
     "/": {
       "files": [
@@ -6572,6 +6572,7 @@
         "dashboard/[eventId]/launch/_components/stage-item-menu.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/camera-look.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/kit.tsx",
+        "dashboard/[eventId]/launch/_components/stage-panel/part-words.ts",
         "dashboard/[eventId]/launch/_components/stage-panel/parts.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/play-status.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/reveal-picture.tsx",
@@ -6720,6 +6721,7 @@
         "HTMLImageElement",
         "HTMLInputElement",
         "HTMLOListElement",
+        "HTMLParagraphElement",
         "HTMLSpanElement",
         "HTMLTextAreaElement",
         "HTMLUListElement",
@@ -6899,6 +6901,7 @@
         "SlugField",
         "SoftPost",
         "SpecialMessageField",
+        "StageAbout",
         "StageArrange",
         "StageEdit",
         "StageItemMenu",

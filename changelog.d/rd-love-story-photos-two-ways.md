@@ -106,3 +106,29 @@ Guard: `apps/web/lib/a-moment-shows-its-first-line.test.ts` (4 tests; 13
 sabotages seen red). No request added: the words are already on the page.
 
 SPEC IMPACT: None — builds the approved gallery § 13.
+
+## 2026-10-08 · fix(upload): in a gallery an upload is the 0–100 pie, and every tile's ✕ is round
+
+Controller, from two pictures of Studio › Love Story's photo slots: the uploading
+tile drew a small spinner and a thin GOLD bar with "27%" under it; and the ✕ on a
+kept photo was a tall oval. Both are the shared uploader's `gallery` layout
+(`app/_components/file-upload.tsx`):
+
+- **The uploading tile is the pie** (owner: *"show a loading screen 0-100 pie to
+  know how long til it uploads"*; gallery § 21): filled by the upload's own
+  measured figure, in the accent token (`--sn-accent`), the figure on it. No
+  spinner beside it, no bar. A state that steps with the bytes — the same under
+  "reduce motion".
+- **Every ✕ is one round 44 px target** in the tile's corner, carrying the 24 px
+  disc (kept, uploading and failed tiles). A bare 24 px button was being
+  stretched into an oval by the app's 44 px button floor.
+
+`gallery` is worn by two surfaces, and both now show the pie and the round ✕:
+Studio › Love Story's photo slots and the supplier's showcase
+(`vendor-dashboard/services/_components/showcase-media-fields.tsx`). The one-line
+row layout the other callers wear is untouched (its spinner and bar stay).
+
+Guard: `apps/web/lib/a-photo-on-its-way-is-a-pie.test.ts` (3 tests; 10 sabotages
+seen red).
+
+SPEC IMPACT: None.

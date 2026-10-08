@@ -167,3 +167,12 @@ and asks for the tool then. A tap ON the page was never affected (its message co
 Guard: `a-tool-with-nothing-to-do-says-so` (5) (3 sabotages, each seen red). Requests: none.
 
 SPEC IMPACT: None.
+
+## 2026-10-09 · fix(maker): a Reveal opening's name reads whole on its card
+
+Seen on the Maker lab at 375: "r-flap envelope ◆ PR" / "wo-flap side ◆ PRO" — the name and its Pro mark sat side by
+side, centred in a one-line clipped box narrower than they are (the 112-px card), and lost letters at both ends.
+The name now takes a second line where it needs one (at a space or a hyphen, never mid-word, never cut) and the
+◆ Pro mark has a line of its own under it. The card is still exactly as wide as its frame.
+
+SPEC IMPACT: None.

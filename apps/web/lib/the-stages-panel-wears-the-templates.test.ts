@@ -11,6 +11,7 @@
  *   (2) THE ⓘ — rendered: the explanation template (`Explain`) — its own 44-px button that opens a dialog — never the
  *       older hover note; in the panel's rows AND in the ＋ sheet.
  *   (3) "HOW CLOSE" — one of three values is ONE dropdown that writes the same value, never a row of segments.
+ *   (4) A REVEAL CARD'S NAME READS WHOLE — nothing in its caption can cut a word; its ◆ Pro mark has its own line.
  *   (The slider is `the-slider-is-one-drawing`; buttons and marks are `the-stages-panel-wears-the-accent`.)
  */
 import test from 'node:test';
@@ -20,7 +21,7 @@ import { join } from 'node:path';
 import React from 'react';
 
 import { stripComments } from './strip-comments';
-import { SP_SWITCH } from './maker-stage-room';
+import { SP_LOOK_MARK, SP_LOOK_NAME_WHOLE, SP_SWITCH } from './maker-stage-room';
 import { phoneHeightPx } from './maker-phone-room';
 import { SWITCH_TRACK } from '../app/_components/switch-track';
 
@@ -93,4 +94,26 @@ test('(3) “How close” is ONE dropdown over its three values — and writes t
   assert.doesNotMatch(row, /<ISegmented label="How close">/, 'the row of segments is back');
   /* What stays a two-way selector there is two-way. */
   assert.match(row, /<ISegmented label="Framed or full width">/);
+});
+
+test('(4) a Reveal opening’s name reads whole — no class that can cut it — and its ◆ Pro mark sits on a line of its own under it', () => {
+  /* Seen on the Maker lab at 375 (2026-10-09): "r-flap envelope ◆ PR" / "wo-flap side ◆ PRO" — the name and its mark,
+     side by side and centred in a clipped one-line box narrower than they are, lost letters at BOTH ends. */
+  const name = SP_LOOK_NAME_WHOLE.split(' ');
+  for (const cut of ['truncate', 'overflow-hidden', 'whitespace-nowrap', 'text-ellipsis']) assert.ok(!name.includes(cut), `the name can be cut (“${cut}”)`);
+  assert.ok(!name.some((c) => /^(?:h-|max-h-|line-clamp-)/.test(c)), 'the name is held to a height — a second line would be cut');
+  assert.ok(name.includes('whitespace-normal'), 'the name cannot take a second line');
+  assert.ok(name.includes('[overflow-wrap:normal]'), 'a word may be broken in the middle');
+  /* It still never widens the card: as wide as the frame, whatever it says. */
+  for (const c of ['w-0', 'min-w-full']) assert.ok(name.includes(c) && SP_LOOK_MARK.split(' ').includes(c), `the caption can widen its card (no “${c}”)`);
+  const reveal = read(`${L}/maker-reveal.tsx`);
+  const card = reveal.slice(reveal.indexOf('data-maker-reveal-kind={o.id}'), reveal.indexOf('</button>', reveal.indexOf('data-maker-reveal-kind={o.id}')));
+  assert.ok(card.length > 400, 'anti-vacuity: the opening’s card was not found');
+  /* The name: the label alone. The mark: after it, in its own line — never inside the name's box. */
+  assert.match(card, /<span data-reveal-kind-name="" className=\{`\$\{SP_LOOK_NAME_WHOLE\} [^`]*`\}>\s*\{o\.label\}\s*<\/span>\s*\{mark \? \(\s*<span data-reveal-kind-mark="" className=\{SP_LOOK_MARK\}>\s*<PaidMark /, 'the name shares its line with the mark, or is no longer the label alone');
+  assert.doesNotMatch(card, /SP_LOOK_NAME\}|!inline-flex|truncate/, 'the one-line, cut caption is back on an opening’s card');
+  /* The widest name there is today, against the frame: it NEEDS the second line (so the fix is not decoration). */
+  const css = read('app/globals.css');
+  const frame = Number(/\.sn-phone-card \{[^}]*inline-size: var\(--phone-card-w, (\d+)px\)/.exec(css)?.[1]);
+  assert.equal(frame, 112, 'the frame’s width moved — re-measure the names against it');
 });

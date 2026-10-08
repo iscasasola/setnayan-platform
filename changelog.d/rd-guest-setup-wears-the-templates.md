@@ -3,3 +3,9 @@
 Step 3A. Guests › Setup's three writes — the asks and how guests get in (`hubDraftAction`, the Maker's draft door), Reply by (`updatePaxSettings`) and Finalize / Reopen (`setGuestListFinalized`) — are taken from `GuestActionsContext` like the rest of the list's writes, so the dev lab's `?part=setup` can be pressed without reaching the database (`?refuse=1` makes them refuse in the database's own words, on purpose). The app never provides the context: production calls the shipped actions. No request, no server action, no migration added.
 
 SPEC IMPACT: None
+
+## 2026-10-09 · refactor(guests): Guests › Setup is drawn by the app's Form rows, the same frames the Maker hands the shared parts
+
+Step 3B. Setup's rows leave their own grid (`SETUP_ROW`) for one `FormRows` list: How guests get in (`ChosenRow`), RSVP asks (`FormRow` + the part's chips) and Reply by (`DateRow`, the calendar pill, written live) are handed the SAME frames the Maker hands the same shared parts (`setup-frames.tsx`, held equal to the Maker's by `setup-wears-the-form-rows.test.ts`); Invitations, Your one link and Finalize are `FormRow` with their buttons at the right, their sentences behind an ⓘ, and one filled forward step each (Send to N and Copy are the brand colour; Finalize now stays the confirming OK tone). "Send to N" and "Pick who" are taken from the lab's context so nothing on the lab's Setup page leaves for a real route. The shared parts and every Maker file are unchanged apart from `ReplyBy`'s frame marks (live vs drafted) and the removal of its now-unused `row` layout. No request, no server action, no migration added.
+
+SPEC IMPACT: None

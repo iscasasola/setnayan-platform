@@ -37,8 +37,8 @@ const read = (p: string) => stripComments(readFileSync(p, 'utf8'));
 test('(1) every write the context carries has a lab stand-in — none is left real', () => {
   /* The names the context carries — read from its source (importing it would import every server action). */
   const ctx = read(join(GUESTS, 'guest-actions-context.tsx'));
-  const real = [...ctx.slice(ctx.indexOf('export const REAL_GUEST_ACTIONS')).matchAll(/^\s{2}(\w+)(?::|,)/gm)].map((m) => m[1]).slice(0, 14);
-  assert.equal(real.length, 14, 'the context’s names could not be read');
+  const real = [...ctx.slice(ctx.indexOf('export const REAL_GUEST_ACTIONS')).matchAll(/^\s{2}(\w+)(?::|,)/gm)].map((m) => m[1]).slice(0, 15);
+  assert.equal(real.length, 15, 'the context’s names could not be read');
   assert.deepEqual(Object.keys(LAB_GUEST_ACTIONS).sort(), [...real].sort(), 'a lab press can reach a real action');
   for (const f of ['lab-stand-ins.ts', 'lab-guest-actions.tsx']) {
     assert.doesNotMatch(read(join(HERE, f)), /from '[^']*(?:-actions|\/actions)'|groups-actions|inline-actions/, `${f} imports a real action module`);
@@ -69,6 +69,8 @@ test('(1b) the stand-ins answer like the real ones, locally', async () => {
   assert.ok(fin.ok && fin.locked === true);
   const fin2 = await a.setGuestListFinalized!('e', false);
   assert.ok(fin2.ok && fin2.locked === false);
+  assert.equal(a.setupDoorHref!('e', 'send'), '/dev/guests-lab?part=run');
+  assert.match(a.setupDoorHref!('e', 'pick-who'), /^\/dev\/guests-lab\?/, 'Pick who leaves the lab');
   assert.equal(a.sendRunHref!('e', ['a', 'b']), '/dev/guests-lab?part=run&ids=a,b', '"Invite N" leaves the lab for a real route');
 });
 
@@ -85,6 +87,9 @@ test('(2) the call sites take their action from the context and import no action
   const setup = read(join(APP, 'dashboard', '[eventId]', '_components', 'guest-setup', 'guest-setup-rows.tsx'));
   assert.match(setup, /const \{ hubDraftAction, updatePaxSettings \} = useGuestActions\(\);/, 'Setup’s save no longer takes its writes from the context');
   assert.match(setup, /const \{ setGuestListFinalized \} = useGuestActions\(\);/, 'Finalize no longer takes its write from the context');
+  assert.match(setup, /const \{ setupDoorHref \} = useGuestActions\(\);/, 'Setup’s two doors no longer come from the context');
+  assert.match(setup, /href=\{setupDoorHref\(eventId, 'send'\)\}[\s\S]*href=\{setupDoorHref\(eventId, 'pick-who'\)\}/, 'Send to N / Pick who are not the context’s doors');
+  assert.doesNotMatch(setup, /href=\{`\/dashboard/, 'a Setup door is a real route again');
   assert.doesNotMatch(setup, /from '[^']*(?:hub-draft-actions|finalize-actions)'|from '\.\.\/\.\.\/actions'/, 'Setup imports a real action module again');
   for (const [file, names] of sites) {
     const src = read(join(GUESTS, file));

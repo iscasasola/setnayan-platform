@@ -21,8 +21,8 @@ import { GuestActionsProvider } from '@/app/dashboard/[eventId]/guests/_componen
  *
  * NOT stubbed here (still real): the guest CARD (autosave `updateGuest`, release claim, invite by e-mail — the card is a
  * route the lab does not draw), the one-by-one run (`SendInviteActions`, which the Maker's first load imports and so must
- * not pull this context in), and the Setup rows' two LINKS ("Send to N" → /guests/send, "Pick who" → /guests?select=…),
- * which are navigations, not writes.
+ * not pull this context in). The Setup rows' two doors ("Send to N", "Pick who") are stand-ins too: they stay in the lab
+ * (`setupDoorHref`), so nothing on the Setup page leaves for a real route.
  */
 export function LabGuestActions({ refuse = false, children }: { refuse?: boolean; children: ReactNode }) {
   const stand: GuestRemovalActions = {

@@ -85,7 +85,8 @@ export function lookSampleScope(event: LookSampleRow, themeId: InviteThemeId): L
   const painted = vars && Object.keys(vars).length > 0 ? pinPlateInk(vars, themeId) : null;
   const buttons = resolveHubButtons({
     style: event.site_button_style,
-    colour: event.site_button_color,
+    /* 🔘 The palette's — as the guest page (`guestLookFrom`): a stored `site_button_color` is no longer read. */
+    colour: null,
     theme: dressed,
     page: hubButtonPage(dressed, painted),
   });
@@ -140,7 +141,8 @@ export function lookSampleGround(
   if (!tint || tint.frame.length === 0) return NO_GROUND;
   const dressed = dressedTheme(themeId, event.role_palette);
   const adaptive = resolveAdaptiveTheme(dressed, tint);
-  const ownButton = typeof event.site_button_color === 'string' && event.site_button_color ? event.site_button_color : null;
+  /* 🔘 No button colour of the couple's own any more (`guestLookFrom`): a picture's tint always reaches the buttons. */
+  const ownButton: string | null = null;
   const tinted = adaptiveThemeVars(adaptive, { ownButton: Boolean(ownButton) });
   const step = hubMainLook(main).shade ?? null;
   if (!step) return { scrim: adaptive.scrim, veil: null, vars: tinted };

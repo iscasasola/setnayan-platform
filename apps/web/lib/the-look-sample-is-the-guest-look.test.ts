@@ -646,3 +646,59 @@ test('(7c) ONE engine call for the page, ONE layer for everyone — and nothing 
   }
   assert.equal(HUB_MAIN_EFFECTS.length, 6);
 });
+
+/* ── (8) 🔘 the buttons' colour has ONE source ────────────────────────────── */
+
+test('(8) a button colour stored before the ruling changes NOTHING a guest’s Event Hub draws — the buttons are the palette’s', () => {
+  /* Owner 2026-10-08, round 3: "button color will be taken from their 5 palette". Measured on production the day
+     this changed (controller, read-only): 0 of 16 events held a `site_button_color`; no screen offers one. */
+  const guestLookFrom = guestLookFromSource();
+  const hub = (theme: InviteThemeId) => ({ theme, accent: '#000000', monogram: '' });
+  let coloured = 0;
+  const failures: string[] = [];
+  everyRow((where, themeId, row) => {
+    if (!row.site_button_color) return;
+    coloured += 1;
+    const none = { ...row, site_button_color: null };
+    /* THE GUEST PAGE'S OWN FUNCTION, run with the stored colour and without it. */
+    const a = guestLookFrom(row, hub(themeId), true);
+    const b = guestLookFrom(none, hub(themeId), true);
+    for (const key of ['vars', 'buttons', 'ombre', 'art', 'theme'] as const) {
+      try {
+        assert.deepEqual(a[key], b[key]);
+      } catch {
+        if (failures.length < 6) failures.push(`${where} · ${key}: with ${row.site_button_color} ${JSON.stringify(a[key])?.slice(0, 140)} ≠ without ${JSON.stringify(b[key])?.slice(0, 140)}`);
+      }
+    }
+    /* …and the same for a guest of an event WITHOUT Event Hub Pro. */
+    try {
+      assert.deepEqual(guestLookFrom(row, hub(themeId), false), guestLookFrom(none, hub(themeId), false));
+    } catch {
+      if (failures.length < 6) failures.push(`${where}: a free event's page still wears the stored colour`);
+    }
+  });
+  assert.ok(coloured >= 1000, `the sweep holds too few stored colours to mean anything (${coloured})`);
+  assert.deepEqual(failures, [], `a stored button colour still reaches the guest page:\n  ${failures.join('\n  ')}`);
+
+  /* Over a picture: its tint reaches the buttons whether or not a colour is stored (there is no "own button" to spare). */
+  for (const themeId of INVITE_THEME_IDS) {
+    for (const shade of [undefined, -60, 50] as const) {
+      const main = photo(shade === undefined ? {} : { shade });
+      assert.deepEqual(
+        lookSampleGround(main, { role_palette: ROSE_BOARD, site_button_color: '#5b4a6b' }, themeId),
+        lookSampleGround(main, { role_palette: ROSE_BOARD, site_button_color: null }, themeId),
+        `${themeId} · fade ${shade}: a stored colour still changes what lies over a picture`,
+      );
+    }
+  }
+  /* The guest's main ground reads it nowhere; the Maker's Background panel is told the same. */
+  const layer = read('app/[slug]/_lib/main-ground-layer.tsx');
+  assert.match(layer, /adaptiveThemeVars\(adaptive, \{ ownButton: false \}\)/);
+  assert.match(layer, /const ownButton: string \| null = null;/);
+  assert.doesNotMatch(layer.slice(0, layer.indexOf('function lookRowOf(')), /event\.site_button_color/, 'the guest’s main ground reads the stored button colour again');
+  assert.match(read('lib/look-sample.ts'), /const ownButton: string \| null = null;/);
+  assert.match(read('app/dashboard/[eventId]/website/editor/page.tsx'), /ownButton: false,/);
+  assert.doesNotMatch(raw('app/[slug]/_lib/loaders.ts').slice(raw('app/[slug]/_lib/loaders.ts').indexOf('export function guestLookFrom(')), /colour: event\.site_button_color/);
+  /* The column is still READ INTO the row (nothing is migrated away) — it is only no longer worn. */
+  assert.ok(raw('app/[slug]/_lib/loaders.ts').includes('site_button_color'));
+});

@@ -858,7 +858,7 @@ export default async function WebsiteEditorPage({
                         five: boardSiteColours((drafted as { role_palette?: unknown }).role_palette)?.swatches ?? [],
                         artDirection: (drafted.site_art_direction as 'daylight' | 'candlelight' | null) ?? null,
                         /* ⚡ A picture's tint leaves the couple's own button colour alone — the panel must know, to draw a pick without a render. */
-                        ownButton: Boolean(drafted.site_button_color),
+                        ownButton: false, // 🔘 the page no longer reads a stored `site_button_color` (owner 2026-10-08)
                       }}
                       /* 🎬 …and the hero video's own uploader, drawn there under "Your photo or video". */
                       heroVideo={heroVideoPanel}

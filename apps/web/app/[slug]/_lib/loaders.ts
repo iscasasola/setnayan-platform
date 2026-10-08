@@ -333,7 +333,8 @@ export function guestLookFrom(
      legibility rule's. Free: no entitlement is read. */
   const buttons = resolveHubButtons({
     style: event.site_button_style,
-    colour: event.site_button_color,
+    /* 🔘 The palette's — a stored `site_button_color` is no longer read (owner 2026-10-08; `pro-site-vars.ts`). */
+    colour: null,
     theme: dressed,
     page: hubButtonPage(dressed, painted),
   });

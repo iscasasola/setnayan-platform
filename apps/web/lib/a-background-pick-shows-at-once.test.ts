@@ -707,10 +707,12 @@ test('(8) the Studio draws and lays a pick BEFORE its save, holds the save, lets
   const server = read('app/[slug]/_lib/main-ground-layer.tsx');
   assert.match(server, /const adaptive = resolveAdaptiveTheme\(dressedTheme\(theme, event\.role_palette\), mainGround\.tint\);/, 'anti-vacuity: the page measures its scrim some other way now');
   // "Leaving a shade needs no render" rests on this: the shade's word inks ride the SAME stylesheet the preview lifts, and its veil the layer it hides.
-  assert.match(server, /vars=\{\{\s*\.\.\.adaptiveThemeVars\(adaptive, \{ ownButton: Boolean\(event\.site_button_color\) \}\),\s*\.\.\.\(shade \? shadeWordVars\(shade, page\) : \{\}\),\s*\.\.\.\(shade \? shadeFollowers\(shade, page, mainGround, theme, event, adaptive\) : \{\}\),\s*\}\}/, 'a shade’s inks no longer ride the ground’s one stylesheet — leaving a shade would keep them');
+  assert.match(server, /vars=\{\{\s*\.\.\.adaptiveThemeVars\(adaptive, \{ ownButton: false \}\),\s*\.\.\.\(shade \? shadeWordVars\(shade, page\) : \{\}\),\s*\.\.\.\(shade \? shadeFollowers\(shade, page, mainGround, theme, event, adaptive\) : \{\}\),\s*\}\}/, 'a shade’s inks no longer ride the ground’s one stylesheet — leaving a shade would keep them');
   assert.match(read(`${G}/main-ground.tsx`), /<style data-main-ground-style="">\{css\}<\/style>/);
-  assert.match(server, /\.\.\.adaptiveThemeVars\(adaptive, \{ ownButton: Boolean\(event\.site_button_color\) \}\),/);
-  assert.match(read('app/dashboard/[eventId]/website/editor/page.tsx'), /ownButton: Boolean\(drafted\.site_button_color\),/, 'the panel is not told whose colour the buttons wear — every picture pick would redraw the page');
+  assert.match(server, /\.\.\.adaptiveThemeVars\(adaptive, \{ ownButton: false \}\),/);
+  /* 🔘 RE-AIMED 2026-10-08 (owner, round 3: "button color will be taken from their 5 palette"): the page reads no button
+     colour of the couple's own any more, so the panel is told there is none — on both sides, the same answer. */
+  assert.match(read('app/dashboard/[eventId]/website/editor/page.tsx'), /ownButton: false,/, 'the panel is not told whose colour the buttons wear — every picture pick would redraw the page');
   assert.match(panel, /if \(bar\) fd\.set\(HUB_DRAFT_BAR_FIELD, '1'\);/, 'a held pick does not ask for the Apply bar — its count would wait for a render that never comes');
   // …only a file just uploaded (no address to lay) keeps the whole-Maker render.
   assert.match(pickLook, /opts\.render\s*\? await makerSave\(\(\) => saveLookWrite\(eventId, write, draftAction\), \(\) => router\.refresh\(\)\)/);

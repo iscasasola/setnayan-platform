@@ -265,7 +265,7 @@ test('(3) no coloured word is harder to read than before the couple’s backgrou
   assert.deepEqual(failures, [], `words a background made harder to read:\n  ${failures.join('\n  ')}`);
 });
 
-test('(4) a look that already reads is not repainted, and the couple’s own button colour is never moved', () => {
+test('(4) a look that already reads is not repainted — and a button colour stored before the ruling is no longer worn', () => {
   // The paper did not move → the very same object.
   for (const themeId of INVITE_THEME_IDS) {
     for (const board of Object.values(BOARDS)) {
@@ -281,10 +281,16 @@ test('(4) a look that already reads is not repainted, and the couple’s own but
   const onWhite = page('house', { role_palette: PINK_BOARD, site_bg_color: '#ffffff' });
   for (const token of WORD_INK_TOKENS) assert.equal(onWhite.get(token), board.get(token), `${token} moved on a light look that already read`);
 
-  // Their own button colour is their answer — even where it does not carry the paper as a label
-  // (Look › Buttons paints `.button-primary` with a label measured for it: `resolveHubButtons`).
-  const own = page('house', { site_bg_color: '#1a1410', site_button_color: '#2a1d14' });
-  assert.equal(own.get(MULBERRY), '42 29 20', 'the couple’s own button colour was moved');
+  /* 🔘 RE-AIMED 2026-10-08 (owner, round 3: "button color will be taken from their 5 palette"). This used to hold
+     "their own button colour is their answer — never moved". There is no button colour of their own any more: a
+     colour stored before the ruling is NOT read, so the fill is the page's own — and is moved, like every other
+     word ink, until its label reads on the paper the page ends with. The page with the stored colour IS the page
+     without it. */
+  const stored = page('house', { site_bg_color: '#1a1410', site_button_color: '#2a1d14' });
+  const none = page('house', { site_bg_color: '#1a1410' });
+  assert.notEqual(stored.get(MULBERRY), '42 29 20', 'a stored button colour is worn again');
+  assert.equal(stored.get(MULBERRY), none.get(MULBERRY), 'a stored button colour still changes the button’s fill');
+  assert.deepEqual(stored.vars, none.vars);
 });
 
 test('(5) the stylesheet tables the rule reads ARE the stylesheet’s', () => {

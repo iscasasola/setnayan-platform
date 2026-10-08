@@ -7,7 +7,7 @@ import { Check } from 'lucide-react';
 import { FileUpload } from '@/app/_components/file-upload';
 import { extractPosterFrame } from '../../../_components/std-media-picker';
 import { hubDraftAction } from '../../hub-draft-actions';
-import { CALMER_CLIP_SCRIM, measureFrame, resolveAdaptiveTheme } from '@/lib/adaptive-theme';
+import { CALMER_CLIP_SCRIM, adaptiveThemeVars, measureFrame, resolveAdaptiveTheme } from '@/lib/adaptive-theme';
 import { hubThemePageTokens } from '@/lib/hub-theme-tokens';
 import { INVITE_THEMES, type InviteTheme, type InviteThemeId } from '@/lib/invite-themes';
 import { PaidMark } from '@/app/_components/paid-mark';
@@ -57,6 +57,9 @@ import {
   MAIN_GROUND_PREVIEW,
   backgroundLayOf,
   backgroundPickAfter,
+  backgroundPickRedraws,
+  mainGroundLandedMessage,
+  type MainGroundWorn,
   backgroundPickStep,
   backgroundPictureKey,
   createLookGroundStore,
@@ -126,6 +129,11 @@ export type MainBackgroundPage = {
   five: readonly string[];
   /** `events.site_art_direction` — Candlelight is Shade ▾'s darkest step. */
   artDirection: 'daylight' | 'candlelight' | null;
+  /**
+   * The buttons wear a colour of the couple's own (`events.site_button_color`) — a picture's tint then leaves them
+   * alone (`adaptiveThemeVars`). Absent = not known here: a picture pick asks the page to redraw itself instead.
+   */
+  ownButton?: boolean;
 };
 
 type LookWrite = BackgroundWrite;
@@ -202,7 +210,7 @@ let lookDrawnSeq = 0;
 const LOOK_FRAMES = 'iframe[data-maker-page-frame], iframe[data-maker-canvas-frame="shown"]';
 
 /** Post to every page the Maker shows; how many heard it (0 = no canvas to wait for). */
-function tellLookCanvas(message: unknown): number {
+function postToCanvas(message: unknown): number {
   let n = 0;
   for (const f of document.querySelectorAll<HTMLIFrameElement>(LOOK_FRAMES)) {
     if (!f.contentWindow) continue;
@@ -506,6 +514,20 @@ export function MainBackgroundPanel({
     cover: hero.photoUrl,
     themeId,
   };
+  /**
+   * The scrim and tint THE PAGE'S OWN RULES measure for a background (`resolveAdaptiveTheme` · `adaptiveThemeVars`,
+   * the two `main-ground-layer.tsx` calls) — so the canvas wears a picture exactly as its render would, and the save
+   * need ask the server for nothing more. A loop of ours is measured over its own two sampled colours and never tints.
+   */
+  const wornFor = (g: LookGround): MainGroundWorn => {
+    const m = g.main;
+    const loopId = isHubMainLoop(m) ? m.loop : m && 'ground' in m && m.ground === 'theme' ? themeId : null;
+    const samples = loopId ? (INVITE_THEMES[loopId]?.media?.samples ?? null) : null;
+    const measured = isHubMainOwn(m) || isHubMainFollow(m) ? m.tint : samples ? { match: false, frame: [samples.light, samples.dark] } : null;
+    if (!measured || measured.frame.length === 0) return { scrim: null, vars: {} };
+    const a = resolveAdaptiveTheme(theme, measured);
+    return { scrim: a.scrim, vars: adaptiveThemeVars(a, { ownButton: page?.ownButton === true }) };
+  };
   /** A pick's news from the canvas: the still is painted, its clip moves, or the page has redrawn itself with it. */
   useEffect(() => {
     if (!studio) return;
@@ -541,8 +563,9 @@ export function MainBackgroundPanel({
 
   /**
    * 🧭 Studio: ONE pick — the main background and/or the page's colour or Candlelight — in four steps:
-   * drawn in the panel (the ring), laid on the canvas (its still or colour), saved behind it HELD
-   * (`makerRedrawSave`: no whole-Maker render; the page redraws itself in place), and said (`BgPickLine`).
+   * drawn in the panel (the ring), laid on the canvas (its still, scrim and tint, or its colour), saved behind it
+   * HELD — ONE write and NO render when the canvas wears all of it; one redraw of the page in place
+   * (`makerRedrawSave`) only where the server must measure something — and said (`BgPickLine`).
    * A LATER PICK WINS: an answer for an older number moves nothing on screen. A refusal puts the last
    * landed background back, takes the preview off, and says so with Try again.
    *   · `began` — the pick was already ringed and laid at the tap (its colours were being read);
@@ -559,11 +582,15 @@ export function MainBackgroundPanel({
     const fresh = opts.began === undefined;
     const seq = opts.began ?? ++lookPickSeq;
     if (fresh) pickMark('tap');
-    /* The canvas wears it NOW — when it is another picture or colour. A Shade, a Blur, a Focus keep the picture:
-       the page's own render brings them, with the veil it measures. */
-    const lay = fresh && !opts.render && backgroundPictureKey(next) !== backgroundPictureKey(ground) ? backgroundLayOf(next, lookPictures) : null;
-    const heard = opts.render ? 0 : lay ? tellLookCanvas(mainGroundPreviewMessage(seq, lay)) : document.querySelectorAll(LOOK_FRAMES).length;
+    /* ⚡ ONE WRITE, NO RENDER wherever the canvas can wear the change exactly from here (`backgroundPickRedraws`):
+       another picture, where it is held, its blur, its tint, a pattern. A page colour, a Shade, Candlelight and
+       Motion are measured on the server — those lay what they can at the tap and the page redraws itself ONCE. */
+    const redraws = !opts.render && backgroundPickRedraws(ground, next, typeof page?.ownButton === 'boolean');
+    const lay = opts.render || (redraws && backgroundPictureKey(next) === backgroundPictureKey(ground)) ? null : backgroundLayOf(next, lookPictures, wornFor(next), !redraws);
+    const heard = opts.render ? 0 : lay ? postToCanvas(mainGroundPreviewMessage(seq, lay)) : document.querySelectorAll(LOOK_FRAMES).length;
     if (lay && heard > 0) pickMark('canvas-told');
+    /** The canvas wears all of it: the save is the pick's only request. */
+    const worn = !opts.render && !redraws && Boolean(lay) && heard > 0;
     lookDrawnSeq = seq;
     lookGround.draw(lookKey, next, serverRef.current);
     lookGround.sent();
@@ -573,12 +600,18 @@ export function MainBackgroundPanel({
       seq,
       card: null,
       reading: false,
-      laid: fresh ? Boolean(lay) && heard > 0 : Boolean(was && was.seq === seq && was.laid),
+      laid: Boolean(lay) && heard > 0,
       /* No canvas to hear it, or a save that brings its own render: there is nothing more to wait for than the save. */
-      shown: heard === 0 || Boolean(!fresh && was && was.seq === seq && was.shown),
+      shown: heard === 0 || Boolean(!lay && !fresh && was && was.seq === seq && was.shown),
       saved: false,
       failed: null,
     }));
+    /** The canvas is told the moment the save lands — BEFORE any redraw is asked for, so that redraw may take the preview away. */
+    const landing = async <T extends { ok: boolean }>(saving: Promise<T>): Promise<T> => {
+      const r = await saving;
+      if (r.ok) postToCanvas(mainGroundLandedMessage(seq));
+      return r;
+    };
     void (async () => {
       let ok = false;
       let said = failure;
@@ -586,8 +619,11 @@ export function MainBackgroundPanel({
         pickMark('write-sent');
         const r = opts.render
           ? await makerSave(() => saveLookWrite(eventId, write, draftAction), () => router.refresh())
-          : await makerRedrawSave(() => saveLookWrite(eventId, write, draftAction, true), () => router.refresh());
+          : worn
+            ? await makerSave(() => landing(saveLookWrite(eventId, write, draftAction, true)), () => router.refresh(), { held: true })
+            : await makerRedrawSave(() => landing(saveLookWrite(eventId, write, draftAction, true)), () => router.refresh());
         pickMark('write-answered');
+        if (!worn && !opts.render) pickMark('redraw-asked');
         ok = r.ok === true;
         if (!r.ok) said = r.error || failure;
       } catch {
@@ -597,7 +633,7 @@ export function MainBackgroundPanel({
       lookGround.answered(lookKey, { ok, latest, value: next }, serverRef.current);
       if (ok) setPick((p) => backgroundPickAfter(p, seq, { saved: true }));
       else if (latest) {
-        tellLookCanvas(mainGroundPreviewMessage(seq, null));
+        postToCanvas(mainGroundPreviewMessage(seq, null));
         setPick((p) => (p && p.seq === seq ? { ...p, reading: false, failed: said } : p));
       }
     })();
@@ -617,7 +653,7 @@ export function MainBackgroundPanel({
     };
     setError(null);
     const lay = stillUrl ? backgroundLayOf({ main: provisional, bg: ground.bg }, lookPictures) : null;
-    const heard = lay ? tellLookCanvas(mainGroundPreviewMessage(seq, lay)) : 0;
+    const heard = lay ? postToCanvas(mainGroundPreviewMessage(seq, lay)) : 0;
     if (heard > 0) pickMark('canvas-told');
     setPick({ seq, card, reading: Boolean(stillUrl), laid: heard > 0, shown: false, saved: false, failed: stillUrl ? null : COULD_NOT_READ });
     if (!stillUrl) return;
@@ -632,7 +668,7 @@ export function MainBackgroundPanel({
       }
       if (seq !== lookPickSeq) return; // a later tap took over
       if (frame.length === 0) {
-        tellLookCanvas(mainGroundPreviewMessage(seq, null));
+        postToCanvas(mainGroundPreviewMessage(seq, null));
         setPick((p) => (p && p.seq === seq ? { ...p, reading: false, failed: COULD_NOT_READ } : p));
         return;
       }

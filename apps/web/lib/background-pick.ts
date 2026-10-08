@@ -119,13 +119,27 @@ export type MainGroundLay = {
   color: string | null;
   image: string | null;
   size: string | null;
+  /** The page's paper over a picture, 0–1 — what `MainGround` draws from `resolveAdaptiveTheme(…).scrim`. */
+  scrim: number | null;
+  blur: 'soft' | 'strong' | null;
+  /** `adaptiveThemeVars(…)` — the tint a picture lends the page. */
+  vars: Record<string, string>;
 };
+
+/** What the page's own rules measure for a picture (`lib/adaptive-theme.ts`) — asked by the panel, which holds the theme. */
+export type MainGroundWorn = { scrim: number | null; vars: Record<string, string> };
+const BARE: MainGroundWorn = { scrim: null, vars: {} };
 
 export const MAIN_GROUND_PREVIEW = 'mainGround';
 
 /** `lay: null` takes the preview off — the save was refused, the page's own ground is the truth again. */
 export function mainGroundPreviewMessage(seq: number, lay: MainGroundLay | null) {
   return { source: 'setnayan-editor', t: MAIN_GROUND_PREVIEW, seq, lay } as const;
+}
+
+/** That pick's save has landed — only a render the canvas is asked for AFTER this may take the preview away. */
+export function mainGroundLandedMessage(seq: number) {
+  return { source: 'setnayan-editor', t: MAIN_GROUND_PREVIEW, seq, landed: true } as const;
 }
 
 /** The page's background as Look › Background holds it: the main background, the page colour, the art direction. */
@@ -147,10 +161,22 @@ export type LookGroundPictures = {
  * or null when there is nothing honest to lay (a picture whose address is not
  * known here): the canvas then waits for its own render, and the line says so.
  */
-export function backgroundLayOf(next: Pick<LookGround, 'main' | 'bg'>, pictures: LookGroundPictures): MainGroundLay | null {
+export function backgroundLayOf(
+  next: Pick<LookGround, 'main' | 'bg'>,
+  pictures: LookGroundPictures,
+  /** The scrim and tint the page's rules measure for this picture (absent: none known yet — the still alone). */
+  worn: MainGroundWorn = BARE,
+  /**
+   * The page colour is NOT changing: a colour or a pattern then paints no paper of its own — the page's own paper
+   * (and its blend, with the veil only the layout measures) lies under the layer and shows through, exactly.
+   */
+  keepPaper = false,
+): MainGroundLay | null {
   const m = next.main;
+  const b = (m as { blur?: unknown } | null)?.blur;
+  const blur = b === 'soft' || b === 'strong' ? b : null;
   const picture = (still: string | null, clip: string | null, focus?: HubMainFocus | null): MainGroundLay | null =>
-    still ? { still, clip, position: mainGroundPosition(focus ?? null), color: null, image: null, size: null } : null;
+    still ? { still, clip, position: mainGroundPosition(focus ?? null), color: null, image: null, size: null, scrim: worn.scrim, blur, vars: worn.vars } : null;
   if (isHubMainOwn(m)) {
     const focus = (m as { focus?: HubMainFocus }).focus ?? null;
     return m.kind === 'photo' ? picture(pictures.media(m.media), null, focus) : picture(m.poster ? pictures.media(m.poster) : null, pictures.media(m.media));
@@ -169,7 +195,7 @@ export function backgroundLayOf(next: Pick<LookGround, 'main' | 'bg'>, pictures:
     layers.push(MAIN_GROUND_PATTERN_CSS[m.pattern].image);
     sizes.push(MAIN_GROUND_PATTERN_CSS[m.pattern].size);
   }
-  if (bg?.kind === 'ombre') {
+  if (bg?.kind === 'ombre' && !keepPaper) {
     layers.push(ombreCss(bg.ombre));
     sizes.push('auto');
   }
@@ -177,10 +203,35 @@ export function backgroundLayOf(next: Pick<LookGround, 'main' | 'bg'>, pictures:
     still: null,
     clip: null,
     position: 'center',
-    color: bg ? (bg.kind === 'plain' ? bg.hex : bg.ombre.base) : null,
+    color: bg && !keepPaper ? (bg.kind === 'plain' ? bg.hex : bg.ombre.base) : null,
     image: layers.length > 0 ? layers.join(', ') : null,
     size: layers.length > 0 ? sizes.join(', ') : null,
+    scrim: null,
+    blur: null,
+    vars: {},
   };
+}
+
+/**
+ * ⚡ ONE WRITE, NO RENDER — or one render? (owner rule 2026-10-08: *"the least amount of request for the tasks to be
+ * done"*; a canvas redraw is a whole guest-page render.) FALSE = the canvas can wear this change EXACTLY from the
+ * client, so its save asks the server for nothing more. TRUE = part of it is measured only on the server, and the
+ * page must redraw itself once:
+ *   · the page COLOUR (plain or blended): the words' ink and a blend's veil are the layout's;
+ *   · CANDLELIGHT: the whole look turns;
+ *   · anything under or changing a SHADE: the veil is measured over the picture and the words' inks follow it;
+ *   · MOTION (parallax): the drift is the server layer's own script;
+ *   · a picture's TINT when the panel cannot say whether the buttons are the couple's own (`canTint`).
+ */
+export function backgroundPickRedraws(prev: LookGround, next: LookGround, canTint: boolean): boolean {
+  const shade = (g: LookGround) => (g.main as { shade?: string } | null)?.shade ?? null;
+  const drifts = (g: LookGround) => isHubMainOwn(g.main) && g.main.motion === 'parallax';
+  if ((prev.art ?? null) !== (next.art ?? null)) return true;
+  if ((prev.bg ?? null) !== (next.bg ?? null)) return true;
+  if (shade(prev) || shade(next)) return true;
+  if (drifts(prev) !== drifts(next) || drifts(next)) return true;
+  if ((isHubMainOwn(next.main) || isHubMainFollow(next.main)) && !canTint) return true;
+  return false;
 }
 
 /**

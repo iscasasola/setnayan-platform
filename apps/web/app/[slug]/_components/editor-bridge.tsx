@@ -65,8 +65,9 @@ import { playSequence } from './play-sequence';
  *   frame  → parent { source:'setnayan-site',   t:'hubTab',   tab } — the tab now on screen (after any switch)
  *   parent → frame  { source:'setnayan-editor', t:'refresh' } — 🖼 a pick the bridge cannot draw
  *                    was saved: the page re-renders itself in place (`router.refresh()`)
- *   parent → frame  { source:'setnayan-editor', t:'mainGround', seq, lay } — ⚡ Look › Background's pick,
- *                    worn at once on the bridge's own layer (`main-ground-preview.ts` has the whole protocol)
+ *   parent → frame  { source:'setnayan-editor', t:'mainGround', seq, lay } · { seq, landed } — ⚡ Look ›
+ *                    Background's pick, worn on the bridge's own layer and kept: its save asks for no render
+ *                    (`main-ground-preview.ts` has the whole protocol)
  *   frame  → parent { source:'setnayan-site',   t:'mainGround', seq, shown } · { seq, playing } · { redrawn }
  *   parent → frame  { source:'setnayan-editor', t:'settle', forget? } — 📱 the Maker's last editing
  *                    surface closed: the page goes back to where it rested, or (`forget`, a
@@ -455,8 +456,9 @@ export function EditorBridge() {
   routerRef.current = router;
   /* ⚡ LOOK › BACKGROUND, AT ONCE (owner 2026-10-08: *"took 8 seconds before a background shows"*). The bridge's OWN
      layer — after every ground the page draws, hidden at rest — wears the pick the Maker posts
-     (`main-ground-preview.ts`), and steps aside when THIS page's own render is on screen: the refresh runs inside a
-     transition, and the transition ending is that render committed. */
+     (`main-ground-preview.ts`) and KEEPS it: the pick's save asks this page for no render. It steps aside only when
+     this page next renders for another reason, once that render is on screen: a refresh runs inside a transition,
+     and the transition ending is that render committed. */
   const groundLayer = useRef<HTMLDivElement>(null);
   const groundPreview = useRef<MainGroundPreviewer | null>(null);
   const [redrawing, startRedraw] = useTransition();
@@ -702,7 +704,8 @@ export function EditorBridge() {
          (the save was refused). Every field is checked again here: nothing from a message becomes CSS unchecked. */
       if (data && data.source === 'setnayan-editor' && data.t === 'mainGround') {
         const preview = sanitizeMainGroundPreview(data, origin);
-        if (preview) groundPreview.current?.lay(preview);
+        if (preview && 'landed' in preview) groundPreview.current?.land(preview.seq);
+        else if (preview) groundPreview.current?.lay(preview);
         return;
       }
       if (data && data.source === 'setnayan-editor' && data.t === 'sceneBg') {

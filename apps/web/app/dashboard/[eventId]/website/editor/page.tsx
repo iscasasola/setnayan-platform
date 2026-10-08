@@ -855,6 +855,8 @@ export default async function WebsiteEditorPage({
                           themeColours(mainThemeId, (drafted as { role_palette?: unknown }).role_palette).colours.canvas,
                         five: boardSiteColours((drafted as { role_palette?: unknown }).role_palette)?.swatches ?? [],
                         artDirection: (drafted.site_art_direction as 'daylight' | 'candlelight' | null) ?? null,
+                        /* ⚡ A picture's tint leaves the couple's own button colour alone — the panel must know, to draw a pick without a render. */
+                        ownButton: Boolean(drafted.site_button_color),
                       }}
                       /* 🎬 …and the hero video's own uploader, drawn there under "Your photo or video". */
                       heroVideo={heroVideoPanel}

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "d5e660b35",
+  "generatedFromRef": "0a247fc62",
   "routeCount": 428,
   "destinations": 957,
   "actions": 671,
-  "blocks": 5705,
+  "blocks": 5706,
   "routes": {
     "/": {
       "files": [
@@ -1177,6 +1177,7 @@
         "HTMLInputElement",
         "HTMLOListElement",
         "HTMLSpanElement",
+        "HTMLStyleElement",
         "HTMLVideoElement",
         "Header",
         "HeroBackgroundMedia",

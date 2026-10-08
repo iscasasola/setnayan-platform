@@ -254,13 +254,15 @@ test('only saves the bridge drew are marked held; the shell announces every form
     'app/dashboard/[eventId]/website/editor/_components/element-sheet.tsx',
     'app/dashboard/[eventId]/website/editor/_components/scene-background-row.tsx',
     'app/dashboard/[eventId]/website/editor/_components/details-bound-field.tsx',
+    // ⚡ 2026-10-08: Studio › Look › Background's pick is worn by the bridge's own layer (`main-ground-preview.ts`)
+    // — one write, no render (`a-background-pick-shows-at-once.test.ts`). The shipped Maker's save there stays unheld.
+    'app/dashboard/[eventId]/website/editor/_components/main-background-panel.tsx',
   ];
   // `{ held: true }`, or with more options beside it (the part sheet's `ok`, 2026-09-30).
   for (const f of held) assert.match(read(f), /makerSave\([\s\S]*?\{ held: true\b[^}]*\},?\s*\)/, `${f}: a drawn pick must be held`);
   for (const f of [
     // The scene inspector's save is `useSceneCanvas`, in its own module since train n.
     'app/dashboard/[eventId]/website/editor/_components/use-scene-canvas.ts',
-    'app/dashboard/[eventId]/website/editor/_components/main-background-panel.tsx',
     'app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx',
     'app/dashboard/[eventId]/launch/_components/maker-reveal.tsx',
   ]) {

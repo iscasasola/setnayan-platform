@@ -195,7 +195,7 @@ export function MakerLabShell({
           ownsPro={false}
           loops={loops}
           /* 🌈 Studio › Look › Background's Colour source — Classic's paper and maria-and-jose's five. */
-          page={{ bgColor: pageColour, resolved: house.palette.canvas, five: ['#5B1A22', '#F7F2EC', '#C9A86A', '#FBFAF7', '#7A8B6F'], artDirection: null }}
+          page={{ bgColor: pageColour, resolved: house.palette.canvas, five: ['#5B1A22', '#F7F2EC', '#C9A86A', '#FBFAF7', '#7A8B6F'], artDirection: null, ownButton: false }}
           draftAction={labDraft as never}
           heroVideo={heroVideo}
         />

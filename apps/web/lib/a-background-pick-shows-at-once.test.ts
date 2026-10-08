@@ -41,7 +41,9 @@ import {
   backgroundCardLooks,
   backgroundLayOf,
   backgroundPickAfter,
+  backgroundPickRedraws,
   backgroundPickStep,
+  mainGroundLandedMessage,
   backgroundPictureKey,
   createLookGroundStore,
   mainGroundPreviewMessage,
@@ -77,6 +79,7 @@ const stored = (raw: unknown): HubMainGround => {
   return m;
 };
 const FRAME = ['#112233', '#445566'];
+const STD_SCENE = { kind: 'photo', media: STD_REALISTIC_BACKGROUNDS[0]!.src, tint: { match: true, frame: FRAME } };
 
 /* ── (1) the words, in order ──────────────────────────────────────────── */
 
@@ -252,7 +255,7 @@ test('(4) every background the panel can pick lays something the canvas accepts 
   // Cropped where the page crops (the guest page's one rule).
   assert.equal(backgroundLayOf(lays.find((l) => l[0] === 'their photo, held at the top')![1], PICTURES)!.position, 'center top');
   // A colour: its hex; a blend: its gradient over the hex; a pattern: the guest page's own pattern (the page's ink).
-  assert.deepEqual(backgroundLayOf({ main: stored({ ground: 'none' }), bg: '#5b1a22' }, PICTURES), { still: null, clip: null, position: 'center', color: '#5b1a22', image: null, size: null });
+  assert.deepEqual(backgroundLayOf({ main: stored({ ground: 'none' }), bg: '#5b1a22' }, PICTURES), { still: null, clip: null, position: 'center', color: '#5b1a22', image: null, size: null, scrim: null, blur: null, vars: {} });
   const blend = backgroundLayOf({ main: stored({ ground: 'none' }), bg: encodeBackgroundChoice('#5b1a22', BACKGROUND_EFFECTS[1]!) }, PICTURES)!;
   assert.match(blend.image!, /gradient\(/);
   assert.equal(blend.color, '#5b1a22');
@@ -269,16 +272,68 @@ test('(4) every background the panel can pick lays something the canvas accepts 
   assert.equal(backgroundPictureKey(shaded), backgroundPictureKey(photo), 'a Shade is laid as a new picture — its veil would be lost');
   assert.equal(backgroundPictureKey({ ...photo, bg: '#000000' }), backgroundPictureKey(photo), 'a page colour under a photo is a new picture');
   assert.equal(new Set(lays.map((l) => backgroundPictureKey(l[1]))).size, lays.length - 1, 'two different cards are the same picture (only the held photo repeats one)');
+
+  // ⚡ WHAT THE PAGE'S OWN RULES MEASURE rides the lay — the scrim, the tint, the blur — so the canvas wears a picture exactly.
+  const worn = { scrim: 0.42, vars: { '--hub-accent': '#a8802f', '--color-gild': '168 128 47' } };
+  const blurred = { ...photo, main: stored({ ...(photo.main as object), blur: 'strong' }) };
+  const dressed = backgroundLayOf(blurred, PICTURES, worn)!;
+  assert.deepEqual([dressed.scrim, dressed.blur, dressed.vars], [0.42, 'strong', worn.vars], 'the scrim, blur or tint the page measures is not laid');
+  assert.deepEqual(sanitizeMainGroundPreview(JSON.parse(JSON.stringify(mainGroundPreviewMessage(1, dressed))), ORIGIN), { seq: 1, lay: dressed }, 'the canvas refuses a dressed picture');
+  assert.deepEqual([backgroundLayOf(photo, PICTURES)!.scrim, backgroundLayOf(photo, PICTURES)!.vars], [null, {}], 'a scrim is guessed before the picture is measured');
+  // A colour or pattern while the page colour is NOT changing paints no paper of its own: the page's own shows through, exactly.
+  const blendDots = { main: stored({ ground: 'pattern', pattern: 'dots' }), bg: encodeBackgroundChoice('#5b1a22', BACKGROUND_EFFECTS[1]!) };
+  const kept = backgroundLayOf(blendDots, PICTURES, undefined, true)!;
+  assert.equal(kept.color, null, 'a pattern repaints the page colour it sits on');
+  assert.equal(kept.image, backgroundLayOf({ main: blendDots.main, bg: null }, PICTURES)!.image, 'with the paper kept, only the pattern is laid');
+  assert.deepEqual(backgroundLayOf({ main: stored({ ground: 'none' }), bg: '#5b1a22' }, PICTURES, undefined, true), { still: null, clip: null, position: 'center', color: null, image: null, size: null, scrim: null, blur: null, vars: {} });
+
+  // ⚡ ONE WRITE, NO RENDER — exactly where the canvas can wear the change from the client; ONE redraw where the server measures.
+  const g = (main: unknown, bg: string | null = null, art: LookGround['art'] = null): LookGround => ({ main: main === null ? null : stored(main), bg, art });
+  const LOOP_A = { ground: 'loop', loop: hubMovingBackgroundIds()[0] };
+  const LOOP_B = { ground: 'loop', loop: hubMovingBackgroundIds()[1] };
+  const PHOTO = photo.main as object;
+  const zero: Array<[string, LookGround, LookGround]> = [
+    ['one video to another', g(LOOP_A), g(LOOP_B)],
+    ['a video to a scene', g(LOOP_A), g(STD_SCENE)],
+    ['a video to their photo', g(LOOP_A), g(PHOTO)],
+    ['their photo to the cover', g(PHOTO), g({ follow: 'hero', of: 'r2://setnayan-media/events/E1/landing-page-hero/h.jpg', tint: { match: true, frame: FRAME } })],
+    ['a picture to a pattern', g(PHOTO), g({ ground: 'pattern', pattern: 'dots' })],
+    ['one pattern to another', g({ ground: 'pattern', pattern: HUB_MAIN_PATTERNS[0] }, '#5b1a22'), g({ ground: 'pattern', pattern: HUB_MAIN_PATTERNS[1] }, '#5b1a22')],
+    ['a picture to just the colour (the colour unchanged)', g(PHOTO, '#5b1a22'), g({ ground: 'none' }, '#5b1a22')],
+    ['Focus ▾', g(PHOTO), g({ ...PHOTO, focus: 'top' })],
+    ['Blur ▾', g(PHOTO), g({ ...PHOTO, blur: 'soft' })],
+    ['Match ▾ → Keep', g(PHOTO), g({ ...PHOTO, tint: { match: false, frame: FRAME } })],
+  ];
+  for (const [what, a, b] of zero) assert.equal(backgroundPickRedraws(a, b, true), false, `${what}: the page is re-rendered for a change the canvas can wear`);
+  const once: Array<[string, LookGround, LookGround]> = [
+    ['a page colour', g({ ground: 'none' }), g({ ground: 'none' }, '#5b1a22')],
+    ['a blend on the same colour', g({ ground: 'none' }, '#5b1a22'), g({ ground: 'none' }, encodeBackgroundChoice('#5b1a22', BACKGROUND_EFFECTS[1]!))],
+    ['a picture to a colour of its own', g(PHOTO), g({ ground: 'none' }, '#5b1a22')],
+    ['Candlelight', g(PHOTO), g(PHOTO, null, 'candlelight')],
+    ['a Shade', g(PHOTO), g({ ...PHOTO, shade: 'dark' })],
+    ['a Shade taken off', g({ ...PHOTO, shade: 'dark' }), g(PHOTO)],
+    ['a Blur under a Shade', g({ ...PHOTO, shade: 'dark' }), g({ ...PHOTO, shade: 'dark', blur: 'soft' })],
+    ['Motion ▾ → Parallax', g(PHOTO), g({ ...PHOTO, motion: 'parallax' })],
+    ['Motion ▾ → Still', g({ ...PHOTO, motion: 'parallax' }), g(PHOTO)],
+  ];
+  for (const [what, a, b] of once) assert.equal(backgroundPickRedraws(a, b, true), true, `${what}: the server measures part of this — the canvas would keep a look guests never see`);
+  // …and a picture's tint cannot be drawn when the panel does not know whose colour the buttons wear.
+  assert.equal(backgroundPickRedraws(g(LOOP_A), g(PHOTO), false), true);
+  assert.equal(backgroundPickRedraws(g(LOOP_A), g(LOOP_B), false), false, 'a loop never tints — it needs no render either way');
 });
 
 /* ── (5) nothing hostile reaches CSS ──────────────────────────────────── */
 
 test('(5) the canvas refuses any message that is not the Maker’s own shape — nothing reaches CSS unchecked', () => {
-  const good = { still: 'https://pub.example.test/a.jpg', clip: null, position: 'center', color: null, image: null, size: null };
+  const good = { still: 'https://pub.example.test/a.jpg', clip: null, position: 'center', color: null, image: null, size: null, scrim: 0.3, blur: null, vars: { '--hub-accent': '#a8802f', '--color-gild': '168 128 47' } };
   const msg = (lay: unknown, seq: unknown = 3) => ({ source: 'setnayan-editor', t: 'mainGround', seq, lay });
+  const layOf = (x: ReturnType<typeof sanitizeMainGroundPreview>) => (x && 'lay' in x ? x.lay : undefined);
+  // "Its save has landed" — a number and nothing else.
+  assert.deepEqual(sanitizeMainGroundPreview(JSON.parse(JSON.stringify(mainGroundLandedMessage(4))), ORIGIN), { seq: 4, landed: true });
+  assert.equal(sanitizeMainGroundPreview({ source: 'setnayan-editor', t: 'mainGround', seq: 0, landed: true }, ORIGIN), null);
   assert.deepEqual(sanitizeMainGroundPreview(msg(good), ORIGIN), { seq: 3, lay: good });
   assert.deepEqual(sanitizeMainGroundPreview(msg(null), ORIGIN), { seq: 3, lay: null }, 'a refused pick cannot be taken off');
-  assert.deepEqual(sanitizeMainGroundPreview(msg({ ...good, still: '/std/backgrounds/golden-hour.webp' }), ORIGIN)?.lay?.still, '/std/backgrounds/golden-hour.webp');
+  assert.deepEqual(layOf(sanitizeMainGroundPreview(msg({ ...good, still: '/std/backgrounds/golden-hour.webp' }), ORIGIN))?.still, '/std/backgrounds/golden-hour.webp');
   assert.ok(sanitizeMainGroundPreview(msg({ ...good, still: `${ORIGIN}/api/media/x.jpg` }), ORIGIN));
   const bad: Array<[string, unknown, unknown?]> = [
     ['no number', good, undefined],
@@ -304,6 +359,13 @@ test('(5) the canvas refuses any message that is not the Maker’s own shape —
     ['a brace in the blend', { ...good, still: null, image: 'linear-gradient(#000, #fff)}body{display:none' }],
     ['a quote in the size', { ...good, still: null, size: '"12px"' }],
     ['a very long blend', { ...good, still: null, image: 'linear-gradient(' + '#000, '.repeat(400) + '#fff)' }],
+    ['a scrim above one', { ...good, scrim: 1.5 }],
+    ['a scrim that is a string', { ...good, scrim: '0.3;' }],
+    ['a blur of its own', { ...good, blur: '5px) url(x' }],
+    ['a variable that is not a tint’s', { ...good, vars: { '--color-cream': '0 0 0' } }],
+    ['a variable with a tail', { ...good, vars: { '--hub-accent': '#a8802f;}body{display:none' } }],
+    ['a variable holding a url', { ...good, vars: { '--accent': 'url(//evil.test)' } }],
+    ['variables as a list', { ...good, vars: ['--accent'] }],
   ];
   for (const [what, lay, seq] of bad) {
     const data = what === 'no number' ? { source: 'setnayan-editor', t: 'mainGround', lay } : msg(lay, seq ?? 3);
@@ -329,12 +391,17 @@ function fakeCanvas(opts: { reducedMotion?: boolean } = {}) {
     style: Record<string, string> = {};
     listeners: Record<string, Listener[]> = {};
     muted = false; loop = false; playsInline = false; preload = ''; src = ''; paused = true; currentTime = 0;
+    textContent = '';
+    media = '';
     constructor(public tagName: string, public ownerDocument: unknown) {}
+    get parentNode() { return this.parent; }
     setAttribute(k: string, v: string) { this.attrs[k] = v; }
-    removeAttribute(k: string) { if (k === 'style') this.style = {}; else delete this.attrs[k]; }
+    removeAttribute(k: string) { if (k === 'style') this.style = {}; else if (k === 'media') this.media = ''; else delete this.attrs[k]; }
     replaceChildren(...kids: El[]) { this.children = kids; for (const k of kids) k.parent = this; }
     append(k: El) { this.children.push(k); k.parent = this; }
-    remove() { if (this.parent) this.parent.children = this.parent.children.filter((c) => c !== this); }
+    before(k: El) { const at = this.parent!.children.indexOf(this); this.parent!.children.splice(at, 0, k); k.parent = this.parent; }
+    closest(sel: string): El | null { return sel === 'main' ? shell : null; }
+    remove() { if (this.parent) this.parent.children = this.parent.children.filter((c) => c !== this); this.parent = null; }
     contains(o: El): boolean { return this.children.includes(o) || this.children.some((c): boolean => c.contains(o)); }
     querySelector(sel: string) { return this.children.find((c) => c.tagName === sel.toUpperCase()) ?? null; }
     addEventListener(t: string, fn: Listener) { (this.listeners[t] ??= []).push(fn); }
@@ -351,15 +418,28 @@ function fakeCanvas(opts: { reducedMotion?: boolean } = {}) {
     setTimeout: (f: () => void) => { timers.push(f); return 0; },
     navigator: {},
   };
-  const doc = { defaultView: win, createElement: (tag: string): El => new El(tag.toUpperCase(), doc), querySelectorAll: () => pageVideos };
+  const serverStyles: El[] = [];
+  const doc: { defaultView: unknown; head: El; createElement: (tag: string) => El; querySelectorAll: (sel: string) => El[] } = {
+    defaultView: win,
+    head: null as unknown as El,
+    createElement: (tag: string): El => new El(tag.toUpperCase(), doc),
+    querySelectorAll: (sel: string) => (sel.startsWith('style') ? serverStyles : pageVideos),
+  };
+  doc.head = new El('HEAD', doc);
+  const shell: El = new El('MAIN', doc);
+  /* The page's own tinted ground — the stylesheet `MainGround` draws. */
+  serverStyles.push(new El('STYLE', doc));
   const layer = new El('DIV', doc);
   layer.hidden = true;
   const told: unknown[] = [];
   const p = createMainGroundPreviewer(layer as unknown as HTMLElement, (m) => told.push(m));
-  return { p, layer, images, told, timers, pageVideos, El, doc };
+  /** The preview's own stylesheet, while it is worn. */
+  const rule = () => doc.head.children.find((k) => k.tagName === 'STYLE')?.textContent ?? null;
+  return { p, layer, images, told, timers, pageVideos, El, doc, shell, serverStyles, rule };
 }
-const PHOTO = { still: 'https://x.test/a.jpg', clip: null, position: 'center top', color: null, image: null, size: null };
-const FILM = { still: 'https://x.test/b.jpg', clip: 'https://x.test/b.mp4', position: 'center', color: null, image: null, size: null };
+const PHOTO = { still: 'https://x.test/a.jpg', clip: null, position: 'center top', color: null, image: null, size: null, scrim: 0.42, blur: 'soft', vars: { '--hub-accent': '#a8802f' } };
+const FILM = { still: 'https://x.test/b.jpg', clip: 'https://x.test/b.mp4', position: 'center', color: null, image: null, size: null, scrim: 0.2, blur: null, vars: {} };
+const FLAT = { scrim: null, blur: null, vars: {} };
 
 test('(6) the canvas lays the still first, the clip when it moves, lets a second tap win, and steps aside only for its own render', () => {
   // A picture: nothing changes until its still has LOADED — then it is on screen, and the Maker is told.
@@ -370,10 +450,20 @@ test('(6) the canvas lays the still first, the clip when it moves, lets a second
   assert.equal(c.images[0]!.src, PHOTO.still);
   c.images[0]!.onload!();
   assert.equal(c.layer.hidden, false);
-  assert.equal(c.layer.children.length, 1);
+  assert.equal(c.layer.children.length, 2, 'a still and the scrim over it');
   assert.equal(c.layer.children[0]!.style.backgroundImage, 'url("https://x.test/a.jpg")');
   assert.equal(c.layer.children[0]!.style.backgroundPosition, 'center top', 'the still is not cropped where the page crops it');
   assert.deepEqual(c.told, [{ seq: 1, shown: true }]);
+  // ⚡ WORN AS THE PAGE WOULD DRAW IT — so no render is owed: the measured scrim (the page's own paper), the blur, the tint…
+  assert.equal(c.layer.children[1]!.style.backgroundColor, 'rgb(var(--color-cream) / 0.42)', 'the scrim the page measures is not over the picture');
+  assert.deepEqual([c.layer.children[0]!.style.filter, c.layer.children[0]!.style.transform], ['blur(5px)', 'scale(1.08)']);
+  assert.match(c.rule()!, /\[data-guest-look\]\{--hub-accent:#a8802f !important;\}/, 'the tint is not laid on the look scope');
+  // …the ground it replaces hidden (never two films decoding), that ground's own tint lifted, and Classic's opaque shell cleared.
+  assert.match(c.rule()!, /\[data-main-ground\],\[data-main-ground-pattern\]\{display:none\}/);
+  assert.match(c.rule()!, /\[data-guest-ground\] \[data-theme-loop\]/);
+  assert.equal(c.serverStyles[0]!.media, 'not all', 'the replaced ground’s tint still colours the page');
+  assert.equal(c.shell.attrs['data-ground-preview-shell'], '', 'Classic’s opaque paper hides the preview');
+  assert.match(c.rule()!, /\[data-ground-preview-shell\]\{background-color:transparent !important\}/);
 
   // A SECOND TAP WINS: the first pick stays on screen until the second is ready; the first pick's late still is dropped.
   c = fakeCanvas();
@@ -398,6 +488,7 @@ test('(6) the canvas lays the still first, the clip when it moves, lets a second
   c.images[0]!.onload!();
   const video = c.layer.children.find((k) => k.tagName === 'VIDEO')!;
   assert.ok(video, 'the loop never swaps in');
+  assert.deepEqual(c.layer.children.map((k) => k.tagName), ['DIV', 'VIDEO', 'DIV'], 'the scrim is not over the clip');
   assert.equal(video.src, FILM.clip);
   assert.equal(video.style.opacity, '0', 'the clip covers the still before it moves');
   assert.deepEqual([video.muted, video.loop, video.playsInline], [true, true, true]);
@@ -411,25 +502,27 @@ test('(6) the canvas lays the still first, the clip when it moves, lets a second
   c.p.lay({ seq: 1, lay: FILM });
   c.images[0]!.onload!();
   c.layer.children.find((k) => k.tagName === 'VIDEO')!.fire('error');
-  assert.deepEqual(c.layer.children.map((k) => k.tagName), ['DIV']);
+  assert.deepEqual(c.layer.children.map((k) => k.tagName), ['DIV', 'DIV']);
   // Reduced motion: no clip at all.
   c = fakeCanvas({ reducedMotion: true });
   c.p.lay({ seq: 1, lay: FILM });
   c.images[0]!.onload!();
-  assert.deepEqual(c.layer.children.map((k) => k.tagName), ['DIV'], 'a clip plays under "reduce motion"');
+  assert.deepEqual(c.layer.children.map((k) => k.tagName), ['DIV', 'DIV'], 'a clip plays under "reduce motion"');
 
   // A colour, a blend, a pattern: at once (nothing to fetch), over whatever picture was there.
   c = fakeCanvas();
   c.p.lay({ seq: 1, lay: PHOTO });
   c.images[0]!.onload!();
-  c.p.lay({ seq: 2, lay: { still: null, clip: null, position: 'center', color: '#5b1a22', image: 'linear-gradient(#000, #fff)', size: 'auto' } });
+  c.p.lay({ seq: 2, lay: { still: null, clip: null, position: 'center', color: '#5b1a22', image: 'linear-gradient(#000, #fff)', size: 'auto', ...FLAT } });
   assert.equal(c.layer.hidden, false);
   assert.deepEqual(c.layer.children, [], 'the old picture shows through the colour');
   assert.deepEqual([c.layer.style.backgroundColor, c.layer.style.backgroundImage, c.layer.style.backgroundSize], ['#5b1a22', 'linear-gradient(#000, #fff)', 'auto']);
   assert.deepEqual(c.told.at(-1), { seq: 2, shown: true });
-  // …and with no colour of its own it is the page's paper — never see-through over an old picture.
-  c.p.lay({ seq: 3, lay: { still: null, clip: null, position: 'center', color: null, image: null, size: null } });
-  assert.equal(c.layer.style.backgroundColor, 'rgb(var(--color-cream))');
+  assert.doesNotMatch(c.rule()!, /data-guest-look/, 'the picture’s tint outlives the picture');
+  // …and with no colour of its own the page's OWN paper shows through — the ground it replaces is hidden, never seen through it.
+  c.p.lay({ seq: 3, lay: { still: null, clip: null, position: 'center', color: null, image: null, size: null, ...FLAT } });
+  assert.equal(c.layer.style.backgroundColor, '');
+  assert.match(c.rule()!, /\[data-main-ground\],\[data-main-ground-pattern\]\{display:none\}/, 'the old picture shows through a colour');
 
   // A still that cannot load: said (the Maker stops waiting for it), and nothing is laid.
   c = fakeCanvas();
@@ -445,22 +538,48 @@ test('(6) the canvas lays the still first, the clip when it moves, lets a second
   c.p.lay({ seq: 1, lay: null });
   assert.equal(c.layer.hidden, true, 'a refused pick is still on the canvas');
   assert.deepEqual(c.layer.children, []);
+  // …and everything it changed around itself is put back: its stylesheet, the page's own tint, the shell's mark.
+  assert.equal(c.rule(), null, 'a refused pick still hides the page’s own ground');
+  assert.equal(c.serverStyles[0]!.media, '');
+  assert.equal(c.shell.attrs['data-ground-preview-shell'], undefined);
 
-  // THE PAGE'S OWN RENDER takes over — and only the render that could hold this pick.
+  // ⚡ ONE WRITE, NO RENDER: a pick whose save has landed STAYS — nothing asks this page to render for it.
+  c = fakeCanvas();
+  c.p.lay({ seq: 1, lay: PHOTO });
+  c.images[0]!.onload!();
+  c.p.land(1);
+  assert.equal(c.layer.hidden, false, 'the pick left the canvas when its save landed — only a render could bring it back');
+  // THE PAGE'S NEXT RENDER (asked for another reason, AFTER the save landed) takes over: that render holds the pick.
+  c.p.redrawStarted();
+  c.p.redrawDone();
+  assert.equal(c.layer.hidden, true, 'the preview outlives the server’s own render');
+  assert.deepEqual(c.told.at(-1), { redrawn: true });
+  assert.equal(c.rule(), null);
+  // A render asked BEFORE the save landed is older than the pick: it must not take it off (nothing would bring it back).
+  c = fakeCanvas();
+  c.p.lay({ seq: 1, lay: PHOTO });
+  c.images[0]!.onload!();
+  c.p.redrawStarted();
+  c.p.land(1);
+  c.p.redrawDone();
+  assert.equal(c.layer.hidden, false, 'a render asked before the save landed took the pick off the canvas');
+  assert.deepEqual(c.told.at(-1), { redrawn: true }, 'the Maker is not told the page redrew');
+  // …nor one that never heard of it landing at all.
   c = fakeCanvas();
   c.p.lay({ seq: 1, lay: PHOTO });
   c.images[0]!.onload!();
   c.p.redrawStarted();
   c.p.redrawDone();
-  assert.equal(c.layer.hidden, true, 'the preview outlives the server’s own render');
-  assert.deepEqual(c.told.at(-1), { redrawn: true });
-  // A pick tapped WHILE a redraw was on its way outlives it (that render is older than the pick)…
+  assert.equal(c.layer.hidden, false, 'a pick whose save has not landed was replaced by an older render');
+  // A pick tapped AFTER the redraw was asked outlives it too (that render is older than the pick)…
   c = fakeCanvas();
   c.p.lay({ seq: 1, lay: PHOTO });
   c.images[0]!.onload!();
+  c.p.land(1);
   c.p.redrawStarted();
   c.p.lay({ seq: 2, lay: FILM });
   c.images[1]!.onload!();
+  c.p.land(2);
   c.p.redrawDone();
   assert.equal(c.layer.hidden, false, 'an older render took the newer pick off the canvas — it would flash back');
   // …and goes with the next one.
@@ -468,10 +587,11 @@ test('(6) the canvas lays the still first, the clip when it moves, lets a second
   c.p.redrawDone();
   // (a moving preview waits for the page's own clip to move — here there is none, so it goes at once)
   assert.equal(c.layer.hidden, true);
-  // A moving preview does not hand over to a clip that is not moving yet.
+  // A moving preview does not hand over to a clip that is not moving yet — and UNCOVERS the page's ground so it can start.
   c = fakeCanvas();
   c.p.lay({ seq: 1, lay: FILM });
   c.images[0]!.onload!();
+  c.p.land(1);
   const mine = c.layer.children.find((k) => k.tagName === 'VIDEO')!;
   mine.paused = false;
   const theirs = new c.El('VIDEO', c.doc);
@@ -479,12 +599,15 @@ test('(6) the canvas lays the still first, the clip when it moves, lets a second
   c.p.redrawStarted();
   c.p.redrawDone();
   assert.equal(c.layer.hidden, false, 'the swap shows a still frame between two films');
+  assert.doesNotMatch(c.rule()!, /display:none/, 'the page’s own film is still hidden — it can never start, so the hand-over always waits out its clock');
+  assert.equal(c.serverStyles[0]!.media, '');
   theirs.fire('playing');
   assert.equal(c.layer.hidden, true);
   // …but never waits for ever.
   c = fakeCanvas();
   c.p.lay({ seq: 1, lay: FILM });
   c.images[0]!.onload!();
+  c.p.land(1);
   c.layer.children.find((k) => k.tagName === 'VIDEO')!.paused = false;
   c.pageVideos.push(new c.El('VIDEO', c.doc));
   c.p.redrawStarted();
@@ -560,11 +683,27 @@ test('(8) the Studio draws and lays a pick BEFORE its save, holds the save, lets
   const pickLook = fn('pickLook', 'const pickMeasured = (');
   const pickMeasured = fn('pickMeasured', 'const save = (');
   // ORDER, in the one pick: the canvas is told, the panel draws it (the ring), the line starts — THEN the save is sent.
-  const order = ['tellLookCanvas(mainGroundPreviewMessage(seq, lay))', 'lookDrawnSeq = seq;', 'lookGround.draw(lookKey, next, serverRef.current);', 'setPick((was) => ({', 'await makerRedrawSave('].map((s) => pickLook.indexOf(s));
+  const order = ['postToCanvas(mainGroundPreviewMessage(seq, lay))', 'lookDrawnSeq = seq;', 'lookGround.draw(lookKey, next, serverRef.current);', 'setPick((was) => ({', 'await makerSave(', 'await makerRedrawSave('].map((s) => pickLook.indexOf(s));
   assert.ok(order.every((i) => i > 0), `a step of the pick is missing: ${order.join(', ')}`);
   assert.deepEqual([...order].sort((a, b) => a - b), order, 'the pick is not laid and drawn before its save is sent');
-  // HELD: the save owes no whole-Maker render (the canvas page redraws itself in place) and answers with the Apply bar.
-  assert.match(pickLook, /await makerRedrawSave\(\(\) => saveLookWrite\(eventId, write, draftAction, true\), \(\) => router\.refresh\(\)\)/, 'the Studio pick’s save is not the held redraw save');
+  // ⚡ ONE WRITE, NO RENDER (owner rule 2026-10-08): where the canvas wears all of it, the save is HELD and asks for NOTHING
+  // more — no whole-Maker render, no redraw of the canvas page. Only what the server must measure redraws the page, once.
+  assert.match(pickLook, /const redraws = !opts\.render && backgroundPickRedraws\(ground, next, typeof page\?\.ownButton === 'boolean'\);/, 'the pick does not ask the one rule whether a render is owed');
+  assert.match(pickLook, /const worn = !opts\.render && !redraws && Boolean\(lay\) && heard > 0;/, 'a pick is called "worn" without a canvas that heard it');
+  assert.match(
+    pickLook,
+    /: worn\s*\? await makerSave\(\(\) => landing\(saveLookWrite\(eventId, write, draftAction, true\)\), \(\) => router\.refresh\(\), \{ held: true \}\)\s*: await makerRedrawSave\(\(\) => landing\(saveLookWrite\(eventId, write, draftAction, true\)\), \(\) => router\.refresh\(\)\);/,
+    'a pick the canvas wears still asks the page to render',
+  );
+  // The canvas is told the save landed INSIDE the save — before any redraw can be asked — so only a later render takes the preview away.
+  assert.match(pickLook, /const r = await saving;\s*if \(r\.ok\) postToCanvas\(mainGroundLandedMessage\(seq\)\);\s*return r;/, 'the canvas never hears that the save landed — its next render could not take over');
+  // What the page's own rules measure rides the lay (the two functions `main-ground-layer.tsx` calls).
+  assert.match(panel, /const a = resolveAdaptiveTheme\(theme, measured\);\s*return \{ scrim: a\.scrim, vars: adaptiveThemeVars\(a, \{ ownButton: page\?\.ownButton === true \}\) \};/, 'the scrim and tint are not the page’s own measurement');
+  assert.match(pickLook, /backgroundLayOf\(next, lookPictures, wornFor\(next\), !redraws\)/);
+  const server = read('app/[slug]/_lib/main-ground-layer.tsx');
+  assert.match(server, /const adaptive = resolveAdaptiveTheme\(dressedTheme\(theme, event\.role_palette\), mainGround\.tint\);/, 'anti-vacuity: the page measures its scrim some other way now');
+  assert.match(server, /\.\.\.adaptiveThemeVars\(adaptive, \{ ownButton: Boolean\(event\.site_button_color\) \}\),/);
+  assert.match(read('app/dashboard/[eventId]/website/editor/page.tsx'), /ownButton: Boolean\(drafted\.site_button_color\),/, 'the panel is not told whose colour the buttons wear — every picture pick would redraw the page');
   assert.match(panel, /if \(bar\) fd\.set\(HUB_DRAFT_BAR_FIELD, '1'\);/, 'a held pick does not ask for the Apply bar — its count would wait for a render that never comes');
   // …only a file just uploaded (no address to lay) keeps the whole-Maker render.
   assert.match(pickLook, /opts\.render\s*\? await makerSave\(\(\) => saveLookWrite\(eventId, write, draftAction\), \(\) => router\.refresh\(\)\)/);
@@ -579,8 +718,8 @@ test('(8) the Studio draws and lays a pick BEFORE its save, holds the save, lets
   assert.match(pickLook, /if \(ok\) setPick\(\(p\) => backgroundPickAfter\(p, seq, \{ saved: true \}\)\);/);
   assert.match(pickMeasured, /if \(seq !== lookPickSeq\) return;/, 'a slow read of an older tap can overwrite the newer pick');
   // A REFUSAL: the preview comes off the canvas, the failure is said — and only for the latest pick.
-  assert.match(pickLook, /else if \(latest\) \{\s*tellLookCanvas\(mainGroundPreviewMessage\(seq, null\)\);\s*setPick\(\(p\) => \(p && p\.seq === seq \? \{ \.\.\.p, reading: false, failed: said \} : p\)\);/, 'a refused pick is not taken off the canvas and said');
-  assert.match(pickMeasured, /if \(frame\.length === 0\) \{\s*tellLookCanvas\(mainGroundPreviewMessage\(seq, null\)\);\s*setPick\(\(p\) => \(p && p\.seq === seq \? \{ \.\.\.p, reading: false, failed: COULD_NOT_READ \} : p\)\);/, 'a picture that could not be read still looks picked');
+  assert.match(pickLook, /else if \(latest\) \{\s*postToCanvas\(mainGroundPreviewMessage\(seq, null\)\);\s*setPick\(\(p\) => \(p && p\.seq === seq \? \{ \.\.\.p, reading: false, failed: said \} : p\)\);/, 'a refused pick is not taken off the canvas and said');
+  assert.match(pickMeasured, /if \(frame\.length === 0\) \{\s*postToCanvas\(mainGroundPreviewMessage\(seq, null\)\);\s*setPick\(\(p\) => \(p && p\.seq === seq \? \{ \.\.\.p, reading: false, failed: COULD_NOT_READ \} : p\)\);/, 'a picture that could not be read still looks picked');
   assert.doesNotMatch(pickLook + pickMeasured, /setPick\(null\)/, 'a failure clears the line as if it were done');
   // The panel READS its background through the store (a held save brings no props), and draws the line and the pick.
   assert.match(panel, /const ground = studio \? lookGround\.read\(lookKey, server\) : server;/);
@@ -605,7 +744,7 @@ test('(8) the Studio draws and lays a pick BEFORE its save, holds the save, lets
   const refresh = bridge.slice(bridge.indexOf("data.t === 'refresh'"), bridge.indexOf("data.t === 'mainGround'"));
   assert.match(refresh, /groundPreview\.current\?\.redrawStarted\(\);\s*startRedrawRef\.current\(\(\) => \{\s*routerRef\.current\.refresh\(\);\s*\}\);/, 'the page’s refresh is not the transition the preview waits on');
   const lay = bridge.slice(bridge.indexOf("data.t === 'mainGround'"), bridge.indexOf("data.t === 'sceneBg'"));
-  assert.match(lay, /const preview = sanitizeMainGroundPreview\(data, origin\);\s*if \(preview\) groundPreview\.current\?\.lay\(preview\);/, 'a message is laid unchecked');
+  assert.match(lay, /const preview = sanitizeMainGroundPreview\(data, origin\);\s*if \(preview && 'landed' in preview\) groundPreview\.current\?\.land\(preview\.seq\);\s*else if \(preview\) groundPreview\.current\?\.lay\(preview\);/, 'a message is laid unchecked');
   assert.match(bridge, /if \(wasRedrawing\.current && !redrawing\) groundPreview\.current\?\.redrawDone\(\);/);
   assert.equal((bridge.match(/redrawDone\(\)/g) ?? []).length, 1, 'the preview is taken away somewhere other than at the end of the page’s own render');
   assert.match(bridge, /if \(event\.origin !== origin\) return;/);

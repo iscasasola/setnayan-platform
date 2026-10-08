@@ -31,6 +31,7 @@ import { isStoreShellRequest } from '@/lib/request-platform';
 import { INVITE_THEMES, normalizeThemeId, themeBackgroundName } from '@/lib/invite-themes';
 import { boardSiteColours, buttonFallback, dressedTheme, themeColours } from '@/lib/theme-colours';
 import { hubMainGround, hubMovingBackgroundIds, isHubMainChoice, isHubMainOwn, sanitizeHubCanvas } from '@/lib/hub-canvas';
+import { hubMusicButton } from '@/lib/hub-music-button';
 import { resolveThemeGround } from '@/app/[slug]/_lib/theme-ground';
 import { guestLookFrom, type EventShellRow } from '@/app/[slug]/_lib/loaders';
 import { hubButtonPage } from '@/lib/hub-buttons';
@@ -506,6 +507,8 @@ export default async function WebsiteEditorPage({
      is HIDDEN in the store shell (never shown locked there). */
   const mainLive = hubMainGround(liveWidgets.find((r) => r.widget_type === 'hero')?.config_json);
   const mainNow = hubMainGround(allWidgets.find((r) => r.widget_type === 'hero')?.config_json);
+  /* 🎵 The guest's music button design — the same row, the same draft-over-live read. */
+  const musicButtonNow = hubMusicButton(allWidgets.find((r) => r.widget_type === 'hero')?.config_json);
   const draftedHero = resolveHero(overlayHubDraftEvent(event as Record<string, unknown>, hubDraft));
   /* What guests see today — a different hero shown is the couple's own edit (`lib/hero-frame-sync.ts`). */
   const liveHeroRef = resolveHero(event as Record<string, unknown>).photoRef;
@@ -1030,6 +1033,7 @@ export default async function WebsiteEditorPage({
               videoRef={panelVideoRef}
               videoDisplay={chromeDisplay}
               ourMusic={ourMusic.ok ? ourMusic.choices : null}
+              musicButton={musicButtonNow}
             />
           ),
         },
@@ -1611,6 +1615,7 @@ export default async function WebsiteEditorPage({
                 line: (event.venue_name as string | null) ?? null,
               },
               musicOn: panelMusicOn,
+              musicButton: musicButtonNow,
             }}
           />
         ),

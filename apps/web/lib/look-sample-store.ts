@@ -24,6 +24,7 @@
  * nothing happened.
  */
 import type { HubMainGround } from './hub-canvas';
+import type { HubMusicButton } from './hub-music-button';
 
 /** The values a Look control can change — each exactly as the draft holds it. */
 export type LookSampleValues = {
@@ -42,6 +43,8 @@ export type LookSampleValues = {
   /** `events.site_button_style` / `events.site_button_color`. */
   buttonStyle: string | null;
   buttonColour: string | null;
+  /** `widgets.hero.music` — the guest's music button design (`lib/hub-music-button.ts`). */
+  musicButton: HubMusicButton;
 };
 
 type Told = { value: unknown; fp: string; base: string | null };

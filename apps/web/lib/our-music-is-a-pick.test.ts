@@ -188,7 +188,10 @@ test('7 · Source ▾ is one dropdown that writes nothing, and the list is not i
   /* RE-AIMED 2026-10-08 (the port): the lazy door lives in `scene-styles-lazy.tsx` — the file the Maker warms when it
      is idle (`maker-tools-are-all-preloaded` requires every lazy panel to be in that preload) — as the branch's own
      later commit had it. The claim is unchanged: the list is reached only through import(), in the EXISTING chunk. */
-  assert.match(panel, /^import \{ OurMusicSong \} from '\.\/scene-styles-lazy';/m, 'the Music panel does not reach the list through the warmed lazy door');
+  /* RE-AIMED 2026-10-09 (the music button row rides the same door): the claim is that the LIST comes through the lazy
+     door and from nowhere else — not that it is the door's only name. */
+  assert.match(panel, /^import \{ (?:\w+, )*OurMusicSong(?:, \w+)* \} from '\.\/scene-styles-lazy';/m, 'the Music panel does not reach the list through the warmed lazy door');
+  assert.doesNotMatch(panel, /from '\.\/our-music'/, 'the Music panel imports the list itself — it is in the first load');
   // Comments are stripped above, so the chunk name is read from the raw file.
   const raw = readFileSync(join(WEB, 'app/dashboard/[eventId]/website/editor/_components/scene-styles-lazy.tsx'), 'utf8');
   assert.match(raw, /export const OurMusicSong = dynamic\(\s*\(\) => import\(\/\* webpackChunkName: "maker-details" \*\/ '\.\/our-music'\)/, 'in the existing chunk — a new one grows every page’s runtime');

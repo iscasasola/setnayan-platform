@@ -208,6 +208,8 @@ export function hubDraftChangePlace(item: HubDraftItem, live: HubLiveState): { p
       switch (item.field) {
         case 'main':
           return { place: LOOK, what: LOOK_SECTION_LABEL.background };
+        case 'music':
+          return { place: 'Music', what: 'Music button' };
         case 'std_lead':
           return { place: 'Save the Date', what: 'Film or photos' };
         case 'mode':

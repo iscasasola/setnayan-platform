@@ -8,9 +8,11 @@ import { parseTicketUrl, TICKET_URL_ERROR_TEXT, TICKET_URL_MAX } from '@/lib/tic
 import { HubDraftField, HubSavesImmediately } from '../../_components/hub-draft-field';
 import { FileUpload } from '@/app/_components/file-upload';
 /* 🎵 Our music's Song row and list — a lazy door, warmed with the Maker's other pieces (`scene-styles-lazy.tsx`). */
-import { OurMusicSong } from './scene-styles-lazy';
+import { MusicButtonRow, OurMusicSong } from './scene-styles-lazy';
 import { PickMenu } from './pick-menu';
 import { isHubMusicRef, type HubMusicChoice } from '@/lib/hub-music-ref';
+import type { HubMusicButton } from '@/lib/hub-music-button';
+import type { hubDraftAction } from '../../hub-draft-actions';
 import {
   SPATIAL_THEMES,
   type RsvpBackdropConfig,
@@ -163,6 +165,8 @@ export function SiteChromePanel({
   videoRef,
   videoDisplay,
   ourMusic,
+  musicButton,
+  draftAction,
 }: {
   action: (formData: FormData) => void | Promise<void>;
   eventId: string;
@@ -174,6 +178,10 @@ export function SiteChromePanel({
   videoDisplay?: Record<string, string>;
   /** 🎵 "Our music" — the published tracks, or `null` when they could not be read. Music part only. */
   ourMusic?: readonly HubMusicChoice[] | null;
+  /** 🎵 The guest's music button design, the draft over live. Given → the Music part draws the "Music button" row. */
+  musicButton?: HubMusicButton;
+  /** The draft door for that row — the dev lab hands its own stand-in. */
+  draftAction?: typeof hubDraftAction;
 }) {
   const studio = useMaker()?.stagesStudio === true;
   const formRef = useRef<HTMLFormElement>(null);
@@ -272,6 +280,10 @@ export function SiteChromePanel({
             />
             Play music on my Event Hub
           </label>
+          {/* 🎵 The button a guest taps, in three designs — its own held draft write, never this form's. */}
+          {musicButton ? (
+            <MusicButtonRow eventId={eventId} design={musicButton} hasSong={Boolean(musicRef) || pickedTrack !== null || uploaded} draftAction={draftAction} />
+          ) : null}
         </>
       ) : (
         <FileUpload

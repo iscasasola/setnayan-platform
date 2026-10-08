@@ -2,8 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { VolumeX } from 'lucide-react';
 import { TOP_CORNER_SLOT_ID } from '../_lib/top-corner';
+import { HUB_MUSIC_BUTTON_DEFAULT, type HubMusicButton } from '@/lib/hub-music-button';
+import { MUSIC_BUTTON_CLASS, MusicButtonFace } from './music-button-face';
 
 /**
  * Looping background music for the wedding site (Increment B ·
@@ -43,7 +44,7 @@ import { TOP_CORNER_SLOT_ID } from '../_lib/top-corner';
 /** The corner on its own, when the page has no top-right cluster to join. */
 const CORNER_ALONE = 'fixed right-3 top-3 z-[95] [padding-top:env(safe-area-inset-top)] print:hidden';
 
-export function BackgroundMusic({ src }: { src: string }) {
+export function BackgroundMusic({ src, design = HUB_MUSIC_BUTTON_DEFAULT }: { src: string; /** 🎵 The couple's design (`hubMusicButton`). */ design?: HubMusicButton }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState(false);
   const [touched, setTouched] = useState(false);
@@ -104,17 +105,10 @@ export function BackgroundMusic({ src }: { src: string }) {
         aria-pressed={playing}
         aria-label={playing ? 'Mute background music' : 'Play background music'}
         title={playing ? 'Mute music' : 'Play music'}
-        className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-ink/10 bg-cream/90 text-terracotta-700 shadow-sm backdrop-blur transition hover:bg-cream"
+        data-music-button={design}
+        className={`${MUSIC_BUTTON_CLASS} transition hover:bg-cream`}
       >
-        {playing ? (
-          <span aria-hidden className="inline-flex h-4 items-end gap-[2px]">
-            <span className="sn-eq-bar h-4 w-[3px] rounded-sm bg-current" />
-            <span className="sn-eq-bar h-4 w-[3px] rounded-sm bg-current [animation-delay:0.2s]" />
-            <span className="sn-eq-bar h-4 w-[3px] rounded-sm bg-current [animation-delay:0.4s]" />
-          </span>
-        ) : (
-          <VolumeX aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-        )}
+        <MusicButtonFace design={design} playing={playing} />
       </button>
       {touched || !atTop ? null : (
         <span

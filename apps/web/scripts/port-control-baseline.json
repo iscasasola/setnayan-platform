@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "0e0e79d57",
+  "generatedFromRef": "4a5326e6e",
   "routeCount": 429,
   "destinations": 959,
   "actions": 672,
-  "blocks": 5859,
+  "blocks": 5869,
   "routes": {
     "/": {
       "files": [
@@ -3105,7 +3105,8 @@
         "PageMasthead",
         "Picked",
         "Sheet",
-        "Switch"
+        "Switch",
+        "SwitchTrack"
       ]
     },
     "/admin/insights": {
@@ -6724,6 +6725,7 @@
         "ElementSheet",
         "EventPoster",
         "EventSettingsInput",
+        "Explain",
         "Face",
         "FactRow",
         "Field",
@@ -6981,6 +6983,7 @@
         "SwatchMore",
         "Switch",
         "SwitchRow",
+        "SwitchTrack",
         "ThemePick",
         "ThemePickProvider",
         "ThemePreviewOverlay",
@@ -9393,11 +9396,14 @@
         "ElementSheet",
         "ElementTarget",
         "ErrorLine",
+        "FactRow",
         "FileUpload",
         "FixedSceneStyleRow",
         "FontChoice",
         "FontPick",
         "FontsLookRows",
+        "FormRow",
+        "FormRows",
         "Fragment",
         "GalleryPanel",
         "HTMLAudioElement",
@@ -9489,6 +9495,7 @@
         "ReturnTo",
         "RowBlock",
         "RsvpBackdropPanel",
+        "SaveAnswer",
         "SaveButton",
         "SceneAlignRow",
         "SceneAnimateTab",
@@ -9509,6 +9516,7 @@
         "SectionColourChoices",
         "SectionsPanel",
         "SiteChromePanel",
+        "Slider",
         "StageAnimate",
         "StageBackground",
         "StagePanelPart",
@@ -9524,6 +9532,7 @@
         "StyledSceneRow",
         "SubmitButton",
         "Swatch",
+        "SwitchRow",
         "T",
         "TextPanel",
         "Thumb",
@@ -9533,6 +9542,7 @@
         "TypeBar",
         "TypeSession",
         "TypeStart",
+        "TypedRow",
         "UploadPicture",
         "VisibilityPanel",
         "Window",
@@ -9942,6 +9952,7 @@
     },
     "/dev/maker-lab": {
       "files": [
+        "dev/maker-lab/lab-post-event.ts",
         "dev/maker-lab/maker-lab-shell.tsx",
         "dev/maker-lab/page.tsx"
       ],

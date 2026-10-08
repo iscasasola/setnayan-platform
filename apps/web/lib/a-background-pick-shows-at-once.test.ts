@@ -544,3 +544,65 @@ test('(7) a refused save puts the last LANDED background back; an older pick’s
   assert.deepEqual(s.read(KEY, B), B);
   assert.deepEqual(s.read(KEY, A), A, 'an Undo on the server was hidden by the Maker’s own copy');
 });
+
+/* ── (8) the wiring ───────────────────────────────────────────────────── */
+
+test('(8) the Studio draws and lays a pick BEFORE its save, holds the save, lets a later pick outrank an older answer — and the bridge steps aside only for its own render', () => {
+  const panel = read(`${E}/main-background-panel.tsx`);
+  const fn = (name: string, until: string) => {
+    const at = panel.indexOf(`const ${name} = (`);
+    const end = panel.indexOf(until, at);
+    assert.ok(at > 0 && end > at, `anti-vacuity: \`${name}\` was not found`);
+    return panel.slice(at, end);
+  };
+  const pickLook = fn('pickLook', 'const pickMeasured = (');
+  const pickMeasured = fn('pickMeasured', 'const save = (');
+  // ORDER, in the one pick: the canvas is told, the panel draws it (the ring), the line starts — THEN the save is sent.
+  const order = ['tellLookCanvas(mainGroundPreviewMessage(seq, lay))', 'lookGround.draw(lookKey, next, serverRef.current);', 'setPick((was) => ({', 'await makerRedrawSave('].map((s) => pickLook.indexOf(s));
+  assert.ok(order.every((i) => i > 0), `a step of the pick is missing: ${order.join(', ')}`);
+  assert.deepEqual([...order].sort((a, b) => a - b), order, 'the pick is not laid and drawn before its save is sent');
+  // HELD: the save owes no whole-Maker render (the canvas page redraws itself in place) and answers with the Apply bar.
+  assert.match(pickLook, /await makerRedrawSave\(\(\) => saveLookWrite\(eventId, write, draftAction, true\), \(\) => router\.refresh\(\)\)/, 'the Studio pick’s save is not the held redraw save');
+  assert.match(panel, /if \(bar\) fd\.set\(HUB_DRAFT_BAR_FIELD, '1'\);/, 'a held pick does not ask for the Apply bar — its count would wait for a render that never comes');
+  // …only a file just uploaded (no address to lay) keeps the whole-Maker render.
+  assert.match(pickLook, /opts\.render\s*\? await makerSave\(\(\) => saveLookWrite\(eventId, write, draftAction\), \(\) => router\.refresh\(\)\)/);
+  assert.equal((panel.match(/\{ render: true \}/g) ?? []).length, 2, 'a pick other than an upload (and its retry) asks for a whole-Maker render');
+  // The Studio never waits inside a transition, and a card is never locked by a save in flight.
+  assert.doesNotMatch(pickLook + pickMeasured, /\bstart\(|startTransition\(/, 'the Studio pick runs inside a transition — React would hold its ring until the save answers');
+  assert.match(fn('save', 'const onFilePicked = ('), /^const save = \(.*\) => \{\s*if \(studio\) return pickLook\(\{ main \}, failure\);/, 'a Studio save still waits on the server');
+  // A LATER PICK WINS: every pick takes a new number; an answer is "latest" only for the newest; a stale read is dropped.
+  assert.match(pickLook, /const seq = opts\.began \?\? \+\+lookPickSeq;/);
+  assert.match(pickLook, /const latest = seq === lookPickSeq;\s*lookGround\.answered\(lookKey, \{ ok, latest, value: next \}, serverRef\.current\);/);
+  assert.match(pickLook, /if \(ok\) setPick\(\(p\) => backgroundPickAfter\(p, seq, \{ saved: true \}\)\);/);
+  assert.match(pickMeasured, /if \(seq !== lookPickSeq\) return;/, 'a slow read of an older tap can overwrite the newer pick');
+  // A REFUSAL: the preview comes off the canvas, the failure is said — and only for the latest pick.
+  assert.match(pickLook, /else if \(latest\) \{\s*tellLookCanvas\(mainGroundPreviewMessage\(seq, null\)\);\s*setPick\(\(p\) => \(p && p\.seq === seq \? \{ \.\.\.p, reading: false, failed: said \} : p\)\);/, 'a refused pick is not taken off the canvas and said');
+  assert.match(pickMeasured, /if \(frame\.length === 0\) \{\s*tellLookCanvas\(mainGroundPreviewMessage\(seq, null\)\);\s*setPick\(\(p\) => \(p && p\.seq === seq \? \{ \.\.\.p, reading: false, failed: COULD_NOT_READ \} : p\)\);/, 'a picture that could not be read still looks picked');
+  assert.doesNotMatch(pickLook + pickMeasured, /setPick\(null\)/, 'a failure clears the line as if it were done');
+  // The panel READS its background through the store (a held save brings no props), and draws the line and the pick.
+  assert.match(panel, /const ground = studio \? lookGround\.read\(lookKey, server\) : server;/);
+  assert.match(panel, /<BgCards label=\{BACKGROUND_SOURCE_LABEL\[view\]\} source=\{view\} pick=\{pick\} onTap=\{\(data\) => \(tapped\.current = data\)\}>/);
+  assert.match(panel, /<BgPickLine step=\{backgroundPickStep\(pick\)\} error=\{pick\?\.failed \?\? null\} onRetry=\{pick\?\.failed \? \(\) => retry\.current\?\.\(\) : null\} \/>/);
+  assert.equal((panel.match(/<BgPickLine/g) ?? []).length, 1, 'ONE line');
+  // The canvas's news is believed only from this origin, and a redraw counts only for a pick whose save had landed.
+  const ear = panel.slice(panel.indexOf('const onCanvas = ('), panel.indexOf("window.addEventListener('message', onCanvas);"));
+  assert.match(ear, /if \(e\.origin !== window\.location\.origin\) return;/);
+  assert.match(ear, /setPick\(\(p\) => \(p && p\.saved \? backgroundPickAfter\(p, p\.seq, \{ shown: true \}\) : p\)\);/, 'an older redraw ends a pick whose save has not landed');
+  assert.match(ear, /d\.shown === true \? \{ shown: true \} : \{ laid: false \}/, 'a still that could not be laid is treated as shown');
+  // The Maker never imports the guest page's module (the message shape is a type on each side).
+  assert.doesNotMatch(panel + read('lib/background-pick.ts'), /main-ground-preview'|editor-bridge'/);
+
+  // THE BRIDGE: its own layer, hidden at rest; every message checked; the refresh inside a transition whose end
+  // (the render committed) is the ONLY thing that takes the preview away.
+  const bridge = read(`${G}/editor-bridge.tsx`);
+  assert.match(bridge, /return <div ref=\{groundLayer\} data-main-ground-preview="" aria-hidden hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden" \/>;/);
+  const refresh = bridge.slice(bridge.indexOf("data.t === 'refresh'"), bridge.indexOf("data.t === 'mainGround'"));
+  assert.match(refresh, /groundPreview\.current\?\.redrawStarted\(\);\s*startRedrawRef\.current\(\(\) => \{\s*routerRef\.current\.refresh\(\);\s*\}\);/, 'the page’s refresh is not the transition the preview waits on');
+  const lay = bridge.slice(bridge.indexOf("data.t === 'mainGround'"), bridge.indexOf("data.t === 'sceneBg'"));
+  assert.match(lay, /const preview = sanitizeMainGroundPreview\(data, origin\);\s*if \(preview\) groundPreview\.current\?\.lay\(preview\);/, 'a message is laid unchecked');
+  assert.match(bridge, /if \(wasRedrawing\.current && !redrawing\) groundPreview\.current\?\.redrawDone\(\);/);
+  assert.equal((bridge.match(/redrawDone\(\)/g) ?? []).length, 1, 'the preview is taken away somewhere other than at the end of the page’s own render');
+  assert.match(bridge, /if \(event\.origin !== origin\) return;/);
+  // The preview layer is the bridge's alone: the page's own grounds never carry its mark.
+  for (const f of ['main-ground.tsx', 'guest-look-scope.tsx']) assert.doesNotMatch(read(`${G}/${f}`), /data-main-ground-preview/);
+});

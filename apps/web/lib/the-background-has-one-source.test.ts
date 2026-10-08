@@ -304,7 +304,7 @@ test('(6) Shade ▾ is on every source and Candlelight is its darkest step — o
   assert.match(studio, /\.\.\.MAIN_GROUND_SHADES\.filter\(\(k\) => takes\.shade \|\| k === 'as-is'\)\.map\(\(k\) => \(\{ key: k, label: MAIN_GROUND_SHADE_LABEL\[k\] \}\)\),\s*\{ key: BACKGROUND_SHADE_CANDLELIGHT, label: BACKGROUND_SHADE_CANDLELIGHT_LABEL,/);
   assert.equal(MAIN_GROUND_SHADES.length, 5);
   assert.match(studio, /const w = backgroundShadeWrite\(k, \{ art, shade: extra\('shade'\), takesShade: takes\.shade && Boolean\(current\) \}\);/);
-  assert.match(studio, /if \(w\.art\) write\.events = \{ site_art_direction: w\.art \};\s*if \(w\.stepMoves\) write\.main = withExtra\('shade', w\.step\);\s*saveLook\(write, FAILED\);/);
+  assert.match(studio, /if \(w\.art\) write\.events = \{ site_art_direction: w\.art \};\s*if \(w\.stepMoves\) write\.main = withExtra\('shade', w\.step\);\s*pickLook\(write, FAILED\);/);
   assert.match(panel, /fd\.set\('patch', JSON\.stringify\(backgroundWritePatch\(write\)\)\);\s*return draft\(eventId, fd\);/, 'a pick is more than one draft save');
   // Blur · Focus · Motion keep their rows where they mean something.
   for (const attr of ['data-studio-blur-pick', 'data-studio-focus-pick', 'data-main-ground-motion-pick', 'data-studio-shade-pick']) assert.ok(studio.includes(`dataAttr="${attr}"`), `${attr} is gone`);

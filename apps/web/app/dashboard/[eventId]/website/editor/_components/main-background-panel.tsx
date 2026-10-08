@@ -175,8 +175,8 @@ async function saveMain(eventId: string, main: HubMainGround | null, draft: type
 async function saveLookWrite(eventId: string, write: LookWrite, draft: typeof hubDraftAction = hubDraftAction, bar = false) {
   const fd = new FormData();
   fd.set('intent', 'save');
-  fd.set('patch', JSON.stringify(backgroundWritePatch(write)));
   if (bar) fd.set(HUB_DRAFT_BAR_FIELD, '1');
+  fd.set('patch', JSON.stringify(backgroundWritePatch(write)));
   return draft(eventId, fd);
 }
 

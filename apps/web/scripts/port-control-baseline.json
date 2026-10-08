@@ -1,5 +1,5 @@
 {
-  "generatedFromRef": "e15f019e5",
+  "generatedFromRef": "d3de72707",
   "routeCount": 429,
   "destinations": 956,
   "actions": 672,
@@ -6072,6 +6072,7 @@
         "dashboard/[eventId]/guests/_components/role-names-context.tsx",
         "dashboard/[eventId]/guests/_components/role-section-order.ts",
         "dashboard/[eventId]/guests/_components/send-invite.tsx",
+        "dashboard/[eventId]/guests/_components/undo-store.ts",
         "dashboard/[eventId]/guests/_components/undo-toast.tsx",
         "dashboard/[eventId]/guests/_components/use-peek-toast.tsx",
         "dashboard/[eventId]/guests/_components/use-row-state.ts",

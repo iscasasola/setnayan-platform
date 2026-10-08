@@ -47,7 +47,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFormStatus } from 'react-dom';
 import { Check } from 'lucide-react';
-import { pushUndo } from './undo-toast';
+import { pushUndo } from './undo-store';
 
 /** Pause after the last change before the form posts. Long enough that typing a
  *  name is one write, short enough that it feels immediate. */

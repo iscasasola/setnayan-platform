@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "b027e91c6",
+  "generatedFromRef": "4d80389cb",
   "routeCount": 428,
   "destinations": 952,
   "actions": 671,
-  "blocks": 5707,
+  "blocks": 5708,
   "routes": {
     "/": {
       "files": [
@@ -8854,6 +8854,7 @@
         "MarketplaceVendorSuggestion",
         "MerkadoBudgetLens",
         "MerkadoGuardBanner",
+        "MoreToCompare",
         "NewManualVendorModal",
         "NotSharedWithYou",
         "PageMasthead",

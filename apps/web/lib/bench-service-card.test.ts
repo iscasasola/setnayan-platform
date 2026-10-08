@@ -147,11 +147,15 @@ test('🔑 "Price on request" is said only when the cards were READ, and never o
   const meta = BENCH.slice(BENCH.indexOf('<span className="meta">'), BENCH.indexOf('<CardStanding standing='));
   assert.match(meta, /look\.face && !hasRecordedPrice && !v\.includedWith \?/);
   assert.match(meta, /\) : look\.cards \? \(\s*<span className="sc-price none">\{PRICE_ON_REQUEST\}<\/span>\s*\) : null/);
-  assert.equal((BENCH.match(/PRICE_ON_REQUEST\}/g) ?? []).length, 1);
+  // The marketplace card in "More to compare" obeys the same rule.
+  assert.match(BENCH, /\) : cardsRead \? \(\s*<span className="sc-price none">\{PRICE_ON_REQUEST\}<\/span>\s*\) : null/);
+  assert.match(BENCH, /cardsRead=\{moreCards !== null\}/);
+  assert.equal((BENCH.match(/PRICE_ON_REQUEST\}/g) ?? []).length, 2, 'one per card shape — no third, unguarded one');
   assert.ok(!/Price on request/.test(BENCH), 'the words are typed in the bench — read them from the lib');
 });
 
 test('the gift is the one shared sentence, gated on the yes', () => {
-  assert.equal((BENCH.match(/<SetnayanGiftLine\b/g) ?? []).length, 1);
-  assert.match(BENCH, /svc\?\.givesSetnayanGift \? <SetnayanGiftLine className="sc-gift" \/> : null/);
+  const mounts = BENCH.match(/\{svc\?\.givesSetnayanGift \? <SetnayanGiftLine className="sc-gift" \/> : null\}/g) ?? [];
+  assert.equal(mounts.length, 2, 'both card shapes — the couple’s own and the marketplace one');
+  assert.equal((BENCH.match(/<SetnayanGiftLine\b/g) ?? []).length, 2, 'a gift line that is not gated on the yes');
 });

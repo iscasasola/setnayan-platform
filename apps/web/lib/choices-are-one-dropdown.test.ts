@@ -51,8 +51,11 @@ const SURFACES: Surface[] = [
   {
     name: 'Your Team — Sort by',
     file: 'app/dashboard/[eventId]/vendors/_components/shortlist-categories.tsx',
-    from: '<div className="sortbar">',
-    to: '<div className="bench-search">',
+    // The ONE dropdown is built once (`sortMenu`) and drawn by the pre-replan
+    // bar and by each "More to compare" head — re-anchored 2026-10-08 when it
+    // moved out of the bar's own JSX.
+    from: 'const sortMenu = (',
+    to: '<UnreadCtx.Provider value={benchUnread}>',
   },
   {
     name: 'Budget — Save / Standard / Splurge',

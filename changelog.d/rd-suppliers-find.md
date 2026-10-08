@@ -132,9 +132,36 @@ under `.fold.flat` only. The pre-replan bench is untouched.
   renders bare (a booked supplier still gets Payments · Workspace).
 - +0 exported server actions · no migration.
 
-**Still to come in PR2a:** "More to compare" always on with a count and its own
-sort, the supplier sheet. `＋ Add "…"` with the typed name and the record sheet
-are 2b.
+## 2026-10-08 · feat(suppliers): "More to compare" is always under the cards (Suppliers PR2a)
+
+The marketplace list for a category is no longer opened with "Find more", one
+category at a time. In every OPEN category that holds no booking it sits under
+the couple's own cards: **More to compare · N** (or **To compare** when they
+have none yet), the bench's one sort dropdown in its head, then the suppliers'
+service cards with **Ask for a quote** (main) and **Save**.
+
+- Each row owns its list (`MoreToCompare`), so several can be open at once
+  (Expand all). A category still costs a marketplace read only while it is open.
+- WHO and IN WHAT ORDER is unchanged: `fetchInlineMoreRow` →
+  `searchCategoryVendors` (`hideUnbookable`), `orderInlineMoreRow`,
+  `classifyInlineMoreRow` against the same window as the cards above. The action
+  now also returns each supplier's service card for the category — +0 exports.
+- A supplier whose name is still withheld is not named by their card's title
+  (withheld on the server); a shop that hides prices shows none.
+- The count is printed only once the list has been read; a failed read says so
+  and never reads "Nobody" or "Price on request".
+- The thumb row's search reaches the list of the category in scope.
+- On this page the rail's "Find more" / "Add manually" tiles and the empty
+  category's two buttons are not drawn: the list is always open, and
+  "＋ Add your own" is in the thumb row (and at the foot of a booked category).
+  The pre-replan bench keeps all four. The full filter sheet is still one tap
+  away at the foot of the list.
+- The "Sort by" bar above the rows moved into the list's head (same dropdown,
+  same value). Words: the list says "supplier".
+- No migration.
+
+**Still to come in PR2a:** the supplier sheet. `＋ Add "…"` with the typed name
+and the record sheet are 2b.
 
 SPEC IMPACT: None — builds the plan's PR2 thumb row as written; what is
 deferred to the next part is listed above and in the PR body.

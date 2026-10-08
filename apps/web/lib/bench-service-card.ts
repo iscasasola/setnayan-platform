@@ -113,3 +113,25 @@ export function benchServiceCard(input: {
 
 /** The words on a card whose service card states no price the couple may see. */
 export const PRICE_ON_REQUEST = 'Price on request';
+
+/**
+ * A supplier whose real name is still withheld (hybrid anonymity — "Real name
+ * shown after they reply") must not be named by their own service card either:
+ * a title is free text and routinely carries the business name. Their card
+ * keeps everything else and leaves the name EMPTY, which the list fills with
+ * the category's label.
+ *
+ * Applied on the SERVER, to the record that crosses to the browser — hiding it
+ * in the markup would still ship the title in the payload.
+ */
+export function withholdCardNames(
+  cards: Readonly<Record<string, BenchServiceCard>>,
+  anonymizedIds: Iterable<string>,
+): Record<string, BenchServiceCard> {
+  const out: Record<string, BenchServiceCard> = { ...cards };
+  for (const id of anonymizedIds) {
+    const card = out[id];
+    if (card) out[id] = { ...card, name: '' };
+  }
+  return out;
+}

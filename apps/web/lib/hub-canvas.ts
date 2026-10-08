@@ -1300,6 +1300,18 @@ export const HUB_MAIN_FOCUSES = ['top', 'bottom'] as const;
 export type HubMainFocus = (typeof HUB_MAIN_FOCUSES)[number];
 
 /**
+ * 🎯 WHERE A COVERING PICTURE IS HELD — the ONE crop rule (CSS `background-position`
+ * / `object-position`). The guest page's main background reads it
+ * (`app/[slug]/_components/main-ground.tsx`) and so does the Maker's picture card
+ * of that background (`background-cards.tsx`, owner 2026-10-08: a card is the
+ * page as a phone crops it) — a second copy would let a card show a face the
+ * page has cropped away.
+ */
+export function mainGroundPosition(focus: HubMainFocus | null | undefined): 'center top' | 'center bottom' | 'center' {
+  return focus === 'top' ? 'center top' : focus === 'bottom' ? 'center bottom' : 'center';
+}
+
+/**
  * Shade ▾ — Darker · Dark · As is · Light · Lighter. THE vocabulary (re-exported
  * by `lib/main-ground-shade.ts`, which owns what each step DOES — a veil that
  * never takes the words under the contrast floor). 'as-is' is never stored.

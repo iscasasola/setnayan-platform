@@ -138,5 +138,5 @@ test('the Home\'s own copy (source strings) says supplier, event, Event Hub', ()
     const copy = (text.match(/>[^<{}]+</g) ?? []).join(' ') + ' ' + (text.match(/label[:=]\s*['"`][^'"`]*['"`]/g) ?? []).join(' ');
     assert.doesNotMatch(copy, BANNED, f);
   }
-  assert.match(src('_components/home-first-screen.tsx'), /opens your budget in Suppliers/);
+  assert.match(src('_components/home-first-screen.tsx'), /Budget ›/, 'the money line names where it opens (owner: "0% paid · Budget ›")');
 });

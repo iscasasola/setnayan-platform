@@ -30,3 +30,23 @@ import { envFlagEnabled } from '@/lib/env-flag';
 export function makerStagesStudioEnabled({ internal }: { internal: boolean }): boolean {
   return envFlagEnabled(process.env.NEXT_PUBLIC_MAKER_STAGES_STUDIO_ENABLED) || internal === true;
 }
+
+/**
+ * 🧯 THE CHOICE COULD NOT BE READ (production incident, 2026-10-08).
+ *
+ * "Internal" above is a database read (`users.is_internal`). When that read
+ * FAILS it comes back `false` — and with the flag off, `false` means the
+ * shipped Maker. So a timed-out read handed the owner the old Maker in the
+ * middle of his own test: a failure rendered as a different product.
+ *
+ * TRUE here means: the flag does not decide it, and the one read that would
+ * did not answer. The launch page then refuses to draw EITHER Maker and throws
+ * the house "Reconnecting…" error (`lib/read-retry.ts`), which tries again and
+ * then says so. With the flag ON the read cannot change the answer, so a
+ * failed read is not a failed choice and this is false.
+ *
+ * Asks the flag through the one reader above — it never reads the env itself.
+ */
+export function makerChoiceIsUnread({ internalRead }: { internalRead: boolean }): boolean {
+  return internalRead !== true && !makerStagesStudioEnabled({ internal: false });
+}

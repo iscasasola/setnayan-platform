@@ -1,7 +1,7 @@
 'use client';
 
 import { LOVE_STORY_PREVIEW_T as LOVE_STORY_PREVIEW, SCHEDULE_PREVIEW_T as SCHEDULE_PREVIEW, applyLoveStoryPreview, applySchedulePreview } from '@/lib/maker-live-preview-apply';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   HUB_ELEMENT_EXCLUDED_WIDGETS,
@@ -29,6 +29,7 @@ import { findMakerSection, sectionAfter } from './maker-section-find';
 import { HUB_TAB_FREES, createPageTop, openHubTab, showHubTab, shownHubTab } from './hub-tab-dom';
 import { applySceneBgPreview, sanitizeSceneBgPreview } from './scene-bg-preview';
 import { applyButtonsPreview, sanitizeButtonsPreview } from './buttons-preview';
+import { createMainGroundPreviewer, sanitizeMainGroundPreview, type MainGroundPreviewer } from './main-ground-preview';
 import { applyPartRuns, applySceneRuns, type RunsDoc } from './part-runs';
 import { applySceneCardPreview } from '@/lib/scene-card-look';
 import { createCanvasTyping, markSceneWords, readSceneTypeWords, sceneTypeField, typeablePart } from './type-in-place-canvas';
@@ -64,6 +65,9 @@ import { playSequence } from './play-sequence';
  *   frame  → parent { source:'setnayan-site',   t:'hubTab',   tab } — the tab now on screen (after any switch)
  *   parent → frame  { source:'setnayan-editor', t:'refresh' } — 🖼 a pick the bridge cannot draw
  *                    was saved: the page re-renders itself in place (`router.refresh()`)
+ *   parent → frame  { source:'setnayan-editor', t:'mainGround', seq, lay } — ⚡ Look › Background's pick,
+ *                    worn at once on the bridge's own layer (`main-ground-preview.ts` has the whole protocol)
+ *   frame  → parent { source:'setnayan-site',   t:'mainGround', seq, shown } · { seq, playing } · { redrawn }
  *   parent → frame  { source:'setnayan-editor', t:'settle', forget? } — 📱 the Maker's last editing
  *                    surface closed: the page goes back to where it rested, or (`forget`, a
  *                    canvas tap ended it) stays put (`canvas-bring-up.ts`)
@@ -449,9 +453,28 @@ export function EditorBridge() {
   const router = useRouter();
   const routerRef = useRef(router);
   routerRef.current = router;
+  /* ⚡ LOOK › BACKGROUND, AT ONCE (owner 2026-10-08: *"took 8 seconds before a background shows"*). The bridge's OWN
+     layer — after every ground the page draws, hidden at rest — wears the pick the Maker posts
+     (`main-ground-preview.ts`), and steps aside when THIS page's own render is on screen: the refresh runs inside a
+     transition, and the transition ending is that render committed. */
+  const groundLayer = useRef<HTMLDivElement>(null);
+  const groundPreview = useRef<MainGroundPreviewer | null>(null);
+  const [redrawing, startRedraw] = useTransition();
+  const startRedrawRef = useRef(startRedraw);
+  startRedrawRef.current = startRedraw;
+  const wasRedrawing = useRef(false);
+  useEffect(() => {
+    if (wasRedrawing.current && !redrawing) groundPreview.current?.redrawDone();
+    wasRedrawing.current = redrawing;
+  }, [redrawing]);
   useEffect(() => {
     const origin = window.location.origin;
     const cleanups: Array<() => void> = [];
+    if (groundLayer.current) {
+      groundPreview.current = createMainGroundPreviewer(groundLayer.current, (m) =>
+        window.parent?.postMessage({ source: 'setnayan-site', t: 'mainGround', ...m }, origin),
+      );
+    }
     /* ✍ TAP ANY TEXT, TYPE RIGHT THERE (Maker core part 2): a tap on a hero
        part's words puts the caret in them; the Maker hears every keystroke and
        writes it (`type-in-place-canvas.ts`). */
@@ -668,7 +691,18 @@ export function EditorBridge() {
          Countdown kept its four boxes; a palette pick reset the page to the
          cover). Never a reload: that is what lost the place. */
       if (data && data.source === 'setnayan-editor' && data.t === 'refresh') {
-        routerRef.current.refresh();
+        /* ⚡ …and a background laid ahead of its save steps aside for THIS render — never before it is on screen. */
+        groundPreview.current?.redrawStarted();
+        startRedrawRef.current(() => {
+          routerRef.current.refresh();
+        });
+        return;
+      }
+      /* ⚡ LOOK › BACKGROUND'S PICK, WORN NOW — its still first, its clip when it moves; `lay: null` takes it off
+         (the save was refused). Every field is checked again here: nothing from a message becomes CSS unchecked. */
+      if (data && data.source === 'setnayan-editor' && data.t === 'mainGround') {
+        const preview = sanitizeMainGroundPreview(data, origin);
+        if (preview) groundPreview.current?.lay(preview);
         return;
       }
       if (data && data.source === 'setnayan-editor' && data.t === 'sceneBg') {
@@ -906,5 +940,7 @@ export function EditorBridge() {
     return () => cleanups.forEach((fn) => fn());
   }, []);
 
-  return null;
+  /* The preview's layer: `fixed -z-10` like every ground, LAST in the page so it lies over them; `hidden` until a
+     pick is laid. Only ever in the Maker's canvas — a guest's page never mounts this bridge. */
+  return <div ref={groundLayer} data-main-ground-preview="" aria-hidden hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden" />;
 }

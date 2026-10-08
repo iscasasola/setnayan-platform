@@ -1,11 +1,12 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { formatCount } from '@/lib/format-number';
 import { ArrowRight, Check, SkipForward } from 'lucide-react';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import type { InviteEventFacts } from '@/lib/guest-invite-message';
+import { runArrivals, runStanding } from '@/lib/guest-roster-view';
 import {
   InviteMessageEditor,
   SendInviteActions,
@@ -20,6 +21,14 @@ import {
  * which Maria is no longer "not sent". A queue derived from props would shift
  * under the couple's thumb mid-run; this one is fixed at the moment they chose
  * who to go through, and each guest's Sent ✓ is tracked here.
+ *
+ * 🚪 …BUT A LATER READ CAN TAKE SOMEONE OUT, AND BRING SOMEONE IN (owner
+ * 2026-10-08: "declined guests don't get an invitation"). `guests` is the ONE
+ * "to invite" rule's list (`sendRunGuests`), read again after every send. A
+ * guest who declined since the run opened is no longer in it: the run steps
+ * over them and counts without them (`runStanding`) — never "Send to" someone
+ * who said no. A guest it was never handed (their reply changed back, or they
+ * were just added) joins the END of the queue (`runArrivals`).
  *
  * ⚖ WHO TO GO THROUGH is ONE dropdown (owner 2026-09-28: any set of choices is
  * a PickMenu, never a pill row): the ones not sent yet (the default), or
@@ -50,6 +59,15 @@ export function SendRun({
   const [template, setTemplate] = useState(initialTemplate);
   const [editing, setEditing] = useState(false);
 
+  // Everyone this run has ever been handed — so a later read's NEW face is told
+  // apart from one the couple already went past.
+  const known = useRef<Set<string>>(new Set(sendable.map((g) => g.guestId)));
+  useEffect(() => {
+    const fresh = runArrivals(known.current, sendable, who);
+    for (const g of sendable) known.current.add(g.guestId);
+    if (fresh.length) setQueue((q) => [...q, ...fresh]);
+  }, [sendable, who]);
+
   // Sent here wins over what the page loaded — including an Undo (null).
   const sentNow = (g: SendInviteGuest): string | null =>
     g.guestId in sentHere ? (sentHere[g.guestId] ?? null) : g.sentAt;
@@ -77,9 +95,11 @@ export function SendRun({
     );
   }
 
-  const current = queue[at] ?? null;
-  const upNext = queue[at + 1] ?? null;
+  // Where the run stands against the latest read: a guest no longer to be
+  // invited (they declined) is stepped over and not counted.
+  const { index, current, upNext, position, total } = runStanding(queue, sendable, at);
   const currentSentAt = current ? sentNow(current) : null;
+  const skippedIn = skipped.filter((id) => sendable.some((g) => g.guestId === id));
 
   return (
     <div className="mt-5 space-y-5" data-send-run="">
@@ -95,14 +115,14 @@ export function SendRun({
           onPick={(k) => begin(k === 'everyone' ? 'everyone' : 'unsent')}
         />
         <p className="text-sm tabular-nums text-ink/60" data-send-run-count="">
-          {formatCount(sentCount)} sent{skipped.length ? ` · ${formatCount(skipped.length)} skipped` : ''}
+          {formatCount(sentCount)} sent{skippedIn.length ? ` · ${formatCount(skippedIn.length)} skipped` : ''}
         </p>
       </div>
 
       {current ? (
         <section className="space-y-4 rounded-2xl bg-white p-4 shadow-[0_10px_30px_-14px_rgba(30,34,41,0.35)]" aria-live="polite">
           <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/50" data-send-run-position="">
-            {formatCount(at + 1)} of {formatCount(queue.length)}
+            {formatCount(position)} of {formatCount(total)}
           </p>
           <div className="flex items-center gap-3">
             {/* eslint-disable-next-line @next/next/no-img-element -- our own gated QR route, the same bytes as Download */}
@@ -129,7 +149,7 @@ export function SendRun({
                   type="button"
                   onClick={() => {
                     setSkipped((s) => [...s, current.guestId]);
-                    setAt((i) => i + 1);
+                    setAt(index + 1);
                   }}
                   className="inline-flex min-h-[48px] items-center justify-center gap-1.5 rounded-full px-4 text-sm font-medium text-ink/70"
                   data-send-run-skip=""
@@ -143,7 +163,7 @@ export function SendRun({
           {currentSentAt ? (
             <button
               type="button"
-              onClick={() => setAt((i) => i + 1)}
+              onClick={() => setAt(index + 1)}
               className="inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-full bg-mulberry px-5 text-base font-medium text-cream"
               data-send-run-next=""
             >
@@ -156,20 +176,20 @@ export function SendRun({
         <section className="space-y-3 rounded-2xl bg-white p-5 text-center shadow-[0_10px_30px_-14px_rgba(30,34,41,0.35)]" data-send-run-done="">
           <Check aria-hidden className="mx-auto h-8 w-8 text-success-600" strokeWidth={2} />
           <p className="text-lg font-semibold text-ink">
-            {queue.length === 0
+            {total === 0
               ? who === 'unsent'
                 ? 'Everyone has their invite.'
                 : 'Nobody to send to yet.'
-              : `Done — ${formatCount(sentCount)} sent${skipped.length ? `, ${formatCount(skipped.length)} skipped` : ''}.`}
+              : `Done — ${formatCount(sentCount)} sent${skippedIn.length ? `, ${formatCount(skippedIn.length)} skipped` : ''}.`}
           </p>
           <div className="flex flex-col items-center gap-2">
-            {skipped.length ? (
+            {skippedIn.length ? (
               <button
                 type="button"
-                onClick={() => begin(who, queue.filter((g) => skipped.includes(g.guestId)))}
+                onClick={() => begin(who, queue.filter((g) => skippedIn.includes(g.guestId)))}
                 className="inline-flex min-h-[48px] items-center justify-center rounded-full bg-ink px-5 text-sm font-medium text-cream"
               >
-                Go through the {skipped.length} skipped
+                Go through the {skippedIn.length} skipped
               </button>
             ) : null}
             <Link

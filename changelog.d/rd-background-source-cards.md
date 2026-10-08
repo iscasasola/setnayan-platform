@@ -66,5 +66,50 @@ Guests: same stored values → same pixels. The only guest-tree edits are a
 byte-for-byte move of the pattern CSS into a lib const and the host-canvas-only
 Candlelight marker.
 
+After the owner's look at the preview (2026-10-08), three rulings, built on this branch:
+
+- **A Background card is phone-shaped** — *"we are on mobile view, so show in mobile
+  view, not like a header that is short and wide or at least square or 4:3 or 3:4"*.
+  Every card (Colour, Pattern, Scene, Video, Your photo or video, the cover, Upload)
+  wears the Maker's one picture-card frame, `.sn-phone-card`: 3 : 4 portrait, a fixed
+  width, never stretching in a wide panel (he saw 436 × 86 cards at ~896 px) — the
+  strip scrolls. The card of the picture ON the page is cropped where the page crops
+  it: the guest page's own rule, now ONE function (`mainGroundPosition`,
+  `lib/hub-canvas.ts`), read by `main-ground.tsx` and by the card. The name stays on
+  one line and its ◆ is never cut. Guard: `the-background-has-one-source` (9).
+- **A pick shows at once, and says what it is waiting for** — *"took 8 seconds before
+  a background shows"* · *"when i press, and it has a loading state, we want to know
+  something is pressed and loading files... applying to your Hub."* In the Studio a
+  pick is now four things in order: the tapped card is ringed and wears a small
+  progress mark from the tap; the canvas wears the pick (its still first, its loop
+  when it moves; a colour or pattern at once) on a layer the editor bridge owns; the
+  draft save runs behind it HELD (`makerRedrawSave` — no whole-Maker render; the
+  canvas page re-renders itself in place and only then does the preview step aside);
+  and ONE polite line says "Loading files…", then "Applying to your Hub…" — never
+  flashed for a wait under ~300 ms, gone when the canvas shows it. A later tap wins
+  (every pick has a number; an older answer moves nothing). A refused save or a
+  picture that could not be read puts the old background back, takes the preview off
+  the canvas and says so in place with Try again — never a success look.
+  Before: the pick waited on its save, the save owed a whole-Maker render, and that
+  render loaded a NEW canvas document (`editor-shell.tsx`, `setCanvasStamp(next)` →
+  `BufferedCanvasFrame frameKey`). The stopwatch is in the code
+  (`performance.mark('bg-pick:*')`). New: `lib/background-pick.ts`,
+  `app/[slug]/_components/main-ground-preview.ts` (the bridge's half — every field of
+  a message is checked before it becomes CSS). Guard:
+  `lib/a-background-pick-shows-at-once.test.ts` (8 tests).
+  The shipped Maker (flag off) is unchanged. A file just uploaded still brings the
+  Maker's render (it has no address the canvas could wear yet).
+- **No "hero" card without a cover photo** — *"why same as hero? i thought our hero
+  uses no background to use our main background?"* The card that follows the cover is
+  drawn only when the event has a cover photo, shows that photo, and is named "Your
+  cover photo"; with none there is no card at all (it was an empty grey placeholder).
+  An event stored as following a cover that is gone reads as what guests see (Video
+  on a theme with a loop, else Colour). In the Studio, picking it reads the photo's
+  colours in the pick itself and saves the follow in one save. Guard:
+  `the-background-has-one-source` (10).
+
+Guests: nothing of theirs changes. The preview layer is drawn by the editor bridge,
+which only ever mounts in the host's Maker canvas.
+
 SPEC IMPACT: None beyond the approved contract — status in the corpus at
 `LOOK_RESTUDY_BUILD_STATUS_2026-10-08.md` (deviations listed there).

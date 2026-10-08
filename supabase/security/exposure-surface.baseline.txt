@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6617
+# facts: 6647
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     568
-#   col       4834
-#   policy    945
+#   tpriv     570
+#   col       4860
+#   policy    947
 #   view      8
 #   func      258
 #
@@ -137,6 +137,7 @@ tpriv	public.event_floor_booths|authenticated	SIUD
 tpriv	public.event_floor_plan|authenticated	SIUD
 tpriv	public.event_floor_signs|anon	SIUD
 tpriv	public.event_floor_signs|authenticated	SIUD
+tpriv	public.event_gift_records|authenticated	SU
 tpriv	public.event_inspiration_assets|anon	SIUD
 tpriv	public.event_inspiration_assets|authenticated	SIUD
 tpriv	public.event_join_tokens|anon	SIUD
@@ -206,6 +207,7 @@ tpriv	public.event_vendor_working_notes|authenticated	SIUD
 tpriv	public.event_vendors|anon	SIUD
 tpriv	public.event_vendors|authenticated	SIUD
 tpriv	public.event_walkthrough_zones|authenticated	SIUD
+tpriv	public.event_wish_items|authenticated	SIUD
 tpriv	public.faith_vocab|anon	SIUD
 tpriv	public.faith_vocab|authenticated	SIUD
 tpriv	public.feature_policy|anon	SIUD
@@ -1505,6 +1507,18 @@ col	public.event_floor_signs.sort_order	anon=SIU authenticated=SIU
 col	public.event_floor_signs.updated_at	anon=SIU authenticated=SIU
 col	public.event_floor_signs.x_pos	anon=SIU authenticated=SIU
 col	public.event_floor_signs.y_pos	anon=SIU authenticated=SIU
+col	public.event_gift_records.amount_php	anon=- authenticated=SU
+col	public.event_gift_records.created_at	anon=- authenticated=SU
+col	public.event_gift_records.event_id	anon=- authenticated=SU
+col	public.event_gift_records.gift_record_id	anon=- authenticated=SU
+col	public.event_gift_records.giver_guest_id	anon=- authenticated=SU
+col	public.event_gift_records.giver_name	anon=- authenticated=SU
+col	public.event_gift_records.message	anon=- authenticated=SU
+col	public.event_gift_records.method_kind	anon=- authenticated=SU
+col	public.event_gift_records.public_id	anon=- authenticated=SU
+col	public.event_gift_records.removed_at	anon=- authenticated=SU
+col	public.event_gift_records.screenshot_r2_key	anon=- authenticated=SU
+col	public.event_gift_records.wish_item_id	anon=- authenticated=SU
 col	public.event_inspiration_assets.added_by_user_id	anon=SIU authenticated=SIU
 col	public.event_inspiration_assets.caption	anon=SIU authenticated=SIU
 col	public.event_inspiration_assets.created_at	anon=SIU authenticated=SIU
@@ -2044,6 +2058,20 @@ col	public.event_walkthrough_zones.uploaded_by_user_id	anon=- authenticated=SIU
 col	public.event_walkthrough_zones.video_mime_type	anon=- authenticated=SIU
 col	public.event_walkthrough_zones.video_r2_key	anon=- authenticated=SIU
 col	public.event_walkthrough_zones.zone_id	anon=- authenticated=SIU
+col	public.event_wish_items.created_at	anon=- authenticated=SIU
+col	public.event_wish_items.created_by_user_id	anon=- authenticated=SIU
+col	public.event_wish_items.event_id	anon=- authenticated=SIU
+col	public.event_wish_items.got_at	anon=- authenticated=SIU
+col	public.event_wish_items.got_by	anon=- authenticated=SIU
+col	public.event_wish_items.link_url	anon=- authenticated=SIU
+col	public.event_wish_items.name	anon=- authenticated=SIU
+col	public.event_wish_items.note	anon=- authenticated=SIU
+col	public.event_wish_items.photo_r2_key	anon=- authenticated=SIU
+col	public.event_wish_items.price_php	anon=- authenticated=SIU
+col	public.event_wish_items.public_id	anon=- authenticated=SIU
+col	public.event_wish_items.sort_order	anon=- authenticated=SIU
+col	public.event_wish_items.updated_at	anon=- authenticated=SIU
+col	public.event_wish_items.wish_item_id	anon=- authenticated=SIU
 col	public.events.adaptive_pricing_mode	anon=S authenticated=S
 col	public.events.anchor_date	anon=SIU authenticated=SIU
 col	public.events.anchor_kind	anon=SIU authenticated=SIU
@@ -5636,6 +5664,7 @@ policy	public.event_floor_signs|event_floor_signs_couple_read	mode=PERMISSIVE cm
 policy	public.event_floor_signs|event_floor_signs_couple_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids))
 policy	public.event_floor_signs|event_floor_signs_moderator_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_moderator_event_ids() AS current_moderator_event_ids)) check=NULL
 policy	public.event_floor_signs|event_floor_signs_moderator_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=(moderator_area_level(event_id, 'seat_plan'::text) = 'edit'::text) check=(moderator_area_level(event_id, 'seat_plan'::text) = 'edit'::text)
+policy	public.event_gift_records|event_gift_records_host_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=((event_id IN ( SELECT event_moderators.event_id FROM event_moderators WHERE ((event_moderators.user_id = auth.uid()) AND (event_moderators.accepted_at IS NOT NULL) AND (event_moderators.removed_at IS NULL)))) OR (event_id IN ( SELECT event_members.event_id FROM event_members WHERE ((event_members.user_id = auth.uid()) AND (event_members.member_type = 'couple'::member_type)))) OR is_admin()) check=((event_id IN ( SELECT event_moderators.event_id FROM event_moderators WHERE ((event_moderators.user_id = auth.uid()) AND (event_moderators.accepted_at IS NOT NULL) AND (event_moderators.removed_at IS NULL)))) OR (event_id IN ( SELECT event_members.event_id FROM event_members WHERE ((event_members.user_id = auth.uid()) AND (event_members.member_type = 'couple'::member_type)))) OR is_admin())
 policy	public.event_inspiration_assets|event_inspiration_assets_admin_all	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=(EXISTS ( SELECT 1 FROM users u WHERE ((u.user_id = auth.uid()) AND ((u.is_internal = true) OR (u.is_team_member = true) OR (u.account_type = 'admin'::account_type))))) check=(EXISTS ( SELECT 1 FROM users u WHERE ((u.user_id = auth.uid()) AND ((u.is_internal = true) OR (u.is_team_member = true) OR (u.account_type = 'admin'::account_type)))))
 policy	public.event_inspiration_assets|event_inspiration_assets_host_insert	mode=PERMISSIVE cmd=INSERT roles=PUBLIC using=NULL check=((added_by_user_id = auth.uid()) AND (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = event_inspiration_assets.event_id) AND (em.user_id = auth.uid())))))
 policy	public.event_inspiration_assets|event_inspiration_assets_host_select	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=(EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = event_inspiration_assets.event_id) AND (em.user_id = auth.uid())))) check=NULL
@@ -5759,6 +5788,7 @@ policy	public.event_walkthrough_zones|event_walkthrough_zones_couple_read	mode=P
 policy	public.event_walkthrough_zones|event_walkthrough_zones_couple_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids))
 policy	public.event_walkthrough_zones|event_walkthrough_zones_moderator_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_moderator_event_ids() AS current_moderator_event_ids)) check=NULL
 policy	public.event_walkthrough_zones|event_walkthrough_zones_moderator_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=(moderator_area_level(event_id, 'seat_plan'::text) = 'edit'::text) check=(moderator_area_level(event_id, 'seat_plan'::text) = 'edit'::text)
+policy	public.event_wish_items|event_wish_items_host_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=((event_id IN ( SELECT event_moderators.event_id FROM event_moderators WHERE ((event_moderators.user_id = auth.uid()) AND (event_moderators.accepted_at IS NOT NULL) AND (event_moderators.removed_at IS NULL)))) OR (event_id IN ( SELECT event_members.event_id FROM event_members WHERE ((event_members.user_id = auth.uid()) AND (event_members.member_type = 'couple'::member_type)))) OR is_admin()) check=((event_id IN ( SELECT event_moderators.event_id FROM event_moderators WHERE ((event_moderators.user_id = auth.uid()) AND (event_moderators.accepted_at IS NOT NULL) AND (event_moderators.removed_at IS NULL)))) OR (event_id IN ( SELECT event_members.event_id FROM event_members WHERE ((event_members.user_id = auth.uid()) AND (event_members.member_type = 'couple'::member_type)))) OR is_admin())
 policy	public.events|anon_cannot_create_public_event	mode=RESTRICTIVE cmd=INSERT roles=authenticated using=NULL check=((((auth.jwt() ->> 'is_anonymous'::text))::boolean IS NOT TRUE) OR ((landing_page_visibility = 'private'::text) AND (scheduled_launch_at IS NULL)))
 policy	public.events|anon_cannot_publish_event	mode=RESTRICTIVE cmd=UPDATE roles=authenticated using=true check=((((auth.jwt() ->> 'is_anonymous'::text))::boolean IS NOT TRUE) OR ((landing_page_visibility = 'private'::text) AND (scheduled_launch_at IS NULL)))
 policy	public.events|authenticated_can_create_event	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=true

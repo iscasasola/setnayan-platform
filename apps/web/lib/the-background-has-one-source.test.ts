@@ -18,7 +18,12 @@
  *       screen, and no `<video>` at all under "reduce motion";
  *   (6) Shade ▾ on every source, Candlelight its darkest step — one pick, one save;
  *   (7) Look draws each control ONCE (the page fill, the hero video, Candlelight);
- *   (8) a draft can take a LIVE Candlelight off the host's canvas.
+ *   (8) a draft can take a LIVE Candlelight off the host's canvas;
+ *  (10) "Your cover photo" is a card only when there IS a cover photo — never an
+ *       empty placeholder, never the word "hero"; a follow with nothing to follow
+ *       reads as what guests see;
+ *   (9) a card is PHONE-SHAPED — 3 : 4 portrait, a fixed width that never grows —
+ *       and the picture on the page is cropped where the page crops it.
  *
  * Lives in `lib/` because node's test glob does not descend into `[eventId]`.
  */
@@ -39,10 +44,11 @@ import {
   backgroundShadeWrite,
   backgroundSourceOf,
   backgroundWritePatch,
+  coverCardShows,
   loopCardDrawsVideo,
   type BackgroundSource,
 } from './background-source';
-import { HUB_MAIN_PATTERNS, hubMovingBackgroundIds, sanitizeHubMainGround, type HubMainGround } from './hub-canvas';
+import { HUB_MAIN_FOCUSES, HUB_MAIN_PATTERNS, hubMovingBackgroundIds, mainGroundPosition, sanitizeHubMainGround, type HubMainGround } from './hub-canvas';
 import { mainGroundChange, sanitizeHubDraftEventValue } from './hub-draft';
 import { STD_REALISTIC_BACKGROUNDS } from './std-backgrounds';
 import { MAIN_GROUND_PATTERN_CSS } from './main-ground-patterns';
@@ -92,7 +98,9 @@ test('(1) the source is what the stored main background IS — nothing new is st
     [SCENE, page, 'scene', 'a ready-made still'],
     [OWN_PHOTO, page, 'own', 'their own photo'],
     [OWN_CLIP, page, 'own', 'their own clip'],
-    [FOLLOW, page, 'own', 'the hero follow'],
+    [FOLLOW, { themeHasLoop: true, followsHero: true }, 'own', 'the cover photo, followed'],
+    [FOLLOW, page, 'video', 'a follow with NO cover photo to follow — guests see the theme’s own loop'],
+    [FOLLOW, { themeHasLoop: false, followsHero: false }, 'colour', 'the same on Classic — guests see the colour'],
     [LOOP, page, 'video', 'a moving background of ours'],
     [THEME, page, 'video', 'the theme’s own, on a theme with a loop'],
     [THEME, { themeHasLoop: false, followsHero: false }, 'colour', 'the theme’s own, on Classic'],
@@ -296,7 +304,7 @@ test('(6) Shade ▾ is on every source and Candlelight is its darkest step — o
   assert.match(studio, /\.\.\.MAIN_GROUND_SHADES\.filter\(\(k\) => takes\.shade \|\| k === 'as-is'\)\.map\(\(k\) => \(\{ key: k, label: MAIN_GROUND_SHADE_LABEL\[k\] \}\)\),\s*\{ key: BACKGROUND_SHADE_CANDLELIGHT, label: BACKGROUND_SHADE_CANDLELIGHT_LABEL,/);
   assert.equal(MAIN_GROUND_SHADES.length, 5);
   assert.match(studio, /const w = backgroundShadeWrite\(k, \{ art, shade: extra\('shade'\), takesShade: takes\.shade && Boolean\(current\) \}\);/);
-  assert.match(studio, /if \(w\.art\) write\.events = \{ site_art_direction: w\.art \};\s*if \(w\.stepMoves\) write\.main = withExtra\('shade', w\.step\);\s*saveLook\(write, FAILED\);/);
+  assert.match(studio, /if \(w\.art\) write\.events = \{ site_art_direction: w\.art \};\s*if \(w\.stepMoves\) write\.main = withExtra\('shade', w\.step\);\s*pickLook\(write, FAILED\);/);
   assert.match(panel, /fd\.set\('patch', JSON\.stringify\(backgroundWritePatch\(write\)\)\);\s*return draft\(eventId, fd\);/, 'a pick is more than one draft save');
   // Blur · Focus · Motion keep their rows where they mean something.
   for (const attr of ['data-studio-blur-pick', 'data-studio-focus-pick', 'data-main-ground-motion-pick', 'data-studio-shade-pick']) assert.ok(studio.includes(`dataAttr="${attr}"`), `${attr} is gone`);
@@ -377,4 +385,146 @@ test('(8) a draft that turns Candlelight off takes the layout’s attribute off 
   // ⛔ Never for a guest: the layout (every guest) does not import it; only the host's canvas wrapper does.
   for (const f of ['app/[slug]/layout.tsx', `${G}/guest-look-scope.tsx`]) assert.doesNotMatch(read(f), /candlelight-off-on-canvas|CandlelightOffOnCanvas/, `${f} mounts it for guests`);
   assert.match(read('app/[slug]/page.tsx'), /draftLook \? <HostDraftLook look=\{draftLook\}>\{node\}<\/HostDraftLook> : node;/, 'the drafted scope is no longer the host’s only');
+});
+
+/* ── (9) a card is phone-shaped ───────────────────────────────────────── */
+
+/** The declarations of the stylesheet's ONE rule for `selector` (comments blanked). */
+function cssRule(selector: string): Record<string, string> {
+  const css = read('app/globals.css');
+  const esc = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const hits = [...css.matchAll(new RegExp(`(^|\\})\\s*${esc}\\s*\\{([^}]*)\\}`, 'g'))];
+  assert.equal(hits.length, 1, `expected ONE \`${selector}\` rule, found ${hits.length}`);
+  return Object.fromEntries(
+    hits[0]![2]!
+      .split(';')
+      .map((d) => d.trim())
+      .filter(Boolean)
+      .map((d) => [d.slice(0, d.indexOf(':')).trim(), d.slice(d.indexOf(':') + 1).trim()]),
+  );
+}
+/** Any class or inline declaration that would size, stretch or reshape an element. */
+const SIZING_CLASS = /^(?:[a-z-]+:)*(?:w-|h-|min-w-|max-w-|min-h-|max-h-|size-|aspect-|basis-|flex-(?:1|auto|initial|grow|shrink)|grow|shrink|col-span|self-stretch)/;
+const SIZING_STYLE = /(?:^|;)\s*(?:width|height|min-width|max-width|inline-size|block-size|aspect-ratio|flex|flex-grow|flex-basis)\s*:/;
+const attr = (tag: string, name: string) => new RegExp(`\\s${name}="([^"]*)"`).exec(tag)?.[1] ?? '';
+
+test('(9) a card is PHONE-SHAPED: a 3 : 4 portrait frame of a fixed width that can never grow, cropped where the page crops', async () => {
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const C = await import(`../${E}/background-cards`);
+  const P = await import(`../${E}/main-background-panel`);
+  // What the rendered card WEARS is what is measured: its classes, resolved against the stylesheet.
+  const sizeOf = (classes: string[], what: string) => {
+    const frames = classes.filter((c) => c === 'sn-phone-card');
+    assert.equal(frames.length, 1, `${what}: the picture does not wear the Maker’s ONE picture-card frame (.sn-phone-card)`);
+    const stray = classes.filter((c) => SIZING_CLASS.test(c));
+    assert.deepEqual(stray, [], `${what}: a class beside the frame sizes the picture`);
+    const rule = cssRule('.sn-phone-card');
+    const [w, h] = (rule['aspect-ratio'] ?? '').split('/').map((n) => Number(n.trim()));
+    return { ratio: w! / h!, width: rule['inline-size'] ?? '', flex: rule['flex'] ?? '' };
+  };
+  for (const [what, props, child] of [
+    ['a colour card, picked', { name: 'Plain', data: 'fill:plain', on: true, onPick: () => {}, swatch: '#abcdef' }, null],
+    ['a pattern card', { name: 'Dots', data: 'pattern:dots', on: false, onPick: () => {}, swatch: 'x', swatchSize: '12px 12px' }, null],
+    ['a Pro video card with a long name', { name: 'Cinderella moonlit frost and more', data: 'loop:x', on: false, onPick: () => {}, swatch: '#000', pro: true, moving: true }, React.createElement(C.LoopPicture, { src: 'https://x.test/a.mp4' })],
+    ['the Upload card', { name: 'Photo or video', data: 'upload', on: false, onPick: () => {}, swatch: '#fff', pro: true }, React.createElement(C.UploadPicture)],
+    ['a picture card', { name: 'Your photo', data: 'own:a', on: true, onPick: () => {}, swatch: '#fff' }, React.createElement(P.StillOverSwatch, { src: 'https://x.test/a.jpg', swatch: '#fff' })],
+  ] as const) {
+    const html = renderToStaticMarkup(React.createElement(C.BgCard, props, child));
+    const picture = /<span[^>]*data-bg-card-picture=""[^>]*>/.exec(html)?.[0] ?? '';
+    assert.ok(picture, `${what}: no picture element`);
+    const size = sizeOf(attr(picture, 'class').split(/\s+/), what);
+    assert.equal(size.ratio, 3 / 4, `${what}: the frame is not 3 : 4`);
+    assert.ok(size.ratio < 1, `${what}: the frame is not PORTRAIT`);
+    assert.match(size.width, /^var\(--phone-card-w, \d+px\)$/, `${what}: the frame has no fixed inline size`);
+    assert.equal(size.flex, 'none', `${what}: the frame may grow or shrink`);
+    assert.doesNotMatch(attr(picture, 'style'), SIZING_STYLE, `${what}: an inline style resizes the frame`);
+    // The CARD itself: exactly as wide as its picture, never growing in a wide panel, never shrinking in a narrow one.
+    const card = /<button[^>]*>/.exec(html)![0];
+    const cls = attr(card, 'class').split(/\s+/);
+    assert.ok(cls.includes('flex-none'), `${what}: the card can flex — in a wide panel it becomes a strip`);
+    assert.ok(cls.includes('w-min'), `${what}: the card is not as wide as its picture`);
+    assert.deepEqual(cls.filter((c) => c !== 'w-min' && c !== 'flex-none' && SIZING_CLASS.test(c)), [], `${what}: a class resizes the card`);
+    assert.doesNotMatch(attr(card, 'style'), SIZING_STYLE);
+    // The name: one line, cut with …, never widening the card; the ◆ is outside the cut.
+    const name = /<span[^>]*data-bg-card-name=""[^>]*>/.exec(html)![0];
+    for (const c of ['w-0', 'min-w-full']) assert.ok(attr(name, 'class').split(/\s+/).includes(c), `${what}: a long name can widen the card (${c} missing)`);
+    assert.match(html, /<span class="truncate">[^<]+<\/span>/, `${what}: the name is not cut on one line`);
+    if ('pro' in props) assert.match(html, /<\/span><span aria-label="Event Hub Pro" class="shrink-0[^"]*">◆<\/span>/, `${what}: the ◆ can be cut off with the name`);
+    // The ring is on the frame itself (a shadow, so it keeps the frame's shape and radius).
+    assert.match(attr(picture, 'class'), props.on ? /(?:^| )ring-2 ring-terracotta-700(?: |$)/ : /(?:^| )ring-1 ring-ink\/10(?: |$)/, `${what}: the ring is not on the frame`);
+  }
+  // The strip scrolls sideways and never stretches its cards to one height or width.
+  const strip = renderToStaticMarkup(React.createElement(C.BgCards, { label: 'Video', source: 'video' }, null));
+  const stripCls = attr(/^<div[^>]*>/.exec(strip)![0], 'class').split(/\s+/);
+  for (const c of ['flex', 'overflow-x-auto', 'items-start']) assert.ok(stripCls.includes(c), `the strip is not ${c}`);
+  assert.deepEqual(stripCls.filter((c) => /^(?:grid|flex-wrap|justify-(?:between|stretch))/.test(c)), [], 'the strip lays its cards out to fill the panel');
+  // Every card of the panel is a BgCard — no second, hand-sized card in the Studio.
+  const panel = read(`${E}/main-background-panel.tsx`);
+  const studio = panel.slice(panel.indexOf('if (studio) {'), panel.indexOf('<p className="text-[14px] font-semibold text-ink">Behind every scene</p>'));
+  assert.ok(studio.length > 2000, 'anti-vacuity: the Studio branch was not found');
+  assert.doesNotMatch(studio, /GroundCarousel|aspect-\[|h-\[(?:66|86)px\]/, 'the Studio draws a card that is not the phone frame');
+  // A loop and a still fill the frame, cropped (the frame's own rule covers them too).
+  const media = cssRule('.sn-phone-card :is(img, video)');
+  assert.equal(media['object-fit'], 'cover');
+  // 🎯 Cropped WHERE THE PAGE CROPS: one rule, read by the guest page and by the card of the picture on the page.
+  assert.deepEqual([null, ...HUB_MAIN_FOCUSES].map((f) => mainGroundPosition(f)), ['center', 'center top', 'center bottom']);
+  const guest = read(`${G}/main-ground.tsx`);
+  assert.match(guest, /const position = mainGroundPosition\(focus\);/, 'the guest page positions its background by a rule of its own');
+  assert.doesNotMatch(guest, /'center top'|'center bottom'/, 'the guest page keeps a second copy of the crop rule');
+  assert.match(studio, /const heldAt = mainGroundPosition\(takes\.focus \? \(extra\('focus'\) as HubMainFocus \| null\) : null\);/);
+  // …and the card ON the page really is handed that position (a `held` that answers nothing would crop every card at its centre).
+  assert.match(studio, /const held = \(isOn: boolean \| null \| undefined\) => \(isOn \? \{ position: heldAt \} : \{\}\);/, 'the card of the picture on the page is not held where Focus holds it');
+  assert.doesNotMatch(studio, /object-(?:top|bottom)|'center top'|'center bottom'/, 'the cards keep a second copy of the crop rule');
+  const stills = studio.split('<StillOverSwatch').slice(1).map((c) => c.slice(0, c.indexOf('/>')));
+  assert.ok(stills.filter((c) => /\{\.\.\.held\(active/.test(c)).length >= 5, 'a picture that can be ON the page is not cropped where the page crops it');
+  for (const f of HUB_MAIN_FOCUSES) {
+    const at = mainGroundPosition(f);
+    assert.match(renderToStaticMarkup(React.createElement(P.StillOverSwatch, { src: 'https://x.test/a.jpg', swatch: '#fff', position: at })), new RegExp(`style="object-position:${at}"`), `Focus ${f} does not reach the card`);
+  }
+  assert.doesNotMatch(renderToStaticMarkup(React.createElement(P.StillOverSwatch, { src: 'https://x.test/a.jpg', swatch: '#fff' })), /object-position/);
+});
+
+/* ── (10) no cover photo, no card ─────────────────────────────────────── */
+
+test('(10) "Your cover photo" is drawn only when there is one — no empty card, never the word "hero", and a stale follow reads as what guests see', async () => {
+  // The rule, executed.
+  const REF = 'r2://setnayan-media/events/E1/landing-page-hero/h.jpg';
+  assert.equal(coverCardShows({ classic: false, photoRef: REF, photoUrl: 'https://x.test/h.jpg' }), true);
+  assert.equal(coverCardShows({ classic: false, photoRef: null, photoUrl: null }), false, 'no cover photo still draws a card');
+  assert.equal(coverCardShows({ classic: false, photoRef: REF, photoUrl: null }), false, 'a cover photo with no picture to draw is an empty card');
+  assert.equal(coverCardShows({ classic: false, photoRef: null, photoUrl: 'https://x.test/h.jpg' }), false);
+  assert.equal(coverCardShows({ classic: true, photoRef: REF, photoUrl: 'https://x.test/h.jpg' }), false, 'Classic never follows a cover');
+  // The panel ASKS it, for the one card that follows the cover — and that card is the photo itself.
+  const panel = read(`${E}/main-background-panel.tsx`);
+  const studio = panel.slice(panel.indexOf('if (studio) {'), panel.indexOf('<p className="text-[14px] font-semibold text-ink">Behind every scene</p>'));
+  assert.ok(studio.length > 2000, 'anti-vacuity: the Studio branch was not found');
+  const at = studio.indexOf('data="src:hero"');
+  assert.ok(at > 0 && studio.indexOf('data="src:hero"', at + 1) === -1, 'expected ONE cover card in the Studio');
+  const before = studio.slice(studio.lastIndexOf('{coverCardShows(', at), at);
+  assert.match(before, /^\{coverCardShows\(\{ classic: themeId === 'house', photoRef: hero\.photoRef, photoUrl: hero\.photoUrl \}\) \? \(\s*<BgCard\s+name="Your cover photo"\s*$/, 'the cover card is drawn without asking whether there is a cover photo');
+  const card = studio.slice(at, studio.indexOf('</BgCard>', at));
+  assert.match(card, /<StillOverSwatch src=\{hero\.photoUrl\}/, 'the cover card is not the photo itself');
+  assert.doesNotMatch(card, /disabled=|\? \(|: \(/, 'the cover card has an empty / disabled state');
+  assert.doesNotMatch(studio, /Add a cover photo first|add a hero photo/i, 'a placeholder card tells the couple to add a cover photo');
+  // Never the word "hero" in what the Studio's Background SAYS (names, labels, ⓘ text, lines).
+  const said = [
+    ...[...studio.matchAll(/\b(?:name|label|info)="([^"]*)"/g)].map((m) => m[1]!),
+    ...[...studio.matchAll(/label: [`']([^`']*)[`']/g)].map((m) => m[1]!),
+    ...[...studio.matchAll(/>\s*([A-Z][^<>{}]{3,})\s*</g)].map((m) => m[1]!),
+    BACKGROUND_MAIN_INFO,
+    ...Object.values(BACKGROUND_SOURCE_LABEL),
+  ];
+  assert.ok(said.length >= 12, `anti-vacuity: only ${said.length} strings read`);
+  assert.ok(said.includes('Your cover photo'));
+  for (const w of said) assert.doesNotMatch(w, /\bhero\b/i, `the Studio says “${w}”`);
+  // A stored follow whose photo is gone is NOT "Your photo or video": the Source reads what guests see.
+  assert.match(studio, /followsHero: Boolean\(follow\) \|\| \(!current && Boolean\(hero\.photoRef\) && themeId !== 'house'\),/);
+  assert.match(panel, /const follow = current && isHubMainFollow\(current\) && current\.of === hero\.photoRef \? current : null;/);
+  const { resolveMainGround } = await import('./hub-canvas');
+  const gate = (r: string) => r;
+  assert.equal(resolveMainGround(FOLLOW, { photoRef: null, videoRef: null }, gate), null, 'anti-vacuity: a follow with no cover photo draws a picture for guests');
+  assert.equal(backgroundSourceOf(FOLLOW, { themeHasLoop: true, followsHero: false }), 'video');
+  assert.equal(backgroundSourceOf(FOLLOW, { themeHasLoop: false, followsHero: false }), 'colour');
+  assert.equal(resolveMainGround(FOLLOW, { photoRef: (FOLLOW as { of: string }).of, videoRef: null }, gate)?.source, 'hero');
+  assert.equal(backgroundSourceOf(FOLLOW, { themeHasLoop: true, followsHero: true }), 'own');
 });

@@ -49,9 +49,10 @@ import { dressedTheme, paletteColourVars, themeColours } from '@/lib/theme-colou
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
 import { withPickedDate } from '@/lib/event-anchor';
 import type { InviteTheme, InviteThemeId } from '@/lib/invite-themes';
-import { ombreLook, parseSiteBackground } from '@/lib/ombre';
+import { ombreLook, ombreRamp, parseSiteBackground } from '@/lib/ombre';
+import { compositeOver } from '@/lib/hub-legibility';
 import { hubButtonPage, resolveHubButtons, type HubButtonsLook } from '@/lib/hub-buttons';
-import { pinPlateInk, proSiteVarsFor } from './pro-site-vars';
+import { pageWordBase, pinPlateInk, pinWordInks, proSiteVarsFor } from './pro-site-vars';
 import { sanitizeSiteRoles } from '@/lib/site-roles';
 import { siteRoleMarks, siteRoleVars } from '@/lib/site-role-look';
 import { resolveHubTheme, websiteProActiveFor } from './hub-look';
@@ -306,16 +307,36 @@ export function guestLookFrom(
   // 🎨 Every measurement below is made on the theme as the Mood Board dresses it.
   const dressed = dressedTheme(hub.theme, event.role_palette);
   let ombre: string | null = null;
+  // Everything the ombré paints behind the words: its ramp, under the veil it baked in.
+  let ramp: string[] = [];
   if (background?.kind === 'ombre') {
     const look = ombreLook(dressed, background.ombre);
     ombre = look.css;
     vars = { ...(vars ?? {}), ...look.vars };
+    const { color, opacity } = look.legibility.scrim;
+    ramp = ombreRamp(background.ombre).map((stop) => compositeOver(color, opacity, stop));
   }
+
+  /* 🔤 THE WORDS FOLLOW THE PAPER (2026-10-08, live: a dark ombré over a light
+     Mood Board painted "Reply to the invitation" 1.4 : 1). The button's fill —
+     its label is the page's paper — and the accent's steps were sized against
+     the paper the theme or the board drew; the couple's background has just
+     replaced that paper. Each is re-measured on the paper the page ends with
+     and moved only if it no longer reads (`pinWordInks`). A look whose paper
+     never moved is the same object, untouched. */
+  vars = pinWordInks(
+    vars,
+    pageWordBase(hub.theme, palette, event.site_art_direction === 'candlelight' ? 'candlelight' : null),
+    ramp,
+  );
 
   /* 🔤 A ROLE'S OWN FONT AND COLOUR (owner 2026-10-08, the Look restudy row 3 —
      `events.site_roles`, `lib/site-role-look.ts`): layered after the palette,
      the couple's colours and the ombré, so a role's pick is what the role wears.
-     Nothing stored → `{}` and no mark: the bag is exactly what it was. Free. */
+     Nothing stored → `{}` and no mark: the bag is exactly what it was. Free.
+     AFTER `pinWordInks` above: that pass re-sizes only the tokens nobody chose,
+     and a role's colour is the couple's own answer — its AA is said beside the
+     pick in the Studio, never enforced on the page (`lib/site-role-look.ts`). */
   const roles = sanitizeSiteRoles((event as { site_roles?: unknown }).site_roles);
   if (roles) {
     /* The paper the page paints — the ONE reading of it (`hubButtonPage`, the same the buttons are measured on). */

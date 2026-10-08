@@ -48,9 +48,11 @@ test('the frame is 3 : 4 portrait, a fixed inline size, and can neither grow nor
   // A fixed size, from the one custom property — never a percentage, never auto.
   const size = /^var\(--phone-card-w, (\d+)px\)$/.exec(frame['inline-size'] ?? '');
   assert.ok(size, `the frame's inline size is not a fixed size from ${PHONE_CARD_WIDTH_VAR}: ${frame['inline-size']}`);
-  // About two and a half across a 375px phone: 16px of side padding, 8px between cards.
-  const across = (375 - 16 + 8) / (Number(size![1]) + 8);
-  assert.ok(across >= 2.3 && across <= 2.8, `${across.toFixed(2)} cards show across a 375px phone — the strip does not visibly scroll`);
+  // ONE SIZE, EVERYWHERE — 112 × 149 (owner 2026-10-08, approved by eye on the template gallery: *"Style Card should be
+  // limited to that height and width. Adjust it always to that. no framing"*). It was 136 (≈ 2.5 across a 375px phone);
+  // at 112 exactly three fit a 375px phone (16 + 3 × 112 + 3 × 8 = 376) — told to the controller: no fourth card peeks there.
+  assert.equal(Number(size![1]), 112, `the card is ${size![1]}px wide — the owner's one size is 112 × 149`);
+  assert.equal(Math.round((Number(size![1]) * 4) / 3), 149);
   assert.equal(frame['flex'], 'none', 'a card may grow into a wide panel, or shrink');
   assert.equal(frame['overflow'], 'hidden');
   assert.equal(frame['border-radius'], 'var(--m-r-md)', 'the frame does not wear the house radius token');

@@ -1326,7 +1326,7 @@ export function Toggle({
         <input id={id} form={form} type="checkbox" role="switch" name={name} defaultChecked={on} disabled={disabled} className="peer sr-only" />
         <span
           aria-hidden
-          className="sn-switch relative h-6 w-11 shrink-0 rounded-full after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-mulberry peer-disabled:opacity-40"
+          className="sn-switch sn-press-ring relative h-6 w-11 shrink-0 rounded-full after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-mulberry peer-disabled:opacity-40"
         />
       </label>
       {note ? <div className="text-xs text-ink/60">{note}</div> : null}

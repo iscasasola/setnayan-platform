@@ -151,3 +151,15 @@ Guard: `apps/web/lib/the-timeline-states-never-look-alike.test.ts` (6 tests;
 15 sabotages seen red).
 
 SPEC IMPACT: None.
+
+## 2026-10-08 · fix(studio): Love Story — an entry is a "moment" again; "chapter" stays the story's six sections
+
+The Timeline row had brought the gallery's word "chapter" to a Love Story
+entry ("Name this chapter", "+ Add a chapter"), on a page whose six sections are
+already its chapters. The app's own words win: "N moments", "Name this moment",
+"+ Add a moment", "Off the Event Hub — guests do not see this moment.", "Not
+saved yet — a moment needs a line or two.", and the aria-labels. Guard: test (8)
+of `studio-love-story-wears-the-timeline-row.test.ts`.
+
+SPEC IMPACT: `INTERACTION_RULES.md` § 9 and the gallery say "chapter" for the
+Love Story row's entry — the controller is correcting the word there.

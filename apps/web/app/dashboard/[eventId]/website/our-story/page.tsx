@@ -119,13 +119,13 @@ export default async function OurStoryEditorPage({
   }
 
   /* 🛑 A REFUSED READ OF THE STORY IS SAID, NEVER ACTED ON. Inside the Maker (Studio › Love Story) a read that
-     ERRORED — the event's, or who is asking — says so where the chapters would be, with Try again. Before this it
+     ERRORED — the event's, or who is asking — says so where the moments would be, with Try again. Before this it
      fell into the two redirects below and threw the couple out of the Maker as if the event were not theirs. A read
      that ANSWERED (no such event, not the couple) still redirects exactly as before. */
   if (inMaker && (eventError || membershipError)) {
     return (
       <TimelineReadProblem title="We could not load your Love Story">
-        Your chapters are safe. This is a problem on our side or your connection.
+        Your moments are safe. This is a problem on our side or your connection.
       </TimelineReadProblem>
     );
   }

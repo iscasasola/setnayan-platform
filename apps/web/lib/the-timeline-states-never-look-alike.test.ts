@@ -165,10 +165,10 @@ test('(6) the Love Story’s sample (an empty story) is not a loading list: it i
     }),
   );
   const loading = await paint(React.createElement(R.TimelineRowsLoading, { label: 'Loading your Love Story' }));
-  assert.match(empty, />No chapters yet\.</);
+  assert.match(empty, />No moments yet\.</);
   assert.match(empty, /data-studio-story-sample=""/);
   assert.doesNotMatch(empty, /animate-|aria-busy|role="alert"/, 'an empty story shimmers or reads as busy');
-  assert.match(empty, /<button[^>]*data-studio-add-moment=""[^>]*>[\s\S]*?Add a chapter</, 'an empty story gives no first action');
+  assert.match(empty, /<button[^>]*data-studio-add-moment=""[^>]*>[\s\S]*?Add a moment</, 'an empty story gives no first action');
   assert.notEqual(words(empty), words(loading));
   assert.ok(words(empty).includes('How we met'), 'the sample lost its chapter names — it would be bare grey shapes, like loading');
 });

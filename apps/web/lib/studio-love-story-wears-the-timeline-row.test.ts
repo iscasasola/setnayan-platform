@@ -17,7 +17,8 @@
  *       Move down (ONE `intent=order`), Remove.
  *   (6) ADD A CHAPTER — named in the row, then its words; unnamed is dropped; with no words it is NOT saved and
  *       says so; with both it is ONE `add` form.
- *   (7) A chapter kept off the Event Hub says so on its row; this page writes exactly the accent classes listed.
+ *   (7) A moment kept off the Event Hub says so on its row; this page writes exactly the accent classes listed.
+ *   (8) THE WORD — an entry is a MOMENT; "chapter" is kept for the story's six sections, and never said of an entry.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -78,15 +79,15 @@ test('(1) the row is when · name · ONE picture square · ⋯ — the when only
   const rows = rowsOf(html);
   assert.deepEqual(rows.map((r) => /data-moment-card="([^"]+)"/.exec(r)![1]), ['u', 't', 's']);
   const u = rows[0]!;
-  assert.match(u, /^<li[^>]*data-timeline-row="chapter"/, 'a chapter is not the app’s Timeline row');
+  assert.match(u, /^<li[^>]*data-timeline-row="moment"/, 'a chapter is not the app’s Timeline row');
   const order = [/data-ticker-pill="when"/, /data-timeline-name=""/, /data-ticker-pill="photos"/, /data-studio-story-more="u"/].map((re) => u.search(re));
   assert.ok(order.every((n) => n > -1), `a part of the row is missing: ${order}`);
   assert.deepEqual([...order].sort((x, y) => x - y), order, 'the row is not when · name · picture · ⋯');
   // ONE square, however many photos — the count says how many.
   assert.equal((u.match(/data-ticker-pill="photos"/g) ?? []).length, 1);
-  assert.match(u, /<button[^>]*aria-label="2 of 3 photos\. Tap to change"[^>]*data-ticker-pill="photos"[^>]*><img[^>]*src="\/a\.webp"[^>]*\/><span[^>]*data-chapter-photo-count=""[^>]*>2</);
+  assert.match(u, /<button[^>]*aria-label="2 of 3 photos\. Tap to change"[^>]*data-ticker-pill="photos"[^>]*><img[^>]*src="\/a\.webp"[^>]*\/><span[^>]*data-moment-photo-count=""[^>]*>2</);
   assert.match(rows[1]!, /<button[^>]*aria-label="Add photos, up to 3"[^>]*data-ticker-pill="photos"/);
-  assert.doesNotMatch(rows[1]!, /data-chapter-photo-count/);
+  assert.doesNotMatch(rows[1]!, /data-moment-photo-count/);
   // The when: a year · a month and year · a full date — never more exact than it is.
   assert.match(u, /data-ticker-pill="when"[^>]*>2019</);
   assert.match(rows[1]!, /data-ticker-pill="when"[^>]*>Feb 14, 2021</);
@@ -95,7 +96,7 @@ test('(1) the row is when · name · ONE picture square · ⋯ — the when only
   // A chapter seeded from words that never had a date says "When" — no year is made up for it.
   const undated = rowsOf(await paint([{ id: 'x', line: 'We just knew.', canvas: {} }]))[0]!;
   assert.match(undated, /<button[^>]*aria-label="Set when this was"[^>]*data-ticker-pill="when"[^>]*>When</);
-  assert.match(undated, /data-timeline-name=""[^>]*><span[^>]*>Name this chapter</);
+  assert.match(undated, /data-timeline-name=""[^>]*><span[^>]*>Name this moment</);
   // The order guests get: the couple's own order where they made one — not re-sorted over it here.
   const dragged = rowsOf(await paint([{ ...story[0]!, order: 1 }, { ...story[1]!, order: 0 }]));
   assert.deepEqual(dragged.map((r) => /data-moment-card="([^"]+)"/.exec(r)![1]), ['t', 'u']);
@@ -144,13 +145,13 @@ test('(3) one save per pick: rolling only draws; the ONE moment form goes when t
 });
 
 test('(4) photos: three offered (four kept), photos only, the shared FileUpload, removing is local and a new one goes to the server’s DRAFT', async () => {
-  const { CHAPTER_PHOTOS_OFFERED, ChapterPhotos, chapterPhotoSlots, momentEditForm } = await import(`../${STORY}/moment-order-cards`);
+  const { MOMENT_PHOTOS_OFFERED, MomentPhotos, momentPhotoSlots, momentEditForm } = await import(`../${STORY}/moment-order-cards`);
   const { MOMENT_MEDIA_MAX } = await import('./love-story-moments');
-  assert.equal(CHAPTER_PHOTOS_OFFERED, 3);
-  assert.deepEqual([0, 1, 3].map(chapterPhotoSlots), [3, 3, 3]);
+  assert.equal(MOMENT_PHOTOS_OFFERED, 3);
+  assert.deepEqual([0, 1, 3].map(momentPhotoSlots), [3, 3, 3]);
   // A chapter that already holds four keeps all four — and the offer never passes what storage holds.
-  assert.equal(chapterPhotoSlots(4), 4);
-  assert.ok(chapterPhotoSlots(MOMENT_MEDIA_MAX) <= MOMENT_MEDIA_MAX, 'the slots outrun storage — that would need a migration');
+  assert.equal(momentPhotoSlots(4), 4);
+  assert.ok(momentPhotoSlots(MOMENT_MEDIA_MAX) <= MOMENT_MEDIA_MAX, 'the slots outrun storage — that would need a migration');
   // Removing a photo is applied at the tap (no server); a NEW photo must go to the server, which screens it.
   assert.equal(momentNeedsServer([held], momentEditForm(held, { media: [A] })), false);
   assert.equal(momentNeedsServer([held], momentEditForm(held, { media: [] })), false);
@@ -166,7 +167,7 @@ test('(4) photos: three offered (four kept), photos only, the shared FileUpload,
   assert.match(s, /onChange=\{\(refs\) => \(picked\.current = refs\)\}/, 'each finished upload is its own save');
   assert.equal((s.match(/momentEditForm\(m, \{ media: /g) ?? []).length, 1);
   // The slots ARE the shared upload — device → storage, its own measured progress; nothing hand-made here.
-  assert.match(s, /<FileUpload\s+bucket="media"[\s\S]{0,400}?maxFiles=\{chapterPhotoSlots\(media\.length\)\}[\s\S]{0,300}?variant="gallery"/);
+  assert.match(s, /<FileUpload\s+bucket="media"[\s\S]{0,400}?maxFiles=\{momentPhotoSlots\(media\.length\)\}[\s\S]{0,300}?variant="gallery"/);
   assert.doesNotMatch(s, /XMLHttpRequest|fetch\(|presign|conic-gradient|setInterval/, 'the page uploads or fakes progress itself');
   // PHOTOS ONLY: nothing on this page accepts, names or promises a video.
   assert.match(s, /acceptedTypes=\{\['image\/jpeg', 'image\/jpg', 'image\/png', 'image\/webp'\]\}/);
@@ -174,17 +175,17 @@ test('(4) photos: three offered (four kept), photos only, the shared FileUpload,
   // Painted: the sheet's one line; a couple without Pro meets the one Pro line and no upload.
   const { renderToStaticMarkup } = await import('react-dom/server');
   const sheet = { action: async () => {}, moments: [held], partners: [], ownsPro: false, storeShell: false, proHref: '/pro', proPrice: null, eventId: 'ev-1', mediaUrls: {} };
-  const free = renderToStaticMarkup(React.createElement(ChapterPhotos, { m: held, sheet, mediaUrls: {}, onChange: () => {}, onDone: () => {} }));
+  const free = renderToStaticMarkup(React.createElement(MomentPhotos, { m: held, sheet, mediaUrls: {}, onChange: () => {}, onDone: () => {} }));
   assert.match(free, />Up to 3 photos\. The first one shows first on your page\.</);
   assert.match(free, /data-love-story-pro-line="web"/);
   assert.doesNotMatch(free, /type="file"/);
-  assert.match(free, /data-chapter-photos-done=""[^>]*>Done</);
-  const pro = renderToStaticMarkup(React.createElement(ChapterPhotos, { m: held, sheet: { ...sheet, ownsPro: true }, mediaUrls: {}, onChange: () => {}, onDone: () => {} }));
+  assert.match(free, /data-moment-photos-done=""[^>]*>Done</);
+  const pro = renderToStaticMarkup(React.createElement(MomentPhotos, { m: held, sheet: { ...sheet, ownsPro: true }, mediaUrls: {}, onChange: () => {}, onDone: () => {} }));
   assert.match(pro, /type="file"/, 'a Pro couple has no upload in the slots');
   assert.doesNotMatch(pro, /data-love-story-pro-line/);
   // Said, never silent: changed slots are "not kept yet" until Done; the save itself says its words on the row —
   // never a percentage of its own.
-  assert.match(s, /data-chapter-photos-not-kept=""[^>]*>\s*Not kept yet — press Done\./);
+  assert.match(s, /data-moment-photos-not-kept=""[^>]*>\s*Not kept yet — press Done\./);
   assert.match(s, /note=\{keeping \? 'Keeping your photos…' : /);
 });
 
@@ -222,7 +223,7 @@ test('(5) ⋯ keeps everything the open card held: the words (never emptied), Mo
   assert.match(s, /editing=\{editing === m\.id\}/);
 });
 
-test('(6) Add a chapter: named in the row, then its words — unnamed is dropped, wordless is NOT saved and says so, both = ONE add', async () => {
+test('(6) Add a moment: named in the row, then its words — unnamed is dropped, wordless is NOT saved and says so, both = ONE add', async () => {
   const { momentAddForm } = await import(`../${STORY}/moment-order-cards`);
   // The one form, through the moment door: a new chapter exactly as exact as its when.
   const r = applyMomentIntent(story, 'add', momentAddForm({ when: { y: 2026, m: 10 }, title: 'The fitting', line: 'Her mother cried first.' }), () => 0.5);
@@ -238,7 +239,7 @@ test('(6) Add a chapter: named in the row, then its words — unnamed is dropped
   assert.match(s, /const line = value\.trim\(\);\s*if \(!fresh \|\| !fresh\.title \|\| !line\) return;/, 'a chapter without words is sent');
   assert.equal((s.match(/momentAddForm\(/g) ?? []).length, 2, 'the add form is sent from more than one place');
   // …and it SAYS it is not saved (never a row that looks kept).
-  assert.match(s, /data-studio-story-not-saved=""[^>]*>\s*Not saved yet — a chapter needs a line or two\./);
+  assert.match(s, /data-studio-story-not-saved=""[^>]*>\s*Not saved yet — a moment needs a line or two\./);
   // Left unnamed — tapped out empty, or ✕ — the new row is dropped; nothing was ever sent.
   assert.match(s, /if \(!text && !fresh\.title\) return dropFresh\(\);/);
   assert.match(s, /onLeave=\{\(\) => \(fresh\.title \? setEditing\(null\) : dropFresh\(\)\)\}/);
@@ -248,7 +249,7 @@ test('(6) Add a chapter: named in the row, then its words — unnamed is dropped
   assert.match(s, /\.then\(\s*\(\) => setFresh\(null\),\s*\(e: unknown\) => setFreshProblem\(whyNot\(e\)\),\s*\)/);
   // Painted: the main button, and the free-stories line in its place once the cap is met.
   const html = await paint(story);
-  assert.match(html, /<button[^>]*data-studio-add-moment=""[^>]*class="[^"]*\bbg-sn-accent text-sn-on-accent\b[^"]*"[^>]*>[\s\S]*?Add a chapter</);
+  assert.match(html, /<button[^>]*data-studio-add-moment=""[^>]*class="[^"]*\bbg-sn-accent text-sn-on-accent\b[^"]*"[^>]*>[\s\S]*?Add a moment</);
   const capped = await paint(story, { add: { can: false, line: 'Five of five free stories told' } });
   assert.doesNotMatch(capped, /data-studio-add-moment/);
   assert.match(capped, /data-love-story-cap="reached"[^>]*>Five of five free stories told</);
@@ -256,10 +257,32 @@ test('(6) Add a chapter: named in the row, then its words — unnamed is dropped
 
 test('(7) a chapter kept off the Event Hub says so on its row; the page writes exactly the accent classes listed', async () => {
   const rows = rowsOf(await paint(story));
-  assert.match(rows[2]!, /data-timeline-note=""[^>]*>Off the Event Hub — guests do not see this chapter\.</);
+  assert.match(rows[2]!, /data-timeline-note=""[^>]*>Off the Event Hub — guests do not see this moment\.</);
   assert.doesNotMatch(rows[0]!, /data-timeline-note/);
   // THE ACCENT IS THE ONE TOKEN: the empty picture square's mark and ⋯ (never `mulberry`). Fills are `PILL_ON_CLASS`.
   assert.deepEqual([...src().matchAll(/[\w:!-]*(?:mulberry|sn-accent|sn-on-accent)[\w/-]*/g)].map((m) => m[0]), ['text-sn-accent', 'text-sn-accent']);
   assert.doesNotMatch(src(), /#[0-9a-fA-F]{3,8}\b|\b(?:bg|text|ring|border)-(?:terracotta|gild|gold)\b/, 'a colour is written by hand');
   assert.match(rows[0]!, /data-studio-story-more="u"[^>]*class="[^"]*\btext-sn-accent\b/);
+});
+
+test('(8) the word: an entry is a MOMENT — "chapter" is said only of the story’s six sections', async () => {
+  const html = await paint(story);
+  const seen = html.replace(/<[^>]+>/g, ' ');
+  const said = [...html.matchAll(/(?:aria-label|placeholder|title)="([^"]*)"/g)].map((m) => m[1]).join(' | ');
+  // On a story with moments nothing a person reads or hears says "chapter".
+  assert.doesNotMatch(seen, /chapter/i, 'a moment is called a chapter on the page');
+  assert.doesNotMatch(said, /chapter/i, 'a moment is called a chapter to a screen reader');
+  assert.match(seen, /3 moments/);
+  assert.match(html, /aria-label="Your moments, in order"/);
+  assert.match(html, /aria-label="More for One umbrella — its words, where, order, remove"/);
+  // An empty story: the only "chapters" are the three real section names over the sample rows.
+  const { LOVE_STORY_CHAPTER_LABEL } = await import('./love-story-moments');
+  const empty = (await paint([])).replace(/<[^>]+>/g, ' ');
+  assert.match(empty, /No moments yet\./);
+  assert.doesNotMatch(empty, /chapter/i);
+  for (const key of ['met', 'together', 'yes'] as const) assert.ok(empty.includes(LOVE_STORY_CHAPTER_LABEL[key]), `the sample lost the chapter “${LOVE_STORY_CHAPTER_LABEL[key]}”`);
+  // In the source every string a person meets says "moment" (comments and the six sections' own names aside).
+  const strings = [...src().matchAll(/(?:placeholder|nameLabel|aria-label|ariaLabel|title|label)=(?:"([^"]*)"|\{`([^`]*)`\})|'([^'\n]{12,})'|>\s*([A-Z][^<>{}\n]{10,})\s*</g)].map((m) => m[1] ?? m[2] ?? m[3] ?? m[4] ?? '');
+  assert.ok(strings.length > 12, `anti-vacuity: only ${strings.length} strings were read`);
+  for (const text of strings) assert.doesNotMatch(text, /\bchapters?\b/i, `“${text}” calls a moment a chapter`);
 });

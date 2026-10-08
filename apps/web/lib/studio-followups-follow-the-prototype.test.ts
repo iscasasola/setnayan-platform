@@ -184,7 +184,7 @@ test('2b · Studio › Love Story is the rows — one band per chapter, opened i
   assert.match(studio, /2019[\s\S]*One umbrella[\s\S]*data-ticker-pill="photos"[\s\S]*data-studio-story-more="u"/, 'a row is not when · name · picture · ⋯');
   assert.ok(sortMoments(story).map((m) => m.id).join() === 'u,s,d');
   assert.doesNotMatch(studio, /id="love-story-title"|On our <i/, 'Studio still draws the scrapbook around the cards');
-  assert.match(studio, /Add a chapter/, 'no + Add a chapter');
+  assert.match(studio, /Add a moment/, 'no + Add a moment');
   const card = /<li[^>]*data-moment-card="u"[^>]*>/.exec(studio)?.[0] ?? '';
   assert.match(card, /class="[^"]*border-t border-ink\/10 bg-cream/, 'a moment is not on a band with a hairline');
   assert.doesNotMatch(card, /class="[^"]*rounded/, 'a moment is drawn as a rounded box (owner: “bands? full width”)');

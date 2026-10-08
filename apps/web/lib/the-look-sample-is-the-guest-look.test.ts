@@ -290,22 +290,34 @@ test('(4) Studio › Look draws the sample screen and mounts no page frame — t
   assert.equal(lookShowsSample('reveal', true), false);
 
   const stub = React.createElement('div', { 'data-stub': 'the-sample' });
+  /* 🧯 THE PAGE FRAME, AS A STATIC RENDER SHOWS IT (re-aimed 2026-10-08): `buffered-canvas-frame.tsx` mounts its
+     `<iframe>` in the browser only ("NO IFRAME IN THE SERVER'S HTML" — a frame in the server's HTML fetched the guest
+     page before the Maker had hydrated, and that render was thrown away). What a render holds is the frame's BOX,
+     naming the page it will show (`data-canvas-src`). Counting `<iframe` here was a proxy main retired; the claim is
+     "this screen mounts the page frame for THIS event's guest page" — or, for Studio › Look, that it mounts none. */
+  const pageFrame = (html: string) => /<div[^>]*\bdata-maker-page-frames="(?:shown|loading)"[^>]*\bdata-canvas-src="(\/maria-and-jose\?[^"]*)"/.exec(html)?.[1] ?? null;
   const studio = await paintLookBody(makerWith({ stagesStudio: true, lookPages: pagesWith(stub) }), 'look');
   assert.match(studio, /data-details-look-sample=""/);
   assert.match(studio, /data-stub="the-sample"/);
   assert.equal((studio.match(/<iframe/g) ?? []).length, 0, 'Studio › Look mounted a guest-page frame');
-  assert.doesNotMatch(studio, /data-maker-page-frame/);
+  assert.doesNotMatch(studio, /data-maker-page-frame/, 'Studio › Look mounted the page frame’s box (it would fetch the guest page once the browser mounts it)');
+  assert.doesNotMatch(studio, /data-canvas-src/, 'Studio › Look names a guest page to load');
+  assert.equal(pageFrame(studio), null);
   // A sample that never arrived SAYS so — never an empty column, and never the page frame as a quiet fallback.
   const missing = await paintLookBody(makerWith({ stagesStudio: true, lookPages: pagesWith(null) }), 'look');
   assert.match(missing, /data-details-look-failed="look"/);
   assert.equal((missing.match(/<iframe/g) ?? []).length, 0);
+  assert.doesNotMatch(missing, /data-maker-page-frame|data-canvas-src/, 'a missing sample fell back to the page frame');
   // The shipped Maker: the page, as before.
   const shipped = await paintLookBody(makerWith({ stagesStudio: false, lookPages: pagesWith(stub) }), 'look');
   assert.doesNotMatch(shipped, /data-details-look-sample/);
-  assert.ok((shipped.match(/<iframe/g) ?? []).length >= 1, 'the shipped Maker’s Look lost its page frame');
+  assert.ok(pageFrame(shipped), 'the shipped Maker’s Look lost its page frame (the box that names this event’s guest page)');
+  assert.match(pageFrame(shipped)!, /editor=1/, 'the shipped Maker’s Look frame is not the host’s own canvas of the page');
+  assert.doesNotMatch(shipped, /data-stub="the-sample"/, 'the shipped Maker’s Look draws the sample screen');
   // The Hero in the Studio is still the page.
   const hero = await paintLookBody(makerWith({ stagesStudio: true, lookPages: pagesWith(stub) }), 'hero');
-  assert.ok((hero.match(/<iframe/g) ?? []).length >= 1, 'the Hero lost its page frame');
+  assert.ok(pageFrame(hero), 'the Hero lost its page frame (the box that names this event’s guest page)');
+  assert.doesNotMatch(hero, /data-details-look-sample|data-stub="the-sample"/, 'the Hero draws the sample screen instead of the page');
 
   // The sample itself: no frame, no request, no timer, no render asked.
   const sample = read(`${L}/look-sample.tsx`);

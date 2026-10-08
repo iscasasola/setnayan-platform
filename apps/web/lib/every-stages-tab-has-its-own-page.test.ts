@@ -323,7 +323,7 @@ test('d · WIRING: the swap starts at the top and stays there; the label follows
   assert.match(TOOLS, /if \(d\.t === 'hubTab'\) setCanvasTab\(\{ stage, tab: d\.tab \}\);/);
   // A tap on a tab tells the canvas itself, then the shell's Page ▾.
   assert.match(TOOLS, /postToCanvas\(\{ source: 'setnayan-editor', t: 'hubTab', key: '', tab: key \}\);\s*onPickPage\(option\);/);
-  assert.match(TOOLS, /setPicked\(null\);\s*goToPage\(p\.key, p\.option\);/);
+  assert.match(TOOLS, /deselect\(\);\s*goToPage\(p\.key, p\.option\);/, 'a tab tap lets go of the part picked on the page before — its tools too');
 });
 
 test('d · 🔝 a tab tap ENDS at the top: the part edited before cannot pull the page back down', () => {

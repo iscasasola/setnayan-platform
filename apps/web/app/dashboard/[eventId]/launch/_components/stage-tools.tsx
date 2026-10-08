@@ -989,8 +989,10 @@ export function StageTools({
                             setScreen(p.key as RsvpStageScene);
                             document.querySelector<HTMLElement>(`[data-rsvp-stage-scene="${p.key}"]`)?.click();
                           } else {
-                            /* Another page: the picked part is let go (the owner: "the picked part clears"). */
-                            setPicked(null);
+                            /* Another page: the picked part is let go (the owner: "the picked part clears") — and its
+                               tools with it, as ✕ does: the panel never keeps the look options of a part on the page
+                               before (measured on the preview, 08 Oct). */
+                            deselect();
                             goToPage(p.key, p.option);
                           }
                         }}

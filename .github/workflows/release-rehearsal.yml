@@ -65,7 +65,7 @@ on:
   # (a workflow_dispatch workflow can only be started once the file is on the
   # default branch). Removed in the last commit of this PR.
   push:
-    branches: [rd/release-rehearsal]
+    branches: [rd/release-rehearsal, rd/release-rehearsal-proof]
 
 permissions:
   contents: read

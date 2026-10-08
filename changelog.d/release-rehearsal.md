@@ -27,10 +27,14 @@ production secret, no Vercel build and no deploy:
 
 What it found on its first runs, on `main` @482a671b3 (measured, not estimated):
 
-- one host screen costs ~600 database requests and the Maker ~930, because
-  opening it makes the phone ask the server for 13–19 screens (the one opened
-  plus background loads); the signed-out guest page costs 35; ✓ Apply costs 426
-  for one press; a screen left open for a minute asks nothing;
+- one host screen costs ~600–700 database requests and opening the Maker
+  ~930–1,100, because the phone asks the server for 13–19 screens each time
+  (the one opened plus background loads); the signed-out guest page costs
+  35–36; ✓ Apply costs 426–526 for one press; a screen left open for a minute
+  asks nothing;
+- every build asks the database 12 times for an event whose id is the text
+  `sample-peter-and-mary` and is refused each time (`22P02 invalid input syntax
+  for type uuid`) — a sample slug handed to an `event_id` filter;
 - the stack `supabase start` builds does not carry production's default
   privileges for `postgres` — 22 migrations failed their own grant
   post-conditions until the rehearsal declared them, as the PGlite replay does;
@@ -39,7 +43,7 @@ What it found on its first runs, on `main` @482a671b3 (measured, not estimated):
 Guard: `lib/release-rehearsal-touches-nothing-live.test.ts` — the address guard
 refuses every non-loopback host (look-alikes included), every script calls it,
 and the workflow names no secret, links no project, calls no Vercel command and
-has no trigger but the button. Seven sabotages, each seen red.
+has no trigger but the button. Six sabotages, each seen red.
 
 Test code and workflow only: +0 routes, +0 exported server actions, no migration,
 no screen changes.

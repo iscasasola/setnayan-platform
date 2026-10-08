@@ -1,9 +1,15 @@
 /**
  * budget-ledger.test.ts — the arithmetic of BA3's per-category ledger.
  *
- * The guard that fences the RENDER lives beside the page
- * (`app/dashboard/[eventId]/budget/the-plan-meets-the-ledger.test.ts`); this
- * file drives the pure core.
+ * This file drives the pure core, which the budget CSV / print export
+ * (`app/api/budget/[eventId]/export/route.ts`) still builds from.
+ *
+ * ⤷ 2026-10-08 (Budget B2): the "Category by category" TABLE left the Budget
+ * page (owner: category subtotals are a filter of the one list, not a second
+ * table) and its render guard `the-plan-meets-the-ledger.test.ts` was retired
+ * with it. Three of that guard's assertions were never about the render — they
+ * hold the core the export still uses — so they moved to the end of this file
+ * rather than being lost.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -11,7 +17,9 @@ import assert from 'node:assert/strict';
 import {
   buildBudgetLedger,
   daysUntilDueLabel,
+  suggestedPlanByBucket,
   BUDGET_LEDGER_COLUMNS,
+  BUDGET_LEDGER_COLUMN_HINTS,
   type BudgetLedgerRow,
 } from './budget-ledger';
 import type { EventMoney, MoneyBucket, MoneyDue, MoneyLine } from './budget-truth';
@@ -76,6 +84,7 @@ function line(p: Partial<MoneyLine> & { bucket: string }): MoneyLine {
     vendorName: null,
     readOnly: false,
     dueDate: null,
+    bookedOn: null,
     daysUntilDue: null,
     dueState: 'none',
     ...p,
@@ -432,4 +441,53 @@ test('due-soon and upcoming reach the row and roll up into the totals', () => {
   assert.equal(totals.upcomingPhp, 20_000);
   assert.equal(totals.overduePhp, 5_000);
   assert.equal(totals.overdueCount, 1);
+});
+
+// ── carried over from the retired render guard (2026-10-08) ─────────────────
+// These three held the CORE, not the table, and the export still builds on it.
+
+test('each column keeps its gloss, and none is abbreviated', () => {
+  assert.deepEqual(BUDGET_LEDGER_COLUMN_HINTS, {
+    Planned: 'What you budgeted',
+    Agreed: 'What you signed for',
+    Paid: 'Handed over so far',
+    Owed: 'Agreed minus paid',
+  });
+  for (const col of BUDGET_LEDGER_COLUMNS) {
+    assert.ok(
+      /^[A-Z][a-z]+$/.test(col),
+      `"${col}" is not a whole word. "Agr." / "Bal." / "Amt" are the drift this ` +
+        `refuses — the labels are what the couple reads.`,
+    );
+  }
+});
+
+test('the wedding-shaped suggestion never reaches a non-wedding event', () => {
+  // `budget_leaf_benchmarks` IS the wedding budget taxonomy. Ungated, a debut
+  // would be handed a ₱450,000 catering plan out of a table that does not
+  // describe it. The gate lives INSIDE `suggestedPlanByBucket` (SUP-65).
+  const leaves = [{ canonicalService: 'catering', benchmarkPhp: 450_000 }];
+  assert.equal(
+    suggestedPlanByBucket({ isWedding: false, budgetPhp: 1_000_000, leaves }).size,
+    0,
+    'a non-wedding event was handed a wedding-shaped suggestion',
+  );
+  assert.ok(
+    suggestedPlanByBucket({ isWedding: true, budgetPhp: 1_000_000, leaves }).size > 0,
+    'the wedding path suggests nothing — the negative case above proves nothing',
+  );
+});
+
+test('Agreed is the resolver’s committed money — an estimate never leaks into it', () => {
+  const { rows } = buildBudgetLedger({
+    money: money([
+      bucket({ bucketId: 'catering', committedPhp: 225_000, hasBenchmark: true, estimatedPhp: 800_000 }),
+    ]),
+    suggestedPhp: new Map([['catering', 450_000]]),
+  });
+  assert.equal(
+    rows[0]!.agreedPhp,
+    225_000,
+    'an ₱800,000 quote leaked into Agreed. Agreed is what was SIGNED for.',
+  );
 });

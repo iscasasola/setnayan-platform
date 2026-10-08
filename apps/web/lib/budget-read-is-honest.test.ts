@@ -306,3 +306,40 @@ test('an unknown figure is drawn as a dash, and its meter draws no bar', () => {
   assert.doesNotMatch(summary, /\?\?\s*0\b/, 'no `?? 0` in the summary — that is how unknown becomes ₱0');
   assert.match(summary, /budgetMeter\(\{ targetPhp, agreedPhp, paidPhp \}\)/, 'the meter is handed the same nullable figures');
 });
+
+// ── B2 · a group nobody could read is not an empty group ───────────────────
+
+test('the list is built from the resolver — and from an UNREAD ledger when it was never asked', () => {
+  assert.match(
+    page(),
+    /const list = buildBudgetList\(moneyRead \?\? unreadEventMoney\(\)\);/,
+    'with the resolver switched off there are no lines; three "nothing yet" groups would be a failure drawn as emptiness',
+  );
+});
+
+test('every group answers a refused read with words — before it considers the empty state', () => {
+  const screen = stripComments(
+    readFileSync(join(HERE, '..', 'app/dashboard/[eventId]/budget/_components/budget-screen.tsx'), 'utf8'),
+  );
+  for (const [group, what] of [
+    ['SupplierGroup', 'your suppliers'],
+    ['OrderGroup', 'your purchases'],
+    ['ExpenseGroup', 'your expenses'],
+  ] as const) {
+    const at = screen.indexOf(`function ${group}(`);
+    assert.notEqual(at, -1, `${group} must still exist`);
+    const body = screen.slice(at, screen.indexOf('\nfunction ', at + 10) > 0 ? screen.indexOf('\nfunction ', at + 10) : screen.length);
+    assert.match(
+      body,
+      new RegExp(`\\{rows === null \\? \\(\\s*<GroupUnread what="${what}" \\/>`),
+      `${group}: a refused read is not answered first — it would fall through to rows.map() or the empty state`,
+    );
+    assert.match(
+      body,
+      /count=\{rows === null \? null : rows\.length\}/,
+      `${group}: a refused group prints a count — "0" beside a group nobody read is the defect`,
+    );
+  }
+  const unread = screen.slice(screen.indexOf('function GroupUnread('));
+  assert.match(unread, /Couldn&rsquo;t load \{what\}\./, 'the refusal must be said in words');
+});

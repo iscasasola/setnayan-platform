@@ -4,18 +4,16 @@ import { redirect } from 'next/navigation';
 import { Download, Printer, Gift, ArrowRight, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { isChineseWedding, isMuslimWedding } from '@/lib/chinese-wedding';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
 import {
   fetchBudgetSnapshot,
   buildBudgetLiveSummary,
   type BudgetLiveSummary,
 } from '@/lib/budget';
-import { formatPhp } from '@/lib/orders';
 import {
   resolveEventMoneySettled,
   moneyReadsAllOk,
-  bucketLabel,
+  unreadEventMoney,
   type EventMoney,
 } from '@/lib/budget-truth';
 
@@ -26,33 +24,13 @@ import {
   vendorsToItemize,
   legacyCommittedVendorsPhp,
 } from '@/lib/budget-page-money';
-import { resolveAllocationInputs, fetchSavedAllocationPlan } from '@/lib/budget-allocation-data';
-import { buildBudgetLedger, suggestedPlanByBucket } from '@/lib/budget-ledger';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { COUPLE_ORDERS_HIDE_VENDOR_FILTER } from '@/lib/orders';
-import { fetchPublishedMethodsForCouple } from '@/lib/vendor-payment-methods.server';
-import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
-import { fetchPlanForCouple } from '@/lib/vendor-service-payment-schedules.server';
-import type { PlanInstance } from '@/lib/vendor-service-payment-schedules';
-import { BudgetAllocationPlanner } from './_components/budget-allocation-planner';
-import { ShareBudgetBandToggle } from './_components/share-budget-band-toggle';
-import { BudgetSummary } from './_components/budget-summary';
-import { pickNextPayment, type NextPayment } from '@/lib/budget-page-view';
-import { BudgetLedgerTable } from './_components/budget-ledger-table';
-import {
-  CostsWithNoSupplier,
-  type RecordedCost,
-} from './_components/costs-with-no-supplier';
+import { BudgetScreen, type SupplierExtras } from './_components/budget-screen';
+import { buildBudgetList, pickNextPayment, type NextPayment } from '@/lib/budget-page-view';
 import { costCategoryOptions } from '@/lib/event-costs';
-import { VendorItemizationCard } from '../_components/vendor-itemization-card';
-import {
-  ACCEPTED_QUOTE_SELECT,
-  acceptedQuoteTerms,
-  paymentDoor,
-  type AcceptedQuoteRow,
-  type AcceptedQuoteTerms,
-  type PaymentDoor,
-} from '@/lib/accepted-quote-terms';
+import { depositStepHref } from '@/lib/deposit-pay-step';
+import { paymentDoor, type PaymentDoor } from '@/lib/accepted-quote-terms';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { YOUR_TEAM_BUDGET_PART, yourTeamBudgetHref } from '@/lib/pillar-parts';
 import { DeniedState } from '@/app/_components/states/denied-state';
@@ -142,7 +120,7 @@ export default async function BudgetPage({ params, searchParams }: Props) {
   // extra query, so the page's cost profile is unchanged in production.
   const budgetTruth = isBudgetTruthEnabled();
 
-  const [eventRes, snapshot, paidOrdersRes, allocInputs, moneyRead, savedPlanPhp] = await Promise.all([
+  const [eventRes, snapshot, paidOrdersRes, moneyRead] = await Promise.all([
     supabase
       // SEC-2b: public.events_host, not public.events — this select names a column
       // (budget / birth data / Drive folder) that is SELECT-denied to `authenticated`
@@ -163,10 +141,6 @@ export default async function BudgetPage({ params, searchParams }: Props) {
       // must never include what their vendor is charged (belt over RLS).
       .or(COUPLE_ORDERS_HIDE_VENDOR_FILTER)
       .in('status', ['paid', 'fulfilled']),
-    // Suggested-split inputs (budget + per-leaf benchmarks/medians + engine
-    // config) resolved server-side once; the planner client component re-runs
-    // the pure engine on every tilt. Reuses the same authed supabase client.
-    resolveAllocationInputs(supabase, eventId),
     // B0 (2026-10-08) · the resolver is asked in the form that NEVER rejects and
     // says, per source, whether it answered (`EventMoney.reads`). No catch here
     // that turns a failure into `null` — a `null` cannot say WHICH read failed,
@@ -174,18 +148,15 @@ export default async function BudgetPage({ params, searchParams }: Props) {
     budgetTruth
       ? resolveEventMoneySettled(supabase, eventId)
       : Promise.resolve<EventMoney | null>(null),
-    // BA3 · the couple's OWN saved plan, per category. Fails empty, never
-    // partial — the ledger then falls back to the suggestion and says so.
-    fetchSavedAllocationPlan(supabase, eventId),
   ]);
 
   // ── A PARTIAL LEDGER IS NOT A LEDGER (B0) ─────────────────────────────────
   // Every figure this page prints from `money` today is a sum over ALL three
   // sources. With one refused, that sum is not a smaller answer, it is a wrong
-  // one — so a ledger with a failed read is treated exactly as an absent one
-  // was: the strip degrades to the legacy figures, the category table is
-  // withheld, and the costs section says it could not load. `moneyRead` keeps
-  // the per-source status for the render that switches on it.
+  // one — so the SUMMARY's figures come from `money` only when all three reads
+  // answered (see `summaryFigures`). `moneyRead` keeps the per-source status,
+  // and the LIST below is built from it group by group: a group whose read
+  // answered is drawn, a group whose read was refused says so.
   const money = moneyRead !== null && moneyReadsAllOk(moneyRead) ? moneyRead : null;
 
   // Migration-drift fallback (mirrors app/dashboard/[eventId]/page.tsx): the
@@ -259,26 +230,12 @@ export default async function BudgetPage({ params, searchParams }: Props) {
       ? Math.floor(Number(paxRaw))
       : null;
 
-  // Iteration 0053 P4 Unit 2: the suggested budget SPLIT (wedding cost
-  // categories + benchmarks) is the wedding budget-taxonomy pack. 'wedding' is
-  // the only event type with a budget taxonomy (profile.budgetTaxonomyKey), so
-  // this is the exact equivalent of resolveProfile(event_type).budgetTaxonomyKey
-  // === 'wedding'. Wedding → true (split renders, byte-identical); non-wedding →
-  // false → generic budget (total + per-vendor itemization only, no split).
-  const isWeddingBudget = ((event?.event_type as string | null) ?? 'wedding') === 'wedding';
-
   // Defensive read — the column may not exist yet in production until
   // migration 20260604030000 lands. Treat undefined and null the same
   // way: host has not set a budget.
   const initialBudgetCentavos: number | null =
     (event as { estimated_budget_centavos?: number | null } | null)
       ?.estimated_budget_centavos ?? null;
-
-  // Couple opt-in (default OFF) to share their budget as a rounded RANGE with
-  // vendors on the Customer Card (Customer Card respine PR-5). Defensive read —
-  // undefined (pre-migration) treated the same as false.
-  const initialShareBudgetBand: boolean =
-    (event as { share_budget_band?: boolean | null } | null)?.share_budget_band ?? false;
 
   // Current commitments — sum of paid/fulfilled service_orders + the
   // total_cost_php of every vendor at-or-past 'contracted' status (the
@@ -356,171 +313,57 @@ export default async function BudgetPage({ params, searchParams }: Props) {
             name: legacyNext.vendorName,
             dueDate: legacyNext.dueDate,
             vendorId: legacyNext.vendorId,
+            costId: null,
           }
         : null;
 
-  // Which vendors get a card. CONFIRMED ONLY, in both flag states (BA2, owner
-  // ruling 2026-09-02: "no quotes here. we only add the finalized budgets").
-  // A shortlisted supplier's quote belongs in the Merkado, where the couple is
-  // still adding and subtracting candidates — not on the page that says what
-  // they have signed for.
+  // ── B2 · THE ONE LIST ─────────────────────────────────────────────────────
+  // Booked suppliers · Bought on Setnayan · Your expenses — every row a reading
+  // of the resolver's own lines (`buildBudgetList`), NOT a second read of
+  // `event_vendors`, `orders` or `event_costs`. The resolver already fetched
+  // every row to compute the totals above; a second query here would be a
+  // second mechanism that can disagree with the first about one fact.
+  //
+  // ⚠ AND WHEN THE RESOLVER GAVE US NOTHING, SAY SO. `moneyRead` is null only
+  // when the kill-switch is off and the resolver was never asked; there are no
+  // lines to draw then, and three "nothing yet" groups would be a failure
+  // rendering identically to emptiness. `unreadEventMoney()` makes every group
+  // read "Couldn't load …" instead. (Production has run with the switch ON
+  // since 2026-09-02.)
+  const list = buildBudgetList(moneyRead ?? unreadEventMoney());
+  // The categories the Add expense sheet offers: every plan group this event
+  // type shows, plus "Other". The ids are `plan_group_id`, the namespace
+  // `MoneyBucket.bucketId` uses.
+  const costCategories = costCategoryOptions(event?.event_type ?? null);
+
+  // ── WHAT A SUPPLIER'S SHEET NEEDS BESIDES THE MONEY ──────────────────────
+  // Its payment history (date · how — the resolver's payment rows carry
+  // neither), which door a new payment goes through, and how to reach them.
+  // Only suppliers the couple has BOOKED get one (BA2, owner 2026-09-02: "no
+  // quotes here. we only add the finalized budgets").
   const finalizedVendors = vendorsToItemize({
     vendors: snapshot.vendors,
     isConfirmed: (status) => CONFIRMED_STATUS_SET.has(status),
   });
-  const hasAnyVendors = snapshot.vendors.length > 0;
-  const hasFinalizedVendors = finalizedVendors.length > 0;
 
-  // ── BA3 · THE PLAN MEETS THE LEDGER ───────────────────────────────────────
-  // `EventMoney.byBucket` has computed per-category agreed/paid/owed on every
-  // load of this page since BUD-1 and had NO reader outside tests. It gets one
-  // here, measured against the couple's own plan.
-  //
-  // "Planned" is the couple's SAVED plan when they have one, and otherwise the
-  // allocation engine's recommendation — the SAME `computeBudgetAllocation`
-  // the "Suggested budget split" above runs, with no pins, so the two sections
-  // cannot print different suggestions for one leaf. The row names which of the
-  // two it is; nothing derived is presented as the couple's own figure.
-  //
-  // ⚠ NO LEDGER WITHOUT THE RESOLVER. `money` is null when the budget-truth
-  // flag is off or the resolver refused. There is no per-category truth to
-  // print in that state, so this section is absent rather than a table of
-  // confident ₱0s — the one failure mode a money page must never have.
-  //
-  // ⚠ THE SUGGESTION IS WEDDING-SHAPED, SO IT IS GATED ON `isWeddingBudget`.
-  // `budget_leaf_benchmarks` IS the wedding budget taxonomy, and every other
-  // event type that enables this surface (birthday, debut, christening, wake …)
-  // has `budgetTaxonomyKey: null` — which is exactly why the "Suggested budget
-  // split" above renders for weddings only. Feeding those benchmarks to a debut
-  // would print a ₱450,000 catering plan the couple never made, from a table
-  // that does not describe their event. Their rows still render; Planned reads
-  // "—", which is the truth: we publish no typical prices for that shape yet.
-  //
-  // SUP-65: the suggestion is built by `suggestedPlanByBucket`, the same helper
-  // the Merkado's category rails call, so the two pages share one Planned.
-  const suggestedPlanPhp = suggestedPlanByBucket({
-    isWedding: isWeddingBudget,
-    budgetPhp: allocInputs.budgetPhp,
-    leaves: allocInputs.leaves,
-    config: allocInputs.config,
-  });
-  const allocLabels = new Map(allocInputs.leaves.map((l) => [l.canonicalService, l.label]));
-  const ledger = money
-    ? buildBudgetLedger({
-        money,
-        savedPlanPhp,
-        suggestedPhp: suggestedPlanPhp,
-        labelFor: (id) => allocLabels.get(id) ?? id,
-      })
-    : null;
-
-  // ── BA7 · THE COSTS WITH NO SUPPLIER ──────────────────────────────────────
-  // Derived from `money.lines`, NOT from a second read of `event_costs`. The
-  // resolver already fetched every row to compute the totals above; a second
-  // query here would be a second mechanism that can disagree with the first
-  // about one fact, which is the defect this whole stream is named after.
-  //
-  // ⚠ AND WHEN THE RESOLVER GAVE US NOTHING, SAY SO — do not print an empty
-  // list. `money` is null when the budget-truth flag is off or the resolver
-  // refused, and a couple with six recorded costs reading "nothing here yet"
-  // is a failure rendering identically to emptiness. `costsUnavailable`
-  // carries that distinction to the render.
-  const costsUnavailable = money === null;
-  const recordedCosts: RecordedCost[] = (money?.lines ?? [])
-    .filter((l) => l.source === 'event_cost')
-    .map((l) => ({
-      costId: l.sourceRef,
-      label: l.label,
-      categoryLabel: bucketLabel(l.bucket),
-      amountPhp: l.amountPhp,
-      paidPhp: l.paidPhp,
-      dueDate: l.dueDate,
-    }));
-  // Every plan group this event type actually shows, plus "Other". The ids are
-  // `plan_group_id`, the same namespace `MoneyBucket.bucketId` uses, so a cost
-  // filed here lands on the ledger row above rather than opening a new one.
-  const costCategories = costCategoryOptions(event?.event_type ?? null);
-
-  // Off-platform direct-pay: resolve each finalized vendor's PUBLISHED
-  // payment destinations server-side via the secure helper. It proves the
-  // couple owns the event_vendor row (RLS client) before reading the
-  // owner-RLS'd vendor_payment_methods table through the admin client, so
-  // couples never query payment methods directly. For off-platform/manual
-  // vendors (no marketplace profile) the helper returns [] and the card's
-  // VendorDirectPay block shows a quiet "coordinate in chat" hint.
-  // s.vendor.vendor_id IS the event_vendors.vendor_id the helper expects as
-  // `eventVendorId`. Fetched in parallel; any single failure degrades to []
-  // for that vendor rather than failing the whole page.
-  const adminClient = createAdminClient();
-  const directPayEntries = await Promise.all(
-    finalizedVendors.map(async (s): Promise<[string, CoupleFacingMethod[]]> => {
-      try {
-        const methods = await fetchPublishedMethodsForCouple({
-          authedClient: supabase,
-          adminClient,
-          eventId,
-          eventVendorId: s.vendor.vendor_id,
-        });
-        return [s.vendor.vendor_id, methods];
-      } catch {
-        return [s.vendor.vendor_id, []];
-      }
-    }),
-  );
-  const directPayByVendor = new Map<string, CoupleFacingMethod[]>(directPayEntries);
-
-  // Per-booking PAYMENT PLAN installments (Phase 2 PR-B/PR-C). Couple-RLS-
-  // scoped, so the authed client reads event_vendor_payment_plan directly.
-  // null = not locked / pre-PR-B; [] = locked, no schedule; [...] = render the
-  // installment dropdown in the log-payment form. Fetched in parallel; a single
-  // failure degrades that vendor to null (dropdown hidden) rather than failing
-  // the page. s.vendor.vendor_id IS the event_vendors.vendor_id the plan keys on.
-  const planEntries = await Promise.all(
-    finalizedVendors.map(async (s): Promise<[string, PlanInstance[] | null]> => {
-      try {
-        const plan = await fetchPlanForCouple({
-          authedClient: supabase,
-          eventId,
-          eventVendorId: s.vendor.vendor_id,
-        });
-        return [s.vendor.vendor_id, plan];
-      } catch {
-        return [s.vendor.vendor_id, null];
-      }
-    }),
-  );
-  const installmentsByVendor = new Map<string, PlanInstance[] | null>(planEntries);
-
-  // THE ACCEPTED QUOTE, HERE TOO (2026-09-20 · #5717 follow-up c). This card
-  // said a quote-locked supplier "hasn't shared pricing yet" — it knew
-  // packages and services, never quotes. Same read, same rule
-  // (`acceptedQuoteTerms`) as the supplier's workspace. And the same door
-  // (`paymentDoor`): a Setnayan supplier's payments go through "Amount to pay",
-  // so "+ Log a payment" here points there instead of being a second writer.
-  // Two batched reads for every finalized supplier. A refused read degrades to
-  // today's card (no quote lines; the log door 'unknown', never a blind 'log').
+  // THE PAYMENT DOOR (2026-09-20 · #5717). A supplier ON SETNAYAN is paid
+  // through "Amount to pay" — it names which payment is due, takes the first
+  // through `recordDeposit` (date held, supplier asked to confirm) and later
+  // ones through `logPayment`. Recording here as well was a second door, so the
+  // sheet's button goes THERE for them. One batched read; a refused read leaves
+  // the door 'unknown' — never a blind 'log'.
   const marketplaceFinalized = finalizedVendors.filter((s) => s.vendor.marketplace_vendor_id);
-  const quoteByVendor = new Map<string, AcceptedQuoteTerms | null>();
   const doorByVendor = new Map<string, PaymentDoor>();
   if (marketplaceFinalized.length > 0) {
-    const [{ data: quoteRows, error: quoteErr }, { data: depRows, error: depErr }] = await Promise.all([
-      supabase
-        .from('vendor_proposals')
-        .select(`${ACCEPTED_QUOTE_SELECT}, vendor_profile_id`)
-        .eq('event_id', eventId)
-        .eq('status', 'accepted'),
-      supabase
-        .from('event_vendors')
-        .select('vendor_id, deposit_recorded_at')
-        .eq('event_id', eventId)
-        .in(
-          'vendor_id',
-          marketplaceFinalized.map((s) => s.vendor.vendor_id),
-        ),
-    ]);
-    if (quoteErr) console.error('[budget] accepted-quote read refused', quoteErr.message, { event_id: eventId });
+    const { data: depRows, error: depErr } = await supabase
+      .from('event_vendors')
+      .select('vendor_id, deposit_recorded_at')
+      .eq('event_id', eventId)
+      .in(
+        'vendor_id',
+        marketplaceFinalized.map((s) => s.vendor.vendor_id),
+      );
     if (depErr) console.error('[budget] deposit-marker read refused', depErr.message, { event_id: eventId });
-    const quotes = (quoteRows ?? []) as (AcceptedQuoteRow & { vendor_profile_id: string | null })[];
     const deps = new Map(
       ((depRows ?? []) as { vendor_id: string; deposit_recorded_at: string | null }[]).map((r) => [
         r.vendor_id,
@@ -529,10 +372,6 @@ export default async function BudgetPage({ params, searchParams }: Props) {
     );
     for (const s of marketplaceFinalized) {
       const vid = s.vendor.vendor_id;
-      quoteByVendor.set(
-        vid,
-        acceptedQuoteTerms(quotes.filter((q) => q.vendor_profile_id === s.vendor.marketplace_vendor_id)),
-      );
       doorByVendor.set(
         vid,
         paymentDoor({
@@ -541,6 +380,30 @@ export default async function BudgetPage({ params, searchParams }: Props) {
         }),
       );
     }
+  }
+
+  // Looked up among the BOOKED suppliers only (`finalizedVendors`), so nothing
+  // about an un-booked supplier can reach a sheet.
+  const snapshotByVendor = new Map(finalizedVendors.map((s) => [s.vendor.vendor_id, s]));
+  const supplierExtras: Record<string, SupplierExtras> = {};
+  for (const row of list.suppliers ?? []) {
+    const s = snapshotByVendor.get(row.vendorId);
+    const onSetnayan = Boolean(s?.vendor.marketplace_vendor_id);
+    supplierExtras[row.vendorId] = {
+      payments: (s?.payments ?? []).map((pay) => ({
+        paymentId: pay.payment_id,
+        paidAt: String(pay.paid_at).slice(0, 10),
+        amountPhp: Number(pay.amount_php),
+        method: pay.method,
+      })),
+      // Off Setnayan → recorded here. On Setnayan → whatever the read said. A
+      // supplier the snapshot does not know at all is never logged blind.
+      door: !s ? 'unknown' : onSetnayan ? (doorByVendor.get(row.vendorId) ?? 'unknown') : 'log',
+      amountToPayHref: depositStepHref(eventId, row.vendorId),
+      // A shop on Setnayan is reached through its conversation. Anyone else has
+      // no thread to open, so Chat lands on Messages.
+      chat: onSetnayan ? { kind: 'thread' } : { kind: 'link', href: `/dashboard/${eventId}/messages` },
+    };
   }
 
   return (
@@ -590,140 +453,40 @@ export default async function BudgetPage({ params, searchParams }: Props) {
         }
       />
 
-      {/* B1 (2026-10-08) · THE SUMMARY, AS ROWS. Target · Agreed · Paid · Owed two
-       *  by two, one meter, one "Next" line — `BudgetSummary`. It replaced the
-       *  setter form, the boxed four-stat tile and the live card with its
-       *  pinned bar.
+      {/* B1 + B2 (2026-10-08) · THE BUDGET SCREEN. The summary as rows — Target ·
+       *  Agreed · Paid · Owed two by two, one meter, one "Next" line — then ONE
+       *  list in three groups: Booked suppliers · Bought on Setnayan · Your
+       *  expenses. `BudgetScreen` draws both, because "Pay ›" on the Next line
+       *  opens the same sheet a supplier's row does.
        *
-       *  🔒 SETTING the target is the couple's alone — locked D1, "budget never
-       *  exceeds view in V1". A delegate who may READ the money still never
-       *  moves it, so `canEdit` draws the figure instead of the field. */}
-      <BudgetSummary
+       *  It replaced, in order: the setter form, the boxed four-stat tile and
+       *  its pinned bar (B1); the "Suggested budget split" planner, the
+       *  "Category by category" table, the "Costs you pay yourself" form and
+       *  the per-supplier itemization cards (B2). The estimate READERS are
+       *  untouched — the Suppliers page, Explore and the CSV export still ask
+       *  them; only this page stopped drawing them (owner: "not this one").
+       *
+       *  🔒 WRITING money is the couple's alone — locked D1, "budget never
+       *  exceeds view in V1". A delegate who may READ sees the same rows; the
+       *  Target is a figure, not a field, and no sheet offers a verb. */}
+      <BudgetScreen
         eventId={eventId}
         canEdit={budgetAccess.mayEdit}
-        targetPhp={stripMoney.targetPhp}
-        agreedPhp={summaryFigures.agreedPhp}
-        paidPhp={summaryFigures.paidPhp}
-        owedPhp={summaryFigures.owedPhp}
-        next={nextPayment}
-        payHref="#budget-payments"
-      />
+        summary={{
+          targetPhp: stripMoney.targetPhp,
+          agreedPhp: summaryFigures.agreedPhp,
+          paidPhp: summaryFigures.paidPhp,
+          owedPhp: summaryFigures.owedPhp,
+          next: nextPayment,
+        }}
+        list={list}
+        supplierExtras={supplierExtras}
+        categories={costCategories}
+      >
+        {isMuslimCeremony ? <MahrInfoCard eventId={eventId} mahrDescription={mahrDescription} /> : null}
+        {isChineseCeremony ? <ChineseTraditionInfoCard pax={chineseGuestCount} /> : null}
+      </BudgetScreen>
 
-      {isMuslimCeremony ? (
-        <MahrInfoCard eventId={eventId} mahrDescription={mahrDescription} />
-      ) : null}
-
-      {isChineseCeremony ? <ChineseTraditionInfoCard pax={chineseGuestCount} /> : null}
-
-      {/* Suggested budget split — the median-anchored allocation planner.
-       *  RECOMMENDS what each service should cost (a ₱ target + shopping
-       *  range per leaf) BEFORE the couple contracts anyone, complementing
-       *  the per-vendor TRACKING below. The pure engine runs client-side for
-       *  instant tilt feedback; inputs were resolved server-side above. */}
-      {/* Iteration 0053 P4 Unit 2: the suggested split is the wedding budget
-       *  taxonomy (wedding cost categories + benchmarks). Only render it for
-       *  marriage-profile events; a non-wedding gets the generic budget (total
-       *  + per-vendor itemization below). allocInputs is still resolved above
-       *  for weddings — the Promise.all is unchanged so the wedding path is
-       *  byte-identical. */}
-      {isWeddingBudget ? (
-        <div id="budget-allocate" className="scroll-mt-24 space-y-4 border-t border-ink/10 pt-6">
-          <div className="space-y-2">
-            <h2 className="sn-sec text-2xl sm:text-3xl">Suggested budget split</h2>
-            <p className="max-w-prose text-sm text-ink/65">
-              A starting point from typical Filipino costs — nudge anything;
-              it&rsquo;s a guide, not a rule.
-            </p>
-          </div>
-
-          <BudgetAllocationPlanner
-            eventId={eventId}
-            budgetPhp={allocInputs.budgetPhp}
-            leaves={allocInputs.leaves}
-            config={allocInputs.config}
-            pax={allocInputs.pax}
-            region={event?.region ?? null}
-          />
-
-          {/* Opt-in to share this plan as a rounded RANGE with vendors — sits
-           *  right under the split it derives from. Off by default; range-only,
-           *  per-category, never an exact number (Customer Card respine PR-5). */}
-          {/* Sharing the couple's budget band with suppliers is a disclosure
-           *  ABOUT THE COUPLE'S MONEY, so it follows the same rule as setting
-           *  the target: theirs to make, nobody else's. */}
-          {budgetAccess.mayEdit ? (
-            <ShareBudgetBandToggle
-              eventId={eventId}
-              initialShare={initialShareBudgetBand}
-            />
-          ) : null}
-        </div>
-      ) : null}
-
-      {/* BA3 — one row per category: Planned · Agreed · Paid · Owed. Sits
-       *  between the plan above and the per-supplier detail below, because it
-       *  is the sentence that joins them. */}
-      {ledger ? (
-        <div className="scroll-mt-24 space-y-4 border-t border-ink/10 pt-6">
-          <BudgetLedgerTable ledger={ledger} />
-        </div>
-      ) : null}
-
-      {/* BA7 — money with nobody on the other side of it. Sits between the
-       *  category table and the per-supplier detail because that is what it
-       *  is: a category's money that has no supplier card to live on. */}
-      <div className="space-y-4 border-t border-ink/10 pt-6">
-        {costsUnavailable ? (
-          <p className="text-sm text-ink/65">
-            We could not load your own recorded costs just now. Nothing is lost
-            — reload the page, and if it keeps happening reach out from /help.
-          </p>
-        ) : null}
-        <CostsWithNoSupplier
-          eventId={eventId}
-          categories={costCategories}
-          costs={recordedCosts}
-          canEdit={budgetAccess.mayEdit}
-        />
-      </div>
-
-      {/* Existing per-vendor itemization + payment log — unchanged
-       *  surface from before this PR. Heading added so the visual break
-       *  from the setter form above is clear. */}
-      <div id="budget-payments" className="scroll-mt-24 space-y-4 border-t border-ink/10 pt-6">
-        <div className="space-y-2">
-          <h2 className="sn-sec text-2xl sm:text-3xl">Per-supplier itemization</h2>
-          <p className="max-w-prose text-sm text-ink/65">
-            Supplier-controlled line items come from the supplier&rsquo;s catalog and
-            refresh as they update their pricing. For off-platform suppliers, add
-            line items yourself. Log payments against either source as money moves
-            — your committed total above updates automatically.
-          </p>
-        </div>
-
-        {!hasAnyVendors ? (
-          <EmptyBudget eventId={eventId} />
-        ) : !hasFinalizedVendors ? (
-          <NoFinalizedVendors eventId={eventId} />
-        ) : (
-          <ul className="space-y-4">
-            {finalizedVendors.map((s) => (
-              <li key={s.vendor.vendor_id}>
-                <VendorItemizationCard
-                  summary={s}
-                  eventId={eventId}
-                  variant="card"
-                  directPayMethods={directPayByVendor.get(s.vendor.vendor_id) ?? []}
-                  installments={installmentsByVendor.get(s.vendor.vendor_id) ?? null}
-                  acceptedQuoteLines={quoteByVendor.get(s.vendor.vendor_id)?.lines ?? null}
-                  acceptedQuoteTotalCentavos={quoteByVendor.get(s.vendor.vendor_id)?.totalCentavos ?? null}
-                  paymentDoor={doorByVendor.get(s.vendor.vendor_id) ?? 'log'}
-                />
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
       {/* First visit only — the shipped MiniTour (owner 2026-09-25). */}
       <MiniTour tourKey="customer_budget_v1" />
     </section>
@@ -835,59 +598,3 @@ function ChineseTraditionInfoCard({ pax }: { pax: number | null }) {
     </section>
   );
 }
-
-/**
- * BA7 · WHAT THIS USED TO SAY, AND WHY IT CHANGED.
- *
- * In full: *"No vendors yet. Add a vendor first, then come back here to
- * itemize costs."* It was accurate about the schema — `event_vendor_line_items
- * .vendor_id` was NOT NULL, so there was genuinely nowhere to put a peso — and
- * it was the defect, said out loud: a couple who had bought their rings was
- * told to invent a supplier before their own budget would take the number.
- *
- * `event_costs` removed the reason, so the sentence had to go with it. This
- * frame now points at the section directly above, which accepts a cost with or
- * without a supplier, and keeps the suppliers link as the other door rather
- * than the only one.
- */
-function EmptyBudget({ eventId }: { eventId: string }) {
-  return (
-    <div className="sn-row border-dashed p-8 text-center">
-      <p className="mx-auto max-w-prose text-sm text-ink/65">
-        Nothing itemized against a supplier yet. Costs you pay yourself — the
-        rings, the licence, tips — go in the section above; book a supplier and
-        their line items and payments appear here.
-      </p>
-      <div className="mt-4">
-        <Link href={`/dashboard/${eventId}/vendors`} className="button-primary">
-          Find suppliers
-        </Link>
-      </div>
-    </div>
-  );
-}
-
-/**
- * Empty state for: ≥1 vendor on the event, but none yet contracted.
- * Per-vendor budget tracking unlocks once a vendor is locked in — until
- * then, considering / shortlisted vendors are still being shopped and
- * pricing isn't pinned down. The host can keep shortlisting from the
- * vendors page; once they contract one, it'll appear here.
- */
-function NoFinalizedVendors({ eventId }: { eventId: string }) {
-  return (
-    <div className="sn-row border-dashed p-8 text-center">
-      <p className="text-sm text-ink/65">
-        You&rsquo;re still choosing suppliers — exactly where you should be at this
-        stage. The moment you contract one, its itemized costs and payments show
-        up here on their own. Keep shortlisting from your suppliers.
-      </p>
-      <div className="mt-4">
-        <Link href={`/dashboard/${eventId}/vendors`} className="button-primary">
-          Open suppliers
-        </Link>
-      </div>
-    </div>
-  );
-}
-

@@ -15,6 +15,7 @@ import { MainBackgroundPanel, type MovingBackgroundOption } from '@/app/dashboar
 import { ColorsPanel } from '@/app/dashboard/[eventId]/website/editor/_components/pro-panels';
 import { SiteChromePanel } from '@/app/dashboard/[eventId]/website/editor/_components/media-panels';
 import { ButtonsLookRow } from '@/app/dashboard/[eventId]/website/editor/_components/buttons-look-row';
+import { LookSample } from '@/app/dashboard/[eventId]/launch/_components/look-sample';
 import { INVITE_THEMES } from '@/lib/invite-themes';
 import { hubButtonPage } from '@/lib/hub-buttons';
 import type { HubMainGround, HubSectionCanvas } from '@/lib/hub-canvas';
@@ -31,6 +32,8 @@ import { DEFAULT_REVEAL_EFFECTS } from '@/lib/std-reveal-effects';
  * the count beside ✓ moves exactly as a real save moves it; nothing leaves the
  * browser.
  */
+/** maria-and-jose's five main colours — the Look rows' and the sample screen's. */
+const LAB_FIVE = ['#5B1A22', '#F7F2EC', '#C9A86A', '#FBFAF7', '#7A8B6F'];
 let labChanges = 0;
 /** 🎉 A Pro celebration drafted in the lab — the bar's ◆ follows it, as the real summary would. */
 let labPro = 0;
@@ -195,7 +198,7 @@ export function MakerLabShell({
           ownsPro={false}
           loops={loops}
           /* 🌈 Studio › Look › Background's Colour source — Classic's paper and maria-and-jose's five. */
-          page={{ bgColor: pageColour, resolved: house.palette.canvas, five: ['#5B1A22', '#F7F2EC', '#C9A86A', '#FBFAF7', '#7A8B6F'], artDirection: null, ownButton: false }}
+          page={{ bgColor: pageColour, resolved: house.palette.canvas, five: LAB_FIVE, artDirection: null, ownButton: false }}
           draftAction={labDraft as never}
           heroVideo={heroVideo}
         />
@@ -268,6 +271,30 @@ export function MakerLabShell({
         revealStages={['save_the_date']}
         madeOnce={{
           hero: stand('The names & date design'),
+          /* 🪟 Studio › Look's sample screen — the REAL component on the standard sample event (Maria & Jose), fed the
+             same stand-in values the Look rows above are (Classic, their five, the lab's background and loops). */
+          'look-sample': (
+            <LookSample
+              seed={{
+                eventId,
+                themeId: 'house',
+                fontClassName: '',
+                row: {
+                  role_palette: { reception: LAB_FIVE },
+                  site_bg_color: pageColour ?? null,
+                  site_button_color: null,
+                  site_button_style: null,
+                  site_font_key: null,
+                  site_art_direction: null,
+                },
+                main: mainBackground ?? null,
+                coverRef: null,
+                sources: { loops, photoChoices: [], videoChoice: null, sceneUploads: [], cover: null, themeId: 'house' },
+                words: { names: 'Maria & Jose', date: 'December 12, 2026', line: 'Seda Vertis North' },
+                musicOn: false,
+              }}
+            />
+          ),
           /* 🎭 The real Reveal picker on fixtures (its saves are refused here — no write leaves the lab),
              so the Stages panel's Reveal part draws what the Maker draws. */
           reveal: (

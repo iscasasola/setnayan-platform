@@ -136,7 +136,7 @@ import { formatPhp } from '@/lib/orders';
 import { hubNamedGuestPreviewEnabled } from '@/lib/hub-named-guest-flag';
 import { asViewed, viewAsFreeSwitch } from '@/lib/view-as-free.server';
 import { planMyselfOn } from '@/lib/plan-myself';
-import { makerStagesStudioEnabled } from '@/lib/maker-stages-studio-flag';
+import { makerChoiceIsUnread, makerStagesStudioEnabled } from '@/lib/maker-stages-studio-flag';
 import { manualLaunchPhase } from '@/lib/invitation-widgets';
 import { publicEventPath } from '@/lib/public-event-url';
 import { studioTiles, type StudioTileModel } from '@/lib/studio-tiles';
@@ -1055,6 +1055,9 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
      flag, or for an internal viewer (the reading View-as-free already made), and
      only where there is work. The ONE place it is decided — `MakerShell` is handed
      the boolean, and Studio's tiles are built only while it is on. */
+  /* 🧯 …and when the read behind that reading FAILED, neither Maker is drawn: a
+     refused read must never pick a product (`makerChoiceIsUnread`, incident 2026-10-08). */
+  if (hasWork && makerChoiceIsUnread({ internalRead: freeSwitch.measured })) throw schemaBlipError('LaunchPage.makerChoice');
   const stagesStudio = hasWork && makerStagesStudioEnabled({ internal: freeSwitch.offered });
   let studio: { tiles: StudioTileModel[] } | null = null;
   if (hasWork) {

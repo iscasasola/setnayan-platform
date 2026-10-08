@@ -43,6 +43,7 @@
  */
 import type { createAdminClient } from '@/lib/supabase/admin';
 import { distinctGuestIds, distinctPersonIds } from '@/lib/account-erasure';
+import { GIFT_SHOT_FIELDS } from '@/lib/wish-list';
 import {
   CLOSED_SHOP_SLUG_ENTITY_TYPE,
   closedShopSlugHeldUntil,
@@ -1264,7 +1265,7 @@ export async function purgeUserGuestBiometrics(
   {
     const { data: shots, error: gsErr } = await admin
       .from('event_gift_records')
-      .select('gift_record_id, event_id, giver_guest_id, screenshot_r2_key')
+      .select(GIFT_SHOT_FIELDS)
       .in('giver_guest_id', guestIds)
       .not('screenshot_r2_key', 'is', null);
     if (gsErr) {

@@ -46,7 +46,10 @@ export function OwnerRibbon({ model }: { model: OwnerRibbonModel | null }) {
       className="sticky top-0 z-[90] mb-8 border border-ink/10 bg-paper-deep/95 px-4 py-2.5 backdrop-blur"
     >
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <p className="font-mono text-[0.7rem] uppercase tracking-[0.18em] text-ink/70">
+        {/* 🔤 The strip is the PLATE's paper, so its words take the plate's ink
+            (`text-ink-on-plate`) — the page ink is light on a dark look and
+            vanished on the plate (live 2026-10-08: pale rose on gold). */}
+        <p className="font-mono text-[0.7rem] uppercase tracking-[0.18em] text-ink-on-plate/70">
           Your Event Hub — as a guest sees it
         </p>
 

@@ -3,7 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { giftsAreOn } from '@/lib/event-answers';
 import { guestDisplayName } from '@/lib/guests';
 import { giftShotPolicy, parseClientRef } from '@/lib/r2-client-ref';
-import { GIFT_SUM_FIELDS, WISH_ITEM_SELECT, gotAfterGifts, sumSent, type GiftSumRow, type WishItemRow } from '@/lib/wish-list';
+import { GIFT_GIVER_FIELDS, GIFT_SUM_FIELDS, WISH_ITEM_SELECT, gotAfterGifts, sumSent, type GiftSumRow, type WishItemRow } from '@/lib/wish-list';
 import {
   GIFT_AMOUNT_NEEDED,
   GIFT_MESSAGE_TOO_LONG,
@@ -104,7 +104,7 @@ export async function recordGift(
     admin.from('events').select('event_id, slug, gifts_on').eq('event_id', eventId).maybeSingle(),
     admin
       .from('guests')
-      .select('guest_id, event_id, display_name, first_name, last_name, deleted_at')
+      .select(GIFT_GIVER_FIELDS)
       .eq('guest_id', session.guest_id)
       .eq('event_id', eventId)
       .maybeSingle(),

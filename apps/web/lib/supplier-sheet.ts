@@ -14,6 +14,7 @@
  */
 import type { BenchServiceCard } from '@/lib/bench-service-card';
 import { PRICE_ON_REQUEST } from '@/lib/bench-service-card';
+import { formatCount } from '@/lib/format-number';
 import type { Snapshot } from '@/lib/service-card-snapshot';
 import {
   formatEventTypeLabel,
@@ -109,5 +110,5 @@ export function sheetWork(rows: readonly VendorCompletedEventRow[], limit: numbe
 /** "3 events through Setnayan" — the count is of what was READ, so it is only
  *  ever printed beside a list that is on screen. */
 export function sheetWorkHeading(total: number): string {
-  return `Their work · ${total} ${total === 1 ? 'event' : 'events'} through Setnayan · newest first`;
+  return `Their work · ${formatCount(total)} ${total === 1 ? 'event' : 'events'} through Setnayan · newest first`;
 }

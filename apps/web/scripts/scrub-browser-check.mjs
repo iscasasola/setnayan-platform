@@ -66,7 +66,7 @@ execFileSync(tsx, ['scripts/scrub-check-page.tsx', `${scratch}/scrub-real-island
 execFileSync(tsx, ['scripts/scrub-check-page.tsx', `${scratch}/scrub-real-page-island.html`, `${scratch}/scrub-island.js`, 'page-island'], { cwd: WEB, stdio: 'pipe' });
 execFileSync(tsx, ['scripts/scrub-check-page.tsx', `${scratch}/scrub-real-bar.html`, `${scratch}/scrub-engine.js`, 'bar'], { cwd: WEB, stdio: 'pipe' });
 execFileSync(tsx, ['scripts/scrub-check-page.tsx', `${scratch}/scrub-real-cards.html`, '-', 'cards'], { cwd: WEB, stdio: 'pipe' });
-for (const m of ['cover', 'cover-tall', 'cover-block', 'cover-only', 'cover-noscript', 'cover-today']) execFileSync(tsx, ['scripts/scrub-check-page.tsx', `${scratch}/scrub-${m}.html`, `${scratch}/scrub-engine.js`, m], { cwd: WEB, stdio: 'pipe' });
+for (const m of ['cover', 'cover-tall', 'cover-block', 'cover-only', 'cover-noscript', 'cover-today', 'cover-margin']) execFileSync(tsx, ['scripts/scrub-check-page.tsx', `${scratch}/scrub-${m}.html`, `${scratch}/scrub-engine.js`, m], { cwd: WEB, stdio: 'pipe' });
 execFileSync(tsx, ['scripts/scrub-check-page.tsx', `${scratch}/scrub-cover-reveal.html`, `${scratch}/scrub-island.js`, 'cover-reveal'], { cwd: WEB, stdio: 'pipe' });
 
 /* Before any page script: remember the browser's own scrolling, and count every way a script could take it over. */
@@ -455,6 +455,15 @@ for (const [W, H] of [[375, 812], [375, 667], [441, 882], [1280, 770]]) {
     say(errs.length === 0 && blocks.scenes === 0 && blocks.page && top.off === null && top.cover.o === 1 && top.pout === 0 && top.zero.o === 0 && end.pout === 1 && end.cover.o === 0 && end.zero.o === 1, `${W}x${H} the cover is the page's only Scrub: it plays with no scenes block on the page (out ${top.pout} → ${end.pout}; the next, ${top.zeroIs}, ${top.zero.o} → ${end.zero.o}${top.off ? `; off: ${top.off}` : ''}${errs.length ? `; ${errs[0]}` : ''})`);
     await ctx.close();
   }
+  /* A COVER WHOSE LAST LINE HAS A BOTTOM MARGIN: the margin runs out through the cover's box and is added to the
+     distance the engine sets — the arrival would stand that much below its line. The engine reads the distance back. */
+  for (const [W, H] of [[375, 812], [1280, 770]]) {
+    const { ctx, errs, at } = await open('scrub-cover-margin.html', W, H);
+    const top = await at(0); const fwd = []; for (let y = 0; y <= Math.round(H * 0.55); y += 16) fwd.push(await at(y));
+    const seen = fwd.filter((f) => f.zero && f.zero.o > 0.02 && f.pout < 1);
+    say(errs.length === 0 && top.cover.o === 1 && top.pout === 0 && seen.length > 0 && seen.every((f) => Math.abs((f.zero.t + f.zero.b) / 2 - H / 2) < 1.5), `${W}x${H} a cover whose last line has a bottom margin: what comes next still arrives on the centred line (middle ${seen[0] ? r((seen[0].zero.t + seen[0].zero.b) / 2) : '—'} against ${H / 2}; the cover ends ${r(top.cover.b)})`);
+    await ctx.close();
+  }
   /* 🎭 UNDER A CLOSED REVEAL NOTHING IS HELD (the page's own island decides; the Reveal's mark is on the page before
      it mounts). The page scrolls as a plain page under the opening — the cover is never built out unseen — and the
      hand-overs arm the moment the mark comes off. */
@@ -464,7 +473,8 @@ for (const [W, H] of [[375, 812], [375, 667], [441, 882], [1280, 770]]) {
     const under = await state(); const moved = await at(300); const top = await at(0);
     say(errs.length === 0 && !under.page && under.off === 'the opening is still up' && under.line === 'Scrub: OFF — the opening is still up' && moved.pout === 0 && moved.cover.o === 1 && Math.abs(moved.cover.t - (top.cover.t - 300)) < 0.6, `${W}x${H} under a closed Reveal nothing is held: the page scrolls as a plain page and the cover is not built out unseen, and it says why ("${under.line}"; 300px down the cover is at ${r(moved.cover.t)}, shown ${moved.cover.o})`);
     await p.evaluate(() => document.documentElement.removeAttribute('data-reveal-up')); await p.waitForTimeout(900);
-    const gone = await state(); const open0 = await at(0); const half = await at(Math.round(H * 0.55 * 0.5));
+    const gone = await state(); const open0 = await at(0); const half = await at(Math.round(H * 0.55 * 0.5)); await p.waitForTimeout(450); const named = await state();
+    say(named.line === `Scrub: ON · hand-over 1 of 4 · The cover leaves ${Math.round(half.pout * 100)} % · Countdown arrives 0 %`, `${W}x${H} the badge counts and names hand-over zero ("${named.line}"; the page: the cover ${half.pout})`);
     say(gone.page && gone.off === null && open0.pout === 0 && open0.cover.o === 1 && half.pout > 0.45 && half.pout < 0.55 && Math.abs(half.cover.t - open0.cover.t) < 0.6, `${W}x${H} …and the moment the Reveal goes the hand-overs are armed: the cover whole at the top, then held and half out half-way (out ${open0.pout} → ${half.pout}; "${gone.line}")`);
     await p.evaluate(() => document.documentElement.setAttribute('data-reveal-up', '')); await p.waitForTimeout(700);
     const again = await state();

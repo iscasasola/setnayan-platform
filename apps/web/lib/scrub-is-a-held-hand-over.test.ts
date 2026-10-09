@@ -467,5 +467,8 @@ test('(10) the cover is hand-over zero: held where it stands when the page opens
   assert.match(engine, /if \(!el\.offsetHeight \|\| el\.offsetParent === null\) continue;\s*return el\.matches\(THROUGH\) \? \(nextBox\(el\) \?\? el\) : el;/);
   /* …what follows the arrival stays under the cover until the cover has completely gone; a box the page pins is never moved. */
   assert.match(engine, /const lower = h\.lift \? 1 - m\.rows : m\.below;/);
+  /* …and the distance to the arrival is READ BACK: a bottom margin on the cover's own last child runs out through its
+     box and is added to the one the engine sets (seen in the browser: the arrival 40 px below its line). */
+  assert.match(engine, /const over = arrives \? docTop\(arrives\) - \(docTop\(cover\) \+ cover\.offsetHeight\) - pair\.up : 0;\s*if \(Math\.abs\(over\) > 0\.5\) put\(coverRest, '--hub-up', px\(up - over\)\);/);
   assert.match(engine, /getComputedStyle\(sib\)\.position === 'static'/);
 });

@@ -197,8 +197,14 @@ export function armHubScrub(root: HTMLElement): () => void {
       const stick = pair.top - (docTop(cover) - docTop(pages[0].stage));
       put(pages[0].stage, '--hub-top', px(stick));
       put(pages[0].cell, '--hub-len', px(pair.len));
-      put(coverRest, '--hub-up', arrives ? px(pair.up - (docTop(arrives) - docTop(coverRest))) : '0px');
+      const up = arrives ? pair.up - (docTop(arrives) - docTop(coverRest)) : 0;
+      put(coverRest, '--hub-up', px(up));
       put(coverRest, '--hub-zrise', '0px');
+      /* …AND READ BACK. The cover is the page's own markup, not a scene's: a bottom margin on its last child runs out
+         through its box and is added to this one, and the arrival would stand that much lower than its line. So the
+         distance is measured as it was actually laid out, and what is over is taken off — once; it is a sum. */
+      const over = arrives ? docTop(arrives) - (docTop(cover) + cover.offsetHeight) - pair.up : 0;
+      if (Math.abs(over) > 0.5) put(coverRest, '--hub-up', px(up - over));
       const next = arrives?.nextElementSibling ?? null;
       held.push({ cell: pages[0].cell, stage: pages[0].stage, scene: cover, after: coverRest, below: next?.matches('.hub-below, .hub-after') ? (next as HTMLElement) : null, arrival: arrives, pair, rest: 0, stick, lift: coverRest });
       arrivedAt = arrives ? { scene: arrives, top: pair.arrivalTop } : null;

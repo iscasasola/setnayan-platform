@@ -514,7 +514,7 @@ const PILL_TEMPLATE_DRAWERS: readonly string[] = [`${E}/inspector-kit.tsx`, `${L
  * words on its track, with why it is still by hand. Converting one removes its line; a NEW one is never added here.
  */
 const PILL_WATCH_BASELINE: readonly { file: string; has: string; why: string }[] = [
-  { file: `${L}/maker-logo.tsx`, has: 'aria-label="Logo panels"', why: 'the Logo studio’s Layers · Logo · Tools tabs (a tablist with panels) — the selector audit’s lane, not converted in the commit that made the template' },
+  /* The Logo studio's Layers | layer tabs were here — converted 2026-10-09 (Studio › Logo): they are the Pill selector now. */
   { file: `${E}/editor-shell.tsx`, has: 'aria-label="What opens your Save the Date"', why: 'the shipped Maker’s Save the Date opener (two values — a toggle by the house rule) — the selector audit’s lane' },
   // ── Already there when AREA 1 widened the scope to the couple's dashboard (2026-10-08). Each picks one of THREE
   //    VALUES, which the house rule makes a dropdown, not a pill selector (INTERACTION_RULES § 2) — so it was LISTED

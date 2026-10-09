@@ -39,6 +39,9 @@ app/dashboard/(account)/profile/page.tsx "View public profile" → /u/[userSlug]
 app/dashboard/(launcher)/_components/year-moments-strip.tsx "Add your birthday" → /dashboard/profile	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/_components/checklist/checklist-full.tsx "· available" → /dashboard/[eventId]/vendors	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/_components/event-dashboard.tsx "t replied yet" → /dashboard/[eventId]/guests	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
+app/dashboard/[eventId]/_components/home-first-screen.tsx "coming" → /dashboard/[eventId]/guests	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
+app/dashboard/[eventId]/_components/home-first-screen.tsx "Paid Still owing Budget ›" → /dashboard/[eventId]/vendors	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
+app/dashboard/[eventId]/_components/home-first-screen.tsx "Your services" → /dashboard/[eventId]/checklist	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/_components/nikah-essentials-card.tsx "Mutual consent" → /dashboard/[eventId]/guests	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/clearance/page.tsx "Stop the livestream" → /dashboard/[eventId]/launch	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/date-selection/_components/chinese-specialist-nudge.tsx "Find a date / feng-shui specialist" → /explore	# first run 2026-10-02 · public site · a "Messages" row that opens the roster

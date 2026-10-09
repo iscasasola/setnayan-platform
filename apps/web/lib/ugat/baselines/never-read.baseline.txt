@@ -12,7 +12,6 @@ discount_code_redemptions.discount_centavos_applied	# first run 2026-10-02 · ho
 event_editorial.edited_by_couple	# first run 2026-10-02 · host app · a column the app writes and nothing reads
 event_moderators.removal_reason	# first run 2026-10-02 · host app · a column the app writes and nothing reads
 event_vendors.completion_resolution_note	# first run 2026-10-02 · admin console · a column the app writes and nothing reads
-event_walkthrough_zones.duration_seconds	# first run 2026-10-02 · host app · a column the app writes and nothing reads
 events.auspicious_reasons	# first run 2026-10-02 · host app · a column the app writes and nothing reads
 events.ceremony_type_locked_by	# first run 2026-10-02 · host app · a column the app writes and nothing reads
 guest_claims.review_note	# first run 2026-10-02 · shared code · a column the app writes and nothing reads

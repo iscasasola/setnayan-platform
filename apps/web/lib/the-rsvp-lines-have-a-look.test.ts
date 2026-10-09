@@ -51,15 +51,23 @@ import {
   readRsvpLook,
   rsvpConfigBytes,
   rsvpConfigFits,
+  RSVP_CARD_GROUNDS,
+  RSVP_CARD_SELECTOR,
+  RSVP_LOOK_CARDS,
+  RSVP_LOOK_FEELS,
+  rsvpLookCard,
   rsvpLookCss,
   rsvpLookLine,
   rsvpLookWith,
 } from './rsvp-look';
+import { FEEL_SECONDS } from './animate-feel';
+import { RSVP_OPEN_CARD_EVENT } from './rsvp-stage-shared';
 import {
   RSVP_CANVAS_HERO,
   RSVP_CANVAS_SECTIONS,
   RSVP_CARD_ATTR,
   RSVP_CARD_GROUPS,
+  RSVP_CARD_NAME,
   RSVP_SECTION_LINES,
   rsvpPartOfTap,
   stampRsvpCanvas,
@@ -81,8 +89,12 @@ const WEB = join(__dirname, '..');
 const src = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 const L = 'app/dashboard/[eventId]/launch/_components';
 const BOARD = ['#5b1a22', '#6B7A3A', '#e0a52b', '#8e2e3c', '#f2c8c2'];
-/** Every rule the builder may ever write: a named line, a checked colour, a number. Nothing else. */
-const SAFE_CSS = /^(\[data-rsvp-line="[a-z]+"\]\[data-rsvp-line\]\{(color:#[0-9a-f]{6};)?(zoom:[0-9.]+;)?\})*$/;
+/** Every rule the builder may ever write: a named line or the card, a checked colour, numbers, and its own fixed
+ *  words (the Event Hub's motion frame, the app's glass). Nothing else — said as ONE pattern the output must fit. */
+const MOVES = String.raw`(--rl-o:[01];--rl-t:translate3d\(-?\d+px, -?\d+px, 0\) scale\([0-9.]+\);--rl-f:(none|blur\(8px\));animation:rsvp-in [0-9.]+s cubic-bezier\(\.16,1,\.3,1\) both;)?`;
+const GROUNDS = String.raw`(background:transparent!important;border-color:transparent!important;box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;|background:var\(--sn-glass-bg\)!important;border-color:var\(--sn-glass-line\)!important;backdrop-filter:var\(--sn-glass-blur\)!important;-webkit-backdrop-filter:var\(--sn-glass-blur\)!important;)?`;
+const TAIL = String.raw`(@keyframes rsvp-in\{from\{opacity:var\(--rl-o\);transform:var\(--rl-t\);filter:var\(--rl-f\)\}\}@media \(prefers-reduced-motion:reduce\)\{\[data-rsvp-line\],div:has\(>\[data-door-header\]\)\{animation:none!important\}\})?`;
+const SAFE_CSS = new RegExp(String.raw`^(div:has\(>\[data-door-header\]\)\{${GROUNDS}${MOVES}\})?(\[data-rsvp-line="[a-z]+"\]\[data-rsvp-line\]\{(color:#[0-9a-f]{6};)?(zoom:[0-9.]+;)?${MOVES}\})*${TAIL}$`);
 
 test('1 · the reader is strict: known lines, listed values, and no colour of its own for a button', () => {
   /* The lines are the stage's lines — said from the page's own list, not from the module under test. */
@@ -140,7 +152,7 @@ test('2 · the rules a page draws: its own parts only, the event’s colours onl
 });
 
 test('3 · no save drops it: the sanitiser and every writer built on it carry `look`, unknown keys and all', () => {
-  const look = { lines: { 'rsvp.question': { c: 2, s: 120 } }, card: 'f', order: { form: ['hint', 'question'] } };
+  const look = { lines: { 'rsvp.question': { c: 2, s: 120 } }, groups: [['question', 'hint']], order: { form: ['hint', 'question'] } };
   const stored = { words: { attending: 'Count me in' }, meal: false, oneAtATime: true, look };
   /* The first-load sanitiser (the draft's save and its publish run every config through it). */
   assert.deepEqual(sanitizeRsvpAskConfig(stored).look, look);
@@ -157,7 +169,7 @@ test('3 · no save drops it: the sanitiser and every writer built on it carry `l
   /* The panel's own change keeps what it does not know, and an event back to its own look stores no `look`. */
   assert.deepEqual(rsvpLookWith(stored, 'rsvp.hint', { s: 85 }), { ...look, lines: { 'rsvp.question': { c: 2, s: 120 }, 'rsvp.hint': { s: 85 } } });
   assert.deepEqual(rsvpLookWith(stored, 'rsvp.question', { c: null }), { ...look, lines: { 'rsvp.question': { s: 120 } } });
-  assert.deepEqual(rsvpLookWith(stored, 'rsvp.question', { c: null, s: 100 }), { card: 'f', order: look.order });
+  assert.deepEqual(rsvpLookWith(stored, 'rsvp.question', { c: null, s: 100 }), { groups: look.groups, order: look.order });
   assert.equal(rsvpLookWith({ look: { lines: { 'rsvp.question': { s: 120 } } } }, 'rsvp.question', { s: null }), undefined);
   assert.equal(rsvpLookWith({}, 'rsvp.question', { c: null }), undefined);
 });
@@ -360,10 +372,126 @@ test('7 · WIRING: the pages carry the one <style>, the canvas redraws it from t
   const BRIDGE = src('app/[slug]/_components/rsvp-canvas-bridge.tsx');
   assert.match(
     BRIDGE,
-    /if \(d\.t === RSVP_LOOK_MESSAGE\) \{\s*document\.querySelectorAll<HTMLElement>\(`style\[\$\{RSVP_LOOK_STYLE_ATTR\}\]`\)\.forEach\(\(el\) => \{\s*const css = rsvpLookCss\(readRsvpLook\(\{ look: d\.look \}\), \(el\.getAttribute\(RSVP_LOOK_STYLE_ATTR\) \?\? ''\)\.split\(' '\), \(el\.dataset\.rsvpBoard \?\? ''\)\.split\(' '\)\);/,
+    /if \(d\.t === RSVP_LOOK_MESSAGE\) \{\s*const look = d\.look;\s*void import\('@\/lib\/rsvp-look'\)\.then\(\(\{ readRsvpLook, rsvpLookCss \}\) => \{\s*document\.querySelectorAll<HTMLElement>\(`style\[\$\{RSVP_LOOK_STYLE_ATTR\}\]`\)\.forEach\(\(el\) => \{\s*const css = rsvpLookCss\(readRsvpLook\(\{ look \}\), \(el\.getAttribute\(RSVP_LOOK_STYLE_ATTR\) \?\? ''\)\.split\(' '\), \(el\.dataset\.rsvpBoard \?\? ''\)\.split\(' '\)\);/,
   );
+  /* …and a GUEST'S BUNDLE NEVER CARRIES THE READER: the bridge rides the reply card's own client code, so it reaches
+     the reader only by the import above (on that message) — its static imports hold the two names alone. */
+  assert.doesNotMatch(BRIDGE, /^import [^;]*from '@\/lib\/rsvp-look';/m, 'the reader is in every guest’s reply-page bundle');
+  assert.match(BRIDGE, /import \{ RSVP_BRIDGE_SOURCE, RSVP_LOOK_MESSAGE, RSVP_LOOK_STYLE_ATTR, RSVP_SITE_SOURCE \} from '@\/lib\/rsvp-stage-shared';/);
   /* THE MAKER sends the look with every preview (and when a frame says it is ready). */
   const sent = rsvpPreviewMessages({ look: { lines: { 'rsvp.question': { s: 120 } } } }, false).filter((m) => m.t === RSVP_LOOK_MESSAGE);
   assert.deepEqual(sent, [{ source: 'setnayan-editor', t: 'rsvpLook', look: { lines: { 'rsvp.question': { s: 120 } } } }]);
   assert.deepEqual(rsvpPreviewMessages({}, false).filter((m) => m.t === RSVP_LOOK_MESSAGE), [{ source: 'setnayan-editor', t: 'rsvpLook', look: {} }], 'a look taken away is never told to the page');
+});
+
+/* ══ 8–10 · THE CARD IS A BLOCK, AND EVERYTHING ARRIVES ═══════════════════════════════════════════════════════════
+   Owner (2026-10-09): "RSVP background not working." · "how come background not fixed and no animate?" — and his
+   rule the same day: "there should always be animate and background?" → Animate for every element, Background for
+   every block. The approved prototype (`public/review/rsvp-per-element.html`): the card's Background is None · Plain
+   · Frosted; a line says "This sits on the RSVP card’s background." with "Open the card".
+   Sabotages seen red (each restored): a made-up ground kept · a feel with no effect kept · the card's rule written
+   on another screen's page · Plain storing a key · Action / Build out offered on a reply line · Background still
+   grey on the card · "Open the card" unheard · the group still called by its part's name. */
+
+test('8 · the card’s ground and every Build in are read strictly, and drawn with fixed words only', () => {
+  assert.deepEqual([...RSVP_LOOK_CARDS], RSVP_CARD_GROUPS.map((k) => k.slice(2)), 'a card has no look, or a look names no card');
+  assert.deepEqual([...RSVP_CARD_GROUNDS], ['none', 'frost']);
+  assert.deepEqual([...RSVP_LOOK_FEELS], ['quick', 'cinematic']);
+  assert.equal(rsvpLookCard('rsvp'), 'rsvp');
+  assert.equal(rsvpLookCard('pass'), null);
+  const read = readRsvpLook({
+    look: {
+      card: {
+        rsvp: { g: 'frost', i: { fade: true, move: 'below' }, v: 'cinematic' },
+        yesnote: { g: 'plain' } /* Plain is the absence of the key */,
+        nonote: { g: 'url(x)', i: { fade: 'yes', move: 'sideways', size: 'huge' }, v: 'quick' } /* nothing listed: nothing kept — not even the feel */,
+        pass: { g: 'none' } /* no such card */,
+      },
+      lines: { 'rsvp.hint': { i: { blur: true, size: 'grow', wobble: true }, v: 'slow' }, 'rsvp.yes': { v: 'quick' } },
+    },
+  });
+  assert.deepEqual(read, { lines: { 'rsvp.hint': { i: { size: 'grow', blur: true } } }, card: { rsvp: { g: 'frost', i: { fade: true, move: 'below' }, v: 'cinematic' } } });
+
+  /* DRAWN: the card by the block that holds the masthead (no attribute is served for it), each page its own card. */
+  assert.equal(RSVP_CARD_SELECTOR, 'div:has(>[data-door-header])');
+  const form = rsvpLookCss(read, ['rsvp'], BOARD);
+  assert.match(form, /^div:has\(>\[data-door-header\]\)\{background:var\(--sn-glass-bg\)!important;[^}]*animation:rsvp-in 1\.8s cubic-bezier\(\.16,1,\.3,1\) both;\}/);
+  assert.match(form, /--rl-o:0;--rl-t:translate3d\(0px, 24px, 0\) scale\(1\);--rl-f:none;/, 'Fade + Move from below is not the Event Hub’s own frame');
+  assert.match(form, /\[data-rsvp-line="hint"\]\[data-rsvp-line\]\{--rl-o:1;--rl-t:translate3d\(0px, 0px, 0\) scale\(0\.85\);--rl-f:blur\(8px\);animation:rsvp-in 1\.1s /, 'Calm is not the feel a line arrives with');
+  assert.equal(FEEL_SECONDS.calm, 1.1);
+  /* ONE keyframe, and it stands still for a guest who asked for less motion. */
+  assert.equal((form.match(/@keyframes rsvp-in/g) ?? []).length, 1);
+  assert.match(form, /@media \(prefers-reduced-motion:reduce\)\{\[data-rsvp-line\],div:has\(>\[data-door-header\]\)\{animation:none!important\}\}$/);
+  /* Another screen's page writes none of it; a look with no motion writes no keyframe. */
+  assert.equal(rsvpLookCss(read, ['yesnote', 'pass'], BOARD), '');
+  assert.doesNotMatch(rsvpLookCss(readRsvpLook({ look: { card: { nonote: { g: 'none' } } } }), ['nonote'], BOARD), /keyframes/);
+  assert.match(rsvpLookCss(readRsvpLook({ look: { card: { nonote: { g: 'none' } } } }), ['nonote'], BOARD), /^div:has\(>\[data-door-header\]\)\{background:transparent!important;/);
+  for (const parts of [['rsvp'], ['yesnote', 'pass'], ['nonote']]) assert.match(rsvpLookCss(read, parts, BOARD), SAFE_CSS);
+
+  /* SAVED: Plain stores nothing; a feel is kept only with an effect; the other home is never touched. */
+  const stored = { look: { lines: { 'rsvp.hint': { s: 85 } } } };
+  assert.deepEqual(rsvpLookWith(stored, { card: 'rsvp' }, { g: 'frost' }), { lines: { 'rsvp.hint': { s: 85 } }, card: { rsvp: { g: 'frost' } } });
+  assert.deepEqual(rsvpLookWith({ look: { card: { rsvp: { g: 'frost' } } } }, { card: 'rsvp' }, { g: null }), undefined);
+  assert.deepEqual(rsvpLookWith(stored, 'rsvp.hint', { i: { fade: true }, v: 'quick' }), { lines: { 'rsvp.hint': { s: 85, i: { fade: true }, v: 'quick' } } });
+  assert.deepEqual(rsvpLookWith({ look: { lines: { 'rsvp.hint': { i: { fade: true }, v: 'quick' } } } }, 'rsvp.hint', { i: null }), undefined, 'a feel is kept with nothing to time');
+  assert.deepEqual(rsvpLookWith(stored, 'rsvp.hint', { v: 'quick' }), { lines: { 'rsvp.hint': { s: 85 } } });
+});
+
+test('9 · the panel: the card’s Background is None · Plain · Frosted; a line says whose it sits on; Animate is a Build in', async () => {
+  const tiles = (html: string) => [...html.matchAll(/<button type="button" aria-pressed="(true|false)" aria-label="([^"]+)" data-rsvp-card-tile="(\w+)"/g)].map((m) => `${m[3]}:${m[2]}:${m[1]}`);
+  for (const [scene, part] of [['form', 'rsvp'], ['thanks', 'yesnote'], ['decline', 'nonote']] as const) {
+    const plain = await panel(scene, { tool: 'bg', part, line: null });
+    assert.deepEqual(tiles(plain), ['none:None:false', 'plain:Plain:true', 'frost:Frosted:false'], `${scene}: the card’s three grounds`);
+    assert.match(plain, /Behind the card is the Look’s background — the same one every page wears\./);
+    assert.match(plain, new RegExp(`data-rsvp-stage-card-ground="${part}"`));
+    const frost = await panel(scene, { tool: 'bg', part, line: null }, { look: { card: { [part]: { g: 'frost' } } } });
+    assert.deepEqual(tiles(frost), ['none:None:false', 'plain:Plain:false', 'frost:Frosted:true']);
+  }
+  /* A LINE has no ground of its own — one line and the one button, never tiles (and the pass's Save button too). */
+  for (const [scene, part, line] of [['form', 'rsvp', 'question'], ['form', 'rsvp', 'yes'], ['thanks', 'yesnote', 'heading'], ['thanks', 'pass', 'save'], ['decline', 'nonote', 'message']] as const) {
+    const html = await panel(scene, { tool: 'bg', part, line });
+    assert.deepEqual(tiles(html), [], `${line}: a line was given grounds`);
+    assert.match(html, /This sits on the RSVP card’s background\./);
+    assert.match(html, /data-rsvp-open-card=""[\s\S]*Open the card/);
+  }
+  /* ANIMATE — the toolbar's own Animate, on its Build in only: the four effects, and Movement. No Action, no Build
+     out (a reply page is one screen with no exit) — not drawn dead, not drawn at all. */
+  for (const [scene, part, line] of [['form', 'rsvp', 'question'], ['form', 'rsvp', null], ['thanks', 'pass', 'save'], ['decline', 'nonote', null]] as const) {
+    const html = await panel(scene, { tool: 'animate', part, line }, { look: { lines: { 'rsvp.question': { i: { fade: true, move: 'below' }, v: 'quick' } } } });
+    assert.match(html, /data-stage-animate-rows=""/, `${part}.${line}: not the toolbar’s Animate`);
+    assert.deepEqual([...html.matchAll(/>(Fade|Blur|Move|Size)</g)].map((m) => m[1]), ['Fade', 'Blur', 'Move', 'Size']);
+    assert.doesNotMatch(html, />Action<|>Build out</, 'a phase a reply page cannot play is offered');
+    assert.doesNotMatch(html, />Build in</, 'row 1 is still drawn: a one-of-one choice');
+    assert.match(html, /!grid-rows-\[0px_repeat\(3,var\(--sp-rh\)\)\]/, 'the rows do not start from the top');
+    assert.match(html, /Movement/);
+    assert.doesNotMatch(html, /data-rsvp-word-field|data-rsvp-setting=|data-rsvp-look-colour/);
+  }
+  const moving = await panel('form', { tool: 'animate', part: 'rsvp', line: 'question' }, { look: { lines: { 'rsvp.question': { i: { fade: true, move: 'below' }, v: 'quick' } } } });
+  assert.match(moving, /data-stage-need="move"/, 'Move is on and its side is not offered');
+  assert.match(moving, />Quick</);
+});
+
+test('10 · WIRING: Background and Animate are live on a reply card and its lines; the group is "Card"; "Open the card" is heard', () => {
+  const TOOLS = src(`${L}/stage-tools.tsx`);
+  assert.equal(RSVP_CARD_NAME, 'Card');
+  assert.match(TOOLS, /const rsvpCard = rsvpOpen \? rsvpLookCard\(picked\) : null;/);
+  assert.match(TOOLS, /const rsvpLineName = rsvpLine \? \(RSVP_LINE_NAME\[rsvpLine\] \?\? rsvpLine\) : rsvpCard \? RSVP_CARD_NAME : null;/);
+  /* "RSVP › Form › Card" — in place of the part's name — and the frame's tab says the same. */
+  assert.match(TOOLS, /if \(rsvpLineName && picked\) \{\s*if \(linePieces\[linePieces\.length - 1\] === makerPartLabelOn\(stageKey, picked\)\) linePieces\.pop\(\);\s*linePieces\.push\(rsvpLineName\);/);
+  assert.match(TOOLS, /name: rsvpCard \? RSVP_CARD_NAME : undefined,/);
+  assert.match(src(`${L}/add-part-sheet.tsx`), /\{line\?\.name \?\? name \?\? label\}/);
+  /* The two tools that were grey on every reply part are live on a card and on a line — and only there. */
+  assert.match(TOOLS, /const rsvpLooks = rsvpCard !== null \|\| \(rsvpOpen && rsvpLookLine\(picked, rsvpLine\) !== null\);/);
+  assert.match(TOOLS, /const toolWorks = \(t: MakerPartTool\) => !picked \|\| \(rsvpLooks && \(t === 'bg' \|\| t === 'animate'\)\) \|\| /);
+  /* "Open the card": the line is let go; the pass's Save button sits on the When-yes card. */
+  assert.equal(RSVP_OPEN_CARD_EVENT, 'setnayan:rsvp-open-card');
+  assert.match(TOOLS, /const open = \(\) => \{\s*setLineAtPart\(null\);\s*if \(pickedRef\.current === 'pass'\) pickPartRef\.current\('yesnote'\);\s*\};\s*window\.addEventListener\(RSVP_OPEN_CARD_EVENT, open\);/);
+  assert.match(src(`${L}/maker-rsvp-ask.tsx`), /<RsvpLineGroundRow onOpenCard=\{\(\) => window\.dispatchEvent\(new CustomEvent\(RSVP_OPEN_CARD_EVENT\)\)\} \/>/);
+  /* The pass's Save line has its tools in the stage's panel too (the pass itself keeps its one door). */
+  assert.match(src(`${L}/maker-rsvp-stage.tsx`), /\|\| \(picked === 'pass' && line !== null\);/);
+  assert.match(src(`${L}/maker-rsvp-stage.tsx`), /\$\{rsvpToolPart\(pickedPart, pickedLine\) \? 'flex' : 'hidden'\}/);
+  /* The toolbar's Animate has ONE new option and is otherwise as it was: every other caller draws its three phases. */
+  const ANIMATE = src(`${L}/stage-panel/stage-animate.tsx`);
+  assert.match(ANIMATE, /const at: AnimatePhase = only \?\? phase;\s*const end = at === 'act' \? null : at;/);
+  assert.match(ANIMATE, /\{only \? null : \(\s*<div className=\{`\$\{SP_ROWS_ROW\} row-start-1`\}>\s*<Phases<AnimatePhase>/);
 });

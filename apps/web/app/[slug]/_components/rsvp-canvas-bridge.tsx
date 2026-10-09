@@ -2,9 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { RsvpOneAtATime } from './rsvp-one-at-a-time';
-import { RSVP_BRIDGE_SOURCE, RSVP_SITE_SOURCE } from '@/lib/rsvp-stage-shared';
+import { RSVP_BRIDGE_SOURCE, RSVP_LOOK_MESSAGE, RSVP_LOOK_STYLE_ATTR, RSVP_SITE_SOURCE } from '@/lib/rsvp-stage-shared';
 import { makerStageMayType } from '@/lib/maker-stage-type';
-import { RSVP_LOOK_MESSAGE, RSVP_LOOK_STYLE_ATTR, readRsvpLook, rsvpLookCss } from '@/lib/rsvp-look';
 import {
   RSVP_CANVAS_CONTROLS,
   RSVP_GROUND_MESSAGE,
@@ -177,10 +176,26 @@ export function RsvpCanvasBridge() {
       }
       if (d.t === RSVP_LOOK_MESSAGE) {
         /* 🎨 A line's look, picked in the Maker: the page's one `<style>` is rebuilt by the SAME strict reader a
-           guest's page uses, from the colours the page itself carries — never from text this message holds. */
-        document.querySelectorAll<HTMLElement>(`style[${RSVP_LOOK_STYLE_ATTR}]`).forEach((el) => {
-          const css = rsvpLookCss(readRsvpLook({ look: d.look }), (el.getAttribute(RSVP_LOOK_STYLE_ATTR) ?? '').split(' '), (el.dataset.rsvpBoard ?? '').split(' '));
-          if (el.textContent !== css) el.textContent = css;
+           guest's page uses, from the colours the page itself carries — never from text this message holds. The
+           reader is fetched on this message only (the Maker's canvas), so a guest's bundle never carries it. */
+        const look = d.look;
+        void import('@/lib/rsvp-look').then(({ readRsvpLook, rsvpLookCss }) => {
+          document.querySelectorAll<HTMLElement>(`style[${RSVP_LOOK_STYLE_ATTR}]`).forEach((el) => {
+            const css = rsvpLookCss(readRsvpLook({ look }), (el.getAttribute(RSVP_LOOK_STYLE_ATTR) ?? '').split(' '), (el.dataset.rsvpBoard ?? '').split(' '));
+            const was = el.textContent ?? '';
+            if (was === css) return;
+            el.textContent = css;
+            /* ✨ A Build in that was just changed plays again, on the thing it belongs to — so the couple sees it. */
+            const before = new Set(was.split('}'));
+            for (const rule of css.split('}')) {
+              if (before.has(rule) || !rule.includes('animation:')) continue;
+              document.querySelectorAll<HTMLElement>(rule.slice(0, rule.indexOf('{'))).forEach((moved) => {
+                moved.style.animation = 'none';
+                void moved.offsetWidth;
+                moved.style.animation = '';
+              });
+            }
+          });
         });
         return;
       }

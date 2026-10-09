@@ -31,3 +31,9 @@ export const RSVP_REPLY_BY_EVENT = 'setnayan:rsvp-reply-by';
 
 /** The Maker's draft-copy key for the config (`lib/maker-draft-store.ts`) — never a widget type. */
 export const RSVP_DRAFT_TYPE = 'events.rsvp_ask_config';
+/** 🎨 The `<style>` a reply page carries its lines' look in (`lib/rsvp-look.ts`, `rsvp-look-style.tsx`). */
+export const RSVP_LOOK_STYLE_ATTR = 'data-rsvp-look';
+/** The bridge message's `t` — `{ source, t: 'rsvpLook', look }`: the RAW `look`, read strictly by the page. */
+export const RSVP_LOOK_MESSAGE = 'rsvpLook';
+/** 🃏 "Open the card" (a line's Background): the RSVP panel asks the Stages toolbar to pick the line's card. */
+export const RSVP_OPEN_CARD_EVENT = 'setnayan:rsvp-open-card';

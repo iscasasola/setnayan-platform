@@ -36,7 +36,7 @@ import {
   type RsvpWordKey,
 } from './rsvp-ask';
 import { RSVP_BRIDGE_SOURCE, rsvpWordBridgeKey } from './rsvp-stage-shared';
-import { RSVP_LOOK_MESSAGE } from './rsvp-look';
+import { RSVP_LOOK_MESSAGE } from './rsvp-stage-shared';
 
 export * from './rsvp-stage-shared';
 
@@ -77,6 +77,34 @@ export const RSVP_SCENE_WORDS: Record<RsvpStageScene, readonly RsvpWordKey[]> = 
 };
 
 /** The panel's label for each word. */
+/**
+ * PREMADE LINES — "type your own, or pick one". ONLY words that already exist
+ * (owner 2026-09-30, "✂ THE MAKER RE-PLAN IS CUT TO ITS CORE": no invented
+ * presets): the answers are the lines the owner's own ruling lists ("RSVP
+ * ANSWERS: THE COUPLE RENAMES…": "Joyfully accepts" · "Wouldn't miss it" ·
+ * "Count me in" / "Regretfully declines" · "Sadly can't make it"), and the
+ * screens after a reply offer only the words those screens and the reply card
+ * already print. A key with no shipped line offers none — type your own.
+ *
+ * HERE, not in `lib/rsvp-ask.ts`: that file is read by the Maker's first load (`lib/hub-draft.ts`), and only the lazy
+ * RSVP panel reads these.
+ */
+export const RSVP_WORD_LINES: Record<RsvpWordKey, { celebrate: readonly string[]; solemn: readonly string[] }> = {
+  attending: { celebrate: ['Joyfully accepts', 'Wouldn’t miss it', 'Count me in'], solemn: ['Will be there'] },
+  declined: { celebrate: ['Regretfully declines', 'Sadly can’t make it'], solemn: ['Unable to come'] },
+  thanksHeading: { celebrate: ['See you there!'], solemn: ['Thank you'] },
+  thanksMessage: {
+    celebrate: ['Your place is reserved — we can’t wait to celebrate with you.'],
+    solemn: ['Your place is noted — thank you for being with the family.'],
+  },
+  declineHeading: { celebrate: ['Thank you — you’ll be missed'], solemn: ['Thank you'] },
+  declineMessage: { celebrate: [], solemn: [] },
+  /* The form's three lines have ONE shipped wording each — the card's own, which "Automatic" already is. */
+  eyebrow: { celebrate: [], solemn: [] },
+  question: { celebrate: [], solemn: [] },
+  hint: { celebrate: [], solemn: [] },
+};
+
 export const RSVP_WORD_LABEL: Record<RsvpWordKey, string> = {
   attending: 'Yes answer',
   declined: 'No answer',

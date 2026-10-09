@@ -14,11 +14,13 @@ import {
   RSVP_SCENE_WORDS,
   RSVP_WORD_LABEL,
   type RsvpStageScene,
+  RSVP_WORD_LINES,
 } from '@/lib/rsvp-stage';
 import { RSVP_WORD_TYPED_EVENT } from '@/app/[slug]/_components/rsvp-canvas-parts';
 import { rsvpFormWord, rsvpLineWord } from '@/lib/rsvp-form-words';
-import { RSVP_CONFIG_FULL, readRsvpLook, rsvpConfigFits, rsvpLookLine, rsvpLookWith } from '@/lib/rsvp-look';
-import { RsvpLineLookRows } from './rsvp-line-look';
+import { RSVP_CONFIG_FULL, readRsvpLook, rsvpConfigFits, rsvpLookCard, rsvpLookLine, rsvpLookWith } from '@/lib/rsvp-look';
+import { RSVP_OPEN_CARD_EVENT } from '@/lib/rsvp-stage-shared';
+import { RsvpBuildInRows, RsvpCardGroundRows, RsvpLineGroundRow, RsvpLineLookRows } from './rsvp-line-look';
 import type { MakerPartTool } from '@/lib/maker-parts';
 import { hubDraftAction } from '../../website/hub-draft-actions';
 import { updatePaxSettings } from '../../actions';
@@ -29,7 +31,6 @@ import {
   readOneAtATime,
   rsvpAnswerWord,
   RSVP_WORD_KEYS,
-  RSVP_WORD_LINES,
   RSVP_WORD_MAX,
   type RsvpAskConfig,
   type RsvpWordKey,
@@ -526,6 +527,35 @@ export function MakerRsvpSettings({
               void save({ look: rsvpLookWith(latest.current, lookLine, patch) }, 'c' in patch ? '“Colour”' : '“Size”');
             }}
           />
+          {status}
+        </div>
+      );
+    }
+    /* 🃏 BACKGROUND — the card's: None · Plain · Frosted. A line has none of its own: one line says whose it sits
+       on, and "Open the card" picks that card (the Stages toolbar hears it — `RSVP_OPEN_CARD_EVENT`). */
+    const lookCard = picked.line ? null : rsvpLookCard(picked.part);
+    if (picked.tool === 'bg' && lookCard) {
+      return (
+        <div className="flex flex-col px-1" data-rsvp-stage-controls={scene} data-rsvp-stage-card-ground={lookCard}>
+          <RsvpCardGroundRows now={readRsvpLook(local).card?.[lookCard]?.g ?? null} onPick={(g) => void save({ look: rsvpLookWith(latest.current, { card: lookCard }, { g }) }, '“Background”')} />
+          {status}
+        </div>
+      );
+    }
+    if (picked.tool === 'bg' && lookLine) {
+      return (
+        <div className="flex flex-col px-1" data-rsvp-stage-controls={scene} data-rsvp-stage-line-ground={lookLine}>
+          <RsvpLineGroundRow onOpenCard={() => window.dispatchEvent(new CustomEvent(RSVP_OPEN_CARD_EVENT))} />
+        </div>
+      );
+    }
+    /* ✨ ANIMATE — a line's or the card's own Build in (`RsvpBuildInRows`), kept beside its colour and size. */
+    const moves = lookLine ?? (lookCard ? { card: lookCard } : null);
+    if (picked.tool === 'animate' && moves) {
+      const look = readRsvpLook(local);
+      return (
+        <div className="flex flex-col" data-rsvp-stage-controls={scene} data-rsvp-stage-animate={typeof moves === 'string' ? moves : `card.${moves.card}`}>
+          <RsvpBuildInRows now={(typeof moves === 'string' ? look.lines?.[moves] : look.card?.[moves.card]) ?? {}} onPick={(patch) => void save({ look: rsvpLookWith(latest.current, moves, patch) }, '“Animate”')} />
           {status}
         </div>
       );

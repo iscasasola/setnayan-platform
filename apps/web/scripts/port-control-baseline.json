@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "fa7c26b517",
+  "generatedFromRef": "ada500b95b",
   "routeCount": 430,
   "destinations": 956,
   "actions": 673,
-  "blocks": 5927,
+  "blocks": 5931,
   "routes": {
     "/": {
       "files": [
@@ -6939,6 +6939,9 @@
         "Row",
         "RsvpAskConfig",
         "RsvpAsks",
+        "RsvpBuildInRows",
+        "RsvpCardGroundRows",
+        "RsvpLineGroundRow",
         "RsvpLineLookRows",
         "RsvpStageScene",
         "SVGGElement",
@@ -6966,6 +6969,7 @@
         "SoftPost",
         "SpecialMessageField",
         "StageAbout",
+        "StageAnimate",
         "StageArrange",
         "StageEdit",
         "StageItemMenu",

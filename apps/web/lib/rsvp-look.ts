@@ -10,15 +10,22 @@
  *   · It rides the same object, the same draft and the same Apply as the words — no new read for a guest.
  *
  * The first-load sanitiser (`sanitizeRsvpAskConfig`, read by `lib/hub-draft.ts`) only carries `look` through, so an
- * older panel's save can never drop it; the strict reading is here, in a module that loads with the pages and the
- * lazy panel. IMPORT-FREE on purpose (the canvas bridge reads it in a guest's bundle).
+ * older panel's save can never drop it; the strict reading is here, in a module that loads with the pages (on the
+ * server), with the lazy panel, and — on the Maker's canvas only — when a look is first picked (the bridge imports it
+ * on that message, so a guest's bundle never carries it).
  *
  * 🧱 ROOM FOR WHAT COMES NEXT (the ＋, drag and Group — owner's ruling 2026-10-09): `look` is an object of named
- * keys. `lines` is here now; the card's background, the order of the lines, added lines and groups each take a key of
- * their own beside it, so nothing stored today has to move. The whole config is capped at 2,048 bytes by the
+ * keys. `lines` and `card` are here now; the order of the lines, added lines and groups each take a key of their
+ * own beside them, so nothing stored today has to move. The whole config is capped at 2,048 bytes by the
  * database (`events_rsvp_ask_config_shape`): `rsvpConfigFits` is asked before a save, so a couple is told in a
  * sentence instead of at Apply.
  */
+
+import { FEEL_SECONDS } from './animate-feel';
+import { motionFxFrame, sanitizeMotionFx, type MotionFx } from './motion-effects';
+import { RSVP_LOOK_MESSAGE, RSVP_LOOK_STYLE_ATTR } from './rsvp-stage-shared';
+
+export { RSVP_LOOK_MESSAGE, RSVP_LOOK_STYLE_ATTR };
 
 /** Every line that can be styled: `<the Maker part>.<the line's name>` (`RSVP_SECTION_LINES`, `rsvp-canvas-parts.ts`). */
 export const RSVP_LOOK_LINES = [
@@ -45,9 +52,38 @@ export type RsvpLookSize = (typeof RSVP_LOOK_SIZES)[number];
 export const RSVP_LOOK_SLOTS = [1, 2, 3, 4, 5] as const;
 export type RsvpLookSlot = (typeof RSVP_LOOK_SLOTS)[number];
 
-/** One line's look. `c` a colour slot · `s` a size. Short keys: the object lives under a 2 KB cap. */
-export type RsvpLineLook = { c?: RsvpLookSlot; s?: RsvpLookSize };
-export type RsvpLook = { lines?: Partial<Record<RsvpLookLine, RsvpLineLook>> };
+/**
+ * ✨ HOW A LINE (OR THE CARD) ARRIVES — its Build in. `i`: the Event Hub's own effects, in its own stored shape
+ * (`MotionFx`, `lib/motion-effects.ts`: Fade · Blur · Move from a side · Size) and read by its own closed-set reader
+ * (`sanitizeMotionFx`). `v`: how it moves — Quick or Cinematic; Calm is the absence of the key.
+ * A reply page is ONE screen a guest leaves by answering: it has no scroll to follow and no exit, so there is no
+ * Action and no Build out to store.
+ */
+export const RSVP_LOOK_FEELS = ['quick', 'cinematic'] as const;
+export type RsvpLookFeel = (typeof RSVP_LOOK_FEELS)[number];
+export type RsvpMotion = { i?: MotionFx; v?: RsvpLookFeel };
+
+/** One line's look. `c` a colour slot · `s` a size · its Build in. Short keys: the object lives under a 2 KB cap. */
+export type RsvpLineLook = { c?: RsvpLookSlot; s?: RsvpLookSize } & RsvpMotion;
+
+/**
+ * 🃏 THE CARD — each screen's group of lines is one block (`RSVP_CARD_GROUPS`, `rsvp-canvas-parts.ts`), keyed by the
+ * Maker part it holds. `g`: its background — **None** (the page's own ground shows through) or **Frosted** (the
+ * app's glass); **Plain**, today's card, is the absence of the key. And its own Build in.
+ */
+export const RSVP_LOOK_CARDS = ['rsvp', 'yesnote', 'nonote'] as const;
+export type RsvpLookCard = (typeof RSVP_LOOK_CARDS)[number];
+export const RSVP_CARD_GROUNDS = ['none', 'frost'] as const;
+export type RsvpCardGround = (typeof RSVP_CARD_GROUNDS)[number];
+export type RsvpCardLook = { g?: RsvpCardGround } & RsvpMotion;
+
+export type RsvpLook = { lines?: Partial<Record<RsvpLookLine, RsvpLineLook>>; card?: Partial<Record<RsvpLookCard, RsvpCardLook>> };
+/** What a look is kept FOR: a line, or a screen's card. */
+export type RsvpLookTarget = RsvpLookLine | { card: RsvpLookCard };
+
+export function rsvpLookCard(part: string | null | undefined): RsvpLookCard | null {
+  return (RSVP_LOOK_CARDS as readonly unknown[]).includes(part) ? (part as RsvpLookCard) : null;
+}
 
 export function rsvpLookLine(part: string | null | undefined, line: string | null | undefined): RsvpLookLine | null {
   const id = `${part}.${line}`;
@@ -56,48 +92,98 @@ export function rsvpLookLine(part: string | null | undefined, line: string | nul
 
 const isObject = (v: unknown): v is Record<string, unknown> => Boolean(v) && typeof v === 'object' && !Array.isArray(v);
 
-/** THE ONE READER — over the RAW `rsvp_ask_config`. Only known lines, only values from the lists above. */
+/** A Build in, read strictly: the Event Hub's closed sets (four effects, eight sides, two sizes), two feels. */
+function readMotion(v: Record<string, unknown>): RsvpMotion {
+  const out: RsvpMotion = {};
+  const fx = sanitizeMotionFx(v.i);
+  if (fx) {
+    out.i = fx;
+    if ((RSVP_LOOK_FEELS as readonly unknown[]).includes(v.v)) out.v = v.v as RsvpLookFeel;
+  }
+  return out;
+}
+
+/** THE ONE READER — over the RAW `rsvp_ask_config`. Only known lines and cards, only values from the lists above. */
 export function readRsvpLook(config: unknown): RsvpLook {
   const raw = isObject(config) ? config.look : null;
-  const lines = isObject(raw) ? raw.lines : null;
-  if (!isObject(lines)) return {};
-  const out: Partial<Record<RsvpLookLine, RsvpLineLook>> = {};
+  if (!isObject(raw)) return {};
+  const out: RsvpLook = {};
+  const lines = isObject(raw.lines) ? raw.lines : {};
   for (const id of RSVP_LOOK_LINES) {
     const v = lines[id];
     if (!isObject(v)) continue;
-    const look: RsvpLineLook = {};
+    const look: RsvpLineLook = readMotion(v);
     if (!RSVP_LOOK_BUTTON_LINES.includes(id) && (RSVP_LOOK_SLOTS as readonly unknown[]).includes(v.c)) look.c = v.c as RsvpLookSlot;
     if ((RSVP_LOOK_SIZES as readonly unknown[]).includes(v.s) && v.s !== 100) look.s = v.s as RsvpLookSize;
-    if (look.c !== undefined || look.s !== undefined) out[id] = look;
+    if (Object.keys(look).length > 0) (out.lines ??= {})[id] = look;
   }
-  return Object.keys(out).length > 0 ? { lines: out } : {};
+  const cards = isObject(raw.card) ? raw.card : {};
+  for (const id of RSVP_LOOK_CARDS) {
+    const v = cards[id];
+    if (!isObject(v)) continue;
+    const look: RsvpCardLook = readMotion(v);
+    if ((RSVP_CARD_GROUNDS as readonly unknown[]).includes(v.g)) look.g = v.g as RsvpCardGround;
+    if (Object.keys(look).length > 0) (out.card ??= {})[id] = look;
+  }
+  return out;
 }
 
 /**
- * The stored `look` with one line changed (`null` = back to the page's own) — what the panel saves. Built on the
- * RAW `look` so a key this build does not know (a later one's) is carried, never dropped; `undefined` when nothing
- * is left, so an event back to its own look stores no `look` at all.
+ * The stored `look` with one line's or one card's look changed — what the panel saves. A key set to `null` goes back
+ * to the page's own. Built on the RAW `look`, so a key this build does not know (a later one's) is carried, never
+ * dropped; `undefined` when nothing is left, so an event back to its own look stores no `look` at all.
  */
-export function rsvpLookWith(config: unknown, id: RsvpLookLine, patch: { c?: RsvpLookSlot | null; s?: RsvpLookSize | null }): Record<string, unknown> | undefined {
-  const rest = isObject(config) && isObject(config.look) ? { ...config.look } : {};
-  const lines = { ...readRsvpLook(config).lines };
-  const next: RsvpLineLook = { ...lines[id] };
-  if (patch.c !== undefined) {
-    if (patch.c === null) delete next.c;
-    else next.c = patch.c;
+export function rsvpLookWith(
+  config: unknown,
+  target: RsvpLookTarget,
+  patch: { c?: RsvpLookSlot | null; s?: RsvpLookSize | null; g?: RsvpCardGround | null; i?: MotionFx | null; v?: RsvpLookFeel | null },
+): Record<string, unknown> | undefined {
+  const rest: Record<string, unknown> = isObject(config) && isObject(config.look) ? { ...config.look } : {};
+  const read = readRsvpLook(config);
+  const one: Record<string, unknown> = { ...(typeof target === 'string' ? read.lines?.[target] : read.card?.[target.card]) };
+  for (const [key, value] of Object.entries(patch)) {
+    if (value === undefined) continue;
+    if (value === null || (key === 's' && value === 100)) delete one[key];
+    else one[key] = value;
   }
-  if (patch.s !== undefined) {
-    if (patch.s === null || patch.s === 100) delete next.s;
-    else next.s = patch.s;
+  if (!one.i) delete one.v; /* a feel times an effect: with none there is nothing to keep */
+  const all: Record<string, unknown> = { ...(typeof target === 'string' ? read.lines : read.card) };
+  const id = typeof target === 'string' ? target : target.card;
+  if (Object.keys(one).length > 0) all[id] = one;
+  else delete all[id];
+  const home = typeof target === 'string' ? 'lines' : 'card';
+  /* Each home is rewritten from the STRICT reading, so what this build cannot read is not kept inside it. */
+  for (const [k, v] of [['lines', home === 'lines' ? all : read.lines], ['card', home === 'card' ? all : read.card]] as const) {
+    if (v && Object.keys(v).length > 0) rest[k] = v;
+    else delete rest[k];
   }
-  if (next.c === undefined && next.s === undefined) delete lines[id];
-  else lines[id] = next;
-  if (Object.keys(lines).length > 0) rest.lines = lines;
-  else delete rest.lines;
   return Object.keys(rest).length > 0 ? rest : undefined;
 }
 
 const HEX = /^#[0-9a-f]{6}$/i;
+
+/** The door's card, for every guest: the block that holds the masthead (`DoorShell`). No attribute is served for it. */
+export const RSVP_CARD_SELECTOR = 'div:has(>[data-door-header])';
+/** How far a Move travels in, in px — a line's short step, the same on both axes. */
+const MOVE_PX = [24, 24] as const;
+/** One keyframe for every Build in (the Event Hub's `el-in-mix` idea): three values the rule sets, read once. */
+const KEYFRAMES =
+  '@keyframes rsvp-in{from{opacity:var(--rl-o);transform:var(--rl-t);filter:var(--rl-f)}}' +
+  `@media (prefers-reduced-motion:reduce){[data-rsvp-line],${RSVP_CARD_SELECTOR}{animation:none!important}}`;
+
+/** A Build in as declarations — every value from the Event Hub's own frame (`motionFxFrame`) and its feel's seconds. */
+function motionRules(m: RsvpMotion): string {
+  if (!m.i) return '';
+  const f = motionFxFrame(m.i, 'in', MOVE_PX);
+  return `--rl-o:${f.opacity};--rl-t:${f.transform};--rl-f:${f.filter};animation:rsvp-in ${FEEL_SECONDS[m.v ?? 'calm']}s cubic-bezier(.16,1,.3,1) both;`;
+}
+
+/** The card's two grounds that are not today's: nothing at all, or the app's own glass (`--sn-glass-*`, globals.css). */
+const CARD_GROUND: Record<RsvpCardGround, string> = {
+  none: 'background:transparent!important;border-color:transparent!important;box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;',
+  frost:
+    'background:var(--sn-glass-bg)!important;border-color:var(--sn-glass-line)!important;backdrop-filter:var(--sn-glass-blur)!important;-webkit-backdrop-filter:var(--sn-glass-blur)!important;',
+};
 
 /**
  * THE RULES A PAGE DRAWS — for the parts it shows (`['rsvp']` the form · `['yesnote', 'pass']` · `['nonote']`).
@@ -107,21 +193,25 @@ const HEX = /^#[0-9a-f]{6}$/i;
  */
 export function rsvpLookCss(look: RsvpLook, parts: readonly string[], board: readonly string[]): string {
   let css = '';
+  let moves = false;
+  for (const id of RSVP_LOOK_CARDS) {
+    const v = look.card?.[id];
+    if (!v || !parts.includes(id)) continue;
+    const rules = `${v.g ? CARD_GROUND[v.g] : ''}${motionRules(v)}`;
+    moves ||= Boolean(v.i);
+    if (rules) css += `${RSVP_CARD_SELECTOR}{${rules}}`;
+  }
   for (const id of RSVP_LOOK_LINES) {
     const [part, line] = id.split('.') as [string, string];
     const v = look.lines?.[id];
     if (!v || !parts.includes(part)) continue;
     const colour = v.c ? board[v.c - 1] : undefined;
-    const rules = `${colour && HEX.test(colour) ? `color:${colour.toLowerCase()};` : ''}${v.s ? `zoom:${v.s / 100};` : ''}`;
+    const rules = `${colour && HEX.test(colour) ? `color:${colour.toLowerCase()};` : ''}${v.s ? `zoom:${v.s / 100};` : ''}${motionRules(v)}`;
+    moves ||= Boolean(v.i);
     if (rules) css += `[data-rsvp-line="${line}"][data-rsvp-line]{${rules}}`;
   }
-  return css;
+  return moves ? css + KEYFRAMES : css;
 }
-
-/** The `<style>` a reply page carries its lines' look in — and the Maker's canvas redraws as a look is picked. */
-export const RSVP_LOOK_STYLE_ATTR = 'data-rsvp-look';
-/** The bridge message's `t` — `{ source, t: 'rsvpLook', look }`: the RAW `look`, read strictly by the page. */
-export const RSVP_LOOK_MESSAGE = 'rsvpLook';
 
 /** The database's cap on the whole config, with room left for how it is stored — asked before a save. */
 export const RSVP_CONFIG_ROOM = 1900;

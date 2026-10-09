@@ -21,6 +21,7 @@ import {
   MAKER_POST_EVENT_ADDED,
   makerOwnScenesLeft,
   makerOwnScenesLine,
+  makerPartCanvasOn,
   makerPartLabelOn,
   makerPartOffers,
   makerPartOfCanvas,
@@ -101,11 +102,18 @@ test('none duplicated: one part per shipped scene, one group per part', () => {
   );
 });
 
-test('"Photos of you" on Post Event is the shipped Were you there?', () => {
-  assert.equal(makerPostEventSceneOf('editorial', 'myphotos'), 'you');
-  assert.equal(makerPartLabelOn('editorial', 'myphotos'), shippedScenes().get('you'));
-  assert.equal(makerPartLabelOn('editorial', 'myphotos'), 'Were you there?');
-  /* Off Post Event it keeps its own word. */
+test('Were you there? is Post Event’s OWN part — never The Day’s "Photos of you" under another name', () => {
+  /* 🔁 RE-AIMED 2026-10-10. This held `myphotos` → scene `you` on Post Event. One part for two things meant the two
+     could not differ: Were you there? has ONE look, Photos of you has three — so Style was live over four empty rows
+     on Post Event (seen on the Maker lab). The scene has a part of its own now, by its shipped name. */
+  assert.equal(makerPostEventSceneOf('editorial', 'you'), 'you');
+  assert.equal(makerPartLabelOn('editorial', 'you'), shippedScenes().get('you'));
+  assert.equal(makerPartLabelOn('editorial', 'you'), 'Were you there?');
+  assert.equal(makerPartCanvasOn('editorial', 'you'), 'p:you');
+  /* The Day's part is The Day's alone, on every stage. */
+  assert.equal(makerPostEventSceneOf('editorial', 'myphotos'), null);
+  assert.equal(makerPartCanvasOn('editorial', 'myphotos'), 'f:photos_of_you');
+  assert.equal(makerPartLabelOn('editorial', 'myphotos'), 'Photos of you');
   assert.equal(makerPartLabelOn('event', 'myphotos'), 'Photos of you');
 });
 
@@ -143,5 +151,5 @@ test('a part the couple added is a tile of the page it was added to', () => {
   assert.ok(parts.includes('song'), 'Song is Home’s');
   assert.ok(parts.indexOf('song') > parts.indexOf('wishes'), 'drawn after Wishes');
   assert.equal(makerPartOfCanvas('editorial', 'p:song'), 'song' satisfies MakerPartKey);
-  assert.equal(makerPartOfCanvas('editorial', 'p:you'), 'myphotos');
+  assert.equal(makerPartOfCanvas('editorial', 'p:you'), 'you');
 });

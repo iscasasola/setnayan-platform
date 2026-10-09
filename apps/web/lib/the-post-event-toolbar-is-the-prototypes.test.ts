@@ -24,6 +24,13 @@
  *       row of the old panel under them; a failed read is still said. The desktop's panel is every row, as before.
  *   (5) A SCENE WITH NO LOOK TO PICK has a grey Style that says so — never four empty rows.
  *   (6) THE ⓘ — the panel's own sentences, word for word, behind the toolbar's one ⓘ.
+ *   (7) EVERY SCENE THE STORY CAN DRAW IS A PART (2026-10-10). Ten were not — Front Page · the day's chapters ·
+ *       Gallery · Videos · Messages · Where Everyone Sat · Entourage · Thank You · Suppliers We Loved · Powered by
+ *       Setnayan: a tap named no part, so Edit was four empty rows. Each is picked by its SHIPPED name and gets the
+ *       same Edit (its words where its style draws some · "Shown to guests" where it has a switch · its place) and
+ *       Style as its cards. Were you there? is a part of its own, so its one look greys Style on Post Event without
+ *       touching The Day's Photos of you. WHAT A COUPLE MAY DO TO EACH IS THE STORY'S OWN RULE, read from the
+ *       compiler — nothing is locked or unlocked here (Powered by Setnayan may be hidden and moved, as shipped).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -33,7 +40,11 @@ import React from 'react';
 
 import { stripComments } from './strip-comments';
 import { MAKER_PARTS, MAKER_PARTS_NO_LOOK, makerPartToolWhy, makerPartToolWorks, type MakerPartKey } from './maker-parts';
-import { makerPostEventSceneOf } from './maker-part-groups';
+import { MAKER_PART_GROUPS, makerPartCanvasOn, makerPartLabelOn, makerPartOfCanvas, makerPostEventSceneOf } from './maker-part-groups';
+import { compilePostEventScenes, type PostEventSources } from './post-event-scenes';
+import { postEventRunKey } from './post-event-draft';
+import { resolvePostEventStyle } from './post-event-style-resolve';
+import { postEventWordParts } from './post-event-styles';
 import { postEventSetWords, postEventShow, type PostEventArrangement } from './post-event-draft';
 import { postEventStyleOptions } from './post-event-style-resolve';
 
@@ -309,8 +320,9 @@ test('(5) a scene with no look to pick has a grey Style that says so — exactly
     assert.equal(makerPartToolWorks(k, 'animate'), false);
     assert.equal(makerPartToolWorks(k, 'edit'), true);
   }
-  assert.deepEqual(none.sort(), ['beforeafter', 'next', 'song', 'wall']);
-  assert.deepEqual([...MAKER_PARTS_NO_LOOK].sort(), ['beforeafter', 'next', 'song', 'spotlight', 'wall']);
+  /* (…and Were you there?, a part of its own since 2026-10-10 — (7).) */
+  assert.deepEqual(none.sort(), ['beforeafter', 'next', 'song', 'wall', 'you']);
+  assert.deepEqual([...MAKER_PARTS_NO_LOOK].sort(), ['beforeafter', 'next', 'song', 'spotlight', 'wall', 'you']);
 });
 
 /* ── (6) the ⓘ ────────────────────────────────────────────────────────── */
@@ -336,4 +348,133 @@ test('(6) what the scene is sits behind the toolbar’s one ⓘ — the panel’
     /const words = el\?\.querySelector<HTMLElement>\('span\[aria-hidden\]'\);\s*if \(!el \|\| !words \|\| lineLevel >= linePieces\.length \|\| el\.scrollWidth > el\.clientWidth \+ 0\.5\) return;\s*const cs = getComputedStyle\(el\);\s*const room = el\.clientWidth - \(Number\.parseFloat\(cs\.paddingLeft\) \|\| 0\) - \(Number\.parseFloat\(cs\.paddingRight\) \|\| 0\);\s*if \(words\.getBoundingClientRect\(\)\.width > room \+ 0\.05\) setLineAt\(\(l\) => \(\{ key: lineKey, level: lineLevel \+ 1, n: l\.n \}\)\);\s*\}, \[lineKey, lineLevel, linePieces\.length, lineAt\.n\]\);/,
     'a line too wide by less than a pixel is cut again',
   );
+});
+
+/* ── (7) every scene the story can draw is a part ─────────────────────── */
+
+/** A day that fills every scene the compiler can write (two chapters), so each one's shipped row can be read. */
+const FULL_DAY: PostEventSources = {
+  cover: 'day',
+  milestones: 4,
+  metrics: { photos: 486, guests: 32 },
+  chapters: [
+    { time: '15:00', title: 'The ceremony', leadId: 'c1', isClip: false, media: 42 },
+    { time: '18:00', title: 'The reception', leadId: 'c2', isClip: false, media: 61 },
+  ],
+  galleryPhotos: 486,
+  broadcast: true,
+  films: 1,
+  kwento: 14,
+  challengeAnswers: 3,
+  guestColumns: 3,
+  vendorMedia: 9,
+  team: 6,
+  seatingTables: 4,
+  entourage: 12,
+  beforeAfter: true,
+  liveWall: { active: true, photos: 20 },
+  reviews: 2,
+  services: 2,
+  vendorsWeLoved: 2,
+  specialMessage: true,
+  song: 'A song',
+  whatsNext: 'A honeymoon',
+} as PostEventSources;
+
+/** The ten, as the owner was told them: part key · the story's scene · its shipped name. */
+const TEN: ReadonlyArray<readonly [MakerPartKey, string, string]> = [
+  ['cover', 'cover', 'Front Page'],
+  ['chapters', 'ch-1', 'Schedule'],
+  ['pegallery', 'gallery', 'Gallery'],
+  ['videos', 'videos', 'Videos'],
+  ['letters', 'letters', 'Messages'],
+  ['seating', 'seating', 'Where Everyone Sat'],
+  ['entourage', 'entourage', 'Entourage'],
+  ['couple', 'couple', 'Thank You'],
+  ['loved', 'loved', 'Suppliers We Loved'],
+  ['powered', 'powered', 'Powered by Setnayan'],
+];
+
+test('(7) every scene the story can draw is a part: the ten are picked by their shipped names and get the same Edit and Style', async () => {
+  const { postEventSceneOf, postEventWordsFields } = await import(`../${L}/stage-panel/post-event-edit`);
+  const rows = compilePostEventScenes(FULL_DAY, '2026-12-13T07:04:00Z').scenes;
+  const rowOf = (scene: string) => rows.find((r) => r.key === scene)!;
+  assert.ok(rows.length >= 20, `anti-vacuity: the full day compiles ${rows.length} scenes`);
+
+  /* SYSTEMIC: no scene the compiler writes is without a part — the marker a tap on it names resolves to one. (The
+     day's chapters share ONE marker, `p:ch-1` — `lib/maker-scene-list.ts` — and so one part.) */
+  assert.match(read('lib/maker-scene-list.ts'), /const anchorScene = r\.block === 'chapters' \? 'ch-1' : r\.key;/);
+  const named = new Map<string, MakerPartKey>();
+  for (const r of rows) {
+    const canvas = `p:${r.block === 'chapters' ? 'ch-1' : r.key}`;
+    const part = makerPartOfCanvas('editorial', canvas);
+    assert.ok(part, `${r.name} (${canvas}) is a scene of the story no part names — a tap on it picks nothing and Edit is empty`);
+    named.set(r.key, part);
+  }
+  console.log(`# post event: ${rows.length} compiled scenes, each named by a part (${new Set(named.values()).size} parts)`);
+
+  for (const [key, scene, name] of TEN) {
+    const def = MAKER_PARTS[key];
+    /* PICKED BY NAME — its marker, and the story's own word for it (read from the compiler, never retyped). */
+    assert.equal(def.canvas, `p:${scene}`);
+    assert.equal(makerPartCanvasOn('editorial', key), `p:${scene}`);
+    assert.equal(makerPartOfCanvas('editorial', `p:${scene}`), key, `${name}: a tap on it picks another part`);
+    assert.equal(makerPostEventSceneOf('editorial', key), scene);
+    assert.equal(makerPartLabelOn('editorial', key), name);
+    assert.equal(def.label, name);
+    /* The story's name for it: the row's own — the chapters' is the name of the block when the day has none yet. */
+    if (key === 'chapters') assert.equal(compilePostEventScenes({ ...FULL_DAY, chapters: [] }, '2026-12-13T07:04:00Z').scenes.find((r) => r.key === 'chapters')!.name, name);
+    else assert.equal(rowOf(scene).name, name, `${key} does not wear its shipped name`);
+    /* THE FOUR TOOLS — Edit live; Style its cards (each of the ten has a registry type with looks); Background and
+       Animate as the shipped rule draws a Post Event scene: grey. */
+    assert.equal(makerPartToolWorks(key, 'edit'), true);
+    assert.equal(makerPartToolWorks(key, 'style'), true);
+    assert.ok(postEventStyleOptions(scene, 'wedding').length >= 2, `${name} has no look cards and a live Style`);
+    assert.equal(makerPartToolWorks(key, 'bg'), false);
+    assert.equal(makerPartToolWorks(key, 'animate'), false);
+    /* THE SAME EDIT — read through the one reader, from a tile built on the story's own row. */
+    const row = rowOf(scene);
+    const tile = { kind: 'post-event', key: `p:${row.key}`, anchor: `p:${scene}`, scene: row.key, label: row.name, status: row.status, hidden: false, drawn: true, position: 1, template: row.template, source: row.source, note: row.note, open: row.open, pinned: row.pin !== null, switchKey: row.switch, runKey: postEventRunKey(row.key) };
+    const style = resolvePostEventStyle(row.key, undefined, 'wedding');
+    const now = postEventSceneOf(raw({ tiles: [tile], styles: style ? { [row.key]: style } : {} }), `p:${scene}`);
+    assert.ok(now, `${name} is not read as a scene`);
+    assert.equal(now.switchKey, row.switch);
+    assert.equal(now.runKey, postEventRunKey(row.key));
+    /* Its words: exactly the parts its style draws (the panel's "Its parts"), the Heading first. */
+    const drawn = postEventWordParts(row.key, style);
+    assert.deepEqual(now.parts, ['heading', 'label', 'body'].filter((p) => drawn.includes(p as never)));
+    assert.equal(postEventWordsFields(now, null, `p:${scene}`).length, drawn.length);
+    /* …and ＋ can bring it back after "Shown to guests" is switched off (it is listed with the Post Event scenes). */
+    assert.ok(MAKER_PART_GROUPS.find((g) => g.label === 'After the event')!.parts.includes(key), `${name} cannot be brought back with ＋`);
+  }
+
+  /* WHAT A COUPLE MAY DO TO EACH IS THE STORY'S OWN RULE — read here, never decided here. */
+  const may = (scene: string) => ({ hide: rowOf(scene).switch !== null, move: postEventRunKey(rowOf(scene).key) !== null, pinned: rowOf(scene).pin });
+  /* The Front Page opens the story: no switch, no move. Thank You closes it: it may be hidden, never moved. */
+  assert.deepEqual(may('cover'), { hide: false, move: false, pinned: 'first' });
+  assert.deepEqual(may('couple'), { hide: true, move: false, pinned: 'close' });
+  /* POWERED BY SETNAYAN IS AN ORDINARY SCENE as shipped: its own switch (`poweredBy`), its own place in the run, no
+     pin — a couple may hide it, move it and reword it. Nothing in the Maker locks it. */
+  assert.deepEqual(may('powered'), { hide: true, move: true, pinned: null });
+  assert.equal(rowOf('powered').switch, 'poweredBy');
+  for (const s of ['ch-1', 'gallery', 'videos', 'letters', 'seating', 'entourage', 'loved']) assert.deepEqual(may(s), { hide: true, move: true, pinned: null }, s);
+
+  /* WERE YOU THERE? — a part of its own: one look, so Style is grey on Post Event… */
+  assert.equal(makerPartOfCanvas('editorial', 'p:you'), 'you');
+  assert.equal(makerPartLabelOn('editorial', 'you'), 'Were you there?');
+  assert.equal(postEventStyleOptions('you', 'wedding').length, 0);
+  assert.equal(makerPartToolWorks('you', 'style'), false);
+  assert.equal(makerPartToolWhy('you', 'style'), 'Style has nothing to change on this part.');
+  assert.deepEqual(may('you'), { hide: false, move: false, pinned: null });
+  /* …and THE DAY IS UNCHANGED: Photos of you keeps its three looks, its marker and its word, on every stage. */
+  assert.equal(makerPartToolWorks('myphotos', 'style'), true);
+  assert.equal(MAKER_PARTS.myphotos.canvas, 'f:photos_of_you');
+  assert.equal(makerPartLabelOn('event', 'myphotos'), 'Photos of you');
+  assert.equal(makerPostEventSceneOf('editorial', 'myphotos'), null);
+
+  /* THE ENTRIES ARE AS SMALL AS THEY CAN BE (the map rides close to the Maker's first-load ceiling): nine are their
+     scene's own key, written once; the two whose key is not their scene's are written out. */
+  const map = read('lib/maker-parts.ts');
+  assert.match(map, /const PE = \['cover', 'videos', 'letters', 'seating', 'entourage', 'couple', 'loved', 'powered', 'you'\] as const;/);
+  assert.match(map, /\.\.\.\(Object\.fromEntries\(PE\.map\(\(s\) => \[s, pe\(s\)\]\)\) as Record<\(typeof PE\)\[number\], MakerPartDef>\),\s*chapters: pe\('ch-1'\),\s*pegallery: pe\('gallery'\),/);
 });

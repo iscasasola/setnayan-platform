@@ -109,6 +109,8 @@ export const MAKER_STAGE_KEYS: readonly MakerStageKey[] = ['save_the_date', RSVP
 
 /* ── the parts ────────────────────────────────────────────────────────────── */
 
+/* 🎞 Post Event's scenes with no part till 2026-10-10 (a tap named none: an empty Edit) — key = shipped scene key. */
+const PE = ['cover', 'videos', 'letters', 'seating', 'entourage', 'couple', 'loved', 'powered', 'you'] as const;
 export const MAKER_PART_KEYS = [
   'reveal',
   'logo',
@@ -164,6 +166,9 @@ export const MAKER_PART_KEYS = [
   'beforeafter',
   'song',
   'next',
+  ...PE,
+  'chapters',
+  'pegallery',
 ] as const;
 export type MakerPartKey = (typeof MAKER_PART_KEYS)[number];
 
@@ -265,6 +270,7 @@ const NONE: MakerPartLayouts = { kind: 'none' };
  * for-each-guest parts wear their OWN registered styles (`lib/scene-styles-parts.ts`,
  * owner 2026-10-07); a section's parts share its scene's styles.
  */
+const pe = (s: string): MakerPartDef => ({ label: POST_EVENT_SCENE_NAMES[s] ?? 'Schedule', source: 'tool', canvas: `p:${s}`, layouts: NONE });
 export const MAKER_PARTS: Readonly<Record<MakerPartKey, MakerPartDef>> = {
   /* The Reveal is the first part of three stages — its kinds are PR 3's (`maker-reveal.tsx`). */
   reveal: { label: 'Reveal', source: 'tool', canvas: null, layouts: NONE },
@@ -335,6 +341,10 @@ export const MAKER_PARTS: Readonly<Record<MakerPartKey, MakerPartDef>> = {
   beforeafter: { label: POST_EVENT_SCENE_NAMES.beforeAfter!, source: 'tool', canvas: 'p:beforeAfter', layouts: NONE },
   song: { label: POST_EVENT_SCENE_NAMES.song!, source: 'tool', canvas: 'p:song', layouts: NONE },
   next: { label: POST_EVENT_SCENE_NAMES.next!, source: 'tool', canvas: 'p:next', layouts: NONE },
+  ...(Object.fromEntries(PE.map((s) => [s, pe(s)])) as Record<(typeof PE)[number], MakerPartDef>),
+  /* The day's chapters share one marker (`p:ch-1`) and the Schedule's name; the story's Gallery is not `gallery`. */
+  chapters: pe('ch-1'),
+  pegallery: pe('gallery'),
 };
 
 /** A part's source, read. Throws on a string no part may carry — the test walks every part through it. */
@@ -374,7 +384,7 @@ export function makerPartQuietRow(key: MakerPartKey): { words: string; to: { stu
  * prototype: *"Style has nothing to change on this part."*). Listed, never worked out: a part's Style may be drawn
  * by its own tools (the Reveal, the pass, the reply pages), which no rule here can see.
  */
-export const MAKER_PARTS_NO_LOOK: readonly MakerPartKey[] = ['spotlight', 'beforeafter', 'song', 'next', 'wall'];
+export const MAKER_PARTS_NO_LOOK: readonly MakerPartKey[] = ['spotlight', 'beforeafter', 'song', 'next', 'wall', 'you'];
 
 /**
  * 🚫 DOES A TOOL HAVE ANYTHING TO SET ON THIS PART? (owner rule: a failure never renders as success — a pill that

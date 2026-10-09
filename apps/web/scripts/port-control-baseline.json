@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "9466eaee4",
+  "generatedFromRef": "77e4fe682",
   "routeCount": 430,
   "destinations": 956,
   "actions": 672,
-  "blocks": 5888,
+  "blocks": 5891,
   "routes": {
     "/": {
       "files": [
@@ -10017,7 +10017,8 @@
     },
     "/dev/maker-lab/guest": {
       "files": [
-        "dev/maker-lab/guest/page.tsx"
+        "dev/maker-lab/guest/page.tsx",
+        "dev/maker-lab/guest/scrub-badge.tsx"
       ],
       "destinations": [],
       "actions": [],
@@ -10025,8 +10026,11 @@
         "CountdownWidget",
         "EditorBridge",
         "Fragment",
+        "HTMLElement",
         "HubCanvasFrame",
         "HubScenes",
+        "LabScrubBadge",
+        "LabScrubScene",
         "MakerEmptyScene",
         "MakerWelcomeGiftsEmpty",
         "MakerWelcomeLook",

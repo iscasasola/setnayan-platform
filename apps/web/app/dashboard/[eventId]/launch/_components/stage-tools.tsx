@@ -1520,7 +1520,11 @@ export function StageTools({
         ? createPortal(
             <div
               data-stage-exit-preview=""
-              className="pointer-events-none absolute inset-x-0 z-[26] flex justify-center lg:hidden"
+              /* 🗳 ABOVE THE LAYERS THAT COVER THE WORK AREA. The RSVP stage (and Details) is a layer drawn over the work
+                 area at z-30 in this same shell (`maker-shell.tsx`, `data-maker-rsvp-layer`); the button, one above the
+                 guests' bar (26), was UNDER that layer's own frame — on the RSVP stage a tap on it reached the guest's
+                 page and never left the preview (owner 2026-10-10: "has not return button?"). */
+              className="pointer-events-none absolute inset-x-0 z-[31] flex justify-center lg:hidden"
               style={{ bottom: `calc(env(safe-area-inset-bottom) + ${pages.length > 1 || rsvpOpen ? STAGE_EXIT_OVER_BAR_PX : STAGE_EXIT_GAP_PX}px)` }}
             >
               <ActionButton tone="brand" main icon={X} label="Exit preview" onClick={exitPreview} className="pointer-events-auto shadow-lg" />

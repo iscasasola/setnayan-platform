@@ -239,3 +239,33 @@ test('(5) nothing new loads first — the preview’s pieces are the canvas brid
     assert.doesNotMatch(readFileSync(join(WEB, f), 'utf8'), /from '[^']*(?:stage-tools|play-sequence|guest-in-canvas)'/, `${f} imports the preview`);
   }
 });
+
+test('(6) Exit preview is on top of every layer that covers the work area — on the RSVP stage too', () => {
+  /* 🧨 SEEN ON THE REVIEW COPY (owner 2026-10-10: "long press to preview whole page has not return button?"): the RSVP
+     stage is a LAYER over the work area (`data-maker-rsvp-layer`, z-30) in the same shell the button is drawn into; the
+     button stood at 26 — one above the guests' bar — so at its own centre the topmost thing was the RSVP stage's frame,
+     and a tap went to the guest's page. The property: the button's layer is above EVERY layer the shell lays over its
+     work area, whatever their numbers become. (Measured in the browser too — `elementFromPoint` at the button's centre
+     on all five stages; this guard holds the cause.) Sabotage: the button back at 26 → red. */
+  const z = (cls: string) => Number(/(?:^|\s)z-(?:\[(\d+)\]|(\d+))(?:\s|$)/.exec(cls)?.slice(1).find(Boolean) ?? Number.NaN);
+  const exitAt = tools.indexOf('data-stage-exit-preview=""');
+  const exitCls = /className="([^"]*)"/.exec(tools.slice(exitAt, tools.indexOf('shellEl,', exitAt)))?.[1] ?? '';
+  const exitZ = z(exitCls);
+  assert.ok(Number.isFinite(exitZ), `anti-vacuity: Exit preview's layer was read (${exitCls})`);
+  assert.match(exitCls, /(?:^|\s)absolute(?:\s|$)/, 'the button is no longer laid over the shell');
+  assert.match(tools, /\{previewing && shellEl\s*\? createPortal\(/, 'the button is no longer drawn into the shell');
+  const shell = read(`${L}/maker-shell.tsx`);
+  const layers = [...shell.matchAll(/className="([^"]*)" data-maker-([a-z-]+)-layer=""/g)].map((m) => ({ name: m[2]!, z: z(m[1]!), cls: m[1]! }));
+  assert.ok(layers.length >= 2 && layers.some((l) => l.name === 'rsvp'), `anti-vacuity: the shell's layers were found (${layers.map((l) => l.name).join(', ')})`);
+  for (const l of layers) {
+    assert.match(l.cls, /(?:^|\s)absolute inset-0(?:\s|$)/, `the ${l.name} layer no longer covers the work area — re-read this guard`);
+    assert.ok(Number.isFinite(l.z), `the ${l.name} layer's own layer was not read`);
+    assert.ok(exitZ > l.z, `Exit preview (z ${exitZ}) is under the ${l.name} layer (z ${l.z}) — a tap on it reaches the page beneath`);
+  }
+  /* …and the work area the layers sit in makes no stacking context of its own: their numbers are compared with the
+     button's in the shell's. */
+  assert.match(shell, /<div className="relative min-h-0 flex-1">\s*\{children\}/, 'the work area changed — check the layers still stack in the shell');
+  /* The guests' own bar stays under the button. */
+  const barZ = z(/'absolute inset-x-0 (z-\[\d+\]) border-t/.exec(tools)?.[1] ?? '');
+  assert.ok(Number.isFinite(barZ) && exitZ > barZ, 'Exit preview is under the guests’ bar');
+});

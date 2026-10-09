@@ -66,7 +66,8 @@ test('3 · Out is in Motion, saved, and played', () => {
   const layer = { id: 'a1', kind: 'text', name: 'I', x: 500, y: 500, scale: 1, color: '#5B4A6B', body: '<path d="M0 0h10v10z"/>', w: 10, h: 10, motion: { in: 'fade', during: 'still', delay: 0, out: 'fade' } } as LogoLayer;
   assert.match(composeLogoSvg([layer])!, /data-out="fade"/);
   const src = editor();
-  assert.match(src.slice(src.indexOf('label="Motion"')), /data-logo-out=""/, 'no Out row in Motion');
+  /* RE-AIMED 2026-10-09 (Studio › Logo's chrome moved onto the templates): Out is a Form row's dropdown carrying its mark. */
+  assert.match(src.slice(src.indexOf('label="Motion"')), /'data-logo-out': ''/, 'no Out row in Motion');
   const player = stripComments(readFileSync(join(__dirname, '../app/_components/layered-logo-player.tsx'), 'utf8'));
   assert.match(player, /getAttribute\('data-out'\)/, 'the player never plays Out');
 });
@@ -80,10 +81,11 @@ test('nothing else: no starting designs, ornaments, split, hide / lock / duplica
 
 test('▾ Motion\'s In · During · Out are dropdowns, never chip rows (owner 2026-10-07)', () => {
   const src = editor();
-  const motion = src.slice(src.indexOf('label="Motion"'), src.indexOf('<Slider', src.indexOf('label="Motion"')));
+  const motion = src.slice(src.indexOf('label="Motion"'), src.indexOf('<LogoSlider', src.indexOf('label="Motion"')));
   assert.ok(motion.length > 0, 'the Motion field moved — re-anchor this test');
   assert.doesNotMatch(motion, /<Chip\b/, 'a Motion choice is a chip row again');
   for (const which of ['In', 'During', 'Out']) {
-    assert.match(motion, new RegExp(`<PickMenu\\s+label="${which}"`), `${which} is not a PickMenu`);
+    /* RE-AIMED 2026-10-09: each is the Form row's dropdown (`ChosenRow`, over the same PickMenu). */
+    assert.match(motion, new RegExp(`<ChosenRow\\s+name="${which}"`), `${which} is not a dropdown`);
   }
 });

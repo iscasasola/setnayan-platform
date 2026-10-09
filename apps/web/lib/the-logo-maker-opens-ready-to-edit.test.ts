@@ -41,7 +41,8 @@ test('2 · the panels are never a Maker tool and never tiles in the lower third�
   // Both panels wear the in-flow phone layout, and the row that switches them is on the phone.
   const panels = [...logo.matchAll(/flex-col \$\{LOGO_PANEL_PHONE\} lg:static/g)].length;
   assert.equal(panels, 2, `${panels} of the two panels sit under the logo`);
-  assert.match(logo, /data-logo-panel-tab=\{t\.key\}/, 'the Layers | layer row is gone');
+  /* RE-AIMED 2026-10-09 (Studio › Logo's chrome moved onto the templates — `studio-logo-are-the-templates.test.ts` holds the new shape): the row is the Pill selector. */
+  assert.match(logo, /<PillSelector\s+label="Logo panels"[\s\S]*?key: 'layers'[\s\S]*?key: 'tools'/, 'the Layers | layer row is gone');
 });
 
 test('3 · the phone layout is in the page’s flow, under the logo, and steps aside only in the guided flow', () => {
@@ -61,7 +62,8 @@ test('3 · the phone layout is in the page’s flow, under the logo, and steps a
   }
   // The row's declared room is the row the editor draws (44 px buttons, p-1, mt-2).
   const logo = code(`${L}/maker-logo.tsx`);
-  assert.match(logo, /data-logo-panels=""\s*className="mt-2 flex w-full max-w-sm shrink-0 gap-1 rounded-full [^"]*\bp-1\b/, 'the row changed size — LOGO_PANEL_ROW_PX is stale');
+  /* RE-AIMED 2026-10-09 (Studio › Logo's chrome moved onto the templates — `studio-logo-are-the-templates.test.ts` holds the new shape): the Pill selector (44 px) sits centred in a 52 px band under mt-2 — the same 60 px the room is counted with. */
+  assert.match(logo, /data-logo-panels="" className="mt-2 flex h-\[52px\] w-full max-w-sm shrink-0 items-center /, 'the row changed size — LOGO_PANEL_ROW_PX is stale');
 });
 
 test('4 · no "Do you want a logo?" over the Logo studio', () => {

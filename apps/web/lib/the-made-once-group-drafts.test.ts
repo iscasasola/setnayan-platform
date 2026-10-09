@@ -66,8 +66,10 @@ test('the logo autosaves: after a pause, on the way out, and when the tab is hid
   ] as const) {
     assert.match(src, re, `the logo does not save on ${what}`);
   }
-  assert.match(src, /monogram_custom_svg:\s*svg,/, 'the autosave must carry the mark');
-  assert.match(src, /monogram_studio_config:/, 'the autosave must carry the re-editable design');
+  /* RE-AIMED 2026-10-09 (Studio › Logo's chrome moved onto the templates — `studio-logo-are-the-templates.test.ts` holds the new shape): the fields are built in `lib/studio-logo-saves.ts`, which carries the mark. */
+  assert.match(src, /logoDraftFields\(\{ svg, layers:/, 'the autosave must carry the mark');
+  assert.match(readFileSync(join(__dirname, 'studio-logo-saves.ts'), 'utf8'), /monogram_custom_svg: a\.svg,/, 'the builder no longer carries the mark');
+  assert.match(readFileSync(join(__dirname, 'studio-logo-saves.ts'), 'utf8'), /monogram_studio_config: \{/, 'the autosave must carry the re-editable design');
 });
 
 test('the Maker opens the made-once workspaces for Logo · Hero · Reveal (in Details) and the hero scene', () => {

@@ -26,6 +26,7 @@ import type { HubMainGround, HubSectionCanvas } from '@/lib/hub-canvas';
 import { celebrationColours, celebrationDraftIsPro } from '@/lib/rsvp-celebration';
 import { MakerRevealPicker } from '@/app/dashboard/[eventId]/launch/_components/maker-reveal';
 import { MakerLogoDoor } from '@/app/dashboard/[eventId]/launch/_components/details-lazy';
+import { LabLogoActions } from './lab-logo-actions';
 import { REVEAL_LIBRARY } from '@/app/[slug]/_components/reveal/reveal-templates';
 import { DEFAULT_REVEAL_EFFECTS } from '@/lib/std-reveal-effects';
 
@@ -385,14 +386,16 @@ export function MakerLabShell({
           /* ⭐ The REAL logo editor on maria-and-jose's initials (no saved logo — `names`), so Studio › Logo can be
              checked in place against the prototype (owner 2026-10-07: it must never leave the Maker) and the Logo
              replot's side-by-side (2026-10-08). It saves only after a touch (`maker-logo-save-gate`), and the lab's
-             event id is not a real event — writes fail here. */
+             event id is not a real event — its one write is the lab's stand-in (`lab-logo-actions.tsx`: counted, nothing sent). */
           logo: (
-            <MakerLogoDoor
-              eventId={eventId}
-              opening={{ source: 'names', layers: [], svg: null, names: 'M&J', anim: null }}
-              motionMark={null}
-              mainColours={['#5B1A22', '#F7F2EC', '#C9A86A', '#FBFAF7', '#7A8B6F']}
-            />
+            <LabLogoActions refuse={typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('refuse') === '1'}>
+              <MakerLogoDoor
+                eventId={eventId}
+                opening={{ source: 'names', layers: [], svg: null, names: 'M&J', anim: null }}
+                motionMark={null}
+                mainColours={['#5B1A22', '#F7F2EC', '#C9A86A', '#FBFAF7', '#7A8B6F']}
+              />
+            </LabLogoActions>
           ),
         }}
         elementEditing={{

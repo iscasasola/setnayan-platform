@@ -15,3 +15,16 @@ One read added to the Mood Board's existing parallel batch: the Dress code scene
 Files: `studio/mood-board/_components/{mood-board-studio,studio-dos,mood-board-actions-context,auto-palette-sheet,mood-board-editor,dress-code-lists-form}.tsx`,
 `lib/studio-mood-board-saves.ts`, `app/dev/details-lab/*`.
 SPEC IMPACT: None (implements `Maker_Two_Bars_LOCKED_2026-10-09.md` DECIDED item 3).
+
+## 2026-10-09 · feat(studio): Studio › Logo's chrome wears the templates (Action button · Form row · Switch · Dropdown · Slider · Pill selector · centred confirm), saves unchanged
+
+The chrome around the Logo's drawing surface moved onto the approved templates. Play / Edit, Add Text · Image · Frame, Centre it, the trace buttons, Cancel and the
+layer arrows are the one ActionButton; Layers | the picked layer is the Pill selector; a layer's Name and Words are Form rows (kept when the row is left); Frame and
+Motion In · During · Out are the Form row's dropdown; Remove white background is the Form row's switch; the six sliders are the template's range (the centre snap kept); the
+trace help sits behind ⓘ; the picked layer wears the accent. Removing a layer now asks once, in the centred confirm box. The canvas, its drag, the trace and
+`lib/glyph-path.ts` are untouched. NO write changed: the page's one save (`hubDraftAction`, `monogram_custom_svg` + `monogram_studio_config`, after the pause, only on a
+real change) is built in `lib/studio-logo-saves.ts` and held against the payloads recorded from the page before it moved (`lib/studio-logo-posts-the-same.golden.json`, 16
+scenarios, 0 diffs with the random layer id masked). A refused or dropped save used to announce the database's own words to the toolbar; it now says one plain sentence. A
+name or words typed in a Form row reach the layer when the row is kept, not letter by letter. The page takes its writer from a context (`launch/_components/logo-actions-context.tsx`)
+so the Maker lab's stand-in (`app/dev/maker-lab/lab-logo-actions.tsx`) reaches no database. All new client imports ride the lazy `maker-details` chunk.
+SPEC IMPACT: None.

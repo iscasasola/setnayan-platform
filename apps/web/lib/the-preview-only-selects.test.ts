@@ -114,12 +114,13 @@ test('(3) something is always picked on arriving: the first part the page DRAWS,
 
   const tools = read(`${L}/stage-tools.tsx`);
   const at = tools.indexOf('const arrived = useRef<{ stage: MakerStageKey | null; at: string | null }>({ stage: null, at: null });');
-  const arrive = tools.slice(at, tools.indexOf('}, [parts, playing, shownPage, stage, stageKey, typing]);', at));
+  const arrive = tools.slice(at, tools.indexOf('}, [parts, playing, previewing, shownPage, stage, stageKey, typing]);', at));
   assert.ok(at > 0 && arrive.length > 400, 'anti-vacuity: the arrival was not found');
   /* Keyed by the stage AND the page — a new page of the same stage is an arrival too. */
   assert.match(arrive, /const at = `\$\{stageKey\}\/\$\{shownPage \?\? ''\}`;/);
   /* ONCE: an arrival already answered asks for nothing (a tap on the ground lets go and it stays let go). */
-  assert.match(arrive, /if \(arrived\.current\.at === at \|\| parts\.length === 0 \|\| typing \|\| playing\) return;/);
+  /* 🔁 RE-AIMED 2026-10-09 (commit 9, `the-play-button-previews.test.ts`): ▶ held down is the whole page as a guest — a tab then only turns the page, nothing is picked and nothing is let go. Outside the preview the rule is what it was. */
+  assert.match(arrive, /if \(arrived\.current\.at === at \|\| parts\.length === 0 \|\| typing \|\| playing \|\| previewing\) return;/);
   /* The first DRAWN part Edit has a row for — the measured order's, never the map's; never the Reveal (it leads
      three pages and has only Style), never an empty tool (the controller's calls, 2026-10-09). EXECUTED: */
   const row = new Set<MakerPartKey>(['ename', 'names', 'schedule']);
@@ -153,7 +154,7 @@ test('(3) something is always picked on arriving: the first part the page DRAWS,
   assert.equal((arrive.match(/pickPartRef\.current\(/g) ?? []).length, 1);
   assert.match(tools, /const ordered = useCallback\(\(\) => partsInPageOrder\(parts, \(k\) => makerPartTopOnScreen\(stageKey, k, frameSel\)\), \[frameSel, parts, stageKey\]\);/);
   /* A tap on the page's ground still lets go. */
-  assert.match(tools, /d\.t === 'tapOutside'\) deselectRef\.current\(\)/);
+  assert.match(tools, /d\.t === 'tapOutside' && !previewingRef\.current\) deselectRef\.current\(\)/);
 });
 
 test('(4) the last-used tool is remembered; a part opens on it where it works, else on the first of the four that does', () => {
@@ -235,10 +236,12 @@ test('(3b) a page change never ends on nothing: the held part is replaced when i
   const bar = tools.slice(tools.indexOf('data-stage-guest-tab={p.key}'), tools.indexOf('className={STAGE_GUEST_TAB}'));
   const other = bar.slice(bar.indexOf('} else {'));
   assert.ok(other.length > 60, 'anti-vacuity: the tab’s handler was not found');
-  assert.match(other, /goToPage\(p\.key, p\.option\);\s*askPage\(p\.key\);/);
+  /* 🔁 RE-AIMED 2026-10-09 (commit 9, `the-play-button-previews.test.ts`): ▶ held down is the whole page as a guest — a tab then only turns the page, nothing is picked and nothing is let go. Outside the preview the rule is what it was. */
+  assert.match(other, /goToPage\(p\.key, p\.option\);\s*if \(!previewing\) askPage\(p\.key\);/);
   assert.doesNotMatch(other, /deselect\(\)/, 'a tab tap lets the picked part go before the page has changed — a canvas that does not switch leaves nothing picked');
   /* The part is let go when the canvas HAS switched its tab and the part is not on the new page — at once. */
-  assert.match(tools, /if \(tab && held && !partsRef\.current\.includes\(held\) && pendingStep\.current === null\) deselectRef\.current\(\);\s*\}, \[canvasTab, stage\]\);/);
+  /* 🔁 RE-AIMED 2026-10-09 (commit 9): …except in the whole-page preview, where Exit puts the part back. */
+  assert.match(tools, /if \(tab && held && !previewingRef\.current && !partsRef\.current\.includes\(held\) && pendingStep\.current === null\) deselectRef\.current\(\);\s*\}, \[canvasTab, stage\]\);/);
   /* A canvas that did not switch: shortly after, that page's first part Edit has a row for is picked where it is drawn. */
   const ask = tools.slice(tools.indexOf('const askPage = useCallback((key: string) => {'), tools.indexOf('}, STAGE_PAGE_ASK_MS);'));
   assert.ok(ask.length > 200, 'anti-vacuity: the page ask was not found');

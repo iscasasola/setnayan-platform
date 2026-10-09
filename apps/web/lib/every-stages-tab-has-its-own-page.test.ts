@@ -334,8 +334,10 @@ test('d · WIRING: the swap starts at the top and stays there; the label follows
      change the toolbar never keeps a part of the page before, its tools too — but the part is let go when the canvas
      HAS switched its tab, not on the tap: on the review copy a canvas that refused the switch left NOTHING picked and
      every tool blank (`lib/the-preview-only-selects.test.ts` (3b)). `deselect` still lets go exactly as ✕ does. */
-  assert.match(TOOLS, /goToPage\(p\.key, p\.option\);\s*askPage\(p\.key\);/, 'a tab tap does not ask the canvas for the page');
-  assert.match(TOOLS, /if \(tab && held && !partsRef\.current\.includes\(held\) && pendingStep\.current === null\) deselectRef\.current\(\);/, 'a tab change keeps the part picked on the page before — its tools too');
+  /* 🔁 RE-AIMED 2026-10-09 (commit 9, `the-play-button-previews.test.ts`): ▶ held down is the whole page as a guest — a tab then only turns the page, nothing is picked and nothing is let go. Outside the preview the rule is what it was. */
+  assert.match(TOOLS, /goToPage\(p\.key, p\.option\);\s*if \(!previewing\) askPage\(p\.key\);/, 'a tab tap does not ask the canvas for the page');
+  /* 🔁 RE-AIMED 2026-10-09 (commit 9): …except in the whole-page preview (▶ held), where they walk the pages as a guest and Exit puts the part back. */
+  assert.match(TOOLS, /if \(tab && held && !previewingRef\.current && !partsRef\.current\.includes\(held\) && pendingStep\.current === null\) deselectRef\.current\(\);/, 'a tab change keeps the part picked on the page before — its tools too');
 });
 
 test('d · 🔝 a tab tap ENDS at the top: the part edited before cannot pull the page back down', () => {

@@ -64,7 +64,7 @@ import {
   RSVP_TYPING_MESSAGE,
   rsvpStageFrameSelector,
 } from '@/app/[slug]/_components/rsvp-canvas-parts';
-import { setStagePanelNow, setStageRevealColours, setStageTool, useStagePanelNow, useStageRevealLook, type StageQuiet } from './stage-panel/store';
+import { setStagePanelNow, setStageRevealColours, setStageTool, useAnimatePhase, useStagePanelNow, useStageRevealLook, type StageQuiet } from './stage-panel/store';
 import { StageEdit } from './stage-panel/stage-edit';
 import { StageAbout } from './stage-panel/kit';
 import { StageLookRow } from './stage-panel/stage-look-row';
@@ -141,6 +141,15 @@ function safeBottomPx(): number {
 let lastTool: MakerPartTool = 'edit';
 /** How long the canvas is given to say it switched its page after a tap on the guests' bar. */
 const STAGE_PAGE_ASK_MS = 450;
+/** ▶ held this long is the long press: the whole page as a guest. A shorter press is a tap — it plays. */
+export const STAGE_HOLD_MS = 500;
+/** "Exit preview" sits this far above the screen's safe area — and above the guests' 44-px bar where there is one. */
+export const STAGE_EXIT_GAP_PX = 12;
+export const STAGE_EXIT_OVER_BAR_PX = 44 + STAGE_EXIT_GAP_PX;
+/** What ▶ says the first time it is tapped — the long press's twin for whoever never holds a button (once a visit). */
+export const STAGE_HOLD_HINT = 'Hold ▶ to preview the whole page.';
+export const STAGE_PREVIEW_REFUSED = { link: 'Links are switched off in preview.', send: 'Nothing is sent from a preview.' } as const;
+let holdHintSaid = false;
 /** Where Style's quiet row last took the couple — the panel picks the same part when they come back (‹). */
 let resumeAt: { stage: MakerStageKey; page: string | null; part: MakerPartKey } | null = null;
 /** 🧭 The tab that was on screen when this panel last stood — it is put back when the couple returns from Studio
@@ -287,6 +296,20 @@ export function StageTools({
   /** The words last tapped on the page (the part inside the section — `[data-el]`): Edit's rows follow it. */
   const [tapped, setTapped] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
+  /** 👁 ▶ held down: the whole page as a guest — the toolbar and the frame step aside, "Exit preview" brings them back. */
+  const [previewing, setPreviewing] = useState(false);
+  const previewingRef = useRef(false);
+  previewingRef.current = previewing;
+  /** Where they were when the preview began — the page, the part: Exit returns to exactly that. */
+  const before = useRef<{ picked: MakerPartKey | null; page: string | null }>({ picked: null, page: null });
+  /** Animate's phase (the same store the tool itself reads): ▶ plays the one they are on. */
+  const [animatePhase] = useAnimatePhase();
+  /** The toolbar's one toast, for the listeners declared above it. */
+  const setWhyRef = useRef<(words: string) => void>(() => {});
+  /** The tool whose rows are on screen, the stage's pages and the page turn — for ▶, declared above them. */
+  const shownToolRef = useRef<MakerPartTool>(lastTool);
+  const pagesRef = useRef<ReadonlyArray<{ key: string; option: string }>>([]);
+  const goToPageRef = useRef<(key: string, option: string) => void>(() => {});
   /** ▶ The picked part's sequence as the canvas plays it: the phase now, and what it has none of (`play-sequence.ts`). */
   const [seq, setSeq] = useState<{ phase: string; skipped: string[] } | null>(null);
   /* What it had none of stays said a moment after it rests, then goes. */
@@ -450,6 +473,8 @@ export function StageTools({
     },
     [onPickPage],
   );
+  goToPageRef.current = goToPage;
+  pagesRef.current = pages;
 
   /* ── the panel's height: half the screen while a part's tools are open ── */
   /* 🎭 The Reveal's tools are this panel's own (no work-area tool opens for it). */
@@ -459,12 +484,12 @@ export function StageTools({
   /** A part whose only tool is Style (the pass is a guest's own card: no words or motion of its own to set). */
   const styleOnly = revealOpen || cameraOpen || rsvpOpen || picked === 'pass';
   const [revealPlaying, setRevealPlaying] = useState(false);
-  const open = (openTool !== null || revealOpen || cameraOpen) && !typing && !playing;
+  const open = (openTool !== null || revealOpen || cameraOpen) && !typing && !playing && !previewing;
   /* 📐 THE TOOLBAR IS ONE HEIGHT (owner 2026-10-09: *"330 px it is"* — `stageBarPx`): the same with a part picked
      or none, never dragged, never folded. ▶ playing or ⌨ typing: away, no gap. The lower third adds the phone's
      safe area to what it is told, so it is told the rest. */
   useEffect(() => {
-    if (playing || typing) {
+    if (playing || typing || previewing) {
       onPx(0);
       return;
     }
@@ -475,7 +500,7 @@ export function StageTools({
     say();
     window.addEventListener('resize', say);
     return () => window.removeEventListener('resize', say);
-  }, [playing, typing, onPx]);
+  }, [playing, previewing, typing, onPx]);
   useEffect(() => () => onPx(null), [onPx]);
   /* 🎯 THE PICKED PART IN THE MIDDLE of the page left above the panel (prototype `centrePicked`: "making
      sure they see what element they are editing") — once the panel has risen; a part taller than that
@@ -596,8 +621,13 @@ export function StageTools({
         if (makerStageMayType(attr, typeof d.key === 'string' ? d.key : '', typeof d.el === 'string' ? d.el : null)) setTyping(true);
       }
       else if (d.t === 'playDone') setPlaying(false);
+      /* 👁 In the whole-page preview a tap the canvas would not follow (a link away, a form being sent) is SAID. */
+      else if (d.t === 'guestRefused') {
+        const words = STAGE_PREVIEW_REFUSED[(d as { what?: unknown }).what === 'send' ? 'send' : 'link'];
+        setWhyRef.current(words);
+      }
       /* A tap on the page's ground, between parts: let the picked part go (owner 2026-10-07). */
-      else if (d.t === 'tapOutside') deselectRef.current();
+      else if (d.t === 'tapOutside' && !previewingRef.current) deselectRef.current();
       else if (d.t === 'playSeq' && typeof d.phase === 'string') {
         const skipped = Array.isArray((d as { skipped?: unknown }).skipped)
           ? ((d as { skipped: unknown[] }).skipped.filter((x) => typeof x === 'string') as string[]).slice(0, 3)
@@ -750,7 +780,7 @@ export function StageTools({
   const arrived = useRef<{ stage: MakerStageKey | null; at: string | null }>({ stage: null, at: null });
   useEffect(() => {
     const at = `${stageKey}/${shownPage ?? ''}`;
-    if (arrived.current.at === at || parts.length === 0 || typing || playing) return;
+    if (arrived.current.at === at || parts.length === 0 || typing || playing || previewing) return;
     /* After the page has laid the tab out (the same wait the parts are read with). */
     const t = window.setTimeout(() => {
       if (arrived.current.at === at) return;
@@ -773,7 +803,7 @@ export function StageTools({
       if (!keeps && pendingStep.current === null) pickPartRef.current(first);
     }, 160);
     return () => window.clearTimeout(t);
-  }, [parts, playing, shownPage, stage, stageKey, typing]);
+  }, [parts, playing, previewing, shownPage, stage, stageKey, typing]);
   /* 🧭 THE CANVAS SWITCHED ITS TAB under a part that is not on the new page: it is let go at once (owner: "the picked
      part clears") — the toolbar never shows a part of the page before; the arrival above then picks this page's. */
   const tabSeen = useRef<string | null>(canvasTab?.stage === stage ? canvasTab.tab : null);
@@ -782,7 +812,8 @@ export function StageTools({
     if (tab === tabSeen.current) return;
     tabSeen.current = tab;
     const held = pickedRef.current;
-    if (tab && held && !partsRef.current.includes(held) && pendingStep.current === null) deselectRef.current();
+    /* 👁 Not in the whole-page preview: they are walking the pages as a guest, and Exit puts the part back. */
+    if (tab && held && !previewingRef.current && !partsRef.current.includes(held) && pendingStep.current === null) deselectRef.current();
   }, [canvasTab, stage]);
   /* 👆 A PAGE ASKED FOR ON THE GUESTS' BAR. The picked part is NOT let go on the tap: it goes when the page has
      really changed (above) — so a canvas that does not switch can never leave the toolbar on nothing (seen on the
@@ -847,8 +878,54 @@ export function StageTools({
     postToCanvas({ source: 'setnayan-editor', t: 'playStop' });
     setPlaying(false);
   }, []);
+  /* ── 👁 the whole page as a guest (▶ held down) ── */
+  const enterPreview = useCallback(() => {
+    postToCanvas({ source: 'setnayan-editor', t: 'playStop' });
+    setPlaying(false);
+    before.current = { picked: pickedRef.current, page: where.current.shownPage ?? null };
+    postToCanvas({ source: 'setnayan-editor', t: 'guest', on: true });
+    setPreviewing(true);
+  }, []);
+  const exitPreview = useCallback(() => {
+    postToCanvas({ source: 'setnayan-editor', t: 'guest', on: false });
+    setPreviewing(false);
+    /* Back to exactly where they were: the page they left, then the part they held (the tool was never changed). */
+    const was = before.current;
+    const page = was.page && was.page !== where.current.shownPage ? pagesRef.current.find((p) => p.key === was.page) : null;
+    if (page) goToPageRef.current(page.key, page.option);
+    if (was.picked) window.setTimeout(() => pickPartRef.current(was.picked as MakerPartKey), page ? STAGE_PAGE_ASK_MS : 0);
+  }, []);
+  /* Leaving the stage, or the toolbar, while previewing: the canvas gets its taps back. */
+  useEffect(() => () => postToCanvas({ source: 'setnayan-editor', t: 'guest', on: false }), []);
+  /** ▶'s press: a tap plays, a hold previews. The pressed look is the button's own, at once (`sn-press`). */
+  const hold = useRef<{ timer: number | null; fired: boolean }>({ timer: null, fired: false });
+  const holdEnd = () => {
+    if (hold.current.timer !== null) window.clearTimeout(hold.current.timer);
+    hold.current.timer = null;
+  };
+  const holdStart = () => {
+    holdEnd();
+    hold.current.fired = false;
+    if (playing) return;
+    hold.current.timer = window.setTimeout(() => {
+      hold.current.timer = null;
+      hold.current.fired = true;
+      enterPreview();
+    }, STAGE_HOLD_MS);
+  };
+  useEffect(() => holdEnd, []);
   const play = () => {
+    /* The release of a hold is not a tap. */
+    if (hold.current.fired) {
+      hold.current.fired = false;
+      return;
+    }
     if (playing) return stopPlay();
+    /* The long press has a twin for whoever never holds a button: the first tap says it (once a visit). */
+    if (!holdHintSaid) {
+      holdHintSaid = true;
+      setWhyRef.current(STAGE_HOLD_HINT);
+    }
     /* 🎭 ▶ on the Reveal: it plays over the cover, once, as a guest meets it. */
     if (picked === 'reveal' && revealStage) return setRevealPlaying(true);
     /* 🎛 The Camera has nothing to play — its look is a still. */
@@ -858,7 +935,10 @@ export function StageTools({
        see the build out and action"); the canvas tells each phase back (`playSeq`). */
     if (def?.canvas && !rsvpOpen) {
       setSeq(null);
-      postToCanvas({ source: 'setnayan-editor', t: 'playSeq', key: def.canvas, ...(def.el ? { el: def.el } : {}) });
+      /* ▶ WHERE THEY ARE (owner 2026-10-09: *"preview button allow preview the animate on where they are"*): in
+         Animate, the phase on screen — Build in, the Action or Build out — plays alone; in any other tool, its whole life. */
+      const only = shownToolRef.current === 'animate' ? { only: animatePhase } : {};
+      postToCanvas({ source: 'setnayan-editor', t: 'playSeq', key: def.canvas, ...(def.el ? { el: def.el } : {}), ...only });
       setPlaying(true);
       return;
     }
@@ -998,9 +1078,11 @@ export function StageTools({
   const toolWorks = (t: MakerPartTool) => !picked || ((t === 'edit' || t === 'style' || !styleOnly) && makerPartToolWorks(picked, t));
   /** The tool the rows are showing: the remembered one, or the first that has something here (Edit; Style on the Camera). */
   const shownTool: MakerPartTool = toolWorks(tool) ? tool : (MAKER_PART_TOOLS.find(toolWorks) ?? 'style');
+  shownToolRef.current = shownTool;
   /* …said to the work area's body under the selector (`StageStyle` shows that tool's part of the scene's Format). */
   useEffect(() => setStageTool(shownTool), [shownTool]);
   const [why, setWhy] = useState<{ words: string; n: number } | null>(null);
+  setWhyRef.current = (words) => setWhy((w) => ({ words, n: (w?.n ?? 0) + 1 }));
   const pickTool = (t: MakerPartTool) => {
     if (!toolWorks(t)) return setWhy((w) => ({ words: makerPartToolWhy(picked, t), n: (w?.n ?? 0) + 1 }));
     setTool(t);
@@ -1011,7 +1093,7 @@ export function StageTools({
     if (open && makerWorkTool(t) === makerWorkTool(shownTool)) return;
     askTool(t, picked);
   };
-  const away = typing || playing;
+  const away = typing || playing || previewing;
   /* 🧷 THE FIRST RENDER IN THE BROWSER IS THE SERVER'S. The guest bar is drawn into the Maker's shell, and the shell
      was looked up WHILE RENDERING — nothing on the server, the element in the browser — so the browser's first render
      held a <nav> the server's HTML did not, and React refused the server's panel and rebuilt it. The shell is now
@@ -1219,7 +1301,19 @@ export function StageTools({
             </button>
           ))}
         </span>
-        <button type="button" aria-label={playing ? 'Stop' : picked ? 'Play this part' : 'Play the stage as guests see it'} data-stage-play="" onClick={play} className={STAGE_ICON_BUTTON}>
+        <button
+          type="button"
+          aria-label={playing ? 'Stop' : `${picked ? 'Play this part' : 'Play the stage as guests see it'} — hold to preview the whole page`}
+          data-stage-play=""
+          onClick={play}
+          /* 👁 HELD: the whole page as a guest. A tap never waits for the hold — it plays on release. */
+          onPointerDown={holdStart}
+          onPointerUp={holdEnd}
+          onPointerLeave={holdEnd}
+          onPointerCancel={holdEnd}
+          onContextMenu={(e) => e.preventDefault()}
+          className={`${STAGE_ICON_BUTTON} touch-manipulation select-none [-webkit-touch-callout:none]`}
+        >
           <span className={STAGE_ICON_FACE}>
             {playing ? <Square aria-hidden className="h-4 w-4" strokeWidth={2.2} /> : <Play aria-hidden className="h-[18px] w-[18px]" strokeWidth={2} />}
           </span>
@@ -1260,13 +1354,29 @@ export function StageTools({
       {/* ══ The picked part's frame over the page, its sheets and its toast ══ */}
       {edits.node}
 
+      {/* ══ 👁 EXIT PREVIEW — the ONE button of the whole-page preview (▶ held down). Drawn on the Maker's shell, over
+          the page: clear of the phone's home bar (the safe area) and of the guests' own bar under it (44 px, when
+          the stage has pages). Nothing else of the toolbar is on screen; it returns to the part and the tool held. ══ */}
+      {previewing && shellEl
+        ? createPortal(
+            <div
+              data-stage-exit-preview=""
+              className="pointer-events-none absolute inset-x-0 z-[26] flex justify-center lg:hidden"
+              style={{ bottom: `calc(env(safe-area-inset-bottom) + ${pages.length > 1 && !rsvpOpen ? STAGE_EXIT_OVER_BAR_PX : STAGE_EXIT_GAP_PX}px)` }}
+            >
+              <ActionButton tone="brand" main icon={X} label="Exit preview" onClick={exitPreview} className="pointer-events-auto shadow-lg" />
+            </div>,
+            shellEl,
+          )
+        : null}
+
       {/* ══ THE GUEST'S TAB BAR, a bar at the foot of the page preview (owner 2026-10-09: "that is the bottom nav of
           the actual event hub") — only where the stage has pages. "You're editing" left it for the toolbar's own line. ══ */}
       {/* 🗳 On the RSVP stage it stands IN the stage's own column, under its screens (`RSVP_STAGE_BAR_SLOT`): that
           stage is a layer over the work area, and a row drawn over the work area's foot was UNDER it — no finger
           could reach Form · When yes · When no (measured on the preview, 08 Oct). In flow there, the screens end
           above it at every height of the panel. */}
-      {guestBarHost && !away
+      {guestBarHost && (!away || previewing)
         ? createPortal(
             <nav
               aria-label="The guest's pages"
@@ -1298,8 +1408,9 @@ export function StageTools({
                             /* Another page: asked of the canvas. The picked part is let go — and its tools with it —
                                once the page has CHANGED (the owner: "the picked part clears"; the toolbar never keeps
                                a part of the page before), and that page's first part is picked (`askPage`). */
+                            /* (👁 In the whole-page preview a tab only turns the page — nothing is picked.) */
                             goToPage(p.key, p.option);
-                            askPage(p.key);
+                            if (!previewing) askPage(p.key);
                           }
                         }}
                         className={STAGE_GUEST_TAB}

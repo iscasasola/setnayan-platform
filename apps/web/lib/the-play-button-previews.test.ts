@@ -155,6 +155,14 @@ test('(3) a hold is the whole page as a guest — it lets go of nothing, and Exi
   assert.match(button, /press Shift and Enter/);
   assert.match(tools, /document\.querySelector<HTMLElement>\('\[data-stage-exit-preview\] button'\)\?\.focus\(\{ preventScroll: true \}\)/);
   assert.match(tools, /if \(e\.key === 'Escape'\) exitPreview\(\);/);
+  /* 🧨 SEEN ON THE REVIEW COPY: every toast of the toolbar was in the page and INVISIBLE while the toolbar was away —
+     it was drawn inside the toolbar, which slides off with a transform and takes a `fixed` child with it. The one
+     toast is drawn on the page's body; and the Maker's top bar leaves for the preview as it does for ▶. */
+  assert.match(tools, /\{why && typeof document !== 'undefined'\s*\? createPortal\(\s*<PeekToast key=\{why\.n\} tone="note" data="tool-why"[\s\S]{0,200}<\/PeekToast>,\s*document\.body,\s*\)/, 'the toolbar’s toast is drawn inside the toolbar');
+  assert.equal((tools.match(/<PeekToast\b/g) ?? []).length, 1, 'a second toast of the toolbar’s, not on the body');
+  assert.match(tools, /away \? 'pointer-events-none translate-y-\[110%\]' : ''/, 'anti-vacuity: the toolbar leaves by a transform');
+  assert.match(tools, /shell\?\.setAttribute\('data-stage-previewing', ''\);[\s\S]{0,700}shell\?\.removeAttribute\('data-stage-previewing'\);/);
+  assert.ok(tools.includes(`'[data-maker-shell]:is([data-stage-playing],[data-stage-previewing]) [data-phone-chrome="bar"]{transform:translateY(-110%);transition:transform 240ms ease-out}'`), 'the Maker’s top bar — Apply and all — stays on the guest’s page in the preview');
   /* LEAVING: the canvas gets its taps back, then the page and the part they held. */
   const leave = /const exitPreview = useCallback\(\(\) => \{([\s\S]*?)\}, \[\]\);/.exec(tools)?.[1] ?? '';
   assert.match(leave, /postToCanvas\(\{ source: 'setnayan-editor', t: 'guest', on: false \}\);\s*setPreviewing\(false\);/);

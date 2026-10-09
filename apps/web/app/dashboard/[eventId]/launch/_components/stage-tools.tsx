@@ -895,15 +895,19 @@ export function StageTools({
     if (page) goToPageRef.current(page.key, page.option);
     if (was.picked) window.setTimeout(() => pickPartRef.current(was.picked as MakerPartKey), page ? STAGE_PAGE_ASK_MS : 0);
   }, []);
-  /* ⌨ In the preview the one button has the focus (Enter leaves), and Esc leaves from anywhere in the Maker. */
+  /* ⌨ In the preview the one button has the focus (Enter leaves), and Esc leaves from anywhere in the Maker. The shell
+     is marked so the Maker's top bar slides away with the toolbar. */
   useEffect(() => {
     if (!previewing) return;
+    const shell = document.querySelector<HTMLElement>('[data-maker-shell]');
+    shell?.setAttribute('data-stage-previewing', '');
     const t = window.setTimeout(() => document.querySelector<HTMLElement>('[data-stage-exit-preview] button')?.focus({ preventScroll: true }), 0);
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') exitPreview();
     };
     document.addEventListener('keydown', onKey);
     return () => {
+      shell?.removeAttribute('data-stage-previewing');
       window.clearTimeout(t);
       document.removeEventListener('keydown', onKey);
     };
@@ -1254,19 +1258,27 @@ export function StageTools({
           '[data-stage-tools]:has([data-form-row-editing]) [data-stage-edit-row]:not(:has([data-form-row-editing])){display:none}' +
           '[data-maker-lower-third]:has(>[data-stage-tools] [data-form-row-editing]){height:auto!important;transition:none!important}' +
           '[data-maker-shell]:has([data-stage-tools] [data-form-row-editing]) [data-stage-guest-bar]{display:none}' +
-          '[data-maker-shell][data-stage-playing] [data-phone-chrome="bar"]{transform:translateY(-110%);transition:transform 240ms ease-out}' +
-          '}@media (prefers-reduced-motion:reduce){[data-maker-lower-third]:has(>[data-stage-tools]),[data-maker-shell][data-stage-playing] [data-phone-chrome="bar"]{transition:none}}'}
+          /* The Maker's own top bar (✕ · the stage · undo · Apply) slides away for ▶ — and for the whole-page preview: it
+             is a guest's page, and nothing of the Maker's but "Exit preview" is on it. */
+          '[data-maker-shell]:is([data-stage-playing],[data-stage-previewing]) [data-phone-chrome="bar"]{transform:translateY(-110%);transition:transform 240ms ease-out}' +
+          '}@media (prefers-reduced-motion:reduce){[data-maker-lower-third]:has(>[data-stage-tools]),[data-maker-shell]:is([data-stage-playing],[data-stage-previewing]) [data-phone-chrome="bar"]{transition:none}}'}
       </style>
 
       {/* ══ ▶ WHAT IS PLAYING — Build in · Action · Build out, the one now in bold, and any phase the part has none of
           named ("Build out: none"), so a blank never reads as a fault. Shown over the page while it plays. ══ */}
       {seq && (playing || seq.skipped.length > 0) ? <StagePlayStatus phase={seq.phase} skipped={seq.skipped} /> : null}
       {/* ══ 🚫 WHY A GREY TOOL DID NOTHING — one line, the app's toast, gone by itself ══ */}
-      {why ? (
-        <PeekToast key={why.n} tone="note" data="tool-why" onGone={() => setWhy((w) => (w?.n === why.n ? null : w))}>
-          {why.words}
-        </PeekToast>
-      ) : null}
+      {/* The toolbar's one toast — drawn on the page's BODY, never inside the toolbar: the toolbar slides away for ▶ and
+          for the whole-page preview (a transform), and a toast inside it went with it — seen on the review copy,
+          2026-10-09: "Hold ▶ to preview…" and both refusals were in the page and nobody could see them. */}
+      {why && typeof document !== 'undefined'
+        ? createPortal(
+            <PeekToast key={why.n} tone="note" data="tool-why" onGone={() => setWhy((w) => (w?.n === why.n ? null : w))}>
+              {why.words}
+            </PeekToast>,
+            document.body,
+          )
+        : null}
 
       {/* ══ THE HANDLE — the prototype's 40 × 4 pill in a 14 px strip. Drawn: the toolbar is one height. ══ */}
       <div aria-hidden data-stage-handle="" className={STAGE_BAR_HANDLE}>

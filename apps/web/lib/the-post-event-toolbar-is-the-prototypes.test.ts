@@ -326,7 +326,7 @@ test('(6) what the scene is sits behind the toolbar’s one ⓘ — the panel’
   assert.equal(postEventAbout(null, POST_EVENT_ABOUT), null);
   const tools = read(`${L}/stage-tools.tsx`);
   assert.match(tools, /const story = !rsvpOpen && picked && canvasOfScene \? postEventAbout\(postEventSceneNow\(canvasOfScene\), POST_EVENT_ABOUT\) : null;/);
-  assert.match(tools, /\?\? story;\s*setStagePanelNow\(\{ picked, quiet, about \}\);/);
+  assert.match(tools, /\?\? story;\s*setStagePanelNow\(\{ picked, quiet, about(?:, line: rsvpLine)? \}\);/);
   /* …AND THE SCENE'S NAME STAYS WHOLE BESIDE IT. With the ⓘ the line has 88 px less room; "You're editing · Post Event ›
      Photo Notes" was 0.16 px too wide for it — under the browser's whole-pixel `scrollWidth`, so the line never stepped
      down and was drawn "PHOTO NOTE…" (measured on the lab, 2026-10-10: words 267.16 px, room 267). The words are

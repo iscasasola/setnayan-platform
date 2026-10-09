@@ -31,6 +31,7 @@ import { resolvePostEventStyle } from '@/lib/post-event-style-resolve';
 import { LAB_EDITORIAL_COOKIE, labEditorialDraft, labPostEventRead } from '../lab-post-event';
 import { LAB_SCRUB_CHAIN, LAB_SCRUB_NAME, labScrubCanvases, labScrubLabel, labWidgetsCookie, type LabScrubScene } from '../lab-scrub';
 import { LabScrubBadge } from './scrub-badge';
+import { LabDayPages } from './lab-day';
 
 /** maria-and-jose's run of show and venues (read-only shape, 2026-10-05) — the lab has no database. */
 const LAB_BLOCK = (i: number, label: string, at: string, location: string | null, type = 'pre_ceremony') => ({
@@ -274,6 +275,47 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       </section>
     </HubCanvasFrame>
   );
+  /* 🧭 THE DAY, AS PAGES (`./lab-day.tsx`) — the Stages canvas's own shape for The Day (`&tabs=1`, as the Maker asks
+     for it): one page per tab, the day's own parts on the page the one filing puts them on, the Camera a page. */
+  if (phase === 'event' && sp.tabs === '1' && !scrub && !rsvp) {
+    return (
+      <main className="min-h-dvh bg-cream text-center text-ink" data-lab-phase={phase}>
+        <div data-guest-ground="" aria-hidden className="pointer-events-none fixed inset-0 -z-10 bg-[#FBF9F5]" />
+        <LabDayPages
+          tab={typeof sp.tab === 'string' ? sp.tab : undefined}
+          paged={!only}
+          mark={mark}
+          styleOf={(part) => fixedSceneStyleOf(labEvent.style_preferences, part, stage, 'wedding')}
+          galleryStyle={sceneStyleOfRow(rowOf('our_photos'), stage, 'wedding')}
+          given={{
+            'f:hero': (
+              <section className="px-4 pb-10 pt-6">
+                <PahinaMasthead
+                  displayName="Maria & Jose"
+                  eventDate="2026-12-12"
+                  venueName="Seda Vertis North, Quezon City"
+                  eyebrow="Together with their families"
+                  stampElements
+                  looks={Object.keys(heroLooks).length > 0 ? heroLooks : null}
+                  monogramSlot={
+                    <span className="flex h-20 w-20 items-center justify-center rounded-full border border-gild font-serif text-2xl italic text-terracotta-700">
+                      M &amp; J
+                    </span>
+                  }
+                />
+              </section>
+            ),
+            'w:schedule': scene.schedule,
+            'w:venue_map': scene.venue_map,
+            'w:dress_code': scene.dress_code,
+          }}
+        />
+        {sp.editor === '1' && !preview ? <EditorBridge /> : null}
+        {only ? <style>{canvasOnlyCss(only)}</style> : null}
+        <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style>
+      </main>
+    );
+  }
   if (rsvp) {
     return (
       <main className="min-h-dvh bg-[#FBF9F5] px-5 py-6 text-ink">

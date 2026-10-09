@@ -28,7 +28,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { stripComments } from './strip-comments';
-import { MAKER_PARTS, MAKER_PART_TOOLS, makerPartSource, makerPartToolWhy, makerPartToolWorks, type MakerPartKey } from './maker-parts';
+import { MAKER_PARTS, MAKER_PARTS_NO_LOOK, MAKER_PART_TOOLS, makerPartSource, makerPartToolWhy, makerPartToolWorks, type MakerPartKey } from './maker-parts';
 import { STAGE_TOOL_BUTTON } from './maker-stage-room';
 
 const WEB = join(__dirname, '..');
@@ -42,7 +42,9 @@ test('(1) Edit and Style always work; Animate works exactly where there is a sav
   const yes: MakerPartKey[] = [];
   const no: MakerPartKey[] = [];
   for (const k of KEYS) {
-    assert.equal(makerPartToolWorks(k, 'style'), true, `${k}: Style has nothing to set`);
+    /* (Re-aimed 2026-10-10: Style on every part BUT one with no look to pick at all — The Day's "Happening now" card,
+       where Style slid over four empty rows on the lab. Listed, and the list is held to that one part below.) */
+    assert.equal(makerPartToolWorks(k, 'style'), !MAKER_PARTS_NO_LOOK.includes(k), `${k}: Style`);
     /* (The Camera is a full-screen design with ONLY Style live — owner 2026-10-09: its Edit is grey too.) */
     assert.equal(makerPartToolWorks(k, 'edit'), k !== 'camera', `${k}: Edit`);
     const def = MAKER_PARTS[k];
@@ -61,6 +63,7 @@ test('(1) Edit and Style always work; Animate works exactly where there is a sav
     assert.ok(yes.includes(k), `${k}: Animate worked on the lab and is now greyed`);
   }
   assert.ok(yes.length >= 12 && no.length >= 12, `anti-vacuity: ${yes.length} yes · ${no.length} no`);
+  assert.deepEqual([...MAKER_PARTS_NO_LOOK], ['spotlight'], 'a part lost its Style — only a part with no look at all may');
 });
 
 test('(2) the predicate is the work area’s own rule: a part’s sheet needs `canvas && el`; a scene’s heading and motion need a scene', () => {

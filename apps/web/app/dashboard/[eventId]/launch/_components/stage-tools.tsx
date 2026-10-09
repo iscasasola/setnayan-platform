@@ -82,6 +82,7 @@ import type { StagePageOption } from './stage-item-menu';
 import { RevealPartTools, RevealPlay, askPartOps, makerPartTopOnScreen, revealStageOf, usePartEdits } from './add-part-sheet';
 import { partsInPageOrder } from '@/lib/maker-part-step';
 import { CameraPartTools, StagePlayStatus } from './details-lazy';
+import { CameraPage } from './stage-panel/camera-page';
 
 import { makerPartCanvasOn, makerPartLabelOn, makerPartOfCanvas, makerPartsWithAdded } from '@/lib/maker-part-groups';
 import { filedOnCanvas, firstMarkerOnPage, makerStagesPages } from '@/lib/maker-stage-filing';
@@ -1395,6 +1396,11 @@ export function StageTools({
         {open && cameraOpen && !editOn ? <CameraPartTools /> : null}
       </div>
       {revealPlaying && revealStage ? <RevealPlay stage={revealStage} onDone={() => setRevealPlaying(false)} /> : null}
+      {/* ══ 🎛 THE CAMERA'S PAGE IS THE CAMERA (owner 2026-10-09: "Camera is a full screen design") — drawn on the canvas's
+          own Camera page, edge to edge, in the look picked; picked on arriving, and by a tap (`camera-page.tsx`). ══ */}
+      {rsvpOpen ? null : (
+        <CameraPage stage={stage} on={makerPartsOnPage(stage, shownPage).includes('camera')} picked={open && cameraOpen} held={picked !== null} onPick={() => pickPartRef.current('camera')} />
+      )}
       {/* ══ The picked part's frame over the page, its sheets and its toast ══ */}
       {edits.node}
 

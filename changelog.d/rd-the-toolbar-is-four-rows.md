@@ -515,6 +515,77 @@ names the scene that leaves. Sabotaged in the browser: the important opacity rem
 size; the pulse removed → red. Guards: rule (6) new, (3) of the hand-over guard re-aimed to the measured fix, the
 badge's fake page redrawn to the real shape; three sabotages red. Engine 2,543 B gz (was 2,488). Maker first load 0 B.
 
+### 8c · the WHOLE page stands still — the page's own hold
+
+A hand-over's cell could only hold its scenes block; the cover, the greeting, whatever a page draws around its
+scenes went on scrolling at thumb speed during the first hold — so the first thing a guest met did not look like a
+hand-over at all. Now a page wraps its whole column in one plain cell › stage pair per hand-over, nested
+(`HubPageHold`), and the engine gives hand-over k the k-th pair from the outside: that stage — the entire column —
+stands still, by the browser's own `position: sticky`, for the hand-over's length. Back-to-back hand-overs chain
+natively; no script acts at the boundaries; no scroll position is set.
+
+- `site-body.tsx`: both trees (the stranger's and the guest's) wrap their `<article>` in `HubPageHold`, with at most
+  one pair a scene that Leaves by Scrub. With no such scene — EVERY PAGE TODAY — nothing is wrapped: the article is
+  the fragment's child exactly as before.
+- Engine: one engine a page when the page has a hold of its own (every scenes block inside it); the cells inside a
+  scenes block then carry no length and no line — they keep "the arrival in the same place" and the rise.
+- A FAULT FOUND ON THE WAY: custom properties inherit, and these boxes are nested in boxes of their own kind. A box
+  left with no length took its ancestor's — four inner cells each drew the page pair's 537 px, 2,148 px of blank
+  page. Every length is now said outright (`0px`); the same hole existed for an empty scene's cell since the cleanup.
+- A page a tab (each scene on its own page): the pairs go around hidden groups; a scene with no box holds nothing,
+  so such a page is the plain page for the scenes it is not showing. Not played.
+
+Browser check: 205 checks green — the whole battery at six sizes ON the page-level page, the scenes block alone at
+two, and: "the page before the scenes stands still during a hold" (44–217 positions watched a size); "no length
+nobody asked for"; the page's own island arms the page's hold; the hold under `html { overflow-x: clip }`. The
+engine sabotaged (holding only the block) → three red in the browser. Guard: rule (8), executed against the real
+components (no hand-over → byte-identical markup; the count never less than what is drawn); two sabotages red; 18
+guards that pin `site-body.tsx` or the renderer green. Maker first load: 0 B (`site-body`, the renderer and the
+engine are the guest page's).
+
+### "Scrub out" ships dark
+
+The owner's cut line: the held hand-over is built and proven in Chromium, but not on an iPhone and not on a real
+guest page — so in this batch it is NOT OFFERED. One constant, off (`lib/scrub-out-offered.ts` — not an environment
+setting; turning it on is one line in a later batch).
+
+- GUEST PAGE: a scene that STORES Scrub is drawn as "As it scrolls away", at the one place the renderer resolves a
+  scene's transition. The page is then the plain page — no nest, no page pairs, no island, no engine request —
+  byte-identical to the same page storing the plain transition (executed). Auto scroll is unchanged.
+- CONTROLS: "Scrub out ◆" is left out of Leaves (the toolbar, on a scene and on a part), out of the older "Into the
+  next scene" menu and out of the old editor's transition chips; a scene already set to it READS as "As it scrolls
+  away" there and in the navigator, and Movement and ▶ behave as for scroll. Nothing stored is rewritten.
+  ⚠ Scrub was a choice in the two older controls before this batch (as the stacked run, whose stylesheet this batch
+  removed): it is gone from them too while dark. Production holds no Scrub scene.
+- THE LAB keeps it ON so the owner can go on trying it, by two doors only the lab uses: an explicit `scrubOut`
+  handed to the renderer on the server, and `offerScrubOutInTheLab` in the browser for the Maker's controls on
+  `?scrub=1`. Held: nothing outside `app/dev/` (which 404s in production) and `scripts/` uses either.
+- Not in the Maker's first load: the module (175 B gz) is imported by the guest renderer and by lazy code only.
+
+Guard: `lib/scrub-out-ships-dark.test.ts` (5 rules). Sabotaged both ways: the constant on → four rules red; the
+lab's page no longer asking → red; site-body asking through the lab's door → red; the lab's browser door unused →
+red. The renderer's own guards now ask through the lab's door, with the reason written in.
+
+### Background › Colour takes the Darker ↔ Lighter bar
+
+Owner, on Schedule · Colour · Plain, where row 3 showed only the circle: "on color, there is no linebar for the
+darken/lighten?" Colour kinds Plain, Diagonal and Glow now get row 3 = Colour ◍ + the SAME bar a picture has (one
+bar drawn once: filled from the centre, the page following the thumb, one save when it is let go), stored in the
+same `shade` number. Opaque and Frosted keep Colour ◍ + Opacity — the row holds one bar, never two.
+
+- A colour has nothing behind it to veil, so the page mixes the COLOUR ITSELF: toward the theme's dark ink left of
+  the middle, toward white right of it, by the picture veil's own step curve, never all the way (at most 80 % ink,
+  86 % white — the couple's colour is still there at the last stop). No stylesheet rule was needed: the frame
+  paints the mixed colour and, for Diagonal and Glow, the ramp made from it; the words follow the mixed ground as
+  they do for any colour, so no stop takes them under AA (executed for every theme and six stops).
+- One function draws it for the guest page and for the Maker's instant preview, so the page follows the thumb.
+- The sanitizer keeps `shade` beside a picture or a colour that is its own ground; a glass and "No background"
+  still keep none. First load: `lib/hub-canvas.ts` +4 B gz; nothing else in the Maker's first load is touched.
+
+Guard: `background-is-four-rows` (8) new, executed; two pins on "a colour keeps no shade" re-aimed with the owner's
+words; four sabotages seen red (the frame ignoring it, the sanitizer dropping it, the row not drawing it, the
+caller not handing it over). Not seen in a browser yet.
+
 SPEC IMPACT: Yes — supersedes the 2026-10-06/07 "Style | Text | Animate" and "the toolbar is half the screen" rows.
 The controller holds the spec (`TOOLBAR-SPEC-2026-10-09.md`) and applies the corpus rows; nothing in the corpus was
 edited from this branch.

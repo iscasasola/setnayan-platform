@@ -28,6 +28,7 @@
 import type { HubElSpeed } from './element-style';
 import type { HubSectionCanvas } from './hub-canvas';
 import type { HubAutoSpeed } from './hub-scenes';
+import { scrubOutOffered } from './scrub-out-offered';
 
 export const ANIMATE_FEELS = ['quick', 'calm', 'cinematic'] as const;
 export type AnimateFeel = (typeof ANIMATE_FEELS)[number];
@@ -93,10 +94,15 @@ export const FEEL_OFF = {
 } as const;
 
 /** Leaves ◆ — the scene's hand-off to the next one (the stored `transition`), in the owner's words; ◆ on the two that are Pro. */
+/** Every way a scene can leave — `leavesOptions()` is what a control OFFERS (no "Scrub out" while it ships dark). */
 export const LEAVES_OPTIONS = [
   { key: 'scroll', label: 'As it scrolls away' },
   { key: 'scrub', label: 'Scrub out ◆' },
   { key: 'auto', label: 'Auto scroll ◆' },
 ] as const;
+/** 🌑 What the Leaves dropdown OFFERS: every way but "Scrub out" while that ships dark (`lib/scrub-out-offered.ts`). */
+export function leavesOptions(): ReadonlyArray<(typeof LEAVES_OPTIONS)[number]> {
+  return LEAVES_OPTIONS.filter((o) => o.key !== 'scrub' || scrubOutOffered());
+}
 /** On a PART, Leaves is its scene's — the name on the dropdown says whose it is. */
 export const SCENE_LEAVES_NAME = 'Scene leaves ◆';

@@ -225,7 +225,7 @@ test('3 · drawn: each board mounts in Attire with its own ＋ and its own Searc
       const board = boardOf(out, slot);
       assert.match(board, new RegExp(`<b[^>]*>${label}</b>`), `${what}: ${label} is not named on its board`);
       assert.match(board, new RegExp(`<button[^>]*aria-label="Add a photo to ${label}"`), `${what}: ${label} cannot take the couple’s own photo`);
-      assert.match(board, new RegExp(`<button[^>]*data-mood-board-search="${slot}"[^>]*>Search ideas ›</button>`), `${what}: ${label} cannot search the suppliers’ photos`);
+      assert.match(board, new RegExp(`data-mood-board-search="${slot}"><button[^>]*aria-label="Search ideas for ${label}"[\\s\\S]*?<span class="lbl">Search ideas</span>`), `${what}: ${label} cannot search the suppliers’ photos`);
       assert.match(board, /Add photos to get its palette/, `${what}: an empty ${label} does not say how it gets a palette`);
     }
   }
@@ -246,7 +246,7 @@ test('3 · drawn: each board mounts in Attire with its own ＋ and its own Searc
   const src = read(`${MB}/_components/mood-board-studio.tsx`);
   const board = src.slice(src.indexOf('const slotBoard = '), src.indexOf('const bar = ('));
   assert.match(board, /onClick=\{\(\) => openUpload\(slot\.slotKey\)\}/, 'a board’s ＋ does not open the upload for ITS slot');
-  assert.match(board, /onClick=\{\(\) => setSheet\(\{ kind: 'browse', slot \}\)\}[^>]*data-mood-board-search=\{slot\.slotKey\}/, 'a board’s Search ideas › does not open the suppliers’ photos for ITS slot');
+  assert.match(board, /data-mood-board-search=\{slot\.slotKey\}>\s*<ActionButton[^>]*onClick=\{\(\) => setSheet\(\{ kind: 'browse', slot \}\)\}/, 'a board’s Search ideas › does not open the suppliers’ photos for ITS slot');
 });
 
 /* ── 4 ─────────────────────────────────────────────────────────────────────── */

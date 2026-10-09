@@ -43,7 +43,7 @@ import { HUB_SCENE_SHAPES,
   HUB_SCENE_SPACINGS,
 } from './hub-canvas';
 import { HUB_SCENE_CLASSES } from './hub-scenes';
-import { HUB_SCRUB_CLASSES } from '../app/[slug]/_components/hub-scrub-math';
+import { HUB_PAGE_HOLD_CLASSES, HUB_SCRUB_CLASSES } from '../app/[slug]/_components/hub-scrub-math';
 import { SCENE_TEMPLATE_IDS } from './scene-templates';
 
 const RAW = readFileSync(join(__dirname, '..', 'app', 'globals.css'), 'utf8');
@@ -102,7 +102,8 @@ test('🔒 the Scrub block: every rule needs the engine’s mark — with no scr
   const inner = block.slice(block.indexOf('{') + 1, block.lastIndexOf('}'));
   const selectors = [...inner.matchAll(/([^{}]+)\{[^{}]*\}/g)].map((m) => (m[1] as string).trim());
   assert.ok(selectors.length >= 10, `anti-vacuity: ${selectors.length} Scrub rules were found`);
-  for (const list of selectors) for (const sel of list.split(',')) assert.ok(sel.trim().startsWith('.hub-scenes[data-hub-scrub-on]'), `a Scrub rule applies without the engine: ${sel.trim()}`);
+  /* (2026-10-09: the page's own hold wears the engine's OTHER mark — `data-hub-page-on`, on the outermost pair.) */
+  for (const list of selectors) for (const sel of list.split(',')) assert.ok(/^\.hub-scenes\[data-hub-scrub-on\]|^\.hub-page-cell\[data-hub-page-on\]/.test(sel.trim()), `a Scrub rule applies without the engine: ${sel.trim()}`);
   /* …and it IS the block that hides and binds: a rule like these anywhere else is still caught by the checks below. */
   assert.match(inner, /visibility: hidden/);
   assert.match(inner, /animation: var\(--hub-in-kf, none\) 1s linear both paused/);
@@ -314,6 +315,7 @@ test('⛔ no rule branches on a class the contract can never emit', async () => 
   for (const c of HUB_SCENE_CLASSES) emitted.add(c);
   /* 🎚 …and the wrappers of a page with a Scrub hand-over (`hub-scenes.tsx` `flow`), rendered in `a-hybrid-page-renders-runs.test.ts`. */
   for (const c of HUB_SCRUB_CLASSES) emitted.add(c);
+  for (const c of HUB_PAGE_HOLD_CLASSES) emitted.add(c);
   /* 🎬 THE 25 TEMPLATES (Event Hub Maker Phase 5) — RENDERED, not declared.
      Every template is drawn through the real `renderScene` with every slot
      filled, a clip both ways, and its words, and whatever `hub-*` class the

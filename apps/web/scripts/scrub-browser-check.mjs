@@ -43,10 +43,12 @@ execFileSync(esbuild, [`${WEB}/app/[slug]/_components/hub-scrub-engine.ts`, '--b
 const tsx = `${WEB}/../../node_modules/.bin/tsx`;
 execFileSync(tsx, ['scripts/scrub-check-page.tsx', `${scratch}/scrub-real.html`, `${scratch}/scrub-engine.js`], { cwd: WEB, stdio: 'pipe' });
 execFileSync(tsx, ['scripts/scrub-check-page.tsx', `${scratch}/scrub-real-noscript.html`, `${scratch}/scrub-engine.js`, 'noscript'], { cwd: WEB, stdio: 'pipe' });
+execFileSync(tsx, ['scripts/scrub-check-page.tsx', `${scratch}/scrub-real-page.html`, `${scratch}/scrub-engine.js`, 'page'], { cwd: WEB, stdio: 'pipe' });
 execFileSync(esbuild, [`${WEB}/scripts/scrub-check-island.tsx`, '--bundle', '--minify', '--format=iife', '--jsx=automatic', '--define:process.env.NODE_ENV="production"', `--outfile=${scratch}/scrub-island.js`], { cwd: WEB, stdio: 'pipe' });
 execFileSync(tsx, ['scripts/scrub-check-page.tsx', `${scratch}/scrub-real-empty.html`, `${scratch}/scrub-engine.js`, 'empty'], { cwd: WEB, stdio: 'pipe' });
 execFileSync(tsx, ['scripts/scrub-check-page.tsx', `${scratch}/scrub-real-maker.html`, `${scratch}/scrub-island.js`, 'maker'], { cwd: WEB, stdio: 'pipe' });
 execFileSync(tsx, ['scripts/scrub-check-page.tsx', `${scratch}/scrub-real-island.html`, `${scratch}/scrub-island.js`, 'island'], { cwd: WEB, stdio: 'pipe' });
+execFileSync(tsx, ['scripts/scrub-check-page.tsx', `${scratch}/scrub-real-page-island.html`, `${scratch}/scrub-island.js`, 'page-island'], { cwd: WEB, stdio: 'pipe' });
 
 /* Before any page script: remember the browser's own scrolling, and count every way a script could take it over. */
 const WATCH = () => {
@@ -69,7 +71,12 @@ const SNAP = () => {
     return { n: e.querySelector('[data-name]')?.getAttribute('data-name') ?? '?', body: bodyEl ? Number(getComputedStyle(bodyEl).opacity) : 1, o: cs.visibility === 'hidden' ? 0 : Number(cs.opacity), t: r.top, b: r.bottom, pout: Number(e.style.getPropertyValue('--hub-pout') || 0), pin: Number(e.style.getPropertyValue('--hub-pbin') || 1), holds: Boolean(cell), pad: cell ? parseFloat(getComputedStyle(cell, '::after').height) || 0 : 0 };
   });
   const rows = [...document.querySelectorAll('[data-row]')].map((li) => Number(getComputedStyle(li).opacity));
-  return { s: Math.round(scrollY), scenes, rows, max: document.documentElement.scrollHeight - innerHeight };
+  const lead = document.querySelector('[data-lead]').getBoundingClientRect();
+  /* Length nobody asked for: a hand-over's box that draws a hold it was not given (a length it inherited). */
+  const stray = [...document.querySelectorAll('.hub-cell, .hub-page-cell')].filter((c) => (parseFloat(getComputedStyle(c, '::after').height) || 0) !== (parseFloat(c.style.getPropertyValue('--hub-len')) || 0)).length;
+  const end = parseFloat([...document.querySelectorAll('.hub-scenes')].at(-1).style.getPropertyValue('--hub-end')) || 0;
+  const gap = document.querySelector('[data-foot]').getBoundingClientRect().top - scenes.at(-1).b;
+  return { s: Math.round(scrollY), scenes, rows, stray, gap, end, leadT: lead.top, leadB: lead.bottom, max: document.documentElement.scrollHeight - innerHeight };
 };
 /* The five sizes the owner tried the prototype at, and the shape of the browser pane he opened the real thing in (441 × 882). */
 const SIZES = [[890, 1548], [940, 1608], [1280, 770], [375, 812], [375, 667], [441, 882]];
@@ -80,19 +87,23 @@ const b = await chromium.launch();
 let failed = 0;
 const say = (ok, line) => { if (!ok) failed++; console.log(`${ok ? 'ok  ' : 'FAIL'} ${line}`); };
 
-for (const [W, H] of PLAYED) {
+/* THE PAGE'S OWN HOLD (what a real page draws: `HubPageHold` around its whole column) at every size — and the scenes
+   block alone (a page with no hold of its own: the fallback) at a desktop and a phone size. */
+const RUNS = [...PLAYED.map((size) => ({ size, file: 'scrub-real-page.html', tag: '' })), ...PLAYED.filter(([w, h]) => (w === 1280 && h === 770) || (w === 375 && h === 812)).map((size) => ({ size, file: 'scrub-real.html', tag: ' (the scenes block alone)' }))];
+for (const { size: [W, H], file, tag } of RUNS) {
+  const paged = file === 'scrub-real-page.html';
   const ctx = await b.newContext({ viewport: { width: W, height: H }, hasTouch: W < 500, isMobile: W < 500 });
   await ctx.addInitScript(WATCH);
   const p = await ctx.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(String(e).slice(0, 140)));
-  await p.goto(`file://${scratch}/scrub-real.html`); await p.waitForTimeout(500);
+  await p.goto(`file://${scratch}/${file}`); await p.waitForTimeout(500);
   const at = async (y) => { await p.evaluate((yy) => window.__go(yy), y); await p.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))); return p.evaluate(SNAP); };
   const max = (await at(0)).max;
   const fwd = []; for (let y = 0; y < max; y += 16) fwd.push(await at(y)); fwd.push(await at(max));
   const back = [await at(max)]; for (let y = max - (max % 16); y >= 0; y -= 16) back.push(await at(y));
   const sig = (f) => JSON.stringify([f.scenes.map((e) => [e.n, e.o.toFixed(2), Math.round(e.t)]), f.rows.map((r) => r.toFixed(2))]);
   const same = fwd.every((f) => { const k = back.find((x) => x.s === f.s); return k && sig(k) === sig(f); });
-  const faults = { overlap: [], readable: [], rowsOrder: [], leavesEarly: [], prevOnRows: [], early: [], box: [], moved: [], above: [], twice: [] };
-  let watchedAbove = 0;
+  const faults = { overlap: [], readable: [], rowsOrder: [], leavesEarly: [], prevOnRows: [], early: [], box: [], moved: [], above: [], twice: [], page: [], length: [] };
+  let watchedAbove = 0; let watchedPage = 0;
   let prev = null;
   for (const f of fwd) {
     const vis = f.scenes.filter((e) => e.o > 0.03 && e.b > 0 && e.t < H);
@@ -106,6 +117,11 @@ for (const [W, H] of PLAYED) {
     if (sched.o > 0.02 && cd.o > 0.02 && Math.abs(sched.t - cd.t) > 32) faults.box.push(`${f.s}: tops ${Math.round(cd.t)} and ${Math.round(sched.t)}`);
     /* the page stands still while a hand-over plays: the leaving scene does not move */
     if (prev) for (const e of f.scenes) { const was = prev.scenes.find((x) => x.n === e.n); if (e.holds && e.pout > 0 && e.pout < 1 && was.pout > 0 && was.pout < 1 && Math.abs(e.t - was.t) > 0.6) faults.moved.push(`${f.s}: ${e.n} moved ${(e.t - was.t).toFixed(1)}`); }
+    /* NO LENGTH NOBODY ASKED FOR: no box draws a hold it was not given, and what the page draws after its scenes follows them. */
+    if (f.stray) faults.length.push(`${f.s}: ${f.stray} box(es) draw a hold they were not given`);
+    if (f === fwd.at(-1) && f.gap > f.end + 48) faults.length.push(`${f.s}: ${Math.round(f.gap)}px of nothing between the last scene and the page after it (${f.end}px asked for)`);
+    /* THE WHOLE PAGE: what the page draws BEFORE its scenes stands still too while a hand-over plays. */
+    if (paged && prev) { const k = f.scenes.findIndex((e) => e.holds && e.pout > 0 && e.pout < 1); if (k >= 0 && prev.scenes[k].pout > 0 && prev.scenes[k].pout < 1 && f.leadB > 0) { watchedPage++; if (Math.abs(f.leadT - prev.leadT) > 0.6) faults.page.push(`${f.s}: the page before the scenes moved ${(f.leadT - prev.leadT).toFixed(1)} during ${f.scenes[k].n}'s`); } }
     /* ONE FADE: a scene is drawn at its own number — its own keyframes never fade it a second time under the scene's. */
     for (const e of f.scenes) if (e.o > 0 && e.body < 0.999) faults.twice.push(`${f.s}: ${e.n} at ${e.o.toFixed(2)} × ${e.body.toFixed(2)}`);
     /* …and so does every scene a guest can see ABOVE it: during a hold the page does not move. */
@@ -122,10 +138,10 @@ for (const [W, H] of PLAYED) {
   let touch = null;
   if (W < 500) { const cdp = await ctx.newCDPSession(p); await at(0); await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 180, y: H - 120 }] }); for (let k = 1; k <= 10; k++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 180, y: H - 120 - k * 40 }] }); await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await p.waitForTimeout(500); touch = await p.evaluate(() => scrollY); }
   const took2 = await p.evaluate(() => window.__took);
-  const size = `${W}×${H}`;
+  const size = `${W}×${H}${tag}`;
   say(errs.length === 0, `${size} no page error${errs.length ? ' — ' + errs[0] : ''}`);
   say(same, `${size} back == down at every one of ${fwd.length} positions`);
-  for (const [k, words] of Object.entries({ overlap: 'no overlap outside a pair', readable: 'never two readable at once', rowsOrder: 'rows in order', leavesEarly: 'every row complete before the list leaves', prevOnRows: 'nothing of the scene before once the rows begin', early: 'the scene before at its last 20 % before the list shows', box: 'the pair in one box', moved: 'the page stands still while a hand-over plays', above: `what a guest can see above a held scene stands still too (${watchedAbove} positions watched)`, twice: 'a scene is drawn at its own number — one fade, never two multiplied' })) say(faults[k].length === 0, `${size} ${words}${faults[k].length ? ` — ${faults[k].length} × e.g. ${faults[k][0]}` : ''}`);
+  for (const [k, words] of Object.entries({ overlap: 'no overlap outside a pair', readable: 'never two readable at once', rowsOrder: 'rows in order', leavesEarly: 'every row complete before the list leaves', prevOnRows: 'nothing of the scene before once the rows begin', early: 'the scene before at its last 20 % before the list shows', box: 'the pair in one box', moved: 'the page stands still while a hand-over plays', above: `what a guest can see above a held scene stands still too (${watchedAbove} positions watched)`, twice: 'a scene is drawn at its own number — one fade, never two multiplied', length: 'no length nobody asked for — no inherited hold, no gap before the page after the scenes', ...(paged ? { page: `the page before the scenes stands still during a hold (${watchedPage} positions watched)` } : {}) })) say(faults[k].length === 0, `${size} ${words}${faults[k].length ? ` — ${faults[k].length} × e.g. ${faults[k][0]}` : ''}`);
   say(rowsDone, `${size} all eight rows completed`);
   say(finished, `${size} every hand-over finished before the page ends (${end.scenes.filter((e) => e.holds).map((e) => `${e.n} ${e.pout}`).join(', ')}; last scene at ${end.scenes.at(-1).o})`);
   say(took.scrollSet === 0 && took2.scrollSet === 0, `${size} the script never set the scroll position (${took2.scrollSet})`);
@@ -236,7 +252,7 @@ for (const [W, H] of [[375, 812], [1280, 770]]) {
   };
   const full = await blankest('scrub-real.html');
   const empty = await blankest('scrub-real-empty.html');
-  say(empty.on && empty.cell && empty.box === 0 && empty.len === '', `${size}: it has no box and the page is not held for it (box ${empty.box}px, hold "${empty.len}"; the full page holds "${full.len}")`);
+  say(empty.on && empty.cell && empty.box === 0 && !(parseFloat(empty.len) > 0), `${size}: it has no box and the page is not held for it (box ${empty.box}px, hold "${empty.len}"; the full page holds "${full.len}")`);
   say(empty.worst <= full.worst + 16, `${size}: no blank stands longer than on the full page (${empty.worst}px against ${full.worst}px)`);
 }
 
@@ -287,6 +303,24 @@ for (const [W, H] of [[375, 812], [1280, 770]]) {
   await p.evaluate(() => document.documentElement.removeAttribute('data-maker-guest')); await p.waitForTimeout(700);
   const back = await badge(p);
   say(!back.on && back.line === 'Scrub: OFF — editing — hold ▶ to play it', `…and back to editing ("${back.line}")`);
+  await ctx.close();
+}
+
+/* 11. THE PAGE'S OWN HOLD UNDER `html { overflow-x: clip }` (the stylesheet sets it on a page with a full-width scene:
+   `html:has(.hub-shape-full)`). A sticky box stops working inside anything that scrolls; `clip` must not be that. */
+{
+  const [W, H] = [375, 812]; const ctx = await b.newContext({ viewport: { width: W, height: H } }); const p = await ctx.newPage();
+  await p.goto(`file://${scratch}/scrub-real-page.html`); await p.waitForTimeout(500);
+  await p.evaluate(() => { const d = document.createElement('div'); d.className = 'hub-shape-full'; document.querySelector('[data-foot]').appendChild(d); });
+  const clip = await p.evaluate(() => getComputedStyle(document.documentElement).overflowX);
+  const max = await p.evaluate(() => document.documentElement.scrollHeight - innerHeight); let seen = null;
+  const read = () => p.evaluate(async () => { await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))); const s = [...document.querySelectorAll('.hub-scene')][0]; return { pout: Number(s.style.getPropertyValue('--hub-pout') || 0), top: s.getBoundingClientRect().top, lead: document.querySelector('[data-lead]').getBoundingClientRect().top }; });
+  for (let y = 0; y <= max && !seen; y += 24) { await p.evaluate((v) => scrollTo(0, v), y); const a = await read(); if (a.pout > 0.2 && a.pout < 0.5) { await p.evaluate((v) => scrollTo(0, v), y + 60); const c = await read(); seen = { a, c }; } }
+  say(clip === 'clip' && seen && seen.c.pout > seen.a.pout && Math.abs(seen.c.top - seen.a.top) < 0.6 && Math.abs(seen.c.lead - seen.a.lead) < 0.6, `with html { overflow-x: ${clip} } the page still stands still during a hold (the scene ${seen?.a.top}→${seen?.c.top}, the page before it ${seen?.a.lead}→${seen?.c.lead}, ${seen?.a.pout}→${seen?.c.pout})`);
+  /* …and the page's own ISLAND arms the page's hold (not the scenes block) when the page has one. */
+  const q = await ctx.newPage(); await q.goto(`file://${scratch}/scrub-real-page-island.html`); await q.waitForTimeout(700);
+  const armedAs = await q.evaluate(() => ({ page: document.querySelector('.hub-page-cell').hasAttribute('data-hub-page-on'), block: document.querySelector('.hub-scenes').hasAttribute('data-hub-scrub-on'), pairs: [...document.querySelectorAll('.hub-page-cell')].filter((c) => parseFloat(c.style.getPropertyValue('--hub-len')) > 0).length, inner: [...document.querySelectorAll('.hub-cell')].filter((c) => parseFloat(getComputedStyle(c, '::after').height) > 0).length }));
+  say(armedAs.page && armedAs.block && armedAs.pairs === 4 && armedAs.inner === 0, `the page's own island arms the PAGE's hold: 4 page pairs hold, no cell of the scenes block does (${JSON.stringify(armedAs)})`);
   await ctx.close();
 }
 await b.close();

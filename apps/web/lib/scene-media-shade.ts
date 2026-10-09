@@ -76,6 +76,26 @@ export function sceneMediaShade(step: HubMainShadeValue, theme: InviteTheme): Sc
 }
 
 /** `#rrggbb` → `r g b`. */
+/**
+ * 🌗 DARKER ↔ LIGHTER ON A COLOUR (owner 2026-10-09, on Colour · Plain: *"on color, there is no linebar for the
+ * darken/lighten?"*). A picture is shaded by a veil over it; a colour that is its own ground — Plain, Diagonal,
+ * Glow — has nothing behind it to veil, so the COLOUR ITSELF is mixed: toward the theme's dark ink left of the
+ * middle, toward white right of it, by the same step curve the picture's veil follows (`sceneShadeStep`: the same
+ * bar position does the same amount of work), never all the way (the last stop is still the couple's colour, not
+ * black or white). The words then follow the ground as they do for any colour (`sceneLegibilityVars`), so no step
+ * can take them under AA. As is (no `shade`) returns the colour untouched.
+ */
+export function sceneColourShade(tint: string, shade: HubMainShadeValue | null | undefined, theme: InviteTheme): string {
+  if (shade === null || shade === undefined) return tint;
+  const at = Math.max(-100, Math.min(100, hubMainFadeAt(shade)));
+  if (at === 0) return tint;
+  const amount = Math.min(at < 0 ? COLOUR_DARK_MOST : COLOUR_LIGHT_MOST, sceneShadeStep(shade).floor);
+  return compositeOver(at < 0 ? theme.palette.darkInk : '#ffffff', amount, tint);
+}
+/** The most of the colour a bar's end may replace — the picture veil's own floors at the bar's end, capped short of all of it. */
+const COLOUR_DARK_MOST = 0.8;
+const COLOUR_LIGHT_MOST = 0.86;
+
 function channels(hex: string): string {
   const n = parseInt(hex.replace('#', '').slice(0, 6), 16) || 0;
   return `${(n >> 16) & 255} ${(n >> 8) & 255} ${n & 255}`;

@@ -44,7 +44,8 @@ import { motionFxOn } from '@/lib/motion-effects';
 import type { HubTransition } from '@/lib/hub-scenes';
 import { SP_DD, SP_DD_BUTTON } from '@/lib/maker-stage-room';
 import { StageText } from '../../../launch/_components/stage-panel/stage-text';
-import { FEEL_OFF, LEAVES_OPTIONS, SCENE_LEAVES_NAME, partFeel, partSpeedOf } from '@/lib/animate-feel';
+import { FEEL_OFF, leavesOptions, SCENE_LEAVES_NAME, partFeel, partSpeedOf } from '@/lib/animate-feel';
+import { offeredTransition } from '@/lib/scrub-out-offered';
 import { StageAnimate } from '../../../launch/_components/stage-panel/stage-animate';
 
 /**
@@ -540,8 +541,8 @@ export function ElementSheet({
               /* Leaves ◆ — the part's SCENE's hand-off to the next scene (a part has none of its own), named as the
                  scene's so it is never read as this part's own. */
               small: SCENE_LEAVES_NAME,
-              value: canvas.transition ?? 'scroll',
-              options: LEAVES_OPTIONS,
+              value: offeredTransition(canvas.transition ?? 'scroll'),
+              options: leavesOptions(),
               onPick: (t) =>
                 commit(latest.current.elements ?? null, 'motion', (c) => {
                   delete c.transition;

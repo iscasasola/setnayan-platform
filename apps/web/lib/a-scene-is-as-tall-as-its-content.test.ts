@@ -163,7 +163,8 @@ async function render(transitions: (string | undefined)[], scrubAllowed: boolean
     config_json: t ? { canvas: { transition: t } } : null,
   }));
   const kids = widgets.map((w) => React.createElement('section', { key: w.widget_id }, w.widget_id));
-  return renderToStaticMarkup(React.createElement(Scenes, { widgets, scrubAllowed }, kids));
+  /* 🌑 2026-10-09: through the lab's door — "Scrub out" ships dark (`lib/scrub-out-offered.ts`), and this is about the page WHEN it is drawn. */
+  return renderToStaticMarkup(React.createElement(Scenes, { widgets, scrubAllowed, scrubOut: true }, kids));
 }
 
 /** Every plan of `n` sections over the transition set (plus "unset"). */

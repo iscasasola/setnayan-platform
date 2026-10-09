@@ -230,7 +230,9 @@ test('5 · no Studio editor says "Saved" or asks for a Save on a drafted field �
   const bar = mood.slice(mood.indexOf('const bar = ('), mood.indexOf('return (', mood.indexOf('const bar = (')));
   assert.match(bar, /data-mood-board-auto/, 'the Mood Board lost ✨ Auto');
   assert.doesNotMatch(bar, /Saved|Saving/, 'the Mood Board still shows a Saved chip');
-  assert.match(bar, /save === 'error' \?/, 'a FAILED Mood Board save is no longer said');
+  /* RE-AIMED 2026-10-09 (Studio › Mood Board moved onto the templates): a failed save is said on the page in plain words (a status line,
+     not a chip in the bar) — `studio-mood-board-posts-the-same.test.ts` holds the words. */
+  assert.match(mood, /<p role="alert" data-mood-board-save=\{problem\.failed \? 'error' : 'refused'\}/, 'a FAILED Mood Board save is no longer said');
   /* What to bring is a drafted column: a typed Form row — kept on leaving the field, ONE draft write, no Save button. */
   const info = read(`${L}/studio-info.tsx`);
   assert.doesNotMatch(info, /type="submit"|<TextPanel|>Save<|>Saved</, 'an Info words row still has a Save button or a Saved chip');

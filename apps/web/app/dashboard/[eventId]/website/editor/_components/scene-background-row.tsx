@@ -672,7 +672,9 @@ export function SceneBackgroundRow({
            (drawn in the browser, nothing saved); the ONE write is on release. The veil never takes the words under
            the reading floor (`lib/scene-media-shade.ts`). */
         shade={
-          worn && media
+          /* …and on a colour that is its own ground — Plain, Diagonal, Glow — where the colour itself is mixed
+             (`lib/scene-media-shade.ts` `sceneColourShade`); a glass keeps its Opacity instead. */
+          worn && (media || (source === 'colour' && (current === 'color' || current === 'diagonal' || current === 'glow')))
             ? {
                 at: shadeAt,
                 onMove: (n) => {

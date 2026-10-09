@@ -127,5 +127,7 @@ export function scrubRow(topOnScreen: number, centre: number, gate: number, toBo
  * `HUB_SCENE_CLASSES` is. Kept HERE, beside the renderer, so `lib/hub-scenes.ts` (a Maker first-load file) is untouched.
  */
 export const HUB_SCRUB_CLASSES = ['hub-cell', 'hub-stage', 'hub-after', 'hub-below'] as const;
+/** The page's own hold (`hub-scenes.tsx` `HubPageHold`): one pair a hand-over, around the page's whole column. */
+export const HUB_PAGE_HOLD_CLASSES = ['hub-page-cell', 'hub-page-stage'] as const;
 /** What a Scrub scene was drawn with before 2026-10-09 (the stacked run) and is NOT any more. */
 export const HUB_SCRUB_RETIRED_CLASSES = ['hub-run', 'hub-scrub', 'hub-sp'] as const;

@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import type { MarchOut } from '@/lib/march-drag';
 
 /**
@@ -188,14 +189,7 @@ export function MarchTray({
               >
                 <div className="flex shrink-0 items-center gap-2 px-4 pb-2 pt-3">
                   <p className="min-w-0 flex-1 font-serif text-lg text-ink">Not walking · {out.length}</p>
-                  <button
-                    type="button"
-                    aria-label="Close"
-                    onClick={() => setAll(false)}
-                    className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-ink/5 text-ink/70"
-                  >
-                    <X aria-hidden className="h-4 w-4" strokeWidth={2} />
-                  </button>
+                  <ActionButton tone="neutral" quiet iconOnly icon={X} label="Close" onClick={() => setAll(false)} />
                 </div>
                 <div
                   data-march-tray-all=""

@@ -18,24 +18,39 @@ import { useEffect } from 'react';
  * The Maker's canvas is known by what ONLY it draws: a section marker (`[data-maker-section]`, host-verified by the
  * server — `site-body.tsx` `makerMark`). A guest's page has none, and is armed as it loads.
  *
- * 🗣 OFF IS NEVER SILENT (`data-hub-scrub-off`, see the engine): this island adds the two reasons that are its own —
- * "editing — hold ▶ to play it" on the Maker's canvas, and "the script did not load" when the engine's chunk fails.
+ * 🗣 OFF IS NEVER SILENT (`data-hub-scrub-off`, see the engine): this island adds the reasons that are its own —
+ * "editing — hold ▶ to play it" on the Maker's canvas, "the script did not load" when the engine's chunk fails, and
+ * "the opening is still up" (below).
+ *
+ * 🎭 UNDER A CLOSED REVEAL NOTHING IS HELD (2026-10-10 — the cover as hand-over zero). The cover's hold begins at the
+ * very top of the page, and the Reveal (`reveal/reveal-overlay.tsx`) lies over that first screen without stopping the
+ * page from scrolling under it: a guest who moved the page before opening it would have played the cover's Build out
+ * UNSEEN, and opened onto a cover already gone. So on a page whose cover hands over, the hand-overs wait for the
+ * Reveal — it says it is up with a mark on the page (`data-reveal-up`, written where it measures "a guest is looking
+ * at the opening") — and arm the moment it goes. A page whose cover does not hand over never waits for it.
  */
 /** Kept as text, not imported: the engine must stay out of this island's bundle (`scrub-is-a-held-hand-over` (5)). */
 const OFF = 'data-hub-scrub-off';
 const EDITING = 'editing — hold ▶ to play it';
 const NOT_LOADED = 'the script did not load';
+/** Kept as text, as `OFF` is: the Reveal's mark (`reveal-overlay.tsx` `REVEAL_UP_ATTR`), and what the page says under it. */
+const REVEAL_UP = 'data-reveal-up';
+const UNDER_REVEAL = 'the opening is still up';
 const armed = new WeakSet<Element>();
 
-/** Are the hand-overs on? A guest's page: always. The Maker's canvas: only while it is shown as a guest sees it. */
-export function scrubArmsNow(makerCanvas: boolean, asGuest: boolean): boolean {
-  return !makerCanvas || asGuest;
+/** Are the hand-overs on? A guest's page: always — but not under a closed Reveal, on a page whose cover hands over.
+ *  The Maker's canvas: only while it is shown as a guest sees it. */
+export function scrubArmsNow(makerCanvas: boolean, asGuest: boolean, underReveal = false): boolean {
+  return (!makerCanvas || asGuest) && !underReveal;
 }
 
 export function HubScrub() {
   useEffect(() => {
     const html = document.documentElement;
     const makerCanvas = document.querySelector('[data-maker-section]') !== null;
+    /** The page's cover hands over (`hub-scenes.tsx` `HubCoverHold`) — only then does the Reveal matter here. */
+    const coverLeaves = document.querySelector('.hub-cover[data-hub-fx]') !== null;
+    const underReveal = () => coverLeaves && html.hasAttribute(REVEAL_UP);
     const stops: Array<() => void> = [];
     let gone = false;
     let on = false;
@@ -79,18 +94,19 @@ export function HubScrub() {
         });
     };
     const sync = () => {
-      const want = scrubArmsNow(makerCanvas, html.hasAttribute('data-maker-guest'));
+      const want = scrubArmsNow(makerCanvas, html.hasAttribute('data-maker-guest'), underReveal());
       if (want === on) return;
       on = want;
       if (on) arm();
       else if (keepPlace) keepPlace(disarm);
       else disarm();
-      if (!on) say(EDITING);
+      if (!on) say(underReveal() ? UNDER_REVEAL : EDITING);
     };
     if (makerCanvas) say(EDITING);
+    else if (underReveal()) say(UNDER_REVEAL);
     sync();
-    const watch = makerCanvas && typeof MutationObserver !== 'undefined' ? new MutationObserver(sync) : null;
-    watch?.observe(html, { attributes: true, attributeFilter: ['data-maker-guest'] });
+    const watch = (makerCanvas || coverLeaves) && typeof MutationObserver !== 'undefined' ? new MutationObserver(sync) : null;
+    watch?.observe(html, { attributes: true, attributeFilter: ['data-maker-guest', REVEAL_UP] });
     return () => {
       gone = true;
       watch?.disconnect();

@@ -38,7 +38,8 @@
  *      the Build out is 80 % done, and never above the cover; going back is going down; the scenes after it still
  *      hand over. And: a block that is not a scene arrives the same way and what follows it never lies over the
  *      cover; a page whose cover is its ONLY Scrub plays; a cover taller than the screen is scrolled through; with
- *      no script the page is the plain page.
+ *      no script the page is the plain page. Under a closed Reveal (its mark on the page) nothing is held and the
+ *      page says why; the hand-overs arm the moment it goes.
  *
  * Not part of the unit suite (it needs a browser): run it by hand, one job at a time.
  *   node scripts/scrub-browser-check.mjs <playwright-dir> <scratch-dir> [pictures-dir]
@@ -66,6 +67,7 @@ execFileSync(tsx, ['scripts/scrub-check-page.tsx', `${scratch}/scrub-real-page-i
 execFileSync(tsx, ['scripts/scrub-check-page.tsx', `${scratch}/scrub-real-bar.html`, `${scratch}/scrub-engine.js`, 'bar'], { cwd: WEB, stdio: 'pipe' });
 execFileSync(tsx, ['scripts/scrub-check-page.tsx', `${scratch}/scrub-real-cards.html`, '-', 'cards'], { cwd: WEB, stdio: 'pipe' });
 for (const m of ['cover', 'cover-tall', 'cover-block', 'cover-only', 'cover-noscript', 'cover-today']) execFileSync(tsx, ['scripts/scrub-check-page.tsx', `${scratch}/scrub-${m}.html`, `${scratch}/scrub-engine.js`, m], { cwd: WEB, stdio: 'pipe' });
+execFileSync(tsx, ['scripts/scrub-check-page.tsx', `${scratch}/scrub-cover-reveal.html`, `${scratch}/scrub-island.js`, 'cover-reveal'], { cwd: WEB, stdio: 'pipe' });
 
 /* Before any page script: remember the browser's own scrolling, and count every way a script could take it over. */
 const WATCH = () => {
@@ -451,6 +453,22 @@ for (const [W, H] of [[375, 812], [375, 667], [441, 882], [1280, 770]]) {
     const top = await at(0); const end = await at(Math.round(H * 0.55) + 200);
     const blocks = await p.evaluate(() => ({ scenes: document.querySelectorAll('.hub-scenes').length, page: document.querySelector('.hub-page-cell').hasAttribute('data-hub-page-on') }));
     say(errs.length === 0 && blocks.scenes === 0 && blocks.page && top.off === null && top.cover.o === 1 && top.pout === 0 && top.zero.o === 0 && end.pout === 1 && end.cover.o === 0 && end.zero.o === 1, `${W}x${H} the cover is the page's only Scrub: it plays with no scenes block on the page (out ${top.pout} → ${end.pout}; the next, ${top.zeroIs}, ${top.zero.o} → ${end.zero.o}${top.off ? `; off: ${top.off}` : ''}${errs.length ? `; ${errs[0]}` : ''})`);
+    await ctx.close();
+  }
+  /* 🎭 UNDER A CLOSED REVEAL NOTHING IS HELD (the page's own island decides; the Reveal's mark is on the page before
+     it mounts). The page scrolls as a plain page under the opening — the cover is never built out unseen — and the
+     hand-overs arm the moment the mark comes off. */
+  {
+    const [W, H] = [375, 812]; const { ctx, p, errs, at } = await open('scrub-cover-reveal.html', W, H); await p.waitForTimeout(500);
+    const state = () => p.evaluate(() => ({ page: document.querySelector('.hub-page-cell').hasAttribute('data-hub-page-on'), off: document.querySelector('.hub-scenes').getAttribute('data-hub-scrub-off'), line: document.querySelector('[data-lab-scrub-line]')?.textContent ?? null }));
+    const under = await state(); const moved = await at(300); const top = await at(0);
+    say(errs.length === 0 && !under.page && under.off === 'the opening is still up' && under.line === 'Scrub: OFF — the opening is still up' && moved.pout === 0 && moved.cover.o === 1 && Math.abs(moved.cover.t - (top.cover.t - 300)) < 0.6, `${W}x${H} under a closed Reveal nothing is held: the page scrolls as a plain page and the cover is not built out unseen, and it says why ("${under.line}"; 300px down the cover is at ${r(moved.cover.t)}, shown ${moved.cover.o})`);
+    await p.evaluate(() => document.documentElement.removeAttribute('data-reveal-up')); await p.waitForTimeout(900);
+    const gone = await state(); const open0 = await at(0); const half = await at(Math.round(H * 0.55 * 0.5));
+    say(gone.page && gone.off === null && open0.pout === 0 && open0.cover.o === 1 && half.pout > 0.45 && half.pout < 0.55 && Math.abs(half.cover.t - open0.cover.t) < 0.6, `${W}x${H} …and the moment the Reveal goes the hand-overs are armed: the cover whole at the top, then held and half out half-way (out ${open0.pout} → ${half.pout}; "${gone.line}")`);
+    await p.evaluate(() => document.documentElement.setAttribute('data-reveal-up', '')); await p.waitForTimeout(700);
+    const again = await state();
+    say(!again.page && again.off === 'the opening is still up', `${W}x${H} …and the Reveal back up (the film's return) takes them off again ("${again.line}")`);
     await ctx.close();
   }
   /* A COVER TALLER THAN THE SCREEN: the ordinary rule — scrolled through, held when its bottom is on the centre line. */

@@ -165,8 +165,22 @@ test('(4) while editing nothing is held: the Maker’s canvas arms only when the
   assert.equal(scrubArmsNow(true, true), true, 'the Maker’s canvas, ▶ held');
   const island = read('app/[slug]/_components/hub-scrub.tsx');
   assert.match(island, /const makerCanvas = document\.querySelector\('\[data-maker-section\]'\) !== null;/);
-  assert.match(island, /const want = scrubArmsNow\(makerCanvas, html\.hasAttribute\('data-maker-guest'\)\);/);
-  assert.match(island, /new MutationObserver\(sync\)[\s\S]*?attributeFilter: \['data-maker-guest'\]/);
+  assert.match(island, /const want = scrubArmsNow\(makerCanvas, html\.hasAttribute\('data-maker-guest'\), underReveal\(\)\);/ /* 🔁 2026-10-10: and never under a closed Reveal, on a page whose cover hands over (`hub-scrub.tsx` 🎭) */);
+  assert.match(island, /new MutationObserver\(sync\)[\s\S]*?attributeFilter: \['data-maker-guest', REVEAL_UP\]/);
+  /* 🎭 UNDER A CLOSED REVEAL NOTHING IS HELD (2026-10-10, the cover as hand-over zero): the cover's hold begins at the
+     top of the page, under the opening, and the page scrolls beneath it — the Build out would play unseen. On a page
+     whose cover hands over, the island waits for the Reveal's own mark to come off; on any other page it never looks.
+     Played in a browser (`scrub-browser-check.mjs` 14). Sabotage: the Reveal not asked → red here and there. */
+  assert.equal(scrubArmsNow(false, false, true), false, 'a guest’s page arms under a closed Reveal');
+  assert.equal(scrubArmsNow(true, true, true), false);
+  assert.match(island, /const coverLeaves = document\.querySelector\('\.hub-cover\[data-hub-fx\]'\) !== null;\s*const underReveal = \(\) => coverLeaves && html\.hasAttribute\(REVEAL_UP\);/, 'a page whose cover does not hand over waits for the Reveal');
+  assert.match(island, /const watch = \(makerCanvas \|\| coverLeaves\) && typeof MutationObserver !== 'undefined' \? new MutationObserver\(sync\) : null;/);
+  const overlay = read('app/[slug]/_components/reveal/reveal-overlay.tsx');
+  assert.match(overlay, /export const REVEAL_UP_ATTR = 'data-reveal-up';/);
+  assert.match(island, /const REVEAL_UP = 'data-reveal-up';/, 'the island and the Reveal no longer name the same mark');
+  /* …written where the Reveal MEASURES "a guest is looking at the opening" — the one expression every stand-down is
+     folded into — and taken off with it. */
+  assert.match(overlay, /const showing = active && mounted && !gone;\s*\(window as Window & \{ __stdRevealActive\?: boolean \}\)\.__stdRevealActive = showing;\s*document\.documentElement\.toggleAttribute\(REVEAL_UP_ATTR, showing\);[\s\S]*?return \(\) => \{\s*\(window as Window & \{ __stdRevealActive\?: boolean \}\)\.__stdRevealActive = false;\s*document\.documentElement\.removeAttribute\(REVEAL_UP_ATTR\);\s*\};/);
   /* Off → the engine's own `stop` (every mark taken off — `scrub-is-a-held-hand-over` (4)). */
   assert.match(island, /const disarm = \(\) => \{\s*for \(const stop of stops\.splice\(0\)\) stop\(\);\s*\};/);
   /* The bridge is who says "as a guest". */
@@ -271,7 +285,7 @@ test('(5) off is never silent: the page carries the reason, and the lab’s badg
   const island = read('app/[slug]/_components/hub-scrub.tsx');
   assert.match(island, /const OFF = 'data-hub-scrub-off';/);
   assert.match(island, /\.catch\(\(\) => \{\s*say\(NOT_LOADED\);\s*\}\)/);
-  assert.match(island, /if \(!on\) say\(EDITING\);\s*\};\s*if \(makerCanvas\) say\(EDITING\);/);
+  assert.match(island, /if \(!on\) say\(underReveal\(\) \? UNDER_REVEAL : EDITING\);\s*\};\s*if \(makerCanvas\) say\(EDITING\);\s*else if \(underReveal\(\)\) say\(UNDER_REVEAL\);/ /* 🔁 2026-10-10: a third reason of the island's own — "the opening is still up" */);
 });
 
 /* ── (6) FRAMES THAT NEVER COME DO NOT BLANK THE PAGE (8f, 2026-10-09) ───────────────────────────────────────────────

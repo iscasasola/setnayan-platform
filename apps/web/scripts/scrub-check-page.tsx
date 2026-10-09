@@ -18,7 +18,8 @@
  *       hold, a strip, the cover through the REAL `HubCoverHold`, then the lab's five scenes right after it. And:
  *       cover-tall (a cover taller than the screen) · cover-block (two plain blocks between the cover and the
  *       scenes: whatever comes next arrives) · cover-only (no scene scrubs — the cover is the page's only Scrub) ·
- *       cover-noscript (the same page, no script) · cover-today (the cover does NOT hand over: today's page)
+ *       cover-noscript (the same page, no script) · cover-today (the cover does NOT hand over: today's page) ·
+ *       cover-reveal <island.js> (armed by the island, under the Reveal's mark)
  *   tsx scripts/scrub-check-page.tsx <out.html> - cards              — THE HUB IS CARDS, FRAMED OR NOT: no Scrub at
  *       all — five scenes in the hub's own card wrapper, each through the REAL frame (`HubCanvasFrame`)
  *
@@ -193,7 +194,14 @@ if (coverMode) {
       </HubCoverHold>
     </HubPageHold>,
   );
-  const arm = coverMode === 'cover-today' || coverMode === 'cover-noscript' ? '' : `<script src="file://${engine}"></script><script>window.__stop = HubScrubEngine.armHubScrub(document.querySelector('.hub-page-cell'));</script>`;
+  /* `cover-reveal`: armed by the page's own ISLAND (the caller hands the island's bundle), with the Reveal's mark on
+     the page before it mounts — as the overlay writes it while a guest is looking at the opening. */
+  const arm =
+    coverMode === 'cover-today' || coverMode === 'cover-noscript'
+      ? ''
+      : coverMode === 'cover-reveal'
+        ? `<script>document.documentElement.setAttribute('data-reveal-up', '');</script><script src="file://${engine}"></script>`
+        : `<script src="file://${engine}"></script><script>window.__stop = HubScrubEngine.armHubScrub(document.querySelector('.hub-page-cell'));</script>`;
   writeFileSync(
     out!,
     `<!doctype html><html><head><meta charset="utf8"><meta name="viewport" content="width=device-width, initial-scale=1">

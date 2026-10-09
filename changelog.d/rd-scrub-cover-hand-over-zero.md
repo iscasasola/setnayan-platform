@@ -35,8 +35,29 @@ generated check pages; no real guest page draws it yet, and `SCRUB_OUT_OFFERED` 
   sabotages (the hold line ignored; the boxes drawn for a cover that does not leave) and one in the browser (21 red).
 
 NOT BUILT: the real guest page (`site-body.tsx` — the cover and what follows it sit in different tab groups there),
-the Save the Date's own cover, the Reveal's mark (a guest scrolling under a closed Reveal would play the Build out
-unseen), a Build out of the cover's own choosing, and the lab badge's count (it does not name hand-over zero).
+the Save the Date's own cover, a Build out of the cover's own choosing, and the lab badge's count (it does not name
+hand-over zero).
+
+Chromium only. Nothing here was run on iOS Safari.
+
+SPEC IMPACT: None.
+
+## 2026-10-10 · feat(scrub): under a closed Reveal nothing is held — the cover's hand-over waits for the opening to go
+
+The cover's hold begins at the very top of the page, and the Reveal lies over that first screen without stopping
+the page from scrolling under it: a guest who moved the page before opening it would have played the cover's Build
+out unseen, and opened onto a cover already gone.
+
+- `reveal/reveal-overlay.tsx` says it is up ON THE PAGE (`data-reveal-up` on `<html>`), written in the one effect
+  that measures "a guest is looking at the opening" and taken off with it. It draws and styles nothing.
+- `hub-scrub.tsx` (the island): on a page whose cover hands over, the hand-overs do not arm while that mark is on, and
+  arm the moment it comes off; the page says why ("the opening is still up"). A page whose cover does not hand over
+  never looks at the mark — nothing changes for any page today.
+- PROOF: three new checks in case 14 (a page armed by its own island, the mark on before it mounts) — 286 green in
+  Chromium. Guard: `the-lab-plays-the-scrub-chain.test.ts` (4). Sabotage: the Reveal not asked → red in the unit
+  guard and twice in the browser; restored.
+- NOT PLAYED WITH A REAL REVEAL: the lab has none, and no real page draws the cover's hand-over yet. The check sets
+  the mark by hand, as the overlay would.
 
 Chromium only. Nothing here was run on iOS Safari.
 

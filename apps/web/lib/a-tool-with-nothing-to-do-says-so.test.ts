@@ -172,3 +172,47 @@ test('(5) a pick asks for its tool only ONCE THE WORK AREA HAS THE PICK — neve
   const shell = read(`${E}/editor-shell.tsx`);
   assert.doesNotMatch(shell, /stagePick/, 'the work area started reading the panel’s own mark');
 });
+
+test('(6) …AND A TOOL WHOSE ROWS WOULD BE EMPTY ON THIS STAGE IS GREY TOO — Style where the part has no look to choose here', async () => {
+  /* 🧨 SEEN ON THE REVIEW COPY, 2026-10-10 (owner: "please make Edit | Style | Background | Animate Consistent in
+     design"): Save the Date › E-Gifts › Style and RSVP › Names › Style were LIVE over four empty rows. The part rule
+     above cannot see either — whether a part has looks depends on the STAGE, and the reply pages' tools are their own.
+     Both are one clause of the toolbar's rule now (`emptyHere`), each asking the function that DRAWS the rows:
+       · a fixed part whose Style is its scene's looks — `sceneStyleOptions`, the row's own "is there a choice?";
+       · the reply pages — `rsvpStyleHasRows`, held to the real panel in `the-rsvp-tools-stand-in-the-four-rows.test.ts`.
+     Sabotage: E-Gifts' looks asked of the Invitation whatever the stage → red; the clause dropped from `toolWorks` → red. */
+  const { PART_LOOKS_ONLY, partStyleIsEmptyOn } = await import(`../${L}/stage-panel/part-look`);
+  const { sceneStyleOptions, sceneStylesOn } = await import('./scene-styles');
+  const { HUB_STAGES } = await import('./hub-canvas');
+  const { FIXED_STYLE_SCENES } = await import('./fixed-scene-styles');
+  /* EXECUTED over every such part and every stage: grey exactly where the row has no choice to draw. */
+  const hosts = Object.entries(PART_LOOKS_ONLY as Record<string, string>);
+  assert.deepEqual(hosts.map(([k]) => k).sort(), ['f:gifts', 'f:look', ...FIXED_STYLE_SCENES.map((x: string) => `f:${x}`)].sort(), 'the parts whose Style is only their looks changed — re-read `fixedStylePanel`');
+  const grey: string[] = [];
+  for (const [canvas, type] of hosts) {
+    for (const stage of HUB_STAGES) {
+      const choice = sceneStyleOptions(type, stage).length >= 2;
+      assert.equal(partStyleIsEmptyOn(stage, canvas), !choice, `${canvas} on ${stage}: Style is ${choice ? 'grey with looks to choose' : 'live with none'}`);
+      /* Never grey where an event type could still draw the row: asked without one, the list is the longest. */
+      for (const eventType of ['wedding', 'birthday', 'corporate']) assert.ok(sceneStylesOn(type, stage, eventType).length <= sceneStylesOn(type, stage).length);
+      if (!choice) grey.push(`${canvas}@${stage}`);
+    }
+  }
+  /* THE ONE SEEN: E-Gifts has its looks on the Invitation and none on Save the Date. */
+  assert.ok(grey.includes('f:gifts@save_the_date'), 'E-Gifts on Save the Date still offers a Style with nothing in it');
+  assert.equal(partStyleIsEmptyOn('rsvp', 'f:gifts'), false, 'E-Gifts lost its Style on the Invitation, where it has four looks');
+  /* A part that is not one of these is never greyed by this clause (the cover's lines have Colour · Size; a scene has its own pane). */
+  for (const canvas of ['f:hero', 'w:schedule', 'w:countdown', 'p:cover', null]) for (const stage of HUB_STAGES) assert.equal(partStyleIsEmptyOn(stage, canvas), false, `${canvas} on ${stage}`);
+  /* …and they ARE the sections whose Style is that one row: the work area's own branch, still the only ones. */
+  const shell = read(`${E}/editor-shell.tsx`);
+  assert.match(shell, /if \(maker\?\.stagesStudio && \(fixed === 'hero' \|\| fixed === 'gifts' \|\| fixed === 'look'\)\) \{\s*return \(\s*<FixedSceneStyleRow /, 'the part-look hosts changed — re-read this guard');
+  assert.match(shell, /if \(!fixed \|\| !isFixedStyleScene\(fixed\)\) return null;\s*return \(\s*<FixedSceneStyleRow/);
+  assert.match(read(`${E}/fixed-scene-style-row.tsx`), /const options = sceneStyleOptions\(scene, stage, eventType\);\s*if \(options\.length < 2\) return null;/, 'the row draws on some other test than "is there a choice?"');
+  assert.match(read(`${E}/fixed-scene-style-row.tsx`), /if \(host === 'gifts'\) return \{ scene: 'gifts', el: null \};\s*if \(host === 'look'\) return \{ scene: 'my_wear', el: null \};/);
+  /* WIRING — one clause of the toolbar's own rule, and the tool's own line when tapped. */
+  const tools = read(`${L}/stage-tools.tsx`);
+  assert.match(tools, /const emptyHere = \(t: MakerPartTool\) => t === 'style' && \(rsvpOpen \? !rsvpStyleHasRows\(picked, rsvpLine\) : partStyleIsEmptyOn\(stage, picked \? makerPartCanvasOn\(stageKey, picked\) : null\)\);/);
+  assert.match(tools, /makerPartToolWorks\(picked, t\) && !emptyHere\(t\)\);/);
+  assert.match(tools, /if \(emptyHere\(t\)\) return makerPartToolWhy\(null, t\);/);
+  assert.equal(makerPartToolWhy(null, 'style'), 'Style has nothing to change on this part.');
+});

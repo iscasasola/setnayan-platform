@@ -74,7 +74,7 @@ import { setStagePanelNow, setStageRevealColours, setStageTool, useAnimatePhase,
 import { StageEdit } from './stage-panel/stage-edit';
 import { StageAbout } from './stage-panel/kit';
 import { StageLookRow } from './stage-panel/stage-look-row';
-import { keepPartLook, partLookFields, partLookTarget } from './stage-panel/part-look';
+import { keepPartLook, partLookFields, partLookTarget, partStyleIsEmptyOn } from './stage-panel/part-look';
 import type { MakerPartOps } from './maker-part-ops';
 import { keepPartWords, readPartWords, showPartWords, type PartWordsField } from './stage-panel/part-words';
 import { ActionButton } from '@/components/action-button';
@@ -1165,7 +1165,9 @@ export function StageTools({
   /** 🚫 …and a tool whose rows would be EMPTY here: on the reply pages Style has a row only for a line with a look and
    *  for the When-yes card (`rsvpStyleHasRows`) — the form's card (its settings are Edit's), the names, the date and
    *  the rest have none. Grey, and a tap says the tool's own line. */
-  const emptyHere = (t: MakerPartTool) => rsvpOpen && t === 'style' && !rsvpStyleHasRows(picked, rsvpLine);
+  /* …and on the stages, a fixed part whose Style is its scene's looks with fewer than two to choose from HERE
+     (`partStyleIsEmptyOn` — E-Gifts on Save the Date): the same answer, asked of the stage the part is on. */
+  const emptyHere = (t: MakerPartTool) => t === 'style' && (rsvpOpen ? !rsvpStyleHasRows(picked, rsvpLine) : partStyleIsEmptyOn(stage, picked ? makerPartCanvasOn(stageKey, picked) : null));
   const toolWorks = (t: MakerPartTool) => !picked || ownTool(t) || ((t === 'edit' || t === 'style' || !styleOnly) && makerPartToolWorks(picked, t) && !emptyHere(t));
   /** The tool the rows are showing: the remembered one, or the first that has something here (Edit; Style on the Camera). */
   const shownTool: MakerPartTool = toolWorks(tool) ? tool : (MAKER_PART_TOOLS.find(toolWorks) ?? 'style');

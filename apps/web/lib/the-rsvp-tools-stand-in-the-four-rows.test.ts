@@ -157,7 +157,7 @@ test('3 · the form’s card: Edit is its settings in rows 1–3 over the toolba
   assert.match(tools, /if \(rsvpCardEdits\) quiet = null;/);
   assert.equal((tools.match(/quiet = null;/g) ?? []).length, 1, 'another part lost its door');
   /* STYLE IS GREY THERE, through the one rule — and a tap says the tool's own line. */
-  assert.match(tools, /const emptyHere = \(t: MakerPartTool\) => rsvpOpen && t === 'style' && !rsvpStyleHasRows\(picked, rsvpLine\);/);
+  assert.match(tools, /const emptyHere = \(t: MakerPartTool\) => t === 'style' && \(rsvpOpen \? !rsvpStyleHasRows\(picked, rsvpLine\) : partStyleIsEmptyOn\(stage, picked \? makerPartCanvasOn\(stageKey, picked\) : null\)\);/);
   assert.match(tools, /makerPartToolWorks\(picked, t\) && !emptyHere\(t\)\);/, 'a tool with no row here is live');
   assert.match(tools, /if \(emptyHere\(t\)\) return makerPartToolWhy\(null, t\);/);
   assert.equal(makerPartToolWhy(null, 'style'), 'Style has nothing to change on this part.');

@@ -73,40 +73,59 @@ type Block = { node: React.ReactElement; hold: boolean };
 
 /**
  * 🎚 THE PAGE, WITH ITS HAND-OVERS. Every scene stays in page order, one under another. A scene that hands over by
- * Scrub is wrapped — with EVERYTHING AFTER IT — in a cell: while the hand-over plays, the cell's stage stands still
- * (the browser's own `position: sticky`, switched on by the engine) and so does the whole rest of the page inside
- * it, for exactly the extra length the cell is given. Nothing is stacked and nothing leaves the flow: without the
- * engine these wrappers are plain blocks and the page is the plain page.
+ * Scrub is wrapped in a cell — with EVERYTHING AFTER IT, and with the ordinary scenes just BEFORE it: while the
+ * hand-over plays, the cell's stage stands still (the browser's own `position: sticky`, switched on by the engine)
+ * and so does everything in it, for exactly the extra length the cell is given. Nothing is stacked and nothing
+ * leaves the flow: without the engine these wrappers are plain blocks and the page is the plain page.
  *
- *   div.hub-cell               the hand-over's extra length (padding, set by the engine)
+ * 🧍 DURING A HOLD THE PAGE STANDS STILL (owner, his first sentence about Scrub: *"the page will not scroll"*;
+ * 2026-10-09, on the first build: *"as a guest nothing scrubbed"* — the held scene stood while the scene above it
+ * went on scrolling at thumb speed, which reads as ordinary scrolling). So the scenes a guest can still see ABOVE
+ * the one that leaves — the ordinary ones since the hand-over before — are inside its stage too, and the stage
+ * sticks with a top that leaves the leaving scene where it is held (`hub-scrub-engine.ts`). What is outside this
+ * block (the cover, a fixed bar) is the page's, not this renderer's.
+ *
+ *   div.hub-cell               the hand-over's extra length (its `::after`, sized by the engine)
  *     div.hub-stage            stands still while it plays
+ *       [the scenes before]    ordinary scenes since the last hand-over, if any: the first, then
+ *       [div.hub-below]        …a box with the rest of them AND the two lines below (what follows that first scene)
  *       div.hub-scene          the scene that leaves
  *       div.hub-after          the rest of the page — its first scene arrives in the leaving one's place
  *         <the arrival>        a scene, or the next hand-over's cell
  *         div.hub-below        what follows the pair (only beside a plain arrival; a cell carries its own)
+ *
+ * 🔑 TWO THINGS THE ENGINE FINDS BY SHAPE: the leaving scene is the `.hub-scene` right before its cell's
+ * `.hub-after`; and whatever follows a scene that arrives is ONE box right after it (`.hub-below` or `.hub-after`),
+ * which is what rises while the pair is held.
  */
 function flow(blocks: readonly Block[]): React.ReactNode[] {
-  let rest: React.ReactNode[] = [];
-  for (let i = blocks.length - 1; i >= 0; i--) {
-    const b = blocks[i]!;
-    if (!b.hold) {
-      rest = [b.node, ...rest];
-      continue;
-    }
-    const [arrival, ...below] = rest;
-    rest = [
-      <div key={`cell-${b.node.key}`} className="hub-cell">
-        <div className="hub-stage">
-          {b.node}
-          <div className="hub-after">
-            {arrival}
-            {below.length > 0 ? <div className="hub-below">{below}</div> : null}
-          </div>
-        </div>
-      </div>,
-    ];
-  }
-  return rest;
+  const at = blocks.findIndex((b) => b.hold);
+  if (at < 0) return blocks.map((b) => b.node);
+  const held = blocks[at]!;
+  const before = blocks.slice(0, at).map((b) => b.node);
+  /* A hold is never the page's last scene (`hold` below), so there is always something to arrive. */
+  const [arrival, ...below] = flow(blocks.slice(at + 1));
+  const pair = [
+    held.node,
+    <div key="after" className="hub-after">
+      {arrival}
+      {below.length > 0 ? <div className="hub-below">{below}</div> : null}
+    </div>,
+  ];
+  return [
+    <div key={`cell-${held.node.key}`} className="hub-cell">
+      <div className="hub-stage">
+        {before.length === 0 ? (
+          pair
+        ) : (
+          <>
+            {before[0]}
+            <div className="hub-below">{[...before.slice(1), ...pair]}</div>
+          </>
+        )}
+      </div>
+    </div>,
+  ];
 }
 
 export function HubScenes({

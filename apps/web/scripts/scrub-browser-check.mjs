@@ -18,7 +18,10 @@
  *      (`data-maker-guest`, ▶ held) the hand-overs run, the scene that was mid-screen still there; back to editing,
  *      every mark is gone;
  *   8. AN EMPTY SCENE (a widget that drew nothing, set to Scrub out): it has no box and holds nothing, and the page
- *      never stands still on a blank — the longest stretch with no scene to read is no longer than on the full page.
+ *      never stands still on a blank — the longest stretch with no scene to read is no longer than on the full page;
+ *   9. OFF IS NEVER SILENT, and the lab's badge says what the page says: on — which hand-over and how far, the same
+ *      number the page carries; off — the reason: "reduce motion", "editing — hold ▶ to play it", and, when the
+ *      engine is made to throw, "the script stopped: <what was thrown>" on a plain page with every mark gone.
  *
  * Not part of the unit suite (it needs a browser): run it by hand, one job at a time.
  *   node scripts/scrub-browser-check.mjs <playwright-dir> <scratch-dir> [pictures-dir]
@@ -40,6 +43,7 @@ execFileSync(tsx, ['scripts/scrub-check-page.tsx', `${scratch}/scrub-real-noscri
 execFileSync(esbuild, [`${WEB}/scripts/scrub-check-island.tsx`, '--bundle', '--minify', '--format=iife', '--jsx=automatic', '--define:process.env.NODE_ENV="production"', `--outfile=${scratch}/scrub-island.js`], { cwd: WEB, stdio: 'pipe' });
 execFileSync(tsx, ['scripts/scrub-check-page.tsx', `${scratch}/scrub-real-empty.html`, `${scratch}/scrub-engine.js`, 'empty'], { cwd: WEB, stdio: 'pipe' });
 execFileSync(tsx, ['scripts/scrub-check-page.tsx', `${scratch}/scrub-real-maker.html`, `${scratch}/scrub-island.js`, 'maker'], { cwd: WEB, stdio: 'pipe' });
+execFileSync(tsx, ['scripts/scrub-check-page.tsx', `${scratch}/scrub-real-island.html`, `${scratch}/scrub-island.js`, 'island'], { cwd: WEB, stdio: 'pipe' });
 
 /* Before any page script: remember the browser's own scrolling, and count every way a script could take it over. */
 const WATCH = () => {
@@ -56,15 +60,18 @@ const WATCH = () => {
 };
 const SNAP = () => {
   const scenes = [...document.querySelectorAll('.hub-scene')].map((e) => {
-    const r = e.getBoundingClientRect(); const cs = getComputedStyle(e); const cell = e.parentElement?.classList.contains('hub-stage') ? e.parentElement.parentElement : null;
-    return { n: e.querySelector('[data-name]')?.getAttribute('data-name') ?? '?', o: cs.visibility === 'hidden' ? 0 : Number(cs.opacity), t: r.top, b: r.bottom, pout: Number(e.style.getPropertyValue('--hub-pout') || 0), pin: Number(e.style.getPropertyValue('--hub-pin') || 1), holds: Boolean(cell), pad: cell ? parseFloat(getComputedStyle(cell, '::after').height) || 0 : 0 };
+    const r = e.getBoundingClientRect(); const cs = getComputedStyle(e); /* A scene HOLDS when it is the one right before its cell's rest-of-the-page (its stage may hold ordinary scenes before it). */
+    const cell = e.nextElementSibling?.classList.contains('hub-after') ? e.closest('.hub-cell') : null;
+    return { n: e.querySelector('[data-name]')?.getAttribute('data-name') ?? '?', o: cs.visibility === 'hidden' ? 0 : Number(cs.opacity), t: r.top, b: r.bottom, pout: Number(e.style.getPropertyValue('--hub-pout') || 0), pin: Number(e.style.getPropertyValue('--hub-pbin') || 1), holds: Boolean(cell), pad: cell ? parseFloat(getComputedStyle(cell, '::after').height) || 0 : 0 };
   });
   const rows = [...document.querySelectorAll('[data-row]')].map((li) => Number(getComputedStyle(li).opacity));
   return { s: Math.round(scrollY), scenes, rows, max: document.documentElement.scrollHeight - innerHeight };
 };
-const SIZES = [[890, 1548], [940, 1608], [1280, 770], [375, 812], [375, 667]];
-/* `SCRUB_ONLY_MAKER=1` plays case 7 alone (a re-run while working on the Maker's canvas) — never a pass for the rest. */
-const PLAYED = process.env.SCRUB_ONLY_MAKER ? [] : SIZES;
+/* The five sizes the owner tried the prototype at, and the shape of the browser pane he opened the real thing in (441 × 882). */
+const SIZES = [[890, 1548], [940, 1608], [1280, 770], [375, 812], [375, 667], [441, 882]];
+/* `SCRUB_ONLY_MAKER=1` plays the cases after the five sizes alone, `SCRUB_ONE_SIZE=1` one size (re-runs while working,
+   a sabotage) — never a pass for the rest: the last line says so. */
+const PLAYED = process.env.SCRUB_ONLY_MAKER ? [] : process.env.SCRUB_ONE_SIZE ? [SIZES[3]] : SIZES;
 const b = await chromium.launch();
 let failed = 0;
 const say = (ok, line) => { if (!ok) failed++; console.log(`${ok ? 'ok  ' : 'FAIL'} ${line}`); };
@@ -80,7 +87,8 @@ for (const [W, H] of PLAYED) {
   const back = [await at(max)]; for (let y = max - (max % 16); y >= 0; y -= 16) back.push(await at(y));
   const sig = (f) => JSON.stringify([f.scenes.map((e) => [e.n, e.o.toFixed(2), Math.round(e.t)]), f.rows.map((r) => r.toFixed(2))]);
   const same = fwd.every((f) => { const k = back.find((x) => x.s === f.s); return k && sig(k) === sig(f); });
-  const faults = { overlap: [], readable: [], rowsOrder: [], leavesEarly: [], prevOnRows: [], early: [], box: [], moved: [] };
+  const faults = { overlap: [], readable: [], rowsOrder: [], leavesEarly: [], prevOnRows: [], early: [], box: [], moved: [], above: [] };
+  let watchedAbove = 0;
   let prev = null;
   for (const f of fwd) {
     const vis = f.scenes.filter((e) => e.o > 0.03 && e.b > 0 && e.t < H);
@@ -94,6 +102,9 @@ for (const [W, H] of PLAYED) {
     if (sched.o > 0.02 && cd.o > 0.02 && Math.abs(sched.t - cd.t) > 32) faults.box.push(`${f.s}: tops ${Math.round(cd.t)} and ${Math.round(sched.t)}`);
     /* the page stands still while a hand-over plays: the leaving scene does not move */
     if (prev) for (const e of f.scenes) { const was = prev.scenes.find((x) => x.n === e.n); if (e.holds && e.pout > 0 && e.pout < 1 && was.pout > 0 && was.pout < 1 && Math.abs(e.t - was.t) > 0.6) faults.moved.push(`${f.s}: ${e.n} moved ${(e.t - was.t).toFixed(1)}`); }
+    /* …and so does every scene a guest can see ABOVE it: during a hold the page does not move. */
+    if (prev) { const k = f.scenes.findIndex((e) => e.holds && e.pout > 0 && e.pout < 1); const wasHeld = k >= 0 && prev.scenes[k].pout > 0 && prev.scenes[k].pout < 1;
+      if (wasHeld) for (let i = 0; i < k; i++) { const e = f.scenes[i], was = prev.scenes[i]; if (e.o < 0.5 || e.b <= 0 || e.t >= H) continue; watchedAbove++; if (Math.abs(e.t - was.t) > 0.6) faults.above.push(`${f.s}: ${e.n}, above ${f.scenes[k].n}, moved ${(e.t - was.t).toFixed(1)}`); } }
     prev = f;
   }
   const end = fwd.at(-1);
@@ -108,7 +119,7 @@ for (const [W, H] of PLAYED) {
   const size = `${W}×${H}`;
   say(errs.length === 0, `${size} no page error${errs.length ? ' — ' + errs[0] : ''}`);
   say(same, `${size} back == down at every one of ${fwd.length} positions`);
-  for (const [k, words] of Object.entries({ overlap: 'no overlap outside a pair', readable: 'never two readable at once', rowsOrder: 'rows in order', leavesEarly: 'every row complete before the list leaves', prevOnRows: 'nothing of the scene before once the rows begin', early: 'the scene before at its last 20 % before the list shows', box: 'the pair in one box', moved: 'the page stands still while a hand-over plays' })) say(faults[k].length === 0, `${size} ${words}${faults[k].length ? ` — ${faults[k].length} × e.g. ${faults[k][0]}` : ''}`);
+  for (const [k, words] of Object.entries({ overlap: 'no overlap outside a pair', readable: 'never two readable at once', rowsOrder: 'rows in order', leavesEarly: 'every row complete before the list leaves', prevOnRows: 'nothing of the scene before once the rows begin', early: 'the scene before at its last 20 % before the list shows', box: 'the pair in one box', moved: 'the page stands still while a hand-over plays', above: `what a guest can see above a held scene stands still too (${watchedAbove} positions watched)` })) say(faults[k].length === 0, `${size} ${words}${faults[k].length ? ` — ${faults[k].length} × e.g. ${faults[k][0]}` : ''}`);
   say(rowsDone, `${size} all eight rows completed`);
   say(finished, `${size} every hand-over finished before the page ends (${end.scenes.filter((e) => e.holds).map((e) => `${e.n} ${e.pout}`).join(', ')}; last scene at ${end.scenes.at(-1).o})`);
   say(took.scrollSet === 0 && took2.scrollSet === 0, `${size} the script never set the scroll position (${took2.scrollSet})`);
@@ -203,7 +214,7 @@ for (const [W, H] of [[375, 812], [1280, 770]]) {
   const blankest = async (file) => {
     const ctx = await b.newContext({ viewport: { width: W, height: H } }); const p = await ctx.newPage();
     await p.goto(`file://${scratch}/${file}`); await p.waitForTimeout(350);
-    const info = await p.evaluate(() => { const e = document.querySelectorAll('.hub-scene')[1]; const cell = e.parentElement.parentElement; return { on: document.querySelector('.hub-scenes').hasAttribute('data-hub-scrub-on'), cell: cell.classList.contains('hub-cell'), box: e.offsetHeight, len: cell.style.getPropertyValue('--hub-len'), max: document.documentElement.scrollHeight - innerHeight }; });
+    const info = await p.evaluate(() => { const e = document.querySelectorAll('.hub-scene')[1]; const cell = e.closest('.hub-cell'); return { on: document.querySelector('.hub-scenes').hasAttribute('data-hub-scrub-on'), cell: cell.classList.contains('hub-cell'), box: e.offsetHeight, len: cell.style.getPropertyValue('--hub-len'), max: document.documentElement.scrollHeight - innerHeight }; });
     let run = 0; let worst = 0;
     for (let y = 0; y <= info.max; y += 16) {
       const any = await p.evaluate(async (v) => {
@@ -222,6 +233,45 @@ for (const [W, H] of [[375, 812], [1280, 770]]) {
   say(empty.on && empty.cell && empty.box === 0 && empty.len === '', `${size}: it has no box and the page is not held for it (box ${empty.box}px, hold "${empty.len}"; the full page holds "${full.len}")`);
   say(empty.worst <= full.worst + 16, `${size}: no blank stands longer than on the full page (${empty.worst}px against ${full.worst}px)`);
 }
+
+/* 9. OFF IS NEVER SILENT — the page's own island and the lab's badge, in each state. */
+{
+  const [W, H] = [375, 812];
+  const badge = (p) => p.evaluate(() => ({ line: document.querySelector('[data-lab-scrub-line]')?.textContent ?? null, off: document.querySelector('.hub-scenes').getAttribute('data-hub-scrub-off'), on: document.querySelector('.hub-scenes').hasAttribute('data-hub-scrub-on') }));
+  /* ON — and the number in the badge is the number on the page. */
+  let ctx = await b.newContext({ viewport: { width: W, height: H } }); let p = await ctx.newPage();
+  await p.goto(`file://${scratch}/scrub-real-island.html`); await p.waitForTimeout(700);
+  const max = await p.evaluate(() => document.documentElement.scrollHeight - innerHeight);
+  let met = null;
+  for (let y = 0; y <= max && !met; y += 24) { await p.evaluate((v) => scrollTo(0, v), y); await p.waitForTimeout(60); const v = await p.evaluate(() => { const s = [...document.querySelectorAll('.hub-scene')].find((e) => { const o = Number(e.style.getPropertyValue('--hub-pout') || 0); return o > 0.3 && o < 0.7; }); return s ? { name: s.querySelector('[data-name]').getAttribute('data-name'), pout: Number(s.style.getPropertyValue('--hub-pout')) } : null; }); if (v) met = v; }
+  await p.waitForTimeout(150);
+  const on = await badge(p);
+  say(on.on && on.off === null && met && on.line === `Scrub: ON · hand-over 1 of 4 · ${met.name} leaves ${Math.round(met.pout * 100)} % · Countdown arrives 0 %`, `a guest's page, armed by its own island: the badge says what the page carries ("${on.line}"; the page: ${met?.name} ${met?.pout})`);
+  /* The engine made to throw: the plain page, and it says what stopped it. */
+  await p.evaluate(() => { Element.prototype.getBoundingClientRect = () => { throw new Error('boom'); }; scrollBy(0, 40); }); await p.waitForTimeout(400);
+  const thrown = await p.evaluate(() => ({ line: document.querySelector('[data-lab-scrub-line]')?.textContent, off: document.querySelector('.hub-scenes').getAttribute('data-hub-scrub-off'), on: document.querySelector('.hub-scenes').hasAttribute('data-hub-scrub-on'), left: [...document.querySelectorAll('.hub-scenes, .hub-scenes *')].filter((e) => /--hub-(?:len|top|up|pbin|pout|o|rise|pp|end)\s*:/.test(e.getAttribute('style') ?? '') || e.hasAttribute('data-hub-away')).length }));
+  say(!thrown.on && thrown.left === 0 && thrown.off === 'the script stopped: boom' && thrown.line === 'Scrub: OFF — the script stopped: boom', `the engine made to throw: the plain page, every mark gone, and it says why ("${thrown.line}", ${thrown.left} marks left)`);
+  await ctx.close();
+  /* Reduce motion. */
+  ctx = await b.newContext({ viewport: { width: W, height: H }, reducedMotion: 'reduce' }); p = await ctx.newPage();
+  await p.goto(`file://${scratch}/scrub-real-island.html`); await p.waitForTimeout(700);
+  const calm = await badge(p);
+  say(!calm.on && calm.off === 'reduce motion' && calm.line === 'Scrub: OFF — reduce motion', `with reduce motion: off, and it says so ("${calm.line}")`);
+  await ctx.close();
+  /* The Maker's canvas: editing, then shown as a guest. */
+  ctx = await b.newContext({ viewport: { width: W, height: H } }); p = await ctx.newPage();
+  await p.goto(`file://${scratch}/scrub-real-maker.html`); await p.waitForTimeout(700);
+  const editing = await badge(p);
+  say(!editing.on && editing.line === 'Scrub: OFF — editing — hold ▶ to play it', `the Maker's canvas while editing: off, and it says how to play it ("${editing.line}")`);
+  await p.evaluate(() => document.documentElement.setAttribute('data-maker-guest', '')); await p.waitForTimeout(1000);
+  const held = await badge(p);
+  say(held.on && held.off === null && /^Scrub: ON · hand-over \d of 4/.test(held.line ?? ''), `…and under ▶ held: on ("${held.line}")`);
+  if (pics) await p.screenshot({ path: `${pics}/c8d-badge-${W}x${H}.png` });
+  await p.evaluate(() => document.documentElement.removeAttribute('data-maker-guest')); await p.waitForTimeout(700);
+  const back = await badge(p);
+  say(!back.on && back.line === 'Scrub: OFF — editing — hold ▶ to play it', `…and back to editing ("${back.line}")`);
+  await ctx.close();
+}
 await b.close();
-console.log(failed ? `\n${failed} FAILED` : PLAYED.length ? '\nALL OK' : '\nTHE MAKER’S CANVAS ONLY — OK (the five sizes were not played)');
+console.log(failed ? `\n${failed} FAILED` : PLAYED.length === SIZES.length ? '\nALL OK' : '\nPART ONLY — OK (not every size was played)');
 process.exit(failed ? 1 : 0);

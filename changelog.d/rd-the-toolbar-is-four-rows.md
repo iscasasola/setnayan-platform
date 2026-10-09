@@ -426,6 +426,64 @@ Fourteen pins in five guards re-aimed with the reason written in (none deleted):
 asserted GONE (so the stacked run cannot come half back) or held where it now lives. Five sabotages seen red.
 Browser check: 110 checks, all green, on the cleaned stylesheet.
 
+### 8d · "as a guest nothing scrubbed" — off is never silent, and the lab can be read
+
+The owner opened the lab's chain as a guest and saw nothing scrub. It was ON (Chromium, his own browser pane): it
+did not READ. Measured against the prototype he approved, at the same sizes: the numbers were the prototype's; what
+differed was everything drawn — bare, near-white scenes at the full window width where the prototype had boxed,
+labelled cards in a phone-wide column; 26–28 px moves and a 3.5 % shrink that cannot be seen on a 1,280-px band;
+nothing saying a hold was happening; the cover (not in the chain) scrolling away normally first; and the prototype's
+effects sitting one step off their contents. (That the page above a held scene keeps scrolling is the engine's, and
+is the next commit.)
+
+- OFF IS NEVER SILENT. The engine's `catch` swallowed its own reason, and "reduce motion", a failed chunk and a
+  throw all ended as the same plain page. The scenes block now carries WHY in plain words (`data-hub-scrub-off`):
+  "reduce motion" and "the script stopped: <what was thrown>" from the engine; "editing — hold ▶ to play it" and
+  "the script did not load" from the island. Nothing draws from it — the plain page is the right page — it is for
+  whoever has to find out.
+- THE LAB'S BADGE (lab only): the prototype's pill on the real thing — "Scrub: ON · hand-over 2 of 3 · Schedule
+  leaves 46 % · A note from us arrives 0 %", a list's "row 3 of 8", or "Scrub: OFF — <the page's reason>". It has no
+  numbers of its own: it reads the marks the engine sets. It also says when a saved copy answered the page's
+  scripts (on the dev server the service worker holds them under names that do not change: reload twice after an
+  update).
+- THE CHAIN, LEGIBLE (the fixture only): a 430-px column; each scene a card (the hub's card look) INSIDE the real
+  frame, so Build in / Build out move the card; each card labelled with what it is set to, read from the canvas it
+  is drawn with. The prototype's settings on the right contents: Countdown (From below + Fade · Shrink + Fade) →
+  Schedule (rows From the right + Fade, one by one · Blur + Fade) → A note from us (Grow + Fade · stays) → Dress
+  code (From the left + Fade · Fade) → Venue (nothing arranged). The cover is NOT in it — a real page cannot hand
+  the cover over yet — and the first card says so. The browser check's page keeps a first scene of its own in the
+  cover's place. The run of show's times name their zone (a 14:30 moment read "6:30 AM").
+
+Browser check case 9: the badge says the page's own number while a hand-over plays; the engine made to throw → the
+plain page, every mark gone, "the script stopped: boom"; reduce motion; the Maker's canvas editing → ▶ held → back.
+Guard: `the-lab-plays-the-scrub-chain` (1)–(3) re-aimed, (5) new; three sabotages seen red.
+
+### 8c · during a hold the page stands still (inside the scenes block)
+
+The owner's first sentence about Scrub was "the page will not scroll". As built, a hold kept the leaving scene and
+everything AFTER it standing — and let whatever was above it go on scrolling at thumb speed, which reads as ordinary
+scrolling ("as a guest nothing scrubbed"). Now the ordinary scenes just BEFORE a hand-over are inside its stage:
+the stage sticks with a top above its scene's line by exactly what it holds before the scene, so everything of the
+scenes block on screen stands still for the hold. Still the browser's own `position: sticky` and real page length:
+no scroll position is set, nothing is prevented, nothing is transformed.
+
+- Renderer (`flow`): a hand-over's stage holds the ordinary scenes since the hand-over before it — the first, then
+  one box with the rest, the leaving scene and the rest of the page. The leaving scene is always the one right
+  before its `hub-after`; what follows an arrival is always one box.
+- Engine: finds the pair by that shape; sticks the stage at `the scene's line − what the stage holds before it`;
+  puts the arrival in its place whatever lies between it and the top of the rest of the page (so a scene with no
+  box is looked through whether or not it would have held); reads layout without the hold (a standing stage
+  reports where it stands — its cell is asked instead) and without the rises.
+- What is OUTSIDE the scenes block — the cover, the greeting — is not this renderer's and still scrolls during the
+  first hold. That needs the hold's cell at the page's level; mapped separately.
+
+Browser check: 141 checks green at SIX sizes (the five, and 441 × 882 — the browser pane the owner opened it in);
+new: "what a guest can see above a held scene stands still too" (22–54 positions watched a size); the renderer
+sabotaged → red in the browser. The check itself was reading the engine's Build-in number under its old name since
+the cleanup (so one of its pair tests was weaker than it said): fixed. Guard: `scrub-is-a-held-hand-over` (7) new,
+executed against the real renderer; two sabotages seen red; six pins re-aimed. Engine 2,488 B gz (was 2,358),
+island 655 B (was 552, the reasons). Maker first load: 0 B.
+
 SPEC IMPACT: Yes — supersedes the 2026-10-06/07 "Style | Text | Animate" and "the toolbar is half the screen" rows.
 The controller holds the spec (`TOOLBAR-SPEC-2026-10-09.md`) and applies the corpus rows; nothing in the corpus was
 edited from this branch.

@@ -895,6 +895,19 @@ export function StageTools({
     if (page) goToPageRef.current(page.key, page.option);
     if (was.picked) window.setTimeout(() => pickPartRef.current(was.picked as MakerPartKey), page ? STAGE_PAGE_ASK_MS : 0);
   }, []);
+  /* ⌨ In the preview the one button has the focus (Enter leaves), and Esc leaves from anywhere in the Maker. */
+  useEffect(() => {
+    if (!previewing) return;
+    const t = window.setTimeout(() => document.querySelector<HTMLElement>('[data-stage-exit-preview] button')?.focus({ preventScroll: true }), 0);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') exitPreview();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => {
+      window.clearTimeout(t);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [previewing, exitPreview]);
   /* Leaving the stage, or the toolbar, while previewing: the canvas gets its taps back. */
   useEffect(() => () => postToCanvas({ source: 'setnayan-editor', t: 'guest', on: false }), []);
   /** ▶'s press: a tap plays, a hold previews. The pressed look is the button's own, at once (`sn-press`). */
@@ -1218,6 +1231,10 @@ export function StageTools({
           '[data-maker-lower-third]:has(>[data-stage-tools]){transition:height 240ms cubic-bezier(.16,1,.3,1);background:var(--sp-paper)!important;border-top:0!important;padding:0!important;gap:0!important;box-shadow:none!important}' +
           `[data-maker-shell]:has([data-stage-tools]) [data-phone-chrome="panel"]{left:0!important;right:0!important;bottom:${STAGE_BAR_FOOT_CSS}!important;height:${STAGE_BAR_GRID_CSS}!important;outline:none!important;border-radius:0!important;box-shadow:none!important;background:var(--sp-page)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;padding:0!important}` +
           '[data-maker-shell]:has([data-stage-tool-now="edit"]) [data-phone-chrome="panel"]{visibility:hidden;pointer-events:none}' +
+          /* …and while the toolbar itself is AWAY (▶ playing, the whole-page preview, typing): the work area's tool lay
+             over the four rows, so it goes with them — seen on the review copy, 2026-10-09: it stayed on the page under
+             a toolbar that had gone, and covered "Exit preview". */
+          '[data-maker-shell]:has([data-stage-tools][aria-hidden="true"]) [data-phone-chrome="panel"]{visibility:hidden;pointer-events:none}' +
           /* 🎨 STYLE: this toolbar draws row 4 (Colour · Size) — the work area's tool is rows 1–3, standing on it. */
           `[data-maker-shell]:has([data-stage-tools][data-stage-row4]) [data-phone-chrome="panel"]{height:calc(3 * var(--sp-rh) + 2 * var(--sp-rg))!important;bottom:calc(${STAGE_BAR_FOOT_CSS} + var(--sp-rh) + var(--sp-rg))!important}` +
           /* …and the scene's Format under Style is laid in rows (`StageStyle` `rows`): the look cards take the rows
@@ -1303,10 +1320,22 @@ export function StageTools({
         </span>
         <button
           type="button"
-          aria-label={playing ? 'Stop' : `${picked ? 'Play this part' : 'Play the stage as guests see it'} — hold to preview the whole page`}
+          aria-label={playing ? 'Stop' : `${picked ? 'Play this part' : 'Play the stage as guests see it'} — hold, or press Shift and Enter, to preview the whole page`}
           data-stage-play=""
           onClick={play}
           /* 👁 HELD: the whole page as a guest. A tap never waits for the hold — it plays on release. */
+          /* ⌨ The hold's keyboard twin: Shift + Enter (or Shift + Space) on ▶. Plain Enter / Space still play. */
+          aria-keyshortcuts="Shift+Enter"
+          onKeyDown={(e) => {
+            if (!e.shiftKey || (e.key !== 'Enter' && e.key !== ' ')) return;
+            e.preventDefault();
+            hold.current.fired = true;
+            enterPreview();
+          }}
+          onKeyUp={(e) => {
+            /* The key's own click (Space fires it on release) is not a tap. */
+            if (e.shiftKey && e.key === ' ') e.preventDefault();
+          }}
           onPointerDown={holdStart}
           onPointerUp={holdEnd}
           onPointerLeave={holdEnd}

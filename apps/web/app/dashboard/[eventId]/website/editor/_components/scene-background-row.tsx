@@ -55,6 +55,8 @@ import { SLIDER_VALUE, Slider } from '@/app/_components/slider';
 import { sceneBgPreviewMessage, type SceneBgPreviewMessage } from './scene-bg-preview-message';
 import { useMaker } from '../../../launch/_components/maker-context';
 import { StageBackground, type StageBgSource, type StageBgTile } from '../../../launch/_components/stage-panel/stage-background';
+import { tileFrostCss, tileFrostFoot, tileGlassColour, tileNameOnFlat, tileNameOnPicture } from '@/lib/bg-tile-name';
+import { relativeLuminance } from '@/lib/hub-legibility';
 import { BACKGROUND_SOURCE_IS_PRO } from '@/lib/background-source';
 import { isStdLibrarySrc } from '@/lib/std-backgrounds';
 import { sceneShadeAt, sceneShadeOf } from '@/lib/scene-shade-bar';
@@ -570,17 +572,30 @@ export function SceneBackgroundRow({
     const source: StageBgSource = sourceView && sourceView.of === widgetType && sourceView.from === stored ? sourceView.show : stored;
     const worn = source === stored;
     const media = bg?.kind === 'photo' || bg?.kind === 'snippet';
-    const cover = (url: string | null): React.CSSProperties => (url ? { backgroundImage: `url("${url}")` } : { background: 'linear-gradient(135deg, #d9c3a5, #8a6b39 60%, #3a382f)' });
+    /* 🖼 PICTURE TILES (owner 2026-10-09: *"A- picture tiles"*): each choice as what it really draws, its name
+       written on it and readable by the tile's own rule (`lib/bg-tile-name.ts`) — a flat tile by its colour, a
+       picture by a soft fade at its foot. Opaque and Frosted are the flat tint and a soft glass, not stripes. */
+    const base = tint.slice(0, 7);
+    const cover = (url: string | null): React.CSSProperties => (url ? { backgroundImage: `url("${url.replace(/"/g, '%22')}")` } : { background: 'linear-gradient(135deg, #d9c3a5, #8a6b39 60%, #3a382f)' });
+    const colourTile = (c: Exclude<Choice, 'media'>): StageBgTile => {
+      const name = c === 'none' ? 'None' : CHOICE_LABEL[c];
+      if (c === 'none') return { key: c, name, none: true, picture: { background: '#FFFFFF' }, ...tileNameOnFlat('#FFFFFF') };
+      if (c === 'color') return { key: c, name, picture: { background: base }, ...tileNameOnFlat(base) };
+      if (c === 'glass') return { key: c, name, picture: { background: tileGlassColour(base, 'glass') }, ...tileNameOnFlat(tileGlassColour(base, 'glass')) };
+      if (c === 'frost') return { key: c, name, picture: { background: tileFrostCss(base) }, ...tileNameOnFlat(tileFrostFoot(base)) };
+      /* Diagonal · Glow: the real ombré, in the scene's colour — a picture, read by the colour it is made of. */
+      return { key: c, name, picture: preview(c, tint), ...tileNameOnPicture(relativeLuminance(base)) };
+    };
     const tiles: StageBgTile[] =
       source === 'colour'
-        ? COLOUR_TILES.map((c) => ({ key: c, name: c === 'none' ? 'None' : CHOICE_LABEL[c], picture: preview(c, tint) }))
+        ? COLOUR_TILES.map(colourTile)
         : source === 'scene'
-          ? STD_REALISTIC_BACKGROUNDS.map((b) => ({ key: b.src, name: b.label, picture: cover(b.src) }))
+          ? STD_REALISTIC_BACKGROUNDS.map((b) => ({ key: b.src, name: b.label, picture: cover(b.src), ...tileNameOnPicture(b.lum) }))
           : source === 'own'
             ? [
-                ...(videoChoice ? [{ key: videoChoice.ref, name: 'Your video', moving: true, picture: cover(videoChoice.poster ? mediaUrl(videoChoice.poster) : null) }] : []),
-                ...uploads.map((u) => (u.kind === 'snippet' ? { key: u.ref, name: 'Your clip', moving: true, picture: cover(u.posterUrl ?? null) } : { key: u.ref, name: 'Your photo', picture: cover(u.url) })),
-                ...photoChoices.map((p) => ({ key: p.ref, name: 'Your photo', picture: cover(p.url) })),
+                ...(videoChoice ? [{ key: videoChoice.ref, name: 'Your video', moving: true, picture: cover(videoChoice.poster ? mediaUrl(videoChoice.poster) : null), ...tileNameOnPicture(null) }] : []),
+                ...uploads.map((u) => (u.kind === 'snippet' ? { key: u.ref, name: 'Your clip', moving: true, picture: cover(u.posterUrl ?? null), ...tileNameOnPicture(null) } : { key: u.ref, name: 'Your photo', picture: cover(u.url), ...tileNameOnPicture(null) })),
+                ...photoChoices.map((p) => ({ key: p.ref, name: 'Your photo', picture: cover(p.url), ...tileNameOnPicture(null) })),
               ]
             : [];
     const shadeAt = sceneShadeAt(shown.shade);

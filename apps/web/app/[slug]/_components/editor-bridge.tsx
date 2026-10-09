@@ -851,6 +851,13 @@ export function EditorBridge() {
         );
         return;
       }
+      /* 👁 THE WHOLE PAGE AS A GUEST, on or off. Up HERE with the other messages that name no section: a message
+         without a `key` never gets past the line below them (seen on the review copy, 2026-10-09: the Maker went into
+         its preview and the canvas, never told, kept taking every tap). */
+      if (data && data.source === 'setnayan-editor' && data.t === 'guest') {
+        guest.set((data as { on?: unknown }).on === true);
+        return;
+      }
       if (data && data.source === 'setnayan-editor' && (data.t === 'playStage' || data.t === 'playStop')) {
         /* ▶ THE WHOLE STAGE (the new Maker's ▶ with nothing picked, `stage-tools.tsx`):
            each scene in turn, brought into view and replaying its own arrival; a
@@ -905,10 +912,6 @@ export function EditorBridge() {
            reloads. Putting a scene back is never drawn here: a scene the page
            did not draw has nothing to show, so that write reloads. */
         el.style.display = (data as { shown?: unknown }).shown === false ? 'none' : '';
-        return;
-      }
-      if (data.t === 'guest') {
-        guest.set((data as { on?: unknown }).on === true);
         return;
       }
       if (data.t === 'playSeq') {

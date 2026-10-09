@@ -533,7 +533,7 @@ export function PhoneTableDock({
         </span>
       </div>
       <span className="self-start">
-        <ActionButton tone="danger" quiet icon={Trash2} label="Delete this table" disabled={!canEdit} onClick={onDelete} />
+        <ActionButton tone="danger" icon={Trash2} label="Delete this table" disabled={!canEdit} onClick={onDelete} />
       </span>
     </div>
   );

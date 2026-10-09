@@ -8,8 +8,8 @@
  *   − 10/10 +  (seats)                   → NOT MOVED: the app has no counter template (`slider.tsx` is a range; no stepper) — left as it was, handlers untouched
  *   Rotate · Edit chairs… · Link… · Unlink → Action button, one row (Link… wears the brand tone while it is waiting for the next table)
  *   Done                                 → Action button (the row's one filled step, brand)
- *   Delete this table                    → Action button (danger, quiet) → the delete's confirm is the centred confirm box (`GuestPopup kind="confirm"`, Cancel first)
- *   Unseat (a seated guest's row)        → Action button (neutral, quiet) — "tap · move" and the P1 pill are the guest row's own and stay
+ *   Delete this table                    → Action button (danger — the red outlined look, NOT quiet: quiet strips the tone) → the delete's confirm is the centred confirm box (`GuestPopup kind="confirm"`, Cancel first)
+ *   Unseat (a seated guest's row)        → Action button, ICON-ONLY (`iconOnly`, neutral quiet, 44 px wide; named `Unseat <guest>`) so the name keeps its room — "tap · move" and the P1 pill are the guest row's own and stay
  *   Seat people · the Seat N removed · Undo strip → NOT MOVED here (the editor's own nodes, handed in; "Seat people" shows only outside Details)
  * SAVES: `the-seat-plan-table-sheet-posts-the-same.golden.json` — which handler each press called BEFORE (recorded in Chromium); the after-run matched in every press but the two
  * differences its `_about` names.
@@ -65,7 +65,7 @@ test('1 · the sheet is the templates: the name is a Form row, the shape a dropd
     assert.equal((m.match(/data-main=""/g) ?? []).length, 1, 'the sheet does not have exactly one filled step');
     assert.match(m, /class="ab ab-brand ab-main[^"]*"[^>]*>[\s\S]*?<span class="lbl">Done<\/span>/, 'Done is not the accent’s filled button with its word');
     assert.match(m, /<span class="lbl">Delete this table<\/span>/);
-    assert.match(m, /class="ab ab-danger quiet[^"]*"[^>]*>[\s\S]{0,1500}Delete this table/, 'Delete this table is not the danger ActionButton');
+    assert.match(m, /class="ab ab-danger(?! quiet)[^"]*"[^>]*>[\s\S]{0,1500}Delete this table/, 'Delete this table is not the danger ActionButton');
     assert.doesNotMatch(m, /text-danger-600 underline/, 'Delete is a plain red link again');
   }
   const linked = await dock({ linked: true });
@@ -111,7 +111,7 @@ test('3 · Delete confirms in the centred box (the template), the same two answe
   assert.match(ed, /keep=\{<ActionButton tone="neutral" icon=\{X\} label="Cancel" onClick=\{\(\) => setConfirmDelete\(null\)\} \/>\}/);
   assert.match(ed, /tone="danger"\s+main\s+icon=\{Trash2\}\s+label=\{joined \? 'Delete unit' : 'Delete table'\}\s+onClick=\{\(\) => \{\s*confirmDelete\.members\.forEach\(\(m\) => removeTable\(m\.table_id\)\);\s*setConfirmDelete\(null\);/);
   assert.doesNotMatch(ed, /fixed inset-0 z-\[60\] flex items-end justify-center bg-ink\/40/, 'the old bottom-sheet confirm is back');
-  assert.match(ed, /<ActionButton tone="neutral" quiet icon=\{UserMinus\} label="Unseat" name=\{`Unseat \$\{g\.name\}`\} onClick=\{\(\) => unseat\(g\.guest_id\)\} \/>/, 'Unseat is not the quiet ActionButton with the same handler');
+  assert.match(ed, /<ActionButton tone="neutral" quiet iconOnly icon=\{UserMinus\} label="Unseat" name=\{`Unseat \$\{g\.name\}`\} className="!w-11" onClick=\{\(\) => unseat\(g\.guest_id\)\} \/>/, 'Unseat is not the icon-only ActionButton (44 px, named for the guest) with the same handler');
   /* An empty table still deletes in one tap; one with seated guests asks first (the editor's own rule — untouched). */
   assert.match(ed, /if \(seatedAt\(t\.table_id\) === 0\) removeTable\(t\.table_id\);\s*else setConfirmDelete/);
 });

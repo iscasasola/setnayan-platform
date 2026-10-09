@@ -6047,9 +6047,10 @@ export function SeatingEditor({
                 hint={isPhone ? plusOneHint(g) ?? 'tap · move' : null}
                 onCyclePriority={() => cyclePriority(g)}
                 roleSet={roleSet}
+                /* The templates' ICON-ONLY ActionButton (`iconOnly`): the guest's name keeps its room — a labelled pill took 80 px of it. 44 px to tap (`!w-11`, the height is the app's 44), named for the guest. */
                 trailing={
                   canEdit ? (
-                    <ActionButton tone="neutral" quiet icon={UserMinus} label="Unseat" name={`Unseat ${g.name}`} onClick={() => unseat(g.guest_id)} />
+                    <ActionButton tone="neutral" quiet iconOnly icon={UserMinus} label="Unseat" name={`Unseat ${g.name}`} className="!w-11" onClick={() => unseat(g.guest_id)} />
                   ) : undefined
                 }
               />

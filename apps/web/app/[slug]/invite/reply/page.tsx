@@ -24,7 +24,7 @@ import { askOneAtATime } from '@/lib/rsvp-one-at-a-time';
 import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
 import { markAnimationSwitchedOff } from '@/lib/monogram-studio-shared';
 import { plusOneSeatsFor } from '../../_lib/plus-one-seats.server';
-import { asksForHostCanvas } from '../../_lib/editor-canvas';
+import { EDITOR_CANVAS_HIDES_APP_CHROME, asksForHostCanvas } from '../../_lib/editor-canvas';
 import { loadHostMembership, loadHostPreviewDraft, loadWidgets } from '../../_lib/loaders';
 import { wearTheHub } from '../_lib/wear-the-hub';
 import { RsvpLookStyle } from '../../_components/rsvp-look-style';
@@ -394,6 +394,10 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
         />
         </CanvasSection>
       </DoorShell>
+      {/* 🍪 Drawn inside the Maker's canvas, this page shows none of the app's own floating notices (the cookie card,
+          a stale-tab bar) — the rule every Event Hub canvas already carries (`EDITOR_CANVAS_HIDES_APP_CHROME`). A
+          host who never answered the cookie card saw it over the RSVP stage. Canvas only: a guest's page is as it was. */}
+      {canvas ? <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style> : null}
       {/* 🎨 The look the couple gave each line of the form (`lib/rsvp-look.ts`) — nothing at all when they gave none.
           After the door, never inside it: the card's children are spaced by their order. */}
       <RsvpLookStyle

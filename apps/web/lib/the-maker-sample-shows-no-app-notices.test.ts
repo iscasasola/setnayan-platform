@@ -42,3 +42,36 @@ test('(3) the lab’s stand-in for the canvas hides it the same way', () => {
   assert.match(lab, /<style>\{EDITOR_CANVAS_HIDES_APP_CHROME\}<\/style>/, 'the lab’s sample draws the app’s notices — the real Maker’s never does');
   assert.doesNotMatch(lab, /\[data-app-chrome\]\{/, 'the lab wrote a copy of the rule');
 });
+
+/* ══ 4 · EVERY PAGE THE MAKER'S CANVAS CAN DRAW ═══════════════════════════════════════════════════════════════════
+   Controller, 2026-10-10: "a page drawn inside the Maker's canvas never shows the cookie card, for any stage." The
+   Event Hub's canvas carried the rule (2); the two reply pages the RSVP stage draws did not — a host who had never
+   answered the cookie card saw it lying over the RSVP stage's canvas. Held as a claim about EVERY guest route that
+   answers the canvas door, so a page added later cannot forget it. Sabotage: the rule off the reply page → red. */
+test('(4) every guest page that can be the Maker’s canvas hides the app’s notices there — and only there', () => {
+  const { readdirSync } = require('node:fs') as typeof import('node:fs');
+  const pages: string[] = [];
+  const walk = (dir: string) => {
+    for (const e of readdirSync(join(WEB, dir), { withFileTypes: true })) {
+      if (e.isDirectory()) walk(`${dir}/${e.name}`);
+      else if (e.name === 'page.tsx') pages.push(`${dir}/${e.name}`);
+    }
+  };
+  walk('app/[slug]');
+  const canvases = pages.filter((p) => /\basksForHostCanvas\(/.test(read(p)));
+  /* The door is asked by these three today; the list is read off the tree, and must not come back empty. */
+  assert.deepEqual([...canvases].sort(), ['app/[slug]/invite/enter/page.tsx', 'app/[slug]/invite/reply/page.tsx', 'app/[slug]/page.tsx']);
+  for (const p of canvases) {
+    const page = read(p);
+    const own = /\{canvas \? <style>\{EDITOR_CANVAS_HIDES_APP_CHROME\}<\/style> : null\}/.test(page);
+    /* The Event Hub's page hands its canvas to `SiteBody`, which carries the rule (2). */
+    const handed = /<SiteBody\b/.test(page);
+    assert.ok(own || handed, `${p} can be the Maker’s canvas and would draw the cookie card over it`);
+    if (own) {
+      assert.match(page, /import \{ EDITOR_CANVAS_HIDES_APP_CHROME, asksForHostCanvas \} from '\.\.\/\.\.\/_lib\/editor-canvas';/, `${p} wrote a copy of the rule`);
+      assert.equal((page.match(/EDITOR_CANVAS_HIDES_APP_CHROME/g) ?? []).length, 2, `${p}: the rule is written somewhere a guest’s page could reach`);
+      /* `canvas` is the HOST-VERIFIED door — never the bare `?editor=1` a stranger can type. */
+      assert.match(page, /if \(asksForHostCanvas\(search\)\) \{[\s\S]{0,400}?loadHostMembership\([\s\S]{0,200}?canvas = true;/, `${p}: the canvas is not host-verified`);
+    }
+  }
+});

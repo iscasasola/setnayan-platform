@@ -39,7 +39,7 @@ import { WhenYesCelebration } from '../../_components/when-yes-celebration';
 import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { rsvpWordBridgeKey } from '@/lib/rsvp-stage-shared';
 import { RsvpCanvasBridge } from '../../_components/rsvp-canvas-bridge';
-import { asksForHostCanvas } from '../../_lib/editor-canvas';
+import { EDITOR_CANVAS_HIDES_APP_CHROME, asksForHostCanvas } from '../../_lib/editor-canvas';
 import { loadEventShell, loadHostMembership, loadHostPreviewDraft } from '../../_lib/loaders';
 import { eventShortcutMetadata } from '@/lib/event-app-icon';
 import { ShortcutLine } from '../_components/shortcut-line';
@@ -601,6 +601,10 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
   return (
     <GuestLookScope {...lookScopeProps(hub.look)}>
       {hub.ground}
+      {/* 🍪 Drawn inside the Maker's canvas, this page shows none of the app's own floating notices (the cookie card,
+          a stale-tab bar) — the rule every Event Hub canvas already carries (`EDITOR_CANVAS_HIDES_APP_CHROME`). A
+          host who never answered the cookie card saw it over the RSVP stage. Canvas only: a guest's page is as it was. */}
+      {canvas ? <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style> : null}
       {/* 🎨 The look the couple gave each line of this screen (`lib/rsvp-look.ts`): the thank-you and the pass after a
           Yes, the note after a No — nothing at all when they gave none. */}
       <RsvpLookStyle

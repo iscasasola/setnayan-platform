@@ -95,6 +95,16 @@ Sabotaged red, each restored: the sanitiser dropping `look` · the reader keepin
 the page does not show · a guest served an empty tag · a button given a colour · the ceiling not asked · an
 over-limit event locked · the card's paper letting go · the canvas trusting text it was sent.
 
+**fix(maker): a reply page drawn in the Maker's canvas never shows the cookie card**
+
+A host who had never answered the cookie card saw it lying over the RSVP stage's canvas. The Event Hub's canvas
+already hid the app's floating notices (`EDITOR_CANVAS_HIDES_APP_CHROME`, `site-body.tsx`); the two reply pages the
+RSVP stage draws (`invite/reply`, `invite/enter`) now carry the same rule — on the host-verified canvas only, so a
+guest's page is unchanged and still asks. A server-rendered rule: no JavaScript added to any first load.
+Guard: `lib/the-maker-sample-shows-no-app-notices.test.ts` (4) — every guest route that answers the canvas door is
+read off the tree and must carry the rule (or hand its canvas to `SiteBody`). Sabotaged red: the rule off the reply
+page · the rule served to every guest.
+
 SPEC IMPACT: `events.rsvp_ask_config` gains three optional words (eyebrow · question · hint) and one optional object
 `look` (each line's colour slot and size). No schema change (jsonb, existing 2,048-byte CHECK). Corpus note to follow
 with the card's background and motion (the next step), in one edit.

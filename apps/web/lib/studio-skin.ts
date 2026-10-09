@@ -20,7 +20,7 @@
  *
  * Pure strings: no React, nothing reaches the Maker's first load on its own.
  */
-import { PILL_ON_CLASS } from '@/app/_components/pill-selector';
+import { PILL_ON_CLASS } from '@/app/_components/pill-classes';
 
 /** The warm page under every Studio screen (prototype `--page` #F3F0EA). */
 export const STUDIO_PAGE_BG = 'bg-[color-mix(in_srgb,rgb(var(--color-gild))_9%,rgb(var(--color-cream)))]';

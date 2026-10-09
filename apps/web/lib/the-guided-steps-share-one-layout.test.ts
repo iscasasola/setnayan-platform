@@ -576,7 +576,11 @@ test('(22) touch a field → Skip asks; open only → Skip goes — a custom pic
   // Only the one instant writer opts in.
   /* The reply-by field is the shared `ReplyBy` part (2026-10-07): ONE writer, drawn two ways — the Maker's
      stacked field and Guests › Setup's row — so it opts in twice; the Maker's panel itself holds none. */
-  const optedIn = [`${L}/details-march.tsx`, 'app/dashboard/[eventId]/_components/guest-setup/reply-by.tsx', `${L}/maker-rsvp-ask.tsx`].map((f) => (read(f).match(/data-writes-live=""/g) ?? []).length);
+  /* RE-AIMED 2026-10-09 (Guests › Setup step 3B): the part opts in in TWO shapes — the stacked field's JSX attribute, and the frame door's attrs object (`'data-writes-live': ''`,
+     only for the LIVE variant: a drafted frame, the Maker's Studio › RSVP, carries `data-reply-by-field="draft"` and NO mark — it waits for Apply). The claim is unchanged: two opt-ins
+     in the shared part, none in the march, none in the RSVP stage's own file; the regex now sees both spellings. */
+  const optedIn = [`${L}/details-march.tsx`, 'app/dashboard/[eventId]/_components/guest-setup/reply-by.tsx', `${L}/maker-rsvp-ask.tsx`].map((f) => (read(f).match(/data-writes-live=""|'data-writes-live': ''/g) ?? []).length);
+  assert.match(read('app/dashboard/[eventId]/_components/guest-setup/reply-by.tsx'), /draft \? \{[^}]*'data-reply-by-field': 'draft' \} : \{[^}]*'data-reply-by-field': 'live', 'data-writes-live': '' \}/, 'a drafted Reply by carries the live mark — or the live one lost it');
   // (The march's two controls became ONE drag maker on 2026-10-06 — and the same day it began to wait
   // for Apply (owner: *"Wait for apply"*), so it opts in no more: its drops are drafted, like every Maker edit.)
   assert.deepEqual(optedIn, [0, 2, 0], `the live opt-in moved: ${optedIn}`);

@@ -466,7 +466,8 @@ test('(6) PillSelector — buttons or links, an icon-only variant, a row of togg
   assert.equal((toggles.match(/aria-pressed="true"/g) ?? []).length, 2);
   // The app's, not one screen's: React, next/dynamic and its own thumb — no Maker file, no Maker token.
   const imports = (f: string) => [...read(f).matchAll(/from '([^']+)'/g)].map((m) => m[1]);
-  assert.deepEqual(imports('app/_components/pill-selector.tsx').sort(), ['next/dynamic', 'react']);
+  /* RE-AIMED 2026-10-09: + its own sibling `./pill-classes` (the accent look, a module with no 'use client' so a server file can build a class from it) — still nothing of any one screen. */
+  assert.deepEqual(imports('app/_components/pill-selector.tsx').sort(), ['./pill-classes', 'next/dynamic', 'react']);
   assert.deepEqual(imports('app/_components/pill-thumb.tsx'), ['react']);
   for (const f of ['app/_components/pill-selector.tsx', 'app/_components/pill-thumb.tsx']) assert.doesNotMatch(read(f), /--sp-|\/dashboard\/|maker/i, `${f} knows the Maker`);
   // It says when NOT to use it, in the house rule's own words.

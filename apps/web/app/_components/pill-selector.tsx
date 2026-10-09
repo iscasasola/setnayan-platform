@@ -1,6 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import { PILL_ON_CLASS } from './pill-classes';
 import type { ComponentType, ReactNode } from 'react';
 
 /**
@@ -64,7 +65,7 @@ export type PillTone = 'plain' | 'wine';
  * thumb) — and of anything else that is "on". Both come from ONE setting (`--sn-accent` / `--sn-on-accent`,
  * `globals.css`): never a colour written here (`lib/the-accent-is-one-token.test.ts`).
  */
-export const PILL_ON_CLASS = 'bg-sn-accent text-sn-on-accent';
+export { PILL_ON_CLASS };
 /** A choice that is off: grey words on the grey track. */
 export const PILL_OFF_CLASS = 'text-ink/55 hover:text-ink';
 

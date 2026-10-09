@@ -52,7 +52,8 @@ import { StageAnimate } from './stage-panel/stage-animate';
  * row 4 by the toolbar itself). They were a column of their own, stacked from the top — 2 px above row 1 and with
  * Colour · Size where no stage has it.
  *
- * Nothing here is a new control: the circle, the picker, the dropdown and the slider are the shipped ones. A colour
+ * Nothing here is a new control: the circle, the picker, the dropdown and the slider are the shipped ones. The circle's
+ * accessible name is the cover line's own, word for word (`stage-look-row.tsx` — ONE wording on every stage). A colour
  * stored as one of the event's five (a slot, the day before) is shown as that colour; picking stores what the picker
  * hands back, as a cover line does.
  *
@@ -93,7 +94,7 @@ export function RsvpLineLookRows({
             <span className={SP_LOOK_ROW_LABEL}>Colour</span>
             <Swatch
               on
-              label={colour ? `Colour ${colour} — change it` : 'The page’s own colour — change it'}
+              label={colour ? `Colour ${colour} — change it` : 'The theme’s colour — change it'}
               face={colour ? <span className="absolute inset-0" style={{ background: colour }} /> : <span className="absolute inset-0 bg-[repeating-linear-gradient(45deg,#fff_0_4px,#EDE8DF_4px_8px)]" />}
               onPick={() => setPicking(true)}
               data={{ 'data-rsvp-look-colour': colour ?? 'own' }}

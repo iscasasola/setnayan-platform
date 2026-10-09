@@ -247,7 +247,13 @@ test('4 · the panel: Style on a text line is Font ▾, then ONE colour circle a
   /* No look yet: the page's own colour (the striped circle), the line's font as designed, at 100%. */
   const fresh = await panel('thanks', { tool: 'style', part: 'yesnote', line: 'message' });
   assert.deepEqual(circles(fresh), ['own']);
-  assert.match(fresh, /aria-label="The page’s own colour — change it"[^>]*data-rsvp-look-colour="own"/);
+  /* 🔁 RE-AIMED 2026-10-10 (toolbar consistency, item 8a): the circle has ONE accessible name on every stage — the
+     cover line's own words (`stage-look-row.tsx`). It read "The page’s own colour" on a reply line only. Held as the
+     property: both files say the same sentence, whatever it becomes. */
+  const circleName = (file: string) => /: '([^']+ — change it)'\}/.exec(src(`${L}/${file}`))?.[1] ?? null;
+  assert.ok(circleName('stage-panel/stage-look-row.tsx'), 'anti-vacuity: the cover line’s circle was read');
+  assert.equal(circleName('rsvp-line-look.tsx'), circleName('stage-panel/stage-look-row.tsx'), 'the colour circle is named two ways');
+  assert.match(fresh, new RegExp(`aria-label="${circleName('rsvp-line-look.tsx')}"[^>]*data-rsvp-look-colour="own"`));
   assert.match(fresh, /aria-label="Font: Event Hub font"/);
   assert.match(fresh, /100%/);
   /* A BUTTON — the two answers and the pass's Save: Font and Size, and no colour of its own. */

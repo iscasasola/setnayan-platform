@@ -213,3 +213,57 @@ SPEC IMPACT: `events.rsvp_ask_config` gains three optional words (eyebrow · que
 size and Build in; each reply screen's card ground and Build in. No schema change (jsonb, existing 2,048-byte CHECK).
 Corpus `DECISION_LOG.md` row: NOT yet written — this builder works local-only with no push, and a corpus edit must
 be committed and pushed; flagged to the controller to apply with the batch.
+
+## 2026-10-10 · fix(maker): an RSVP line's Style is Font ▾, one colour circle and the Size slider
+
+Owner, looking at a picked RSVP line's Style (2026-10-10, verbatim): *"Should be Font instead of Look and should be
+drop down"* · *"i thought our plan for colour is just 1 colour with a color picker pop up?"* · *"use slider or button
+for size?"* (the slider — what a cover line's Style already uses; Size is as built).
+
+**What changed for the couple.** Pick a line on the RSVP stage (e.g. "Will you celebrate with us?") and open Style:
+
+- **Font ▾** on its own row — the app's one font dropdown (`FontPick`, on `PickMenu`): the same faces a part of the
+  Event Hub is offered (`HUB_FONTS`; a part's font is free since 2026-10-06). First choice **"Event Hub font"** = the
+  line as designed, nothing stored.
+- **Colour** is ONE circle (striped while it is the page's own) that opens the app's one colour picker
+  (`ColourSheet`), with **Size** — the slider — beside it on the same row. This is a cover line's own last row
+  (`stage-panel/stage-look-row.tsx`); it was six circles (the page's own + the event's five) and no picker.
+- A **button** line (Yes answer · No answer · the pass's Save) has Font and Size and still no Colour, with its one
+  line "A button's colours are your Look's."
+
+**How it is stored** (`events.rsvp_ask_config.look.lines['<part>.<line>']`, read only by `lib/rsvp-look.ts`):
+
+- `c` — what the one picker hands back, the same shape a cover line's colour is kept in: `#rrggbb`, kept only through
+  the app's colour gate (`hubElementColor`) on the way in (`rsvpLookWith`), on read (`readRsvpLook`) and again when
+  the rule is written (`rsvpLookRules`). A slot `1`–`5` stored the day before is still read and still drawn from the
+  event's colours; it is never written again.
+- `f` — a key of the app's font list (`sanitizeHubFontKey`), drawn as the Event Hub draws a part's font: that face's
+  own variable and its fallback (`font-family:var(--font-…), Georgia, serif`). The variables are declared on the root
+  layout, so a reply page already carries them; a face nobody chose is not downloaded.
+- `s`, `i`, `v` — unchanged.
+
+⚠ **For the controller — one sentence of the brief could not be held as written.** "The page draws it through the
+Look's own font variables so it follows the Look when the Look changes": the shipped per-part font choice is a FACE
+(a `HUB_FONTS` key), not one of the Look's four roles, so a line given a face keeps that face when the Look changes —
+exactly as a part of the Event Hub does (owner 2026-09-26: the universal font is "bypassed" by an element's own).
+"Event Hub font" (nothing stored) is the choice that follows the Look. No font list was invented.
+
+**First load.** No first-load file is touched (`lib/rsvp-ask.ts`, `lib/hub-draft.ts`, `lib/maker-parts.ts` are
+byte-identical). The rows, the picker, the font dropdown and the reader all load with the panel
+(`every-studio-colour-opens-the-one-picker.test.ts` § H now names `rsvp-line-look.tsx`, `maker-rsvp-ask.tsx`,
+`font-pick.tsx` and `lib/rsvp-look.ts` as not in the Maker's first load).
+
+**Guards.** `lib/the-rsvp-lines-have-a-look.test.ts` — § 1–3 gained the picked colour and the font (the reader, the
+rules, the writer); § 4 RE-AIMED with the reason written in (six circles and "no picker here" → one circle that opens
+the one picker, Font ▾ on its own row, Colour · Size sharing the next); § 5 keeps its pinned save line word for word
+and pins the Font save beside it. `lib/every-studio-colour-opens-the-one-picker.test.ts` — the sweep's entry for
+`rsvp-line-look.tsx` re-aimed (count unmoved), § E gained the RSVP line's circle, § H the four files above.
+Sabotaged red, each restored: the reader keeping a colour the gate refuses · the reader keeping a font not on the
+list · a button given a picked colour · the rules writing a colour unchecked · the rules writing a font without the
+list · the writer storing a typed colour · the circle not opening the picker · a button offered a colour · the font
+with no way back to the line as designed · the five circles back · the look reader joining the first load.
+
+SPEC IMPACT: `events.rsvp_ask_config.look.lines['<part>.<line>']` — `c` is now a checked colour (`#rrggbb`) from the
+one picker (an older slot 1–5 is still read), and gains `f`, a key of the app's font list. No schema change (jsonb,
+the existing 2,048-byte CHECK; the app still refuses a save past 1,900 bytes). Corpus `DECISION_LOG.md` row: NOT
+written — this builder works local-only with no push; flagged to the controller to apply with the batch.

@@ -1,6 +1,6 @@
 /**
- * the-rsvp-lines-have-a-look.test.ts — ON THE RSVP STAGE, STYLE IS THE PICKED LINE'S COLOUR AND SIZE, AND THE CARD IS
- * THE GROUP.
+ * the-rsvp-lines-have-a-look.test.ts — ON THE RSVP STAGE, STYLE IS THE PICKED LINE'S FONT, COLOUR AND SIZE, AND THE
+ * CARD IS THE GROUP.
  *
  * Owner, on the live Maker's RSVP stage (2026-10-09, verbatim): "shouldn't it be per element?" · on the prototype:
  * "i like this idea. heading message then the whole group?" Controller's conditions for the stored look: absent =
@@ -13,8 +13,13 @@
  *       a guest of an event with no look is served NOTHING (not an empty tag).
  *   3 · NO SAVE DROPS IT — the first-load sanitiser and every writer built on it carry `look` through, with keys
  *       this build does not know.
- *   4 · THE PANEL, rendered: Style on a text line is Colour (the event's five + the page's own) and Size; on a
- *       button, Size only; the group and Edit are untouched.
+ *   4 · THE PANEL, rendered: Style on a text line is Font ▾, then ONE colour circle and the Size slider on one
+ *       row; on a button, Font and Size; the group and Edit are untouched.
+ *       🔁 RE-AIMED 2026-10-10 (owner, looking at this panel: "Should be Font instead of Look and should be drop
+ *       down" · "i thought our plan for colour is just 1 colour with a color picker pop up?"). It held SIX circles
+ *       (the page's own + the event's five, stored as slots) and no picker; it now holds ONE circle that opens the
+ *       app's one picker, a colour stored as the picker hands it back through the app's colour gate, and a font
+ *       from the app's own font list. Claims 1–3 gained the same two values.
  *   5 · THE CEILING — a save that would not fit is refused in a sentence (words and looks alike), and an event
  *       already over it can still be made shorter.
  *   6 · THE CARD IS THE GROUP — a tap on the card's own paper picks the screen's group; the masthead's parts and
@@ -23,7 +28,9 @@
  *
  * Sabotages seen red (each restored): the sanitiser dropping `look` · the reader keeping a typed colour · the rules
  * written for a part the page does not show · a guest served an empty tag · a button given a colour · the ceiling
- * not asked · the card's paper letting go · the canvas trusting text it was sent.
+ * not asked · the card's paper letting go · the canvas trusting text it was sent. 2026-10-10: the reader keeping a
+ * colour the gate refuses · the reader keeping a font that is not on the list · a font written without the list ·
+ * a typed colour stored by the writer · the circle not opening the picker · the font drawn without the dropdown.
  *
  * Lives in `lib/` because node's test glob does not descend into `[eventId]`.
  */
@@ -38,6 +45,7 @@ import { sanitizeRsvpAskConfig } from './rsvp-ask';
 import { rsvpAskConfigOnGoingPublic } from './going-public';
 import { rsvpAskFreePart } from './hub-draft';
 import { HUB_ELEMENT_SIZE_STEPS } from './element-style';
+import { HUB_FONT_BY_KEY } from './hub-fonts';
 import { makerPartOfTap } from './maker-parts';
 import { RSVP_STAGE_KEY, rsvpPreviewMessages, type RsvpStageScene } from './rsvp-stage';
 import {
@@ -98,7 +106,9 @@ const MOVES = String.raw`(--rl-o:[01];--rl-t:translate3d\(-?\d+px, -?\d+px, 0\) 
 const GROUNDS = String.raw`(background:transparent!important;border-color:transparent!important;box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;|background:var\(--sn-glass-bg\)!important;border-color:var\(--sn-glass-line\)!important;backdrop-filter:var\(--sn-glass-blur\)!important;-webkit-backdrop-filter:var\(--sn-glass-blur\)!important;)?`;
 const TAIL = String.raw`(@keyframes rsvp-in\{from\{opacity:var\(--rl-o\);transform:var\(--rl-t\);filter:var\(--rl-f\)\}\}@media \(prefers-reduced-motion:reduce\)\{\[data-rsvp-line\],div:has\(>\[data-door-header\]\)\{animation:none!important\}\})?`;
 const INNER = String.raw`(\[data-landing-missed\]\{background:transparent!important;border-color:transparent!important;box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;\})?`;
-const SAFE_CSS = new RegExp(String.raw`^(div:has\(>\[data-door-header\]\)\{${GROUNDS}${MOVES}\})?${INNER}(\[data-rsvp-line="[a-z]+"\]\[data-rsvp-line\]\{(color:#[0-9a-f]{6};)?(zoom:[0-9.]+;)?${MOVES}\})*${TAIL}$`);
+/* 2026-10-10: a colour may carry the gate's two alpha digits, and a font is a face's own variable and its fallback. */
+const SAFE_CSS = new RegExp(String.raw`^(div:has\(>\[data-door-header\]\)\{${GROUNDS}${MOVES}\})?${INNER}(\[data-rsvp-line="[a-z]+"\]\[data-rsvp-line\]\{(color:#[0-9a-f]{6}([0-9a-f]{2})?;)?(font-family:var\(--font-[a-z-]+\), (Georgia, serif|system-ui, sans-serif|cursive);)?(zoom:[0-9.]+;)?${MOVES}\})*${TAIL}$`);
+const face = (key: keyof typeof HUB_FONT_BY_KEY) => `font-family:var(${HUB_FONT_BY_KEY[key].cssVar}), ${HUB_FONT_BY_KEY[key].fallback};`;
 
 test('1 · the reader is strict: known lines, listed values, and no colour of its own for a button', () => {
   /* The lines are the stage's lines — said from the page's own list, not from the module under test. */
@@ -117,17 +127,20 @@ test('1 · the reader is strict: known lines, listed values, and no colour of it
     look: {
       lines: {
         'rsvp.question': { c: 2, s: 120 },
-        'rsvp.eyebrow': { c: '#ff0000', s: '120' } /* typed, not listed */,
-        'rsvp.hint': { c: 9, s: 500 },
-        'rsvp.yes': { c: 3, s: 110 } /* a button: size only */,
+        'rsvp.eyebrow': { c: ' #FF0000 ', s: '120', f: 'cinzel' } /* 2026-10-10: a picked colour, as the app's gate hands it back; a listed font */,
+        'rsvp.hint': { c: 9, s: 500, f: 'Comic Sans' } /* no such slot, size or font */,
+        'rsvp.yes': { c: 3, s: 110 } /* a button: no colour of its own */,
+        'pass.save': { c: '#ff0000', f: 'playfair' } /* …picked or not; its font is its own */,
         'yesnote.heading': { s: 100 } /* its own size: nothing to keep */,
-        'nonote.message': { c: 'red;}body{display:none', s: 85 },
+        'yesnote.message': { c: 'red', f: ['cinzel'] },
+        'nonote.heading': { c: '#12', f: '__proto__' },
+        'nonote.message': { c: 'red;}body{display:none', f: 'cinzel;}body{display:none', s: 85 },
         'rsvp.title': { c: 1 } /* no such line */,
         '__proto__': { c: 1 },
       },
     },
   });
-  assert.deepEqual(read, { lines: { 'rsvp.question': { c: 2, s: 120 }, 'rsvp.yes': { s: 110 }, 'nonote.message': { s: 85 } } });
+  assert.deepEqual(read, { lines: { 'rsvp.question': { c: 2, s: 120 }, 'rsvp.eyebrow': { c: '#ff0000', f: 'cinzel' }, 'rsvp.yes': { s: 110 }, 'pass.save': { f: 'playfair' }, 'nonote.message': { s: 85 } } });
   /* Absent, wrong-shaped, or empty: no look at all. */
   for (const raw of [null, undefined, 'x', [], {}, { look: null }, { look: [] }, { look: { lines: [] } }, { look: { lines: { 'rsvp.question': 'big' } } }]) assert.deepEqual(readRsvpLook(raw), {});
 });
@@ -143,6 +156,19 @@ test('2 · the rules a page draws: its own parts only, the event’s colours onl
   assert.equal(rsvpLookCss(look, ['yesnote'], ['red;}body{display:none}', '#123']), '');
   for (const parts of [['rsvp'], ['yesnote', 'pass'], ['nonote'], []]) assert.match(rsvpLookCss(look, parts, BOARD), SAFE_CSS);
   assert.equal(rsvpLookCss({}, ['rsvp'], BOARD), '');
+  /* 2026-10-10 · A PICKED COLOUR AND A FONT: the colour as the gate keeps it (no board needed), the font as the
+     Event Hub writes a part's — the face's own variable, then its fallback. A button: its font, never a colour. */
+  const picked = readRsvpLook({ look: { lines: { 'rsvp.question': { c: '#AA0011', f: 'cinzel', s: 110 }, 'rsvp.yes': { c: '#aa0011', f: 'playfair' } } } });
+  const drawn = rsvpLookCss(picked, ['rsvp'], []);
+  assert.equal(drawn, `[data-rsvp-line="question"][data-rsvp-line]{color:#aa0011;${face('cinzel')}zoom:1.1;}[data-rsvp-line="yes"][data-rsvp-line]{${face('playfair')}}`);
+  assert.match(face('cinzel'), /^font-family:var\(--font-[a-z-]+\), [A-Za-z, -]+;$/);
+  assert.match(drawn, SAFE_CSS);
+  /* EVERY font on the list is written in that one fixed shape — none carries anything else into the page. */
+  for (const key of Object.keys(HUB_FONT_BY_KEY)) assert.match(rsvpLookCss(readRsvpLook({ look: { lines: { 'rsvp.hint': { f: key } } } }), ['rsvp'], []), SAFE_CSS, `${key} is not written as a face’s variable and its fallback`);
+  assert.ok(Object.keys(HUB_FONT_BY_KEY).length > 30, 'the font list is thin');
+  /* A look that did NOT come through the reader (typed straight into the object) still writes nothing unchecked. */
+  assert.equal(rsvpLookCss({ lines: { 'rsvp.question': { c: 'red;}body{display:none', f: 'x);}body{display:none' } } } as never, ['rsvp'], BOARD), '');
+  assert.equal(rsvpLookCss({ lines: { 'rsvp.question': { f: '__proto__' } } } as never, ['rsvp'], BOARD), '');
 
   /* THE TAG, rendered. A guest of an event with no look is served nothing at all; the Maker's canvas always has the
      tag (with the event's colours on it), so a look picked in the panel has somewhere to be drawn. */
@@ -176,6 +202,13 @@ test('3 · no save drops it: the sanitiser and every writer built on it carry `l
   assert.deepEqual(rsvpLookWith(stored, 'rsvp.question', { c: null, s: 100 }), { groups: look.groups, order: look.order });
   assert.equal(rsvpLookWith({ look: { lines: { 'rsvp.question': { s: 120 } } } }, 'rsvp.question', { s: null }), undefined);
   assert.equal(rsvpLookWith({}, 'rsvp.question', { c: null }), undefined);
+  /* 2026-10-10 · the picker's colour is stored as the app's gate hands it back — a "colour" it refuses is not stored
+     at all; a font is stored by its key, and handing it back removes it. A stored slot is replaced, never mixed. */
+  assert.deepEqual(rsvpLookWith({}, 'rsvp.question', { c: '#AA0011' }), { lines: { 'rsvp.question': { c: '#aa0011' } } });
+  assert.equal(rsvpLookWith({}, 'rsvp.question', { c: 'red;}body{display:none' }), undefined);
+  assert.deepEqual(rsvpLookWith(stored, 'rsvp.question', { c: '#aa0011' }), { ...look, lines: { 'rsvp.question': { c: '#aa0011', s: 120 } } });
+  assert.deepEqual(rsvpLookWith(stored, 'rsvp.question', { f: 'cinzel' }), { ...look, lines: { 'rsvp.question': { c: 2, f: 'cinzel', s: 120 } } });
+  assert.equal(rsvpLookWith({ look: { lines: { 'rsvp.question': { f: 'cinzel' } } } }, 'rsvp.question', { f: null }), undefined);
 });
 
 /** The stage's panel, drawn for a picked line and tool. */
@@ -197,25 +230,33 @@ async function panel(scene: RsvpStageScene, picked: { tool: string; part: string
   );
 }
 
-test('4 · the panel: Style on a text line is Colour (the event’s five + the page’s own) and Size; a button has Size only', async () => {
-  const colours = (html: string) => [...html.matchAll(/data-rsvp-look-colour="(\w+)"/g)].map((m) => m[1]);
-  const text = await panel('form', { tool: 'style', part: 'rsvp', line: 'question' }, { look: { lines: { 'rsvp.question': { c: 2, s: 120 } } } });
+test('4 · the panel: Style on a text line is Font ▾, then ONE colour circle and Size on one row; a button has Font and Size', async () => {
+  const circles = (html: string) => [...html.matchAll(/data-rsvp-look-colour="([^"]+)"/g)].map((m) => m[1]);
+  const rows = (html: string) => [...html.matchAll(/data-rsvp-line-look-row="([a-z-]+)"/g)].map((m) => m[1]);
+  /* A colour kept as a slot the day before is shown as the event's colour in that place — still ONE circle. */
+  const text = await panel('form', { tool: 'style', part: 'rsvp', line: 'question' }, { look: { lines: { 'rsvp.question': { c: 2, s: 120, f: 'cinzel' } } } });
   assert.match(text, /data-rsvp-stage-line-style="rsvp\.question"/);
-  assert.deepEqual(colours(text), ['own', '1', '2', '3', '4', '5']);
-  assert.match(text, /<button type="button" aria-pressed="true"[^>]*data-rsvp-look-colour="2"/, 'the stored colour is not the one shown picked');
-  assert.match(text, /<button type="button" aria-pressed="false"[^>]*data-rsvp-look-colour="own"/);
-  assert.match(text, /data-rsvp-line-look-row="size"[\s\S]*120%/);
+  assert.deepEqual(circles(text), ['#6b7a3a'], 'the Colour is not ONE circle');
+  assert.match(text, /<button type="button" aria-pressed="true" aria-label="Colour #6b7a3a — change it"[^>]*data-rsvp-look-colour="#6b7a3a"/);
+  /* Font ▾ on its own row, first; then Colour and Size TOGETHER on the next (the cover line's last row). */
+  assert.deepEqual(rows(text), ['font', 'size']);
+  assert.match(text, /data-rsvp-line-look-row="font">.*?>Font<\/span>.*?<button type="button" aria-label="Font: Cinzel" aria-haspopup="listbox"[^>]*data-rsvp-look-font=""/s, 'the Font is not the one dropdown, showing the font kept');
+  assert.match(text, /data-rsvp-line-look-row="size">.*?>Colour<\/span>.*?data-rsvp-look-colour=.*?>Size<\/span>.*?data-slider="rsvp-look-size".*?120%/s, 'Colour and Size do not share the row');
+  assert.match(await panel('form', { tool: 'style', part: 'rsvp', line: 'question' }, { look: { lines: { 'rsvp.question': { c: '#AA0011' } } } }), /aria-label="Colour #aa0011 — change it"[^>]*data-rsvp-look-colour="#aa0011"/);
   assert.doesNotMatch(text, /data-rsvp-word-field|data-rsvp-setting=/, 'Style on a line draws the words or the settings too');
-  /* No look yet: the page's own colour is the one picked, at 100%. */
+  /* No look yet: the page's own colour (the striped circle), the line's font as designed, at 100%. */
   const fresh = await panel('thanks', { tool: 'style', part: 'yesnote', line: 'message' });
-  assert.match(fresh, /aria-pressed="true"[^>]*data-rsvp-look-colour="own"/);
+  assert.deepEqual(circles(fresh), ['own']);
+  assert.match(fresh, /aria-label="The page’s own colour — change it"[^>]*data-rsvp-look-colour="own"/);
+  assert.match(fresh, /aria-label="Font: Event Hub font"/);
   assert.match(fresh, /100%/);
-  /* A BUTTON — the two answers and the pass's Save: Size, and no colour of its own. */
+  /* A BUTTON — the two answers and the pass's Save: Font and Size, and no colour of its own. */
   for (const [scene, part, line] of [['form', 'rsvp', 'yes'], ['form', 'rsvp', 'no'], ['thanks', 'pass', 'save']] as const) {
     const html = await panel(scene, { tool: 'style', part, line });
-    assert.deepEqual(colours(html), [], `${line} offers a colour`);
-    assert.match(html, /data-rsvp-line-look-row="size"/);
-    assert.match(html, /data-rsvp-line-look-row="button-note"/);
+    assert.deepEqual(circles(html), [], `${line} offers a colour`);
+    assert.doesNotMatch(html, />Colour<\/span>/, `${line} names a colour`);
+    assert.deepEqual(rows(html), ['font', 'size', 'button-note']);
+    assert.match(html, /data-rsvp-look-font=""/, `${line} has no font`);
   }
   /* Every line has a Style; the group and Edit are not this. */
   for (const id of RSVP_LOOK_LINES) {
@@ -229,7 +270,17 @@ test('4 · the panel: Style on a text line is Colour (the event’s five + the p
   const ROWS = src(`${L}/rsvp-line-look.tsx`);
   assert.match(ROWS, /import \{ Swatch \} from '\.\/stage-panel\/kit';/);
   assert.match(ROWS, /import \{ SLIDER_VALUE, Slider \} from '@\/app\/_components\/slider';/);
-  assert.doesNotMatch(ROWS, /ColourSheet|ColourWell|type="color"|<input/, 'a colour can be typed or picked freely');
+  /* 🔁 RE-AIMED 2026-10-10. This line refused `ColourSheet` here ("a colour can be typed or picked freely"): the
+     owner's plan is the opposite — ONE circle that opens the app's ONE picker. What still holds: no colour input and
+     no well of this file's own; the circle is the picker's only trigger, and the picker can be closed. */
+  assert.match(ROWS, /import \{ ColourSheet \} from '\.\.\/\.\.\/website\/editor\/_components\/colour-well';/);
+  assert.match(ROWS, /import \{ FontPick \} from '\.\.\/\.\.\/website\/editor\/_components\/font-pick';/);
+  assert.doesNotMatch(ROWS, /ColourWell|type="color"|<input/, 'a colour is typed here, or a second well is drawn');
+  assert.equal(ROWS.match(/<Swatch\b/g)?.length, 1, 'more than one circle is drawn for a line’s colour');
+  assert.match(ROWS, /<Swatch\s+on\s[\s\S]{0,420}onPick=\{\(\) => setPicking\(true\)\}/, 'the circle does not open the picker');
+  assert.match(ROWS, /\{picking \? \(\s*<ColourSheet[\s\S]{0,200}palette=\{board\}[\s\S]{0,200}onPick=\{\(hex\) => onPick\(\{ c: hex \}\)\}\s*onUnset=\{\(\) => onPick\(\{ c: null \}\)\}\s*onClose=\{\(\) => setPicking\(false\)\}/, 'the picker does not keep, hand back or close');
+  assert.match(ROWS, /<FontPick eventId=\{eventId\} label="Font" dataAttr="data-rsvp-look-font" value=\{now\.f \?\? null\} lead="Event Hub font" onPick=\{\(f\) => onPick\(\{ f \}\)\}/, 'the Font is not the one font dropdown');
+  assert.doesNotMatch(ROWS, /board\.(slice|map)\(/, 'a row of swatches is back on the line’s Colour');
 });
 
 test('5 · the ceiling: a save that would not fit is refused in a sentence — and what is already kept can still shrink', () => {
@@ -253,6 +304,8 @@ test('5 · the ceiling: a save that would not fit is refused in a sentence — a
     /const next: RsvpAskConfig = \{ \.\.\.latest\.current, \.\.\.patch \};\s*if \(!rsvpConfigFits\(next, latest\.current\)\) \{\s*setError\(said \? null : RSVP_CONFIG_FULL\);\s*return Promise\.resolve\(\{ ok: false, error: RSVP_CONFIG_FULL \}\);\s*\}\s*latest\.current = next;/,
   );
   assert.match(PANEL, /void save\(\{ look: rsvpLookWith\(latest\.current, lookLine, patch\) \}, 'c' in patch \? '“Colour”' : '“Size”'\);/);
+  /* 2026-10-10 · a Font pick goes through the same one save, and is named for what it is. */
+  assert.match(PANEL, /if \('f' in patch\) return void save\(\{ look: rsvpLookWith\(latest\.current, lookLine, patch\) \}, '“Font”'\);/);
 });
 
 /* ── the fake page (the shapes `rsvp-canvas-parts.ts` asks for) ─────────────────────────────────────────────────── */

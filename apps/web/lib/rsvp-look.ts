@@ -4,9 +4,17 @@
  * Owner, on the live Maker's RSVP stage (2026-10-09): "shouldn't it be per element?" — every line is its own part,
  * so Style is the picked line's. Controller's conditions, all held here:
  *   · ABSENT = TODAY'S LOOK. No key, no rule: a page that never met the Maker draws exactly as it did.
- *   · EVERY STORED VALUE IS ONE OF A FIXED LIST — a colour is a SLOT of the event's own five colours (1–5, never a
- *     colour typed by hand), a size is one of six named steps. Nothing a person typed ever reaches CSS: `readRsvpLook`
- *     keeps only those, and it is the ONLY way a page or the Maker reads the object.
+ *   · EVERY STORED VALUE IS CHECKED — a size is one of six named steps, a font is a key of the app's own font list
+ *     (`HUB_FONTS`), and a colour is what the app's ONE colour picker hands back: `#rrggbb`, kept only through the
+ *     app's own colour gate (`hubElementColor`, the one a cover line's colour goes through). Nothing a person typed
+ *     ever reaches CSS unchecked: `readRsvpLook` keeps only those, and it is the ONLY way a page or the Maker reads
+ *     the object.
+ *
+ * 🎨 ONE COLOUR, FROM THE ONE PICKER (owner 2026-10-10: *"i thought our plan for colour is just 1 colour with a color
+ * picker pop up?"*) — the same shape a cover line's colour is stored in. It was a SLOT (1–5) of the event's five
+ * colours for one day: a stored slot is still read and still drawn from the event's colours, and is never written
+ * again. 🔤 A FONT OF ITS OWN (*"Should be Font instead of Look and should be drop down"*): a part's own font, as the
+ * Event Hub's parts have it — a key into `HUB_FONTS`, drawn through that face's own variable.
  *   · It rides the same object, the same draft and the same Apply as the words — no new read for a guest.
  *
  * The first-load sanitiser (`sanitizeRsvpAskConfig`, read by `lib/hub-draft.ts`) only carries `look` through, so an
@@ -22,6 +30,8 @@
  */
 
 import { FEEL_SECONDS } from './animate-feel';
+import { hubElementColor } from './element-style';
+import { HUB_FONT_BY_KEY, sanitizeHubFontKey, type HubFontKey } from './hub-fonts';
 import { motionFxFrame, sanitizeMotionFx, type MotionFx } from './motion-effects';
 import { RSVP_LOOK_MESSAGE, RSVP_LOOK_STYLE_ATTR } from './rsvp-stage-shared';
 
@@ -42,15 +52,17 @@ export const RSVP_LOOK_LINES = [
 ] as const;
 export type RsvpLookLine = (typeof RSVP_LOOK_LINES)[number];
 
-/** A BUTTON line: its colours are Look › Buttons' (one set for every button of the event) — only its size is its own. */
+/** A BUTTON line: its colours are Look › Buttons' (one set for every button of the event) — its font and size are its own. */
 export const RSVP_LOOK_BUTTON_LINES: readonly RsvpLookLine[] = ['rsvp.yes', 'rsvp.no', 'pass.save'];
 
 /** The six sizes, as % of the line's own size — a subset of the Event Hub's steps (`HUB_ELEMENT_SIZE_STEPS`). */
 export const RSVP_LOOK_SIZES = [85, 92, 100, 110, 120, 132] as const;
 export type RsvpLookSize = (typeof RSVP_LOOK_SIZES)[number];
-/** The colour slots: the event's own five colours, in their order. */
+/** The colour slots: the event's own five colours, in their order. READ ONLY since 2026-10-10 — see the top. */
 export const RSVP_LOOK_SLOTS = [1, 2, 3, 4, 5] as const;
 export type RsvpLookSlot = (typeof RSVP_LOOK_SLOTS)[number];
+/** A line's colour: what the one picker handed back (`#rrggbb`, through `hubElementColor`) — or an older slot. */
+export type RsvpLookColour = RsvpLookSlot | string;
 
 /**
  * ✨ HOW A LINE (OR THE CARD) ARRIVES — its Build in. `i`: the Event Hub's own effects, in its own stored shape
@@ -63,8 +75,8 @@ export const RSVP_LOOK_FEELS = ['quick', 'cinematic'] as const;
 export type RsvpLookFeel = (typeof RSVP_LOOK_FEELS)[number];
 export type RsvpMotion = { i?: MotionFx; v?: RsvpLookFeel };
 
-/** One line's look. `c` a colour slot · `s` a size · its Build in. Short keys: the object lives under a 2 KB cap. */
-export type RsvpLineLook = { c?: RsvpLookSlot; s?: RsvpLookSize } & RsvpMotion;
+/** One line's look. `c` a colour · `f` a font · `s` a size · its Build in. Short keys: the object lives under a 2 KB cap. */
+export type RsvpLineLook = { c?: RsvpLookColour; f?: HubFontKey; s?: RsvpLookSize } & RsvpMotion;
 
 /**
  * 🃏 THE CARD — each screen's group of lines is one block (`RSVP_CARD_GROUPS`, `rsvp-canvas-parts.ts`), keyed by the
@@ -113,7 +125,10 @@ export function readRsvpLook(config: unknown): RsvpLook {
     const v = lines[id];
     if (!isObject(v)) continue;
     const look: RsvpLineLook = readMotion(v);
-    if (!RSVP_LOOK_BUTTON_LINES.includes(id) && (RSVP_LOOK_SLOTS as readonly unknown[]).includes(v.c)) look.c = v.c as RsvpLookSlot;
+    const colour = RSVP_LOOK_BUTTON_LINES.includes(id) ? null : (RSVP_LOOK_SLOTS as readonly unknown[]).includes(v.c) ? (v.c as RsvpLookSlot) : hubElementColor(v.c);
+    if (colour) look.c = colour;
+    const font = sanitizeHubFontKey(v.f);
+    if (font) look.f = font;
     if ((RSVP_LOOK_SIZES as readonly unknown[]).includes(v.s) && v.s !== 100) look.s = v.s as RsvpLookSize;
     if (Object.keys(look).length > 0) (out.lines ??= {})[id] = look;
   }
@@ -136,7 +151,7 @@ export function readRsvpLook(config: unknown): RsvpLook {
 export function rsvpLookWith(
   config: unknown,
   target: RsvpLookTarget,
-  patch: { c?: RsvpLookSlot | null; s?: RsvpLookSize | null; g?: RsvpCardGround | null; i?: MotionFx | null; v?: RsvpLookFeel | null },
+  patch: { c?: RsvpLookColour | null; f?: HubFontKey | null; s?: RsvpLookSize | null; g?: RsvpCardGround | null; i?: MotionFx | null; v?: RsvpLookFeel | null },
 ): Record<string, unknown> | undefined {
   const rest: Record<string, unknown> = isObject(config) && isObject(config.look) ? { ...config.look } : {};
   const read = readRsvpLook(config);
@@ -144,7 +159,11 @@ export function rsvpLookWith(
   for (const [key, value] of Object.entries(patch)) {
     if (value === undefined) continue;
     if (value === null || (key === 's' && value === 100)) delete one[key];
-    else one[key] = value;
+    /* A picked colour is stored as the app's colour gate hands it back — or not at all. */
+    else if (key === 'c' && typeof value === 'string') {
+      const colour = hubElementColor(value);
+      if (colour) one.c = colour;
+    } else one[key] = value;
   }
   if (!one.i) delete one.v; /* a feel times an effect: with none there is nothing to keep */
   const all: Record<string, unknown> = { ...(typeof target === 'string' ? read.lines : read.card) };
@@ -159,8 +178,6 @@ export function rsvpLookWith(
   }
   return Object.keys(rest).length > 0 ? rest : undefined;
 }
-
-const HEX = /^#[0-9a-f]{6}$/i;
 
 /** The door's card, for every guest: the block that holds the masthead (`DoorShell`). No attribute is served for it. */
 export const RSVP_CARD_SELECTOR = 'div:has(>[data-door-header])';
@@ -217,8 +234,11 @@ export function rsvpLookRules(look: RsvpLook, parts: readonly string[], board: r
     const [part, line] = id.split('.') as [string, string];
     const v = look.lines?.[id];
     if (!v || !parts.includes(part)) continue;
-    const colour = v.c ? board[v.c - 1] : undefined;
-    const rules = `${colour && HEX.test(colour) ? `color:${colour.toLowerCase()};` : ''}${v.s ? `zoom:${v.s / 100};` : ''}${motionRules(v)}`;
+    /* Its own colour, or an older slot's (the event's colour in that place) — either way through the one gate. */
+    const colour = hubElementColor(typeof v.c === 'number' ? board[v.c - 1] : v.c);
+    const font = sanitizeHubFontKey(v.f);
+    const face = font ? `font-family:var(${HUB_FONT_BY_KEY[font].cssVar}), ${HUB_FONT_BY_KEY[font].fallback};` : '';
+    const rules = `${colour ? `color:${colour};` : ''}${face}${v.s ? `zoom:${v.s / 100};` : ''}${motionRules(v)}`;
     if (rules) out.push({ selector: `[data-rsvp-line="${line}"][data-rsvp-line]`, rules, moves: Boolean(v.i) });
   }
   return out;
@@ -227,8 +247,9 @@ export function rsvpLookRules(look: RsvpLook, parts: readonly string[], board: r
 /**
  * THE RULES A PAGE DRAWS, as the text of its one `<style>`. `board`: the event's five colours
  * (`celebrationColours(boardSwatches(role_palette))`, the same list the Maker's swatches show). Every value written
- * is from a fixed list or that board (checked `#rrggbb`); a slot the board does not hold draws nothing. `zoom` is how
- * the Event Hub sizes a part (`lib/element-style.ts`): the line's own size ×.
+ * is from a fixed list or a checked colour (`hubElementColor`); a slot the board does not hold draws nothing. A font
+ * is written as the Event Hub writes a part's (`hubElementDeclarations`): the face's own variable, then its
+ * fallback. `zoom` is how the Event Hub sizes a part (`lib/element-style.ts`): the line's own size ×.
  */
 export function rsvpLookCss(look: RsvpLook, parts: readonly string[], board: readonly string[]): string {
   const all = rsvpLookRules(look, parts, board);

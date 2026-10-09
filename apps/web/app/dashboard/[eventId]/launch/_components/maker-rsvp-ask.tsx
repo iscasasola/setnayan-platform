@@ -513,17 +513,19 @@ export function MakerRsvpSettings({
         </div>
       );
     }
-    /* 🎨 STYLE, a line picked — its Colour and its Size (`rsvp-line-look.tsx`), kept in the same one object as the
+    /* 🎨 STYLE, a line picked — its Font, its Colour and its Size (`rsvp-line-look.tsx`), kept in the same one object as the
        words (`look`, `lib/rsvp-look.ts`): on the canvas at the tap, in the draft behind it, live on Apply. */
     const lookLine = rsvpLookLine(picked.part, picked.line);
     if (picked.tool === 'style' && lookLine) {
       return (
         <div className="flex flex-col px-1" data-rsvp-stage-controls={scene} data-rsvp-stage-line-style={lookLine}>
           <RsvpLineLookRows
+            eventId={eventId}
             line={lookLine}
             now={readRsvpLook(local).lines?.[lookLine] ?? {}}
             board={celebration?.colours ?? []}
             onPick={(patch) => {
+              if ('f' in patch) return void save({ look: rsvpLookWith(latest.current, lookLine, patch) }, '“Font”');
               void save({ look: rsvpLookWith(latest.current, lookLine, patch) }, 'c' in patch ? '“Colour”' : '“Size”');
             }}
           />

@@ -1,10 +1,13 @@
 'use client';
 
+import { useState } from 'react';
 import { SLIDER_VALUE, Slider } from '@/app/_components/slider';
 import { Square } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { FEEL_OFF, type AnimateFeel } from '@/lib/animate-feel';
-import { SP_BG_TILE, SP_BG_TILE_FACE, SP_BG_TILE_NAME, SP_BG_TILE_SLASH, SP_BG_TILE_TONE, SP_LOOK_ROW, SP_LOOK_ROW_LABEL } from '@/lib/maker-stage-room';
+import { hubElementColor } from '@/lib/element-style';
+import type { HubFontKey } from '@/lib/hub-fonts';
+import { SP_BG_TILE, SP_BG_TILE_FACE, SP_BG_TILE_NAME, SP_BG_TILE_SLASH, SP_BG_TILE_TONE, SP_DD, SP_DD_BUTTON, SP_LOOK_ROW, SP_LOOK_ROW_LABEL } from '@/lib/maker-stage-room';
 import type { MotionFx } from '@/lib/motion-effects';
 import {
   RSVP_LOOK_BUTTON_LINES,
@@ -14,62 +17,86 @@ import {
   type RsvpLookFeel,
   type RsvpLookLine,
   type RsvpLookSize,
-  type RsvpLookSlot,
   type RsvpMotion,
 } from '@/lib/rsvp-look';
+import { ColourSheet } from '../../website/editor/_components/colour-well';
+import { FontPick } from '../../website/editor/_components/font-pick';
 import { Swatch } from './stage-panel/kit';
 import { StageAnimate } from './stage-panel/stage-animate';
 
 /**
- * 🎨 STYLE FOR ONE LINE OF THE RSVP STAGE — Colour and Size (owner 2026-10-09: "shouldn't it be per element?").
+ * 🎨 STYLE FOR ONE LINE OF THE RSVP STAGE — Font, then Colour · Size on one row (owner 2026-10-09: "shouldn't it be
+ * per element?"; 2026-10-10, looking at this panel: *"Should be Font instead of Look and should be drop down"* ·
+ * *"i thought our plan for colour is just 1 colour with a color picker pop up?"*).
  *
- * The same two controls a cover's line has (`stage-panel/stage-look-row.tsx`: the swatch, the slider, the same row),
- * with one difference the stored shape asks for: a colour is one of the EVENT'S OWN five (a slot, so it follows the
- * colours if they change, and nothing typed by hand is ever stored) — never the any-colour picker.
+ *   Font    Event Hub font ▾          the app's ONE font dropdown (`FontPick`, on `PickMenu`) — the same faces a
+ *                                     part of the Event Hub is offered; the first choice is the line as designed
+ *   Colour  ◍   Size ━━━●━━━ 100%     a cover line's own last row (`stage-panel/stage-look-row.tsx`): ONE circle
+ *                                     wearing the line's colour — striped while it is the page's own — that opens
+ *                                     the app's ONE colour picker (`ColourSheet`), and the app's slider
+ *
+ * The two rows keep the toolbar's own gap between rows (`--sp-rg`, `SP_ROWS`), so they sit where its rows 1 and 2 do.
+ *
+ * Nothing here is a new control: the circle, the picker, the dropdown and the slider are the shipped ones. A colour
+ * stored as one of the event's five (a slot, the day before) is shown as that colour; picking stores what the picker
+ * hands back, as a cover line does.
  *
  * No look cards: a reply page's lines have no premade looks, and none were invented. A BUTTON (the two answers, the
- * pass's Save) has Size only — its colours are Look › Buttons', one set for every button of the event.
+ * pass's Save) has Font and Size — its colours are Look › Buttons', one set for every button of the event.
  */
 export function RsvpLineLookRows({
+  eventId,
   line,
   now,
   board,
   onPick,
 }: {
+  eventId: string;
   line: RsvpLookLine;
   now: RsvpLineLook;
   /** The event's five colours, in slot order. */
   board: readonly string[];
-  onPick: (patch: { c?: RsvpLookSlot | null; s?: RsvpLookSize | null }) => void;
+  onPick: (patch: { c?: string | null; f?: HubFontKey | null; s?: RsvpLookSize | null }) => void;
 }) {
+  const [picking, setPicking] = useState(false);
   const button = RSVP_LOOK_BUTTON_LINES.includes(line);
   const size = now.s ?? 100;
   const at = Math.max(0, RSVP_LOOK_SIZES.indexOf(size));
+  /* The colour worn: its own, or an older slot's — the event's colour in that place. */
+  const colour = hubElementColor(typeof now.c === 'number' ? board[now.c - 1] : now.c);
   return (
-    <div className="flex flex-col" data-rsvp-line-look={line}>
-      {button ? null : (
-        <div className={`${SP_LOOK_ROW} min-h-11`} data-rsvp-line-look-row="colour">
-          <span className={SP_LOOK_ROW_LABEL}>Colour</span>
-          <Swatch
-            on={!now.c}
-            label="The page’s own colour"
-            face={<span className="absolute inset-0 bg-[repeating-linear-gradient(45deg,#fff_0_4px,#EDE8DF_4px_8px)]" />}
-            onPick={() => onPick({ c: null })}
-            data={{ 'data-rsvp-look-colour': 'own' }}
-          />
-          {board.slice(0, 5).map((hex, i) => (
-            <Swatch
-              key={hex + i}
-              on={now.c === i + 1}
-              label={`Colour ${i + 1} of your event’s colours`}
-              face={<span className="absolute inset-0" style={{ background: hex }} />}
-              onPick={() => onPick({ c: (i + 1) as RsvpLookSlot })}
-              data={{ 'data-rsvp-look-colour': String(i + 1) }}
-            />
-          ))}
-        </div>
-      )}
+    <div className="flex flex-col gap-y-[var(--sp-rg)]" data-rsvp-line-look={line}>
+      <div className={`${SP_LOOK_ROW} min-h-11`} data-rsvp-line-look-row="font">
+        <span className={SP_LOOK_ROW_LABEL}>Font</span>
+        <span className={SP_DD} data-stage-dd="font">
+          <FontPick eventId={eventId} label="Font" dataAttr="data-rsvp-look-font" value={now.f ?? null} lead="Event Hub font" onPick={(f) => onPick({ f })} className={SP_DD_BUTTON} />
+        </span>
+      </div>
       <div className={`${SP_LOOK_ROW} min-h-11`} data-rsvp-line-look-row="size">
+        {button ? null : (
+          <>
+            <span className={SP_LOOK_ROW_LABEL}>Colour</span>
+            <Swatch
+              on
+              label={colour ? `Colour ${colour} — change it` : 'The page’s own colour — change it'}
+              face={colour ? <span className="absolute inset-0" style={{ background: colour }} /> : <span className="absolute inset-0 bg-[repeating-linear-gradient(45deg,#fff_0_4px,#EDE8DF_4px_8px)]" />}
+              onPick={() => setPicking(true)}
+              data={{ 'data-rsvp-look-colour': colour ?? 'own' }}
+            />
+            {picking ? (
+              <ColourSheet
+                value={colour}
+                shown="#2C2A29"
+                what="this line"
+                palette={board}
+                slots={board.length === 5}
+                onPick={(hex) => onPick({ c: hex })}
+                onUnset={() => onPick({ c: null })}
+                onClose={() => setPicking(false)}
+              />
+            ) : null}
+          </>
+        )}
         <span className={SP_LOOK_ROW_LABEL}>Size</span>
         <span className="relative flex h-11 min-w-0 flex-1 items-center px-1">
           <Slider label="Text size" data="rsvp-look-size" min={0} max={RSVP_LOOK_SIZES.length - 1} step={1} value={at} valueText={`${size}%`} onChange={(i) => onPick({ s: RSVP_LOOK_SIZES[i] ?? 100 })} />

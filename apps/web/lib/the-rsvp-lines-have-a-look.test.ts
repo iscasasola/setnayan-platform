@@ -56,8 +56,10 @@ import {
   RSVP_LOOK_CARDS,
   RSVP_LOOK_FEELS,
   rsvpLookCard,
+  RSVP_INNER_CARD_SELECTOR,
   rsvpLookCss,
   rsvpLookLine,
+  rsvpLookRules,
   rsvpLookWith,
 } from './rsvp-look';
 import { FEEL_SECONDS } from './animate-feel';
@@ -94,7 +96,8 @@ const BOARD = ['#5b1a22', '#6B7A3A', '#e0a52b', '#8e2e3c', '#f2c8c2'];
 const MOVES = String.raw`(--rl-o:[01];--rl-t:translate3d\(-?\d+px, -?\d+px, 0\) scale\([0-9.]+\);--rl-f:(none|blur\(8px\));animation:rsvp-in [0-9.]+s cubic-bezier\(\.16,1,\.3,1\) both;)?`;
 const GROUNDS = String.raw`(background:transparent!important;border-color:transparent!important;box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;|background:var\(--sn-glass-bg\)!important;border-color:var\(--sn-glass-line\)!important;backdrop-filter:var\(--sn-glass-blur\)!important;-webkit-backdrop-filter:var\(--sn-glass-blur\)!important;)?`;
 const TAIL = String.raw`(@keyframes rsvp-in\{from\{opacity:var\(--rl-o\);transform:var\(--rl-t\);filter:var\(--rl-f\)\}\}@media \(prefers-reduced-motion:reduce\)\{\[data-rsvp-line\],div:has\(>\[data-door-header\]\)\{animation:none!important\}\})?`;
-const SAFE_CSS = new RegExp(String.raw`^(div:has\(>\[data-door-header\]\)\{${GROUNDS}${MOVES}\})?(\[data-rsvp-line="[a-z]+"\]\[data-rsvp-line\]\{(color:#[0-9a-f]{6};)?(zoom:[0-9.]+;)?${MOVES}\})*${TAIL}$`);
+const INNER = String.raw`(\[data-landing-missed\]\{background:transparent!important;border-color:transparent!important;box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;\})?`;
+const SAFE_CSS = new RegExp(String.raw`^(div:has\(>\[data-door-header\]\)\{${GROUNDS}${MOVES}\})?${INNER}(\[data-rsvp-line="[a-z]+"\]\[data-rsvp-line\]\{(color:#[0-9a-f]{6};)?(zoom:[0-9.]+;)?${MOVES}\})*${TAIL}$`);
 
 test('1 · the reader is strict: known lines, listed values, and no colour of its own for a button', () => {
   /* The lines are the stage's lines — said from the page's own list, not from the module under test. */
@@ -372,7 +375,7 @@ test('7 · WIRING: the pages carry the one <style>, the canvas redraws it from t
   const BRIDGE = src('app/[slug]/_components/rsvp-canvas-bridge.tsx');
   assert.match(
     BRIDGE,
-    /if \(d\.t === RSVP_LOOK_MESSAGE\) \{\s*const look = d\.look;\s*void import\('@\/lib\/rsvp-look'\)\.then\(\(\{ readRsvpLook, rsvpLookCss \}\) => \{\s*document\.querySelectorAll<HTMLElement>\(`style\[\$\{RSVP_LOOK_STYLE_ATTR\}\]`\)\.forEach\(\(el\) => \{\s*const css = rsvpLookCss\(readRsvpLook\(\{ look \}\), \(el\.getAttribute\(RSVP_LOOK_STYLE_ATTR\) \?\? ''\)\.split\(' '\), \(el\.dataset\.rsvpBoard \?\? ''\)\.split\(' '\)\);/,
+    /if \(d\.t === RSVP_LOOK_MESSAGE\) \{\s*const look = d\.look;\s*void import\('@\/lib\/rsvp-look'\)\.then\(\(\{ readRsvpLook, rsvpLookCss, rsvpLookRules \}\) => \{\s*document\.querySelectorAll<HTMLElement>\(`style\[\$\{RSVP_LOOK_STYLE_ATTR\}\]`\)\.forEach\(\(el\) => \{\s*const read = readRsvpLook\(\{ look \}\);\s*const parts = \(el\.getAttribute\(RSVP_LOOK_STYLE_ATTR\) \?\? ''\)\.split\(' '\);\s*const board = \(el\.dataset\.rsvpBoard \?\? ''\)\.split\(' '\);\s*const css = rsvpLookCss\(read, parts, board\);/,
   );
   /* …and a GUEST'S BUNDLE NEVER CARRIES THE READER: the bridge rides the reply card's own client code, so it reaches
      the reader only by the import above (on that message) — its static imports hold the two names alone. */
@@ -494,4 +497,75 @@ test('10 · WIRING: Background and Animate are live on a reply card and its line
   const ANIMATE = src(`${L}/stage-panel/stage-animate.tsx`);
   assert.match(ANIMATE, /const at: AnimatePhase = only \?\? phase;\s*const end = at === 'act' \? null : at;/);
   assert.match(ANIMATE, /\{only \? null : \(\s*<div className=\{`\$\{SP_ROWS_ROW\} row-start-1`\}>\s*<Phases<AnimatePhase>/);
+});
+
+/* ══ 11 · WHAT IS REPLAYED IS ASKED OF THE READER — NEVER DUG OUT OF THE CSS ═══════════════════════════════════════
+   Controller, on the review copy (2026-10-10): choosing Move on the Question threw
+     "SyntaxError: Failed to execute 'querySelectorAll' on 'Document': '@media (prefers-reduced-motion:reduce)' is not
+      a valid selector."
+   The canvas split the finished CSS on "}" to find which rule had changed, and the reduced-motion block — which
+   holds the word "animation" — came out as a "selector". The rules are data now (`rsvpLookRules`); the keyframe and
+   the reduced-motion block are the text's own tail and are in no list a page is asked for.
+   Sabotages seen red (each restored): the tail put among the rules · the canvas splitting the text again. */
+
+/** Everything a page may be ASKED for: the card, the inner note card, a named line. Never an at-rule. */
+const A_SELECTOR = /^(div:has\(>\[data-door-header\]\)|\[data-landing-missed\]|\[data-rsvp-line="[a-z]+"\]\[data-rsvp-line\])$/;
+
+test('11 · a look with the reduced-motion block is never read as a selector; only a changed Build in is replayed', () => {
+  const look = readRsvpLook({ look: { card: { rsvp: { g: 'frost', i: { fade: true } } }, lines: { 'rsvp.question': { c: 2, i: { move: 'below' }, v: 'quick' }, 'rsvp.hint': { s: 85 } } } });
+  const css = rsvpLookCss(look, ['rsvp'], BOARD);
+  /* The text DOES hold the block (the very thing that was mis-read)… */
+  assert.match(css, /@media \(prefers-reduced-motion:reduce\)\{/);
+  assert.match(css, /@keyframes rsvp-in\{/);
+  /* …and no rule a page is asked for is it, or the keyframe: every selector is one of the three plain kinds. */
+  const rules = rsvpLookRules(look, ['rsvp'], BOARD);
+  assert.equal(rules.length, 3);
+  for (const r of rules) {
+    assert.match(r.selector, A_SELECTOR, `${r.selector} would be handed to querySelectorAll`);
+    assert.doesNotMatch(r.selector + r.rules, /[@{}]/, 'a rule carries a block of its own');
+  }
+  /* The text is exactly those rules and then the tail — nothing a reader of the text could find that the list lacks. */
+  assert.ok(css.startsWith(rules.map((r) => `${r.selector}{${r.rules}}`).join('')));
+  assert.deepEqual(rules.map((r) => r.moves), [true, true, false], 'what moves is not said by the reader');
+  /* What the canvas replays, done here as it does it: the selectors of the rules that MOVE and CHANGED — all valid. */
+  const played = new Map<string, string>();
+  const replay = (next: ReturnType<typeof rsvpLookRules>) => {
+    const out = next.filter((r) => r.moves && played.get(r.selector) !== r.rules).map((r) => r.selector);
+    played.clear();
+    for (const r of next) if (r.moves) played.set(r.selector, r.rules);
+    return out;
+  };
+  assert.deepEqual(replay(rules), ['div:has(>[data-door-header])', '[data-rsvp-line="question"][data-rsvp-line]']);
+  assert.deepEqual(replay(rules), [], 'an unchanged Build in plays again');
+  /* A colour changed on a moving line changes its rule → it plays again; the card, untouched, does not. */
+  const recoloured = rsvpLookRules(readRsvpLook({ look: { card: { rsvp: { g: 'frost', i: { fade: true } } }, lines: { 'rsvp.question': { c: 3, i: { move: 'below' }, v: 'quick' } } } }), ['rsvp'], BOARD);
+  assert.deepEqual(replay(recoloured), ['[data-rsvp-line="question"][data-rsvp-line]']);
+  /* THE CANVAS does exactly that — and never takes the text apart. */
+  const BRIDGE = src('app/[slug]/_components/rsvp-canvas-bridge.tsx');
+  assert.match(BRIDGE, /for \(const rule of rsvpLookRules\(read, parts, board\)\) \{\s*if \(!rule\.moves \|\| played\.get\(rule\.selector\) === rule\.rules\) continue;\s*document\.querySelectorAll<HTMLElement>\(rule\.selector\)\.forEach\(/);
+  assert.doesNotMatch(BRIDGE, /\.split\('\}'\)|rule\.slice\(|includes\('animation:'\)/, 'the canvas reads selectors out of the CSS text again');
+  /* The ONLY querySelectorAll calls with a built string are the tag's own and the reader's selectors. */
+  assert.equal((BRIDGE.match(/querySelectorAll<HTMLElement>\(rule\.selector\)/g) ?? []).length, 1);
+});
+
+test('11 · When no shows ONE card: with a ground chosen for the door’s card, the note’s own card gives up its paper', () => {
+  assert.equal(RSVP_INNER_CARD_SELECTOR, '[data-landing-missed]');
+  const inner = (raw: unknown, parts: string[]) => rsvpLookRules(readRsvpLook(raw), parts, BOARD).filter((r) => r.selector === RSVP_INNER_CARD_SELECTOR);
+  /* Nothing set — or only a Build in — is today's look exactly: both cards, untouched. */
+  assert.deepEqual(inner({}, ['nonote']), []);
+  assert.deepEqual(inner({ look: { card: { nonote: { i: { fade: true } } } } }, ['nonote']), []);
+  /* None or Frosted: the inner card's paper, border and shadow go. */
+  for (const g of ['none', 'frost']) {
+    const got = inner({ look: { card: { nonote: { g } } } }, ['nonote']);
+    assert.equal(got.length, 1, `${g}: two cards still show`);
+    assert.match(got[0]!.rules, /^background:transparent!important;border-color:transparent!important;box-shadow:none!important;/);
+    assert.equal(got[0]!.moves, false);
+  }
+  /* Only When no has a card inside its card: the form's and When yes's grounds touch no inner card. */
+  assert.deepEqual(inner({ look: { card: { rsvp: { g: 'none' }, yesnote: { g: 'frost' } } } }, ['rsvp']), []);
+  assert.deepEqual(inner({ look: { card: { rsvp: { g: 'none' }, yesnote: { g: 'frost' } } } }, ['yesnote', 'pass']), []);
+  assert.match(rsvpLookCss(readRsvpLook({ look: { card: { nonote: { g: 'frost' } } } }), ['nonote'], BOARD), SAFE_CSS);
+  /* The real note card is the one addressed (and the lab's stand-in draws the same one). */
+  assert.match(src('app/[slug]/invite/enter/page.tsx'), /<div className="sn-glass-bare rounded-2xl bg-cream\/95 px-5 py-7 text-center shadow-sm" data-landing-missed="">/);
+  assert.match(src('app/dev/maker-lab/guest/page.tsx'), /<div className="sn-glass-bare mt-6 rounded-2xl bg-cream\/95 px-5 py-7 text-center shadow-sm" data-landing-missed="">/);
 });

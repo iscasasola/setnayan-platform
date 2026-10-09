@@ -157,18 +157,41 @@
   align-items: center;
   gap: 12px;
 }
-.ico {
-  width: 40px;
-  height: 40px;
-  flex: 0 0 auto;
-  border-radius: 50%;
-  background: var(--gs-gild-soft);
-  color: var(--gs-gild);
+.ico,
+.ava {
+  /* A ROUND BUTTON STAYS ROUND (owner 2026-10-09, "not round on select guests"). 🔑 `globals.css` gives every <button> a
+     44-px min-height, which beat the 40-px height and stretched every select circle into a 40 × 44 oval. The BUTTON is the
+     44 × 44 tap target (a negative margin keeps the layout at 40 × 40) and the DISC is drawn inside it by `::before`, 40 × 40
+     and centred — a halo outside the button would be clipped by the fold and the sticky block around it. The picked ring
+     and the tint belong to the disc. Held by `a-44px-tap-target-is-not-a-44px-ring.test.ts`. */
+  --disc: var(--gs-gild-soft);
+  position: relative;
+  isolation: isolate;
+  width: 44px;
+  height: 44px;
+  min-width: 0;
+  min-height: 0;
+  margin: -2px;
+  padding: 0;
+  border: 0;
+  background: transparent;
   display: grid;
   place-items: center;
+}
+.ico::before,
+.ava::before {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  z-index: -1;
+  border-radius: 50%;
+  background: var(--disc);
+}
+.ico {
+  flex: 0 0 auto;
+  color: var(--gs-gild);
   font-size: 14px;
   font-weight: 600;
-  border: 0;
   transition: transform 200ms var(--gs-ease);
 }
 .ico svg {
@@ -179,11 +202,13 @@ button.ico {
   cursor: pointer;
 }
 .ico.picked {
-  outline: 2px solid var(--gs-brand);
-  outline-offset: 2px;
-  background: color-mix(in srgb, var(--gs-brand) 12%, transparent);
+  --disc: color-mix(in srgb, var(--gs-brand) 12%, transparent);
   color: var(--gs-brand);
   animation: gs-popin 320ms var(--gs-ease);
+}
+.ico.picked::before {
+  outline: 2px solid var(--gs-brand);
+  outline-offset: 2px;
 }
 .lab {
   white-space: nowrap;
@@ -244,35 +269,30 @@ button.ico {
   margin-left: 20px;
 }
 .ava {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  background: var(--gs-gild-soft);
   font-size: 12px;
   font-weight: 600;
   color: var(--gs-gild);
-  border: 0;
-  padding: 0;
-  overflow: hidden;
   cursor: pointer;
 }
+/* The picture is clipped to the circle by its own radius, and sized to the DISC (the button around it is 44). */
 .ava img {
-  width: 100%;
-  height: 100%;
+  width: 40px;
+  height: 40px;
   object-fit: cover;
+  border-radius: 50%;
 }
 .ava svg {
   width: 18px;
   height: 18px;
 }
 .g.picked .ava {
-  outline: 2px solid var(--gs-brand);
-  outline-offset: 2px;
-  background: color-mix(in srgb, var(--gs-brand) 12%, transparent);
+  --disc: color-mix(in srgb, var(--gs-brand) 12%, transparent);
   color: var(--gs-brand);
   animation: gs-popin 320ms var(--gs-ease);
+}
+.g.picked .ava::before {
+  outline: 2px solid var(--gs-brand);
+  outline-offset: 2px;
 }
 .who {
   text-align: left;
@@ -372,6 +392,10 @@ button.ico {
   flex-wrap: nowrap;
   overflow: hidden;
   min-width: 0;
+  /* Room for the round buttons' tap halo (2 px above and below, see `.ico`): the group clips what overflows it, and a
+     halo is exactly that. Padding and a margin of the same size — nothing moves, nothing is measured differently. */
+  padding: 2px 0;
+  margin: -2px 0;
 }
 [data-row-state='text'] .acts :global(.ab) svg,
 [data-row-state='text'] .thumb :global(.ab):not(.grow) svg,
@@ -382,6 +406,21 @@ button.ico {
 [data-row-state='icon'] .thumb :global(.ab):not(.grow) {
   width: 40px;
   padding: 0;
+}
+/* …and an icon-only button is a CIRCLE, not a 40 × 44 oval (see `.ico` above): the floor goes; a halo of 3 px (inside a bordered button) keeps a 44-px target, and `.acts` leaves it room. */
+[data-row-state='icon'] .acts :global(.ab),
+[data-row-state='icon'] .thumb :global(.ab):not(.grow),
+.thumb :global(.ab.icon-only) {
+  position: relative;
+  min-height: 0;
+}
+[data-row-state='icon'] .acts :global(.ab)::after,
+[data-row-state='icon'] .thumb :global(.ab):not(.grow)::after,
+.thumb :global(.ab.icon-only)::after {
+  content: '';
+  position: absolute;
+  inset: -3px; /* an absolute box is measured from the PADDING edge: 40 − 2 × 1px border + 2 × 3px = 44 */
+  border-radius: var(--m-r-full);
 }
 [data-row-state='icon'] .acts :global(.ab .lbl),
 [data-row-state='icon'] .thumb :global(.ab):not(.grow) :global(.lbl),
@@ -445,26 +484,18 @@ button.ico {
   padding: 0 14px;
   font-size: 14px;
   color: var(--gs-ink);
+  /* The search field is SOLID: a field you type into must read cleanly, and the row's blur already frosts everything
+     around it (a field of its own at 62 % showed the guest rows straight through it). */
+  background: rgb(var(--color-cream));
 }
-/* the glass: translucent paper over a blur, clipped to the pill, NO shadow;
-   toned buttons keep their full colour (owner: "it still needs to have their
-   button colors"). */
-.field,
-.thumb :global(.ab-neutral:not(.ab-main)),
+/* THE ROW IS THE ONLY GLASS (owner 2026-10-09: "the buttons is not the frosted glass style"). `.sn-glass-row` paints the
+   tint and the blur ONCE; the buttons on it are the shared ones — a neutral one sits transparent with its faint edge
+   (`.ab-neutral` in globals.css), a toned one keeps its FULL tone (BUTTON_RULE rule 7). This file used to give every
+   button on the row a 62 % cream fill AND a backdrop blur of its own: a backdrop-filter inside a backdrop-filtered row
+   sees only the row's own paint (a nested backdrop root), so each button blurred nothing — a flat white disc over a
+   white band — and the toned ones lost their colour. Held by `guests-glass-row-and-round-select.test.ts`. */
 .thumb [data-pick] button {
-  background: color-mix(in srgb, rgb(var(--color-cream)) 62%, transparent);
-  -webkit-backdrop-filter: blur(16px) saturate(1.3);
-  backdrop-filter: blur(16px) saturate(1.3);
-  border-color: rgb(var(--color-ink) / 0.14);
-  box-shadow: none;
-  overflow: hidden;
-  isolation: isolate;
-  -webkit-mask-image: -webkit-radial-gradient(white, black);
-}
-.thumb :global(.ab:not(.ab-main):not(.ab-neutral)) {
-  background: color-mix(in srgb, rgb(var(--color-cream)) 62%, transparent);
-  -webkit-backdrop-filter: blur(16px) saturate(1.3);
-  backdrop-filter: blur(16px) saturate(1.3);
+  background: transparent;
 }
 .thumb .grow {
   flex: 1 1 60%;

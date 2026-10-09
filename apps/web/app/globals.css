@@ -2456,6 +2456,25 @@ html[data-sn-boot] #sn-init-splash.sn-boot-done {
   view-transition-name: sn-page;
 }
 
+/*
+ * 🪟 A GLASS ROW INSIDE THE NAMED PAGE ONLY BLURS WHEN THE NAME IS OFF (owner 2026-10-09, the live guest list: *"the glass
+ * row has a transparent background"* — the guest rows read straight through the band).
+ *
+ * 🔑 MEASURED in Chromium: a `backdrop-filter` on a fixed row that sits inside `.sn-vt-page` paints NO blur while that
+ * element carries a `view-transition-name` — the band was just a 62 % wash over crisp text, whatever the blur said. Turning
+ * the name off lifts it (the one change that did, of nine tried: no mask, no isolation, no overflow clip, no transition, no
+ * will-change, no transform, no position on `<main>`, no `contain`). The name is only needed WHILE the bottom-nav slide
+ * runs (`NavSlideController` sets `html[data-sn-nav-dir]` before `startViewTransition` and clears it when the transition
+ * has finished), so at rest — and only on the page that draws the guest list's floating row — it is off. `isolation:
+ * isolate` keeps the stacking context the name implied, so nothing inside `<main>` changes order against the bottom bar
+ * or the top bar. Scoped to `[data-guests-thumb]` on purpose: other glass rows in the app have the same exposure and have
+ * not been measured. Held by `app/dashboard/[eventId]/guests/_components/guests-glass-row-and-round-select.test.ts`.
+ */
+html:not([data-sn-nav-dir]) .sn-vt-page:has([data-guests-thumb]) {
+  view-transition-name: none;
+  isolation: isolate;
+}
+
 ::view-transition-group(sn-page) {
   overflow: clip; /* clip the off-screen layer so the slide can't scroll the page */
 }

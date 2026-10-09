@@ -17,7 +17,14 @@ import { useEffect } from 'react';
  * `data-maker-guest`, `editor-bridge.tsx`). Leaving the preview disarms the engine, which takes every mark off.
  * The Maker's canvas is known by what ONLY it draws: a section marker (`[data-maker-section]`, host-verified by the
  * server — `site-body.tsx` `makerMark`). A guest's page has none, and is armed as it loads.
+ *
+ * 🗣 OFF IS NEVER SILENT (`data-hub-scrub-off`, see the engine): this island adds the two reasons that are its own —
+ * "editing — hold ▶ to play it" on the Maker's canvas, and "the script did not load" when the engine's chunk fails.
  */
+/** Kept as text, not imported: the engine must stay out of this island's bundle (`scrub-is-a-held-hand-over` (5)). */
+const OFF = 'data-hub-scrub-off';
+const EDITING = 'editing — hold ▶ to play it';
+const NOT_LOADED = 'the script did not load';
 const armed = new WeakSet<Element>();
 
 /** Are the hand-overs on? A guest's page: always. The Maker's canvas: only while it is shown as a guest sees it. */
@@ -36,6 +43,10 @@ export function HubScrub() {
        back as the preview opens and as it closes — `hub-scrub-place.ts`, fetched on the Maker's canvas ONLY. A
        guest's page never loads it, and is never moved by script. */
     let keepPlace: ((change: () => void) => void) | null = null;
+    /** Say on every scenes block with a hand-over why it is off (the engine says its own reasons, and clears this when it arms). */
+    const say = (why: string) => {
+      for (const root of document.querySelectorAll('.hub-scenes')) if (root.querySelector('[data-hub-fx]')) root.setAttribute(OFF, why);
+    };
     const disarm = () => {
       for (const stop of stops.splice(0)) stop();
     };
@@ -60,7 +71,8 @@ export function HubScrub() {
           else go();
         })
         .catch(() => {
-          /* The plain page stands. */
+          /* The plain page stands — and says why. */
+          say(NOT_LOADED);
         });
     };
     const sync = () => {
@@ -70,7 +82,9 @@ export function HubScrub() {
       if (on) arm();
       else if (keepPlace) keepPlace(disarm);
       else disarm();
+      if (!on) say(EDITING);
     };
+    if (makerCanvas) say(EDITING);
     sync();
     const watch = makerCanvas && typeof MutationObserver !== 'undefined' ? new MutationObserver(sync) : null;
     watch?.observe(html, { attributes: true, attributeFilter: ['data-maker-guest'] });

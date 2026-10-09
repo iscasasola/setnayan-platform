@@ -13,7 +13,16 @@ import { SCRUB, scrubLens, scrubMoment, scrubNeedsRest, scrubOwnIn, scrubPair, s
  *
  * 🧯 FAIL-VISIBLE: until `data-hub-scrub-on` is set — no script, a blocked chunk, an error in here, "reduce motion" —
  * every rule of the drawing is off and the page is a plain page with everything on it. Any throw disarms.
+ *
+ * 🗣 …AND THE PAGE SAYS WHY (2026-10-09 — owner, on a page where it was on: *"as a guest nothing scrubbed"*; nobody
+ * could tell "off" from "on but not noticeable", and this file's `catch` swallowed its own reason). Whenever the
+ * hand-overs are off for a reason this script knows, the scenes block carries it in plain words
+ * (`data-hub-scrub-off`): "reduce motion", or "the script stopped: <what was thrown>". Nothing reads it to draw —
+ * the plain page IS the right page — it is there for whoever has to find out (the lab's badge reads it;
+ * `hub-scrub.tsx` adds the two reasons that are its own).
  */
+
+export const HUB_SCRUB_OFF = 'data-hub-scrub-off';
 
 const CELL = '.hub-cell';
 type Held = { cell: HTMLElement; stage: HTMLElement; scene: HTMLElement; after: HTMLElement; below: HTMLElement | null; arrival: HTMLElement | null; pair: ScrubPair; rest: number };
@@ -22,7 +31,12 @@ const px = (n: number) => `${Math.round(n * 100) / 100}px`;
 const num = (n: number) => String(Math.round(n * 1000) / 1000);
 
 export function armHubScrub(root: HTMLElement): () => void {
-  if (typeof window === 'undefined' || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return () => {};
+  if (typeof window === 'undefined') return () => {};
+  if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+    root.setAttribute(HUB_SCRUB_OFF, 'reduce motion');
+    return () => root.removeAttribute(HUB_SCRUB_OFF);
+  }
+  root.removeAttribute(HUB_SCRUB_OFF);
   const marked = new Map<HTMLElement, Map<string, string>>();
   /** Set a custom property or a mark — only when it changes. */
   const put = (el: HTMLElement, key: string, value: string | null) => {
@@ -185,8 +199,8 @@ export function armHubScrub(root: HTMLElement): () => void {
     window.requestAnimationFrame(() => {
       try {
         frame();
-      } catch {
-        stop();
+      } catch (e) {
+        fail(e);
       }
     });
   };
@@ -195,10 +209,15 @@ export function armHubScrub(root: HTMLElement): () => void {
     try {
       measure();
       frame();
-    } catch {
-      stop();
+    } catch (e) {
+      fail(e);
     }
   };
+  /** A throw: back to the plain page — and the page says what stopped it. */
+  function fail(e: unknown) {
+    stop();
+    root.setAttribute(HUB_SCRUB_OFF, `the script stopped: ${e instanceof Error ? e.message : String(e)}`.slice(0, 160));
+  }
   function stop() {
     if (dead) return;
     dead = true;
@@ -229,8 +248,8 @@ export function armHubScrub(root: HTMLElement): () => void {
       });
       for (const s of scenes) sizes.observe(s);
     }
-  } catch {
-    stop();
+  } catch (e) {
+    fail(e);
   }
   return stop;
 }

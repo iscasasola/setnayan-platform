@@ -154,8 +154,15 @@ test('(4) the engine may only measure and set: no scroll position, no prevented 
      one scene, so nothing broke; one rule reading the line inside a Scrub scene would have got a number). */
   for (const key of puts.filter((k) => k.startsWith('--'))) assert.doesNotMatch(CSS, new RegExp(`${key}\\s*:`), `the stylesheet declares ${key} — the engine’s number would mean two things`);
   /* Reduce motion: it returns before anything; any throw: it disarms and takes every mark off. */
-  assert.match(src, /if \(typeof window === 'undefined' \|\| window\.matchMedia\?\.\('\(prefers-reduced-motion: reduce\)'\)\.matches\) return \(\) => \{\};/);
-  assert.ok((src.match(/catch \{\s*stop\(\);\s*\}/g) ?? []).length >= 3, 'a throw in the engine leaves the page half-armed');
+  /* 🔁 RE-AIMED 2026-10-09 (8d — the page says WHY it is off, `the-lab-plays-the-scrub-chain` (5)): under reduce
+     motion it still returns before it measures or listens — having said so on the scenes block; and a throw still
+     disarms (`fail` = `stop`, then the reason), through every `catch`. */
+  assert.match(src, /if \(typeof window === 'undefined'\) return \(\) => \{\};\s*if \(window\.matchMedia\?\.\('\(prefers-reduced-motion: reduce\)'\)\.matches\) \{\s*root\.setAttribute\(HUB_SCRUB_OFF, 'reduce motion'\);\s*return /);
+  assert.ok(src.indexOf("root.setAttribute(HUB_SCRUB_OFF, 'reduce motion')") < src.indexOf('const marked = '), 'under reduce motion the engine goes on to measure');
+  assert.equal((src.match(/catch \(e\) \{\s*fail\(e\);\s*\}/g) ?? []).length, 3, 'a throw in the engine leaves the page half-armed');
+  assert.match(src, /function fail\(e: unknown\) \{\s*stop\(\);/);
+  /* The reason is the ONE thing it writes outside `put` — a `data-hub-…` mark like the rest. */
+  assert.deepEqual([...new Set([...src.matchAll(/\.(?:set|remove)Attribute\((\w+)/g)].map((m) => m[1]))].sort(), ['HUB_SCRUB_OFF', 'key']);
   assert.match(src, /for \(const \[el, keys\] of marked\) for \(const key of keys\.keys\(\)\) key\.startsWith\('--'\) \? el\.style\.removeProperty\(key\) : el\.removeAttribute\(key\);/);
   /* It reads the browser's own sticky back (a rect), never a position of its own. */
   assert.match(src, /h\.pair\.top - h\.cell\.getBoundingClientRect\(\)\.top/);

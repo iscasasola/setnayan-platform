@@ -29,11 +29,12 @@ import { postEventSceneDrawn } from '@/lib/post-event-scenes';
 import { postEventLookOf } from '@/lib/post-event-draft';
 import { resolvePostEventStyle } from '@/lib/post-event-style-resolve';
 import { LAB_EDITORIAL_COOKIE, labEditorialDraft, labPostEventRead } from '../lab-post-event';
-import { LAB_SCRUB_CHAIN, labScrubCanvases, labWidgetsCookie, type LabScrubScene } from '../lab-scrub';
+import { LAB_SCRUB_CHAIN, LAB_SCRUB_NAME, labScrubCanvases, labScrubLabel, labWidgetsCookie, type LabScrubScene } from '../lab-scrub';
+import { LabScrubBadge } from './scrub-badge';
 
 /** maria-and-jose's run of show and venues (read-only shape, 2026-10-05) — the lab has no database. */
 const LAB_BLOCK = (i: number, label: string, at: string, location: string | null, type = 'pre_ceremony') => ({
-  block_id: `lab-${i}`, public_id: `lab-${i}`, event_id: 'lab', label, block_type: type, start_at: `2026-12-12T${at}:00`, end_at: null,
+  block_id: `lab-${i}`, public_id: `lab-${i}`, event_id: 'lab', label, block_type: type, start_at: `2026-12-12T${at}:00+08:00`, end_at: null,
   location, notes: null, is_public: true, sort_order: i, parent_block_id: null, created_at: '2026-10-01T00:00:00Z',
   run_state: 'upcoming', actual_start_at: null, actual_end_at: null, audience: null,
 });
@@ -162,7 +163,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
      held (`hub-scrub.tsx`); the same address opened plainly is a guest's page, and its hand-overs run. */
   const mark = (key: string) => (scrub && sp.editor !== '1' ? null : <span hidden data-maker-section={key} />);
   /* 🧩 THE LAB'S SCENES, each drawn ONCE — placed by the ordinary sample below, or (`?scrub=1`) by the Scrub chain. */
-  const scene: Record<LabScrubScene, ReactNode> = {
+  const scene: Record<LabScrubScene | 'our_love_story', ReactNode> = {
     countdown: (
       <section data-lab-scene="countdown" className="border-t border-ink/10 px-4 py-8">
         <CountdownWidget targetIso="2026-12-12" timeZone="Asia/Manila" sceneStyle={sceneStyleOfRow(rowOf('countdown'), stage, 'wedding')} />
@@ -189,7 +190,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       /* 🗓 The day's moments — the REAL Schedule widget on maria-and-jose's run of show, in its drafted (or previewed) Style. */
       <HubCanvasFrame widget={{ ...rowOf('schedule'), widget_id: 'lab-schedule' } as never} hubTheme="house" ownClipPlays>
         <section data-lab-scene="schedule" className="border-t border-ink/10 px-4 py-8 text-left">
-          <ScheduleWidget blocks={(scrub ? LAB_BLOCKS_LONG : LAB_BLOCKS) as never} eventTz="Asia/Manila" eventType="wedding" sceneStyle={sceneStyleOfRow(rowOf('schedule'), stage, 'wedding')} />
+          <ScheduleWidget blocks={LAB_BLOCKS as never} eventTz="Asia/Manila" eventType="wedding" sceneStyle={sceneStyleOfRow(rowOf('schedule'), stage, 'wedding')} />
         </section>
       </HubCanvasFrame>
     ),
@@ -225,15 +226,48 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       <MakerWelcomeLook look={look('my_wear')} />
     </div>
   );
-  /* 🎚 On the chain EVERY scene sits in the real frame — its Build in and Build out are the frame's (`hub-canvas`). */
-  const framed = (type: LabScrubScene) =>
-    type === 'countdown' || type === 'dress_code' || type === 'our_love_story' ? (
-      <HubCanvasFrame widget={{ ...rowOf(type), widget_id: `lab-${type}` } as never} hubTheme="house" ownClipPlays>
-        {scene[type]}
-      </HubCanvasFrame>
-    ) : (
-      scene[type]
-    );
+  /* 🎚 THE CHAIN'S CARDS (`?scrub=1`). Each scene of the chain is drawn as the prototype drew it, so a hold can be
+     READ (2026-10-09 — a hold was "mostly a blank white screen with one faint element in the middle and nothing
+     saying anything is happening"): a card (the hub's card look: paper, hairline, radius, shadow) in a phone-wide
+     column, labelled with what it is set to — read from the canvas it is drawn with (`labScrubLabel`), never written
+     by hand. The card sits INSIDE the real frame (`HubCanvasFrame`), so the scene's Build in and Build out move the
+     card itself, as they move a scene on the guest page. The first card says the cover is not in the chain. */
+  const chainBody: Record<LabScrubScene, ReactNode> = {
+    countdown: <CountdownWidget targetIso="2026-12-12" timeZone="Asia/Manila" sceneStyle={sceneStyleOfRow(rowOf('countdown'), stage, 'wedding')} />,
+    schedule: <ScheduleWidget blocks={LAB_BLOCKS_LONG as never} eventTz="Asia/Manila" eventType="wedding" sceneStyle={sceneStyleOfRow(rowOf('schedule'), stage, 'wedding')} />,
+    special_message: <SpecialMessageWidget text="We cannot wait to celebrate with you." signedBy="Maria & Jose" sceneStyle={sceneStyleOfRow(rowOf('special_message'), stage, 'wedding')} />,
+    dress_code: (
+      <>
+        <p className="pahina-eyebrow">
+          <span>Dress code</span>
+        </p>
+        <p className="mt-3 font-serif text-2xl" data-lab-palette={paletteLookOfRow(rowOf('dress_code'))}>
+          Garden formal, in warm earth tones
+        </p>
+      </>
+    ),
+    venue_map: <VenueWidget event={LAB_VENUE_EVENT as never} sceneStyle={sceneStyleOfRow(rowOf('venue_map'), stage, 'wedding')} map="none" blocks={LAB_BLOCKS as never} />,
+  };
+  const chainCard = (type: LabScrubScene, i: number) => (
+    <HubCanvasFrame widget={{ ...rowOf(type), widget_id: `lab-${type}` } as never} hubTheme="house" ownClipPlays mediaUrls={LAB_MEDIA}>
+      <section
+        data-lab-scene={type}
+        data-lab-name={LAB_SCRUB_NAME[type]}
+        className="rounded-md border border-ink/10 bg-cream px-[18px] pb-4 pt-[18px] text-left shadow-[0_8px_22px_rgb(30_34_41/0.08)]"
+      >
+        <p data-lab-card-label="" className="mb-3 text-[10.5px] font-bold uppercase leading-snug tracking-[0.08em] text-gild">
+          {labScrubLabel(rowOf(type).config_json, { last: i === LAB_SCRUB_CHAIN.length - 1 }).map((l, n) => (
+            <span key={l.name}>
+              {n > 0 ? ' · ' : ''}
+              {l.name} <b className="font-bold text-terracotta-700">{l.value}</b>
+            </span>
+          ))}
+          {i === 0 ? <span className="mt-1 block normal-case tracking-normal text-ink/60">The cover above is not part of the chain yet.</span> : null}
+        </p>
+        {chainBody[type]}
+      </section>
+    </HubCanvasFrame>
+  );
   if (rsvp) {
     return (
       <main className="min-h-dvh bg-[#FBF9F5] px-5 py-6 text-ink">
@@ -326,6 +360,9 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       </div>
       {/* 🧭 THE REAL HERO (`PahinaMasthead`, the guest page's own) on maria-and-jose's words — its parts carry their
           `data-el` and, when picked, their own style (`data-part-look`), exactly as the guest page draws them. */}
+      {/* 🎚 The chain's badge (lab only): is Scrub on, which hand-over, how far — or WHY it is off. Before the first
+          marker, so the Maker's bridge never counts it as part of a scene. Never in a miniature. */}
+      {scrub && !only && !preview ? <LabScrubBadge /> : null}
       {mark('f:hero')}
       <section className="px-4 pb-10 pt-6">
         <PahinaMasthead
@@ -353,21 +390,27 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
         /* 🎚 THE SCRUB CHAIN (`../lab-scrub.ts`) — the lab's scenes through the guest page's OWN renderer (`HubScenes`),
            one node a scene with its marker, exactly as `site-body.tsx` hands them over: the hand-overs, the holds and
            the engine are the real ones, and what the owner arranges on a scene in the Maker is what plays here. The
-           two fixed blocks follow the chain. */
-        <div className="sn-editorial" data-lab-scrub="">
-          <HubScenes widgets={LAB_SCRUB_CHAIN.map((t) => ({ ...rowOf(t), widget_id: `lab-${t}` })) as never} scrubAllowed>
-            {LAB_SCRUB_CHAIN.map((t) => (
-              <Fragment key={t}>
-                {mark(`w:${t}`)}
-                {framed(t)}
-              </Fragment>
-            ))}
-          </HubScenes>
-          {mark('f:gifts')}
-          {giftsBlock}
-          {mark('f:look')}
-          {lookBlock}
-        </div>
+           fixed blocks, and the one scene that is not in the chain, follow it as the ordinary lab draws them. */
+        <>
+          <div className="sn-editorial mx-auto max-w-[430px] px-4 pb-6" data-lab-scrub="">
+            <HubScenes widgets={LAB_SCRUB_CHAIN.map((t) => ({ ...rowOf(t), widget_id: `lab-${t}` })) as never} scrubAllowed>
+              {LAB_SCRUB_CHAIN.map((t, i) => (
+                <Fragment key={t}>
+                  {mark(`w:${t}`)}
+                  {chainCard(t, i)}
+                </Fragment>
+              ))}
+            </HubScenes>
+          </div>
+          <div className="sn-editorial">
+            {mark('f:gifts')}
+            {giftsBlock}
+            {mark('f:look')}
+            {lookBlock}
+            {mark('w:our_love_story')}
+            {scene.our_love_story}
+          </div>
+        </>
       ) : (
         <>
           {mark('w:countdown')}

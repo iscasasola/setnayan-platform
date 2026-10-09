@@ -18,7 +18,10 @@
  *      (`data-maker-guest`, ▶ held) the hand-overs run, the scene that was mid-screen still there; back to editing,
  *      every mark is gone;
  *   8. AN EMPTY SCENE (a widget that drew nothing, set to Scrub out): it has no box and holds nothing, and the page
- *      never stands still on a blank — the longest stretch with no scene to read is no longer than on the full page.
+ *      never stands still on a blank — the longest stretch with no scene to read is no longer than on the full page;
+ *   9. OFF IS NEVER SILENT, and the lab's badge says what the page says: on — which hand-over and how far, the same
+ *      number the page carries; off — the reason: "reduce motion", "editing — hold ▶ to play it", and, when the
+ *      engine is made to throw, "the script stopped: <what was thrown>" on a plain page with every mark gone.
  *
  * Not part of the unit suite (it needs a browser): run it by hand, one job at a time.
  *   node scripts/scrub-browser-check.mjs <playwright-dir> <scratch-dir> [pictures-dir]
@@ -40,6 +43,7 @@ execFileSync(tsx, ['scripts/scrub-check-page.tsx', `${scratch}/scrub-real-noscri
 execFileSync(esbuild, [`${WEB}/scripts/scrub-check-island.tsx`, '--bundle', '--minify', '--format=iife', '--jsx=automatic', '--define:process.env.NODE_ENV="production"', `--outfile=${scratch}/scrub-island.js`], { cwd: WEB, stdio: 'pipe' });
 execFileSync(tsx, ['scripts/scrub-check-page.tsx', `${scratch}/scrub-real-empty.html`, `${scratch}/scrub-engine.js`, 'empty'], { cwd: WEB, stdio: 'pipe' });
 execFileSync(tsx, ['scripts/scrub-check-page.tsx', `${scratch}/scrub-real-maker.html`, `${scratch}/scrub-island.js`, 'maker'], { cwd: WEB, stdio: 'pipe' });
+execFileSync(tsx, ['scripts/scrub-check-page.tsx', `${scratch}/scrub-real-island.html`, `${scratch}/scrub-island.js`, 'island'], { cwd: WEB, stdio: 'pipe' });
 
 /* Before any page script: remember the browser's own scrolling, and count every way a script could take it over. */
 const WATCH = () => {
@@ -221,6 +225,45 @@ for (const [W, H] of [[375, 812], [1280, 770]]) {
   const empty = await blankest('scrub-real-empty.html');
   say(empty.on && empty.cell && empty.box === 0 && empty.len === '', `${size}: it has no box and the page is not held for it (box ${empty.box}px, hold "${empty.len}"; the full page holds "${full.len}")`);
   say(empty.worst <= full.worst + 16, `${size}: no blank stands longer than on the full page (${empty.worst}px against ${full.worst}px)`);
+}
+
+/* 9. OFF IS NEVER SILENT — the page's own island and the lab's badge, in each state. */
+{
+  const [W, H] = [375, 812];
+  const badge = (p) => p.evaluate(() => ({ line: document.querySelector('[data-lab-scrub-line]')?.textContent ?? null, off: document.querySelector('.hub-scenes').getAttribute('data-hub-scrub-off'), on: document.querySelector('.hub-scenes').hasAttribute('data-hub-scrub-on') }));
+  /* ON — and the number in the badge is the number on the page. */
+  let ctx = await b.newContext({ viewport: { width: W, height: H } }); let p = await ctx.newPage();
+  await p.goto(`file://${scratch}/scrub-real-island.html`); await p.waitForTimeout(700);
+  const max = await p.evaluate(() => document.documentElement.scrollHeight - innerHeight);
+  let met = null;
+  for (let y = 0; y <= max && !met; y += 24) { await p.evaluate((v) => scrollTo(0, v), y); await p.waitForTimeout(60); const v = await p.evaluate(() => { const s = [...document.querySelectorAll('.hub-scene')].find((e) => { const o = Number(e.style.getPropertyValue('--hub-pout') || 0); return o > 0.3 && o < 0.7; }); return s ? { name: s.querySelector('[data-name]').getAttribute('data-name'), pout: Number(s.style.getPropertyValue('--hub-pout')) } : null; }); if (v) met = v; }
+  await p.waitForTimeout(150);
+  const on = await badge(p);
+  say(on.on && on.off === null && met && on.line === `Scrub: ON · hand-over 1 of 4 · ${met.name} leaves ${Math.round(met.pout * 100)} % · Countdown arrives 0 %`, `a guest's page, armed by its own island: the badge says what the page carries ("${on.line}"; the page: ${met?.name} ${met?.pout})`);
+  /* The engine made to throw: the plain page, and it says what stopped it. */
+  await p.evaluate(() => { Element.prototype.getBoundingClientRect = () => { throw new Error('boom'); }; scrollBy(0, 40); }); await p.waitForTimeout(400);
+  const thrown = await p.evaluate(() => ({ line: document.querySelector('[data-lab-scrub-line]')?.textContent, off: document.querySelector('.hub-scenes').getAttribute('data-hub-scrub-off'), on: document.querySelector('.hub-scenes').hasAttribute('data-hub-scrub-on'), left: [...document.querySelectorAll('.hub-scenes, .hub-scenes *')].filter((e) => /--hub-(?:len|top|up|pbin|pout|o|rise|pp|end)\s*:/.test(e.getAttribute('style') ?? '') || e.hasAttribute('data-hub-away')).length }));
+  say(!thrown.on && thrown.left === 0 && thrown.off === 'the script stopped: boom' && thrown.line === 'Scrub: OFF — the script stopped: boom', `the engine made to throw: the plain page, every mark gone, and it says why ("${thrown.line}", ${thrown.left} marks left)`);
+  await ctx.close();
+  /* Reduce motion. */
+  ctx = await b.newContext({ viewport: { width: W, height: H }, reducedMotion: 'reduce' }); p = await ctx.newPage();
+  await p.goto(`file://${scratch}/scrub-real-island.html`); await p.waitForTimeout(700);
+  const calm = await badge(p);
+  say(!calm.on && calm.off === 'reduce motion' && calm.line === 'Scrub: OFF — reduce motion', `with reduce motion: off, and it says so ("${calm.line}")`);
+  await ctx.close();
+  /* The Maker's canvas: editing, then shown as a guest. */
+  ctx = await b.newContext({ viewport: { width: W, height: H } }); p = await ctx.newPage();
+  await p.goto(`file://${scratch}/scrub-real-maker.html`); await p.waitForTimeout(700);
+  const editing = await badge(p);
+  say(!editing.on && editing.line === 'Scrub: OFF — editing — hold ▶ to play it', `the Maker's canvas while editing: off, and it says how to play it ("${editing.line}")`);
+  await p.evaluate(() => document.documentElement.setAttribute('data-maker-guest', '')); await p.waitForTimeout(1000);
+  const held = await badge(p);
+  say(held.on && held.off === null && /^Scrub: ON · hand-over \d of 4/.test(held.line ?? ''), `…and under ▶ held: on ("${held.line}")`);
+  if (pics) await p.screenshot({ path: `${pics}/c8d-badge-${W}x${H}.png` });
+  await p.evaluate(() => document.documentElement.removeAttribute('data-maker-guest')); await p.waitForTimeout(700);
+  const back = await badge(p);
+  say(!back.on && back.line === 'Scrub: OFF — editing — hold ▶ to play it', `…and back to editing ("${back.line}")`);
+  await ctx.close();
 }
 await b.close();
 console.log(failed ? `\n${failed} FAILED` : PLAYED.length ? '\nALL OK' : '\nTHE MAKER’S CANVAS ONLY — OK (the five sizes were not played)');

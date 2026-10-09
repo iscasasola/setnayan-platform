@@ -6,6 +6,7 @@
  *
  *   tsx scripts/scrub-check-page.tsx <out.html> <engine.js> [noscript]
  *   tsx scripts/scrub-check-page.tsx <out.html> <engine.js> empty     — the second scene (Countdown) drew NOTHING
+ *   tsx scripts/scrub-check-page.tsx <out.html> <island.js> island    — a guest's page armed by the page's own ISLAND
  *   tsx scripts/scrub-check-page.tsx <out.html> <island.js> maker     — the Maker's canvas: a section marker on the
  *       page, and the page's own ISLAND (`scripts/scrub-check-island.tsx`) deciding when the engine is armed
  *
@@ -24,18 +25,23 @@ import { LAB_SCRUB_CHAIN, LAB_SCRUB_SAMPLE } from '../app/dev/maker-lab/lab-scru
 
 (globalThis as unknown as { React: unknown }).React = React;
 
-/* 🔑 The six canvases are THE LAB'S CHAIN (`app/dev/maker-lab/lab-scrub.ts`), in its order — what this page proves
-   in a browser is what `?scrub=1` on the Maker lab starts on. Only the names here are this page's own. */
-export const SCRUB_CHECK_CHAIN = (
-  [
-    { name: 'Names', rows: 0 },
-    { name: 'Countdown', rows: 0 },
-    { name: 'Schedule', rows: 8 },
-    { name: 'Note', rows: 0 },
-    { name: 'Wear', rows: 0 },
-    { name: 'Gifts', rows: 0 },
-  ] as const
-).map((s, i) => ({ ...s, canvas: LAB_SCRUB_SAMPLE[LAB_SCRUB_CHAIN[i]!] }));
+/* 🔑 Five of the six canvases are THE LAB'S CHAIN (`app/dev/maker-lab/lab-scrub.ts`), in its order — what this page
+   proves in a browser is what `?scrub=1` on the Maker lab starts on. The FIRST scene is this page's own: it stands in
+   for the cover ("Maria & Jose" → the countdown, the owner's own example), which is not a scene the real page can
+   hand over yet — so the lab does not show it, and this check keeps proving the hand-over it will need. */
+const COVER = { in: 'fade', out: 'move_fade', outTo: 'above', transition: 'scrub' } as const;
+export const SCRUB_CHECK_CHAIN = [
+  { name: 'Names', rows: 0, canvas: COVER },
+  ...(
+    [
+      { name: 'Countdown', rows: 0 },
+      { name: 'Schedule', rows: 8 },
+      { name: 'Note', rows: 0 },
+      { name: 'Wear', rows: 0 },
+      { name: 'Gifts', rows: 0 },
+    ] as const
+  ).map((s, i) => ({ ...s, canvas: LAB_SCRUB_SAMPLE[LAB_SCRUB_CHAIN[i]!] })),
+];
 
 const [, , out, engine, mode] = process.argv;
 const widgets = SCRUB_CHECK_CHAIN.map((s, i) => ({ widget_id: `w${i}`, widget_type: s.name.toLowerCase(), config_json: { canvas: s.canvas } }));
@@ -43,7 +49,7 @@ const nodes = SCRUB_CHECK_CHAIN.map((s, i) => {
   const canvas = sanitizeHubCanvas(widgets[i]!.config_json);
   /* `empty`: a widget that rendered nothing — the frame is there, its body is empty (a Countdown with no date). */
   const body = mode === 'empty' && i === 1 ? null : (
-    <section data-name={s.name}>
+    <section data-name={s.name} data-lab-name={s.name}>
       <p style={{ margin: 0, font: '700 11px/1.3 sans-serif', letterSpacing: '.08em', color: '#A9834B' }}>{s.name.toUpperCase()}</p>
       <h2 style={{ margin: '6px 0', font: '600 22px/1.2 Georgia, serif' }}>{s.name}</h2>
       {s.rows ? (
@@ -82,7 +88,7 @@ writeFileSync(
 .lead{height:90vh;padding:24px;box-sizing:border-box}.foot{padding:40px 24px;height:60px;box-sizing:border-box}.col{max-width:430px;margin:0 auto;padding:0 16px}
 #line{position:fixed;left:0;right:0;top:50%;border-top:1.5px dashed rgba(194,78,36,.6);pointer-events:none;z-index:9}</style></head>
 <body><div id="line"></div><div class="lead col" data-lead>The page before the scenes.</div><div class="col">${mode === 'maker' ? '<span hidden data-maker-section="w:countdown"></span>' : ''}${scenes}</div><div class="foot col" data-foot>The page after the scenes.</div>
-${mode === 'noscript' ? '' : mode === 'maker' ? `<script src="file://${engine}"></script>` : `<script src="file://${engine}"></script><script>window.__stop = HubScrubEngine.armHubScrub(document.querySelector('.hub-scenes'));</script>`}
+${mode === 'noscript' ? '' : mode === 'maker' || mode === 'island' ? `<script src="file://${engine}"></script>` : `<script src="file://${engine}"></script><script>window.__stop = HubScrubEngine.armHubScrub(document.querySelector('.hub-scenes'));</script>`}
 </body></html>`,
 );
 console.log('wrote', out, '·', (scenes.match(/class="hub-cell"/g) ?? []).length, 'hand-overs ·', (scenes.match(/data-hub-fx=""/g) ?? []).length, 'scenes under the thumb');

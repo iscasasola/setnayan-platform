@@ -2,13 +2,14 @@
 
 import { useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowRight, ChevronDown, ChevronRight, MoreHorizontal, Sparkles } from 'lucide-react';
+import { Armchair, ArrowRight, Check, ChevronDown, ChevronRight, Link2, MoreHorizontal, RotateCw, Sparkles, Trash2, Ungroup } from 'lucide-react';
 import { formatCount } from '@/lib/format-number';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import type { PickOption } from '../../website/editor/_components/pick-menu-types';
 import { OneOpenScope, useOneOpen } from '@/lib/one-open';
 import { ActionButton } from '@/components/action-button';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
+import { ChosenRow, FormRows, TypedRow } from '@/app/_components/form-row';
 
 /**
  * 📱 THE SEAT PLAN ON A PHONE — its chrome (owner 2026-10-01, DECISION_LOG
@@ -441,6 +442,99 @@ export function PeopleSheet({
           {children}
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * 📱 THE TABLE'S SHEET ON A PHONE (owner 2026-10-01, the approved frame 3) — moved here from `seating-editor.tsx` whole, so it can be driven and held: the table's name, Type ▾, then the
+ * shipped verbs. PRESENTATIONAL: the editor keeps every piece of state and every save; it hands this the handlers it already had, UNTOUCHED (`onRename` is `renameTable`, `onPickType`
+ * `changeStyle`, `onRotate` `rotateTable(st, 90)`, `onLink` the link toggle, `onDelete` `requestRemoveTable`, …). The seats stepper, the "Seat N removed · Undo" strip and "Seat people" are
+ * the editor's own nodes, handed in.
+ */
+export function PhoneTableDock({
+  tableId,
+  tableLabel,
+  typeValue,
+  typeOptions,
+  typeWord,
+  onRename,
+  onPickType,
+  seatsStepper,
+  undoStrip,
+  canEdit,
+  onRotate,
+  onEditChairs,
+  linked,
+  onUnlink,
+  linkPressed,
+  onLink,
+  seatPeople,
+  onDone,
+  onDelete,
+}: {
+  tableId: string;
+  tableLabel: string;
+  typeValue: string;
+  typeOptions: readonly PickOption[];
+  typeWord: string;
+  onRename: (label: string) => void;
+  onPickType: (key: string) => void;
+  seatsStepper: ReactNode;
+  undoStrip: ReactNode;
+  canEdit: boolean;
+  onRotate: () => void;
+  onEditChairs: () => void;
+  linked: boolean;
+  onUnlink: () => void;
+  linkPressed: boolean;
+  onLink: () => void;
+  seatPeople: ReactNode;
+  onDone: () => void;
+  onDelete: () => void;
+}) {
+  /* 🧩 THE TEMPLATES (owner 2026-10-09, the table's sheet): the name is the Form row's typed answer (kept — `renameTable` — when it is left, as the box saved on blur), the
+     shape is the dropdown row; Rotate · Edit chairs… · Link… · Unlink · Done · Delete are the ONE ActionButton, one row, Done the filled step; the delete's confirm is the
+     centred box (the editor's, `GuestPopup kind="confirm"`). The seats stepper (− 10/10 +) is left as it was: the app has no counter template to move it onto. */
+  return (
+    <div data-seat-plan-phone-dock={tableId} className="flex w-full flex-col gap-2.5">
+      <FormRows data="seat-table">
+        <TypedRow
+          key={tableId}
+          data="seat-table-name"
+          attrs={{ 'data-seat-table-name': '' }}
+          name="Table name"
+          value={tableLabel}
+          maxLength={64}
+          required
+          onKeep={(label) => {
+            onRename(label);
+            return { ok: true as const };
+          }}
+        />
+        <ChosenRow name="Shape" label="Table type" value={typeValue} options={typeOptions} onPick={onPickType} buttonText={typeWord} dataAttr="data-seat-plan-type" />
+      </FormRows>
+      <div className="flex flex-wrap items-center gap-2">
+        {seatsStepper}
+        {undoStrip}
+        <ActionButton tone="neutral" icon={RotateCw} label="Rotate" disabled={!canEdit} onClick={onRotate} />
+        <ActionButton tone="neutral" icon={Armchair} label="Edit chairs…" disabled={!canEdit} onClick={onEditChairs} />
+        {linked ? (
+          <ActionButton tone="neutral" icon={Ungroup} label="Unlink" disabled={!canEdit} onClick={onUnlink} />
+        ) : (
+          <span data-seat-plan-link="" className="inline-flex">
+            <ActionButton tone={linkPressed ? 'brand' : 'neutral'} icon={Link2} label="Link…" aria-pressed={linkPressed} disabled={!canEdit} onClick={onLink} />
+          </span>
+        )}
+        {seatPeople}
+        {/* The row's one filled step, in the accent (the template's) — see `a-sheet-button-always-shows-its-word.test.ts`. */}
+        <span className="ml-auto inline-flex">
+          <ActionButton tone="brand" main icon={Check} label="Done" onClick={onDone} />
+        </span>
+      </div>
+      <span className="self-start">
+        <ActionButton tone="danger" quiet icon={Trash2} label="Delete this table" disabled={!canEdit} onClick={onDelete} />
+      </span>
     </div>
   );
 }

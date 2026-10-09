@@ -389,6 +389,14 @@ unchanged. Maker first load: 0 B (the lab and `app/[slug]` only).
 Guard: `lib/the-lab-plays-the-scrub-chain.test.ts` (4 rules, each sabotaged red); `scrub-is-a-held-hand-over` (5)
 re-aimed (the engine is fetched beside the place-keeping).
 
+### 9d · a guard 9c broke
+
+9c drew the toolbar's toast on the body behind `why && typeof document !== 'undefined'` — a render-time "am I in a
+browser?" branch in the Stages panel, which `the-maker-first-render-is-the-servers.test.ts` forbids (the two first
+renders must not be able to differ). That guard was not run in 9c and has been red on the branch since. `why` is
+set only by a press, so it is null in both first renders: the branch is removed, the toast still portals to the
+body. `the-play-button-previews` (3) re-aimed from the phrasing to the property; both sabotaged red.
+
 SPEC IMPACT: Yes — supersedes the 2026-10-06/07 "Style | Text | Animate" and "the toolbar is half the screen" rows.
 The controller holds the spec (`TOOLBAR-SPEC-2026-10-09.md`) and applies the corpus rows; nothing in the corpus was
 edited from this branch.

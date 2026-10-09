@@ -1270,8 +1270,11 @@ export function StageTools({
       {/* ══ 🚫 WHY A GREY TOOL DID NOTHING — one line, the app's toast, gone by itself ══ */}
       {/* The toolbar's one toast — drawn on the page's BODY, never inside the toolbar: the toolbar slides away for ▶ and
           for the whole-page preview (a transform), and a toast inside it went with it — seen on the review copy,
-          2026-10-09: "Hold ▶ to preview…" and both refusals were in the page and nobody could see them. */}
-      {why && typeof document !== 'undefined'
+          2026-10-09: "Hold ▶ to preview…" and both refusals were in the page and nobody could see them.
+          `why` is only ever set by a press, so it is null in BOTH first renders (the server's and the browser's) and
+          the body is there whenever it is not: no "am I in a browser?" branch is needed — and none may be here
+          (`the-maker-first-render-is-the-servers.test.ts`; 9c added one and broke that guard). */}
+      {why
         ? createPortal(
             <PeekToast key={why.n} tone="note" data="tool-why" onGone={() => setWhy((w) => (w?.n === why.n ? null : w))}>
               {why.words}

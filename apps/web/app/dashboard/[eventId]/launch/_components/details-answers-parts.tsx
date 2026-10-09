@@ -72,9 +72,12 @@ function answerOf(column: EventAnswerColumn, value: boolean | null, choices: rea
 export function answerParts({
   eventId,
   answers,
+  studio = false,
 }: {
   eventId: string;
   answers: AnswersInput | null;
+  /** The new Maker's Studio: a Yes/No answer on a Studio page is the Form row's switch (Studio › E-Gifts' "Accept gifts?"). */
+  studio?: boolean;
 }): {
   keys: AnswerItemKey[];
   rows: Partial<Record<AnswerItemKey, NavRow>>;
@@ -103,7 +106,7 @@ export function answerParts({
     keys.push('gifts');
     rows.gifts = { label: giftsLabel(answers.giftsMode), sub: answer, icon: <Gift aria-hidden className="h-4 w-4" strokeWidth={1.75} /> };
     bodies.gifts = <AnswerCard question={question} answer={answer} />;
-    editors.gifts = <AnswerPicker eventId={eventId} column="gifts_on" label={question} choices={choices} saved={answers.gifts.value} />;
+    editors.gifts = <AnswerPicker eventId={eventId} column="gifts_on" label={question} choices={choices} saved={answers.gifts.value} {...(studio ? { as: 'switch' as const } : {})} />;
   }
 
   return { keys, rows, bodies, editors };

@@ -30,7 +30,9 @@ test('the upload lands on the shelf the shipped writer accepts, compressed, and 
   assert.match(block, /bucket="thread-files"\s*pathPrefix=\{`pabuya-qr\/\$\{eventId\}`\}/);
   assert.match(block, /compressImage/);
   assert.match(block, /onChange=\{\(v\) => saveQr\(k, typeof v === 'string' \? v : ''\)\}/);
-  const fn = tools.slice(tools.indexOf('const saveQr ='), tools.indexOf('const saveQr =') + 1400);
+  const fn = tools.slice(tools.indexOf('const saveQr ='), tools.indexOf('const saveQr =') + 1600);
   assert.match(fn, /saveEgiftMethod\(/);
-  assert.match(fn, /qr_r2_key: ref,/);
+  /* 2026-10-09: the fields are built by `lib/studio-egifts-saves.ts` (so `studio-egifts-posts-the-same.test.ts` can RUN them) — the
+     QR still goes in as `qr_r2_key`, via the builder's `qrRef`, which that test holds ('' removes it). */
+  assert.match(fn, /egiftMethodFields\(\{[^}]*qrRef: ref/);
 });

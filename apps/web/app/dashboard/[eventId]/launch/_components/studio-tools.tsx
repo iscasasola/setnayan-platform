@@ -2,13 +2,15 @@
 
 import { StudioColourField } from './studio-colour-field';
 import { OpenInPlace } from './open-in-place';
-import { useContext, useEffect, useId, useState, useTransition, type ReactNode } from 'react';
+import { useContext, useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
 import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { tellLookSample } from '@/lib/look-sample-store';
 import { EGIFT_KIND_META, type EgiftMethodKind } from '@/lib/egift-kinds';
 import { PabuyaCardList } from '@/app/_components/pabuya/pabuya-card-list';
 import { saveEgiftMethod, savePabuyaMessage, setEgiftMethodEnabled } from '../../pabuya/actions';
 import { cleanGiftRegistryUrl, GIFT_REGISTRY_URL_ERROR, GIFT_REGISTRY_URL_MAX } from '@/lib/gift-registry';
+import { egiftEnabledFields, egiftMethodFields, egiftMethodNeedsSaving, registryFields } from '@/lib/studio-egifts-saves';
+import { plainRefusal } from '../../guests/_components/plain-refusal';
 import type { ManagerMethod } from '../../pabuya/_components/pabuya-manager';
 import { HUB_LIVE_WORDS } from '../../website/_components/hub-draft-field';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
@@ -40,7 +42,6 @@ import {
   STUDIO_ROW,
   STUDIO_ROW_LABEL,
   STUDIO_ROW_PICK,
-  STUDIO_SWITCH_TRACK,
 } from '@/lib/studio-skin';
 import { hubDraftAction } from '../../website/hub-draft-actions';
 import {
@@ -57,7 +58,7 @@ import { MAIN_COLOUR_JOB, MAIN_COLOUR_SLOTS, type MainColourDraft, type MainColo
 import { MAIN_COLOUR_SLOTS as MOOD_MAIN_COLOUR_SLOTS } from '@/lib/colour-access';
 import { StudioEventName } from './studio-event-name';
 import { STUDIO_INFO_ROWS, StudioOpeningLine, StudioWords, studioDraftKeep } from './studio-info';
-import { ChosenRow, FactRow, FormRow, FormRows, SwitchRow } from '@/app/_components/form-row';
+import { ChosenRow, FactRow, FormRow, FormRows, SwitchRow, TypedRow } from '@/app/_components/form-row';
 import { Fold } from '@/app/_components/fold';
 import { RotateCcw, Undo } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
@@ -86,38 +87,6 @@ export function StudioHeading({ title, line, data }: { title: string; line?: str
       {title}
       {line ? <small className={STUDIO_GROUP_HEAD_LINE}>{line}</small> : null}
     </p>
-  );
-}
-
-/** One switch row: the name on the left, the knob on the right — 44 px, the whole row a target. */
-export function StudioSwitch({
-  label,
-  on,
-  onChange,
-  disabled = false,
-  data,
-}: {
-  label: ReactNode;
-  on: boolean;
-  onChange: (next: boolean) => void;
-  disabled?: boolean;
-  data?: string;
-}) {
-  const id = useId();
-  return (
-    <label htmlFor={id} data-studio-switch={data} className="flex min-h-[52px] cursor-pointer items-center justify-between gap-2.5 py-1">
-      <span className="min-w-0 text-[14.5px] font-semibold text-ink">{label}</span>
-      <input
-        id={id}
-        type="checkbox"
-        role="switch"
-        checked={on}
-        disabled={disabled}
-        onChange={(e) => onChange(e.target.checked)}
-        className="peer sr-only"
-      />
-      <span aria-hidden className={STUDIO_SWITCH_TRACK} />
-    </label>
   );
 }
 
@@ -160,16 +129,31 @@ function rowsFrom(methods: readonly ManagerMethod[]): Record<(typeof STUDIO_GIFT
   return out;
 }
 
+/** What a refused or dropped E-Gifts write says when the action gave no sentence of its own. */
+const GIFT_NOT_SAVED = 'Please try again.';
+
+type GiftKind = (typeof STUDIO_GIFT_KINDS)[number];
+
 /**
  * 🎁 STUDIO › E-GIFTS (prototype `EDITORS.gifts`): What guests see on top, then
- * one switch per way to give with its field under it, then the thank-you line
+ * one switch per way to give with its fields under it, then the thank-you line
  * (handed in — the shipped `PabuyaMessageEditor`). Every write is the E-Gifts
  * page's own, LIVE as it has always been — and said so.
  *
- *  · switching a way ON that has no account yet opens its field; the account is
- *    created (`saveEgiftMethod`) the first time a number is typed and left;
+ *  · switching a way ON that has no account yet opens its fields; the account is
+ *    created (`saveEgiftMethod`) the first time a number is typed and kept;
  *  · switching it OFF hides it from guests (`setEgiftMethodEnabled`) — the
  *    manager's own Show / Hide, never a delete.
+ *
+ * 🧩 EVERY CONTROL IS A TEMPLATE'S (owner 2026-10-08/09, `INTERACTION_RULES.md` § 9; `app/_components/form-row.tsx`):
+ *   a way = `SwitchRow` · its number and the name on the account, and the registry link = `TypedRow` (the pill with a pencil;
+ *   tapping out or Enter keeps it — the same moment the old boxes saved, when they were left) · the QR = the shared
+ *   `FileUpload` · what guests see = the guest page's own card list, shown not pressed (no control).
+ * 🔑 WHAT EACH PRESS SENDS IS BUILT BY `lib/studio-egifts-saves.ts` — unchanged — and held by
+ *   `studio-egifts-posts-the-same.test.ts`.
+ * 🔴 A save that does not land SAYS SO under its row, in plain words (never the server's own text unless it is a sentence
+ *   written for a person — `plainRefusal`), and never looks like a saved one: the switch goes back, the pill is not ticked.
+ *   A write that THROWS (the network) used to say nothing at all; it says so now.
  */
 export function StudioEgifts({
   eventId,
@@ -189,8 +173,14 @@ export function StudioEgifts({
   registryUrl?: string | null;
 }) {
   const [rows, setRows] = useState(() => rowsFrom(methods));
-  const [registry, setRegistry] = useState(registryUrl ?? '');
+  /* What is in each row right now, for a save that follows another (a ref: a keep reads it the instant it is made). */
+  const now = useRef(rows);
+  now.current = rows;
+  /* The words as they are TYPED, for the preview only — never for a row's own value (a row compares what it keeps with what it held). */
+  const [typing, setTyping] = useState<Partial<Record<`${GiftKind}:${'handle' | 'accountName'}`, string>>>({});
   const [registrySaved, setRegistrySaved] = useState(registryUrl ?? '');
+  /* The link guests are shown under What guests see: what was just kept, at once — and the saved one again if it did not land. */
+  const [registry, setRegistry] = useState(registryUrl ?? '');
   /* A way created here comes back from the server with its id (the Maker re-reads after a create). */
   useEffect(() => {
     const fresh = rowsFrom(methods);
@@ -211,7 +201,15 @@ export function StudioEgifts({
       return changed ? next : r;
     });
   }, [methods]);
-  const [error, setError] = useState<string | null>(null);
+  /* One plain line per way, under its switch: a switch or a QR that did not land. */
+  const [problems, setProblems] = useState<Partial<Record<GiftKind, string>>>({});
+  const say = (kind: GiftKind, text: string | null) =>
+    setProblems((p) => {
+      const next = { ...p };
+      if (text) next[kind] = text;
+      else delete next[kind];
+      return next;
+    });
   const [, start] = useTransition();
   const fd = (fields: Record<string, string>) => {
     const f = new FormData();
@@ -219,39 +217,45 @@ export function StudioEgifts({
     for (const [k, v] of Object.entries(fields)) f.set(k, v);
     return f;
   };
-  const toggle = (kind: (typeof STUDIO_GIFT_KINDS)[number], on: boolean) => {
+  const storedOf = (id: string | null) => methods.find((m) => m.egift_method_id === id) ?? null;
+  const toggle = (kind: GiftKind, on: boolean) => {
     const before = rows[kind];
-    setError(null);
+    say(kind, null);
     setRows((r) => ({ ...r, [kind]: { ...r[kind], on } }));
     if (!before.id) return; // nothing to show or hide until its account is typed
     start(async () => {
-      const res = await makerSave(() => setEgiftMethodEnabled(fd({ egift_method_id: before.id!, is_enabled: on ? 'true' : 'false' })), requestMakerRefresh);
-      if (!res.ok) {
-        setRows((r) => ({ ...r, [kind]: before }));
-        setError(res.error);
+      let why: string | null = null;
+      try {
+        const res = await makerSave(() => setEgiftMethodEnabled(fd(egiftEnabledFields(before.id!, on))), requestMakerRefresh);
+        if (!res.ok) why = plainRefusal(res.error, GIFT_NOT_SAVED);
+      } catch {
+        why = GIFT_NOT_SAVED;
       }
+      if (why === null) return;
+      setRows((r) => ({ ...r, [kind]: before }));
+      say(kind, `${why} Nothing else was changed.`);
     });
   };
-  const saveHandle = (kind: (typeof STUDIO_GIFT_KINDS)[number]) => {
-    const row = rows[kind];
-    const original = methods.find((m) => m.egift_method_id === row.id) ?? null;
-    if (original && (original.handle ?? '') === row.handle.trim() && (original.account_name ?? '') === row.accountName.trim()) return;
-    if (!original && row.handle.trim() === '') return;
-    setError(null);
-    start(async () => {
-      const res = await makerSave(() => saveEgiftMethod(
-        fd({
-          ...(original ? { egift_method_id: original.egift_method_id } : {}),
-          method_kind: kind,
-          label: original?.label ?? EGIFT_KIND_META[kind].defaultLabel,
-          account_name: row.accountName,
-          handle: row.handle,
-          note: original?.note ?? '',
-          qr_r2_key: original?.qr_r2_key ?? '',
-        }),
-      ), requestMakerRefresh);
-      if (!res.ok) setError(res.error);
-    });
+  /**
+   * Keep a way's number or its account name (a row's tap-out / Enter). Answers the row whether it landed — it says so under
+   * itself and never ticks if not. Nothing is sent when nothing changed, and nothing is created from an empty number.
+   */
+  const keepWay = async (kind: GiftKind, field: 'handle' | 'accountName', text: string): Promise<{ ok: true } | { ok: false; error: string }> => {
+    const row = { ...now.current[kind], [field]: text };
+    now.current = { ...now.current, [kind]: row };
+    setRows((r) => ({ ...r, [kind]: { ...r[kind], [field]: text } }));
+    const original = storedOf(row.id);
+    if (!egiftMethodNeedsSaving({ stored: original, accountName: row.accountName, handle: row.handle })) return { ok: true };
+    say(kind, null);
+    try {
+      const res = await makerSave(
+        () => saveEgiftMethod(fd(egiftMethodFields({ stored: original, kind, accountName: row.accountName, handle: row.handle }))),
+        requestMakerRefresh,
+      );
+      return res.ok ? { ok: true } : { ok: false, error: plainRefusal(res.error, GIFT_NOT_SAVED) };
+    } catch {
+      return { ok: false, error: GIFT_NOT_SAVED };
+    }
   };
   /**
    * 🔳 THE METHOD'S QR (controller 2026-10-07, owner: *"shouldn't we show the
@@ -261,54 +265,53 @@ export function StudioEgifts({
    * (`checkPabuyaQrImage`) and says so if not. '' removes it. Live, like every
    * E-Gifts write. +0 server actions.
    */
-  const saveQr = (kind: (typeof STUDIO_GIFT_KINDS)[number], ref: string) => {
+  const saveQr = (kind: GiftKind, ref: string) => {
     const before = rows[kind];
     if (before.qrRef === ref) return;
-    const original = methods.find((m) => m.egift_method_id === before.id) ?? null;
+    const original = storedOf(before.id);
     setRows((r) => ({ ...r, [kind]: { ...r[kind], qrRef: ref, qrUrl: ref ? r[kind].qrUrl : null } }));
-    setError(null);
+    say(kind, null);
     start(async () => {
-      const res = await makerSave(() => saveEgiftMethod(
-        fd({
-          ...(original ? { egift_method_id: original.egift_method_id } : {}),
-          method_kind: kind,
-          label: original?.label ?? EGIFT_KIND_META[kind].defaultLabel,
-          account_name: before.accountName,
-          handle: before.handle,
-          note: original?.note ?? '',
-          qr_r2_key: ref,
-        }),
-      ), requestMakerRefresh);
+      let why: string | null = null;
+      try {
+        const res = await makerSave(
+          () => saveEgiftMethod(fd(egiftMethodFields({ stored: original, kind, accountName: before.accountName, handle: before.handle, qrRef: ref }))),
+          requestMakerRefresh,
+        );
+        if (!res.ok) why = plainRefusal(res.error, GIFT_NOT_SAVED);
+      } catch {
+        why = GIFT_NOT_SAVED;
+      }
+      if (why === null) return;
+      setRows((r) => ({ ...r, [kind]: before }));
+      say(kind, `${why} Nothing else was changed.`);
+    });
+  };
+  /** 🔗 The registry link — kept when its row is left (the E-Gifts page's own write, live). */
+  const keepRegistry = async (text: string): Promise<{ ok: true } | { ok: false; error: string }> => {
+    const next = cleanGiftRegistryUrl(text);
+    if (next === undefined) return { ok: false, error: GIFT_REGISTRY_URL_ERROR };
+    if ((next ?? '') === registrySaved) return { ok: true };
+    setRegistry(next ?? '');
+    try {
+      const res = await makerSave(() => savePabuyaMessage(fd(registryFields(next))), requestMakerRefresh);
       if (!res.ok) {
-        setRows((r) => ({ ...r, [kind]: before }));
-        setError(res.error);
-      }
-    });
-  };
-  /** 🔗 The registry link — saved when the box is left (the E-Gifts page's own write, live). */
-  const saveRegistry = () => {
-    const next = cleanGiftRegistryUrl(registry);
-    if (next === undefined) {
-      setError(GIFT_REGISTRY_URL_ERROR);
-      return;
-    }
-    if ((next ?? '') === registrySaved) return;
-    setError(null);
-    start(async () => {
-      const res = await makerSave(() => savePabuyaMessage(fd({ gift_registry_url: next ?? '' })), requestMakerRefresh);
-      if (res.ok) setRegistrySaved(next ?? '');
-      else {
         setRegistry(registrySaved);
-        setError(res.error);
+        return { ok: false, error: plainRefusal(res.error, GIFT_NOT_SAVED) };
       }
-    });
+      setRegistrySaved(next ?? '');
+      return { ok: true };
+    } catch {
+      setRegistry(registrySaved);
+      return { ok: false, error: GIFT_NOT_SAVED };
+    }
   };
-  const shownLink = cleanGiftRegistryUrl(registrySaved);
-  const seen = STUDIO_GIFT_KINDS.filter((k) => rows[k].on && rows[k].handle.trim()).map((k) => ({
+  const shownLink = cleanGiftRegistryUrl(registry);
+  const seen = STUDIO_GIFT_KINDS.filter((k) => rows[k].on && (typing[`${k}:handle`] ?? rows[k].handle).trim()).map((k) => ({
     kind: k,
     label: methods.find((m) => m.egift_method_id === rows[k].id)?.label ?? EGIFT_KIND_META[k].defaultLabel,
-    accountName: rows[k].accountName.trim() || null,
-    handle: rows[k].handle.trim() || null,
+    accountName: (typing[`${k}:accountName`] ?? rows[k].accountName).trim() || null,
+    handle: (typing[`${k}:handle`] ?? rows[k].handle).trim() || null,
     note: null,
     qrUrl: methods.find((m) => m.egift_method_id === rows[k].id)?.qrDisplayUrl ?? null,
   }));
@@ -325,74 +328,78 @@ export function StudioEgifts({
       </div>
       <StudioHeading title="Ways to give" line="switch on what you have" />
       <div className={STUDIO_GROUP}>
-        {STUDIO_GIFT_KINDS.map((k) => {
-          const meta = EGIFT_KIND_META[k];
-          const row = rows[k];
-          return (
-            <div key={k} data-studio-gift={k} className="flex flex-col border-t border-ink/10 first:border-t-0">
-              <StudioSwitch label={meta.defaultLabel} on={row.on} onChange={(v) => toggle(k, v)} data={`gift-${k}`} />
-              {row.on ? (
-                <div className="flex flex-col gap-2 pb-3">
-                  <input
-                    value={row.handle}
-                    onChange={(e) => setRows((r) => ({ ...r, [k]: { ...r[k], handle: e.target.value } }))}
-                    onBlur={() => saveHandle(k)}
-                    maxLength={200}
-                    aria-label={meta.handleLabel}
-                    placeholder={meta.handlePlaceholder}
-                    className="min-h-11 rounded-md border border-ink/10 px-3 text-[14px] text-ink"
-                  />
-                  {/* 🔳 Add your QR — the QR-first ways (GCash · Maya, `qrPrimary`); its picture with Remove once set. */}
-                  {meta.qrPrimary ? (
-                    <div data-studio-gift-qr={k}>
-                      <FileUpload
-                        bucket="thread-files"
-                        pathPrefix={`pabuya-qr/${eventId}`}
-                        label="Add your QR"
-                        acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
-                        maxSizeMB={5}
-                        variant="square"
-                        compressImage
-                        currentValue={row.qrRef || null}
-                        initialDisplayUrls={row.qrRef && row.qrUrl ? { [row.qrRef]: row.qrUrl } : {}}
-                        onChange={(v) => saveQr(k, typeof v === 'string' ? v : '')}
+        <FormRows data="egifts-ways">
+          {STUDIO_GIFT_KINDS.map((k) => {
+            const meta = EGIFT_KIND_META[k];
+            const row = rows[k];
+            return (
+              <SwitchRow
+                key={k}
+                name={meta.defaultLabel}
+                on={row.on}
+                onChange={(v) => toggle(k, v)}
+                data={`gift-${k}`}
+                attrs={{ 'data-studio-gift': k }}
+                problem={problems[k] ?? null}
+                below={
+                  row.on ? (
+                    <>
+                      <TypedRow
+                        name={meta.handleLabel}
+                        value={row.handle}
+                        empty={meta.handlePlaceholder}
+                        placeholder={meta.handlePlaceholder}
+                        maxLength={200}
+                        onType={(t) => setTyping((p) => ({ ...p, [`${k}:handle`]: t }))}
+                        onKeep={(t) => keepWay(k, 'handle', t)}
                       />
-                    </div>
-                  ) : null}
-                  <input
-                    value={row.accountName}
-                    onChange={(e) => setRows((r) => ({ ...r, [k]: { ...r[k], accountName: e.target.value } }))}
-                    onBlur={() => saveHandle(k)}
-                    maxLength={80}
-                    aria-label="Name on the account"
-                    placeholder="Name on the account"
-                    className="min-h-11 rounded-md border border-ink/10 px-3 text-[14px] text-ink"
-                  />
-                </div>
-              ) : null}
-            </div>
-          );
-        })}
-        {registryUrl !== undefined ? (
-          <div data-studio-gift="registry" className="flex flex-col border-t border-ink/10 pb-3">
-            <label className="flex min-h-11 items-center justify-between gap-3 py-1" htmlFor={`${eventId}-registry`}>
-              <span className="text-[14.5px] font-semibold text-ink">Registry link</span>
-              <small className="text-[12px] text-ink/50">optional</small>
-            </label>
-            <input
-              id={`${eventId}-registry`}
-              type="url"
-              inputMode="url"
-              value={registry}
-              onChange={(e) => setRegistry(e.target.value)}
-              onBlur={saveRegistry}
-              maxLength={GIFT_REGISTRY_URL_MAX}
+                      {/* 🔳 Add your QR — the QR-first ways (GCash · Maya, `qrPrimary`); its picture with Remove once set. */}
+                      {meta.qrPrimary ? (
+                        <div data-studio-gift-qr={k}>
+                          <FileUpload
+                            bucket="thread-files"
+                            pathPrefix={`pabuya-qr/${eventId}`}
+                            label="Add your QR"
+                            acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
+                            maxSizeMB={5}
+                            variant="square"
+                            compressImage
+                            currentValue={row.qrRef || null}
+                            initialDisplayUrls={row.qrRef && row.qrUrl ? { [row.qrRef]: row.qrUrl } : {}}
+                            onChange={(v) => saveQr(k, typeof v === 'string' ? v : '')}
+                          />
+                        </div>
+                      ) : null}
+                      <TypedRow
+                        name="Name on the account"
+                        value={row.accountName}
+                        maxLength={80}
+                        onType={(t) => setTyping((p) => ({ ...p, [`${k}:accountName`]: t }))}
+                        onKeep={(t) => keepWay(k, 'accountName', t)}
+                      />
+                    </>
+                  ) : null
+                }
+              />
+            );
+          })}
+          {registryUrl !== undefined ? (
+            <TypedRow
+              name="Registry link"
+              data="gift-registry"
+              attrs={{ 'data-studio-gift': 'registry' }}
+              pillAttrs={{ 'data-studio-registry-input': '' }}
+              value={registrySaved}
+              empty="Paste a link (optional)"
               placeholder="Paste a link to your registry"
-              data-studio-registry-input=""
-              className="min-h-11 rounded-md border border-ink/10 px-3 text-[14px] text-ink"
+              inputMode="url"
+              autoCapitalize="off"
+              maxLength={GIFT_REGISTRY_URL_MAX}
+              check={(t) => (cleanGiftRegistryUrl(t) === undefined ? GIFT_REGISTRY_URL_ERROR : null)}
+              onKeep={keepRegistry}
             />
-          </div>
-        ) : null}
+          ) : null}
+        </FormRows>
       </div>
       {thanks ? (
         <>
@@ -403,11 +410,6 @@ export function StudioEgifts({
         </>
       ) : null}
       <p className="px-1.5 pt-1 text-center text-[12px] text-ink/50">{HUB_LIVE_WORDS}</p>
-      {error ? (
-        <p role="alert" className="pt-2 text-[13px] text-terracotta-700">
-          {error} Nothing else was changed.
-        </p>
-      ) : null}
     </div>
   );
 }

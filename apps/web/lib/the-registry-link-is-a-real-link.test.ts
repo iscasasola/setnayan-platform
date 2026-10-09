@@ -12,6 +12,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { GIFT_REGISTRY_URL_MAX, cleanGiftRegistryUrl, giftRegistryHref } from './gift-registry';
+import { registryFields } from './studio-egifts-saves';
 
 const ROOT = join(__dirname, '..');
 const read = (p: string) => readFileSync(join(ROOT, p), 'utf8');
@@ -48,6 +49,10 @@ test('guests see it through the same rule; the Studio field saves on leaving the
   assert.match(page, /const registryHref = giftRegistryHref\(event\.gift_registry_url\);/);
   assert.match(page, /\{registryHref \? \(\s*<p data-gift-registry=""/);
   const tools = read('app/dashboard/[eventId]/launch/_components/studio-tools.tsx');
-  assert.match(tools, /onBlur=\{saveRegistry\}/);
-  assert.match(tools, /savePabuyaMessage\(fd\(\{ gift_registry_url: next \?\? '' \}\)\)/);
+  /* RE-AIMED 2026-10-09 (E-Gifts wears the Form row): the field is `TypedRow` — it keeps (and sends) when it is left (tap out · Enter), and the
+     link is checked BEFORE it is sent; the field is built by `lib/studio-egifts-saves.ts` (held by `studio-egifts-posts-the-same.test.ts`). */
+  assert.match(tools, /<TypedRow[\s\S]{0,200}name="Registry link"[\s\S]{0,700}check=\{\(t\) => \(cleanGiftRegistryUrl\(t\) === undefined \? GIFT_REGISTRY_URL_ERROR : null\)\}\s+onKeep=\{keepRegistry\}/);
+  assert.match(tools, /savePabuyaMessage\(fd\(registryFields\(next\)\)\)/);
+  assert.deepEqual(registryFields('https://a.example.ph'), { gift_registry_url: 'https://a.example.ph' });
+  assert.deepEqual(registryFields(null), { gift_registry_url: '' });
 });

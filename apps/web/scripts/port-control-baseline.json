@@ -1,5 +1,5 @@
 {
-  "generatedFromRef": "0b96ce234",
+  "generatedFromRef": "210c0195f",
   "routeCount": 430,
   "destinations": 956,
   "actions": 672,
@@ -6985,7 +6985,6 @@
         "StudioQuietRows",
         "StudioReadOnlyFact",
         "StudioSideSwitch",
-        "StudioSwitch",
         "StudioTileKey",
         "StudioTool",
         "StudioToolMenu",
@@ -7277,21 +7276,22 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "ActionButton",
+        "ChosenRow",
         "DraftState",
         "EgiftActionResult",
         "Field",
         "FileUpload",
-        "HTMLTextAreaElement",
-        "InfoTip",
+        "FormRows",
         "ListPageSkeleton",
         "PabuyaCardList",
         "PabuyaManager",
         "PabuyaMessageEditor",
         "PabuyaTrustNote",
         "PageMasthead",
-        "PickMenu",
         "ShippedEditor",
-        "StudioThanks"
+        "StudioThanks",
+        "TypedRow"
       ]
     },
     "/dashboard/[eventId]/paperwork": {

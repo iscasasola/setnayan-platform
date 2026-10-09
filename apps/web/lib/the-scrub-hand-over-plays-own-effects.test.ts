@@ -19,7 +19,8 @@
  *   (2) ONE SHARED SPAN — the scene's own keyframes run on the SAME selector conditions, the same spacer's timeline
  *       and the same two ranges as its fade: out with the fade-out, in with the fade-in.
  *       Sabotage: the Build in given a span of its own → red.
- *   (3) FADE / FADE AND "NONE" LOOK AS THEY DID — the scene's own keyframe never fades a second time: `hub-run-keep`
+ *   (3) FADE / FADE AND "NONE" LOOK AS THEY DID — the scene's own keyframe never fades a second time (8f: the body's
+ *       opacity is 1, important — the keyframe first used for this, `hub-run-keep`, measured NOT to hold):
  *       holds the opacity at 1 and is LAST in every list, and a plain fade keyframe has nothing but opacity in it.
  *       Sabotage: the keep taken off the way out → red.
  *   (4) REDUCED MOTION AND OLDER ENGINES NEVER SEE IT — the rules sit inside all three gates.
@@ -113,23 +114,32 @@ test('(1) the stacked cross-fade is removed whole — and the fade keyframes Aut
    the three rules of 8a that rode the run's cross-fade are RETIRED with it (nothing draws `.hub-run` › `.hub-scrub`
    for a Scrub scene any more). What 8a established is kept by 8c on the new shape, and held here:
      · the scene's OWN keyframes play in the hand-over (`--hub-in-kf` / `--hub-out-kf`);
-     · there is only ONE fade — `hub-run-keep` holds the keyframe's opacity, LAST in the list;
+     · there is only ONE fade — the body's opacity is 1, important: above every animation (see (3));
      · every rule sits behind "no reduced motion" (and, now, the engine's mark instead of a scroll timeline). */
 const BODY = '.hub-scenes[data-hub-scrub-on] .hub-scene[data-hub-fx] > .hub-canvas > .hub-canvas-body';
 
 test('(2) the stacked run’s own-effect rules are retired — the scene’s own keyframes play in the held hand-over instead', () => {
   for (const sel of Object.values(OWN)) assert.equal([...CSS.matchAll(/([^{}]+)\{/g)].filter((m) => m[1]!.trim().replace(/\s+/g, ' ') === sel).length, 0, `8a’s rule is still in the stylesheet: ${sel}`);
   const body = rule(BODY).decl;
-  assert.equal(body.animation, 'var(--hub-in-kf, none) 1s linear both paused, var(--hub-out-kf, none) 1s linear forwards paused, hub-run-keep 1s linear both paused');
+  /* 🔁 2026-10-09 (8f): longhands — with no Build out the shorthand read `none 1s linear forwards` as a fill-mode of
+     none and an animation named "forwards" (seen in the browser). */
+  assert.equal(body.animation, undefined, 'the shorthand is back');
+  assert.equal(body['animation-name'], 'var(--hub-in-kf, none), var(--hub-out-kf, none)');
+  assert.deepEqual([body['animation-duration'], body['animation-timing-function'], body['animation-fill-mode'], body['animation-play-state']], ['1s', 'linear', 'both, forwards', 'paused']);
   /* Under the thumb: a paused animation's delay is its place — set from the engine's two numbers. */
-  assert.equal(body['animation-delay'], 'calc(var(--hub-pbin, 1) * -1s), calc(var(--hub-pout, 0) * -1s), 0s');
+  assert.equal(body['animation-delay'], 'calc(var(--hub-pbin, 1) * -1s), calc(var(--hub-pout, 0) * -1s)');
   assert.equal(body['animation-timeline'], 'auto');
 });
 
+/* 🔁 RE-AIMED 2026-10-09 (8f). This held the first attempt: a third keyframe, `hub-run-keep`, listed LAST to hold the
+   body's opacity at 1. It was never measured on the new block, and it does not hold: in Chromium an arrival half-way
+   in was drawn at 0.26 (0.51 × 0.51) and a scene a third of the way out at 0.44 — every hand-over fainter and later
+   than its number. The property is the same — ONE fade — and is now held by the cascade itself: an author
+   declaration marked important sits above every animation, in every engine. Played in a browser at the six sizes
+   (`scripts/scrub-browser-check.mjs`: "a scene is drawn at its own number — one fade"). */
 test('(3) one fade only — the scene’s own keyframe never fades a second time', () => {
-  assert.match(CSS, /@keyframes hub-run-keep \{ from, to \{ opacity: 1; \} \}/);
-  const list = rule(BODY).decl.animation!.split(', ');
-  assert.equal(list.at(-1), 'hub-run-keep 1s linear both paused', 'the keep is not last — the scene’s keyframe fades over the hand-over’s fade');
+  assert.equal(rule(BODY).decl.opacity, '1 !important', 'the body’s keyframes may fade under the scene’s own fade — two opacities multiply');
+  assert.doesNotMatch(CSS, /hub-run-keep/, 'the keyframe that did not hold the opacity is back');
   /* THE fade is the hand-over's, on the scene itself. */
   assert.equal(rule('.hub-scenes[data-hub-scrub-on] .hub-scene[data-hub-fx]').decl.opacity, 'var(--hub-o, 1)');
   /* A plain fade is ONLY an opacity: with that held there is nothing left for it to play. */
@@ -147,7 +157,7 @@ test('(4) a guest who asked for less motion, and a printed page, never see it', 
 });
 
 test('(5) "one part after another" scenes keep their parts’ own arrival: the scene-level Build in is not theirs', () => {
-  assert.equal(rule(`${BODY.replace('> .hub-canvas >', '> .hub-canvas.hub-seq-parts >')}`).decl['animation-name'], 'none, var(--hub-out-kf, none), hub-run-keep');
+  assert.equal(rule(`${BODY.replace('> .hub-canvas >', '> .hub-canvas.hub-seq-parts >')}`).decl['animation-name'], 'none, var(--hub-out-kf, none)');
 });
 
 test('(6) on a part, "Leaves" is named as its scene’s', async () => {

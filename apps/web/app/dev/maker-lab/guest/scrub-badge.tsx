@@ -27,11 +27,15 @@ export function readScrubBadge(doc: Document, waited: boolean): string {
   const off = root.getAttribute('data-hub-scrub-off');
   if (off !== null) return `Scrub: OFF — ${off}`;
   if (!root.hasAttribute('data-hub-scrub-on')) return waited ? 'Scrub: OFF — the page’s script has not started' : 'Scrub: starting…';
-  /* The hand-overs the engine holds the page for (an empty scene's cell has no length). */
-  const cells = [...root.querySelectorAll<HTMLElement>('.hub-cell')].filter((c) => c.style.getPropertyValue('--hub-len') !== '');
-  if (cells.length === 0) return 'Scrub: ON — no hand-over on this page';
+  /* The hand-overs the engine holds the page for: a scene LEAVES when it is the one right before its cell's
+     rest-of-the-page (`hub-scenes.tsx` `flow` — the stage may hold ordinary scenes before it), and its cell has a
+     length (an empty scene's has none). */
+  const leaving = [...root.querySelectorAll<HTMLElement>('.hub-after')]
+    .filter((a) => (a.closest('.hub-cell') as HTMLElement | null)?.style.getPropertyValue('--hub-len'))
+    .map((a) => a.previousElementSibling as HTMLElement | null);
+  if (leaving.length === 0) return 'Scrub: ON — no hand-over on this page';
+  const cells = leaving;
   const scenes = [...root.querySelectorAll<HTMLElement>('.hub-scene')];
-  const leaving = cells.map((c) => c.querySelector<HTMLElement>(':scope > .hub-stage > .hub-scene'));
   const at = leaving.findIndex((s) => num(s, '--hub-pout') < 1);
   if (at < 0) return `Scrub: ON · all ${cells.length} hand-overs done`;
   const scene = leaving[at]!;
@@ -46,9 +50,13 @@ export function readScrubBadge(doc: Document, waited: boolean): string {
   return some && built < rows.length ? `${head} · ${nameOf(scene)}: row ${built} of ${rows.length}` : `${head} · next to leave: ${nameOf(scene)}`;
 }
 
+/** The chain's own saved canvases (`../lab-scrub.ts` `labWidgetsCookie(true)`) — what "Reset the sample" clears. */
+const SAVED = 'lab_widgets_scrub';
+
 export function LabScrubBadge() {
   const [line, setLine] = useState('Scrub: starting…');
   const [cached, setCached] = useState(false);
+  const [saved, setSaved] = useState(false);
   useEffect(() => {
     const born = Date.now();
     let frame = 0;
@@ -62,10 +70,15 @@ export function LabScrubBadge() {
       if (!frame) frame = window.requestAnimationFrame(() => (frame = window.requestAnimationFrame(read)));
     };
     window.addEventListener('scroll', ask, { passive: true });
-    const watch = new MutationObserver(ask);
+    const watch = new MutationObserver(read);
     watch.observe(document.documentElement, { attributes: true, subtree: true, attributeFilter: ['data-hub-scrub-on', 'data-hub-scrub-off', 'data-maker-guest'] });
-    const tick = window.setInterval(ask, 1000);
-    ask();
+    /* …and on a clock, WITHOUT a frame: a pane that scrolls but gives the page no animation frames left this pill
+       on "starting…" eight seconds in (seen 2026-10-09). The pill must never be the thing that is stale. */
+    const tick = window.setInterval(read, 300);
+    read();
+    /* The chain's saved edits (a scene restyled here in the Maker) — on the page as a guest sees it only: inside the
+       Maker's canvas the Maker holds them too, and clearing them under it would leave the two disagreeing. */
+    setSaved(document.querySelector('[data-maker-section]') === null && document.cookie.split('; ').some((c) => c.startsWith(`${SAVED}=`)));
     /* Did a service worker answer this page's own scripts? */
     try {
       const mine = (performance.getEntriesByType('resource') as PerformanceResourceTiming[]).filter((e) => /\/_next\/static\/chunks\//.test(e.name) && /scrub/.test(e.name));
@@ -84,11 +97,29 @@ export function LabScrubBadge() {
     <div
       data-lab-scrub-badge=""
       role="status"
-      className="pointer-events-none fixed inset-x-0 bottom-[max(10px,env(safe-area-inset-bottom))] z-[60] flex justify-center px-2 text-left"
+      /* Bottom LEFT, and never under the right 76 px: the dev server's own round button sits there and covered the end
+         of the line at 441 px (seen 2026-10-09). The words wrap; nothing is cut. */
+      className="pointer-events-none fixed bottom-[max(10px,env(safe-area-inset-bottom))] left-2 right-[76px] z-[60] flex justify-start text-left"
     >
-      <p className="max-w-full rounded-2xl bg-ink/90 px-3.5 py-2 text-xs font-semibold leading-tight text-cream shadow-lg">
+      <p className="max-w-full rounded-2xl bg-ink/90 px-3.5 py-2 text-xs font-semibold leading-snug text-cream shadow-lg">
         <span data-lab-scrub-line="">{line}</span>
         {cached ? <span className="block font-normal text-cream/75">A saved copy answered this page’s scripts — after an update, reload twice.</span> : null}
+        {saved ? (
+          <span className="block font-normal text-cream/75">
+            Your saved edits to these scenes are showing.{' '}
+            <button
+              type="button"
+              data-lab-scrub-reset=""
+              className="pointer-events-auto min-h-11 font-semibold text-cream underline underline-offset-2"
+              onClick={() => {
+                document.cookie = `${SAVED}=; path=/; max-age=0; SameSite=Lax`;
+                window.location.reload();
+              }}
+            >
+              Reset the sample
+            </button>
+          </span>
+        ) : null}
       </p>
     </div>
   );

@@ -191,8 +191,13 @@ test('(3) the seam is the lab’s alone: only app/dev provides the stand-in, onl
     if (/<FileUpload\b[^>]*?\ssend=/s.test(src)) senders.push(f);
   }
   assert.deepEqual(providers, ['app/dev/details-lab/studio-lab-fixtures.tsx'], 'a screen a person can reach provides the stand-in for storage');
-  assert.deepEqual(standIns.sort(), ['app/dev/details-lab/lab-upload-stand-in.ts', 'app/dev/details-lab/studio-lab-fixtures.tsx'], 'the stand-in is loaded outside the lab');
-  assert.deepEqual(senders, [SLOTS], 'another uploader was handed a stand-in for storage');
+  /* 2026-10-09: the lab's Studio write stand-ins (`lab-studio-actions.tsx`, E-Gifts) hand the same storage stand-in to the QR upload, so a lab QR never reaches R2. */
+  assert.deepEqual(standIns.sort(), ['app/dev/details-lab/lab-studio-actions.tsx', 'app/dev/details-lab/lab-upload-stand-in.ts', 'app/dev/details-lab/studio-lab-fixtures.tsx'], 'the stand-in is loaded outside the lab');
+  /* The E-Gifts QR takes its storage from the context ONLY — `undefined` (real storage) everywhere the lab does not provide one. */
+  assert.match(read('app/dashboard/[eventId]/launch/_components/studio-tools.tsx'), /<FileUpload[\s\S]{0,600}?send=\{qrUploadSend\}/);
+  assert.match(read('app/dashboard/[eventId]/launch/_components/studio-actions-context.tsx'), /qrUploadSend: undefined,/);
+  /* …and Studio › E-Gifts' QR upload (2026-10-09), which hands on ONLY what its context holds (asserted above). */
+  assert.deepEqual(senders, ['app/dashboard/[eventId]/launch/_components/studio-tools.tsx', SLOTS], 'another uploader was handed a stand-in for storage');
   // The slots hand on ONLY what the context holds — null (everywhere but the lab) means real storage.
   const slots = read(SLOTS);
   assert.match(slots, /export const SlotsUploadStandIn = createContext<UploadSend \| null>\(null\);/);

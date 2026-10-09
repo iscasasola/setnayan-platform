@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactElement, type ReactNode } from 'react';
 import {
   PRINTED_CHANGED_EVENT,
   PRINT_VERSION_HEADER,
@@ -12,6 +12,8 @@ import {
   type PrintedStamp,
 } from '@/lib/printed-stamp';
 import { Download, Loader2 } from 'lucide-react';
+import { ActionButton, type ActionTone } from '@/components/action-button';
+import { usePrintFetch } from './print-fetch-context';
 import { STUDIO_SAVE_CHIP } from '@/lib/studio-skin';
 
 /**
@@ -74,15 +76,34 @@ export function PrintSaveButton({
   children,
   variant = 'secondary',
   className = '',
+  label,
+  icon,
+  main = false,
+  tone,
 }: {
   href: string;
   /** The saved file's name — `<event slug>-<print>.pdf`. */
   file: string;
-  children: ReactNode;
-  /** `chip` — the new Maker's Studio › Prints (prototype `.pr-sv`): a small bordered Save, words only. */
-  variant?: 'primary' | 'secondary' | 'link' | 'chip';
+  children?: ReactNode;
+  /**
+   * `chip` — the old Studio › Prints look (a small bordered Save, words only).
+   * `action` — the new Maker's Studio › Prints wears THE ONE ActionButton (`components/action-button.tsx`): the same save, the same
+   * states ("Preparing…" · "Tap to save" · the plain error line · "Saved."), drawn by the template. Takes `label` (and `icon`, `main`, `tone`)
+   * instead of children.
+   */
+  variant?: 'primary' | 'secondary' | 'link' | 'chip' | 'action';
   className?: string;
+  /** `action` only: the button's word. */
+  label?: string;
+  /** `action` only: a mark in the icon's place (the Pro mark on the zip). Default: the download arrow. */
+  icon?: ReactElement;
+  /** `action` only: the row's one filled forward step (terracotta). */
+  main?: boolean;
+  /** `action` only: default `brand` for the filled step, `neutral` for the rest. */
+  tone?: ActionTone;
 }) {
+  /* The file's fetch — the real one, or (only in the dev lab) a stand-in that reaches no route. */
+  const printFetch = usePrintFetch();
   const [state, setState] = useState<State>({ k: 'idle' });
   const busy = useRef(false);
 
@@ -109,8 +130,7 @@ export function PrintSaveButton({
     setState({ k: 'saved', via: 'download' });
   };
 
-  const onClick = async (ev: React.MouseEvent<HTMLAnchorElement>) => {
-    ev.preventDefault();
+  const run = async () => {
     if (busy.current) return;
     if (state.k === 'ready') {
       busy.current = true;
@@ -121,7 +141,7 @@ export function PrintSaveButton({
     busy.current = true;
     setState({ k: 'working' });
     try {
-      const res = await fetch(href, { credentials: 'same-origin' });
+      const res = await printFetch(href, { credentials: 'same-origin' });
       if (!res.ok) {
         const text = (await res.text().catch(() => '')).trim();
         setState({ k: 'error', message: text && text.length < 200 && !text.startsWith('<') ? text : 'That file could not be made just now. Please try again.' });
@@ -140,6 +160,41 @@ export function PrintSaveButton({
       busy.current = false;
     }
   };
+  const onClick = (ev: React.MouseEvent<HTMLAnchorElement>) => {
+    ev.preventDefault();
+    void run();
+  };
+
+  /* 🧭 The new Maker's Studio: the ONE ActionButton — the same states, in the template's words and marks. */
+  if (variant === 'action') {
+    const word = state.k === 'working' ? 'Preparing…' : state.k === 'ready' ? 'Tap to save' : (label ?? fileName);
+    return (
+      <span data-print-save={fileName} className="inline-flex flex-col items-start gap-1">
+        <ActionButton
+          tone={tone ?? (main ? 'brand' : 'neutral')}
+          main={main}
+          waiting={state.k === 'working'}
+          icon={state.k === 'working' ? <Loader2 aria-hidden className="animate-spin" strokeWidth={1.9} /> : (icon ?? Download)}
+          label={word}
+          name={state.k === 'idle' || state.k === 'saved' || state.k === 'error' ? (label ?? fileName) : word}
+          onClick={() => void run()}
+        />
+        {state.k === 'error' ? (
+          <span role="alert" className="max-w-[18rem] text-xs text-danger-700">
+            {state.message}
+          </span>
+        ) : state.k === 'ready' ? (
+          <span role="status" className="text-xs text-ink/60">
+            Your file is ready.
+          </span>
+        ) : state.k === 'saved' ? (
+          <span role="status" className="text-xs text-ink/60">
+            {state.via === 'share' ? 'Saved.' : 'Sent to your downloads.'}
+          </span>
+        ) : null}
+      </span>
+    );
+  }
 
   const base =
     variant === 'primary'

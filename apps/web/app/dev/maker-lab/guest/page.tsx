@@ -4,7 +4,7 @@ import { cookies } from 'next/headers';
 import { mainGroundLayerFor } from '@/app/[slug]/_lib/main-ground-layer';
 import { CountdownWidget } from '@/app/[slug]/_components/countdown';
 import { EditorBridge } from '@/app/[slug]/_components/editor-bridge';
-import { HUB_STAGES, type HubStage } from '@/lib/hub-canvas';
+import { HUB_STAGES, sanitizeHubCanvas, type HubStage } from '@/lib/hub-canvas';
 import { sceneStyleOfRow, paletteLookOfRow } from '@/lib/scene-style-of-row';
 import { SpecialMessageWidget } from '@/app/[slug]/_components/special-message-widget';
 import { MakerWelcomeGiftsEmpty, MakerWelcomeLook } from '@/app/[slug]/_components/maker-guest-scenes';
@@ -34,7 +34,7 @@ import { LabScrubBadge } from './scrub-badge';
 
 /** maria-and-jose's run of show and venues (read-only shape, 2026-10-05) — the lab has no database. */
 const LAB_BLOCK = (i: number, label: string, at: string, location: string | null, type = 'pre_ceremony') => ({
-  block_id: `lab-${i}`, public_id: `lab-${i}`, event_id: 'lab', label, block_type: type, start_at: `2026-12-12T${at}:00+08:00`, end_at: null,
+  block_id: `lab-${i}`, public_id: `lab-${i}`, event_id: 'lab', label, block_type: type, start_at: `2026-12-12T${at}:00Z`, end_at: null,
   location, notes: null, is_public: true, sort_order: i, parent_block_id: null, created_at: '2026-10-01T00:00:00Z',
   run_state: 'upcoming', actual_start_at: null, actual_end_at: null, audience: null,
 });
@@ -248,12 +248,18 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
     ),
     venue_map: <VenueWidget event={LAB_VENUE_EVENT as never} sceneStyle={sceneStyleOfRow(rowOf('venue_map'), stage, 'wedding')} map="none" blocks={LAB_BLOCKS as never} />,
   };
+  /* A scene given a background of its own (in the Maker) wears THAT as its box — the frame paints it; the lab's paper
+     card inside it would be a cream box in the middle of the scene's colour (seen 2026-10-09, a Schedule on black). */
+  const ownGround = (type: LabScrubScene) => {
+    const c = sanitizeHubCanvas(rowOf(type).config_json);
+    return Boolean(c.media) || (c.kind !== undefined && c.kind !== 'none');
+  };
   const chainCard = (type: LabScrubScene, i: number) => (
     <HubCanvasFrame widget={{ ...rowOf(type), widget_id: `lab-${type}` } as never} hubTheme="house" ownClipPlays mediaUrls={LAB_MEDIA}>
       <section
         data-lab-scene={type}
         data-lab-name={LAB_SCRUB_NAME[type]}
-        className="rounded-md border border-ink/10 bg-cream px-[18px] pb-4 pt-[18px] text-left shadow-[0_8px_22px_rgb(30_34_41/0.08)]"
+        className={ownGround(type) ? 'text-left' : 'rounded-md border border-ink/10 bg-cream px-[18px] pb-4 pt-[18px] text-left shadow-[0_8px_22px_rgb(30_34_41/0.08)]'}
       >
         <p data-lab-card-label="" className="mb-3 text-[10.5px] font-bold uppercase leading-snug tracking-[0.08em] text-gild">
           {labScrubLabel(rowOf(type).config_json, { last: i === LAB_SCRUB_CHAIN.length - 1 }).map((l, n) => (

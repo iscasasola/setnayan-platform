@@ -232,6 +232,6 @@ test('9 · the first load: the page’s files and the templates they pull in are
   for (const f of ['maker-details.tsx', 'maker-shell.tsx', 'details-answers-parts.tsx', 'details-workspace.tsx']) {
     /* A type-only import is erased by the compiler: it ships nothing. */
     const src = read(`${L}/${f}`).replace(/^import type [^;]*;$/gm, '');
-    assert.doesNotMatch(src, /from '\.\/studio-tools'|from '\.\/details-answers'|from '\.\.\/\.\.\/pabuya\/_components\/pabuya-message-editor'|from '@\/app\/_components\/form-row'/, `${f} imports a lazy E-Gifts file or the Form row statically`);
+    assert.doesNotMatch(src, /from '\.\/studio-tools'|from '\.\/details-answers'|from '\.\.\/\.\.\/pabuya\/_components\/pabuya-message-editor'|from '@\/app\/_components\/form-row'|studio-actions-context/, `${f} imports a lazy E-Gifts file, the Form row or the Studio writes' context statically`);
   }
 });

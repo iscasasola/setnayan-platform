@@ -284,6 +284,9 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
             each part, and each word's own key. `RsvpCanvasBridge` then makes a tap PICK the part under it — never
             the form's own. In the Maker's frame only (`play` is the lab's own celebration preview, a plain page). */}
         {play === null ? <RsvpCanvasBridge /> : null}
+        {/* The app's own chrome (the cookie card) stays off the lab's RSVP screens, as it does off the lab's other
+            guest pages below: it sat over "Sadly, no", the hint and the Save button. The lab only. */}
+        <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style>
         <div>
           <header data-door-header="">
             <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-gild">You&rsquo;re invited</p>
@@ -303,8 +306,8 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
             <fieldset className="space-y-2">
               {/* 🧩 The lines as the real card names them (`data-rsvp-line`, `rsvp-widget.tsx`): each its own part. */}
               <legend className="mb-3">
-                <span data-rsvp-line="eyebrow" className="block text-xs font-semibold uppercase tracking-[0.26em] text-mulberry">Your reply</span>
-                <span data-rsvp-line="question" className="mt-2 block font-serif text-[32px] font-medium leading-[1.1] tracking-tight text-ink">Will you celebrate with us?</span>
+                <span data-rsvp-line="eyebrow" data-rsvp-word={rsvpWordBridgeKey('eyebrow')} data-rsvp-default="Your reply" className="block text-xs font-semibold uppercase tracking-[0.26em] text-mulberry">Your reply</span>
+                <span data-rsvp-line="question" data-rsvp-word={rsvpWordBridgeKey('question')} data-rsvp-default="Will you celebrate with us?" className="mt-2 block font-serif text-[32px] font-medium leading-[1.1] tracking-tight text-ink">Will you celebrate with us?</span>
               </legend>
               {(['Yes, with joy', 'Sadly, no'] as const).map((label, i) => (
                 <label
@@ -319,7 +322,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
               ))}
             </fieldset>
             {/* The hint, where the one-at-a-time flow puts it: inside the form, under the answers. */}
-            <p data-rsvp-line="hint" className="flex min-h-[48px] items-center justify-center text-sm text-ink/70">Tap one to continue</p>
+            <p data-rsvp-line="hint" data-rsvp-word={rsvpWordBridgeKey('hint')} data-rsvp-default="Tap one to continue" className="flex min-h-[48px] items-center justify-center text-sm text-ink/70">Tap one to continue</p>
           </form>
         ) : rsvp === 'thanks' ? (
           <>

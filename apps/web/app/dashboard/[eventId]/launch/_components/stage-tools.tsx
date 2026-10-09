@@ -66,6 +66,7 @@ import {
   rsvpLineOf,
   rsvpStageFrameSelector,
 } from '@/app/[slug]/_components/rsvp-canvas-parts';
+import { rsvpLineWord } from '@/lib/rsvp-form-words';
 import { setStagePanelNow, setStageRevealColours, setStageTool, useAnimatePhase, useStagePanelNow, useStageRevealLook, type StageQuiet } from './stage-panel/store';
 import { StageEdit } from './stage-panel/stage-edit';
 import { StageAbout } from './stage-panel/kit';
@@ -304,6 +305,9 @@ export function StageTools({
   /** The picked LINE of the picked part, on the RSVP stage — null: the part itself (the group). */
   const rsvpLine = rsvpOpen && picked && lineAtPart?.part === picked ? lineAtPart.line : null;
   const rsvpLineName = rsvpLine ? (RSVP_LINE_NAME[rsvpLine] ?? rsvpLine) : null;
+  /** ✍ A picked line WITH words: its Edit is the stage's own panel (that line's words + its Start from ▾ —
+   *  `maker-rsvp-ask.tsx`), so Edit's rows here stand aside and that panel stays in sight. */
+  const rsvpLineTypes = rsvpLineWord(picked, rsvpLine) !== null;
   /* Nothing picked → no line kept: the same part picked again from anywhere but a tap is the GROUP. */
   useEffect(() => {
     if (!picked) setLineAtPart(null);
@@ -1212,7 +1216,11 @@ export function StageTools({
     (x): x is string => Boolean(x),
   );
   /* 🧩 On the RSVP stage a picked LINE is the last piece — so it is the one that is never cut. */
-  if (rsvpLineName) linePieces.push(rsvpLineName);
+  if (rsvpLineName && picked) {
+    /* …and it stands IN PLACE of its part's name ("RSVP › Form › Question", never "RSVP › Form › RSVP › Question"). */
+    if (linePieces[linePieces.length - 1] === makerPartLabelOn(stageKey, picked)) linePieces.pop();
+    linePieces.push(rsvpLineName);
+  }
   const hasAbout = Boolean(useStagePanelNow().about);
   const lineKey = `${linePieces.join('›')}|${hasAbout ? 1 : 0}`;
   const [lineAt, setLineAt] = useState<{ key: string; level: number; n: number }>({ key: lineKey, level: 0, n: 0 });
@@ -1235,6 +1243,7 @@ export function StageTools({
       ref={rootRef}
       data-stage-tools=""
       data-stage-open={open ? '' : undefined}
+      data-stage-edit-own={rsvpLineTypes && shownTool === 'edit' ? '' : undefined}
       data-stage-tool-now={shownTool}
       data-stage-row4={lookOn ? '' : undefined}
       aria-hidden={away || undefined}
@@ -1254,6 +1263,10 @@ export function StageTools({
           '[data-maker-lower-third]:has(>[data-stage-tools]){transition:height 240ms cubic-bezier(.16,1,.3,1);background:var(--sp-paper)!important;border-top:0!important;padding:0!important;gap:0!important;box-shadow:none!important}' +
           `[data-maker-shell]:has([data-stage-tools]) [data-phone-chrome="panel"]{left:0!important;right:0!important;bottom:${STAGE_BAR_FOOT_CSS}!important;height:${STAGE_BAR_GRID_CSS}!important;outline:none!important;border-radius:0!important;box-shadow:none!important;background:var(--sp-page)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;padding:0!important}` +
           '[data-maker-shell]:has([data-stage-tool-now="edit"]) [data-phone-chrome="panel"]{visibility:hidden;pointer-events:none}' +
+          /* 🧩 …except where Edit IS that tool's (a picked LINE of the RSVP stage: its words and its Start from ▾ are
+             the stage's own panel — `data-stage-edit-own`). Written right under the rule it lifts, so the toolbar
+             stepping away (below) still hides it. */
+          '[data-maker-shell]:has([data-stage-tools][data-stage-edit-own]) [data-phone-chrome="panel"]{visibility:visible;pointer-events:auto}' +
           /* …and while the toolbar itself is AWAY (▶ playing, the whole-page preview, typing): the work area's tool lay
              over the four rows, so it goes with them — seen on the review copy, 2026-10-09: it stayed on the page under
              a toolbar that had gone, and covered "Exit preview". */
@@ -1400,7 +1413,7 @@ export function StageTools({
             </div>
           </div>
         ) : null}
-        {editOn ? (
+        {editOn && !rsvpLineTypes ? (
           <StageEdit key={picked} fields={fields} tapped={tapped} onType={showPartWords} onKeep={keepWords} earlier={edits.earlier} later={edits.later} remove={edits.remove} removeWord={edits.removeWord} why={edits.why} onWhy={(words) => setWhy((w) => ({ words, n: (w?.n ?? 0) + 1 }))} />
         ) : null}
         {/* ══ 🎭 THE REVEAL'S TOOLS — its kinds, Extras ▾ — under Style. Mounted unseen while another part (or Edit)

@@ -51,6 +51,9 @@ export const RSVP_WORD_SECTION: Readonly<Record<string, string>> = {
   thanksMessage: 'f:yesnote',
   declineHeading: 'f:nonote',
   declineMessage: 'f:nonote',
+  eyebrow: 'f:rsvp',
+  question: 'f:rsvp',
+  hint: 'f:rsvp',
 };
 
 /**

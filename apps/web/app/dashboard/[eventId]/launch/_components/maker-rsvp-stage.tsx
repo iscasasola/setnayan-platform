@@ -39,7 +39,7 @@ import {
 import { SP_KEY_BAR, SP_KEY_DONE } from '@/lib/maker-stage-room';
 import { Check } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
-import { useStagePanelNow } from './stage-panel/store';
+import { useStagePanelNow, useStageTool } from './stage-panel/store';
 import {
   RSVP_CELEBRATE_EVENT,
   RSVP_CELEBRATE_MESSAGE,
@@ -143,6 +143,9 @@ export function MakerRsvpStage({
   const [typingWord, setTypingWord] = useState<string | null>(null);
   /* 🧭 The new Maker (Stages, a phone): the part picked there, and whether this stage is its. */
   const pickedPart = useStagePanelNow().picked;
+  /** …the LINE of it picked there (null: the part itself, the group), and the tool the toolbar is on. */
+  const pickedLine = useStagePanelNow().line ?? null;
+  const stageTool = useStageTool();
   const stagesNow = useRef(false);
   stagesNow.current = maker?.stagesStudio === true;
   /* "Where you are" says the screen on show. */
@@ -473,6 +476,7 @@ export function MakerRsvpStage({
                       replyByOwn={replyByOwn}
                       requests={{ count: null, list: null }}
                       scene={scene}
+                      picked={{ tool: stageTool, part: pickedPart, line: pickedLine }}
                       solemn={solemn}
                       replyByFallback={replyByFallback}
                       draftAction={draftAction}

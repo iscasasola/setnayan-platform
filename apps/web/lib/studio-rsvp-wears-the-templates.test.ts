@@ -467,7 +467,9 @@ test('(10) the lab: its RSVP stand-in screens carry the real pages’ part marks
   for (const k of marks) assert.ok(real.has(k), `${k} is not a part of the real RSVP pages`);
   // Each word carries its key, in the section the real page puts it in.
   const words = [...screens.matchAll(/rsvpWordBridgeKey\((?:i === 0 \? 'attending' : 'declined'|'(\w+)')\)/g)].map((m) => m[1] ?? 'attending|declined');
-  assert.deepEqual(words, ['attending|declined', 'thanksHeading', 'thanksMessage', 'declineHeading', 'declineMessage']);
+  /* 🔁 RE-AIMED 2026-10-09: the form's eyebrow, question and hint are words now (every line is its own part), and
+     the stand-in names them as the real card does. Still each word with its key, in page order. */
+  assert.deepEqual(words, ['eyebrow', 'question', 'attending|declined', 'hint', 'thanksHeading', 'thanksMessage', 'declineHeading', 'declineMessage']);
   assert.equal(RSVP_WORD_SECTION.attending, 'f:rsvp');
   assert.equal(RSVP_WORD_SECTION.thanksHeading, 'f:yesnote');
   // EXECUTED — the shipped tap reader over the lab's own shape: marker · form › fieldset › label › span[word].

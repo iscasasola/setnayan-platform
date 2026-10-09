@@ -7023,11 +7023,6 @@ html:has(.hub-shape-full) { overflow-x: clip; }
   from { opacity: 1; visibility: visible; pointer-events: auto; }
   to   { opacity: 0; visibility: hidden; pointer-events: none; }
 }
-/* 🎭 In a Scrub hand-over the scene's own Build in / Build out ride INSIDE the hand-over's fade ("SCRUB — A HELD
-   HAND-OVER", at the end of this file). That fade already is the opacity, so the scene's own keyframe must not fade a
-   second time (two opacities multiply — measured before: 0.48 where the scene read 0.87). This holds the opacity at
-   1 and is listed LAST, so it wins that one property and leaves the keyframe its travel, size and blur. */
-@keyframes hub-run-keep { from, to { opacity: 1; } }
 @keyframes hub-prog-fill { to { transform: scaleX(1); } }
 /* A progress segment's width — applied ONLY while its section's timeline is
    live (see "A SEGMENT EXISTS ONLY WHILE ITS SECTION DOES" below). */
@@ -8391,16 +8386,29 @@ body:not(:has([data-maker-section])) [data-maker-sample] { display: none !import
   .hub-scenes[data-hub-scrub-on] .hub-scene[data-hub-fx][data-hub-away] { visibility: hidden; }
 
   /* THE SCENE'S OWN EFFECTS, UNDER THE THUMB — its Build in and Build out are its own keyframes, held still and
-     moved to the place the engine says (a paused animation's delay IS its position): travel, size, blur. Their
-     opacity is held (`hub-run-keep`, last), so there is only the one fade above. */
+     moved to the place the engine says (a paused animation's delay IS its position): travel, size, blur.
+     🔴 NOT THEIR OPACITY — THERE IS ONE FADE, THE ONE ABOVE. A keyframe that fades (Fade, Move + Fade, Shrink + Fade …)
+     would fade a second time under the scene's own, and two opacities MULTIPLY: measured 2026-10-09 on this block, an
+     arrival half-way in was drawn at 0.26 and a scene a third of the way out at 0.44 — every hand-over fainter and
+     later than its number, which is most of "it is on but nothing scrubbed". (A third keyframe listed last to hold
+     the opacity — `hub-run-keep`, the first attempt — did NOT hold it: measured 0.318 for 0.318.) An author
+     declaration marked important is above every animation in the cascade, in every engine: the body's opacity is 1,
+     and the keyframes keep their travel, size and blur.
+     (Longhands, not the shorthand: with no Build out the shorthand read `none 1s linear forwards` as a fill-mode of
+     none and an animation NAMED "forwards".) */
   .hub-scenes[data-hub-scrub-on] .hub-scene[data-hub-fx] > .hub-canvas > .hub-canvas-body {
-    animation: var(--hub-in-kf, none) 1s linear both paused, var(--hub-out-kf, none) 1s linear forwards paused, hub-run-keep 1s linear both paused;
-    animation-delay: calc(var(--hub-pbin, 1) * -1s), calc(var(--hub-pout, 0) * -1s), 0s;
+    animation-name: var(--hub-in-kf, none), var(--hub-out-kf, none);
+    animation-duration: 1s;
+    animation-timing-function: linear;
+    animation-fill-mode: both, forwards;
+    animation-play-state: paused;
+    animation-delay: calc(var(--hub-pbin, 1) * -1s), calc(var(--hub-pout, 0) * -1s);
     animation-timeline: auto;
     animation-range: normal;
+    opacity: 1 !important;
   }
   /* "One part after another": the parts and rows arrive one by one (below), so the scene's Build in is theirs. */
-  .hub-scenes[data-hub-scrub-on] .hub-scene[data-hub-fx] > .hub-canvas.hub-seq-parts > .hub-canvas-body { animation-name: none, var(--hub-out-kf, none), hub-run-keep; }
+  .hub-scenes[data-hub-scrub-on] .hub-scene[data-hub-fx] > .hub-canvas.hub-seq-parts > .hub-canvas-body { animation-name: none, var(--hub-out-kf, none); }
   /* The parts of a scene that arrives whole do not play by themselves… */
   .hub-scenes[data-hub-scrub-on] .hub-scene[data-hub-fx] > .hub-canvas > .hub-canvas-body > * > *,
   .hub-scenes[data-hub-scrub-on] .hub-scene[data-hub-fx] > .hub-canvas > .hub-canvas-body [data-hub-rows] > * {

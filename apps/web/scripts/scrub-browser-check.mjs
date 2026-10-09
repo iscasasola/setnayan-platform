@@ -21,7 +21,10 @@
  *      never stands still on a blank — the longest stretch with no scene to read is no longer than on the full page;
  *   9. OFF IS NEVER SILENT, and the lab's badge says what the page says: on — which hand-over and how far, the same
  *      number the page carries; off — the reason: "reduce motion", "editing — hold ▶ to play it", and, when the
- *      engine is made to throw, "the script stopped: <what was thrown>" on a plain page with every mark gone.
+ *      engine is made to throw, "the script stopped: <what was thrown>" on a plain page with every mark gone;
+ *  10. FRAMES THAT NEVER COME (a pane that scrolls a page but gives it no animation frames — seen 2026-10-09: armed at
+ *      the top, then 2,600 px of white screen): with `requestAnimationFrame` silenced after arming, the page still
+ *      shows the hand-over it is at within a second, and the badge says it.
  *
  * Not part of the unit suite (it needs a browser): run it by hand, one job at a time.
  *   node scripts/scrub-browser-check.mjs <playwright-dir> <scratch-dir> [pictures-dir]
@@ -62,7 +65,8 @@ const SNAP = () => {
   const scenes = [...document.querySelectorAll('.hub-scene')].map((e) => {
     const r = e.getBoundingClientRect(); const cs = getComputedStyle(e); /* A scene HOLDS when it is the one right before its cell's rest-of-the-page (its stage may hold ordinary scenes before it). */
     const cell = e.nextElementSibling?.classList.contains('hub-after') ? e.closest('.hub-cell') : null;
-    return { n: e.querySelector('[data-name]')?.getAttribute('data-name') ?? '?', o: cs.visibility === 'hidden' ? 0 : Number(cs.opacity), t: r.top, b: r.bottom, pout: Number(e.style.getPropertyValue('--hub-pout') || 0), pin: Number(e.style.getPropertyValue('--hub-pbin') || 1), holds: Boolean(cell), pad: cell ? parseFloat(getComputedStyle(cell, '::after').height) || 0 : 0 };
+    const bodyEl = e.querySelector(':scope > .hub-canvas > .hub-canvas-body');
+    return { n: e.querySelector('[data-name]')?.getAttribute('data-name') ?? '?', body: bodyEl ? Number(getComputedStyle(bodyEl).opacity) : 1, o: cs.visibility === 'hidden' ? 0 : Number(cs.opacity), t: r.top, b: r.bottom, pout: Number(e.style.getPropertyValue('--hub-pout') || 0), pin: Number(e.style.getPropertyValue('--hub-pbin') || 1), holds: Boolean(cell), pad: cell ? parseFloat(getComputedStyle(cell, '::after').height) || 0 : 0 };
   });
   const rows = [...document.querySelectorAll('[data-row]')].map((li) => Number(getComputedStyle(li).opacity));
   return { s: Math.round(scrollY), scenes, rows, max: document.documentElement.scrollHeight - innerHeight };
@@ -87,7 +91,7 @@ for (const [W, H] of PLAYED) {
   const back = [await at(max)]; for (let y = max - (max % 16); y >= 0; y -= 16) back.push(await at(y));
   const sig = (f) => JSON.stringify([f.scenes.map((e) => [e.n, e.o.toFixed(2), Math.round(e.t)]), f.rows.map((r) => r.toFixed(2))]);
   const same = fwd.every((f) => { const k = back.find((x) => x.s === f.s); return k && sig(k) === sig(f); });
-  const faults = { overlap: [], readable: [], rowsOrder: [], leavesEarly: [], prevOnRows: [], early: [], box: [], moved: [], above: [] };
+  const faults = { overlap: [], readable: [], rowsOrder: [], leavesEarly: [], prevOnRows: [], early: [], box: [], moved: [], above: [], twice: [] };
   let watchedAbove = 0;
   let prev = null;
   for (const f of fwd) {
@@ -102,6 +106,8 @@ for (const [W, H] of PLAYED) {
     if (sched.o > 0.02 && cd.o > 0.02 && Math.abs(sched.t - cd.t) > 32) faults.box.push(`${f.s}: tops ${Math.round(cd.t)} and ${Math.round(sched.t)}`);
     /* the page stands still while a hand-over plays: the leaving scene does not move */
     if (prev) for (const e of f.scenes) { const was = prev.scenes.find((x) => x.n === e.n); if (e.holds && e.pout > 0 && e.pout < 1 && was.pout > 0 && was.pout < 1 && Math.abs(e.t - was.t) > 0.6) faults.moved.push(`${f.s}: ${e.n} moved ${(e.t - was.t).toFixed(1)}`); }
+    /* ONE FADE: a scene is drawn at its own number — its own keyframes never fade it a second time under the scene's. */
+    for (const e of f.scenes) if (e.o > 0 && e.body < 0.999) faults.twice.push(`${f.s}: ${e.n} at ${e.o.toFixed(2)} × ${e.body.toFixed(2)}`);
     /* …and so does every scene a guest can see ABOVE it: during a hold the page does not move. */
     if (prev) { const k = f.scenes.findIndex((e) => e.holds && e.pout > 0 && e.pout < 1); const wasHeld = k >= 0 && prev.scenes[k].pout > 0 && prev.scenes[k].pout < 1;
       if (wasHeld) for (let i = 0; i < k; i++) { const e = f.scenes[i], was = prev.scenes[i]; if (e.o < 0.5 || e.b <= 0 || e.t >= H) continue; watchedAbove++; if (Math.abs(e.t - was.t) > 0.6) faults.above.push(`${f.s}: ${e.n}, above ${f.scenes[k].n}, moved ${(e.t - was.t).toFixed(1)}`); } }
@@ -119,7 +125,7 @@ for (const [W, H] of PLAYED) {
   const size = `${W}×${H}`;
   say(errs.length === 0, `${size} no page error${errs.length ? ' — ' + errs[0] : ''}`);
   say(same, `${size} back == down at every one of ${fwd.length} positions`);
-  for (const [k, words] of Object.entries({ overlap: 'no overlap outside a pair', readable: 'never two readable at once', rowsOrder: 'rows in order', leavesEarly: 'every row complete before the list leaves', prevOnRows: 'nothing of the scene before once the rows begin', early: 'the scene before at its last 20 % before the list shows', box: 'the pair in one box', moved: 'the page stands still while a hand-over plays', above: `what a guest can see above a held scene stands still too (${watchedAbove} positions watched)` })) say(faults[k].length === 0, `${size} ${words}${faults[k].length ? ` — ${faults[k].length} × e.g. ${faults[k][0]}` : ''}`);
+  for (const [k, words] of Object.entries({ overlap: 'no overlap outside a pair', readable: 'never two readable at once', rowsOrder: 'rows in order', leavesEarly: 'every row complete before the list leaves', prevOnRows: 'nothing of the scene before once the rows begin', early: 'the scene before at its last 20 % before the list shows', box: 'the pair in one box', moved: 'the page stands still while a hand-over plays', above: `what a guest can see above a held scene stands still too (${watchedAbove} positions watched)`, twice: 'a scene is drawn at its own number — one fade, never two multiplied' })) say(faults[k].length === 0, `${size} ${words}${faults[k].length ? ` — ${faults[k].length} × e.g. ${faults[k][0]}` : ''}`);
   say(rowsDone, `${size} all eight rows completed`);
   say(finished, `${size} every hand-over finished before the page ends (${end.scenes.filter((e) => e.holds).map((e) => `${e.n} ${e.pout}`).join(', ')}; last scene at ${end.scenes.at(-1).o})`);
   say(took.scrollSet === 0 && took2.scrollSet === 0, `${size} the script never set the scroll position (${took2.scrollSet})`);
@@ -242,13 +248,24 @@ for (const [W, H] of [[375, 812], [1280, 770]]) {
   let ctx = await b.newContext({ viewport: { width: W, height: H } }); let p = await ctx.newPage();
   await p.goto(`file://${scratch}/scrub-real-island.html`); await p.waitForTimeout(700);
   const max = await p.evaluate(() => document.documentElement.scrollHeight - innerHeight);
-  let met = null;
-  for (let y = 0; y <= max && !met; y += 24) { await p.evaluate((v) => scrollTo(0, v), y); await p.waitForTimeout(60); const v = await p.evaluate(() => { const s = [...document.querySelectorAll('.hub-scene')].find((e) => { const o = Number(e.style.getPropertyValue('--hub-pout') || 0); return o > 0.3 && o < 0.7; }); return s ? { name: s.querySelector('[data-name]').getAttribute('data-name'), pout: Number(s.style.getPropertyValue('--hub-pout')) } : null; }); if (v) met = v; }
+  let met = null; let metY = 0;
+  for (let y = 0; y <= max && !met; y += 24) { metY = y; await p.evaluate((v) => scrollTo(0, v), y); await p.waitForTimeout(60); const v = await p.evaluate(() => { const s = [...document.querySelectorAll('.hub-scene')].find((e) => { const o = Number(e.style.getPropertyValue('--hub-pout') || 0); return o > 0.3 && o < 0.7; }); return s ? { name: s.querySelector('[data-name]').getAttribute('data-name'), pout: Number(s.style.getPropertyValue('--hub-pout')) } : null; }); if (v) met = v; }
   await p.waitForTimeout(150);
   const on = await badge(p);
   say(on.on && on.off === null && met && on.line === `Scrub: ON · hand-over 1 of 4 · ${met.name} leaves ${Math.round(met.pout * 100)} % · Countdown arrives 0 %`, `a guest's page, armed by its own island: the badge says what the page carries ("${on.line}"; the page: ${met?.name} ${met?.pout})`);
+  /* The one that leaves is named — not an ordinary scene standing still in the same stage (the Note, above Wear). */
+  let wear = null;
+  for (let y = metY; y <= max && !wear; y += 24) { await p.evaluate((v) => scrollTo(0, v), y); await p.waitForTimeout(40); wear = await p.evaluate(() => { const s = [...document.querySelectorAll('.hub-scene')].find((e) => e.querySelector('[data-name="Wear"]')); const o = Number(s.style.getPropertyValue('--hub-pout') || 0); return o > 0.3 && o < 0.7 ? o : null; }); }
+  await p.waitForTimeout(450);
+  const fourth = await badge(p);
+  say(wear !== null && /^Scrub: ON · hand-over 4 of 4 · Wear leaves \d+ % · Gifts arrives \d+ %$/.test(fourth.line ?? ''), `the badge names the scene that leaves, not the one standing above it ("${fourth.line}")`);
+  /* 10. FRAMES THAT NEVER COME: silence them, go back to the top, then to the middle of the first hand-over. */
+  await p.evaluate(() => { window.requestAnimationFrame = () => 0; scrollTo(0, 0); }); await p.waitForTimeout(700);
+  await p.evaluate((v) => scrollTo(0, v), metY); await p.waitForTimeout(900);
+  const starved = await p.evaluate(() => { const s = [...document.querySelectorAll('.hub-scene')].find((e) => e.querySelector('[data-name="Names"]')); return { pout: Number(s.style.getPropertyValue('--hub-pout') || 0), o: Number(getComputedStyle(s).opacity), line: document.querySelector('[data-lab-scrub-line]')?.textContent }; });
+  say(Math.abs(starved.pout - met.pout) < 0.02 && starved.o > 0.2 && starved.line === `Scrub: ON · hand-over 1 of 4 · Names leaves ${Math.round(starved.pout * 100)} % · Countdown arrives 0 %`, `with no animation frames at all the page still shows where it is, and says so (Names ${starved.pout} against ${met?.pout} with frames; "${starved.line}")`);
   /* The engine made to throw: the plain page, and it says what stopped it. */
-  await p.evaluate(() => { Element.prototype.getBoundingClientRect = () => { throw new Error('boom'); }; scrollBy(0, 40); }); await p.waitForTimeout(400);
+  await p.evaluate(() => { Element.prototype.getBoundingClientRect = () => { throw new Error('boom'); }; scrollBy(0, 40); }); await p.waitForTimeout(700);
   const thrown = await p.evaluate(() => ({ line: document.querySelector('[data-lab-scrub-line]')?.textContent, off: document.querySelector('.hub-scenes').getAttribute('data-hub-scrub-off'), on: document.querySelector('.hub-scenes').hasAttribute('data-hub-scrub-on'), left: [...document.querySelectorAll('.hub-scenes, .hub-scenes *')].filter((e) => /--hub-(?:len|top|up|pbin|pout|o|rise|pp|end)\s*:/.test(e.getAttribute('style') ?? '') || e.hasAttribute('data-hub-away')).length }));
   say(!thrown.on && thrown.left === 0 && thrown.off === 'the script stopped: boom' && thrown.line === 'Scrub: OFF — the script stopped: boom', `the engine made to throw: the plain page, every mark gone, and it says why ("${thrown.line}", ${thrown.left} marks left)`);
   await ctx.close();

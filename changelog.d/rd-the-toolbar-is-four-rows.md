@@ -316,6 +316,48 @@ Size or Blur — the old Editorial / Cinematic presets included — now moves th
 On a PART, Build out's dropdown is named "Scene leaves ◆": the hand-off is scene to scene, and the name says whose
 it is. Guard: `lib/the-scrub-hand-over-plays-own-effects.test.ts` (6 rules, six sabotages seen red).
 
+### 8c · Scrub is a held hand-over, in the same place, on a page that scrolls natively
+
+Owner, on the prototype he approved (`review/scrub-prototype.html`): *"them must be on the same position to create
+that keynote like transistion"* · *"let it enter on the last 20% of the build out"* · *"it entered when the previous
+element is not yet done"* · *"it never completed the schedule"* · *"if no build out, then animation will be under
+it"* · *"element run completely normal. we only control the effect"*. This REPLACES the stacked Scrub run (production
+holds no Scrub scene, so nothing live changes).
+
+- THE PAGE STAYS ONE PAGE. Every scene is an ordinary scene in page order. A scene that hands over is wrapped — with
+  the rest of the page — in a cell (`hub-scenes.tsx` `flow`): `hub-cell › hub-stage › [the scene, hub-after › the
+  rest]`. Unarmed these are plain blocks.
+- NATIVE SCROLLING. A hold is real page LENGTH (the cell's `::after`) and the stand-still is the browser's own
+  `position: sticky` on the stage; "the same place" is a negative margin on the rest of the page, in the flow. No
+  script sets a scroll position or prevents a default; no transform is put on anything that holds scenes.
+- THE ENGINE ONLY MEASURES AND SETS (`hub-scrub-engine.ts`, numbers in `hub-scrub-math.ts`): heights and the screen
+  → custom properties and `data-hub-*` marks; it reads the browser's own sticky back to know how far a hand-over
+  has gone. Re-measures on resize, orientation change, fonts, pictures, and a scene changing height.
+- THE HAND-OVER: the leaving scene is held centred (a list whose rows build one by one, or anything taller than the
+  room, is scrolled through first and held at bottom-at-centre — at ANY window height); its Build out plays over 55 %
+  of a screen of thumb travel; the arrival, in the same place, begins when that is 80 % done and runs 22 %; a list's
+  rows wait until the leaving one has completely gone, then build as each reaches the centre line, all complete by
+  the time the list's bottom is on it. Two back-to-back hand-overs are parted by a rest (30 %). No Build out → no
+  hold: the scene stays and the next builds in below it. The page is always long enough for the last one to finish.
+- ONE FADE (the hand-over's, on the scene); the scene's own keyframes give the travel, size and blur (8a's
+  `hub-run-keep`). 8a's three stacked-run rules are retired. The stacked run's other rules stay in the stylesheet,
+  unused by Scrub, for a cleanup that removes the block whole; Auto scroll is untouched.
+- FAIL-VISIBLE: every rule needs `data-hub-scrub-on` (set only by the engine) behind `screen` + "no reduced motion".
+  No script, a blocked chunk, an error, reduce motion, print → the plain page, everything visible.
+- BUDGETS: Maker first load — nothing (`lib/hub-scenes.ts`, `lib/hub-canvas.ts` not touched; guarded). Guest page —
+  the island (`hub-scrub.tsx`, draws nothing) is rendered only by a page with a Scrub scene and fetches the engine
+  after hydration: one chunk, about 2.5 KB gzipped (esbuild, engine + its numbers), no other request.
+
+PLAYED IN CHROMIUM (`scripts/scrub-browser-check.mjs` — the real renderer, stylesheet and engine; 890 × 1548,
+940 × 1608, 1280 × 770, 375 × 812, 375 × 667; every 16 px down and back): 92 checks, all green — back == down; no
+overlap outside a pair; never two readable at once; rows in order and complete before the list leaves; nothing of
+the scene before once the rows begin; every hand-over finished before the page ends; the page standing still while
+one plays; the script never set the scroll position, prevented nothing and holds no wheel / touch listener; a real
+wheel and a real touch drag moved the page; with no script and with reduce motion, the plain page.
+
+Guard in the suite: `lib/scrub-is-a-held-hand-over.test.ts` (6 rules, nine sabotages seen red); eight pinning tests
+re-aimed with the reason written in.
+
 SPEC IMPACT: Yes — supersedes the 2026-10-06/07 "Style | Text | Animate" and "the toolbar is half the screen" rows.
 The controller holds the spec (`TOOLBAR-SPEC-2026-10-09.md`) and applies the corpus rows; nothing in the corpus was
 edited from this branch.

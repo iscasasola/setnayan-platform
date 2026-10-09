@@ -109,6 +109,10 @@ test('↕ the gap between consecutive scenes is ONE rhythm — no stacked margin
     /* The wrappers, plus the "every unit after the progress mark" rule, which
        spaces runs and scroll scenes alike. */
     if (!isWrapper(selector) && !/^\.hub-scenes > \.hub-prog ~/.test(selector)) continue;
+    /* 🔁 2026-10-09 (commit 8c): ONE length here is not a gap between scenes — the page's END, after the last scene, on a
+       page with a Scrub hand-over and only once the engine has armed (`--hub-end`: what it takes for the last row
+       and the last hand-over to complete on a tall window; 0 on most pages). Named exactly, never a pattern. */
+    if (selector === '.hub-scenes[data-hub-scrub-on]' && decls.length === 1 && decls[0]!.prop === 'padding-bottom' && decls[0]!.value === 'var(--hub-end, 0px)') continue;
     for (const d of decls) {
       if (!/^(margin|padding)(-block)?(-top|-bottom|-start|-end)?$/.test(d.prop)) continue;
       if (/^(margin|padding)$/.test(d.prop) && d.value.split(/\s+/).length > 1) {

@@ -177,6 +177,8 @@ export function hubDraftChangePlace(item: HubDraftItem, live: HubLiveState): { p
         const cam = cameraLookOfDraft(item.value);
         const qrMoved = isPlainObjectValue(item.value) && 'qr' in item.value;
         if (cam && cam !== cameraLookOfDraft(live.events.style_preferences ?? null) && !qrMoved) return { place: 'Camera', what: `Look · ${CAMERA_LOOK_LABEL[cam]}` };
+        /* 🧱 A fixed block's look (`lib/block-looks.ts`) — "Event Hub · How a block looks", not the QR. */
+        if (!qrMoved && isPlainObjectValue(item.value) && 'block_looks' in item.value) return { place: 'Event Hub', what: 'How a block looks' };
       }
       /* 🎉 The When yes celebration is NAMED at Apply (owner 2026-10-06):
          "RSVP · When they say yes · Confetti" — with the RSVP's other edits beside it

@@ -7,7 +7,7 @@ import { EVENT_VISIBILITIES, type EventVisibility } from '@/lib/event-visibility
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { editorialAllowsEventType } from '@/lib/editorial-event-types';
-import { rsvpAskConfigOnGoingPublic } from '@/lib/rsvp-ask';
+import { rsvpAskConfigOnGoingPublic } from '@/lib/going-public';
 import { parseTicketUrl, TICKET_URL_ERROR_TEXT } from '@/lib/ticket-url';
 import { carryAskToJoinIntoDraft } from '@/lib/going-public.server';
 

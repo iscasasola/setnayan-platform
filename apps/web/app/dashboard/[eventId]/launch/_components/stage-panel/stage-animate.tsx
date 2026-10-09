@@ -69,6 +69,8 @@ export function toggleMotionFx(fx: MotionFx | null, end: 'in' | 'out', effect: E
 }
 
 const seconds = (n: number) => `${n.toFixed(1)} s`;
+/** `only`: row 1 takes no room (and no gap), so rows 2–4 are the first three — "always start from the top". */
+const ROWS_FROM_THE_TOP = '!grid-rows-[0px_repeat(3,var(--sp-rh))] -mt-[var(--sp-rg)]';
 
 /** Movement ◆ for one phase: the feel that plays, and — when there is nothing for it to time — why (a tap says it). */
 export type AnimateMove = { value: AnimateFeel; onPick: (feel: AnimateFeel) => void; off?: string | null } | null;
@@ -94,7 +96,14 @@ export function StageAnimate({
   leaves = null,
   pending = false,
   error = null,
+  only,
 }: {
+  /**
+   * 🧩 ONE PHASE ONLY — a part of a page that is one screen with no scroll to follow and no exit (a line of a reply
+   * page: it arrives, and a guest leaves by answering). Row 1's Build in | Action | Build out is not drawn and the
+   * rows start from the top; nothing that could not play is offered.
+   */
+  only?: 'in';
   /** Movement ◆ — each end's OWN feel. Never an effect, never the drive. */
   move: { in: AnimateMove; out: AnimateMove };
   /** Build in's drive — and, on arrival, the reason Build out has nothing to play. */
@@ -116,7 +125,8 @@ export function StageAnimate({
 }) {
   const [phase, setPhase] = useAnimatePhase();
   const [why, setWhy] = useState<{ words: string; n: number } | null>(null);
-  const end = phase === 'act' ? null : phase;
+  const at: AnimatePhase = only ?? phase;
+  const end = at === 'act' ? null : at;
   const fx = end === 'in' ? inFx : end === 'out' ? outFx : null;
   const keep = end === 'in' ? onIn : onOut;
   const set = (part: keyof MotionFx, value: string | boolean | null) => keep(withMotionFx(fx, part, value));
@@ -125,8 +135,9 @@ export function StageAnimate({
   const noOut = end === 'out' && plays?.value === 'arrival';
   const feel = end ? move[end] : null;
   return (
-    <div className={`${SP_ROWS} shrink-0 px-[10px]`} data-stage-animate={phase} data-stage-animate-rows="" aria-busy={pending}>
+    <div className={`${SP_ROWS} ${only ? ROWS_FROM_THE_TOP : ''} shrink-0 px-[10px]`} data-stage-animate={phase} data-stage-animate-rows="" aria-busy={pending}>
       {/* ══ ROW 1 — when ══ */}
+      {only ? null : (
       <div className={`${SP_ROWS_ROW} row-start-1`}>
         <Phases<AnimatePhase>
           label="Animate"
@@ -140,6 +151,7 @@ export function StageAnimate({
           data="animate"
         />
       </div>
+      )}
       {/* ══ ROW 2 — what it does ══ */}
       {noOut && plays ? (
         <div className={`${SP_ROWS_ROW} row-start-2`} data-stage-no-out="">

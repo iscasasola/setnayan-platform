@@ -14,8 +14,14 @@ import {
   RSVP_SCENE_WORDS,
   RSVP_WORD_LABEL,
   type RsvpStageScene,
+  RSVP_WORD_LINES,
 } from '@/lib/rsvp-stage';
 import { RSVP_WORD_TYPED_EVENT } from '@/app/[slug]/_components/rsvp-canvas-parts';
+import { rsvpFormWord, rsvpLineWord } from '@/lib/rsvp-form-words';
+import { RSVP_CONFIG_FULL, readRsvpLook, rsvpConfigFits, rsvpLookCard, rsvpLookLine, rsvpLookWith } from '@/lib/rsvp-look';
+import { RSVP_OPEN_CARD_EVENT } from '@/lib/rsvp-stage-shared';
+import { RsvpBuildInRows, RsvpCardGroundRows, RsvpLineGroundRow, RsvpLineLookRows } from './rsvp-line-look';
+import type { MakerPartTool } from '@/lib/maker-parts';
 import { hubDraftAction } from '../../website/hub-draft-actions';
 import { updatePaxSettings } from '../../actions';
 import { DetailsPieceOnly } from './details-piece';
@@ -25,7 +31,6 @@ import {
   readOneAtATime,
   rsvpAnswerWord,
   RSVP_WORD_KEYS,
-  RSVP_WORD_LINES,
   RSVP_WORD_MAX,
   type RsvpAskConfig,
   type RsvpWordKey,
@@ -100,7 +105,17 @@ export function MakerRsvpSettings({
   replyByAction = updatePaxSettings,
   celebration,
   studio = false,
+  picked,
 }: {
+  /**
+   * 🧩 THE NEW MAKER'S RSVP STAGE (a phone) — what its toolbar is on: the tool, the picked part and the picked LINE
+   * of it (owner 2026-10-09: "why is this grouped?" · "shouldn't it be per element?" · "why is this scrolling?").
+   * With it the controls are the PICKED thing's, never the screen's whole list:
+   *   · Edit, a line picked — that line's words and its own Start from ▾, and nothing else;
+   *   · otherwise — the scene's own list, WITHOUT the words (each word is its line's Edit now).
+   * Absent — the desktop's stage and Studio › RSVP — the scene's whole list, exactly as before.
+   */
+  picked?: { tool: MakerPartTool; part: string | null; line: string | null };
   /**
    * 🧭 STUDIO › RSVP (the new Maker, `makerStagesStudioEnabled` — owner 2026-10-06,
    * DECISION_LOG "'ASK ONE BY ONE' IS HOW THE GUEST'S RSVP ASKS"): the same
@@ -208,6 +223,13 @@ export function MakerRsvpSettings({
    */
   const save = (patch: RsvpAskConfig, what?: string, said = false): Promise<SaveAnswer> => {
     const next: RsvpAskConfig = { ...latest.current, ...patch };
+    /* 📏 THE ONE OBJECT HAS A CEILING (the database's 2,048 bytes — `lib/rsvp-look.ts`): a save that would pass it
+       is refused HERE, in a sentence, before anything is shown or kept — a long message of emoji used to be met
+       only at Apply, as the database's own refusal. Said by the row that asked (`said`), else under the list. */
+    if (!rsvpConfigFits(next, latest.current)) {
+      setError(said ? null : RSVP_CONFIG_FULL);
+      return Promise.resolve({ ok: false, error: RSVP_CONFIG_FULL });
+    }
     latest.current = next;
     setLocal(next); // ⚡ on screen at the tap — never inside the transition below
     setError(null);
@@ -411,20 +433,29 @@ export function MakerRsvpSettings({
       />
     </FormRow>
   );
-  /* ✍ The words a scene holds — typed rows, each with its Start from ▾. */
-  const wordRows = (of: RsvpStageScene) =>
-    RSVP_SCENE_WORDS[of].map((key) => (
-      <WordRows
-        key={key}
-        wordKey={key}
-        value={words[key] ?? ''}
-        automatic={key === 'attending' || key === 'declined' ? rsvpAnswerWord(null, key, solemn) : sceneWordPlaceholder(key)}
-        lines={RSVP_WORD_LINES[key][solemn ? 'solemn' : 'celebrate']}
-        about={of === 'form' ? null : { words: wordAbout(of, key) }}
-        onType={(text) => previewWord(key, text)}
-        onKeep={(text) => saveWord(key, text, true)}
-      />
-    ));
+  /* ✍ ONE word — its typed row and its own Start from ▾. "Automatic" is what the page says by itself: the answer's
+     and the form's three lines have words of their own; a note's heading is made for each guest, its message none. */
+  const wordRow = (of: RsvpStageScene, key: RsvpWordKey) => (
+    <WordRows
+      key={key}
+      wordKey={key}
+      value={words[key] ?? ''}
+      automatic={
+        key === 'attending' || key === 'declined'
+          ? rsvpAnswerWord(null, key, solemn)
+          : key === 'eyebrow' || key === 'question' || key === 'hint'
+            ? rsvpFormWord(null, key, solemn)
+            : sceneWordPlaceholder(key)
+      }
+      lines={RSVP_WORD_LINES[key][solemn ? 'solemn' : 'celebrate']}
+      about={of === 'form' ? null : { words: wordAbout(of, key) }}
+      onType={(text) => previewWord(key, text)}
+      onKeep={(text) => saveWord(key, text, true)}
+    />
+  );
+  /* ✍ The words a scene holds — typed rows, each with its Start from ▾. On the new Maker's RSVP stage (`picked`)
+     the list holds NONE of them: a word is typed where its LINE is picked (below), so the long list is gone. */
+  const wordRows = (of: RsvpStageScene) => (picked ? [] : RSVP_SCENE_WORDS[of].map((key) => wordRow(of, key)));
   /* 🎟 HOW GUESTS GET IN — "Will guests reply? / Entry" and the guest-list type
      as ONE dropdown (owner 2026-10-02, DECISION_LOG "EVERY ANSWER ABOUT AN EVENT
      LIVES IN EVENT DETAILS ('YOUR INFO') — ONE HOME, MAPPED"). Every choice is a
@@ -471,6 +502,67 @@ export function MakerRsvpSettings({
      and a message. Presentation only — who replied, requests and reminders
      belong to the Guest list (DECISION_LOG 2026-09-30, "THE MAKER EDITS HOW IT
      LOOKS; THE GUEST LIST MANAGES THE PEOPLE"). */
+  if (scene !== undefined && picked) {
+    /* 🧩 THE NEW MAKER'S RSVP STAGE: the picked thing's controls. */
+    const lineWord = rsvpLineWord(picked.part, picked.line);
+    if (picked.tool === 'edit' && lineWord) {
+      return (
+        <div className="flex flex-col px-1" data-rsvp-stage-controls={scene} data-rsvp-stage-line-edit={picked.line ?? ''}>
+          <FormRows data="rsvp-line">{wordRow(scene, lineWord)}</FormRows>
+          {status}
+        </div>
+      );
+    }
+    /* 🎨 STYLE, a line picked — its Colour and its Size (`rsvp-line-look.tsx`), kept in the same one object as the
+       words (`look`, `lib/rsvp-look.ts`): on the canvas at the tap, in the draft behind it, live on Apply. */
+    const lookLine = rsvpLookLine(picked.part, picked.line);
+    if (picked.tool === 'style' && lookLine) {
+      return (
+        <div className="flex flex-col px-1" data-rsvp-stage-controls={scene} data-rsvp-stage-line-style={lookLine}>
+          <RsvpLineLookRows
+            line={lookLine}
+            now={readRsvpLook(local).lines?.[lookLine] ?? {}}
+            board={celebration?.colours ?? []}
+            onPick={(patch) => {
+              void save({ look: rsvpLookWith(latest.current, lookLine, patch) }, 'c' in patch ? '“Colour”' : '“Size”');
+            }}
+          />
+          {status}
+        </div>
+      );
+    }
+    /* 🃏 BACKGROUND — the card's: None · Plain · Frosted. A line has none of its own: one line says whose it sits
+       on, and "Open the card" picks that card (the Stages toolbar hears it — `RSVP_OPEN_CARD_EVENT`). */
+    const lookCard = picked.line ? null : rsvpLookCard(picked.part);
+    if (picked.tool === 'bg' && lookCard) {
+      return (
+        <div className="flex flex-col px-1" data-rsvp-stage-controls={scene} data-rsvp-stage-card-ground={lookCard}>
+          <RsvpCardGroundRows now={readRsvpLook(local).card?.[lookCard]?.g ?? null} onPick={(g) => void save({ look: rsvpLookWith(latest.current, { card: lookCard }, { g }) }, '“Background”')} />
+          {status}
+        </div>
+      );
+    }
+    if (picked.tool === 'bg' && lookLine) {
+      return (
+        <div className="flex flex-col px-1" data-rsvp-stage-controls={scene} data-rsvp-stage-line-ground={lookLine}>
+          <RsvpLineGroundRow onOpenCard={() => window.dispatchEvent(new CustomEvent(RSVP_OPEN_CARD_EVENT))} />
+        </div>
+      );
+    }
+    /* ✨ ANIMATE — a line's or the card's own Build in (`RsvpBuildInRows`), kept beside its colour and size. */
+    const moves = lookLine ?? (lookCard ? { card: lookCard } : null);
+    if (picked.tool === 'animate' && moves) {
+      const look = readRsvpLook(local);
+      return (
+        <div className="flex flex-col" data-rsvp-stage-controls={scene} data-rsvp-stage-animate={typeof moves === 'string' ? moves : `card.${moves.card}`}>
+          <RsvpBuildInRows now={(typeof moves === 'string' ? look.lines?.[moves] : look.card?.[moves.card]) ?? {}} onPick={(patch) => void save({ look: rsvpLookWith(latest.current, moves, patch) }, '“Animate”')} />
+          {status}
+        </div>
+      );
+    }
+    /* Anything else — the group, nothing picked, another tool: the scene's own list below, which holds no word
+       here (`wordRows`). ONE list for every door, as before. */
+  }
   if (scene !== undefined) {
     if (scene !== 'form') {
       /* The after-screens: ONE list — on When yes the Celebration first (the prototype's panel opens on it), then

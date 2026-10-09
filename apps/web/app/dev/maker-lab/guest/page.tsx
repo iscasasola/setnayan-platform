@@ -4,7 +4,7 @@ import { cookies } from 'next/headers';
 import { mainGroundLayerFor } from '@/app/[slug]/_lib/main-ground-layer';
 import { CountdownWidget } from '@/app/[slug]/_components/countdown';
 import { EditorBridge } from '@/app/[slug]/_components/editor-bridge';
-import { HUB_STAGES, sanitizeHubCanvas, type HubStage } from '@/lib/hub-canvas';
+import { HUB_STAGES, type HubStage } from '@/lib/hub-canvas';
 import { sceneStyleOfRow, paletteLookOfRow } from '@/lib/scene-style-of-row';
 import { SpecialMessageWidget } from '@/app/[slug]/_components/special-message-widget';
 import { MakerWelcomeGiftsEmpty, MakerWelcomeLook } from '@/app/[slug]/_components/maker-guest-scenes';
@@ -13,7 +13,7 @@ import { PahinaMasthead } from '@/app/[slug]/_components/pahina-masthead';
 import { ScheduleWidget } from '@/app/[slug]/_components/schedule-widget';
 import { VenueWidget } from '@/app/[slug]/_components/venue-widget';
 import { HubCanvasFrame } from '@/app/[slug]/_components/hub-canvas-frame';
-import { HubPageHold, HubScenes, hubScrubHoldsAtMost } from '@/app/[slug]/_components/hub-scenes';
+import { HubCoverHold, HubPageHold, HubScenes, hubCoverLeaves, hubScrubHoldsAtMost } from '@/app/[slug]/_components/hub-scenes';
 import { EDITOR_CANVAS_HIDES_APP_CHROME, canvasOnlyCss, canvasOnlyScene, canvasStylePreview } from '@/app/[slug]/_lib/editor-canvas';
 import { withStylePreview } from '@/app/[slug]/_lib/style-preview';
 import { eventWordsFor } from '@/app/[slug]/_lib/event-words';
@@ -24,6 +24,9 @@ import { MakerEmptyScene } from '@/app/[slug]/_components/maker-empty-scene';
 import { WhenYesCelebration } from '@/app/[slug]/_components/when-yes-celebration';
 import { celebrationColours, isRsvpCelebration } from '@/lib/rsvp-celebration';
 import { RsvpCanvasBridge } from '@/app/[slug]/_components/rsvp-canvas-bridge';
+import { BLOCK_LOOKS_STYLE_ATTR, BLOCK_MARK_ATTR, blockLooksCss, readBlockLooks } from '@/lib/block-looks';
+import { RsvpLookStyle } from '@/app/[slug]/_components/rsvp-look-style';
+import { rsvpAnswerWord } from '@/lib/rsvp-ask';
 import { rsvpWordBridgeKey } from '@/lib/rsvp-stage-shared';
 import { postEventSceneDrawn } from '@/lib/post-event-scenes';
 import { postEventLookOf } from '@/lib/post-event-draft';
@@ -31,6 +34,7 @@ import { resolvePostEventStyle } from '@/lib/post-event-style-resolve';
 import { LAB_EDITORIAL_COOKIE, labEditorialDraft, labPostEventRead } from '../lab-post-event';
 import { LAB_SCRUB_CHAIN, LAB_SCRUB_NAME, labScrubCanvases, labScrubLabel, labWidgetsCookie, type LabScrubScene } from '../lab-scrub';
 import { LabScrubBadge } from './scrub-badge';
+import { LabDayPages } from './lab-day';
 
 /** maria-and-jose's run of show and venues (read-only shape, 2026-10-05) — the lab has no database. */
 const LAB_BLOCK = (i: number, label: string, at: string, location: string | null, type = 'pre_ceremony') => ({
@@ -125,6 +129,13 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   const only = canvasOnlyScene({ only: typeof sp.only === 'string' ? sp.only : undefined }, true);
   const preview = canvasStylePreview({ style: typeof sp.style === 'string' ? sp.style : undefined }, true);
   /* 🎨 The lab's drafted part styles (`lab_styles`, the lab's `fixedStyles` stand-in), the preview's laid on top. */
+  /* 🧱 The lab's drafted block looks (`lab_blocks`, the stand-in for `style_preferences.block_looks`). */
+  let labBlocks: unknown = {};
+  try {
+    labBlocks = JSON.parse(decodeURIComponent((await cookies()).get('lab_blocks')?.value ?? '{}')) as unknown;
+  } catch {
+    labBlocks = {};
+  }
   let labStyles: Record<string, unknown> = {};
   try {
     labStyles = JSON.parse(decodeURIComponent((await cookies()).get('lab_styles')?.value ?? '{}')) as Record<string, unknown>;
@@ -231,7 +242,11 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
      saying anything is happening"): a card (the hub's card look: paper, hairline, radius, shadow) in a phone-wide
      column, labelled with what it is set to — read from the canvas it is drawn with (`labScrubLabel`), never written
      by hand. The card sits INSIDE the real frame (`HubCanvasFrame`), so the scene's Build in and Build out move the
-     card itself, as they move a scene on the guest page. The first card says the cover is not in the chain. */
+     card itself, as they move a scene on the guest page. The first card says the cover is not in the chain.
+     🖼 THE CARD IS THE HUB'S OWN RULE (`globals.css` "THE HUB IS CARDS", its last arm — a section inside a frame that
+     paints nothing): the lab draws none of its own, so what is seen here is what a guest's page draws. A scene given
+     a background of its own in the Maker wears THAT as its box, by the same rule. (Until 2026-10-09 the rule did
+     not reach a framed scene and each card here was a stand-in, written out in classes.) */
   const chainBody: Record<LabScrubScene, ReactNode> = {
     countdown: <CountdownWidget targetIso="2026-12-12" timeZone="Asia/Manila" sceneStyle={sceneStyleOfRow(rowOf('countdown'), stage, 'wedding')} />,
     schedule: <ScheduleWidget blocks={LAB_BLOCKS_LONG as never} eventTz="Asia/Manila" eventType="wedding" sceneStyle={sceneStyleOfRow(rowOf('schedule'), stage, 'wedding')} />,
@@ -248,18 +263,16 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
     ),
     venue_map: <VenueWidget event={LAB_VENUE_EVENT as never} sceneStyle={sceneStyleOfRow(rowOf('venue_map'), stage, 'wedding')} map="none" blocks={LAB_BLOCKS as never} />,
   };
-  /* A scene given a background of its own (in the Maker) wears THAT as its box — the frame paints it; the lab's paper
-     card inside it would be a cream box in the middle of the scene's colour (seen 2026-10-09, a Schedule on black). */
-  const ownGround = (type: LabScrubScene) => {
-    const c = sanitizeHubCanvas(rowOf(type).config_json);
-    return Boolean(c.media) || (c.kind !== undefined && c.kind !== 'none');
-  };
+  /* 🎬 THE COVER AS HAND-OVER ZERO (`hub-scenes.tsx` `HubCoverHold`): on the chain the lab's cover is the hero row, and
+     it hands over when that row Leaves by Scrub — the chain's start (`LAB_SCRUB_COVER`), or whatever "Scene leaves ◆"
+     on one of the cover's parts saved here. Asked through the real question, with the lab's door open. */
+  const coverLeaves = scrub && hubCoverLeaves([rowOf('hero')] as never, true, true);
   const chainCard = (type: LabScrubScene, i: number) => (
     <HubCanvasFrame widget={{ ...rowOf(type), widget_id: `lab-${type}` } as never} hubTheme="house" ownClipPlays mediaUrls={LAB_MEDIA}>
       <section
         data-lab-scene={type}
         data-lab-name={LAB_SCRUB_NAME[type]}
-        className={ownGround(type) ? 'text-left' : 'rounded-md border border-ink/10 bg-cream px-[18px] pb-4 pt-[18px] text-left shadow-[0_8px_22px_rgb(30_34_41/0.08)]'}
+        className="text-left"
       >
         <p data-lab-card-label="" className="mb-3 text-[10.5px] font-bold uppercase leading-snug tracking-[0.08em] text-gild">
           {labScrubLabel(rowOf(type).config_json, { last: i === LAB_SCRUB_CHAIN.length - 1 }).map((l, n) => (
@@ -268,15 +281,58 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
               {l.name} <b className="font-bold text-terracotta-700">{l.value}</b>
             </span>
           ))}
-          {i === 0 ? <span className="mt-1 block normal-case tracking-normal text-ink/60">The cover above is not part of the chain yet.</span> : null}
+          {i === 0 && !coverLeaves ? <span className="mt-1 block normal-case tracking-normal text-ink/60">The cover above does not leave by Scrub.</span> : null}
         </p>
         {chainBody[type]}
       </section>
     </HubCanvasFrame>
   );
+  /* 🧭 THE DAY, AS PAGES (`./lab-day.tsx`) — the Stages canvas's own shape for The Day (`&tabs=1`, as the Maker asks
+     for it): one page per tab, the day's own parts on the page the one filing puts them on, the Camera a page. */
+  if (phase === 'event' && sp.tabs === '1' && !scrub && !rsvp) {
+    return (
+      <main className="min-h-dvh bg-cream text-center text-ink" data-lab-phase={phase}>
+        <div data-guest-ground="" aria-hidden className="pointer-events-none fixed inset-0 -z-10 bg-[#FBF9F5]" />
+        <LabDayPages
+          tab={typeof sp.tab === 'string' ? sp.tab : undefined}
+          paged={!only}
+          mark={mark}
+          styleOf={(part) => fixedSceneStyleOf(labEvent.style_preferences, part, stage, 'wedding')}
+          galleryStyle={sceneStyleOfRow(rowOf('our_photos'), stage, 'wedding')}
+          given={{
+            'f:hero': (
+              <section className="px-4 pb-10 pt-6">
+                <PahinaMasthead
+                  displayName="Maria & Jose"
+                  eventDate="2026-12-12"
+                  venueName="Seda Vertis North, Quezon City"
+                  eyebrow="Together with their families"
+                  stampElements
+                  looks={Object.keys(heroLooks).length > 0 ? heroLooks : null}
+                  monogramSlot={
+                    <span className="flex h-20 w-20 items-center justify-center rounded-full border border-gild font-serif text-2xl italic text-terracotta-700">
+                      M &amp; J
+                    </span>
+                  }
+                />
+              </section>
+            ),
+            'w:schedule': scene.schedule,
+            'w:venue_map': scene.venue_map,
+            'w:dress_code': scene.dress_code,
+          }}
+        />
+        {sp.editor === '1' && !preview ? <EditorBridge /> : null}
+        {only ? <style>{canvasOnlyCss(only)}</style> : null}
+        <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style>
+      </main>
+    );
+  }
   if (rsvp) {
     return (
-      <main className="min-h-dvh bg-[#FBF9F5] px-5 py-6 text-ink">
+      /* 🖼 A GROUND TO JUDGE THE CARD AGAINST (controller 2026-10-10): on plain cream, Frosted and None looked the
+         same as Plain. A stand-in for the Look's background, made of the lab's own colours — the lab only. */
+      <main className="min-h-dvh px-5 py-6 text-ink" style={{ background: `linear-gradient(160deg, ${LAB_BOARD[4]} 0%, ${LAB_BOARD[2]} 52%, ${LAB_BOARD[1]} 100%)` }}>
         {/* 🧩 THE REAL RSVP PAGES' PART MARKS, AND THEIR BRIDGE (2026-10-09 — the owner could not reach the RSVP
             stage's tools by hand in the lab: these screens had no marks, so a tap picked nothing and ticked an
             answer). As `invite/reply` and `invite/enter` draw them on the Maker's canvas: the masthead inside the
@@ -284,7 +340,14 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
             each part, and each word's own key. `RsvpCanvasBridge` then makes a tap PICK the part under it — never
             the form's own. In the Maker's frame only (`play` is the lab's own celebration preview, a plain page). */}
         {play === null ? <RsvpCanvasBridge /> : null}
-        <div>
+        {/* The app's own chrome (the cookie card) stays off the lab's RSVP screens, as it does off the lab's other
+            guest pages below: it sat over "Sadly, no", the hint and the Save button. The lab only. */}
+        <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style>
+        {/* 🎨 Each line's look, as the real pages carry it — drawn at the tap in the Maker (`rsvp-look-style.tsx`). */}
+        <RsvpLookStyle config={null} board={celebrationColours(LAB_BOARD)} parts={rsvp === 'form' ? ['rsvp'] : rsvp === 'thanks' ? ['yesnote', 'pass'] : ['nonote']} canvas />
+        {/* 🃏 The door's CARD, as `DoorShell` draws it: the masthead and every section inside ONE card — on the Maker's
+            canvas the card is the screen's group of lines, picked from its edge (`RSVP_CARD_GROUPS`). */}
+        <div className="rounded-3xl bg-white px-5 py-6 shadow-sm">
           <header data-door-header="">
             <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-gild">You&rsquo;re invited</p>
             <h1 className="mt-1 text-xl font-semibold">Maria &amp; Jose</h1>
@@ -292,7 +355,6 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
               <span data-el="date">Saturday, December 12, 2026</span>
             </p>
           </header>
-        </div>
         {rsvp === 'form' ? mark('f:greeting') : null}
         {rsvp === 'form' ? <p className="mt-4 text-sm">Teresita Aquino</p> : null}
         {rsvp === 'form' ? mark('f:rsvp') : null}
@@ -301,10 +363,18 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
              answer fills with the page's button colour, the other goes plain. */
           <form className="rsvp-form mt-4">
             <fieldset className="space-y-2">
-              <legend className="mb-3 font-serif text-2xl">Will you celebrate with us?</legend>
-              {(['Yes, with joy', 'Sadly, no'] as const).map((label, i) => (
+              {/* 🧩 The lines as the real card names them (`data-rsvp-line`, `rsvp-widget.tsx`): each its own part. */}
+              <legend className="mb-3">
+                <span data-rsvp-line="eyebrow" data-rsvp-word={rsvpWordBridgeKey('eyebrow')} data-rsvp-default="Your reply" className="block text-xs font-semibold uppercase tracking-[0.26em] text-mulberry">Your reply</span>
+                <span data-rsvp-line="question" data-rsvp-word={rsvpWordBridgeKey('question')} data-rsvp-default="Will you celebrate with us?" className="mt-2 block font-serif text-[32px] font-medium leading-[1.1] tracking-tight text-ink">Will you celebrate with us?</span>
+              </legend>
+              {/* The two answers say what the REAL card prints when the couple wrote nothing (`rsvpAnswerWord`) — the
+                  words the Maker's row calls "Automatic". (They read "Yes, with joy" / "Sadly, no" here: a stand-in
+                  of the lab's own, which no guest page prints.) */}
+              {(['attending', 'declined'] as const).map((answer, i) => ({ label: rsvpAnswerWord(null, answer, false), i })).map(({ label, i }) => (
                 <label
                   key={label}
+                  data-rsvp-line={i === 0 ? 'yes' : 'no'}
                   data-rsvp-answer=""
                   className="flex min-h-12 cursor-pointer items-center justify-center rounded-full bg-white px-5 text-sm font-medium leading-tight text-ink ring-[1.5px] ring-ink transition-colors has-[:checked]:bg-ink has-[:checked]:text-cream"
                 >
@@ -313,15 +383,17 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
                 </label>
               ))}
             </fieldset>
+            {/* The hint, where the one-at-a-time flow puts it: inside the form, under the answers. */}
+            <p data-rsvp-line="hint" data-rsvp-word={rsvpWordBridgeKey('hint')} data-rsvp-default="Tap one to continue" className="flex min-h-[48px] items-center justify-center text-sm text-ink/70">Tap one to continue</p>
           </form>
         ) : rsvp === 'thanks' ? (
           <>
             {mark('f:yesnote')}
             <div className="mt-6">
-              <p className="font-serif text-2xl" data-landing-heading="" data-rsvp-word={rsvpWordBridgeKey('thanksHeading')} data-rsvp-default="See you there, Teresita" data-rsvp-name="Teresita">
+              <p className="font-serif text-2xl" data-landing-heading="" data-rsvp-line="heading" data-rsvp-word={rsvpWordBridgeKey('thanksHeading')} data-rsvp-default="See you there, Teresita" data-rsvp-name="Teresita">
                 See you there, Teresita
               </p>
-              <p className="mt-2 text-sm text-ink/60" data-rsvp-word={rsvpWordBridgeKey('thanksMessage')} data-rsvp-word-optional="" data-rsvp-name="Teresita" hidden />
+              <p className="mt-2 text-sm text-ink/60" data-rsvp-line="message" data-rsvp-word={rsvpWordBridgeKey('thanksMessage')} data-rsvp-word-optional="" data-rsvp-name="Teresita" hidden />
             </div>
             <WhenYesCelebration
               kind={play ?? 'none'}
@@ -331,18 +403,34 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
               listen={play === null}
               freezeAt={freeze}
             />
+            {/* The pass and its Save button — a line of the pass, named on a box around the (inert) button, as
+                `invite/enter` does. */}
+            {play === null ? mark('f:pass') : null}
+            {play === null ? (
+              <section className="mt-6 space-y-4 text-center">
+                <div className="mx-auto h-40 w-[min(260px,100%)] rounded-2xl bg-ink/10" />
+                <div data-rsvp-line="save">
+                  <button type="button" className="button-primary w-full">
+                    Save my ticket
+                  </button>
+                </div>
+              </section>
+            ) : null}
           </>
         ) : (
           <>
             {mark('f:nonote')}
-            <div className="mt-6">
-              <p className="font-serif text-2xl italic text-ink/70" data-rsvp-word={rsvpWordBridgeKey('declineHeading')} data-rsvp-default="We will miss you." data-rsvp-name="Teresita">
+            {/* The note's OWN card inside the door's card, as `invite/enter` draws it (`data-landing-missed`): with a
+                ground chosen for the door's card it gives up its paper, so ONE card shows (`RSVP_INNER_CARD_SELECTOR`). */}
+            <div className="sn-glass-bare mt-6 rounded-2xl bg-cream/95 px-5 py-7 text-center shadow-sm" data-landing-missed="">
+              <p className="font-serif text-2xl italic text-ink/70" data-rsvp-line="heading" data-rsvp-word={rsvpWordBridgeKey('declineHeading')} data-rsvp-default="We will miss you." data-rsvp-name="Teresita">
                 We will miss you.
               </p>
-              <p className="mt-2 text-sm text-ink/60" data-rsvp-word={rsvpWordBridgeKey('declineMessage')} data-rsvp-word-optional="" data-rsvp-name="Teresita" hidden />
+              <p className="mt-2 text-sm text-ink/60" data-rsvp-line="message" data-rsvp-word={rsvpWordBridgeKey('declineMessage')} data-rsvp-word-optional="" data-rsvp-name="Teresita" hidden />
             </div>
           </>
         )}
+        </div>
       </main>
     );
   }
@@ -363,7 +451,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       {/* 🧍 THE PAGE'S OWN HOLD, as `site-body.tsx` wraps its article: on the chain, everything this page draws — the
           cover, the greeting, the ticket — stands still while a hand-over plays. (`holds` 0 off the chain: nothing is
           wrapped.) */}
-      <HubPageHold holds={scrub ? hubScrubHoldsAtMost(LAB_SCRUB_CHAIN.map((t) => rowOf(t)) as never, true, true) : 0}>
+      <HubPageHold holds={scrub ? hubScrubHoldsAtMost(LAB_SCRUB_CHAIN.map((t) => rowOf(t)) as never, true, true) + (coverLeaves ? 1 : 0) : 0}>
       <div className="flex justify-between border-b border-ink/10 px-4 py-2.5 text-[9.5px] font-semibold uppercase tracking-[0.3em] text-gild">
         <span>Setnayan</span>
         <span>{phase === 'save_the_date' ? 'Save the Date' : phase === 'event' ? 'The Day' : phase === 'editorial' ? 'Post Event' : 'Invitation'}</span>
@@ -372,7 +460,15 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
           `data-el` and, when picked, their own style (`data-part-look`), exactly as the guest page draws them. */}
       {/* 🎚 The chain's badge (lab only): is Scrub on, which hand-over, how far — or WHY it is off. Before the first
           marker, so the Maker's bridge never counts it as part of a scene. Never in a miniature. */}
+      {/* 🎬 THE COVER, AND THE REST OF THE PAGE AFTER IT — as the page hands its cover over (`HubCoverHold`). With a
+          cover that does not leave (the ordinary lab; a chain whose cover was set back to "As it scrolls away") both
+          are returned as given: nothing is wrapped. The cover's marker goes IN with it, so the Maker's bridge still
+          finds the cover right after its marker. */}
       {scrub && !only && !preview ? <LabScrubBadge /> : null}
+      <HubCoverHold
+        leaves={coverLeaves}
+        cover={
+          <>
       {mark('f:hero')}
       <section className="px-4 pb-10 pt-6">
         <PahinaMasthead
@@ -389,6 +485,9 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
           }
         />
       </section>
+          </>
+        }
+      >
       <section className="border-t border-ink/10 px-4 py-8">
         <p className="font-serif text-lg">Personal greeting</p>
         <p className="mt-1 text-sm text-ink/70">Dear Teresita, we would love you there.</p>
@@ -413,6 +512,8 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
             </HubScenes>
           </div>
           <div className="sn-editorial">
+            {/* 🧱 E-Gifts' own mark, as the real page puts it: before the Maker's marker (`lib/block-looks.ts`). */}
+            <span hidden {...{ [BLOCK_MARK_ATTR]: 'gifts' }} />
             {mark('f:gifts')}
             {giftsBlock}
             {mark('f:look')}
@@ -428,6 +529,8 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
           {/* 🔤 Three of the page's eyebrows, as the real scenes draw them — inside the
               editorial scope the guest page wears (`.sn-editorial`). */}
           <div className="sn-editorial">
+            {/* 🧱 E-Gifts' own mark, as the real page puts it: before the Maker's marker (`lib/block-looks.ts`). */}
+            <span hidden {...{ [BLOCK_MARK_ATTR]: 'gifts' }} />
             {mark('f:gifts')}
             {giftsBlock}
             {mark('w:our_love_story')}
@@ -472,6 +575,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
           ))}
         </div>
       ) : null}
+      </HubCoverHold>
       </HubPageHold>
       {/* The Maker's two-way bridge, as the real canvas mounts it — its `ready` swaps a buffered frame in. Never in a miniature. */}
       {sp.editor === '1' && !preview ? <EditorBridge /> : null}
@@ -480,6 +584,8 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
           among them — are not drawn inside the Maker's sample; the host answers them on the Maker's own page. The lab
           drew the banner over the foot of the sample, which the real Maker never does (seen on the review copy, 2026-10-09). */}
       <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style>
+      {/* 🧱 The fixed blocks' own motion, as the real page carries it — redrawn at the tap in the Maker (`editor-bridge.tsx`). */}
+      <style {...{ [BLOCK_LOOKS_STYLE_ATTR]: '' }}>{blockLooksCss(readBlockLooks({ block_looks: labBlocks }))}</style>
     </main>
   );
 }

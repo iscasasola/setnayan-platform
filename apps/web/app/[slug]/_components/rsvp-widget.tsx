@@ -7,6 +7,7 @@ import type { GuestRow } from '../_lib/types';
 import { plusOneSeats } from '@/lib/guests';
 import { RsvpPlusOnes } from './rsvp-plus-ones';
 import { rsvpAsks, type RsvpAskConfig, type RsvpAskField, type RsvpWords } from '@/lib/rsvp-ask';
+import { rsvpFormWord, type RsvpFormWordKey } from '@/lib/rsvp-form-words';
 import { rsvpWordBridgeKey } from '@/lib/rsvp-stage-shared';
 import { SelfieNoThanksConfirm } from './selfie-no-thanks-confirm';
 import {
@@ -364,12 +365,14 @@ export function RsvpWidget({
       ] as const);
   // 📝 The couple's own YES / NO words (the RSVP stage) — every style says them.
   const answerShown = answerOptions.map((o) => ({ ...o, label: answerWords?.[o.key] ?? o.label }));
+  /** One of the card's own three lines, named for the Maker's canvas: its key, and the card's words for it. */
+  const formWordAttrs = (key: RsvpFormWordKey) => ({ 'data-rsvp-word': rsvpWordBridgeKey(key), 'data-rsvp-default': rsvpFormWord(null, key, words.solemn) });
 
   return (
     <form action={action} className="rsvp-form space-y-6">
       {/* FIRST in the form: the one-question progress sits above everything
           the guest reads (rsvp-one-at-a-time.tsx, "THE SCREEN'S ORDER"). */}
-      {previewEveryQuestion ? <RsvpOneAtATimeLive initial={oneAtATime} /> : oneAtATime ? <RsvpOneAtATime /> : null}
+      {previewEveryQuestion ? <RsvpOneAtATimeLive initial={oneAtATime} hint={answerWords?.hint} /> : oneAtATime ? <RsvpOneAtATime hint={answerWords?.hint} /> : null}
       {flash ? (
         <p
           role={flash.tone === 'error' ? 'alert' : 'status'}
@@ -483,15 +486,22 @@ export function RsvpWidget({
           {/* 2a · THE FABLE WORDS (owner 2026-09-30, "APPROVED — THE FABLE DESIGNS…"):
               "Your reply" over "Will you celebrate with us?". */}
           <legend className="mb-3">
-            <span className="block text-xs font-semibold uppercase tracking-[0.26em] text-mulberry">Your reply</span>
-            <span className="mt-2 block font-serif text-[32px] font-medium leading-[1.1] tracking-tight text-ink">
-              {words.solemn ? 'Will you be with us?' : 'Will you celebrate with us?'}
+            {/* 🧩 Each line carries its NAME (`data-rsvp-line`, `rsvp-canvas-parts.ts`): on the Maker's RSVP stage
+                every line is its own part. For a guest it is only a name — it draws nothing. */}
+            {/* 📝 …and its WORDS: the couple's own (`answerWords`), else the card's — the same two lines as before
+                (`lib/rsvp-form-words.ts`). `data-rsvp-word` / `-default` let the Maker's canvas show them as typed. */}
+            <span data-rsvp-line="eyebrow" {...formWordAttrs('eyebrow')} className="block text-xs font-semibold uppercase tracking-[0.26em] text-mulberry">
+              {rsvpFormWord(answerWords, 'eyebrow', words.solemn)}
+            </span>
+            <span data-rsvp-line="question" {...formWordAttrs('question')} className="mt-2 block font-serif text-[32px] font-medium leading-[1.1] tracking-tight text-ink">
+              {rsvpFormWord(answerWords, 'question', words.solemn)}
             </span>
           </legend>
           {answerOptions.map((option) => (
             <label
               key={option.key}
               /* 🔘 Look › Buttons reaches the answers through this hook (globals.css). */
+              data-rsvp-line={option.key === 'attending' ? 'yes' : option.key === 'declined' ? 'no' : undefined}
               data-rsvp-answer=""
               className="flex min-h-12 cursor-pointer items-center justify-center rounded-full bg-white px-5 text-sm font-medium leading-tight text-ink ring-[1.5px] ring-ink transition-colors has-[:checked]:bg-ink has-[:checked]:text-cream"
             >

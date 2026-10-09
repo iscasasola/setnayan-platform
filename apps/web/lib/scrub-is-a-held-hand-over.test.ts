@@ -45,6 +45,25 @@
  *       asks for is never less than what its scenes draw. Both trees of the guest page wrap their article. Played
  *       in a browser at the six sizes ("the page before the scenes stands still during a hold"), and under
  *       `html { overflow-x: clip }`. Sabotage: the engine holding only the block → red here and in the browser.
+ *   (9) THE TOP OF THE ROOM IS ONE NUMBER, THE STYLESHEET'S (2026-10-09: the engine kept its own — 76 px, or 9 % —
+ *       while the stylesheet's line under the invitation's pinned bar is 100 px, so a long arrival began 24 px above
+ *       the line, its first words under the progress mark). `--hub-pin` is declared once for a page with the bar and
+ *       once for a page without, in the PLAIN BASE (Scrub also runs where the scroll-timeline gates do not); the
+ *       armed scenes block carries it as a length and the engine reads that back — it has no number of its own, and
+ *       does not play a page that does not say its line. Played in a browser under a pinned bar at three phone
+ *       sizes and a desktop one ("a long arrival under the pinned top bar"). Sabotage: the engine's own number
+ *       back → red here and in the browser.
+ *  (10) 🎬 THE COVER IS HAND-OVER ZERO (2026-10-10 — owner: "maria jose must build out and until we say i do should be
+ *       where maria jose build out"). The cover is at the top of the page, so the centred line is a place it cannot
+ *       be scrolled to (measured: it was shoved 326 px down and drawn 73 % built out as the page opened). EXECUTED:
+ *       a cover that can be seen whole from where it stands is held THERE — at scroll 0 nothing has moved and nothing
+ *       has begun; what comes next arrives at the usual centred line, never above the cover or the top of the room;
+ *       a cover that does not fit is the ordinary rule, unchanged. RENDERED: a cover that does not leave is returned
+ *       with the rest of the page exactly as given — no box, no class, no island (every page today; "Scrub out" not
+ *       offered → no cover leaves); one that does is three plain boxes. The engine gives it the page's first pair,
+ *       marks what arrives and what follows, and never lets a stage stick before the one before it has let go.
+ *       Played in a browser at five sizes (`scrub-browser-check.mjs` 14). Sabotages: the hold line ignored → red;
+ *       the boxes drawn for a cover that does not leave → red.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -55,9 +74,9 @@ import { stripComments } from './strip-comments';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
-import { SCRUB, scrubLens, scrubMoment, scrubNeedsRest, scrubOwnIn, scrubPair, scrubRow, scrubThrough } from '../app/[slug]/_components/hub-scrub-math';
-import { HubPageHold, HubScenes, hubScrubHolds, hubScrubHoldsAtMost } from '../app/[slug]/_components/hub-scenes';
-import { HUB_PAGE_HOLD_CLASSES } from '../app/[slug]/_components/hub-scrub-math';
+import { SCRUB, scrubCoverStands, scrubLens, scrubMoment, scrubNeedsRest, scrubOwnIn, scrubPair, scrubRow, scrubThrough } from '../app/[slug]/_components/hub-scrub-math';
+import { HubCoverHold, HubPageHold, HubScenes, hubCoverLeaves, hubScrubHolds, hubScrubHoldsAtMost } from '../app/[slug]/_components/hub-scenes';
+import { HUB_COVER_CLASSES, HUB_PAGE_HOLD_CLASSES } from '../app/[slug]/_components/hub-scrub-math';
 
 (globalThis as unknown as { React: unknown }).React = React;
 
@@ -274,7 +293,11 @@ test('(7) during a hold the page stands still: the scenes before a hand-over are
   /* THE ENGINE — finds the pair by that shape, and sticks the stage where the SCENE is on its line. */
   const engine = read(`${B}/hub-scrub-engine.ts`);
   assert.match(engine, /const after = stage\?\.querySelector<HTMLElement>\(':scope > \.hub-after, :scope > \.hub-below > \.hub-after'\) \?\? null;\s*const scene = after\?\.previousElementSibling as HTMLElement \| null;/);
-  assert.match(engine, /const stick = pair\.top - \(docTop\(scene\) - docTop\(hold\.stage\)\);\s*put\(hold\.stage, '--hub-top', px\(stick\)\);/);
+  /* 🔁 2026-10-10 (the cover): the scene's line is still its line — and the stage never sticks before the hand-over
+     before it has let go (a stage inside the one before it stands, while that one stands, at that one's line plus
+     its own place in it; a line below that is a place the page has already passed — see (10)). */
+  assert.match(engine, /const line = pair\.top - \(docTop\(scene\) - docTop\(hold\.stage\)\);/);
+  assert.match(engine, /const before = held\[held\.length - 1\];\s*const stick = before && before\.stage\.contains\(hold\.stage\) \? Math\.min\(line, before\.stick \+ \(docTop\(hold\.stage\) - docTop\(before\.stage\)\)\) : line;\s*put\(hold\.stage, '--hub-top', px\(stick\)\);/);
   assert.match(engine, /const next = arrival\?\.nextElementSibling \?\? null;\s*const below = next\?\.matches\('\.hub-below, \.hub-after'\) \? \(next as HTMLElement\) : null;/);
   /* …the arrival is put in its place whatever lies between it and the top of the rest of the page… */
   assert.match(engine, /put\(after, '--hub-up', arrival \? px\(pair\.up - \(docTop\(arrival\) - docTop\(after\)\)\) : '1rem'\);/);
@@ -323,4 +346,129 @@ test('(8) the whole page stands still: a page wraps its column in one pair a han
   assert.match(CSS, /\.hub-page-cell\[data-hub-page-on\]::after,\s*\.hub-page-cell\[data-hub-page-on\] \.hub-page-cell::after \{ content: ''; display: block; height: var\(--hub-len, 0px\); \}/);
   assert.match(CSS, /\.hub-page-cell\[data-hub-page-on\] \.hub-page-stage \{ position: sticky; top: var\(--hub-top, 0px\); \}/);
   for (const m of CSS.matchAll(/([^{}]+)\{[^{}]*\}/g)) for (const sel of m[1]!.split(',')) if (/\.hub-page-(?:cell|stage)/.test(sel)) assert.match(sel, /\[data-hub-page-on\]/, `the page’s pairs are styled without the engine — the plain page would change: ${sel.trim()}`);
+});
+
+test('(9) the top of the room is one number, the stylesheet’s: the engine reads `--hub-pin` back and has none of its own', () => {
+  /* THE STYLESHEET — one line for a page with the invitation's pinned bar, one for a page without; nowhere else. */
+  const decls = [...CSS.matchAll(/([^{}]+)\{\s*--hub-pin:\s*([^;]+);\s*\}/g)].map((m) => `${m[1]!.trim()} → ${m[2]!.trim()}`);
+  /* (2026-10-10: the cover's own cell says it too — a page whose cover is its only Scrub has no scenes block.) */
+  assert.deepEqual(decls, ['.hub-scenes, .hub-cover-cell → calc(max(4.75rem, 9vh) + env(safe-area-inset-top, 0px))', 'html:has([data-sticky-top]) .hub-scenes, html:has([data-sticky-top]) .hub-cover-cell → calc(6.25rem + env(safe-area-inset-top, 0px))']);
+  assert.equal((CSS.match(/--hub-pin\s*:/g) ?? []).length, 2, 'the line is declared a third time');
+  /* …in the PLAIN BASE: behind no gate. (It sat behind `@supports (animation-timeline: view())`, which an iPhone
+     before iOS 26 does not pass — there the line would not exist, and the engine would not play.) */
+  const gate = CSS.indexOf('@supports (animation-timeline: view())');
+  assert.ok(gate > 0 && CSS.lastIndexOf('--hub-pin:') < gate, 'the line is declared behind the scroll-timeline gate');
+  const before = CSS.slice(0, CSS.indexOf('--hub-pin:'));
+  assert.equal((before.match(/\{/g) ?? []).length - (before.match(/\}/g) ?? []).length, 1, 'the line is declared inside an at-rule');
+  /* …and the armed scenes block carries it as a length the engine can read in pixels — on a box that does not scroll. */
+  assert.match(CSS, /\.hub-scenes\[data-hub-scrub-on\] \{ scroll-padding-top: var\(--hub-pin\); \}/);
+  /* THE ENGINE — reads it, after arming (the rule needs the mark); no number of its own; no line, no play. */
+  const engine = read(`${B}/hub-scrub-engine.ts`);
+  assert.match(CSS, /\.hub-page-cell\[data-hub-page-on\] \.hub-cover-cell \{ scroll-padding-top: var\(--hub-pin\); \}/);
+  assert.match(engine, /const topLine = parseFloat\(getComputedStyle\(scopes\[0\] \?\? coverCell \?\? root\)\.scrollPaddingTop\);\s*if \(!\(topLine > 0\)\) throw new Error\('the page does not say where its top line is'\);\s*const view = \{ centre: C, topLine, room: V - topLine - 24, lens \};/);
+  assert.equal((engine.match(/topLine\b/g) ?? []).length, 4, 'the engine sets the top line a second way');
+  assert.doesNotMatch(engine, /Math\.max\(76|\* 0\.09|4\.75|6\.25/, 'the engine has a number of its own for the top of the room');
+  assert.ok(engine.indexOf("for (const s of scopes) put(s, 'data-hub-scrub-on', '');") < engine.indexOf('const topLine ='), 'the engine reads the line before it arms — the rule that carries it needs the mark');
+});
+
+test('(10) the cover is hand-over zero: held where it stands when the page opens, the next thing arriving at the centred line — and a cover that does not leave is not wrapped', () => {
+  /* THE PLACE, EXECUTED over window sizes, where the cover stands, its height and what comes next. */
+  let stood = 0;
+  let through = 0;
+  for (const V of SIZES) {
+    const v = view(V);
+    for (const stands of [0, 37, 65, 120]) {
+      for (const h of [160, 320, Math.round(V * 0.62), Math.round(V * 0.84), Math.round(V * 1.3), 2400]) {
+        for (const hB of [60, 160, 320, 760, 2400]) {
+          for (const listB of [false, true]) {
+            const cover = { h, oneByOne: false };
+            const next = { h: hB, oneByOne: listB };
+            const p = scrubPair(cover, next, v, stands);
+            const plain = scrubPair(cover, next, v);
+            if (scrubCoverStands(cover, stands, v.centre)) {
+              stood++;
+              /* AT SCROLL 0 IT IS WHERE IT STANDS — the page has not moved. */
+              assert.equal(p.top, stands, `V${V} cover ${h} at ${stands}: the cover is held somewhere else than where it stands`);
+              assert.ok(stands + h <= V - 24, 'a cover held where it stands must be seen whole from there');
+              /* WHAT COMES NEXT — at the usual line (centred; a list or a long one with its bottom on it), never above
+                 the cover's own top, never above the top of the room. */
+              const usual = v.centre - (listB || hB > v.room ? hB : hB / 2);
+              assert.equal(p.arrivalTop, Math.max(stands, v.topLine, usual));
+              if (usual >= Math.max(stands, v.topLine) && !listB && hB <= v.room) assert.equal(p.arrivalTop + hB / 2, v.centre, 'a short arrival is not on the centred line');
+              assert.ok(p.arrivalTop + hB >= v.centre - 1e-6, 'the arrival ends above the centre line — what follows could enter first');
+              /* WHAT FOLLOWS starts under the lower of the two. */
+              assert.equal(p.rise, Math.max(0, stands + h - (p.arrivalTop + hB)));
+              assert.equal(p.up, p.arrivalTop - (stands + h));
+            } else {
+              through++;
+              /* A cover that cannot be seen whole from where it stands: the ordinary rule, to the number — and its
+                 line is one the page can be scrolled to (never below where it stands). */
+              assert.deepEqual(p, plain, `V${V} cover ${h} at ${stands}: a cover scrolled through is not the ordinary hand-over`);
+              assert.ok(p.top <= stands + 1e-6, `V${V} cover ${h} at ${stands}: its line cannot be reached by scrolling down`);
+            }
+            /* The owner's numbers are the same numbers, and nothing has begun before a touch. */
+            assert.equal(p.len, plain.len);
+            assert.deepEqual(scrubMoment(0, p, v.lens), { out: 0, in: 0, rows: 0, below: 1 });
+            assert.equal(scrubMoment(Math.round(v.lens.out * 0.5), p, v.lens).in, 0, 'the next thing is in before the Build out is 80 % done');
+          }
+        }
+      }
+    }
+  }
+  assert.ok(stood > 200 && through > 200, `anti-vacuity: ${stood} covers stood, ${through} were scrolled through`);
+  /* 🧨 WHY: the centred line is ABOVE… no — BELOW where a cover stands: a place scrolling down never reaches. */
+  const v = view(812);
+  assert.ok(scrubPair({ h: 160, oneByOne: false }, { h: 160, oneByOne: false }, v).top > 37, 'the fault this rule exists for is gone from the ordinary pair — re-read (10)');
+
+  /* DOES THE COVER LEAVE? The hero row Leaves by Scrub and has a Build out — through the same door as a scene. */
+  const hero = (canvas: Record<string, unknown> | null) => [{ widget_type: 'countdown', config_json: { canvas: { transition: 'scrub' } } }, { widget_type: 'hero', config_json: canvas ? { canvas } : null }];
+  assert.equal(hubCoverLeaves(hero({ transition: 'scrub' }) as never, true, true), true);
+  assert.equal(hubCoverLeaves(hero({ transition: 'scrub' }) as never, true), false, '🌑 "Scrub out" is not offered: no cover leaves, on any page');
+  assert.equal(hubCoverLeaves(hero({ transition: 'scrub' }) as never, false, true), false, 'without Event Hub Pro a cover leaves by Scrub');
+  assert.equal(hubCoverLeaves(hero({ transition: 'scrub', out: 'none' }) as never, true, true), false, 'a cover with no Build out hands over');
+  assert.equal(hubCoverLeaves(hero(null) as never, true, true), false);
+  assert.equal(hubCoverLeaves(hero({ transition: 'auto' }) as never, true, true), false);
+  assert.equal(hubCoverLeaves([hero(null)[0]!] as never, true, true), false, 'a page with no hero row');
+  /* …and the page's own hold already counts it: the hero row is a row. */
+  assert.equal(hubScrubHoldsAtMost(hero({ transition: 'scrub' }) as never, true, true), 2);
+
+  /* RENDERED. A cover that does not leave: the cover and the rest AS GIVEN — every page today. */
+  const draw = (leaves: boolean) => renderToStaticMarkup(React.createElement(HubCoverHold, { leaves, cover: React.createElement('header', null, 'the cover') }, React.createElement('section', null, 'the door'), React.createElement('section', null, 'a scene')));
+  assert.equal(draw(false), '<header>the cover</header><section>the door</section><section>a scene</section>');
+  /* One that does: three plain boxes — the cover (marked, so the island finds a page whose cover is its only Scrub)
+     and the rest of the page. */
+  assert.equal(draw(true), '<div class="hub-cover-cell"><div class="hub-cover" data-hub-fx=""><header>the cover</header></div><div class="hub-cover-after"><section>the door</section><section>a scene</section></div></div>');
+  for (const c of HUB_COVER_CLASSES) assert.ok(draw(true).includes(`class="${c}"`), `${c} is not emitted`);
+  /* NO SCRIPT FOR A COVER THAT DOES NOT LEAVE: the island is mounted in the leaving branch alone (it draws nothing,
+     so the markup above cannot show it — the source is read). */
+  const scenes = read(`${B}/hub-scenes.tsx`);
+  const hold = scenes.slice(scenes.indexOf('export function HubCoverHold'), scenes.indexOf('export function HubScenes'));
+  assert.match(hold, /if \(!leaves\) \{\s*return \(\s*<>\s*\{cover\}\s*\{children\}\s*<\/>\s*\);\s*\}/, 'a cover that does not leave is wrapped, or given a script');
+  assert.ok(hold.indexOf('<HubScrub />') > hold.indexOf('if (!leaves)') && (scenes.match(/<HubScrub \/>/g) ?? []).length === 2, 'the island is mounted for a page with no Scrub');
+  assert.match(scenes, /return offeredTransition\(renderedTransition\(resolveTransition\(canvas\), scrubAllowed\), scrubOut\) === 'scrub' && resolveHubMotion\(canvas\)\.out !== 'none';/);
+
+  /* THE STYLESHEET: the cover's boxes have no rule without the engine's mark on the page (the page's line is a
+     custom property — it paints nothing). */
+  for (const m of CSS.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    for (const sel of m[1]!.split(',')) {
+      if (!/\.hub-cover\b|\.hub-cover-|data-hub-zero|data-hub-zlift/.test(sel)) continue;
+      if (/^\s*--hub-pin:[^;]+;\s*$/.test(m[2]!)) continue;
+      assert.match(sel, /\.hub-page-cell\[data-hub-page-on\]/, `the cover's boxes are styled without the engine — the plain page would change: ${sel.trim()}`);
+    }
+  }
+  assert.match(CSS, /\.hub-page-cell\[data-hub-page-on\] \.hub-cover-after \{ display: flow-root; margin-top: var\(--hub-up, 0px\); \}/);
+  assert.match(CSS, /\.hub-page-cell\[data-hub-page-on\] \.hub-cover,\s*\.hub-page-cell\[data-hub-page-on\] \[data-hub-zero\] \{ opacity: var\(--hub-o, 1\); \}/);
+  assert.match(CSS, /\.hub-page-cell\[data-hub-page-on\] \.hub-cover-after \[data-hub-zlift\] \{ position: relative; top: var\(--hub-zrise, 0px\); \}/);
+
+  /* THE ENGINE: the page's FIRST pair, the cover's laid-out top as where it stands, the next box on the page. */
+  const engine = read(`${B}/hub-scrub-engine.ts`);
+  assert.match(engine, /const pair = scrubPair\(\{ h: cover\.offsetHeight, oneByOne: false \}, arrives \? elementOf\(arrives\) : \{ h: 0, oneByOne: false \}, view, docTop\(cover\)\);/);
+  assert.match(engine, /const stick = pair\.top - \(docTop\(cover\) - docTop\(pages\[0\]\.stage\)\);\s*put\(pages\[0\]\.stage, '--hub-top', px\(stick\)\);\s*put\(pages\[0\]\.cell, '--hub-len', px\(pair\.len\)\);/);
+  assert.match(engine, /if \(!el\.offsetHeight \|\| el\.offsetParent === null\) continue;\s*return el\.matches\(THROUGH\) \? \(nextBox\(el\) \?\? el\) : el;/);
+  /* …what follows the arrival stays under the cover until the cover has completely gone; a box the page pins is never moved. */
+  assert.match(engine, /const lower = h\.lift \? 1 - m\.rows : m\.below;/);
+  /* …and the distance to the arrival is READ BACK: a bottom margin on the cover's own last child runs out through its
+     box and is added to the one the engine sets (seen in the browser: the arrival 40 px below its line). */
+  assert.match(engine, /const over = arrives \? docTop\(arrives\) - \(docTop\(cover\) \+ cover\.offsetHeight\) - pair\.up : 0;\s*if \(Math\.abs\(over\) > 0\.5\) put\(coverRest, '--hub-up', px\(up - over\)\);/);
+  assert.match(engine, /getComputedStyle\(sib\)\.position === 'static'/);
 });

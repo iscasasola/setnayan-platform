@@ -39,7 +39,7 @@ import {
 import { SP_KEY_BAR, SP_KEY_DONE } from '@/lib/maker-stage-room';
 import { Check } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
-import { useStagePanelNow } from './stage-panel/store';
+import { useStagePanelNow, useStageTool } from './stage-panel/store';
 import {
   RSVP_CELEBRATE_EVENT,
   RSVP_CELEBRATE_MESSAGE,
@@ -54,8 +54,9 @@ import {
  * screens (`RSVP_STAGE_SCENES`), each tile titled in his words.
  */
 /** 🧩 The parts whose tools ARE this stage's controls — the form and the two notes; nothing picked shows them too. */
-function rsvpToolPart(picked: string | null): boolean {
-  return picked === null || picked === 'rsvp' || picked === 'yesnote' || picked === 'nonote';
+function rsvpToolPart(picked: string | null, line: string | null = null): boolean {
+  /* …and a LINE of the pass (its Save button): its size, its Build in and whose background it sits on are here too. */
+  return picked === null || picked === 'rsvp' || picked === 'yesnote' || picked === 'nonote' || (picked === 'pass' && line !== null);
 }
 
 const RSVP_STAGE_TILE: Record<RsvpStageScene, { label: string; caption: string }> = {
@@ -143,6 +144,9 @@ export function MakerRsvpStage({
   const [typingWord, setTypingWord] = useState<string | null>(null);
   /* 🧭 The new Maker (Stages, a phone): the part picked there, and whether this stage is its. */
   const pickedPart = useStagePanelNow().picked;
+  /** …the LINE of it picked there (null: the part itself, the group), and the tool the toolbar is on. */
+  const pickedLine = useStagePanelNow().line ?? null;
+  const stageTool = useStageTool();
   const stagesNow = useRef(false);
   stagesNow.current = maker?.stagesStudio === true;
   /* "Where you are" says the screen on show. */
@@ -464,7 +468,7 @@ export function MakerRsvpStage({
                      part (the mark, the names, the date, each guest's own name and ticket) has its one door above
                      (`QuietBar`) and nothing here. Kept mounted either way — a word typed on the page is its save.
                      (A class, not `hidden`: `flex` would out-rank the attribute.) */
-                  <div className={`flex-col gap-3 pb-4 ${rsvpToolPart(pickedPart) ? 'flex' : 'hidden'}`} data-rsvp-stage-look="">
+                  <div className={`flex-col gap-3 pb-4 ${rsvpToolPart(pickedPart, pickedLine) ? 'flex' : 'hidden'}`} data-rsvp-stage-look="">
                     <MakerRsvpSettings
                       eventId={eventId}
                       current={current}
@@ -473,6 +477,7 @@ export function MakerRsvpStage({
                       replyByOwn={replyByOwn}
                       requests={{ count: null, list: null }}
                       scene={scene}
+                      picked={{ tool: stageTool, part: pickedPart, line: pickedLine }}
                       solemn={solemn}
                       replyByFallback={replyByFallback}
                       draftAction={draftAction}

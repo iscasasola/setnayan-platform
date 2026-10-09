@@ -169,6 +169,14 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
   }
   const camRaw = (await cookies()).get('lab_camera')?.value;
   const cameraLook: CameraLook = isCameraLook(camRaw) ? camRaw : 'classic';
+  /* 🧱 The lab's drafted block looks (`lab_blocks`, the stand-in for `style_preferences.block_looks`). */
+  let blockLooks: Record<string, unknown> = {};
+  try {
+    const held = JSON.parse(decodeURIComponent((await cookies()).get('lab_blocks')?.value ?? '{}')) as unknown;
+    if (held && typeof held === 'object' && !Array.isArray(held)) blockLooks = held as Record<string, unknown>;
+  } catch {
+    blockLooks = {};
+  }
   const canvases: Record<string, HubSectionCanvas> = Object.fromEntries(
     rows.map((r) => [r.widget_type, sanitizeHubCanvas({ canvas: drafted[r.widget_type] ?? {} })]),
   );
@@ -214,6 +222,7 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
       scrub={scrub}
       fixedStyles={fixedStyles}
       cameraLook={cameraLook}
+      blockLooks={blockLooks}
       /* ✓ `?changes=3` — a draft with unapplied changes (lab only; nothing is stored). */
       changes={Math.max(0, Math.min(99, Math.floor(Number(sp.changes) || 0)))}
       /* Moves with every render, as the real Maker's stamp does — a save's refresh reaches the canvas. */

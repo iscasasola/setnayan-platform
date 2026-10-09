@@ -1,5 +1,6 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import { ArrowDown, ArrowUp, Trash2 } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { FormRows, TypedRow } from '@/app/_components/form-row';
@@ -19,6 +20,7 @@ import { orderPartWords, partWordsId, type PartWordsField } from './part-words';
  *             — or, for a part whose editing cannot be done in three rows (*"Only jump if it has editing that cannot
  *             be done there. Example: Schedule, Love Story, Wedding March, Logo"*), its ONE door in row 1
  *             ("Open in Studio › Schedule"; the date and the place: "Change it in Suppliers") — `QuietBar`.
+ *   row 2     on a Post Event scene: "Shown to guests", the one switch (`second`) — and then row 1 holds ONE text.
  *   row 4     ↑ Earlier · ↓ Later · Remove — ALWAYS the last row (owner: *"always set this as the last row"*), on
  *             every part: a part that cannot move or cannot be taken off keeps the button, grey (`waiting`), and a
  *             tap on a grey one says why.
@@ -45,7 +47,14 @@ export function StageEdit({
   removeWord,
   why,
   onWhy,
+  second = null,
 }: {
+  /**
+   * 🎞 A part's ONE simple setting, in row 2 (owner: *"same goes to simple edits"*) — a Post Event scene's "Shown to
+   * guests" switch (`post-event-shown.tsx`; it places itself). Such a part shows ONE text in row 1 — the one last
+   * tapped on the page, else its first — as the approved prototype draws a Post Event scene.
+   */
+  second?: ReactNode;
   /** The texts the page draws for the picked part — none: the part keeps its one door. */
   fields: readonly PartWordsField[];
   /** The text last tapped on the page (its `[data-el]` / field) — its row comes first. */
@@ -64,7 +73,7 @@ export function StageEdit({
   why: { earlier: string; later: string; remove: string };
   onWhy: (words: string) => void;
 }) {
-  const shown = orderPartWords(fields, tapped).slice(0, WORDS_ROW.length);
+  const shown = orderPartWords(fields, tapped).slice(0, second ? 1 : WORDS_ROW.length);
   return (
     <div className={SP_ROWS} data-stage-edit="">
       {shown.length > 0 ? (
@@ -89,6 +98,7 @@ export function StageEdit({
           <QuietBar />
         </div>
       )}
+      {second}
       <div className={`${SP_ROWS_ROW} row-start-4`} data-stage-edit-row="place">
         {/* A step with nowhere to go is still a button — grey, its pill kept (`waiting`, the approved gallery § 9: "a
             button that cannot be used yet is grey") — and a tap on it says why (its own press does nothing; the tap

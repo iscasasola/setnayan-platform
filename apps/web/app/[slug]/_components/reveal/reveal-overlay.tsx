@@ -162,6 +162,9 @@ type Props = {
 
 const FLAG_ON = process.env.NEXT_PUBLIC_STD_REVEAL === '1';
 
+/** 🎭 On the page (`<html>`) while a guest is looking at the opening — read by the Scrub island (`hub-scrub.tsx`). */
+export const REVEAL_UP_ATTR = 'data-reveal-up';
+
 export function RevealOverlay({
   enabled,
   monogram,
@@ -308,6 +311,10 @@ export function RevealOverlay({
   useEffect(() => {
     const showing = active && mounted && !gone;
     (window as Window & { __stdRevealActive?: boolean }).__stdRevealActive = showing;
+    /* 🎭 …and it is said ON THE PAGE (`REVEAL_UP_ATTR`), for what must wait for the opening to go: a cover that
+       hands over by Scrub holds from the very top of the page, under this overlay, and the page scrolls beneath it —
+       so the hand-overs wait for this mark to come off (`hub-scrub.tsx`). Nothing is drawn or styled by it. */
+    document.documentElement.toggleAttribute(REVEAL_UP_ATTR, showing);
     /*
       THE MARK IS WRITTEN WHERE THE REVEAL IS MEASURED, NOT WHERE IT IS DRAWN.
       `showing` is the one expression in this file that means "a guest is
@@ -320,6 +327,7 @@ export function RevealOverlay({
     if (showing && oncePerVisit === 'record') markRevealSeen(window.sessionStorage, seenEventId);
     return () => {
       (window as Window & { __stdRevealActive?: boolean }).__stdRevealActive = false;
+      document.documentElement.removeAttribute(REVEAL_UP_ATTR);
     };
   }, [active, mounted, gone, oncePerVisit, seenEventId]);
 

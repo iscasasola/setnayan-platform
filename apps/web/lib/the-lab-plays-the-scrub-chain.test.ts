@@ -89,7 +89,9 @@ test('(1) the lab’s chain, through the real renderer, is the prototype’s min
 
 test('(2) one chain: the page the browser check plays takes its canvases from the lab’s chain — all but the cover’s', () => {
   const page = read('scripts/scrub-check-page.tsx');
-  assert.match(page, /import \{ LAB_SCRUB_CHAIN, LAB_SCRUB_SAMPLE \} from '\.\.\/app\/dev\/maker-lab\/lab-scrub';/);
+  /* (2026-10-10: and the cover's canvas, for the pages on which the cover is hand-over zero — the lab's own too.) */
+  assert.match(page, /import \{ LAB_SCRUB_CHAIN, LAB_SCRUB_COVER, LAB_SCRUB_SAMPLE \} from '\.\.\/app\/dev\/maker-lab\/lab-scrub';/);
+  assert.match(page, /const hero = \{ widget_type: 'hero', config_json: \{ canvas: LAB_SCRUB_COVER \} \};/);
   assert.match(page, /\.map\(\(s, i\) => \(\{ \.\.\.s, canvas: LAB_SCRUB_SAMPLE\[LAB_SCRUB_CHAIN\[i\]!\] \}\)\)/);
   assert.equal((page.match(/\{ name: '\w+', rows: \d+ \}/g) ?? []).length, LAB_SCRUB_CHAIN.length, 'the check page’s scenes and the lab’s chain are not the same length');
   /* 🔁 2026-10-09 (8d): ONE canvas is the check page's own — its first scene, standing in for the cover, which the
@@ -118,8 +120,20 @@ test('(3) the lab draws the chain as the guest page draws scenes, and the Maker 
     guest,
     /const chainCard = \(type: LabScrubScene, i: number\) => \(\s*<HubCanvasFrame widget=\{\{ \.\.\.rowOf\(type\), widget_id: `lab-\$\{type\}` \} as never\}[^>]*>\s*<section\s+data-lab-scene=\{type\}\s+data-lab-name=\{LAB_SCRUB_NAME\[type\]\}/,
   );
+  /* 🖼 The card is the hub's OWN rule (`globals.css` "THE HUB IS CARDS": a section inside a frame that paints nothing)
+     — the lab writes none of its own, so the card seen here is the card a guest's page draws (2026-10-09: until the
+     rule reached a framed scene each card here was a stand-in, and the lab showed what a real page did not). */
+  assert.match(guest, /<section\s+data-lab-scene=\{type\}\s+data-lab-name=\{LAB_SCRUB_NAME\[type\]\}\s+className="text-left"\s*>/, 'a chain card is styled by the lab again');
+  assert.doesNotMatch(guest, /shadow-\[0_8px_22px|const ownGround/, 'the lab draws a stand-in card');
   assert.match(guest, /labScrubLabel\(rowOf\(type\)\.config_json, \{ last: i === LAB_SCRUB_CHAIN\.length - 1 \}\)/);
-  assert.match(guest, /\{i === 0 \? <span[^>]*>The cover above is not part of the chain yet\.<\/span> : null\}/);
+  /* 🔁 2026-10-10: the cover IS in it now — hand-over zero (`HubCoverHold`, `scrub-is-a-held-hand-over` (10)). The
+     lab's cover Leaves by Scrub from the start; the first card only speaks when a host has set it back. */
+  assert.match(guest, /const coverLeaves = scrub && hubCoverLeaves\(\[rowOf\('hero'\)\] as never, true, true\);/);
+  assert.match(guest, /<HubCoverHold\s+leaves=\{coverLeaves\}\s+cover=\{\s*<>\s*\{mark\('f:hero'\)\}\s*<section className="px-4 pb-10 pt-6">/, 'the lab’s cover is not handed over as the page hands it over — its marker with it');
+  assert.match(guest, /hubScrubHoldsAtMost\(LAB_SCRUB_CHAIN\.map\(\(t\) => rowOf\(t\)\) as never, true, true\) \+ \(coverLeaves \? 1 : 0\)/, 'the lab’s page is not wrapped for the cover’s hand-over');
+  assert.match(guest, /\{i === 0 && !coverLeaves \? <span[^>]*>The cover above does not leave by Scrub\.<\/span> : null\}/);
+  assert.deepEqual(labScrubCanvases(true, {}).hero, { transition: 'scrub' });
+  assert.equal(labScrubCanvases(false, {}).hero, undefined, 'the ordinary lab’s cover leaves by Scrub');
   assert.match(guest, /<div className="sn-editorial mx-auto max-w-\[430px\] px-4 pb-6" data-lab-scrub="">/, 'the chain lost its phone-wide column');
   assert.deepEqual(Object.keys(LAB_SCRUB_NAME), [...LAB_SCRUB_CHAIN]);
   /* The markers as the real page draws them: on the Maker's canvas only — the island reads them. */
@@ -151,8 +165,22 @@ test('(4) while editing nothing is held: the Maker’s canvas arms only when the
   assert.equal(scrubArmsNow(true, true), true, 'the Maker’s canvas, ▶ held');
   const island = read('app/[slug]/_components/hub-scrub.tsx');
   assert.match(island, /const makerCanvas = document\.querySelector\('\[data-maker-section\]'\) !== null;/);
-  assert.match(island, /const want = scrubArmsNow\(makerCanvas, html\.hasAttribute\('data-maker-guest'\)\);/);
-  assert.match(island, /new MutationObserver\(sync\)[\s\S]*?attributeFilter: \['data-maker-guest'\]/);
+  assert.match(island, /const want = scrubArmsNow\(makerCanvas, html\.hasAttribute\('data-maker-guest'\), underReveal\(\)\);/ /* 🔁 2026-10-10: and never under a closed Reveal, on a page whose cover hands over (`hub-scrub.tsx` 🎭) */);
+  assert.match(island, /new MutationObserver\(sync\)[\s\S]*?attributeFilter: \['data-maker-guest', REVEAL_UP\]/);
+  /* 🎭 UNDER A CLOSED REVEAL NOTHING IS HELD (2026-10-10, the cover as hand-over zero): the cover's hold begins at the
+     top of the page, under the opening, and the page scrolls beneath it — the Build out would play unseen. On a page
+     whose cover hands over, the island waits for the Reveal's own mark to come off; on any other page it never looks.
+     Played in a browser (`scrub-browser-check.mjs` 14). Sabotage: the Reveal not asked → red here and there. */
+  assert.equal(scrubArmsNow(false, false, true), false, 'a guest’s page arms under a closed Reveal');
+  assert.equal(scrubArmsNow(true, true, true), false);
+  assert.match(island, /const coverLeaves = document\.querySelector\('\.hub-cover\[data-hub-fx\]'\) !== null;\s*const underReveal = \(\) => coverLeaves && html\.hasAttribute\(REVEAL_UP\);/, 'a page whose cover does not hand over waits for the Reveal');
+  assert.match(island, /const watch = \(makerCanvas \|\| coverLeaves\) && typeof MutationObserver !== 'undefined' \? new MutationObserver\(sync\) : null;/);
+  const overlay = read('app/[slug]/_components/reveal/reveal-overlay.tsx');
+  assert.match(overlay, /export const REVEAL_UP_ATTR = 'data-reveal-up';/);
+  assert.match(island, /const REVEAL_UP = 'data-reveal-up';/, 'the island and the Reveal no longer name the same mark');
+  /* …written where the Reveal MEASURES "a guest is looking at the opening" — the one expression every stand-down is
+     folded into — and taken off with it. */
+  assert.match(overlay, /const showing = active && mounted && !gone;\s*\(window as Window & \{ __stdRevealActive\?: boolean \}\)\.__stdRevealActive = showing;\s*document\.documentElement\.toggleAttribute\(REVEAL_UP_ATTR, showing\);[\s\S]*?return \(\) => \{\s*\(window as Window & \{ __stdRevealActive\?: boolean \}\)\.__stdRevealActive = false;\s*document\.documentElement\.removeAttribute\(REVEAL_UP_ATTR\);\s*\};/);
   /* Off → the engine's own `stop` (every mark taken off — `scrub-is-a-held-hand-over` (4)). */
   assert.match(island, /const disarm = \(\) => \{\s*for \(const stop of stops\.splice\(0\)\) stop\(\);\s*\};/);
   /* The bridge is who says "as a guest". */
@@ -234,7 +262,9 @@ test('(5) off is never silent: the page carries the reason, and the lab’s badg
   assert.equal(labWidgetsCookie(true), 'lab_widgets_scrub');
   assert.match(badge, /setSaved\(document\.querySelector\('\[data-maker-section\]'\) === null && document\.cookie\.split\('; '\)\.some\(\(c\) => c\.startsWith\(`\$\{SAVED\}=`\)\)\);/);
   const guest = read('app/dev/maker-lab/guest/page.tsx');
-  assert.match(guest, /\{scrub && !only && !preview \? <LabScrubBadge \/> : null\}\s*\{mark\('f:hero'\)\}/, 'the badge is not before the first marker, on the chain alone');
+  /* 🔁 2026-10-10: the first marker is now handed over WITH the cover (`HubCoverHold`'s `cover`) — the badge is
+     still before it, and outside the cover's own box. */
+  assert.match(guest, /\{scrub && !only && !preview \? <LabScrubBadge \/> : null\}\s*<HubCoverHold\s+leaves=\{coverLeaves\}\s+cover=\{\s*<>\s*\{mark\('f:hero'\)\}/, 'the badge is not before the first marker, on the chain alone');
   assert.deepEqual(
     [...read('app/[slug]/_components/site-body.tsx').matchAll(/scrub-badge|LabScrubBadge/g)].length + [...read('app/[slug]/_components/hub-scenes.tsx').matchAll(/scrub-badge|LabScrubBadge/g)].length,
     0,
@@ -244,7 +274,7 @@ test('(5) off is never silent: the page carries the reason, and the lab’s badg
   const engine = read('app/[slug]/_components/hub-scrub-engine.ts');
   assert.match(engine, /export const HUB_SCRUB_OFF = 'data-hub-scrub-off';/);
   /* (2026-10-09: said on EVERY scenes block the engine plays — on a page with its own hold one engine plays them all.) */
-  assert.match(engine, /const say = \(why: string \| null\) => \{\s*for \(const s of scopes\) why === null \? s\.removeAttribute\(HUB_SCRUB_OFF\) : s\.setAttribute\(HUB_SCRUB_OFF, why\);\s*\};/);
+  assert.match(engine, /const say = \(why: string \| null\) => \{\s*for \(const s of scopes\.length \? scopes : \[root\]\) why === null \? s\.removeAttribute\(HUB_SCRUB_OFF\) : s\.setAttribute\(HUB_SCRUB_OFF, why\);\s*\};/ /* 🔁 2026-10-10: a page whose cover is its only Scrub has no scenes block — it says it on its own hold. */);
   assert.match(engine, /if \(window\.matchMedia\?\.\('\(prefers-reduced-motion: reduce\)'\)\.matches\) \{\s*say\('reduce motion'\);\s*return \(\) => say\(null\);\s*\}/);
   assert.match(engine, /function fail\(e: unknown\) \{\s*stop\(\);\s*say\(`the script stopped: \$\{e instanceof Error \? e\.message : String\(e\)\}`\.slice\(0, 160\)\);\s*\}/);
   assert.equal((engine.match(/catch \(e\) \{\s*fail\(e\);\s*\}/g) ?? []).length, 3);
@@ -255,7 +285,7 @@ test('(5) off is never silent: the page carries the reason, and the lab’s badg
   const island = read('app/[slug]/_components/hub-scrub.tsx');
   assert.match(island, /const OFF = 'data-hub-scrub-off';/);
   assert.match(island, /\.catch\(\(\) => \{\s*say\(NOT_LOADED\);\s*\}\)/);
-  assert.match(island, /if \(!on\) say\(EDITING\);\s*\};\s*if \(makerCanvas\) say\(EDITING\);/);
+  assert.match(island, /if \(!on\) say\(underReveal\(\) \? UNDER_REVEAL : EDITING\);\s*\};\s*if \(makerCanvas\) say\(EDITING\);\s*else if \(underReveal\(\)\) say\(UNDER_REVEAL\);/ /* 🔁 2026-10-10: a third reason of the island's own — "the opening is still up" */);
 });
 
 /* ── (6) FRAMES THAT NEVER COME DO NOT BLANK THE PAGE (8f, 2026-10-09) ───────────────────────────────────────────────

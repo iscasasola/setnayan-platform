@@ -25,8 +25,10 @@
  * "After the event" lists them by their SHIPPED names (`lib/post-event-scenes.ts`
  * `POST_EVENT_SCENE_NAMES`) — The Road to the Day · Watch Live · Papic Challenge ·
  * Supplier Stories · Live Photo Wall · What They Said · Before & After · Song ·
- * What comes next. "Photos of you" on Post Event IS the shipped **Were you
- * there?** (the same scene, `you`). Held by `maker-part-groups.test.ts`.
+ * What comes next. **Were you there?** (scene `you`) is a part of its own (`you`)
+ * since 2026-10-10 — it was The Day's "Photos of you" wearing another name on Post
+ * Event, so the two could not differ (Were you there? has ONE look; Photos of you
+ * has three). Held by `maker-part-groups.test.ts`.
  *
  * Pure. No I/O, no React.
  */
@@ -57,7 +59,13 @@ export const MAKER_PART_GROUPS: readonly MakerPartGroup[] = [
   { label: 'Gifts & photos', parts: ['gifts', 'camera', 'gallery', 'myphotos'] },
   {
     label: 'After the event',
-    parts: ['numbers', 'wishes', 'road', 'watchlive', 'challenge', 'supstories', 'wall', 'said', 'beforeafter', 'song', 'next'],
+    /* …and, after the owner's nine, the rest of Post Event's own scenes (2026-10-10: a tap on one named no part — an
+       empty Edit). Listed here so ＋ can bring one back after "Shown to guests" is switched off; a stage that does not
+       draw them is never offered them (`makerPartOffers` `pathOf`). Each by its shipped name (`MAKER_PARTS`). */
+    parts: [
+      ...['numbers', 'wishes', 'road', 'watchlive', 'challenge', 'supstories', 'wall', 'said', 'beforeafter', 'song', 'next'] as const,
+      ...['cover', 'chapters', 'pegallery', 'videos', 'you', 'letters', 'seating', 'entourage', 'couple', 'loved', 'powered'] as const,
+    ],
   },
   { label: 'Brand', parts: ['logo', 'reveal'] },
 ];
@@ -75,13 +83,9 @@ export const MAKER_POST_EVENT_ADDED: Readonly<Partial<Record<MakerPartKey, strin
   next: 'next',
 };
 
-/** On Post Event, "Photos of you" is the shipped Were you there? (scene `you`). */
-const POST_EVENT_YOU: MakerPartKey = 'myphotos';
-
 /** The shipped Post Event scene a part is on that stage — null when it is not one. */
 export function makerPostEventSceneOf(stage: MakerStageKey, key: MakerPartKey): string | null {
   if (stage !== 'editorial') return null;
-  if (key === POST_EVENT_YOU) return 'you';
   const own = MAKER_POST_EVENT_ADDED[key];
   if (own) return own;
   const c = MAKER_PARTS[key].canvas;

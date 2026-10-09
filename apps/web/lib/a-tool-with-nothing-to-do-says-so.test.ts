@@ -28,7 +28,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { stripComments } from './strip-comments';
-import { MAKER_PARTS, MAKER_PART_TOOLS, makerPartSource, makerPartToolWhy, makerPartToolWorks, type MakerPartKey } from './maker-parts';
+import { MAKER_PARTS, MAKER_PARTS_NO_LOOK, MAKER_PART_TOOLS, makerPartSource, makerPartToolWhy, makerPartToolWorks, type MakerPartKey } from './maker-parts';
 import { STAGE_TOOL_BUTTON } from './maker-stage-room';
 
 const WEB = join(__dirname, '..');
@@ -42,7 +42,9 @@ test('(1) Edit and Style always work; Animate works exactly where there is a sav
   const yes: MakerPartKey[] = [];
   const no: MakerPartKey[] = [];
   for (const k of KEYS) {
-    assert.equal(makerPartToolWorks(k, 'style'), true, `${k}: Style has nothing to set`);
+    /* (Re-aimed 2026-10-10: Style on every part BUT one with no look to pick at all — The Day's "Happening now" card,
+       where Style slid over four empty rows on the lab. Listed, and the list is held to that one part below.) */
+    assert.equal(makerPartToolWorks(k, 'style'), !MAKER_PARTS_NO_LOOK.includes(k), `${k}: Style`);
     /* (The Camera is a full-screen design with ONLY Style live — owner 2026-10-09: its Edit is grey too.) */
     assert.equal(makerPartToolWorks(k, 'edit'), k !== 'camera', `${k}: Edit`);
     const def = MAKER_PARTS[k];
@@ -61,6 +63,7 @@ test('(1) Edit and Style always work; Animate works exactly where there is a sav
     assert.ok(yes.includes(k), `${k}: Animate worked on the lab and is now greyed`);
   }
   assert.ok(yes.length >= 12 && no.length >= 12, `anti-vacuity: ${yes.length} yes · ${no.length} no`);
+  assert.deepEqual([...MAKER_PARTS_NO_LOOK], ['spotlight', 'beforeafter', 'song', 'next', 'wall', 'you'], 'a part lost its Style — only a part with no look at all may');
 });
 
 test('(2) the predicate is the work area’s own rule: a part’s sheet needs `canvas && el`; a scene’s heading and motion need a scene', () => {
@@ -118,11 +121,22 @@ test('(4) the pill: grey and `aria-disabled` (never `disabled`), never pressed w
   assert.ok(!STAGE_TOOL_BUTTON.split(' ').some((c) => c.startsWith('disabled:')), 'the pill still styles a state it never has');
   /* What works: anything while nothing is picked (the tool is remembered for the next part); Edit and Style on every
      part; else the part's own answer — and none of it on the Style-only parts (the Reveal, the Camera, the pass, RSVP). */
-  assert.match(tools, /const toolWorks = \(t: MakerPartTool\) => !picked \|\| \(\(t === 'edit' \|\| t === 'style' \|\| !styleOnly\) && makerPartToolWorks\(picked, t\)\);/);
+  /* 🔁 RE-AIMED 2026-10-10: a reply screen's CARD and its LINES now have a Background and an Animate to set (owner
+     2026-10-09: "how come background not fixed and no animate?" — `the-rsvp-lines-have-a-look.test.ts` §10), so those
+     two are live there (`rsvpLooks`). Every other part is decided exactly as before — the claim this line holds. */
+  /* 🔁 RE-AIMED AGAIN 2026-10-10: the tools a picked thing has a save for BEYOND the part rule are now one named
+     function, `ownTool` (a reply card or line: Background · Animate; a fixed block with one real root: Animate —
+     `a-fixed-block-has-its-own-motion.test.ts` §5). The part rule itself is decided exactly as before. */
+  assert.match(tools, /const toolWorks = \(t: MakerPartTool\) => !picked \|\| ownTool\(t\) \|\| \(\(t === 'edit' \|\| t === 'style' \|\| !styleOnly\) && makerPartToolWorks\(picked, t\)\);/);
   /* …and the rows show the FIRST tool that has something here (Edit; Style on the Camera) — never a grey one. */
   assert.match(tools, /const shownTool: MakerPartTool = toolWorks\(tool\) \? tool : \(MAKER_PART_TOOLS\.find\(toolWorks\) \?\? 'style'\);/);
   /* The tap: the line FIRST and nothing else — no tool is set, no panel is asked for. */
-  assert.match(tools, /const pickTool = \(t: MakerPartTool\) => \{\s*if \(!toolWorks\(t\)\) return setWhy\(\(w\) => \(\{ words: makerPartToolWhy\(picked, t\), n: \(w\?\.n \?\? 0\) \+ 1 \}\)\);\s*setTool\(t\);/);
+  /* 🔁 RE-AIMED 2026-10-10: the line a grey tool answers with is now worked out by `whyNot` — the part's own line
+     (`makerPartToolWhy`, still the default and the last word), unless the part is a SAMPLE on the canvas or E-Gifts
+     with nothing for a guest to see, which say that instead (`a-fixed-block-has-its-own-motion.test.ts` §5). The
+     claim is unchanged: a tap on a grey tool says ONE plain line and sets nothing. */
+  assert.match(tools, /const pickTool = \(t: MakerPartTool\) => \{\s*if \(!toolWorks\(t\)\) return setWhy\(\(w\) => \(\{ words: whyNot\(t\), n: \(w\?\.n \?\? 0\) \+ 1 \}\)\);\s*setTool\(t\);/);
+  assert.match(tools, /return sample \?\? empty \?\? makerPartToolWhy\(picked, t\);/, 'the part’s own line is no longer the default');
   assert.match(tools, /<PeekToast key=\{why\.n\} tone="note" data="tool-why" onGone=\{\(\) => setWhy\(\(w\) => \(w\?\.n === why\.n \? null : w\)\)\}>\s*\{why\.words\}\s*<\/PeekToast>/, 'the line is not said through the app’s toast');
   /* Picking a part (a tap on the page) opens the tool that HAS something there. */
   assert.match(tools, /const toolFor = useCallback\(\(k: MakerPartKey \| null\): MakerPartTool => makerPartToolFor\(k, toolRef\.current\), \[\]\);/);

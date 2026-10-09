@@ -319,5 +319,23 @@ test('(7) nothing else writes — the callers’ Movement goes through the feel,
     }
   };
   for (const d of ['app', 'lib', 'components']) if (existsSync(join(WEB, d))) walk(d);
-  assert.deepEqual(users.sort(), [`${L}/stage-panel/stage-animate.tsx`, `${E}/element-sheet.tsx`, `${E}/scene-animate-tab.tsx`].sort(), 'the feel is imported by a file that may load first');
+  /* 🔁 RE-AIMED 2026-10-10: a fourth user — the RSVP stage's own rows (`rsvp-line-look.tsx`: a reply line's Build in
+     is the same Animate). It is lazy like the others: its one importer is the RSVP panel, which the Maker only ever
+     loads through `details-lazy.tsx` (the `maker-details` chunk) — checked on the next lines, not assumed. */
+  /* …and a fifth, 2026-10-10: a fixed block's own Animate (`stage-panel/block-animate.tsx`) — reached only through
+     `details-lazy.tsx`'s dynamic import, checked below. */
+  assert.deepEqual(users.sort(), [`${L}/rsvp-line-look.tsx`, `${L}/stage-panel/block-animate.tsx`, `${L}/stage-panel/stage-animate.tsx`, `${E}/element-sheet.tsx`, `${E}/scene-animate-tab.tsx`].sort(), 'the feel is imported by a file that may load first');
+  const importers: string[] = [];
+  const whoImports = (dir: string) => {
+    for (const e of readdirSync(join(WEB, dir), { withFileTypes: true })) {
+      const f = `${dir}/${e.name}`;
+      if (e.isDirectory()) whoImports(f);
+      else if (/\.tsx?$/.test(e.name) && !/\.test\.tsx?$/.test(e.name) && /from '\.\/rsvp-line-look'/.test(readFileSync(join(WEB, f), 'utf8'))) importers.push(f);
+    }
+  };
+  whoImports(L);
+  assert.deepEqual(importers, [`${L}/maker-rsvp-ask.tsx`], 'the RSVP rows are imported by something other than the lazy RSVP panel');
+  assert.match(read(`${L}/details-lazy.tsx`), /export const BlockAnimateRows = dynamic\(\(\) => import\(\s*'\.\/stage-panel\/block-animate'\)/, 'the block’s Animate is no longer loaded lazily');
+  assert.equal(importers.length, 1);
+  assert.match(read(`${L}/details-lazy.tsx`), /export const MakerRsvpSettings = dynamic\(\(\) => import\(\s*'\.\/maker-rsvp-ask'\)/, 'the RSVP panel is no longer loaded lazily');
 });

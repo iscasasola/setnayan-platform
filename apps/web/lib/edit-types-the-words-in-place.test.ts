@@ -294,5 +294,7 @@ test('(6) one ⓘ: at the right end of the "You’re editing" line, the part’s
   assert.match(tools, /className=\{`\$\{STAGE_BAR_LINE\} \$\{hasAbout \? STAGE_BAR_LINE_ABOUT : ''\}`\}/);
   assert.match(tools, /const hasAbout = Boolean\(useStagePanelNow\(\)\.about\);/);
   /* The sentences are still worked out from the part (the fixed scene's own line and source; a reply page's). */
-  assert.match(tools, /setStagePanelNow\(\{ picked, quiet, about \}\);/);
+  /* 🔁 RE-AIMED 2026-10-09: the same call now also tells the panel which LINE of the part is picked on the RSVP
+     stage (`line: rsvpLine`, `the-rsvp-stage-is-parts.test.ts` §8). The claim here is unchanged: `about` is handed on. */
+  assert.match(tools, /setStagePanelNow\(\{ picked, quiet, about, line: rsvpLine \}\);/);
 });

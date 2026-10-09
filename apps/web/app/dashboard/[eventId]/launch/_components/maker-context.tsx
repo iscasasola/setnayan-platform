@@ -321,6 +321,8 @@ export type MakerLookPages = {
   publicLandingUrl: string | null;
   /** 🎛 The Camera part's look, drafted over live (`events.style_preferences.camera_look`) — Stages' Camera › Style. */
   camera?: { look: CameraLook } | null;
+  /** 🧱 The fixed blocks' looks — the RAW `events.style_preferences.block_looks`, drafted over live (`lib/block-looks.ts`). */
+  blocks?: Record<string, unknown> | null;
 };
 
 export const MakerContext = createContext<MakerState | null>(null);

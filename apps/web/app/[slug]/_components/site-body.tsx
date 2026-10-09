@@ -1,4 +1,5 @@
 import { Fragment, isValidElement } from 'react';
+import { BLOCK_LOOKS_STYLE_ATTR, BLOCK_MARK_ATTR, blockLooksCss, readBlockLooks, type BlockLookBlock } from '@/lib/block-looks';
 import Link from 'next/link';
 import { watchLiveOccasion } from '@/lib/watch-live-occasion';
 import { daysToGo } from '@/lib/countdown-target';
@@ -748,6 +749,16 @@ export async function SiteBody({
   // the `space-y` rhythm and out of layout; for every guest it is not rendered.
   const makerMark = (key: string) =>
     isEditorCanvas && editorBridge ? <span hidden data-maker-section={key} /> : null;
+  // 🧱 A FIXED BLOCK'S OWN LOOK (`lib/block-looks.ts`: how the March, The details, E-Gifts and Happening now move).
+  // The rules address a block from a hidden mark standing right BEFORE it — never an attribute on the block, so
+  // whichever arrangement it is drawn in is the one found. A guest is served the mark ONLY for a block that has a
+  // look (a page with none is byte-identical to before); the Maker's canvas has every mark, so a look picked there
+  // has something to land on. `hidden`: out of layout and out of the `space-y` rhythm, like the marker above.
+  const blockLooks = readBlockLooks((event as { style_preferences?: unknown }).style_preferences);
+  const blockMark = (block: BlockLookBlock) => (isEditorCanvas || blockLooks[block] ? <span hidden {...{ [BLOCK_MARK_ATTR]: block }} /> : null);
+  const blockCss = blockLooksCss(blockLooks);
+  /** E-Gifts is drawn by the welcome block, which takes its marker as a prop: the gifts' own mark rides there. */
+  const giftsBlockMark = (key: string) => (key === 'f:gifts' ? blockMark('gifts') : null);
   // 🔤 The hero's parts in the couple's own font · colour · size · animation
   // (`lib/element-style.ts`, on the hero row's canvas), and — in the Maker's
   // canvas only — the `data-el` keys that tell the Maker which part was tapped.
@@ -1548,6 +1559,7 @@ export async function SiteBody({
     /** "THE DETAILS · WHEN · WHERE" behind its Maker marker — ONE node, for the page's Details and the Stages canvas's. */
     const eventDetailsPart = (
       <>
+                {blockMark('details')}
                 {makerMark('f:details')}
                 <PublicEventDetails
                   dateLabel={event.event_date ? formatEventDate(event.event_date) : null}
@@ -1774,6 +1786,7 @@ export async function SiteBody({
             ☝ ONE BUTTON (owner 2026-09-26/27): the stranger's "Find your
             invitation" card is a second way in beside "Get inside" — it is not
             drawn; "Get inside" is the one door. */}
+        {plan.spotlight && plan.spotlight.kind !== 'find_invite' ? blockMark('spotlight') : null}
         {plan.spotlight && plan.spotlight.kind !== 'find_invite' ? makerMark('f:spotlight') : null}
         {plan.spotlight && plan.spotlight.kind !== 'find_invite' ? (
           <SpotlightCard spotlight={plan.spotlight} occasion={clientWords.occasion} />
@@ -2103,7 +2116,7 @@ export async function SiteBody({
                     ) : null
                   }
                   giftHref={doorways.pabuya}
-                  mark={makerMark}
+                  mark={(key) => <>{giftsBlockMark(key)}{makerMark(key)}</>}
                   maker={isMakerCanvas}
                 />
               </div>
@@ -2137,6 +2150,7 @@ export async function SiteBody({
                     ) : null
                   }
                   giftHref={doorways.pabuya}
+                  mark={giftsBlockMark}
                 />
               </div>
             )) : null}
@@ -2189,7 +2203,7 @@ export async function SiteBody({
                 list" — it should not "see other [list]", it should extend as
                 needed). Everyone shows inline; `/[slug]/everyone` keeps
                 working for old links, it just isn't linked from here. */}
-            {group(at('f:entourage', scenesTab), stageShowsEntourage(pageStage) ? <EntourageSection groups={entourage} id="site-entourage" sceneStyle={entourageStyle} /> : null)}
+            {group(at('f:entourage', scenesTab), <>{stageShowsEntourage(pageStage) ? blockMark('entourage') : null}{stageShowsEntourage(pageStage) ? <EntourageSection groups={entourage} id="site-entourage" sceneStyle={entourageStyle} /> : null}</>)}
             {stagesPages ? scenesByPage(stagesAround.after, 'mt-8') : detailsAround.after.length > 0 ? group(scenesTab, <div className="sn-hub-cards mt-8 space-y-4">{sceneNodes(detailsAround.after)}</div>) : null}
 
             {makerDayStandIns('last')}
@@ -2909,6 +2923,7 @@ export async function SiteBody({
           </>, { chapters: true, className: 'space-y-12' })}
           {/* 📱 The "Happening now" card is Live's on the day (prototype: Live · Happening now). */}
           {group(readerAt('f:spotlight', 'home'), <>
+          {plan.spotlight ? blockMark('spotlight') : null}
           {plan.spotlight ? makerMark('f:spotlight') : null}
           {plan.spotlight ? <SpotlightCard spotlight={plan.spotlight} occasion={clientWords.occasion} /> : null}
           {/* 🎫 NO "HI AGAIN · YOUR INVITATION SUMMARY" CARD (owner 2026-09-30).
@@ -3378,6 +3393,7 @@ export async function SiteBody({
                   ) : null
                 }
                 giftHref={doorways.pabuya}
+                mark={giftsBlockMark}
               />
               ), { chapters: true, className: 'space-y-12' })}
 
@@ -3421,6 +3437,7 @@ export async function SiteBody({
                   march={marchOnWelcome ? guestEntourage : null}
                   venue={<DayDirections venues={dayVenues} />}
                   giftHref={doorways.pabuya}
+                  mark={giftsBlockMark}
                 />
               ) : null, { chapters: true, className: 'space-y-12' })}
 
@@ -3823,6 +3840,8 @@ export async function SiteBody({
           tab) are client components this page cannot un-mount, so in the
           Maker's canvas they are hidden by the one attribute they carry. */}
       {isEditorCanvas ? <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style> : null}
+      {/* 🧱 The fixed blocks' own motion, as ONE `<style>` — nothing at all for an event that set none. */}
+      {blockCss || isEditorCanvas ? <style {...{ [BLOCK_LOOKS_STYLE_ATTR]: '' }}>{blockCss}</style> : null}
       {/* 🖼 ONE SCENE ALONE (Maker's Hero page, `?only=hero`) — host canvas only,
           hides everything but that scene. See `_lib/editor-canvas.ts`. */}
       {isEditorCanvas && canvasOnly ? <style>{canvasOnlyCss(canvasOnly)}</style> : null}

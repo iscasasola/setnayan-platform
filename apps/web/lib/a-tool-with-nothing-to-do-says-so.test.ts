@@ -121,11 +121,19 @@ test('(4) the pill: grey and `aria-disabled` (never `disabled`), never pressed w
   /* 🔁 RE-AIMED 2026-10-10: a reply screen's CARD and its LINES now have a Background and an Animate to set (owner
      2026-10-09: "how come background not fixed and no animate?" — `the-rsvp-lines-have-a-look.test.ts` §10), so those
      two are live there (`rsvpLooks`). Every other part is decided exactly as before — the claim this line holds. */
-  assert.match(tools, /const toolWorks = \(t: MakerPartTool\) => !picked \|\| \(rsvpLooks && \(t === 'bg' \|\| t === 'animate'\)\) \|\| \(\(t === 'edit' \|\| t === 'style' \|\| !styleOnly\) && makerPartToolWorks\(picked, t\)\);/);
+  /* 🔁 RE-AIMED AGAIN 2026-10-10: the tools a picked thing has a save for BEYOND the part rule are now one named
+     function, `ownTool` (a reply card or line: Background · Animate; a fixed block with one real root: Animate —
+     `a-fixed-block-has-its-own-motion.test.ts` §5). The part rule itself is decided exactly as before. */
+  assert.match(tools, /const toolWorks = \(t: MakerPartTool\) => !picked \|\| ownTool\(t\) \|\| \(\(t === 'edit' \|\| t === 'style' \|\| !styleOnly\) && makerPartToolWorks\(picked, t\)\);/);
   /* …and the rows show the FIRST tool that has something here (Edit; Style on the Camera) — never a grey one. */
   assert.match(tools, /const shownTool: MakerPartTool = toolWorks\(tool\) \? tool : \(MAKER_PART_TOOLS\.find\(toolWorks\) \?\? 'style'\);/);
   /* The tap: the line FIRST and nothing else — no tool is set, no panel is asked for. */
-  assert.match(tools, /const pickTool = \(t: MakerPartTool\) => \{\s*if \(!toolWorks\(t\)\) return setWhy\(\(w\) => \(\{ words: makerPartToolWhy\(picked, t\), n: \(w\?\.n \?\? 0\) \+ 1 \}\)\);\s*setTool\(t\);/);
+  /* 🔁 RE-AIMED 2026-10-10: the line a grey tool answers with is now worked out by `whyNot` — the part's own line
+     (`makerPartToolWhy`, still the default and the last word), unless the part is a SAMPLE on the canvas or E-Gifts
+     with nothing for a guest to see, which say that instead (`a-fixed-block-has-its-own-motion.test.ts` §5). The
+     claim is unchanged: a tap on a grey tool says ONE plain line and sets nothing. */
+  assert.match(tools, /const pickTool = \(t: MakerPartTool\) => \{\s*if \(!toolWorks\(t\)\) return setWhy\(\(w\) => \(\{ words: whyNot\(t\), n: \(w\?\.n \?\? 0\) \+ 1 \}\)\);\s*setTool\(t\);/);
+  assert.match(tools, /return sample \?\? empty \?\? makerPartToolWhy\(picked, t\);/, 'the part’s own line is no longer the default');
   assert.match(tools, /<PeekToast key=\{why\.n\} tone="note" data="tool-why" onGone=\{\(\) => setWhy\(\(w\) => \(w\?\.n === why\.n \? null : w\)\)\}>\s*\{why\.words\}\s*<\/PeekToast>/, 'the line is not said through the app’s toast');
   /* Picking a part (a tap on the page) opens the tool that HAS something there. */
   assert.match(tools, /const toolFor = useCallback\(\(k: MakerPartKey \| null\): MakerPartTool => makerPartToolFor\(k, toolRef\.current\), \[\]\);/);

@@ -803,6 +803,35 @@ export function EditorBridge() {
          but always need to press apply"). The Maker resolved the buttons with
          the guest page's own rule; this lays them on every look scope
          (`buttons-preview.ts`). The draft save follows; guests see it at Apply. */
+      /* 🧱 A FIXED BLOCK'S LOOK, picked in the Maker (`lib/block-looks.ts`): the page's one `<style data-block-looks>`
+         is rebuilt by the SAME strict reader the server used — never from text this message holds. The reader is
+         fetched on this message only (the Maker's canvas), so a guest's bundle never carries it; the two names are
+         said outright here for that reason (held equal to the module's by its guard). */
+      if (data && data.source === 'setnayan-editor' && data.t === 'blockLooks') {
+        const looks = (data as { looks?: unknown }).looks;
+        void import('@/lib/block-looks').then(({ blockLooksCss, readBlockLooks }) => {
+          const css = blockLooksCss(readBlockLooks({ block_looks: looks }));
+          let changed = false;
+          document.querySelectorAll<HTMLElement>('style[data-block-looks]').forEach((el) => {
+            if (el.textContent === css) return;
+            el.textContent = css;
+            changed = true;
+          });
+          if (!changed) return;
+          /* ✨ So the couple SEES it: each marked block is told it has just been reached (`.pahina-in`, the page
+             observer's own mark), which is what starts a timed Build in. Canvas only; a guest's page waits for the
+             observer. The block is the element after its mark — or after the Maker's marker standing between. */
+          document.querySelectorAll('[data-block-mark]').forEach((mark) => {
+            const after = mark.nextElementSibling;
+            const block = after?.hasAttribute('data-maker-section') ? after.nextElementSibling : after;
+            if (!(block instanceof HTMLElement)) return;
+            block.classList.remove('pahina-in');
+            void block.offsetWidth;
+            block.classList.add('pahina-in');
+          });
+        });
+        return;
+      }
       if (data && data.source === 'setnayan-editor' && data.t === 'buttons') {
         const preview = sanitizeButtonsPreview(data);
         if (preview) applyButtonsPreview(document, preview);

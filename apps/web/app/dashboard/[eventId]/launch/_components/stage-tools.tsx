@@ -87,7 +87,8 @@ import type { StagePageOption } from './stage-item-menu';
 /* ＋ ↕ 🗑 🎭 PR 3 — the part's edges, the ＋ sheet, the one confirm, the Reveal part (same lazy chunk). */
 import { RevealPartTools, RevealPlay, askPartOps, makerPartTopOnScreen, revealStageOf, usePartEdits } from './add-part-sheet';
 import { partsInPageOrder } from '@/lib/maker-part-step';
-import { CameraPartTools, StagePlayStatus } from './details-lazy';
+import { BlockAnimateRows, CameraPartTools, StagePlayStatus } from './details-lazy';
+import { BLOCK_EMPTY_WHY, BLOCK_SAMPLE_WHY, blockOfCanvas } from '@/lib/block-looks';
 
 import { makerPartCanvasOn, makerPartLabelOn, makerPartOfCanvas, makerPartsWithAdded } from '@/lib/maker-part-groups';
 import { filedOnCanvas, firstMarkerOnPage, makerStagesPages } from '@/lib/maker-stage-filing';
@@ -1132,16 +1133,40 @@ export function StageTools({
      one line why. Edit and Style are every part's. The Reveal, the Camera, the pass and the RSVP pages have no
      Background or Animate — and the Camera, a full-screen design, has Style alone; nor has any part with no save for
      it (E-Gifts, What to wear …). With nothing picked every tool is live — the rows under it are empty until a part is. */
-  const toolWorks = (t: MakerPartTool) => !picked || (rsvpLooks && (t === 'bg' || t === 'animate')) || ((t === 'edit' || t === 'style' || !styleOnly) && makerPartToolWorks(picked, t));
+  /* 🧱 A FIXED BLOCK WITH ONE REAL ROOT (`lib/block-looks.ts`: the March, The details, E-Gifts, Happening now) has
+     its own Animate. E-Gifts only while the canvas draws the REAL block — with no gift link it draws a Maker-only
+     empty card, and a guest sees nothing there to move. */
+  const blockAt = !rsvpOpen && picked ? blockOfCanvas(makerPartCanvasOn(stageKey, picked)) : null;
+  const [blockIsReal, setBlockIsReal] = useState(true);
+  useEffect(() => {
+    if (blockAt !== 'gifts') return setBlockIsReal(true);
+    const doc = document.querySelector<HTMLIFrameElement>(SHOWN_FRAME)?.contentDocument ?? null;
+    setBlockIsReal(Boolean(doc && findMakerSection(doc, 'f:gifts')?.hasAttribute('data-welcome-gifts')));
+  }, [blockAt, shownPage]);
+  const block = blockAt && blockIsReal ? blockAt : null;
+  /** 🎨 A tool the PICKED thing has a save for beyond the part rule: a reply card or line (Background · Animate), a
+   *  fixed block with one real root (Animate). */
+  const ownTool = (t: MakerPartTool) => (rsvpLooks && (t === 'bg' || t === 'animate')) || (block !== null && t === 'animate');
+  const toolWorks = (t: MakerPartTool) => !picked || ownTool(t) || ((t === 'edit' || t === 'style' || !styleOnly) && makerPartToolWorks(picked, t));
   /** The tool the rows are showing: the remembered one, or the first that has something here (Edit; Style on the Camera). */
   const shownTool: MakerPartTool = toolWorks(tool) ? tool : (MAKER_PART_TOOLS.find(toolWorks) ?? 'style');
   shownToolRef.current = shownTool;
+  /** 🧱 The toolbar's own rows are a fixed block's Animate (the work area's tool stands aside). */
+  const blockRows = open && block !== null && shownTool === 'animate';
   /* …said to the work area's body under the selector (`StageStyle` shows that tool's part of the scene's Format). */
   useEffect(() => setStageTool(shownTool), [shownTool]);
   const [why, setWhy] = useState<{ words: string; n: number } | null>(null);
   setWhyRef.current = (words) => setWhy((w) => ({ words, n: (w?.n ?? 0) + 1 }));
+  /** The one plain line a grey tool answers with. A SAMPLE on the canvas (each guest sees their own there) says so,
+   *  naming the thing (`BLOCK_SAMPLE_WHY`); E-Gifts with nothing for a guest to see yet says that; any other, the
+   *  part's own (`makerPartToolWhy`). */
+  const whyNot = (t: MakerPartTool): string => {
+    const sample = picked && (t === 'bg' || t === 'animate') ? BLOCK_SAMPLE_WHY[makerPartCanvasOn(stageKey, picked) ?? ''] : undefined;
+    const empty = blockAt && !blockIsReal && t === 'animate' ? BLOCK_EMPTY_WHY : undefined;
+    return sample ?? empty ?? makerPartToolWhy(picked, t);
+  };
   const pickTool = (t: MakerPartTool) => {
-    if (!toolWorks(t)) return setWhy((w) => ({ words: makerPartToolWhy(picked, t), n: (w?.n ?? 0) + 1 }));
+    if (!toolWorks(t)) return setWhy((w) => ({ words: whyNot(t), n: (w?.n ?? 0) + 1 }));
     setTool(t);
     /* Nothing picked: the tool is remembered for the next part. The Reveal's body is this toolbar's own. */
     if (!picked || picked === 'reveal') return;
@@ -1265,6 +1290,7 @@ export function StageTools({
       data-stage-tools=""
       data-stage-open={open ? '' : undefined}
       data-stage-edit-own={rsvpLineTypes && shownTool === 'edit' ? '' : undefined}
+      data-stage-own-rows={blockRows ? '' : undefined}
       data-stage-tool-now={shownTool}
       data-stage-row4={lookOn ? '' : undefined}
       aria-hidden={away || undefined}
@@ -1288,6 +1314,9 @@ export function StageTools({
              the stage's own panel — `data-stage-edit-own`). Written right under the rule it lifts, so the toolbar
              stepping away (below) still hides it. */
           '[data-maker-shell]:has([data-stage-tools][data-stage-edit-own]) [data-phone-chrome="panel"]{visibility:visible;pointer-events:auto}' +
+          /* 🧱 …and the other way round: a fixed block's Animate is drawn HERE, in the toolbar's own rows
+             (`BlockAnimateRows`), so the work area's tool stands aside for it as it does for Edit. */
+          '[data-maker-shell]:has([data-stage-tools][data-stage-own-rows]) [data-phone-chrome="panel"]{visibility:hidden;pointer-events:none}' +
           /* …and while the toolbar itself is AWAY (▶ playing, the whole-page preview, typing): the work area's tool lay
              over the four rows, so it goes with them — seen on the review copy, 2026-10-09: it stayed on the page under
              a toolbar that had gone, and covered "Exit preview". */
@@ -1446,6 +1475,8 @@ export function StageTools({
         ) : null}
         {/* ══ 🎛 THE CAMERA'S TOOLS — Style: Classic · Your brand · Challenges ══ */}
         {open && cameraOpen && !editOn ? <CameraPartTools /> : null}
+        {/* 🧱 A fixed block's own Animate — the toolbar's four rows, on the block's own save. */}
+        {blockRows && block ? <BlockAnimateRows key={block} block={block} /> : null}
       </div>
       {revealPlaying && revealStage ? <RevealPlay stage={revealStage} onDone={() => setRevealPlaying(false)} /> : null}
       {/* ══ The picked part's frame over the page, its sheets and its toast ══ */}

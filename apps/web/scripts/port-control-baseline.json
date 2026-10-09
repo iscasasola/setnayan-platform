@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "ada500b95b",
+  "generatedFromRef": "a42737e48",
   "routeCount": 430,
   "destinations": 956,
   "actions": 673,
-  "blocks": 5931,
+  "blocks": 5932,
   "routes": {
     "/": {
       "files": [
@@ -6626,6 +6626,7 @@
         "dashboard/[eventId]/launch/_components/soft-post.tsx",
         "dashboard/[eventId]/launch/_components/special-message-field.tsx",
         "dashboard/[eventId]/launch/_components/stage-item-menu.tsx",
+        "dashboard/[eventId]/launch/_components/stage-panel/block-animate.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/camera-look.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/kit.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/part-look.ts",
@@ -6693,6 +6694,7 @@
         "AutoDraft",
         "Bar",
         "BeforeWeStartScreen",
+        "BlockAnimateRows",
         "Box",
         "BufferedCanvasFrame",
         "CameraLook",

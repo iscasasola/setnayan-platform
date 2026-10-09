@@ -208,7 +208,7 @@ test('(3) one line makes it blue — every template’s "on" colour resolves to 
   /** What a utility class paints: its Tailwind colour, with every variable followed. Null = not a colour class of ours. */
   const paints = (cls: string, vars: Vars): string | null => {
     const m = /(?:^|:)(?:bg|text|ring|border)-sn-(on-accent|accent)$/.exec(cls);
-    return m ? resolve(sn[m[1]!]!, vars) : null;
+    return m ? resolve((sn as Record<string, string>)[m[1]!]!, vars) : null;
   };
   const on = (vars: Vars) => `rgb(${resolve(vars['--sn-accent']!, vars)} / <alpha-value>)`;
   const ink = (vars: Vars) => `rgb(${resolve(vars['--sn-on-accent']!, vars)} / <alpha-value>)`;

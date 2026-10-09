@@ -131,7 +131,9 @@ const STUDIO_INFO_CSS =
      has no "QR code" heading over them (controller 2026-10-08: a bare heading with nothing under it). */
   '[data-details-workspace] [data-details-editor]:has(> [data-studio-quiet]) > [data-details-form-heading]{display:none}' +
   /* Two lists of rows in one field (Special message, then What to bring): the hairline between rows, between lists too. */
-  '[data-studio-info-rows] + [data-studio-info-rows]{border-top:1px solid rgb(var(--color-ink)/.1)}';
+  '[data-studio-info-rows] + [data-studio-info-rows]{border-top:1px solid rgb(var(--color-ink)/.1)}' +
+  /* 🖨 Studio › Prints: each include switch, size row and fact is its own list of rows — the same one hairline runs between one list and the next. */
+  '[data-studio-print-rows] + [data-studio-print-rows]{border-top:1px solid rgb(var(--color-ink)/.1)}';
 const W = '[data-maker-studio-full] [data-details-workspace]';
 /**
  * 📏 ONE HAIRLINE BETWEEN INFO'S ROWS, AT EVERY WIDTH (owner 2026-10-09, *"no lines on row?"*; the template's `.fr` is a

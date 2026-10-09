@@ -4,7 +4,8 @@ import { useEffect, useId, useRef, useState, useSyncExternalStore, useTransition
 import { RotateCcw } from 'lucide-react';
 
 import { PABUYA_TEMPLATES, PABUYA_MESSAGE_MAX, type PabuyaTemplate } from '@/lib/pabuya-message';
-import { savePabuyaMessage, type EgiftActionResult } from '../actions';
+import type { EgiftActionResult } from '../actions';
+import { useStudioActions } from '../../launch/_components/studio-actions-context';
 import { ChosenRow, FormRows, TypedRow } from '@/app/_components/form-row';
 import { ActionButton } from '@/components/action-button';
 import { plainRefusal } from '../../guests/_components/plain-refusal';
@@ -108,6 +109,7 @@ const NOT_DRAFTED = 'Please try again.';
  * in plain words, with Try again — and in the other door as well. The row never ticks for a save that did not land.
  */
 function StudioThanks({ eventId, initialMessage, templates = PABUYA_TEMPLATES }: Props) {
+  const { savePabuyaMessage } = useStudioActions();
   const door = useId();
   const [text, setText] = useState(initialMessage ?? '');
   /* The words as they are typed in the open box — for the count only (never the row's own value: a row compares what it keeps with what it held). */
@@ -219,6 +221,7 @@ function StudioThanks({ eventId, initialMessage, templates = PABUYA_TEMPLATES }:
 /* ── THE E-GIFTS PAGE AND THE SHIPPED MAKER — as they were ──────────────── */
 
 function ShippedEditor({ eventId, initialMessage, templates = PABUYA_TEMPLATES }: Props) {
+  const { savePabuyaMessage } = useStudioActions();
   const [text, setText] = useState(initialMessage ?? '');
   const [saved, setSaved] = useState<string | null>(initialMessage);
   const [error, setError] = useState<string | null>(null);

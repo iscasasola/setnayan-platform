@@ -47,7 +47,8 @@ import { SWITCH_BUTTON, SwitchTrack } from './switch-track';
  *   · the open field carries ONLY ✕. Tapping anywhere outside it — another row included, which then opens — or
  *     Enter KEEPS; ✕ or Esc leaves it as it was (`lib/form-row.ts` `keepOutcome`);
  *   · ONE row is open at a time;
- *   · closing is animated too: the field folds back to the right, the name slides back in from the left;
+ *   · closing is animated too: the field folds back to the right, the name slides back in from the left — the keep does NOT wait
+ *     for it: it happens at the moment the field is left (`end`), the fold only shows it;
  *   · after a save lands the pencil shows a tick for a moment (no "Saved" word in the row);
  *   · a long message opens a taller box with large rounded corners under its name — the ✕ on the name's line, at
  *     the right, so it stays in view above the keyboard (Enter is a new line there);
@@ -472,7 +473,12 @@ export function TypedRow({
     onType?.(out.kind === 'send' || out.kind === 'wrong' ? out.text : shown);
     if (out.kind === 'send') {
       setShown(out.text);
-      after.current = () => send(out.text);
+      /* ⚡ KEPT AT THE MOMENT THE FIELD IS LEFT — not after the fold. The fold is a ~0.3 s animation; a write that waited for it left
+         ~0.8 s after the tap-out, so a ✓ Apply pressed in that gap published before the words were drafted. The carrier (the
+         `fieldName` path's hidden input) is set by hand first: React has not re-rendered it yet, and the form reads it when told. */
+      if (carrier.current) carrier.current.value = out.text;
+      after.current = null;
+      send(out.text);
     } else if (out.kind === 'wrong') {
       setShown(out.text);
       after.current = () => {
@@ -771,6 +777,7 @@ export function ChosenRow({
   name,
   about,
   mark,
+  line,
   label,
   value,
   options,
@@ -787,6 +794,8 @@ export function ChosenRow({
   about?: FormRowAbout | null;
   /** A small mark after the name (the Pro mark ◆). */
   mark?: ReactNode;
+  /** One quiet line under the name, inside the row (what the choices are — Prints' piece sizes). */
+  line?: ReactNode;
   /** More of this row, under it (the screen's own — a quiet action that belongs to the pick). */
   below?: ReactNode;
   /** The dropdown's own name (its sheet's title) — the row's name unless given. */
@@ -804,7 +813,7 @@ export function ChosenRow({
 }) {
   const width = usePillWidth();
   return (
-    <FormRow name={name} about={about} mark={mark} note={note} problem={problem} below={below} data={data} attrs={{ ...attrs, 'data-form-row-kind': 'chosen' }}>
+    <FormRow name={name} about={about} mark={mark} line={line} note={note} problem={problem} below={below} data={data} attrs={{ ...attrs, 'data-form-row-kind': 'chosen' }}>
       <PickMenu label={label ?? name} value={value} options={options} onPick={onPick} buttonText={buttonText} dataAttr={dataAttr} className={`${FORM_PICK_CLASS} ${width}`} />
     </FormRow>
   );
@@ -901,11 +910,18 @@ export function SwitchRow({
   data,
   attrs,
   fieldName,
+  formId,
 }: {
   name: string;
   about?: FormRowAbout | null;
   on: boolean;
   onChange: (next: boolean) => void;
+  /**
+   * With `fieldName`: the `id` of the `<form>` the carrier checkbox belongs to (its `form=` attribute) — for a switch drawn OUTSIDE the form
+   * it posts with (Studio › Prints' include switches post through the one print-words form, wherever the switch is drawn). Absent = the form
+   * the switch sits in.
+   */
+  formId?: string;
   /**
    * Inside a `<form>`: the name this switch POSTS under — a real visually-hidden checkbox, present (`on`) when the switch is on
    * and ABSENT when off, which is what a native checkbox posts. A tap tells the form (see `lib/tell-the-form.ts`); an Undo's `click()` on
@@ -952,7 +968,7 @@ export function SwitchRow({
         <SwitchTrack on={on} />
       </button>
       {fieldName ? (
-        <input ref={post} type="checkbox" name={fieldName} checked={on} disabled={disabled} onChange={() => onChange(!on)} tabIndex={-1} aria-hidden className="sr-only" data-form-switch-post="" />
+        <input ref={post} type="checkbox" name={fieldName} form={formId} checked={on} disabled={disabled} onChange={() => onChange(!on)} tabIndex={-1} aria-hidden className="sr-only" data-form-switch-post="" />
       ) : null}
     </FormRow>
   );

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { answerKeyOf, answerValueOf, type AnswerChoice, type EventAnswerColumn } from '@/lib/event-answers';
-import { hubDraftAction } from '../../website/hub-draft-actions';
+import { useStudioActions } from './studio-actions-context';
 import { PickMenu, type PickOption } from '../../website/editor/_components/pick-menu';
 import { FormRows, SwitchRow } from '@/app/_components/form-row';
 
@@ -49,6 +49,8 @@ export function AnswerPicker({
   /** 'switch' = a Yes/No answer as the Form row's switch (the Studio); the default is the dropdown every other door keeps. */
   as?: 'dropdown' | 'switch';
 }) {
+  /* The Maker's draft door — the shipped action, or (only in the dev lab) a stand-in that reaches no database. */
+  const { hubDraftAction } = useStudioActions();
   const initial = answerKeyOf(column, saved);
   const [shown, setShown] = useState(initial);
   const [error, setError] = useState<string | null>(null);

@@ -2,17 +2,17 @@
 
 import { StudioColourField } from './studio-colour-field';
 import { OpenInPlace } from './open-in-place';
-import { useContext, useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
+import { useContext, useEffect, useRef, useState, useTransition, type ReactElement, type ReactNode } from 'react';
 import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { tellLookSample } from '@/lib/look-sample-store';
 import { EGIFT_KIND_META, type EgiftMethodKind } from '@/lib/egift-kinds';
 import { PabuyaCardList } from '@/app/_components/pabuya/pabuya-card-list';
-import { saveEgiftMethod, savePabuyaMessage, setEgiftMethodEnabled } from '../../pabuya/actions';
+import { useStudioActions } from './studio-actions-context';
 import { cleanGiftRegistryUrl, GIFT_REGISTRY_URL_ERROR, GIFT_REGISTRY_URL_MAX } from '@/lib/gift-registry';
 import { egiftEnabledFields, egiftMethodFields, egiftMethodNeedsSaving, registryFields } from '@/lib/studio-egifts-saves';
 import { plainRefusal } from '../../guests/_components/plain-refusal';
 import type { ManagerMethod } from '../../pabuya/_components/pabuya-manager';
-import { HUB_LIVE_WORDS } from '../../website/_components/hub-draft-field';
+import { HUB_LIVE_WORDS, HubSavesImmediately } from '../../website/_components/hub-draft-field';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { setLaunchPhase, setOpenBrowse } from '../../website/editor/actions';
 import { updateLandingPageVisibility } from '../../website/privacy/actions';
@@ -60,8 +60,9 @@ import { StudioEventName } from './studio-event-name';
 import { STUDIO_INFO_ROWS, StudioOpeningLine, StudioWords, studioDraftKeep } from './studio-info';
 import { ChosenRow, FactRow, FormRow, FormRows, SwitchRow, TypedRow } from '@/app/_components/form-row';
 import { Fold } from '@/app/_components/fold';
-import { RotateCcw, Undo } from 'lucide-react';
+import { Check, RotateCcw, Undo } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
+import { PrintChoicePicker } from './print-choice-picker';
 import { BACKGROUND_MAIN_INFO } from '@/lib/background-source';
 
 /**
@@ -172,6 +173,8 @@ export function StudioEgifts({
    */
   registryUrl?: string | null;
 }) {
+  /* The page's writes — the shipped actions, or (only in the dev lab) stand-ins that reach no database. */
+  const { saveEgiftMethod, savePabuyaMessage, setEgiftMethodEnabled, qrUploadSend } = useStudioActions();
   const [rows, setRows] = useState(() => rowsFrom(methods));
   /* What is in each row right now, for a save that follows another (a ref: a keep reads it the instant it is made). */
   const now = useRef(rows);
@@ -364,6 +367,7 @@ export function StudioEgifts({
                             maxSizeMB={5}
                             variant="square"
                             compressImage
+                            send={qrUploadSend}
                             currentValue={row.qrRef || null}
                             initialDisplayUrls={row.qrRef && row.qrUrl ? { [row.qrRef]: row.qrUrl } : {}}
                             onChange={(v) => saveQr(k, typeof v === 'string' ? v : '')}
@@ -945,6 +949,109 @@ export function StudioQrShown({ eventId, shown, children }: { eventId: string; s
   );
 }
 
+/* ── 🖨 PRINTS ────────────────────────────────────────────────────────────── */
+
+/** The mark Studio › Prints' lists wear — the hairline runs between one list and the next (`lib/studio-details.ts`). */
+export const STUDIO_PRINT_ROWS = { 'data-studio-print-rows': '' } as const;
+
+/**
+ * 🖨 A PRINT PIECE'S HEAD (owner 2026-10-08/09, the Form row): its name and its sizes on the left, its size ▾ on the right — ONE Form row. A piece with
+ * one size has just the name and the size as its small line. The pick is the shipped `PrintChoicePicker`'s: the same address, the same warm sizes.
+ */
+export function StudioPrintHead({
+  name,
+  line,
+  picker,
+}: {
+  name: string;
+  line: string;
+  picker: { label: string; value: string; dataAttr?: string; options: Array<{ key: string; label: string; href: string }> } | null;
+}) {
+  if (picker) return <PrintChoicePicker {...picker} row={{ name, line }} />;
+  return (
+    <FormRows data="print-head" attrs={STUDIO_PRINT_ROWS}>
+      <FormRow name={name} line={line} />
+    </FormRows>
+  );
+}
+
+/**
+ * 🖨 ONE INCLUDE SWITCH of Studio › Prints (what a print includes — Parents · Opening line · E-Gifts · …): the Form row's SWITCH, posting through the print words
+ * form wherever the switch is drawn (`SwitchRow fieldName formId` — a checkbox of that name, present when on and ABSENT when off, which is what the old native
+ * checkbox posted). Its fields stay MOUNTED while it is off — only hidden — because the old switch revealed them with CSS and they still posted: unmounting
+ * them would change what Save sends. Nothing posts until Save (the form's own submit, `SoftPost`).
+ */
+export function StudioIncludeSwitch({
+  form,
+  name,
+  label,
+  on,
+  tip,
+  disabled = false,
+  note = null,
+  children,
+}: {
+  form: string;
+  name: string;
+  label: string;
+  on: boolean;
+  tip?: string;
+  disabled?: boolean;
+  note?: ReactNode;
+  children?: ReactNode;
+}) {
+  const [now, setNow] = useState(on);
+  return (
+    <FormRows data={`include-${name}`} attrs={STUDIO_PRINT_ROWS}>
+      <SwitchRow
+        name={label}
+        about={tip ? { words: tip } : null}
+        on={now}
+        onChange={setNow}
+        disabled={disabled}
+        fieldName={name}
+        formId={form}
+        note={note}
+        data={`include-${name}`}
+        attrs={{ 'data-include': name }}
+        below={
+          children ? (
+            <div hidden={!now} data-include-fields="" className={now ? 'flex flex-col gap-2 pb-3 pl-1' : 'hidden'}>
+              {children}
+            </div>
+          ) : null
+        }
+      />
+    </FormRows>
+  );
+}
+
+/** 🖨 The seat plan's kind (3D · 2D · List) — a choice of three: the one dropdown, posting through the print words form as the radios did. */
+export function StudioSeatKind({ form, name, value, options }: { form: string; name: string; value: string; options: Array<[string, string]> }) {
+  const [now, setNow] = useState(value);
+  return (
+    <FormRows data="seat-kind" attrs={STUDIO_PRINT_ROWS}>
+      <ChosenRow name="Show it as" value={now} options={options.map(([key, label]) => ({ key, label }))} onPick={setNow} dataAttr="data-seat-plan-kind" />
+      <input type="hidden" form={form} name={name} value={now} data-form-pick="" />
+    </FormRows>
+  );
+}
+
+/** 🖨 The print words form's Save: THE ONE ActionButton, submitting that form (`form=`); the live note stays beside it. */
+export function StudioPrintSave({ form }: { form: string }) {
+  return (
+    <div data-print-words-save="" className="flex flex-wrap items-center gap-3 pt-1">
+      <ActionButton type="submit" form={form} tone="brand" main icon={Check} label="Save" />
+      <HubSavesImmediately />
+    </div>
+  );
+}
+
+/** A door that is an action button (the pass zip's door to the Event Hub Pro unlock): a link, drawn by the ONE ActionButton. */
+export function StudioActionDoor({ href, label, icon }: { href: string; label: string; icon: ReactElement }) {
+  return <ActionButton tone="neutral" href={href} label={label} icon={icon} />;
+}
+
 /* ── ONE door for the lazy stand-in (`details-lazy.tsx` `StudioTool`) ────── */
 
 /* ✍ What to bring, the Special message and the Opening line are `studio-info.tsx`'s rows (the Form row, one drafted
@@ -962,7 +1069,13 @@ export type StudioToolProps =
   | ({ part: 'opening-line' } & Parameters<typeof StudioOpeningLine>[0])
   | ({ part: 'event-name' } & Parameters<typeof StudioEventName>[0])
   /* ⚖ A round-3 piece rides this one lazy door (2026-10-08) — a door of its own cost the Maker's first load. */
-  | ({ part: 'open-in-place' } & Parameters<typeof OpenInPlace>[0]);
+  | ({ part: 'open-in-place' } & Parameters<typeof OpenInPlace>[0])
+  /* 🖨 Studio › Prints (2026-10-09) — one lazy door, no door of its own (the Maker's first load). */
+  | ({ part: 'print-head' } & Parameters<typeof StudioPrintHead>[0])
+  | ({ part: 'action-door' } & Parameters<typeof StudioActionDoor>[0])
+  | ({ part: 'include-switch' } & Parameters<typeof StudioIncludeSwitch>[0])
+  | ({ part: 'seat-kind' } & Parameters<typeof StudioSeatKind>[0])
+  | ({ part: 'print-save' } & Parameters<typeof StudioPrintSave>[0]);
 
 export function StudioTool(props: StudioToolProps) {
   switch (props.part) {
@@ -988,5 +1101,15 @@ export function StudioTool(props: StudioToolProps) {
       return <StudioEventName {...props} />;
     case 'open-in-place':
       return <OpenInPlace {...props} />;
+    case 'print-head':
+      return <StudioPrintHead {...props} />;
+    case 'action-door':
+      return <StudioActionDoor {...props} />;
+    case 'include-switch':
+      return <StudioIncludeSwitch {...props} />;
+    case 'seat-kind':
+      return <StudioSeatKind {...props} />;
+    case 'print-save':
+      return <StudioPrintSave {...props} />;
   }
 }

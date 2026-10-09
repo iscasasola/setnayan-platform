@@ -110,13 +110,16 @@ test('3 · a print in Studio is one row of the list: name · sizes · size ▾ �
   };
   const studio = await html(React.createElement(PrintPieceEditor, { input, piece: 'invitation', studio: true }));
   assert.match(studio, /data-print-studio=""/);
-  /* The size ▾ and the Saves are client pieces (lazy on a server render) — their PLACES are read here,
-     their shape from the source: the name and sizes, then the Saves right under the row. */
-  assert.match(studio, /5 × 7 in or A5<\/small><\/span>[\s\S]*?<\/div><div [^>]*data-print-piece-saves="invitation"/, 'the Saves are not right under the piece’s row');
+  /* The size ▾ and the Saves are client pieces (lazy on a server render) — their PLACES are read here, their shape from the source.
+     RE-AIMED 2026-10-09 (Prints wears the templates): the name · sizes · size ▾ are ONE Form row, drawn by the lazy `print-head` part (its place is the
+     lazy slot at the head of the editor), and the Saves — still right under it — are the ONE ActionButton (`variant="action"`), not the old chip. */
+  assert.match(studio, /data-print-studio=""[^>]*>[\s\S]*?<\/div><div [^>]*data-print-piece-saves="invitation"/, 'the Saves are not right under the piece’s row');
   assert.doesNotMatch(studio, /This piece/, 'the old “This piece” block is still drawn');
   const src = read(`${L}/maker-prints.tsx`);
-  assert.equal((src.match(/variant=\{studio \? 'chip' : 'link'\}/g) ?? []).length, 3, 'a Studio Save is still the old underlined link');
-  assert.match(src.slice(src.indexOf('if (studio) {')), /\{sizePicker\}/, 'the Studio row has no size ▾');
+  const editor = src.slice(src.indexOf('export function PrintPieceEditor('), src.indexOf('export function PassCardsPanel('));
+  assert.equal((editor.match(/variant="action"/g) ?? []).length, 3, 'a Studio Save is not the one ActionButton');
+  assert.doesNotMatch(editor, /variant=\{studio \? 'chip'/, 'a Studio Save is still the old chip');
+  assert.match(editor.slice(editor.indexOf('if (studio) {')), /part="print-head"[\s\S]{0,200}line=\{sizes\.length > 1 \? sizes\.join\(sizes\.length > 2 \? ' · ' : ' or '\) : spec\.size\}/, 'the Studio row has no name · sizes · size ▾');
   const shipped = await html(React.createElement(PrintPieceEditor, { input, piece: 'invitation' }));
   assert.match(shipped, /This piece/, 'the shipped Details lost its block — flag-off must not change');
 });

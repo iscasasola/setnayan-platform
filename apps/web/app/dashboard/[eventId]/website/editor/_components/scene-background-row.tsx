@@ -37,7 +37,7 @@ import {
   type HubSectionCanvas,
 } from '@/lib/hub-canvas';
 import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
-import { ombreCss } from '@/lib/ombre';
+import { ombreCss, ombreRamp } from '@/lib/ombre';
 import {
   everySceneBackgroundPatch,
   justThisSceneCanvas,
@@ -55,8 +55,7 @@ import { SLIDER_VALUE, Slider } from '@/app/_components/slider';
 import { sceneBgPreviewMessage, type SceneBgPreviewMessage } from './scene-bg-preview-message';
 import { useMaker } from '../../../launch/_components/maker-context';
 import { StageBackground, type StageBgSource, type StageBgTile } from '../../../launch/_components/stage-panel/stage-background';
-import { tileFrostCss, tileFrostFoot, tileGlassColour, tileNameOnFlat, tileNameOnPicture } from '@/lib/bg-tile-name';
-import { relativeLuminance } from '@/lib/hub-legibility';
+import { TILE_FOOT, TILE_RAMP_SPAN, tileFrostCss, tileFrostFoot, tileGlassColour, tileNameOnFlat, tileNameOnPhoto, tileNameOnRamp } from '@/lib/bg-tile-name';
 import { BACKGROUND_SOURCE_IS_PRO } from '@/lib/background-source';
 import { isStdLibrarySrc } from '@/lib/std-backgrounds';
 import { sceneShadeAt, sceneShadeOf } from '@/lib/scene-shade-bar';
@@ -573,8 +572,9 @@ export function SceneBackgroundRow({
     const worn = source === stored;
     const media = bg?.kind === 'photo' || bg?.kind === 'snippet';
     /* 🖼 PICTURE TILES (owner 2026-10-09: *"A- picture tiles"*): each choice as what it really draws, its name
-       written on it and readable by the tile's own rule (`lib/bg-tile-name.ts`) — a flat tile by its colour, a
-       picture by a soft fade at its foot. Opaque and Frosted are the flat tint and a soft glass, not stripes. */
+       written on it and readable by the tile's own rule (`lib/bg-tile-name.ts`). A COLOUR tile is one known colour:
+       the name takes ink or white from the colour at its foot and nothing is laid over the swatch. A PHOTO wears a
+       light fade at its foot, by the colour measured there. Opaque and Frosted are the flat tint and a soft glass. */
     const base = tint.slice(0, 7);
     const cover = (url: string | null): React.CSSProperties => (url ? { backgroundImage: `url("${url.replace(/"/g, '%22')}")` } : { background: 'linear-gradient(135deg, #d9c3a5, #8a6b39 60%, #3a382f)' });
     const colourTile = (c: Exclude<Choice, 'media'>): StageBgTile => {
@@ -583,19 +583,20 @@ export function SceneBackgroundRow({
       if (c === 'color') return { key: c, name, picture: { background: base }, ...tileNameOnFlat(base) };
       if (c === 'glass') return { key: c, name, picture: { background: tileGlassColour(base, 'glass') }, ...tileNameOnFlat(tileGlassColour(base, 'glass')) };
       if (c === 'frost') return { key: c, name, picture: { background: tileFrostCss(base) }, ...tileNameOnFlat(tileFrostFoot(base)) };
-      /* Diagonal · Glow: the real ombré, in the scene's colour — a picture, read by the colour it is made of. */
-      return { key: c, name, picture: preview(c, tint), ...tileNameOnPicture(relativeLuminance(base)) };
+      /* Diagonal · Glow: the real ombré, in the scene's colour — read by the part of its ramp the name sits over. */
+      return { key: c, name, picture: preview(c, tint), ...tileNameOnRamp(ombreRamp({ shape: c, base }), TILE_RAMP_SPAN[c]) };
     };
     const tiles: StageBgTile[] =
       source === 'colour'
         ? COLOUR_TILES.map(colourTile)
         : source === 'scene'
-          ? STD_REALISTIC_BACKGROUNDS.map((b) => ({ key: b.src, name: b.label, picture: cover(b.src), ...tileNameOnPicture(b.lum) }))
+          ? STD_REALISTIC_BACKGROUNDS.map((b) => ({ key: b.src, name: b.label, picture: cover(b.src), ...tileNameOnPhoto(TILE_FOOT[b.id] ?? null) }))
           : source === 'own'
             ? [
-                ...(videoChoice ? [{ key: videoChoice.ref, name: 'Your video', moving: true, picture: cover(videoChoice.poster ? mediaUrl(videoChoice.poster) : null), ...tileNameOnPicture(null) }] : []),
-                ...uploads.map((u) => (u.kind === 'snippet' ? { key: u.ref, name: 'Your clip', moving: true, picture: cover(u.posterUrl ?? null), ...tileNameOnPicture(null) } : { key: u.ref, name: 'Your photo', picture: cover(u.url), ...tileNameOnPicture(null) })),
-                ...photoChoices.map((p) => ({ key: p.ref, name: 'Your photo', picture: cover(p.url), ...tileNameOnPicture(null) })),
+                /* The couple's own: nothing is measured (reading a picture's pixels needs a second, cross-origin fetch), so the dark default. */
+                ...(videoChoice ? [{ key: videoChoice.ref, name: 'Your video', moving: true, picture: cover(videoChoice.poster ? mediaUrl(videoChoice.poster) : null), ...tileNameOnPhoto(null) }] : []),
+                ...uploads.map((u) => (u.kind === 'snippet' ? { key: u.ref, name: 'Your clip', moving: true, picture: cover(u.posterUrl ?? null), ...tileNameOnPhoto(null) } : { key: u.ref, name: 'Your photo', picture: cover(u.url), ...tileNameOnPhoto(null) })),
+                ...photoChoices.map((p) => ({ key: p.ref, name: 'Your photo', picture: cover(p.url), ...tileNameOnPhoto(null) })),
               ]
             : [];
     const shadeAt = sceneShadeAt(shown.shade);

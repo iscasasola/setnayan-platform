@@ -19,8 +19,10 @@
  *   (7) PICTURE TILES (owner 2026-10-09, choosing among three drawings: *"A- picture tiles"*) — the name is written
  *       ON the tile, never on a sticker; the picked tile has ONE ring that the row never cuts; "None" is a white tile
  *       with one stroke; Opaque and Frosted are a flat tint and a soft glass, never stripes; a scene's picture and
- *       the couple's upload wear the same tile; and EVERY name is readable — executed for every flat colour, and
- *       for the worst picture there can be. Sabotage: the fade weakened → red; stripes back → red.
+ *       the couple's upload wear the same tile; and EVERY name is readable AT ITS OWN PLACE, the tile's foot — a
+ *       colour tile by its own colour there and with NO fade (10b), a ready-made scene by the colour measured at its
+ *       foot (re-measured here from the files) under a light fade. Sabotage: a fade on a colour tile → red; the
+ *       picture's middle used for its foot → red; stripes back → red.
  *   (5) NOT DRAWN ANY MORE — In frame, How close, "Use where", "More", the ⓘ sentence, "Remove this scene's photo";
  *       what was stored for them is still read by the page.
  */
@@ -34,7 +36,8 @@ import { stripComments } from './strip-comments';
 import { BACKGROUND_SOURCE_IS_PRO, BACKGROUND_SOURCE_LABEL } from './background-source';
 import { HUB_BACKGROUND_KINDS, resolveHubBackground, sanitizeHubCanvas } from './hub-canvas';
 import { SP_BG_ROW, SP_BG_STRIP, SP_BG_TILE, SP_BG_TILE_ADD, SP_BG_TILE_FACE, SP_BG_TILE_FADE, SP_BG_TILE_NAME, SP_BG_TILE_RING_PX, SP_BG_TILE_SLASH, SP_BG_TILE_TONE, SP_ROWS, STAGE_PANEL_VARS, stageBarRow } from './maker-stage-room';
-import { TILE_FADE, TILE_INK, TILE_LIGHT_FROM, TILE_WHITE, tileFadeFloor, tileFrostCss, tileFrostFoot, tileGlassColour, tileNameOnFlat, tileNameOnPicture } from './bg-tile-name';
+import { TILE_FADE, TILE_FLAT_FLOOR, TILE_FOOT, TILE_FOOT_BAND, TILE_INK, TILE_RAMP_SPAN, tileFlatContrast, tileFrostCss, tileFrostFoot, tileGlassColour, tileNameOnFlat, tileNameOnPhoto, tileNameOnRamp, tilePhotoContrast, tileRampUnder } from './bg-tile-name';
+import { ombreRamp } from './ombre';
 import { STD_REALISTIC_BACKGROUNDS } from './std-backgrounds';
 import { phoneHeightPx } from './maker-phone-room';
 import { SCENE_SHADE_MAX, SCENE_SHADE_MIN, SCENE_SHADE_STOPS, sceneShadeAt, sceneShadeOf, sceneShadeSettled, sceneShadeWords } from './scene-shade-bar';
@@ -382,36 +385,99 @@ test('(7) picture tiles: the name is ON the tile and always readable; one ring t
   }
   assert.ok(has(SP_BG_STRIP, 'px-[10px]'), 'the first tile’s ring is cut at the row’s edge');
 
-  /* EVERY NAME IS READABLE. The toolbar's ink IS the ink the rule measures with. */
+  /* EVERY NAME IS READABLE — AT ITS OWN PLACE, THE TILE'S FOOT (🔁 10b, owner's eye on the first version: the 55 % fade
+     turned Diagonal and Glow into one dark block and laid a grey band on Peony field). The toolbar's ink IS the ink
+     the rule measures with. */
   assert.match(STAGE_PANEL_VARS, new RegExp(`--sp-ink:${TILE_INK};`));
-  /* a FLAT tile — every colour a couple can pick (a 9 × 9 × 9 sweep of the cube), as Plain, Opaque and Frosted: */
-  let flats = 0;
-  const hex = (n: number) => n.toString(16).padStart(2, '0');
+  /* A COLOUR tile — every colour a couple can pick (a 9 × 9 × 9 sweep of the cube), as Plain, Opaque, Frosted,
+     Diagonal and Glow: NO fade, ever; the tone is the BETTER of the two at the name's place; it reads 4.5 : 1, and in
+     the one narrow band where neither tone can, never under the best either can do (3.7 : 1). */
+  /* 📏 MEASURED 2026-10-09 over this same sweep — what "the better tone, no fade" can and cannot promise:
+       a flat tile    never under 3.78 : 1 (119 of 729 colours are under 4.5 — the band where ink and white read alike);
+       Glow           never under 2.96 : 1 at the worst stop under its name (257 of 729 under 4.5);
+       Diagonal       never under 2.65 : 1 at the worst stop under its name (327 of 729 under 4.5).
+     Reaching 4.5 : 1 on every gradient needs something laid over the swatch, which the owner ruled out for colour
+     tiles (it hid what the choice IS). The soft shadow is not counted. These floors only stop it getting WORSE. */
+  const FLOOR: Record<string, number> = { Plain: TILE_FLAT_FLOOR, Opaque: TILE_FLAT_FLOOR, Frosted: TILE_FLAT_FLOOR, glow: 2.9, diagonal: 2.6 };
+  let n = 0;
+  let band = 0;
+  const hex = (v: number) => v.toString(16).padStart(2, '0');
   for (let r = 0; r <= 255; r += 31.875) for (let g = 0; g <= 255; g += 31.875) for (let b = 0; b <= 255; b += 31.875) {
     const tint = `#${hex(Math.round(r))}${hex(Math.round(g))}${hex(Math.round(b))}`;
-    for (const under of [tint, tileGlassColour(tint, 'glass'), tileFrostFoot(tint)]) {
-      const n = tileNameOnFlat(under);
-      const c = n.fade ? tileFadeFloor(n.tone) : contrastRatio(n.tone === 'ink' ? TILE_INK : TILE_WHITE, under);
-      assert.ok(c >= AA_BODY, `${tint}: a name at ${c.toFixed(2)} : 1 on ${under}`);
-      flats++;
+    const cases: Array<[string, { tone: 'ink' | 'white'; fade: boolean }, string[]]> = [
+      ['Plain', tileNameOnFlat(tint), [tint]],
+      ['Opaque', tileNameOnFlat(tileGlassColour(tint, 'glass')), [tileGlassColour(tint, 'glass')]],
+      ['Frosted', tileNameOnFlat(tileFrostFoot(tint)), [tileFrostFoot(tint)]],
+      ...(['diagonal', 'glow'] as const).map((shape): [string, { tone: 'ink' | 'white'; fade: boolean }, string[]] => {
+        const ramp = ombreRamp({ shape, base: tint });
+        return [shape, tileNameOnRamp(ramp, TILE_RAMP_SPAN[shape]), tileRampUnder(ramp, TILE_RAMP_SPAN[shape])];
+      }),
+    ];
+    for (const [kind, name, under] of cases) {
+      assert.equal(name.fade, false, `${kind} ${tint}: a fade is laid over a colour tile`);
+      const got = Math.min(...under.map((c) => tileFlatContrast(name.tone, c)));
+      const other = Math.min(...under.map((c) => tileFlatContrast(name.tone === 'ink' ? 'white' : 'ink', c)));
+      assert.ok(got >= other - 1e-9, `${kind} ${tint}: the worse tone was taken (${got.toFixed(2)} against ${other.toFixed(2)})`);
+      if (got < AA_BODY) band++;
+      assert.ok(got >= FLOOR[kind]!, `${kind} ${tint}: its name reads ${got.toFixed(2)} : 1, under the least the better tone can do`);
+      n++;
     }
   }
-  assert.equal(flats, 9 * 9 * 9 * 3);
+  assert.equal(n, 9 * 9 * 9 * 5);
+  assert.ok(band / n < 0.3, `the tiles whose name is under 4.5 : 1 are ${((100 * band) / n).toFixed(1)}% of all — it was 26 %`);
   assert.deepEqual(tileNameOnFlat('#FFFFFF'), { tone: 'ink', fade: false }, '"None" is not ink on white');
-  /* a PICTURE — whatever it is: the fade alone keeps the name at 4.5 : 1 (white over a white picture, ink over a black one). */
-  assert.ok(tileFadeFloor('white') >= AA_BODY, `white on the dark fade: ${tileFadeFloor('white').toFixed(2)}`);
-  assert.ok(tileFadeFloor('ink') >= AA_BODY, `ink on the light fade: ${tileFadeFloor('ink').toFixed(2)}`);
-  /* …and the fade DRAWN is the fade measured, under the whole of the name (4 px + a 14-px line) on the shortest face. */
-  assert.ok(SP_BG_TILE_FADE.white.includes(`rgba(0,0,0,${String(TILE_FADE.dark).replace(/^0/, '')})`) && SP_BG_TILE_FADE.ink.includes(`rgba(255,255,255,${String(TILE_FADE.light).replace(/^0/, '')})`), 'the fade drawn is weaker than the fade measured');
-  for (const f of Object.values(SP_BG_TILE_FADE)) {
-    const pct = Number(/_0_(\d+)%,transparent/.exec(f)?.[1]);
-    assert.ok((pct / 100) * (stageBarRow(667).row - short) >= 4 + 14, `the fade stops above the name’s foot (${pct}%)`);
+  assert.ok(tileRampUnder(ombreRamp({ shape: 'glow', base: '#A78A55' }), TILE_RAMP_SPAN.glow).length >= 4, 'anti-vacuity: the stops under the name');
+
+  /* A PHOTO — a LIGHT fade (35 %, the bottom half only), by the colour MEASURED at the picture's foot. */
+  assert.ok(TILE_FADE <= 0.35);
+  for (const [tone, f] of Object.entries(SP_BG_TILE_FADE)) {
+    const m = /linear-gradient\(to_top,rgba\((\d+),\1,\1,\.(\d+)\)_0_(\d+)%,transparent_(\d+)%\)/.exec(f);
+    assert.ok(m, `${tone}: the fade is not flat at the foot, then gone`);
+    assert.equal(Number(`0.${m![2]}`), TILE_FADE, `${tone}: the fade drawn is not the fade measured`);
+    assert.equal(m![1], tone === 'white' ? '0' : '255');
+    assert.ok(Number(m![4]) <= 50, `${tone}: the fade reaches past the bottom half`);
+    /* …flat under the name's lower lines on the shortest face (34 px): its foot margin and most of its 14-px line. */
+    assert.ok((Number(m![3]) / 100) * (stageBarRow(667).row - short) >= 4 + 7, `${tone}: the fade thins before the name’s middle`);
   }
-  assert.ok(has(SP_BG_TILE_FACE, 'pb-1') && has(SP_BG_TILE_NAME, 'leading-[14px]'));
-  /* The tone follows the picture where it is measured: every ready-made scene, and an upload (nothing measured). */
-  for (const b of STD_REALISTIC_BACKGROUNDS) assert.deepEqual(tileNameOnPicture(b.lum), { tone: b.lum >= TILE_LIGHT_FROM ? 'ink' : 'white', fade: true });
-  assert.ok(STD_REALISTIC_BACKGROUNDS.some((b) => b.lum >= TILE_LIGHT_FROM) && STD_REALISTIC_BACKGROUNDS.some((b) => b.lum < TILE_LIGHT_FROM), 'anti-vacuity: both tones are in use');
-  assert.deepEqual(tileNameOnPicture(null), { tone: 'white', fade: true });
+  for (const tone of ['white', 'ink'] as const) assert.match(SP_BG_TILE_TONE[tone], /\[text-shadow:0_1px_2px_rgba\(/, 'the reference’s soft shadow');
+  /* EVERY READY-MADE SCENE: its foot is in the table, and its name reads 4.5 : 1 over the fade on that colour. */
+  assert.deepEqual(Object.keys(TILE_FOOT).sort(), STD_REALISTIC_BACKGROUNDS.map((b) => b.id).sort(), 'a ready-made scene has no measured foot (or one was left behind)');
+  for (const b of STD_REALISTIC_BACKGROUNDS) {
+    const name = tileNameOnPhoto(TILE_FOOT[b.id]!);
+    assert.equal(name.fade, true);
+    assert.ok(tilePhotoContrast(name.tone, TILE_FOOT[b.id]!) >= AA_BODY, `${b.label}: ${tilePhotoContrast(name.tone, TILE_FOOT[b.id]!).toFixed(2)} : 1`);
+    assert.ok(tilePhotoContrast(name.tone, TILE_FOOT[b.id]!) >= tilePhotoContrast(name.tone === 'ink' ? 'white' : 'ink', TILE_FOOT[b.id]!), `${b.label}: the worse tone was taken`);
+  }
+  /* The owner's two: Peony field is a light picture AT ITS FOOT (its middle measures 0.49 and misled the first
+     version); Misty sunrise too; Starlit night and the ballroom are not. */
+  assert.equal(tileNameOnPhoto(TILE_FOOT.peonies!).tone, 'ink');
+  assert.equal(tileNameOnPhoto(TILE_FOOT.sunrise!).tone, 'ink');
+  assert.equal(tileNameOnPhoto(TILE_FOOT.ballroom!).tone, 'white');
+  assert.equal(tileNameOnPhoto(TILE_FOOT.seascape!).tone, 'white');
+  /* An upload: nothing is measured — the dark default (white, the fade, the shadow). Not a promise of 4.5 : 1. */
+  assert.deepEqual(tileNameOnPhoto(null), { tone: 'white', fade: true });
+  /* 📏 THE TABLE IS THE PICTURES — measured again here, from the files, over the band the tile writes the name on. */
+  const sharp = (await import('sharp')).default;
+  const [tw, th] = TILE_FOOT_BAND.tile;
+  for (const b of STD_REALISTIC_BACKGROUNDS) {
+    const file = join(WEB, 'public', b.src);
+    const meta = await sharp(file).metadata();
+    const w = meta.width!;
+    const h = meta.height!;
+    const vis = Math.min(h, Math.round((w * th) / tw));
+    const top = Math.round((h - vis) / 2);
+    const y0 = top + Math.round((vis * (th - TILE_FOOT_BAND.fromBottom[1])) / th);
+    const y1 = top + Math.round((vis * (th - TILE_FOOT_BAND.fromBottom[0])) / th);
+    const x0 = Math.round(w * TILE_FOOT_BAND.across[0]);
+    const x1 = Math.round(w * TILE_FOOT_BAND.across[1]);
+    const { data, info } = await sharp(file).extract({ left: x0, top: y0, width: x1 - x0, height: y1 - y0 }).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+    const sum = [0, 0, 0];
+    for (let i = 0; i < data.length; i += 3) for (let c = 0; c < 3; c++) sum[c]! += data[i + c]!;
+    const px = info.width * info.height;
+    const measured = sum.map((v) => Math.round(v / px));
+    const stored = [1, 3, 5].map((i) => parseInt(TILE_FOOT[b.id]!.slice(i, i + 2), 16));
+    for (let c = 0; c < 3; c++) assert.ok(Math.abs(measured[c]! - stored[c]!) <= 2, `${b.label}: its foot is ${measured.join(',')} in the file and ${stored.join(',')} in the table`);
+  }
 
   /* OPAQUE AND FROSTED ARE WHAT THEY DRAW — never stripes; and the row's file gives a scene's picture and an upload the same tile. */
   assert.match(tileGlassColour('#A78A55', 'glass'), /^#[0-9a-f]{6}$/i);
@@ -423,8 +489,12 @@ test('(7) picture tiles: the name is ON the tile and always readable; one ring t
   assert.doesNotMatch(made, /repeating-linear-gradient|dashed|preview\('(?:glass|frost|none)'/, 'a stripe or a dashed box is back');
   assert.match(made, /if \(c === 'glass'\) return \{ key: c, name, picture: \{ background: tileGlassColour\(base, 'glass'\) \}, \.\.\.tileNameOnFlat\(tileGlassColour\(base, 'glass'\)\) \};/);
   assert.match(made, /if \(c === 'frost'\) return \{ key: c, name, picture: \{ background: tileFrostCss\(base\) \}, \.\.\.tileNameOnFlat\(tileFrostFoot\(base\)\) \};/);
-  assert.equal((made.match(/\.\.\.tileNameOnPicture\(/g) ?? []).length, 6, 'a scene’s picture or an upload is not the same tile');
-  assert.match(made, /STD_REALISTIC_BACKGROUNDS\.map\(\(b\) => \(\{ key: b\.src, name: b\.label, picture: cover\(b\.src\), \.\.\.tileNameOnPicture\(b\.lum\) \}\)\)/);
+  /* A colour tile never calls the photo's rule (so it never wears the fade); a photo always does. */
+  const colour = made.slice(0, made.indexOf('const tiles: StageBgTile[] ='));
+  assert.doesNotMatch(colour, /tileNameOnPhoto/, 'a colour tile is given a photo’s fade');
+  assert.match(colour, /return \{ key: c, name, picture: preview\(c, tint\), \.\.\.tileNameOnRamp\(ombreRamp\(\{ shape: c, base \}\), TILE_RAMP_SPAN\[c\]\) \};/);
+  assert.equal((made.match(/\.\.\.tileNameOnPhoto\(/g) ?? []).length, 5, 'a scene’s picture or an upload is not the same tile');
+  assert.match(made, /STD_REALISTIC_BACKGROUNDS\.map\(\(b\) => \(\{ key: b\.src, name: b\.label, picture: cover\(b\.src\), \.\.\.tileNameOnPhoto\(TILE_FOOT\[b\.id\] \?\? null\) \}\)\)/);
   /* 📦 Lazy only. */
   for (const f of [`${L}/maker-shell.tsx`, `${L}/details-workspace.tsx`, 'lib/hub-draft.ts', 'lib/hub-canvas.ts']) assert.doesNotMatch(readFileSync(join(WEB, f), 'utf8'), /bg-tile-name/);
 });

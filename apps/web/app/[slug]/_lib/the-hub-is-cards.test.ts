@@ -66,7 +66,11 @@ test('the card look is one CSS block', () => {
   const css = read(join(__dirname, '..', '..', 'globals.css'));
   // A scene inside an Auto run (Phase 5, `hub-auto-run.tsx`) sits one level
   // deeper than `.hub-scenes > .hub-scene`, so it is its own arm of the SAME rule.
-  assert.match(css, /\.sn-hub-cards > section,\s*\.sn-hub-cards > div > section,\s*\.hub-scenes > \.hub-scene > section,\s*(?:\.hub-(?:stage|after|below) > \.hub-scene > section,\s*){3}\.hub-arun > \.hub-scene > section \{[^}]*border-radius: var\(--m-r-md\);/);
+  // 🖼 2026-10-09 (the card rule): a scene the couple arranged is drawn inside a frame, and a frame that paints
+  // nothing left its scene with no card — bare words on the page. The last arm: such a frame's section is a card
+  // too — never "No background", never a template scene (a painted frame is not `hub-no-media` at all). Played in
+  // a browser through the real frame (`scripts/scrub-browser-check.mjs` 13).
+  assert.match(css, /\.sn-hub-cards > section,\s*\.sn-hub-cards > div > section,\s*\.hub-scenes > \.hub-scene > section,\s*(?:\.hub-(?:stage|after|below) > \.hub-scene > section,\s*){3}\.hub-arun > \.hub-scene > section,\s*:is\(\.sn-hub-cards, \.hub-scene\) > \.hub-canvas\.hub-no-media:not\(\.hub-bg-none\):not\(\.hub-has-tpl\) > \.hub-canvas-body > section \{[^}]*border-radius: var\(--m-r-md\);/);
   assert.match(css, /\.sn-hub-cards \.pahina-eyebrow > span\[aria-hidden\]:first-child \{\s*display: none;/);
 });
 

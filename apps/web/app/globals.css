@@ -6430,14 +6430,27 @@ html:active-view-transition .sn-page-enter { animation: none; }
    here from the `.sn-hub-cards` wrapper so no widget is rewritten: paper,
    14px corners, a soft shadow; the chapter number drops and the heading
    shrinks to a card title. Sections that already draw their own box (the
-   countdown) simply become a card too. */
+   countdown) simply become a card too.
+
+   🖼 A SCENE INSIDE A FRAME THAT PAINTS NOTHING IS A CARD TOO (2026-10-09 —
+   the last arm). A scene the couple arranged in any way — a Build in and
+   nothing else — is drawn inside a frame (`hub-canvas-frame.tsx`), so its
+   section was no longer its wrapper's own child: it lost its card and stood
+   as bare words on the page. The frame says what it paints, and
+   `hub-no-media` is "nothing": the box is then the scene's own card, as with
+   no frame at all (`lib/hub-canvas.ts` `hubBackgroundOwnsBox`: a card "ONLY
+   when the couple has chosen no background at all — the page as it always
+   looked"). NOT "No background" (`hub-bg-none` — no box, on purpose); not a
+   ground of its own (that frame IS the box, and is not `hub-no-media`); not
+   a template scene (`hub-has-tpl` — its own layout, never a card). */
 .sn-hub-cards > section,
 .sn-hub-cards > div > section,
 .hub-scenes > .hub-scene > section,
 .hub-stage > .hub-scene > section,
 .hub-after > .hub-scene > section,
 .hub-below > .hub-scene > section,
-.hub-arun > .hub-scene > section {
+.hub-arun > .hub-scene > section,
+:is(.sn-hub-cards, .hub-scene) > .hub-canvas.hub-no-media:not(.hub-bg-none):not(.hub-has-tpl) > .hub-canvas-body > section {
   border-radius: var(--m-r-md);
   border: 1px solid rgb(var(--color-ink) / 0.08);
   background: rgb(var(--color-cream) / 1);

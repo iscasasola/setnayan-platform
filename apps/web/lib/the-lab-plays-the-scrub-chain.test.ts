@@ -118,6 +118,11 @@ test('(3) the lab draws the chain as the guest page draws scenes, and the Maker 
     guest,
     /const chainCard = \(type: LabScrubScene, i: number\) => \(\s*<HubCanvasFrame widget=\{\{ \.\.\.rowOf\(type\), widget_id: `lab-\$\{type\}` \} as never\}[^>]*>\s*<section\s+data-lab-scene=\{type\}\s+data-lab-name=\{LAB_SCRUB_NAME\[type\]\}/,
   );
+  /* 🖼 The card is the hub's OWN rule (`globals.css` "THE HUB IS CARDS": a section inside a frame that paints nothing)
+     — the lab writes none of its own, so the card seen here is the card a guest's page draws (2026-10-09: until the
+     rule reached a framed scene each card here was a stand-in, and the lab showed what a real page did not). */
+  assert.match(guest, /<section\s+data-lab-scene=\{type\}\s+data-lab-name=\{LAB_SCRUB_NAME\[type\]\}\s+className="text-left"\s*>/, 'a chain card is styled by the lab again');
+  assert.doesNotMatch(guest, /shadow-\[0_8px_22px|const ownGround/, 'the lab draws a stand-in card');
   assert.match(guest, /labScrubLabel\(rowOf\(type\)\.config_json, \{ last: i === LAB_SCRUB_CHAIN\.length - 1 \}\)/);
   assert.match(guest, /\{i === 0 \? <span[^>]*>The cover above is not part of the chain yet\.<\/span> : null\}/);
   assert.match(guest, /<div className="sn-editorial mx-auto max-w-\[430px\] px-4 pb-6" data-lab-scrub="">/, 'the chain lost its phone-wide column');

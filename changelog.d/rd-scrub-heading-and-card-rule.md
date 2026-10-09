@@ -31,3 +31,36 @@ is not built.
 Chromium only. Nothing here was run on iOS Safari.
 
 SPEC IMPACT: None.
+
+## 2026-10-09 · fix(scrub): the card rule reaches a scene inside a frame that paints nothing
+
+A scene the couple arranged in any way is drawn inside a frame (`hub-canvas-frame.tsx`), and the hub's one card rule
+(`app/globals.css`, "THE HUB IS CARDS") only matched a section that was its wrapper's direct child. So a scene given
+nothing but a motion setting lost its card and stood as bare words on the page. The rule gains one arm:
+
+`:is(.sn-hub-cards, .hub-scene) > .hub-canvas.hub-no-media:not(.hub-bg-none):not(.hub-has-tpl) > .hub-canvas-body > section`
+
+- `hub-no-media` is the frame's own word for "paints nothing". The card is then the scene's, exactly as with no frame
+  at all — the rule the widgets that draw their own card already follow (`lib/hub-canvas.ts` `hubBackgroundOwnsBox`).
+- NOT "No background" (`hub-bg-none`: no box, on purpose). Not a scene with a ground of its own (that frame is the
+  box and is not `hub-no-media`). Not a template scene (`hub-has-tpl`): those have never had a card and keep their
+  own layout — left exactly as they are.
+- THIS CHANGES HOW EXISTING SCENES LOOK FOR GUESTS. Every scene that is (a) drawn in a frame — anything stored on its
+  canvas: a Build in / Build out / Movement, "one part after another", a Style, a palette look, one part's font or
+  colour, a way of leaving — and (b) has no background of its own, gets the hub's card back: paper, a hairline,
+  14 px corners, the soft shadow, 18 px of room. A scene nobody arranged, "No background", a coloured / glass /
+  photo / clip ground and a template scene look exactly as before.
+- The lab (`app/dev/maker-lab/guest/page.tsx`) drops its stand-in cards: the chain's cards are now the hub's own
+  rule, so what is seen there is what a guest's page draws.
+- Browser check case 13, through the REAL frame (`scrub-check-page.tsx` `cards`): the motion-only scene wears the
+  same card as the scene nobody arranged; "No background", a coloured scene and a template scene do not; on the Scrub
+  page every framed scene is a card. Guards: `the-hub-is-cards.test.ts`, `the-lab-plays-the-scrub-chain.test.ts` (3).
+
+Noticed, not changed: on a page with an Auto run or a Scrub hand-over, a scene with ONLY a Spacing choice sits in a
+plain spacing box (`.hub-scene > div > section`), which no arm of the rule matches there (off such a page
+`.sn-hub-cards > div > section` does). And "Words only" with a photo still chosen paints nothing, so it is a card by
+this arm while the widgets' own rule (`hubBackgroundOwnsBox`) calls that scene bare — a corner worth one look.
+
+Chromium only. Nothing here was run on iOS Safari.
+
+SPEC IMPACT: None.

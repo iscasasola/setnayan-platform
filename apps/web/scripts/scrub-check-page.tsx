@@ -14,6 +14,8 @@
  *       page, and the page's own ISLAND (`scripts/scrub-check-island.tsx`) deciding when the engine is armed
  *   tsx scripts/scrub-check-page.tsx <out.html> <engine.js> bar       — A LONG ARRIVAL UNDER THE PINNED TOP BAR: the
  *       page's own hold, the invitation's pinned bar above it, and a list that hands over to a second long list
+ *   tsx scripts/scrub-check-page.tsx <out.html> - cards              — THE HUB IS CARDS, FRAMED OR NOT: no Scrub at
+ *       all — five scenes in the hub's own card wrapper, each through the REAL frame (`HubCanvasFrame`)
  *
  * THE CHAIN — the owner's prototype, as scenes: two short ones that hand over, a Schedule whose rows build one by
  * one, a scene with NO Build out (it stays), one that builds in below it and leaves by Scrub, and the last arrival,
@@ -24,6 +26,7 @@ import { join } from 'node:path';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
+import { HubCanvasFrame } from '../app/[slug]/_components/hub-canvas-frame';
 import { HubPageHold, HubScenes, hubScrubHolds } from '../app/[slug]/_components/hub-scenes';
 import { hubCanvasClass, hubCanvasVars, sanitizeHubCanvas } from '../lib/hub-canvas';
 import { LAB_SCRUB_CHAIN, LAB_SCRUB_SAMPLE } from '../app/dev/maker-lab/lab-scrub';
@@ -61,7 +64,52 @@ const BAR_CHAIN = [
   { name: 'Gifts', rows: 0, canvas: {} },
 ];
 
+/* 🃏 `cards` — THE HUB IS CARDS, FRAMED OR NOT (2026-10-09). A scene the couple arranged in any way is drawn inside
+   a frame (`HubCanvasFrame`), and the hub's card rule only reached a section that was its wrapper's own child — so a
+   scene given nothing but a Build in lost its card and stood as bare words on the page. Five scenes as the guest
+   page draws them (the card wrapper › the renderer › the REAL frame › the widget's section):
+     Plain          nothing arranged — no frame: the card it always had
+     Motion         a Build in and nothing else — a frame that paints nothing: the card, the same one
+     NoBackground   "No background" — no box at all, on purpose
+     Colour         a colour of its own — the frame IS the box; no card inside it
+     Template       one of the 25 templates — its own layout, never a card */
+const CARD_SCENES = [
+  { name: 'Plain', canvas: {} },
+  { name: 'Motion', canvas: { in: 'fade' } },
+  { name: 'NoBackground', canvas: { kind: 'none', in: 'fade' } },
+  { name: 'Colour', canvas: { kind: 'color', color: '#5B1A22' } },
+  { name: 'Template', canvas: { template: 1 } },
+];
+
 const [, , out, engine, mode] = process.argv;
+if (mode === 'cards') {
+  const rows = CARD_SCENES.map((s, i) => ({ widget_id: `c${i}`, widget_type: `custom_${i + 1}`, config_json: { canvas: s.canvas } }));
+  const html = renderToStaticMarkup(
+    <div className="sn-hub-cards">
+      <HubScenes widgets={rows as never} scrubAllowed>
+        {CARD_SCENES.map((s, i) => (
+          <HubCanvasFrame key={s.name} widget={rows[i] as never} hubTheme="house">
+            <section data-name={s.name} {...(s.name === 'Template' ? { 'data-scene-template': '1' } : {})}>
+              <p style={{ margin: 0, font: '700 11px/1.3 sans-serif', letterSpacing: '.08em', color: '#A9834B' }}>{s.name.toUpperCase()}</p>
+              <h2 style={{ margin: '6px 0', font: '600 22px/1.2 Georgia, serif' }}>{s.name}</h2>
+              <p style={{ margin: 0 }}>The words of {s.name}.</p>
+            </section>
+          </HubCanvasFrame>
+        ))}
+      </HubScenes>
+    </div>,
+  );
+  writeFileSync(
+    out!,
+    `<!doctype html><html><head><meta charset="utf8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="file://${join(__dirname, '..', 'app', 'globals.css')}">
+<style>html,body{margin:0;background:#F3F0EA;font:16px/1.4 sans-serif;--color-ink:44 42 41;--color-cream:255 255 255;--m-r-md:14px;--m-r-lg:20px}
+.col{max-width:430px;margin:0 auto;padding:24px 16px}.sn-hub-cards>*+*{margin-top:1rem}</style></head>
+<body><div class="col">${html}</div></body></html>`,
+  );
+  console.log('wrote', out, '·', CARD_SCENES.length, 'scenes in the hub’s card wrapper ·', (html.match(/class="hub-canvas /g) ?? []).length, 'framed');
+  process.exit(0);
+}
 const chain = mode === 'bar' ? BAR_CHAIN : SCRUB_CHECK_CHAIN;
 const widgets = chain.map((s, i) => ({ widget_id: `w${i}`, widget_type: s.name.toLowerCase(), config_json: { canvas: s.canvas } }));
 const nodes = chain.map((s, i) => {

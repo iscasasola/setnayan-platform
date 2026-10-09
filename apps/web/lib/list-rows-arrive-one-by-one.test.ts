@@ -71,7 +71,12 @@ function rules(css: string): Array<{ selector: string; body: string; chain: stri
 }
 
 const ALL = rules(CSS);
-const ROW_RULES = ALL.filter((r) => r.selector.includes('[data-hub-rows]'));
+/* 🔁 RE-AIMED 2026-10-09 (commit 8c — Scrub is a held hand-over, `globals.css` "SCRUB — A HELD HAND-OVER"): rows in a
+   Scrub scene are placed by the ENGINE'S mark (`data-hub-scrub-on`), not by a scroll timeline, so those rules sit
+   behind `screen` + "no reduced motion" and that mark — judged by their own test below. The rules this file was
+   written for are the rest. */
+const ENGINE_ROW_RULES = ALL.filter((r) => r.selector.includes('[data-hub-rows]') && r.selector.includes('[data-hub-scrub-on]'));
+const ROW_RULES = ALL.filter((r) => r.selector.includes('[data-hub-rows]') && !r.selector.includes('[data-hub-scrub-on]'));
 
 test('⭐ precondition: the sheet has row rules to judge', () => {
   console.log(`[rows] rules=${ALL.length} rowRules=${ROW_RULES.length}`);
@@ -457,4 +462,16 @@ test('6 📸 photo moments ride the SAME marker — each moment is a row', async
 test('6 👗 the dress code\'s roles ride the SAME marker (source: its roles list)', () => {
   const src = readFileSync(join(COMPONENTS, 'dress-code-widget.tsx'), 'utf8');
   assert.match(src, /<ul[^>]*data-dress-code="roles"[^>]*data-hub-rows=""/);
+});
+
+test('7 🔒 a Scrub scene’s rows: every rule needs the engine’s mark, `screen` and "no reduced motion" — and only "one part after another" moves a row', () => {
+  assert.equal(ENGINE_ROW_RULES.length, 2, 'anti-vacuity: the Scrub row rules were found');
+  for (const r of ENGINE_ROW_RULES) {
+    assert.ok(r.chain.some((a) => /^@media screen and \(prefers-reduced-motion: ?no-preference\)/.test(a)), `a Scrub row rule reaches print or a guest who asked for less motion: ${r.selector}`);
+    for (const sel of r.selector.split(',')) {
+      assert.ok(sel.trim().startsWith('.hub-scenes[data-hub-scrub-on] '), `a Scrub row rule applies without the engine: ${sel.trim()}`);
+      /* It either STOPS the row (a scene that arrives whole) or asks for "one part after another". */
+      assert.ok(/animation:\s*none/.test(r.body) || /\.hub-seq-parts/.test(sel), `a Scrub row moves outside "one part after another": ${sel.trim()}`);
+    }
+  }
 });

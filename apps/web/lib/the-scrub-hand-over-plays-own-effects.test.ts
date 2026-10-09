@@ -12,6 +12,9 @@
  * measured that way:
  *
  *   (1) THE CROSS-FADE IS UNTOUCHED — its three rules, byte for byte.
+ *   🔁 2026-10-09, commit 8c: rules (2)–(5) below were about the STACKED run, which is retired; the tests now hold what
+ *   8c keeps of them (the scene's own keyframes in the hand-over, one fade, behind "no reduced motion"). (1) and (6) stand.
+ *
  *   (2) ONE SHARED SPAN — the scene's own keyframes run on the SAME selector conditions, the same spacer's timeline
  *       and the same two ranges as its fade: out with the fade-out, in with the fade-in.
  *       Sabotage: the Build in given a span of its own → red.
@@ -99,75 +102,45 @@ test('(1) the cross-fade is untouched — its three rules, byte for byte', () =>
   assert.match(CSS, /@keyframes hub-scene-out \{\s*from \{ opacity: 1; visibility: visible; pointer-events: auto; \}\s*to\s+\{ opacity: 0; visibility: hidden; pointer-events: none; \}\s*\}/);
 });
 
-test('(2) one shared span — the scene’s own keyframes run with its fade: the same conditions, timeline and ranges', () => {
-  /* OUT rides the fade-out; IN the fade-in; a middle scene both — each on the selector of the fade it rides. */
-  assert.deepEqual(rule(OWN.out).decl, {
-    animation: 'var(--hub-out-kf, none) linear forwards, hub-run-keep linear both',
-    'animation-timeline': 'var(--hub-tl), var(--hub-tl)',
-    'animation-range': `${OUT}, ${OUT}`,
-  });
-  assert.deepEqual(rule(OWN.in).decl, {
-    animation: 'var(--hub-in-kf, none) linear both, hub-run-keep linear both',
-    'animation-timeline': 'var(--hub-tl), var(--hub-tl)',
-    'animation-range': `${IN}, ${IN}`,
-  });
-  assert.deepEqual(rule(OWN.both).decl, {
-    animation: 'var(--hub-in-kf, none) linear both, var(--hub-out-kf, none) linear forwards, hub-run-keep linear both',
-    'animation-timeline': 'var(--hub-tl), var(--hub-tl), var(--hub-tl)',
-    'animation-range': `${IN}, ${OUT}, ${IN}`,
-  });
-  /* The spans ARE the fade's own — read off the fade's rules, not off this file's constants. */
-  assert.ok(rule(OWN.out).decl['animation-range']!.startsWith(rule(SLOT.out).decl['animation-range']!));
-  assert.ok(rule(OWN.in).decl['animation-range']!.startsWith(rule(SLOT.in).decl['animation-range']!));
-  assert.equal(rule(OWN.both).decl['animation-range']!.split(', ').slice(0, 2).join(', '), rule(SLOT.both).decl['animation-range']);
-  /* The same fill as the fade it rides: the way out holds its end (the scene is gone), the way in both ends. */
-  assert.match(rule(OWN.out).decl.animation!, /^var\(--hub-out-kf, none\) linear forwards,/);
-  assert.match(rule(OWN.in).decl.animation!, /^var\(--hub-in-kf, none\) linear both,/);
+/* 🔁 RE-AIMED 2026-10-09 (commit 8c — `lib/scrub-is-a-held-hand-over.test.ts`): Scrub is no longer a stacked run, so
+   the three rules of 8a that rode the run's cross-fade are RETIRED with it (nothing draws `.hub-run` › `.hub-scrub`
+   for a Scrub scene any more). What 8a established is kept by 8c on the new shape, and held here:
+     · the scene's OWN keyframes play in the hand-over (`--hub-in-kf` / `--hub-out-kf`);
+     · there is only ONE fade — `hub-run-keep` holds the keyframe's opacity, LAST in the list;
+     · every rule sits behind "no reduced motion" (and, now, the engine's mark instead of a scroll timeline). */
+const BODY = '.hub-scenes[data-hub-scrub-on] .hub-scene[data-hub-fx] > .hub-canvas > .hub-canvas-body';
+
+test('(2) the stacked run’s own-effect rules are retired — the scene’s own keyframes play in the held hand-over instead', () => {
+  for (const sel of Object.values(OWN)) assert.equal([...CSS.matchAll(/([^{}]+)\{/g)].filter((m) => m[1]!.trim().replace(/\s+/g, ' ') === sel).length, 0, `8a’s rule is still in the stylesheet: ${sel}`);
+  const body = rule(BODY).decl;
+  assert.equal(body.animation, 'var(--hub-in-kf, none) 1s linear both paused, var(--hub-out-kf, none) 1s linear forwards paused, hub-run-keep 1s linear both paused');
+  /* Under the thumb: a paused animation's delay is its place — set from the engine's two numbers. */
+  assert.equal(body['animation-delay'], 'calc(var(--hub-pin, 1) * -1s), calc(var(--hub-pout, 0) * -1s), 0s');
+  assert.equal(body['animation-timeline'], 'auto');
 });
 
-test('(3) Fade / Fade and "none" look as they did — the scene’s own keyframe never fades a second time', () => {
-  /* The keep holds the opacity at 1 and nothing else … */
+test('(3) one fade only — the scene’s own keyframe never fades a second time', () => {
   assert.match(CSS, /@keyframes hub-run-keep \{ from, to \{ opacity: 1; \} \}/);
-  /* … and it is LAST in every list, so it wins that one property over the keyframe before it. */
-  for (const k of ['out', 'in', 'both'] as const) {
-    const list = rule(OWN[k]).decl.animation!.split(', ');
-    assert.equal(list.at(-1), 'hub-run-keep linear both', `${k}: the keep is not last — the scene’s keyframe fades over the cross-fade`);
-    assert.equal(list.filter((a) => a.startsWith('hub-run-keep')).length, 1);
-  }
-  /* A plain fade is ONLY an opacity: with that held there is nothing left for it to play — the old look, exactly. */
+  const list = rule(BODY).decl.animation!.split(', ');
+  assert.equal(list.at(-1), 'hub-run-keep 1s linear both paused', 'the keep is not last — the scene’s keyframe fades over the hand-over’s fade');
+  /* THE fade is the hand-over's, on the scene itself. */
+  assert.equal(rule('.hub-scenes[data-hub-scrub-on] .hub-scene[data-hub-fx]').decl.opacity, 'var(--hub-o, 1)');
+  /* A plain fade is ONLY an opacity: with that held there is nothing left for it to play. */
   assert.match(CSS, /@keyframes hub-in-fade\s*\{ from \{ opacity: 0; \} \}/);
   assert.match(CSS, /@keyframes hub-out-fade\s*\{ to\s*\{ opacity: 0; \} \}/);
-  /* "None" plays nothing: the keyframe's name is `none` (`hubInKeyframe` / `hubOutKeyframe`), the var's own fallback too. */
-  for (const k of ['out', 'in', 'both'] as const) assert.doesNotMatch(rule(OWN[k]).decl.animation!, /var\(--hub-(?:in|out)-kf\)(?!,)/);
   /* The other keyframes keep what is NOT opacity — the travel, the size, the blur. */
   assert.match(CSS, /@keyframes hub-out-movefade-above \{ to\s*\{ opacity: 0; transform: translate3d\(0, -26px, 0\); \} \}/);
-  assert.match(CSS, /@keyframes hub-out-settle \{ to\s*\{ opacity: 0; transform: scale\(0\.965\); \} \}/);
   assert.match(CSS, /@keyframes hub-in-mix\s*\{ from \{ opacity: var\(--hub-in-o, 1\); transform: var\(--hub-in-t, none\); filter: var\(--hub-in-f, none\); \} \}/);
 });
 
-test('(4) reduced motion and older engines never see it — inside all three gates', () => {
-  for (const k of ['out', 'in', 'both'] as const) {
-    const gates = gatesAt(rule(OWN[k]).at);
-    assert.ok(gates.includes('@supports (animation-timeline: view())'), `${k}: outside the scroll-timeline gate — ${gates.join(' | ')}`);
-    assert.ok(gates.includes('@media (prefers-reduced-motion: no-preference)'), `${k}: plays for a guest who asked for less motion`);
-    assert.ok(gates.includes('@supports (animation-range: entry 0% exit 100%) and (timeline-scope: none)'), `${k}: outside the scenes’ gate`);
-    /* …the very gates the cross-fade itself is in. */
-    assert.deepEqual(gates, gatesAt(rule(SLOT[k]).at));
+test('(4) a guest who asked for less motion, and a printed page, never see it', () => {
+  for (const sel of [BODY, '.hub-scenes[data-hub-scrub-on] .hub-scene[data-hub-fx]', '.hub-scenes[data-hub-scrub-on] .hub-stage']) {
+    assert.deepEqual(gatesAt(rule(sel).at), ['@media screen and (prefers-reduced-motion: no-preference)'], `${sel}: outside the Scrub block’s gate`);
   }
 });
 
-test('(5) the pinned frame cannot become scrollable — the keyframes ride the body’s child; only whole scenes take the scene-level Build in', () => {
-  /* The body of a frame that hands over is clipped, and its own animation stays off (the reset the run always had). */
-  assert.equal(rule('.hub-scrub:not(:empty):has(~ .hub-scrub:not(:empty)) > .hub-canvas > .hub-canvas-body').decl['overflow-y'], 'clip');
-  assert.match(CSS, /\.hub-scrub > \.hub-canvas > \.hub-canvas-body,\s*\.hub-scrub > \.hub-canvas\.pahina-in > \.hub-canvas-body \{ animation: none; \}/);
-  for (const k of ['out', 'in', 'both'] as const) assert.ok(OWN[k].endsWith(' > .hub-canvas-body > *'), `${k}: the keyframes are on the body itself`);
-  /* "One part after another": the parts arrive by themselves while pinned — no scene-level Build in over them. */
-  assert.ok(OWN.in.includes('.hub-canvas.hub-seq-whole') && OWN.both.includes('.hub-canvas.hub-seq-whole'));
-  assert.ok(!OWN.out.includes('hub-seq-'), 'every scene leaves whole — the hand-off is the scene’s');
-  assert.match(CSS, /\.hub-scrub > \.hub-seq-parts > \.hub-canvas-body > \* > \*:nth-child\(n \+ 2\) \{\s*--hub-part-in: var\(--hub-in-kf, none\);/, 'anti-vacuity: the parts’ own arrival in a run');
-  /* Nothing else in the stylesheet animates a body's child, so nothing fights these rules. */
-  const others = [...CSS.matchAll(/([^{}]+)\{([^{}]*)\}/g)].filter((m) => /\.hub-canvas-body > \*\s*$/.test(m[1]!.trim()) && /animation/.test(m[2]!)).map((m) => m[1]!.trim().replace(/\s+/g, ' '));
-  assert.deepEqual(others.sort(), [OWN.both, OWN.in, OWN.out].sort());
+test('(5) "one part after another" scenes keep their parts’ own arrival: the scene-level Build in is not theirs', () => {
+  assert.equal(rule(`${BODY.replace('> .hub-canvas >', '> .hub-canvas.hub-seq-parts >')}`).decl['animation-name'], 'none, var(--hub-out-kf, none), hub-run-keep');
 });
 
 test('(6) on a part, "Leaves" is named as its scene’s', async () => {

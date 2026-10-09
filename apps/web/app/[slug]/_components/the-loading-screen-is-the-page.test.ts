@@ -225,7 +225,7 @@ test('4 · the scenes are real scene cards, and nothing says "Loading…" out lo
   assert.ok((scenes[1]!.match(/<section /g) ?? []).length >= 2, 'fewer than two scene placeholders');
   // …and `.sn-hub-cards > section` is still the rule that draws a real scene card.
   const css = read('app/globals.css');
-  assert.match(css, /\.sn-hub-cards > section,[\s\S]{0,200}border-radius: var\(--m-r-md\)/);
+  assert.match(css, /\.sn-hub-cards > section,[\s\S]{0,320}border-radius: var\(--m-r-md\)/ /* 🔁 2026-10-09 (8c): the one card rule names three more parents of a scene — a page with a Scrub hand-over nests its scenes (`hub-stage` · `hub-after` · `hub-below`); the window grew with the list. */);
 
   // The loading state is announced to a screen reader, never drawn as a line.
   const status = /<p role="status" class="([^"]*)">([^<]*)<\/p>/.exec(skeleton);

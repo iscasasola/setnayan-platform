@@ -1,5 +1,5 @@
 import { Children, Fragment } from 'react';
-import { sanitizeHubCanvas } from '@/lib/hub-canvas';
+import { resolveHubMotion, sanitizeHubCanvas } from '@/lib/hub-canvas';
 import {
   HUB_DEFAULT_AUTO_SPEED,
   groupSceneRuns,
@@ -12,6 +12,7 @@ import {
 import type { InvitationWidgetRow } from '@/lib/invitation-widgets';
 import { STAGE_HOLD_ATTR, STAGE_SCENE_ATTR, stageSceneHoldMs, stageSceneKey } from '@/lib/stage-autoplay';
 import { HubAutoRun } from './hub-auto-run';
+import { HubScrub } from './hub-scrub';
 
 /**
  * THE PAGE'S SCENES — Scroll, Scrub and Auto, per section, drawn with CSS
@@ -67,6 +68,46 @@ import { HubAutoRun } from './hub-auto-run';
  * of the node when there is none (`sn-hub-cards`' `space-y` skips `[hidden]`).
  * Without `stageMarks` the output is exactly what it was.
  */
+type Block = { node: React.ReactElement; hold: boolean };
+
+/**
+ * 🎚 THE PAGE, WITH ITS HAND-OVERS. Every scene stays in page order, one under another. A scene that hands over by
+ * Scrub is wrapped — with EVERYTHING AFTER IT — in a cell: while the hand-over plays, the cell's stage stands still
+ * (the browser's own `position: sticky`, switched on by the engine) and so does the whole rest of the page inside
+ * it, for exactly the extra length the cell is given. Nothing is stacked and nothing leaves the flow: without the
+ * engine these wrappers are plain blocks and the page is the plain page.
+ *
+ *   div.hub-cell               the hand-over's extra length (padding, set by the engine)
+ *     div.hub-stage            stands still while it plays
+ *       div.hub-scene          the scene that leaves
+ *       div.hub-after          the rest of the page — its first scene arrives in the leaving one's place
+ *         <the arrival>        a scene, or the next hand-over's cell
+ *         div.hub-below        what follows the pair (only beside a plain arrival; a cell carries its own)
+ */
+function flow(blocks: readonly Block[]): React.ReactNode[] {
+  let rest: React.ReactNode[] = [];
+  for (let i = blocks.length - 1; i >= 0; i--) {
+    const b = blocks[i]!;
+    if (!b.hold) {
+      rest = [b.node, ...rest];
+      continue;
+    }
+    const [arrival, ...below] = rest;
+    rest = [
+      <div key={`cell-${b.node.key}`} className="hub-cell">
+        <div className="hub-stage">
+          {b.node}
+          <div className="hub-after">
+            {arrival}
+            {below.length > 0 ? <div className="hub-below">{below}</div> : null}
+          </div>
+        </div>
+      </div>,
+    ];
+  }
+  return rest;
+}
+
 export function HubScenes({
   widgets,
   scrubAllowed,
@@ -98,6 +139,9 @@ export function HubScenes({
         {
           transition: renderedTransition(resolveTransition(canvas), scrubAllowed),
           speed: canvas.autoSpeed ?? HUB_DEFAULT_AUTO_SPEED,
+          /* 🎚 Scrub out hands over only where there is a Build out to play (owner: "if no build out, element stay
+             permanent on the page"). */
+          leaves: resolveHubMotion(canvas).out !== 'none',
         },
       ] as const;
     }),
@@ -131,6 +175,8 @@ export function HubScenes({
   }
 
   const names = widgets.map((_, i) => sceneTimelineName(i));
+  /** 🎚 The page has a scene that Leaves by Scrub: the engine is mounted — here, and on no other page. */
+  const scrubbed = widgets.some((w) => motionOf.get(w)!.transition === 'scrub');
   const tl = (i: number) => ({ '--hub-tl': names[i] }) as React.CSSProperties;
   /* Every segment fills on the same line — see `SCENE_PROGRESS_RANGE`. */
   const segStyle = (i: number) => ({ ...tl(i), '--hub-pr': SCENE_PROGRESS_RANGE }) as React.CSSProperties;
@@ -150,41 +196,50 @@ export function HubScenes({
           )}
         </span>
       </div>
-      {segments.map((seg) =>
-        seg.kind === 'auto' ? (
-          /* 🎬 AUTO — the scenes share one cell and hand over on the clock.
-             `HubAutoRun` times the scenes that actually drew something (a
-             scene can render nothing, and a clock slot for it would be a
-             blank screen), and the stylesheet binds the fades only once the
-             run is armed — without script every scene simply stacks. */
-          <HubAutoRun
-            key={`auto-${seg.entries[0]?.index}`}
-            timeline={names[seg.entries[0]?.index ?? 0] ?? ''}
-            speed={seg.speed}
-          >
-            {seg.entries.map((e) => (
-              <div key={`s${e.index}`} className="hub-scene hub-auto" {...mark(e.index)}>
-                {nodes[e.index]}
-              </div>
-            ))}
-          </HubAutoRun>
-        ) : seg.kind === 'scroll' ? (
-          <div key={seg.entry.index} className="hub-scene hub-scroll" style={tl(seg.entry.index)} {...mark(seg.entry.index)}>
-            {nodes[seg.entry.index]}
-          </div>
-        ) : (
-          <div
-            key={`run-${seg.entries[0]?.index}`}
-            className="hub-run"
-            style={{ '--hub-n': seg.entries.length } as React.CSSProperties}
-          >
-            {seg.entries.flatMap((e) => [
-              <div key={`s${e.index}`} className="hub-scene hub-scrub" style={tl(e.index)} {...mark(e.index)}>
-                {nodes[e.index]}
-              </div>,
-              <i key={`p${e.index}`} className="hub-sp" aria-hidden="true" style={tl(e.index)} />,
-            ])}
-          </div>
+      {scrubbed ? <HubScrub /> : null}
+      {flow(
+        segments.flatMap((seg): Block[] =>
+          seg.kind === 'auto'
+            ? [
+                {
+                  hold: false,
+                  node: (
+                    /* 🎬 AUTO — the scenes share one cell and hand over on the clock.
+                       `HubAutoRun` times the scenes that actually drew something (a
+                       scene can render nothing, and a clock slot for it would be a
+                       blank screen), and the stylesheet binds the fades only once the
+                       run is armed — without script every scene simply stacks. */
+                    <HubAutoRun
+                      key={`auto-${seg.entries[0]?.index}`}
+                      timeline={names[seg.entries[0]?.index ?? 0] ?? ''}
+                      speed={seg.speed}
+                    >
+                      {seg.entries.map((e) => (
+                        <div key={`s${e.index}`} className="hub-scene hub-auto" {...mark(e.index)}>
+                          {nodes[e.index]}
+                        </div>
+                      ))}
+                    </HubAutoRun>
+                  ),
+                },
+              ]
+            : (seg.kind === 'scroll' ? [seg.entry] : seg.entries).map((e) => {
+                /* 🎚 SCRUB — the scene stays an ordinary scene of the page (`hub-scroll`, in page order). What it
+                   takes part in is said in marks the engine and the stylesheet read (`hub-scrub-engine.ts`):
+                   `data-hub-fx` — its effects are played under the thumb (it Leaves by Scrub, or the scene before
+                   it does); a HOLD — it has a Build out to hand over with — is the cell `flow` wraps it in. */
+                const me = motionOf.get(e.item)!;
+                const before = e.index > 0 ? motionOf.get(widgets[e.index - 1]!) : null;
+                const fx = me.transition === 'scrub' || before?.transition === 'scrub';
+                return {
+                  hold: me.transition === 'scrub' && me.leaves && e.index < widgets.length - 1,
+                  node: (
+                    <div key={e.index} className="hub-scene hub-scroll" style={tl(e.index)} {...(fx ? { 'data-hub-fx': '' } : {})} {...mark(e.index)}>
+                      {nodes[e.index]}
+                    </div>
+                  ),
+                };
+              }),
         ),
       )}
     </div>

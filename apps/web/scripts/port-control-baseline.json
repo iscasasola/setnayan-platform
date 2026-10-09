@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "2d6932c65",
+  "generatedFromRef": "6ed36e997",
   "routeCount": 429,
   "destinations": 959,
   "actions": 672,
-  "blocks": 5872,
+  "blocks": 5874,
   "routes": {
     "/": {
       "files": [
@@ -843,6 +843,9 @@
         "[slug]/_components/hub-canvas-frame.tsx",
         "[slug]/_components/hub-scene-runs.tsx",
         "[slug]/_components/hub-scenes.tsx",
+        "[slug]/_components/hub-scrub-engine.ts",
+        "[slug]/_components/hub-scrub-math.ts",
+        "[slug]/_components/hub-scrub.tsx",
         "[slug]/_components/hub-tab-dom.ts",
         "[slug]/_components/hub/hub-shell.tsx",
         "[slug]/_components/in-app-bar.tsx",
@@ -1126,6 +1129,7 @@
         "EditorialData",
         "EditorialOrderKey",
         "EditorialSections",
+        "Element",
         "EntourageMarch",
         "EntourageScene",
         "EntourageSection",
@@ -1207,6 +1211,7 @@
         "HubPageFrame",
         "HubSceneRuns",
         "HubScenes",
+        "HubScrub",
         "HubShell",
         "HubStageFrame",
         "Icon",

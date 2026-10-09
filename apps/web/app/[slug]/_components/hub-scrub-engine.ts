@@ -1,0 +1,221 @@
+import { SCRUB, scrubLens, scrubMoment, scrubNeedsRest, scrubOwnIn, scrubPair, scrubRow, scrubThrough, type ScrubElement, type ScrubPair } from './hub-scrub-math';
+
+/**
+ * 🎚 SCRUB ON THE GUEST PAGE — the engine (`hub-scrub.tsx` loads it, after the page is interactive, only on a page that
+ * has a scene whose "Leaves" is Scrub out). The numbers are `hub-scrub-math.ts`; the markup is `hub-scenes.tsx`; the
+ * drawing is `globals.css` ("SCRUB — A HELD HAND-OVER").
+ *
+ * 🔒 WHAT THIS SCRIPT MAY DO: MEASURE (heights, the screen, where things are) and SET CUSTOM PROPERTIES AND MARKS on
+ * the scenes. Nothing else. It never sets the page's scroll position, never calls `preventDefault`, listens to the
+ * scroll passively, and moves nothing itself: a hold is real page length (the hand-over cell's `::after`) and the
+ * stand-still is the browser's own `position: sticky`. So iOS momentum, the address bar, find-in-page, anchors and
+ * the guests' bar are the browser's as on any page.
+ *
+ * 🧯 FAIL-VISIBLE: until `data-hub-scrub-on` is set — no script, a blocked chunk, an error in here, "reduce motion" —
+ * every rule of the drawing is off and the page is a plain page with everything on it. Any throw disarms.
+ */
+
+const CELL = '.hub-cell';
+type Held = { cell: HTMLElement; stage: HTMLElement; scene: HTMLElement; after: HTMLElement; below: HTMLElement | null; arrival: HTMLElement | null; pair: ScrubPair; rest: number };
+
+const px = (n: number) => `${Math.round(n * 100) / 100}px`;
+const num = (n: number) => String(Math.round(n * 1000) / 1000);
+
+export function armHubScrub(root: HTMLElement): () => void {
+  if (typeof window === 'undefined' || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return () => {};
+  const marked = new Map<HTMLElement, Map<string, string>>();
+  /** Set a custom property or a mark — only when it changes. */
+  const put = (el: HTMLElement, key: string, value: string | null) => {
+    let was = marked.get(el);
+    if (!was) marked.set(el, (was = new Map()));
+    if (was.get(key) === (value ?? '\0')) return;
+    was.set(key, value ?? '\0');
+    if (key.startsWith('--')) value === null ? el.style.removeProperty(key) : el.style.setProperty(key, value);
+    else value === null ? el.removeAttribute(key) : el.setAttribute(key, value);
+  };
+  const sceneOf = (block: Element | null): HTMLElement | null =>
+    !block ? null : block.matches('.hub-scene') ? (block as HTMLElement) : block.matches(CELL) ? (block.querySelector(':scope > .hub-stage > .hub-scene') as HTMLElement | null) : null;
+  const canvasOf = (scene: HTMLElement) => scene.querySelector<HTMLElement>(':scope > .hub-canvas');
+  const oneByOne = (scene: HTMLElement) => Boolean(canvasOf(scene)?.classList.contains('hub-seq-parts'));
+  const hasIn = (scene: HTMLElement) => !canvasOf(scene)?.classList.contains('hub-in-none');
+  const elementOf = (scene: HTMLElement): ScrubElement => ({ h: scene.offsetHeight, oneByOne: oneByOne(scene) });
+  /** A scene's rows and parts, in the order a guest reads them: the first is its heading. */
+  const piecesOf = (scene: HTMLElement): HTMLElement[] => {
+    const body = canvasOf(scene)?.querySelector(':scope > .hub-canvas-body');
+    if (!body) return [];
+    const out: HTMLElement[] = [];
+    for (const part of body.querySelectorAll<HTMLElement>(':scope > * > *')) {
+      const rows = part.matches('[data-hub-rows]') ? part : part.querySelector<HTMLElement>('[data-hub-rows]');
+      if (rows) out.push(...(Array.from(rows.children) as HTMLElement[]));
+      else out.push(part);
+    }
+    return out;
+  };
+
+  /** Where an element is LAID OUT in the document — never where a hold has it standing on the screen. */
+  const docTop = (el: HTMLElement): number => {
+    let y = 0;
+    for (let n: HTMLElement | null = el; n; n = n.offsetParent as HTMLElement | null) y += n.offsetTop;
+    return y;
+  };
+  const there = new Set<HTMLElement>();
+  let V = 0;
+  let C = 0;
+  let lens = scrubLens(0);
+  let held: Held[] = [];
+  let scenes: HTMLElement[] = [];
+  let queued = false;
+  let dead = false;
+
+  function measure() {
+    V = window.innerHeight;
+    C = V / 2;
+    lens = scrubLens(V);
+    /* The top of the room: under the page's own bar. The most that can be held whole: the room, less a breath. */
+    const topLine = Math.max(76, V * 0.09);
+    const view = { centre: C, topLine, room: V - topLine - 24, lens };
+    scenes = Array.from(root.querySelectorAll<HTMLElement>('.hub-scene[data-hub-fx]'));
+    held = [];
+    let arrivedAt: { scene: HTMLElement; top: number } | null = null;
+    for (const cell of root.querySelectorAll<HTMLElement>(CELL)) {
+      const stage = cell.querySelector<HTMLElement>(':scope > .hub-stage');
+      const scene = stage?.querySelector<HTMLElement>(':scope > .hub-scene') ?? null;
+      const after = stage?.querySelector<HTMLElement>(':scope > .hub-after') ?? null;
+      if (!stage || !scene || !after) continue;
+      const arrival = sceneOf(after.firstElementChild);
+      /* What follows the pair: beside a plain arrival, its own wrapper; an arrival that hands over carries it in its cell. */
+      const below = after.querySelector<HTMLElement>(':scope > .hub-below') ?? after.querySelector<HTMLElement>(':scope > .hub-cell > .hub-stage > .hub-after');
+      const leaving = elementOf(scene);
+      const pair = scrubPair(leaving, arrival ? elementOf(arrival) : { h: 0, oneByOne: false }, view);
+      /* Is this element already where it is held when the hand-over INTO it ends? Then a rest comes first. */
+      const rest = arrivedAt && arrivedAt.scene === scene && scrubNeedsRest(arrivedAt.top, leaving, view) ? lens.rest : 0;
+      put(stage, '--hub-top', px(pair.top));
+      put(cell, '--hub-len', px(pair.len + rest));
+      put(after, '--hub-up', arrival ? px(pair.up) : null);
+      held.push({ cell, stage, scene, after, below, arrival, pair, rest });
+      arrivedAt = arrival ? { scene: arrival, top: pair.arrivalTop } : null;
+    }
+    put(root, 'data-hub-scrub-on', '');
+    /* THE PAGE'S END: long enough that the last scene's bottom can reach the centre line — every row can complete
+       and every hand-over can finish, at any window height. */
+    /* …so the page must scroll at least as far as (a) the last scene's bottom on the centre line and (b) the end of
+       the last hand-over; where it stops short, the difference is added after the scenes. */
+    const last = scenes[scenes.length - 1];
+    const final = held[held.length - 1];
+    put(root, '--hub-end', null);
+    const reach = document.documentElement.scrollHeight - V;
+    /* Thumb travel to bring a laid-out place to a line on the screen: the distance, plus every hold passed on the way
+       (the holds of the cells it sits inside — each keeps what is in it standing for its own length). */
+    const travel = (el: HTMLElement, y: number, line: number) => y - line + held.reduce((n, h) => (h.cell !== el && h.cell.contains(el) ? n + h.pair.len + h.rest : n), 0);
+    const need = Math.max(
+      last ? travel(last, docTop(last) + last.offsetHeight, C) : 0,
+      final ? travel(final.cell, docTop(final.cell), final.pair.top) + final.pair.len + final.rest : 0,
+    );
+    put(root, '--hub-end', need > reach ? px(need - reach) : null);
+    /* An element already past the centre line when the page opens is simply there. */
+    there.clear();
+    for (const s of scenes) if (docTop(s) <= C) there.add(s);
+  }
+
+  function frame() {
+    queued = false;
+    if (dead) return;
+    const state = new Map<HTMLElement, { pin: number; pout: number; gate: number; handed: boolean }>();
+    const of = (scene: HTMLElement) => {
+      let s = state.get(scene);
+      if (!s) state.set(scene, (s = { pin: 1, pout: 0, gate: 1, handed: false }));
+      return s;
+    };
+    for (const h of held) {
+      /* How far the page has travelled since this element was held: the browser's own sticky, read back. */
+      const t = Math.max(0, Math.min(h.pair.len + h.rest, h.pair.top - h.cell.getBoundingClientRect().top));
+      const m = scrubMoment(t, h.pair, lens, h.rest);
+      of(h.scene).pout = m.out;
+      if (h.arrival) Object.assign(of(h.arrival), { pin: m.in, gate: m.rows, handed: true });
+      if (h.below) put(h.below, '--hub-rise', h.pair.rise > 0 ? px(h.pair.rise * m.below) : null);
+    }
+    for (const scene of scenes) {
+      const s = of(scene);
+      const top = scene.getBoundingClientRect().top;
+      if (!s.handed) {
+        /* Nobody hands over to it: its Build in runs from its top reaching the centre line (an element already past
+           the line when the page opens is simply there), and its rows wait for its own heading. */
+        s.pin = !hasIn(scene) || there.has(scene) ? 1 : scrubOwnIn(top, C, Math.min(lens.in, Math.max(40, scene.offsetHeight / 2)));
+        s.gate = Math.max(0, Math.min(1, (s.pin - 0.5) * 2));
+      }
+      put(scene, '--hub-pin', num(s.pin));
+      put(scene, '--hub-pout', num(s.pout));
+      /* ONE FADE: the hand-over's own. An arrival with no Build in simply appears when its turn comes. */
+      const shown = hasIn(scene) ? s.pin : s.pin > 0 || !s.handed ? 1 : 0;
+      put(scene, '--hub-o', num(shown * (1 - s.pout)));
+      put(scene, 'data-hub-away', shown <= 0 || s.pout >= 1 ? '' : null);
+      const bottom = top + scene.offsetHeight;
+      if (oneByOne(scene) && top < V && bottom > -V) {
+        piecesOf(scene).forEach((piece, i) => {
+          /* The heading arrives with the element; every other row as ITS top reaches the centre line — all of them
+             complete by the time the element's bottom is on it. */
+          const y = piece.getBoundingClientRect().top;
+          put(piece, '--hub-pp', num(i === 0 ? s.pin : scrubRow(y, C, s.gate, bottom - y)));
+        });
+      }
+    }
+  }
+  const ask = () => {
+    if (queued || dead) return;
+    queued = true;
+    window.requestAnimationFrame(() => {
+      try {
+        frame();
+      } catch {
+        stop();
+      }
+    });
+  };
+  const again = () => {
+    if (dead) return;
+    try {
+      measure();
+      frame();
+    } catch {
+      stop();
+    }
+  };
+  function stop() {
+    if (dead) return;
+    dead = true;
+    window.removeEventListener('scroll', ask);
+    window.removeEventListener('resize', again);
+    window.removeEventListener('orientationchange', again);
+    root.removeEventListener('load', again, true);
+    sizes?.disconnect();
+    /* Back to the plain page: every mark and property this script set, taken off. */
+    for (const [el, keys] of marked) for (const key of keys.keys()) key.startsWith('--') ? el.style.removeProperty(key) : el.removeAttribute(key);
+    marked.clear();
+  }
+  /* A scene that changes height (a font landing, a picture, an open row) is measured again. */
+  let sizes: ResizeObserver | null = null;
+  try {
+    measure();
+    frame();
+    window.addEventListener('scroll', ask, { passive: true });
+    window.addEventListener('resize', again);
+    window.addEventListener('orientationchange', again);
+    root.addEventListener('load', again, true);
+    void document.fonts?.ready.then(again);
+    if (typeof ResizeObserver !== 'undefined') {
+      let first = true;
+      sizes = new ResizeObserver(() => {
+        if (first) first = false;
+        else again();
+      });
+      for (const s of scenes) sizes.observe(s);
+    }
+  } catch {
+    stop();
+  }
+  return stop;
+}
+
+/** For the guard: the things this file may touch on `window` and `document`. */
+export const HUB_SCRUB_ROW_PX = SCRUB.row;
+export { scrubThrough };

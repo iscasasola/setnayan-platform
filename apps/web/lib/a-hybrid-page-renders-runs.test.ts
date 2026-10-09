@@ -14,6 +14,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from './strip-comments';
 import { HUB_SCENE_CLASSES, SCENE_PROGRESS_RANGE } from './hub-scenes';
+import { HUB_SCRUB_CLASSES, HUB_SCRUB_RETIRED_CLASSES } from '../app/[slug]/_components/hub-scrub-math';
 
 const row = (id: string, transition?: string) =>
   ({
@@ -40,46 +41,68 @@ async function render(widgets: unknown[], scrubAllowed: boolean): Promise<{ html
 
 const count = (html: string, re: RegExp) => (html.match(re) ?? []).length;
 
-test('⭐ a hybrid page emits its runs, its spacers and one progress segment per section', async () => {
-  // Each value is the transition INTO THE NEXT scene. A ⟶scrub⟶ B, B → C
-  // scroll, C → D scroll, D ⟶scrub⟶ E, E → F auto — but E already belongs to
-  // D's scrub run and one scene cannot sit in two runs, so E hands over to F
-  // like a page (first come wins, `groupSceneRuns`) — and F is the tail. So:
-  // run(A,B) · C · run(D,E) · F.
+/* 🔁 RE-AIMED 2026-10-09 (commit 8c — owner: *"element run completely normal. we only control the effect"* · *"them must
+   be on the same position to create that keynote like transistion"*): a Scrub scene is NO LONGER drawn as a stacked
+   run (`hub-run` › `hub-scrub` + `hub-sp`). Every scene stays an ordinary scene in page order; one that hands over is
+   wrapped, with the rest of the page, in a cell the engine holds still (`hub-scenes.tsx` `flow`). The claims are the
+   same — the choice reaches the markup, in order, with one progress segment a scene — on the new shape. */
+test('⭐ a hybrid page emits its hand-overs, every scene in page order, and one progress segment per section', async () => {
+  // Each value is the transition INTO THE NEXT scene. A ⟶scrub⟶ B, B → C scroll, C → D scroll, D ⟶scrub⟶ E,
+  // E → F auto — but E already belongs to D's hand-over and one scene cannot sit in two (first come wins,
+  // `groupSceneRuns`) — and F is the tail, whose own Scrub has nothing to hand over to.
   const widgets = [row('A', 'scrub'), row('B'), row('C'), row('D', 'scrub'), row('E', 'auto'), row('F', 'scrub')];
   const { html } = await render(widgets, true);
 
   assert.equal(count(html, /class="hub-scenes"/g), 1, 'one scenes wrapper');
-  assert.equal(count(html, /class="hub-run"/g), 2, 'two runs: A·B and D·E');
-  assert.equal(count(html, /class="hub-scene hub-scrub"/g), 4, 'four pinned scenes');
-  assert.equal(count(html, /class="hub-sp"/g), 4, 'each pinned scene is followed by its spacer');
-  assert.equal(count(html, /class="hub-scene hub-scroll"/g), 2, 'C, and F whose Scrub is the ignored tail');
+  assert.equal(count(html, /class="hub-cell"/g), 2, 'two hand-overs: A → B and D → E');
+  assert.equal(count(html, /class="hub-stage"/g), 2);
+  assert.equal(count(html, /class="hub-after"/g), 2);
+  assert.equal(count(html, /class="hub-scene hub-scroll"/g), 6, 'every scene is an ordinary scene');
+  for (const c of HUB_SCRUB_RETIRED_CLASSES) assert.doesNotMatch(html, new RegExp(`class="[^"]*\\b${c}\\b`), `${c} is the stacked run — it is not drawn any more`);
+  /* PAGE ORDER, untouched: nothing is stacked, nothing re-ordered. */
+  assert.deepEqual([...html.matchAll(/<section>(\w)<\/section>/g)].map((m) => m[1]), ['A', 'B', 'C', 'D', 'E', 'F']);
+  /* Whose effects are played under the thumb: a scene that Leaves by Scrub, and the scene after one. Not C. */
+  const fx = [...html.matchAll(/<div class="hub-scene hub-scroll" style="[^"]*"( data-hub-fx="")?><section>(\w)</g)].filter((m) => m[1]).map((m) => m[2]);
+  assert.deepEqual(fx, ['A', 'B', 'D', 'E', 'F']);
   const bar = html.slice(html.indexOf('hub-prog-bar'), html.indexOf('</span>', html.indexOf('hub-prog-bar')));
   assert.equal(count(bar, /<i /g), 6, 'six segments for six scenes');
   assert.match(html, /class="hub-prog" aria-hidden="true"/, 'the mark is decoration to a screen reader');
 
-  // A run keeps its sections in order, each followed by its own spacer, and
-  // spacer and section name the SAME timeline.
-  const run1 = html.slice(html.indexOf('class="hub-run"'), html.indexOf('class="hub-scene hub-scroll"'));
+  // A hand-over: the leaving scene, then THE REST OF THE PAGE — its first scene is the arrival, what follows the
+  // pair is in its own wrapper — all inside the one stage that stands still. Each scene names its own timeline.
   assert.match(
-    run1,
-    /hub-scrub" style="--hub-tl:--hub-s0"><section>A<\/section><\/div><i class="hub-sp" aria-hidden="true" style="--hub-tl:--hub-s0"><\/i><div class="hub-scene hub-scrub" style="--hub-tl:--hub-s1"><section>B<\/section><\/div><i class="hub-sp" aria-hidden="true" style="--hub-tl:--hub-s1">/,
+    html,
+    /<div class="hub-cell"><div class="hub-stage"><div class="hub-scene hub-scroll" style="--hub-tl:--hub-s0" data-hub-fx=""><section>A<\/section><\/div><div class="hub-after"><div class="hub-scene hub-scroll" style="--hub-tl:--hub-s1" data-hub-fx=""><section>B<\/section><\/div><div class="hub-below"><div class="hub-scene hub-scroll" style="--hub-tl:--hub-s2"><section>C<\/section><\/div><div class="hub-cell">/,
   );
+  /* …and the second hand-over is INSIDE the first one's rest of the page (while A hands over, all of it stands). */
+  assert.ok(html.indexOf('<section>D</section>') > html.indexOf('class="hub-below"'), 'the later hand-over is not inside the earlier one’s page');
   // The scope names every section, so the progress mark can see them all.
   assert.match(html, /--hub-scope:--hub-s0, --hub-s1, --hub-s2, --hub-s3, --hub-s4, --hub-s5/);
-  // Every segment — scroll, first/middle/last of a run — fills on the ONE line
-  // (`SCENE_PROGRESS_RANGE`), so they fill strictly in page order.
+  // Every segment fills on the ONE line (`SCENE_PROGRESS_RANGE`), so they fill strictly in page order.
   for (let i = 0; i < 6; i++) {
     assert.ok(bar.includes(`--hub-tl:--hub-s${i};--hub-pr:${SCENE_PROGRESS_RANGE}`), `segment ${i} carries the one range`);
   }
-  // Each run tells the stylesheet how many spacer rows to lay.
-  assert.equal(count(html, /class="hub-run" style="--hub-n:2"/g), 2, 'each run carries its size');
+  /* Nothing the engine sets is in the server's markup: unarmed, these wrappers are plain blocks. */
+  assert.doesNotMatch(html, /data-hub-scrub-on|--hub-len|--hub-top|--hub-up|data-hub-away|<script/);
+});
+
+test('⛔ a scene with NO Build out hands nothing over: it stays an ordinary scene, and the next builds in below it', async () => {
+  const still = { widget_id: 'A', event_id: 'E1', widget_type: 'custom_1', config_json: { canvas: { transition: 'scrub', out: 'none' } } } as never;
+  const { html } = await render([still, row('B'), row('C')], true);
+  assert.equal(count(html, /class="hub-cell"/g), 0, 'a hold with nothing to play');
+  assert.deepEqual([...html.matchAll(/data-hub-fx=""[^>]*>(?:<div[^>]*>)*<section>(\w)</g)].map((m) => m[1]), ['A', 'B'], 'both still play their effects under the thumb');
+  /* …and the LAST scene of a page has nothing to hand over to, whatever it is set to. */
+  assert.equal(count((await render([row('A'), row('B', 'scrub')], true)).html, /class="hub-cell"/g), 0);
 });
 
 test('⛔ every class in the exported vocabulary is really emitted (the list the CSS guard trusts)', async () => {
-  // A scrub run AND an auto run, so both vocabularies are rendered, not declared.
+  // A hand-over AND an auto run, so both vocabularies are rendered, not declared.
   const { html } = await render([row('A', 'scrub'), row('B'), row('C', 'auto'), row('D'), row('E')], true);
-  for (const c of HUB_SCENE_CLASSES) assert.match(html, new RegExp(`class="[^"]*\\b${c}\\b`), `${c} is emitted`);
+  const retired = HUB_SCRUB_RETIRED_CLASSES as readonly string[];
+  for (const c of [...HUB_SCENE_CLASSES.filter((x) => !retired.includes(x)), ...HUB_SCRUB_CLASSES]) assert.match(html, new RegExp(`class="[^"]*\\b${c}\\b`), `${c} is emitted`);
+  /* (`hub-run` · `hub-scrub` · `hub-sp` stay in `HUB_SCENE_CLASSES` only while their rules stay in the stylesheet —
+     the stacked run's block, left for the cleanup that removes it whole.) */
+  for (const c of retired) assert.ok((HUB_SCENE_CLASSES as readonly string[]).includes(c));
 });
 
 test('🎬 an auto run renders its scenes in ONE wrapper, one progress segment, and the page is otherwise untouched', async () => {

@@ -47,7 +47,8 @@ import { SWITCH_BUTTON, SwitchTrack } from './switch-track';
  *   · the open field carries ONLY ✕. Tapping anywhere outside it — another row included, which then opens — or
  *     Enter KEEPS; ✕ or Esc leaves it as it was (`lib/form-row.ts` `keepOutcome`);
  *   · ONE row is open at a time;
- *   · closing is animated too: the field folds back to the right, the name slides back in from the left;
+ *   · closing is animated too: the field folds back to the right, the name slides back in from the left — the keep does NOT wait
+ *     for it: it happens at the moment the field is left (`end`), the fold only shows it;
  *   · after a save lands the pencil shows a tick for a moment (no "Saved" word in the row);
  *   · a long message opens a taller box with large rounded corners under its name — the ✕ on the name's line, at
  *     the right, so it stays in view above the keyboard (Enter is a new line there);
@@ -472,7 +473,12 @@ export function TypedRow({
     onType?.(out.kind === 'send' || out.kind === 'wrong' ? out.text : shown);
     if (out.kind === 'send') {
       setShown(out.text);
-      after.current = () => send(out.text);
+      /* ⚡ KEPT AT THE MOMENT THE FIELD IS LEFT — not after the fold. The fold is a ~0.3 s animation; a write that waited for it left
+         ~0.8 s after the tap-out, so a ✓ Apply pressed in that gap published before the words were drafted. The carrier (the
+         `fieldName` path's hidden input) is set by hand first: React has not re-rendered it yet, and the form reads it when told. */
+      if (carrier.current) carrier.current.value = out.text;
+      after.current = null;
+      send(out.text);
     } else if (out.kind === 'wrong') {
       setShown(out.text);
       after.current = () => {

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "fa7c26b517",
+  "generatedFromRef": "4a2abdaf60",
   "routeCount": 430,
   "destinations": 956,
   "actions": 673,
-  "blocks": 5927,
+  "blocks": 5932,
   "routes": {
     "/": {
       "files": [
@@ -7613,6 +7613,7 @@
         "BoothPickerPanel",
         "BoothType",
         "ChairAvatar",
+        "ChosenRow",
         "CommandBar",
         "ContextDock",
         "DayOfEditingBanner",
@@ -7624,6 +7625,8 @@
         "FormRows",
         "Fragment",
         "FrameBody",
+        "GuestConfirmActions",
+        "GuestPopup",
         "HTMLDivElement",
         "HTMLElement",
         "HoldButton",
@@ -7643,6 +7646,7 @@
         "PeopleSheet",
         "PhoneSeatPlanFoot",
         "PhoneSeatPlanHead",
+        "PhoneTableDock",
         "PickMenu",
         "PillButton",
         "PillTrack",
@@ -7668,7 +7672,8 @@
         "Suspense",
         "SwitchRow",
         "T",
-        "TableType"
+        "TableType",
+        "TypedRow"
       ]
     },
     "/dashboard/[eventId]/seating/lab": {

@@ -193,7 +193,10 @@ test('5 · the toolbar: Animate is live on the four; the six samples stay grey a
   assert.match(ROWS, /<StageAnimate\s+pending=\{pending\}\s+error=\{error\}/);
   for (const prop of ['plays=', 'inFx=', 'outFx=', 'delay=', 'does=']) assert.ok(ROWS.includes(prop), `the block’s Animate lost ${prop}`);
   assert.doesNotMatch(ROWS, /only="in"|leaves=/, 'a block is not a one-screen page, and it hands over to nothing');
-  assert.match(ROWS, /fd\.set\('patch', JSON\.stringify\(\{ events: \{ style_preferences: \{ \[BLOCK_LOOKS_PREF_KEY\]: looks \} \} \}\)\);\s*const r = await makerSave\(\(\) => hubDraftAction\(eventId, fd\), \(\) => router\.refresh\(\)\);/);
+  assert.match(ROWS, /fd\.set\('patch', JSON\.stringify\(\{ events: \{ style_preferences: \{ \[BLOCK_LOOKS_PREF_KEY\]: looks \} \} \}\)\);\s*const door = draftDoor\(\);\s*const r = await makerSave\(\(\) => door\(eventId, fd\), \(\) => router\.refresh\(\)\);/);
+  /* …through the work area's own draft door (the Camera look's): `hubDraftAction` on a real event, the lab's stand-in
+     on the lab — the server action itself sent the lab to the sign-in page (seen 2026-10-10). */
+  assert.match(ROWS, /return \(got as MakerPartRaw \| null\)\?\.elementEditing\?\.draftAction \?\? hubDraftAction;/);
 
   /* THE SIX SAMPLES: no look, by the part rule AND by the block list — and each says why, naming the thing. */
   assert.deepEqual(Object.keys(BLOCK_SAMPLE_WHY).sort(), ['f:announcements', 'f:find_your_seat', 'f:live_hub', 'f:look', 'f:pass', 'f:photos_of_you']);

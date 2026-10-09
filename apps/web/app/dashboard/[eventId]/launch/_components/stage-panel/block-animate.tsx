@@ -8,12 +8,26 @@ import { HUB_EL_DURING_LABEL, sanitizeHubElementMotion, type HubElementMotion } 
 import { makerSave } from '@/lib/maker-refresh';
 import { motionFxOn, type MotionFx } from '@/lib/motion-effects';
 import { hubDraftAction } from '../../../website/hub-draft-actions';
+import type { ElementDraftAction } from '../../../website/editor/_components/element-sheet';
 import { useMaker } from '../maker-context';
+import { MAKER_PART_OPS_EVENT, type MakerPartRaw } from '../maker-part-ops';
 import { StageAnimate } from './stage-animate';
 
 /** Delay's three, in seconds — the cover line's own steps (`element-sheet.tsx` `PART_DELAY_S`). */
 const DELAY_S = { none: 0, short: 0.3, long: 0.8 } as const;
 const SHOWN_FRAME = 'iframe[data-maker-canvas-frame="shown"]';
+
+/**
+ * THE ONE DRAFT DOOR, AS THE WORK AREA LENDS IT — the same door the Camera's look goes through (`camera-look.tsx`):
+ * on a real event it IS `hubDraftAction`, so what a block's Animate posts is unchanged; on the Maker lab it is the
+ * lab's stand-in, so it can be tried there (it could not: the server action sent the lab to the sign-in page — seen
+ * 2026-10-10). No work area to ask: the action itself.
+ */
+function draftDoor(): ElementDraftAction {
+  let got: MakerPartRaw | null = null;
+  window.dispatchEvent(new CustomEvent(MAKER_PART_OPS_EVENT, { detail: (raw: MakerPartRaw) => (got = raw) }));
+  return (got as MakerPartRaw | null)?.elementEditing?.draftAction ?? hubDraftAction;
+}
 /** The canvas on screen redraws the blocks' looks from what it is sent, read strictly there (`editor-bridge.tsx`). */
 const showOnCanvas = (looks: unknown) =>
   document.querySelector<HTMLIFrameElement>(SHOWN_FRAME)?.contentWindow?.postMessage({ source: 'setnayan-editor', t: BLOCK_LOOKS_MESSAGE, looks }, window.location.origin);
@@ -113,7 +127,8 @@ export function BlockAnimateRows({ block }: { block: BlockLookBlock }) {
         const fd = new FormData();
         fd.set('intent', 'save');
         fd.set('patch', JSON.stringify({ events: { style_preferences: { [BLOCK_LOOKS_PREF_KEY]: looks } } }));
-        const r = await makerSave(() => hubDraftAction(eventId, fd), () => router.refresh());
+        const door = draftDoor();
+        const r = await makerSave(() => door(eventId, fd), () => router.refresh());
         if (!r.ok) back(r.error);
       } catch {
         back('That change could not be saved. Please try again — nothing was lost.');

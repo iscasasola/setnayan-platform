@@ -255,7 +255,7 @@ test('(4) “Happening now” has no look: Style is grey there and says so — a
   assert.deepEqual(def.layouts, { kind: 'none' });
   assert.ok(def.canvas === 'f:spotlight' && !def.el);
   /* The toolbar asks the rule for Style too — a grey Style is never pressed. */
-  assert.match(read(`${L}/stage-tools.tsx`), /const toolWorks = \(t: MakerPartTool\) => !picked \|\| (?:\(rsvpLooks && \(t === 'bg' \|\| t === 'animate'\)\) \|\| )?\(\(t === 'edit' \|\| t === 'style' \|\| !styleOnly\) && makerPartToolWorks\(picked, t\)\);/);
+  assert.match(read(`${L}/stage-tools.tsx`), /const toolWorks = \(t: MakerPartTool\) => !picked \|\| (?:\(rsvpLooks && \(t === 'bg' \|\| t === 'animate'\)\) \|\| |ownTool\(t\) \|\| )?\(\(t === 'edit' \|\| t === 'style' \|\| !styleOnly\) && makerPartToolWorks\(picked, t\)\);/);
 });
 
 test('(5) none of it rides the Maker’s first load: the camera’s page is reached only through the lazy toolbar', () => {

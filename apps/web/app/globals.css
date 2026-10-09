@@ -4780,6 +4780,12 @@ html.dark {
   border-radius: var(--m-r-full);
   background: linear-gradient(90deg, rgb(var(--sn-accent)) var(--sn-slider-fill, 50%), rgb(var(--color-ink) / 0.16) 0);
 }
+/* 👁 THE MAKER'S WHOLE-PAGE PREVIEW (▶ held down — `editor-bridge.tsx` `guest`): the canvas is the page a guest gets, so
+ * what only the editor draws steps aside — an empty scene's placeholder (a guest's page has no such scene) and the
+ * "tap to edit" pointer on every section. Set and cleared by the bridge alone; no guest's page ever carries it. */
+html[data-maker-guest] [data-maker-empty] { display: none !important; }
+html[data-maker-guest] [data-setnayan-editor-bound] { cursor: auto !important; }
+
 /* FROM THE CENTRE (`<Slider from="centre">` — a value that rests in the middle and goes both ways, Darker ↔ Lighter):
  * the accent runs from the middle of the line out to the knob, on whichever side it is; at rest nothing is filled. */
 .sn-slider[data-slider-from='centre']::-webkit-slider-runnable-track {

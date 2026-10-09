@@ -519,7 +519,8 @@ test('5 · 👆 a FINGER reaches the tabs: the row stands in the RSVP stage’s 
   /* The reason, derived: while the layer is over the row's shell place, the shell is no place for the row here. */
   assert.ok(layerZ > barZ, 'the RSVP layer no longer covers the work area’s foot — this guard’s premise changed');
   assert.match(TOOLS, /const guestBarHost = rsvpOpen \? rsvpBarSlot : shellEl;/, 'on the RSVP stage the row is drawn into the shell, under the layer');
-  assert.match(TOOLS, /\{guestBarHost && !away\s*\? createPortal\(\s*<nav[\s\S]*?<\/nav>,\s*guestBarHost,\s*\)/, 'the row is not drawn into its host');
+/* 🔁 RE-AIMED 2026-10-09 (commit 9, `the-play-button-previews.test.ts`): the guests' bar also stands in the whole-page preview (▶ held), where the rest of the toolbar is away — the pages are turned from it. */
+  assert.match(TOOLS, /\{guestBarHost && \(!away \|\| previewing\)\s*\? createPortal\(\s*<nav[\s\S]*?<\/nav>,\s*guestBarHost,\s*\)/, 'the row is not drawn into its host');
   /* The host is the stage's own slot, and nothing else. */
   assert.deepEqual([...TOOLS.matchAll(/setRsvpBarSlot\(([^;]*)\);/g)].map((m) => m[1]), ['null', 'document.querySelector<HTMLElement>(`[${RSVP_STAGE_BAR_SLOT}]`)']);
   assert.equal(RSVP_STAGE_BAR_SLOT, 'data-rsvp-stage-bar-slot');

@@ -138,7 +138,8 @@ test('the Stages panel’s first render in the browser is the server’s — the
  * bar is drawn into is NOTHING on the first render — i.e. every host is state that starts at null.
  */
 export function guestBarHosts(src: string): { gate: string; hosts: string[] } {
-  const gate = /\{(\w+) && !away\s*\? createPortal\(\s*<nav[\s\S]{0,160}data-stage-guest-bar=""/.exec(src)?.[1];
+/* 🔁 RE-AIMED 2026-10-09 (commit 9, `the-play-button-previews.test.ts`): the guests' bar also stands in the whole-page preview (▶ held), where the rest of the toolbar is away — the pages are turned from it. */
+  const gate = /\{(\w+) && (?:!away|\(!away \|\| previewing\))\s*\? createPortal\(\s*<nav[\s\S]{0,160}data-stage-guest-bar=""/.exec(src)?.[1];
   assert.ok(gate, 'the guest bar is no longer a portal gated on its host');
   const derived = new RegExp(`const ${gate} = ([^;]+);`).exec(src)?.[1];
   /* A host is an element: by this file's own naming, a name ending in El or Slot. A flag (rsvpOpen) is not one. */

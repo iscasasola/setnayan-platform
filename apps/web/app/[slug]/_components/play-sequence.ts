@@ -9,6 +9,13 @@
  * Each phase is set as ONE inline `animation` on the clock (the shorthand also puts any scroll timeline back to
  * the clock for the replay), and removed at the end, so the part rests exactly as the page draws it.
  * A phase that has nothing is skipped and NAMED — a blank never looks like a bug.
+ *
+ * ▶ ONE PHASE (owner 2026-10-09: *"preview button allow preview the animate on where they are"*): `only` plays just
+ * Build in, just the Action or just Build out — the phase the toolbar's Animate is on.
+ * 🎚 AT ITS OWN TEMPO: a Build in that plays ON ARRIVAL runs for the seconds the page itself would give it (a
+ * scene's `--hub-duration`, a part's own duration) — that is the Movement the couple picked. An end that FOLLOWS THE
+ * SCROLL has no seconds of its own: the same keyframes are played once on a clock, and the report says so.
+ * ♿ REDUCE MOTION: nothing is played, and the report says that too (a guest who asked for stillness gets none).
  */
 export type SeqPhase = 'in' | 'act' | 'out' | 'rest';
 export type SeqReport = { phase: SeqPhase; skipped: string[] };
@@ -17,22 +24,46 @@ export const SEQ_MS = { in: 900, act: 2600, out: 900, hold: 450 } as const;
 
 type Step = { phase: Exclude<SeqPhase, 'rest'>; node: HTMLElement; animation: string; ms: number };
 
+const list = (v: string | undefined) => (v ?? '').split(',').map((n) => n.trim());
 const kfOf = (node: HTMLElement, re: RegExp): string | null => {
-  const names = getComputedStyle(node)
-    .animationName.split(',')
-    .map((n) => n.trim());
-  const hit = names.find((n) => re.test(n));
+  const hit = list(getComputedStyle(node).animationName).find((n) => re.test(n));
   return hit ? hit.replace(/-p$/, '') : null;
 };
+/** A part's slot for a keyframe: its own seconds, and whether a scroll (not the clock) drives it. */
+function slotOf(node: HTMLElement, re: RegExp): { ms: number | null; scroll: boolean } {
+  const cs = getComputedStyle(node) as CSSStyleDeclaration & { animationTimeline?: string };
+  const i = list(cs.animationName).findIndex((n) => re.test(n));
+  if (i < 0) return { ms: null, scroll: false };
+  const tl = list(cs.animationTimeline)[i] ?? list(cs.animationTimeline)[0] ?? 'auto';
+  const scroll = tl !== '' && tl !== 'auto' && tl !== 'none';
+  const sec = parseFloat(list(cs.animationDuration)[i] ?? '');
+  return { ms: !scroll && Number.isFinite(sec) && sec > 0 ? Math.round(sec * 1000) : null, scroll };
+}
+/** What the Maker is told when an end that follows the scroll is shown on a clock. */
+export const SEQ_ON_A_CLOCK = { in: 'Build in follows the scroll — shown here on a clock', out: 'Build out follows the scroll — shown here on a clock' } as const;
+export const SEQ_STILL = 'Reduce motion is on — nothing plays';
 
 /** What a scene or a part will play, and what it has none of. */
-export function sequenceOf(target: HTMLElement, isScene: boolean): { steps: Step[]; skipped: string[] } {
+export function sequenceOf(target: HTMLElement, isScene: boolean, only?: Exclude<SeqPhase, 'rest'>): { steps: Step[]; skipped: string[] } {
+  const all = wholeSequenceOf(target, isScene);
+  if (!only) return all;
+  const word = { in: 'Build in', act: 'Action', out: 'Build out' }[only];
+  return { steps: all.steps.filter((s) => s.phase === only), skipped: all.skipped.filter((line) => line.startsWith(word)) };
+}
+
+function wholeSequenceOf(target: HTMLElement, isScene: boolean): { steps: Step[]; skipped: string[] } {
   const steps: Step[] = [];
   const skipped: string[] = [];
   const cs = getComputedStyle(target);
   const inKf = isScene ? cs.getPropertyValue('--hub-in-kf').trim() : kfOf(target, /^el-in-/);
-  if (inKf && inKf !== 'none') steps.push({ phase: 'in', node: target, animation: `${inKf} ${SEQ_MS.in}ms cubic-bezier(.16,1,.3,1) 0s 1 normal both`, ms: SEQ_MS.in });
-  else skipped.push('Build in: none');
+  /* 🎚 The arrival's own seconds where it plays on the clock; a scroll-driven one is shown on a clock and says so. */
+  const sceneScroll = isScene && target.classList.contains('hub-tl-scrub');
+  const inSlot = isScene ? { ms: sceneScroll ? null : Math.round(parseFloat(cs.getPropertyValue('--hub-duration')) * 1000) || null, scroll: sceneScroll } : slotOf(target, /^el-in-/);
+  const inMs = inSlot.ms ?? SEQ_MS.in;
+  if (inKf && inKf !== 'none') {
+    steps.push({ phase: 'in', node: target, animation: `${inKf} ${inMs}ms cubic-bezier(.16,1,.3,1) 0s 1 normal both`, ms: inMs });
+    if (inSlot.scroll) skipped.push(SEQ_ON_A_CLOCK.in);
+  } else skipped.push('Build in: none');
   if (isScene) {
     const media = target.classList.contains('hub-during-lift') ? target.querySelector<HTMLElement>(':scope > .hub-canvas-media') : null;
     if (media) steps.push({ phase: 'act', node: media, animation: `hub-during-lift ${SEQ_MS.act / 2}ms ease-in-out 0s 2 alternate both`, ms: SEQ_MS.act });
@@ -43,14 +74,21 @@ export function sequenceOf(target: HTMLElement, isScene: boolean): { steps: Step
     else skipped.push('Action: none');
   }
   const outKf = isScene ? cs.getPropertyValue('--hub-out-kf').trim() : kfOf(target, /^el-out-/);
-  if (outKf && outKf !== 'none') steps.push({ phase: 'out', node: target, animation: `${outKf} ${SEQ_MS.out}ms ease-in 0s 1 normal both`, ms: SEQ_MS.out });
-  else skipped.push('Build out: none');
+  if (outKf && outKf !== 'none') {
+    steps.push({ phase: 'out', node: target, animation: `${outKf} ${SEQ_MS.out}ms ease-in 0s 1 normal both`, ms: SEQ_MS.out });
+    /* A Build out only ever follows the scroll (the page has no timed exit). */
+    skipped.push(SEQ_ON_A_CLOCK.out);
+  } else skipped.push('Build out: none');
   return { steps, skipped };
 }
 
 /** Play it. Returns a stop that puts every node back at rest at once. */
-export function playSequence(target: HTMLElement, isScene: boolean, report: (r: SeqReport) => void): () => void {
-  const { steps, skipped } = sequenceOf(target, isScene);
+export function playSequence(target: HTMLElement, isScene: boolean, report: (r: SeqReport) => void, only?: Exclude<SeqPhase, 'rest'>): () => void {
+  if (typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    report({ phase: 'rest', skipped: [SEQ_STILL] });
+    return () => {};
+  }
+  const { steps, skipped } = sequenceOf(target, isScene, only);
   const touched = new Set<HTMLElement>();
   let timer: number | null = null;
   const rest = () => {

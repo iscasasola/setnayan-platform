@@ -228,6 +228,27 @@ First load (the file minified alone, esbuild, gzip -9): `lib/hub-canvas.ts` 6,45
 Guard: `lib/movement-is-a-feel-per-phase.test.ts` (7 rules, nine sabotages seen red); `animate-is-four-rows` and
 three pinning tests re-aimed with the reason written in.
 
+### 9 · ▶ plays where they are; held, it is the whole page as a guest
+
+Owner: *"preview button allow preview the animate on where they are"* · *"long press will preview that whole page
+(they can scroll, tap around, and an exit preview button should show)"*.
+
+- TAP: in Animate, ▶ plays the phase on screen alone — Build in, the Action or Build out (`playSeq` + `only`,
+  `app/[slug]/_components/play-sequence.ts`); in any other tool, the part's whole life as before. A Build in that
+  plays on arrival runs for the page's own seconds (the Movement picked — it was a flat 0.9 s); an end that follows
+  the scroll is shown once on a clock and the status line says so; under "reduce motion" nothing plays and it says so.
+- HOLD (0.5 s): the whole page as a guest, in place — the toolbar, the frame and the work area's tool step aside,
+  the guests' pages still turn, and the canvas takes no tap (`{ t:'guest' }`, `editor-bridge.tsx`): the page's own
+  buttons, tabs and sheets answer. A link that leaves the page and a form being sent are refused and said in the
+  toast. "Exit preview" is the one ActionButton, above the safe area and the guests' bar; it returns to the page,
+  the part and the tool held. Nothing is saved by being there, no request is added (the same canvas, no reload).
+- The hold's twin: the first tap of ▶ says "Hold ▶ to preview the whole page." (once a visit); a screen reader
+  hears it in the button's name.
+
+All of it is in the lazy toolbar and the editor-only canvas bridge — nothing in a Maker first-load file (guarded).
+Guard: `lib/the-play-button-previews.test.ts` (5 rules, eight sabotages seen red); seven assertions in five pinning
+tests re-aimed with the reason written in.
+
 SPEC IMPACT: Yes — supersedes the 2026-10-06/07 "Style | Text | Animate" and "the toolbar is half the screen" rows.
 The controller holds the spec (`TOOLBAR-SPEC-2026-10-09.md`) and applies the corpus rows; nothing in the corpus was
 edited from this branch.

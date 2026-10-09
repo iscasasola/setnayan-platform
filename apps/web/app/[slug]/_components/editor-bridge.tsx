@@ -36,6 +36,7 @@ import { createCanvasTyping, markSceneWords, readSceneTypeWords, sceneTypeField,
 import { createCanvasBringUp } from './canvas-bring-up';
 import { replaySceneIn, sceneFrameOf } from './scene-replay';
 import { playSequence } from './play-sequence';
+import { guestLinkLeaves } from './guest-in-canvas';
 
 /**
  * EditorBridge — the guest site's half of the unified-editor two-way sync
@@ -51,6 +52,9 @@ import { playSequence } from './play-sequence';
  *   parent → frame  { source:'setnayan-editor', t:'scrollTo', key }
  *   parent → frame  { source:'setnayan-editor', t:'play',     key } — replays the scene's CHOSEN arrival (`scene-replay.ts`)
  *   parent → frame  { source:'setnayan-editor', t:'playStage' } / { t:'playStop' } — ▶ the whole stage, scene by scene
+ *   parent → frame  { source:'setnayan-editor', t:'playSeq', key, el?, only? } — ▶ a part's life, or ONE phase of it (`play-sequence.ts`)
+ *   parent → frame  { source:'setnayan-editor', t:'guest', on } — 👁 the whole page as a guest: the canvas takes no tap (`guest` below)
+ *   frame  → parent { source:'setnayan-site',   t:'guestRefused', what:'link'|'send' } — a tap the preview would not follow
  *   frame  → parent { source:'setnayan-site',   t:'playDone' } — the stage's play ended (its end, a tap, or Stop)
  *   parent → frame  { source:'setnayan-editor', t:'markEl',   key, el }
  *   frame  → parent { source:'setnayan-site',   t:'edit',     key, el?, moment? }
@@ -512,6 +516,46 @@ export function EditorBridge() {
     const lift = createCanvasBringUp(window);
     cleanups.push(() => lift.dispose());
     const typing = createCanvasTyping(window, (m) => window.parent?.postMessage(m, origin), lift);
+    /* 👁 THE WHOLE PAGE, AS A GUEST (owner 2026-10-09, on ▶ held down: *"long press will preview that whole page (they
+       can scroll, tap around, and an exit preview button should show)"*). While it is on the canvas takes NO tap of
+       its own: the page's buttons, tabs and sheets answer as they do for a guest. Two things a guest can do are
+       refused, because this is the couple's draft inside the Maker: a link that leaves this page (the frame would
+       walk away, and the Maker with it) and a form being sent (an answer written as the host). The Maker is told
+       so it can say so. Nothing is saved by being here; `{ t:'guest', on:false }` puts every tap back. */
+    const guest = (() => {
+      const state = { on: false };
+      const refuse = (e: Event, what: 'link' | 'send') => {
+        e.preventDefault();
+        e.stopPropagation();
+        window.parent?.postMessage({ source: 'setnayan-site', t: 'guestRefused', what }, origin);
+      };
+      const onClick = (e: MouseEvent) => {
+        const a = (e.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null;
+        if (a && guestLinkLeaves(a.href, a.target, window.location.href)) refuse(e, 'link');
+      };
+      const onSubmit = (e: Event) => refuse(e, 'send');
+      const set = (on: boolean) => {
+        if (on === state.on) return;
+        state.on = on;
+        if (on) {
+          typing.stop();
+          document.documentElement.setAttribute('data-maker-guest', '');
+          document.addEventListener('click', onClick, true);
+          document.addEventListener('submit', onSubmit, true);
+        } else {
+          document.documentElement.removeAttribute('data-maker-guest');
+          document.removeEventListener('click', onClick, true);
+          document.removeEventListener('submit', onSubmit, true);
+        }
+      };
+      cleanups.push(() => set(false));
+      return {
+        get on() {
+          return state.on;
+        },
+        set,
+      };
+    })();
     cleanups.push(() => typing.dispose());
 
     // ── canvas → Maker: a tapped section selects its navigator tile ─────────
@@ -521,6 +565,8 @@ export function EditorBridge() {
       const prevCursor = el.style.cursor;
       el.style.cursor = 'pointer';
       const send = (e: Event) => {
+        /* 👁 THE WHOLE PAGE, AS A GUEST (`guest` below): the canvas takes no tap — the page's own buttons do. */
+        if (guest.on) return;
         /*
           📖 AN OPEN-UP SCENE (Maker Phase 8) OPENS IN THE CANVAS TOO. Its
           trigger goes nowhere — it lays the scene full screen over this same
@@ -608,6 +654,7 @@ export function EditorBridge() {
        (owner 2026-10-04, `lib/element-sheet-state.ts`). A bound section stops
        its own clicks, so only a stray tap reaches here. */
     const onStray = (e: MouseEvent) => {
+      if (guest.on) return;
       if ((e.target as Element | null)?.closest?.('[data-setnayan-editor-bound="1"]')) return;
       window.parent?.postMessage({ source: 'setnayan-site', t: 'tapOutside' }, origin);
     };
@@ -617,6 +664,7 @@ export function EditorBridge() {
     // ── canvas → Maker: a selection inside a part's text (✍ runs) ──────────
     let selTimer: number | null = null;
     const onSelection = () => {
+      if (guest.on) return;
       if (selTimer) window.clearTimeout(selTimer);
       selTimer = window.setTimeout(() => {
         /* ✍ Letters selected while typing are the caret's, not a pick for the
@@ -859,16 +907,27 @@ export function EditorBridge() {
         el.style.display = (data as { shown?: unknown }).shown === false ? 'none' : '';
         return;
       }
+      if (data.t === 'guest') {
+        guest.set((data as { on?: unknown }).on === true);
+        return;
+      }
       if (data.t === 'playSeq') {
         /* ▶ THE PICKED PART'S WHOLE LIFE — Build in · Action · Build out · rest (`play-sequence.ts`); each
            phase, and what it has none of, told to the Maker so it can say so. */
         seqStop?.();
         const part = typeof data.el === 'string' ? el.querySelector<HTMLElement>(`[data-el="${CSS.escape(data.el)}"]`) : null;
         const target = part ?? (sceneFrameOf(el as never) as unknown as HTMLElement | null) ?? el;
-        seqStop = playSequence(target, !part, (r) => {
-          if (r.phase === 'rest') seqStop = null;
-          window.parent?.postMessage({ source: 'setnayan-site', t: 'playSeq', phase: r.phase, skipped: r.skipped }, origin);
-        });
+        const only = (data as { only?: unknown }).only;
+        seqStop = playSequence(
+          target,
+          !part,
+          (r) => {
+            if (r.phase === 'rest') seqStop = null;
+            window.parent?.postMessage({ source: 'setnayan-site', t: 'playSeq', phase: r.phase, skipped: r.skipped }, origin);
+          },
+          /* ▶ where they are: Animate's Build in · Action · Build out plays that phase alone. */
+          only === 'in' || only === 'act' || only === 'out' ? only : undefined,
+        );
         return;
       }
       if (data.t === 'playEl') {

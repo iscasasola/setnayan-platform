@@ -255,8 +255,9 @@ test('a page tab still takes the canvas to its page under Stages (only a picked 
      change the toolbar never keeps a part of the page before, its tools too — but the part is let go when the canvas
      HAS switched its tab, not on the tap: on the review copy a canvas that refused the switch left NOTHING picked and
      every tool blank (`lib/the-preview-only-selects.test.ts` (3b)). `deselect` still lets go exactly as ✕ does. */
-  assert.match(tools, /goToPage\(p\.key, p\.option\);\s*askPage\(p\.key\);/, 'a tab tap does not ask the canvas for the page');
-  assert.match(tools, /if \(tab && held && !partsRef\.current\.includes\(held\) && pendingStep\.current === null\) deselectRef\.current\(\);/, 'another page keeps the picked part — its tools too');
+  /* 🔁 RE-AIMED 2026-10-09 (commit 9, `the-play-button-previews.test.ts`): ▶ held down is the whole page as a guest — a tab then only turns the page, nothing is picked and nothing is let go. Outside the preview the rule is what it was. */
+  assert.match(tools, /goToPage\(p\.key, p\.option\);\s*if \(!previewing\) askPage\(p\.key\);/, 'a tab tap does not ask the canvas for the page');
+  assert.match(tools, /if \(tab && held && !previewingRef\.current && !partsRef\.current\.includes\(held\) && pendingStep\.current === null\) deselectRef\.current\(\);/, 'another page keeps the picked part — its tools too');
   assert.match(tools, /const deselect = useCallback\(\(\) => \{\s*setPicked\(null\);\s*openToolRef\.current\?\.close\(\);\s*\}, \[\]\);/, 'letting go closes the part’s tools');
   assert.match(tools, /const goToPage = useCallback\(\s*\(key: string, option: string\) => \{\s*postToCanvas\(\{ source: 'setnayan-editor', t: 'hubTab', key: '', tab: key \}\);\s*onPickPage\(option\);/, 'the canvas swaps, and the shell’s Page ▾ is still told');
 });
@@ -338,7 +339,8 @@ test('the frame carries no ↑ ↓ ✕ any more; keys, Esc, a swipe and a tap on
   assert.match(tools, /if \(Math\.abs\(dx\) > 44 && Math\.abs\(dx\) > 1\.6 \* Math\.abs\(dy\)\) stepRef\.current\(dx > 0 \? 1 : -1\);/, 'a swipe across the toolbar no longer steps');
   assert.match(tools, /e\.key === 'ArrowDown' \|\| e\.key === 'ArrowUp'/);
   assert.match(tools, /e\.key === 'Escape'\) deselect\(\)/);
-  assert.match(tools, /d\.t === 'tapOutside'\) deselectRef\.current\(\)/, 'a tap on the page’s ground lets go');
+  /* 🔁 RE-AIMED 2026-10-09 (commit 9, `the-play-button-previews.test.ts`): ▶ held down is the whole page as a guest — a tab then only turns the page, nothing is picked and nothing is let go. Outside the preview the rule is what it was. */
+  assert.match(tools, /d\.t === 'tapOutside' && !previewingRef\.current\) deselectRef\.current\(\)/, 'a tap on the page’s ground lets go');
 });
 
 test('the frame and its ＋ stop in the gap — never on the neighbour’s words', async () => {

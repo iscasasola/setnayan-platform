@@ -1,5 +1,5 @@
 {
-  "generatedFromRef": "ca328fcac",
+  "generatedFromRef": "2d6932c65",
   "routeCount": 429,
   "destinations": 959,
   "actions": 672,
@@ -829,6 +829,7 @@
         "[slug]/_components/guest-doorway-strip.tsx",
         "[slug]/_components/guest-hub-bar.tsx",
         "[slug]/_components/guest-hub-card.tsx",
+        "[slug]/_components/guest-in-canvas.ts",
         "[slug]/_components/guest-look-scope.tsx",
         "[slug]/_components/guest-me-parts.tsx",
         "[slug]/_components/guest-me.tsx",

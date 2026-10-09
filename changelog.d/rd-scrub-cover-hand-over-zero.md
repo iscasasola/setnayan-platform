@@ -62,3 +62,19 @@ out unseen, and opened onto a cover already gone.
 Chromium only. Nothing here was run on iOS Safari.
 
 SPEC IMPACT: None.
+
+## 2026-10-10 · fix(scrub): the cover's hand-over reads its distance back, and the lab badge names hand-over zero
+
+- A cover whose last line has a bottom margin: the margin runs out through the cover's box and is ADDED to the
+  distance the engine sets, when what arrives is drawn over the cover — measured, the arrival stood 40 px below its
+  line (445.6 against 406 at 375 × 812). The engine now reads the distance back as it was laid out and takes off what
+  is over (`hub-scrub-engine.ts`). Under a short cover the larger margin simply wins and nothing was wrong — which is
+  why the first version of the check page could not show the fault; the page now has a cover the arrival overlaps.
+- The lab badge (`app/dev/maker-lab/guest/scrub-badge.tsx`) counts and names hand-over zero: "hand-over 1 of 4 · The
+  cover leaves 50 % · Countdown arrives 0 %". It said "next to leave: Countdown" while the cover was leaving.
+- PROOF: three new checks in case 14 — 289 green in Chromium. Sabotage: the read-back removed → red at both sizes;
+  restored. Guard (10) holds the line.
+
+Chromium only. Nothing here was run on iOS Safari.
+
+SPEC IMPACT: None.

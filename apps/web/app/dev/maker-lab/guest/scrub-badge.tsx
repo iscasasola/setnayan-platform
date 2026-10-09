@@ -35,15 +35,25 @@ export function readScrubBadge(doc: Document, waited: boolean): string {
   const leaving = [...root.querySelectorAll<HTMLElement>('.hub-after')]
     .map((a) => a.previousElementSibling as HTMLElement | null)
     .filter((sc) => (sc?.offsetHeight ?? 0) > 0);
-  if (leaving.length === 0) return 'Scrub: ON — no hand-over on this page';
-  const cells = leaving;
+  /* 🎬 HAND-OVER ZERO: a cover that hands over (`hub-scenes.tsx` `HubCoverHold`) is the page's FIRST hand-over — it is
+     counted and named, or the badge would say "next to leave: Countdown" while the cover is what is leaving. What
+     arrives after it is whatever comes next on the page (the engine marks it), a scene or not. */
+  const cover = doc.querySelector<HTMLElement>('.hub-cover[data-hub-fx]');
+  const zero = cover && cover.offsetHeight > 0 ? cover : null;
+  if (leaving.length === 0 && !zero) return 'Scrub: ON — no hand-over on this page';
+  const cells = zero ? [zero, ...leaving] : leaving;
   const scenes = [...root.querySelectorAll<HTMLElement>('.hub-scene')];
-  const at = leaving.findIndex((s) => num(s, '--hub-pout') < 1);
+  const at = cells.findIndex((s) => num(s, '--hub-pout') < 1);
   if (at < 0) return `Scrub: ON · all ${formatCount(cells.length)} hand-overs done`;
-  const scene = leaving[at]!;
+  const scene = cells[at]!;
   const out = num(scene, '--hub-pout');
-  const next = scenes[scenes.indexOf(scene) + 1];
   const head = `Scrub: ON · hand-over ${formatCount(at + 1)} of ${formatCount(cells.length)}`;
+  if (scene === zero) {
+    const arrives = doc.querySelector<HTMLElement>('[data-hub-zero]');
+    const what = arrives?.querySelector('[data-lab-name]')?.getAttribute('data-lab-name') ?? 'What comes next';
+    return out > 0 ? `${head} · The cover leaves ${pct(out)} · ${what} arrives ${pct(num(arrives, '--hub-pbin'))}` : `${head} · next to leave: The cover`;
+  }
+  const next = scenes[scenes.indexOf(scene) + 1];
   if (out > 0) return `${head} · ${nameOf(scene)} leaves ${pct(out)} · ${nameOf(next)} arrives ${pct(num(next, '--hub-pbin'))}`;
   /* Not yet leaving: is it a list still building its rows? */
   const rows = [...scene.querySelectorAll<HTMLElement>('[data-hub-rows] > *')];

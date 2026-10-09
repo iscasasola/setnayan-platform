@@ -19,7 +19,9 @@
  *       cover-tall (a cover taller than the screen) · cover-block (two plain blocks between the cover and the
  *       scenes: whatever comes next arrives) · cover-only (no scene scrubs — the cover is the page's only Scrub) ·
  *       cover-noscript (the same page, no script) · cover-today (the cover does NOT hand over: today's page) ·
- *       cover-reveal <island.js> (armed by the island, under the Reveal's mark)
+ *       cover-reveal <island.js> (armed by the island, under the Reveal's mark) · cover-margin (the cover's last
+ *       line has a bottom margin that runs out through the cover's box — on a cover tall enough that what arrives
+ *       is drawn OVER it: only then is the margin ADDED to the distance; under a short cover the larger one wins)
  *   tsx scripts/scrub-check-page.tsx <out.html> - cards              — THE HUB IS CARDS, FRAMED OR NOT: no Scrub at
  *       all — five scenes in the hub's own card wrapper, each through the REAL frame (`HubCanvasFrame`)
  *
@@ -166,10 +168,10 @@ if (coverMode) {
       <HubCoverHold
         leaves={leaves}
         cover={
-          <header data-cover="" className={`cover col${coverMode === 'cover-tall' ? ' tall' : ''}`}>
+          <header data-cover="" className={`cover col${coverMode === 'cover-tall' ? ' tall' : coverMode === 'cover-margin' ? ' margin' : ''}`}>
             <p style={{ margin: 0, font: '700 11px/1.3 sans-serif', letterSpacing: '.3em', color: '#A9834B' }}>TOGETHER WITH THEIR FAMILIES</p>
             <h1 style={{ margin: '28px 0 12px', font: '400 44px/1.1 Georgia, serif' }}>Maria &amp; Jose</h1>
-            <p style={{ margin: 0, font: '400 20px/1.3 Georgia, serif', color: '#A9834B' }}>December 12, 2026</p>
+            <p style={{ margin: coverMode === 'cover-margin' ? '0 0 40px' : 0, font: '400 20px/1.3 Georgia, serif', color: '#A9834B' }}>December 12, 2026</p>
           </header>
         }
       >
@@ -208,7 +210,7 @@ if (coverMode) {
 <link rel="stylesheet" href="file://${join(__dirname, '..', 'app', 'globals.css')}">
 <style>html,body{margin:0;background:#F3F0EA;font:16px/1.4 sans-serif;--color-ink:44 42 41;--color-cream:255 255 255;--m-r-md:14px}
 .col{max-width:430px;margin:0 auto;padding:0 16px}.strip{padding:10px 16px;font:600 10px/1.6 sans-serif;letter-spacing:.3em;color:#A9834B;border-bottom:1px solid #ddd}
-.cover{box-sizing:border-box;min-height:62vh;padding:9vh 24px 40px;text-align:center}.cover.tall{min-height:130vh}
+.cover{box-sizing:border-box;min-height:62vh;padding:9vh 24px 40px;text-align:center}.cover.tall{min-height:130vh}.cover.margin{min-height:0;padding-top:34vh;padding-bottom:0}
 .block{padding:28px 16px;border-top:1px solid #ddd;text-align:center}.foot{padding:40px 24px;height:60px;box-sizing:border-box}
 #line{position:fixed;left:0;right:0;top:50%;border-top:1.5px dashed rgba(194,78,36,.6);pointer-events:none;z-index:9}</style></head>
 <body><div id="line"></div>${page}

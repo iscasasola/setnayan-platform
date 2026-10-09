@@ -186,20 +186,32 @@ const CARD_GROUND: Record<RsvpCardGround, string> = {
 };
 
 /**
- * THE RULES A PAGE DRAWS — for the parts it shows (`['rsvp']` the form · `['yesnote', 'pass']` · `['nonote']`).
- * `board`: the event's five colours (`celebrationColours(boardSwatches(role_palette))`, the same list the Maker's
- * swatches show). Every value written is from a fixed list or that board (checked `#rrggbb`); a slot the board does
- * not hold draws nothing. `zoom` is how the Event Hub sizes a part (`lib/element-style.ts`): the line's own size ×.
+ * 🃏 ONE CARD, NOT TWO (owner 2026-10-09, on When no: *"why do i see a rounded edge frame as well?"*). The When-no
+ * note sits in a card of its own INSIDE the door's card. With nothing chosen, today's look stays exactly — both. Once
+ * the couple gives the card a ground (None or Frosted), the inner note gives up its own paper, border and shadow, so
+ * only one card (or none) shows.
  */
-export function rsvpLookCss(look: RsvpLook, parts: readonly string[], board: readonly string[]): string {
-  let css = '';
-  let moves = false;
+export const RSVP_INNER_CARD_SELECTOR = '[data-landing-missed]';
+const INNER_CARD_PLAIN = 'background:transparent!important;border-color:transparent!important;box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;';
+
+/** One thing a page draws a look on: how it is addressed, what is declared for it, and whether that is a Build in. */
+type LookRule = { selector: string; rules: string; moves: boolean };
+
+/**
+ * EVERY RULE A PAGE DRAWS, AS DATA — for the parts it shows (`['rsvp']` the form · `['yesnote', 'pass']` ·
+ * `['nonote']`). `selector` is ALWAYS a plain selector the page can be asked for (a named line, the card, the inner
+ * note card) — never an at-rule: the keyframe and the reduced-motion block are `rsvpLookCss`'s own tail and are not
+ * in this list. (The canvas once split the finished CSS text to find what to replay, and handed
+ * `@media (prefers-reduced-motion:reduce)` to `querySelectorAll` — a thrown error on every Move.)
+ */
+export function rsvpLookRules(look: RsvpLook, parts: readonly string[], board: readonly string[]): LookRule[] {
+  const out: LookRule[] = [];
   for (const id of RSVP_LOOK_CARDS) {
     const v = look.card?.[id];
     if (!v || !parts.includes(id)) continue;
     const rules = `${v.g ? CARD_GROUND[v.g] : ''}${motionRules(v)}`;
-    moves ||= Boolean(v.i);
-    if (rules) css += `${RSVP_CARD_SELECTOR}{${rules}}`;
+    if (rules) out.push({ selector: RSVP_CARD_SELECTOR, rules, moves: Boolean(v.i) });
+    if (v.g && id === 'nonote') out.push({ selector: RSVP_INNER_CARD_SELECTOR, rules: INNER_CARD_PLAIN, moves: false });
   }
   for (const id of RSVP_LOOK_LINES) {
     const [part, line] = id.split('.') as [string, string];
@@ -207,10 +219,21 @@ export function rsvpLookCss(look: RsvpLook, parts: readonly string[], board: rea
     if (!v || !parts.includes(part)) continue;
     const colour = v.c ? board[v.c - 1] : undefined;
     const rules = `${colour && HEX.test(colour) ? `color:${colour.toLowerCase()};` : ''}${v.s ? `zoom:${v.s / 100};` : ''}${motionRules(v)}`;
-    moves ||= Boolean(v.i);
-    if (rules) css += `[data-rsvp-line="${line}"][data-rsvp-line]{${rules}}`;
+    if (rules) out.push({ selector: `[data-rsvp-line="${line}"][data-rsvp-line]`, rules, moves: Boolean(v.i) });
   }
-  return moves ? css + KEYFRAMES : css;
+  return out;
+}
+
+/**
+ * THE RULES A PAGE DRAWS, as the text of its one `<style>`. `board`: the event's five colours
+ * (`celebrationColours(boardSwatches(role_palette))`, the same list the Maker's swatches show). Every value written
+ * is from a fixed list or that board (checked `#rrggbb`); a slot the board does not hold draws nothing. `zoom` is how
+ * the Event Hub sizes a part (`lib/element-style.ts`): the line's own size ×.
+ */
+export function rsvpLookCss(look: RsvpLook, parts: readonly string[], board: readonly string[]): string {
+  const all = rsvpLookRules(look, parts, board);
+  const css = all.map((r) => `${r.selector}{${r.rules}}`).join('');
+  return all.some((r) => r.moves) ? css + KEYFRAMES : css;
 }
 
 /** The database's cap on the whole config, with room left for how it is stored — asked before a save. */

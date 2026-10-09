@@ -130,6 +130,26 @@ effect kept · the card's rule on another screen's page · Plain stored as a key
 Background grey on the card · "Open the card" unheard · the group called by its part's name · the reader in every
 guest's bundle.
 
+**fix(maker): choosing a Build in on the RSVP stage no longer throws; When no shows ONE card**
+
+- Controller, on the review copy: choosing Move on the Question threw `SyntaxError: … '@media
+  (prefers-reduced-motion:reduce)' is not a valid selector`. The canvas found "what to replay" by splitting the
+  look's finished CSS on `}`; the reduced-motion block holds the word `animation`, so it came out as a selector and
+  went to `querySelectorAll`. The rules are data now (`rsvpLookRules`, `lib/rsvp-look.ts`: plain selectors only, each
+  saying whether it moves); the canvas replays the ones that move AND changed, and never takes the text apart. The
+  same code runs on the real canvas and the lab's. (Not the earlier "1 Issue": that one appeared at load, before any
+  Build in existed.)
+- **When no shows one card** (owner: "why do i see a rounded edge frame as well?"): with nothing chosen, today's look
+  stays exactly — the door's card and the note's own inner card. Once the couple gives the card a ground (None or
+  Frosted), the inner note card gives up its paper, border and shadow (`RSVP_INNER_CARD_SELECTOR`).
+- The lab only: its reply screens sit on a stand-in for the Look's background (a gradient of the lab's own colours),
+  so Frosted and None can be told from Plain; its When-no note is drawn in the same inner card the real page has.
+
+Guard: `lib/the-rsvp-lines-have-a-look.test.ts` (12) — section 11: a look holding the reduced-motion block, every
+selector a page may be asked for is one of three plain kinds, the replay done as the canvas does it (first time ·
+unchanged · one line recoloured). Sabotaged red, each restored: the tail put among the rules · the canvas splitting
+the text again · two cards still showing · the inner card stripped with nothing set.
+
 **fix(maker): a reply page drawn in the Maker's canvas never shows the cookie card**
 
 A host who had never answered the cookie card saw it lying over the RSVP stage's canvas. The Event Hub's canvas

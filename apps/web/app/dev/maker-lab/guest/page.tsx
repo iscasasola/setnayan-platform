@@ -278,7 +278,9 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   );
   if (rsvp) {
     return (
-      <main className="min-h-dvh bg-[#FBF9F5] px-5 py-6 text-ink">
+      /* 🖼 A GROUND TO JUDGE THE CARD AGAINST (controller 2026-10-10): on plain cream, Frosted and None looked the
+         same as Plain. A stand-in for the Look's background, made of the lab's own colours — the lab only. */
+      <main className="min-h-dvh px-5 py-6 text-ink" style={{ background: `linear-gradient(160deg, ${LAB_BOARD[4]} 0%, ${LAB_BOARD[2]} 52%, ${LAB_BOARD[1]} 100%)` }}>
         {/* 🧩 THE REAL RSVP PAGES' PART MARKS, AND THEIR BRIDGE (2026-10-09 — the owner could not reach the RSVP
             stage's tools by hand in the lab: these screens had no marks, so a tap picked nothing and ticked an
             answer). As `invite/reply` and `invite/enter` draw them on the Maker's canvas: the masthead inside the
@@ -366,7 +368,9 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
         ) : (
           <>
             {mark('f:nonote')}
-            <div className="mt-6">
+            {/* The note's OWN card inside the door's card, as `invite/enter` draws it (`data-landing-missed`): with a
+                ground chosen for the door's card it gives up its paper, so ONE card shows (`RSVP_INNER_CARD_SELECTOR`). */}
+            <div className="sn-glass-bare mt-6 rounded-2xl bg-cream/95 px-5 py-7 text-center shadow-sm" data-landing-missed="">
               <p className="font-serif text-2xl italic text-ink/70" data-rsvp-line="heading" data-rsvp-word={rsvpWordBridgeKey('declineHeading')} data-rsvp-default="We will miss you." data-rsvp-name="Teresita">
                 We will miss you.
               </p>

@@ -91,6 +91,8 @@ export function RsvpCanvasBridge() {
     let picked: string | null = null;
     /** The couple's words as the Maker last sent them (`{name}` still in them), by word. */
     const own = new Map<string, string>();
+    /** ✨ The Build in each thing last played by (its selector → its rule), so only a CHANGED one plays again. */
+    const played = new Map<string, string>();
     /** The words under the caret now. */
     let typing: { el: HTMLElement; word: string; part: RsvpTapPart; sent: string | null; off: () => void } | null = null;
     /* `{name}` becomes the sample guest's name, as it will each guest's (`fillRsvpName`). */
@@ -179,22 +181,27 @@ export function RsvpCanvasBridge() {
            guest's page uses, from the colours the page itself carries — never from text this message holds. The
            reader is fetched on this message only (the Maker's canvas), so a guest's bundle never carries it. */
         const look = d.look;
-        void import('@/lib/rsvp-look').then(({ readRsvpLook, rsvpLookCss }) => {
+        void import('@/lib/rsvp-look').then(({ readRsvpLook, rsvpLookCss, rsvpLookRules }) => {
           document.querySelectorAll<HTMLElement>(`style[${RSVP_LOOK_STYLE_ATTR}]`).forEach((el) => {
-            const css = rsvpLookCss(readRsvpLook({ look }), (el.getAttribute(RSVP_LOOK_STYLE_ATTR) ?? '').split(' '), (el.dataset.rsvpBoard ?? '').split(' '));
-            const was = el.textContent ?? '';
-            if (was === css) return;
+            const read = readRsvpLook({ look });
+            const parts = (el.getAttribute(RSVP_LOOK_STYLE_ATTR) ?? '').split(' ');
+            const board = (el.dataset.rsvpBoard ?? '').split(' ');
+            const css = rsvpLookCss(read, parts, board);
+            if (el.textContent === css) return;
             el.textContent = css;
-            /* ✨ A Build in that was just changed plays again, on the thing it belongs to — so the couple sees it. */
-            const before = new Set(was.split('}'));
-            for (const rule of css.split('}')) {
-              if (before.has(rule) || !rule.includes('animation:')) continue;
-              document.querySelectorAll<HTMLElement>(rule.slice(0, rule.indexOf('{'))).forEach((moved) => {
+            /* ✨ A Build in that was just changed plays again, on the thing it belongs to — so the couple sees it.
+               What moves is asked of the READER (`rsvpLookRules`: plain selectors only), never dug out of the CSS
+               text — that once handed the reduced-motion block to `querySelectorAll`, which threw. */
+            for (const rule of rsvpLookRules(read, parts, board)) {
+              if (!rule.moves || played.get(rule.selector) === rule.rules) continue;
+              document.querySelectorAll<HTMLElement>(rule.selector).forEach((moved) => {
                 moved.style.animation = 'none';
                 void moved.offsetWidth;
                 moved.style.animation = '';
               });
             }
+            played.clear();
+            for (const rule of rsvpLookRules(read, parts, board)) if (rule.moves) played.set(rule.selector, rule.rules);
           });
         });
         return;

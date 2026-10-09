@@ -74,6 +74,8 @@ import {
   type SaveState,
 } from './seating-frame';
 import { DropConfirmBubble, type DropConfirmState } from './drop-confirm-bubble';
+import { ActionButton } from '@/components/action-button';
+import { FormRows, SwitchRow } from '@/app/_components/form-row';
 import {
   BOOTH_CATALOG,
   CHAIR_PX,
@@ -5244,15 +5246,7 @@ export function SeatingEditor({
       return (
         <ContextDock variant={isPhone ? sheetVariant : 'dock'} edge={isPhone ? 'bottom' : edge} tone="neutral" glyph={glyph} name={name} boundsRef={regionRef} onDismiss={isPhone ? clearSelection : undefined}>
           {summary ? <span className="px-1 font-mono text-[11px] tabular-nums text-ink/60">{summary} seated</span> : null}
-          <button
-            type="button"
-            onClick={lock.acquire}
-            disabled={lock.status === 'acquiring'}
-            className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-ink/80 px-3 font-semibold text-cream hover:bg-ink disabled:opacity-50 ${isPhone ? 'h-11 text-sm' : 'h-8 text-xs'}`}
-          >
-            <Eye className="h-3.5 w-3.5" />
-            {lock.status === 'stale_takeover_available' ? 'Take over' : 'Edit'}
-          </button>
+          <ActionButton tone="neutral" icon={Eye} label={lock.status === 'stale_takeover_available' ? 'Take over' : 'Edit'} disabled={lock.status === 'acquiring'} onClick={lock.acquire} />
           {!isPhone ? (
             <button type="button" onClick={clearSelection} aria-label="Done" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-ink/40 hover:bg-ink/5">
               <X className="h-4 w-4" />
@@ -5783,42 +5777,30 @@ export function SeatingEditor({
       }
     });
   };
+  /* 🧩 THE SWITCH IS THE FORM ROW'S (owner 2026-10-09, the templates): the name with its ⓘ, the status line under it, a refusal under that — the SAME write
+     (`flipDoor`: `publishSeating` / `unpublishSeating`, live, never drafted). */
   const doorStrip = details ? (
-    <div
-      data-seat-plan-door={doorOpen || seatDayHasCome ? 'open' : 'closed'}
-      className={`flex shrink-0 items-center gap-3 border-b border-ink/10 px-3 py-2 ${doorOpen || seatDayHasCome ? 'bg-success-50/70' : 'bg-cream'}`}
-    >
-      <span className="flex min-w-0 flex-1 flex-col">
-        <InfoTip label="Show guests their seats early" labelClassName="text-sm font-semibold text-ink" align="start">
-          Guests see their seats on the day. Want them to see it earlier? Turn this on. Turn it off before the day and
-          they are hidden again. From the day itself guests always see their seats — this switch no longer hides them
-          then. Find your seat, the seat passes and the 3D walk of your room all follow this. Printing the table signs
-          does not turn it on. Apply in the Maker does not cover the seat plan.
-        </InfoTip>
-        <span className="truncate text-[11.5px] text-ink/60">
-          {seatDayHasCome
-            ? 'It’s the day — guests see their seats.'
-            : doorOpen
-              ? 'Guests see their seats now.'
-              : 'Guests see their seats on the day.'}
-        </span>
-        {doorNote ? (
-          <span role="alert" className="text-[11.5px] text-danger-700">
-            {doorNote}
-          </span>
-        ) : null}
-      </span>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={doorOpen}
-        aria-label="Show guests their seats early"
-        data-seat-plan-door-switch=""
-        onClick={() => flipDoor(!doorOpen)}
-        className={SWITCH_BUTTON}
-      >
-        <SwitchTrack on={doorOpen} />
-      </button>
+    <div data-seat-plan-door={doorOpen || seatDayHasCome ? 'open' : 'closed'} className="shrink-0 border-b border-ink/10 bg-cream px-3">
+      <FormRows data="seat-plan-door">
+        <SwitchRow
+          name="Show guests their seats early"
+          about={{
+            words:
+              'Guests see their seats on the day. Want them to see it earlier? Turn this on. Turn it off before the day and they are hidden again. From the day itself guests always see their seats — this switch no longer hides them then. Find your seat, the seat passes and the 3D walk of your room all follow this. Printing the table signs does not turn it on. Apply in the Maker does not cover the seat plan.',
+          }}
+          on={doorOpen}
+          onChange={(open) => flipDoor(open)}
+          note={
+            seatDayHasCome
+              ? 'It’s the day — guests see their seats.'
+              : doorOpen
+                ? 'Guests see their seats now.'
+                : 'Guests see their seats on the day.'
+          }
+          problem={doorNote}
+          attrs={{ 'data-seat-plan-door-switch': '' }}
+        />
+      </FormRows>
     </div>
   ) : null;
 
@@ -6212,15 +6194,9 @@ export function SeatingEditor({
             </span>
           </p>
           {searchRow}
-          <label className="flex min-h-10 items-center gap-2 text-[13px] text-ink/75">
-            <input
-              type="checkbox"
-              checked={onlyUnseated}
-              onChange={(e) => setOnlyUnseated(e.target.checked)}
-              className="h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
-            />
-            Only unseated
-          </label>
+          <FormRows data="seat-plan-only-unseated">
+            <SwitchRow name="Only unseated" on={onlyUnseated} onChange={setOnlyUnseated} attrs={{ 'data-seat-plan-only-unseated': '' }} />
+          </FormRows>
           {guestSections?.sections.map((sec) => (
             <section key={sec.key} data-seat-plan-section={sec.key} className="flex flex-col gap-1">
               <p
@@ -6336,15 +6312,7 @@ export function SeatingEditor({
   const phoneTrailing = (
     <>
       {!canEdit ? (
-        <button
-          type="button"
-          onClick={lock.acquire}
-          disabled={lock.status === 'acquiring'}
-          className="inline-flex h-9 shrink-0 items-center gap-1 rounded-full border border-ink/15 px-3 text-[12px] font-medium text-ink/70"
-        >
-          <Eye className="h-3.5 w-3.5" />
-          {lock.status === 'acquiring' ? 'Opening…' : lock.status === 'stale_takeover_available' ? 'Take over' : 'Edit'}
-        </button>
+        <ActionButton tone="neutral" icon={Eye} label={lock.status === 'acquiring' ? 'Opening…' : lock.status === 'stale_takeover_available' ? 'Take over' : 'Edit'} waiting={lock.status === 'acquiring'} onClick={lock.acquire} />
       ) : saveState !== 'saved' ? (
         <SaveStatusChip state={saveState} unsavedCount={unsavedCount} savedAt={savedAt} onSave={saveLayout} disabled={!canEdit} />
       ) : null}
@@ -6476,14 +6444,7 @@ export function SeatingEditor({
           <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-ink/15 bg-ink/[0.03] px-2.5 py-1 text-[11px] font-medium text-ink/70">
             <Eye className="h-3.5 w-3.5 text-ink/50" />
             {lock.status === 'acquiring' ? 'Opening…' : 'Viewing only'}
-            <button
-              type="button"
-              onClick={lock.acquire}
-              disabled={lock.status === 'acquiring'}
-              className="rounded-md bg-ink/80 px-1.5 py-0.5 text-[10px] font-semibold text-cream hover:bg-ink disabled:opacity-50"
-            >
-              {lock.status === 'stale_takeover_available' ? 'Take over' : 'Edit'}
-            </button>
+            <ActionButton tone="neutral" quiet icon={Eye} label={lock.status === 'stale_takeover_available' ? 'Take over' : 'Edit'} disabled={lock.status === 'acquiring'} onClick={lock.acquire} />
           </span>
         ) : null}
 

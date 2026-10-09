@@ -100,7 +100,7 @@ test('2 · the phone head RENDERS the approved frame — and the Auto arrange li
       toast: { text: 'Everyone already has a seat', onUndo: null, onDismiss: () => {} },
     }),
   );
-  assert.ok(!done.includes('data-seat-plan-undo'), 'Undo shows with nothing to undo');
+  assert.ok(!done.includes('data-seat-plan-undo') && !done.includes('data-peek-toast-action'), 'Undo shows with nothing to undo');
 });
 
 test('3 · every number on the head is counted: units, linked once, the sweetheart not a guest table', () => {

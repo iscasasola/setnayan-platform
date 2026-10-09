@@ -233,12 +233,16 @@ export const SP_BG_TILE_FACE =
   'relative flex h-[calc(var(--sp-rh)_-_10px)] min-w-[84px] items-end justify-center overflow-hidden rounded-xl bg-white bg-cover bg-center px-2 pb-1 outline outline-1 -outline-offset-1 outline-[rgba(44,42,41,.12)] group-aria-pressed/tile:shadow-[0_0_0_2px_var(--sp-page),0_0_0_4px_var(--sp-cta)]';
 /** Its name, written ON the tile at its foot — 12 px semibold, one line, never on a plate of its own. */
 export const SP_BG_TILE_NAME = 'relative z-[1] whitespace-nowrap text-[12px] font-semibold leading-[14px]';
-/** The name's two tones (`lib/bg-tile-name.ts` decides which, per tile): white with a soft shadow, or ink. */
-export const SP_BG_TILE_TONE = { white: 'text-white [text-shadow:0_1px_2px_rgba(0,0,0,.45)]', ink: 'text-[var(--sp-ink)]' } as const;
-/** The soft fade at a PICTURE's foot that keeps its name readable over any picture — under the name, over the picture. */
+/** The name's two tones (`lib/bg-tile-name.ts` decides which, per tile), each with the reference's soft shadow of the other. */
+export const SP_BG_TILE_TONE = { white: 'text-white [text-shadow:0_1px_2px_rgba(0,0,0,.45)]', ink: 'text-[var(--sp-ink)] [text-shadow:0_1px_2px_rgba(255,255,255,.55)]' } as const;
+/**
+ * A PHOTO's foot fade — light (35 %) and the bottom half only, so the picture stays the picture: flat under the
+ * name, gone by the middle. Dark under a white name, light under an ink one. A colour tile has NONE: its swatch is
+ * exactly what the page draws.
+ */
 export const SP_BG_TILE_FADE = {
-  white: 'pointer-events-none absolute inset-0 bg-[linear-gradient(to_top,rgba(0,0,0,.55)_0_58%,transparent)]',
-  ink: 'pointer-events-none absolute inset-0 bg-[linear-gradient(to_top,rgba(255,255,255,.62)_0_58%,transparent)]',
+  white: 'pointer-events-none absolute inset-0 bg-[linear-gradient(to_top,rgba(0,0,0,.35)_0_34%,transparent_50%)]',
+  ink: 'pointer-events-none absolute inset-0 bg-[linear-gradient(to_top,rgba(255,255,255,.35)_0_34%,transparent_50%)]',
 } as const;
 /** "None": a white tile with one thin stroke across it. */
 export const SP_BG_TILE_SLASH = 'pointer-events-none absolute left-[26px] right-[26px] top-[10px] -rotate-[18deg] border-t-[1.5px] border-[var(--sp-line)]';

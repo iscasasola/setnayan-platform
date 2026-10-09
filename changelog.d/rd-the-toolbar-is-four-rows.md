@@ -282,6 +282,19 @@ Owner, choosing among three drawings of row 2: *"A- picture tiles"* (`review/bg-
 The older editor's rows (`preview()`) are untouched. Lazy files only. Guard: `background-is-four-rows` (7) — names
 executed for 729 colours × Plain / Opaque / Frosted and for the worst picture; seven sabotages seen red.
 
+### 10b · the tiles' fade was too heavy (owner's eye on the first version)
+
+Diagonal and Glow both ended as one dark block and Peony field wore a grey band. Now a COLOUR tile has no fade at
+all — its swatch is exactly what the page draws — and its name takes ink or white from the colour at its own foot
+(a gradient by the stops of its ramp the name sits over). A PHOTO wears a light fade (35 %, the bottom half only)
+and the reference's soft shadow, chosen by the colour MEASURED at the picture's foot (`TILE_FOOT`; the guard measures
+the ten files again with sharp): Peony field and Misty sunrise read as light pictures. An upload is not measured
+(reading its pixels needs a second, cross-origin fetch) and wears the dark default.
+
+What that promises, measured over 729 colours: a ready-made scene's name 4.5 : 1 on its foot; a flat colour tile
+never under 3.78 : 1; Glow never under 2.96 and Diagonal never under 2.65 at the worst stop under the name (no fade
+is laid over a colour tile, so 4.5 : 1 cannot be promised there — the soft shadow is not counted).
+
 ### 8a · in a Scrub run the hand-over plays each scene's own effect
 
 Owner: *"build out from current element and build in on next element under it applies at the same time on scrub

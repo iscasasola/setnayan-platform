@@ -26,6 +26,7 @@ import type { HubMainGround, HubSectionCanvas } from '@/lib/hub-canvas';
 import { celebrationColours, celebrationDraftIsPro } from '@/lib/rsvp-celebration';
 import { MakerRevealPicker } from '@/app/dashboard/[eventId]/launch/_components/maker-reveal';
 import { MakerLogoDoor } from '@/app/dashboard/[eventId]/launch/_components/details-lazy';
+import { LabStudioActions } from '../details-lab/lab-studio-actions';
 import { REVEAL_LIBRARY } from '@/app/[slug]/_components/reveal/reveal-templates';
 import { DEFAULT_REVEAL_EFFECTS } from '@/lib/std-reveal-effects';
 
@@ -292,6 +293,8 @@ export function MakerLabShell({
     },
   };
   return (
+    /* 🧪 Studio pages' writes (E-Gifts…) stand in locally — a lab press never reaches the database; "Accept gifts?" drafts into this lab's own counter. */
+    <LabStudioActions draft={labDraft as never}>
     <MakerShell
       eventId={eventId}
       /* The lab's own guest page stands in for /maria-and-jose (Preview's "Preview the stage"). */
@@ -419,5 +422,6 @@ export function MakerLabShell({
         }}
       />
     </MakerShell>
+    </LabStudioActions>
   );
 }

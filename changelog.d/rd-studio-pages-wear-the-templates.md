@@ -11,3 +11,11 @@ looks saved; a write that threw (a dropped connection) used to say nothing and n
 Files: `launch/_components/studio-tools.tsx`, `pabuya/_components/pabuya-message-editor.tsx`, `launch/_components/details-answers.tsx` (`as="switch"`),
 `launch/_components/details-answers-parts.tsx`, `launch/_components/maker-details.tsx` (passes `studio`), `lib/studio-egifts-saves.ts`.
 SPEC IMPACT: None.
+
+## 2026-10-09 · feat(studio): the labs' Studio presses reach no database — stand-ins for E-Gifts' writes (`StudioActionsContext`)
+
+The Studio pages take their writes from a context under the actions' own names (`launch/_components/studio-actions-context.tsx`: setEgiftMethodEnabled · saveEgiftMethod · savePabuyaMessage · hubDraftAction ·
+the QR upload's storage); the app never provides it, the dev labs do (`app/dev/details-lab/lab-studio-actions.tsx`): the writes succeed locally so the row shows its saved state, the QR upload goes through the lab's
+storage stand-in, and `&refuse=1` refuses with database-looking words so the plain sentence can be seen. Guard `app/dev/details-lab/the-studio-lab-cannot-reach-the-database.test.ts`. Every Studio page converted
+from now on adds its writes here, in its own commit.
+SPEC IMPACT: None.

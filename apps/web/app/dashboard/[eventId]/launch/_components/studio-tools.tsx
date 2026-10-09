@@ -7,7 +7,7 @@ import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { tellLookSample } from '@/lib/look-sample-store';
 import { EGIFT_KIND_META, type EgiftMethodKind } from '@/lib/egift-kinds';
 import { PabuyaCardList } from '@/app/_components/pabuya/pabuya-card-list';
-import { saveEgiftMethod, savePabuyaMessage, setEgiftMethodEnabled } from '../../pabuya/actions';
+import { useStudioActions } from './studio-actions-context';
 import { cleanGiftRegistryUrl, GIFT_REGISTRY_URL_ERROR, GIFT_REGISTRY_URL_MAX } from '@/lib/gift-registry';
 import { egiftEnabledFields, egiftMethodFields, egiftMethodNeedsSaving, registryFields } from '@/lib/studio-egifts-saves';
 import { plainRefusal } from '../../guests/_components/plain-refusal';
@@ -172,6 +172,8 @@ export function StudioEgifts({
    */
   registryUrl?: string | null;
 }) {
+  /* The page's writes — the shipped actions, or (only in the dev lab) stand-ins that reach no database. */
+  const { saveEgiftMethod, savePabuyaMessage, setEgiftMethodEnabled, qrUploadSend } = useStudioActions();
   const [rows, setRows] = useState(() => rowsFrom(methods));
   /* What is in each row right now, for a save that follows another (a ref: a keep reads it the instant it is made). */
   const now = useRef(rows);
@@ -364,6 +366,7 @@ export function StudioEgifts({
                             maxSizeMB={5}
                             variant="square"
                             compressImage
+                            send={qrUploadSend}
                             currentValue={row.qrRef || null}
                             initialDisplayUrls={row.qrRef && row.qrUrl ? { [row.qrRef]: row.qrUrl } : {}}
                             onChange={(v) => saveQr(k, typeof v === 'string' ? v : '')}

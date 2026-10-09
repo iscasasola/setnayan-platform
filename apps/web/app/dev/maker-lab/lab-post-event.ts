@@ -17,6 +17,8 @@ import { compilePostEventScenes, postEventSceneList, type PostEventMakerRead, ty
  */
 const LAB_STORY_WRITTEN_AT = '2026-12-13T07:04:00.000Z';
 
+/* (2026-10-10) Guest columns, Setnayan services and recommended suppliers are counted too, so Messages, Powered by
+   Setnayan and Suppliers We Loved are drawn — every scene the story can write can be tapped on the lab. */
 const LAB_POST_EVENT_SOURCES: PostEventSources = {
   cover: 'day',
   milestones: 4,
@@ -30,7 +32,7 @@ const LAB_POST_EVENT_SOURCES: PostEventSources = {
   films: 1,
   kwento: 14,
   challengeAnswers: 0,
-  guestColumns: 0,
+  guestColumns: 3,
   vendorMedia: 9,
   team: 6,
   seatingTables: 4,
@@ -38,8 +40,8 @@ const LAB_POST_EVENT_SOURCES: PostEventSources = {
   beforeAfter: false,
   liveWall: { active: false, photos: 0 },
   reviews: 2,
-  services: 0,
-  vendorsWeLoved: 0,
+  services: 2,
+  vendorsWeLoved: 2,
   specialMessage: true,
   song: null,
   whatsNext: null,

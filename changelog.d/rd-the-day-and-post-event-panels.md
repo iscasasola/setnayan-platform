@@ -93,3 +93,36 @@ First load: nothing added. `post-event-edit.ts` and `post-event-shown.tsx` are i
 through `scene-styles-lazy.tsx`'s `dynamic()`. All in the `maker-details` chunk. `next build` was not run.
 
 SPEC IMPACT: None.
+
+## 2026-10-10 · feat(maker): every Post Event scene is a part — the ten with an empty Edit are picked by name
+
+Ten scenes of the Post Event story were not in the part map, so a tap on one named no part: Style worked and Edit
+was four empty rows. Each is a part now, by its SHIPPED name, with the same Edit as the other scenes (its words where
+its style draws some · "Shown to guests" where it has a switch · ↑ Earlier · ↓ Later · Remove) and Style as its cards:
+Front Page · Schedule (the day's chapters) · Gallery · Videos · Messages · Where Everyone Sat · Entourage · Thank You ·
+Suppliers We Loved · Powered by Setnayan.
+
+- `lib/maker-parts.ts`: nine entries are their scene's own key, written once (`PE`); `chapters` (the chapters share
+  one marker, `p:ch-1`, and the Schedule's name) and `pegallery` (the story's Gallery — `gallery` is the section) are
+  written out. Additive. The file, minified and gzipped: 3,740 B → 3,872 B (+132 B for eleven entries).
+- **Were you there?** is a part of its own (`you`). It was The Day's "Photos of you" under another name on Post
+  Event, so the two could not differ: it has ONE look, so its Style is grey now and says so. The Day is unchanged.
+- ＋ can bring a hidden one back: the eleven are listed after the owner's nine in "After the event"
+  (`lib/maker-part-groups.ts`); a stage that does not draw them is never offered them.
+- What a couple may do to each is the story's own rule, read from the compiler and held by the guard — nothing is
+  locked or unlocked here. The Front Page has no switch and does not move; Thank You may be hidden, not moved.
+  **Powered by Setnayan is an ordinary scene as shipped**: its own switch (`poweredBy`), its own place in the run, its
+  label reworded like any other.
+- The lab's story counts guest columns, Setnayan services and recommended suppliers, so all of them can be tapped
+  (`app/dev/maker-lab/lab-post-event.ts`, dev-only).
+
+Guard: `the-post-event-toolbar-is-the-prototypes.test.ts` (7) — every scene the compiler can write resolves to a
+part (20+ compiled scenes walked), each of the ten by name with its tools, words, switch and move as shipped; five
+sabotages seen red and restored. Re-aimed with its reason: `maker-part-groups.test.ts` ("Photos of you on Post Event
+is Were you there?" → Were you there? is its own part).
+
+Not as the prototype draws: a pinned scene's grey Earlier / Later says "Front Page keeps its place on this page."
+(the shipped line; the prototype says "The cover always opens the story."). Were you there? has no words, no switch
+and no move as shipped, so its Edit holds only the three grey steps.
+
+SPEC IMPACT: None.

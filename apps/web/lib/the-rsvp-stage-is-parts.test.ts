@@ -45,6 +45,7 @@ import { makerStageMayType } from './maker-stage-type';
 import { RSVP_WORD_KEYS } from './rsvp-ask';
 import { RSVP_SCENE_WORDS, RSVP_STAGE_SCENES, type RsvpStageScene } from './rsvp-stage';
 import { RSVP_STAGE_KEY, rsvpWordBridgeKey } from './rsvp-stage-shared';
+import { RSVP_LINE_WORD } from './rsvp-form-words';
 import { stripComments } from './strip-comments';
 
 const WEB = join(__dirname, '..');
@@ -184,7 +185,10 @@ test('1 · every word on the canvas is in a marked section of the screen that ed
   for (const word of words) {
     const section = RSVP_WORD_SECTION[word];
     assert.ok(section, `${word} is in no section — a tap on it would pick nothing`);
-    const screen = word === 'reply-by' ? 'form' : SCREENS.find((s) => (RSVP_SCENE_WORDS[s] as readonly string[]).includes(word));
+    /* 🔁 RE-AIMED 2026-10-09: a word is edited on the screen whose LIST holds it — or, since every line is its own
+       part, on the form as one of its lines (the eyebrow, the question, the hint: `RSVP_LINE_WORD`). */
+    const screen =
+      word === 'reply-by' || (Object.values(RSVP_LINE_WORD.rsvp ?? {}) as string[]).includes(word) ? 'form' : SCREENS.find((s) => (RSVP_SCENE_WORDS[s] as readonly string[]).includes(word));
     assert.ok(screen, `${word} is edited on no screen`);
     assert.ok((RSVP_CANVAS_SECTIONS[screen!] as readonly string[]).includes(section!), `${word}: ${section} is not marked on ${screen}`);
     assert.ok(makerPartOfTap(RSVP_STAGE_KEY, screen, section!, null), `${word}: its section is no part`);
@@ -706,7 +710,7 @@ test('8 · WIRING: the frame, its name, the caption and the panel follow the LIN
   assert.match(EDGES, /\[data-el="\$\{CSS\.escape\(el\)\}"\], \[data-rsvp-line="\$\{CSS\.escape\(el\)\}"\]/);
   assert.match(EDGES, /\{line\?\.name \?\? label\}/);
   /* …"You're editing" ends on it, and the stage's own panel is told which line. */
-  assert.match(TOOLS, /\(x\): x is string => Boolean\(x\),\s*\);\s*if \(rsvpLineName\) linePieces\.push\(rsvpLineName\);/, 'the line is not the LAST piece of "You’re editing" — the piece that is never cut');
+  assert.match(TOOLS, /\(x\): x is string => Boolean\(x\),\s*\);\s*if \(rsvpLineName && picked\) \{[^}]*linePieces\.push\(rsvpLineName\);\s*\}/, 'the line is not the LAST piece of "You’re editing" — the piece that is never cut');
   assert.match(TOOLS, /setStagePanelNow\(\{ picked, quiet, about, line: rsvpLine \}\);/);
   assert.match(src(`${L}/stage-panel/store.ts`), /\(next\.line \?\? null\) === \(now\.line \?\? null\)/, 'a new line on the same part would not reach the panel');
 });

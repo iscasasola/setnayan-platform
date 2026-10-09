@@ -16,6 +16,8 @@ import {
   type RsvpStageScene,
 } from '@/lib/rsvp-stage';
 import { RSVP_WORD_TYPED_EVENT } from '@/app/[slug]/_components/rsvp-canvas-parts';
+import { rsvpFormWord, rsvpLineWord } from '@/lib/rsvp-form-words';
+import type { MakerPartTool } from '@/lib/maker-parts';
 import { hubDraftAction } from '../../website/hub-draft-actions';
 import { updatePaxSettings } from '../../actions';
 import { DetailsPieceOnly } from './details-piece';
@@ -100,7 +102,17 @@ export function MakerRsvpSettings({
   replyByAction = updatePaxSettings,
   celebration,
   studio = false,
+  picked,
 }: {
+  /**
+   * 🧩 THE NEW MAKER'S RSVP STAGE (a phone) — what its toolbar is on: the tool, the picked part and the picked LINE
+   * of it (owner 2026-10-09: "why is this grouped?" · "shouldn't it be per element?" · "why is this scrolling?").
+   * With it the controls are the PICKED thing's, never the screen's whole list:
+   *   · Edit, a line picked — that line's words and its own Start from ▾, and nothing else;
+   *   · otherwise — the scene's own list, WITHOUT the words (each word is its line's Edit now).
+   * Absent — the desktop's stage and Studio › RSVP — the scene's whole list, exactly as before.
+   */
+  picked?: { tool: MakerPartTool; part: string | null; line: string | null };
   /**
    * 🧭 STUDIO › RSVP (the new Maker, `makerStagesStudioEnabled` — owner 2026-10-06,
    * DECISION_LOG "'ASK ONE BY ONE' IS HOW THE GUEST'S RSVP ASKS"): the same
@@ -411,20 +423,29 @@ export function MakerRsvpSettings({
       />
     </FormRow>
   );
-  /* ✍ The words a scene holds — typed rows, each with its Start from ▾. */
-  const wordRows = (of: RsvpStageScene) =>
-    RSVP_SCENE_WORDS[of].map((key) => (
-      <WordRows
-        key={key}
-        wordKey={key}
-        value={words[key] ?? ''}
-        automatic={key === 'attending' || key === 'declined' ? rsvpAnswerWord(null, key, solemn) : sceneWordPlaceholder(key)}
-        lines={RSVP_WORD_LINES[key][solemn ? 'solemn' : 'celebrate']}
-        about={of === 'form' ? null : { words: wordAbout(of, key) }}
-        onType={(text) => previewWord(key, text)}
-        onKeep={(text) => saveWord(key, text, true)}
-      />
-    ));
+  /* ✍ ONE word — its typed row and its own Start from ▾. "Automatic" is what the page says by itself: the answer's
+     and the form's three lines have words of their own; a note's heading is made for each guest, its message none. */
+  const wordRow = (of: RsvpStageScene, key: RsvpWordKey) => (
+    <WordRows
+      key={key}
+      wordKey={key}
+      value={words[key] ?? ''}
+      automatic={
+        key === 'attending' || key === 'declined'
+          ? rsvpAnswerWord(null, key, solemn)
+          : key === 'eyebrow' || key === 'question' || key === 'hint'
+            ? rsvpFormWord(null, key, solemn)
+            : sceneWordPlaceholder(key)
+      }
+      lines={RSVP_WORD_LINES[key][solemn ? 'solemn' : 'celebrate']}
+      about={of === 'form' ? null : { words: wordAbout(of, key) }}
+      onType={(text) => previewWord(key, text)}
+      onKeep={(text) => saveWord(key, text, true)}
+    />
+  );
+  /* ✍ The words a scene holds — typed rows, each with its Start from ▾. On the new Maker's RSVP stage (`picked`)
+     the list holds NONE of them: a word is typed where its LINE is picked (below), so the long list is gone. */
+  const wordRows = (of: RsvpStageScene) => (picked ? [] : RSVP_SCENE_WORDS[of].map((key) => wordRow(of, key)));
   /* 🎟 HOW GUESTS GET IN — "Will guests reply? / Entry" and the guest-list type
      as ONE dropdown (owner 2026-10-02, DECISION_LOG "EVERY ANSWER ABOUT AN EVENT
      LIVES IN EVENT DETAILS ('YOUR INFO') — ONE HOME, MAPPED"). Every choice is a
@@ -471,6 +492,20 @@ export function MakerRsvpSettings({
      and a message. Presentation only — who replied, requests and reminders
      belong to the Guest list (DECISION_LOG 2026-09-30, "THE MAKER EDITS HOW IT
      LOOKS; THE GUEST LIST MANAGES THE PEOPLE"). */
+  if (scene !== undefined && picked) {
+    /* 🧩 THE NEW MAKER'S RSVP STAGE: the picked thing's controls. */
+    const lineWord = rsvpLineWord(picked.part, picked.line);
+    if (picked.tool === 'edit' && lineWord) {
+      return (
+        <div className="flex flex-col px-1" data-rsvp-stage-controls={scene} data-rsvp-stage-line-edit={picked.line ?? ''}>
+          <FormRows data="rsvp-line">{wordRow(scene, lineWord)}</FormRows>
+          {status}
+        </div>
+      );
+    }
+    /* Anything else — the group, nothing picked, another tool: the scene's own list below, which holds no word
+       here (`wordRows`). ONE list for every door, as before. */
+  }
   if (scene !== undefined) {
     if (scene !== 'form') {
       /* The after-screens: ONE list — on When yes the Celebration first (the prototype's panel opens on it), then

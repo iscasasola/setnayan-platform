@@ -285,7 +285,7 @@ export function RsvpCanvasBridge() {
  * questions are asked re-mounts it, so it re-measures its steps (it counts only
  * the ones drawn) and starts again from the first.
  */
-export function RsvpOneAtATimeLive({ initial }: { initial: boolean }) {
+export function RsvpOneAtATimeLive({ initial, hint = null }: { initial: boolean; hint?: string | null }) {
   const [state, setState] = useState({ on: initial, n: 0 });
   useEffect(() => {
     const onAsk = (e: Event) => {
@@ -295,5 +295,5 @@ export function RsvpOneAtATimeLive({ initial }: { initial: boolean }) {
     window.addEventListener(RSVP_FRAME_ASK_EVENT, onAsk);
     return () => window.removeEventListener(RSVP_FRAME_ASK_EVENT, onAsk);
   }, []);
-  return state.on ? <RsvpOneAtATime key={state.n} /> : null;
+  return state.on ? <RsvpOneAtATime key={state.n} hint={hint} /> : null;
 }

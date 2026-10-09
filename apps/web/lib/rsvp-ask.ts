@@ -132,6 +132,9 @@ export type RsvpAskConfig = Partial<Record<RsvpAskField, boolean>> & {
  *   · `declineHeading` / `declineMessage` — "When they decline".
  * The middle answer is not here: it is off for now (owner 2026-09-30,
  * "for now OFF"; builder `rd/rsvp-no-maybe`).
+ *   · `eyebrow` / `question` / `hint` — the form's other three lines (owner 2026-10-09, the RSVP stage: "shouldn't
+ *     it be per element?" — every line is its own part, so every line has words). Absent = the card's own words,
+ *     byte-identical to before (`lib/rsvp-form-words.ts`).
  */
 export const RSVP_WORD_KEYS = [
   'attending',
@@ -140,6 +143,9 @@ export const RSVP_WORD_KEYS = [
   'thanksMessage',
   'declineHeading',
   'declineMessage',
+  'eyebrow',
+  'question',
+  'hint',
 ] as const;
 export type RsvpWordKey = (typeof RSVP_WORD_KEYS)[number];
 export type RsvpWords = Partial<Record<RsvpWordKey, string>>;
@@ -152,6 +158,9 @@ export const RSVP_WORD_MAX: Record<RsvpWordKey, number> = {
   thanksMessage: 240,
   declineHeading: 80,
   declineMessage: 240,
+  eyebrow: 40,
+  question: 80,
+  hint: 60,
 };
 
 /** One typed line, made safe to store: a string, control characters out, spaces folded, capped. */
@@ -214,6 +223,10 @@ export const RSVP_WORD_LINES: Record<RsvpWordKey, { celebrate: readonly string[]
   },
   declineHeading: { celebrate: ['Thank you — you’ll be missed'], solemn: ['Thank you'] },
   declineMessage: { celebrate: [], solemn: [] },
+  /* The form's three lines have ONE shipped wording each — the card's own, which "Automatic" already is. */
+  eyebrow: { celebrate: [], solemn: [] },
+  question: { celebrate: [], solemn: [] },
+  hint: { celebrate: [], solemn: [] },
 };
 
 export function isRsvpAskField(v: unknown): v is RsvpAskField {

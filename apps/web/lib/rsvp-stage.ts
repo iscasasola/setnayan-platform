@@ -83,6 +83,9 @@ export const RSVP_WORD_LABEL: Record<RsvpWordKey, string> = {
   thanksMessage: 'Message',
   declineHeading: 'Heading',
   declineMessage: 'Message',
+  eyebrow: 'Eyebrow',
+  question: 'Question',
+  hint: 'Hint',
 };
 
 /* ── The editor bridge's messages (parent → frame, frame → parent) ────────── */

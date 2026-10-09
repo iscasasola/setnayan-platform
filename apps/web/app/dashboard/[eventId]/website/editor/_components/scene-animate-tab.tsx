@@ -33,6 +33,7 @@ import { HUB_DURING_LABEL, HUB_SEQUENCES, type HubDuring } from '@/lib/hub-canva
 import { makerSceneHasRows } from '@/lib/maker-parts';
 import { useMaker } from '../../../launch/_components/maker-context';
 import { StageAnimate } from '../../../launch/_components/stage-panel/stage-animate';
+import { FEEL_OFF, LEAVES_OPTIONS, autoFeel, autoSpeedOf, laySceneInFeel, laySceneOutFeel, sceneInFeel, sceneOutFeel } from '@/lib/animate-feel';
 
 /**
  * 🎬 A SCENE'S ANIMATE TAB — the scene inspector's (`scene-inspector.tsx`, whose
@@ -115,15 +116,29 @@ export function SceneAnimateTab({
         <StageAnimate
           pending={pending}
           error={error}
-          how={{
-            /* A switch moved by hand (its own In / Out over the preset) reads "Custom" — the prototype's word. */
-            value: preset ?? 'auto',
-            buttonText: shown.inFx || shown.outFx || shown.in || shown.out ? 'Custom' : undefined,
-            options: [{ key: 'auto', label: 'Auto' }, ...HUB_MOTION_PRESETS.map((p) => ({ key: p, label: HUB_MOTION_PRESET_LABEL[p] }))],
-            /* A preset is laid whole: its own Build in / Build out replace any hand-set switch. */
-            onPick: (k) => save((c) => { for (const f of ['in', 'inFrom', 'inFx', 'out', 'outTo', 'outFx'] as const) delete c[f]; if (k === 'auto') delete c.preset; else c.preset = k; }),
+          /* 🎚 Movement is each end's own FEEL (`lib/animate-feel.ts`) — it writes a tempo and nothing else. The old
+             one-for-all preset is not offered here; a stored `preset` keeps playing and is never rewritten. */
+          move={{
+            in: {
+              value: sceneInFeel(shown, m),
+              onPick: (f) => save((c) => laySceneInFeel(c, f)),
+              off: m.in === 'none' ? FEEL_OFF.noEffect : null,
+            },
+            out:
+              /* Auto scroll has a speed of its own; Scrub out follows the thumb; else the scene's own way out. */
+              transition === 'auto'
+                ? { value: autoFeel(shown.autoSpeed), onPick: (f) => setTransition('auto', autoSpeedOf(f)) }
+                : {
+                    value: sceneOutFeel(shown),
+                    onPick: (f) => save((c) => laySceneOutFeel(c, f)),
+                    off: transition === 'scrub' ? FEEL_OFF.scrub : m.timeline === 'time' ? FEEL_OFF.arrival : m.out === 'none' ? FEEL_OFF.noEffect : null,
+                  },
           }}
-          /* No Duration and no Timing (owner 2026-10-09) — a stored `duration` / `timeline` is not touched and still plays. */
+          /* The drive — one for both ends: on arrival a scene has no Build out. */
+          plays={{
+            value: m.timeline === 'scrub' ? 'scroll' : 'arrival',
+            onPick: (d) => save((c) => { c.timeline = d === 'scroll' ? 'scrub' : 'time'; }),
+          }}
           inFx={m.inFx}
           outFx={m.outFx}
           onIn={(fx) => save((c) => sceneFx(c, 'in', fx))}
@@ -134,7 +149,8 @@ export function SceneAnimateTab({
                   value: shown.sequence ?? 'auto',
                   options: [
                     { key: 'auto', label: 'Auto' },
-                    ...HUB_SEQUENCES.map((q) => ({ key: q, label: q === 'one_after_another' ? 'One after another' : HUB_SEQUENCE_LABEL[q] })),
+                    /* "One by one" — the long words do not fit a third of a row. */
+                    ...HUB_SEQUENCES.map((q) => ({ key: q, label: q === 'one_after_another' ? 'One by one' : HUB_SEQUENCE_LABEL[q] })),
                   ],
                   onPick: (q) => save((c) => { if (q === 'auto') delete c.sequence; else c.sequence = q; }),
                 }
@@ -146,15 +162,7 @@ export function SceneAnimateTab({
             options: (['still', 'lift'] as const).map((d) => ({ key: d, label: HUB_DURING_LABEL[d] })),
             onPick: (d) => save((c) => { c.during = d as HubDuring; }),
           }}
-          next={
-            isLast
-              ? null
-              : {
-                  value: transition,
-                  options: HUB_TRANSITIONS.map((t) => ({ key: t, label: HUB_TRANSITION_LABEL[t] })),
-                  onPick: (t) => setTransition(t, null),
-                }
-          }
+          leaves={isLast ? null : { value: transition, options: LEAVES_OPTIONS, onPick: (t) => setTransition(t, null) }}
         />
       </div>
     );

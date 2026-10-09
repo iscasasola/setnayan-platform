@@ -25,7 +25,8 @@ test('no Animate segment renders a row holding only an ⓘ', async () => {
     setStageAnimatePhase(phase);
     const html = renderToStaticMarkup(
       React.createElement(StageAnimate, {
-        how: dd,
+        move: { in: { value: 'calm', onPick: () => {} }, out: { value: 'calm', onPick: () => {} } },
+        plays: { value: 'scroll', onPick: () => {} },
         inFx: { fade: true },
         outFx: null,
         onIn: () => {},
@@ -33,7 +34,7 @@ test('no Animate segment renders a row holding only an ⓘ', async () => {
         rows: dd,
         delay: time,
         does: dd,
-        next: dd,
+        leaves: dd,
       }),
     );
     /* 🔁 RE-AIMED 2026-10-09 (Animate is four rows — `animate-is-four-rows.test.ts`): a row is a child of the

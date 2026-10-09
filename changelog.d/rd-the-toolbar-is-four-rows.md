@@ -147,6 +147,9 @@ calls the Look's `sanitizeHubMainShade` (one rule, not two). `lib/hub-canvas.ts`
 alone it is 17 bytes smaller raw and 4 bytes larger gzipped — the real budget check is the controller's build.
 `lib/scene-shade-bar.ts` loses its three stops (a release rests where it is let go, snapping to the centre).
 
+`HubSectionCanvas.outSpeed` ('fast' | 'gentle', regular = absent) is NEW (commit 7): a scroll-driven scene's Build out
+feel. No migration; absent draws what every scene drew.
+
 ### 5c · a page change never ends on nothing picked (seen on the review copy)
 
 A tap on a guest tab let the picked part go BEFORE asking the canvas for the page; the lab's sample — drawn as one
@@ -191,6 +194,39 @@ the older editor's Animate (`scene-animate-tab.tsx` outside `ss`, `PartAnimateTa
   at rest. `Slider` gains ONE optional prop, `from="centre"` (one attribute; left out, the markup is byte-identical —
   guarded) and `.sn-slider[data-slider-from='centre']` draws it from the same `--sn-slider-fill`. `slider.tsx` is
   imported only by the Maker's lazy pieces.
+
+### 7 · Movement is each phase's own feel
+
+Owner: *"movement independent from each. not universal for all"* · *"i thought this would be like how does the
+effect execute its effect, calmly, cinematic, etc"*. Movement ◆ was ONE preset shown under all three phases that set
+the effect, the side, the Action, the drive and the tempo at once. Now (`lib/animate-feel.ts`):
+
+- Movement ▾ = Quick · Calm · Cinematic, per end. It writes a TEMPO and nothing else — never an effect (the chips),
+  never the drive. A part: Build in → `speed`, Build out → `outSpeed` (both shipped). A scene: Build in → `duration`
+  + `stagger`; Build out → the one new field, `outSpeed`. Auto scroll → the run's `autoSpeed`.
+- There is no "Auto": Calm is what plays when nothing is stored, so the word shown is always what plays.
+- Row 4 — Build in: Movement ◆ · Plays (On arrival | On scroll) · Delay (a part) or Rows (a scene of rows; "One by
+  one"). Build out: Movement ◆ · Leaves ◆ (As it scrolls away | Scrub out ◆ | Auto scroll ◆ — "Next scene", renamed,
+  the same stored `transition`). Action: rows 1–2 only.
+- A Movement with nothing to time (no effect on · Scrub out · on arrival) is grey and a tap says why.
+- On arrival a scene / part has no Build out: Build out's row 2 says so, with the switch that makes it follow the
+  scroll — no chips that do nothing. The hidden "last Build out off → back to plays once" of commit 6 is gone: Plays
+  is the one place the drive is chosen.
+- The old preset (Still · Calm · Editorial · Cinematic · Custom) is not offered in the toolbar; a stored one keeps
+  playing and nothing is rewritten on open. Movement stays ◆: all of a scene's motion and a part's motion are Event
+  Hub Pro today (the removed Duration was too), and `outSpeed` joins `HUB_CANVAS_MOTION_KEYS`.
+
+Guest page: a scroll-driven scene's ranges read two new values with the OLD ranges as their fallback
+(`--hub-in-end`, `--hub-out-range`, `globals.css`), emitted only from a value the couple set themselves — every old
+preset scene gets byte-identical values and classes (guarded for every preset × fine-tune × drive). One honest
+exception: a scene that follows the scroll AND carries its own `duration` (only the internal new Maker's removed
+Duration could write that) now obeys it; before, that number did nothing there.
+
+First load (the file minified alone, esbuild, gzip -9): `lib/hub-canvas.ts` 6,459 → 6,556 = +97 B; `lib/hub-look-pro.ts`
+1,126 → 1,128 = +2 B. Everything else is in lazy pieces (guarded). The real budget check is the controller's build.
+
+Guard: `lib/movement-is-a-feel-per-phase.test.ts` (7 rules, nine sabotages seen red); `animate-is-four-rows` and
+three pinning tests re-aimed with the reason written in.
 
 SPEC IMPACT: Yes — supersedes the 2026-10-06/07 "Style | Text | Animate" and "the toolbar is half the screen" rows.
 The controller holds the spec (`TOOLBAR-SPEC-2026-10-09.md`) and applies the corpus rows; nothing in the corpus was

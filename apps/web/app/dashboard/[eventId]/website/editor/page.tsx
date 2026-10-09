@@ -41,6 +41,7 @@ import { siteSkin } from '@/app/[slug]/_components/skins/site-skin';
 /* ⚡ The Main background's panel and its hero-colour sync load with the Details pieces — never with the Maker (`details-lazy.tsx`). */
 import { ButtonsLookRow, ColorsPanel, HeroFrameSync, LookSample, MainBackgroundPanel, ProLockPanel } from '../../launch/_components/details-lazy';
 import { HUB_TRANSITION_LABEL, resolveTransition } from '@/lib/hub-scenes';
+import { SCRUB_OUT_OFFERED, offeredTransition } from '@/lib/scrub-out-offered';
 /* 🔴 `done`/`todo` come from `rail-rows.ts`, NOT from `editor-shell.tsx`. That
    file is `'use client'`, and calling a client export from this server page is
    what returned a 500 for the whole editor (production 2026-09-23, digest
@@ -1364,7 +1365,8 @@ export default async function WebsiteEditorPage({
     mode: (row.mode ?? 'auto') as MakerScene['mode'],
     isVisible: row.is_visible,
     hasContent: sectionContent[row.widget_type] !== false,
-    transitionLabel: HUB_TRANSITION_LABEL[resolveTransition(sanitizeHubCanvas(row.config_json))],
+    /* 🌑 On the server only the constant speaks (never the lab's browser door): a stored Scrub reads as Scroll. */
+    transitionLabel: HUB_TRANSITION_LABEL[offeredTransition(resolveTransition(sanitizeHubCanvas(row.config_json)), SCRUB_OUT_OFFERED)],
   }));
   /* 🧭 THE NAVIGATOR FOLLOWS THE PAGE (owner 2026-09-25: *"why does the slides
      not follow the sequence alotted"*). For each stage, what the canvas draws,

@@ -24,6 +24,8 @@ const row = (id: string, transition?: string) =>
     config_json: transition ? { canvas: { transition } } : null,
   }) as never;
 
+/* 🌑 2026-10-09: "Scrub out" ships dark (`lib/scrub-out-offered.ts`) — this file is about the renderer WHEN Scrub is
+   drawn, so it asks through the lab's door (`scrubOut`). What the app draws while dark is `scrub-out-ships-dark.test.ts`. */
 async function render(widgets: unknown[], scrubAllowed: boolean): Promise<{ html: string; children: string }> {
   const React = (await import('react')).default;
   (globalThis as unknown as { React: unknown }).React = React;
@@ -34,7 +36,7 @@ async function render(widgets: unknown[], scrubAllowed: boolean): Promise<{ html
     React.createElement('section', { key: (w as { widget_id: string }).widget_id }, (w as { widget_id: string }).widget_id),
   );
   return {
-    html: renderToStaticMarkup(React.createElement(Scenes, { widgets, scrubAllowed }, kids)),
+    html: renderToStaticMarkup(React.createElement(Scenes, { widgets, scrubAllowed, scrubOut: true }, kids)),
     children: renderToStaticMarkup(React.createElement(React.Fragment, null, kids)),
   };
 }
@@ -144,7 +146,7 @@ test('⛔ if the node list and the widget list disagree, nothing is paired by po
   const { HubScenes } = await import('../app/[slug]/_components/hub-scenes');
   const Scenes = HubScenes as unknown as React.FunctionComponent<Record<string, unknown>>;
   const html = renderToStaticMarkup(
-    React.createElement(Scenes, { widgets: [row('A', 'scrub'), row('B', 'scrub')], scrubAllowed: true }, [
+    React.createElement(Scenes, { widgets: [row('A', 'scrub'), row('B', 'scrub')], scrubAllowed: true, scrubOut: true }, [
       React.createElement('section', { key: 'A' }, 'A'),
     ]),
   );

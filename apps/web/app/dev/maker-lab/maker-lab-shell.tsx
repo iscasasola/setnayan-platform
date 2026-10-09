@@ -4,6 +4,7 @@ import type { FixedSceneStyles } from '@/lib/fixed-scene-styles';
 import type { CameraLook } from '@/lib/camera-look';
 import { useEffect, useMemo, type ComponentProps, type ReactNode } from 'react';
 import { LAB_EDITORIAL_COOKIE } from './lab-post-event';
+import { LAB_SCRUB_GUEST, labWidgetsCookie } from './lab-scrub';
 import { setStudioDraftDoor } from '@/app/dashboard/[eventId]/launch/_components/studio-info';
 import { MakerShell } from '@/app/dashboard/[eventId]/launch/_components/maker-shell';
 import type { StudioTileModel } from '@/lib/studio-tiles';
@@ -71,7 +72,9 @@ async function labDraft(_eventId: string, fd: FormData): Promise<HubDraftActionR
      and hold a real save goes through. */
   try {
     const patch = JSON.parse(String(fd.get('patch') ?? '{}')) as { widgets?: Record<string, { canvas?: unknown }> };
-    const held = labWidgetsFromCookie();
+    /* 🎚 On the Scrub chain (`?scrub=1`) a scene's canvas is saved to the chain's own cookie (`./lab-scrub.ts`). */
+    const jar = labWidgetsCookie(new URLSearchParams(window.location.search).get('scrub') === '1');
+    const held = labWidgetsFromCookie(jar);
     let changed = false;
     for (const [type, w] of Object.entries(patch.widgets ?? {})) {
       if (w && typeof w === 'object' && 'canvas' in w) {
@@ -79,7 +82,7 @@ async function labDraft(_eventId: string, fd: FormData): Promise<HubDraftActionR
         changed = true;
       }
     }
-    if (changed) document.cookie = `lab_widgets=${encodeURIComponent(JSON.stringify(held))}; path=/; SameSite=Lax`;
+    if (changed) document.cookie = `${jar}=${encodeURIComponent(JSON.stringify(held))}; path=/; SameSite=Lax`;
   } catch {
     /* not a scene patch */
   }
@@ -131,8 +134,8 @@ async function labDraft(_eventId: string, fd: FormData): Promise<HubDraftActionR
   performance.mark('lab-draft-answered');
   return { ok: true, intent: 'save', applied: 0, held: [], bar: { free: s, owned: s, proEffects: [], priceLabel: null } } as HubDraftActionResult;
 }
-function labWidgetsFromCookie(): Record<string, unknown> {
-  const raw = document.cookie.split('; ').find((c) => c.startsWith('lab_widgets='))?.slice('lab_widgets='.length);
+function labWidgetsFromCookie(jar: string): Record<string, unknown> {
+  const raw = document.cookie.split('; ').find((c) => c.startsWith(`${jar}=`))?.slice(jar.length + 1);
   try {
     const v = raw ? (JSON.parse(decodeURIComponent(raw)) as unknown) : null;
     return v && typeof v === 'object' ? (v as Record<string, unknown>) : {};
@@ -159,7 +162,10 @@ export function MakerLabShell({
   fixedStyles = {},
   cameraLook = 'classic',
   changes = 0,
+  scrub = false,
 }: {
+  /** 🎚 `?scrub=1` — the canvas is the lab's Scrub chain (`./lab-scrub.ts`, `./guest/scrub`). */
+  scrub?: boolean;
   /** ✓ `?changes=N` — the draft's unapplied count, as the draft bar would report it (the ✕ sheet's "kept" line). */
   changes?: number;
   /** 🎨 The lab's drafted part styles (`lab_styles`) and 🎛 camera look (`lab_camera`). */
@@ -289,7 +295,7 @@ export function MakerLabShell({
     <MakerShell
       eventId={eventId}
       /* The lab's own guest page stands in for /maria-and-jose (Preview's "Preview the stage"). */
-      slug="dev/maker-lab/guest"
+      slug={scrub ? LAB_SCRUB_GUEST.slice(1) : 'dev/maker-lab/guest'}
       liveStage="rsvp"
       initialStage="rsvp"
       /* `?tool=details` / `?guide=…` open on Details (the guided flow), as the real Maker does. */
@@ -310,7 +316,7 @@ export function MakerLabShell({
     >
       <MakerWork
         eventId={eventId}
-        publicLandingUrl="/dev/maker-lab/guest"
+        publicLandingUrl={scrub ? LAB_SCRUB_GUEST : '/dev/maker-lab/guest'}
         scenes={scenes}
         navigator={navigator}
         scenePanels={Object.fromEntries(scenes.map((s) => [s.id, stand(`${s.label} — its settings`)]))}

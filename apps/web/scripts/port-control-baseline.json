@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "6ed36e997",
-  "routeCount": 429,
+  "generatedFromRef": "266e6eae7",
+  "routeCount": 430,
   "destinations": 959,
   "actions": 672,
-  "blocks": 5874,
+  "blocks": 5876,
   "routes": {
     "/": {
       "files": [
@@ -845,6 +845,7 @@
         "[slug]/_components/hub-scenes.tsx",
         "[slug]/_components/hub-scrub-engine.ts",
         "[slug]/_components/hub-scrub-math.ts",
+        "[slug]/_components/hub-scrub-place.ts",
         "[slug]/_components/hub-scrub.tsx",
         "[slug]/_components/hub-tab-dom.ts",
         "[slug]/_components/hub/hub-shell.tsx",
@@ -9968,6 +9969,7 @@
     "/dev/maker-lab": {
       "files": [
         "dev/maker-lab/lab-post-event.ts",
+        "dev/maker-lab/lab-scrub.ts",
         "dev/maker-lab/maker-lab-shell.tsx",
         "dev/maker-lab/page.tsx"
       ],
@@ -10001,7 +10003,9 @@
       "blocks": [
         "CountdownWidget",
         "EditorBridge",
+        "Fragment",
         "HubCanvasFrame",
+        "HubScenes",
         "MakerEmptyScene",
         "MakerWelcomeGiftsEmpty",
         "MakerWelcomeLook",
@@ -10013,6 +10017,14 @@
         "WelcomeGifts",
         "WhenYesCelebration"
       ]
+    },
+    "/dev/maker-lab/guest/scrub": {
+      "files": [
+        "dev/maker-lab/guest/scrub/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": []
     },
     "/dev/schedule-lab": {
       "files": [

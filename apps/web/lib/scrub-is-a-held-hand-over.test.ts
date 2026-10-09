@@ -161,7 +161,9 @@ test('(5) fail-visible: the island draws nothing and loads the engine late; ever
   const island = read(`${B}/hub-scrub.tsx`);
   assert.match(island, /return null;/);
   assert.doesNotMatch(island, /return\s*\(?\s*<|<(?:span|div|i|template)\b/, 'the island draws an element');
-  assert.match(island, /useEffect\(\(\) => \{[\s\S]*void import\('\.\/hub-scrub-engine'\)/, 'the engine is not fetched after the page is interactive');
+  /* Re-aimed 2026-10-09 (the lab commit): the engine is now fetched beside the Maker-only place-keeping
+     (`Promise.all([import('./hub-scrub-engine'), …])`) — still inside the effect, still its own chunk. */
+  assert.match(island, /useEffect\(\(\) => \{[\s\S]*void Promise\.all\(\[import\('\.\/hub-scrub-engine'\)/, 'the engine is not fetched after the page is interactive');
   assert.doesNotMatch(island, /^import .*hub-scrub-engine/m, 'the engine is in the page’s own bundle');
   const scenes = read(`${B}/hub-scenes.tsx`);
   assert.match(scenes, /const scrubbed = widgets\.some\(\(w\) => motionOf\.get\(w\)!\.transition === 'scrub'\);/);

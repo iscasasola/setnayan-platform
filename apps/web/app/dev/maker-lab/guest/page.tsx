@@ -1,3 +1,4 @@
+import { Fragment, type ReactNode } from 'react';
 import { notFound } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { mainGroundLayerFor } from '@/app/[slug]/_lib/main-ground-layer';
@@ -12,6 +13,7 @@ import { PahinaMasthead } from '@/app/[slug]/_components/pahina-masthead';
 import { ScheduleWidget } from '@/app/[slug]/_components/schedule-widget';
 import { VenueWidget } from '@/app/[slug]/_components/venue-widget';
 import { HubCanvasFrame } from '@/app/[slug]/_components/hub-canvas-frame';
+import { HubScenes } from '@/app/[slug]/_components/hub-scenes';
 import { EDITOR_CANVAS_HIDES_APP_CHROME, canvasOnlyCss, canvasOnlyScene, canvasStylePreview } from '@/app/[slug]/_lib/editor-canvas';
 import { withStylePreview } from '@/app/[slug]/_lib/style-preview';
 import { eventWordsFor } from '@/app/[slug]/_lib/event-words';
@@ -27,6 +29,7 @@ import { postEventSceneDrawn } from '@/lib/post-event-scenes';
 import { postEventLookOf } from '@/lib/post-event-draft';
 import { resolvePostEventStyle } from '@/lib/post-event-style-resolve';
 import { LAB_EDITORIAL_COOKIE, labEditorialDraft, labPostEventRead } from '../lab-post-event';
+import { LAB_SCRUB_CHAIN, labScrubCanvases, labWidgetsCookie, type LabScrubScene } from '../lab-scrub';
 
 /** maria-and-jose's run of show and venues (read-only shape, 2026-10-05) — the lab has no database. */
 const LAB_BLOCK = (i: number, label: string, at: string, location: string | null, type = 'pre_ceremony') => ({
@@ -39,6 +42,17 @@ const LAB_BLOCKS = [
   LAB_BLOCK(2, 'Ceremony', '15:00', 'Santuario de San Antonio', 'ceremony'),
   LAB_BLOCK(3, 'Cocktails', '17:30', 'Seda Vertis North', 'cocktails'),
   LAB_BLOCK(4, 'Dinner & dancing', '19:00', 'Seda Vertis North', 'reception'),
+];
+/** 🎚 The Scrub chain's run of show (`?scrub=1`): eight moments — a list long enough to be scrolled THROUGH, row by row. */
+const LAB_BLOCKS_LONG = [
+  LAB_BLOCK(1, 'Guests arrive', '14:30', 'Santuario de San Antonio'),
+  LAB_BLOCK(2, 'Ceremony', '15:00', 'Santuario de San Antonio', 'ceremony'),
+  LAB_BLOCK(3, 'Photos with the families', '16:00', 'Santuario de San Antonio'),
+  LAB_BLOCK(4, 'Cocktails', '17:30', 'Seda Vertis North', 'cocktails'),
+  LAB_BLOCK(5, 'Grand entrance', '18:30', 'Seda Vertis North', 'reception'),
+  LAB_BLOCK(6, 'Dinner', '19:00', 'Seda Vertis North', 'reception'),
+  LAB_BLOCK(7, 'First dance', '20:30', 'Seda Vertis North', 'reception'),
+  LAB_BLOCK(8, 'Send-off', '22:00', 'Seda Vertis North', 'reception'),
 ];
 const LAB_VENUE_EVENT = {
   event_date: '2026-12-12',
@@ -92,12 +106,16 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   /* 🎨 The lab's drafted scene canvases (`lab_widgets`, the lab's save
      stand-in) — each scene drawn below wears its drafted Style through the
      REAL resolver (`sceneStyleOfRow`) and the REAL widget, as the guest page does. */
+  /* 🎚 `?scrub=1` (the Maker reaches it as `./scrub`): the lab's scenes as the Scrub chain (`../lab-scrub.ts`),
+     drawn through the guest page's own renderer — see the chain below. */
+  const scrub = sp.scrub === '1';
   let drafted: Record<string, unknown> = {};
   try {
-    drafted = JSON.parse(decodeURIComponent((await cookies()).get('lab_widgets')?.value ?? '{}')) as Record<string, unknown>;
+    drafted = JSON.parse(decodeURIComponent((await cookies()).get(labWidgetsCookie(scrub))?.value ?? '{}')) as Record<string, unknown>;
   } catch {
     drafted = {};
   }
+  drafted = labScrubCanvases(scrub, drafted);
   /* ⏱ A `lab_slow` cookie: the canvas page takes as long as production's to arrive. */
   if ((await cookies()).get('lab_slow')?.value === '1') await new Promise((r) => setTimeout(r, 2500));
   const labPhoto = (await cookies()).get('lab_photo')?.value === '1';
@@ -114,7 +132,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   }
   const { event: labEvent, widgets: labRows } = withStylePreview(
     { style_preferences: { scene_styles: labStyles } },
-    Object.keys({ ...drafted, countdown: 1, special_message: 1, schedule: 1, venue_map: 1, dress_code: 1 }).map((t) => ({ widget_type: t, config_json: { canvas: drafted[t] ?? {} } })),
+    Object.keys({ ...drafted, countdown: 1, special_message: 1, schedule: 1, venue_map: 1, dress_code: 1, our_love_story: 1 }).map((t) => ({ widget_type: t, config_json: { canvas: drafted[t] ?? {} } })),
     preview,
   );
   const rowOf = (type: string) => labRows.find((r) => r.widget_type === type) ?? { widget_type: type, config_json: { canvas: {} } };
@@ -139,7 +157,83 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       const look = postEventLookOf(labStory!.arrangement, r.key);
       return { key: r.key, name: r.name, source: r.source, marker, style: resolvePostEventStyle(r.key, look.style, 'wedding'), words: look.words ?? null };
     });
-  const mark = (key: string) => <span hidden data-maker-section={key} />;
+  /* On the chain the markers are drawn as the REAL page draws them — on the Maker's canvas only (`site-body.tsx`
+     `makerMark`). The Scrub island reads them: a page that has one is being edited, and holds nothing until ▶ is
+     held (`hub-scrub.tsx`); the same address opened plainly is a guest's page, and its hand-overs run. */
+  const mark = (key: string) => (scrub && sp.editor !== '1' ? null : <span hidden data-maker-section={key} />);
+  /* 🧩 THE LAB'S SCENES, each drawn ONCE — placed by the ordinary sample below, or (`?scrub=1`) by the Scrub chain. */
+  const scene: Record<LabScrubScene, ReactNode> = {
+    countdown: (
+      <section data-lab-scene="countdown" className="border-t border-ink/10 px-4 py-8">
+        <CountdownWidget targetIso="2026-12-12" timeZone="Asia/Manila" sceneStyle={sceneStyleOfRow(rowOf('countdown'), stage, 'wedding')} />
+      </section>
+    ),
+    our_love_story: (
+      <div data-lab-scene="our_love_story" className="border-t border-ink/10 px-4 py-8">
+        <MakerEmptyScene type="our_love_story" />
+      </div>
+    ),
+    special_message: (
+      /* 🌗 The REAL scene frame (`HubCanvasFrame`): its drafted background, Darker ↔ Lighter and Spacing, as guests see them. */
+      <HubCanvasFrame widget={{ ...rowOf('special_message'), widget_id: 'lab-special-message' } as never} hubTheme="house" ownClipPlays mediaUrls={LAB_MEDIA}>
+        <div data-lab-scene="special_message" className="border-t border-ink/10 px-4 py-8 text-left">
+          <SpecialMessageWidget
+            text="We cannot wait to celebrate with you."
+            signedBy="Maria & Jose"
+            sceneStyle={sceneStyleOfRow(rowOf('special_message'), stage, 'wedding')}
+          />
+        </div>
+      </HubCanvasFrame>
+    ),
+    schedule: (
+      /* 🗓 The day's moments — the REAL Schedule widget on maria-and-jose's run of show, in its drafted (or previewed) Style. */
+      <HubCanvasFrame widget={{ ...rowOf('schedule'), widget_id: 'lab-schedule' } as never} hubTheme="house" ownClipPlays>
+        <section data-lab-scene="schedule" className="border-t border-ink/10 px-4 py-8 text-left">
+          <ScheduleWidget blocks={(scrub ? LAB_BLOCKS_LONG : LAB_BLOCKS) as never} eventTz="Asia/Manila" eventType="wedding" sceneStyle={sceneStyleOfRow(rowOf('schedule'), stage, 'wedding')} />
+        </section>
+      </HubCanvasFrame>
+    ),
+    venue_map: (
+      /* 🏛 The REAL Venue widget — the church and the hotel, in its drafted (or previewed) Style. */
+      <HubCanvasFrame widget={{ ...rowOf('venue_map'), widget_id: 'lab-venue' } as never} hubTheme="house" ownClipPlays>
+        <section data-lab-scene="venue_map" className="border-t border-ink/10 px-4 py-8 text-left">
+          <VenueWidget event={LAB_VENUE_EVENT as never} sceneStyle={sceneStyleOfRow(rowOf('venue_map'), stage, 'wedding')} map="none" blocks={LAB_BLOCKS as never} />
+        </section>
+      </HubCanvasFrame>
+    ),
+    dress_code: (
+      /* 🎨 Dress code's palette LOOK (`canvas.palette`), read through the real
+         resolver; the lab stands in for the widget's drawing with its name. */
+      <section data-lab-scene="dress_code" className="border-t border-ink/10 px-4 py-16">
+        <p className="pahina-eyebrow">
+          <span>Dress code</span>
+        </p>
+        <p className="mt-3 font-serif text-2xl" data-lab-palette={paletteLookOfRow(rowOf('dress_code'))}>
+          Palette look: {paletteLookOfRow(rowOf('dress_code'))}
+        </p>
+      </section>
+    ),
+  };
+  const giftsBlock = (
+    <div data-lab-scene="gifts" className="border-t border-ink/10 px-4 py-8 text-left">
+      {words ? <WelcomeGifts href="#gifts" words={words} look={look('gifts')} /> : <MakerWelcomeGiftsEmpty look={look('gifts')} />}
+    </div>
+  );
+  /* 👤 The Invitation's "Guest's look" — the guest page's own stand-in (the Maker's What to wear part). */
+  const lookBlock = (
+    <div data-lab-scene="look" className="border-t border-ink/10 px-4 py-8 text-left">
+      <MakerWelcomeLook look={look('my_wear')} />
+    </div>
+  );
+  /* 🎚 On the chain EVERY scene sits in the real frame — its Build in and Build out are the frame's (`hub-canvas`). */
+  const framed = (type: LabScrubScene) =>
+    type === 'countdown' || type === 'dress_code' || type === 'our_love_story' ? (
+      <HubCanvasFrame widget={{ ...rowOf(type), widget_id: `lab-${type}` } as never} hubTheme="house" ownClipPlays>
+        {scene[type]}
+      </HubCanvasFrame>
+    ) : (
+      scene[type]
+    );
   if (rsvp) {
     return (
       <main className="min-h-dvh bg-[#FBF9F5] px-5 py-6 text-ink">
@@ -255,63 +349,49 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       <section className="border-t border-ink/10 px-4 py-8">
         <p className="font-serif text-lg">Guest&rsquo;s ticket</p>
       </section>
-      {mark('w:countdown')}
-      <section data-lab-scene="countdown" className="border-t border-ink/10 px-4 py-8">
-        <CountdownWidget targetIso="2026-12-12" timeZone="Asia/Manila" sceneStyle={sceneStyleOfRow(rowOf('countdown'), stage, 'wedding')} />
-      </section>
-      {/* 🔤 Three of the page's eyebrows, as the real scenes draw them — inside the
-          editorial scope the guest page wears (`.sn-editorial`). */}
-      <div className="sn-editorial">
-        {mark('f:gifts')}
-        <div data-lab-scene="gifts" className="border-t border-ink/10 px-4 py-8 text-left">
-          {words ? <WelcomeGifts href="#gifts" words={words} look={look('gifts')} /> : <MakerWelcomeGiftsEmpty look={look('gifts')} />}
+      {scrub ? (
+        /* 🎚 THE SCRUB CHAIN (`../lab-scrub.ts`) — the lab's scenes through the guest page's OWN renderer (`HubScenes`),
+           one node a scene with its marker, exactly as `site-body.tsx` hands them over: the hand-overs, the holds and
+           the engine are the real ones, and what the owner arranges on a scene in the Maker is what plays here. The
+           two fixed blocks follow the chain. */
+        <div className="sn-editorial" data-lab-scrub="">
+          <HubScenes widgets={LAB_SCRUB_CHAIN.map((t) => ({ ...rowOf(t), widget_id: `lab-${t}` })) as never} scrubAllowed>
+            {LAB_SCRUB_CHAIN.map((t) => (
+              <Fragment key={t}>
+                {mark(`w:${t}`)}
+                {framed(t)}
+              </Fragment>
+            ))}
+          </HubScenes>
+          {mark('f:gifts')}
+          {giftsBlock}
+          {mark('f:look')}
+          {lookBlock}
         </div>
-        {mark('w:our_love_story')}
-        <div data-lab-scene="our_love_story" className="border-t border-ink/10 px-4 py-8">
-          <MakerEmptyScene type="our_love_story" />
-        </div>
-        {mark('w:special_message')}
-        {/* 🌗 The REAL scene frame (`HubCanvasFrame`): its drafted background, Darker ↔ Lighter and Spacing, as guests see them. */}
-        <HubCanvasFrame widget={{ ...rowOf('special_message'), widget_id: 'lab-special-message' } as never} hubTheme="house" ownClipPlays mediaUrls={LAB_MEDIA}>
-          <div data-lab-scene="special_message" className="border-t border-ink/10 px-4 py-8 text-left">
-            <SpecialMessageWidget
-              text="We cannot wait to celebrate with you."
-              signedBy="Maria & Jose"
-              sceneStyle={sceneStyleOfRow(rowOf('special_message'), stage, 'wedding')}
-            />
+      ) : (
+        <>
+          {mark('w:countdown')}
+          {scene.countdown}
+          {/* 🔤 Three of the page's eyebrows, as the real scenes draw them — inside the
+              editorial scope the guest page wears (`.sn-editorial`). */}
+          <div className="sn-editorial">
+            {mark('f:gifts')}
+            {giftsBlock}
+            {mark('w:our_love_story')}
+            {scene.our_love_story}
+            {mark('w:special_message')}
+            {scene.special_message}
+            {mark('f:look')}
+            {lookBlock}
+            {mark('w:schedule')}
+            {scene.schedule}
+            {mark('w:venue_map')}
+            {scene.venue_map}
+            {mark('w:dress_code')}
+            {scene.dress_code}
           </div>
-        </HubCanvasFrame>
-        {/* 👤 The Invitation's "Guest's look" — the guest page's own stand-in (the Maker's What to wear part). */}
-        {mark('f:look')}
-        <div data-lab-scene="look" className="border-t border-ink/10 px-4 py-8 text-left">
-          <MakerWelcomeLook look={look('my_wear')} />
-        </div>
-        {/* 🗓 The day's moments — the REAL Schedule widget on maria-and-jose's run of show, in its drafted (or previewed) Style. */}
-        {mark('w:schedule')}
-        <HubCanvasFrame widget={{ ...rowOf('schedule'), widget_id: 'lab-schedule' } as never} hubTheme="house" ownClipPlays>
-          <section data-lab-scene="schedule" className="border-t border-ink/10 px-4 py-8 text-left">
-            <ScheduleWidget blocks={LAB_BLOCKS as never} eventTz="Asia/Manila" eventType="wedding" sceneStyle={sceneStyleOfRow(rowOf('schedule'), stage, 'wedding')} />
-          </section>
-        </HubCanvasFrame>
-        {/* 🏛 The REAL Venue widget — the church and the hotel, in its drafted (or previewed) Style. */}
-        {mark('w:venue_map')}
-        <HubCanvasFrame widget={{ ...rowOf('venue_map'), widget_id: 'lab-venue' } as never} hubTheme="house" ownClipPlays>
-          <section data-lab-scene="venue_map" className="border-t border-ink/10 px-4 py-8 text-left">
-            <VenueWidget event={LAB_VENUE_EVENT as never} sceneStyle={sceneStyleOfRow(rowOf('venue_map'), stage, 'wedding')} map="none" blocks={LAB_BLOCKS as never} />
-          </section>
-        </HubCanvasFrame>
-        {mark('w:dress_code')}
-        {/* 🎨 Dress code's palette LOOK (`canvas.palette`), read through the real
-            resolver; the lab stands in for the widget's drawing with its name. */}
-        <section data-lab-scene="dress_code" className="border-t border-ink/10 px-4 py-16">
-          <p className="pahina-eyebrow">
-            <span>Dress code</span>
-          </p>
-          <p className="mt-3 font-serif text-2xl" data-lab-palette={paletteLookOfRow(rowOf('dress_code'))}>
-            Palette look: {paletteLookOfRow(rowOf('dress_code'))}
-          </p>
-        </section>
-      </div>
+        </>
+      )}
       {/* 🎞 POST EVENT'S OWN SCENES (the Post Event stage only) — a stand-in for each scene guests would meet, in the
           run's order, behind the marker the real story page puts before it (`p:<scene>`; the day's chapters share
           one, as they move together). The SAME rows the lab hands the Maker (`../lab-post-event.ts`), with the lab's

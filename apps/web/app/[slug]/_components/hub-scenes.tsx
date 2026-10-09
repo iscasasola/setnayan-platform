@@ -37,13 +37,14 @@ import { HubScrub } from './hub-scrub';
  *
  *   div.hub-scenes            timeline-scope for every section's name
  *     div.hub-prog            the progress mark, one segment per section
- *     div.hub-scene.hub-scroll    an ordinary section (names its own timeline)
- *     div.hub-run             consecutive scrub sections, stacked in one cell
- *                             (`--hub-n` = how many, so the stylesheet can lay
- *                             one spacer row per section)
- *       div.hub-scene.hub-scrub   its frame pinned, AS TALL AS ITS CONTENT
- *       i.hub-sp                  its one-step spacer, which drives it
- *       …
+ *     div.hub-scene.hub-scroll    a section — Scroll, or Scrub (then marked
+ *                                 `data-hub-fx`; see `flow` for the cell a
+ *                                 hand-over is wrapped in, and `hub-scrub*.ts`)
+ *     …an Auto run (`HubAutoRun`): its scenes share one cell, on a clock
+ *
+ * (Until 2026-10-09 consecutive Scrub sections were a STACKED RUN — `div.hub-run`
+ * holding `div.hub-scene.hub-scrub` frames, each driven by an `i.hub-sp` spacer.
+ * Nothing emits those any more and their stylesheet is removed.)
  *
  * 🔑 WHICH SCRUB SECTION IS FIRST / LAST IN A RUN IS DECIDED IN CSS, NOT HERE.
  * A widget can render nothing (Countdown with no date) and this component

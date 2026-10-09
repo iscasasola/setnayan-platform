@@ -98,11 +98,14 @@ test('⛔ a scene with NO Build out hands nothing over: it stays an ordinary sce
 test('⛔ every class in the exported vocabulary is really emitted (the list the CSS guard trusts)', async () => {
   // A hand-over AND an auto run, so both vocabularies are rendered, not declared.
   const { html } = await render([row('A', 'scrub'), row('B'), row('C', 'auto'), row('D'), row('E')], true);
-  const retired = HUB_SCRUB_RETIRED_CLASSES as readonly string[];
-  for (const c of [...HUB_SCENE_CLASSES.filter((x) => !retired.includes(x)), ...HUB_SCRUB_CLASSES]) assert.match(html, new RegExp(`class="[^"]*\\b${c}\\b`), `${c} is emitted`);
-  /* (`hub-run` · `hub-scrub` · `hub-sp` stay in `HUB_SCENE_CLASSES` only while their rules stay in the stylesheet —
-     the stacked run's block, left for the cleanup that removes it whole.) */
-  for (const c of retired) assert.ok((HUB_SCENE_CLASSES as readonly string[]).includes(c));
+  for (const c of [...HUB_SCENE_CLASSES, ...HUB_SCRUB_CLASSES]) assert.match(html, new RegExp(`class="[^"]*\\b${c}\\b`), `${c} is emitted`);
+  /* 🔁 RE-AIMED 2026-10-09 (the cleanup): the stacked run's stylesheet is REMOVED, so its three classes left the
+     vocabulary with it — and no rule may name them again (a rule on a class nothing emits is dead weight a later
+     reader takes for a live mechanism). */
+  for (const c of HUB_SCRUB_RETIRED_CLASSES) {
+    assert.ok(!(HUB_SCENE_CLASSES as readonly string[]).includes(c), `${c} is back in the vocabulary`);
+    assert.doesNotMatch(CSS, new RegExp(`\\.${c}(?![\\w-])`), `the stylesheet names .${c} — the stacked Scrub run is gone`);
+  }
 });
 
 test('🎬 an auto run renders its scenes in ONE wrapper, one progress segment, and the page is otherwise untouched', async () => {
@@ -174,28 +177,37 @@ function scenesGate(): string {
 test('🔒 the plain page is the default: spacers and the mark are not drawn outside the gate', () => {
   const gate = scenesGate();
   const outside = CSS.replace(gate, '');
-  assert.match(outside, /\.hub-sp \{ display: none; \}/);
   assert.match(outside, /\.hub-prog \{ display: none; \}/);
-  // Nothing that pins or pulls up exists anywhere but inside the gate.
-  for (const re of [/\.hub-scrub > \*\s*\{[^}]*position:\s*sticky/, /grid-template-rows:\s*repeat\(var\(--hub-n/, /timeline-scope:\s*var/, /view-timeline:\s*var/]) {
+  // Nothing that names a timeline across siblings exists anywhere but inside the gate.
+  for (const re of [/timeline-scope:\s*var/, /view-timeline:\s*var/]) {
     assert.doesNotMatch(outside, re, `${re} leaked outside the gate`);
     assert.match(gate, re, `${re} is inside the gate`);
   }
+  /* 🔁 RE-AIMED 2026-10-09 (the cleanup): the stacked run's spacer, pinned frame and grid are GONE from the whole
+     stylesheet. What holds a Scrub scene now is the one sticky stage of "SCRUB — A HELD HAND-OVER", and it needs the
+     mark only the script sets — so the plain page is still the default (`scrub-is-a-held-hand-over` (5)). */
+  for (const re of [/grid-template-rows:\s*repeat\(var\(--hub-n/, /--hub-step\b/, /--hub-at\b/]) assert.doesNotMatch(CSS, re, `${re} — the stacked run is back`);
+  const sticky = [...CSS.matchAll(/([^{}]*)\{[^{}]*position:\s*sticky[^{}]*\}/g)].map((m) => m[1]!.trim()).filter((sel) => /hub-(?:stage|scene|cell|after|below)/.test(sel));
+  assert.deepEqual(sticky, ['.hub-scenes[data-hub-scrub-on] .hub-stage'], 'a scene is held by something other than the engine-marked stage');
 });
 
 test('🔒 the fallback keeps the hub rhythm: sections still stack 1rem apart when nothing pins', () => {
   assert.match(CSS, /\.hub-scenes > \.hub-prog ~ \* ~ \* \{ margin-top: 1rem; \}/);
-  assert.match(CSS, /\.hub-run > \.hub-scene ~ \.hub-scene \{ margin-top: 1rem; \}/);
+  /* 🔁 RE-AIMED 2026-10-09 (the cleanup): the stacked run's own 1rem rule went with it; the same rhythm is now the
+     hand-over nest's (cell › stage › scene, then the rest of the page). */
+  assert.match(CSS, /\.hub-stage > \.hub-after,\s*\.hub-after > \.hub-below,\s*\.hub-below > \* \+ \* \{ margin-top: 1rem; \}/);
 });
 
-test('🔑 the true cross-fade: IN leads OUT around the pin line, on the spacer timeline', () => {
-  const gate = scenesGate();
-  const IN = 'cover calc(var(--hub-at) - 0.6 * var(--hub-step)) cover calc(var(--hub-at) - 0.1 * var(--hub-step))';
-  const OUT = 'cover calc(var(--hub-at) + 0.5 * var(--hub-step)) cover calc(var(--hub-at) + var(--hub-step))';
-  assert.ok(gate.includes(`animation-range: ${IN}, ${OUT};`), 'a mid-run section does both');
-  assert.match(gate, /--hub-at: calc\(100% - var\(--hub-pin\) - var\(--hub-step\)\);/, 'ranges are measured from the pin line, not the screen height');
-  assert.match(gate, /grid-column: 2;\s*view-timeline: var\(--hub-tl\) block;/, 'the spacer sits in the zero-width column and names the timeline');
-  assert.match(gate, /grid-template-rows: repeat\(var\(--hub-n, 1\), var\(--hub-step\)\) auto;/, 'one step row per spacer, so drawn spacers abut');
+/* 🔁 RE-AIMED 2026-10-09 (the cleanup). This held the stacked run's cross-fade — IN leading OUT around the pin line on
+   a spacer's timeline. Scrub is no longer a cross-fade of two pinned frames: the leaving scene's Build out plays
+   first and the arrival begins when it is 80 % done, in the same place (owner: "let it enter on the last 20% of the
+   build out"). That ORDER is executed in `scrub-is-a-held-hand-over.test.ts` (1) and played in a browser
+   (`scripts/scrub-browser-check.mjs`). What stays here is the stylesheet's half: ONE fade a scene, driven by the
+   script's number — and none of the old timeline fades left to fight it. */
+test('🔑 the Scrub hand-over is one scripted fade a scene — the spacer-timeline cross-fade is gone', () => {
+  assert.match(CSS, /\.hub-scenes\[data-hub-scrub-on\] \.hub-scene\[data-hub-fx\] \{ opacity: var\(--hub-o, 1\); \}/);
+  assert.doesNotMatch(CSS, /animation: hub-scene-(?:in|out) linear/, 'a scene fades on a view timeline again');
+  assert.doesNotMatch(CSS, /grid-column: 2;\s*view-timeline/, 'the spacer column is back');
 });
 
 test('⌨ a fully faded scene cannot take focus: visibility is hidden at, and only at, the faded end', () => {
@@ -211,12 +223,22 @@ test('⌨ a fully faded scene cannot take focus: visibility is hidden at, and on
   assert.match(out, /from \{[^}]*opacity: 1;[^}]*visibility: visible;/);
   assert.match(out, /to\s+\{[^}]*opacity: 0;[^}]*visibility: hidden;/);
   // The fade-out keeps its end state (forwards); the fade-in holds its start before its window (both).
-  assert.match(scenesGate(), /animation: hub-scene-in linear both, hub-scene-out linear forwards;/);
+  /* 🔁 RE-AIMED 2026-10-09 (the cleanup): the keyframes are the Auto run's now (the stacked Scrub run that also
+     used them is removed) — on its clock, same fills. A Scrub scene that has left is taken off the tab order by its
+     own mark instead. */
+  assert.match(scenesGate(), /animation: hub-scene-in var\(--hub-fade\) linear both, hub-scene-out var\(--hub-fade\) linear forwards;/);
+  assert.match(CSS, /\.hub-scenes\[data-hub-scrub-on\] \.hub-scene\[data-hub-fx\]\[data-hub-away\] \{ visibility: hidden; \}/);
 });
 
-test('⛔ an empty scrub section drops out of its run instead of pinning a blank screen', () => {
-  const gate = scenesGate();
-  assert.match(gate, /\.hub-scrub:empty,\s*\.hub-scrub:has\(> \.hub-canvas > \.hub-canvas-body:empty\) \{ display: none; \}/);
+/* 🔁 RE-AIMED 2026-10-09 (the cleanup). The property stands — a widget that drew nothing must never hold a blank
+   screen — but the stacked run's rule that kept it is removed. It is kept now by: the scene's own rule (an empty
+   scene is no box at all), the nest's rhythm (no second gap where it was), and the ENGINE, which holds nothing for a
+   scene with no height. Played in a browser too (`scripts/scrub-browser-check.mjs`, the empty-scene case). */
+test('⛔ an empty Scrub scene holds nothing — no blank screen stands still', () => {
+  assert.match(CSS, /\.hub-scene:empty,\s*\.hub-scene:has\(> \.hub-canvas > \.hub-canvas-body:empty\) \{ display: none; \}/);
+  assert.match(CSS, /\.hub-stage > \.hub-scene:empty \+ \.hub-after,\s*\.hub-stage > \.hub-scene:has\(> \.hub-canvas > \.hub-canvas-body:empty\) \+ \.hub-after \{ margin-top: 0; \}/);
+  const engine = stripComments(readFileSync(join(__dirname, '..', 'app/[slug]/_components/hub-scrub-engine.ts'), 'utf8'));
+  assert.match(engine, /if \(scene\.offsetHeight === 0\) \{[^}]*put\(cell, '--hub-len', null\);[^}]*continue;\s*\}/, 'the engine holds the page for a scene that drew nothing');
 });
 
 test('🪤 no selector nests :has() inside :has() — the browser drops the WHOLE rule', () => {

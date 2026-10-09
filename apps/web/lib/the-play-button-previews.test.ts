@@ -158,7 +158,9 @@ test('(3) a hold is the whole page as a guest — it lets go of nothing, and Exi
   /* 🧨 SEEN ON THE REVIEW COPY: every toast of the toolbar was in the page and INVISIBLE while the toolbar was away —
      it was drawn inside the toolbar, which slides off with a transform and takes a `fixed` child with it. The one
      toast is drawn on the page's body; and the Maker's top bar leaves for the preview as it does for ▶. */
-  assert.match(tools, /\{why && typeof document !== 'undefined'\s*\? createPortal\(\s*<PeekToast key=\{why\.n\} tone="note" data="tool-why"[\s\S]{0,200}<\/PeekToast>,\s*document\.body,\s*\)/, 'the toolbar’s toast is drawn inside the toolbar');
+  /* Re-aimed (9d): the property is "on the body", not the browser check 9c wrote before it — that check is a
+     render-time branch `the-maker-first-render-is-the-servers.test.ts` forbids, and `why` (set only by a press) needs none. */
+  assert.match(tools, /\{why\s*\? createPortal\(\s*<PeekToast key=\{why\.n\} tone="note" data="tool-why"[\s\S]{0,200}<\/PeekToast>,\s*document\.body,\s*\)/, 'the toolbar’s toast is drawn inside the toolbar');
   assert.equal((tools.match(/<PeekToast\b/g) ?? []).length, 1, 'a second toast of the toolbar’s, not on the body');
   assert.match(tools, /away \? 'pointer-events-none translate-y-\[110%\]' : ''/, 'anti-vacuity: the toolbar leaves by a transform');
   assert.match(tools, /shell\?\.setAttribute\('data-stage-previewing', ''\);[\s\S]{0,700}shell\?\.removeAttribute\('data-stage-previewing'\);/);

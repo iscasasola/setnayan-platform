@@ -31,6 +31,7 @@ import { join } from 'node:path';
 import { stripComments } from './strip-comments';
 import { HUB_SEQUENCE_DEPTH, hubCanvasClass, resolveHubMotion } from './hub-canvas';
 import { SCENE_TEMPLATE_IDS, sceneTemplateDefaults } from './scene-templates';
+import { scrubRow } from '../app/[slug]/_components/hub-scrub-math';
 
 (globalThis as unknown as { React: unknown }).React = React;
 
@@ -187,7 +188,11 @@ test('5 ⛔ a scrolling scene\'s rules never reach into a run — a pinned row\'
   assert.ok(scroll.length >= 2);
   for (const r of scroll) {
     for (const s of r.selector.split(',')) {
-      assert.match(s.trim(), /^:not\(\.hub-scrub\):not\(\.hub-auto\) > /, `a scroll-scene rule that reaches into a run: ${s.trim()}`);
+      /* 🔁 RE-AIMED 2026-10-09 (the cleanup): the stacked Scrub run is removed, so the one run left to keep out of
+         is Auto's. `:not(.hub-arun)` took `:not(.hub-scrub)`'s place for its WEIGHT alone (the resets these rules
+         sit beside are balanced to the class) — the run's own box is never a frame's parent. A Scrub scene's rows
+         are taken from these rules by the engine's (test "7 🔒" below). */
+      assert.match(s.trim(), /^:not\(\.hub-arun\):not\(\.hub-auto\) > /, `a scroll-scene rule that reaches into a run: ${s.trim()}`);
     }
   }
 });
@@ -199,49 +204,39 @@ const pieces = (r: { selector: string }) => r.selector.split(',').map((x) => x.t
 const PINNED = ROW_RULES.filter((r) => pieces(r).some((x) => /^\.hub-scrub > /.test(x)));
 const AUTO = ROW_RULES.filter((r) => pieces(r).some((x) => /^\.hub-arun\[data-armed\]/.test(x)));
 
-test('7 📌 a pinned row arrives on the SPACER\'s timeline, with the scene\'s own In — once marked', () => {
-  const bind = PINNED.find((r) => /--hub-part-in:\s*var\(--hub-in-kf, none\)/.test(r.body));
-  assert.ok(bind, 'no pinned row rule binds the scene In');
-  assert.match(bind!.selector, /\.hub-seq-parts > \.hub-canvas-body \[data-hub-rows\] > \.pahina-in$/);
-  assert.match(bind!.body, /--hub-part-in-tl:\s*var\(--hub-tl\)/);
-  assert.match(bind!.body, /--hub-part-ease:\s*var\(--hub-ease/);
-  for (const r of [...PINNED, ...AUTO]) {
+/* 🔁 RE-AIMED 2026-10-09 (the cleanup that removed the stacked Scrub run). These two held a PINNED row: bound to its
+   scene's spacer timeline, row i of n taking the i-th slice of the hold. A Scrub scene is not pinned on a spacer any
+   more — its list is scrolled THROUGH, and each row builds as ITS top reaches the centre line (owner: "it never
+   completed the schedule"). What they protected still stands and is held where it now lives: the binding in the
+   stylesheet's engine block, the order and completion in the engine's own arithmetic, executed. */
+test('7 📌 a Scrub row is the engine’s: bound to its own number with the scene’s own In — no pinned row rule is left', () => {
+  assert.deepEqual(PINNED.map((r) => r.selector), [], 'a row rule of the stacked run is back');
+  const bind = ENGINE_ROW_RULES.find((r) => /animation:\s*var\(--hub-in-kf, none\) 1s linear both paused/.test(r.body));
+  assert.ok(bind, 'no Scrub row rule binds the scene In');
+  assert.match(bind!.selector, /\.hub-canvas\.hub-seq-parts > \.hub-canvas-body \[data-hub-rows\] > \*$/);
+  assert.match(bind!.body, /animation-delay:\s*calc\(var\(--hub-pp, 1\) \* -1s\)/, 'a row is not driven by its own number');
+  for (const r of AUTO) {
     assert.ok(r.chain.some((a) => RUN_GATE.test(a)), `a run row rule outside the runs' gate: ${r.selector}`);
     assert.ok(r.chain.some((a) => /^@media screen$/.test(a)), `a run row rule that also applies to print: ${r.selector}`);
   }
 });
 
-/** The pinned slice of row i of n, in steps from `--hub-at`, evaluated from the shipped formula. */
-function pinnedSlice(i: number, n: number): [number, number] {
-  const bind = PINNED.find((r) => /--hub-part-in-range/.test(r.body))!;
-  const m = /--hub-part-in-range:\s*cover (calc\([\s\S]*?\))\s+cover (calc\([\s\S]*?\));/.exec(bind.body);
-  assert.ok(m, 'the pinned range is not two cover offsets');
-  const num = (expr: string) =>
-    Function(`return ${expr
-      .replace(/calc\(/g, '(')
-      .replace(/var\(--hub-at\)/g, '0')
-      .replace(/var\(--hub-step\)/g, '1')
-      .replace(/var\(--hub-row-i, 1\)/g, String(i))
-      .replace(/var\(--hub-row-n, 1\)/g, String(n))}`)() as number;
-  return [num(m![1]!), num(m![2]!)];
-}
-
-test('7 📌 row i of n takes the i-th slice of the hold — in order, back to back, all before the hand-over', () => {
+test('7 📌 row i of n builds as it reaches the centre line — in order, and every one complete before the list can leave', () => {
+  const C = 400;
+  const rowH = 64;
   for (const n of [1, 3, 6, 12]) {
-    let prevEnd: number | null = null;
-    for (let i = 1; i <= n; i += 1) {
-      const [a, b] = pinnedSlice(i, n);
-      assert.ok(b > a, `row ${i}/${n} has an empty slice`);
-      if (prevEnd !== null) assert.ok(Math.abs(a - prevEnd) < 1e-9, `row ${i}/${n} does not start where row ${i - 1} ended`);
-      prevEnd = b;
+    const h = n * rowH;
+    const at = (top: number) => Array.from({ length: n }, (_, i) => scrubRow(top + i * rowH, C, 1, h - i * rowH));
+    /* From the list's top below the line to its BOTTOM on the line (where a list starts to leave). */
+    for (let top = C + 40; top >= C - h; top -= 4) {
+      const p = at(top);
+      for (let i = 1; i < n; i += 1) assert.ok(p[i]! <= p[i - 1]! + 1e-9, `row ${i + 1}/${n} is ahead of row ${i} at ${top}`);
     }
-    const [first] = pinnedSlice(1, n);
-    const [, last] = pinnedSlice(n, n);
-    // The scene's parts start at −0.05 of a step; its hand-over (OUT) starts at +0.5.
-    assert.ok(first >= -0.05 - 1e-9, `the first of ${n} rows starts before the scene's parts do`);
-    assert.ok(last < 0.5, `the last of ${n} rows is still arriving when the scene hands over`);
+    assert.deepEqual(at(C + 1), Array(n).fill(0), `a row of ${n} began before the list reached the line`);
+    assert.deepEqual(at(C - h), Array(n).fill(1), `a row of ${n} is still arriving when the list's bottom is on the line`);
+    /* …and never before its gate: the heading first. */
+    assert.equal(scrubRow(C - 500, C, 0, 500), 0, 'a row began before its gate opened');
   }
-  console.log(`[rows] pinned slices n=3: ${[1, 2, 3].map((i) => pinnedSlice(i, 3).map((x) => x.toFixed(3)).join('→')).join(' | ')}`);
 });
 
 test('7 ⏱ an auto run\'s rows arrive one stagger apart on the run\'s own clock, and pause with it', () => {
@@ -259,16 +254,17 @@ test('7 ⏱ an auto run\'s rows arrive one stagger apart on the run\'s own clock
 });
 
 test('7 🧱 in a run too, the list\'s own part stands still — its rows arrive instead', () => {
-  for (const ctx of [PINNED, AUTO]) {
-    const self = ctx.find((r) => pieces(r).some((x) => /> \* > \[data-hub-rows\]$/.test(x)));
-    assert.ok(self, 'no list-part reset in a run');
-    assert.match(self!.body, /--hub-part-in:\s*none/);
-    assert.ok(ctx.some((r) => /:has\(\[data-hub-rows\]\)/.test(r.selector) && /--hub-part-in:\s*none/.test(r.body)), 'no wrapper reset in a run');
-  }
-  // Specificity: the reset must out-rank the pinned parts rule `.hub-scrub > .hub-seq-parts > … > *:nth-child(n)` (4 classes).
-  const self = PINNED.find((r) => pieces(r).some((x) => /> \* > \[data-hub-rows\]$/.test(x)))!;
-  const classes = (pieces(self).find((x) => /^\.hub-scrub/.test(x))!.match(/\.[\w-]+|\[[^\]]+\]|:(?!not|has)[\w-]+/g) ?? []).length;
-  assert.ok(classes > 4, `the pinned list-part reset (${classes}) does not out-rank the parts' rule (4)`);
+  const self = AUTO.find((r) => pieces(r).some((x) => /> \* > \[data-hub-rows\]$/.test(x)));
+  assert.ok(self, 'no list-part reset in a run');
+  assert.match(self!.body, /--hub-part-in:\s*none/);
+  assert.ok(AUTO.some((r) => /:has\(\[data-hub-rows\]\)/.test(r.selector) && /--hub-part-in:\s*none/.test(r.body)), 'no wrapper reset in a run');
+  /* 🔁 RE-AIMED 2026-10-09 (the cleanup): the pinned run's half of this (and its specificity count against
+     `.hub-scrub > … > *:nth-child(n)`) went with the stacked run. In a Scrub scene the same property is the engine
+     block's: the parts that build one by one are every part EXCEPT the list and whatever wraps it. */
+  assert.ok(
+    ENGINE_ROW_RULES.some((r) => pieces(r).some((x) => /\.hub-seq-parts > \.hub-canvas-body > \* > \*:not\(:has\(\[data-hub-rows\]\)\):not\(\[data-hub-rows\]\)$/.test(x))),
+    'in a Scrub scene the list’s own part builds with its rows',
+  );
 });
 
 /* ── THE OBSERVER — the shipped script, run in a fake DOM ────────────────── */

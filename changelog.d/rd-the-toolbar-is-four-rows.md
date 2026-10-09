@@ -358,6 +358,74 @@ wheel and a real touch drag moved the page; with no script and with reduce motio
 Guard in the suite: `lib/scrub-is-a-held-hand-over.test.ts` (6 rules, nine sabotages seen red); eight pinning tests
 re-aimed with the reason written in.
 
+### 8c · the lab plays the real Scrub, and a Scrub scene while editing is the plain page
+
+`/dev/maker-lab?studio=1&scrub=1` — the Maker lab on the prototype's chain, as REAL scenes through the guest page's
+own renderer (`HubScenes`): Countdown → A note from us (two short hand-overs in the same place) → Schedule (eight
+moments, row by row, then it leaves) → Venue (no Build out: it stays, the next builds in below) → Dress code (an
+ordinary one, hands over) → Our love story (the last arrival). `app/dev/maker-lab/lab-scrub.ts` is the one chain:
+the page the browser check plays takes its six canvases from it. The canvas address is a path
+(`/dev/maker-lab/guest/scrub` — the Maker writes its query after the address it is given); opened plainly it is a
+guest's page. What is saved on the chain rides its own cookie (`lab_widgets_scrub`), so an old lab draft cannot take
+a scene off Scrub and the chain cannot follow the owner back into the ordinary lab.
+
+WHILE EDITING, NOTHING IS HELD. On the Maker's canvas a Scrub scene is drawn as the plain page draws it — whole, in
+page order, the top thing at its own place, so every part can be picked. The hand-overs run only while the page is
+shown as a guest (▶ held — the bridge's `data-maker-guest`); leaving the preview disarms the engine, which takes
+every mark off. The island knows the Maker's canvas by the section marker only a verified host's canvas draws, and
+does not even fetch the engine until ▶ is held. Because a hold is page length, opening or closing the preview
+changes the page under the host: the scene that was mid-screen is put back (and scrolled on until it can be read, if
+it is now an arrival) by `hub-scrub-place.ts` — fetched on the Maker's canvas only; a guest's page never loads it
+and is never moved by script.
+
+Browser check, case 7 added (`scripts/scrub-browser-check.mjs`, the page's own island on a page with a marker, at
+375 × 812 and 1280 × 770): nothing held while editing; every scene pickable; armed under ▶ held with the mid-screen
+scene still there and readable; a hand-over plays; the place kept on the way out; every mark gone. 106 checks, all
+green; the editing rule sabotaged in the browser → six red.
+
+Sizes (minified, gzipped): the island 552 B (was ~330), the place-keeping 460 B (Maker's canvas only), the engine
+unchanged. Maker first load: 0 B (the lab and `app/[slug]` only).
+
+Guard: `lib/the-lab-plays-the-scrub-chain.test.ts` (4 rules, each sabotaged red); `scrub-is-a-held-hand-over` (5)
+re-aimed (the engine is fetched beside the place-keeping).
+
+### 9d · a guard 9c broke
+
+9c drew the toolbar's toast on the body behind `why && typeof document !== 'undefined'` — a render-time "am I in a
+browser?" branch in the Stages panel, which `the-maker-first-render-is-the-servers.test.ts` forbids (the two first
+renders must not be able to differ). That guard was not run in 9c and has been red on the branch since. `why` is
+set only by a press, so it is null in both first renders: the branch is removed, the toast still portals to the
+body. `the-play-button-previews` (3) re-aimed from the phrasing to the property; both sabotaged red.
+
+### 8c · cleanup — the stacked Scrub run's stylesheet is removed
+
+Scrub has been a held hand-over since 8c; nothing has drawn `.hub-run` / `.hub-scrub` / `.hub-sp` since. Their
+rules are now gone from `app/globals.css` (36 rules; the spacer grid, the pinned frame, the spacer-timeline
+cross-fade, the pinned parts and rows, the lift), with `--hub-step` / `--hub-at`, and the three classes left the
+renderer's vocabulary (`lib/hub-scenes.ts`, a Maker first-load file: 8 B gz SMALLER). Auto scroll's rules are
+untouched — compared rule by rule before and after: every rule that went names a stacked-run class, except the two
+that changed (`.hub-scenes` lost the two lengths; the engine's own rule, below).
+
+Three things the removal brought up, fixed here:
+- AN EMPTY SCENE. The stacked run's stylesheet kept a widget that drew nothing from pinning a blank screen; 8c had
+  no equivalent, so an empty scene set to Scrub out held the page for a whole hand-over. The engine now holds
+  nothing for a scene with no box and hands over THROUGH it to the next scene a guest will see; the nest leaves no
+  second gap where it was. Browser check case 8: no box, no hold, 0 px of blank (128 px before the fix).
+- A NAME USED TWICE. The engine wrote its Build-in number as `--hub-pin`; the stylesheet declares `--hub-pin` as a
+  LENGTH (the pin line an Auto run sizes itself by). Nothing read both inside one scene, so nothing was broken —
+  the engine's is now `--hub-pbin`, and a guard holds that no name the engine writes is declared by the stylesheet.
+- THE ROW RULES' WEIGHT. Six scroll-scene row rules began `:not(.hub-scrub):not(.hub-auto) >`; their resets are
+  balanced to the class against the parts rules, so the first `:not()` became `:not(.hub-arun)` (same weight, never
+  a frame's parent) rather than being dropped.
+
+Left alone, listed: `lib/element-style.ts` still writes a `.hub-scrub >` rule for a part's own scroll motion and
+`stage-autoplay.tsx` still looks for a `.hub-sp` spacer — both match nothing now; the first is a Maker first-load
+file and belongs with the open question of a part's own motion inside a Scrub scene.
+
+Fourteen pins in five guards re-aimed with the reason written in (none deleted): what each protected is either
+asserted GONE (so the stacked run cannot come half back) or held where it now lives. Five sabotages seen red.
+Browser check: 110 checks, all green, on the cleaned stylesheet.
+
 SPEC IMPACT: Yes — supersedes the 2026-10-06/07 "Style | Text | Animate" and "the toolbar is half the screen" rows.
 The controller holds the spec (`TOOLBAR-SPEC-2026-10-09.md`) and applies the corpus rows; nothing in the corpus was
 edited from this branch.

@@ -14,6 +14,7 @@ import type { InvitationWidgetRow, WidgetType } from '@/lib/invitation-widgets';
 import { detailsLabNode } from '../details-lab/details-lab-node';
 import { MakerLabShell } from './maker-lab-shell';
 import { LAB_EDITORIAL_COOKIE, labEditorialDraft, labPostEventRead } from './lab-post-event';
+import { labScrubCanvases, labWidgetsCookie } from './lab-scrub';
 import { STUDIO_TILE_KEYS, STUDIO_TILES } from '@/lib/studio-tiles';
 
 /**
@@ -135,12 +136,16 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
   });
   /* 🎨 The lab's draft of each scene's canvas (`lab_widgets`, set by the lab's
      save stand-in) — the "server" canvases every render hands the work area. */
+  /* 🎚 `?scrub=1` — the Scrub chain (`./lab-scrub.ts`): the chain's scenes start on its canvases (so each scene's
+     Animate says what its canvas plays), saved to the chain's own cookie, and the canvas is the chain's address. */
+  const scrub = sp.scrub === '1';
   let drafted: Record<string, unknown> = {};
   try {
-    drafted = JSON.parse(decodeURIComponent((await cookies()).get('lab_widgets')?.value ?? '{}')) as Record<string, unknown>;
+    drafted = JSON.parse(decodeURIComponent((await cookies()).get(labWidgetsCookie(scrub))?.value ?? '{}')) as Record<string, unknown>;
   } catch {
     drafted = {};
   }
+  drafted = labScrubCanvases(scrub, drafted);
   /* 🎨 🎛 The lab's drafted part styles and camera look (set by the lab's save stand-in). */
   let fixedStyles: FixedSceneStyles = {};
   try {
@@ -206,6 +211,7 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
       }
       openDetails={sp.tool === 'details' || typeof sp.guide === 'string'}
       canvases={canvases}
+      scrub={scrub}
       fixedStyles={fixedStyles}
       cameraLook={cameraLook}
       /* ✓ `?changes=3` — a draft with unapplied changes (lab only; nothing is stored). */

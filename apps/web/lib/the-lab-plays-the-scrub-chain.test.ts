@@ -89,7 +89,9 @@ test('(1) the lab’s chain, through the real renderer, is the prototype’s min
 
 test('(2) one chain: the page the browser check plays takes its canvases from the lab’s chain — all but the cover’s', () => {
   const page = read('scripts/scrub-check-page.tsx');
-  assert.match(page, /import \{ LAB_SCRUB_CHAIN, LAB_SCRUB_SAMPLE \} from '\.\.\/app\/dev\/maker-lab\/lab-scrub';/);
+  /* (2026-10-10: and the cover's canvas, for the pages on which the cover is hand-over zero — the lab's own too.) */
+  assert.match(page, /import \{ LAB_SCRUB_CHAIN, LAB_SCRUB_COVER, LAB_SCRUB_SAMPLE \} from '\.\.\/app\/dev\/maker-lab\/lab-scrub';/);
+  assert.match(page, /const hero = \{ widget_type: 'hero', config_json: \{ canvas: LAB_SCRUB_COVER \} \};/);
   assert.match(page, /\.map\(\(s, i\) => \(\{ \.\.\.s, canvas: LAB_SCRUB_SAMPLE\[LAB_SCRUB_CHAIN\[i\]!\] \}\)\)/);
   assert.equal((page.match(/\{ name: '\w+', rows: \d+ \}/g) ?? []).length, LAB_SCRUB_CHAIN.length, 'the check page’s scenes and the lab’s chain are not the same length');
   /* 🔁 2026-10-09 (8d): ONE canvas is the check page's own — its first scene, standing in for the cover, which the
@@ -124,7 +126,14 @@ test('(3) the lab draws the chain as the guest page draws scenes, and the Maker 
   assert.match(guest, /<section\s+data-lab-scene=\{type\}\s+data-lab-name=\{LAB_SCRUB_NAME\[type\]\}\s+className="text-left"\s*>/, 'a chain card is styled by the lab again');
   assert.doesNotMatch(guest, /shadow-\[0_8px_22px|const ownGround/, 'the lab draws a stand-in card');
   assert.match(guest, /labScrubLabel\(rowOf\(type\)\.config_json, \{ last: i === LAB_SCRUB_CHAIN\.length - 1 \}\)/);
-  assert.match(guest, /\{i === 0 \? <span[^>]*>The cover above is not part of the chain yet\.<\/span> : null\}/);
+  /* 🔁 2026-10-10: the cover IS in it now — hand-over zero (`HubCoverHold`, `scrub-is-a-held-hand-over` (10)). The
+     lab's cover Leaves by Scrub from the start; the first card only speaks when a host has set it back. */
+  assert.match(guest, /const coverLeaves = scrub && hubCoverLeaves\(\[rowOf\('hero'\)\] as never, true, true\);/);
+  assert.match(guest, /<HubCoverHold\s+leaves=\{coverLeaves\}\s+cover=\{\s*<>\s*\{mark\('f:hero'\)\}\s*<section className="px-4 pb-10 pt-6">/, 'the lab’s cover is not handed over as the page hands it over — its marker with it');
+  assert.match(guest, /hubScrubHoldsAtMost\(LAB_SCRUB_CHAIN\.map\(\(t\) => rowOf\(t\)\) as never, true, true\) \+ \(coverLeaves \? 1 : 0\)/, 'the lab’s page is not wrapped for the cover’s hand-over');
+  assert.match(guest, /\{i === 0 && !coverLeaves \? <span[^>]*>The cover above does not leave by Scrub\.<\/span> : null\}/);
+  assert.deepEqual(labScrubCanvases(true, {}).hero, { transition: 'scrub' });
+  assert.equal(labScrubCanvases(false, {}).hero, undefined, 'the ordinary lab’s cover leaves by Scrub');
   assert.match(guest, /<div className="sn-editorial mx-auto max-w-\[430px\] px-4 pb-6" data-lab-scrub="">/, 'the chain lost its phone-wide column');
   assert.deepEqual(Object.keys(LAB_SCRUB_NAME), [...LAB_SCRUB_CHAIN]);
   /* The markers as the real page draws them: on the Maker's canvas only — the island reads them. */
@@ -239,7 +248,9 @@ test('(5) off is never silent: the page carries the reason, and the lab’s badg
   assert.equal(labWidgetsCookie(true), 'lab_widgets_scrub');
   assert.match(badge, /setSaved\(document\.querySelector\('\[data-maker-section\]'\) === null && document\.cookie\.split\('; '\)\.some\(\(c\) => c\.startsWith\(`\$\{SAVED\}=`\)\)\);/);
   const guest = read('app/dev/maker-lab/guest/page.tsx');
-  assert.match(guest, /\{scrub && !only && !preview \? <LabScrubBadge \/> : null\}\s*\{mark\('f:hero'\)\}/, 'the badge is not before the first marker, on the chain alone');
+  /* 🔁 2026-10-10: the first marker is now handed over WITH the cover (`HubCoverHold`'s `cover`) — the badge is
+     still before it, and outside the cover's own box. */
+  assert.match(guest, /\{scrub && !only && !preview \? <LabScrubBadge \/> : null\}\s*<HubCoverHold\s+leaves=\{coverLeaves\}\s+cover=\{\s*<>\s*\{mark\('f:hero'\)\}/, 'the badge is not before the first marker, on the chain alone');
   assert.deepEqual(
     [...read('app/[slug]/_components/site-body.tsx').matchAll(/scrub-badge|LabScrubBadge/g)].length + [...read('app/[slug]/_components/hub-scenes.tsx').matchAll(/scrub-badge|LabScrubBadge/g)].length,
     0,
@@ -249,7 +260,7 @@ test('(5) off is never silent: the page carries the reason, and the lab’s badg
   const engine = read('app/[slug]/_components/hub-scrub-engine.ts');
   assert.match(engine, /export const HUB_SCRUB_OFF = 'data-hub-scrub-off';/);
   /* (2026-10-09: said on EVERY scenes block the engine plays — on a page with its own hold one engine plays them all.) */
-  assert.match(engine, /const say = \(why: string \| null\) => \{\s*for \(const s of scopes\) why === null \? s\.removeAttribute\(HUB_SCRUB_OFF\) : s\.setAttribute\(HUB_SCRUB_OFF, why\);\s*\};/);
+  assert.match(engine, /const say = \(why: string \| null\) => \{\s*for \(const s of scopes\.length \? scopes : \[root\]\) why === null \? s\.removeAttribute\(HUB_SCRUB_OFF\) : s\.setAttribute\(HUB_SCRUB_OFF, why\);\s*\};/ /* 🔁 2026-10-10: a page whose cover is its only Scrub has no scenes block — it says it on its own hold. */);
   assert.match(engine, /if \(window\.matchMedia\?\.\('\(prefers-reduced-motion: reduce\)'\)\.matches\) \{\s*say\('reduce motion'\);\s*return \(\) => say\(null\);\s*\}/);
   assert.match(engine, /function fail\(e: unknown\) \{\s*stop\(\);\s*say\(`the script stopped: \$\{e instanceof Error \? e\.message : String\(e\)\}`\.slice\(0, 160\)\);\s*\}/);
   assert.equal((engine.match(/catch \(e\) \{\s*fail\(e\);\s*\}/g) ?? []).length, 3);

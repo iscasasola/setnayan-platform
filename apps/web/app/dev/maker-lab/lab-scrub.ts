@@ -12,9 +12,12 @@ import type { MotionFx } from '@/lib/motion-effects';
  *   Dress code       From the left + Fade in · Fade out — an ordinary one that hands over   (Leaves: Scrub out)
  *   Venue            the last arrival — nothing arranged on it at all: it is simply there
  *
- * ⛔ THE COVER IS NOT IN IT (2026-10-09: *"a lab that shows what a real page cannot do is how we got here"*). The
- * prototype opens on "Maria & Jose" handing over to the countdown; on a real page the names are the cover, and the
- * cover is not a scene the renderer can hand over yet. So the chain starts at the Countdown and its first card says so.
+ * 🎬 THE COVER IS HAND-OVER ZERO (2026-10-10 — the owner's own example: *"maria jose must build out and until we say i
+ * do should be where maria jose build out"*). The prototype opens on "Maria & Jose" handing over; on a page the names
+ * are the cover, which no scenes block draws — so the PAGE hands it over (`hub-scenes.tsx` `HubCoverHold`), and here
+ * the lab's cover Leaves by Scrub from the start (`LAB_SCRUB_COVER`: what "Scene leaves ◆" on one of the cover's
+ * parts stores on the hero row). What arrives is what comes next on the page — here the greeting, a plain block.
+ * (Until then the chain began at the Countdown and its first card said the cover was not part of it.)
  *
  * 🔑 ONE CHAIN. `scripts/scrub-check-page.tsx` — the page a real browser plays at the five sizes
  * (`scripts/scrub-browser-check.mjs`) — takes these five canvases from HERE (its own first scene stands in for the
@@ -33,6 +36,9 @@ export const LAB_SCRUB_SAMPLE: Readonly<Record<LabScrubScene, HubSectionCanvas>>
   dress_code: { in: 'move_fade', inFrom: 'left', out: 'fade', transition: 'scrub' },
   venue_map: {},
 };
+
+/** 🎬 The cover's own canvas on the chain — the hero row's: it Leaves by Scrub (its Build out is a scene's default). */
+export const LAB_SCRUB_COVER: HubSectionCanvas = { transition: 'scrub' };
 
 /** A scene's name on its card and in the lab's badge. */
 export const LAB_SCRUB_NAME: Readonly<Record<LabScrubScene, string>> = {
@@ -75,7 +81,7 @@ export const labWidgetsCookie = (scrub: boolean) => (scrub ? 'lab_widgets_scrub'
 
 /** What the lab's "server" holds for each scene: the chain's start, and over it whatever was saved here (whole, as a save is). */
 export function labScrubCanvases(scrub: boolean, drafted: Record<string, unknown>): Record<string, unknown> {
-  return scrub ? { ...LAB_SCRUB_SAMPLE, ...drafted } : drafted;
+  return scrub ? { hero: LAB_SCRUB_COVER, ...LAB_SCRUB_SAMPLE, ...drafted } : drafted;
 }
 
 /**

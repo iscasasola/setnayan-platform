@@ -13,7 +13,7 @@ import { PahinaMasthead } from '@/app/[slug]/_components/pahina-masthead';
 import { ScheduleWidget } from '@/app/[slug]/_components/schedule-widget';
 import { VenueWidget } from '@/app/[slug]/_components/venue-widget';
 import { HubCanvasFrame } from '@/app/[slug]/_components/hub-canvas-frame';
-import { HubPageHold, HubScenes, hubScrubHoldsAtMost } from '@/app/[slug]/_components/hub-scenes';
+import { HubCoverHold, HubPageHold, HubScenes, hubCoverLeaves, hubScrubHoldsAtMost } from '@/app/[slug]/_components/hub-scenes';
 import { EDITOR_CANVAS_HIDES_APP_CHROME, canvasOnlyCss, canvasOnlyScene, canvasStylePreview } from '@/app/[slug]/_lib/editor-canvas';
 import { withStylePreview } from '@/app/[slug]/_lib/style-preview';
 import { eventWordsFor } from '@/app/[slug]/_lib/event-words';
@@ -252,6 +252,10 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
     ),
     venue_map: <VenueWidget event={LAB_VENUE_EVENT as never} sceneStyle={sceneStyleOfRow(rowOf('venue_map'), stage, 'wedding')} map="none" blocks={LAB_BLOCKS as never} />,
   };
+  /* 🎬 THE COVER AS HAND-OVER ZERO (`hub-scenes.tsx` `HubCoverHold`): on the chain the lab's cover is the hero row, and
+     it hands over when that row Leaves by Scrub — the chain's start (`LAB_SCRUB_COVER`), or whatever "Scene leaves ◆"
+     on one of the cover's parts saved here. Asked through the real question, with the lab's door open. */
+  const coverLeaves = scrub && hubCoverLeaves([rowOf('hero')] as never, true, true);
   const chainCard = (type: LabScrubScene, i: number) => (
     <HubCanvasFrame widget={{ ...rowOf(type), widget_id: `lab-${type}` } as never} hubTheme="house" ownClipPlays mediaUrls={LAB_MEDIA}>
       <section
@@ -266,7 +270,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
               {l.name} <b className="font-bold text-terracotta-700">{l.value}</b>
             </span>
           ))}
-          {i === 0 ? <span className="mt-1 block normal-case tracking-normal text-ink/60">The cover above is not part of the chain yet.</span> : null}
+          {i === 0 && !coverLeaves ? <span className="mt-1 block normal-case tracking-normal text-ink/60">The cover above does not leave by Scrub.</span> : null}
         </p>
         {chainBody[type]}
       </section>
@@ -361,7 +365,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       {/* 🧍 THE PAGE'S OWN HOLD, as `site-body.tsx` wraps its article: on the chain, everything this page draws — the
           cover, the greeting, the ticket — stands still while a hand-over plays. (`holds` 0 off the chain: nothing is
           wrapped.) */}
-      <HubPageHold holds={scrub ? hubScrubHoldsAtMost(LAB_SCRUB_CHAIN.map((t) => rowOf(t)) as never, true, true) : 0}>
+      <HubPageHold holds={scrub ? hubScrubHoldsAtMost(LAB_SCRUB_CHAIN.map((t) => rowOf(t)) as never, true, true) + (coverLeaves ? 1 : 0) : 0}>
       <div className="flex justify-between border-b border-ink/10 px-4 py-2.5 text-[9.5px] font-semibold uppercase tracking-[0.3em] text-gild">
         <span>Setnayan</span>
         <span>{phase === 'save_the_date' ? 'Save the Date' : phase === 'event' ? 'The Day' : phase === 'editorial' ? 'Post Event' : 'Invitation'}</span>
@@ -370,7 +374,15 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
           `data-el` and, when picked, their own style (`data-part-look`), exactly as the guest page draws them. */}
       {/* 🎚 The chain's badge (lab only): is Scrub on, which hand-over, how far — or WHY it is off. Before the first
           marker, so the Maker's bridge never counts it as part of a scene. Never in a miniature. */}
+      {/* 🎬 THE COVER, AND THE REST OF THE PAGE AFTER IT — as the page hands its cover over (`HubCoverHold`). With a
+          cover that does not leave (the ordinary lab; a chain whose cover was set back to "As it scrolls away") both
+          are returned as given: nothing is wrapped. The cover's marker goes IN with it, so the Maker's bridge still
+          finds the cover right after its marker. */}
       {scrub && !only && !preview ? <LabScrubBadge /> : null}
+      <HubCoverHold
+        leaves={coverLeaves}
+        cover={
+          <>
       {mark('f:hero')}
       <section className="px-4 pb-10 pt-6">
         <PahinaMasthead
@@ -387,6 +399,9 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
           }
         />
       </section>
+          </>
+        }
+      >
       <section className="border-t border-ink/10 px-4 py-8">
         <p className="font-serif text-lg">Personal greeting</p>
         <p className="mt-1 text-sm text-ink/70">Dear Teresita, we would love you there.</p>
@@ -470,6 +485,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
           ))}
         </div>
       ) : null}
+      </HubCoverHold>
       </HubPageHold>
       {/* The Maker's two-way bridge, as the real canvas mounts it — its `ready` swaps a buffered frame in. Never in a miniature. */}
       {sp.editor === '1' && !preview ? <EditorBridge /> : null}

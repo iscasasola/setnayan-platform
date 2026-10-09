@@ -14,6 +14,11 @@
  *       page, and the page's own ISLAND (`scripts/scrub-check-island.tsx`) deciding when the engine is armed
  *   tsx scripts/scrub-check-page.tsx <out.html> <engine.js> bar       — A LONG ARRIVAL UNDER THE PINNED TOP BAR: the
  *       page's own hold, the invitation's pinned bar above it, and a list that hands over to a second long list
+ *   tsx scripts/scrub-check-page.tsx <out.html> <engine.js> cover     — 🎬 THE COVER AS HAND-OVER ZERO: the page's own
+ *       hold, a strip, the cover through the REAL `HubCoverHold`, then the lab's five scenes right after it. And:
+ *       cover-tall (a cover taller than the screen) · cover-block (two plain blocks between the cover and the
+ *       scenes: whatever comes next arrives) · cover-only (no scene scrubs — the cover is the page's only Scrub) ·
+ *       cover-noscript (the same page, no script) · cover-today (the cover does NOT hand over: today's page)
  *   tsx scripts/scrub-check-page.tsx <out.html> - cards              — THE HUB IS CARDS, FRAMED OR NOT: no Scrub at
  *       all — five scenes in the hub's own card wrapper, each through the REAL frame (`HubCanvasFrame`)
  *
@@ -27,9 +32,9 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
 import { HubCanvasFrame } from '../app/[slug]/_components/hub-canvas-frame';
-import { HubPageHold, HubScenes, hubScrubHolds } from '../app/[slug]/_components/hub-scenes';
+import { HubCoverHold, HubPageHold, HubScenes, hubCoverLeaves, hubScrubHolds } from '../app/[slug]/_components/hub-scenes';
 import { hubCanvasClass, hubCanvasVars, sanitizeHubCanvas } from '../lib/hub-canvas';
-import { LAB_SCRUB_CHAIN, LAB_SCRUB_SAMPLE } from '../app/dev/maker-lab/lab-scrub';
+import { LAB_SCRUB_CHAIN, LAB_SCRUB_COVER, LAB_SCRUB_SAMPLE } from '../app/dev/maker-lab/lab-scrub';
 
 (globalThis as unknown as { React: unknown }).React = React;
 
@@ -110,7 +115,10 @@ if (mode === 'cards') {
   console.log('wrote', out, '·', CARD_SCENES.length, 'scenes in the hub’s card wrapper ·', (html.match(/class="hub-canvas /g) ?? []).length, 'framed');
   process.exit(0);
 }
-const chain = mode === 'bar' ? BAR_CHAIN : SCRUB_CHECK_CHAIN;
+/* 🎬 `cover…` — the page's cover hands over (hand-over zero), so the chain is the lab's five scenes: the stand-in
+   "Names" scene is not needed. `cover-only`: the same scenes with nothing arranged — only the cover scrubs. */
+const coverMode = mode?.startsWith('cover') ? mode : null;
+const chain = mode === 'bar' ? BAR_CHAIN : coverMode ? SCRUB_CHECK_CHAIN.slice(1).map((s) => (coverMode === 'cover-only' ? { ...s, canvas: {} } : s)) : SCRUB_CHECK_CHAIN;
 const widgets = chain.map((s, i) => ({ widget_id: `w${i}`, widget_type: s.name.toLowerCase(), config_json: { canvas: s.canvas } }));
 const nodes = chain.map((s, i) => {
   const canvas = sanitizeHubCanvas(widgets[i]!.config_json);
@@ -146,6 +154,62 @@ const scenes = renderToStaticMarkup(
     {nodes}
   </HubScenes>,
 );
+if (coverMode) {
+  /* The cover is the hero row: it Leaves by Scrub, as "Scene leaves ◆" on one of its parts stores it. Asked through
+     the REAL question (`hubCoverLeaves`) — `cover-today` is the same row with Scrub out not offered: today's page. */
+  const hero = { widget_type: 'hero', config_json: { canvas: LAB_SCRUB_COVER } };
+  const leaves = hubCoverLeaves([hero] as never, true, coverMode !== 'cover-today');
+  const page = renderToStaticMarkup(
+    <HubPageHold holds={hubScrubHolds(widgets as never, true, true) + (leaves ? 1 : 0)}>
+      <div className="strip col">SETNAYAN · INVITATION</div>
+      <HubCoverHold
+        leaves={leaves}
+        cover={
+          <header data-cover="" className={`cover col${coverMode === 'cover-tall' ? ' tall' : ''}`}>
+            <p style={{ margin: 0, font: '700 11px/1.3 sans-serif', letterSpacing: '.3em', color: '#A9834B' }}>TOGETHER WITH THEIR FAMILIES</p>
+            <h1 style={{ margin: '28px 0 12px', font: '400 44px/1.1 Georgia, serif' }}>Maria &amp; Jose</h1>
+            <p style={{ margin: 0, font: '400 20px/1.3 Georgia, serif', color: '#A9834B' }}>December 12, 2026</p>
+          </header>
+        }
+      >
+        {/* A marker with no size, as the real page puts before a block: it is never what arrives. */}
+        <span hidden data-marker="" />
+        {coverMode === 'cover-block' ? (
+          <>
+            <section data-block="Greeting" className="block col">
+              <b>Personal greeting</b>
+              <br />
+              Dear Teresita, we would love you there.
+            </section>
+            <section data-block="Ticket" className="block col">
+              <b>Guest’s ticket</b>
+            </section>
+          </>
+        ) : null}
+        <div className="col" data-hub-wrap="" dangerouslySetInnerHTML={{ __html: scenes }} />
+        <div className="foot col" data-foot="">
+          The page after the scenes.
+        </div>
+      </HubCoverHold>
+    </HubPageHold>,
+  );
+  const arm = coverMode === 'cover-today' || coverMode === 'cover-noscript' ? '' : `<script src="file://${engine}"></script><script>window.__stop = HubScrubEngine.armHubScrub(document.querySelector('.hub-page-cell'));</script>`;
+  writeFileSync(
+    out!,
+    `<!doctype html><html><head><meta charset="utf8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="file://${join(__dirname, '..', 'app', 'globals.css')}">
+<style>html,body{margin:0;background:#F3F0EA;font:16px/1.4 sans-serif;--color-ink:44 42 41;--color-cream:255 255 255;--m-r-md:14px}
+.col{max-width:430px;margin:0 auto;padding:0 16px}.strip{padding:10px 16px;font:600 10px/1.6 sans-serif;letter-spacing:.3em;color:#A9834B;border-bottom:1px solid #ddd}
+.cover{box-sizing:border-box;min-height:62vh;padding:9vh 24px 40px;text-align:center}.cover.tall{min-height:130vh}
+.block{padding:28px 16px;border-top:1px solid #ddd;text-align:center}.foot{padding:40px 24px;height:60px;box-sizing:border-box}
+#line{position:fixed;left:0;right:0;top:50%;border-top:1.5px dashed rgba(194,78,36,.6);pointer-events:none;z-index:9}</style></head>
+<body><div id="line"></div>${page}
+${arm}
+</body></html>`,
+  );
+  console.log('wrote', out, '· the cover', leaves ? 'hands over' : 'does not hand over', '·', (page.match(/class="hub-page-cell"/g) ?? []).length, 'page pairs ·', (scenes.match(/class="hub-cell"/g) ?? []).length, 'hand-overs among the scenes');
+  process.exit(0);
+}
 /* The page's own hold — the REAL component, around everything the page draws, one pair a hand-over. */
 const paged = mode === 'page' || mode === 'page-island' || mode === 'bar';
 const hold = paged

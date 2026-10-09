@@ -7036,8 +7036,8 @@ html:has(.hub-shape-full) { overflow-x: clip; }
    (2026-10-09: it had — 76 px, or 9 % — while this line is 100px under the bar, so a long arrival began 24px above
    it, with its top under the progress mark.) It is HERE, in the plain base, and not behind the scroll-timeline
    gates further down: a custom property paints nothing, and Scrub also runs in browsers those gates leave out. */
-.hub-scenes { --hub-pin: calc(max(4.75rem, 9vh) + env(safe-area-inset-top, 0px)); }
-html:has([data-sticky-top]) .hub-scenes { --hub-pin: calc(6.25rem + env(safe-area-inset-top, 0px)); }
+.hub-scenes, .hub-cover-cell { --hub-pin: calc(max(4.75rem, 9vh) + env(safe-area-inset-top, 0px)); }
+html:has([data-sticky-top]) .hub-scenes, html:has([data-sticky-top]) .hub-cover-cell { --hub-pin: calc(6.25rem + env(safe-area-inset-top, 0px)); }
 /* A widget that rendered nothing (Countdown with no date) leaves an empty
    scene. It is no scene: it takes no gap and — because a hidden box has no
    timeline — no progress segment either. */
@@ -8424,6 +8424,24 @@ body:not(:has([data-maker-section])) [data-maker-sample] { display: none !import
   .hub-page-cell[data-hub-page-on]::after,
   .hub-page-cell[data-hub-page-on] .hub-page-cell::after { content: ''; display: block; height: var(--hub-len, 0px); }
   .hub-page-cell[data-hub-page-on] .hub-page-stage { position: sticky; top: var(--hub-top, 0px); }
+  /* 🎬 HAND-OVER ZERO — THE COVER (`hub-scenes.tsx` `HubCoverHold`: the cover in one box, the rest of the page in
+     another; owner: *"maria jose must build out and until we say i do should be where maria jose build out"*). The
+     cover is the page's, so its rules hang on the PAGE's mark and it is the page's first pair that stands still for
+     it. It leaves by the hand-over's one fade (a Scrub scene's default Build out), and what comes next on the page —
+     a scene, or any block: the engine marks it, `data-hub-zero` — arrives by the same fade, in the place the engine
+     measures (the rest of the page begins that far from the cover's bottom; its own box, so no margin of a child
+     leaks out and is counted twice). What follows the arrival sits under the lower of the two until the cover has
+     gone (`top`, never a transform — see above): the engine marks each such box, `data-hub-zlift`, and only a box
+     in the ordinary flow — one the page pins or places itself is never touched; the nest's own boxes carry their
+     rise themselves.
+     The cover's cell also carries the page's top line, for a page whose cover is its only Scrub. */
+  .hub-page-cell[data-hub-page-on] .hub-cover-cell { scroll-padding-top: var(--hub-pin); }
+  .hub-page-cell[data-hub-page-on] .hub-cover-after { display: flow-root; margin-top: var(--hub-up, 0px); }
+  .hub-page-cell[data-hub-page-on] .hub-cover,
+  .hub-page-cell[data-hub-page-on] [data-hub-zero] { opacity: var(--hub-o, 1); }
+  .hub-page-cell[data-hub-page-on] .hub-cover[data-hub-away],
+  .hub-page-cell[data-hub-page-on] [data-hub-zero][data-hub-away] { visibility: hidden; }
+  .hub-page-cell[data-hub-page-on] .hub-cover-after [data-hub-zlift] { position: relative; top: var(--hub-zrise, 0px); }
   /* THE SAME PLACE — the rest of the page begins OVER the leaving scene (how far: the engine's measure). */
   .hub-scenes[data-hub-scrub-on] .hub-scene + .hub-after { margin-top: var(--hub-up, 1rem); }
   /* WHAT FOLLOWS THE PAIR sits under the lower of the two until the leaving one has gone, then under the arrival

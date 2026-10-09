@@ -26,8 +26,12 @@ export const HUB_SCRUB_OFF = 'data-hub-scrub-off';
 
 const CELL = '.hub-cell';
 const PAGE = '.hub-page-cell';
-/** `stick`: where the STAGE's top stands while its scene is held — above the scene's own line by whatever the stage holds before it. */
-type Held = { cell: HTMLElement; stage: HTMLElement; scene: HTMLElement; after: HTMLElement; below: HTMLElement | null; arrival: HTMLElement | null; pair: ScrubPair; rest: number; stick: number };
+/** The cover's own boxes (`hub-scenes.tsx` `HubCoverHold`) and the page wrappers an arrival is looked for THROUGH. */
+const COVER = '.hub-cover-cell';
+const THROUGH = '.hub-scenes, .hub-cell, .hub-stage, .hub-after, .hub-below, .sn-hub-cards, [data-hub-wrap]';
+/** `stick`: where the STAGE's top stands while its scene is held — above the scene's own line by whatever the stage holds before it.
+ *  `lift`: the cover's rest-of-the-page, on a hand-over from the cover — what follows its arrival rises by a number said there. */
+type Held = { cell: HTMLElement; stage: HTMLElement; scene: HTMLElement; after: HTMLElement; below: HTMLElement | null; arrival: HTMLElement | null; pair: ScrubPair; rest: number; stick: number; lift?: HTMLElement };
 
 const px = (n: number) => `${Math.round(n * 100) / 100}px`;
 const num = (n: number) => String(Math.round(n * 1000) / 1000);
@@ -50,7 +54,8 @@ export function armHubScrub(root: HTMLElement): () => void {
   const scopes = root.matches('.hub-scenes') ? [root] : Array.from(root.querySelectorAll<HTMLElement>('.hub-scenes'));
   /** Why it is off, said on every scenes block (null: it is on). */
   const say = (why: string | null) => {
-    for (const s of scopes) why === null ? s.removeAttribute(HUB_SCRUB_OFF) : s.setAttribute(HUB_SCRUB_OFF, why);
+    /* (A page whose cover is its only Scrub has no scenes block: it says it on its own hold.) */
+    for (const s of scopes.length ? scopes : [root]) why === null ? s.removeAttribute(HUB_SCRUB_OFF) : s.setAttribute(HUB_SCRUB_OFF, why);
   };
   if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
     say('reduce motion');
@@ -109,6 +114,37 @@ export function armHubScrub(root: HTMLElement): () => void {
     for (let n: HTMLElement | null = el; n; n = n.offsetParent as HTMLElement | null) y += (n.matches('.hub-stage, .hub-page-stage') ? (n.parentElement as HTMLElement) : n).offsetTop;
     return y;
   };
+  /**
+   * 🎬 WHAT ARRIVES AFTER THE COVER — the next thing on the page a guest would see, whatever it is (owner: *"that
+   * element is gone and the next element takes its place"*): a scene, or any block the page draws — the door, a
+   * greeting, the ticket. A box with no size (a marker, an anchor) and one that is not in the flow (a pinned pill)
+   * are not it; the nest's own boxes and a wrapper the page marks (`data-hub-wrap`) are looked THROUGH.
+   */
+  const nextBox = (box: HTMLElement): HTMLElement | null => {
+    for (const el of Array.from(box.children) as HTMLElement[]) {
+      if (!el.offsetHeight || el.offsetParent === null) continue;
+      return el.matches(THROUGH) ? (nextBox(el) ?? el) : el;
+    }
+    return null;
+  };
+  /** The block that arrived after the cover at the last measure — its marks are taken off when another takes its place. */
+  let zero: HTMLElement | null = null;
+  /**
+   * WHAT FOLLOWS THE COVER'S ARRIVAL, as boxes: every later sibling of the arrival and of each wrapper it sits in, up
+   * to the rest of the page — each marked (`data-hub-zlift`) so the stylesheet can hold it under the lower of the two.
+   * Only a box in the ordinary flow: one the page pins or places itself (`position` anything but static) is left
+   * exactly as it is, and the nest's own boxes carry their rise themselves (`--hub-rise`).
+   */
+  let lifted: HTMLElement[] = [];
+  const followers = (from: HTMLElement, upTo: HTMLElement): HTMLElement[] => {
+    const out: HTMLElement[] = [];
+    for (let el: HTMLElement | null = from; el && el !== upTo; el = el.parentElement) {
+      for (let sib = el.nextElementSibling as HTMLElement | null; sib; sib = sib.nextElementSibling as HTMLElement | null) {
+        if (sib.offsetHeight && !sib.matches('.hub-after, .hub-below') && getComputedStyle(sib).position === 'static') out.push(sib);
+      }
+    }
+    return out;
+  };
   const there = new Set<HTMLElement>();
   let V = 0;
   let C = 0;
@@ -131,6 +167,7 @@ export function armHubScrub(root: HTMLElement): () => void {
     /* What follows a pair starts lower and RISES while it is held (`--hub-rise`, a `top`): everything below is measured
        as it is LAID OUT, so those are taken off first — `frame`, which always follows, puts them back. */
     for (const h of was) if (h.below) put(h.below, '--hub-rise', '0px');
+    for (const h of was) if (h.lift) put(h.lift, '--hub-zrise', '0px');
     /* Armed FIRST: where a stage must stand depends on the hand-overs before it having drawn their arrivals in place
        (`--hub-up`), and nothing of the drawing applies until the mark is on. */
     for (const s of scopes) put(s, 'data-hub-scrub-on', '');
@@ -141,9 +178,44 @@ export function armHubScrub(root: HTMLElement): () => void {
        pinned bar, and a long arrival began above the line, its top under the progress mark. A page that does not
        say its line is not played at all — never played on a guess. The most that can be held whole: the room, less
        a breath. */
-    const topLine = parseFloat(getComputedStyle(scopes[0] ?? root).scrollPaddingTop);
+    /* (Read on a scenes block — or, on a page whose cover is its only Scrub, on the cover's own cell.) */
+    const coverCell = pages.length ? root.querySelector<HTMLElement>(COVER) : null;
+    const topLine = parseFloat(getComputedStyle(scopes[0] ?? coverCell ?? root).scrollPaddingTop);
     if (!(topLine > 0)) throw new Error('the page does not say where its top line is');
     const view = { centre: C, topLine, room: V - topLine - 24, lens };
+    /* 🎬 HAND-OVER ZERO — THE COVER (`HubCoverHold`: the cover, then the rest of the page). It is the page's own FIRST
+       pair that stands still for it, and it is held WHERE IT STANDS when the page opens (`scrubPair`'s `stands`: its
+       laid-out top is its top on the screen at scroll 0) — so at scroll 0 nothing has moved and nothing has begun.
+       What arrives is the next box on the page; it is marked (`data-hub-zero`) so the stylesheet can fade a block
+       that is not a scene, and find what follows it. Only on a page with its own hold: a cover has no cell. */
+    const cover = coverCell?.querySelector<HTMLElement>(':scope > .hub-cover') ?? null;
+    const coverRest = coverCell?.querySelector<HTMLElement>(':scope > .hub-cover-after') ?? null;
+    let arrives: HTMLElement | null = null;
+    if (pages[0] && cover && coverRest && cover.offsetHeight > 0) {
+      arrives = nextBox(coverRest);
+      const pair = scrubPair({ h: cover.offsetHeight, oneByOne: false }, arrives ? elementOf(arrives) : { h: 0, oneByOne: false }, view, docTop(cover));
+      const stick = pair.top - (docTop(cover) - docTop(pages[0].stage));
+      put(pages[0].stage, '--hub-top', px(stick));
+      put(pages[0].cell, '--hub-len', px(pair.len));
+      put(coverRest, '--hub-up', arrives ? px(pair.up - (docTop(arrives) - docTop(coverRest))) : '0px');
+      put(coverRest, '--hub-zrise', '0px');
+      const next = arrives?.nextElementSibling ?? null;
+      held.push({ cell: pages[0].cell, stage: pages[0].stage, scene: cover, after: coverRest, below: next?.matches('.hub-below, .hub-after') ? (next as HTMLElement) : null, arrival: arrives, pair, rest: 0, stick, lift: coverRest });
+      arrivedAt = arrives ? { scene: arrives, top: pair.arrivalTop } : null;
+      /* Played with the scenes: the cover first, then its arrival (unless that is a scene the list already has). */
+      scenes = [cover, ...(arrives && !scenes.includes(arrives) ? [arrives] : []), ...scenes];
+    }
+    if (zero && zero !== arrives) {
+      put(zero, '--hub-o', '1');
+      put(zero, 'data-hub-away', null);
+      put(zero, 'data-hub-zero', null);
+    }
+    if (arrives) put(arrives, 'data-hub-zero', '');
+    zero = arrives;
+    /* (Read with the marks off: a marked box is no longer `static`.) */
+    for (const el of lifted) put(el, 'data-hub-zlift', null);
+    lifted = arrives && coverRest ? followers(arrives, coverRest) : [];
+    for (const el of lifted) put(el, 'data-hub-zlift', '');
     for (const cell of root.querySelectorAll<HTMLElement>(CELL)) {
       const stage = cell.querySelector<HTMLElement>(':scope > .hub-stage');
       /* THE LEAVING SCENE is the one right before its cell's `.hub-after` — the stage may hold ordinary scenes before
@@ -177,7 +249,16 @@ export function armHubScrub(root: HTMLElement): () => void {
         put(cell, '--hub-len', '0px');
       }
       /* The stage sticks where its SCENE is on its line: higher by what it holds before the scene. */
-      const stick = pair.top - (docTop(scene) - docTop(hold.stage));
+      const line = pair.top - (docTop(scene) - docTop(hold.stage));
+      /* 🔗 …BUT NEVER BEFORE THE HAND-OVER BEFORE IT HAS LET GO. A stage inside the one before it stands, while that
+         one is standing, at that one's line plus its own place in it — a line of its own BELOW that is a place the
+         page has already scrolled past, and the stage would stick at once: under the hand-over before it, playing its
+         scene out before it had arrived. (Seen 2026-10-10 on a cover taller than the screen: the countdown arrives
+         with its bottom on the centre line, above its own centred line, and stood the page still 80 px early; and as
+         half a pixel of rounding at two window sizes, which moved the whole page at scroll 0.) Then it is held where
+         it arrived — the same place. */
+      const before = held[held.length - 1];
+      const stick = before && before.stage.contains(hold.stage) ? Math.min(line, before.stick + (docTop(hold.stage) - docTop(before.stage))) : line;
       put(hold.stage, '--hub-top', px(stick));
       put(hold.cell, '--hub-len', px(pair.len + rest));
       /* The arrival is drawn in its place whatever sits between it and the top of the rest of the page (a scene with
@@ -211,6 +292,8 @@ export function armHubScrub(root: HTMLElement): () => void {
     /* An element already past the centre line when the page opens is simply there. */
     there.clear();
     for (const s of scenes) if (docTop(s) <= C) there.add(s);
+    /* …and the cover is there when the page opens, however tall it is. */
+    if (held[0]?.lift) there.add(held[0].scene);
   }
 
   function frame() {
@@ -229,7 +312,12 @@ export function armHubScrub(root: HTMLElement): () => void {
       const m = scrubMoment(t, h.pair, lens, h.rest);
       of(h.scene).pout = m.out;
       if (h.arrival) Object.assign(of(h.arrival), { pin: m.in, gate: m.rows, handed: true });
-      if (h.below) put(h.below, '--hub-rise', px(h.pair.rise * m.below));
+      /* What follows a pair rises as the hand-over plays. After the COVER it is whatever the page draws next, in
+         plain sight — so it stays under the cover until the cover has completely gone, and rises only then (`rows`:
+         the same moment an arrival's rows may begin). */
+      const lower = h.lift ? 1 - m.rows : m.below;
+      if (h.below) put(h.below, '--hub-rise', px(h.pair.rise * lower));
+      if (h.lift) put(h.lift, '--hub-zrise', px(h.pair.rise * lower));
     }
     for (const scene of scenes) {
       const s = of(scene);

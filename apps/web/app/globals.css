@@ -7012,6 +7012,11 @@ html:has(.hub-shape-full) { overflow-x: clip; }
   from { opacity: 1; visibility: visible; pointer-events: auto; }
   to   { opacity: 0; visibility: hidden; pointer-events: none; }
 }
+/* 🎭 In a Scrub hand-over the scene's own Build in / Build out ride INSIDE the scene's cross-fade (below, "THE
+   HAND-OVER PLAYS EACH SCENE'S OWN EFFECT"). The cross-fade already is the opacity, so the scene's own keyframe must
+   not fade a second time (two opacities multiply — measured before: 0.48 where the scene read 0.87). This holds the
+   opacity at 1 and is listed LAST, so it wins that one property and leaves the keyframe its travel, size and blur. */
+@keyframes hub-run-keep { from, to { opacity: 1; } }
 @keyframes hub-prog-fill { to { transform: scaleX(1); } }
 /* A progress segment's width — applied ONLY while its section's timeline is
    live (see "A SEGMENT EXISTS ONLY WHILE ITS SECTION DOES" below). */
@@ -7723,6 +7728,34 @@ html:has(.hub-shape-full) { overflow-x: clip; }
         --hub-part-in: none;
         --hub-part-out: none;
       }
+      /* ── 🎭 THE HAND-OVER PLAYS EACH SCENE'S OWN EFFECT (owner 2026-10-09, verbatim: *"build out from current
+         element and build in on next element under it applies at the same time on scrub like a cross fade for
+         both"*). The scenes' cross-fade above stays exactly as it was — it IS the fade, and it carries the scene's
+         ground with it. What is new rides inside it, over the SAME two spans and on the same spacer's timeline:
+         the outgoing scene plays its own Build out (`--hub-out-kf`), the incoming one its own Build in
+         (`--hub-in-kf`) — the travel, the size, the blur. Their opacity is held (`hub-run-keep`, last in the list),
+         so a Fade / Fade pair, and a scene with no effect, look exactly as they did.
+         On the body's CHILD, never the body: the body of a frame that hands over is clipped (`overflow-y: clip`,
+         above) so a travelling child cannot make the pinned frame scrollable.
+         "One part after another" scenes keep their parts' own arrival while pinned (below); only their way OUT is
+         the whole scene's. Inside every gate this block is in: reduced motion and engines without these timelines
+         never see it. ── */
+      .hub-scrub:not(:empty):not(:has(> .hub-canvas > .hub-canvas-body:empty)):has(~ .hub-scrub:not(:empty)) > .hub-canvas > .hub-canvas-body > * {
+        animation: var(--hub-out-kf, none) linear forwards, hub-run-keep linear both;
+        animation-timeline: var(--hub-tl), var(--hub-tl);
+        animation-range: cover calc(var(--hub-at) + 0.5 * var(--hub-step)) cover calc(var(--hub-at) + var(--hub-step)), cover calc(var(--hub-at) + 0.5 * var(--hub-step)) cover calc(var(--hub-at) + var(--hub-step));
+      }
+      .hub-scrub:not(:empty):not(:has(> .hub-canvas > .hub-canvas-body:empty)) ~ .hub-scrub:not(:empty):not(:has(> .hub-canvas > .hub-canvas-body:empty)) > .hub-canvas.hub-seq-whole > .hub-canvas-body > * {
+        animation: var(--hub-in-kf, none) linear both, hub-run-keep linear both;
+        animation-timeline: var(--hub-tl), var(--hub-tl);
+        animation-range: cover calc(var(--hub-at) - 0.6 * var(--hub-step)) cover calc(var(--hub-at) - 0.1 * var(--hub-step)), cover calc(var(--hub-at) - 0.6 * var(--hub-step)) cover calc(var(--hub-at) - 0.1 * var(--hub-step));
+      }
+      .hub-scrub:not(:empty):not(:has(> .hub-canvas > .hub-canvas-body:empty)) ~ .hub-scrub:not(:empty):not(:has(> .hub-canvas > .hub-canvas-body:empty)):has(~ .hub-scrub:not(:empty)) > .hub-canvas.hub-seq-whole > .hub-canvas-body > * {
+        animation: var(--hub-in-kf, none) linear both, var(--hub-out-kf, none) linear forwards, hub-run-keep linear both;
+        animation-timeline: var(--hub-tl), var(--hub-tl), var(--hub-tl);
+        animation-range: cover calc(var(--hub-at) - 0.6 * var(--hub-step)) cover calc(var(--hub-at) - 0.1 * var(--hub-step)), cover calc(var(--hub-at) + 0.5 * var(--hub-step)) cover calc(var(--hub-at) + var(--hub-step)), cover calc(var(--hub-at) - 0.6 * var(--hub-step)) cover calc(var(--hub-at) - 0.1 * var(--hub-step));
+      }
+
       /* Each part arrives while its spacer's top travels a quarter step past
          the pin line, a little later than the one before — all of them before
          the hand-over begins (half a step past the line). */

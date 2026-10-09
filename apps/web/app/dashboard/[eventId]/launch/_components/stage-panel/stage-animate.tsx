@@ -36,7 +36,7 @@ import { useAnimatePhase, type AnimatePhase } from './store';
  * Every control writes through the shipped saves the caller hands in.
  */
 
-export type AnimateDd = { value: string; options: readonly PickOption[]; onPick: (k: string) => void; buttonText?: string } | null;
+export type AnimateDd = { value: string; options: readonly PickOption[]; onPick: (k: string) => void; buttonText?: string; small?: string } | null;
 /** Delay — the shipped steps, in seconds (a part's None · 0.3 s · 0.8 s). */
 export type AnimateTime = { value: number; steps: readonly number[]; onPick: (seconds: number) => void } | null;
 
@@ -218,7 +218,8 @@ export function StageAnimate({
               }}
             />
           ) : null}
-          {end === 'out' && leaves ? <Dd stacked small="Leaves ◆" label="How it leaves" data="leaves" value={leaves.value} options={leaves.options} onPick={leaves.onPick} buttonText={leaves.buttonText} /> : null}
+          {/* On a PART the hand-off is its SCENE's (a part has none of its own — Scrub and Auto scroll are scene to scene), and the name says so. */}
+          {end === 'out' && leaves ? <Dd stacked small={leaves.small ?? 'Leaves ◆'} label={leaves.small ? 'How its scene leaves' : 'How it leaves'} data="leaves" value={leaves.value} options={leaves.options} onPick={leaves.onPick} buttonText={leaves.buttonText} /> : null}
         </div>
       ) : null}
       {/* The reason a grey Movement gives. Drawn on the page's body, not in the four rows: the tool sits in a box

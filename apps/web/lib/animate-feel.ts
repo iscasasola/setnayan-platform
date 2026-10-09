@@ -98,3 +98,5 @@ export const LEAVES_OPTIONS = [
   { key: 'scrub', label: 'Scrub out ◆' },
   { key: 'auto', label: 'Auto scroll ◆' },
 ] as const;
+/** On a PART, Leaves is its scene's — the name on the dropdown says whose it is. */
+export const SCENE_LEAVES_NAME = 'Scene leaves ◆';

@@ -282,6 +282,27 @@ Owner, choosing among three drawings of row 2: *"A- picture tiles"* (`review/bg-
 The older editor's rows (`preview()`) are untouched. Lazy files only. Guard: `background-is-four-rows` (7) — names
 executed for 729 colours × Plain / Opaque / Frosted and for the worst picture; seven sabotages seen red.
 
+### 8a · in a Scrub run the hand-over plays each scene's own effect
+
+Owner: *"build out from current element and build in on next element under it applies at the same time on scrub
+like a cross fade for both"*. A run used to switch the scenes' own Build in / Build out off and play one fixed
+cross-fade. Now, inside that same cross-fade — the same spans, the same spacer's timeline — the outgoing scene plays
+its own Build out and the incoming one its own Build in: the travel, the size, the blur. Their opacity is held
+(`hub-run-keep`, last in the list), so the cross-fade stays the only fade. Stylesheet only (`globals.css`, 3 rules
++ 1 keyframe), inside every gate the run is in. No stored value, no first-load byte, no script.
+
+Played in Chromium when built (a three-scene run + a Fade / Fade pair, 243 scroll positions, the stylesheet before
+and after): every cross-fade identical at every position; A travelled 0 → −26 px over exactly the span it faded
+out on; B came −28 → 0 px while fading in; a composed one grew from 0.9 out of an 8-px blur; the Fade / Fade
+bodies never moved; under reduce motion nothing moved and nothing faded.
+
+WHAT CHANGES FOR A SCENE ALREADY ON SCRUB: nothing if its effects are Fade or none (the default). A scene with Move,
+Size or Blur — the old Editorial / Cinematic presets included — now moves that way during its hand-over.
+"One part after another" scenes keep their parts' arrival while pinned; only their way out is the whole scene's.
+
+On a PART, Build out's dropdown is named "Scene leaves ◆": the hand-off is scene to scene, and the name says whose
+it is. Guard: `lib/the-scrub-hand-over-plays-own-effects.test.ts` (6 rules, six sabotages seen red).
+
 SPEC IMPACT: Yes — supersedes the 2026-10-06/07 "Style | Text | Animate" and "the toolbar is half the screen" rows.
 The controller holds the spec (`TOOLBAR-SPEC-2026-10-09.md`) and applies the corpus rows; nothing in the corpus was
 edited from this branch.

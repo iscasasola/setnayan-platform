@@ -124,9 +124,6 @@ export function armHubScrub(root: HTMLElement): () => void {
     V = window.innerHeight;
     C = V / 2;
     lens = scrubLens(V);
-    /* The top of the room: under the page's own bar. The most that can be held whole: the room, less a breath. */
-    const topLine = Math.max(76, V * 0.09);
-    const view = { centre: C, topLine, room: V - topLine - 24, lens };
     scenes = Array.from(root.querySelectorAll<HTMLElement>('.hub-scene[data-hub-fx]'));
     const was = held;
     held = [];
@@ -138,6 +135,15 @@ export function armHubScrub(root: HTMLElement): () => void {
        (`--hub-up`), and nothing of the drawing applies until the mark is on. */
     for (const s of scopes) put(s, 'data-hub-scrub-on', '');
     if (pages.length) put(root, 'data-hub-page-on', '');
+    /* The top of the room: under the page's own bar and its progress mark — THE STYLESHEET'S LINE (`--hub-pin`),
+       read back in pixels from the length the armed scenes block carries it as (`globals.css`). This script has no
+       number of its own for it: it once had (76 px, or 9 %) while the stylesheet's is 100 px under the invitation's
+       pinned bar, and a long arrival began above the line, its top under the progress mark. A page that does not
+       say its line is not played at all — never played on a guess. The most that can be held whole: the room, less
+       a breath. */
+    const topLine = parseFloat(getComputedStyle(scopes[0] ?? root).scrollPaddingTop);
+    if (!(topLine > 0)) throw new Error('the page does not say where its top line is');
+    const view = { centre: C, topLine, room: V - topLine - 24, lens };
     for (const cell of root.querySelectorAll<HTMLElement>(CELL)) {
       const stage = cell.querySelector<HTMLElement>(':scope > .hub-stage');
       /* THE LEAVING SCENE is the one right before its cell's `.hub-after` — the stage may hold ordinary scenes before

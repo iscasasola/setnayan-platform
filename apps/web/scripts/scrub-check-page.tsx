@@ -12,6 +12,8 @@
  *   tsx scripts/scrub-check-page.tsx <out.html> <island.js> island    — a guest's page armed by the page's own ISLAND
  *   tsx scripts/scrub-check-page.tsx <out.html> <island.js> maker     — the Maker's canvas: a section marker on the
  *       page, and the page's own ISLAND (`scripts/scrub-check-island.tsx`) deciding when the engine is armed
+ *   tsx scripts/scrub-check-page.tsx <out.html> <engine.js> bar       — A LONG ARRIVAL UNDER THE PINNED TOP BAR: the
+ *       page's own hold, the invitation's pinned bar above it, and a list that hands over to a second long list
  *
  * THE CHAIN — the owner's prototype, as scenes: two short ones that hand over, a Schedule whose rows build one by
  * one, a scene with NO Build out (it stays), one that builds in below it and leaves by Scrub, and the last arrival,
@@ -46,9 +48,23 @@ export const SCRUB_CHECK_CHAIN = [
   ).map((s, i) => ({ ...s, canvas: LAB_SCRUB_SAMPLE[LAB_SCRUB_CHAIN[i]!] })),
 ];
 
+/* 📌 `bar` — A LONG ARRIVAL UNDER THE INVITATION'S PINNED TOP BAR (2026-10-09). A list is scrolled through and held
+   with its bottom on the centre line; an arrival taller than what is left of it is drawn FROM THE TOP OF THE ROOM
+   down (`hub-scrub-math.ts` `scrubPair`: tops together). That top is the page's line under its own bar — ONE number,
+   the stylesheet's (`--hub-pin`), which the engine reads back. The engine once kept its own (76 px, or 9 %) while the
+   stylesheet's is 100 px under the bar, and a long arrival began 24 px high, under the progress mark. So: a page
+   with the real page's bar (`invitation-shell.tsx` `data-sticky-top`: 4rem and a hairline, pinned), and two lists
+   one after the other, both in the lab Schedule's canvas. */
+const BAR_CHAIN = [
+  { name: 'Schedule', rows: 8, canvas: LAB_SCRUB_SAMPLE.schedule },
+  { name: 'March', rows: 8, canvas: LAB_SCRUB_SAMPLE.schedule },
+  { name: 'Gifts', rows: 0, canvas: {} },
+];
+
 const [, , out, engine, mode] = process.argv;
-const widgets = SCRUB_CHECK_CHAIN.map((s, i) => ({ widget_id: `w${i}`, widget_type: s.name.toLowerCase(), config_json: { canvas: s.canvas } }));
-const nodes = SCRUB_CHECK_CHAIN.map((s, i) => {
+const chain = mode === 'bar' ? BAR_CHAIN : SCRUB_CHECK_CHAIN;
+const widgets = chain.map((s, i) => ({ widget_id: `w${i}`, widget_type: s.name.toLowerCase(), config_json: { canvas: s.canvas } }));
+const nodes = chain.map((s, i) => {
   const canvas = sanitizeHubCanvas(widgets[i]!.config_json);
   /* `empty`: a widget that rendered nothing — the frame is there, its body is empty (a Countdown with no date). */
   const body = mode === 'empty' && i === 1 ? null : (
@@ -83,7 +99,7 @@ const scenes = renderToStaticMarkup(
   </HubScenes>,
 );
 /* The page's own hold — the REAL component, around everything the page draws, one pair a hand-over. */
-const paged = mode === 'page' || mode === 'page-island';
+const paged = mode === 'page' || mode === 'page-island' || mode === 'bar';
 const hold = paged
   ? (renderToStaticMarkup(<HubPageHold holds={hubScrubHolds(widgets as never, true, true)}><i id="slot" /></HubPageHold>).split('<i id="slot"></i>') as [string, string])
   : (['', ''] as [string, string]);
@@ -94,9 +110,10 @@ writeFileSync(
 <link rel="stylesheet" href="file://${css}">
 <style>html,body{margin:0;background:#F3F0EA;font:16px/1.4 sans-serif;--color-ink:44 42 41;--color-cream:255 255 255;--m-r-md:14px}
 .lead{height:90vh;padding:24px;box-sizing:border-box}.foot{padding:40px 24px;height:60px;box-sizing:border-box}.col{max-width:430px;margin:0 auto;padding:0 16px}
-#line{position:fixed;left:0;right:0;top:50%;border-top:1.5px dashed rgba(194,78,36,.6);pointer-events:none;z-index:9}</style></head>
-<body><div id="line"></div>${hold[0]}<div class="lead col" data-lead>The page before the scenes.</div><div class="col">${mode === 'maker' ? '<span hidden data-maker-section="w:countdown"></span>' : ''}${scenes}</div><div class="foot col" data-foot>The page after the scenes.</div>${hold[1]}
-${mode === 'noscript' ? '' : mode === 'maker' || mode === 'island' || mode === 'page-island' ? `<script src="file://${engine}"></script>` : mode === 'page' ? `<script src="file://${engine}"></script><script>window.__stop = HubScrubEngine.armHubScrub(document.querySelector('.hub-page-cell'));</script>` : `<script src="file://${engine}"></script><script>window.__stop = HubScrubEngine.armHubScrub(document.querySelector('.hub-scenes'));</script>`}
+#line{position:fixed;left:0;right:0;top:50%;border-top:1.5px dashed rgba(194,78,36,.6);pointer-events:none;z-index:9}
+.bar{position:sticky;top:0;z-index:20;box-sizing:content-box;min-height:4rem;border-bottom:1px solid rgba(44,42,41,.1);background:rgba(255,255,255,.95)}</style></head>
+<body><div id="line"></div>${mode === 'bar' ? '<header data-sticky-top class="bar"></header>' : ''}${hold[0]}<div class="lead col" data-lead>The page before the scenes.</div><div class="col">${mode === 'maker' ? '<span hidden data-maker-section="w:countdown"></span>' : ''}${scenes}</div><div class="foot col" data-foot>The page after the scenes.</div>${hold[1]}
+${mode === 'noscript' ? '' : mode === 'maker' || mode === 'island' || mode === 'page-island' ? `<script src="file://${engine}"></script>` : mode === 'page' || mode === 'bar' ? `<script src="file://${engine}"></script><script>window.__stop = HubScrubEngine.armHubScrub(document.querySelector('.hub-page-cell'));</script>` : `<script src="file://${engine}"></script><script>window.__stop = HubScrubEngine.armHubScrub(document.querySelector('.hub-scenes'));</script>`}
 </body></html>`,
 );
 console.log('wrote', out, '·', (scenes.match(/class="hub-cell"/g) ?? []).length, 'hand-overs ·', (scenes.match(/data-hub-fx=""/g) ?? []).length, 'scenes under the thumb');

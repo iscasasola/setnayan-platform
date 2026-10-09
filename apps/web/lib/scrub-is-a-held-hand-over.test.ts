@@ -45,6 +45,14 @@
  *       asks for is never less than what its scenes draw. Both trees of the guest page wrap their article. Played
  *       in a browser at the six sizes ("the page before the scenes stands still during a hold"), and under
  *       `html { overflow-x: clip }`. Sabotage: the engine holding only the block → red here and in the browser.
+ *   (9) THE TOP OF THE ROOM IS ONE NUMBER, THE STYLESHEET'S (2026-10-09: the engine kept its own — 76 px, or 9 % —
+ *       while the stylesheet's line under the invitation's pinned bar is 100 px, so a long arrival began 24 px above
+ *       the line, its first words under the progress mark). `--hub-pin` is declared once for a page with the bar and
+ *       once for a page without, in the PLAIN BASE (Scrub also runs where the scroll-timeline gates do not); the
+ *       armed scenes block carries it as a length and the engine reads that back — it has no number of its own, and
+ *       does not play a page that does not say its line. Played in a browser under a pinned bar at three phone
+ *       sizes and a desktop one ("a long arrival under the pinned top bar"). Sabotage: the engine's own number
+ *       back → red here and in the browser.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -323,4 +331,25 @@ test('(8) the whole page stands still: a page wraps its column in one pair a han
   assert.match(CSS, /\.hub-page-cell\[data-hub-page-on\]::after,\s*\.hub-page-cell\[data-hub-page-on\] \.hub-page-cell::after \{ content: ''; display: block; height: var\(--hub-len, 0px\); \}/);
   assert.match(CSS, /\.hub-page-cell\[data-hub-page-on\] \.hub-page-stage \{ position: sticky; top: var\(--hub-top, 0px\); \}/);
   for (const m of CSS.matchAll(/([^{}]+)\{[^{}]*\}/g)) for (const sel of m[1]!.split(',')) if (/\.hub-page-(?:cell|stage)/.test(sel)) assert.match(sel, /\[data-hub-page-on\]/, `the page’s pairs are styled without the engine — the plain page would change: ${sel.trim()}`);
+});
+
+test('(9) the top of the room is one number, the stylesheet’s: the engine reads `--hub-pin` back and has none of its own', () => {
+  /* THE STYLESHEET — one line for a page with the invitation's pinned bar, one for a page without; nowhere else. */
+  const decls = [...CSS.matchAll(/([^{}]+)\{\s*--hub-pin:\s*([^;]+);\s*\}/g)].map((m) => `${m[1]!.trim()} → ${m[2]!.trim()}`);
+  assert.deepEqual(decls, ['.hub-scenes → calc(max(4.75rem, 9vh) + env(safe-area-inset-top, 0px))', 'html:has([data-sticky-top]) .hub-scenes → calc(6.25rem + env(safe-area-inset-top, 0px))']);
+  assert.equal((CSS.match(/--hub-pin\s*:/g) ?? []).length, 2, 'the line is declared a third time');
+  /* …in the PLAIN BASE: behind no gate. (It sat behind `@supports (animation-timeline: view())`, which an iPhone
+     before iOS 26 does not pass — there the line would not exist, and the engine would not play.) */
+  const gate = CSS.indexOf('@supports (animation-timeline: view())');
+  assert.ok(gate > 0 && CSS.lastIndexOf('--hub-pin:') < gate, 'the line is declared behind the scroll-timeline gate');
+  const before = CSS.slice(0, CSS.indexOf('--hub-pin:'));
+  assert.equal((before.match(/\{/g) ?? []).length - (before.match(/\}/g) ?? []).length, 1, 'the line is declared inside an at-rule');
+  /* …and the armed scenes block carries it as a length the engine can read in pixels — on a box that does not scroll. */
+  assert.match(CSS, /\.hub-scenes\[data-hub-scrub-on\] \{ scroll-padding-top: var\(--hub-pin\); \}/);
+  /* THE ENGINE — reads it, after arming (the rule needs the mark); no number of its own; no line, no play. */
+  const engine = read(`${B}/hub-scrub-engine.ts`);
+  assert.match(engine, /const topLine = parseFloat\(getComputedStyle\(scopes\[0\] \?\? root\)\.scrollPaddingTop\);\s*if \(!\(topLine > 0\)\) throw new Error\('the page does not say where its top line is'\);\s*const view = \{ centre: C, topLine, room: V - topLine - 24, lens \};/);
+  assert.equal((engine.match(/topLine\b/g) ?? []).length, 4, 'the engine sets the top line a second way');
+  assert.doesNotMatch(engine, /Math\.max\(76|\* 0\.09|4\.75|6\.25/, 'the engine has a number of its own for the top of the room');
+  assert.ok(engine.indexOf("for (const s of scopes) put(s, 'data-hub-scrub-on', '');") < engine.indexOf('const topLine ='), 'the engine reads the line before it arms — the rule that carries it needs the mark');
 });

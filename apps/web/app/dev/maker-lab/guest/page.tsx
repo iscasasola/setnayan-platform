@@ -227,7 +227,9 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
     ),
   };
   const giftsBlock = (
-    <div data-lab-scene="gifts" className="border-t border-ink/10 px-4 py-8 text-left">
+    /* The lab wraps the gift card; the Maker asks the block's root whether it is the real card (`data-welcome-gifts`),
+       so the wrapper says so when the real card is what it holds — else Animate is grey here and cannot be tried. */
+    <div data-lab-scene="gifts" {...(words ? { 'data-welcome-gifts': '' } : {})} className="border-t border-ink/10 px-4 py-8 text-left">
       {words ? <WelcomeGifts href="#gifts" words={words} look={look('gifts')} /> : <MakerWelcomeGiftsEmpty look={look('gifts')} />}
     </div>
   );

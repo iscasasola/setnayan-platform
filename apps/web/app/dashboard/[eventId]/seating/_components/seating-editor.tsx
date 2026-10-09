@@ -75,6 +75,7 @@ import {
 } from './seating-frame';
 import { DropConfirmBubble, type DropConfirmState } from './drop-confirm-bubble';
 import { ActionButton } from '@/components/action-button';
+import { GuestConfirmActions, GuestPopup } from '../../guests/_components/guest-popup';
 import { FormRows, SwitchRow } from '@/app/_components/form-row';
 import {
   BOOTH_CATALOG,
@@ -202,7 +203,7 @@ import {
   SEAT_PLAN_MAP_PIECE,
   type SeatPlanGuestOptions,
 } from '@/lib/seat-plan-details';
-import { MoveGuestSheet, PeopleSheet, PhoneSeatPlanFoot, PhoneSeatPlanHead, StudioSeatPlanHead, StudioSeatPlanTools } from './seat-plan-phone';
+import { MoveGuestSheet, PeopleSheet, PhoneSeatPlanFoot, PhoneSeatPlanHead, PhoneTableDock, StudioSeatPlanHead, StudioSeatPlanTools } from './seat-plan-phone';
 import { BlueprintStudio } from '../../studio/indoor-blueprint/_components/blueprint-studio';
 import { saveEntrance } from '../../studio/indoor-blueprint/actions';
 import { InfoTip } from '@/app/_components/info-tip';
@@ -5400,63 +5401,34 @@ export function SeatingEditor({
           </button>
         ) : null;
 
-      const phoneBtn = 'sn-press inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full border border-ink/15 px-3.5 text-[13px] font-medium text-ink/80 hover:bg-ink/5 disabled:opacity-40';
       const body = isPhone ? (
-        // 📱 THE PHONE DOCK (owner 2026-10-01, the approved frame 3): the table's
-        // name, Type ▾, then the shipped verbs in one wrap — − seats +, Rotate,
-        // Edit chairs…, Link… (the next table tapped joins it) or Unlink, Done.
+        // 📱 THE PHONE DOCK (owner 2026-10-01, the approved frame 3) — drawn by `PhoneTableDock` (`seat-plan-phone.tsx`), which holds the markup and takes every handler from
+        // here untouched: the table's name, Type ▾, then the shipped verbs — − seats +, Rotate, Edit chairs…, Link… (the next table tapped joins it) or Unlink, Done.
         // Its guests and empty seats follow under it (Details' guests part).
-        <div data-seat-plan-phone-dock={st.table_id} className="flex w-full flex-col gap-2.5">
-          <div className="flex items-center gap-2">
-            {nameField(true)}
-            <PickMenu
-              label="Table type"
-              value={st.table_type}
-              options={TABLE_TYPE_CATALOG.map((c) => ({ key: c.type, label: c.label, group: TABLE_KIND_WORD[c.shapeHint] }))}
-              onPick={(k) => changeStyle(st, k as TableType)}
-              buttonText={TABLE_KIND_WORD[shapeHintFor(st.table_type)]}
-              dataAttr="data-seat-plan-type"
-              compact
-              className="shrink-0 border border-ink/15"
-            />
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {dockSeatsStepper(st)}
-            {undoStrip}
-            <button type="button" onClick={() => rotateTable(st, 90)} disabled={!canEdit} className={phoneBtn}>
-              <RotateCw className="h-4 w-4" /> Rotate
-            </button>
-            <button type="button" onClick={() => { setEditChairs(true); setPickerOpen(false); setShapePickerOpen(false); }} disabled={!canEdit} className={phoneBtn}>
-              Edit chairs…
-            </button>
-            {st.link_group_id ? (
-              <button type="button" onClick={() => doUnlink(st.table_id)} disabled={!canEdit} className={`${phoneBtn} text-mulberry`}>
-                <Ungroup className="h-4 w-4" /> Unlink
-              </button>
-            ) : (
-              <button
-                type="button"
-                data-seat-plan-link=""
-                aria-pressed={linkFrom === st.table_id}
-                disabled={!canEdit}
-                onClick={() => {
-                  setLinkFrom((cur) => (cur === st.table_id ? null : st.table_id));
-                  if (linkFrom !== st.table_id) setNotice(`Now tap the table to join to “${st.table_label}”.`);
-                }}
-                className={`${phoneBtn} ${linkFrom === st.table_id ? 'border-terracotta bg-terracotta/10 text-terracotta-800' : ''}`}
-              >
-                <Link2 className="h-4 w-4" /> Link…
-              </button>
-            )}
-            {!details ? seatPeopleBtn(true) : null}
-            <button type="button" onClick={() => { setLinkFrom(null); clearSelection(); }} className={`${phoneBtn} ml-auto bg-ink text-cream hover:bg-ink`}>
-              Done
-            </button>
-          </div>
-          <button type="button" onClick={() => requestRemoveTable(st)} disabled={!canEdit} className="self-start text-[12px] text-danger-600 underline-offset-2 hover:underline">
-            Delete this table
-          </button>
-        </div>
+        <PhoneTableDock
+          tableId={st.table_id}
+          tableLabel={st.table_label}
+          typeValue={st.table_type}
+          typeOptions={TABLE_TYPE_CATALOG.map((c) => ({ key: c.type, label: c.label, group: TABLE_KIND_WORD[c.shapeHint] }))}
+          typeWord={TABLE_KIND_WORD[shapeHintFor(st.table_type)]}
+          onRename={(label) => renameTable(st.table_id, label)}
+          onPickType={(k) => changeStyle(st, k as TableType)}
+          seatsStepper={dockSeatsStepper(st)}
+          undoStrip={undoStrip}
+          canEdit={canEdit}
+          onRotate={() => rotateTable(st, 90)}
+          onEditChairs={() => { setEditChairs(true); setPickerOpen(false); setShapePickerOpen(false); }}
+          linked={Boolean(st.link_group_id)}
+          onUnlink={() => doUnlink(st.table_id)}
+          linkPressed={linkFrom === st.table_id}
+          onLink={() => {
+            setLinkFrom((cur) => (cur === st.table_id ? null : st.table_id));
+            if (linkFrom !== st.table_id) setNotice(`Now tap the table to join to “${st.table_label}”.`);
+          }}
+          seatPeople={!details ? seatPeopleBtn(true) : null}
+          onDone={() => { setLinkFrom(null); clearSelection(); }}
+          onDelete={() => requestRemoveTable(st)}
+        />
       ) : (
         // §1.2 — desktop dock, one row, exact order.
         <>
@@ -6077,14 +6049,7 @@ export function SeatingEditor({
                 roleSet={roleSet}
                 trailing={
                   canEdit ? (
-                    <button
-                      type="button"
-                      onClick={() => unseat(g.guest_id)}
-                      aria-label={`Unseat ${g.name}`}
-                      className="shrink-0 rounded-md px-1.5 py-1 text-[11px] text-ink/55 hover:bg-danger-50 hover:text-danger-600"
-                    >
-                      Unseat
-                    </button>
+                    <ActionButton tone="neutral" quiet icon={UserMinus} label="Unseat" name={`Unseat ${g.name}`} onClick={() => unseat(g.guest_id)} />
                   ) : undefined
                 }
               />
@@ -8187,58 +8152,43 @@ export function SeatingEditor({
         </div>
       ) : null}
 
-      {/* delete-table confirm — shown only when seated guests would be released.
-          Bottom sheet on phones (thumb zone, safe area), centered card otherwise. */}
+      {/* delete-table confirm — shown only when seated guests would be released. THE CENTRED CONFIRM BOX (the approved template, `GuestPopup kind="confirm"`: dark and blurred
+          behind, nothing behind works, a tap on the dark keeps): Cancel first, the doing answer second — same handlers as the bottom sheet it replaced. */}
       {confirmDelete ? (
-        <div
-          className="fixed inset-0 z-[60] flex items-end justify-center bg-ink/40 md:items-center md:p-4"
-          onClick={() => setConfirmDelete(null)}
-        >
-          <div
-            className="w-full rounded-t-2xl border border-ink/10 bg-cream p-5 shadow-xl md:max-w-sm md:rounded-2xl"
-            style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {(() => {
-              const seatedTotal = confirmDelete.members.reduce((n, m) => n + seatedAt(m.table_id), 0);
-              const joined = confirmDelete.members.length > 1;
-              return (
-                <>
-                  <div className="mb-2 flex items-center gap-2">
-                    <Trash2 className="h-5 w-5 text-danger-600" />
-                    <h3 className="text-lg font-semibold text-ink">Delete {confirmDelete.label}?</h3>
-                  </div>
-                  <p className="text-sm text-ink/70">
-                    <span className="font-semibold">{formatCount(seatedTotal)}</span> seated{' '}
-                    {seatedTotal === 1 ? 'guest' : 'guests'} will go back to{' '}
-                    <span className="font-semibold">Unseated</span>, and the{' '}
-                    {joined ? `${confirmDelete.members.length} joined tables are` : 'table is'} removed from
-                    the plan.
-                  </p>
-                  <div className="mt-4 flex gap-2 md:justify-end">
-                    <button
-                      type="button"
-                      onClick={() => setConfirmDelete(null)}
-                      className="h-11 flex-1 rounded-lg border border-ink/15 bg-cream px-3 text-sm text-ink hover:bg-ink/5 md:h-auto md:flex-none md:py-1.5"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        confirmDelete.members.forEach((m) => removeTable(m.table_id));
-                        setConfirmDelete(null);
-                      }}
-                      className="inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-lg bg-danger-600 px-3 text-sm font-semibold text-cream hover:bg-danger-700 md:h-auto md:flex-none md:py-1.5"
-                    >
-                      <Trash2 className="h-4 w-4" /> {joined ? 'Delete unit' : 'Delete table'}
-                    </button>
-                  </div>
-                </>
-              );
-            })()}
-          </div>
-        </div>
+        <GuestPopup kind="confirm" onClose={() => setConfirmDelete(null)} labelledById="seat-delete-confirm-title">
+          {(() => {
+            const seatedTotal = confirmDelete.members.reduce((n, m) => n + seatedAt(m.table_id), 0);
+            const joined = confirmDelete.members.length > 1;
+            return (
+              <div className="space-y-3" data-seat-plan-delete-confirm="">
+                <h3 id="seat-delete-confirm-title" className="font-display text-xl text-ink">
+                  Delete {confirmDelete.label}?
+                </h3>
+                <p className="text-sm leading-relaxed text-ink/70">
+                  <span className="font-semibold">{formatCount(seatedTotal)}</span> seated {seatedTotal === 1 ? 'guest' : 'guests'} will go back to{' '}
+                  <span className="font-semibold">Unseated</span>, and the {joined ? `${confirmDelete.members.length} joined tables are` : 'table is'} removed from the plan.
+                </p>
+                <GuestConfirmActions
+                  keep={<ActionButton tone="neutral" icon={X} label="Cancel" onClick={() => setConfirmDelete(null)} />}
+                  go={
+                    <div data-seat-plan-delete-go="">
+                      <ActionButton
+                        tone="danger"
+                        main
+                        icon={Trash2}
+                        label={joined ? 'Delete unit' : 'Delete table'}
+                        onClick={() => {
+                          confirmDelete.members.forEach((m) => removeTable(m.table_id));
+                          setConfirmDelete(null);
+                        }}
+                      />
+                    </div>
+                  }
+                />
+              </div>
+            );
+          })()}
+        </GuestPopup>
       ) : null}
 
       {/* 🪑 Details: the place's elements into the navigator, the guests into the

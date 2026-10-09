@@ -5,6 +5,7 @@
  * inside the scenes are stand-ins. Used by `scripts/scrub-browser-check.mjs`.
  *
  *   tsx scripts/scrub-check-page.tsx <out.html> <engine.js> [noscript]
+ *   tsx scripts/scrub-check-page.tsx <out.html> <engine.js> empty     — the second scene (Countdown) drew NOTHING
  *   tsx scripts/scrub-check-page.tsx <out.html> <island.js> maker     — the Maker's canvas: a section marker on the
  *       page, and the page's own ISLAND (`scripts/scrub-check-island.tsx`) deciding when the engine is armed
  *
@@ -40,7 +41,8 @@ const [, , out, engine, mode] = process.argv;
 const widgets = SCRUB_CHECK_CHAIN.map((s, i) => ({ widget_id: `w${i}`, widget_type: s.name.toLowerCase(), config_json: { canvas: s.canvas } }));
 const nodes = SCRUB_CHECK_CHAIN.map((s, i) => {
   const canvas = sanitizeHubCanvas(widgets[i]!.config_json);
-  const body = (
+  /* `empty`: a widget that rendered nothing — the frame is there, its body is empty (a Countdown with no date). */
+  const body = mode === 'empty' && i === 1 ? null : (
     <section data-name={s.name}>
       <p style={{ margin: 0, font: '700 11px/1.3 sans-serif', letterSpacing: '.08em', color: '#A9834B' }}>{s.name.toUpperCase()}</p>
       <h2 style={{ margin: '6px 0', font: '600 22px/1.2 Georgia, serif' }}>{s.name}</h2>

@@ -6974,10 +6974,11 @@ html:has(.hub-shape-full) { overflow-x: clip; }
 /* ── SCROLL · SCRUB — the page's scenes (owner 2026-09-24: "hybrid perfect";
    contract in lib/hub-scenes.ts, renderer in app/[slug]/_components/hub-scenes.tsx)
    ──────────────────────────────────────────────────────────────────────────
-   Approved prototype: prototypes/scenes_hold_crossfade_hybrid_2026-09-24.html.
-   A SCRUB section pins for one screen while a 170vh spacer after it drives it;
-   consecutive scrub sections form a RUN, overlap their spacers and truly
-   cross-fade; a SCROLL section is the ordinary page.
+   A SCROLL scene is the ordinary page; an AUTO run shares one cell and hands over on a clock (below); a SCRUB scene
+   is an ordinary scene of the page too, held by page length and played under the thumb by a small script — "SCRUB —
+   A HELD HAND-OVER", at the end of this file. (Until 2026-10-09 Scrub was a STACKED RUN here — `.hub-run` /
+   `.hub-scrub` / `.hub-sp`: a frame pinned in a grid cell and driven by a spacer. Nothing draws that any more and
+   its rules are removed.)
 
    🔒 THE BASE BELOW IS THE PLAIN PAGE, and it is all a browser without
    `timeline-scope` / `animation-range`, or a guest who asked for less motion,
@@ -6991,8 +6992,9 @@ html:has(.hub-shape-full) { overflow-x: clip; }
 .hub-stage > .hub-after,
 .hub-after > .hub-below,
 .hub-below > * + * { margin-top: 1rem; }
-.hub-run > .hub-scene ~ .hub-scene { margin-top: 1rem; }
-.hub-sp { display: none; }
+/* …and a scene that drew nothing (see below: it is no box) leaves no second gap in front of what follows it. */
+.hub-stage > .hub-scene:empty + .hub-after,
+.hub-stage > .hub-scene:has(> .hub-canvas > .hub-canvas-body:empty) + .hub-after { margin-top: 0; }
 .hub-prog { display: none; }
 /* A widget that rendered nothing (Countdown with no date) leaves an empty
    scene. It is no scene: it takes no gap and — because a hidden box has no
@@ -7472,12 +7474,17 @@ html:has(.hub-shape-full) { overflow-x: clip; }
        🔑 THE LIST'S OWN PART STANDS STILL. Its rows arrive instead; both
        moving would be two opacities multiplying (the muddy arrival above).
 
-       ⛔ THE RULES HERE ARE FOR A SCENE THAT SCROLLS. A pinned frame
-       (`.hub-scrub`) does not scroll, so a row's `view()` there would never
-       move; an auto run (`.hub-auto`) runs on its own clock. Those two keep
-       their rows on their OWN timelines — "ROWS IN A RUN", inside the runs'
-       gate below — and `:not(…) >` on the frame's parent keeps every
-       scroll-scene rule out of them. The applying rule alone is shared.
+       ⛔ THE RULES HERE ARE FOR A SCENE THAT SCROLLS. An auto run
+       (`.hub-auto`) runs on its own clock and keeps its rows on it — "ROWS IN
+       AN AUTO RUN", inside the runs' gate below — and `:not(…) >` on the
+       frame's parent keeps every scroll-scene rule out of it. The applying
+       rule alone is shared.
+       🪤 TWO `:not()`s, ON PURPOSE. The resets below are weighed against the
+       parts rules to the class (one class short loses — see "EACH RESET IS
+       WRITTEN TWICE" history). The first was `:not(.hub-scrub)` until the
+       stacked Scrub run was removed (2026-10-09); `:not(.hub-arun)` — the
+       run's own box, never a frame's parent — keeps the same weight and
+       changes nothing a scene looks like.
 
        🔒 FAIL-VISIBLE, THE SAME THREE WAYS. Inside both gates above (scroll
        timelines, no reduced motion) and `screen` here, so a printed or saved
@@ -7490,14 +7497,14 @@ html:has(.hub-shape-full) { overflow-x: clip; }
        the heading. It writes each row's place in its list too (`--hub-row-i`
        of `--hub-row-n`), which the runs below slice their clocks by. */
     @media screen {
-      :not(.hub-scrub):not(.hub-auto) > .hub-seq-parts > .hub-canvas-body > * > [data-hub-rows],
-      :not(.hub-scrub):not(.hub-auto) > .hub-seq-parts.pahina-in > .hub-canvas-body > * > [data-hub-rows] {
+      :not(.hub-arun):not(.hub-auto) > .hub-seq-parts > .hub-canvas-body > * > [data-hub-rows],
+      :not(.hub-arun):not(.hub-auto) > .hub-seq-parts.pahina-in > .hub-canvas-body > * > [data-hub-rows] {
         --hub-part-in: none;
         --hub-part-out: none;
       }
       /* The list sits deeper than a part (a wrapper around it). */
-      :not(.hub-scrub):not(.hub-auto) > .hub-seq-parts > .hub-canvas-body > * > *:has([data-hub-rows]),
-      :not(.hub-scrub):not(.hub-auto) > .hub-seq-parts.pahina-in > .hub-canvas-body > * > *:has([data-hub-rows]) {
+      :not(.hub-arun):not(.hub-auto) > .hub-seq-parts > .hub-canvas-body > * > *:has([data-hub-rows]),
+      :not(.hub-arun):not(.hub-auto) > .hub-seq-parts.pahina-in > .hub-canvas-body > * > *:has([data-hub-rows]) {
         --hub-part-in: none;
         --hub-part-out: none;
       }
@@ -7523,7 +7530,7 @@ html:has(.hub-shape-full) { overflow-x: clip; }
         will-change: opacity, transform;
       }
       /* Plays once: this row, once the observer has seen it near the screen. */
-      :not(.hub-scrub):not(.hub-auto) > .hub-seq-parts.hub-tl-time > .hub-canvas-body [data-hub-rows] > .pahina-in {
+      :not(.hub-arun):not(.hub-auto) > .hub-seq-parts.hub-tl-time > .hub-canvas-body [data-hub-rows] > .pahina-in {
         --hub-part-in: var(--hub-in-kf, none);
         --hub-part-dur: var(--hub-duration, 1.1s);
         --hub-part-ease: var(--hub-ease, ease-out);
@@ -7533,7 +7540,7 @@ html:has(.hub-shape-full) { overflow-x: clip; }
          and hands off as it leaves, under the guest's thumb. Bound once the
          observer has marked it (it marks 32px BEFORE the row enters, so the
          first frame a guest sees is the arrival's first frame). */
-      :not(.hub-scrub):not(.hub-auto) > .hub-seq-parts.hub-tl-scrub > .hub-canvas-body [data-hub-rows] > .pahina-in {
+      :not(.hub-arun):not(.hub-auto) > .hub-seq-parts.hub-tl-scrub > .hub-canvas-body [data-hub-rows] > .pahina-in {
         --hub-part-in: var(--hub-in-kf, none);
         --hub-part-dur: 1s;
         --hub-part-ease: linear;
@@ -7566,237 +7573,34 @@ html:has(.hub-shape-full) { overflow-x: clip; }
       animation-range: var(--el-range);
     }
 
-    /* ══ SCROLL · SCRUB — THE SCENES ══════════════════════════════════════
-       🔒 A THIRD GATE, INSIDE THE FIRST TWO. `view()` alone is not enough: a
-       browser with view() but no `timeline-scope` would pin every scrub
-       section at full opacity, stacked (the prototype measured it). So
-       nothing below applies unless named timelines can cross siblings too.
-
-       🔑 "LIVE" = a scrub section whose widget drew something. A widget can
-       return nothing (Countdown with no date) and the renderer cannot see that
-       from outside the node, so the stylesheet decides: an empty scene (the
-       frame refused a null child) or an empty body drops out of its run
-       entirely. The run's first section is therefore always one a guest can
-       read — an empty first would otherwise be pulled up over the page above
-       it, and an empty middle simply closes up.
-       🪤 `:has()` CANNOT NEST. A selector with `:has(~ x:has(…))` is invalid
-       and the WHOLE RULE is dropped, silently — measured: the fade-out
-       vanished and the cross-fade read 0 of 80 positions. So the look-ahead
-       ("is a live scrub section after me?") uses the one-level test
-       `:not(:empty)`. The one case it misreads is an empty-BODY last section:
-       its predecessor then fades out while the run scrolls away, which is not
-       a blank screen. */
+    /* ══ THE SCENES — THE PROGRESS MARK · AUTO RUNS ═══════════════════════
+       🔒 A THIRD GATE, INSIDE THE FIRST TWO. What is below names timelines across siblings (`timeline-scope`): a
+       browser with `view()` but not that gets none of it.
+       🪤 `:has()` CANNOT NEST. A selector with `:has(~ x:has(…))` is invalid and the WHOLE RULE is dropped, silently
+       (measured on the stacked run this gate used to hold) — keep every look-ahead one level deep. */
     @supports (animation-range: entry 0% exit 100%) and (timeline-scope: none) {
-      /* 📏 A SCENE IS AS TALL AS ITS CONTENT — SCRUB TOO (owner 2026-09-27:
-         "this scene should not be alone. the spacing between scenes depend on
-         the content to keep a balanced gap from each other"; DECISION_LOG "A
-         SCENE IS AS TALL AS ITS CONTENT" + "SCRUB SCENES ALSO FIT THEIR
-         CONTENT"). A Scrub scene used to pin at one full screen, so a 196px
-         Countdown sat centred in a 1,060px band with ~342px of nothing above
-         and below it, and a run of two short scenes took 4.4 screens of scroll.
-
-         THE MODEL NOW: the scenes of a run are STACKED in one grid cell, all at
-         the run's top. Each scene (the SLOT) is stretched to the whole run; its
-         frame — the thing a guest reads — is sticky inside it, so it pins at
-         `--hub-pin` exactly as tall as its content. The spacers stay the
-         clock: one `--hub-step` row each, in a zero-width column beside the
-         scenes, so spacer N and spacer N+1 still ABUT and one hands over to the
-         other with no gap and no overlap. Around the run the ordinary 1rem
-         rhythm applies (`.hub-scenes > .hub-prog ~ * ~ *`), so the scene before
-         a run and the scene after it sit as close as two Scroll scenes do.
-
-         🔑 WHY A SLOT AND A STICKY CHILD, not a sticky scene. A sticky box
-         stops pinning when its CONTAINING BLOCK runs out, and it keeps its
-         margins inside it — so a sticky scene can never be held for longer than
-         its own box allows. The slot is stretched to the run and carries an
-         `::after` of the run's track, which is what makes the run's last row
-         (`auto`) grow to fit the tallest scene: the run is always at least
-         "track + tallest frame", so no pinned frame is ever overlapped by the
-         section after the run, and after the last hand-over that section rises
-         to sit 1rem under the last frame.
-
-         ⚠ AN EMPTY SCENE INSIDE A RUN keeps its fixed row (the renderer cannot
-         see a widget that rendered nothing): the last frame simply holds for
-         one more step. It never shows a blank — the fades chain through the
-         spacers that ARE drawn. */
-      .hub-scenes {
-        timeline-scope: var(--hub-scope);
-        /* `--hub-pin` (where a frame pins) is set with the progress mark below. */
-        --hub-step: 60svh;
-        /* The cover-range offset at which a spacer's TOP sits on the pin line.
-           `100%` is the end of `cover` (the spacer's bottom leaving the top of
-           the screen), so every range below is measured from where the frames
-           actually are, never from the screen's height. */
-        --hub-at: calc(100% - var(--hub-pin) - var(--hub-step));
-      }
+      .hub-scenes { timeline-scope: var(--hub-scope); }
 
       /* A scroll section names its own box, only for its progress segment. */
       .hub-scroll { view-timeline: var(--hub-tl) block; }
 
-      .hub-scrub:empty,
-      .hub-scrub:has(> .hub-canvas > .hub-canvas-body:empty) { display: none; }
+      /* ── ROWS IN AN AUTO RUN ───────────────────────────────────────────────
+         The SAME row values as a scrolling scene ("THE ROWS OF A LIST" above), on the run's own clock — never a
+         second system. The rows arrive on the run's CLOCK — the scene's own fade-in moment (`--hub-in-at`, written by
+         `HubAutoRun`; absent = the first scene, there from the start) plus one stagger per row — and pause with the
+         run (`[data-playing]`), exactly as the scenes do.
+         (The rows of a SCRUB scene are the script's: "SCRUB — A HELD HAND-OVER", at the end of this file.)
 
-      /* THE RUN — only when it has a scene that drew something (one level of
-         `:has()`, never nested); a run of empty scenes stays an empty block. */
-      .hub-run:has(> .hub-scrub > .hub-canvas > .hub-canvas-body:not(:empty), > .hub-scrub > :not(.hub-canvas):not(style)) {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) 0;
-        grid-template-rows: repeat(var(--hub-n, 1), var(--hub-step)) auto;
-      }
-      /* As specific as the fallback's `.hub-run > .hub-scene ~ .hub-scene`
-         (1rem apart when nothing pins), so the stacked scenes all start at the
-         run's top — measured: one class short, the second scene sat 16px low. */
-      .hub-run > .hub-scene.hub-scrub {
-        grid-column: 1;
-        grid-row: 1 / -1;
-        margin-top: 0;
-      }
-      .hub-run > .hub-scrub::after {
-        content: '';
-        display: block;
-        height: calc((var(--hub-n, 1) - 0.5) * var(--hub-step));
-      }
-
-      /* THE FRAME — pinned, as tall as its content. A frame that is followed
-         by another one fades out WHILE pinned, so a frame taller than the
-         screen scrolls inside itself rather than losing its end; the run's
-         last frame is never capped, because it scrolls on with the page after
-         its hold and a guest reads it to the end the ordinary way. */
-      .hub-scrub > * {
-        position: sticky;
-        top: var(--hub-pin);
-      }
-      .hub-scrub:not(:empty):has(~ .hub-scrub:not(:empty)) > * {
-        max-height: calc(100svh - var(--hub-pin) - max(1.5rem, 3vh));
-        overflow-y: auto;
-        scrollbar-width: none;
-      }
-      /* 🪤 …and a SHORT one must never become scrollable by accident. A part
-         rising into place is translated below its box, and a transform counts
-         as overflow: measured, a 144px Editorial frame read scrollHeight 170, so
-         a swipe that started on it scrolled the frame 26px instead of the page
-         (iOS keeps the whole gesture on the inner scroller). Clipping at the
-         body stops the part's travel from reaching the frame; the most a rising
-         part loses is the few pixels past its card's own bottom padding. */
-      .hub-scrub:not(:empty):has(~ .hub-scrub:not(:empty)) > .hub-canvas > .hub-canvas-body { overflow-y: clip; }
-
-      /* The spacer: one step of scroll, in the zero-width column, auto-placed
-         into the next fixed row — so the drawn spacers always abut. */
-      .hub-scrub:not(:empty):not(:has(> .hub-canvas > .hub-canvas-body:empty)) + .hub-sp {
-        display: block;
-        grid-column: 2;
-        view-timeline: var(--hub-tl) block;
-      }
-
-      /* ── The cross-fades. OUT on a live scrub section that has a live one
-         after it; IN on one that has a live one before it; both on one in the
-         middle. Shorthand first, THEN timeline and range — the shorthand resets
-         them. OUT is listed last so it wins once it starts; it has no backwards
-         fill, so before its window IN rules.
-         Measured from the pin line: the hand-over is when the boundary between
-         two spacers crosses `--hub-pin + ¼ step`. IN runs while the next
-         spacer's top travels from 0.6 to 0.1 of a step below the pin line; OUT
-         while this spacer's bottom travels from 0.5 step to the line — IN
-         leads, so the two are never both faint and the screen is never blank. ── */
-      .hub-scrub:not(:empty):not(:has(> .hub-canvas > .hub-canvas-body:empty)):has(~ .hub-scrub:not(:empty)) {
-        animation: hub-scene-out linear forwards;
-        animation-timeline: var(--hub-tl);
-        animation-range: cover calc(var(--hub-at) + 0.5 * var(--hub-step)) cover calc(var(--hub-at) + var(--hub-step));
-      }
-      .hub-scrub:not(:empty):not(:has(> .hub-canvas > .hub-canvas-body:empty)) ~ .hub-scrub:not(:empty):not(:has(> .hub-canvas > .hub-canvas-body:empty)) {
-        animation: hub-scene-in linear both;
-        animation-timeline: var(--hub-tl);
-        animation-range: cover calc(var(--hub-at) - 0.6 * var(--hub-step)) cover calc(var(--hub-at) - 0.1 * var(--hub-step));
-      }
-      .hub-scrub:not(:empty):not(:has(> .hub-canvas > .hub-canvas-body:empty)) ~ .hub-scrub:not(:empty):not(:has(> .hub-canvas > .hub-canvas-body:empty)):has(~ .hub-scrub:not(:empty)) {
-        animation: hub-scene-in linear both, hub-scene-out linear forwards;
-        animation-timeline: var(--hub-tl), var(--hub-tl);
-        animation-range: cover calc(var(--hub-at) - 0.6 * var(--hub-step)) cover calc(var(--hub-at) - 0.1 * var(--hub-step)), cover calc(var(--hub-at) + 0.5 * var(--hub-step)) cover calc(var(--hub-at) + var(--hub-step));
-      }
-
-      /* ── WHILE IT HOLDS, THE SCROLL SCRUBS ITS CONTENTS ──────────────────
-         The scene's own fade IS the section's arrival, so the block-level
-         arrival is off (two opacities would multiply). When the couple chose
-         "one part after another", the first part is there when the scene
-         arrives and the rest arrive in turn while it is pinned — on the
-         SPACER's timeline, so scrolling back takes them away again. Their
-         chosen entrance (fade / move / from which side) is the keyframe. */
-      /* 🪤 EACH RESET IS WRITTEN TWICE — with and without `.pahina-in` — because
-         the approach-marked "Plays once" rules carry that one class more, and a
-         reset that is one class short loses: measured, a Calm scene inside a
-         Scrub run faded in on the clock AND with its scene, two opacities
-         multiplying to 0.48 while the scene read 0.87. */
-      .hub-scrub > .hub-canvas > .hub-canvas-body,
-      .hub-scrub > .hub-canvas.pahina-in > .hub-canvas-body { animation: none; }
-      /* The parts, as VALUES (`--hub-part-*`, applied by the one parts rule
-         above) so a part's own motion keeps what it did not choose. No part
-         leaves on its own here — the scene's cross-fade is the hand-off. */
-      .hub-scrub > .hub-canvas > .hub-canvas-body > * > *,
-      .hub-scrub > .hub-canvas.pahina-in > .hub-canvas-body > * > * {
-        --hub-part-in: none;
-        --hub-part-out: none;
-      }
-      /* (🎚 2026-10-09: the scenes' own effects in a hand-over — commit 8a's three rules here — moved with Scrub itself
-         to "SCRUB — A HELD HAND-OVER" at the end of this file: a Scrub scene is no longer rendered as a stacked run,
-         so nothing draws `.hub-run` / `.hub-scrub` for it any more. The rules around here are what the stacked run
-         was; they are left for the cleanup that removes the whole block.) */
-      /* Each part arrives while its spacer's top travels a quarter step past
-         the pin line, a little later than the one before — all of them before
-         the hand-over begins (half a step past the line). */
-      .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(n + 2) {
-        --hub-part-in: var(--hub-in-kf, none);
-        --hub-part-dur: 1s;
-        --hub-part-delay: 0s;
-        --hub-part-ease: linear;
-        --hub-part-in-tl: var(--hub-tl);
-        --hub-part-in-range: cover calc(var(--hub-at) - 0.05 * var(--hub-step)) cover calc(var(--hub-at) + 0.2 * var(--hub-step));
-      }
-      .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(3) { --hub-part-in-range: cover calc(var(--hub-at) + 0 * var(--hub-step)) cover calc(var(--hub-at) + 0.25 * var(--hub-step)); }
-      .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(4) { --hub-part-in-range: cover calc(var(--hub-at) + 0.05 * var(--hub-step)) cover calc(var(--hub-at) + 0.3 * var(--hub-step)); }
-      .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(5) { --hub-part-in-range: cover calc(var(--hub-at) + 0.1 * var(--hub-step)) cover calc(var(--hub-at) + 0.35 * var(--hub-step)); }
-      .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(6) { --hub-part-in-range: cover calc(var(--hub-at) + 0.15 * var(--hub-step)) cover calc(var(--hub-at) + 0.4 * var(--hub-step)); }
-      .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(7) { --hub-part-in-range: cover calc(var(--hub-at) + 0.2 * var(--hub-step)) cover calc(var(--hub-at) + 0.45 * var(--hub-step)); }
-      .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(8) { --hub-part-in-range: cover calc(var(--hub-at) + 0.25 * var(--hub-step)) cover calc(var(--hub-at) + 0.5 * var(--hub-step)); }
-      /* ── ROWS IN A RUN (owner 2026-09-28: *"yes, make pinned rows arrive one
-         by one too"*) ─────────────────────────────────────────────────────
-         The SAME row values as a scrolling scene ("THE ROWS OF A LIST"
-         above), on the run's own timeline — never a second system.
-
-         📌 PINNED (Scrub): the rows share the window the scene's parts arrive
-         in while it holds — from just before the spacer's top reaches the
-         pin line until just before the hand-over (half a step past it) — and
-         row i of n takes the i-th slice of it, on the SPACER's timeline, so
-         scrolling back takes them away again. The scene's own In (kind,
-         direction) and ease; the slice is the only thing that is new.
-
-         ⏱ AUTO: the rows arrive on the run's CLOCK — the scene's own fade-in
-         moment (`--hub-in-at`, written by `HubAutoRun`; absent = the first
-         scene, there from the start) plus one stagger per row — and pause
-         with the run (`[data-playing]`), exactly as the scenes do.
-
-         🔒 Fail-visible: a pinned row binds only once the observer marked it
-         (no script, no mark), an auto row only in an ARMED run; reduced
-         motion, an engine without these timelines, and print never reach
-         here. The list's own part stands still in both. */
+         🔒 Fail-visible: a row binds only in an ARMED run; reduced motion, an engine without these timelines, and
+         print never reach here. The list's own part stands still. */
       @media screen {
-        .hub-scrub > .hub-canvas.hub-seq-parts > .hub-canvas-body > * > [data-hub-rows],
         .hub-arun[data-armed] > .hub-auto > .hub-canvas.hub-seq-parts > .hub-canvas-body > * > [data-hub-rows] {
           --hub-part-in: none;
           --hub-part-out: none;
         }
-        .hub-scrub > .hub-canvas.hub-seq-parts > .hub-canvas-body > * > *:has([data-hub-rows]),
         .hub-arun[data-armed] > .hub-auto > .hub-canvas.hub-seq-parts > .hub-canvas-body > * > *:has([data-hub-rows]) {
           --hub-part-in: none;
           --hub-part-out: none;
-        }
-        .hub-scrub > .hub-canvas.hub-seq-parts > .hub-canvas-body [data-hub-rows] > .pahina-in {
-          --hub-part-in: var(--hub-in-kf, none);
-          --hub-part-dur: 1s;
-          --hub-part-ease: var(--hub-ease, linear);
-          --hub-part-in-tl: var(--hub-tl);
-          --hub-part-in-range:
-            cover calc(var(--hub-at) + (-0.05 + 0.5 * (var(--hub-row-i, 1) - 1) / var(--hub-row-n, 1)) * var(--hub-step))
-            cover calc(var(--hub-at) + (-0.05 + 0.5 * var(--hub-row-i, 1) / var(--hub-row-n, 1)) * var(--hub-step));
         }
         .hub-arun[data-armed] > .hub-auto > .hub-canvas.hub-seq-parts > .hub-canvas-body [data-hub-rows] > * {
           --hub-part-in: var(--hub-in-kf, none);
@@ -7816,13 +7620,6 @@ html:has(.hub-shape-full) { overflow-x: clip; }
         .hub-arun[data-armed]:has(> .hub-auto-pp[aria-pressed="true"]) > .hub-auto > .hub-canvas.hub-seq-parts > .hub-canvas-body [data-hub-rows] > * {
           --hub-part-play: running;
         }
-      }
-
-      /* The picture's slow lift follows the hold too — `view()` inside a pinned
-         scene would never move. */
-      .hub-scrub > .hub-during-lift.hub-has-media > .hub-canvas-media {
-        animation-timeline: var(--hub-tl);
-        animation-range: entry 0% exit 100%;
       }
 
       /* ── THE PROGRESS MARK — one segment per section. A pinned page hides
@@ -8597,7 +8394,7 @@ body:not(:has([data-maker-section])) [data-maker-sample] { display: none !import
      opacity is held (`hub-run-keep`, last), so there is only the one fade above. */
   .hub-scenes[data-hub-scrub-on] .hub-scene[data-hub-fx] > .hub-canvas > .hub-canvas-body {
     animation: var(--hub-in-kf, none) 1s linear both paused, var(--hub-out-kf, none) 1s linear forwards paused, hub-run-keep 1s linear both paused;
-    animation-delay: calc(var(--hub-pin, 1) * -1s), calc(var(--hub-pout, 0) * -1s), 0s;
+    animation-delay: calc(var(--hub-pbin, 1) * -1s), calc(var(--hub-pout, 0) * -1s), 0s;
     animation-timeline: auto;
     animation-range: normal;
   }

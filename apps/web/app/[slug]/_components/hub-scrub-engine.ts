@@ -82,9 +82,27 @@ export function armHubScrub(root: HTMLElement): () => void {
       const scene = stage?.querySelector<HTMLElement>(':scope > .hub-scene') ?? null;
       const after = stage?.querySelector<HTMLElement>(':scope > .hub-after') ?? null;
       if (!stage || !scene || !after) continue;
-      const arrival = sceneOf(after.firstElementChild);
+      /* A scene that drew nothing (a Countdown with no date: no box at all) holds nothing — the page never stands
+         still on a blank. What follows it simply follows. */
+      if (scene.offsetHeight === 0) {
+        put(stage, '--hub-top', null);
+        put(cell, '--hub-len', null);
+        put(after, '--hub-up', '0px');
+        arrivedAt = null;
+        continue;
+      }
+      /* THE ARRIVAL is the next scene a guest will SEE: a scene with no box that would itself be held (its own
+         cell) is looked through — else this element would hand over to nothing and leave the screen blank. */
+      let inner = after;
+      let arrival = sceneOf(inner.firstElementChild);
+      while (arrival && arrival.offsetHeight === 0 && inner.firstElementChild?.matches(CELL)) {
+        const next = inner.firstElementChild.querySelector<HTMLElement>(':scope > .hub-stage > .hub-after');
+        if (!next) break;
+        inner = next;
+        arrival = sceneOf(inner.firstElementChild);
+      }
       /* What follows the pair: beside a plain arrival, its own wrapper; an arrival that hands over carries it in its cell. */
-      const below = after.querySelector<HTMLElement>(':scope > .hub-below') ?? after.querySelector<HTMLElement>(':scope > .hub-cell > .hub-stage > .hub-after');
+      const below = inner.querySelector<HTMLElement>(':scope > .hub-below') ?? inner.querySelector<HTMLElement>(':scope > .hub-cell > .hub-stage > .hub-after');
       const leaving = elementOf(scene);
       const pair = scrubPair(leaving, arrival ? elementOf(arrival) : { h: 0, oneByOne: false }, view);
       /* Is this element already where it is held when the hand-over INTO it ends? Then a rest comes first. */
@@ -143,7 +161,8 @@ export function armHubScrub(root: HTMLElement): () => void {
         s.pin = !hasIn(scene) || there.has(scene) ? 1 : scrubOwnIn(top, C, Math.min(lens.in, Math.max(40, scene.offsetHeight / 2)));
         s.gate = Math.max(0, Math.min(1, (s.pin - 0.5) * 2));
       }
-      put(scene, '--hub-pin', num(s.pin));
+      /* `--hub-pbin`, never `--hub-pin`: that name is the stylesheet's pin LINE (a length on `.hub-scenes`, read by an Auto run). */
+      put(scene, '--hub-pbin', num(s.pin));
       put(scene, '--hub-pout', num(s.pout));
       /* ONE FADE: the hand-over's own. An arrival with no Build in simply appears when its turn comes. */
       const shown = hasIn(scene) ? s.pin : s.pin > 0 || !s.handed ? 1 : 0;

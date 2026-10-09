@@ -11,7 +11,8 @@
  * opacity; under "reduce motion" nothing moved and nothing faded. This file holds the stylesheet to the shape that
  * measured that way:
  *
- *   (1) THE CROSS-FADE IS UNTOUCHED — its three rules, byte for byte.
+ *   (1) THE STACKED CROSS-FADE IS REMOVED WHOLE (the cleanup, 2026-10-09 — it was "untouched, byte for byte" while
+ *       the stacked run existed); the two fade keyframes Auto still plays are untouched.
  *   🔁 2026-10-09, commit 8c: rules (2)–(5) below were about the STACKED run, which is retired; the tests now hold what
  *   8c keeps of them (the scene's own keyframes in the hand-over, one fade, behind "no reduced motion"). (1) and (6) stand.
  *
@@ -94,12 +95,18 @@ const OWN = {
   both: `${SLOT.both} > .hub-canvas.hub-seq-whole > .hub-canvas-body > *`,
 };
 
-test('(1) the cross-fade is untouched — its three rules, byte for byte', () => {
-  assert.deepEqual(rule(SLOT.out).decl, { animation: 'hub-scene-out linear forwards', 'animation-timeline': 'var(--hub-tl)', 'animation-range': OUT });
-  assert.deepEqual(rule(SLOT.in).decl, { animation: 'hub-scene-in linear both', 'animation-timeline': 'var(--hub-tl)', 'animation-range': IN });
-  assert.deepEqual(rule(SLOT.both).decl, { animation: 'hub-scene-in linear both, hub-scene-out linear forwards', 'animation-timeline': 'var(--hub-tl), var(--hub-tl)', 'animation-range': `${IN}, ${OUT}` });
+/* 🔁 RE-AIMED 2026-10-09 (the cleanup). (1) held the stacked run's cross-fade byte for byte — the promise 8a made
+   while it added the scenes' own effects inside it. 8c replaced that cross-fade (the leaving scene's Build out, then
+   the arrival at 80 %, in the same place) and the cleanup REMOVED its three rules, so "untouched" would now be a
+   lie. What it still holds: the three rules are gone WHOLE (not one left to fade a scene on a spacer nobody draws),
+   and the two keyframes they shared with the Auto run are exactly as they were. */
+test('(1) the stacked cross-fade is removed whole — and the fade keyframes Auto still plays are untouched', () => {
+  const declared = (selector: string) => [...CSS.matchAll(/([^{}]+)\{[^{}]*\}/g)].filter((m) => m[1]!.trim().replace(/\s+/g, ' ') === selector).length;
+  for (const sel of [SLOT.out, SLOT.in, SLOT.both]) assert.equal(declared(sel), 0, `“${sel}” — a rule of the stacked run is back`);
+  assert.ok(!CSS.includes(OUT) && !CSS.includes(IN), 'a spacer-timeline range is back');
   assert.match(CSS, /@keyframes hub-scene-in \{\s*from \{ opacity: 0; visibility: hidden; pointer-events: none; \}\s*to\s+\{ opacity: 1; visibility: visible; pointer-events: auto; \}\s*\}/);
   assert.match(CSS, /@keyframes hub-scene-out \{\s*from \{ opacity: 1; visibility: visible; pointer-events: auto; \}\s*to\s+\{ opacity: 0; visibility: hidden; pointer-events: none; \}\s*\}/);
+  assert.match(CSS, /\.hub-arun\[data-armed\][^{]*\{[^}]*animation: hub-scene-in var\(--hub-fade\) linear both;/, 'the Auto run lost its fade');
 });
 
 /* 🔁 RE-AIMED 2026-10-09 (commit 8c — `lib/scrub-is-a-held-hand-over.test.ts`): Scrub is no longer a stacked run, so
@@ -115,7 +122,7 @@ test('(2) the stacked run’s own-effect rules are retired — the scene’s own
   const body = rule(BODY).decl;
   assert.equal(body.animation, 'var(--hub-in-kf, none) 1s linear both paused, var(--hub-out-kf, none) 1s linear forwards paused, hub-run-keep 1s linear both paused');
   /* Under the thumb: a paused animation's delay is its place — set from the engine's two numbers. */
-  assert.equal(body['animation-delay'], 'calc(var(--hub-pin, 1) * -1s), calc(var(--hub-pout, 0) * -1s), 0s');
+  assert.equal(body['animation-delay'], 'calc(var(--hub-pbin, 1) * -1s), calc(var(--hub-pout, 0) * -1s), 0s');
   assert.equal(body['animation-timeline'], 'auto');
 });
 

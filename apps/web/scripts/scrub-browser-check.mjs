@@ -16,7 +16,9 @@
  *   7. THE MAKER'S CANVAS (a page with a section marker, the page's own island deciding): while editing nothing is
  *      held — the plain page, every scene the top thing at its own middle (it can be picked); shown as a guest
  *      (`data-maker-guest`, ▶ held) the hand-overs run, the scene that was mid-screen still there; back to editing,
- *      every mark is gone.
+ *      every mark is gone;
+ *   8. AN EMPTY SCENE (a widget that drew nothing, set to Scrub out): it has no box and holds nothing, and the page
+ *      never stands still on a blank — the longest stretch with no scene to read is no longer than on the full page.
  *
  * Not part of the unit suite (it needs a browser): run it by hand, one job at a time.
  *   node scripts/scrub-browser-check.mjs <playwright-dir> <scratch-dir> [pictures-dir]
@@ -36,6 +38,7 @@ const tsx = `${WEB}/../../node_modules/.bin/tsx`;
 execFileSync(tsx, ['scripts/scrub-check-page.tsx', `${scratch}/scrub-real.html`, `${scratch}/scrub-engine.js`], { cwd: WEB, stdio: 'pipe' });
 execFileSync(tsx, ['scripts/scrub-check-page.tsx', `${scratch}/scrub-real-noscript.html`, `${scratch}/scrub-engine.js`, 'noscript'], { cwd: WEB, stdio: 'pipe' });
 execFileSync(esbuild, [`${WEB}/scripts/scrub-check-island.tsx`, '--bundle', '--minify', '--format=iife', '--jsx=automatic', '--define:process.env.NODE_ENV="production"', `--outfile=${scratch}/scrub-island.js`], { cwd: WEB, stdio: 'pipe' });
+execFileSync(tsx, ['scripts/scrub-check-page.tsx', `${scratch}/scrub-real-empty.html`, `${scratch}/scrub-engine.js`, 'empty'], { cwd: WEB, stdio: 'pipe' });
 execFileSync(tsx, ['scripts/scrub-check-page.tsx', `${scratch}/scrub-real-maker.html`, `${scratch}/scrub-island.js`, 'maker'], { cwd: WEB, stdio: 'pipe' });
 
 /* Before any page script: remember the browser's own scrolling, and count every way a script could take it over. */
@@ -148,7 +151,7 @@ for (const [W, H] of [[375, 812], [1280, 770]]) {
     const at = scenes.findIndex((e) => { const r = e.getBoundingClientRect(); return r.top <= mid && r.bottom >= mid; });
     return {
       on: document.querySelector('.hub-scenes').hasAttribute('data-hub-scrub-on'),
-      marks: [...document.querySelectorAll('.hub-scenes, .hub-scenes *')].filter((e) => /--hub-(?:len|top|up|pin|pout|o|rise|pp|end)\s*:/.test(e.getAttribute('style') ?? '') || [...e.attributes].some((a) => /^data-hub-(?:away|scrub-on)$/.test(a.name))).length,
+      marks: [...document.querySelectorAll('.hub-scenes, .hub-scenes *')].filter((e) => /--hub-(?:len|top|up|pbin|pout|o|rise|pp|end)\s*:/.test(e.getAttribute('style') ?? '') || [...e.attributes].some((a) => /^data-hub-(?:away|scrub-on)$/.test(a.name))).length,
       sticky: getComputedStyle(document.querySelector('.hub-stage')).position,
       seen: scenes.every((e) => { const cs = getComputedStyle(e); return cs.visibility !== 'hidden' && Number(cs.opacity) === 1; }),
       tops: scenes.map((e) => Math.round(e.getBoundingClientRect().top + scrollY)),
@@ -191,6 +194,33 @@ for (const [W, H] of [[375, 812], [1280, 770]]) {
   say(!after.on && after.marks === 0 && after.sticky !== 'sticky' && after.seen, `${size}: back to editing — every mark gone, the plain page again (${after.marks} marks)`);
   if (pics) await p.screenshot({ path: `${pics}/c8c-maker-${W}x${H}-editing.png` });
   await ctx.close();
+}
+
+/* 8. AN EMPTY SCENE — the second scene of the chain drew nothing. */
+for (const [W, H] of [[375, 812], [1280, 770]]) {
+  const size = `${W}x${H} an empty scene`;
+  /* The longest stretch of scrolling, while the scenes are under the centre line, with NOTHING of any scene to read. */
+  const blankest = async (file) => {
+    const ctx = await b.newContext({ viewport: { width: W, height: H } }); const p = await ctx.newPage();
+    await p.goto(`file://${scratch}/${file}`); await p.waitForTimeout(350);
+    const info = await p.evaluate(() => { const e = document.querySelectorAll('.hub-scene')[1]; const cell = e.parentElement.parentElement; return { on: document.querySelector('.hub-scenes').hasAttribute('data-hub-scrub-on'), cell: cell.classList.contains('hub-cell'), box: e.offsetHeight, len: cell.style.getPropertyValue('--hub-len'), max: document.documentElement.scrollHeight - innerHeight }; });
+    let run = 0; let worst = 0;
+    for (let y = 0; y <= info.max; y += 16) {
+      const any = await p.evaluate(async (v) => {
+        scrollTo(0, v); await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+        const mid = innerHeight / 2; const all = document.querySelector('.hub-scenes').getBoundingClientRect();
+        if (all.top > mid || all.bottom < mid) return true;
+        return [...document.querySelectorAll('.hub-scene')].some((e) => { const r = e.getBoundingClientRect(); const cs = getComputedStyle(e); return r.height > 0 && r.bottom > 0 && r.top < innerHeight && cs.visibility !== 'hidden' && Number(cs.opacity) > 0.05; });
+      }, y);
+      run = any ? 0 : run + 16; worst = Math.max(worst, run);
+    }
+    await ctx.close();
+    return { ...info, worst };
+  };
+  const full = await blankest('scrub-real.html');
+  const empty = await blankest('scrub-real-empty.html');
+  say(empty.on && empty.cell && empty.box === 0 && empty.len === '', `${size}: it has no box and the page is not held for it (box ${empty.box}px, hold "${empty.len}"; the full page holds "${full.len}")`);
+  say(empty.worst <= full.worst + 16, `${size}: no blank stands longer than on the full page (${empty.worst}px against ${full.worst}px)`);
 }
 await b.close();
 console.log(failed ? `\n${failed} FAILED` : PLAYED.length ? '\nALL OK' : '\nTHE MAKER’S CANVAS ONLY — OK (the five sizes were not played)');

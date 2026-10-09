@@ -179,7 +179,17 @@ test('2 🔑 inside the DELIBERATE scroll containers, scroll-linked motion follo
   const css = hubElementSceneCss('schedule', { label: { motion: L({ in: 'rise', timeline: 'scroll', out: 'fade' }) } })!;
   assert.match(css, /\.hub-scrub > :has\(\+ style\[data-hub-els="schedule"\]\)[^{]*\{[^}]*animation-timeline:var\(--hub-tl\)/);
   assert.match(css, /\.hub-arun\[data-armed\] > \.hub-auto > :has\([^{]*\{[^}]*animation-timeline:var\(--hub-tl\)/);
-  assert.match(CSS, /\.hub-scrub > \.hub-seq-parts > \.hub-canvas-body > \* > \*:nth-child\(n \+ 2\)\s*\{[^}]*--hub-part-in-tl:\s*var\(--hub-tl\)/);
+  /* 🔁 RE-AIMED 2026-10-09 (the cleanup that removed the stacked Scrub run). A Scrub scene is no longer a scroll
+     container of its own (a pinned frame on a spacer's timeline): it is an ordinary scene of the page, and while it
+     is under the thumb its parts are driven by the engine's number — that is its "own timeline" now.
+     ⚠ The line above still passes because `hubElementSceneCss` still WRITES a `.hub-scrub >` rule for a part's own
+     scroll motion; nothing draws `.hub-scrub` any more, so that rule matches nothing (a part's own motion inside a
+     Scrub scene is a listed limit of 8c — `lib/element-style.ts` is a Maker first-load file and was left alone). */
+  assert.doesNotMatch(CSS, /\.hub-scrub(?![\w-])/, 'the stacked run is back in the stylesheet');
+  assert.match(
+    CSS,
+    /\.hub-scenes\[data-hub-scrub-on\] \.hub-scene\[data-hub-fx\] > \.hub-canvas\.hub-seq-parts > \.hub-canvas-body \[data-hub-rows\] > \* \{[^}]*animation-delay:\s*calc\(var\(--hub-pp, 1\) \* -1s\)/,
+  );
   assert.match(CSS, /\.hub-arun\[data-armed\] > \.hub-auto > \.hub-seq-parts\.hub-tl-scrub[^{]*\{[^}]*--hub-part-in-tl:\s*var\(--hub-tl\)/);
 });
 

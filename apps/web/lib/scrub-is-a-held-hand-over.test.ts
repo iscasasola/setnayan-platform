@@ -149,6 +149,10 @@ test('(4) the engine may only measure and set: no scroll position, no prevented 
   const puts = [...src.matchAll(/put\(\w+(?:\.\w+)?, '([^']+)'/g)].map((m) => m[1]!);
   assert.ok(puts.length >= 10, 'anti-vacuity: the engine’s writes were found');
   for (const key of puts) assert.match(key, /^(?:--hub-[a-z]+|data-hub-[a-z-]+)$/, `the engine writes ${key}`);
+  /* A name the engine writes is the engine's ALONE (the cleanup, 2026-10-09: its Build-in number was `--hub-pin`,
+     which the stylesheet also declares — a LENGTH, the pin line an Auto run sizes itself by. Nothing read both inside
+     one scene, so nothing broke; one rule reading the line inside a Scrub scene would have got a number). */
+  for (const key of puts.filter((k) => k.startsWith('--'))) assert.doesNotMatch(CSS, new RegExp(`${key}\\s*:`), `the stylesheet declares ${key} — the engine’s number would mean two things`);
   /* Reduce motion: it returns before anything; any throw: it disarms and takes every mark off. */
   assert.match(src, /if \(typeof window === 'undefined' \|\| window\.matchMedia\?\.\('\(prefers-reduced-motion: reduce\)'\)\.matches\) return \(\) => \{\};/);
   assert.ok((src.match(/catch \{\s*stop\(\);\s*\}/g) ?? []).length >= 3, 'a throw in the engine leaves the page half-armed');

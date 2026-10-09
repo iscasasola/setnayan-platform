@@ -397,6 +397,35 @@ renders must not be able to differ). That guard was not run in 9c and has been r
 set only by a press, so it is null in both first renders: the branch is removed, the toast still portals to the
 body. `the-play-button-previews` (3) re-aimed from the phrasing to the property; both sabotaged red.
 
+### 8c · cleanup — the stacked Scrub run's stylesheet is removed
+
+Scrub has been a held hand-over since 8c; nothing has drawn `.hub-run` / `.hub-scrub` / `.hub-sp` since. Their
+rules are now gone from `app/globals.css` (36 rules; the spacer grid, the pinned frame, the spacer-timeline
+cross-fade, the pinned parts and rows, the lift), with `--hub-step` / `--hub-at`, and the three classes left the
+renderer's vocabulary (`lib/hub-scenes.ts`, a Maker first-load file: 8 B gz SMALLER). Auto scroll's rules are
+untouched — compared rule by rule before and after: every rule that went names a stacked-run class, except the two
+that changed (`.hub-scenes` lost the two lengths; the engine's own rule, below).
+
+Three things the removal brought up, fixed here:
+- AN EMPTY SCENE. The stacked run's stylesheet kept a widget that drew nothing from pinning a blank screen; 8c had
+  no equivalent, so an empty scene set to Scrub out held the page for a whole hand-over. The engine now holds
+  nothing for a scene with no box and hands over THROUGH it to the next scene a guest will see; the nest leaves no
+  second gap where it was. Browser check case 8: no box, no hold, 0 px of blank (128 px before the fix).
+- A NAME USED TWICE. The engine wrote its Build-in number as `--hub-pin`; the stylesheet declares `--hub-pin` as a
+  LENGTH (the pin line an Auto run sizes itself by). Nothing read both inside one scene, so nothing was broken —
+  the engine's is now `--hub-pbin`, and a guard holds that no name the engine writes is declared by the stylesheet.
+- THE ROW RULES' WEIGHT. Six scroll-scene row rules began `:not(.hub-scrub):not(.hub-auto) >`; their resets are
+  balanced to the class against the parts rules, so the first `:not()` became `:not(.hub-arun)` (same weight, never
+  a frame's parent) rather than being dropped.
+
+Left alone, listed: `lib/element-style.ts` still writes a `.hub-scrub >` rule for a part's own scroll motion and
+`stage-autoplay.tsx` still looks for a `.hub-sp` spacer — both match nothing now; the first is a Maker first-load
+file and belongs with the open question of a part's own motion inside a Scrub scene.
+
+Fourteen pins in five guards re-aimed with the reason written in (none deleted): what each protected is either
+asserted GONE (so the stacked run cannot come half back) or held where it now lives. Five sabotages seen red.
+Browser check: 110 checks, all green, on the cleaned stylesheet.
+
 SPEC IMPACT: Yes — supersedes the 2026-10-06/07 "Style | Text | Animate" and "the toolbar is half the screen" rows.
 The controller holds the spec (`TOOLBAR-SPEC-2026-10-09.md`) and applies the corpus rows; nothing in the corpus was
 edited from this branch.

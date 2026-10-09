@@ -503,7 +503,14 @@ test('a made-once page frame is double-buffered, never an iframe keyed on the re
 const ON_CANVAS = new Set([...CANVAS_POST, 'onSaving', 'hideOnCanvas', 'preview']);
 
 /** `held` handlers that draw nothing, and why that is right. */
-const HELD_WITHOUT_DRAWING: Record<string, string> = {};
+const HELD_WITHOUT_DRAWING: Record<string, string> = {
+  /* 🎵 Studio › Look › the guest's music button (2026-10-09). There is nothing to post to: the Maker's canvas does
+     not draw the music button at all (`site-body.tsx` mounts `BackgroundMusic` for guests only — `!isEditorCanvas`).
+     The one place the Maker shows it is the Look page's sample screen, which wears the pick AT THE TAP
+     (`tellLookSample`, drawn in the browser), so a render behind the save would change no pixel — `held` is true.
+     Both facts are held just below, so this entry cannot outlive them. */
+  'website/editor/_components/music-button-row.tsx › commit': 'not on the canvas — the Look sample wears it at the tap',
+};
 
 function optionsHold(call: ts.CallExpression): boolean {
   const opts = call.arguments[2];
@@ -545,6 +552,15 @@ test('E · every held save (no render behind it) is a change the canvas already 
       if (!h || !canvasFirst(n, h.fn)) blind.push({ file: rel(full), handler: h?.name ?? '<top>', line: sf.getLineAndCharacterOfPosition(n.getStart()).line + 1 });
     });
   }
+  /* The music button's exception stands only while it is true: the canvas does not draw the button, and the sample
+     is told BEFORE the save. If either changes, post to the canvas (or drop `held`) and delete the entry. */
+  const body = fs.readFileSync(path.join(WEB, 'app/[slug]/_components/site-body.tsx'), 'utf8');
+  assert.match(body, /&& !isEditorCanvas \? <BackgroundMusic src=/, 'the Maker’s canvas now draws the music button — the held save must post to it');
+  const musicFile = fs.readFileSync(path.join(WEB, 'app/dashboard/[eventId]/website/editor/_components/music-button-row.tsx'), 'utf8');
+  const music = musicFile.slice(musicFile.indexOf('const commit = (next: HubMusicButton) => {'));
+  const told = music.indexOf('tellLookSample(eventId, { musicButton: next });');
+  assert.ok(told > 0 && told < music.indexOf('{ held: true }'), 'the Look sample is not told before the held save');
+  for (const key of Object.keys(HELD_WITHOUT_DRAWING)) assert.ok(fs.existsSync(path.join(WEB, 'app/dashboard/[eventId]', key.split(' › ')[0]!)), `a stale exception: ${key}`);
   console.log(`[every-maker-edit] held saves: ${held}`);
   assert.ok(held >= 4, `only ${held} held saves found — the scan is not reading the Maker`);
   assert.deepEqual(

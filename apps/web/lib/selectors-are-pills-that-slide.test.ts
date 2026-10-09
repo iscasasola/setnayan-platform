@@ -466,7 +466,8 @@ test('(6) PillSelector — buttons or links, an icon-only variant, a row of togg
   assert.equal((toggles.match(/aria-pressed="true"/g) ?? []).length, 2);
   // The app's, not one screen's: React, next/dynamic and its own thumb — no Maker file, no Maker token.
   const imports = (f: string) => [...read(f).matchAll(/from '([^']+)'/g)].map((m) => m[1]);
-  assert.deepEqual(imports('app/_components/pill-selector.tsx').sort(), ['next/dynamic', 'react']);
+  /* RE-AIMED 2026-10-09: + its own sibling `./pill-classes` (the accent look, a module with no 'use client' so a server file can build a class from it) — still nothing of any one screen. */
+  assert.deepEqual(imports('app/_components/pill-selector.tsx').sort(), ['./pill-classes', 'next/dynamic', 'react']);
   assert.deepEqual(imports('app/_components/pill-thumb.tsx'), ['react']);
   for (const f of ['app/_components/pill-selector.tsx', 'app/_components/pill-thumb.tsx']) assert.doesNotMatch(read(f), /--sp-|\/dashboard\/|maker/i, `${f} knows the Maker`);
   // It says when NOT to use it, in the house rule's own words.
@@ -514,7 +515,7 @@ const PILL_TEMPLATE_DRAWERS: readonly string[] = [`${E}/inspector-kit.tsx`, `${L
  * words on its track, with why it is still by hand. Converting one removes its line; a NEW one is never added here.
  */
 const PILL_WATCH_BASELINE: readonly { file: string; has: string; why: string }[] = [
-  { file: `${L}/maker-logo.tsx`, has: 'aria-label="Logo panels"', why: 'the Logo studio’s Layers · Logo · Tools tabs (a tablist with panels) — the selector audit’s lane, not converted in the commit that made the template' },
+  /* The Logo studio's Layers | layer tabs were here — converted 2026-10-09 (Studio › Logo): they are the Pill selector now. */
   { file: `${E}/editor-shell.tsx`, has: 'aria-label="What opens your Save the Date"', why: 'the shipped Maker’s Save the Date opener (two values — a toggle by the house rule) — the selector audit’s lane' },
   // ── Already there when AREA 1 widened the scope to the couple's dashboard (2026-10-08). Each picks one of THREE
   //    VALUES, which the house rule makes a dropdown, not a pill selector (INTERACTION_RULES § 2) — so it was LISTED

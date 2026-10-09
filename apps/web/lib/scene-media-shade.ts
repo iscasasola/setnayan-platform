@@ -61,10 +61,20 @@ export type SceneMediaShade = {
   bodyContrast: number;
 };
 
-export function sceneMediaShade(step: HubMainShadeValue, theme: InviteTheme): SceneMediaShade {
-  const s = sceneShadeStep(step);
+/**
+ * The two inks a shade is made of — of the theme this file is HANDED (already dressed by the caller, through
+ * `lib/theme-colours.ts`). ONE read for the whole file: the picture's veil and the colour's mix both ask here, so
+ * a new shade cannot start reading a theme's colours on its own (`a-theme-preview-wears-the-palette.test.ts`).
+ */
+function shadeInks(theme: InviteTheme): { dark: string; light: string } {
   const dark = theme.palette.darkInk;
   const light = theme.palette.lightInk;
+  return { dark, light };
+}
+
+export function sceneMediaShade(step: HubMainShadeValue, theme: InviteTheme): SceneMediaShade {
+  const s = sceneShadeStep(step);
+  const { dark, light } = shadeInks(theme);
   const veil = s.veil === 'dark' ? dark : '#ffffff';
   /* Over the paper veil the words are the theme's dark ink (what the shipped scrim's legibility picks over white);
      over a dark veil, its light ink. */
@@ -90,7 +100,7 @@ export function sceneColourShade(tint: string, shade: HubMainShadeValue | null |
   const at = Math.max(-100, Math.min(100, hubMainFadeAt(shade)));
   if (at === 0) return tint;
   const amount = Math.min(at < 0 ? COLOUR_DARK_MOST : COLOUR_LIGHT_MOST, sceneShadeStep(shade).floor);
-  return compositeOver(at < 0 ? theme.palette.darkInk : '#ffffff', amount, tint);
+  return compositeOver(at < 0 ? shadeInks(theme).dark : '#ffffff', amount, tint);
 }
 /** The most of the colour a bar's end may replace — the picture veil's own floors at the bar's end, capped short of all of it. */
 const COLOUR_DARK_MOST = 0.8;

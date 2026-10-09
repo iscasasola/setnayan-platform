@@ -423,7 +423,8 @@ test('6 · the Logo page has no header bar, and adds Text · Image · Frame', ()
   }
   assert.match(page, /aria-label="Logo layers"/);
   assert.match(page, /aria-label="Layer tools"/);
-  for (const kind of ['Text', 'Image', 'Frame']) assert.match(page, new RegExp(`<AddBtn label="${kind}"`), `no "+ ${kind}"`);
+  /* RE-AIMED 2026-10-09 (Studio › Logo's chrome moved onto the templates — `studio-logo-are-the-templates.test.ts` holds the new shape): the adds are the ActionButton, each marked by its kind. */
+  for (const kind of ['Text', 'Image', 'Frame']) assert.match(page, new RegExp(`data-logo-add-kind="${kind.toLowerCase()}">\\s*<ActionButton[^>]*label="${kind}"`), `no "+ ${kind}"`);
   // Phone: both panels sit UNDER the logo, never a lower-third tool (L1 2026-10-08, the one-layer trap) —
   // the full contract is `the-logo-maker-opens-ready-to-edit.test.ts`.
   assert.equal((page.match(/sn-glass-bare flex-col \$\{LOGO_PANEL_PHONE\}/g) ?? []).length, 2, 'a logo panel is not under the logo');

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * 🎚 THE LAB'S SCRUB BADGE (lab only — never a guest's page; owner 2026-10-09, on a page where Scrub was on: *"as a
@@ -38,17 +39,17 @@ export function readScrubBadge(doc: Document, waited: boolean): string {
   const cells = leaving;
   const scenes = [...root.querySelectorAll<HTMLElement>('.hub-scene')];
   const at = leaving.findIndex((s) => num(s, '--hub-pout') < 1);
-  if (at < 0) return `Scrub: ON · all ${cells.length} hand-overs done`;
+  if (at < 0) return `Scrub: ON · all ${formatCount(cells.length)} hand-overs done`;
   const scene = leaving[at]!;
   const out = num(scene, '--hub-pout');
   const next = scenes[scenes.indexOf(scene) + 1];
-  const head = `Scrub: ON · hand-over ${at + 1} of ${cells.length}`;
+  const head = `Scrub: ON · hand-over ${formatCount(at + 1)} of ${formatCount(cells.length)}`;
   if (out > 0) return `${head} · ${nameOf(scene)} leaves ${pct(out)} · ${nameOf(next)} arrives ${pct(num(next, '--hub-pbin'))}`;
   /* Not yet leaving: is it a list still building its rows? */
   const rows = [...scene.querySelectorAll<HTMLElement>('[data-hub-rows] > *')];
   const built = rows.filter((r) => r.style.getPropertyValue('--hub-pp') !== '' && num(r, '--hub-pp') >= 1).length;
   const some = rows.some((r) => r.style.getPropertyValue('--hub-pp') !== '');
-  return some && built < rows.length ? `${head} · ${nameOf(scene)}: row ${built} of ${rows.length}` : `${head} · next to leave: ${nameOf(scene)}`;
+  return some && built < rows.length ? `${head} · ${nameOf(scene)}: row ${formatCount(built)} of ${formatCount(rows.length)}` : `${head} · next to leave: ${nameOf(scene)}`;
 }
 
 /** The chain's own saved canvases (`../lab-scrub.ts` `labWidgetsCookie(true)`) — what "Reset the sample" clears. */

@@ -137,13 +137,15 @@ test('4 · Across / Up and down snap a drag to the exact centre, and only a drag
 
   // Both position sliders snap; Size does not.
   for (const label of ['Across', 'Up and down']) {
-    assert.match(editor, new RegExp(`<Slider label="${label}"[^>]*\\ssnapCentre\\s`), `${label} snaps to centre`);
+    /* RE-AIMED 2026-10-09 (Studio › Logo's chrome moved onto the templates — `studio-logo-are-the-templates.test.ts` holds the new shape): the sliders are `LogoSlider` (the template's range + the same snap). */
+    assert.match(editor, new RegExp(`<LogoSlider label="${label}"[^>]*\\ssnapCentre\\s`), `${label} snaps to centre`);
   }
-  assert.doesNotMatch(/<Slider label="Size"[^>]*>/.exec(editor)?.[0] ?? '', /snapCentre/);
+  assert.doesNotMatch(/<LogoSlider label="Size"[^>]*>/.exec(editor)?.[0] ?? '', /snapCentre/);
   // The slider: a centre tick, snapping only while a pointer drags, a haptic tap.
-  const slider = editor.slice(editor.indexOf('function Slider('));
+  /* RE-AIMED 2026-10-09 (Studio › Logo's chrome moved onto the templates): the same snap, on `LogoSlider` over the template's range; a key press is told by the capture handler. */
+  const slider = editor.slice(editor.indexOf('function LogoSlider('));
   assert.match(slider, /data-slider-centre/, 'a tick marks the middle of the track');
-  assert.match(slider, /onKeyDown=\{\(\) => \{\s*dragging\.current = false;/, 'a key press is never a drag');
+  assert.match(slider, /onKeyDownCapture=\{\(\) => \{\s*dragging\.current = false;/, 'a key press is never a drag');
   assert.match(slider, /if \(!snapCentre \|\| !dragging\.current\) \{\s*onChange\(raw\);/, 'the keyboard steps freely');
   assert.match(slider, /snapSliderToCentre\(raw, min, max\)/);
   assert.match(slider, /navigator\.vibrate\(10\)/, 'a light haptic as it lands');

@@ -6,7 +6,8 @@
  * WHICH words a part has is the PAGE's to say, never a list kept here: the words the shipped typing door could put a
  * caret in — a line of the cover that takes one (`isTypeCaretPart`: the title, the names, the invite line, the
  * link) and every scene field the canvas marked (`[data-el-field]`, `markSceneWords`: Your message, Your reminders,
- * a scene of their own's Heading and Words). A part with none has no field; it keeps its one door.
+ * a scene of their own's Heading and Words) — and a Post Event scene's own (`post-event-edit.ts`). A part with none
+ * has no field; it keeps its one door.
  *
  * KEEPING them is the SHIPPED write, through the one draft door (`hubDraftAction`), with the SAME sanitizers and the
  * SAME write keys the typing bar uses (`type-in-place.tsx`) — one value, however many doors:
@@ -31,6 +32,7 @@ import { withTypedWords } from '@/lib/type-in-place';
 import { SCENE_FIELD_LABEL, sceneFieldMax, sceneTypeWrite, type SceneOwnWords } from '@/lib/scene-type-words';
 import { DISPLAY_NAME_MAX, typedDisplayName } from '@/lib/typed-names';
 import type { ElementDraftAction } from '../../../website/editor/_components/element-sheet';
+import { readPostEventWords } from './post-event-edit';
 
 /** The names' own queue key — the typing bar's (`type-in-place.tsx`): the two doors' writes never race. */
 export const NAMES_WRITE_KEY = 'event:display_name';
@@ -87,6 +89,8 @@ export function readPartWords(doc: Document | null | undefined, key: string | nu
       },
     ];
   }
+  /* 🎞 A Post Event scene: the parts its style draws with words the couple may rewrite (`post-event-edit.ts`). */
+  if (key.startsWith('p:')) return readPostEventWords(doc, key);
   if (!key.startsWith('w:')) return [];
   const out: PartWordsField[] = [];
   for (const part of Array.from(section.querySelectorAll<HTMLElement>('[data-el-field]'))) {

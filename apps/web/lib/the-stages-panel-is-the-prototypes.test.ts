@@ -533,8 +533,10 @@ test('the Reveal and Camera look cards are the phone-shaped frame — the Camera
   assert.match(card, /className=\{`\$\{SP_PHONE_PICTURE\} /);
   assert.match(card, /<RevealPicture kind=\{o\.id\} colours=\{look\.colours\} fill \/>/, 'the opening is drawn at the frame’s portrait shape');
   const camera = read(`${LAUNCH}/stage-panel/camera-look.tsx`);
-  assert.match(camera, /className=\{SP_LOOK_CARD\}>/, 'a Camera card is not the frame-wide look card');
-  assert.match(camera, /data-camera-look-face=\{look\} className="absolute inset-0 /, 'the camera screen no longer fills the frame');
+  /* (Re-aimed 2026-10-10: the approved prototype now draws The Day › Camera — its looks are the toolbar's Style cards,
+     `StyleCards`, like every other part's; `every-style-card-is-phone-shaped.test.ts` holds the card.) */
+  assert.match(camera, /<StyleCards\s/, 'a Camera card is not the toolbar’s Style card');
+  assert.match(read(`${LAUNCH}/stage-panel/camera-face.tsx`), /data-camera-look-face=\{look\} className="absolute inset-0 /, 'the camera screen no longer fills the frame');
   assert.doesNotMatch(camera + card, /spCardWidth|SP_LAYOUT_CARD/, 'a card is sized apart from the frame again');
 });
 

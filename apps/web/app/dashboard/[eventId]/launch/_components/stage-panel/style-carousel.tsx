@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { SP_STYLE_CARD, SP_STYLE_NAME, SP_STYLE_PICTURE, SP_STYLE_STRIP, styleCardIsWide } from '@/lib/maker-stage-room';
 import { StylePreview } from './style-preview';
 
@@ -28,7 +28,14 @@ export function StyleCards({
   focus = null,
   label = 'Layout',
   data = '',
+  picture,
 }: {
+  /**
+   * 🎛 A look whose picture is DRAWN HERE instead of copied off the page (`StylePreview`): the Camera's — the camera
+   * is never opened in the Maker, so its three looks are the camera's own pieces, drawn (`camera-look.tsx`). The
+   * card, its foot and the strip are the same; only what fills the picture differs.
+   */
+  picture?: (id: string, on: boolean) => ReactNode;
   /** 🔎 One block of the scene the cards are fitted on (`StylePreview` `focus`) — the palette's "Our colours". */
   focus?: string | null;
   /** What the set is, for a screen reader — "Layout" (a scene's styles), "Palette" (its palette looks). */
@@ -96,17 +103,21 @@ export function StyleCards({
           >
             {/* The part as a guest's phone draws it — whole, in the middle of the card. */}
             <span data-style-card-preview="" className={SP_STYLE_PICTURE}>
-              <StylePreview
-                canvasKey={canvasKey}
-                sceneType={sceneType}
-                styleId={o.id}
-                current={on}
-                focus={focus}
-                onDrawn={(shape) => {
-                  const w = styleCardIsWide(shape);
-                  setWide((was) => (Boolean(was[o.id]) === w ? was : { ...was, [o.id]: w }));
-                }}
-              />
+              {picture ? (
+                picture(o.id, on)
+              ) : (
+                <StylePreview
+                  canvasKey={canvasKey}
+                  sceneType={sceneType}
+                  styleId={o.id}
+                  current={on}
+                  focus={focus}
+                  onDrawn={(shape) => {
+                    const w = styleCardIsWide(shape);
+                    setWide((was) => (Boolean(was[o.id]) === w ? was : { ...was, [o.id]: w }));
+                  }}
+                />
+              )}
             </span>
             <span className={SP_STYLE_NAME}>{o.name}</span>
           </button>

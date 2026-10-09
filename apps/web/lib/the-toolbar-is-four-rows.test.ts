@@ -26,7 +26,7 @@ import { join } from 'node:path';
 import React from 'react';
 
 import { stripComments } from './strip-comments';
-import { MAKER_PARTS, MAKER_PART_TOOLS, MAKER_PART_TOOL_LABEL, makerPartToolWhy, makerPartToolWorks, makerWorkTool, type MakerPartKey } from './maker-parts';
+import { MAKER_PARTS, MAKER_PARTS_NO_LOOK, MAKER_PART_TOOLS, MAKER_PART_TOOL_LABEL, makerPartToolWhy, makerPartToolWorks, makerWorkTool, type MakerPartKey } from './maker-parts';
 import {
   SP_ROWS,
   STAGE_BAR_BAND_PX,
@@ -147,7 +147,8 @@ test('(2) four tools — Edit | Style | Background | Animate — words only, eac
   for (const k of keys) {
     /* (The Camera is a full-screen design with ONLY Style live — owner 2026-10-09.) */
     assert.equal(makerPartToolWorks(k, 'edit'), k !== 'camera', `${k}: Edit`);
-    assert.equal(makerPartToolWorks(k, 'style'), true, `${k}: Style`);
+    /* (…and Style on all but a part with no look to pick at all — `MAKER_PARTS_NO_LOOK`, The Day's "Happening now".) */
+    assert.equal(makerPartToolWorks(k, 'style'), !MAKER_PARTS_NO_LOOK.includes(k), `${k}: Style`);
     const scene = (MAKER_PARTS[k].canvas ?? '').startsWith('w:');
     assert.equal(makerPartToolWorks(k, 'bg'), scene, `${k}: Background`);
     if (scene) bg += 1;

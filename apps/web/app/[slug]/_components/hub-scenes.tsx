@@ -128,6 +128,82 @@ function flow(blocks: readonly Block[]): React.ReactNode[] {
   ];
 }
 
+/**
+ * A page's scenes, resolved ONCE: each scene's motion, the runs, and WHICH SCENES HAND OVER BY SCRUB — read by the
+ * scenes block (`HubScenes`) and by the page's own hold (`hubScrubHolds` → `HubPageHold`), so the page can never
+ * wrap itself for a number of hand-overs the block does not draw.
+ */
+function sceneRuns(widgets: readonly InvitationWidgetRow[], scrubAllowed: boolean) {
+  const motionOf = new Map(
+    widgets.map((w) => {
+      const canvas = sanitizeHubCanvas(w.config_json);
+      return [
+        w,
+        {
+          transition: renderedTransition(resolveTransition(canvas), scrubAllowed),
+          speed: canvas.autoSpeed ?? HUB_DEFAULT_AUTO_SPEED,
+          /* 🎚 Scrub out hands over only where there is a Build out to play (owner: "if no build out, element stay
+             permanent on the page"). */
+          leaves: resolveHubMotion(canvas).out !== 'none',
+        },
+      ] as const;
+    }),
+  );
+  const segments = groupSceneRuns(
+    widgets,
+    (w) => motionOf.get(w)!.transition,
+    (w) => motionOf.get(w)!.speed,
+  );
+  /** Does scene `index` hand over? It Leaves by Scrub, has a Build out to play, and is not the block's last scene. */
+  const holds = (index: number) => {
+    const me = motionOf.get(widgets[index]!);
+    return Boolean(me && me.transition === 'scrub' && me.leaves && index < widgets.length - 1);
+  };
+  return { motionOf, segments, holds };
+}
+
+/** How many hand-overs these scenes draw — what `HubPageHold` needs to know. (A scene inside an Auto run is not one.) */
+export function hubScrubHolds(widgets: readonly InvitationWidgetRow[], scrubAllowed: boolean): number {
+  const { segments, holds } = sceneRuns(widgets, scrubAllowed);
+  if (!hasScrubRun(segments)) return 0;
+  return segments.reduce((n, seg) => n + (seg.kind === 'auto' ? 0 : (seg.kind === 'scroll' ? [seg.entry] : seg.entries).filter((e) => holds(e.index)).length), 0);
+}
+
+/**
+ * AT MOST how many hand-overs a page's scenes can draw, whatever lists the page splits them into (one scroll, a
+ * page a tab, around the entourage): every scene that Leaves by Scrub with a Build out. A page asks THIS for its
+ * own hold — a pair too many is a plain box that holds nothing; a pair too few would leave a hand-over to hold only
+ * its own block. Zero on every page with no Scrub scene (every page today): nothing is wrapped at all.
+ */
+export function hubScrubHoldsAtMost(widgets: readonly InvitationWidgetRow[], scrubAllowed: boolean): number {
+  const { motionOf } = sceneRuns(widgets, scrubAllowed);
+  return widgets.filter((w) => motionOf.get(w)!.transition === 'scrub' && motionOf.get(w)!.leaves).length;
+}
+
+/**
+ * 🧍 THE PAGE'S OWN HOLD (owner, his first sentence about Scrub: *"the page will not scroll"*). A hand-over's cell
+ * inside a scenes block can only hold what is in the block; the cover, a greeting, whatever the page draws around
+ * its scenes went on scrolling at thumb speed while a scene was "held" — which reads as ordinary scrolling
+ * (2026-10-09: *"as a guest nothing scrubbed"*). So the PAGE wraps its whole content column in one plain cell ›
+ * stage pair per hand-over, nested; the engine gives hand-over k the k-th pair from the outside
+ * (`hub-scrub-engine.ts`), and that stage — the whole column — is what stands still, by the browser's own
+ * `position: sticky`, for the hand-over's length.
+ *
+ * 🔒 Without the engine these are plain boxes with no rule of their own: the page is the plain page. With no
+ * hand-over on the page (`holds` 0 — every page today) the children are returned as given: nothing is wrapped.
+ */
+export function HubPageHold({ holds, children }: { holds: number; children: React.ReactNode }) {
+  let node: React.ReactNode = children;
+  for (let i = 0; i < holds; i++) {
+    node = (
+      <div className="hub-page-cell">
+        <div className="hub-page-stage">{node}</div>
+      </div>
+    );
+  }
+  return <>{node}</>;
+}
+
 export function HubScenes({
   widgets,
   scrubAllowed,
@@ -151,26 +227,7 @@ export function HubScenes({
 
   /* Each scene's motion, read ONCE — the runs below and the stage marks both
      read this, so the walker's clock is the clock the page plays. */
-  const motionOf = new Map(
-    widgets.map((w) => {
-      const canvas = sanitizeHubCanvas(w.config_json);
-      return [
-        w,
-        {
-          transition: renderedTransition(resolveTransition(canvas), scrubAllowed),
-          speed: canvas.autoSpeed ?? HUB_DEFAULT_AUTO_SPEED,
-          /* 🎚 Scrub out hands over only where there is a Build out to play (owner: "if no build out, element stay
-             permanent on the page"). */
-          leaves: resolveHubMotion(canvas).out !== 'none',
-        },
-      ] as const;
-    }),
-  );
-  const segments = groupSceneRuns(
-    widgets,
-    (w) => motionOf.get(w)!.transition,
-    (w) => motionOf.get(w)!.speed,
-  );
+  const { motionOf, segments, holds } = sceneRuns(widgets, scrubAllowed);
   /** The stage mark for scene `i`, as attributes — or nothing. */
   const mark = (i: number): Record<string, string> => {
     const w = widgets[i];
@@ -252,7 +309,7 @@ export function HubScenes({
                 const before = e.index > 0 ? motionOf.get(widgets[e.index - 1]!) : null;
                 const fx = me.transition === 'scrub' || before?.transition === 'scrub';
                 return {
-                  hold: me.transition === 'scrub' && me.leaves && e.index < widgets.length - 1,
+                  hold: holds(e.index),
                   node: (
                     <div key={e.index} className="hub-scene hub-scroll" style={tl(e.index)} {...(fx ? { 'data-hub-fx': '' } : {})} {...mark(e.index)}>
                       {nodes[e.index]}

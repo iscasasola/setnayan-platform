@@ -13,7 +13,7 @@ import { PahinaMasthead } from '@/app/[slug]/_components/pahina-masthead';
 import { ScheduleWidget } from '@/app/[slug]/_components/schedule-widget';
 import { VenueWidget } from '@/app/[slug]/_components/venue-widget';
 import { HubCanvasFrame } from '@/app/[slug]/_components/hub-canvas-frame';
-import { HubScenes } from '@/app/[slug]/_components/hub-scenes';
+import { HubPageHold, HubScenes, hubScrubHoldsAtMost } from '@/app/[slug]/_components/hub-scenes';
 import { EDITOR_CANVAS_HIDES_APP_CHROME, canvasOnlyCss, canvasOnlyScene, canvasStylePreview } from '@/app/[slug]/_lib/editor-canvas';
 import { withStylePreview } from '@/app/[slug]/_lib/style-preview';
 import { eventWordsFor } from '@/app/[slug]/_lib/event-words';
@@ -360,6 +360,10 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
           <div className="absolute inset-0 bg-[#FBF9F5]/60" />
         </div>
       ) : null}
+      {/* 🧍 THE PAGE'S OWN HOLD, as `site-body.tsx` wraps its article: on the chain, everything this page draws — the
+          cover, the greeting, the ticket — stands still while a hand-over plays. (`holds` 0 off the chain: nothing is
+          wrapped.) */}
+      <HubPageHold holds={scrub ? hubScrubHoldsAtMost(LAB_SCRUB_CHAIN.map((t) => rowOf(t)) as never, true) : 0}>
       <div className="flex justify-between border-b border-ink/10 px-4 py-2.5 text-[9.5px] font-semibold uppercase tracking-[0.3em] text-gild">
         <span>Setnayan</span>
         <span>{phase === 'save_the_date' ? 'Save the Date' : phase === 'event' ? 'The Day' : phase === 'editorial' ? 'Post Event' : 'Invitation'}</span>
@@ -468,6 +472,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
           ))}
         </div>
       ) : null}
+      </HubPageHold>
       {/* The Maker's two-way bridge, as the real canvas mounts it — its `ready` swaps a buffered frame in. Never in a miniature. */}
       {sp.editor === '1' && !preview ? <EditorBridge /> : null}
       {only ? <style>{canvasOnlyCss(only)}</style> : null}

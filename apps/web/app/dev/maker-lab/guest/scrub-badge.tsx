@@ -28,11 +28,12 @@ export function readScrubBadge(doc: Document, waited: boolean): string {
   if (off !== null) return `Scrub: OFF — ${off}`;
   if (!root.hasAttribute('data-hub-scrub-on')) return waited ? 'Scrub: OFF — the page’s script has not started' : 'Scrub: starting…';
   /* The hand-overs the engine holds the page for: a scene LEAVES when it is the one right before its cell's
-     rest-of-the-page (`hub-scenes.tsx` `flow` — the stage may hold ordinary scenes before it), and its cell has a
-     length (an empty scene's has none). */
+     rest-of-the-page (`hub-scenes.tsx` `flow` — the stage may hold ordinary scenes before it) and it drew something
+     (a scene with no box holds nothing). Not "its cell has a length": on a page with its own hold the length is the
+     page pair's, not the cell's. */
   const leaving = [...root.querySelectorAll<HTMLElement>('.hub-after')]
-    .filter((a) => (a.closest('.hub-cell') as HTMLElement | null)?.style.getPropertyValue('--hub-len'))
-    .map((a) => a.previousElementSibling as HTMLElement | null);
+    .map((a) => a.previousElementSibling as HTMLElement | null)
+    .filter((sc) => (sc?.offsetHeight ?? 0) > 0);
   if (leaving.length === 0) return 'Scrub: ON — no hand-over on this page';
   const cells = leaving;
   const scenes = [...root.querySelectorAll<HTMLElement>('.hub-scene')];

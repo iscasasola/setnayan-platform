@@ -187,7 +187,7 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { HideableWidgetRender } from './hideable-widget-render';
 import { InvitationShell } from './invitation-shell';
 import { PublicHideableWidget } from './public-hideable-widget';
-import { HubScenes } from './hub-scenes';
+import { HubPageHold, HubScenes, hubScrubHoldsAtMost } from './hub-scenes';
 import { RsvpWidget } from './rsvp-widget';
 import { sceneStyleOfRow, paletteLookOfRow, dosLookOfRow } from '@/lib/scene-style-of-row';
 import type { FixedStyleScene, StyledScene } from '@/lib/fixed-scene-styles';
@@ -711,6 +711,8 @@ export async function SiteBody({
   // 2026-09-28): see `_lib/main-ground-layer.tsx` for the whole rule. The hero
   // row is draft-overlaid for the host's preview like every other canvas.
   const heroRow = widgets.find((w) => w.widget_type === 'hero');
+  /* 🧍 How many pairs the page's own hold needs — at most one a scene that Leaves by Scrub (`HubPageHold`). 0 today. */
+  const pageHolds = hubScrubHoldsAtMost(widgets, proWatermarkHidden);
   const mainGroundLayer = await mainGroundLayerFor({
     theme: sceneTheme,
     heroConfig: heroRow?.config_json,
@@ -1756,6 +1758,10 @@ export async function SiteBody({
             contract verbatim — no IntersectionObserver, reduced motion, or the
             2s self-heal each drop `.pahina-js` and every section is instantly
             visible and static. */}
+        {/* 🧍 THE PAGE'S OWN HOLD (`hub-scenes.tsx` `HubPageHold`): on a page with a scene that Leaves by Scrub, the
+            whole article — the cover too — stands still while a hand-over plays. With none (every page today)
+            nothing is wrapped: the article is the fragment's child exactly as before. */}
+        <HubPageHold holds={pageHolds}>
         <article data-pahina-chapters>
         {/* 📱 THE FIRST TAB'S TOP — the Invitation's Welcome, The Day's Live
             (`group`, a no-op on a page that is one scroll). */}
@@ -2252,6 +2258,7 @@ export async function SiteBody({
             not allow use"); closed ⇒ DRAWN AND LOCKED, never absent, because the
             camera is part of what the invitation promises. */}
         </article>
+        </HubPageHold>
         {(() => {
           /* 🧭 ONE VALUE, TWO READERS: the tab bar a guest sees, and — in the
              Maker's canvas only — the navigator's tabs (`data-maker-bar`), so
@@ -2757,6 +2764,8 @@ export async function SiteBody({
             </a>
           </p>
         ) : null}
+        {/* 🧍 THE PAGE'S OWN HOLD — as on the stranger's tree above: the whole article stands still during a hand-over. */}
+        <HubPageHold holds={pageHolds}>
         <article data-pahina-chapters className="space-y-12">
           {/* 📱 THE FIRST TAB'S TOP — the Invitation's Welcome, The Day's Live
               (`group`: a no-op on a page that is one scroll). */}
@@ -3577,6 +3586,7 @@ export async function SiteBody({
           {/* Footer with sign-out — on a tabbed page it is Me's (below). */}
           {tabs.on ? null : signOut}
         </article>
+        </HubPageHold>
         {/* 👤 ME, ON A TABBED PAGE (owner 2026-09-30: *"Me = the Digital
             ticket"*) — the guest's own section, handed in by page.tsx, then the
             sign-out. A SIBLING of the chapters article, like the reply sheet

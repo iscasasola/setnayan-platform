@@ -38,6 +38,13 @@
  *       the scene, and reads layout without the hold and without the rises. Played in a browser at the five sizes
  *       ("what a guest can see above a held scene stands still too"). Sabotage: the scenes before a hand-over left
  *       outside its stage → red (and red in the browser).
+ *   (8) THE WHOLE PAGE STANDS STILL — THE PAGE'S OWN HOLD. A hand-over's cell can only hold its scenes block; the
+ *       cover and whatever else a page draws went on scrolling. A page wraps its whole column in one plain pair a
+ *       hand-over (`HubPageHold`), and the engine gives hand-over k the k-th pair from the outside. Executed: no
+ *       hand-over → NOTHING is wrapped (every page today is byte-identical); N → N nested pairs; the count a page
+ *       asks for is never less than what its scenes draw. Both trees of the guest page wrap their article. Played
+ *       in a browser at the six sizes ("the page before the scenes stands still during a hold"), and under
+ *       `html { overflow-x: clip }`. Sabotage: the engine holding only the block → red here and in the browser.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -49,7 +56,8 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
 import { SCRUB, scrubLens, scrubMoment, scrubNeedsRest, scrubOwnIn, scrubPair, scrubRow, scrubThrough } from '../app/[slug]/_components/hub-scrub-math';
-import { HubScenes } from '../app/[slug]/_components/hub-scenes';
+import { HubPageHold, HubScenes, hubScrubHolds, hubScrubHoldsAtMost } from '../app/[slug]/_components/hub-scenes';
+import { HUB_PAGE_HOLD_CLASSES } from '../app/[slug]/_components/hub-scrub-math';
 
 (globalThis as unknown as { React: unknown }).React = React;
 
@@ -171,12 +179,15 @@ test('(4) the engine may only measure and set: no scroll position, no prevented 
   /* 🔁 RE-AIMED 2026-10-09 (8d — the page says WHY it is off, `the-lab-plays-the-scrub-chain` (5)): under reduce
      motion it still returns before it measures or listens — having said so on the scenes block; and a throw still
      disarms (`fail` = `stop`, then the reason), through every `catch`. */
-  assert.match(src, /if \(typeof window === 'undefined'\) return \(\) => \{\};\s*if \(window\.matchMedia\?\.\('\(prefers-reduced-motion: reduce\)'\)\.matches\) \{\s*root\.setAttribute\(HUB_SCRUB_OFF, 'reduce motion'\);\s*return /);
-  assert.ok(src.indexOf("root.setAttribute(HUB_SCRUB_OFF, 'reduce motion')") < src.indexOf('const marked = '), 'under reduce motion the engine goes on to measure');
+  assert.match(src, /if \(window\.matchMedia\?\.\('\(prefers-reduced-motion: reduce\)'\)\.matches\) \{\s*say\('reduce motion'\);\s*return \(\) => say\(null\);\s*\}/);
+  assert.ok(src.indexOf("say('reduce motion')") < src.indexOf('const marked = ') && src.indexOf("say('reduce motion')") < src.indexOf('const pages'), 'under reduce motion the engine goes on to measure');
   assert.equal((src.match(/catch \(e\) \{\s*fail\(e\);\s*\}/g) ?? []).length, 3, 'a throw in the engine leaves the page half-armed');
   assert.match(src, /function fail\(e: unknown\) \{\s*stop\(\);/);
   /* The reason is the ONE thing it writes outside `put` — a `data-hub-…` mark like the rest. */
   assert.deepEqual([...new Set([...src.matchAll(/\.(?:set|remove)Attribute\((\w+)/g)].map((m) => m[1]))].sort(), ['HUB_SCRUB_OFF', 'key']);
+  /* 🪤 A length is never left unset while armed (it would INHERIT: a cell in a stage in a cell) — `null` is for the
+     mark, the page's end and disarming only. Measured: four inner cells each drew the page pair's hold. */
+  assert.deepEqual([...src.matchAll(/put\([\w.]+, '(--hub-[a-z]+)', null\)/g)].map((m) => m[1]), ['--hub-end']);
   assert.match(src, /for \(const \[el, keys\] of marked\) for \(const key of keys\.keys\(\)\) key\.startsWith\('--'\) \? el\.style\.removeProperty\(key\) : el\.removeAttribute\(key\);/);
   /* It reads the browser's own sticky back (a rect), never a position of its own. */
   /* (2026-10-09, "the page stands still": against where the STAGE stands — `stick`, see (7) — not the scene's own line.) */
@@ -201,7 +212,7 @@ test('(5) fail-visible: the island draws nothing and loads the engine late; ever
   assert.ok(at > 0 && CSS.indexOf('[data-hub-scrub-on]') > at, 'the engine’s mark is used outside the Scrub block');
   const rules = [...block.slice(block.indexOf('{') + 1).matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ sel: m[1]!.trim().replace(/\s+/g, ' '), body: m[2]!.replace(/\s+/g, ' ').trim() }));
   assert.ok(rules.length >= 10);
-  for (const r of rules) for (const s of r.sel.split(',')) assert.ok(s.trim().startsWith('.hub-scenes[data-hub-scrub-on]'), `a Scrub rule applies without the engine: ${s.trim()}`);
+  for (const r of rules) for (const s of r.sel.split(',')) assert.ok(/^\.hub-scenes\[data-hub-scrub-on\]|^\.hub-page-cell\[data-hub-page-on\]/.test(s.trim()), `a Scrub rule applies without the engine: ${s.trim()}`);
   const of = (sel: string) => rules.find((r) => r.sel === sel)?.body ?? '';
   /* THE HOLD — the stage is the browser's own sticky; its length is INSIDE the cell's content box. */
   assert.equal(of('.hub-scenes[data-hub-scrub-on] .hub-stage'), 'position: sticky; top: var(--hub-top, 0px);');
@@ -262,13 +273,53 @@ test('(7) during a hold the page stands still: the scenes before a hand-over are
   /* THE ENGINE — finds the pair by that shape, and sticks the stage where the SCENE is on its line. */
   const engine = read(`${B}/hub-scrub-engine.ts`);
   assert.match(engine, /const after = stage\?\.querySelector<HTMLElement>\(':scope > \.hub-after, :scope > \.hub-below > \.hub-after'\) \?\? null;\s*const scene = after\?\.previousElementSibling as HTMLElement \| null;/);
-  assert.match(engine, /const stick = pair\.top - \(docTop\(scene\) - docTop\(stage\)\);\s*put\(stage, '--hub-top', px\(stick\)\);/);
+  assert.match(engine, /const stick = pair\.top - \(docTop\(scene\) - docTop\(hold\.stage\)\);\s*put\(hold\.stage, '--hub-top', px\(stick\)\);/);
   assert.match(engine, /const next = arrival\?\.nextElementSibling \?\? null;\s*const below = next\?\.matches\('\.hub-below, \.hub-after'\) \? \(next as HTMLElement\) : null;/);
   /* …the arrival is put in its place whatever lies between it and the top of the rest of the page… */
-  assert.match(engine, /put\(after, '--hub-up', arrival \? px\(pair\.up - \(docTop\(arrival\) - docTop\(after\)\)\) : null\);/);
+  assert.match(engine, /put\(after, '--hub-up', arrival \? px\(pair\.up - \(docTop\(arrival\) - docTop\(after\)\)\) : '1rem'\);/);
   /* …and layout is read without the hold (a standing stage reports where it stands) and without the rises. */
-  assert.match(engine, /y \+= \(n\.matches\('\.hub-stage'\) \? \(n\.parentElement as HTMLElement\) : n\)\.offsetTop;/);
-  assert.match(engine, /for \(const h of was\) if \(h\.below\) put\(h\.below, '--hub-rise', null\);\s*for \(const cell of root\.querySelectorAll<HTMLElement>\(CELL\)\)/);
+  assert.match(engine, /y \+= \(n\.matches\('\.hub-stage, \.hub-page-stage'\) \? \(n\.parentElement as HTMLElement\) : n\)\.offsetTop;/);
+  assert.match(engine, /for \(const h of was\) if \(h\.below\) put\(h\.below, '--hub-rise', '0px'\);/);
   /* THE STYLESHEET — the new boxes are plain blocks with the page's rhythm until the engine arms. */
   assert.match(CSS, /\.hub-stage > \.hub-after,\s*\.hub-stage > \.hub-below,\s*\.hub-after > \.hub-below,\s*\.hub-below > \* \+ \* \{ margin-top: 1rem; \}/);
+});
+
+test('(8) the whole page stands still: a page wraps its column in one pair a hand-over, and the engine holds THAT', () => {
+  const row = (canvas: Record<string, unknown> | null, i: number) => ({ widget_id: `w${i}`, widget_type: 'custom_1', config_json: canvas ? { canvas } : null });
+  const SCRUB = { transition: 'scrub' };
+  const STAYS = { transition: 'scrub', out: 'none' };
+  const page = (holds: number) => renderToStaticMarkup(React.createElement(HubPageHold, { holds }, React.createElement('article', null, 'the page')));
+  /* No hand-over: nothing is wrapped — the page is exactly the page (every page today). */
+  assert.equal(page(0), '<article>the page</article>');
+  /* N hand-overs: N plain pairs, nested, the page inside the innermost. */
+  assert.equal(page(2), '<div class="hub-page-cell"><div class="hub-page-stage"><div class="hub-page-cell"><div class="hub-page-stage"><article>the page</article></div></div></div></div>');
+  for (const c of HUB_PAGE_HOLD_CLASSES) assert.ok(page(1).includes(`class="${c}"`), `${c} is not emitted`);
+  /* The count: what the scenes DRAW, and what a page may ask for at most — never fewer than drawn. */
+  const plans: Array<Array<Record<string, unknown> | null>> = [[SCRUB, null, SCRUB, null], [SCRUB, SCRUB, SCRUB], [null, null], [STAYS, null], [null, SCRUB], [SCRUB, STAYS, SCRUB, null]];
+  const drawn = (w: unknown[]) => (renderToStaticMarkup(React.createElement(HubScenes as unknown as React.FC<{ widgets: unknown; scrubAllowed: boolean }>, { widgets: w, scrubAllowed: true }, ...w.map((_, i) => React.createElement('section', { key: i })))).match(/class="hub-cell"/g) ?? []).length;
+  for (const plan of plans) {
+    const w = plan.map(row);
+    assert.equal(hubScrubHolds(w as never, true), drawn(w), `${JSON.stringify(plan)}: the count is not what is drawn`);
+    assert.ok(hubScrubHoldsAtMost(w as never, true) >= drawn(w), `${JSON.stringify(plan)}: the page would ask for fewer pairs than its scenes need`);
+    assert.equal(hubScrubHoldsAtMost(w as never, false), 0, 'without Event Hub Pro a page wraps itself');
+  }
+  assert.equal(hubScrubHoldsAtMost([null, null].map(row) as never, true), 0);
+  /* BOTH TREES of the guest page wrap their article, with the one count. */
+  const body = read(`${B}/site-body.tsx`);
+  assert.match(body, /const pageHolds = hubScrubHoldsAtMost\(widgets, proWatermarkHidden\);/);
+  assert.equal((body.match(/<HubPageHold holds=\{pageHolds\}>\s*<article data-pahina-chapters/g) ?? []).length, 2, 'a tree of the guest page is not inside the page’s own hold');
+  assert.equal((body.match(/<\/article>\s*<\/HubPageHold>/g) ?? []).length, 2);
+  /* THE ENGINE: the page's pairs from the outside in; hand-over k gets pair k, else its own cell; a spare pair holds nothing. */
+  const engine = read(`${B}/hub-scrub-engine.ts`);
+  assert.match(engine, /for \(let cell: HTMLElement \| null = root\.matches\(PAGE\) \? root : null; cell; \) \{[\s\S]*?pages\.push\(\{ cell, stage \}\);\s*cell = stage\.querySelector<HTMLElement>\(`:scope > \$\{PAGE\}`\);\s*\}/);
+  assert.match(engine, /const hold = pages\[held\.length\] \?\? \{ cell, stage \};/);
+  assert.match(engine, /for \(const spare of pages\.slice\(held\.length\)\) \{\s*put\(spare\.stage, '--hub-top', '0px'\);\s*put\(spare\.cell, '--hub-len', '0px'\);\s*\}/);
+  /* …armed before it measures: where a stage stands depends on the arrivals before it being in place. */
+  assert.ok(engine.indexOf("for (const s of scopes) put(s, 'data-hub-scrub-on', '');") < engine.indexOf('for (const cell of root.querySelectorAll<HTMLElement>(CELL))'));
+  /* THE ISLAND arms the page's outermost pair when the page has one — one engine for every scenes block. */
+  assert.match(read(`${B}/hub-scrub.tsx`), /const page = document\.querySelector<HTMLElement>\('\.hub-page-cell'\);\s*for \(const root of page\?\.querySelector\('\[data-hub-fx\]'\) \? \[page\] : document\.querySelectorAll<HTMLElement>\('\.hub-scenes'\)\)/);
+  /* THE STYLESHEET: the same two rules as a hand-over's own cell — length and the browser's sticky — behind the engine's mark. */
+  assert.match(CSS, /\.hub-page-cell\[data-hub-page-on\]::after,\s*\.hub-page-cell\[data-hub-page-on\] \.hub-page-cell::after \{ content: ''; display: block; height: var\(--hub-len, 0px\); \}/);
+  assert.match(CSS, /\.hub-page-cell\[data-hub-page-on\] \.hub-page-stage \{ position: sticky; top: var\(--hub-top, 0px\); \}/);
+  for (const m of CSS.matchAll(/([^{}]+)\{[^{}]*\}/g)) for (const sel of m[1]!.split(',')) if (/\.hub-page-(?:cell|stage)/.test(sel)) assert.match(sel, /\[data-hub-page-on\]/, `the page’s pairs are styled without the engine — the plain page would change: ${sel.trim()}`);
 });

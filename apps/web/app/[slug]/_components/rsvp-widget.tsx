@@ -483,8 +483,10 @@ export function RsvpWidget({
           {/* 2a · THE FABLE WORDS (owner 2026-09-30, "APPROVED — THE FABLE DESIGNS…"):
               "Your reply" over "Will you celebrate with us?". */}
           <legend className="mb-3">
-            <span className="block text-xs font-semibold uppercase tracking-[0.26em] text-mulberry">Your reply</span>
-            <span className="mt-2 block font-serif text-[32px] font-medium leading-[1.1] tracking-tight text-ink">
+            {/* 🧩 Each line carries its NAME (`data-rsvp-line`, `rsvp-canvas-parts.ts`): on the Maker's RSVP stage
+                every line is its own part. For a guest it is only a name — it draws nothing. */}
+            <span data-rsvp-line="eyebrow" className="block text-xs font-semibold uppercase tracking-[0.26em] text-mulberry">Your reply</span>
+            <span data-rsvp-line="question" className="mt-2 block font-serif text-[32px] font-medium leading-[1.1] tracking-tight text-ink">
               {words.solemn ? 'Will you be with us?' : 'Will you celebrate with us?'}
             </span>
           </legend>
@@ -492,6 +494,7 @@ export function RsvpWidget({
             <label
               key={option.key}
               /* 🔘 Look › Buttons reaches the answers through this hook (globals.css). */
+              data-rsvp-line={option.key === 'attending' ? 'yes' : option.key === 'declined' ? 'no' : undefined}
               data-rsvp-answer=""
               className="flex min-h-12 cursor-pointer items-center justify-center rounded-full bg-white px-5 text-sm font-medium leading-tight text-ink ring-[1.5px] ring-ink transition-colors has-[:checked]:bg-ink has-[:checked]:text-cream"
             >

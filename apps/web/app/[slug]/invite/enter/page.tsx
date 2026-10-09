@@ -645,6 +645,7 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
               <p
                 className="font-serif text-[34px] font-medium leading-tight text-ink"
                 data-landing-heading=""
+                data-rsvp-line="heading"
                 data-rsvp-word={canvas && wordKeys ? rsvpWordBridgeKey(wordKeys.heading) : undefined}
                 data-rsvp-default={canvas ? ownHeadline : undefined}
                 data-rsvp-name={canvas ? firstName : undefined}
@@ -654,6 +655,7 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
               <p
                 className="mt-2 text-sm text-ink/60"
                 data-thank-you-message=""
+                data-rsvp-line="message"
                 data-rsvp-word={canvas && wordKeys ? rsvpWordBridgeKey(wordKeys.message) : undefined}
                 data-rsvp-name={canvas ? firstName : undefined}
               >
@@ -666,6 +668,7 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
                 <span
                   className="inline-flex items-center gap-1.5 rounded-full bg-[#E7F1EA] px-3.5 py-1.5 text-xs font-medium text-[#2F6B4F]"
                   data-landing-done=""
+                  data-rsvp-line="heading"
                 >
                   ✓{' '}
                   <span
@@ -682,6 +685,7 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
                 <p
                   className="text-center text-base leading-relaxed text-ink/80"
                   data-thank-you-message=""
+                  data-rsvp-line="message"
                   data-rsvp-word={canvas && wordKeys ? rsvpWordBridgeKey(wordKeys.message) : undefined}
                   data-rsvp-word-optional={canvas ? '' : undefined}
                   data-rsvp-name={canvas ? firstName : undefined}
@@ -725,6 +729,11 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
             <div className="mx-auto w-[min(260px,100%)] overflow-hidden rounded-2xl shadow-[0_24px_48px_-26px_rgba(30,34,41,0.45)]">
               <TicketPicture src={PASS_CARD_ROUTE} alt={ticketLabel} fallback={ticketFallback} />
             </div>
+            {/* 🧩 The Save button is a LINE of the pass (`data-rsvp-line`, `rsvp-canvas-parts.ts`). The name is on a
+                box around it, not on the button: on the Maker's canvas a button is inert, so a tap on it lands on
+                what it sits in — which must be this line, not the whole pass. A plain block: it draws nothing, takes
+                the section's rhythm where the button did, and HAS a box (the frame is drawn on it). */}
+            <div data-rsvp-line="save">
             {safariSave ? (
               <a href={safariSave} className="button-primary w-full" data-landing-save="safari">
                 {LANDING_WORDS.saveInSafari}
@@ -736,6 +745,7 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
                 variant="primary"
               />
             )}
+            </div>
             {justIn ? <p className="text-xs text-ink/60">{REQUEST_WORDS.saveUpdatedWhy}</p> : null}
           </section>
         ) : ticket === 'faded' ? (

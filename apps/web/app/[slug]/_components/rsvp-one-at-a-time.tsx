@@ -273,7 +273,11 @@ export function RsvpStepProgress({
  */
 export function RsvpStepNext({ awaitingTap, onNext }: { awaitingTap: boolean; onNext: () => void }) {
   if (awaitingTap) {
-    return <p className="flex min-h-[48px] items-center justify-center text-sm text-ink/70">Tap one to continue</p>;
+    return (
+      <p data-rsvp-line="hint" className="flex min-h-[48px] items-center justify-center text-sm text-ink/70">
+        Tap one to continue
+      </p>
+    );
   }
   return (
     <button type="button" onClick={onNext} className="button-primary min-h-[48px] w-full">

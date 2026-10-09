@@ -29,6 +29,8 @@ export type StagePanelNow = {
   quiet: StageQuiet | null;
   /** What the part is and where it comes from, said behind ⓘ (never in a box on the panel). */
   about: string | null;
+  /** 🧩 The LINE of the picked part that is picked (the RSVP stage) — null / absent: the part itself (the group). */
+  line?: string | null;
 };
 
 export type AnimatePhase = 'in' | 'act' | 'out';
@@ -47,7 +49,7 @@ const subscribe = (f: () => void) => {
 };
 
 export function setStagePanelNow(next: StagePanelNow): void {
-  if (next.picked === now.picked && next.quiet?.words === now.quiet?.words && next.about === now.about && next.quiet?.kind === now.quiet?.kind) {
+  if (next.picked === now.picked && (next.line ?? null) === (now.line ?? null) && next.quiet?.words === now.quiet?.words && next.about === now.about && next.quiet?.kind === now.quiet?.kind) {
     now = next;
     return;
   }

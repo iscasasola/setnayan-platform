@@ -229,7 +229,7 @@ export function RsvpCanvasBridge() {
         return;
       }
       stopTyping();
-      toMaker({ t: RSVP_PICK_MESSAGE, key: part.key, ...(part.el ? { el: part.el } : {}), ...(part.word ? { word: part.word } : {}) });
+      toMaker({ t: RSVP_PICK_MESSAGE, key: part.key, ...(part.el ? { el: part.el } : {}), ...(part.word ? { word: part.word } : {}), ...(part.line ? { line: part.line } : {}) });
     };
     /* …nor the press that would focus a field and raise a keyboard. */
     const onDown = (e: Event) => {

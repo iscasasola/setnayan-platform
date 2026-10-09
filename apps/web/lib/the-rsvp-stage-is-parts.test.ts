@@ -26,6 +26,10 @@ import {
   RSVP_CANVAS_CONTROLS,
   RSVP_CANVAS_HERO,
   RSVP_CANVAS_SECTIONS,
+  RSVP_LINE_ATTR,
+  RSVP_LINE_NAME,
+  RSVP_SECTION_LINES,
+  rsvpLineOf,
   RSVP_STAGE_BAR_SLOT,
   RSVP_WORD_SECTION,
   createRsvpCanvasTop,
@@ -289,7 +293,7 @@ test('2 · a tap on ANY piece of the form screen picks its part — a field, the
   assert.equal(rsvpPartOfTap(s.yes)?.word, 'rsvp:attending');
   assert.equal(rsvpPartOfTap(s.replyBy)?.word, 'rsvp:reply-by');
   assert.equal(rsvpPartOfTap(s.send)?.word, null);
-  assert.deepEqual(rsvpPartOfTap(s.names), { key: 'f:hero', el: 'names', word: null });
+  assert.deepEqual(rsvpPartOfTap(s.names), { key: 'f:hero', el: 'names', word: null, line: null });
 });
 
 test('2 · the page’s ground lets the part go: the card’s own paper and "Made with Setnayan" pick nothing', () => {
@@ -343,7 +347,10 @@ test('2 · WIRING: the tap is never the page’s — stopped before React, then 
 });
 
 test('2 · WIRING: the Stages panel reads the pick with the map every stage uses, and opens the part’s tools — without the work area', () => {
-  assert.match(TOOLS, /else if \(d\.t === RSVP_PICK_MESSAGE && typeof d\.key === 'string'\) \{\s*const k = makerPartOfTap\(RSVP_STAGE_KEY, where\.current\.shownPage, d\.key, typeof d\.el === 'string' \? d\.el : null\);\s*if \(k\) pickPartRef\.current\(k\);\s*else deselectRef\.current\(\);/);
+  /* 🔁 RE-AIMED 2026-10-09 (every line is its own part): between reading the pick and picking the part, the LINE under
+     the finger is now kept WITH that part (`lineAtPart`). The claim is unchanged — the part is found by the one map
+     every stage uses, and a tap that is no part lets go. */
+  assert.match(TOOLS, /else if \(d\.t === RSVP_PICK_MESSAGE && typeof d\.key === 'string'\) \{\s*const k = makerPartOfTap\(RSVP_STAGE_KEY, where\.current\.shownPage, d\.key, typeof d\.el === 'string' \? d\.el : null\);\s*const tappedLine = k \? rsvpLineOf\(d\.key, typeof d\.line === 'string' \? d\.line : null\) : null;\s*setLineAtPart\(k && tappedLine \? \{ part: k, line: tappedLine \} : null\);\s*if \(k\) pickPartRef\.current\(k\);\s*else deselectRef\.current\(\);/);
   assert.match(TOOLS, /else if \(d\.t === RSVP_GROUND_MESSAGE\) deselectRef\.current\(\);/);
   /* Picking on the RSVP stage asks the stage for its tools and returns BEFORE the work area's `edit`. */
   const pick = TOOLS.slice(TOOLS.indexOf('const pickPart = useCallback('), TOOLS.indexOf('const pickPartRef'));
@@ -613,4 +620,93 @@ test('7 · every marker, every name and the bridge are behind the host-verified 
   /* The door every guest is served is not edited for this: its masthead is named by the bridge, on the canvas. */
   assert.doesNotMatch(src('app/_components/door/door-shell.tsx'), /data-el=|data-maker-section/);
   assert.match(BRIDGE, /stampRsvpCanvas\(document\);/);
+});
+
+/* ══ 8 · EVERY LINE IS ITS OWN PART, AND THE GROUP IS ONE TOO ═══════════════════════════════════════════════════════
+   Owner, on the live Maker's RSVP stage (2026-10-09, verbatim): "why is this grouped?" (the eyebrow, the question,
+   both answers and the hint in ONE frame) · "shouldn't it be per element?" · and on the prototype: "i like this idea.
+   heading message then the whole group?" — yes: each line a part, the whole group a part too.
+   Executed on a page marked as the real ones are. Sabotages: a tap that stops reading the line → red; a line of
+   another section accepted → red; the frame no longer finding a line → red. */
+
+/** The form's section as the page marks it: the group, and its lines by name. */
+function linedForm() {
+  const line = (name: string, kids: Fake[] = [], tag = 'span') => el(tag, { [RSVP_LINE_ATTR]: name }, kids);
+  const eyebrow = line('eyebrow');
+  const question = line('question');
+  const yesWord = el('span', { 'data-rsvp-word': 'rsvp:attending' });
+  const yesRadio = el('input', { type: 'radio' });
+  const yes = line('yes', [yesRadio, yesWord], 'label');
+  const no = line('no', [el('span', { 'data-rsvp-word': 'rsvp:declined' })], 'label');
+  const hint = line('hint', [], 'p');
+  const stray = line('heading', [], 'p'); /* a line of ANOTHER section, wrongly inside this one */
+  const meal = el('select');
+  const fieldset = el('fieldset', {}, [el('legend', {}, [eyebrow, question]), yes, no]);
+  const form = el('form', {}, [fieldset, el('div', {}, [meal]), hint, stray]);
+  const group = el('div', {}, [form]);
+  const page = door([marker('f:rsvp'), group], [el('p'), el('h1')]);
+  return { ...page, group, form, fieldset, eyebrow, question, yes, yesWord, yesRadio, no, hint, stray, meal };
+}
+
+test('8 · a tap on a line picks THAT line of its part; a tap between the lines picks the group', () => {
+  const s = linedForm();
+  const hit = (t: Fake) => rsvpPartOfTap(t);
+  for (const [node, name] of [[s.eyebrow, 'eyebrow'], [s.question, 'question'], [s.yes, 'yes'], [s.no, 'no'], [s.hint, 'hint']] as const) {
+    assert.deepEqual({ key: hit(node)?.key, line: hit(node)?.line }, { key: 'f:rsvp', line: name }, `${name} did not pick itself`);
+    assert.equal(makerPartOfTap(RSVP_STAGE_KEY, 'form', hit(node)!.key, hit(node)!.el), 'rsvp', 'a line left its part');
+  }
+  /* Anything INSIDE a line is that line — the couple's word in the answer, its radio. */
+  assert.equal(hit(s.yesWord)?.line, 'yes');
+  assert.equal(hit(s.yesRadio)?.line, 'yes');
+  assert.equal(hit(s.yesWord)?.word, 'rsvp:attending', 'the word under the finger is no longer named');
+  /* Between the lines — the form's own paper, a field that is no line — is THE GROUP: the part, with no line. */
+  for (const node of [s.group, s.form, s.fieldset, s.meal]) {
+    assert.deepEqual({ key: hit(node)?.key, line: hit(node)?.line }, { key: 'f:rsvp', line: null }, 'the group was not picked from between its lines');
+  }
+  /* A name that is not a line of THIS section picks the group — never a line that is not there. */
+  assert.deepEqual({ key: hit(s.stray)?.key, line: hit(s.stray)?.line }, { key: 'f:rsvp', line: null });
+  assert.equal(rsvpLineOf('f:rsvp', 'heading'), null);
+  assert.equal(rsvpLineOf('f:yesnote', 'heading'), 'heading');
+  assert.equal(rsvpLineOf('f:pass', 'save'), 'save');
+  assert.equal(rsvpLineOf(null, 'question'), null);
+  assert.equal(rsvpLineOf('f:hero', 'question'), null, 'the cover has no lines: its parts are the masthead’s own');
+});
+
+test('8 · the lines: each section names its own, each has a name, and the PAGES mark them', () => {
+  assert.deepEqual(RSVP_SECTION_LINES, { 'f:rsvp': ['eyebrow', 'question', 'yes', 'no', 'hint'], 'f:yesnote': ['heading', 'message'], 'f:nonote': ['heading', 'message'], 'f:pass': ['save'] });
+  for (const lines of Object.values(RSVP_SECTION_LINES)) for (const name of lines) assert.ok(RSVP_LINE_NAME[name], `${name} has no name`);
+  assert.equal(RSVP_LINE_ATTR, 'data-rsvp-line');
+  const marked = new Set(Object.values(RSVP_CANVAS_SECTIONS).flat() as string[]);
+  for (const section of Object.keys(RSVP_SECTION_LINES)) assert.ok(marked.has(section), `${section} is not a section any screen marks`);
+  /* THE PAGES: the form's lines in the widget, the hint where the one-at-a-time flow draws it, the two notes and the
+     Save button on the landing. A plain attribute, the same for every guest — a name; it draws nothing. */
+  const WIDGET = src('app/[slug]/_components/rsvp-widget.tsx');
+  assert.match(WIDGET, /<span data-rsvp-line="eyebrow"/);
+  assert.match(WIDGET, /<span data-rsvp-line="question"/);
+  assert.match(WIDGET, /data-rsvp-line=\{option\.key === 'attending' \? 'yes' : option\.key === 'declined' \? 'no' : undefined\}/);
+  assert.match(src('app/[slug]/_components/rsvp-one-at-a-time.tsx'), /<p data-rsvp-line="hint"/);
+  assert.equal((ENTER.match(/data-rsvp-line="heading"/g) ?? []).length, 2, 'When yes and When no each name their heading');
+  assert.equal((ENTER.match(/data-rsvp-line="message"/g) ?? []).length, 2, 'When yes and When no each name their message');
+  /* The Save button's name is on a box AROUND it: a button is inert on the canvas, so the tap lands on what holds it. */
+  assert.match(ENTER, /<div data-rsvp-line="save">/);
+  assert.ok(RSVP_CANVAS_CONTROLS.split(',').map((c) => c.trim()).includes('button'));
+  /* Never `data-el`: that name is the Event Hub's own (the cover's parts and their looks). */
+  for (const name of ['question', 'hint', 'yes', 'no', 'save']) assert.doesNotMatch(WIDGET + ENTER, new RegExp(`data-el="${name}"`));
+});
+
+test('8 · WIRING: the frame, its name, the caption and the panel follow the LINE; the group keeps the part’s own', () => {
+  /* The page sends the line with the pick. */
+  assert.match(BRIDGE, /\.\.\.\(part\.line \? \{ line: part\.line \} : \{\}\)/);
+  /* A line is picked only WITH its part: another part, a tab, the ground let it go with nothing to reset. */
+  assert.match(TOOLS, /const rsvpLine = rsvpOpen && picked && lineAtPart\?\.part === picked \? lineAtPart\.line : null;/);
+  /* The frame is drawn ON the line and wears its name… */
+  assert.match(TOOLS, /const rsvpLineName = rsvpLine \? \(RSVP_LINE_NAME\[rsvpLine\] \?\? rsvpLine\) : null;/);
+  assert.match(TOOLS, /line: rsvpLine && rsvpLineName \? \{ key: rsvpLine, name: rsvpLineName \} : null,/);
+  assert.match(EDGES, /const el = picked \? \(line\?\.key \?\? MAKER_PARTS\[picked\]\.el \?\? null\) : null;/);
+  assert.match(EDGES, /\[data-el="\$\{CSS\.escape\(el\)\}"\], \[data-rsvp-line="\$\{CSS\.escape\(el\)\}"\]/);
+  assert.match(EDGES, /\{line\?\.name \?\? label\}/);
+  /* …"You're editing" ends on it, and the stage's own panel is told which line. */
+  assert.match(TOOLS, /\(x\): x is string => Boolean\(x\),\s*\);\s*if \(rsvpLineName\) linePieces\.push\(rsvpLineName\);/, 'the line is not the LAST piece of "You’re editing" — the piece that is never cut');
+  assert.match(TOOLS, /setStagePanelNow\(\{ picked, quiet, about, line: rsvpLine \}\);/);
+  assert.match(src(`${L}/stage-panel/store.ts`), /\(next\.line \?\? null\) === \(now\.line \?\? null\)/, 'a new line on the same part would not reach the panel');
 });

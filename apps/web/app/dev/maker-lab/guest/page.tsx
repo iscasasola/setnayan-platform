@@ -301,10 +301,15 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
              answer fills with the page's button colour, the other goes plain. */
           <form className="rsvp-form mt-4">
             <fieldset className="space-y-2">
-              <legend className="mb-3 font-serif text-2xl">Will you celebrate with us?</legend>
+              {/* 🧩 The lines as the real card names them (`data-rsvp-line`, `rsvp-widget.tsx`): each its own part. */}
+              <legend className="mb-3">
+                <span data-rsvp-line="eyebrow" className="block text-xs font-semibold uppercase tracking-[0.26em] text-mulberry">Your reply</span>
+                <span data-rsvp-line="question" className="mt-2 block font-serif text-[32px] font-medium leading-[1.1] tracking-tight text-ink">Will you celebrate with us?</span>
+              </legend>
               {(['Yes, with joy', 'Sadly, no'] as const).map((label, i) => (
                 <label
                   key={label}
+                  data-rsvp-line={i === 0 ? 'yes' : 'no'}
                   data-rsvp-answer=""
                   className="flex min-h-12 cursor-pointer items-center justify-center rounded-full bg-white px-5 text-sm font-medium leading-tight text-ink ring-[1.5px] ring-ink transition-colors has-[:checked]:bg-ink has-[:checked]:text-cream"
                 >
@@ -313,15 +318,17 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
                 </label>
               ))}
             </fieldset>
+            {/* The hint, where the one-at-a-time flow puts it: inside the form, under the answers. */}
+            <p data-rsvp-line="hint" className="flex min-h-[48px] items-center justify-center text-sm text-ink/70">Tap one to continue</p>
           </form>
         ) : rsvp === 'thanks' ? (
           <>
             {mark('f:yesnote')}
             <div className="mt-6">
-              <p className="font-serif text-2xl" data-landing-heading="" data-rsvp-word={rsvpWordBridgeKey('thanksHeading')} data-rsvp-default="See you there, Teresita" data-rsvp-name="Teresita">
+              <p className="font-serif text-2xl" data-landing-heading="" data-rsvp-line="heading" data-rsvp-word={rsvpWordBridgeKey('thanksHeading')} data-rsvp-default="See you there, Teresita" data-rsvp-name="Teresita">
                 See you there, Teresita
               </p>
-              <p className="mt-2 text-sm text-ink/60" data-rsvp-word={rsvpWordBridgeKey('thanksMessage')} data-rsvp-word-optional="" data-rsvp-name="Teresita" hidden />
+              <p className="mt-2 text-sm text-ink/60" data-rsvp-line="message" data-rsvp-word={rsvpWordBridgeKey('thanksMessage')} data-rsvp-word-optional="" data-rsvp-name="Teresita" hidden />
             </div>
             <WhenYesCelebration
               kind={play ?? 'none'}
@@ -331,15 +338,28 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
               listen={play === null}
               freezeAt={freeze}
             />
+            {/* The pass and its Save button — a line of the pass, named on a box around the (inert) button, as
+                `invite/enter` does. */}
+            {play === null ? mark('f:pass') : null}
+            {play === null ? (
+              <section className="mt-6 space-y-4 text-center">
+                <div className="mx-auto h-40 w-[min(260px,100%)] rounded-2xl bg-ink/10" />
+                <div data-rsvp-line="save">
+                  <button type="button" className="button-primary w-full">
+                    Save my ticket
+                  </button>
+                </div>
+              </section>
+            ) : null}
           </>
         ) : (
           <>
             {mark('f:nonote')}
             <div className="mt-6">
-              <p className="font-serif text-2xl italic text-ink/70" data-rsvp-word={rsvpWordBridgeKey('declineHeading')} data-rsvp-default="We will miss you." data-rsvp-name="Teresita">
+              <p className="font-serif text-2xl italic text-ink/70" data-rsvp-line="heading" data-rsvp-word={rsvpWordBridgeKey('declineHeading')} data-rsvp-default="We will miss you." data-rsvp-name="Teresita">
                 We will miss you.
               </p>
-              <p className="mt-2 text-sm text-ink/60" data-rsvp-word={rsvpWordBridgeKey('declineMessage')} data-rsvp-word-optional="" data-rsvp-name="Teresita" hidden />
+              <p className="mt-2 text-sm text-ink/60" data-rsvp-line="message" data-rsvp-word={rsvpWordBridgeKey('declineMessage')} data-rsvp-word-optional="" data-rsvp-name="Teresita" hidden />
             </div>
           </>
         )}

@@ -62,6 +62,8 @@ import {
   RSVP_STAGE_BAR_SLOT,
   RSVP_STAGE_SCENE_EVENT,
   RSVP_TYPING_MESSAGE,
+  RSVP_LINE_NAME,
+  rsvpLineOf,
   rsvpStageFrameSelector,
 } from '@/app/[slug]/_components/rsvp-canvas-parts';
 import { setStagePanelNow, setStageRevealColours, setStageTool, useAnimatePhase, useStagePanelNow, useStageRevealLook, type StageQuiet } from './stage-panel/store';
@@ -295,6 +297,17 @@ export function StageTools({
   const [typing, setTyping] = useState(false);
   /** The words last tapped on the page (the part inside the section — `[data-el]`): Edit's rows follow it. */
   const [tapped, setTapped] = useState<string | null>(null);
+  /* 🧩 THE LINE PICKED ON THE RSVP STAGE (owner 2026-10-09: "why is this grouped?" · "shouldn't it be per element?").
+     Kept WITH the part it belongs to: a line is only "picked" while that same part is — a swipe to another part, a
+     tab, or the ground lets it go without anything having to remember to clear it. */
+  const [lineAtPart, setLineAtPart] = useState<{ part: MakerPartKey; line: string } | null>(null);
+  /** The picked LINE of the picked part, on the RSVP stage — null: the part itself (the group). */
+  const rsvpLine = rsvpOpen && picked && lineAtPart?.part === picked ? lineAtPart.line : null;
+  const rsvpLineName = rsvpLine ? (RSVP_LINE_NAME[rsvpLine] ?? rsvpLine) : null;
+  /* Nothing picked → no line kept: the same part picked again from anywhere but a tap is the GROUP. */
+  useEffect(() => {
+    if (!picked) setLineAtPart(null);
+  }, [picked]);
   const [playing, setPlaying] = useState(false);
   /** 👁 ▶ held down: the whole page as a guest — the toolbar and the frame step aside, "Exit preview" brings them back. */
   const [previewing, setPreviewing] = useState(false);
@@ -597,7 +610,7 @@ export function StageTools({
   useEffect(() => {
     const onCanvas = (e: MessageEvent) => {
       if (e.origin !== window.location.origin) return;
-      const d = e.data as { source?: unknown; t?: unknown; key?: unknown; el?: unknown; phase?: unknown; stagePick?: unknown } | null;
+      const d = e.data as { source?: unknown; t?: unknown; key?: unknown; el?: unknown; line?: unknown; phase?: unknown; stagePick?: unknown } | null;
       if (d?.source !== 'setnayan-site') return;
       if (e.source === window) {
         /* This panel's own pick, heard back (`pickPart`): the work area has the selection now — ask for the tool. */
@@ -642,6 +655,9 @@ export function StageTools({
       else if (where.current.stageKey !== RSVP_STAGE_KEY) return;
       else if (d.t === RSVP_PICK_MESSAGE && typeof d.key === 'string') {
         const k = makerPartOfTap(RSVP_STAGE_KEY, where.current.shownPage, d.key, typeof d.el === 'string' ? d.el : null);
+        /* The line under the finger (or none: the section between its lines — the group). */
+        const tappedLine = k ? rsvpLineOf(d.key, typeof d.line === 'string' ? d.line : null) : null;
+        setLineAtPart(k && tappedLine ? { part: k, line: tappedLine } : null);
         if (k) pickPartRef.current(k);
         else deselectRef.current();
       } else if (d.t === RSVP_GROUND_MESSAGE) deselectRef.current();
@@ -1084,8 +1100,8 @@ export function StageTools({
     }
     const f = fixedHere ? fixedScenePanel(fixedHere) : null;
     const about = (f ? [f.line, f.source?.text].filter(Boolean).join(' ') || null : null) ?? (rsvpOpen && picked ? (RSVP_PART_ABOUT[picked] ?? null) : null);
-    setStagePanelNow({ picked, quiet, about });
-  }, [picked, rsvpOpen, suppliersHref, stageKey, shownPage, onOpenStudio, fixedHere]);
+    setStagePanelNow({ picked, quiet, about, line: rsvpLine });
+  }, [picked, rsvpLine, rsvpOpen, suppliersHref, stageKey, shownPage, onOpenStudio, fixedHere]);
   useEffect(() => () => setStagePanelNow({ picked: null, quiet: null, about: null }), []);
 
   /* 🚫 A TOOL WITH NOTHING TO SET ON THE PICKED PART (`makerPartToolWorks`): grey, `aria-disabled`, and a tap says
@@ -1125,6 +1141,7 @@ export function StageTools({
     stage: stageKey,
     picked: open && !cameraOpen ? picked : null,
     frame: rsvpOpen ? frameSel : undefined,
+    line: rsvpLine && rsvpLineName ? { key: rsvpLine, name: rsvpLineName } : null,
   });
   /* ── ✍ THE PICKED PART'S WORDS, FOR EDIT'S ROWS — read off the page (`part-words.ts`): what the page draws is what
      can be typed, so a part whose words the page does not draw keeps its one door. Read again whenever the canvas
@@ -1194,6 +1211,8 @@ export function StageTools({
   const linePieces = [makerStageLabel(stageKey as never), pageLabel && pages.length > 1 ? pageLabel : null, picked ? makerPartLabelOn(stageKey, picked) : null].filter(
     (x): x is string => Boolean(x),
   );
+  /* 🧩 On the RSVP stage a picked LINE is the last piece — so it is the one that is never cut. */
+  if (rsvpLineName) linePieces.push(rsvpLineName);
   const hasAbout = Boolean(useStagePanelNow().about);
   const lineKey = `${linePieces.join('›')}|${hasAbout ? 1 : 0}`;
   const [lineAt, setLineAt] = useState<{ key: string; level: number; n: number }>({ key: lineKey, level: 0, n: 0 });

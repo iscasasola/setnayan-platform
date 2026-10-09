@@ -53,6 +53,39 @@ export const RSVP_WORD_SECTION: Readonly<Record<string, string>> = {
   declineMessage: 'f:nonote',
 };
 
+/**
+ * 🧩 EVERY LINE IS ITS OWN PART, AND THE GROUP IS ONE TOO (owner 2026-10-09, on the live Maker's RSVP stage: *"why is
+ * this grouped?"* — the eyebrow, the question, both answers and the hint sat in ONE frame · *"shouldn't it be per
+ * element?"* — yes · on the prototype: *"heading message then the whole group?"* — yes). The page marks each line of
+ * a section (`data-rsvp-line`, for every guest: it is only a name); a tap on a line picks THAT line, a tap on the
+ * section between its lines picks the group. The frame, its name and the toolbar's rows follow the line.
+ *
+ * `data-rsvp-line`, never `data-el`: that attribute is the Event Hub's own (the cover's parts and their looks), and
+ * these lines are not those.
+ */
+export const RSVP_LINE_ATTR = 'data-rsvp-line';
+/** The lines each section holds, in page order — and each one's name on its frame and in "You're editing". */
+export const RSVP_SECTION_LINES: Readonly<Record<string, readonly string[]>> = {
+  'f:rsvp': ['eyebrow', 'question', 'yes', 'no', 'hint'],
+  'f:yesnote': ['heading', 'message'],
+  'f:nonote': ['heading', 'message'],
+  'f:pass': ['save'],
+};
+export const RSVP_LINE_NAME: Readonly<Record<string, string>> = {
+  eyebrow: 'Eyebrow',
+  question: 'Question',
+  yes: 'Yes answer',
+  no: 'No answer',
+  hint: 'Hint',
+  heading: 'Heading',
+  message: 'Message',
+  save: 'Save button',
+};
+/** A line of a section, or null when that section has no such line (a stray attribute picks nothing). */
+export function rsvpLineOf(section: string | null | undefined, line: string | null | undefined): string | null {
+  return section && line && RSVP_SECTION_LINES[section]?.includes(line) ? line : null;
+}
+
 /** The words TYPED on the page (the reply-by line is a date — it is set in the form's own tools, never typed). */
 export function rsvpWordIsTyped(bridgeKey: string | null | undefined): boolean {
   if (!bridgeKey || !bridgeKey.startsWith('rsvp:')) return false;
@@ -125,23 +158,28 @@ export type RsvpTapPart = {
   el: string | null;
   /** The word under the finger (`rsvp:<key>`), when the tap was on one. */
   word: string | null;
+  /** The LINE of the section under the finger (`data-rsvp-line`) — null: the section between its lines (the group). */
+  line: string | null;
 };
 
 /**
  * THE PART A TAP IS ON: the nearest marked section above the tapped element (the element its marker stands in
  * front of), and — in the masthead — the part of it (`[data-el]`). Null: the page's ground, or the masthead's own
- * paper between its parts (a tap there lets the picked part go; it never picks the whole card).
+ * paper between its parts (a tap there lets the picked part go; it never picks the whole card). In any other
+ * section, the LINE under the finger too — or none, when the tap is on the section between its lines: the group.
  */
 export function rsvpPartOfTap(target: TapEl | null): RsvpTapPart | null {
   let el: string | null = null;
   let word: string | null = null;
+  let line: string | null = null;
   for (let node = target; node; node = node.parentElement) {
     word ??= node.getAttribute('data-rsvp-word');
     el ??= node.getAttribute('data-el');
+    line ??= node.getAttribute(RSVP_LINE_ATTR);
     const key = node.previousElementSibling?.getAttribute('data-maker-section') ?? null;
     if (!key) continue;
-    if (key === RSVP_CANVAS_HERO) return el ? { key, el, word: null } : null;
-    return { key, el: null, word };
+    if (key === RSVP_CANVAS_HERO) return el ? { key, el, word: null, line: null } : null;
+    return { key, el: null, word, line: rsvpLineOf(key, line) };
   }
   return null;
 }

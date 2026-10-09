@@ -1512,13 +1512,16 @@ export function StageTools({
 
       {/* ══ 👁 EXIT PREVIEW — the ONE button of the whole-page preview (▶ held down). Drawn on the Maker's shell, over
           the page: clear of the phone's home bar (the safe area) and of the guests' own bar under it (44 px, when
-          the stage has pages). Nothing else of the toolbar is on screen; it returns to the part and the tool held. ══ */}
+          the stage has pages). The RSVP stage's own row of screens (Form · When yes · When no) is 44 px in the same
+          place and stays up in the preview, so the button clears it too — it sat UNDER "When yes" there and a tap on
+          it changed the screen without leaving the preview (owner 2026-10-10: "has not return button").
+          Nothing else of the toolbar is on screen; it returns to the part and the tool held. ══ */}
       {previewing && shellEl
         ? createPortal(
             <div
               data-stage-exit-preview=""
               className="pointer-events-none absolute inset-x-0 z-[26] flex justify-center lg:hidden"
-              style={{ bottom: `calc(env(safe-area-inset-bottom) + ${pages.length > 1 && !rsvpOpen ? STAGE_EXIT_OVER_BAR_PX : STAGE_EXIT_GAP_PX}px)` }}
+              style={{ bottom: `calc(env(safe-area-inset-bottom) + ${pages.length > 1 || rsvpOpen ? STAGE_EXIT_OVER_BAR_PX : STAGE_EXIT_GAP_PX}px)` }}
             >
               <ActionButton tone="brand" main icon={X} label="Exit preview" onClick={exitPreview} className="pointer-events-auto shadow-lg" />
             </div>,

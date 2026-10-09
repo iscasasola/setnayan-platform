@@ -143,7 +143,7 @@ test('(3) a hold is the whole page as a guest — it lets go of nothing, and Exi
   assert.equal((exit.match(/<ActionButton\b/g) ?? []).length, 1);
   assert.match(exit, /<ActionButton tone="brand" main icon=\{X\} label="Exit preview" onClick=\{exitPreview\}/);
   assert.doesNotMatch(exit, /<button\b/);
-  assert.match(exit, /bottom: `calc\(env\(safe-area-inset-bottom\) \+ \$\{pages\.length > 1 && !rsvpOpen \? STAGE_EXIT_OVER_BAR_PX : STAGE_EXIT_GAP_PX\}px\)`/);
+  assert.match(exit, /bottom: `calc\(env\(safe-area-inset-bottom\) \+ \$\{pages\.length > 1 \|\| rsvpOpen \? STAGE_EXIT_OVER_BAR_PX : STAGE_EXIT_GAP_PX\}px\)`/, 'on the RSVP stage the button sits under the row of screens — a tap on it changes the screen and never leaves the preview');
   assert.match(tools, /export const STAGE_EXIT_OVER_BAR_PX = 44 \+ STAGE_EXIT_GAP_PX;/, 'the button is not clear of the guests’ 44-px bar');
   /* THE WORK AREA'S TOOL GOES WITH THE TOOLBAR (seen on the review copy: it stayed on the page and covered "Exit
      preview") — hidden whenever the toolbar's root is away, by the root's own `aria-hidden`. */

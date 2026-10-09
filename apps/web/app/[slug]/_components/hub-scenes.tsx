@@ -207,6 +207,58 @@ export function HubPageHold({ holds, children }: { holds: number; children?: Rea
   return <>{node}</>;
 }
 
+/**
+ * 🎬 DOES THE COVER HAND OVER? (hand-over zero — owner: *"maria jose must build out and until we say i do should be
+ * where maria jose build out"*.) The cover is the page's hero row (`widget_type` `hero`): it Leaves by Scrub
+ * (`canvas.transition`, written by "Scene leaves ◆" on any of the cover's parts) and has a Build out to play — the
+ * same two questions a scene is asked (`sceneRuns`), through the same door: while "Scrub out" is not offered
+ * (`lib/scrub-out-offered.ts`) the answer is no, on every page.
+ */
+export function hubCoverLeaves(widgets: readonly Pick<InvitationWidgetRow, 'widget_type' | 'config_json'>[], scrubAllowed: boolean, scrubOut: boolean = SCRUB_OUT_OFFERED): boolean {
+  const hero = widgets.find((w) => w.widget_type === 'hero');
+  if (!hero) return false;
+  const canvas = sanitizeHubCanvas(hero.config_json);
+  return offeredTransition(renderedTransition(resolveTransition(canvas), scrubAllowed), scrubOut) === 'scrub' && resolveHubMotion(canvas).out !== 'none';
+}
+
+/**
+ * 🎬 THE COVER AS HAND-OVER ZERO. The cover is not a scene of any scenes block — the page draws it — so the page
+ * hands it over itself: the cover in one plain box, and EVERYTHING AFTER IT ON THE PAGE in another. What comes next
+ * on the page — a scene, or any block: the door, a greeting, the ticket — arrives where the cover leaves (owner:
+ * *"that element is gone and the next element takes its place"*); nothing is skipped and nothing is pulled above the
+ * cover. The engine finds the three boxes by their classes (`hub-scrub-engine.ts`), holds the cover WHERE IT STANDS
+ * when the page opens (`hub-scrub-math.ts`) and gives it the page's own first pair (`HubPageHold` — the page must
+ * wrap itself for one hand-over more, which `hubScrubHoldsAtMost` already counts: the hero row is a row).
+ *
+ *   div.hub-cover-cell
+ *     div.hub-cover[data-hub-fx]   the cover — fades out under the thumb (a Scrub scene's default Build out: Fade)
+ *     div.hub-cover-after          the rest of the page; its first box with a size is what arrives
+ *
+ * 🔒 `leaves` false — every page today, every page with no Scrub on its cover — returns the cover and the rest AS
+ * GIVEN: not a box, not a class, no island. With it, and without the engine (no script, "reduce motion"), the three
+ * boxes are plain blocks with no rule of their own: the page is the plain page.
+ * 🏝 The island is mounted HERE too: a page whose cover is its only Scrub has no scenes block to mount it.
+ */
+export function HubCoverHold({ leaves, cover, children }: { leaves: boolean; cover: React.ReactNode; children?: React.ReactNode }) {
+  if (!leaves) {
+    return (
+      <>
+        {cover}
+        {children}
+      </>
+    );
+  }
+  return (
+    <div className="hub-cover-cell">
+      <HubScrub />
+      <div className="hub-cover" data-hub-fx="">
+        {cover}
+      </div>
+      <div className="hub-cover-after">{children}</div>
+    </div>
+  );
+}
+
 export function HubScenes({
   widgets,
   scrubAllowed,

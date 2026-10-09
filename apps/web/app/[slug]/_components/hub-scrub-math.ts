@@ -16,6 +16,15 @@
  *       when the Build out is 80 % done and running its ordinary 22 %; an arrival with rows gets room for its heading
  *       to finish after the leaving one has completely gone;
  *     · two hand-overs with no scrolling between them are parted by a rest (30 % of a screen).
+ *
+ *   🎬 HAND-OVER ZERO — THE COVER (2026-10-10; the owner's own example: *"maria jose must build out and until we say i
+ *   do should be where maria jose build out"*). The cover is at the TOP of the page, so "held centred" is a place it
+ *   can never be scrolled to: measured, the centred line shoved it 326 px down the screen as the page opened and drew
+ *   it 73 % built out before a touch. So the cover — and only the cover — is HELD WHERE IT STANDS WHEN THE PAGE OPENS
+ *   (`stands`): at scroll 0 the page is the page, and the first thumb travel is the Build out. What comes next on the
+ *   page arrives at the usual centred line — for a cover that fills the first screen, the cover's own middle — never
+ *   above the cover's top or the top of the room. A cover that does not fit below where it stands (taller than the
+ *   screen) is scrolled through like anything else: the ordinary rule above, untouched.
  */
 
 export const SCRUB = {
@@ -66,7 +75,17 @@ export type ScrubPair = {
  * One hand-over's geometry. `centre`: the centre line, from the top of the screen. `topLine`: the top of the room an
  * element can be seen in (under the page's own bar). `room`: the most that can be held whole.
  */
-export function scrubPair(leaving: ScrubElement, arrival: ScrubElement, v: { centre: number; topLine: number; room: number; lens: ScrubLens }): ScrubPair {
+export function scrubPair(leaving: ScrubElement, arrival: ScrubElement, v: { centre: number; topLine: number; room: number; lens: ScrubLens }, stands?: number): ScrubPair {
+  const len = Math.max(v.lens.out, v.lens.enter + v.lens.in, arrival.oneByOne ? v.lens.out + v.lens.in / 2 : 0);
+  /* 🎬 THE COVER — held where it stands when the page opens, if all of it can be seen from there (`stands`: its top on
+     the screen at scroll 0; the screen is twice the centre line, less the same breath as the room). */
+  if (stands !== undefined && scrubCoverStands(leaving, stands, v.centre)) {
+    const bottom = stands + leaving.h;
+    /* The arrival at the usual line — centred, or (a list, anything taller than the room) with its bottom on it —
+       but never above the cover's own top, nor above the top of the room. */
+    const arrivalTop = Math.max(stands, v.topLine, v.centre - (scrubThrough(arrival, v.room) ? arrival.h : arrival.h / 2));
+    return { top: stands, len, up: arrivalTop - bottom, rise: Math.max(0, bottom - (arrivalTop + arrival.h)), arrivalTop };
+  }
   const through = scrubThrough(leaving, v.room);
   /* HELD — centred, or (scrolled through first) with its bottom on the centre line. */
   const top = through ? v.centre - leaving.h : v.centre - leaving.h / 2;
@@ -79,8 +98,12 @@ export function scrubPair(leaving: ScrubElement, arrival: ScrubElement, v: { cen
      else ENDS together on the centre line. */
   const arrivalTop =
     arrival.h > frame ? frameTop : scrubThrough(arrival, v.room) ? Math.max(frameTop, v.centre - arrival.h) : through ? bottom - arrival.h : frameTop + (frame - arrival.h) / 2;
-  const len = Math.max(v.lens.out, v.lens.enter + v.lens.in, arrival.oneByOne ? v.lens.out + v.lens.in / 2 : 0);
   return { top, len, up: arrivalTop - bottom, rise: Math.max(0, bottom - (arrivalTop + arrival.h)), arrivalTop };
+}
+
+/** Is the cover held where it stands? Yes when all of it is on the screen from there — else it is scrolled through. */
+export function scrubCoverStands(cover: ScrubElement, stands: number, centre: number): boolean {
+  return !cover.oneByOne && stands >= 0 && stands + cover.h <= centre * 2 - 24;
 }
 
 /** Is the arrival already where IT will be held when this hand-over ends? Then its own hand-over needs a rest first. */
@@ -129,5 +152,7 @@ export function scrubRow(topOnScreen: number, centre: number, gate: number, toBo
 export const HUB_SCRUB_CLASSES = ['hub-cell', 'hub-stage', 'hub-after', 'hub-below'] as const;
 /** The page's own hold (`hub-scenes.tsx` `HubPageHold`): one pair a hand-over, around the page's whole column. */
 export const HUB_PAGE_HOLD_CLASSES = ['hub-page-cell', 'hub-page-stage'] as const;
+/** 🎬 The cover's own boxes (`hub-scenes.tsx` `HubCoverHold`): the cover, and the rest of the page after it. */
+export const HUB_COVER_CLASSES = ['hub-cover-cell', 'hub-cover', 'hub-cover-after'] as const;
 /** What a Scrub scene was drawn with before 2026-10-09 (the stacked run) and is NOT any more. */
 export const HUB_SCRUB_RETIRED_CLASSES = ['hub-run', 'hub-scrub', 'hub-sp'] as const;

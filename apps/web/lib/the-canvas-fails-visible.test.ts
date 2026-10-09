@@ -43,7 +43,7 @@ import { HUB_SCENE_SHAPES,
   HUB_SCENE_SPACINGS,
 } from './hub-canvas';
 import { HUB_SCENE_CLASSES } from './hub-scenes';
-import { HUB_PAGE_HOLD_CLASSES, HUB_SCRUB_CLASSES } from '../app/[slug]/_components/hub-scrub-math';
+import { HUB_COVER_CLASSES, HUB_PAGE_HOLD_CLASSES, HUB_SCRUB_CLASSES } from '../app/[slug]/_components/hub-scrub-math';
 import { SCENE_TEMPLATE_IDS } from './scene-templates';
 
 const RAW = readFileSync(join(__dirname, '..', 'app', 'globals.css'), 'utf8');
@@ -320,6 +320,8 @@ test('⛔ no rule branches on a class the contract can never emit', async () => 
   /* 🎚 …and the wrappers of a page with a Scrub hand-over (`hub-scenes.tsx` `flow`), rendered in `a-hybrid-page-renders-runs.test.ts`. */
   for (const c of HUB_SCRUB_CLASSES) emitted.add(c);
   for (const c of HUB_PAGE_HOLD_CLASSES) emitted.add(c);
+  /* 🎬 …and the cover's own boxes (`HubCoverHold`, 2026-10-10 — the cover as hand-over zero). */
+  for (const c of HUB_COVER_CLASSES) emitted.add(c);
   /* 🎬 THE 25 TEMPLATES (Event Hub Maker Phase 5) — RENDERED, not declared.
      Every template is drawn through the real `renderScene` with every slot
      filled, a clip both ways, and its words, and whatever `hub-*` class the

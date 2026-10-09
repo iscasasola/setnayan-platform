@@ -32,6 +32,14 @@
  *  13. THE HUB IS CARDS, FRAMED OR NOT: a scene with a motion setting and nothing else is drawn inside a frame that
  *      paints nothing — it wears the same card as a scene nobody arranged; "No background", a scene with a ground of
  *      its own and a template scene do not; and on the Scrub page every framed scene is a card too.
+ *  14. 🎬 THE COVER AS HAND-OVER ZERO (the real `HubCoverHold`, the page's own hold) at five sizes: at scroll 0 the
+ *      cover is exactly where today's page has it, whole, and nothing has begun; the page stands still while its
+ *      Build out plays over 55 % of a screen and completes; what comes next arrives at the centred line, not before
+ *      the Build out is 80 % done, and never above the cover; going back is going down; the scenes after it still
+ *      hand over. And: a block that is not a scene arrives the same way and what follows it never lies over the
+ *      cover; a page whose cover is its ONLY Scrub plays; a cover taller than the screen is scrolled through; with
+ *      no script the page is the plain page. Under a closed Reveal (its mark on the page) nothing is held and the
+ *      page says why; the hand-overs arm the moment it goes.
  *
  * Not part of the unit suite (it needs a browser): run it by hand, one job at a time.
  *   node scripts/scrub-browser-check.mjs <playwright-dir> <scratch-dir> [pictures-dir]
@@ -58,6 +66,8 @@ execFileSync(tsx, ['scripts/scrub-check-page.tsx', `${scratch}/scrub-real-island
 execFileSync(tsx, ['scripts/scrub-check-page.tsx', `${scratch}/scrub-real-page-island.html`, `${scratch}/scrub-island.js`, 'page-island'], { cwd: WEB, stdio: 'pipe' });
 execFileSync(tsx, ['scripts/scrub-check-page.tsx', `${scratch}/scrub-real-bar.html`, `${scratch}/scrub-engine.js`, 'bar'], { cwd: WEB, stdio: 'pipe' });
 execFileSync(tsx, ['scripts/scrub-check-page.tsx', `${scratch}/scrub-real-cards.html`, '-', 'cards'], { cwd: WEB, stdio: 'pipe' });
+for (const m of ['cover', 'cover-tall', 'cover-block', 'cover-only', 'cover-noscript', 'cover-today']) execFileSync(tsx, ['scripts/scrub-check-page.tsx', `${scratch}/scrub-${m}.html`, `${scratch}/scrub-engine.js`, m], { cwd: WEB, stdio: 'pipe' });
+execFileSync(tsx, ['scripts/scrub-check-page.tsx', `${scratch}/scrub-cover-reveal.html`, `${scratch}/scrub-island.js`, 'cover-reveal'], { cwd: WEB, stdio: 'pipe' });
 
 /* Before any page script: remember the browser's own scrolling, and count every way a script could take it over. */
 const WATCH = () => {
@@ -385,6 +395,93 @@ for (const [W, H] of [[375, 812], [375, 667], [441, 882], [1280, 770]]) {
   say(chain.length === 6 && chain.every((c) => c.card === chain.at(-1).card && c.shadow), `the hub is cards: on the Scrub page every scene is a card, the five framed ones as the one nobody arranged (${chain.map((c) => `${c.name} ${c.shadow ? 'card' : 'BARE'}`).join(', ')})`);
   if (pics) await p.screenshot({ path: `${pics}/c13-scrub-page-cards-${W}x${H}.png`, fullPage: true });
   await ctx.close();
+}
+
+/* 14. 🎬 THE COVER AS HAND-OVER ZERO. `today`: the same page with the cover NOT handing over and no script — what a
+   guest has now. Everything the cover's hand-over is measured against at scroll 0 is read from THAT page. */
+{
+  const COVER_SNAP = () => {
+    const box = (e) => { if (!e) return null; const r = e.getBoundingClientRect(); const cs = getComputedStyle(e); return { t: r.top, b: r.bottom, o: cs.visibility === 'hidden' ? 0 : Number(cs.opacity) }; };
+    const cover = document.querySelector('.hub-cover') ?? document.querySelector('[data-cover]');
+    const scene = (n) => { const e = document.querySelector(`[data-name="${n}"]`); return e ? (e.closest('.hub-scene') ?? e) : null; };
+    return { s: Math.round(scrollY), max: document.documentElement.scrollHeight - innerHeight, cover: box(cover), words: box(document.querySelector('[data-cover] h1')), pout: Number(cover.style.getPropertyValue('--hub-pout') || 0), zero: box(document.querySelector('[data-hub-zero]')), zeroIs: document.querySelector('[data-hub-zero]')?.getAttribute('data-block') ?? document.querySelector('[data-hub-zero]')?.getAttribute('data-name') ?? document.querySelector('[data-hub-zero] [data-name]')?.getAttribute('data-name') ?? null, countdown: box(scene('Countdown')), cdOut: Number(scene('Countdown')?.style.getPropertyValue('--hub-pout') || 0), ticket: box(document.querySelector('[data-block="Ticket"]')), all: [...document.querySelectorAll('[data-cover], [data-block], [data-name]')].map((e) => { const x = e.closest('.hub-scene') ?? e; const r = x.getBoundingClientRect(); const cs = getComputedStyle(x); return [Math.round(r.top), (cs.visibility === 'hidden' ? 0 : Number(cs.opacity)).toFixed(2)]; }), off: document.querySelector('.hub-page-cell')?.getAttribute('data-hub-scrub-off') ?? document.querySelector('.hub-scenes')?.getAttribute('data-hub-scrub-off') ?? null, sticky: [...document.querySelectorAll('.hub-page-stage, .hub-stage')].some((e) => getComputedStyle(e).position === 'sticky') };
+  };
+  const open = async (file, W, H) => { const ctx = await b.newContext({ viewport: { width: W, height: H } }); const p = await ctx.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(String(e).slice(0, 140))); await p.goto(`file://${scratch}/${file}`); await p.waitForTimeout(500); const at = async (y) => { await p.evaluate((yy) => scrollTo(0, yy), y); await p.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))); return p.evaluate(COVER_SNAP); }; return { ctx, p, errs, at }; };
+  const r = (n) => (n === null || n === undefined ? '—' : Math.round(n * 10) / 10);
+  for (const [W, H] of [[375, 812], [375, 667], [441, 882], [890, 1548], [1280, 770]]) {
+    const size = `${W}x${H} the cover as hand-over zero`;
+    const t = await open('scrub-cover-today.html', W, H); const today = await t.at(0); await t.ctx.close();
+    const { ctx, p, errs, at } = await open('scrub-cover.html', W, H);
+    const top = await at(0);
+    say(errs.length === 0 && top.off === null && top.sticky, `${size}: armed, no page error${errs.length ? ` — ${errs[0]}` : ''}${top.off ? ` — off: ${top.off}` : ''}`);
+    say(Math.abs(top.cover.t - today.cover.t) < 0.01 && Math.abs(top.cover.b - today.cover.b) < 0.01 && Math.abs(top.words.t - today.words.t) < 0.01 && top.cover.o === 1 && top.pout === 0, `${size}: at scroll 0 the cover is exactly where today's page has it, whole, 0 % built out (${r(top.cover.t)}–${r(top.cover.b)} against ${r(today.cover.t)}–${r(today.cover.b)}; shown ${top.cover.o}, out ${top.pout})`);
+    const fwd = []; for (let y = 0; y < top.max; y += 16) fwd.push(await at(y)); fwd.push(await at(top.max));
+    const back = [await at(top.max)]; for (let y = top.max - (top.max % 16); y >= 0; y -= 16) back.push(await at(y));
+    const sig = (f) => JSON.stringify([f.all, f.pout.toFixed(3)]);
+    const hold = fwd.filter((f) => f.pout > 0 && f.pout < 1);
+    const out = Math.round(H * 0.55);
+    say(hold.length > 3 && hold.every((f) => Math.abs(f.cover.t - today.cover.t) < 0.6), `${size}: the page stands still while the cover builds out — it never leaves where it stood (${hold.length} positions; moved at most ${r(Math.max(0, ...hold.map((f) => Math.abs(f.cover.t - today.cover.t))))}px)`);
+    say(hold.every((f) => Math.abs(f.pout - f.s / out) < 0.02) && fwd.some((f) => f.pout >= 1 && f.cover.o === 0) && fwd.find((f) => f.pout >= 1).s <= out + 16, `${size}: the Build out runs over 55 % of a screen from the first thumb travel, and completes (${out}px; done by ${fwd.find((f) => f.pout >= 1)?.s}px)`);
+    const early = fwd.filter((f) => f.zero && f.zero.o > 0.02 && f.pout < 0.79);
+    const entering = fwd.filter((f) => f.zero && f.zero.o > 0.02 && f.pout < 1);
+    say(early.length === 0 && entering.length > 0 && top.zero.o === 0, `${size}: what comes next (${top.zeroIs}) enters at the last 20 % of the Build out, not before (first seen with the cover ${entering[0] ? Math.round(entering[0].pout * 100) : '—'} % out${early.length ? `; EARLY at ${Math.round(early[0].pout * 100)} %` : ''})`);
+    const seen = fwd.filter((f) => f.zero && f.zero.o > 0.02 && f.pout > 0 && f.cdOut === 0 && Math.abs(f.cover.t - today.cover.t) < 0.6 && f.s <= out);
+    say(seen.length > 0 && seen.every((f) => Math.abs((f.zero.t + f.zero.b) / 2 - H / 2) < 1.5 && f.zero.t >= today.cover.t - 0.5), `${size}: it arrives at the centred line, never above the cover (middle ${seen[0] ? r((seen[0].zero.t + seen[0].zero.b) / 2) : '—'} against ${H / 2}; the cover's own middle ${r((today.cover.t + today.cover.b) / 2)})`);
+    say(fwd.every((f) => { const k = back.find((x) => x.s === f.s); return k && sig(k) === sig(f); }), `${size}: back == down at every one of ${fwd.length} positions`);
+    say(fwd.some((f) => f.cdOut >= 1) && fwd.at(-1).all.at(-1)[1] === '1.00', `${size}: the scenes after the cover still hand over, to the end of the page`);
+    if (pics) { for (const [name, pick] of [['0-opens', () => 0], ['1-half-out', () => fwd.find((f) => f.pout >= 0.5)?.s], ['2-next-arrives', () => fwd.find((f) => f.pout >= 0.9)?.s], ['3-arrived', () => fwd.find((f) => f.pout >= 1 && f.zero.o >= 0.99)?.s]]) { const y = pick(); if (y !== undefined) { await at(y); await p.screenshot({ path: `${pics}/c14-cover-${W}x${H}-${name}.png` }); } } }
+    await ctx.close();
+    /* With no script: the plain page — the cover and every scene whole, in order, nothing held. */
+    const n = await open('scrub-cover-noscript.html', W, H); const plain = await n.at(0); await n.ctx.close();
+    say(!plain.sticky && plain.all.every((x) => x[1] === '1.00') && plain.all.every((x, i) => i === 0 || x[0] > plain.all[i - 1][0]) && Math.abs(plain.cover.t - today.cover.t) < 0.01, `${size}: with no script the page is the plain page — the cover where today's page has it, every scene whole and in order`);
+  }
+  /* B — WHATEVER COMES NEXT ARRIVES: two plain blocks between the cover and the scenes. */
+  for (const [W, H] of [[375, 812], [375, 667], [1280, 770]]) {
+    const size = `${W}x${H} a block after the cover`;
+    const { ctx, p, errs, at } = await open('scrub-cover-block.html', W, H);
+    const top = await at(0); const fwd = []; for (let y = 0; y <= Math.round(H * 0.55) + 48; y += 16) fwd.push(await at(y));
+    const hold = fwd.filter((f) => f.pout > 0 && f.pout < 1);
+    say(errs.length === 0 && top.zeroIs === 'Greeting' && top.zero.o === 0 && fwd.every((f) => !(f.zero.o > 0.02 && f.pout < 0.79)) && fwd.some((f) => f.zero.o > 0.02 && f.pout < 1) && fwd.at(-1).zero.o > 0.5, `${size}: the block that comes next is what arrives — not a scene further down — at the last 20 % (${top.zeroIs})`);
+    say(hold.every((f) => f.zero.t >= f.cover.t - 0.5 && Math.abs((f.zero.t + f.zero.b) / 2 - H / 2) < 1.5), `${size}: it arrives at the centred line and nothing is pulled above the cover (middle ${r((top.zero.t + top.zero.b) / 2)} against ${H / 2}; the cover's top ${r(top.cover.t)})`);
+    say(hold.length > 3 && hold.filter((f) => f.cover.o > 0.02).every((f) => f.ticket.t >= f.cover.b - 1 && f.ticket.t >= f.zero.b - 1), `${size}: what follows the arrival never lies over the cover while it can be seen (the next block's top ${r(top.ticket.t)}; the cover ends ${r(top.cover.b)}, the arrival ${r(top.zero.b)})`);
+    if (pics) { for (const [name, y] of [['0-opens', 0], ['2-next-arrives', fwd.find((f) => f.pout >= 0.9)?.s]]) { if (y !== undefined) { await at(y); await p.screenshot({ path: `${pics}/c14-cover-block-${W}x${H}-${name}.png` }); } } }
+    await ctx.close();
+  }
+  /* THE COVER IS THE PAGE'S ONLY SCRUB: no scenes block is armed — the page's hold is, and the cover still plays. */
+  {
+    const [W, H] = [375, 812]; const { ctx, p, errs, at } = await open('scrub-cover-only.html', W, H);
+    const top = await at(0); const end = await at(Math.round(H * 0.55) + 200);
+    const blocks = await p.evaluate(() => ({ scenes: document.querySelectorAll('.hub-scenes').length, page: document.querySelector('.hub-page-cell').hasAttribute('data-hub-page-on') }));
+    say(errs.length === 0 && blocks.scenes === 0 && blocks.page && top.off === null && top.cover.o === 1 && top.pout === 0 && top.zero.o === 0 && end.pout === 1 && end.cover.o === 0 && end.zero.o === 1, `${W}x${H} the cover is the page's only Scrub: it plays with no scenes block on the page (out ${top.pout} → ${end.pout}; the next, ${top.zeroIs}, ${top.zero.o} → ${end.zero.o}${top.off ? `; off: ${top.off}` : ''}${errs.length ? `; ${errs[0]}` : ''})`);
+    await ctx.close();
+  }
+  /* 🎭 UNDER A CLOSED REVEAL NOTHING IS HELD (the page's own island decides; the Reveal's mark is on the page before
+     it mounts). The page scrolls as a plain page under the opening — the cover is never built out unseen — and the
+     hand-overs arm the moment the mark comes off. */
+  {
+    const [W, H] = [375, 812]; const { ctx, p, errs, at } = await open('scrub-cover-reveal.html', W, H); await p.waitForTimeout(500);
+    const state = () => p.evaluate(() => ({ page: document.querySelector('.hub-page-cell').hasAttribute('data-hub-page-on'), off: document.querySelector('.hub-scenes').getAttribute('data-hub-scrub-off'), line: document.querySelector('[data-lab-scrub-line]')?.textContent ?? null }));
+    const under = await state(); const moved = await at(300); const top = await at(0);
+    say(errs.length === 0 && !under.page && under.off === 'the opening is still up' && under.line === 'Scrub: OFF — the opening is still up' && moved.pout === 0 && moved.cover.o === 1 && Math.abs(moved.cover.t - (top.cover.t - 300)) < 0.6, `${W}x${H} under a closed Reveal nothing is held: the page scrolls as a plain page and the cover is not built out unseen, and it says why ("${under.line}"; 300px down the cover is at ${r(moved.cover.t)}, shown ${moved.cover.o})`);
+    await p.evaluate(() => document.documentElement.removeAttribute('data-reveal-up')); await p.waitForTimeout(900);
+    const gone = await state(); const open0 = await at(0); const half = await at(Math.round(H * 0.55 * 0.5));
+    say(gone.page && gone.off === null && open0.pout === 0 && open0.cover.o === 1 && half.pout > 0.45 && half.pout < 0.55 && Math.abs(half.cover.t - open0.cover.t) < 0.6, `${W}x${H} …and the moment the Reveal goes the hand-overs are armed: the cover whole at the top, then held and half out half-way (out ${open0.pout} → ${half.pout}; "${gone.line}")`);
+    await p.evaluate(() => document.documentElement.setAttribute('data-reveal-up', '')); await p.waitForTimeout(700);
+    const again = await state();
+    say(!again.page && again.off === 'the opening is still up', `${W}x${H} …and the Reveal back up (the film's return) takes them off again ("${again.line}")`);
+    await ctx.close();
+  }
+  /* A COVER TALLER THAN THE SCREEN: the ordinary rule — scrolled through, held when its bottom is on the centre line. */
+  for (const [W, H] of [[375, 667], [375, 812]]) {
+    const size = `${W}x${H} a cover taller than the screen`;
+    const { ctx, p, errs, at } = await open('scrub-cover-tall.html', W, H);
+    const top = await at(0); const fwd = []; for (let y = 0; y <= Math.round(top.cover.b - H / 2 + H * 0.55 + 200); y += 16) fwd.push(await at(y));
+    const hold = fwd.filter((f) => f.pout > 0 && f.pout < 1);
+    say(errs.length === 0 && top.cover.o === 1 && top.pout === 0 && top.cover.b > H && fwd.filter((f) => f.pout === 0 && f.s > 0 && f.cover.b > H / 2 + 1).every((f) => Math.abs(f.cover.t - (top.cover.t - f.s)) < 0.6), `${size}: it opens whole and scrolls like any page until its bottom reaches the centre line (${r(top.cover.t)}–${r(top.cover.b)} on a ${H}px screen)`);
+    say(hold.length > 3 && hold.every((f) => Math.abs(f.cover.b - H / 2) < 1.5) && fwd.some((f) => f.pout >= 1), `${size}: then it is held with its bottom on the centre line, and builds out there (bottom ${hold[0] ? r(hold[0].cover.b) : '—'} against ${H / 2})`);
+    if (pics) { for (const [name, y] of [['0-opens', 0], ['1-held', hold[Math.floor(hold.length / 3)]?.s], ['2-next-arrives', fwd.find((f) => f.pout >= 0.9)?.s]]) { if (y !== undefined) { await at(y); await p.screenshot({ path: `${pics}/c14-cover-tall-${W}x${H}-${name}.png` }); } } }
+    await ctx.close();
+  }
 }
 await b.close();
 console.log(failed ? `\n${failed} FAILED` : PLAYED.length === SIZES.length ? '\nALL OK' : '\nPART ONLY — OK (not every size was played)');

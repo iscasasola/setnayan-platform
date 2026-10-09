@@ -456,7 +456,9 @@ test('(10) the lab: its RSVP stand-in screens carry the real pages’ part marks
   // The bridge that makes a tap PICK (and never tick an answer) is mounted, as on the real pages' canvas.
   assert.match(screens, /\{play === null \? <RsvpCanvasBridge \/> : null\}/, 'a tap on the lab’s RSVP screens is the form’s own');
   // The masthead sits in the door's header, so the shipped stamp names its parts and marks it the hero.
-  assert.match(screens, /<div>\s*<header data-door-header="">[\s\S]*?<h1 [^>]*>Maria &amp; Jose<\/h1>[\s\S]*?<span data-el="date">/);
+  /* 🔁 RE-AIMED 2026-10-10: the stand-in now draws the door's CARD round the masthead and every section, as
+     `DoorShell` does (the card is the screen's group, picked from its edge) — so the header's parent wears a class. */
+  assert.match(screens, /<div className="[^"]*">\s*<header data-door-header="">[\s\S]*?<h1 [^>]*>Maria &amp; Jose<\/h1>[\s\S]*?<span data-el="date">/);
   // Every part the stand-in draws is marked with the real page's own key — and no key is made up.
   const marks = [...screens.matchAll(/mark\('(f:[a-z]+)'\)/g)].map((m) => m[1]!);
   const real = new Set<string>(Object.values(RSVP_CANVAS_SECTIONS).flat());

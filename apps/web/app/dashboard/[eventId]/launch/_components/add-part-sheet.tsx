@@ -7,6 +7,7 @@ import { Check, Plus, Trash2, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
 import { findMakerSection } from '@/app/[slug]/_components/maker-section-find';
+import { RSVP_CARD_ATTR, RSVP_CARD_GROUPS } from '@/app/[slug]/_components/rsvp-canvas-parts';
 import { Explain } from '@/app/_components/explain';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
@@ -154,6 +155,8 @@ function partBox(canvas: string, el?: string | null, frameSel: string = SHOWN_FR
   let node: Element | null = canvas === REVEAL_STUB ? doc.querySelector('[data-maker-reveal-part]') : findMakerSection(doc, canvas);
   /* A part inside the section: the cover's (`data-el`), or a LINE of an RSVP section (`data-rsvp-line`). */
   if (node && el) node = node.querySelector(`[data-el="${CSS.escape(el)}"], [data-rsvp-line="${CSS.escape(el)}"]`) ?? node;
+  /* 🃏 A reply screen's GROUP of lines is its card (`RSVP_CARD_GROUPS`): the frame goes round the card it sits in. */
+  else if (node && (RSVP_CARD_GROUPS as readonly string[]).includes(canvas)) node = node.closest(`[${RSVP_CARD_ATTR}]`) ?? node;
   if (!node) return null;
   const fr = frame.getBoundingClientRect();
   const k = frame.clientWidth > 0 ? fr.width / frame.clientWidth : 1;

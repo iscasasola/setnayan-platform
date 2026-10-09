@@ -24,6 +24,8 @@ import { MakerEmptyScene } from '@/app/[slug]/_components/maker-empty-scene';
 import { WhenYesCelebration } from '@/app/[slug]/_components/when-yes-celebration';
 import { celebrationColours, isRsvpCelebration } from '@/lib/rsvp-celebration';
 import { RsvpCanvasBridge } from '@/app/[slug]/_components/rsvp-canvas-bridge';
+import { RsvpLookStyle } from '@/app/[slug]/_components/rsvp-look-style';
+import { rsvpAnswerWord } from '@/lib/rsvp-ask';
 import { rsvpWordBridgeKey } from '@/lib/rsvp-stage-shared';
 import { postEventSceneDrawn } from '@/lib/post-event-scenes';
 import { postEventLookOf } from '@/lib/post-event-draft';
@@ -285,7 +287,11 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
         {/* The app's own chrome (the cookie card) stays off the lab's RSVP screens, as it does off the lab's other
             guest pages below: it sat over "Sadly, no", the hint and the Save button. The lab only. */}
         <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style>
-        <div>
+        {/* 🎨 Each line's look, as the real pages carry it — drawn at the tap in the Maker (`rsvp-look-style.tsx`). */}
+        <RsvpLookStyle config={null} board={celebrationColours(LAB_BOARD)} parts={rsvp === 'form' ? ['rsvp'] : rsvp === 'thanks' ? ['yesnote', 'pass'] : ['nonote']} canvas />
+        {/* 🃏 The door's CARD, as `DoorShell` draws it: the masthead and every section inside ONE card — on the Maker's
+            canvas the card is the screen's group of lines, picked from its edge (`RSVP_CARD_GROUPS`). */}
+        <div className="rounded-3xl bg-white px-5 py-6 shadow-sm">
           <header data-door-header="">
             <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-gild">You&rsquo;re invited</p>
             <h1 className="mt-1 text-xl font-semibold">Maria &amp; Jose</h1>
@@ -293,7 +299,6 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
               <span data-el="date">Saturday, December 12, 2026</span>
             </p>
           </header>
-        </div>
         {rsvp === 'form' ? mark('f:greeting') : null}
         {rsvp === 'form' ? <p className="mt-4 text-sm">Teresita Aquino</p> : null}
         {rsvp === 'form' ? mark('f:rsvp') : null}
@@ -307,7 +312,10 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
                 <span data-rsvp-line="eyebrow" data-rsvp-word={rsvpWordBridgeKey('eyebrow')} data-rsvp-default="Your reply" className="block text-xs font-semibold uppercase tracking-[0.26em] text-mulberry">Your reply</span>
                 <span data-rsvp-line="question" data-rsvp-word={rsvpWordBridgeKey('question')} data-rsvp-default="Will you celebrate with us?" className="mt-2 block font-serif text-[32px] font-medium leading-[1.1] tracking-tight text-ink">Will you celebrate with us?</span>
               </legend>
-              {(['Yes, with joy', 'Sadly, no'] as const).map((label, i) => (
+              {/* The two answers say what the REAL card prints when the couple wrote nothing (`rsvpAnswerWord`) — the
+                  words the Maker's row calls "Automatic". (They read "Yes, with joy" / "Sadly, no" here: a stand-in
+                  of the lab's own, which no guest page prints.) */}
+              {(['attending', 'declined'] as const).map((answer, i) => ({ label: rsvpAnswerWord(null, answer, false), i })).map(({ label, i }) => (
                 <label
                   key={label}
                   data-rsvp-line={i === 0 ? 'yes' : 'no'}
@@ -364,6 +372,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
             </div>
           </>
         )}
+        </div>
       </main>
     );
   }

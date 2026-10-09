@@ -60,5 +60,51 @@ ignoring the couple's · the lab showing the cookie card · the editing line rep
 reason written in: which screen edits a word (`the-rsvp-stage-is-parts`), the lab's word list
 (`studio-rsvp-wears-the-templates`).
 
-SPEC IMPACT: `events.rsvp_ask_config.words` gains three optional keys (eyebrow · question · hint). No schema change
-(the column is jsonb); corpus note to follow with the per-line looks, once their stored shape is agreed.
+**Style is the picked line's Colour and Size, and the card is the group** (owner: "shouldn't it be per element?" ·
+"heading message then the whole group?"):
+
+- **Style per line** (`rsvp-line-look.tsx`): Colour — the page's own, or one of the event's five colours — and Size
+  (85 · 92 · 100 · 110 · 120 · 132 %), the same swatch and slider a cover line has. A reply page's lines have no
+  premade looks and none were invented. A button (the two answers, the pass's Save) has Size only: its colours are
+  Look › Buttons'.
+- **Stored** in the same one object as the words: `events.rsvp_ask_config.look = { lines: { '<part>.<line>': { c, s } } }`
+  (`lib/rsvp-look.ts`). `c` is a colour SLOT (1–5), `s` one of the six sizes — nothing typed ever reaches CSS:
+  `readRsvpLook` is the only reader and keeps listed values only. Absent = today's look. No migration; the same
+  draft and Apply as the words.
+- **Drawn** as ONE `<style>` per reply page (`rsvp-look-style.tsx`), addressed by each line's name. A guest of an
+  event with no look is served nothing — the page is byte-identical. No extra read: the colours ride the event row
+  each page already selects (`role_palette` joins the reply page's one select). On the Maker's canvas the tag is
+  redrawn at the tap by the same strict reader (`rsvp-canvas-bridge.tsx`, message `rsvpLook`).
+- **No save drops it**: the first-load sanitiser carries `look` through (+24 B gz in `lib/rsvp-ask.ts`), so the
+  older panels' saves, the public-listing switch and the Pro check all keep it, with keys this build does not know.
+- **The ceiling is asked before a save** (`rsvpConfigFits`, in the panel's one `save`): the whole object is capped at
+  2,048 bytes by the database (`events_rsvp_ask_config_shape`). A save that would pass 1,900 bytes is refused in a
+  sentence — "It is too long to keep: your RSVP's words and looks are at their limit. Shorten a message, then try
+  again." — for words and looks alike (two long emoji messages used to be met only at Apply). What is already kept
+  can always be made shorter.
+- **The card is the group**: a tap on the door card's own paper — its edge, the space between its pieces — picks the
+  screen's group (the form's lines, the When-yes note, the When-no note), and the group's frame goes round the card
+  (`RSVP_CARD_GROUPS`, `data-rsvp-card`). Measured in the lab: a finger's tap in the gap beside an answer is moved by
+  the browser onto that answer, so "between the lines" could not be relied on.
+- The lab's reply screens are drawn inside one card like the real door, and its two answers say what the real card
+  prints ("Joyfully accepts" / "Regretfully declines" — "Yes, with joy" / "Sadly, no" was a stand-in no guest sees).
+
+Guard: `lib/the-rsvp-lines-have-a-look.test.ts` (7) — the strict reader, the rules per page, the rendered tag, every
+writer carrying `look`, the panel rendered for every line, the ceiling, the card pick on a stamped door, the wiring.
+Sabotaged red, each restored: the sanitiser dropping `look` · the reader keeping a typed colour · rules for a part
+the page does not show · a guest served an empty tag · a button given a colour · the ceiling not asked · an
+over-limit event locked · the card's paper letting go · the canvas trusting text it was sent.
+
+**fix(maker): a reply page drawn in the Maker's canvas never shows the cookie card**
+
+A host who had never answered the cookie card saw it lying over the RSVP stage's canvas. The Event Hub's canvas
+already hid the app's floating notices (`EDITOR_CANVAS_HIDES_APP_CHROME`, `site-body.tsx`); the two reply pages the
+RSVP stage draws (`invite/reply`, `invite/enter`) now carry the same rule — on the host-verified canvas only, so a
+guest's page is unchanged and still asks. A server-rendered rule: no JavaScript added to any first load.
+Guard: `lib/the-maker-sample-shows-no-app-notices.test.ts` (4) — every guest route that answers the canvas door is
+read off the tree and must carry the rule (or hand its canvas to `SiteBody`). Sabotaged red: the rule off the reply
+page · the rule served to every guest.
+
+SPEC IMPACT: `events.rsvp_ask_config` gains three optional words (eyebrow · question · hint) and one optional object
+`look` (each line's colour slot and size). No schema change (jsonb, existing 2,048-byte CHECK). Corpus note to follow
+with the card's background and motion (the next step), in one edit.

@@ -152,7 +152,21 @@ type TapEl = {
   getAttribute(name: string): string | null;
   readonly parentElement: TapEl | null;
   readonly previousElementSibling: { getAttribute(name: string): string | null } | null;
+  querySelector?(sel: string): unknown;
 };
+
+/**
+ * 🃏 THE CARD IS THE GROUP (owner 2026-10-09, on the prototype: *"heading message then the whole group?"* — yes; the
+ * brief: the card is picked as the group **from its edge**). Each screen's door card holds ONE group of lines — the
+ * form's, the When-yes note's or the When-no note's. A tap on the card that lands on no line and on no part of the
+ * masthead (its edge; the gaps between its own layers) picks THAT group, and the group's frame is drawn round the card
+ * (`[data-rsvp-card]`, named on the canvas by `stampRsvpCanvas`).
+ *
+ * Why the edge and not "between the lines": measured in the lab (2026-10-10), a finger's tap in the 20 px beside an
+ * answer is moved by the browser onto that answer's button, so the gap between lines cannot be relied on.
+ */
+export const RSVP_CARD_GROUPS = ['f:rsvp', 'f:yesnote', 'f:nonote'] as const;
+export const RSVP_CARD_ATTR = 'data-rsvp-card';
 
 export type RsvpTapPart = {
   /** The section's canvas key (`f:hero`, `f:rsvp`, `f:greeting`, `f:yesnote`, `f:pass`, `f:nonote`). */
@@ -181,7 +195,15 @@ export function rsvpPartOfTap(target: TapEl | null): RsvpTapPart | null {
     line ??= node.getAttribute(RSVP_LINE_ATTR);
     const key = node.previousElementSibling?.getAttribute('data-maker-section') ?? null;
     if (!key) continue;
-    if (key === RSVP_CANVAS_HERO) return el ? { key, el, word: null, line: null } : null;
+    if (key === RSVP_CANVAS_HERO) {
+      if (el) return { key, el, word: null, line: null };
+      /* The card's OWN paper — the card itself (its edge) or one of its own layers (the masthead's block, the body's
+         gaps): the group this card holds. Anything deeper that is no part (a button under the note, "Open the
+         invitation") is still the ground: a tap there lets go, as before. */
+      if (target !== node && target?.parentElement !== node) return null;
+      const group = RSVP_CARD_GROUPS.find((k) => Boolean(node.querySelector?.(`[data-maker-section="${k}"]`)));
+      return group ? { key: group, el: null, word: null, line: null } : null;
+    }
     return { key, el: null, word, line: rsvpLineOf(key, line) };
   }
   return null;
@@ -221,6 +243,8 @@ export function stampRsvpCanvas(doc: StampDoc): boolean {
     marker.setAttribute('data-maker-section', RSVP_CANVAS_HERO);
     card.parentElement.insertBefore(marker, card);
   }
+  /* 🃏 The card is the screen's group of lines (`RSVP_CARD_GROUPS`): its frame is drawn round this. */
+  card.setAttribute(RSVP_CARD_ATTR, '');
   let pastNames = false;
   for (const child of Array.from(header.children)) {
     if (child.tagName === 'H1') {

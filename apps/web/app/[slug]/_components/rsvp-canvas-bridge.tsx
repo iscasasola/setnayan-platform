@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { RsvpOneAtATime } from './rsvp-one-at-a-time';
 import { RSVP_BRIDGE_SOURCE, RSVP_SITE_SOURCE } from '@/lib/rsvp-stage-shared';
 import { makerStageMayType } from '@/lib/maker-stage-type';
+import { RSVP_LOOK_MESSAGE, RSVP_LOOK_STYLE_ATTR, readRsvpLook, rsvpLookCss } from '@/lib/rsvp-look';
 import {
   RSVP_CANVAS_CONTROLS,
   RSVP_GROUND_MESSAGE,
@@ -157,7 +158,7 @@ export function RsvpCanvasBridge() {
     const inTyping = (target: Element | null) => Boolean(typing && target && typing.el.contains(target));
     const onMessage = (e: MessageEvent) => {
       if (e.origin !== origin) return;
-      const d = e.data as { source?: string; t?: string; key?: unknown; text?: unknown; ask?: unknown; oneAtATime?: unknown; picked?: unknown } | null;
+      const d = e.data as { source?: string; t?: string; key?: unknown; text?: unknown; ask?: unknown; oneAtATime?: unknown; picked?: unknown; look?: unknown } | null;
       if (!d || d.source !== RSVP_BRIDGE_SOURCE) return;
       if (d.t === RSVP_PICKED_MESSAGE) {
         picked = typeof d.picked === 'string' && d.picked ? d.picked : null;
@@ -172,6 +173,15 @@ export function RsvpCanvasBridge() {
       }
       if (d.t === RSVP_TYPE_STOP_MESSAGE) {
         stopTyping();
+        return;
+      }
+      if (d.t === RSVP_LOOK_MESSAGE) {
+        /* 🎨 A line's look, picked in the Maker: the page's one `<style>` is rebuilt by the SAME strict reader a
+           guest's page uses, from the colours the page itself carries — never from text this message holds. */
+        document.querySelectorAll<HTMLElement>(`style[${RSVP_LOOK_STYLE_ATTR}]`).forEach((el) => {
+          const css = rsvpLookCss(readRsvpLook({ look: d.look }), (el.getAttribute(RSVP_LOOK_STYLE_ATTR) ?? '').split(' '), (el.dataset.rsvpBoard ?? '').split(' '));
+          if (el.textContent !== css) el.textContent = css;
+        });
         return;
       }
       if (d.t === 'words' && typeof d.key === 'string' && d.key.startsWith('rsvp:') && typeof d.text === 'string') {

@@ -17,6 +17,8 @@ import {
 } from '@/lib/rsvp-stage';
 import { RSVP_WORD_TYPED_EVENT } from '@/app/[slug]/_components/rsvp-canvas-parts';
 import { rsvpFormWord, rsvpLineWord } from '@/lib/rsvp-form-words';
+import { RSVP_CONFIG_FULL, readRsvpLook, rsvpConfigFits, rsvpLookLine, rsvpLookWith } from '@/lib/rsvp-look';
+import { RsvpLineLookRows } from './rsvp-line-look';
 import type { MakerPartTool } from '@/lib/maker-parts';
 import { hubDraftAction } from '../../website/hub-draft-actions';
 import { updatePaxSettings } from '../../actions';
@@ -220,6 +222,13 @@ export function MakerRsvpSettings({
    */
   const save = (patch: RsvpAskConfig, what?: string, said = false): Promise<SaveAnswer> => {
     const next: RsvpAskConfig = { ...latest.current, ...patch };
+    /* 📏 THE ONE OBJECT HAS A CEILING (the database's 2,048 bytes — `lib/rsvp-look.ts`): a save that would pass it
+       is refused HERE, in a sentence, before anything is shown or kept — a long message of emoji used to be met
+       only at Apply, as the database's own refusal. Said by the row that asked (`said`), else under the list. */
+    if (!rsvpConfigFits(next, latest.current)) {
+      setError(said ? null : RSVP_CONFIG_FULL);
+      return Promise.resolve({ ok: false, error: RSVP_CONFIG_FULL });
+    }
     latest.current = next;
     setLocal(next); // ⚡ on screen at the tap — never inside the transition below
     setError(null);
@@ -499,6 +508,24 @@ export function MakerRsvpSettings({
       return (
         <div className="flex flex-col px-1" data-rsvp-stage-controls={scene} data-rsvp-stage-line-edit={picked.line ?? ''}>
           <FormRows data="rsvp-line">{wordRow(scene, lineWord)}</FormRows>
+          {status}
+        </div>
+      );
+    }
+    /* 🎨 STYLE, a line picked — its Colour and its Size (`rsvp-line-look.tsx`), kept in the same one object as the
+       words (`look`, `lib/rsvp-look.ts`): on the canvas at the tap, in the draft behind it, live on Apply. */
+    const lookLine = rsvpLookLine(picked.part, picked.line);
+    if (picked.tool === 'style' && lookLine) {
+      return (
+        <div className="flex flex-col px-1" data-rsvp-stage-controls={scene} data-rsvp-stage-line-style={lookLine}>
+          <RsvpLineLookRows
+            line={lookLine}
+            now={readRsvpLook(local).lines?.[lookLine] ?? {}}
+            board={celebration?.colours ?? []}
+            onPick={(patch) => {
+              void save({ look: rsvpLookWith(latest.current, lookLine, patch) }, 'c' in patch ? '“Colour”' : '“Size”');
+            }}
+          />
           {status}
         </div>
       );

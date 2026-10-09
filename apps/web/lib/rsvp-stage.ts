@@ -36,6 +36,7 @@ import {
   type RsvpWordKey,
 } from './rsvp-ask';
 import { RSVP_BRIDGE_SOURCE, rsvpWordBridgeKey } from './rsvp-stage-shared';
+import { RSVP_LOOK_MESSAGE } from './rsvp-look';
 
 export * from './rsvp-stage-shared';
 
@@ -92,7 +93,8 @@ export const RSVP_WORD_LABEL: Record<RsvpWordKey, string> = {
 
 export type RsvpBridgeMessage =
   | { source: typeof RSVP_BRIDGE_SOURCE; t: 'words'; key: string; text: string }
-  | { source: typeof RSVP_BRIDGE_SOURCE; t: 'rsvpAsk'; ask: Record<RsvpAskField, boolean>; oneAtATime: boolean };
+  | { source: typeof RSVP_BRIDGE_SOURCE; t: 'rsvpAsk'; ask: Record<RsvpAskField, boolean>; oneAtATime: boolean }
+  | { source: typeof RSVP_BRIDGE_SOURCE; t: typeof RSVP_LOOK_MESSAGE; look: Record<string, unknown> };
 
 /**
  * What the frame is told for one config — the words (`t:'words'`, the bridge's
@@ -111,6 +113,8 @@ export function rsvpPreviewMessages(config: RsvpAskConfig, solemn: boolean): Rsv
   const ask = {} as Record<RsvpAskField, boolean>;
   for (const field of RSVP_ASK_FIELDS) ask[field] = rsvpAsks(config, field);
   out.push({ source: RSVP_BRIDGE_SOURCE, t: 'rsvpAsk', ask, oneAtATime: readOneAtATime(config) });
+  /* 🎨 Each line's look — the RAW object: the page reads it strictly (`readRsvpLook`) and redraws its one `<style>`. */
+  out.push({ source: RSVP_BRIDGE_SOURCE, t: RSVP_LOOK_MESSAGE, look: config.look ?? {} });
   return out;
 }
 

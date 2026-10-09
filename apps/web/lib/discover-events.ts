@@ -532,9 +532,14 @@ async function readEventShelves(
   graph: Extract<ViewerGraph, { ok: true }> | null,
   viewerRegion: string | null,
   todayISO: string,
+  me: string | null = null,
 ): Promise<EventShelves> {
   const region = regionBySlug(viewerRegion);
-  const peopleIds = graph ? [...graph.people.keys()].slice(0, MAX_PEOPLE_IDS) : [];
+  // The viewer's OWN hosted events join the people shelf too (owner 2026-10-08)
+  // — still through the same public gate below, so only what is public lists.
+  const peopleIds = graph
+    ? [...(me ? [me] : []), ...graph.people.keys()].slice(0, MAX_PEOPLE_IDS)
+    : [];
 
   const [world, inRegion, hostedByPeople] = await Promise.all([
     candidateEvents(admin, todayISO).limit(WORLD_CANDIDATES),
@@ -611,6 +616,7 @@ async function readEventShelves(
     events: gated,
     hostsByEvent: hosts,
     people: graph?.people ?? new Map(),
+    viewerId: me,
     memberEventIds: graph?.memberEventIds ?? new Set(),
     viewerRegion,
     todayISO,
@@ -749,7 +755,7 @@ export async function loadDiscover(): Promise<DiscoverData> {
 
   const viewerRegion = await readViewerRegion(admin, graph.memberships).catch(() => null);
   const [shelves, peopleToFollow] = await Promise.all([
-    readEventShelves(admin, graph, viewerRegion, todayISO).catch(() => ({ ok: false }) as const),
+    readEventShelves(admin, graph, viewerRegion, todayISO, me).catch(() => ({ ok: false }) as const),
     readPeopleToFollow(admin, me, graph).catch(() => UNAVAILABLE),
   ]);
 

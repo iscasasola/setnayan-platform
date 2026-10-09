@@ -218,7 +218,8 @@ test('"Show guests their seats early" opens with publishSeating and closes with 
   const flip = ed.slice(ed.indexOf('const flipDoor = '), ed.indexOf('const doorStrip = '));
   assert.ok(flip.length > 0, 'the door switch is gone');
   assert.match(flip, /if \(open\) await publishSeating\(fd\);\s*else await unpublishSeating\(fd\);/);
-  assert.match(ed, /role="switch"\s*aria-checked=\{doorOpen\}/);
+  /* RE-AIMED 2026-10-09 (the Seat plan's chrome wears the templates): the switch is the Form row's `SwitchRow` — the same `flipDoor`, drawn by the template. */
+  assert.match(ed, /<SwitchRow\s+name="Show guests their seats early"[\s\S]{0,1200}on=\{doorOpen\}\s+onChange=\{\(open\) => flipDoor\(open\)\}/);
   // The one gate guests' seats open on, and the only thing the closing half clears.
   const actions = code('seating', 'actions.ts');
   const un = actions.slice(actions.indexOf('export async function unpublishSeating'));

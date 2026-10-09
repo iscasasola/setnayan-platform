@@ -39,3 +39,10 @@ itself). Dragging a name, a walk or a section, and the tray's chips, are the dra
 steps aside while a name is lifted out of it). NO SAVE CHANGED (recorded golden: the reset, the Undo, a thrown save, the lab — identical calls in the browser run). One change on purpose: a refusal the server worded in database
 words used to be PRINTED in the toast; it is now the page's own sentence (`plainRefusal`). The lab's march lands locally as before and, with `?refuse=1`, refuses so that sentence can be seen.
 SPEC IMPACT: None.
+
+## 2026-10-09 · feat(studio): Studio › Seat plan's chrome wears the templates (Action button · Switch · the Toast), canvas and seating logic untouched
+
+Chrome only. Auto arrange, Edit / Take over, the drop's "Drop here" / Cancel and the move sheet's Move are the ONE ActionButton with the SAME handlers; the Auto arrange line and its Undo are the template's `PeekToast`; "Show guests their seats
+early" (its ⓘ, status line and refusal) and "Only unseated" are the Form row's Switch — the door's live write (`publishSeating` / `unpublishSeating`) is unchanged. Not touched: the seat canvas, 3D, table drag, every seating rule; not moved: the
+⋯ and Rules ▾ popovers (no shared ⋯-menu template), the people sheet, the move sheet's frame. Saves: every press calls the same handler (recorded golden, browser run before and after). No lab draws the seat plan, so a lab press cannot reach it.
+SPEC IMPACT: None.

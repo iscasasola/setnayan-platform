@@ -2,11 +2,13 @@
 
 import { useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDown, ChevronRight, MoreHorizontal, Sparkles, X } from 'lucide-react';
+import { ArrowRight, ChevronDown, ChevronRight, MoreHorizontal, Sparkles } from 'lucide-react';
 import { formatCount } from '@/lib/format-number';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import type { PickOption } from '../../website/editor/_components/pick-menu-types';
 import { OneOpenScope, useOneOpen } from '@/lib/one-open';
+import { ActionButton } from '@/components/action-button';
+import { PeekToast } from '@/app/_components/toast/peek-toast';
 
 /**
  * 📱 THE SEAT PLAN ON A PHONE — its chrome (owner 2026-10-01, DECISION_LOG
@@ -28,6 +30,27 @@ import { OneOpenScope, useOneOpen } from '@/lib/one-open';
  *   MoveGuestSheet — tap a guest → "Move Ana to…" with ONE Table ▾ (only
  *     tables with room, or + New table) → Move. No drag on a phone.
  */
+
+/**
+ * 🔔 The Auto arrange line (and its Undo) — the template's toast (`PeekToast`: peeks from the top, one Undo action, leaves by itself and tells the editor, which then
+ * forgets the line). Its Dismiss ✕ is the toast's own leaving.
+ */
+function SeatToast({ toast }: { toast: { text: string; onUndo: (() => void) | null; onDismiss: () => void } }) {
+  return (
+    <PeekToast key={toast.text} data="seat-plan" onGone={toast.onDismiss} action={toast.onUndo ? { label: 'Undo', onPress: toast.onUndo } : undefined}>
+      {toast.text}
+    </PeekToast>
+  );
+}
+
+/** Auto arrange — the screen's forward step: THE ONE ActionButton (a waiting button while it arranges), with the editor's own handler. */
+function AutoArrange({ onAutoArrange, disabled, busy }: { onAutoArrange: () => void; disabled: boolean; busy: boolean }) {
+  return (
+    <span data-seat-plan-auto="" className="flex min-w-0 flex-1">
+      <ActionButton tone="brand" main waiting={busy} disabled={disabled && !busy} icon={Sparkles} label={busy ? 'Arranging…' : 'Auto arrange'} onClick={onAutoArrange} className="w-full" />
+    </span>
+  );
+}
 
 /** A tap-to-open popover (Rules ▾ and ⋯) — solid surface, closes on a tap outside. */
 function Pop({
@@ -145,30 +168,9 @@ export function PhoneSeatPlanHead({
       <p data-seat-plan-status="" className="text-[12.5px] leading-snug text-ink/60 group-data-[details-mode=guided]/ws:hidden">
         {status}
       </p>
-      {toast ? (
-        <div role="status" data-seat-plan-toast="" className="flex items-center gap-2 rounded-xl bg-ink px-3 py-2 text-[13px] text-cream">
-          <Sparkles aria-hidden className="h-4 w-4 shrink-0 text-terracotta-200" />
-          <span className="min-w-0 flex-1">{toast.text}</span>
-          {toast.onUndo ? (
-            <button type="button" onClick={toast.onUndo} data-seat-plan-undo="" className="sn-press shrink-0 font-semibold text-terracotta-200 underline-offset-2 hover:underline">
-              Undo
-            </button>
-          ) : null}
-          <button type="button" onClick={toast.onDismiss} aria-label="Dismiss" className="shrink-0 rounded p-0.5 text-cream/70 hover:text-cream">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      ) : null}
+      {toast ? <SeatToast toast={toast} /> : null}
       <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={onAutoArrange}
-          disabled={autoDisabled || autoBusy}
-          data-seat-plan-auto=""
-          className="sn-press inline-flex h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full bg-ink px-4 text-sm font-semibold text-cream disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {autoBusy ? 'Arranging…' : 'Auto arrange'}
-        </button>
+        <AutoArrange onAutoArrange={onAutoArrange} disabled={autoDisabled} busy={autoBusy} />
         <Pop
           label="Who sits together"
           align="right"
@@ -276,15 +278,9 @@ export function MoveGuestSheet({
         <p className="text-[12px] text-ink/60">
           {partyNote ? `${partyNote} ` : ''}Only tables with room are listed.
         </p>
-        <button
-          type="button"
-          onClick={onMove}
-          disabled={busy || value === null}
-          data-seat-plan-move-go=""
-          className="sn-press inline-flex h-12 items-center justify-center rounded-full bg-ink text-[15px] font-semibold text-cream disabled:opacity-50"
-        >
-          Move
-        </button>
+        <span data-seat-plan-move-go="" className="flex">
+          <ActionButton tone="brand" main waiting={busy} disabled={value === null && !busy} icon={ArrowRight} label="Move" onClick={onMove} className="w-full" />
+        </span>
       </div>
     </div>,
     document.body,
@@ -361,33 +357,11 @@ export function StudioSeatPlanTools({
   ];
   return (
     <div data-seat-plan-studio-tools="" className="flex flex-col gap-2">
-      {toast ? (
-        <div role="status" data-seat-plan-toast="" className="flex items-center gap-2 rounded-xl bg-ink px-3 py-2 text-[13px] text-cream">
-          <Sparkles aria-hidden className="h-4 w-4 shrink-0 text-terracotta-200" />
-          <span className="min-w-0 flex-1">{toast.text}</span>
-          {toast.onUndo ? (
-            <button type="button" onClick={toast.onUndo} data-seat-plan-undo="" className="sn-press shrink-0 font-semibold text-terracotta-200 underline-offset-2 hover:underline">
-              Undo
-            </button>
-          ) : null}
-          <button type="button" onClick={toast.onDismiss} aria-label="Dismiss" className="shrink-0 rounded p-0.5 text-cream/70 hover:text-cream">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      ) : null}
+      {toast ? <SeatToast toast={toast} /> : null}
       {/* 🪟 The floating row is glass (`sn-glass-row`, BUTTON_RULE Rule 7) — no fill, no shadow of its own. */}
       <div className="sn-glass-row flex items-center gap-2 rounded-full p-1">
-        {/* BUTTON-RULE — icon + word; Auto arrange is the forward step (terracotta). */}
-        <button
-          type="button"
-          onClick={onAutoArrange}
-          disabled={autoDisabled || autoBusy}
-          data-seat-plan-auto=""
-          className="sn-press inline-flex h-10 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full bg-mulberry px-3 text-[13px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <Sparkles aria-hidden className="h-4 w-4 shrink-0" strokeWidth={2} />
-          <span className="truncate">{autoBusy ? 'Arranging…' : 'Auto arrange'}</span>
-        </button>
+        {/* BUTTON-RULE — Auto arrange is the forward step (terracotta). */}
+        <AutoArrange onAutoArrange={onAutoArrange} disabled={autoDisabled} busy={autoBusy} />
         <Pop
           label="Who sits together"
           align="right"

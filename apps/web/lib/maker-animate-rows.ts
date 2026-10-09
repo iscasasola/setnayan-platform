@@ -26,3 +26,5 @@ export const SP_ANIMATE_HALF = 'flex min-w-0 flex-[0_0_calc(50%_-_4px)] items-ce
  * — a 6-px gap leaves each chip its 84 px on a 375-px phone ((355 − 18) / 4).
  */
 export const SP_ANIMATE_CHIPS = '!grid min-w-0 flex-1 !grid-cols-4 !gap-1.5';
+/** The one plain line a row says when it has nothing to set (Build out while this plays on arrival). */
+export const SP_ANIMATE_LINE = 'min-w-0 flex-1 text-[13px] leading-snug text-[var(--sp-ink2)]';

@@ -299,6 +299,12 @@ export type HubSectionCanvas = {
    */
   spacing?: HubSceneSpacing;
   preset?: HubMotionPreset;
+  /**
+   * 🎚 Build out's own FEEL where the scene follows the scroll (owner 2026-10-09: *"movement independent from each"*):
+   * how much of the way out the hand-off takes. Regular is the absence — the range every scene had before this.
+   * (Build in's feel is `duration`, which now also sets how far in a scroll-driven arrival runs — `--hub-in-end`.)
+   */
+  outSpeed?: 'fast' | 'gentle';
   /** Fine-tune. Each absent when the couple left it on Auto. */
   in?: HubIn;
   /** Where it comes FROM. Ignored, and not stored, unless `in` travels. */
@@ -726,6 +732,7 @@ export function sanitizeHubCanvas(raw: unknown): HubSectionCanvas {
   if (autoSpeed && autoSpeed !== 'normal' && transition === 'auto') out.autoSpeed = autoSpeed;
   if (inSet(HUB_STAGGER, canvas.stagger)) out.stagger = canvas.stagger as number;
   if (inSet(HUB_DURATION, canvas.duration)) out.duration = canvas.duration as number;
+  if (canvas.outSpeed === 'fast' || canvas.outSpeed === 'gentle') out.outSpeed = canvas.outSpeed;
   /* ── SCENES. Same posture: a value this version did not write is dropped. */
   const template = sceneTemplateId(canvas.template);
   if (template) out.template = template;
@@ -1046,6 +1053,10 @@ export function hubCanvasVars(
     ...(canvas.inFx ? Object.fromEntries(motionFxVars(canvas.inFx, 'in', '--hub-in', HUB_SCENE_DIST)) : {}),
     ...(canvas.outFx ? Object.fromEntries(motionFxVars(canvas.outFx, 'out', '--hub-out', HUB_SCENE_DIST)) : {}),
     '--hub-duration': `${m.duration}s`,
+    /* 🎚 The feel of a SCROLL-DRIVEN end — only from a value the couple set themselves (a preset's own duration never
+       moved these ranges, and still does not: an old scene draws exactly what it drew). Absent = the stylesheet's. */
+    ...(m.timeline === 'scrub' && canvas.duration && canvas.duration !== 1.1 ? { '--hub-in-end': canvas.duration < 1 ? 'entry 50%' : 'cover 30%' } : {}),
+    ...(canvas.outSpeed ? { '--hub-out-range': canvas.outSpeed === 'fast' ? 'exit 0% exit 50%' : 'cover 50% exit 100%' } : {}),
     /* 🔑 `--hub-stagger` IS EMITTED AGAIN, and this time a rule reads it. It was
        withdrawn when the frame held one child and there was nothing to stagger;
        the parts turned out to be the section's own direct children, so the gap

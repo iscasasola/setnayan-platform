@@ -172,7 +172,7 @@ test('Rows ▾ writes the scene’s `sequence` — and Action carries no Parts r
   /* 🔁 RE-AIMED 2026-10-09 (Animate is four rows): the three phases are no longer three branches of one column —
      Rows ▾ is drawn in row 4 beside Movement, and only while the phase is Build in. Action still carries none. */
   const rowsDrawn = [...animate.matchAll(/\{([^{}]*?) \? <Dd stacked small="Rows"/g)].map((m) => m[1]);
-  assert.deepEqual(rowsDrawn, ["phase === 'in' && rows"], 'Rows ▾ is Build in’s, and only its');
+  assert.deepEqual(rowsDrawn, ["end === 'in' && rows"], 'Rows ▾ is Build in’s, and only its');
   assert.ok(!/Parts/.test(animate), 'Action carries a Parts row');
 });
 

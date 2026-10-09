@@ -168,7 +168,7 @@ test('(3) Move draws ONE dropdown (no button per arrow) and Size draws the app�
   const dd = { value: 'auto', options: [{ key: 'auto', label: 'Auto' }], onPick: () => {} };
   const draw = (phase: 'in' | 'out', fx: Record<string, unknown> | null) => {
     setStageAnimatePhase(phase);
-    return renderToStaticMarkup(React.createElement(StageAnimate, { how: dd, inFx: fx, outFx: fx, onIn: () => {}, onOut: () => {}, does: dd }));
+    return renderToStaticMarkup(React.createElement(StageAnimate, { move: { in: null, out: null }, inFx: fx, outFx: fx, onIn: () => {}, onOut: () => {}, does: dd }));
   };
   /* 🔁 RE-AIMED 2026-10-09 (Animate is four rows — `animate-is-four-rows.test.ts`): Move and Size are no longer a
      row each with a switch; the ON ones' needs share ROW 3, a half each (`data-stage-need`). The claim is the same:

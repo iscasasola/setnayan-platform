@@ -71,7 +71,13 @@ export function Dd({
   tone = 'plain',
   about,
   stacked = false,
+  off,
 }: {
+  /**
+   * This dropdown cannot be used right now: it is GREY and still hears a tap — the tap calls this (the caller says
+   * why, in a toast) and nothing opens. Never `disabled`: that is a dead tap (the tools' own rule).
+   */
+  off?: () => void;
   /** Two lines in one pill — its name above its value (prototype `.fh`), so two or three sit in one row. */
   stacked?: boolean;
   /** What the row does, behind ⓘ beside the pill (owner 2026-10-07: each Arrange row has an ⓘ). */
@@ -93,8 +99,18 @@ export function Dd({
   const pill = (
     <div
       ref={box}
-      className={`${stacked ? SP_DD_STACKED : SP_DD} ${tone === 'how' ? '!bg-[var(--sp-gold-wash)] !ring-[var(--sp-gold-soft)]' : ''} ${className}`}
+      className={`${stacked ? SP_DD_STACKED : SP_DD} aria-disabled:opacity-40 ${tone === 'how' ? '!bg-[var(--sp-gold-wash)] !ring-[var(--sp-gold-soft)]' : ''} ${className}`}
       data-stage-dd={data}
+      aria-disabled={off ? true : undefined}
+      onClickCapture={
+        off
+          ? (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              off();
+            }
+          : undefined
+      }
       onClick={(e) => {
         /* The small label is part of the pill: a tap there opens it too. */
         if (e.target === box.current || (e.target as HTMLElement).dataset.ddLabel !== undefined) {

@@ -196,6 +196,7 @@ export const HUB_CANVAS_LOOK_KEYS = [
   'sequence',
   'stagger',
   'duration',
+  'outSpeed',
   // Scroll · Scrub · Auto-scroll into the next scene (#5951, `lib/hub-scenes.ts`).
   'transition',
   'autoSpeed',
@@ -268,6 +269,7 @@ export const HUB_CANVAS_MOTION_KEYS = [
   'sequence',
   'stagger',
   'duration',
+  'outSpeed',
   // How this scene hands over to the next one (#5951). Scroll is an absence,
   // so a stored value here is always a choice — and Reset takes it off.
   'transition',

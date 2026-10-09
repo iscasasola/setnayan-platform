@@ -6,8 +6,8 @@
  *       hand in (Rows, Delay, Next scene, an error), the pane's direct children are rows 1–4 of the ONE grid, each
  *       at most once, and nothing in it scrolls; each row's control is 44 px, the short phone's row.
  *       Sabotage: row 3 drawn as a fifth row → red.
- *   (2) ROW 4 BY PHASE — Build in: Movement ◆ + Rows + Delay · Action: Movement ◆ · Build out: Movement ◆ + Next
- *       scene ◆ and NO Delay (decision 8). Sabotage: Delay drawn in Build out → red.
+ *   (2) ROW 4 BY PHASE — Build in: Movement ◆ · Plays · Rows / Delay · Action: nothing · Build out: Movement ◆ ·
+ *       Leaves ◆ and NO Delay (decision 8). Sabotage: Delay drawn in Build out → red.
  *   (3) NO DURATION, NO TIMING — not drawn in any phase, not a prop, and neither caller writes a `speed`, a
  *       `duration` or (a scene) a `timeline` from here; what was stored is left alone. Sabotage: Delay named
  *       Duration → red.
@@ -18,8 +18,7 @@
  *   (5) ROW 3 IS ONLY WHAT THE ON ONES NEED — nothing while Move and Size are off; From / To ▾ for Move, Grow |
  *       Shrink for Size, each in its own HALF of the row. Sabotage: a need stretching to the whole row → red.
  *   (6) A PART'S BUILD OUT AND THE SCROLL — the first one switched on makes the part follow the scroll (shipped);
- *       the last one switched off puts it back to playing once (Timing ▾ is not drawn, so nothing else could).
- *       Sabotage: the way back removed → red.
+ *       the way back is Build in's Plays, the one place the drive is chosen. Sabotage: Plays writing nothing → red.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -43,11 +42,15 @@ const has = (cls: string, c: string) => cls.split(/\s+/).includes(c);
 
 type Fx = Record<string, unknown> | null;
 type Phase = 'in' | 'act' | 'out';
-const how = { value: 'auto', options: [{ key: 'auto', label: 'Auto' }, { key: 'calm', label: 'Calm' }], onPick: () => {} };
-const rows = { value: 'auto', options: [{ key: 'auto', label: 'Auto' }, { key: 'together', label: 'All at once' }], onPick: () => {} };
-const delay = { value: 0.3, steps: [0, 0.3, 0.8], onPick: () => {} };
-const does = { value: 'drift', options: [{ key: 'still', label: 'Still' }, { key: 'drift', label: 'Drift' }], onPick: () => {} };
-const next = { value: 'scroll', options: [{ key: 'scroll', label: 'Scroll' }], onPick: () => {} };
+const noop = () => {};
+/* 🔁 RE-AIMED 2026-10-09 (commit 7 — `movement-is-a-feel-per-phase.test.ts`): Movement is each end's own feel, Build in
+   gained its drive (Plays) and "Next scene" is "Leaves"; the old one-for-all preset is not a prop any more. */
+const move = { in: { value: 'calm', onPick: noop }, out: { value: 'calm', onPick: noop } };
+const plays = { value: 'scroll', onPick: noop };
+const rows = { value: 'auto', options: [{ key: 'auto', label: 'Auto' }, { key: 'together', label: 'All at once' }], onPick: noop };
+const delay = { value: 0.3, steps: [0, 0.3, 0.8], onPick: noop };
+const does = { value: 'drift', options: [{ key: 'still', label: 'Still' }, { key: 'drift', label: 'Drift' }], onPick: noop };
+const leaves = { value: 'scroll', options: [{ key: 'scroll', label: 'As it scrolls away' }], onPick: noop };
 const ALL: Fx = { fade: true, blur: true, move: 'below', size: 'grow' };
 
 async function draw(phase: Phase, fx: Fx, more: Record<string, unknown> = {}): Promise<string> {
@@ -55,7 +58,7 @@ async function draw(phase: Phase, fx: Fx, more: Record<string, unknown> = {}): P
   const { StageAnimate } = await import(`${PANEL}/stage-animate`);
   const { setStageAnimatePhase } = await import(`${PANEL}/store`);
   setStageAnimatePhase(phase);
-  const html = renderToStaticMarkup(React.createElement(StageAnimate, { how, inFx: fx, outFx: fx, onIn: () => {}, onOut: () => {}, rows, delay, does, next, ...more }));
+  const html = renderToStaticMarkup(React.createElement(StageAnimate, { move, plays, inFx: fx, outFx: fx, onIn: noop, onOut: noop, rows, delay, does, leaves, ...more }));
   setStageAnimatePhase('in');
   return html;
 }
@@ -89,7 +92,7 @@ test('(1) four rows of the one grid in every phase — nothing is a fifth row an
   let seen = 0;
   for (const phase of ['in', 'act', 'out'] as const) {
     for (const fx of [null, { fade: true }, { move: 'left' }, { size: 'shrink' }, ALL] as Fx[]) {
-      for (const more of [{}, { error: 'Could not save. Try again.' }, { rows: null, delay: null, next: null }]) {
+      for (const more of [{}, { error: 'Could not save. Try again.' }, { rows: null, delay: null, leaves: null }, { plays: { value: 'arrival', onPick: noop } }, { move: { in: null, out: null }, plays: null }]) {
         const html = await draw(phase, fx, more);
         const root = /^<div class="([^"]*)"[^>]*data-stage-animate-rows=""/.exec(html)?.[1] ?? '';
         for (const c of SP_ROWS.split(' ')) assert.ok(has(root, c), `${phase}: the pane is not the four-row grid (no “${c}”)`);
@@ -99,12 +102,14 @@ test('(1) four rows of the one grid in every phase — nothing is a fifth row an
         assert.ok(kids.length >= 2 && kids.length <= 4, `${phase}: ${kids.length} rows`);
         assert.ok(at.every((n) => n !== null && Number(n) >= 1 && Number(n) <= 4), `${phase}: a child of the pane is not one of rows 1–4 — ${kids.join(' ')}`);
         assert.equal(new Set(at).size, at.length, `${phase}: two children share a row — ${at.join(',')}`);
-        assert.ok(at.includes('1') && at.includes('4'), `${phase}: row 1 or row 4 is missing`);
+        assert.ok(at.includes('1'), `${phase}: row 1 is missing`);
+        /* Action has no row 4 (it has no feel and no drive); the two ends always do, while there is anything to draw there. */
+        if (phase === 'act') assert.ok(!at.includes('4') && (!at.includes('3') || 'error' in more), 'Action drew a row 3 or 4');
         seen++;
       }
     }
   }
-  assert.equal(seen, 45, 'anti-vacuity: every phase × effects × hand-ins was drawn');
+  assert.equal(seen, 75, 'anti-vacuity: every phase × effects × hand-ins was drawn');
   /* Every control a row holds is 44 px — the SHORT phone's row; a taller phone's row (48) centres it. */
   assert.equal(stageBarRow(667).row, 44);
   assert.ok(stageBarRow(812).row >= 44);
@@ -125,7 +130,10 @@ test('(1) four rows of the one grid in every phase — nothing is a fifth row an
   /* …and no control of Animate is taller: the source names no height above 44 px and no text row of its own. */
   const src = read(`${L}/stage-panel/stage-animate.tsx`);
   assert.doesNotMatch(src, /\bh-(?:1[2-9]|[2-9]\d)\b|\bmin-h-\[(?:4[5-9]|[5-9]\d|\d{3,})px\]/, 'a control taller than a row');
-  assert.doesNotMatch(src, /SP_PANE|<TimeRow|<PanelSwitch|<About\b|<Slider\b/, 'a piece of the eleven-row column is back');
+  assert.doesNotMatch(src, /SP_PANE|<TimeRow|<About\b|<Slider\b/, 'a piece of the eleven-row column is back');
+  /* (🔁 2026-10-09, commit 7: ONE switch is drawn — "Follow the scroll", where Build out has nothing to play on arrival.
+     The four effect switches down a column stay gone.) */
+  assert.equal((src.match(/<PanelSwitch\b/g) ?? []).length, 1, 'the effect switches are back, or the way out of "on arrival" is gone');
   /* 📦 Its own classes cost the Maker's first load nothing: only the toolbar's lazy pieces import their module. */
   const users: string[] = [];
   const walk = (dir: string) => {
@@ -140,18 +148,15 @@ test('(1) four rows of the one grid in every phase — nothing is a fifth row an
   assert.deepEqual(users.sort(), [`${L}/stage-panel/kit.tsx`, `${L}/stage-panel/stage-animate.tsx`], 'Animate’s classes are imported by a file that may load first');
 });
 
-test('(2) row 4 by phase — Build in: Movement ◆ + Rows + Delay; Action: Movement ◆; Build out: Movement ◆ + Next scene ◆, no Delay', async () => {
-  assert.deepEqual(smalls(rowOf(await draw('in', ALL), 4)), ['Movement ◆', 'Rows', 'Delay']);
-  assert.deepEqual(smalls(rowOf(await draw('in', ALL, { rows: null }), 4)), ['Movement ◆', 'Delay'], 'a part: Movement ◆ + Delay');
-  assert.deepEqual(smalls(rowOf(await draw('in', ALL, { delay: null }), 4)), ['Movement ◆', 'Rows'], 'a scene of rows: Movement ◆ + Rows');
-  assert.deepEqual(smalls(rowOf(await draw('act', ALL), 4)), ['Movement ◆'], 'Action needs no Next scene, no Rows, no Delay');
-  assert.deepEqual(smalls(rowOf(await draw('out', ALL), 4)), ['Movement ◆', 'Next scene ◆'], 'Build out has NO Delay (decision 8)');
-  assert.deepEqual(smalls(rowOf(await draw('out', ALL, { next: null }), 4)), ['Movement ◆'], 'the stage’s last scene has no next one');
+test('(2) row 4 by phase — Build in: Movement ◆ · Plays · Rows / Delay; Action: nothing; Build out: Movement ◆ · Leaves ◆, no Delay', async () => {
+  assert.deepEqual(smalls(rowOf(await draw('in', ALL), 4)), ['Movement ◆', 'Plays', 'Rows', 'Delay']);
+  assert.deepEqual(smalls(rowOf(await draw('in', ALL, { rows: null }), 4)), ['Movement ◆', 'Plays', 'Delay'], 'a part: Movement ◆ · Plays · Delay');
+  assert.deepEqual(smalls(rowOf(await draw('in', ALL, { delay: null }), 4)), ['Movement ◆', 'Plays', 'Rows'], 'a scene of rows: Movement ◆ · Plays · Rows');
+  assert.equal(rowOf(await draw('act', ALL), 4), '', 'Action has a row 4');
+  assert.deepEqual(smalls(rowOf(await draw('out', ALL), 4)), ['Movement ◆', 'Leaves ◆'], 'Build out has NO Delay (decision 8)');
+  assert.deepEqual(smalls(rowOf(await draw('out', ALL, { leaves: null }), 4)), ['Movement ◆'], 'the stage’s last scene has no next one');
   /* Delay ▾ offers the shipped steps and says the stored one. */
-  const d = rowOf(await draw('in', ALL), 4);
-  assert.match(d, /aria-label="Delay: 0\.3 s"/);
-  /* Movement says "Custom" when the caller says the switches were moved by hand. */
-  assert.match(rowOf(await draw('in', ALL, { how: { ...how, buttonText: 'Custom' } }), 4), /aria-label="Movement: Custom"/);
+  assert.match(rowOf(await draw('in', ALL), 4), /aria-label="Delay: 0\.3 s"/);
 });
 
 test('(3) no Duration and no Timing — not drawn, not a prop, and nothing stored for them is written from here', async () => {
@@ -163,16 +168,18 @@ test('(3) no Duration and no Timing — not drawn, not a prop, and nothing store
   assert.doesNotMatch(src, /\bduration\b|\btiming\b|Duration|Timing/, 'StageAnimate still takes or names a Duration / Timing');
   /* The part's caller: no writer of its speed; its timeline is touched only by the Build-out rule ((6)). */
   const sheet = read(`${E}/element-sheet.tsx`);
-  const part = sheet.slice(sheet.indexOf('<StageAnimate'), sheet.indexOf('/>', sheet.indexOf('next={{', sheet.indexOf('<StageAnimate'))));
+  const part = sheet.slice(sheet.indexOf('<StageAnimate'), sheet.indexOf('/>', sheet.indexOf('leaves={{', sheet.indexOf('<StageAnimate'))));
   assert.ok(part.length > 400, 'anti-vacuity: the part’s Animate was found');
-  assert.doesNotMatch(part, /moveTo\('speed'|duration=|timing=|PART_SPEED_S/, 'the part’s Animate writes a speed');
-  assert.equal((part.match(/moveTo\('timeline'/g) ?? []).length, 2, 'the part’s timeline is written by something other than the Build-out rule');
+  /* 🔁 RE-AIMED 2026-10-09 (commit 7): a part's `speed` IS written again — by Movement, as one of three named feels
+     (never a Duration row), and its drive by Plays (never a Timing row under Action). */
+  assert.doesNotMatch(part, /duration=|timing=|PART_SPEED_S/, 'the part’s Animate has a Duration or a Timing again');
+  assert.equal((part.match(/moveTo\('timeline'/g) ?? []).length, 2, 'the part’s drive is written by something other than Plays and the Build-out rule');
   /* The scene's caller, the new Maker's branch only (the older editor keeps its rows). */
   const tab = read(`${E}/scene-animate-tab.tsx`);
   const from = tab.indexOf('if (ss) {');
   const ss = tab.slice(from, tab.indexOf('<div data-scene-tab="animate" aria-busy={pending}>', from));
   assert.ok(ss.includes('<StageAnimate'), 'anti-vacuity: the scene’s Animate was found');
-  assert.doesNotMatch(ss, /c\.duration\b|c\.timeline\b|duration=|timing=/, 'the scene’s Animate writes a duration or a timeline');
+  assert.doesNotMatch(ss, /c\.duration\b|duration=|timing=/, 'the scene’s Animate has a Duration or a Timing again');
 });
 
 test('(4) row 2 — four that are each on or off, and a press writes the shipped value; Action is the caller’s two', async () => {
@@ -238,13 +245,17 @@ test('(5) row 3 is only what the ON ones need — a half each', async () => {
   assert.ok(!has(SP_ANIMATE_HALF, 'flex-1'));
 });
 
-test('(6) a part’s Build out follows the scroll — and the last one switched off puts it back to playing once', () => {
+test('(6) a part’s Build out follows the scroll — and Plays is the way back', () => {
   const sheet = read(`${E}/element-sheet.tsx`);
   const at = sheet.indexOf('onOut={(fx) => {');
   const body = sheet.slice(at, sheet.indexOf('}}', at));
   assert.ok(at > 0 && body.length > 80, 'anti-vacuity: the part’s Build out was found');
   assert.match(body, /if \(fx && motion\.timeline !== 'scroll'\) moveTo\('timeline', 'scroll'\);\s*moveTo\('out', fx\);/);
-  assert.match(body, /if \(!fx && motion\.out && motion\.timeline === 'scroll'\) moveTo\('timeline', null\);/, 'a part that tried a Build out can never get its Delay back');
+  /* 🔁 RE-AIMED 2026-10-09 (commit 7): commit 6 put a part back to "plays once" when its last Build out was switched
+     off, because Timing ▾ had left and nothing else could. Build in's row 4 has the drive now (Plays: On arrival |
+     On scroll), so that hidden second write is gone — the couple says which, in one place. */
+  assert.doesNotMatch(body, /moveTo\('timeline', null\)/, 'switching the last Build out off still changes the drive behind the couple’s back');
+  assert.match(sheet, /plays=\{\{\s*value: motion\.timeline === 'scroll' \? 'scroll' : 'arrival',\s*onPick: \(d\) => moveTo\('timeline', d === 'scroll' \? 'scroll' : null\),/, 'Plays does not write the part’s drive');
   /* Delay is offered only where it plays: a Build in that is on, and not following the scroll. */
   assert.match(sheet, /delay=\{\s*motionFxOn\(motion\.in\) && motion\.timeline !== 'scroll'/);
 });

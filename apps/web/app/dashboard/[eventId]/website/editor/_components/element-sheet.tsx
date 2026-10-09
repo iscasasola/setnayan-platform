@@ -40,11 +40,11 @@ import { elementPreview, refusedChoiceWords, revertAfterFailedSave, type Element
 import { ColourSheet } from './colour-well';
 import { FontPick } from './font-pick';
 import { HUB_EL_DURING_LABEL } from '@/lib/element-style';
-import { motionFxOn, sameMotionFx } from '@/lib/motion-effects';
-import { HUB_MOTION_PRESETS, HUB_MOTION_PRESET_LABEL, HUB_PRESET_BODY, hubShippedFx, type HubMotionPreset } from '@/lib/hub-canvas';
-import { HUB_TRANSITIONS, HUB_TRANSITION_LABEL, type HubTransition } from '@/lib/hub-scenes';
+import { motionFxOn } from '@/lib/motion-effects';
+import type { HubTransition } from '@/lib/hub-scenes';
 import { SP_DD, SP_DD_BUTTON } from '@/lib/maker-stage-room';
 import { StageText } from '../../../launch/_components/stage-panel/stage-text';
+import { FEEL_OFF, LEAVES_OPTIONS, partFeel, partSpeedOf } from '@/lib/animate-feel';
 import { StageAnimate } from '../../../launch/_components/stage-panel/stage-animate';
 
 /**
@@ -376,13 +376,6 @@ export function ElementSheet({
   const ground = canvas.kind === 'color' && canvas.color ? canvas.color : palette.surface;
   const contrast = face.color ? hubElementContrast(face.color, ground) : null;
   const themeColours = [...new Set([palette.ink, palette.heading, palette.accent, palette.muted].map((c) => c.toLowerCase()))];
-  /* 🧭 Which of the five How it moves the part wears now: none chosen → Auto; equal to a preset → it; else Custom. */
-  const partHow = !style.motion
-    ? 'auto'
-    : (HUB_MOTION_PRESETS.find((p) => {
-        const fx = partPresetFx(p, motion.timeline === 'scroll');
-        return sameMotionFx(motion.in, fx.in) && (motion.timeline !== 'scroll' || sameMotionFx(motion.out, fx.out));
-      }) ?? 'custom');
   const titleId = 'maker-element-sheet-title';
 
   /* 📱 The part being edited stays in sight ABOVE the sheet on a phone
@@ -498,23 +491,24 @@ export function ElementSheet({
           <StageAnimate
             pending={pending}
             error={error}
-            how={{
-              /* The prototype's five (`HOW`): Auto · Still · Calm · Editorial · Cinematic — the SHIPPED presets
-                 (`HUB_PRESET_BODY`). A pick lays the preset's Build in / Build out on the switches; a switch moved
-                 by hand reads "Custom". */
-              value: partHow,
-              buttonText: partHow === 'custom' ? 'Custom' : undefined,
-              options: [{ key: 'auto', label: 'Auto' }, ...HUB_MOTION_PRESETS.map((p) => ({ key: p, label: HUB_MOTION_PRESET_LABEL[p] }))],
-              onPick: (k) => {
-                if (k === 'auto') {
-                  if (style.motion) commit(withoutMotion(latest.current.elements, target.el), 'motion');
-                  return;
-                }
-                const fx = partPresetFx(k as HubMotionPreset, motion.timeline === 'scroll');
-                let els = withElementMotion(latest.current.elements, target.el, 'in', fx.in);
-                if (motion.timeline === 'scroll') els = withElementMotion(els, target.el, 'out', fx.out);
-                commit(els, 'motion');
+            /* 🎚 Movement is each end's own FEEL (`lib/animate-feel.ts`): Build in's is the part's `speed`, Build
+               out's its `outSpeed` — both shipped, both played. It writes no effect and no drive. */
+            move={{
+              in: {
+                value: partFeel(motion.speed),
+                onPick: (f) => moveTo('speed', partSpeedOf(f)),
+                off: motionFxOn(motion.in) ? null : FEEL_OFF.noEffect,
               },
+              out: {
+                value: partFeel(motion.outSpeed),
+                onPick: (f) => moveTo('outSpeed', partSpeedOf(f)),
+                off: motion.timeline !== 'scroll' ? FEEL_OFF.arrival : !motionFxOn(motion.out) ? FEEL_OFF.noEffect : canvas.transition === 'scrub' ? FEEL_OFF.scrub : null,
+              },
+            }}
+            /* The drive — one for both ends (`HubElementMotion.timeline`): on arrival a part has no Build out. */
+            plays={{
+              value: motion.timeline === 'scroll' ? 'scroll' : 'arrival',
+              onPick: (d) => moveTo('timeline', d === 'scroll' ? 'scroll' : null),
             }}
             inFx={motion.in ?? null}
             outFx={motion.out ?? null}
@@ -523,11 +517,7 @@ export function ElementSheet({
               /* A part's Build out plays as guests scroll on — choosing one makes it follow the scroll. */
               if (fx && motion.timeline !== 'scroll') moveTo('timeline', 'scroll');
               moveTo('out', fx);
-              /* …and the last one switched off puts it back to playing once (Timing ▾ left the toolbar 2026-10-09:
-                 without this a part that tried a Build out could never get its Delay back). */
-              if (!fx && motion.out && motion.timeline === 'scroll') moveTo('timeline', null);
             }}
-            /* No Duration and no Timing (owner 2026-10-09) — a stored `speed` / `timeline` is not touched and still plays. */
             delay={
               motionFxOn(motion.in) && motion.timeline !== 'scroll'
                 ? {
@@ -546,15 +536,15 @@ export function ElementSheet({
               options: (['still', 'drift'] as const).map((v) => ({ key: v, label: HUB_EL_DURING_LABEL[v] })),
               onPick: (v) => moveTo('during', v === 'still' ? null : v),
             }}
-            next={{
-              /* ◆ Into the next scene — the part's scene's own (Stage default = no pick of its own). */
-              value: canvas.transition ?? 'stage',
-              options: [{ key: 'stage', label: 'Stage default' }, ...HUB_TRANSITIONS.map((t) => ({ key: t, label: HUB_TRANSITION_LABEL[t] }))],
+            leaves={{
+              /* Leaves ◆ — the part's SCENE's hand-off to the next scene (a part has none of its own). */
+              value: canvas.transition ?? 'scroll',
+              options: LEAVES_OPTIONS,
               onPick: (t) =>
                 commit(latest.current.elements ?? null, 'motion', (c) => {
                   delete c.transition;
                   delete c.autoSpeed;
-                  if (t !== 'stage') c.transition = t as HubTransition;
+                  if (t !== 'scroll') c.transition = t as HubTransition;
                 }),
             }}
           />
@@ -681,10 +671,5 @@ export function keepPartAboveSheet(sheet: HTMLElement, key: string, el: string):
   }
 }
 
-/** A preset's Build in / Build out, as a part's four effects (the scene presets' own bodies, `HUB_PRESET_BODY`). */
-function partPresetFx(p: HubMotionPreset, scroll: boolean): { in: MotionFx | null; out: MotionFx | null } {
-  const b = HUB_PRESET_BODY[p];
-  return { in: hubShippedFx(b.in, b.inFrom), out: scroll ? hubShippedFx(b.out, b.outTo) : null };
-}
 /** The shipped part delays in seconds (`lib/element-style.ts` DELAY_S) — Delay ▾'s choices. */
 const PART_DELAY_S = { none: 0, short: 0.3, long: 0.8 } as const;

@@ -78,14 +78,14 @@ const nodes = SCRUB_CHECK_CHAIN.map((s, i) => {
   );
 });
 const scenes = renderToStaticMarkup(
-  <HubScenes widgets={widgets as never} scrubAllowed>
+  <HubScenes widgets={widgets as never} scrubAllowed scrubOut>
     {nodes}
   </HubScenes>,
 );
 /* The page's own hold — the REAL component, around everything the page draws, one pair a hand-over. */
 const paged = mode === 'page' || mode === 'page-island';
 const hold = paged
-  ? (renderToStaticMarkup(<HubPageHold holds={hubScrubHolds(widgets as never, true)}><i id="slot" /></HubPageHold>).split('<i id="slot"></i>') as [string, string])
+  ? (renderToStaticMarkup(<HubPageHold holds={hubScrubHolds(widgets as never, true, true)}><i id="slot" /></HubPageHold>).split('<i id="slot"></i>') as [string, string])
   : (['', ''] as [string, string]);
 const css = join(__dirname, '..', 'app', 'globals.css');
 writeFileSync(

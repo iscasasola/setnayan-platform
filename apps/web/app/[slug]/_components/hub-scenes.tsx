@@ -10,6 +10,7 @@ import {
   sceneTimelineName,
 } from '@/lib/hub-scenes';
 import type { InvitationWidgetRow } from '@/lib/invitation-widgets';
+import { SCRUB_OUT_OFFERED, offeredTransition } from '@/lib/scrub-out-offered';
 import { STAGE_HOLD_ATTR, STAGE_SCENE_ATTR, stageSceneHoldMs, stageSceneKey } from '@/lib/stage-autoplay';
 import { HubAutoRun } from './hub-auto-run';
 import { HubScrub } from './hub-scrub';
@@ -133,14 +134,16 @@ function flow(blocks: readonly Block[]): React.ReactNode[] {
  * scenes block (`HubScenes`) and by the page's own hold (`hubScrubHolds` → `HubPageHold`), so the page can never
  * wrap itself for a number of hand-overs the block does not draw.
  */
-function sceneRuns(widgets: readonly InvitationWidgetRow[], scrubAllowed: boolean) {
+function sceneRuns(widgets: readonly InvitationWidgetRow[], scrubAllowed: boolean, scrubOut: boolean) {
   const motionOf = new Map(
     widgets.map((w) => {
       const canvas = sanitizeHubCanvas(w.config_json);
       return [
         w,
         {
-          transition: renderedTransition(resolveTransition(canvas), scrubAllowed),
+          /* 🌑 THE ONE PLACE a scene's transition is resolved for drawing: while "Scrub out" is not offered
+             (`lib/scrub-out-offered.ts`) a stored Scrub is the plain scroll — the page below is then the plain page. */
+          transition: offeredTransition(renderedTransition(resolveTransition(canvas), scrubAllowed), scrubOut),
           speed: canvas.autoSpeed ?? HUB_DEFAULT_AUTO_SPEED,
           /* 🎚 Scrub out hands over only where there is a Build out to play (owner: "if no build out, element stay
              permanent on the page"). */
@@ -163,8 +166,8 @@ function sceneRuns(widgets: readonly InvitationWidgetRow[], scrubAllowed: boolea
 }
 
 /** How many hand-overs these scenes draw — what `HubPageHold` needs to know. (A scene inside an Auto run is not one.) */
-export function hubScrubHolds(widgets: readonly InvitationWidgetRow[], scrubAllowed: boolean): number {
-  const { segments, holds } = sceneRuns(widgets, scrubAllowed);
+export function hubScrubHolds(widgets: readonly InvitationWidgetRow[], scrubAllowed: boolean, scrubOut: boolean = SCRUB_OUT_OFFERED): number {
+  const { segments, holds } = sceneRuns(widgets, scrubAllowed, scrubOut);
   if (!hasScrubRun(segments)) return 0;
   return segments.reduce((n, seg) => n + (seg.kind === 'auto' ? 0 : (seg.kind === 'scroll' ? [seg.entry] : seg.entries).filter((e) => holds(e.index)).length), 0);
 }
@@ -175,8 +178,8 @@ export function hubScrubHolds(widgets: readonly InvitationWidgetRow[], scrubAllo
  * own hold — a pair too many is a plain box that holds nothing; a pair too few would leave a hand-over to hold only
  * its own block. Zero on every page with no Scrub scene (every page today): nothing is wrapped at all.
  */
-export function hubScrubHoldsAtMost(widgets: readonly InvitationWidgetRow[], scrubAllowed: boolean): number {
-  const { motionOf } = sceneRuns(widgets, scrubAllowed);
+export function hubScrubHoldsAtMost(widgets: readonly InvitationWidgetRow[], scrubAllowed: boolean, scrubOut: boolean = SCRUB_OUT_OFFERED): number {
+  const { motionOf } = sceneRuns(widgets, scrubAllowed, scrubOut);
   return widgets.filter((w) => motionOf.get(w)!.transition === 'scrub' && motionOf.get(w)!.leaves).length;
 }
 
@@ -192,7 +195,7 @@ export function hubScrubHoldsAtMost(widgets: readonly InvitationWidgetRow[], scr
  * 🔒 Without the engine these are plain boxes with no rule of their own: the page is the plain page. With no
  * hand-over on the page (`holds` 0 — every page today) the children are returned as given: nothing is wrapped.
  */
-export function HubPageHold({ holds, children }: { holds: number; children: React.ReactNode }) {
+export function HubPageHold({ holds, children }: { holds: number; children?: React.ReactNode }) {
   let node: React.ReactNode = children;
   for (let i = 0; i < holds; i++) {
     node = (
@@ -207,9 +210,12 @@ export function HubPageHold({ holds, children }: { holds: number; children: Reac
 export function HubScenes({
   widgets,
   scrubAllowed,
+  scrubOut = SCRUB_OUT_OFFERED,
   stageMarks = false,
   children,
 }: {
+  /** 🧪 The lab's door (`lib/scrub-out-offered.ts`): draw a stored Scrub although it is not offered. Never set by a real page. */
+  scrubOut?: boolean;
   widgets: readonly InvitationWidgetRow[];
   /** Stamp the stage Auto's stops (see the docblock). Off everywhere but the
    *  Save the Date for guests and the preview tab. */
@@ -227,7 +233,7 @@ export function HubScenes({
 
   /* Each scene's motion, read ONCE — the runs below and the stage marks both
      read this, so the walker's clock is the clock the page plays. */
-  const { motionOf, segments, holds } = sceneRuns(widgets, scrubAllowed);
+  const { motionOf, segments, holds } = sceneRuns(widgets, scrubAllowed, scrubOut);
   /** The stage mark for scene `i`, as attributes — or nothing. */
   const mark = (i: number): Record<string, string> => {
     const w = widgets[i];

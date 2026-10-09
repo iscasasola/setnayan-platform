@@ -179,6 +179,7 @@ test('(6) on a part, "Leaves" is named as its scene’s', async () => {
   assert.match(part, /data-dd-label="">Scene leaves ◆<[\s\S]*?aria-label="How its scene leaves: Scrub out ◆"/);
   assert.equal(SCENE_LEAVES_NAME, 'Scene leaves ◆');
   const read = (f: string) => stripComments(readFileSync(join(WEB, f), 'utf8'));
-  assert.match(read(`${E}/element-sheet.tsx`), /leaves=\{\{\s*small: SCENE_LEAVES_NAME,\s*value: canvas\.transition \?\? 'scroll',/);
+  /* (2026-10-09: read through `offeredTransition` — a stored Scrub reads as scroll while it ships dark.) */
+  assert.match(read(`${E}/element-sheet.tsx`), /leaves=\{\{\s*small: SCENE_LEAVES_NAME,\s*value: offeredTransition\(canvas\.transition \?\? 'scroll'\),/);
   assert.doesNotMatch(read(`${E}/scene-animate-tab.tsx`), /SCENE_LEAVES_NAME/, 'a scene’s own Leaves is named as somebody else’s');
 });

@@ -71,8 +71,9 @@ test('(1) the lab’s chain, through the real renderer, is the prototype’s min
   const widgets = LAB_SCRUB_CHAIN.map((t) => ({ widget_id: `lab-${t}`, widget_type: t, config_json: { canvas: LAB_SCRUB_SAMPLE[t] } }));
   const nodes = LAB_SCRUB_CHAIN.map((t) => React.createElement('section', { key: t, 'data-scene': t }));
   /* (The scenes are handed over as `createElement`'s own children — this file has no JSX.) */
-  const Scenes = HubScenes as unknown as React.FC<{ widgets: unknown; scrubAllowed: boolean }>;
-  const html = renderToStaticMarkup(React.createElement(Scenes, { widgets, scrubAllowed: true }, ...nodes));
+  /* 🌑 As the lab asks — through its door (`scrubOut`): "Scrub out" ships dark in the app (`scrub-out-ships-dark.test.ts`). */
+  const Scenes = HubScenes as unknown as React.FC<{ widgets: unknown; scrubAllowed: boolean; scrubOut: boolean }>;
+  const html = renderToStaticMarkup(React.createElement(Scenes, { widgets, scrubAllowed: true, scrubOut: true }, ...nodes));
   assert.equal((html.match(/class="hub-cell"/g) ?? []).length, 3, 'the chain’s hand-overs');
   assert.equal((html.match(/data-hub-fx=""/g) ?? []).length, 5, 'every scene of the chain is played under the thumb');
   const order = [...html.matchAll(/data-scene="(\w+)"/g)].map((m) => m[1]);
@@ -83,7 +84,7 @@ test('(1) the lab’s chain, through the real renderer, is the prototype’s min
      still" — `scrub-is-a-held-hand-over` (7)). */
   assert.match(html, /class="hub-stage"><div class="hub-scene hub-scroll"[^>]*><section data-scene="special_message"><\/section><\/div><div class="hub-below"><div class="hub-scene hub-scroll"[^>]*><section data-scene="dress_code">/);
   /* Without Event Hub Pro nothing is held — the lab passes it (below). */
-  assert.doesNotMatch(renderToStaticMarkup(React.createElement(Scenes, { widgets, scrubAllowed: false }, ...nodes)), /hub-cell/);
+  assert.doesNotMatch(renderToStaticMarkup(React.createElement(Scenes, { widgets, scrubAllowed: false, scrubOut: true }, ...nodes)), /hub-cell/);
 });
 
 test('(2) one chain: the page the browser check plays takes its canvases from the lab’s chain — all but the cover’s', () => {
@@ -97,7 +98,7 @@ test('(2) one chain: the page the browser check plays takes its canvases from th
   assert.match(page, /\{ name: 'Names', rows: 0, canvas: COVER \},/);
   assert.equal((page.match(/transition: '|sequence: '|outFx:|inFx:/g) ?? []).length, 1, 'the check page writes more than the cover’s canvas');
   /* …and it is the REAL renderer and the REAL island it plays. */
-  assert.match(page, /<HubScenes widgets=\{widgets as never\} scrubAllowed>/);
+  assert.match(page, /<HubScenes widgets=\{widgets as never\} scrubAllowed scrubOut>/);
   /* (8d: the lab's badge is mounted beside the island, so the check reads what the badge says in each state.) */
   assert.match(read('scripts/scrub-check-island.tsx'), /import \{ HubScrub \} from '\.\.\/app\/\[slug\]\/_components\/hub-scrub';[\s\S]*render\(\s*<>\s*<HubScrub \/>\s*<LabScrubBadge \/>\s*<\/>,\s*\)/);
 });
@@ -108,7 +109,7 @@ test('(3) the lab draws the chain as the guest page draws scenes, and the Maker 
   /* The real renderer, Pro on, one node a scene: its marker and its framed scene in one fragment. */
   assert.match(
     guest,
-    /<HubScenes widgets=\{LAB_SCRUB_CHAIN\.map\(\(t\) => \(\{ \.\.\.rowOf\(t\), widget_id: `lab-\$\{t\}` \}\)\) as never\} scrubAllowed>\s*\{LAB_SCRUB_CHAIN\.map\(\(t, i\) => \(\s*<Fragment key=\{t\}>\s*\{mark\(`w:\$\{t\}`\)\}\s*\{chainCard\(t, i\)\}\s*<\/Fragment>\s*\)\)\}\s*<\/HubScenes>/,
+    /<HubScenes widgets=\{LAB_SCRUB_CHAIN\.map\(\(t\) => \(\{ \.\.\.rowOf\(t\), widget_id: `lab-\$\{t\}` \}\)\) as never\} scrubAllowed scrubOut>\s*\{LAB_SCRUB_CHAIN\.map\(\(t, i\) => \(\s*<Fragment key=\{t\}>\s*\{mark\(`w:\$\{t\}`\)\}\s*\{chainCard\(t, i\)\}\s*<\/Fragment>\s*\)\)\}\s*<\/HubScenes>/,
   );
   /* Every scene of the chain is a labelled CARD inside the real frame (its Build in / out are the frame's, so the
      card itself moves) — the label read from the canvas the scene is drawn with, the first card saying the cover is

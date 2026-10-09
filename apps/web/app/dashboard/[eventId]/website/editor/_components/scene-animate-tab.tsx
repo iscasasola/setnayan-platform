@@ -33,7 +33,8 @@ import { HUB_DURING_LABEL, HUB_SEQUENCES, type HubDuring } from '@/lib/hub-canva
 import { makerSceneHasRows } from '@/lib/maker-parts';
 import { useMaker } from '../../../launch/_components/maker-context';
 import { StageAnimate } from '../../../launch/_components/stage-panel/stage-animate';
-import { FEEL_OFF, LEAVES_OPTIONS, autoFeel, autoSpeedOf, laySceneInFeel, laySceneOutFeel, sceneInFeel, sceneOutFeel } from '@/lib/animate-feel';
+import { offeredTransition, scrubOutOffered } from '@/lib/scrub-out-offered';
+import { FEEL_OFF, leavesOptions, autoFeel, autoSpeedOf, laySceneInFeel, laySceneOutFeel, sceneInFeel, sceneOutFeel } from '@/lib/animate-feel';
 
 /**
  * 🎬 A SCENE'S ANIMATE TAB — the scene inspector's (`scene-inspector.tsx`, whose
@@ -99,7 +100,9 @@ export function SceneAnimateTab({
 
   const preset = shown.preset ?? null;
   const m = resolveHubMotion(shown);
-  const transition = resolveTransition(shown);
+  /* 🌑 While "Scrub out" ships dark a scene that stores it READS as "As it scrolls away" — Leaves, Movement and ▶
+     then behave as for scroll, and nothing stored is rewritten (`lib/scrub-out-offered.ts`). */
+  const transition = offeredTransition(resolveTransition(shown));
   const speed = shown.autoSpeed ?? HUB_DEFAULT_AUTO_SPEED;
   const setTransition = (t: string | null, s: string | null) =>
     save((c) => {
@@ -162,7 +165,7 @@ export function SceneAnimateTab({
             options: (['still', 'lift'] as const).map((d) => ({ key: d, label: HUB_DURING_LABEL[d] })),
             onPick: (d) => save((c) => { c.during = d as HubDuring; }),
           }}
-          leaves={isLast ? null : { value: transition, options: LEAVES_OPTIONS, onPick: (t) => setTransition(t, null) }}
+          leaves={isLast ? null : { value: transition, options: leavesOptions(), onPick: (t) => setTransition(t, null) }}
         />
       </div>
     );
@@ -255,7 +258,7 @@ export function SceneAnimateTab({
               label="Into the next scene"
               dataAttr="data-scene-transition"
               value={transition}
-              options={HUB_TRANSITIONS.map((t) => ({ key: t, label: HUB_TRANSITION_LABEL[t], hint: HUB_TRANSITION_HINT[t] }))}
+              options={HUB_TRANSITIONS.filter((t) => t !== 'scrub' || scrubOutOffered()).map((t) => ({ key: t, label: HUB_TRANSITION_LABEL[t], hint: HUB_TRANSITION_HINT[t] }))}
               onPick={(t) => setTransition(t, null)}
               className={ROW_PICK}
             />

@@ -54,6 +54,7 @@ import {
   HUB_TRANSITION_LABEL,
   resolveTransition,
 } from '@/lib/hub-scenes';
+import { SCRUB_OUT_OFFERED, offeredTransition } from '@/lib/scrub-out-offered';
 import { SceneSlotsPanel } from './scene-slots-panel';
 import { detailsFactOfScene } from '@/lib/details-bound';
 import { SceneTemplatePicker } from './scene-template-picker';
@@ -476,7 +477,8 @@ export function SectionsPanel({
                           ✅ Auto-scroll plays on the guest page since Event Hub
                           Maker Phase 5 (`hub-auto-run.tsx`). */}
                       {(() => {
-                        const transition = resolveTransition(canvas);
+                        /* 🌑 "Scrub" ships dark (`lib/scrub-out-offered.ts`): not offered below, and a stored one reads as Scroll. */
+                        const transition = offeredTransition(resolveTransition(canvas), SCRUB_OUT_OFFERED);
                         const speed = canvas.autoSpeed ?? HUB_DEFAULT_AUTO_SPEED;
                         if (i === rows.length - 1) {
                           return (
@@ -491,7 +493,7 @@ export function SectionsPanel({
                               <span className="font-mono text-[0.56rem] uppercase tracking-[0.14em] text-ink/40">
                                 Into the next section
                               </span>
-                              {HUB_TRANSITIONS.map((t) => {
+                              {HUB_TRANSITIONS.filter((t) => t !== 'scrub' || SCRUB_OUT_OFFERED).map((t) => {
                                 const on = transition === t;
                                 const locked = transitionLocked && !proUsable && t !== 'scroll' && !on;
                                 if (locked && hideLocked) return null;

@@ -363,7 +363,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       {/* 🧍 THE PAGE'S OWN HOLD, as `site-body.tsx` wraps its article: on the chain, everything this page draws — the
           cover, the greeting, the ticket — stands still while a hand-over plays. (`holds` 0 off the chain: nothing is
           wrapped.) */}
-      <HubPageHold holds={scrub ? hubScrubHoldsAtMost(LAB_SCRUB_CHAIN.map((t) => rowOf(t)) as never, true) : 0}>
+      <HubPageHold holds={scrub ? hubScrubHoldsAtMost(LAB_SCRUB_CHAIN.map((t) => rowOf(t)) as never, true, true) : 0}>
       <div className="flex justify-between border-b border-ink/10 px-4 py-2.5 text-[9.5px] font-semibold uppercase tracking-[0.3em] text-gild">
         <span>Setnayan</span>
         <span>{phase === 'save_the_date' ? 'Save the Date' : phase === 'event' ? 'The Day' : phase === 'editorial' ? 'Post Event' : 'Invitation'}</span>
@@ -403,7 +403,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
            fixed blocks, and the one scene that is not in the chain, follow it as the ordinary lab draws them. */
         <>
           <div className="sn-editorial mx-auto max-w-[430px] px-4 pb-6" data-lab-scrub="">
-            <HubScenes widgets={LAB_SCRUB_CHAIN.map((t) => ({ ...rowOf(t), widget_id: `lab-${t}` })) as never} scrubAllowed>
+            <HubScenes widgets={LAB_SCRUB_CHAIN.map((t) => ({ ...rowOf(t), widget_id: `lab-${t}` })) as never} scrubAllowed scrubOut>
               {LAB_SCRUB_CHAIN.map((t, i) => (
                 <Fragment key={t}>
                   {mark(`w:${t}`)}

@@ -240,8 +240,9 @@ test('(7) during a hold the page stands still: the scenes before a hand-over are
   const draw = (plan: string) => {
     /* One letter a scene: UPPER = Leaves by Scrub with a Build out (it hands over), lower = an ordinary scene. */
     const widgets = [...plan].map((c, i) => ({ widget_id: `w${i}`, widget_type: 'custom_1', config_json: c === c.toUpperCase() ? { canvas: { transition: 'scrub' } } : null }));
-    const Scenes = HubScenes as unknown as React.FC<{ widgets: unknown; scrubAllowed: boolean }>;
-    const html = renderToStaticMarkup(React.createElement(Scenes, { widgets, scrubAllowed: true }, ...[...plan].map((c, i) => React.createElement('section', { key: i }, c))));
+    /* 🌑 Through the lab's door: "Scrub out" ships dark (`lib/scrub-out-offered.ts`); this is the renderer WHEN it is drawn. */
+    const Scenes = HubScenes as unknown as React.FC<{ widgets: unknown; scrubAllowed: boolean; scrubOut: boolean }>;
+    const html = renderToStaticMarkup(React.createElement(Scenes, { widgets, scrubAllowed: true, scrubOut: true }, ...[...plan].map((c, i) => React.createElement('section', { key: i }, c))));
     /* The shape, as nested brackets: [ a stage … ] · ( the rest of the page … ) · { one box of what follows … } */
     return html
       .slice(html.indexOf('</div>', html.indexOf('hub-prog')) + 6)
@@ -296,14 +297,14 @@ test('(8) the whole page stands still: a page wraps its column in one pair a han
   for (const c of HUB_PAGE_HOLD_CLASSES) assert.ok(page(1).includes(`class="${c}"`), `${c} is not emitted`);
   /* The count: what the scenes DRAW, and what a page may ask for at most — never fewer than drawn. */
   const plans: Array<Array<Record<string, unknown> | null>> = [[SCRUB, null, SCRUB, null], [SCRUB, SCRUB, SCRUB], [null, null], [STAYS, null], [null, SCRUB], [SCRUB, STAYS, SCRUB, null]];
-  const drawn = (w: unknown[]) => (renderToStaticMarkup(React.createElement(HubScenes as unknown as React.FC<{ widgets: unknown; scrubAllowed: boolean }>, { widgets: w, scrubAllowed: true }, ...w.map((_, i) => React.createElement('section', { key: i })))).match(/class="hub-cell"/g) ?? []).length;
+  const drawn = (w: unknown[]) => (renderToStaticMarkup(React.createElement(HubScenes as unknown as React.FC<{ widgets: unknown; scrubAllowed: boolean; scrubOut: boolean }>, { widgets: w, scrubAllowed: true, scrubOut: true }, ...w.map((_, i) => React.createElement('section', { key: i })))).match(/class="hub-cell"/g) ?? []).length;
   for (const plan of plans) {
     const w = plan.map(row);
-    assert.equal(hubScrubHolds(w as never, true), drawn(w), `${JSON.stringify(plan)}: the count is not what is drawn`);
-    assert.ok(hubScrubHoldsAtMost(w as never, true) >= drawn(w), `${JSON.stringify(plan)}: the page would ask for fewer pairs than its scenes need`);
-    assert.equal(hubScrubHoldsAtMost(w as never, false), 0, 'without Event Hub Pro a page wraps itself');
+    assert.equal(hubScrubHolds(w as never, true, true), drawn(w), `${JSON.stringify(plan)}: the count is not what is drawn`);
+    assert.ok(hubScrubHoldsAtMost(w as never, true, true) >= drawn(w), `${JSON.stringify(plan)}: the page would ask for fewer pairs than its scenes need`);
+    assert.equal(hubScrubHoldsAtMost(w as never, false, true), 0, 'without Event Hub Pro a page wraps itself');
   }
-  assert.equal(hubScrubHoldsAtMost([null, null].map(row) as never, true), 0);
+  assert.equal(hubScrubHoldsAtMost([null, null].map(row) as never, true, true), 0);
   /* BOTH TREES of the guest page wrap their article, with the one count. */
   const body = read(`${B}/site-body.tsx`);
   assert.match(body, /const pageHolds = hubScrubHoldsAtMost\(widgets, proWatermarkHidden\);/);

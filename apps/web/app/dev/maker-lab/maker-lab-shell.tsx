@@ -5,6 +5,7 @@ import type { CameraLook } from '@/lib/camera-look';
 import { useEffect, useMemo, type ComponentProps, type ReactNode } from 'react';
 import { LAB_EDITORIAL_COOKIE } from './lab-post-event';
 import { LAB_SCRUB_GUEST, labWidgetsCookie } from './lab-scrub';
+import { offerScrubOutInTheLab } from '@/lib/scrub-out-offered';
 import { setStudioDraftDoor } from '@/app/dashboard/[eventId]/launch/_components/studio-info';
 import { MakerShell } from '@/app/dashboard/[eventId]/launch/_components/maker-shell';
 import type { StudioTileModel } from '@/lib/studio-tiles';
@@ -197,6 +198,12 @@ export function MakerLabShell({
     setStudioDraftDoor(labDraft as never);
     return () => setStudioDraftDoor(null);
   }, []);
+  /* 🧪 "Scrub out" ships dark in the app (`lib/scrub-out-offered.ts`); on the lab's chain (`?scrub=1`) the Maker's
+     controls keep offering it, so the owner can go on arranging the real thing. Put back when the lab is left. */
+  useEffect(() => {
+    offerScrubOutInTheLab(scrub);
+    return () => offerScrubOutInTheLab(false);
+  }, [scrub]);
   const stand = (name: string) => <div data-lab-stand={name} className="rounded-md bg-white/70 p-3 text-[13px] text-ink/60">{name}</div>;
   const rsvpProps = useMemo<ComponentProps<typeof MakerRsvpStage>>(
     () => ({

@@ -543,6 +543,29 @@ components (no hand-over → byte-identical markup; the count never less than wh
 guards that pin `site-body.tsx` or the renderer green. Maker first load: 0 B (`site-body`, the renderer and the
 engine are the guest page's).
 
+### "Scrub out" ships dark
+
+The owner's cut line: the held hand-over is built and proven in Chromium, but not on an iPhone and not on a real
+guest page — so in this batch it is NOT OFFERED. One constant, off (`lib/scrub-out-offered.ts` — not an environment
+setting; turning it on is one line in a later batch).
+
+- GUEST PAGE: a scene that STORES Scrub is drawn as "As it scrolls away", at the one place the renderer resolves a
+  scene's transition. The page is then the plain page — no nest, no page pairs, no island, no engine request —
+  byte-identical to the same page storing the plain transition (executed). Auto scroll is unchanged.
+- CONTROLS: "Scrub out ◆" is left out of Leaves (the toolbar, on a scene and on a part), out of the older "Into the
+  next scene" menu and out of the old editor's transition chips; a scene already set to it READS as "As it scrolls
+  away" there and in the navigator, and Movement and ▶ behave as for scroll. Nothing stored is rewritten.
+  ⚠ Scrub was a choice in the two older controls before this batch (as the stacked run, whose stylesheet this batch
+  removed): it is gone from them too while dark. Production holds no Scrub scene.
+- THE LAB keeps it ON so the owner can go on trying it, by two doors only the lab uses: an explicit `scrubOut`
+  handed to the renderer on the server, and `offerScrubOutInTheLab` in the browser for the Maker's controls on
+  `?scrub=1`. Held: nothing outside `app/dev/` (which 404s in production) and `scripts/` uses either.
+- Not in the Maker's first load: the module (175 B gz) is imported by the guest renderer and by lazy code only.
+
+Guard: `lib/scrub-out-ships-dark.test.ts` (5 rules). Sabotaged both ways: the constant on → four rules red; the
+lab's page no longer asking → red; site-body asking through the lab's door → red; the lab's browser door unused →
+red. The renderer's own guards now ask through the lab's door, with the reason written in.
+
 SPEC IMPACT: Yes — supersedes the 2026-10-06/07 "Style | Text | Animate" and "the toolbar is half the screen" rows.
 The controller holds the spec (`TOOLBAR-SPEC-2026-10-09.md`) and applies the corpus rows; nothing in the corpus was
 edited from this branch.

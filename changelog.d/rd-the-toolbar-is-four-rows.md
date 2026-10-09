@@ -249,6 +249,23 @@ All of it is in the lazy toolbar and the editor-only canvas bridge — nothing i
 Guard: `lib/the-play-button-previews.test.ts` (5 rules, eight sabotages seen red); seven assertions in five pinning
 tests re-aimed with the reason written in.
 
+### 10 · Background's choices are picture tiles
+
+Owner, choosing among three drawings of row 2: *"A- picture tiles"* (`review/bg-tiles.html`).
+
+- The name is written ON the tile (12 px semibold, at its foot) — no white sticker. Each tile decides how its name
+  reads (`lib/bg-tile-name.ts`): a flat tile (None · Plain · Opaque · Frosted) by its own colour, ink or white; a
+  picture (Diagonal · Glow · a ready-made scene · an upload) on a soft fade at its own foot, strong enough for any
+  picture — white on a dark fade, ink on a light one for a light picture.
+- The picked tile has ONE ring (2 px of the toolbar's ground, 2 px of the accent), no inner border; the tile is 10 px
+  shorter than its row (38 px, 34 on a short phone) so the ring is never cut. The button is still a 44-px tap.
+- "None" is a white tile with one thin stroke. Opaque is the flat tint at its opacity and Frosted the tint under a
+  soft haze — they were diagonal stripes, which read as "switched off".
+- A scene's picture and the couple's uploads wear the same tile; "＋ Upload" keeps the add look.
+
+The older editor's rows (`preview()`) are untouched. Lazy files only. Guard: `background-is-four-rows` (7) — names
+executed for 729 colours × Plain / Opaque / Frosted and for the worst picture; seven sabotages seen red.
+
 SPEC IMPACT: Yes — supersedes the 2026-10-06/07 "Style | Text | Animate" and "the toolbar is half the screen" rows.
 The controller holds the spec (`TOOLBAR-SPEC-2026-10-09.md`) and applies the corpus rows; nothing in the corpus was
 edited from this branch.

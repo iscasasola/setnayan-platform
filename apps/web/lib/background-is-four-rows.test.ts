@@ -16,6 +16,11 @@
  *   (6) THE VEIL FOR EVERY POSITION — executed for every theme and every place on the bar: the words never fall
  *       under the reading floor; the two words stored before the bar lay EXACTLY the veils they laid; further from
  *       the centre is never a weaker veil. Sabotage: the floor taken off the dark side → red.
+ *   (7) PICTURE TILES (owner 2026-10-09, choosing among three drawings: *"A- picture tiles"*) — the name is written
+ *       ON the tile, never on a sticker; the picked tile has ONE ring that the row never cuts; "None" is a white tile
+ *       with one stroke; Opaque and Frosted are a flat tint and a soft glass, never stripes; a scene's picture and
+ *       the couple's upload wear the same tile; and EVERY name is readable — executed for every flat colour, and
+ *       for the worst picture there can be. Sabotage: the fade weakened → red; stripes back → red.
  *   (5) NOT DRAWN ANY MORE — In frame, How close, "Use where", "More", the ⓘ sentence, "Remove this scene's photo";
  *       what was stored for them is still read by the page.
  */
@@ -28,12 +33,14 @@ import React from 'react';
 import { stripComments } from './strip-comments';
 import { BACKGROUND_SOURCE_IS_PRO, BACKGROUND_SOURCE_LABEL } from './background-source';
 import { HUB_BACKGROUND_KINDS, resolveHubBackground, sanitizeHubCanvas } from './hub-canvas';
-import { SP_BG_ROW, SP_BG_STRIP, SP_BG_TILE, SP_ROWS } from './maker-stage-room';
+import { SP_BG_ROW, SP_BG_STRIP, SP_BG_TILE, SP_BG_TILE_ADD, SP_BG_TILE_FACE, SP_BG_TILE_FADE, SP_BG_TILE_NAME, SP_BG_TILE_RING_PX, SP_BG_TILE_SLASH, SP_BG_TILE_TONE, SP_ROWS, STAGE_PANEL_VARS, stageBarRow } from './maker-stage-room';
+import { TILE_FADE, TILE_INK, TILE_LIGHT_FROM, TILE_WHITE, tileFadeFloor, tileFrostCss, tileFrostFoot, tileGlassColour, tileNameOnFlat, tileNameOnPicture } from './bg-tile-name';
+import { STD_REALISTIC_BACKGROUNDS } from './std-backgrounds';
 import { phoneHeightPx } from './maker-phone-room';
 import { SCENE_SHADE_MAX, SCENE_SHADE_MIN, SCENE_SHADE_STOPS, sceneShadeAt, sceneShadeOf, sceneShadeSettled, sceneShadeWords } from './scene-shade-bar';
 import { FADE_SNAP } from './background-fade';
 import { sceneMediaShade, sceneMediaShadeVars, sceneShadeStep } from './scene-media-shade';
-import { AA_BODY, requiredScrim } from './hub-legibility';
+import { AA_BODY, contrastRatio, requiredScrim } from './hub-legibility';
 import { INVITE_THEMES } from './invite-themes';
 import { SCENE_MEDIA_SCRIM } from './scene-legibility';
 
@@ -119,7 +126,8 @@ test('(1) four rows, rendered: the source, its choices in one row, the choice’
 
   /* ONE row tall, 44-px tiles, swiped sideways — and the rows are the toolbar's own grid, laid by `StageStyle`. */
   assert.equal(phoneHeightPx(SP_BG_TILE, 812), 44);
-  assert.ok(has(SP_BG_TILE, 'min-w-[84px]') && has(SP_BG_TILE, 'shrink-0'));
+  /* (🔁 2026-10-09, commit 10 — picture tiles: the BUTTON is the 44-px tap, the FACE inside it is the 84-px picture.) */
+  assert.ok(has(SP_BG_TILE_FACE, 'min-w-[84px]') && has(SP_BG_TILE, 'shrink-0'));
   assert.ok(has(SP_BG_STRIP, 'overflow-x-auto') && has(SP_BG_STRIP, 'overflow-y-hidden') && has(SP_BG_STRIP, 'h-full'));
   assert.ok(has(SP_BG_ROW, 'flex') && has(SP_BG_ROW, 'items-center') && !has(SP_BG_ROW, 'flex-wrap'));
   const { StageStyle } = await import(`../${L}/stage-panel/stage-style`);
@@ -319,4 +327,104 @@ test('(6) the veil for every position: never under the reading floor, the stored
   assert.equal((canvas.match(/export function sanitizeHubMainShade\(/g) ?? []).length, 1);
   /* The frame draws whatever is stored through that one rule. */
   assert.match(read('lib/scene-frame-look.ts'), /canvas\.shade\s*\? sceneMediaShadeVars\(canvas\.shade, theme\)/);
+});
+
+test('(7) picture tiles: the name is ON the tile and always readable; one ring the row never cuts; no sticker, no stripes', async () => {
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { StageBackground } = await import(`../${L}/stage-panel/stage-background`);
+  const noop = () => {};
+  const tiles = [
+    { key: 'none', name: 'None', none: true, picture: { background: '#FFFFFF' }, tone: 'ink', fade: false },
+    { key: 'color', name: 'Plain', picture: { background: '#3a2f25' }, tone: 'white', fade: false },
+    { key: '/a.webp', name: 'Golden hour', picture: { backgroundImage: 'url("/a.webp")' }, tone: 'white', fade: true },
+    { key: '/b.webp', name: 'Misty sunrise', picture: { backgroundImage: 'url("/b.webp")' }, tone: 'ink', fade: true },
+  ] as const;
+  const html = renderToStaticMarkup(
+    React.createElement(StageBackground, { source: 'colour', sources: [{ key: 'colour', pro: false }], onSource: noop, tiles, tile: '/a.webp', onTile: noop, onUpload: true, upload: null, colour: null, customColour: () => null, opacity: null, shade: null, shape: null, onShape: noop, motion: null, onMotion: noop, pending: false }),
+  );
+  const un = (c: string) => c.replace(/&amp;/g, '&').replace(/&gt;/g, '>').replace(/&#x27;/g, "'");
+  const drawn = [...html.matchAll(/<button type="button" aria-pressed="(true|false)" aria-label="([^"]*)" data-stage-bg-tile="[^"]*" class="([^"]*)"><span class="([^"]*)" style="[^"]*" data-tile-face="(\w+)">([\s\S]*?)<\/span><\/button>/g)];
+  assert.equal(drawn.length, 4, 'anti-vacuity: the four tiles were drawn');
+  for (const m of drawn) {
+    assert.equal(un(m[3]!), SP_BG_TILE, 'the tap is not the measured button');
+    assert.equal(un(m[4]!), SP_BG_TILE_FACE, 'the face is not the picture tile');
+  }
+  assert.deepEqual(drawn.map((m) => `${m[2]}:${m[5]}`), ['None:none', 'Plain:flat', 'Golden hour:picture', 'Misty sunrise:picture']);
+  /* THE NAME IS ON THE TILE: the last thing in the face, in the tile's tone — and it has no plate of its own. */
+  for (const [m, t] of drawn.map((d, i) => [d, tiles[i]!] as const)) {
+    const name = /<span data-tile-name="(\w+)" class="([^"]*)">([^<]*)<\/span>$/.exec(m[6]!);
+    assert.ok(name, `${t.name}: the name is not the last thing on its tile`);
+    assert.equal(name![1], t.tone);
+    assert.equal(un(name![2]!), `${SP_BG_TILE_NAME} ${SP_BG_TILE_TONE[t.tone]}`);
+    assert.equal(/data-tile-fade=""/.test(m[6]!), t.fade, `${t.name}: the foot fade is ${t.fade ? 'missing' : 'drawn on a flat tile'}`);
+    if (t.fade) assert.ok(un(m[6]!).includes(`class="${SP_BG_TILE_FADE[t.tone]}"`), `${t.name}: the fade is not its tone’s`);
+  }
+  for (const cls of [SP_BG_TILE_NAME, SP_BG_TILE_TONE.white, SP_BG_TILE_TONE.ink]) assert.doesNotMatch(cls, /(?:^|\s)bg-|rounded|px-/, 'the name sits on a sticker again');
+  assert.ok(has(SP_BG_TILE_NAME, 'text-[12px]') && has(SP_BG_TILE_NAME, 'font-semibold') && has(SP_BG_TILE_NAME, 'whitespace-nowrap'));
+  /* "NONE": a white tile with one stroke — never a dashed empty box. */
+  assert.ok(un(drawn[0]![6]!).includes(`class="${SP_BG_TILE_SLASH}"`));
+  assert.equal((html.match(new RegExp(SP_BG_TILE_SLASH.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/&/g, '&amp;').replace(/>/g, '&gt;'), 'g')) ?? []).length, 1);
+  /* "＋ UPLOAD" keeps the template's add look, in the same tile. */
+  assert.ok(un(html).includes(`data-stage-bg-tile="upload" class="${SP_BG_TILE}"><span class="${SP_BG_TILE_FACE} ${SP_BG_TILE_ADD}">`));
+
+  /* ONE RING, NEVER CUT: 2 px of the toolbar's ground then 2 px of the accent, on the picked face alone; the face is
+     shorter than the row by more than the ring takes above and below, at both of the toolbar's row heights. */
+  const ring = SP_BG_TILE_FACE.split(' ').filter((c) => /aria-pressed/.test(c));
+  assert.deepEqual(ring, ['group-aria-pressed/tile:shadow-[0_0_0_2px_var(--sp-page),0_0_0_4px_var(--sp-cta)]']);
+  assert.doesNotMatch(`${SP_BG_TILE} ${SP_BG_TILE_FACE}`, /dashed|aria-pressed:border|ring-/, 'a second mark of "picked"');
+  assert.ok(has(SP_BG_TILE, 'group/tile'));
+  const short = Number(/h-\[calc\(var\(--sp-rh\)_-_(\d+)px\)\]/.exec(SP_BG_TILE_FACE)?.[1]);
+  assert.ok(short >= 2 * SP_BG_TILE_RING_PX, `the face is only ${short}px shorter than its row — the ring is cut`);
+  for (const h of [667, 812]) {
+    const row = stageBarRow(h).row;
+    assert.ok(row - short + 2 * SP_BG_TILE_RING_PX <= row && row - short >= 34, `${h}: the tile and its ring do not fit the ${row}-px row`);
+    assert.ok(44 <= row, 'the 44-px tap is taller than its row');
+  }
+  assert.ok(has(SP_BG_STRIP, 'px-[10px]'), 'the first tile’s ring is cut at the row’s edge');
+
+  /* EVERY NAME IS READABLE. The toolbar's ink IS the ink the rule measures with. */
+  assert.match(STAGE_PANEL_VARS, new RegExp(`--sp-ink:${TILE_INK};`));
+  /* a FLAT tile — every colour a couple can pick (a 9 × 9 × 9 sweep of the cube), as Plain, Opaque and Frosted: */
+  let flats = 0;
+  const hex = (n: number) => n.toString(16).padStart(2, '0');
+  for (let r = 0; r <= 255; r += 31.875) for (let g = 0; g <= 255; g += 31.875) for (let b = 0; b <= 255; b += 31.875) {
+    const tint = `#${hex(Math.round(r))}${hex(Math.round(g))}${hex(Math.round(b))}`;
+    for (const under of [tint, tileGlassColour(tint, 'glass'), tileFrostFoot(tint)]) {
+      const n = tileNameOnFlat(under);
+      const c = n.fade ? tileFadeFloor(n.tone) : contrastRatio(n.tone === 'ink' ? TILE_INK : TILE_WHITE, under);
+      assert.ok(c >= AA_BODY, `${tint}: a name at ${c.toFixed(2)} : 1 on ${under}`);
+      flats++;
+    }
+  }
+  assert.equal(flats, 9 * 9 * 9 * 3);
+  assert.deepEqual(tileNameOnFlat('#FFFFFF'), { tone: 'ink', fade: false }, '"None" is not ink on white');
+  /* a PICTURE — whatever it is: the fade alone keeps the name at 4.5 : 1 (white over a white picture, ink over a black one). */
+  assert.ok(tileFadeFloor('white') >= AA_BODY, `white on the dark fade: ${tileFadeFloor('white').toFixed(2)}`);
+  assert.ok(tileFadeFloor('ink') >= AA_BODY, `ink on the light fade: ${tileFadeFloor('ink').toFixed(2)}`);
+  /* …and the fade DRAWN is the fade measured, under the whole of the name (4 px + a 14-px line) on the shortest face. */
+  assert.ok(SP_BG_TILE_FADE.white.includes(`rgba(0,0,0,${String(TILE_FADE.dark).replace(/^0/, '')})`) && SP_BG_TILE_FADE.ink.includes(`rgba(255,255,255,${String(TILE_FADE.light).replace(/^0/, '')})`), 'the fade drawn is weaker than the fade measured');
+  for (const f of Object.values(SP_BG_TILE_FADE)) {
+    const pct = Number(/_0_(\d+)%,transparent/.exec(f)?.[1]);
+    assert.ok((pct / 100) * (stageBarRow(667).row - short) >= 4 + 14, `the fade stops above the name’s foot (${pct}%)`);
+  }
+  assert.ok(has(SP_BG_TILE_FACE, 'pb-1') && has(SP_BG_TILE_NAME, 'leading-[14px]'));
+  /* The tone follows the picture where it is measured: every ready-made scene, and an upload (nothing measured). */
+  for (const b of STD_REALISTIC_BACKGROUNDS) assert.deepEqual(tileNameOnPicture(b.lum), { tone: b.lum >= TILE_LIGHT_FROM ? 'ink' : 'white', fade: true });
+  assert.ok(STD_REALISTIC_BACKGROUNDS.some((b) => b.lum >= TILE_LIGHT_FROM) && STD_REALISTIC_BACKGROUNDS.some((b) => b.lum < TILE_LIGHT_FROM), 'anti-vacuity: both tones are in use');
+  assert.deepEqual(tileNameOnPicture(null), { tone: 'white', fade: true });
+
+  /* OPAQUE AND FROSTED ARE WHAT THEY DRAW — never stripes; and the row's file gives a scene's picture and an upload the same tile. */
+  assert.match(tileGlassColour('#A78A55', 'glass'), /^#[0-9a-f]{6}$/i);
+  assert.match(tileFrostCss('#A78A55'), /^linear-gradient\(180deg, rgba\(255,255,255,0\.85\), rgba\(255,255,255,0\.45\)\), #[0-9a-f]{6}$/i);
+  const row = read(`${E}/scene-background-row.tsx`);
+  const at = row.indexOf('const colourTile = ');
+  const made = row.slice(at, row.indexOf('const shadeAt = sceneShadeAt(shown.shade);', at));
+  assert.ok(at > 0 && made.length > 800, 'anti-vacuity: the tiles were found');
+  assert.doesNotMatch(made, /repeating-linear-gradient|dashed|preview\('(?:glass|frost|none)'/, 'a stripe or a dashed box is back');
+  assert.match(made, /if \(c === 'glass'\) return \{ key: c, name, picture: \{ background: tileGlassColour\(base, 'glass'\) \}, \.\.\.tileNameOnFlat\(tileGlassColour\(base, 'glass'\)\) \};/);
+  assert.match(made, /if \(c === 'frost'\) return \{ key: c, name, picture: \{ background: tileFrostCss\(base\) \}, \.\.\.tileNameOnFlat\(tileFrostFoot\(base\)\) \};/);
+  assert.equal((made.match(/\.\.\.tileNameOnPicture\(/g) ?? []).length, 6, 'a scene’s picture or an upload is not the same tile');
+  assert.match(made, /STD_REALISTIC_BACKGROUNDS\.map\(\(b\) => \(\{ key: b\.src, name: b\.label, picture: cover\(b\.src\), \.\.\.tileNameOnPicture\(b\.lum\) \}\)\)/);
+  /* 📦 Lazy only. */
+  for (const f of [`${L}/maker-shell.tsx`, `${L}/details-workspace.tsx`, 'lib/hub-draft.ts', 'lib/hub-canvas.ts']) assert.doesNotMatch(readFileSync(join(WEB, f), 'utf8'), /bg-tile-name/);
 });

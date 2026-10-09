@@ -221,11 +221,29 @@ export const SP_PALETTE_PICK =
 /** Row 2: the choices, swiped sideways, edge to edge of the toolbar. */
 export const SP_BG_STRIP =
   '-mx-[10px] flex h-full min-w-0 items-center gap-2 overflow-x-auto overflow-y-hidden px-[10px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden';
-/** One choice: a 44-px picture of it with its name on it; picked, the accent's ring. Never narrower than 84 px. */
-export const SP_BG_TILE =
-  'sn-press relative flex h-11 min-w-[84px] shrink-0 items-end justify-center overflow-hidden rounded-lg border border-[var(--sp-line)] bg-white bg-cover bg-center px-2 pb-[3px] aria-pressed:border-[var(--sp-cta)] aria-pressed:shadow-[0_0_0_2px_var(--sp-cta)]';
-/** Its name: one line on a soft plate, so it reads over any picture. */
-export const SP_BG_TILE_NAME = 'max-w-full truncate rounded-sm bg-white/85 px-1 text-[10px] font-semibold leading-[13px] text-[var(--sp-ink)]';
+/**
+ * 🖼 ONE CHOICE — A PICTURE TILE (owner 2026-10-09: *"A- picture tiles"*, `review/bg-tiles.html`). The BUTTON is the
+ * 44-px tap; what is seen is its FACE: 84 px wide at the least and 10 px shorter than the row (38 px, 34 on a short
+ * phone), so the picked one's ring — 2 px of the toolbar's ground, then 2 px of the accent — sits INSIDE the row and
+ * is never cut. One ring, nothing else: no inner border, no second outline.
+ */
+export const SP_BG_TILE = 'sn-press group/tile relative flex h-11 shrink-0 items-center justify-center rounded-xl';
+export const SP_BG_TILE_RING_PX = 4;
+export const SP_BG_TILE_FACE =
+  'relative flex h-[calc(var(--sp-rh)_-_10px)] min-w-[84px] items-end justify-center overflow-hidden rounded-xl bg-white bg-cover bg-center px-2 pb-1 outline outline-1 -outline-offset-1 outline-[rgba(44,42,41,.12)] group-aria-pressed/tile:shadow-[0_0_0_2px_var(--sp-page),0_0_0_4px_var(--sp-cta)]';
+/** Its name, written ON the tile at its foot — 12 px semibold, one line, never on a plate of its own. */
+export const SP_BG_TILE_NAME = 'relative z-[1] whitespace-nowrap text-[12px] font-semibold leading-[14px]';
+/** The name's two tones (`lib/bg-tile-name.ts` decides which, per tile): white with a soft shadow, or ink. */
+export const SP_BG_TILE_TONE = { white: 'text-white [text-shadow:0_1px_2px_rgba(0,0,0,.45)]', ink: 'text-[var(--sp-ink)]' } as const;
+/** The soft fade at a PICTURE's foot that keeps its name readable over any picture — under the name, over the picture. */
+export const SP_BG_TILE_FADE = {
+  white: 'pointer-events-none absolute inset-0 bg-[linear-gradient(to_top,rgba(0,0,0,.55)_0_58%,transparent)]',
+  ink: 'pointer-events-none absolute inset-0 bg-[linear-gradient(to_top,rgba(255,255,255,.62)_0_58%,transparent)]',
+} as const;
+/** "None": a white tile with one thin stroke across it. */
+export const SP_BG_TILE_SLASH = 'pointer-events-none absolute left-[26px] right-[26px] top-[10px] -rotate-[18deg] border-t-[1.5px] border-[var(--sp-line)]';
+/** "＋ Upload" keeps the template's add look: a white face, the accent's plus, the word in ink. */
+export const SP_BG_TILE_ADD = '!items-center !pb-0 gap-1 text-[13px] font-semibold text-[var(--sp-ink)]';
 /** Row 3 / row 4: a label, then its control. */
 export const SP_BG_ROW = 'flex h-full min-w-0 items-center gap-2';
 /** A quiet line in a row ("Uses the Event Hub's own background."). */

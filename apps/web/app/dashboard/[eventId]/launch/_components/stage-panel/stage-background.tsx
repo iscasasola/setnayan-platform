@@ -5,7 +5,7 @@ import { Plus } from 'lucide-react';
 import { PillSelector } from '@/app/_components/pill-selector';
 import { SLIDER_VALUE, Slider } from '@/app/_components/slider';
 import { BACKGROUND_SOURCE_LABEL } from '@/lib/background-source';
-import { SP_BG_QUIET, SP_BG_ROW, SP_BG_STRIP, SP_BG_TILE, SP_BG_TILE_NAME, SP_LOOK_ROW_LABEL } from '@/lib/maker-stage-room';
+import { SP_BG_QUIET, SP_BG_ROW, SP_BG_STRIP, SP_BG_TILE, SP_BG_TILE_ADD, SP_BG_TILE_FACE, SP_BG_TILE_FADE, SP_BG_TILE_NAME, SP_BG_TILE_SLASH, SP_BG_TILE_TONE, SP_LOOK_ROW_LABEL } from '@/lib/maker-stage-room';
 import { SCENE_SHADE_MAX, SCENE_SHADE_MIN, sceneShadeSettled, sceneShadeWords } from '@/lib/scene-shade-bar';
 import { MakerSheet } from '../stages-studio-parts';
 import { Dd, Swatch } from './kit';
@@ -32,7 +32,12 @@ import { Dd, Swatch } from './kit';
  */
 export type StageBgSource = 'hub' | 'colour' | 'scene' | 'own';
 /** One choice of row 2: its key, its name, the picture it wears (CSS), and whether it moves (a clip). */
-export type StageBgTile = { key: string; name: string; picture: CSSProperties; moving?: boolean };
+/**
+ * One choice of row 2 — a picture tile with its name written on it. `tone` and `fade` are the tile's own reading
+ * rule (`lib/bg-tile-name.ts`): white or ink, and — on a picture — the soft fade at its foot. `none`: the white
+ * tile with one stroke across it.
+ */
+export type StageBgTile = { key: string; name: string; picture: CSSProperties; moving?: boolean; tone?: 'ink' | 'white'; fade?: boolean; none?: boolean };
 
 export function StageBackground({
   source,
@@ -113,16 +118,24 @@ export function StageBackground({
         ) : (
           <div ref={strip} role="group" aria-label={`${BACKGROUND_SOURCE_LABEL[source]} backgrounds`} data-stage-bg-strip={source} className={SP_BG_STRIP}>
             {onUpload ? (
-              <button type="button" aria-haspopup="dialog" data-stage-bg-tile="upload" onClick={() => setUploading(true)} className={`${SP_BG_TILE} !items-center gap-1 text-[13px] font-semibold text-[var(--sp-ink)]`}>
-                <Plus aria-hidden className="h-4 w-4 text-sn-accent" strokeWidth={2.4} />
-                Upload
+              <button type="button" aria-haspopup="dialog" data-stage-bg-tile="upload" onClick={() => setUploading(true)} className={SP_BG_TILE}>
+                <span className={`${SP_BG_TILE_FACE} ${SP_BG_TILE_ADD}`}>
+                  <Plus aria-hidden className="h-4 w-4 text-sn-accent" strokeWidth={2.4} />
+                  Upload
+                </span>
               </button>
             ) : null}
             {tiles.map((t) => (
-              <button key={t.key} type="button" aria-pressed={t.key === tile} aria-label={t.name} data-stage-bg-tile={t.key} onClick={() => onTile(t.key)} className={SP_BG_TILE} style={t.picture}>
-                <span className={SP_BG_TILE_NAME}>
-                  {t.moving ? '▶ ' : ''}
-                  {t.name}
+              <button key={t.key} type="button" aria-pressed={t.key === tile} aria-label={t.name} data-stage-bg-tile={t.key} onClick={() => onTile(t.key)} className={SP_BG_TILE}>
+                {/* The FACE: the picture, its name written on it — never a sticker under the name. A picture keeps
+                    its name readable with a soft fade at its own foot; a flat tile needs none. */}
+                <span className={SP_BG_TILE_FACE} style={t.picture} data-tile-face={t.none ? 'none' : t.fade ? 'picture' : 'flat'}>
+                  {t.none ? <span aria-hidden className={SP_BG_TILE_SLASH} /> : null}
+                  {t.fade ? <span aria-hidden data-tile-fade="" className={SP_BG_TILE_FADE[t.tone ?? 'white']} /> : null}
+                  <span data-tile-name={t.tone ?? 'white'} className={`${SP_BG_TILE_NAME} ${SP_BG_TILE_TONE[t.tone ?? 'white']}`}>
+                    {t.moving ? '▶ ' : ''}
+                    {t.name}
+                  </span>
                 </span>
               </button>
             ))}

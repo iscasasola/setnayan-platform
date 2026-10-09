@@ -55,12 +55,28 @@ test('(1) the cards take the rows left to them, nothing scrolls up and down, and
   assert.equal(STAGE_STRIP_RING_PX, 4);
   assert.ok(has(SP_STYLE_STRIP, 'mt-[calc(var(--sp-rg)_-_4px)]') && has(SP_STYLE_STRIP, 'py-1'), 'the cards do not start one gap under the selector’s band');
   assert.ok(has(SP_STYLE_STRIP, '-mb-1') && !has(SP_STYLE_STRIP, '-my-1') && !has(SP_STYLE_STRIP, '-mt-1'), 'the strip reaches up over the band again — the ring is cut');
-  assert.match(SP_STYLE_CARD, /aria-checked:shadow-\[0_0_0_1px_var\(--sp-cta\),0_0_0_4px_var\(--sp-cta-wash\)\]/, 'the ring is wider than the room kept for it');
+  /* 🔁 RE-AIMED 2026-10-10 (toolbar consistency, item 6 — "the picked look of a picture tile is drawn two ways"): the
+     ring is the Background tile's ONE ring now, read off that tile's own class — so its width is still held to the
+     room the strip keeps for it, by the number in the class itself. */
+  const ringOf = (cls: string, state: string) => new RegExp(`${state}:shadow-\\[([^\\]]+)\\]`).exec(cls)?.[1] ?? null;
+  const cardRing = ringOf(SP_STYLE_CARD, 'aria-checked');
+  assert.ok(cardRing, 'anti-vacuity: the picked card’s ring was read');
+  const widest = Math.max(...[...cardRing!.matchAll(/0_0_0_(\d+)px/g)].map((m) => Number(m[1])));
+  assert.equal(widest, STAGE_STRIP_RING_PX, 'the ring is wider than the room kept for it');
   for (const h of [568, 667, 812]) assert.ok(stageBarRow(h).gap >= STAGE_STRIP_RING_PX, `${h}px tall: a gap is narrower than the ring`);
   /* The card: as tall as the strip, its width following (the one 3 : 4 frame); it snaps by its centre. */
   for (const c of ['sn-phone-card', '!h-full', '![inline-size:auto]', 'snap-center']) assert.ok(has(SP_STYLE_CARD, c), `the card lost ${c}`);
-  /* Picked, it wears the accent's line and ring — on the card itself (the prototype's `.lc[aria-checked=true]`). */
-  assert.ok(has(SP_STYLE_CARD, 'aria-checked:border-[var(--sp-cta)]') && SP_STYLE_CARD.includes('aria-checked:shadow-[0_0_0_1px_var(--sp-cta),0_0_0_4px_var(--sp-cta-wash)]'));
+  /* Picked, it wears the ONE ring — on the card itself (the prototype's `.lc[aria-checked=true]`).
+     🔁 RE-AIMED 2026-10-10 (the same item): the property is "ONE drawing of picked for a picture tile" — the card's
+     ring IS the Background tile's (owner-approved: "ONE ring on the picked tile, never cut"), whatever that ring
+     becomes; and nothing else marks the card (no accent hairline, no wash). Sabotage: the old line + wash back → red. */
+  const { SP_BG_TILE_FACE, SP_BG_TILE_RING_PX } = await import('./maker-stage-room');
+  const tileRing = ringOf(SP_BG_TILE_FACE, 'group-aria-pressed/tile');
+  assert.ok(tileRing, 'anti-vacuity: the Background tile’s ring was read');
+  assert.equal(cardRing, tileRing, 'a picked Style card and a picked Background tile are drawn two ways');
+  assert.equal(SP_BG_TILE_RING_PX, STAGE_STRIP_RING_PX, 'the tile’s ring and the room the strip keeps are two numbers');
+  assert.equal((SP_STYLE_CARD.match(/aria-checked:/g) ?? []).length, 1, 'a picked card wears something beside the one ring');
+  assert.doesNotMatch(SP_STYLE_CARD, /sp-cta-wash|aria-checked:border/, 'the accent hairline or the wash is back');
 
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { StyleCards } = await import(`../${L}/stage-panel/style-carousel`);

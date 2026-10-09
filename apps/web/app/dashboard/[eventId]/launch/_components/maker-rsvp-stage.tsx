@@ -2,6 +2,7 @@
 
 import { StageStyle } from './stage-panel/stage-style';
 import { useCallback, useEffect, useRef, useState, type ComponentProps } from 'react';
+import { createPortal } from 'react-dom';
 import { IntoLowerThird, LOWER_THIRD_TILE, LOWER_THIRD_TILE_ON, LOWER_THIRD_TILE_PART } from './maker-lower-third';
 import { MakerPage } from './maker-page';
 import { MakerRsvpSettings, type CelebrationInputs } from './maker-rsvp-ask';
@@ -17,11 +18,28 @@ import {
   RSVP_STAGE_SCENES,
   RSVP_BRIDGE_SOURCE,
   RSVP_DRAFT_TYPE,
+  RSVP_WORD_LABEL,
+  isRsvpStageScene,
   rsvpPreviewMessages,
   rsvpStageCanvasSrc,
   rsvpWordBridgeKey,
   type RsvpStageScene,
 } from '@/lib/rsvp-stage';
+import {
+  RSVP_PICK_MESSAGE,
+  RSVP_STAGE_ASK_EVENT,
+  RSVP_STAGE_BAR_SLOT,
+  RSVP_STAGE_SCENE_EVENT,
+  RSVP_TOP_MESSAGE,
+  RSVP_TYPED_MESSAGE,
+  RSVP_TYPE_STOP_MESSAGE,
+  RSVP_TYPING_MESSAGE,
+  RSVP_WORD_TYPED_EVENT,
+} from '@/app/[slug]/_components/rsvp-canvas-parts';
+import { SP_KEY_BAR, SP_KEY_DONE } from '@/lib/maker-stage-room';
+import { Check } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { useStagePanelNow } from './stage-panel/store';
 import {
   RSVP_CELEBRATE_EVENT,
   RSVP_CELEBRATE_MESSAGE,
@@ -35,6 +53,11 @@ import {
  * frame 6: *"on RSVP there is the RSVP, when yes, when no"*) — the shipped
  * screens (`RSVP_STAGE_SCENES`), each tile titled in his words.
  */
+/** 🧩 The parts whose tools ARE this stage's controls — the form and the two notes; nothing picked shows them too. */
+function rsvpToolPart(picked: string | null): boolean {
+  return picked === null || picked === 'rsvp' || picked === 'yesnote' || picked === 'nonote';
+}
+
 const RSVP_STAGE_TILE: Record<RsvpStageScene, { label: string; caption: string }> = {
   /* 📑 The titles the owner approved (2026-10-05): RSVP form · When yes · When
      no. Each caption says what the screen is, never the title again. */
@@ -63,6 +86,17 @@ const RSVP_STAGE_TILE: Record<RsvpStageScene, { label: string; caption: string }
  * loaded once per scene and KEPT (hidden while another scene shows), so going
  * back to a scene is instant too. A frame that loads later says `rsvpReady`
  * and is sent what the panel holds now.
+ *
+ * 🧩 IN THE NEW MAKER (Stages, a phone) EVERY PIECE OF A SCREEN IS A PART (owner
+ * 2026-10-07/08: *"RSVP cannot select anything"* · *"it is the actual RSVP not
+ * an editing way"* · *"no way to access yes and no response"*). The Stages panel
+ * (`stage-tools.tsx`) hears a screen's taps and picks the part, frames it and
+ * walks it like any stage's; this stage answers what it asks
+ * (`RSVP_STAGE_ASK_EVENT`: show a screen · open the picked part's tools), says
+ * which screen is on show (`RSVP_STAGE_SCENE_EVENT`), opens a screen its tab
+ * picked from the TOP (`rsvpTop`), draws the tools of the part picked, and
+ * carries a word typed on the page into the panel's own save (`rsvpType` →
+ * `RSVP_WORD_TYPED_EVENT`) under the one "Typing · … Done" bar.
  *
  * Loaded lazily, inside the `maker-details` chunk (`details-lazy.tsx`): the
  * Maker's first load does not carry it.
@@ -105,6 +139,12 @@ export function MakerRsvpStage({
   const [scene, setScene] = useState<RsvpStageScene>('form');
   /* 📱 The screen's controls, opened by its tile in the lower third. */
   const [controlsOpen, setControlsOpen] = useState(false);
+  /* ⌨ The word being typed on the page now (its `rsvp:<key>`), or null. */
+  const [typingWord, setTypingWord] = useState<string | null>(null);
+  /* 🧭 The new Maker (Stages, a phone): the part picked there, and whether this stage is its. */
+  const pickedPart = useStagePanelNow().picked;
+  const stagesNow = useRef(false);
+  stagesNow.current = maker?.stagesStudio === true;
   /* "Where you are" says the screen on show. */
   const setLtWhere = maker?.setLtWhere;
   useEffect(() => {
@@ -163,12 +203,16 @@ export function MakerRsvpStage({
     if (owner) setScene(owner);
     setControlsOpen(true);
     window.setTimeout(() => {
-      const box =
+      /* The words' row is a Form row now (2026-10-08): its pill is brought up — and pressed, which opens its field
+         with the words selected (the box a tap on the canvas has always brought up). Reply by's pill is only
+         brought into view and focused: its calendar opens on the couple's own tap. */
+      const pill =
         key === 'reply-by'
-          ? document.querySelector<HTMLElement>('[data-rsvp-stage-controls] [data-reply-by-field] input')
-          : document.querySelector<HTMLElement>(`[data-rsvp-word-field="${key}"] input, [data-rsvp-word-field="${key}"] textarea`);
-      box?.focus();
-      box?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+          ? document.querySelector<HTMLElement>('[data-rsvp-stage-controls] [data-reply-by-field] [data-form-row-pill]')
+          : document.querySelector<HTMLElement>(`[data-rsvp-word-field="${key}"] [data-form-row-pill]`);
+      pill?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      if (key === 'reply-by') pill?.focus({ preventScroll: true });
+      else pill?.click();
     }, 60);
   }, []);
 
@@ -196,7 +240,23 @@ export function MakerRsvpStage({
           celebrate();
         }
       }
-      if (d.t === 'rsvpEdit' && typeof d.key === 'string') openWordField(d.key);
+      /* 🧩 A tap on a screen. In the new Maker the Stages panel picks the part (`stage-tools.tsx`); everywhere else
+         a tapped WORD brings its box up, as it always has. */
+      if (d.t === RSVP_PICK_MESSAGE && !stagesNow.current) {
+        const word = (d as { word?: unknown }).word;
+        if (typeof word === 'string') openWordField(word);
+      }
+      /* ⌨ Typed on the page: the panel's own save takes it (one value, two doors), and the one bar says so. */
+      if (d.t === RSVP_TYPED_MESSAGE && typeof d.key === 'string') {
+        const text = (d as { text?: unknown }).text;
+        if (typeof text === 'string') {
+          window.dispatchEvent(new CustomEvent(RSVP_WORD_TYPED_EVENT, { detail: { key: d.key.replace(/^rsvp:/, ''), text } }));
+        }
+      }
+      if (d.t === RSVP_TYPING_MESSAGE) {
+        const m = d as { phase?: unknown; word?: unknown };
+        setTypingWord(m.phase === 'start' && typeof m.word === 'string' ? m.word : null);
+      }
     };
     const onCelebrate = (e: Event) => {
       const kind = (e as CustomEvent<{ kind?: unknown }>).detail?.kind;
@@ -221,10 +281,52 @@ export function MakerRsvpStage({
     if (scene === 'thanks') celebrate();
   }, [scene, celebrate]);
 
-  const pick = (next: RsvpStageScene) => {
+  const pick = useCallback((next: RsvpStageScene) => {
     setScene(next);
     setOpened((o) => (o.has(next) ? o : new Set([...o, next])));
-  };
+  }, []);
+
+  /* 🧭 What the Stages panel asks: show a screen · open (or fold) the picked part's tools. */
+  useEffect(() => {
+    const onAsk = (e: Event) => {
+      const d = (e as CustomEvent<{ scene?: unknown; controls?: unknown }>).detail;
+      if (isRsvpStageScene(d?.scene)) pick(d.scene);
+      if (typeof d?.controls === 'boolean') setControlsOpen(d.controls);
+    };
+    window.addEventListener(RSVP_STAGE_ASK_EVENT, onAsk);
+    return () => window.removeEventListener(RSVP_STAGE_ASK_EVENT, onAsk);
+  }, [pick]);
+
+  /* 🔝 THE SCREEN ON SHOW IS SAID, AND A SCREEN JUST OPENED STARTS AT ITS TOP — the two things every Stages tab
+     keeps (`hub-tab-dom.ts`): the panel's label follows what is on screen, and a kept frame that was left
+     scrolled is put back to its top and held there until the couple moves it (`rsvpTop`, the bridge's
+     `createRsvpCanvasTop`). A frame loading for the first time starts at its top by itself. */
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent(RSVP_STAGE_SCENE_EVENT, { detail: scene }));
+    frames.current[scene]?.contentWindow?.postMessage({ source: RSVP_BRIDGE_SOURCE, t: RSVP_TOP_MESSAGE }, window.location.origin);
+  }, [scene]);
+
+  /* ⌨ Done: the words are left (the page says so back — `rsvpTyping` end). */
+  const doneTyping = useCallback(() => {
+    for (const f of Object.values(frames.current)) {
+      f?.contentWindow?.postMessage({ source: RSVP_BRIDGE_SOURCE, t: RSVP_TYPE_STOP_MESSAGE }, window.location.origin);
+    }
+    setTypingWord(null);
+  }, []);
+  /* The bar rides on the keyboard (the visual viewport's foot), as the shipped typing bar does. */
+  const [keysTop, setKeysTop] = useState(0);
+  useEffect(() => {
+    if (!typingWord) return;
+    const vv = window.visualViewport;
+    const read = () => setKeysTop(Math.max(0, window.innerHeight - ((vv?.offsetTop ?? 0) + (vv?.height ?? window.innerHeight))));
+    read();
+    vv?.addEventListener('resize', read);
+    vv?.addEventListener('scroll', read);
+    return () => {
+      vv?.removeEventListener('resize', read);
+      vv?.removeEventListener('scroll', read);
+    };
+  }, [typingWord]);
 
   const phone = maker ? maker.device !== 'desktop' : false;
   /* The new Maker is a phone's only (`maker-shell.tsx` `ss`). */
@@ -309,14 +411,48 @@ export function MakerRsvpStage({
     </p>
   );
 
+  const typingKey = typingWord ? typingWord.replace(/^rsvp:/, '') : null;
   return (
     <div className="flex h-full min-h-0 w-full flex-1 flex-col" data-rsvp-stage={scene}>
+      {/* ⌨ THE ONE BAR WHILE WORDS ARE TYPED ON THE PAGE — "Typing · Heading" and Done, which brings the panel
+          back (the shipped typing bar's own words and look, `type-in-place.tsx`). */}
+      {typingKey && typeof document !== 'undefined'
+        ? createPortal(
+            <div
+              role="toolbar"
+              aria-label={`${RSVP_WORD_LABEL[typingKey as RsvpWordKey] ?? 'Words'} — words`}
+              data-type-bar="rsvp"
+              data-type-bar-keys=""
+              style={{ bottom: keysTop }}
+              className={`fixed inset-x-0 z-[85] ${SP_KEY_BAR}`}
+            >
+              <span className="min-w-0 truncate">Typing · {RSVP_WORD_LABEL[typingKey as RsvpWordKey] ?? 'Words'}</span>
+              {/* Done is the bar's ONE action: the app's main button (the accent — `ActionButton`), never an ink pill —
+                  drawn exactly as the shipped typing bar draws it (`type-in-place.tsx`). It was a black pill written
+                  as a hex (owner 2026-10-08, the approved gallery § 9). */}
+              <span data-type-done="" className={SP_KEY_DONE}>
+                <ActionButton tone="brand" main icon={Check} label="Done" onClick={doneTyping} />
+              </span>
+            </div>,
+            document.body,
+          )
+        : null}
       <MakerPage
         pageKey="rsvp-page"
         open={controlsOpen}
         onOpenChange={setControlsOpen}
         toolName={RSVP_STAGE_TILE[scene].label}
-        page={page}
+        page={
+          /* 🧭 THE SCREENS, THEN THE STAGES TAB ROW — two children of the page's one flex column (`MakerPage`'s
+             body), in this order: the screens take what is left ABOVE the row, at every height of the lower third.
+             The row itself is the Stages panel's (`stage-tools.tsx` draws it into this slot); outside the new
+             Maker the slot is empty and takes no room. Never an overlay: this layer covers the work area, so a row
+             drawn over the work area's foot was under it, out of a finger's reach (measured 08 Oct). */
+          <>
+            {page}
+            <div {...{ [RSVP_STAGE_BAR_SLOT]: '' }} className="shrink-0 lg:hidden" />
+          </>
+        }
         controls={
           stagesRsvp ? (
             /* 🧭 THE NEW MAKER'S RSVP STAGE (phone): the screen's controls are its Style › Look, under the same quiet
@@ -324,7 +460,11 @@ export function MakerRsvpStage({
             <div className="-mx-3 -mb-6 -mt-2 flex min-h-0 flex-1 flex-col">
               <StageStyle
                 look={
-                  <div className="flex flex-col gap-3 pb-4">
+                  /* 🧩 The tools are the PICKED part's: the form's and the two notes' are these controls; any other
+                     part (the mark, the names, the date, each guest's own name and ticket) has its one door above
+                     (`QuietBar`) and nothing here. Kept mounted either way — a word typed on the page is its save.
+                     (A class, not `hidden`: `flex` would out-rank the attribute.) */
+                  <div className={`flex-col gap-3 pb-4 ${rsvpToolPart(pickedPart) ? 'flex' : 'hidden'}`} data-rsvp-stage-look="">
                     <MakerRsvpSettings
                       eventId={eventId}
                       current={current}

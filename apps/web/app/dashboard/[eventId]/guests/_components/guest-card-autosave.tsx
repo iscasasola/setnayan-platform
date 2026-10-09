@@ -43,11 +43,11 @@
  * re-apply the very thing the host just took back. `restoring` suppresses that.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFormStatus } from 'react-dom';
 import { Check } from 'lucide-react';
-import { pushUndo } from './undo-toast';
+import { pushUndo } from './undo-store';
 
 /** Pause after the last change before the form posts. Long enough that typing a
  *  name is one write, short enough that it feels immediate. */
@@ -55,6 +55,24 @@ const DEBOUNCE_MS = 700;
 
 /** Plumbing, not columns — never diffed, never restored. */
 const NOT_A_FIELD = new Set(['quiet', 'return_to']);
+
+/**
+ * WHAT THE LAST SAVE DID — said within the press (step 4C, 2026-10-09). A save that FAILED must never read as one that landed: the
+ * line used to say "Saved" whenever the pending state ended, which a thrown or refused save also does. Now the form hears the
+ * action's own answer: it landed (`saved`), it did not (`failed` — and the Undo is NOT offered, because nothing was changed to
+ * take back), and a save is in flight (`useFormStatus`). A redirect (the action's own way of sending an error to be SEEN) and
+ * not-found are the framework's and pass through untouched.
+ */
+export type AutosaveOutcome = { kind: 'idle' } | { kind: 'saved'; n: number } | { kind: 'failed'; why?: string };
+export const OutcomeContext = createContext<{ outcome: AutosaveOutcome; retry: () => void }>({ outcome: { kind: 'idle' }, retry: () => {} });
+/** The save line's way to read the outcome (the templated card draws its own line with the same facts). */
+export function useAutosaveOutcome() {
+  return useContext(OutcomeContext);
+}
+const isFrameworkSignal = (e: unknown) => {
+  const digest = (e as { digest?: unknown } | null)?.digest;
+  return typeof digest === 'string' && (digest.startsWith('NEXT_REDIRECT') || digest.startsWith('NEXT_NOT_FOUND') || digest === 'NEXT_HTTP_ERROR_FALLBACK;404');
+};
 
 /** What a host calls these, for the snackbar. A name missing here is still
  *  undoable; it just counts toward "N fields" instead of being named.
@@ -161,13 +179,25 @@ function restoreInputs(form: HTMLFormElement, snap: FormData): void {
   }
 }
 
+/* One post, heard both ways: a save that THREW and a save that was REFUSED. A quiet `updateGuest` RETURNS `{ refused }` instead of
+   redirecting (a redirect navigates the card away — blank for a second, the app-wide error toast, the typed words gone); the
+   framework's own redirect / not-found still pass through. null = it landed; otherwise the reason ('' when the action gave none). */
+export async function hearSave(action: (fd: FormData) => unknown, fd: FormData): Promise<string | null> {
+  try {
+    return ((await action(fd)) as { refused?: string } | undefined)?.refused ?? null;
+  } catch (e) {
+    if (isFrameworkSignal(e)) throw e;
+    return '';
+  }
+}
+
 export function AutosaveForm({
   action,
   returnTo,
   className,
   children,
 }: {
-  action: (formData: FormData) => void | Promise<void>;
+  action: (formData: FormData) => void | { refused: string } | Promise<void | { refused: string }>;
   /** Where `updateGuest` should send an ERROR back to — the surface the card is
    *  open on, so a failed save lands on the card and not on some other page.
    *  The action validates it stays inside this event's guest routes. */
@@ -181,6 +211,13 @@ export function AutosaveForm({
   const lastSaved = useRef<FormData | null>(null);
   const restoring = useRef(false);
   const router = useRouter();
+  const [outcome, setOutcome] = useState<AutosaveOutcome>({ kind: 'idle' });
+  /** The change a submit is carrying: what it replaced, and what it posts. Its Undo is offered once the save LANDS, not before. */
+  const carried = useRef<{ prev: FormData | null; next: FormData } | null>(null);
+  /** The last save did not land: React's reset-after-action must NOT put the unsaved words back to what the row holds. */
+  const failedLast = useRef(false);
+  /** Counts the saves that landed, so every one is a NEW outcome (a failure in between must not make the next "Saved" look like the last). */
+  const landed = useRef(0);
 
   // The starting point, captured once the server-rendered inputs exist.
   useEffect(() => {
@@ -192,12 +229,19 @@ export function AutosaveForm({
     };
   }, []);
 
+  const send = useCallback((fd: FormData) => hearSave(action, fd), [action]);
+
   const undoTo = useCallback(
     async (snap: FormData) => {
       const form = formRef.current;
       restoring.current = true;
       try {
-        await action(snap);
+        const why = await send(snap);
+        if (why !== null) {
+          // The Undo did not land: the row still holds what it held, so the controls stay where they are — and it says so.
+          setOutcome({ kind: 'failed', why });
+          return;
+        }
         if (form) restoreInputs(form, snap);
         lastSaved.current = snap;
       } finally {
@@ -207,7 +251,46 @@ export function AutosaveForm({
       // — the roster row behind the panel, the tags, the status line.
       router.refresh();
     },
-    [action, router],
+    [send, router],
+  );
+
+  /* React 19 resets a form after its action returns — and a save that FAILED returns too (the failure is caught below, so the form is not
+     thrown to an error boundary). The host's unsaved words are still the only copy of what they typed: the reset is refused for a failed
+     save, so they stay on screen next to "Couldn’t save". A NATIVE listener — React calls `form.reset()` itself while it commits, and
+     does not run `onReset` for that call (measured). */
+  useEffect(() => {
+    const form = formRef.current;
+    if (!form) return;
+    const keepUnsaved = (e: Event) => {
+      if (failedLast.current) e.preventDefault();
+    };
+    form.addEventListener('reset', keepUnsaved);
+    return () => form.removeEventListener('reset', keepUnsaved);
+  }, []);
+
+  /* The action the form posts: the shipped one, with its answer heard. */
+  const run = useCallback(
+    async (fd: FormData) => {
+      const change = carried.current;
+      carried.current = null;
+      failedLast.current = false;
+      const why = await send(fd);
+      if (why !== null) {
+        failedLast.current = true;
+        // Nothing landed: the last saved payload is still the one before this change, and no Undo is offered for it.
+        if (change?.prev) lastSaved.current = change.prev;
+        setOutcome({ kind: 'failed', why });
+        return;
+      }
+      setOutcome({ kind: 'saved', n: ++landed.current });
+      if (change?.prev) {
+        const prev = change.prev;
+        const label = describeChange(prev, change.next);
+        // No label means nothing actually differs — a stray change event, or a field put back to its own value.
+        if (label) pushUndo({ label, undo: () => undoTo(prev) });
+      }
+    },
+    [send, undoTo],
   );
 
   const schedule = () => {
@@ -220,23 +303,20 @@ export function AutosaveForm({
       if (!form) return;
       const next = new FormData(form);
       const prev = lastSaved.current;
+      carried.current = { prev, next };
       // requestSubmit (not submit) so React's action handler runs and the
       // form's own validity check still applies.
       form.requestSubmit();
-      if (prev) {
-        const label = describeChange(prev, next);
-        // No label means nothing actually differs — a stray change event, or a
-        // field put back to its own value. Offering to undo that is noise.
-        if (label) pushUndo({ label, undo: () => undoTo(prev) });
-      }
       lastSaved.current = next;
     }, DEBOUNCE_MS);
   };
 
+  const retry = useCallback(() => formRef.current?.requestSubmit(), []);
   return (
+    <OutcomeContext.Provider value={{ outcome, retry }}>
     <form
       ref={formRef}
-      action={action}
+      action={run}
       className={className}
       // `change` covers selects, checkboxes and radios; `input` covers typing.
       onChange={schedule}
@@ -246,38 +326,46 @@ export function AutosaveForm({
       <input type="hidden" name="return_to" value={returnTo} />
       {children}
     </form>
+    </OutcomeContext.Provider>
   );
 }
 
 /**
- * The save state, in the card header. Lives inside the form so `useFormStatus`
- * can see it. Says nothing at rest — a permanent "Saved" badge on a card nobody
- * has touched is a claim about an event that did not happen.
+ * The save state, in the card header. Lives inside the form so `useFormStatus` can see it. Says nothing at rest — a permanent
+ * "Saved" badge on a card nobody has touched is a claim about an event that did not happen — and (step 4C) says what the LAST
+ * save really did: "Saving…" while it is in flight, "Saved" for a moment once it LANDED, and "Couldn’t save — Try again" (kept
+ * until the next save lands, with a real button) when it did not. A failed save is never drawn as a saved one.
  */
 export function AutosaveState() {
   const { pending } = useFormStatus();
-  const [justSaved, setJustSaved] = useState(false);
-  const wasPending = useRef(false);
+  const { outcome, retry } = useAutosaveOutcome();
+  const [shown, setShown] = useState(false);
+  const seen = useRef(0);
 
   useEffect(() => {
-    if (wasPending.current && !pending) {
-      setJustSaved(true);
-      const t = setTimeout(() => setJustSaved(false), 2200);
-      wasPending.current = pending;
-      return () => clearTimeout(t);
-    }
-    wasPending.current = pending;
-  }, [pending]);
+    if (outcome.kind !== 'saved' || outcome.n === seen.current) return;
+    seen.current = outcome.n;
+    setShown(true);
+    const t = setTimeout(() => setShown(false), 2200);
+    return () => clearTimeout(t);
+  }, [outcome]);
 
   return (
     <span
-      role="status"
+      role={outcome.kind === 'failed' && !pending ? 'alert' : 'status'}
       aria-live="polite"
       className="inline-flex min-h-[1.25rem] items-center gap-1 text-xs text-ink/55"
     >
       {pending ? (
         'Saving…'
-      ) : justSaved ? (
+      ) : outcome.kind === 'failed' ? (
+        <>
+          <span className="font-semibold text-danger-700">Couldn’t save.</span>
+          <button type="button" onClick={retry} data-autosave-retry="" className="inline-flex min-h-[44px] items-center px-1 font-semibold underline underline-offset-2">
+            Try again
+          </button>
+        </>
+      ) : outcome.kind === 'saved' && shown ? (
         <>
           <Check aria-hidden className="h-3.5 w-3.5 text-success-700" strokeWidth={2.5} />
           <span className="text-success-800">Saved</span>

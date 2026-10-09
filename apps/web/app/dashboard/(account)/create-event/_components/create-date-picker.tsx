@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 
+import { PillButton, PillTrack } from '@/app/_components/pill-track';
+
 /**
  * Timing picker for the non-wedding inline create form — the platform's model,
  * NOT a single locked date (owner 2026-07-12: "we used to give them up to 4
@@ -19,33 +21,21 @@ export function CreateDatePicker() {
   // no SSR of this subtree → no hydration mismatch on `min`).
   const today = new Date().toISOString().slice(0, 10);
 
-  const tab =
-    'rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta/40';
+  const tab = 'px-3.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta/40';
 
   return (
     <div className="space-y-3">
       <input type="hidden" name="date_mode" value={mode} />
 
-      <div role="radiogroup" aria-label="How do you want to set the date?" className="flex gap-2">
-        <button
-          type="button"
-          role="radio"
-          aria-checked={mode === 'specific'}
-          onClick={() => setMode('specific')}
-          className={`${tab} ${mode === 'specific' ? 'bg-ink text-white' : 'bg-ink/5 text-ink/70 hover:bg-ink/10'}`}
-        >
+      {/* The app's ONE pill selector (owner 2026-10-08). Still a radio group. */}
+      <PillTrack role="radiogroup" aria-label="How do you want to set the date?">
+        <PillButton on={mode === 'specific'} role="radio" aria-checked={mode === 'specific'} onClick={() => setMode('specific')} className={tab}>
           Specific date(s)
-        </button>
-        <button
-          type="button"
-          role="radio"
-          aria-checked={mode === 'window'}
-          onClick={() => setMode('window')}
-          className={`${tab} ${mode === 'window' ? 'bg-ink text-white' : 'bg-ink/5 text-ink/70 hover:bg-ink/10'}`}
-        >
+        </PillButton>
+        <PillButton on={mode === 'window'} role="radio" aria-checked={mode === 'window'} onClick={() => setMode('window')} className={tab}>
           A range
-        </button>
-      </div>
+        </PillButton>
+      </PillTrack>
 
       {mode === 'specific' ? (
         <div className="space-y-2">

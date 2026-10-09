@@ -105,6 +105,9 @@ function parseDatetimeLocal(raw: FormDataEntryValue | null): string | null {
  * paths are revalidated exactly as before. The flag touches cache freshness
  * only — who may write what is still RLS's.
  */
+/** A block's id as the database makes it — the only shape `createScheduleBlock` takes one in. */
+const BLOCK_ID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
 function revalidateScheduleUnlessMaker(eventId: string, formData: FormData): void {
   if (makerQuietWrite(formData)) return;
   revalidatePath(`/dashboard/${eventId}/schedule`);
@@ -188,6 +191,14 @@ export async function createScheduleBlock(formData: FormData) {
     is_public: formData.get('is_public') === 'on',
     parent_block_id: parentBlockId,
   };
+  // ➕ Studio › Schedule's "Add a moment" (2026-10-08) names the new row itself: the Maker draws it at the tap and
+  // no render follows a quiet write, so the id cannot come back in one. Taken ONLY from a quiet Maker write and
+  // only when it is a uuid; the column's own default names every other row. An id already in use is refused by
+  // the primary key — an insert can never overwrite a row.
+  const blockIdRaw = formData.get('block_id');
+  if (makerQuietWrite(formData) && typeof blockIdRaw === 'string' && BLOCK_ID_SHAPE.test(blockIdRaw)) {
+    insertRow.block_id = blockIdRaw;
+  }
   // Coordinator P1 prep-then-release: an external coordinator may create a block
   // STAGED (coordinator_only, hidden from the couple until released). Gated by
   // the flag + coordinator role; flag-off / couple / family → couple_visible
@@ -200,8 +211,8 @@ export async function createScheduleBlock(formData: FormData) {
   const { error } = await supabase.from('event_schedule_blocks').insert(insertRow);
   if (error) throw new Error(error.message);
 
-  revalidatePath(`/dashboard/${eventId}/schedule`);
-  revalidatePath(`/dashboard/${eventId}`);
+  // From the Maker's Studio (quiet) nothing is revalidated — no whole render of the Maker per added moment.
+  revalidateScheduleUnlessMaker(eventId, formData);
 }
 
 export async function deleteScheduleBlock(formData: FormData) {

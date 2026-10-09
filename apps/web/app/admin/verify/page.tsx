@@ -44,6 +44,7 @@ import {
 } from '@/lib/platform-settings';
 import { VerificationStateBadge } from '@/app/_components/verification/verification-status-card';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { PillLink, PillTrack } from '@/app/_components/pill-track';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import { BadgeCheck } from 'lucide-react';
 import {
@@ -253,21 +254,16 @@ function SurfaceTabs({ current }: { current: 'applications' | 'visibility' }) {
     { key: 'visibility', label: 'Listing visibility' },
   ];
   return (
-    <nav className="mb-4 inline-flex flex-wrap gap-2" aria-label="Verification surfaces">
+    <PillTrack as="nav" className="mb-4" aria-label="Verification surfaces">
       {tabs.map((t) => {
         const active = current === t.key;
         return (
-          <Link
-            key={t.key}
-            href={`/admin/verify?surface=${t.key}`}
-            aria-pressed={active}
-            className={`sn-chip${active ? ' selected' : ''}`}
-          >
+          <PillLink key={t.key} on={active} href={`/admin/verify?surface=${t.key}`} aria-pressed={active} className="px-3">
             {t.label}
-          </Link>
+          </PillLink>
         );
       })}
-    </nav>
+    </PillTrack>
   );
 }
 

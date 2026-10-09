@@ -7,8 +7,7 @@ import { passDesignDraftPatch } from '@/lib/pass-design-save';
 import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { hubDraftAction } from '../../website/hub-draft-actions';
 import { PrintPreview } from './print-preview';
-import { SP_LAYOUT_CARD, spCardWidth } from '@/lib/maker-stage-room';
-import { PASS_CARD_PX } from '@/lib/pass-card';
+import { SP_LOOK_CARD, SP_LOOK_NAME, SP_PHONE_PICTURE } from '@/lib/maker-stage-room';
 
 /**
  * 🎫 THE TICKET STYLE — ONE dropdown (Classic · Ticket · Photo poster) and
@@ -97,17 +96,17 @@ export function PassCardDesignPicker({
           {PASS_CARD_DESIGNS.map((d) => {
             const on = d === shown;
             return (
-              <button key={d} type="button" role="radio" aria-checked={on} data-style-card={d} data-pass-card-design-pick={d} onClick={() => pick(d)} className={SP_LAYOUT_CARD} style={spCardWidth(PASS_CARD_PX.w / PASS_CARD_PX.h)}>
+              <button key={d} type="button" role="radio" aria-checked={on} data-style-card={d} data-pass-card-design-pick={d} onClick={() => pick(d)} className={SP_LOOK_CARD}>
                 <span
                   data-style-card-preview=""
-                  className={`relative block h-[104px] shrink-0 overflow-hidden rounded-lg bg-[var(--sp-page)] ${
+                  className={`${SP_PHONE_PICTURE} ${
                     on ? 'border-2 border-[var(--sp-cta)] shadow-[0_0_0_3px_var(--sp-cta-wash)]' : 'border border-[var(--sp-line)]'
                   }`}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element -- the drawn ticket PNG, already warm */}
-                  <img src={previews[d]} alt="" aria-hidden className="absolute inset-0 h-full w-full object-contain p-1" loading="eager" />
+                  <img src={previews[d]} alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover" loading="eager" />
                 </span>
-                <span className={`block h-[18px] truncate text-center text-[13px] font-semibold leading-[18px] ${on ? 'text-[var(--sp-ink)]' : 'text-[var(--sp-ink2)]'}`}>
+                <span className={`${SP_LOOK_NAME} ${on ? 'text-[var(--sp-ink)]' : 'text-[var(--sp-ink2)]'}`}>
                   {PASS_CARD_DESIGN_LABEL[d]}
                 </span>
               </button>

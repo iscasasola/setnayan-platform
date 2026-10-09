@@ -109,7 +109,10 @@ test('1 · every writer takes the draft door before any Pro question', () => {
   const chrome = code('app/dashboard/[eventId]/website/site-chrome/actions.ts');
   const door = chrome.indexOf('if (isHubDraftWrite(formData))');
   assert.ok(door > 0 && door < chrome.indexOf('lookProAllows('), 'the music · video draft door must come before the live Pro gate');
-  assert.match(chrome.slice(door, door + 900), /return draftEventsAndReturn\(eventId, events, formData,/);
+  /* RE-AIMED 2026-10-09: this looked for the draft return within 900 CHARACTERS of the door, and went red when Our
+     music's pick was added inside the door (2026-10-08). The claim is an ORDER, not a distance: the door returns into
+     the draft before the first Pro question is asked. */
+  assert.match(chrome.slice(door, chrome.indexOf('lookProAllows(')), /return draftEventsAndReturn\(eventId, events, formData,/);
 
   const photos = code('app/dashboard/[eventId]/website/our-photos/actions.ts');
   assert.match(photos, /const drafting = isHubDraftWrite\(formData\);\s*if \(!drafting\) await requireLookPro\(eventId, galleryChange\(currentRefs, deduped\)\);/);

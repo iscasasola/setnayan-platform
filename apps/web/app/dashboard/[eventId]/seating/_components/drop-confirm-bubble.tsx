@@ -25,6 +25,7 @@
 
 import { useEffect } from 'react';
 import { Check, X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 
 export type DropConfirmState =
   | { kind: 'confirm'; x: number; y: number; flipX?: boolean; flipY?: boolean }
@@ -76,25 +77,9 @@ export function DropConfirmBubble({
         </p>
         <div className="flex items-center gap-2">
           {!reject ? (
-            <button
-              type="button"
-              onClick={onConfirm}
-              aria-label="Confirm drop"
-              className="inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-lg bg-mulberry px-3 text-sm font-semibold text-white transition-colors hover:bg-mulberry-600"
-            >
-              <Check className="h-4 w-4" strokeWidth={2} aria-hidden /> Drop here
-            </button>
+            <ActionButton tone="brand" main icon={Check} label="Drop here" name="Confirm drop" onClick={onConfirm} className="flex-1" />
           ) : null}
-          <button
-            type="button"
-            onClick={onCancel}
-            aria-label={reject ? 'Dismiss' : 'Cancel drop'}
-            className={`inline-flex h-11 items-center justify-center gap-1.5 rounded-lg border border-ink/20 bg-white px-3 text-sm font-medium text-ink/80 transition-colors hover:border-ink/35 ${
-              reject ? 'flex-1' : 'min-w-11'
-            }`}
-          >
-            <X className="h-4 w-4" strokeWidth={2} aria-hidden /> {reject ? 'OK' : 'Cancel'}
-          </button>
+          <ActionButton tone="neutral" icon={X} label={reject ? 'OK' : 'Cancel'} name={reject ? 'Dismiss' : 'Cancel drop'} onClick={onCancel} className={reject ? 'flex-1' : ''} />
         </div>
       </div>
     </div>

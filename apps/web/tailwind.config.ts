@@ -103,10 +103,16 @@ const config: Config = {
         // The brief's "duration-300" — the house element duration (320ms).
         'sn-elem': 'var(--sn-dur-elem)',
         'sn-enter': 'var(--sn-dur-enter)',
+        // The pill selector's ONE speed (`app/_components/pill-selector.tsx`): its thumb's travel, its words' cross-fade.
+        // ⚠ Named, never `duration-[…ms]`: with `tailwindcss-animate` loaded an arbitrary `duration-[…]` is ambiguous
+        // (transition- or animation-duration) and Tailwind emits NOTHING for it.
+        'sn-pill': 'var(--sn-pill-dur)',
       },
       transitionTimingFunction: {
         sn: 'var(--sn-ease)',
         'sn-out': 'var(--sn-ease-out)',
+        // A landing with a small overshoot — the pill selector's thumb.
+        'sn-spring': 'var(--sn-pill-spring)',
       },
       colors: {
         // Themeable surface tokens — values resolve at runtime from CSS vars
@@ -249,6 +255,19 @@ const config: Config = {
         // Canonical semantic tokens for new code. Older code referencing
         // `cream` / `ink` / `terracotta` continues to work via the slots above.
         accent: 'var(--accent)',
+        // `sn.accent` / `sn.on-accent` — THE APP'S ACCENT BY ITS JOB (owner 2026-10-08:
+        // "if we change our color to blue, it will be easy to change the button
+        // colors"): what is on / picked / tappable on every template, and the ink of
+        // words on it. ONE setting — `--sn-accent` / `--sn-on-accent` in globals.css.
+        // Classes: bg-sn-accent · text-sn-accent · ring-sn-accent · border-sn-accent ·
+        // text-sn-on-accent. NOT the `accent*` slots around it: those are the kit's
+        // GOLD family (`bg-accent-soft` is a gold wash) — the `sn-` keeps the two apart.
+        // (One family, `sn`, so `scripts/lint-colour-exists.mjs` — which reads a class's
+        // first word as its palette key — finds it.)
+        sn: {
+          accent: 'rgb(var(--sn-accent) / <alpha-value>)',
+          'on-accent': 'rgb(var(--sn-on-accent) / <alpha-value>)',
+        },
         'accent-deep': 'var(--accent-deep)',
         'accent-soft': 'var(--accent-soft)',
         surface: 'var(--surface)',

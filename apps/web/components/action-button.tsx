@@ -60,6 +60,12 @@ type Common = {
   icon: IconComponent | ReactElement;
   /** The word. Also the `aria-label`, so icon-only still reads. */
   label: string;
+  /**
+   * The ACCESSIBLE NAME where it must say more than the word — a row's "Invite" that has to be named for its guest
+   * ("Invite Maria Santos — sent Sep 30"), so a list of forty is not forty identical "Invite"s. Optional and additive:
+   * absent, the `aria-label` is `label`, byte for byte. The visible word stays `label`; the name should contain it.
+   */
+  name?: string;
   /** The row's main verb: filled, and never loses its word. */
   main?: boolean;
   /** A secondary that should not compete (Skip · Not now): hairline, muted word, no wash. */
@@ -67,6 +73,14 @@ type Common = {
   /** Start icon-only (a toolbar of icons that are still buttons). */
   iconOnly?: boolean;
   disabled?: boolean;
+  /**
+   * WAITING — it cannot be used yet, and it is STILL A BUTTON (owner 2026-10-08, on a greyed "Restore" that read as
+   * faded text: *"we better fix the buttons here as well"*; the approved gallery § 9: "a button that cannot be used
+   * yet is grey"). Grey fill and word, its pill and a line kept; announced as unavailable (`aria-disabled`, never
+   * the native `disabled`, which drops it from a screen reader's path); a press does nothing. Use it where the
+   * button will wake by itself (nothing to restore yet); `disabled` keeps its own faded look.
+   */
+  waiting?: boolean;
   className?: string;
   title?: string;
   'data-testid'?: string;
@@ -113,7 +127,7 @@ function renderIcon(icon: Common['icon']) {
 
 export const ActionButton = forwardRef<HTMLButtonElement | HTMLAnchorElement, ActionButtonProps>(
   function ActionButton(props, ref) {
-    const { tone, icon, label, main, quiet, iconOnly, className, title } = props;
+    const { tone, icon, label, name, main, quiet, iconOnly, className, title, waiting } = props;
     const cls = actionButtonClass(tone, { main, quiet, iconOnly, extra: className });
     const inner = (
       <>
@@ -131,15 +145,16 @@ export const ActionButton = forwardRef<HTMLButtonElement | HTMLAnchorElement, Ac
           target={target}
           rel={target === '_blank' ? 'noopener noreferrer' : undefined}
           onClick={
-            disabled
+            disabled || waiting
               ? (e) => {
                   e.preventDefault();
                 }
               : onClick
           }
-          aria-disabled={disabled || undefined}
-          aria-label={label}
-          title={title ?? label}
+          aria-disabled={disabled || waiting || undefined}
+          data-waiting={waiting ? '' : undefined}
+          aria-label={name ?? label}
+          title={title ?? name ?? label}
           className={cls}
           data-tone={tone}
           data-main={main ? '' : undefined}
@@ -153,17 +168,20 @@ export const ActionButton = forwardRef<HTMLButtonElement | HTMLAnchorElement, Ac
     return (
       <button
         ref={ref as RefObject<HTMLButtonElement>}
-        type={p.type ?? 'button'}
+        /* Waiting: a press does nothing — not its handler, and not its form. */
+        type={waiting ? 'button' : (p.type ?? 'button')}
         form={p.form}
         name={p.name}
         value={p.value}
-        onClick={p.onClick}
+        onClick={waiting ? undefined : p.onClick}
         disabled={p.disabled}
+        aria-disabled={waiting || undefined}
+        data-waiting={waiting ? '' : undefined}
         aria-pressed={p['aria-pressed']}
         aria-expanded={p['aria-expanded']}
         aria-haspopup={p['aria-haspopup']}
-        aria-label={label}
-        title={title ?? label}
+        aria-label={name ?? label}
+        title={title ?? name ?? label}
         className={cls}
         data-tone={tone}
         data-main={main ? '' : undefined}

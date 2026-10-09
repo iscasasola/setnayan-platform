@@ -42,6 +42,17 @@ import { sanitizeSceneStyleId } from '@/lib/scene-style-id';
 export const PALETTE_LOOK_IDS = ['tags', 'fabric', 'chips', 'circles', 'ribbon'] as const;
 export type PaletteLookId = (typeof PALETTE_LOOK_IDS)[number];
 
+/**
+ * 🖼 THE PALETTE LOOK'S MINIATURE (owner 08 Oct: *"palette should show the actual previews like the other
+ * styles"*). A look card is the guest page asked for one scene in one style (`?style=<type>:<id>`,
+ * `app/[slug]/_lib/style-preview.ts`); the palette look is not the scene's `canvas.style` but its
+ * `canvas.palette`, so its cards ask under THIS type and the page lays the id on `canvas.palette`. Host canvas
+ * only, nothing written. Not a registry type — no scene is ever stored under it.
+ */
+export const PALETTE_LOOK_PREVIEW_TYPE = 'dress_code_palette';
+/** The block of the Dress code scene a palette look's card is fitted on — "Our colours" (`dress-code-widget.tsx`). */
+export const PALETTE_LOOK_CARD_FOCUS = '[data-dress-code="ours"]';
+
 /** Absent = this. Today's look — a live page that never picked does not change. */
 export const PALETTE_LOOK_DEFAULT: PaletteLookId = 'tags';
 

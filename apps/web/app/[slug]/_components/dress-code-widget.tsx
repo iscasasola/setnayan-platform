@@ -19,6 +19,9 @@ import { marchPlaceLine, type MarchPlace } from '@/lib/march-place';
 import { DressCodeLine, DressCodePalette } from './dress-code-styles';
 import { PaletteLookList } from './dress-code-palette-looks';
 import { PALETTE_LOOK_DEFAULT, type PaletteLookId } from '@/lib/palette-looks';
+import { SceneSample, dosSample, paletteSample } from './maker-scene-samples';
+import { DressCodeDos } from './dress-code-dos';
+import { DOS_LOOK_DEFAULT, type DosLookId } from '@/lib/dress-code-looks';
 
 /*
  * 🧵 THE SILK CHIP, VISIBLE ON ANY GROUND. `.pahina-swatch` shades a chip with
@@ -111,7 +114,23 @@ export function DressCodeWidget({
   part = 'all',
   sceneStyle = null,
   paletteLook = null,
+  dosLook = null,
+  makerSample = false,
 }: {
+  /**
+   * 🧾 HOW THE DO'S & DON'TS ARE DRAWN (owner 2026-10-08) — `canvas.dos`, resolved (`dosLookOfRow`). Null /
+   * `notes` = the shipped two notes, markup unchanged; the others are `dress-code-dos.tsx`. Every layout and the
+   * reader's own panel follow it.
+   */
+  dosLook?: DosLookId | null;
+  /**
+   * 🔲 THE MAKER'S CANVAS ONLY (owner 08 Oct: *"maybe show what it could look like with boxes?"*): while the
+   * couple has given this scene nothing — or no colours — its look is drawn in sample shapes
+   * (`maker-scene-samples.tsx`): the layout picked, and "Our colours" in the palette look picked, in greys.
+   * Never set for a guest (both dispatchers pass `!guestView`); `[data-maker-sample]` is also hidden by
+   * `globals.css` on any page without a Maker marker.
+   */
+  makerSample?: boolean;
   /**
    * 🏠 WHICH HALF (owner 2026-09-30, DECISION_LOG "THE INVITATION'S HOME IS THE
    * GUEST'S OWN PAGE"). `'you'` is the Welcome page's: only this reader's own
@@ -168,6 +187,7 @@ export function DressCodeWidget({
   paletteLook?: PaletteLookId | null;
 }) {
   const look: PaletteLookId = paletteLook ?? PALETTE_LOOK_DEFAULT;
+  const dosIn: DosLookId = dosLook ?? DOS_LOOK_DEFAULT;
   // The couple's walima seating posture, surfaced to guests so they know what to
   // expect at the reception. Muslim-only; 'none' (default) shows nothing. Neutral
   // tone per the spec — we describe, never editorialize.
@@ -396,6 +416,8 @@ export function DressCodeWidget({
             Coming together
           </h3>
         </header>
+        {makerSample ? <SceneSample sceneType="dress_code" styleId={sceneStyle} paletteLook={look} /> : null}
+        {makerSample ? dosSample(dosIn) : null}
         <p className="max-w-prose text-base leading-relaxed text-ink/65">
           Your hosts haven&rsquo;t shared the dress code yet — check back closer to
           the {words.eventWord}.
@@ -423,7 +445,7 @@ export function DressCodeWidget({
   // 🚶 A guest with a place in the march keeps the shipped card — its march line
   // ("you walk 5th") is theirs alone, and the general styles draw no such line.
   if (!mine && !march && (sceneStyle === 'palette' || sceneStyle === 'line')) {
-    const general = { title: shownTitle, description: shownDescription, palette, rows: everyone.rows, dos, donts, genderNote };
+    const general = { title: shownTitle, description: shownDescription, palette, rows: everyone.rows, dos, donts, genderNote, dosLook: dosIn, makerSample };
     return sceneStyle === 'palette' ? <DressCodePalette {...general} /> : <DressCodeLine {...general} />;
   }
 
@@ -549,6 +571,13 @@ export function DressCodeWidget({
           )}
         </div>
       ) : null}
+      {/* 🔲 The Maker's canvas, no colours yet: where "Our colours" will go, in the palette look picked — in
+          greys, so each palette look's card is its own picture before a colour exists. Never a guest's. */}
+      {makerSample && part === 'all' && !mine && !march && palette.length === 0 ? (
+        <div aria-hidden className="space-y-2" data-dress-code="ours" data-maker-sample={`palette:${look}`}>
+          {paletteSample(look)}
+        </div>
+      ) : null}
       {/* 👥 EVERY ROLE'S COLOURS — the general view's second half. One tidy row
           per role the couple dressed (label + its outfit line on the left, its
           chips on the right, wrapping under on a narrow phone), in the Mood
@@ -593,8 +622,14 @@ export function DressCodeWidget({
           ))}
         </ul>
       ) : null}
-      {dos.length > 0 || donts.length > 0 ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      {/* 🔲 The Maker's canvas, no list yet: where the Do's & Don'ts will go, in the look picked — in greys. */}
+      {makerSample && part === 'all' && dos.length === 0 && donts.length === 0 ? dosSample(dosIn) : null}
+      {dosIn !== DOS_LOOK_DEFAULT ? (
+        <DressCodeDos dos={dos} donts={donts} look={dosIn} />
+      ) : dos.length > 0 || donts.length > 0 ? (
+        /* 🧾 The shipped two notes — the default look, exactly as it shipped (`data-dress-code` names the block
+           for its look card; nothing a guest sees changes). */
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2" data-dress-code="dos">
           {dos.length > 0 ? (
             <div className="space-y-2 border-l-2 border-gild bg-veil/50 p-4 text-sm text-ink/80">
               <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-gild">Do</p>

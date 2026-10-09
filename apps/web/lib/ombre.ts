@@ -60,6 +60,21 @@
  * `lib/hub-draft.ts`) and refused by the live writer (`ombreLookChange` in
  * `website/colors/actions.ts`) — with no other line changing.
  *
+ * ── 🎨🎨 A SECOND COLOUR (owner 2026-10-08, DECISION_LOG "LOOK › BACKGROUND, AMENDED":
+ * *"Color Picker can be 2. so it can become ombre to do dawn/diagonal/glow for the 2
+ * colors"*; `BACKGROUND_SOURCES_AMEND_2026-10-08_fable.md` § 3) ─────────────────────
+ * A blend may run from the couple's colour to a SECOND colour of theirs. The same
+ * column, one more segment — a format extension, no migration:
+ *
+ *     ombre:<effect>:<#rrggbb>:<#rrggbb>   e.g. ombre:glow:#f6f1e7:#c5a059   (≤ 30 chars)
+ *
+ * Three segments read and write EXACTLY as before (the one colour's own ramp);
+ * the fourth is written only when a second colour is set, and then the two
+ * colours ARE the ramp's two anchors — the first where a blend starts (the top of
+ * Dawn, the lit corner of Diagonal, the centre of Glow), the second where it
+ * ends — with the same OKLCH interpolation between them and the same legibility
+ * measurement over every colour of it. Plain is always one bare hex.
+ *
  * Pure. No I/O. Client-safe (the Maker panel draws the effect swatches with it).
  */
 import { hexOfOklch, oklchOfHex, type Oklch } from '@/lib/color-space';
@@ -102,8 +117,10 @@ export const BACKGROUND_EFFECT_LABEL: Record<BackgroundEffect, string> = {
 
 export type OmbreSpec = {
   shape: OmbreShape;
-  /** The one colour the couple picked, lowercase `#rrggbb`. */
+  /** The colour the couple picked (the page colour), lowercase `#rrggbb`. */
   base: string;
+  /** 🎨 A second colour the blend runs TO, lowercase `#rrggbb` — absent = the one colour's own ramp. */
+  to?: string;
 };
 
 /** What `events.site_bg_color` can hold, read. */
@@ -119,21 +136,25 @@ export function normalizeHex(raw: unknown): string | null {
   return HEX6.test(v) ? v.toLowerCase() : null;
 }
 
-/** The stored form of an ombré. Always canonical: lowercase, no spaces. */
+/** The stored form of an ombré. Always canonical: lowercase, no spaces; the second colour only when there is one. */
 export function encodeOmbre(spec: OmbreSpec): string {
-  return `${OMBRE_PREFIX}${spec.shape}:${spec.base}`;
+  return `${OMBRE_PREFIX}${spec.shape}:${spec.base}${spec.to ? `:${spec.to}` : ''}`;
 }
 
-/** `ombre:<effect>:<hex>` → the spec, or null for anything else. */
+/** `ombre:<effect>:<hex>` or `ombre:<effect>:<hex>:<hex>` → the spec, or null for anything else. */
 export function parseOmbre(raw: unknown): OmbreSpec | null {
   if (typeof raw !== 'string') return null;
   const v = raw.trim();
   if (!v.startsWith(OMBRE_PREFIX)) return null;
-  const [shape, hex, ...rest] = v.slice(OMBRE_PREFIX.length).split(':');
+  const [shape, hex, second, ...rest] = v.slice(OMBRE_PREFIX.length).split(':');
   if (rest.length > 0 || !shape || !hex) return null;
   if (!(OMBRE_SHAPES as readonly string[]).includes(shape)) return null;
   const base = normalizeHex(hex);
-  return base ? { shape: shape as OmbreShape, base } : null;
+  if (!base) return null;
+  if (second === undefined) return { shape: shape as OmbreShape, base };
+  /* A fourth segment that is not a colour is noise — the whole value is dropped, never half-read. */
+  const to = normalizeHex(second);
+  return to ? { shape: shape as OmbreShape, base, to } : null;
 }
 
 /**
@@ -152,11 +173,22 @@ export function encodeSiteBackground(bg: SiteBackground): string {
   return bg.kind === 'plain' ? bg.hex : encodeOmbre(bg.ombre);
 }
 
-/** One colour + one effect → the stored form (`''` when there is no colour). */
-export function encodeBackgroundChoice(hex: string | null, effect: BackgroundEffect): string {
+/**
+ * One colour + one effect (+ a second colour for a blend) → the stored form (`''` when there is no colour).
+ * 🎨 PLAIN IS ALWAYS ONE BARE HEX: a second colour is never written with it — the panel does not offer Plain
+ * while there are two (`backgroundPlainOffered`), so nobody loses a colour by a mis-tap.
+ */
+export function encodeBackgroundChoice(hex: string | null, effect: BackgroundEffect, second?: string | null): string {
   const base = normalizeHex(hex);
   if (!base) return '';
-  return effect === 'plain' ? base : encodeOmbre({ shape: effect, base });
+  if (effect === 'plain') return base;
+  const to = normalizeHex(second);
+  return encodeOmbre(to ? { shape: effect, base, to } : { shape: effect, base });
+}
+
+/** Plain is one colour: it is offered only while the blend has no second colour. */
+export function backgroundPlainOffered(second: string | null | undefined): boolean {
+  return !normalizeHex(second);
 }
 
 /** Is this stored value an ombré (and not a plain hex, a blank, or noise)? */
@@ -194,8 +226,11 @@ const MIN_STEP = 0.03;
  * the ramp still spans the full `OMBRE_LIFT + OMBRE_DROP` of lightness — never
  * a flat fill, never a step too small to see followed by a cliff.
  */
-export function ombreAnchors(base: string): string[] {
+export function ombreAnchors(base: string, to?: string | null): string[] {
   const hex = base.toLowerCase();
+  /* 🎨 TWO COLOURS: they ARE the anchors, in the order the couple set them — where the blend starts, where it ends. */
+  const second = normalizeHex(to);
+  if (second) return [hex, second];
   const c = oklchOfHex(base);
   const span = OMBRE_LIFT + OMBRE_DROP;
   // Lighter tones carry a little less chroma, darker ones a little more —
@@ -239,9 +274,11 @@ function mixOklch(a: Oklch, b: Oklch, t: number): string {
  * when the colour is already near white or black). These are BOTH what the
  * CSS draws and what legibility measures — one ramp, so the words are
  * measured over the exact colours the guest sees.
+ * 🎨 With a second colour the ramp runs from the first colour to the second,
+ * whichever is lighter — the same steps, the same interpolation.
  */
 export function ombreRamp(spec: OmbreSpec, steps = OMBRE_RAMP_STEPS): string[] {
-  const stops = ombreAnchors(spec.base);
+  const stops = ombreAnchors(spec.base, spec.to);
   const anchors = stops.map((h) => oklchOfHex(h));
   const segments = anchors.length - 1;
   const out: string[] = [];
@@ -299,7 +336,8 @@ export function ombreCss(spec: OmbreSpec, veil?: { color: string; opacity: numbe
   }
   switch (spec.shape) {
     case 'dawn':
-      layers.push(`linear-gradient(180deg, ${stopsList([...ramp].reverse())})`);
+      /* One colour: darker above, lighter at the horizon (the ramp reversed). Two: the first colour above, the second below. */
+      layers.push(`linear-gradient(180deg, ${stopsList(spec.to ? ramp : [...ramp].reverse())})`);
       break;
     case 'diagonal':
       layers.push(

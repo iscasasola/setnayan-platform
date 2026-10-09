@@ -149,7 +149,7 @@ export function AppStoreLayout({
           href={back.href}
           className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
         >
-          <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+          <ArrowLeft aria-hidden className="h-3.5 w-3.5 text-sn-accent" strokeWidth={2} />
           {back.label}
         </Link>
       ) : null}
@@ -342,7 +342,7 @@ export function AppStoreLayout({
             ) : null}
             <ChevronRight
               aria-hidden
-              className="h-4 w-4 text-ink/40 transition-transform group-hover:translate-x-0.5"
+              className="h-4 w-4 text-sn-accent transition-transform group-hover:translate-x-0.5"
               strokeWidth={2}
             />
           </div>

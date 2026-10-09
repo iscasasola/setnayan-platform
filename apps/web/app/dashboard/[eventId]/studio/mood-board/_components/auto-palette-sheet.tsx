@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { Sparkles } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { nextAutoPage, type AutoSuggestion } from '@/lib/mood-board-studio';
 import { StudioSheet } from './colour-picker-sheet';
 
@@ -47,14 +49,10 @@ export function AutoPaletteSheet({
             </span>
           </button>
         ))}
-        <button
-          type="button"
-          onClick={() => setPage((p) => p + 1)}
-          className="sn-press mt-1 inline-flex min-h-11 w-full items-center justify-center rounded-full bg-ink/5 text-[13px] font-semibold text-ink"
-          data-auto-more=""
-        >
-          ✨ Make more
-        </button>
+        {/* "Show more" (the Progress kind): the next themes, only when asked. */}
+        <span data-auto-more="" className="mt-1 [&_.ab]:w-full">
+          <ActionButton tone="neutral" icon={Sparkles} label="Make more" onClick={() => setPage((p) => p + 1)} />
+        </span>
       </div>
     </StudioSheet>
   );

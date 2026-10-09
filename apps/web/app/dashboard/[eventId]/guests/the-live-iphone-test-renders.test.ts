@@ -167,17 +167,17 @@ test('⑥ the card renders its Reply as the guest’s current answer, inside the
 // ── ⑦ delete, any reply, one warning ────────────────────────────────────────
 test('⑦ the warning names what goes with them, in page — Delete and Cancel', async () => {
   const { renderToStaticMarkup } = await import('react-dom/server');
-  const { DeleteGuestSheet, deleteWarningText } = await import('./_components/guest-delete');
+  const { DeleteGuestWarning, deleteWarningText } = await import('./_components/guest-delete');
   const html = renderToStaticMarkup(
-    React.createElement(DeleteGuestSheet, { open: true, names: ['Ana Cruz'], onConfirm() {}, onClose() {} }),
+    React.createElement(DeleteGuestWarning, { titleId: 't', names: ['Ana Cruz'], onConfirm() {}, onClose() {} }),
   );
   assert.match(html, /Delete Ana Cruz\?/);
   assert.match(html, /Their reply and answers, seat, \+1, song request and the link to their account go with them\./);
-  assert.match(html, /data-guest-delete-confirm=""[^>]*>Delete</);
+  assert.match(html, /data-guest-delete-confirm=""[\s\S]*?<span class="lbl">Delete<\/span>/);
   assert.match(html, />Cancel</);
   assert.equal(deleteWarningText(['A', 'B', 'C']).title, 'Delete 3 guests?', 'the selection does not get ONE warning for all of them');
   const refused = renderToStaticMarkup(
-    React.createElement(DeleteGuestSheet, { open: true, names: ['Ana Cruz'], error: 'Nope.', onConfirm() {}, onClose() {} }),
+    React.createElement(DeleteGuestWarning, { titleId: 't', names: ['Ana Cruz'], error: 'Nope.', onConfirm() {}, onClose() {} }),
   );
   assert.match(refused, /role="alert"[^>]*>Nope\.</, 'a refused delete is not said where the host pressed Delete');
 });
@@ -190,18 +190,14 @@ test('⑦ an ACCEPTED guest’s card offers Delete in its ⋯; the couple’s do
   assert.doesNotMatch(couple, /data-guest-delete=""/, 'the couple’s card offers a Delete that can only fail');
 });
 
-test('⑦ swipe, bar and card all go through the one warning and the one delete with Undo', () => {
-  const list = read('_components', 'guest-list-multiselect.tsx');
-  const swipe = list.slice(list.indexOf('function SwipeToDelete('));
-  assert.match(swipe.slice(0, swipe.indexOf('function GroupChipList(')), /<DeleteGuestSheet\b/, 'the swipe deletes without the warning');
-  const bar = list.slice(list.indexOf('function RosterBulkBar('), list.indexOf('function NewGroupInlineForm('));
-  assert.match(bar, /<DeleteGuestSheet\b/, 'the selection bar deletes without the warning');
-  assert.match(bar, /label: `Delete \$\{formatCount\(count\)\}/, 'the bar does not say "Delete N guests"');
+test('⑦ the list and the card both go through the one warning and the one delete with Undo', () => {
+  const screen = read('_components', 'guests-screen.tsx');
+  assert.match(screen, /<DeleteGuestSheet\b/, 'the list deletes without the warning');
   const del = read('_components', 'guest-delete.tsx');
   const hook = del.slice(del.indexOf('export function useGuestRemoval('), del.indexOf('export function DeleteGuestSheet('));
   assert.match(hook, /pushUndo\(/, 'a delete with no Undo');
   assert.match(hook, /restoreDeletedGuests\(/, 'Undo does not restore the guest');
-  assert.match(hook, /if \(!result\.ok\)[\s\S]{0,200}toast\.error\(result\.error\)[\s\S]{0,40}return result\.error/, 'a refusal is swallowed again');
+  assert.match(hook, /if \(!result\.ok\)[\s\S]{0,200}guestToast\.error\(said\)[\s\S]{0,40}return said/, 'a refusal is swallowed again');
   const action = read('groups-actions.ts');
   const fn = action.slice(action.indexOf('export async function bulkSoftDeleteGuestsForUndo('), action.indexOf('export async function restoreDeletedGuests('));
   assert.match(fn, /\.in\('plus_one_of_guest_id'/, 'their +1 stays behind although the warning says it goes with them');
@@ -353,6 +349,4 @@ test('⑬ a phone row’s ⋯ list is drawn on the page, not clipped inside the 
   assert.match(body, /portalled\(\s*<div\s+ref=\{menuRef\}/, 'the ⋯ list is not the portalled element');
   assert.match(body, /className="fixed z-\[96\]/, 'the ⋯ list is not pinned to the screen');
   assert.match(body, /menuRef\.current\?\.contains\(t\)/, 'a tap inside the list counts as "outside" and closes it first');
-  const list = read('_components', 'guest-list-multiselect.tsx');
-  assert.match(list, /transform: tx === 0 && !dragging \? undefined :/, 'a resting row holds a transform, trapping its sheets inside it');
 });

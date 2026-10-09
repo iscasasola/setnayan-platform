@@ -95,11 +95,14 @@ test('the match rule is not re-implemented in the sheet', () => {
 // nothing, and the server adds a one-word name with the missing-surname mark.
 
 test('Add is held back by nothing but an empty pick or a press in flight', () => {
+  /* Step 2A (2026-10-09): the button is the shared ActionButton — an empty pick makes it WAITING (still a button, a
+     press does nothing), a press in flight disables it; the submit itself still refuses both. */
   assert.match(
     code,
-    /disabled=\{pickedKeys\.length === 0 \|\| pending\}/,
+    /disabled=\{pending\}\s*waiting=\{pickedKeys\.length === 0 && !pending\}/,
     'something besides "nobody picked" / "already adding" can hold Add shut again',
   );
+  assert.match(code, /if \(pickedKeys\.length === 0 \|\| pending\) return;/, 'the submit lost its own empty-pick / in-flight refusal');
   assert.doesNotMatch(code, /need a last name/i, 'the sheet asks for a surname again');
   assert.doesNotMatch(code, /placeholder="Last name"/, 'a Last name box is back under a connected person');
   assert.doesNotMatch(code, /missingSurname|onlyBlocking/, 'a surname gate is back');

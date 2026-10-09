@@ -17,6 +17,15 @@
  * taken off keeps its frame with the "no media" classes the server would give
  * it. The buffered reload that follows the save confirms — this is the preview.
  *
+ * 🧷 EVERYTHING LAID HERE CAN BE TAKEN BACK (`undoSceneBgPreviews`). Wrapping a scene MOVES a node the page's own
+ * React tree drew, and a pick that changes who draws the card is now confirmed by a redraw IN PLACE
+ * (`editor-bridge.tsx`, `router.refresh()` — the same document), not a reload. React then removes or replaces that
+ * scene from the parent IT put it in; found inside this file's frame instead, `removeChild` threw and the whole
+ * sample fell to the error screen (measured on the Maker lab, 2026-10-08: Message → Background ▾ → Opaque →
+ * "NotFoundError: Failed to execute 'removeChild'"). So: the frame this file wraps is MARKED, a photo layer it lays
+ * is MARKED, a photo layer the PAGE drew is hidden — never removed — and the bridge undoes all three in the commit
+ * that brings the server's own answer, before React touches the DOM.
+ *
  * 🔒 NOTHING FROM THE MESSAGE BECOMES CSS UNCHECKED. A class must be
  * `hub-…` lowercase; a variable must be a `--hub-…` or `--color-…` name (or
  * `color`, the ink the words follow), and its value may not
@@ -60,6 +69,13 @@ export function sanitizeSceneBgPreview(raw: unknown): SceneBgPreviewScene[] {
 
 type PreviewDoc = Pick<Document, 'createElement'>;
 
+/** A frame THIS file wrapped around a scene the page drew bare. */
+export const SCENE_BG_WRAP_ATTR = 'data-scene-bg-wrap';
+/** A photo layer THIS file laid in a frame. */
+export const SCENE_BG_LAID_ATTR = 'data-scene-bg-laid';
+/** A photo layer the PAGE drew, hidden here while the preview has no photo (never removed: it is React's node). */
+export const SCENE_BG_HID_ATTR = 'data-scene-bg-hid';
+
 /**
  * Lay one scene's frame. `scene` is what the navigator's marker points at — the
  * frame (`.hub-canvas`) when there is one, else the scene itself. Returns the
@@ -72,6 +88,7 @@ export function applySceneBgPreview(scene: HTMLElement, preview: SceneBgPreviewS
     frame = doc.createElement('div') as HTMLElement;
     const body = doc.createElement('div') as HTMLElement;
     body.className = 'hub-canvas-body';
+    frame.setAttribute(SCENE_BG_WRAP_ATTR, '');
     scene.parentNode?.insertBefore(frame, scene);
     frame.appendChild(body);
     body.appendChild(scene);
@@ -92,9 +109,22 @@ export function applySceneBgPreview(scene: HTMLElement, preview: SceneBgPreviewS
     const media = doc.createElement('div') as HTMLElement;
     media.className = 'hub-canvas-media';
     media.setAttribute('aria-hidden', 'true');
+    media.setAttribute(SCENE_BG_LAID_ATTR, '');
     frame.insertBefore(media, frame.firstChild);
+  } else if (wantsPhoto && layer) {
+    /* The page's own layer, hidden by an earlier preview: it shows again. */
+    if (layer.hasAttribute(SCENE_BG_HID_ATTR)) {
+      layer.removeAttribute(SCENE_BG_HID_ATTR);
+      layer.removeAttribute('hidden');
+    }
   } else if (!wantsPhoto && layer) {
-    layer.remove();
+    /* A layer laid here goes; a layer the PAGE drew is only hidden — removing a node React owns makes its next
+       render throw (`removeChild`: "not a child of this node"). */
+    if (layer.hasAttribute(SCENE_BG_LAID_ATTR)) layer.remove();
+    else {
+      layer.setAttribute(SCENE_BG_HID_ATTR, '');
+      layer.setAttribute('hidden', '');
+    }
   }
   /* 🌄 Parallax — the frame says so with `hub-bg-parallax`; the photo layer
      then wears the SHIPPED hero parallax's own mark, which its script reads on
@@ -106,4 +136,35 @@ export function applySceneBgPreview(scene: HTMLElement, preview: SceneBgPreviewS
     else photo.removeAttribute('data-pahina-parallax');
   }
   return frame;
+}
+
+/**
+ * 🧷 THE DOM AS THE PAGE'S OWN RENDER LEFT IT — called by the bridge in the commit that brings the server's answer,
+ * before React changes the DOM (`editor-bridge.tsx`). Every scene this file wrapped goes back where the page put it
+ * and its frame is dropped; every photo layer laid here is dropped; every layer hidden here shows again. What the
+ * server now draws for those scenes is the truth. Returns how many things it took back (0 = nothing was laid).
+ */
+export function undoSceneBgPreviews(doc: Pick<Document, 'querySelectorAll'>): number {
+  let undone = 0;
+  for (const frame of Array.from(doc.querySelectorAll(`[${SCENE_BG_WRAP_ATTR}]`))) {
+    const parent = frame.parentNode;
+    if (!parent) continue;
+    /* The frame is `.hub-canvas > [photo layer] · .hub-canvas-body > <scene>`: whatever the body holds is the page's. */
+    for (const body of Array.from(frame.children)) {
+      if (!body.classList.contains('hub-canvas-body')) continue;
+      for (const scene of Array.from(body.children)) parent.insertBefore(scene, frame);
+    }
+    frame.remove();
+    undone += 1;
+  }
+  for (const laid of Array.from(doc.querySelectorAll(`[${SCENE_BG_LAID_ATTR}]`))) {
+    laid.remove();
+    undone += 1;
+  }
+  for (const hid of Array.from(doc.querySelectorAll(`[${SCENE_BG_HID_ATTR}]`))) {
+    hid.removeAttribute(SCENE_BG_HID_ATTR);
+    hid.removeAttribute('hidden');
+    undone += 1;
+  }
+  return undone;
 }

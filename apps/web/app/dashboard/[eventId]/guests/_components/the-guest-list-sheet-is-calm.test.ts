@@ -36,23 +36,33 @@ const CSS = stripComments(readFileSync(join(HERE, '..', '..', '..', '..', 'globa
 test('1 · both guest sheets are drawn on <body>, above the bottom bar', () => {
   // The reason, so this guard dies loudly if the reason ever goes away.
   assert.match(CSS, /\.sn-vt-page\s*\{[^}]*view-transition-name/, 'the page <main> no longer names a view transition');
-  for (const [name, src] of [['add-guest-sheet.tsx', ADD]] as const) {
-    assert.match(src, /createPortal\(/, `${name} draws its sheet inside the page — the bottom bar covers it`);
-    assert.match(src, /document\.body,?\s*\)/, `${name} portals somewhere other than <body>`);
-  }
+  // ⤷ 2026-10-09: the portal is `GuestPopup`'s, once, for every guest-list sheet; the add sheet is drawn by it.
+  const popup = read('guest-popup.tsx');
+  assert.match(popup, /createPortal\(/, 'guest-popup.tsx draws its sheet inside the page — the bottom bar covers it');
+  assert.match(popup, /document\.body,?\s*\)/, 'guest-popup.tsx portals somewhere other than <body>');
+  assert.match(ADD, /<GuestPopup\b/, 'the add sheet is not drawn by the shared pop-up');
+  assert.doesNotMatch(ADD, /createPortal\(/, 'the add sheet draws a portal of its own');
 });
 
-test('2 · the blur behind a guest sheet is light enough to read the + through', () => {
-  for (const [name, src] of [['add-guest-sheet.tsx', ADD]] as const) {
-    const blurs = src.match(/backdrop-blur-\[(\d+)px\]/g) ?? [];
-    assert.ok(blurs.length > 0, `${name} lost its scrim blur rule`);
-    for (const b of blurs) assert.equal(b, 'backdrop-blur-[1px]', `${name}: ${b} turns the round + into a black circle`);
+test('2 · the dark behind a guest sheet is the app\'s ONE pop-up dark — no wash or blur written here', () => {
+  // ⤷ 2026-10-09 (owner rule, INTERACTION_RULES § 9): dark AND blurred (`.sn-popup-dark`), a tap on it closes, nothing behind
+  // works. This was a 1-px blur so the round + could be read through it; the rule replaced that.
+  const popup = read('guest-popup.tsx');
+  assert.match(popup, /<span aria-hidden className=\{POPUP_DARK\} \/>/, 'the sheet has no pop-up dark');
+  assert.match(popup, /className=\{POPUP_SCRIM\}/, 'a tap on the dark does not close the sheet');
+  for (const [name, src] of [['add-guest-sheet.tsx', ADD], ['guest-popup.tsx', popup]] as const) {
+    assert.doesNotMatch(src, /backdrop-blur-|\bbg-ink\/\d/, `${name} writes a wash or blur of its own`);
   }
 });
 
 test('4 · the doors are ONE segmented control — List · Map · Setup, one word each (G1)', () => {
   const nav = SCREEN.slice(SCREEN.indexOf('<nav'), SCREEN.indexOf('</nav>'));
-  assert.match(nav, /className=\{styles\.seg\}/, 'the doors are not one segmented control');
+  // 2026-10-08: the doors are drawn by the app's ONE pill selector (owner: "adjust all pill selectors to this"),
+  // no longer by this screen's own `.seg` CSS — so the pin is the template's track and thumb.
+  assert.match(nav, /className=\{`\$\{PILL_TRACK_CLASS\} \$\{PILL_TRACK_GROUND\}`\}/, 'the doors are not one segmented control');
+  assert.match(nav, /<PillThumb \/>/, 'the doors lost the thumb that slides between them');
+  assert.match(SCREEN, /className=\{`\$\{pillSegClass\(gview === key\)\} /, 'a door does not wear the pill selector’s look');
+  assert.doesNotMatch(SCREEN, /styles\.seg\b/, 'the doors are drawn by this screen’s own CSS again');
   const words = [...nav.matchAll(/seg\('(\w+)', '([^']+)'/g)].map((m) => m[2]);
   assert.deepEqual(words, ['List', 'Map', 'Setup'], `the segments read ${words.join(' · ')}`);
 });

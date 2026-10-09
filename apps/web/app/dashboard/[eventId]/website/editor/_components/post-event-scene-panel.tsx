@@ -22,12 +22,27 @@
  *
  * 💎 Show / hide, order, a style and the words are FREE (E4, and "a design pick
  * is free"); only a part's own font and animation wear ◆ — in the part sheet.
+ *
+ * 🧾 ON THE APP'S TEMPLATES (owner 2026-10-08: *"we want the whole app to be adaptive to the same feel"*;
+ * `INTERACTION_RULES.md` § 9 — it was the old inspector). Each control is one approved kind:
+ *   · Shown        the ONE switch (`SwitchRow`). It was a pill whose WORDS flipped on a tap ("Shown to guests" ⇄
+ *                  "Hidden from guests") — a control that cycles; a switch says one thing and is on or off;
+ *   · Order        the Reorder kind's arrows, as house actions (↑ Earlier · ↓ Later). Not a drag: the panel holds
+ *                  ONE scene — there is nothing in it to drag past; the list a drag belongs on is the page itself;
+ *   · Its parts    house actions (each a door into the part's own sheet — a door is not a choice, so not chips);
+ *   · what the scene is, what fills it, where it is fixed — quiet rows, nothing to tap;
+ *   · a part's words (`PostEventWordsField`) — a typed Form row (the body a long one); tapping out or Enter keeps,
+ *     ✕ leaves it; "Use the written line" is the quiet action under it, only once the couple wrote their own.
+ * Every sentence the panel used to print is behind the ⓘ of the row it explains, word for word — except the one
+ * that says a READ FAILED, which stays on the panel (a failure is said, never tucked away). "Saved to your draft…"
+ * is gone: the count on ✓ Apply says it. WHAT EACH CONTROL SAVES, AND WHEN, IS UNCHANGED.
  */
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, useTransition } from 'react';
-import { ArrowDown, ArrowUp, Eye, EyeOff, PencilLine, RotateCcw } from 'lucide-react';
-import { InfoTip } from '@/app/_components/info-tip';
+import { useEffect, useState, useTransition, type ReactNode } from 'react';
+import { ArrowDown, ArrowUp, PencilLine, RotateCcw } from 'lucide-react';
+import { FactRow, FormRow, FormRows, SwitchRow, TypedRow } from '@/app/_components/form-row';
+import { ActionButton } from '@/components/action-button';
 import { makerSave } from '@/lib/maker-refresh';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
 import { HUB_ELEMENT_LABEL, type HubElementKey } from '@/lib/element-style';
@@ -47,9 +62,10 @@ import { postEventStyleOptions, resolvePostEventStyle } from '@/lib/post-event-s
 import type { HubDraftActionResult } from '@/lib/hub-draft';
 import { SceneStyleRow } from './scene-style-row';
 import { postEventStatusWord, type PostEventTile } from './post-event-tile-words';
-import { IRow, ISection } from './inspector-kit';
 
 type DraftAction = (eventId: string, formData: FormData) => Promise<HubDraftActionResult>;
+type SaveAnswer = { ok: true } | { ok: false; error: string };
+const NOT_SAVED = 'That change could not be saved. Please try again — nothing was lost.';
 
 /**
  * ⚡ What the panel draws AT ONCE, before the server answers — the Maker never
@@ -66,27 +82,35 @@ function useDraftSave(eventId: string, draftAction: DraftAction, fresh?: unknown
   const [error, setError] = useState<string | null>(null);
   const [drawn, setDrawn] = useState<PostEventDrawn | null>(null);
   useEffect(() => setDrawn(null), [fresh]);
+  /** Answers whether the draft took it — for a row that says a refusal itself (`said`: the panel's line stays quiet). */
   const save = (
     patch: { editorial?: PostEventDraft; widgets?: Record<string, { canvas: HubSectionCanvas }> },
     draw: PostEventDrawn = {},
-  ) => {
+    said = false,
+  ): Promise<SaveAnswer> => {
     // Drawn first — then the draft save runs behind it.
     setDrawn(draw);
-    start(async () => {
-      setError(null);
-      try {
-        const fd = new FormData();
-        fd.set('intent', 'save');
-        fd.set('patch', JSON.stringify(patch));
-        const r = await makerSave(() => draftAction(eventId, fd), () => router.refresh());
-        if (!r.ok) {
+    return new Promise<SaveAnswer>((answer) => {
+      start(async () => {
+        setError(null);
+        try {
+          const fd = new FormData();
+          fd.set('intent', 'save');
+          fd.set('patch', JSON.stringify(patch));
+          const r = await makerSave(() => draftAction(eventId, fd), () => router.refresh());
+          if (!r.ok) {
+            setDrawn(null);
+            if (!said) setError(r.error);
+            answer({ ok: false, error: r.error });
+            return;
+          }
+          answer({ ok: true });
+        } catch {
           setDrawn(null);
-          setError(r.error);
+          if (!said) setError(NOT_SAVED);
+          answer({ ok: false, error: NOT_SAVED });
         }
-      } catch {
-        setDrawn(null);
-        setError('That change could not be saved. Please try again — nothing was lost.');
-      }
+      });
     });
   };
   return { pending, error, setError, save, drawn };
@@ -147,22 +171,17 @@ export function PostEventScenePanel({
       : tile.status === 'waiting'
         ? ' · fills itself after the day'
         : '';
+  /* Behind the scene's own ⓘ — what it is, and (where it is so) that its style is one value across stages. */
+  const about: ReactNode = (
+    <>
+      <span>{tile.status === 'waiting' ? POST_EVENT_ABOUT.waiting : POST_EVENT_ABOUT.written}</span>
+      {home ? <span>{POST_EVENT_ABOUT.sharedStyle}</span> : null}
+    </>
+  );
 
   return (
-    <section className="space-y-1 px-1" data-maker-post-event-panel={scene}>
-      <div className="flex items-center gap-1.5">
-        <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-ink/60">
-          {postEventStatusWord(tile)}
-          {statusLine}
-        </p>
-        <InfoTip label="" ariaLabel="About this scene" align="start">
-          {tile.status === 'waiting'
-            ? 'This scene fills itself from your day. Until then your guests never meet an empty box — you see it here, waiting, in the style you pick.'
-            : 'Written from what happened. Tap any part of the scene to edit it here.'}
-        </InfoTip>
-      </div>
-
-      {/* 🎨 Style — one dropdown, free. */}
+    <section className="flex flex-col px-1" data-maker-post-event-panel={scene}>
+      {/* 🎨 Style — the shared row (a strip of miniatures in the new Maker), free. */}
       <SceneStyleRow
         options={options.map((o) => ({ id: o.id, name: o.name, line: o.line, isDefault: o.isDefault }))}
         value={drawn?.style ?? style}
@@ -170,112 +189,99 @@ export function PostEventScenePanel({
         onPick={pickStyle}
       />
 
-      {/* 👁 Shown — free. */}
-      {arrangement && tile.switchKey ? (
-        <IRow label="Shown" data="post-event-shown">
-          <button
-            type="button"
-            role="switch"
-            aria-checked={!hiddenNow}
-            data-post-event-eye={hiddenNow ? 'show' : 'hide'}
+      <FormRows data="post-event">
+        {/* What this scene is — its state in a word, what fills it under it; nothing to tap but its ⓘ. */}
+        <FormRow
+          data="scene"
+          name="This scene"
+          about={{ title: tile.label, words: about }}
+          note={`${tile.status === 'auto' ? 'Filled from' : tile.status === 'waiting' ? 'What fills it' : 'Why'}: ${tile.status === 'auto' ? tile.source : tile.note}`}
+          attrs={{ 'data-post-event-status': tile.hidden ? 'hidden' : tile.status }}
+        >
+          <span className="min-w-0 text-right text-[14px] text-ink">
+            {postEventStatusWord(tile)}
+            {statusLine}
+          </span>
+        </FormRow>
+        {tile.pinned ? (
+          <FactRow data="place" name="Place" value="Fixed" where={`The story always ${tile.scene === 'cover' ? 'opens' : 'closes'} here.`} />
+        ) : null}
+
+        {/* 👁 Shown — free. The ONE switch: on = guests meet the scene. */}
+        {arrangement && tile.switchKey ? (
+          <SwitchRow
+            data="shown"
+            name="Shown to guests"
+            about={tile.switchKey === 'gallery' ? { words: POST_EVENT_ABOUT.galleryShare } : null}
+            on={!hiddenNow}
             /* Flips at the tap and saves behind it — never greyed while a save
                runs (`every-maker-edit-shows-before-it-saves` D). Read from what
                is DRAWN, so a second tap before the first answers flips back. */
-            onClick={() => save({ editorial: postEventShow(arrangement, tile.switchKey!, hiddenNow) }, { hidden: !hiddenNow })}
-            className="sn-press inline-flex min-h-11 items-center gap-1.5 rounded-full bg-ink/5 px-3 text-sm font-semibold text-ink hover:bg-ink/10 disabled:opacity-40"
-          >
-            {hiddenNow ? <EyeOff aria-hidden className="h-4 w-4" strokeWidth={1.75} /> : <Eye aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
-            {hiddenNow ? 'Hidden from guests' : 'Shown to guests'}
-          </button>
-        </IRow>
-      ) : null}
-
-      {/* ⇅ Order — free. */}
-      {arrangement && tile.runKey ? (
-        <IRow label="Order" data="post-event-order">
-          <button
-            type="button"
-            disabled={pending || !earlier}
-            data-post-event-move="earlier"
-            onClick={() => earlier && save({ editorial: earlier }, { moved: 'earlier' })}
-            className="sn-press inline-flex min-h-11 items-center gap-1 rounded-full bg-ink/5 px-3 text-sm font-semibold text-ink hover:bg-ink/10 disabled:opacity-40"
-          >
-            <ArrowUp aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            Earlier
-          </button>
-          <button
-            type="button"
-            disabled={pending || !later}
-            data-post-event-move="later"
-            onClick={() => later && save({ editorial: later }, { moved: 'later' })}
-            className="sn-press inline-flex min-h-11 items-center gap-1 rounded-full bg-ink/5 px-3 text-sm font-semibold text-ink hover:bg-ink/10 disabled:opacity-40"
-          >
-            <ArrowDown aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            Later
-          </button>
-        </IRow>
-      ) : null}
-      {drawn?.moved ? (
-        <p role="status" className="px-1 text-[12px] font-medium text-ink/70" data-post-event-moved={drawn.moved}>
-          Moved {drawn.moved}.
-        </p>
-      ) : null}
-
-      {/* ✍ Its parts — each opens right here, in the part sheet. */}
-      {onPart && parts.length > 0 ? (
-        <>
-          <ISection>Its parts</ISection>
-          <div className="flex flex-wrap gap-2" data-post-event-parts="">
-            {parts.map((p) => (
-              <button
-                key={p}
-                type="button"
-                data-post-event-part={p}
-                onClick={() => onPart(p)}
-                className="sn-press inline-flex min-h-11 items-center gap-1.5 rounded-full bg-ink/5 px-3 text-sm font-semibold text-ink hover:bg-ink/10"
-              >
-                <PencilLine aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                {HUB_ELEMENT_LABEL[p]}
-              </button>
-            ))}
-          </div>
-        </>
-      ) : null}
-
-      <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 pt-3 text-[13px]">
-        <dt className="text-ink/60">{tile.status === 'auto' ? 'Filled from' : tile.status === 'waiting' ? 'What fills it' : 'Why'}</dt>
-        <dd className="text-ink">{tile.status === 'auto' ? tile.source : tile.note}</dd>
-        {tile.pinned ? (
-          <>
-            <dt className="text-ink/60">Place</dt>
-            <dd className="text-ink">Fixed — the story always {tile.scene === 'cover' ? 'opens' : 'closes'} here.</dd>
-          </>
+            onChange={(shown) => void save({ editorial: postEventShow(arrangement, tile.switchKey!, shown) }, { hidden: !shown })}
+            attrs={{ 'data-post-event-shown': hiddenNow ? 'hidden' : 'shown' }}
+          />
         ) : null}
-      </dl>
-      {tile.switchKey === 'gallery' ? (
-        <p className="text-[12px] text-ink/60">The day’s chapters and the gallery share one switch — hiding one hides both.</p>
-      ) : null}
-      {tile.runKey === 'chapters' ? (
-        <p className="text-[12px] text-ink/60">The day’s chapters move together, in the order they happened.</p>
-      ) : null}
-      {home ? (
-        <p className="text-[12px] text-ink/60">This style is shared with the same scene on your other stages — pick once.</p>
-      ) : null}
+
+        {/* ⇅ Order — free. The arrows; a move waits for the one before it (each is built on the order as it stands). */}
+        {arrangement && tile.runKey ? (
+          <FormRow
+            data="order"
+            name="Order"
+            about={tile.runKey === 'chapters' ? { words: POST_EVENT_ABOUT.chaptersMove } : null}
+            note={
+              drawn?.moved ? (
+                <span role="status" data-post-event-moved={drawn.moved}>
+                  Moved {drawn.moved}.
+                </span>
+              ) : null
+            }
+          >
+            <span className="flex flex-none items-center gap-2" data-post-event-order="">
+              <ActionButton tone="neutral" icon={ArrowUp} label="Earlier" disabled={pending || !earlier} data-testid="post-event-move-earlier" onClick={() => earlier && void save({ editorial: earlier }, { moved: 'earlier' })} />
+              <ActionButton tone="neutral" icon={ArrowDown} label="Later" disabled={pending || !later} data-testid="post-event-move-later" onClick={() => later && void save({ editorial: later }, { moved: 'later' })} />
+            </span>
+          </FormRow>
+        ) : null}
+
+        {/* ✍ Its parts — each opens right here, in the part sheet. */}
+        {onPart && parts.length > 0 ? (
+          <FormRow
+            data="parts"
+            name="Its parts"
+            below={
+              <div className="flex flex-wrap gap-2 pb-3 pt-0.5" data-post-event-parts="">
+                {parts.map((p) => (
+                  <ActionButton key={p} tone="neutral" icon={PencilLine} label={HUB_ELEMENT_LABEL[p]} data-testid={`post-event-part-${p}`} onClick={() => onPart(p)} />
+                ))}
+              </div>
+            }
+          />
+        ) : null}
+      </FormRows>
+
+      {/* A read that FAILED is said on the panel — never behind an ⓘ. */}
       {!arrangement ? (
-        <p className="text-[12px] text-ink/60">Your story’s scenes could not be read just now — open the Maker again in a moment.</p>
-      ) : (
-        <p className="text-[12px] text-ink/60">
-          {dayHappened ? 'Saved to your draft — guests see it after you press Apply.' : 'Saved to your draft — it goes live when you press Apply.'}
+        <p role="alert" data-post-event-unread="" className="px-1 pt-2 text-[12.5px] font-semibold text-danger-700">
+          Your story’s scenes could not be read just now — open the Maker again in a moment.
         </p>
-      )}
+      ) : null}
       {error ? (
-        <p role="alert" className="text-[13px] font-semibold text-terracotta-700">
+        <p role="alert" data-post-event-error="" className="px-1 pt-2 text-[12.5px] font-semibold text-danger-700">
           {error}
         </p>
       ) : null}
     </section>
   );
 }
+
+/** The panel's own sentences — behind the ⓘ of the row each explains, word for word (they were printed on it). */
+export const POST_EVENT_ABOUT = {
+  waiting: 'This scene fills itself from your day. Until then your guests never meet an empty box — you see it here, waiting, in the style you pick.',
+  written: 'Written from what happened. Tap any part of the scene to edit it here.',
+  sharedStyle: 'This style is shared with the same scene on your other stages — pick once.',
+  galleryShare: 'The day’s chapters and the gallery share one switch — hiding one hides both.',
+  chaptersMove: 'The day’s chapters move together, in the order they happened.',
+} as const;
 
 /**
  * ✍ ONE PART'S OWN WORDS — the field at the top of the part sheet ("the
@@ -296,72 +302,64 @@ export function PostEventWordsField({
   arrangement: PostEventArrangement;
   draftAction: DraftAction;
 }) {
-  const { pending, error, setError, save } = useDraftSave(eventId, draftAction);
+  const { pending, save } = useDraftSave(eventId, draftAction);
   const saved = postEventLookOf(arrangement, scene).words?.[part] ?? '';
-  const [text, setText] = useState(saved);
   const max = POST_EVENT_WORDS_MAX[part];
-  const commit = (value: string | null) => {
+  const name = HUB_ELEMENT_LABEL[part];
+  /* "Use the written line" is this row's own save too: a refusal is said under the row. */
+  const [problem, setProblem] = useState<string | null>(null);
+  /** Keep these words ('' or null = back to the words written from the day). The row says a refusal itself. */
+  const commit = async (value: string | null): Promise<SaveAnswer> => {
     const r = postEventSetWords(arrangement, scene, part, value);
-    if (!r) return;
-    if ('refused' in r) {
-      setError(`Keep it under ${max} characters.`);
-      return;
-    }
-    save({ editorial: r });
-  };
-  const fieldClass =
-    'mt-1 block min-h-11 w-full rounded-md bg-white px-2.5 py-2 text-[15px] text-ink shadow-[inset_0_0_0_1px_rgba(30,34,41,0.15)]';
-  const onBlur = () => {
-    if (text.trim() !== saved) commit(text);
+    if (!r) return { ok: true };
+    if ('refused' in r) return { ok: false, error: `Keep it under ${max} characters.` };
+    return save({ editorial: r }, {}, true);
   };
   return (
-    <div className="border-b border-ink/[0.07] py-2.5" data-post-event-words={part}>
-      <label className="block text-[12.5px] text-ink/60">
-        {HUB_ELEMENT_LABEL[part]}
-        {part === 'body' ? (
-          <textarea
-            value={text}
-            maxLength={max}
-            rows={4}
-            placeholder="The words written from your day"
-            onChange={(e) => setText(e.target.value)}
-            onBlur={onBlur}
-            className={fieldClass}
-          />
-        ) : (
-          <input
-            type="text"
-            value={text}
-            maxLength={max}
-            placeholder="The words written from your day"
-            onChange={(e) => setText(e.target.value)}
-            onBlur={onBlur}
-            className={fieldClass}
-          />
-        )}
-      </label>
-      <p className="pt-1 text-[12px] text-ink/60">
-        {saved ? 'Written from what happened · edited by you' : 'Written from what happened'}
-        {saved ? (
-          <button
-            type="button"
-            disabled={pending}
-            onClick={() => {
-              setText('');
-              commit(null);
-            }}
-            className="ml-2 inline-flex min-h-11 items-center gap-1 font-semibold text-ink/75 underline-offset-2 hover:underline"
-          >
-            <RotateCcw aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-            use the written line
-          </button>
-        ) : null}
-      </p>
-      {error ? (
-        <p role="alert" className="text-[12.5px] font-semibold text-terracotta-700">
-          {error}
-        </p>
-      ) : null}
+    <div data-post-event-words={part}>
+      <FormRows data="post-event-words">
+        <TypedRow
+          data={`words-${part}`}
+          name={name}
+          value={saved}
+          /* Empty, the pill says what guests read: the words written from the day. */
+          empty="Written from your day"
+          placeholder="The words written from your day"
+          long={part === 'body'}
+          maxLength={max}
+          note={saved ? 'Written from what happened · edited by you' : 'Written from what happened'}
+          onKeep={(text) => {
+            setProblem(null);
+            return commit(text);
+          }}
+          below={
+            <>
+              {saved ? (
+                <div className="flex justify-end pb-2" data-post-event-words-reset="">
+                  <ActionButton
+                    tone="neutral"
+                    quiet
+                    icon={RotateCcw}
+                    label="Use the written line"
+                    disabled={pending}
+                    onClick={() => {
+                      setProblem(null);
+                      void commit(null).then((r) => {
+                        if (!r.ok) setProblem(`${name} did not save. ${r.error}`);
+                      });
+                    }}
+                  />
+                </div>
+              ) : null}
+              {problem ? (
+                <p role="alert" className="pb-2.5 pl-0.5 text-[12.5px] font-semibold text-danger-700">
+                  {problem}
+                </p>
+              ) : null}
+            </>
+          }
+        />
+      </FormRows>
     </div>
   );
 }

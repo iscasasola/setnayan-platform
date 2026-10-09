@@ -31,14 +31,17 @@ import { isStoreShellRequest } from '@/lib/request-platform';
 import { INVITE_THEMES, normalizeThemeId, themeBackgroundName } from '@/lib/invite-themes';
 import { boardSiteColours, buttonFallback, dressedTheme, themeColours } from '@/lib/theme-colours';
 import { hubMainGround, hubMovingBackgroundIds, isHubMainChoice, isHubMainOwn, sanitizeHubCanvas } from '@/lib/hub-canvas';
+import { hubMusicButton } from '@/lib/hub-music-button';
 import { resolveThemeGround } from '@/app/[slug]/_lib/theme-ground';
 import { guestLookFrom, type EventShellRow } from '@/app/[slug]/_lib/loaders';
 import { hubButtonPage } from '@/lib/hub-buttons';
 import { resolveHero } from '@/lib/event-hero';
 import { MiniTour } from '@/app/_components/mini-tour';
+import { siteSkin } from '@/app/[slug]/_components/skins/site-skin';
 /* ⚡ The Main background's panel and its hero-colour sync load with the Details pieces — never with the Maker (`details-lazy.tsx`). */
-import { ButtonsLookRow, ColorsPanel, HeroFrameSync, MainBackgroundPanel, ProLockPanel } from '../../launch/_components/details-lazy';
+import { ButtonsLookRow, ColorsPanel, HeroFrameSync, LookSample, MainBackgroundPanel, ProLockPanel } from '../../launch/_components/details-lazy';
 import { HUB_TRANSITION_LABEL, resolveTransition } from '@/lib/hub-scenes';
+import { SCRUB_OUT_OFFERED, offeredTransition } from '@/lib/scrub-out-offered';
 /* 🔴 `done`/`todo` come from `rail-rows.ts`, NOT from `editor-shell.tsx`. That
    file is `'use client'`, and calling a client export from this server page is
    what returned a 500 for the whole editor (production 2026-09-23, digest
@@ -72,6 +75,7 @@ import { updateOurPhotos } from '../our-photos/actions';
 import { updateSiteChrome } from '../site-chrome/actions';
 import { updateLandingPageVisibility } from '../privacy/actions';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { fetchHubMusicChoices } from '@/lib/hub-music-server';
 import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { SectionsPanel } from './_components/sections-panel';
 import {
@@ -94,6 +98,7 @@ import type { LoveStoryBlob } from '../our-story/_components/story-fields';
 import { loveStoryRowStatus } from '../our-story/_components/love-story-status';
 import { paletteSwatches } from '@/lib/site-palette';
 import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
+import { mainColoursOf } from '@/lib/main-colours';
 import { updateDressCode } from '../../studio/mood-board/dress-code-actions';
 import { foldEventRoles, normalizeDressCodeConfig } from '../../studio/mood-board/_components/dress-code-fields';
 import { incDressCodeStarter } from '../../studio/mood-board/_components/inc-dress-code-starter';
@@ -200,7 +205,7 @@ export default async function WebsiteEditorPage({
   const { data: event, error: eventError } = await supabase
     .from('events')
     .select(
-      `event_id, display_name, slug, event_type, event_date, event_end_date, timezone, venue_name, venue_address, landing_page_visibility, ticket_url, std_launched_at, scheduled_launch_at, website_open_browse, launch_mode, manual_phase, love_story, our_photos, site_bg_music_r2_key, landing_page_hero_image_url, site_art_direction, site_bg_color, site_button_color, site_button_style, site_font_key, site_magic_traveller, special_message, what_to_bring, site_bg_music_enabled, landing_page_hero_video_r2_key, couple_media_bytes, dress_code_config, photo_moments_config, role_palette, std_reveal_template, std_theme, std_background, invite_theme, std_invitation_launch_date, rsvp_backdrop, bride_name, print_details, gifts_on, ${SECTION_CONTENT_EVENT_COLUMNS}`,
+      `event_id, display_name, slug, event_type, event_date, event_end_date, timezone, venue_name, venue_address, landing_page_visibility, ticket_url, std_launched_at, scheduled_launch_at, website_open_browse, launch_mode, manual_phase, love_story, our_photos, site_bg_music_r2_key, landing_page_hero_image_url, site_art_direction, site_bg_color, site_button_color, site_button_style, site_font_key, site_roles, site_magic_traveller, special_message, what_to_bring, site_bg_music_enabled, landing_page_hero_video_r2_key, couple_media_bytes, dress_code_config, photo_moments_config, role_palette, std_reveal_template, std_theme, std_background, invite_theme, std_invitation_launch_date, rsvp_backdrop, bride_name, print_details, gifts_on, ${SECTION_CONTENT_EVENT_COLUMNS}`,
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -348,11 +353,15 @@ export default async function WebsiteEditorPage({
     );
     return out;
   };
-  const [heroDisplay, galleryDisplay, chromeDisplay, stdBgDisplay] = await Promise.all([
+  const [heroDisplay, galleryDisplay, chromeDisplay, stdBgDisplay, ourMusic] = await Promise.all([
     displayFor([heroRef]),
     displayFor([...new Set([...galleryRefs, ...panelGalleryRefs])]),
     displayFor([musicRef, videoRef, panelMusicRef, panelVideoRef]),
     displayFor([stdBgRef]),
+    // 🎵 Look › Music › Our music — the published tracks (owner 2026-10-08).
+    // A refused read is `{ ok: false }`, drawn as "couldn't load", never as none.
+    /* ⚡ The same list for every couple: a cached read (`HUB_MUSIC_TAG`), not one per Maker render. */
+    fetchHubMusicChoices(),
   ]);
 
   /* 💾 THE 100 MB ALLOWANCE, shown where the uploads happen (Upload media on a
@@ -499,6 +508,8 @@ export default async function WebsiteEditorPage({
      is HIDDEN in the store shell (never shown locked there). */
   const mainLive = hubMainGround(liveWidgets.find((r) => r.widget_type === 'hero')?.config_json);
   const mainNow = hubMainGround(allWidgets.find((r) => r.widget_type === 'hero')?.config_json);
+  /* 🎵 The guest's music button design — the same row, the same draft-over-live read. */
+  const musicButtonNow = hubMusicButton(allWidgets.find((r) => r.widget_type === 'hero')?.config_json);
   const draftedHero = resolveHero(overlayHubDraftEvent(event as Record<string, unknown>, hubDraft));
   /* What guests see today — a different hero shown is the couple's own edit (`lib/hero-frame-sync.ts`). */
   const liveHeroRef = resolveHero(event as Record<string, unknown>).photoRef;
@@ -698,6 +709,24 @@ export default async function WebsiteEditorPage({
   const heroLocked = draftedRowLockedIf(Boolean(heroRef));
   const backdropLocked = draftedRowLockedIf(Boolean(rsvpBackdrop));
 
+  /* 🎬 THE HERO VIDEO's uploader — built ONCE. It is the `hero-video` row (Look › Background) and, in the new
+     Maker's Studio, the same node is drawn by the Background's "Your photo or video" source (`heroVideo`);
+     Look never mounts both (`LookPanel`). */
+  const heroVideoPanel = musicLocked ? (
+    lockPanel('Your own hero video')
+  ) : (
+    <SiteChromePanel
+      action={updateSiteChrome.bind(null, eventId)}
+      eventId={eventId}
+      part="video"
+      musicRef={panelMusicRef}
+      musicEnabled={panelMusicOn}
+      musicDisplay={chromeDisplay}
+      videoRef={panelVideoRef}
+      videoDisplay={chromeDisplay}
+    />
+  );
+
   const groups: RailGroup[] = [
     {
       key: 'site',
@@ -826,7 +855,22 @@ export default async function WebsiteEditorPage({
                         id,
                         name: themeBackgroundName(id),
                         stillUrl: resolveThemeGround(id, { ownColours: false })?.poster ?? null,
+                        /* 🎞 The loop itself — Studio › Look › Background's Video card plays it, muted, while on screen. */
+                        loopUrl: resolveThemeGround(id, { ownColours: false })?.loop ?? null,
                       }))}
+                      /* 🌈 Studio › Look › Background's Colour source and Shade ▾ (the drafted look over live). */
+                      page={{
+                        bgColor: (drafted.site_bg_color as string | null) ?? null,
+                        resolved:
+                          boardSiteColours((drafted as { role_palette?: unknown }).role_palette)?.background ??
+                          themeColours(mainThemeId, (drafted as { role_palette?: unknown }).role_palette).colours.canvas,
+                        five: boardSiteColours((drafted as { role_palette?: unknown }).role_palette)?.swatches ?? [],
+                        artDirection: (drafted.site_art_direction as 'daylight' | 'candlelight' | null) ?? null,
+                        /* ⚡ A picture's tint leaves the couple's own button colour alone — the panel must know, to draw a pick without a render. */
+                        ownButton: false, // 🔘 the page no longer reads a stored `site_button_color` (owner 2026-10-08)
+                      }}
+                      /* 🎬 …and the hero video's own uploader, drawn there under "Your photo or video". */
+                      heroVideo={heroVideoPanel}
                       photoChoices={photoChoices}
                       videoChoice={videoChoice}
                       sceneUploads={sceneUploads}
@@ -856,6 +900,8 @@ export default async function WebsiteEditorPage({
               eventId={eventId}
               rowKey="font"
               part="font"
+              /* 🔤 The Studio draws four rows here — it needs the other three fonts too (`events.site_roles`). */
+              siteRoles={(drafted as { site_roles?: unknown }).site_roles ?? null}
               themeId={currentThemeId}
               bgColor={(drafted.site_bg_color as string | null) ?? null}
               buttonColor={(drafted.site_button_color as string | null) ?? null}
@@ -900,7 +946,7 @@ export default async function WebsiteEditorPage({
         {
           key: 'colors',
           label: 'Colours',
-          blurb: 'Candlelight and Magic Move.',
+          blurb: 'Candlelight.',
           href: `${w}/colors`,
           /* 🆓 Colours are free (2026-10-05); Candlelight keeps its own ◆ on its control. */
           pro: false,
@@ -913,7 +959,7 @@ export default async function WebsiteEditorPage({
               rowKey="colors"
               part="art"
               proLocked={colorsProLocked}
-              proLock={lockPanel('Candlelight and motion')}
+              proLock={lockPanel('Effects and motion')}
               proMark={proMark}
               themeId={currentThemeId}
               /* 🎨 Blank = the Mood Board's colours — shown AS those colours
@@ -953,7 +999,7 @@ export default async function WebsiteEditorPage({
           return {
             key: 'buttons',
             label: 'Buttons',
-            blurb: 'The shape, fill and colour of every button on your Event Hub.',
+            blurb: 'The shape of every button on your Event Hub.',
             href: `${base}/launch?open=buttons`,
             locked: false,
             panel: (
@@ -987,6 +1033,8 @@ export default async function WebsiteEditorPage({
               musicDisplay={chromeDisplay}
               videoRef={panelVideoRef}
               videoDisplay={chromeDisplay}
+              ourMusic={ourMusic.ok ? ourMusic.choices : null}
+              musicButton={musicButtonNow}
             />
           ),
         },
@@ -1001,20 +1049,7 @@ export default async function WebsiteEditorPage({
           href: `${w}/site-chrome`,
           pro: true,
           locked: musicLocked,
-          panel: musicLocked ? (
-            lockPanel('Your own hero video')
-          ) : (
-            <SiteChromePanel
-              action={updateSiteChrome.bind(null, eventId)}
-              eventId={eventId}
-              part="video"
-              musicRef={panelMusicRef}
-              musicEnabled={panelMusicOn}
-              musicDisplay={chromeDisplay}
-              videoRef={panelVideoRef}
-              videoDisplay={chromeDisplay}
-            />
-          ),
+          panel: heroVideoPanel,
         },
       ],
     },
@@ -1330,7 +1365,8 @@ export default async function WebsiteEditorPage({
     mode: (row.mode ?? 'auto') as MakerScene['mode'],
     isVisible: row.is_visible,
     hasContent: sectionContent[row.widget_type] !== false,
-    transitionLabel: HUB_TRANSITION_LABEL[resolveTransition(sanitizeHubCanvas(row.config_json))],
+    /* 🌑 On the server only the constant speaks (never the lab's browser door): a stored Scrub reads as Scroll. */
+    transitionLabel: HUB_TRANSITION_LABEL[offeredTransition(resolveTransition(sanitizeHubCanvas(row.config_json)), SCRUB_OUT_OFFERED)],
   }));
   /* 🧭 THE NAVIGATOR FOLLOWS THE PAGE (owner 2026-09-25: *"why does the slides
      not follow the sequence alotted"*). For each stage, what the canvas draws,
@@ -1536,6 +1572,55 @@ export default async function WebsiteEditorPage({
         reveal: <MakerRevealPanel eventId={eventId} ownsPro={ownsPro} storeShell={storeShell} part="settings" />,
         'reveal-options': <MakerRevealPanel eventId={eventId} ownsPro={ownsPro} storeShell={storeShell} part="options" />,
         logo: <MakerLogoPanel eventId={eventId} storeShell={storeShell} />,
+        /* 🪟 STUDIO › LOOK'S SAMPLE SCREEN (owner 2026-10-08, DECISION_LOG "THE LOOK PREVIEW IS A SAMPLE OF WHAT IS
+           BEING EDITED"): the header text and the two buttons, on the real background, drawn in the browser — Look
+           mounts no guest-page frame. Handed the drafted values this page ALREADY read (no read is added): the look
+           columns, the main background, and the addresses the Background panel was given for its cards. */
+        'look-sample': (
+          <LookSample
+            seed={{
+              eventId,
+              themeId: mainThemeId,
+              /* The theme's own faces, as the guest layout wears them (`lookScopeProps`) — class names only. */
+              fontClassName: siteSkin(mainThemeId, { accent: '#000000' })?.className ?? '',
+              row: {
+                role_palette: (drafted as { role_palette?: unknown }).role_palette ?? null,
+                site_bg_color: (drafted.site_bg_color as string | null) ?? null,
+                site_button_color: (drafted.site_button_color as string | null) ?? null,
+                site_button_style: (drafted as { site_button_style?: string | null }).site_button_style ?? null,
+                site_font_key: (drafted as { site_font_key?: string | null }).site_font_key ?? null,
+                site_art_direction: (drafted.site_art_direction as 'daylight' | 'candlelight' | null) ?? null,
+                site_roles: (drafted as { site_roles?: unknown }).site_roles ?? null,
+              },
+              main: mainNow,
+              coverRef: draftedHero.photoRef,
+              sources: {
+                loops: hubMovingBackgroundIds().map((id) => ({
+                  id,
+                  stillUrl: resolveThemeGround(id, { ownColours: false })?.poster ?? null,
+                  loopUrl: resolveThemeGround(id, { ownColours: false })?.loop ?? null,
+                })),
+                photoChoices,
+                videoChoice,
+                sceneUploads,
+                cover: heroPhotoUrl,
+                themeId: mainThemeId,
+                /* A background uploaded in the panel is in none of the lists — its still is the one this page signed for it. */
+                stored:
+                  isHubMainOwn(mainNow) && mainOverrideStillUrl
+                    ? { ref: mainNow.kind === 'photo' ? mainNow.media : (mainNow.poster ?? mainNow.media), url: mainOverrideStillUrl }
+                    : null,
+              },
+              words: {
+                names: (drafted.display_name as string | null) ?? null,
+                date: drafted.event_date ? formatEventDate(drafted.event_date as string) : null,
+                line: (event.venue_name as string | null) ?? null,
+              },
+              musicOn: panelMusicOn,
+              musicButton: musicButtonNow,
+            }}
+          />
+        ),
         /* 💌 Love Story's own page (the scrapbook) moved INTO Details — Story &
            plans › Love Story, drawn by the launch page (Details part 2b). */
       }}
@@ -1567,7 +1652,15 @@ export default async function WebsiteEditorPage({
            Board over the theme (`themeColours`, owner 2026-10-05). */
         palette: (() => {
           const { colours: pal } = themeColours(currentThemeId, (drafted as { role_palette?: unknown }).role_palette);
-          return { ink: pal.ink, heading: pal.heading, accent: pal.accent, muted: pal.muted, surface: pal.surface };
+          return {
+            ink: pal.ink,
+            heading: pal.heading,
+            accent: pal.accent,
+            muted: pal.muted,
+            surface: pal.surface,
+            /* 🎨 The five main colours, in slot order — the one colour picker's "Your Mood Board" shelf (owner 2026-10-08). */
+            board: mainColoursOf((drafted as { role_palette?: unknown }).role_palette, currentThemeId),
+          };
         })(),
         draftAction: hubDraftAction,
         /* 🔤 "In use" on every font dropdown (owner 2026-09-29: "actively
@@ -1600,6 +1693,9 @@ export default async function WebsiteEditorPage({
          — the same choices the old server panel was given. Animate has no lock
          any more: a couple without Pro tries it, and Apply asks (2026-09-28). */
       sceneFormat={{
+        /* 👗 Read again, never `dressCodeConfig`: that one carries the INC starter and a filled-in palette for
+           the old panel's form — writing it back would store words the couple never wrote. */
+        dressCode: normalizeDressCodeConfig((drafted as { dress_code_config?: unknown }).dress_code_config),
         colorChoices,
         photoChoices,
         videoChoice,

@@ -7,6 +7,12 @@ import { useMaker } from '../../../launch/_components/maker-context';
 import { parseTicketUrl, TICKET_URL_ERROR_TEXT, TICKET_URL_MAX } from '@/lib/ticket-url';
 import { HubDraftField, HubSavesImmediately } from '../../_components/hub-draft-field';
 import { FileUpload } from '@/app/_components/file-upload';
+/* 🎵 Our music's Song row and list — a lazy door, warmed with the Maker's other pieces (`scene-styles-lazy.tsx`). */
+import { MusicButtonRow, OurMusicSong } from './scene-styles-lazy';
+import { PickMenu } from './pick-menu';
+import { isHubMusicRef, type HubMusicChoice } from '@/lib/hub-music-ref';
+import type { HubMusicButton } from '@/lib/hub-music-button';
+import type { hubDraftAction } from '../../hub-draft-actions';
 import {
   SPATIAL_THEMES,
   type RsvpBackdropConfig,
@@ -57,6 +63,7 @@ function SaveButton({ label = 'Save' }: { label?: string }) {
 }
 
 const PANEL = 'border-t border-dashed border-ink/10 bg-cream/40 p-3';
+
 
 /** Hero photo — the picture at the top of the page. */
 export function HeroPhotoPanel({
@@ -157,6 +164,9 @@ export function SiteChromePanel({
   musicDisplay,
   videoRef,
   videoDisplay,
+  ourMusic,
+  musicButton,
+  draftAction,
 }: {
   action: (formData: FormData) => void | Promise<void>;
   eventId: string;
@@ -166,9 +176,28 @@ export function SiteChromePanel({
   musicDisplay?: Record<string, string>;
   videoRef: string | null;
   videoDisplay?: Record<string, string>;
+  /** 🎵 "Our music" — the published tracks, or `null` when they could not be read. Music part only. */
+  ourMusic?: readonly HubMusicChoice[] | null;
+  /** 🎵 The guest's music button design, the draft over live. Given → the Music part draws the "Music button" row. */
+  musicButton?: HubMusicButton;
+  /** The draft door for that row — the dev lab hands its own stand-in. */
+  draftAction?: typeof hubDraftAction;
 }) {
   const studio = useMaker()?.stagesStudio === true;
   const formRef = useRef<HTMLFormElement>(null);
+  /* 🎵 SOURCE ▾ — Our music · Upload your own (owner 2026-10-08, verbatim: *"Pick a music from our listing or upload
+     your own"* — the second source was first drawn as "Your music"). Which one a song
+     came from is read off the song itself (`isHubMusicRef`); with no song yet
+     it opens on Our music once there is any. Picking a source only changes
+     what is drawn — it writes nothing. */
+  const songIsOurs = isHubMusicRef(musicRef);
+  const [source, setSource] = useState<'ours' | 'yours'>(
+    songIsOurs || (!musicRef && (ourMusic?.length ?? 0) > 0) ? 'ours' : 'yours',
+  );
+  const [pickedTrack, setPickedTrack] = useState<string | null>(null);
+  const [uploaded, setUploaded] = useState(false);
+  const switchRef = useRef<HTMLInputElement>(null);
+  const ourTrack = pickedTrack ?? ourMusic?.find((c) => c.ref === musicRef)?.trackId ?? null;
   /* After React has written the new value into the upload's hidden field. */
   const draftNow = () => void window.requestAnimationFrame(() => formRef.current?.requestSubmit());
   const hint = 'it is added to your draft as soon as it uploads';
@@ -180,24 +209,68 @@ export function SiteChromePanel({
       <ReturnTo eventId={eventId} rowKey={part === 'music' ? 'music' : 'hero-video'} />
       {part === 'music' ? (
         <>
-          <FileUpload
-            bucket="media"
-            pathPrefix={`events/${eventId}/site-music`}
-            name="bg_music_url"
-            unsavedHint={hint}
-            onChange={draftNow}
-            multiple={false}
-            maxSizeMB={20}
-            acceptedTypes={AUDIO_TYPES}
-            currentValue={musicRef}
-            initialDisplayUrls={musicDisplay}
-            label="Background music"
-            help="Plays only when a guest taps the speaker — never on its own."
-          />
+          <div className="flex min-h-11 items-center justify-between gap-3" data-music-source={source}>
+            <p className="shrink-0 text-[0.72rem] font-semibold text-ink/80">Source</p>
+            <PickMenu
+              label="Music source"
+              value={source}
+              dataAttr="data-music-source-pick"
+              options={[
+                { key: 'ours', label: 'Our music', hint: 'Setnayan’s own songs, by mood · free to use' },
+                { key: 'yours', label: 'Upload your own', hint: 'A song from your phone' },
+              ]}
+              onPick={(k) => setSource(k === 'ours' ? 'ours' : 'yours')}
+            />
+          </div>
+          {source === 'ours' ? (
+            <>
+              {/* The form names a TRACK; the server looks its file up. With no
+                  pick to post, `bg_music_keep` lets the switch below be saved
+                  without touching the song in place. */}
+              {ourTrack ? (
+                <input type="hidden" name="bg_music_track" value={ourTrack} />
+              ) : musicRef ? (
+                <input type="hidden" name="bg_music_keep" value="1" />
+              ) : null}
+              <OurMusicSong
+                choices={ourMusic ?? null}
+                currentRef={songIsOurs ? musicRef : null}
+                onPick={(trackId) => {
+                  // A first song is picked to be heard: the switch goes on with it.
+                  if (!musicRef && switchRef.current) switchRef.current.checked = true;
+                  setPickedTrack(trackId);
+                  draftNow();
+                }}
+              />
+            </>
+          ) : (
+            <>
+              {songIsOurs && !uploaded ? <input type="hidden" name="bg_music_keep" value="1" /> : null}
+              <FileUpload
+                bucket="media"
+                pathPrefix={`events/${eventId}/site-music`}
+                name="bg_music_url"
+                unsavedHint={hint}
+                onChange={(value) => {
+                  setUploaded(Boolean(value));
+                  draftNow();
+                }}
+                multiple={false}
+                maxSizeMB={20}
+                acceptedTypes={AUDIO_TYPES}
+                audioGuard
+                currentValue={songIsOurs ? null : musicRef}
+                initialDisplayUrls={musicDisplay}
+                label="Background music"
+                help="Plays only when a guest taps the speaker — never on its own."
+              />
+            </>
+          )}
           {/* 🔀 The Studio draws it as a switch (owner 2026-10-08) — the SAME `bg_music_enabled` checkbox, its
               look in the Studio's server-drawn CSS (`studioFullScreenCss`), so the Maker's first load carries no styles for it. */}
           <label className="mt-2 flex items-center gap-2 text-xs text-ink/70" data-music-switch={studio ? '' : undefined}>
             <input
+              ref={switchRef}
               type="checkbox"
               role={studio ? 'switch' : undefined}
               name="bg_music_enabled"
@@ -207,6 +280,10 @@ export function SiteChromePanel({
             />
             Play music on my Event Hub
           </label>
+          {/* 🎵 The button a guest taps, in three designs — its own held draft write, never this form's. */}
+          {musicButton ? (
+            <MusicButtonRow eventId={eventId} design={musicButton} hasSong={Boolean(musicRef) || pickedTrack !== null || uploaded} draftAction={draftAction} />
+          ) : null}
         </>
       ) : (
         <FileUpload

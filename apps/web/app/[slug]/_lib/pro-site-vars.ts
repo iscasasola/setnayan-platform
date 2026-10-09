@@ -85,7 +85,11 @@ export function proSiteVarsFor(
   // 🎨 AND THE BUTTON COLOUR, since 2026-09-28 (owner: *"free to change …
   // color, background color, only when you start adding themes will it be
   // pro"*) — built in the same call as the background, for every event.
-  const bgVars = buildCustomSiteColorVars(bgHex, (event.site_button_color as string | null) ?? null);
+  /* 🔘 ONE SOURCE FOR THE BUTTONS' COLOUR (owner 2026-10-08, round 3: *"button color will be taken from their 5
+     palette"*): a colour stored before that ruling (`events.site_button_color`) is NO LONGER READ — the buttons wear
+     the palette's Accent, as the page deepens it. The column stays (no migration); nothing offers it any more.
+     Measured on production the day this changed: 0 of 16 events held one. */
+  const bgVars = buildCustomSiteColorVars(bgHex, null);
   if (bgVars) {
     Object.assign(proSiteVars, bgVars);
     if (bgHex) {

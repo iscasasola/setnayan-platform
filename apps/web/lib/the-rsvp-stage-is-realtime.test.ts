@@ -251,7 +251,9 @@ test('E · every save the RSVP stage makes is held, batched, and asks for the ba
   assert.match(branch, /\{ held: true, ok: \(r\) => r !== SUPERSEDED && r\.ok === true \}/, 'the stage save is not held');
   assert.match(branch, /fd\.set\(HUB_DRAFT_BAR_FIELD, '1'\)/, 'the Apply count must come back with the save');
   /* The reply-by field is the shared `ReplyBy` part (2026-10-07) — the Maker's stage mounts it. */
-  assert.match(panel, /<ReplyBy\s+layout="stack"/, 'the stage no longer mounts the reply-by field');
+  /* …as the first of the reply's rows — the app's date row, framed (2026-10-08, the templates; it was `layout="stack"`). */
+  assert.match(panel, /<ReplyBy\s+layout="frame"\s+frame=\{replyByFrame\}/, 'the stage no longer mounts the reply-by field');
+  assert.match(panel, /data-rsvp-stage-controls="form">\s*\{formRows\}/, 'the stage’s form does not draw the reply’s rows');
   const part = read('app/dashboard/[eventId]/_components/guest-setup/reply-by.tsx');
   const liveAt = part.indexOf('export function ReplyBy(');
   const live = part.slice(liveAt, part.indexOf('\nexport function ', liveAt + 1));

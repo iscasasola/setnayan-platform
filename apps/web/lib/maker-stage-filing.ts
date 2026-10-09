@@ -25,6 +25,23 @@
  * of this stage names stays on the page the shipped page files it on (`anchorOfTile`, the navigator's own rule) —
  * never stranded on a page nobody can open (`hubTabFor`).
  *
+ * ── …AND THE GUEST'S PAGE ASKS IT TOO ───────────────────────────────────────
+ * Owner, 2026-10-08 (DECISION_LOG "EIGHT OWNER ANSWERS", answer 5), asked whether the guest's page should change to
+ * match the Maker's filing — Countdown on Welcome in the Maker, on Details on a guest's phone: *"yes"*.
+ * `readerPageOf` is a READER's page for a part. Both it and `makerStagesPageOf` read `prototypePageOf`, so a part
+ * the prototype names can never again be on one page for the couple and on another for their guest:
+ *
+ *   1. the prototype's page for it (`prototypePageOf`, on the Maker's own page list) — when THIS reader's bar has
+ *      that tab;
+ *   2. otherwise the tab the page itself asks for (`want`, where the part stood before this ruling), on the nearest
+ *      tab the reader's bar HAS: `hubTabFor` — the nearest tab at or above it in `HUB_TAB_ORDER`
+ *      (live · home · details · story · gallery · me), failing that the bar's first tab.
+ *
+ * A reader's tabs stay the tabs of their OWN bar (`inPageTabs`): a tab with nothing behind it for that reader is
+ * not drawn (no Our Love Story while the story is unwritten, no Me for a reader without a key), so step 2 is what
+ * keeps a part from being dropped or stranded — it stays where that reader meets it today. A key no part of the
+ * stage names (the checklist, the song request, the scan-trail switch) has no step 1: it is not moved at all.
+ *
  * Pure. No React, no DOM, no I/O. ⚠ Read by the canvas (a server component), the Stages tools (lazy) and tests —
  * NEVER import it from a file on the Maker's first load (`check-maker-js-budget.mjs`).
  */
@@ -67,13 +84,66 @@ const STAGES_OWN_PAGE: Readonly<Record<string, string>> = { 'f:pass': 'me' };
  * keys, in order — `makerStagesPages(stage).map((p) => p.key)`.
  */
 export function makerStagesPageOf(stage: LifecyclePhase, key: string, pages: readonly string[]): string {
-  /* The prototype's page for it: the first page whose parts name this canvas key. */
+  /* No part names it: where the shipped page files it, on the nearest page this stage has. */
+  return prototypePageOf(stage, key, pages) ?? hubTabFor(anchorOfTile(key, stage === 'event'), pages);
+}
+
+/**
+ * THE PROTOTYPE'S PAGE FOR A KEY — the first page of `pages` whose parts name this canvas key (`MAKER_STAGE_PAGES`),
+ * or the one page it has all the same (`STAGES_OWN_PAGE`). Null: no part of this stage names it. The ONE reading
+ * both the Maker's canvas (`makerStagesPageOf`) and a reader's page (`readerPageOf`) file by.
+ */
+export function prototypePageOf(stage: LifecyclePhase, key: string, pages: readonly string[]): string | null {
   const claimed = pages.find((p) => makerPartsOnPage(stage, p).some((k) => makerPartCanvasOn(stage, k) === key));
   if (claimed) return claimed;
   const own = STAGES_OWN_PAGE[key];
-  if (own && pages.includes(own)) return own;
-  /* No part names it: where the shipped page files it, on the nearest page this stage has. */
-  return hubTabFor(anchorOfTile(key, stage === 'event'), pages);
+  return own && pages.includes(own) ? own : null;
+}
+
+/**
+ * 📱 A READER'S PAGE FOR A PART (owner 2026-10-08, answer 5 — see the docblock). `tabs` are the tabs of the reader's
+ * own bar (`inPageTabs`), `makerPages` the Maker's page keys for this stage (`makerStagesPages`), `want` the tab the
+ * page asks for when the prototype's page is not one of this reader's.
+ */
+export function readerPageOf(stage: LifecyclePhase, key: string, want: string, tabs: readonly string[], makerPages: readonly string[]): string {
+  const page = prototypePageOf(stage, key, makerPages);
+  return page !== null && tabs.includes(page) ? page : hubTabFor(want, tabs);
+}
+
+/**
+ * THE PAGE A PART ASKS FOR, WHOEVER READS — the prototype's page, else the page's own ask. What a reader's bar is
+ * resolved FROM (a Details or a Welcome tab is drawn only when something asks for it), so it never reads that bar.
+ */
+export function ownPageOf(stage: LifecyclePhase, key: string, want: string, makerPages: readonly string[]): string {
+  return prototypePageOf(stage, key, makerPages) ?? want;
+}
+
+/**
+ * 🗂 A READER'S SCENES, IN THREE RUNS — every scene in exactly one, the couple's order kept inside each:
+ *
+ *   lead   the stage's first page's own scenes (the Invitation's Welcome: Countdown · Message — prototype `TABS`),
+ *          drawn up with the cover, around the greeting;
+ *   here   the scenes that stay with the page's own sections (its Details; on the day, Live);
+ *   away   the scenes on another tab of this reader's bar (the day's venue on Welcome).
+ *
+ * `on` false — a page that is one scroll, or the Maker's Stages canvas, which files by its own list — and every
+ * scene is `here`, as before this ruling. `tabOf` is the reader's tab for a scene (`readerPageOf`), `ownOf` the page
+ * it asks for whoever reads (`ownPageOf`); `leadTab` is null on a stage whose first page keeps no scenes of its own
+ * up with the cover (The Day: the programme stays with Live's sections).
+ */
+export function fileScenes<T>(input: {
+  scenes: readonly T[];
+  on: boolean;
+  leadTab: string | null;
+  hereTab: string;
+  tabOf: (scene: T) => string;
+  ownOf: (scene: T) => string;
+}): { lead: T[]; here: T[]; away: T[] } {
+  const { scenes, on, leadTab, hereTab, tabOf, ownOf } = input;
+  if (!on) return { lead: [], here: [...scenes], away: [] };
+  const lead = leadTab === null ? [] : scenes.filter((w) => ownOf(w) === leadTab && tabOf(w) === leadTab);
+  const rest = scenes.filter((w) => !lead.includes(w));
+  return { lead, here: rest.filter((w) => tabOf(w) === hereTab), away: rest.filter((w) => tabOf(w) !== hereTab) };
 }
 
 /** The canvas key each Welcome part is marked with (`guest-welcome.tsx` `mark(…)`; the day's two are the section's own). */

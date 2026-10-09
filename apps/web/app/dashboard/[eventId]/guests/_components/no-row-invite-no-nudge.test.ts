@@ -34,6 +34,7 @@ test('the row component draws no Invite and no Nudge', () => {
   assert.ok(row.length > 200, 'GuestRowLine moved — re-aim this guard');
   assert.doesNotMatch(row, /label="Invite"|label=\{`Invite|Nudge|Remind|\bBell\b|\bMail\b/, 'a row has an Invite or Nudge again');
   // The one Invite is the Select mode's bulk row, into the run.
-  assert.match(SCREEN, /label=\{`Invite \$\{selected\.size\}`\}/);
-  assert.match(SCREEN, /router\.push\(`\/dashboard\/\$\{eventId\}\/guests\/send\?ids=\$\{invitable\.map/, 'Invite N does not land in the one-by-one run');
+  assert.match(SCREEN, /label=\{selected\.size === 0 \? 'Invite' : `Invite \$\{selected\.size\}`\}/);
+  // ⤷ 2026-10-09: the door is `sendRunHref` (the app's is /guests/send?ids=…; the dev lab hands in its own run).
+  assert.match(SCREEN, /router\.push\(sendRunHref\(eventId, invitable\.map/, 'Invite N does not land in the one-by-one run');
 });

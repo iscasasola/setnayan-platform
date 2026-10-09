@@ -1,15 +1,21 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Check } from 'lucide-react';
-import { STUDIO_DONE_BUTTON, STUDIO_HEAD_ROW, STUDIO_TOOL_PILL } from '@/lib/studio-skin';
-import { ISeg, ISegmented } from '../../website/editor/_components/inspector-kit';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { Check, ChevronDown } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { useOneOpen } from '@/lib/one-open';
+import { pickOptionClass, pickTickClass, pickTrailClass } from '../../website/editor/_components/pick-menu-place';
+import { inertBehind, popupClearRect, popupHolePath } from '@/lib/popup-behind';
+import { useModalA11y } from '@/lib/use-modal-a11y';
+import { ISegmented, iSegClass } from '../../website/editor/_components/inspector-kit';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import type { PickOption } from '../../website/editor/_components/pick-menu-types';
 import { MAKER_LT_SIZE_KEY, MAKER_LT_TAP_PX, makerLtClampPx, makerLtStoredPx, makerLtTapPx } from '@/lib/maker-lt-size';
 import type { StudioTileKey, StudioTileModel } from '@/lib/studio-tiles';
-import { MAKER_SIDE_LABEL, type MakerSide } from './maker-bar';
-import { StudioHome } from './studio-home';
+import { MAKER_STAGE_KEYS, type MakerStageKey } from '@/lib/maker-parts';
+import { MAKER_SIDE_LABEL, makerStageLabel, type MakerSide } from './maker-bar';
+import { StageItemMenu, type StagePageOption } from './stage-item-menu';
+import { StudioHome, TILE_ICON } from './studio-home';
 
 /**
  * 🧭 THE NEW MAKER'S PARTS — "Stages | Studio" (owner 2026-10-06; plan
@@ -21,20 +27,253 @@ import { StudioHome } from './studio-home';
  * keeps the state; these only draw it. 🔒 Nothing here writes to the event.
  */
 
-/** Stages | Studio — ONE segmented control in the top nav (sections = one `ISegmented`, INTERACTION_RULES §8). */
-export function StudioSideSwitch({ side, onPick }: { side: MakerSide; onPick: (side: MakerSide) => void }) {
+/**
+ * What a half writes, in the order it tries them until its words fit: its name → the same, tighter → (a page with
+ * one) its short name → the same, tighter → the side's plain word. Never a cut name, never two lines. A stage has no
+ * short name; the plain word is the last resort of a screen narrower than any phone the bar is drawn for.
+ */
+export type StudioHalfStep = { words: string; tight: boolean };
+export function studioHalfSteps(name: string, short: string | undefined, word: string): readonly StudioHalfStep[] {
+  const said: string[] = [];
+  for (const w of [name, short, word]) if (w && !said.includes(w)) said.push(w);
+  /* The plain word is as short as a half gets: it is written once, at its own size. */
+  return said.flatMap((words) => (words === word ? [{ words, tight: false }] : [{ words, tight: false }, { words, tight: true }]));
+}
+
+/** A half's accessible name: where you are (on the half you are on), and what a tap does. */
+export function studioHalfLabel(kind: 'stage' | 'page', name: string | null): string {
+  if (kind === 'stage') return name ? `Stage: ${name} — choose a stage` : 'Stages — choose a stage';
+  return name ? `Studio page: ${name} — choose a page` : 'Studio pages — choose a page';
+}
+
+/** The stage on screen, when the shell's pick is one of the five (it is, on the Stages side). */
+function stageOf(pick: string | undefined): MakerStageKey | null {
+  return pick !== undefined && (MAKER_STAGE_KEYS as readonly string[]).includes(pick) ? (pick as MakerStageKey) : null;
+}
+
+/**
+ * Stages | Studio — ONE segmented control in the top nav (sections = one `ISegmented`, INTERACTION_RULES §8), and
+ * 🧭 BOTH HALVES ARE DROPDOWNS (owner 2026-10-08, on the prototype `public/review/studio-head-prototype.html`:
+ * *"studio is not showing drop down"* · *"Stages and Studio both has dropdown"* · *"keep selector always balanced in
+ * width no matter what is pressed?"*; before that: *"make the top nav show where we are at"* · *"what if we just
+ * replace the Studio with a chevron? since that is a drop down"* · *"and we just change that name of the studio"*).
+ *
+ *   in a stage          [ Invitation ▾ | Studio ▾ ]
+ *   in a Studio page    [ Stages ▾ | Love Story ▾ ]
+ *
+ *   · THE HALF YOU ARE ON reads the name of where you are and is the picked half (`aria-pressed`, the accent, the one
+ *     thumb); the other reads the plain word. Both carry a ▾.
+ *   · A TAP ON EITHER HALF OPENS THAT SIDE'S LIST — the five stages (`StageItemMenu`'s own sheet: one list of stages),
+ *     this event's Studio pages (each with its mark, its line and Ready / Missing). A ▾ never changes side by itself:
+ *     a PICK takes you there. The item on screen is ticked only in the list of the side you are on.
+ *   · THE TWO HALVES ARE ALWAYS THE SAME WIDTH and the pill fills its place — nothing in the bar moves when a stage or
+ *     a page changes, and the thumb travels exactly one half. A name never truncates and never wraps: it tightens,
+ *     then (a page) writes its short name (`studioHalfSteps`); measured on the phone, again on a resize.
+ */
+export function StudioSideSwitch({
+  side,
+  onPick,
+  stage,
+  options = [],
+  onStage,
+  page = null,
+  tiles = [],
+  onOpen,
+}: {
+  side: MakerSide;
+  /** Change side — the shell's `pickSide`. Called only with a pick from the other side's list. */
+  onPick: (side: MakerSide) => void;
+  /** The shell's pick: on the Stages side, the stage on screen. */
+  stage?: string;
+  /** Every stage's pages, as the shell's Page ▾ lists them — what the list of stages counts and opens. */
+  options?: readonly StagePageOption[];
+  /** A stage's page picked — the shell's own Page ▾ door (`pickPage`). */
+  onStage?: (key: string) => void;
+  /** The Studio page that is open — null on the Stages side. */
+  page?: StudioTileModel | null;
+  /** The pages this event draws (`lib/studio-tiles.ts`), in their order. */
+  tiles?: readonly StudioTileModel[];
+  /** Open a Studio page — the shell's `openStudio` (it changes side itself). */
+  onOpen?: (key: StudioTileKey) => void;
+}) {
+  const [list, setList] = useState<'stages' | 'pages' | null>(null);
+  const shut = (which: 'stages' | 'pages') => setList((l) => (l === which ? null : l));
+  useOneOpen(list === 'pages', () => shut('pages'));
+  const onStages = side === 'stages';
+  const stageKey = stageOf(stage);
+  const here = !onStages && page ? page : null;
   return (
-    <ISegmented label="Stages or Studio">
-      {(['stages', 'studio'] as const).map((k) => (
-        <ISeg key={k} tone="wine" on={side === k} data={k} onClick={() => onPick(k)}>
-          {MAKER_SIDE_LABEL[k]}
-        </ISeg>
-      ))}
-    </ISegmented>
+    <>
+      <ISegmented label="Stages or Studio">
+        <StudioHalf
+          kind="stage"
+          on={onStages}
+          name={onStages && stageKey ? makerStageLabel(stageKey as never) : null}
+          expanded={list === 'stages'}
+          onPress={() => setList((l) => (l === 'stages' ? null : 'stages'))}
+        />
+        <StudioHalf kind="page" on={!onStages} name={here?.label ?? null} short={here?.short} expanded={list === 'pages'} onPress={() => setList((l) => (l === 'pages' ? null : 'pages'))} />
+      </ISegmented>
+      {/* THE FIVE STAGES — the Stages panel's own list and sheet, with no button of its own here. */}
+      <StageItemMenu
+        bar={{ open: list === 'stages', onClose: () => shut('stages'), here: onStages }}
+        options={options}
+        /* From Studio no stage is on screen: every row is then a pick that goes through `onPick` below. */
+        stage={onStages && stageKey ? stageKey : MAKER_STAGE_KEYS[0]!}
+        page={null}
+        rsvpScreen="form"
+        onPick={(key) => {
+          /* A pick from the Studio side takes you to the Stages side, at that stage. */
+          if (!onStages) onPick('stages');
+          onStage?.(key);
+        }}
+        onRsvpScreen={() => {}}
+      />
+      {/* THIS EVENT'S STUDIO PAGES — the dropdown's own rows (its looks: `pick-menu-place.ts`), in the Maker's one sheet. */}
+      {list === 'pages' && typeof document !== 'undefined'
+        ? createPortal(
+            <MakerSheet label="Studio pages" onClose={() => shut('pages')}>
+              <ul role="listbox" aria-label="Studio pages" data-pick-side="sheet" className="p-0.5">
+                {studioChooserOptions(tiles).map((o) => {
+                  const on = o.key === here?.key;
+                  return (
+                    <li key={o.key} role="none">
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={on}
+                        data-pick-option={o.key}
+                        onClick={() => {
+                          shut('pages');
+                          if (!on) onOpen?.(o.key as StudioTileKey);
+                        }}
+                        className={pickOptionClass(Boolean(o.hint), on)}
+                      >
+                        {o.icon ? (
+                          <span aria-hidden className="inline-flex shrink-0">
+                            {o.icon}
+                          </span>
+                        ) : null}
+                        <span className="min-w-0">
+                          <span className="block font-semibold">{o.label}</span>
+                          {o.hint ? <span className="block text-[12px] font-medium leading-snug opacity-75">{o.hint}</span> : null}
+                        </span>
+                        {o.trail ? (
+                          <span data-pick-trail={o.trail.tone} className={pickTrailClass(o.trail.tone, false)}>
+                            <span aria-hidden>{o.trail.text}</span>
+                            {o.trail.label ? <span className="sr-only">{o.trail.label}</span> : null}
+                          </span>
+                        ) : null}
+                        {on ? (
+                          <span aria-hidden data-pick-tick="" className={pickTickClass(false, Boolean(o.trail))}>
+                            ✓
+                          </span>
+                        ) : null}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </MakerSheet>,
+            document.body,
+          )
+        : null}
+    </>
   );
 }
 
-/** The eleven tools as ONE dropdown (each opening as the one bottom sheet), each with its line and ✓ / Missing. */
+/**
+ * A half's room: the two are ALWAYS the same width (the segment's own `flex-1`, and `min-w-0` so words never widen
+ * one), with 3 px each side of words · ▾. When the half you are on needs more room for its name, BOTH tighten together
+ * (the track is asked, so the two never look different): 2 px each side, and the words half a pixel smaller.
+ */
+const HALF_ROOM =
+  'min-w-0 !gap-0.5 !px-[3px] group-has-[[data-studio-half-tight]]/seg:!px-0.5 group-has-[[data-studio-half-tight]]/seg:!text-[12px]';
+
+/**
+ * ONE HALF — the segment's own look, picked or not (`iSegClass`: the accent and its ink while picked, the thumb's
+ * cue), its words, and ▾ in the same ink. It measures its words before paint and steps down (`studioHalfSteps`) until
+ * they fit; a new name, or a resize, starts from the full name again.
+ */
+function StudioHalf({
+  kind,
+  on,
+  name,
+  short,
+  expanded,
+  onPress,
+}: {
+  kind: 'stage' | 'page';
+  /** This is the side you are on. */
+  on: boolean;
+  /** Where you are on this side — null on the other side: it then reads its plain word. */
+  name: string | null;
+  short?: string;
+  expanded: boolean;
+  onPress: () => void;
+}) {
+  const word = MAKER_SIDE_LABEL[kind === 'stage' ? 'stages' : 'studio'];
+  const steps = studioHalfSteps(name ?? word, name ? short : undefined, word);
+  const of = steps[0]!.words;
+  const [at, setAt] = useState({ of, step: 0, tried: 0 });
+  /* Another name in this half starts from its full name — decided while drawing, so no frame shows the old step. */
+  const step = at.of === of ? Math.min(at.step, steps.length - 1) : 0;
+  const now = steps[step]!;
+  const words = useRef<HTMLSpanElement>(null);
+  useLayoutEffect(() => {
+    const el = words.current;
+    if (!el || el.scrollWidth <= el.clientWidth || step >= steps.length - 1) return;
+    setAt((a) => ({ of, step: step + 1, tried: a.tried }));
+  }, [of, step, steps.length, at.tried]);
+  useEffect(() => {
+    const again = () => setAt((a) => ({ of: a.of, step: 0, tried: a.tried + 1 }));
+    window.addEventListener('resize', again);
+    /* …and once the app's own type has arrived (a name measured in the stand-in face is measured again). */
+    void document.fonts?.ready.then(again);
+    return () => window.removeEventListener('resize', again);
+  }, []);
+  return (
+    <button
+      type="button"
+      aria-pressed={on}
+      aria-haspopup="dialog"
+      aria-expanded={expanded}
+      aria-label={studioHalfLabel(kind, name)}
+      data-seg={kind === 'stage' ? 'stages' : 'studio'}
+      data-studio-half={kind}
+      data-studio-half-tight={now.tight ? '' : undefined}
+      onClick={onPress}
+      className={`${iSegClass(on)} ${HALF_ROOM}`}
+    >
+      <span ref={words} data-studio-half-words="" className="min-w-0 overflow-hidden whitespace-nowrap">
+        {now.words}
+      </span>
+      <ChevronDown aria-hidden className={`h-3 w-3 shrink-0 transition-transform duration-300 motion-reduce:transition-none ${expanded ? 'rotate-180' : ''}`} strokeWidth={2.4} />
+    </button>
+  );
+}
+
+/** A page's rows in a list of pages: its line, and ✓ Ready / Missing as the home's card says it. */
+function tileOption(t: StudioTileModel, withIcon: boolean): PickOption {
+  const Icon = TILE_ICON[t.key];
+  return {
+    key: t.key,
+    label: t.label,
+    hint: t.status,
+    ...(withIcon ? { icon: <Icon aria-hidden className="h-[18px] w-[18px] text-sn-accent" strokeWidth={1.9} /> } : {}),
+    ...(t.done === true ? { trail: { text: '✓', tone: 'ok' as const, label: 'Ready' } } : t.done === false ? { trail: { text: 'Missing', tone: 'left' as const } } : {}),
+  };
+}
+
+/**
+ * What "Studio ▾" lists: the pages this event draws — the SAME list, in the SAME order, as the Studio home's cards
+ * and the row it replaces (one source: `tiles`). Nothing else: no "All pages" row (owner 2026-10-08).
+ */
+export function studioChooserOptions(tiles: readonly StudioTileModel[]): PickOption[] {
+  return tiles.map((t) => tileOption(t, true));
+}
+
+/** The eleven tools as ONE dropdown (Studio › Look's lower third), each with its line and ✓ / Missing. */
 export function StudioToolMenu({
   tiles,
   value,
@@ -46,63 +285,18 @@ export function StudioToolMenu({
   value: StudioTileKey;
   onOpen: (key: StudioTileKey) => void;
   dataAttr: string;
-  /** The pill's look — the Tool row's is the prototype's `.ddp` (`STUDIO_TOOL_PILL`). */
   className?: string;
 }) {
-  const options: PickOption[] = tiles.map((t) => ({
-    key: t.key,
-    label: t.label,
-    hint: t.status,
-    ...(t.done === true ? { trail: { text: '✓', tone: 'ok' as const, label: 'Ready' } } : t.done === false ? { trail: { text: 'Missing', tone: 'left' as const } } : {}),
-  }));
   return (
     <PickMenu
       label="Studio tool"
       dataAttr={dataAttr}
       value={value}
       buttonText={tiles.find((t) => t.key === value)?.short ?? 'Studio'}
-      options={options}
+      options={tiles.map((t) => tileOption(t, false))}
       onPick={(k) => onOpen(k as StudioTileKey)}
       className={className}
     />
-  );
-}
-
-/**
- * A Studio tool FULL SCREEN — its slim row (prototype `.fhead`; owner 2026-10-06, DECISION_LOG
- * "'ASK ONE BY ONE' … TAPPING STUDIO AGAIN RETURNS TO THE TILES"): Tool ▾ across the row, then
- * ✓ Saved — or ✓ Done where the top nav is hidden (Wedding March, Seat plan). No "‹ Studio" —
- * tapping Studio in the top nav returns to the tiles.
- *
- * `[data-studio-row-end]` is the row's right end: a tool with a control of its own there (the
- * Mood Board's ✨ Auto and its own Saved, prototype `.autob`) portals it in, and the row's own
- * Saved steps aside for it (`studioFullScreenCss`).
- */
-export function StudioToolRow({
-  tile,
-  tiles,
-  onOpen,
-  onDone,
-}: {
-  tile: StudioTileModel;
-  tiles: readonly StudioTileModel[];
-  onOpen: (key: StudioTileKey) => void;
-  onDone: () => void;
-}) {
-  return (
-    <div data-maker-studio-row="" className={STUDIO_HEAD_ROW}>
-      <StudioToolMenu tiles={tiles} value={tile.key} onOpen={onOpen} dataAttr="data-maker-studio-tool" className={STUDIO_TOOL_PILL} />
-      {tile.immersive ? (
-        <button type="button" data-maker-studio-done="" onClick={onDone} className={STUDIO_DONE_BUTTON}>
-          <Check aria-hidden className="h-[15px] w-[15px]" strokeWidth={2.6} />
-          Done
-        </button>
-      ) : (
-        /* 🧾 No "✓ Saved" chip (owner 2026-10-07, *"yes remove the saved."*): the ONE state signal is ✓ Apply's
-           count. The end slot stays for a tool's own control (the Mood Board's ✨ Auto). */
-        <div data-studio-row-end="" className="flex shrink-0 items-center gap-1.5" />
-      )}
-    </div>
   );
 }
 
@@ -126,18 +320,97 @@ export function StudioCover({ tiles, onOpen }: { tiles: readonly StudioTileModel
  * opens from the bottom; prototype `#pmenu .menu`): the stage ▾, Studio's Tool ▾ and every `PickMenu`
  * inside the Maker (`PickSheetContext`, handed down by the shell while the new Maker is on) — full
  * width at the foot of the screen, a grabber, its name in small capitals, rows that scroll inside it
- * (never past 62% of the screen), the page dimmed behind it, and a tap there closes it. Fixed to the
- * screen, so the shell portals it to <body> (inside a glass panel a `fixed` box is held by the
- * panel's backdrop filter). Phone only; a desktop keeps each list where it opens.
+ * (never past 62% of the screen). Fixed to the screen, so the shell portals it to <body> (inside a
+ * glass panel a `fixed` box is held by the panel's backdrop filter). Phone only; a desktop keeps each
+ * list where it opens.
+ *
+ * 🌑 THE POP-UP RULE (owner 2026-10-08, `INTERACTION_RULES.md` § 9: *"the rest of the screen darkens
+ * (except for when there is preview) … The darkened area will be blurred and nothing behind it will
+ * work. pressing on the dark part removes the pop up. the background will not be scrollable"*):
+ *   · DARK AND BLURRED behind — one class, `.sn-popup-dark` (dark alone where blur is not supported, or
+ *     the device asks for less transparency);
+ *   · NOTHING BEHIND WORKS — every branch of the page but this one is `inert` (`inertBehind`); the page
+ *     behind does not scroll, Escape closes and Tab stays inside (the app's one contract, `useModalA11y`);
+ *   · A TAP OUTSIDE CLOSES — one button under the dark, the whole screen;
+ *   · A LIVE PREVIEW STAYS CLEAR — where one is on screen (`[data-popup-clear]`, Studio › Look's sample)
+ *     the dark is cut around it, so a pick in the sheet is seen at once. Measured at open and on a
+ *     resize; never polled.
  */
-export function MakerSheet({ label, onClose, children }: { label: string; onClose: () => void; children: ReactNode }) {
+export function MakerSheet({
+  label,
+  onClose,
+  children,
+  everyWidth = false,
+}: {
+  label: string;
+  onClose: () => void;
+  children: ReactNode;
+  /** Shown on a desktop too — the Maker's ✕ sheet, which every width needs (`maker-exit-sheet.tsx`). Every other
+   *  sheet stays a phone's: a desktop keeps each list where it opens. */
+  everyWidth?: boolean;
+}) {
+  const root = useRef<HTMLDivElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
+  /** What had the focus (the ▾ that opened this) — it goes back there when the sheet leaves. */
+  const from = useRef<HTMLElement | null>(null);
+  /** The dark layer's shape with the live preview cut out — null: there is none, the layer is whole. */
+  const [hole, setHole] = useState<string | null>(null);
+  useLayoutEffect(() => {
+    const el = root.current;
+    if (!el) return;
+    from.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    /* The preview is measured BEFORE the page is put out of reach (an inert branch answers no hit test) — and, on a
+       resize, with the page woken for the length of the measure. */
+    const measure = () => setHole(popupHolePath(popupClearRect(document, el), { width: window.innerWidth, height: window.innerHeight }));
+    measure();
+    let undo = inertBehind(el);
+    const again = () => {
+      undo();
+      measure();
+      undo = inertBehind(el);
+    };
+    window.addEventListener('resize', again);
+    return () => {
+      window.removeEventListener('resize', again);
+      undo();
+    };
+  }, []);
+  /* The app's ONE modal contract (`lib/use-modal-a11y.ts`): Escape closes the sheet on top, Tab stays inside it, the
+     page behind does not scroll. The focus comes INTO the sheet — unless its content already took it (a list focuses
+     its picked row, and keeps it). */
+  const kept = useRef({
+    get current(): HTMLElement | null {
+      const a = document.activeElement;
+      return a instanceof HTMLElement && root.current?.contains(a) ? a : null;
+    },
+  }).current;
+  useModalA11y({ open: true, onClose, containerRef: panel, initialFocusRef: kept });
+  /* …and goes BACK to what opened it, once the sheet is gone (declared after the contract, so it runs after it). */
+  useEffect(
+    () => () => {
+      const a = document.activeElement;
+      const lost = !a || a === document.body || (a instanceof HTMLElement && a.matches('main, [role="main"]'));
+      if (lost && from.current?.isConnected) from.current.focus({ preventScroll: true });
+    },
+    [],
+  );
   return (
-    <div data-maker-sheet="" className="fixed inset-0 z-[95] lg:hidden">
-      <button type="button" aria-label="Close" data-maker-sheet-scrim="" onClick={onClose} className="absolute inset-0 h-full w-full cursor-default bg-ink/20" />
+    <div ref={root} data-maker-sheet="" className={`fixed inset-0 z-[95]${everyWidth ? '' : ' lg:hidden'}`}>
+      {/* A tap anywhere outside the sheet closes it — the dark, and the clear preview too. */}
+      <button type="button" aria-label="Close" data-maker-sheet-scrim="" onClick={onClose} className="absolute inset-0 h-full w-full cursor-default touch-none" />
+      <span
+        aria-hidden
+        data-maker-sheet-dark={hole ? 'around-preview' : 'whole'}
+        className="sn-popup-dark pointer-events-none absolute inset-0"
+        style={hole ? { clipPath: hole } : undefined}
+      />
       <div
+        ref={panel}
         role="dialog"
+        aria-modal="true"
         aria-label={label}
-        className="absolute inset-x-0 bottom-0 flex max-h-[62dvh] flex-col rounded-t-3xl bg-white px-2 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-1 shadow-[0_-18px_40px_-18px_rgba(30,26,18,.45)] ring-1 ring-ink/10"
+        tabIndex={-1}
+        className="absolute inset-x-0 bottom-0 flex max-h-[62dvh] flex-col rounded-t-3xl bg-white px-2 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-1 shadow-[0_-18px_40px_-18px_rgba(30,26,18,.45)] ring-1 ring-ink/10 focus:outline-none lg:mx-auto lg:max-w-md"
       >
         <span aria-hidden className="mx-auto mb-1.5 mt-1 h-1 w-10 shrink-0 rounded-full bg-ink/15" />
         <p className="shrink-0 px-3 pb-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-ink/55">{label}</p>

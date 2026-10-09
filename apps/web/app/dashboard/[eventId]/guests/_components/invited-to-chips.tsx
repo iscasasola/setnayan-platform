@@ -31,7 +31,7 @@
 //   underlying DOM input's checked property reflects React's controlled
 //   state, so the chip background flips correctly.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   INVITED_TO_BLOCKS,
   INVITED_TO_LABELS,
@@ -64,6 +64,17 @@ export function InvitedToChips({
     () => new Set(initialBlocks ?? defaultInvitedToForRole(initialRole)),
   );
 
+  /* React 19 RESETS a form after its action lands (`form.reset()`), and a controlled checkbox goes back to its `checked` ATTRIBUTE — its
+     mount-time value — while `blocks` says otherwise: the Invited-to switches snapped back on screen after a save, and the NEXT autosave
+     (any other field) posted the reverted set, quietly un-inviting the guest from what the host had just ticked (measured with the
+     autosave's own form, 2026-10-09). Keeping each attribute equal to its box makes the reset a no-op. */
+  const boxes = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    boxes.current?.querySelectorAll<HTMLInputElement>('input[type="checkbox"]').forEach((el) => {
+      el.defaultChecked = el.checked;
+    });
+  }, [blocks]);
+
   useEffect(() => {
     const select = document.getElementById(roleSelectId) as HTMLSelectElement | null;
     if (!select) return;
@@ -90,7 +101,7 @@ export function InvitedToChips({
 
   if (look === 'toggles') {
     return (
-      <div className="divide-y divide-ink/[0.06] rounded-xl bg-white/60">
+      <div ref={boxes} className="divide-y divide-ink/[0.06] rounded-xl bg-white/60">
         {INVITED_TO_BLOCKS.map((block) => (
           <label key={block} className="flex min-h-[44px] cursor-pointer items-center justify-between gap-3 px-3 text-sm text-ink">
             {INVITED_TO_LABELS[block]}
@@ -108,7 +119,7 @@ export function InvitedToChips({
   }
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div ref={boxes} className="flex flex-wrap gap-2">
       {INVITED_TO_BLOCKS.map((block) => (
         <label
           key={block}

@@ -26,6 +26,7 @@ import { SiteChrome } from './_components/marketing/site-chrome';
 import { SiteFooterChrome } from './_components/marketing/site-footer-chrome';
 import { getNavSlotMap } from '@/lib/nav-registry';
 import { ZoomGuard } from './_components/zoom-guard';
+import { PressFeel } from './_components/press-feel';
 import { Providers } from './providers';
 import { themeBootstrapScript } from './_components/theme-bootstrap-script';
 import { stylesheetRecoveryScript } from '@/lib/stylesheet-recovery';
@@ -701,6 +702,9 @@ export default async function RootLayout({
         {/* Native-app zoom suppression (pinch-zoom off app-wide; seat-plan
             canvas opts back in via [data-allow-zoom]). See _components/zoom-guard.tsx. */}
         <ZoomGuard />
+        {/* ONE press feel for every control the app owns (owner 2026-10-08) — one delegated listener; the guest's
+            Event Hub (`.sn-editorial`) is left alone. See _components/press-feel.tsx. */}
+        <PressFeel />
         {/* Global top loading bar — the future-proof catch-all that shows a
             loading indicator on EVERY route navigation (incl. routes without
             their own loading.tsx, and any added later). Pure client → no

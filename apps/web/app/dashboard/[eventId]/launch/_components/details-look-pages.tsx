@@ -99,13 +99,21 @@ export function LookPanel({
   const look = maker?.lookPages?.look ?? null;
   const late = useLate(Boolean(look));
   if (item && maker && maker.detailsItem !== item) return null;
-  const part = (k: LookPart): ReactNode =>
-    !look ? null : k === 'colours' ? (look.colours || look.palette ? <>{look.colours}{look.palette}</> : null) : (look[k] ?? null);
+  /* 🧭 THE NEW MAKER'S STUDIO, WITH A MAIN BACKGROUND: its ONE Source ▾ (`main-background-panel.tsx`, restudy
+     row 2) draws the page fill (Colour), the hero video (Your photo or video) and the extras (Shade · Blur ·
+     Focus) itself — so Look does not draw them a second time. Without that panel (the app-store shell builds
+     none) they stay rows of Look, as in the shipped Maker. */
+  const sourceHolds = maker?.stagesStudio === true && Boolean(look?.background);
+  /* 🎨 THE PALETTE-TYPE ROW LEFT LOOK (owner 2026-10-08, on the local copy: *"remove Palette Type"*). `look.palette`
+     ("Palette · Fabric swatches ▾") is no longer drawn under Colours. Nothing is written by leaving it out: the
+     stored palette look stays as it is and keeps drawing on the guest page, and the SAME control is still where
+     the palette itself lives — the Dress code scene's own settings (`editor-shell.tsx` `paletteRow`). */
+  const part = (k: LookPart): ReactNode => (!look || (sourceHolds && (k === 'page' || k === 'video')) ? null : (look[k] ?? null));
   /** A section's parts that are there — each with what rides under it. */
   const partsOf = (k: LookSection) =>
     LOOK_SECTION_PARTS[k].flatMap((p) => {
       const node = part(p);
-      const more = extras?.[p] ?? null;
+      const more = sourceHolds && p === 'background' ? null : (extras?.[p] ?? null);
       return node || more ? [{ p, node, more }] : [];
     });
   /* 🗂 Never a blank panel (owner 2026-10-06): a section this event does not offer says so in one line. */
@@ -182,7 +190,27 @@ export function DetailsLookBody({ item }: { item: LookPageKey }) {
       <CouldNotOpen item={item} />
     );
   }
+  /* 🪟 STUDIO › LOOK SHOWS A SAMPLE, NOT THE PAGE (owner 2026-10-08, DECISION_LOG "THE LOOK PREVIEW IS A SAMPLE OF
+     WHAT IS BEING EDITED — NOT THE COVER PAGE": *"a sample of the header text, buttons on the actual screen"*). In the
+     new Maker's Studio, Look's body is the sample screen the work area built (`look-sample.tsx`) — drawn in the
+     browser from the values in hand, answering every control at the tap. NO guest-page frame is mounted here: a Look
+     open fetches no guest-page document, and a pick asks for no render of one. The whole page is one tap away, where
+     it always was — Stages. The shipped Maker (the flag off) keeps its page frame. */
+  if (lookShowsSample(item, maker.stagesStudio === true)) {
+    return look.look?.sample ? (
+      <div className="flex min-h-0 flex-1 flex-col" data-details-look="look" data-details-look-sample="">
+        {look.look.sample}
+      </div>
+    ) : (
+      <CouldNotOpen item={item} />
+    );
+  }
   return <LookFrame item={item} />;
+}
+
+/** Studio › Look draws the sample screen in place of the page frame — the Hero and the Reveal keep their page (they ARE the page). */
+export function lookShowsSample(item: LookPageKey, stagesStudio: boolean): boolean {
+  return item === 'look' && stagesStudio;
 }
 
 /** The editor of a Look item: the controls its page always had beside it. */
@@ -258,17 +286,6 @@ function HeroPartSheet() {
   if (!parts || !piece || !isHubElementKey(piece)) return null;
   const el: HubElementKey = piece;
   const canvases = parts.canvases;
-  const usedColours = (() => {
-    const out = new Set<string>();
-    for (const c of Object.values(canvases)) {
-      if (c.color) out.add(c.color);
-      for (const st of Object.values(c.elements ?? {})) {
-        if (st?.color) out.add(st.color.slice(0, 7));
-        for (const r of st?.runs ?? []) if (r.color) out.add(r.color.slice(0, 7));
-      }
-    }
-    return [...out].slice(0, 15);
-  })();
   const post = (message: unknown) => heroFrame()?.contentWindow?.postMessage(message, window.location.origin);
   return (
     <div
@@ -289,7 +306,6 @@ function HeroPartSheet() {
           setPiece(next);
         }}
         sceneLabel="Hero"
-        usedColours={usedColours}
         onPreview={(message) => post(message)}
         onPlay={() => post({ source: 'setnayan-editor', t: 'playEl', key: HERO_KEY, el })}
         onClose={() => {

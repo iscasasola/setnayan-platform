@@ -5,6 +5,7 @@ import type { GuestRole } from '@/lib/guests';
 import type { MarchPlace } from '@/lib/march-place';
 import type { WelcomePart } from '@/lib/invitation-welcome';
 import type { PaletteLookId } from '@/lib/palette-looks';
+import type { DosLookId } from '@/lib/dress-code-looks';
 import { DressCodeWidget } from './dress-code-widget';
 import { WelcomeGifts } from './guest-doorway-strip';
 import { MakerWelcomeGiftsEmpty, MakerWelcomeLook } from './maker-guest-scenes';
@@ -50,6 +51,8 @@ export type WelcomeLook = {
   rolePalette: unknown;
   /** 🎨 The Dress code scene's palette look (`paletteLookOfRow`) — the reader's own colours follow it here too. Absent = Tags. */
   paletteLook?: PaletteLookId | null;
+  /** 🧾 The Dress code scene's Do's & Don'ts look (`dosLookOfRow`) — the reader's own panel follows it too. Absent = the shipped notes. */
+  dosLook?: DosLookId | null;
 };
 
 export function GuestWelcome({
@@ -97,6 +100,7 @@ export function GuestWelcome({
                 march={look.march}
                 rolePalette={look.rolePalette}
                 paletteLook={look.paletteLook ?? null}
+                dosLook={look.dosLook ?? null}
                 hideWhenEmpty
               />
               </PartLook>

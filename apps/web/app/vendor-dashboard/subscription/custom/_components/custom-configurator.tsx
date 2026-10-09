@@ -22,6 +22,7 @@ import {
   type CustomUnitPrices,
 } from '@/lib/vendor-custom-pricing';
 import { requestCustomPlan } from '../actions';
+import { PillButton, PillTrack } from '@/app/_components/pill-track';
 import { type OpenRailDetails, type PayChannel } from '@/lib/payment-channels';
 import { PaymentsPausedNote } from '@/app/vendor-dashboard/_components/payments-paused-note';
 
@@ -262,33 +263,16 @@ export function CustomConfigurator({
             </span>
           </p>
 
-          <div
-            role="radiogroup"
-            aria-label="Billing term"
-            className="mt-3 flex items-center gap-1 rounded-lg border border-ink/12 p-1"
-          >
+          <PillTrack role="radiogroup" aria-label="Billing term" grow className="mt-3">
             {([
               ['28d', 'Every 28 days'],
               ['annual', 'Yearly · save 20%'],
             ] as const).map(([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                role="radio"
-                aria-checked={term === value}
-                disabled={!editable}
-                onClick={() => setTerm(value)}
-                className={
-                  'flex-1 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-45 ' +
-                  (term === value
-                    ? 'bg-ink text-white'
-                    : 'text-ink/70 hover:bg-ink/5')
-                }
-              >
+              <PillButton key={value} on={term === value} role="radio" aria-checked={term === value} disabled={!editable} onClick={() => setTerm(value)}>
                 {label}
-              </button>
+              </PillButton>
             ))}
-          </div>
+          </PillTrack>
           {/*
             Custom's annual was × 10 ("13 cycles, pay 10, 3 free") until the
             owner aligned it to × 10.4 on 2026-08-27 — the same 20% every other

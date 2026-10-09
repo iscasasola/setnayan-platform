@@ -36,7 +36,7 @@ test('a free (non-Pro) event still paints its saved background colour', () => {
   assert.equal(vars!['--color-cream'], '245 240 230', 'the free bg colour is not the one the couple saved');
 });
 
-test('the button colour AND the couple’s font paint on the free path too', () => {
+test('the couple’s font paints on the free path too — and a button colour stored before the ruling paints nothing', () => {
   // 2026-09-28 redraw (owner: "free to change … color, background color, only
   // when you start adding themes will it be pro"): the button colour is free,
   // so a free event's saved one must reach its guests; the font is still Pro.
@@ -45,7 +45,9 @@ test('the button colour AND the couple’s font paint on the free path too', () 
     false,
   );
   assert.ok(vars, 'expected the free bg colour to still paint');
-  assert.equal(vars!['--color-mulberry'], '171 17 34', 'a free event’s saved button colour never reached its guests');
+  /* 🔘 RE-AIMED 2026-10-08 (owner, round 3: "button color will be taken from their 5 palette"): this held "a free event's saved button colour reaches its guests".
+     The buttons now wear the palette's Accent for everyone; a stored colour is not read, on any path. */
+  assert.equal(vars!['--color-mulberry'], undefined, 'a stored button colour reached a guest’s page');
   // 🆓 2026-10-05 ("Colors, and Fonts are all free"): the face is free too.
   assert.equal(vars!['--pahina-face'], 'var(--font-playfair)', 'a free event’s saved font never reached its guests');
 });
@@ -55,14 +57,14 @@ test('an unset background and no Pro colours paint nothing — byte-identical to
   assert.equal(vars, null, 'an event with nothing set now paints something — the inert contract broke');
 });
 
-test('a Pro event still gets its button colour and font on top of the free background', () => {
+test('a Pro event gets the free background — and no button colour of its own either', () => {
   const vars = proSiteVarsFor(
     { site_bg_color: LIGHT_BG, site_button_color: '#ab1122', site_font_key: null },
     true,
   );
   assert.ok(vars, 'expected vars for a Pro event');
   assert.equal(vars!['--color-cream'], '245 240 230', 'Pro lost the free background colour');
-  assert.ok(vars!['--color-mulberry'], 'Pro lost its own button colour');
+  assert.equal(vars!['--color-mulberry'], undefined, 'a stored button colour reached a Pro event’s page'); // 🔘 RE-AIMED 2026-10-08 (owner, round 3: "button color will be taken from their 5 palette")
 });
 
 test('text ink adapts to the couple’s own background — dark bg gets light ink, light bg gets dark ink', () => {
@@ -85,8 +87,11 @@ test('text ink adapts to the couple’s own background — dark bg gets light in
 });
 
 test('no background set → no ink override either (nothing to adapt to)', () => {
-  const vars = proSiteVarsFor({ site_bg_color: null, site_button_color: '#ab1122', site_font_key: null }, true);
-  assert.ok(vars, 'expected the Pro button colour to still paint');
+  /* 🔘 RE-AIMED 2026-10-08 (owner, round 3: "button color will be taken from their 5 palette"): a stored button colour used to be the one thing that painted here.
+     It is no longer read, so with no background and no font there is nothing at all — and no ink override. */
+  assert.equal(proSiteVarsFor({ site_bg_color: null, site_button_color: '#ab1122', site_font_key: null }, true), null, 'a stored button colour alone still paints something');
+  const vars = proSiteVarsFor({ site_bg_color: null, site_button_color: '#ab1122', site_font_key: 'playfair' }, true);
+  assert.ok(vars, 'expected the couple’s font to paint');
   assert.equal(vars!['--color-ink'], undefined, 'an ink override appeared with no couple-chosen background to adapt to');
 });
 

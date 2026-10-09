@@ -16,6 +16,7 @@ import { Check, Images, Film, Maximize2, Minimize2 } from 'lucide-react';
 import { FileUpload } from '@/app/_components/file-upload';
 import type { StdMedia, StdNsfwStatus } from '@/lib/std-media';
 import { formatCount } from '@/lib/format-number';
+import { PILL_TRACK_CLASS, PILL_TRACK_GROUND, PillThumb, pillSegClass } from '@/app/_components/pill-selector';
 
 /** What the picker hands up when a video is uploaded (or null on clear). */
 export type StdVideoUpload = {
@@ -278,7 +279,10 @@ export function StdMediaPicker({
             <div className="space-y-1.5 rounded-xl border border-ink/10 bg-white/60 p-2.5">
               <div className="flex items-center justify-between gap-3">
                 <span className="text-[11px] font-medium text-ink/70">How the video plays</span>
-                <div className="inline-flex rounded-xl border border-ink/15 bg-cream p-0.5">
+                {/* The app's ONE pill selector (owner 2026-10-08). Worn straight from `pill-selector.tsx` — which the
+                    Maker already loads — because this picker is also drawn inside the Maker (its first-load budget). */}
+                <div className={`${PILL_TRACK_CLASS} ${PILL_TRACK_GROUND} inline-flex`} data-std-video-fit="">
+                  <PillThumb />
                   {(
                     [
                       { id: 'fill', label: 'Fill', Icon: Maximize2 },
@@ -287,15 +291,7 @@ export function StdMediaPicker({
                   ).map(({ id, label, Icon }) => {
                     const active = (value.fit ?? 'fill') === id;
                     return (
-                      <button
-                        key={id}
-                        type="button"
-                        aria-pressed={active}
-                        onClick={() => onChange({ ...value, fit: id })}
-                        className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${
-                          active ? 'bg-mulberry text-cream' : 'text-ink/60 hover:text-ink'
-                        }`}
-                      >
+                      <button key={id} type="button" aria-pressed={active} onClick={() => onChange({ ...value, fit: id })} className={pillSegClass(active)}>
                         <Icon aria-hidden className="h-3 w-3" strokeWidth={2} />
                         {label}
                       </button>

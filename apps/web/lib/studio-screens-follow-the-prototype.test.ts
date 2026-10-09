@@ -53,20 +53,23 @@ async function html(el: React.ReactElement): Promise<string> {
   return renderToStaticMarkup(el);
 }
 
-test('1 · the Tool row: Tool ▾ across the row, ✓ Saved at its end — ✓ Done (and no Saved) on a full-screen tool', async () => {
-  const { StudioToolRow } = await import(`../${L}/stages-studio-parts`);
-  const noop = () => {};
-  const info = await html(React.createElement(StudioToolRow, { tile: tiles[0], tiles, onOpen: noop, onDone: noop }));
-  assert.match(info, /data-maker-studio-tool/, 'no Tool ▾');
-  assert.match(info, /data-studio-row-end=""/, 'no end slot for a tool’s own control (the Mood Board’s ✨ Auto)');
-  /* 🧾 No ✓ Saved chip any more (owner 2026-10-07, "yes remove the saved."): ✓ Apply's count is the one signal. */
-  assert.doesNotMatch(info, /Saved/, 'the Tool row still shows a Saved chip');
-  assert.match(info, /uppercase/, 'the Tool ▾ pill is not the prototype’s capitals');
-  assert.doesNotMatch(info, /data-maker-studio-done/);
+test('1 · no Tool row and no Done band: the top bar says where you are — the pill’s Studio half is the page’s name ▾, "Stages ▾" beside it', async () => {
+  /* Owner 2026-10-08: "we will not have these." (the "INFO ▾" row) → "make the top nav show where we are at" → "what
+     if we just replace the Studio with a chevron?" · "and we just change that name of the studio" → "Stages and Studio
+     both has dropdown". The pill's own claims are `lib/studio-pages-have-no-title-row.test.ts`; here: the row and the
+     band are gone, the bar paints the page, and the Mood Board's ✨ Auto (which rode the row's end) is drawn in the
+     Mood Board's own place. */
+  const parts = await import(`../${L}/stages-studio-parts`);
+  assert.equal((parts as Record<string, unknown>).StudioToolRow, undefined, 'the Tool row is still exported');
+  assert.equal((parts as Record<string, unknown>).StudioDoneBar, undefined, 'the Done band is still exported');
   const march = tiles.find((t) => t.key === 'march')!;
-  const full = await html(React.createElement(StudioToolRow, { tile: march, tiles, onOpen: noop, onDone: noop }));
-  assert.match(full, /data-maker-studio-done=""/, 'the Wedding March has no ✓ Done');
-  assert.doesNotMatch(full, /data-studio-saved/, 'a full-screen tool shows Saved where Done belongs');
+  assert.equal((parts as Record<string, unknown>).StudioPageHead, undefined, 'the head that named only the page is still exported');
+  assert.equal((parts as Record<string, unknown>).StudioBack, undefined, 'a ‹ is exported again — the list is one tap away from anywhere');
+  const head = await html(React.createElement(parts.StudioSideSwitch, { side: 'studio', onPick: () => {}, stage: 'rsvp', page: march, tiles, onOpen: () => {} }));
+  assert.match(head, /aria-pressed="true"[^>]*aria-label="Studio page: Wedding March — choose a page"/);
+  assert.match(head, /aria-pressed="false"[^>]*aria-label="Stages — choose a stage"/, 'inside a page the way to the stages is gone');
+  assert.doesNotMatch(head, /data-maker-studio-tool|data-maker-studio-done|uppercase|Saved/, 'the head still carries the old Tool ▾, ✓ Done or a Saved chip');
+  assert.match(read('app/dashboard/[eventId]/studio/mood-board/_components/mood-board-studio.tsx'), /\{rowEnd \? createPortal\(bar, rowEnd\) : bar\}/, 'the Mood Board’s ✨ Auto has nowhere to be drawn without the row');
 });
 
 test('1b · the Studio home: eleven tiles on the warm page, ✓ / Missing as read', async () => {
@@ -107,26 +110,33 @@ test('3 · a print in Studio is one row of the list: name · sizes · size ▾ �
   };
   const studio = await html(React.createElement(PrintPieceEditor, { input, piece: 'invitation', studio: true }));
   assert.match(studio, /data-print-studio=""/);
-  /* The size ▾ and the Saves are client pieces (lazy on a server render) — their PLACES are read here,
-     their shape from the source: the name and sizes, then the Saves right under the row. */
-  assert.match(studio, /5 × 7 in or A5<\/small><\/span>[\s\S]*?<\/div><div [^>]*data-print-piece-saves="invitation"/, 'the Saves are not right under the piece’s row');
+  /* The size ▾ and the Saves are client pieces (lazy on a server render) — their PLACES are read here, their shape from the source.
+     RE-AIMED 2026-10-09 (Prints wears the templates): the name · sizes · size ▾ are ONE Form row, drawn by the lazy `print-head` part (its place is the
+     lazy slot at the head of the editor), and the Saves — still right under it — are the ONE ActionButton (`variant="action"`), not the old chip. */
+  assert.match(studio, /data-print-studio=""[^>]*>[\s\S]*?<\/div><div [^>]*data-print-piece-saves="invitation"/, 'the Saves are not right under the piece’s row');
   assert.doesNotMatch(studio, /This piece/, 'the old “This piece” block is still drawn');
   const src = read(`${L}/maker-prints.tsx`);
-  assert.equal((src.match(/variant=\{studio \? 'chip' : 'link'\}/g) ?? []).length, 3, 'a Studio Save is still the old underlined link');
-  assert.match(src.slice(src.indexOf('if (studio) {')), /\{sizePicker\}/, 'the Studio row has no size ▾');
+  const editor = src.slice(src.indexOf('export function PrintPieceEditor('), src.indexOf('export function PassCardsPanel('));
+  assert.equal((editor.match(/variant="action"/g) ?? []).length, 3, 'a Studio Save is not the one ActionButton');
+  assert.doesNotMatch(editor, /variant=\{studio \? 'chip'/, 'a Studio Save is still the old chip');
+  assert.match(editor.slice(editor.indexOf('if (studio) {')), /part="print-head"[\s\S]{0,200}line=\{sizes\.length > 1 \? sizes\.join\(sizes\.length > 2 \? ' · ' : ' or '\) : spec\.size\}/, 'the Studio row has no name · sizes · size ▾');
   const shipped = await html(React.createElement(PrintPieceEditor, { input, piece: 'invitation' }));
   assert.match(shipped, /This piece/, 'the shipped Details lost its block — flag-off must not change');
 });
 
-test('4 · Studio › Look opens on its one bar: no tall tiles; Background is the dropdown’s own list as a carousel', () => {
+test('4 · Studio › Look opens on its one bar: no tall tiles; Background is the dropdown’s own choices as cards, by source', () => {
   const ws = read(`${L}/details-workspace.tsx`);
   assert.match(ws, /const studioLook = maker\?\.stagesStudio === true && detailsLtSection\(selected\) === 'look';/);
   assert.match(ws, /const ltTiles = ltNav && !studioLook \?/, 'Studio › Look draws the tall tiles again (M29)');
   assert.match(ws, /if \(studioLook\) setSheetOpen\(true\);/, 'Studio › Look does not open on its controls');
   const mb = read('app/dashboard/[eventId]/website/editor/_components/main-background-panel.tsx');
-  assert.match(mb, /<GroundCarousel options=\{groundOptions\} value=\{groundValue\}[^>]*onPick=\{pickGround\}/, 'the carousel is not the dropdown’s list');
+  /* The carousel became picture cards under ONE Source ▾ (2026-10-08, the Look restudy row 2 —
+     `the-background-has-one-source.test.ts`). What M29 held stays held: the Studio draws the dropdown's OWN
+     choices through its OWN handler — the same loops, the same hero follow — never a second list. */
+  assert.match(mb, /view === 'video'\s*\? loops\.map\(\(l\) => \([\s\S]{0,620}onPick=\{\(\) => pickGround\(l\.id\)\}/, 'the Video cards are not the dropdown’s loops');
+  assert.match(mb, /name="Your cover photo"[\s\S]{0,260}onPick=\{\(\) => pickGround\('src:hero'\)\}/, 'the cover photo card is not the dropdown’s "Same as my hero"');
   assert.match(mb, /options=\{\[\.\.\.loops\.map\(groundLoopOption\), \.\.\.groundOwnOptions\]\}\s+onPick=\{pickGround\}/, 'the dropdown is not the same list');
-  assert.match(mb, /const groundOptions: PickOption\[\] = \[\.\.\.loops\.map\(groundLoopOption\), \.\.\.groundOwnOptions\];/, 'the carousel is not the same list');
+  assert.doesNotMatch(mb, /GroundCarousel/, 'the carousel is drawn beside the cards');
   const bar = read(`${L}/studio-tools.tsx`);
   const look = bar.slice(bar.indexOf('export function StudioLookBar'));
   assert.doesNotMatch(look.slice(0, look.indexOf('\n}\n')), /tone="wine"/, 'Look’s bar is the filled wine section switch, not the prototype’s segmented');
@@ -144,11 +154,13 @@ test('6 · Attire: every colour a role wears is a button that opens the SAME pic
   const attire = src.slice(src.indexOf("{tab === 'attire' ? ("), src.indexOf("{tab === 'insp' ? ("));
   assert.doesNotMatch(attire, /<i key=\{i\} aria-label=\{c\}/, 'a role’s colour is still a static dot (owner: “the palettes can still be changed to colors manually”)');
   assert.match(attire, /data-mood-board-role-colour=\{i\}[\s\S]*?onClick=\{\(\) => setSheet\(\{ kind: 'picker', target: \{ kind: 'role-colour'/, 'a dot does not open the picker');
-  assert.match(attire, /aria-label=\{`Add a colour for \$\{row\.label\}`\}/, 'the role lost its ＋');
+  /* RE-AIMED 2026-10-09: the ＋ is the ActionButton, icon only — its label is its name. */
+  assert.match(attire, /label=\{`Add a colour for \$\{row\.label\}`\}/, 'the role lost its ＋');
   /* The picker is the one sheet every colour here uses, and a pick goes through `commit` → the draft. */
   assert.equal((src.match(/<ColourPickerSheet/g) ?? []).length, 1, 'a second picker was invented');
   assert.match(src, /const setRoleColour = [\s\S]*?commit\(withRoleColours\(/, 'a role colour change does not go through the draft');
   assert.match(src, /const removeRoleColour = [\s\S]*?commit\(withRoleColours\(/, 'removing a role colour does not go through the draft');
   assert.match(src, /data-mood-board-role-remove/, 'no way to remove a role’s colour');
-  assert.match(src, /fd\.set\('patch', JSON\.stringify\(\{ events: \{ role_palette: paletteRef\.current \} \}\)\);/, 'the palette no longer writes into the draft');
+  /* RE-AIMED 2026-10-09: the fields come from `paletteDraftFields` (lib/studio-mood-board-saves.ts, held byte for byte by studio-mood-board-posts-the-same). */
+  assert.match(src, /paletteDraftFields\(wrote\)/, 'the palette no longer writes into the draft');
 });

@@ -1,7 +1,22 @@
 'use client';
 
 /**
- * 🔘 LOOK › BUTTONS — Shape ▾ · Fill ▾ · Colour ▾, and the Reply button as it will look.
+ * 🔘 LOOK › ELEMENTS › BUTTONS — the Reply button itself, in each of the three shapes.
+ *
+ * THREE SHAPES, NO "DEFAULT" (owner 2026-10-08, round 5: *"do not need to show default button just show the 3
+ * button styles"*; approved prototype frame B05): Square · Rounded · Pill, each drawn AS the button (the note's one
+ * exception to picture cards — "a choice of a thing is shown as the thing itself"). The picked one wears the
+ * accent ring and its name; while the event still wears its theme's own corner, the card that corner READS as is
+ * ringed (`lib/hub-button-shapes.ts`) — a reading, never a write.
+ *
+ * THE COLOUR IS THE PALETTE'S (round 3: *"button color will be taken from their 5 palette"* · round 2: *"Pick Button
+ * Shape (color is on the palette already so no need to add)"*): the three are drawn in the page's own button fill —
+ * the couple's Accent, deepened until its label reads — with no colour of the row's own. A colour stored before
+ * this (`site_button_color`) is handed back to the palette by the next Shape pick; the stored FILL half of
+ * `site_button_style` is carried unchanged.
+ *
+ * control → kind (`INTERACTION_RULES.md` § 9): the three → a Style-card strip whose "picture" is the real button
+ * (accent ring · accent name · centred on a pick).
  *
  * Owner, 2026-10-04 (DECISION_LOG "LOOK › BUTTONS — THE HOST STYLES THE EVENT
  * HUB'S BUTTONS"): *"yes we have buttons because the buttons for reply your
@@ -11,8 +26,8 @@
  * effects for seeing what will change but always need to press apply to
  * publish to the actual event hub"*.
  *
- *   · THREE DROPDOWNS, one per row (any set of choices is a dropdown — never a
- *     pill row), each defaulting to "Theme’s". No explainer captions.
+ *   · ONE DROPDOWN (any set of choices is a dropdown — never a pill row),
+ *     defaulting to "Theme’s". No explainer captions.
  *   · REALTIME: a pick is laid on the canvas AT ONCE through the bridge
  *     (`app/[slug]/_components/buttons-preview.ts`) with the guest page's own
  *     resolver (`resolveHubButtons`), then saved into the DRAFT with the one
@@ -20,9 +35,8 @@
  *     answers with the Apply count. Guests see it only at Apply.
  *   · OPENING WRITES NOTHING: the only write is inside `commit`, reached only
  *     from a pick that changed something (`the-buttons-look-is-legible.test.ts`).
- *   · LEGIBILITY: a colour is offered only when its label reaches AA, and
- *     Outline only when the colour reads on the page (`hubButtonColourOffers`,
- *     `hubButtonOutlineOffered`) — the same functions the guest render uses.
+ *   · LEGIBILITY is the guest render's own (`resolveHubButtons`): the sample
+ *     is painted with the very values the page wears.
  *
  * ⚡ Loaded lazily with the Look panel's other rows (`details-lazy.tsx`,
  * "maker-details") — never in the Maker's first load.
@@ -30,31 +44,22 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import {
-  HUB_BUTTON_FILLS,
-  HUB_BUTTON_FILL_LABEL,
-  HUB_BUTTON_SHAPES,
-  HUB_BUTTON_SHAPE_LABEL,
   encodeHubButtonStyle,
-  hubButtonColourOffers,
-  hubButtonOutlineOffered,
   parseHubButtonStyle,
   resolveHubButtons,
   type HubButtonFill,
   type HubButtonPage,
   type HubButtonShape,
 } from '@/lib/hub-buttons';
+import { HUB_BUTTON_SHAPES_OFFERED, hubButtonCardRadius, hubButtonShapeName, hubButtonShapeRead } from '@/lib/hub-button-shapes';
+import { centreInRow } from '@/lib/centre-in-row';
 import type { InviteTheme } from '@/lib/invite-themes';
+import { tellLookSample } from '@/lib/look-sample-store';
 import { HUB_DRAFT_BAR_FIELD, makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { hubDraftAction } from '../../hub-draft-actions';
-import { IRow } from './inspector-kit';
-import { PickMenu } from './pick-menu';
 
-/** The guest page's own words on its one main action (`LANDING_WORDS.reply`). */
-const REPLY = 'Reply to the invitation';
-/** "Theme’s" in the Colour menu. */
-const THEME_KEY = 'theme';
-/** The Reply button's own corner when the shape is the theme's (`rounded-lg`). */
-const OWN_RADIUS = '8px';
+/** The guest page's main action, short — three of the real button fit one phone row ("Reply to the invitation" does not). */
+const REPLY = 'Reply';
 
 type Choice = { shape: HubButtonShape; fill: HubButtonFill; colour: string | null };
 
@@ -64,7 +69,6 @@ export function ButtonsLookRow({
   page,
   style,
   colour,
-  palette,
 }: {
   eventId: string;
   /** The theme the canvas wears (drafted over live). */
@@ -75,8 +79,8 @@ export function ButtonsLookRow({
   style: string | null;
   /** `site_button_color`, drafted over live. */
   colour: string | null;
-  /** The event's palette colours (the Mood Board's, else the theme's). */
-  palette: readonly string[];
+  /** The event's palette colours — not read here: the buttons take the page's own fill (the palette's Accent, as the page resolves it). */
+  palette?: readonly string[];
 }) {
   const fromProps = (): Choice => ({ ...parseHubButtonStyle(style), colour: colour ? colour.toLowerCase() : null });
   const [choice, setChoice] = useState<Choice>(fromProps);
@@ -91,11 +95,11 @@ export function ButtonsLookRow({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [style, colour]);
 
-  const offers = hubButtonColourOffers({ theme, palette, saved: choice.colour, fill: choice.fill, page });
-  const outline = hubButtonOutlineOffered({ colour: choice.colour, page });
   const look = (c: Choice) => resolveHubButtons({ style: encodeHubButtonStyle(c), colour: c.colour, theme, page });
 
   const preview = (c: Choice) => {
+    /* 🪟 Studio › Look's sample screen wears it too — drawn in the browser, no request (`look-sample.tsx`). */
+    tellLookSample(eventId, { buttonStyle: encodeHubButtonStyle(c), buttonColour: c.colour });
     const l = look(c);
     const message = {
       source: 'setnayan-editor',
@@ -143,57 +147,54 @@ export function ButtonsLookRow({
     })();
   };
 
-  /* A colour that no longer reads as an Outline leaves Outline for Solid — never an Outline nobody can read. */
-  const pickColour = (key: string) => {
-    const c = key === THEME_KEY ? null : key;
-    const fill = choice.fill === 'outline' && !hubButtonOutlineOffered({ colour: c, page }) ? 'solid' : choice.fill;
-    commit({ ...choice, colour: c, fill });
-  };
-
-  const sample = sampleStyle(look(choice), page);
+  /* The ringed card: what is stored — or, on the theme's own corner, the one of the three it reads as. */
+  const ringed = hubButtonShapeRead(choice.shape, theme);
+  /* 🎯 The picked card centres itself in its row (owner 2026-10-08) — at once on opening, travelling on a pick. */
+  const row = useRef<HTMLDivElement>(null);
+  const centred = useRef<string | null>(null);
+  useEffect(() => {
+    const el = row.current;
+    const on = el?.querySelector<HTMLElement>('[data-buttons-shape][aria-pressed="true"]');
+    if (!el || !on || centred.current === ringed) return;
+    centreInRow(el, on, centred.current !== null);
+    centred.current = ringed;
+  });
   return (
     <div data-buttons-look="" className="flex flex-col">
-      <div className="flex justify-center rounded-md px-3 py-4" style={{ backgroundColor: page.grounds[0] }} data-buttons-sample-ground="">
-        <span data-buttons-sample="" aria-hidden className="inline-flex min-h-[48px] items-center justify-center px-7 text-sm font-semibold tracking-wide" style={sample}>
-          {REPLY}
-        </span>
+      {/* Where the colour comes from, said once and quietly: the palette's Accent, as the page deepens it to read. */}
+      <p data-buttons-colour-from="" className="flex items-center justify-end gap-1.5 text-[11.5px] text-ink/55">
+        <i aria-hidden className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: page.fill }} />
+        Accent
+      </p>
+      <div ref={row} role="group" aria-label="Button shape" data-buttons-shapes="" className="-mx-4 flex items-start gap-4 overflow-x-auto overscroll-x-contain px-4 pb-1 pt-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {HUB_BUTTON_SHAPES_OFFERED.map((shape) => {
+          const on = shape === ringed;
+          return (
+            <button
+              key={shape}
+              type="button"
+              aria-pressed={on}
+              data-buttons-shape={shape}
+              /* A tap on the ringed card changes nothing — the theme's own corner is never turned into a stored one. */
+              onClick={() => (on ? undefined : commit({ ...choice, shape, colour: null }))}
+              className="sn-press flex flex-none flex-col items-center gap-2"
+            >
+              {/* THE BUTTON ITSELF — the guest page's own paint (`resolveHubButtons`, the palette's fill), in this shape. */}
+              <span
+                data-buttons-sample={shape}
+                aria-hidden
+                className={`sn-press-ring inline-flex min-h-[48px] items-center justify-center px-7 text-sm font-semibold tracking-wide ${on ? 'ring-[3px] ring-sn-accent ring-offset-[3px] ring-offset-cream' : ''}`.trim()}
+                style={sampleStyle(look({ ...choice, shape, colour: null }), page, hubButtonCardRadius(shape, choice.shape, theme))}
+              >
+                {REPLY}
+              </span>
+              <span data-buttons-shape-name="" className={`text-[12px] ${on ? 'font-semibold text-sn-accent' : 'font-medium text-ink'}`}>
+                {hubButtonShapeName(shape)}
+              </span>
+            </button>
+          );
+        })}
       </div>
-      <IRow label="Shape" data="buttons-shape">
-        <PickMenu
-          label="Button shape"
-          value={choice.shape}
-          dataAttr="data-buttons-shape"
-          className="min-w-0 flex-1"
-          options={HUB_BUTTON_SHAPES.map((s) => ({ key: s, label: HUB_BUTTON_SHAPE_LABEL[s] }))}
-          onPick={(k) => commit({ ...choice, shape: k as HubButtonShape })}
-        />
-      </IRow>
-      <IRow label="Fill" data="buttons-fill">
-        <PickMenu
-          label="Button fill"
-          value={choice.fill}
-          dataAttr="data-buttons-fill"
-          className="min-w-0 flex-1"
-          options={HUB_BUTTON_FILLS.filter((f) => f !== 'outline' || outline || choice.fill === 'outline').map((f) => ({
-            key: f,
-            label: HUB_BUTTON_FILL_LABEL[f],
-          }))}
-          onPick={(k) => commit({ ...choice, fill: k as HubButtonFill })}
-        />
-      </IRow>
-      <IRow label="Colour" data="buttons-colour">
-        <PickMenu
-          label="Button colour"
-          value={choice.colour ?? THEME_KEY}
-          dataAttr="data-buttons-colour"
-          className="min-w-0 flex-1"
-          options={[
-            { key: THEME_KEY, label: 'Default', preview: <Swatch hex={page.fill} /> },
-            ...offers.map((o) => ({ key: o.hex, label: o.label, preview: <Swatch hex={o.hex} /> })),
-          ]}
-          onPick={pickColour}
-        />
-      </IRow>
       {error ? (
         <p role="alert" className="pt-2 text-sm text-terracotta-700" data-buttons-error="">
           {error}
@@ -203,18 +204,13 @@ export function ButtonsLookRow({
   );
 }
 
-function Swatch({ hex }: { hex: string }) {
-  return <span aria-hidden className="block h-5 w-5 rounded-full shadow-[inset_0_0_0_1px_rgba(0,0,0,.15)]" style={{ backgroundColor: hex }} />;
-}
-
 /**
- * The sample's paint — the SAME values the guest scope wears; with nothing
- * chosen, today's Reply button: the page's own fill with the page's paper as
- * its label (`bg-mulberry text-cream`).
+ * One card's paint — the SAME values the guest scope wears for that shape, in the PALETTE's colour (no colour of
+ * the row's own is passed in). With no fill chosen: today's Reply button — the page's own fill with the page's
+ * paper as its label (`bg-mulberry text-cream`).
  */
-function sampleStyle(l: ReturnType<typeof resolveHubButtons>, page: HubButtonPage): CSSProperties {
+function sampleStyle(l: ReturnType<typeof resolveHubButtons>, page: HubButtonPage, radius: string): CSSProperties {
   const v = l?.vars ?? {};
-  const radius = v['--hub-btn-radius'] ?? OWN_RADIUS;
   if (!l?.paint) return { borderRadius: radius, backgroundColor: page.fill, color: page.grounds[0] };
   return {
     borderRadius: radius,

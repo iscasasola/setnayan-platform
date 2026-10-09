@@ -347,7 +347,9 @@ test('a fact drawn in two items is ONE value — every door carries its fact, an
   assert.match(details, /name="rsvp_choice"\s+data-same-field="rsvp_choice"/);
   assert.match(details, /name="rsvp_manual"\s+data-same-field="rsvp_manual"/);
   // Each door of a two-door fact is the SAME node, drawn in its Words item and under its print's switch.
-  assert.equal((details.match(/\{openingLine\}/g) ?? []).length, 2, 'the opening line is not in both doors');
+  /* …and a third time in the new Maker's Studio: the words form's own field, kept in the page (hidden) behind Info's
+     Form row, so a Prints save still carries the line (2026-10-08, the Info redesign). The SAME node each time. */
+  assert.equal((details.match(/\{openingLine\}/g) ?? []).length, 3, 'the opening line is not in both doors (and behind Info’s row)');
   assert.equal((details.match(/\{kindlyReply\}/g) ?? []).length, 2, '"Kindly reply" is not in both doors');
   assert.match(read(`${L}/opening-line-field.tsx`), /name="opening_line"\s+data-same-field="opening_line"/);
   assert.match(read('app/dashboard/[eventId]/pabuya/_components/pabuya-message-editor.tsx'), /data-same-field="pabuya_message"/);

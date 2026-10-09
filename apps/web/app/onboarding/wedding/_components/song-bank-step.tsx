@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ItunesResult } from '@/lib/itunes-preview';
 import { searchSongBankAction, cacheSongItunesAction, fetchSongBankCuratedAction, type SongBankItem } from '../actions';
 import { SongPreviewList } from './song-preview-list';
+import { PillButton, PillTrack } from '@/app/_components/pill-track';
 
 /**
  * Song Bank — the onboarding music step (Onboarding_Style_and_Song_Bank_2026-06-04 §5).
@@ -156,24 +157,21 @@ export function SongBankStep({
   const playlistEmpty = mode === 'playlist' && n === 0;
 
   const seg = (m: Mode, label: string) => (
-    <button
-      type="button"
-      role="tab"
-      aria-selected={mode === m}
-      className={mode === m ? 'on' : undefined}
-      onClick={() => setMode(m)}
-    >
+    <PillButton on={mode === m} role="tab" aria-selected={mode === m} onClick={() => setMode(m)}>
       {label}
-    </button>
+    </PillButton>
   );
 
   return (
     <div className="songpick songbank">
-      <div className="song-seg" role="tablist" aria-label="Browse songs">
+      {/* 🎚 THE ONE PILL SELECTOR (owner 2026-10-08: "adjust all pill selectors to this") — the app's track, its
+          look and the thumb that slides. `song-seg` stays ONLY to give back the padding that onboarding's own
+          `.onbw * { padding: 0 }` reset takes off every element (see onboarding.css) — it draws no look. */}
+      <PillTrack role="tablist" aria-label="Browse songs" grow className="song-seg">
         {seg('top', 'Top 100')}
         {seg('search', 'Search')}
         {seg('playlist', n > 0 ? `Playlist · ${n}` : 'Playlist')}
-      </div>
+      </PillTrack>
 
       {isSearch ? (
         <label className="songsearch songbank-search song-seg-search">

@@ -131,6 +131,9 @@ export const DetailsLookEditor = dynamic(() => import(/* webpackChunkName: "make
 export const LookPanel = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-look-pages').then((m) => m.LookPanel), { loading: SlotRows });
 export const DetailsLookPageBody = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-look-pages').then((m) => m.DetailsLookPageBody), { loading: SlotFill });
 export const DetailsLookPieces = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-look-pages').then((m) => m.DetailsLookPieces), { loading: SlotRows });
+/* 🪟 Studio › Look's sample screen (owner 2026-10-08, "THE LOOK PREVIEW IS A SAMPLE") — drawn in the browser from the
+   values in hand, in place of a guest-page frame. It rides this chunk: never in the Maker's first load. */
+export const LookSample = dynamic(() => import(/* webpackChunkName: "maker-details" */ './look-sample').then((m) => m.LookSample), { loading: SlotFill });
 export const StageStepPreview = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-look-pages').then((m) => m.StageStepPreview), { loading: SlotFill });
 
 /* ── The stage editor's background controls (#6135): shown when Main or a scene is edited ── */
@@ -163,13 +166,12 @@ export const MakerLogoDoor = dynamic(() => import(/* webpackChunkName: "maker-de
 export const MakerRevealPicker = dynamic(() => import(/* webpackChunkName: "maker-details" */ './maker-reveal').then((m) => m.MakerRevealPicker), { loading: SlotRows });
 
 /* ── 🧭 The new Maker's own chrome (owner 2026-10-06, `makerStagesStudioEnabled`) — Stages | Studio, Studio's
-   home and its Tool ▾ row, the grab handle, the one bottom sheet. Drawn only while the new Maker is on, so none
+   home, the grab handle, the one bottom sheet. Drawn only while the new Maker is on, so none
    of it is in the Maker's first load (`scripts/check-maker-js-budget.mjs`); warmed at idle with the rest. ── */
 export const StudioSideSwitch = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.StudioSideSwitch), {
   loading: () => <span aria-hidden className="block h-11 w-full rounded-lg bg-ink/[0.06]" />,
 });
 export const StudioToolMenu = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.StudioToolMenu), { loading: SlotButton });
-export const StudioToolRow = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.StudioToolRow), { loading: SlotNone });
 /* 🎓 "About the Maker" (Page ▾) — the tour is drawn only when the couple asks for it, never on a first open, so its
    slides' frame and words load with the first ask (08 Oct: #6413's Maker first load was 0.4 KB over its budget). */
 export const MakerTour = dynamic(() => import(/* webpackChunkName: "maker-details" */ './maker-tour').then((m) => m.MakerTour), { loading: SlotNone });
@@ -198,3 +200,6 @@ export const PhotoMomentsEditor = dynamic(
 export const StagePlayStatus = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stage-panel/play-status').then((m) => m.StagePlayStatus));
 /* 🎛 The Camera's own looks in Stages — loaded the first time the Camera is picked (`stage-panel/camera-look.tsx`). */
 export const CameraPartTools = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stage-panel/camera-look').then((m) => m.CameraPartTools), { loading: SlotRows });
+
+/* ✕ The Maker's way out — Back to this event · All events (`maker-exit-sheet.tsx`), drawn when ✕ is pressed. */
+export const MakerExitSheet = dynamic(() => import(/* webpackChunkName: "maker-details" */ './maker-exit-sheet').then((m) => m.MakerExitSheet), { loading: SlotNone });

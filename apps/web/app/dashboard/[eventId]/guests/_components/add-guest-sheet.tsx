@@ -14,13 +14,13 @@
  * The header's capture bar is gone; this is where it lives now.
  */
 
-import { useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronDown, Plus, X } from 'lucide-react';
-import { useModalA11y } from '@/lib/use-modal-a11y';
+import { ActionButton } from '@/components/action-button';
 import type { GuestSide } from '@/lib/guests';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { GuestPopup } from './guest-popup';
 import { CaptureBar } from './capture-bar';
 import { openQuickAdd } from './quick-add-sheet';
 import { openAddFromPeople } from './add-from-people-sheet';
@@ -55,16 +55,16 @@ const OTHER_WAYS = [
  */
 export function OpenAddGuestButton({ label }: { label: string }) {
   return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      onClick={() => window.dispatchEvent(new CustomEvent(OPEN_EVENT))}
-      data-guests-add-plus=""
-      className="flex h-11 w-11 items-center justify-center rounded-full bg-ink text-cream hover:bg-ink/90"
-    >
-      <Plus className="h-5 w-5" strokeWidth={2} aria-hidden />
-    </button>
+    <span className="contents" data-guests-add-plus="">
+      <ActionButton
+        tone="brand"
+        main
+        iconOnly
+        icon={Plus}
+        label={label}
+        onClick={() => window.dispatchEvent(new CustomEvent(OPEN_EVENT))}
+      />
+    </span>
   );
 }
 
@@ -75,15 +75,15 @@ export function OpenAddGuestButton({ label }: { label: string }) {
  */
 export function OpenAddGuestTextButton({ label }: { label: string }) {
   return (
-    <button
-      type="button"
-      onClick={() => window.dispatchEvent(new CustomEvent(OPEN_EVENT))}
-      data-guests-empty-add=""
-      className="button-primary inline-flex min-h-[44px] items-center gap-2"
-    >
-      <Plus className="h-4 w-4" strokeWidth={2} aria-hidden />
-      {label}
-    </button>
+    <span className="contents" data-guests-empty-add="">
+      <ActionButton
+        tone="brand"
+        main
+        icon={Plus}
+        label={label}
+        onClick={() => window.dispatchEvent(new CustomEvent(OPEN_EVENT))}
+      />
+    </span>
   );
 }
 
@@ -101,8 +101,6 @@ export function AddGuestSheet({
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const router = useRouter();
-  const sheetRef = useRef<HTMLDivElement>(null);
-  useModalA11y({ open, onClose: () => setOpen(false), containerRef: sheetRef });
 
   useEffect(() => {
     const onOpen = (e: Event) => {
@@ -114,45 +112,23 @@ export function AddGuestSheet({
     return () => window.removeEventListener(OPEN_EVENT, onOpen);
   }, []);
 
-  // The name box first, ready to type. `preventScroll`: the page behind must
-  // not move (the owner's "the table nudges down" on the old row, 2026-09-21).
-  useEffect(() => {
-    if (!open) return;
-    requestAnimationFrame(() =>
-      sheetRef.current?.querySelector<HTMLInputElement>('input')?.focus({ preventScroll: true }),
-    );
-  }, [open]);
-
-  // ⚖ Drawn on <body> (guests-phone-menu.tsx says why: inside the page's
-  // `view-transition-name` <main> no z-index rises above the bottom bar), and
-  // only once the page has mounted — a portal on the server has no body.
-  if (!open || typeof document === 'undefined') return null;
-  return createPortal(
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-ink/[0.32] backdrop-blur-[1px] sm:items-center"
-      role="presentation"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) setOpen(false);
-      }}
+  // ⚖ Drawn on <body> by `GuestPopup` (guests-phone-menu.tsx says why: inside the page's
+  // `view-transition-name` <main> no z-index rises above the bottom bar), dark and blurred behind
+  // (`.sn-popup-dark`), a tap on the dark closes it, and nothing behind it works or scrolls.
+  // Mounted only while open — mount = open.
+  if (!open) return null;
+  return (
+    <GuestPopup
+      onClose={() => setOpen(false)}
+      rootClassName="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
+      panelClassName="relative max-h-[85vh] w-full space-y-4 overflow-y-auto rounded-t-3xl bg-cream px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-3 sm:max-w-lg sm:rounded-3xl"
+      panelData={{ 'data-add-guest-sheet': '' }}
+      label="Add a guest"
+      focusFirstInput
     >
-      <div
-        ref={sheetRef}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Add a guest"
-        data-add-guest-sheet=""
-        className="max-h-[85vh] w-full space-y-4 overflow-y-auto rounded-t-3xl bg-cream px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-3 sm:max-w-lg sm:rounded-3xl"
-      >
         <div className="flex items-center justify-between">
           <span className="text-sm font-semibold text-ink">Add a guest</span>
-          <button
-            type="button"
-            onClick={() => setOpen(false)}
-            aria-label="Close"
-            className="flex h-11 w-11 items-center justify-center rounded-full text-ink/60 hover:bg-ink/5"
-          >
-            <X className="h-5 w-5" strokeWidth={1.8} aria-hidden />
-          </button>
+          <ActionButton tone="neutral" quiet iconOnly icon={X} label="Close" onClick={() => setOpen(false)} />
         </div>
         <div data-add-guest-name="">
           <CaptureBar
@@ -203,8 +179,6 @@ export function AddGuestSheet({
             }}
           />
         </div>
-      </div>
-    </div>,
-    document.body,
+    </GuestPopup>
   );
 }

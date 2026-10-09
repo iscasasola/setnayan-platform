@@ -42,12 +42,14 @@ export * from './rsvp-stage-shared';
 export type RsvpStageScene = 'form' | 'thanks' | 'decline';
 
 /** The three scenes, in the order a guest meets them — the navigator's list. */
-export const RSVP_STAGE_SCENES: ReadonlyArray<{ key: RsvpStageScene; label: string; sub: string }> = [
+export const RSVP_STAGE_SCENES: ReadonlyArray<{ key: RsvpStageScene; label: string; tab: string; sub: string }> = [
   /* 📑 Named as the owner approved them (2026-10-05, DECISION_LOG "APPROVED —
-     EVERY GUEST PAGE'S DEFAULT SECTION ORDER"): RSVP form · When yes · When no. */
-  { key: 'form', label: 'RSVP form', sub: 'The form your guests fill in' },
-  { key: 'thanks', label: 'When yes', sub: 'The thank-you, with their Digital tickets' },
-  { key: 'decline', label: 'When no', sub: 'What a guest who can’t come sees' },
+     EVERY GUEST PAGE'S DEFAULT SECTION ORDER"): RSVP form · When yes · When no.
+     `tab` is the word on the Stages page tabs — the prototype's short name
+     (`PAGE_SHORT`: "RSVP form" → "Form"), under the stage's own name. */
+  { key: 'form', label: 'RSVP form', tab: 'Form', sub: 'The form your guests fill in' },
+  { key: 'thanks', label: 'When yes', tab: 'When yes', sub: 'The thank-you, with their Digital tickets' },
+  { key: 'decline', label: 'When no', tab: 'When no', sub: 'What a guest who can’t come sees' },
 ];
 
 export function isRsvpStageScene(v: unknown): v is RsvpStageScene {

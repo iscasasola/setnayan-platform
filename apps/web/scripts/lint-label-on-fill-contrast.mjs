@@ -367,6 +367,12 @@ function resolveColor(raw) {
   if (hex) return parseHex(hex[0]);
   const varRef = v.match(/^var\(\s*--([a-z0-9-]+)/i);
   if (varRef) return cssVars.get(varRef[1]) ?? null;
+  // `rgb(var(--x))` — a token held as three numbers (`--color-mulberry: 194 78 37`, `--sn-accent`), the way every
+  // Tailwind-facing token in globals.css is written. Until 2026-10-08 this form was unreadable here, so a rule
+  // that paired two such tokens was skipped in silence — the very blind spot the note above `readCssVars` names.
+  // Opaque only: `rgb(var(--x) / .4)` is translucent and is skipped before it reaches this function.
+  const rgbVar = v.match(/^rgb\(\s*var\(\s*--([a-z0-9-]+)\s*\)\s*\)$/i);
+  if (rgbVar) return cssVars.get(rgbVar[1]) ?? null;
   const rgba = v.match(/^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*(?:,\s*([\d.]+))?\s*\)$/i);
   if (rgba) {
     const [r, g, b] = [Number(rgba[1]), Number(rgba[2]), Number(rgba[3])];

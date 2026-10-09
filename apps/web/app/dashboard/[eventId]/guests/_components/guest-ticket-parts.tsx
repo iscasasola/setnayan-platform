@@ -2,14 +2,14 @@
 
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { MoreHorizontal, QrCode, Trash2, Unlink, X } from 'lucide-react';
+import { Download, MoreHorizontal, QrCode, Trash2, Unlink, X } from 'lucide-react';
+import { ActionButton, actionButtonClass } from '@/components/action-button';
 import { NfcWriteButton } from '@/app/_components/nfc-write-button';
 import { SaveFileLink } from '@/app/_components/save-file-link';
-import { Sheet } from '@/app/_components/sheet';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { useModalA11y } from '@/lib/use-modal-a11y';
+import { GuestConfirmActions, GuestPopup } from './guest-popup';
 import { menuNudge, menuRoomOf, menuWidthIn, nudgeUp, placeMenuIn } from '@/lib/menu-place';
-import { releaseGuestClaim } from '../[guestId]/actions';
+import { useGuestActions } from './guest-actions-context';
 import { ticketFileName, ticketUrl } from './send-invite';
 import { DeleteGuestFlow } from './guest-delete';
 import { useInspectorContext } from '@/app/_components/inspector/inspector-column';
@@ -54,7 +54,6 @@ export function GuestTicketThumb({
   const [mounted, setMounted] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const titleId = useId();
-  const boxRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const src = ticketUrl(guestId);
   useEffect(() => setMounted(true), []);
@@ -73,7 +72,6 @@ export function GuestTicketThumb({
     const img = imgRef.current;
     if (mounted && img?.complete && img.naturalWidth > 0) setLoaded(true);
   }, [mounted, src]);
-  useModalA11y({ open, onClose: () => setOpen(false), containerRef: boxRef });
 
   if (!available || broken) {
     return (
@@ -134,55 +132,41 @@ export function GuestTicketThumb({
           <span className="hidden lg:inline">Click to view</span>
         </span>
       </button>
-      {open && mounted
-        ? createPortal(
-            <div
-              ref={boxRef}
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby={titleId}
-              className="fixed inset-0 z-[96] flex items-center justify-center p-4"
-              data-guest-ticket-view=""
-            >
-              <button
-                type="button"
-                aria-label="Close"
-                onClick={() => setOpen(false)}
-                className="absolute inset-0 bg-ink/50 backdrop-blur-sm"
-              />
-              <div className="relative flex max-h-[92dvh] w-full max-w-[380px] flex-col items-center gap-3 rounded-3xl bg-cream p-4 shadow-[0_30px_80px_-30px_rgba(26,26,26,0.5)]">
-                <div className="flex w-full items-center justify-between">
-                  <p id={titleId} className="sn-eye">
-                    Their ticket
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setOpen(false)}
-                    aria-label="Close"
-                    className="inline-flex h-11 w-11 items-center justify-center rounded-full text-ink/60 hover:bg-ink/5"
-                  >
-                    <X aria-hidden className="h-4 w-4" strokeWidth={2} />
-                  </button>
-                </div>
-                {/* eslint-disable-next-line @next/next/no-img-element -- the guest's own ticket, exactly as they see it on Me */}
-                <img
-                  src={src}
-                  alt={`${name}'s ticket`}
-                  className="max-h-[62dvh] w-auto rounded-xl object-contain ring-1 ring-ink/10"
-                />
-                <SaveFileLink
-                  href={src}
-                  filename={ticketFileName(name)}
-                  className="inline-flex min-h-[48px] w-full items-center justify-center rounded-full bg-ink px-5 text-sm font-medium text-cream"
-                >
-                  {(state) => (state === 'saving' ? 'Saving…' : 'Save ticket')}
-                </SaveFileLink>
-                <p className="text-center text-xs text-ink/55">Saves it as one image — the QR is on it.</p>
-              </div>
-            </div>,
-            document.body,
-          )
-        : null}
+      {open && mounted ? (
+        <GuestPopup
+          onClose={() => setOpen(false)}
+          rootClassName="fixed inset-0 z-[96] flex items-center justify-center p-4"
+          rootData={{ 'data-guest-ticket-view': '' }}
+          panelClassName="relative flex max-h-[92dvh] w-full max-w-[380px] flex-col items-center gap-3 rounded-3xl bg-cream p-4 shadow-[0_30px_80px_-30px_rgba(26,26,26,0.5)]"
+          labelledById={titleId}
+        >
+          <div className="flex w-full items-center justify-between">
+            <p id={titleId} className="sn-eye">
+              Their ticket
+            </p>
+            <ActionButton tone="neutral" quiet iconOnly icon={X} label="Close" onClick={() => setOpen(false)} />
+          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element -- the guest's own ticket, exactly as they see it on Me */}
+          <img
+            src={src}
+            alt={`${name}'s ticket`}
+            className="max-h-[62dvh] w-auto rounded-xl object-contain ring-1 ring-ink/10"
+          />
+          <SaveFileLink
+            href={src}
+            filename={ticketFileName(name)}
+            className={actionButtonClass('brand', { main: true, extra: 'w-full min-h-11' })}
+          >
+            {(state) => (
+              <>
+                <Download aria-hidden strokeWidth={1.9} />
+                <span className="lbl">{state === 'saving' ? 'Saving…' : 'Save ticket'}</span>
+              </>
+            )}
+          </SaveFileLink>
+          <p className="text-center text-xs text-ink/55">Saves it as one image — the QR is on it.</p>
+        </GuestPopup>
+      ) : null}
     </>
   );
 }
@@ -236,6 +220,8 @@ export function GuestMoreMenu({
   const nudgedAt = useRef(0);
   const confirmId = useId();
   const menuId = useId();
+  /* The shipped action — the dev lab hands in a stand-in (`guest-actions-context.tsx`). */
+  const { releaseGuestClaim } = useGuestActions();
   const release = releaseGuestClaim.bind(null, eventId, guestId);
   useEffect(() => setPortal(document.body), []);
   const portalled = (node: ReactNode) => (portal ? createPortal(node, portal) : node);
@@ -338,21 +324,20 @@ export function GuestMoreMenu({
 
   return (
     <div ref={wrapRef} className="relative" data-guest-more-menu="">
-      <button
+      <ActionButton
         ref={buttonRef}
-        type="button"
+        tone="neutral"
+        iconOnly
+        icon={MoreHorizontal}
+        label={`More for ${guestName}`}
         onClick={() => {
           if (!open) place();
           setOpen((o) => !o);
         }}
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-controls={open ? menuId : undefined}
-        aria-label={`More for ${guestName}`}
-        className="relative z-20 inline-flex h-11 w-11 items-center justify-center rounded-full border border-ink/15 bg-cream text-ink/70 transition-colors hover:border-ink/30 hover:text-ink"
-      >
-        <MoreHorizontal aria-hidden className="h-4 w-4" strokeWidth={2} />
-      </button>
+        className="relative z-20"
+      />
       {/* Kept mounted while closed (hidden), so the NFC sheet its button opens
           outlives the menu closing behind it. */}
       {/* Drawn in place until the page has mounted (so the server and the first
@@ -397,7 +382,7 @@ export function GuestMoreMenu({
           <button
             type="button"
             role="menuitem"
-            className={`${item} border-t border-ink/[0.06] text-terracotta-700`}
+            className={`${item} border-t border-ink/[0.06] text-danger-700`}
             data-guest-unlink=""
             onClick={() => {
               setOpen(false);
@@ -441,8 +426,9 @@ export function GuestMoreMenu({
         />
       ) : null}
 
-      <Sheet open={confirm !== null} onClose={() => setConfirm(null)} labelledById={confirmId} rise>
-        <form action={release} className="space-y-4 p-5" data-guest-confirm={confirm ?? ''}>
+      {confirm !== null ? (
+      <GuestPopup kind="confirm" onClose={() => setConfirm(null)} labelledById={confirmId}>
+        <form action={release} className="space-y-3" data-guest-confirm={confirm ?? ''}>
           {confirm === 'new_qr' ? (
             <>
               <input type="hidden" name="new_qr" value="1" />
@@ -467,21 +453,20 @@ export function GuestMoreMenu({
               </p>
             </>
           )}
-          <SubmitButton
-            className="inline-flex min-h-[48px] w-full items-center justify-center rounded-full bg-mulberry px-5 text-sm font-medium text-cream disabled:opacity-60"
-            pendingLabel={confirm === 'new_qr' ? 'Making a new QR…' : 'Unlinking…'}
-          >
-            {confirm === 'new_qr' ? 'Make a new QR' : 'Unlink account'}
-          </SubmitButton>
-          <button
-            type="button"
-            onClick={() => setConfirm(null)}
-            className="inline-flex min-h-[48px] w-full items-center justify-center rounded-full border border-ink/15 bg-cream px-5 text-sm font-medium text-ink"
-          >
-            Cancel
-          </button>
+          <GuestConfirmActions
+            keep={<ActionButton tone="neutral" icon={X} label="Cancel" onClick={() => setConfirm(null)} />}
+            go={
+              <SubmitButton
+                className={actionButtonClass('brand', { main: true, extra: 'min-h-11' })}
+                pendingLabel={confirm === 'new_qr' ? 'Making a new QR…' : 'Unlinking…'}
+              >
+                {confirm === 'new_qr' ? 'Make a new QR' : 'Unlink account'}
+              </SubmitButton>
+            }
+          />
         </form>
-      </Sheet>
+      </GuestPopup>
+      ) : null}
     </div>
   );
 }

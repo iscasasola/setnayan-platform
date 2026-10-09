@@ -299,10 +299,18 @@ test('5 · no tool of the lower third links out of the Maker — the known few a
     assert.ok(src.length > 400, `${file} scanned nearly empty`);
     scanned += 1;
     const known = KNOWN_LINK_OUTS[file]?.count ?? 0;
-    const seen = linkOuts(src) - (file.endsWith('maker-shell.tsx') ? 1 : 0); // ✕ Exit is the Maker's one way out, in the top nav
+    /* 🚪 AMENDED 08 Oct (owner: *"why can't i go back to events?"* → *"Okay, fix the three step."*): ✕ no longer
+       links out by itself — it opens the way-out sheet — so the shell is allowed NO link out at all now (it was
+       allowed its one ✕). The Maker's way out is counted below, in the sheet: exactly its two doors. */
+    const seen = linkOuts(src);
     assert.equal(seen, known, `${file}: ${seen} link(s) out of the Maker, ${known} known${KNOWN_LINK_OUTS[file] ? ` (${KNOWN_LINK_OUTS[file]!.why})` : ''}`);
   }
   assert.ok(scanned >= 15, 'the scan is blind');
+  // The Maker's way out: ✕ → the sheet's two doors (Back to this event · All events), and nothing else.
+  const way = read('app/dashboard/[eventId]/launch/_components/maker-exit-sheet.tsx');
+  assert.equal((way.match(/<ActionButton\b[^>]*\bhref=/g) ?? []).length, 1, 'the way-out sheet draws its doors from one list');
+  assert.equal((way.match(/href: [`']\/dashboard/g) ?? []).length, 2, 'the way out is exactly two doors');
+  assert.equal(linkOuts(way), 0, 'the way-out sheet navigates some other way');
   // The scene sheet and the navigator's notes — in the work area.
   const work = read(`${E}/editor-shell.tsx`);
   const inspector = work.slice(work.indexOf('function Inspector('), work.indexOf('function makerSelectionKey('));

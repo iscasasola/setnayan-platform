@@ -1,0 +1,135 @@
+{
+ "_about": "RECORDED 2026-10-09 from the Prints panels AS THEY STOOD BEFORE Studio › Prints moved onto the ActionButton: `PrintSetDownloads` and `PassCardsPanel` rendered (lazy pieces settled) for six access states — what a customer READS (every word, in order), the Pro door's href and hook, the access line, the go-Pro pitch, the print-ready hooks. The Prints panels hold no price and no confirm step (the unlock page, `/dashboard/<id>/studio/website-pro`, owns both); what they carry about money is this wording and this one door, and it must not change by a byte. Re-record only with a reason written in the commit.",
+ "classic · free couple": {
+  "set": {
+   "text": "Classic, Modern and Cyber Neon prints are free and print-ready — 3 mm bleed and crop marks, no watermark. Whole set · Classic (PDF) Every guest’s ticket · Classic Passes print Calling card size, ganged on A4 with cut lines.",
+   "access": "classic",
+   "goPro": false,
+   "zipDoor": false,
+   "proDoorHrefs": 0,
+   "printReady": false,
+   "passesThemed": false,
+   "peso": false
+  },
+  "pass": {
+   "text": "The ticket guests save Ticket style Classic Drawing your ticket… Digital ticket (PNG) PRO Download all tickets (.zip) One PNG per guest who is coming. Each guest’s own saves free. Printed ticket (PDF) Every guest’s ticket · Phone card (3:4 portrait)",
+   "access": null,
+   "goPro": false,
+   "zipDoor": true,
+   "proDoorHrefs": 1,
+   "printReady": false,
+   "passesThemed": false,
+   "peso": false
+  }
+ },
+ "free theme (Galeriya) · free couple": {
+  "set": {
+   "text": "Classic, Modern and Cyber Neon prints are free and print-ready — 3 mm bleed and crop marks, no watermark. Whole set · Classic (PDF) Every guest’s ticket · Classic Whole set · Modern (PDF) Every guest’s ticket · Modern Passes print Calling card size, ganged on A4 with cut lines.",
+   "access": "free-theme",
+   "goPro": false,
+   "zipDoor": false,
+   "proDoorHrefs": 0,
+   "printReady": true,
+   "passesThemed": true,
+   "peso": false
+  },
+  "pass": {
+   "text": "The ticket guests save Ticket style Classic Drawing your ticket… Digital ticket (PNG) PRO Download all tickets (.zip) One PNG per guest who is coming. Each guest’s own saves free. Printed ticket (PDF) Every guest’s ticket · Phone card (3:4 portrait)",
+   "access": null,
+   "goPro": false,
+   "zipDoor": true,
+   "proDoorHrefs": 1,
+   "printReady": false,
+   "passesThemed": false,
+   "peso": false
+  }
+ },
+ "Pro theme · free couple (sample)": {
+  "set": {
+   "text": "Classic, Modern and Cyber Neon prints are free and print-ready — 3 mm bleed and crop marks, no watermark. In Rustic these are samples — low-resolution pictures marked “Sample”, with placeholder QR codes, so you can see your own names on every piece. PRO Go Pro to print in Rustic. Whole set · Classic (PDF) Every guest’s ticket · Classic Sample sheet · Rustic (JPG) Passes print Calling card size, ganged on A4 with cut lines.",
+   "access": "sample",
+   "goPro": true,
+   "zipDoor": false,
+   "proDoorHrefs": 0,
+   "printReady": false,
+   "passesThemed": false,
+   "peso": false
+  },
+  "pass": {
+   "text": "The ticket guests save Ticket style Classic Drawing your ticket… Digital ticket (PNG) PRO Download all tickets (.zip) One PNG per guest who is coming. Each guest’s own saves free. Printed ticket (PDF) Every guest’s ticket · Phone card (3:4 portrait)",
+   "access": null,
+   "goPro": false,
+   "zipDoor": true,
+   "proDoorHrefs": 1,
+   "printReady": false,
+   "passesThemed": false,
+   "peso": false
+  }
+ },
+ "Pro theme · Pro couple (print-ready)": {
+  "set": {
+   "text": "Classic, Modern and Cyber Neon prints are free and print-ready — 3 mm bleed and crop marks, no watermark. With Event Hub Pro they print in Rustic too, with white ink on their own layers. Whole set · Classic (PDF) Every guest’s ticket · Classic Whole set · Rustic (PDF) Every guest’s ticket · Rustic Passes print Calling card size, ganged on A4 with cut lines.",
+   "access": "print-ready",
+   "goPro": false,
+   "zipDoor": false,
+   "proDoorHrefs": 0,
+   "printReady": true,
+   "passesThemed": true,
+   "peso": false
+  },
+  "pass": {
+   "text": "The ticket guests save Ticket style Classic Drawing your ticket… Digital ticket (PNG) Download all tickets (.zip) One PNG per guest who is coming. Each guest’s own saves free. Printed ticket (PDF) Every guest’s ticket · Phone card (3:4 portrait)",
+   "access": null,
+   "goPro": false,
+   "zipDoor": false,
+   "proDoorHrefs": 0,
+   "printReady": false,
+   "passesThemed": false,
+   "peso": false
+  }
+ },
+ "Pro theme · free couple · store shell": {
+  "set": {
+   "text": "Classic, Modern and Cyber Neon prints are free and print-ready — 3 mm bleed and crop marks, no watermark. In Rustic these are samples — low-resolution pictures marked “Sample”, with placeholder QR codes, so you can see your own names on every piece. Whole set · Classic (PDF) Every guest’s ticket · Classic Sample sheet · Rustic (JPG) Passes print Calling card size, ganged on A4 with cut lines.",
+   "access": "sample",
+   "goPro": false,
+   "zipDoor": false,
+   "proDoorHrefs": 0,
+   "printReady": false,
+   "passesThemed": false,
+   "peso": false
+  },
+  "pass": {
+   "text": "The ticket guests save Ticket style Classic Drawing your ticket… Digital ticket (PNG) One PNG per guest who is coming. Each guest’s own saves free. Printed ticket (PDF) Every guest’s ticket · Phone card (3:4 portrait)",
+   "access": null,
+   "goPro": false,
+   "zipDoor": false,
+   "proDoorHrefs": 0,
+   "printReady": false,
+   "passesThemed": false,
+   "peso": false
+  }
+ },
+ "Pro theme · Pro couple · store shell": {
+  "set": {
+   "text": "Classic, Modern and Cyber Neon prints are free and print-ready — 3 mm bleed and crop marks, no watermark. In Rustic these are samples — low-resolution pictures marked “Sample”, with placeholder QR codes, so you can see your own names on every piece. Whole set · Classic (PDF) Every guest’s ticket · Classic Sample sheet · Rustic (JPG) Passes print Calling card size, ganged on A4 with cut lines.",
+   "access": "sample",
+   "goPro": false,
+   "zipDoor": false,
+   "proDoorHrefs": 0,
+   "printReady": false,
+   "passesThemed": false,
+   "peso": false
+  },
+  "pass": {
+   "text": "The ticket guests save Ticket style Classic Drawing your ticket… Digital ticket (PNG) Download all tickets (.zip) One PNG per guest who is coming. Each guest’s own saves free. Printed ticket (PDF) Every guest’s ticket · Phone card (3:4 portrait)",
+   "access": null,
+   "goPro": false,
+   "zipDoor": false,
+   "proDoorHrefs": 0,
+   "printReady": false,
+   "passesThemed": false,
+   "peso": false
+  }
+ }
+}

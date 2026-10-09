@@ -84,7 +84,10 @@ test('A · the picks are drafted beside the five fixed parts (one key, no migrat
 test('A · the guest render hands each part its look (masthead, Welcome, Me)', () => {
   const body = stripComments(read('app/[slug]/_components/site-body.tsx'));
   assert.match(body, /heroElements\.looks = /);
-  assert.equal((body.match(/partLooks=\{welcomeLooks\}/g) ?? []).length, 4, 'every Welcome mount');
+  /* Five since 2026-10-08: the guest's own look is drawn on Me (the guest's pages follow the Maker's filing) — the
+     same component, the same looks. EVERY mount carries them. */
+  assert.equal((body.match(/partLooks=\{welcomeLooks\}/g) ?? []).length, (body.match(/<GuestWelcome\b/g) ?? []).length, 'every Welcome mount');
+  assert.equal((body.match(/<GuestWelcome\b/g) ?? []).length, 5);
   assert.match(body, /partLooks=\{meLooks\}/);
   const mast = stripComments(read('app/[slug]/_components/pahina-masthead.tsx'));
   assert.match(mast, /'data-part-look': looks\[key as keyof typeof looks\]/, 'each hero part carries its look');
@@ -147,10 +150,17 @@ test('C · Darker and Lighter hold body text at AA over the darkest and lightest
   }
 });
 
-test('C · the shade is kept only beside a picture; Spacing is kept and is never a frame alone', () => {
+/* 🔁 RE-AIMED 2026-10-09 (owner, on Colour · Plain: "on color, there is no linebar for the darken/lighten?"). This
+   held "the shade is kept ONLY beside a picture — a colour has no veil to move". A colour that is its own ground
+   (Plain · Diagonal · Glow) now keeps it too: the colour itself is mixed (`sceneColourShade`). What the rule was
+   protecting still stands — a key that could move no pixels is not stored: a glass (its control is Opacity),
+   "No background", and no background at all keep no shade. */
+test('C · the shade is kept beside a picture or a colour that is its own ground; Spacing is kept and is never a frame alone', () => {
   const photo = sanitizeHubCanvas({ canvas: { media: `r2://${PUBLIC_R2_BUCKET}/a/b.jpg`, kind: 'photo', shade: 'darker' } });
   assert.equal(photo.shade, 'darker');
-  assert.equal(sanitizeHubCanvas({ canvas: { kind: 'color', color: '#112233', shade: 'darker' } }).shade, undefined);
+  for (const kind of ['color', 'diagonal', 'glow']) assert.equal(sanitizeHubCanvas({ canvas: { kind, color: '#112233', shade: 'darker' } }).shade, 'darker', `${kind} lost its shade`);
+  for (const kind of ['glass', 'frost']) assert.equal(sanitizeHubCanvas({ canvas: { kind, color: '#112233', shade: 'darker' } }).shade, undefined, `${kind} keeps a shade it cannot draw`);
+  assert.equal(sanitizeHubCanvas({ canvas: { kind: 'none', shade: 'darker' } }).shade, undefined);
   assert.equal(sanitizeHubCanvas({ canvas: { shade: 'as-is' } }).shade, undefined);
   const roomy = sanitizeHubCanvas({ canvas: { spacing: 'roomy' } });
   assert.equal(roomy.spacing, 'roomy');

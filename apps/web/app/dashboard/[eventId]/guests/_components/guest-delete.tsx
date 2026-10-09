@@ -26,15 +26,17 @@
  * `rd/deleted-guest-unlinks`), not by this file — one mechanism, not two.
  */
 
-import { useId, useState } from 'react';
-import { Sheet } from '@/app/_components/sheet';
-import { useToast } from '@/app/_components/toast/toast-provider';
+import { createContext, useContext, useId, useState } from 'react';
+import { Trash2, X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { GuestConfirmActions, GuestPopup } from './guest-popup';
 import { formatCount } from '@/lib/format-number';
 import { bulkSoftDeleteGuestsForUndo, restoreDeletedGuests } from '../groups-actions';
 import { buildUndo } from '@/lib/guest-optimistic';
 import { guestOptimistic } from './guest-optimistic-store';
 import { guestSelection } from './guest-selection-store';
-import { pushUndo } from './undo-toast';
+import { guestToast, pushUndo } from './undo-store';
+import { couldntDelete, plainRefusal } from './plain-refusal';
 
 /** What the warning says goes with them — the owner's list, in his order. */
 export function deleteWarningText(names: readonly string[]): { title: string; body: string } {
@@ -51,6 +53,18 @@ export function deleteWarningText(names: readonly string[]): { title: string; bo
 }
 
 /**
+ * The two writes a removal makes — the SHIPPED server actions by default. The dev lab (`/dev/guests-lab`) hands in
+ * stand-ins that succeed locally, so a press there can be seen (and the Undo toast with it) without reaching the
+ * database. Nothing in the app ever provides this; the default IS the real thing.
+ */
+export type GuestRemovalActions = {
+  bulkSoftDeleteGuestsForUndo: typeof bulkSoftDeleteGuestsForUndo;
+  restoreDeletedGuests: typeof restoreDeletedGuests;
+};
+const REAL_REMOVAL_ACTIONS: GuestRemovalActions = { bulkSoftDeleteGuestsForUndo, restoreDeletedGuests };
+export const GuestRemovalActionsContext = createContext<GuestRemovalActions | null>(null);
+
+/**
  * The delete, optimistic, with Undo. A REFUSAL IS SAID, never swallowed: the
  * rows come back AND the server's own sentence shows as an error toast, so a
  * host never watches a row reappear with no reason (the live-test defect).
@@ -59,67 +73,80 @@ export function deleteWarningText(names: readonly string[]): { title: string; bo
  *   gesture, the card closes itself).
  */
 export function useGuestRemoval(eventId: string) {
-  const toast = useToast();
   const [removing, setRemoving] = useState(false);
+  /* The shipped actions, unless the dev lab handed in stand-ins. Held under the SAME names, so every call below reads —
+     and every guard that pins "the delete is called from exactly one place, the hook" still reads — as the real call. */
+  const { bulkSoftDeleteGuestsForUndo, restoreDeletedGuests } = useContext(GuestRemovalActionsContext) ?? REAL_REMOVAL_ACTIONS;
 
   /** Resolves to the refusal's own words (shown where the host acted), or null. */
-  async function remove(guestIds: string[], onRemoved?: () => void): Promise<string | null> {
+  async function remove(guestIds: string[], onRemoved?: () => void, who?: string): Promise<string | null> {
     if (removing) return null;
     const ids = [...guestIds];
     if (ids.length === 0) return null;
     const mutation = { kind: 'remove' as const, guestIds: ids };
+    /* Who, in the host's words, for the one plain sentence a refusal is told in (never the action's own raw text). */
+    const whom = who ?? (ids.length === 1 ? 'that guest' : `${formatCount(ids.length)} guests`);
 
     setRemoving(true);
     guestOptimistic.apply(mutation); // hide rows now
-
-    let result;
+    /* 🔑 A PRESS ENDS ITS OWN PENDING STATE ON EVERY PATH (owner 2026-10-09, a refused delete read "Deleting…" with no
+       word of why): the sheet goes back to "Delete" and the red toast says what was refused, within the press. */
     try {
-      result = await bulkSoftDeleteGuestsForUndo(eventId, ids);
-    } catch {
-      guestOptimistic.clear(mutation); // rollback the hide
+      let result;
+      try {
+        result = await bulkSoftDeleteGuestsForUndo(eventId, ids);
+      } catch {
+        guestOptimistic.clear(mutation); // rollback the hide
+        const said = 'Could not delete — check your connection and try again.';
+        guestToast.error(said);
+        return said;
+      }
+
+      if (!result.ok) {
+        guestOptimistic.clear(mutation); // rollback — and SAY it, in plain words, where they acted
+        const said = plainRefusal(result.error, couldntDelete(whom));
+        guestToast.error(said);
+        return said;
+      }
+      // Only now retract the selection bar: a refusal keeps it — and its warning,
+      // with the reason — on screen, instead of vanishing with the rows' return.
+      guestSelection.clear();
+      onRemoved?.();
+
+      // buildUndo carries the released seats through, so restore re-places them.
+      const plan = buildUndo({ kind: 'remove', guestIds: result.removedIds }, [], result.releasedSeats);
+      const n = result.removedIds.length;
+      pushUndo({
+        label: `${formatCount(n)} guest${n === 1 ? '' : 's'} deleted`,
+        undo: async () => {
+          if (plan.kind !== 'restore') return;
+          // Their song requests come back with them (the warning said they go) —
+          // read back from what the database kept at delete time, never sent from here.
+          const r = await restoreDeletedGuests(eventId, plan.guestIds, plan.seats);
+          if (r.ok) {
+            guestOptimistic.clear(mutation); // un-hide the restored rows
+            if (r.warning) guestToast.error(plainRefusal(r.warning, 'Brought back — but part of it did not come back with them.'));
+          } else {
+            guestToast.error('Could not undo — refresh and try again.');
+          }
+        },
+      });
+      return null;
+    } finally {
       setRemoving(false);
-      const said = 'Could not delete — check your connection and try again.';
-      toast.error(said);
-      return said;
     }
-    setRemoving(false);
-
-    if (!result.ok) {
-      guestOptimistic.clear(mutation); // rollback — and SAY why, where they acted
-      toast.error(result.error);
-      return result.error;
-    }
-    // Only now retract the selection bar: a refusal keeps it — and its warning,
-    // with the reason — on screen, instead of vanishing with the rows' return.
-    guestSelection.clear();
-    onRemoved?.();
-
-    // buildUndo carries the released seats through, so restore re-places them.
-    const plan = buildUndo({ kind: 'remove', guestIds: result.removedIds }, [], result.releasedSeats);
-    const n = result.removedIds.length;
-    pushUndo({
-      label: `${formatCount(n)} guest${n === 1 ? '' : 's'} deleted`,
-      undo: async () => {
-        if (plan.kind !== 'restore') return;
-        // Their song requests come back with them (the warning said they go) —
-        // read back from what the database kept at delete time, never sent from here.
-        const r = await restoreDeletedGuests(eventId, plan.guestIds, plan.seats);
-        if (r.ok) {
-          guestOptimistic.clear(mutation); // un-hide the restored rows
-          if (r.warning) toast.error(r.warning);
-        } else {
-          toast.error('Could not undo — refresh and try again.');
-        }
-      },
-    });
-    return null;
   }
 
   return { removing, remove };
 }
 
 /**
- * The one in-page warning — a sheet, never `window.confirm()`. Delete · Cancel.
+ * The one in-page warning — a pop-up, never `window.confirm()`. Delete · Cancel.
+ *
+ * Under the POP-UP RULE (`GuestPopup`): drawn on <body> — above the app's bottom bar, with the safe-area padding — dark
+ * and blurred behind, a tap on the dark closes it, nothing behind works or scrolls. (It was the shared `Sheet`, which is
+ * drawn inside the dashboard's transformed box and so sat UNDER the bottom bar, "Cancel" half hidden — controller,
+ * 2026-10-09.) Mounted only while open, so the names it opened with are held until it closes.
  */
 export function DeleteGuestSheet({
   open,
@@ -138,71 +165,72 @@ export function DeleteGuestSheet({
   onConfirm: () => void;
   onClose: () => void;
 }) {
+  if (!open) return null;
+  return <OpenDeleteGuestSheet names={names} busy={busy} error={error} onConfirm={onConfirm} onClose={onClose} />;
+}
+
+function OpenDeleteGuestSheet({
+  names,
+  busy,
+  error,
+  onConfirm,
+  onClose,
+}: {
+  names: readonly string[];
+  busy: boolean;
+  error: string | null;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
   const titleId = useId();
-  const words = deleteWarningText(names);
+  /* 🔑 THE HEADING KEEPS THE NAME IT OPENED WITH (owner 2026-10-09: it read "Delete ?" while it ran — the guest's row
+     is already gone from the list by then, so the name was empty). This mounts when the sheet opens: held until it closes. */
+  const [held] = useState<readonly string[]>(names);
   return (
-    <Sheet open={open} onClose={onClose} labelledById={titleId} rise>
-      <div className="space-y-4 p-5" data-guest-delete-warning="">
-        <h2 id={titleId} className="font-display text-xl text-ink">
-          {words.title}
-        </h2>
-        <p className="text-sm leading-relaxed text-ink/70">{words.body}</p>
-        {error ? (
-          <p role="alert" className="text-sm text-danger-700" data-guest-delete-refused="">
-            {error}
-          </p>
-        ) : null}
-        <button
-          type="button"
-          onClick={onConfirm}
-          disabled={busy}
-          data-guest-delete-confirm=""
-          className="inline-flex min-h-[48px] w-full items-center justify-center rounded-full bg-danger-600 px-5 text-sm font-semibold text-cream hover:bg-danger-700 disabled:opacity-60"
-        >
-          {busy ? 'Deleting…' : 'Delete'}
-        </button>
-        <button
-          type="button"
-          onClick={onClose}
-          className="inline-flex min-h-[48px] w-full items-center justify-center rounded-full border border-ink/15 bg-cream px-5 text-sm font-medium text-ink"
-        >
-          Cancel
-        </button>
-      </div>
-    </Sheet>
+    <GuestPopup kind="confirm" onClose={onClose} labelledById={titleId}>
+      <DeleteGuestWarning titleId={titleId} names={held} busy={busy} error={error} onConfirm={onConfirm} onClose={onClose} />
+    </GuestPopup>
   );
 }
 
-/**
- * A small "Delete" beside a name — the +1 note's "3 named · 1 allowed" (frame
- * G). The flow (hook + warning) mounts on the tap, so a list of names drawn on
- * the server, or in a test, never needs the toast host to exist.
- */
-export function DeleteGuestButton({
-  eventId,
-  guestId,
-  guestName,
+/** The warning's own words and its two buttons — what is inside the pop-up. */
+export function DeleteGuestWarning({
+  titleId,
+  names,
+  busy = false,
+  error = null,
+  onConfirm,
+  onClose,
 }: {
-  eventId: string;
-  guestId: string;
-  guestName: string;
+  titleId: string;
+  names: readonly string[];
+  busy?: boolean;
+  error?: string | null;
+  onConfirm: () => void;
+  onClose: () => void;
 }) {
-  const [asking, setAsking] = useState(false);
+  const words = deleteWarningText(names);
   return (
-    <>
-      <button
-        type="button"
-        onClick={() => setAsking(true)}
-        aria-label={`Delete ${guestName}`}
-        data-guest-delete=""
-        className="inline-flex min-h-[44px] items-center px-2 text-xs font-medium text-danger-700 underline underline-offset-2 hover:text-danger-800"
-      >
-        Delete
-      </button>
-      {asking ? (
-        <DeleteGuestFlow eventId={eventId} guestId={guestId} guestName={guestName} onClose={() => setAsking(false)} />
+    <div className="space-y-3" data-guest-delete-warning="">
+      <h2 id={titleId} className="font-display text-xl text-ink">
+        {words.title}
+      </h2>
+      <p className="text-sm leading-relaxed text-ink/70">{words.body}</p>
+      {error ? (
+        <p role="alert" className="text-sm text-danger-700" data-guest-delete-refused="">
+          {error}
+        </p>
       ) : null}
-    </>
+      {/* The confirm box's two buttons, side by side, the safe answer first (`GuestConfirmActions`). */}
+      <GuestConfirmActions
+        keep={<ActionButton tone="neutral" icon={X} label="Cancel" onClick={onClose} />}
+        go={
+          <div data-guest-delete-confirm="">
+            <ActionButton tone="danger" main icon={Trash2} label={busy ? 'Deleting…' : 'Delete'} onClick={onConfirm} disabled={busy} />
+          </div>
+        }
+      />
+    </div>
   );
 }
 
@@ -234,10 +262,14 @@ export function DeleteGuestFlow({
       error={error}
       onClose={onClose}
       onConfirm={async () => {
-        const refused = await remove([guestId], () => {
-          onClose();
-          onDeleted?.();
-        });
+        const refused = await remove(
+          [guestId],
+          () => {
+            onClose();
+            onDeleted?.();
+          },
+          guestName,
+        );
         if (refused) setError(refused);
       }}
     />

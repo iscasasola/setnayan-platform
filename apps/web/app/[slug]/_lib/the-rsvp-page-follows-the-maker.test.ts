@@ -233,9 +233,12 @@ test('6 · "Song request" asks a song on the RSVP, saved through the existing so
   assert.doesNotMatch(block, /throw /, 'a song that does not take must never cost the guest their reply');
 });
 
-// ═══ 7 · one value behind the switch ══════════════════════════════════════
+// ═══ 7 · one value behind the control ═════════════════════════════════════
 
-test('7 · the one-at-a-time switch: label, knob and value are the same value', async () => {
+/* Two NAMED things — All at once · One by one — are a pill selector since 2026-10-08 (`INTERACTION_RULES.md` § 9;
+   it was a switch "Ask one question at a time" here). The claim is unchanged: what the control SHOWS is the stored
+   value — the picked pill, its `aria-pressed` and its words are one value. */
+test('7 · the one-at-a-time control: the picked pill, its pressed state and its words are the same value', async () => {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { MakerRsvpSettings } = await import('../../dashboard/[eventId]/launch/_components/maker-rsvp-ask');
   const render = (oneAtATime: boolean) =>
@@ -252,10 +255,9 @@ test('7 · the one-at-a-time switch: label, knob and value are the same value', 
   for (const on of [false, true]) {
     const html = render(on);
     const block = html.slice(html.indexOf('data-rsvp-setting="one-at-a-time"'), html.indexOf('data-made-once="rsvp-ask"'));
-    const input = /<input[^>]*role="switch"[^>]*>/.exec(block)?.[0] ?? '';
-    assert.equal(/\schecked=""/.test(input), on, `on=${on} but the input says otherwise: ${input}`);
-    assert.match(input, new RegExp(`aria-checked="${on}"`));
-    assert.match(block, on ? /On · one question per screen/ : /Off · one scrolling page/);
+    const pills = [...block.matchAll(/<button type="button" aria-pressed="(true|false)"[^>]*data-seg="(all|one)"[^>]*>([^<]*)</g)].map((m) => [m[2], m[1], m[3]]);
+    assert.deepEqual(pills, [['all', String(!on), 'All at once'], ['one', String(on), 'One by one']], `on=${on} but the pill says otherwise`);
+    assert.doesNotMatch(block, /role="switch"/, 'a second, switch-shaped control for the same value');
   }
   const SRC = read('dashboard/[eventId]/launch/_components/maker-rsvp-ask.tsx');
   // (#6176: re-seeded through `saved.current`, which `seen()` normalises.)

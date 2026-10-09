@@ -192,7 +192,11 @@ test('💎 the button colour is free on every side: gate, Apply, guest render, p
   // free"), so the bag has NO Pro branch — and the button colour is built
   // unconditionally, beside the background.
   assert.doesNotMatch(vars, /if \(proWatermarkHidden\)/, 'a Pro branch came back into the colours bag');
-  assert.match(vars, /buildCustomSiteColorVars\(bgHex, \(event\.site_button_color as string \| null\) \?\? null\)/, 'the button colour is not built for every event');
+  /* 🔘 RE-AIMED 2026-10-08 (owner, round 3: "button color will be taken from their 5 palette"): the bag used to build
+     the couple's own button colour for every event. It now builds NONE — the buttons wear the palette's Accent for
+     everyone, which is free in the plainest way: there is nothing to gate. Still no Pro branch in the bag. */
+  assert.match(vars, /buildCustomSiteColorVars\(bgHex, null\)/, 'the colours bag reads a stored button colour again');
+  assert.doesNotMatch(vars, /buildCustomSiteColorVars\([^)]*site_button_color/);
   // The panel draws the button colour whether or not the Pro half is locked.
   const panel = code('app/dashboard/[eventId]/website/editor/_components/pro-panels.tsx');
   const between = panel.slice(panel.indexOf('<BackgroundField'), panel.indexOf('<ButtonColourField'));

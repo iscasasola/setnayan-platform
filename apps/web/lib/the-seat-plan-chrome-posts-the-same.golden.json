@@ -1,0 +1,38 @@
+{
+ "_about": "RECORDED 2026-10-09 from the Seat plan's chrome AS IT STOOD BEFORE its Auto arrange, toast + Undo, Drop here / Cancel and Move buttons moved onto the ActionButton / PeekToast templates: the real StudioSeatPlanTools, DropConfirmBubble and MoveGuestSheet bundled with esbuild (handlers replaced by recorders) and driven in Chromium at 375 px — which handler each press calls, what a disabled / busy button does, the toast's words and whether it offers Undo. Re-record only with a reason written in the commit. (One difference on purpose: a BUSY Auto arrange is `aria-disabled` — a waiting button, still a button — instead of natively disabled; both call nothing.)",
+ "auto": [
+  "autoArrange"
+ ],
+ "undo": [
+  "undo"
+ ],
+ "toastWords": "Added 2 tables of 10 · everyone has a seatUndo",
+ "undoOffered": 1,
+ "undoOfferedPlain": 0,
+ "busy": {
+  "disabledOrWaiting": {
+   "disabled": true,
+   "aria": null,
+   "text": "Arranging…"
+  },
+  "calls": []
+ },
+ "disabledCalls": [],
+ "dropConfirm": [
+  "dropConfirm"
+ ],
+ "dropCancel": [
+  "dropCancel"
+ ],
+ "rejectButtons": [
+  "OK"
+ ],
+ "rejectDismiss": [
+  "dropCancel"
+ ],
+ "move": [
+  "move"
+ ],
+ "moveEmpty": [],
+ "moveBusy": []
+}

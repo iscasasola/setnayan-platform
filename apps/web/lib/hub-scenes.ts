@@ -307,11 +307,8 @@ export const SCENE_PROGRESS_RANGE = 'cover 50vh cover calc(100% - 50vh)';
  */
 export const HUB_SCENE_CLASSES = [
   'hub-scenes',
-  'hub-run',
   'hub-scene',
   'hub-scroll',
-  'hub-scrub',
-  'hub-sp',
   'hub-prog',
   'hub-prog-bar',
   // Auto runs (hub-auto-run.tsx).

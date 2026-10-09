@@ -122,6 +122,7 @@ import {
 } from '@/lib/hub-look-pro';
 import { parseRsvpBackdropConfig } from '@/lib/spatial-backdrop';
 import { siteMediaServeRef, siteMediaServeRefs } from '@/lib/site-media-ref';
+import { isHubMusicRef } from '@/lib/hub-music-ref';
 import { QR_STYLE_PREF_KEY, qrStyleFromPreferences, sanitizeQrStyle } from '@/lib/qr-look';
 import { CAMERA_LOOK_PREF_KEY, isCameraLook, type CameraLook } from '@/lib/camera-look-key';
 import {
@@ -142,6 +143,8 @@ import { resolveRevealEffects } from '@/lib/std-reveal-effects';
 import { sanitizeHubFontKey } from '@/lib/hub-fonts';
 import { sanitizeMagicTraveller } from '@/lib/magic-move';
 import { sanitizeHubButtonStyle } from '@/lib/hub-buttons';
+import { sanitizeSiteRoles } from '@/lib/site-roles';
+import { HUB_MUSIC_KEY, sanitizeHubMusic, type HubMusic } from '@/lib/hub-music-button';
 import { OMBRE_IS_PRO, encodeSiteBackground, isOmbreValue, parseSiteBackground } from '@/lib/ombre';
 import { MOMENT_MAX, momentCapRefusal, readMoment, resolveMoments, type LoveStoryMoment } from '@/lib/love-story-moments';
 import { sanitizeRsvpAskConfig } from '@/lib/rsvp-ask';
@@ -343,6 +346,9 @@ export const HUB_DRAFT_LOOK_COLUMNS = [
   // 🔘 LOOK › BUTTONS (owner 2026-10-04, "create them") — shape + fill as one
   // value (`lib/hub-buttons.ts`); the colour stays `site_button_color` above.
   'site_button_style',
+  // 🔤 LOOK › ELEMENTS (owner 2026-10-08, round 5) — the Headings · Text · Labels & buttons fonts, ONE jsonb
+  // (`lib/site-roles.ts`). The Names font stays `site_font_key`: one fact, one column.
+  'site_roles',
   // 🎨 THE MOOD BOARD PALETTE A THEME PICK FILLS (owner 2026-10-05, "THE MOOD
   // BOARD PALETTE IS THE PRIORITY": *"If the mood board does not have a
   // palette, use our original theme and place it on the moodboard's
@@ -650,6 +656,12 @@ export type HubDraftWidget = {
    */
   main?: HubMainGround | null;
   /**
+   * 🎵 HERO ROW ONLY — the guest's music button design (owner 2026-10-08, round 5), kept at `config_json.music`
+   * beside the Main background (`lib/hub-music-button.ts`). `null` = the default (moving bars): the key is taken
+   * off. Free — a shape is not a Pro look.
+   */
+  music?: HubMusic | null;
+  /**
    * ↕ This section's place on each stage (owner 2026-09-27, "EVERY SCENE DRAGS
    * WITHIN ITS STAGE"), kept at `config_json.stage_order` (`lib/stage-scenes.ts`).
    * Merged stage by stage; `null` for a stage = back to the stage's default.
@@ -814,6 +826,10 @@ export function sanitizeHubDraftEventValue(
     // 🔘 Look › Buttons — a known '<shape>-<fill>', or back to the theme's.
     case 'site_button_style':
       return sanitizeHubButtonStyle(raw);
+    // 🔤 Look › Elements — three roles, a real font key each; an empty value is not held (handing every font back is
+    // `null`, taken above).
+    case 'site_roles':
+      return sanitizeSiteRoles(raw) ?? undefined;
     // 🎨 A theme's own colours as the board's main colours — nothing else.
     case 'role_palette':
       // …or a board the couple PAINTED (the Mood Board's own sanitizer — step 4c, 2026-10-07).
@@ -1023,6 +1039,14 @@ function sanitizeWidget(raw: unknown, type: WidgetType): HubDraftWidget | null {
   if (type === 'venue_map' && isPlainObject(src.venue)) {
     const venue = draftVenueChoices(src.venue);
     if (Object.keys(venue).length) out.venue = venue;
+  }
+  /* 🎵 The music button's design — the hero row's, like the Main background. The default is `null` (nothing stored). */
+  if (type === 'hero' && 'music' in src) {
+    if (src.music === null) out.music = null;
+    else {
+      const music = sanitizeHubMusic(src.music);
+      if (music) out.music = music;
+    }
   }
   if (type === 'our_photos' && 'std_lead' in src) {
     if (src.std_lead === null) out.std_lead = null;
@@ -1242,6 +1266,14 @@ export function configWithCustom(config: unknown, custom: CustomSectionContent |
   return base;
 }
 
+/** `config_json` with the music button's design set or taken off (the default); every sibling key kept. */
+export function configWithMusic(config: unknown, music: HubMusic | null): Record<string, unknown> {
+  const base = config && typeof config === 'object' && !Array.isArray(config) ? { ...(config as Record<string, unknown>) } : {};
+  if (music === null) delete base[HUB_MUSIC_KEY];
+  else base[HUB_MUSIC_KEY] = music;
+  return base;
+}
+
 /** `config_json` with the Main background set or taken off; every sibling key kept. */
 export function configWithMainGround(config: unknown, main: HubMainGround | null): Record<string, unknown> {
   const base =
@@ -1279,6 +1311,7 @@ export function overlayHubDraftWidgets(
     if (w.main !== undefined && row.widget_type === 'hero') config = configWithMainGround(config, w.main);
     if (w.stage_order !== undefined) config = configWithStageOrder(config, w.stage_order);
     if (w.std_lead !== undefined && row.widget_type === 'our_photos') config = configWithStdLead(config, w.std_lead);
+    if (w.music !== undefined && row.widget_type === 'hero') config = configWithMusic(config, w.music);
     if (w.custom !== undefined && isCustomSectionType(row.widget_type)) config = configWithCustom(config, w.custom);
     if (w.venue !== undefined && row.widget_type === 'venue_map') config = configWithVenue(config, w.venue);
     return {
@@ -1333,7 +1366,7 @@ export type HubDraftItem =
       kind: 'widget';
       widgetType: WidgetType;
       widgetId: string;
-      field: 'mode' | 'is_visible' | 'display_order' | 'canvas' | 'main' | 'stage_order' | 'std_lead' | 'custom' | 'venue' | 'removed';
+      field: 'mode' | 'is_visible' | 'display_order' | 'canvas' | 'main' | 'music' | 'stage_order' | 'std_lead' | 'custom' | 'venue' | 'removed';
       value: unknown;
       change: LookChange;
       pro: boolean;
@@ -1491,6 +1524,15 @@ export function eventColumnChange(column: HubDraftEventColumn, live: unknown, ne
     case 'main_colours':
       // 🎨 Only the slots the draft HOLDS, against the five the page wears live.
       return mainColoursChanged(live, next) ? 'change' : 'none';
+    case 'site_roles': {
+      // 🔤 Compared as the page reads it — through the sanitiser, key order ignored (jsonb hands keys back in its
+      // own order), and NULL ≡ {} ≡ a value with nothing the page would wear.
+      const key = (v: unknown) => {
+        const roles = sanitizeSiteRoles(v);
+        return roles ? canonicalJson(roles) : null;
+      };
+      return refChange(key(live), key(next));
+    }
     case 'site_art_direction': {
       // Exactly as `siteLookChange` reads it: only Candlelight is a choice;
       // Daylight and "never chosen" are the same page.
@@ -1611,6 +1653,12 @@ export function eventItemIsPro(
     // and paid at Apply, like every other look.
     return OMBRE_IS_PRO && isOmbreValue(value);
   }
+  // 🎵 A song from "Our music" (the list Setnayan uploads, owner 2026-10-08 —
+  // the approved Look restudy offers it as "Setnayan’s own songs, by mood ·
+  // free to use") is free to pick. The couple's OWN song stays Event Hub Pro.
+  // Which one it is, is read off the stored reference (`lib/hub-music-ref.ts`);
+  // Apply separately admits that reference only while its track is published.
+  if (column === 'site_bg_music_r2_key' && isHubMusicRef(value)) return false;
   return eventColumnIsPro(column);
 }
 
@@ -1998,6 +2046,13 @@ export function classifyHubDraft(
       const nextKey = configWithStageOrder(row.config_json, w.stage_order)[STAGE_ORDER_KEY] ?? null;
       if (JSON.stringify(liveKey) !== JSON.stringify(nextKey)) {
         items.push({ kind: 'widget', widgetType: type, widgetId: row.widget_id, field: 'stage_order', value: nextKey, change: 'change', pro: false });
+      }
+    }
+    /* 🎵 The music button's design — free; compared as the page reads it (absent ≡ the default). */
+    if (w.music !== undefined && type === 'hero') {
+      const live = sanitizeHubMusic((row.config_json as Record<string, unknown> | null)?.[HUB_MUSIC_KEY]);
+      if (JSON.stringify(live) !== JSON.stringify(w.music ?? null)) {
+        items.push({ kind: 'widget', widgetType: type, widgetId: row.widget_id, field: 'music', value: w.music ?? null, change: 'change', pro: false });
       }
     }
     if (w.std_lead !== undefined && type === 'our_photos') {
@@ -2441,6 +2496,8 @@ export type HubDraftRefusal =
   | 'needs_pro'
   | 'apply_on_the_web'
   | 'not_your_photo'
+  /** 🎵 A drafted song from "Our music" whose track is no longer published. */
+  | 'song_off_the_list'
   | 'empty_section'
   | 'missing_section'
   /** 🗓 A drafted date that has already gone by (`eventDateRefusal` → `in_past`). */
@@ -2540,6 +2597,7 @@ export const HUB_DRAFT_EVENT_LABEL: Record<HubDraftEventColumn, string> = {
   site_font_key: 'Your typeface',
   site_magic_traveller: 'Magic move',
   site_button_style: 'Your buttons',
+  site_roles: 'Your fonts',
   invite_theme: 'Your theme',
   role_palette: 'Your Mood Board colours',
   site_bg_music_r2_key: 'Your background music',
@@ -2625,6 +2683,7 @@ export function hubDraftItemLabel(item: HubDraftItem, sectionLabel: (t: WidgetTy
   if (item.kind === 'fixed-style') return `${FIXED_STYLE_LABEL[item.scene]} · its style`;
   if (item.kind === 'march') return MARCH_DRAFT_PLACE;
   if (item.field === 'main') return 'Behind every scene';
+  if (item.field === 'music') return 'Your music button';
   if (item.field === 'std_lead') return 'Save the Date · Film or Photos';
   if (item.field === 'custom') return `${sectionLabel(item.widgetType)} · its words`;
   if (item.field === 'venue') return 'Your venues';

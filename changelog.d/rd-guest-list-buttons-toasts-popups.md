@@ -1,0 +1,35 @@
+## 2026-10-09 · refactor(guests): the guest list's buttons, toasts and pop-ups come from the shared controls
+
+The six live guest files that drew their own coloured buttons (`send-invite`, `guest-invite-cell`, `guest-ticket-parts`, `add-guest-sheet`, `quick-add-sheet`, `add-from-people-sheet`) now use `ActionButton` with the tone the rule gives each (the forward step is the filled brand button; cancel and manage are neutral; Undo and Skip are quiet), and the three native selects in quick add (Side, Role, Group) are the app's `PickMenu`. Same handlers, same names, same disabled logic; "Add guest" with nobody picked is a WAITING button (still a button). Guard: `the-guest-buttons-are-the-button.test.ts`. No request, no server action, no migration added.
+
+SPEC IMPACT: None
+
+## 2026-10-09 · refactor(guests): the guest list says it with the approved toast, and the toast gains Undo
+
+`PeekToast` takes one optional `action` (a small pill at the right, e.g. "Undo"): the toast then stays 6 s, only that pill takes a tap, it is a polite live region — and with no action its markup is unchanged byte for byte. The removal's Undo (`UndoToastHost`) is now that toast from the top (same `runUndo`, same 6 s window); the old `useToast` calls in the capture bar, the delete flow, the guests screen and Regenerate QR, and quick add's hand-made pill, are `PeekToast`. `ActionButton` gains one optional `name` prop (the accessible name; absent, the `aria-label` is the word as before) so a row's Invite is named for its guest. The app-wide `ToastProvider` is not moved. No request, no server action, no migration added.
+
+SPEC IMPACT: None
+
+## 2026-10-09 · fix(guests): a refused delete says so; the Undo toast leaves like the others; Delete/Cancel/Regenerate are buttons
+
+A press now ends its own "Deleting…" on every path (`finally`), rolls the hide back and says the refusal in the red top toast and in the sheet; the sheet's heading keeps the name it opened with ("Delete Daniel Ramos?" while it runs, not "Delete ?"). The Undo toast no longer vanishes at 6.0 s: the undo window closes (Undo is a no-op from then) and the toast slides back up like every other `PeekToast`, cleared when it has gone. `DeleteGuestSheet`'s Delete (danger, main) / Cancel (neutral) and the invite page's Regenerate QR are `ActionButton`. The dev lab's delete and undo are local stand-ins (`?refuse=1` makes them refuse) and the lab mounts the toast host the real page mounts. No request, no server action, no migration added.
+
+SPEC IMPACT: None
+
+## 2026-10-09 · refactor(guests): the guest list's pop-ups follow the pop-up rule; a refusal is told in plain words
+
+The add-a-guest sheet, quick add, the ticket view, the New QR / Unlink confirm, "Add from your people", the Delete warning and the New-group sheet are drawn by one `GuestPopup` (`usePopupBehind` + `.sn-popup-dark`): dark and blurred behind, a tap on the dark closes it, nothing behind works or scrolls, Escape closes, focus is managed — and drawn on <body>, so the Delete warning's Cancel is no longer half hidden under the bottom bar. Content and behaviour of each are unchanged. A refused action is told in one plain sentence of the page's own ("Couldn’t delete Daniel Ramos. Try again."), never the database's words; the raw text goes only to the fault report. The shared `Sheet` is not changed (it does not follow the rule — listed). No request, no server action, no migration added.
+
+SPEC IMPACT: None
+
+## 2026-10-09 · fix(guests): Select mode's Invite N waits when nothing is selected; the list's error banner never prints the database's words
+
+"Invite N" in the live list's Select mode (it already existed, going to `/guests/send?ids=…` with the selected guests who still need an invitation — Rule 0) and "Remove N" are now WAITING buttons (grey, still buttons, a press does nothing) instead of faded when nothing applies; guarded by `the-select-mode-sends-invites.test.ts`. The `?error=` banner on the guest list (bulk Set…, New group, table writes) shows an action's words only when they are a plain sentence — a database message that happens to contain spaces no longer passes as "prose" (`guest-list-error-copy.ts`). In the Delete warning the sentence keeps its gap above Delete. No request, no server action, no migration added.
+
+SPEC IMPACT: None
+
+## 2026-10-09 · fix(guests): Invite N is the brand forward step; the dev lab's whole Guests screen is stand-ins that never reach the database
+
+Select mode's "Invite N" is the terracotta (brand) filled button and the row's ONE filled forward step ("Done" is neutral); with nothing selected it reads just "Invite" (waiting), named "Invite — nobody selected still needs an invitation". The dev lab's Guests screen now takes every write a plain press reaches — Set… ▾, New group, the + sheet's name box, Quick add, Add from your people, Mark as sent, and the door "Invite N" opens (the lab's own run) — from a context the lab fills with local stand-ins (`GuestActionsContext`); the app never provides it, so production calls the shipped actions. Guarded by `the-lab-cannot-reach-the-database.test.ts`. No request, no server action, no migration added.
+
+SPEC IMPACT: None

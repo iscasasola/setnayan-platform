@@ -285,8 +285,12 @@ export type HubSectionCanvas = {
    * The strength is the hub's contrast floor (`lib/scene-media-shade.ts`, the
    * `lib/main-ground-shade.ts` pattern) — no step can take words under AA.
    * Kept only beside a photo or a snippet (the direction rule).
+   * 🎚 SINCE 2026-10-09 IT IS THE LOOK'S OWN SHAPE (`HubMainShadeValue`, owner: *"darker lighter line bar"*): a word
+   * from before the bar, or a bar position — a non-zero whole number, −100…100; the centre (as is) is never stored.
+   * A format extension: the two words stored before keep reading, at the Look's places for them (−70 · +70), and
+   * lay exactly the veils they always did (`lib/scene-media-shade.ts`). No migration.
    */
-  shade?: HubSceneShade;
+  shade?: HubMainShadeValue;
   /**
    * ↕ ARRANGE › SPACING (owner 2026-10-07; prototype Arrange `SPACE`): Tight ·
    * Regular · Roomy — the room above and below the scene. Regular is the shipped
@@ -295,6 +299,12 @@ export type HubSectionCanvas = {
    */
   spacing?: HubSceneSpacing;
   preset?: HubMotionPreset;
+  /**
+   * 🎚 Build out's own FEEL where the scene follows the scroll (owner 2026-10-09: *"movement independent from each"*):
+   * how much of the way out the hand-off takes. Regular is the absence — the range every scene had before this.
+   * (Build in's feel is `duration`, which now also sets how far in a scroll-driven arrival runs — `--hub-in-end`.)
+   */
+  outSpeed?: 'fast' | 'gentle';
   /** Fine-tune. Each absent when the couple left it on Auto. */
   in?: HubIn;
   /** Where it comes FROM. Ignored, and not stored, unless `in` travels. */
@@ -350,6 +360,12 @@ export type HubSectionCanvas = {
    * look key. Absent = Tags, today's look.
    */
   palette?: string;
+  /**
+   * 🧾 HOW THE DRESS CODE'S DO'S & DON'TS ARE DRAWN (owner 2026-10-08) — one of the looks in
+   * `lib/dress-code-looks.ts`, beside `palette` and stored the same way. FREE: not a look key. Absent = the
+   * shipped two notes.
+   */
+  dos?: string;
   /**
    * 🏛 THE VENUE SCENE'S MAP SWITCH (owner 2026-09-30, "VENUE STYLES APPROVED":
    * *Map: One map for both / No map*). Only `'none'` is stored; absent = one map
@@ -678,8 +694,11 @@ export function sanitizeHubCanvas(raw: unknown): HubSectionCanvas {
   if (canvas.mediaMotion === 'parallax' && ground?.kind === 'photo') out.mediaMotion = 'parallax';
   const poster = hubMediaRef(canvas.poster);
   if (poster && ground?.kind === 'snippet') out.poster = poster;
-  /* 🌗 Darker ↔ Lighter only beside a picture — a colour has no veil to move. */
-  if ((canvas.shade === 'darker' || canvas.shade === 'lighter') && (ground?.kind === 'photo' || ground?.kind === 'snippet')) out.shade = canvas.shade;
+  /* 🌗 Darker ↔ Lighter beside a picture (a veil) or a colour that is its own ground — Plain, Diagonal, Glow: the
+     colour itself is mixed (owner 2026-10-09: "on color, there is no linebar for the darken/lighten?"). A glass
+     has its Opacity instead, and "none" has nothing to shade. */
+  const shade = sanitizeHubMainShade(canvas.shade);
+  if (shade !== undefined && ground && ground.kind !== 'glass' && ground.kind !== 'frost' && ground.kind !== 'none') out.shade = shade;
   /* ↕ Spacing: Regular is the absence. */
   if (canvas.spacing === 'tight' || canvas.spacing === 'roomy') out.spacing = canvas.spacing;
   if (inSet(HUB_MOTION_PRESETS, canvas.preset)) out.preset = canvas.preset;
@@ -715,6 +734,7 @@ export function sanitizeHubCanvas(raw: unknown): HubSectionCanvas {
   if (autoSpeed && autoSpeed !== 'normal' && transition === 'auto') out.autoSpeed = autoSpeed;
   if (inSet(HUB_STAGGER, canvas.stagger)) out.stagger = canvas.stagger as number;
   if (inSet(HUB_DURATION, canvas.duration)) out.duration = canvas.duration as number;
+  if (canvas.outSpeed === 'fast' || canvas.outSpeed === 'gentle') out.outSpeed = canvas.outSpeed;
   /* ── SCENES. Same posture: a value this version did not write is dropped. */
   const template = sceneTemplateId(canvas.template);
   if (template) out.template = template;
@@ -722,6 +742,8 @@ export function sanitizeHubCanvas(raw: unknown): HubSectionCanvas {
   if (style) out.style = style;
   const palette = sanitizeSceneStyleId(canvas.palette);
   if (palette) out.palette = palette;
+  const dos = sanitizeSceneStyleId(canvas.dos);
+  if (dos) out.dos = dos;
   if (canvas.venueMap === 'none') out.venueMap = 'none';
   if (isPostEventPresetId(canvas.postEventPreset)) out.postEventPreset = canvas.postEventPreset;
   const slots = hubSceneSlots(canvas.slots);
@@ -1033,6 +1055,10 @@ export function hubCanvasVars(
     ...(canvas.inFx ? Object.fromEntries(motionFxVars(canvas.inFx, 'in', '--hub-in', HUB_SCENE_DIST)) : {}),
     ...(canvas.outFx ? Object.fromEntries(motionFxVars(canvas.outFx, 'out', '--hub-out', HUB_SCENE_DIST)) : {}),
     '--hub-duration': `${m.duration}s`,
+    /* 🎚 The feel of a SCROLL-DRIVEN end — only from a value the couple set themselves (a preset's own duration never
+       moved these ranges, and still does not: an old scene draws exactly what it drew). Absent = the stylesheet's. */
+    ...(m.timeline === 'scrub' && canvas.duration && canvas.duration !== 1.1 ? { '--hub-in-end': canvas.duration < 1 ? 'entry 50%' : 'cover 30%' } : {}),
+    ...(canvas.outSpeed ? { '--hub-out-range': canvas.outSpeed === 'fast' ? 'exit 0% exit 50%' : 'cover 50% exit 100%' } : {}),
     /* 🔑 `--hub-stagger` IS EMITTED AGAIN, and this time a rule reads it. It was
        withdrawn when the frame held one child and there was nothing to stagger;
        the parts turned out to be the section's own direct children, so the gap
@@ -1180,6 +1206,7 @@ export function hasHubCanvas(canvas: HubSectionCanvas): boolean {
       k !== 'details' &&
       k !== 'style' &&
       k !== 'palette' &&
+      k !== 'dos' &&
       k !== 'venueMap' &&
       k !== 'postEventPreset' &&
       /* ↕ …nor Spacing: room above and below is drawn without a frame (`hubSpacingClass`). */
@@ -1300,6 +1327,18 @@ export const HUB_MAIN_FOCUSES = ['top', 'bottom'] as const;
 export type HubMainFocus = (typeof HUB_MAIN_FOCUSES)[number];
 
 /**
+ * 🎯 WHERE A COVERING PICTURE IS HELD — the ONE crop rule (CSS `background-position`
+ * / `object-position`). The guest page's main background reads it
+ * (`app/[slug]/_components/main-ground.tsx`) and so does the Maker's picture card
+ * of that background (`background-cards.tsx`, owner 2026-10-08: a card is the
+ * page as a phone crops it) — a second copy would let a card show a face the
+ * page has cropped away.
+ */
+export function mainGroundPosition(focus: HubMainFocus | null | undefined): 'center top' | 'center bottom' | 'center' {
+  return focus === 'top' ? 'center top' : focus === 'bottom' ? 'center bottom' : 'center';
+}
+
+/**
  * Shade ▾ — Darker · Dark · As is · Light · Lighter. THE vocabulary (re-exported
  * by `lib/main-ground-shade.ts`, which owns what each step DOES — a veil that
  * never takes the words under the contrast floor). 'as-is' is never stored.
@@ -1307,14 +1346,79 @@ export type HubMainFocus = (typeof HUB_MAIN_FOCUSES)[number];
 export const HUB_MAIN_SHADES = ['darker', 'dark', 'as-is', 'light', 'lighter'] as const;
 export type HubMainShade = (typeof HUB_MAIN_SHADES)[number];
 
+/**
+ * 🎚 THE FADE BAR'S POSITION (owner 2026-10-08, DECISION_LOG "LOOK › BACKGROUND, AMENDED": *"a line bar where it can
+ * fade to white or fade to black · fade to white drag line bar to right · fade to black drag to left · snap to
+ * center"*). The same `shade` key also holds a whole number, −100…100: left of 0 the page's INK is laid over the
+ * picture (at least |n| %), right of 0 the page's PAPER (at least n %). 0 is "as is" and is NEVER stored (absent).
+ * A format extension — the four words stored before the bar keep reading, at the positions `HUB_MAIN_SHADE_AT`
+ * gives them, and are never rewritten.
+ */
+export const HUB_MAIN_FADE_MIN = -100;
+export const HUB_MAIN_FADE_MAX = 100;
+/** Where each stored word sits on the bar. */
+export const HUB_MAIN_SHADE_AT: Readonly<Record<HubMainShade, number>> = { darker: -70, dark: -45, 'as-is': 0, light: 45, lighter: 70 };
+/** What `shade` may hold: one of the four words, or a bar position (a non-zero whole number, −100…100). */
+export type HubMainShadeValue = Exclude<HubMainShade, 'as-is'> | number;
+
+/** A raw value → what may be stored, or undefined (unknown, out of range, a fraction, "as is", 0). */
+export function sanitizeHubMainShade(raw: unknown): HubMainShadeValue | undefined {
+  if (typeof raw === 'string') return raw !== 'as-is' && (HUB_MAIN_SHADES as readonly string[]).includes(raw) ? (raw as Exclude<HubMainShade, 'as-is'>) : undefined;
+  if (typeof raw !== 'number' || !Number.isInteger(raw) || raw === 0) return undefined;
+  return raw >= HUB_MAIN_FADE_MIN && raw <= HUB_MAIN_FADE_MAX ? raw : undefined;
+}
+
+/** The bar position a stored `shade` reads at — a word at its place, a number as it is, nothing = 0 (as is). */
+export function hubMainFadeAt(shade: HubMainShadeValue | null | undefined): number {
+  if (typeof shade === 'number') return shade;
+  return shade ? HUB_MAIN_SHADE_AT[shade] : 0;
+}
+
+/* ✨ AN EFFECT ON TOP OF THE BACKGROUND, UNDER THE WORDS (owner 2026-10-08, DECISION_LOG "LOOK EFFECTS ROUND 4" and
+   "LOOK ROUNDS 4–5"; contract `BACKGROUND_SOURCES_AMEND_2026-10-08_fable.md` § 2.A / § 3): six effects, one at a
+   time, each with How much and a Colour. Stored ON the main background it lies over — `main.effect` — on EVERY
+   shape, a plain colour (`{ ground: 'none' }`) included: it is not a treatment of the picture. No migration (the
+   hero row's `config_json`). ABSENT = no effect, and every stored shape without one reads byte for byte as before.
+   `colour` is a palette SLOT (`MAIN_SLOT`'s keys, `lib/site-palette.ts`), never a hex — so the effect follows the
+   Mood Board when the five change; absent = the effect's own colour ("Original").
+   The six are drawn by `lib/ambient-effects.ts`; this file only knows their names. */
+export const HUB_MAIN_EFFECTS = ['lanterns', 'petals', 'sparkles', 'capiz', 'shimmer', 'bokeh'] as const;
+export type HubMainEffectKind = (typeof HUB_MAIN_EFFECTS)[number];
+export const HUB_MAIN_EFFECT_INTENSITIES = ['subtle', 'standard', 'lavish'] as const;
+export type HubMainEffectIntensity = (typeof HUB_MAIN_EFFECT_INTENSITIES)[number];
+export const HUB_MAIN_EFFECT_COLOURS = ['dominant', 'supporting', 'accent', 'neutral', 'accent2'] as const;
+export type HubMainEffectColour = (typeof HUB_MAIN_EFFECT_COLOURS)[number];
+export type HubMainEffect = { kind: HubMainEffectKind; intensity: HubMainEffectIntensity; colour?: HubMainEffectColour };
+/** What every main background may carry, whatever its shape. */
+export type HubMainFx = { effect?: HubMainEffect };
+
+const oneOf = <T extends string>(list: readonly T[], v: unknown): v is T => typeof v === 'string' && (list as readonly string[]).includes(v);
+
+/** Anything → an effect, or nothing. An unknown kind or amount drops it; an unknown colour is the effect's own. */
+export function sanitizeHubMainEffect(raw: unknown): HubMainEffect | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const { kind, intensity, colour } = raw as Record<string, unknown>;
+  if (!oneOf(HUB_MAIN_EFFECTS, kind) || !oneOf(HUB_MAIN_EFFECT_INTENSITIES, intensity)) return undefined;
+  return oneOf(HUB_MAIN_EFFECT_COLOURS, colour) ? { kind, intensity, colour } : { kind, intensity };
+}
+
+function readMainFx(src: Record<string, unknown>): HubMainFx {
+  const effect = sanitizeHubMainEffect(src.effect);
+  return effect ? { effect } : {};
+}
+
+/** The effect a stored main background carries, or null. */
+export function hubMainEffect(m: HubMainGround | null | undefined): HubMainEffect | null {
+  return m?.effect ?? null;
+}
+
 /** The extras a footage ground carries. */
-export type HubMainLook = { shade?: Exclude<HubMainShade, 'as-is'>; blur?: HubMainBlur; focus?: HubMainFocus };
+export type HubMainLook = { shade?: HubMainShadeValue; blur?: HubMainBlur; focus?: HubMainFocus };
 
 function readMainLook(src: Record<string, unknown>, allow: { focus: boolean }): HubMainLook {
   const out: HubMainLook = {};
-  if (typeof src.shade === 'string' && src.shade !== 'as-is' && (HUB_MAIN_SHADES as readonly string[]).includes(src.shade)) {
-    out.shade = src.shade as Exclude<HubMainShade, 'as-is'>;
-  }
+  const shade = sanitizeHubMainShade(src.shade);
+  if (shade !== undefined) out.shade = shade;
   if (typeof src.blur === 'string' && (HUB_MAIN_BLURS as readonly string[]).includes(src.blur)) out.blur = src.blur as HubMainBlur;
   if (allow.focus && typeof src.focus === 'string' && (HUB_MAIN_FOCUSES as readonly string[]).includes(src.focus)) {
     out.focus = src.focus as HubMainFocus;
@@ -1339,7 +1443,7 @@ export function hubMainTakes(m: HubMainGround | null | undefined): { shade: bool
 }
 
 /** The default: the Main background follows the hero; this is the tint read off the hero's photo. */
-export type HubMainFollow = HubMainLook & {
+export type HubMainFollow = HubMainLook & HubMainFx & {
   follow: 'hero';
   /** The hero photo the frame was measured from. The tint applies only while this IS the hero. */
   of: string;
@@ -1347,7 +1451,7 @@ export type HubMainFollow = HubMainLook & {
 };
 
 /** An explicit override — the couple's own clip or photo instead of their hero. */
-export type HubMainOwn = HubMainLook & {
+export type HubMainOwn = HubMainLook & HubMainFx & {
   /** A photo, or a short muted clip (`snippet`) — never a colour; that is `site_bg_color`. */
   kind: 'photo' | 'snippet';
   /** The photo, or the clip. */
@@ -1378,7 +1482,7 @@ export type HubMainOwn = HubMainLook & {
  *   · `none`  — NO picture and NO loop: just the Background colour.
  * Both are free (taking media down never costs anything).
  */
-export type HubMainChoice = { ground: 'theme' | 'none' } | HubMainLoop | HubMainPattern;
+export type HubMainChoice = ({ ground: 'theme' | 'none' } & HubMainFx) | HubMainLoop | HubMainPattern;
 
 /**
  * 🧵 A PATTERN — Fine lines · Dots · Lace · Grid, drawn in the page's ink over
@@ -1386,7 +1490,7 @@ export type HubMainChoice = { ground: 'theme' | 'none' } | HubMainLoop | HubMain
  * stored 2026-10-07). No picture and no loop — like "Just the colour", with a
  * pattern on it. Free.
  */
-export type HubMainPattern = { ground: 'pattern'; pattern: HubMainPatternKey };
+export type HubMainPattern = HubMainFx & { ground: 'pattern'; pattern: HubMainPatternKey };
 
 /**
  * 🎞 A MOVING BACKGROUND — one of Setnayan's own animated loops, picked on its
@@ -1398,7 +1502,7 @@ export type HubMainPattern = { ground: 'pattern'; pattern: HubMainPatternKey };
  * animated loop background"* is paid): tried free in the draft, asked at Apply,
  * drawn for guests only while the event owns Event Hub Pro.
  */
-export type HubMainLoop = HubMainLook & { ground: 'loop'; loop: InviteThemeId };
+export type HubMainLoop = HubMainLook & HubMainFx & { ground: 'loop'; loop: InviteThemeId };
 
 /** The themes whose loop may be picked as a moving background — every shipped theme that has one, in THE one theme order (`INVITE_THEME_IDS`). */
 export function hubMovingBackgroundIds(): InviteThemeId[] {
@@ -1430,21 +1534,23 @@ export function isHubMainLoop(m: HubMainGround | null | undefined): m is HubMain
 export function sanitizeHubMainGround(raw: unknown): HubMainGround | null {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
   const src = raw as Record<string, unknown>;
+  /* ✨ The effect lies on whatever the background is — kept on EVERY shape, last, so a shape without one is unchanged. */
+  const fx = readMainFx(src);
   if (src.follow === 'hero') {
     const of = hubMediaRef(src.of);
     const tint = sanitizeHubTint(src.tint);
-    return of && tint ? { follow: 'hero', of, tint, ...readMainLook(src, { focus: true }) } : null;
+    return of && tint ? { follow: 'hero', of, tint, ...readMainLook(src, { focus: true }), ...fx } : null;
   }
-  if (src.ground === 'theme' || src.ground === 'none') return { ground: src.ground };
+  if (src.ground === 'theme' || src.ground === 'none') return { ground: src.ground, ...fx };
   if (src.ground === 'pattern') {
     return typeof src.pattern === 'string' && (HUB_MAIN_PATTERNS as readonly string[]).includes(src.pattern)
-      ? { ground: 'pattern', pattern: src.pattern as HubMainPatternKey }
+      ? { ground: 'pattern', pattern: src.pattern as HubMainPatternKey, ...fx }
       : null;
   }
   if (src.ground === 'loop') {
     // Only a shipped theme that HAS a loop — anything else is dropped, never guessed.
     return isInviteThemeId(src.loop) && INVITE_THEMES[src.loop].media && INVITE_THEMES[src.loop].ready
-      ? { ground: 'loop', loop: src.loop, ...readMainLook(src, { focus: false }) }
+      ? { ground: 'loop', loop: src.loop, ...readMainLook(src, { focus: false }), ...fx }
       : null;
   }
   const media = hubMediaRef(src.media);
@@ -1455,7 +1561,7 @@ export function sanitizeHubMainGround(raw: unknown): HubMainGround | null {
   const tint = sanitizeHubTint(src.tint);
   if (tint) out.tint = tint;
   if (src.motion === 'parallax' && out.kind === 'photo') out.motion = 'parallax';
-  return { ...out, ...readMainLook(src, { focus: out.kind === 'photo' }) };
+  return { ...out, ...readMainLook(src, { focus: out.kind === 'photo' }), ...fx };
 }
 
 /** The Main background stored on a row's `config_json` (the hero row's), or null. */

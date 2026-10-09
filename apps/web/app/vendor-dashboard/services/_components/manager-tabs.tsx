@@ -2,6 +2,8 @@
 
 import { useState, type ReactNode } from 'react';
 
+import { PillButton, PillTrack } from '@/app/_components/pill-track';
+
 /**
  * The prototype-v20 tab chrome for My Shop → Your services (owner: "we had a
  * prototype. follow that"): ONE card, three tabs — Coverage · Service cards ·
@@ -21,36 +23,24 @@ export function ManagerTabs({
   );
   return (
     <div>
-      <div
-        role="tablist"
-        aria-label="Your services sections"
-        className="mb-4 flex gap-1.5 rounded-xl p-1"
-        style={{ background: 'var(--m-paper-2)' }}
-      >
+      <PillTrack role="tablist" aria-label="Your services sections" grow className="mb-4">
         {tabs.map((t, i) => {
           const on = i === active;
           return (
-            <button
+            <PillButton
               key={t.label}
-              type="button"
+              on={on}
               role="tab"
               aria-selected={on}
               aria-controls={`mgr-panel-${i}`}
               id={`mgr-tab-${i}`}
               onClick={() => setActive(i)}
-              className="flex-1 rounded-lg border px-2 py-2 text-center text-sm"
-              style={{
-                borderColor: on ? 'var(--m-orange-3)' : 'transparent',
-                background: on ? 'var(--m-paper)' : 'transparent',
-                color: on ? 'var(--m-ink)' : 'var(--m-slate)',
-                fontWeight: on ? 500 : 400,
-              }}
             >
               {t.label}
-            </button>
+            </PillButton>
           );
         })}
-      </div>
+      </PillTrack>
       {tabs.map((t, i) => (
         <div
           key={t.label}

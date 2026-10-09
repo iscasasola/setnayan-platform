@@ -128,7 +128,7 @@ export async function RecordEditor({ editor, ctx }: { editor: RecordEditorKey; c
           rowKey={editor === 'font' ? 'font' : 'colors'}
           part={editor === 'font' ? 'font' : 'colours'}
           proLocked={proLocked}
-          proLock={lockPanel(editor === 'font' ? 'Typeface' : 'Candlelight and motion')}
+          proLock={lockPanel(editor === 'font' ? 'Typeface' : 'Effects and motion')}
           proMark={makerProMark({ owns: ctx.ownsPro, storeShell: ctx.storeShell })}
           themeId={themeId}
           moodBoard={editor === 'colours' ? boardSiteColours(palette) : undefined}

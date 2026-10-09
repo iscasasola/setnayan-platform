@@ -2,7 +2,11 @@
 
 import type { FixedSceneStyles } from '@/lib/fixed-scene-styles';
 import type { CameraLook } from '@/lib/camera-look';
-import { useMemo, type ComponentProps, type ReactNode } from 'react';
+import { useEffect, useMemo, type ComponentProps, type ReactNode } from 'react';
+import { LAB_EDITORIAL_COOKIE } from './lab-post-event';
+import { LAB_SCRUB_GUEST, labWidgetsCookie } from './lab-scrub';
+import { offerScrubOutInTheLab } from '@/lib/scrub-out-offered';
+import { setStudioDraftDoor } from '@/app/dashboard/[eventId]/launch/_components/studio-info';
 import { MakerShell } from '@/app/dashboard/[eventId]/launch/_components/maker-shell';
 import type { StudioTileModel } from '@/lib/studio-tiles';
 import { MakerRsvpStage } from '@/app/dashboard/[eventId]/launch/_components/maker-rsvp-stage';
@@ -13,13 +17,18 @@ import type { HubDraftActionResult, HubDraftSummary } from '@/lib/hub-draft';
 import { sanitizeRsvpAskConfig } from '@/lib/rsvp-ask';
 import { MainBackgroundPanel, type MovingBackgroundOption } from '@/app/dashboard/[eventId]/website/editor/_components/main-background-panel';
 import { ColorsPanel } from '@/app/dashboard/[eventId]/website/editor/_components/pro-panels';
+import { SiteChromePanel } from '@/app/dashboard/[eventId]/website/editor/_components/media-panels';
 import { ButtonsLookRow } from '@/app/dashboard/[eventId]/website/editor/_components/buttons-look-row';
+import { FontsLookRows } from '@/app/dashboard/[eventId]/website/editor/_components/fonts-look-rows';
+import { LookSample } from '@/app/dashboard/[eventId]/launch/_components/look-sample';
 import { INVITE_THEMES } from '@/lib/invite-themes';
 import { hubButtonPage } from '@/lib/hub-buttons';
-import type { HubSectionCanvas } from '@/lib/hub-canvas';
+import type { HubMainGround, HubSectionCanvas } from '@/lib/hub-canvas';
 import { celebrationColours, celebrationDraftIsPro } from '@/lib/rsvp-celebration';
 import { MakerRevealPicker } from '@/app/dashboard/[eventId]/launch/_components/maker-reveal';
 import { MakerLogoDoor } from '@/app/dashboard/[eventId]/launch/_components/details-lazy';
+import { LabStudioActions } from '../details-lab/lab-studio-actions';
+import { LabLogoActions } from './lab-logo-actions';
 import { REVEAL_LIBRARY } from '@/app/[slug]/_components/reveal/reveal-templates';
 import { DEFAULT_REVEAL_EFFECTS } from '@/lib/std-reveal-effects';
 
@@ -30,6 +39,8 @@ import { DEFAULT_REVEAL_EFFECTS } from '@/lib/std-reveal-effects';
  * the count beside ✓ moves exactly as a real save moves it; nothing leaves the
  * browser.
  */
+/** maria-and-jose's five main colours — the Look rows' and the sample screen's. */
+const LAB_FIVE = ['#5B1A22', '#F7F2EC', '#C9A86A', '#FBFAF7', '#7A8B6F'];
 let labChanges = 0;
 /** 🎉 A Pro celebration drafted in the lab — the bar's ◆ follows it, as the real summary would. */
 let labPro = 0;
@@ -37,6 +48,14 @@ function labSummary(n: number, pro = 0): HubDraftSummary {
   return { hasChanges: n > 0, changeCount: n, proCount: pro, canUndo: n > 0, changes: [] };
 }
 async function labDraft(_eventId: string, fd: FormData): Promise<HubDraftActionResult> {
+  /* ⏱ The lab's stopwatch (`performance.getEntriesByName`): when a draft write left and when it answered. */
+  performance.mark('lab-draft-sent');
+  /* 💥 `?fail=1`: every save is refused — the lab's way to see a failure said in place. */
+  if (new URLSearchParams(window.location.search).get('fail') === '1') {
+    await new Promise((r) => setTimeout(r, 600));
+    performance.mark('lab-draft-answered');
+    return { ok: false, error: 'Your background could not be changed. Please try again.' } as HubDraftActionResult;
+  }
   const w = window as unknown as { __labDrafts?: Array<Record<string, string>> };
   (w.__labDrafts ??= []).push(Object.fromEntries([...fd].filter(([, v]) => typeof v === 'string')) as Record<string, string>);
   /* 🎞 The lab's "draft": a Look › Background pick rides a cookie the lab's
@@ -56,7 +75,9 @@ async function labDraft(_eventId: string, fd: FormData): Promise<HubDraftActionR
      and hold a real save goes through. */
   try {
     const patch = JSON.parse(String(fd.get('patch') ?? '{}')) as { widgets?: Record<string, { canvas?: unknown }> };
-    const held = labWidgetsFromCookie();
+    /* 🎚 On the Scrub chain (`?scrub=1`) a scene's canvas is saved to the chain's own cookie (`./lab-scrub.ts`). */
+    const jar = labWidgetsCookie(new URLSearchParams(window.location.search).get('scrub') === '1');
+    const held = labWidgetsFromCookie(jar);
     let changed = false;
     for (const [type, w] of Object.entries(patch.widgets ?? {})) {
       if (w && typeof w === 'object' && 'canvas' in w) {
@@ -64,9 +85,27 @@ async function labDraft(_eventId: string, fd: FormData): Promise<HubDraftActionR
         changed = true;
       }
     }
-    if (changed) document.cookie = `lab_widgets=${encodeURIComponent(JSON.stringify(held))}; path=/; SameSite=Lax`;
+    if (changed) document.cookie = `${jar}=${encodeURIComponent(JSON.stringify(held))}; path=/; SameSite=Lax`;
   } catch {
     /* not a scene patch */
+  }
+  /* 🎞 The Post Event story's drafted keys (`editorial` — a scene shown or hidden, the run's order, a scene's style
+     and words) ride `lab_editorial`: each key replaced whole, as the real draft keeps them. The lab's page and its
+     canvas read it back (`./lab-post-event.ts`), so the Post Event panel's presses survive the render that follows. */
+  try {
+    const patch = JSON.parse(String(fd.get('patch') ?? '{}')) as { editorial?: Record<string, unknown> };
+    if (patch.editorial && typeof patch.editorial === 'object') {
+      const raw = document.cookie.split('; ').find((c) => c.startsWith(`${LAB_EDITORIAL_COOKIE}=`))?.slice(LAB_EDITORIAL_COOKIE.length + 1);
+      let held: Record<string, unknown> = {};
+      try {
+        held = raw ? (JSON.parse(decodeURIComponent(raw)) as Record<string, unknown>) : {};
+      } catch {
+        held = {};
+      }
+      document.cookie = `${LAB_EDITORIAL_COOKIE}=${encodeURIComponent(JSON.stringify({ ...held, ...patch.editorial }))}; path=/; SameSite=Lax`;
+    }
+  } catch {
+    /* not a story patch */
   }
   /* 🎨 A part's style (`fixedStyles`) rides `lab_styles`; 🎛 the camera's look rides `lab_camera` — the lab's
      stand-ins for `style_preferences.scene_styles` and `.camera_look`. */
@@ -95,10 +134,11 @@ async function labDraft(_eventId: string, fd: FormData): Promise<HubDraftActionR
   /* ⏱ `?slow=1`: a save takes as long as production's (~1.5 s), so a race can show. */
   if (new URLSearchParams(window.location.search).get('slow') === '1') await new Promise((r) => setTimeout(r, 1500));
   const s = labSummary(labChanges, labPro);
+  performance.mark('lab-draft-answered');
   return { ok: true, intent: 'save', applied: 0, held: [], bar: { free: s, owned: s, proEffects: [], priceLabel: null } } as HubDraftActionResult;
 }
-function labWidgetsFromCookie(): Record<string, unknown> {
-  const raw = document.cookie.split('; ').find((c) => c.startsWith('lab_widgets='))?.slice('lab_widgets='.length);
+function labWidgetsFromCookie(jar: string): Record<string, unknown> {
+  const raw = document.cookie.split('; ').find((c) => c.startsWith(`${jar}=`))?.slice(jar.length + 1);
   try {
     const v = raw ? (JSON.parse(decodeURIComponent(raw)) as unknown) : null;
     return v && typeof v === 'object' ? (v as Record<string, unknown>) : {};
@@ -115,6 +155,8 @@ export function MakerLabShell({
   navigator,
   details,
   loops = [],
+  mainBackground = null,
+  pageColour = null,
   openDetails = false,
   canvases = {},
   renderStamp = 'lab',
@@ -122,7 +164,13 @@ export function MakerLabShell({
   studio = null,
   fixedStyles = {},
   cameraLook = 'classic',
+  changes = 0,
+  scrub = false,
 }: {
+  /** 🎚 `?scrub=1` — the canvas is the lab's Scrub chain (`./lab-scrub.ts`, `./guest/scrub`). */
+  scrub?: boolean;
+  /** ✓ `?changes=N` — the draft's unapplied count, as the draft bar would report it (the ✕ sheet's "kept" line). */
+  changes?: number;
   /** 🎨 The lab's drafted part styles (`lab_styles`) and 🎛 camera look (`lab_camera`). */
   fixedStyles?: FixedSceneStyles;
   cameraLook?: CameraLook;
@@ -134,12 +182,29 @@ export function MakerLabShell({
   navigator: MakerNavigatorData;
   details: ReactNode;
   loops?: readonly MovingBackgroundOption[];
+  /** 🌄 `?bg=` — the main background the lab starts on, so each Source of Studio › Look › Background can be seen (default: just the colour). */
+  mainBackground?: HubMainGround | null;
+  /** 🌈 `?paper=dark` — the page colour the lab starts on (a dark one shows whether a Pattern card still shows its pattern). */
+  pageColour?: string | null;
   openDetails?: boolean;
   /** The lab's "server" canvases — what its draft holds (`lab_widgets`), read on every render. */
   canvases?: Record<string, HubSectionCanvas>;
   /** Moves with every render of the lab page, as the real Maker's does (`String(Date.now())`). */
   renderStamp?: string;
 }) {
+  /* 🧾 Studio › Info's kept rows (drawn by the server — there is no `draftAction` prop to hand them) save into the
+     lab's stand-in too, so a kept name shows its tick and ✓ Apply's count rises here as it would for a signed-in
+     couple — and nothing leaves the browser. Put back when the lab is left. */
+  useEffect(() => {
+    setStudioDraftDoor(labDraft as never);
+    return () => setStudioDraftDoor(null);
+  }, []);
+  /* 🧪 "Scrub out" ships dark in the app (`lib/scrub-out-offered.ts`); on the lab's chain (`?scrub=1`) the Maker's
+     controls keep offering it, so the owner can go on arranging the real thing. Put back when the lab is left. */
+  useEffect(() => {
+    offerScrubOutInTheLab(scrub);
+    return () => offerScrubOutInTheLab(false);
+  }, [scrub]);
   const stand = (name: string) => <div data-lab-stand={name} className="rounded-md bg-white/70 p-3 text-[13px] text-ink/60">{name}</div>;
   const rsvpProps = useMemo<ComponentProps<typeof MakerRsvpStage>>(
     () => ({
@@ -148,12 +213,13 @@ export function MakerLabShell({
       solemn: false,
       current: sanitizeRsvpAskConfig({}),
       drafted: false,
-      replyBy: { date: 'November 12, 2026', isDefault: true },
+      replyBy: { date: '2026-11-12', isDefault: true },
       replyByOwn: { deadline: null, pricingMode: 'realtime' },
-      replyByFallback: 'November 12, 2026',
+      replyByFallback: '2026-11-12',
       frameSrc: (scene) => `/dev/maker-lab/guest?rsvp=${scene}`,
       draftAction: labDraft as never,
-      replyByAction: formNoop as never,
+      /* Answers as `updatePaxSettings` does — a stub that answers nothing reads as a refused save ("Reply by did not save"). */
+      replyByAction: (async () => ({ ok: true })) as never,
       celebration: { ownsPro: false, colours: celebrationColours(['#5B1A22', '#6B7A3A', '#E0A52B', '#8E2E3C', '#F2C8C2']) },
     }),
     [eventId],
@@ -163,6 +229,7 @@ export function MakerLabShell({
      Background pick drafts into the lab (`window.__labDrafts`), never a database. */
   const house = INVITE_THEMES.house;
   const formDraft = (fd: FormData) => void labDraft(eventId, fd);
+  const heroVideo = <SiteChromePanel action={formDraft} eventId={eventId} part="video" musicRef={null} musicEnabled={false} videoRef={null} />;
   const lookRows = {
     'main-background': {
       label: 'Behind every scene',
@@ -171,19 +238,27 @@ export function MakerLabShell({
           eventId={eventId}
           themeId="house"
           colours={house.palette}
-          current={null}
+          current={mainBackground}
           hero={{ photoRef: null, photoUrl: null, hasClip: false, liveRef: null }}
           overrideStillUrl={null}
           drafted={false}
           ownsPro={false}
           loops={loops}
+          /* 🌈 Studio › Look › Background's Colour source — Classic's paper and maria-and-jose's five. */
+          page={{ bgColor: pageColour, resolved: house.palette.canvas, five: LAB_FIVE, artDirection: null, ownButton: false }}
           draftAction={labDraft as never}
+          heroVideo={heroVideo}
         />
       ),
     },
     font: {
       label: 'Font',
-      node: <ColorsPanel action={formDraft} eventId={eventId} rowKey="font" part="font" bgColor={null} buttonColor={null} artDirection={null} fontKey={null} proMark="try" />,
+      /* 🔤 The Studio's four font rows, on the lab's own draft stand-in (no write leaves the lab). */
+      node: stagesStudio ? (
+        <FontsLookRows eventId={eventId} themeId="house" fontKey={null} roles={null} draftAction={labDraft as never} />
+      ) : (
+        <ColorsPanel action={formDraft} eventId={eventId} rowKey="font" part="font" bgColor={null} buttonColor={null} artDirection={null} fontKey={null} proMark="try" />
+      ),
     },
     /* 🌈 The page fill — Look › Background's since 2026-10-08 (`LOOK_ROW_OF.page`). */
     'page-colour': {
@@ -196,16 +271,42 @@ export function MakerLabShell({
         <ColorsPanel action={formDraft} eventId={eventId} rowKey="colors" part="art" bgColor={null} buttonColor={null} artDirection={null} fontKey={null} magicTraveller={null} proMark="try" />
       ),
     },
+    /* 🎵 The song and 🎬 the hero video — the REAL form parts, posting into the lab's stand-in (no file leaves it). */
+    music: {
+      label: 'Background music',
+      node: (
+        <SiteChromePanel
+          action={formDraft}
+          eventId={eventId}
+          part="music"
+          musicRef={null}
+          musicEnabled={false}
+          videoRef={null}
+          /* 🎵 The music button's three designs — drawn once a sample song is picked; the pick goes to the lab's stand-in. */
+          musicButton="bars"
+          draftAction={labDraft as never}
+          /* 🎵 Sample songs, so Our music's list can be seen in the lab — no address: nothing is fetched or played here. */
+          ourMusic={[
+            { trackId: '00000000-0000-4000-8000-0000000000a1', ref: 'r2://setnayan-media/hub-music/lab-1.mp3', title: 'First light', moodLabel: 'Romantic', length: '2:27', previewUrl: null },
+            { trackId: '00000000-0000-4000-8000-0000000000a2', ref: 'r2://setnayan-media/hub-music/lab-2.mp3', title: 'Garden vows', moodLabel: 'Romantic', length: '3:05', previewUrl: null },
+            { trackId: '00000000-0000-4000-8000-0000000000a3', ref: 'r2://setnayan-media/hub-music/lab-3.mp3', title: 'Open sky', moodLabel: 'Joyful', length: '2:48', previewUrl: null },
+          ]}
+        />
+      ),
+    },
+    'hero-video': { label: 'Hero video', node: heroVideo },
     buttons: {
       label: 'Buttons',
       node: <ButtonsLookRow eventId={eventId} theme={house} page={hubButtonPage(house, null)} style={null} colour={null} palette={[house.palette.accent, house.palette.ink]} />,
     },
   };
   return (
+    /* 🧪 Studio pages' writes (E-Gifts…) stand in locally — a lab press never reaches the database; "Accept gifts?" drafts into this lab's own counter. */
+    <LabStudioActions draft={labDraft as never}>
     <MakerShell
       eventId={eventId}
       /* The lab's own guest page stands in for /maria-and-jose (Preview's "Preview the stage"). */
-      slug="dev/maker-lab/guest"
+      slug={scrub ? LAB_SCRUB_GUEST.slice(1) : 'dev/maker-lab/guest'}
       liveStage="rsvp"
       initialStage="rsvp"
       /* `?tool=details` / `?guide=…` open on Details (the guided flow), as the real Maker does. */
@@ -216,7 +317,7 @@ export function MakerLabShell({
       completeTourAction={noop}
       renderStamp={renderStamp}
       more={null}
-      applySlot={<HubDraftToolbar eventId={eventId} summary={labSummary(0)} storeShell={false} priceLabel={null} proHref={null} />}
+      applySlot={<HubDraftToolbar eventId={eventId} summary={labSummary(changes)} storeShell={false} priceLabel={null} proHref={null} />}
       details={{ page: details, controls: null }}
       rsvpStage={<MakerRsvpStage {...rsvpProps} />}
       hasWork
@@ -226,7 +327,7 @@ export function MakerLabShell({
     >
       <MakerWork
         eventId={eventId}
-        publicLandingUrl="/dev/maker-lab/guest"
+        publicLandingUrl={scrub ? LAB_SCRUB_GUEST : '/dev/maker-lab/guest'}
         scenes={scenes}
         navigator={navigator}
         scenePanels={Object.fromEntries(scenes.map((s) => [s.id, stand(`${s.label} — its settings`)]))}
@@ -242,6 +343,33 @@ export function MakerLabShell({
         revealStages={['save_the_date']}
         madeOnce={{
           hero: stand('The names & date design'),
+          /* 🪟 Studio › Look's sample screen — the REAL component on the standard sample event (Maria & Jose), fed the
+             same stand-in values the Look rows above are (Classic, their five, the lab's background and loops). */
+          'look-sample': (
+            <LookSample
+              seed={{
+                eventId,
+                themeId: 'house',
+                fontClassName: '',
+                row: {
+                  role_palette: { reception: LAB_FIVE },
+                  site_bg_color: pageColour ?? null,
+                  site_button_color: null,
+                  site_button_style: null,
+                  site_font_key: null,
+                  site_art_direction: null,
+                  site_roles: null,
+                },
+                main: mainBackground ?? null,
+                coverRef: null,
+                sources: { loops, photoChoices: [], videoChoice: null, sceneUploads: [], cover: null, themeId: 'house' },
+                words: { names: 'Maria & Jose', date: 'December 12, 2026', line: 'Seda Vertis North' },
+                /* On, so the sample shows the music button while Music is the tab open. */
+                musicOn: true,
+                musicButton: 'bars',
+              }}
+            />
+          ),
           /* 🎭 The real Reveal picker on fixtures (its saves are refused here — no write leaves the lab),
              so the Stages panel's Reveal part draws what the Maker draws. */
           reveal: (
@@ -268,14 +396,16 @@ export function MakerLabShell({
           /* ⭐ The REAL logo editor on maria-and-jose's initials (no saved logo — `names`), so Studio › Logo can be
              checked in place against the prototype (owner 2026-10-07: it must never leave the Maker) and the Logo
              replot's side-by-side (2026-10-08). It saves only after a touch (`maker-logo-save-gate`), and the lab's
-             event id is not a real event — writes fail here. */
+             event id is not a real event — its one write is the lab's stand-in (`lab-logo-actions.tsx`: counted, nothing sent). */
           logo: (
-            <MakerLogoDoor
-              eventId={eventId}
-              opening={{ source: 'names', layers: [], svg: null, names: 'M&J', anim: null }}
-              motionMark={null}
-              mainColours={['#5B1A22', '#F7F2EC', '#C9A86A', '#FBFAF7', '#7A8B6F']}
-            />
+            <LabLogoActions refuse={typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('refuse') === '1'}>
+              <MakerLogoDoor
+                eventId={eventId}
+                opening={{ source: 'names', layers: [], svg: null, names: 'M&J', anim: null }}
+                motionMark={null}
+                mainColours={['#5B1A22', '#F7F2EC', '#C9A86A', '#FBFAF7', '#7A8B6F']}
+              />
+            </LabLogoActions>
           ),
         }}
         elementEditing={{
@@ -302,5 +432,6 @@ export function MakerLabShell({
         }}
       />
     </MakerShell>
+    </LabStudioActions>
   );
 }

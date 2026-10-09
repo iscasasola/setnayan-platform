@@ -4,7 +4,9 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { RefreshCw } from 'lucide-react';
 import { useConfirm } from '@/app/_components/confirm-dialog';
-import { useToast } from '@/app/_components/toast/toast-provider';
+import { plainRefusal } from '../../_components/plain-refusal';
+import { usePeekToast } from '../../_components/use-peek-toast';
+import { ActionButton } from '@/components/action-button';
 import { useSaveLoader } from '@/components/sd-loader';
 import { regenerateInviteQr } from '../actions';
 
@@ -21,7 +23,7 @@ import { regenerateInviteQr } from '../actions';
  */
 export function RegenerateQrButton({ eventId }: { eventId: string }) {
   const router = useRouter();
-  const toast = useToast();
+  const [toast, toastNode] = usePeekToast();
   const { confirm, dialog } = useConfirm();
   const [isPending, startTransition] = useTransition();
   const [busy, setBusy] = useState(false);
@@ -51,7 +53,7 @@ export function RegenerateQrButton({ eventId }: { eventId: string }) {
     setBusy(false);
 
     if (!result.ok) {
-      toast.error(result.error);
+      toast.error(plainRefusal(result.error, 'Couldn’t make a new QR. Try again.'));
       return;
     }
     toast.success('New invite QR ready. Share the fresh link with your guests.');
@@ -63,19 +65,14 @@ export function RegenerateQrButton({ eventId }: { eventId: string }) {
   return (
     <>
       {dialog}
-      <button
-        type="button"
+      {toastNode}
+      <ActionButton
+        tone="neutral"
+        icon={<RefreshCw aria-hidden className={working ? 'animate-spin' : ''} strokeWidth={2} />}
+        label={working ? 'Regenerating…' : 'Regenerate QR'}
         onClick={handleClick}
         disabled={working}
-        className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-2 text-sm font-medium text-ink/70 transition-colors hover:bg-ink/5 hover:text-ink disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        <RefreshCw
-          aria-hidden
-          className={`h-4 w-4 ${working ? 'animate-spin' : ''}`}
-          strokeWidth={2}
-        />
-        {working ? 'Regenerating…' : 'Regenerate QR'}
-      </button>
+      />
     </>
   );
 }

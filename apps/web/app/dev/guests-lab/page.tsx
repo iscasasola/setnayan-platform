@@ -17,10 +17,7 @@
  *   ?part=head      (retired with the phone title + ⋯ — redirects to part=screen)
  *   ?part=card      a guest's card (Daniel Ramos) — tap Invite or ⋯
  *   ?part=host      the bride's card — a host, ⋯ only
- *   ?part=rows      the Guest list ROWS, on maria-and-jose's real roster shape
- *                   (its 32 names, roles, sides and table names, read
- *                   2026-10-05) — "Sweetheart Table", "Table 9",
- *                   "Principal Sponsors 1"; &by=seat groups by table
+ *   ?part=rows      (retired with the old GuestListMultiselect — redirects to part=screen)
  *   ?part=screen    Guests › List and Map (Maker PR 4f) — the whole screen on
  *                   maria-and-jose's roster, with a stand-in shell bar and
  *                   dock: &gview=map for the map, &q=… to search, &empty=1 for
@@ -49,6 +46,7 @@ import { HomePillNav } from '@/app/dashboard/(launcher)/_components/home-pill-na
 import { BottomDock } from '@/app/_components/nav/bottom-nav';
 import { AddGuestSheet } from '@/app/dashboard/[eventId]/guests/_components/add-guest-sheet';
 import { GuestCardBody } from '@/app/dashboard/[eventId]/guests/_components/guest-card-body';
+import { guestCardErrorCopy } from '@/app/dashboard/[eventId]/guests/_components/guest-card-error-copy';
 import { GuestInviteCell } from '@/app/dashboard/[eventId]/guests/_components/guest-invite-cell';
 import { GuestMoreMenu, GuestTicketThumb } from '@/app/dashboard/[eventId]/guests/_components/guest-ticket-parts';
 import type { GuestCardData } from '@/app/dashboard/[eventId]/guests/_components/guest-card-data';
@@ -57,13 +55,14 @@ import { DEFAULT_NAME_STYLE } from '@/lib/name-style';
 import { sendRunGuests, toInviteCount } from '@/lib/guest-roster-view';
 import { invitationLinkOn } from '@/lib/invitation-link';
 import { SendRun } from '@/app/dashboard/[eventId]/guests/send/_components/send-run';
-import { GuestListMultiselect } from '@/app/dashboard/[eventId]/guests/_components/guest-list-multiselect';
-import type { ArrangeKey } from '@/lib/roster-arrangement';
 import { GuestSetupRows } from '@/app/dashboard/[eventId]/_components/guest-setup/guest-setup-rows';
 import { MakerRsvpSettings } from '@/app/dashboard/[eventId]/launch/_components/maker-rsvp-ask';
 import { guestsGetInPatch, isGuestsGetIn } from '@/lib/who-can-reply';
 import { renderStyledUrlQrSvg } from '@/lib/qr';
 import { GuestsScreen } from '@/app/dashboard/[eventId]/guests/_components/guests-screen';
+import { TEMPLATE_KIT } from '@/app/dashboard/[eventId]/guests/_components/guest-card-template-kit';
+import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
+import { LabGuestActions } from './lab-guest-actions';
 import { RoleNamesProvider } from '@/app/dashboard/[eventId]/guests/_components/role-names-context';
 
 const EVENT = '00000000-0000-4000-8000-000000000000';
@@ -258,6 +257,18 @@ function DockStandIn() {
   );
 }
 
+/**
+ * The Digital Pass picture on the lab's Setup page: a small picture drawn INLINE (a `data:` image — the page's CSP allows it),
+ * never the production address it once pointed at (`https://setnayan.com/api/hub-print/pass…`: refused by the page's own
+ * `img-src` three times, and a lab page has no business asking the live site for anything). The REAL Setup view hands a
+ * same-origin path (`/api/hub-print/pass?event=…`), which the CSP allows.
+ */
+const LAB_PASS_SRC =
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="426" viewBox="0 0 320 426"><rect width="320" height="426" rx="20" fill="#fbf7f0" stroke="#d9cfbf"/><text x="160" y="150" font-family="Georgia,serif" font-size="26" text-anchor="middle" fill="#1e1a12">Maria &amp; Jose</text><text x="160" y="184" font-family="sans-serif" font-size="13" text-anchor="middle" fill="#6b6455">Digital Pass (lab sample)</text><rect x="100" y="224" width="120" height="120" rx="8" fill="#fff" stroke="#d9cfbf"/></svg>',
+  );
+
 export default async function GuestsLabPage({
   searchParams,
 }: {
@@ -265,6 +276,33 @@ export default async function GuestsLabPage({
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
+
+  /* 🧪 THE CARD'S WRITES, AS STAND-INS (step 4A, 2026-10-09). The card binds the shipped `updateGuest` / `releaseGuestClaim` /
+     `inviteGuestByEmailAction` in the page that draws it; the lab hands in its own — INLINE server actions (not exported, so
+     the server-action budget does not see them) that write NOTHING, so the lab's card can be pressed without reaching the
+     database. `?refuse=1` makes them refuse the way the real ones do — a redirect back with `?error=` — in the DATABASE'S OWN
+     WORDS, on purpose, so a guard can prove the card never prints them. */
+  const labRefuses = sp.refuse === '1';
+  const labBack = `/dev/guests-lab?part=${sp.part === 'host' ? 'host' : 'card'}${labRefuses ? '&refuse=1' : ''}`;
+  const labWords = 'new row violates row-level security policy for table "guests"';
+  const labRefusal = `${labBack}&error=${encodeURIComponent(labWords)}`;
+  async function labUpdate(formData: FormData) {
+    'use server';
+    // Like the real `updateGuest`: a QUIET post (the autosave's) is RETURNED the refusal; any other post redirects.
+    if (labRefuses) {
+      if (formData.get('quiet') === '1') return { refused: labWords };
+      redirect(labRefusal);
+    }
+  }
+  async function labRelease(formData: FormData) {
+    'use server';
+    void formData;
+    if (labRefuses) redirect(labRefusal);
+  }
+  async function labPartnerLink() {
+    'use server';
+    if (labRefuses) redirect(labRefusal);
+  }
   const part = typeof sp.part === 'string' ? sp.part : 'head';
 
   if (part === 'notices') {
@@ -301,14 +339,16 @@ export default async function GuestsLabPage({
               {/* The panel over the Guest list, as a phone shows it: inset from the left. */}
               <div className="ml-12 min-h-dvh rounded-l-3xl bg-cream px-[18px] pb-10 pt-6 shadow-xl" data-lab-card="">
                 {low ? <div aria-hidden className="h-[440px]" data-lab-low="" /> : null}
+                <LabGuestActions refuse={labRefuses}>
                 <GuestCardBody
                   eventId={EVENT}
                   data={cardData(g, host)}
                   invitationBase="https://www.setnayan.com/maria-and-jose"
                   photoDisplayUrl={null}
                   variant="page"
-                  returnTo="/dev/guests-lab"
-                  errorMessage={null}
+                  returnTo={labBack}
+                  errorMessage={typeof sp.error === 'string' ? guestCardErrorCopy(sp.error) : null}
+                  actions={{ update: labUpdate, release: labRelease, partnerLink: labPartnerLink }}
                   inviteFlash={null}
                   inviteSetup={{
                     facts: { hostsName: 'Maria & Jose', eventWord: 'wedding', eventDate: '2026-12-12', datePrecision: 'day' },
@@ -318,12 +358,16 @@ export default async function GuestsLabPage({
                   SendInvite={GuestInviteCell}
                   TicketThumb={GuestTicketThumb}
                   MoreMenu={GuestMoreMenu}
+                  kit={TEMPLATE_KIT}
                 />
+                </LabGuestActions>
               </div>
             </div>
           </div>
         </main>
         <DockStandIn />
+        {/* What the real card page mounts: the host that draws the autosave's Undo toast. */}
+        <UndoToastHost />
       </div>
     );
   }
@@ -341,7 +385,7 @@ export default async function GuestsLabPage({
                       drafted={false}
                       reply={{ own: '2027-01-14', pricingMode: 'realtime', fallback: null }}
                       toInvite={toInviteCount(sp.fail === '1' ? [] : planningRoster(), sp.fail !== '1')}
-                      passSrc="https://setnayan.com/api/hub-print/pass?sample=1&mode=screen"
+                      passSrc={LAB_PASS_SRC}
                       oneLink={{
                         url: 'https://setnayan.com/cale-ice/invite',
                         qrSvg: await renderStyledUrlQrSvg('https://setnayan.com/cale-ice/invite', undefined, 240),
@@ -400,6 +444,7 @@ export default async function GuestsLabPage({
             <div data-shell-main>
               <div className="mx-auto w-full px-4 pb-6 pt-3 sm:px-6 sm:pt-6 lg:px-8">
                 <section className="sn-col max-w-none flex flex-col gap-6" data-lab-screen="">
+                  <LabGuestActions refuse={sp.refuse === '1'}>
                   <GuestsScreen
                     eventId={EVENT}
                     gview={gview}
@@ -428,12 +473,15 @@ export default async function GuestsLabPage({
                       ) : null
                     }
                   />
+                  </LabGuestActions>
                 </section>
               </div>
             </div>
           </main>
           <DockStandIn />
           <AddGuestSheet eventId={EVENT} defaultSide="both" />
+          {/* What the real page mounts (guests/page.tsx): the host that draws the Undo toast and every guest-list result. */}
+          <UndoToastHost />
         </div>
       </RoleNamesProvider>
     );
@@ -462,53 +510,6 @@ export default async function GuestsLabPage({
               facts={{ hostsName: 'Maria & Jose', eventWord: 'wedding', eventDate: '2026-12-12', datePrecision: 'day' }}
               template={null}
             />
-          </div>
-        </main>
-        <DockStandIn />
-      </div>
-    );
-  }
-
-  if (part === 'rows') {
-    const roster = MJ_ROSTER.map(([first, last, role, side], i) =>
-      guest({
-        guest_id: `g-mj-${i}`,
-        public_id: `S89G-LABMJ${String(i).padStart(5, '0')}`,
-        first_name: first,
-        last_name: last,
-        role,
-        side,
-        group_category: 'family',
-      }),
-    );
-    const seatByGuest = Object.fromEntries(
-      MJ_ROSTER.map(([, , , , table], i) => [`g-mj-${i}`, { placed: table, suggested: null }]),
-    );
-    const tables = [...new Set(MJ_ROSTER.map((r) => r[4]))].map((label, i) => ({ tableId: `t-${i}`, label }));
-    const grouping: ArrangeKey[] = sp.by === 'seat' ? ['seat'] : ['role'];
-    return (
-      <div className="sn-ambient min-h-screen">
-        <main className="sn-vt-page">
-          <div data-shell-main>
-            <div className="sn-page-enter">
-              <section className="flex flex-col gap-4 px-4 py-6" data-lab-rows="">
-                <GuestListMultiselect
-                  eventId={EVENT}
-                  guests={roster}
-                  palette={{}}
-                  groups={[]}
-                  groupMemberships={{}}
-                  currentGroupId={null}
-                  selfJoinIds={[]}
-                  seatByGuest={seatByGuest}
-                  photoDisplayUrls={{}}
-                  accountFaceByGuest={{}}
-                  grouping={grouping}
-                  sort="importance"
-                  tables={tables}
-                />
-              </section>
-            </div>
           </div>
         </main>
         <DockStandIn />

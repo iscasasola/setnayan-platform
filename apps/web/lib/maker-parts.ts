@@ -56,12 +56,27 @@ import type { HubStage } from './hub-canvas';
 import { RSVP_STAGE_KEY } from './rsvp-stage-shared';
 import { POST_EVENT_SCENE_NAMES } from './post-event-scene-names';
 
-/* ── the three tools ──────────────────────────────────────────────────────── */
+/* ── the four tools ───────────────────────────────────────────────────────── */
 
-/** Style | Text | Animate — the panel's one segmented control (`tpill`). */
-export const MAKER_PART_TOOLS = ['style', 'text', 'animate'] as const;
+/**
+ * Edit | Style | Background | Animate — the toolbar's one selector (owner 2026-10-09, verbatim: *"so it is just
+ * Edit | Style | Background | Animate"*; `TOOLBAR-SPEC-2026-10-09.md`). It was Style | Text | Animate: Text's Font
+ * left the toolbar (*"there is already a universal font"*), its Colour and Size are Style's last row, the part's
+ * words and its place are Edit's, and Background is a tool of its own instead of a segment under Style.
+ */
+export const MAKER_PART_TOOLS = ['edit', 'style', 'bg', 'animate'] as const;
 export type MakerPartTool = (typeof MAKER_PART_TOOLS)[number];
-export const MAKER_PART_TOOL_LABEL: Record<MakerPartTool, string> = { style: 'Style', text: 'Text', animate: 'Animate' };
+export const MAKER_PART_TOOL_LABEL: Record<MakerPartTool, string> = { edit: 'Edit', style: 'Style', bg: 'Background', animate: 'Animate' };
+
+/**
+ * What the WORK AREA is asked for a tool (`MAKER_STAGE_TOOL_EVENT`, `editor-shell.tsx` `onTool`): Animate is the
+ * part's own motion; Edit, Style and Background are all read off the scene's Format (`StageStyle` shows the one the
+ * toolbar is on — `stage-panel/store.ts` `useStageTool`). The work area's vocabulary is unchanged.
+ */
+export type MakerWorkTool = 'style' | 'animate';
+export function makerWorkTool(tool: MakerPartTool): MakerWorkTool {
+  return tool === 'animate' ? 'animate' : 'style';
+}
 
 /**
  * 🔤 THE TEXT TOOL IS THREE CONTROLS — Font · Colour · Size (owner 2026-10-06:
@@ -288,8 +303,11 @@ export const MAKER_PARTS: Readonly<Record<MakerPartKey, MakerPartDef>> = {
   camera: { label: 'Camera', source: 'tool', canvas: null, layouts: { kind: 'own', names: MAKER_CAMERA_LAYOUTS } },
   gallery: { label: 'Gallery', source: 'tool', canvas: 'w:our_photos', layouts: scene('gallery') },
   myphotos: { label: 'Photos of you', source: 'tool', canvas: 'f:photos_of_you', layouts: scene('photos_of_you') },
-  yesnote: { label: 'When-yes note', source: 'info:yes_note', canvas: null, layouts: NONE },
-  nonote: { label: 'When-no note', source: 'info:no_note', canvas: null, layouts: NONE },
+  /* 🗳 The RSVP stage's two after-screens (owner 2026-10-07/08: "yes and no page for the rsvp is to show what the
+     rsvp looks like after the reply yes or no"): the couple's heading and message, marked on the Maker's canvas of
+     `invite/enter` (`f:yesnote` / `f:nonote`) and typed there on the second tap. */
+  yesnote: { label: 'When-yes note', source: 'info:yes_note', canvas: 'f:yesnote', layouts: NONE },
+  nonote: { label: 'When-no note', source: 'info:no_note', canvas: 'f:nonote', layouts: NONE },
   numbers: { label: 'By the numbers', source: 'tool', canvas: 'p:numbers', layouts: scene('statistics') },
   wishes: { label: 'Wishes', source: 'tool', canvas: 'p:wishes', layouts: scene('photo-notes') },
   suppliers: { label: 'Supplier Stories', source: 'tool', canvas: 'p:vendors', layouts: scene('supplier-stories') },
@@ -331,17 +349,70 @@ export function makerPartSource(key: MakerPartKey): MakerPartSource {
 }
 
 /**
- * THE ONE QUIET ROW at the top of Style (owner-approved: *"Edit the <tool> ›"* —
- * the only "go there" in the Maker; it opens the tool IN PLACE and ‹ returns to
- * the same stage and part). Never a badge on the canvas. Null: none.
+ * THE PART'S ONE DOOR — Edit's row 1 where its editing cannot be done in the toolbar (owner 2026-10-09: *"Only jump
+ * if it has editing that cannot be done there. Example: Schedule, Love Story, Wedding March, Logo"*). It opens the
+ * tool IN PLACE and ‹ returns to the same stage and part; the only "go there" in the Maker, never a badge on the
+ * canvas. Null: none. The words are the approved prototype's: "Open in Studio › <page>" · "Change it in Suppliers".
+ * (A part whose words the page draws is typed right in Edit instead — `stage-panel/part-words.ts`; its door is
+ * only drawn where the page draws no such words.)
  */
 export function makerPartQuietRow(key: MakerPartKey): { words: string; to: { studio: MakerStudioTool | 'info' } | { suppliers: 'date' | 'venue' } } | null {
   const src = makerPartSource(key);
-  if (src.kind === 'studio') return { words: `Edit the ${MAKER_STUDIO_TOOL_LABEL[src.tool]}`, to: { studio: src.tool } };
-  if (src.kind === 'supplier') return { words: `Change the ${src.fact} in Suppliers`, to: { suppliers: src.fact } };
-  /* DECISION_LOG 2026-10-06 rule 6: "Edit in Studio › Info" stays on every text part. */
-  if (src.kind === 'info') return { words: 'Edit in Studio › Info', to: { studio: 'info' } };
+  if (src.kind === 'studio') return { words: `Open in Studio › ${MAKER_STUDIO_TOOL_LABEL[src.tool]}`, to: { studio: src.tool } };
+  if (src.kind === 'supplier') return { words: 'Change it in Suppliers', to: { suppliers: src.fact } };
+  /* DECISION_LOG 2026-10-06 rule 6: the Info door stays on every text part. */
+  if (src.kind === 'info') return { words: 'Open in Studio › Info', to: { studio: 'info' } };
   return null;
+}
+
+/**
+ * 🚫 DOES A TOOL HAVE ANYTHING TO SET ON THIS PART? (owner rule: a failure never renders as success — a pill that
+ * slides to "Animate" over a panel still showing Style's cards is exactly that. Tapped on the Maker lab, 2026-10-08:
+ * E-Gifts and What to wear did it.)
+ *
+ *   Edit        every part but the Camera — a door or a name, and its place on the page.
+ *   Style       always — every part has a look.
+ *   🎛 The Camera is a full-screen design with ONLY Style live (owner 2026-10-09): Edit, Background and Animate are
+ *   grey on it, and it has no move row.
+ *   Background  only where the work area has a background to save TODAY: a scene the couple arranges (`w:`). A
+ *               single line inside the cover (`el`) sits on the cover's own — grey for good (owner 2026-10-09). The
+ *               fixed blocks (the March, E-Gifts, The details, What to wear, the seat, the pass …) are to get one
+ *               (*"giving the freedom to fix their event hub"*) — real build work after the toolbar; grey until then.
+ *   Animate     only where the work area has a save for it (`editor-shell.tsx` `onTool`, `stage-tools.tsx`
+ *               `askTool`): a part of a bigger section with words of its own (`el` → the part's sheet), or a scene
+ *               the couple arranges (`w:` → the scene's motion). The fixed blocks are to get it too — grey until then.
+ * A Post Event scene (`p:`), and the parts the canvas does not draw (the Reveal, the Camera) have neither.
+ */
+export function makerPartToolWorks(key: MakerPartKey, tool: MakerPartTool): boolean {
+  if (tool === 'style') return true;
+  if (key === 'camera') return false;
+  if (tool === 'edit') return true;
+  const def = MAKER_PARTS[key];
+  if (!def.canvas) return false;
+  if (tool === 'bg') return def.canvas.startsWith('w:');
+  return Boolean(def.el) || def.canvas.startsWith('w:');
+}
+
+/**
+ * The ONE plain line a tap on a tool with nothing to set answers with — never a dead tap, never a silent one. A
+ * line of the cover says whose background it sits on (the prototype's own words); a part whose content is Studio's
+ * says where it IS changed; any other names the tool.
+ */
+export function makerPartToolWhy(key: MakerPartKey | null, tool: MakerPartTool): string {
+  if (tool === 'bg' && key && MAKER_PARTS[key].canvas === 'f:hero' && MAKER_PARTS[key].el) return 'This sits on the cover’s background.';
+  const src = key ? makerPartSource(key) : null;
+  if (src?.kind === 'studio') return 'Nothing to change here — edit it in Studio.';
+  return `${MAKER_PART_TOOL_LABEL[tool]} has nothing to change on this part.`;
+}
+
+/**
+ * 🧠 THE TOOL A PART OPENS ON: the one last used — or, where that one has nothing to set on this part, the FIRST of
+ * the four that has (the prototype's `pickPart`: `tool = toolKeys().find(t => works(k, t))`). The remembered tool is
+ * not rewritten: it comes back on the next part that has it.
+ */
+export function makerPartToolFor(key: MakerPartKey | null, remembered: MakerPartTool): MakerPartTool {
+  if (!key || makerPartToolWorks(key, remembered)) return remembered;
+  return MAKER_PART_TOOLS.find((t) => makerPartToolWorks(key, t)) ?? 'style';
 }
 
 /* ── the pages (prototype `TABS`, on the SHIPPED guest bar's page keys) ──── */
@@ -361,8 +432,10 @@ export const MAKER_STAGE_PAGES: Readonly<Record<MakerStageKey, Readonly<Record<s
   },
   [RSVP_STAGE_KEY]: {
     form: ['logo', 'ename', 'names', 'date', 'place', 'rsvp', 'greeting'],
-    thanks: ['yesnote', 'pass'],
-    decline: ['nonote'],
+    /* 👆 "Every visible piece is a pickable part" (owner 2026-10-07): the after-screens draw the couple's mark,
+       their names and — when they typed one — their invitation line over the note, so those are parts here too. */
+    thanks: ['logo', 'names', 'heroline', 'yesnote', 'pass'],
+    decline: ['logo', 'names', 'heroline', 'nonote'],
   },
   rsvp: {
     home: ['reveal', 'logo', 'ename', 'names', 'heroline', 'date', 'place', 'herolink', 'rsvpcard', 'countdown', 'opening', 'greeting', 'message', 'reminders', 'gifts'],
@@ -396,15 +469,60 @@ export function makerPartsOnPage(stage: MakerStageKey, page: string | null | und
  * did not draw is not a tile: a tap on it would do nothing.
  */
 export function makerPartsTappable(stage: MakerStageKey, page: string | null | undefined, present: ReadonlySet<string>): MakerPartKey[] {
-  return makerPartsOnPage(stage, page).filter((k) => {
-    const { canvas: c, el } = MAKER_PARTS[k];
-    if (c === null || !present.has(c)) return false;
-    /* A part of a section (the hero's invite line, its link): a tile only when the page DREW that part — when the
-       reader also listed the section's parts (`canvas|el`); a reader that did not is answered by the section. */
-    if (!el) return true;
-    const listed = [...present].some((p) => p.startsWith(`${c}|`));
-    return !listed || present.has(`${c}|${el}`);
-  });
+  return makerPartsOnPage(stage, page).filter((k) => makerPartIsDrawn(k, present));
+}
+
+/**
+ * 🖼 DID THE PAGE DRAW THIS PART? `present` is what the canvas drew: each section's key, and — for a section whose
+ * parts it lists (the cover, `f:hero|<el>`) — each part inside it. A part of a section (the cover's invite line, its
+ * link) is drawn only when the page DREW that part: a cover without an invite line has no "Invite line" to pick.
+ * (Seen on the Maker lab, 2026-10-09: the plain masthead draws no `line` and no `link`, yet both were parts of the
+ * page — picked, the frame fell back to the whole cover and Edit had nothing to show.) A reader that did not list a
+ * section's parts is answered by the section.
+ */
+export function makerPartIsDrawn(key: MakerPartKey, present: ReadonlySet<string>): boolean {
+  const { canvas: c, el } = MAKER_PARTS[key];
+  if (c === null || !present.has(c)) return false;
+  if (!el) return true;
+  const listed = [...present].some((p) => p.startsWith(`${c}|`));
+  return !listed || present.has(`${c}|${el}`);
+}
+
+/**
+ * 🧹 ON ARRIVING, IS THE PART STILL HELD KEPT? Only when it is a part of THIS page: nothing held is nothing to keep;
+ * a part held across a change of STAGE is the old stage's even when both stages have one of that name (the work area
+ * lets it go a moment later, and the toolbar was left on nothing); a part the canvas's own tab switch left on a hidden
+ * page is not on screen. Where the canvas did not say the page (a canvas drawn as one page — the page then follows
+ * what is picked and scrolled), a held part is always kept: it is what named the page.
+ */
+export function makerArrivalKeeps(input: { held: MakerPartKey | null; parts: readonly MakerPartKey[]; newStage: boolean; canvasSaidThePage: boolean }): boolean {
+  if (input.held === null || input.newStage) return false;
+  return input.canvasSaidThePage ? input.parts.includes(input.held) : true;
+}
+
+/**
+ * WHY A STEP OF EDIT'S LAST ROW IS GREY (↑ Earlier · ↓ Later · Remove) — said when it is tapped, never a dead tap. A part that does not move at all (a line of the cover, a fixed block,
+ * the Reveal, a reply page's part) keeps its place; one that moves but has no neighbour on that side is already first
+ * or last; a part that cannot be taken off stays.
+ */
+export function makerPartStepWhy(label: string, canMove: boolean, canRemove: boolean): { earlier: string; later: string; remove: string } {
+  return {
+    /* (First / last: the approved prototype's own two lines.) */
+    earlier: canMove ? 'It is already first on this page.' : `${label} keeps its place on this page.`,
+    later: canMove ? 'It is already last on this page.' : `${label} keeps its place on this page.`,
+    remove: canRemove ? '' : `${label} stays on this page.`,
+  };
+}
+
+/**
+ * 👆 THE PART PICKED ON ARRIVING at a stage's page (owner 2026-10-09: something is always picked): the first part the
+ * page DRAWS (`ordered`, top to bottom) that Edit has a row for — its words to type, or its one door — so the first
+ * thing seen is never an empty tool. Never the Reveal (it leads three pages and has only Style). A page whose parts
+ * all have no row lands on its first part all the same; a page that draws nothing picks nothing.
+ */
+export function makerArrivalPart(ordered: readonly MakerPartKey[], hasEditRow: (k: MakerPartKey) => boolean): MakerPartKey | null {
+  const parts = ordered.filter((k) => k !== 'reveal');
+  return parts.find(hasEditRow) ?? parts[0] ?? null;
 }
 
 /**
@@ -496,6 +614,16 @@ export function makerStagePickedAttr(key: MakerPartKey | null): string | null {
  */
 export function makerRevealEdges(isReveal: boolean): { grip: boolean; addAbove: boolean; addBelow: boolean; remove: boolean } {
   return isReveal ? { grip: false, addAbove: false, addBelow: false, remove: false } : { grip: true, addAbove: true, addBelow: true, remove: true };
+}
+
+/**
+ * 🗳 THE RSVP STAGE'S THREE SCREENS ARE FIXED PAGES: the form and the two after-screens are the guest's own reply
+ * pages — nothing can be added to one, moved on it or taken off it. So a part picked there has its frame, its name
+ * and ↑ ↓ ✕, and NO ＋, grip or 🗑. (The ＋ sheet would also ask the work area mounted under that stage, and offer
+ * the INVITATION's hidden scenes — a write to another stage.)
+ */
+export function makerStageIsFixedPages(stage: MakerStageKey): boolean {
+  return stage === RSVP_STAGE_KEY;
 }
 
 /**

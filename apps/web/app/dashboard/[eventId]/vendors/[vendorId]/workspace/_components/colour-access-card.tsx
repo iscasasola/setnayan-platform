@@ -35,6 +35,7 @@ import {
   type ColourChangeRow,
   type ColourDomain,
 } from '@/lib/colour-access';
+import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 
 type Result = { status: string };
 
@@ -158,16 +159,9 @@ export function ColourAccessCard(props: ColourAccessCardProps) {
                     no_lane: 'This trade has no colour lane on your board.',
                   })
                 }
-                className={`relative h-[25px] w-11 flex-none rounded-full transition-colors disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta ${
-                  isOn ? 'bg-success-600' : 'bg-ink/15'
-                }`}
+                className={SWITCH_BUTTON}
               >
-                <span
-                  aria-hidden
-                  className={`absolute top-[2.5px] h-5 w-5 rounded-full bg-cream shadow transition-transform ${
-                    isOn ? 'left-[2.5px] translate-x-[19px]' : 'left-[2.5px]'
-                  }`}
-                />
+                <SwitchTrack on={isOn} />
               </button>
             </div>
           ) : null}

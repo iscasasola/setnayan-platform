@@ -10,7 +10,6 @@ import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import {
   SAMPLE_PRINT_PIECES,
   TILE_GIVE_UP_MS,
-  TILE_H,
   TILE_PAGE_H,
   TILE_PAGE_W,
   TILE_SCALE,
@@ -310,7 +309,12 @@ export function MakerThemeGallery({
                   on ? 'ring-2 ring-ink' : 'ring-1 ring-ink/10'
                 }`}
               >
-                <span className="relative block shrink-0 overflow-hidden rounded-md bg-white" style={{ width: TILE_W, height: TILE_H }}>
+                <span
+                  /* 📱 The ONE phone-shaped frame (`globals.css` `.sn-phone-card`, 3 : 4 — owner 2026-10-08, "on all style
+                     across the market hub"): the top of the couple's page in this theme, at the tile's own width. */
+                  className="sn-phone-card relative block shrink-0 overflow-hidden rounded-md bg-white"
+                  style={{ ['--phone-card-w' as string]: `${TILE_W}px` }}
+                >
                   {/* ⚖ Pictures at the size they are drawn (next/image, 2× of 132 px),
                       never the full poster — a phone loads a few KB per entry. */}
                   {still && seen ? (

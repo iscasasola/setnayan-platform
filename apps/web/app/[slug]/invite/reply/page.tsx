@@ -286,7 +286,9 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
         brand="foot"
         eyebrow="You’re invited"
         title={(event.display_name as string | null) || guestName}
-        meta={joinDoorMeta({
+        /* 🔤 The couple's names — they wear the Names font where one was chosen. (A guest's own name is not theirs.) */
+        titleIsNames={Boolean(event.display_name)}
+        meta={canvas ? canvasWhenWhere(event) : joinDoorMeta({
           event_date: event.event_date as string | null,
           event_date_precision: event.event_date_precision as string | null,
           venue_name: event.venue_name as string | null,
@@ -301,6 +303,10 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
             {[event.display_name as string | null, `for ${guestName}`].filter(Boolean).join(' · ')}
           </p>
         ) : null}
+        {/* 🧩 ON THE MAKER'S CANVAS EVERY PIECE IS A PART (owner 2026-10-07/08: "RSVP cannot select anything" · "it is
+            the actual RSVP not an editing way"): the SHIPPED section marker stands before each — the guest's own
+            name (the greeting) and the form, with its reply-by line. Canvas only: a guest is served none of it. */}
+        {canvas ? <span hidden data-maker-section="f:greeting" /> : null}
         {/* Whose reply this is — and, on a phone a family shares, the way out. */}
         <FirstScreenOnly on={oneQuestionFrame}>
           <div className="flex flex-wrap items-baseline justify-between gap-x-3">
@@ -311,6 +317,8 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
           </div>
         </FirstScreenOnly>
 
+        {canvas ? <span hidden data-maker-section="f:rsvp" /> : null}
+        <CanvasSection on={canvas}>
         {hasAnswered ? (
           <FirstScreenOnly on={oneQuestionFrame}>
             <DoorNotice>
@@ -378,6 +386,7 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
           previewEveryQuestion={canvas}
           answerWords={readRsvpWords(event.rsvp_ask_config)}
         />
+        </CanvasSection>
       </DoorShell>
     </GuestLookScope>
   );
@@ -390,4 +399,35 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
  */
 function FirstScreenOnly({ on, children }: { on: boolean; children: React.ReactNode }) {
   return on ? <div data-rsvp-context="">{children}</div> : <>{children}</>;
+}
+
+/**
+ * 🧩 ONE PART'S PIECES, HELD TOGETHER FOR THE MAKER'S CANVAS — the form and its reply-by line are the RSVP part, so
+ * the marker before them needs ONE element to stand in front of. `space-y-4` is the door's own gap between its
+ * children, so the pieces sit exactly where they do for a guest. Off (every guest): a bare fragment — the page is
+ * exactly as before.
+ */
+function CanvasSection({ on, children }: { on: boolean; children: React.ReactNode }) {
+  return on ? <div className="space-y-4">{children}</div> : <>{children}</>;
+}
+
+/**
+ * 🧩 THE DATE · PLACE LINE, FOR THE MAKER'S CANVAS: the same words `joinDoorMeta` writes, each half named as the
+ * hero part it is (`data-el`), so the couple can pick the Date and the Place apart. Never called for a guest.
+ */
+function canvasWhenWhere(event: { event_date?: unknown; event_date_precision?: unknown; venue_name?: unknown }): React.ReactNode {
+  const when = joinDoorMeta({
+    event_date: (event.event_date as string | null) ?? null,
+    event_date_precision: (event.event_date_precision as string | null) ?? null,
+    venue_name: null,
+  });
+  const place = ((event.venue_name as string | null) ?? '').trim();
+  if (!when && !place) return undefined;
+  return (
+    <>
+      {when ? <span data-el="date">{when}</span> : null}
+      {when && place ? ' · ' : null}
+      {place ? <span data-el="venue">{place}</span> : null}
+    </>
+  );
 }

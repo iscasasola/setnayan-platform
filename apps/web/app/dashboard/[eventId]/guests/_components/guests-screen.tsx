@@ -68,8 +68,10 @@ import { Count, Fill } from '@/components/count';
 import { formatCount } from '@/lib/format-number';
 import { PickMenu, type PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { useInspectorContext } from '@/app/_components/inspector/inspector-column';
-import { Sheet } from '@/app/_components/sheet';
-import { useToast } from '@/app/_components/toast/toast-provider';
+import { PILL_TRACK_CLASS, PILL_TRACK_GROUND, PillThumb, pillSegClass } from '@/app/_components/pill-selector';
+import { GuestPopup } from './guest-popup';
+import { Handed } from './handed';
+import { usePeekToast } from './use-peek-toast';
 import {
   countsTowardEvent,
   guestDisplayName,
@@ -98,12 +100,12 @@ import {
   type SectionIcon,
   type SectionMark,
 } from '@/lib/guest-roster-view';
-import { bulkApplyRoleAndGroup } from '../groups-actions';
+import { useGuestActions } from './guest-actions-context';
 import { useRoleNames } from './role-names-context';
 import { guestOptimistic, useGuestOptimistic } from './guest-optimistic-store';
 import { DeleteGuestSheet, useGuestRemoval } from './guest-delete';
-import { NewGroupInlineForm } from './guest-list-multiselect';
-import { GuestListHasSidesContext } from './chip-editors';
+import { NewGroupInlineForm } from './new-group-inline-form';
+import { GuestListHasSidesContext } from './guest-list-has-sides-context';
 import { openAddGuest } from './add-guest-sheet';
 import { useRowState } from './use-row-state';
 import { GuestMapCanvas } from './guest-map-canvas';
@@ -222,7 +224,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
     empty,
   } = props;
   const router = useRouter();
-  const toast = useToast();
+  const [toast, toastNode] = usePeekToast();
   const inspector = useInspectorContext();
   const roleNames = useRoleNames();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -378,9 +380,15 @@ export function GuestsScreen(props: GuestsScreenProps) {
   const [toRemove, setToRemove] = useState<string[] | null>(null);
   const [removeError, setRemoveError] = useState<string | null>(null);
   const byId = useMemo(() => new Map(roster.map((g) => [g.guest_id, g] as const)), [roster]);
+  /* The names the delete sheet opened with — read while those rows are still on the list (a refusal is told by name). */
+  const removeNames = (toRemove ?? []).map((id) => {
+    const g = byId.get(id);
+    return g ? (guestFullName(g) ?? guestDisplayName(g)) : '';
+  });
 
   // ── Set… ▾ (group · table · side) — the shipped bulk writer, one field at a time.
   const [newGroup, setNewGroup] = useState(false);
+  const { bulkApplyRoleAndGroup, sendRunHref } = useGuestActions();
   const applyBulk = async (field: 'group_id' | 'table' | 'side', value: string) => {
     const fd = new FormData();
     for (const id of selected) fd.append('guest_ids[]', id);
@@ -421,6 +429,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
   const seg = (key: 'list' | 'map' | 'share', label: string, count?: number) => (
     <Link
       key={key}
+      className={`${pillSegClass(gview === key)} [&>b]:font-medium [&>b]:opacity-80`}
       href={key === 'list' ? `/dashboard/${eventId}/guests` : `/dashboard/${eventId}/guests?gview=${key}`}
       aria-current={gview === key ? 'page' : undefined}
       scroll={false}
@@ -511,12 +520,13 @@ export function GuestsScreen(props: GuestsScreenProps) {
     thumb = (
       <div className={styles.thumb} data-fit-row="" data-thumb="select">
         <ActionButton
-          tone="info"
+          tone="brand"
           main
           icon={Mail}
-          label={`Invite ${selected.size}`}
+          label={selected.size === 0 ? 'Invite' : `Invite ${selected.size}`}
+          name={selected.size === 0 ? 'Invite — nobody selected still needs an invitation' : undefined}
           className={styles.grow}
-          disabled={selected.size === 0}
+          waiting={selected.size === 0}
           onClick={() => {
             // Invite N is the ONE run (`/guests/send`), with only the selected
             // who still need theirs — never the couple, never the already sent.
@@ -524,7 +534,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
               toast.info('Everyone selected is already invited');
               return;
             }
-            router.push(`/dashboard/${eventId}/guests/send?ids=${invitable.map((g) => g.guest_id).join(',')}`);
+            router.push(sendRunHref(eventId, invitable.map((g) => g.guest_id)));
           }}
           data-testid="bulk-invite"
         />
@@ -549,14 +559,14 @@ export function GuestsScreen(props: GuestsScreenProps) {
             tone="danger"
             icon={X}
             label={`Remove ${removable.length}`}
-            disabled={removable.length === 0}
+            waiting={removable.length === 0}
             onClick={() => {
               setRemoveError(null);
               setToRemove(removable);
             }}
             data-testid="bulk-remove"
           />
-          <ActionButton tone="neutral" main icon={SquareCheck} label="Done" onClick={leaveSelect} data-testid="bulk-done" />
+          <ActionButton tone="neutral" icon={SquareCheck} label="Done" onClick={leaveSelect} data-testid="bulk-done" />
         </span>
       </div>
     );
@@ -606,7 +616,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
           </span>
         </div>
       ) : null}
-      {empty && !q ? empty : null}
+      {empty && !q ? <Handed>{empty}</Handed> : null}
       {(empty && !q ? [] : sections).map((sec) => {
         const opened = isOpen(sec.key);
         const allSel = sec.guests.length > 0 && sec.guests.every((g) => selected.has(g.guest_id));
@@ -717,9 +727,13 @@ export function GuestsScreen(props: GuestsScreenProps) {
 
   return (
     <GuestListHasSidesContext.Provider value={hasSides}>
+      {toastNode}
       <div ref={rootRef} className={styles.screen} data-settled={settled ? 'true' : 'false'} data-guests-screen={gview}>
         <div ref={stickRef} className={styles.stick} data-guests-stick="">
-          <nav className={styles.seg} aria-label="Guest list views" data-guests-segmented="">
+          {/* 🎚 THE ONE PILL SELECTOR (owner 2026-10-08: "adjust all pill selectors to this") — the app's template
+              draws the track, the three views and the terracotta thumb that slides between them. Still links. */}
+          <nav className={`${PILL_TRACK_CLASS} ${PILL_TRACK_GROUND}`} aria-label="Guest list views" data-guests-segmented="">
+            <PillThumb />
             {seg('list', 'List', stats.total)}
             {seg('map', 'Map')}
             {seg('share', 'Setup')}
@@ -772,7 +786,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
           ) : null}
         </div>
 
-        {gview === 'share' ? setup : gview === 'map' ? (
+        {gview === 'share' ? <Handed>{setup}</Handed> : gview === 'map' ? (
           <GuestMapCanvas
             rootLabel={rootLabel}
             tree={tree}
@@ -801,30 +815,39 @@ export function GuestsScreen(props: GuestsScreenProps) {
 
         <DeleteGuestSheet
           open={toRemove !== null}
-          names={(toRemove ?? []).map((id) => {
-            const g = byId.get(id);
-            return g ? (guestFullName(g) ?? guestDisplayName(g)) : '';
-          })}
+          names={removeNames}
           busy={removing}
           error={removeError}
           onClose={() => setToRemove(null)}
           onConfirm={async () => {
             const ids = toRemove ?? [];
-            const refused = await remove(ids, () => {
-              setToRemove(null);
-              if (selectMode) leaveSelect();
-            });
+            const who = ids.length === 1 ? removeNames[0] || 'that guest' : `${formatCount(ids.length)} guests`;
+            const refused = await remove(
+              ids,
+              () => {
+                setToRemove(null);
+                if (selectMode) leaveSelect();
+              },
+              who,
+            );
             setRemoveError(refused);
           }}
         />
-        <Sheet open={newGroup} onClose={() => setNewGroup(false)} labelledById="gs-new-group-title" rise>
+        {newGroup ? (
+        <GuestPopup
+          onClose={() => setNewGroup(false)}
+          rootClassName="fixed inset-0 z-[96] flex items-end justify-center lg:items-center"
+          panelClassName="relative w-full max-w-md rounded-t-3xl bg-cream pb-[max(env(safe-area-inset-bottom),16px)] shadow-[0_-30px_80px_-40px_rgba(26,26,26,0.4)] lg:rounded-3xl"
+          labelledById="gs-new-group-title"
+        >
           <div className="space-y-3 p-5 text-ink">
             <h2 id="gs-new-group-title" className="font-display text-xl">
               New group for {selected.size} {selected.size === 1 ? 'guest' : 'guests'}
             </h2>
             <NewGroupInlineForm eventId={eventId} selectedIds={selectedIds} onClose={() => setNewGroup(false)} />
           </div>
-        </Sheet>
+        </GuestPopup>
+        ) : null}
       </div>
     </GuestListHasSidesContext.Provider>
   );

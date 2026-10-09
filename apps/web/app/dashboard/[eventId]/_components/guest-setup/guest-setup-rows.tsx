@@ -1,12 +1,11 @@
 'use client';
 
 import { useEffect, useRef, useState, useTransition } from 'react';
-import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { Check, Copy, Mail, RotateCcw, Share2, SquareCheck, X } from 'lucide-react';
 import { ActionButton, useFitRow } from '@/components/action-button';
 import { Count } from '@/components/count';
-import { Sheet } from '@/app/_components/sheet';
+import { FormRow, FormRows } from '@/app/_components/form-row';
 import type { RsvpAskConfig } from '@/lib/rsvp-ask';
 import {
   GUESTS_GET_IN_LABEL,
@@ -25,19 +24,24 @@ import {
   headcountLockedLine,
   headcountOpenLine,
 } from '@/lib/headcount-row';
-import { InfoTip } from '@/app/_components/info-tip';
-import { hubDraftAction } from '../../website/hub-draft-actions';
-import { updatePaxSettings } from '../../actions';
-import { setGuestListFinalized } from '../../guests/finalize-actions';
+import { useGuestActions } from '../../guests/_components/guest-actions-context';
+import { GuestConfirmActions, GuestPopup } from '../../guests/_components/guest-popup';
+import { plainRefusal } from '../../guests/_components/plain-refusal';
 import { GuestsGetIn } from './guests-get-in';
 import { RsvpAsks } from './rsvp-asks';
 import { ReplyBy } from './reply-by';
 import type { OneLink } from './one-link.server';
-import { SETUP_ACTS, SETUP_ROW, SETUP_SUB, SETUP_TITLE } from './setup-skin';
+import { asksFrame, getInFrame, replyByFrame } from './setup-frames';
 
 /** 📨 The Invitations row's words (HOME_AND_GUESTS_CHECK G26). */
 export const INVITATIONS_TITLE = 'Invitations';
 export const ONE_LINK_TITLE = 'Your one link';
+/** Behind the Invitations row's ⓘ — how the run works; the count of who is left stays on the row. */
+export const INVITATIONS_ABOUT = 'One by one from your phone — Viber, Messenger, WhatsApp or SMS.';
+/** Behind the one link's ⓘ. */
+export const ONE_LINK_ABOUT = 'Whoever opens it is in.';
+/** Two buttons on a row never take more than this share of it: the name keeps the rest (the button rule's 3b). */
+const ACTS = 'flex min-w-0 max-w-[58%] items-center gap-2';
 
 export type HeadcountView = {
   locked: boolean;
@@ -98,6 +102,8 @@ export function GuestSetupRows({
   oneLink: OneLink;
   headcount: HeadcountView;
 }) {
+  /* The shipped actions — the dev lab hands in stand-ins (`guest-actions-context.tsx`). Held under their own names. */
+  const { hubDraftAction, updatePaxSettings } = useGuestActions();
   const [local, setLocal] = useState<RsvpAskConfig>(config);
   const latest = useRef<RsvpAskConfig>(config);
   const saved = useRef<RsvpAskConfig>(config);
@@ -131,13 +137,14 @@ export function GuestSetupRows({
         if (r.ok) {
           saved.current = next;
           setWaiting(true);
-        } else refused = r.error || 'Please try again.';
+        } else refused = plainRefusal(r.error, 'Please try again.');
       } catch {
         refused = 'Please try again.';
       }
       if (refused !== null && tap === newest.current) {
         latest.current = saved.current;
         setLocal(saved.current);
+        /* The action's own words only if they are a plain sentence — never the database's (`plain-refusal.ts`). */
         setError(`${what} did not save, so it is back as it was. ${refused}`);
       }
     })();
@@ -148,106 +155,108 @@ export function GuestSetupRows({
   const replies = guestsGetInReplies(getIn);
 
   return (
-    <div className="flex flex-col pb-6" data-guest-setup="" data-get-in={getIn}>
-      <GuestsGetIn value={getIn} onPick={(v) => save(guestsGetInPatch(v), `“${GUESTS_GET_IN_LABEL}”`)} />
-      {waiting ? (
-        <p className="-mt-1 pb-2 text-[12.5px] font-medium text-terracotta-700" data-setup-waiting="">
-          Saved — guests see it after you Apply in the Event Hub Maker.
-        </p>
-      ) : null}
-      {error ? (
-        <p role="alert" className="pb-2 text-[13px] text-terracotta-700">
-          {error}
-        </p>
-      ) : null}
+    <div className="pb-6" data-guest-setup="" data-get-in={getIn}>
+      {/* ONE list of the app's Form rows (`FormRows`): the pills share one width and one field is open at a time. The three shared
+          parts are handed the SAME frames the Maker hands them (`setup-frames.tsx`) — one part, one look, in both doors. */}
+      <FormRows data="guest-setup">
+        <GuestsGetIn frame={getInFrame} value={getIn} onPick={(v) => save(guestsGetInPatch(v), `“${GUESTS_GET_IN_LABEL}”`)} />
+        {waiting ? (
+          <p className="-mt-1 pb-2.5 pl-0.5 text-[12.5px] text-ink/55" data-setup-waiting="">
+            Saved — guests see it after you Apply in the Event Hub Maker.
+          </p>
+        ) : null}
+        {error ? (
+          <p role="alert" className="-mt-1 pb-2.5 pl-0.5 text-[12.5px] font-semibold text-danger-700">
+            {error}
+          </p>
+        ) : null}
 
-      {personal ? <InvitationsRow eventId={eventId} toInvite={toInvite} passSrc={passSrc} /> : null}
-      {getIn === 'one_qr' ? <OneLinkRow link={oneLink} /> : null}
-      {replies ? <RsvpAsks config={local} onToggle={(field, v) => save({ [field]: v }, 'That question')} /> : null}
-      {replies ? (
-        reply ? (
-          <ReplyBy
-            layout="row"
-            eventId={eventId}
-            own={reply.own}
-            pricingMode={reply.pricingMode}
-            fallback={reply.fallback}
-            action={updatePaxSettings}
-          />
-        ) : (
-          <section className={SETUP_ROW} data-setup-row="reply-by">
-            <p className={SETUP_TITLE}>Reply by</p>
-            <p role="alert" className="text-[13px] text-terracotta-700">
-              We couldn&rsquo;t read it just now.
-            </p>
-          </section>
-        )
-      ) : null}
-      <FinalizeRow eventId={eventId} view={headcount} />
+        {personal ? <InvitationsRow eventId={eventId} toInvite={toInvite} passSrc={passSrc} /> : null}
+        {getIn === 'one_qr' ? <OneLinkRow link={oneLink} /> : null}
+        {replies ? <RsvpAsks frame={asksFrame} config={local} onToggle={(field, v) => save({ [field]: v }, 'That question')} /> : null}
+        {replies ? (
+          reply ? (
+            <ReplyBy
+              layout="frame"
+              frame={replyByFrame}
+              eventId={eventId}
+              own={reply.own}
+              pricingMode={reply.pricingMode}
+              fallback={reply.fallback}
+              action={updatePaxSettings}
+            />
+          ) : (
+            <FormRow data="reply-by" name="Reply by" attrs={{ 'data-setup-row': 'reply-by' }} problem="We couldn’t read it just now." />
+          )
+        ) : null}
+        <FinalizeRow eventId={eventId} view={headcount} />
+      </FormRows>
     </div>
   );
 }
 
 /** ✉ INVITATIONS — the shipped one-by-one run (`/guests/send`), and what each guest gets. */
 function InvitationsRow({ eventId, toInvite, passSrc }: { eventId: string; toInvite: number | null; passSrc: string }) {
+  const { setupDoorHref } = useGuestActions();
   const acts = useRef<HTMLSpanElement>(null);
   useFitRow(acts);
   const [passFailed, setPassFailed] = useState(false);
   return (
-    <>
-      <section className={SETUP_ROW} data-setup-row="invitations">
-        <div className="min-w-0">
-          <p className={SETUP_TITLE}>{INVITATIONS_TITLE}</p>
-          <p className={SETUP_SUB}>
-            One by one from your phone — Viber, Messenger, WhatsApp or SMS.{' '}
-            {toInvite === null ? (
-              'We couldn’t count who is left to invite just now.'
-            ) : (
-              <>
-                <Count value={toInvite} id="setup-to-invite" /> to invite.
-              </>
-            )}
-          </p>
-        </div>
-        <span ref={acts} className={SETUP_ACTS}>
-          {toInvite === 0 ? (
-            <ActionButton tone="ok" main quiet icon={Check} label="Everyone invited" disabled />
+    <FormRow
+      data="invitations"
+      name={INVITATIONS_TITLE}
+      about={{ words: INVITATIONS_ABOUT }}
+      attrs={{ 'data-setup-row': 'invitations' }}
+      line={
+        toInvite === null ? (
+          'We couldn’t count who is left to invite just now.'
+        ) : (
+          <>
+            <Count value={toInvite} id="setup-to-invite" /> to invite.
+          </>
+        )
+      }
+      /* 🎫 THEIR DIGITAL PASS (owner: *"and show their Digital Pass"*) — the shipped ticket
+          (`/api/hub-print/pass`, the first guest who is coming, their own QR), so the couple
+          sees what each guest gets. A picture that fails says so. */
+      below={
+        <div className="pb-3" data-setup-pass="">
+          {passFailed ? (
+            <p className="text-[13px] text-ink/60">We couldn&rsquo;t draw a Digital Pass just now.</p>
           ) : (
-            <ActionButton
-              tone="info"
-              main
-              icon={Mail}
-              label={toInvite === null ? 'Send' : `Send to ${toInvite}`}
-              href={`/dashboard/${eventId}/guests/send`}
-              data-testid="setup-send"
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={passSrc}
+              alt="A guest’s Digital Pass"
+              className="mx-auto block h-auto w-full max-w-[320px] rounded-xl"
+              onError={() => setPassFailed(true)}
             />
           )}
-          <ActionButton
-            tone="neutral"
-            icon={SquareCheck}
-            label="Pick who"
-            href={`/dashboard/${eventId}/guests?select=to-invite`}
-            data-testid="setup-pick-who"
-          />
-        </span>
-      </section>
-      {/* 🎫 THEIR DIGITAL PASS (owner: *"and show their Digital Pass"*) — the shipped ticket
-          (`/api/hub-print/pass`, the first guest who is coming, their own QR), so the couple
-          sees what each guest gets. A picture that fails says so. */}
-      <div className="pb-3" data-setup-pass="">
-        {passFailed ? (
-          <p className="text-[13px] text-ink/60">We couldn&rsquo;t draw a Digital Pass just now.</p>
+        </div>
+      }
+    >
+      <span ref={acts} className={ACTS}>
+        {toInvite === 0 ? (
+          <ActionButton tone="ok" quiet icon={Check} label="Everyone invited" disabled />
         ) : (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={passSrc}
-            alt="A guest’s Digital Pass"
-            className="mx-auto block h-auto w-full max-w-[320px] rounded-xl"
-            onError={() => setPassFailed(true)}
+          <ActionButton
+            tone="brand"
+            main
+            icon={Mail}
+            label={toInvite === null ? 'Send' : `Send to ${toInvite}`}
+            href={setupDoorHref(eventId, 'send')}
+            data-testid="setup-send"
           />
         )}
-      </div>
-    </>
+        <ActionButton
+          tone="neutral"
+          icon={SquareCheck}
+          label="Pick who"
+          href={setupDoorHref(eventId, 'pick-who')}
+          data-testid="setup-pick-who"
+        />
+      </span>
+    </FormRow>
   );
 }
 
@@ -257,15 +266,7 @@ function OneLinkRow({ link }: { link: OneLink }) {
   useFitRow(acts);
   const [copied, setCopied] = useState(false);
   if (!link.url) {
-    return (
-      <section className={SETUP_ROW} data-setup-row="one-link">
-        <div className="min-w-0">
-          <p className={SETUP_TITLE}>{ONE_LINK_TITLE}</p>
-          <p className={SETUP_SUB}>{link.notice}</p>
-        </div>
-        <span />
-      </section>
-    );
+    return <FormRow data="one-link" name={ONE_LINK_TITLE} attrs={{ 'data-setup-row': 'one-link' }} line={link.notice} />;
   }
   const url = link.url;
   const shown = url.replace(/^https?:\/\//, '');
@@ -290,26 +291,28 @@ function OneLinkRow({ link }: { link: OneLink }) {
     await copy();
   };
   return (
-    <>
-      <section className={SETUP_ROW} data-setup-row="one-link">
-        <div className="min-w-0">
-          <p className={SETUP_TITLE}>{ONE_LINK_TITLE}</p>
-          <p className={`${SETUP_SUB} break-all`}>{shown} · whoever opens it is in</p>
-        </div>
-        <span ref={acts} className={SETUP_ACTS}>
-          <ActionButton tone="neutral" main icon={copied ? Check : Copy} label={copied ? 'Copied' : 'Copy'} onClick={copy} />
-          <ActionButton tone="neutral" icon={Share2} label="Share" onClick={share} />
-        </span>
-      </section>
-      {link.qrSvg ? (
-        <div className="pb-3" data-setup-one-qr="">
-          <div
-            className="qr-slot mx-auto h-[168px] w-[168px] rounded-xl bg-white p-2 [&>svg]:h-full [&>svg]:w-full"
-            dangerouslySetInnerHTML={{ __html: link.qrSvg }}
-          />
-        </div>
-      ) : null}
-    </>
+    <FormRow
+      data="one-link"
+      name={ONE_LINK_TITLE}
+      about={{ words: ONE_LINK_ABOUT }}
+      attrs={{ 'data-setup-row': 'one-link' }}
+      line={<span className="break-all">{shown}</span>}
+      below={
+        link.qrSvg ? (
+          <div className="pb-3" data-setup-one-qr="">
+            <div
+              className="qr-slot mx-auto h-[168px] w-[168px] rounded-xl bg-white p-2 [&>svg]:h-full [&>svg]:w-full"
+              dangerouslySetInnerHTML={{ __html: link.qrSvg }}
+            />
+          </div>
+        ) : null
+      }
+    >
+      <span ref={acts} className={ACTS}>
+        <ActionButton tone="brand" main icon={copied ? Check : Copy} label={copied ? 'Copied' : 'Copy'} onClick={copy} />
+        <ActionButton tone="neutral" icon={Share2} label="Share" onClick={share} />
+      </span>
+    </FormRow>
   );
 }
 
@@ -324,6 +327,7 @@ function OneLinkRow({ link }: { link: OneLink }) {
  */
 function FinalizeRow({ eventId, view }: { eventId: string; view: HeadcountView }) {
   const router = useRouter();
+  const { setGuestListFinalized } = useGuestActions();
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -333,7 +337,7 @@ function FinalizeRow({ eventId, view }: { eventId: string; view: HeadcountView }
       setError(null);
       const res = await setGuestListFinalized(eventId, true);
       if (!res.ok) {
-        setError(res.error);
+        setError(plainRefusal(res.error, 'Couldn’t finalize the list. Try again.'));
         return;
       }
       setOpen(false);
@@ -346,92 +350,87 @@ function FinalizeRow({ eventId, view }: { eventId: string; view: HeadcountView }
       setError(null);
       const res = await setGuestListFinalized(eventId, false);
       if (!res.ok) {
-        setError(res.error);
+        setError(plainRefusal(res.error, 'Couldn’t reopen the list. Try again.'));
         return;
       }
       router.refresh();
     });
 
   return (
-    <section className={SETUP_ROW} data-setup-row="finalize" data-guest-list-finalize={view.locked ? 'finalized' : 'open'}>
-      <div className="min-w-0">
-        {view.locked ? (
-          <p className={SETUP_TITLE}>{FINALIZE_LOCKED_TITLE}</p>
-        ) : (
-          <InfoTip label={FINALIZE_TITLE} labelAs="p" labelClassName={SETUP_TITLE} align="start">
-            {FINALIZE_TIP}
-          </InfoTip>
-        )}
-        <p className={SETUP_SUB}>
-          {view.locked
+    <>
+      <FormRow
+        data="finalize"
+        name={view.locked ? FINALIZE_LOCKED_TITLE : FINALIZE_TITLE}
+        about={view.locked ? null : { words: FINALIZE_TIP }}
+        attrs={{ 'data-setup-row': 'finalize', 'data-guest-list-finalize': view.locked ? 'finalized' : 'open' }}
+        line={
+          view.locked
             ? headcountLockedLine(view.heads)
             : view.attending === null
               ? 'We couldn’t count who is coming just now.'
-              : headcountOpenLine(view.attending)}
-        </p>
-        {error ? (
-          <p role="alert" className="mt-1 text-[13px] text-terracotta-700">
-            {error}
-          </p>
-        ) : null}
-      </div>
-      {!view.locked ? (
-        <span className={SETUP_ACTS}>
-          <ActionButton
-            tone="ok"
-            main
-            icon={Check}
-            label={FINALIZE_NOW_LABEL}
-            aria-haspopup="dialog"
-            onClick={() => setOpen(true)}
-            data-testid="setup-finalize-now"
-          />
-        </span>
-      ) : (
-        <span className={SETUP_ACTS}>
-          <ActionButton
-            tone="neutral"
-            icon={RotateCcw}
-            label={pending ? 'Reopening…' : REOPEN_LABEL}
-            disabled={pending}
-            onClick={reopen}
-            data-testid="setup-reopen"
-          />
-        </span>
-      )}
-      {/* Portalled to <body>: the Guests screen is its own stacking context, and a sheet left
-          inside it drew UNDER the bottom nav — its Finalize · Not now hidden (measured in the lab). */}
-      {open && typeof document !== 'undefined'
-        ? createPortal(
-      <Sheet open={open} onClose={() => (pending ? undefined : setOpen(false))} labelledById="setup-finalize-title" rise>
-        <div className="flex flex-col gap-2 p-5" data-finalize-sheet="">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink/55">{FINALIZE_SHEET.eyebrow}</p>
-          <p id="setup-finalize-title" className="font-serif text-xl text-ink">
-            {FINALIZE_SHEET.title(heads)}
-          </p>
-          <p className="text-[14px] text-ink/75">{FINALIZE_SHEET.body()}</p>
-          <div className="mt-3 flex items-center gap-2">
+              : headcountOpenLine(view.attending)
+        }
+        problem={error}
+      >
+        <span className={ACTS}>
+          {!view.locked ? (
             <ActionButton
               tone="ok"
               main
               icon={Check}
-              label={pending ? 'Finalizing…' : FINALIZE_SHEET.confirm}
-              disabled={pending}
-              onClick={finalize}
-              data-testid="setup-finalize-go"
+              label={FINALIZE_NOW_LABEL}
+              aria-haspopup="dialog"
+              onClick={() => setOpen(true)}
+              data-testid="setup-finalize-now"
             />
-            <ActionButton tone="danger" icon={X} label={FINALIZE_SHEET.cancel} disabled={pending} onClick={() => setOpen(false)} />
-          </div>
-          {error ? (
-            <p role="alert" className="text-[13px] text-terracotta-700">
-              {error}
+          ) : (
+            <ActionButton
+              tone="neutral"
+              icon={RotateCcw}
+              label={pending ? 'Reopening…' : REOPEN_LABEL}
+              disabled={pending}
+              onClick={reopen}
+              data-testid="setup-reopen"
+            />
+          )}
+        </span>
+      </FormRow>
+      {/* A confirm box (the approved gallery § 12): `GuestPopup kind="confirm"` draws it centred on <body> — above the bottom bar,
+          dark and blurred behind, a tap on the dark closes it as "Not now", nothing behind works or scrolls. (It was the shared
+          `Sheet` in a hand portal.) A press in flight cannot be closed away. */}
+      {open ? (
+        <GuestPopup kind="confirm" onClose={() => (pending ? undefined : setOpen(false))} labelledById="setup-finalize-title">
+          <div className="flex flex-col gap-2" data-finalize-sheet="">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink/55">{FINALIZE_SHEET.eyebrow}</p>
+            <p id="setup-finalize-title" className="font-serif text-xl text-ink">
+              {FINALIZE_SHEET.title(heads)}
             </p>
-          ) : null}
-        </div>
-      </Sheet>,
-            document.body,
-          )
-        : null}
-    </section>
+            <p className="text-[14px] text-ink/75">{FINALIZE_SHEET.body()}</p>
+            {error ? (
+              <p role="alert" className="text-[13px] font-semibold text-danger-700">
+                {error}
+              </p>
+            ) : null}
+            {/* The confirm box's two buttons, side by side, the safe answer first (`GuestConfirmActions`). */}
+            <div className="mt-2">
+              <GuestConfirmActions
+                keep={<ActionButton tone="neutral" icon={X} label={FINALIZE_SHEET.cancel} disabled={pending} onClick={() => setOpen(false)} />}
+                go={
+                  <ActionButton
+                    tone="ok"
+                    main
+                    icon={Check}
+                    label={pending ? 'Finalizing…' : FINALIZE_SHEET.confirm}
+                    disabled={pending}
+                    onClick={finalize}
+                    data-testid="setup-finalize-go"
+                  />
+                }
+              />
+            </div>
+          </div>
+        </GuestPopup>
+      ) : null}
+    </>
   );
 }

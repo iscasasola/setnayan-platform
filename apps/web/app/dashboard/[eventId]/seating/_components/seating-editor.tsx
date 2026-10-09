@@ -74,6 +74,8 @@ import {
   type SaveState,
 } from './seating-frame';
 import { DropConfirmBubble, type DropConfirmState } from './drop-confirm-bubble';
+import { ActionButton } from '@/components/action-button';
+import { FormRows, SwitchRow } from '@/app/_components/form-row';
 import {
   BOOTH_CATALOG,
   CHAIR_PX,
@@ -204,11 +206,13 @@ import { MoveGuestSheet, PeopleSheet, PhoneSeatPlanFoot, PhoneSeatPlanHead, Stud
 import { BlueprintStudio } from '../../studio/indoor-blueprint/_components/blueprint-studio';
 import { saveEntrance } from '../../studio/indoor-blueprint/actions';
 import { InfoTip } from '@/app/_components/info-tip';
+import { PillButton, PillTrack } from '@/app/_components/pill-track';
 import { DetailsPieceButton, useDetailsEditorOpener, useDetailsPiece } from '../../launch/_components/details-go';
 import { useMaker } from '../../launch/_components/maker-context';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { SeatPlanPortal } from './seat-plan-slots';
 import { useOneOpen } from '@/lib/one-open';
+import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 
 // True when a thrown error is the server lock-guard's "you no longer hold the
 // editor lock" signal (SeatingLockError · code 'seating_lock_not_held'). Server
@@ -4779,7 +4783,10 @@ export function SeatingEditor({
   // The tab strip + active pane. `panelBody` is rendered by EITHER the desktop
   // aside OR the mobile drawer (never both — `isNarrow` gates which).
   const panelTabs = (
-    <div role="tablist" aria-label="Seat-plan panel" className="flex shrink-0 gap-1 border-b border-ink/10 px-2">
+    /* 🎚 THE ONE PILL SELECTOR (owner 2026-10-08: "adjust all pill selectors to this") — People · Tables · Rules
+       were underlined tabs; they are the app's pill now, the thumb sliding to the picked one (`aria-selected`). */
+    <div className="shrink-0 px-2 pb-1.5">
+      <PillTrack role="tablist" aria-label="Seat-plan panel" grow data-seat-panel-tabs="">
       {([
         ['people', 'People', unseatedCount, false] as const,
         ['tables', 'Tables', 0, false] as const,
@@ -4787,29 +4794,21 @@ export function SeatingEditor({
       ]).map(([key, label, count, warm]) => {
         const active = panelTab === key;
         return (
-          <button
-            key={key}
-            type="button"
-            role="tab"
-            aria-selected={active}
-            onClick={() => selectPanelTab(key)}
-            className={`relative flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-xs font-medium transition ${
-              active ? 'border-terracotta text-ink' : 'border-transparent text-ink/50 hover:text-ink'
-            }`}
-          >
+          <PillButton key={key} on={active} role="tab" aria-selected={active} onClick={() => selectPanelTab(key)} className="gap-1.5">
             {label}
             {count > 0 ? (
               <span
                 className={`rounded-full px-1.5 py-0.5 font-mono text-[9px] font-semibold tabular-nums ${
-                  warm ? 'bg-danger-100 text-danger-700' : 'bg-ink/8 text-ink/55'
+                  warm ? 'bg-danger-100 text-danger-700' : active ? 'bg-white/25 text-white' : 'bg-ink/8 text-ink/55'
                 }`}
               >
                 {formatCount(count)}
               </span>
             ) : null}
-          </button>
+          </PillButton>
         );
       })}
+      </PillTrack>
     </div>
   );
 
@@ -5247,15 +5246,7 @@ export function SeatingEditor({
       return (
         <ContextDock variant={isPhone ? sheetVariant : 'dock'} edge={isPhone ? 'bottom' : edge} tone="neutral" glyph={glyph} name={name} boundsRef={regionRef} onDismiss={isPhone ? clearSelection : undefined}>
           {summary ? <span className="px-1 font-mono text-[11px] tabular-nums text-ink/60">{summary} seated</span> : null}
-          <button
-            type="button"
-            onClick={lock.acquire}
-            disabled={lock.status === 'acquiring'}
-            className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-ink/80 px-3 font-semibold text-cream hover:bg-ink disabled:opacity-50 ${isPhone ? 'h-11 text-sm' : 'h-8 text-xs'}`}
-          >
-            <Eye className="h-3.5 w-3.5" />
-            {lock.status === 'stale_takeover_available' ? 'Take over' : 'Edit'}
-          </button>
+          <ActionButton tone="neutral" icon={Eye} label={lock.status === 'stale_takeover_available' ? 'Take over' : 'Edit'} disabled={lock.status === 'acquiring'} onClick={lock.acquire} />
           {!isPhone ? (
             <button type="button" onClick={clearSelection} aria-label="Done" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-ink/40 hover:bg-ink/5">
               <X className="h-4 w-4" />
@@ -5514,13 +5505,15 @@ export function SeatingEditor({
         </button>
       );
       const seg = (opts: { key: string; label: string; active: boolean; onClick: () => void }[], label: string) => (
-        <div role="group" aria-label={label} className="flex shrink-0 overflow-hidden rounded-lg border border-ink/15 text-[11px] font-semibold">
+        /* The app's ONE pill selector (owner 2026-10-08) — at the dock's own height: 44 px on a phone, 32 px beside
+           the desktop dock's 32-px buttons. */
+        <PillTrack role="group" aria-label={label} className="shrink-0">
           {opts.map((o) => (
-            <button key={o.key} type="button" onClick={o.onClick} aria-pressed={o.active} className={`${big ? 'h-11' : 'h-8'} px-2.5 ${o.active ? 'bg-terracotta text-cream' : 'text-ink/60 hover:bg-ink/[0.04]'}`}>
+            <PillButton key={o.key} on={o.active} onClick={o.onClick} aria-pressed={o.active} className={big ? '' : '!min-h-[26px]'}>
               {o.label}
-            </button>
+            </PillButton>
           ))}
-        </div>
+        </PillTrack>
       );
 
       let glyph: React.ReactNode = null;
@@ -5784,45 +5777,30 @@ export function SeatingEditor({
       }
     });
   };
+  /* 🧩 THE SWITCH IS THE FORM ROW'S (owner 2026-10-09, the templates): the name with its ⓘ, the status line under it, a refusal under that — the SAME write
+     (`flipDoor`: `publishSeating` / `unpublishSeating`, live, never drafted). */
   const doorStrip = details ? (
-    <div
-      data-seat-plan-door={doorOpen || seatDayHasCome ? 'open' : 'closed'}
-      className={`flex shrink-0 items-center gap-3 border-b border-ink/10 px-3 py-2 ${doorOpen || seatDayHasCome ? 'bg-success-50/70' : 'bg-cream'}`}
-    >
-      <span className="flex min-w-0 flex-1 flex-col">
-        <InfoTip label="Show guests their seats early" labelClassName="text-sm font-semibold text-ink" align="start">
-          Guests see their seats on the day. Want them to see it earlier? Turn this on. Turn it off before the day and
-          they are hidden again. From the day itself guests always see their seats — this switch no longer hides them
-          then. Find your seat, the seat passes and the 3D walk of your room all follow this. Printing the table signs
-          does not turn it on. Apply in the Maker does not cover the seat plan.
-        </InfoTip>
-        <span className="truncate text-[11.5px] text-ink/60">
-          {seatDayHasCome
-            ? 'It’s the day — guests see their seats.'
-            : doorOpen
-              ? 'Guests see their seats now.'
-              : 'Guests see their seats on the day.'}
-        </span>
-        {doorNote ? (
-          <span role="alert" className="text-[11.5px] text-danger-700">
-            {doorNote}
-          </span>
-        ) : null}
-      </span>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={doorOpen}
-        aria-label="Show guests their seats early"
-        data-seat-plan-door-switch=""
-        onClick={() => flipDoor(!doorOpen)}
-        className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors duration-sn-control ease-sn ${doorOpen ? 'bg-success-700' : 'bg-ink/25'}`}
-      >
-        <span
-          aria-hidden
-          className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform duration-sn-control ease-sn ${doorOpen ? 'translate-x-6' : 'translate-x-1'}`}
+    <div data-seat-plan-door={doorOpen || seatDayHasCome ? 'open' : 'closed'} className="shrink-0 border-b border-ink/10 bg-cream px-3">
+      <FormRows data="seat-plan-door">
+        <SwitchRow
+          name="Show guests their seats early"
+          about={{
+            words:
+              'Guests see their seats on the day. Want them to see it earlier? Turn this on. Turn it off before the day and they are hidden again. From the day itself guests always see their seats — this switch no longer hides them then. Find your seat, the seat passes and the 3D walk of your room all follow this. Printing the table signs does not turn it on. Apply in the Maker does not cover the seat plan.',
+          }}
+          on={doorOpen}
+          onChange={(open) => flipDoor(open)}
+          note={
+            seatDayHasCome
+              ? 'It’s the day — guests see their seats.'
+              : doorOpen
+                ? 'Guests see their seats now.'
+                : 'Guests see their seats on the day.'
+          }
+          problem={doorNote}
+          attrs={{ 'data-seat-plan-door-switch': '' }}
         />
-      </button>
+      </FormRows>
     </div>
   ) : null;
 
@@ -6216,15 +6194,9 @@ export function SeatingEditor({
             </span>
           </p>
           {searchRow}
-          <label className="flex min-h-10 items-center gap-2 text-[13px] text-ink/75">
-            <input
-              type="checkbox"
-              checked={onlyUnseated}
-              onChange={(e) => setOnlyUnseated(e.target.checked)}
-              className="h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
-            />
-            Only unseated
-          </label>
+          <FormRows data="seat-plan-only-unseated">
+            <SwitchRow name="Only unseated" on={onlyUnseated} onChange={setOnlyUnseated} attrs={{ 'data-seat-plan-only-unseated': '' }} />
+          </FormRows>
           {guestSections?.sections.map((sec) => (
             <section key={sec.key} data-seat-plan-section={sec.key} className="flex flex-col gap-1">
               <p
@@ -6340,15 +6312,7 @@ export function SeatingEditor({
   const phoneTrailing = (
     <>
       {!canEdit ? (
-        <button
-          type="button"
-          onClick={lock.acquire}
-          disabled={lock.status === 'acquiring'}
-          className="inline-flex h-9 shrink-0 items-center gap-1 rounded-full border border-ink/15 px-3 text-[12px] font-medium text-ink/70"
-        >
-          <Eye className="h-3.5 w-3.5" />
-          {lock.status === 'acquiring' ? 'Opening…' : lock.status === 'stale_takeover_available' ? 'Take over' : 'Edit'}
-        </button>
+        <ActionButton tone="neutral" icon={Eye} label={lock.status === 'acquiring' ? 'Opening…' : lock.status === 'stale_takeover_available' ? 'Take over' : 'Edit'} waiting={lock.status === 'acquiring'} onClick={lock.acquire} />
       ) : saveState !== 'saved' ? (
         <SaveStatusChip state={saveState} unsavedCount={unsavedCount} savedAt={savedAt} onSave={saveLayout} disabled={!canEdit} />
       ) : null}
@@ -6480,14 +6444,7 @@ export function SeatingEditor({
           <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-ink/15 bg-ink/[0.03] px-2.5 py-1 text-[11px] font-medium text-ink/70">
             <Eye className="h-3.5 w-3.5 text-ink/50" />
             {lock.status === 'acquiring' ? 'Opening…' : 'Viewing only'}
-            <button
-              type="button"
-              onClick={lock.acquire}
-              disabled={lock.status === 'acquiring'}
-              className="rounded-md bg-ink/80 px-1.5 py-0.5 text-[10px] font-semibold text-cream hover:bg-ink disabled:opacity-50"
-            >
-              {lock.status === 'stale_takeover_available' ? 'Take over' : 'Edit'}
-            </button>
+            <ActionButton tone="neutral" quiet icon={Eye} label={lock.status === 'stale_takeover_available' ? 'Take over' : 'Edit'} disabled={lock.status === 'acquiring'} onClick={lock.acquire} />
           </span>
         ) : null}
 
@@ -8629,21 +8586,14 @@ function SeatPeoplePanel({
   return (
     <div className="w-full rounded-xl border border-ink/10 bg-ink/[0.03] p-2">
       <div className="mb-2 flex items-center gap-2">
-        <div className="inline-flex flex-1 rounded-lg border border-ink/15 bg-cream p-0.5">
+        {/* The app's ONE pill selector (owner 2026-10-08) — three views of who can sit here. */}
+        <PillTrack grow data-seat-pick-tabs="">
           {(['guest', 'group', 'role'] as const).map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => onTab(t)}
-              aria-pressed={tab === t}
-              className={`flex-1 rounded-md px-2 py-1 text-xs font-medium capitalize transition ${
-                tab === t ? 'bg-ink/[0.06] text-ink' : 'text-ink/55 hover:text-ink'
-              }`}
-            >
+            <PillButton key={t} on={tab === t} onClick={() => onTab(t)} aria-pressed={tab === t} className="capitalize">
               {t}
-            </button>
+            </PillButton>
           ))}
-        </div>
+        </PillTrack>
         <span className={`shrink-0 text-[11px] ${free === 0 ? 'text-danger-600' : 'text-ink/55'}`}>
           {formatCount(seated)}/{formatCount(cap)} · {free} free
         </span>

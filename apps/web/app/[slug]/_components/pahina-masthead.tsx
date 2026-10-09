@@ -357,7 +357,7 @@ export function PahinaMasthead({
     const NAMES = (
       <h1
         {...el('names')}
-        data-motion="arrive-names"
+        data-motion="arrive-names" data-hub-names=""
         className={
           design === 'marquee'
             ? 'mt-5 font-pahina text-[clamp(2.75rem,15vw,5.5rem)] font-light leading-[0.98] tracking-tight text-ink [overflow-wrap:anywhere] [text-wrap:balance] sm:flex sm:flex-wrap sm:items-baseline sm:justify-center sm:gap-x-[0.24em] sm:text-[5.5rem]'
@@ -539,7 +539,7 @@ export function PahinaMasthead({
             ) : null}
             <h1
               {...el('names')}
-              data-motion="arrive-names"
+              data-motion="arrive-names" data-hub-names=""
               className="mt-5 font-pahina text-[2.9rem] font-light leading-[1.06] tracking-tight text-ink"
             >
               <span {...person(0)} className="block">{txt('names', names.first, cardNames, 0)}</span>
@@ -588,7 +588,7 @@ export function PahinaMasthead({
       {monogramSlot ? <div {...el('mark')} data-motion="arrive-mark" className="mt-6 flex justify-center">{monogramSlot}</div> : null}
 
       {/* Stacked names — Fraunces display, italic gild joiner between lines. */}
-      <h1 {...el('names')} data-motion="arrive-names" className="mt-6 font-pahina text-[2.9rem] font-light leading-[1.04] tracking-tight text-ink sm:text-6xl">
+      <h1 {...el('names')} data-motion="arrive-names" data-hub-names="" className="mt-6 font-pahina text-[2.9rem] font-light leading-[1.04] tracking-tight text-ink sm:text-6xl">
         <span {...person(0)} className="block">{txt('names', names.first, plainNames, 0)}</span>
         {names.second ? (
           <>

@@ -2,14 +2,17 @@
 
 import { StudioColourField } from './studio-colour-field';
 import { OpenInPlace } from './open-in-place';
-import { useContext, useEffect, useId, useRef, useState, useTransition, type ReactNode } from 'react';
+import { useContext, useEffect, useRef, useState, useTransition, type ReactElement, type ReactNode } from 'react';
 import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
+import { tellLookSample } from '@/lib/look-sample-store';
 import { EGIFT_KIND_META, type EgiftMethodKind } from '@/lib/egift-kinds';
 import { PabuyaCardList } from '@/app/_components/pabuya/pabuya-card-list';
-import { saveEgiftMethod, savePabuyaMessage, setEgiftMethodEnabled } from '../../pabuya/actions';
+import { useStudioActions } from './studio-actions-context';
 import { cleanGiftRegistryUrl, GIFT_REGISTRY_URL_ERROR, GIFT_REGISTRY_URL_MAX } from '@/lib/gift-registry';
+import { egiftEnabledFields, egiftMethodFields, egiftMethodNeedsSaving, registryFields } from '@/lib/studio-egifts-saves';
+import { plainRefusal } from '../../guests/_components/plain-refusal';
 import type { ManagerMethod } from '../../pabuya/_components/pabuya-manager';
-import { HUB_LIVE_WORDS } from '../../website/_components/hub-draft-field';
+import { HUB_LIVE_WORDS, HubSavesImmediately } from '../../website/_components/hub-draft-field';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { setLaunchPhase, setOpenBrowse } from '../../website/editor/actions';
 import { updateLandingPageVisibility } from '../../website/privacy/actions';
@@ -29,7 +32,6 @@ import {
   type WhichVersion,
 } from '@/lib/which-version-guests-see';
 import { useMaker } from './maker-context';
-import { useSceneWordsBox } from '../../website/editor/_components/canvas-words';
 import { DetailsSelectContext } from './details-go';
 import { ISeg, ISegmented } from '../../website/editor/_components/inspector-kit';
 import { LOOK_SECTION_ITEM_KEYS, type LookSectionItemKey } from '@/lib/maker-details-items';
@@ -37,12 +39,9 @@ import {
   STUDIO_GROUP,
   STUDIO_GROUP_HEAD,
   STUDIO_GROUP_HEAD_LINE,
-  STUDIO_QUIET_BUTTON,
-  STUDIO_QUIET_ROW,
   STUDIO_ROW,
   STUDIO_ROW_LABEL,
   STUDIO_ROW_PICK,
-  STUDIO_SWITCH_TRACK,
 } from '@/lib/studio-skin';
 import { hubDraftAction } from '../../website/hub-draft-actions';
 import {
@@ -54,10 +53,17 @@ import {
   type HubMainGround,
 } from '@/lib/hub-canvas';
 import { MAIN_GROUND_SHADES, MAIN_GROUND_SHADE_LABEL } from '@/lib/main-ground-shade';
+import { fadeWords } from '@/lib/background-fade';
 import { MAIN_COLOUR_JOB, MAIN_COLOUR_SLOTS, type MainColourDraft, type MainColourSlot } from '@/lib/main-colours';
 import { MAIN_COLOUR_SLOTS as MOOD_MAIN_COLOUR_SLOTS } from '@/lib/colour-access';
-import { InfoTip } from '@/app/_components/info-tip';
 import { StudioEventName } from './studio-event-name';
+import { STUDIO_INFO_ROWS, StudioOpeningLine, StudioWords, studioDraftKeep } from './studio-info';
+import { ChosenRow, FactRow, FormRow, FormRows, SwitchRow, TypedRow } from '@/app/_components/form-row';
+import { Fold } from '@/app/_components/fold';
+import { Check, RotateCcw, Undo } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { PrintChoicePicker } from './print-choice-picker';
+import { BACKGROUND_MAIN_INFO } from '@/lib/background-source';
 
 /**
  * 🧭 THE NEW MAKER'S STUDIO TOOLS, REDRAWN TO THE PROTOTYPE (owner 2026-10-06;
@@ -85,50 +91,18 @@ export function StudioHeading({ title, line, data }: { title: string; line?: str
   );
 }
 
-/** One switch row: the name on the left, the knob on the right — 44 px, the whole row a target. */
-export function StudioSwitch({
-  label,
-  on,
-  onChange,
-  disabled = false,
-  data,
-}: {
-  label: ReactNode;
-  on: boolean;
-  onChange: (next: boolean) => void;
-  disabled?: boolean;
-  data?: string;
-}) {
-  const id = useId();
-  return (
-    <label htmlFor={id} data-studio-switch={data} className="flex min-h-[52px] cursor-pointer items-center justify-between gap-2.5 py-1">
-      <span className="min-w-0 text-[14.5px] font-semibold text-ink">{label}</span>
-      <input
-        id={id}
-        type="checkbox"
-        role="switch"
-        checked={on}
-        disabled={disabled}
-        onChange={(e) => onChange(e.target.checked)}
-        className="peer sr-only"
-      />
-      <span aria-hidden className={STUDIO_SWITCH_TRACK} />
-    </label>
-  );
-}
-
 /**
  * 📍 A FACT SET ELSEWHERE, SHOWN READ-ONLY (owner 2026-10-06, DECISION_LOG
  * "DATE AND VENUE LIVE IN SUPPLIERS, NOT IN 'YOUR EVENT'"): the value as guests
  * read it, and where it is set. No field — nothing here can change it.
  */
 export function StudioReadOnlyFact({ label, value, line, data }: { label?: string; value: string | null; line: string; data: string }) {
+  /* 🧾 ONE QUIET LINE (owner 2026-10-08, the Info redesign): the Form row's own shown-not-typed answer — its name,
+     the value as guests read it, and where it is changed. No pill: nothing here can be tapped. */
   return (
-    <div data-studio-read-only={data} className="flex min-h-11 flex-col gap-0.5 py-1">
-      {label ? <span className="text-[14px] font-semibold text-ink">{label}</span> : null}
-      <span className={`whitespace-pre-line text-[14px] ${value ? 'text-ink/80' : 'text-ink/50'}`}>{value ?? 'Not set yet'}</span>
-      <small className="text-[12px] text-ink/55">{line}</small>
-    </div>
+    <FormRows attrs={STUDIO_INFO_ROWS}>
+      <FactRow name={label ?? ''} value={value} where={line} attrs={{ 'data-studio-read-only': data }} />
+    </FormRows>
   );
 }
 
@@ -156,16 +130,31 @@ function rowsFrom(methods: readonly ManagerMethod[]): Record<(typeof STUDIO_GIFT
   return out;
 }
 
+/** What a refused or dropped E-Gifts write says when the action gave no sentence of its own. */
+const GIFT_NOT_SAVED = 'Please try again.';
+
+type GiftKind = (typeof STUDIO_GIFT_KINDS)[number];
+
 /**
  * 🎁 STUDIO › E-GIFTS (prototype `EDITORS.gifts`): What guests see on top, then
- * one switch per way to give with its field under it, then the thank-you line
+ * one switch per way to give with its fields under it, then the thank-you line
  * (handed in — the shipped `PabuyaMessageEditor`). Every write is the E-Gifts
  * page's own, LIVE as it has always been — and said so.
  *
- *  · switching a way ON that has no account yet opens its field; the account is
- *    created (`saveEgiftMethod`) the first time a number is typed and left;
+ *  · switching a way ON that has no account yet opens its fields; the account is
+ *    created (`saveEgiftMethod`) the first time a number is typed and kept;
  *  · switching it OFF hides it from guests (`setEgiftMethodEnabled`) — the
  *    manager's own Show / Hide, never a delete.
+ *
+ * 🧩 EVERY CONTROL IS A TEMPLATE'S (owner 2026-10-08/09, `INTERACTION_RULES.md` § 9; `app/_components/form-row.tsx`):
+ *   a way = `SwitchRow` · its number and the name on the account, and the registry link = `TypedRow` (the pill with a pencil;
+ *   tapping out or Enter keeps it — the same moment the old boxes saved, when they were left) · the QR = the shared
+ *   `FileUpload` · what guests see = the guest page's own card list, shown not pressed (no control).
+ * 🔑 WHAT EACH PRESS SENDS IS BUILT BY `lib/studio-egifts-saves.ts` — unchanged — and held by
+ *   `studio-egifts-posts-the-same.test.ts`.
+ * 🔴 A save that does not land SAYS SO under its row, in plain words (never the server's own text unless it is a sentence
+ *   written for a person — `plainRefusal`), and never looks like a saved one: the switch goes back, the pill is not ticked.
+ *   A write that THROWS (the network) used to say nothing at all; it says so now.
  */
 export function StudioEgifts({
   eventId,
@@ -184,9 +173,17 @@ export function StudioEgifts({
    */
   registryUrl?: string | null;
 }) {
+  /* The page's writes — the shipped actions, or (only in the dev lab) stand-ins that reach no database. */
+  const { saveEgiftMethod, savePabuyaMessage, setEgiftMethodEnabled, qrUploadSend } = useStudioActions();
   const [rows, setRows] = useState(() => rowsFrom(methods));
-  const [registry, setRegistry] = useState(registryUrl ?? '');
+  /* What is in each row right now, for a save that follows another (a ref: a keep reads it the instant it is made). */
+  const now = useRef(rows);
+  now.current = rows;
+  /* The words as they are TYPED, for the preview only — never for a row's own value (a row compares what it keeps with what it held). */
+  const [typing, setTyping] = useState<Partial<Record<`${GiftKind}:${'handle' | 'accountName'}`, string>>>({});
   const [registrySaved, setRegistrySaved] = useState(registryUrl ?? '');
+  /* The link guests are shown under What guests see: what was just kept, at once — and the saved one again if it did not land. */
+  const [registry, setRegistry] = useState(registryUrl ?? '');
   /* A way created here comes back from the server with its id (the Maker re-reads after a create). */
   useEffect(() => {
     const fresh = rowsFrom(methods);
@@ -207,7 +204,15 @@ export function StudioEgifts({
       return changed ? next : r;
     });
   }, [methods]);
-  const [error, setError] = useState<string | null>(null);
+  /* One plain line per way, under its switch: a switch or a QR that did not land. */
+  const [problems, setProblems] = useState<Partial<Record<GiftKind, string>>>({});
+  const say = (kind: GiftKind, text: string | null) =>
+    setProblems((p) => {
+      const next = { ...p };
+      if (text) next[kind] = text;
+      else delete next[kind];
+      return next;
+    });
   const [, start] = useTransition();
   const fd = (fields: Record<string, string>) => {
     const f = new FormData();
@@ -215,39 +220,45 @@ export function StudioEgifts({
     for (const [k, v] of Object.entries(fields)) f.set(k, v);
     return f;
   };
-  const toggle = (kind: (typeof STUDIO_GIFT_KINDS)[number], on: boolean) => {
+  const storedOf = (id: string | null) => methods.find((m) => m.egift_method_id === id) ?? null;
+  const toggle = (kind: GiftKind, on: boolean) => {
     const before = rows[kind];
-    setError(null);
+    say(kind, null);
     setRows((r) => ({ ...r, [kind]: { ...r[kind], on } }));
     if (!before.id) return; // nothing to show or hide until its account is typed
     start(async () => {
-      const res = await makerSave(() => setEgiftMethodEnabled(fd({ egift_method_id: before.id!, is_enabled: on ? 'true' : 'false' })), requestMakerRefresh);
-      if (!res.ok) {
-        setRows((r) => ({ ...r, [kind]: before }));
-        setError(res.error);
+      let why: string | null = null;
+      try {
+        const res = await makerSave(() => setEgiftMethodEnabled(fd(egiftEnabledFields(before.id!, on))), requestMakerRefresh);
+        if (!res.ok) why = plainRefusal(res.error, GIFT_NOT_SAVED);
+      } catch {
+        why = GIFT_NOT_SAVED;
       }
+      if (why === null) return;
+      setRows((r) => ({ ...r, [kind]: before }));
+      say(kind, `${why} Nothing else was changed.`);
     });
   };
-  const saveHandle = (kind: (typeof STUDIO_GIFT_KINDS)[number]) => {
-    const row = rows[kind];
-    const original = methods.find((m) => m.egift_method_id === row.id) ?? null;
-    if (original && (original.handle ?? '') === row.handle.trim() && (original.account_name ?? '') === row.accountName.trim()) return;
-    if (!original && row.handle.trim() === '') return;
-    setError(null);
-    start(async () => {
-      const res = await makerSave(() => saveEgiftMethod(
-        fd({
-          ...(original ? { egift_method_id: original.egift_method_id } : {}),
-          method_kind: kind,
-          label: original?.label ?? EGIFT_KIND_META[kind].defaultLabel,
-          account_name: row.accountName,
-          handle: row.handle,
-          note: original?.note ?? '',
-          qr_r2_key: original?.qr_r2_key ?? '',
-        }),
-      ), requestMakerRefresh);
-      if (!res.ok) setError(res.error);
-    });
+  /**
+   * Keep a way's number or its account name (a row's tap-out / Enter). Answers the row whether it landed — it says so under
+   * itself and never ticks if not. Nothing is sent when nothing changed, and nothing is created from an empty number.
+   */
+  const keepWay = async (kind: GiftKind, field: 'handle' | 'accountName', text: string): Promise<{ ok: true } | { ok: false; error: string }> => {
+    const row = { ...now.current[kind], [field]: text };
+    now.current = { ...now.current, [kind]: row };
+    setRows((r) => ({ ...r, [kind]: { ...r[kind], [field]: text } }));
+    const original = storedOf(row.id);
+    if (!egiftMethodNeedsSaving({ stored: original, accountName: row.accountName, handle: row.handle })) return { ok: true };
+    say(kind, null);
+    try {
+      const res = await makerSave(
+        () => saveEgiftMethod(fd(egiftMethodFields({ stored: original, kind, accountName: row.accountName, handle: row.handle }))),
+        requestMakerRefresh,
+      );
+      return res.ok ? { ok: true } : { ok: false, error: plainRefusal(res.error, GIFT_NOT_SAVED) };
+    } catch {
+      return { ok: false, error: GIFT_NOT_SAVED };
+    }
   };
   /**
    * 🔳 THE METHOD'S QR (controller 2026-10-07, owner: *"shouldn't we show the
@@ -257,54 +268,53 @@ export function StudioEgifts({
    * (`checkPabuyaQrImage`) and says so if not. '' removes it. Live, like every
    * E-Gifts write. +0 server actions.
    */
-  const saveQr = (kind: (typeof STUDIO_GIFT_KINDS)[number], ref: string) => {
+  const saveQr = (kind: GiftKind, ref: string) => {
     const before = rows[kind];
     if (before.qrRef === ref) return;
-    const original = methods.find((m) => m.egift_method_id === before.id) ?? null;
+    const original = storedOf(before.id);
     setRows((r) => ({ ...r, [kind]: { ...r[kind], qrRef: ref, qrUrl: ref ? r[kind].qrUrl : null } }));
-    setError(null);
+    say(kind, null);
     start(async () => {
-      const res = await makerSave(() => saveEgiftMethod(
-        fd({
-          ...(original ? { egift_method_id: original.egift_method_id } : {}),
-          method_kind: kind,
-          label: original?.label ?? EGIFT_KIND_META[kind].defaultLabel,
-          account_name: before.accountName,
-          handle: before.handle,
-          note: original?.note ?? '',
-          qr_r2_key: ref,
-        }),
-      ), requestMakerRefresh);
+      let why: string | null = null;
+      try {
+        const res = await makerSave(
+          () => saveEgiftMethod(fd(egiftMethodFields({ stored: original, kind, accountName: before.accountName, handle: before.handle, qrRef: ref }))),
+          requestMakerRefresh,
+        );
+        if (!res.ok) why = plainRefusal(res.error, GIFT_NOT_SAVED);
+      } catch {
+        why = GIFT_NOT_SAVED;
+      }
+      if (why === null) return;
+      setRows((r) => ({ ...r, [kind]: before }));
+      say(kind, `${why} Nothing else was changed.`);
+    });
+  };
+  /** 🔗 The registry link — kept when its row is left (the E-Gifts page's own write, live). */
+  const keepRegistry = async (text: string): Promise<{ ok: true } | { ok: false; error: string }> => {
+    const next = cleanGiftRegistryUrl(text);
+    if (next === undefined) return { ok: false, error: GIFT_REGISTRY_URL_ERROR };
+    if ((next ?? '') === registrySaved) return { ok: true };
+    setRegistry(next ?? '');
+    try {
+      const res = await makerSave(() => savePabuyaMessage(fd(registryFields(next))), requestMakerRefresh);
       if (!res.ok) {
-        setRows((r) => ({ ...r, [kind]: before }));
-        setError(res.error);
-      }
-    });
-  };
-  /** 🔗 The registry link — saved when the box is left (the E-Gifts page's own write, live). */
-  const saveRegistry = () => {
-    const next = cleanGiftRegistryUrl(registry);
-    if (next === undefined) {
-      setError(GIFT_REGISTRY_URL_ERROR);
-      return;
-    }
-    if ((next ?? '') === registrySaved) return;
-    setError(null);
-    start(async () => {
-      const res = await makerSave(() => savePabuyaMessage(fd({ gift_registry_url: next ?? '' })), requestMakerRefresh);
-      if (res.ok) setRegistrySaved(next ?? '');
-      else {
         setRegistry(registrySaved);
-        setError(res.error);
+        return { ok: false, error: plainRefusal(res.error, GIFT_NOT_SAVED) };
       }
-    });
+      setRegistrySaved(next ?? '');
+      return { ok: true };
+    } catch {
+      setRegistry(registrySaved);
+      return { ok: false, error: GIFT_NOT_SAVED };
+    }
   };
-  const shownLink = cleanGiftRegistryUrl(registrySaved);
-  const seen = STUDIO_GIFT_KINDS.filter((k) => rows[k].on && rows[k].handle.trim()).map((k) => ({
+  const shownLink = cleanGiftRegistryUrl(registry);
+  const seen = STUDIO_GIFT_KINDS.filter((k) => rows[k].on && (typing[`${k}:handle`] ?? rows[k].handle).trim()).map((k) => ({
     kind: k,
     label: methods.find((m) => m.egift_method_id === rows[k].id)?.label ?? EGIFT_KIND_META[k].defaultLabel,
-    accountName: rows[k].accountName.trim() || null,
-    handle: rows[k].handle.trim() || null,
+    accountName: (typing[`${k}:accountName`] ?? rows[k].accountName).trim() || null,
+    handle: (typing[`${k}:handle`] ?? rows[k].handle).trim() || null,
     note: null,
     qrUrl: methods.find((m) => m.egift_method_id === rows[k].id)?.qrDisplayUrl ?? null,
   }));
@@ -321,74 +331,79 @@ export function StudioEgifts({
       </div>
       <StudioHeading title="Ways to give" line="switch on what you have" />
       <div className={STUDIO_GROUP}>
-        {STUDIO_GIFT_KINDS.map((k) => {
-          const meta = EGIFT_KIND_META[k];
-          const row = rows[k];
-          return (
-            <div key={k} data-studio-gift={k} className="flex flex-col border-t border-ink/10 first:border-t-0">
-              <StudioSwitch label={meta.defaultLabel} on={row.on} onChange={(v) => toggle(k, v)} data={`gift-${k}`} />
-              {row.on ? (
-                <div className="flex flex-col gap-2 pb-3">
-                  <input
-                    value={row.handle}
-                    onChange={(e) => setRows((r) => ({ ...r, [k]: { ...r[k], handle: e.target.value } }))}
-                    onBlur={() => saveHandle(k)}
-                    maxLength={200}
-                    aria-label={meta.handleLabel}
-                    placeholder={meta.handlePlaceholder}
-                    className="min-h-11 rounded-md border border-ink/10 px-3 text-[14px] text-ink"
-                  />
-                  {/* 🔳 Add your QR — the QR-first ways (GCash · Maya, `qrPrimary`); its picture with Remove once set. */}
-                  {meta.qrPrimary ? (
-                    <div data-studio-gift-qr={k}>
-                      <FileUpload
-                        bucket="thread-files"
-                        pathPrefix={`pabuya-qr/${eventId}`}
-                        label="Add your QR"
-                        acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
-                        maxSizeMB={5}
-                        variant="square"
-                        compressImage
-                        currentValue={row.qrRef || null}
-                        initialDisplayUrls={row.qrRef && row.qrUrl ? { [row.qrRef]: row.qrUrl } : {}}
-                        onChange={(v) => saveQr(k, typeof v === 'string' ? v : '')}
+        <FormRows data="egifts-ways">
+          {STUDIO_GIFT_KINDS.map((k) => {
+            const meta = EGIFT_KIND_META[k];
+            const row = rows[k];
+            return (
+              <SwitchRow
+                key={k}
+                name={meta.defaultLabel}
+                on={row.on}
+                onChange={(v) => toggle(k, v)}
+                data={`gift-${k}`}
+                attrs={{ 'data-studio-gift': k }}
+                problem={problems[k] ?? null}
+                below={
+                  row.on ? (
+                    <>
+                      <TypedRow
+                        name={meta.handleLabel}
+                        value={row.handle}
+                        empty={meta.handlePlaceholder}
+                        placeholder={meta.handlePlaceholder}
+                        maxLength={200}
+                        onType={(t) => setTyping((p) => ({ ...p, [`${k}:handle`]: t }))}
+                        onKeep={(t) => keepWay(k, 'handle', t)}
                       />
-                    </div>
-                  ) : null}
-                  <input
-                    value={row.accountName}
-                    onChange={(e) => setRows((r) => ({ ...r, [k]: { ...r[k], accountName: e.target.value } }))}
-                    onBlur={() => saveHandle(k)}
-                    maxLength={80}
-                    aria-label="Name on the account"
-                    placeholder="Name on the account"
-                    className="min-h-11 rounded-md border border-ink/10 px-3 text-[14px] text-ink"
-                  />
-                </div>
-              ) : null}
-            </div>
-          );
-        })}
-        {registryUrl !== undefined ? (
-          <div data-studio-gift="registry" className="flex flex-col border-t border-ink/10 pb-3">
-            <label className="flex min-h-11 items-center justify-between gap-3 py-1" htmlFor={`${eventId}-registry`}>
-              <span className="text-[14.5px] font-semibold text-ink">Registry link</span>
-              <small className="text-[12px] text-ink/50">optional</small>
-            </label>
-            <input
-              id={`${eventId}-registry`}
-              type="url"
-              inputMode="url"
-              value={registry}
-              onChange={(e) => setRegistry(e.target.value)}
-              onBlur={saveRegistry}
-              maxLength={GIFT_REGISTRY_URL_MAX}
+                      {/* 🔳 Add your QR — the QR-first ways (GCash · Maya, `qrPrimary`); its picture with Remove once set. */}
+                      {meta.qrPrimary ? (
+                        <div data-studio-gift-qr={k}>
+                          <FileUpload
+                            bucket="thread-files"
+                            pathPrefix={`pabuya-qr/${eventId}`}
+                            label="Add your QR"
+                            acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
+                            maxSizeMB={5}
+                            variant="square"
+                            compressImage
+                            send={qrUploadSend}
+                            currentValue={row.qrRef || null}
+                            initialDisplayUrls={row.qrRef && row.qrUrl ? { [row.qrRef]: row.qrUrl } : {}}
+                            onChange={(v) => saveQr(k, typeof v === 'string' ? v : '')}
+                          />
+                        </div>
+                      ) : null}
+                      <TypedRow
+                        name="Name on the account"
+                        value={row.accountName}
+                        maxLength={80}
+                        onType={(t) => setTyping((p) => ({ ...p, [`${k}:accountName`]: t }))}
+                        onKeep={(t) => keepWay(k, 'accountName', t)}
+                      />
+                    </>
+                  ) : null
+                }
+              />
+            );
+          })}
+          {registryUrl !== undefined ? (
+            <TypedRow
+              name="Registry link"
+              data="gift-registry"
+              attrs={{ 'data-studio-gift': 'registry' }}
+              pillAttrs={{ 'data-studio-registry-input': '' }}
+              value={registrySaved}
+              empty="Paste a link (optional)"
               placeholder="Paste a link to your registry"
-              data-studio-registry-input=""
-              className="min-h-11 rounded-md border border-ink/10 px-3 text-[14px] text-ink"
+              inputMode="url"
+              autoCapitalize="off"
+              maxLength={GIFT_REGISTRY_URL_MAX}
+              check={(t) => (cleanGiftRegistryUrl(t) === undefined ? GIFT_REGISTRY_URL_ERROR : null)}
+              onKeep={keepRegistry}
             />
-          </div>
-        ) : null}
+          ) : null}
+        </FormRows>
       </div>
       {thanks ? (
         <>
@@ -399,11 +414,6 @@ export function StudioEgifts({
         </>
       ) : null}
       <p className="px-1.5 pt-1 text-center text-[12px] text-ink/50">{HUB_LIVE_WORDS}</p>
-      {error ? (
-        <p role="alert" className="pt-2 text-[13px] text-terracotta-700">
-          {error} Nothing else was changed.
-        </p>
-      ) : null}
     </div>
   );
 }
@@ -437,7 +447,7 @@ function stayForm(eventId: string, fields: Record<string, string>): FormData {
   return f;
 }
 
-/** One row of the form: the name on the left, the control on the right. */
+/** One row of a Look form: the name on the left, the control on the right (Look › Background's extras). */
 function HubRow({ label, children, data }: { label: string; children: ReactNode; data: string }) {
   return (
     <div data-studio-hub-row={data} className={`${STUDIO_ROW} flex-wrap`}>
@@ -447,30 +457,51 @@ function HubRow({ label, children, data }: { label: string; children: ReactNode;
   );
 }
 
+/** Said ONCE at the head of the group — the rows under it that do not wait for ✓ Apply (owner: the address and access stay live). */
+export const STUDIO_LIVE_LINE = 'These change your Event Hub right away — not on ✓ Apply: the address, Go live, who can view, which version guests see, and the Event Bar.';
+
 /**
- * 🌐 YOUR EVENT HUB (prototype `infoForm` › "Your Event Hub"): Go live ▾ · Who can
- * view ▾ · Which version guests see ▾ · the Event Bar. Each is the SHIPPED
- * control's write — live, and said so (`HubSavesImmediately`):
- *   · Go live            → `LaunchStdButton` (the ⋯ sheet's own);
- *   · Who can view ▾     → `updateLandingPageVisibility`;
- *   · Which version ▾    → `setLaunchPhase` + `setOpenBrowse` — "All of them" is
- *     open browsing, ONE control (`lib/which-version-guests-see.ts`);
- *   · Event Bar          → the switch the work area registered (`MakerEventBar`).
+ * 🌐 "MORE FOR GUESTS" — the optional part of Info, FOLDED (owner 2026-10-08: *"prioritize only what they need to
+ * input here"*; the designer's map rows 9–15; the gallery's § 19 Fold). Inside, as Form rows:
+ *
+ *   one amber line, once — which of these rows change the live Event Hub at once
+ *   Event Hub address      the shipped `SlugField` (its own "is it free" check and Save: a live link is not kept by a tap out)
+ *   Go live                `LaunchStdButton` (the ⋯ sheet's own)
+ *   Who can view ▾         → `updateLandingPageVisibility`
+ *   Which version ▾        → `setLaunchPhase` + `setOpenBrowse` — "All of them" is open browsing, ONE control
+ *   Event Bar              the switch the work area registered (`MakerEventBar`)
+ *   Show the event QR      drafted (`qr_shown`) — the QR, its look and Copy · Share · Download under it while on
+ *
+ * 🔑 WHICH ROWS SAVE LIVE AND WHICH WAIT FOR ✓ APPLY IS UNCHANGED — each control is the SHIPPED write.
+ * What is inside stays mounted while the fold is shut (`Fold`), so nothing here stops posting.
  */
-export function StudioHubSettings({ eventId, slug, hub }: { eventId: string; slug: string | null; hub: StudioHubFacts | null }) {
+export function StudioHubSettings({
+  eventId,
+  slug,
+  hub,
+  address = null,
+  qrShown = true,
+  qrLook = null,
+  livePath = null,
+}: {
+  eventId: string;
+  slug: string | null;
+  hub: StudioHubFacts | null;
+  /** The address's own editor (`SlugField`), drawn by the server. */
+  address?: ReactNode;
+  /** `events.qr_shown` as it stands (drafted over live). */
+  qrShown?: boolean;
+  /** The QR's Shape · Pattern · Colour (`QrLookControls`), drawn by the server. */
+  qrLook?: ReactNode;
+  /** The live address's path, for Copy · Share · Download. */
+  livePath?: string | null;
+}) {
   const maker = useMaker();
   const [who, setWho] = useState(hub?.visibility ?? 'private');
   const [version, setVersion] = useState<WhichVersion>(() => (hub ? whichVersionNow(hub) : 'auto'));
   const [open, setOpen] = useState(hub?.openBrowse ?? false);
   const [error, setError] = useState<string | null>(null);
   const [, start] = useTransition();
-  if (!hub) {
-    return (
-      <p role="alert" className="text-[13px] text-terracotta-700" data-studio-hub-unread="">
-        Your Event Hub settings could not be read just now. Nothing was changed — please reopen this in a moment.
-      </p>
-    );
-  }
   const pickWho = (next: string) => {
     if (next === who || !WHO_CAN_VIEW.some((w) => w.key === next)) return;
     const before = who;
@@ -507,44 +538,82 @@ export function StudioHubSettings({ eventId, slug, hub }: { eventId: string; slu
     });
   };
   return (
-    <div data-studio-hub="" className="flex flex-col">
-      {/* "Guests see this right away" is said once, by the address right above (its own `HubSavesImmediately`). */}
-      <HubRow label="Go live" data="go-live">
-        <LaunchStdButton eventId={eventId} slug={slug} initialLaunched={hub.launched} initialScheduledAt={hub.scheduledAt} />
-      </HubRow>
-      <HubRow label="Who can view" data="who-can-view">
-        <PickMenu
-          label="Who can view"
-          dataAttr="data-studio-who-pick"
-          value={who}
-          buttonText={WHO_CAN_VIEW.find((w) => w.key === who)?.label ?? 'Private'}
-          options={WHO_CAN_VIEW}
-          onPick={pickWho}
-          className={STUDIO_ROW_PICK}
-        />
-      </HubRow>
-      <HubRow label={WHICH_VERSION_LABEL} data="which-version">
-        <PickMenu
-          label={WHICH_VERSION_LABEL}
-          dataAttr="data-studio-version-pick"
-          value={version}
-          buttonText={whichVersionLabel(version)}
-          options={WHICH_VERSION_OPTIONS}
-          onPick={pickVersion}
-          className={STUDIO_ROW_PICK}
-        />
-      </HubRow>
-      {maker?.eventBar ? (
-        <div className="border-t border-ink/10">
-          <StudioSwitch label="Event Bar" on={maker.eventBar.on} onChange={() => maker.eventBar?.toggle()} data="event-bar" />
-        </div>
-      ) : null}
-      {error ? (
-        <p role="alert" className="text-[13px] text-terracotta-700">
-          {error}
+    <Fold data="more-for-guests" title="More for guests" summary="the address, who can view, the QR">
+      <div data-studio-hub="" {...STUDIO_INFO_ROWS} className="flex flex-col pb-2">
+        {/* 🟠 ONE line, once, for the whole group — never a line per row. The address's own "Guests see this right
+            away" (`HubSavesImmediately`) steps aside for it here. */}
+        <p data-studio-live-line="" className="pb-2 text-[12.5px] font-medium leading-snug text-warn-700">
+          {STUDIO_LIVE_LINE}
         </p>
-      ) : null}
-    </div>
+        <FormRows data="your-event-hub">
+          <FormRow
+            data="address"
+            name="Event Hub address"
+            about={{ words: 'On every link, print and pass. Changing it changes your link — the old one still brings guests to the new one.' }}
+            below={address ? <div className="pb-3 [&_[data-hub-saves-immediately]]:hidden">{address}</div> : null}
+          />
+          {hub ? (
+            <>
+              {/* The shipped Go live is a panel of its own (Launch now · Schedule for later · Preview), not a pill: it
+                  sits UNDER the row's name, the row's whole width — never squeezed beside it. */}
+              <FormRow
+                data="go-live"
+                name="Go live"
+                attrs={{ 'data-studio-hub-row': 'go-live' }}
+                below={
+                  <div className="pb-3">
+                    <LaunchStdButton eventId={eventId} slug={slug} initialLaunched={hub.launched} initialScheduledAt={hub.scheduledAt} />
+                  </div>
+                }
+              />
+              <ChosenRow
+                data="who-can-view"
+                name="Who can view"
+                value={who}
+                buttonText={WHO_CAN_VIEW.find((w) => w.key === who)?.label ?? 'Private'}
+                options={WHO_CAN_VIEW}
+                onPick={pickWho}
+                dataAttr="data-studio-who-pick"
+                attrs={{ 'data-studio-hub-row': 'who-can-view' }}
+              />
+              <ChosenRow
+                data="which-version"
+                name={WHICH_VERSION_LABEL}
+                value={version}
+                buttonText={whichVersionLabel(version)}
+                options={WHICH_VERSION_OPTIONS}
+                onPick={pickVersion}
+                dataAttr="data-studio-version-pick"
+                attrs={{ 'data-studio-hub-row': 'which-version' }}
+              />
+              {maker?.eventBar ? (
+                <SwitchRow
+                  data="event-bar"
+                  name="Event Bar"
+                  about={{ words: 'The bar at the foot of your Event Hub that takes guests from page to page.' }}
+                  on={maker.eventBar.on}
+                  onChange={() => maker.eventBar?.toggle()}
+                  attrs={{ 'data-studio-switch': 'event-bar' }}
+                />
+              ) : null}
+            </>
+          ) : (
+            <p role="alert" className="py-3 text-[13px] text-danger-700" data-studio-hub-unread="">
+              Your Event Hub settings could not be read just now. Nothing was changed — please reopen this in a moment.
+            </p>
+          )}
+          <StudioQrShown eventId={eventId} shown={qrShown}>
+            {qrLook}
+            <StudioQrActions slug={slug} path={livePath} />
+          </StudioQrShown>
+        </FormRows>
+        {error ? (
+          <p role="alert" className="pt-1 text-[12.5px] font-semibold text-danger-700">
+            {error}
+          </p>
+        ) : null}
+      </div>
+    </Fold>
   );
 }
 
@@ -564,53 +633,42 @@ export function StudioQrActions({ slug, path }: { slug: string | null; path: str
   );
 }
 
+/** Restore and Reset… are ONE size (the house button's 40 px), on one right edge. */
+const QUIET_ACTION = 'w-[104px] !px-0';
+
 /**
- * The form's quiet rows at the very bottom (prototype `infoForm`): Restore · drop
- * the draft (the draft bar's own Restore) · Reset… (the draft bar's ONE confirm,
- * `MAKER_OPEN_RESET_EVENT`) · About. Settings had them in the shipped Maker's
- * lower third; the new Maker's phone frame has no Settings, so they live here.
+ * The form's quiet rows at the very bottom (prototype `infoForm`): Restore · drop the draft (the draft bar's own
+ * Restore) · Reset… (the draft bar's ONE confirm, `MAKER_OPEN_RESET_EVENT`) · About. Settings had them in the shipped
+ * Maker's lower third; the new Maker's phone frame has no Settings, so they live here — at the foot of Studio › Info.
+ *
+ * 🧱 ON THE TEMPLATES (owner 2026-10-08, with a picture of these rows: *"we better fix the buttons here as well"*):
+ *   · each is a house row — its name, one quiet line of what it does, the action at the right (`FormRow`);
+ *   · both are the house `ActionButton` (`components/action-button.tsx`, the button rule — icon + word, a 40-px pill);
+ *   · "Restore" is its `neutral` tone (a hairline, ink word). With nothing to restore it is the button's WAITING look
+ *     — grey and `aria-disabled`, still a button — never faded text;
+ *   · "Reset…" is its `danger` tone (it was the gold `terracotta-700` family). Its "…" stays: it opens the draft
+ *     bar's confirm, which asks once;
+ *   · the two are the same width and height, on one right edge; "About" has no button.
+ * 🔑 No handler, name or behaviour changed, and nothing here asks the server: Restore runs the draft bar's own
+ * restore, Reset… only opens its confirm.
  */
 export function StudioQuietRows() {
   const maker = useMaker();
   const draft = maker?.draft ?? null;
-  const quiet = STUDIO_QUIET_ROW;
   return (
-    <div data-studio-quiet="" className="mt-4 flex flex-col">
+    <FormRows data="quiet" attrs={{ 'data-studio-quiet': '' }} className="mt-4">
       {draft ? (
-        <div className={quiet} data-studio-quiet-row="restore">
-          <span>
-            <b className="font-semibold text-ink/70">Restore</b> · back to what guests see now
-          </span>
-          <button
-            type="button"
-            disabled={!draft.canRestore}
-            onClick={() => draft.canRestore && draft.restore()}
-            className={STUDIO_QUIET_BUTTON}
-          >
-            Restore
-          </button>
-        </div>
+        <FormRow data="restore" name="Restore" line="Back to what guests see now" attrs={{ 'data-studio-quiet-row': 'restore' }}>
+          <ActionButton tone="neutral" icon={Undo} label="Restore" className={QUIET_ACTION} waiting={!draft.canRestore} onClick={() => draft.canRestore && draft.restore()} />
+        </FormRow>
       ) : null}
       {draft ? (
-      <div className={quiet} data-studio-quiet-row="reset">
-        <span>
-          <b className="font-semibold text-ink/70">Reset</b> · start this stage over
-        </span>
-        <button
-          type="button"
-          onClick={() => window.dispatchEvent(new Event(MAKER_OPEN_RESET_EVENT))}
-          className={`${STUDIO_QUIET_BUTTON} !bg-terracotta-700/10 !text-terracotta-700 !ring-terracotta-700/25`}
-        >
-          Reset…
-        </button>
-      </div>
+        <FormRow data="reset" name="Reset" line="Start this stage over" attrs={{ 'data-studio-quiet-row': 'reset' }}>
+          <ActionButton tone="danger" icon={RotateCcw} label="Reset…" className={QUIET_ACTION} onClick={() => window.dispatchEvent(new Event(MAKER_OPEN_RESET_EVENT))} />
+        </FormRow>
       ) : null}
-      <div className={quiet} data-studio-quiet-row="about">
-        <span>
-          <b className="font-semibold text-ink/70">About</b> · Made with Setnayan
-        </span>
-      </div>
-    </div>
+      <FormRow data="about" name="About" line="Made with Setnayan" attrs={{ 'data-studio-quiet-row': 'about' }} />
+    </FormRows>
   );
 }
 
@@ -623,15 +681,15 @@ export const STUDIO_LOOK_LABEL: Readonly<Record<LookSectionItemKey, string>> = {
   music: 'Music',
 };
 
-/** Said once, at the top of Background (the owner: *"explain that this is the main background"*). */
-export const STUDIO_MAIN_BACKGROUND_LINE =
-  'The main background — behind every stage and every page, the cover included; a part’s own Background can still change just that part';
+/** What the main background IS (the owner: *"explain that this is the main background"*) — behind the Source row's ⓘ since 2026-10-08 (`BACKGROUND_MAIN_INFO`). */
+export const STUDIO_MAIN_BACKGROUND_LINE = BACKGROUND_MAIN_INFO;
 
 /**
  * 🌄 Look's ONE full-width bar — Background · Elements · Music (sections =
  * one `ISegmented`, INTERACTION_RULES §8; three since the 2026-10-08 restudy). A press opens that section's item —
  * the SAME Look editor Details draws (`LookPanel`), never a copy; opening
- * writes nothing. Background opens with the one line that says what it is.
+ * writes nothing. What the main background IS sits behind the Source row's ⓘ
+ * (helper text lives behind ⓘ), no longer a paragraph under this bar.
  */
 export function StudioLookBar({ item }: { item: LookSectionItemKey }) {
   const select = useContext(DetailsSelectContext);
@@ -644,12 +702,6 @@ export function StudioLookBar({ item }: { item: LookSectionItemKey }) {
           </ISeg>
         ))}
       </ISegmented>
-      {item === 'background' ? (
-        <p data-studio-main-background-line="" className="text-[13px] leading-snug text-ink/70">
-          <b className="font-semibold text-ink">The main background</b>
-          {STUDIO_MAIN_BACKGROUND_LINE.slice('The main background'.length)}
-        </p>
-      ) : null}
     </div>
   );
 }
@@ -699,6 +751,8 @@ export function StudioMainExtras({ eventId, main }: { eventId: string; main: Hub
   const [error, setError] = useState<string | null>(null);
   const [, start] = useTransition();
   const takes = hubMainTakes(now);
+  const shadeNow = (now as { shade?: unknown } | null)?.shade;
+  const fadeSet = typeof shadeNow === 'number' ? shadeNow : null;
   const save = (next: HubMainGround) => {
     const before = now;
     setNow(next);
@@ -767,9 +821,11 @@ export function StudioMainExtras({ eventId, main }: { eventId: string; main: Hub
             label="Shade"
             dataAttr="data-studio-shade-pick"
             className={STUDIO_ROW_PICK}
-            value={extra('shade') ?? 'as-is'}
-            options={MAIN_GROUND_SHADES.map((k) => ({ key: k, label: MAIN_GROUND_SHADE_LABEL[k] }))}
-            onPick={(k) => k !== (extra('shade') ?? 'as-is') && save(withExtra('shade', k === 'as-is' ? null : k))}
+            /* 🎚 A position set on the Studio's fade bar (a number — `lib/background-fade.ts`) is shown as what it IS,
+               ticked, never as "As is": this older list only offers the five named steps beside it. */
+            value={fadeSet !== null ? 'fade' : (extra('shade') ?? 'as-is')}
+            options={[...(fadeSet !== null ? [{ key: 'fade', label: fadeWords(fadeSet) }] : []), ...MAIN_GROUND_SHADES.map((k) => ({ key: k, label: MAIN_GROUND_SHADE_LABEL[k] }))]}
+            onPick={(k) => k !== 'fade' && (fadeSet !== null || k !== (extra('shade') ?? 'as-is')) && save(withExtra('shade', k === 'as-is' ? null : k))}
           />
         </HubRow>
       ) : null}
@@ -817,12 +873,16 @@ export function StudioMainColours({
     if (five[slot] === up) return;
     const before = { five, slots };
     const nextSlots = { ...slots, [String(slot)]: up } as MainColourDraft;
-    setFive((f) => f.map((c, i) => (i === slot ? up : c)));
+    const nextFive = five.map((c, i) => (i === slot ? up : c));
+    setFive(nextFive);
+    /* 🪟 Studio › Look's sample screen wears the colour from the tap (`look-sample.tsx`) — and goes back with a refusal. */
+    tellLookSample(eventId, { five: nextFive });
     setSlots(nextSlots);
     setError(null);
     start(async () => {
       const ok = await draftTook(makerSave(() => draftSend(eventId, { events: { main_colours: nextSlots } }), requestMakerRefresh));
       if (!ok) {
+        tellLookSample(eventId, { five: before.five });
         setFive(before.five);
         setSlots(before.slots);
         setError('That colour did not save, so it is back as it was. Please try again.');
@@ -840,6 +900,7 @@ export function StudioMainColours({
             job={MAIN_COLOUR_JOB[slot]}
             value={five[slot] ?? '#000000'}
             palette={colours}
+            slots
             onPick={(hex) => pick(slot, hex)}
           />
         </div>
@@ -860,118 +921,161 @@ export function StudioMainColours({
  * APPROVED"): off leaves the event QR off the prints and the guest page. On is
  * today's behaviour. Drafted (`qr_shown`) — guests see it at Apply.
  */
-export function StudioQrShown({ eventId, shown }: { eventId: string; shown: boolean }) {
+export function StudioQrShown({ eventId, shown, children }: { eventId: string; shown: boolean; children?: ReactNode }) {
   const [on, setOn] = useState(shown);
   useEffect(() => setOn(shown), [shown]);
   const [error, setError] = useState<string | null>(null);
-  const [, start] = useTransition();
   return (
-    <div data-studio-qr-shown="" className="flex flex-col">
-      <StudioSwitch
-        label="Show the event QR"
-        on={on}
-        data="qr-shown"
-        onChange={(next) => {
-          setOn(next);
-          setError(null);
-          start(async () => {
-            const ok = await draftTook(makerSave(() => draftSend(eventId, { events: { qr_shown: next } }), requestMakerRefresh));
-            if (!ok) {
-              setOn(!next);
-              setError('That did not save, so it is back as it was. Please try again.');
-            }
-          });
-        }}
+    <SwitchRow
+      data="qr-shown"
+      name="Show the event QR"
+      about={{ words: 'On every print and pass; guests open your Event Hub by scanning it. Off, it leaves the prints and the guest page — at ✓ Apply.' }}
+      on={on}
+      attrs={{ 'data-studio-qr-shown': '', 'data-studio-switch': 'qr-shown' }}
+      onChange={(next) => {
+        setOn(next);
+        setError(null);
+        /* ⚡ ONE drafted write, no render of the Maker (`studioDraftKeep`). */
+        void studioDraftKeep(eventId, 'events:qr_shown', { qr_shown: next }).then((r) => {
+          if (r.ok) return;
+          setOn(!next);
+          setError('That did not save, so it is back as it was. Please try again.');
+        });
+      }}
+      problem={error}
+      /* The QR, its look and Copy · Share · Download sit under the switch — still mounted while it is off. */
+      below={children ? <div hidden={!on} data-studio-qr-under="" className={on ? 'flex flex-col gap-1 pb-3' : 'hidden'}>{children}</div> : null}
+    />
+  );
+}
+
+/* ── 🖨 PRINTS ────────────────────────────────────────────────────────────── */
+
+/** The mark Studio › Prints' lists wear — the hairline runs between one list and the next (`lib/studio-details.ts`). */
+export const STUDIO_PRINT_ROWS = { 'data-studio-print-rows': '' } as const;
+
+/**
+ * 🖨 A PRINT PIECE'S HEAD (owner 2026-10-08/09, the Form row): its name and its sizes on the left, its size ▾ on the right — ONE Form row. A piece with
+ * one size has just the name and the size as its small line. The pick is the shipped `PrintChoicePicker`'s: the same address, the same warm sizes.
+ */
+export function StudioPrintHead({
+  name,
+  line,
+  picker,
+}: {
+  name: string;
+  line: string;
+  picker: { label: string; value: string; dataAttr?: string; options: Array<{ key: string; label: string; href: string }> } | null;
+}) {
+  if (picker) return <PrintChoicePicker {...picker} row={{ name, line }} />;
+  return (
+    <FormRows data="print-head" attrs={STUDIO_PRINT_ROWS}>
+      <FormRow name={name} line={line} />
+    </FormRows>
+  );
+}
+
+/**
+ * 🖨 ONE INCLUDE SWITCH of Studio › Prints (what a print includes — Parents · Opening line · E-Gifts · …): the Form row's SWITCH, posting through the print words
+ * form wherever the switch is drawn (`SwitchRow fieldName formId` — a checkbox of that name, present when on and ABSENT when off, which is what the old native
+ * checkbox posted). Its fields stay MOUNTED while it is off — only hidden — because the old switch revealed them with CSS and they still posted: unmounting
+ * them would change what Save sends. Nothing posts until Save (the form's own submit, `SoftPost`).
+ */
+export function StudioIncludeSwitch({
+  form,
+  name,
+  label,
+  on,
+  tip,
+  disabled = false,
+  note = null,
+  children,
+}: {
+  form: string;
+  name: string;
+  label: string;
+  on: boolean;
+  tip?: string;
+  disabled?: boolean;
+  note?: ReactNode;
+  children?: ReactNode;
+}) {
+  const [now, setNow] = useState(on);
+  return (
+    <FormRows data={`include-${name}`} attrs={STUDIO_PRINT_ROWS}>
+      <SwitchRow
+        name={label}
+        about={tip ? { words: tip } : null}
+        on={now}
+        onChange={setNow}
+        disabled={disabled}
+        fieldName={name}
+        formId={form}
+        note={note}
+        data={`include-${name}`}
+        attrs={{ 'data-include': name }}
+        below={
+          children ? (
+            <div hidden={!now} data-include-fields="" className={now ? 'flex flex-col gap-2 pb-3 pl-1' : 'hidden'}>
+              {children}
+            </div>
+          ) : null
+        }
       />
-      {error ? (
-        <p role="alert" className="text-[13px] text-terracotta-700">
-          {error}
-        </p>
-      ) : null}
+    </FormRows>
+  );
+}
+
+/** 🖨 The seat plan's kind (3D · 2D · List) — a choice of three: the one dropdown, posting through the print words form as the radios did. */
+export function StudioSeatKind({ form, name, value, options }: { form: string; name: string; value: string; options: Array<[string, string]> }) {
+  const [now, setNow] = useState(value);
+  return (
+    <FormRows data="seat-kind" attrs={STUDIO_PRINT_ROWS}>
+      <ChosenRow name="Show it as" value={now} options={options.map(([key, label]) => ({ key, label }))} onPick={setNow} dataAttr="data-seat-plan-kind" />
+      <input type="hidden" form={form} name={name} value={now} data-form-pick="" />
+    </FormRows>
+  );
+}
+
+/** 🖨 The print words form's Save: THE ONE ActionButton, submitting that form (`form=`); the live note stays beside it. */
+export function StudioPrintSave({ form }: { form: string }) {
+  return (
+    <div data-print-words-save="" className="flex flex-wrap items-center gap-3 pt-1">
+      <ActionButton type="submit" form={form} tone="brand" main icon={Check} label="Save" />
+      <HubSavesImmediately />
     </div>
   );
+}
+
+/** A door that is an action button (the pass zip's door to the Event Hub Pro unlock): a link, drawn by the ONE ActionButton. */
+export function StudioActionDoor({ href, label, icon }: { href: string; label: string; icon: ReactElement }) {
+  return <ActionButton tone="neutral" href={href} label={label} icon={icon} />;
 }
 
 /* ── ONE door for the lazy stand-in (`details-lazy.tsx` `StudioTool`) ────── */
 
-/**
- * ✍ What to bring — its own drafted column (`what_to_bring`, `HUB_DRAFT_WORDS_COLUMNS`), the Event Hub's
- * Reminders box, in place. NO Save button (owner 2026-10-07, *"yes remove the saved."*): typed words are
- * drafted after a pause through the ONE draft door (`hubDraftAction` intent=save — the door the names use),
- * on the canvas as they are typed, and published by ✓ Apply. A refused save is said in words.
- */
-function StudioWhatToBring({ eventId, value }: { eventId: string; value: string | null }) {
-  const [text, setText] = useState(value ?? '');
-  const [error, setError] = useState<string | null>(null);
-  const sent = useRef(value ?? '');
-  const box = useRef<HTMLTextAreaElement>(null);
-  const preview = useSceneWordsBox('w:what_to_bring', box, () => sent.current);
-  /** The draft write — the words are already on the box and the canvas (`preview`) before it is asked. */
-  const save = (typed: string) => {
-    setText(typed); // the box shows exactly what is sent (it already does — typed is its own value)
-    setError(null);
-    const fd = new FormData();
-    fd.set('intent', 'save');
-    fd.set('patch', JSON.stringify({ events: { what_to_bring: typed.trim().slice(0, 600) || null } }));
-    void makerSave(() => hubDraftAction(eventId, fd), requestMakerRefresh)
-      .then((r) => {
-        if (r.ok) sent.current = typed;
-        else setError(`What to bring did not save. ${r.error || 'Please try again.'}`);
-      })
-      .catch(() => setError('What to bring did not save. Please try again.'));
-  };
-  const saveRef = useRef(save);
-  saveRef.current = save;
-  /* A pause after the last keystroke (the names' `AutoDraft` beat), then one draft write. */
-  useEffect(() => {
-    if (text === sent.current) return;
-    const t = window.setTimeout(() => saveRef.current(text), 900);
-    return () => window.clearTimeout(t);
-  }, [text]);
-  return (
-    <div className="flex flex-col gap-1 border-t border-ink/10 pt-4" data-studio-what-to-bring="">
-      {/* ⓘ Where it is read (owner 2026-10-07): the Event Hub's What to bring part (`what-to-bring-widget.tsx`) and the guest's welcome (`guest-welcome.tsx`). */}
-      <InfoTip label="What to bring" labelClassName="text-[14px] font-semibold text-ink" align="start">
-        Shown on your Event Hub in its own What to bring part, and in each guest&rsquo;s welcome.
-      </InfoTip>
-      <textarea
-        id={`bring-${eventId}`}
-        aria-label="What to bring"
-        ref={box}
-        rows={3}
-        maxLength={600}
-        value={text}
-        placeholder="e.g. your invitation QR, a jacket for the garden"
-        data-same-field="what_to_bring"
-        onChange={(e) => {
-          setText(e.target.value);
-          preview(e.target.value);
-        }}
-        className="w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-[15px] text-ink outline-none focus:border-ink/30"
-      />
-      {error ? (
-        <p role="alert" className="text-[13px] text-terracotta-700">
-          {error}
-        </p>
-      ) : null}
-    </div>
-  );
-}
+/* ✍ What to bring, the Special message and the Opening line are `studio-info.tsx`'s rows (the Form row, one drafted
+   write per kept answer) — they ride this one lazy door. */
 
 export type StudioToolProps =
   | ({ part: 'hub' } & Parameters<typeof StudioHubSettings>[0])
   | ({ part: 'fact' } & Parameters<typeof StudioReadOnlyFact>[0])
-  | ({ part: 'qr' } & Parameters<typeof StudioQrActions>[0])
   | { part: 'quiet' }
   | ({ part: 'gifts' } & Parameters<typeof StudioEgifts>[0])
   | ({ part: 'look' } & Parameters<typeof StudioLookBar>[0])
   | ({ part: 'main-extras' } & Parameters<typeof StudioMainExtras>[0])
   | ({ part: 'main-colours' } & Parameters<typeof StudioMainColours>[0])
-  | ({ part: 'qr-shown' } & Parameters<typeof StudioQrShown>[0])
-  | ({ part: 'bring' } & Parameters<typeof StudioWhatToBring>[0])
+  | ({ part: 'words' } & Parameters<typeof StudioWords>[0])
+  | ({ part: 'opening-line' } & Parameters<typeof StudioOpeningLine>[0])
   | ({ part: 'event-name' } & Parameters<typeof StudioEventName>[0])
   /* ⚖ A round-3 piece rides this one lazy door (2026-10-08) — a door of its own cost the Maker's first load. */
-  | ({ part: 'open-in-place' } & Parameters<typeof OpenInPlace>[0]);
+  | ({ part: 'open-in-place' } & Parameters<typeof OpenInPlace>[0])
+  /* 🖨 Studio › Prints (2026-10-09) — one lazy door, no door of its own (the Maker's first load). */
+  | ({ part: 'print-head' } & Parameters<typeof StudioPrintHead>[0])
+  | ({ part: 'action-door' } & Parameters<typeof StudioActionDoor>[0])
+  | ({ part: 'include-switch' } & Parameters<typeof StudioIncludeSwitch>[0])
+  | ({ part: 'seat-kind' } & Parameters<typeof StudioSeatKind>[0])
+  | ({ part: 'print-save' } & Parameters<typeof StudioPrintSave>[0]);
 
 export function StudioTool(props: StudioToolProps) {
   switch (props.part) {
@@ -979,8 +1083,6 @@ export function StudioTool(props: StudioToolProps) {
       return <StudioHubSettings {...props} />;
     case 'fact':
       return <StudioReadOnlyFact {...props} />;
-    case 'qr':
-      return <StudioQrActions {...props} />;
     case 'quiet':
       return <StudioQuietRows />;
     case 'gifts':
@@ -991,13 +1093,23 @@ export function StudioTool(props: StudioToolProps) {
       return <StudioMainExtras {...props} />;
     case 'main-colours':
       return <StudioMainColours {...props} />;
-    case 'qr-shown':
-      return <StudioQrShown {...props} />;
-    case 'bring':
-      return <StudioWhatToBring {...props} />;
+    case 'words':
+      return <StudioWords {...props} />;
+    case 'opening-line':
+      return <StudioOpeningLine {...props} />;
     case 'event-name':
       return <StudioEventName {...props} />;
     case 'open-in-place':
       return <OpenInPlace {...props} />;
+    case 'print-head':
+      return <StudioPrintHead {...props} />;
+    case 'action-door':
+      return <StudioActionDoor {...props} />;
+    case 'include-switch':
+      return <StudioIncludeSwitch {...props} />;
+    case 'seat-kind':
+      return <StudioSeatKind {...props} />;
+    case 'print-save':
+      return <StudioPrintSave {...props} />;
   }
 }

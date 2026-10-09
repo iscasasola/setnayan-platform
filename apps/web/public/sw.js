@@ -618,7 +618,54 @@ async function clearAllCaches() {
   immutableIndex = null;
 }
 
+// ---------------------------------------------------------------------------
+// A DEVELOPMENT HOST GETS A PASS-THROUGH WORKER (2026-10-09). This worker is
+// registered wherever the app runs, `next dev` included — and on a dev server
+// the files behind /_next/static are NOT content-hashed: the same URL holds new
+// bytes after every edit. The stale-while-revalidate above then answered every
+// such script from the cache first, so the first load after each change ran the
+// PREVIOUS script against the NEW html and css, and a reviewer judged code that
+// had already been replaced.
+//   On a development host this worker therefore never reads a cache, never
+//   writes one (no install pre-cache, no PRELOAD_ASSETS), and never calls
+//   respondWith — every request goes straight to the network, natively. When it
+//   activates there it also deletes every cache an earlier copy of it made and
+//   claims its clients, so a worker that was already installed (and serving
+//   stale scripts) is replaced and stops on the next load.
+//   Development host = localhost · 127.0.0.1 · [::1] · *.localhost · *.test ·
+//   a private LAN address (10.* · 172.16–31.* · 192.168.*). A production host
+//   is none of these, and every handler below behaves there exactly as before.
+// ---------------------------------------------------------------------------
+function isDevHost(hostname) {
+  const host = String(hostname || '').toLowerCase().replace(/^\[|\]$/g, '');
+  if (host === 'localhost' || host === '127.0.0.1' || host === '::1') return true;
+  if (host.endsWith('.localhost') || host.endsWith('.test')) return true;
+  const ip = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
+  if (!ip) return false;
+  const [a, b, c, d] = ip.slice(1).map(Number);
+  if (a > 255 || b > 255 || c > 255 || d > 255) return false;
+  return a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168);
+}
+const DEV_HOST = isDevHost(self.location.hostname);
+
+// Every cache this worker ever made is named `setnayan-…` (the versioned ones and
+// the deploy-surviving immutable one). Nothing else on the origin is touched.
+async function forgetMyCaches() {
+  const keys = await caches.keys();
+  await Promise.all(keys.filter((key) => key.startsWith('setnayan-')).map((key) => caches.delete(key)));
+  for (const name of Object.keys(lru)) {
+    lru[name].clear();
+  }
+  immutableIndex = null;
+}
+
 self.addEventListener('install', (event) => {
+  // A development host pre-caches nothing: it takes over at once (skipWaiting)
+  // and its activate step clears whatever an older copy kept.
+  if (DEV_HOST) {
+    self.skipWaiting();
+    return;
+  }
   event.waitUntil(
     caches.open(SHELL_CACHE).then((cache) => cache.addAll(SHELL_ASSETS)),
   );
@@ -626,6 +673,10 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
+  if (DEV_HOST) {
+    event.waitUntil(forgetMyCaches().then(() => self.clients.claim()));
+    return;
+  }
   event.waitUntil(
     caches
       .keys()
@@ -661,6 +712,7 @@ self.addEventListener('message', (event) => {
   // into IMAGE_CACHE so the dashboard renders offline on event day. Plays
   // nice with the route-scoped LRU + max-age expiration in IMAGE_CACHE.
   if (data.type === 'PRELOAD_ASSETS') {
+    if (DEV_HOST) return; // a development host writes no cache
     const urls = Array.isArray(data.urls)
       ? data.urls.filter((u) => typeof u === 'string')
       : [];
@@ -691,6 +743,9 @@ self.addEventListener('message', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  // A development host: no respondWith, no cache read, no cache write — the
+  // request goes straight to the network (see "A DEVELOPMENT HOST" above).
+  if (DEV_HOST) return;
   const request = event.request;
   if (request.method !== 'GET') return;
 

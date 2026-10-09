@@ -25,12 +25,13 @@
 import { useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { ClipboardList, ListPlus, Plus, Upload, Users } from 'lucide-react';
-import { useToast } from '@/app/_components/toast/toast-provider';
+import { plainRefusal } from './plain-refusal';
+import { usePeekToast } from './use-peek-toast';
 import { parseGuestInput } from '@/lib/guest-parse';
 import type { GuestSide } from '@/lib/guests';
 import { OpenQuickAddButton } from './quick-add-sheet';
 import { OpenAddFromPeopleButton } from './add-from-people-sheet';
-import { addSingleGuest } from '../inline-actions';
+import { useGuestActions } from './guest-actions-context';
 
 // One size for all four doors. 36px is the smallest this row can give a tap
 // target without pushing the name box off a 380px phone.
@@ -58,7 +59,8 @@ export function CaptureBar({
   const [value, setValue] = useState(initialValue);
   const [pending, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
-  const toast = useToast();
+  const [toast, toastNode] = usePeekToast();
+  const { addSingleGuest } = useGuestActions();
 
   const submitAdd = () => {
     const raw = value;
@@ -68,7 +70,7 @@ export function CaptureBar({
       const res = await addSingleGuest(eventId, draft);
       if (!res.ok) {
         // Keep the text so the host can fix it (e.g. add a last name).
-        toast.error(res.error);
+        toast.error(plainRefusal(res.error, 'Couldn’t add that guest. Try again.'));
         return;
       }
       setValue('');
@@ -86,6 +88,7 @@ export function CaptureBar({
        keeps its own spacing and every control is untouched; only the container
        stopped drawing. */
     <div className="relative">
+      {toastNode}
       {/* 🪤 `flex-wrap` + a floor on the name box, measured at 380px: with the
           four doors on the same line the box was 77px wide — "Type a r…" —
           and nobody can type "Ana Cruz +1 groom vip" into that. When the box

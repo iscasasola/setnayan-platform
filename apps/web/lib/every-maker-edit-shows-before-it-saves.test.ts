@@ -70,8 +70,6 @@ const CANVAS_POST = new Set(['onPreview', 'lay', 'broadcastToCanvas', 'postToCan
 const WAITS_ON_PURPOSE: Record<string, string> = {
   'website/_components/hub-draft-bar.tsx › run':
     'Undo · Restore · Reset · Apply: the result is computed by the server (the history, the live page). The bar shows the pending state, and the canvas reloads double-buffered, never blank.',
-  'launch/_components/studio-tools.tsx › saveRegistry':
-    'The registry link is drawn as it is typed (the box’s own state); this is the save on leaving the box, and a refusal puts the box back.',
   'launch/_components/maker-logo.tsx › flush':
     'The logo autosave: the edit is already drawn by the studio’s own state; this is the debounced save behind it.',
   'website/editor/_components/details-bound-field.tsx › answer':
@@ -86,8 +84,8 @@ const WAITS_ON_PURPOSE: Record<string, string> = {
     'Not a tap — the Main background reads the hero photo’s colours by itself and saves them.',
   'website/editor/_components/main-background-panel.tsx › save':
     'OPEN — scene/main backgrounds belong to Builder H; reported 2026-09-29 (the choice waits on the save). Remove this line when it is drawn first.',
-  'launch/_components/studio-tools.tsx › saveHandle':
-    'Studio › E-Gifts (2026-10-07): a way to give\'s number and name — what the couple typed IS the visible change (the inputs\' own state, and "What guests see" redraws from it as they type); this is the save on leaving the field.',
+  'launch/_components/studio-info.tsx › studioDraftKeep':
+    'Studio › Info on the Form row (owner 2026-10-08): the ONE drafted write behind a kept answer. What the couple typed or picked IS the visible change — the row shows the kept words (the switch its new side, the dropdown its pick) BEFORE this is called by `TypedRow`\'s keep, `pickStyle`, the opening line\'s pick and the QR switch; a refusal puts back only what did not save, and says so.',
   'launch/_components/parent-cards.tsx › add':
     'OPEN (Details, Builder K) — adding a parent creates a guest row and its card needs the server\'s new guest id; nothing shows until it lands. Reported 2026-09-29.',
 };
@@ -505,7 +503,14 @@ test('a made-once page frame is double-buffered, never an iframe keyed on the re
 const ON_CANVAS = new Set([...CANVAS_POST, 'onSaving', 'hideOnCanvas', 'preview']);
 
 /** `held` handlers that draw nothing, and why that is right. */
-const HELD_WITHOUT_DRAWING: Record<string, string> = {};
+const HELD_WITHOUT_DRAWING: Record<string, string> = {
+  /* 🎵 Studio › Look › the guest's music button (2026-10-09). There is nothing to post to: the Maker's canvas does
+     not draw the music button at all (`site-body.tsx` mounts `BackgroundMusic` for guests only — `!isEditorCanvas`).
+     The one place the Maker shows it is the Look page's sample screen, which wears the pick AT THE TAP
+     (`tellLookSample`, drawn in the browser), so a render behind the save would change no pixel — `held` is true.
+     Both facts are held just below, so this entry cannot outlive them. */
+  'website/editor/_components/music-button-row.tsx › commit': 'not on the canvas — the Look sample wears it at the tap',
+};
 
 function optionsHold(call: ts.CallExpression): boolean {
   const opts = call.arguments[2];
@@ -547,6 +552,15 @@ test('E · every held save (no render behind it) is a change the canvas already 
       if (!h || !canvasFirst(n, h.fn)) blind.push({ file: rel(full), handler: h?.name ?? '<top>', line: sf.getLineAndCharacterOfPosition(n.getStart()).line + 1 });
     });
   }
+  /* The music button's exception stands only while it is true: the canvas does not draw the button, and the sample
+     is told BEFORE the save. If either changes, post to the canvas (or drop `held`) and delete the entry. */
+  const body = fs.readFileSync(path.join(WEB, 'app/[slug]/_components/site-body.tsx'), 'utf8');
+  assert.match(body, /&& !isEditorCanvas \? <BackgroundMusic src=/, 'the Maker’s canvas now draws the music button — the held save must post to it');
+  const musicFile = fs.readFileSync(path.join(WEB, 'app/dashboard/[eventId]/website/editor/_components/music-button-row.tsx'), 'utf8');
+  const music = musicFile.slice(musicFile.indexOf('const commit = (next: HubMusicButton) => {'));
+  const told = music.indexOf('tellLookSample(eventId, { musicButton: next });');
+  assert.ok(told > 0 && told < music.indexOf('{ held: true }'), 'the Look sample is not told before the held save');
+  for (const key of Object.keys(HELD_WITHOUT_DRAWING)) assert.ok(fs.existsSync(path.join(WEB, 'app/dashboard/[eventId]', key.split(' › ')[0]!)), `a stale exception: ${key}`);
   console.log(`[every-maker-edit] held saves: ${held}`);
   assert.ok(held >= 4, `only ${held} held saves found — the scan is not reading the Maker`);
   assert.deepEqual(

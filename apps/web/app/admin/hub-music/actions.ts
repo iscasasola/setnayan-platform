@@ -22,7 +22,7 @@
  * measured, never what the browser said.
  */
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { after } from 'next/server';
 
 import { requireAdminAction } from '@/lib/admin/require-admin';
@@ -40,6 +40,7 @@ import {
 } from '@/lib/hub-music';
 import {
   HUB_MUSIC_ROW_FIELDS,
+  HUB_MUSIC_TAG,
   hubMusicTrackFromRow,
   type HubMusicRow,
 } from '@/lib/hub-music-server';
@@ -282,7 +283,11 @@ export async function saveHubMusic(input: HubMusicInput): Promise<HubMusicResult
           : input?.op === 'remove'
             ? await remove(db, userId, input)
             : ({ ok: false, error: 'Nothing to do.' } as const);
-    if (result.ok) revalidatePath(PAGE);
+    if (result.ok) {
+      revalidatePath(PAGE);
+      /* ⚡ Every couple's Our music list is ONE cached read (`lib/hub-music-server.ts`) — a change here must reach it. */
+      revalidateTag(HUB_MUSIC_TAG);
+    }
     return result;
   } catch (err) {
     if (isFrameworkControlFlow(err)) throw err;

@@ -97,7 +97,9 @@ import { normalizeDressCodeConfig } from './dress-code-fields';
 import type { DressCodeConfig } from '../dress-code-actions';
 import type { GuestRole } from '@/lib/guests';
 import { readHubDraft } from '@/lib/hub-draft-store';
-import { overlayHubDraftEvent } from '@/lib/hub-draft';
+import { overlayHubDraftEvent, overlayHubDraftWidgets } from '@/lib/hub-draft';
+import { sanitizeHubCanvas } from '@/lib/hub-canvas';
+import type { InvitationWidgetRow } from '@/lib/invitation-widgets';
 import { HUB_THEMES, normalizeThemeId } from '@/lib/invite-themes';
 import { themeSeedPalette } from '@/lib/theme-colours';
 import { allRegions, resolveRegion } from '@/lib/region-source';
@@ -1320,7 +1322,7 @@ export async function MoodBoardStudioBody({ eventId }: { eventId: string }) {
   if (!board.ok) return <CouldNotLoad />;
   const { studio } = board;
   const supabase = await createClient();
-  const [eventRes, draft, changesRes] = await Promise.all([
+  const [eventRes, draft, changesRes, lookRes] = await Promise.all([
     supabase.from('events').select('invite_theme, role_palette, region').eq('event_id', eventId).maybeSingle(),
     readHubDraft(supabase, eventId).catch(() => null),
     supabase
@@ -1331,10 +1333,22 @@ export async function MoodBoardStudioBody({ eventId }: { eventId: string }) {
       .not('vendor_id', 'is', null)
       .order('created_at', { ascending: false })
       .limit(6),
+    /* 🧾 The Dress code scene's canvas — the home of the Do's & Don'ts LOOK (`canvas.dos`), which moved here from the toolbar's Style
+       (owner, decided 2026-10-09). One row, read beside the others (not after them); a scene the event does not have is no row. */
+    supabase
+      .from('invitation_widgets')
+      .select('widget_id, widget_type, is_always_on, is_visible, display_order, config_json, mode')
+      .eq('event_id', eventId)
+      .eq('widget_type', 'dress_code')
+      .maybeSingle(),
   ]);
   if (eventRes.error) logQueryError('moodBoardStudio.event', eventRes.error, { eventId });
   /* A refused change log is said nowhere as "no changes" — logged; the board still draws. */
   if (changesRes.error) logQueryError('moodBoardStudio.colourChanges', changesRes.error, { eventId }, 'graceful_degrade');
+  if (lookRes.error) logQueryError('moodBoardStudio.dressCodeScene', lookRes.error, { eventId }, 'graceful_degrade');
+  /* The scene as the couple is editing it (the draft laid over live, as the toolbar's own row read it); none = no look to pick. */
+  const lookRow = lookRes.data ? (lookRes.data as unknown as InvitationWidgetRow) : null;
+  const dosLookCanvas = lookRow ? sanitizeHubCanvas(overlayHubDraftWidgets([lookRow], draft)[0]?.config_json) : null;
   const live = (eventRes.data ?? { invite_theme: null, role_palette: null, region: null }) as { invite_theme: string | null; role_palette: unknown; region: string | null };
   const shown = overlayHubDraftEvent(live, draft);
   /* 🎨 The five the board shows while it is not the couple's: a theme's drafted fill, else the worn theme's own. */
@@ -1366,15 +1380,8 @@ export async function MoodBoardStudioBody({ eventId }: { eventId: string }) {
       inspirations={studio.inspirations}
       autoThemes={HUB_THEMES.filter((t) => t.ready).map((t) => ({ name: t.name, five: themeSeedPalette(t.id).reception }))}
       regions={regions}
-      dos={
-        studio.dressLists ? (
-          <DressCodeListsForm eventId={eventId} dos={studio.dressLists.dos} donts={studio.dressLists.donts} inMaker incStarter={studio.dressLists.incStarter} studio />
-        ) : (
-          <p role="alert" className="text-sm text-terracotta-700" data-mood-board-unread="">
-            Your do&rsquo;s and don&rsquo;ts could not be loaded just now. Nothing was changed — please reopen this in a moment.
-          </p>
-        )
-      }
+      dosLists={studio.dressLists ? { dos: studio.dressLists.dos, donts: studio.dressLists.donts, incStarter: studio.dressLists.incStarter } : null}
+      dosLookCanvas={dosLookCanvas}
     />
   );
 }

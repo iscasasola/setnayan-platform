@@ -33,6 +33,7 @@ import {
   type CustomPlanActionState,
 } from '../actions';
 import { formatCount } from '@/lib/format-number';
+import { PillButton, PillTrack } from '@/app/_components/pill-track';
 
 export type VendorOption = { id: string; name: string; tier: string | null };
 
@@ -552,20 +553,15 @@ export function CustomComposer({
 
               <div className="flex items-center gap-2 text-xs">
                 <span className="text-ink/60">Pay channel</span>
-                <div className="inline-flex rounded-lg border border-ink/15 p-0.5">
+                {/* The app's ONE pill selector (owner 2026-10-08). `aria-pressed` is new — the thumb finds the
+                    picked channel by it. */}
+                <PillTrack data-pay-channel="">
                   {(['bdo', 'gcash'] as const).map((ch) => (
-                    <button
-                      key={ch}
-                      type="button"
-                      onClick={() => setChannel(ch)}
-                      className={`rounded-md px-2.5 py-1 font-semibold uppercase transition ${
-                        channel === ch ? 'bg-ink text-cream' : 'text-ink/60'
-                      }`}
-                    >
+                    <PillButton key={ch} on={channel === ch} aria-pressed={channel === ch} onClick={() => setChannel(ch)} className="uppercase">
                       {ch}
-                    </button>
+                    </PillButton>
                   ))}
-                </div>
+                </PillTrack>
               </div>
               <input type="hidden" name="channel" value={channel} />
 

@@ -383,62 +383,19 @@ test('G · an unnamed seat reads "+2 · TBA" — new rows and old ones alike, nu
   assert.equal(seatPlaceholderLabel(2), '+3 · TBA');
 });
 
-test('G · the row says "+3 (2 named)", and "3 named · 1 allowed" with a Remove per name when over', async () => {
-  const { renderToStaticMarkup } = await import('react-dom/server');
-  const { PlusOneSeatsSummary, PlusOneOverNote } = await import(
-    '../../dashboard/[eventId]/guests/_components/plus-one-seats-note'
-  );
-  const two = [
-    { guest_id: 'a', named: true, label: 'Ben Reyes' },
-    { guest_id: 'b', named: true, label: 'Carmen Santos' },
-    { guest_id: 'c', named: false, label: '+3 · TBA' },
-  ];
-  assert.match(
-    renderToStaticMarkup(React.createElement(PlusOneSeatsSummary, { count: 3, seats: two })),
-    />\+3 \(2 named\)<\/span>$/,
-  );
-  // Everyone fits: no warning.
-  assert.equal(
-    renderToStaticMarkup(React.createElement(PlusOneOverNote, { eventId: 'e', guestName: 'Maria Santos', count: 3, seats: two })),
-    '',
-  );
-  const three = [
-    { guest_id: 'n', named: true, label: 'Nora Santos' },
-    { guest_id: 'j', named: true, label: 'Jun Santos' },
-    { guest_id: 'b', named: true, label: 'Bea Santos' },
-  ];
-  const over = renderToStaticMarkup(
-    React.createElement(PlusOneOverNote, { eventId: 'e', guestName: 'Tito Boy Santos', count: 1, seats: three }),
-  );
-  assert.match(over, /3 named · 1 allowed\./);
-  assert.equal((over.match(/aria-label="Delete /g) ?? []).length, 3, 'not one Delete per name');
-});
-
 test('G · Delete is the host’s own delete-a-guest, behind the one warning — no second delete', () => {
   // ⤷ 2026-10-03 (owner, DECISION_LOG "A HOST CAN DELETE A GUEST WHO ALREADY
   // ACCEPTED"): `RemoveGuestConfirm` + `softDeleteGuest` were retired; every
   // delete is the one warning + `useGuestRemoval` (with Undo).
-  const note = read(...G, '_components', 'plus-one-seats-note.tsx');
-  assert.match(note, /<DeleteGuestButton eventId=\{eventId\} guestId=\{s\.guest_id\} guestName=\{s\.label\} \/>/);
   const del = read(...G, '_components', 'guest-delete.tsx');
-  assert.match(del, /export function DeleteGuestButton\(/);
   assert.match(del, /useGuestRemoval\(eventId\)/);
   assert.match(del, /<DeleteGuestSheet\b/);
 });
 
-test('G · both roster rows draw the summary and the warning, from the FULL roster', () => {
-  const list = read(...G, '_components', 'guest-list-multiselect.tsx');
-  for (const row of ['function DesktopRow(', 'function MobileListRow(']) {
-    // ⤷ 2026-09-30, the full-width list: the desktop row draws its +N column
-    // through RosterCell, so its baseline is the row plus the cells it draws.
-    const body =
-      row === 'function DesktopRow(' && /<RosterCell\b/.test(bodyOf(list, row))
-        ? bodyOf(list, row) + bodyOf(list, 'function RosterCell(')
-        : bodyOf(list, row);
-    assert.match(body, /<PlusOneSeatsSummary count=\{plusOneSeats\(guest\)\} seats=\{extraSeats\} \/>/, `${row} lacks "+N (k named)"`);
-    assert.match(body, /<PlusOneOverNote/, `${row} lacks the "named · allowed" warning`);
-    assert.match(body, /const shownName = seatLabel \?\? /, `${row} does not label an unnamed seat "+N · TBA"`);
-  }
+test('G · the list row draws its +N pill from the guest’s own row', () => {
+  // (The retired GuestListMultiselect's two rows drew "+N (k named)" and the
+  // "named · allowed" warning from plus-one-seats-note.tsx; both went with it,
+  // 2026-10-09, and so did the tests that pinned them.)
   // ⤷ Maker PR 4f: the page's list is GuestsScreen; its row draws the "+N" pill
   // from the guest's own row (plusOneSeats), never from a filtered view. The
   // "+N (k named)" summary and its warning stay on the card and the lab rows above.

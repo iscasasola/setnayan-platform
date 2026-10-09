@@ -28,6 +28,7 @@ import { Music, Pause, Play, Plus, Search, Trash2 } from 'lucide-react';
 
 import { Sheet } from '@/app/_components/sheet';
 import { InfoTip } from '@/app/_components/info-tip';
+import { SwitchTrack } from '@/app/_components/switch-track';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
 import { formatCount } from '@/lib/format-number';
 import {
@@ -150,18 +151,8 @@ function Switch({
       onClick={() => onChange(!checked)}
       className="inline-flex h-11 items-center disabled:opacity-50"
     >
-      <span
-        aria-hidden
-        className={`relative inline-flex h-6 w-10 items-center rounded-full transition-colors ${
-          checked ? 'bg-success-500' : 'bg-ink/20'
-        }`}
-      >
-        <span
-          className={`inline-block h-5 w-5 transform rounded-full bg-cream shadow-sm transition-transform ${
-            checked ? 'translate-x-[1.125rem]' : 'translate-x-0.5'
-          }`}
-        />
-      </span>
+      {/* The app's ONE switch (`SwitchTrack`): grey off, the accent on — never a green of this page's own. */}
+      <SwitchTrack on={checked} />
     </button>
   );
 }
@@ -237,7 +228,7 @@ export function HubMusicManager({
 
   async function remove(track: HubMusicAdminTrack) {
     const ok = window.confirm(
-      `Remove “${track.title}” from Event Hub music?\n\nCouples can no longer pick it, and its file is deleted. This cannot be undone.`,
+      `Remove “${track.title}” from Event Hub music?\n\nCouples can no longer pick it. An Event Hub already playing it keeps it. This cannot be undone.`,
     );
     if (!ok) return;
     setError(null);

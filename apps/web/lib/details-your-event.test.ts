@@ -197,7 +197,7 @@ test('walking alone (a name dragged out of its pair) happens IN PLACE — the Gu
   assert.match(march, /await unpairGuestAction\(eventId, step\.guest, 'in-place'\);/);
   // …and the Guest list's rows no longer offer it at all (owner 2026-09-30:
   // "walks with" lives only in the Maker's Wedding March).
-  const roster = read('app/dashboard/[eventId]/guests/_components/guest-list-multiselect.tsx');
+  const roster = read('app/dashboard/[eventId]/guests/_components/guests-screen.tsx');
   assert.doesNotMatch(roster, /unpairGuestAction/);
 });
 

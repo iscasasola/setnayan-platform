@@ -100,6 +100,7 @@ import { paidMarkLabel } from '@/lib/paid-mark';
 import { InspectorTabs } from './inspector-kit';
 import { SCENE_TABS, SceneArrangeTab, SceneLayoutRow, SceneParts, type SceneTab } from './scene-inspector';
 import { FixedSceneStyleRow, PaletteLookCanvasRow, PostEventScenePanel, PostEventWordsField, SceneAlignRow, SceneStyleCanvasRow } from './scene-styles-lazy';
+import type { DressCodeConfig } from '../../../studio/mood-board/dress-code-actions';
 import { postEventStatusWord, postEventTileLabel, postEventTileNote, type PostEventTile } from './post-event-tile-words';
 import { isFixedStyleScene, type FixedSceneStyles } from '@/lib/fixed-scene-styles';
 import type { CameraLook } from '@/lib/camera-look';
@@ -228,7 +229,7 @@ const CONTENT_ROW_FOR_TYPE: Record<string, string> = {
  * registered into Details (part 3). Love Story's page, the scrapbook, is Details
  * › Story & plans › Love Story, built by the launch page (part 2b).
  */
-export type MadeOnceKey = 'logo' | 'hero' | 'reveal' | 'reveal-options';
+export type MadeOnceKey = 'logo' | 'hero' | 'reveal' | 'reveal-options' | 'look-sample';
 
 const TOOL_ROWS: Record<string, string[]> = {
   hero: ['hero'],
@@ -285,6 +286,8 @@ export function MakerWork({
    * Animate's one lock. Null = the tabs fall back to saying why they are empty.
    */
   sceneFormat?: {
+    /** 👗 The Dress code as saved (drafted over live) — the Stages panel's Figures ▾ writes its one switch back whole. */
+    dressCode?: DressCodeConfig | null;
     colorChoices: readonly string[];
     photoChoices: readonly { ref: string; url: string }[];
     videoChoice: { ref: string; url: string; poster?: string | null } | null;
@@ -914,6 +917,8 @@ export function MakerWork({
               colours={sceneFormat?.colorChoices ?? []}
             />
           ) : null,
+        /* 🪟 Studio › Look's sample screen — built by the page from reads it already made (owner 2026-10-08). */
+        sample: madeOnce?.['look-sample'] ?? null,
         buttons: buttonsNode,
         music: musicNode,
         page: pageNode,
@@ -1898,18 +1903,6 @@ export function MakerWork({
     const sc = sceneById.get(id);
     return sc ? [{ type: sc.type, canvas: canvasOf(sc.type) }] : [];
   });
-  /** The colours this Event Hub already uses — the synced half of "Saved colours". */
-  const usedColours = (() => {
-    const out = new Set<string>();
-    for (const c of Object.values(elementEditing?.canvases ?? {})) {
-      if (c.color) out.add(c.color);
-      for (const st of Object.values(c.elements ?? {})) {
-        if (st?.color) out.add(st.color.slice(0, 7));
-        for (const r of st?.runs ?? []) if (r.color) out.add(r.color.slice(0, 7));
-      }
-    }
-    return [...out].slice(0, 15);
-  })();
   const postToCanvas = (message: unknown) => {
     broadcastToCanvas(message);
     scheduleSnapshots(600);
@@ -1940,7 +1933,7 @@ export function MakerWork({
     /* 🎨 Where "Our colours" is drawn (the Dress code's Colours and roles), its palette look sits under its Style too. */
     const paletteRow =
       elementEditing && sceneFormat && type === 'dress_code' ? (
-        <PaletteLookCanvasRow eventId={eventId} canvas={canvas} eventType={sceneFormat.eventType ?? null} draftAction={elementEditing.draftAction} colours={sceneFormat.colorChoices} />
+        <PaletteLookCanvasRow eventId={eventId} canvas={canvas} eventType={sceneFormat.eventType ?? null} draftAction={elementEditing.draftAction} colours={sceneFormat.colorChoices} dressCode={sceneFormat.dressCode ?? null} />
       ) : null;
     const layoutRow =
       elementEditing && ownScene ? <SceneLayoutRow eventId={eventId} widgetType={type} canvas={canvas} draftAction={elementEditing.draftAction} /> : null;
@@ -1964,7 +1957,7 @@ export function MakerWork({
               stageLabel={PUBLIC_STAGE_LABELS[stage]}
               draftAction={elementEditing.draftAction}
               themeColours={sceneFormat.colorChoices}
-              usedColours={usedColours}
+              board={elementEditing.palette.board}
               photoChoices={sceneFormat.photoChoices}
               videoChoice={sceneFormat.videoChoice}
               sceneUploads={sceneFormat.sceneUploads}
@@ -2993,7 +2986,6 @@ export function MakerWork({
           }
           /* ✋ No "Open the Hero editor" from a part (owner 2026-10-05): the names
              and date are made in place — `onOpenHero` is not handed in. */
-          usedColours={usedColours}
           onPreview={(message) => {
             broadcastToCanvas(message);
             // The navigator's tiles are pictures of the canvas — re-take them.

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { TILE_FREEZE_CSS } from '@/lib/maker-tile-preview';
 import { findMakerSection } from '@/app/[slug]/_components/maker-section-find';
 import { finishStreamedHtml } from './streamed-swap';
+import { styleCardFit } from '@/lib/maker-stage-room';
 
 /**
  * 🖼 A STYLE'S TRUE MINIATURE (owner 2026-10-07: *"should be a preview of the style
@@ -20,8 +21,9 @@ import { finishStreamedHtml } from './streamed-swap';
  * (`canvasOnlyScene` + `canvasStylePreview`, `app/[slug]/_lib/editor-canvas.ts`; both
  * host-canvas only, so a guest's `?style=` changes nothing, and a frame asking for a
  * style never mounts the editor bridge). The page draws the style with the shipped
- * renderer — never a copy of it here — and the frame is scaled to fit the part
- * into the card (contain, centred). Script-less (`sandbox="allow-same-origin"`): a
+ * renderer — never a copy of it here — at the phone's own width, and the card shows that part WHOLE: centred and
+ * scaled to fit, never cut (`styleCardFit`, owner 2026-10-09 — `TOOLBAR-SPEC-2026-10-09.md` § STYLE; it was the
+ * page at the card's width, cut at the card's foot, 2026-10-08). Script-less (`sandbox="allow-same-origin"`): a
  * miniature cannot play, ask for a camera, or speak to the Maker.
  */
 
@@ -59,13 +61,79 @@ function useCanvasSrc(): { src: string; width: number } | null {
   return got;
 }
 
-export function StylePreview({ canvasKey, sceneType, styleId, current }: { canvasKey: string | null; sceneType: string; styleId: string; current: boolean }) {
+/**
+ * 🔎 A CARD FITTED ON ONE BLOCK OF ITS SCENE (`focus`, a selector inside the scene — the Dress code's "Our
+ * colours" for a palette look, its Do's & Don'ts for theirs): the rest of the scene keeps its place but is not
+ * drawn, so a look of another shape never shows a neighbour's words in its margin. Asked of the miniature only.
+ */
+const FOCUS_CSS =
+  '[data-sn-mini-scene] *:not([data-sn-mini-focus]):not([data-sn-mini-focus] *):not(:has([data-sn-mini-focus])){visibility:hidden!important}';
+
+/** The block a card is fitted on: the scene, one `data-el` part of it, or one `focus` block (the scene when absent). */
+export function miniaturePart(section: HTMLElement | null, el: string | undefined, focus: string | null | undefined): HTMLElement | null {
+  if (!section) return null;
+  if (el) return section.querySelector<HTMLElement>(`[data-el="${el}"]`);
+  return focus ? (section.querySelector<HTMLElement>(focus) ?? section) : section;
+}
+
+/**
+ * The box of what a part DRAWS inside its block: its words as laid out (each text run's own box) and its pictures —
+ * or null when there is nothing to measure. A block child's own box is as wide as its line, so it is never counted.
+ */
+export function drawnContent(doc: Document, part: Element): { w: number; h: number } | null {
+  try {
+    let left = Infinity;
+    let right = -Infinity;
+    let top = Infinity;
+    let bottom = -Infinity;
+    const take = (r: { left: number; right: number; top: number; bottom: number; width: number; height: number }) => {
+      if (r.width < 1 || r.height < 1) return;
+      left = Math.min(left, r.left);
+      right = Math.max(right, r.right);
+      top = Math.min(top, r.top);
+      bottom = Math.max(bottom, r.bottom);
+    };
+    const walker = doc.createTreeWalker(part, 4 /* NodeFilter.SHOW_TEXT */);
+    const range = doc.createRange();
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      if (!(n.textContent ?? '').trim()) continue;
+      range.selectNodeContents(n);
+      for (const r of Array.from(range.getClientRects())) take(r);
+    }
+    part.querySelectorAll('img, svg, video, canvas').forEach((e) => take(e.getBoundingClientRect()));
+    return right > left && bottom > top ? { w: right - left, h: bottom - top } : null;
+  } catch {
+    return null;
+  }
+}
+
+export function StylePreview({
+  canvasKey,
+  sceneType,
+  styleId,
+  current,
+  focus = null,
+  onDrawn,
+}: {
+  canvasKey: string | null;
+  sceneType: string;
+  styleId: string;
+  current: boolean;
+  focus?: string | null;
+  /** Told the part's drawn shape once it is measured — a card of one long line is made wider (`styleCardIsWide`). */
+  onDrawn?: (shape: { w: number; h: number }) => void;
+}) {
   const canvas = useCanvasSrc();
   const src = canvas && canvasKey ? stylePreviewSrc(canvas.src, canvasKey, sceneType, styleId, window.location.origin) : null;
   const width = canvas?.width ?? 375;
   const box = useRef<HTMLSpanElement>(null);
   const frame = useRef<HTMLIFrameElement>(null);
   const [fit, setFit] = useState<{ k: number; x: number; y: number; h: number } | null>(null);
+  /** The part's box on its page, and the page's own ground — kept so the fit is worked out again when the card changes size. */
+  const drawnRef = useRef<{ top: number; left: number; width: number; height: number } | null>(null);
+  const [ground, setGround] = useState<string | null>(null);
+  const onDrawnRef = useRef(onDrawn);
+  onDrawnRef.current = onDrawn;
   const [empty, setEmpty] = useState(false);
 
   /* Measured once the frame has LOADED (a slow page may take many seconds) — never given up on while it loads. */
@@ -73,7 +141,26 @@ export function StylePreview({ canvasKey, sceneType, styleId, current }: { canva
   useEffect(() => {
     setFit(null);
     setEmpty(false);
+    drawnRef.current = null;
   }, [src]);
+  /** The picture, centred and scaled to fit the card as it is NOW. */
+  const lay = () => {
+    const b = box.current;
+    const part = drawnRef.current;
+    if (!b || !part || b.clientWidth < 1 || b.clientHeight < 1) return;
+    const f = styleCardFit(part, { w: b.clientWidth, h: b.clientHeight });
+    setFit((was) => (was && was.k === f.k && was.x === f.x && was.y === f.y ? was : { ...f, h: part.top + part.height + 40 }));
+  };
+  const layRef = useRef(lay);
+  layRef.current = lay;
+  /* The card changed size (a one-line look's card widened; the phone turned): fitted again, never stretched. */
+  useEffect(() => {
+    const b = box.current;
+    if (!b || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => layRef.current());
+    ro.observe(b);
+    return () => ro.disconnect();
+  }, []);
   useEffect(() => {
     if (!src || !canvasKey || loads === 0) return;
     let n = 0;
@@ -99,7 +186,15 @@ export function StylePreview({ canvasKey, sceneType, styleId, current }: { canva
         }
         const [key, el] = canvasKey.split('.');
         const section = findMakerSection(d, key!);
-        const part = el ? (section?.querySelector<HTMLElement>(`[data-el="${el}"]`) ?? null) : section;
+        const part = miniaturePart(section, el, focus);
+        if (focus && section && part && part !== section && !d.querySelector('style[data-sn-mini-focus-css]')) {
+          section.setAttribute('data-sn-mini-scene', '');
+          part.setAttribute('data-sn-mini-focus', '');
+          const only = d.createElement('style');
+          only.setAttribute('data-sn-mini-focus-css', '');
+          only.textContent = FOCUS_CSS;
+          d.head.appendChild(only);
+        }
         const drawn = part ? part.getBoundingClientRect() : null;
         if (!part || !drawn || drawn.width < 1 || drawn.height < 1) {
           if (n > 200) {
@@ -109,21 +204,21 @@ export function StylePreview({ canvasKey, sceneType, styleId, current }: { canva
           return;
         }
         window.clearInterval(id);
-        /* Fit the part's box into the card (contain, centred), a little room around it. */
-        const r = drawn;
-        const pad = el ? 12 : 4;
-        const w = Math.max(1, r.width + pad * 2);
-        const h = Math.max(1, r.height + pad * 2);
-        const k = Math.min(b.clientWidth / w, b.clientHeight / h, el ? 1.2 : 1);
-        const top = r.top + (d.defaultView?.scrollY ?? 0) - pad;
-        setFit({ k, x: (b.clientWidth - w * k) / 2 - (r.left - pad) * k, y: (b.clientHeight - h * k) / 2 - top * k, h: top + h + pad });
+        drawnRef.current = { top: drawn.top + (d.defaultView?.scrollY ?? 0), left: drawn.left + (d.defaultView?.scrollX ?? 0), width: drawn.width, height: drawn.height };
+        /* The card stands on the page's own ground, so the room round a small part is the page's, never a grey band. */
+        const bg = getComputedStyle(d.body).backgroundColor;
+        setGround(bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent' ? bg : '#FFFFFF');
+        /* Its shape is what it DRAWS (the words' own box, a picture's) — a block is as wide as the page whatever
+           stands in it. A part with nothing to measure falls back to its block. */
+        onDrawnRef.current?.(drawnContent(d, part) ?? { w: drawn.width, h: drawn.height });
+        layRef.current();
       } catch {
         window.clearInterval(id);
         setEmpty(true);
       }
     }, 60);
     return () => window.clearInterval(id);
-  }, [src, canvasKey, loads]);
+  }, [src, canvasKey, loads, focus]);
 
   return (
     <span
@@ -131,6 +226,7 @@ export function StylePreview({ canvasKey, sceneType, styleId, current }: { canva
       aria-hidden
       data-style-preview={!src ? 'loading' : empty ? 'empty' : fit ? (current ? 'live' : 'render') : 'loading'}
       className="pointer-events-none absolute inset-0 overflow-hidden"
+      style={ground ? { background: ground } : undefined}
     >
       {src ? (
         <iframe

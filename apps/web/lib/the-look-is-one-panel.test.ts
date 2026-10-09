@@ -131,15 +131,26 @@ test('(1) Look draws Background · Elements · Music, in that order, each with i
   inSection('background', 'elements', 'page-fill');
   inSection('background', 'elements', 'hero-video');
   inSection('elements', 'music', 'art-and-motion');
-  inSection('elements', 'music', 'palette-look');
   inSection('elements', 'music', 'font-pick');
   inSection('elements', 'music', 'buttons-look');
   inSection('music', null, 'music');
   assert.doesNotMatch(html.slice(at('music')), /data-stub="hero-video"/, 'the hero video is under Music again');
   assert.doesNotMatch(html.slice(at('elements'), at('music')), /data-stub="page-fill"/, 'the page fill is under Elements (Colours) again');
-  // The palette sits AFTER the colours it goes with, in the same part.
-  assert.ok(html.indexOf('data-stub="palette-look"') > html.indexOf('data-stub="art-and-motion"'));
-  assert.ok(html.indexOf('data-stub="palette-look"') < html.indexOf('data-stub="font-pick"'));
+  // 🎨 THE PALETTE-TYPE ROW LEFT LOOK (owner 2026-10-08, on the local copy: "remove Palette Type") — handed in, never drawn.
+  assert.doesNotMatch(html, /data-stub="palette-look"/, 'the Palette type row is still drawn in Look');
+  {
+    // …and it has not simply been dropped: the SAME control still sits with the palette, in the Dress code scene's own
+    // settings, and leaving it out of Look writes nothing (the stored look stays; the guest page reads it as before).
+    const shellSrc = read(`${E}/editor-shell.tsx`);
+    assert.match(shellSrc, /const paletteRow =\s*elementEditing && sceneFormat && type === 'dress_code' \? \(\s*<PaletteLookCanvasRow /, 'the palette look has no control left anywhere');
+    assert.ok((shellSrc.match(/\{paletteRow\}/g) ?? []).length >= 2, 'the Dress code scene no longer draws its palette look');
+    const lookPanel = read(`${L}/details-look-pages.tsx`);
+    const panelAt = lookPanel.indexOf('export function LookPanel');
+    const panelFn = lookPanel.slice(panelAt, lookPanel.indexOf('\nexport function ', panelAt + 20));
+    assert.ok(panelAt > 0 && panelFn.length > 500 && panelFn.includes('data-look-part='), 'anti-vacuity: LookPanel was not found');
+    assert.doesNotMatch(panelFn, /look\.palette|draftAction|hubDraftAction/, 'Look draws the palette row, or writes when it leaves it out');
+    assert.match(read('lib/scene-style-of-row.ts'), /export function paletteLookOfRow|paletteLookOfRow/, 'the guest page can no longer read a stored palette look');
+  }
   for (const label of ['Background', 'Elements', 'Music']) assert.match(html, new RegExp(`>${label}</h3>`), `no "${label}" heading`);
   for (const gone of ['Colours', 'Buttons', 'Font']) assert.doesNotMatch(html, new RegExp(`>${gone}</h3>`), `"${gone}" is a section of its own again`);
   // Inside Elements each control is named — Colours · Font · Buttons; Background and Music name themselves.
@@ -272,7 +283,7 @@ test('(3) the SAME rows move into Look, and their old places no longer hold them
   // The hero no longer carries the Main background.
   assert.match(work, /hero: madeOnce\?\.hero \?\? null,/);
   assert.doesNotMatch(work, /mainBackgroundRow/);
-  // The Dress code scene's Style no longer draws the palette; Look's row does.
+  // The Style DROPDOWN's own row does not draw the palette (it is its own row beside it — never in two places in one row).
   const style = read(`${E}/scene-style-row.tsx`);
   const styleRow = style.slice(style.indexOf('export function SceneStyleCanvasRow'), style.indexOf('export function PaletteLookCanvasRow'));
   assert.ok(styleRow.length > 200, 'anti-vacuity: the Style row was not found');
@@ -286,7 +297,7 @@ test('(3) the SAME rows move into Look, and their old places no longer hold them
   // Each control is still built ONCE, by the editor page.
   const page = read('app/dashboard/[eventId]/website/editor/page.tsx');
   assert.equal(page.split('<MainBackgroundPanel').length - 1, 1, 'the Main background is built twice');
-  // 🔤 Font · 🌈 the page fill · 🎨 Candlelight and Magic Move — the ONE Colors panel, drawn as its three parts.
+  // 🔤 Font · 🌈 the page fill · 🎨 Candlelight — the ONE Colors panel, drawn as its three parts.
   assert.equal(page.split('<ColorsPanel').length - 1, 3, 'Font, the page fill and Colours are not the one panel, drawn as three parts');
   assert.match(page, /key: 'font',[\s\S]*?part="font"/);
   assert.match(page, /key: 'page-colour',[\s\S]*?part="page"/, 'the page fill is not a row of its own (Look › Background)');
@@ -300,7 +311,9 @@ test('(3) the SAME rows move into Look, and their old places no longer hold them
   assert.ok(musicRow.length > 100, 'anti-vacuity: the music row was not found before the hero video’s');
   assert.match(musicRow, /<SiteChromePanel[\s\S]*?part="music"/);
   assert.doesNotMatch(musicRow, /part="video"/, 'the hero video is built under Music again');
-  assert.match(page.slice(page.indexOf("key: 'hero-video',")), /^key: 'hero-video',[\s\S]{0,700}?<SiteChromePanel[\s\S]{0,200}?part="video"/, 'the hero video is not a row of its own (Look › Background)');
+  /* Built ONCE (`heroVideoPanel`): the row hands it to Look, and the Studio's Background draws the same node (restudy row 2). */
+  assert.match(page.slice(page.indexOf("key: 'hero-video',")), /^key: 'hero-video',[\s\S]{0,300}?panel: heroVideoPanel,/, 'the hero video is not a row of its own (Look › Background)');
+  assert.match(page, /const heroVideoPanel = musicLocked \? \([\s\S]{0,120}\) : \(\s*<SiteChromePanel[\s\S]{0,200}?part="video"/, 'the hero video’s row is not the one form’s video part');
 });
 
 /* ── (4) each part posts only its own fields ──────────────────────────── */
@@ -317,10 +330,23 @@ test('(4) Font posts only the typeface; the page fill only the page; Colours nei
   assert.match(pageFill, /name="bg_color"/);
   for (const e of ['plain', 'dawn', 'diagonal', 'glow']) assert.match(pageFill, new RegExp(`data-background-effect="${e}"`), `the page fill lost ${e}`);
   assert.doesNotMatch(pageFill, /name="button_color"|name="site_font_key"|name="site_art_direction"|name="site_magic_traveller"/, 'the page fill would post a colour of the Elements');
-  // 🎨 Look › Elements › Colours: Candlelight and Magic Move — never the page.
-  const colours = renderToStaticMarkup(React.createElement(ColorsPanel, { ...base, rowKey: 'colors', part: 'art' }));
+  // 🎨 Look › Elements › Colours: Candlelight — never the page.
+  const colours = renderToStaticMarkup(React.createElement(ColorsPanel, { ...base, rowKey: 'colors', part: 'art', magicTraveller: 'mark' }));
   assert.match(colours, /name="site_art_direction"/);
-  assert.match(colours, /name="site_magic_traveller"/);
+  // ✈ MAGIC MOVE LEFT LOOK (owner 2026-10-08, on the local copy: "remove magic move") — no row, no field…
+  assert.doesNotMatch(colours, /name="site_magic_traveller"|data-look-magic-move|data-magic-move-pick|Magic Move/, 'Magic Move is still a control of Look');
+  // …and a mark ALREADY set to travel keeps travelling: an absent field is "unchanged" in the one action, the
+  // guest page still reads the column, and the control still exists outside Look (the record's whole Colours row).
+  const coloursAction = read('app/dashboard/[eventId]/website/colors/actions.ts');
+  // EVERY write of the column is conditional on the field having been posted (the draft door and the live one).
+  const writes = coloursAction.match(/site_magic_traveller: magic\b/g) ?? [];
+  const guarded = coloursAction.match(/magic !== undefined \? \{ site_magic_traveller: magic \} : \{\}/g) ?? [];
+  assert.ok(writes.length >= 2, 'anti-vacuity: the action no longer writes Magic Move where this looks');
+  assert.equal(guarded.length, writes.length, 'a form that posts no Magic Move would CLEAR the stored one');
+  assert.match(coloursAction, /const magicRaw = formData\.get\('site_magic_traveller'\);/);
+  assert.match(read('app/[slug]/_components/site-body.tsx') + read('app/[slug]/page.tsx'), /site_magic_traveller|magicTraveller/, 'the guest page no longer reads the stored Magic Move');
+  const wholeRow = renderToStaticMarkup(React.createElement(ColorsPanel, { ...base, rowKey: 'colors', part: 'colours', magicTraveller: 'mark' }));
+  assert.match(wholeRow, /<input type="hidden" name="site_magic_traveller" value="mark"\/>/, 'anti-vacuity: the control this test looks for is gone everywhere — the assertion above would pass on anything');
   assert.doesNotMatch(colours, /name="bg_color"|data-background-effect=/, 'the page fill is drawn under Colours again');
   // 🔘 The button colour moved to Look › Buttons (2026-10-04): Colours no longer
   // posts it, which the action reads as "unchanged" — one field, one place.
@@ -372,7 +398,12 @@ test('(6) no Save in Look: the song, its switch and the hero video each post the
   assert.ok(panel.length > 500, 'anti-vacuity: the panel was not found');
   assert.doesNotMatch(panel, /SaveButton/, 'a Save button is drawn under the song or the video');
   assert.match(panel, /<HubDraftField \/>/, 'the song and the video no longer write into the draft');
-  assert.equal((panel.match(/onChange=\{draftNow\}/g) ?? []).length, 3, 'the song, the switch and the video do not each draft at once');
+  /* RE-AIMED 2026-10-08 (Our music · Upload your own): the SONG now has two doors — a pick from our list, and the
+     couple's own upload (which also notes that a file is in) — so it drafts from two handlers instead of one bare
+     `onChange={draftNow}`. The claim is unchanged: the song, its switch and the hero video each draft at once. */
+  assert.equal((panel.match(/onChange=\{draftNow\}/g) ?? []).length, 2, 'the switch and the video do not each draft at once');
+  assert.match(panel, /onChange=\{\(value\) => \{\s*setUploaded\(Boolean\(value\)\);\s*draftNow\(\);\s*\}\}/, 'the couple’s own song does not draft at once');
+  assert.match(panel, /setPickedTrack\(trackId\);\s*draftNow\(\);/, 'a song picked from our list does not draft at once');
   // In BOTH Makers — the post is not held back for the shipped one any more.
   assert.match(panel, /const draftNow = \(\) => void window\.requestAnimationFrame\(\(\) => formRef\.current\?\.requestSubmit\(\)\);/, 'a change waits for a Save in one of the Makers');
   // What each part posts — rendered, never read off the source.
@@ -387,7 +418,11 @@ test('(6) no Save in Look: the song, its switch and the hero video each post the
   assert.match(video, /data-site-chrome="video"[\s\S]*>Hero video</);
   assert.doesNotMatch(video, /Background music|name="bg_music_enabled"|audio\/mpeg/, 'the hero video’s form would post the song (and switch it off)');
   // (The upload's own field is written by the uploader once it holds a value — read off the two branches.)
-  const [musicBranch, videoBranch] = panel.slice(panel.indexOf("{part === 'music' ? (")).split(') : (');
+  /* The music branch holds a choice of its own now (Our music ? … : Upload your own), so the two PARTS are split at the
+     part's own else — the last one — not at the first `) : (` in the text. */
+  const parts = panel.slice(panel.indexOf("{part === 'music' ? ("));
+  const elseAt = parts.lastIndexOf(') : (');
+  const [musicBranch, videoBranch] = [parts.slice(0, elseAt), parts.slice(elseAt)];
   assert.match(musicBranch ?? '', /name="bg_music_url"/);
   assert.doesNotMatch(musicBranch ?? '', /name="hero_video_url"/);
   assert.match(videoBranch ?? '', /name="hero_video_url"/);
@@ -408,7 +443,7 @@ test('(6) no Save in Look: the song, its switch and the hero video each post the
 test('(7) nothing in Look says "Guests see this right away": its controls draft, and the print form’s note is out of the reading order', async () => {
   // The three the owner's preview walk named (2026-10-08) — each writes the DRAFT, by its own code path.
   const buttons = read(`${E}/buttons-look-row.tsx`);
-  assert.match(buttons, /makerSave\(\(\) => hubDraftAction\(eventId, fd\)/, 'Buttons (shape · fill · colour) no longer saves through the draft door');
+  assert.match(buttons, /makerSave\(\(\) => hubDraftAction\(eventId, fd\)/, 'Buttons (its shape) no longer saves through the draft door');
   const src = read(`${E}/media-panels.tsx`);
   const music = src.slice(src.indexOf('export function SiteChromePanel('), src.indexOf('export function VisibilityPanel('));
   assert.match(music, /<HubDraftField \/>/, 'the song / its switch / the hero video no longer post into the draft');

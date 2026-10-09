@@ -136,6 +136,7 @@ import { hubNamedGuestPreviewEnabled } from '@/lib/hub-named-guest-flag';
 import { asViewed, viewAsFreeSwitch } from '@/lib/view-as-free.server';
 import { planMyselfOn } from '@/lib/plan-myself';
 import { makerChoiceIsUnread, makerStagesStudioEnabled } from '@/lib/maker-stages-studio-flag';
+import { TimelineRowsLoading } from '@/app/_components/timeline-states';
 import { manualLaunchPhase } from '@/lib/invitation-widgets';
 import { publicEventPath } from '@/lib/public-event-url';
 import { studioTiles, type StudioTileModel } from '@/lib/studio-tiles';
@@ -1605,7 +1606,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       /* 🗓 THE SCHEDULE, moved whole — the shipped page, streamed so the Maker
          never waits on it, with its own query when Details › Schedule is the item. */
       const schedulePage = (
-        <Suspense fallback={<p className="p-6 text-sm text-ink/60">Opening your schedule…</p>}>
+        <Suspense fallback={stagesStudio ? <TimelineRowsLoading label="Loading your schedule" rows={4} pills={2} /> : <p className="p-6 text-sm text-ink/60">Opening your schedule…</p>}>
           <CoupleSchedulePage
             params={Promise.resolve({ eventId })}
             searchParams={Promise.resolve({
@@ -1619,11 +1620,12 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         </Suspense>
       );
       const loveStoryBook = storyApplies ? (
-        <Suspense fallback={<p className="p-6 text-sm text-ink/60">Opening your Love Story…</p>}>
+        <Suspense fallback={stagesStudio ? <TimelineRowsLoading label="Loading your Love Story" rows={3} /> : <p className="p-6 text-sm text-ink/60">Opening your Love Story…</p>}>
           <OurStoryEditorPage
             params={Promise.resolve({ eventId })}
             searchParams={Promise.resolve({
               maker: '1',
+              studio: stagesStudio ? '1' : undefined,
               saved: one(search.saved),
               drafted: one(search.drafted),
               error: one(search.error),

@@ -2,8 +2,8 @@
 
 import { makerSave } from '@/lib/maker-refresh';
 import { useRouter } from 'next/navigation';
-import { createContext, useContext, useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
-import { Check, Play } from 'lucide-react';
+import { createContext, useContext, useEffect, useState, useTransition, type ReactNode } from 'react';
+import { Check, Play, RotateCcw } from 'lucide-react';
 import { hubDraftAction } from '../../website/hub-draft-actions';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { REVEAL_STAGE_CHOICES, revealStagesWith, type RevealStage } from '@/lib/reveal-stages';
@@ -15,16 +15,21 @@ import {
   type RevealTuneKnob,
 } from '@/lib/std-reveal-effects';
 import { InfoTip } from '@/app/_components/info-tip';
+import { Slider } from '@/app/_components/slider';
+import { SwitchTrack } from '@/app/_components/switch-track';
+import { ActionButton } from '@/components/action-button';
 import { useMaker } from './maker-context';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
 import { IRow, ISection, ISeg, ISegmented } from '../../website/editor/_components/inspector-kit';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
+import { ColourSheet } from '../../website/editor/_components/colour-well';
 import { StageStyle } from './stage-panel/stage-style';
 import { Dd, PanelSwitch } from './stage-panel/kit';
 import { RevealPicture } from './stage-panel/reveal-picture';
+import { REVEAL_NONE_ID, revealIsNone, revealPickPatch, revealSwitchOn, revealSwitchPatch, type RevealPatch } from '@/lib/reveal-none';
 import { setStageRevealKind, useStageRevealLook } from './stage-panel/store';
-import { SP_LAYOUT_CARD } from '@/lib/maker-stage-room';
+import { SP_LOOK_CARD, SP_LOOK_MARK, SP_LOOK_NAME, SP_LOOK_NAME_WHOLE, SP_PHONE_PICTURE } from '@/lib/maker-stage-room';
 
 /**
  * 🎭 THE REVEAL AS A PART (the new Maker's Stages side, plan PR 3 — owner
@@ -95,8 +100,11 @@ export function MakerRevealPicker({
   ownsPro,
   storeShell,
   stdWindowDays,
+  mainColours = NO_COLOURS,
   part = 'all',
 }: {
+  /** 🎨 The five main colours in slot order (`mainColoursOf`) — the veil's colour rows open the one picker on them. */
+  mainColours?: readonly string[];
   /**
    * 🧩 Which of the picker's three parts to draw (DECISION_LOG "A TOOL MOVED
    * INTO THE MAKER IS REBUILT INTO THE THREE PARTS"): in Details the openings
@@ -175,6 +183,37 @@ export function MakerRevealPicker({
         }
       } catch {
         forget('current');
+        setError('Your reveal could not be saved. Please try again.');
+      }
+    });
+  };
+
+  /* 🚫 One tap that may move BOTH the opening and where it plays (the None card, `lib/reveal-none.ts`) — one
+     draft patch, so the card and the switches land together or not at all. */
+  const savePick = (patch: RevealPatch | null) => {
+    if (!patch) return;
+    setMine((m) => ({
+      ...m,
+      ...(patch.std_reveal_template !== undefined ? { current: patch.std_reveal_template } : {}),
+      ...(patch.reveal_stages !== undefined ? { stages: patch.reveal_stages } : {}),
+    }));
+    start(async () => {
+      setError(null);
+      const back = () => {
+        if (patch.std_reveal_template !== undefined) forget('current');
+        if (patch.reveal_stages !== undefined) forget('stages');
+      };
+      try {
+        const fd = new FormData();
+        fd.set('intent', 'save');
+        fd.set('patch', JSON.stringify({ events: patch }));
+        const r = await makerSave(() => hubDraftAction(eventId, fd), () => router.refresh());
+        if (!r.ok) {
+          back();
+          setError(r.error);
+        }
+      } catch {
+        back();
         setError('Your reveal could not be saved. Please try again.');
       }
     });
@@ -316,7 +355,9 @@ export function MakerRevealPicker({
   if (onStage) {
     /* Shown / Hidden write THIS stage only, through the one helper. */
     const showHere = (on: boolean) => (on ? setStages(revealStagesWith(stages, onStage, true)) : setStages(revealStagesWith(stages, onStage, false)));
-    return <RevealStagePart onStage={onStage} openings={openings} effective={effective} choose={choose} shownHere={stages.includes(onStage)} showHere={showHere} stages={stages} toggleStage={toggleStage} effects={effects} setEffects={setEffects} ownsPro={ownsPro} storeShell={storeShell} failed={failed} />;
+    /* The opening a switch takes when it is turned on from the older "No reveal" value: the default, if the event may use it. */
+    const fallback = openings.some((o) => o.id === defaultOpening) ? defaultOpening : (openings[0]?.id ?? null);
+    return <RevealStagePart onStage={onStage} openings={openings} effective={effective} choose={choose} savePick={savePick} fallback={fallback} shownHere={stages.includes(onStage)} showHere={showHere} stages={stages} toggleStage={toggleStage} effects={effects} setEffects={setEffects} ownsPro={ownsPro} storeShell={storeShell} failed={failed} />;
   }
   /* 🧩 The navigator's part: the openings alone. */
   if (part === 'options') {
@@ -338,14 +379,7 @@ export function MakerRevealPicker({
         </p>
       ) : null}
       {effective !== 'none' ? (
-        <button
-          type="button"
-          onClick={replay}
-          className="sn-press inline-flex min-h-10 items-center gap-1.5 self-start rounded-full bg-ink/5 px-4 text-[13px] font-semibold text-ink hover:bg-ink/10"
-        >
-          <Play aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-          Play the opening
-        </button>
+        <ActionButton tone="neutral" icon={Play} label="Play the opening" onClick={replay} className="self-start" />
       ) : null}
       {effective !== 'none' ? (
         <FineTune
@@ -355,6 +389,7 @@ export function MakerRevealPicker({
           drafted={effectsDrafted}
           /* Never locked: each change is shown at once and saved behind it. */
           pending={false}
+          colours={mainColours}
           onChange={setEffects}
         />
       ) : null}
@@ -377,12 +412,11 @@ export function MakerRevealPicker({
                 aria-checked={on}
                 data-maker-reveal-stage={s}
                 onClick={() => toggleStage(s)}
-                className={`sn-press inline-flex min-h-11 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-semibold transition-colors duration-sn-control ease-sn disabled:opacity-60 ${
-                  on ? 'bg-ink text-cream' : 'bg-white/70 text-ink/75 hover:bg-white'
-                }`}
+                className="sn-press inline-flex min-h-11 items-center gap-2 rounded-full bg-white/70 pl-3.5 pr-2 text-[13px] font-semibold text-ink hover:bg-white disabled:opacity-60"
               >
-                {on ? <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.25} /> : null}
                 {PUBLIC_STAGE_LABELS[s]}
+                {/* The app's ONE switch (`SwitchTrack`): grey off, the accent on — where an ink pill with a tick stood. */}
+                <SwitchTrack on={on} />
               </button>
             );
           })}
@@ -398,6 +432,7 @@ export function MakerRevealPicker({
   );
 }
 
+const NO_COLOURS: readonly string[] = [];
 const ENVELOPES = new Set(['four-flap', 'two-flap-vertical', 'two-flap-horizontal']);
 
 /**
@@ -411,8 +446,11 @@ function FineTune({
   tuneHouse,
   drafted,
   pending,
+  colours,
   onChange,
 }: {
+  /** The five main colours — the colour rows' picker offers them first. */
+  colours: readonly string[];
   opening: string;
   effects: RevealEffects;
   tuneHouse: RevealTuneHouse;
@@ -432,14 +470,8 @@ function FineTune({
       className="sn-press flex min-h-12 w-full items-center gap-3 rounded-md bg-white/70 px-3 py-2 text-left hover:bg-white disabled:opacity-60"
     >
       <span className="min-w-0 flex-1 text-[13.5px] font-semibold text-ink">{label}</span>
-      <span
-        aria-hidden
-        className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${on ? 'bg-terracotta-700' : 'bg-ink/20'}`}
-      >
-        <span
-          className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${on ? 'translate-x-5' : 'translate-x-0.5'}`}
-        />
-      </span>
+      {/* The app's ONE switch (`SwitchTrack`) — its "on" was the gold `terracotta-700`, a colour of this file's own. */}
+      <SwitchTrack on={on} />
     </button>
   );
   return (
@@ -464,12 +496,14 @@ function FineTune({
             label="Veil colour"
             value={effects.veilColor}
             disabled={pending}
+            palette={colours}
             onCommit={(hex) => onChange({ ...effects, veilColor: hex })}
           />
           <ColourRow
             label="Petal colour"
             value={effects.petalColor}
             disabled={pending}
+            palette={colours}
             onCommit={(hex) => onChange({ ...effects, petalColor: hex })}
           />
         </>
@@ -569,73 +603,57 @@ function TuneSlider({
       <span className="text-[12.5px] font-semibold text-ink">{knob.label}</span>
       <span className="mt-1 flex items-center gap-3 text-[12px] text-ink/60">
         <span className="w-12 shrink-0">{knob.lo}</span>
-        <input
-          type="range"
-          min={knob.min}
-          max={knob.max}
-          step={knob.step}
-          value={local}
-          disabled={disabled}
-          aria-label={knob.label}
-          onChange={(e) => setLocal(Number(e.target.value))}
-          onPointerUp={(e) => onCommit(Number(e.currentTarget.value))}
-          onKeyUp={(e) => onCommit(Number(e.currentTarget.value))}
-          className="min-h-11 min-w-0 flex-1 accent-terracotta-700"
-        />
+        {/* The app's ONE slider (`Slider`): it moves freely (`onChange`) and SAVES WHEN LET GO (`onCommit`). */}
+        <Slider label={knob.label} data={knob.key} className="flex-1" min={knob.min} max={knob.max} step={knob.step} value={local} disabled={disabled} onChange={setLocal} onCommit={onCommit} />
         <span className="w-12 shrink-0 text-right">{knob.hi}</span>
       </span>
     </label>
   );
 }
 
-/** A colour, or "from your Mood Board" (null). Saved when the picker settles. */
+/**
+ * A colour, or "from your Mood Board" (null). The row opens the ONE colour picker — the Mood
+ * Board's sheet (owner 2026-10-08: *"apply that same concept on … any other color rules parts"*);
+ * a pick is saved at once, as the native wheel's settled value was.
+ */
 function ColourRow({
   label,
   value,
   disabled,
+  palette,
   onCommit,
 }: {
   label: string;
   value: string | null;
   disabled: boolean;
+  /** The five main colours, in slot order — the picker's "Your Mood Board" shelf. */
+  palette: readonly string[];
   onCommit: (hex: string | null) => void;
 }) {
-  const [local, setLocal] = useState(value ?? '#f3ece1');
-  const timer = useRef<number | null>(null);
-  useEffect(() => setLocal(value ?? '#f3ece1'), [value]);
-  useEffect(() => () => {
-    if (timer.current) window.clearTimeout(timer.current);
-  }, []);
+  const [open, setOpen] = useState(false);
+  const shown = value ?? '#f3ece1';
   return (
     <div className="flex min-h-12 items-center gap-3 rounded-md bg-white/70 px-3 py-2">
-      <label className="flex min-w-0 flex-1 items-center gap-3">
-        <input
-          type="color"
-          value={local}
-          disabled={disabled}
-          aria-label={label}
-          onChange={(e) => {
-            const hex = e.target.value;
-            setLocal(hex);
-            if (timer.current) window.clearTimeout(timer.current);
-            timer.current = window.setTimeout(() => onCommit(hex), 700);
-          }}
-          className="h-10 w-10 shrink-0 cursor-pointer rounded-full border border-ink/15 bg-transparent p-0.5"
-        />
+      <button
+        type="button"
+        disabled={disabled}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        data-reveal-colour=""
+        onClick={() => setOpen(true)}
+        className="sn-press flex min-w-0 flex-1 items-center gap-3 text-left"
+      >
+        <span aria-hidden className="h-10 w-10 shrink-0 rounded-full border border-ink/15" style={{ background: shown }} />
         <span className="min-w-0">
           <span className="block text-[13.5px] font-semibold text-ink">{label}</span>
           <span className="block text-[12px] text-ink/60">{value ? value.toUpperCase() : 'From your Mood Board'}</span>
         </span>
-      </label>
+      </button>
       {value ? (
-        <button
-          type="button"
-          disabled={disabled}
-          onClick={() => onCommit(null)}
-          className="sn-press inline-flex min-h-10 items-center rounded-full bg-ink/5 px-3 text-[12px] font-semibold text-ink hover:bg-ink/10"
-        >
-          Reset
-        </button>
+        <ActionButton tone="neutral" quiet icon={RotateCcw} label="Reset" disabled={disabled} onClick={() => onCommit(null)} />
+      ) : null}
+      {open ? (
+        <ColourSheet title={label} what="" value={value} shown={shown} palette={palette} slots={palette.length > 0} onPick={onCommit} onClose={() => setOpen(false)} />
       ) : null}
     </div>
   );
@@ -646,6 +664,8 @@ function RevealStagePart({
   openings,
   effective,
   choose,
+  savePick,
+  fallback,
   shownHere,
   showHere,
   stages,
@@ -656,6 +676,9 @@ function RevealStagePart({
   storeShell,
   failed,
 }: {
+  /** 🚫 The None card's door: one patch for the opening and where it plays (`lib/reveal-none.ts`). */
+  savePick: (patch: RevealPatch | null) => void;
+  fallback: string | null;
   /** Where the reveal plays — the ONE source (`events.reveal_stages`, drafted) Arrange's "On this stage" also writes. */
   stages: readonly RevealStage[];
   toggleStage: (s: RevealStage) => void;
@@ -678,36 +701,59 @@ function RevealStagePart({
   }, [effective]);
   const extras = effective !== 'none' ? revealExtrasFor(effective) : [];
   const mark = makerProMark({ owns: ownsPro, storeShell });
+  const now = { effective, stages };
+  const none = revealIsNone(now);
   return (
     <section className="contents" data-maker-reveal-part={onStage}>
       <StageStyle
         look={
           <>
-            {openings.length > 0 ? (
+            {
               <div role="radiogroup" aria-label="Kind" data-style-carousel="" data-maker-reveal-kinds="" className="-mx-[2px] flex shrink-0 snap-x snap-mandatory gap-2 overflow-x-auto overflow-y-hidden px-[2px] pb-1 pt-[2px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {/* 🚫 NONE — the first card (owner 2026-10-08: "and none."): the cover with no opening over it. It IS
+                    "every stage switch off" (`lib/reveal-none.ts`) — one fact, drawn twice, never two values. Free. */}
+                <button type="button" role="radio" aria-checked={none} data-maker-reveal-kind={REVEAL_NONE_ID} data-style-card={REVEAL_NONE_ID} onClick={() => savePick(revealPickPatch(REVEAL_NONE_ID, now, onStage))} className={SP_LOOK_CARD}>
+                  <span
+                    data-style-card-preview=""
+                    className={`${SP_PHONE_PICTURE} ${
+                      none ? 'border-2 border-[var(--sp-cta)] shadow-[0_0_0_3px_var(--sp-cta-wash)]' : 'border border-[var(--sp-line)]'
+                    }`}
+                  >
+                    <span data-style-preview="render" className="pointer-events-none absolute inset-0">
+                      <RevealPicture kind={REVEAL_NONE_ID} colours={look.colours} fill />
+                    </span>
+                  </span>
+                  <span className={`${SP_LOOK_NAME} ${none ? 'text-[var(--sp-ink)]' : 'text-[var(--sp-ink2)]'}`}>None</span>
+                </button>
                 {openings.map((o) => {
-                  const on = effective === o.id;
+                  const on = !none && effective === o.id;
                   return (
-                    <button key={o.id} type="button" role="radio" aria-checked={on} data-maker-reveal-kind={o.id} data-style-card={o.id} onClick={() => choose(o.id)} className={SP_LAYOUT_CARD}>
+                    <button key={o.id} type="button" role="radio" aria-checked={on} data-maker-reveal-kind={o.id} data-style-card={o.id} onClick={() => (none ? savePick(revealPickPatch(o.id, now, onStage)) : choose(o.id))} className={SP_LOOK_CARD}>
                       <span
                         data-style-card-preview=""
-                        className={`relative flex h-[104px] shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--sp-page)] ${
+                        className={`${SP_PHONE_PICTURE} ${
                           on ? 'border-2 border-[var(--sp-cta)] shadow-[0_0_0_3px_var(--sp-cta-wash)]' : 'border border-[var(--sp-line)]'
                         }`}
                       >
-                        <span data-style-preview="render" className="pointer-events-none">
-                          <RevealPicture kind={o.id} colours={look.colours} scale={0.82} />
+                        <span data-style-preview="render" className="pointer-events-none absolute inset-0">
+                          <RevealPicture kind={o.id} colours={look.colours} fill />
                         </span>
                       </span>
-                      <span className={`inline-flex h-[18px] items-center justify-center gap-1 truncate text-center text-[13px] font-semibold ${on ? 'text-[var(--sp-ink)]' : 'text-[var(--sp-ink2)]'}`}>
+                      {/* The name reads WHOLE (two lines where it needs them, never a cut word); its ◆ Pro mark has a line of
+                          its own under it — side by side they were clipped at both ends of the 112-px frame. */}
+                      <span data-reveal-kind-name="" className={`${SP_LOOK_NAME_WHOLE} ${on ? 'text-[var(--sp-ink)]' : 'text-[var(--sp-ink2)]'}`}>
                         {o.label}
-                        {mark ? <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Hub Pro')} size="xs" /> : null}
                       </span>
+                      {mark ? (
+                        <span data-reveal-kind-mark="" className={SP_LOOK_MARK}>
+                          <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Hub Pro')} size="xs" />
+                        </span>
+                      ) : null}
                     </button>
                   );
                 })}
               </div>
-            ) : null}
+            }
             {/* 🎚 WHERE IT PLAYS — one switch per stage that can carry a reveal (owner 2026-10-07: "reveal will have a
                 toggle for each stage it is at. to know where they want this to activate"). The same drafted list
                 Arrange › On this stage writes — one source, two doors. */}
@@ -715,7 +761,7 @@ function RevealStagePart({
               {REVEAL_STAGE_CHOICES.map((st) => (
                 <span key={st} className="flex min-w-0 flex-col items-center gap-0.5" data-reveal-stage-switch={st}>
                   <span className="max-w-full truncate text-[12px] font-semibold text-[var(--sp-ink2)]">{PUBLIC_STAGE_LABELS[st]}</span>
-                  <PanelSwitch on={stages.includes(st)} label={`Reveal on ${PUBLIC_STAGE_LABELS[st]}`} onChange={() => toggleStage(st)} data={`reveal-${st}`} />
+                  <PanelSwitch on={revealSwitchOn(now, st)} label={`Reveal on ${PUBLIC_STAGE_LABELS[st]}`} onChange={() => (effective === REVEAL_NONE_ID ? savePick(revealSwitchPatch(st, now, fallback)) : toggleStage(st))} data={`reveal-${st}`} />
                 </span>
               ))}
             </div>

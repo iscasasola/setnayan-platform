@@ -20,6 +20,7 @@
  */
 import { FREE_PRINT_KEYS, type DetailsItemKey } from '@/lib/maker-details-items';
 import { PRINT_SET_KEYS } from '@/lib/print-pieces';
+import { STUDIO_TILE_ITEM } from '@/lib/studio-tile-defs';
 
 /** The gifts items that leave Info for E-Gifts, in the prototype's order. */
 export const STUDIO_GIFT_ITEMS: readonly DetailsItemKey[] = ['gifts', 'thank-you'];
@@ -62,9 +63,10 @@ export function studioDetailsGroups<I extends { key: DetailsItemKey }>(groups: r
  * group starts at. Info: "Your event" then "Your Event Hub" (from its address on). Prints: "Your
  * invitation set" then "For the day". Words only — no field, no write.
  */
+/* 🧾 INFO HAS NO HEADINGS NOW (owner 2026-10-08: *"prioritize only what they need to input here"*; the Info redesign
+   opens on the first input) — "Your event" and "Your Event Hub" are gone: what must be typed is simply first, and
+   the optional rows are the fold "More for guests". */
 export const STUDIO_FORM_HEADS: Partial<Record<DetailsItemKey, { title: string; line?: string }>> = {
-  names: { title: 'Your event' },
-  address: { title: 'Your Event Hub' },
   invitation: { title: 'Your invitation set' },
   [FREE_PRINT_KEYS[0]!]: { title: 'For the day', line: 'free for every event' },
 };
@@ -96,9 +98,10 @@ export const STUDIO_FORM_ITEMS: readonly DetailsItemKey[] = [
    🗓 So does the Schedule (owner 2026-10-07 "1. okay"): its timeline, + Add a moment and ⋯ are all in its body. */
 export const STUDIO_PAGE_ITEMS: readonly DetailsItemKey[] = ['love-story', 'mood-board', 'schedule'];
 
-/** The top nav (52 px) and the tool's row (52 px) — the panel fills the rest, edge to edge (prototype `.full`).
- *  The panel's own height is `--maker-lt-h` less 8 px (`MAKER_LT_TOOL`), so this is 104 − 8. */
-const UNDER_THE_ROWS = 'calc(100dvh - 96px)';
+/** The top nav (52 px) — the panel fills the rest, edge to edge (prototype `.full`). The panel's own height is
+ *  `--maker-lt-h` less 8 px (`MAKER_LT_TOOL`), so this is 52 − 8. (It was 104 − 8 while a 52-px title row — "INFO ▾" —
+ *  sat under the top nav; owner 2026-10-08: *"we will not have these."* The page has that height now.) */
+const UNDER_THE_ROWS = 'calc(100dvh - 44px)';
 /** The prototype's warm page (`--page` #F3F0EA), on the app's tokens — the same mix as `STUDIO_PAGE_BG`. */
 const STUDIO_PAGE = 'color-mix(in srgb,rgb(var(--color-gild)) 9%,rgb(var(--color-cream)))';
 
@@ -114,7 +117,44 @@ const STUDIO_PAGE = 'color-mix(in srgb,rgb(var(--color-gild)) 9%,rgb(var(--color
  *
  * CSS only, drawn by the server beside Details — the shipped Maker (flag off) never has the attribute.
  */
+/** A form field that holds Form rows (`data-studio-info-rows`, Studio › Info): the rows ARE the form — no heading over them, no band padding around them. */
+const INFO_FIELD = '[data-details-workspace] [data-details-form-field]:has([data-studio-info-rows])';
+/**
+ * 🧾 STUDIO › INFO IS FORM ROWS (owner 2026-10-08; `app/_components/form-row.tsx`). Each field of the form that draws
+ * rows gives up its own heading (the row names itself) and its own spacing (a row is 52 px on one hairline — the
+ * field's own top line is that hairline). At every width; the phone's white band comes from the skin below.
+ */
+const STUDIO_INFO_CSS =
+  `${INFO_FIELD}{gap:0;padding-top:0;padding-bottom:0}` +
+  `${INFO_FIELD} > [data-details-form-heading]{display:none}` +
+  /* The form's last field holds only the quiet rows now (Restore · Reset… · About — the QR moved into the fold): it
+     has no "QR code" heading over them (controller 2026-10-08: a bare heading with nothing under it). */
+  '[data-details-workspace] [data-details-editor]:has(> [data-studio-quiet]) > [data-details-form-heading]{display:none}' +
+  /* Two lists of rows in one field (Special message, then What to bring): the hairline between rows, between lists too. */
+  '[data-studio-info-rows] + [data-studio-info-rows]{border-top:1px solid rgb(var(--color-ink)/.1)}' +
+  /* 🖨 Studio › Prints: each include switch, size row and fact is its own list of rows — the same one hairline runs between one list and the next. */
+  '[data-studio-print-rows] + [data-studio-print-rows]{border-top:1px solid rgb(var(--color-ink)/.1)}';
 const W = '[data-maker-studio-full] [data-details-workspace]';
+/**
+ * 📏 ONE HAIRLINE BETWEEN INFO'S ROWS, AT EVERY WIDTH (owner 2026-10-09, *"no lines on row?"*; the template's `.fr` is a
+ * `border-top` on every row but the first — `control_templates_2026-10-08.html` § 6).
+ *
+ * THE FAULT: the phone skin below gives every form field `margin: 0 -16px` (its cream band runs edge to edge) and a
+ * `border-top` — so a boundary BETWEEN two Info fields was a hairline running the whole width of the screen, while a boundary
+ * between two rows INSIDE one field (Opening line → Start from, Special message → What to bring, Restore → Reset → About) is
+ * the Form row's own hairline, which sits inside the field's 16 px of padding. Two kinds of line, alternating.
+ *
+ * THE FIX, Info's own wrapper only (the shared Form rows already draw ONE line, and the other Studio forms are not Info): an
+ * Info field's own top line is drawn INSET by the same 16 px, in the same colour — a one-pixel gradient at the field's top edge
+ * instead of the border — so every boundary in Info, between fields or inside one, starts and ends where the rows' text does.
+ * The first Info field has none (the template's first row has none).
+ * At 1024 px and up the skin is off: fields have no side padding, and both lines already run the panel's width.
+ */
+export const STUDIO_INFO_HAIRLINE_INSET_PX = 16;
+const INFO_FIELDS = `${W} :is([data-details-form-field]:has([data-studio-info-rows]),[data-details-form-field]:has(> [data-studio-quiet]))`;
+const STUDIO_INFO_HAIRLINE_CSS =
+  `${INFO_FIELDS}{border-top-color:transparent;background-image:linear-gradient(rgb(var(--color-ink)/.1),rgb(var(--color-ink)/.1));background-repeat:no-repeat;background-origin:border-box;background-position:${STUDIO_INFO_HAIRLINE_INSET_PX}px 0;background-size:calc(100% - ${STUDIO_INFO_HAIRLINE_INSET_PX * 2}px) 1px}` +
+  `${INFO_FIELDS}[data-details-editor="${STUDIO_TILE_ITEM.info}"]{background-image:none}`;
 const STUDIO_SKIN_CSS =
   `${W} [data-details-form-field]{background:rgb(var(--color-cream));margin-left:-16px;margin-right:-16px;padding:12px 16px;border-top:1px solid rgb(var(--color-ink)/.1)}` +
   `${W} [data-details-form-group]{margin:-12px -16px 4px;padding:18px 22px 6px;background:${STUDIO_PAGE};border-bottom:1px solid rgb(var(--color-ink)/.1)}` +
@@ -133,7 +173,8 @@ const STUDIO_SKIN_CSS =
   `${W} input[role=switch]+span::after{width:22px;height:22px;left:3px;top:3px}` +
   `${W} input[role=switch]:checked+span{background-color:#4f6b4a}` +
   `${W} input[role=switch]:checked+span::after{transform:translateX(18px)}` +
-  `${W} [data-details-editor] :is(input:not([type]),input[type=text],input[type=url],input[type=tel],input[type=email],input[type=search],input[type=date],textarea){min-height:44px;border-radius:var(--m-r-sm);border-color:rgb(var(--color-ink)/.1);background:${STUDIO_PAGE};font-size:14px}`;
+  /* …but never a Form row's own field (`data-form-row-input`): that one is the template's pill, 16 px so a phone does not zoom. */
+  `${W} [data-details-editor] :is(input:not([type]),input[type=text],input[type=url],input[type=tel],input[type=email],input[type=search],input[type=date],textarea):not([data-form-row-input]){min-height:44px;border-radius:var(--m-r-sm);border-color:rgb(var(--color-ink)/.1);background:${STUDIO_PAGE};font-size:14px}`;
 
 /**
  * 🚶 STUDIO › WEDDING MARCH GETS THE SCREEN FOR THE WALKS (owner 2026-10-07, verbatim *"yes parents
@@ -171,6 +212,9 @@ export function studioFullScreenCss(): string {
     `[data-maker-studio-full] [data-details-workspace] [data-details-editor-panel][data-phone-chrome="panel"]{left:0;right:0;bottom:0;border-radius:0;box-shadow:none;background:${STUDIO_PAGE}}` +
     `[data-maker-studio-full] [data-details-workspace]{background:${STUDIO_PAGE}}` +
     `${form} [data-details-body],${form} [data-details-sheet-head]{display:none}` +
+    /* No empty band over a form: its first field starts right under the top nav (the 8-px strip that showed under
+       the old title row is gone with it). */
+    `${form} div:has(> [data-details-form-field]){padding-top:0}` +
     `${page} [data-details-editor-panel]{display:none}` +
     /* 🪑 Seat plan (owner 2026-10-08, *"there is no space to see the whole seatplan"*): its people are a
        pull-up sheet over the map (`PeopleSheet`), so the lower third steps aside and the map takes the screen. */
@@ -183,8 +227,10 @@ export function studioFullScreenCss(): string {
     '[data-details-workspace] [data-details-editor-panel][data-phone-chrome="panel"]:has([data-details-editor]:not([hidden]) [data-studio-look-bar]){left:0;right:0;bottom:0;height:calc(50dvh - 26px);border-radius:0;box-shadow:none;border-top:1px solid rgb(var(--color-ink)/.1)}' +
     `[data-maker-studio-full]:has([data-details-workspace]${on([...STUDIO_FORM_ITEMS, ...STUDIO_PAGE_ITEMS])}) [data-maker-studio-room]{display:none}` +
     STUDIO_SKIN_CSS +
+    STUDIO_INFO_HAIRLINE_CSS +
     STUDIO_MARCH_CSS +
     '}' +
-    STUDIO_MUSIC_SWITCH_CSS
+    STUDIO_MUSIC_SWITCH_CSS +
+    STUDIO_INFO_CSS
   );
 }

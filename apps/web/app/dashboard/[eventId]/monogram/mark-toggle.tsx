@@ -1,5 +1,9 @@
+'use client';
+
 import Link from 'next/link';
 import { PenLine, UploadCloud } from 'lucide-react';
+
+import { PILL_TRACK_CLASS, PILL_TRACK_GROUND, PillThumb, pillSegClass } from '@/app/_components/pill-selector';
 
 /**
  * <MarkToggle> — the one control at the top of the Monogram Maker.
@@ -25,6 +29,11 @@ import { PenLine, UploadCloud } from 'lucide-react';
  * before any JavaScript has loaded. `aria-current` marks the active side for
  * screen readers; both targets are ≥44px.
  *
+ * 🎚 THE ONE PILL SELECTOR (owner 2026-10-08: *"adjust all pill selectors to this if possible"*): the track, the
+ * two sides and the terracotta thumb that slides between them are the app's template
+ * (`app/_components/pill-selector.tsx`) — still two real `<Link>`s, the same two addresses. This file is a client
+ * file ONLY so it can read the template's class strings (they live in a client module); it holds no state.
+ *
  * ⚠ THE TWO HREFS ARE WRITTEN OUT LITERALLY, ON PURPOSE. `lint-port-no-lost-
  * controls` reads destinations statically and cannot follow a URL built by a
  * helper call. Measured, not assumed: the chooser this replaces built its
@@ -36,18 +45,14 @@ import { PenLine, UploadCloud } from 'lucide-react';
  * destinations to it — which is why removing the bare "Both ways to make it"
  * link is a real, deliberate removal and its baseline is regenerated.)
  */
-const ON = 'bg-cream text-ink shadow-sm';
-const OFF = 'text-ink/60 hover:text-ink';
-const SIDE =
-  'inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold transition-colors';
-
 export function MarkToggle({ eventId, mode }: { eventId: string; mode: 'design' | 'upload' }) {
   return (
-    <nav aria-label="How to make your mark" className="flex w-full max-w-lg gap-1 rounded-xl bg-ink/5 p-1">
+    <nav aria-label="How to make your mark" className={`${PILL_TRACK_CLASS} ${PILL_TRACK_GROUND} w-full max-w-lg`}>
+      <PillThumb />
       <Link
         href={`/dashboard/${eventId}/monogram?mode=design`}
         aria-current={mode === 'design' ? 'page' : undefined}
-        className={`${SIDE} ${mode === 'design' ? ON : OFF}`}
+        className={`${pillSegClass(mode === 'design')} gap-2 px-4`}
       >
         <PenLine aria-hidden className="h-4 w-4" strokeWidth={2} />
         Create your own
@@ -55,7 +60,7 @@ export function MarkToggle({ eventId, mode }: { eventId: string; mode: 'design' 
       <Link
         href={`/dashboard/${eventId}/monogram?mode=upload`}
         aria-current={mode === 'upload' ? 'page' : undefined}
-        className={`${SIDE} ${mode === 'upload' ? ON : OFF}`}
+        className={`${pillSegClass(mode === 'upload')} gap-2 px-4`}
       >
         <UploadCloud aria-hidden className="h-4 w-4" strokeWidth={2} />
         Upload your monogram

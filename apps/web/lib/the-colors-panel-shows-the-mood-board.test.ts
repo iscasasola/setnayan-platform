@@ -25,6 +25,10 @@ import { buildSitePaletteVars, moodBoardSiteColours } from './site-palette';
 import { INVITE_THEMES } from './invite-themes';
 import { ombreCss } from './ombre';
 import type { RolePalette } from './mood-board';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { stripComments } from './strip-comments';
+import { pickerShelves } from './mood-board-studio';
 
 (globalThis as unknown as { React: unknown }).React = React;
 
@@ -80,9 +84,13 @@ test('blank shows the Mood Board’s colours, "From your Mood Board" — never t
   assert.equal(page.label, 'From your Mood Board');
   assert.equal(buttons.label, 'From your Mood Board');
   assert.doesNotMatch(html, /#f4ecdd/i, 'the hard-coded cream is gone');
-  // Their Mood Board is offered first, as swatches.
-  assert.match(html, /Your Mood Board/);
-  for (const c of ['#6b2e3a', '#4f6b4a']) assert.match(html, new RegExp(`aria-label="Colour ${c}"`));
+  // Their Mood Board is offered first: both wells hand its swatches to the ONE colour picker (2026-10-08 — the
+  // well's own panel is retired), whose first suggestion shelf, "Your Mood Board", leads with them.
+  const panelSrc = stripComments(readFileSync(join(__dirname, '..', 'app/dashboard/[eventId]/website/editor/_components/pro-panels.tsx'), 'utf8'));
+  assert.equal((panelSrc.match(/<ColourWell[\s\S]{0,200}palette=\{moodBoard\?\.swatches \?\? \[\]\}/g) ?? []).length, 2, 'a well does not hand the Mood Board’s swatches to the picker');
+  const shelf = pickerShelves(mb.swatches).board.map((r) => r.hex.toLowerCase());
+  assert.deepEqual(shelf, mb.swatches.slice(0, shelf.length), 'the picker’s Mood Board shelf does not lead with the board’s swatches');
+  for (const c of ['#6b2e3a', '#4f6b4a']) assert.ok(shelf.includes(c), `${c} is not offered`);
 });
 
 test('the effect chips preview in the resolved colour, and none is disabled while blank', async () => {

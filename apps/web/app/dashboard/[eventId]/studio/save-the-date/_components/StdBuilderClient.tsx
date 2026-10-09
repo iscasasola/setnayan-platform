@@ -58,6 +58,7 @@ import {
 } from '@/app/dashboard/[eventId]/_components/device-frame';
 import type { WaxSealConfig } from '@/lib/wax-seal/types';
 import { formatCount } from '@/lib/format-number';
+import { SwitchTrack } from '@/app/_components/switch-track';
 
 type Props = {
   eventId: string;
@@ -866,17 +867,7 @@ export function StdBuilderClient({
                   {effects.music ? 'On — your song plays through the film.' : 'Off — your film plays silently.'}
                 </span>
               </span>
-              <span
-                className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
-                  effects.music ? 'bg-terracotta' : 'bg-ink/20'
-                }`}
-              >
-                <span
-                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
-                    effects.music ? 'translate-x-5' : 'translate-x-0.5'
-                  }`}
-                />
-              </span>
+              <SwitchTrack on={effects.music} />
             </button>
 
             {/* Your song — inline upload (single-source: this sets the couple's
@@ -898,6 +889,7 @@ export function StdBuilderClient({
                   bucket="media"
                   pathPrefix={`events/${eventId}/site-music`}
                   acceptedTypes={['audio/mpeg', 'audio/mp4', 'audio/aac', 'audio/ogg', 'audio/wav']}
+                  audioGuard
                   maxSizeMB={40}
                   variant="wide"
                   currentValue={siteMusicKey}

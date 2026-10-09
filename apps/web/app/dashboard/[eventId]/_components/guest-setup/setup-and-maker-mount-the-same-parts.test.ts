@@ -44,14 +44,39 @@ test('both doors import the three shared parts from guest-setup/', () => {
 });
 
 test('the Maker mounts the parts in its Studio, its stage form and its Details editor', () => {
-  // Studio (1) + the stage form and Details share one `getIn` / `asks` element.
+  // ONE framed mount for the reply's rows — the SAME list Studio › RSVP and the stage's form draw (2026-10-08, the
+  // templates) — and one for Event Details' own row.
   console.log(`maker mounts: GuestsGetIn ${count(MAKER, /<GuestsGetIn\b/g)} · RsvpAsks ${count(MAKER, /<RsvpAsks\b/g)} · ReplyBy ${count(MAKER, /<ReplyBy\b/g)}`);
-  assert.equal(count(MAKER, /<GuestsGetIn\b/g), 2, 'the shared getIn element + the Studio mount');
-  assert.equal(count(MAKER, /<RsvpAsks\b/g), 2, 'the shared asks element + the Studio mount');
+  assert.equal(count(MAKER, /<GuestsGetIn\b/g), 2, 'the reply’s rows (Studio + the stage) and Event Details');
+  assert.equal(count(MAKER, /<RsvpAsks\b/g), 2, 'the reply’s rows (Studio + the stage) and Event Details');
+  assert.equal(count(MAKER, /\{formRows\}/g), 2, 'Studio › RSVP and the stage’s form do not draw the same rows');
+  assert.match(MAKER, /<FormRows data="rsvp">\s*\{replyByRow\}\s*\{answerRow\}\s*\{wordRows\('form'\)\}\s*\{getInRow\}\s*\{asksRow\}\s*<\/FormRows>/);
   /* Owner on the preview 2026-10-08: *"where it the reply by date?"* → *"date is not changeable on studio."* —
-     Studio › RSVP mounts the part as an EDITABLE row (it printed the date read-only), drafted. */
-  assert.ok(/<ReplyBy\s+layout="studio"[^>]*\baction=\{replyByAction\}\s+draft\s*\/>/.test(MAKER), 'Studio › RSVP does not mount an editable, drafted Reply by row');
+     the Maker mounts the part as an EDITABLE row (it printed the date read-only), drafted. */
+  assert.ok(/<ReplyBy\s+layout="frame"\s+frame=\{replyByFrame\}[^>]*\baction=\{replyByAction\}\s+draft\s*\/>/.test(MAKER), 'the Maker does not mount an editable, drafted Reply by row');
   assert.ok(!/layout="print"/.test(MAKER), 'Studio › RSVP prints Reply by read-only again');
+});
+
+test('a door may draw the ROW — the part still owns the value, the choices and the writer; the six asks are the part’s own chips', () => {
+  const part = (file: string) => read(file);
+  // The Maker hands each part a frame; what the frame is given comes from the part, never spelled in the Maker.
+  assert.match(MAKER, /const getInRow = <GuestsGetIn frame=\{getInFrame\} value=\{getInNow\} onPick=\{pickGetIn\} \/>;/);
+  assert.match(MAKER, /const asksRow = <RsvpAsks frame=\{asksFrame\} config=\{local\} onToggle=\{toggleAsk\} \/>;/);
+  const getIn = part('guests-get-in.tsx');
+  assert.match(getIn, /name: GUESTS_GET_IN_LABEL,\s*value,\s*buttonText: guestsGetInLabel\(value\),\s*hint: choice\.hint,\s*options: guestsGetInOptions\(\),\s*onPick: pick,/);
+  assert.match(getIn, /const pick = \(next: string\) => \(next === value \|\| !isGuestsGetIn\(next\) \? undefined : onPick\(next\)\);/, 'a framed pick of the stored choice (or of a made-up one) is sent');
+  const replyBy = part('reply-by.tsx');
+  assert.match(replyBy, /frame\(\{ name: REPLY_BY_LABEL, own: value, fallback, keep: pick, attrs: /, 'the framed row is handed something other than the part’s own value and writer');
+  // The six asks: the CHIPS are drawn by the part in both doors (one look); only the row around them is the door's.
+  const asks = part('rsvp-asks.tsx');
+  assert.match(asks, /<Chips<RsvpAskField>\s+label=\{RSVP_ASKS_TITLE\}/);
+  assert.equal(count(asks, /<Chips\b/g), 1, 'the asks are drawn twice (a look per door)');
+  assert.match(asks, /value=\{RSVP_ASK_FIELDS\.filter\(\(field\) => rsvpAsks\(config, field\)\)\}\s*onToggle=\{onToggle\}/);
+  assert.doesNotMatch(asks, /ActionButton|<button\b/, 'the asks are hand-made toggles again');
+  // No part wraps a framed row (a row must stay a direct child of its list — its hairline is `first:`'s).
+  for (const src of [getIn, replyBy, asks]) assert.doesNotMatch(src, /className="contents"/, 'a part wraps the row its frame draws');
+  // …and neither of the two parts whose row the Maker draws carries a template: Guests › Setup downloads none.
+  for (const src of [getIn, replyBy]) assert.doesNotMatch(src, /form-row|\/calendar|\/chips/, 'a shared part imports the Form row or the calendar');
 });
 
 test('neither door draws a get-in dropdown or an ask switch of its own', () => {

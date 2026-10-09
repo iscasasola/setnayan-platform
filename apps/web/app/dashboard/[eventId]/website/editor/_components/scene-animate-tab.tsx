@@ -29,10 +29,12 @@ import { IButton, IHint, IReset, IRow, ISection } from './inspector-kit';
 import { PickMenu } from './pick-menu';
 import { MotionFxRows } from './motion-fx-rows';
 import type { MotionFx } from '@/lib/motion-effects';
-import { HUB_DURATION, HUB_DURING_LABEL, HUB_SEQUENCES } from '@/lib/hub-canvas';
+import { HUB_DURING_LABEL, HUB_SEQUENCES, type HubDuring } from '@/lib/hub-canvas';
 import { makerSceneHasRows } from '@/lib/maker-parts';
 import { useMaker } from '../../../launch/_components/maker-context';
 import { StageAnimate } from '../../../launch/_components/stage-panel/stage-animate';
+import { offeredTransition, scrubOutOffered } from '@/lib/scrub-out-offered';
+import { FEEL_OFF, leavesOptions, autoFeel, autoSpeedOf, laySceneInFeel, laySceneOutFeel, sceneInFeel, sceneOutFeel } from '@/lib/animate-feel';
 
 /**
  * 🎬 A SCENE'S ANIMATE TAB — the scene inspector's (`scene-inspector.tsx`, whose
@@ -98,7 +100,9 @@ export function SceneAnimateTab({
 
   const preset = shown.preset ?? null;
   const m = resolveHubMotion(shown);
-  const transition = resolveTransition(shown);
+  /* 🌑 While "Scrub out" ships dark a scene that stores it READS as "As it scrolls away" — Leaves, Movement and ▶
+     then behave as for scroll, and nothing stored is rewritten (`lib/scrub-out-offered.ts`). */
+  const transition = offeredTransition(resolveTransition(shown));
   const speed = shown.autoSpeed ?? HUB_DEFAULT_AUTO_SPEED;
   const setTransition = (t: string | null, s: string | null) =>
     save((c) => {
@@ -115,19 +119,28 @@ export function SceneAnimateTab({
         <StageAnimate
           pending={pending}
           error={error}
-          pro={mark ? 'How a scene moves is Event Hub Pro — try it here; it goes live when you Apply with it.' : null}
-          how={{
-            /* A switch moved by hand (its own In / Out over the preset) reads "Custom" — the prototype's word. */
-            value: preset ?? 'auto',
-            buttonText: shown.inFx || shown.outFx || shown.in || shown.out ? 'Custom' : undefined,
-            options: [{ key: 'auto', label: 'Auto' }, ...HUB_MOTION_PRESETS.map((p) => ({ key: p, label: HUB_MOTION_PRESET_LABEL[p] }))],
-            /* A preset is laid whole: its own Build in / Build out replace any hand-set switch. */
-            onPick: (k) => save((c) => { for (const f of ['in', 'inFrom', 'inFx', 'out', 'outTo', 'outFx'] as const) delete c[f]; if (k === 'auto') delete c.preset; else c.preset = k; }),
+          /* 🎚 Movement is each end's own FEEL (`lib/animate-feel.ts`) — it writes a tempo and nothing else. The old
+             one-for-all preset is not offered here; a stored `preset` keeps playing and is never rewritten. */
+          move={{
+            in: {
+              value: sceneInFeel(shown, m),
+              onPick: (f) => save((c) => laySceneInFeel(c, f)),
+              off: m.in === 'none' ? FEEL_OFF.noEffect : null,
+            },
+            out:
+              /* Auto scroll has a speed of its own; Scrub out follows the thumb; else the scene's own way out. */
+              transition === 'auto'
+                ? { value: autoFeel(shown.autoSpeed), onPick: (f) => setTransition('auto', autoSpeedOf(f)) }
+                : {
+                    value: sceneOutFeel(shown),
+                    onPick: (f) => save((c) => laySceneOutFeel(c, f)),
+                    off: transition === 'scrub' ? FEEL_OFF.scrub : m.timeline === 'time' ? FEEL_OFF.arrival : m.out === 'none' ? FEEL_OFF.noEffect : null,
+                  },
           }}
-          duration={{
-            value: m.duration,
-            steps: HUB_DURATION,
-            onPick: (sec) => save((c) => { c.duration = sec; }),
+          /* The drive — one for both ends: on arrival a scene has no Build out. */
+          plays={{
+            value: m.timeline === 'scrub' ? 'scroll' : 'arrival',
+            onPick: (d) => save((c) => { c.timeline = d === 'scroll' ? 'scrub' : 'time'; }),
           }}
           inFx={m.inFx}
           outFx={m.outFx}
@@ -139,32 +152,20 @@ export function SceneAnimateTab({
                   value: shown.sequence ?? 'auto',
                   options: [
                     { key: 'auto', label: 'Auto' },
-                    ...HUB_SEQUENCES.map((q) => ({ key: q, label: q === 'one_after_another' ? 'One after another' : HUB_SEQUENCE_LABEL[q] })),
+                    /* "One by one" — the long words do not fit a third of a row. */
+                    ...HUB_SEQUENCES.map((q) => ({ key: q, label: q === 'one_after_another' ? 'One by one' : HUB_SEQUENCE_LABEL[q] })),
                   ],
                   onPick: (q) => save((c) => { if (q === 'auto') delete c.sequence; else c.sequence = q; }),
                 }
               : null
           }
           does={{
-            value: shown.during ?? 'auto',
-            options: [{ key: 'auto', label: 'Auto' }, ...(['still', 'lift'] as const).map((d) => ({ key: d, label: HUB_DURING_LABEL[d] }))],
-            onPick: (d) => save((c) => { if (d === 'auto') delete c.during; else c.during = d; }),
-            note: (shown.during ?? m.during) === 'lift' ? 'Rises slowly while it is on screen' : 'Nothing happens while it is on screen',
+            /* Still | Slow lift — the pressed one is what guests see now (its own pick, else the preset's). */
+            value: shown.during ?? m.during,
+            options: (['still', 'lift'] as const).map((d) => ({ key: d, label: HUB_DURING_LABEL[d] })),
+            onPick: (d) => save((c) => { c.during = d as HubDuring; }),
           }}
-          timing={{
-            value: shown.timeline ?? 'auto',
-            options: (['auto', 'time', 'scrub'] as const).map((t) => ({ key: t, label: t === 'auto' ? 'Auto' : HUB_TIMELINE_LABEL[t] })),
-            onPick: (t) => save((c) => { if (t === 'auto') delete c.timeline; else c.timeline = t; }),
-          }}
-          next={
-            isLast
-              ? null
-              : {
-                  value: transition,
-                  options: HUB_TRANSITIONS.map((t) => ({ key: t, label: HUB_TRANSITION_LABEL[t] })),
-                  onPick: (t) => setTransition(t, null),
-                }
-          }
+          leaves={isLast ? null : { value: transition, options: leavesOptions(), onPick: (t) => setTransition(t, null) }}
         />
       </div>
     );
@@ -257,7 +258,7 @@ export function SceneAnimateTab({
               label="Into the next scene"
               dataAttr="data-scene-transition"
               value={transition}
-              options={HUB_TRANSITIONS.map((t) => ({ key: t, label: HUB_TRANSITION_LABEL[t], hint: HUB_TRANSITION_HINT[t] }))}
+              options={HUB_TRANSITIONS.filter((t) => t !== 'scrub' || scrubOutOffered()).map((t) => ({ key: t, label: HUB_TRANSITION_LABEL[t], hint: HUB_TRANSITION_HINT[t] }))}
               onPick={(t) => setTransition(t, null)}
               className={ROW_PICK}
             />

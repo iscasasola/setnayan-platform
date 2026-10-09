@@ -8,11 +8,13 @@ import { makerSceneLabel } from '@/lib/maker-scene-list';
 import { resolveWeddingOnlyParts } from '@/lib/wedding-only-parts';
 import { WEDDING_PROFILE } from '@/lib/event-type-profile';
 import { INVITE_THEMES, themeBackgroundName } from '@/lib/invite-themes';
-import { hubMovingBackgroundIds } from '@/lib/hub-canvas';
+import { hubMovingBackgroundIds, sanitizeHubMainGround } from '@/lib/hub-canvas';
 import { resolveThemeGround } from '@/app/[slug]/_lib/theme-ground';
 import type { InvitationWidgetRow, WidgetType } from '@/lib/invitation-widgets';
 import { detailsLabNode } from '../details-lab/details-lab-node';
 import { MakerLabShell } from './maker-lab-shell';
+import { LAB_EDITORIAL_COOKIE, labEditorialDraft, labPostEventRead } from './lab-post-event';
+import { labScrubCanvases, labWidgetsCookie } from './lab-scrub';
 import { STUDIO_TILE_KEYS, STUDIO_TILES } from '@/lib/studio-tiles';
 
 /**
@@ -50,6 +52,28 @@ const MJ_ROWS: ReadonlyArray<[WidgetType, boolean]> = [
   ['our_love_story', false],
 ];
 
+/** Stand-ins for a moving background's still and loop when the lab has no public media address — files this repo ships. */
+/**
+ * 🧪 The Studio cards' states in the lab — a stand-in for what the server measures on a real event (`studioTiles`):
+ * a MIX, so a Ready card, a Missing one and a page nobody could measure (no badge) are each on screen, and the head's
+ * "n of 11 ready" can be read against them (6 here). Fixture only — nothing is read or written.
+ */
+const LAB_STUDIO_DONE: Record<(typeof STUDIO_TILE_KEYS)[number], boolean | undefined> = {
+  info: true,
+  look: true,
+  logo: false,
+  mood: true,
+  schedule: true,
+  story: false,
+  march: false,
+  seats: false,
+  gifts: undefined,
+  rsvp: true,
+  prints: true,
+};
+const LAB_STILLS = ['ballroom', 'starlit', 'fairy-lights', 'rose-archway', 'seascape', 'sunrise', 'aurora', 'peonies', 'bridgerton'];
+const LAB_CLIPS = ['jack-jill-vclip', 'jack-rose-vclip', 'maria-juan-vclip', 'john-jane-vclip', 'peter-mary-vclip'];
+
 export default async function MakerLabPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
@@ -70,8 +94,11 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
     mode: 'auto',
   }));
   const pal = INVITE_THEMES.house.palette;
+  /* 🎞 The lab's Post Event story — the day's facts compiled by the real compiler, the lab's drafted story keys
+     (`lab_editorial`) laid over (`./lab-post-event.ts`). It was `null`: the Post Event panel could not be opened. */
+  const labPostEvent = labPostEventRead(labEditorialDraft((await cookies()).get(LAB_EDITORIAL_COOKIE)?.value));
   const navigator = buildMakerNavigatorData({
-    postEvent: null,
+    postEvent: labPostEvent,
     plan: {
       widgets: rows,
       openBrowse: true,
@@ -109,18 +136,36 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
   });
   /* 🎨 The lab's draft of each scene's canvas (`lab_widgets`, set by the lab's
      save stand-in) — the "server" canvases every render hands the work area. */
+  /* 🎚 `?scrub=1` — the Scrub chain (`./lab-scrub.ts`): the chain's scenes start on its canvases (so each scene's
+     Animate says what its canvas plays), saved to the chain's own cookie, and the canvas is the chain's address. */
+  const scrub = sp.scrub === '1';
   let drafted: Record<string, unknown> = {};
   try {
-    drafted = JSON.parse(decodeURIComponent((await cookies()).get('lab_widgets')?.value ?? '{}')) as Record<string, unknown>;
+    drafted = JSON.parse(decodeURIComponent((await cookies()).get(labWidgetsCookie(scrub))?.value ?? '{}')) as Record<string, unknown>;
   } catch {
     drafted = {};
   }
+  drafted = labScrubCanvases(scrub, drafted);
   /* 🎨 🎛 The lab's drafted part styles and camera look (set by the lab's save stand-in). */
   let fixedStyles: FixedSceneStyles = {};
   try {
     fixedStyles = sanitizeFixedSceneStyles(JSON.parse(decodeURIComponent((await cookies()).get('lab_styles')?.value ?? '{}')));
   } catch {
     fixedStyles = {};
+  }
+  /* 🎞 The lab's DRAFTED main background (`lab_main`, the cookie the lab's save stand-in writes and its canvas reads) —
+     the lab's "server" hands it back on its next render, as the real Maker's does, so a pick survives a render. */
+  let labMain: ReturnType<typeof sanitizeHubMainGround> | undefined;
+  {
+    const raw = (await cookies()).get('lab_main')?.value;
+    if (raw !== undefined) {
+      try {
+        const v = JSON.parse(decodeURIComponent(raw)) as unknown;
+        labMain = v === null ? null : sanitizeHubMainGround(v);
+      } catch {
+        labMain = undefined;
+      }
+    }
   }
   const camRaw = (await cookies()).get('lab_camera')?.value;
   const cameraLook: CameraLook = isCameraLook(camRaw) ? camRaw : 'classic';
@@ -143,18 +188,37 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
       navigator={navigator}
       details={detailsLabNode({ ...sp, shape: 'mj', ...(sp.studio === '1' || sp.ss === '1' ? { look: '1' } : {}) })}
       /* 🎞 Look › Background's moving backgrounds, built as the editor page builds them. */
-      loops={hubMovingBackgroundIds().map((id) => ({
+      loops={hubMovingBackgroundIds().map((id, i) => ({
         id,
         name: themeBackgroundName(id),
-        stillUrl: resolveThemeGround(id, { ownColours: false })?.poster ?? null,
+        /* Where this machine has no address for our public art (no media settings in the lab's env), a LOCAL stand-in
+           still and clip — so the cards, the instant preview and the stopwatch have a real picture and a real film. */
+        stillUrl: resolveThemeGround(id, { ownColours: false })?.poster ?? `/std/backgrounds/${LAB_STILLS[i % LAB_STILLS.length]}.webp`,
+        loopUrl: resolveThemeGround(id, { ownColours: false })?.loop ?? `/realstories/${LAB_CLIPS[i % LAB_CLIPS.length]}.mp4`,
       }))}
+      pageColour={sp.paper === 'dark' ? '#1e2229' : null}
+      /* 🌄 `?bg=video|pattern|scene` — start Look › Background on that Source (nothing is written; a fixture). */
+      mainBackground={
+        labMain !== undefined
+          ? labMain
+          : sp.bg === 'video'
+          ? sanitizeHubMainGround({ ground: 'loop', loop: hubMovingBackgroundIds()[0] })
+          : sp.bg === 'pattern'
+            ? sanitizeHubMainGround({ ground: 'pattern', pattern: 'dots' })
+            : sp.bg === 'scene'
+              ? sanitizeHubMainGround({ kind: 'photo', media: '/std/backgrounds/golden-hour.webp', tint: { match: false, frame: ['#f0d5b4', '#291d10'] }, shade: 'dark' })
+              : null
+      }
       openDetails={sp.tool === 'details' || typeof sp.guide === 'string'}
       canvases={canvases}
+      scrub={scrub}
       fixedStyles={fixedStyles}
       cameraLook={cameraLook}
+      /* ✓ `?changes=3` — a draft with unapplied changes (lab only; nothing is stored). */
+      changes={Math.max(0, Math.min(99, Math.floor(Number(sp.changes) || 0)))}
       /* Moves with every render, as the real Maker's stamp does — a save's refresh reaches the canvas. */
       renderStamp={String(Date.now())}
-      /* 🧭 `?studio=1` (or `?ss=1`) — the new Maker on the lab's fixtures (no ✓ claimed: nothing was measured here). */
+      /* 🧭 `?studio=1` (or `?ss=1`) — the new Maker on the lab's fixtures (its cards' states are the lab's stand-in, `LAB_STUDIO_DONE`). */
       stagesStudio={sp.studio === '1' || sp.ss === '1'}
       studio={
         sp.studio === '1' || sp.ss === '1'
@@ -165,7 +229,9 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
                 short: STUDIO_TILES[key].short,
                 item: STUDIO_TILES[key].item,
                 immersive: STUDIO_TILES[key].immersive === true,
-                done: undefined,
+                /* 🧪 The lab's stand-in for what the server measures (the real Maker reads each from the event): a mix,
+                   so Ready, Missing and "no claim" can each be seen on a card — and the head's count beside them. */
+                done: LAB_STUDIO_DONE[key],
                 status: STUDIO_TILES[key].sub,
               })),
             }

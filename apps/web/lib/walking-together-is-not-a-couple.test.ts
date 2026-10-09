@@ -173,7 +173,7 @@ test('⛔ the Maker’s Wedding March sets NO couple — no tick, no writer (own
 
 test('"walks with" is not on a Guest list row or the guest card — neither shown nor edited', () => {
   const surfaces = [
-    'app/dashboard/[eventId]/guests/_components/guest-list-multiselect.tsx',
+    'app/dashboard/[eventId]/guests/_components/guests-screen.tsx',
     'app/dashboard/[eventId]/guests/_components/guest-card-body.tsx',
     'app/dashboard/[eventId]/guests/_components/guest-card-data.ts',
   ];

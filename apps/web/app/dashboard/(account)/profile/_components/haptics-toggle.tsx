@@ -20,6 +20,7 @@
 import { useEffect, useState } from 'react';
 import { Vibrate } from 'lucide-react';
 import { haptic } from '@/lib/haptics';
+import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 
 const KEY = 'setnayan-haptics';
 
@@ -76,15 +77,9 @@ export function HapticsToggle() {
         aria-label="Haptic feedback"
         data-no-haptic
         onClick={toggle}
-        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
-          on ? 'bg-terracotta' : 'bg-ink/20'
-        } ${ready ? '' : 'opacity-60'}`}
+        className={`${SWITCH_BUTTON} ${ready ? '' : 'opacity-60'}`}
       >
-        <span
-          className={`inline-block h-5 w-5 transform rounded-full bg-cream shadow transition-transform ${
-            on ? 'translate-x-[22px]' : 'translate-x-0.5'
-          }`}
-        />
+        <SwitchTrack on={on} />
       </button>
     </div>
   );

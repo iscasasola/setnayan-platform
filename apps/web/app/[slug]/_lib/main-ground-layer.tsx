@@ -2,7 +2,9 @@ import 'server-only';
 
 import type { ReactNode } from 'react';
 import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
-import { hubMainGround, hubMainLook, isHubMainLoop, mainGroundIsNone, type HubMainLook, type ResolvedMainGround } from '@/lib/hub-canvas';
+import { hubMainEffect, hubMainGround, hubMainLook, isHubMainLoop, mainGroundIsNone, type HubMainLook, type ResolvedMainGround } from '@/lib/hub-canvas';
+import { AMBIENT_EFFECT_IS_PRO } from '@/lib/ambient-effects';
+import { lookEffectOn, lookSampleEffect, type LookSampleRow } from '@/lib/look-sample';
 import { mainGroundShade, shadeWordVars } from '@/lib/main-ground-shade';
 import { heroGroundNeedsOwnership } from '@/lib/page-ground';
 import { guestMainGround } from '@/lib/guest-main-ground';
@@ -17,6 +19,7 @@ import { pageWordBase, shadeWordInks } from './pro-site-vars';
 import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { displayUrlForStoredAsset, publicUrlForStoredAsset } from '@/lib/uploads';
 import { MainGround, MainGroundNone, PatternGround } from '../_components/main-ground';
+import { AmbientEffectLayer } from '../_components/ambient-effect';
 
 /**
  * 🎞 THE MAIN BACKGROUND (Maker Phase 10) — the couple's hero photo/video, or
@@ -57,19 +60,22 @@ import { MainGround, MainGroundNone, PatternGround } from '../_components/main-g
  * their own gates: the Event Hub body, and the RSVP page, which a guest reaches
  * only holding this event's key (or the host, on the Maker's canvas).
  */
-export async function mainGroundLayerFor({
-  theme,
-  heroConfig,
-  event,
-  viewerIsHost,
-  signed = {},
-  tryOn = false,
-}: {
+type MainGroundInput = {
   /** The theme `resolveHubTheme` answered — Pro ownership already decided. */
   theme: InviteThemeId;
   /** The hero row's `config_json` (draft-overlaid for the host's canvas). */
   heroConfig: unknown;
-  event: HeroEventInput & { event_id: string; site_button_color?: unknown; role_palette?: unknown };
+  event: HeroEventInput & {
+    event_id: string;
+    site_button_color?: unknown;
+    role_palette?: unknown;
+    /** ✨ The look columns an effect's ground and colours are measured from (`lookEffectOn`) — the row the caller already read. */
+    site_bg_color?: unknown;
+    site_button_style?: unknown;
+    site_font_key?: unknown;
+    site_art_direction?: unknown;
+    site_roles?: unknown;
+  };
   viewerIsHost: boolean;
   /** Refs the caller already signed, so a ref is never signed twice. */
   signed?: Record<string, string>;
@@ -80,7 +86,26 @@ export async function mainGroundLayerFor({
    * Apply). Guests never pass it.
    */
   tryOn?: boolean;
-}): Promise<ReactNode> {
+};
+
+/**
+ * ✨ THE EFFECT ON TOP (owner 2026-10-08, DECISION_LOG "LOOK EFFECTS ROUND 4"): the background — whatever it is: a
+ * picture, a film, a pattern, a plain colour, the page's own — and then the effect stored on it, drawn over it and
+ * under the words (`effectOver`, at the foot of this file). ONE way out, so no background is returned without it.
+ */
+export async function mainGroundLayerFor(input: MainGroundInput): Promise<ReactNode> {
+  return effectOver(await mainGroundOf(input), input);
+}
+
+/** The background alone — exactly as it was resolved before effects existed. */
+async function mainGroundOf({
+  theme,
+  heroConfig,
+  event,
+  viewerIsHost,
+  signed = {},
+  tryOn = false,
+}: MainGroundInput): Promise<ReactNode> {
   const main = hubMainGround(heroConfig);
   /* 🖼 "NONE — JUST THE COLOUR" (owner 2026-09-29, *"the background animated
      video cannot be unpicked"*): the theme's loop is switched off and nothing
@@ -136,7 +161,8 @@ export async function mainGroundLayerFor({
         parallax={mainGround.parallax === true}
         adaptive={adaptive}
         vars={{
-          ...adaptiveThemeVars(adaptive, { ownButton: Boolean(event.site_button_color) }),
+          /* 🔘 A stored `site_button_color` is no longer read (owner 2026-10-08, `pro-site-vars.ts`): no own button to spare. */
+          ...adaptiveThemeVars(adaptive, { ownButton: false }),
           ...(shade ? shadeWordVars(shade, page) : {}),
           ...(shade ? shadeFollowers(shade, page, mainGround, theme, event, adaptive) : {}),
         }}
@@ -184,7 +210,8 @@ function shadeFollowers(
   event: { site_button_color?: unknown; role_palette?: unknown },
   adaptive: Parameters<typeof adaptiveThemeVars>[0],
 ): Record<string, string> {
-  const ownButton = typeof event.site_button_color === 'string' ? event.site_button_color : null;
+  /* 🔘 The buttons are the palette's (owner 2026-10-08): a stored `site_button_color` is no longer read. */
+  const ownButton: string | null = null;
   return shadeWordInks(
     shadeWordVars(shade, page),
     {
@@ -228,5 +255,50 @@ function movingBackground(id: InviteThemeId): { ground: ResolvedMainGround; urls
       tint: { match: false, frame: [media.samples.light, media.samples.dark] },
     },
     urls,
+  };
+}
+
+/**
+ * ✨ The effect stored on the main background, laid over what was resolved above — by the ONE layer
+ * (`AmbientEffectLayer`: shapes and a stylesheet; no script, no request).
+ *
+ * 🔑 THE SAME ANSWER AS STUDIO › LOOK'S SAMPLE SCREEN: `lookSampleEffect(effect, lookEffectOn(…))`. The sample asks it
+ * of the drafted row; this page asks it of the event's own columns (`lookRowOf`) — so what the couple saw IS what a
+ * guest sees (`the-look-sample-is-the-guest-look`). `shown` is the background as it is REALLY drawn here: the stored
+ * one where a layer was resolved for it, else null — the page's own ground (nothing drawn for a follow with no photo,
+ * or for media this viewer is not shown).
+ *
+ * ◆ A Pro effect is drawn for a guest only while the event OWNS Event Hub Pro (the request's cached read — asked only
+ * when a Pro effect is stored), and on the host's own canvas as it WOULD look (`tryOn`). A free one asks nothing.
+ * It wears the COUPLE's colours only. Returning a layer also tells the page to drop its opaque paper (`ownGround`),
+ * which is what lets the effect show on a plain colour.
+ */
+async function effectOver(ground: ReactNode, { theme, heroConfig, event, tryOn = false }: MainGroundInput): Promise<ReactNode> {
+  const main = hubMainGround(heroConfig);
+  const effect = hubMainEffect(main);
+  if (!effect) return ground;
+  if (AMBIENT_EFFECT_IS_PRO[effect.kind] && !tryOn && !(await websiteProActiveFor(event.event_id).catch(() => false))) return ground;
+  const shown = ground === null ? null : main;
+  const spec = lookSampleEffect(effect, lookEffectOn(shown, lookRowOf(event), theme, true));
+  if (!spec) return ground;
+  return (
+    <>
+      {ground}
+      <AmbientEffectLayer spec={spec} className="fixed inset-0 -z-10" />
+    </>
+  );
+}
+
+/** The event's own look columns, as `lookEffectOn` reads them — exactly the row Studio › Look's sample drafts over. */
+function lookRowOf(event: MainGroundInput['event']): LookSampleRow {
+  const text = (v: unknown) => (typeof v === 'string' && v ? v : null);
+  return {
+    role_palette: event.role_palette,
+    site_bg_color: text(event.site_bg_color),
+    site_button_color: text(event.site_button_color),
+    site_button_style: text(event.site_button_style),
+    site_font_key: text(event.site_font_key),
+    site_art_direction: event.site_art_direction === 'candlelight' ? 'candlelight' : event.site_art_direction === 'daylight' ? 'daylight' : null,
+    site_roles: event.site_roles,
   };
 }

@@ -19,8 +19,12 @@
  *   · the question's buttons never say "Apply" (that word is the publish button);
  *   · Dawn is not a per-scene background (answer 1);
  *   · Size is − / + only — no S · M · L · XL and no number (answer 3);
- *   · the Colour panel is ONE panel: a pop-over from `lg`, a sheet section
- *     below it (answer 7).
+ *   · the Colour panel is ONE panel (answer 7) — and since 2026-10-08 it is THE
+ *     one colour picker, the Mood Board's sheet (owner: *"we already have a
+ *     design for the color palettes and how to pick colors on the moodboard.
+ *     apply that same concept on the background and on any other color rules
+ *     parts"* · *"restudy is good"*, `BACKGROUND_RESTUDY_2026-10-08_fable.md`
+ *     § 6 row 4): the well is its trigger, on every width.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -43,6 +47,7 @@ const HOME = {
   draftBar: 'app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx',
   background: `${EDITOR}/scene-background-row.tsx`,
   colour: `${EDITOR}/colour-well.tsx`,
+  picker: 'app/dashboard/[eventId]/studio/mood-board/_components/colour-picker-sheet.tsx',
   scene: `${EDITOR}/scene-inspector.tsx`,
   /* A scene's Animate tab moved to its own lazily-loaded module (Stages PR 2) — the rows, not lost. */
   sceneAnimate: `${EDITOR}/scene-animate-tab.tsx`,
@@ -116,7 +121,11 @@ const STRIP: ReadonlyArray<readonly [string, keyof typeof HOME, readonly string[
   ['Motion: Comes in (Fade · Move · Size · Blur · Speed · Delay) · During · Goes out · When it plays', 'part', ['<MotionFxRows end="in"', '<MotionSpeedRow', 'HUB_EL_DELAY', 'HUB_EL_DURING_WORDS', '<MotionFxRows end="out"', 'HUB_EL_TIMELINE']],
   ['▶ Play', 'part', ['Preview']],
   ['Resets: font · colour · motion · element', 'part', ['Use the Event Hub style', 'Move with the scene']],
-  ['Saved + theme colours', 'colour', ['Theme colours', 'Saved colours', 'Save the current colour']],
+  // 🎨 2026-10-08 (one picker): the well's own panel is retired — its theme colours are the sheet's "Your Mood
+  // Board" shelf, then what goes with them, the sixteen swatches and Custom. The device's "Saved colours" went
+  // with the panel (the owner's one picker has no such shelf) — `every-studio-colour-opens-the-one-picker.test.ts`.
+  ['Theme colours → the one picker (Your Mood Board · Goes with your Mood Board · Swatches · Custom)', 'colour', ['<ColourPickerSheet', 'palette={palette}', 'readsOn={readsOn}']],
+  ['…its shelves', 'picker', ['>Your Mood Board<', '>Goes with your Mood Board<', '>Swatches<', '>Custom<']],
   // 💎 2026-09-28: the Pro mark moved off the title onto the only Pro rows.
   ['Title: the part’s name', 'sheet', ['<PartPicker', 'HUB_ELEMENT_LABEL[target.el]']],
   ['The Pro mark on Font ▾ and on Animate', 'part', ['fontMark ?', 'data-part-animate-pro']],
@@ -130,7 +139,7 @@ const STRIP: ReadonlyArray<readonly [string, keyof typeof HOME, readonly string[
   ['#6048: the Content box + "Change it everywhere / Just this scene" + the Details chip', 'shell', ['<DetailsBoundField', 'contentBound', 'CanvasWordsContext.Provider']],
   ['Background choices preview on the canvas before their save', 'shell', ['postToCanvas(message)']],
   ['The part sheet’s Part ▾ and the scene it is on', 'shell', ['parts={', 'onPart={', 'sceneLabel={']],
-  ['⚡ Every choice on the canvas first (#6046)', 'sheet', ['onPreview?.(elementPreview(target.key, target.el, before, next))', 'onPreviewColour={previewColour}']],
+  ['⚡ Every choice on the canvas first (#6046)', 'sheet', ['onPreview?.(elementPreview(target.key, target.el, before, next))', "onPick={(hex) => choose('color', hex)}"]],
 ];
 
 test('every control from the "Today → New" strip still has its home', () => {
@@ -189,8 +198,7 @@ test('size is − / + only: no S · M · L · XL, no number; the stepper stops a
         choose: () => {},
         chooseAlign: () => {},
         resetText: () => {},
-        themeColours: ['#1b1a17'],
-        usedColours: [],
+        board: ['#1b1a17'],
         shownColour: '#1b1a17',
         contrast: null,
         eventId: 'e',
@@ -207,11 +215,16 @@ test('size is − / + only: no S · M · L · XL, no number; the stepper stops a
   assert.doesNotMatch(btn(mid, 'down'), / disabled=""/);
 });
 
-test('the Colour panel is ONE panel — a pop-over from lg, a section of the sheet below it', () => {
+test('the Colour panel is ONE panel — the one colour picker, opened by the well (2026-10-08)', () => {
+  /* Answer 7 was "a pop-over from lg, a section of the sheet below it" — ONE panel drawn once. The owner's
+     2026-10-08 ruling made it the Mood Board's sheet everywhere, so "one" now means: the well draws no panel
+     of its own and mounts the picker exactly once. */
   const colour = src(HOME.colour);
-  const panel = /data-colour-panel=""\s+className="([^"]+)"/.exec(colour)?.[1] ?? '';
-  assert.ok(panel, 'found the panel');
-  assert.match(panel, /\blg:absolute\b/, 'floats from lg (desktop)');
-  assert.doesNotMatch(panel.replace(/lg:\S+/g, ''), /\babsolute\b|\bfixed\b/, 'in the flow below lg (the phone sheet)');
-  assert.equal((colour.match(/data-colour-panel=/g) ?? []).length, 1, 'drawn once');
+  assert.doesNotMatch(colour, /data-colour-panel=/, 'the well draws a panel of its own again');
+  assert.equal((colour.match(/<ColourPickerSheet\b/g) ?? []).length, 1, 'the picker is mounted once');
+  assert.match(colour, /\{open \? <ColourSheet \{\.\.\.sheet\} onClose=\{\(\) => setOpen\(false\)\} \/> : null\}/, 'the well opens the picker, and closing it closes the well');
+  /* On a phone it is the Maker's one bottom sheet; on a wider screen the same body in a centred panel. */
+  const picker = src(HOME.picker);
+  assert.match(picker, /if \(sheet && pickOpensAsSheet\(true, wide\)\) return <>\{sheet\(\{ label, onClose, children \}\)\}<\/>;/);
+  assert.match(picker, /createPortal\(/);
 });

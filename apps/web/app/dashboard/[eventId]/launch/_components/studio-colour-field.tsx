@@ -12,7 +12,7 @@ import { ColourPickerSheet } from '../../studio/mood-board/_components/colour-pi
  * how to pick colors on the moodboard. apply that same concept on the background and on any other
  * color rules parts"*). The row the prototype draws (`.lk-col` — the colour, its name and job, its
  * hex, a chevron); a tap opens the Mood Board's colour sheet, the SAME component the Attire colours
- * open — Your palette (the five) · Goes with your palette · From your photos · Swatches · Custom.
+ * open — Your Mood Board (the five) · Goes with your Mood Board · From your photos · Swatches · Custom.
  * A pick is handed to `onPick` (the caller's own save); opening writes nothing.
  */
 export function StudioColourField({
@@ -24,8 +24,14 @@ export function StudioColourField({
   onPick,
   extra,
   reset,
+  slots = false,
+  readsOn,
   data,
 }: {
+  /** The ground this colour's words sit on, where the caller KNOWS it — the sheet's "Against the background" line. */
+  readsOn?: string | null;
+  /** `palette` IS the five main colours in slot order — the sheet names them Dominant … Accent 2. */
+  slots?: boolean;
   /** One way back to the default ("Use the plain ink") — a quiet button that closes the sheet and runs. */
   reset?: { label: string; onReset: () => void };
   /** "Headings", "Background". */
@@ -68,6 +74,8 @@ export function StudioColourField({
           job={job}
           current={value}
           palette={palette}
+          slots={slots}
+          readsOn={readsOn}
           fromPhotos={fromPhotos}
           onPick={(hex) => {
             setOpen(false);

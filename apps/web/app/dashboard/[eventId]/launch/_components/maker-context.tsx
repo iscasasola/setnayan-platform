@@ -248,7 +248,12 @@ export type MakerGuestPagesReport = {
 export type MakerPageJump = { stage: LifecyclePhase; key: string; n: number; sameStage: boolean };
 
 /** ↺ The draft bar's Restore, as it registered it — Page ▾ › Restore runs it (see `MakerState.draft`). */
-export type MakerDraftDoor = { canRestore: boolean; restore: () => void };
+export type MakerDraftDoor = {
+  canRestore: boolean;
+  restore: () => void;
+  /** How many changes the draft holds that are not applied yet — the draft bar's own ✓ count (0: none). */
+  count: number;
+};
 
 /**
  * 🎨 THE LOOK PAGES THAT MOVED INTO DETAILS (Details part 3, owner 2026-09-28
@@ -285,6 +290,8 @@ export type MakerLookPages = {
     page?: ReactNode | null;
     /** 🎬 Look › Background — the hero video, out of Music (owner 2026-10-08). */
     video?: ReactNode | null;
+    /** 🪟 Studio › Look's sample screen — what Look shows above its controls, in place of a guest-page frame (owner 2026-10-08). */
+    sample?: ReactNode | null;
   } | null;
   /** The Reveal's settings: play it, its fine-tune, where it plays (the RIGHT column). */
   reveal: ReactNode | null;

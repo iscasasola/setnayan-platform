@@ -86,7 +86,10 @@ test('(2) a Buttons choice reaches the rendered Reply button’s CSS', async () 
   assert.match(select, /\bsite_button_style\b/, 'the guest loader never reads the choice');
   assert.match(select, /\bsite_button_color\b/);
   const from = loaders.slice(loaders.indexOf('export function guestLookFrom'));
-  assert.match(from, /resolveHubButtons\(\{\s*style: event\.site_button_style,\s*colour: event\.site_button_color,/);
+  /* 🔘 RE-AIMED 2026-10-08 (owner, round 3: "button color will be taken from their 5 palette"): the SHAPE and FILL still
+     come from the row; the COLOUR no longer does — the page resolves its buttons with no colour of the couple's own
+     (`colour: null`), so their fill is the palette's. It used to pin `colour: event.site_button_color`. */
+  assert.match(from, /resolveHubButtons\(\{\s*style: event\.site_button_style,\s*colour: null,/, 'the guest page reads a stored button colour again, or lost the stored shape');
   // 🎨 …on the theme as the Mood Board dresses it (`dressedTheme`, 2026-10-05).
   assert.match(from, /page: hubButtonPage\(dressed, painted\)/, 'the buttons are not measured against the painted page');
   assert.match(from, /vars: painted,\s*buttons,/, 'the look leaves the loader without its buttons');
@@ -222,19 +225,23 @@ test('(4) opening Look writes nothing — the one write sits behind a pick that 
   const src = read('app/dashboard/[eventId]/website/editor/_components/buttons-look-row.tsx');
   // Exactly one write, inside `commit`.
   assert.equal(src.split('hubDraftAction(').length - 1, 1, 'Buttons writes from more than one place');
-  const commit = src.slice(src.indexOf('const commit = '), src.indexOf('const pickColour'));
+  const commit = src.slice(src.indexOf('const commit = '), src.indexOf('const sample = '));
   assert.ok(commit.includes('hubDraftAction('), 'the write is not inside commit');
   assert.match(commit, /if \(before\.shape === next\.shape && before\.fill === next\.fill && before\.colour === next\.colour\) return;/, 'a pick that changes nothing still writes');
-  // `commit` is reached only from the dropdowns' onPick.
+  // `commit` is reached only from a tap on a shape's card — and a tap on the card that is already ringed (a stored
+  // shape, or the theme's own corner as it READS) reaches nothing: the reading is never turned into a write.
   const callers = [...src.matchAll(/commit\(/g)].length;
-  const fromPicks = [...src.matchAll(/onPick=\{\(k\) => commit\(/g)].length + (src.match(/const pickColour = [\s\S]*?commit\(/) ? 1 : 0);
-  assert.equal(callers, fromPicks, 'commit is called from something other than a pick');
-  assert.match(src, /onPick=\{pickColour\}/);
+  const fromTaps = [...src.matchAll(/onClick=\{\(\) => \(on \? undefined : commit\(\{ \.\.\.choice, shape, colour: null \}\)\)\}/g)].length;
+  assert.equal(callers, fromTaps, 'commit is called from something other than a tap on a shape that is not the ringed one');
+  assert.equal(fromTaps, 1, 'Look › Buttons writes from more than its one row of shapes');
   // No effect writes, previews or posts: the one effect only follows the props.
-  for (const m of src.matchAll(/useEffect\(\(\) => \{([\s\S]*?)\n {2}\}, \[/g)) {
-    assert.doesNotMatch(m[1]!, /commit\(|preview\(|hubDraftAction|postMessage|makerSave/, 'an effect writes or previews on open');
+  const effects = [...src.matchAll(/useEffect\(\(\) => \{([\s\S]*?)\n {2}\}(?:, \[|\);)/g)];
+  for (const m of effects) {
+    assert.doesNotMatch(m[1]!, /commit\(|preview\(|hubDraftAction|postMessage|makerSave|tellLookSample/, 'an effect writes or previews on open');
   }
-  assert.ok([...src.matchAll(/useEffect\(/g)].length >= 1, 'anti-vacuity: the props effect was not found');
+  // Two effects: the one that follows the props, and the one that centres the ringed card (it scrolls its own row — nothing else).
+  assert.equal([...src.matchAll(/useEffect\(/g)].length, effects.length, 'an effect of a shape this guard does not read');
+  assert.equal(effects.length, 2, 'anti-vacuity: the row’s two effects were not both found');
 });
 
 /* ── (5) drafted, free, re-worn from the draft ────────────────────────────── */
@@ -259,4 +266,103 @@ test('(5) the choice is drafted, free at Apply, and the host canvas re-wears it 
   assert.match(row, /t: 'buttons'/);
   const bridge = read('app/[slug]/_components/editor-bridge.tsx');
   assert.match(bridge, /data\.t === 'buttons'\) \{\s*const preview = sanitizeButtonsPreview\(data\);\s*if \(preview\) applyButtonsPreview\(document, preview\);/);
+});
+
+/* ── (6) three shapes, drawn as the button itself ─────────────────────────── */
+
+test('(6) Look › Buttons is the Reply button in THREE shapes — no "Default"; the theme’s own corner is read and ringed, never written; the colour is the palette’s', async () => {
+  // Owner 2026-10-08, round 5: "do not need to show default button just show the 3 button styles" · round 3:
+  // "button color will be taken from their 5 palette" · round 2: "Pick Button Shape (color is on the palette already…)".
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  {
+    // The row imports the draft action (a server module) — only its MARKUP is rendered here, nothing is called.
+    const Mod = require('node:module');
+    const load = Mod._load;
+    Mod._load = function (request: string, ...rest: unknown[]) {
+      if (request === 'server-only' || request === 'client-only') return {};
+      return load.call(this, request, ...rest);
+    };
+  }
+  const { ButtonsLookRow } = await import('../app/dashboard/[eventId]/website/editor/_components/buttons-look-row');
+  const { HUB_BUTTON_SHAPES_OFFERED, hubButtonShapeOfRadius, hubButtonShapeRead } = await import('./hub-button-shapes');
+  const rowOf = (theme: (typeof HUB_THEMES)[number], style: string | null, colour: string | null) =>
+    renderToStaticMarkup(React.createElement(ButtonsLookRow, { eventId: 'E1', theme, page: hubButtonPage(theme, null), style, colour }));
+  const cards = (html: string) =>
+    [...html.matchAll(/<button type="button" aria-pressed="(true|false)" data-buttons-shape="([a-z]+)"[\s\S]*?<span data-buttons-sample="[a-z]+"[^>]*style="([^"]*)"[^>]*>([^<]*)<\/span>[\s\S]*?<span data-buttons-shape-name=""[^>]*>([^<]*)<\/span><\/button>/g)].map(
+      (m) => ({ on: m[1] === 'true', shape: m[2]!, css: m[3]!, words: m[4]!, name: m[5]! }),
+    );
+
+  /* The reading, by the numbers — written out, not derived: 0 is Square, a pill is Pill, anything between is Rounded. */
+  assert.deepEqual([0, 1, 2, 4, 6, 8, 12, 23, 24, 48, 999].map(hubButtonShapeOfRadius), ['square', 'rounded', 'rounded', 'rounded', 'rounded', 'rounded', 'rounded', 'rounded', 'pill', 'pill', 'pill']);
+  /* Every shipped theme's own corner, as the note lists them. */
+  const READS: Record<string, [number, string]> = {
+    house: [4, 'rounded'], abaca: [6, 'rounded'], vintage: [2, 'rounded'], gatsby: [4, 'rounded'], cyber: [8, 'rounded'],
+    galeriya: [999, 'pill'], cinderella: [999, 'pill'], velvet: [999, 'pill'], whimsical: [999, 'pill'], regency: [999, 'pill'],
+  };
+  assert.deepEqual(HUB_THEMES.map((t) => t.id).sort(), Object.keys(READS).sort(), 'a theme was added or removed — say what its own button reads as');
+  assert.deepEqual([...HUB_BUTTON_SHAPES_OFFERED], ['square', 'rounded', 'pill']);
+
+  for (const theme of HUB_THEMES) {
+    const [radius, reads] = READS[theme.id]!;
+    assert.equal(theme.radius, radius, `${theme.id}: its corner moved`);
+    const page = hubButtonPage(theme, null);
+    /* NOTHING CHOSEN: three cards, in order, each the real button with the one word "Reply" and its name under it. */
+    const html = rowOf(theme, null, null);
+    const three = cards(html);
+    assert.deepEqual(three.map((c) => c.shape), ['square', 'rounded', 'pill'], `${theme.id}: not the three shapes, in order`);
+    assert.deepEqual(three.map((c) => c.name), ['Square', 'Rounded', 'Pill']);
+    assert.ok(three.every((c) => c.words === 'Reply'), 'a card is not the Reply button');
+    assert.equal((html.match(/data-buttons-shape="/g) ?? []).length, 3);
+    assert.doesNotMatch(html, /Default|Theme’s|data-buttons-shape="theme"|aria-haspopup/, `${theme.id}: a "Default" choice, or a dropdown, is still in Look › Buttons`);
+    /* The theme's own corner is READ as one of the three and ringed — and that card is drawn with the theme's REAL corner. */
+    assert.deepEqual(three.filter((c) => c.on).map((c) => c.shape), [reads], `${theme.id}: the wrong card is ringed for a ${radius}px corner`);
+    assert.equal(hubButtonShapeRead('theme', theme), reads);
+    for (const c of three) {
+      const want = c.shape === reads ? `${radius}px` : { square: '0px', rounded: '12px', pill: '999px' }[c.shape];
+      assert.ok(c.css.includes(`border-radius:${want}`), `${theme.id} · ${c.shape}: drawn with the wrong corner (${c.css})`);
+      /* THE PALETTE'S COLOUR: the page's own button fill, its paper as the label — nothing of the row's own. */
+      assert.ok(c.css.includes(`background-color:${page.fill}`) && c.css.includes(`color:${page.grounds[0]}`), `${theme.id} · ${c.shape}: not the page's own button colour (${c.css})`);
+    }
+    /* A STORED shape is ringed, with its own corner — and the other two are untouched by it. */
+    for (const stored of ['square', 'rounded', 'pill'] as const) {
+      const now = cards(rowOf(theme, `${stored}-theme`, null));
+      assert.deepEqual(now.filter((c) => c.on).map((c) => c.shape), [stored]);
+      assert.ok(now.find((c) => c.shape === stored)!.css.includes(`border-radius:${{ square: '0px', rounded: '12px', pill: '999px' }[stored]}`));
+    }
+    /* A colour stored before this makes NO difference to what the row draws — the buttons are the palette's. */
+    assert.equal(rowOf(theme, 'pill-solid', '#3a4a1c'), rowOf(theme, 'pill-solid', null), `${theme.id}: a stored colour of the couple's own still paints the row`);
+    assert.equal(rowOf(theme, null, '#3a4a1c'), rowOf(theme, null, null));
+  }
+  /* The picked card wears the app's accent ring and name; the others wear neither. */
+  const house = rowOf(INVITE_THEMES.house, 'square-theme', null);
+  assert.equal((house.match(/ring-\[3px\] ring-sn-accent/g) ?? []).length, 1);
+  assert.equal((house.match(/font-semibold text-sn-accent/g) ?? []).length, 1);
+
+  const src = read('app/dashboard/[eventId]/website/editor/_components/buttons-look-row.tsx');
+  assert.doesNotMatch(src, /HUB_BUTTON_FILLS|hubButtonColourOffers|pickColour|label="Fill"|label="Colour"|PickMenu|HUB_BUTTON_SHAPES\b/, 'a Fill, a Colour or the four-way Shape ▾ is still built');
+  /* The stored FILL half is read and carried by a Shape pick; a stored COLOUR is handed back to the palette by it. */
+  assert.match(src, /type Choice = \{ shape: HubButtonShape; fill: HubButtonFill; colour: string \| null \};/);
+  assert.match(src, /const fromProps = \(\): Choice => \(\{ \.\.\.parseHubButtonStyle\(style\), colour: colour \? colour\.toLowerCase\(\) : null \}\);/, 'the stored fill and colour are not read');
+  assert.match(src, /commit\(\{ \.\.\.choice, shape, colour: null \}\)/, 'a Shape pick drops the stored fill, or keeps a colour of the row’s own');
+  assert.match(src, /site_button_style: encodeHubButtonStyle\(next\), site_button_color: next\.colour/);
+  /* …and a stored fill is still DRAWN (an outline stays an outline in every card), and still resolved by the page. */
+  /* An outline is drawn only where it reads on the page — asked of every theme, in the palette's own colour. */
+  let outlines = 0;
+  for (const theme of HUB_THEMES) {
+    const page = hubButtonPage(theme, null);
+    const outline = resolveHubButtons({ style: 'pill-outline', colour: null, theme, page });
+    const now = cards(rowOf(theme, 'pill-outline', null));
+    if (outline?.paint === 'outline') {
+      outlines += 1;
+      assert.ok(now.every((c) => c.css.includes(`border:1.5px solid ${outline.vars['--hub-btn-border']}`) && c.css.includes('background-color:transparent')), `${theme.id}: a stored outline is not drawn on the three cards`);
+      assert.notEqual(rowOf(theme, 'pill-outline', null), rowOf(theme, 'pill-solid', null));
+    } else {
+      /* Where an outline would not read the page paints it solid — and so do the cards. */
+      assert.ok(now.every((c) => !c.css.includes('background-color:transparent')), `${theme.id}: the cards draw an outline the page refuses`);
+    }
+  }
+  assert.ok(outlines > 0, 'anti-vacuity: no theme draws an outline in the palette’s colour — the stored fill is not being exercised');
+  const theme = INVITE_THEMES.house;
+  const page = hubButtonPage(theme, null);
+  for (const fill of HUB_BUTTON_FILLS) assert.ok(resolveHubButtons({ style: `pill-${fill}`, colour: '#3a4a1c', theme, page }) !== undefined);
 });

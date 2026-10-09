@@ -88,11 +88,8 @@ const BELOW_AA_AS_TEXT: ReadonlyArray<{
  * decorative arrows. This list only ever gets SHORTER. */
 const BILL: ReadonlyArray<readonly [string, number]> = [
   ['budget/_components/share-budget-band-toggle.tsx', 1],
-  // ⤷ 2026-09-22: the guest's form moved out of the route and into the shared
-  // card, and the THREE privacy checkboxes that carried this became one
-  // <Toggle> component — so three billed uses became one, in a new file.
-  // Still a checkbox ACCENT (Tailwind's form colour), never text.
-  ['guests/_components/guest-list-multiselect.tsx', 3],
+  // (guests/_components/guest-list-multiselect.tsx carried 3 checkbox accents; the
+  // file was deleted 2026-10-09 with the retired GuestListMultiselect.)
   ['guests/checkin/page.tsx', 1],
   ['guests/claims/page.tsx', 1],
   ['guests/invite/_components/share-link-panel.tsx', 1], // the theme-link chevron — moved from invite/page.tsx with the panel

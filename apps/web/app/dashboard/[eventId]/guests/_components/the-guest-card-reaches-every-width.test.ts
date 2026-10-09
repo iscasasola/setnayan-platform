@@ -37,15 +37,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const read = (f: string) => readFileSync(join(HERE, f), 'utf8');
 
 /** Code only — the mount assertions must not be satisfied by prose. */
-const LIST = stripComments(read('guest-list-multiselect.tsx'));
 const ROSTER = stripComments(readFileSync(resolve(HERE, '..', 'page.tsx'), 'utf8'));
 const INSPECTOR = stripComments(
   readFileSync(
@@ -78,18 +76,4 @@ test('a trigger selects at EVERY width, not only on desktop', () => {
     `both InspectorTrigger branches (the button form and the link form) must ` +
       `consult the sheet flag; found ${selects.length}`,
   );
-});
-
-test('the phone row still reaches the card, through the name', () => {
-  // The eye lives in the desktop table only, which is fine — on a phone the row
-  // itself is the trigger. What must NOT happen is a phone row with no way in.
-  assert.ok(
-    /<InspectorTrigger/.test(LIST),
-    'the roster no longer uses the inspector trigger at all',
-  );
-  // ⤷ 2026-09-30 (the Fable rows, frame F): the eye left — "Click anywhere on
-  // the row → the card on the right. No separate eye." The row's click goes
-  // through the name's own trigger, so there is still exactly one way in.
-  assert.equal((LIST.match(/<QuickViewButton/g) ?? []).length, 0, 'the eye is back');
-  assert.match(LIST, /querySelector<HTMLAnchorElement>\('a\.sn-guest-namelink'\)\?\.click\(\)/, 'a click on the row no longer opens the card');
 });

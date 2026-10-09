@@ -5,14 +5,18 @@
  * *"yes"* on the Event name row; DECISION_LOG "STUDIO REDRAW ANSWERS" and "'EVENT NAME · MARIA &
  * JOSE' IS ONE ROW…"). Prototype `maker_two_dropdowns_owner_wireframe_2026-10-06_fable.html`.
  *
- *   1 · Studio › Schedule is the prototype's timeline — one band per moment: time pill · moment ·
- *       place · For ▾ (4c's stored audience) — and + Add a moment; drawn by `ScheduleDay` only in
- *       the new Maker's Studio, through the rail's own writes; it fills the screen.
- *   2 · Studio › Love Story is one band per moment (photo · year · title · first line · grip), opened
- *       in place — and an edit made there keeps EVERY field the moment holds (a year changed never
+ *   1 · Studio › Schedule is the timeline — one band per moment: START pill – END pill · name · ⋯
+ *       (the owner's Timeline row, 2026-10-08; `studio-schedule-wears-the-timeline-row.test.ts`
+ *       holds the row's rules; the place and For ▾ — 4c's stored audience — are behind ⋯) — and
+ *       + Add a moment; drawn by `ScheduleDay` only in the new Maker's Studio, through the rail's
+ *       own writes; it fills the screen.
+ *   2 · Studio › Love Story is one band per chapter (the owner's Timeline row, 2026-10-08: when ·
+ *       name · picture square · ⋯; `studio-love-story-wears-the-timeline-row.test.ts` holds its
+ *       rules) — and an edit made there keeps EVERY field the moment holds (a year changed never
  *       drops its place, photos, title, anchor, hidden or order).
- *   3 · Studio › Info's names are ONE row "Event name · Maria & Jose", composed as the hero composes
- *       them, opening the shipped NamesEditor + Name style ▾ in place; a one-person event keeps its own.
+ *   3 · Studio › Info's "Event name · Maria & Jose" is composed as the hero composes it, with its ⓘ; a
+ *       one-person event keeps its own. (Since the 2026-10-08 Info redesign the two people it opens are
+ *       Form rows, each name a pill — `lib/studio-info-wears-the-form-row.test.ts` holds those.)
  *   4 · Studio › Wedding March has no "Parents & hosts" block (parents walk in the march; hosts are
  *       access) and its tray shrinks to the Not-walking strip — the shipped Maker keeps the block.
  *
@@ -59,8 +63,8 @@ const moment = (id: string, label: string, hhmm: string, place: string | null, a
   audience,
 });
 
-test('1 · Studio › Schedule: one band per moment — time pill · moment · place · For ▾ — and + Add a moment', async () => {
-  const { StudioDay, studioForWords } = await import(`../${SCHED}/studio-day`);
+test('1 · Studio › Schedule: one band per moment — start – end · name · ⋯ — and + Add a moment', async () => {
+  const { StudioDay } = await import(`../${SCHED}/studio-day`);
   const { DayActionsContext } = await import(`../${SCHED}/day-ui`);
   const writes: string[] = [];
   const actions = new Proxy({}, { get: (_t, k) => async () => void writes.push(String(k)) });
@@ -85,15 +89,13 @@ test('1 · Studio › Schedule: one band per moment — time pill · moment · p
   assert.deepEqual(rows, ['a', 'b', 'c'], 'the moments are not laid out in the day’s order');
   assert.match(out, /Saturday 12 December 2026/, 'the day’s band does not name the day');
   assert.match(out, /2:00 PM[\s\S]*3:00 PM[\s\S]*5:30 PM/, 'a moment has no time pill');
-  assert.match(out, /value="Entourage photos"[\s\S]*value="Santuario de San Antonio"/, 'the moment and its place are not fields on the row');
-  assert.match(out, /placeholder="Place \(optional\)"/);
-  assert.equal(studioForWords('everyone'), 'For · Everyone');
-  assert.equal(studioForWords('entourage'), 'Only for · Entourage');
-  assert.match(out, /data-studio-moment-for="entourage"[\s\S]*?Only for · Entourage/, 'For ▾ does not show 4c’s stored audience');
-  assert.equal((out.match(/>For · Everyone</g) ?? []).length, 2);
+  assert.match(out, /data-timeline-name=""[^>]*><span[^>]*>Entourage photos</, 'the moment’s name is not on the row');
+  /* Who it is for is still carried by the row (4c's stored audience); the control is behind ⋯. */
+  assert.match(out, /data-studio-moment-for="entourage"/, 'the row lost 4c’s stored audience');
+  assert.equal((out.match(/data-studio-moment-for="everyone"/g) ?? []).length, 2);
   assert.match(out, /data-studio-add-moment=""[^>]*>[\s\S]*?Add a moment/, 'no + Add a moment');
   /* 🧱 Bands, not boxes: a row is a full-width band with a hairline, never a rounded card. */
-  const row = /<li data-studio-moment="a"[^>]*>/.exec(out)?.[0] ?? '';
+  const row = /<li[^>]*data-studio-moment="a"[^>]*>/.exec(out)?.[0] ?? '';
   assert.match(row, /class="[^"]*border-t border-ink\/10 bg-cream/, 'a moment is not on a band with a hairline');
   assert.doesNotMatch(row, /class="[^"]*rounded/, 'a moment is drawn as a rounded box (owner: “bands? full width”)');
   assert.deepEqual(writes, [], 'drawing the day wrote something');
@@ -135,7 +137,7 @@ test('2 · Studio › Love Story: an edit made in place keeps every field the mo
   assert.deepEqual(t.ok ? t.after.find((m) => m.id === 'm1')!.media : null, held.media, 'a title edit dropped the photos');
 });
 
-test('2b · Studio › Love Story is the cards — one band per moment, opened in place — not the scrapbook', async () => {
+test('2b · Studio › Love Story is the rows — one band per chapter, opened in place — not the scrapbook', async () => {
   const { LoveStoryBook } = await import(`../${STORY}/love-story-book`);
   const story: LoveStoryMoment[] = [
     { id: 'u', date: { y: 2019 }, title: 'One umbrella', line: 'A rainy Tuesday in Katipunan.', order: 0, canvas: {} },
@@ -179,12 +181,12 @@ test('2b · Studio › Love Story is the cards — one band per moment, opened i
       add: { can: true },
     }),
   );
-  assert.equal((studio.match(/data-studio-story-head="/g) ?? []).length, 3, 'not one card per moment');
-  assert.match(studio, /2019[\s\S]*One umbrella[\s\S]*A rainy Tuesday in Katipunan\.[\s\S]*data-moment-grip="u"/, 'a card is not photo · year · title · first line · grip');
+  assert.equal((studio.match(/data-moment-card="/g) ?? []).length, 3, 'not one row per chapter');
+  assert.match(studio, /2019[\s\S]*One umbrella[\s\S]*data-ticker-pill="photos"[\s\S]*data-studio-story-more="u"/, 'a row is not when · name · picture · ⋯');
   assert.ok(sortMoments(story).map((m) => m.id).join() === 'u,s,d');
   assert.doesNotMatch(studio, /id="love-story-title"|On our <i/, 'Studio still draws the scrapbook around the cards');
   assert.match(studio, /Add a moment/, 'no + Add a moment');
-  const card = /<li data-moment-card="u"[^>]*>/.exec(studio)?.[0] ?? '';
+  const card = /<li[^>]*data-moment-card="u"[^>]*>/.exec(studio)?.[0] ?? '';
   assert.match(card, /class="[^"]*border-t border-ink\/10 bg-cream/, 'a moment is not on a band with a hairline');
   assert.doesNotMatch(card, /class="[^"]*rounded/, 'a moment is drawn as a rounded box (owner: “bands? full width”)');
   const shipped = await html(React.createElement(LoveStoryBook, props));
@@ -192,20 +194,7 @@ test('2b · Studio › Love Story is the cards — one band per moment, opened i
   assert.doesNotMatch(shipped, /data-moment-order-cards/);
 });
 
-test('3 · Studio › Info: ONE "Event name · Maria & Jose" row that opens the two people + Name style in place', async () => {
-  const { StudioEventName } = await import(`../${L}/studio-event-name`);
-  const out = await html(
-    React.createElement(StudioEventName, {
-      eventId: 'ev-1',
-      people: ['Bride', 'Groom'],
-      initial: [{ first: 'Maria', last: 'Santos' }, { first: 'Jose', last: 'Dela Cruz' }],
-      nameStyle: 'full',
-    }),
-  );
-  assert.match(out, /Event name[\s\S]*?<span[^>]*>Maria &amp; Jose<\/span>/, 'the row does not read “Event name · Maria & Jose” (first names, as the hero composes them)');
-  assert.match(out, /About Event name/, 'Event name has no ⓘ saying where it is read');
-  assert.match(out, /aria-expanded="false"/);
-  assert.match(out, /<div id="[^"]+" hidden="" class="hidden /, 'the names are not folded under the row until it is tapped');
+test('3 · Studio › Info: "Event name · Maria & Jose" is composed as the hero composes it, with its ⓘ — only for a two-person event', () => {
   const md = read(`${L}/maker-details.tsx`);
   assert.match(
     md,
@@ -213,8 +202,9 @@ test('3 · Studio › Info: ONE "Event name · Maria & Jose" row that opens the 
     'Studio › Info does not draw the Event name row — or draws it for a one-person event',
   );
   const body = read(`${L}/studio-event-name.tsx`);
-  assert.match(body, /<NamesEditor eventId=\{eventId\} people=\{people\} initial=\{initial\} onNames=\{onNames\} \/>\s*<NameStylePicker eventId=\{eventId\} saved=\{nameStyle\} \/>/, 'the row does not open the SHIPPED editors');
-  assert.match(body, /coupleNameColumns\(a, b\)\.display_name/, 'the row does not compose the name as the hero does');
+  assert.match(body, /const shown = coupleNameColumns\(names\[0\], names\[1\]\)\.display_name \?\? '';/, 'the row does not compose the name as the hero does');
+  assert.match(body, /name="Event name"\s+about=\{\{/, 'Event name has no ⓘ saying where it is read');
+  assert.match(body, /<OpensRow\s+data="event-name"[\s\S]*?answer=\{shown\}/, 'the Event name is not ONE row that opens the two people in place');
 });
 
 test('4 · Studio › Wedding March: no "Parents & hosts" block; the tray is the Not-walking strip — the shipped Maker keeps it', () => {
@@ -227,24 +217,29 @@ test('4 · Studio › Wedding March: no "Parents & hosts" block; the tray is the
 });
 
 test('5 · no Studio editor says "Saved" or asks for a Save on a drafted field — ✓ Apply’s count is the one signal', async () => {
-  const { StudioToolRow } = await import(`../${L}/stages-studio-parts`);
+  /* The Tool row and the Done band are gone (owner 2026-10-08) — the bar's pill, which names the page, says no "Saved" either. */
+  const { StudioSideSwitch } = await import(`../${L}/stages-studio-parts`);
   const { STUDIO_TILE_KEYS, STUDIO_TILES } = await import('./studio-tiles');
   const tiles = STUDIO_TILE_KEYS.map((key) => ({ key, label: STUDIO_TILES[key].label, short: STUDIO_TILES[key].short, item: STUDIO_TILES[key].item, immersive: STUDIO_TILES[key].immersive === true, done: true, status: '' }));
   for (const tile of tiles) {
-    const row = await html(React.createElement(StudioToolRow, { tile, tiles, onOpen: () => {}, onDone: () => {} }));
-    assert.doesNotMatch(row, /Saved|Saving/, `the ${tile.label} row still shows a Saved chip`);
+    const head = await html(React.createElement(StudioSideSwitch, { side: 'studio', onPick: () => {}, stage: 'rsvp', page: tile, tiles, onOpen: () => {} }));
+    assert.ok(head.includes(`>${tile.label.replace(/&/g, '&amp;')}</span>`), `anti-vacuity: the pill does not name ${tile.label}`);
+    assert.doesNotMatch(head, /Saved|Saving/, `the ${tile.label} pill shows a Saved chip`);
   }
   const mood = read('app/dashboard/[eventId]/studio/mood-board/_components/mood-board-studio.tsx');
   const bar = mood.slice(mood.indexOf('const bar = ('), mood.indexOf('return (', mood.indexOf('const bar = (')));
   assert.match(bar, /data-mood-board-auto/, 'the Mood Board lost ✨ Auto');
   assert.doesNotMatch(bar, /Saved|Saving/, 'the Mood Board still shows a Saved chip');
-  assert.match(bar, /save === 'error' \?/, 'a FAILED Mood Board save is no longer said');
-  /* What to bring is a drafted column: typed → drafted after a pause, no Save button. */
-  const tools = read(`${L}/studio-tools.tsx`);
-  const bring = tools.slice(tools.indexOf('function StudioWhatToBring'), tools.indexOf('export type StudioToolProps'));
-  assert.doesNotMatch(bring, /type="submit"|<TextPanel|>Save</, 'What to bring still has a Save button');
-  assert.match(bring, /JSON\.stringify\(\{ events: \{ what_to_bring:/, 'What to bring no longer writes the draft');
-  assert.match(bring, /hubDraftAction\(eventId, fd\)/, 'What to bring writes outside the one draft door');
+  /* RE-AIMED 2026-10-09 (Studio › Mood Board moved onto the templates): a failed save is said on the page in plain words (a status line,
+     not a chip in the bar) — `studio-mood-board-posts-the-same.test.ts` holds the words. */
+  assert.match(mood, /<p role="alert" data-mood-board-save=\{problem\.failed \? 'error' : 'refused'\}/, 'a FAILED Mood Board save is no longer said');
+  /* What to bring is a drafted column: a typed Form row — kept on leaving the field, ONE draft write, no Save button. */
+  const info = read(`${L}/studio-info.tsx`);
+  assert.doesNotMatch(info, /type="submit"|<TextPanel|>Save<|>Saved</, 'an Info words row still has a Save button or a Saved chip');
+  assert.match(info, /what_to_bring: \{[\s\S]*?value: \(text: string\): string \| null => text \|\| null,/, 'What to bring no longer writes the draft');
+  assert.match(info, /return studioDraftKeep\(eventId, `events:\$\{fact\}`, \{ \[fact\]: w\.value\(kept\) \}\);/, 'What to bring no longer writes the draft');
+  assert.match(info, /let door: StudioDraftDoor = hubDraftAction;/, 'What to bring writes outside the one draft door');
+  assert.match(info, /return door\(eventId, fd\);/, 'What to bring writes outside the one draft door');
 });
 
 test('6 · a Studio tile never leaves the Maker — every tile opens its editor in place', async () => {

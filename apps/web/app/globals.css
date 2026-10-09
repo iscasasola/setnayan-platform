@@ -172,6 +172,20 @@
     --color-mulberry: 194 78 37;         /* CTA → #C24E25 · cream label 4.61:1 AA ✓ */
     --color-mulberry-600: 176 71 34;    /* CTA hover → #B04722 (5.39:1) */
     --color-mulberry-700: 157 63 30;     /* CTA deepest → #9D3F1E (6.42:1) */
+    /* ── THE ACCENT, BY ITS JOB — ONE SETTING (owner 2026-10-08, right after approving the template gallery: "if we
+     * change our color to blue, it will be easy to change the button colors"). `--sn-accent` is what is ON, PICKED or
+     * TAPPABLE on every template (pill selector, switch, style card, dropdown, the press ring); `--sn-on-accent` is
+     * the ink of words that sit ON it. Tailwind: `bg-sn-accent` · `text-sn-accent` · `ring-sn-accent` · `border-sn-accent` ·
+     * `text-sn-on-accent`. A template never writes a colour of its own — `lib/the-accent-is-one-token.test.ts` watches.
+     *
+     * TO CHANGE THE APP'S ACCENT, change the ONE line below (three numbers, red green blue — e.g. `37 99 235`), and
+     * check the ink under it still reads: the same test fails under 4.5:1.
+     *
+     * Today it is the terracotta `--color-mulberry` holds. `mulberry` and its classes are NOT renamed or repointed:
+     * hundreds of pages not yet moved onto the templates still read them. Never read inside the guest's Event Hub
+     * (`.sn-editorial`), which wears the couple's own colours (`--hub-accent*`). */
+    --sn-accent: var(--color-mulberry);
+    --sn-on-accent: 255 255 255;         /* words on the accent → white · 4.76:1 on #C24E25 */
     /* Links + secondary buttons — NEW SLOT 2026-08-01. The app had no link
      * token; anchors inherited ink. Scope is deliberately NARROW (owner):
      * inline links and secondary/ghost buttons only. It is NOT a decorative
@@ -233,6 +247,7 @@
     --color-mulberry: 229 121 78;        /* CTA → lightened terracotta #E5794E · 6.20:1 AA on the dark page */
     --color-mulberry-600: 236 138 95;   /* CTA hover lighter → #EC8A5F (7.22:1 AAA) */
     --color-mulberry-700: 194 78 37;     /* CTA deepest → the light-mode #C24E25 */
+    --sn-on-accent: 23 22 15;            /* words on the accent, dark (inert like the rest of this block): the page's ink-black on #E5794E — white reads 2.9:1 there */
     --color-link: 157 178 206;         /* link → lightened slate indigo #9DB2CE · 8.37:1 AAA */
     --color-link-600: 175 194 218;     /* link hover → #AFC2DA (9.97:1) */
     /* Button-rule tones, dark (inert like the rest of this block). Against the
@@ -363,6 +378,28 @@
    * the button press above. */
   .sn-press:active {
     scale: 0.97;
+  }
+  /*
+   * 🫳 ONE PRESS FEEL, EVERYWHERE THAT IS SETNAYAN'S (owner 2026-10-08: *"the animation when tapped on selector must
+   * feel the same on the rest when pressed"* · *"the only part that does not follow our rules is their customized
+   * event hub"*). The dip and the spring back are PLAYED BY ONE LISTENER (`app/_components/press-feel.tsx`, mounted
+   * once in the root layout): an animation composes with whatever `transition-*` utility a control carries, where a
+   * CSS `scale` on `:active` snapped on every control that had one. So here, for every control that listener
+   * reaches, the stylesheet's own press SCALE is taken off — the two must never double — and only the dimming above
+   * stays as the answer when there is no script.
+   *
+   * THE ONE EXEMPTION is the couple's customised Event Hub — the guest's page, marked in the DOM by the guest
+   * shell's root, `.sn-editorial` (`GuestLookScope`): nothing inside it is touched here or by the listener, so it
+   * keeps the press above. An EXCLUSION, never a list of surfaces — a new screen gets the feel by default.
+   */
+  button:not(:disabled):active:not(.sn-editorial *),
+  [role='button']:not([aria-disabled='true']):active:not(.sn-editorial *),
+  a.button:active:not(.sn-editorial *),
+  .sn-press:active:not(.sn-editorial *),
+  input[type='submit']:not(:disabled):active:not(.sn-editorial *),
+  input[type='button']:not(:disabled):active:not(.sn-editorial *),
+  summary:active:not(.sn-editorial *) {
+    scale: none;
   }
   button:disabled,
   [aria-disabled='true'] {
@@ -3003,6 +3040,12 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
   --sn-dur-control: 200ms;
   --sn-dur-elem:    320ms;
   --sn-dur-enter:   640ms;
+  /* THE ONE SPEED OF THE PRESS FAMILY (owner 2026-10-08, after trying normal · in between · slow on the template
+     gallery: *"0.7 seconds"*). A pill selector's thumb, its press pulse and its words' cross-fade, a switch's knob,
+     and every control's spring back from a press all read THIS; a ring runs 1.3 × it. To change how the whole
+     family feels, change this line. */
+  --sn-pill-dur:    700ms;
+  --sn-pill-spring: cubic-bezier(.34,1.56,.64,1);
 
   /* ── DESIGN FOUNDATION (owner 2026-09-24 · build-sessions/DESIGN-FOUNDATION.md)
      ADDITIVE. Nothing existing is re-pointed at these; they are the names the
@@ -4221,6 +4264,179 @@ html.dark {
   --pahina-rule-len: 3rem;
 }
 
+/* ── 🪟 STUDIO › LOOK'S SAMPLE SCREEN (owner 2026-10-08: "a sample of the header
+   text, buttons on the actual screen") ──────────────────────────────────────
+   `look-sample.tsx` is a piece of the GUEST page drawn inside the dashboard: it
+   wears the guest scope's attributes and variables, and its two buttons are the
+   guest page's own classes. The dashboard re-points those classes to its gold
+   recipe (`.app-surface .button-primary`, in `@layer components`), so here they
+   are handed back the guest page's own paint — the SAME tokens the base rules
+   name (`bg-mulberry text-cream` · `border-link/30 bg-cream text-link`;
+   `lib/the-look-sample-is-the-guest-look.test.ts` holds the two equal).
+   Unlayered and BEFORE the host's Buttons rules below, so a host's shape, fill
+   and colour still win — same weight, later. */
+[data-look-sample] .button-primary {
+  background: rgb(var(--color-mulberry));
+  color: rgb(var(--color-cream));
+  transform: none;
+  box-shadow: none;
+}
+[data-look-sample] .button-secondary {
+  background: rgb(var(--color-cream));
+  color: rgb(var(--color-link));
+  border: 1px solid rgb(var(--color-link) / 0.3);
+  transform: none;
+}
+/* A photo set to Parallax drifts a little on the sample — never under "reduce motion". */
+@keyframes sn-look-sample-drift {
+  from { transform: translateY(-2%) scale(1.06); }
+  to { transform: translateY(2%) scale(1.06); }
+}
+.sn-look-sample-drift {
+  animation: sn-look-sample-drift 6s ease-in-out infinite alternate;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sn-look-sample-drift { animation: none; }
+}
+
+/* ── 🎚 THE PILL SELECTOR'S THUMB (owner 2026-10-08: *"let's add a bit of bounce and a pulse to imitate it has been
+   pressed"*; `app/_components/pill-thumb.tsx`) ──────────────────────────────────────────────────────────────
+   The thumb lands with a small overshoot (its transition, `ease-sn-spring`) and, on a PICK, pulses once: a quick dip
+   in scale and back, and one soft ring that widens and fades. Scale and opacity only — nothing here lays out or
+   repaints the choices. `data-pulse` is set by the thumb when the picked choice changes (never on mount, never on a
+   resize). Under "reduce motion" there is no pulse, no ring and no travel. */
+@keyframes sn-pill-press {
+  0% { scale: 1; }
+  35% { scale: 0.93; }
+  100% { scale: 1; }
+}
+@keyframes sn-pill-ring {
+  0% { opacity: 0.45; scale: 1; }
+  100% { opacity: 0; scale: 1.12 1.5; }
+}
+.sn-pill-thumb::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: inherit;
+  opacity: 0;
+  pointer-events: none;
+}
+.sn-pill-thumb[data-pulse] {
+  animation: sn-pill-press var(--sn-pill-dur) var(--sn-ease);
+}
+.sn-pill-thumb[data-pulse]::after {
+  animation: sn-pill-ring calc(var(--sn-pill-dur) * 1.3) ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sn-pill-thumb,
+  .sn-pill-thumb::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* ── THE SWITCH (owner 2026-10-08: *"switch is teracota or greyed out"*) ──────────────────────────────────────
+   ONE shared look for a switch's track — `.sn-switch`: grey when off, the accent (`--sn-accent`) when on, the same two colours
+   as a pill selector — and its knob lands with the press family's spring at the family's speed. On =
+   `data-on="true"` on the track, or a checked `.peer` before it (the two ways the Maker's switches are built).
+   (A press rings the track: the track also wears `sn-press-ring`, drawn by `app/_components/press-feel.tsx`.) */
+.sn-switch {
+  background-color: rgb(var(--color-ink) / 0.2);
+  transition: background-color var(--sn-pill-dur) var(--sn-ease);
+}
+.sn-switch[data-on='true'],
+.peer:checked ~ .sn-switch {
+  background-color: rgb(var(--sn-accent));
+}
+.sn-switch::after,
+.sn-switch > .sn-switch-knob {
+  transition-duration: var(--sn-pill-dur);
+  transition-timing-function: var(--sn-pill-spring);
+}
+@media (prefers-reduced-motion: reduce) {
+  .sn-switch,
+  .sn-switch::after,
+  .sn-switch > .sn-switch-knob {
+    transition: none !important;
+  }
+}
+
+/* ── THE FORM ROW (owner 2026-10-08; `app/_components/form-row.tsx`, the approved gallery § 6 · § 10) ─────────
+   Its MOTION, at the press family's one speed (`--sn-pill-dur`; the gallery's own shares of it):
+     · the field OPENS across the row from the right, with the family's small overshoot;
+     · it FOLDS BACK to the right (*"the collapse should also animate how the Row Name returns"*) — no fill mode:
+       the leaving field's own style is "gone", so nothing is left holding a transform;
+     · then the row's name slides back in from the left and its pill from the right;
+     · a wrong or unfinished answer SHAKES once (*"make it shake so they can find it easily"*).
+   Transform, translate and opacity only — nothing here lays a row out again. None of it runs under "reduce motion"
+   (the red line and the scroll still happen — `shakeIntoView`). */
+@keyframes sn-row-field-in {
+  from { opacity: 0; transform: scaleX(0.7); }
+}
+@keyframes sn-row-field-out {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: scaleX(0.7); }
+}
+@keyframes sn-row-name-back {
+  from { opacity: 0; transform: translateX(-14px); }
+}
+@keyframes sn-row-pill-back {
+  from { opacity: 0; transform: translateX(14px); }
+}
+@keyframes sn-row-shake {
+  0%, 100% { translate: 0; }
+  15% { translate: -7px; }
+  30% { translate: 6px; }
+  45% { translate: -5px; }
+  60% { translate: 4px; }
+  75% { translate: -2px; }
+  90% { translate: 1px; }
+}
+.sn-row-field {
+  transform-origin: right center;
+  animation: sn-row-field-in calc(var(--sn-pill-dur) * 0.87) var(--sn-pill-spring);
+}
+.sn-row-field[data-leaving] {
+  opacity: 0;
+  animation: sn-row-field-out calc(var(--sn-pill-dur) * 0.39) var(--sn-ease);
+}
+[data-form-row-back] > .sn-row-name {
+  animation: sn-row-name-back calc(var(--sn-pill-dur) * 0.65) var(--sn-pill-spring);
+}
+[data-form-row-back] > .sn-row-pill {
+  animation: sn-row-pill-back calc(var(--sn-pill-dur) * 0.65) var(--sn-pill-spring);
+}
+.sn-row-shake {
+  animation: sn-row-shake 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+/* ── THE ⓘ EXPLANATION'S POPUP (`app/_components/explain.tsx`, gallery § 7): it lands in the centre with the
+   family's small bounce. `scale`, not `transform` — the popup is centred with a transform of its own. */
+@keyframes sn-explain-in {
+  from { opacity: 0; scale: 0.94; }
+}
+.sn-explain-pop {
+  animation: sn-explain-in calc(var(--sn-pill-dur) * 0.4) var(--sn-pill-spring);
+}
+@keyframes sn-explain-note-in {
+  from { opacity: 0; translate: 0 6px; }
+}
+.sn-explain-note {
+  animation: sn-explain-note-in calc(var(--sn-pill-dur) * 0.4) var(--sn-ease);
+}
+@media (prefers-reduced-motion: reduce) {
+  .sn-row-field,
+  .sn-row-field[data-leaving],
+  [data-form-row-back] > .sn-row-name,
+  [data-form-row-back] > .sn-row-pill,
+  .sn-row-shake,
+  .sn-explain-pop,
+  .sn-explain-note {
+    animation: none !important;
+  }
+}
+
 /* ── LOOK › BUTTONS (owner 2026-10-04: "create them") ────────────────────────
    The host's ONE choice for every Event Hub button — Shape · Fill · Colour —
    decided by `lib/hub-buttons.ts` (`resolveHubButtons`) and worn by the guest
@@ -4266,6 +4482,34 @@ html.dark {
 [data-hub-btn-paint] .button-primary:hover,
 [data-hub-btn-paint] [data-arrival-action] a.bg-mulberry:hover {
   background-color: var(--hub-btn-hover);
+}
+/* ── 🔤 THE COUPLE'S FOUR FONTS (owner 2026-10-08, round 5: "i think there are more than just 2 types of fonts to
+   edit") ── Names · Headings · Text · Labels & buttons. Their faces ride the look scope's inline bag
+   (`lib/site-role-look.ts`); most of the page already reads those variables. These four rules are for what no
+   existing variable reaches — and each matches ONLY under the mark the scope wears for a font the couple actually
+   chose (`data-hub-roles`), so a page with nothing chosen matches none of them.
+
+   · `names`   — the big names on the three hero surfaces (`[data-hub-names]`: the Event Hub's masthead, the
+                 private landing, the invitation's header). MEASURED 2026-10-08: the masthead's names are
+                 `font-pahina`, a fixed Fraunces that no theme and no couple's font ever reached. This is the ONE
+                 place that changes; every other `font-pahina` text is untouched.
+   · `body`    — Classic has no theme block to point the page's own face at `--font-body` (a painted theme's
+                 block already does).
+   · `eyebrow` — `.pahina-eyebrow` names its face directly, not `--font-mono`.
+   · `button`  — a button had no face of its own; it inherited the text's. */
+[data-hub-roles~='names'] [data-hub-names] {
+  font-family: var(--hub-names-face);
+}
+[data-hub-roles~='body'] {
+  --font-sans: var(--font-body);
+  font-family: var(--font-body);
+}
+[data-hub-roles~='eyebrow'] .pahina-eyebrow {
+  font-family: var(--font-mono);
+}
+[data-hub-roles~='button'] :is(.button-primary, .button-secondary, [data-rsvp-answer]),
+[data-hub-roles~='button'] [data-arrival-action] a.bg-mulberry {
+  font-family: var(--hub-role-button-font);
 }
 /* 🔘 THE TAPPED ANSWER FILLS, THE OTHER GOES PLAIN (owner 2026-10-06, DECISION_LOG
    '"WHEN YES" GETS A CELEBRATION (PRO)': "the tapped answer fills with the Look ›
@@ -4479,6 +4723,178 @@ html.dark {
     overflow: hidden;
     isolation: isolate;
     -webkit-mask-image: -webkit-radial-gradient(white, black);
+  }
+}
+
+/* `.sn-phone-card` — EVERY PICTURE CARD IN THE MAKER IS PHONE-SHAPED.
+ * Owner 2026-10-08, on Look › Background's cards drawn as short, wide strips:
+ * "we are on mobile view, so show in mobile view, not like a header that is
+ * short and wide or at least square or 4:3 or 3:4" — and, a minute later, "on
+ * all style across the market hub": every look / style picture card, not only
+ * Background's.
+ *   · 3 : 4 PORTRAIT — the shape of the page the picture stands for;
+ *   · ONE FIXED SIZE, EVERYWHERE — 112 × 149 (owner 2026-10-08, on the template gallery: *"Style Card should be
+ *     limited to that height and width. Adjust it always to that. no framing"*): `--phone-card-w`, default 112px
+ *     (three cards and a peek across a 375px phone), and `flex: none` — a card never grows to fill a wide panel and
+ *     never shrinks; the STRIP scrolls sideways. The picture fills it edge to edge: no border, no inner frame;
+ *   · its picture, loop or pattern is cropped the way a phone crops the page
+ *     (`object-fit: cover`); where a focus point is stored the caller sets
+ *     `object-position` with the guest page's own rule;
+ *   · the house radius; whatever falls outside the frame is clipped.
+ * The FRAME only — the name under it, the picked ring and what a tap does stay
+ * the card's own. CSS only: no script, nothing on the Maker's first-load JS.
+ * UNLAYERED on purpose (the opposite of `.sn-glass-row` above): an unlayered
+ * rule beats every Tailwind utility, so a stray `w-full`, `flex-1` or
+ * `aspect-video` on a card cannot turn it back into a strip. Size a strip's
+ * cards with `--phone-card-w`, never with a width utility. */
+.sn-phone-card {
+  position: relative;
+  display: block;
+  flex: none;
+  inline-size: var(--phone-card-w, 112px);
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  border-radius: var(--m-r-md);
+}
+.sn-phone-card :is(img, video) {
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+}
+
+/* `.sn-slider` — THE ONE SLIDER (owner 2026-10-08, the approved gallery § 17 "Counter and slider"; on the knob:
+ * "animation press effect"). The look of `app/_components/slider.tsx`, written here because a range's line and
+ * knob are pseudo-elements. The line fills in the app's accent up to the knob (`--sn-slider-fill`, set by the
+ * component) and is grey after it; the knob is white with the accent's ring; HELD, it dips, fills with the accent and
+ * shows a soft ring, and springs back — a share of the family's one speed (`--sn-pill-dur`), the family's spring.
+ * Every colour is `--sn-accent` or the page's ink: change the accent and the slider follows. Nothing moves under
+ * "reduce motion". Held by `lib/the-slider-is-one-drawing.test.ts`. */
+.sn-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  background: none;
+  touch-action: pan-y;
+}
+.sn-slider::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: var(--m-r-full);
+  background: linear-gradient(90deg, rgb(var(--sn-accent)) var(--sn-slider-fill, 50%), rgb(var(--color-ink) / 0.16) 0);
+}
+/* 👁 THE MAKER'S WHOLE-PAGE PREVIEW (▶ held down — `editor-bridge.tsx` `guest`): the canvas is the page a guest gets, so
+ * what only the editor draws steps aside — an empty scene's placeholder (a guest's page has no such scene) and the
+ * "tap to edit" pointer on every section. Set and cleared by the bridge alone; no guest's page ever carries it. */
+html[data-maker-guest] [data-maker-empty] { display: none !important; }
+html[data-maker-guest] [data-setnayan-editor-bound] { cursor: auto !important; }
+
+/* FROM THE CENTRE (`<Slider from="centre">` — a value that rests in the middle and goes both ways, Darker ↔ Lighter):
+ * the accent runs from the middle of the line out to the knob, on whichever side it is; at rest nothing is filled. */
+.sn-slider[data-slider-from='centre']::-webkit-slider-runnable-track {
+  background: linear-gradient(90deg, rgb(var(--color-ink) / 0.16) min(50%, var(--sn-slider-fill, 50%)), rgb(var(--sn-accent)) min(50%, var(--sn-slider-fill, 50%)), rgb(var(--sn-accent)) max(50%, var(--sn-slider-fill, 50%)), rgb(var(--color-ink) / 0.16) max(50%, var(--sn-slider-fill, 50%)));
+}
+.sn-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 26px;
+  height: 26px;
+  margin-top: -10px;
+  border-radius: var(--m-r-full);
+  background: rgb(255 255 255);
+  border: 2px solid rgb(var(--sn-accent));
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.18), 0 0 0 0 rgb(var(--sn-accent) / 0.2);
+  transition:
+    transform calc(var(--sn-pill-dur) * 0.3) var(--sn-pill-spring),
+    box-shadow calc(var(--sn-pill-dur) * 0.3) var(--sn-ease),
+    background-color calc(var(--sn-pill-dur) * 0.2) var(--sn-ease);
+}
+.sn-slider:active::-webkit-slider-thumb {
+  transform: scale(0.9);
+  background: rgb(var(--sn-accent));
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.18), 0 0 0 10px rgb(var(--sn-accent) / 0.18);
+}
+.sn-slider::-moz-range-track {
+  height: 6px;
+  border-radius: var(--m-r-full);
+  background: rgb(var(--color-ink) / 0.16);
+}
+.sn-slider::-moz-range-progress {
+  height: 6px;
+  border-radius: var(--m-r-full);
+  background: rgb(var(--sn-accent));
+}
+.sn-slider[data-slider-from='centre']::-moz-range-track {
+  background: linear-gradient(90deg, rgb(var(--color-ink) / 0.16) min(50%, var(--sn-slider-fill, 50%)), rgb(var(--sn-accent)) min(50%, var(--sn-slider-fill, 50%)), rgb(var(--sn-accent)) max(50%, var(--sn-slider-fill, 50%)), rgb(var(--color-ink) / 0.16) max(50%, var(--sn-slider-fill, 50%)));
+}
+.sn-slider[data-slider-from='centre']::-moz-range-progress {
+  background: none;
+}
+.sn-slider::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--m-r-full);
+  background: rgb(255 255 255);
+  border: 2px solid rgb(var(--sn-accent));
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.18);
+  transition:
+    transform calc(var(--sn-pill-dur) * 0.3) var(--sn-pill-spring),
+    box-shadow calc(var(--sn-pill-dur) * 0.3) var(--sn-ease),
+    background-color calc(var(--sn-pill-dur) * 0.2) var(--sn-ease);
+}
+.sn-slider:active::-moz-range-thumb {
+  transform: scale(0.9);
+  background: rgb(var(--sn-accent));
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.18), 0 0 0 10px rgb(var(--sn-accent) / 0.18);
+}
+.sn-slider:focus-visible {
+  outline: 2px solid rgb(var(--sn-accent) / 0.5);
+  outline-offset: 2px;
+  border-radius: var(--m-r-full);
+}
+.sn-slider:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sn-slider::-webkit-slider-thumb,
+  .sn-slider::-moz-range-thumb {
+    transition: none;
+  }
+  .sn-slider:active::-webkit-slider-thumb,
+  .sn-slider:active::-moz-range-thumb {
+    transform: none;
+  }
+}
+
+/* `.sn-popup-dark` — THE DARK BEHIND ANYTHING POPPED UP OVER THE PAGE.
+ * Owner 2026-10-08 (INTERACTION_RULES § 9): "when there is a pop up. the rest of
+ * the screen darkens (except for when there is preview) … The darkened area will
+ * be blurred and nothing behind it will work." ONE look for every pop-up's
+ * backdrop: the page's ink at 42 % with a 6-px blur (the template gallery's own
+ * figures). DARK ALONE — a little deeper, so the pop-up still stands off the page
+ * — where the browser cannot blur a backdrop, and where the device asks for less
+ * transparency. No motion; nothing here animates.
+ *
+ * 🧾 `div:has(> [data-apply-pro-sheet])` — THE APPLY SHEET'S OWN BACKDROP WEARS IT TOO, FROM HERE. Its file
+ * (`website/_components/apply-pro-sheet.tsx`) rides the Maker's first-load JavaScript, which has 0.1 KB of room, so
+ * the look is given by the stylesheet through the mark the sheet already carries — not one byte of script. It
+ * outweighs the sheet's own `bg-ink/30` utility ((0,1,1) over (0,1,0)). Written FIRST in each list, so each rule
+ * still ends `.sn-popup-dark {`. Held by `lib/every-stages-popup-follows-the-rule.test.ts`. */
+div:has(> [data-apply-pro-sheet]),
+.sn-popup-dark {
+  background-color: rgb(var(--color-ink) / 0.42);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  div:has(> [data-apply-pro-sheet]),
+  .sn-popup-dark {
+    background-color: rgb(var(--color-ink) / 0.55);
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  div:has(> [data-apply-pro-sheet]),
+  .sn-popup-dark {
+    background-color: rgb(var(--color-ink) / 0.55);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
 }
 
@@ -4926,26 +5342,60 @@ html.dark {
    * #8A6B39 and #5C4726. If it reads too dark on the hover, the answer is a new
    * mid tone, which is a design call and his, not a build decision.
    */
+  /*
+   * 🔶 THE MAIN ACTION BUTTON IS THE APP'S ACCENT (owner 2026-10-08, approving the template gallery —
+   * `prototypes/control_templates_2026-10-08.html` § 9: main = the accent with its ink, a pill; second = white, a
+   * hairline, ink words, the same pill; "cannot be used yet" = grey). This replaces the gold recipe above on the
+   * dashboards (couple · supplier · admin): the measurements in that note are history, not the fill.
+   *
+   * 🔑 ONE DECLARATION EACH. The fill is `--sn-accent` and the words are `--sn-on-accent` (owner: "if we change our
+   * color to blue, it will be easy to change the button colors") — the pair `lib/the-accent-is-one-token.test.ts`
+   * holds at 4.5:1 or better. NOTHING ELSE HERE PUTS WORDS ON A FILL: a hover does not change the fill (it lifts),
+   * so there is no second pair to go unread one interaction away — the defect the note above records.
+   *
+   * 🚪 NEVER INSIDE A GUEST-LOOK ISLAND. The Maker's Look sample is a piece of the guest page drawn INSIDE the
+   * dashboard (`.sn-editorial`, `[data-look-sample]`). The two rules that keep the old selectors set only what that
+   * sample already hands back (`[data-look-sample] .button-primary/-secondary`, unlayered, later, same weight);
+   * everything NEW — the pill, the hover, the grey — is written `:not(.sn-editorial *)`, so it cannot reach it.
+   * `lib/the-main-button-is-the-accent.test.ts` holds both halves.
+   */
   .app-surface .button-primary {
-    background: var(--sn-gold-700);
-    color: #fffdf8;
+    background: rgb(var(--sn-accent));
+    color: rgb(var(--sn-on-accent));
   }
-  .app-surface .button-primary:hover {
-    background: var(--sn-gold-800);
+  .app-surface .button-primary:not(.sn-editorial *):hover {
     transform: translateY(-2px);
-    box-shadow: 0 14px 26px -12px var(--sn-gold-500);
+    box-shadow: 0 14px 26px -12px rgb(var(--sn-accent) / 0.6);
   }
   .app-surface .button-secondary {
-    background: transparent;
+    background: var(--sn-surface);
     color: var(--sn-ink-900);
-    border-color: var(--sn-ink-900);
-    border-width: 1.5px;
+    border-color: var(--sn-line);
+    border-width: 1px;
   }
-  .app-surface .button-secondary:hover {
-    background: var(--sn-ink-900);
-    color: var(--sn-paper);
+  .app-surface .button-secondary:not(.sn-editorial *):hover {
     border-color: var(--sn-ink-900);
     transform: translateY(-2px);
+  }
+  /* The same pill for both. */
+  .app-surface .button-primary:not(.sn-editorial *),
+  .app-surface .button-secondary:not(.sn-editorial *) {
+    border-radius: var(--m-r-full);
+  }
+  /* "Cannot be used yet" — grey, flat, and no longer faded on top of that (the base rule's 60% opacity).
+     Each selector is written out — no `:is(a, b)` — because `lint-label-on-fill-contrast` reads a selector list by its
+     commas and excuses an inactive control only where the selector itself says `:disabled` / `[aria-disabled=`. */
+  .app-surface .button-primary:not(.sn-editorial *):disabled,
+  .app-surface .button-primary:not(.sn-editorial *)[aria-disabled='true'],
+  .app-surface .button-secondary:not(.sn-editorial *):disabled,
+  .app-surface .button-secondary:not(.sn-editorial *)[aria-disabled='true'] {
+    background: var(--sn-hairline);
+    color: var(--sn-ink-300);
+    border-color: var(--sn-line);
+    opacity: 1;
+    transform: none;
+    box-shadow: none;
+    cursor: not-allowed;
   }
   .app-surface .input-field:hover { border-color: var(--sn-gold-500); }
   .app-surface .input-field:focus {
@@ -5233,7 +5683,7 @@ html.dark {
   box-shadow: inset 0 0 0 1.5px var(--sn-gold-500);
 }
 /* …except the Guests roster, where the trigger is only the name cell of a wider
- * <tr>: the WHOLE row wears the gold selected tint (set in guest-list-multiselect
+ * <tr>: the WHOLE row wears the gold selected tint (set in the retired guest-list-multiselect
  * DesktopRow) instead, so the name link opts out of the default per-element wash
  * to avoid double-marking. */
 .sn-guest-namelink[data-inspector-selected='true'] {
@@ -5825,6 +6275,41 @@ html:active-view-transition .sn-page-enter { animation: none; }
     transform: scaleY(0.8);
   }
 }
+/* 🎵 THE MUSIC BUTTON'S OTHER TWO DESIGNS (owner 2026-10-08, round 5 — `music-button-face.tsx` `MusicButtonFace`):
+   the record TURNS and the note's rings PULSE OUT — only while the song plays (the classes are worn only then),
+   on `transform` and `opacity` alone. Under "reduce motion" nothing moves: the disc rests, the rings are not drawn. */
+@keyframes sn-music-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes sn-music-ring {
+  from {
+    transform: scale(0.55);
+    opacity: 0.7;
+  }
+  to {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+.sn-music-spin {
+  transform-origin: center;
+  animation: sn-music-spin 3.2s linear infinite;
+}
+.sn-music-ring {
+  opacity: 0;
+  animation: sn-music-ring 1.8s ease-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sn-music-spin {
+    animation: none;
+  }
+  .sn-music-ring {
+    animation: none;
+    opacity: 0;
+  }
+}
 
 /* The invitation top bar's right-hand label gives way to the fixed top-right
    controls (music · a guest's Account). They are pinned to the viewport
@@ -5930,6 +6415,9 @@ html:active-view-transition .sn-page-enter { animation: none; }
 .sn-hub-cards > section,
 .sn-hub-cards > div > section,
 .hub-scenes > .hub-scene > section,
+.hub-stage > .hub-scene > section,
+.hub-after > .hub-scene > section,
+.hub-below > .hub-scene > section,
 .hub-arun > .hub-scene > section {
   border-radius: var(--m-r-md);
   border: 1px solid rgb(var(--color-ink) / 0.08);
@@ -6486,10 +6974,11 @@ html:has(.hub-shape-full) { overflow-x: clip; }
 /* ── SCROLL · SCRUB — the page's scenes (owner 2026-09-24: "hybrid perfect";
    contract in lib/hub-scenes.ts, renderer in app/[slug]/_components/hub-scenes.tsx)
    ──────────────────────────────────────────────────────────────────────────
-   Approved prototype: prototypes/scenes_hold_crossfade_hybrid_2026-09-24.html.
-   A SCRUB section pins for one screen while a 170vh spacer after it drives it;
-   consecutive scrub sections form a RUN, overlap their spacers and truly
-   cross-fade; a SCROLL section is the ordinary page.
+   A SCROLL scene is the ordinary page; an AUTO run shares one cell and hands over on a clock (below); a SCRUB scene
+   is an ordinary scene of the page too, held by page length and played under the thumb by a small script — "SCRUB —
+   A HELD HAND-OVER", at the end of this file. (Until 2026-10-09 Scrub was a STACKED RUN here — `.hub-run` /
+   `.hub-scrub` / `.hub-sp`: a frame pinned in a grid cell and driven by a spacer. Nothing draws that any more and
+   its rules are removed.)
 
    🔒 THE BASE BELOW IS THE PLAIN PAGE, and it is all a browser without
    `timeline-scope` / `animation-range`, or a guest who asked for less motion,
@@ -6498,8 +6987,15 @@ html:has(.hub-shape-full) { overflow-x: clip; }
    wrapper replaced). Everything that pins or fades is inside the gates further
    down. */
 .hub-scenes > .hub-prog ~ * ~ * { margin-top: 1rem; }
-.hub-run > .hub-scene ~ .hub-scene { margin-top: 1rem; }
-.hub-sp { display: none; }
+/* 🎚 A page with a Scrub hand-over nests its scenes (`hub-scenes.tsx` `flow`: cell › stage › the scene, then the rest of
+   the page). Here, in the plain page, those wrappers are nothing but blocks: the same 1rem rhythm, the same cards. */
+.hub-stage > .hub-after,
+.hub-stage > .hub-below,
+.hub-after > .hub-below,
+.hub-below > * + * { margin-top: 1rem; }
+/* …and a scene that drew nothing (see below: it is no box) leaves no second gap in front of what follows it. */
+.hub-scene:empty + .hub-after,
+.hub-scene:has(> .hub-canvas > .hub-canvas-body:empty) + .hub-after { margin-top: 0; }
 .hub-prog { display: none; }
 /* A widget that rendered nothing (Countdown with no date) leaves an empty
    scene. It is no scene: it takes no gap and — because a hidden box has no
@@ -6859,7 +7355,10 @@ html:has(.hub-shape-full) { overflow-x: clip; }
     .hub-seq-whole.hub-tl-scrub > .hub-canvas-body {
       animation-name: var(--hub-in-kf, none), var(--hub-out-kf, none);
       animation-timeline: view(), view();
-      animation-range: entry 0% entry 92%, exit 8% exit 100%;
+      /* 🎚 Each end's own FEEL (owner 2026-10-09 "movement independent from each"): how far the scroll-driven arrival
+         runs (`--hub-in-end`) and how much of the way out the hand-off takes (`--hub-out-range`), from
+         `hubCanvasVars` — set only by a couple's own choice; absent, the ranges every scene had. */
+      animation-range: entry 0% var(--hub-in-end, entry 92%), var(--hub-out-range, exit 8% exit 100%);
       animation-fill-mode: both, both;
       animation-timing-function: linear, linear;
       will-change: opacity, transform;
@@ -6908,18 +7407,18 @@ html:has(.hub-shape-full) { overflow-x: clip; }
     .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > * {
       --hub-part-in: var(--hub-in-kf, none);
       --hub-part-in-tl: view();
-      --hub-part-in-range: entry 0% entry 92%;
+      --hub-part-in-range: entry 0% var(--hub-in-end, entry 92%);
       --hub-part-out: var(--hub-out-kf, none);
       --hub-part-out-tl: view();
-      --hub-part-out-range: exit 8% exit 100%;
+      --hub-part-out-range: var(--hub-out-range, exit 8% exit 100%);
     }
-    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(2) { --hub-part-in-range: entry 4% entry 92%; }
-    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(3) { --hub-part-in-range: entry 8% entry 92%; }
-    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(4) { --hub-part-in-range: entry 12% entry 92%; }
-    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(5) { --hub-part-in-range: entry 16% entry 92%; }
-    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(6) { --hub-part-in-range: entry 20% entry 92%; }
-    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(7) { --hub-part-in-range: entry 24% entry 92%; }
-    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(8) { --hub-part-in-range: entry 28% entry 92%; }
+    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(2) { --hub-part-in-range: entry 4% var(--hub-in-end, entry 92%); }
+    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(3) { --hub-part-in-range: entry 8% var(--hub-in-end, entry 92%); }
+    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(4) { --hub-part-in-range: entry 12% var(--hub-in-end, entry 92%); }
+    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(5) { --hub-part-in-range: entry 16% var(--hub-in-end, entry 92%); }
+    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(6) { --hub-part-in-range: entry 20% var(--hub-in-end, entry 92%); }
+    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(7) { --hub-part-in-range: entry 24% var(--hub-in-end, entry 92%); }
+    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(8) { --hub-part-in-range: entry 28% var(--hub-in-end, entry 92%); }
 
     /* ── DURING: the PICTURE drifts, never the words ──────────────────────
        🔑 It lives on the media layer on purpose. Put on the same element as
@@ -6971,12 +7470,17 @@ html:has(.hub-shape-full) { overflow-x: clip; }
        🔑 THE LIST'S OWN PART STANDS STILL. Its rows arrive instead; both
        moving would be two opacities multiplying (the muddy arrival above).
 
-       ⛔ THE RULES HERE ARE FOR A SCENE THAT SCROLLS. A pinned frame
-       (`.hub-scrub`) does not scroll, so a row's `view()` there would never
-       move; an auto run (`.hub-auto`) runs on its own clock. Those two keep
-       their rows on their OWN timelines — "ROWS IN A RUN", inside the runs'
-       gate below — and `:not(…) >` on the frame's parent keeps every
-       scroll-scene rule out of them. The applying rule alone is shared.
+       ⛔ THE RULES HERE ARE FOR A SCENE THAT SCROLLS. An auto run
+       (`.hub-auto`) runs on its own clock and keeps its rows on it — "ROWS IN
+       AN AUTO RUN", inside the runs' gate below — and `:not(…) >` on the
+       frame's parent keeps every scroll-scene rule out of it. The applying
+       rule alone is shared.
+       🪤 TWO `:not()`s, ON PURPOSE. The resets below are weighed against the
+       parts rules to the class (one class short loses — see "EACH RESET IS
+       WRITTEN TWICE" history). The first was `:not(.hub-scrub)` until the
+       stacked Scrub run was removed (2026-10-09); `:not(.hub-arun)` — the
+       run's own box, never a frame's parent — keeps the same weight and
+       changes nothing a scene looks like.
 
        🔒 FAIL-VISIBLE, THE SAME THREE WAYS. Inside both gates above (scroll
        timelines, no reduced motion) and `screen` here, so a printed or saved
@@ -6989,14 +7493,14 @@ html:has(.hub-shape-full) { overflow-x: clip; }
        the heading. It writes each row's place in its list too (`--hub-row-i`
        of `--hub-row-n`), which the runs below slice their clocks by. */
     @media screen {
-      :not(.hub-scrub):not(.hub-auto) > .hub-seq-parts > .hub-canvas-body > * > [data-hub-rows],
-      :not(.hub-scrub):not(.hub-auto) > .hub-seq-parts.pahina-in > .hub-canvas-body > * > [data-hub-rows] {
+      :not(.hub-arun):not(.hub-auto) > .hub-seq-parts > .hub-canvas-body > * > [data-hub-rows],
+      :not(.hub-arun):not(.hub-auto) > .hub-seq-parts.pahina-in > .hub-canvas-body > * > [data-hub-rows] {
         --hub-part-in: none;
         --hub-part-out: none;
       }
       /* The list sits deeper than a part (a wrapper around it). */
-      :not(.hub-scrub):not(.hub-auto) > .hub-seq-parts > .hub-canvas-body > * > *:has([data-hub-rows]),
-      :not(.hub-scrub):not(.hub-auto) > .hub-seq-parts.pahina-in > .hub-canvas-body > * > *:has([data-hub-rows]) {
+      :not(.hub-arun):not(.hub-auto) > .hub-seq-parts > .hub-canvas-body > * > *:has([data-hub-rows]),
+      :not(.hub-arun):not(.hub-auto) > .hub-seq-parts.pahina-in > .hub-canvas-body > * > *:has([data-hub-rows]) {
         --hub-part-in: none;
         --hub-part-out: none;
       }
@@ -7022,7 +7526,7 @@ html:has(.hub-shape-full) { overflow-x: clip; }
         will-change: opacity, transform;
       }
       /* Plays once: this row, once the observer has seen it near the screen. */
-      :not(.hub-scrub):not(.hub-auto) > .hub-seq-parts.hub-tl-time > .hub-canvas-body [data-hub-rows] > .pahina-in {
+      :not(.hub-arun):not(.hub-auto) > .hub-seq-parts.hub-tl-time > .hub-canvas-body [data-hub-rows] > .pahina-in {
         --hub-part-in: var(--hub-in-kf, none);
         --hub-part-dur: var(--hub-duration, 1.1s);
         --hub-part-ease: var(--hub-ease, ease-out);
@@ -7032,15 +7536,15 @@ html:has(.hub-shape-full) { overflow-x: clip; }
          and hands off as it leaves, under the guest's thumb. Bound once the
          observer has marked it (it marks 32px BEFORE the row enters, so the
          first frame a guest sees is the arrival's first frame). */
-      :not(.hub-scrub):not(.hub-auto) > .hub-seq-parts.hub-tl-scrub > .hub-canvas-body [data-hub-rows] > .pahina-in {
+      :not(.hub-arun):not(.hub-auto) > .hub-seq-parts.hub-tl-scrub > .hub-canvas-body [data-hub-rows] > .pahina-in {
         --hub-part-in: var(--hub-in-kf, none);
         --hub-part-dur: 1s;
         --hub-part-ease: linear;
         --hub-part-in-tl: view();
-        --hub-part-in-range: entry 0% entry 92%;
+        --hub-part-in-range: entry 0% var(--hub-in-end, entry 92%);
         --hub-part-out: var(--hub-out-kf, none);
         --hub-part-out-tl: view();
-        --hub-part-out-range: exit 8% exit 100%;
+        --hub-part-out-range: var(--hub-out-range, exit 8% exit 100%);
       }
       /* Asked for nothing: nothing, in every context (a scroll scene or a run). */
       .hub-in-none.hub-out-none > .hub-canvas-body [data-hub-rows] > * {
@@ -7065,233 +7569,34 @@ html:has(.hub-shape-full) { overflow-x: clip; }
       animation-range: var(--el-range);
     }
 
-    /* ══ SCROLL · SCRUB — THE SCENES ══════════════════════════════════════
-       🔒 A THIRD GATE, INSIDE THE FIRST TWO. `view()` alone is not enough: a
-       browser with view() but no `timeline-scope` would pin every scrub
-       section at full opacity, stacked (the prototype measured it). So
-       nothing below applies unless named timelines can cross siblings too.
-
-       🔑 "LIVE" = a scrub section whose widget drew something. A widget can
-       return nothing (Countdown with no date) and the renderer cannot see that
-       from outside the node, so the stylesheet decides: an empty scene (the
-       frame refused a null child) or an empty body drops out of its run
-       entirely. The run's first section is therefore always one a guest can
-       read — an empty first would otherwise be pulled up over the page above
-       it, and an empty middle simply closes up.
-       🪤 `:has()` CANNOT NEST. A selector with `:has(~ x:has(…))` is invalid
-       and the WHOLE RULE is dropped, silently — measured: the fade-out
-       vanished and the cross-fade read 0 of 80 positions. So the look-ahead
-       ("is a live scrub section after me?") uses the one-level test
-       `:not(:empty)`. The one case it misreads is an empty-BODY last section:
-       its predecessor then fades out while the run scrolls away, which is not
-       a blank screen. */
+    /* ══ THE SCENES — THE PROGRESS MARK · AUTO RUNS ═══════════════════════
+       🔒 A THIRD GATE, INSIDE THE FIRST TWO. What is below names timelines across siblings (`timeline-scope`): a
+       browser with `view()` but not that gets none of it.
+       🪤 `:has()` CANNOT NEST. A selector with `:has(~ x:has(…))` is invalid and the WHOLE RULE is dropped, silently
+       (measured on the stacked run this gate used to hold) — keep every look-ahead one level deep. */
     @supports (animation-range: entry 0% exit 100%) and (timeline-scope: none) {
-      /* 📏 A SCENE IS AS TALL AS ITS CONTENT — SCRUB TOO (owner 2026-09-27:
-         "this scene should not be alone. the spacing between scenes depend on
-         the content to keep a balanced gap from each other"; DECISION_LOG "A
-         SCENE IS AS TALL AS ITS CONTENT" + "SCRUB SCENES ALSO FIT THEIR
-         CONTENT"). A Scrub scene used to pin at one full screen, so a 196px
-         Countdown sat centred in a 1,060px band with ~342px of nothing above
-         and below it, and a run of two short scenes took 4.4 screens of scroll.
-
-         THE MODEL NOW: the scenes of a run are STACKED in one grid cell, all at
-         the run's top. Each scene (the SLOT) is stretched to the whole run; its
-         frame — the thing a guest reads — is sticky inside it, so it pins at
-         `--hub-pin` exactly as tall as its content. The spacers stay the
-         clock: one `--hub-step` row each, in a zero-width column beside the
-         scenes, so spacer N and spacer N+1 still ABUT and one hands over to the
-         other with no gap and no overlap. Around the run the ordinary 1rem
-         rhythm applies (`.hub-scenes > .hub-prog ~ * ~ *`), so the scene before
-         a run and the scene after it sit as close as two Scroll scenes do.
-
-         🔑 WHY A SLOT AND A STICKY CHILD, not a sticky scene. A sticky box
-         stops pinning when its CONTAINING BLOCK runs out, and it keeps its
-         margins inside it — so a sticky scene can never be held for longer than
-         its own box allows. The slot is stretched to the run and carries an
-         `::after` of the run's track, which is what makes the run's last row
-         (`auto`) grow to fit the tallest scene: the run is always at least
-         "track + tallest frame", so no pinned frame is ever overlapped by the
-         section after the run, and after the last hand-over that section rises
-         to sit 1rem under the last frame.
-
-         ⚠ AN EMPTY SCENE INSIDE A RUN keeps its fixed row (the renderer cannot
-         see a widget that rendered nothing): the last frame simply holds for
-         one more step. It never shows a blank — the fades chain through the
-         spacers that ARE drawn. */
-      .hub-scenes {
-        timeline-scope: var(--hub-scope);
-        /* `--hub-pin` (where a frame pins) is set with the progress mark below. */
-        --hub-step: 60svh;
-        /* The cover-range offset at which a spacer's TOP sits on the pin line.
-           `100%` is the end of `cover` (the spacer's bottom leaving the top of
-           the screen), so every range below is measured from where the frames
-           actually are, never from the screen's height. */
-        --hub-at: calc(100% - var(--hub-pin) - var(--hub-step));
-      }
+      .hub-scenes { timeline-scope: var(--hub-scope); }
 
       /* A scroll section names its own box, only for its progress segment. */
       .hub-scroll { view-timeline: var(--hub-tl) block; }
 
-      .hub-scrub:empty,
-      .hub-scrub:has(> .hub-canvas > .hub-canvas-body:empty) { display: none; }
+      /* ── ROWS IN AN AUTO RUN ───────────────────────────────────────────────
+         The SAME row values as a scrolling scene ("THE ROWS OF A LIST" above), on the run's own clock — never a
+         second system. The rows arrive on the run's CLOCK — the scene's own fade-in moment (`--hub-in-at`, written by
+         `HubAutoRun`; absent = the first scene, there from the start) plus one stagger per row — and pause with the
+         run (`[data-playing]`), exactly as the scenes do.
+         (The rows of a SCRUB scene are the script's: "SCRUB — A HELD HAND-OVER", at the end of this file.)
 
-      /* THE RUN — only when it has a scene that drew something (one level of
-         `:has()`, never nested); a run of empty scenes stays an empty block. */
-      .hub-run:has(> .hub-scrub > .hub-canvas > .hub-canvas-body:not(:empty), > .hub-scrub > :not(.hub-canvas):not(style)) {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) 0;
-        grid-template-rows: repeat(var(--hub-n, 1), var(--hub-step)) auto;
-      }
-      /* As specific as the fallback's `.hub-run > .hub-scene ~ .hub-scene`
-         (1rem apart when nothing pins), so the stacked scenes all start at the
-         run's top — measured: one class short, the second scene sat 16px low. */
-      .hub-run > .hub-scene.hub-scrub {
-        grid-column: 1;
-        grid-row: 1 / -1;
-        margin-top: 0;
-      }
-      .hub-run > .hub-scrub::after {
-        content: '';
-        display: block;
-        height: calc((var(--hub-n, 1) - 0.5) * var(--hub-step));
-      }
-
-      /* THE FRAME — pinned, as tall as its content. A frame that is followed
-         by another one fades out WHILE pinned, so a frame taller than the
-         screen scrolls inside itself rather than losing its end; the run's
-         last frame is never capped, because it scrolls on with the page after
-         its hold and a guest reads it to the end the ordinary way. */
-      .hub-scrub > * {
-        position: sticky;
-        top: var(--hub-pin);
-      }
-      .hub-scrub:not(:empty):has(~ .hub-scrub:not(:empty)) > * {
-        max-height: calc(100svh - var(--hub-pin) - max(1.5rem, 3vh));
-        overflow-y: auto;
-        scrollbar-width: none;
-      }
-      /* 🪤 …and a SHORT one must never become scrollable by accident. A part
-         rising into place is translated below its box, and a transform counts
-         as overflow: measured, a 144px Editorial frame read scrollHeight 170, so
-         a swipe that started on it scrolled the frame 26px instead of the page
-         (iOS keeps the whole gesture on the inner scroller). Clipping at the
-         body stops the part's travel from reaching the frame; the most a rising
-         part loses is the few pixels past its card's own bottom padding. */
-      .hub-scrub:not(:empty):has(~ .hub-scrub:not(:empty)) > .hub-canvas > .hub-canvas-body { overflow-y: clip; }
-
-      /* The spacer: one step of scroll, in the zero-width column, auto-placed
-         into the next fixed row — so the drawn spacers always abut. */
-      .hub-scrub:not(:empty):not(:has(> .hub-canvas > .hub-canvas-body:empty)) + .hub-sp {
-        display: block;
-        grid-column: 2;
-        view-timeline: var(--hub-tl) block;
-      }
-
-      /* ── The cross-fades. OUT on a live scrub section that has a live one
-         after it; IN on one that has a live one before it; both on one in the
-         middle. Shorthand first, THEN timeline and range — the shorthand resets
-         them. OUT is listed last so it wins once it starts; it has no backwards
-         fill, so before its window IN rules.
-         Measured from the pin line: the hand-over is when the boundary between
-         two spacers crosses `--hub-pin + ¼ step`. IN runs while the next
-         spacer's top travels from 0.6 to 0.1 of a step below the pin line; OUT
-         while this spacer's bottom travels from 0.5 step to the line — IN
-         leads, so the two are never both faint and the screen is never blank. ── */
-      .hub-scrub:not(:empty):not(:has(> .hub-canvas > .hub-canvas-body:empty)):has(~ .hub-scrub:not(:empty)) {
-        animation: hub-scene-out linear forwards;
-        animation-timeline: var(--hub-tl);
-        animation-range: cover calc(var(--hub-at) + 0.5 * var(--hub-step)) cover calc(var(--hub-at) + var(--hub-step));
-      }
-      .hub-scrub:not(:empty):not(:has(> .hub-canvas > .hub-canvas-body:empty)) ~ .hub-scrub:not(:empty):not(:has(> .hub-canvas > .hub-canvas-body:empty)) {
-        animation: hub-scene-in linear both;
-        animation-timeline: var(--hub-tl);
-        animation-range: cover calc(var(--hub-at) - 0.6 * var(--hub-step)) cover calc(var(--hub-at) - 0.1 * var(--hub-step));
-      }
-      .hub-scrub:not(:empty):not(:has(> .hub-canvas > .hub-canvas-body:empty)) ~ .hub-scrub:not(:empty):not(:has(> .hub-canvas > .hub-canvas-body:empty)):has(~ .hub-scrub:not(:empty)) {
-        animation: hub-scene-in linear both, hub-scene-out linear forwards;
-        animation-timeline: var(--hub-tl), var(--hub-tl);
-        animation-range: cover calc(var(--hub-at) - 0.6 * var(--hub-step)) cover calc(var(--hub-at) - 0.1 * var(--hub-step)), cover calc(var(--hub-at) + 0.5 * var(--hub-step)) cover calc(var(--hub-at) + var(--hub-step));
-      }
-
-      /* ── WHILE IT HOLDS, THE SCROLL SCRUBS ITS CONTENTS ──────────────────
-         The scene's own fade IS the section's arrival, so the block-level
-         arrival is off (two opacities would multiply). When the couple chose
-         "one part after another", the first part is there when the scene
-         arrives and the rest arrive in turn while it is pinned — on the
-         SPACER's timeline, so scrolling back takes them away again. Their
-         chosen entrance (fade / move / from which side) is the keyframe. */
-      /* 🪤 EACH RESET IS WRITTEN TWICE — with and without `.pahina-in` — because
-         the approach-marked "Plays once" rules carry that one class more, and a
-         reset that is one class short loses: measured, a Calm scene inside a
-         Scrub run faded in on the clock AND with its scene, two opacities
-         multiplying to 0.48 while the scene read 0.87. */
-      .hub-scrub > .hub-canvas > .hub-canvas-body,
-      .hub-scrub > .hub-canvas.pahina-in > .hub-canvas-body { animation: none; }
-      /* The parts, as VALUES (`--hub-part-*`, applied by the one parts rule
-         above) so a part's own motion keeps what it did not choose. No part
-         leaves on its own here — the scene's cross-fade is the hand-off. */
-      .hub-scrub > .hub-canvas > .hub-canvas-body > * > *,
-      .hub-scrub > .hub-canvas.pahina-in > .hub-canvas-body > * > * {
-        --hub-part-in: none;
-        --hub-part-out: none;
-      }
-      /* Each part arrives while its spacer's top travels a quarter step past
-         the pin line, a little later than the one before — all of them before
-         the hand-over begins (half a step past the line). */
-      .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(n + 2) {
-        --hub-part-in: var(--hub-in-kf, none);
-        --hub-part-dur: 1s;
-        --hub-part-delay: 0s;
-        --hub-part-ease: linear;
-        --hub-part-in-tl: var(--hub-tl);
-        --hub-part-in-range: cover calc(var(--hub-at) - 0.05 * var(--hub-step)) cover calc(var(--hub-at) + 0.2 * var(--hub-step));
-      }
-      .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(3) { --hub-part-in-range: cover calc(var(--hub-at) + 0 * var(--hub-step)) cover calc(var(--hub-at) + 0.25 * var(--hub-step)); }
-      .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(4) { --hub-part-in-range: cover calc(var(--hub-at) + 0.05 * var(--hub-step)) cover calc(var(--hub-at) + 0.3 * var(--hub-step)); }
-      .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(5) { --hub-part-in-range: cover calc(var(--hub-at) + 0.1 * var(--hub-step)) cover calc(var(--hub-at) + 0.35 * var(--hub-step)); }
-      .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(6) { --hub-part-in-range: cover calc(var(--hub-at) + 0.15 * var(--hub-step)) cover calc(var(--hub-at) + 0.4 * var(--hub-step)); }
-      .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(7) { --hub-part-in-range: cover calc(var(--hub-at) + 0.2 * var(--hub-step)) cover calc(var(--hub-at) + 0.45 * var(--hub-step)); }
-      .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(8) { --hub-part-in-range: cover calc(var(--hub-at) + 0.25 * var(--hub-step)) cover calc(var(--hub-at) + 0.5 * var(--hub-step)); }
-      /* ── ROWS IN A RUN (owner 2026-09-28: *"yes, make pinned rows arrive one
-         by one too"*) ─────────────────────────────────────────────────────
-         The SAME row values as a scrolling scene ("THE ROWS OF A LIST"
-         above), on the run's own timeline — never a second system.
-
-         📌 PINNED (Scrub): the rows share the window the scene's parts arrive
-         in while it holds — from just before the spacer's top reaches the
-         pin line until just before the hand-over (half a step past it) — and
-         row i of n takes the i-th slice of it, on the SPACER's timeline, so
-         scrolling back takes them away again. The scene's own In (kind,
-         direction) and ease; the slice is the only thing that is new.
-
-         ⏱ AUTO: the rows arrive on the run's CLOCK — the scene's own fade-in
-         moment (`--hub-in-at`, written by `HubAutoRun`; absent = the first
-         scene, there from the start) plus one stagger per row — and pause
-         with the run (`[data-playing]`), exactly as the scenes do.
-
-         🔒 Fail-visible: a pinned row binds only once the observer marked it
-         (no script, no mark), an auto row only in an ARMED run; reduced
-         motion, an engine without these timelines, and print never reach
-         here. The list's own part stands still in both. */
+         🔒 Fail-visible: a row binds only in an ARMED run; reduced motion, an engine without these timelines, and
+         print never reach here. The list's own part stands still. */
       @media screen {
-        .hub-scrub > .hub-canvas.hub-seq-parts > .hub-canvas-body > * > [data-hub-rows],
         .hub-arun[data-armed] > .hub-auto > .hub-canvas.hub-seq-parts > .hub-canvas-body > * > [data-hub-rows] {
           --hub-part-in: none;
           --hub-part-out: none;
         }
-        .hub-scrub > .hub-canvas.hub-seq-parts > .hub-canvas-body > * > *:has([data-hub-rows]),
         .hub-arun[data-armed] > .hub-auto > .hub-canvas.hub-seq-parts > .hub-canvas-body > * > *:has([data-hub-rows]) {
           --hub-part-in: none;
           --hub-part-out: none;
-        }
-        .hub-scrub > .hub-canvas.hub-seq-parts > .hub-canvas-body [data-hub-rows] > .pahina-in {
-          --hub-part-in: var(--hub-in-kf, none);
-          --hub-part-dur: 1s;
-          --hub-part-ease: var(--hub-ease, linear);
-          --hub-part-in-tl: var(--hub-tl);
-          --hub-part-in-range:
-            cover calc(var(--hub-at) + (-0.05 + 0.5 * (var(--hub-row-i, 1) - 1) / var(--hub-row-n, 1)) * var(--hub-step))
-            cover calc(var(--hub-at) + (-0.05 + 0.5 * var(--hub-row-i, 1) / var(--hub-row-n, 1)) * var(--hub-step));
         }
         .hub-arun[data-armed] > .hub-auto > .hub-canvas.hub-seq-parts > .hub-canvas-body [data-hub-rows] > * {
           --hub-part-in: var(--hub-in-kf, none);
@@ -7311,13 +7616,6 @@ html:has(.hub-shape-full) { overflow-x: clip; }
         .hub-arun[data-armed]:has(> .hub-auto-pp[aria-pressed="true"]) > .hub-auto > .hub-canvas.hub-seq-parts > .hub-canvas-body [data-hub-rows] > * {
           --hub-part-play: running;
         }
-      }
-
-      /* The picture's slow lift follows the hold too — `view()` inside a pinned
-         scene would never move. */
-      .hub-scrub > .hub-during-lift.hub-has-media > .hub-canvas-media {
-        animation-timeline: var(--hub-tl);
-        animation-range: entry 0% exit 100%;
       }
 
       /* ── THE PROGRESS MARK — one segment per section. A pinned page hides
@@ -7755,43 +8053,65 @@ html:has(.hub-shape-full) { overflow-x: clip; }
   }
 }
 
-/* ── .sn-switch — a yes/no answer drawn as a switch (owner 2026-09-30, the
-   Fable guest card: "Yes/No = toggles"). A real checkbox underneath, so it posts
-   `on` like any box, works with the keyboard and a screen reader, and the
-   autosave's undo can click it back. */
-.sn-switch {
+/* ── input.sn-switch — the SAME switch, when it is a real checkbox (owner 2026-09-30, the
+   Fable guest card: "Yes/No = toggles"; owner 2026-10-08: *"switch is teracota or greyed out"*).
+   A real checkbox underneath, so it posts `on` like any box, works with the keyboard and a
+   screen reader, and the autosave's undo can click it back.
+
+   🔑 SCOPED TO THE INPUT. This rule was a bare `.sn-switch` — the same name the span track above
+   (`THE SWITCH`) took on 2026-10-08 — and, being later in the file at the same weight, it forced
+   its own size, a second knob and a `transform`-only transition onto every span track. An input
+   needs a drawn knob and a size of its own; a span track brings its own. They share the name and
+   the colours, nothing else: the grey "off" and both speeds come from the rule above; only "on"
+   is said here — the app's accent, `--sn-accent`, the same declaration the track's "on" is — because a box is on by
+   `:checked`.
+   Size = the approved template (50 × 30, a 24-px knob, 3 px in, travelling 20 px). */
+input.sn-switch {
   appearance: none;
   -webkit-appearance: none;
   position: relative;
   flex-shrink: 0;
-  width: 2.75rem;
-  height: 1.625rem;
+  width: 3.125rem;
+  height: 1.875rem;
   border-radius: 9999px;
-  background: rgb(26 26 26 / 0.18);
   cursor: pointer;
-  transition: background-color 0.2s ease;
 }
-.sn-switch::after {
+input.sn-switch::after {
   content: '';
   position: absolute;
   top: 0.1875rem;
   left: 0.1875rem;
-  width: 1.25rem;
-  height: 1.25rem;
+  width: 1.5rem;
+  height: 1.5rem;
   border-radius: 9999px;
   background: #fffdf8;
   box-shadow: 0 1px 3px rgb(26 26 26 / 0.3);
-  transition: transform 0.2s ease;
+  transition-property: transform;
 }
-.sn-switch:checked {
-  background: #4f6b4a;
+input.sn-switch:checked {
+  background-color: rgb(var(--sn-accent));
 }
-.sn-switch:checked::after {
-  transform: translateX(1.125rem);
+input.sn-switch:checked::after {
+  transform: translateX(1.25rem);
 }
-.sn-switch:focus-visible {
+input.sn-switch:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+input.sn-switch:focus-visible {
   outline: 2px solid currentColor;
   outline-offset: 2px;
+}
+/* ── THE KNOB'S SPEED OUTRANKS A UTILITY (2026-10-08, measured on the compiled sheet in Chromium).
+   A switch whose knob is its `::after` usually carries a Tailwind VARIANT utility for the move
+   (`after:transition-[left]`, `after:transition-transform`). Variant utilities are emitted at the END of the
+   compiled sheet — after every rule in this file — so at the same weight they outranked `.sn-switch::after` above,
+   and the knob moved in 150 ms with no spring (StudioSwitch, the Maker's Toggle). The class is doubled here ONLY to
+   weigh more than one utility; it says the same two things that rule says. WHAT moves (`left`, `transform`) stays
+   each drawing's own — this never names a transition-property, or a knob moved by the other one would stop moving. */
+.sn-switch.sn-switch::after {
+  transition-duration: var(--sn-pill-dur);
+  transition-timing-function: var(--sn-pill-spring);
 }
 
 /* ─── ActionButton — the button rule (owner 2026-10-07) ─────────────────────
@@ -7843,7 +8163,11 @@ html:has(.hub-shape-full) { overflow-x: clip; }
  * and quiet rules below are written at the same weight or higher, AFTER these,
  * so a tone can only be overridden on purpose. Held by
  * lib/action-button-is-icon-and-word.test.ts. */
-:is(button, a).ab.ab-brand { --ab-tone: var(--color-mulberry); --ab-word: var(--color-mulberry-700); }
+/* 🎯 BRAND IS THE APP'S ACCENT, BY ITS JOB (owner 2026-10-08: "if we change our color to blue, it will be easy to change
+ * the button colors"): the fill reads `--sn-accent` — today the terracotta `--color-mulberry` holds, so nothing moves on
+ * screen — and the filled main verb's word reads `--sn-on-accent` (the rule after `.ab-main`, below). The outlined
+ * word keeps mulberry-700 (measured on the 9% wash, above). Held by `lib/the-stages-panel-wears-the-accent.test.ts`. */
+:is(button, a).ab.ab-brand { --ab-tone: var(--sn-accent); --ab-word: var(--color-mulberry-700); }
 :is(button, a).ab.ab-ok { --ab-tone: var(--color-ok); }
 :is(button, a).ab.ab-info { --ab-tone: var(--color-info); }
 :is(button, a).ab.ab-warn { --ab-tone: var(--color-warn); }
@@ -7863,6 +8187,23 @@ html:has(.hub-shape-full) { overflow-x: clip; }
   color: #fff;
 }
 html.dark :is(button, a).ab.ab-main { color: #161513; }
+/* The main button in the accent: its word is the ink that reads ON the accent — one setting, both themes. */
+:is(button, a).ab.ab-brand.ab-main,
+html.dark :is(button, a).ab.ab-brand.ab-main { color: rgb(var(--sn-on-accent)); }
+/* WAITING (`waiting` on the component) — it cannot be used yet and it is STILL A BUTTON: a grey fill and word, its
+ * pill and a line kept — never the 35 % fade `disabled` wears, which read as faded text (owner 2026-10-08). Written
+ * AFTER the tone, main and disabled rules and at their weight or higher, so it wins on purpose: any tone, main or
+ * not. The word is the page's ink at 45 % — a waiting control, like a disabled one, is not held to a contrast floor. */
+:is(button, a).ab[data-waiting],
+:is(button, a).ab.ab-main[data-waiting],
+html.dark :is(button, a).ab.ab-main[data-waiting] {
+  opacity: 1;
+  cursor: default;
+  transform: none;
+  color: color-mix(in srgb, rgb(var(--color-ink)) 45%, transparent);
+  background: color-mix(in srgb, rgb(var(--color-ink)) 6%, transparent);
+  border-color: color-mix(in srgb, rgb(var(--color-ink)) 10%, transparent);
+}
 @media (prefers-reduced-motion: reduce) { .ab { transition: none; } .ab:active { transform: none; } }
 
 /* Fill — the meter rule's bar (components/count.tsx). Width is set inline by
@@ -8012,3 +8353,83 @@ html :is([data-part-look="role.side-rule"], [data-part-look="wear.side-rule"], [
 /* 🔲 A LOOK'S SAMPLE SHAPES (`[data-maker-sample]`, owner 08 Oct "show what it could look like with boxes") are the
    Maker canvas's only: a page with no `[data-maker-section]` marker (every guest's) never shows them. */
 body:not(:has([data-maker-section])) [data-maker-sample] { display: none !important; }
+
+/* ══ 🎚 SCRUB — A HELD HAND-OVER (owner 2026-10-09, approved on `review/scrub-prototype.html`: *"them must be on the same
+   position to create that keynote like transistion"* · *"let it enter on the last 20% of the build out"* · *"element
+   run completely normal. we only control the effect"*).
+   The markup is `hub-scenes.tsx` (`flow`), the numbers `hub-scrub-math.ts`, the measuring `hub-scrub-engine.ts`.
+   🔒 EVERY RULE HERE NEEDS `data-hub-scrub-on`, which only the engine sets, and sits behind "no reduced motion": with
+   no script, a blocked chunk, an error, or a guest who asked for less motion, none of it applies and the page is the
+   plain page — every scene visible, in order, nothing held.
+   NATIVE SCROLLING: a hold is real page length (the cell's `::after`) and the stand-still is `position: sticky`. The
+   page's scroll position is the browser's alone. No transform is put on anything that holds scenes (a transformed
+   box would capture the sheets and layers a scene opens with `position: fixed`).
+   `screen`: a printed page is the plain page too. ══ */
+@media screen and (prefers-reduced-motion: no-preference) {
+  /* THE HOLD — extra length, and the leaving scene (with all the page after it) standing still for exactly that. */
+  /* (An `::after`, never padding: a sticky box may only move inside its parent's CONTENT box, and padding is outside it
+     — with padding the stage never held at all, seen in the browser check.) */
+  .hub-scenes[data-hub-scrub-on] .hub-cell::after { content: ''; display: block; height: var(--hub-len, 0px); }
+  .hub-scenes[data-hub-scrub-on] .hub-stage { position: sticky; top: var(--hub-top, 0px); }
+  /* THE PAGE'S OWN HOLD — the same two rules on the pairs a PAGE wraps its whole column in (`HubPageHold`), marked by
+     the engine on the outermost one. Where a page has them the engine gives each hand-over one of THESE instead of
+     its own cell, so everything on the page — the cover too — stands still while a hand-over plays ("the page will
+     not scroll"). The rules above then find no length and no line set, and do nothing. */
+  .hub-page-cell[data-hub-page-on]::after,
+  .hub-page-cell[data-hub-page-on] .hub-page-cell::after { content: ''; display: block; height: var(--hub-len, 0px); }
+  .hub-page-cell[data-hub-page-on] .hub-page-stage { position: sticky; top: var(--hub-top, 0px); }
+  /* THE SAME PLACE — the rest of the page begins OVER the leaving scene (how far: the engine's measure). */
+  .hub-scenes[data-hub-scrub-on] .hub-scene + .hub-after { margin-top: var(--hub-up, 1rem); }
+  /* WHAT FOLLOWS THE PAIR sits under the lower of the two until the leaving one has gone, then under the arrival
+     (`top`, never a transform — see above). */
+  .hub-scenes[data-hub-scrub-on] .hub-below,
+  .hub-scenes[data-hub-scrub-on] .hub-scene + .hub-after { position: relative; top: var(--hub-rise, 0px); }
+  /* THE PAGE'S END — long enough for the last row and the last hand-over, at any window height. */
+  .hub-scenes[data-hub-scrub-on] { padding-bottom: var(--hub-end, 0px); }
+
+  /* ONE FADE — the hand-over's own, on the scene: the leaving one down to nothing, the arrival up from nothing. And
+     a scene whose turn has not come, or that has gone, is not there at all (never tappable through another). */
+  .hub-scenes[data-hub-scrub-on] .hub-scene[data-hub-fx] { opacity: var(--hub-o, 1); }
+  .hub-scenes[data-hub-scrub-on] .hub-scene[data-hub-fx][data-hub-away] { visibility: hidden; }
+
+  /* THE SCENE'S OWN EFFECTS, UNDER THE THUMB — its Build in and Build out are its own keyframes, held still and
+     moved to the place the engine says (a paused animation's delay IS its position): travel, size, blur.
+     🔴 NOT THEIR OPACITY — THERE IS ONE FADE, THE ONE ABOVE. A keyframe that fades (Fade, Move + Fade, Shrink + Fade …)
+     would fade a second time under the scene's own, and two opacities MULTIPLY: measured 2026-10-09 on this block, an
+     arrival half-way in was drawn at 0.26 and a scene a third of the way out at 0.44 — every hand-over fainter and
+     later than its number, which is most of "it is on but nothing scrubbed". (A third keyframe listed last to hold
+     the opacity — `hub-run-keep`, the first attempt — did NOT hold it: measured 0.318 for 0.318.) An author
+     declaration marked important is above every animation in the cascade, in every engine: the body's opacity is 1,
+     and the keyframes keep their travel, size and blur.
+     (Longhands, not the shorthand: with no Build out the shorthand read `none 1s linear forwards` as a fill-mode of
+     none and an animation NAMED "forwards".) */
+  .hub-scenes[data-hub-scrub-on] .hub-scene[data-hub-fx] > .hub-canvas > .hub-canvas-body {
+    animation-name: var(--hub-in-kf, none), var(--hub-out-kf, none);
+    animation-duration: 1s;
+    animation-timing-function: linear;
+    animation-fill-mode: both, forwards;
+    animation-play-state: paused;
+    animation-delay: calc(var(--hub-pbin, 1) * -1s), calc(var(--hub-pout, 0) * -1s);
+    animation-timeline: auto;
+    animation-range: normal;
+    opacity: 1 !important;
+  }
+  /* "One part after another": the parts and rows arrive one by one (below), so the scene's Build in is theirs. */
+  .hub-scenes[data-hub-scrub-on] .hub-scene[data-hub-fx] > .hub-canvas.hub-seq-parts > .hub-canvas-body { animation-name: none, var(--hub-out-kf, none); }
+  /* The parts of a scene that arrives whole do not play by themselves… */
+  .hub-scenes[data-hub-scrub-on] .hub-scene[data-hub-fx] > .hub-canvas > .hub-canvas-body > * > *,
+  .hub-scenes[data-hub-scrub-on] .hub-scene[data-hub-fx] > .hub-canvas > .hub-canvas-body [data-hub-rows] > * {
+    animation: none;
+    --hub-part-in: none;
+    --hub-part-out: none;
+  }
+  /* …and of one that arrives part by part: each when ITS top reaches the centre line (`--hub-pp`), never before the
+     element before it has gone — the scene's own Build in, one piece at a time. */
+  .hub-scenes[data-hub-scrub-on] .hub-scene[data-hub-fx] > .hub-canvas.hub-seq-parts > .hub-canvas-body > * > *:not(:has([data-hub-rows])):not([data-hub-rows]),
+  .hub-scenes[data-hub-scrub-on] .hub-scene[data-hub-fx] > .hub-canvas.hub-seq-parts > .hub-canvas-body [data-hub-rows] > * {
+    animation: var(--hub-in-kf, none) 1s linear both paused;
+    animation-delay: calc(var(--hub-pp, 1) * -1s);
+    animation-timeline: auto;
+    animation-range: normal;
+  }
+}

@@ -20,9 +20,79 @@
  */
 
 import type { CSSProperties, ReactNode } from 'react';
-import { PALETTE_LOOKS, type PaletteLookId } from '@/lib/palette-looks';
+import { PALETTE_LOOKS, PALETTE_LOOK_CARD_FOCUS, PALETTE_LOOK_PREVIEW_TYPE, type PaletteLookId } from '@/lib/palette-looks';
+import { DOS_LOOKS, DOS_LOOK_CARD_FOCUS, DOS_LOOK_PREVIEW_TYPE, type DosLookId } from '@/lib/dress-code-looks';
+import { SP_DD_LABEL, SP_PALETTE_PICK, SP_PALETTE_ROW } from '@/lib/maker-stage-room';
 import { IRow } from './inspector-kit';
 import { PickMenu } from './pick-menu';
+import { StyleCards } from '../../../launch/_components/stage-panel/style-carousel';
+
+/**
+ * 🖼 THE PALETTE'S LOOKS, AS PICTURES — the Stages panel's Dress code part (owner's preview check, 08 Oct:
+ * *"palette should show the actual previews like the other styles"*). The SAME five looks (`PALETTE_LOOKS`)
+ * and the same save as the dropdown below, drawn by the shared look-card renderer (`StyleCards`): each card is
+ * the couple's own page, asked for the Dress code scene with its colours in that look
+ * (`?style=dress_code_palette:<id>` → `canvas.palette`, `app/[slug]/_lib/style-preview.ts`), fitted on "Our
+ * colours" and sized by its shape like every other look card. A tap applies at once. No dropdown here.
+ */
+export function PaletteLookCards({ value, onPick, pending = false }: { value: PaletteLookId; onPick: (id: PaletteLookId) => void; pending?: boolean }) {
+  return (
+    <>
+      <p className={`${SP_DD_LABEL} !max-w-none shrink-0 px-1 pt-1`} data-palette-look-label="">
+        Palette look
+      </p>
+      <StyleCards
+        label="Palette look"
+        data="palette"
+        options={PALETTE_LOOKS}
+        value={value}
+        pending={pending}
+        canvasKey="w:dress_code"
+        sceneType={PALETTE_LOOK_PREVIEW_TYPE}
+        focus={PALETTE_LOOK_CARD_FOCUS}
+        onPick={(id) => {
+          const look = PALETTE_LOOKS.find((o) => o.id === id)?.id;
+          if (look && look !== value) onPick(look);
+        }}
+      />
+    </>
+  );
+}
+
+/**
+ * 🎨 THE DRESS CODE'S PALETTE ROW IN THE TOOLBAR — Style's row 3 (owner 2026-10-09, verbatim: *"row 3 is palette
+ * style"*; `TOOLBAR-SPEC-2026-10-09.md` § STYLE; the prototype's `palStrip`): the five looks as five equal buttons
+ * in ONE row, each the couple's own colours drawn in that look (`PaletteLookThumb`, the dropdown's own thumbnails).
+ * It was a second carousel of full miniatures (2026-10-08), which with the layouts and the Do's & Don'ts made
+ * Style three carousels tall. A tap applies at once; the page above is the full preview.
+ */
+export function PaletteLookStrip({ value, colours, onPick, pending = false }: { value: PaletteLookId; colours: readonly string[]; onPick: (id: PaletteLookId) => void; pending?: boolean }) {
+  /* The couple's colours — or, before they have any, quiet stand-ins, so the five shapes still read. */
+  const shown = colours.length > 0 ? colours.slice(0, 5) : PALETTE_STAND_INS;
+  return (
+    <div role="radiogroup" aria-label="Palette style" data-look-row="palette" data-palette-strip="" className={SP_PALETTE_ROW}>
+      {PALETTE_LOOKS.map((o) => (
+        <button
+          key={o.id}
+          type="button"
+          role="radio"
+          aria-checked={o.id === value}
+          aria-label={`Palette style: ${o.name}`}
+          title={o.name}
+          data-palette-pick={o.id}
+          onClick={() => {
+            if (!pending && o.id !== value) onPick(o.id);
+          }}
+          className={SP_PALETTE_PICK}
+        >
+          <PaletteLookThumb look={o.id} colours={shown} />
+        </button>
+      ))}
+    </div>
+  );
+}
+/** Shown only while the event has no colours yet: greys, never a colour the couple did not choose. */
+const PALETTE_STAND_INS: readonly string[] = ['#8A8580', '#B8B2A8', '#D9D3C8'];
 
 export function PaletteLookRow({
   value,
@@ -56,6 +126,36 @@ export function PaletteLookRow({
         }}
       />
     </IRow>
+  );
+}
+
+/**
+ * 🧾 THE DO'S & DON'TS' LOOKS, AS PICTURES (owner 08 Oct: *"the presentation of do's and don'ts doesn't look
+ * good with the rest of the website"* — `lib/dress-code-looks.ts`). The same shared look-card carousel: each
+ * card is the couple's own page asked for the Dress code scene with its two lists in that look
+ * (`?style=dress_code_dos:<id>` → `canvas.dos`), fitted on the lists. A tap applies at once.
+ */
+export function DosLookCards({ value, onPick, pending = false }: { value: DosLookId; onPick: (id: DosLookId) => void; pending?: boolean }) {
+  return (
+    <>
+      <p className={`${SP_DD_LABEL} !max-w-none shrink-0 px-1 pt-1`} data-dos-look-label="">
+        Do&rsquo;s &amp; Don&rsquo;ts
+      </p>
+      <StyleCards
+        label="Do’s & Don’ts"
+        data="dos"
+        options={DOS_LOOKS}
+        value={value}
+        pending={pending}
+        canvasKey="w:dress_code"
+        sceneType={DOS_LOOK_PREVIEW_TYPE}
+        focus={DOS_LOOK_CARD_FOCUS}
+        onPick={(id) => {
+          const look = DOS_LOOKS.find((o) => o.id === id)?.id;
+          if (look && look !== value) onPick(look);
+        }}
+      />
+    </>
   );
 }
 

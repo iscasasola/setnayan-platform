@@ -36,6 +36,7 @@ import {
 /* ⚡ The print pieces load when Details is opened — never with the Maker (`details-lazy.tsx`). */
 import { ChangedSincePrinted, PassCardDesignPicker, PosterPhotoPicker, PrintChoicePicker, PrintMenuEditor, PrintPreview, PrintSaveButton } from './details-lazy';
 import { DetailsGoTo } from './details-go';
+import { StudioTool } from './details-lazy';
 
 /**
  * THE PRINTS, AS PARTS OF THE DETAILS PAGE. Until 2026-09-28 this file drew
@@ -282,17 +283,27 @@ export function PrintPieceEditor({
       />
     ) : null;
   const saves =
-    menuEmpty || storyMissing ? null : (
+    menuEmpty || storyMissing ? null : studio ? (
+      /* 🧭 Studio › Prints: THE ONE ActionButton — the row's one filled step is the file that prints in the theme (or the only one). */
       <>
-        <PrintSaveButton href={classic(k)} file={file.classic(k)} variant={studio ? 'chip' : 'link'}>
+        <PrintSaveButton href={classic(k)} file={file.classic(k)} variant="action" main={!themed} label={themed ? 'Save · Classic (PDF)' : 'Save PDF'} />
+        {themedReady ? (
+          <PrintSaveButton href={q(k, 'print')} file={file.themed(k)} variant="action" main label={`Save · ${t.name} (PDF)`} />
+        ) : themed ? (
+          <PrintSaveButton href={q(k, 'sample')} file={file.sample(k)} variant="action" label={`Sample · ${t.name} (JPG)`} />
+        ) : null}
+      </>
+    ) : (
+      <>
+        <PrintSaveButton href={classic(k)} file={file.classic(k)} variant="link">
           {themed ? 'Save · Classic (PDF)' : 'Save PDF'}
         </PrintSaveButton>
         {themedReady ? (
-          <PrintSaveButton href={q(k, 'print')} file={file.themed(k)} variant={studio ? 'chip' : 'link'}>
+          <PrintSaveButton href={q(k, 'print')} file={file.themed(k)} variant="link">
             Save · {t.name} (PDF)
           </PrintSaveButton>
         ) : themed ? (
-          <PrintSaveButton href={q(k, 'sample')} file={file.sample(k)} variant={studio ? 'chip' : 'link'}>
+          <PrintSaveButton href={q(k, 'sample')} file={file.sample(k)} variant="link">
             Sample · {t.name} (JPG)
           </PrintSaveButton>
         ) : null}
@@ -302,13 +313,22 @@ export function PrintPieceEditor({
     const sizes = fam ? formatsFor(fam).map((f) => f.label) : [];
     return (
       <div data-print-editor={k} data-print-studio="" className="flex flex-col gap-1">
-        <div className="flex min-h-12 items-center justify-between gap-2.5">
-          <span className="flex min-w-0 flex-col">
-            <span className="text-[14.5px] font-semibold text-ink">{spec.label.replace(/^the\s+/i, '')}</span>
-            <small className="text-[11.5px] font-medium text-ink/50">{sizes.length > 1 ? sizes.join(sizes.length > 2 ? ' · ' : ' or ') : spec.size}</small>
-          </span>
-          {sizePicker}
-        </div>
+        {/* The piece's name, its sizes and its size ▾ — ONE Form row (the chosen answer, or just the name where it has one size). */}
+        <StudioTool
+          part="print-head"
+          name={spec.label.replace(/^the\s+/i, '')}
+          line={sizes.length > 1 ? sizes.join(sizes.length > 2 ? ' · ' : ' or ') : spec.size}
+          picker={
+            sizePicker && fam
+              ? {
+                  label: `${spec.label} size`,
+                  value: formats[fam].id,
+                  dataAttr: 'data-print-format-picker',
+                  options: formatsFor(fam).map((f) => ({ key: f.id, label: f.label, href: hrefWith(k, { family: fam, format: f.id }) })),
+                }
+              : null
+          }
+        />
         {saves ? (
           <div className="flex flex-wrap gap-1.5 pb-2" data-print-piece-saves={k}>
             {saves}
@@ -371,7 +391,7 @@ export function PrintPieceEditor({
  * PDF. Drawn in Details › Pass, under the piece's own saves — the look is ONE
  * dropdown in the right part, beside the card it picks.
  */
-export function PassCardsPanel({ input }: { input: PrintsInput }) {
+export function PassCardsPanel({ input, studio = false }: { input: PrintsInput; studio?: boolean }) {
   const { eventId, ownsPro, storeShell, passDesign = DEFAULT_PASS_CARD_DESIGN, passCardsZip = 'passes.zip' } = input;
   const { themed, themedReady, q, file } = printPlan(input);
   // The zip of every card is Event Hub Pro: ◆ unlocked when owned, ◆ PRO (a
@@ -394,7 +414,27 @@ export function PassCardsPanel({ input }: { input: PrintsInput }) {
       <div className="flex flex-col gap-2 text-sm">
         <div className="flex flex-wrap items-center gap-2" data-pass-cards-digital="">
           <span className="w-24 shrink-0 text-xs font-semibold uppercase tracking-wide text-ink/60">{PASS_CARD_WORDS.digital}</span>
-          {zipMark === null ? null : zipMark === 'unlocked' ? (
+          {zipMark === null ? null : studio ? (
+            /* 🧭 Studio: the ONE ActionButton — the zip when owned (the diamond in the icon's place), the door to the Pro unlock when not. */
+            zipMark === 'unlocked' ? (
+              <PrintSaveButton
+                href={`${PASS_CARDS_ZIP_ROUTE}?event=${eventId}`}
+                file={passCardsZip}
+                variant="action"
+                icon={<PaidMark state="unlocked" label={paidMarkLabel('unlocked', 'Event Hub Pro')} />}
+                label={PASS_CARD_WORDS.downloadAll}
+              />
+            ) : (
+              <span data-pass-cards-zip-pro="" className="inline-flex">
+                <StudioTool
+                  part="action-door"
+                  href={`/dashboard/${eventId}/studio/website-pro`}
+                  label={PASS_CARD_WORDS.downloadAll}
+                  icon={<PaidMark state={zipMark} label={paidMarkLabel(zipMark, 'Event Hub Pro')} />}
+                />
+              </span>
+            )
+          ) : zipMark === 'unlocked' ? (
             <PrintSaveButton href={`${PASS_CARDS_ZIP_ROUTE}?event=${eventId}`} file={passCardsZip}>
               <PaidMark state="unlocked" label={paidMarkLabel('unlocked', 'Event Hub Pro')} className="mr-1 align-middle" />
               {PASS_CARD_WORDS.downloadAll}
@@ -413,12 +453,21 @@ export function PassCardsPanel({ input }: { input: PrintsInput }) {
         </div>
         <div className="flex flex-wrap items-center gap-2" data-pass-cards-print="">
           <span className="w-24 shrink-0 text-xs font-semibold uppercase tracking-wide text-ink/60">{PASS_CARD_WORDS.print}</span>
-          <PrintSaveButton
-            href={themed && !themedReady ? classicPhoneCards : q('passes', 'print', PASS_CARD_FORMAT_ID)}
-            file={themed && !themedReady ? file.classic('passes') : themed ? file.themed('passes') : file.classic('passes')}
-          >
-            Every guest&rsquo;s {PASS_CARD_WORDS.noun} · {PRINT_FORMATS[PASS_CARD_FORMAT_ID].label}
-          </PrintSaveButton>
+          {studio ? (
+            <PrintSaveButton
+              href={themed && !themedReady ? classicPhoneCards : q('passes', 'print', PASS_CARD_FORMAT_ID)}
+              file={themed && !themedReady ? file.classic('passes') : themed ? file.themed('passes') : file.classic('passes')}
+              variant="action"
+              label={`Every guest’s ${PASS_CARD_WORDS.noun} · ${PRINT_FORMATS[PASS_CARD_FORMAT_ID].label}`}
+            />
+          ) : (
+            <PrintSaveButton
+              href={themed && !themedReady ? classicPhoneCards : q('passes', 'print', PASS_CARD_FORMAT_ID)}
+              file={themed && !themedReady ? file.classic('passes') : themed ? file.themed('passes') : file.classic('passes')}
+            >
+              Every guest&rsquo;s {PASS_CARD_WORDS.noun} · {PRINT_FORMATS[PASS_CARD_FORMAT_ID].label}
+            </PrintSaveButton>
+          )}
         </div>
       </div>
     </div>
@@ -455,10 +504,8 @@ export function freePrintParts(
       <div className="flex flex-col gap-2 pb-1" data-free-print-saves={fp.key} data-print-studio="">
         <p className="text-[11.5px] leading-snug text-ink/55">{fp.blurb}</p>
         <div className="flex flex-wrap gap-1.5">
-          {fp.saves.map((s) => (
-            <PrintSaveButton key={s.href} href={s.href} file={s.file} variant="chip">
-              {s.label}
-            </PrintSaveButton>
+          {fp.saves.map((s, i) => (
+            <PrintSaveButton key={s.href} href={s.href} file={s.file} variant="action" main={i === 0} label={s.label} />
           ))}
         </div>
       </div>
@@ -510,7 +557,7 @@ export function PrintSetBody({ input }: { input: PrintsInput }) {
   );
 }
 
-export function PrintSetDownloads({ input }: { input: PrintsInput }) {
+export function PrintSetDownloads({ input, studio = false }: { input: PrintsInput; studio?: boolean }) {
   const { access, t, themed, freeTheme, themedReady, spot, q, classic, file, formats } = printPlan(input);
   return (
     <div
@@ -545,6 +592,25 @@ export function PrintSetDownloads({ input }: { input: PrintsInput }) {
           Go Pro to print in {t.name}.
         </p>
       ) : null}
+      {studio ? (
+        /* 🧭 Studio: the same files, the ONE ActionButton — the set that prints in the theme (or Classic when it is the only one) is the filled step. */
+        <div className="flex flex-col gap-2">
+          <PrintSaveButton href={classic('set')} file={file.classic('set')} variant="action" main={!themedReady} label="Whole set · Classic (PDF)" />
+          <PrintSaveButton href={classic('passes')} file={file.classic('passes')} variant="action" label={`Every guest’s ${PASS_CARD_WORDS.noun} · Classic`} />
+          {themedReady ? (
+            <>
+              <span data-prints-print-ready="" className="inline-flex flex-col items-start">
+                <PrintSaveButton href={q('set', 'print')} file={file.themed('set')} variant="action" main label={`Whole set · ${t.name} (PDF)`} />
+              </span>
+              <span data-prints-passes="" className="inline-flex flex-col items-start">
+                <PrintSaveButton href={q('passes', 'print')} file={file.themed('passes')} variant="action" label={`Every guest’s ${PASS_CARD_WORDS.noun} · ${t.name}`} />
+              </span>
+            </>
+          ) : themed ? (
+            <PrintSaveButton href={q('set', 'sample')} file={file.sample('set')} variant="action" label={`Sample sheet · ${t.name} (JPG)`} />
+          ) : null}
+        </div>
+      ) : (
       <div className="flex flex-col gap-2">
         <PrintSaveButton href={classic('set')} file={file.classic('set')} variant={themedReady ? 'secondary' : 'primary'}>
           Whole set · Classic (PDF)
@@ -567,6 +633,7 @@ export function PrintSetDownloads({ input }: { input: PrintsInput }) {
           </PrintSaveButton>
         ) : null}
       </div>
+      )}
       <p className="text-xs text-ink/55">Passes print {formats.pass.label} size, ganged on A4 with cut lines.</p>
     </div>
   );

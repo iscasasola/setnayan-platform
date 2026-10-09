@@ -1,5 +1,6 @@
 import type { AdaptiveTheme } from '@/lib/adaptive-theme';
-import type { HubMainBlur, HubMainFocus, HubMainPatternKey } from '@/lib/hub-canvas';
+import { mainGroundPosition, type HubMainBlur, type HubMainFocus, type HubMainPatternKey } from '@/lib/hub-canvas';
+import { MAIN_GROUND_PATTERN_CSS } from '@/lib/main-ground-patterns';
 import { SceneClip } from './scene-clip';
 
 /**
@@ -77,7 +78,7 @@ export function MainGround({
   focus?: HubMainFocus | null;
 }) {
   if (!still && !clip) return null;
-  const position = focus === 'top' ? 'center top' : focus === 'bottom' ? 'center bottom' : 'center';
+  const position = mainGroundPosition(focus);
   /* A blur's soft edge would show the page through it — the footage is drawn a
      little larger, so the edge falls outside the screen. */
   const blurStyle = blur ? { filter: `blur(${blur === 'strong' ? 14 : 5}px)`, transform: 'scale(1.08)' } : {};
@@ -160,19 +161,8 @@ export function MainGroundNone() {
  * so nothing to sign and nothing to measure: the words sit on the colour as
  * they always did. The theme's loop is switched off, as for "Just the colour".
  */
-const PATTERN_CSS: Readonly<Record<HubMainPatternKey, { image: string; size: string }>> = {
-  lines: { image: 'repeating-linear-gradient(135deg, rgb(var(--color-ink) / 0.07) 0 1px, transparent 1px 9px)', size: 'auto' },
-  dots: { image: 'radial-gradient(rgb(var(--color-ink) / 0.10) 1.2px, transparent 1.6px)', size: '16px 16px' },
-  lace: {
-    image:
-      'radial-gradient(circle at 50% 0, transparent 7px, rgb(var(--color-ink) / 0.08) 7.5px 8.5px, transparent 9px), radial-gradient(rgb(var(--color-ink) / 0.08) 1px, transparent 1.5px)',
-    size: '18px 12px, 18px 12px',
-  },
-  grid: {
-    image: 'linear-gradient(rgb(var(--color-ink) / 0.06) 1px, transparent 1px), linear-gradient(90deg, rgb(var(--color-ink) / 0.06) 1px, transparent 1px)',
-    size: '22px 22px',
-  },
-};
+/* The four, as CSS — `lib/main-ground-patterns.ts` (the Maker's Pattern cards draw the same ones). */
+const PATTERN_CSS = MAIN_GROUND_PATTERN_CSS;
 
 export function PatternGround({ pattern, hideLoop }: { pattern: HubMainPatternKey; hideLoop: boolean }) {
   const p = PATTERN_CSS[pattern];

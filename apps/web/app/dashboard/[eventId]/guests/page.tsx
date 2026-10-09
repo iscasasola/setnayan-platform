@@ -56,16 +56,19 @@ import { guestPhotoDisplayUrls } from '@/lib/uploads';
 import { accountPhotoRefsByGuest } from '@/lib/guest-account-photos';
 import { accountNamesByGuest } from '@/lib/linked-profile-names';
 import { withProfileName } from '@/lib/formal-name';
-import { ROLE_SECTION_ORDER } from './_components/guest-list-multiselect';
+import { ROLE_SECTION_ORDER } from './_components/role-section-order';
 import { GuestsScreen } from './_components/guests-screen';
 import { mapRootLabel } from '@/lib/guest-roster-view';
 import { InvitePanel } from './invite/_components/invite-panel';
 import { AddFromPeopleSheet } from './_components/add-from-people-sheet';
 import { QuickAddSheet } from './_components/quick-add-sheet';
 import { UndoToastHost } from './_components/undo-toast';
-import { GuestCardBody, GUEST_CARD_ERROR_COPY, guestCardEyebrow, guestCardReply } from './_components/guest-card-body';
+import { GuestCardBody, guestCardEyebrow, guestCardReply } from './_components/guest-card-body';
 import { GuestInviteCell } from './_components/guest-invite-cell';
 import { GuestMoreMenu, GuestTicketThumb } from './_components/guest-ticket-parts';
+import { TEMPLATE_KIT } from './_components/guest-card-template-kit';
+import { guestCardErrorCopy } from './_components/guest-card-error-copy';
+import { guestListErrorCopy } from './_components/guest-list-error-copy';
 import { loadInviteSetup } from './_components/invite-message-setup';
 import { fetchInvitationBase, loadGuestCard } from './_components/guest-card-data';
 import { isUuid } from '@/lib/is-uuid';
@@ -140,7 +143,7 @@ const ALL_VIEW_FILTERS: { key: string; label: string }[] = [
   // wedding-role cluster (MOH/MoH/best man/bridesmaid/groomsman) that
   // mirrors the sibling role-group filters (Principal Sponsors,
   // Secondary Sponsors, Bearers, Officiants). Position matches the
-  // BULK_ROLE_SECTIONS ordering in guest-list-multiselect.tsx for
+  // bulk role picker's ordering (lib/bulk-role-vocabulary.ts) for
   // muscle-memory consistency between sidebar + bulk toolbar.
   // Split 2026-09-14, same as the roster sections and the bulk picker — a VIEW
   // lens that still said "Wedding Party" would filter to a group the list no
@@ -257,48 +260,6 @@ type Props = {
 };
 
 
-/**
- * Turn an `?error=` value into something a host can act on.
- *
- * This banner used to render `decodeURIComponent(search.error)` directly, so a
- * server action that redirected with a CODE put the CODE on screen — a host
- * assigning "Bride's Parents" in the bulk bar was shown the literal word
- * `invalid_role` (reported 2026-09-14). Meanwhile some actions redirect with
- * ready-made prose (the one-Bride-per-event message), which must pass through
- * untouched.
- *
- * So: known codes map to a sentence; anything else falls through as-is when it
- * reads like prose, and degrades to a neutral line when it reads like an
- * unmapped code. A raw snake_case token must never reach a couple's screen.
- */
-function guestListErrorCopy(raw: string): string {
-  const decoded = (() => {
-    try {
-      return decodeURIComponent(raw);
-    } catch {
-      // A malformed %-sequence throws; the raw value is still better than a crash.
-      return raw;
-    }
-  })();
-
-  const COPY: Record<string, string> = {
-    invalid_role: "That role isn't available for this celebration — pick one from the list.",
-    invalid_side: 'Pick Bride, Groom, or Both.',
-    no_selection: 'Select at least one guest first.',
-    missing_name: 'Please enter both a first and last name.',
-    missing_side: 'Pick a side first.',
-    missing_group: 'Pick a group first.',
-    not_found: "We couldn't find that guest — it may have been removed.",
-    forbidden: "You don't have access to change that.",
-  };
-  if (COPY[decoded]) return COPY[decoded] as string;
-
-  // Prose (has a space) is a message an action wrote for the host — show it.
-  // A bare token is an unmapped code and is never shown as-is.
-  return decoded.includes(' ')
-    ? decoded
-    : "That didn't go through — please try again.";
-}
 
 export default async function GuestsPage({ params, searchParams }: Props) {
   const { eventId } = await params;
@@ -821,6 +782,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         SendInvite={GuestInviteCell}
         TicketThumb={GuestTicketThumb}
         MoreMenu={GuestMoreMenu}
+        kit={TEMPLATE_KIT}
         helperAccess={
           inspectedHelper ? (
             <GuestHelperAccess
@@ -832,11 +794,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           ) : null
         }
         returnTo={`/dashboard/${eventId}/guests?inspect=${inspectedGuest.guest_id}`}
-        errorMessage={
-          typeof search.error === 'string'
-            ? (GUEST_CARD_ERROR_COPY[search.error] ?? decodeURIComponent(search.error))
-            : null
-        }
+        errorMessage={typeof search.error === 'string' ? guestCardErrorCopy(search.error) : null}
         inviteFlash={
           search.new_qr === '1'
             ? { ok: true, msg: 'Done — a new QR and link. The old ones no longer work. Send them the new one.' }
@@ -1100,7 +1058,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         defaultSide={!hasSides ? SIDELESS_SIDE : teamFilter === 'all' ? 'both' : teamFilter}
       />
 
-      {/* UndoToastHost is the single bottom snackbar for optimistic deletes.
+      {/* UndoToastHost is the single toast host (the approved toast, from the top) for optimistic deletes, Undo and the list's results.
           The quick-view sheet host that used to sit beside it is gone: the
           guest card is server-rendered from `?inspect=` and presented by
           InspectorLayout at every width. */}

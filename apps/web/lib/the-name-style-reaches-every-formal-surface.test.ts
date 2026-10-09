@@ -236,7 +236,6 @@ const STYLE_AT: Record<string, number> = {
  * without a style is a formal surface printing Full forever.
  */
 const NOT_FORMAL: ReadonlyArray<{ file: RegExp; callee: string; why: string }> = [
-  { file: /guest-list-multiselect\.tsx$/, callee: 'guestFullName', why: 'the Guest list’s own working rows and aria-labels — the couple’s editing list, not a printed one (its invite {name} IS styled)' },
   { file: /guests-screen\.tsx$/, callee: 'guestFullName', why: 'Guests › List (Maker PR 4f) — the same working rows and the delete warning’s names, the couple’s editing list, not a printed one' },
   { file: /editorial\/data\.ts$/, callee: 'guestFullName', why: 'a byline under a guest’s own words on the story page — not one of the owner’s formal surfaces' },
 ];
@@ -287,12 +286,13 @@ test('the Guest list and the profile type a Prefix in the guest side’s dropdow
            PickMenu (`FormPick`, owner 2026-09-28 "any set of choices is a
            dropdown") — the same list as PrefixSelect when it is built from
            `prefixChoicesFor` (NAME_PREFIX_CHOICES). */
-        if (tag === 'FormPick') {
+        /* ⤷ 2026-10-09 (4B): the card's body names the field (`K.Pick`); its kit draws it — a FormPick (the Maker's card) or a Form row. */
+        if (tag === 'FormPick' || tag === 'K.Pick') {
           const attrs = n.attributes.properties.filter(ts.isJsxAttribute);
           const val = (k: string) => attrs.find((a) => a.name.getText(sf) === k)?.initializer?.getText(sf) ?? '';
           if (val('name') === '"name_prefix"' && /prefixChoicesFor\(/.test(val('options'))) selects += 1;
         }
-        if (tag === 'input' || tag === 'Field') {
+        if (tag === 'input' || tag === 'Field' || tag === 'K.Field') {
           const attrs = n.attributes.properties.filter(ts.isJsxAttribute);
           const val = (k: string) => attrs.find((a) => a.name.getText(sf) === k)?.initializer?.getText(sf) ?? '';
           const hidden = /hidden/.test(val('type'));

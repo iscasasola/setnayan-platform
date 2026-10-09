@@ -32,5 +32,7 @@ test('the panel the Setup tab renders carries no message builder', () => {
 
 test('the Maker still holds the words (RSVP words in Studio › RSVP)', () => {
   const maker = readFileSync(join(HERE, '..', '..', 'launch', '_components', 'maker-rsvp-ask.tsx'), 'utf8');
-  assert.match(maker, /<WordField\b/);
+  // The words are typed rows of the app's Form row since 2026-10-08 (`WordRows`; they were `WordField` boxes).
+  assert.match(maker, /<WordRows\b/);
+  assert.match(maker, /function WordRows\([\s\S]*?<TypedRow\b/);
 });

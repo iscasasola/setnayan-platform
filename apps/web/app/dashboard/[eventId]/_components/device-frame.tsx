@@ -15,6 +15,8 @@
 import type { ReactNode } from 'react';
 import { Laptop, Smartphone } from 'lucide-react';
 
+import { PillButton, PillTrack } from '@/app/_components/pill-track';
+
 export type PreviewDevice = 'iphone' | 'macbook';
 
 const DEVICES: { id: PreviewDevice; label: string; Icon: typeof Smartphone }[] = [
@@ -31,29 +33,17 @@ export function DeviceToggle({
   onChange: (d: PreviewDevice) => void;
 }) {
   return (
-    <div
-      role="group"
-      aria-label="Preview device"
-      className="inline-flex gap-1 rounded-full border border-ink/10 bg-cream p-1"
-    >
+    <PillTrack role="group" aria-label="Preview device" data-device-toggle="">
       {DEVICES.map(({ id, label, Icon }) => {
         const active = device === id;
         return (
-          <button
-            key={id}
-            type="button"
-            onClick={() => onChange(id)}
-            aria-pressed={active}
-            className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${
-              active ? 'bg-ink text-cream' : 'text-ink/60 hover:text-ink'
-            }`}
-          >
+          <PillButton key={id} on={active} onClick={() => onChange(id)} aria-pressed={active} className="px-3.5">
             <Icon aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
             {label}
-          </button>
+          </PillButton>
         );
       })}
-    </div>
+    </PillTrack>
   );
 }
 

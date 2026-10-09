@@ -124,9 +124,14 @@ test('2 · Look › Background: a still is drawn over its swatch and never as a 
   assert.match(drawn, /<img[^>]*class="[^"]*opacity-0/, 'a still shows before it has loaded (a broken glyph would show)');
   const src = read(`${D}/website/editor/_components/main-background-panel.tsx`);
   assert.match(src, /onError=\{\(\) => setState\('failed'\)\}/, 'a failed still is not removed');
-  const carousel = src.slice(src.indexOf('function GroundCarousel('));
-  assert.doesNotMatch(carousel, /<img/, 'the carousel draws a bare <img> again');
-  assert.match(carousel, /<StillOverSwatch src=\{o\.thumb\}/, 'the carousel’s pictures are not drawn over a swatch');
+  /* The carousel became the Source ▾ cards (2026-10-08, the Look restudy row 2) — the SAME rule on them:
+     every picture is laid over a swatch, never a bare <img>. */
+  const cards = src.slice(src.indexOf('if (studio) {'), src.indexOf('<p className="text-[14px] font-semibold text-ink">Behind every scene</p>'));
+  assert.ok(cards.length > 2000, 'anti-vacuity: the Studio’s cards were not found');
+  assert.doesNotMatch(cards, /<img/, 'the cards draw a bare <img> again');
+  for (const still of ['l.stillUrl', 'b.src', 'hero.photoUrl', 'p.url']) {
+    assert.ok(cards.includes(`<StillOverSwatch src={${still}}`), `${still} is not drawn over a swatch`);
+  }
 });
 
 test('3 · in place, never a link out: Set up E-Gifts opens E-Gifts here; Look draws no "Same as the Event Hub" (it left 2026-10-08)', async () => {
@@ -151,7 +156,9 @@ test('4 · E-Gifts "Your own words": the starting points are ONE "Start from ▾
   const { PabuyaMessageEditor } = await import(`../${D}/pabuya/_components/pabuya-message-editor`);
   const out = await inStudio(React.createElement(PabuyaMessageEditor, { eventId: 'e', initialMessage: null }));
   assert.match(out, /data-pabuya-start-from=""/, 'no Start from ▾');
-  assert.match(out, /aria-haspopup="listbox"[^>]*>[\s\S]*?Start from/, 'Start from is not a dropdown');
+  /* RE-AIMED 2026-10-09 (E-Gifts wears the Form row): "Start from" is the Form row's chosen answer — its name on the left, the house dropdown on the right —
+     not a dropdown that carries its own label. */
+  assert.match(out, /data-form-row-kind="chosen"[\s\S]*?Start from<\/span>[\s\S]*?<button[^>]*aria-haspopup="listbox"[^>]*data-pabuya-start-from=""/, 'Start from is not a dropdown');
   for (const t of PABUYA_TEMPLATES) {
     assert.doesNotMatch(out, new RegExp(`<button[^>]*>${t.name}</button>`), `“${t.name}” is still a chip`);
   }
@@ -164,13 +171,14 @@ test('4 · E-Gifts "Your own words": the starting points are ONE "Start from ▾
 function seen(markup: string): string {
   return markup
     .replace(/<span[^>]*role="tooltip"[^>]*><span[^>]*>[\s\S]*?<\/span><\/span>/g, ' ')
+    .replace(/<svg[\s\S]*?<\/svg>/g, ' ')
     .replace(/<[^>]+>/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
 const words = (text: string) => text.split(/\s+/).filter(Boolean).length;
 
-test('4b · E-Gifts thank-you words in the Studio: no box, the help behind ⓘ, no Save — drafted as typed, a refusal said', async () => {
+test('4b · E-Gifts thank-you words in the Studio: no box, the help behind ⓘ, no Save — drafted when kept, a refusal said', async () => {
   const mod = await import(`../${D}/pabuya/_components/pabuya-message-editor`);
   const el = () => React.createElement(mod.PabuyaMessageEditor, { eventId: 'ev-1', initialMessage: 'Our own words.' });
   const out = await inStudio(el());
@@ -180,39 +188,41 @@ test('4b · E-Gifts thank-you words in the Studio: no box, the help behind ⓘ, 
   assert.doesNotMatch(out, /class="[^"]*\bsn-tile\b/, 'the Studio still draws the thank-you words in a tile');
   const root = /^<div[^>]*class="([^"]*)"/.exec(out)?.[1] ?? 'missing';
   assert.doesNotMatch(root, /\b(?:bg-|ring|shadow|border|rounded|p-\d|px-|py-)/, `the Studio’s thank-you editor is a box of its own (${root})`);
-  /* The words are a full-width row of their own, under the label row. */
-  assert.match(out, /<\/div><textarea[^>]*class="[^"]*\bw-full\b/, 'the words are not on a full-width row under the label');
+  /* RE-AIMED 2026-10-09 (the Form row): the words are the Form row's typed answer (a pill with a pencil; its box opens under its name), not a bare textarea. */
+  assert.match(out, /data-form-row-kind="typed"[\s\S]*?data-form-row-pill="typed"/, 'the words are not a Form row');
+  assert.doesNotMatch(out, /<textarea/, 'a bare textarea is still drawn in the Studio');
 
-  /* THE HELP IS BEHIND ⓘ — what can be read is the label, the dropdown, the couple's words and the count; nothing else. */
-  assert.equal(seen(out), 'Your own words i Start from Our own words. 586 characters left', 'the Studio shows more (or less) than the label · Start from · the words · the count');
-  const tip = /role="tooltip"[^>]*><span[^>]*>([\s\S]*?)<\/span>/.exec(out)?.[1] ?? '';
+  /* THE HELP IS BEHIND ⓘ — what can be read is the label, the couple's words, the count and the dropdown; nothing else. */
+  assert.equal(seen(out), 'Your own words i Our own words. 586 characters left Start from Your own', 'the Studio shows more (or less) than the label · the words · the count · Start from');
+  const src = read(`${D}/pabuya/_components/pabuya-message-editor.tsx`);
+  const studio = src.slice(src.indexOf('function StudioThanks('), src.indexOf('function ShippedEditor('));
+  assert.ok(studio.length > 0, 'no Studio branch');
+  const tip = /about=\{\{ words: '([^']*)' \}\}/.exec(studio)?.[1] ?? '';
   const pageHelp = [...page.matchAll(/<p class="(?:max-w-prose|mt-2 text-xs)[^"]*">([\s\S]*?)<\/p>/g)].map((m) => m[1]!.replace(/<[^>]+>/g, '')).join(' ');
   assert.ok(words(pageHelp) > 40, 'the E-Gifts page’s own help was not found to measure against');
   assert.ok(words(tip) > 0 && words(tip) <= words(pageHelp) * 0.4, `the ⓘ is not at least 60% shorter than the help it replaces (${words(tip)} of ${words(pageHelp)} words)`);
 
-  /* NO SAVE, NO "SAVED" — every button is the ⓘ or the one dropdown. */
+  /* NO SAVE, NO "SAVED" — every button is the ⓘ, the Form row's pill or the one dropdown. */
   const buttons = [...out.matchAll(/<button\b[^>]*>/g)].map((m) => m[0]);
-  assert.equal(buttons.length, 2, 'the Studio’s thank-you editor has a button that is neither its ⓘ nor Start from ▾');
-  assert.ok(buttons.every((b) => /aria-describedby=|aria-haspopup="listbox"/.test(b)), 'a per-field button (Save / Saved?) is drawn in the Studio');
+  assert.equal(buttons.length, 3, 'the Studio’s thank-you editor has a button that is not its ⓘ, its words or Start from ▾');
+  assert.ok(buttons.every((b) => /aria-haspopup="dialog"|data-form-row-pill="typed"|aria-haspopup="listbox"/.test(b)), 'a per-field button (Save / Saved?) is drawn in the Studio');
   /* …and nothing says the words are live: they wait for ✓ Apply. */
   assert.doesNotMatch(out, /data-hub-saves-immediately/, 'the drafted words still say “Guests see this right away”');
 
-  /* TYPED → THE DRAFT, on the Studio's own branch. */
-  const src = read(`${D}/pabuya/_components/pabuya-message-editor.tsx`);
-  const studio = src.slice(src.indexOf('function StudioThanks('), src.indexOf('function ShippedEditor('));
-  assert.ok(studio.length > 0, 'no Studio branch');
-  assert.match(studio, /onChange=\{\(e\) => \{\s*const words = type\(e\.target\.value\);\s*if \(e\.nativeEvent\.isTrusted\) draft\(words\);/, 'typing does not reach the draft');
-  assert.match(studio, /draft\(type\(t\.body\)\);/, 'a starting point picked is not drafted');
-  assert.match(studio, /makerLatestWrite\(THANKS_WRITE_KEY, \(\) => \{[\s\S]{0,260}fd\.set\(HUB_DRAFT_FIELD, '1'\);\s*return savePabuyaMessage\(fd\);/, 'the typed words are not sent into the DRAFT');
+  /* KEPT → THE DRAFT, on the Studio's own branch (RE-AIMED 2026-10-09: it was "as typed"; it is "when the box is left" — one write, never more). */
+  assert.match(studio, /onKeep=\{\(next\) => keep\(next, true\)\}/, 'keeping the words does not reach the draft');
+  assert.match(studio, /void keep\(t\.body, false\);/, 'a starting point picked is not drafted');
+  assert.match(studio, /makerLatestWrite\(THANKS_WRITE_KEY, \(\) => \{[\s\S]{0,260}fd\.set\(HUB_DRAFT_FIELD, '1'\);\s*return savePabuyaMessage\(fd\);/, 'the kept words are not sent into the DRAFT');
   assert.match(studio, /if \(res\.ok\) \{\s*sayNotDrafted\(null\);\s*makerNeedsRender\(\);/, 'a drafted write does not move the ✓ Apply count');
-  assert.match(studio, /\}\s*sayNotDrafted\(\{ eventId, why: res\.error \}\);/, 'a refused write says nothing');
+  assert.match(studio, /sayNotDrafted\(\{ eventId, why/, 'a refused write says nothing');
+  assert.doesNotMatch(studio, /onChange=\{\(e\)/, 'the thank-you words are typed in a hand-made box again');
 
-  /* A REFUSAL IS SAID, in this event's editor only — and the words stay in the box. */
+  /* A REFUSAL IS SAID, in this event's editor only — and the words stay. */
   mod.sayNotDrafted({ eventId: 'ev-1', why: 'Could not save your message. Please try again.' });
   try {
     const refused = await inStudio(el());
     assert.match(refused, /<p role="alert"[^>]*>These words are not in your draft yet\. Could not save your message\. Please try again\./, 'a refused draft write is not said');
-    assert.match(refused, /<textarea[^>]*>Our own words\.<\/textarea>/, 'a refusal threw the couple’s words away');
+    assert.match(refused, /<span>Our own words\.<\/span>/, 'a refusal threw the couple’s words away');
     const other = await inStudio(React.createElement(mod.PabuyaMessageEditor, { eventId: 'ev-2', initialMessage: null }));
     assert.doesNotMatch(other, /role="alert"/, 'one event’s refusal is said on another event');
   } finally {
@@ -271,12 +281,32 @@ test('6 · Look › Music has no Save: an upload or the switch drafts at once; "
   /* No Save in EITHER Maker since the 2026-10-08 restudy ("no Save anywhere") — round 3 took it off the Studio only. */
   assert.doesNotMatch(panel, /SaveButton/, 'a Save is drawn under Music');
   assert.match(panel, /<HubDraftField \/>/, 'Music no longer writes into the draft');
-  assert.equal((panel.match(/onChange=\{draftNow\}/g) ?? []).length, 3, 'the song, the switch and the video do not each draft at once');
+  /* RE-AIMED 2026-10-09: this counted three spellings of `onChange={draftNow}`, and went red when the song's upload
+     began to note "a file was uploaded" BEFORE drafting (the Our music port, 2026-10-08) — the upload still drafts at
+     once. The claim is per control: the song, the switch and the video each reach `draftNow` from their own change. */
+  for (const field of ['bg_music_url', 'bg_music_enabled', 'hero_video_url']) {
+    assert.match(
+      panel,
+      new RegExp(`name="${field}"[^>]*?onChange=\\{(?:draftNow\\}|\\([^)]*\\) => \\{[^}]*\\bdraftNow\\(\\);)`),
+      `${field} does not draft at once`,
+    );
+  }
   assert.match(panel, /formRef\.current\?\.requestSubmit\(\)/, 'nothing posts the form when a change lands');
   assert.match(panel, /type="checkbox"\s*role=\{studio \? 'switch' : undefined\}\s*name="bg_music_enabled"/, '“Play music on my Event Hub” is not a switch in the Studio (same field)');
   assert.match((await import('./studio-details')).studioFullScreenCss(), /\[data-music-switch\] input\[role=switch\]:checked/, 'the Studio’s CSS does not draw the music switch');
   const action = read(`${D}/website/site-chrome/actions.ts`);
-  assert.match(action, /if \(isHubDraftWrite\(formData\)\) \{[\s\S]{0,500}site_bg_music_r2_key[\s\S]{0,400}landing_page_hero_video_r2_key/, 'the song and the video are not hub-draft fields');
+  /* RE-AIMED 2026-10-09: this measured the DISTANCE between the two names (≤ 400 characters), and went red when Our
+     music's pick was added between them (2026-10-08). The claim is that the draft branch writes both into the draft:
+     the branch is cut out whole — from its `if` to its own draft return — and must set each on `events`. */
+  const draftFrom = action.indexOf('if (isHubDraftWrite(formData)) {');
+  const draftTo = action.indexOf('return draftEventsAndReturn(', draftFrom);
+  assert.ok(draftFrom > 0 && draftTo > draftFrom, 'the song and the video no longer have a draft branch');
+  const draftBranch = action.slice(draftFrom, draftTo);
+  assert.doesNotMatch(draftBranch, /\n  \}\n/, 'the draft branch closes before it returns into the draft');
+  /* Each form field's OWN block sets its column (Our music's pick sets the song's too — that is not the upload's). */
+  for (const [field, column] of [['bg_music_url', 'site_bg_music_r2_key'], ['hero_video_url', 'landing_page_hero_video_r2_key']] as const) {
+    assert.match(draftBranch, new RegExp(`if \\(formData\\.has\\('${field}'\\)\\) \\{[^}]*\\bevents\\.${column} = `), `${field} is not a hub-draft field`);
+  }
 });
 
 test('7 · Mood Board: Palette · Attire · Inspiration · Do’s & Don’ts; the attire boards live in Attire beside their role', async () => {
@@ -327,18 +357,20 @@ test('8 · Love Story: an EMPTY story draws its real arrangement in sample shape
   assert.equal(seen(sample), MOMENT_ANCHORS.map((a: keyof typeof LOVE_STORY_CHAPTER_LABEL) => LOVE_STORY_CHAPTER_LABEL[a]).join(' '), 'the sample carries words that are not the real chapter labels');
   /* The REAL arrangement: the sample card's row, photo box and words column are the real card's own. */
   const rowOf = (li: string) => /<div class="([^"]*)">/.exec(li)?.[1];
-  const realCard = /<li data-moment-card="u"[\s\S]*?<\/li>/.exec(one)?.[0] ?? '';
+  const realCard = /<li[^>]*data-moment-card="u"[\s\S]*?<\/li>/.exec(one)?.[0] ?? '';
   const sampleCard = /<li data-studio-story-sample-card="met"[\s\S]*?<\/li>/.exec(sample)?.[0] ?? '';
   assert.ok(rowOf(realCard) && rowOf(realCard) === rowOf(sampleCard), 'the sample card is not laid out as a real card');
-  const box = (markup: string) => /class="(h-\d+ w-\d+ shrink-0 rounded-md)\b/.exec(markup)?.[1];
+  const box = (markup: string) => /(relative flex h-\d+ w-\d+ shrink-0 items-center justify-center rounded-xl)\b/.exec(markup)?.[1];
   assert.ok(box(realCard) && box(realCard) === box(sampleCard), `the sample’s photo is not the card’s photo box (${box(sampleCard)} vs ${box(realCard)})`);
-  for (const shape of ['photo', 'year', 'title', 'line']) assert.ok(sampleCard.includes(`data-sample-shape="${shape}"`), `the sample card has no ${shape} shape`);
-  assert.match(sampleCard, /lucide-grip-vertical/, 'the sample card has no grip');
+  /* The row's own three things (the owner's Timeline row, 2026-10-08): a when, a name, a picture square. */
+  for (const shape of ['when', 'name', 'photo']) assert.ok(sampleCard.includes(`data-sample-shape="${shape}"`), `the sample row has no ${shape} shape`);
+  /* A sample is STILL — loading shimmers, this never does (the three states must not look alike). */
+  assert.doesNotMatch(sample, /animate-/, 'the sample shimmers like a loading list');
   /* …and it is gone the moment one real moment exists. */
   assert.doesNotMatch(one, /data-studio-story-sample/, 'the sample stays beside a real moment');
-  assert.match(one, /data-studio-story-head="u"/);
-  /* + Add a moment is unchanged, with or without a moment. */
-  for (const out of [empty, one]) assert.match(out, /class="[^"]*sn-glass-row[^"]*"><div class="contents"><button[^>]*>[\s\S]*?Add a moment/, 'the + Add a moment bar changed');
+  assert.match(one, /data-moment-card="u"/);
+  /* + Add a moment is at the foot, with or without a moment. */
+  for (const out of [empty, one]) assert.match(out, /class="[^"]*sn-glass-row[^"]*"><button[^>]*data-studio-add-moment=""[^>]*>[\s\S]*?Add a moment/, 'the + Add a moment bar changed');
 
   /* The Add-a-moment sheet, in the Studio: each helper line is behind an ⓘ beside its label — never a paragraph. */
   const sheet = read(`${D}/website/our-story/_components/moment-sheet-studio.tsx`);
@@ -355,37 +387,56 @@ test('8 · Love Story: an EMPTY story draws its real arrangement in sample shape
   assert.ok(scrollMb >= 84, `a focused field can stop under the foot (it keeps ${scrollMb} px clear of the sheet’s edge; the foot takes 84)`);
 });
 
-test('9 · Studio › RSVP: Reply by is CHANGED on its row — the label, the date field, nothing else; drafted', async () => {
+test('9 · Studio › RSVP: Reply by is CHANGED on its row — the label, the date pill, nothing else; drafted', async () => {
   /* Owner on the preview 2026-10-08, verbatim: *"where it the reply by date?"* → *"date is not changeable on
      studio."* The row printed the date read-only ("set on Guests › Setup or in Event Details"), so the new Maker
      had no place to change it on a phone. His rule: no go-elsewhere — the control is right there; and "draft
      1-3": Reply by is edited in the Maker and waits for ✓ Apply.
-     🛡 Sabotaged once each (2026-10-08, S3b), each red alone: the Studio layout's `{field}` swapped for the
-     printed date → no date field; `REPLY_BY_LINE` drawn under the label → more than the label; the Studio mount
-     without `draft` → the mount; `data-writes-live=""` put on the Studio row → it says it is live. */
+     ⤷ Same day, the templates (`INTERACTION_RULES.md` § 9, the approved gallery's own "Reply by" row): the field is
+     the app's Form row with a date — a pill with a calendar mark that opens the one calendar — never a native date
+     input. The shared part keeps the value and the one writer and hands them to the Maker's row (`layout="frame"`).
+     🛡 Sabotaged once each, each red alone (2026-10-08, S3b; again on the frame the same night): the frame handed
+     the default instead of the couple's own date → not their date; `REPLY_BY_LINE` drawn by the frame layout →
+     more than the label; the Maker's mount without `draft` → the mount; `data-writes-live` put on the framed row's
+     marks → it says it is live; a native `<input type="date">` drawn by the frame layout → a second field. */
   const { ReplyBy } = await import(`../${D}/_components/guest-setup/reply-by`);
-  const { STUDIO_ROW } = await import('./studio-skin');
+  const { DateRow } = await import('../app/_components/form-row-date');
   const props = { eventId: 'e-1', own: '2027-01-14', pricingMode: 'final_only' as const, fallback: '2026-11-12', action: (async () => ({ ok: true })) as never };
-  const row = await html(React.createElement(ReplyBy, { ...props, layout: 'studio', draft: true, rowClassName: STUDIO_ROW }));
-  /* ONE row, the Studio's own — and a field a finger can change. */
-  assert.match(row, new RegExp(`^<section class="${STUDIO_ROW.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}" [^>]*data-rsvp-setting="reply-by"`), 'Reply by is not one Studio row');
-  assert.equal((row.match(/<input\b/g) ?? []).length, 1, 'the Studio’s Reply by row has no field (or more than one control)');
-  const field = /<input\b[^>]*>/.exec(row)?.[0] ?? '';
-  assert.match(field, /type="date"/, 'the row’s field is not a date field');
-  assert.match(field, /value="2027-01-14"/, 'the row’s field is not the couple’s date');
-  assert.match(field, /aria-label="Reply by"/, 'the field has no name');
-  assert.doesNotMatch(field, /disabled|readonly/i, 'the date cannot be changed');
-  /* Nothing else: the label is the only words; no button, no box, no "Saved", no "Guests see this right away". */
-  assert.equal(seen(row), 'Reply by', 'the row says more than its label');
-  assert.doesNotMatch(row, /<button\b|sn-tile|data-hub-saves-immediately|data-writes-live/, 'the row carries a button, a box or a "live" mark');
-  /* The 30-day default fills the field while the couple has no date of their own. */
-  assert.match(await html(React.createElement(ReplyBy, { ...props, own: null, layout: 'studio', draft: true })), /<input\b[^>]*value="2026-11-12"/, 'the default date is not in the field');
-  /* The other doors are as they were: Setup's row keeps its sentence and its live mark; the stage's stack its default link. */
-  assert.match(await html(React.createElement(ReplyBy, { ...props, layout: 'row' })), /data-reply-by-field="live" data-writes-live=""[\s\S]*Your invitation asks guests to reply by this day\./, 'Guests › Setup’s Reply by row changed');
-  assert.match(await html(React.createElement(ReplyBy, { ...props, layout: 'stack', draft: true })), /January 14, 2027[\s\S]*· your date[\s\S]*Use the default/, 'the stage’s Reply by field changed');
-  /* Mounted in the Studio branch, drafted, with the writer. */
+  type Row = { name: string; own: string; fallback: string | null; keep: (day: string) => unknown; attrs: Record<`data-${string}`, string> };
+  /* The Maker's own frame, as `maker-rsvp-ask.tsx` hands it in. */
+  const frame = (r: Row) => React.createElement(DateRow, { data: 'reply-by', name: r.name, value: r.own, shown: r.fallback, onKeep: r.keep as never, attrs: r.attrs });
+  const row = await html(React.createElement(ReplyBy, { ...props, layout: 'frame', draft: true, frame: frame as never }));
+  /* ONE row — the frame's, and nothing of the part's own around it (a row must stay a direct child of its list). */
+  assert.match(row, /^<div data-setup-row="reply-by" data-rsvp-setting="reply-by" data-reply-by-field="draft" data-form-row-kind="date"[^>]*data-form-row="reply-by"/, 'Reply by is not one Form row carrying the part’s marks');
+  /* A pill a finger can change — the couple's own date, in words — and NO native field. */
+  assert.equal((row.match(/data-form-row-pill="date"/g) ?? []).length, 1, 'the Studio’s Reply by row has no date pill (or more than one control)');
+  assert.match(row, /<button type="button" data-form-row-pill="date" aria-haspopup="dialog" aria-expanded="false" aria-label="Reply by: January 14, 2027\. Tap to change"/, 'the pill is not the couple’s date');
+  assert.match(row, /data-form-row-mark="calendar"/, 'the pill does not say "pick a date"');
+  assert.doesNotMatch(row, /<input\b|type="date"|disabled/i, 'a native date field is drawn, or the date cannot be changed');
+  /* Nothing else: the label and the date are the only words; no box, no "Saved", no "Guests see this right away". */
+  assert.equal(seen(row), 'Reply by January 14, 2027', 'the row says more than its label and its date');
+  assert.doesNotMatch(row, /sn-tile|data-hub-saves-immediately|data-writes-live|>\s*Saved/, 'the row carries a box, a "Saved" or a "live" mark');
+  /* The 30-day default is READ on the pill while the couple has no date of their own. */
+  assert.match(await html(React.createElement(ReplyBy, { ...props, own: null, layout: 'frame', draft: true, frame: frame as never })), /aria-label="Reply by: November 12, 2026\. Tap to change"/, 'the default date is not on the pill');
+  /* What the frame is handed is the PART's: its name, the couple's own date (never the default in its place), the
+     default beside it, the one writer, and its marks. */
+  let handed: Row | null = null;
+  await html(React.createElement(ReplyBy, { ...props, own: null, layout: 'frame', draft: true, frame: ((r: Row) => ((handed = r), null)) as never }));
+  assert.deepEqual({ ...(handed as unknown as Row), keep: typeof (handed as unknown as Row).keep }, { name: 'Reply by', own: '', fallback: '2026-11-12', keep: 'function', attrs: { 'data-setup-row': 'reply-by', 'data-rsvp-setting': 'reply-by', 'data-reply-by-field': 'draft' } });
+  /* The other doors are as they were: Setup's row keeps its sentence and its live mark; Event Details' stack its default link. */
+  /* ⤷ 2026-10-09 (step 3): Guests › Setup draws the SAME frame, live — the part says so with its marks, and the sentence is Setup's frame's (behind its ⓘ). */
+  let live: Row | null = null;
+  await html(React.createElement(ReplyBy, { ...props, layout: 'frame', frame: ((r: Row) => ((live = r), null)) as never }));
+  assert.deepEqual((live as unknown as Row).attrs, { 'data-setup-row': 'reply-by', 'data-rsvp-setting': 'reply-by', 'data-reply-by-field': 'live', 'data-writes-live': '' }, 'Guests › Setup’s Reply by row is not marked live');
+  assert.match(await html(React.createElement(ReplyBy, { ...props, layout: 'stack', draft: true })), /January 14, 2027[\s\S]*· your date[\s\S]*Use the default/, 'Event Details’ Reply by field changed');
+  /* Mounted ONCE for the reply's rows — which Studio › RSVP and the stage's form both draw — drafted, with the writer. */
   const ask = read(`${L}/maker-rsvp-ask.tsx`);
-  const studio = ask.slice(ask.indexOf('data-studio-rsvp=""'), ask.indexOf('data-rsvp-setting="how-guests-answer"'));
-  assert.match(studio, /<ReplyBy\s+layout="studio"[\s\S]*?rowClassName=\{STUDIO_ROW\}\s+action=\{replyByAction\}\s+draft\s*\/>/, 'Studio › RSVP does not mount the editable row, drafted');
-  assert.doesNotMatch(read(`${D}/_components/guest-setup/reply-by.tsx`), /layout === 'print'|'print'/, 'the read-only print layout is back');
+  /* (Within ONE mount: `(?!\/>)` never lets the match run on into Event Details' own mount below.) */
+  assert.match(ask, /const replyByRow = replyByOwn \? \(\s*<ReplyBy\s+layout="frame"\s+frame=\{replyByFrame\}(?:(?!\/>)[\s\S])*?action=\{replyByAction\}\s+draft\s*\/>/, 'the Maker does not mount the editable row, drafted');
+  assert.match(ask, /const replyByFrame = \(row: ReplyByFrame\) => <DateRow data="reply-by" name=\{row\.name\} value=\{row\.own\} shown=\{row\.fallback\} onKeep=\{row\.keep\} attrs=\{row\.attrs\} \/>;/);
+  assert.match(ask, /<FormRows data="rsvp">\s*\{replyByRow\}/, 'Reply by is not the first of the reply’s rows');
+  const part = read(`${D}/_components/guest-setup/reply-by.tsx`);
+  assert.doesNotMatch(part, /layout === 'print'|'print'/, 'the read-only print layout is back');
+  /* The part itself carries no template: Guests › Setup's page does not download the Form row or the calendar. */
+  assert.doesNotMatch(part, /form-row|calendar/i, 'the shared part imports a template (Guests › Setup would carry it)');
 });

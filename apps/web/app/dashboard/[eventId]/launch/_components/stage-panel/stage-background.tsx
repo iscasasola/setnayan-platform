@@ -98,6 +98,37 @@ export function StageBackground({
     if (s) s.scrollTo({ left: on ? Math.max(0, on.offsetLeft + on.offsetWidth / 2 - s.clientWidth / 2) : 0 });
   }, [source, tile]);
   const at = live ?? shade?.at ?? 0;
+  /* 🌗 THE ONE Darker ↔ Lighter BAR — drawn once, placed on row 3 for a picture (alone) or a colour (beside its
+     circle): the fill from the centre, the page following the thumb, ONE write when it is let go. */
+  const shadeBar = shade ? (
+    <>
+      <span className={`${SP_LOOK_ROW_LABEL} !text-[12px] !text-[var(--sp-mute)]`}>Darker</span>
+      <span className="relative flex h-11 min-w-0 flex-1 items-center px-1" data-stage-bg-shade={sceneShadeSettled(at)}>
+        <Slider
+          label="Darker or lighter"
+          data="scene-shade"
+          from="centre"
+          min={SCENE_SHADE_MIN}
+          max={SCENE_SHADE_MAX}
+          step={1}
+          value={at}
+          valueText={sceneShadeWords(at)}
+          onChange={(n) => {
+            setLive(n);
+            shade.onMove(n);
+          }}
+          /* ONE write, when the thumb is let go — on the stop it settles on, and only if that is a change. */
+          onCommit={(n) => {
+            const settled = sceneShadeSettled(n);
+            setLive(settled);
+            if (settled !== shade.at) shade.onKeep(settled);
+            else shade.onMove(settled);
+          }}
+        />
+      </span>
+      <span className={`${SP_LOOK_ROW_LABEL} !text-[12px] !text-[var(--sp-mute)]`}>Lighter</span>
+    </>
+  ) : null;
   return (
     <>
       {/* ══ ROW 1 — the source ══ */}
@@ -156,35 +187,15 @@ export function StageBackground({
               <span className={`${SLIDER_VALUE} w-10`}>{opacity.value}%</span>
             </>
           ) : null}
+          {/* 🌗 A colour that is its own ground (Plain · Diagonal · Glow) takes the SAME Darker ↔ Lighter bar as a
+              picture, beside its circle (owner 2026-10-09: "on color, there is no linebar for the darken/lighten?").
+              A glass has its Opacity here instead — the row holds one bar, never two. */}
+          {!opacity ? shadeBar : null}
           {picking ? customColour(() => setPicking(false)) : null}
         </div>
       ) : shade ? (
         <div className={`${SP_BG_ROW} row-start-3`} data-stage-bg="shade">
-          <span className={`${SP_LOOK_ROW_LABEL} !text-[12px] !text-[var(--sp-mute)]`}>Darker</span>
-          <span className="relative flex h-11 min-w-0 flex-1 items-center px-1" data-stage-bg-shade={sceneShadeSettled(at)}>
-            <Slider
-              label="Darker or lighter"
-              data="scene-shade"
-              from="centre"
-              min={SCENE_SHADE_MIN}
-              max={SCENE_SHADE_MAX}
-              step={1}
-              value={at}
-              valueText={sceneShadeWords(at)}
-              onChange={(n) => {
-                setLive(n);
-                shade.onMove(n);
-              }}
-              /* ONE write, when the thumb is let go — on the stop it settles on, and only if that is a change. */
-              onCommit={(n) => {
-                const settled = sceneShadeSettled(n);
-                setLive(settled);
-                if (settled !== shade.at) shade.onKeep(settled);
-                else shade.onMove(settled);
-              }}
-            />
-          </span>
-          <span className={`${SP_LOOK_ROW_LABEL} !text-[12px] !text-[var(--sp-mute)]`}>Lighter</span>
+          {shadeBar}
         </div>
       ) : null}
       {/* ══ ROW 4 — its shape ══ */}

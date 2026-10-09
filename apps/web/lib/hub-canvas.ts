@@ -694,9 +694,11 @@ export function sanitizeHubCanvas(raw: unknown): HubSectionCanvas {
   if (canvas.mediaMotion === 'parallax' && ground?.kind === 'photo') out.mediaMotion = 'parallax';
   const poster = hubMediaRef(canvas.poster);
   if (poster && ground?.kind === 'snippet') out.poster = poster;
-  /* 🌗 Darker ↔ Lighter only beside a picture — a colour has no veil to move. */
+  /* 🌗 Darker ↔ Lighter beside a picture (a veil) or a colour that is its own ground — Plain, Diagonal, Glow: the
+     colour itself is mixed (owner 2026-10-09: "on color, there is no linebar for the darken/lighten?"). A glass
+     has its Opacity instead, and "none" has nothing to shade. */
   const shade = sanitizeHubMainShade(canvas.shade);
-  if (shade !== undefined && (ground?.kind === 'photo' || ground?.kind === 'snippet')) out.shade = shade;
+  if (shade !== undefined && ground && ground.kind !== 'glass' && ground.kind !== 'frost' && ground.kind !== 'none') out.shade = shade;
   /* ↕ Spacing: Regular is the absence. */
   if (canvas.spacing === 'tight' || canvas.spacing === 'roomy') out.spacing = canvas.spacing;
   if (inSet(HUB_MOTION_PRESETS, canvas.preset)) out.preset = canvas.preset;

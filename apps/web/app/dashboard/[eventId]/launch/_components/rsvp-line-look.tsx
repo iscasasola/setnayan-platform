@@ -7,7 +7,7 @@ import { ActionButton } from '@/components/action-button';
 import { FEEL_OFF, type AnimateFeel } from '@/lib/animate-feel';
 import { hubElementColor } from '@/lib/element-style';
 import type { HubFontKey } from '@/lib/hub-fonts';
-import { SP_BG_TILE, SP_BG_TILE_FACE, SP_BG_TILE_NAME, SP_BG_TILE_SLASH, SP_BG_TILE_TONE, SP_DD, SP_DD_BUTTON, SP_LOOK_ROW, SP_LOOK_ROW_LABEL } from '@/lib/maker-stage-room';
+import { SP_BG_TILE, SP_BG_TILE_FACE, SP_BG_TILE_NAME, SP_BG_TILE_SLASH, SP_BG_TILE_TONE, SP_DD, SP_DD_BUTTON, SP_LOOK_ROW_LABEL, SP_ROWS_ROW } from '@/lib/maker-stage-room';
 import type { MotionFx } from '@/lib/motion-effects';
 import {
   RSVP_LOOK_BUTTON_LINES,
@@ -35,7 +35,10 @@ import { StageAnimate } from './stage-panel/stage-animate';
  *                                     wearing the line's colour — striped while it is the page's own — that opens
  *                                     the app's ONE colour picker (`ColourSheet`), and the app's slider
  *
- * The two rows keep the toolbar's own gap between rows (`--sp-rg`, `SP_ROWS`), so they sit where its rows 1 and 2 do.
+ * 🧱 The rows are rows of the toolbar's FOUR (`SP_ROWS_ROW`; the caller is the grid — `maker-rsvp-ask.tsx` `RSVP_ROWS`):
+ * Font in row 1 and Colour · Size in row 4, Style's LAST row on every stage (a cover line's Colour · Size is drawn in
+ * row 4 by the toolbar itself). They were a column of their own, stacked from the top — 2 px above row 1 and with
+ * Colour · Size where no stage has it.
  *
  * Nothing here is a new control: the circle, the picker, the dropdown and the slider are the shipped ones. A colour
  * stored as one of the event's five (a slot, the day before) is shown as that colour; picking stores what the picker
@@ -65,14 +68,14 @@ export function RsvpLineLookRows({
   /* The colour worn: its own, or an older slot's — the event's colour in that place. */
   const colour = hubElementColor(typeof now.c === 'number' ? board[now.c - 1] : now.c);
   return (
-    <div className="flex flex-col gap-y-[var(--sp-rg)]" data-rsvp-line-look={line}>
-      <div className={`${SP_LOOK_ROW} min-h-11`} data-rsvp-line-look-row="font">
+    <div className="contents" data-rsvp-line-look={line}>
+      <div className={`${SP_ROWS_ROW} row-start-1`} data-rsvp-row="1" data-rsvp-line-look-row="font">
         <span className={SP_LOOK_ROW_LABEL}>Font</span>
         <span className={SP_DD} data-stage-dd="font">
           <FontPick eventId={eventId} label="Font" dataAttr="data-rsvp-look-font" value={now.f ?? null} lead="Event Hub font" onPick={(f) => onPick({ f })} className={SP_DD_BUTTON} />
         </span>
       </div>
-      <div className={`${SP_LOOK_ROW} min-h-11`} data-rsvp-line-look-row="size">
+      <div className={`${SP_ROWS_ROW} row-start-4`} data-rsvp-row="4" data-rsvp-line-look-row="size">
         {button ? null : (
           <>
             <span className={SP_LOOK_ROW_LABEL}>Colour</span>
@@ -104,7 +107,8 @@ export function RsvpLineLookRows({
         <span className={`${SLIDER_VALUE} w-[40px]`}>{size}%</span>
       </div>
       {button ? (
-        <p className="px-1 pt-1 text-[12.5px] text-[var(--sp-ink)]/70" data-rsvp-line-look-row="button-note">
+        /* Its one line, right over the row it explains (no Colour beside Size). */
+        <p className={`${SP_ROWS_ROW} row-start-3 px-1 text-[12.5px] text-[var(--sp-ink)]/70`} data-rsvp-row="3" data-rsvp-line-look-row="button-note">
           A button’s colours are your Look’s.
         </p>
       ) : null}
@@ -130,8 +134,8 @@ export const RSVP_LINE_GROUND_LINE = 'This sits on the RSVP card’s background.
 export function RsvpCardGroundRows({ now, onPick }: { now: RsvpCardGround | null; onPick: (ground: RsvpCardGround | null) => void }) {
   const picked = now ?? 'plain';
   return (
-    <div className="flex flex-col" data-rsvp-card-ground={picked}>
-      <div className={`${SP_LOOK_ROW} min-h-[var(--sp-rh,44px)]`} role="group" aria-label="The card’s background">
+    <div className="contents" data-rsvp-card-ground={picked}>
+      <div className={`${SP_ROWS_ROW} row-start-1`} data-rsvp-row="1" role="group" aria-label="The card’s background">
         {RSVP_CARD_TILES.map((t) => (
           <button key={t.key} type="button" aria-pressed={t.key === picked} aria-label={t.name} data-rsvp-card-tile={t.key} onClick={() => onPick(t.key === 'plain' ? null : t.key)} className={SP_BG_TILE}>
             <span className={SP_BG_TILE_FACE} style={t.key === 'frost' ? { background: 'linear-gradient(135deg, rgba(255,255,255,.9), rgba(217,185,154,.55))' } : undefined} data-tile-face={t.key === 'none' ? 'none' : 'flat'}>
@@ -143,7 +147,7 @@ export function RsvpCardGroundRows({ now, onPick }: { now: RsvpCardGround | null
           </button>
         ))}
       </div>
-      <p className="px-1 pt-1 text-[12.5px] text-[var(--sp-ink)]/70">{RSVP_CARD_GROUND_LINE}</p>
+      <p className={`${SP_ROWS_ROW} row-start-2 px-1 text-[12.5px] leading-snug text-[var(--sp-ink)]/70`} data-rsvp-row="2">{RSVP_CARD_GROUND_LINE}</p>
     </div>
   );
 }
@@ -151,7 +155,7 @@ export function RsvpCardGroundRows({ now, onPick }: { now: RsvpCardGround | null
 /** BACKGROUND FOR A LINE — it has none of its own: one line says whose it sits on, and the one button opens that. */
 export function RsvpLineGroundRow({ onOpenCard }: { onOpenCard: () => void }) {
   return (
-    <div className={`${SP_LOOK_ROW} min-h-11 justify-between`} data-rsvp-line-ground="">
+    <div className={`${SP_ROWS_ROW} row-start-1 justify-between`} data-rsvp-row="1" data-rsvp-line-ground="">
       <p className="min-w-0 text-[13px] text-[var(--sp-ink)]">{RSVP_LINE_GROUND_LINE}</p>
       <span className="shrink-0" data-rsvp-open-card="">
         <ActionButton tone="neutral" icon={Square} label="Open the card" onClick={onOpenCard} />
@@ -167,11 +171,12 @@ export function RsvpLineGroundRow({ onOpenCard }: { onOpenCard: () => void }) {
  * Blur · Move · Size, the side or the way the ON ones need, and Movement ◆ (Quick · Calm · Cinematic). A reply page
  * is one screen with no scroll to follow and no exit, so Action and Build out are not offered — never drawn dead.
  */
-export function RsvpBuildInRows({ now, onPick }: { now: RsvpMotion; onPick: (patch: { i?: MotionFx | null; v?: RsvpLookFeel | null }) => void }) {
+export function RsvpBuildInRows({ now, onPick, error = null }: { now: RsvpMotion; onPick: (patch: { i?: MotionFx | null; v?: RsvpLookFeel | null }) => void; error?: string | null }) {
   const feel: AnimateFeel = now.v ?? 'calm';
   return (
     <StageAnimate
       only="in"
+      error={error}
       inFx={now.i ?? null}
       outFx={null}
       onIn={(fx) => onPick({ i: fx })}

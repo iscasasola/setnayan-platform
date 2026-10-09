@@ -48,6 +48,29 @@ import { readCelebrationKey, type RsvpCelebration } from '@/lib/rsvp-celebration
 import { CelebrationPick } from './celebration-pick';
 import { studioDraftKeep } from './studio-info';
 import { STUDIO_GROUP } from '@/lib/studio-skin';
+import { SP_ROWS, SP_ROWS_ROW } from '@/lib/maker-stage-room';
+import { STAGE_EDIT_ROW_FIT } from './stage-panel/stage-edit';
+
+/**
+ * 🧱 THE TOOLBAR'S FOUR ROWS, FOR THE REPLY PAGES' OWN TOOLS (owner 2026-10-10: *"please make Edit | Style | Background
+ * | Animate Consistent in design"*). On the new Maker's RSVP stage the picked thing's controls are laid in the SAME
+ * frame every other stage's are — `SP_ROWS` (four rows of `--sp-rh`, `--sp-rg` apart, nothing scrolled) and a row of it
+ * (`SP_ROWS_ROW`), the classes Edit (`stage-edit.tsx`) and Animate (`stage-animate.tsx`) stand in — never a column
+ * stacked from the top: it was, and its rows sat 2 px high and 4 px closer than everywhere else.
+ *   · a tool fills from row 1; its LAST row is row 4 (Style's Colour · Size, as on a cover line);
+ *   · while a typed row is OPEN the frame lets go (a message is a taller box than a row): it is the one thing shown,
+ *     as the toolbar's own Edit does it.
+ */
+const RSVP_ROWS = `${SP_ROWS} h-full [&:has([data-form-row-editing])]:!block [&:has([data-form-row-editing])]:!overflow-visible [&:has([data-form-row-editing])_[data-rsvp-row]:not(:has([data-form-row-editing]))]:hidden`;
+/** One of the four rows, by its place (written out, so the stylesheet has each). */
+const RSVP_ROW = {
+  1: `${SP_ROWS_ROW} row-start-1`,
+  2: `${SP_ROWS_ROW} row-start-2`,
+  3: `${SP_ROWS_ROW} row-start-3`,
+  4: `${SP_ROWS_ROW} row-start-4`,
+} as const;
+/** A refused save's one line, in a row of its own (never under the frame, where nothing is drawn). */
+const RSVP_ROW_ERROR = 'min-w-0 [&>p]:!px-0 [&>p]:!pt-0';
 
 /**
  * THE RSVP PAGE'S CONTROLS — the Maker's own RSVP page (guest pathway brief
@@ -435,9 +458,10 @@ export function MakerRsvpSettings({
   );
   /* ✍ ONE word — its typed row and its own Start from ▾. "Automatic" is what the page says by itself: the answer's
      and the form's three lines have words of their own; a note's heading is made for each guest, its message none. */
-  const wordRow = (of: RsvpStageScene, key: RsvpWordKey) => (
+  const wordRow = (of: RsvpStageScene, key: RsvpWordKey, wrap?: WordRowWrap) => (
     <WordRows
       key={key}
+      wrap={wrap}
       wordKey={key}
       value={words[key] ?? ''}
       automatic={
@@ -507,9 +531,16 @@ export function MakerRsvpSettings({
     const lineWord = rsvpLineWord(picked.part, picked.line);
     if (picked.tool === 'edit' && lineWord) {
       return (
-        <div className="flex flex-col px-1" data-rsvp-stage-controls={scene} data-rsvp-stage-line-edit={picked.line ?? ''}>
-          <FormRows data="rsvp-line">{wordRow(scene, lineWord)}</FormRows>
-          {status}
+        <div className={RSVP_ROWS} data-rsvp-stage-controls={scene} data-rsvp-stage-rows="" data-rsvp-stage-line-edit={picked.line ?? ''}>
+          {/* Row 1 its words, row 2 its Start from ▾ — each the app's Form row, at the row's height (`STAGE_EDIT_ROW_FIT`). */}
+          <FormRows data="rsvp-line" className="!contents">
+            {wordRow(scene, lineWord, (row, at) => (
+              <div key={at} data-rsvp-row={at} className={`${RSVP_ROW[at]} ${STAGE_EDIT_ROW_FIT}`}>
+                {row}
+              </div>
+            ))}
+          </FormRows>
+          {status ? <div data-rsvp-row="3" className={`${RSVP_ROW[3]} ${RSVP_ROW_ERROR}`}>{status}</div> : null}
         </div>
       );
     }
@@ -518,7 +549,7 @@ export function MakerRsvpSettings({
     const lookLine = rsvpLookLine(picked.part, picked.line);
     if (picked.tool === 'style' && lookLine) {
       return (
-        <div className="flex flex-col px-1" data-rsvp-stage-controls={scene} data-rsvp-stage-line-style={lookLine}>
+        <div className={RSVP_ROWS} data-rsvp-stage-controls={scene} data-rsvp-stage-rows="" data-rsvp-stage-line-style={lookLine}>
           <RsvpLineLookRows
             eventId={eventId}
             line={lookLine}
@@ -529,7 +560,7 @@ export function MakerRsvpSettings({
               void save({ look: rsvpLookWith(latest.current, lookLine, patch) }, 'c' in patch ? '“Colour”' : '“Size”');
             }}
           />
-          {status}
+          {status ? <div data-rsvp-row="2" className={`${RSVP_ROW[2]} ${RSVP_ROW_ERROR}`}>{status}</div> : null}
         </div>
       );
     }
@@ -538,15 +569,15 @@ export function MakerRsvpSettings({
     const lookCard = picked.line ? null : rsvpLookCard(picked.part);
     if (picked.tool === 'bg' && lookCard) {
       return (
-        <div className="flex flex-col px-1" data-rsvp-stage-controls={scene} data-rsvp-stage-card-ground={lookCard}>
+        <div className={RSVP_ROWS} data-rsvp-stage-controls={scene} data-rsvp-stage-rows="" data-rsvp-stage-card-ground={lookCard}>
           <RsvpCardGroundRows now={readRsvpLook(local).card?.[lookCard]?.g ?? null} onPick={(g) => void save({ look: rsvpLookWith(latest.current, { card: lookCard }, { g }) }, '“Background”')} />
-          {status}
+          {status ? <div data-rsvp-row="3" className={`${RSVP_ROW[3]} ${RSVP_ROW_ERROR}`}>{status}</div> : null}
         </div>
       );
     }
     if (picked.tool === 'bg' && lookLine) {
       return (
-        <div className="flex flex-col px-1" data-rsvp-stage-controls={scene} data-rsvp-stage-line-ground={lookLine}>
+        <div className={RSVP_ROWS} data-rsvp-stage-controls={scene} data-rsvp-stage-rows="" data-rsvp-stage-line-ground={lookLine}>
           <RsvpLineGroundRow onOpenCard={() => window.dispatchEvent(new CustomEvent(RSVP_OPEN_CARD_EVENT))} />
         </div>
       );
@@ -556,9 +587,10 @@ export function MakerRsvpSettings({
     if (picked.tool === 'animate' && moves) {
       const look = readRsvpLook(local);
       return (
-        <div className="flex flex-col" data-rsvp-stage-controls={scene} data-rsvp-stage-animate={typeof moves === 'string' ? moves : `card.${moves.card}`}>
-          <RsvpBuildInRows now={(typeof moves === 'string' ? look.lines?.[moves] : look.card?.[moves.card]) ?? {}} onPick={(patch) => void save({ look: rsvpLookWith(latest.current, moves, patch) }, '“Animate”')} />
-          {status}
+        /* `StageAnimate` IS the four rows, and wears the toolbar's side inset itself — so this box gives its own back
+           (it stood 20 px in, where every other stage's Animate stands 10). */
+        <div className="-mx-[10px] flex h-full min-h-0 flex-col" data-rsvp-stage-controls={scene} data-rsvp-stage-animate={typeof moves === 'string' ? moves : `card.${moves.card}`}>
+          <RsvpBuildInRows now={(typeof moves === 'string' ? look.lines?.[moves] : look.card?.[moves.card]) ?? {}} error={error} onPick={(patch) => void save({ look: rsvpLookWith(latest.current, moves, patch) }, '“Animate”')} />
         </div>
       );
     }
@@ -778,6 +810,9 @@ const OWN_WORDS = 'own';
  *     line and nothing written has nothing to start from and nothing to put back: no row.
  * `data-rsvp-word-field` lets a tap on the canvas bring its row up.
  */
+/** Where each of a word's two rows stands in the toolbar's four (row 1 its words, row 2 its Start from ▾). */
+type WordRowWrap = (row: ReactNode, at: 1 | 2) => ReactNode;
+
 function WordRows({
   wordKey,
   value,
@@ -786,7 +821,10 @@ function WordRows({
   about,
   onType,
   onKeep,
+  wrap = (row) => row,
 }: {
+  /** The new Maker's RSVP stage: each row is put in its place in the toolbar's four rows. Absent — as it was. */
+  wrap?: WordRowWrap;
   wordKey: RsvpWordKey;
   value: string;
   /** What the page says while there are no words of the couple's own. */
@@ -808,6 +846,7 @@ function WordRows({
   };
   return (
     <>
+      {wrap(
       <TypedRow
         data={`word-${wordKey}`}
         attrs={{ 'data-rsvp-word-field': wordKey }}
@@ -823,8 +862,10 @@ function WordRows({
           setProblem(null);
           return onKeep(text);
         }}
-      />
-      {lines.length > 0 || value !== '' ? (
+      />,
+      1,
+      )}
+      {lines.length > 0 || value !== '' ? wrap(
       <ChosenRow
         data={`word-${wordKey}-start`}
         name="Start from"
@@ -843,7 +884,8 @@ function WordRows({
           if (next !== value) put(next);
         }}
         problem={problem}
-      />
+      />,
+      2,
       ) : null}
     </>
   );

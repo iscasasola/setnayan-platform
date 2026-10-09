@@ -35,6 +35,8 @@ const EDIT_STEP = '!h-11 min-w-0 !flex-1 !px-2 [&>.lbl]:truncate';
 const WORDS_ROW = ['row-start-1', 'row-start-2', 'row-start-3'] as const;
 /** A typed row inside one of the four rows: the template's own line, at the row's 44 px while it is shut. */
 const WORDS_FIT = '[&>[data-form-row]]:min-w-0 [&>[data-form-row]]:flex-1 [&_[data-form-row]:not([data-form-row-editing])>div]:!min-h-11';
+/** …the same fit, for the reply pages' own Edit rows (`maker-rsvp-ask.tsx`): one Form row in one of the four rows. */
+export const STAGE_EDIT_ROW_FIT = WORDS_FIT;
 
 export function StageEdit({
   fields,

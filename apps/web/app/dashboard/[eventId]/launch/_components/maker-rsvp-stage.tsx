@@ -468,6 +468,8 @@ export function MakerRsvpStage({
                      part (the mark, the names, the date, each guest's own name and ticket) has its one door above
                      (`QuietBar`) and nothing here. Kept mounted either way — a word typed on the page is its save.
                      (A class, not `hidden`: `flex` would out-rank the attribute.) */
+                  /* 🧱 The picked thing's rows are the toolbar's FOUR ROWS (`MakerRsvpSettings` lays them — `RSVP_ROWS`):
+                     `StageStyle`'s `frame` makes this box as tall as they are, with no room under them. */
                   <div className={`flex-col gap-3 pb-4 ${rsvpToolPart(pickedPart, pickedLine) ? 'flex' : 'hidden'}`} data-rsvp-stage-look="">
                     <MakerRsvpSettings
                       eventId={eventId}
@@ -488,6 +490,7 @@ export function MakerRsvpStage({
                 }
                 background={null}
                 arrange={null}
+                frame
               />
             </div>
           ) : (

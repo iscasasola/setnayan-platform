@@ -20,6 +20,7 @@
  */
 import { FREE_PRINT_KEYS, type DetailsItemKey } from '@/lib/maker-details-items';
 import { PRINT_SET_KEYS } from '@/lib/print-pieces';
+import { STUDIO_TILE_ITEM } from '@/lib/studio-tile-defs';
 
 /** The gifts items that leave Info for E-Gifts, in the prototype's order. */
 export const STUDIO_GIFT_ITEMS: readonly DetailsItemKey[] = ['gifts', 'thank-you'];
@@ -132,6 +133,26 @@ const STUDIO_INFO_CSS =
   /* Two lists of rows in one field (Special message, then What to bring): the hairline between rows, between lists too. */
   '[data-studio-info-rows] + [data-studio-info-rows]{border-top:1px solid rgb(var(--color-ink)/.1)}';
 const W = '[data-maker-studio-full] [data-details-workspace]';
+/**
+ * 📏 ONE HAIRLINE BETWEEN INFO'S ROWS, AT EVERY WIDTH (owner 2026-10-09, *"no lines on row?"*; the template's `.fr` is a
+ * `border-top` on every row but the first — `control_templates_2026-10-08.html` § 6).
+ *
+ * THE FAULT: the phone skin below gives every form field `margin: 0 -16px` (its cream band runs edge to edge) and a
+ * `border-top` — so a boundary BETWEEN two Info fields was a hairline running the whole width of the screen, while a boundary
+ * between two rows INSIDE one field (Opening line → Start from, Special message → What to bring, Restore → Reset → About) is
+ * the Form row's own hairline, which sits inside the field's 16 px of padding. Two kinds of line, alternating.
+ *
+ * THE FIX, Info's own wrapper only (the shared Form rows already draw ONE line, and the other Studio forms are not Info): an
+ * Info field's own top line is drawn INSET by the same 16 px, in the same colour — a one-pixel gradient at the field's top edge
+ * instead of the border — so every boundary in Info, between fields or inside one, starts and ends where the rows' text does.
+ * The first Info field has none (the template's first row has none).
+ * At 1024 px and up the skin is off: fields have no side padding, and both lines already run the panel's width.
+ */
+export const STUDIO_INFO_HAIRLINE_INSET_PX = 16;
+const INFO_FIELDS = `${W} :is([data-details-form-field]:has([data-studio-info-rows]),[data-details-form-field]:has(> [data-studio-quiet]))`;
+const STUDIO_INFO_HAIRLINE_CSS =
+  `${INFO_FIELDS}{border-top-color:transparent;background-image:linear-gradient(rgb(var(--color-ink)/.1),rgb(var(--color-ink)/.1));background-repeat:no-repeat;background-origin:border-box;background-position:${STUDIO_INFO_HAIRLINE_INSET_PX}px 0;background-size:calc(100% - ${STUDIO_INFO_HAIRLINE_INSET_PX * 2}px) 1px}` +
+  `${INFO_FIELDS}[data-details-editor="${STUDIO_TILE_ITEM.info}"]{background-image:none}`;
 const STUDIO_SKIN_CSS =
   `${W} [data-details-form-field]{background:rgb(var(--color-cream));margin-left:-16px;margin-right:-16px;padding:12px 16px;border-top:1px solid rgb(var(--color-ink)/.1)}` +
   `${W} [data-details-form-group]{margin:-12px -16px 4px;padding:18px 22px 6px;background:${STUDIO_PAGE};border-bottom:1px solid rgb(var(--color-ink)/.1)}` +
@@ -204,6 +225,7 @@ export function studioFullScreenCss(): string {
     '[data-details-workspace] [data-details-editor-panel][data-phone-chrome="panel"]:has([data-details-editor]:not([hidden]) [data-studio-look-bar]){left:0;right:0;bottom:0;height:calc(50dvh - 26px);border-radius:0;box-shadow:none;border-top:1px solid rgb(var(--color-ink)/.1)}' +
     `[data-maker-studio-full]:has([data-details-workspace]${on([...STUDIO_FORM_ITEMS, ...STUDIO_PAGE_ITEMS])}) [data-maker-studio-room]{display:none}` +
     STUDIO_SKIN_CSS +
+    STUDIO_INFO_HAIRLINE_CSS +
     STUDIO_MARCH_CSS +
     '}' +
     STUDIO_MUSIC_SWITCH_CSS +

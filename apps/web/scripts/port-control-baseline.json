@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "ad02b8e62",
+  "generatedFromRef": "25b475f30",
   "routeCount": 430,
   "destinations": 959,
   "actions": 672,
-  "blocks": 5879,
+  "blocks": 5881,
   "routes": {
     "/": {
       "files": [
@@ -1210,6 +1210,7 @@
         "HubLook",
         "HubMenuButton",
         "HubPageFrame",
+        "HubPageHold",
         "HubSceneRuns",
         "HubScenes",
         "HubScrub",
@@ -10007,6 +10008,7 @@
         "Fragment",
         "HTMLElement",
         "HubCanvasFrame",
+        "HubPageHold",
         "HubScenes",
         "LabScrubBadge",
         "LabScrubScene",

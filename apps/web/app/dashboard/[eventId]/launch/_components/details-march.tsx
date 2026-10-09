@@ -32,6 +32,10 @@ import {
 } from '@/lib/march-drag';
 import type { MarchResult } from '@/lib/march-result';
 import type { HubDraftPatch } from '@/lib/hub-draft';
+import { RotateCcw } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { PeekToast } from '@/app/_components/toast/peek-toast';
+import { plainRefusal } from '../../guests/_components/plain-refusal';
 import { MarchTray } from './details-march-tray';
 
 /**
@@ -77,6 +81,11 @@ const DID_NOT_GO = 'That did not go through — nothing was changed.';
 // no-card-ok: a NAME you drag (a pressable chip), not a container — its edge is what the finger picks up.
 const NAME_CHIP = 'flex min-h-11 cursor-grab touch-pan-y select-none flex-col justify-center rounded-lg border px-2.5 py-1.5 transition-[box-shadow,opacity] duration-150 [-webkit-touch-callout:none]'; // no-card-ok: a draggable name chip
 const LAB_SAVED: MarchResult = { ok: true, written: 1 };
+/** The lab's save: it lands — or, with `?refuse=1`, throws with the database's own words, so the toast can be seen saying its own sentence instead. */
+const labStep = (): Promise<MarchResult> =>
+  typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('refuse') === '1'
+    ? Promise.reject(new Error('relation "events" does not exist'))
+    : Promise.resolve(LAB_SAVED);
 /* Stable empties: a fresh `[]` default every render would look like a new march from the server each time. */
 const NO_NAMES: readonly string[] = [];
 const NO_OUT: readonly MarchOut[] = [];
@@ -101,7 +110,8 @@ async function draftStep(eventId: string, patch: MarchDraftPatch): Promise<March
      reaches for no server door at all (and its render needs no server module). */
   const { hubDraftAction } = await import('../../website/hub-draft-actions');
   const r = await hubDraftAction(eventId, fd);
-  return r.ok ? { ok: true, written: 1 } : { ok: false, reason: r.error };
+  /* The refusal is said in the page's own words unless the server wrote a plain sentence for a person (`plainRefusal`) — never database words. */
+  return r.ok ? { ok: true, written: 1 } : { ok: false, reason: plainRefusal(r.error, DID_NOT_GO) };
 }
 
 type Drag = {
@@ -118,7 +128,7 @@ type Drag = {
 
 /** What the maker shows: the walks, the printed sections' saved order (what a header drag steps through), the tray. */
 type Shown = { sections: MarchSection[]; printed: string[]; out: MarchOut[] };
-type Toast = { said: string; undo: boolean; before: Shown | null; refused?: boolean };
+type Toast = { said: string; undo: boolean; before: Shown | null; refused?: boolean; /** Which toast this is — a new one restarts the toast's own life. */ id?: number };
 
 const reduced = () => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
@@ -156,14 +166,9 @@ function CouldNotLoad({ onRetry }: { onRetry: () => void }) {
   return (
     <p role="alert" data-march-failed="" className="mx-auto max-w-md text-sm text-ink/70">
       The march couldn’t load —{' '}
-      <button
-        type="button"
-        data-march-retry=""
-        onClick={onRetry}
-        className="min-h-9 font-semibold text-terracotta-800 underline underline-offset-2"
-      >
-        Retry
-      </button>
+      <span data-march-retry="" className="inline-flex align-middle">
+        <ActionButton tone="neutral" quiet icon={RotateCcw} label="Retry" onClick={onRetry} />
+      </span>
     </p>
   );
 }
@@ -260,7 +265,6 @@ function MarchMakerBody({
   const era = useRef(0);
   const flip = useRef<Map<string, DOMRect> | null>(null);
   const landing = useRef<{ ghost: HTMLElement; key: string } | null>(null);
-  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /* The server's march came back (one refresh per burst): show it — unless
      more of this burst is still on its way. */
@@ -268,12 +272,11 @@ function MarchMakerBody({
     if (inFlight.current === 0) setMine(null);
   }, [sections, printed, out]);
 
+  /* The toast is the template's (`PeekToast`): it peeks from the top, leaves by itself and tells us (`onGone`); a new one has a new `id`, so it restarts. */
+  const toastSeq = useRef(0);
   const say = useCallback((t: Toast | null) => {
-    if (toastTimer.current) clearTimeout(toastTimer.current);
-    setToast(t);
-    if (t) toastTimer.current = setTimeout(() => setToast(null), t.refused ? 6000 : 4200);
+    setToast(t ? { ...t, id: ++toastSeq.current } : null);
   }, []);
-  useEffect(() => () => void (toastTimer.current && clearTimeout(toastTimer.current)), []);
 
   /** Where every name and walk stands now — the start of the re-flow animation. */
   const measure = () => {
@@ -301,7 +304,7 @@ function MarchMakerBody({
             if (era.current !== mineEra) return;
             // The lab draws the drop and drafts nothing; a thrown save is said in plain words.
             const r: MarchResult = await makerSave(
-              () => (lab ? Promise.resolve(LAB_SAVED) : draftStep(eventId, patch).catch(() => ({ ok: false as const, reason: DID_NOT_GO }))),
+              () => (lab ? labStep() : draftStep(eventId, patch)).catch(() => ({ ok: false as const, reason: DID_NOT_GO })),
               // The lab has no server march to come back, so it asks for no render either.
               lab ? LAB_NO_RENDER : requestMakerRefresh,
             );
@@ -656,7 +659,7 @@ function MarchMakerBody({
   /** ⌨ The same drops, from the keyboard. */
   const onKeyDown = (e: ReactKeyboardEvent<HTMLElement>) => {
     const el = e.target as HTMLElement;
-    if (el.closest('[data-march-toast]')) return;
+    if (el.closest('[data-peek-toast]')) return;
     if (e.key === 'Escape' && carried) {
       e.preventDefault();
       setCarried(null);
@@ -721,7 +724,7 @@ function MarchMakerBody({
       /* ♿ A screen reader's "activate" is a click with no pointer (detail 0):
          the same pick-up and drop as Space. A mouse drags instead. */
       onClick={(e) => {
-        if (e.detail !== 0 || (e.target as HTMLElement).closest('[data-march-toast]')) return;
+        if (e.detail !== 0 || (e.target as HTMLElement).closest('[data-peek-toast]')) return;
         if (!(e.target as HTMLElement).closest('[data-march-drag],[data-march-drop]')) return;
         onKeyDown({ ...e, key: ' ', target: e.target, preventDefault: () => e.preventDefault() } as unknown as ReactKeyboardEvent<HTMLElement>);
       }}
@@ -857,14 +860,9 @@ function MarchMakerBody({
       })}
       {sectionsMoved(shownPrinted) ? (
         /* One line, not a toolbar: the built-in section order back (Undo puts yours back). */
-        <button
-          type="button"
-          data-march-sections-default=""
-          onClick={() => run(planSectionsDefault(shown, shownPrinted))}
-          className="mt-3 min-h-9 self-start px-1 text-xs text-ink/60 underline decoration-ink/25 underline-offset-2"
-        >
-          Put the sections back in their usual order
-        </button>
+        <span data-march-sections-default="" className="mt-3 inline-flex self-start">
+          <ActionButton tone="neutral" quiet icon={RotateCcw} label="Put the sections back in their usual order" onClick={() => run(planSectionsDefault(shown, shownPrinted))} />
+        </span>
       ) : null}
       {slot
         ? createPortal(
@@ -882,19 +880,15 @@ function MarchMakerBody({
         {heard}
       </p>
       {toast ? (
-        <div
-          role="status"
-          data-march-toast={toast.refused ? 'refused' : 'done'}
-          /* The toast never blocks a name under it — only its Undo takes a tap. */
-          className="pointer-events-none fixed inset-x-3 bottom-[calc(var(--maker-lt-h,0px)+12px)] z-40 mx-auto flex max-w-md select-none items-center gap-3 rounded-xl bg-ink px-3.5 py-2.5 text-sm text-cream shadow-lg lg:bottom-4"
+        <PeekToast
+          key={toast.id}
+          tone={toast.refused ? 'bad' : 'ok'}
+          data={toast.refused ? 'march-refused' : 'march-done'}
+          onGone={() => setToast((t) => (t && t.id === toast.id ? null : t))}
+          action={toast.undo ? { label: 'Undo', onPress: undo } : undefined}
         >
-          <span className="min-w-0 flex-1">{toast.said}</span>
-          {toast.undo ? (
-            <button type="button" onClick={undo} data-march-undo="" className="pointer-events-auto min-h-9 shrink-0 rounded-full bg-cream/15 px-3.5 text-sm font-semibold">
-              Undo
-            </button>
-          ) : null}
-        </div>
+          {toast.said}
+        </PeekToast>
       ) : null}
     </section>
   );

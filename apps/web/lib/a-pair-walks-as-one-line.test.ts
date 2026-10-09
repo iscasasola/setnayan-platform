@@ -364,7 +364,9 @@ test('⚖ a move keeps you where you made it', () => {
     assert.doesNotMatch(code, /\bredirect\s*\(/, `${file} navigates away from the view the move was made in`);
   }
   // (Since 2026-10-06 a drop is DRAFTED — owner: *"Wait for apply"* — through the same one refresh.)
-  assert.match(MARCH_UI, /await makerSave\(\s*\(\) => \(lab \? Promise\.resolve\(LAB_SAVED\) : draftStep\(eventId, patch\)/);
+  /* RE-AIMED 2026-10-09: the lab's save moved into `labStep()` (it lands, or with ?refuse=1 throws database words the toast turns into its own sentence) — and the
+     refusal of either door is caught in ONE place (`the-march-wears-the-templates.test.ts`). The drop still goes through `makerSave`, one refresh per burst. */
+  assert.match(MARCH_UI, /await makerSave\(\s*\(\) => \(lab \? labStep\(\) : draftStep\(eventId, patch\)\)\.catch/);
   assert.match(MARCH_UI, /lab \? LAB_NO_RENDER : requestMakerRefresh,\s*\);/);
 });
 

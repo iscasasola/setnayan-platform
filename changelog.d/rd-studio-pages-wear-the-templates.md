@@ -31,3 +31,11 @@ Details keeps its own `Toggle`, `Segmented` and `SaveWords`. NO WRITE CHANGED an
 and the print words form is taken on the lab's side — nothing reaches the database. Not moved yet: the Menu editor, the poster photo, the pass card's look, "Changed since you printed", Kindly reply and the parents' cards
 (see the guard `lib/studio-prints-are-the-templates.test.ts` for why). Template additions (additive): `SwitchRow formId`, `ChosenRow line`.
 SPEC IMPACT: None.
+
+## 2026-10-09 · feat(studio): Studio › Wedding March wears the templates (Action button · the Toast), saves unchanged, a refusal never prints database words
+
+The march's "Put the sections back in their usual order", its "Retry" and the Not-walking sheet's ✕ are the ONE ActionButton; its toast and Undo are the template's `PeekToast` (peeks from the top, one Undo action, leaves by
+itself). Dragging a name, a walk or a section, and the tray's chips, are the drag surface — not template controls; the tray's "+N more" and the sheet's dark backdrop stay (the fit pass sets that button's words by hand; the sheet
+steps aside while a name is lifted out of it). NO SAVE CHANGED (recorded golden: the reset, the Undo, a thrown save, the lab — identical calls in the browser run). One change on purpose: a refusal the server worded in database
+words used to be PRINTED in the toast; it is now the page's own sentence (`plainRefusal`). The lab's march lands locally as before and, with `?refuse=1`, refuses so that sentence can be seen.
+SPEC IMPACT: None.

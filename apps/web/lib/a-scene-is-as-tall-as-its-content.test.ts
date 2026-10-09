@@ -129,7 +129,7 @@ test('↕ the gap between consecutive scenes is ONE rhythm — no stacked margin
     /* 🔁 2026-10-09 (the cleanup — the nest's boxes are wrappers this guard now sees): ONE more length is not a gap
        either — the pull that draws an arrival IN THE SAME PLACE as the scene it follows (`--hub-up`, negative, set by
        the engine; the 1rem rhythm without it). Named exactly, never a pattern. */
-    if (selector === '.hub-scenes[data-hub-scrub-on] .hub-stage > .hub-after' && decls.length === 1 && decls[0]!.prop === 'margin-top' && decls[0]!.value === 'var(--hub-up, 1rem)') continue;
+    if (selector === '.hub-scenes[data-hub-scrub-on] .hub-scene + .hub-after' && decls.length === 1 && decls[0]!.prop === 'margin-top' && decls[0]!.value === 'var(--hub-up, 1rem)') continue;
     for (const d of decls) {
       if (!/^(margin|padding)(-block)?(-top|-bottom|-start|-end)?$/.test(d.prop)) continue;
       if (/^(margin|padding)$/.test(d.prop) && d.value.split(/\s+/).length > 1) {

@@ -60,15 +60,18 @@ const WATCH = () => {
 };
 const SNAP = () => {
   const scenes = [...document.querySelectorAll('.hub-scene')].map((e) => {
-    const r = e.getBoundingClientRect(); const cs = getComputedStyle(e); const cell = e.parentElement?.classList.contains('hub-stage') ? e.parentElement.parentElement : null;
-    return { n: e.querySelector('[data-name]')?.getAttribute('data-name') ?? '?', o: cs.visibility === 'hidden' ? 0 : Number(cs.opacity), t: r.top, b: r.bottom, pout: Number(e.style.getPropertyValue('--hub-pout') || 0), pin: Number(e.style.getPropertyValue('--hub-pin') || 1), holds: Boolean(cell), pad: cell ? parseFloat(getComputedStyle(cell, '::after').height) || 0 : 0 };
+    const r = e.getBoundingClientRect(); const cs = getComputedStyle(e); /* A scene HOLDS when it is the one right before its cell's rest-of-the-page (its stage may hold ordinary scenes before it). */
+    const cell = e.nextElementSibling?.classList.contains('hub-after') ? e.closest('.hub-cell') : null;
+    return { n: e.querySelector('[data-name]')?.getAttribute('data-name') ?? '?', o: cs.visibility === 'hidden' ? 0 : Number(cs.opacity), t: r.top, b: r.bottom, pout: Number(e.style.getPropertyValue('--hub-pout') || 0), pin: Number(e.style.getPropertyValue('--hub-pbin') || 1), holds: Boolean(cell), pad: cell ? parseFloat(getComputedStyle(cell, '::after').height) || 0 : 0 };
   });
   const rows = [...document.querySelectorAll('[data-row]')].map((li) => Number(getComputedStyle(li).opacity));
   return { s: Math.round(scrollY), scenes, rows, max: document.documentElement.scrollHeight - innerHeight };
 };
-const SIZES = [[890, 1548], [940, 1608], [1280, 770], [375, 812], [375, 667]];
-/* `SCRUB_ONLY_MAKER=1` plays case 7 alone (a re-run while working on the Maker's canvas) — never a pass for the rest. */
-const PLAYED = process.env.SCRUB_ONLY_MAKER ? [] : SIZES;
+/* The five sizes the owner tried the prototype at, and the shape of the browser pane he opened the real thing in (441 × 882). */
+const SIZES = [[890, 1548], [940, 1608], [1280, 770], [375, 812], [375, 667], [441, 882]];
+/* `SCRUB_ONLY_MAKER=1` plays the cases after the five sizes alone, `SCRUB_ONE_SIZE=1` one size (re-runs while working,
+   a sabotage) — never a pass for the rest: the last line says so. */
+const PLAYED = process.env.SCRUB_ONLY_MAKER ? [] : process.env.SCRUB_ONE_SIZE ? [SIZES[3]] : SIZES;
 const b = await chromium.launch();
 let failed = 0;
 const say = (ok, line) => { if (!ok) failed++; console.log(`${ok ? 'ok  ' : 'FAIL'} ${line}`); };
@@ -84,7 +87,8 @@ for (const [W, H] of PLAYED) {
   const back = [await at(max)]; for (let y = max - (max % 16); y >= 0; y -= 16) back.push(await at(y));
   const sig = (f) => JSON.stringify([f.scenes.map((e) => [e.n, e.o.toFixed(2), Math.round(e.t)]), f.rows.map((r) => r.toFixed(2))]);
   const same = fwd.every((f) => { const k = back.find((x) => x.s === f.s); return k && sig(k) === sig(f); });
-  const faults = { overlap: [], readable: [], rowsOrder: [], leavesEarly: [], prevOnRows: [], early: [], box: [], moved: [] };
+  const faults = { overlap: [], readable: [], rowsOrder: [], leavesEarly: [], prevOnRows: [], early: [], box: [], moved: [], above: [] };
+  let watchedAbove = 0;
   let prev = null;
   for (const f of fwd) {
     const vis = f.scenes.filter((e) => e.o > 0.03 && e.b > 0 && e.t < H);
@@ -98,6 +102,9 @@ for (const [W, H] of PLAYED) {
     if (sched.o > 0.02 && cd.o > 0.02 && Math.abs(sched.t - cd.t) > 32) faults.box.push(`${f.s}: tops ${Math.round(cd.t)} and ${Math.round(sched.t)}`);
     /* the page stands still while a hand-over plays: the leaving scene does not move */
     if (prev) for (const e of f.scenes) { const was = prev.scenes.find((x) => x.n === e.n); if (e.holds && e.pout > 0 && e.pout < 1 && was.pout > 0 && was.pout < 1 && Math.abs(e.t - was.t) > 0.6) faults.moved.push(`${f.s}: ${e.n} moved ${(e.t - was.t).toFixed(1)}`); }
+    /* …and so does every scene a guest can see ABOVE it: during a hold the page does not move. */
+    if (prev) { const k = f.scenes.findIndex((e) => e.holds && e.pout > 0 && e.pout < 1); const wasHeld = k >= 0 && prev.scenes[k].pout > 0 && prev.scenes[k].pout < 1;
+      if (wasHeld) for (let i = 0; i < k; i++) { const e = f.scenes[i], was = prev.scenes[i]; if (e.o < 0.5 || e.b <= 0 || e.t >= H) continue; watchedAbove++; if (Math.abs(e.t - was.t) > 0.6) faults.above.push(`${f.s}: ${e.n}, above ${f.scenes[k].n}, moved ${(e.t - was.t).toFixed(1)}`); } }
     prev = f;
   }
   const end = fwd.at(-1);
@@ -112,7 +119,7 @@ for (const [W, H] of PLAYED) {
   const size = `${W}×${H}`;
   say(errs.length === 0, `${size} no page error${errs.length ? ' — ' + errs[0] : ''}`);
   say(same, `${size} back == down at every one of ${fwd.length} positions`);
-  for (const [k, words] of Object.entries({ overlap: 'no overlap outside a pair', readable: 'never two readable at once', rowsOrder: 'rows in order', leavesEarly: 'every row complete before the list leaves', prevOnRows: 'nothing of the scene before once the rows begin', early: 'the scene before at its last 20 % before the list shows', box: 'the pair in one box', moved: 'the page stands still while a hand-over plays' })) say(faults[k].length === 0, `${size} ${words}${faults[k].length ? ` — ${faults[k].length} × e.g. ${faults[k][0]}` : ''}`);
+  for (const [k, words] of Object.entries({ overlap: 'no overlap outside a pair', readable: 'never two readable at once', rowsOrder: 'rows in order', leavesEarly: 'every row complete before the list leaves', prevOnRows: 'nothing of the scene before once the rows begin', early: 'the scene before at its last 20 % before the list shows', box: 'the pair in one box', moved: 'the page stands still while a hand-over plays', above: `what a guest can see above a held scene stands still too (${watchedAbove} positions watched)` })) say(faults[k].length === 0, `${size} ${words}${faults[k].length ? ` — ${faults[k].length} × e.g. ${faults[k][0]}` : ''}`);
   say(rowsDone, `${size} all eight rows completed`);
   say(finished, `${size} every hand-over finished before the page ends (${end.scenes.filter((e) => e.holds).map((e) => `${e.n} ${e.pout}`).join(', ')}; last scene at ${end.scenes.at(-1).o})`);
   say(took.scrollSet === 0 && took2.scrollSet === 0, `${size} the script never set the scroll position (${took2.scrollSet})`);
@@ -207,7 +214,7 @@ for (const [W, H] of [[375, 812], [1280, 770]]) {
   const blankest = async (file) => {
     const ctx = await b.newContext({ viewport: { width: W, height: H } }); const p = await ctx.newPage();
     await p.goto(`file://${scratch}/${file}`); await p.waitForTimeout(350);
-    const info = await p.evaluate(() => { const e = document.querySelectorAll('.hub-scene')[1]; const cell = e.parentElement.parentElement; return { on: document.querySelector('.hub-scenes').hasAttribute('data-hub-scrub-on'), cell: cell.classList.contains('hub-cell'), box: e.offsetHeight, len: cell.style.getPropertyValue('--hub-len'), max: document.documentElement.scrollHeight - innerHeight }; });
+    const info = await p.evaluate(() => { const e = document.querySelectorAll('.hub-scene')[1]; const cell = e.closest('.hub-cell'); return { on: document.querySelector('.hub-scenes').hasAttribute('data-hub-scrub-on'), cell: cell.classList.contains('hub-cell'), box: e.offsetHeight, len: cell.style.getPropertyValue('--hub-len'), max: document.documentElement.scrollHeight - innerHeight }; });
     let run = 0; let worst = 0;
     for (let y = 0; y <= info.max; y += 16) {
       const any = await p.evaluate(async (v) => {
@@ -266,5 +273,5 @@ for (const [W, H] of [[375, 812], [1280, 770]]) {
   await ctx.close();
 }
 await b.close();
-console.log(failed ? `\n${failed} FAILED` : PLAYED.length ? '\nALL OK' : '\nTHE MAKER’S CANVAS ONLY — OK (the five sizes were not played)');
+console.log(failed ? `\n${failed} FAILED` : PLAYED.length === SIZES.length ? '\nALL OK' : '\nPART ONLY — OK (not every size was played)');
 process.exit(failed ? 1 : 0);

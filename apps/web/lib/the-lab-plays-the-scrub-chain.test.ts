@@ -77,11 +77,11 @@ test('(1) the lab’s chain, through the real renderer, is the prototype’s min
   assert.equal((html.match(/data-hub-fx=""/g) ?? []).length, 5, 'every scene of the chain is played under the thumb');
   const order = [...html.matchAll(/data-scene="(\w+)"/g)].map((m) => m[1]);
   assert.deepEqual(order, [...LAB_SCRUB_CHAIN], 'the page order');
-  /* The note that stays is NOT wrapped in a hold of its own: what follows it is its ordinary neighbour. */
-  assert.doesNotMatch(html, /class="hub-stage"><div class="hub-scene hub-scroll"[^>]*><section data-scene="special_message"/);
-  for (const held of ['countdown', 'schedule', 'dress_code']) {
-    assert.match(html, new RegExp(`class="hub-stage"><div class="hub-scene hub-scroll"[^>]*><section data-scene="${held}"`), `${held} is not held for its hand-over`);
-  }
+  /* Who hands over: the scene right before a `hub-after` (the note that stays is not one — it holds nothing). */
+  assert.deepEqual([...html.matchAll(/<section data-scene="(\w+)"><\/section><\/div><div class="hub-after">/g)].map((m) => m[1]), ['countdown', 'schedule', 'dress_code']);
+  /* …and the note stands still while the Dress code hands over: it opens that hand-over's stage ("the page stands
+     still" — `scrub-is-a-held-hand-over` (7)). */
+  assert.match(html, /class="hub-stage"><div class="hub-scene hub-scroll"[^>]*><section data-scene="special_message"><\/section><\/div><div class="hub-below"><div class="hub-scene hub-scroll"[^>]*><section data-scene="dress_code">/);
   /* Without Event Hub Pro nothing is held — the lab passes it (below). */
   assert.doesNotMatch(renderToStaticMarkup(React.createElement(Scenes, { widgets, scrubAllowed: false }, ...nodes)), /hub-cell/);
 });

@@ -25,7 +25,8 @@ import { SCRUB, scrubLens, scrubMoment, scrubNeedsRest, scrubOwnIn, scrubPair, s
 export const HUB_SCRUB_OFF = 'data-hub-scrub-off';
 
 const CELL = '.hub-cell';
-type Held = { cell: HTMLElement; stage: HTMLElement; scene: HTMLElement; after: HTMLElement; below: HTMLElement | null; arrival: HTMLElement | null; pair: ScrubPair; rest: number };
+/** `stick`: where the STAGE's top stands while its scene is held — above the scene's own line by whatever the stage holds before it. */
+type Held = { cell: HTMLElement; stage: HTMLElement; scene: HTMLElement; after: HTMLElement; below: HTMLElement | null; arrival: HTMLElement | null; pair: ScrubPair; rest: number; stick: number };
 
 const px = (n: number) => `${Math.round(n * 100) / 100}px`;
 const num = (n: number) => String(Math.round(n * 1000) / 1000);
@@ -47,8 +48,6 @@ export function armHubScrub(root: HTMLElement): () => void {
     if (key.startsWith('--')) value === null ? el.style.removeProperty(key) : el.style.setProperty(key, value);
     else value === null ? el.removeAttribute(key) : el.setAttribute(key, value);
   };
-  const sceneOf = (block: Element | null): HTMLElement | null =>
-    !block ? null : block.matches('.hub-scene') ? (block as HTMLElement) : block.matches(CELL) ? (block.querySelector(':scope > .hub-stage > .hub-scene') as HTMLElement | null) : null;
   const canvasOf = (scene: HTMLElement) => scene.querySelector<HTMLElement>(':scope > .hub-canvas');
   const oneByOne = (scene: HTMLElement) => Boolean(canvasOf(scene)?.classList.contains('hub-seq-parts'));
   const hasIn = (scene: HTMLElement) => !canvasOf(scene)?.classList.contains('hub-in-none');
@@ -66,10 +65,15 @@ export function armHubScrub(root: HTMLElement): () => void {
     return out;
   };
 
-  /** Where an element is LAID OUT in the document — never where a hold has it standing on the screen. */
+  /**
+   * Where an element is LAID OUT in the document — never where a hold has it standing on the screen. A stage that is
+   * standing still reports where it STANDS (`offsetTop` follows `position: sticky`), so for a stage its cell is asked
+   * instead: the stage is the cell's first box and the cell never moves. (A re-measure can come in the middle of a
+   * hold — a picture loading, a font landing — and must not read the hold as layout.)
+   */
   const docTop = (el: HTMLElement): number => {
     let y = 0;
-    for (let n: HTMLElement | null = el; n; n = n.offsetParent as HTMLElement | null) y += n.offsetTop;
+    for (let n: HTMLElement | null = el; n; n = n.offsetParent as HTMLElement | null) y += (n.matches('.hub-stage') ? (n.parentElement as HTMLElement) : n).offsetTop;
     return y;
   };
   const there = new Set<HTMLElement>();
@@ -89,13 +93,19 @@ export function armHubScrub(root: HTMLElement): () => void {
     const topLine = Math.max(76, V * 0.09);
     const view = { centre: C, topLine, room: V - topLine - 24, lens };
     scenes = Array.from(root.querySelectorAll<HTMLElement>('.hub-scene[data-hub-fx]'));
+    const was = held;
     held = [];
     let arrivedAt: { scene: HTMLElement; top: number } | null = null;
+    /* What follows a pair starts lower and RISES while it is held (`--hub-rise`, a `top`): everything below is measured
+       as it is LAID OUT, so those are taken off first — `frame`, which always follows, puts them back. */
+    for (const h of was) if (h.below) put(h.below, '--hub-rise', null);
     for (const cell of root.querySelectorAll<HTMLElement>(CELL)) {
       const stage = cell.querySelector<HTMLElement>(':scope > .hub-stage');
-      const scene = stage?.querySelector<HTMLElement>(':scope > .hub-scene') ?? null;
-      const after = stage?.querySelector<HTMLElement>(':scope > .hub-after') ?? null;
-      if (!stage || !scene || !after) continue;
+      /* THE LEAVING SCENE is the one right before its cell's `.hub-after` — the stage may hold ordinary scenes before
+         it (they stand still with it: during a hold the page does not move). */
+      const after = stage?.querySelector<HTMLElement>(':scope > .hub-after, :scope > .hub-below > .hub-after') ?? null;
+      const scene = after?.previousElementSibling as HTMLElement | null;
+      if (!stage || !scene || !after || !scene.matches('.hub-scene')) continue;
       /* A scene that drew nothing (a Countdown with no date: no box at all) holds nothing — the page never stands
          still on a blank. What follows it simply follows. */
       if (scene.offsetHeight === 0) {
@@ -105,26 +115,23 @@ export function armHubScrub(root: HTMLElement): () => void {
         arrivedAt = null;
         continue;
       }
-      /* THE ARRIVAL is the next scene a guest will SEE: a scene with no box that would itself be held (its own
-         cell) is looked through — else this element would hand over to nothing and leave the screen blank. */
-      let inner = after;
-      let arrival = sceneOf(inner.firstElementChild);
-      while (arrival && arrival.offsetHeight === 0 && inner.firstElementChild?.matches(CELL)) {
-        const next = inner.firstElementChild.querySelector<HTMLElement>(':scope > .hub-stage > .hub-after');
-        if (!next) break;
-        inner = next;
-        arrival = sceneOf(inner.firstElementChild);
-      }
-      /* What follows the pair: beside a plain arrival, its own wrapper; an arrival that hands over carries it in its cell. */
-      const below = inner.querySelector<HTMLElement>(':scope > .hub-below') ?? inner.querySelector<HTMLElement>(':scope > .hub-cell > .hub-stage > .hub-after');
+      /* THE ARRIVAL is the next scene a guest will SEE — a scene with no box is looked through, else this element
+         would hand over to nothing and leave the screen blank. What follows the pair is the ONE box right after it. */
+      const arrival = Array.from(after.querySelectorAll<HTMLElement>('.hub-scene')).find((el) => el.offsetHeight > 0) ?? null;
+      const next = arrival?.nextElementSibling ?? null;
+      const below = next?.matches('.hub-below, .hub-after') ? (next as HTMLElement) : null;
       const leaving = elementOf(scene);
       const pair = scrubPair(leaving, arrival ? elementOf(arrival) : { h: 0, oneByOne: false }, view);
       /* Is this element already where it is held when the hand-over INTO it ends? Then a rest comes first. */
       const rest = arrivedAt && arrivedAt.scene === scene && scrubNeedsRest(arrivedAt.top, leaving, view) ? lens.rest : 0;
-      put(stage, '--hub-top', px(pair.top));
+      /* The stage sticks where its SCENE is on its line: higher by what it holds before the scene. */
+      const stick = pair.top - (docTop(scene) - docTop(stage));
+      put(stage, '--hub-top', px(stick));
       put(cell, '--hub-len', px(pair.len + rest));
-      put(after, '--hub-up', arrival ? px(pair.up) : null);
-      held.push({ cell, stage, scene, after, below, arrival, pair, rest });
+      /* The arrival is drawn in its place whatever sits between it and the top of the rest of the page (a scene with
+         no box, a wrapper's gap). */
+      put(after, '--hub-up', arrival ? px(pair.up - (docTop(arrival) - docTop(after))) : null);
+      held.push({ cell, stage, scene, after, below, arrival, pair, rest, stick });
       arrivedAt = arrival ? { scene: arrival, top: pair.arrivalTop } : null;
     }
     put(root, 'data-hub-scrub-on', '');
@@ -141,7 +148,7 @@ export function armHubScrub(root: HTMLElement): () => void {
     const travel = (el: HTMLElement, y: number, line: number) => y - line + held.reduce((n, h) => (h.cell !== el && h.cell.contains(el) ? n + h.pair.len + h.rest : n), 0);
     const need = Math.max(
       last ? travel(last, docTop(last) + last.offsetHeight, C) : 0,
-      final ? travel(final.cell, docTop(final.cell), final.pair.top) + final.pair.len + final.rest : 0,
+      final ? travel(final.cell, docTop(final.cell), final.stick) + final.pair.len + final.rest : 0,
     );
     put(root, '--hub-end', need > reach ? px(need - reach) : null);
     /* An element already past the centre line when the page opens is simply there. */
@@ -160,7 +167,7 @@ export function armHubScrub(root: HTMLElement): () => void {
     };
     for (const h of held) {
       /* How far the page has travelled since this element was held: the browser's own sticky, read back. */
-      const t = Math.max(0, Math.min(h.pair.len + h.rest, h.pair.top - h.cell.getBoundingClientRect().top));
+      const t = Math.max(0, Math.min(h.pair.len + h.rest, h.stick - h.cell.getBoundingClientRect().top));
       const m = scrubMoment(t, h.pair, lens, h.rest);
       of(h.scene).pout = m.out;
       if (h.arrival) Object.assign(of(h.arrival), { pin: m.in, gate: m.rows, handed: true });

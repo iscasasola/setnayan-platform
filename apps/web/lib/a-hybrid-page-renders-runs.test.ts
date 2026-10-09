@@ -70,12 +70,17 @@ test('⭐ a hybrid page emits its hand-overs, every scene in page order, and one
 
   // A hand-over: the leaving scene, then THE REST OF THE PAGE — its first scene is the arrival, what follows the
   // pair is in its own wrapper — all inside the one stage that stands still. Each scene names its own timeline.
+  // 🔁 RE-AIMED 2026-10-09 ("during a hold the page stands still"): the ordinary scenes BEFORE a hand-over are inside
+  // its stage too. Here B and C come before D's: B (which is also A's arrival) opens D's stage, and one box right
+  // after it holds C, D and the rest — so while D hands over, B and C do not go on scrolling above it.
   assert.match(
     html,
-    /<div class="hub-cell"><div class="hub-stage"><div class="hub-scene hub-scroll" style="--hub-tl:--hub-s0" data-hub-fx=""><section>A<\/section><\/div><div class="hub-after"><div class="hub-scene hub-scroll" style="--hub-tl:--hub-s1" data-hub-fx=""><section>B<\/section><\/div><div class="hub-below"><div class="hub-scene hub-scroll" style="--hub-tl:--hub-s2"><section>C<\/section><\/div><div class="hub-cell">/,
+    /<div class="hub-cell"><div class="hub-stage"><div class="hub-scene hub-scroll" style="--hub-tl:--hub-s0" data-hub-fx=""><section>A<\/section><\/div><div class="hub-after"><div class="hub-cell"><div class="hub-stage"><div class="hub-scene hub-scroll" style="--hub-tl:--hub-s1" data-hub-fx=""><section>B<\/section><\/div><div class="hub-below"><div class="hub-scene hub-scroll" style="--hub-tl:--hub-s2"><section>C<\/section><\/div><div class="hub-scene hub-scroll" style="--hub-tl:--hub-s3" data-hub-fx=""><section>D<\/section><\/div><div class="hub-after"><div class="hub-scene hub-scroll" style="--hub-tl:--hub-s4" data-hub-fx=""><section>E<\/section><\/div><div class="hub-below">/,
   );
   /* …and the second hand-over is INSIDE the first one's rest of the page (while A hands over, all of it stands). */
-  assert.ok(html.indexOf('<section>D</section>') > html.indexOf('class="hub-below"'), 'the later hand-over is not inside the earlier one’s page');
+  assert.ok(html.indexOf('class="hub-cell"', html.indexOf('class="hub-after"')) > 0 && html.indexOf('<section>D</section>') > html.indexOf('class="hub-after"'), 'the later hand-over is not inside the earlier one’s page');
+  /* The leaving scene is ALWAYS the one right before its `hub-after` (how the engine finds it), whatever its stage holds before it. */
+  assert.deepEqual([...html.matchAll(/<section>(\w)<\/section><\/div><div class="hub-after">/g)].map((m) => m[1]), ['A', 'D']);
   // The scope names every section, so the progress mark can see them all.
   assert.match(html, /--hub-scope:--hub-s0, --hub-s1, --hub-s2, --hub-s3, --hub-s4, --hub-s5/);
   // Every segment fills on the ONE line (`SCENE_PROGRESS_RANGE`), so they fill strictly in page order.
@@ -195,7 +200,7 @@ test('🔒 the fallback keeps the hub rhythm: sections still stack 1rem apart wh
   assert.match(CSS, /\.hub-scenes > \.hub-prog ~ \* ~ \* \{ margin-top: 1rem; \}/);
   /* 🔁 RE-AIMED 2026-10-09 (the cleanup): the stacked run's own 1rem rule went with it; the same rhythm is now the
      hand-over nest's (cell › stage › scene, then the rest of the page). */
-  assert.match(CSS, /\.hub-stage > \.hub-after,\s*\.hub-after > \.hub-below,\s*\.hub-below > \* \+ \* \{ margin-top: 1rem; \}/);
+  assert.match(CSS, /\.hub-stage > \.hub-after,\s*\.hub-stage > \.hub-below,\s*\.hub-after > \.hub-below,\s*\.hub-below > \* \+ \* \{ margin-top: 1rem; \}/);
 });
 
 /* 🔁 RE-AIMED 2026-10-09 (the cleanup). This held the stacked run's cross-fade — IN leading OUT around the pin line on
@@ -236,7 +241,7 @@ test('⌨ a fully faded scene cannot take focus: visibility is hidden at, and on
    scene with no height. Played in a browser too (`scripts/scrub-browser-check.mjs`, the empty-scene case). */
 test('⛔ an empty Scrub scene holds nothing — no blank screen stands still', () => {
   assert.match(CSS, /\.hub-scene:empty,\s*\.hub-scene:has\(> \.hub-canvas > \.hub-canvas-body:empty\) \{ display: none; \}/);
-  assert.match(CSS, /\.hub-stage > \.hub-scene:empty \+ \.hub-after,\s*\.hub-stage > \.hub-scene:has\(> \.hub-canvas > \.hub-canvas-body:empty\) \+ \.hub-after \{ margin-top: 0; \}/);
+  assert.match(CSS, /\.hub-scene:empty \+ \.hub-after,\s*\.hub-scene:has\(> \.hub-canvas > \.hub-canvas-body:empty\) \+ \.hub-after \{ margin-top: 0; \}/);
   const engine = stripComments(readFileSync(join(__dirname, '..', 'app/[slug]/_components/hub-scrub-engine.ts'), 'utf8'));
   assert.match(engine, /if \(scene\.offsetHeight === 0\) \{[^}]*put\(cell, '--hub-len', null\);[^}]*continue;\s*\}/, 'the engine holds the page for a scene that drew nothing');
 });

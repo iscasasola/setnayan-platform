@@ -458,6 +458,32 @@ Browser check case 9: the badge says the page's own number while a hand-over pla
 plain page, every mark gone, "the script stopped: boom"; reduce motion; the Maker's canvas editing → ▶ held → back.
 Guard: `the-lab-plays-the-scrub-chain` (1)–(3) re-aimed, (5) new; three sabotages seen red.
 
+### 8c · during a hold the page stands still (inside the scenes block)
+
+The owner's first sentence about Scrub was "the page will not scroll". As built, a hold kept the leaving scene and
+everything AFTER it standing — and let whatever was above it go on scrolling at thumb speed, which reads as ordinary
+scrolling ("as a guest nothing scrubbed"). Now the ordinary scenes just BEFORE a hand-over are inside its stage:
+the stage sticks with a top above its scene's line by exactly what it holds before the scene, so everything of the
+scenes block on screen stands still for the hold. Still the browser's own `position: sticky` and real page length:
+no scroll position is set, nothing is prevented, nothing is transformed.
+
+- Renderer (`flow`): a hand-over's stage holds the ordinary scenes since the hand-over before it — the first, then
+  one box with the rest, the leaving scene and the rest of the page. The leaving scene is always the one right
+  before its `hub-after`; what follows an arrival is always one box.
+- Engine: finds the pair by that shape; sticks the stage at `the scene's line − what the stage holds before it`;
+  puts the arrival in its place whatever lies between it and the top of the rest of the page (so a scene with no
+  box is looked through whether or not it would have held); reads layout without the hold (a standing stage
+  reports where it stands — its cell is asked instead) and without the rises.
+- What is OUTSIDE the scenes block — the cover, the greeting — is not this renderer's and still scrolls during the
+  first hold. That needs the hold's cell at the page's level; mapped separately.
+
+Browser check: 141 checks green at SIX sizes (the five, and 441 × 882 — the browser pane the owner opened it in);
+new: "what a guest can see above a held scene stands still too" (22–54 positions watched a size); the renderer
+sabotaged → red in the browser. The check itself was reading the engine's Build-in number under its old name since
+the cleanup (so one of its pair tests was weaker than it said): fixed. Guard: `scrub-is-a-held-hand-over` (7) new,
+executed against the real renderer; two sabotages seen red; six pins re-aimed. Engine 2,488 B gz (was 2,358),
+island 655 B (was 552, the reasons). Maker first load: 0 B.
+
 SPEC IMPACT: Yes — supersedes the 2026-10-06/07 "Style | Text | Animate" and "the toolbar is half the screen" rows.
 The controller holds the spec (`TOOLBAR-SPEC-2026-10-09.md`) and applies the corpus rows; nothing in the corpus was
 edited from this branch.

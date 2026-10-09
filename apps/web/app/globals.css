@@ -6990,11 +6990,12 @@ html:has(.hub-shape-full) { overflow-x: clip; }
 /* 🎚 A page with a Scrub hand-over nests its scenes (`hub-scenes.tsx` `flow`: cell › stage › the scene, then the rest of
    the page). Here, in the plain page, those wrappers are nothing but blocks: the same 1rem rhythm, the same cards. */
 .hub-stage > .hub-after,
+.hub-stage > .hub-below,
 .hub-after > .hub-below,
 .hub-below > * + * { margin-top: 1rem; }
 /* …and a scene that drew nothing (see below: it is no box) leaves no second gap in front of what follows it. */
-.hub-stage > .hub-scene:empty + .hub-after,
-.hub-stage > .hub-scene:has(> .hub-canvas > .hub-canvas-body:empty) + .hub-after { margin-top: 0; }
+.hub-scene:empty + .hub-after,
+.hub-scene:has(> .hub-canvas > .hub-canvas-body:empty) + .hub-after { margin-top: 0; }
 .hub-prog { display: none; }
 /* A widget that rendered nothing (Countdown with no date) leaves an empty
    scene. It is no scene: it takes no gap and — because a hidden box has no
@@ -8376,11 +8377,11 @@ body:not(:has([data-maker-section])) [data-maker-sample] { display: none !import
   .hub-scenes[data-hub-scrub-on] .hub-cell::after { content: ''; display: block; height: var(--hub-len, 0px); }
   .hub-scenes[data-hub-scrub-on] .hub-stage { position: sticky; top: var(--hub-top, 0px); }
   /* THE SAME PLACE — the rest of the page begins OVER the leaving scene (how far: the engine's measure). */
-  .hub-scenes[data-hub-scrub-on] .hub-stage > .hub-after { margin-top: var(--hub-up, 1rem); }
+  .hub-scenes[data-hub-scrub-on] .hub-scene + .hub-after { margin-top: var(--hub-up, 1rem); }
   /* WHAT FOLLOWS THE PAIR sits under the lower of the two until the leaving one has gone, then under the arrival
      (`top`, never a transform — see above). */
   .hub-scenes[data-hub-scrub-on] .hub-below,
-  .hub-scenes[data-hub-scrub-on] .hub-stage > .hub-after { position: relative; top: var(--hub-rise, 0px); }
+  .hub-scenes[data-hub-scrub-on] .hub-scene + .hub-after { position: relative; top: var(--hub-rise, 0px); }
   /* THE PAGE'S END — long enough for the last row and the last hand-over, at any window height. */
   .hub-scenes[data-hub-scrub-on] { padding-bottom: var(--hub-end, 0px); }
 

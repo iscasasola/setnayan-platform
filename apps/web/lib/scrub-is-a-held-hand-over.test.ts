@@ -30,6 +30,14 @@
  *       content box (`::after`, never padding — a sticky box cannot move into padding) and no transform is put on a
  *       box that holds scenes. Sabotage: the hold as padding → red.
  *   (6) THE MAKER'S FIRST LOAD IS NOT TOUCHED — none of it is imported by a Maker first-load file.
+ *   (7) DURING A HOLD THE PAGE STANDS STILL (owner, his first sentence about Scrub: "the page will not scroll";
+ *       2026-10-09 on the first build: "as a guest nothing scrubbed" — the scene above a held one went on scrolling
+ *       at thumb speed, which reads as ordinary scrolling). Rendered: the ordinary scenes before a hand-over are
+ *       INSIDE its stage, the leaving scene is the one right before the stage's rest-of-the-page, and what follows
+ *       an arrival is one box. The engine sticks the stage above its scene's line by exactly what it holds before
+ *       the scene, and reads layout without the hold and without the rises. Played in a browser at the five sizes
+ *       ("what a guest can see above a held scene stands still too"). Sabotage: the scenes before a hand-over left
+ *       outside its stage → red (and red in the browser).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -37,13 +45,19 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { stripComments } from './strip-comments';
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+
 import { SCRUB, scrubLens, scrubMoment, scrubNeedsRest, scrubOwnIn, scrubPair, scrubRow, scrubThrough } from '../app/[slug]/_components/hub-scrub-math';
+import { HubScenes } from '../app/[slug]/_components/hub-scenes';
+
+(globalThis as unknown as { React: unknown }).React = React;
 
 const WEB = join(__dirname, '..');
 const B = 'app/[slug]/_components';
 const read = (f: string) => stripComments(readFileSync(join(WEB, f), 'utf8'));
 const CSS = read('app/globals.css');
-const SIZES = [1548, 1608, 770, 812, 667, 384];
+const SIZES = [1548, 1608, 770, 812, 667, 882, 384];
 const view = (V: number) => {
   const topLine = Math.max(76, V * 0.09);
   return { centre: V / 2, topLine, room: V - topLine - 24, lens: scrubLens(V) };
@@ -165,7 +179,8 @@ test('(4) the engine may only measure and set: no scroll position, no prevented 
   assert.deepEqual([...new Set([...src.matchAll(/\.(?:set|remove)Attribute\((\w+)/g)].map((m) => m[1]))].sort(), ['HUB_SCRUB_OFF', 'key']);
   assert.match(src, /for \(const \[el, keys\] of marked\) for \(const key of keys\.keys\(\)\) key\.startsWith\('--'\) \? el\.style\.removeProperty\(key\) : el\.removeAttribute\(key\);/);
   /* It reads the browser's own sticky back (a rect), never a position of its own. */
-  assert.match(src, /h\.pair\.top - h\.cell\.getBoundingClientRect\(\)\.top/);
+  /* (2026-10-09, "the page stands still": against where the STAGE stands — `stick`, see (7) — not the scene's own line.) */
+  assert.match(src, /h\.stick - h\.cell\.getBoundingClientRect\(\)\.top/);
 });
 
 test('(5) fail-visible: the island draws nothing and loads the engine late; every rule needs the engine’s mark; the hold is length, not a transform', () => {
@@ -193,19 +208,67 @@ test('(5) fail-visible: the island draws nothing and loads the engine late; ever
   assert.equal(of('.hub-scenes[data-hub-scrub-on] .hub-cell::after'), "content: ''; display: block; height: var(--hub-len, 0px);");
   assert.equal(of('.hub-scenes[data-hub-scrub-on] .hub-cell'), '', 'the hold is padding — a sticky box cannot move into its parent’s padding, and never holds');
   /* THE SAME PLACE — a margin, in the flow. */
-  assert.equal(of('.hub-scenes[data-hub-scrub-on] .hub-stage > .hub-after'), 'margin-top: var(--hub-up, 1rem);');
+  assert.equal(of('.hub-scenes[data-hub-scrub-on] .hub-scene + .hub-after'), 'margin-top: var(--hub-up, 1rem);');
   /* NO TRANSFORM on anything that holds scenes (it would capture a scene's `position: fixed` sheets). */
   for (const r of rules) if (!/hub-canvas-body/.test(r.sel)) assert.doesNotMatch(r.body, /transform|translate|will-change/, `${r.sel} is transformed`);
   /* Not there until its turn, and gone after it. */
   assert.equal(of('.hub-scenes[data-hub-scrub-on] .hub-scene[data-hub-fx][data-hub-away]'), 'visibility: hidden;');
 });
 
-test('(6) the Maker’s first load is not touched, and the check in a browser is the five sizes', () => {
+test('(6) the Maker’s first load is not touched, and the check in a browser is the five sizes and the owner’s pane', () => {
   const L = 'app/dashboard/[eventId]/launch/_components';
   for (const f of [`${L}/maker-shell.tsx`, `${L}/details-workspace.tsx`, 'lib/hub-draft.ts', 'lib/hub-canvas.ts', 'lib/hub-scenes.ts']) {
     assert.doesNotMatch(readFileSync(join(WEB, f), 'utf8'), /hub-scrub-(?:engine|math)|\/hub-scrub'|data-hub-fx|hub-cell|hub-stage/, `${f} knows about the guest page’s Scrub`);
   }
   const check = join(WEB, 'scripts', 'scrub-browser-check.mjs');
   assert.ok(existsSync(check));
-  assert.match(readFileSync(check, 'utf8'), /const SIZES = \[\[890, 1548\], \[940, 1608\], \[1280, 770\], \[375, 812\], \[375, 667\]\];/);
+  assert.match(readFileSync(check, 'utf8'), /const SIZES = \[\[890, 1548\], \[940, 1608\], \[1280, 770\], \[375, 812\], \[375, 667\], \[441, 882\]\];/);
+});
+
+test('(7) during a hold the page stands still: the scenes before a hand-over are inside its stage, and the stage sticks above its scene’s line by what it holds', () => {
+  const draw = (plan: string) => {
+    /* One letter a scene: UPPER = Leaves by Scrub with a Build out (it hands over), lower = an ordinary scene. */
+    const widgets = [...plan].map((c, i) => ({ widget_id: `w${i}`, widget_type: 'custom_1', config_json: c === c.toUpperCase() ? { canvas: { transition: 'scrub' } } : null }));
+    const Scenes = HubScenes as unknown as React.FC<{ widgets: unknown; scrubAllowed: boolean }>;
+    const html = renderToStaticMarkup(React.createElement(Scenes, { widgets, scrubAllowed: true }, ...[...plan].map((c, i) => React.createElement('section', { key: i }, c))));
+    /* The shape, as nested brackets: [ a stage … ] · ( the rest of the page … ) · { one box of what follows … } */
+    return html
+      .slice(html.indexOf('</div>', html.indexOf('hub-prog')) + 6)
+      .replace(/<div class="hub-cell"><div class="hub-stage">/g, '[')
+      .replace(/<div class="hub-after">/g, '(')
+      .replace(/<div class="hub-below">/g, '{')
+      .replace(/<div class="hub-scene hub-scroll"[^>]*><section>(\w)<\/section><\/div>/g, '$1');
+  };
+  const letters = (s: string) => s.replace(/<\/div>/g, '').replace(/[^\w[({]/g, '');
+  /* A hand-over with nothing before it: the scene, then the rest of the page (as it was). */
+  assert.equal(letters(draw('Ab')), '[A(b');
+  /* Ordinary scenes BEFORE a hand-over are in its stage: the first, then ONE box with the others, the scene and the rest. */
+  assert.equal(letters(draw('abCd')), '[a{bC(d');
+  assert.equal(letters(draw('aBc')), '[a{B(c');
+  /* Between two hand-overs: the scene that arrives from the first opens the second's stage — it stands still for both. */
+  assert.equal(letters(draw('AbCd')), '[A([b{C(d');
+  assert.equal(letters(draw('ABc')), '[A([B(c');
+  /* What follows a plain arrival is one box; nothing after the last hand-over is held by anything but it. */
+  assert.equal(letters(draw('Abcd')), '[A(b{cd');
+  /* The page order never changes, and the leaving scene is ALWAYS the one right before its rest-of-the-page. */
+  for (const plan of ['abCd', 'AbCdEf', 'aBcDe', 'ABCd', 'abCD']) {
+    const shape = letters(draw(plan));
+    assert.equal(shape.replace(/[[({]/g, ''), plan, `${plan}: the page order changed`);
+    assert.deepEqual([...shape.matchAll(/(\w)\(/g)].map((m) => m[1]), [...plan.slice(0, -1)].filter((c) => c === c.toUpperCase()), `${plan}: a scene that hands over is not the one before its rest-of-the-page`);
+  }
+  /* The page's last scene has nothing to hand over to, whatever it is set to. */
+  assert.equal(letters(draw('abCD')), '[a{bC(D');
+  assert.doesNotMatch(draw('abcD'), /hub-cell|\[/);
+  /* THE ENGINE — finds the pair by that shape, and sticks the stage where the SCENE is on its line. */
+  const engine = read(`${B}/hub-scrub-engine.ts`);
+  assert.match(engine, /const after = stage\?\.querySelector<HTMLElement>\(':scope > \.hub-after, :scope > \.hub-below > \.hub-after'\) \?\? null;\s*const scene = after\?\.previousElementSibling as HTMLElement \| null;/);
+  assert.match(engine, /const stick = pair\.top - \(docTop\(scene\) - docTop\(stage\)\);\s*put\(stage, '--hub-top', px\(stick\)\);/);
+  assert.match(engine, /const next = arrival\?\.nextElementSibling \?\? null;\s*const below = next\?\.matches\('\.hub-below, \.hub-after'\) \? \(next as HTMLElement\) : null;/);
+  /* …the arrival is put in its place whatever lies between it and the top of the rest of the page… */
+  assert.match(engine, /put\(after, '--hub-up', arrival \? px\(pair\.up - \(docTop\(arrival\) - docTop\(after\)\)\) : null\);/);
+  /* …and layout is read without the hold (a standing stage reports where it stands) and without the rises. */
+  assert.match(engine, /y \+= \(n\.matches\('\.hub-stage'\) \? \(n\.parentElement as HTMLElement\) : n\)\.offsetTop;/);
+  assert.match(engine, /for \(const h of was\) if \(h\.below\) put\(h\.below, '--hub-rise', null\);\s*for \(const cell of root\.querySelectorAll<HTMLElement>\(CELL\)\)/);
+  /* THE STYLESHEET — the new boxes are plain blocks with the page's rhythm until the engine arms. */
+  assert.match(CSS, /\.hub-stage > \.hub-after,\s*\.hub-stage > \.hub-below,\s*\.hub-after > \.hub-below,\s*\.hub-below > \* \+ \* \{ margin-top: 1rem; \}/);
 });

@@ -510,7 +510,7 @@ export function MakerDetails(props: MakerDetailsProps) {
     ye.rows.venues = { ...ye.rows.venues, label: 'Venue' };
   }
   /* 🗂 Your info's answers (`details-answers-parts.tsx`). */
-  const ap = answerParts({ eventId, answers: props.answers ?? null });
+  const ap = answerParts({ eventId, answers: props.answers ?? null, studio: Boolean(props.studio) });
   const logoA = props.answers ? logoAnswer(eventId, props.answers) : null;
   const coverA = props.answers ? coverAnswer(eventId, props.answers) : null;
 

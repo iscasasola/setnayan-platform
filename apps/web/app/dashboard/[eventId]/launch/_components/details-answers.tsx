@@ -5,6 +5,7 @@ import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { answerKeyOf, answerValueOf, type AnswerChoice, type EventAnswerColumn } from '@/lib/event-answers';
 import { hubDraftAction } from '../../website/hub-draft-actions';
 import { PickMenu, type PickOption } from '../../website/editor/_components/pick-menu';
+import { FormRows, SwitchRow } from '@/app/_components/form-row';
 
 /**
  * 🗂 YOUR INFO — THE ONBOARDING'S ANSWERS, CHANGED WHERE THEY LIVE (owner
@@ -17,6 +18,9 @@ import { PickMenu, type PickOption } from '../../website/editor/_components/pick
  *     draft door (`hubDraftAction`, the same door the Names and the Name style
  *     use) — a Maker edit waits for Apply (`lib/hub-draft.ts`
  *     `HUB_DRAFT_ANSWER_COLUMNS`). +0 server actions.
+ *     In the new Maker's Studio a Yes/No answer is a SWITCH, not a dropdown (`as="switch"`, owner 2026-10-09 — "Accept gifts?" on
+ *     Studio › E-Gifts; INTERACTION_RULES § 9: two options are a toggle). It is the SAME pick, the same write, the same
+ *     failure: the switch is `SwitchRow` (the Form row's), and a refusal is said under it and puts the switch back.
  *   · (`EventSettingsEditor` moved OUT of the Maker 2026-10-02 to
  *     `details/_components/event-settings-editor.tsx`: its three editors save
  *     live through their own actions, and nothing in the Maker may take effect
@@ -33,6 +37,7 @@ export function AnswerPicker({
   label,
   choices,
   saved,
+  as = 'dropdown',
 }: {
   eventId: string;
   column: EventAnswerColumn;
@@ -41,6 +46,8 @@ export function AnswerPicker({
   choices: readonly AnswerChoice[];
   /** The column as the couple is editing it (the draft over live). */
   saved: boolean | null;
+  /** 'switch' = a Yes/No answer as the Form row's switch (the Studio); the default is the dropdown every other door keeps. */
+  as?: 'dropdown' | 'switch';
 }) {
   const initial = answerKeyOf(column, saved);
   const [shown, setShown] = useState(initial);
@@ -87,6 +94,16 @@ export function AnswerPicker({
       }
     });
   };
+
+  if (as === 'switch') {
+    return (
+      <section data-answer={column} data-answer-value={shown} aria-busy={pending || undefined} className="flex flex-col">
+        <FormRows data={`answer-${column}`}>
+          <SwitchRow name={label} on={shown === 'yes'} onChange={(on) => pick(on ? 'yes' : 'no')} data={`answer-${column}`} problem={error} />
+        </FormRows>
+      </section>
+    );
+  }
 
   return (
     <section data-answer={column} data-answer-value={shown} aria-busy={pending || undefined} className="flex flex-col gap-1.5">

@@ -183,7 +183,6 @@ const SWITCH_NOT_SWEPT: readonly { path: string; has?: string; why: string }[] =
   { path: 'app/dashboard/[eventId]/launch/_components/maker-details.tsx', why: 'the shipped Maker’s `Toggle` (a hidden box and its own 44 × 24 track) — wears `.sn-switch` (the-press-feels-the-same-everywhere (5)); not the Stages panel' },
   { path: 'app/dashboard/[eventId]/launch/_components/maker-logo.tsx', why: 'the Logo maker’s own switch — not the Stages panel' },
   { path: 'app/dashboard/[eventId]/launch/_components/plan-myself.tsx', why: 'the guided flow’s switch — not the Stages panel' },
-  { path: 'app/dashboard/[eventId]/launch/_components/studio-tools.tsx', why: '`StudioSwitch` — Studio’s side (wears `.sn-switch`, `STUDIO_SWITCH_TRACK`); its builder’s lane' },
   { path: 'app/dashboard/[eventId]/launch/_components/maker-rsvp-ask.tsx', why: 'the RSVP stage’s body — G1’s lane (its own hand-made `Switch`)' },
   { path: 'app/dashboard/[eventId]/website/editor/', why: 'the Maker’s work area — its own builders’ lane' },
   {

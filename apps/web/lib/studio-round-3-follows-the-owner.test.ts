@@ -156,7 +156,9 @@ test('4 · E-Gifts "Your own words": the starting points are ONE "Start from ▾
   const { PabuyaMessageEditor } = await import(`../${D}/pabuya/_components/pabuya-message-editor`);
   const out = await inStudio(React.createElement(PabuyaMessageEditor, { eventId: 'e', initialMessage: null }));
   assert.match(out, /data-pabuya-start-from=""/, 'no Start from ▾');
-  assert.match(out, /aria-haspopup="listbox"[^>]*>[\s\S]*?Start from/, 'Start from is not a dropdown');
+  /* RE-AIMED 2026-10-09 (E-Gifts wears the Form row): "Start from" is the Form row's chosen answer — its name on the left, the house dropdown on the right —
+     not a dropdown that carries its own label. */
+  assert.match(out, /data-form-row-kind="chosen"[\s\S]*?Start from<\/span>[\s\S]*?<button[^>]*aria-haspopup="listbox"[^>]*data-pabuya-start-from=""/, 'Start from is not a dropdown');
   for (const t of PABUYA_TEMPLATES) {
     assert.doesNotMatch(out, new RegExp(`<button[^>]*>${t.name}</button>`), `“${t.name}” is still a chip`);
   }
@@ -169,13 +171,14 @@ test('4 · E-Gifts "Your own words": the starting points are ONE "Start from ▾
 function seen(markup: string): string {
   return markup
     .replace(/<span[^>]*role="tooltip"[^>]*><span[^>]*>[\s\S]*?<\/span><\/span>/g, ' ')
+    .replace(/<svg[\s\S]*?<\/svg>/g, ' ')
     .replace(/<[^>]+>/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
 const words = (text: string) => text.split(/\s+/).filter(Boolean).length;
 
-test('4b · E-Gifts thank-you words in the Studio: no box, the help behind ⓘ, no Save — drafted as typed, a refusal said', async () => {
+test('4b · E-Gifts thank-you words in the Studio: no box, the help behind ⓘ, no Save — drafted when kept, a refusal said', async () => {
   const mod = await import(`../${D}/pabuya/_components/pabuya-message-editor`);
   const el = () => React.createElement(mod.PabuyaMessageEditor, { eventId: 'ev-1', initialMessage: 'Our own words.' });
   const out = await inStudio(el());
@@ -185,39 +188,41 @@ test('4b · E-Gifts thank-you words in the Studio: no box, the help behind ⓘ, 
   assert.doesNotMatch(out, /class="[^"]*\bsn-tile\b/, 'the Studio still draws the thank-you words in a tile');
   const root = /^<div[^>]*class="([^"]*)"/.exec(out)?.[1] ?? 'missing';
   assert.doesNotMatch(root, /\b(?:bg-|ring|shadow|border|rounded|p-\d|px-|py-)/, `the Studio’s thank-you editor is a box of its own (${root})`);
-  /* The words are a full-width row of their own, under the label row. */
-  assert.match(out, /<\/div><textarea[^>]*class="[^"]*\bw-full\b/, 'the words are not on a full-width row under the label');
+  /* RE-AIMED 2026-10-09 (the Form row): the words are the Form row's typed answer (a pill with a pencil; its box opens under its name), not a bare textarea. */
+  assert.match(out, /data-form-row-kind="typed"[\s\S]*?data-form-row-pill="typed"/, 'the words are not a Form row');
+  assert.doesNotMatch(out, /<textarea/, 'a bare textarea is still drawn in the Studio');
 
-  /* THE HELP IS BEHIND ⓘ — what can be read is the label, the dropdown, the couple's words and the count; nothing else. */
-  assert.equal(seen(out), 'Your own words i Start from Our own words. 586 characters left', 'the Studio shows more (or less) than the label · Start from · the words · the count');
-  const tip = /role="tooltip"[^>]*><span[^>]*>([\s\S]*?)<\/span>/.exec(out)?.[1] ?? '';
+  /* THE HELP IS BEHIND ⓘ — what can be read is the label, the couple's words, the count and the dropdown; nothing else. */
+  assert.equal(seen(out), 'Your own words i Our own words. 586 characters left Start from Your own', 'the Studio shows more (or less) than the label · the words · the count · Start from');
+  const src = read(`${D}/pabuya/_components/pabuya-message-editor.tsx`);
+  const studio = src.slice(src.indexOf('function StudioThanks('), src.indexOf('function ShippedEditor('));
+  assert.ok(studio.length > 0, 'no Studio branch');
+  const tip = /about=\{\{ words: '([^']*)' \}\}/.exec(studio)?.[1] ?? '';
   const pageHelp = [...page.matchAll(/<p class="(?:max-w-prose|mt-2 text-xs)[^"]*">([\s\S]*?)<\/p>/g)].map((m) => m[1]!.replace(/<[^>]+>/g, '')).join(' ');
   assert.ok(words(pageHelp) > 40, 'the E-Gifts page’s own help was not found to measure against');
   assert.ok(words(tip) > 0 && words(tip) <= words(pageHelp) * 0.4, `the ⓘ is not at least 60% shorter than the help it replaces (${words(tip)} of ${words(pageHelp)} words)`);
 
-  /* NO SAVE, NO "SAVED" — every button is the ⓘ or the one dropdown. */
+  /* NO SAVE, NO "SAVED" — every button is the ⓘ, the Form row's pill or the one dropdown. */
   const buttons = [...out.matchAll(/<button\b[^>]*>/g)].map((m) => m[0]);
-  assert.equal(buttons.length, 2, 'the Studio’s thank-you editor has a button that is neither its ⓘ nor Start from ▾');
-  assert.ok(buttons.every((b) => /aria-describedby=|aria-haspopup="listbox"/.test(b)), 'a per-field button (Save / Saved?) is drawn in the Studio');
+  assert.equal(buttons.length, 3, 'the Studio’s thank-you editor has a button that is not its ⓘ, its words or Start from ▾');
+  assert.ok(buttons.every((b) => /aria-haspopup="dialog"|data-form-row-pill="typed"|aria-haspopup="listbox"/.test(b)), 'a per-field button (Save / Saved?) is drawn in the Studio');
   /* …and nothing says the words are live: they wait for ✓ Apply. */
   assert.doesNotMatch(out, /data-hub-saves-immediately/, 'the drafted words still say “Guests see this right away”');
 
-  /* TYPED → THE DRAFT, on the Studio's own branch. */
-  const src = read(`${D}/pabuya/_components/pabuya-message-editor.tsx`);
-  const studio = src.slice(src.indexOf('function StudioThanks('), src.indexOf('function ShippedEditor('));
-  assert.ok(studio.length > 0, 'no Studio branch');
-  assert.match(studio, /onChange=\{\(e\) => \{\s*const words = type\(e\.target\.value\);\s*if \(e\.nativeEvent\.isTrusted\) draft\(words\);/, 'typing does not reach the draft');
-  assert.match(studio, /draft\(type\(t\.body\)\);/, 'a starting point picked is not drafted');
-  assert.match(studio, /makerLatestWrite\(THANKS_WRITE_KEY, \(\) => \{[\s\S]{0,260}fd\.set\(HUB_DRAFT_FIELD, '1'\);\s*return savePabuyaMessage\(fd\);/, 'the typed words are not sent into the DRAFT');
+  /* KEPT → THE DRAFT, on the Studio's own branch (RE-AIMED 2026-10-09: it was "as typed"; it is "when the box is left" — one write, never more). */
+  assert.match(studio, /onKeep=\{\(next\) => keep\(next, true\)\}/, 'keeping the words does not reach the draft');
+  assert.match(studio, /void keep\(t\.body, false\);/, 'a starting point picked is not drafted');
+  assert.match(studio, /makerLatestWrite\(THANKS_WRITE_KEY, \(\) => \{[\s\S]{0,260}fd\.set\(HUB_DRAFT_FIELD, '1'\);\s*return savePabuyaMessage\(fd\);/, 'the kept words are not sent into the DRAFT');
   assert.match(studio, /if \(res\.ok\) \{\s*sayNotDrafted\(null\);\s*makerNeedsRender\(\);/, 'a drafted write does not move the ✓ Apply count');
-  assert.match(studio, /\}\s*sayNotDrafted\(\{ eventId, why: res\.error \}\);/, 'a refused write says nothing');
+  assert.match(studio, /sayNotDrafted\(\{ eventId, why/, 'a refused write says nothing');
+  assert.doesNotMatch(studio, /onChange=\{\(e\)/, 'the thank-you words are typed in a hand-made box again');
 
-  /* A REFUSAL IS SAID, in this event's editor only — and the words stay in the box. */
+  /* A REFUSAL IS SAID, in this event's editor only — and the words stay. */
   mod.sayNotDrafted({ eventId: 'ev-1', why: 'Could not save your message. Please try again.' });
   try {
     const refused = await inStudio(el());
     assert.match(refused, /<p role="alert"[^>]*>These words are not in your draft yet\. Could not save your message\. Please try again\./, 'a refused draft write is not said');
-    assert.match(refused, /<textarea[^>]*>Our own words\.<\/textarea>/, 'a refusal threw the couple’s words away');
+    assert.match(refused, /<span>Our own words\.<\/span>/, 'a refusal threw the couple’s words away');
     const other = await inStudio(React.createElement(mod.PabuyaMessageEditor, { eventId: 'ev-2', initialMessage: null }));
     assert.doesNotMatch(other, /role="alert"/, 'one event’s refusal is said on another event');
   } finally {

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "ed3cf7495",
+  "generatedFromRef": "210c0195f",
   "routeCount": 430,
   "destinations": 956,
   "actions": 672,
-  "blocks": 5877,
+  "blocks": 5874,
   "routes": {
     "/": {
       "files": [
@@ -6985,7 +6985,6 @@
         "StudioQuietRows",
         "StudioReadOnlyFact",
         "StudioSideSwitch",
-        "StudioSwitch",
         "StudioTileKey",
         "StudioTool",
         "StudioToolMenu",
@@ -7277,21 +7276,22 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "ActionButton",
+        "ChosenRow",
         "DraftState",
         "EgiftActionResult",
         "Field",
         "FileUpload",
-        "HTMLTextAreaElement",
-        "InfoTip",
+        "FormRows",
         "ListPageSkeleton",
         "PabuyaCardList",
         "PabuyaManager",
         "PabuyaMessageEditor",
         "PabuyaTrustNote",
         "PageMasthead",
-        "PickMenu",
         "ShippedEditor",
-        "StudioThanks"
+        "StudioThanks",
+        "TypedRow"
       ]
     },
     "/dashboard/[eventId]/paperwork": {
@@ -9999,8 +9999,7 @@
     },
     "/dev/maker-lab/guest": {
       "files": [
-        "dev/maker-lab/guest/page.tsx",
-        "dev/maker-lab/guest/scrub-badge.tsx"
+        "dev/maker-lab/guest/page.tsx"
       ],
       "destinations": [],
       "actions": [],
@@ -10008,11 +10007,8 @@
         "CountdownWidget",
         "EditorBridge",
         "Fragment",
-        "HTMLElement",
         "HubCanvasFrame",
         "HubScenes",
-        "LabScrubBadge",
-        "LabScrubScene",
         "MakerEmptyScene",
         "MakerWelcomeGiftsEmpty",
         "MakerWelcomeLook",

@@ -5430,9 +5430,7 @@ export function SeatingEditor({
               Edit chairs…
             </button>
             {st.link_group_id ? (
-              <button type="button" onClick={() => doUnlink(st.table_id)} disabled={!canEdit} className={`${phoneBtn} text-mulberry`}>
-                <Ungroup className="h-4 w-4" /> Unlink
-              </button>
+              <ActionButton tone="neutral" icon={Ungroup} label="Unlink" disabled={!canEdit} onClick={() => doUnlink(st.table_id)} />
             ) : (
               <button
                 type="button"
@@ -5449,9 +5447,10 @@ export function SeatingEditor({
               </button>
             )}
             {!details ? seatPeopleBtn(true) : null}
-            <button type="button" onClick={() => { setLinkFrom(null); clearSelection(); }} className={`${phoneBtn} ml-auto bg-ink text-cream hover:bg-ink`}>
-              Done
-            </button>
+            {/* The row's one filled step, in the accent (the template's) — it was `phoneBtn` + `bg-ink text-cream`, whose own `text-ink/80` beat `text-cream`: ink words on an ink fill, a blank black pill. */}
+            <span className="ml-auto inline-flex">
+              <ActionButton tone="brand" main icon={Check} label="Done" onClick={() => { setLinkFrom(null); clearSelection(); }} />
+            </span>
           </div>
           <button type="button" onClick={() => requestRemoveTable(st)} disabled={!canEdit} className="self-start text-[12px] text-danger-600 underline-offset-2 hover:underline">
             Delete this table

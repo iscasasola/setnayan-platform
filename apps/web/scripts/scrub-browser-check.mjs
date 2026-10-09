@@ -25,6 +25,13 @@
  *  10. FRAMES THAT NEVER COME (a pane that scrolls a page but gives it no animation frames — seen 2026-10-09: armed at
  *      the top, then 2,600 px of white screen): with `requestAnimationFrame` silenced after arming, the page still
  *      shows the hand-over it is at within a second, and the badge says it.
+ *  12. A LONG ARRIVAL UNDER THE PINNED TOP BAR (the invitation's own bar, `data-sticky-top`): a list hands over to a
+ *      second long list, which is drawn from the top of the room down. At three phone sizes and a desktop one, the
+ *      arrival stands ON the stylesheet's line (`--hub-pin` — the engine reads it, it has no number of its own) and
+ *      clear of everything pinned at the top: the bar and the progress mark.
+ *  13. THE HUB IS CARDS, FRAMED OR NOT: a scene with a motion setting and nothing else is drawn inside a frame that
+ *      paints nothing — it wears the same card as a scene nobody arranged; "No background", a scene with a ground of
+ *      its own and a template scene do not; and on the Scrub page every framed scene is a card too.
  *
  * Not part of the unit suite (it needs a browser): run it by hand, one job at a time.
  *   node scripts/scrub-browser-check.mjs <playwright-dir> <scratch-dir> [pictures-dir]
@@ -49,6 +56,8 @@ execFileSync(tsx, ['scripts/scrub-check-page.tsx', `${scratch}/scrub-real-empty.
 execFileSync(tsx, ['scripts/scrub-check-page.tsx', `${scratch}/scrub-real-maker.html`, `${scratch}/scrub-island.js`, 'maker'], { cwd: WEB, stdio: 'pipe' });
 execFileSync(tsx, ['scripts/scrub-check-page.tsx', `${scratch}/scrub-real-island.html`, `${scratch}/scrub-island.js`, 'island'], { cwd: WEB, stdio: 'pipe' });
 execFileSync(tsx, ['scripts/scrub-check-page.tsx', `${scratch}/scrub-real-page-island.html`, `${scratch}/scrub-island.js`, 'page-island'], { cwd: WEB, stdio: 'pipe' });
+execFileSync(tsx, ['scripts/scrub-check-page.tsx', `${scratch}/scrub-real-bar.html`, `${scratch}/scrub-engine.js`, 'bar'], { cwd: WEB, stdio: 'pipe' });
+execFileSync(tsx, ['scripts/scrub-check-page.tsx', `${scratch}/scrub-real-cards.html`, '-', 'cards'], { cwd: WEB, stdio: 'pipe' });
 
 /* Before any page script: remember the browser's own scrolling, and count every way a script could take it over. */
 const WATCH = () => {
@@ -321,6 +330,60 @@ for (const [W, H] of [[375, 812], [1280, 770]]) {
   const q = await ctx.newPage(); await q.goto(`file://${scratch}/scrub-real-page-island.html`); await q.waitForTimeout(700);
   const armedAs = await q.evaluate(() => ({ page: document.querySelector('.hub-page-cell').hasAttribute('data-hub-page-on'), block: document.querySelector('.hub-scenes').hasAttribute('data-hub-scrub-on'), pairs: [...document.querySelectorAll('.hub-page-cell')].filter((c) => parseFloat(c.style.getPropertyValue('--hub-len')) > 0).length, inner: [...document.querySelectorAll('.hub-cell')].filter((c) => parseFloat(getComputedStyle(c, '::after').height) > 0).length }));
   say(armedAs.page && armedAs.block && armedAs.pairs === 4 && armedAs.inner === 0, `the page's own island arms the PAGE's hold: 4 page pairs hold, no cell of the scenes block does (${JSON.stringify(armedAs)})`);
+  await ctx.close();
+}
+
+/* 12. A LONG ARRIVAL UNDER THE PINNED TOP BAR — the top of the room is ONE number, the stylesheet's (`--hub-pin`).
+   (2026-10-09: the engine kept its own — 76 px, or 9 % — while the stylesheet's line under the invitation's bar is
+   100 px; a long arrival began above the line, under the progress mark.) The page stands still while it arrives, so
+   every position of the arrival is the same place: on the line, and below everything the page pins at its top. */
+for (const [W, H] of [[375, 812], [375, 667], [441, 882], [1280, 770]]) {
+  const size = `${W}x${H} a long arrival under the pinned top bar`;
+  const ctx = await b.newContext({ viewport: { width: W, height: H } }); const p = await ctx.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(String(e).slice(0, 140)));
+  await p.goto(`file://${scratch}/scrub-real-bar.html`); await p.waitForTimeout(500);
+  /* The stylesheet's line, resolved by the browser on a box of the check's own — never read from the engine. */
+  const line = await p.evaluate(() => { const i = document.createElement('i'); i.style.cssText = 'position:absolute;visibility:hidden;height:var(--hub-pin)'; document.querySelector('.hub-scenes').appendChild(i); const h = i.getBoundingClientRect().height; i.remove(); return h; });
+  const off = await p.evaluate(() => document.querySelector('.hub-scenes').getAttribute('data-hub-scrub-off'));
+  const max = await p.evaluate(() => document.documentElement.scrollHeight - innerHeight);
+  const seen = [];
+  for (let y = 0; y <= max; y += 16) {
+    const f = await p.evaluate(async (v) => {
+      scrollTo(0, v); await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      const scene = (n) => document.querySelector(`[data-name="${n}"]`).closest('.hub-scene');
+      const march = scene('March'); const prog = document.querySelector('.hub-prog-bar');
+      return { pout: Number(scene('Schedule').style.getPropertyValue('--hub-pout') || 0), pin: Number(march.style.getPropertyValue('--hub-pbin') || 1), top: march.getBoundingClientRect().top, first: march.querySelector('[data-name] > *').getBoundingClientRect().top, bar: document.querySelector('[data-sticky-top]').getBoundingClientRect().bottom, prog: prog && prog.getClientRects().length ? prog.getBoundingClientRect().bottom : 0 };
+    }, y);
+    /* The arrival, while it arrives: the list before it is leaving and this one is part-way in. */
+    if (f.pout > 0 && f.pin > 0 && f.pin < 1) seen.push(f);
+  }
+  const at = seen[0]; const r = (n) => Math.round(n * 10) / 10;
+  const pinned = at ? Math.max(at.bar, at.prog) : 0;
+  say(errs.length === 0 && off === null && seen.length > 0, `${size}: the hand-over plays (${seen.length} positions of the arrival watched${off ? `; off: ${off}` : ''}${errs.length ? `; ${errs[0]}` : ''})`);
+  say(seen.length > 0 && seen.every((f) => f.top >= Math.max(f.bar, f.prog) - 0.5), `${size}: it arrives clear of everything pinned at the top (the arrival's top ${at ? r(at.top) : '—'}, its first line ${at ? r(at.first) : '—'}; the bar ends at ${at ? r(at.bar) : '—'}, the progress mark at ${at ? r(at.prog) : '—'}${at && at.top < pinned ? ` — ${r(pinned - at.top)}px under` : ''})`);
+  say(seen.length > 0 && seen.every((f) => Math.abs(f.top - line) <= 1), `${size}: it arrives ON the stylesheet's line (the arrival's top ${at ? r(at.top) : '—'}, the stylesheet's line ${r(line)})`);
+  if (pics && at) { await p.evaluate((v) => scrollTo(0, v), 0); const mid = seen[Math.floor(seen.length * 0.8)]; for (let y = 0; y <= max; y += 16) { const v = await p.evaluate(async (yy) => { scrollTo(0, yy); await new Promise((r2) => requestAnimationFrame(() => requestAnimationFrame(r2))); return Number(document.querySelector('[data-name="March"]').closest('.hub-scene').style.getPropertyValue('--hub-pbin') || 1); }, y); if (v >= mid.pin) break; } await p.screenshot({ path: `${pics}/c12-bar-${W}x${H}-long-arrival.png` }); }
+  await ctx.close();
+}
+
+/* 13. THE HUB IS CARDS, FRAMED OR NOT (2026-10-09: the card rule only reached a section that was its wrapper's own
+   child, so a scene given nothing but a Build in — drawn inside a frame — stood as bare words on the page). */
+{
+  const [W, H] = [375, 812]; const ctx = await b.newContext({ viewport: { width: W, height: H } }); const p = await ctx.newPage();
+  /* The card, as the browser draws it on a section: its corners, hairline, paper, room and shadow. */
+  const cardOf = (sel) => p.evaluate((q) => [...document.querySelectorAll(q)].map((e) => { const cs = getComputedStyle(e); return { name: e.getAttribute('data-name'), card: [cs.borderTopLeftRadius, cs.borderTopWidth, cs.backgroundColor, cs.paddingTop, cs.paddingLeft, cs.boxShadow].join(' | '), shadow: cs.boxShadow !== 'none' }; }), sel);
+  await p.goto(`file://${scratch}/scrub-real-cards.html`); await p.waitForTimeout(400);
+  const cards = Object.fromEntries((await cardOf('section[data-name]')).map((c) => [c.name, c]));
+  say(cards.Plain?.shadow === true, `the hub is cards: a scene nobody arranged is a card (${cards.Plain?.card})`);
+  say(cards.Motion?.card === cards.Plain?.card, `the hub is cards: a scene with a motion setting only — inside a frame that paints nothing — wears the SAME card (${cards.Motion?.card})`);
+  say(cards.NoBackground?.shadow === false && cards.NoBackground?.card.startsWith('0px | 0px'), `the hub is cards: "No background" is no box at all (${cards.NoBackground?.card})`);
+  say(cards.Colour?.shadow === false && cards.Colour?.card.startsWith('0px | 0px'), `the hub is cards: a scene with a ground of its own is its frame — no card inside it (${cards.Colour?.card})`);
+  say(cards.Template?.shadow === false && cards.Template?.card.startsWith('0px | 0px'), `the hub is cards: a template scene keeps its own layout — no card (${cards.Template?.card})`);
+  if (pics) await p.screenshot({ path: `${pics}/c13-cards-${W}x${H}.png` });
+  /* …and on a page with a Scrub hand-over (the plain page, no script): every scene of the chain, framed or not. */
+  await p.goto(`file://${scratch}/scrub-real-noscript.html`); await p.waitForTimeout(400);
+  const chain = await cardOf('.hub-scene section[data-name]');
+  say(chain.length === 6 && chain.every((c) => c.card === chain.at(-1).card && c.shadow), `the hub is cards: on the Scrub page every scene is a card, the five framed ones as the one nobody arranged (${chain.map((c) => `${c.name} ${c.shadow ? 'card' : 'BARE'}`).join(', ')})`);
+  if (pics) await p.screenshot({ path: `${pics}/c13-scrub-page-cards-${W}x${H}.png`, fullPage: true });
   await ctx.close();
 }
 await b.close();

@@ -4,7 +4,7 @@ import { cookies } from 'next/headers';
 import { mainGroundLayerFor } from '@/app/[slug]/_lib/main-ground-layer';
 import { CountdownWidget } from '@/app/[slug]/_components/countdown';
 import { EditorBridge } from '@/app/[slug]/_components/editor-bridge';
-import { HUB_STAGES, sanitizeHubCanvas, type HubStage } from '@/lib/hub-canvas';
+import { HUB_STAGES, type HubStage } from '@/lib/hub-canvas';
 import { sceneStyleOfRow, paletteLookOfRow } from '@/lib/scene-style-of-row';
 import { SpecialMessageWidget } from '@/app/[slug]/_components/special-message-widget';
 import { MakerWelcomeGiftsEmpty, MakerWelcomeLook } from '@/app/[slug]/_components/maker-guest-scenes';
@@ -231,7 +231,11 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
      saying anything is happening"): a card (the hub's card look: paper, hairline, radius, shadow) in a phone-wide
      column, labelled with what it is set to — read from the canvas it is drawn with (`labScrubLabel`), never written
      by hand. The card sits INSIDE the real frame (`HubCanvasFrame`), so the scene's Build in and Build out move the
-     card itself, as they move a scene on the guest page. The first card says the cover is not in the chain. */
+     card itself, as they move a scene on the guest page. The first card says the cover is not in the chain.
+     🖼 THE CARD IS THE HUB'S OWN RULE (`globals.css` "THE HUB IS CARDS", its last arm — a section inside a frame that
+     paints nothing): the lab draws none of its own, so what is seen here is what a guest's page draws. A scene given
+     a background of its own in the Maker wears THAT as its box, by the same rule. (Until 2026-10-09 the rule did
+     not reach a framed scene and each card here was a stand-in, written out in classes.) */
   const chainBody: Record<LabScrubScene, ReactNode> = {
     countdown: <CountdownWidget targetIso="2026-12-12" timeZone="Asia/Manila" sceneStyle={sceneStyleOfRow(rowOf('countdown'), stage, 'wedding')} />,
     schedule: <ScheduleWidget blocks={LAB_BLOCKS_LONG as never} eventTz="Asia/Manila" eventType="wedding" sceneStyle={sceneStyleOfRow(rowOf('schedule'), stage, 'wedding')} />,
@@ -248,18 +252,12 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
     ),
     venue_map: <VenueWidget event={LAB_VENUE_EVENT as never} sceneStyle={sceneStyleOfRow(rowOf('venue_map'), stage, 'wedding')} map="none" blocks={LAB_BLOCKS as never} />,
   };
-  /* A scene given a background of its own (in the Maker) wears THAT as its box — the frame paints it; the lab's paper
-     card inside it would be a cream box in the middle of the scene's colour (seen 2026-10-09, a Schedule on black). */
-  const ownGround = (type: LabScrubScene) => {
-    const c = sanitizeHubCanvas(rowOf(type).config_json);
-    return Boolean(c.media) || (c.kind !== undefined && c.kind !== 'none');
-  };
   const chainCard = (type: LabScrubScene, i: number) => (
     <HubCanvasFrame widget={{ ...rowOf(type), widget_id: `lab-${type}` } as never} hubTheme="house" ownClipPlays mediaUrls={LAB_MEDIA}>
       <section
         data-lab-scene={type}
         data-lab-name={LAB_SCRUB_NAME[type]}
-        className={ownGround(type) ? 'text-left' : 'rounded-md border border-ink/10 bg-cream px-[18px] pb-4 pt-[18px] text-left shadow-[0_8px_22px_rgb(30_34_41/0.08)]'}
+        className="text-left"
       >
         <p data-lab-card-label="" className="mb-3 text-[10.5px] font-bold uppercase leading-snug tracking-[0.08em] text-gild">
           {labScrubLabel(rowOf(type).config_json, { last: i === LAB_SCRUB_CHAIN.length - 1 }).map((l, n) => (

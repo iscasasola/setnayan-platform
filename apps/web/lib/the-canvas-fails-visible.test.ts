@@ -91,7 +91,11 @@ function scrubBlock(): string {
 
 /** The canvas block, from its first rule to the end of the file — less the Scrub block, which has its own gate. */
 function canvasBlock(): string {
-  const at = CSS.indexOf('.hub-canvas');
+  /* 🔁 RE-AIMED 2026-10-09 (the card rule): its first RULE — a line that begins with `.hub-canvas` — not the first
+     place the class is written. The hub's card rule, further up, now names a frame (`… > .hub-canvas.hub-no-media … >
+     section`), and from there this window took in the couple's Home, whose animations are not the canvas's. The
+     window is exactly what it was. */
+  const at = CSS.search(/^\.hub-canvas\b/m);
   assert.ok(at > 0, 'the canvas block must exist in globals.css');
   assert.ok(RAW.includes('THE EVENT HUB CANVAS'), 'and it must still carry its banner comment');
   return CSS.slice(at).replace(scrubBlock(), '');

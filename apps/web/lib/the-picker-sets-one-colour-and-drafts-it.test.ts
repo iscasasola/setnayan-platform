@@ -65,9 +65,13 @@ test('🎨 the draft holds a painted palette — so the picker, Auto and the par
     readFileSync(join(__dirname, '../app/dashboard/[eventId]/studio/mood-board/_components/mood-board-studio.tsx'), 'utf8'),
   );
   assert.match(src, /withMainColour\(palette, five, index, hex\)/, 'the picker must set exactly one slot');
-  assert.match(src, /fd\.set\('patch', JSON\.stringify\(\{ events: \{ role_palette: paletteRef\.current \} \}\)\);/, 'the palette must be written into the draft');
+  /* RE-AIMED 2026-10-09 (Studio › Mood Board moved onto the templates): the fields are built once in `lib/studio-mood-board-saves.ts`
+     (`paletteDraftFields`) — held byte for byte by `studio-mood-board-posts-the-same.test.ts` — and the page posts exactly them. */
+  assert.match(src, /for \(const \[k, v\] of Object\.entries\(paletteDraftFields\(wrote\)\)\) fd\.set\(k, v\);/, 'the palette must be written into the draft');
+  assert.match(stripComments(readFileSync(join(__dirname, 'studio-mood-board-saves.ts'), 'utf8')), /patch: JSON\.stringify\(\{ events: \{ role_palette: palette \} \}\)/, 'the builder no longer writes `role_palette` into the draft');
   assert.match(src, /makerSave\(\(\) => hubDraftAction\(eventId, fd\)/);
   assert.doesNotMatch(src, /saveRolePalette/, 'the Studio still writes the palette live');
-  assert.match(src, /MAIN_COLOUR_JOBS\[index\]/, 'the picker must say what it changed');
-  assert.match(src, /undo: \(\) => commit\(before/, 'every picker change must be undoable');
+  /* RE-AIMED 2026-10-09: the result is the top toast (one short line) — the picker's own sheet still says the job. */
+  assert.match(src, /`\$\{MAIN_COLOUR_SLOTS\[index\]\} changed\.`/, 'the picker must say what it changed');
+  assert.match(src, /tell\(said, \(\) => commit\(before, 'Put back\.'\)\)/, 'every picker change must be undoable');
 });

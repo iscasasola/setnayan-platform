@@ -40,6 +40,7 @@ import { LabStudioLoveStory, LabStudioSchedule } from './studio-lab-fixtures';
 import { LAB_LOVE_STORY } from './love-story-fixture';
 import { LabStudioRsvp } from './lab-studio-rsvp';
 import { MoodBoardStudio } from '@/app/dashboard/[eventId]/studio/mood-board/_components/mood-board-lazy';
+import { LabMoodBoardActions } from './lab-mood-board-actions';
 import { ATTIRE_STYLES, ATTIRE_STYLE_LABEL } from '@/lib/role-dress-code';
 import { HUB_THEMES } from '@/lib/invite-themes';
 import { themeSeedPalette } from '@/lib/theme-colours';
@@ -265,7 +266,8 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
           withLook
             ? {
                 moodBoard: studioLab ? (
-                  /* 🧭 `?studio=1`: the REAL Studio › Mood Board & Dress Code on fixtures (its writes fail here — no event). */
+                  /* 🧭 `?studio=1`: the REAL Studio › Mood Board & Dress Code on fixtures (its writes are the lab's stand-ins — `lab-mood-board-actions.tsx`; they reach no database). */
+                  <LabMoodBoardActions refuse={one('refuse') === '1'}>
                   <MoodBoardStudio
                     eventId={EVENT}
                     palette={{ reception: ['#5B4A6B', '#D9C4CF', '#A9834B', '#F7F2EC', '#7A8B6F'], bride: ['#F7F2EC', '#D9C4CF', '#A9834B'], groom: ['#2C2A29'] } as never}
@@ -287,8 +289,10 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
                     inspirations={[]}
                     autoThemes={HUB_THEMES.filter((t) => t.ready).map((t) => ({ name: t.name, five: themeSeedPalette(t.id).reception }))}
                     regions={[]}
-                    dos={<p className="text-sm text-ink/60">The do&rsquo;s and don&rsquo;ts are read from the database — open them in the Maker.</p>}
+                    dosLists={{ dos: ['Lean into the palette', 'Long gowns and ternos'], donts: ['No white or ivory (reserved for the bride)'], incStarter: false }}
+                    dosLookCanvas={{}}
                   />
+                  </LabMoodBoardActions>
                 ) : (
                   <div data-lab-stand="mood-board" className="flex min-h-[1400px] items-start justify-center bg-white/70 pt-10 text-sm text-ink/60">
                     Mood Board — the picked part (theme, inspirations, palette, reception…)

@@ -484,6 +484,37 @@ the cleanup (so one of its pair tests was weaker than it said): fixed. Guard: `s
 executed against the real renderer; two sabotages seen red; six pins re-aimed. Engine 2,488 B gz (was 2,358),
 island 655 B (was 552, the reasons). Maker first load: 0 B.
 
+### 8f · a blank screen, and hand-overs half as visible as their numbers
+
+Seen by the controller in the owner's own browser pane (441 × 882, a real wheel): a completely white screen eight
+seconds in with the pill still on "starting…", then a solid block where a hand-over should have been half-faded.
+Reproduced, and two faults found by measuring:
+
+- FRAMES THAT NEVER COME BLANKED THE PAGE. The engine set its numbers only on an animation frame. In a pane that
+  scrolls a page without giving it frames, it armed at the top (every scene not yet arrived = "not here") and then
+  nothing ever answered: 2,600 px of scrolling with nothing readable on screen (measured on the merged lab, frames
+  silenced after arming). Now a slow pulse redraws whenever the page is somewhere it was not drawn for; on a page
+  that gets its frames it finds nothing to do. The pill reads on a clock of its own for the same reason.
+- THE FADE WAS APPLIED TWICE. A scene's Build in / Build out keyframes that fade (Fade, Move + Fade, Shrink +
+  Fade …) faded the body UNDER the scene's own fade, and two opacities multiply: an arrival half-way in was drawn
+  at 0.26, a scene a third of the way out at 0.44 — every hand-over fainter and later than its number. The keyframe
+  listed last to hold the opacity (`hub-run-keep`, 8c) was never measured and does not hold it. The body's opacity
+  is now 1, important — above every animation in the cascade — and the keyframes keep their travel, size and blur.
+  A list's heading no longer plays a fade of its own under the scene's either. (Longhands for the animation: with
+  no Build out the shorthand had read "forwards" as an animation's name.)
+- THE PILL: named the wrong scene at a hand-over whose stage also holds an ordinary scene ("next to leave: A note
+  from us" for the Dress code's) — it now finds the leaving scene as the engine does; sits bottom-left, clear of
+  the dev server's round button that covered its end at 441 px; and offers "Reset the sample" when the chain's own
+  saved edits are showing (on the page as a guest sees it — not inside the Maker, which holds them too).
+- THE LAB: a scene given a background of its own wears that as its box (no cream card inside a black scene); the
+  run of show reads 2:30 PM for a 14:30 moment (the Schedule reads its times as wall-clock — the first fix was wrong).
+
+Browser check: 149 checks green at six sizes. New: "a scene is drawn at its own number — one fade" at every
+position of every size; "with no animation frames at all the page still shows where it is, and says so"; the pill
+names the scene that leaves. Sabotaged in the browser: the important opacity removed → 144 positions red at one
+size; the pulse removed → red. Guards: rule (6) new, (3) of the hand-over guard re-aimed to the measured fix, the
+badge's fake page redrawn to the real shape; three sabotages red. Engine 2,543 B gz (was 2,488). Maker first load 0 B.
+
 SPEC IMPACT: Yes — supersedes the 2026-10-06/07 "Style | Text | Animate" and "the toolbar is half the screen" rows.
 The controller holds the spec (`TOOLBAR-SPEC-2026-10-09.md`) and applies the corpus rows; nothing in the corpus was
 edited from this branch.

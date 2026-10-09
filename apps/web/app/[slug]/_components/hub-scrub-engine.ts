@@ -84,6 +84,8 @@ export function armHubScrub(root: HTMLElement): () => void {
   let scenes: HTMLElement[] = [];
   let queued = false;
   let dead = false;
+  /** Where the page was when the numbers were last set — see the pulse. */
+  let drawnAt = -1;
 
   function measure() {
     V = window.innerHeight;
@@ -159,6 +161,7 @@ export function armHubScrub(root: HTMLElement): () => void {
   function frame() {
     queued = false;
     if (dead) return;
+    drawnAt = window.scrollY;
     const state = new Map<HTMLElement, { pin: number; pout: number; gate: number; handed: boolean }>();
     const of = (scene: HTMLElement) => {
       let s = state.get(scene);
@@ -192,25 +195,35 @@ export function armHubScrub(root: HTMLElement): () => void {
       const bottom = top + scene.offsetHeight;
       if (oneByOne(scene) && top < V && bottom > -V) {
         piecesOf(scene).forEach((piece, i) => {
-          /* The heading arrives with the element; every other row as ITS top reaches the centre line — all of them
-             complete by the time the element's bottom is on it. */
+          /* The heading arrives with the element — by the element's ONE fade, so it plays nothing of its own (its own
+             fade under the scene's would be two opacities multiplied); every other row as ITS top reaches the centre
+             line — all of them complete by the time the element's bottom is on it. */
           const y = piece.getBoundingClientRect().top;
-          put(piece, '--hub-pp', num(i === 0 ? s.pin : scrubRow(y, C, s.gate, bottom - y)));
+          put(piece, '--hub-pp', num(i === 0 ? 1 : scrubRow(y, C, s.gate, bottom - y)));
         });
       }
     }
   }
+  const draw = () => {
+    try {
+      frame();
+    } catch (e) {
+      fail(e);
+    }
+  };
   const ask = () => {
     if (queued || dead) return;
     queued = true;
-    window.requestAnimationFrame(() => {
-      try {
-        frame();
-      } catch (e) {
-        fail(e);
-      }
-    });
+    window.requestAnimationFrame(draw);
   };
+  /* 🫀 A FRAME THAT NEVER COMES MUST NOT LEAVE THE PAGE BLANK (seen 2026-10-09, in a browser pane that scrolls but
+     gives a page no animation frames: armed at the top of the page, every scene not yet arrived was still marked
+     "not here" 2,600 px later — a white screen). The numbers are asked for on a frame because that is the right
+     moment; a slow pulse answers when no frame did: if the page is somewhere it was not drawn for, draw it. On a
+     page that gets its frames this finds nothing to do. */
+  const pulse = window.setInterval(() => {
+    if (!dead && (queued || window.scrollY !== drawnAt)) draw();
+  }, 250);
   const again = () => {
     if (dead) return;
     try {
@@ -233,6 +246,7 @@ export function armHubScrub(root: HTMLElement): () => void {
     window.removeEventListener('orientationchange', again);
     root.removeEventListener('load', again, true);
     sizes?.disconnect();
+    window.clearInterval(pulse);
     /* Back to the plain page: every mark and property this script set, taken off. */
     for (const [el, keys] of marked) for (const key of keys.keys()) key.startsWith('--') ? el.style.removeProperty(key) : el.removeAttribute(key);
     marked.clear();

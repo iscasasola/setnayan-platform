@@ -181,11 +181,14 @@ const fake = (o: Fake) => ({
   querySelectorAll: (sel: string): unknown[] => (o.all?.[sel] ?? []).map(fake),
 });
 const page = (root: Fake | null) => ({ querySelector: (sel: string) => (sel === '.hub-scenes' && root ? rootOf(root) : null) }) as unknown as Document;
-/* One object per element, so `scenes.indexOf(scene)` finds the leaving scene among the page's scenes. */
+/* One object per element, so `scenes.indexOf(scene)` finds the leaving scene among the page's scenes. A hand-over
+   is given as the renderer draws it: a rest-of-the-page box (`.hub-after`) whose cell has (or has not) a length and
+   whose PREVIOUS SIBLING is the scene that leaves — never "the stage's first scene", which since "the page stands
+   still" may be an ordinary scene standing with it (the badge named the note as the one leaving; seen 2026-10-09). */
 function rootOf(root: Fake) {
   const scenes = (root.all?.['.hub-scene'] ?? []).map(fake);
-  const cells = (root.all?.['.hub-cell'] ?? []).map((c, i) => ({ ...fake(c), querySelector: (sel: string) => (sel === ':scope > .hub-stage > .hub-scene' ? scenes[Number(c.attrs?.scene ?? i)] : null) }));
-  return { ...fake(root), querySelectorAll: (sel: string) => (sel === '.hub-cell' ? cells : sel === '.hub-scene' ? scenes : []) };
+  const afters = (root.all?.['.hub-cell'] ?? []).map((c, i) => ({ closest: () => fake(c), previousElementSibling: scenes[Number(c.attrs?.scene ?? i)] }));
+  return { ...fake(root), querySelectorAll: (sel: string) => (sel === '.hub-after' ? afters : sel === '.hub-scene' ? scenes : []) };
 }
 const named = (name: string, vars: Record<string, string> = {}, rows: Fake[] = []): Fake => ({ vars, one: { '[data-lab-name]': { attrs: { 'data-lab-name': name } } }, all: { '[data-hub-rows] > *': rows } });
 
@@ -211,11 +214,23 @@ test('(5) off is never silent: the page carries the reason, and the lab’s badg
     'Scrub: ON · hand-over 2 of 2 · Schedule: row 2 of 4',
   );
   assert.equal(readScrubBadge(page(chain([{ '--hub-pout': '1' }, { '--hub-pout': '1' }, {}])), true), 'Scrub: ON · all 2 hand-overs done');
+  /* The one that leaves is the scene before its rest-of-the-page — not an ordinary scene standing in the same stage. */
+  assert.equal(
+    readScrubBadge(page({ attrs: { 'data-hub-scrub-on': '' }, all: { '.hub-scene': [named('Countdown', { '--hub-pout': '1' }), named('A note from us'), named('Dress code', { '--hub-pout': '0.5' }), named('Venue', { '--hub-pbin': '0.2' })], '.hub-cell': [{ vars: { '--hub-len': '500px' }, attrs: { scene: '0' } }, { vars: { '--hub-len': '500px' }, attrs: { scene: '2' } }] } }), true),
+    'Scrub: ON · hand-over 2 of 2 · Dress code leaves 50 % · Venue arrives 20 %',
+  );
   /* A cell with no length is an empty scene's — not a hand-over. */
   assert.equal(readScrubBadge(page({ attrs: { 'data-hub-scrub-on': '' }, all: { '.hub-scene': [named('Countdown')], '.hub-cell': [{ vars: {} }] } }), true), 'Scrub: ON — no hand-over on this page');
   /* The badge has no numbers of its own, and is drawn on the lab's chain only. */
   const badge = read('app/dev/maker-lab/guest/scrub-badge.tsx');
   assert.doesNotMatch(badge, /hub-scrub-(?:engine|math)|scrubPair|scrubMoment|SCRUB\b/, 'the badge computes the hand-over itself');
+  /* …it is never the stale thing on the page: it reads on a clock that needs no animation frame (8f — a pane that
+     gave the page no frames left it on "starting…" for eight seconds). */
+  assert.match(badge, /const tick = window\.setInterval\(read, 300\);\s*read\(\);/);
+  /* …and "Reset the sample" clears the chain's OWN cookie, on the page as a guest sees it only. */
+  assert.match(badge, /const SAVED = 'lab_widgets_scrub';/);
+  assert.equal(labWidgetsCookie(true), 'lab_widgets_scrub');
+  assert.match(badge, /setSaved\(document\.querySelector\('\[data-maker-section\]'\) === null && document\.cookie\.split\('; '\)\.some\(\(c\) => c\.startsWith\(`\$\{SAVED\}=`\)\)\);/);
   const guest = read('app/dev/maker-lab/guest/page.tsx');
   assert.match(guest, /\{scrub && !only && !preview \? <LabScrubBadge \/> : null\}\s*\{mark\('f:hero'\)\}/, 'the badge is not before the first marker, on the chain alone');
   assert.deepEqual(
@@ -237,4 +252,20 @@ test('(5) off is never silent: the page carries the reason, and the lab’s badg
   assert.match(island, /const OFF = 'data-hub-scrub-off';/);
   assert.match(island, /\.catch\(\(\) => \{\s*say\(NOT_LOADED\);\s*\}\)/);
   assert.match(island, /if \(!on\) say\(EDITING\);\s*\};\s*if \(makerCanvas\) say\(EDITING\);/);
+});
+
+/* ── (6) FRAMES THAT NEVER COME DO NOT BLANK THE PAGE (8f, 2026-10-09) ───────────────────────────────────────────────
+   Seen in a browser pane that scrolls a page without giving it animation frames: the engine armed at the top, every
+   scene not yet arrived stayed marked "not here", and 2,600 px of scrolling showed a white screen. The engine asked
+   for its numbers on a frame and nothing else ever answered. Now a slow pulse does. Played in a browser
+   (`scripts/scrub-browser-check.mjs`, the starved-frames case). Sabotage: the pulse removed → red here and there. */
+test('(6) frames that never come do not blank the page: a pulse redraws when the page is somewhere it was not drawn for', () => {
+  const engine = read('app/[slug]/_components/hub-scrub-engine.ts');
+  assert.match(engine, /const pulse = window\.setInterval\(\(\) => \{\s*if \(!dead && \(queued \|\| window\.scrollY !== drawnAt\)\) draw\(\);\s*\}, 250\);/);
+  /* `drawnAt` is where the numbers were last SET — written by the one function that sets them. */
+  assert.match(engine, /function frame\(\) \{\s*queued = false;\s*if \(dead\) return;\s*drawnAt = window\.scrollY;/);
+  assert.match(engine, /window\.clearInterval\(pulse\);/, 'a disarmed engine keeps pulsing');
+  /* The pulse is a clock and a read of the scroll position — it sets no position and listens to nothing new. */
+  assert.equal((engine.match(/setInterval\(/g) ?? []).length, 1);
+  assert.doesNotMatch(engine, /setTimeout\(/);
 });

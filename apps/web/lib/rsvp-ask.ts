@@ -206,36 +206,9 @@ export function rsvpAnswerWord(words: RsvpWords | null | undefined, key: 'attend
   return words?.[key] ?? RSVP_WORD_DEFAULT[key][solemn ? 'solemn' : 'celebrate'];
 }
 
-/**
- * PREMADE LINES — "type your own, or pick one". ONLY words that already exist
- * (owner 2026-09-30, "✂ THE MAKER RE-PLAN IS CUT TO ITS CORE": no invented
- * presets): the answers are the lines the owner's own ruling lists ("RSVP
- * ANSWERS: THE COUPLE RENAMES…": "Joyfully accepts" · "Wouldn't miss it" ·
- * "Count me in" / "Regretfully declines" · "Sadly can't make it"), and the
- * screens after a reply offer only the words those screens and the reply card
- * already print. A key with no shipped line offers none — type your own.
- */
-export const RSVP_WORD_LINES: Record<RsvpWordKey, { celebrate: readonly string[]; solemn: readonly string[] }> = {
-  attending: { celebrate: ['Joyfully accepts', 'Wouldn’t miss it', 'Count me in'], solemn: ['Will be there'] },
-  declined: { celebrate: ['Regretfully declines', 'Sadly can’t make it'], solemn: ['Unable to come'] },
-  thanksHeading: { celebrate: ['See you there!'], solemn: ['Thank you'] },
-  thanksMessage: {
-    celebrate: ['Your place is reserved — we can’t wait to celebrate with you.'],
-    solemn: ['Your place is noted — thank you for being with the family.'],
-  },
-  declineHeading: { celebrate: ['Thank you — you’ll be missed'], solemn: ['Thank you'] },
-  declineMessage: { celebrate: [], solemn: [] },
-  /* The form's three lines have ONE shipped wording each — the card's own, which "Automatic" already is. */
-  eyebrow: { celebrate: [], solemn: [] },
-  question: { celebrate: [], solemn: [] },
-  hint: { celebrate: [], solemn: [] },
-};
-
 export function isRsvpAskField(v: unknown): v is RsvpAskField {
   return typeof v === 'string' && (RSVP_ASK_FIELDS as readonly string[]).includes(v);
 }
-
-const CONFIG_MAX_BYTES = 2048;
 
 /**
  * Drop anything that is not a known field with a boolean value (the `words`
@@ -291,11 +264,6 @@ export function sanitizeRsvpAskConfig(raw: unknown): RsvpAskConfig {
     out[key] = value;
   }
   return out;
-}
-
-/** The same cap the migration's CHECK enforces — asked here so a Maker save can refuse before the round trip. */
-export function rsvpAskConfigFits(config: RsvpAskConfig): boolean {
-  return Buffer.byteLength(JSON.stringify(config), 'utf8') <= CONFIG_MAX_BYTES;
 }
 
 /**

@@ -1,4 +1,5 @@
-import { RSVP_LOOK_STYLE_ATTR, readRsvpLook, rsvpLookCss } from '@/lib/rsvp-look';
+import { readRsvpLook, rsvpLookCss } from '@/lib/rsvp-look';
+import { RSVP_LOOK_STYLE_ATTR } from '@/lib/rsvp-stage-shared';
 
 /**
  * 🎨 THE LOOK OF A REPLY PAGE'S LINES, AS ONE `<style>` (`lib/rsvp-look.ts`) — the colour and size the couple picked

@@ -258,6 +258,8 @@ type PartEditsProps = {
    * THAT line and wears its name; absent, the frame is the part's own (the group).
    */
   line?: { key: string; name: string } | null;
+  /** 🃏 The frame's own word where the part's name is not it — "Card" for a reply screen's group of lines. */
+  name?: string;
 };
 
 /**
@@ -283,7 +285,7 @@ export function PartEdits(props: PartEditsProps) {
   return usePartEdits(props).node;
 }
 
-export function usePartEdits({ stage, picked, frame, line = null }: PartEditsProps): PartEditsNow {
+export function usePartEdits({ stage, picked, frame, line = null, name }: PartEditsProps): PartEditsNow {
   const isReveal = picked === 'reveal';
   const canvas = isReveal ? REVEAL_STUB : picked ? makerPartCanvasOn(stage, picked) : null;
   const el = picked ? (line?.key ?? MAKER_PARTS[picked].el ?? null) : null;
@@ -503,7 +505,7 @@ export function usePartEdits({ stage, picked, frame, line = null }: PartEditsPro
             className={`absolute z-[1] rounded-sm ${PART_ACCENT} px-[7px] py-[3px] font-sans text-[9px] font-bold uppercase leading-[1.2] tracking-[0.14em]`}
             style={{ top: clampY(fr!.top) - 11, left: Math.max(2, box.left - 2) }}
           >
-            {line?.name ?? label}
+            {line?.name ?? name ?? label}
           </span>
           {/* 🚫 NO BUTTONS ON THE FRAME (owner 2026-10-09: "on preview screen, you only select" — the frame and its
               name say what is picked, nothing more). ↑ ↓ ✕, the grip and 🗑 were here: moving and removing are Edit's

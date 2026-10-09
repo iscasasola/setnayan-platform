@@ -286,7 +286,10 @@ test('picking the Digital pass never replaces the canvas in Stages — it is pic
   /* Style only — and Edit, every part's (🔁 re-aimed 2026-10-09: the selector is Edit | Style | Background | Animate,
      `TOOLBAR-SPEC-2026-10-09.md`): Background and Animate have nothing to set there — grey, and a tap says why
      (never `disabled`, which is a dead tap — `a-tool-with-nothing-to-do-says-so`). */
-  assert.match(tools, /const toolWorks = \(t: MakerPartTool\) => !picked \|\| \(\(t === 'edit' \|\| t === 'style' \|\| !styleOnly\) && makerPartToolWorks\(picked, t\)\);/);
+  /* 🔁 RE-AIMED 2026-10-10: a reply screen's CARD and its LINES now have a Background and an Animate to set (owner
+     2026-10-09: "how come background not fixed and no animate?" — `the-rsvp-lines-have-a-look.test.ts` §10), so those
+     two are live there (`rsvpLooks`). Every other part is decided exactly as before — the claim this line holds. */
+  assert.match(tools, /const toolWorks = \(t: MakerPartTool\) => !picked \|\| \(rsvpLooks && \(t === 'bg' \|\| t === 'animate'\)\) \|\| \(\(t === 'edit' \|\| t === 'style' \|\| !styleOnly\) && makerPartToolWorks\(picked, t\)\);/);
   assert.match(tools, /aria-disabled=\{toolWorks\(t\) \? undefined : true\}/);
   const edges = read(`${LAUNCH}/add-part-sheet.tsx`);
   assert.match(edges, /clipPath: `inset\(/, 'the frame is clipped to the canvas');

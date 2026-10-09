@@ -95,6 +95,41 @@ Sabotaged red, each restored: the sanitiser dropping `look` · the reader keepin
 the page does not show · a guest served an empty tag · a button given a colour · the ceiling not asked · an
 over-limit event locked · the card's paper letting go · the canvas trusting text it was sent.
 
+**The card is a block: Background and Animate are live on the RSVP stage** (owner: "RSVP background not working." ·
+"how come background not fixed and no animate?" · his rule: Animate for every element, Background for every block):
+
+- **Background — the card's**: None · Plain · Frosted, the toolbar's own picture tiles, with the prototype's line
+  "Behind the card is the Look's background — the same one every page wears." Plain is today's card and stores
+  nothing; None lets the page's ground show through; Frosted is the app's own glass (`--sn-glass-*`). A LINE has no
+  ground of its own: "This sits on the RSVP card's background." and the one button **Open the card**, which picks
+  that card (`RSVP_OPEN_CARD_EVENT`; the pass's Save button sits on the When-yes card).
+- **Animate — a line's or the card's own Build in**, on the toolbar's own Animate (`StageAnimate`, new `only="in"`):
+  Fade · Blur · Move · Size, the side or the way the ON ones need, and Movement ◆ (Quick · Calm · Cinematic). A reply
+  page is one screen with no scroll to follow and no exit, so Action and Build out are not offered — not drawn dead,
+  not drawn at all (the prototype drew the three phases; only Build in can be real here).
+- **Stored** beside each line's colour and size: `look.lines[id].i` — the Event Hub's own `MotionFx`, read by its own
+  closed-set reader — and `.v` (`quick` | `cinematic`; Calm is the absence); `look.card[<part>] = { g, i, v }` with
+  `g` = `none` | `frost`. Fixed lists only; no migration; the same draft and Apply.
+- **Drawn** by the same one `<style>`: the card is addressed as the block that holds the masthead
+  (`div:has(>[data-door-header])` — no attribute is served for it), a Build in is one keyframe reading the Event
+  Hub's own frame (`motionFxFrame`) and its feel's seconds, and it stands still under `prefers-reduced-motion`. On
+  the Maker's canvas a Build in that was just changed plays again on the thing it belongs to.
+- **The group is called "Card"**: "You're editing · RSVP › Form › Card", and the frame's tab says CARD (it read
+  "RSVP › Form › RSVP").
+- **A guest's bundle never carries the look's reader**: the canvas bridge imports it on the Maker's `rsvpLook`
+  message only (the two names it needs moved to `lib/rsvp-stage-shared.ts`).
+- **First load is smaller than before this work**: `lib/rsvp-ask.ts` (read by `lib/hub-draft.ts`) is 1,651 B gz, was
+  1,848 — the premade lines moved to the lazy `lib/rsvp-stage.ts` (only the lazy panel reads them) and the
+  caller-less, Node-only `rsvpAskConfigFits` is gone (the save asks `rsvpConfigFits`, `lib/rsvp-look.ts`).
+- The pass's Save line has its Size, its Build in and its ground row in the stage's panel too.
+
+Guard: `lib/the-rsvp-lines-have-a-look.test.ts` (10) — sections 8–10: the strict reading of grounds and motion, the
+rules per page fitted against ONE pattern of everything the builder may write, the panel rendered for every card and
+line under Background and Animate, the wiring. Sabotaged red, each restored: a made-up ground kept · a feel with no
+effect kept · the card's rule on another screen's page · Plain stored as a key · Action and Build out offered ·
+Background grey on the card · "Open the card" unheard · the group called by its part's name · the reader in every
+guest's bundle.
+
 **fix(maker): a reply page drawn in the Maker's canvas never shows the cookie card**
 
 A host who had never answered the cookie card saw it lying over the RSVP stage's canvas. The Event Hub's canvas
@@ -106,5 +141,7 @@ read off the tree and must carry the rule (or hand its canvas to `SiteBody`). Sa
 page · the rule served to every guest.
 
 SPEC IMPACT: `events.rsvp_ask_config` gains three optional words (eyebrow · question · hint) and one optional object
-`look` (each line's colour slot and size). No schema change (jsonb, existing 2,048-byte CHECK). Corpus note to follow
-with the card's background and motion (the next step), in one edit.
+`look` = { lines: { '<part>.<line>': { c, s, i, v } }, card: { '<part>': { g, i, v } } } — each line's colour slot,
+size and Build in; each reply screen's card ground and Build in. No schema change (jsonb, existing 2,048-byte CHECK).
+Corpus `DECISION_LOG.md` row: NOT yet written — this builder works local-only with no push, and a corpus edit must
+be committed and pushed; flagged to the controller to apply with the batch.

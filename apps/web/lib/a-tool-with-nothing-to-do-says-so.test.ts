@@ -118,7 +118,10 @@ test('(4) the pill: grey and `aria-disabled` (never `disabled`), never pressed w
   assert.ok(!STAGE_TOOL_BUTTON.split(' ').some((c) => c.startsWith('disabled:')), 'the pill still styles a state it never has');
   /* What works: anything while nothing is picked (the tool is remembered for the next part); Edit and Style on every
      part; else the part's own answer — and none of it on the Style-only parts (the Reveal, the Camera, the pass, RSVP). */
-  assert.match(tools, /const toolWorks = \(t: MakerPartTool\) => !picked \|\| \(\(t === 'edit' \|\| t === 'style' \|\| !styleOnly\) && makerPartToolWorks\(picked, t\)\);/);
+  /* 🔁 RE-AIMED 2026-10-10: a reply screen's CARD and its LINES now have a Background and an Animate to set (owner
+     2026-10-09: "how come background not fixed and no animate?" — `the-rsvp-lines-have-a-look.test.ts` §10), so those
+     two are live there (`rsvpLooks`). Every other part is decided exactly as before — the claim this line holds. */
+  assert.match(tools, /const toolWorks = \(t: MakerPartTool\) => !picked \|\| \(rsvpLooks && \(t === 'bg' \|\| t === 'animate'\)\) \|\| \(\(t === 'edit' \|\| t === 'style' \|\| !styleOnly\) && makerPartToolWorks\(picked, t\)\);/);
   /* …and the rows show the FIRST tool that has something here (Edit; Style on the Camera) — never a grey one. */
   assert.match(tools, /const shownTool: MakerPartTool = toolWorks\(tool\) \? tool : \(MAKER_PART_TOOLS\.find\(toolWorks\) \?\? 'style'\);/);
   /* The tap: the line FIRST and nothing else — no tool is set, no panel is asked for. */

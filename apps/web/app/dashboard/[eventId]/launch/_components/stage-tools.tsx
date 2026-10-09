@@ -62,11 +62,14 @@ import {
   RSVP_STAGE_BAR_SLOT,
   RSVP_STAGE_SCENE_EVENT,
   RSVP_TYPING_MESSAGE,
+  RSVP_CARD_NAME,
   RSVP_LINE_NAME,
   rsvpLineOf,
   rsvpStageFrameSelector,
 } from '@/app/[slug]/_components/rsvp-canvas-parts';
 import { rsvpLineWord } from '@/lib/rsvp-form-words';
+import { rsvpLookCard, rsvpLookLine } from '@/lib/rsvp-look';
+import { RSVP_OPEN_CARD_EVENT } from '@/lib/rsvp-stage-shared';
 import { setStagePanelNow, setStageRevealColours, setStageTool, useAnimatePhase, useStagePanelNow, useStageRevealLook, type StageQuiet } from './stage-panel/store';
 import { StageEdit } from './stage-panel/stage-edit';
 import { StageAbout } from './stage-panel/kit';
@@ -304,7 +307,13 @@ export function StageTools({
   const [lineAtPart, setLineAtPart] = useState<{ part: MakerPartKey; line: string } | null>(null);
   /** The picked LINE of the picked part, on the RSVP stage — null: the part itself (the group). */
   const rsvpLine = rsvpOpen && picked && lineAtPart?.part === picked ? lineAtPart.line : null;
-  const rsvpLineName = rsvpLine ? (RSVP_LINE_NAME[rsvpLine] ?? rsvpLine) : null;
+  /** 🃏 The picked part is a reply screen's CARD — its group of lines (`RSVP_LOOK_CARDS`). */
+  const rsvpCard = rsvpOpen ? rsvpLookCard(picked) : null;
+  /** What is picked on the RSVP stage, in a word: the line's name, or "Card" for a screen's group (controller
+   *  2026-10-10: the group read "RSVP › Form › RSVP" — the prototype's own word for it is the card). */
+  const rsvpLineName = rsvpLine ? (RSVP_LINE_NAME[rsvpLine] ?? rsvpLine) : rsvpCard ? RSVP_CARD_NAME : null;
+  /** 🎨 A card, a line of one, or a line of the pass: each has Animate; Background is the card's (a line says whose). */
+  const rsvpLooks = rsvpCard !== null || (rsvpOpen && rsvpLookLine(picked, rsvpLine) !== null);
   /** ✍ A picked line WITH words: its Edit is the stage's own panel (that line's words + its Start from ▾ —
    *  `maker-rsvp-ask.tsx`), so Edit's rows here stand aside and that panel stays in sight. */
   const rsvpLineTypes = rsvpLineWord(picked, rsvpLine) !== null;
@@ -312,6 +321,17 @@ export function StageTools({
   useEffect(() => {
     if (!picked) setLineAtPart(null);
   }, [picked]);
+  /* 🃏 "Open the card" (a line's Background, `rsvp-line-look.tsx`): the line is let go and its screen's card is the
+     picked part — the pass's Save button sits on the When-yes card. */
+  useEffect(() => {
+    if (!rsvpOpen) return;
+    const open = () => {
+      setLineAtPart(null);
+      if (pickedRef.current === 'pass') pickPartRef.current('yesnote');
+    };
+    window.addEventListener(RSVP_OPEN_CARD_EVENT, open);
+    return () => window.removeEventListener(RSVP_OPEN_CARD_EVENT, open);
+  }, [rsvpOpen]);
   const [playing, setPlaying] = useState(false);
   /** 👁 ▶ held down: the whole page as a guest — the toolbar and the frame step aside, "Exit preview" brings them back. */
   const [previewing, setPreviewing] = useState(false);
@@ -1112,7 +1132,7 @@ export function StageTools({
      one line why. Edit and Style are every part's. The Reveal, the Camera, the pass and the RSVP pages have no
      Background or Animate — and the Camera, a full-screen design, has Style alone; nor has any part with no save for
      it (E-Gifts, What to wear …). With nothing picked every tool is live — the rows under it are empty until a part is. */
-  const toolWorks = (t: MakerPartTool) => !picked || ((t === 'edit' || t === 'style' || !styleOnly) && makerPartToolWorks(picked, t));
+  const toolWorks = (t: MakerPartTool) => !picked || (rsvpLooks && (t === 'bg' || t === 'animate')) || ((t === 'edit' || t === 'style' || !styleOnly) && makerPartToolWorks(picked, t));
   /** The tool the rows are showing: the remembered one, or the first that has something here (Edit; Style on the Camera). */
   const shownTool: MakerPartTool = toolWorks(tool) ? tool : (MAKER_PART_TOOLS.find(toolWorks) ?? 'style');
   shownToolRef.current = shownTool;
@@ -1146,6 +1166,7 @@ export function StageTools({
     picked: open && !cameraOpen ? picked : null,
     frame: rsvpOpen ? frameSel : undefined,
     line: rsvpLine && rsvpLineName ? { key: rsvpLine, name: rsvpLineName } : null,
+    name: rsvpCard ? RSVP_CARD_NAME : undefined,
   });
   /* ── ✍ THE PICKED PART'S WORDS, FOR EDIT'S ROWS — read off the page (`part-words.ts`): what the page draws is what
      can be typed, so a part whose words the page does not draw keeps its one door. Read again whenever the canvas

@@ -369,8 +369,10 @@ test('2 · WIRING: the Stages panel reads the pick with the map every stage uses
   const drew = new Set(['f:hero', 'f:hero|mark', 'f:hero|names', 'f:yesnote']);
   assert.deepEqual(makerPartsTappable(RSVP_STAGE_KEY, 'thanks', drew), ['logo', 'names', 'yesnote'], 'a tile for a line or a ticket the page did not draw');
   /* The tools are the picked part's: the form's and the notes' are the stage's controls; any other part has its door. */
-  assert.match(STAGE, /className=\{`flex-col gap-3 pb-4 \$\{rsvpToolPart\(pickedPart\) \? 'flex' : 'hidden'\}`\} data-rsvp-stage-look=""/);
-  assert.match(STAGE, /return picked === null \|\| picked === 'rsvp' \|\| picked === 'yesnote' \|\| picked === 'nonote';/);
+  /* 🔁 RE-AIMED 2026-10-10: the panel is also the picked LINE's — the pass's Save button has its size, its Build in
+     and its ground row here — so the line is asked too (`rsvpToolPart(part, line)`). The pass itself still has none. */
+  assert.match(STAGE, /className=\{`flex-col gap-3 pb-4 \$\{rsvpToolPart\(pickedPart, pickedLine\) \? 'flex' : 'hidden'\}`\} data-rsvp-stage-look=""/);
+  assert.match(STAGE, /return picked === null \|\| picked === 'rsvp' \|\| picked === 'yesnote' \|\| picked === 'nonote' \|\| \(picked === 'pass' && line !== null\);/);
   assert.match(TOOLS, /const q = rsvpOpen \? rsvpQuietRow\(picked\) :/);
 });
 
@@ -708,11 +710,11 @@ test('8 · WIRING: the frame, its name, the caption and the panel follow the LIN
   /* A line is picked only WITH its part: another part, a tab, the ground let it go with nothing to reset. */
   assert.match(TOOLS, /const rsvpLine = rsvpOpen && picked && lineAtPart\?\.part === picked \? lineAtPart\.line : null;/);
   /* The frame is drawn ON the line and wears its name… */
-  assert.match(TOOLS, /const rsvpLineName = rsvpLine \? \(RSVP_LINE_NAME\[rsvpLine\] \?\? rsvpLine\) : null;/);
+  assert.match(TOOLS, /const rsvpLineName = rsvpLine \? \(RSVP_LINE_NAME\[rsvpLine\] \?\? rsvpLine\) : rsvpCard \? RSVP_CARD_NAME : null;/);
   assert.match(TOOLS, /line: rsvpLine && rsvpLineName \? \{ key: rsvpLine, name: rsvpLineName \} : null,/);
   assert.match(EDGES, /const el = picked \? \(line\?\.key \?\? MAKER_PARTS\[picked\]\.el \?\? null\) : null;/);
   assert.match(EDGES, /\[data-el="\$\{CSS\.escape\(el\)\}"\], \[data-rsvp-line="\$\{CSS\.escape\(el\)\}"\]/);
-  assert.match(EDGES, /\{line\?\.name \?\? label\}/);
+  assert.match(EDGES, /\{line\?\.name \?\? name \?\? label\}/);
   /* …"You're editing" ends on it, and the stage's own panel is told which line. */
   assert.match(TOOLS, /\(x\): x is string => Boolean\(x\),\s*\);\s*if \(rsvpLineName && picked\) \{[^}]*linePieces\.push\(rsvpLineName\);\s*\}/, 'the line is not the LAST piece of "You’re editing" — the piece that is never cut');
   assert.match(TOOLS, /setStagePanelNow\(\{ picked, quiet, about, line: rsvpLine \}\);/);

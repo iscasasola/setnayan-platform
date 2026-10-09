@@ -167,6 +167,8 @@ type TapEl = {
  */
 export const RSVP_CARD_GROUPS = ['f:rsvp', 'f:yesnote', 'f:nonote'] as const;
 export const RSVP_CARD_ATTR = 'data-rsvp-card';
+/** The group's name on the toolbar — the frame's tab and the last word of "You're editing" (the prototype's word). */
+export const RSVP_CARD_NAME = 'Card';
 
 export type RsvpTapPart = {
   /** The section's canvas key (`f:hero`, `f:rsvp`, `f:greeting`, `f:yesnote`, `f:pass`, `f:nonote`). */

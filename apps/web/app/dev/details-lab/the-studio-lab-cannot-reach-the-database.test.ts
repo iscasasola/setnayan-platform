@@ -9,7 +9,7 @@
  * and both lab entries are drawn inside it; (4) the stand-ins answer the way the real ones do, `?refuse=1` refuses in the DATABASE'S words —
  * which the page turns into one plain sentence of its own. Behaviour (the rows' saved state, zero real calls) was driven in Chromium.
  *
- * Pages on it so far: E-Gifts. EVERY STUDIO PAGE CONVERTED LATER ADDS ITS WRITES to the context, to LAB_STUDIO_ACTIONS and to
+ * Pages on it so far: E-Gifts, and Prints (its two seams: the Save buttons' file fetch — `print-fetch-context.tsx` — and the print words form's submit, taken on the lab's side). EVERY STUDIO PAGE CONVERTED LATER ADDS ITS WRITES to the context, to LAB_STUDIO_ACTIONS and to
  * LAB_STUDIO_REFUSALS, and its call sites to (2) — in its own commit.
  *
  * NOT stubbed (listed, not hidden): the other Studio pages' own writes (they join as they are converted: Info rides `setStudioDraftDoor`,
@@ -25,7 +25,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
-import { LAB_STUDIO_ACTIONS, LAB_STUDIO_REFUSALS } from './lab-studio-stand-ins';
+import { LAB_PRINT_FETCH, LAB_PRINT_FETCH_REFUSED, LAB_PRINT_WORDS_FORM, LAB_PRINT_WORDS_REFUSED, LAB_STUDIO_ACTIONS, LAB_STUDIO_REFUSALS } from './lab-studio-stand-ins';
 import { isPlainSentence, plainRefusal } from '@/app/dashboard/[eventId]/guests/_components/plain-refusal';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -73,6 +73,18 @@ test('(3) nothing but the lab provides the context — and both lab entries are 
   };
   walk(APP);
   assert.deepEqual(found.sort(), ['dashboard/[eventId]/launch/_components/studio-actions-context.tsx', 'dev/details-lab/lab-studio-actions.tsx'], 'the app provides stand-ins');
+  /* …nor the Prints file fetch. */
+  const fetchProviders: string[] = [];
+  const walk2 = (dir: string) => {
+    for (const name of readdirSync(dir)) {
+      if (name === 'node_modules' || name.startsWith('.')) continue;
+      const p = join(dir, name);
+      if (statSync(p).isDirectory()) walk2(p);
+      else if (/\.tsx?$/.test(name) && !/\.test\.tsx?$/.test(name) && /PrintFetchProvider|PrintFetchContext\.Provider/.test(read(p))) fetchProviders.push(p.slice(APP.length + 1));
+    }
+  };
+  walk2(APP);
+  assert.deepEqual(fetchProviders.sort(), ['dashboard/[eventId]/launch/_components/print-fetch-context.tsx', 'dev/details-lab/lab-studio-actions.tsx'], 'the app provides a stand-in for the Prints file fetch');
   assert.match(read(join(HERE, 'page.tsx')), /<LabStudioActions>\s*<LookLab>[\s\S]*<\/LookLab>\s*<\/LabStudioActions>/, 'the details lab is drawn outside the stand-ins');
   assert.match(read(join(APP, 'dev', 'maker-lab', 'maker-lab-shell.tsx')), /<LabStudioActions draft=\{labDraft as never\}>\s*<MakerShell[\s\S]*<\/MakerShell>\s*<\/LabStudioActions>/, 'the Maker lab is drawn outside the stand-ins');
   /* The real default: the shipped actions, and NO storage stand-in. */
@@ -102,4 +114,36 @@ test('(4) the stand-ins answer like the real ones, locally — and ?refuse=1 ref
     assert.ok(!isPlainSentence(words), `the lab’s refusal reads as a sentence, so it can prove nothing: ${words}`);
     assert.equal(plainRefusal(words, 'Please try again.'), 'Please try again.', 'the page would print the database’s words');
   }
+});
+
+test('(5) Prints: a Save pressed in the lab asks no route — the stand-in answers a tiny PDF, or (?refuse=1) an HTML 500 the button never prints', async () => {
+  /* The Save buttons fetch through the context (real `fetch` by default), nowhere else. */
+  const btn = read(join(LAUNCH, 'print-save-button.tsx'));
+  assert.match(btn, /const printFetch = usePrintFetch\(\);/);
+  assert.equal((btn.match(/printFetch\(href/g) ?? []).length, 1);
+  assert.doesNotMatch(btn, /\bfetch\(/, 'a Save button fetches the real route again');
+  assert.match(read(join(LAUNCH, 'print-fetch-context.tsx')), /const REAL_PRINT_FETCH: typeof fetch = \(input, init\) => fetch\(input, init\);[\s\S]*useContext\(PrintFetchContext\) \?\? REAL_PRINT_FETCH/);
+  const ok = await LAB_PRINT_FETCH('/api/hub-print/invitation?event=lab');
+  assert.equal(ok.status, 200);
+  assert.equal((await ok.blob()).type, 'application/pdf');
+  const refused = await LAB_PRINT_FETCH_REFUSED('/api/hub-print/invitation?event=lab');
+  assert.equal(refused.status, 500);
+  /* What `PrintSaveButton` does with a refusal: the body shows only when it is a short sentence that does not start with `<`; an HTML page → its own words. */
+  const body = (await refused.text()).trim();
+  assert.ok(body.startsWith('<'), 'the lab’s refusal body would be printed by the Save button');
+  assert.match(btn, /text && text\.length < 200 && !text\.startsWith\('<'\) \? text : 'That file could not be made just now\. Please try again\.'/);
+});
+
+test('(6) Prints: the print words form’s submit is taken on the lab’s side before SoftPost hears it — nothing is posted, the Maker’s save status says what the route would', () => {
+  const lab = read(join(HERE, 'lab-studio-actions.tsx'));
+  assert.match(lab, /document\.addEventListener\('submit', take, true\)/, 'the submit is not taken in the capture phase (SoftPost listens on the form itself)');
+  assert.match(lab, /form\.id !== LAB_PRINT_WORDS_FORM\) return;\s*e\.preventDefault\(\);\s*e\.stopImmediatePropagation\(\);/, 'the words form is still posted');
+  assert.match(lab, /announceMakerSave\(refuse \? \{ state: 'error', text: LAB_PRINT_WORDS_REFUSED \} : \{ state: 'saved' \}\)/);
+  assert.doesNotMatch(lab, /\bfetch\(|hub-print/, 'the lab provider asks a route');
+  /* It is the form the Maker really posts. */
+  const details = read(join(LAUNCH, 'maker-details.tsx'));
+  assert.match(details, new RegExp(`const WORDS_FORM = '${LAB_PRINT_WORDS_FORM}';`), 'the lab stands in for another form than the print words form');
+  assert.ok(!isPlainSentence('relation "events" does not exist') && isPlainSentence(LAB_PRINT_WORDS_REFUSED), 'the refused words are the page’s own plain sentence');
+  /* …and SoftPost (first load) does not read a context. */
+  assert.doesNotMatch(read(join(LAUNCH, 'soft-post.tsx')), /studio-actions-context|print-fetch-context/, 'SoftPost reads the lab context — it would ride the Maker’s first load');
 });

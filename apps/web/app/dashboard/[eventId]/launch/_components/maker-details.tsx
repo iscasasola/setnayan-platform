@@ -502,7 +502,10 @@ export function MakerDetails(props: MakerDetailsProps) {
   const free = freePrintParts(eventId, slug, prints);
   /* 🧭 Studio › Prints: the same prints for the day, drawn as rows of its one list (blurb · small Saves). */
   const freeStudio = props.studio ? freePrintParts(eventId, slug, prints, true) : null;
-  const save = <SaveWords />;
+  /* 🧭 Studio › Prints: the print words form's Save is the ONE ActionButton (`StudioTool part="print-save"`); the shipped Maker keeps its own. */
+  const save = props.studio ? <StudioTool part="print-save" form={WORDS_FORM} /> : <SaveWords />;
+  /* 🧭 …and each include switch is the Form row's switch (`part="include-switch"`) — the SAME fields, the SAME form, only drawn by the template. */
+  const IncludeSwitch = (p: Parameters<typeof Toggle>[0]) => (props.studio ? <StudioTool part="include-switch" {...p} /> : <Toggle {...p} />);
   /* 🗓 Your event (part 2a) — its rows, bodies and editors (`details-your-event-parts.tsx`). */
   const ye = props.yourEvent ? yourEventParts({ eventId, input: props.yourEvent, prints, parents, hosts }) : null;
   /* 📍 Studio › Info names the place "Venue" — "Venues" only when there are several (owner 2026-10-07). */
@@ -792,7 +795,9 @@ export function MakerDetails(props: MakerDetailsProps) {
   }
 
   /* ══ EDITORS — each item's controls; every one stays mounted ══ */
-  const qrAlways = (
+  const qrAlways = props.studio ? (
+    <StudioTool part="fact" label="Event Hub QR code" value="Always printed" line="" data="qr-always" />
+  ) : (
     <div data-include="qr-always" className="flex min-h-11 items-center justify-between gap-3 border-b border-ink/5 py-2">
       <span className="text-sm text-ink">Event Hub QR code</span>
       <span className="text-xs font-medium text-ink/60">Always printed</span>
@@ -805,7 +810,7 @@ export function MakerDetails(props: MakerDetailsProps) {
   /* The NFC spot rides the print words form — ONE switch, drawn under the QR (or, in the new Maker's
      Studio, among the Finer Details switches: Info's QR is the Event Hub's, Prints holds what prints). */
   const nfcToggle = (
-    <Toggle
+    <IncludeSwitch
       form={WORDS_FORM}
       name="inc_nfc"
       label="Add an NFC sticker spot"
@@ -854,7 +859,7 @@ export function MakerDetails(props: MakerDetailsProps) {
     invitation: (
       <PrintPieceEditor input={prints} piece="invitation" studio={Boolean(props.studio)}>
         {switches.parents ? (
-          <Toggle
+          <IncludeSwitch
             form={WORDS_FORM}
             name="inc_parents"
             label="Parents on the invitation"
@@ -862,18 +867,18 @@ export function MakerDetails(props: MakerDetailsProps) {
             tip="Guests whose role on your guest list is a parent's. Parents are optional — with none, the card leaves that part out."
           >
             <ParentCards eventId={eventId} parents={parents} />
-          </Toggle>
+          </IncludeSwitch>
         ) : null}
-        <Toggle form={WORDS_FORM} name="inc_opening_line" label="Opening line" on={inc.openingLine}>
+        <IncludeSwitch form={WORDS_FORM} name="inc_opening_line" label="Opening line" on={inc.openingLine}>
           {openingLine}
-        </Toggle>
+        </IncludeSwitch>
         {qrAlways}
         {save}
       </PrintPieceEditor>
     ),
     details: (
       <PrintPieceEditor input={prints} piece="details" studio={Boolean(props.studio)}>
-        <Toggle
+        <IncludeSwitch
           form={WORDS_FORM}
           name="inc_gift_details"
           label="E-Gifts — gift details"
@@ -887,13 +892,13 @@ export function MakerDetails(props: MakerDetailsProps) {
           )}
           tip="Account numbers print masked (•••• 1234)."
         />
-        <Toggle form={WORDS_FORM} name="inc_thank_you" label="E-Gifts — thank-you message" on={inc.thankYou}>
+        <IncludeSwitch form={WORDS_FORM} name="inc_thank_you" label="E-Gifts — thank-you message" on={inc.thankYou}>
           {/* The Words › Thank-you editor — one field, two doors. */}
           {facts['thank-you']}
-        </Toggle>
-        <Toggle form={WORDS_FORM} name="inc_love_story" label="Love Story" on={inc.loveStory !== 'none'} tip="A short excerpt of your story on the Finer Details card." />
-        <Toggle form={WORDS_FORM} name="inc_schedule" label="Schedule — the program" on={inc.schedule} tip="Only the moments your guests can see." />
-        <Toggle
+        </IncludeSwitch>
+        <IncludeSwitch form={WORDS_FORM} name="inc_love_story" label="Love Story" on={inc.loveStory !== 'none'} tip="A short excerpt of your story on the Finer Details card." />
+        <IncludeSwitch form={WORDS_FORM} name="inc_schedule" label="Schedule — the program" on={inc.schedule} tip="Only the moments your guests can see." />
+        <IncludeSwitch
           form={WORDS_FORM}
           name="inc_mood_board"
           label="Mood Board — our colours"
@@ -904,13 +909,13 @@ export function MakerDetails(props: MakerDetailsProps) {
             <DetailsGoTo item="mood-board">Build your Mood Board first</DetailsGoTo>
           )}
         />
-        <Toggle form={WORDS_FORM} name="inc_special_message" label="Special message" on={inc.specialMessage}>
+        <IncludeSwitch form={WORDS_FORM} name="inc_special_message" label="Special message" on={inc.specialMessage}>
           {/* The Words › Special message editor — one field, two doors. */}
           {facts['special-message']}
-        </Toggle>
-        <Toggle form={WORDS_FORM} name="inc_rsvp" label="Kindly reply" on={inc.rsvp} tip="A host or your coordinator, read from their account — or type it in.">
+        </IncludeSwitch>
+        <IncludeSwitch form={WORDS_FORM} name="inc_rsvp" label="Kindly reply" on={inc.rsvp} tip="A host or your coordinator, read from their account — or type it in.">
           {kindlyReply}
-        </Toggle>
+        </IncludeSwitch>
         {qrAlways}
         {save}
       </PrintPieceEditor>
@@ -918,12 +923,12 @@ export function MakerDetails(props: MakerDetailsProps) {
     pass: (
       <>
         <PrintPieceEditor input={prints} piece="pass" studio={Boolean(props.studio)}>
-          <Toggle form={WORDS_FORM} name="inc_guest_names" label="Guest list — names on passes" on={inc.guestNames} />
+          <IncludeSwitch form={WORDS_FORM} name="inc_guest_names" label="Guest list — names on passes" on={inc.guestNames} />
           {qrAlways}
           {save}
         </PrintPieceEditor>
         {/* 🎫 The pass guests save — its look (one dropdown) and its two outputs. */}
-        <PassCardsPanel input={prints} />
+        <PassCardsPanel input={prints} studio={Boolean(props.studio)} />
       </>
     ),
     entourage: <PrintPieceEditor input={prints} piece="entourage" studio={Boolean(props.studio)} />,
@@ -931,7 +936,7 @@ export function MakerDetails(props: MakerDetailsProps) {
     poster: <PrintPieceEditor input={prints} piece="poster" studio={Boolean(props.studio)} />,
     'story-poster': <PrintPieceEditor input={prints} piece="story-poster" studio={Boolean(props.studio)} />,
     card: <PrintPieceEditor input={prints} piece="card" studio={Boolean(props.studio)} />,
-    download: <PrintSetDownloads input={prints} />,
+    download: <PrintSetDownloads input={prints} studio={Boolean(props.studio)} />,
     /* ── Words ── */
     'special-message': facts['special-message'],
     'thank-you': facts['thank-you'],
@@ -986,9 +991,13 @@ export function MakerDetails(props: MakerDetailsProps) {
       f.key === 'seat-plan' ? (
         <div className="flex flex-col gap-3">
           {freeEditor(f)}
-          <Toggle form={WORDS_FORM} name="inc_seat_plan" label="Offer a seat plan with the set" on={inc.seatPlan !== 'none'} tip="Prints your seating chart from the Seat plan you already made.">
-            <Segmented form={WORDS_FORM} name="seat_plan_kind" value={inc.seatPlan === 'none' ? 'list' : inc.seatPlan} options={[['3d', '3D'], ['2d', '2D'], ['list', 'List']]} />
-          </Toggle>
+          <IncludeSwitch form={WORDS_FORM} name="inc_seat_plan" label="Offer a seat plan with the set" on={inc.seatPlan !== 'none'} tip="Prints your seating chart from the Seat plan you already made.">
+            {props.studio ? (
+              <StudioTool part="seat-kind" form={WORDS_FORM} name="seat_plan_kind" value={inc.seatPlan === 'none' ? 'list' : inc.seatPlan} options={[['3d', '3D'], ['2d', '2D'], ['list', 'List']]} />
+            ) : (
+              <Segmented form={WORDS_FORM} name="seat_plan_kind" value={inc.seatPlan === 'none' ? 'list' : inc.seatPlan} options={[['3d', '3D'], ['2d', '2D'], ['list', 'List']]} />
+            )}
+          </IncludeSwitch>
           {inc.seatPlan === '3d' ? <SeatPlan3dNote eventId={eventId} /> : null}
           {save}
         </div>

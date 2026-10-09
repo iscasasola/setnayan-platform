@@ -15,6 +15,22 @@ export const LAB_STUDIO_ACTIONS: Partial<StudioActions> = {
   hubDraftAction: async () => ({ ok: true, intent: 'save', applied: 0, held: [] }),
 };
 
+/** Prints: every Save button's file. A tiny stand-in PDF — no route is asked, nothing is drawn from the database (`print-fetch-context.tsx`). */
+export const LAB_PRINT_FETCH: typeof fetch = async () =>
+  new Response(new Blob(['%PDF-1.4\n% lab stand-in: nothing was drawn and no route was asked\n'], { type: 'application/pdf' }), { status: 200 });
+/** `?refuse=1`: an unexpected 500 with an HTML page — the Save button says its own sentence, never the page's words. */
+export const LAB_PRINT_FETCH_REFUSED: typeof fetch = async () =>
+  new Response('<!doctype html><title>500</title><pre>relation "events" does not exist</pre>', { status: 500, headers: { 'content-type': 'text/html' } });
+
+/** The print words form (Studio › Prints' include switches + Save) — the one form id every include switch posts through (`maker-details.tsx` `WORDS_FORM`). */
+export const LAB_PRINT_WORDS_FORM = 'details-print-words';
+
+/**
+ * What the lab says when that form is saved with `?refuse=1` — the words the Maker's save status shows (the lab refuses the POST itself;
+ * the real route's refusal reaches `SoftPost`, which says exactly this).
+ */
+export const LAB_PRINT_WORDS_REFUSED = 'That did not save. Nothing changed — please try again.';
+
 /**
  * `?refuse=1`: every write REFUSES with the database's own words, on purpose — so a guard (and a look at 375) can prove the
  * page never prints them: each row says one plain sentence of its own.

@@ -19,7 +19,9 @@ import type { UploadSend } from '@/lib/upload-send';
  * Call sites keep the action's OWN name (`const { saveEgiftMethod } = useStudioActions();`), so every call reads — and every guard
  * that pins "the page calls saveEgiftMethod(…)" still reads — as the real call.
  *
- * Pages on it so far: E-Gifts (`StudioEgifts`, `StudioThanks`, `AnswerPicker`). EACH PAGE CONVERTED LATER ADDS ITS WRITES HERE, in its
+ * Pages on it so far: E-Gifts (`StudioEgifts`, `StudioThanks`, `AnswerPicker`). Prints' two seams are NOT here: the Save buttons' file fetch rides its own tiny
+ * context (`print-fetch-context.tsx` — `PrintSaveButton` is rendered by pure-render tests that must not load the server actions this file imports), and the print
+ * words form's submit is stood in on the lab's side (`lab-studio-actions.tsx`; its `SoftPost` is in the Maker's first load and must not read a context). EACH PAGE CONVERTED LATER ADDS ITS WRITES HERE, in its
  * own commit — the context is not "done".
  *
  * Loaded with the pages that read it (`details-lazy.tsx`, the `maker-details` chunk) — never in the Maker's first load.

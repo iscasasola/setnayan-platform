@@ -258,6 +258,13 @@ tests re-aimed with the reason written in.
   is hidden whenever the toolbar's root is away.
 - A keyboard way in: Shift + Enter (or Shift + Space) on ▶; the one button takes the focus, Esc leaves.
 
+### 9c · the toasts could not be seen (seen on the review copy)
+
+The toolbar's toast was drawn inside the toolbar, which leaves by a transform — so while it was away (▶ playing, the
+whole-page preview) "Hold ▶ to preview the whole page." and both refusals were in the page and invisible. It is drawn
+on the page's body now. And the Maker's own top bar (✕ · the stage · undo · Apply) slides away for the preview as it
+does for ▶: a guest's page carries nothing of the Maker's but "Exit preview".
+
 ### 10 · Background's choices are picture tiles
 
 Owner, choosing among three drawings of row 2: *"A- picture tiles"* (`review/bg-tiles.html`).

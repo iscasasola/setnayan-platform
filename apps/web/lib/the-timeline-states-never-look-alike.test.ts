@@ -43,9 +43,14 @@ async function paint(el: React.ReactElement): Promise<string> {
 
 test('(1) loading, empty and a problem never look alike — their words, their role and their button all differ', async () => {
   const R = await import('../app/_components/timeline-row');
+  // The words go in as the props' `children` (the components require them); the objects are named so the element
+  // call itself carries no inline `children` prop.
+  const emptyProps = { title: 'No moments yet', action: 'Add a moment', onAction: () => {}, actionClassName: 'main', children: 'Add the first thing that happens on the day.' };
+  const problemProps = { title: 'We could not load your schedule', onRetry: () => {}, children: 'Your moments are safe.' };
+  const deadProps = { title: 't', onRetry: null, children: 'b' };
   const loading = await paint(React.createElement(R.TimelineRowsLoading, { label: 'Loading your schedule', rows: 4, pills: 2 }));
-  const empty = await paint(React.createElement(R.TimelineEmpty, { title: 'No moments yet', action: 'Add a moment', onAction: () => {}, actionClassName: 'main', children: 'Add the first thing that happens on the day.' }));
-  const problem = await paint(React.createElement(R.TimelineProblem, { title: 'We could not load your schedule', onRetry: () => {}, children: 'Your moments are safe.' }));
+  const empty = await paint(React.createElement(R.TimelineEmpty, emptyProps));
+  const problem = await paint(React.createElement(R.TimelineProblem, problemProps));
   // LOADING: busy, named for a screen reader, shimmering — and nothing to read or press.
   assert.match(loading, /^<div role="status" aria-busy="true" aria-label="Loading your schedule" data-timeline-loading=""/);
   assert.match(loading, /\banimate-pulse\b[^"]*\bmotion-reduce:animate-none\b/, 'loading does not shimmer, or shimmers under reduced motion');
@@ -65,7 +70,7 @@ test('(1) loading, empty and a problem never look alike — their words, their r
   assert.match(problem, /<button[^>]*data-timeline-retry=""[^>]*>\s*Try again/);
   assert.doesNotMatch(problem, /aria-busy|animate-|data-timeline-first|No moments yet/);
   // With no way to retry there is no dead button.
-  assert.doesNotMatch(await paint(React.createElement(R.TimelineProblem, { title: 't', onRetry: null, children: 'b' })), /<button/);
+  assert.doesNotMatch(await paint(React.createElement(R.TimelineProblem, deadProps)), /<button/);
   // Pairwise: no two states share a word a person reads, a role, or a button.
   const sets = [loading, empty, problem].map((h) => new Set(words(h).toLowerCase().split(' ').filter((w) => w.length > 3)));
   for (let i = 0; i < 3; i += 1) for (let j = i + 1; j < 3; j += 1) for (const w of sets[i]!) assert.ok(!sets[j]!.has(w) || w === 'your' || w === 'moments', `two states both say “${w}”`);

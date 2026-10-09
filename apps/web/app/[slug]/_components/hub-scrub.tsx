@@ -56,8 +56,11 @@ export function HubScrub() {
           if (gone || !on) return;
           keepPlace = place?.keepScenePlace ?? null;
           const go = () => {
-            for (const root of document.querySelectorAll<HTMLElement>('.hub-scenes')) {
-              /* One engine a block — a page can mount this island more than once (each scenes block renders its own). */
+            /* THE PAGE'S OWN HOLD, when the page has one (`HubPageHold` — its outermost pair): ONE engine plays every
+               scenes block and the whole page stands still. Else one engine a block. */
+            const page = document.querySelector<HTMLElement>('.hub-page-cell');
+            for (const root of page?.querySelector('[data-hub-fx]') ? [page] : document.querySelectorAll<HTMLElement>('.hub-scenes')) {
+              /* Once — a page can mount this island more than once (each scenes block renders its own). */
               if (armed.has(root) || !root.querySelector('[data-hub-fx]')) continue;
               armed.add(root);
               const stop = m.armHubScrub(root);

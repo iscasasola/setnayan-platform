@@ -25,21 +25,54 @@ import { SCRUB, scrubLens, scrubMoment, scrubNeedsRest, scrubOwnIn, scrubPair, s
 export const HUB_SCRUB_OFF = 'data-hub-scrub-off';
 
 const CELL = '.hub-cell';
+const PAGE = '.hub-page-cell';
 /** `stick`: where the STAGE's top stands while its scene is held — above the scene's own line by whatever the stage holds before it. */
 type Held = { cell: HTMLElement; stage: HTMLElement; scene: HTMLElement; after: HTMLElement; below: HTMLElement | null; arrival: HTMLElement | null; pair: ScrubPair; rest: number; stick: number };
 
 const px = (n: number) => `${Math.round(n * 100) / 100}px`;
 const num = (n: number) => String(Math.round(n * 1000) / 1000);
 
+/**
+ * `root`: ONE scenes block (`.hub-scenes`) — or THE PAGE'S OWN HOLD (the outermost `.hub-page-cell`, `HubPageHold`),
+ * and then every scenes block inside it is played by this one engine and it is the PAGE that stands still.
+ *
+ * 🧍 THE WHOLE PAGE STANDS STILL (owner, his first sentence about Scrub: *"the page will not scroll"*). A hand-over's
+ * own cell can only hold what is inside the scenes block; the cover, a greeting, whatever the page draws around its
+ * scenes went on scrolling at thumb speed while a scene was "held" — which reads as ordinary scrolling. So a page
+ * wraps its whole content column in one plain cell › stage pair PER HAND-OVER, nested (`hub-scenes.tsx`
+ * `HubPageHold`), and here hand-over k is given page pair k instead of its own cell: that stage — the entire column
+ * — sticks when the leaving scene is on its line, for the hand-over's length. Still the browser's own sticky and
+ * real page length; back-to-back hand-overs chain natively, with no script at the boundaries. The scenes' own nest
+ * keeps what only it can do: the arrival in the same place, and the rise of what follows.
+ */
 export function armHubScrub(root: HTMLElement): () => void {
   if (typeof window === 'undefined') return () => {};
+  const scopes = root.matches('.hub-scenes') ? [root] : Array.from(root.querySelectorAll<HTMLElement>('.hub-scenes'));
+  /** Why it is off, said on every scenes block (null: it is on). */
+  const say = (why: string | null) => {
+    for (const s of scopes) why === null ? s.removeAttribute(HUB_SCRUB_OFF) : s.setAttribute(HUB_SCRUB_OFF, why);
+  };
   if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
-    root.setAttribute(HUB_SCRUB_OFF, 'reduce motion');
-    return () => root.removeAttribute(HUB_SCRUB_OFF);
+    say('reduce motion');
+    return () => say(null);
   }
-  root.removeAttribute(HUB_SCRUB_OFF);
+  say(null);
+  /* The page's own pairs, outermost first — none when `root` is a scenes block. */
+  const pages: Array<{ cell: HTMLElement; stage: HTMLElement }> = [];
+  for (let cell: HTMLElement | null = root.matches(PAGE) ? root : null; cell; ) {
+    const stage: HTMLElement | null = cell.querySelector<HTMLElement>(':scope > .hub-page-stage');
+    if (!stage) break;
+    pages.push({ cell, stage });
+    cell = stage.querySelector<HTMLElement>(`:scope > ${PAGE}`);
+  }
   const marked = new Map<HTMLElement, Map<string, string>>();
-  /** Set a custom property or a mark — only when it changes. */
+  /**
+   * Set a custom property or a mark — only when it changes.
+   * 🪤 A LENGTH IS NEVER "UNSET" WHILE ARMED: these boxes are nested inside boxes of their own kind (a cell in a
+   * stage in a cell, a rest-of-the-page in a rest-of-the-page), and a custom property INHERITS — a box left with
+   * none takes its ancestor's. Measured 2026-10-09: four inner cells each drew the page pair's 537 px as their own
+   * hold, 2,148 px of blank page. Every length is said outright (`0px`); `null` is for disarming only.
+   */
   const put = (el: HTMLElement, key: string, value: string | null) => {
     let was = marked.get(el);
     if (!was) marked.set(el, (was = new Map()));
@@ -73,7 +106,7 @@ export function armHubScrub(root: HTMLElement): () => void {
    */
   const docTop = (el: HTMLElement): number => {
     let y = 0;
-    for (let n: HTMLElement | null = el; n; n = n.offsetParent as HTMLElement | null) y += (n.matches('.hub-stage') ? (n.parentElement as HTMLElement) : n).offsetTop;
+    for (let n: HTMLElement | null = el; n; n = n.offsetParent as HTMLElement | null) y += (n.matches('.hub-stage, .hub-page-stage') ? (n.parentElement as HTMLElement) : n).offsetTop;
     return y;
   };
   const there = new Set<HTMLElement>();
@@ -100,7 +133,11 @@ export function armHubScrub(root: HTMLElement): () => void {
     let arrivedAt: { scene: HTMLElement; top: number } | null = null;
     /* What follows a pair starts lower and RISES while it is held (`--hub-rise`, a `top`): everything below is measured
        as it is LAID OUT, so those are taken off first — `frame`, which always follows, puts them back. */
-    for (const h of was) if (h.below) put(h.below, '--hub-rise', null);
+    for (const h of was) if (h.below) put(h.below, '--hub-rise', '0px');
+    /* Armed FIRST: where a stage must stand depends on the hand-overs before it having drawn their arrivals in place
+       (`--hub-up`), and nothing of the drawing applies until the mark is on. */
+    for (const s of scopes) put(s, 'data-hub-scrub-on', '');
+    if (pages.length) put(root, 'data-hub-page-on', '');
     for (const cell of root.querySelectorAll<HTMLElement>(CELL)) {
       const stage = cell.querySelector<HTMLElement>(':scope > .hub-stage');
       /* THE LEAVING SCENE is the one right before its cell's `.hub-after` — the stage may hold ordinary scenes before
@@ -111,8 +148,8 @@ export function armHubScrub(root: HTMLElement): () => void {
       /* A scene that drew nothing (a Countdown with no date: no box at all) holds nothing — the page never stands
          still on a blank. What follows it simply follows. */
       if (scene.offsetHeight === 0) {
-        put(stage, '--hub-top', null);
-        put(cell, '--hub-len', null);
+        put(stage, '--hub-top', '0px');
+        put(cell, '--hub-len', '0px');
         put(after, '--hub-up', '0px');
         arrivedAt = null;
         continue;
@@ -126,33 +163,45 @@ export function armHubScrub(root: HTMLElement): () => void {
       const pair = scrubPair(leaving, arrival ? elementOf(arrival) : { h: 0, oneByOne: false }, view);
       /* Is this element already where it is held when the hand-over INTO it ends? Then a rest comes first. */
       const rest = arrivedAt && arrivedAt.scene === scene && scrubNeedsRest(arrivedAt.top, leaving, view) ? lens.rest : 0;
+      /* WHAT STANDS STILL: the page's own pair for this hand-over when the page has one (the whole column), else the
+         hand-over's own cell (the scenes block from the last hand-over on). */
+      const hold = pages[held.length] ?? { cell, stage };
+      if (hold.cell !== cell) {
+        put(stage, '--hub-top', '0px');
+        put(cell, '--hub-len', '0px');
+      }
       /* The stage sticks where its SCENE is on its line: higher by what it holds before the scene. */
-      const stick = pair.top - (docTop(scene) - docTop(stage));
-      put(stage, '--hub-top', px(stick));
-      put(cell, '--hub-len', px(pair.len + rest));
+      const stick = pair.top - (docTop(scene) - docTop(hold.stage));
+      put(hold.stage, '--hub-top', px(stick));
+      put(hold.cell, '--hub-len', px(pair.len + rest));
       /* The arrival is drawn in its place whatever sits between it and the top of the rest of the page (a scene with
          no box, a wrapper's gap). */
-      put(after, '--hub-up', arrival ? px(pair.up - (docTop(arrival) - docTop(after))) : null);
-      held.push({ cell, stage, scene, after, below, arrival, pair, rest, stick });
+      put(after, '--hub-up', arrival ? px(pair.up - (docTop(arrival) - docTop(after))) : '1rem');
+      held.push({ cell: hold.cell, stage: hold.stage, scene, after, below, arrival, pair, rest, stick });
       arrivedAt = arrival ? { scene: arrival, top: pair.arrivalTop } : null;
     }
-    put(root, 'data-hub-scrub-on', '');
+    /* A page pair nobody needed (a scene that drew nothing, a scene on a tab that is not shown) holds nothing. */
+    for (const spare of pages.slice(held.length)) {
+      put(spare.stage, '--hub-top', '0px');
+      put(spare.cell, '--hub-len', '0px');
+    }
     /* THE PAGE'S END: long enough that the last scene's bottom can reach the centre line — every row can complete
        and every hand-over can finish, at any window height. */
     /* …so the page must scroll at least as far as (a) the last scene's bottom on the centre line and (b) the end of
        the last hand-over; where it stops short, the difference is added after the scenes. */
     const last = scenes[scenes.length - 1];
     const final = held[held.length - 1];
-    put(root, '--hub-end', null);
+    const tail = scopes[scopes.length - 1] ?? root;
+    put(tail, '--hub-end', null);
     const reach = document.documentElement.scrollHeight - V;
     /* Thumb travel to bring a laid-out place to a line on the screen: the distance, plus every hold passed on the way
-       (the holds of the cells it sits inside — each keeps what is in it standing for its own length). */
-    const travel = (el: HTMLElement, y: number, line: number) => y - line + held.reduce((n, h) => (h.cell !== el && h.cell.contains(el) ? n + h.pair.len + h.rest : n), 0);
+       (every hand-over whose scene comes BEFORE this one in the page keeps it standing for its own length). */
+    const travel = (el: HTMLElement, y: number, line: number) => y - line + held.reduce((n, h) => (h.scene !== el && h.scene.compareDocumentPosition(el) & 4 ? n + h.pair.len + h.rest : n), 0);
     const need = Math.max(
       last ? travel(last, docTop(last) + last.offsetHeight, C) : 0,
-      final ? travel(final.cell, docTop(final.cell), final.stick) + final.pair.len + final.rest : 0,
+      final ? travel(final.scene, docTop(final.cell), final.stick) + final.pair.len + final.rest : 0,
     );
-    put(root, '--hub-end', need > reach ? px(need - reach) : null);
+    put(tail, '--hub-end', need > reach ? px(need - reach) : null);
     /* An element already past the centre line when the page opens is simply there. */
     there.clear();
     for (const s of scenes) if (docTop(s) <= C) there.add(s);
@@ -174,7 +223,7 @@ export function armHubScrub(root: HTMLElement): () => void {
       const m = scrubMoment(t, h.pair, lens, h.rest);
       of(h.scene).pout = m.out;
       if (h.arrival) Object.assign(of(h.arrival), { pin: m.in, gate: m.rows, handed: true });
-      if (h.below) put(h.below, '--hub-rise', h.pair.rise > 0 ? px(h.pair.rise * m.below) : null);
+      if (h.below) put(h.below, '--hub-rise', px(h.pair.rise * m.below));
     }
     for (const scene of scenes) {
       const s = of(scene);
@@ -236,7 +285,7 @@ export function armHubScrub(root: HTMLElement): () => void {
   /** A throw: back to the plain page — and the page says what stopped it. */
   function fail(e: unknown) {
     stop();
-    root.setAttribute(HUB_SCRUB_OFF, `the script stopped: ${e instanceof Error ? e.message : String(e)}`.slice(0, 160));
+    say(`the script stopped: ${e instanceof Error ? e.message : String(e)}`.slice(0, 160));
   }
   function stop() {
     if (dead) return;

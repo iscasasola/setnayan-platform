@@ -515,6 +515,34 @@ names the scene that leaves. Sabotaged in the browser: the important opacity rem
 size; the pulse removed → red. Guards: rule (6) new, (3) of the hand-over guard re-aimed to the measured fix, the
 badge's fake page redrawn to the real shape; three sabotages red. Engine 2,543 B gz (was 2,488). Maker first load 0 B.
 
+### 8c · the WHOLE page stands still — the page's own hold
+
+A hand-over's cell could only hold its scenes block; the cover, the greeting, whatever a page draws around its
+scenes went on scrolling at thumb speed during the first hold — so the first thing a guest met did not look like a
+hand-over at all. Now a page wraps its whole column in one plain cell › stage pair per hand-over, nested
+(`HubPageHold`), and the engine gives hand-over k the k-th pair from the outside: that stage — the entire column —
+stands still, by the browser's own `position: sticky`, for the hand-over's length. Back-to-back hand-overs chain
+natively; no script acts at the boundaries; no scroll position is set.
+
+- `site-body.tsx`: both trees (the stranger's and the guest's) wrap their `<article>` in `HubPageHold`, with at most
+  one pair a scene that Leaves by Scrub. With no such scene — EVERY PAGE TODAY — nothing is wrapped: the article is
+  the fragment's child exactly as before.
+- Engine: one engine a page when the page has a hold of its own (every scenes block inside it); the cells inside a
+  scenes block then carry no length and no line — they keep "the arrival in the same place" and the rise.
+- A FAULT FOUND ON THE WAY: custom properties inherit, and these boxes are nested in boxes of their own kind. A box
+  left with no length took its ancestor's — four inner cells each drew the page pair's 537 px, 2,148 px of blank
+  page. Every length is now said outright (`0px`); the same hole existed for an empty scene's cell since the cleanup.
+- A page a tab (each scene on its own page): the pairs go around hidden groups; a scene with no box holds nothing,
+  so such a page is the plain page for the scenes it is not showing. Not played.
+
+Browser check: 205 checks green — the whole battery at six sizes ON the page-level page, the scenes block alone at
+two, and: "the page before the scenes stands still during a hold" (44–217 positions watched a size); "no length
+nobody asked for"; the page's own island arms the page's hold; the hold under `html { overflow-x: clip }`. The
+engine sabotaged (holding only the block) → three red in the browser. Guard: rule (8), executed against the real
+components (no hand-over → byte-identical markup; the count never less than what is drawn); two sabotages red; 18
+guards that pin `site-body.tsx` or the renderer green. Maker first load: 0 B (`site-body`, the renderer and the
+engine are the guest page's).
+
 SPEC IMPACT: Yes — supersedes the 2026-10-06/07 "Style | Text | Animate" and "the toolbar is half the screen" rows.
 The controller holds the spec (`TOOLBAR-SPEC-2026-10-09.md`) and applies the corpus rows; nothing in the corpus was
 edited from this branch.

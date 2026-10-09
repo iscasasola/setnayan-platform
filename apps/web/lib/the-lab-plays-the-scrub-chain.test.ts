@@ -172,8 +172,9 @@ test('(4) while editing nothing is held: the Maker’s canvas arms only when the
    noticeable", and the engine's `catch` swallowed its own reason. Now the scenes block carries WHY it is off, and the
    lab's badge has no numbers of its own: it reads the page. Sabotages: the engine failing without saying why → red;
    the badge reporting ON for a page that says it is off → red. */
-type Fake = { vars?: Record<string, string>; attrs?: Record<string, string>; one?: Record<string, Fake | null>; all?: Record<string, Fake[]> };
+type Fake = { vars?: Record<string, string>; attrs?: Record<string, string>; one?: Record<string, Fake | null>; all?: Record<string, Fake[]>; h?: number };
 const fake = (o: Fake) => ({
+  offsetHeight: o.h ?? 100,
   style: { getPropertyValue: (k: string) => o.vars?.[k] ?? '' },
   getAttribute: (k: string) => o.attrs?.[k] ?? null,
   hasAttribute: (k: string) => k in (o.attrs ?? {}),
@@ -187,7 +188,7 @@ const page = (root: Fake | null) => ({ querySelector: (sel: string) => (sel === 
    still" may be an ordinary scene standing with it (the badge named the note as the one leaving; seen 2026-10-09). */
 function rootOf(root: Fake) {
   const scenes = (root.all?.['.hub-scene'] ?? []).map(fake);
-  const afters = (root.all?.['.hub-cell'] ?? []).map((c, i) => ({ closest: () => fake(c), previousElementSibling: scenes[Number(c.attrs?.scene ?? i)] }));
+  const afters = (root.all?.['.hub-cell'] ?? []).map((c, i) => ({ previousElementSibling: scenes[Number(c.attrs?.scene ?? i)] }));
   return { ...fake(root), querySelectorAll: (sel: string) => (sel === '.hub-after' ? afters : sel === '.hub-scene' ? scenes : []) };
 }
 const named = (name: string, vars: Record<string, string> = {}, rows: Fake[] = []): Fake => ({ vars, one: { '[data-lab-name]': { attrs: { 'data-lab-name': name } } }, all: { '[data-hub-rows] > *': rows } });
@@ -219,8 +220,8 @@ test('(5) off is never silent: the page carries the reason, and the lab’s badg
     readScrubBadge(page({ attrs: { 'data-hub-scrub-on': '' }, all: { '.hub-scene': [named('Countdown', { '--hub-pout': '1' }), named('A note from us'), named('Dress code', { '--hub-pout': '0.5' }), named('Venue', { '--hub-pbin': '0.2' })], '.hub-cell': [{ vars: { '--hub-len': '500px' }, attrs: { scene: '0' } }, { vars: { '--hub-len': '500px' }, attrs: { scene: '2' } }] } }), true),
     'Scrub: ON · hand-over 2 of 2 · Dress code leaves 50 % · Venue arrives 20 %',
   );
-  /* A cell with no length is an empty scene's — not a hand-over. */
-  assert.equal(readScrubBadge(page({ attrs: { 'data-hub-scrub-on': '' }, all: { '.hub-scene': [named('Countdown')], '.hub-cell': [{ vars: {} }] } }), true), 'Scrub: ON — no hand-over on this page');
+  /* A scene that drew nothing is not a hand-over (the engine holds nothing for it). */
+  assert.equal(readScrubBadge(page({ attrs: { 'data-hub-scrub-on': '' }, all: { '.hub-scene': [{ ...named('Countdown'), h: 0 }], '.hub-cell': [{}] } }), true), 'Scrub: ON — no hand-over on this page');
   /* The badge has no numbers of its own, and is drawn on the lab's chain only. */
   const badge = read('app/dev/maker-lab/guest/scrub-badge.tsx');
   assert.doesNotMatch(badge, /hub-scrub-(?:engine|math)|scrubPair|scrubMoment|SCRUB\b/, 'the badge computes the hand-over itself');
@@ -241,12 +242,14 @@ test('(5) off is never silent: the page carries the reason, and the lab’s badg
   /* THE ENGINE says its own two reasons — and no `catch` of it is silent any more. */
   const engine = read('app/[slug]/_components/hub-scrub-engine.ts');
   assert.match(engine, /export const HUB_SCRUB_OFF = 'data-hub-scrub-off';/);
-  assert.match(engine, /if \(window\.matchMedia\?\.\('\(prefers-reduced-motion: reduce\)'\)\.matches\) \{\s*root\.setAttribute\(HUB_SCRUB_OFF, 'reduce motion'\);\s*return \(\) => root\.removeAttribute\(HUB_SCRUB_OFF\);\s*\}/);
-  assert.match(engine, /function fail\(e: unknown\) \{\s*stop\(\);\s*root\.setAttribute\(HUB_SCRUB_OFF, `the script stopped: \$\{e instanceof Error \? e\.message : String\(e\)\}`\.slice\(0, 160\)\);\s*\}/);
+  /* (2026-10-09: said on EVERY scenes block the engine plays — on a page with its own hold one engine plays them all.) */
+  assert.match(engine, /const say = \(why: string \| null\) => \{\s*for \(const s of scopes\) why === null \? s\.removeAttribute\(HUB_SCRUB_OFF\) : s\.setAttribute\(HUB_SCRUB_OFF, why\);\s*\};/);
+  assert.match(engine, /if \(window\.matchMedia\?\.\('\(prefers-reduced-motion: reduce\)'\)\.matches\) \{\s*say\('reduce motion'\);\s*return \(\) => say\(null\);\s*\}/);
+  assert.match(engine, /function fail\(e: unknown\) \{\s*stop\(\);\s*say\(`the script stopped: \$\{e instanceof Error \? e\.message : String\(e\)\}`\.slice\(0, 160\)\);\s*\}/);
   assert.equal((engine.match(/catch \(e\) \{\s*fail\(e\);\s*\}/g) ?? []).length, 3);
   assert.equal((engine.match(/\bcatch\b/g) ?? []).length, 3, 'a catch of the engine does not say why it stopped');
   /* …and arming clears it: a page cannot say "off" while it is on. */
-  assert.match(engine, /root\.removeAttribute\(HUB_SCRUB_OFF\);\s*const marked = /);
+  assert.match(engine, /say\(null\);\s*const pages/);
   /* THE ISLAND says the two that are its own, under the same name. */
   const island = read('app/[slug]/_components/hub-scrub.tsx');
   assert.match(island, /const OFF = 'data-hub-scrub-off';/);

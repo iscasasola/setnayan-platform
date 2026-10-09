@@ -243,7 +243,8 @@ test('⛔ an empty Scrub scene holds nothing — no blank screen stands still', 
   assert.match(CSS, /\.hub-scene:empty,\s*\.hub-scene:has\(> \.hub-canvas > \.hub-canvas-body:empty\) \{ display: none; \}/);
   assert.match(CSS, /\.hub-scene:empty \+ \.hub-after,\s*\.hub-scene:has\(> \.hub-canvas > \.hub-canvas-body:empty\) \+ \.hub-after \{ margin-top: 0; \}/);
   const engine = stripComments(readFileSync(join(__dirname, '..', 'app/[slug]/_components/hub-scrub-engine.ts'), 'utf8'));
-  assert.match(engine, /if \(scene\.offsetHeight === 0\) \{[^}]*put\(cell, '--hub-len', null\);[^}]*continue;\s*\}/, 'the engine holds the page for a scene that drew nothing');
+  /* (`0px`, said outright — never unset: an unset length would inherit the enclosing hand-over's.) */
+  assert.match(engine, /if \(scene\.offsetHeight === 0\) \{[^}]*put\(cell, '--hub-len', '0px'\);[^}]*continue;\s*\}/, 'the engine holds the page for a scene that drew nothing');
 });
 
 test('🪤 no selector nests :has() inside :has() — the browser drops the WHOLE rule', () => {

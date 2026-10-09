@@ -249,6 +249,15 @@ All of it is in the lazy toolbar and the editor-only canvas bridge — nothing i
 Guard: `lib/the-play-button-previews.test.ts` (5 rules, eight sabotages seen red); seven assertions in five pinning
 tests re-aimed with the reason written in.
 
+### 9b · the preview, seen on the review copy
+
+- The canvas never went into the preview: the Maker's message names no section, and the bridge read it after the
+  line that drops every message without a `key` — so every tap in the "preview" still picked a part. It is read
+  with the other keyless messages now (guarded by its place, and by the message having no key).
+- The work area's tool stayed on the page while the toolbar was away (▶ playing too) and covered "Exit preview": it
+  is hidden whenever the toolbar's root is away.
+- A keyboard way in: Shift + Enter (or Shift + Space) on ▶; the one button takes the focus, Esc leaves.
+
 ### 10 · Background's choices are picture tiles
 
 Owner, choosing among three drawings of row 2: *"A- picture tiles"* (`review/bg-tiles.html`).

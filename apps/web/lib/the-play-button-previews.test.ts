@@ -115,9 +115,11 @@ test('(3) a hold is the whole page as a guest — it lets go of nothing, and Exi
   /* THE PRESS: a timer; a release before it is a tap; the release after it is not. */
   assert.match(tools, /hold\.current\.timer = window\.setTimeout\(\(\) => \{\s*hold\.current\.timer = null;\s*hold\.current\.fired = true;\s*enterPreview\(\);\s*\}, STAGE_HOLD_MS\);/);
   assert.match(tools, /const play = \(\) => \{\s*if \(hold\.current\.fired\) \{\s*hold\.current\.fired = false;\s*return;\s*\}/, 'the release of a hold also plays');
-  const button = /<button\s+type="button"\s+aria-label=\{playing \? 'Stop'[\s\S]*?data-stage-play=""[\s\S]*?>/.exec(tools)?.[0] ?? '';
+  const bAt = tools.indexOf("aria-label={playing ? 'Stop'");
+  const button = tools.slice(bAt, tools.indexOf('className={`${STAGE_ICON_BUTTON}', bAt));
+  assert.ok(bAt > 0 && button.includes('data-stage-play=""'), 'anti-vacuity: ▶ was found');
   for (const h of ['onClick={play}', 'onPointerDown={holdStart}', 'onPointerUp={holdEnd}', 'onPointerLeave={holdEnd}', 'onPointerCancel={holdEnd}']) assert.ok(button.includes(h), `▶ lost ${h}`);
-  assert.match(button, /hold to preview the whole page/, 'a screen reader is not told of the hold');
+  assert.match(button, /hold, or press Shift and Enter, to preview the whole page/, 'a screen reader is not told of the hold');
   assert.doesNotMatch(button, /\sdisabled\b/);
   /* ENTERING lets go of nothing; the canvas is told. */
   const enter = /const enterPreview = useCallback\(\(\) => \{([\s\S]*?)\}, \[\]\);/.exec(tools)?.[1] ?? '';
@@ -143,6 +145,16 @@ test('(3) a hold is the whole page as a guest — it lets go of nothing, and Exi
   assert.doesNotMatch(exit, /<button\b/);
   assert.match(exit, /bottom: `calc\(env\(safe-area-inset-bottom\) \+ \$\{pages\.length > 1 && !rsvpOpen \? STAGE_EXIT_OVER_BAR_PX : STAGE_EXIT_GAP_PX\}px\)`/);
   assert.match(tools, /export const STAGE_EXIT_OVER_BAR_PX = 44 \+ STAGE_EXIT_GAP_PX;/, 'the button is not clear of the guests’ 44-px bar');
+  /* THE WORK AREA'S TOOL GOES WITH THE TOOLBAR (seen on the review copy: it stayed on the page and covered "Exit
+     preview") — hidden whenever the toolbar's root is away, by the root's own `aria-hidden`. */
+  assert.match(tools, /aria-hidden=\{away \|\| undefined\}/, 'anti-vacuity: the toolbar’s root says when it is away');
+  assert.ok(tools.includes(`'[data-maker-shell]:has([data-stage-tools][aria-hidden="true"]) [data-phone-chrome="panel"]{visibility:hidden;pointer-events:none}'`), 'the work area’s tool stays on the page while the toolbar is away');
+  /* ⌨ THE KEYBOARD: Shift + Enter (or Space) on ▶ goes in; the one button takes the focus; Esc comes out. */
+  assert.match(button, /aria-keyshortcuts="Shift\+Enter"/);
+  assert.match(button, /onKeyDown=\{\(e\) => \{\s*if \(!e\.shiftKey \|\| \(e\.key !== 'Enter' && e\.key !== ' '\)\) return;\s*e\.preventDefault\(\);\s*hold\.current\.fired = true;\s*enterPreview\(\);/);
+  assert.match(button, /press Shift and Enter/);
+  assert.match(tools, /document\.querySelector<HTMLElement>\('\[data-stage-exit-preview\] button'\)\?\.focus\(\{ preventScroll: true \}\)/);
+  assert.match(tools, /if \(e\.key === 'Escape'\) exitPreview\(\);/);
   /* LEAVING: the canvas gets its taps back, then the page and the part they held. */
   const leave = /const exitPreview = useCallback\(\(\) => \{([\s\S]*?)\}, \[\]\);/.exec(tools)?.[1] ?? '';
   assert.match(leave, /postToCanvas\(\{ source: 'setnayan-editor', t: 'guest', on: false \}\);\s*setPreviewing\(false\);/);
@@ -162,7 +174,15 @@ test('(4) in the preview the canvas takes no tap — and a link that leaves, or 
   assert.ok(send.indexOf('if (guest.on) return;') > 0 && send.indexOf('if (guest.on) return;') < send.indexOf('e.preventDefault()'), 'the canvas still takes the tap first');
   assert.match(bridge, /const onStray = \(e: MouseEvent\) => \{\s*if \(guest\.on\) return;/);
   assert.match(bridge, /const onSelection = \(\) => \{\s*if \(guest\.on\) return;/);
-  assert.match(bridge, /if \(data\.t === 'guest'\) \{\s*guest\.set\(\(data as \{ on\?: unknown \}\)\.on === true\);\s*return;/);
+  /* 🧨 SEEN ON THE REVIEW COPY (2026-10-09): the Maker's message names no section (`key`), and the canvas only read
+     it AFTER the line that drops every keyless message — it never went into its preview and kept taking every tap.
+     So: the message has no key, and the canvas answers it BEFORE that line. */
+  assert.match(tools, /postToCanvas\(\{ source: 'setnayan-editor', t: 'guest', on: true \}\);/);
+  const hears = bridge.indexOf("data.t === 'guest') {");
+  const keyless = bridge.indexOf("typeof data.key !== 'string') return;");
+  assert.ok(hears > 0 && keyless > 0 && hears < keyless, 'the canvas reads the preview’s message after it has dropped every message without a key');
+  assert.match(bridge, /if \(data && data\.source === 'setnayan-editor' && data\.t === 'guest'\) \{\s*guest\.set\(\(data as \{ on\?: unknown \}\)\.on === true\);\s*return;/);
+  assert.equal((bridge.match(/data\.t === 'guest'/g) ?? []).length, 1);
   /* Refused, in the capture phase, and SAID. */
   assert.match(bridge, /if \(a && guestLinkLeaves\(a\.href, a\.target, window\.location\.href\)\) refuse\(e, 'link'\);/);
   assert.match(bridge, /const onSubmit = \(e: Event\) => refuse\(e, 'send'\);/);

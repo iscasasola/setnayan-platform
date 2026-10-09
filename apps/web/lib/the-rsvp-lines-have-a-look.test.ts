@@ -511,16 +511,25 @@ test('9 · the panel: the card’s Background is None · Plain · Frosted; a lin
     assert.match(html, /This sits on the RSVP card’s background\./);
     assert.match(html, /data-rsvp-open-card=""[\s\S]*Open the card/);
   }
-  /* ANIMATE — the toolbar's own Animate, on its Build in only: the four effects, and Movement. No Action, no Build
-     out (a reply page is one screen with no exit) — not drawn dead, not drawn at all. */
+  /* ANIMATE — the toolbar's own Animate, on its Build in only: the four effects, and Movement.
+     🔁 RE-AIMED 2026-10-10 (owner: "please make Edit | Style | Background | Animate Consistent in design"; the measured
+     list, item 4): it is the SAME four rows as on every stage now. Row 1 — Build in | Action | Build out — IS drawn,
+     with Build in picked and the two a reply page has none of GREY (`aria-disabled`, never `disabled`: a tap says why,
+     `RSVP_ONE_SCREEN_WHY`); the rows no longer start a row high, and Movement is the last row. What this held is
+     unchanged: nothing a reply page cannot play can be PICKED, and nothing is a dead tap. */
   for (const [scene, part, line] of [['form', 'rsvp', 'question'], ['form', 'rsvp', null], ['thanks', 'pass', 'save'], ['decline', 'nonote', null]] as const) {
     const html = await panel(scene, { tool: 'animate', part, line }, { look: { lines: { 'rsvp.question': { i: { fade: true, move: 'below' }, v: 'quick' } } } });
     assert.match(html, /data-stage-animate-rows=""/, `${part}.${line}: not the toolbar’s Animate`);
     assert.deepEqual([...html.matchAll(/>(Fade|Blur|Move|Size)</g)].map((m) => m[1]), ['Fade', 'Blur', 'Move', 'Size']);
-    assert.doesNotMatch(html, />Action<|>Build out</, 'a phase a reply page cannot play is offered');
-    assert.doesNotMatch(html, />Build in</, 'row 1 is still drawn: a one-of-one choice');
-    assert.match(html, /!grid-rows-\[0px_repeat\(3,var\(--sp-rh\)\)\]/, 'the rows do not start from the top');
-    assert.match(html, /Movement/);
+    assert.match(html, /<button type="button" aria-pressed="true" data-stage-phase="in"[^>]*>Build in</, 'Build in is not the phase on show');
+    for (const [k, words] of [['act', 'Action'], ['out', 'Build out']] as const) {
+      assert.match(html, new RegExp(`<button type="button" aria-pressed="false" aria-disabled="true" data-stage-phase="${k}"[^>]*>${words}<`), `${words}: a phase a reply page cannot play can be picked`);
+    }
+    assert.doesNotMatch(html, /data-stage-phase="(?:act|out)"[^>]*\sdisabled(?:=""|\s|>)/, 'a grey phase is a dead tap');
+    assert.doesNotMatch(html, /!grid-rows-\[0px/, 'the rows start a row high again — not where every stage’s are');
+    assert.match(html, /row-start-2" data-stage-effects="in"/, 'the effects are not row 2');
+    assert.match(html, /row-start-4" data-stage-animate-row4="in">[\s\S]*?Movement/, 'Movement is not the last row');
+    assert.doesNotMatch(html, /data-stage-does=|data-stage-no-out=|data-stage-effects="out"/, 'Action’s or Build out’s own row is drawn on a reply page');
     assert.doesNotMatch(html, /data-rsvp-word-field|data-rsvp-setting=|data-rsvp-look-colour/);
   }
   const moving = await panel('form', { tool: 'animate', part: 'rsvp', line: 'question' }, { look: { lines: { 'rsvp.question': { i: { fade: true, move: 'below' }, v: 'quick' } } } });
@@ -551,7 +560,16 @@ test('10 · WIRING: Background and Animate are live on a reply card and its line
   /* The toolbar's Animate has ONE new option and is otherwise as it was: every other caller draws its three phases. */
   const ANIMATE = src(`${L}/stage-panel/stage-animate.tsx`);
   assert.match(ANIMATE, /const at: AnimatePhase = only \?\? phase;\s*const end = at === 'act' \? null : at;/);
-  assert.match(ANIMATE, /\{only \? null : \(\s*<div className=\{`\$\{SP_ROWS_ROW\} row-start-1`\}>\s*<Phases<AnimatePhase>/);
+  /* 🔁 RE-AIMED 2026-10-10 (the same list, item 4): row 1 is drawn for every caller; with `only` the other phases are
+     handed to `Phases` as OFF — each with the caller's one line — and a pick does nothing. */
+  assert.match(ANIMATE, /<div className=\{`\$\{SP_ROWS_ROW\} row-start-1`\}>\s*<Phases<AnimatePhase>[\s\S]{0,360}?onPick=\{only \? \(\) => \{\} : setPhase\}\s*off=\{only \? \(k\) => \(k === only \? null : \(\) => setWhy\(\(w\) => \(\{ words: onlyWhy \?\? '', n: \(w\?\.n \?\? 0\) \+ 1 \}\)\)\) : undefined\}/);
+  assert.doesNotMatch(ANIMATE, /\{only \? null : \(|ROWS_FROM_THE_TOP|grid-rows-\[0px/, 'the one-phase Animate leaves a row out again');
+  const LOOK = src(`${L}/rsvp-line-look.tsx`);
+  assert.match(LOOK, /export const RSVP_ONE_SCREEN_WHY = 'A reply page is one screen — nothing to follow and no way out to build\.';/);
+  assert.match(LOOK, /only="in"\s*onlyWhy=\{RSVP_ONE_SCREEN_WHY\}/, 'a grey phase on a reply page has no line to say');
+  /* The grey segment is the tools' own grey, hears its tap, and is never pressed. */
+  const KIT = src(`${L}/stage-panel/kit.tsx`);
+  assert.match(KIT, /const refuse = off\?\.\(k\) \?\? null;\s*if \(refuse\) \{\s*return \(\s*<button key=\{k\} type="button" aria-pressed=\{false\} aria-disabled data-stage-phase=\{k\} data-seg-inset=\{SP_PHASE_INSET\} onClick=\{refuse\} className=\{`\$\{SP_PHASE\} aria-disabled:opacity-40`\}>/);
 });
 
 /* ══ 11 · WHAT IS REPLAYED IS ASKED OF THE READER — NEVER DUG OUT OF THE CSS ═══════════════════════════════════════

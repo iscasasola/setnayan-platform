@@ -69,8 +69,6 @@ export function toggleMotionFx(fx: MotionFx | null, end: 'in' | 'out', effect: E
 }
 
 const seconds = (n: number) => `${n.toFixed(1)} s`;
-/** `only`: row 1 takes no room (and no gap), so rows 2–4 are the first three — "always start from the top". */
-const ROWS_FROM_THE_TOP = '!grid-rows-[0px_repeat(3,var(--sp-rh))] -mt-[var(--sp-rg)]';
 
 /** Movement ◆ for one phase: the feel that plays, and — when there is nothing for it to time — why (a tap says it). */
 export type AnimateMove = { value: AnimateFeel; onPick: (feel: AnimateFeel) => void; off?: string | null } | null;
@@ -97,13 +95,19 @@ export function StageAnimate({
   pending = false,
   error = null,
   only,
+  onlyWhy,
 }: {
   /**
    * 🧩 ONE PHASE ONLY — a part of a page that is one screen with no scroll to follow and no exit (a line of a reply
-   * page: it arrives, and a guest leaves by answering). Row 1's Build in | Action | Build out is not drawn and the
-   * rows start from the top; nothing that could not play is offered.
+   * page: it arrives, and a guest leaves by answering). THE SAME FOUR ROWS as everywhere (owner 2026-10-10: *"please
+   * make Edit | Style | Background | Animate Consistent in design"*): row 1 is still Build in | Action | Build out,
+   * with Build in picked and the other two GREY — a tap on a grey one says why (`onlyWhy`), nothing is picked — the
+   * effects are still row 2 and Movement still row 4. (Row 1 was left out and the rows pulled up: the effects stood
+   * where the phases stand elsewhere, and Movement a row high.) Nothing that could not play is offered.
    */
   only?: 'in';
+  /** Why the other phases are grey, in one plain line — said by the toolbar's toast when one is tapped. */
+  onlyWhy?: string;
   /** Movement ◆ — each end's OWN feel. Never an effect, never the drive. */
   move: { in: AnimateMove; out: AnimateMove };
   /** Build in's drive — and, on arrival, the reason Build out has nothing to play. */
@@ -135,23 +139,22 @@ export function StageAnimate({
   const noOut = end === 'out' && plays?.value === 'arrival';
   const feel = end ? move[end] : null;
   return (
-    <div className={`${SP_ROWS} ${only ? ROWS_FROM_THE_TOP : ''} shrink-0 px-[10px]`} data-stage-animate={phase} data-stage-animate-rows="" aria-busy={pending}>
-      {/* ══ ROW 1 — when ══ */}
-      {only ? null : (
+    <div className={`${SP_ROWS} shrink-0 px-[10px]`} data-stage-animate={at} data-stage-animate-rows="" aria-busy={pending}>
+      {/* ══ ROW 1 — when (on a one-screen page: Build in, and the two it has none of, grey) ══ */}
       <div className={`${SP_ROWS_ROW} row-start-1`}>
         <Phases<AnimatePhase>
           label="Animate"
-          value={phase}
+          value={at}
           options={[
             ['in', 'Build in'],
             ['act', 'Action'],
             ['out', 'Build out'],
           ]}
-          onPick={setPhase}
+          onPick={only ? () => {} : setPhase}
+          off={only ? (k) => (k === only ? null : () => setWhy((w) => ({ words: onlyWhy ?? '', n: (w?.n ?? 0) + 1 }))) : undefined}
           data="animate"
         />
       </div>
-      )}
       {/* ══ ROW 2 — what it does ══ */}
       {noOut && plays ? (
         <div className={`${SP_ROWS_ROW} row-start-2`} data-stage-no-out="">
@@ -201,7 +204,7 @@ export function StageAnimate({
       ) : null}
       {/* ══ ROW 4 — this phase's own feel, and what drives it (Action has neither) ══ */}
       {end ? (
-        <div className={`${SP_ROWS_ROW} row-start-4`} data-stage-animate-row4={phase}>
+        <div className={`${SP_ROWS_ROW} row-start-4`} data-stage-animate-row4={at}>
           {feel ? (
             <Dd
               stacked

@@ -37,7 +37,13 @@ export function Phases<K extends string>({
   options,
   onPick,
   data,
+  off,
 }: {
+  /**
+   * 🚫 A segment that cannot be used here: it is GREY and still hears a tap — the tap calls this (the caller says why,
+   * in a toast) and nothing is picked. Never `disabled`: that is a dead tap (the tools' own rule, as `Dd`'s `off`).
+   */
+  off?: (k: K) => (() => void) | null;
   label: string;
   value: K;
   options: ReadonlyArray<readonly [K, string]>;
@@ -49,11 +55,22 @@ export function Phases<K extends string>({
       {/* 🎚 The app's travelling thumb (owner 2026-10-08: "apple the same pill selector") — it measures the picked
           segment, at any width, and again whenever the panel is resized. */}
       <PillThumb />
-      {options.map(([k, words]) => (
+      {options.map(([k, words]) => {
+        /* A segment with nothing to pick here: grey (the tools' own 40 %), never pressed, and its tap says why. */
+        const refuse = off?.(k) ?? null;
+        if (refuse) {
+          return (
+            <button key={k} type="button" aria-pressed={false} aria-disabled data-stage-phase={k} data-seg-inset={SP_PHASE_INSET} onClick={refuse} className={`${SP_PHASE} aria-disabled:opacity-40`}>
+              {words}
+            </button>
+          );
+        }
+        return (
         <button key={k} type="button" aria-pressed={k === value} data-stage-phase={k} data-seg-inset={SP_PHASE_INSET} onClick={() => onPick(k)} className={SP_PHASE}>
           {words}
         </button>
-      ))}
+        );
+      })}
     </div>
   );
 }

@@ -270,15 +270,19 @@ export function RsvpLineGroundRow({ onOpenCard }: { onOpenCard: () => void }) {
 /* ── ✨ ANIMATE ─────────────────────────────────────────────────────────────────────────────────────────────────── */
 
 /**
- * ANIMATE FOR A LINE OR THE CARD — its Build in, on the toolbar's own Animate (`StageAnimate`, `only="in"`): Fade ·
- * Blur · Move · Size, the side or the way the ON ones need, and Movement ◆ (Quick · Calm · Cinematic). A reply page
- * is one screen with no scroll to follow and no exit, so Action and Build out are not offered — never drawn dead.
+ * ANIMATE FOR A LINE OR THE CARD — its Build in, on the toolbar's own Animate (`StageAnimate`, `only="in"`): the same
+ * four rows as on every stage — [ Build in | Action | Build out ], then Fade · Blur · Move · Size, the side or the way
+ * the ON ones need, and Movement ◆ (Quick · Calm · Cinematic) in the last row. A reply page is one screen with no
+ * scroll to follow and no exit, so Action and Build out are GREY there — and a tap on one says why
+ * (`RSVP_ONE_SCREEN_WHY`), in the toolbar's own toast. Never a dead tap, never a row left out.
  */
+export const RSVP_ONE_SCREEN_WHY = 'A reply page is one screen — nothing to follow and no way out to build.';
 export function RsvpBuildInRows({ now, onPick, error = null }: { now: RsvpMotion; onPick: (patch: { i?: MotionFx | null; v?: RsvpLookFeel | null }) => void; error?: string | null }) {
   const feel: AnimateFeel = now.v ?? 'calm';
   return (
     <StageAnimate
       only="in"
+      onlyWhy={RSVP_ONE_SCREEN_WHY}
       error={error}
       inFx={now.i ?? null}
       outFx={null}

@@ -244,7 +244,9 @@ test('(3) the Camera’s page IS the camera: one screen per look from its own pi
 });
 
 test('(4) “Happening now” has no look: Style is grey there and says so — and it opens on Edit', () => {
-  assert.deepEqual([...MAKER_PARTS_NO_LOOK], ['spotlight']);
+  /* (The rest of the list is Post Event's — `the-post-event-toolbar-is-the-prototypes.test.ts` (5).) */
+  assert.ok(MAKER_PARTS_NO_LOOK.includes('spotlight'));
+  assert.deepEqual(MAKER_PARTS_NO_LOOK.filter((k) => Object.values(MAKER_STAGE_PAGES.event!).some((p) => p.includes(k))), ['spotlight'], 'another part of The Day lost its Style');
   assert.equal(makerPartToolWorks('spotlight', 'style'), false);
   assert.equal(makerPartToolWhy('spotlight', 'style'), 'Style has nothing to change on this part.');
   for (const t of MAKER_PART_TOOLS) assert.equal(makerPartToolFor('spotlight', t), 'edit');

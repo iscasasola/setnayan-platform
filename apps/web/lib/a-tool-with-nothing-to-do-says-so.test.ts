@@ -63,7 +63,7 @@ test('(1) Edit and Style always work; Animate works exactly where there is a sav
     assert.ok(yes.includes(k), `${k}: Animate worked on the lab and is now greyed`);
   }
   assert.ok(yes.length >= 12 && no.length >= 12, `anti-vacuity: ${yes.length} yes · ${no.length} no`);
-  assert.deepEqual([...MAKER_PARTS_NO_LOOK], ['spotlight'], 'a part lost its Style — only a part with no look at all may');
+  assert.deepEqual([...MAKER_PARTS_NO_LOOK], ['spotlight', 'beforeafter', 'song', 'next', 'wall'], 'a part lost its Style — only a part with no look at all may');
 });
 
 test('(2) the predicate is the work area’s own rule: a part’s sheet needs `canvas && el`; a scene’s heading and motion need a scene', () => {

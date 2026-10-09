@@ -83,8 +83,11 @@ import { RevealPartTools, RevealPlay, askPartOps, makerPartTopOnScreen, revealSt
 import { partsInPageOrder } from '@/lib/maker-part-step';
 import { CameraPartTools, StagePlayStatus } from './details-lazy';
 import { CameraPage } from './stage-panel/camera-page';
+import { keepPostEventWords, postEventAbout, postEventSceneNow } from './stage-panel/post-event-edit';
+import { PostEventShown } from './stage-panel/post-event-shown';
+import { POST_EVENT_ABOUT } from '../../website/editor/_components/post-event-scene-panel';
 
-import { makerPartCanvasOn, makerPartLabelOn, makerPartOfCanvas, makerPartsWithAdded } from '@/lib/maker-part-groups';
+import { makerPartCanvasOn, makerPartLabelOn, makerPartOfCanvas, makerPartsWithAdded, makerPostEventSceneOf } from '@/lib/maker-part-groups';
 import { filedOnCanvas, firstMarkerOnPage, makerStagesPages } from '@/lib/maker-stage-filing';
 
 /**
@@ -1058,6 +1061,8 @@ export function StageTools({
   /* ── Style › Look's quiet bar and the part's own words behind ⓘ, said to the panel under the row ── */
   const canvasOfPick = picked ? MAKER_PARTS[picked].canvas : null;
   const fixedHere = canvasOfPick ? fixedOfKey(canvasOfPick) : null;
+  /** 🎞 The picked part's Post Event scene, by its canvas key (`p:<scene>`) — null off Post Event, or on a part that is not one. */
+  const canvasOfScene = picked && !rsvpOpen && makerPostEventSceneOf(stageKey, picked) ? makerPartCanvasOn(stageKey, picked) : null;
   useEffect(() => {
     /* The RSVP stage's screens are the RSVP tool's: its one quiet bar is "Edit the RSVP · Studio ›". */
     const q = rsvpOpen ? rsvpQuietRow(picked) : picked && picked !== 'reveal' ? makerPartQuietRow(picked) : null;
@@ -1084,9 +1089,11 @@ export function StageTools({
       }
     }
     const f = fixedHere ? fixedScenePanel(fixedHere) : null;
-    const about = (f ? [f.line, f.source?.text].filter(Boolean).join(' ') || null : null) ?? (rsvpOpen && picked ? (RSVP_PART_ABOUT[picked] ?? null) : null);
+    /* 🎞 A Post Event scene: what it is, behind the one ⓘ — the scene panel's own sentences (`POST_EVENT_ABOUT`). */
+    const story = !rsvpOpen && picked && canvasOfScene ? postEventAbout(postEventSceneNow(canvasOfScene), POST_EVENT_ABOUT) : null;
+    const about = (f ? [f.line, f.source?.text].filter(Boolean).join(' ') || null : null) ?? (rsvpOpen && picked ? (RSVP_PART_ABOUT[picked] ?? null) : null) ?? story;
     setStagePanelNow({ picked, quiet, about });
-  }, [picked, rsvpOpen, suppliersHref, stageKey, shownPage, onOpenStudio, fixedHere]);
+  }, [picked, rsvpOpen, suppliersHref, stageKey, shownPage, onOpenStudio, fixedHere, canvasOfScene, maker?.renderStamp]);
   useEffect(() => () => setStagePanelNow({ picked: null, quiet: null, about: null }), []);
 
   /* 🚫 A TOOL WITH NOTHING TO SET ON THE PICKED PART (`makerPartToolWorks`): grey, `aria-disabled`, and a tap says
@@ -1147,7 +1154,10 @@ export function StageTools({
     async (f: PartWordsField, text: string) => {
       const o = askPartOps();
       if (!o?.draftAction) return { ok: false as const, error: 'That could not be saved just now. Please try again.' };
-      const res = await keepPartWords(f, text, { eventId: o.eventId, draftAction: o.draftAction, heroCanvas: o.heroCanvas, ownWords: o.ownWords });
+      /* 🎞 A Post Event scene's words are the story's own save (never held — `post-event-edit.ts`). */
+      const res = f.key.startsWith('p:')
+        ? await keepPostEventWords(f, text)
+        : await keepPartWords(f, text, { eventId: o.eventId, draftAction: o.draftAction, heroCanvas: o.heroCanvas, ownWords: o.ownWords });
       window.setTimeout(readFields, 80);
       return res;
     },
@@ -1203,6 +1213,18 @@ export function StageTools({
   useLayoutEffect(() => {
     const el = lineRef.current;
     if (el && el.scrollWidth > el.clientWidth + 0.5 && lineLevel < linePieces.length) setLineAt((l) => ({ key: lineKey, level: lineLevel + 1, n: l.n }));
+  }, [lineKey, lineLevel, linePieces.length, lineAt.n]);
+  /* …AND A LINE TOO WIDE BY LESS THAN A PIXEL IS STILL CUT. The browser rounds `scrollWidth` to a whole pixel, so words
+     0.16 px wider than their room read as fitting — and were drawn cut all the same (seen on the Maker lab,
+     2026-10-10, Post Event › Photo Notes beside its ⓘ: "PHOTO NOTE…"). The words themselves are measured, to the
+     fraction, against the room the line gives them. */
+  useLayoutEffect(() => {
+    const el = lineRef.current;
+    const words = el?.querySelector<HTMLElement>('span[aria-hidden]');
+    if (!el || !words || lineLevel >= linePieces.length || el.scrollWidth > el.clientWidth + 0.5) return;
+    const cs = getComputedStyle(el);
+    const room = el.clientWidth - (Number.parseFloat(cs.paddingLeft) || 0) - (Number.parseFloat(cs.paddingRight) || 0);
+    if (words.getBoundingClientRect().width > room + 0.05) setLineAt((l) => ({ key: lineKey, level: lineLevel + 1, n: l.n }));
   }, [lineKey, lineLevel, linePieces.length, lineAt.n]);
   /* Another width (the phone turned) starts from the whole line again, and measures again. */
   useEffect(() => {
@@ -1383,7 +1405,7 @@ export function StageTools({
           </div>
         ) : null}
         {editOn ? (
-          <StageEdit key={picked} fields={fields} tapped={tapped} onType={showPartWords} onKeep={keepWords} earlier={edits.earlier} later={edits.later} remove={edits.remove} removeWord={edits.removeWord} why={edits.why} onWhy={(words) => setWhy((w) => ({ words, n: (w?.n ?? 0) + 1 }))} />
+          <StageEdit key={picked} fields={fields} tapped={tapped} onType={showPartWords} onKeep={keepWords} earlier={edits.earlier} later={edits.later} remove={edits.remove} removeWord={edits.removeWord} why={edits.why} onWhy={(words) => setWhy((w) => ({ words, n: (w?.n ?? 0) + 1 }))} second={canvasOfScene ? <PostEventShown canvasKey={canvasOfScene} stamp={maker?.renderStamp} onRefused={(words) => setWhy((w) => ({ words, n: (w?.n ?? 0) + 1 }))} /> : null} />
         ) : null}
         {/* ══ 🎭 THE REVEAL'S TOOLS — its kinds, Extras ▾ — under Style. Mounted unseen while another part (or Edit)
             is on, so the page's Reveal draws the opening chosen. ══ */}

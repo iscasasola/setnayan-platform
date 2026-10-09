@@ -367,12 +367,14 @@ export function makerPartQuietRow(key: MakerPartKey): { words: string; to: { stu
 
 /**
  * THE PARTS WITH NO LOOK AT ALL — no styles of their own, no words whose colour and size are theirs, no tools drawn
- * for them: The Day's "Happening now" card. Style slid over FOUR EMPTY ROWS there (seen on the Maker lab,
- * 2026-10-09) — a tool with nothing to set is grey and says so (the approved prototype: *"Style has nothing to
- * change on this part."*). Listed, never worked out: a part's Style may be drawn by its own tools (the Reveal, the
- * pass, the reply pages), which no rule here can see.
+ * for them: The Day's "Happening now" card, and the four Post Event scenes that have ONE look of their own (Before &
+ * After · Song · What comes next · Live Photo Wall — `postEventSceneTypeOf` names no registry type for them; held
+ * equal to the registry by `the-post-event-toolbar-is-the-prototypes.test.ts`). Style slid over FOUR EMPTY ROWS
+ * there (seen on the Maker lab, 2026-10-09) — a tool with nothing to set is grey and says so (the approved
+ * prototype: *"Style has nothing to change on this part."*). Listed, never worked out: a part's Style may be drawn
+ * by its own tools (the Reveal, the pass, the reply pages), which no rule here can see.
  */
-export const MAKER_PARTS_NO_LOOK: readonly MakerPartKey[] = ['spotlight'];
+export const MAKER_PARTS_NO_LOOK: readonly MakerPartKey[] = ['spotlight', 'beforeafter', 'song', 'next', 'wall'];
 
 /**
  * 🚫 DOES A TOOL HAVE ANYTHING TO SET ON THIS PART? (owner rule: a failure never renders as success — a pill that

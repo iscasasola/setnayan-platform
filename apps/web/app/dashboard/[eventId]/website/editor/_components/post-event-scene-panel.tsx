@@ -61,6 +61,8 @@ import { postEventStyleHome, postEventWordParts } from '@/lib/post-event-styles'
 import { postEventStyleOptions, resolvePostEventStyle } from '@/lib/post-event-style-resolve';
 import type { HubDraftActionResult } from '@/lib/hub-draft';
 import { SceneStyleRow } from './scene-style-row';
+import { useMaker } from '../../../launch/_components/maker-context';
+import { StageStyle } from '../../../launch/_components/stage-panel/stage-style';
 import { postEventStatusWord, type PostEventTile } from './post-event-tile-words';
 
 type DraftAction = (eventId: string, formData: FormData) => Promise<HubDraftActionResult>;
@@ -142,6 +144,8 @@ export function PostEventScenePanel({
 }) {
   // `tile` is new each time the Maker refreshes — the moment the draft is read back.
   const { pending, error, save, drawn } = useDraftSave(eventId, draftAction, tile);
+  /** 🧭 The new Maker's toolbar is on (a phone, `makerStagesStudioEnabled` — `maker-shell.tsx` `ss`). */
+  const toolbar = useMaker()?.stagesStudio === true;
   const scene = tile.scene;
   const hiddenNow = drawn?.hidden ?? tile.hidden;
   const home = postEventStyleHome(scene);
@@ -179,15 +183,55 @@ export function PostEventScenePanel({
     </>
   );
 
+  /* 🎨 Style — the shared row (a strip of miniatures in the new Maker), free. */
+  const styleRow = (
+    <SceneStyleRow
+      options={options.map((o) => ({ id: o.id, name: o.name, line: o.line, isDefault: o.isDefault }))}
+      value={drawn?.style ?? style}
+      pending={pending}
+      onPick={pickStyle}
+    />
+  );
+  /* A read that FAILED is said on the panel — never behind an ⓘ. */
+  const failures = (
+    <>
+      {!arrangement ? (
+        <p role="alert" data-post-event-unread="" className="px-1 pt-2 text-[12.5px] font-semibold text-danger-700">
+          Your story’s scenes could not be read just now — open the Maker again in a moment.
+        </p>
+      ) : null}
+      {error ? (
+        <p role="alert" data-post-event-error="" className="px-1 pt-2 text-[12.5px] font-semibold text-danger-700">
+          {error}
+        </p>
+      ) : null}
+    </>
+  );
+  /* 🧭 THE NEW MAKER'S TOOLBAR (a phone; owner 2026-10-09, `TOOLBAR-SPEC-2026-10-09.md`): under Style this panel is the
+     scene's LOOK CARDS in the toolbar's four rows and nothing else — nothing scrolls up and down. (It was all of the
+     rows below under the cards: 473 px in a 339-px room with no scroller, so "Its parts" could not be reached.) The
+     scene's words, "Shown to guests" and its place are the toolbar's Edit (`stage-panel/post-event-edit.ts`, the
+     same saves); what the scene is sits behind the toolbar's one ⓘ. The desktop's panel is every row, as before. */
+  if (toolbar) {
+    return (
+      <section className="contents" data-maker-post-event-panel={scene} data-post-event-toolbar="">
+        <StageStyle
+          rows
+          look={
+            <>
+              {styleRow}
+              {failures}
+            </>
+          }
+          background={null}
+        />
+      </section>
+    );
+  }
+
   return (
     <section className="flex flex-col px-1" data-maker-post-event-panel={scene}>
-      {/* 🎨 Style — the shared row (a strip of miniatures in the new Maker), free. */}
-      <SceneStyleRow
-        options={options.map((o) => ({ id: o.id, name: o.name, line: o.line, isDefault: o.isDefault }))}
-        value={drawn?.style ?? style}
-        pending={pending}
-        onPick={pickStyle}
-      />
+      {styleRow}
 
       <FormRows data="post-event">
         {/* What this scene is — its state in a word, what fills it under it; nothing to tap but its ⓘ. */}
@@ -259,17 +303,7 @@ export function PostEventScenePanel({
         ) : null}
       </FormRows>
 
-      {/* A read that FAILED is said on the panel — never behind an ⓘ. */}
-      {!arrangement ? (
-        <p role="alert" data-post-event-unread="" className="px-1 pt-2 text-[12.5px] font-semibold text-danger-700">
-          Your story’s scenes could not be read just now — open the Maker again in a moment.
-        </p>
-      ) : null}
-      {error ? (
-        <p role="alert" data-post-event-error="" className="px-1 pt-2 text-[12.5px] font-semibold text-danger-700">
-          {error}
-        </p>
-      ) : null}
+      {failures}
     </section>
   );
 }

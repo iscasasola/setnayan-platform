@@ -42,8 +42,9 @@ import { STD_REALISTIC_BACKGROUNDS } from './std-backgrounds';
 import { phoneHeightPx } from './maker-phone-room';
 import { SCENE_SHADE_MAX, SCENE_SHADE_MIN, SCENE_SHADE_STOPS, sceneShadeAt, sceneShadeOf, sceneShadeSettled, sceneShadeWords } from './scene-shade-bar';
 import { FADE_SNAP } from './background-fade';
-import { sceneMediaShade, sceneMediaShadeVars, sceneShadeStep } from './scene-media-shade';
-import { AA_BODY, contrastRatio, requiredScrim } from './hub-legibility';
+import { sceneColourShade, sceneMediaShade, sceneMediaShadeVars, sceneShadeStep } from './scene-media-shade';
+import { sceneFrameLook } from './scene-frame-look';
+import { AA_BODY, contrastRatio, relativeLuminance, requiredScrim } from './hub-legibility';
 import { INVITE_THEMES } from './invite-themes';
 import { SCENE_MEDIA_SCRIM } from './scene-legibility';
 
@@ -103,7 +104,8 @@ test('(1) four rows, rendered: the source, its choices in one row, the choice’
   for (const m of drawn) assert.equal(m[3], SP_BG_TILE);
   assert.match(plain, new RegExp(`data-stage-bg-strip="colour" class="${SP_BG_STRIP.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/&/g, '&amp;')}"`));
   assert.equal((plain.match(/data-stage-swatch=/g) ?? []).length, 1, 'the colour is more than ONE circle');
-  assert.doesNotMatch(plain, /type="range"/, 'a plain colour has a bar');
+  /* (No bar was handed over here. With one, a colour takes it beside its circle — test (8), 2026-10-09.) */
+  assert.doesNotMatch(plain, /type="range"/, 'a bar nobody handed over was drawn');
   assert.deepEqual([...plain.matchAll(/data-seg="([a-z]+)"/g)].map((m) => m[1]), ['framed', 'full']);
   /* …a GLASS adds its Opacity bar beside the circle, in the same row. */
   const glass = draw({ tiles, tile: 'glass', colour: '#ffffff', opacity: { value: 85, min: 20, max: 100, step: 5, onChange: () => {} }, shape: 'full' });
@@ -189,7 +191,7 @@ test('(3) a source picked only shows its choices; a choice writes once through t
   assert.match(onTile, /put\(clip \? clipBg\(key, clip\.poster\) : photoBg\(key\), false\);/);
   assert.doesNotMatch(branch, /setAsking\(true\)|everySceneBackgroundPatch|data-scene-bg-scope/, 'the toolbar asks "every scene?"');
   /* Rows 3 and 4 belong to the source WORN — never shown under a source that is only being looked at. */
-  for (const prop of ['colour={worn && ', 'worn && (current === \'glass\'', 'worn && media', 'shape={worn && ', 'motion={worn && ']) assert.ok(branch.includes(prop), `a row is drawn for a source that is not worn (${prop})`);
+  for (const prop of ['colour={worn && ', 'worn && (current === \'glass\'', 'worn && (media || ', 'shape={worn && ', 'motion={worn && ']) assert.ok(branch.includes(prop), `a row is drawn for a source that is not worn (${prop})`);
   /* The save itself is the row's shipped one: previewed on the page, noted, then ONE draft write. */
   assert.match(row, /lay\(touched\);\s*onSaving\?\.\(touched, redrawsBox\);/);
   assert.equal((row.match(/draftAction\(eventId, fd\)/g) ?? []).length, 2, 'the row gained a write path');
@@ -212,7 +214,10 @@ test('(4) the bar: the page follows the thumb with nothing saved; one write on r
     /* The sanitizer keeps it beside a picture — and never beside a colour. */
     const kept = sanitizeHubCanvas({ canvas: { media: 'https://x.test/a.jpg', own: true, shade: stored } });
     assert.equal(kept.shade, stored, `${at}: the page would not keep ${String(stored)}`);
-    assert.equal(sanitizeHubCanvas({ canvas: { kind: 'color', color: '#c7a27c', own: true, shade: stored } }).shade, undefined, `${at}: a colour keeps a veil`);
+    /* 🔁 2026-10-09 (owner: "on color, there is no linebar for the darken/lighten?"): a colour that is its own ground
+       keeps the bar's position too — see the Colour test below; a glass (Opacity instead) still keeps none. */
+    assert.equal(sanitizeHubCanvas({ canvas: { kind: 'color', color: '#c7a27c', own: true, shade: stored } }).shade, stored, `${at}: a plain colour would not keep ${String(stored)}`);
+    assert.equal(sanitizeHubCanvas({ canvas: { kind: 'frost', color: '#c7a27c', own: true, shade: stored } }).shade, undefined, `${at}: a glass keeps a shade`);
     assert.equal(settled === 0, stored === undefined, `${at}: the centre stores something, or a side stores nothing`);
     assert.ok(sceneShadeWords(at).length > 3);
   }
@@ -235,10 +240,14 @@ test('(4) the bar: the page follows the thumb with nothing saved; one write on r
   const bar = bg.slice(bg.indexOf('data="scene-shade"'), bg.indexOf('{/* ══ ROW 4'));
   assert.match(bar, /onChange=\{\(n\) => \{\s*setLive\(n\);\s*shade\.onMove\(n\);\s*\}\}/);
   assert.match(bar, /onCommit=\{\(n\) => \{\s*const settled = sceneShadeSettled\(n\);\s*setLive\(settled\);\s*if \(settled !== shade\.at\) shade\.onKeep\(settled\);\s*else shade\.onMove\(settled\);\s*\}\}/);
-  assert.doesNotMatch(bg.slice(bg.indexOf('onChange={(n) => {\n                setLive(n);'), bg.indexOf('onCommit={(n) => {')), /onKeep/, 'a move keeps');
+  /* (Found by shape, not by its indentation — the bar moved into one place drawn on two rows, 2026-10-09.) */
+  const moving = /onChange=\{\(n\) => \{[\s\S]*?\}\}/.exec(bar)?.[0] ?? '';
+  assert.ok(moving.length > 30, 'anti-vacuity: the bar’s move was not found');
+  assert.doesNotMatch(moving, /onKeep/, 'a move keeps');
   /* …and in the row: a move lays the scene on the page and saves NOTHING; a keep is one `putKeys`. */
   const row = read(`${E}/scene-background-row.tsx`);
-  const shade = row.slice(row.indexOf('shade={\n          worn && media'), row.indexOf('shape={worn && '));
+  /* (2026-10-09: the bar is handed over for a picture OR a colour that is its own ground — test (8).) */
+  const shade = row.slice(row.indexOf('worn && (media || (source === \'colour\''), row.indexOf('shape={worn && '));
   assert.ok(shade.length > 300, 'anti-vacuity: the bar’s wiring was not found');
   const move = shade.slice(shade.indexOf('onMove: (n) => {'), shade.indexOf('onKeep: (n) => {'));
   assert.match(move, /onPreview\?\.\(sceneBgPreviewMessage\(\[\{ type: widgetType, canvas: next \}\], mediaUrl, theme, mediaUrls\)\);/);
@@ -326,7 +335,8 @@ test('(6) the veil for every position: never under the reading floor, the stored
   assert.ok(sceneShadeStep(-35).floor < sceneShadeStep(-70).floor && sceneShadeStep(-100).floor > sceneShadeStep(-70).floor);
   /* ONE sanitizer for the Look's and a scene's shade — the first-load file grew by the one call, not a second rule. */
   const canvas = read('lib/hub-canvas.ts');
-  assert.match(canvas, /const shade = sanitizeHubMainShade\(canvas\.shade\);\s*if \(shade !== undefined && \(ground\?\.kind === 'photo' \|\| ground\?\.kind === 'snippet'\)\) out\.shade = shade;/);
+  /* 🔁 2026-10-09: stored beside a picture or a colour that is its own ground — every ground but a glass and "none" (test (8)). */
+  assert.match(canvas, /const shade = sanitizeHubMainShade\(canvas\.shade\);\s*if \(shade !== undefined && ground && ground\.kind !== 'glass' && ground\.kind !== 'frost' && ground\.kind !== 'none'\) out\.shade = shade;/);
   assert.equal((canvas.match(/export function sanitizeHubMainShade\(/g) ?? []).length, 1);
   /* The frame draws whatever is stored through that one rule. */
   assert.match(read('lib/scene-frame-look.ts'), /canvas\.shade\s*\? sceneMediaShadeVars\(canvas\.shade, theme\)/);
@@ -497,4 +507,80 @@ test('(7) picture tiles: the name is ON the tile and always readable; one ring t
   assert.match(made, /STD_REALISTIC_BACKGROUNDS\.map\(\(b\) => \(\{ key: b\.src, name: b\.label, picture: cover\(b\.src\), \.\.\.tileNameOnPhoto\(TILE_FOOT\[b\.id\] \?\? null\) \}\)\)/);
   /* 📦 Lazy only. */
   for (const f of [`${L}/maker-shell.tsx`, `${L}/details-workspace.tsx`, 'lib/hub-draft.ts', 'lib/hub-canvas.ts']) assert.doesNotMatch(readFileSync(join(WEB, f), 'utf8'), /bg-tile-name/);
+});
+
+/* ── (8) A COLOUR TAKES THE SAME BAR (owner 2026-10-09, on Schedule · Colour · Plain, where row 3 showed only the
+   circle: "on color, there is no linebar for the darken/lighten?") ─────────────────────────────────────────────────
+   Plain, Diagonal and Glow get Colour ◍ + the SAME Darker ↔ Lighter bar as a picture, stored in the same `shade`. A
+   colour has nothing behind it to veil, so the colour ITSELF is mixed — and the words follow the mixed ground, so no
+   stop takes them under AA. A glass keeps Colour ◍ + Opacity: the row holds one bar, never two.
+   Sabotages: the frame ignoring the shade on a colour → red; the sanitizer dropping it → red (test C, and above). */
+test('(8) a colour that is its own ground takes the same Darker ↔ Lighter bar beside its circle, and the colour itself is mixed', async () => {
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { StageBackground } = await import(`../${L}/stage-panel/stage-background`);
+  const draw = (over: Partial<Props>) => renderToStaticMarkup(React.createElement(StageBackground, base(over)));
+  const tiles = ['none', 'color', 'diagonal', 'glow', 'glass', 'frost'].map((key) => ({ key, name: key, picture: { background: '#c7a27c' } }));
+  const shade = { at: -40, onMove: () => {}, onKeep: () => {} };
+  /* ROW 3: the circle, then "Darker ━ Lighter" — one bar, filled from the centre, in the colour's own row. */
+  const plain = draw({ tiles, tile: 'color', colour: '#c7a27c', shade, shape: 'framed' });
+  assert.deepEqual(ROW(plain), ['1:source', '2:choices', '3:colour', '4:shape'], 'the bar took a row of its own');
+  const row = plain.slice(plain.indexOf('data-stage-bg="colour"'), plain.indexOf('data-stage-bg="shape"'));
+  assert.deepEqual([...row.matchAll(/data-stage-swatch=|>(Darker|Lighter)<|type="range"/g)].map((m) => m[1] ?? (m[0].startsWith('data-stage-swatch') ? 'circle' : 'bar')), ['circle', 'Darker', 'bar', 'Lighter']);
+  assert.match(row, /data-slider-from="centre"/, 'the colour’s bar does not fill from the centre');
+  assert.match(row, new RegExp(`data-stage-bg-shade="${sceneShadeSettled(-40)}"`));
+  /* A GLASS keeps Opacity — even handed a shade, the row draws ONE bar, and it is Opacity's. */
+  const glass = draw({ tiles, tile: 'glass', colour: '#ffffff', opacity: { value: 85, min: 20, max: 100, step: 5, onChange: () => {} }, shade, shape: 'full' });
+  assert.equal((glass.match(/type="range"/g) ?? []).length, 1);
+  assert.match(glass, />Opacity</);
+  assert.doesNotMatch(glass, />Darker<|>Lighter</);
+  /* THE SAME BAR, DRAWN ONCE: the panel has one `<Slider … data="scene-shade">`, placed on either row. */
+  const panel = stripComments(readFileSync(join(WEB, `${L}/stage-panel/stage-background.tsx`), 'utf8'));
+  assert.equal((panel.match(/data="scene-shade"/g) ?? []).length, 1);
+  assert.match(panel, /\{!opacity \? shadeBar : null\}/);
+  /* WHO GETS IT: the caller hands the bar over for a picture, or for Plain · Diagonal · Glow under Colour. */
+  const made = stripComments(readFileSync(join(WEB, 'app/dashboard/[eventId]/website/editor/_components/scene-background-row.tsx'), 'utf8'));
+  assert.match(made, /worn && \(media \|\| \(source === 'colour' && \(current === 'color' \|\| current === 'diagonal' \|\| current === 'glow'\)\)\)/);
+  /* THE PAGE: executed through the one function the guest frame AND the Maker's instant preview draw with. */
+  assert.match(stripComments(readFileSync(join(WEB, 'app/dashboard/[eventId]/website/editor/_components/scene-bg-preview-message.ts'), 'utf8')), /sceneFrameLook\(canvas, \{ bg, mediaUrl: url, painted \}, theme\)/, 'the page would not follow the thumb');
+  const TINT = '#c7a27c';
+  const hex = (channels: string) => `#${channels.split(' ').map((n) => Number(n).toString(16).padStart(2, '0')).join('')}`;
+  let looked = 0;
+  for (const theme of Object.values(INVITE_THEMES)) {
+    for (const kind of ['color', 'diagonal', 'glow'] as const) {
+      const lookAt = (at: number) => {
+        const canvas = sanitizeHubCanvas({ canvas: { kind, color: TINT, own: true, ...(at === 0 ? {} : { shade: sceneShadeOf(at) }) } });
+        return sceneFrameLook(canvas, { bg: resolveHubBackground(canvas), mediaUrl: null, painted: true }, theme);
+      };
+      /* As is: nothing changes — the colour the couple picked, and exactly the look a colour had before the bar. */
+      const asIs = lookAt(0);
+      assert.equal(asIs.style['--hub-bg-color'], TINT);
+      let last = relativeLuminance(TINT);
+      for (const at of [20, 60, 100]) {
+        const look = lookAt(at);
+        const ground = look.style['--hub-bg-color']!;
+        assert.equal(ground, sceneColourShade(TINT, sceneShadeOf(at), theme));
+        assert.ok(relativeLuminance(ground) > last, `${theme.id} ${kind} ${at}: Lighter did not lighten the colour`);
+        last = relativeLuminance(ground);
+        assert.notEqual(ground, '#ffffff', 'the last stop is white — the couple’s colour is gone');
+        if (kind === 'color') assert.ok(contrastRatio(hex(look.style['--color-ink']!), ground) >= AA_BODY, `${theme.id} ${at}: the words fell under AA on the lightened colour`);
+        if (kind !== 'color') assert.notEqual(look.style['--hub-bg-image'], asIs.style['--hub-bg-image'], `${theme.id} ${kind} ${at}: the ramp was not mixed with its colour`);
+        looked += 1;
+      }
+      last = relativeLuminance(TINT);
+      for (const at of [-20, -60, -100]) {
+        const look = lookAt(at);
+        const ground = look.style['--hub-bg-color']!;
+        assert.ok(relativeLuminance(ground) < last, `${theme.id} ${kind} ${at}: Darker did not darken the colour`);
+        last = relativeLuminance(ground);
+        assert.notEqual(ground, theme.palette.darkInk, 'the last stop is the ink itself');
+        if (kind === 'color') assert.ok(contrastRatio(hex(look.style['--color-ink']!), ground) >= AA_BODY, `${theme.id} ${at}: the words fell under AA on the darkened colour`);
+        if (kind !== 'color') assert.notEqual(look.style['--hub-bg-image'], asIs.style['--hub-bg-image']);
+        looked += 1;
+      }
+    }
+    /* A glass is never mixed: it stores no shade, so its look is its look. */
+    const frost = sanitizeHubCanvas({ canvas: { kind: 'frost', color: TINT, own: true, shade: -60 } });
+    assert.equal(frost.shade, undefined);
+  }
+  assert.ok(looked >= 36, `anti-vacuity: the themes and stops were looked at (${looked})`);
 });

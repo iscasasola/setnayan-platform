@@ -173,6 +173,6 @@ test('(5) from the centre — an additive prop: left out, the slider is byte-ide
   const bg = read(`${L}/stage-panel/stage-background.tsx`);
   const sliders = [...bg.matchAll(/<Slider\b[\s\S]*?\/>/g)].map((m) => m[0]);
   assert.equal(sliders.length, 2);
-  assert.deepEqual(sliders.map((x) => [/data="([\w-]+)"/.exec(x)?.[1], /\bfrom="centre"/.test(x)]), [['scene-opacity', false], ['scene-shade', true]]);
+  assert.deepEqual(sliders.map((x) => [/data="([\w-]+)"/.exec(x)?.[1], /\bfrom="centre"/.test(x)]), [['scene-shade', true], ['scene-opacity', false]]); /* (2026-10-09: the shade bar is written once, above the rows it is placed on — so it comes first in the file; still the only one from the centre.) */
   for (const f of [`${L}/stage-panel/stage-text.tsx`, `${L}/stage-panel/stage-look-row.tsx`, `${L}/maker-reveal.tsx`, `${E}/scene-background-row.tsx`]) assert.doesNotMatch(read(f), /\bfrom="centre"/, `${f} fills from the centre`);
 });

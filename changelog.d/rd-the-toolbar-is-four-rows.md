@@ -566,6 +566,26 @@ Guard: `lib/scrub-out-ships-dark.test.ts` (5 rules). Sabotaged both ways: the co
 lab's page no longer asking → red; site-body asking through the lab's door → red; the lab's browser door unused →
 red. The renderer's own guards now ask through the lab's door, with the reason written in.
 
+### Background › Colour takes the Darker ↔ Lighter bar
+
+Owner, on Schedule · Colour · Plain, where row 3 showed only the circle: "on color, there is no linebar for the
+darken/lighten?" Colour kinds Plain, Diagonal and Glow now get row 3 = Colour ◍ + the SAME bar a picture has (one
+bar drawn once: filled from the centre, the page following the thumb, one save when it is let go), stored in the
+same `shade` number. Opaque and Frosted keep Colour ◍ + Opacity — the row holds one bar, never two.
+
+- A colour has nothing behind it to veil, so the page mixes the COLOUR ITSELF: toward the theme's dark ink left of
+  the middle, toward white right of it, by the picture veil's own step curve, never all the way (at most 80 % ink,
+  86 % white — the couple's colour is still there at the last stop). No stylesheet rule was needed: the frame
+  paints the mixed colour and, for Diagonal and Glow, the ramp made from it; the words follow the mixed ground as
+  they do for any colour, so no stop takes them under AA (executed for every theme and six stops).
+- One function draws it for the guest page and for the Maker's instant preview, so the page follows the thumb.
+- The sanitizer keeps `shade` beside a picture or a colour that is its own ground; a glass and "No background"
+  still keep none. First load: `lib/hub-canvas.ts` +4 B gz; nothing else in the Maker's first load is touched.
+
+Guard: `background-is-four-rows` (8) new, executed; two pins on "a colour keeps no shade" re-aimed with the owner's
+words; four sabotages seen red (the frame ignoring it, the sanitizer dropping it, the row not drawing it, the
+caller not handing it over). Not seen in a browser yet.
+
 SPEC IMPACT: Yes — supersedes the 2026-10-06/07 "Style | Text | Animate" and "the toolbar is half the screen" rows.
 The controller holds the spec (`TOOLBAR-SPEC-2026-10-09.md`) and applies the corpus rows; nothing in the corpus was
 edited from this branch.

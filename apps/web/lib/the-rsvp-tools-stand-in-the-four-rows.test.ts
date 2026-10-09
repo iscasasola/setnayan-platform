@@ -16,6 +16,12 @@
  *       and no scroll of its own, which makes the stage's wrapper exactly as tall as the four rows. Sabotage: the
  *       scrolling pane back → red.
  *
+ *   3 · THE FORM'S CARD — its Edit is the reply's settings in rows 1–3 (never Style's scrolling list: seven rows, 385 px
+ *       in a 210-px box), standing on the toolbar's own row 4; the door is gone only there; and Style, with nothing
+ *       left to set, is GREY and says the tool's own line. `rsvpStyleHasRows` is the one answer, and it is held to
+ *       what the panel really draws: wherever it says yes the panel draws a control inside the frame. Sabotages: the
+ *       card's Style live again → red; the panel four rows tall over Edit's last row → red.
+ *
  * The frame is `lib/maker-stage-room.ts`'s (`SP_ROWS`, `SP_ROWS_ROW`) — this file measures against those constants,
  * never against a copy of their words.
  *
@@ -30,6 +36,8 @@ import React from 'react';
 import { stripComments } from './strip-comments';
 import { SP_ROWS, SP_ROWS_ROW } from './maker-stage-room';
 import type { RsvpStageScene } from './rsvp-stage';
+import { RSVP_LOOK_LINES, rsvpStyleHasRows } from './rsvp-look';
+import { makerPartToolWhy } from './maker-parts';
 
 (globalThis as { React?: typeof React }).React = React;
 /* The RSVP settings import the draft action, whose module is `server-only`: stubbed for this render, as
@@ -81,6 +89,8 @@ const OWN: ReadonlyArray<{ what: string; scene: RsvpStageScene; picked: Picked; 
   { what: 'Style on a text line', scene: 'form', picked: { tool: 'style', part: 'rsvp', line: 'question' }, rows: [1, 4] },
   { what: 'Style on a button', scene: 'form', picked: { tool: 'style', part: 'rsvp', line: 'yes' }, rows: [1, 3, 4] },
   { what: 'Style on the pass’s Save', scene: 'thanks', picked: { tool: 'style', part: 'pass', line: 'save' }, rows: [1, 3, 4] },
+  { what: 'Edit on the form’s card (its settings)', scene: 'form', picked: { tool: 'edit', part: 'rsvp', line: null }, rows: [1, 2, 3] },
+  { what: 'Style on the When-yes card (its Celebration)', scene: 'thanks', picked: { tool: 'style', part: 'yesnote', line: null }, rows: [1] },
   { what: 'Background on the card', scene: 'form', picked: { tool: 'bg', part: 'rsvp', line: null }, rows: [1, 2] },
   { what: 'Background on a line', scene: 'form', picked: { tool: 'bg', part: 'rsvp', line: 'question' }, rows: [1] },
 ];
@@ -127,4 +137,39 @@ test('2 · the box: the stage’s panel is a frame — no gap, no room under the
   for (const c of ['[&>*]:h-full', '[&>*]:min-h-0', '[&>*]:!pb-0']) assert.ok(box.split(/\s+/).includes(c), `the box does not make its child ${c}`);
   /* …and the side inset is the toolbar's own (Background's rows are `SP_ROWS … px-[10px]` in the same file). */
   assert.match(style, /className=\{`\$\{SP_ROWS\} h-full px-\[10px\]`\}/, 'anti-vacuity: the toolbar’s side inset');
+});
+
+test('3 · the form’s card: Edit is its settings in rows 1–3 over the toolbar’s row 4, and Style is grey and says so', async () => {
+  const tools = src(`${L}/stage-tools.tsx`);
+  /* THE CARD'S EDIT is the stage's own panel — three rows tall, standing on the toolbar's row 4. */
+  assert.match(tools, /const rsvpCardEdits = rsvpOpen && picked === 'rsvp' && rsvpLine === null;/);
+  assert.match(tools, /data-stage-edit-card=\{rsvpCardEdits && shownTool === 'edit' \? '' : undefined\}/);
+  const rule = `[data-maker-shell]:has([data-stage-tools][data-stage-edit-card]) [data-phone-chrome="panel"]{visibility:visible;pointer-events:auto;height:calc(3 * var(--sp-rh) + 2 * var(--sp-rg))!important;bottom:calc(\${STAGE_BAR_FOOT_CSS} + var(--sp-rh) + var(--sp-rg))!important}`;
+  assert.ok(tools.includes(rule), 'the card’s Edit rows are not three rows standing on the toolbar’s last row');
+  /* …the SAME measure Style's last row leaves the work area's tool (never a second number). */
+  assert.ok(tools.includes('[data-stage-row4]) [data-phone-chrome="panel"]{height:calc(3 * var(--sp-rh) + 2 * var(--sp-rg))!important;bottom:calc(${STAGE_BAR_FOOT_CSS} + var(--sp-rh) + var(--sp-rg))!important}'), 'anti-vacuity: Style’s own three-row measure');
+  /* Written after the rule that hides the tool on Edit and BEFORE the one that hides it while the toolbar is away. */
+  const at = (needle: string) => tools.indexOf(needle);
+  assert.ok(at('[data-stage-tool-now="edit"]) [data-phone-chrome="panel"]{visibility:hidden') < at('[data-stage-edit-card]) [data-phone-chrome="panel"]') && at('[data-stage-edit-card]) [data-phone-chrome="panel"]') < at('[data-stage-tools][aria-hidden="true"]) [data-phone-chrome="panel"]{visibility:hidden'), 'the card’s rows would show under a toolbar that has stepped away, or stay hidden on Edit');
+  /* Edit's last row is still the toolbar's own, on the card as on every part. */
+  assert.match(tools, /\{editOn && !rsvpLineTypes \? \(\s*<StageEdit /, 'the card lost Edit’s last row (Earlier · Later · Remove)');
+  /* THE DOOR goes only where everything it led to is in place: the form's card. */
+  assert.match(tools, /if \(rsvpCardEdits\) quiet = null;/);
+  assert.equal((tools.match(/quiet = null;/g) ?? []).length, 1, 'another part lost its door');
+  /* STYLE IS GREY THERE, through the one rule — and a tap says the tool's own line. */
+  assert.match(tools, /const emptyHere = \(t: MakerPartTool\) => rsvpOpen && t === 'style' && !rsvpStyleHasRows\(picked, rsvpLine\);/);
+  assert.match(tools, /makerPartToolWorks\(picked, t\) && !emptyHere\(t\)\);/, 'a tool with no row here is live');
+  assert.match(tools, /if \(emptyHere\(t\)\) return makerPartToolWhy\(null, t\);/);
+  assert.equal(makerPartToolWhy(null, 'style'), 'Style has nothing to change on this part.');
+  assert.equal(rsvpStyleHasRows('rsvp', null), false, 'the form’s card still has a Style');
+  /* 🔗 THE ONE ANSWER IS HELD TO WHAT THE PANEL DRAWS — wherever Style is live, a control stands inside the frame. */
+  const live: Array<[RsvpStageScene, string, string | null]> = [...RSVP_LOOK_LINES.map((id) => [id.startsWith('rsvp.') ? 'form' : id.startsWith('nonote.') ? 'decline' : 'thanks', id.split('.')[0]!, id.split('.')[1]!] as [RsvpStageScene, string, string])];
+  assert.ok(live.length >= 6, `anti-vacuity: only ${live.length} lines read`);
+  for (const [scene, part, line] of live) {
+    assert.equal(rsvpStyleHasRows(part, line), true, `${part}.${line}: Style is grey on a line with a look`);
+    const { root, rows } = frameOf(await panel(scene, { tool: 'style', part, line }));
+    assert.ok(root && rows.length >= 2, `${part}.${line}: Style is live and its panel is empty`);
+  }
+  /* …and where it says no, nothing of the reply pages' Style is offered: the names, the date, a guest's own name. */
+  for (const part of ['rsvp', 'nonote', 'logo', 'names', 'date', 'place', 'ename', 'heroline', 'pass']) assert.equal(rsvpStyleHasRows(part, null), false, `${part}: Style is live with no row to draw`);
 });

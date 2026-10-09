@@ -68,7 +68,7 @@ import {
   rsvpStageFrameSelector,
 } from '@/app/[slug]/_components/rsvp-canvas-parts';
 import { rsvpLineWord } from '@/lib/rsvp-form-words';
-import { rsvpLookCard, rsvpLookLine } from '@/lib/rsvp-look';
+import { rsvpLookCard, rsvpLookLine, rsvpStyleHasRows } from '@/lib/rsvp-look';
 import { RSVP_OPEN_CARD_EVENT } from '@/lib/rsvp-stage-shared';
 import { setStagePanelNow, setStageRevealColours, setStageTool, useAnimatePhase, useStagePanelNow, useStageRevealLook, type StageQuiet } from './stage-panel/store';
 import { StageEdit } from './stage-panel/stage-edit';
@@ -322,6 +322,9 @@ export function StageTools({
   /** ✍ A picked line WITH words: its Edit is the stage's own panel (that line's words + its Start from ▾ —
    *  `maker-rsvp-ask.tsx`), so Edit's rows here stand aside and that panel stays in sight. */
   const rsvpLineTypes = rsvpLineWord(picked, rsvpLine) !== null;
+  /** ⚙ The FORM'S CARD picked (no line): its Edit is the reply's settings, the stage's own panel in rows 1–3
+   *  (`RsvpCardEditRows`) over this toolbar's row 4 — Earlier · Later · Remove, as on every part. */
+  const rsvpCardEdits = rsvpOpen && picked === 'rsvp' && rsvpLine === null;
   /* Nothing picked → no line kept: the same part picked again from anywhere but a tap is the GROUP. */
   useEffect(() => {
     if (!picked) setLineAtPart(null);
@@ -1129,12 +1132,16 @@ export function StageTools({
         };
       }
     }
+    /* ⚙ The form's card has NO door: everything "Open in Studio › RSVP" led to is in place now — its settings are
+       this card's Edit (rows 1–3), the two answers' words are their lines' Edit, the Celebration is the When-yes
+       card's Style. (The When-yes and When-no cards keep the door: their Edit has nothing else.) */
+    if (rsvpCardEdits) quiet = null;
     const f = fixedHere ? fixedScenePanel(fixedHere) : null;
     /* 🎞 A Post Event scene: what it is, behind the one ⓘ — the scene panel's own sentences (`POST_EVENT_ABOUT`). */
     const story = !rsvpOpen && picked && canvasOfScene ? postEventAbout(postEventSceneNow(canvasOfScene), POST_EVENT_ABOUT) : null;
     const about = (f ? [f.line, f.source?.text].filter(Boolean).join(' ') || null : null) ?? (rsvpOpen && picked ? (RSVP_PART_ABOUT[picked] ?? null) : null) ?? story;
     setStagePanelNow({ picked, quiet, about, line: rsvpLine });
-  }, [picked, rsvpLine, rsvpOpen, suppliersHref, stageKey, shownPage, onOpenStudio, fixedHere, canvasOfScene, maker?.renderStamp]);
+  }, [picked, rsvpLine, rsvpOpen, rsvpCardEdits, suppliersHref, stageKey, shownPage, onOpenStudio, fixedHere, canvasOfScene, maker?.renderStamp]);
   useEffect(() => () => setStagePanelNow({ picked: null, quiet: null, about: null }), []);
 
   /* 🚫 A TOOL WITH NOTHING TO SET ON THE PICKED PART (`makerPartToolWorks`): grey, `aria-disabled`, and a tap says
@@ -1155,7 +1162,11 @@ export function StageTools({
   /** 🎨 A tool the PICKED thing has a save for beyond the part rule: a reply card or line (Background · Animate), a
    *  fixed block with one real root (Animate). */
   const ownTool = (t: MakerPartTool) => (rsvpLooks && (t === 'bg' || t === 'animate')) || (block !== null && t === 'animate');
-  const toolWorks = (t: MakerPartTool) => !picked || ownTool(t) || ((t === 'edit' || t === 'style' || !styleOnly) && makerPartToolWorks(picked, t));
+  /** 🚫 …and a tool whose rows would be EMPTY here: on the reply pages Style has a row only for a line with a look and
+   *  for the When-yes card (`rsvpStyleHasRows`) — the form's card (its settings are Edit's), the names, the date and
+   *  the rest have none. Grey, and a tap says the tool's own line. */
+  const emptyHere = (t: MakerPartTool) => rsvpOpen && t === 'style' && !rsvpStyleHasRows(picked, rsvpLine);
+  const toolWorks = (t: MakerPartTool) => !picked || ownTool(t) || ((t === 'edit' || t === 'style' || !styleOnly) && makerPartToolWorks(picked, t) && !emptyHere(t));
   /** The tool the rows are showing: the remembered one, or the first that has something here (Edit; Style on the Camera). */
   const shownTool: MakerPartTool = toolWorks(tool) ? tool : (MAKER_PART_TOOLS.find(toolWorks) ?? 'style');
   shownToolRef.current = shownTool;
@@ -1169,6 +1180,9 @@ export function StageTools({
    *  naming the thing (`BLOCK_SAMPLE_WHY`); E-Gifts with nothing for a guest to see yet says that; any other, the
    *  part's own (`makerPartToolWhy`). */
   const whyNot = (t: MakerPartTool): string => {
+    /* A tool with no row on the reply pages names itself ("Style has nothing to change on this part.") — the rule's
+       own plain line, never "edit it in Studio": what there is to change is in the tools beside it. */
+    if (emptyHere(t)) return makerPartToolWhy(null, t);
     const sample = picked && (t === 'bg' || t === 'animate') ? BLOCK_SAMPLE_WHY[makerPartCanvasOn(stageKey, picked) ?? ''] : undefined;
     const empty = blockAt && !blockIsReal && t === 'animate' ? BLOCK_EMPTY_WHY : undefined;
     return sample ?? empty ?? makerPartToolWhy(picked, t);
@@ -1313,6 +1327,7 @@ export function StageTools({
       data-stage-tools=""
       data-stage-open={open ? '' : undefined}
       data-stage-edit-own={rsvpLineTypes && shownTool === 'edit' ? '' : undefined}
+      data-stage-edit-card={rsvpCardEdits && shownTool === 'edit' ? '' : undefined}
       data-stage-own-rows={blockRows ? '' : undefined}
       data-stage-tool-now={shownTool}
       data-stage-row4={lookOn ? '' : undefined}
@@ -1337,6 +1352,10 @@ export function StageTools({
              the stage's own panel — `data-stage-edit-own`). Written right under the rule it lifts, so the toolbar
              stepping away (below) still hides it. */
           '[data-maker-shell]:has([data-stage-tools][data-stage-edit-own]) [data-phone-chrome="panel"]{visibility:visible;pointer-events:auto}' +
+          /* ⚙ …and where Edit is that tool's in rows 1–3 only (the RSVP form's card: its settings — `data-stage-edit-card`):
+             in sight, three rows tall, standing on this toolbar's own row 4 (Earlier · Later · Remove) — the same
+             measure Style's last row leaves it (`data-stage-row4`, below). */
+          `[data-maker-shell]:has([data-stage-tools][data-stage-edit-card]) [data-phone-chrome="panel"]{visibility:visible;pointer-events:auto;height:calc(3 * var(--sp-rh) + 2 * var(--sp-rg))!important;bottom:calc(${STAGE_BAR_FOOT_CSS} + var(--sp-rh) + var(--sp-rg))!important}` +
           /* 🧱 …and the other way round: a fixed block's Animate is drawn HERE, in the toolbar's own rows
              (`BlockAnimateRows`), so the work area's tool stands aside for it as it does for Edit. */
           '[data-maker-shell]:has([data-stage-tools][data-stage-own-rows]) [data-phone-chrome="panel"]{visibility:hidden;pointer-events:none}' +

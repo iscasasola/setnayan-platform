@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "b6e56513d",
+  "generatedFromRef": "cbb4e46a6",
   "routeCount": 430,
   "destinations": 956,
   "actions": 673,
-  "blocks": 5947,
+  "blocks": 5948,
   "routes": {
     "/": {
       "files": [
@@ -6949,6 +6949,7 @@
         "RsvpAskConfig",
         "RsvpAsks",
         "RsvpBuildInRows",
+        "RsvpCardEditRows",
         "RsvpCardGroundRows",
         "RsvpLineGroundRow",
         "RsvpLineLookRows",

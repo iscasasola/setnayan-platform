@@ -72,7 +72,11 @@ export function Dd({
   about,
   stacked = false,
   off,
+  picked,
 }: {
+  /** ✓ A dropdown with CHECKMARKS (the shipped `PickMenu`'s own `picked`): a ✓ beside each option that is on, a tap
+   *  ticks or unticks it (`onPick` with its key) and the list stays open until "Done ✓". Omitted — one choice. */
+  picked?: readonly string[];
   /**
    * This dropdown cannot be used right now: it is GREY and still hears a tap — the tap calls this (the caller says
    * why, in a toast) and nothing opens. Never `disabled`: that is a dead tap (the tools' own rule).
@@ -121,7 +125,7 @@ export function Dd({
       <span className={stacked ? SP_DD_STACKED_LABEL : SP_DD_LABEL} data-dd-label="">
         {small}
       </span>
-      <PickMenu label={label} value={value} options={options} onPick={onPick} buttonText={buttonText} className={stacked ? SP_DD_STACKED_BUTTON : SP_DD_BUTTON} />
+      <PickMenu label={label} value={value} options={options} onPick={onPick} buttonText={buttonText} picked={picked} className={stacked ? SP_DD_STACKED_BUTTON : SP_DD_BUTTON} />
     </div>
   );
   return about ? (

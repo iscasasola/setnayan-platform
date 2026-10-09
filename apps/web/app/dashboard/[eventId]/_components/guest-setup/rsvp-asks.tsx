@@ -30,6 +30,21 @@ export const RSVP_ASKS_LINE = 'Yes or no is always asked. Tick what else you wan
  * `setup-and-maker-mount-the-same-parts.test.ts` (neither door may draw its own
  * switch for these six).
  */
+/**
+ * What a door's own row is handed (`frame`): the chips, drawn here — or, for a door with ONE row for all six (the
+ * Maker's toolbar: a dropdown with a tick each), the six themselves, which are on, and the one writer. Either way the
+ * six, their words and what is on are this part's — a door never lists them itself.
+ */
+export type RsvpAsksFrame = {
+  name: string;
+  line: string;
+  chips: ReactNode;
+  attrs: Readonly<Record<`data-${string}`, string>>;
+  asks: ReadonlyArray<{ key: RsvpAskField; label: string }>;
+  on: readonly RsvpAskField[];
+  onToggle: (field: RsvpAskField, next: boolean) => void;
+};
+
 export function RsvpAsks({
   config,
   onToggle,
@@ -37,7 +52,7 @@ export function RsvpAsks({
   frame,
 }: {
   /** The door's own row around the chips (the Maker's Form row). */
-  frame?: (row: { name: string; line: string; chips: ReactNode; attrs: Readonly<Record<`data-${string}`, string>> }) => ReactNode;
+  frame?: (row: RsvpAsksFrame) => ReactNode;
   config: RsvpAskConfig;
   onToggle: (field: RsvpAskField, next: boolean) => void;
   rowClassName?: string;
@@ -55,7 +70,19 @@ export function RsvpAsks({
   );
   if (frame) {
     /* Never a wrapper of this part's own: a row must stay a direct child of its list. */
-    return <>{frame({ name: RSVP_ASKS_TITLE, line: RSVP_ASKS_LINE, chips, attrs: { 'data-setup-row': 'asks', 'data-made-once': 'rsvp-ask' } })}</>;
+    return (
+      <>
+        {frame({
+          name: RSVP_ASKS_TITLE,
+          line: RSVP_ASKS_LINE,
+          chips,
+          attrs: { 'data-setup-row': 'asks', 'data-made-once': 'rsvp-ask' },
+          asks: RSVP_ASK_FIELDS.map((field) => ({ key: field, label: RSVP_ASK_LABEL[field] })),
+          on: RSVP_ASK_FIELDS.filter((field) => rsvpAsks(config, field)),
+          onToggle,
+        })}
+      </>
+    );
   }
   return (
     <section className={rowClassName} data-setup-row="asks" data-made-once="rsvp-ask">

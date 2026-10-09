@@ -115,6 +115,17 @@ function readMotion(v: Record<string, unknown>): RsvpMotion {
   return out;
 }
 
+/**
+ * 🚫 DOES STYLE HAVE A ROW FOR THIS PICK ON THE REPLY PAGES? ONE answer, asked by the toolbar (a tool with nothing to
+ * change is grey and says so — `stage-tools.tsx`) and held to what the panel really draws
+ * (`the-rsvp-tools-stand-in-the-four-rows.test.ts`): a LINE with a look has Font · Colour · Size; the When-yes card has
+ * its Celebration ▾. Nothing else has: the form's card (its settings are Edit's), the When-no card, the couple's
+ * mark, their names, the date, the place, a guest's own name and ticket.
+ */
+export function rsvpStyleHasRows(part: string | null, line: string | null): boolean {
+  return rsvpLookLine(part, line) !== null || (part === 'yesnote' && line === null);
+}
+
 /** THE ONE READER — over the RAW `rsvp_ask_config`. Only known lines and cards, only values from the lists above. */
 export function readRsvpLook(config: unknown): RsvpLook {
   const raw = isObject(config) ? config.look : null;

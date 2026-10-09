@@ -22,6 +22,18 @@ import {
 import { ColourSheet } from '../../website/editor/_components/colour-well';
 import { FontPick } from '../../website/editor/_components/font-pick';
 import { Swatch } from './stage-panel/kit';
+import { Dd } from './stage-panel/kit';
+import { createPortal } from 'react-dom';
+import { PeekToast } from '@/app/_components/toast/peek-toast';
+import { STAGE_EDIT_ROW_FIT } from './stage-panel/stage-edit';
+import type { ReactNode } from 'react';
+import type { RsvpAskConfig, RsvpAskField } from '@/lib/rsvp-ask';
+import type { GuestsGetIn as GetInValue } from '@/lib/who-can-reply';
+import type { PickOption } from '../../website/editor/_components/pick-menu-types';
+/* The SAME parts Guests › Setup and Studio › RSVP mount (`setup-and-maker-mount-the-same-parts.test.ts`) — never a copy. */
+import { GuestsGetIn, RsvpAsks } from '../../_components/guest-setup/guest-setup-lazy';
+import type { GuestsGetInFrame } from '../../_components/guest-setup/guests-get-in';
+import type { RsvpAsksFrame } from '../../_components/guest-setup/rsvp-asks';
 import { StageAnimate } from './stage-panel/stage-animate';
 
 /**
@@ -113,6 +125,97 @@ export function RsvpLineLookRows({
         </p>
       ) : null}
     </div>
+  );
+}
+
+/* ── ⚙ EDIT, THE FORM'S CARD ───────────────────────────────────────────────────────────────────────────────────── */
+
+/** What the asks' dropdown reads while shut: how many of the six are on. */
+export function rsvpAsksFace(on: number, of: number): string {
+  return on === 0 ? 'None' : `${on} of ${of} on`;
+}
+/** 🎟 How guests get in → row 3: the toolbar's label-inside dropdown (`Dd` stacked), the part's own choices and writer. */
+export const rsvpGetInDd = (row: GuestsGetInFrame) => (
+  <Dd stacked small={row.name} label={row.name} data="rsvp-get-in" value={row.value} options={row.options} buttonText={row.buttonText} onPick={row.onPick} />
+);
+/** ✓ RSVP asks → ONE dropdown with a tick per question (the shipped `PickMenu`'s checkmarks), its face reading how many are on. */
+export const rsvpAsksDd = (row: RsvpAsksFrame) => (
+  <Dd
+    stacked
+    small={row.name}
+    label={row.name}
+    data="rsvp-asks"
+    value={null}
+    picked={row.on}
+    options={row.asks}
+    buttonText={rsvpAsksFace(row.on.length, row.asks.length)}
+    onPick={(key) => {
+      const field = row.asks.find((a) => a.key === key)?.key;
+      if (field) row.onToggle(field, !row.on.includes(field));
+    }}
+  />
+);
+
+/**
+ * ⚙ EDIT FOR THE FORM'S CARD — the reply's SETTINGS, in the toolbar's rows 1–3 (owner 2026-10-09, of this panel: *"why
+ * is this scrolling? the bottom toolbar is not aligned to our design"*; 2026-10-10: these are the form's settings, not
+ * its style). They were seven rows under Style, 385 px in a 210-px box. Row 4 is Edit's own last row — Earlier · Later ·
+ * Remove — drawn by the toolbar (`stage-edit.tsx`), as on every part.
+ *
+ *   row 1   Reply by                       the date row as it is (the caller's — the one shared part, the one calendar)
+ *   row 2   How guests answer ▾ · RSVP asks ▾     two halves, the label inside (as Animate's Movement · Plays); the
+ *                                          asks are ONE dropdown, a tick per question, its face "4 of 6 on"
+ *   row 3   How guests get in ▾            the row's width: its face is heading and choice together ("Only my list ·
+ *                                          They reply"), 168 px of words — in a half of a 375-px phone it was cut
+ *                                          ("Only my list · They…", measured 2026-10-10), so it has the row and the
+ *                                          two short ones share one
+ *
+ * Nothing here is a new control and nothing here saves: the dropdown is the toolbar's (`Dd` on `PickMenu`), the choices
+ * and the writers are the shared parts' and the caller's — every pick posts exactly what its row in the list posted
+ * (`the-rsvp-card-edit-posts-what-the-list-posted.test.ts`). No hooks: it is only where each control stands.
+ */
+export function RsvpCardEditRows({
+  replyBy,
+  answer,
+  getIn,
+  asks,
+  error = null,
+  onErrorGone,
+}: {
+  /**
+   * A pick that did not save, in the panel's own words. Rows 1–3 are full and row 4 is the toolbar's, so it is said the
+   * way the toolbar says things: its toast, on the page's body (only ever set by a pick — never in a first render).
+   */
+  error?: string | null;
+  onErrorGone?: () => void;
+  /** The Reply by row, as the list draws it (`ReplyBy` in the Form row with a date). */
+  replyBy: ReactNode;
+  /** How guests answer — its name, the two named choices, the one stored now, and the list's own pick. */
+  answer: { label: string; value: string; options: readonly PickOption[]; onPick: (key: string) => void };
+  getIn: { value: GetInValue; onPick: (next: GetInValue) => void };
+  asks: { config: RsvpAskConfig; onToggle: (field: RsvpAskField, next: boolean) => void };
+}) {
+  return (
+    <>
+      <div className={`${SP_ROWS_ROW} row-start-1 ${STAGE_EDIT_ROW_FIT}`} data-rsvp-row="1" data-rsvp-card-edit="reply-by">
+        {replyBy}
+      </div>
+      <div className={`${SP_ROWS_ROW} row-start-2`} data-rsvp-row="2" data-rsvp-card-edit="answer-and-asks">
+        <Dd stacked small={answer.label} label={answer.label} data="rsvp-answer" value={answer.value} options={answer.options} onPick={answer.onPick} />
+        <RsvpAsks frame={rsvpAsksDd} config={asks.config} onToggle={asks.onToggle} />
+      </div>
+      <div className={`${SP_ROWS_ROW} row-start-3`} data-rsvp-row="3" data-rsvp-card-edit="get-in">
+        <GuestsGetIn frame={rsvpGetInDd} value={getIn.value} onPick={getIn.onPick} />
+      </div>
+      {error
+        ? createPortal(
+            <PeekToast key={error} tone="bad" data="rsvp-card-edit-error" onGone={() => onErrorGone?.()}>
+              {error}
+            </PeekToast>,
+            document.body,
+          )
+        : null}
+    </>
   );
 }
 

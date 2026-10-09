@@ -182,7 +182,11 @@ test('5 · the toolbar: Animate is live on the four; the six samples stay grey a
   assert.match(src('app/[slug]/_components/guest-doorway-strip.tsx'), /<section className="space-y-3" data-welcome-gifts=""/, 'the real E-Gifts block no longer says it is one');
   assert.match(TOOLS, /const block = blockAt && blockIsReal \? blockAt : null;/);
   assert.match(TOOLS, /const ownTool = \(t: MakerPartTool\) => \(rsvpLooks && \(t === 'bg' \|\| t === 'animate'\)\) \|\| \(block !== null && t === 'animate'\);/);
-  assert.match(TOOLS, /const toolWorks = \(t: MakerPartTool\) => !picked \|\| ownTool\(t\) \|\| \(\(t === 'edit' \|\| t === 'style' \|\| !styleOnly\) && makerPartToolWorks\(picked, t\)\);/);
+  /* 🔁 RE-AIMED 2026-10-10 (toolbar consistency — owner: "please make Edit | Style | Background | Animate Consistent in
+     design"): the part rule is as it was, and one clause is added to it — a tool whose rows would be EMPTY on the
+     picked thing is grey too (`emptyHere`: on the reply pages Style has a row only for a line with a look and for the
+     When-yes card). The claim this pin holds — a live tool is one with something to set — is the same, and stricter. */
+  assert.match(TOOLS, /const toolWorks = \(t: MakerPartTool\) => !picked \|\| ownTool\(t\) \|\| \(\(t === 'edit' \|\| t === 'style' \|\| !styleOnly\) && makerPartToolWorks\(picked, t\) && !emptyHere\(t\)\);/);
   /* Its rows are the toolbar's own, and the work area's tool stands aside for them. */
   assert.match(TOOLS, /const blockRows = open && block !== null && shownTool === 'animate';/);
   assert.match(TOOLS, /\{blockRows && block \? <BlockAnimateRows key=\{block\} block=\{block\} \/> : null\}/);

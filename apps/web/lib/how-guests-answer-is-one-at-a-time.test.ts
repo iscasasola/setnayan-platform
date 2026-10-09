@@ -49,15 +49,27 @@ test('1 · ONE pill selector over oneAtATime — read from it, writing only it',
   assert.match(row, /<PillSelector\s+label=\{HOW_GUESTS_ANSWER_LABEL\}/, 'two named things are not a pill selector');
   assert.match(row, /value=\{oneAtATime \? 'one' : 'all'\}/, 'the pill does not read oneAtATime');
   assert.match(row, /options=\{HOW_GUESTS_ANSWER_OPTIONS\}/);
-  assert.match(row, /void save\(\{ oneAtATime: next \}, /, 'the pick does not save oneAtATime');
-  assert.equal((row.match(/save\(/g) ?? []).length, 1, 'the pick saves more than one thing');
-  assert.match(row, /if \(next !== oneAtATime\) /, 'picking the answer already stored still writes');
+  /* 🔁 RE-AIMED 2026-10-10 (toolbar consistency, owner: "why is this scrolling?" → the form's settings are the card's
+     Edit, in the toolbar's rows): the pick is ONE named writer now, `pickAnswer`, because the SAME answer is also set
+     from the toolbar's row 2 — a half-width dropdown with the label inside, beside How guests get in (as Animate's
+     Movement · Plays). Still one writer of `oneAtATime` in the whole panel (the count below); the pill selector is
+     still the list's control. */
+  assert.match(row, /onPick=\{pickAnswer\}/, 'the pill does not write through the one writer');
+  const pickAt = src.indexOf('const pickAnswer = (value: string) => {');
+  assert.ok(pickAt > 0 && pickAt < at, 'the one writer of the answer moved — re-read this guard');
+  const pick = src.slice(pickAt, src.indexOf('\n  };\n', pickAt));
+  assert.match(pick, /void save\(\{ oneAtATime: next \}, /, 'the pick does not save oneAtATime');
+  assert.equal((pick.match(/save\(/g) ?? []).length, 1, 'the pick saves more than one thing');
+  assert.equal((row.match(/save\(/g) ?? []).length, 0, 'the row saves something of its own beside the one writer');
+  assert.match(pick, /if \(next !== oneAtATime\) /, 'picking the answer already stored still writes');
   // ONE control for the setting in the whole panel: this row, drawn by the reply's rows (Studio › RSVP and the
   // stage's form) and by Event Details — never a switch or a dropdown for the same answer beside it.
   assert.equal((src.match(/\{answerRow\}/g) ?? []).length, 2, 'the row is not the one drawn in every door');
   assert.equal((src.match(/save\(\{ oneAtATime: /g) ?? []).length, 1, 'a second control writes the same answer');
   assert.doesNotMatch(src, /role="switch"|<Switch\b|<SwitchRow\b|Ask one question at a time/, 'a switch-shaped control for the same answer is drawn');
   assert.doesNotMatch(src, /<PickMenu\b/, 'a dropdown of the panel’s own is drawn (two choices are a pill; three or more ride a Form row)');
+  /* …and the toolbar's dropdown is handed that SAME writer, never a second one. */
+  assert.match(src, /answer=\{\{ label: HOW_GUESTS_ANSWER_LABEL, value: oneAtATime \? 'one' : 'all', options: HOW_GUESTS_ANSWER_OPTIONS, onPick: pickAnswer \}\}/, 'the toolbar’s row writes the answer some other way');
   assert.match(src, /const oneAtATime = readOneAtATime\(local\);/);
   const { HOW_GUESTS_ANSWER_OPTIONS, HOW_GUESTS_ANSWER_ABOUT } = await import(`../${FILE}`);
   assert.deepEqual(

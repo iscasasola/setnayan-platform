@@ -127,7 +127,11 @@ test('(4) the pill: grey and `aria-disabled` (never `disabled`), never pressed w
   /* 🔁 RE-AIMED AGAIN 2026-10-10: the tools a picked thing has a save for BEYOND the part rule are now one named
      function, `ownTool` (a reply card or line: Background · Animate; a fixed block with one real root: Animate —
      `a-fixed-block-has-its-own-motion.test.ts` §5). The part rule itself is decided exactly as before. */
-  assert.match(tools, /const toolWorks = \(t: MakerPartTool\) => !picked \|\| ownTool\(t\) \|\| \(\(t === 'edit' \|\| t === 'style' \|\| !styleOnly\) && makerPartToolWorks\(picked, t\)\);/);
+  /* 🔁 RE-AIMED 2026-10-10 (toolbar consistency — owner: "please make Edit | Style | Background | Animate Consistent in
+     design"): the part rule is as it was, and one clause is added to it — a tool whose rows would be EMPTY on the
+     picked thing is grey too (`emptyHere`: on the reply pages Style has a row only for a line with a look and for the
+     When-yes card). The claim this pin holds — a live tool is one with something to set — is the same, and stricter. */
+  assert.match(tools, /const toolWorks = \(t: MakerPartTool\) => !picked \|\| ownTool\(t\) \|\| \(\(t === 'edit' \|\| t === 'style' \|\| !styleOnly\) && makerPartToolWorks\(picked, t\) && !emptyHere\(t\)\);/);
   /* …and the rows show the FIRST tool that has something here (Edit; Style on the Camera) — never a grey one. */
   assert.match(tools, /const shownTool: MakerPartTool = toolWorks\(tool\) \? tool : \(MAKER_PART_TOOLS\.find\(toolWorks\) \?\? 'style'\);/);
   /* The tap: the line FIRST and nothing else — no tool is set, no panel is asked for. */

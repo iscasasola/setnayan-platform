@@ -20,7 +20,7 @@ import { RSVP_WORD_TYPED_EVENT } from '@/app/[slug]/_components/rsvp-canvas-part
 import { rsvpFormWord, rsvpLineWord } from '@/lib/rsvp-form-words';
 import { RSVP_CONFIG_FULL, readRsvpLook, rsvpConfigFits, rsvpLookCard, rsvpLookLine, rsvpLookWith } from '@/lib/rsvp-look';
 import { RSVP_OPEN_CARD_EVENT } from '@/lib/rsvp-stage-shared';
-import { RsvpBuildInRows, RsvpCardGroundRows, RsvpLineGroundRow, RsvpLineLookRows } from './rsvp-line-look';
+import { RsvpBuildInRows, RsvpCardEditRows, RsvpCardGroundRows, RsvpLineGroundRow, RsvpLineLookRows } from './rsvp-line-look';
 import type { MakerPartTool } from '@/lib/maker-parts';
 import { hubDraftAction } from '../../website/hub-draft-actions';
 import { updatePaxSettings } from '../../actions';
@@ -435,6 +435,12 @@ export function MakerRsvpSettings({
   ) : (
     <FormRow data="reply-by" name="Reply by" problem="We couldn’t read your reply-by date just now, so it can’t be changed here. Nothing was changed." />
   );
+  /** ❓ A pick of "How guests answer" — the ONE writer of `oneAtATime`, for the list's pill selector and for the
+   *  toolbar's dropdown on the card's Edit (`RsvpCardEditRows`). */
+  const pickAnswer = (value: string) => {
+    const next = value === 'one';
+    if (next !== oneAtATime) void save({ oneAtATime: next }, `“${HOW_GUESTS_ANSWER_LABEL}”`);
+  };
   /* ❓ How guests answer — two named things, so a pill selector (never a switch, never a list of two). */
   const answerRow = (
     <FormRow
@@ -449,10 +455,7 @@ export function MakerRsvpSettings({
         grow={false}
         value={oneAtATime ? 'one' : 'all'}
         options={HOW_GUESTS_ANSWER_OPTIONS}
-        onPick={(value) => {
-          const next = value === 'one';
-          if (next !== oneAtATime) void save({ oneAtATime: next }, `“${HOW_GUESTS_ANSWER_LABEL}”`);
-        }}
+        onPick={pickAnswer}
       />
     </FormRow>
   );
@@ -544,6 +547,25 @@ export function MakerRsvpSettings({
         </div>
       );
     }
+    /* ⚙ EDIT, the FORM'S CARD picked — the reply's SETTINGS in rows 1–3 (`RsvpCardEditRows`): Reply by · How guests
+       answer ▾ + RSVP asks ▾ · How guests get in ▾. The SAME values and the SAME writers the list below has
+       (`replyByRow`, `pickAnswer`, `pickGetIn`, `toggleAsk`) — only where they stand changed: they were seven rows
+       under Style, scrolling. Row 4 is the toolbar's own (Earlier · Later · Remove), so a refused save is said the
+       way the toolbar says things — its toast (`RsvpCardEditRows` draws it; this file mounts no portal). */
+    if (picked.tool === 'edit' && scene === 'form' && picked.part === 'rsvp' && !picked.line) {
+      return (
+        <div className={RSVP_ROWS} data-rsvp-stage-controls={scene} data-rsvp-stage-rows="" data-rsvp-stage-card-edit="">
+          <RsvpCardEditRows
+            replyBy={replyByRow}
+            answer={{ label: HOW_GUESTS_ANSWER_LABEL, value: oneAtATime ? 'one' : 'all', options: HOW_GUESTS_ANSWER_OPTIONS, onPick: pickAnswer }}
+            getIn={{ value: getInNow, onPick: pickGetIn }}
+            asks={{ config: local, onToggle: toggleAsk }}
+            error={error}
+            onErrorGone={() => setError(null)}
+          />
+        </div>
+      );
+    }
     /* 🎨 STYLE, a line picked — its Font, its Colour and its Size (`rsvp-line-look.tsx`), kept in the same one object as the
        words (`look`, `lib/rsvp-look.ts`): on the canvas at the tap, in the draft behind it, live on Apply. */
     const lookLine = rsvpLookLine(picked.part, picked.line);
@@ -591,6 +613,22 @@ export function MakerRsvpSettings({
            (it stood 20 px in, where every other stage's Animate stands 10). */
         <div className="-mx-[10px] flex h-full min-h-0 flex-col" data-rsvp-stage-controls={scene} data-rsvp-stage-animate={typeof moves === 'string' ? moves : `card.${moves.card}`}>
           <RsvpBuildInRows now={(typeof moves === 'string' ? look.lines?.[moves] : look.card?.[moves.card]) ?? {}} error={error} onPick={(patch) => void save({ look: rsvpLookWith(latest.current, moves, patch) }, '“Animate”')} />
+        </div>
+      );
+    }
+    /* 🎉 STYLE, the WHEN-YES CARD picked — its Celebration ▾, the list's own row, in row 1 of the four (it stood in a
+       list of one, 2 px off the row). Where the pick is not shown at all (the store shell, without Pro) nothing is. */
+    if (picked.tool === 'style' && scene === 'thanks' && picked.part === 'yesnote' && !picked.line) {
+      return (
+        <div className={RSVP_ROWS} data-rsvp-stage-controls={scene} data-rsvp-stage-rows="" data-rsvp-stage-card-style="yesnote">
+          <FormRows data={`rsvp-${scene}`} className="!contents">
+            {celebrationRow((row) => (
+              <div data-rsvp-row="1" className={`${RSVP_ROW[1]} ${STAGE_EDIT_ROW_FIT}`}>
+                {row}
+              </div>
+            ))}
+          </FormRows>
+          {status ? <div data-rsvp-row="2" className={`${RSVP_ROW[2]} ${RSVP_ROW_ERROR}`}>{status}</div> : null}
         </div>
       );
     }

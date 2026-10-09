@@ -117,7 +117,12 @@ test('B · the Maker writes each into the DRAFT, never the live column', () => {
   assert.equal(everyMount.length, 2, `the Maker mounts Reply by ${everyMount.length} times — the reply's rows (Studio and the stage) and Event Details`);
   for (const mount of everyMount) assert.match(mount, /\baction=\{replyByAction\}\s+draft\s*\/>$/, 'a Maker door shows Reply by without the field, or writes it live');
   assert.match(makerRsvp, /const replyByRow = replyByOwn \? \(\s*<ReplyBy\s+layout="frame"\s+frame=\{replyByFrame\}[\s\S]{0,400}?action=\{replyByAction\}\s+draft\s*\/>/, 'the reply’s rows have no editable Reply by row');
-  assert.equal((makerRsvp.match(/\{replyByRow\}/g) ?? []).length, 1, 'Reply by is not in the one list both doors draw');
+  /* 🔁 RE-AIMED 2026-10-10 (toolbar consistency): the SAME element is also handed to the toolbar's card Edit, row 1
+     (`replyBy={replyByRow}`) — still ONE mount of the reply's rows (counted above), now standing in two places: the
+     one list both doors draw, and the RSVP stage's card › Edit. */
+  assert.equal((makerRsvp.match(/^\s*\{replyByRow\}$/gm) ?? []).length, 1, 'Reply by is not in the one list both doors draw');
+  assert.equal((makerRsvp.match(/\{replyByRow\}/g) ?? []).length, 2, 'Reply by is drawn somewhere besides the one list and the card’s Edit');
+  assert.match(makerRsvp, /<RsvpCardEditRows\s+replyBy=\{replyByRow\}/, 'the card’s Edit shows a Reply by of its own');
   assert.equal((makerRsvp.match(/\{formRows\}/g) ?? []).length, 2, 'Studio › RSVP and the stage’s form do not draw the same rows');
   assert.doesNotMatch(read(`${D}/_components/guest-setup/guest-setup-rows.tsx`), /<ReplyBy\b[^>]*\bdraft\b/, 'Guests › Setup drafts Reply by — it has no Apply to publish it');
   /* ⤷ Train 2026-10-08: a drafted pick is HELD (no render rides on it) and `updatePaxSettings` answers with no

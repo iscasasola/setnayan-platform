@@ -586,6 +586,19 @@ Guard: `background-is-four-rows` (8) new, executed; two pins on "a colour keeps 
 words; four sabotages seen red (the frame ignoring it, the sanitizer dropping it, the row not drawing it, the
 caller not handing it over). Not seen in a browser yet.
 
+### Four unit tests green for the batch's CI
+
+- `a-theme-preview-wears-the-palette` (the sweep) — the CODE was wrong, and mine: the colour's Darker ↔ Lighter mix
+  read `theme.palette.darkInk` on its own. `lib/scene-media-shade.ts` now has ONE read of the handed theme's inks
+  (`shadeInks`), used by the picture's veil and the colour's mix; no new exception.
+- `a-free-section-tries-every-look-control` — the test was stale: "every look control" is "every look control that
+  is OFFERED". Tied to `SCRUB_OUT_OFFERED`: off, Scrub must not be there; on, it must — the line turns itself back on.
+- `element-sheet-state` #10 — stale: "in wine" was spelled `bg-mulberry text-white`; it now reads the app's one
+  "on" class (`PILL_ON_CLASS`), and holds that no unchosen section is filled.
+- `every-maker-edit-shows-before-it-saves` E — stale for one control: the guest's music button is not drawn on the
+  Maker's canvas at all, and the Look sample wears the pick at the tap, so its held save is right. Entered in the
+  guard's own exception table with the reason, and the two facts it rests on are asserted beside it.
+
 SPEC IMPACT: Yes — supersedes the 2026-10-06/07 "Style | Text | Animate" and "the toolbar is half the screen" rows.
 The controller holds the spec (`TOOLBAR-SPEC-2026-10-09.md`) and applies the corpus rows; nothing in the corpus was
 edited from this branch.

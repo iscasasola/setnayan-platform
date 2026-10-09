@@ -25,6 +25,7 @@ import React from 'react';
 (globalThis as unknown as { React: unknown }).React = React;
 
 import type { InvitationWidgetRow } from './invitation-widgets';
+import { SCRUB_OUT_OFFERED } from './scrub-out-offered';
 
 const noop = () => {};
 const PHOTO = 'r2://setnayan-media/events/E1/our-photos/a.jpg';
@@ -90,7 +91,13 @@ test('💎 on the web a free couple gets every look control, drafted, marked ◆
   assert.match(html, /name="preset"/, 'the presets are not offered');
   assert.match(html, new RegExp(`name="media" value="${PHOTO}"`), 'the photo picker is not offered');
   assert.match(html, /What to keep in frame/, 'the crop is not offered');
-  assert.match(html, /name="transition" value="scrub"/, 'Scrub is not offered');
+  /* 🔁 RE-AIMED 2026-10-09: the claim is "every look control that is OFFERED". "Scrub" ships dark in this batch
+     (`lib/scrub-out-offered.ts` — built, not yet proven on an iPhone), so while the constant is off it must NOT be
+     here, and the day the constant flips this line asks for it again by itself. Auto, the other Pro hand-over, is
+     offered either way — so the hand-over row is still proven to be drawn. */
+  assert.match(html, /name="transition" value="auto"/, 'Auto scroll is not offered');
+  if (SCRUB_OUT_OFFERED) assert.match(html, /name="transition" value="scrub"/, 'Scrub is not offered');
+  else assert.doesNotMatch(html, /name="transition" value="scrub"/, 'Scrub is offered while it ships dark');
   assert.doesNotMatch(html, /Unlock with Event Hub Pro/, 'a transition still sends them to the buy page');
   assert.ok(count(html, 'data-paid-mark="try"') >= 1, 'no ◆ PRO mark on the Pro controls');
   assert.equal(count(html, 'data-paid-mark="locked"'), 0, 'a padlock on a control that works');

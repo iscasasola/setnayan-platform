@@ -114,6 +114,8 @@ export type RsvpAskConfig = Partial<Record<RsvpAskField, boolean>> & {
    * `RSVP_WORD_KEYS`.
    */
   words?: RsvpWords;
+  /** 🎨 Each line's look — read ONLY through `readRsvpLook` (`lib/rsvp-look.ts`); carried through every save. */
+  look?: Record<string, unknown>;
   /**
    * 🎉 THE WHEN YES CELEBRATION (owner 2026-10-06, DECISION_LOG '"WHEN YES"
    * GETS A CELEBRATION (PRO)'): None · Confetti · Fireworks · Petals ·
@@ -271,6 +273,12 @@ export function sanitizeRsvpAskConfig(raw: unknown): RsvpAskConfig {
       // A known pick only; None is stored as itself so a Pro couple's "back to
       // None" is a change the draft can carry.
       if (isRsvpCelebration(value)) out.celebration = value;
+      continue;
+    }
+    if (key === 'look') {
+      // 🎨 Each line's look (`lib/rsvp-look.ts`) is CARRIED, never rebuilt here: this file is in the Maker's first
+      // load, and a save from any older panel must not drop it. Only `readRsvpLook` reads it — fixed values only.
+      if (value && typeof value === 'object' && !Array.isArray(value)) out.look = value as Record<string, unknown>;
       continue;
     }
     if (key === 'words') {

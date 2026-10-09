@@ -34,6 +34,7 @@ import { markAnimationSwitchedOff } from '@/lib/monogram-studio-shared';
 import { guestReplyBy, readRsvpCelebration, readRsvpWords, todayYmd } from '@/lib/rsvp-ask';
 import { JUST_REPLIED_VALUE, celebrationColours } from '@/lib/rsvp-celebration';
 import { boardSwatches } from '@/lib/mood-board-palette-set';
+import { RsvpLookStyle } from '../../_components/rsvp-look-style';
 import { WhenYesCelebration } from '../../_components/when-yes-celebration';
 import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { rsvpWordBridgeKey } from '@/lib/rsvp-stage-shared';
@@ -233,6 +234,10 @@ async function leaveForTheHub(
  * cannot drift from the page it opens. Once the invitation is kept in an
  * account there is nothing to save, and that hand-off becomes the one button.
  */
+/** The Maker parts each screen draws lines of (`RSVP_LOOK_LINES`, `lib/rsvp-look.ts`). */
+const RSVP_YES_PARTS = ['yesnote', 'pass'] as const;
+const RSVP_NO_PARTS = ['nonote'] as const;
+
 export default async function InviteEnterPage({ params, searchParams }: Props) {
   const { slug } = await params;
   const search = await searchParams;
@@ -596,6 +601,14 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
   return (
     <GuestLookScope {...lookScopeProps(hub.look)}>
       {hub.ground}
+      {/* 🎨 The look the couple gave each line of this screen (`lib/rsvp-look.ts`): the thank-you and the pass after a
+          Yes, the note after a No — nothing at all when they gave none. */}
+      <RsvpLookStyle
+        config={event.rsvp_ask_config}
+        board={celebrationColours(boardSwatches((event as { role_palette?: unknown }).role_palette))}
+        parts={reply === 'no' ? RSVP_NO_PARTS : RSVP_YES_PARTS}
+        canvas={canvas}
+      />
       {/* 1b · INSIDE MESSENGER — a thin bar of ours at the very top, never over the page. */}
       <InAppBar handoff={inApp} />
       <DoorShell brand="foot" eyebrow={justIn ? REQUEST_WORDS.inTitle : undefined} title={title} sub={justIn ? REQUEST_WORDS.inSub(hosts, null) : (inviteLine ?? undefined)} skin={skin}>

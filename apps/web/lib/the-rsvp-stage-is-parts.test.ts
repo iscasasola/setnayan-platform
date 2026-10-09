@@ -300,10 +300,14 @@ test('2 · a tap on ANY piece of the form screen picks its part — a field, the
   assert.deepEqual(rsvpPartOfTap(s.names), { key: 'f:hero', el: 'names', word: null, line: null });
 });
 
-test('2 · the page’s ground lets the part go: the card’s own paper and "Made with Setnayan" pick nothing', () => {
+/* 🔁 RE-AIMED 2026-10-10 (owner on the prototype: "heading message then the whole group?" — the card is picked as
+   the group from its EDGE): the card's own paper used to let go. It now picks the group of lines the card holds —
+   never "the whole masthead", which is still what this test forbids. The ground outside the card still lets go
+   (`the-rsvp-lines-have-a-look.test.ts` §6 holds the rule in full). */
+test('2 · the card’s own paper is the group — never the whole masthead; "Made with Setnayan" and the ground pick nothing', () => {
   const s = formScreen();
-  assert.equal(rsvpPartOfTap(s.card), null, 'a tap on the card’s paper picked the whole masthead');
-  assert.equal(rsvpPartOfTap(s.card.children[1]!), null, 'the gap between the masthead’s parts picked something');
+  assert.deepEqual(rsvpPartOfTap(s.card), { key: 'f:rsvp', el: null, word: null, line: null }, 'a tap on the card’s paper picked the whole masthead, or nothing');
+  assert.deepEqual(rsvpPartOfTap(s.card.children[1]!), { key: 'f:rsvp', el: null, word: null, line: null }, 'the gap between the masthead’s parts picked a masthead part');
   assert.equal(rsvpPartOfTap(s.made), null);
   assert.equal(rsvpPartOfTap(null), null);
 });

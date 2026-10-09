@@ -27,6 +27,9 @@ import { plusOneSeatsFor } from '../../_lib/plus-one-seats.server';
 import { asksForHostCanvas } from '../../_lib/editor-canvas';
 import { loadHostMembership, loadHostPreviewDraft, loadWidgets } from '../../_lib/loaders';
 import { wearTheHub } from '../_lib/wear-the-hub';
+import { RsvpLookStyle } from '../../_components/rsvp-look-style';
+import { celebrationColours } from '@/lib/rsvp-celebration';
+import { boardSwatches } from '@/lib/mood-board-palette-set';
 import { GuestLookScope } from '../../_components/guest-look-scope';
 import { lookScopeProps } from '../../_components/host-draft-look';
 import { getCurrentUser } from '@/lib/auth';
@@ -34,6 +37,9 @@ import { overlayHubDraftEvent, overlayHubDraftWidgets } from '@/lib/hub-draft';
 import { sceneStyleOfRow } from '@/lib/scene-style-of-row';
 import { rsvpCanvasGuestFor } from '@/lib/simulated-guest-preview';
 import { loadPreviewPerson } from '../../_lib/preview-person.server';
+
+/** The Maker part this page draws lines of (`RSVP_LOOK_LINES`, `lib/rsvp-look.ts`). */
+const RSVP_FORM_PARTS = ['rsvp'] as const;
 
 export const metadata = { title: 'Your reply', robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
@@ -74,7 +80,7 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
   const { data: liveEvent, error: eventError } = await admin
     .from('events')
     .select(
-      `event_id, public_id, slug, display_name, event_date, event_date_precision, venue_name, guest_list_edit_deadline, guest_count_locked_at, rsvp_ask_config, monogram_studio_config, ${INVITE_LOOK_COLUMNS}, ${INVITE_MARK_COLUMNS}`,
+      `event_id, public_id, slug, display_name, event_date, event_date_precision, venue_name, guest_list_edit_deadline, guest_count_locked_at, role_palette, rsvp_ask_config, monogram_studio_config, ${INVITE_LOOK_COLUMNS}, ${INVITE_MARK_COLUMNS}`,
     )
     // `.ilike`, NOT `.eq` — the same case-insensitive match as `/[slug]/invite`.
     .ilike('slug', slug)
@@ -388,6 +394,14 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
         />
         </CanvasSection>
       </DoorShell>
+      {/* 🎨 The look the couple gave each line of the form (`lib/rsvp-look.ts`) — nothing at all when they gave none.
+          After the door, never inside it: the card's children are spaced by their order. */}
+      <RsvpLookStyle
+        config={event.rsvp_ask_config}
+        board={celebrationColours(boardSwatches((event as { role_palette?: unknown }).role_palette))}
+        parts={RSVP_FORM_PARTS}
+        canvas={canvas}
+      />
     </GuestLookScope>
   );
 }

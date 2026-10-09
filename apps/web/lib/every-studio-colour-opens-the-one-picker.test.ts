@@ -274,6 +274,11 @@ const PAINTS: Record<string, [number, string]> = {
   'launch/_components/hub-stage.tsx': [4, 'the Event Hub stage card’s own fixed surfaces (OB.page …) — no colour is picked'],
   'launch/_components/maker-logo.tsx': [1, 'the SHIPPED Maker’s logo inks (no Studio) — the new Maker draws StudioColourField instead'],
   'launch/_components/maker-reveal.tsx': [1, 'the Reveal colour row’s trigger — opens ColourSheet'],
+  /* 2026-10-10 (first seen by this guard a week of commits late: the sweep reads the folder, and the file's own guard
+     did not run it). The RSVP stage's Colour for ONE LINE: the page's own + the EVENT'S OWN FIVE, as slots 1–5 — a
+     fixed list, so no colour is picked freely and there is no picker of its own (`lib/rsvp-look.ts`: nothing typed
+     may be stored). It IS six circles in a row, not Style's one circle — flagged to the controller as built. */
+  'launch/_components/rsvp-line-look.tsx': [1, 'the RSVP line’s Colour — the page’s own + the event’s five as SLOTS (a fixed list; no colour is picked freely, no picker of its own)'],
   'launch/_components/stage-panel/stage-background.tsx': [1, 'the prototype’s five-colour row — its “+” opens ColourSheet'],
   'launch/_components/stage-panel/stage-look-row.tsx': [1, 'Style’s last row in the toolbar (owner 2026-10-09: “Color just 1 circle”) — the ONE circle, a trigger of ColourSheet'],
   'launch/_components/stage-panel/stage-text.tsx': [1, 'the prototype’s colour row — its “+” opens ColourSheet'],

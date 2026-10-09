@@ -24,6 +24,7 @@ import { MakerEmptyScene } from '@/app/[slug]/_components/maker-empty-scene';
 import { WhenYesCelebration } from '@/app/[slug]/_components/when-yes-celebration';
 import { celebrationColours, isRsvpCelebration } from '@/lib/rsvp-celebration';
 import { RsvpCanvasBridge } from '@/app/[slug]/_components/rsvp-canvas-bridge';
+import { BLOCK_LOOKS_STYLE_ATTR, BLOCK_MARK_ATTR, blockLooksCss, readBlockLooks } from '@/lib/block-looks';
 import { RsvpLookStyle } from '@/app/[slug]/_components/rsvp-look-style';
 import { rsvpAnswerWord } from '@/lib/rsvp-ask';
 import { rsvpWordBridgeKey } from '@/lib/rsvp-stage-shared';
@@ -128,6 +129,13 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   const only = canvasOnlyScene({ only: typeof sp.only === 'string' ? sp.only : undefined }, true);
   const preview = canvasStylePreview({ style: typeof sp.style === 'string' ? sp.style : undefined }, true);
   /* 🎨 The lab's drafted part styles (`lab_styles`, the lab's `fixedStyles` stand-in), the preview's laid on top. */
+  /* 🧱 The lab's drafted block looks (`lab_blocks`, the stand-in for `style_preferences.block_looks`). */
+  let labBlocks: unknown = {};
+  try {
+    labBlocks = JSON.parse(decodeURIComponent((await cookies()).get('lab_blocks')?.value ?? '{}')) as unknown;
+  } catch {
+    labBlocks = {};
+  }
   let labStyles: Record<string, unknown> = {};
   try {
     labStyles = JSON.parse(decodeURIComponent((await cookies()).get('lab_styles')?.value ?? '{}')) as Record<string, unknown>;
@@ -504,6 +512,8 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
             </HubScenes>
           </div>
           <div className="sn-editorial">
+            {/* 🧱 E-Gifts' own mark, as the real page puts it: before the Maker's marker (`lib/block-looks.ts`). */}
+            <span hidden {...{ [BLOCK_MARK_ATTR]: 'gifts' }} />
             {mark('f:gifts')}
             {giftsBlock}
             {mark('f:look')}
@@ -519,6 +529,8 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
           {/* 🔤 Three of the page's eyebrows, as the real scenes draw them — inside the
               editorial scope the guest page wears (`.sn-editorial`). */}
           <div className="sn-editorial">
+            {/* 🧱 E-Gifts' own mark, as the real page puts it: before the Maker's marker (`lib/block-looks.ts`). */}
+            <span hidden {...{ [BLOCK_MARK_ATTR]: 'gifts' }} />
             {mark('f:gifts')}
             {giftsBlock}
             {mark('w:our_love_story')}
@@ -572,6 +584,8 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
           among them — are not drawn inside the Maker's sample; the host answers them on the Maker's own page. The lab
           drew the banner over the foot of the sample, which the real Maker never does (seen on the review copy, 2026-10-09). */}
       <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style>
+      {/* 🧱 The fixed blocks' own motion, as the real page carries it — redrawn at the tap in the Maker (`editor-bridge.tsx`). */}
+      <style {...{ [BLOCK_LOOKS_STYLE_ATTR]: '' }}>{blockLooksCss(readBlockLooks({ block_looks: labBlocks }))}</style>
     </main>
   );
 }

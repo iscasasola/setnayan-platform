@@ -1,3 +1,51 @@
+## 2026-10-10 · feat(maker): a fixed block has its own Animate — the Wedding March, The details, E-Gifts, Happening now
+
+Behind `makerStagesStudioEnabled` (internal + phone). A guest's Event Hub page is byte-identical unless the couple
+gave a block a motion: then it carries one hidden mark before that block and one `<style>`.
+
+Owner's rule, 2026-10-09: "there should always be animate and background?" → "yes that is what we are doing. giving
+the freedom to fix their event hub." — Animate for every element, Background for every block. Animate was grey on
+every fixed block.
+
+- **Which blocks**: the four a guest's page draws from one real root. The other six the canvas frames — Your seat ·
+  Photos of you · Announcements · Live hub · Digital pass · What to wear — are SAMPLES there (each guest sees their
+  own, drawn elsewhere), so a look kept for one would show in the Maker and never reach a guest. They stay grey and
+  a tap says why, naming the thing ("This is a sample. Each guest sees their own seat here."). E-Gifts is live only
+  while the event has gift details (otherwise: "Guests see nothing here until you add your gift details.").
+- **Animate** is the toolbar's own, every phase — Build in · Action · Build out, Movement, Plays, Delay — wired as a
+  cover line's is (`stage-panel/block-animate.tsx`), drawn in the toolbar's four rows.
+- **It is the Event Hub's own motion** (`lib/block-looks.ts`): the cover line's stored shape, read by its closed-set
+  reader (`sanitizeHubElementMotion`) and written by its own builder (`hubElementMotionDeclarations`) inside its two
+  gates. A timed Build in waits for the page's one observer (`.pahina-in`), so it plays when the guest GETS to the
+  block; one that follows the scroll follows the block's own trip across the screen. Browsers without view
+  timelines, and guests who asked for less motion, keep today's still page.
+- **Stored** in `events.style_preferences.block_looks = { entourage | details | gifts | spotlight: { motion } }`,
+  beside the fixed parts' style picks. No migration: proved on the replayed schema (90 CHECKs on `events`, one on
+  `rsvp_ask_config`, none on `style_preferences`; no trigger touches it). Drafted through the one draft door, live
+  on Apply by the existing merge; the Apply count moves; the Apply list names it "Event Hub · How a block looks".
+- **A guest's page** (`site-body.tsx`): the rules address a block from a hidden mark standing right before it, so no
+  block grows an attribute and whichever arrangement it is drawn in is found; Happening now is marked in both places
+  it can be drawn. No new wrapper, no extra read (the page already reads `style_preferences`).
+- **First load is net smaller for this step** (single-file gz): `lib/hub-draft.ts` 11,698 → 11,765 (+67: carry the
+  key, count it, name it); `lib/rsvp-ask.ts` 1,651 → 1,574 (−77: `rsvpAskConfigOnGoingPublic` moved beside its
+  draft half in `lib/going-public.ts`, which only server code reads); `lib/maker-parts.ts` untouched. Net −10 B.
+  The reader, the rules and the rows load with the toolbar (`details-lazy.tsx`).
+- The toolbar's "which tools work" line is now
+  `const toolWorks = (t: MakerPartTool) => !picked || ownTool(t) || ((t === 'edit' || t === 'style' || !styleOnly) && makerPartToolWorks(picked, t));`
+  with the two exceptions named in `ownTool` (a reply card or line; a fixed block with one real root).
+- Found late and registered: the RSVP line's Colour row (six circles: the page's own + the event's five) is now in
+  the Maker's colour sweep (`every-studio-colour-opens-the-one-picker.test.ts` `PAINTS`) for what it is — a fixed
+  list of slots, no picker of its own. That sweep reads the folder and had not been run for the earlier commits.
+- The lab keeps a drafted block look in a cookie (`lab_blocks`) and marks its E-Gifts block, so it can be tried.
+
+Guard: `lib/a-fixed-block-has-its-own-motion.test.ts` (6) — the last one holds the first-load rule as a property (no
+first-load file may reach the reader, the rules or the rows), not as a byte count. Sabotaged red, each restored: the reader keeping a
+made-up motion · a sample given a look · the draft dropping the key · a block look not counted as a change · a mark
+served to every guest · the gate left open · a sample's Animate live · Happening now marked in one place only.
+
+SPEC IMPACT: `events.style_preferences` gains one optional key, `block_looks` (per fixed block: its motion, in the
+Event Hub's own motion shape). No schema change. Corpus row to be written by the controller with the batch.
+
 ## 2026-10-09 · feat(maker): on the RSVP stage every line is its own part, and the whole group is one too
 
 Behind `makerStagesStudioEnabled` (internal + phone), on the Maker's RSVP stage only. A guest's reply pages draw

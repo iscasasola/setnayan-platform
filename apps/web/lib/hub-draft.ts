@@ -883,6 +883,8 @@ export function sanitizeHubDraftEventValue(
       const out: Record<string, unknown> = {};
       if (QR_STYLE_PREF_KEY in raw) out[QR_STYLE_PREF_KEY] = sanitizeQrStyle(raw[QR_STYLE_PREF_KEY]);
       if (isCameraLook(raw[CAMERA_LOOK_PREF_KEY])) out[CAMERA_LOOK_PREF_KEY] = raw[CAMERA_LOOK_PREF_KEY];
+      // 🧱 The fixed blocks' looks (`lib/block-looks.ts`) are CARRIED: `readBlockLooks` is their one strict reader.
+      if (isPlainObject(raw.block_looks)) out.block_looks = raw.block_looks;
       return Object.keys(out).length > 0 ? out : undefined;
     }
     // 🗂 An answer is a yes or a no (null = back to "not asked"); anything else is dropped.
@@ -1558,7 +1560,9 @@ export function eventColumnChange(column: HubDraftEventColumn, live: unknown, ne
       const qr = (v: unknown) => {
         const s = qrStyleFromPreferences(v);
         const cam = cameraLookOfDraft(v);
-        return Object.keys(s).length > 0 || cam ? JSON.stringify({ qr: s, cam }) : null;
+        // 🧱 …and the fixed blocks' looks: an empty one is no look at all (a look put back to still).
+        const b = isPlainObject(v) && isPlainObject(v.block_looks) && Object.keys(v.block_looks).length > 0 ? v.block_looks : undefined;
+        return Object.keys(s).length > 0 || cam || b ? JSON.stringify({ qr: s, cam, b }) : null;
       };
       return refChange(qr(live), qr(next));
     }
@@ -2677,6 +2681,7 @@ export function hubDraftItemLabel(item: HubDraftItem, sectionLabel: (t: WidgetTy
     if (item.column === 'style_preferences' && isPlainObject(item.value) && !(QR_STYLE_PREF_KEY in item.value) && cameraLookOfDraft(item.value)) {
       return 'Your camera look';
     }
+    if (item.column === 'style_preferences' && isPlainObject(item.value) && !(QR_STYLE_PREF_KEY in item.value) && item.value.block_looks) return 'How your blocks look';
     return HUB_DRAFT_EVENT_LABEL[item.column];
   }
   if (item.kind === 'editorial') return postEventItemLabel(item.item);

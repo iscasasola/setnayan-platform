@@ -289,7 +289,10 @@ test('picking the Digital pass never replaces the canvas in Stages — it is pic
   /* 🔁 RE-AIMED 2026-10-10: a reply screen's CARD and its LINES now have a Background and an Animate to set (owner
      2026-10-09: "how come background not fixed and no animate?" — `the-rsvp-lines-have-a-look.test.ts` §10), so those
      two are live there (`rsvpLooks`). Every other part is decided exactly as before — the claim this line holds. */
-  assert.match(tools, /const toolWorks = \(t: MakerPartTool\) => !picked \|\| \(rsvpLooks && \(t === 'bg' \|\| t === 'animate'\)\) \|\| \(\(t === 'edit' \|\| t === 'style' \|\| !styleOnly\) && makerPartToolWorks\(picked, t\)\);/);
+  /* 🔁 RE-AIMED AGAIN 2026-10-10: the tools a picked thing has a save for BEYOND the part rule are now one named
+     function, `ownTool` (a reply card or line: Background · Animate; a fixed block with one real root: Animate —
+     `a-fixed-block-has-its-own-motion.test.ts` §5). The part rule itself is decided exactly as before. */
+  assert.match(tools, /const toolWorks = \(t: MakerPartTool\) => !picked \|\| ownTool\(t\) \|\| \(\(t === 'edit' \|\| t === 'style' \|\| !styleOnly\) && makerPartToolWorks\(picked, t\)\);/);
   assert.match(tools, /aria-disabled=\{toolWorks\(t\) \? undefined : true\}/);
   const edges = read(`${LAUNCH}/add-part-sheet.tsx`);
   assert.match(edges, /clipPath: `inset\(/, 'the frame is clipped to the canvas');

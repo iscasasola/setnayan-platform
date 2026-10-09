@@ -34,7 +34,8 @@ import { join } from 'node:path';
 import React from 'react';
 
 import { stripComments } from './strip-comments';
-import { rsvpAskConfigOnGoingPublic, sanitizeRsvpAskConfig } from './rsvp-ask';
+import { sanitizeRsvpAskConfig } from './rsvp-ask';
+import { rsvpAskConfigOnGoingPublic } from './going-public';
 import { rsvpAskFreePart } from './hub-draft';
 import { HUB_ELEMENT_SIZE_STEPS } from './element-style';
 import { makerPartOfTap } from './maker-parts';
@@ -485,7 +486,8 @@ test('10 · WIRING: Background and Animate are live on a reply card and its line
   assert.match(src(`${L}/add-part-sheet.tsx`), /\{line\?\.name \?\? name \?\? label\}/);
   /* The two tools that were grey on every reply part are live on a card and on a line — and only there. */
   assert.match(TOOLS, /const rsvpLooks = rsvpCard !== null \|\| \(rsvpOpen && rsvpLookLine\(picked, rsvpLine\) !== null\);/);
-  assert.match(TOOLS, /const toolWorks = \(t: MakerPartTool\) => !picked \|\| \(rsvpLooks && \(t === 'bg' \|\| t === 'animate'\)\) \|\| /);
+  assert.match(TOOLS, /const ownTool = \(t: MakerPartTool\) => \(rsvpLooks && \(t === 'bg' \|\| t === 'animate'\)\) \|\| /);
+  assert.match(TOOLS, /const toolWorks = \(t: MakerPartTool\) => !picked \|\| ownTool\(t\) \|\| /);
   /* "Open the card": the line is let go; the pass's Save button sits on the When-yes card. */
   assert.equal(RSVP_OPEN_CARD_EVENT, 'setnayan:rsvp-open-card');
   assert.match(TOOLS, /const open = \(\) => \{\s*setLineAtPart\(null\);\s*if \(pickedRef\.current === 'pass'\) pickPartRef\.current\('yesnote'\);\s*\};\s*window\.addEventListener\(RSVP_OPEN_CARD_EVENT, open\);/);

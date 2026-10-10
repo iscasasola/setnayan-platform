@@ -319,7 +319,7 @@ export const COUPLE_SUPPLIER_NOTICES = {
   inquiry_awaiting_reply: {
     to: 'supplier',
     reach: 'app_only',
-    why: 'written at the supplier’s own sign-in; the away-from-app half is the ghost-warning email in lib/ghosting.ts',
+    why: 'written at the supplier’s own sign-in, so they are in the app when it lands; the away-from-app word is the first-inquiry email (the ghost-warning email in lib/ghosting.ts is about a booked event a week away, not an unanswered inquiry)',
   },
   vendor_review_reply: {
     to: 'couple',

@@ -10,6 +10,7 @@ import { narrowEventDateAfterAgreement } from '@/lib/date-narrowing.server';
 import { formatCandidateDate } from '@/lib/candidate-dates';
 import { formatPhp } from '@/lib/php';
 import { lockAnswerReturnTo } from '@/lib/lock-answer-notice';
+import { tellCoupleLockRequestExpired } from '@/lib/lock-request-notices.server';
 import { depositAnswerReturnTo, vendorClientSurfaceHref } from '@/lib/vendor-client-return';
 import { isRelationshipWorkspaceEnabled } from '@/lib/relationship-workspace-flag';
 import { uploadPublicAsset } from '@/lib/storage';
@@ -1113,6 +1114,24 @@ export async function vendorAgreeToLock(formData: FormData) {
     }
   }
 
+  // 🔴 THE YES CAME TOO LATE. `vendor_agree_to_lock` closes a request that is
+  // past its 48 hours ITSELF and answers `expired` — and until 2026-10-10 that
+  // answer was read by the supplier's screen only. The couple's "Waiting for
+  // their yes" row vanished with no word, and the sweep (which selects
+  // `pending`) could never tell them afterwards, because the row no longer was.
+  // `expired` is answered ONLY by the call that flips the row; every later
+  // press answers `not_pending` — so this can fire once per request, never twice.
+  if (!error && env.status === 'expired' && eventId) {
+    try {
+      await tellCoupleLockRequestExpired(createAdminClient(), { eventId, eventVendorId });
+    } catch (e) {
+      console.error(
+        `[vendorAgreeToLock] late-yes expiry notify failed for vendor_id=${eventVendorId}:`,
+        e,
+      );
+    }
+  }
+
   // Where the answer lands: the Overview, as always — or the supplier's own
   // thread when the answer came from the accepted quote card there. Validated
   // to that one shape (`lockAnswerReturnTo`); the thread page reads the status.
@@ -1188,6 +1207,20 @@ export async function vendorDeclineLock(formData: FormData) {
     } catch (e) {
       console.error(
         `[vendorDeclineLock] couple notify failed for vendor_id=${eventVendorId}:`,
+        e,
+      );
+    }
+  }
+
+  // A no that came after the 48 hours is not a decline — the function closes
+  // the request as `expired` and records no reason. Same notice, same single
+  // call that flips the row, as the late yes above.
+  if (!error && env.status === 'expired' && eventId) {
+    try {
+      await tellCoupleLockRequestExpired(createAdminClient(), { eventId, eventVendorId });
+    } catch (e) {
+      console.error(
+        `[vendorDeclineLock] late-no expiry notify failed for vendor_id=${eventVendorId}:`,
         e,
       );
     }

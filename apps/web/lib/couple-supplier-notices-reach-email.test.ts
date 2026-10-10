@@ -100,6 +100,7 @@ const SCOPE_FILES = [
   'lib/reusable-bookings.server.ts',
   'lib/ghosting.ts',
   'lib/lock-request-expiry.ts',
+  'lib/lock-request-notices.server.ts',
   'lib/date-change.server.ts',
   'lib/schedule-request-notify.server.ts',
   'lib/vendor-invite-actions.ts',
@@ -535,4 +536,44 @@ test('5 · the emitter builds the mail from the notice\'s own link and event, an
   // sendEmail is what writes `not_configured` — the reason removing the gate is enough.
   const email = code('lib/email.ts');
   assert.match(email, /result\.reason === 'not_configured' \? 'not_configured' : 'send_failed'/, 'sendEmail no longer records an unconfigured send');
+});
+
+/* ═══ 6 · A REQUEST THAT LAPSES IS TOLD FROM EVERY DOOR, IN ONE SENTENCE ════ */
+
+/** The body of one exported function, comments stripped. */
+function functionBody(rel: string, name: string): string {
+  const src = code(rel);
+  const at = src.indexOf(`export async function ${name}(`);
+  assert.ok(at > -1, `${name} is gone from ${rel} — was it renamed?`);
+  const next = src.indexOf('\nexport ', at + 1);
+  return src.slice(at, next === -1 ? undefined : next);
+}
+
+test('6 · a booking request that lapses tells the couple from all three doors — the sweep, the late yes, the late no', () => {
+  // ONE place holds the words. A second emit site is a second sentence, and a
+  // second chance to forget a door.
+  const emitters = sitesOf('lock_request_expired').map((s) => s.file);
+  assert.deepEqual(emitters, ['lib/lock-request-notices.server.ts'], 'the expired notice is written in more than one place');
+
+  const CLIENTS = 'app/vendor-dashboard/clients/[eventId]/actions.ts';
+  for (const door of ['vendorAgreeToLock', 'vendorDeclineLock']) {
+    const body = functionBody(CLIENTS, door);
+    // Told on `expired` — the answer only the call that FLIPS the row gets —
+    // and on nothing else: `not_pending` is what every later press answers,
+    // and telling on that would repeat the notice on every tap.
+    const tells = [...body.matchAll(/if \(([^)]*)\) \{\s*try \{\s*await tellCoupleLockRequestExpired\(/g)].map((m) => m[1]!);
+    console.log(`# ${door}: tells the couple when → ${JSON.stringify(tells)}`);
+    assert.deepEqual(
+      tells,
+      ["!error && env.status === 'expired' && eventId"],
+      `${door} must tell the couple exactly when the function answers 'expired'`,
+    );
+  }
+  // The sweep still tells, through the same function, once per row it returns.
+  const sweep = functionBody('lib/lock-request-expiry.ts', 'runLockRequestExpirySweep');
+  assert.equal(sweep.split('await tellCoupleLockRequestExpired(').length - 1, 1, 'the sweep no longer tells the couple');
+  assert.ok(
+    sweep.indexOf('await tellCoupleLockRequestExpired(') > sweep.indexOf("admin.rpc('expire_stale_lock_requests'"),
+    'the sweep must tell only the rows expire_stale_lock_requests returned',
+  );
 });

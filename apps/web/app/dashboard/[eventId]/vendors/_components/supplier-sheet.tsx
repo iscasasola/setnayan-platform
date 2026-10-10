@@ -274,9 +274,10 @@ export default function SupplierSheet({
   return createPortal(
     <Sheet open onClose={onClose} labelledById="supplier-sheet-name" wide rise>
       <div className="space-y-4 px-5 pb-4 pt-5" data-supplier-sheet={target.vendorProfileId ?? 'own'}>
-        {/* One height: a <button> is floored at 44 px by globals.css and a link
-            is not — the button rule is a 40 px pill, whatever the element. */}
-        <style>{'[data-supplier-sheet] .ab{min-height:40px}'}</style>
+        {/* One height, the finger's: a <button> is floored at 44 px by globals.css and a link is not — so the link
+            gets the same floor. (It was settled down to 40 for both; the sheet's main button then measured 119 × 40 —
+            the merged copy's walk, 2026-10-11, M18.) */}
+        <style>{'[data-supplier-sheet] .ab{min-height:44px}'}</style>
         <header className="pr-10">
           <p className={k2}>{eyebrow}</p>
           <h2 id="supplier-sheet-name" className="mt-1 font-display text-[22px] leading-tight text-ink">

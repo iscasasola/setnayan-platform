@@ -6,11 +6,63 @@ on:
   pull_request:
   workflow_dispatch:
 
+# ═══ ONE PUSH SHOWS EVERY FAILURE ═══════════════════════════════════════════
+#
+# Owner, 2026-10-08: "we create locally, then when you go to github you do not
+# make it properly and we end up repeating again."
+#
+# Until that day the required check — "typecheck + lint" — was ONE job whose
+# steps ran one after another: typecheck, lint, the unit suite, the DB replay,
+# the duplicated-rule guards, the root map. It stopped at the first step that
+# failed, so everything behind that step was SKIPPED and its failures stayed
+# hidden until the first was fixed and another whole round had run. Measured:
+# a round was about 80 minutes (typecheck ≈ 4 · lint ≈ 1.5 · unit ≈ 19 · DB
+# replay ≈ 52), and PR #6416 needed THREE of them — about four hours — for two
+# one-line faults, because a unit guard hid a DB guard behind it.
+#
+# THE SHAPE NOW. The same steps run as SEPARATE JOBS, side by side, and none of
+# them can stop another:
+#
+#     guards · typecheck · eslint · unit tests (3 shards) · DB replay (6 shards)
+#     · source guards            ──►  "typecheck + lint"  (the gate, at the bottom)
+#
+# The gate is the job branch protection requires BY NAME. It `needs:` every job
+# above and is red unless every one of them is exactly `success`. So one push
+# reports every failure there is, and the wall time is the slowest job rather
+# than the sum of all of them.
+#
+# 🔑 WHAT DID NOT CHANGE: which checks are required, and what each one means.
+# Branch protection lists 13 names (re-measure, never trust this comment:
+#   gh api repos/<owner>/<repo>/branches/main/protection --jq '.required_status_checks.contexts'
+# ); every one is still the `name:` of exactly one job, and "typecheck + lint"
+# still goes red for everything it went red for before. A session cannot edit
+# branch protection, so this file may never rename one of them.
+# `scripts/lint-ci-gate.mjs` (a guard step below) holds all of that in place.
+#
+# 🔑 A NEW JOB BLOCKS NOTHING UNTIL THE GATE NEEDS IT. Auto-merge waits on
+# required names only; a job that is not one of them and is not in the gate's
+# `needs:` goes red on the PR page and the PR merges anyway. That already
+# happened once in this file (see the guards job). `lint-ci-gate` fails on it.
+
+# A newer push to the same pull request supersedes the run before it: nobody
+# reads the result for a commit that is no longer the head, and today those
+# abandoned runs each held runners for over an hour while the fix queued behind
+# them. Only pull requests are cancelled.
+#
+# ⚠ Every OTHER event gets a group of its own (the run id), deliberately. A
+# shared group with `cancel-in-progress: false` does not queue runs — it keeps
+# ONE running and ONE pending and silently cancels the rest
+# (supabase-migrations.yml documents the day that bit). A push to main must
+# always run to the end.
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('ci-pr-{0}', github.event.pull_request.number) || format('ci-run-{0}', github.run_id) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
-  typecheck-lint:
-    name: typecheck + lint
+  guards:
+    name: guards
     runs-on: ubuntu-latest
-    # ═══ THIS JOB IS THE ONLY BLOCKING SURFACE A GUARD CAN BE ADDED TO ═══
+    # ═══ WHERE A NEW SINGLE-FILE GUARD GOES: HERE, AS A STEP ═══
     #
     # Auto-merge waits on REQUIRED contexts only. A guard in a job of its own
     # goes red on the PR page and the PR merges anyway — the red tick is
@@ -20,26 +72,25 @@ jobs:
     # from the couple's guest page with every other check green.
     #
     # Promoting a job to required needs a branch-protection edit, which is a
-    # settings change nobody remembers to make. Adding a STEP to a job that is
-    # already required needs nothing but this file. So: a new single-file guard
-    # belongs HERE, as a step, not as a new job. Only give a guard its own job
-    # when the owner is going to add its name to branch protection in the same
-    # breath.
+    # settings change nobody remembers to make. Adding a STEP to this job needs
+    # nothing but this file: this job is one the required gate ("typecheck +
+    # lint", at the bottom) `needs:`, so a red step here is a red required
+    # check. So: a new single-file guard belongs HERE, as a step — with its
+    # `id`, its `continue-on-error: true`, and its line in the aggregator. Give
+    # a guard its own JOB only if it truly needs one, and then add that job to
+    # the gate's `needs:` in the same change (lint-ci-gate fails if you forget).
     #
     # The blocking-guards block below is `continue-on-error: true` + a single
-    # aggregator, so that one failing guard cannot hide the other eight.
+    # aggregator, so that one failing guard cannot hide the others.
     steps:
       - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
 
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: pnpm
 
       # ══ BLOCKING GUARDS ══════════════════════════════════════════════════
-      # Pure node, no node_modules — they run BEFORE install so a guard breach
+      # Pure node, no node_modules — this job never installs, so a guard breach
       # is reported in seconds rather than after a five-minute typecheck.
       #
       # Every one carries `continue-on-error: true` so the whole set runs on
@@ -419,64 +470,20 @@ jobs:
         continue-on-error: true
         run: node apps/web/scripts/lint-label-on-fill-contrast.mjs
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile=false
-
-      - name: Typecheck
-        run: pnpm typecheck
-
-      - name: Lint
-        run: pnpm lint
-
-      - name: Unit tests
-        run: pnpm --filter @setnayan/web test:unit
-
-      # CI-safe db-tests: replay every migration into in-process PGlite (no
-      # external DB) and assert data-layer invariants. Runs the WHOLE
-      # tests/db/*.db.test.ts suite (~20s total) — every db test now gates PRs,
-      # not the old 2-test curated list (which silently let migration/schema
-      # regressions through: PR4/PR5 db tests were never CI-run until now).
-      # Gap audit 2026-07-23 · Batch B7.
-      #
-      # This glob ALSO carries the exposure-surface freeze
-      # (tests/db/exposure-freeze.db.test.ts), which fails the build when anon /
-      # authenticated gain reach they did not have in
-      # supabase/security/exposure-surface.baseline.txt. Do not narrow this glob
-      # to a curated list again — that is how the last set of db tests stopped
-      # running.
-      - name: Data-layer guards (DB replay)
-        run: pnpm --filter @setnayan/web test:db:ci
-
-      # ONE RULE, WRITTEN DOWN TWICE — the two mechanisable halves of the class
-      # that cost a full day on 2026-07-27 (a shadowed exported helper, and a
-      # hand-typed select that drops a column the canonical *_SELECT constant
-      # includes). Fails when a NEW instance appears beyond the committed
-      # apps/web/scripts/dup-rule.baseline.txt; removing a baselined line is a
-      # narrowing and passes silently, so paying debt down never turns the build
-      # red.
-      #
-      # It rides THIS job rather than getting its own, because it needs the TS
-      # scanners (and therefore tsx) and this job has already installed. A
-      # dedicated job would buy nothing but a second `pnpm install` per PR. The
-      # structural half — is the baseline canonical, is the guard still wired —
-      # is pure node and DOES get its own install-free job below.
-      # See apps/web/scripts/lint-dup-rule.ts.
-      - name: Duplicated-rule guards
-        run: pnpm --filter @setnayan/web lint:dup-rule
-
-      # THE ROOT MAP (code name Ugat) — owner, DECISION_LOG 2026-10-02 "ONE MAP
-      # OF THE APP" and the rows that amend it. Fails when
-      # apps/web/lib/ugat/screens.generated.json is stale (re-run
-      # `pnpm --filter @setnayan/web ugat:screens`), AND — RATCHET ON since
-      # part 2 — on any NEW no-door screen, door to nowhere or missing #section,
-      # one-fact-two-homes, event answer outside Your info, filled-but-dropped
-      # field, typed live number or fact shown twice that is not in
-      # apps/web/lib/ugat/baselines/*, and (STRICT) on a fixed enforced finding
-      # whose line is still listed — "fixed — remove this line from …", so a
-      # fixed problem cannot quietly come back. Door words, retarget,
-      # never-read and sanitisers warn. Rides this job (needs tsx, after install).
-      - name: Root map is current and ratcheted
-        run: node apps/web/scripts/check-ugat-screens.mjs
+      # THE REQUIRED CHECK IS A GATE, AND A GATE IS ONLY AS GOOD AS ITS LIST.
+      # "typecheck + lint" (the last job in this file) passes when every job in
+      # its `needs:` passed. That fails OPEN in four quiet ways, and this reads
+      # the workflow text to close each: a job that is in nobody's `needs:` and
+      # is not itself a required name (it blocks nothing); a required name that
+      # was renamed or duplicated (branch protection waits on a check that will
+      # never report); a shard list that skips a number (a slice of the suite
+      # that never runs, green); and a test step piped through `tee` without
+      # `shell: bash` (no pipefail — a killed or failing run reads as success).
+      # See scripts/lint-ci-gate.mjs.
+      - name: Lint CI gate
+        id: guard_ci_gate
+        continue-on-error: true
+        run: node scripts/lint-ci-gate.mjs
 
       # ══ THE NATIVE ENCODER'S OWN TESTS ═══════════════════════════════════
       #
@@ -490,9 +497,10 @@ jobs:
       # `build-desktop.yml` was the only workflow that touched cargo, and it has
       # been workflow_dispatch-only since 2026-06-20.
       #
-      # IT RIDES THIS JOB BECAUSE THIS JOB IS REQUIRED. A `cargo test` job of its
-      # own would go red on the PR page and the PR would merge anyway — see this
-      # job's header for the nine guards that spent months blocking nothing.
+      # IT RIDES THIS JOB BECAUSE THE REQUIRED GATE NEEDS THIS JOB. A `cargo test`
+      # job of its own, left out of the gate's `needs:`, would go red on the PR
+      # page and the PR would merge anyway — see this job's header for the nine
+      # guards that spent months blocking nothing.
       #
       # AND IT TESTS `setnayan-encoder`, NOT `setnayan-desktop`. That is the
       # whole reason the encoder is a separate crate: `setnayan-desktop` cannot
@@ -539,8 +547,9 @@ jobs:
       # emitted per failing guard, so the PR page names each by its own title
       # without anyone opening a log.
       #
-      # `!cancelled()` — not `success()` — so a typecheck failure earlier in the
-      # job cannot swallow a guard breach either.
+      # `!cancelled()` — not `success()` — so a step that failed outright earlier
+      # in the job (the Rust toolchain install, say) cannot swallow a guard
+      # breach either.
       #
       # FAIL-CLOSED: anything that is not exactly `success` counts as a failure,
       # including `skipped`, which is what a mis-edited `if:` produces. A guard
@@ -578,6 +587,7 @@ jobs:
           AUTOMERGE_HOLD: ${{ steps.guard_automerge_hold.outcome }}
           STORED_ASSET_REFS: ${{ steps.guard_stored_asset_refs.outcome }}
           ENCODER_TESTS: ${{ steps.guard_encoder_tests.outcome }}
+          CI_GATE: ${{ steps.guard_ci_gate.outcome }}
         run: |
           failed=0
           check() {
@@ -618,6 +628,7 @@ jobs:
           check 'lint stored-asset refs'      "$STORED_ASSET_REFS"
           check 'lint pool-config global columns' "$POOL_CONFIG_COLUMNS"
           check 'native encoder tests'        "$ENCODER_TESTS"
+          check 'lint ci gate'                "$CI_GATE"
           if [ "$failed" -ne 0 ]; then
             echo
             echo 'One or more blocking guards failed. Every failure is listed above with its'
@@ -626,6 +637,237 @@ jobs:
           fi
           echo
           echo 'All blocking guards passed.'
+
+  typecheck:
+    name: typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile=false
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+  eslint:
+    name: eslint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile=false
+
+      - name: Lint
+        run: pnpm lint
+
+  unit-tests:
+    name: unit tests (${{ matrix.shard }}/3)
+    runs-on: ubuntu-latest
+    # ── SHARDS ──────────────────────────────────────────────────────────────
+    # `tsx --test --test-shard=<i>/<n>` deals the SORTED test files out
+    # round-robin, so the shards together run every file exactly once.
+    #
+    # ⚠ THE FLAG ONLY WORKS BEFORE THE GLOBS. Measured 2026-10-08 on node 22:
+    # `tsx --test "a/*.test.ts" --test-shard=1/3` IGNORES the flag and runs
+    # everything — on every shard, green, and three times as slow. That is why
+    # the flag is not appended here: the package script reads it from
+    # TEST_SHARD_FLAG and places it itself (apps/web/package.json), so there is
+    # still ONE definition of which files the suite is.
+    #
+    # ⚠ `shell: bash` IS LOAD-BEARING. The step is piped through `tee` so the
+    # next step can name every failure; without `shell: bash` a `run:` has no
+    # `pipefail`, the pipe's exit code is tee's, and a failing or KILLED test
+    # run reads as success (exit 144 / 137 = killed, not passed).
+    #
+    # `fail-fast: false` — one red shard must not cancel the others; the whole
+    # point is that one push shows every failure.
+    #
+    # The matrix list, the `/n` and `fail-fast` are held by lint-ci-gate: a
+    # list that skips a number is a slice of the suite that never runs.
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile=false
+
+      - name: Unit tests
+        shell: bash
+        env:
+          TEST_SHARD_FLAG: --test-shard=${{ matrix.shard }}/3
+        run: pnpm --filter @setnayan/web test:unit 2>&1 | tee "$RUNNER_TEMP/tests.log"
+
+      # Names every failing test in the run summary and as annotations on the
+      # PR, so nobody opens a 40,000-line log to find them — and FAILS if the
+      # log holds no `# tests` total above zero: a shard that ran nothing (a
+      # glob that matched nothing, a runner that died mid-way) must never read
+      # as a pass. `!cancelled()`, so it speaks when the tests failed too.
+      - name: Name every failure
+        if: ${{ !cancelled() }}
+        run: node scripts/ci-test-summary.mjs "$RUNNER_TEMP/tests.log" "unit tests ${{ matrix.shard }}/3"
+
+  db-replay:
+    name: DB replay (${{ matrix.shard }}/6)
+    runs-on: ubuntu-latest
+    # Six shards, because this is the long one: every one of the ~380 DB tests
+    # replays ALL the migrations into its own PGlite, and as a single step it
+    # measured 41–52 minutes. See the unit-tests job for how shards work and
+    # for the two traps (flag position, `shell: bash`).
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile=false
+
+      # CI-safe db-tests: replay every migration into in-process PGlite (no
+      # external DB) and assert data-layer invariants. Runs the WHOLE
+      # tests/db/*.db.test.ts suite — every db test gates PRs,
+      # not the old 2-test curated list (which silently let migration/schema
+      # regressions through: PR4/PR5 db tests were never CI-run until now).
+      # Gap audit 2026-07-23 · Batch B7.
+      #
+      # This glob ALSO carries the exposure-surface freeze
+      # (tests/db/exposure-freeze.db.test.ts), which fails the build when anon /
+      # authenticated gain reach they did not have in
+      # supabase/security/exposure-surface.baseline.txt. Do not narrow this glob
+      # to a curated list again — that is how the last set of db tests stopped
+      # running.
+      - name: Data-layer guards (DB replay)
+        shell: bash
+        env:
+          TEST_SHARD_FLAG: --test-shard=${{ matrix.shard }}/6
+        run: pnpm --filter @setnayan/web test:db:ci 2>&1 | tee "$RUNNER_TEMP/tests.log"
+
+      - name: Name every failure
+        if: ${{ !cancelled() }}
+        run: node scripts/ci-test-summary.mjs "$RUNNER_TEMP/tests.log" "DB replay ${{ matrix.shard }}/6"
+
+  source-guards:
+    name: source guards
+    runs-on: ubuntu-latest
+    # The two guards that scan the source with the TypeScript scanners, so they
+    # need an install. Each used to sit BEHIND the unit suite and the DB replay
+    # in one job, which is why a hand-typed select on PR #6444 was not reported
+    # until the hour of tests ahead of it had passed.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile=false
+
+      # ONE RULE, WRITTEN DOWN TWICE — the two mechanisable halves of the class
+      # that cost a full day on 2026-07-27 (a shadowed exported helper, and a
+      # hand-typed select that drops a column the canonical *_SELECT constant
+      # includes). Fails when a NEW instance appears beyond the committed
+      # apps/web/scripts/dup-rule.baseline.txt; removing a baselined line is a
+      # narrowing and passes silently, so paying debt down never turns the build
+      # red.
+      #
+      # It rides THIS job — the guards that need an install — because it needs
+      # the TS scanners (and therefore tsx). The structural half — is the
+      # baseline canonical, is the guard still wired — is pure node and is a
+      # step of the install-free guards job above.
+      # See apps/web/scripts/lint-dup-rule.ts.
+      - name: Duplicated-rule guards
+        run: pnpm --filter @setnayan/web lint:dup-rule
+
+      # THE ROOT MAP (code name Ugat) — owner, DECISION_LOG 2026-10-02 "ONE MAP
+      # OF THE APP" and the rows that amend it. Fails when
+      # apps/web/lib/ugat/screens.generated.json is stale (re-run
+      # `pnpm --filter @setnayan/web ugat:screens`), AND — RATCHET ON since
+      # part 2 — on any NEW no-door screen, door to nowhere or missing #section,
+      # one-fact-two-homes, event answer outside Your info, filled-but-dropped
+      # field, typed live number or fact shown twice that is not in
+      # apps/web/lib/ugat/baselines/*, and (STRICT) on a fixed enforced finding
+      # whose line is still listed — "fixed — remove this line from …", so a
+      # fixed problem cannot quietly come back. Door words, retarget,
+      # never-read and sanitisers warn. Rides this job (needs tsx, after install).
+      # `!cancelled()` so a duplicated-rule failure above cannot hide this one.
+      - name: Root map is current and ratcheted
+        if: ${{ !cancelled() }}
+        run: node apps/web/scripts/check-ugat-screens.mjs
+
+  # ═══ THE REQUIRED CHECK ═════════════════════════════════════════════════
+  #
+  # Branch protection requires a check NAMED "typecheck + lint". This is it.
+  # It runs nothing itself: it is red unless every job in `needs:` finished
+  # exactly `success` (scripts/ci-gate.mjs).
+  #
+  # 🔑 `if: always()` IS THE WHOLE POINT, and it is fail-closed BOTH ways:
+  #   · without it, a failed dependency makes GitHub SKIP this job, and a
+  #     skipped required check counts as PASSED — every red job above would
+  #     wave the PR through;
+  #   · with it, the job always runs and reads each result itself. `failure`,
+  #     `cancelled` and `skipped` are all a red gate. A job that did not run is
+  #     worse than no job, because it manufactures confidence.
+  #
+  # Do not add a job-level `if:` to anything in `needs:`: on the PRs where it is
+  # false that job is `skipped` and this gate is red, which is correct and will
+  # look like a nuisance. The answer is to make the job run, not to teach the
+  # gate that skipped is fine.
+  #
+  # The job id stays `typecheck-lint` and the name stays "typecheck + lint":
+  # the name is what branch protection matches.
+  typecheck-lint:
+    name: typecheck + lint
+    runs-on: ubuntu-latest
+    needs: [guards, typecheck, eslint, unit-tests, db-replay, source-guards]
+    if: ${{ always() }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Every job this check stands for must have passed
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: node scripts/ci-gate.mjs
 
   build:
     name: production build
@@ -867,13 +1109,21 @@ jobs:
       - name: Unit-test preflight (every CI step is classified)
         run: node --test scripts/preflight.test.mjs
 
+      # The required gate's verdict (scripts/ci-gate.mjs), the workflow-shape
+      # lint (scripts/lint-ci-gate.mjs) and the failure summary
+      # (scripts/ci-test-summary.mjs) — each is a place where "nothing ran"
+      # could be read as "nothing failed", so each is tested against exactly
+      # that: skipped, cancelled, an empty list, a log with no total.
+      - name: Unit-test the CI gate
+        run: node --test scripts/ci-gate.test.mjs
+
   lint-exposure-baseline:
     name: lint exposure baseline
     runs-on: ubuntu-latest
     # Structural half of THE FREEZE (supabase/security/README.md). The real
-    # comparison — live schema vs committed baseline — runs inside the
-    # "typecheck + lint" job via test:db:ci, because it needs the migration
-    # replay. THIS job needs nothing but the files, so it runs everywhere and
+    # comparison — live schema vs committed baseline — runs in the DB replay
+    # jobs via test:db:ci (the required "typecheck + lint" gate needs them),
+    # because it needs the migration replay. THIS job needs nothing but the files, so it runs everywhere and
     # closes the two ways a file-based guard dies quietly:
     #   1. the baseline gets truncated/emptied, so the differ compares nothing
     #      against nothing and reports "no widenings";

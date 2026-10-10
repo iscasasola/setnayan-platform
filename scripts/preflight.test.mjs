@@ -74,6 +74,14 @@ test('a step that needs a production build is never offered as cheap', () => {
   }
 });
 
+test('a step that reads the CI run itself is never offered as a local check', () => {
+  const cheap = cheapCommands(CI).map((c) => c.run).join('\n');
+  for (const ciOnly of ['ci-gate.mjs', 'ci-test-summary.mjs']) {
+    assert.ok(!cheap.includes(`scripts/${ciOnly}`), `${ciOnly} reads the run's own results — on a builder's machine it has nothing to read and would fail every preflight`);
+  }
+  assert.ok(cheap.includes('scripts/lint-ci-gate.mjs'), 'the workflow-shape lint IS a local check');
+});
+
 test('the heavy steps are named, so a green preflight cannot be read as a full pass', () => {
   const inv = inventory(CI);
   const tierOf = (re) => inv.find((s) => re.test(s.run ?? ''))?.tier;

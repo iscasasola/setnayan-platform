@@ -174,12 +174,14 @@ if (flag('--inventory')) {
 }
 
 function lookupSeconds(seconds, s) {
-  // a matrix job reports as "name (1)", "name (2)" … — take the slowest leg
+  // a sharded job is named with an expression — "unit tests (${{ matrix.shard }}/3)" —
+  // and reports once per shard: take the slowest one
+  const jobRe = new RegExp(`^${s.jobName.split(/\$\{\{.*?\}\}/).map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('.+')}$`);
   let best = null;
   for (const [k, v] of seconds) {
     const [job, step] = k.split('::');
     if (step !== s.step && step !== `Run ${s.step}`) continue;
-    if (job === s.jobName || job.startsWith(`${s.jobName} (`)) best = Math.max(best ?? 0, v);
+    if (jobRe.test(job)) best = Math.max(best ?? 0, v);
   }
   return best;
 }

@@ -69,6 +69,27 @@ including change orders that move money, and splitting it is an owner decision.
 
 No migration: every type already exists in the `notification_type` enum.
 
+### P0b · the notices that were never emitted (same branch)
+
+- **A booking request that lapses at the supplier's late press tells the couple.**
+  `vendor_agree_to_lock` and `vendor_decline_lock` close a request past its 48
+  hours themselves and answer `expired`; only `ok` was notified, and the sweep
+  selects `pending` only. The "did not answer" notice now lives once in
+  `lib/lock-request-notices.server.ts` and all three doors send it. It cannot
+  send twice — each door reports a row only when it is the transaction that
+  moved it — and `tests/db/lock-handshake-wiring.db.test.ts` runs all three.
+- **✕ Remove on a card with a pending booking request tells the supplier**, with
+  the same notice Withdraw sends.
+- **Corrected, not fixed:** the comment in `finalizeVendor` that said the payment
+  plan and its notice "run from vendorAgreeToLock". They do not; with the
+  handshake on, a booking the supplier agrees to has no frozen plan. The plan
+  write is a money path left for the owner. The couple is told the yes today.
+- **Stopped — each needs a `notification_type` enum value, no migration written.**
+  The SQL sits in a comment at each site: a quote accepted or declined
+  (`respondToProposal`); a supplier removed while only a conversation is open
+  (`deleteVendor`); the four change-order notices that ride `schedule_suggestion`
+  (`lib/couple-supplier-notices.ts`).
+
 SPEC IMPACT: Iteration 0028 (notifications) — eight notification types gain the
 email channel, and couple ↔ supplier emails gain "Event · Date" rows. NOT applied
 to the corpus from this branch: the job was local-only (no push), and a corpus

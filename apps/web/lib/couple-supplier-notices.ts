@@ -326,10 +326,27 @@ export const COUPLE_SUPPLIER_NOTICES = {
     reach: 'app_only',
     why: 'news with nothing to answer — a supplier replied to a review already left',
   },
+  /*
+    ⛔ FOUR OF THIS TYPE'S TEN EMIT SITES MOVE MONEY, AND THEY CANNOT BE EMAILED
+    WITHOUT EMAILING THE OTHER SIX (counted 2026-10-10:
+    `grep -rn "type: 'schedule_suggestion'" app lib`). The four are the change
+    orders — raiseChangeOrder, respondChangeOrder, vendorRaiseChangeOrder,
+    vendorRespondChangeOrder — each a signed `vendor_change_orders.delta_amount_php`
+    on what the couple owes. The other six are meeting asks, terms, a handover
+    and a schedule answer. Nothing on a notification row or in
+    `emitNotification`'s arguments tells them apart: the allowlist and the
+    reason line are both keyed on the TYPE, and the only difference is the
+    title's wording. So it needs its own types, i.e. a migration, not written:
+
+        ALTER TYPE public.notification_type ADD VALUE IF NOT EXISTS 'change_order_proposed';
+        ALTER TYPE public.notification_type ADD VALUE IF NOT EXISTS 'change_order_answered';
+
+    Then move the four sites onto them, email both, and declare both here.
+  */
   schedule_suggestion: {
     to: 'either',
     reach: 'app_only',
-    why: 'one type carries six different things (schedule answers, meeting asks, terms, handovers, change orders); lib/notifications.ts keeps it in-app until it is split — an owner decision, because change orders move money',
+    why: 'one type carries schedule answers, meeting asks, terms, a handover AND change orders; lib/notifications.ts keeps it in-app, and the four change-order sites cannot be emailed apart from the other six without a type of their own',
   },
   papic_challenge_pending: {
     to: 'couple',

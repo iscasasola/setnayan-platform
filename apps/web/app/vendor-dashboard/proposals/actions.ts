@@ -286,6 +286,26 @@ export async function respondToProposal(formData: FormData) {
   });
   if (error) console.error('[supabase-error] app/vendor-dashboard/proposals/actions.ts · rpc:respond_vendor_proposal', error);
 
+  /*
+    ⛔ THE SUPPLIER IS NOT TOLD THE ANSWER, AND SHOULD BE (measured 2026-10-10).
+    Neither this action nor `respond_vendor_proposal` writes a notification: a
+    supplier learns their quote was accepted or declined only by opening the
+    customer card. No existing type says it truthfully — `chat_message` reads
+    "New message" and its email says "you have a new message", `order_quoted`
+    is Setnayan's own order, and `booking_confirmed` is false by definition
+    (accepting a quote is not booking it). It needs two enum values, i.e. a
+    migration, which was not written:
+
+        ALTER TYPE public.notification_type ADD VALUE IF NOT EXISTS 'quote_accepted';
+        ALTER TYPE public.notification_type ADD VALUE IF NOT EXISTS 'quote_declined';
+
+    Then: the TS union + label + tone in lib/notifications.ts, both on the
+    email allowlist with a reason line each, a line each in
+    lib/couple-supplier-notices.ts (to: 'supplier', event: 'name_and_date'),
+    and the emit HERE — only when `!error`, to the shop owner of the proposal's
+    vendor profile, linking the thread, with `eventId` passed.
+  */
+
   revalidatePath(`/proposals/${publicId}`);
   redirect(`/proposals/${publicId}${error ? '?notice=respond_failed' : ''}`);
 }

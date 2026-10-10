@@ -11,6 +11,9 @@
  *   ?s=datechange     the Next card is a date change — Move · Unlock            (frame 31)
  *   ?s=doors          the rules that are not a customer's ask, as rows
  *   ?s=clear          nothing waiting
+ *   ?s=folds&open=K   every answer that opens inside a Today row, with the fold of kind K open
+ *                     (lock_request · lock · meeting · date_change · delete_request · inquiry ·
+ *                     review · mark_complete) — S-PR1b, the button rule inside the folds
  *   &toast=1          the outcome toast (&toast=refused for a refusal)
  *   ?thumb=people     the frosted thumb row: a search field (≥ 60 %) + Add     (frame 03)
  *   ?thumb=customer   Chat (main) · Quote · Payment · Call                     (frame 06)
@@ -136,6 +139,49 @@ const LAPSED: WhatsNewCard = {
   expiresAt: ago(30),
 };
 
+/* ── S-PR1b · one of every answer that opens inside a row. ── */
+const PAYMENT: WhatsNewCard = {
+  kind: 'lock',
+  id: 'pay-1',
+  eventId: 'cruz',
+  eventVendorId: 'ev-cruz-pay',
+  coupleName: 'Jun & Liza Cruz',
+  eventDate: '2026-10-04',
+  proofUrl: 'https://example.com/receipt.jpg',
+  recordedAt: ago(5),
+};
+const MEETING: WhatsNewCard = {
+  kind: 'meeting',
+  id: 'meet-1',
+  appointmentId: 'ap-1',
+  eventId: 'bautista',
+  vendorProfileId: 'vp-lab',
+  coupleName: 'Lourdes Bautista',
+  label: 'Tasting',
+  meetingKind: 'in_person',
+  location: 'Quezon City',
+  scheduledAt: new Date(NOW + 3 * 86_400_000).toISOString(),
+  durationMin: 60,
+  proposedAt: ago(6),
+  passed: false,
+};
+const DATE_CHANGE_2: WhatsNewCard = { ...DATE_CHANGE, id: 'dc-2', eventId: 'reyes', eventVendorId: 'ev-reyes', coupleName: 'The Reyes debut', fromDate: '2026-10-03', proposedDate: '2026-10-17' };
+const REMOVE: WhatsNewCard = { kind: 'delete_request', id: 'del-1', eventId: 'paolo', eventVendorId: 'ev-paolo', eventDate: '2026-08-15', requestedAt: ago(90) };
+const INQUIRY = {
+  kind: 'inquiry',
+  id: 'inq-1',
+  threadId: 't-new',
+  eventId: 'new',
+  descriptor: 'Cale & Ice',
+  eventDate: '2027-03-13',
+  category: 'Photo & video',
+  paxAtInquiry: 150,
+  messageExcerpt: 'Are you free on March 13?',
+  createdAt: ago(3),
+} as unknown as WhatsNewCard;
+const REVIEW: WhatsNewCard = { kind: 'review', id: 'rev-1', reviewId: 'rv-1', coupleName: 'Paolo & Nina', quote: 'Lovely work, on time.', rating: 5, createdAt: ago(30) };
+const DELIVERED: WhatsNewCard = { kind: 'mark_complete', id: 'done-1', eventVendorId: 'ev-done', eventId: 'done', eventName: 'Santos wedding', eventDate: '2026-09-20', createdAt: ago(50) };
+
 type TodayState = {
   whatsNew: WhatsNewCard[];
   upcoming: UpcomingEventRow[];
@@ -156,9 +202,16 @@ const TODAY: Record<string, TodayState> = {
   datechange: { whatsNew: [REPLY, DATE_CHANGE, BOOKING, LAPSED], upcoming: COMING, deskIncomplete: false, owedPhp: 48_000 },
   doors: { whatsNew: [REPLY], upcoming: COMING, deskIncomplete: false, owedPhp: 48_000, extras: true },
   clear: { whatsNew: [], upcoming: [], deskIncomplete: false, owedPhp: 0 },
+  // The first date change takes the Next card (frame 31); the second is a row.
+  folds: {
+    whatsNew: [DATE_CHANGE, BOOKING, PAYMENT, MEETING, DATE_CHANGE_2, REMOVE, INQUIRY, REVIEW, DELIVERED],
+    upcoming: COMING,
+    deskIncomplete: false,
+    owedPhp: 48_000,
+  },
 };
 
-function TodayLab({ state, toast }: { state: TodayState; toast: string | undefined }) {
+function TodayLab({ state, toast, open }: { state: TodayState; toast: string | undefined; open?: string }) {
   const { answer: needsAnswer, news: nothingToAnswer } = splitDesk(state.whatsNew);
   const nextAnswer = nextAnswerOf(needsAnswer);
   const fee = state.extras
@@ -239,7 +292,13 @@ function TodayLab({ state, toast }: { state: TodayState; toast: string | undefin
         shop={{ name: 'Lumina Studio', line: 'Photo & video · Live', live: true }}
         alsoWaiting={
           <>
-            <WhatsNewFeed cards={needsAnswer} asks={waiting.asks} incomplete={state.deskIncomplete} {...actions} />
+            <WhatsNewFeed
+              cards={needsAnswer}
+              // `&open=<kind>` opens that kind's row — the lab's way to picture one fold.
+              asks={open ? waiting.asks.map((a) => ({ ...a, open: a.card.kind === open })) : waiting.asks}
+              incomplete={state.deskIncomplete}
+              {...actions}
+            />
             <NothingToAnswerFeed cards={nothingToAnswer} {...actions} />
           </>
         }
@@ -251,12 +310,12 @@ function TodayLab({ state, toast }: { state: TodayState; toast: string | undefin
 export default async function SupplierLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ thumb?: string; s?: string; toast?: string }>;
+  searchParams: Promise<{ thumb?: string; s?: string; toast?: string; open?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
   const today = q.s ? TODAY[q.s] : undefined;
-  if (today) return <TodayLab state={today} toast={q.toast} />;
+  if (today) return <TodayLab state={today} toast={q.toast} open={q.open} />;
   const thumb = q.thumb ?? 'people';
   return (
     <div className="min-h-screen bg-cream px-4 pb-40 pt-3" data-supplier-lab={thumb}>

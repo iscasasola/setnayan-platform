@@ -188,6 +188,12 @@ test('5 · the lines, word for word', () => {
   const t = table(stageWidgets({}), { content: { what_to_bring: false } });
   const line = (row: string, col: number, writes: GuestsSeeWrites = NONE) => guestsSeeToggle(t, writes, row, col).line;
   assert.equal(GUESTS_SEE_WORDS.quiet, 'Nothing changed yet — our picks do the work.');
+  // The key: the prototype's words for four of the five; the locked entry says what its tap says.
+  assert.deepEqual(
+    [GUESTS_SEE_WORDS.legendOn, GUESTS_SEE_WORDS.legendOff, GUESTS_SEE_WORDS.legendPick, GUESTS_SEE_WORDS.legendLocked, GUESTS_SEE_WORDS.legendDash],
+    ['Guests see it', 'Hidden', 'Our pick', 'Cannot be changed here yet', 'Not possible yet'],
+  );
+  assert.ok(GUESTS_SEE_WORDS.locked.toLowerCase().includes(GUESTS_SEE_WORDS.legendLocked.toLowerCase().replace(/^cannot/, 'cannot')), 'the key and the tap line say two different things');
   assert.equal(line('our_love_story', COL.rsvp), 'Hidden on Invitation. Still shown on Save the Date, The Day and Post Event.');
   assert.equal(line('special_message', COL.event), 'Added to The Day.');
   assert.equal(line('what_to_bring', COL.save_the_date), 'Added to Save the Date. Nothing written yet — guests will not see it until you write it.');

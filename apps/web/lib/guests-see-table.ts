@@ -100,7 +100,9 @@ export const GUESTS_SEE_WORDS = {
   legendOn: 'Guests see it',
   legendOff: 'Hidden',
   legendPick: 'Our pick',
-  legendLocked: 'Not changed here yet',
+  /* The tap line's own idea ("This one cannot be changed here yet.") — never "Not changed here yet", which read as
+     "you have not changed it". (The prototype's word here is "Always shown": untrue of a row that is merely locked.) */
+  legendLocked: 'Cannot be changed here yet',
   legendDash: 'Not possible yet',
   ourPick: 'our pick',
 } as const;

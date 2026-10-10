@@ -17,6 +17,8 @@
  * elements, moved inside the reply's one fieldset.
  */
 import { RSVP_GROUP_ATTR, RSVP_SCREEN_LINES, rsvpLayoutIsGroup, rsvpScreenLayout, type RsvpLayoutItem, type RsvpLayoutLine, type RsvpLook, type RsvpLookCard } from '@/lib/rsvp-look';
+import { rsvpGroupName } from '@/lib/rsvp-layout-edit';
+import type { RsvpStageScene } from '@/lib/rsvp-stage';
 import { RSVP_ADDED_CLASS, RSVP_ADDED_EMPTY_CLASS, RSVP_ADDED_NAME, RSVP_FORM_LINE_ID, RSVP_FORM_QUESTION_CLASS, RSVP_GROUP_CLASS, RSVP_NOTE_ADDED_CLASS } from '@/app/[slug]/_components/rsvp-lines';
 
 /** The element that holds a screen's lines: the reply's fieldset · the note after a Yes · the note's card after a No. */
@@ -31,6 +33,39 @@ export function rsvpLineRow(box: HTMLElement, name: string): HTMLElement | null 
   let el = box.querySelector<HTMLElement>(`[data-rsvp-line="${CSS.escape(name)}"]`);
   while (el?.parentElement && el.parentElement !== box && el.parentElement.tagName !== 'LEGEND' && !el.parentElement.hasAttribute(RSVP_GROUP_ATTR)) el = el.parentElement;
   return el;
+}
+
+/** The screen's card each of the stage's three screens draws — whose list of lines it lays out. */
+export const RSVP_SCENE_PART: Record<RsvpStageScene, RsvpLookCard> = { form: 'rsvp', thanks: 'yesnote', decline: 'nonote' };
+
+export type RsvpPageRow = { name: string; row: HTMLElement };
+/**
+ * A screen's TOP ROW as it stands on the page now: each line's row and each group's wrapper, in page order, by the
+ * name the list knows it by. Only what HAS a place in the list — the Hint, a question's field and the rest of the
+ * card are not in it (they cannot be moved, held or picked for a group).
+ */
+export function rsvpTopRows(box: HTMLElement, part: RsvpLookCard): RsvpPageRow[] {
+  const out: RsvpPageRow[] = [];
+  box.querySelectorAll<HTMLElement>(`[data-rsvp-line], [${RSVP_GROUP_ATTR}]`).forEach((el) => {
+    const group = el.getAttribute(RSVP_GROUP_ATTR);
+    if (group !== null) return void out.push({ name: rsvpGroupName(group), row: el });
+    if (el.closest(`[${RSVP_GROUP_ATTR}]`)) return;
+    const name = el.getAttribute('data-rsvp-line') ?? '';
+    if (!(RSVP_SCREEN_LINES[part] as readonly string[]).includes(name) && !el.hasAttribute('data-rsvp-added')) return;
+    const row = rsvpLineRow(box, name);
+    if (row) out.push({ name, row });
+  });
+  return out;
+}
+/** The lines a group holds, as they stand in it. */
+export function rsvpGroupRows(box: HTMLElement, wrap: HTMLElement): RsvpPageRow[] {
+  const out: RsvpPageRow[] = [];
+  wrap.querySelectorAll<HTMLElement>('[data-rsvp-line]').forEach((el) => {
+    const name = el.getAttribute('data-rsvp-line') ?? '';
+    const row = rsvpLineRow(box, name);
+    if (row) out.push({ name, row });
+  });
+  return out;
 }
 
 const setClass = (el: Element, cls: string) => {

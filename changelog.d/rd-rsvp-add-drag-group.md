@@ -96,5 +96,29 @@ Message), a held line drags to a new place, and several lines can share one back
   screen takes up to 4 added lines. Remov…". Six of this stage's sentences are longer (the prototype's toast took two
   lines). The toast is every screen's; it is not changed here.
 
+**6 · hold a line to move it — the Wedding March's feel, on a reply screen's lines**
+
+- Press and hold a line (350 ms, the prototype's own number): it lifts as a ghost, its place dims with a dashed mark,
+  the opening under the finger shows a line, and on letting go the others slide to where they now stand while the
+  ghost flies home. A short tap still only picks; a plain swipe still scrolls; while a line is held the page does
+  not scroll under the finger, and near the top or bottom edge the page comes to it.
+- A SECOND SMALL DRAG, not the March's (`rsvp-canvas-drag.ts`): the March's is tied to its names and walks. Its two
+  numbers are IMPORTED (`SETTLE_MS`, `EDGE_PX` — exported from `details-march.tsx`, nothing else of that file
+  changed); its bare numbers (×1.03, 30 % dim, 220 ms, 4 px) are named here beside where the March has them.
+- WHAT A PRESS PICKS UP (the prototype's rule, `rsvpDragSubject`): the line — or, inside a group, the WHOLE GROUP
+  unless that very line is the picked one. The Hint, a question's field, the pass and the card's own ground cannot
+  be held; words being typed are never lifted.
+- A DROP IS ONE EDIT of the list, asked of the panel (`do: 'place'`) like every other change; dropped back where it
+  was, nothing is asked. What was held is picked. Nothing is ever put among the reply's lines while dragging: the
+  ghost and the opening's line are drawn on the page's body, and the ghost is a picture (inert, nameless — the
+  reply's two answers are never on the page twice).
+- 🔒 Every drop there is, on every screen, with added lines and groups: the list is the one expected and every line
+  of the page's own is still in it exactly once, Yes and No with them (`the-rsvp-stage-moves-a-line` § 2 — 178 drops
+  on 2026-10-11; `SHOW_DROPS=1` on that test prints the count). 14 sabotages of this step's code, each caught — one
+  only after its guard was mended (it could not see a call written with `!`).
+- COLOUR TOKENS ONLY (owner 2026-10-11): the prototype drew the ghost's card white and its marks in fixed greys;
+  here they are the page's paper and ink, the one accent and the app's large shadow — so a dark page is still read.
+- While a line is held the picked part's frame steps aside (`usePartEdits` `away`).
+
 SPEC IMPACT: None beyond the locked record already in the corpus (`Maker_RSVP_Per_Element_Add_Drag_Group_LOCKED_2026-10-09.md`
 §4–§5 names the cap and the migration). The measured numbers confirm §5's (24,576 / 19,000).

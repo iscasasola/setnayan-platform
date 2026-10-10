@@ -325,10 +325,12 @@ export function StageTools({
     frameSel: rsvpStageFrameSelector(screen),
     part: picked,
     line: rsvpLine,
-    onPick: useCallback((line: string | null, opens?: 'edit' | 'bg') => {
-      const part = pickedRef.current;
+    onPick: useCallback((line: string | null, opens?: 'edit' | 'bg', on?: MakerPartKey) => {
+      const part = on ?? pickedRef.current;
       if (!line || !part) return deselectRef.current();
       setLineAtPart({ part, line });
+      /* ✋ A line held and dropped on a card that is not the picked part: that card's part is picked with it. */
+      if (part !== pickedRef.current) pickPartRef.current(part);
       if (opens) setTool(opens);
     }, [setTool]),
     onSay: useCallback((words: string) => setWhyRef.current(words), []),
@@ -1236,6 +1238,7 @@ export function StageTools({
     frame: rsvpOpen ? frameSel : undefined,
     line: rsvpLine && rsvpLineName ? { key: rsvpLine, name: rsvpLineName } : null,
     lineAdd: rsvpList.add,
+    away: rsvpList.away,
     name: rsvpCard ? RSVP_CARD_NAME : undefined,
   });
   /* ── ✍ THE PICKED PART'S WORDS, FOR EDIT'S ROWS — read off the page (`part-words.ts`): what the page draws is what

@@ -268,6 +268,9 @@ type PartEditsProps = {
    * opening the scenes' sheet. Absent: no ＋ on a fixed page, as before.
    */
   lineAdd?: { above: boolean; below: boolean; onAdd: (where: 'above' | 'below') => void } | null;
+  /** ✋ The frame steps aside (a line of the RSVP stage is held to be moved, or lines are being picked for a group —
+   *  the prototype draws no frame then). The part stays picked. */
+  away?: boolean;
 };
 
 /**
@@ -293,7 +296,7 @@ export function PartEdits(props: PartEditsProps) {
   return usePartEdits(props).node;
 }
 
-export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd = null }: PartEditsProps): PartEditsNow {
+export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd = null, away = false }: PartEditsProps): PartEditsNow {
   const isReveal = picked === 'reveal';
   const canvas = isReveal ? REVEAL_STUB : picked ? makerPartCanvasOn(stage, picked) : null;
   const el = picked ? (line?.key ?? MAKER_PARTS[picked].el ?? null) : null;
@@ -486,7 +489,7 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
   };
   if (typeof document === 'undefined') return { node: null, ...now };
   /* What just happened is said even once the part is let go (a move re-renders the page). */
-  const edges = Boolean(picked && box);
+  const edges = Boolean(picked && box) && !away;
   /* The prototype pads a picked part (`.el.on{padding-block:18px}`) so ＋ sits ON the frame, never over its words:
      the frame is drawn PART_PAD outside the part, and each 44 px tap lies wholly outside the part's box. */
   const fe = box ? partFrameEdges(box, box.gapAbove ?? null, box.gapBelow ?? null, PART_PAD) : null;

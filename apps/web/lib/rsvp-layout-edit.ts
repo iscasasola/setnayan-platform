@@ -271,6 +271,34 @@ export function rsvpScreenCounts(config: unknown, part: RsvpLookCard): { added: 
   return { added: look.added?.[part]?.length ?? 0, groups: look.groups?.[part]?.length ?? 0 };
 }
 
+/* ── ✋ a drop ─────────────────────────────────────────────────────────────── */
+
+/**
+ * WHERE A HELD LINE WOULD LAND — the opening nearest the finger among the rows it stands beside, measured on the page
+ * AS LAID OUT AT THE LIFT (so the room an opening has just been given never flips the answer under a resting
+ * finger — the prototype's own rule). `tops` / `ends`: each row's top and bottom; `at`: the held row's own place.
+ * Opening `s` is "before row `s`"; `tops.length` is "after the last". Null: no opening within reach — or one of
+ * ITS OWN two (before itself, after itself), where it would only settle back.
+ */
+export function rsvpDropSlot(tops: readonly number[], ends: readonly number[], at: number, y: number, reach: number): number | null {
+  let best: number | null = null;
+  let near = reach;
+  for (let s = 0; s <= tops.length; s++) {
+    const edge = s < tops.length ? tops[s]! : ends[ends.length - 1]!;
+    const d = Math.abs(y - edge);
+    if (d < near) {
+      near = d;
+      best = s;
+    }
+  }
+  return best === null || best === at || best === at + 1 ? null : best;
+}
+/** That opening as the list's own word for a place (`do: 'place'`): the name it lands BEFORE — null: last;
+ *  undefined: nowhere (it goes back where it was, and nothing is asked). */
+export function rsvpDropBefore(names: readonly string[], slot: number | null): string | null | undefined {
+  return slot === null ? undefined : slot < names.length ? names[slot]! : null;
+}
+
 /* ── what the stage says ──────────────────────────────────────────────────── */
 
 /** What ＋ offers on a reply page, in the sheet's order. (A Picture is its own later step.) */

@@ -90,7 +90,9 @@ test('3 · every change is the panel’s one save: asked on an event, sized, sav
   /* The page is told at once (the stage lays the list on the frame it already drew — never a reload). */
   const STAGE = src(`${L}/maker-rsvp-stage.tsx`);
   assert.match(STAGE, /if \(scene && doc\) arrangeRsvpScreen\(doc, RSVP_SCENE_PART\[scene\], readRsvpLook\(latest\.current\)\);/);
-  assert.match(STAGE, /const RSVP_SCENE_PART: Record<RsvpStageScene, RsvpLookCard> = \{ form: 'rsvp', thanks: 'yesnote', decline: 'nonote' \};/);
+  /* (The map of a screen to its card lives beside the arranger since step 6: the hold-to-move reads the same one.) */
+  assert.match(src(`${L}/rsvp-canvas-arrange.ts`), /export const RSVP_SCENE_PART: Record<RsvpStageScene, RsvpLookCard> = \{ form: 'rsvp', thanks: 'yesnote', decline: 'nonote' \};/);
+  assert.match(STAGE, /import \{ RSVP_SCENE_PART, arrangeRsvpScreen \} from '\.\/rsvp-canvas-arrange';/);
 });
 
 test('4 · what is said: the prototype’s sentences, the controller’s four — and the caps’ number is the rule’s own', async () => {

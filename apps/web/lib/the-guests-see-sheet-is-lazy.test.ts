@@ -18,6 +18,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from './strip-comments';
 import { STUDIO_TILE_KEYS } from './studio-tile-defs';
+import { PILL_ON_CLASS } from '../app/_components/pill-classes';
 
 const WEB = join(__dirname, '..');
 const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
@@ -77,7 +78,10 @@ test('4 · the sheet decides nothing: it imports the table’s handlers and no r
 test('5 · colour tokens only', () => {
   const src = stripComments(read(SHEET));
   assert.doesNotMatch(src, /\b(?:bg|text|border|ring|fill|stroke)-(?:white|black)\b|#[0-9a-fA-F]{3,8}\b|rgba?\(/);
-  assert.match(src, /border-ink bg-ink text-paper/);
+  // A ticked box is the app's "picked / on" colour — the accent and its own ink (`PILL_ON_CLASS`), never ink-black.
+  assert.match(src, /on \? 'border-sn-accent bg-sn-accent text-sn-on-accent' : 'border-ink\/30 text-transparent'/);
+  assert.equal(PILL_ON_CLASS, 'bg-sn-accent text-sn-on-accent', 'the app’s picked colour moved — the tick must follow it');
+  assert.doesNotMatch(src, /bg-ink text-paper/);
 });
 
 test('6 · the three buttons fit a phone: ↺ and "Back to our picks" on one line, Apply on a full-width line of its own', () => {

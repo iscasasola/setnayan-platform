@@ -70,11 +70,11 @@ function Mark({ cell, on }: { cell: GuestsSeeCell; on: boolean }) {
       <span
         aria-hidden
         data-gs-mark={on ? 'on' : 'off'}
-        className={`flex h-[22px] w-[22px] items-center justify-center rounded-md border-[1.5px] ${on ? 'border-ink bg-ink text-paper' : 'border-ink/30 text-transparent'}`}
+        className={`flex h-[22px] w-[22px] items-center justify-center rounded-md border-[1.5px] ${on ? 'border-sn-accent bg-sn-accent text-sn-on-accent' : 'border-ink/30 text-transparent'}`}
       >
         <Check className="h-3.5 w-3.5" strokeWidth={3} />
       </span>
-      {cell.ourPick ? <span aria-hidden data-gs-pick="" className="absolute bottom-1 h-1 w-1 rounded-full bg-terracotta" /> : null}
+      {cell.ourPick ? <span aria-hidden data-gs-pick="" className="absolute bottom-1 h-1 w-1 rounded-full bg-ink/40" /> : null}
     </>
   );
 }
@@ -147,7 +147,9 @@ export function GuestsSeeSheet({ onClose }: { onClose: () => void }) {
 
   return (
     <MakerSheet label={W.title} onClose={close} everyWidth tall>
-      {/* 🎨 Colour tokens only (ink · paper · the accent) and the sheet's own ground (`bg-inherit`) — nothing here names
+      {/* 🎨 A TICKED BOX IS THE ACCENT — the app's one "picked / on" colour (`PILL_ON_CLASS`: `bg-sn-accent` with its
+          own ink), as the prototype draws it; the small grey dot under a box is "Our pick".
+          Colour tokens only (ink · the accent) and the sheet's own ground (`bg-inherit`) — nothing here names
           a white or a black, so it inverts with the app. FRAMES ONLY ON WHAT IS PRESSED (owner 2026-10-11): a tick box
           and the three buttons; the row names, the group heads, the key and the status line are bare, and the groups
           are parted by one thin divider. */}
@@ -239,7 +241,7 @@ export function GuestsSeeSheet({ onClose }: { onClose: () => void }) {
                 ).map(([cell, on, words]) => (
                   <li key={words} className="flex items-center gap-1.5">
                     <span aria-hidden className="relative flex h-5 w-5 scale-75 items-center justify-center">
-                      {cell ? <Mark cell={cell} on={on} /> : <span className="h-1 w-1 rounded-full bg-terracotta" />}
+                      {cell ? <Mark cell={cell} on={on} /> : <span className="h-1 w-1 rounded-full bg-ink/40" />}
                     </span>
                     {words}
                   </li>

@@ -194,6 +194,9 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   /* 🚶 The REAL Wedding March (`EntourageSection`, as `site-body.tsx` mounts it): the sample entourage, in its picked Style. */
   const marchBlock = (
     <div data-lab-scene="entourage" className="border-t border-ink/10 px-4 py-8 text-left">
+      {/* 🧱 The March's own mark, right BEFORE the real block as the real page puts it (`lib/block-looks.ts`) — inside
+          the lab's wrapper, so a look lands on the block a guest sees and not on the lab's own padding. */}
+      <span hidden {...{ [BLOCK_MARK_ATTR]: 'entourage' }} />
       <EntourageSection groups={labEntourage()} id="site-entourage" sceneStyle={fixedSceneStyleOf(labEvent.style_preferences, 'entourage', stage, 'wedding')} />
     </div>
   );
@@ -251,6 +254,8 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
     /* The lab wraps the gift card; the Maker asks the block's root whether it is the real card (`data-welcome-gifts`),
        so the wrapper says so when the real card is what it holds — else Animate is grey here and cannot be tried. */
     <div data-lab-scene="gifts" {...(words ? { 'data-welcome-gifts': '' } : {})} className="border-t border-ink/10 px-4 py-8 text-left">
+      {/* 🧱 E-Gifts' own mark, right BEFORE the real block (`lib/block-looks.ts`) — inside the lab's wrapper. */}
+      <span hidden {...{ [BLOCK_MARK_ATTR]: 'gifts' }} />
       {words ? <WelcomeGifts href="#gifts" words={words} look={look('gifts')} /> : <MakerWelcomeGiftsEmpty look={look('gifts')} />}
     </div>
   );
@@ -334,17 +339,15 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
             'w:schedule': scene.schedule,
             'w:venue_map': scene.venue_map,
             'w:dress_code': scene.dress_code,
-            'f:entourage': (
-              <>
-                <span hidden {...{ [BLOCK_MARK_ATTR]: 'entourage' }} />
-                {marchBlock}
-              </>
-            ),
+            'f:entourage': marchBlock,
           }}
         />
         {sp.editor === '1' && !preview ? <EditorBridge /> : null}
         {only ? <style>{canvasOnlyCss(only)}</style> : null}
         <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style>
+        {/* 🧱 The fixed blocks' own looks on The Day's pages too, as the real page carries them — this branch had the
+            March's mark and no style, so a look picked on The Day › Welcome drew nothing here (seen 2026-10-10). */}
+        <style {...{ [BLOCK_LOOKS_STYLE_ATTR]: '' }}>{blockLooksCss(readBlockLooks({ block_looks: labBlocks }))}</style>
       </main>
     );
   }
@@ -532,8 +535,6 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
             </HubScenes>
           </div>
           <div className="sn-editorial">
-            {/* 🧱 E-Gifts' own mark, as the real page puts it: before the Maker's marker (`lib/block-looks.ts`). */}
-            <span hidden {...{ [BLOCK_MARK_ATTR]: 'gifts' }} />
             {mark('f:gifts')}
             {giftsBlock}
             {mark('f:look')}
@@ -549,8 +550,6 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
           {/* 🔤 Three of the page's eyebrows, as the real scenes draw them — inside the
               editorial scope the guest page wears (`.sn-editorial`). */}
           <div className="sn-editorial">
-            {/* 🧱 E-Gifts' own mark, as the real page puts it: before the Maker's marker (`lib/block-looks.ts`). */}
-            <span hidden {...{ [BLOCK_MARK_ATTR]: 'gifts' }} />
             {mark('f:gifts')}
             {giftsBlock}
             {mark('w:our_love_story')}
@@ -566,7 +565,6 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
             {mark('w:dress_code')}
             {scene.dress_code}
             {/* 🚶 No `data-maker-section` marker: the real page names the March by its `#site-entourage` id alone (`maker-section-find.ts`). */}
-            <span hidden {...{ [BLOCK_MARK_ATTR]: 'entourage' }} />
             {marchBlock}
           </div>
         </>

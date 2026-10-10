@@ -43,16 +43,7 @@ const showOnCanvas = (looks: unknown) =>
  * No Leaves ◆: a block is not a scene and hands over to nothing.
  */
 export function BlockAnimateRows({ block }: { block: BlockLookBlock }) {
-  const maker = useMaker();
-  const router = useRouter();
-  const eventId = maker?.eventId ?? null;
-  /* The stored value, live with the draft laid on — carried whole, so another block's look and any key this build
-     does not know stay as they are. */
-  const savedKey = JSON.stringify(maker?.lookPages?.blocks ?? {});
-  const [prefs, setPrefs] = useState<Record<string, unknown>>(() => ({ [BLOCK_LOOKS_PREF_KEY]: JSON.parse(savedKey) }));
-  const [error, setError] = useState<string | null>(null);
-  const [pending, start] = useTransition();
-  useEffect(() => setPrefs({ [BLOCK_LOOKS_PREF_KEY]: JSON.parse(savedKey) }), [savedKey]);
+  const { eventId, prefs, pending, error, saveWhole } = useBlockLooksDraft();
   const motion: HubElementMotion = readBlockLooks(prefs)[block]?.motion ?? {};
 
   const moveTo = (part: keyof HubElementMotion, value: string | MotionFx | null) => {
@@ -109,7 +100,24 @@ export function BlockAnimateRows({ block }: { block: BlockLookBlock }) {
       />
     </div>
   );
+}
 
+/**
+ * 🧱 THE BLOCKS' LOOKS AS THE TOOLBAR HOLDS THEM — the stored value (live with the draft laid on) and its ONE save,
+ * for a block's Animate (above) and its Background (`block-background.tsx`): on the canvas at the tap, in the draft
+ * behind it through the work area's draft door, live on Apply; put back, with one plain line, when a save is refused.
+ */
+export function useBlockLooksDraft() {
+  const maker = useMaker();
+  const router = useRouter();
+  const eventId = maker?.eventId ?? null;
+  /* The stored value, live with the draft laid on — carried whole, so another block's look and any key this build
+     does not know stay as they are. */
+  const savedKey = JSON.stringify(maker?.lookPages?.blocks ?? {});
+  const [prefs, setPrefs] = useState<Record<string, unknown>>(() => ({ [BLOCK_LOOKS_PREF_KEY]: JSON.parse(savedKey) }));
+  const [error, setError] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  useEffect(() => setPrefs({ [BLOCK_LOOKS_PREF_KEY]: JSON.parse(savedKey) }), [savedKey]);
   /** One save of a whole next value (Build out + "follow the scroll" together). */
   function saveWhole(looks: Record<string, unknown>) {
     if (!eventId) return;
@@ -135,4 +143,5 @@ export function BlockAnimateRows({ block }: { block: BlockLookBlock }) {
       }
     });
   }
+  return { eventId, prefs, pending, error, saveWhole };
 }

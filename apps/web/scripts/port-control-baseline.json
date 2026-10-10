@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "6c0e0a9e2",
+  "generatedFromRef": "c896158cb",
   "routeCount": 430,
   "destinations": 956,
   "actions": 673,
-  "blocks": 5950,
+  "blocks": 5952,
   "routes": {
     "/": {
       "files": [
@@ -6627,6 +6627,7 @@
         "dashboard/[eventId]/launch/_components/special-message-field.tsx",
         "dashboard/[eventId]/launch/_components/stage-item-menu.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/block-animate.tsx",
+        "dashboard/[eventId]/launch/_components/stage-panel/block-background.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/camera-face.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/camera-look.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/camera-page.tsx",
@@ -6699,6 +6700,8 @@
         "Bar",
         "BeforeWeStartScreen",
         "BlockAnimateRows",
+        "BlockGround",
+        "BlockGroundRows",
         "Box",
         "BufferedCanvasFrame",
         "CameraLook",

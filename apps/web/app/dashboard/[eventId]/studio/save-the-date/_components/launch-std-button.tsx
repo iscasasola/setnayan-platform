@@ -164,7 +164,7 @@ export function LaunchStdButton({
         <div className="space-y-1.5">
           <p className="flex items-center gap-2 text-sm font-semibold text-ink">
             <Check aria-hidden className="h-4 w-4 text-mulberry" strokeWidth={2.25} />
-            Your Save-the-Date is launched — your page is live.
+            Your Save-the-Date is launched — your Event Hub is live.
           </p>
           <p className="text-sm text-ink/65">
             Anyone with your link can now see it.{' '}
@@ -175,7 +175,7 @@ export function LaunchStdButton({
                 rel="noreferrer"
                 className="inline-flex items-center gap-1 font-medium text-terracotta underline-offset-2 hover:underline"
               >
-                View your page
+                View your Event Hub
                 <ExternalLink aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
               </a>
             ) : null}
@@ -192,7 +192,7 @@ export function LaunchStdButton({
             Scheduled to go live
           </p>
           <p className="text-sm text-ink/70">
-            Your page becomes public on{' '}
+            Your Event Hub becomes public on{' '}
             <span className="font-semibold text-ink">{formatManila(scheduledAt)}</span>{' '}
             <span className="text-ink/55">(Manila time)</span>. Until then only you and
             guests you&rsquo;ve invited can see it.
@@ -242,11 +242,11 @@ export function LaunchStdButton({
         <div className="space-y-2">
           <p className="flex items-center gap-2 text-sm font-semibold text-ink">
             <Lock aria-hidden className="h-4 w-4 text-ink/55" strokeWidth={1.9} />
-            Your page is private
+            Your Event Hub is private
           </p>
           <p className="text-sm text-ink/65">
             Only you and guests you&rsquo;ve invited can see it. Launch your Save-the-Date
-            to make your wedding page public — now, or at a time you choose.
+            to make your Event Hub public — now, or at a time you choose.
           </p>
           {picking ? (
             <SchedulePicker
@@ -260,7 +260,7 @@ export function LaunchStdButton({
             />
           ) : confirming ? (
             <div className="flex flex-wrap items-center gap-2 pt-1">
-              <span className="text-sm text-ink/70">Make your page public now?</span>
+              <span className="text-sm text-ink/70">Make your Event Hub public now?</span>
               <button
                 type="button"
                 onClick={doLaunch}
@@ -307,10 +307,10 @@ export function LaunchStdButton({
       {/* Preview entry — see-it-then-ship-it, available in every state. */}
       <a
         href={previewHref}
-        className="inline-flex items-center gap-1.5 text-sm font-medium text-terracotta underline-offset-2 hover:underline"
+        className="inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-terracotta underline-offset-2 hover:underline"
       >
         <Eye aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-        Preview your page
+        Preview your Event Hub
       </a>
     </div>
   );

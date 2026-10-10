@@ -5,17 +5,16 @@ import { cookies } from 'next/headers';
 import { sanitizeHubCanvas, type HubSectionCanvas } from '@/lib/hub-canvas';
 import { buildMakerNavigatorData } from '@/app/dashboard/[eventId]/website/editor/_components/maker-navigator-data';
 import { makerSceneLabel } from '@/lib/maker-scene-list';
-import { resolveWeddingOnlyParts } from '@/lib/wedding-only-parts';
-import { WEDDING_PROFILE } from '@/lib/event-type-profile';
-import { INVITE_THEMES, themeBackgroundName } from '@/lib/invite-themes';
+import { themeBackgroundName } from '@/lib/invite-themes';
 import { hubMovingBackgroundIds, sanitizeHubMainGround } from '@/lib/hub-canvas';
 import { resolveThemeGround } from '@/app/[slug]/_lib/theme-ground';
-import type { InvitationWidgetRow, WidgetType } from '@/lib/invitation-widgets';
 import { detailsLabNode } from '../details-lab/details-lab-node';
 import { MakerLabShell } from './maker-lab-shell';
 import { LAB_EDITORIAL_COOKIE, labEditorialDraft, labPostEventRead } from './lab-post-event';
 import { labScrubCanvases, labWidgetsCookie } from './lab-scrub';
 import { STUDIO_TILE_KEYS, STUDIO_TILES } from '@/lib/studio-tiles';
+import { LAB_BAR_COOKIE, LAB_ROWS_COOKIE, labBarFromCookie, labDraftedRows } from './lab-draft';
+import { labNavigatorInput } from './lab-navigator';
 
 /**
  * /dev/maker-lab — THE WHOLE MAKER on maria-and-jose's REAL SHAPE, with no
@@ -31,26 +30,6 @@ import { STUDIO_TILE_KEYS, STUDIO_TILES } from '@/lib/studio-tiles';
  * the ticket picture.
  */
 const EVENT = '00000000-0000-4000-8000-000000000000';
-
-/** maria-and-jose's section rows, as production holds them (order · always-on · mode · visible). */
-const MJ_ROWS: ReadonlyArray<[WidgetType, boolean]> = [
-  ['hero', true],
-  ['greeting', true],
-  ['qr_card', true],
-  ['event_details', false],
-  ['countdown', false],
-  ['schedule', false],
-  ['rsvp', true],
-  ['venue_map', false],
-  ['dress_code', false],
-  ['photo_moments', false],
-  ['your_photos', false],
-  ['tier_comparison', false],
-  ['special_message', false],
-  ['what_to_bring', false],
-  ['our_photos', false],
-  ['our_love_story', false],
-];
 
 /** Stand-ins for a moving background's still and loop when the lab has no public media address — files this repo ships. */
 /**
@@ -71,6 +50,8 @@ const LAB_STUDIO_DONE: Record<(typeof STUDIO_TILE_KEYS)[number], boolean | undef
   rsvp: true,
   prints: true,
 };
+/** The Studio pages the lab cannot draw — their tiles are not offered (see `tiles` below). */
+const LAB_STUDIO_NOT_DRAWN: ReadonlyArray<(typeof STUDIO_TILE_KEYS)[number]> = ['seats'];
 const LAB_STILLS = ['ballroom', 'starlit', 'fairy-lights', 'rose-archway', 'seascape', 'sunrise', 'aurora', 'peonies', 'bridgerton'];
 const LAB_CLIPS = ['jack-jill-vclip', 'jack-rose-vclip', 'maria-juan-vclip', 'john-jane-vclip', 'peter-mary-vclip'];
 
@@ -79,60 +60,16 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
   const sp = await searchParams;
   /* ⏱ `?slow=1`: a whole-Maker render takes as long as production's (3–6 s). */
   if (sp.slow === '1') await new Promise((r) => setTimeout(r, 4000));
-  const now = '2026-10-05T00:00:00Z';
-  const rows: InvitationWidgetRow[] = MJ_ROWS.map(([type, alwaysOn], i) => ({
-    widget_id: `w-${type}`,
-    event_id: EVENT,
-    widget_type: type,
-    display_order: i + 1,
-    is_visible: true,
-    is_always_on: alwaysOn,
-    tier: 'basic',
-    config_json: {},
-    created_at: now,
-    updated_at: now,
-    mode: 'auto',
-  }));
-  const pal = INVITE_THEMES.house.palette;
+  /* 🧾 The sample's rows WITH THE LAB'S DRAFT LAID OVER THEM — a scene's place on a stage, its eye, its Auto · Hidden
+     (`./lab-draft.ts`, the real `overlayHubDraftWidgets`). They were a constant: Earlier · Later · Remove saved a
+     real patch and the Maker and its canvas were drawn from rows that never moved (the walk of 2026-10-11, P02). */
+  const rows = labDraftedRows((await cookies()).get(LAB_ROWS_COOKIE)?.value);
   /* 🎞 The lab's Post Event story — the day's facts compiled by the real compiler, the lab's drafted story keys
      (`lab_editorial`) laid over (`./lab-post-event.ts`). It was `null`: the Post Event panel could not be opened. */
   const labPostEvent = labPostEventRead(labEditorialDraft((await cookies()).get(LAB_EDITORIAL_COOKIE)?.value));
   const navigator = buildMakerNavigatorData({
     postEvent: labPostEvent,
-    plan: {
-      widgets: rows,
-      openBrowse: true,
-      weddingOnlyParts: resolveWeddingOnlyParts(WEDDING_PROFILE),
-      content: {},
-      solemn: false,
-      hasHeroMedia: false,
-      hasEntourage: true,
-      dayParts: true,
-      storyRenders: false,
-      countdownPast: false,
-      giftsOff: false,
-      setupLocks: true,
-    },
-    sectionRows: rows,
-    tint: { canvas: pal.canvas, ink: pal.ink, accent: pal.accent },
-    facts: {
-      names: 'Maria & Jose',
-      dateLabel: 'December 12, 2026',
-      daysToGo: 68,
-      venueName: null,
-      venueAddress: null,
-      firstBlock: null,
-      dressTitle: null,
-      dressLine: null,
-      photoMomentsLine: null,
-      specialMessage: null,
-      whatToBring: null,
-      loveStory: null,
-      entourageCount: 32,
-      heroPhotoUrl: null,
-      firstGalleryUrl: null,
-    },
-    photoUrls: {},
+    ...labNavigatorInput(rows),
   });
   /* 🎨 The lab's draft of each scene's canvas (`lab_widgets`, set by the lab's
      save stand-in) — the "server" canvases every render hands the work area. */
@@ -184,8 +121,9 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
     id: r.widget_id,
     type: r.widget_type,
     label: makerSceneLabel(r.widget_type),
-    mode: 'auto' as const,
-    isVisible: true,
+    /* The draft's eye and Auto · Hidden, as the real Maker hands them — a removed scene is one ＋ can bring back. */
+    mode: r.mode ?? ('auto' as const),
+    isVisible: r.is_visible,
     hasContent: true,
     transitionLabel: 'Scroll',
   }));
@@ -223,8 +161,13 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
       fixedStyles={fixedStyles}
       cameraLook={cameraLook}
       blockLooks={blockLooks}
-      /* ✓ `?changes=3` — a draft with unapplied changes (lab only; nothing is stored). */
-      changes={Math.max(0, Math.min(99, Math.floor(Number(sp.changes) || 0)))}
+      /* ✓ The draft's summary as this render read it (`lab_bar`, written from the draft by the lab's door) — it was 0
+         on every render, so the ✓ count fell to nothing by itself (P05). `?changes=3` still stands in for a draft. */
+      summary={
+        Number(sp.changes) > 0
+          ? ((n) => ({ hasChanges: true, changeCount: n, proCount: 0, canUndo: true }))(Math.min(99, Math.floor(Number(sp.changes))))
+          : labBarFromCookie((await cookies()).get(LAB_BAR_COOKIE)?.value)
+      }
       /* Moves with every render, as the real Maker's stamp does — a save's refresh reaches the canvas. */
       renderStamp={String(Date.now())}
       /* 🧭 `?studio=1` (or `?ss=1`) — the new Maker on the lab's fixtures (its cards' states are the lab's stand-in, `LAB_STUDIO_DONE`). */
@@ -232,7 +175,10 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
       studio={
         sp.studio === '1' || sp.ss === '1'
           ? {
-              tiles: STUDIO_TILE_KEYS.map((key) => ({
+              /* 🪑 No Seat plan tile: the lab's Studio draws no seat plan (`MakerDetails` is handed none), and a tile
+                 with nothing behind it opened the Wedding March under the name "Seat plan" (P03). The real Maker
+                 drops such a tile the same way (`lib/studio-tiles.ts` `studioTiles` — `offered`). */
+              tiles: STUDIO_TILE_KEYS.filter((key) => !LAB_STUDIO_NOT_DRAWN.includes(key)).map((key) => ({
                 key,
                 label: STUDIO_TILES[key].label,
                 short: STUDIO_TILES[key].short,

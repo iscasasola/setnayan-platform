@@ -18,7 +18,7 @@
  * `HubDraftSummary.changes`, so none of this reaches the Maker's first-load JS.
  */
 import { CAMERA_LOOK_LABEL } from '@/lib/camera-look';
-import { WIDGET_CATALOG_BY_TYPE, WIDGET_PHASES, type WidgetType } from '@/lib/invitation-widgets';
+import { WIDGET_CATALOG_BY_TYPE, WIDGET_PHASES, type LifecyclePhase, type WidgetType } from '@/lib/invitation-widgets';
 import { makerSceneLabel } from '@/lib/maker-scene-list';
 import { PUBLIC_STAGE_LABELS, PUBLIC_STAGE_ORDER } from '@/lib/public-site-stage-labels';
 import { STAGE_SHOW_KEY, sanitizeStageShow } from '@/lib/stage-scenes';
@@ -171,7 +171,7 @@ export function stageShowWhat(liveConfig: unknown, next: unknown): string {
 }
 
 /** One draft item → where · what. Exhaustive over the item kinds and widget fields. */
-export function hubDraftChangePlace(item: HubDraftItem, live: HubLiveState): { place: string; what: string } {
+export function hubDraftChangePlace(item: HubDraftItem, live: HubLiveState, stage?: LifecyclePhase): { place: string; what: string } {
   switch (item.kind) {
     case 'event': {
       /* 🎨 A theme's colours placed on an empty Mood Board (owner 2026-10-05)
@@ -243,8 +243,10 @@ export function hubDraftChangePlace(item: HubDraftItem, live: HubLiveState): { p
           return { place, what: stageShowWhat(row?.config_json, item.value) };
         }
         case 'display_order':
-        case 'stage_order':
           return { place, what: 'Order' };
+        case 'stage_order':
+          /* ↕ A stage's order is ONE line, named for the stage ("Invitation · Order") — never one per scene. */
+          return { place: stage ? PUBLIC_STAGE_LABELS[stage] : place, what: 'Order' };
         case 'custom':
           return { place, what: 'Words' };
         case 'venue':
@@ -266,8 +268,8 @@ export function hubDraftChangePlace(item: HubDraftItem, live: HubLiveState): { p
  */
 export function hubDraftChangeLines(draft: HubDraftState | null, live: HubLiveState, ownsPro: boolean): HubDraftChangeLine[] {
   if (!draft) return [];
-  return hubDraftCountedChanges(planHubDraftApply(draft, live, ownsPro)).map(({ item, held }) => ({
-    ...hubDraftChangePlace(item, live),
+  return hubDraftCountedChanges(planHubDraftApply(draft, live, ownsPro)).map(({ item, held, stage }) => ({
+    ...hubDraftChangePlace(item, live, stage),
     pro: item.pro,
     held,
   }));

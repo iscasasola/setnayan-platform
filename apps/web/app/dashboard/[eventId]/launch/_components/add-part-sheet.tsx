@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { listWithGates } from '@/lib/maker-list-gates';
 import { usePopupBehind } from '@/lib/use-popup-behind';
 import { createPortal } from 'react-dom';
 import { Check, Plus, Trash2, X } from 'lucide-react';
@@ -85,7 +86,9 @@ export function partOpsOf(raw: MakerPartRaw): MakerPartOps {
   return {
     eventId: raw.eventId,
     stage,
-    list: raw.list,
+    /* 🗑 The list as the work area's own scenes say it is: a scene taken off a moment ago (a held save — no render
+       follows it) is one ＋ can bring back (`lib/maker-list-gates.ts`). */
+    list: listWithGates(raw.list, raw.scenes),
     fullOrder: raw.fullOrder,
     afterLastShown: raw.afterLastShown,
     scenes: raw.scenes,

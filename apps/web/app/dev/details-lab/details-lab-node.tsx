@@ -38,6 +38,7 @@ import { updateSpecialMessage } from '@/app/dashboard/[eventId]/website/special-
 import { labMarchSections } from './march-fixture';
 import { LabStudioLoveStory, LabStudioSchedule } from './studio-lab-fixtures';
 import { LAB_LOVE_STORY } from './love-story-fixture';
+import { LAB_SAMPLE } from '../maker-lab/guest/lab-sample';
 import { LabStudioRsvp } from './lab-studio-rsvp';
 import { MoodBoardStudio } from '@/app/dashboard/[eventId]/studio/mood-board/_components/mood-board-lazy';
 import { LabMoodBoardActions } from './lab-mood-board-actions';
@@ -54,10 +55,14 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
   const withLook = one('look') === '1';
   const profile = one('type') === 'wake' ? WAKE_PROFILE : one('type') === 'birthday' ? { ...GENERIC_PROFILE, eventType: 'birthday' } : WEDDING_PROFILE;
   const themes = pickableInviteThemes();
-  const stored = parsePrintDetails({ opening_line: 'Together with their families', include: undefined });
+  const stored = parsePrintDetails({ opening_line: LAB_SAMPLE.openingLine, include: undefined });
   const eventContext = { profile, solemn: profile === WAKE_PROFILE };
   const pabuyaMessage = 'Thank you for joining us — every gift is received with thanks.';
-  const specialMessage = 'We can’t wait to see you on December 18.';
+  /* 🧾 `shape=mj` (the Maker lab) is ONE event: its date, venue, message and address are the canvas's own
+     (`LAB_SAMPLE`). The details lab opened alone keeps its own couple (Claire & Indalecio, December 18). */
+  const mj = one('shape') === 'mj';
+  const specialMessage = mj ? LAB_SAMPLE.message : 'We can’t wait to see you on December 18.';
+  const slug = mj ? LAB_SAMPLE.slug : 'indalecio-and-claire';
   /* ✍ Words (part 2b): the same editors the stage opens. Story & plans need the
      database (the scrapbook, the schedule, the guest's RSVP), so the lab says
      so honestly with a line in each picture. */
@@ -79,7 +84,6 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
      invitation's host), the film's own background picked, nothing else filled in, and the setup's
      facts (no guests yet) — so the counts, the Parents step and the guests'
      names step behave as they did on the owner's live walk. */
-  const mj = one('shape') === 'mj';
   const words = eventWordsFromProfile(profile);
   /* 🚶 `?item=march` — the Wedding March maker on maria-and-jose's couple + a full entourage (`march-fixture.ts`). */
   const marchLab = one('item') === 'march';
@@ -115,14 +119,14 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
         oneName: hasTwoNamedPeople(profile) ? null : { initial: fresh ? '' : 'Mateo', hint: 'Guests read it on your page, on every print and on every pass.' },
         date: {
           confirmedVendorCount: 0,
-          dateDisplay: fresh ? null : 'December 18, 2026',
-          dateValue: fresh ? null : '2026-12-18',
+          dateDisplay: fresh ? null : mj ? LAB_SAMPLE.dateLabel : 'December 18, 2026',
+          dateValue: fresh ? null : mj ? LAB_SAMPLE.date : '2026-12-18',
           label: 'Date',
           matrix: Promise.resolve(null),
           nudge: null,
         },
         venues: studioLab
-          ? { resolved: [{ role: 'reception', name: 'The Garden at Tagaytay', address: 'Tagaytay City' } as never], slots: [], city: null }
+          ? { resolved: [(mj ? { role: 'reception', name: LAB_SAMPLE.venue, address: LAB_SAMPLE.venueAddress } : { role: 'reception', name: 'The Garden at Tagaytay', address: 'Tagaytay City' }) as never], slots: [], city: null }
           : { resolved: [], slots: [], city: null },
         /* 🧭 `?studio=1` also draws the march on fixtures — Studio's side-by-side needs real-looking walks. */
         march: marchLab || studioLab ? { ...labMarchSections(one('march')), lab: true } : { sections: [] },
@@ -132,7 +136,7 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
   return (
       <MakerDetails
         eventId={EVENT}
-        slug="indalecio-and-claire"
+        slug={slug}
         slugAction={updateEventSlug.bind(null, EVENT, 'launch')}
         qr={{ ownsPro: pro, style: {}, inks: ['#1A1A1A'], storeShell: false }}
         qrStyleAction={updateQrStyle.bind(null, EVENT)}
@@ -151,7 +155,7 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
         }}
         prints={{
           eventId: EVENT,
-          slug: 'indalecio-and-claire',
+          slug,
           theme: 'house',
           ownsPro: pro,
           storeShell: false,

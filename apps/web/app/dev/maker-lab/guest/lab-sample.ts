@@ -9,6 +9,24 @@
 import { buildEntourage, type EntourageGuestRow } from '@/lib/entourage';
 import { DEFAULT_NAME_STYLE } from '@/lib/name-style';
 
+/**
+ * 🧾 THE SAMPLE EVENT'S FACTS — ONE COPY (the walk of 2026-10-11, P07). Studio › Info said December 18 at The Garden
+ * at Tagaytay, under the address "indalecio-and-claire", while the canvas, Look and Schedule said December 12 at Seda
+ * Vertis North: the Studio pages are the details lab's, and it was handing the Maker another couple's facts. The
+ * Maker lab's shell, its canvas and its Studio pages (`details-lab-node.tsx`, on `shape=mj`) all read these.
+ */
+export const LAB_SAMPLE = {
+  names: 'Maria & Jose',
+  slug: 'maria-and-jose',
+  date: '2026-12-12',
+  dateLabel: 'December 12, 2026',
+  venue: 'Seda Vertis North',
+  venueLine: 'Seda Vertis North, Quezon City',
+  venueAddress: '1 Astra Way, Vertis North, Quezon City',
+  openingLine: 'Together with their families',
+  message: 'We cannot wait to celebrate with you.',
+} as const;
+
 /** [id, prefix, first, last, role, walk, place] — a walk is a pair walking together. */
 type Row = [id: string, prefix: string | null, first: string, last: string, role: string, walk: number, place: number];
 

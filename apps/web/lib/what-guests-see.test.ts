@@ -33,7 +33,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 /* FIRST: the page renderer's seam (see `lib/stage-pages-fixture.ts`). */
-import { LOOK_NOTE, STAGE_WORDS, renderStagePage, stageWidgets, withALook, type RowPatch, type StageCase } from './stage-pages-fixture';
+import { LOOK_NOTE, STAGE_WORDS, renderStagePage, stageProps, stageWidgets, withALook, type RowPatch, type StageCase } from './stage-pages-fixture';
 import { FIXTURE_WORDS } from './site-body-fixture';
 import { STAGE_SCENES, STAGE_SHOW_KEY } from './stage-scenes';
 import { WIDGET_CATALOG_BY_TYPE, type InvitationWidgetRow, type LifecyclePhase, type WidgetType } from './invitation-widgets';
@@ -229,9 +229,9 @@ test('3 · THE REAL PAGE: what the function calls drawn is on the page, what it 
     const rows = stageWidgets(patch);
     // The Save the Date as guests get it: the film plays unless the couple leads with the photos.
     const c: StageCase = { stage, reader, arrangement: stage === 'save_the_date' ? 'film' : openBrowse ? 'browse' : 'plain' };
-    const more = { ...(reader === 'guest' ? withALook(c) : {}) };
-    const event = { ...((more as { event?: Record<string, unknown> }).event ?? (await import('./stage-pages-fixture')).stageProps(c).event!), website_open_browse: openBrowse };
-    const page = await renderStagePage(c, rows, { ...more, event: event as never });
+    const more: ReturnType<typeof withALook> = reader === 'guest' ? withALook(c) : {};
+    const event = { ...(more.event ?? stageProps(c).event!), website_open_browse: openBrowse };
+    const page = await renderStagePage(c, rows, { ...more, event });
     assert.deepEqual(page.complaints, [], `seed ${seed}: React or the page complained`);
     for (const { type, words } of ON_THE_PAGE) {
       const s = sceneOnStage({ widgets: rows, stage, reader, openBrowse }, type)!;
@@ -308,7 +308,9 @@ test('5 · SCENE × STAGE: where a "shown" is honoured and where it is refused �
     if (plain.ourPick) return plain.offList && !plain.inList ? `ours:${plain.offList}` : 'ours';
     return s.drawn ? 'added' : `no:${s.notPossible?.rule ?? '?'}`;
   };
-  const got = Object.fromEntries(TABLE.map((t) => [t, STAGES.map((s) => cell(t, s))]));
+  const got: Record<string, string[]> = Object.fromEntries(TABLE.map((t) => [t, STAGES.map((s) => cell(t, s))]));
+  /* (Read through a second name below: `assert.deepEqual` narrows `got` to the literal it was compared with.) */
+  const cells: Record<string, string[]> = got;
   for (const t of TABLE) console.log(`  ${t.padEnd(16)} ${got[t]!.map((c) => c.padEnd(30)).join('')}`);
   assert.deepEqual(got, {
     //                 Save the Date                 Invitation   The Day          Post Event
@@ -327,5 +329,5 @@ test('5 · SCENE × STAGE: where a "shown" is honoured and where it is refused �
     tier_comparison: ['no:STAGE_SCENES',            'no:STAGE_SCENES', 'no:STAGE_SCENES', 'no:STAGE_SCENES'],
   });
   // The table of our picks is `STAGE_SCENES` — plus the three places off the list.
-  for (const s of STAGES) for (const t of STAGE_SCENES[s]) assert.ok(got[t]![STAGES.indexOf(s)]!.startsWith('ours'), `${t} × ${s} is the stage’s own and not our pick`);
+  for (const s of STAGES) for (const t of STAGE_SCENES[s]) assert.ok(cells[t]![STAGES.indexOf(s)]!.startsWith('ours'), `${t} × ${s} is the stage’s own and not our pick`);
 });

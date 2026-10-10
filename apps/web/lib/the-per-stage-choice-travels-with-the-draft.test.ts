@@ -153,7 +153,7 @@ test('6 · a scene of their own, hidden today, cannot reach guests one stage at 
   // The hold is listed with its way back: every stage to what is live.
   const effects = hubDraftProEffects(draft, { events: {}, widgets: live }, false);
   assert.equal(effects.length, 1);
-  assert.deepEqual((effects[0]!.remove.widgets as Record<string, unknown>).custom_1, {
+  assert.deepEqual((effects[0]!.remove?.widgets as Record<string, unknown> | undefined)?.custom_1, {
     mode: 'auto',
     is_visible: false,
     stage_show: heldStageShow(null),

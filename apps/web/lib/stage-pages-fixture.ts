@@ -161,7 +161,12 @@ export function withALook(c: StageCase): Partial<SiteBodyFixtureProps> {
   return {
     event: {
       ...props.event!,
-      dress_code_config: { ...(props.event!.dress_code_config as Record<string, unknown>), roles: { bridesmaid: { style: 'long_gown', note: LOOK_NOTE } } },
+      /* `roles` (the per-role outfits the dress code editor stores, `lib/role-dress-code.ts`) is read off the stored
+         JSON by the widget and is not part of the row's declared type — hence the cast, here and nowhere in the app. */
+      dress_code_config: {
+        ...(props.event!.dress_code_config as Record<string, unknown>),
+        roles: { bridesmaid: { style: 'long_gown', note: LOOK_NOTE } },
+      } as NonNullable<SiteBodyFixtureProps['event']>['dress_code_config'],
     },
     identity: { ...identity, guest: { ...identity.guest, role: 'bridesmaid' } },
   };

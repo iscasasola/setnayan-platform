@@ -1,13 +1,14 @@
 /**
- * GUARD — the chat icon's badge on the Suppliers header equals the Chats list's
- * unread count (P3, 2026-10-01). Both read `readCoupleUnread` and count with
- * `coupleUnreadCount` over the same active-thread predicate; these rules pin
- * the rule itself and that both pages still call it. Sabotaged when written:
+ * GUARD — the couple's unread count is ONE rule (P3, 2026-10-01):
+ * `readCoupleUnread` + `coupleUnreadCount` over the same active-thread
+ * predicate. These rules pin the rule itself and that the Chats list still
+ * calls it. (Until 2026-10-08 a chat icon on the Suppliers header read it too;
+ * that second door is retired — rule 4 now holds that it stays gone.) Sabotaged when written:
  * counting archived threads (rule 2 red) and an unmeasured read as 0 (rule 3 red).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
@@ -54,15 +55,19 @@ test('3 · a refused read is unknown — no badge, never "0"', () => {
   assert.equal(coupleUnreadCount(COUPLE_UNREAD_UNKNOWN, threads), null);
 });
 
-test('4 · both doors read the one rule', () => {
+test('4 · the inbox reads the one rule, and Suppliers carries no second chat door', () => {
   const root = join(__dirname, '..', 'app', 'dashboard', '[eventId]');
-  const door = readFileSync(join(root, 'vendors', '_components', 'chats-door.tsx'), 'utf8');
   const inbox = readFileSync(join(root, 'messages', 'page.tsx'), 'utf8');
-  for (const [name, src] of [['chats-door', door], ['messages/page', inbox]] as const) {
-    assert.match(src, /readCoupleUnread\(/, `${name} no longer reads the one unread rule`);
-    assert.match(src, /coupleUnreadCount\(unread, threads\)/, `${name} counts unread its own way`);
-  }
+  assert.match(inbox, /readCoupleUnread\(/, 'messages/page no longer reads the one unread rule');
+  assert.match(inbox, /coupleUnreadCount\(unread, threads\)/, 'messages/page counts unread its own way');
   assert.match(inbox, /threads\.filter\(isActiveInboxThread\)/, 'the list splits active its own way');
+  // ⚖ Owner 2026-10-07 (the one-screen Suppliers shell, PR1): the chat icon on
+  // the Suppliers header was a SECOND inbox door beside the top bar's Messages
+  // icon — two chat icons on one screen. It is retired; the top bar's is the
+  // only door. A second door coming back is what this now refuses.
+  assert.equal(existsSync(join(root, 'vendors', '_components', 'chats-door.tsx')), false, 'the Suppliers chat door is back');
   const page = readFileSync(join(root, 'vendors', 'page.tsx'), 'utf8');
-  assert.match(page, /chatSlot=\{<ChatsDoor /, 'the chat icon left the Suppliers header');
+  assert.doesNotMatch(page, /ChatsDoor|chatSlot=/, 'the Suppliers page mounts a chat door of its own again');
+  const shell = readFileSync(join(root, 'vendors', '_components', 'services-takeover.tsx'), 'utf8');
+  assert.doesNotMatch(shell, /\{chatSlot\}|data-chats-door/, 'the Suppliers shell places a chat door again');
 });

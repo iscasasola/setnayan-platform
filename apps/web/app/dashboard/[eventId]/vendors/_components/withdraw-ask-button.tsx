@@ -35,6 +35,7 @@ import { withdrawVendorLockRequest } from '../actions';
 export function WithdrawAskButton({
   vendorId,
   vendorName,
+  label,
   className = 'vact ghost',
   wrapperClassName,
   errorClassName = 'vact-err',
@@ -43,6 +44,8 @@ export function WithdrawAskButton({
    *  the authorized `event_id` — nothing here posts one. */
   vendorId: string;
   vendorName: string;
+  /** The word on the button. Default: the bench's own ("Take it back"). */
+  label?: string;
   className?: string;
   wrapperClassName?: string;
   errorClassName?: string;
@@ -81,7 +84,7 @@ export function WithdrawAskButton({
       aria-label={cardWithdrawLabel(vendorName)}
     >
       <Undo2 size={12} strokeWidth={1.9} aria-hidden />
-      {pending ? CARD_WITHDRAWING : CARD_WITHDRAW}
+      <span className="lbl">{pending ? CARD_WITHDRAWING : (label ?? CARD_WITHDRAW)}</span>
     </button>
   );
 

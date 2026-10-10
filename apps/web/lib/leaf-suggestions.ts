@@ -38,7 +38,7 @@ const GROUP_TO_TILE = new Map<string, string>(
  * The raw pick is also kept, in case it is already a tile id. Best-effort: an
  * unmapped pick simply doesn't exclude anything (never a wrong exclusion).
  */
-function plannedTileIdSet(interested: readonly string[]): Set<string> {
+export function plannedTileIdSet(interested: readonly string[]): Set<string> {
   const tiles = new Set<string>();
   for (const pick of interested) {
     tiles.add(pick);

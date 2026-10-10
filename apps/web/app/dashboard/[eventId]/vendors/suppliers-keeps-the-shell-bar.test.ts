@@ -13,6 +13,13 @@
  *
  * Source scan of every Suppliers component, comment-stripped: the hazard is a
  * rule that is PRESENT, and the files' own comments name the old rule.
+ *
+ * 2026-10-08 — the one-screen shell (corpus `SUPPLIERS_HANDOFF_2026-10-07_fable.md`
+ * PR1) PINS the date · place line and Find · Build · Booked as the page
+ * scrolls. A pinned block is the one thing that could fight the bar, so the
+ * last test holds how the two stack: the block sits UNDER the bar, at the
+ * bar's own MEASURED height (it slides away on a phone), and a row scrolled
+ * to lands below both.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -58,4 +65,26 @@ test('a bench doorway lands its row BELOW the bar on a phone, by reading the bar
   const phone = /\.slcat \[id\^="slfold-"\],\.slcat \[id\^="sltile-"\]\{scroll-margin-top:([^}]*)\}/.exec(src);
   assert.ok(phone, 'the bench anchors lost their landing offset');
   assert.match(phone[1]!, /var\(--fd-bar/, 'the phone anchor offset no longer clears the shared top bar');
+});
+
+test('the pinned block sits UNDER the bar — at its measured height — and rows land below both', () => {
+  const src = code('_components', 'services-takeover.tsx');
+  const stick = /<div\s+ref=\{stickRef\}\s+data-suppliers-stick=""\s+className="([^"]*)"/.exec(src)?.[1] ?? '';
+  assert.ok(stick, 'the pinned block is gone — re-anchor on data-suppliers-stick');
+  assert.match(stick, /(^| )sticky( |$)/, 'the line and the control no longer stay as the page scrolls');
+  assert.match(stick, /(^| )top-\[var\(--sup-top,0px\)\]( |$)/, 'the block is no longer pinned at the bar’s measured height');
+  assert.doesNotMatch(stick, /(^| )(top-0|fixed)( |$)/, 'pinned at the very top, the block sits ON the bar');
+  // The height is read off the bar itself — and is 0 while the bar is slid away.
+  assert.match(src, /document\.querySelector<HTMLElement>\('\.shell-topbar'\)/);
+  assert.match(src, /bar\.getAttribute\('data-hidden'\) !== 'true'/, 'a hidden bar would leave a gap above the block');
+  assert.match(src, /root\.style\.setProperty\('--sup-top', `\$\{top\}px`\)/);
+  assert.match(src, /root\.style\.setProperty\('--stick-h', `\$\{top \+ stick\.offsetHeight\}px`\)/);
+  // A bench doorway and a `#svc-*` section land below the bar AND the block.
+  assert.match(
+    src,
+    /\[data-budget-build-takeover\] \.slcat \[id\^="slfold-"\],\[data-budget-build-takeover\] \.slcat \[id\^="sltile-"\]\{scroll-margin-top:calc\(var\(--stick-h,150px\) \+ 14px\)\}/,
+    'a bench doorway would land its row under the pinned block',
+  );
+  assert.match(src, /\[data-budget-build-takeover\] \[id\^="svc-"\]\{scroll-margin-top:calc\(var\(--stick-h,150px\) \+ 8px\)\}/);
+  assert.match(src, /<style>\{LANDING_CSS\}<\/style>/, 'the landing rule is written but never mounted');
 });

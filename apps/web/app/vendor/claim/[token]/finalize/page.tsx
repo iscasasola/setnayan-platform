@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchClaimLandingByToken } from '@/lib/vendor-invites';
 import { applyClaimAutoLink } from '@/lib/vendor-invite-actions';
+import { seatClaimedCoupleAsCustomer } from '@/lib/claimed-couple-is-a-customer.server';
 import { VENDOR_CATEGORIES } from '@/lib/vendors';
 import { DoorShell } from '@/app/_components/door/door-shell';
 
@@ -168,6 +169,16 @@ export default async function FinalizeClaimPage({ params }: Props) {
 
     if (!linked.ok) {
       return <ErrorShell title="Couldn't finish connecting." body={linked.message} />;
+    }
+
+    // The couple who invited them is their CUSTOMER, not a new inquiry (owner
+    // 2026-10-10). On the supplier's own session — the unlock checks the caller.
+    // Fail-soft: a refusal leaves the thread as an inquiry they can accept.
+    if (data.parentVendor?.event_id) {
+      await seatClaimedCoupleAsCustomer(supabase, {
+        vendorProfileId,
+        eventId: data.parentVendor.event_id,
+      });
     }
   }
 

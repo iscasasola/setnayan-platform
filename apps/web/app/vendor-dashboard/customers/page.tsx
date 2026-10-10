@@ -8,7 +8,8 @@ import { VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
 import { formatPhp } from '@/lib/orders';
 import { countUnreadMessages, fetchVendorThreadsDetailed } from '@/lib/chat';
 import { readAllPages, readInChunks } from '@/lib/read-all-pages';
-import { pendingInquiryDates } from '@/lib/vendor-inquiry-dates';
+import { askingDates } from '@/lib/vendor-inquiry-dates';
+import { readClaimedRecordEventsStillAsking } from '@/lib/claimed-records-asking.server';
 import {
   fetchVendorBlocksDetailed,
   fetchVendorDayStates,
@@ -152,6 +153,7 @@ async function CustomersPipeline({ searchParams }: Props) {
     teamRows,
     paydayRes,
     tierProbe,
+    claimedAsking,
   ] = await Promise.all([
     fetchVendorPools(supabase, vendorProfileId),
     // CAPACITY, not the room: fullDatesForPool() counts these against each pool's
@@ -179,6 +181,9 @@ async function CustomersPipeline({ searchParams }: Props) {
       .select('tier_state')
       .eq('vendor_profile_id', vendorProfileId)
       .maybeSingle(),
+    // The couples whose own record names this shop and who are still waiting
+    // on its yes — the "asking" a hand-typed record shows on the calendar.
+    readClaimedRecordEventsStillAsking(createAdminClient(), vendorProfileId),
   ]);
 
   const threads = threadsRead.threads;
@@ -233,7 +238,24 @@ async function CustomersPipeline({ searchParams }: Props) {
   // The dates couples are ASKING about. Derived from `threads`, which this page
   // already loads — zero new queries, and a COUNT only: a pending enquiry is
   // pre-accept, so the couple's identity must not reach the calendar.
-  const inquiryDates = pendingInquiryDates(threads);
+  //
+  // …PLUS a couple's HAND-TYPED RECORD (owner 2026-10-10): the supplier who
+  // joined through that couple's link has them as a customer already, and their
+  // date holds nothing until the supplier agrees — it reads "asking". Dropped
+  // once agreed, and never counted for a date this shop already holds a seat on.
+  if (claimedAsking.error) {
+    logQueryError(
+      'VendorCustomersPage.claimedRecordsAsking',
+      { message: claimedAsking.error },
+      { vendor_profile_id: vendorProfileId },
+      'graceful_degrade',
+    );
+  }
+  const heldEventIds = new Set(bookings.map((b) => b.eventId));
+  const inquiryDates = askingDates(
+    threads,
+    new Set([...claimedAsking.eventIds].filter((id) => !heldEventIds.has(id))),
+  );
 
   // ── Section 2: month calendar ────────────────────────────────────────────
   const calendar = buildCustomerCalendarMonth(

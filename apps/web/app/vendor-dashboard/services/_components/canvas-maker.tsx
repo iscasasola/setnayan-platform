@@ -61,6 +61,7 @@ import { ShowcaseMediaFields } from './showcase-media-fields';
 import { CustomizationStep } from './customization-step';
 import { commitVendorService } from '../actions';
 import { inclusionsAreSet } from '@/lib/service-publish-gate';
+import { priceWaitsFor, priceWaitsLine } from '@/lib/price-waits';
 import { SetnayanGiftLine } from '@/app/_components/setnayan-gift-line';
 import {
   updateCoverageServesInPlace,
@@ -456,7 +457,11 @@ export function CanvasMaker({
     const steps: SheetKey[] = [];
     if (firstCardEver) steps.push('intro');
     if (!category) steps.push('kind');
-    steps.push('media', 'price', 'custom', 'excl');
+    // A supplier who joined through a couple's link is asked for the photo and
+    // what's included BEFORE the price (`lib/price-waits.ts`) — the same four
+    // questions, the price moved one place later. Everyone else: as shipped.
+    if (claimToken) steps.push('media', 'custom', 'price', 'excl');
+    else steps.push('media', 'price', 'custom', 'excl');
     return steps;
     // Frozen at mount ON PURPOSE — answering must not renumber the question the
     // vendor is looking at, so `category` and `firstCardEver` are read once.
@@ -850,6 +855,18 @@ export function CanvasMaker({
     return `${evs.slice(0, 3).join(' · ')}${evs.length > 3 ? ` +${evs.length - 3}` : ''} · ${fa}`;
   }, [events, faiths, eventTypeOptions, faithOptions]);
 
+  /**
+   * 🔒 ON A COUPLE-SEEDED CARD THE PRICE BOX WAITS (owner 2026-10-07 / ruled
+   * 2026-10-10): a supplier who joined through a couple's link fills in their
+   * photo and what's included BEFORE they set the price. Asking for the price
+   * sheet while it waits opens the thing it is waiting for instead; the price
+   * the couple recorded stays shown on the card. Every other card: unchanged.
+   */
+  const priceFacts = { hasCover: snap.hasCover, hasInclusions: inclusionsAreSet(snap.inclusionLabels) };
+  const priceWaits = priceWaitsFor({ fromCoupleLink: Boolean(claimToken), ...priceFacts });
+  const askSheet = (key: SheetKey) =>
+    setSheet(key === 'price' && priceWaits ? (priceWaits === 'photo' ? 'media' : 'custom') : key);
+
   /** The coach chip and the diagnostics rows both land here. */
   const goTo = (target: CardHealthSheet | null) => {
     if (target === null) return;
@@ -860,7 +877,7 @@ export function CanvasMaker({
       titleRef.current?.scrollIntoView({ block: 'center' });
       return;
     }
-    setSheet(key);
+    askSheet(key);
   };
 
   /**
@@ -1181,8 +1198,23 @@ export function CanvasMaker({
             style={{ color: 'var(--m-ink)' }}
           />
 
-          <CardRegion onClick={() => setSheet('price')} label="Edit price">
-            {snap.hasPrice ? (
+          <CardRegion
+            onClick={() => askSheet('price')}
+            label={priceWaits ? priceWaitsLine(priceFacts) : 'Edit price'}
+          >
+            {priceWaits ? (
+              // The recorded price is still SHOWN; the box that edits it waits.
+              <span data-price-waits={priceWaits}>
+                {snap.hasPrice ? (
+                  <span className="block" style={{ color: 'var(--m-ink)' }}>
+                    {snap.priceLine}
+                  </span>
+                ) : null}
+                <span className="block text-[12.5px]" style={{ color: 'var(--m-orange-2)' }}>
+                  {priceWaitsLine(priceFacts)}
+                </span>
+              </span>
+            ) : snap.hasPrice ? (
               // 🔑 REMOUNTED, NOT CLASS-TOGGLED. A CSS animation that has already
               // run does not replay because a class is set again; keying the node
               // on the value itself is what makes each new answer land visibly.
@@ -1371,7 +1403,7 @@ export function CanvasMaker({
               <button
                 key={`${row.key}-${row.name}`}
                 type="button"
-                onClick={() => setSheet(row.key)}
+                onClick={() => askSheet(row.key)}
                 className="flex min-h-[52px] w-full items-center gap-3 px-3 py-2.5 text-left"
                 style={{ borderColor: line }}
               >

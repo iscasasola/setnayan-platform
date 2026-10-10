@@ -9,6 +9,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { DoorShell } from '@/app/_components/door/door-shell';
 import { eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
 import { supplierCommissionShort } from '@/lib/commission-promise';
+import { claimDatePhrase } from '@/lib/claim-invite-words';
 
 export const metadata = {
   title: 'Claim your Setnayan profile',
@@ -64,6 +65,10 @@ export default async function VendorClaimPage({ params }: Props) {
       })
     : `their upcoming ${eventWord}`;
   const inviterName = event?.couple_display_name ?? 'Setnayan';
+  // The date as the couple's own page states it — a day when they have set
+  // one, a month or a year when that is all they have decided (owner
+  // 2026-10-10: a couple's own link shows who invited the supplier and the date).
+  const datePhrase = claimDatePhrase(event?.event_date, event?.event_date_precision);
 
   // ------------------------------------------------------------------
   // Terminal-state surfaces (status !== 'pending')
@@ -118,17 +123,28 @@ export default async function VendorClaimPage({ params }: Props) {
       <DoorShell
         width="lg"
         eyebrow={inviterEyebrow}
+        // WHO INVITED THEM, AND THE DATE (owner 2026-10-10 — supersedes the
+        // 2026-05-19 identity-only lock for a couple's own link, for these two
+        // facts only). The words are the couple-invite branch's own, below: the
+        // old title here said the supplier had been "locked in", about a record
+        // the couple's page calls "your record, not a booking".
         title={
           <>
-            <strong className="font-semibold">{inviterName}</strong> locked you in as their{' '}
-            <strong className="font-semibold">{categoryLabel}</strong>.
+            <strong className="font-semibold">{inviterName}</strong> invited you to claim your
+            free Setnayan profile.
           </>
         }
         sub={
           <>
-            They&rsquo;re planning their {eventWord} on{' '}
-            <strong className="text-ink">{eventDateLabel}</strong>. Claim your free Setnayan
-            profile to confirm the schedule and keep everything in one place.
+            They&rsquo;ve added you as their{' '}
+            <strong className="text-ink">{categoryLabel}</strong> for their {eventWord}
+            {datePhrase ? (
+              <>
+                {' '}
+                {datePhrase.preposition} <strong className="text-ink">{datePhrase.label}</strong>
+              </>
+            ) : null}
+            .
           </>
         }
       >
@@ -144,6 +160,9 @@ export default async function VendorClaimPage({ params }: Props) {
                 bold
               />
               <SnapshotField label="Service" value={categoryLabel} />
+              {parentVendor?.contact_person ? (
+                <SnapshotField label="Who they talk to" value={parentVendor.contact_person} />
+              ) : null}
               {parentVendor?.contact_phone ? (
                 <SnapshotField
                   label="Phone"
@@ -151,6 +170,11 @@ export default async function VendorClaimPage({ params }: Props) {
                   icon={<Phone className="h-3.5 w-3.5" strokeWidth={1.75} />}
                 />
               ) : null}
+              {/* Named, not shown: what they wrote opens once the supplier has joined. */}
+              <SnapshotField
+                label="What they wrote"
+                value="Price · what’s included · your payment plan — after you join"
+              />
             </dl>
             <p className="mt-4 border-t border-dashed border-ink/10 pt-3 text-xs italic text-ink/55">
               Package &amp; payment details stay private until you finish

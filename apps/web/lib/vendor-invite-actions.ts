@@ -759,6 +759,9 @@ export async function registerClaimedServiceToCouple(args: {
             title: 'Your supplier joined Setnayan',
             body: 'A supplier you added has linked their service to your plan.',
             relatedUrl: `/dashboard/${eventId}/vendors`,
+            // Named, not left to be worked out of the URL: the notice belongs
+            // to this event, and its email states the event and the date.
+            eventId,
           }),
         ),
       );

@@ -27,7 +27,8 @@
  *   4 · the closed-lines read dropped from the Customers page → test 7
  *   5 · `.eq('initiated_by', 'couple')` dropped from the new reader → test 8
  *   6 · `customerLandingHref('payday')` losing its segment    → test 11
- *   7 · the outside row made a link                            → test 9
+ *   7 · the outside row drawn by the customer branch (a card link / a bare div) → test 9
+ *   8 · `askClosedAt: askClosedAt(r.eventId)` dropped from the page's facts     → test 2
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -143,6 +144,8 @@ test('2 · the three closed lines are the row’s own line — the SAME predicat
     /b\.lock_request_state === 'expired' && lockAskPhase\(b\.lock_request_expires_at, rosterNowMs\) === 'lapsed'/,
     'a swept ask is no longer handed to the row',
   );
+  // …and the page really hands it in (the helper alone, never called, is a fact shown nowhere).
+  assert.match(code('app/vendor-dashboard/customers/page.tsx'), /askClosedAt: askClosedAt\(r\.eventId\),/);
 
   const delay = peopleRowView(CRUZ, facts({ delayFlagged: true, money: plan(85_000, 85_000) }), NOW);
   assert.deepEqual([delay.pill.label, delay.line, delay.lineTone, delay.closed, delay.opens], ['Booked', 'delay flagged', 'warn', 'delay', 'thread']);

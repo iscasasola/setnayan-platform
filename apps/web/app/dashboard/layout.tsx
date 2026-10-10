@@ -3,6 +3,7 @@ import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { runLoginGhostingCheck } from '@/lib/ghosting';
+import { maybeRunInquiryReminder } from '@/lib/inquiry-reminder.server';
 import { GuidedTour } from '@/app/_components/guided-tour';
 import { completeTour } from '@/lib/tour-actions';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -185,6 +186,13 @@ export default async function DashboardLayout({
   // once per login inside the helper. Couple side: nudge if their inquiries
   // sit unanswered.
   after(() => runLoginGhostingCheck(user.id, 'couple'));
+  // The 48-hour inquiry reminder (2026-10-10) — one email to a supplier who has
+  // not answered. Mounted HERE as well as on the supplier and admin layouts,
+  // on purpose: the supplier it exists for is the one who is not visiting, so
+  // the traffic that can carry it is the couple waiting on them. Claimed once a
+  // day across all three (lib/periodic-jobs.ts); most requests never touch the
+  // database for it.
+  after(() => maybeRunInquiryReminder().catch(() => {}));
 
   // Anon-draft: the moment a converted couple lands here authenticated +
   // NON-anonymous, replay the vendor inquiries they held during anonymous

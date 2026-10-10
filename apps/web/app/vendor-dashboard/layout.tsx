@@ -9,6 +9,7 @@ import { maybeSweepExpiredCreatorOffers } from '@/lib/creator-offers';
 import { maybeSweepVendorCreditWarnings } from '@/lib/vendor-credit-warning.server';
 import { maybeRunLockRequestExpiry } from '@/lib/lock-request-expiry';
 import { maybeRunDeletionRequestNudge } from '@/lib/deletion-request-nudge';
+import { maybeRunInquiryReminder } from '@/lib/inquiry-reminder.server';
 import { maybeSweepVendorBookingFeeNotifications } from '@/lib/vendor-booking-fees.server';
 import { maybeCatchUpAcknowledgedDeposits } from '@/lib/deposit-acknowledged-effects.server';
 import { maybeRunUnbilledFeeRepair } from '@/lib/unbilled-fee-repair.server';
@@ -325,6 +326,9 @@ export default async function VendorDashboardLayout({
   // S40 — the deletion-handshake reminder. Mounted here AND on the admin
   // layout, same reasoning as the lock-request nudge directly above.
   after(() => maybeRunDeletionRequestNudge().catch(() => {}));
+  // The 48-hour inquiry reminder (2026-10-10). Mounted here, on the admin
+  // layout AND on the couple's dashboard layout — see the note there.
+  after(() => maybeRunInquiryReminder().catch(() => {}));
   // Booking-fee notification sweep (CRON-FREE · surfacing layer). Because the
   // fee-charge create path is a parallel lane we must NOT hook, the vendor's
   // "your booking fee is due" notification is DERIVED post-response from the

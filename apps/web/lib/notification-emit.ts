@@ -403,6 +403,16 @@ const EMAIL_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
   */
   'change_order_proposed',
   'change_order_answered',
+  /*
+    🔔 AN INQUIRY THAT HAS WAITED 48 HOURS (2026-10-10) → the SUPPLIER, once per
+    inquiry, from the traffic-driven sweep in lib/inquiry-reminder.server.ts.
+    The type is older than this line: it was (and still is) written at the
+    supplier's own sign-in by lib/ghosting.ts — that call passes `skipEmail`,
+    because a reader who is in the app does not need an email about the badge
+    in front of them. The reminder is the half that reaches the supplier who
+    never came back. Transactional; NOT in the marketing-gated set.
+  */
+  'inquiry_awaiting_reply',
 ]);
 
 // Consent gate for the ENGAGEMENT (non-transactional) subset of the email
@@ -465,6 +475,23 @@ export type EmitNotificationArgs = {
    * so the alert puts the host and event into the title itself.
    */
   email?: NotificationEmailParts;
+  /**
+   * TRAY ONLY, for THIS call, even though the type is on the email allowlist.
+   * For a notice written at the reader's OWN sign-in — they are in the app, so
+   * an email would land while they are looking at the badge. The one user is
+   * the sign-in inquiry nudge (lib/ghosting.ts): its away-from-app half is the
+   * 48-hour reminder (lib/inquiry-reminder.server.ts), which is the same type
+   * and MUST email.
+   */
+  skipEmail?: boolean;
+  /**
+   * The email goes out ONLY IF the in-app row was stored. For a notice whose
+   * stored row is also the record that it was sent — the 48-hour inquiry
+   * reminder reads that row to know never to send again. Without this, a
+   * refused insert followed by a delivered email would leave no record, and the
+   * same person would be emailed again on the next pass.
+   */
+  onlyIfStored?: boolean;
 };
 
 export type NotificationEmailParts = {
@@ -496,6 +523,8 @@ export async function emitNotification(args: EmitNotificationArgs): Promise<void
   // The rule is pure and unit-tested in `notification-event-id.ts` — this module
   // is `server-only`, so a test cannot reach in here to check it.
   const eventId = args.eventId ?? eventIdFromRelatedUrl(relatedUrl);
+  // Did the in-app row land? Read by `onlyIfStored` below.
+  let stored = false;
   try {
     const admin = createAdminClient();
     // ONE shape, always carrying `event_id` (nullable in the schema). A
@@ -518,6 +547,7 @@ export async function emitNotification(args: EmitNotificationArgs): Promise<void
       event_id: eventId,
     };
     const { error } = await admin.from('notifications').insert(row);
+    if (!error) stored = true;
     if (error) {
       // 🔑 A DERIVED EVENT ID MUST NEVER COST SOMEBODY THEIR NOTIFICATION.
       // `event_id` is a foreign key, and the id here is only whatever the link
@@ -533,6 +563,7 @@ export async function emitNotification(args: EmitNotificationArgs): Promise<void
         if (retryError) {
           console.error('[notifications] emit failed:', retryError.message);
         } else {
+          stored = true;
           console.warn(
             `[notifications] emit kept the notice but dropped event_id=${eventId}: ${error.message}`,
           );
@@ -558,7 +589,26 @@ export async function emitNotification(args: EmitNotificationArgs): Promise<void
   // (the log /admin reads) — the pre-check was the only thing stopping it from
   // being reached. So the type alone decides, and every way this block can end
   // without a send now writes a row saying why.
-  if (EMAIL_ENABLED_TYPES.has(type)) {
+  //
+  // Two per-CALL reasons a caller may hold the email back (see the args):
+  // `skipEmail` is deliberate and silent — the reader is in the app. A row that
+  // was not stored under `onlyIfStored` is NOT silent: it is recorded as an
+  // email that was owed and did not go, and the caller will try again.
+  const heldBack: 'reader_is_in_the_app' | 'row_not_stored' | null = args.skipEmail
+    ? 'reader_is_in_the_app'
+    : args.onlyIfStored && !stored
+      ? 'row_not_stored'
+      : null;
+  if (heldBack === 'row_not_stored' && EMAIL_ENABLED_TYPES.has(type)) {
+    await recordDelivery({
+      to: '',
+      subject: title,
+      kind: type,
+      outcome: 'send_failed',
+      error: 'not sent — the in-app notice could not be stored, and this notice is only emailed once its record exists',
+    });
+  }
+  if (EMAIL_ENABLED_TYPES.has(type) && heldBack === null) {
     try {
       const admin = createAdminClient();
       const { data: recipient, error: recipientError } = await admin

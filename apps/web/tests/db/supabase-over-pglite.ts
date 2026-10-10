@@ -73,6 +73,17 @@ const SERVER_ONLY_STUB = path.join(process.cwd(), '__server_only_stub__.js');
  *   .from(t).insert(row).select(cols).maybeSingle()
  *   await .from(t).insert(row)
  *   await .from(t).delete().eq(...)
+ * …and, since 2026-10-10, the four more that lib/booking-payment-plan.server.ts
+ * uses (the payment plan frozen at a booking):
+ *   .from(t).select(cols).eq(...).order(col, { ascending })
+ *   .from(t).select('a, alias:child!fk_name(x,y)')   — ONE embedded child list,
+ *       resolved through the NAMED foreign key exactly as PostgREST does: the
+ *       constraint is looked up in pg_constraint, and a name that is not a
+ *       foreign key is returned as an error, never guessed around
+ *   await .from(t).update(row).eq(...)
+ *   await .from(t).upsert(row, { onConflict: 'a,b' })
+ * A jsonb column is written as JSON (the column's own type is read from the
+ * catalog) — PGlite would otherwise send a JS array as a Postgres array.
  * Anything else throws loudly rather than silently skipping the call.
  *
  * THE FIDELITY THAT MATTERS: errors are RETURNED as `{ data, error }`, never
@@ -105,24 +116,56 @@ function assertModelled(ok: boolean, what: string): asserts ok {
 
 const IDENT = /^[a-z_][a-z0-9_]*$/i;
 
+/** Split a projection on its TOP-LEVEL commas — an embed carries its own. */
+function splitProjection(projection: string): string[] {
+  const out: string[] = [];
+  let depth = 0;
+  let cur = '';
+  for (const ch of projection) {
+    if (ch === '(') depth += 1;
+    if (ch === ')') depth -= 1;
+    if (ch === ',' && depth === 0) {
+      out.push(cur.trim());
+      cur = '';
+    } else cur += ch;
+  }
+  if (cur.trim()) out.push(cur.trim());
+  return out;
+}
+
+/** `alias:child!fk_name(col,col)` — the one embed shape modelled. */
+const EMBED = /^([a-z_][a-z0-9_]*):([a-z_][a-z0-9_]*)!([a-z_][a-z0-9_]*)\(([a-z0-9_,\s]+)\)$/i;
+
 class Query implements PromiseLike<{ data: Row[] | null; error: PgError }> {
   private eqs: Array<[string, unknown]> = [];
   private limitN: number | null = null;
+  private orderBy: { column: string; ascending: boolean } | null = null;
   private projection: string | null;
 
   constructor(
     private readonly pg: PGlite,
     private readonly table: string,
-    private readonly op: 'select' | 'insert' | 'delete',
+    private readonly op: 'select' | 'insert' | 'delete' | 'update' | 'upsert',
     projection: string | null,
     private readonly payload: Row | null,
+    private readonly onConflict: string | null = null,
   ) {
     this.projection = projection;
   }
 
   eq(column: string, value: unknown): this {
-    assertModelled(this.op !== 'insert', `.eq() on an insert into ${this.table}`);
+    assertModelled(
+      this.op !== 'insert' && this.op !== 'upsert',
+      `.eq() on an ${this.op} into ${this.table}`,
+    );
     this.eqs.push([column, value]);
+    return this;
+  }
+
+  order(column: string, opts: { ascending?: boolean } = {}): this {
+    assertModelled(this.op === 'select', `.order() on a ${this.op} of ${this.table}`);
+    assertModelled(IDENT.test(column), `.order() column ${column}`);
+    this.orderBy = { column, ascending: opts.ascending !== false };
     return this;
   }
 
@@ -153,6 +196,69 @@ class Query implements PromiseLike<{ data: Row[] | null; error: PgError }> {
       .join(', ');
   }
 
+  /**
+   * The SELECT list, with any `alias:child!fk(cols)` embed turned into a
+   * correlated subquery through the NAMED foreign key. When the name is not a
+   * foreign key between the two tables it hands back PostgREST's own complaint
+   * for `run()` to RETURN as `{ error }`, like supabase-js — never a throw, and
+   * never a silent empty list.
+   */
+  private async selectList(): Promise<string | { relationError: string }> {
+    if (!this.projection || this.projection.trim() === '*') return '*';
+    const parts: string[] = [];
+    for (const token of splitProjection(this.projection)) {
+      const embed = EMBED.exec(token);
+      if (!embed) {
+        assertModelled(IDENT.test(token), `select column ${token} on ${this.table}`);
+        parts.push(`"${token}"`);
+        continue;
+      }
+      const [, alias, child, fk, colList] = embed as unknown as [string, string, string, string, string];
+      const childCols = colList.split(',').map((c) => c.trim());
+      for (const c of childCols) assertModelled(IDENT.test(c), `embedded column ${c}`);
+      const found = await this.pg.query<{ child_col: string; parent_col: string }>(
+        `SELECT a.attname AS child_col, af.attname AS parent_col
+           FROM pg_constraint k
+           JOIN pg_attribute a  ON a.attrelid  = k.conrelid  AND a.attnum  = k.conkey[1]
+           JOIN pg_attribute af ON af.attrelid = k.confrelid AND af.attnum = k.confkey[1]
+          WHERE k.contype = 'f' AND k.conname = $1
+            AND k.conrelid  = ('public.' || quote_ident($2))::regclass
+            AND k.confrelid = ('public.' || quote_ident($3))::regclass`,
+        [fk, child, this.table],
+      );
+      const link = found.rows[0];
+      if (!link) {
+        return {
+          relationError: `Could not find a relationship between '${this.table}' and '${child}' using the hint '${fk}'`,
+        };
+      }
+      const object = childCols.map((c) => `'${c}', c."${c}"`).join(', ');
+      parts.push(
+        `(SELECT coalesce(json_agg(json_build_object(${object})), '[]'::json)
+            FROM public."${child}" c
+           WHERE c."${link.child_col}" = public."${this.table}"."${link.parent_col}") AS "${alias}"`,
+      );
+    }
+    return parts.join(', ');
+  }
+
+  /** `$n`, cast to jsonb when the column is jsonb (the value is sent as JSON text). */
+  private async bind(column: string, value: unknown, params: unknown[]): Promise<string> {
+    assertModelled(IDENT.test(column), `column name ${column} on ${this.table}`);
+    const t = await this.pg.query<{ data_type: string }>(
+      `SELECT data_type FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = $1 AND column_name = $2`,
+      [this.table, column],
+    );
+    const isJson = t.rows[0]?.data_type === 'jsonb' || t.rows[0]?.data_type === 'json';
+    if (isJson && value !== null && value !== undefined) {
+      params.push(JSON.stringify(value));
+      return `$${params.length}::jsonb`;
+    }
+    params.push(value);
+    return `$${params.length}`;
+  }
+
   private async run(): Promise<{ data: Row[] | null; error: PgError }> {
     const params: unknown[] = [];
     const where = () => {
@@ -166,12 +272,41 @@ class Query implements PromiseLike<{ data: Row[] | null; error: PgError }> {
 
     let sql: string;
     if (this.op === 'select') {
+      const list = await this.selectList();
+      // A hint that names no foreign key is PostgREST's error to RETURN.
+      if (typeof list !== 'string') return { data: null, error: { message: list.relationError, code: 'PGRST200' } };
       sql =
-        `SELECT ${this.cols()} FROM public."${this.table}"` +
+        `SELECT ${list} FROM public."${this.table}"` +
         where() +
+        (this.orderBy === null
+          ? ''
+          : ` ORDER BY "${this.orderBy.column}" ${this.orderBy.ascending ? 'ASC' : 'DESC'}`) +
         (this.limitN === null ? '' : ` LIMIT ${Number(this.limitN)}`);
     } else if (this.op === 'delete') {
       sql = `DELETE FROM public."${this.table}"` + where();
+    } else if (this.op === 'update') {
+      const entries = Object.entries(this.payload ?? {});
+      assertModelled(entries.length > 0, `.update({}) of ${this.table}`);
+      // An UPDATE with no filter is never something a tested path means.
+      assertModelled(this.eqs.length > 0, `.update() of ${this.table} with no .eq()`);
+      const sets: string[] = [];
+      for (const [c, v] of entries) sets.push(`"${c}" = ${await this.bind(c, v, params)}`);
+      sql = `UPDATE public."${this.table}" SET ${sets.join(', ')}` + where();
+    } else if (this.op === 'upsert') {
+      const entries = Object.entries(this.payload ?? {});
+      assertModelled(entries.length > 0, `.upsert({}) into ${this.table}`);
+      const keys = (this.onConflict ?? '').split(',').map((c) => c.trim()).filter(Boolean);
+      assertModelled(keys.length > 0 && keys.every((k) => IDENT.test(k)), `.upsert() onConflict "${this.onConflict}"`);
+      const values: string[] = [];
+      for (const [c, v] of entries) values.push(await this.bind(c, v, params));
+      const names = entries.map(([c]) => `"${c}"`).join(', ');
+      const sets = entries
+        .filter(([c]) => !keys.includes(c))
+        .map(([c]) => `"${c}" = EXCLUDED."${c}"`)
+        .join(', ');
+      sql =
+        `INSERT INTO public."${this.table}" (${names}) VALUES (${values.join(', ')}) ` +
+        `ON CONFLICT (${keys.map((k) => `"${k}"`).join(', ')}) DO UPDATE SET ${sets}`;
     } else {
       const entries = Object.entries(this.payload ?? {});
       assertModelled(entries.length > 0, `.insert({}) into ${this.table}`);
@@ -220,6 +355,9 @@ export function makeAdminClient(pg: PGlite): SupabaseClient {
         select: (cols = '*') => new Query(pg, table, 'select', cols, null),
         insert: (payload: Row) => new Query(pg, table, 'insert', null, payload),
         delete: () => new Query(pg, table, 'delete', null, null),
+        update: (payload: Row) => new Query(pg, table, 'update', null, payload),
+        upsert: (payload: Row, opts: { onConflict?: string } = {}) =>
+          new Query(pg, table, 'upsert', null, payload, opts.onConflict ?? null),
       };
     },
     async rpc(fn: string, params: Record<string, unknown>) {

@@ -101,6 +101,7 @@ const SCOPE_FILES = [
   'lib/ghosting.ts',
   'lib/lock-request-expiry.ts',
   'lib/lock-request-notices.server.ts',
+  'lib/booking-payment-plan.server.ts',
   'lib/date-change.server.ts',
   'lib/schedule-request-notify.server.ts',
   'lib/vendor-invite-actions.ts',
@@ -240,7 +241,10 @@ function emitSites(): EmitSite[] {
   for (const abs of files) {
     const file = relative(WEB, abs).split(sep).join('/');
     const src = stripComments(readFileSync(abs, 'utf8'));
-    for (let at = src.indexOf('emitNotification({'); at > -1; at = src.indexOf('emitNotification({', at + 1)) {
+    // `deps.emit({` is the same emitter, handed in so a db test can count the
+    // notices a money function sends (lib/booking-payment-plan.server.ts).
+    const calls = [...src.matchAll(/\b(?:emitNotification|deps\.emit)\(\{/g)].map((m) => m.index!);
+    for (const at of calls) {
       const open = src.indexOf('{', at);
       const block = src.slice(open + 1, matchBrace(src, open) - 1);
       const typeExpr = propertyValue(block, 'type');

@@ -22,9 +22,11 @@
  * server), with the lazy panel, and — on the Maker's canvas only — when a look is first picked (the bridge imports it
  * on that message, so a guest's bundle never carries it).
  *
- * 🧱 ROOM FOR WHAT COMES NEXT (the ＋, drag and Group — owner's ruling 2026-10-09): `look` is an object of named
- * keys. `lines` and `card` are here now; the order of the lines, added lines and groups each take a key of their
- * own beside them, so nothing stored today has to move. The whole config is capped by the database
+ * 🧱 ＋ · DRAG · GROUP (owner's ruling 2026-10-09) — three more keys beside `lines` and `card`, so nothing stored
+ * before them had to move: `added` (the lines a couple ADDED to a screen), `order` (the screen's lines in their
+ * order) and `groups` (lines that share one background). They are read HERE, by the same one reader, and turned into
+ * the list a page draws by `rsvpScreenLayout` — which answers `null` for a screen that stored none of it, and a page
+ * given `null` draws exactly what it drew before. The whole config is capped by the database
  * (`events_rsvp_ask_config_shape`, `RSVP_CONFIG_CHECK` bytes AS STORED): `rsvpConfigFits` is asked before a save, so
  * a couple is told in a sentence instead of at Apply (`RSVP_CONFIG_ROOM` — the two numbers and their measurement are
  * at the foot of this file).
@@ -88,11 +90,58 @@ export const RSVP_LOOK_CARDS = ['rsvp', 'yesnote', 'nonote'] as const;
 export type RsvpLookCard = (typeof RSVP_LOOK_CARDS)[number];
 export const RSVP_CARD_GROUNDS = ['none', 'frost'] as const;
 export type RsvpCardGround = (typeof RSVP_CARD_GROUNDS)[number];
-export type RsvpCardLook = { g?: RsvpCardGround } & RsvpMotion;
+/** `w`: the ground the card wore BEFORE a group stood it aside (`rsvpGroupMade`) — put back by the last Ungroup. */
+export const RSVP_CARD_WAS = ['plain', 'none', 'frost'] as const;
+export type RsvpCardWas = (typeof RSVP_CARD_WAS)[number];
+export type RsvpCardLook = { g?: RsvpCardGround; w?: RsvpCardWas } & RsvpMotion;
 
-export type RsvpLook = { lines?: Partial<Record<RsvpLookLine, RsvpLineLook>>; card?: Partial<Record<RsvpLookCard, RsvpCardLook>> };
-/** What a look is kept FOR: a line, or a screen's card. */
-export type RsvpLookTarget = RsvpLookLine | { card: RsvpLookCard };
+/**
+ * ＋ A LINE THE COUPLE ADDED to a screen: a Heading (`h`) or a Message (`m`), its words (`t` — typed, so cleaned and
+ * capped here on every read, and drawn as TEXT, never as markup). `id`: the app's own short one (`RSVP_LAYOUT_ID`),
+ * unique in the whole config. On the page, in the order and in `lines` it goes by `a:<id>` (`rsvpAddedName`).
+ * (A Picture, `p`, is measured for and not read yet — its own step.)
+ */
+export type RsvpAddedLine = { id: string; k: 'h' | 'm'; t?: string };
+export const RSVP_ADDED_PREFIX = 'a:';
+export type RsvpAddedName = `a:${string}`;
+export const rsvpAddedName = (id: string): RsvpAddedName => `${RSVP_ADDED_PREFIX}${id}`;
+/** The id of an added line's name — null for a line that is the page's own, or a name that is not one. */
+export function rsvpAddedId(line: string | null | undefined): string | null {
+  const id = line?.startsWith(RSVP_ADDED_PREFIX) ? line.slice(RSVP_ADDED_PREFIX.length) : null;
+  return id && RSVP_LAYOUT_ID.test(id) ? id : null;
+}
+
+/**
+ * 🫧 A GROUP: lines of ONE screen that share ONE background and move as one. `of`: its lines, by name. `g`: its
+ * background — None or Frosted; **Plain** is the absence of the key (as the card's). `i` / `v`: RESERVED — read by
+ * the same closed sets a card's Build in is, so the shape can take them later; nothing offers or draws them yet
+ * (owner's prototype: "The group arrives with the page").
+ */
+export type RsvpGroup = { id: string; of: string[]; g?: RsvpCardGround } & RsvpMotion;
+
+/**
+ * THE LINES THAT HAVE A PLACE IN EACH SCREEN'S CARD, in the page's own order, by the name the page gives each
+ * (`data-rsvp-line`). Two lines are NOT here, on purpose:
+ *   · the form's **Hint** — for a guest it is not a line of the card: the one-question flow draws it in the bar at the
+ *     card's foot (where Next stands on the later screens), only while no answer is tapped. It keeps that place
+ *     (controller 2026-10-10: not movable, not groupable);
+ *   · the pass's **Save button** — the pass is each guest's own ticket, not a line of a note.
+ */
+export const RSVP_SCREEN_LINES: Readonly<Record<RsvpLookCard, readonly string[]>> = {
+  rsvp: ['eyebrow', 'question', 'yes', 'no'],
+  yesnote: ['heading', 'message'],
+  nonote: ['heading', 'message'],
+};
+
+export type RsvpLook = {
+  lines?: Partial<Record<RsvpLookLine | RsvpAddedName, RsvpLineLook>>;
+  card?: Partial<Record<RsvpLookCard, RsvpCardLook>>;
+  added?: Partial<Record<RsvpLookCard, RsvpAddedLine[]>>;
+  order?: Partial<Record<RsvpLookCard, string[]>>;
+  groups?: Partial<Record<RsvpLookCard, RsvpGroup[]>>;
+};
+/** What a look is kept FOR: a line (the page's own, or one the couple added), or a screen's card. */
+export type RsvpLookTarget = RsvpLookLine | RsvpAddedName | { card: RsvpLookCard };
 
 export function rsvpLookCard(part: string | null | undefined): RsvpLookCard | null {
   return (RSVP_LOOK_CARDS as readonly unknown[]).includes(part) ? (part as RsvpLookCard) : null;
@@ -127,7 +176,35 @@ export function rsvpStyleHasRows(part: string | null, line: string | null): bool
   return rsvpLookLine(part, line) !== null || (part === 'yesnote' && line === null);
 }
 
-/** THE ONE READER — over the RAW `rsvp_ask_config`. Only known lines and cards, only values from the lists above. */
+/** One line's look, read strictly. A button has no colour of its own (Look › Buttons'). */
+function readLineLook(v: Record<string, unknown>, button: boolean): RsvpLineLook {
+  const look: RsvpLineLook = readMotion(v);
+  const colour = button ? null : (RSVP_LOOK_SLOTS as readonly unknown[]).includes(v.c) ? (v.c as RsvpLookSlot) : hubElementColor(v.c);
+  if (colour) look.c = colour;
+  const font = sanitizeHubFontKey(v.f);
+  if (font) look.f = font;
+  if ((RSVP_LOOK_SIZES as readonly unknown[]).includes(v.s) && v.s !== 100) look.s = v.s as RsvpLookSize;
+  return look;
+}
+
+/** Words a person typed for an added line: one line of plain text, control characters out, spaces folded, capped. */
+export function cleanRsvpAddedText(kind: 'h' | 'm', raw: unknown): string {
+  if (typeof raw !== 'string') return '';
+  // eslint-disable-next-line no-control-regex
+  return raw.replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, RSVP_ADDED_TEXT_MAX[kind]);
+}
+
+/**
+ * THE ONE READER — over the RAW `rsvp_ask_config`. Only known lines and cards, only values from the lists above.
+ *
+ * ＋ And the three keys of the ＋, drag and Group, each kept only in its own shape:
+ *   · `added` — per screen, at most `RSVP_ADDED_MAX` lines; an id the app could have made, used once in the whole
+ *     config; a kind it draws; words cleaned and capped;
+ *   · `order` — per screen, names of lines that screen HAS (its own, or added to it), each once. It is a HINT:
+ *     `rsvpScreenOrder` puts back any line it does not name, so no stored order can lose a line;
+ *   · `groups` — per screen, at most `RSVP_GROUPS_MAX`; a line is in ONE group (the first that names it), a group is
+ *     never in a group, and a group left with no line is not kept.
+ */
 export function readRsvpLook(config: unknown): RsvpLook {
   const raw = isObject(config) ? config.look : null;
   if (!isObject(raw)) return {};
@@ -136,12 +213,7 @@ export function readRsvpLook(config: unknown): RsvpLook {
   for (const id of RSVP_LOOK_LINES) {
     const v = lines[id];
     if (!isObject(v)) continue;
-    const look: RsvpLineLook = readMotion(v);
-    const colour = RSVP_LOOK_BUTTON_LINES.includes(id) ? null : (RSVP_LOOK_SLOTS as readonly unknown[]).includes(v.c) ? (v.c as RsvpLookSlot) : hubElementColor(v.c);
-    if (colour) look.c = colour;
-    const font = sanitizeHubFontKey(v.f);
-    if (font) look.f = font;
-    if ((RSVP_LOOK_SIZES as readonly unknown[]).includes(v.s) && v.s !== 100) look.s = v.s as RsvpLookSize;
+    const look = readLineLook(v, RSVP_LOOK_BUTTON_LINES.includes(id));
     if (Object.keys(look).length > 0) (out.lines ??= {})[id] = look;
   }
   const cards = isObject(raw.card) ? raw.card : {};
@@ -150,7 +222,116 @@ export function readRsvpLook(config: unknown): RsvpLook {
     if (!isObject(v)) continue;
     const look: RsvpCardLook = readMotion(v);
     if ((RSVP_CARD_GROUNDS as readonly unknown[]).includes(v.g)) look.g = v.g as RsvpCardGround;
+    if ((RSVP_CARD_WAS as readonly unknown[]).includes(v.w)) look.w = v.w as RsvpCardWas;
     if (Object.keys(look).length > 0) (out.card ??= {})[id] = look;
+  }
+  const addedBy = isObject(raw.added) ? raw.added : {};
+  const orderBy = isObject(raw.order) ? raw.order : {};
+  const groupsBy = isObject(raw.groups) ? raw.groups : {};
+  const usedLine = new Set<string>();
+  const usedGroup = new Set<string>();
+  for (const part of RSVP_LOOK_CARDS) {
+    const added: RsvpAddedLine[] = [];
+    for (const v of Array.isArray(addedBy[part]) ? (addedBy[part] as unknown[]) : []) {
+      if (added.length >= RSVP_ADDED_MAX) break;
+      if (!isObject(v) || typeof v.id !== 'string' || !RSVP_LAYOUT_ID.test(v.id) || usedLine.has(v.id)) continue;
+      if (v.k !== 'h' && v.k !== 'm') continue;
+      usedLine.add(v.id);
+      const text = cleanRsvpAddedText(v.k, v.t);
+      added.push(text ? { id: v.id, k: v.k, t: text } : { id: v.id, k: v.k });
+      const own = lines[rsvpAddedName(v.id)];
+      const look = isObject(own) ? readLineLook(own, false) : {};
+      if (Object.keys(look).length > 0) (out.lines ??= {})[rsvpAddedName(v.id)] = look;
+    }
+    if (added.length > 0) (out.added ??= {})[part] = added;
+    /* The names this screen holds: its own, and the ones added to it. */
+    const has = new Set<string>([...RSVP_SCREEN_LINES[part], ...added.map((a) => rsvpAddedName(a.id))]);
+    const order: string[] = [];
+    for (const name of Array.isArray(orderBy[part]) ? (orderBy[part] as unknown[]) : []) {
+      if (typeof name === 'string' && has.has(name) && !order.includes(name)) order.push(name);
+    }
+    if (order.length > 0) (out.order ??= {})[part] = order;
+    const groups: RsvpGroup[] = [];
+    const grouped = new Set<string>();
+    for (const v of Array.isArray(groupsBy[part]) ? (groupsBy[part] as unknown[]) : []) {
+      if (groups.length >= RSVP_GROUPS_MAX) break;
+      if (!isObject(v) || typeof v.id !== 'string' || !RSVP_LAYOUT_ID.test(v.id) || usedGroup.has(v.id)) continue;
+      const of: string[] = [];
+      for (const name of Array.isArray(v.of) ? (v.of as unknown[]) : []) {
+        if (typeof name === 'string' && has.has(name) && !grouped.has(name) && !of.includes(name)) of.push(name);
+      }
+      if (of.length === 0) continue;
+      for (const name of of) grouped.add(name);
+      usedGroup.add(v.id);
+      const group: RsvpGroup = { id: v.id, of, ...readMotion(v) };
+      if ((RSVP_CARD_GROUNDS as readonly unknown[]).includes(v.g)) group.g = v.g as RsvpCardGround;
+      groups.push(group);
+    }
+    if (groups.length > 0) (out.groups ??= {})[part] = groups;
+  }
+  return out;
+}
+
+/* ── the list a page draws ─────────────────────────────────────────────────── */
+
+/** One line in its place: its name (`data-rsvp-line`) — and, for a line the couple added, what it is. */
+export type RsvpLayoutLine = { line: string; added: RsvpAddedLine | null };
+/** One thing in a screen's card, top to bottom: a line, or a group of lines. */
+export type RsvpLayoutItem = RsvpLayoutLine | { group: RsvpGroup; lines: RsvpLayoutLine[] };
+export const rsvpLayoutIsGroup = (item: RsvpLayoutItem): item is { group: RsvpGroup; lines: RsvpLayoutLine[] } => 'group' in item;
+
+/**
+ * 🔒 EVERY LINE OF A SCREEN, EXACTLY ONCE, IN THE COUPLE'S ORDER — the stored order is only a HINT. A line it does
+ * not name is put back: one of the page's own right after the nearest of the page's lines that comes before it on
+ * an untouched page (or first), a line the couple added at the end. So whatever is stored — an empty list, half a
+ * list, somebody else's list — the form's Yes and No are both in the answer. (A reply must never be made impossible
+ * by an edit: `the-reply-is-never-lost.test.ts`.)
+ */
+export function rsvpScreenOrder(look: RsvpLook, part: RsvpLookCard): string[] {
+  const own = RSVP_SCREEN_LINES[part];
+  const added = (look.added?.[part] ?? []).map((a) => rsvpAddedName(a.id) as string);
+  const has = new Set<string>([...own, ...added]);
+  const out: string[] = [];
+  for (const name of look.order?.[part] ?? []) if (has.has(name) && !out.includes(name)) out.push(name);
+  own.forEach((name, i) => {
+    if (out.includes(name)) return;
+    let at = 0;
+    for (let before = i - 1; before >= 0; before--) {
+      const placed = out.indexOf(own[before]!);
+      if (placed >= 0) {
+        at = placed + 1;
+        break;
+      }
+    }
+    out.splice(at, 0, name);
+  });
+  for (const name of added) if (!out.includes(name)) out.push(name);
+  return out;
+}
+
+/**
+ * THE LIST A PAGE DRAWS FOR ONE SCREEN — or `null` when the couple stored nothing that changes it (no added line, no
+ * group, the page's own order): a page given `null` draws exactly what it drew before any of this existed.
+ * A group stands where the first of its lines stands; its lines keep the order they have among themselves.
+ */
+export function rsvpScreenLayout(look: RsvpLook, part: RsvpLookCard): RsvpLayoutItem[] | null {
+  const own = RSVP_SCREEN_LINES[part];
+  const added = new Map((look.added?.[part] ?? []).map((a) => [rsvpAddedName(a.id) as string, a]));
+  const groups = look.groups?.[part] ?? [];
+  const order = rsvpScreenOrder(look, part);
+  if (added.size === 0 && groups.length === 0 && order.every((name, i) => name === own[i])) return null;
+  const lineOf = (name: string): RsvpLayoutLine => ({ line: name, added: added.get(name) ?? null });
+  const groupOf = new Map<string, RsvpGroup>();
+  for (const group of groups) for (const name of group.of) groupOf.set(name, group);
+  const drawn = new Set<RsvpGroup>();
+  const out: RsvpLayoutItem[] = [];
+  for (const name of order) {
+    const group = groupOf.get(name);
+    if (!group) out.push(lineOf(name));
+    else if (!drawn.has(group)) {
+      drawn.add(group);
+      out.push({ group, lines: order.filter((n) => groupOf.get(n) === group).map(lineOf) });
+    }
   }
   return out;
 }
@@ -183,14 +364,25 @@ export function rsvpLookWith(
   if (Object.keys(one).length > 0) all[id] = one;
   else delete all[id];
   const home = typeof target === 'string' ? 'lines' : 'card';
-  /* Each home is rewritten from the STRICT reading, so what this build cannot read is not kept inside it. */
-  for (const [k, v] of [['lines', home === 'lines' ? all : read.lines], ['card', home === 'card' ? all : read.card]] as const) {
-    if (v && Object.keys(v).length > 0) rest[k] = v;
-    else delete rest[k];
+  return rsvpLookStored(rest, { ...read, [home]: all });
+}
+
+/**
+ * What is KEPT for a look: every home this build reads is rewritten from the STRICT reading (so what it cannot read
+ * is not kept inside one), an empty home is not kept at all, and a key it does not know (a later build's) is
+ * carried. `undefined` when nothing is left, so an event back to the page's own stores no `look`.
+ */
+function rsvpLookStored(rest: Record<string, unknown>, read: RsvpLook): Record<string, unknown> | undefined {
+  for (const key of ['lines', 'card', 'added', 'order', 'groups'] as const) {
+    const v = read[key];
+    if (v && Object.keys(v).length > 0) rest[key] = v;
+    else delete rest[key];
   }
   return Object.keys(rest).length > 0 ? rest : undefined;
 }
 
+/** A group's wrapper on the page — its value is the group's id (the app's own short one, checked by the reader). */
+export const RSVP_GROUP_ATTR = 'data-rsvp-group';
 /** The door's card, for every guest: the block that holds the masthead (`DoorShell`). No attribute is served for it. */
 export const RSVP_CARD_SELECTOR = 'div:has(>[data-door-header])';
 /** How far a Move travels in, in px — a line's short step, the same on both axes. */
@@ -252,6 +444,25 @@ export function rsvpLookRules(look: RsvpLook, parts: readonly string[], board: r
     const face = font ? `font-family:var(${HUB_FONT_BY_KEY[font].cssVar}), ${HUB_FONT_BY_KEY[font].fallback};` : '';
     const rules = `${colour ? `color:${colour};` : ''}${face}${v.s ? `zoom:${v.s / 100};` : ''}${motionRules(v)}`;
     if (rules) out.push({ selector: `[data-rsvp-line="${line}"][data-rsvp-line]`, rules, moves: Boolean(v.i) });
+  }
+  for (const part of RSVP_LOOK_CARDS) {
+    if (!parts.includes(part)) continue;
+    /* ＋ A line the couple added: the same four things a line of the page's own has. Its name is the app's own short
+       id, checked by the reader (`RSVP_LAYOUT_ID`) — the only thing of it that reaches a selector. */
+    for (const a of look.added?.[part] ?? []) {
+      const name = rsvpAddedName(a.id);
+      const v = look.lines?.[name];
+      if (!v) continue;
+      const colour = hubElementColor(typeof v.c === 'number' ? board[v.c - 1] : v.c);
+      const font = sanitizeHubFontKey(v.f);
+      const face = font ? `font-family:var(${HUB_FONT_BY_KEY[font].cssVar}), ${HUB_FONT_BY_KEY[font].fallback};` : '';
+      const rules = `${colour ? `color:${colour};` : ''}${face}${v.s ? `zoom:${v.s / 100};` : ''}${motionRules(v)}`;
+      if (rules) out.push({ selector: `[data-rsvp-line="${name}"][data-rsvp-line]`, rules, moves: Boolean(v.i) });
+    }
+    /* 🫧 A group's background, when it is not Plain (its own paper, the wrapper's classes — `rsvp-lines.tsx`). */
+    for (const group of look.groups?.[part] ?? []) {
+      if (group.g) out.push({ selector: `[${RSVP_GROUP_ATTR}="${group.id}"]`, rules: CARD_GROUND[group.g], moves: false });
+    }
   }
   return out;
 }

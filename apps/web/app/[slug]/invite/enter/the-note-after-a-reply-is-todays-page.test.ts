@@ -6,12 +6,13 @@
  * it. What CAN be held:
  *
  *   1. `note-as-shipped.fixture.tsx` is the page's own JSX for the two notes, copied by a script from the page at
- *      `origin/main` 64746f064. THIS TEST PROVES THE COPY: the page's source still carries both blocks, character
- *      for character (indentation aside). [Held in the commit that recorded the record — the page was untouched
- *      there; once the page draws the note from a list the block is gone from it, and § 1 becomes § 3.]
+ *      `origin/main` 64746f064. The copy was PROVED against the page — both blocks, character for character,
+ *      indentation aside — in the commit that recorded the record, where the page still carried them (this file's
+ *      § 1 as it stood in that commit). The page now draws the note through `RsvpNoteLines`; § 1 holds that it does.
  *   2. `the-note-after-a-reply-is-todays-page.golden.json` is that JSX RENDERED, for every case that changes what it
  *      holds: a Yes / a No × a guest / the Maker's sample × the couple's own message or none × their own heading.
  *      The reference still renders to it (so the reference cannot drift).
+ *   3. THE NOTE AS THE PAGE DRAWS IT NOW (`RsvpNoteLines`, no list) renders to the same record, to the byte.
  *
  * TO RECORD AGAIN (only when the note is MEANT to change for every guest — say so in the commit):
  *   RECORD_NOTE=1 ../../node_modules/.bin/tsx --test "app/[[]slug[]]/invite/enter/the-note-after-a-reply-is-todays-page.test.ts"
@@ -55,25 +56,22 @@ async function asShipped(props: Props): Promise<string> {
   return renderToStaticMarkup(h(NoteAsShipped as never, props as never));
 }
 
-const dedent = (text: string) => {
-  const lines = text.split('\n');
-  const pad = Math.min(...lines.filter((l) => l.trim()).map((l) => /^ */.exec(l)![0].length));
-  return lines.map((l) => l.slice(pad)).join('\n');
-};
+async function asDrawnNow(props: Props): Promise<string> {
+  const { RsvpNoteLines } = await import('../../_components/rsvp-note-lines');
+  return renderToStaticMarkup(h(RsvpNoteLines as never, props as never));
+}
 
-test('1 · the reference IS the page’s own JSX — both notes, character for character', () => {
+test('1 · the page draws the note through the one component — and hands it the list from the config it already holds', () => {
+  /* (Until the note was drawn from a list this section proved the reference against the page's own JSX, character
+     for character — in the commit that recorded the record, where the page still carried it. The page's two blocks
+     are now `RsvpNoteLines`; what is held from here on is § 2 and § 3.) */
   const page = readFileSync(join(HERE, 'page.tsx'), 'utf8');
-  const fixture = readFileSync(join(HERE, 'note-as-shipped.fixture.tsx'), 'utf8');
-  const blocks = [...fixture.matchAll(/\/\* ── verbatim: the (No|Yes) branch ── \*\/\n([\s\S]*?)\n\/\* ── end ── \*\//g)];
-  assert.deepEqual(blocks.map((b) => b[1]), ['No', 'Yes']);
-  const pageLines = page.split('\n');
-  for (const [, name, body] of blocks) {
-    const want = dedent(body!);
-    const first = want.split('\n')[0]!;
-    const n = want.split('\n').length;
-    const at = pageLines.findIndex((l, i) => l.trim() === first.trim() && dedent(pageLines.slice(i, i + n).join('\n')) === want);
-    assert.ok(at >= 0, `the page no longer carries the ${name} note as the reference has it`);
-  }
+  assert.match(
+    page,
+    /<RsvpNoteLines\s+reply=\{reply === 'no' \? 'no' : 'yes'\}\s+canvas=\{canvas\}\s+wordKeys=\{wordKeys\}\s+headline=\{headline\}\s+ownHeadline=\{ownHeadline\}\s+ownMessage=\{ownMessage\}\s+firstName=\{firstName\}\s+lines=\{rsvpScreenLayout\(readRsvpLook\(event\.rsvp_ask_config\), reply === 'no' \? 'nonote' : 'yesnote'\)\}\s+\/>/,
+  );
+  /* The note's lines are drawn nowhere else on the page. */
+  assert.doesNotMatch(page, /data-landing-missed|data-landing-done|data-thank-you-message/);
 });
 
 test('2 · the reference renders to the record', async () => {
@@ -108,4 +106,12 @@ test('2 · the reference renders to the record', async () => {
   const guestYes = golden.cases['after a yes · a guest · their own message · their own heading']!;
   assert.match(guestYes, /data-rsvp-line="heading">✓ <span data-landing-heading="">Salamat, Ana &lt;3<\/span>/);
   assert.match(guestYes, /data-rsvp-line="message">We cannot wait — bring your dancing shoes &amp; a jacket\.<\/p>/);
+});
+
+test('3 · the note the page draws NOW is the record, to the byte, when the couple arranged nothing', async () => {
+  const golden = JSON.parse(readFileSync(GOLDEN, 'utf8')) as { cases: Record<string, string> };
+  for (const [name, props] of noteCases()) {
+    assert.equal(await asDrawnNow(props), golden.cases[name], name);
+    assert.equal(await asDrawnNow({ ...props, lines: null } as never), golden.cases[name], `${name} (lines: null)`);
+  }
 });

@@ -28,6 +28,7 @@ import { EDITOR_CANVAS_HIDES_APP_CHROME, asksForHostCanvas } from '../../_lib/ed
 import { loadHostMembership, loadHostPreviewDraft, loadWidgets } from '../../_lib/loaders';
 import { wearTheHub } from '../_lib/wear-the-hub';
 import { RsvpLookStyle } from '../../_components/rsvp-look-style';
+import { readRsvpLook, rsvpScreenLayout } from '@/lib/rsvp-look';
 import { celebrationColours } from '@/lib/rsvp-celebration';
 import { boardSwatches } from '@/lib/mood-board-palette-set';
 import { GuestLookScope } from '../../_components/guest-look-scope';
@@ -391,6 +392,9 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
           sceneStyle={replyStyle}
           previewEveryQuestion={canvas}
           answerWords={readRsvpWords(event.rsvp_ask_config)}
+          /* 🧱 The card's lines in the couple's order, with the lines they added and their groups (the Maker's RSVP
+             stage). From the config this page already holds — no new read; null for a couple who arranged nothing. */
+          lines={rsvpScreenLayout(readRsvpLook(event.rsvp_ask_config), 'rsvp')}
         />
         </CanvasSection>
       </DoorShell>

@@ -185,7 +185,17 @@ test('2 · the rules a page draws: its own parts only, the event’s colours onl
 });
 
 test('3 · no save drops it: the sanitiser and every writer built on it carry `look`, unknown keys and all', () => {
-  const look = { lines: { 'rsvp.question': { c: 2, s: 120 } }, groups: [['question', 'hint']], order: { form: ['hint', 'question'] } };
+  /* `later`: a key this build does not know (a later one's) — carried as it is. `added` · `order` · `groups` WERE that
+     example until the ＋, drag and Group gave them a shape (2026-10-10): they are read strictly now, so here they are
+     in their real shape — and kept, like the lines, by every writer. (What a wrong shape of them reads as:
+     `the-reply-is-never-lost.test.ts`.) */
+  const look = {
+    lines: { 'rsvp.question': { c: 2, s: 120 } },
+    later: [['question', 'hint']],
+    added: { rsvp: [{ id: 'n1', k: 'm', t: 'Kindly reply' }] },
+    order: { rsvp: ['question', 'eyebrow', 'a:n1'] },
+    groups: { rsvp: [{ id: 'g1', of: ['question', 'a:n1'], g: 'frost' }] },
+  };
   const stored = { words: { attending: 'Count me in' }, meal: false, oneAtATime: true, look };
   /* The first-load sanitiser (the draft's save and its publish run every config through it). */
   assert.deepEqual(sanitizeRsvpAskConfig(stored).look, look);
@@ -202,7 +212,7 @@ test('3 · no save drops it: the sanitiser and every writer built on it carry `l
   /* The panel's own change keeps what it does not know, and an event back to its own look stores no `look`. */
   assert.deepEqual(rsvpLookWith(stored, 'rsvp.hint', { s: 85 }), { ...look, lines: { 'rsvp.question': { c: 2, s: 120 }, 'rsvp.hint': { s: 85 } } });
   assert.deepEqual(rsvpLookWith(stored, 'rsvp.question', { c: null }), { ...look, lines: { 'rsvp.question': { s: 120 } } });
-  assert.deepEqual(rsvpLookWith(stored, 'rsvp.question', { c: null, s: 100 }), { groups: look.groups, order: look.order });
+  assert.deepEqual(rsvpLookWith(stored, 'rsvp.question', { c: null, s: 100 }), { later: look.later, added: look.added, order: look.order, groups: look.groups });
   assert.equal(rsvpLookWith({ look: { lines: { 'rsvp.question': { s: 120 } } } }, 'rsvp.question', { s: null }), undefined);
   assert.equal(rsvpLookWith({}, 'rsvp.question', { c: null }), undefined);
   /* 2026-10-10 · the picker's colour is stored as the app's gate hands it back — a "colour" it refuses is not stored
@@ -658,6 +668,10 @@ test('11 · When no shows ONE card: with a ground chosen for the door’s card, 
   assert.deepEqual(inner({ look: { card: { rsvp: { g: 'none' }, yesnote: { g: 'frost' } } } }, ['yesnote', 'pass']), []);
   assert.match(rsvpLookCss(readRsvpLook({ look: { card: { nonote: { g: 'frost' } } } }), ['nonote'], BOARD), SAFE_CSS);
   /* The real note card is the one addressed (and the lab's stand-in draws the same one). */
-  assert.match(src('app/[slug]/invite/enter/page.tsx'), /<div className="sn-glass-bare rounded-2xl bg-cream\/95 px-5 py-7 text-center shadow-sm" data-landing-missed="">/);
-  assert.match(src('app/dev/maker-lab/guest/page.tsx'), /<div className="sn-glass-bare mt-6 rounded-2xl bg-cream\/95 px-5 py-7 text-center shadow-sm" data-landing-missed="">/);
+  /* (Its home since 2026-10-10 is the note's own component — the page draws the note through it; arranged, the same
+     card spaces its lines itself.) */
+  assert.match(src('app/[slug]/invite/enter/page.tsx'), /<RsvpNoteLines\b/);
+  assert.match(src('app/[slug]/_components/rsvp-note-lines.tsx'), /<div className=\{lines \? 'sn-glass-bare space-y-2 rounded-2xl bg-cream\/95 px-5 py-7 text-center shadow-sm' : 'sn-glass-bare rounded-2xl bg-cream\/95 px-5 py-7 text-center shadow-sm'\} data-landing-missed="">/);
+  /* …and the lab draws that same component for its When no (it was a stand-in with a copy of the card's classes). */
+  assert.match(src('app/dev/maker-lab/guest/page.tsx'), /<RsvpNoteLines\s+reply="no"/);
 });

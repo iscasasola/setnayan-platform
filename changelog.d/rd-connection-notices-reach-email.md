@@ -90,7 +90,37 @@ No migration: every type already exists in the `notification_type` enum.
   (`deleteVendor`); the four change-order notices that ride `schedule_suggestion`
   (`lib/couple-supplier-notices.ts`).
 
-SPEC IMPACT: Iteration 0028 (notifications) — eight notification types gain the
-email channel, and couple ↔ supplier emails gain "Event · Date" rows. NOT applied
-to the corpus from this branch: the job was local-only (no push), and a corpus
-edit must be pushed. For the controller to apply.
+### P0c · the four types, the plan at the yes, the 48-hour reminder (same branch)
+
+- **Migration** `supabase/migrations/20271267016300_notification_types_quote_answer_and_change_order.sql`
+  adds `quote_accepted`, `quote_declined`, `change_order_proposed`,
+  `change_order_answered` to `public.notification_type` — bare `ADD VALUE IF NOT
+  EXISTS`, alone in its file. It reaches production through the pipeline only.
+- **A supplier is told when a couple accepts or declines their quote** — in the
+  app and by email, from `respondToProposal`, once (the function refuses a
+  second press). The yes uses the customer card's own sentence and never says
+  the supplier is booked.
+- **A change order has its own notices, emailed**, with the figure read back off
+  `vendor_change_orders.delta_amount_php` and passed through `formatPhp`. The
+  four change-order sites left `schedule_suggestion`; its other six sites are
+  untouched.
+- **The payment plan is frozen at the supplier's yes.** Under the lock handshake
+  the couple's press only asks, and the plan snapshot and "your payment info is
+  ready" lived below that return — so a booking made the normal way had no plan
+  row. `lib/booking-payment-plan.server.ts` is `finalizeVendor`'s block moved
+  whole; the direct lock and `vendorAgreeToLock` (on `ok`) both call it. Same
+  reads, same computation; the plan is dated from the yes; the host who pressed
+  the ask is told. A package booking is left alone (its own direct path writes
+  no plan), and an ask with no recorded asker gets its plan and no notice.
+  Proven on the replayed schema by
+  `tests/db/the-plan-is-frozen-at-the-suppliers-yes.db.test.ts`.
+- **One reminder email to a supplier whose inquiry has waited 48 hours**, from a
+  traffic-driven daily sweep (`inquiry-reminder`), once per inquiry.
+  `GHOST_THRESHOLD_HOURS` is now defined once and shared with the in-app nudge.
+
+SPEC IMPACT: Iteration 0028 (notifications) — thirteen notification types gain
+the email channel (four of them new enum values), couple ↔ supplier emails gain
+"Event · Date" rows, and one periodic job (`inquiry-reminder`) is added. The
+payment plan of a handshake booking is now written at the supplier's yes. NOT
+applied to the corpus from this branch (local-only, no push); the controller is
+making the corpus edit.

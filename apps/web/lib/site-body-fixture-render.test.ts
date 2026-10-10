@@ -216,7 +216,17 @@ test('(5) it is tooling: no file of the app imports the fixture, the helper or t
   /* 🔁 RE-AIMED 2026-10-10: one more guard draws the real page with the helper — `a-sample-block-look-reaches-the-real-
      page.test.ts` (a look kept for Your seat lands on the guest's own block, and costs a guest nothing until then).
      It is a test, shipped to nobody; the claim is the same — no file of the APP imports the fixture. */
-  const OURS = new Set(['lib/site-body-fixture.ts', 'lib/site-body-fixture-render.ts', 'lib/site-body-fixture-render.test.ts', 'lib/a-sample-block-look-reaches-the-real-page.test.ts']);
+  /* 🔁 RE-AIMED 2026-10-10 (again): "WHAT GUESTS SEE" draws the real page on every stage with the same helper —
+     `stage-pages-fixture.ts` (tooling: the same couple with every scene filled) and the tests that read it. Tests and
+     tooling, shipped to nobody; the claim is unchanged. */
+  const OURS = new Set([
+    'lib/site-body-fixture.ts',
+    'lib/site-body-fixture-render.ts',
+    'lib/site-body-fixture-render.test.ts',
+    'lib/a-sample-block-look-reaches-the-real-page.test.ts',
+    'lib/stage-pages-fixture.ts',
+    'lib/every-stage-is-todays-page.test.ts',
+  ]);
   const walk = (dir: string): string[] =>
     readdirSync(join(WEB, dir)).flatMap((name) => {
       const rel = `${dir}/${name}`;

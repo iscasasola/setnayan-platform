@@ -4,7 +4,6 @@ import { emitNotification } from '@/lib/notification-emit';
 import { sendVendorGhostWarningEmail } from '@/lib/vendor-email-triggers';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { formatCount } from '@/lib/format-number';
-import { GHOST_THRESHOLD_HOURS } from '@/lib/inquiry-reminder';
 
 /**
  * Login-driven ghosting check (owner directive 2026-06-07 — NO cron).
@@ -29,7 +28,7 @@ import { GHOST_THRESHOLD_HOURS } from '@/lib/inquiry-reminder';
  * Everything is service-role + fail-soft — a hiccup never affects the page.
  */
 
-// ONE definition, in the pure module the 48-hour reminder shares — see there.
+const GHOST_THRESHOLD_HOURS = 48;
 
 export async function runLoginGhostingCheck(
   userId: string,
@@ -108,11 +107,6 @@ export async function runLoginGhostingCheck(
                 : `${formatCount(n)} inquiries are awaiting your reply`,
             body: 'Couples are waiting to hear from you. Answering keeps your response rate high — one answer covers all your services for that wedding.',
             relatedUrl: '/vendor-dashboard/messages',
-            // Written at the supplier's OWN sign-in: they are in the app. The
-            // type is emailed since 2026-10-10 — by the 48-hour reminder
-            // (lib/inquiry-reminder.server.ts), once per inquiry, to the
-            // supplier who has NOT come back. This one stays a tray badge.
-            skipEmail: true,
           });
         }
 

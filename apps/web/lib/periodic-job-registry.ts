@@ -304,16 +304,6 @@ export const PERIODIC_JOBS: readonly PeriodicJob[] = [
     reportsCount: true,
   },
   {
-    // 🔔 ADDED 2026-10-10. Nothing time-based ends an unanswered inquiry, and
-    // the only nudge was written at the supplier's own sign-in. One email per
-    // inquiry, to the supplier who has not come back (lib/inquiry-reminder.ts).
-    key: 'inquiry-reminder',
-    kind: 'operational',
-    gapMs: DAILY_GAP_MS,
-    what: 'The one reminder email to a supplier whose inquiry has waited 48 hours',
-    reportsCount: true,
-  },
-  {
     key: 'seo-health',
     kind: 'operational',
     gapMs: DAILY_GAP_MS,

@@ -63,13 +63,6 @@ export const COUPLE_SUPPLIER_NOTICES = {
     event: 'date_only',
     why: 'the first ask — a supplier who is not looking at the app never learns a couple wrote, and the couple waits on a reply that cannot come',
   },
-  inquiry_awaiting_reply: {
-    to: 'supplier',
-    reach: 'email',
-    // Still pre-accept: the date, never the name.
-    event: 'date_only',
-    why: 'an inquiry has waited 48 hours; one reminder goes to the supplier who has not come back (the sign-in nudge of the same type is held to the tray by skipEmail)',
-  },
   inquiry_accepted: {
     to: 'couple',
     reach: 'email',
@@ -346,6 +339,11 @@ export const COUPLE_SUPPLIER_NOTICES = {
     to: 'couple',
     reach: 'app_only',
     why: 'written at the couple’s own sign-in, so they are in the app when it lands',
+  },
+  inquiry_awaiting_reply: {
+    to: 'supplier',
+    reach: 'app_only',
+    why: 'written at the supplier’s own sign-in, so they are in the app when it lands; the away-from-app word is the first-inquiry email (the ghost-warning email in lib/ghosting.ts is about a booked event a week away, not an unanswered inquiry)',
   },
   vendor_review_reply: {
     to: 'couple',

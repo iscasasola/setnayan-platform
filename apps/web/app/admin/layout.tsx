@@ -2,7 +2,6 @@ import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { maybeRunLockRequestExpiry } from '@/lib/lock-request-expiry';
 import { maybeRunDeletionRequestNudge } from '@/lib/deletion-request-nudge';
-import { maybeRunInquiryReminder } from '@/lib/inquiry-reminder.server';
 import { maybeRunUnbilledFeeRepair } from '@/lib/unbilled-fee-repair.server';
 import { maybeRefillPriceBands } from '@/lib/price-band-refill.server';
 import { createClient } from '@/lib/supabase/server';
@@ -189,9 +188,6 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // admin-only mount would leave a supplier's reminder waiting on somebody
   // opening /admin.
   after(() => maybeRunDeletionRequestNudge().catch(() => {}));
-  // The 48-hour inquiry reminder (2026-10-10) — one email to a supplier whose
-  // inquiry has sat unanswered. Also on the supplier and couple layouts.
-  after(() => maybeRunInquiryReminder().catch(() => {}));
   // 🔴 The booking fee is the only revenue path, and it could open without ever
   // being billed: the collector opens the charge through the RPC first and can
   // fail at five later points, leaving a `pending` charge with no `orders` row

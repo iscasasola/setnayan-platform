@@ -99,7 +99,6 @@ const SCOPE_FILES = [
   'lib/offer-service-core.ts',
   'lib/reusable-bookings.server.ts',
   'lib/ghosting.ts',
-  'lib/inquiry-reminder.server.ts',
   'lib/lock-request-expiry.ts',
   'lib/lock-request-notices.server.ts',
   'lib/booking-payment-plan.server.ts',
@@ -227,8 +226,6 @@ type EmitSite = {
   links: string[];
   /** TRUE when the call hands the emitter the event explicitly. */
   passesEventId: boolean;
-  /** TRUE when THIS call holds the email back (`skipEmail: true`) — a tray-only call of an emailed type. */
-  skipsEmail: boolean;
 };
 
 /** Path literals (`'/x'`, `` `/x/${y}` ``) in an expression. */
@@ -287,7 +284,6 @@ function emitSites(): EmitSite[] {
         types,
         links,
         passesEventId: /(^|[\s,{])eventId\b/.test(block),
-        skipsEmail: /(^|[\s,{])skipEmail:\s*true\b/.test(block),
       });
     }
   }
@@ -431,9 +427,7 @@ test("3 · each emailed notice's link is a page that exists, on the recipient's 
       // nothing else. A supplier-side link carries no event, so the call has to
       // hand it over — or the email goes out with no "Event · Date" rows.
       const derivable = site.links.some((l) => /^\/dashboard\/\$\{[^}]+\}(\/|$|[?#])/.test(l));
-      // A call that holds its own email back (the sign-in nudge) sends no email
-      // to put the rows in.
-      if (notice.event !== 'none' && !derivable && !site.skipsEmail) {
+      if (notice.event !== 'none' && !derivable) {
         assert.ok(
           site.passesEventId,
           `${site.file}: the ${type} email cannot say which event it is about — its link (${site.links.join(' | ')}) carries no event and the call passes no eventId`,
@@ -533,13 +527,11 @@ test('5 · the emitter builds the mail from the notice\'s own link and event, an
 
   // The gate is the TYPE. With the configuration check in front of it, an
   // unconfigured mailer skipped the block and wrote nothing anywhere.
-  // The gate is the TYPE, plus the two per-call holds a caller may ask for
-  // (`skipEmail`, `onlyIfStored`) — never the mailer's configuration.
-  assert.match(fn, /\n {2}if \(EMAIL_ENABLED_TYPES\.has\(type\) && heldBack === null\) \{/, 'the email block is not gated on the allowlist (and the caller\'s own hold) alone');
+  assert.match(fn, /\n {2}if \(EMAIL_ENABLED_TYPES\.has\(type\)\) \{/, 'the email block is not gated on the allowlist alone');
   assert.doesNotMatch(fn, /isEmailConfigured\(\)/, 'the emitter checks configuration before sendEmail — an unconfigured send is skipped unrecorded again');
 
   // Three exits without a send, three rows: recipient unreadable, no address, threw.
-  const block = fn.slice(fn.indexOf('if (EMAIL_ENABLED_TYPES.has(type) && heldBack === null) {'), fn.indexOf('isWebPushConfigured()'));
+  const block = fn.slice(fn.indexOf('if (EMAIL_ENABLED_TYPES.has(type)) {'), fn.indexOf('isWebPushConfigured()'));
   const records = block.split('await recordDelivery(').length - 1;
   console.log(`# recordDelivery calls in the email block: ${records}`);
   assert.equal(records, 3, 'an exit from the email block stopped recording why no email went');

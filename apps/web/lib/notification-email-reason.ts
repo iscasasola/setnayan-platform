@@ -97,7 +97,6 @@ export const NOTIFICATION_EMAIL_REASONS: Partial<Record<NotificationType, string
   quote_declined: R('a couple declined a quote your shop sent'),
   change_order_proposed: R('a change to the price of a booking is waiting for your answer'),
   change_order_answered: R('a change you proposed to the price of a booking was answered'),
-  inquiry_awaiting_reply: R('an inquiry to your shop is still waiting for an answer'),
 };
 
 /** Said when a type has no line of its own yet — true of every account mail. */

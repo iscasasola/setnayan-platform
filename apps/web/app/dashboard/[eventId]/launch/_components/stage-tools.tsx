@@ -1150,7 +1150,7 @@ export function StageTools({
      Background or Animate — and the Camera, a full-screen design, has Style alone; nor has any part with no save for
      it (E-Gifts, What to wear …). With nothing picked every tool is live — the rows under it are empty until a part is. */
   /* 🧱 A FIXED BLOCK WITH ONE REAL ROOT (`lib/block-looks.ts`: the March, The details, E-Gifts, Happening now — and
-     Your seat, a sample here whose real block each guest's page draws from one root) has
+     Your seat and the Digital pass, samples here whose real block each guest's page draws from one root) has
      its own Animate and its own Background (None · Plain · Frosted). E-Gifts only while the canvas draws the REAL
      block — with no gift link it draws a Maker-only empty card, and a guest sees nothing there to move or to dress. */
   const blockAt = !rsvpOpen && picked ? blockOfCanvas(makerPartCanvasOn(stageKey, picked)) : null;

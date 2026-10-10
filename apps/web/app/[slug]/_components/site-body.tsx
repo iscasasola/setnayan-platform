@@ -765,6 +765,14 @@ export async function SiteBody({
     const block = blockOfCanvas(key);
     return block ? blockMark(block) : null;
   };
+  /** 🎫 …and a guest-link scene whose real block takes one (the Digital pass): the block's mark, then the Maker's own
+   *  marker, which stays right next to the sample. The greeting and the reply have no block: the marker alone. */
+  const guestSceneMark = (key: string) => (
+    <>
+      {sampleBlockMark(key)}
+      {makerMark(key)}
+    </>
+  );
   // 🔤 The hero's parts in the couple's own font · colour · size · animation
   // (`lib/element-style.ts`, on the hero row's canvas), and — in the Maker's
   // canvas only — the `data-el` keys that tell the Maker which part was tapped.
@@ -2072,7 +2080,7 @@ export async function SiteBody({
                   : null}
                 {scenesByPage(stagesLeadCut < 0 ? [] : stagesLead.slice(stagesLeadCut), 'mt-12')}
                 {plan.qrCardShouldRender
-                  ? group(at('f:pass', 'me'), <MakerGuestScenes show={{ greeting: false, pass: true, rsvp: false }} eventDate={event.event_date} solemn={clientWords.solemn} mark={makerMark} />)
+                  ? group(at('f:pass', 'me'), <MakerGuestScenes show={{ greeting: false, pass: true, rsvp: false }} eventDate={event.event_date} solemn={clientWords.solemn} mark={guestSceneMark} />)
                   : null}
               </>
             ) : null}
@@ -2087,7 +2095,7 @@ export async function SiteBody({
                 }
                 eventDate={event.event_date}
                 solemn={clientWords.solemn}
-                mark={makerMark}
+                mark={guestSceneMark}
               />
             ) : null}
             {/* 🏠 WELCOME — after the reply, before Details (owner 2026-09-30).

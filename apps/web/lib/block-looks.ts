@@ -28,7 +28,7 @@
  * Absent = today's look, exactly. The tile that equals today's look stores nothing.
  *
  * WHICH BLOCKS. Only the ones a guest's page draws from ONE real root (controller 2026-10-10). The others the
- * canvas frames — Photos of you · Announcements · Live hub · Digital pass · What to wear — are SAMPLES
+ * canvas frames — Photos of you · Announcements · Live hub · What to wear — are SAMPLES
  * there; each guest sees their own, drawn elsewhere. A look kept for a sample would show in the Maker and never
  * reach a guest, so those stay grey and say why (`BLOCK_SAMPLE_WHY`).
  *
@@ -38,6 +38,16 @@
  * the canvas's sample too, and the same rules address both. So the sample wears what the real one wears — its
  * plate where the real one is a plate (Map), a card where it has one (Place card), bare where it is bare (Table
  * number) — and what the couple picks in the Maker is what the guest gets.
+ *
+ * 🎫 …AND THE DIGITAL PASS (2026-10-10). Each guest's own is `GuestTicket` (`guest-ticket.tsx`), drawn first on Me:
+ * one root, already named (`id=PASS_ANCHOR`, `data-motion="pass"`). The mark rides with the TICKET — handed to the
+ * component, which puts it right before its root only when it draws a ticket (a guest who has not replied sees the
+ * reply button there, one who cannot come sees one line: neither is a pass, and neither is dressed or moved). The
+ * ticket's picture is drawn on the server (a PNG); a Background stands BEHIND it — the block's root takes the paper
+ * or the glass — and never re-draws it. Bare today, like the March.
+ * ⚓ THE DOOR'S OWN LIFT STAYS. When the day's "Show your ticket" lands on the pass (`#site-pass`),
+ * `[data-motion='pass']:target` (globals.css) lifts it so it reads as the thing to show at the door. A block's motion
+ * would out-rank that rule, so the pass's is written for every moment BUT that one (`:not(:target)`).
  */
 import { hubElementMotionDeclarations, sanitizeHubElementMotion, type HubElementMotion } from './element-style';
 
@@ -45,7 +55,7 @@ import { hubElementMotionDeclarations, sanitizeHubElementMotion, type HubElement
 export const BLOCK_LOOKS_PREF_KEY = 'block_looks';
 
 /** The blocks that take a look — each is its canvas key without the `f:` (`lib/maker-parts.ts`). */
-export const BLOCK_LOOK_BLOCKS = ['entourage', 'details', 'gifts', 'spotlight', 'find_your_seat'] as const;
+export const BLOCK_LOOK_BLOCKS = ['entourage', 'details', 'gifts', 'spotlight', 'find_your_seat', 'pass'] as const;
 export type BlockLookBlock = (typeof BLOCK_LOOK_BLOCKS)[number];
 /** A block's background — the RSVP card's three (`RSVP_CARD_TILES`), in its order and words. */
 export const BLOCK_GROUNDS = ['none', 'plain', 'frost'] as const;
@@ -70,7 +80,6 @@ export const BLOCK_SAMPLE_WHY: Readonly<Record<string, string>> = {
   'f:photos_of_you': 'This is a sample. Each guest sees their own photos here.',
   'f:announcements': 'This is a sample. Guests see your announcements here as you send them.',
   'f:live_hub': 'This is a sample. Guests see the live hub here on the day.',
-  'f:pass': 'This is a sample. Each guest sees their own pass here.',
   'f:look': 'This is a sample. Each guest sees what they wear here.',
 };
 
@@ -80,14 +89,14 @@ export const BLOCK_SAMPLE_WHY: Readonly<Record<string, string>> = {
  * drawings are bare — asked of the block itself (`blockGroundToday`). Nor has Your seat: the Map is a plate, the
  * Place card holds a card, the Table number is bare.
  */
-export const BLOCK_GROUND_TODAY: Readonly<Record<BlockLookBlock, BlockGround | null>> = { entourage: 'none', details: null, gifts: 'plain', spotlight: 'plain', find_your_seat: null };
+export const BLOCK_GROUND_TODAY: Readonly<Record<BlockLookBlock, BlockGround | null>> = { entourage: 'none', details: null, gifts: 'plain', spotlight: 'plain', find_your_seat: null, pass: 'none' };
 /**
  * The block's own card, from its root ('' = the root is the card; null = it has none in any drawing). A list where
  * its drawings keep it in different places — Your seat: the root when it is a plate (Map), the place card inside
  * (Place card), and that card as the canvas's sample holds it (one level down, in the sample's own box).
  */
 const SEAT_CARDS = ['.pahina-plate', ' > .bg-paper-deep', ' > [data-maker-sample] > .bg-paper-deep'] as const;
-const GROUND_CARD: Readonly<Record<BlockLookBlock, string | readonly string[] | null>> = { entourage: null, details: ' > .pahina-plate', gifts: ' > a', spotlight: '', find_your_seat: SEAT_CARDS };
+const GROUND_CARD: Readonly<Record<BlockLookBlock, string | readonly string[] | null>> = { entourage: null, details: ' > .pahina-plate', gifts: ' > a', spotlight: '', find_your_seat: SEAT_CARDS, pass: null };
 /** The root where it stands bare ('' = always; null = never) — there the root itself takes the paper or the glass. */
 const GROUND_BARE: Readonly<Record<BlockLookBlock, string | null>> = {
   entourage: '',
@@ -95,6 +104,7 @@ const GROUND_BARE: Readonly<Record<BlockLookBlock, string | null>> = {
   gifts: null,
   spotlight: null,
   find_your_seat: ':not(.pahina-plate):not(:has(> .bg-paper-deep, > [data-maker-sample] > .bg-paper-deep))',
+  pass: '',
 };
 const cardsOf = (block: BlockLookBlock): readonly string[] => {
   const card = GROUND_CARD[block];
@@ -192,8 +202,10 @@ const OWN = ':not(#el-own)';
  * no chapter round it: it plays as the block is first drawn (Me is hidden until its tab is opened, and an animation
  * starts when its element is first rendered). Inside a chapter it waits for the observer, like every other block.
  */
-const OFF_CHAPTERS: readonly BlockLookBlock[] = ['find_your_seat'];
+const OFF_CHAPTERS: readonly BlockLookBlock[] = ['find_your_seat', 'pass'];
 const NO_CHAPTER = ':not([data-pahina-chapters] *)';
+/** ⚓ The pass, while the address points at it: the door's own lift plays (`[data-motion='pass']:target`), not this. */
+const NOT_THE_DOOR: Readonly<Partial<Record<BlockLookBlock, string>>> = { pass: ':not(:target)' };
 const decl = (d: Array<[string, string]>) => d.map(([p, v]) => `${p}:${v}`).join(';');
 const sideways = (m: HubElementMotion) => [m.in?.move, m.out?.move].some((d) => Boolean(d) && d !== 'above' && d !== 'below');
 
@@ -255,7 +267,7 @@ export function blockLooksCss(looks: BlockLooks): string {
   for (const block of BLOCK_LOOK_BLOCKS) {
     const motion = looks[block]?.motion;
     if (!motion) continue;
-    const sel = `${blockSelector(block)}${OWN}`;
+    const sel = `${blockSelector(block)}${OWN}${NOT_THE_DOOR[block] ?? ''}`;
     /* ↔ A block that travels sideways must not widen the page. */
     if (sideways(motion)) rules.push(`:has(> [${BLOCK_MARK_ATTR}="${block}"]){overflow-x:clip}`);
     rules.push(`${sel}{${decl(hubElementMotionDeclarations(motion, 'page', false))}}`);

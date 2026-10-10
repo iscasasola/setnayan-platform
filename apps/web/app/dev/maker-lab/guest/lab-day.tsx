@@ -90,7 +90,9 @@ export function LabDayPages({
     ['f:photos_of_you', dayPart('photos_of_you')],
     ['f:find_your_seat', dayPart('find_your_seat')],
     /* The guest's pass — the canvas's own stand-in, which draws its own marker. */
-    ['f:pass', <div key="pass" className="border-t border-ink/10 px-4 py-8"><MakerGuestScenes show={{ greeting: false, pass: true, rsvp: false }} eventDate="2026-12-12" solemn={false} mark={mark} /></div>],
+    /* 🧱 Its real block takes a look (`lib/block-looks.ts`): the block's mark first, then the Maker's marker, as the real
+       canvas hands them (`site-body.tsx` `guestSceneMark`). */
+    ['f:pass', <div key="pass" className="border-t border-ink/10 px-4 py-8"><MakerGuestScenes show={{ greeting: false, pass: true, rsvp: false }} eventDate="2026-12-12" solemn={false} mark={(key) => <>{blockOfCanvas(key) ? <span hidden {...{ [BLOCK_MARK_ATTR]: blockOfCanvas(key) }} /> : null}{mark(key)}</>} /></div>],
   ];
   const filled = new Set<string>();
   const byPage = new Map<string, ReactNode[]>();

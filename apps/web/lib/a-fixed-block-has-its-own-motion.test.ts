@@ -27,11 +27,18 @@
  * Sabotages seen red: the mark left out of the real block · the mark dropped before the sample · the no-chapter arm
  * removed · Your seat put back among the samples.
  *
+ * 🎫 2026-10-10 — …AND THE DIGITAL PASS. Each guest's own is `GuestTicket`, first on Me: one root, already named. The
+ * mark is made where the ticket is mounted (`app/[slug]/page.tsx`) and handed to the ticket, which puts it before its
+ * root only when it draws a TICKET; the canvas's sample stands behind the same mark. ⚓ The door's own lift
+ * (`[data-motion='pass']:target`) still plays: the block's motion is written for every moment but that one. Held in
+ * §1 · §2 · §3 · §4 · §5. Sabotages seen red: the ticket mounted without its mark · the mark put before the reply
+ * button too · the block's motion out-ranking the door's lift · the pass put back among the samples.
+ *
  * Lives in `lib/` because node's test glob does not descend into `[eventId]`.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { stripComments } from './strip-comments';
@@ -63,8 +70,9 @@ test('1 · the reader is strict: the real blocks, and only what the Event Hub’
   /* 🔁 RE-AIMED 2026-10-10 (a sample made real): Your seat joined the four — each guest's own is ONE root in one
      place in the page (`seatBlock`, §4), so a look kept for it reaches a guest. The claim is the same: only a block
      with one real root is listed. */
-  assert.deepEqual([...BLOCK_LOOK_BLOCKS], ['entourage', 'details', 'gifts', 'spotlight', 'find_your_seat']);
+  assert.deepEqual([...BLOCK_LOOK_BLOCKS], ['entourage', 'details', 'gifts', 'spotlight', 'find_your_seat', 'pass']);
   assert.equal(blockOfCanvas('f:find_your_seat'), 'find_your_seat');
+  assert.equal(blockOfCanvas('f:pass'), 'pass');
   /* Each is a block the Maker frames — and the samples are not among them. */
   const canvases = new Set(Object.values(MAKER_PARTS).map((p) => p.canvas));
   for (const b of BLOCK_LOOK_BLOCKS) assert.ok(canvases.has(`f:${b}`), `${b} is no block of the Maker’s`);
@@ -127,6 +135,20 @@ test('2 · the rules are the Event Hub’s own: both gates, a timed Build in wai
   const OBSERVER = raw('app/[slug]/_components/pahina-motion.tsx');
   assert.ok(OBSERVER.includes("var sel='.sn-editorial [data-pahina-chapters] > *';") && OBSERVER.includes("var hsel='.hub-canvas, style[data-hub-els]';"), 'the observer marks something new — a block in Me may no longer need its own arm');
 
+  /* 🎫 THE PASS is Me's too (no chapter: the same arm) — and ⚓ THE DOOR'S OWN LIFT STAYS: when the day's "Show your
+     ticket" lands on `#site-pass`, `[data-motion='pass']:target` lifts the ticket so it reads as the thing to show at
+     the door. A block's rule would out-rank that one (an id's worth of specificity), so every arm of the pass's motion
+     is written for every moment BUT that one. */
+  const pass = blockLooksCss(readBlockLooks({ block_looks: { pass: { motion: { in: { fade: true, move: 'below' }, speed: 'gentle' } } } })).split('\n').slice(1, -1);
+  const passAt = `${blockSelector('pass')}:not(#el-own):not(:target)`;
+  assert.equal(pass.length, 2);
+  assert.ok(pass[0]!.startsWith(`${passAt}{animation:0s none none,`), pass[0]);
+  assert.ok(pass[1]!.startsWith(`.pahina-in ${passAt},.pahina-in${passAt},${passAt}:not([data-pahina-chapters] *){animation:1.8s cubic-bezier(0.22, 0.61, 0.36, 1) 0s none el-in-rise,`), pass[1]);
+  for (const line of pass) assert.equal(line.split('{')[0]!.split(':not(:target)').length - 1, line.split('{')[0]!.split(':not(#el-own)').length - 1, 'an arm of the pass’s motion reaches the pass while the address points at it');
+  assert.match(raw('app/globals.css'), /\[data-motion='pass'\]:target \{\s*animation: sn-pass-lift var\(--sn-dur-enter\) var\(--sn-ease-out\) backwards;\s*\}/, 'the door’s lift is gone (or renamed): the pass’s `:not(:target)` guards nothing');
+  /* No other block is kept from its target (none is one). */
+  assert.doesNotMatch(blockLooksCss(readBlockLooks({ block_looks: { entourage: { motion: { in: { fade: true } } }, find_your_seat: { motion: { in: { fade: true } } } } })), /:target/);
+
   /* Following the scroll: the block's own trip across the screen, in and out, and Drift between. */
   const scroll = blockLooksCss(readBlockLooks({ block_looks: { details: { motion: { timeline: 'scroll', in: { fade: true, move: 'left' }, out: { fade: true }, during: 'drift' } } } }));
   assert.match(scroll, /animation-timeline:view\(\), auto, view\(\);animation-range:entry 0% cover 30%, normal, exit 0% exit 100%/);
@@ -158,6 +180,9 @@ test('3 · the draft carries it, counts it and names it; an empty look is no loo
   const seated = counted(sanitizeHubDraft({ events: { style_preferences: { [BLOCK_LOOKS_PREF_KEY]: { find_your_seat: { motion: { in: { fade: true } } } } } } }));
   assert.equal(seated.length, 1, 'Your seat’s look does not move the Apply count');
   assert.equal(seated[0]!.held, false);
+  const ticketed = counted(sanitizeHubDraft({ events: { style_preferences: { [BLOCK_LOOKS_PREF_KEY]: { pass: { motion: { in: { fade: true } } } } } } }));
+  assert.equal(ticketed.length, 1, 'the pass’s look does not move the Apply count');
+  assert.equal(ticketed[0]!.held, false);
   /* …and a look put back to nothing (an empty object over none) is not. */
   const still = sanitizeHubDraft({ events: { style_preferences: { [BLOCK_LOOKS_PREF_KEY]: {} } } });
   assert.equal(still ? counted(still).length : 0, 0, 'an empty look counts as a change');
@@ -194,6 +219,28 @@ test('4 · a guest’s page: a mark only for a block that has a look, and the on
      the sample), so the look is drawn there by the rules that draw it for a guest. */
   assert.match(BODY, /const sampleBlockMark = \(key: string\) => \{\s*const block = blockOfCanvas\(key\);\s*return block \? blockMark\(block\) : null;\s*\};/);
   assert.match(BODY, /\{sampleBlockMark\(`f:\$\{part\}`\)\}\s*\{makerMark\(`f:\$\{part\}`\)\}\s*<MakerDayPartStandIn/);
+  /* 🎫 THE DIGITAL PASS — mounted by the page (`page.tsx`), not by SiteBody: the mark is made THERE by the same rule
+     (the canvas always; a guest only when a look is kept), and handed to every mount of the ticket… */
+  const PAGE = src('app/[slug]/page.tsx');
+  assert.match(PAGE, /const passBlockMark =\s*isEditorCanvas \|\| readBlockLooks\(\(event as \{ style_preferences\?: unknown \}\)\.style_preferences\)\.pass \? <span hidden \{\.\.\.\{ \[BLOCK_MARK_ATTR\]: 'pass' \}\} \/> : null;/);
+  const tickets = (PAGE.match(/<GuestTicket\s/g) ?? []).length;
+  assert.equal(tickets, 2, 'anti-vacuity: the ticket’s mounts were found (a guest’s, and the Maker’s sample guest’s)');
+  assert.equal((PAGE.match(/<GuestTicket\s[^>]*?\smark=\{passBlockMark\}\s*\/>/g) ?? []).length, tickets, 'a ticket is mounted without its mark: its look would not reach those guests');
+  const parts = readdirSync(join(WEB, 'app/[slug]/_components')).filter((f) => f.endsWith('.tsx'));
+  assert.ok(parts.length > 100 && parts.includes('guest-ticket.tsx'), `anti-vacuity: walked ${parts.length} files`);
+  for (const file of parts) assert.doesNotMatch(src(`app/[slug]/_components/${file}`), /<GuestTicket\s/, `${file} mounts the ticket itself: it would have no mark`);
+  /* …and THE TICKET puts it right before its own root, only when it draws a ticket: the reply button (not replied
+     yet) and the one line (cannot come) are not a pass, and take no mark. */
+  const TICKET = src('app/[slug]/_components/guest-ticket.tsx');
+  assert.match(TICKET, /<>\s*\{mark\}\s*<section\s+id=\{PASS_ANCHOR\}\s+data-motion="pass"\s+data-guest-ticket=\{state\}/);
+  assert.equal((TICKET.match(/\{mark\}/g) ?? []).length, 1, 'the mark stands before something that is not a ticket');
+  assert.equal((TICKET.match(/data-motion="pass"/g) ?? []).length, 1);
+  /* THE CANVAS'S SAMPLE of it stands behind the same mark: the block's, then the Maker's marker, then the sample. */
+  assert.match(BODY, /const guestSceneMark = \(key: string\) => \(\s*<>\s*\{sampleBlockMark\(key\)\}\s*\{makerMark\(key\)\}\s*<\/>\s*\);/);
+  const passSamples = (BODY.match(/<MakerGuestScenes\s[^>]*?pass: (?:true|plan\.qrCardShouldRender)[\s\S]*?\/>/g) ?? []);
+  assert.equal(passSamples.length, 2, 'anti-vacuity: the two mounts that can draw the pass’s sample were found');
+  for (const mount of passSamples) assert.match(mount, /mark=\{guestSceneMark\}/, 'a sample of the pass is drawn with no block mark: a look picked in the Maker would not show');
+  assert.match(src('app/[slug]/_components/maker-guest-scenes.tsx'), /\{mark\('f:pass'\)\}\s*<section className="flex flex-col items-center gap-2 text-center" data-maker-guest-scene="pass">/);
   /* Happening now is drawn in TWO places (never both at once): the look reaches both. */
   assert.equal((BODY.match(/blockMark\('spotlight'\) : null\}\s*\{plan\.spotlight[^}]*makerMark\('f:spotlight'\) : null\}/g) ?? []).length, 2, 'Happening now is marked in one of its two places only');
   /* E-Gifts is drawn by the welcome block, which takes its marker as a prop — in every tree that can show a gift link. */
@@ -252,15 +299,18 @@ test('5 · the toolbar: Animate is live on the real blocks; the samples stay gre
      toolbar's `block` now names it (`blockOfCanvas`), so `ownTool` lights Background and Animate there through the
      very lines pinned above, and no line of the toolbar changed. The claim is the same: a part still listed here
      has no real root a look could reach, stays grey, and says so. */
-  assert.deepEqual(Object.keys(BLOCK_SAMPLE_WHY).sort(), ['f:announcements', 'f:live_hub', 'f:look', 'f:pass', 'f:photos_of_you']);
-  /* The part rule itself is as it was (a first-load file, not edited): Your seat's two tools are the BLOCK's. */
-  for (const tool of ['bg', 'animate'] as const) assert.equal(makerPartToolWorks((Object.keys(MAKER_PARTS) as MakerPartKey[]).find((k) => MAKER_PARTS[k].canvas === 'f:find_your_seat')!, tool), false);
+  assert.deepEqual(Object.keys(BLOCK_SAMPLE_WHY).sort(), ['f:announcements', 'f:live_hub', 'f:look', 'f:photos_of_you']);
+  /* The part rule itself is as it was (a first-load file, not edited): the two tools of Your seat and of the pass are
+     the BLOCK's. (The pass is also a line of the reply's thank-you page — there the toolbar asks no block: `!rsvpOpen`.) */
+  for (const canvas of ['f:find_your_seat', 'f:pass']) {
+    for (const tool of ['bg', 'animate'] as const) assert.equal(makerPartToolWorks((Object.keys(MAKER_PARTS) as MakerPartKey[]).find((k) => MAKER_PARTS[k].canvas === canvas)!, tool), false);
+  }
   for (const [canvas, why] of Object.entries(BLOCK_SAMPLE_WHY)) {
     assert.match(why, /^This is a sample\. /, `${canvas}: ${why}`);
     const part = (Object.keys(MAKER_PARTS) as MakerPartKey[]).find((k) => MAKER_PARTS[k].canvas === canvas)!;
     for (const tool of ['bg', 'animate'] as const) assert.equal(makerPartToolWorks(part, tool), false, `${part} › ${tool} is live on a sample`);
   }
-  assert.equal(new Set(Object.values(BLOCK_SAMPLE_WHY)).size, 5, 'two samples say the same thing');
+  assert.equal(new Set(Object.values(BLOCK_SAMPLE_WHY)).size, 4, 'two samples say the same thing');
   assert.match(TOOLS, /const sample = picked && \(t === 'bg' \|\| t === 'animate'\) \? BLOCK_SAMPLE_WHY\[makerPartCanvasOn\(stageKey, picked\) \?\? ''\] : undefined;/);
   /* 🔁 RE-AIMED 2026-10-10 (same change): E-Gifts with nothing for a guest to see says so for Background too — it
      would otherwise answer "edit it in Studio", which is no longer where a block's background is. */

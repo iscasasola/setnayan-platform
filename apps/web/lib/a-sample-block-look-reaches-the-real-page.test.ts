@@ -14,11 +14,19 @@
  *   · the rules that style carries find the real block from that mark.
  *
  * Sabotages seen red (each restored): the mark served with nothing kept · the mark parted from the block’s root.
+ *
+ * 🎫 THE DIGITAL PASS is mounted by the page, not by `SiteBody` (`app/[slug]/page.tsx` `meSlotFor`), so it is proved
+ * on the ticket itself (`GuestTicket`, drawn by React's own HTML renderer): with no mark handed in it is the same
+ * bytes; with one, the ticket gains exactly that span, right before its own root — and the reply button (a guest who
+ * has not replied) and the one line (a guest who cannot come) take none. Sabotages seen red: a stray element drawn
+ * beside the mark · the mark drawn before the reply button.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { BLOCK_LOOKS_PREF_KEY, BLOCK_LOOKS_STYLE_ATTR, BLOCK_MARK_ATTR, blockLooksCss, readBlockLooks } from './block-looks';
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { renderSiteBodyFixture } from './site-body-fixture-render';
 import type { SiteBodyFixtureProps } from './site-body-fixture';
 
@@ -58,5 +66,29 @@ test('Your seat: nothing kept is the same page; a look kept adds the mark before
     assert.equal(dressed.split(style).length, 2, `${JSON.stringify(look)}: the one style is not on the page exactly once`);
     /* …AND NOT ONE OTHER BYTE: take the two away and it is the page with nothing kept. */
     assert.equal(dressed.replace(mark, '').replace(style, ''), plain, `${JSON.stringify(look)}: the page changed somewhere else`);
+  }
+});
+
+test('The Digital pass: the ticket with no mark is the same bytes; with one, it gains that span right before its root — and only a ticket does', async () => {
+  const { GuestTicket } = await import('../app/[slug]/_components/guest-ticket');
+  const mark = React.createElement('span', { hidden: true, [BLOCK_MARK_ATTR]: 'pass' });
+  const span = `<span hidden="" ${BLOCK_MARK_ATTR}="pass"></span>`;
+  const draw = (props: Record<string, unknown>) => renderToStaticMarkup(React.createElement(GuestTicket as unknown as React.FC<Record<string, unknown>>, { name: 'Teresita Cruz', invitationUrl: 'https://example.test/i', ...props }));
+  /* React lifts the picture's preload hint (`<link rel="preload" as="image">`) to the front of what it writes; the
+     ticket's own markup follows it. */
+  const parts = (html: string) => /^((?:<link [^>]*\/>)*)([\s\S]*)$/.exec(html)!.slice(1) as [string, string];
+  for (const state of ['pass', 'awaiting'] as const) {
+    const plain = draw({ state });
+    const [hints, body] = parts(plain);
+    assert.ok(body.startsWith(`<section id="site-pass" data-motion="pass" data-guest-ticket="${state}"`), body.slice(0, 120));
+    assert.equal(draw({ state, mark: null }), plain);
+    /* The mark, then the ticket's own root — and nothing else moved. */
+    assert.equal(draw({ state, mark }), `${hints}${span}${body}`, `${state}: the mark is not right before the ticket’s root (or something else changed)`);
+  }
+  /* Not a ticket: the reply button before a reply, the one line when they cannot come, nothing at all. No mark. */
+  for (const props of [{ state: 'pass', replyHref: '#reply' }, { state: 'cannotCome' }, { state: 'none' }] as const) {
+    const plain = draw(props);
+    assert.doesNotMatch(plain, /data-motion="pass"/, 'anti-vacuity: this state draws no ticket');
+    assert.equal(draw({ ...props, mark }), plain, `${JSON.stringify(props)}: a mark is drawn where there is no ticket`);
   }
 });

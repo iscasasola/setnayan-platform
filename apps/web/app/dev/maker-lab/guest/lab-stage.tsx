@@ -54,7 +54,8 @@ export function LabStagePages({
     </div>
   );
   const tabbed = paged && makerStageIsPaged(stage);
-  if (!tabbed) return <div className="sn-editorial" data-lab-stage={stage}>{drawn.map(node)}</div>;
+  /* `pahina-in` — the lab has no page observer, so its pages are marked as reached (see `lab-day.tsx`). */
+  if (!tabbed) return <div className="sn-editorial pahina-in" data-lab-stage={stage}>{drawn.map(node)}</div>;
   const pages = makerStagesPages(stage);
   const keys = pages.map((p) => p.key);
   const active = activeHubTab(tab, keys);
@@ -64,7 +65,7 @@ export function LabStagePages({
     byPage.set(page, [...(byPage.get(page) ?? []), node(key)]);
   }
   return (
-    <div className="sn-editorial" data-lab-stage={stage} data-lab-stage-pages="">
+    <div className="sn-editorial pahina-in" data-lab-stage={stage} data-lab-stage-pages="">
       {pages.map((p) =>
         byPage.has(p.key) ? (
           <div key={p.key} {...{ [HUB_TAB_ATTR]: p.key }} hidden={p.key !== active ? true : undefined}>

@@ -122,7 +122,10 @@ export function LabDayPages({
     ]);
   }
   return (
-    <div className="sn-editorial" data-lab-day-pages="">
+    /* `pahina-in`: the mark the real page's one observer puts on a chapter once a guest has reached it
+       (`pahina-motion.tsx`) — what a fixed block's timed Build in waits for (`lib/block-looks.ts`). The lab has no
+       observer, so its pages are marked as reached: without it a block's Animate could never be seen here (M12). */
+    <div className="sn-editorial pahina-in" data-lab-day-pages="">
       {keys.map((p) =>
         filled.has(p) ? (
           <div key={p} {...(paged ? { [HUB_TAB_ATTR]: p } : {})} hidden={paged && p !== active ? true : undefined}>

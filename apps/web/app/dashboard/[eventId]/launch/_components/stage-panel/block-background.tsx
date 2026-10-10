@@ -10,7 +10,7 @@ import {
   blockLooksWithGround,
   readBlockLooks,
   type BlockGround,
-  type BlockLookBlock,
+  type BlockGroundBlock,
 } from '@/lib/block-looks';
 import { SP_BG_TILE, SP_BG_TILE_FACE, SP_BG_TILE_NAME, SP_BG_TILE_SLASH, SP_BG_TILE_TONE, SP_ROWS, SP_ROWS_ROW } from '@/lib/maker-stage-room';
 import { useBlockLooksDraft } from './block-animate';
@@ -18,7 +18,7 @@ import { useBlockLooksDraft } from './block-animate';
 const SHOWN_FRAME = 'iframe[data-maker-canvas-frame="shown"]';
 
 /** The block as the canvas on screen draws it: the element after its mark — or after the Maker's marker between. */
-function blockOnCanvas(block: BlockLookBlock): Element | null {
+function blockOnCanvas(block: BlockGroundBlock): Element | null {
   const doc = document.querySelector<HTMLIFrameElement>(SHOWN_FRAME)?.contentDocument ?? null;
   const after = doc?.querySelector(`[${BLOCK_MARK_ATTR}="${block}"]`)?.nextElementSibling ?? null;
   return after?.hasAttribute('data-maker-section') ? after.nextElementSibling : after;
@@ -34,7 +34,7 @@ function blockOnCanvas(block: BlockLookBlock): Element | null {
  * picking that one keeps nothing. Saved through the blocks' one save (`useBlockLooksDraft`): on the canvas at the
  * tap, in the draft behind it, live on Apply.
  */
-export function BlockGroundRows({ block }: { block: BlockLookBlock }) {
+export function BlockGroundRows({ block }: { block: BlockGroundBlock }) {
   const { eventId, prefs, error, saveWhole } = useBlockLooksDraft();
   /* What the block wears with nothing kept. The details is asked of the canvas: its plate is a card, its other two
      drawings are bare. */

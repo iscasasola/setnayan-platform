@@ -150,6 +150,21 @@ export const FIXTURE_SCRUB_SCENE = 'schedule' as const;
 export const fixtureWidgetsWithAScrubScene = (scene: keyof typeof LAB_SCRUB_SAMPLE = FIXTURE_SCRUB_SCENE): InvitationWidgetRow[] =>
   fixtureWidgets({ [scene]: LAB_SCRUB_SAMPLE[scene] });
 
+/**
+ * 🚶 THE SAME INVITATION, READ BY A STRANGER — somebody holding the link and no key: no guest cookie, no account. It
+ * is the page's OTHER tree (`site-body.tsx` `anonymousTree`): the general details and ONE door ("Get inside"), never a
+ * guest's own line. Nothing guest-derived rides on it (`_lib/site-identity.ts` `AnonymousSiteIdentity`). A fresh
+ * object each call. Hand it to the render as `{ identity: fixtureStranger() }`; with `heroPhotoUrl` set the same page
+ * draws the stranger's OTHER masthead — the photo cover, alone in the page's first group.
+ */
+export const fixtureStranger = (): SiteBodyFixtureProps['identity'] => ({
+  kind: 'anonymous',
+  reason: null,
+  publicCandidCameraActive: false,
+  publicAlbumHref: null,
+  signedInNotListed: false,
+});
+
 /** Every prop `SiteBody` takes, for the fixture invitation. A fresh object each call — a render cannot dirty the next. */
 export function siteBodyFixtureProps(overrides: Partial<SiteBodyFixtureProps> = {}): SiteBodyFixtureProps {
   const identity = buildSimulatedGuestIdentity({

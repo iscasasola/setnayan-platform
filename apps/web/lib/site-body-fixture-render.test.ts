@@ -39,6 +39,11 @@
  *       turned on by hand, `leaves={false}` → "the cover's cell, exactly once" red · `holds={pageHolds + 1}` → "one
  *       pair — not two" red (and (2) (3) (4): every page) · the rest box's `mt-12` dropped → "the reply row is not
  *       what follows" red · the cell's first-screen mark dropped → "the masthead is not in the cover's box" red.
+ *   (7) THE STRANGER'S TREE (`fixtureStranger`: the link and no key) — the page's other tree is drawn too, both of
+ *       its mastheads (text-only in its first-screen wrapper; the photo cover alone in the first group), held byte
+ *       for byte by its own golden (`site-body-fixture-stranger.golden.html`), with no Scrub on it.
+ *   (8) THE STRANGER'S COVER STORED TO LEAVE BY SCRUB — dark: today's page, byte for byte, no island (written before
+ *       the stranger's tree was wired, so it was green on the unwired page).
  *       What the wrapped page LOOKS like — its boxes, its rhythm, its chapters, the hand-over itself — is not
  *       proven here: `scripts/scrub-browser-check.mjs` (16) plays this same render in a browser.
  *
@@ -73,12 +78,15 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 /* FIRST, before anything that draws the guest page: this import installs the seam (see `installSeam`). */
 import { renderSiteBodyFixture, renderSiteBodyFixtureFull } from './site-body-fixture-render';
-import { FIXTURE_BLOCKS, FIXTURE_SCRUB_SCENE, FIXTURE_WORDS, fixtureWidgets, fixtureWidgetsWithAScrubScene } from './site-body-fixture';
+import { FIXTURE_BLOCKS, FIXTURE_SCRUB_SCENE, FIXTURE_WORDS, fixtureStranger, fixtureWidgets, fixtureWidgetsWithAScrubScene } from './site-body-fixture';
 import { SCRUB_OUT_OFFERED } from './scrub-out-offered';
 import { HubCoverHold, HubPageHold, HubScenes, hubCoverLeaves, hubScrubHoldsAtMost } from '../app/[slug]/_components/hub-scenes';
 import { LAB_SCRUB_COVER } from '../app/dev/maker-lab/lab-scrub';
 
 const GOLDEN = join(__dirname, 'site-body-fixture.golden.html');
+/** 🚶 The stranger's tree of the same invitation (`fixtureStranger`) — its own committed page. */
+const STRANGER_GOLDEN = join(__dirname, 'site-body-fixture-stranger.golden.html');
+const PHOTO = { heroPhotoUrl: 'https://cdn.test/fixture-hero.jpg' } as const;
 
 /** Where two strings first differ, with a little of each side — a 41 KB diff in a test log helps nobody. */
 function firstDifference(a: string, b: string): string {
@@ -273,6 +281,66 @@ test('(6) a COVER stored to leave by Scrub, on a real page: while Scrub ships da
     const which = `${'heroPhotoUrl' in cover ? 'a photo cover' : 'the monogram cover'}, ${pro ? 'Pro' : 'free'} event`;
     assert.ok(stored.html === today, `a cover stored to leave by Scrub changed the page (${which}) — ${firstDifference(stored.html, today)}`);
     assert.equal(stored.mounts.HubScrub, 0, `a page whose cover does not leave mounts the Scrub island (${which})`);
+  }
+});
+
+test('(7) the STRANGER’s tree is drawn too — the real one, byte for byte, with no Scrub on it', async () => {
+  const page = await renderSiteBodyFixtureFull({ identity: fixtureStranger() });
+  const { html } = page;
+  assert.deepEqual(page.complaints, [], 'React or the page complained while rendering');
+  assert.ok(html.length > 15_000, `the page is ${html.length} bytes — an empty shell`);
+  /* IT IS THE OTHER TREE: its own article (no rhythm class — the guest tree's has `space-y-12`), the masthead inside
+     the marked first-screen wrapper with the ONE door under it, the general details — and nothing of a guest's. */
+  assert.equal(count(html, '<article data-pahina-chapters="true">'), 1, 'the stranger’s article');
+  assert.equal(count(html, '<article data-pahina-chapters="true" class="space-y-12">'), 0, 'this is the guest’s tree');
+  assert.match(html, /<div data-pahina-first-screen="" class="space-y-6 text-center"><header data-pahina-first-screen="" class="text-center">/, 'the text-only masthead, in its marked wrapper');
+  assert.match(html, /<\/header><div class="space-y-4">[\s\S]{0,400}data-get-inside="/, 'the one door, right under the masthead');
+  const [first, second] = FIXTURE_WORDS.names.split(' & ');
+  assert.match(html, new RegExp(`<h1[^>]*data-hub-names=""[^>]*><span class="block">${first}</span><span[^>]*>and</span><span class="block">${second}</span></h1>`));
+  assert.ok(html.includes('Until we say ‘I do’') && html.includes(FIXTURE_WORDS.venue), 'the general details');
+  assert.ok(!html.includes('You’re joining us as') && !html.includes('data-arrival-action=') && !html.includes(FIXTURE_WORDS.guestFirst), 'a guest’s own line, row or name is on a stranger’s page');
+  /* …and with a photo the stranger's OTHER masthead: the cover alone in the page's first group, the door in the next. */
+  const photo = await renderSiteBodyFixtureFull({ identity: fixtureStranger(), ...PHOTO });
+  assert.deepEqual(photo.complaints, []);
+  assert.match(photo.html, /<div id="site-home" aria-hidden="true" class="scroll-mt-6"><\/div><header data-pahina-first-screen="" class="text-center">[\s\S]*?<\/header><\/div><div data-hub-tab="home" data-pahina-first-screen="" data-pahina-chapters="" class="empty:hidden"><div data-pahina-first-screen="" class="space-y-6 text-center"><div class="space-y-4">/, 'the photo cover is not the last thing in the first group, with the door in the next');
+  assert.ok(photo.html.includes('fixture-hero.jpg'));
+
+  /* BYTE FOR BYTE: twice the same, and the committed page (`UPDATE_GOLDEN=1` to accept an intended change). */
+  const again = await renderSiteBodyFixture({ identity: fixtureStranger() });
+  assert.ok(html === again, `two renders of one page differ — ${firstDifference(html, again)}`);
+  if (process.env.UPDATE_GOLDEN === '1') writeFileSync(STRANGER_GOLDEN, `${html}\n`);
+  assert.ok(existsSync(STRANGER_GOLDEN), 'site-body-fixture-stranger.golden.html is missing — it is never written unless UPDATE_GOLDEN=1');
+  const golden = readFileSync(STRANGER_GOLDEN, 'utf8');
+  assert.ok(`${html}\n` === golden, `the stranger’s page changed — ${firstDifference(`${html}\n`, golden)}\n  (intended? UPDATE_GOLDEN=1, then read the golden's diff: it is what every stranger's page gets)`);
+
+  /* NO SCRUB on it: not one of the hand-over's boxes, and the island never mounted — free and Pro, both mastheads. */
+  for (const props of [{}, { proWatermarkHidden: true }, { proWatermarkHidden: true, ...PHOTO }]) {
+    const plain = await renderSiteBodyFixtureFull({ identity: fixtureStranger(), ...props });
+    for (const m of scrubMarkers()) {
+      const hit = m.startsWith('data-') ? plain.html.includes(m) : new RegExp(`class="(?:[^"]* )?${m}(?: [^"]*)?"`).test(plain.html);
+      assert.equal(hit, false, `a stranger’s page with no Scrub scene draws ${m} (${JSON.stringify(props)})`);
+    }
+    assert.equal(plain.mounts.HubScrub, 0);
+  }
+});
+
+test('(8) the STRANGER’s cover stored to leave by Scrub: while Scrub ships dark it is today’s page, byte for byte, and no island', async () => {
+  const widgets = fixtureWidgets({ hero: LAB_SCRUB_COVER });
+  assert.equal(hubCoverLeaves(widgets, true, true), true, 'anti-vacuity: the variant page’s cover stores no hand-over');
+  /* BOTH of the stranger's mastheads — the text-only one (inside its first-screen wrapper, the door after it) and the
+     photo cover (the last thing in the page's first group) — on a Pro event and a free one. */
+  for (const [cover, pro] of [[{}, true], [{}, false], [PHOTO, true], [PHOTO, false]] as const) {
+    const which = `${'heroPhotoUrl' in cover ? 'the photo cover' : 'the text-only cover'}, ${pro ? 'Pro' : 'free'} event`;
+    const today = await renderSiteBodyFixture({ identity: fixtureStranger(), proWatermarkHidden: pro, ...cover });
+    const stored = await renderSiteBodyFixtureFull({ identity: fixtureStranger(), proWatermarkHidden: pro, ...cover, widgets });
+    assert.deepEqual(stored.complaints, []);
+    assert.ok(stored.html.length > 15_000, 'an empty shell');
+    if (SCRUB_OUT_OFFERED && pro) {
+      /* ☀ OFFERED. The stranger's cover is not handed over yet — this arm is written with the wiring. */
+      assert.fail('"Scrub out" is offered, and the stranger’s cover’s hand-over has no guard yet');
+    }
+    assert.ok(stored.html === today, `a cover stored to leave by Scrub changed the stranger’s page (${which}) — ${firstDifference(stored.html, today)}`);
+    assert.equal(stored.mounts.HubScrub, 0, `a stranger’s page whose cover does not leave mounts the Scrub island (${which})`);
   }
 });
 

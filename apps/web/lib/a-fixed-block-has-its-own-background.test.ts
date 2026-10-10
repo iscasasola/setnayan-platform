@@ -32,6 +32,11 @@
  * · §5 · §6. Sabotages seen red: the sample's Map left bare · the sample's place card left without its paper · the
  * bare rule reaching the plate · the Table number grown a card · the Map's sample shapes drawn with the plate's ink.
  *
+ * 🎫 2026-10-10 — …AND THE DIGITAL PASS. Bare today (the ticket's picture is a PNG drawn on the server, with no card
+ * round it), so the block's own root takes the paper or the glass — BEHIND the picture, never re-drawing it — in a
+ * guest's ticket and in the canvas's sample alike. Held in §1 · §3 · §4 · §5 · §6. Sabotages seen red: the pass
+ * taken as a card · the ticket grown a card of its own.
+ *
  * Lives in `lib/` because node's test glob does not descend into `[eventId]`.
  */
 import test from 'node:test';
@@ -73,7 +78,7 @@ const FROST = 'background:var(--sn-glass-bg)!important;border-color:var(--sn-gla
 
 test('1 · the reader is strict: a ground from the fixed three, never the one the block wears anyway', () => {
   assert.deepEqual([...BLOCK_GROUNDS], ['none', 'plain', 'frost']);
-  assert.deepEqual(BLOCK_GROUND_TODAY, { entourage: 'none', details: null, gifts: 'plain', spotlight: 'plain', find_your_seat: null });
+  assert.deepEqual(BLOCK_GROUND_TODAY, { entourage: 'none', details: null, gifts: 'plain', spotlight: 'plain', find_your_seat: null, pass: 'none' });
   assert.deepEqual(
     readBlockLooks({
       block_looks: {
@@ -165,6 +170,11 @@ test('3 · the rules: fixed strings on fixed selectors, the RSVP card’s own gr
   assert.equal(css({ find_your_seat: { g: 'plain' } }), `${seatBare}{${PAPER}}\n${seatBare} > *{${INSIDE}}`);
   assert.equal(css({ find_your_seat: { g: 'frost' } }), `${seatCards}{${FROST}${EDGE}--pahina-frame-opacity:0!important;}\n${seatBare}{${GLASS}}`);
 
+  /* 🎫 The pass stands bare, like the March: the block itself takes the paper or the glass — behind the ticket. */
+  assert.equal(css({ pass: { g: 'none' } }), '');
+  assert.equal(css({ pass: { g: 'plain' } }), `${at('pass')}{${PAPER}}\n${at('pass')} > *{${INSIDE}}`);
+  assert.equal(css({ pass: { g: 'frost' } }), `${at('pass')}{${GLASS}}`);
+
   /* NOT A MOVEMENT: a ground is written outside both gates (it shows on every engine, and for a guest who asked for
      less motion); the motion stays inside them, after it. */
   const both = css({ entourage: { g: 'frost', motion: { in: { fade: true } } } });
@@ -239,6 +249,15 @@ test('4 · one card, never two: the markup each ground leans on is there', () =>
     }
   }
 
+  /* 🎫 THE DIGITAL PASS: the ticket's root is bare (its picture is the server's PNG; the code's white tile is the
+     fall-back when the picture cannot be drawn, never a card round the block) — and so is the canvas's sample. */
+  const TICKET = src(`${G}/guest-ticket.tsx`);
+  assert.match(TICKET, /<section\s+id=\{PASS_ANCHOR\}\s+data-motion="pass"\s+data-guest-ticket=\{state\}\s+aria-label=\{`Your \$\{PASS_CARD_WORDS\.digitalTicket\}`\}\s+className="scroll-mt-6 text-center"\s*>/);
+  assert.doesNotMatch(TICKET, /pahina-plate|bg-paper-deep|rounded-2xl border|bg-cream/, 'the ticket grew a card of its own: a ground would draw a second one round it');
+  const passSample = src(`${G}/maker-guest-scenes.tsx`);
+  assert.match(passSample, /<section className="flex flex-col items-center gap-2 text-center" data-maker-guest-scene="pass">/);
+  assert.doesNotMatch(passSample.slice(passSample.indexOf('data-maker-guest-scene="pass"'), passSample.indexOf('data-maker-guest-scene="rsvp"')), /pahina-plate|bg-paper-deep|rounded-2xl border|bg-cream/);
+
   /* So, for every block and every tile, at most ONE thing is given paper or glass — and where a block has a card of
      its own, nothing is ever put round it. */
   for (const g of BLOCK_GROUNDS) {
@@ -262,7 +281,7 @@ test('4 · one card, never two: the markup each ground leans on is there', () =>
 
 test('5 · a guest’s page: no mark and no style unless something is kept; the page’s own files carry no new code', () => {
   /* With nothing kept — or only what a block wears anyway — the reader hands the page NOTHING: no mark, no <style>. */
-  for (const nothing of [undefined, {}, { entourage: {} }, { find_your_seat: {} }, { entourage: { g: 'none' }, gifts: { g: 'plain' }, spotlight: { g: 'plain' }, details: { g: 'paper' }, find_your_seat: { g: 'paper' } }]) {
+  for (const nothing of [undefined, {}, { entourage: {} }, { find_your_seat: {} }, { pass: {} }, { entourage: { g: 'none' }, gifts: { g: 'plain' }, spotlight: { g: 'plain' }, details: { g: 'paper' }, find_your_seat: { g: 'paper' }, pass: { g: 'none' } }]) {
     assert.deepEqual(readBlockLooks({ [BLOCK_LOOKS_PREF_KEY]: nothing }), {});
     assert.equal(css(nothing), '');
   }
@@ -277,7 +296,7 @@ test('5 · a guest’s page: no mark and no style unless something is kept; the 
      was walked, and its ground lands on one card there. */
   assert.equal((BODY.match(/blockMark\(/g) ?? []).length, 7, 'a block is marked in a new place (or one fewer): re-walk where its ground lands');
   /* Nothing about a ground is said in the page's own files: it is all behind the reader and the rules. */
-  for (const file of [`${G}/site-body.tsx`, `${G}/editor-bridge.tsx`, `${G}/empty-states.tsx`, `${G}/guest-doorway-strip.tsx`, `${G}/spotlight-card.tsx`, `${G}/entourage-section.tsx`, `${G}/your-seat-block.tsx`, `${G}/your-seat-styles.tsx`, `${G}/maker-fixed-parts.tsx`]) {
+  for (const file of [`${G}/site-body.tsx`, `${G}/editor-bridge.tsx`, `${G}/empty-states.tsx`, `${G}/guest-doorway-strip.tsx`, `${G}/spotlight-card.tsx`, `${G}/entourage-section.tsx`, `${G}/your-seat-block.tsx`, `${G}/your-seat-styles.tsx`, `${G}/maker-fixed-parts.tsx`, `${G}/guest-ticket.tsx`, `${G}/maker-guest-scenes.tsx`, 'app/[slug]/page.tsx']) {
     assert.doesNotMatch(src(file), /blockGround|BLOCK_GROUND|data-block-ground/, `${file} grew code for a block’s background`);
   }
   /* Happening now is drawn in two places — both stand behind the one mark, so the ground reaches both. */
@@ -292,6 +311,8 @@ test('5 · a guest’s page: no mark and no style unless something is kept; the 
   /* …and The Day's pages there draw a day's part as the canvas's own sample: the mark of one whose real block takes a
      look stands right before the sample, inside the lab's wrapper. */
   assert.match(src('app/dev/maker-lab/guest/lab-day.tsx'), /\{block \? <span hidden \{\.\.\.\{ \[BLOCK_MARK_ATTR\]: block \}\} \/> : null\}\s*<MakerDayPartStandIn /);
+  /* …and the pass's sample there is handed the block's mark before the Maker's marker, as the real canvas hands it. */
+  assert.match(src('app/dev/maker-lab/guest/lab-day.tsx'), /mark=\{\(key\) => <>\{blockOfCanvas\(key\) \? <span hidden \{\.\.\.\{ \[BLOCK_MARK_ATTR\]: blockOfCanvas\(key\) \}\} \/> : null\}\{mark\(key\)\}<\/>\}/);
 });
 
 test('6 · the draft carries it and counts it: one change toward Apply, free; put back, none', () => {
@@ -310,6 +331,9 @@ test('6 · the draft carries it and counts it: one change toward Apply, free; pu
   const seated = counted(sanitizeHubDraft({ events: { style_preferences: { [BLOCK_LOOKS_PREF_KEY]: { find_your_seat: { g: 'frost' } } } } }), {});
   assert.equal(seated.length, 1, 'Your seat’s background does not move the Apply count');
   assert.equal(seated[0]!.held, false);
+  const ticketed = counted(sanitizeHubDraft({ events: { style_preferences: { [BLOCK_LOOKS_PREF_KEY]: { pass: { g: 'plain' } } } } }), {});
+  assert.equal(ticketed.length, 1, 'the pass’s background does not move the Apply count');
+  assert.equal(ticketed[0]!.held, false);
   /* A ground added beside a motion that is already live is a change too… */
   assert.equal(counted(sanitizeHubDraft({ events: { style_preferences: { [BLOCK_LOOKS_PREF_KEY]: look } } }), { [BLOCK_LOOKS_PREF_KEY]: { entourage: { motion: { in: { fade: true } } } } }).length, 1);
   /* …and the same value over itself, or today's tile over nothing (the save writes `{}`), is not. */

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { PASS_ANCHOR } from '@/lib/arrival-action';
 import { LANDING_WORDS } from '@/lib/guest-landing';
 import { PASS_CARD_ROUTE, PASS_CARD_WORDS, passCardLine, type PassCardEligibility } from '@/lib/pass-card';
@@ -42,6 +43,7 @@ export function GuestTicket({
   invitationUrl,
   src = PASS_CARD_ROUTE,
   replyHref = null,
+  mark = null,
 }: {
   state: PassCardEligibility;
   name: string;
@@ -54,6 +56,12 @@ export function GuestTicket({
    * `PASS_ANCHOR`, so no second door to the code ("My QR") opens beside it.
    */
   replyHref?: string | null;
+  /**
+   * 🧱 The pass's own look (`lib/block-looks.ts`): the block's hidden mark, handed in by the page, put right BEFORE
+   * the ticket's root — and only when a TICKET is drawn (the reply button and the cannot-come line are not a pass).
+   * Null for every guest whose event keeps no look for the pass: their page is the same bytes as before.
+   */
+  mark?: ReactNode;
   /**
    * 👁 SEE AS (PR-10): the Maker's sample guest has no session for the guest
    * ticket route, so its picture is the host's own ticket preview
@@ -80,6 +88,8 @@ export function GuestTicket({
   }
   const pending = state === 'awaiting';
   return (
+    <>
+    {mark}
     <section
       id={PASS_ANCHOR}
       data-motion="pass"
@@ -117,5 +127,6 @@ export function GuestTicket({
       </p>
       <GuestCodeKeepers invitationUrl={invitationUrl} className="mt-3" passCardHref={src} />
     </section>
+    </>
   );
 }

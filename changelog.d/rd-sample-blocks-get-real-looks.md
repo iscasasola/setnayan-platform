@@ -36,3 +36,33 @@ with its reason (`every-stages-tab-has-its-own-page`, `the-day-parts-are-in-the-
 
 SPEC IMPACT: new key `find_your_seat` under `events.style_preferences.block_looks` (`{ motion?, g? }`, the same
 shape as the four fixed blocks'; no migration). `BLOCK_SAMPLE_WHY` now lists five samples.
+
+## 2026-10-10 · feat(maker): the Digital pass gets a real Background and Animate
+
+**Digital pass** (`f:pass`)
+
+- The look is kept against each guest's REAL ticket — `GuestTicket`, first on Me. The ticket is mounted by the page
+  (`app/[slug]/page.tsx`), so the block's hidden mark is made there, by the same rule as every block's (the Maker's
+  canvas always; a guest only when a look is kept), and handed to the ticket, which puts it right before its own root
+  — and only when it draws a TICKET. A guest who has not replied sees the reply button there and one who cannot come
+  sees one line: neither is a pass, and neither is dressed or moved.
+- The Maker's sample of the pass stands behind the same mark (the block's mark, the Maker's marker, the sample), so
+  the same rules draw the look in the Maker.
+- Animate — the same rows as the other blocks. The pass is Me's, so its timed Build in is bound where there is no
+  chapter (it plays as Me is opened).
+- ⚓ The door's own lift stays: when the day's "Show your ticket" lands on the pass (`#site-pass`),
+  `[data-motion='pass']:target` still lifts it. A block's motion would out-rank that rule, so the pass's is written
+  for every moment but that one (`:not(:target)`).
+- Background — None · Plain · Frosted. The pass is bare today (None is shown picked): Plain and Frosted put the hub's
+  paper or the glass BEHIND the ticket, on the block's own root. The ticket's picture is a PNG drawn on the server; a
+  Background never re-draws it.
+- Nothing added to the Maker's first load.
+
+**Photos of you** (`f:photos_of_you`) — NOT made live; it stays a sample, with its reason line unchanged. Its real
+block is one root, but that root is the gallery's dark "obsidian" card (`.sn-gal`), whose words are light-on-dark by
+its own tokens (`--sn-ob-*`). None and Frosted would take the dark ground away and leave those words on the page's
+light ground or on white glass, where the same file measures them unreadable — and the lab cannot draw a guest's real
+gallery to check any re-inking. Left for a design ruling.
+
+SPEC IMPACT: new key `pass` under `events.style_preferences.block_looks` (`{ motion?, g? }`; no migration).
+`BLOCK_SAMPLE_WHY` now lists four samples (Photos of you · Announcements · Live hub · What to wear).

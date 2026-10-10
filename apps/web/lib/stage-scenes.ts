@@ -220,12 +220,21 @@ export function stagesOfScene(type: WidgetType): LifecyclePhase[] {
   return (Object.keys(STAGE_SCENES) as LifecyclePhase[]).filter((s) => STAGE_SCENES[s].includes(type));
 }
 
+/** Is this type named by SOME stage's list? (The couple's own scenes and "Two ways to celebrate" are not.) */
+function isSceneOfSomeStage(type: string): boolean {
+  return (Object.values(STAGE_SCENES) as ReadonlyArray<readonly string[]>).some((list) => list.includes(type));
+}
+
 /**
  * A stage's scenes in the stage's order. The couple's order first: every scene
  * they placed on this stage, by its place. Then the stage's DEFAULT for the
  * rest — scenes the table names in the table's order, then anything else (the
  * couple's own scenes) by `display_order`. Nothing is dropped here —
  * membership is the phase fence's job.
+ *
+ * 👁 A scene the couple ADDED to this stage (`stage_show[stage] = true` on a
+ * scene of another stage's list) goes LAST by default: after the stage's own
+ * scenes and after the couple's own. Once dragged it sits at its place.
  */
 export function inStageOrder<T extends { widget_type: string; display_order: number; config_json?: unknown }>(
   rows: readonly T[],
@@ -234,7 +243,8 @@ export function inStageOrder<T extends { widget_type: string; display_order: num
   const order = STAGE_SCENES[stage] as readonly string[];
   const rank = (t: string) => {
     const i = order.indexOf(t);
-    return i < 0 ? order.length : i;
+    if (i >= 0) return i;
+    return order.length + (isSceneOfSomeStage(t) ? 1 : 0);
   };
   const byDefault = (a: T, b: T) => rank(a.widget_type) - rank(b.widget_type) || a.display_order - b.display_order;
   return [...rows].sort((a, b) => {
@@ -252,12 +262,19 @@ export function inStageOrder<T extends { widget_type: string; display_order: num
  * the stage's order — the list a move swaps in, so a drag past a hidden or
  * guest-only scene is counted right. The navigator's scenes are a subsequence
  * of it by construction (same order; membership is `inStage`, the phase fence).
+ *
+ * 👁 A scene the couple added to this stage (`stage_show[stage] = true`) is on
+ * the stage too, so it has a place to be dragged from and to.
  */
 export function stageRowOrder<
   T extends { widget_type: string; display_order: number; is_always_on: boolean; config_json?: unknown },
 >(rows: readonly T[], stage: LifecyclePhase, inStage: (type: string, stage: LifecyclePhase) => boolean): T[] {
   return inStageOrder(
-    rows.filter((r) => !r.is_always_on && inStage(r.widget_type, stage)),
+    rows.filter(
+      (r) =>
+        !r.is_always_on &&
+        (inStage(r.widget_type, stage) || (isSceneOfSomeStage(r.widget_type) && stageShown(r.config_json, stage) === true)),
+    ),
     stage,
   );
 }

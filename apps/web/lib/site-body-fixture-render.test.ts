@@ -226,6 +226,7 @@ test('(5) it is tooling: no file of the app imports the fixture, the helper or t
     'lib/a-sample-block-look-reaches-the-real-page.test.ts',
     'lib/stage-pages-fixture.ts',
     'lib/every-stage-is-todays-page.test.ts',
+    'lib/a-stage-choice-decides-the-stage-list.test.ts',
   ]);
   const walk = (dir: string): string[] =>
     readdirSync(join(WEB, dir)).flatMap((name) => {

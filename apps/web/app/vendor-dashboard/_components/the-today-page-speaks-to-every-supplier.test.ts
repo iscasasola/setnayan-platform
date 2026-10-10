@@ -63,11 +63,14 @@ const booking: UpcomingEventRow = {
 /** Confirmed ₱2,000 of ₱10,170 booked — the owner's Saysay case. */
 const EARNINGS = { confirmedPhp: 2000, expectedPhp: 10170, paydayMeasured: true };
 
-async function render(upcoming: UpcomingEventRow[] = [booking]): Promise<string> {
+async function render(
+  upcoming: UpcomingEventRow[] = [booking],
+  earnings: typeof EARNINGS | null = EARNINGS,
+): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { SupplierTodayFirstScreen } = await import('./supplier-today-first-screen');
-  const { pickSupplierNext, eventsThisWeek, owedToYouPhp } = await import('@/lib/supplier-today');
-  const owed = owedToYouPhp(EARNINGS);
+  const { pickSupplierNext, eventsThisWeek, owedToYouPhp, nextLook, nextSecond } = await import('@/lib/supplier-today');
+  const owed = owedToYouPhp(earnings);
   const next = pickSupplierNext({
     answer: null,
     answerSince: null,
@@ -81,10 +84,15 @@ async function render(upcoming: UpcomingEventRow[] = [booking]): Promise<string>
   });
   return renderToStaticMarkup(
     React.createElement(SupplierTodayFirstScreen, {
-      cover: { eyebrow: 'Host & band · Live', name: 'Saysay Host and Band' },
       next,
-      numbers: { inquiries: '0', thisWeek: eventsThisWeek(upcoming), owed: owed === null ? '—' : String(owed) },
+      look: nextLook(next.kind, null),
+      second: nextSecond(next, null, upcoming),
+      counter: null,
+      meta: null,
+      // The page words the number; `null` is "payday was not read".
+      numbers: { waiting: '0', waitingNow: false, thisWeek: eventsThisWeek(upcoming), toComeIn: owed === null ? null : String(owed) },
       comingUp: upcoming.slice(0, 3),
+      shop: { name: 'Saysay Host and Band', line: 'Host & band · Live', live: true },
     }),
   );
 }
@@ -100,23 +108,47 @@ test('a supplier with a booking is told about it — in words that fit every cra
   assert.equal(hit, null, `photographer-only word "${hit?.[0]}" on the every-supplier Today page: …${t.slice(Math.max(0, (hit?.index ?? 0) - 60), (hit?.index ?? 0) + 60)}…`);
 });
 
-test('"owed to you" is the booked total less what is confirmed — and the Next card says payday', async () => {
+test('"to come in" is the booked total less what is confirmed — and the Next card says payday', async () => {
   const html = await render();
   const t = text(html);
-  assert.match(t, /8170 owed to you/, `the owed number is not ₱10,170 − ₱2,000: ${t.slice(0, 500)}`);
+  assert.match(t, /8170 to come in/, `the money number is not ₱10,170 − ₱2,000: ${t.slice(0, 500)}`);
+  assert.doesNotMatch(t, /owed to you/, 'the redesign words it "to come in"');
   assert.match(html, /data-today-next="payday"/, 'with nothing to answer and money to come in, Next is not payday');
 });
 
-test('"owed to you" is "—" when payday was not read — never ₱0', async () => {
+/*
+  🔴 THE HONEST MONEY NUMBER (redesign S-PR1). Until 2026-10-08 an unread payday
+  printed "—" over the words "owed to you" — a dash a supplier could read as
+  "nothing". It says so in WORDS now, in the number's own place.
+  SABOTAGE: `toComeIn === null ? <Unread />` replaced by printing `₱0` → RED.
+*/
+test('when payday was not read the number says "couldn\'t load" — never ₱0, never a bare dash over "to come in"', async () => {
   const { owedToYouPhp } = await import('@/lib/supplier-today');
   assert.equal(owedToYouPhp({ ...EARNINGS, paydayMeasured: false }), null);
   assert.equal(owedToYouPhp(null), null);
+  const html = await render([booking], { ...EARNINGS, paydayMeasured: false });
+  const money = html.slice(html.indexOf('data-today-number="money"'));
+  const tile = text(money.slice(0, money.indexOf('</a>')));
+  assert.match(tile, /couldn(?:&rsquo;|’|&#x27;|')t load/, `the unread money number does not say so: ${tile}`);
+  assert.doesNotMatch(tile, /₱\s*0|\b0\b/, `an unread payday printed a zero: ${tile}`);
+  assert.doesNotMatch(tile, /to come in/, 'an unread number still wears the words of a read one');
+  assert.doesNotMatch(html, /data-today-next="payday"/, 'an unread payday must not be offered as money to collect');
 });
 
-test('on an event day the one Next card is "Run the day" (owner answer 2)', async () => {
+test('on an event day the one Next card is "Run the day" (owner answer 2) — and the card goes dark', async () => {
   const html = await render([{ ...booking, inDays: 0 }]);
   assert.match(html, /data-today-next="run_day"/);
   assert.match(text(html), /Run the day/);
+  // 🌑 Redesign S-PR1, prototype frame 02: the event-day card is ink.
+  const at = html.indexOf('data-today-next="run_day"');
+  const card = html.slice(at, html.indexOf('>', at) + 1);
+  assert.match(card, /data-next-day=""/, 'the event-day card is not marked as the day card');
+  assert.match(card, /!bg-ink/, 'the event-day card is not dark');
+  // Run the day is the forward step (brand), filled; Chat is the grey second.
+  assert.match(html, /class="ab ab-brand ab-main"[^>]*>(?:(?!<\/a>).)*Run the day/s, 'Run the day is not the brand main button');
+  assert.match(html, /class="ab ab-neutral home-cover-ab"[^>]*>(?:(?!<\/a>).)*Chat/s, 'the grey Chat button is missing or unreadable on the dark card');
+  // …and any other day the card is not dark.
+  assert.doesNotMatch(await render(), /data-next-day/);
 });
 
 // ── 🔒 THE NEXT CARD IS THE FIRST THING YOU CAN TAP ────────────────────────
@@ -143,5 +175,10 @@ test('Today renders the first screen before anything tappable on the page', () =
   assert.ok(first > 0, 'Today no longer renders SupplierTodayFirstScreen');
   const tappable = jsx.search(/<(Link|a|button|form|details|summary)\b/);
   assert.ok(tappable === -1 || tappable > first, 'a link, button or form is back above the Next card on Today');
-  assert.ok(first < jsx.indexOf('id="today-all"'), 'the first screen moved below "Everything else"');
+  // Redesign S-PR1: there is no "Everything else" under the first screen any
+  // more — the queue is part of the same column. The old block must not return.
+  assert.equal(jsx.indexOf('id="today-all"'), -1, '"Everything else" (#today-all) is back under the first screen');
+  assert.doesNotMatch(jsx, /sn-tile|sn-card/, 'a boxed tile is back on Today — rows are hairlines, not boxes');
+  // The outcome toast holds nothing to press, so it may sit above the card.
+  assert.ok(jsx.indexOf('<SupplierToast') > 0 && jsx.indexOf('<SupplierToast') < first, 'the outcome toast is not rendered on Today');
 });

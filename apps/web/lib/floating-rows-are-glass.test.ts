@@ -40,6 +40,8 @@ const ROWS: ReadonlyArray<readonly [key: string, file: string]> = [
   ['half-sheet-slim', `${E}/launch/_components/maker-sheet.tsx`],
   ['pay-bar', 'app/pay/[reference]/_components/pay-panel.tsx'],
   ['onboarding-nav', 'app/onboarding/[type]/_components/generic-onboarding.tsx'],
+  // The supplier's thumb row (supplier redesign S-PR0, 2026-10-08).
+  ['supplier-thumb', 'app/vendor-dashboard/_components/supplier-thumb-row.tsx'],
 ];
 
 function ruleBody(selector: string): string {

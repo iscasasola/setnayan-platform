@@ -231,14 +231,6 @@ export const RSVP_CARD_TILES: ReadonlyArray<{ key: 'none' | 'plain' | 'frost'; n
 ];
 export const RSVP_CARD_GROUND_LINE = 'Behind the card is the Look’s background — the same one every page wears.';
 export const RSVP_LINE_GROUND_LINE = 'This sits on the RSVP card’s background.';
-/**
- * 🧾 SAID WHERE THE FORM'S CARD IS GIVEN A BACKGROUND OR AN ANIMATE (controller's ruling 2026-10-10, word for word).
- * A guest replies in two places. On the invitation's reply page the card's Background and Build in are the card's.
- * Inside the Event Hub the reply is a SHEET over the invitation — its own surface: it keeps its own paper (Frosted
- * makes that paper glass; None is shown as Plain, a sheet with no ground cannot be read) and arrives its own way
- * (`rsvpCardGroundOn`, `lib/rsvp-look.ts`). So the couple is told, where they set them, that the two differ there.
- */
-export const RSVP_SHEET_KEEPS_LINE = 'Inside the Event Hub, the reply sheet keeps its own paper and its own way of opening.';
 
 /**
  * BACKGROUND FOR THE CARD — None · Plain · Frosted, as the toolbar's own picture tiles (`stage-background.tsx`'s
@@ -296,7 +288,7 @@ export function RsvpBuildInRows({
   now: RsvpMotion;
   onPick: (patch: { i?: MotionFx | null; v?: RsvpLookFeel | null }) => void;
   error?: string | null;
-  /** The form's card: the Event Hub's sheet opens its own way (`RSVP_SHEET_KEEPS_LINE`). */
+  /** The form's card: the Event Hub's sheet opens its own way (`rsvpSheetKeepsLine`, `lib/rsvp-look.ts`). */
   note?: string | null;
 }) {
   const feel: AnimateFeel = now.v ?? 'calm';

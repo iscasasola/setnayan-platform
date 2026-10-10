@@ -32,7 +32,7 @@ import { join } from 'node:path';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { stripComments } from './strip-comments';
-import { RSVP_SHEET_SELECTOR, readRsvpLook, rsvpCardGroundOn, rsvpLookCss, rsvpLookRules } from './rsvp-look';
+import { RSVP_SHEET_KEEPS, RSVP_SHEET_SELECTOR, readRsvpLook, rsvpCardGroundOn, rsvpLookCss, rsvpLookRules, rsvpSheetKeepsLine } from './rsvp-look';
 
 (globalThis as unknown as { React: unknown }).React = React;
 const h = React.createElement;
@@ -112,16 +112,59 @@ test('4 · the card on the sheet, in one place: Plain is its own paper, Frosted 
   for (const page of ['app/[slug]/invite/reply/page.tsx', 'app/[slug]/invite/enter/page.tsx']) assert.doesNotMatch(stripComments(readFileSync(join(WEB, page), 'utf8')), /surface=/);
 });
 
-test('5 · the Maker says so where the couple sets them: one quiet line under the form card’s Background and its Animate', () => {
+/** The stage's panel, drawn for the form's card on one tool, with a stored config (the harness of the four-rows guard). */
+async function cardPanel(tool: 'bg' | 'animate', current: Record<string, unknown>): Promise<string> {
+  const Mod = require('node:module');
+  const load = Mod._load;
+  Mod._load = function (request: string, ...rest: unknown[]) {
+    if (request === 'server-only' || request === 'client-only') return {};
+    return load.call(this, request, ...rest);
+  };
+  const { MakerRsvpSettings } = await import('../app/dashboard/[eventId]/launch/_components/maker-rsvp-ask');
+  return renderToStaticMarkup(
+    h(MakerRsvpSettings as React.FC<Record<string, unknown>>, {
+      eventId: 'e-1',
+      current,
+      drafted: false,
+      replyBy: { date: '2026-11-18', isDefault: false },
+      replyByOwn: { deadline: '2026-11-18', pricingMode: 'final_only' },
+      requests: { count: null, list: null },
+      scene: 'form',
+      picked: { tool, part: 'rsvp', line: null },
+      celebration: { ownsPro: false, storeShell: false, colours: BOARD },
+    }),
+  );
+}
+const said = (html: string, attr: string) => new RegExp(`<p [^>]*${attr}=""[^>]*>([^<]*)</p>`).exec(html)?.[1]?.replace(/&#x27;/g, '’') ?? null;
+
+test('5 · the Maker says so where the couple sets them — and says only what is TRUE for the Background picked', async () => {
+  /* 🔑 THE PROPERTY, not a phrase: the line claims "its own paper" exactly while the sheet's ground IS its own paper
+     by the one mapping (`rsvpCardGroundOn`), and always says the sheet opens its own way. Change the mapping (say,
+     Frosted no longer glass on the sheet) and the sentence follows it; change a word and this still holds. */
+  for (const ground of [undefined, 'none', 'frost'] as const) {
+    const line = rsvpSheetKeepsLine(ground);
+    const ownPaper = rsvpCardGroundOn('sheet', ground) === 'plain';
+    assert.equal(line.includes('its own paper'), ownPaper, `${ground ?? 'plain'}: the line says the sheet keeps its paper, and the sheet ${ownPaper ? 'does' : 'does not'}`);
+    assert.ok(line.includes('its own way of opening'), `${ground ?? 'plain'}: the line does not say the sheet opens its own way`);
+    assert.ok(line.startsWith('Inside the Event Hub, the reply sheet keeps '));
+    /* …and it is what the panel DRAWS for that stored Background: under the tiles (row 3 of Background), and in
+       Animate's row 3 — the same sentence in both, from the card's stored ground. */
+    const current = ground ? { look: { card: { rsvp: { g: ground } } } } : {};
+    const bg = await cardPanel('bg', current);
+    assert.equal(said(bg, 'data-rsvp-sheet-note'), line, `Background, ${ground ?? 'plain'} stored`);
+    assert.match(bg, /<p data-rsvp-row="3" data-rsvp-sheet-note=""/);
+    assert.equal(said(await cardPanel('animate', current), 'data-stage-animate-note'), line, `Animate, ${ground ?? 'plain'} stored`);
+  }
+  /* Two sentences, and they differ only by the paper: the shorter is the longer with "its own paper and " cut out —
+     no new word (the controller's wording, pending the owner's look). */
+  assert.equal(RSVP_SHEET_KEEPS.paperAndOpening.replace('its own paper and ', ''), RSVP_SHEET_KEEPS.opening);
+  assert.equal(RSVP_SHEET_KEEPS.paperAndOpening, 'Inside the Event Hub, the reply sheet keeps its own paper and its own way of opening.');
+  /* 4 rows, filled from row 1: under Animate the line gives its row up while Move or Size is on (they need row 3 for
+     their side and their way) — and a refusal is said before it. */
+  const moving = await cardPanel('animate', { look: { card: { rsvp: { i: { move: 'below' } } } } });
+  assert.equal(said(moving, 'data-stage-animate-note'), null);
+  assert.match(moving, /data-stage-needs="in"/);
   const L = 'app/dashboard/[eventId]/launch/_components';
-  const ROWS = stripComments(readFileSync(join(WEB, `${L}/rsvp-line-look.tsx`), 'utf8'));
   const PANEL = stripComments(readFileSync(join(WEB, `${L}/maker-rsvp-ask.tsx`), 'utf8'));
-  /* The controller's sentence, word for word. */
-  assert.match(ROWS, /export const RSVP_SHEET_KEEPS_LINE = 'Inside the Event Hub, the reply sheet keeps its own paper and its own way of opening\.';/);
-  /* Background: row 3, under the tiles (row 1) and the card's own line (row 2) — the FORM's card only; a refusal is said first. */
-  assert.match(PANEL, /\{status \? \(\s*<div data-rsvp-row="3"[^>]*>\{status\}<\/div>\s*\) : lookCard === 'rsvp' \? \(\s*<p data-rsvp-row="3" data-rsvp-sheet-note=""[^>]*>\s*\{RSVP_SHEET_KEEPS_LINE\}\s*<\/p>\s*\) : null\}/);
-  /* Animate: handed to the toolbar's own Animate, which draws it in row 3 while that row is free. */
-  assert.match(PANEL, /note=\{typeof moves !== 'string' && moves\.card === 'rsvp' \? RSVP_SHEET_KEEPS_LINE : null\}/);
-  const ANIMATE = stripComments(readFileSync(join(WEB, `${L}/stage-panel/stage-animate.tsx`), 'utf8'));
-  assert.match(ANIMATE, /\) : note \? \(\s*<p className=\{`\$\{SP_ROWS_ROW\} row-start-3 [^`]*`\} data-stage-animate-note="">\s*\{note\}\s*<\/p>\s*\) : null\}/);
+  assert.match(PANEL, /\{status \? \(\s*<div data-rsvp-row="3"[^>]*>\{status\}<\/div>\s*\) : lookCard === 'rsvp' \? \(/, 'a refused save is not said before the line, or the line is on a note’s card');
 });

@@ -440,6 +440,22 @@ export function rsvpCardGroundOn(surface: RsvpReplySurface, ground: RsvpCardGrou
   if (surface === 'sheet') return ground === 'frost' ? 'frost' : 'plain';
   return ground ?? 'plain';
 }
+/**
+ * 🧾 WHAT THE MAKER SAYS ABOUT THE SHEET, where the form's card is given a Background or an Animate — a SENTENCE OF
+ * THE MAPPING ABOVE, never a separate fact: "its own paper" is said exactly while the sheet's ground IS its own paper
+ * (`rsvpCardGroundOn('sheet', …) === 'plain'` — None and Plain), and is left out once Frosted has made that paper
+ * glass; "its own way of opening" is always true (the card's Build in is never drawn there).
+ *
+ * ⚠ THE WORDING IS THE CONTROLLER'S (2026-10-10), PENDING THE OWNER'S LOOK — and so is the mapping it reads from
+ * ("None is shown as Plain on the sheet"): neither has been ruled by the owner yet.
+ */
+export const RSVP_SHEET_KEEPS = {
+  paperAndOpening: 'Inside the Event Hub, the reply sheet keeps its own paper and its own way of opening.',
+  opening: 'Inside the Event Hub, the reply sheet keeps its own way of opening.',
+} as const;
+export function rsvpSheetKeepsLine(ground: RsvpCardGround | undefined): string {
+  return rsvpCardGroundOn('sheet', ground) === 'plain' ? RSVP_SHEET_KEEPS.paperAndOpening : RSVP_SHEET_KEEPS.opening;
+}
 /** The Event Hub's reply sheet (`rsvp-sheet.tsx` names it for every guest) — and the band that holds its title. */
 export const RSVP_SHEET_SELECTOR = '[data-rsvp-sheet]';
 export const RSVP_SHEET_HEAD_SELECTOR = '[data-rsvp-sheet]>div:first-of-type';

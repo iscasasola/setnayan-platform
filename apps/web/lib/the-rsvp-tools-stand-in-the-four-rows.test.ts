@@ -92,7 +92,7 @@ const OWN: ReadonlyArray<{ what: string; scene: RsvpStageScene; picked: Picked; 
   { what: 'Edit on the form’s card (its settings)', scene: 'form', picked: { tool: 'edit', part: 'rsvp', line: null }, rows: [1, 2, 3] },
   { what: 'Style on the When-yes card (its Celebration)', scene: 'thanks', picked: { tool: 'style', part: 'yesnote', line: null }, rows: [1] },
   /* 🔁 RE-AIMED 2026-10-10 (controller's ruling): the FORM's card has a third row — the one quiet line that says the
-     Event Hub's own reply sheet keeps its own paper (`RSVP_SHEET_KEEPS_LINE`); a note's card, drawn only on the page
+     Event Hub's own reply sheet keeps its own paper (`rsvpSheetKeepsLine`); a note's card, drawn only on the page
      after a reply, keeps its two. Still the shared frame, still nothing scrolled. */
   { what: 'Background on the form’s card', scene: 'form', picked: { tool: 'bg', part: 'rsvp', line: null }, rows: [1, 2, 3] },
   { what: 'Background on a note’s card', scene: 'decline', picked: { tool: 'bg', part: 'nonote', line: null }, rows: [1, 2] },

@@ -57,7 +57,11 @@ Message), a held line drags to a new place, and several lines can share one back
   Plain (a sheet with no ground over the invitation cannot be read); the card's Build in is not drawn there. A
   group's background applies on the sheet as on the page.
 - The Maker says so where the couple sets them: one quiet line under the form card's Background and its Animate —
-  "Inside the Event Hub, the reply sheet keeps its own paper and its own way of opening."
+  "Inside the Event Hub, the reply sheet keeps its own paper and its own way of opening." With Frosted picked the
+  sheet's paper IS changed (to glass), so the line then reads "Inside the Event Hub, the reply sheet keeps its own
+  way of opening." (`rsvpSheetKeepsLine`, a sentence of the one mapping; the wording and the "None is shown as
+  Plain" mapping are the controller's, pending the owner's look). Four rows, filled from row 1: under Animate the
+  line gives its row up while Move or Size is on.
 - PROOF: the real guest page's own record (`lib/site-body-fixture-render`, branch `rd/site-body-fixture-render`
   `7ae4c46d8` — recorded at this base with no page file touched; it draws this sheet) laid over this change: 5/5,
   byte for byte; and the same page with only another screen's look, or the card at None with a Build in, is that

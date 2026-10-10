@@ -101,7 +101,7 @@ export function StageAnimate({
   /**
    * One quiet line about WHERE this Build in plays, in row 3 while that row is free (no refusal to say, and neither
    * Move nor Size is on — they need the row for their side and their way). The reply form's card says the Event
-   * Hub's sheet opens its own way (`RSVP_SHEET_KEEPS_LINE`).
+   * Hub's sheet opens its own way (`rsvpSheetKeepsLine`, `lib/rsvp-look.ts`).
    */
   note?: string | null;
   /**

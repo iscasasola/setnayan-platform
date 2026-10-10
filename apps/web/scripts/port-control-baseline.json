@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "8aa355217",
+  "generatedFromRef": "e73a6f2a2",
   "routeCount": 431,
   "destinations": 955,
   "actions": 673,
-  "blocks": 6015,
+  "blocks": 6016,
   "routes": {
     "/": {
       "files": [
@@ -10110,8 +10110,10 @@
     },
     "/dev/maker-lab": {
       "files": [
+        "dev/maker-lab/lab-draft.ts",
         "dev/maker-lab/lab-logo-actions.tsx",
         "dev/maker-lab/lab-logo-stand-ins.ts",
+        "dev/maker-lab/lab-navigator.ts",
         "dev/maker-lab/lab-post-event.ts",
         "dev/maker-lab/lab-scrub.ts",
         "dev/maker-lab/maker-lab-shell.tsx",
@@ -10146,6 +10148,7 @@
       "files": [
         "dev/maker-lab/guest/lab-day.tsx",
         "dev/maker-lab/guest/lab-sample.ts",
+        "dev/maker-lab/guest/lab-stage.tsx",
         "dev/maker-lab/guest/page.tsx",
         "dev/maker-lab/guest/scrub-badge.tsx"
       ],
@@ -10165,6 +10168,7 @@
         "LabDayPages",
         "LabScrubBadge",
         "LabScrubScene",
+        "LabStagePages",
         "MakerDayPartStandIn",
         "MakerEmptyScene",
         "MakerGuestScenes",

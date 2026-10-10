@@ -24,9 +24,10 @@
  *
  * 🧱 ROOM FOR WHAT COMES NEXT (the ＋, drag and Group — owner's ruling 2026-10-09): `look` is an object of named
  * keys. `lines` and `card` are here now; the order of the lines, added lines and groups each take a key of their
- * own beside them, so nothing stored today has to move. The whole config is capped at 2,048 bytes by the
- * database (`events_rsvp_ask_config_shape`): `rsvpConfigFits` is asked before a save, so a couple is told in a
- * sentence instead of at Apply.
+ * own beside them, so nothing stored today has to move. The whole config is capped by the database
+ * (`events_rsvp_ask_config_shape`, `RSVP_CONFIG_CHECK` bytes AS STORED): `rsvpConfigFits` is asked before a save, so
+ * a couple is told in a sentence instead of at Apply (`RSVP_CONFIG_ROOM` — the two numbers and their measurement are
+ * at the foot of this file).
  */
 
 import { FEEL_SECONDS } from './animate-feel';
@@ -268,8 +269,51 @@ export function rsvpLookCss(look: RsvpLook, parts: readonly string[], board: rea
   return all.some((r) => r.moves) ? css + KEYFRAMES : css;
 }
 
-/** The database's cap on the whole config, with room left for how it is stored — asked before a save. */
-export const RSVP_CONFIG_ROOM = 1900;
+/**
+ * 📏 THE TWO LIMITS ON THE WHOLE CONFIG — AND WHY THEY ARE NOT THE SAME NUMBER.
+ *
+ *   · `RSVP_CONFIG_CHECK` — the database's: `pg_column_size(rsvp_ask_config) <= 24576`, the bytes of the value AS
+ *     STORED (jsonb), in migration `20271267092468`. Never changed here alone: it is the migration's number, held to
+ *     it by `lib/the-rsvp-lines-have-a-look.test.ts` § 5.
+ *   · `RSVP_CONFIG_ROOM` — the app's: the bytes of the config AS JSON, asked before every save (`rsvpConfigFits`),
+ *     so a couple is refused in a sentence and never by the database.
+ *
+ * 🔬 THEY COUNT DIFFERENT THINGS, AND THE STORED FORM IS THE BIGGER ONE. jsonb spends four bytes on every key and
+ * every value, so structure (looks, order, groups) costs more stored than as JSON, and typed words cost the same.
+ * MEASURED (2026-10-10, `tests/db/rsvp-ask-config-has-room.db.test.ts`, which repeats it on the replayed schema):
+ * the worst this file's shape allows is 17,327 JSON bytes → 19,025 stored (1,698 over); with no typed words it is
+ * 5,845 → 7,505, the worst RATIO (×1.284). So two things hold, and the test holds both:
+ *   · for this shape the stored form is never more than `RSVP_CONFIG_STORED_OVER` bytes over its JSON, and
+ *     room + that is under the check (19,000 + 2,048 = 21,048 < 24,576);
+ *   · even if every byte the app let through were structure, room × `RSVP_CONFIG_STORED_RATIO` is under the check
+ *     (19,000 × 1.29 = 24,510 < 24,576).
+ *
+ * 🩹 The pair this replaced (1,900 and 2,048) did not hold that line: every line and card fully styled was 1,941 JSON
+ * bytes but 2,424 stored, so a look-heavy config a little under 1,900 passed here and was refused by the database
+ * at Apply.
+ */
+export const RSVP_CONFIG_CHECK = 24576;
+export const RSVP_CONFIG_ROOM = 19000;
+/** The most bytes the stored form of THIS shape may weigh over its JSON (measured: 1,698). */
+export const RSVP_CONFIG_STORED_OVER = 2048;
+/** The most the stored form may weigh against its JSON when it is all structure (measured: ×1.284). */
+export const RSVP_CONFIG_STORED_RATIO = 1.29;
+
+/**
+ * 🧱 THE CAPS THE ROOM WAS MEASURED FOR (the ＋, drag and Group — owner's ruling 2026-10-09). A screen (`rsvp` the
+ * form · `yesnote` · `nonote`) takes at most this many lines the couple ADDED and this many groups; an added line's
+ * words are capped as the screen's own are (a heading 80, a message 240 — `RSVP_WORD_MAX`); an added line's or a
+ * group's id is the app's own short one. Raise one of these and the measurement must be run again
+ * (`tests/db/rsvp-ask-config-worst.ts` builds the worst case FROM them).
+ */
+export const RSVP_ADDED_MAX = 4;
+export const RSVP_GROUPS_MAX = 4;
+export const RSVP_ADDED_KINDS = ['h', 'm', 'p'] as const;
+export type RsvpAddedKind = (typeof RSVP_ADDED_KINDS)[number];
+export const RSVP_ADDED_TEXT_MAX: Record<'h' | 'm', number> = { h: 80, m: 240 };
+/** A picture's reference (`r2://setnayan-media/…`) is never longer than this. */
+export const RSVP_ADDED_PICTURE_MAX = 200;
+export const RSVP_LAYOUT_ID = /^[a-z0-9]{1,4}$/;
 export function rsvpConfigBytes(config: unknown): number {
   return new TextEncoder().encode(JSON.stringify(config ?? {})).length;
 }

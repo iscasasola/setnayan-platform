@@ -36,7 +36,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import React from 'react';
 
@@ -50,7 +50,10 @@ import { makerPartOfTap } from './maker-parts';
 import { RSVP_STAGE_KEY, rsvpPreviewMessages, type RsvpStageScene } from './rsvp-stage';
 import {
   RSVP_CONFIG_FULL,
+  RSVP_CONFIG_CHECK,
   RSVP_CONFIG_ROOM,
+  RSVP_CONFIG_STORED_OVER,
+  RSVP_CONFIG_STORED_RATIO,
   RSVP_LOOK_BUTTON_LINES,
   RSVP_LOOK_LINES,
   RSVP_LOOK_MESSAGE,
@@ -290,15 +293,25 @@ test('4 · the panel: Style on a text line is Font ▾, then ONE colour circle a
 });
 
 test('5 · the ceiling: a save that would not fit is refused in a sentence — and what is already kept can still shrink', () => {
-  assert.ok(RSVP_CONFIG_ROOM < 2048, 'the app’s limit is not under the database’s');
+  /* 📏 The app counts JSON bytes; the database counts the value AS STORED, which is the bigger one (measured —
+     `tests/db/rsvp-ask-config-has-room.db.test.ts`: at most `RSVP_CONFIG_STORED_OVER` bytes over for the app's own
+     shape, at most ×`RSVP_CONFIG_STORED_RATIO` when it is all structure). The room must stay under the check both
+     ways: the pair this replaced (1,900 / 2,048) did not, and a look-heavy config was refused by the database at Apply. */
+  assert.ok(RSVP_CONFIG_ROOM + RSVP_CONFIG_STORED_OVER <= RSVP_CONFIG_CHECK, 'the app’s limit does not keep a config under the database’s once it is stored');
+  assert.ok(RSVP_CONFIG_ROOM * RSVP_CONFIG_STORED_RATIO < RSVP_CONFIG_CHECK, 'the app’s limit does not keep an all-structure config under the database’s');
+  /* …and the check is the one the NEWEST migration naming the constraint carries — a number changed here alone lies. */
+  const MIGRATIONS = join(WEB, '..', '..', 'supabase', 'migrations');
+  const carriers = readdirSync(MIGRATIONS).filter((f) => f.endsWith('.sql') && /ADD CONSTRAINT events_rsvp_ask_config_shape/.test(readFileSync(join(MIGRATIONS, f), 'utf8'))).sort();
+  const newest = readFileSync(join(MIGRATIONS, carriers[carriers.length - 1]!), 'utf8');
+  assert.equal(Number(/pg_column_size\(rsvp_ask_config\) <= (\d+)\)/.exec(newest)?.[1]), RSVP_CONFIG_CHECK, `the database’s limit (${carriers[carriers.length - 1]}) is not RSVP_CONFIG_CHECK`);
   const small = { words: { question: 'Coming?' } };
-  const big = { words: { thanksMessage: '🎉'.repeat(240), declineMessage: '🎉'.repeat(240) } };
+  const big = { words: { thanksMessage: '🎉'.repeat(240), declineMessage: '🎉'.repeat(240) }, look: { later: '🎉'.repeat(4400) } };
   assert.ok(rsvpConfigBytes(big) > RSVP_CONFIG_ROOM, 'the fixture does not pass the limit');
   assert.equal(rsvpConfigFits(small), true);
   assert.equal(rsvpConfigFits(big), false);
   assert.equal(rsvpConfigFits(big, small), false, 'a save that grows past the limit is taken');
   /* Already over (kept before the limit was asked): shorter or equal is always taken, longer is not. */
-  const shorter = { words: { thanksMessage: '🎉'.repeat(240), declineMessage: '🎉'.repeat(239) } };
+  const shorter = { ...big, words: { thanksMessage: '🎉'.repeat(240), declineMessage: '🎉'.repeat(239) } };
   assert.equal(rsvpConfigFits(shorter, big), true);
   assert.equal(rsvpConfigFits(big, big), true);
   assert.equal(rsvpConfigFits({ ...big, meal: false }, big), false);

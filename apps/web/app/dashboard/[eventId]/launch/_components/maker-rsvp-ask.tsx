@@ -246,7 +246,7 @@ export function MakerRsvpSettings({
    */
   const save = (patch: RsvpAskConfig, what?: string, said = false): Promise<SaveAnswer> => {
     const next: RsvpAskConfig = { ...latest.current, ...patch };
-    /* 📏 THE ONE OBJECT HAS A CEILING (the database's 2,048 bytes — `lib/rsvp-look.ts`): a save that would pass it
+    /* 📏 THE ONE OBJECT HAS A CEILING (the database's `RSVP_CONFIG_CHECK` — `lib/rsvp-look.ts`): a save that would pass it
        is refused HERE, in a sentence, before anything is shown or kept — a long message of emoji used to be met
        only at Apply, as the database's own refusal. Said by the row that asked (`said`), else under the list. */
     if (!rsvpConfigFits(next, latest.current)) {

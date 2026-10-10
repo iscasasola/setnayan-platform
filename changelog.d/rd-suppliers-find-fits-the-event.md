@@ -49,6 +49,42 @@ one scope. No migration and no RPC change: `service_cards_unbookable_on` already
 takes any set of up to 31 days. A flexible window (`date_window_start/end`) is
 NOT read — nobody has ruled on it.
 
+### 3 · One inquiry, every category ticked
+
+On the supplier sheet, "The rest of their portfolio" was a row of separate
+"Ask about X" buttons, and `contactShortlistVendor` always sent
+`alsoServiceIds: []`. For a supplier already on the couple's list, "Ask about
+Cake" opened the chat and recorded nothing about Cake.
+
+It is now the shipped "Also ask about" tick list (the block from
+`app/v/[slug]/_components/inquiry-composer.tsx` — its legend, its checkbox, its
+ticked look), and the sheet's ONE ask button sends the category on screen and
+every ticked one together:
+
+- `contactShortlistVendor` takes `alsoTiles` (no new exported action). Each
+  ticked category resolves to that supplier's earliest active card in it
+  (`lib/supplier-sheet-ask.ts`, the same reading the sheet's list is built
+  from) and rides the one `startServiceInquiry` call as `alsoServiceIds`.
+- One thread (`chat_threads` UNIQUE (event_id, vendor_profile_id)), one
+  `thread_service_interests` row per category.
+- A conversation that already exists gains the new categories on the SAME
+  thread: with a tick, "Open chat" becomes the ask button. No second message is
+  posted on a resumed thread — that rule is `startServiceInquiry`'s and is
+  unchanged.
+- A ticked category the supplier no longer has a live card in is said
+  ("That service is no longer available.") before anything is sent.
+
+Also fixed in the sheet, found measuring this at 375 px: its button row was
+never fitted (`useFitRow` ran in the component that returns null until `<body>`
+is known), so "Ask for a quote · Follow · Share" ran 10 px past the sheet's
+edge for any supplier with no conversation yet. The row is now fitted by the
+component that draws it — the same trap and the same answer as
+`find-thumb-row.tsx`.
+
+Not changed: the supplier's side. The thread header names every category
+asked (`ThreadInterestChips`); the Today card, the messages list and the
+new-inquiry notice do not — reported, not built.
+
 SPEC IMPACT: None beyond the row already filed — `DECISION_LOG.md` 2026-10-10
 "SEARCH SHOWS ONLY WHAT CAN BE BOOKED FOR THIS EVENT; ONE INQUIRY COVERS EVERY
 CATEGORY THE COUPLE TICKS" (the controller filed it; this change implements it).

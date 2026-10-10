@@ -20,6 +20,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendChatMessageCore } from '@/lib/chat-send';
 import { NUDGE_MESSAGE } from '@/lib/supplier-card-verbs';
+import { serviceIdsForTickedTiles, type AskCard } from '@/lib/supplier-sheet-ask';
 import {
   startServiceInquiry,
   type StartServiceInquiryResult,
@@ -48,10 +49,10 @@ async function resolveActiveServiceForVendor(
   admin: ReturnType<typeof createAdminClient>,
   vendorProfileId: string,
   preferredServiceId?: string | null,
-): Promise<{ vendorServiceId: string; categoryKey: string | null } | null> {
+): Promise<{ vendorServiceId: string; categoryKey: string | null; active: AskCard[] } | null> {
   const { data: activeSvcs } = await admin
     .from('vendor_services')
-    .select('vendor_service_id, category')
+    .select('vendor_service_id, category, created_at')
     .eq('vendor_profile_id', vendorProfileId)
     .eq('is_active', true)
     // "The vendor's first active service" must MEAN one card. Two cards made in
@@ -60,16 +61,15 @@ async function resolveActiveServiceForVendor(
     // test round 1: Saysay's two cards, both NULL-titled, same timestamp).
     .order('created_at', { ascending: true })
     .order('vendor_service_id', { ascending: true });
-  const active = (activeSvcs ?? []) as {
-    vendor_service_id: string;
-    category: string | null;
-  }[];
+  const active = (activeSvcs ?? []) as AskCard[];
   if (active.length === 0) return null;
   const preferred = preferredServiceId
     ? active.find((s) => s.vendor_service_id === preferredServiceId)
     : null;
   const chosen = preferred ?? active[0]!;
-  return { vendorServiceId: chosen.vendor_service_id, categoryKey: chosen.category };
+  // `active` rides along so a ticked category resolves from the SAME read the
+  // anchor did — one read of their cards, one answer about which are live.
+  return { vendorServiceId: chosen.vendor_service_id, categoryKey: chosen.category, active };
 }
 
 export async function contactShortlistVendor(input: {
@@ -86,6 +86,17 @@ export async function contactShortlistVendor(input: {
    * follow-up, and a second nudge is refused in the core's own words.
    */
   nudgeThreadId?: string;
+  /**
+   * ONE INQUIRY, EVERY CATEGORY TICKED (owner 2026-10-10: "they will inquire
+   * for all the categories they want to know. it will be counted as 1
+   * inquiry."). The supplier sheet's ticked rows of "The rest of their
+   * portfolio", as Suppliers-page category ids. Each resolves to that
+   * supplier's earliest active card in the category and rides the SAME
+   * `startServiceInquiry` call as `alsoServiceIds` — one thread
+   * (`chat_threads` UNIQUE (event_id, vendor_profile_id)), one interest row
+   * per category. It rides this action for the same reason the nudge does.
+   */
+  alsoTiles?: string[];
 }): Promise<ContactShortlistVendorResult> {
   const eventId = String(input.eventId ?? '').trim();
   const vendorId = String(input.vendorId ?? '').trim();
@@ -144,6 +155,18 @@ export async function contactShortlistVendor(input: {
     };
   }
 
+  // The ticked categories → the cards the one inquiry carries. A category the
+  // supplier no longer has a live card in is SAID, before anything is sent —
+  // never an inquiry that quietly leaves out something the couple ticked.
+  const also = serviceIdsForTickedTiles(
+    resolved.active,
+    Array.isArray(input.alsoTiles) ? input.alsoTiles : [],
+    resolved.vendorServiceId,
+  );
+  if (also.unresolved.length > 0) {
+    return { status: 'error', message: 'That service is no longer available.' };
+  }
+
   return startServiceInquiry({
     vendorProfileId,
     eventId,
@@ -152,7 +175,7 @@ export async function contactShortlistVendor(input: {
     // under), falling back to the resolved service's canonical category.
     initialCategoryKey:
       (row?.category ? String(row.category) : null) ?? resolved.categoryKey ?? null,
-    alsoServiceIds: [],
+    alsoServiceIds: also.serviceIds,
     // Inquiry-source taxonomy (owner 2026-07-17) — this inquiry originated from
     // the couple's shortlist/build workspace.
     inquirySource: 'shortlist',

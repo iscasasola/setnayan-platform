@@ -1,34 +1,29 @@
 /**
  * lib/couple-supplier-notices.ts — EVERY NOTICE THAT CARRIES A COUPLE ↔ SUPPLIER
- * CONNECTION, AND WHETHER IT REACHES SOMEBODY WHO IS NOT IN THE APP.
+ * CONNECTION, AND WHETHER IT IS EMAILED OR TOLD IN THE APP.
  *
  * 🔴 WHY THIS EXISTS (2026-10-10). The owner: "what we are building is the
  * connection of the supplier and user on their events." A read-only map of every
- * round trip between a couple and a supplier found the notices that open or
- * move a booking were tray badges only: the supplier's FIRST inquiry, "a payment
- * is waiting for you to confirm", "your supplier asked for a payment", "your
- * booking was cancelled", the supplier's no to an inquiry, the request to
- * confirm delivery, and "your supplier joined Setnayan". A supplier who was not
- * looking at the app heard none of them. One of them — the cancelled booking —
- * USED to be an email and lost it silently when it was moved onto
- * `emitNotification` without an allowlist line.
+ * round trip between a couple and a supplier found that nobody had written down
+ * which of their notices reach an inbox and which are a tray badge — and that
+ * three comments in the code claimed an email that was never sent.
  *
- * 🔑 THE NOTIFICATION AND THE ALLOWLIST ARE TWO HALVES OF ONE MECHANISM; having
- * one is indistinguishable from having neither. This file is the ONE place that
- * says which half each connection notice is meant to have, with the reason, so
- * `couple-supplier-notices-reach-email.test.ts` can hold both halves together:
+ * 📵 AND WHAT IT IS NOT (owner 2026-10-11: "i thought we can manage without
+ * emails?"). On 2026-10-10 eight of these notices were put on the email
+ * allowlist; the next day they came back off. Emails cost money and the
+ * direction is fewer, not more. So this file does not ADD email to anything: it
+ * records what main already emailed, declares everything else app-only with the
+ * reason, and lets the guard hold both.
  *
- *   · `reach: 'email'`    → on the email allowlist in notification-emit.ts, NOT
- *                           in the marketing-gated set, and carrying its own
- *                           reason line (notification-email-reason.ts) — the
- *                           three parts the shared layout needs from a type.
- *   · `reach: 'app_only'` → deliberately a tray badge, with the reason written
- *                           down, and the guard fails if it is emailed anyway
- *                           (so this file cannot quietly go stale).
+ *   · `reach: 'email'`    → ALREADY on the email allowlist on main. Stays on
+ *                           it, NOT marketing-gated, with its own reason line
+ *                           (notification-email-reason.ts).
+ *   · `reach: 'app_only'` → a tray notice, with the reason written down. The
+ *                           guard FAILS if it is emailed.
  *
  * A notice type emitted from a couple ↔ supplier file that is in NEITHER list
- * fails the guard: nobody gets to add a new round trip without deciding whether
- * it has to reach a person.
+ * fails the guard: nobody adds a round trip without saying how it is told. And
+ * `the-email-allowlist-is-frozen.test.ts` fails if the allowlist itself grows.
  *
  * Pure. Type-only imports besides the date formatter.
  */
@@ -40,41 +35,36 @@ import { formatEventDateWithPrecision, type EventDatePrecision } from '@/lib/eve
 export type NoticeParty = 'supplier' | 'couple' | 'either';
 
 /**
- * What the email says about the event.
+ * What an EMAILED notice says about the event, under its sentence.
  *   name_and_date — "Event · Ana & Ben" and "Date · Saturday, March 6, 2027".
- *   date_only     — the date, never the name. A first inquiry is PRE-accept:
- *                   the notice's own title drops the event's name on purpose
- *                   (anonymization-until-accept, lib/chat-actions.ts), so the
- *                   email must not print it underneath.
  *   none          — no event rows (a chat message is a conversation, not a
  *                   booking event; a waitlist pick has no event at all).
  */
-export type NoticeEventFacts = 'name_and_date' | 'date_only' | 'none';
+export type NoticeEventFacts = 'name_and_date' | 'none';
 
 export type CoupleSupplierNotice =
   | { to: NoticeParty; reach: 'email'; event: NoticeEventFacts; why: string }
   | { to: NoticeParty; reach: 'app_only'; why: string };
 
+/**
+ * 📵 Owner, 2026-10-11, verbatim: "i thought we can manage without emails?" —
+ * emails cost money and the direction is fewer, not more (DECISION_LOG
+ * 2026-09-29 "NO EMAIL TO GUESTS", 2026-10-02 "yes stop emails"). Every
+ * couple ↔ supplier notice that did NOT already email on main carries this
+ * reason: it is told in the app, and the guard fails if it is emailed.
+ */
+const NO_NEW_EMAILS = 'owner 2026-10-11: we manage without new emails — the app tells them';
+
 export const COUPLE_SUPPLIER_NOTICES = {
   // ── Asking, answering, quoting ────────────────────────────────────────────
-  vendor_inquiry_received: {
-    to: 'supplier',
-    reach: 'email',
-    event: 'date_only',
-    why: 'the first ask — a supplier who is not looking at the app never learns a couple wrote, and the couple waits on a reply that cannot come',
-  },
+  vendor_inquiry_received: { to: 'supplier', reach: 'app_only', why: NO_NEW_EMAILS },
   inquiry_accepted: {
     to: 'couple',
     reach: 'email',
     event: 'name_and_date',
     why: 'the answer the couple is waiting on; it opens the conversation',
   },
-  inquiry_declined: {
-    to: 'couple',
-    reach: 'email',
-    event: 'name_and_date',
-    why: 'the couple is waiting on this supplier and must look elsewhere — a no they never read costs them days',
-  },
+  inquiry_declined: { to: 'couple', reach: 'app_only', why: NO_NEW_EMAILS },
   quote_accepted: {
     to: 'supplier',
     reach: 'email',
@@ -136,12 +126,7 @@ export const COUPLE_SUPPLIER_NOTICES = {
     event: 'name_and_date',
     why: 'a booking was marked on one side and the other side has to agree the details',
   },
-  booking_cancelled: {
-    to: 'supplier',
-    reach: 'email',
-    event: 'name_and_date',
-    why: 'the supplier loses a booking and gets a date back — it was an email until it moved onto the shared notice path without an allowlist line',
-  },
+  booking_cancelled: { to: 'supplier', reach: 'app_only', why: NO_NEW_EMAILS },
   // ── Money ─────────────────────────────────────────────────────────────────
   payment_info_sent: {
     to: 'couple',
@@ -149,18 +134,8 @@ export const COUPLE_SUPPLIER_NOTICES = {
     event: 'name_and_date',
     why: 'the payment plan the couple has to follow is ready',
   },
-  payment_logged: {
-    to: 'supplier',
-    reach: 'email',
-    event: 'name_and_date',
-    why: 'money was sent and waits for the supplier to confirm it arrived — the one money step that had no email',
-  },
-  vendor_payment_asked: {
-    to: 'couple',
-    reach: 'email',
-    event: 'name_and_date',
-    why: 'the one notice that tells a couple an amount is owed',
-  },
+  payment_logged: { to: 'supplier', reach: 'app_only', why: NO_NEW_EMAILS },
+  vendor_payment_asked: { to: 'couple', reach: 'app_only', why: NO_NEW_EMAILS },
   payment_confirmed: {
     to: 'couple',
     reach: 'email',
@@ -191,12 +166,7 @@ export const COUPLE_SUPPLIER_NOTICES = {
     event: 'name_and_date',
     why: 'the answer to a change in what the couple owes; a yes moves the total',
   },
-  pax_surcharge_changed: {
-    to: 'couple',
-    reach: 'email',
-    event: 'name_and_date',
-    why: 'the total the couple owes on a booking changed',
-  },
+  pax_surcharge_changed: { to: 'couple', reach: 'app_only', why: NO_NEW_EMAILS },
   // ── The date ──────────────────────────────────────────────────────────────
   date_change_requested: {
     to: 'supplier',
@@ -229,19 +199,9 @@ export const COUPLE_SUPPLIER_NOTICES = {
     why: 'a supplier asked to change the schedule and nothing moves until somebody answers',
   },
   // ── The claim link ────────────────────────────────────────────────────────
-  vendor_joined: {
-    to: 'couple',
-    reach: 'email',
-    event: 'name_and_date',
-    why: 'the supplier the couple added by hand is now on Setnayan and can be messaged, booked and paid there',
-  },
+  vendor_joined: { to: 'couple', reach: 'app_only', why: NO_NEW_EMAILS },
   // ── After the event ───────────────────────────────────────────────────────
-  review_request: {
-    to: 'couple',
-    reach: 'email',
-    event: 'name_and_date',
-    why: 'the supplier marked the service delivered and the couple must confirm they received everything',
-  },
+  review_request: { to: 'couple', reach: 'app_only', why: NO_NEW_EMAILS },
   review_received: {
     to: 'supplier',
     reach: 'email',
@@ -343,7 +303,7 @@ export const COUPLE_SUPPLIER_NOTICES = {
   inquiry_awaiting_reply: {
     to: 'supplier',
     reach: 'app_only',
-    why: 'written at the supplier’s own sign-in, so they are in the app when it lands; the away-from-app word is the first-inquiry email (the ghost-warning email in lib/ghosting.ts is about a booked event a week away, not an unanswered inquiry)',
+    why: 'written at the supplier’s own sign-in, so they are in the app when it lands (the ghost-warning email in lib/ghosting.ts is about a booked event a week away, not an unanswered inquiry)',
   },
   vendor_review_reply: {
     to: 'couple',
@@ -408,7 +368,7 @@ export function coupleSupplierEventSections(
   return [
     {
       rows: [
-        ...(notice.event === 'name_and_date' && name ? [{ label: 'Event', value: name }] : []),
+        ...(name ? [{ label: 'Event', value: name }] : []),
         { label: 'Date', value: when },
       ],
     },

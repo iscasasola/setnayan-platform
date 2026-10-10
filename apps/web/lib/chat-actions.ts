@@ -190,14 +190,13 @@ export async function notifyOtherParty(args: {
       // `eventName` (the event title, which contains the couple's names).
       //
       // ⚠ THIS COMMENT SAID "the email it triggers via emitNotification's
-      // allowlist" FOR MONTHS WHILE `vendor_inquiry_received` WAS NOT ON THAT
-      // ALLOWLIST — push only, so a shop with no push subscription that did not
-      // sign in never learned a couple wrote. It is on the allowlist since
-      // 2026-10-10, and lib/couple-supplier-notices.ts declares its email as
-      // `date_only`: the event's DATE is printed under the sentence (so the
-      // shop can tell whether it is free), the event's NAME never is.
-      // `eventId` is passed because the link below is a supplier-side path the
-      // emitter cannot read an event out of. The couple's message TEXT is NOT
+      // allowlist" FOR MONTHS. THERE IS NO SUCH EMAIL: `vendor_inquiry_received`
+      // is a tray notice plus a push, and is NOT on the email allowlist (owner
+      // 2026-10-11: "we manage without emails"; declared app-only in
+      // lib/couple-supplier-notices.ts, and the guard fails if it is emailed).
+      // `eventId` records which event the notice belongs to — the link below
+      // is a supplier-side path the emitter cannot read one out of. The
+      // couple's message TEXT is NOT
       // scrubbed (edge rule: they may sign their own message — that's their
       // choice). NOTE: the "returning client" enrichment (which names a PRIOR
       // event) is an owner-locked feature (2026-06-12) that deliberately tells

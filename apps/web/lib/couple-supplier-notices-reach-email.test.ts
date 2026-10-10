@@ -1,48 +1,51 @@
 /**
- * couple-supplier-notices-reach-email.test.ts — A NOTICE THAT OPENS OR MOVES A
- * BOOKING REACHES THE OTHER PARTY AWAY FROM THE APP.
+ * couple-supplier-notices-reach-email.test.ts — EVERY COUPLE ↔ SUPPLIER NOTICE
+ * IS DECLARED: EMAILED (because it already was) OR TOLD IN THE APP — AND THE
+ * DECLARATION IS TRUE.
  *
- * 🔴 WHY (2026-10-10). The supplier's first inquiry, "a payment is waiting for
- * you to confirm", "your supplier asked for a payment", the cancelled booking,
- * the declined inquiry, the delivery confirmation and the claim notice were all
- * emitted and none was on the email allowlist — so a supplier who was not
- * looking at the app heard nothing. A comment beside one of them said it
- * emailed. 🔑 THE NOTIFICATION AND THE ALLOWLIST ARE TWO HALVES OF ONE
- * MECHANISM; having one is indistinguishable from having neither.
+ * 🔴 HISTORY, because the file's name carries it. Written 2026-10-10 to put
+ * eight in-app notices on the email allowlist. Owner, 2026-10-11: "i thought we
+ * can manage without emails?" — emails cost money and the direction is fewer.
+ * The eight came back off the list the next day, and this guard TURNED ROUND
+ * with them: it now FAILS if one of them (or any notice declared app-only) is
+ * emailed. The guard was moved, not deleted.
  *
  * WHAT IS HELD — the property, never a phrasing:
  *
- *   1 · BOTH HALVES. Every type `lib/couple-supplier-notices.ts` declares as
- *       emailed is on the allowlist, is NOT marketing-gated, and has its own
- *       reason line (the three parts the one shared layout needs from a type).
- *       Every type declared app-only is NOT emailed — so the declaration cannot
- *       go stale in the other direction either.
- *   2 · NOBODY ADDS A ROUND TRIP WITHOUT DECIDING. Every notice type emitted
- *       from a couple ↔ supplier file is declared one way or the other.
- *   3 · THE BUTTON LANDS SOMEWHERE REAL, ON THE READER'S SIDE. The link is read
- *       OUT OF EACH EMIT SITE (never typed here), must resolve to a page that
- *       exists, and must be on the recipient's side of the app.
- *   4 · THE EMAIL SAYS WHICH EVENT AND WHEN. Rendered through the real template
- *       with fixture data: the event's name and date are in both halves, a first
- *       inquiry carries the date and NEVER the name, and there is one button
- *       whose link is the emit site's own.
- *   5 · AN UNSENT EMAIL IS WRITTEN DOWN. The emitter no longer skips the whole
- *       block when Resend is not configured, and every exit without a send
- *       records why.
+ *   1 · AN EMAILED NOTICE HAS ALL ITS PARTS. Every type declared `email` in
+ *       `lib/couple-supplier-notices.ts` is on the allowlist, NOT
+ *       marketing-gated, and has its own reason line.
+ *  1b · AN APP-ONLY NOTICE IS NOT EMAILED. Every type declared `app_only` is
+ *       OFF the allowlist. This is the half that stops a new email.
+ *   2 · NOBODY ADDS A ROUND TRIP WITHOUT DECLARING IT. Every notice type
+ *       emitted from a couple ↔ supplier file is declared one way or the other.
+ *   3 · THE BUTTON LANDS SOMEWHERE REAL, ON THE READER'S SIDE (emailed types).
+ *       The link is read OUT OF EACH EMIT SITE (never typed here), must resolve
+ *       to a page that exists, and must be on the recipient's side of the app.
+ *   4 · AN EMAIL THAT ALREADY SHIPS SAYS WHICH EVENT AND WHEN. Rendered through
+ *       the real template with fixture data.
+ *   5 · AN UNSENT EMAIL IS WRITTEN DOWN — honesty about the emails that already
+ *       ship: the emitter no longer skips the block silently when Resend is not
+ *       configured, and every exit without a send records why.
+ *   6–8 · the lapsed-request notice, the withdrawn-request notice and the
+ *       change-order notices each have one home and reach every door.
  *
- * SABOTAGE (2026-10-10 — each run alone, seen red in the test named, restored
- * from an in-memory copy keyed on the full path, restore hash-checked):
- *   · take 'payment_logged' off the allowlist                     → test 1
- *   · delete payment_logged's line in notification-email-reason   → test 1
- *   · put 'vendor_inquiry_received' in the marketing-gated set    → test 1
- *   · add 'schedule_suggestion' (app-only) to the allowlist       → test 1b
+ * `the-email-allowlist-is-frozen.test.ts` holds the other side: the allowlist
+ * is exactly what main sent, type for type.
+ *
+ * SABOTAGE (each run alone, seen red in the test named, restored from an
+ * in-memory copy keyed on the full path, restore hash-checked):
+ *   · put 'payment_logged' on the allowlist                       → test 1b
+ *   · put 'quote_accepted' on the allowlist                       → test 1b
+ *   · take 'payment_confirmed' (emailed on main) off the allowlist→ test 1
+ *   · delete payment_confirmed's reason line                      → test 1
+ *   · put 'lock_request_received' in the marketing-gated set      → test 1
  *   · emit an undeclared type from a supplier file                → test 2
- *   · remove `eventId` from the payment_logged emit in Budget     → test 3
- *   · point the cancelled-booking fallback link at a made-up page → test 3
- *   · point a supplier's payment notice at the couple's side      → test 3
- *   · make the first inquiry 'name_and_date'                      → test 4b
+ *   · remove `eventId` from the lock_request_received emit        → test 3
+ *   · point a supplier's emailed notice at the couple's side      → test 3
  *   · put `(await isEmailConfigured()) &&` back on the gate       → test 5
  *   · delete the record in the catch around the send              → test 5
+ *   (tests 6–8 carry their own, listed beside them in the commits that added them)
  *
  * Run from apps/web:  ../../node_modules/.bin/tsx --test lib/couple-supplier-notices-reach-email.test.ts
  */
@@ -335,7 +338,7 @@ test('0 · anchor — real files were read, and the counts are not zero', () => 
   );
   assert.ok(allow.size >= 50, `read only ${allow.size} allowlisted types`);
   assert.ok(EMAILED.length >= 25, `only ${EMAILED.length} emailed notices declared`);
-  assert.ok(APP_ONLY.length >= 4, `only ${APP_ONLY.length} app-only notices declared`);
+  assert.ok(APP_ONLY.length >= 12, `only ${APP_ONLY.length} app-only notices declared`);
   assert.ok(SITES.length >= 60, `found only ${SITES.length} emit sites — the scan is blind`);
   assert.ok(ROUTES.length >= 300, `found only ${ROUTES.length} pages — the route walk is blind`);
   // The parsers can tell a real route from a made-up one.
@@ -464,11 +467,7 @@ test('4 · rendered through the real template: the event, the date, and ONE butt
     } else {
       assert.deepEqual(rows.at(-1), { label: 'Date', value: FIXTURE_DATE }, `${type}: the date row is missing or wrong`);
       const names = rows.filter((r) => r.label === 'Event');
-      if (notice.event === 'name_and_date') {
-        assert.deepEqual(names, [{ label: 'Event', value: FIXTURE.display_name }], `${type}: the event is not named`);
-      } else {
-        assert.equal(names.length, 0, `${type} is PRE-accept and must not name the event`);
-      }
+      assert.deepEqual(names, [{ label: 'Event', value: FIXTURE.display_name }], `${type}: the event is not named`);
     }
 
     for (const site of sitesOf(type)) {
@@ -486,7 +485,7 @@ test('4 · rendered through the real template: the event, the date, and ONE butt
         assert.ok(html.includes(notificationEmailReason(type as NotificationType)), `${type}: the mail does not say why it came`);
         if (notice.event !== 'none') assert.ok(html.includes(FIXTURE_DATE), `${type}: the rendered mail has no date`);
         const namesEvent = html.includes('Ana &amp; Ben');
-        assert.equal(namesEvent, notice.event === 'name_and_date', `${type}: the rendered mail ${namesEvent ? 'names' : 'does not name'} the event`);
+        assert.equal(namesEvent, notice.event !== 'none', `${type}: the rendered mail ${namesEvent ? 'names' : 'does not name'} the event`);
         rendered += 1;
       }
     }
@@ -497,19 +496,21 @@ test('4 · rendered through the real template: the event, the date, and ONE butt
 
 test('4b · the rows are honest about what is not known', () => {
   // No date yet: said, never blank and never today's date.
-  const undated = coupleSupplierEventSections('payment_logged', { display_name: 'Ana & Ben', event_date: null, event_date_precision: null });
+  const undated = coupleSupplierEventSections('payment_confirmed', { display_name: 'Ana & Ben', event_date: null, event_date_precision: null });
   assert.deepEqual(undated[0]!.rows, [
     { label: 'Event', value: 'Ana & Ben' },
     { label: 'Date', value: NOTICE_DATE_NOT_SET },
   ]);
   // A month-only date is not promoted to a day.
-  const month = coupleSupplierEventSections('payment_logged', { display_name: null, event_date: '2027-08-01', event_date_precision: 'month' });
+  const month = coupleSupplierEventSections('payment_confirmed', { display_name: null, event_date: '2027-08-01', event_date_precision: 'month' });
   assert.deepEqual(month[0]!.rows, [{ label: 'Date', value: 'August 2027' }]);
   // A type that is not one of these notices, or is app-only, adds nothing.
   assert.deepEqual(coupleSupplierEventSections('rsvp_received', FIXTURE), []);
   assert.deepEqual(coupleSupplierEventSections('schedule_suggestion', FIXTURE), []);
-  // The first inquiry: the date, and never the name.
-  assert.deepEqual(coupleSupplierEventSections('vendor_inquiry_received', FIXTURE)[0]!.rows, [{ label: 'Date', value: FIXTURE_DATE }]);
+  // A notice told in the app only has no email to put rows in.
+  for (const t of ['vendor_inquiry_received', 'payment_logged', 'review_request'] as const) {
+    assert.deepEqual(coupleSupplierEventSections(t, FIXTURE), [], `${t} is app-only and must add no email rows`);
+  }
 });
 
 /* ═══ 5 · AN UNSENT EMAIL IS WRITTEN DOWN, AND THE MAIL IS BUILT FROM THESE ══ */

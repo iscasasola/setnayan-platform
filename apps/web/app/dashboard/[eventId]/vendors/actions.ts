@@ -444,12 +444,12 @@ async function updateVendorStatus(formData: FormData) {
 
   // Phase-2 review-request emit: the moment a vendor's service is marked
   // delivered (and wasn't already delivered/complete), drop a notification
-  // on the couple's tray + send an email asking them to leave a review.
-  // ⚠ "+ a Resend email" was written here for months while `review_request`
-  // was NOT on the email allowlist, so only the tray half ever happened. It is
-  // on the allowlist since 2026-10-10 (lib/couple-supplier-notices.ts).
-  // Failure to emit must never roll back the status change itself, so
-  // emitNotification swallows errors internally.
+  // on the couple's tray asking them to leave a review.
+  // ⚠ "+ send a Resend email" was written here for months. There is no such
+  // email: `review_request` is not on the email allowlist and is declared
+  // app-only (lib/couple-supplier-notices.ts; owner 2026-10-11, "we manage
+  // without emails"). Failure to emit must never roll back the status change
+  // itself, so emitNotification swallows errors internally.
   if (
     status === 'delivered'
     && prev?.status !== 'delivered'
@@ -4318,13 +4318,13 @@ export async function cancelBookingAsHost(
   // their inbox. emitNotification resolves the recipient email + prefixes
   // the app URL internally, so the manual users-table lookup is gone.
   //
-  // ⚠ THAT PARAGRAPH WAS FALSE FROM THE DAY IT WAS WRITTEN UNTIL 2026-10-10.
-  // `booking_cancelled` was never added to the email allowlist, so the
-  // "consolidation" REMOVED the supplier's email and kept only the tray row —
-  // a supplier who was not in the app lost a booking and was told nothing. It
-  // is on the allowlist now, and `couple-supplier-notices-reach-email.test.ts`
-  // fails if it drops off again. `eventId` is passed because the link is a
-  // supplier-side path the emitter cannot read an event out of.
+  // ⚠ THAT PARAGRAPH IS FALSE ABOUT THE EMAIL. `booking_cancelled` was never
+  // added to the email allowlist, so the "consolidation" REMOVED the supplier's
+  // direct email and kept only the tray row. That is how it stays: owner
+  // 2026-10-11, "we manage without emails" — the type is declared app-only in
+  // lib/couple-supplier-notices.ts and the guard fails if it is emailed.
+  // `eventId` records which event the notice belongs to (the link is a
+  // supplier-side path the emitter cannot read one out of).
   if (vendorPrimaryUserId) {
     const formattedDate = (() => {
       if (!eventDateIso) return null;

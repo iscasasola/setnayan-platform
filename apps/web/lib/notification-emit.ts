@@ -135,10 +135,9 @@ const EMAIL_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
   // Payment lifecycle (Phase 2 PR-B, 2026-06-20). The transactional money
   // signals the couple should get an email for: their payment plan is ready
   // (info_sent), a payment was confirmed by the vendor, and the plan cleared.
-  // payment_logged was EXCLUDED here from 2026-06-20 until 2026-10-10, on the
-  // reasoning that it is "the vendor-facing nudge (in-app/push register)". It
-  // was never on the push list either, so it reached nobody away from the app.
-  // It is on this list now — see the couple ↔ supplier block at the end.
+  // payment_logged is deliberately EXCLUDED — it is the vendor-facing "couple
+  // logged a payment" notice and stays in the app. (The original note called
+  // it the "in-app/push register"; it was never on the push list either.)
   'payment_info_sent',
   'payment_confirmed',
   'payment_cleared',
@@ -348,45 +347,20 @@ const EMAIL_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
   */
   'schedule_change_requested',
   /*
-    🤝 THE COUPLE ↔ SUPPLIER ROUND TRIPS THAT WERE A TRAY BADGE ONLY (2026-10-10,
-    owner: "what we are building is the connection of the supplier and user on
-    their events"). Each of these opens or moves a booking, and each reached
-    nobody who was not already looking at the app:
+    ⛔ NO NEW EMAILS (owner 2026-10-11: "i thought we can manage without
+    emails?"). Eight couple ↔ supplier notices were added to this list on
+    2026-10-10 and taken back OFF it the next day: the first inquiry, a declined
+    inquiry, a cancelled booking, a logged payment, a payment ask, a guest-count
+    charge, "your supplier joined", and the delivery confirmation. They are
+    tray notices (the first inquiry also keeps the push it always had). Emails
+    cost money and the direction is fewer, not more — DECISION_LOG 2026-09-29
+    "NO EMAIL TO GUESTS", 2026-10-02 "yes stop emails".
 
-      · vendor_inquiry_received → the SUPPLIER's first ask. Push only, so a shop
-        with no push subscription that did not sign in never learned a couple
-        wrote. A comment in lib/chat-actions.ts said it emailed; it did not.
-      · inquiry_declined        → the COUPLE, waiting on a supplier who said no.
-      · booking_cancelled       → the SUPPLIER. This one WAS a direct email, and
-        lost it when it was moved onto this function with no line here.
-      · payment_logged          → the SUPPLIER: money was sent and waits for
-        their confirmation.
-      · vendor_payment_asked    → the COUPLE: the one notice that says an amount
-        is owed.
-      · pax_surcharge_changed   → the COUPLE: the total they owe changed.
-      · vendor_joined           → the COUPLE: the supplier they added by hand is
-        now on Setnayan.
-      · review_request          → the COUPLE: the service was marked delivered
-        and they must confirm it.
-
-    🔑 THE NOTIFICATION AND THIS LINE ARE TWO HALVES OF ONE MECHANISM. Which
-    couple ↔ supplier types must have both is declared ONCE, with a reason each,
-    in lib/couple-supplier-notices.ts; `couple-supplier-notices-reach-email.test.ts`
-    fails if a type declared there as emailed drops off this set, lands in the
-    marketing-gated set below, or loses its reason line.
-
-    ⚠ Deliberately NOT in the marketing-gated set: every one is about the
-    reader's own booking or their own money. That set suppresses unless
-    users.marketing_opt_in = TRUE, which is NOT NULL DEFAULT FALSE.
+    🔒 THIS LIST IS FROZEN at what main sent on 2026-10-10.
+    `the-email-allowlist-is-frozen.test.ts` fails if a type is added or
+    removed; `couple-supplier-notices-reach-email.test.ts` fails if a notice
+    declared app-only is emailed.
   */
-  'vendor_inquiry_received',
-  'inquiry_declined',
-  'booking_cancelled',
-  'payment_logged',
-  'vendor_payment_asked',
-  'pax_surcharge_changed',
-  'vendor_joined',
-  'review_request',
   /*
     🤝 A COUPLE ANSWERED A QUOTE (2026-10-10) → the SUPPLIER. The answer decides
     whether they keep a date in mind for this couple, and until now it reached

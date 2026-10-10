@@ -232,3 +232,170 @@ export function shownBeforeStages(
     isTerminalRenderable(resolveWidgetTerminalState(row.widget_type, facts.stage))
   );
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE TABLE'S ANSWER — one scene on one stage
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/** Where a scene is drawn when it is not in the stage's list of scenes. */
+export type SceneOffListPlace =
+  /** The Day's Welcome: the guest's look (dress code), the couple's reminders. */
+  | 'welcome'
+  /** A guest's page on The Day: its own schedule block, its directions. */
+  | 'day'
+  /** Inside the Save-the-Date film (the gallery is its closing beat). */
+  | 'film'
+  /** The love story as prose, standing in on a stage with no love story scene on the page. */
+  | 'prose';
+
+export type SceneOnStage = {
+  type: WidgetType;
+  stage: LifecyclePhase;
+  /** The couple's stored choice for this stage: `true` shown, `false` hidden, `null` none. */
+  choice: boolean | null;
+  /** (a) The reader meets it on this stage — in the stage's list, or in one of the places off it. */
+  drawn: boolean;
+  /**
+   * It is in the stage's list of scenes — what `resolveSiteBodyPlan` hands the
+   * page. Not yet "drawn": the scene's own component may refuse (a countdown at
+   * a funeral, or once the day has arrived; a love story at a birthday) — then
+   * `notPossible` says so and the Maker folds it.
+   */
+  inList: boolean;
+  /** It is drawn off the list, and where — null when it is not. */
+  offList: SceneOffListPlace | null;
+  /** (b) It is not drawn, and the couple's own choice is why: hidden on this stage, or switched off for the whole event. */
+  hiddenByCouple: boolean;
+  /**
+   * (c) It cannot be on this stage whatever is stored — the rule that says so
+   * (a symbol in the code) and a plain line for the couple. Null = it can.
+   */
+  notPossible: { rule: string; why: string } | null;
+  /** (d) OUR PICK: it is drawn on this stage when the couple has stored nothing and hidden nothing. */
+  ourPick: boolean;
+};
+
+export type GuestsSeeInput = {
+  /** The event's `invitation_widgets` rows, as stored (a draft laid over them, for a preview). */
+  widgets: readonly InvitationWidgetRow[];
+  stage: LifecyclePhase;
+  /** Who is reading. Default: a listed guest — the reader the couple is choosing for. */
+  reader?: StageReader;
+  /** `WEBSITE_PHASES_ENABLED`. Default true. Off = no stage is chosen for; every choice reads as none. */
+  phasesEnabled?: boolean;
+  /** `events.website_open_browse`. Default false. */
+  openBrowse?: boolean;
+  /** What this event TYPE may show (`resolveWeddingOnlyParts`). Absent = everything. */
+  weddingOnlyParts?: Partial<WeddingOnlyParts>;
+  /** Per-scene "has something in it". Absent = it has. With open browsing on an empty scene is not drawn. */
+  content?: Partial<Record<WidgetType, boolean>>;
+  /** The event type's register is solemn (a funeral draws no countdown). */
+  solemn?: boolean;
+  /** The day has arrived: the countdown has retired. */
+  countdownPast?: boolean;
+};
+
+const NOT_POSSIBLE_WHY: Record<string, string> = {
+  STAGE_SCENES: 'Not shown on any stage.',
+  sceneMeetsGuestsOn: 'A Post Event scene — it can only be on Post Event.',
+  resolveWidgetTerminalState: 'Retired after the day.',
+  PUBLIC_WIDGET_ALLOWLIST: "Only on each guest's own link.",
+  'weddingOnlyParts.love_story': 'Not part of this kind of event.',
+  solemn: 'Not shown for this kind of event.',
+  countdownPast: 'Retired — the day has arrived.',
+};
+
+/** What the scene's own component refuses, whatever the list says (the same lines the Maker's fold gives). */
+function componentRefusal(type: WidgetType, input: GuestsSeeInput): string | null {
+  if (type === 'countdown' && input.solemn) return 'solemn';
+  if (type === 'countdown' && input.countdownPast) return 'countdownPast';
+  if (type === 'our_love_story' && input.weddingOnlyParts?.love_story === false) return 'weddingOnlyParts.love_story';
+  return null;
+}
+
+function verdictFor(row: InvitationWidgetRow, input: GuestsSeeInput): Omit<SceneOnStage, 'ourPick'> {
+  const stage = input.stage;
+  const reader = input.reader ?? 'guest';
+  const phasesEnabled = input.phasesEnabled ?? true;
+  const openBrowse = input.openBrowse ?? false;
+  const content = input.content ?? {};
+  const type = row.widget_type;
+  const film = filmLeadsStage(input.widgets, stage, phasesEnabled, input.weddingOnlyParts);
+  const facts: StageFacts = { stage, reader, openBrowse, film, content };
+  const choice = stageChoice(row, stage, phasesEnabled);
+  const refusal = componentRefusal(type, input);
+
+  // The page drops these rows before it plans anything (`widgetsGuestsMeet`).
+  const meets = sceneMeetsGuestsOn(row, stage);
+  const shownToday = meets && shownBeforeStages(row, facts);
+  // In the stage's list — what the plan hands the page. The scene's own component may still refuse to draw (`refusal`).
+  const inList = meets && (phasesEnabled ? sceneInStageList(row, shownToday, facts) : shownToday);
+
+  // ── The places off the list (each: the stage's choice, else what it did before).
+  const eyeOn = row.is_visible; // `widgetShouldRender` — the Day's Welcome reads the eye, never the mode
+  let offList: SceneOffListPlace | null = null;
+  if (stage === 'event' && DAY_WELCOME_SCENES.includes(type)) {
+    const mayRead =
+      type === 'dress_code'
+        ? reader === 'guest' // only a guest has a role to dress for
+        : reader === 'guest' || (PUBLIC_WIDGET_ALLOWLIST.includes(type) && row.audience !== 'guests_only');
+    if ((choice ?? eyeOn) && mayRead && content[type] !== false) offList = 'welcome';
+  } else if (stage === 'event' && reader === 'guest' && DAY_OWN_BLOCKS.includes(type)) {
+    if (choice !== false && content[type] !== false) offList = 'day';
+  } else if (type === 'our_photos' && film) {
+    if (choice !== false && content[type] !== false) offList = 'film';
+  } else if (type === 'our_love_story' && !inList && refusal === null) {
+    if (choice !== false && content[type] !== false) offList = 'prose';
+  }
+
+  const drawn = (inList && refusal === null) || offList !== null;
+
+  // ── (c) Not possible: a `true` would be refused. The Day's Welcome and the film are PLACES, not refusals.
+  const listRule = whyNotInStageList(row, facts);
+  const rule = refusal ?? (listRule === 'DAY_WELCOME_SCENES' || listRule === 'stdShows' || listRule === 'is_always_on' ? null : listRule);
+  // (And only of a scene that is NOT drawn: with stages switched off the page draws by no stage's rule at all.)
+  const notPossible = rule !== null && !drawn ? { rule, why: NOT_POSSIBLE_WHY[rule] ?? 'Not shown on this stage.' } : null;
+
+  const switchedOff = openBrowse ? !openBrowseWidgetVisibleTo(row, 'guest') : !row.is_visible;
+  const hiddenByCouple = !drawn && notPossible === null && (choice === false || (choice === null && switchedOff));
+
+  return { type, stage, choice, drawn, inList, offList, hiddenByCouple, notPossible };
+}
+
+/** The row as we ship it: switched on, nothing chosen per stage. Everything else (its look, its place) kept. */
+function pristine(row: InvitationWidgetRow): InvitationWidgetRow {
+  const config = row.config_json && typeof row.config_json === 'object' && !Array.isArray(row.config_json) ? { ...(row.config_json as Record<string, unknown>) } : {};
+  delete config.stage_show;
+  return { ...row, is_visible: true, mode: 'auto', audience: 'public', config_json: config };
+}
+
+/**
+ * ONE SCENE ON ONE STAGE — what the table, the Maker's list and the guest page
+ * all have to agree on. Null for a type with no row, and for an always-on row
+ * (names & date, the greeting, the ticket, the reply): those take no choice.
+ */
+export function sceneOnStage(input: GuestsSeeInput, type: WidgetType): SceneOnStage | null {
+  const row = input.widgets.find((w) => w.widget_type === type);
+  if (!row || row.is_always_on) return null;
+  const now = verdictFor(row, input);
+  const ours = verdictFor(pristine(row), { ...input, widgets: input.widgets.map((w) => (w === row ? pristine(row) : w)) });
+  return { ...now, ourPick: ours.drawn };
+}
+
+/** Every scene of the event on one stage, in the rows' own order. */
+export function scenesOnStage(input: GuestsSeeInput): SceneOnStage[] {
+  return input.widgets.flatMap((w) => {
+    const s = w.is_always_on ? null : sceneOnStage(input, w.widget_type);
+    return s ? [s] : [];
+  });
+}
+
+/** THE TABLE: every scene × every stage. */
+export function whatGuestsSee(input: Omit<GuestsSeeInput, 'stage'>): Record<LifecyclePhase, SceneOnStage[]> {
+  return {
+    save_the_date: scenesOnStage({ ...input, stage: 'save_the_date' }),
+    rsvp: scenesOnStage({ ...input, stage: 'rsvp' }),
+    event: scenesOnStage({ ...input, stage: 'event' }),
+    editorial: scenesOnStage({ ...input, stage: 'editorial' }),
+  };
+}

@@ -193,6 +193,29 @@ test('the tick list is the shipped "Also ask about" block — its words and its 
   assert.doesNotMatch(SHEET, /rounded-full[^"]*"[^>]*onClick=\{\(\) => toggleTick/);
 });
 
+test('frames only on what you press: each tick is framed; the heading and the helper line are not; the topic starts at a divider', () => {
+  // Owner, 2026-10-11: "only have frames if something needs to be clicked like
+  // a button, separate topics with divider."
+  const also = SHEET.slice(SHEET.indexOf('data-sheet-also=""'), SHEET.indexOf('</fieldset>'));
+  assert.ok(also.length > 0, 'the tick list moved');
+  // The frame (rounded + border) is on the tick's own label, and nowhere else in the list.
+  assert.match(SHEET, /const TICK_ROW = '[^']*\brounded-lg border\b[^']*';/);
+  assert.equal(count(also, /\$\{TICK_ROW\}/g), 1, 'the frame is not on the tick row');
+  // (The checkbox is itself pressed; take its own class out before looking.)
+  const readOnly = also.replace('className="h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"', '');
+  assert.notEqual(readOnly, also, 'the checkbox class moved — this check would look at nothing');
+  assert.equal(count(readOnly, /\brounded\b|\brounded-/g), 0, 'something that is only read got a box');
+  // Inside the frame: the checkbox and the category's name. Nothing that is only read.
+  const label = also.slice(also.indexOf('<label'), also.indexOf('</label>'));
+  assert.doesNotMatch(label, /can be in the same quote/, 'the helper line is inside the frame');
+  assert.equal(count(label, /<span /g), 1, 'the framed row carries more than the name');
+  // The helper line is said once, on the sheet, before the ticks.
+  assert.equal(count(SHEET, /can be in the same quote/g), 1);
+  assert.ok(also.indexOf('data-sheet-also-help') > 0 && also.indexOf('data-sheet-also-help') < also.indexOf('<ul'));
+  // The topic starts at a divider.
+  assert.match(SHEET, /<section className="border-t border-ink\/10 pt-4" data-sheet-section="others">/);
+});
+
 test('🔑 with a conversation already open, ticking a category turns "Open chat" into the ask — the ticks are never stranded', () => {
   // No ticks: exactly what it was. Any tick: the ask button, thread or not, booked or not.
   assert.match(SHEET, /\{tickedCount === 0 && target\.threadId \? \(\s*<ActionButton tone=\{chat\.tone\} icon=\{MessageCircle\} label="Open chat"/);

@@ -74,6 +74,12 @@ every ticked one together:
 - A ticked category the supplier no longer has a live card in is said
   ("That service is no longer available.") before anything is sent.
 
+Frames only on what is pressed (owner 2026-10-11: *"only have frames if
+something needs to be clicked like a button, separate topics with divider."*):
+each tick and the ask button are framed; the list's heading and its one helper
+line ("can be in the same quote", said once instead of inside every row) sit on
+the sheet with no box, and the topic starts at a divider.
+
 Also fixed in the sheet, found measuring this at 375 px: its button row was
 never fitted (`useFitRow` ran in the component that returns null until `<body>`
 is known), so "Ask for a quote · Follow · Share" ran 10 px past the sheet's

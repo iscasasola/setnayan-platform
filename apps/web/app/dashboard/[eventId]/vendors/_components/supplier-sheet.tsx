@@ -404,7 +404,9 @@ export default function SupplierSheet({
         ) : null}
 
         {data?.others ? (
-          <section data-sheet-section="others">
+          // A new topic ends the one above it with a divider (owner 2026-10-11:
+          // "separate topics with divider").
+          <section className="border-t border-ink/10 pt-4" data-sheet-section="others">
             <p className={k2}>The rest of their portfolio</p>
             {data.others.length === 0 ? (
               <p className="border-t border-ink/10 py-3 text-[14px] text-ink/55">{target.categoryLabel} is all they offer.</p>
@@ -425,10 +427,17 @@ export default function SupplierSheet({
                   ) : null;
                 })}
                 {/* The shipped "Also ask about" block (inquiry-composer.tsx): the
-                    couple ticks, the ONE ask button below sends them all. */}
+                    couple ticks, the ONE ask button below sends them all.
+                    FRAMES ONLY ON WHAT YOU PRESS (owner 2026-10-11: "only have
+                    frames if something needs to be clicked like a button"): each
+                    tick is framed; the heading and the one helper line are read,
+                    so they sit on the sheet with no box. */}
                 {tickable.length > 0 ? (
                   <fieldset className="mt-2 space-y-2" data-sheet-also="">
                     <legend className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/50">Also ask about</legend>
+                    <p className="text-[12px] text-ink/55" data-sheet-also-help="">
+                      can be in the same quote
+                    </p>
                     <ul className="space-y-1.5">
                       {tickable.map((o) => {
                         const on = ticked.has(o.tile);
@@ -448,7 +457,6 @@ export default function SupplierSheet({
                                 className="h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
                               />
                               <span className="min-w-0 flex-1 truncate">{o.label}</span>
-                              <span className="text-[12px] text-ink/55">can be in the same quote</span>
                             </label>
                           </li>
                         );

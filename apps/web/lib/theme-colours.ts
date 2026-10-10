@@ -40,7 +40,7 @@
  * components are handed its answers as props rather than importing it.
  */
 import { HUB_THEMES, INVITE_THEMES, type InviteTheme, type InviteThemeId } from '@/lib/invite-themes';
-import { buildSitePaletteVars, moodBoardSiteColours } from '@/lib/site-palette';
+import { buildSitePaletteVars, moodBoardSiteColours } from '@/lib/site-palette-vars';
 import { channels, hubThemePageTokens } from '@/lib/hub-theme-tokens';
 import { compositeOver, contrastRatio, relativeLuminance } from '@/lib/hub-legibility';
 import { PALETTE_ORDER, sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';

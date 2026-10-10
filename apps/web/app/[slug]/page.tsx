@@ -52,6 +52,7 @@ import { LANDING_OPEN_PARAM, LANDING_OPEN_VALUE } from '@/lib/guest-landing';
 import { checklistShows, sanitizeTicks, type ChecklistKey } from '@/lib/guest-checklist';
 import { manilaToday } from '@/lib/std-views';
 import { meLeadsWithReply, REPLY_SHEET_ANCHOR, resolveArrivalAction } from '@/lib/arrival-action';
+import { BLOCK_MARK_ATTR, readBlockLooks } from '@/lib/block-looks';
 import { rsvpReplyOpen } from '@/lib/site-body-plan';
 import { cookies } from 'next/headers';
 import { RSVP_TERMS_COOKIE, rsvpTermsCarried } from '@/lib/terms-agreement';
@@ -1080,6 +1081,13 @@ async function InvitationBody({
       isEditorCanvas = await loadHostMembership(admin, event.event_id, user.id);
     }
   }
+  // 🧱 THE DIGITAL PASS'S OWN LOOK (`lib/block-looks.ts`). The ticket is mounted HERE (`meSlotFor`, and the sample
+  // guest's below), so its hidden mark is made here and handed to the ticket, which puts it right before its root
+  // when it draws one. The same rule as every block's mark in `site-body.tsx`: on the Maker's canvas always; for a
+  // guest ONLY when a look is kept for the pass — a page with none is the same bytes as before. The rules themselves
+  // are in the one `<style data-block-looks>` SiteBody draws on this same page.
+  const passBlockMark =
+    isEditorCanvas || readBlockLooks((event as { style_preferences?: unknown }).style_preferences).pass ? <span hidden {...{ [BLOCK_MARK_ATTR]: 'pass' }} /> : null;
 
   /*
     🚨 TWO LINES APART, TWO CLOCKS — until 2026-08-21.
@@ -1633,6 +1641,7 @@ async function InvitationBody({
                       invitationUrl={SIMULATED_GUEST_INVITATION_TEXT}
                       src={sampleTicketSrc(event.event_id)}
                       replyHref={replyHref}
+                      mark={passBlockMark}
                     />
                   }
                   galleryCount={0}
@@ -1968,6 +1977,7 @@ async function InvitationBody({
           name={guest.display_name?.trim() || `${guest.first_name ?? ''} ${guest.last_name ?? ''}`.trim() || 'You'}
           invitationUrl={invitationUrl}
           replyHref={replyHref}
+          mark={passBlockMark}
         />
       </div>
     ) : null}

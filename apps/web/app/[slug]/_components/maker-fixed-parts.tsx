@@ -79,10 +79,14 @@ export const DAY_SAMPLE: Record<string, () => ReactNode> = {
     </span>
   ),
   /* ── Find your seat ── */
+  /* 🧱 The Map's sample stands on the hub's PLATE, as each guest's own Map does (`SAMPLE_ROOT_GROUND`, below) — and on
+     a plate the `ink` utilities draw nothing: the plate's `--color-ink` names itself (globals.css), so `bg-ink/10`
+     has no colour there (seen in the Maker lab, 2026-10-10: the six tables vanished and the plate stood empty). So
+     these shapes are tinted from the words' own colour (`currentColor`), which the plate does hand down. */
   'find_your_seat:map': () => (
-    <span className="relative block aspect-[4/3] w-full bg-ink/5">
+    <span className="relative block aspect-[4/3] w-full bg-[color:color-mix(in_srgb,currentColor_5%,transparent)]">
       {['left-[12%] top-[18%]', 'left-[42%] top-[18%]', 'left-[72%] top-[18%]', 'left-[12%] top-[58%]', 'left-[42%] top-[58%]', 'left-[72%] top-[58%]'].map((at, i) => (
-        <span key={at} aria-hidden data-sample-box="" className={`absolute h-[22%] w-[16%] rounded-full ${at} ${i === 4 ? 'bg-ink/30' : 'bg-ink/10'}`} />
+        <span key={at} aria-hidden data-sample-box="" className={`absolute h-[22%] w-[16%] rounded-full ${at} ${i === 4 ? 'bg-[color:color-mix(in_srgb,currentColor_30%,transparent)]' : 'bg-[color:color-mix(in_srgb,currentColor_10%,transparent)]'}`} />
       ))}
     </span>
   ),
@@ -92,8 +96,10 @@ export const DAY_SAMPLE: Record<string, () => ReactNode> = {
       <Line w="w-1/3" className="mx-auto" />
     </span>
   ),
+  /* 🧱 The place card is PAPER, as each guest's own is (`your-seat-styles.tsx` `SeatPlaceCard`: `bg-paper-deep`) — the
+     card a Background lands on (`lib/block-looks.ts` `SEAT_CARDS`), here and on a guest's page alike. */
   'find_your_seat:place-card': () => (
-    <span className="mx-auto block w-3/4 -rotate-2 space-y-2 rounded-md border border-ink/20 px-4 py-4 shadow-sm">
+    <span className="mx-auto block w-3/4 -rotate-2 space-y-2 rounded-md border border-ink/20 bg-paper-deep px-4 py-4 shadow-sm">
       <Line w="w-2/3" className="mx-auto" />
       <Line w="w-1/3" className="mx-auto" />
     </span>
@@ -140,10 +146,17 @@ export function daySampleKey(part: DayPart, styleId: string | null): string {
   return DAY_SAMPLE[want] ? want : Object.keys(DAY_SAMPLE).find((k) => k.startsWith(`${part}:`))!;
 }
 
+/**
+ * 🧱 THE GROUND A SAMPLE'S ROOT WEARS, where each guest's own block wears one (`lib/block-looks.ts`): Your seat's Map
+ * is the hub's plate (`your-seat-block.tsx`: `pahina-plate sm:p-6`), so its sample is drawn on that plate too — and
+ * the Background the couple picks for the block lands on the sample by the same rule that lands it for a guest.
+ */
+const SAMPLE_ROOT_GROUND: Readonly<Record<string, string>> = { 'find_your_seat:map': ' pahina-plate sm:p-6' };
+
 export function MakerDayPartStandIn({ part, styleName, styleId = null }: { part: DayPart; styleName: string | null; styleId?: string | null }) {
   const key = daySampleKey(part, styleId);
   return (
-    <section className="space-y-3 text-center" data-maker-day-part={part} data-maker-day-sample={key}>
+    <section className={`space-y-3 text-center${SAMPLE_ROOT_GROUND[key] ?? ''}`} data-maker-day-part={part} data-maker-day-sample={key}>
       <p className="pahina-eyebrow justify-center">
         <span>{EYEBROW[part]}</span>
       </p>

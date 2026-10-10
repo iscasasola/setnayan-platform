@@ -110,7 +110,7 @@ async function labDraft(_eventId: string, fd: FormData): Promise<HubDraftActionR
   /* 🎨 A part's style (`fixedStyles`) rides `lab_styles`; 🎛 the camera's look rides `lab_camera` — the lab's
      stand-ins for `style_preferences.scene_styles` and `.camera_look`. */
   try {
-    const patch = JSON.parse(String(fd.get('patch') ?? '{}')) as { fixedStyles?: Record<string, unknown>; events?: { style_preferences?: { camera_look?: unknown } } };
+    const patch = JSON.parse(String(fd.get('patch') ?? '{}')) as { fixedStyles?: Record<string, unknown>; events?: { style_preferences?: { camera_look?: unknown; block_looks?: unknown } } };
     if (patch.fixedStyles) {
       const raw = document.cookie.split('; ').find((c) => c.startsWith('lab_styles='))?.slice('lab_styles='.length);
       let held: Record<string, unknown> = {};
@@ -127,6 +127,9 @@ async function labDraft(_eventId: string, fd: FormData): Promise<HubDraftActionR
     }
     const cam = patch.events?.style_preferences?.camera_look;
     if (typeof cam === 'string') document.cookie = `lab_camera=${cam}; path=/; SameSite=Lax`;
+    /* 🧱 A fixed block's look rides `lab_blocks` — the lab's stand-in for `style_preferences.block_looks`. */
+    const blocks = patch.events?.style_preferences?.block_looks;
+    if (blocks && typeof blocks === 'object') document.cookie = `lab_blocks=${encodeURIComponent(JSON.stringify(blocks))}; path=/; SameSite=Lax`;
   } catch {
     /* not a style patch */
   }
@@ -164,6 +167,7 @@ export function MakerLabShell({
   studio = null,
   fixedStyles = {},
   cameraLook = 'classic',
+  blockLooks = {},
   changes = 0,
   scrub = false,
 }: {
@@ -174,6 +178,8 @@ export function MakerLabShell({
   /** 🎨 The lab's drafted part styles (`lab_styles`) and 🎛 camera look (`lab_camera`). */
   fixedStyles?: FixedSceneStyles;
   cameraLook?: CameraLook;
+  /** 🧱 The lab's drafted block looks (`lab_blocks`). */
+  blockLooks?: Record<string, unknown>;
   /** 🧭 `?studio=1` — the new Maker ("Stages | Studio"), with its tiles. */
   stagesStudio?: boolean;
   studio?: { tiles: readonly StudioTileModel[] } | null;
@@ -429,6 +435,7 @@ export function MakerLabShell({
           ticketStyle: 'classic',
           fixedStyles,
           cameraLook,
+          blockLooks,
         }}
       />
     </MakerShell>

@@ -165,12 +165,14 @@ export const SP_STYLE_STRIP =
   '-mx-[10px] -mb-1 mt-[calc(var(--sp-rg)_-_4px)] flex min-h-0 min-w-0 flex-1 snap-x snap-mandatory items-stretch gap-2 overflow-x-auto overflow-y-hidden py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden';
 /**
  * A card: the phone-shaped frame at the strip's height (its width follows, 3 : 4), white, a hairline round it, its
- * picture over its name. Picked, it wears the accent's line and soft ring. `data-wide`: one long line of words —
- * as tall, 60 % of the toolbar's inner width.
+ * picture over its name. Picked, it wears the picture tile's ONE ring (`SP_BG_TILE_FACE`, owner-approved: 2 px of the
+ * toolbar's ground, then 2 px of the accent — 4 px in all, the room the strip keeps: `STAGE_STRIP_RING_PX`) and
+ * nothing else; it was an accent hairline with a soft wash round it, a second drawing of "picked". `data-wide`: one
+ * long line of words — as tall, 60 % of the toolbar's inner width.
  */
 export const SP_STYLE_CARD =
   'sn-press sn-phone-card group !flex !h-full ![inline-size:auto] snap-center flex-col border border-[var(--sp-line)] bg-white text-left ' +
-  'aria-checked:border-[var(--sp-cta)] aria-checked:shadow-[0_0_0_1px_var(--sp-cta),0_0_0_4px_var(--sp-cta-wash)] ' +
+  'aria-checked:shadow-[0_0_0_2px_var(--sp-page),0_0_0_4px_var(--sp-cta)] ' +
   'data-[wide]:![aspect-ratio:auto] data-[wide]:![inline-size:calc((100%_-_20px)_*_0.6)]';
 /** The share of the toolbar's inner width a one-line look's card takes — the spec's "up to 60 %". */
 export const SP_STYLE_CARD_WIDE = 0.6;

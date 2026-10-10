@@ -286,7 +286,17 @@ test('picking the Digital pass never replaces the canvas in Stages — it is pic
   /* Style only — and Edit, every part's (🔁 re-aimed 2026-10-09: the selector is Edit | Style | Background | Animate,
      `TOOLBAR-SPEC-2026-10-09.md`): Background and Animate have nothing to set there — grey, and a tap says why
      (never `disabled`, which is a dead tap — `a-tool-with-nothing-to-do-says-so`). */
-  assert.match(tools, /const toolWorks = \(t: MakerPartTool\) => !picked \|\| \(\(t === 'edit' \|\| t === 'style' \|\| !styleOnly\) && makerPartToolWorks\(picked, t\)\);/);
+  /* 🔁 RE-AIMED 2026-10-10: a reply screen's CARD and its LINES now have a Background and an Animate to set (owner
+     2026-10-09: "how come background not fixed and no animate?" — `the-rsvp-lines-have-a-look.test.ts` §10), so those
+     two are live there (`rsvpLooks`). Every other part is decided exactly as before — the claim this line holds. */
+  /* 🔁 RE-AIMED AGAIN 2026-10-10: the tools a picked thing has a save for BEYOND the part rule are now one named
+     function, `ownTool` (a reply card or line: Background · Animate; a fixed block with one real root: Animate —
+     `a-fixed-block-has-its-own-motion.test.ts` §5). The part rule itself is decided exactly as before. */
+  /* 🔁 RE-AIMED 2026-10-10 (toolbar consistency — owner: "please make Edit | Style | Background | Animate Consistent in
+     design"): the part rule is as it was, and one clause is added to it — a tool whose rows would be EMPTY on the
+     picked thing is grey too (`emptyHere`: on the reply pages Style has a row only for a line with a look and for the
+     When-yes card). The claim this pin holds — a live tool is one with something to set — is the same, and stricter. */
+  assert.match(tools, /const toolWorks = \(t: MakerPartTool\) => !picked \|\| ownTool\(t\) \|\| \(\(t === 'edit' \|\| t === 'style' \|\| !styleOnly\) && makerPartToolWorks\(picked, t\) && !emptyHere\(t\)\);/);
   assert.match(tools, /aria-disabled=\{toolWorks\(t\) \? undefined : true\}/);
   const edges = read(`${LAUNCH}/add-part-sheet.tsx`);
   assert.match(edges, /clipPath: `inset\(/, 'the frame is clipped to the canvas');
@@ -530,8 +540,10 @@ test('the Reveal and Camera look cards are the phone-shaped frame — the Camera
   assert.match(card, /className=\{`\$\{SP_PHONE_PICTURE\} /);
   assert.match(card, /<RevealPicture kind=\{o\.id\} colours=\{look\.colours\} fill \/>/, 'the opening is drawn at the frame’s portrait shape');
   const camera = read(`${LAUNCH}/stage-panel/camera-look.tsx`);
-  assert.match(camera, /className=\{SP_LOOK_CARD\}>/, 'a Camera card is not the frame-wide look card');
-  assert.match(camera, /data-camera-look-face=\{look\} className="absolute inset-0 /, 'the camera screen no longer fills the frame');
+  /* (Re-aimed 2026-10-10: the approved prototype now draws The Day › Camera — its looks are the toolbar's Style cards,
+     `StyleCards`, like every other part's; `every-style-card-is-phone-shaped.test.ts` holds the card.) */
+  assert.match(camera, /<StyleCards\s/, 'a Camera card is not the toolbar’s Style card');
+  assert.match(read(`${LAUNCH}/stage-panel/camera-face.tsx`), /data-camera-look-face=\{look\} className="absolute inset-0 /, 'the camera screen no longer fills the frame');
   assert.doesNotMatch(camera + card, /spCardWidth|SP_LAYOUT_CARD/, 'a card is sized apart from the frame again');
 });
 

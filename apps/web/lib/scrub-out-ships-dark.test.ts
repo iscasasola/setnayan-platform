@@ -129,10 +129,12 @@ test('(4) the lab keeps it on, by doors no real page can use', () => {
     if (f === 'app/[slug]/_components/hub-scenes.tsx') continue; /* the renderer DEFINES the door — judged just below */
     assert.doesNotMatch(src, /\bscrubOut\b/, `${f} hands the renderer the lab’s door`);
     assert.doesNotMatch(src, /hubScrubHolds(?:AtMost)?\([^()]*,[^()]*,[^()]*\)/, `${f} asks the page’s hold through the lab’s door`);
+    /* 🎬 2026-10-10 — the cover's hand-over is asked through the same door, and no real page may open it either. */
+    assert.doesNotMatch(src, /hubCoverLeaves\([^()]*,[^()]*,[^()]*\)/, `${f} asks whether the cover leaves through the lab’s door`);
   }
   /* The server door is a parameter with the constant as its default — never module state (a server's would leak). */
   const renderer = read('app/[slug]/_components/hub-scenes.tsx');
-  assert.equal((renderer.match(/scrubOut: boolean = SCRUB_OUT_OFFERED/g) ?? []).length, 2);
+  assert.equal((renderer.match(/scrubOut: boolean = SCRUB_OUT_OFFERED/g) ?? []).length, 3 /* the two counts of a page's holds, and `hubCoverLeaves` */);
   assert.match(renderer, /scrubOut = SCRUB_OUT_OFFERED,/);
   assert.doesNotMatch(renderer, /scrubOutOffered\(|offerScrubOutInTheLab/);
   /* Every page under `app/dev/` answers 404 in production — itself, or the lab page it hands straight to. */

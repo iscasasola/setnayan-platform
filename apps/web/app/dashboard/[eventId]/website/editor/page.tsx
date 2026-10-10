@@ -492,6 +492,11 @@ export default async function WebsiteEditorPage({
     ...(((prefsRow as { style_preferences?: unknown } | null)?.style_preferences as Record<string, unknown> | null) ?? {}),
     ...((hubDraft?.events.style_preferences as Record<string, unknown> | null | undefined) ?? {}),
   });
+  /* 🧱 The fixed blocks' looks (`lib/block-looks.ts`) — the RAW key, live with the drafted one laid on; the toolbar
+     reads it strictly and saves it back whole. */
+  const blockLooksRaw = (hubDraft?.events.style_preferences as Record<string, unknown> | null | undefined)?.block_looks ??
+    ((prefsRow as { style_preferences?: Record<string, unknown> | null } | null)?.style_preferences ?? {}).block_looks;
+  const blockLooks = blockLooksRaw && typeof blockLooksRaw === 'object' && !Array.isArray(blockLooksRaw) ? (blockLooksRaw as Record<string, unknown>) : {};
   const fixedStyles = fixedSceneStylesAfter(
     fixedSceneStylesFromPreferences((prefsRow as { style_preferences?: unknown } | null)?.style_preferences),
     hubDraft?.fixedStyles,
@@ -1716,6 +1721,7 @@ export default async function WebsiteEditorPage({
         heroPhoto: Boolean(heroRef || videoRef),
         fixedStyles,
         cameraLook,
+        blockLooks,
         names: { style: nameStyleOfPrintDetails(drafted.print_details), person: nameExample },
         /* 🎫 The Ticket style being edited — drafted over live (owner Q7 2026-10-02: it waits for Apply). */
         ticketStyle: passCardDesignFrom((drafted.print_details as { pass_design?: unknown } | null | undefined)?.pass_design),

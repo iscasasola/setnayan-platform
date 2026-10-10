@@ -197,7 +197,8 @@ test('(5) the Camera has only Style: Edit, Background and Animate are grey on it
   assert.equal(makerPartToolWorks('camera', 'style'), true);
   for (const t of ['edit', 'bg', 'animate'] as const) {
     assert.equal(makerPartToolWorks('camera', t), false, `the Camera's ${t} is live`);
-    assert.match(makerPartToolWhy('camera', t), /^(Edit|Background|Animate) has nothing to change on this part\.$/);
+    /* (Re-aimed 2026-10-10: the approved prototype gives the Camera its own three lines — it is the whole screen.) */
+    assert.equal(makerPartToolWhy('camera', t), { edit: 'Nothing to edit on the camera.', bg: 'The camera is the whole screen.', animate: 'Nothing to animate on the camera.' }[t]);
   }
   for (const t of MAKER_PART_TOOLS) assert.equal(makerPartToolFor('camera', t), 'style');
   /* Only the Camera: every other part keeps its Edit (its door or its name, and its place). */

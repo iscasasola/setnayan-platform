@@ -147,7 +147,7 @@ test('1 🔑 no Out ever HOLDS its end state — the fill is `backwards`', () =>
 /* ── 2 — clip, not hidden ─────────────────────────────────────────────────── */
 
 test('2 🔴 no scene FRAME is a scroll container by accident — `clip`, never a bare `hidden`', () => {
-  const canvas = CSS.slice(CSS.indexOf('.hub-canvas'));
+  const canvas = CSS.slice(CSS.search(/^\.hub-canvas\b/m)); /* 🔁 2026-10-09: the block's first RULE, not the first mention — the hub's card rule, above it, now names a frame. Same window. */
   /* A FRAME is a box a scene's words sit inside: the scene, its canvas, its
      body, its ground and its shape. (A media tile, a progress segment and the
      sideways photo strip hold nothing that follows the page's scroll.) */
@@ -249,7 +249,7 @@ test('7 ↔ a section whose parts travel sideways clips them on the x axis', () 
 /* ── 8 — the part's own motion wins, and keeps what it did not choose ──────── */
 
 test('8 🎯 the scene\'s rules carry no id; every element motion rule does — so the element always wins', () => {
-  const canvas = CSS.slice(CSS.indexOf('.hub-canvas'));
+  const canvas = CSS.slice(CSS.search(/^\.hub-canvas\b/m)); /* 🔁 2026-10-09: the block's first RULE, not the first mention — the hub's card rule, above it, now names a frame. Same window. */
   for (const m of canvas.matchAll(/([^{}@]+)\{/g)) {
     const sel = m[1]!;
     if (!/\.hub-/.test(sel)) continue;

@@ -109,6 +109,8 @@ export const MAKER_STAGE_KEYS: readonly MakerStageKey[] = ['save_the_date', RSVP
 
 /* ── the parts ────────────────────────────────────────────────────────────── */
 
+/* 🎞 Post Event's scenes with no part till 2026-10-10 (a tap named none: an empty Edit) — key = shipped scene key. */
+const PE = ['cover', 'videos', 'letters', 'seating', 'entourage', 'couple', 'loved', 'powered', 'you'] as const;
 export const MAKER_PART_KEYS = [
   'reveal',
   'logo',
@@ -164,6 +166,9 @@ export const MAKER_PART_KEYS = [
   'beforeafter',
   'song',
   'next',
+  ...PE,
+  'chapters',
+  'pegallery',
 ] as const;
 export type MakerPartKey = (typeof MAKER_PART_KEYS)[number];
 
@@ -265,6 +270,7 @@ const NONE: MakerPartLayouts = { kind: 'none' };
  * for-each-guest parts wear their OWN registered styles (`lib/scene-styles-parts.ts`,
  * owner 2026-10-07); a section's parts share its scene's styles.
  */
+const pe = (s: string): MakerPartDef => ({ label: POST_EVENT_SCENE_NAMES[s] ?? 'Schedule', source: 'tool', canvas: `p:${s}`, layouts: NONE });
 export const MAKER_PARTS: Readonly<Record<MakerPartKey, MakerPartDef>> = {
   /* The Reveal is the first part of three stages — its kinds are PR 3's (`maker-reveal.tsx`). */
   reveal: { label: 'Reveal', source: 'tool', canvas: null, layouts: NONE },
@@ -335,6 +341,10 @@ export const MAKER_PARTS: Readonly<Record<MakerPartKey, MakerPartDef>> = {
   beforeafter: { label: POST_EVENT_SCENE_NAMES.beforeAfter!, source: 'tool', canvas: 'p:beforeAfter', layouts: NONE },
   song: { label: POST_EVENT_SCENE_NAMES.song!, source: 'tool', canvas: 'p:song', layouts: NONE },
   next: { label: POST_EVENT_SCENE_NAMES.next!, source: 'tool', canvas: 'p:next', layouts: NONE },
+  ...(Object.fromEntries(PE.map((s) => [s, pe(s)])) as Record<(typeof PE)[number], MakerPartDef>),
+  /* The day's chapters share one marker (`p:ch-1`) and the Schedule's name; the story's Gallery is not `gallery`. */
+  chapters: pe('ch-1'),
+  pegallery: pe('gallery'),
 };
 
 /** A part's source, read. Throws on a string no part may carry — the test walks every part through it. */
@@ -366,12 +376,23 @@ export function makerPartQuietRow(key: MakerPartKey): { words: string; to: { stu
 }
 
 /**
+ * THE PARTS WITH NO LOOK AT ALL — no styles of their own, no words whose colour and size are theirs, no tools drawn
+ * for them: The Day's "Happening now" card, and the four Post Event scenes that have ONE look of their own (Before &
+ * After · Song · What comes next · Live Photo Wall — `postEventSceneTypeOf` names no registry type for them; held
+ * equal to the registry by `the-post-event-toolbar-is-the-prototypes.test.ts`). Style slid over FOUR EMPTY ROWS
+ * there (seen on the Maker lab, 2026-10-09) — a tool with nothing to set is grey and says so (the approved
+ * prototype: *"Style has nothing to change on this part."*). Listed, never worked out: a part's Style may be drawn
+ * by its own tools (the Reveal, the pass, the reply pages), which no rule here can see.
+ */
+export const MAKER_PARTS_NO_LOOK: readonly MakerPartKey[] = ['spotlight', 'beforeafter', 'song', 'next', 'wall', 'you'];
+
+/**
  * 🚫 DOES A TOOL HAVE ANYTHING TO SET ON THIS PART? (owner rule: a failure never renders as success — a pill that
  * slides to "Animate" over a panel still showing Style's cards is exactly that. Tapped on the Maker lab, 2026-10-08:
  * E-Gifts and What to wear did it.)
  *
  *   Edit        every part but the Camera — a door or a name, and its place on the page.
- *   Style       always — every part has a look.
+ *   Style       every part but one with no look to pick at all (`MAKER_PARTS_NO_LOOK`).
  *   🎛 The Camera is a full-screen design with ONLY Style live (owner 2026-10-09): Edit, Background and Animate are
  *   grey on it, and it has no move row.
  *   Background  only where the work area has a background to save TODAY: a scene the couple arranges (`w:`). A
@@ -384,7 +405,7 @@ export function makerPartQuietRow(key: MakerPartKey): { words: string; to: { stu
  * A Post Event scene (`p:`), and the parts the canvas does not draw (the Reveal, the Camera) have neither.
  */
 export function makerPartToolWorks(key: MakerPartKey, tool: MakerPartTool): boolean {
-  if (tool === 'style') return true;
+  if (tool === 'style') return !MAKER_PARTS_NO_LOOK.includes(key);
   if (key === 'camera') return false;
   if (tool === 'edit') return true;
   const def = MAKER_PARTS[key];
@@ -393,12 +414,21 @@ export function makerPartToolWorks(key: MakerPartKey, tool: MakerPartTool): bool
   return Boolean(def.el) || def.canvas.startsWith('w:');
 }
 
+/** 🎛 Why the Camera's Edit, Background and Animate are grey — the approved prototype's own three lines. */
+export const MAKER_CAMERA_TOOL_WHY: Readonly<Record<Exclude<MakerPartTool, 'style'>, string>> = {
+  edit: 'Nothing to edit on the camera.',
+  bg: 'The camera is the whole screen.',
+  animate: 'Nothing to animate on the camera.',
+};
+
 /**
  * The ONE plain line a tap on a tool with nothing to set answers with — never a dead tap, never a silent one. A
  * line of the cover says whose background it sits on (the prototype's own words); a part whose content is Studio's
  * says where it IS changed; any other names the tool.
  */
 export function makerPartToolWhy(key: MakerPartKey | null, tool: MakerPartTool): string {
+  /* 🎛 The Camera's own three lines (the approved prototype's words, 2026-10-09: it is the whole screen). */
+  if (key === 'camera' && tool !== 'style') return MAKER_CAMERA_TOOL_WHY[tool];
   if (tool === 'bg' && key && MAKER_PARTS[key].canvas === 'f:hero' && MAKER_PARTS[key].el) return 'This sits on the cover’s background.';
   const src = key ? makerPartSource(key) : null;
   if (src?.kind === 'studio') return 'Nothing to change here — edit it in Studio.';

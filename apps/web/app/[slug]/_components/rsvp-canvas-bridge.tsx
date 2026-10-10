@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { RsvpOneAtATime } from './rsvp-one-at-a-time';
-import { RSVP_BRIDGE_SOURCE, RSVP_SITE_SOURCE } from '@/lib/rsvp-stage-shared';
+import { RSVP_BRIDGE_SOURCE, RSVP_LOOK_MESSAGE, RSVP_LOOK_STYLE_ATTR, RSVP_SITE_SOURCE } from '@/lib/rsvp-stage-shared';
 import { makerStageMayType } from '@/lib/maker-stage-type';
 import {
   RSVP_CANVAS_CONTROLS,
@@ -91,6 +91,8 @@ export function RsvpCanvasBridge() {
     let picked: string | null = null;
     /** The couple's words as the Maker last sent them (`{name}` still in them), by word. */
     const own = new Map<string, string>();
+    /** ✨ The Build in each thing last played by (its selector → its rule), so only a CHANGED one plays again. */
+    const played = new Map<string, string>();
     /** The words under the caret now. */
     let typing: { el: HTMLElement; word: string; part: RsvpTapPart; sent: string | null; off: () => void } | null = null;
     /* `{name}` becomes the sample guest's name, as it will each guest's (`fillRsvpName`). */
@@ -157,7 +159,7 @@ export function RsvpCanvasBridge() {
     const inTyping = (target: Element | null) => Boolean(typing && target && typing.el.contains(target));
     const onMessage = (e: MessageEvent) => {
       if (e.origin !== origin) return;
-      const d = e.data as { source?: string; t?: string; key?: unknown; text?: unknown; ask?: unknown; oneAtATime?: unknown; picked?: unknown } | null;
+      const d = e.data as { source?: string; t?: string; key?: unknown; text?: unknown; ask?: unknown; oneAtATime?: unknown; picked?: unknown; look?: unknown } | null;
       if (!d || d.source !== RSVP_BRIDGE_SOURCE) return;
       if (d.t === RSVP_PICKED_MESSAGE) {
         picked = typeof d.picked === 'string' && d.picked ? d.picked : null;
@@ -172,6 +174,36 @@ export function RsvpCanvasBridge() {
       }
       if (d.t === RSVP_TYPE_STOP_MESSAGE) {
         stopTyping();
+        return;
+      }
+      if (d.t === RSVP_LOOK_MESSAGE) {
+        /* 🎨 A line's look, picked in the Maker: the page's one `<style>` is rebuilt by the SAME strict reader a
+           guest's page uses, from the colours the page itself carries — never from text this message holds. The
+           reader is fetched on this message only (the Maker's canvas), so a guest's bundle never carries it. */
+        const look = d.look;
+        void import('@/lib/rsvp-look').then(({ readRsvpLook, rsvpLookCss, rsvpLookRules }) => {
+          document.querySelectorAll<HTMLElement>(`style[${RSVP_LOOK_STYLE_ATTR}]`).forEach((el) => {
+            const read = readRsvpLook({ look });
+            const parts = (el.getAttribute(RSVP_LOOK_STYLE_ATTR) ?? '').split(' ');
+            const board = (el.dataset.rsvpBoard ?? '').split(' ');
+            const css = rsvpLookCss(read, parts, board);
+            if (el.textContent === css) return;
+            el.textContent = css;
+            /* ✨ A Build in that was just changed plays again, on the thing it belongs to — so the couple sees it.
+               What moves is asked of the READER (`rsvpLookRules`: plain selectors only), never dug out of the CSS
+               text — that once handed the reduced-motion block to `querySelectorAll`, which threw. */
+            for (const rule of rsvpLookRules(read, parts, board)) {
+              if (!rule.moves || played.get(rule.selector) === rule.rules) continue;
+              document.querySelectorAll<HTMLElement>(rule.selector).forEach((moved) => {
+                moved.style.animation = 'none';
+                void moved.offsetWidth;
+                moved.style.animation = '';
+              });
+            }
+            played.clear();
+            for (const rule of rsvpLookRules(read, parts, board)) if (rule.moves) played.set(rule.selector, rule.rules);
+          });
+        });
         return;
       }
       if (d.t === 'words' && typeof d.key === 'string' && d.key.startsWith('rsvp:') && typeof d.text === 'string') {
@@ -229,7 +261,7 @@ export function RsvpCanvasBridge() {
         return;
       }
       stopTyping();
-      toMaker({ t: RSVP_PICK_MESSAGE, key: part.key, ...(part.el ? { el: part.el } : {}), ...(part.word ? { word: part.word } : {}) });
+      toMaker({ t: RSVP_PICK_MESSAGE, key: part.key, ...(part.el ? { el: part.el } : {}), ...(part.word ? { word: part.word } : {}), ...(part.line ? { line: part.line } : {}) });
     };
     /* …nor the press that would focus a field and raise a keyboard. */
     const onDown = (e: Event) => {
@@ -285,7 +317,7 @@ export function RsvpCanvasBridge() {
  * questions are asked re-mounts it, so it re-measures its steps (it counts only
  * the ones drawn) and starts again from the first.
  */
-export function RsvpOneAtATimeLive({ initial }: { initial: boolean }) {
+export function RsvpOneAtATimeLive({ initial, hint = null }: { initial: boolean; hint?: string | null }) {
   const [state, setState] = useState({ on: initial, n: 0 });
   useEffect(() => {
     const onAsk = (e: Event) => {
@@ -295,5 +327,5 @@ export function RsvpOneAtATimeLive({ initial }: { initial: boolean }) {
     window.addEventListener(RSVP_FRAME_ASK_EVENT, onAsk);
     return () => window.removeEventListener(RSVP_FRAME_ASK_EVENT, onAsk);
   }, []);
-  return state.on ? <RsvpOneAtATime key={state.n} /> : null;
+  return state.on ? <RsvpOneAtATime key={state.n} hint={hint} /> : null;
 }

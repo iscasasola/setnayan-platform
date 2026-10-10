@@ -456,15 +456,22 @@ test('(10) the lab: its RSVP stand-in screens carry the real pages’ part marks
   // The bridge that makes a tap PICK (and never tick an answer) is mounted, as on the real pages' canvas.
   assert.match(screens, /\{play === null \? <RsvpCanvasBridge \/> : null\}/, 'a tap on the lab’s RSVP screens is the form’s own');
   // The masthead sits in the door's header, so the shipped stamp names its parts and marks it the hero.
-  assert.match(screens, /<div>\s*<header data-door-header="">[\s\S]*?<h1 [^>]*>Maria &amp; Jose<\/h1>[\s\S]*?<span data-el="date">/);
+  /* 🔁 RE-AIMED 2026-10-10: the stand-in now draws the door's CARD round the masthead and every section, as
+     `DoorShell` does (the card is the screen's group, picked from its edge) — so the header's parent wears a class. */
+  assert.match(screens, /<div className="[^"]*">\s*<header data-door-header="">[\s\S]*?<h1 [^>]*>Maria &amp; Jose<\/h1>[\s\S]*?<span data-el="date">/);
   // Every part the stand-in draws is marked with the real page's own key — and no key is made up.
   const marks = [...screens.matchAll(/mark\('(f:[a-z]+)'\)/g)].map((m) => m[1]!);
   const real = new Set<string>(Object.values(RSVP_CANVAS_SECTIONS).flat());
-  assert.deepEqual([...new Set(marks)], ['f:greeting', 'f:rsvp', 'f:yesnote', 'f:nonote']);
+  /* 🔁 RE-AIMED 2026-10-09: the stand-in now also draws When yes's pass and its Save button (a LINE of the pass on
+     the RSVP stage), marked `f:pass` as `invite/enter` marks it. The claim is unchanged — the next line still holds
+     every mark to the real pages' own keys. */
+  assert.deepEqual([...new Set(marks)], ['f:greeting', 'f:rsvp', 'f:yesnote', 'f:pass', 'f:nonote']);
   for (const k of marks) assert.ok(real.has(k), `${k} is not a part of the real RSVP pages`);
   // Each word carries its key, in the section the real page puts it in.
   const words = [...screens.matchAll(/rsvpWordBridgeKey\((?:i === 0 \? 'attending' : 'declined'|'(\w+)')\)/g)].map((m) => m[1] ?? 'attending|declined');
-  assert.deepEqual(words, ['attending|declined', 'thanksHeading', 'thanksMessage', 'declineHeading', 'declineMessage']);
+  /* 🔁 RE-AIMED 2026-10-09: the form's eyebrow, question and hint are words now (every line is its own part), and
+     the stand-in names them as the real card does. Still each word with its key, in page order. */
+  assert.deepEqual(words, ['eyebrow', 'question', 'attending|declined', 'hint', 'thanksHeading', 'thanksMessage', 'declineHeading', 'declineMessage']);
   assert.equal(RSVP_WORD_SECTION.attending, 'f:rsvp');
   assert.equal(RSVP_WORD_SECTION.thanksHeading, 'f:yesnote');
   // EXECUTED — the shipped tap reader over the lab's own shape: marker · form › fieldset › label › span[word].
@@ -472,8 +479,12 @@ test('(10) the lab: its RSVP stand-in screens carry the real pages’ part marks
   const node = (attrs: Record<string, string>, parent: El | null, before: El | null): El => ({ getAttribute: (n) => attrs[n] ?? null, parentElement: parent, previousElementSibling: before });
   const marker = node({ 'data-maker-section': 'f:rsvp' }, null, null);
   const form = node({}, null, marker);
-  const word = node({ 'data-rsvp-word': 'rsvp:attending' }, node({}, node({}, form, null), null), null);
-  assert.deepEqual(rsvpPartOfTap(word as never), { key: 'f:rsvp', el: null, word: 'rsvp:attending' });
+  /* 🔁 RE-AIMED 2026-10-09: the label now carries its LINE's name, as the real card's does (`data-rsvp-line`), and
+     the tap reader answers with it. The claim is unchanged: over the lab's own shape, the tap finds the form and the
+     word under the finger. */
+  const word = node({ 'data-rsvp-word': 'rsvp:attending' }, node({ 'data-rsvp-line': 'yes' }, node({}, form, null), null), null);
+  assert.deepEqual(rsvpPartOfTap(word as never), { key: 'f:rsvp', el: null, word: 'rsvp:attending', line: 'yes' });
+  assert.match(screens, /data-rsvp-line=\{i === 0 \? 'yes' : 'no'\}/, 'the lab’s answers do not name their line');
   assert.equal(rsvpPartOfTap(node({}, null, null) as never), null, 'a tap on the ground picks a part');
   // A picked day is not read as refused: both labs' Reply-by stand-ins answer as the action does when it lands.
   assert.match(read('app/dev/maker-lab/maker-lab-shell.tsx'), /replyByAction: \(async \(\) => \(\{ ok: true \}\)\) as never,/);

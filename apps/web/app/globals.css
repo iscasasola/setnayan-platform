@@ -6430,14 +6430,27 @@ html:active-view-transition .sn-page-enter { animation: none; }
    here from the `.sn-hub-cards` wrapper so no widget is rewritten: paper,
    14px corners, a soft shadow; the chapter number drops and the heading
    shrinks to a card title. Sections that already draw their own box (the
-   countdown) simply become a card too. */
+   countdown) simply become a card too.
+
+   🖼 A SCENE INSIDE A FRAME THAT PAINTS NOTHING IS A CARD TOO (2026-10-09 —
+   the last arm). A scene the couple arranged in any way — a Build in and
+   nothing else — is drawn inside a frame (`hub-canvas-frame.tsx`), so its
+   section was no longer its wrapper's own child: it lost its card and stood
+   as bare words on the page. The frame says what it paints, and
+   `hub-no-media` is "nothing": the box is then the scene's own card, as with
+   no frame at all (`lib/hub-canvas.ts` `hubBackgroundOwnsBox`: a card "ONLY
+   when the couple has chosen no background at all — the page as it always
+   looked"). NOT "No background" (`hub-bg-none` — no box, on purpose); not a
+   ground of its own (that frame IS the box, and is not `hub-no-media`); not
+   a template scene (`hub-has-tpl` — its own layout, never a card). */
 .sn-hub-cards > section,
 .sn-hub-cards > div > section,
 .hub-scenes > .hub-scene > section,
 .hub-stage > .hub-scene > section,
 .hub-after > .hub-scene > section,
 .hub-below > .hub-scene > section,
-.hub-arun > .hub-scene > section {
+.hub-arun > .hub-scene > section,
+:is(.sn-hub-cards, .hub-scene) > .hub-canvas.hub-no-media:not(.hub-bg-none):not(.hub-has-tpl) > .hub-canvas-body > section {
   border-radius: var(--m-r-md);
   border: 1px solid rgb(var(--color-ink) / 0.08);
   background: rgb(var(--color-cream) / 1);
@@ -7016,6 +7029,15 @@ html:has(.hub-shape-full) { overflow-x: clip; }
 .hub-scene:empty + .hub-after,
 .hub-scene:has(> .hub-canvas > .hub-canvas-body:empty) + .hub-after { margin-top: 0; }
 .hub-prog { display: none; }
+/* 📏 THE TOP OF THE ROOM — ONE NUMBER (`--hub-pin`): where a scene can be seen from, just under the progress mark
+   (16px tall), which itself sits under the invitation's pinned top bar when there is one. An Auto run sizes its
+   screen by it (below), and a Scrub hand-over draws a long arrival from it down: the engine READS this line
+   (`hub-scrub-engine.ts` — "SCRUB — A HELD HAND-OVER", at the end of this file) and has no number of its own.
+   (2026-10-09: it had — 76 px, or 9 % — while this line is 100px under the bar, so a long arrival began 24px above
+   it, with its top under the progress mark.) It is HERE, in the plain base, and not behind the scroll-timeline
+   gates further down: a custom property paints nothing, and Scrub also runs in browsers those gates leave out. */
+.hub-scenes, .hub-cover-cell { --hub-pin: calc(max(4.75rem, 9vh) + env(safe-area-inset-top, 0px)); }
+html:has([data-sticky-top]) .hub-scenes, html:has([data-sticky-top]) .hub-cover-cell { --hub-pin: calc(6.25rem + env(safe-area-inset-top, 0px)); }
 /* A widget that rendered nothing (Countdown with no date) leaves an empty
    scene. It is no scene: it takes no gap and — because a hidden box has no
    timeline — no progress segment either. */
@@ -7667,9 +7689,9 @@ html:has(.hub-shape-full) { overflow-x: clip; }
       }
       html:has([data-sticky-top]) .hub-prog { top: calc(4.5rem + env(safe-area-inset-top, 0px)); }
       /* The frames pin just under the progress mark (16px tall), which itself
-         sits under the invitation's pinned top bar when there is one. */
-      .hub-scenes { --hub-pin: calc(max(4.75rem, 9vh) + env(safe-area-inset-top, 0px)); }
-      html:has([data-sticky-top]) .hub-scenes { --hub-pin: calc(6.25rem + env(safe-area-inset-top, 0px)); }
+         sits under the invitation's pinned top bar when there is one: `--hub-pin`,
+         set in the plain base above ("THE TOP OF THE ROOM") — a Scrub hand-over
+         reads the same line, in browsers these gates leave out too. */
       .hub-prog-bar {
         display: flex;
         max-width: 420px;
@@ -8385,6 +8407,11 @@ body:not(:has([data-maker-section])) [data-maker-sample] { display: none !import
    box would capture the sheets and layers a scene opens with `position: fixed`).
    `screen`: a printed page is the plain page too. ══ */
 @media screen and (prefers-reduced-motion: no-preference) {
+  /* THE TOP OF THE ROOM — the stylesheet's own line (`--hub-pin`: under the page's bar and its progress mark), said
+     as a real length so the engine can read it back in pixels. It cannot resolve rem, vh and the safe area itself,
+     and a number of its own is how a long arrival came to begin above the line. `scroll-padding-top` on a box that
+     does not scroll moves nothing and paints nothing: here it only carries the length. */
+  .hub-scenes[data-hub-scrub-on] { scroll-padding-top: var(--hub-pin); }
   /* THE HOLD — extra length, and the leaving scene (with all the page after it) standing still for exactly that. */
   /* (An `::after`, never padding: a sticky box may only move inside its parent's CONTENT box, and padding is outside it
      — with padding the stage never held at all, seen in the browser check.) */
@@ -8397,6 +8424,24 @@ body:not(:has([data-maker-section])) [data-maker-sample] { display: none !import
   .hub-page-cell[data-hub-page-on]::after,
   .hub-page-cell[data-hub-page-on] .hub-page-cell::after { content: ''; display: block; height: var(--hub-len, 0px); }
   .hub-page-cell[data-hub-page-on] .hub-page-stage { position: sticky; top: var(--hub-top, 0px); }
+  /* 🎬 HAND-OVER ZERO — THE COVER (`hub-scenes.tsx` `HubCoverHold`: the cover in one box, the rest of the page in
+     another; owner: *"maria jose must build out and until we say i do should be where maria jose build out"*). The
+     cover is the page's, so its rules hang on the PAGE's mark and it is the page's first pair that stands still for
+     it. It leaves by the hand-over's one fade (a Scrub scene's default Build out), and what comes next on the page —
+     a scene, or any block: the engine marks it, `data-hub-zero` — arrives by the same fade, in the place the engine
+     measures (the rest of the page begins that far from the cover's bottom; its own box, so no margin of a child
+     leaks out and is counted twice). What follows the arrival sits under the lower of the two until the cover has
+     gone (`top`, never a transform — see above): the engine marks each such box, `data-hub-zlift`, and only a box
+     in the ordinary flow — one the page pins or places itself is never touched; the nest's own boxes carry their
+     rise themselves.
+     The cover's cell also carries the page's top line, for a page whose cover is its only Scrub. */
+  .hub-page-cell[data-hub-page-on] .hub-cover-cell { scroll-padding-top: var(--hub-pin); }
+  .hub-page-cell[data-hub-page-on] .hub-cover-after { display: flow-root; margin-top: var(--hub-up, 0px); }
+  .hub-page-cell[data-hub-page-on] .hub-cover,
+  .hub-page-cell[data-hub-page-on] [data-hub-zero] { opacity: var(--hub-o, 1); }
+  .hub-page-cell[data-hub-page-on] .hub-cover[data-hub-away],
+  .hub-page-cell[data-hub-page-on] [data-hub-zero][data-hub-away] { visibility: hidden; }
+  .hub-page-cell[data-hub-page-on] .hub-cover-after [data-hub-zlift] { position: relative; top: var(--hub-zrise, 0px); }
   /* THE SAME PLACE — the rest of the page begins OVER the leaving scene (how far: the engine's measure). */
   .hub-scenes[data-hub-scrub-on] .hub-scene + .hub-after { margin-top: var(--hub-up, 1rem); }
   /* WHAT FOLLOWS THE PAIR sits under the lower of the two until the leaving one has gone, then under the arrival

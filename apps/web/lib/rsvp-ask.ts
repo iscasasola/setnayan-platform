@@ -114,6 +114,8 @@ export type RsvpAskConfig = Partial<Record<RsvpAskField, boolean>> & {
    * `RSVP_WORD_KEYS`.
    */
   words?: RsvpWords;
+  /** 🎨 Each line's look — read ONLY through `readRsvpLook` (`lib/rsvp-look.ts`); carried through every save. */
+  look?: Record<string, unknown>;
   /**
    * 🎉 THE WHEN YES CELEBRATION (owner 2026-10-06, DECISION_LOG '"WHEN YES"
    * GETS A CELEBRATION (PRO)'): None · Confetti · Fireworks · Petals ·
@@ -132,6 +134,9 @@ export type RsvpAskConfig = Partial<Record<RsvpAskField, boolean>> & {
  *   · `declineHeading` / `declineMessage` — "When they decline".
  * The middle answer is not here: it is off for now (owner 2026-09-30,
  * "for now OFF"; builder `rd/rsvp-no-maybe`).
+ *   · `eyebrow` / `question` / `hint` — the form's other three lines (owner 2026-10-09, the RSVP stage: "shouldn't
+ *     it be per element?" — every line is its own part, so every line has words). Absent = the card's own words,
+ *     byte-identical to before (`lib/rsvp-form-words.ts`).
  */
 export const RSVP_WORD_KEYS = [
   'attending',
@@ -140,6 +145,9 @@ export const RSVP_WORD_KEYS = [
   'thanksMessage',
   'declineHeading',
   'declineMessage',
+  'eyebrow',
+  'question',
+  'hint',
 ] as const;
 export type RsvpWordKey = (typeof RSVP_WORD_KEYS)[number];
 export type RsvpWords = Partial<Record<RsvpWordKey, string>>;
@@ -152,6 +160,9 @@ export const RSVP_WORD_MAX: Record<RsvpWordKey, number> = {
   thanksMessage: 240,
   declineHeading: 80,
   declineMessage: 240,
+  eyebrow: 40,
+  question: 80,
+  hint: 60,
 };
 
 /** One typed line, made safe to store: a string, control characters out, spaces folded, capped. */
@@ -195,32 +206,9 @@ export function rsvpAnswerWord(words: RsvpWords | null | undefined, key: 'attend
   return words?.[key] ?? RSVP_WORD_DEFAULT[key][solemn ? 'solemn' : 'celebrate'];
 }
 
-/**
- * PREMADE LINES — "type your own, or pick one". ONLY words that already exist
- * (owner 2026-09-30, "✂ THE MAKER RE-PLAN IS CUT TO ITS CORE": no invented
- * presets): the answers are the lines the owner's own ruling lists ("RSVP
- * ANSWERS: THE COUPLE RENAMES…": "Joyfully accepts" · "Wouldn't miss it" ·
- * "Count me in" / "Regretfully declines" · "Sadly can't make it"), and the
- * screens after a reply offer only the words those screens and the reply card
- * already print. A key with no shipped line offers none — type your own.
- */
-export const RSVP_WORD_LINES: Record<RsvpWordKey, { celebrate: readonly string[]; solemn: readonly string[] }> = {
-  attending: { celebrate: ['Joyfully accepts', 'Wouldn’t miss it', 'Count me in'], solemn: ['Will be there'] },
-  declined: { celebrate: ['Regretfully declines', 'Sadly can’t make it'], solemn: ['Unable to come'] },
-  thanksHeading: { celebrate: ['See you there!'], solemn: ['Thank you'] },
-  thanksMessage: {
-    celebrate: ['Your place is reserved — we can’t wait to celebrate with you.'],
-    solemn: ['Your place is noted — thank you for being with the family.'],
-  },
-  declineHeading: { celebrate: ['Thank you — you’ll be missed'], solemn: ['Thank you'] },
-  declineMessage: { celebrate: [], solemn: [] },
-};
-
 export function isRsvpAskField(v: unknown): v is RsvpAskField {
   return typeof v === 'string' && (RSVP_ASK_FIELDS as readonly string[]).includes(v);
 }
-
-const CONFIG_MAX_BYTES = 2048;
 
 /**
  * Drop anything that is not a known field with a boolean value (the `words`
@@ -260,6 +248,12 @@ export function sanitizeRsvpAskConfig(raw: unknown): RsvpAskConfig {
       if (isRsvpCelebration(value)) out.celebration = value;
       continue;
     }
+    if (key === 'look') {
+      // 🎨 Each line's look (`lib/rsvp-look.ts`) is CARRIED, never rebuilt here: this file is in the Maker's first
+      // load, and a save from any older panel must not drop it. Only `readRsvpLook` reads it — fixed values only.
+      if (value && typeof value === 'object' && !Array.isArray(value)) out.look = value as Record<string, unknown>;
+      continue;
+    }
     if (key === 'words') {
       const words = sanitizeRsvpWords(value);
       if (Object.keys(words).length > 0) out.words = words;
@@ -270,11 +264,6 @@ export function sanitizeRsvpAskConfig(raw: unknown): RsvpAskConfig {
     out[key] = value;
   }
   return out;
-}
-
-/** The same cap the migration's CHECK enforces — asked here so a Maker save can refuse before the round trip. */
-export function rsvpAskConfigFits(config: RsvpAskConfig): boolean {
-  return Buffer.byteLength(JSON.stringify(config), 'utf8') <= CONFIG_MAX_BYTES;
 }
 
 /**
@@ -314,40 +303,6 @@ export function readWhoCanRsvp(raw: unknown): WhoCanRsvp {
 /** May a person WITHOUT a key ask to join? Only when the couple chose "Anyone, I approve". */
 export function anyoneMayAskToJoin(raw: unknown): boolean {
   return readWhoCanRsvp(raw) === 'anyone';
-}
-
-/**
- * 🌐 CHOOSING PUBLIC TURNS ON "ASK TO JOIN" (owner 2026-09-29, DECISION_LOG
- * "DISCOVER BUILD — TWO LAST ANSWERS", item 1: *"yes to both"*). An event listed
- * on Discover with no way to ask is a dead end — the default "Only my Guest
- * List" shows a stranger nothing to press.
- *
- * So the MOMENT visibility moves INTO `public` from anything else, "Who can
- * RSVP?" becomes "Anyone, I approve". Returns the config to write, or `null`
- * when nothing must change:
- *   · not a transition into public (public → public, or to any other value) —
- *     the host may have turned requests OFF after going public, and a later
- *     save must never re-force it;
- *   · already "Anyone, I approve" — nothing to write.
- * Every other key the couple set rides through untouched (the same sanitizer
- * the Maker's RSVP page and the join door read).
- *
- * ⚖ ONLY THE HOST'S EXPLICIT SWITCH asks this (`updateLandingPageVisibility`,
- * the privacy page and the Maker's panel). LAUNCHING A SAVE-THE-DATE also makes
- * the page public, and it does NOT — owner 2026-09-29 (DECISION_LOG "PUBLIC
- * EVENTS (PR #6159) — TWO OWNER ANSWERS": "no"): sending a Save-the-Date is not
- * announcing a public event, so the launch leaves "Who can RSVP?" as it was.
- */
-export function rsvpAskConfigOnGoingPublic(input: {
-  previousVisibility: string | null | undefined;
-  nextVisibility: string;
-  rawConfig: unknown;
-}): RsvpAskConfig | null {
-  if (input.nextVisibility !== 'public') return null;
-  if (input.previousVisibility === 'public') return null;
-  const current = sanitizeRsvpAskConfig(input.rawConfig);
-  if (current.whoCanRsvp === 'anyone') return null;
-  return { ...current, whoCanRsvp: 'anyone' };
 }
 
 /** 🎉 The When yes celebration — absent, malformed or unknown reads as None. */

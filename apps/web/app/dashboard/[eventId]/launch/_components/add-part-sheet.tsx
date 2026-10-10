@@ -7,6 +7,7 @@ import { Check, Plus, Trash2, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
 import { findMakerSection } from '@/app/[slug]/_components/maker-section-find';
+import { RSVP_CARD_ATTR, RSVP_CARD_GROUPS } from '@/app/[slug]/_components/rsvp-canvas-parts';
 import { Explain } from '@/app/_components/explain';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
@@ -152,7 +153,10 @@ function partBox(canvas: string, el?: string | null, frameSel: string = SHOWN_FR
   if (!frame || !doc) return null;
   /* 🎭 The Reveal is drawn at the top of the page in Stages (`stage-tools.tsx` `drawRevealPart`). */
   let node: Element | null = canvas === REVEAL_STUB ? doc.querySelector('[data-maker-reveal-part]') : findMakerSection(doc, canvas);
-  if (node && el) node = node.querySelector(`[data-el="${CSS.escape(el)}"]`) ?? node;
+  /* A part inside the section: the cover's (`data-el`), or a LINE of an RSVP section (`data-rsvp-line`). */
+  if (node && el) node = node.querySelector(`[data-el="${CSS.escape(el)}"], [data-rsvp-line="${CSS.escape(el)}"]`) ?? node;
+  /* 🃏 A reply screen's GROUP of lines is its card (`RSVP_CARD_GROUPS`): the frame goes round the card it sits in. */
+  else if (node && (RSVP_CARD_GROUPS as readonly string[]).includes(canvas)) node = node.closest(`[${RSVP_CARD_ATTR}]`) ?? node;
   if (!node) return null;
   const fr = frame.getBoundingClientRect();
   const k = frame.clientWidth > 0 ? fr.width / frame.clientWidth : 1;
@@ -249,6 +253,13 @@ type PartEditsProps = {
   /** The frame the stage's page is drawn in, when it is not the shown canvas — the RSVP stage's own three screens
    *  (`rsvpStageFrameSelector`). The frame and its name tab are the same everywhere. */
   frame?: string;
+  /**
+   * 🧩 A LINE of the picked part (the RSVP stage: `rsvp-canvas-parts.ts` `RSVP_SECTION_LINES`) — the frame is drawn on
+   * THAT line and wears its name; absent, the frame is the part's own (the group).
+   */
+  line?: { key: string; name: string } | null;
+  /** 🃏 The frame's own word where the part's name is not it — "Card" for a reply screen's group of lines. */
+  name?: string;
 };
 
 /**
@@ -274,10 +285,10 @@ export function PartEdits(props: PartEditsProps) {
   return usePartEdits(props).node;
 }
 
-export function usePartEdits({ stage, picked, frame }: PartEditsProps): PartEditsNow {
+export function usePartEdits({ stage, picked, frame, line = null, name }: PartEditsProps): PartEditsNow {
   const isReveal = picked === 'reveal';
   const canvas = isReveal ? REVEAL_STUB : picked ? makerPartCanvasOn(stage, picked) : null;
-  const el = picked ? (MAKER_PARTS[picked].el ?? null) : null;
+  const el = picked ? (line?.key ?? MAKER_PARTS[picked].el ?? null) : null;
   const [box, setBox] = useState<Box | null>(null);
   const [adding, setAdding] = useState<'above' | 'below' | null>(null);
   const [removing, setRemoving] = useState(false);
@@ -494,7 +505,7 @@ export function usePartEdits({ stage, picked, frame }: PartEditsProps): PartEdit
             className={`absolute z-[1] rounded-sm ${PART_ACCENT} px-[7px] py-[3px] font-sans text-[9px] font-bold uppercase leading-[1.2] tracking-[0.14em]`}
             style={{ top: clampY(fr!.top) - 11, left: Math.max(2, box.left - 2) }}
           >
-            {label}
+            {line?.name ?? name ?? label}
           </span>
           {/* 🚫 NO BUTTONS ON THE FRAME (owner 2026-10-09: "on preview screen, you only select" — the frame and its
               name say what is picked, nothing more). ↑ ↓ ✕, the grip and 🗑 were here: moving and removing are Edit's

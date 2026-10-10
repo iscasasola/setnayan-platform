@@ -315,6 +315,8 @@ export function MakerWork({
     fixedStyles?: FixedSceneStyles;
     /** 🎛 The Camera's look, drafted over live (`lib/camera-look.ts`). */
     cameraLook?: CameraLook;
+    /** 🧱 The fixed blocks' looks — the RAW `style_preferences.block_looks`, drafted over live (`lib/block-looks.ts`). */
+    blockLooks?: Record<string, unknown>;
     /** ✍ The hero names' Wording ▾ — the event's Name style and one of the couple's own names to show it in. */
     names?: { style: NameStyle; person: NameParts | null };
     /** 🎫 The guest's Ticket style — the drafted one when the draft holds it, else live (`print_details.pass_design`). */
@@ -881,6 +883,7 @@ export function MakerWork({
   const revealStagesKey = revealStages.join();
   const twoPeopleOff = sceneFormat?.twoPeople === false;
   const cameraLookNow = sceneFormat?.cameraLook ?? null;
+  const blockLooksKey = JSON.stringify(sceneFormat?.blockLooks ?? {});
   useEffect(() => {
     if (!setLookPages) return;
     setLookPages({
@@ -902,6 +905,7 @@ export function MakerWork({
       revealStages: revealStagesKey ? (revealStagesKey.split(',') as LifecyclePhase[]) : [],
       publicLandingUrl,
       camera: cameraLookNow ? { look: cameraLookNow } : null,
+      blocks: JSON.parse(blockLooksKey) as Record<string, unknown>,
       fontsInUse: elementEditing?.fontsInUse ?? [],
       look: {
         background: backgroundNode,
@@ -927,7 +931,7 @@ export function MakerWork({
     });
     // `sceneFormat` and `eventId` come with the same render as `elementEditing`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setLookPages, madeOnce, backgroundNode, fontNode, coloursNode, buttonsNode, musicNode, pageNode, videoNode, hasDressCode, revealStagesKey, publicLandingUrl, elementEditing, twoPeopleOff, ownsPro, cameraLookNow]);
+  }, [setLookPages, madeOnce, backgroundNode, fontNode, coloursNode, buttonsNode, musicNode, pageNode, videoNode, hasDressCode, revealStagesKey, publicLandingUrl, elementEditing, twoPeopleOff, ownsPro, cameraLookNow, blockLooksKey]);
   useEffect(() => () => setLookPages?.(null), [setLookPages]);
   useEffect(() => {
     try {

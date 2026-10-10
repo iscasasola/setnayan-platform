@@ -210,6 +210,8 @@ test('E · every well in Stages and Look reaches the sheet with the Mood Board�
     ['Look › Colours › Buttons', `${E}/pro-panels.tsx`, /data-button-colour-field=""[\s\S]{0,400}<ColourWell[\s\S]{0,200}palette=\{moodBoard\?\.swatches \?\? \[\]\}[\s\S]{0,200}onUnset=/],
     ['Look › Colours › Background', `${E}/pro-panels.tsx`, /name="bg_color"[\s\S]{0,900}<ColourWell[\s\S]{0,200}palette=\{moodBoard\?\.swatches \?\? \[\]\}[\s\S]{0,200}onUnset=/],
     ['the Reveal’s veil and petal colours', `${L}/maker-reveal.tsx`, /function ColourRow\([\s\S]{0,2600}<ColourSheet title=\{label\}[\s\S]{0,120}palette=\{palette\}/],
+    /* 2026-10-10 · an RSVP line's Colour: its one circle opens the sheet with the event's five (`celebration.colours`). */
+    ['an RSVP line’s Colour (its one circle)', `${L}/rsvp-line-look.tsx`, /onPick=\{\(\) => setPicking\(true\)\}[\s\S]{0,200}\{picking \? \(\s*<ColourSheet[\s\S]{0,200}palette=\{board\}[\s\S]{0,260}onClose=\{\(\) => setPicking\(false\)\}/],
   ];
   for (const [name, file, mounts] of wells) assert.match(read(file), mounts, `${name} does not open the one picker with the Mood Board’s colours`);
   /* The ground a text colour is measured on is the one the sheet's own warning already uses. */
@@ -274,6 +276,13 @@ const PAINTS: Record<string, [number, string]> = {
   'launch/_components/hub-stage.tsx': [4, 'the Event Hub stage card’s own fixed surfaces (OB.page …) — no colour is picked'],
   'launch/_components/maker-logo.tsx': [1, 'the SHIPPED Maker’s logo inks (no Studio) — the new Maker draws StudioColourField instead'],
   'launch/_components/maker-reveal.tsx': [1, 'the Reveal colour row’s trigger — opens ColourSheet'],
+  /* 2026-10-10 (first seen by this guard a week of commits late: the sweep reads the folder, and the file's own guard
+     did not run it). 🔁 RE-AIMED the same day: it was six circles — the page's own + the event's five as slots, no
+     picker — and was flagged here as built. Owner, looking at it: "i thought our plan for colour is just 1 colour
+     with a color picker pop up?" It is now Style's ONE circle, as a cover line's (`stage-look-row.tsx`), and that
+     circle is a trigger of the one picker (claim E holds the mount; `the-rsvp-lines-have-a-look.test.ts` § 4 the
+     row). The count did not move: one painted circle then (the mapped five), one now (the colour worn). */
+  'launch/_components/rsvp-line-look.tsx': [1, 'the RSVP line’s Colour (owner 2026-10-10: “just 1 colour with a color picker pop up”) — the ONE circle, a trigger of ColourSheet'],
   'launch/_components/stage-panel/stage-background.tsx': [1, 'the prototype’s five-colour row — its “+” opens ColourSheet'],
   'launch/_components/stage-panel/stage-look-row.tsx': [1, 'Style’s last row in the toolbar (owner 2026-10-09: “Color just 1 circle”) — the ONE circle, a trigger of ColourSheet'],
   'launch/_components/stage-panel/stage-text.tsx': [1, 'the prototype’s colour row — its “+” opens ColourSheet'],
@@ -379,6 +388,11 @@ test('H · the one picker is not in the Maker’s first load — nor is anything
     FIELD,
     `${D}/studio/mood-board/_components/swatch-popover.tsx`,
     `${D}/launch/_components/maker-reveal.tsx`,
+    /* 2026-10-10 · the RSVP line's rows now mount the picker and the font dropdown: both load with the panel. */
+    `${D}/launch/_components/rsvp-line-look.tsx`,
+    `${D}/launch/_components/maker-rsvp-ask.tsx`,
+    `${D}/website/editor/_components/font-pick.tsx`,
+    'lib/rsvp-look.ts',
     `${D}/website/editor/_components/element-sheet.tsx`,
     `${D}/website/editor/_components/scene-background-row.tsx`,
     `${D}/website/editor/_components/pro-panels.tsx`,

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { formatCount } from '@/lib/format-number';
+import { RSVP_FORM_WORD_DEFAULT } from '@/lib/rsvp-form-words';
 
 /**
  * "ASK ONE QUESTION AT A TIME" — the RSVP scene's ONE switch (owner 2026-09-27:
@@ -52,7 +53,7 @@ import { formatCount } from '@/lib/format-number';
  * `[data-rsvp-scope]` — otherwise right here, at the top of the form (the
  * Event Hub's reply sheet, whose own heading is the header).
  */
-export function RsvpOneAtATime() {
+export function RsvpOneAtATime({ hint = null }: { /** The couple's own hint under the answers; none = the card's. */ hint?: string | null } = {}) {
   const anchorRef = useRef<HTMLSpanElement>(null);
   const scopeRef = useRef<HTMLElement | null>(null);
   const [form, setForm] = useState<HTMLFormElement | null>(null);
@@ -189,7 +190,7 @@ export function RsvpOneAtATime() {
       <span ref={anchorRef} aria-hidden className="block scroll-mt-6" />
       {lead ? (progress ? createPortal(progress, lead) : null) : progress}
       {slot && !last && total > 1
-        ? createPortal(<RsvpStepNext awaitingTap={awaitingTap} onNext={() => go(1)} />, slot)
+        ? createPortal(<RsvpStepNext awaitingTap={awaitingTap} onNext={() => go(1)} hint={hint} />, slot)
         : null}
     </>
   );
@@ -271,9 +272,14 @@ export function RsvpStepProgress({
  * The one action at the foot of a screen. On the answer screen there is none —
  * the tap is the answer (the approved drawing's "Tap one to continue").
  */
-export function RsvpStepNext({ awaitingTap, onNext }: { awaitingTap: boolean; onNext: () => void }) {
+export function RsvpStepNext({ awaitingTap, onNext, hint = null }: { awaitingTap: boolean; onNext: () => void; hint?: string | null }) {
   if (awaitingTap) {
-    return <p className="flex min-h-[48px] items-center justify-center text-sm text-ink/70">Tap one to continue</p>;
+    const own = RSVP_FORM_WORD_DEFAULT.hint.celebrate;
+    return (
+      <p data-rsvp-line="hint" data-rsvp-word="rsvp:hint" data-rsvp-default={own} className="flex min-h-[48px] items-center justify-center text-sm text-ink/70">
+        {hint || own}
+      </p>
+    );
   }
   return (
     <button type="button" onClick={onNext} className="button-primary min-h-[48px] w-full">

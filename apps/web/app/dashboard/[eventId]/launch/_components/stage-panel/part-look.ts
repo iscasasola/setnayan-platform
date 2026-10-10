@@ -15,6 +15,9 @@
  * sheet and words typed beside them are one write, the latest. `held`: no Maker render. A refused save puts the
  * page and the Maker's copy back and says what did not save.
  */
+import { FIXED_STYLE_SCENES } from '@/lib/fixed-scene-styles';
+import { sceneStyleOptions } from '@/lib/scene-styles';
+import type { HubStage } from '@/lib/hub-canvas';
 import { HUB_DRAFT_BAR_FIELD, SUPERSEDED, makerLatestWrite, makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { canvasFingerprint, canvasWriteKey, draftedCanvasOr, noteDraftedCanvas } from '@/lib/maker-draft-store';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
@@ -113,4 +116,27 @@ export async function keepPartLook(t: PartLookTarget, field: 'color' | 'size', v
     noteDraftedCanvas(t.widgetType, before, server);
   }
   return { ok: false, error: refusedChoiceWords(t.el, field, res.error || null) };
+}
+
+/**
+ * 🚫 STYLE WITH NOTHING TO SET **ON THIS STAGE** (owner rule: a tool with nothing to change is grey and says so —
+ * `lib/a-tool-with-nothing-to-do-says-so.test.ts`; seen on the review copy, 2026-10-10: Save the Date › E-Gifts ›
+ * Style was live over four empty rows). The part rule (`makerPartToolWorks`) cannot see it: whether a part has looks
+ * depends on the STAGE — E-Gifts has its four on the Invitation and none on Save the Date (`scene-styles-parts.ts`).
+ *
+ * A fixed section whose Style is ONE row — its scene's looks (`editor-shell.tsx` `fixedStylePanel` →
+ * `fixed-scene-style-row.tsx`: E-Gifts, the guest's look, and the fixed scenes with styles of their own) — draws that
+ * row only where there is a CHOICE (`sceneStyleOptions`: two or more on this stage; the row's own test, asked here
+ * with the same function). Fewer: nothing is drawn, so the tool is grey. The cover's parts are not here — each has
+ * its Colour · Size row. Asked without the event type, which can only take looks away: never grey where the row
+ * could still be drawn.
+ */
+export const PART_LOOKS_ONLY: Readonly<Record<string, string>> = {
+  'f:gifts': 'gifts',
+  'f:look': 'my_wear',
+  ...Object.fromEntries(FIXED_STYLE_SCENES.map((scene) => [`f:${scene}`, scene])),
+};
+export function partStyleIsEmptyOn(stage: HubStage, canvasKey: string | null | undefined): boolean {
+  const type = canvasKey ? PART_LOOKS_ONLY[canvasKey] : undefined;
+  return type !== undefined && sceneStyleOptions(type, stage).length < 2;
 }

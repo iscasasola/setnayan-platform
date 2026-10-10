@@ -34,11 +34,12 @@ import { markAnimationSwitchedOff } from '@/lib/monogram-studio-shared';
 import { guestReplyBy, readRsvpCelebration, readRsvpWords, todayYmd } from '@/lib/rsvp-ask';
 import { JUST_REPLIED_VALUE, celebrationColours } from '@/lib/rsvp-celebration';
 import { boardSwatches } from '@/lib/mood-board-palette-set';
+import { RsvpLookStyle } from '../../_components/rsvp-look-style';
 import { WhenYesCelebration } from '../../_components/when-yes-celebration';
 import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { rsvpWordBridgeKey } from '@/lib/rsvp-stage-shared';
 import { RsvpCanvasBridge } from '../../_components/rsvp-canvas-bridge';
-import { asksForHostCanvas } from '../../_lib/editor-canvas';
+import { EDITOR_CANVAS_HIDES_APP_CHROME, asksForHostCanvas } from '../../_lib/editor-canvas';
 import { loadEventShell, loadHostMembership, loadHostPreviewDraft } from '../../_lib/loaders';
 import { eventShortcutMetadata } from '@/lib/event-app-icon';
 import { ShortcutLine } from '../_components/shortcut-line';
@@ -233,6 +234,10 @@ async function leaveForTheHub(
  * cannot drift from the page it opens. Once the invitation is kept in an
  * account there is nothing to save, and that hand-off becomes the one button.
  */
+/** The Maker parts each screen draws lines of (`RSVP_LOOK_LINES`, `lib/rsvp-look.ts`). */
+const RSVP_YES_PARTS = ['yesnote', 'pass'] as const;
+const RSVP_NO_PARTS = ['nonote'] as const;
+
 export default async function InviteEnterPage({ params, searchParams }: Props) {
   const { slug } = await params;
   const search = await searchParams;
@@ -596,6 +601,18 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
   return (
     <GuestLookScope {...lookScopeProps(hub.look)}>
       {hub.ground}
+      {/* 🍪 Drawn inside the Maker's canvas, this page shows none of the app's own floating notices (the cookie card,
+          a stale-tab bar) — the rule every Event Hub canvas already carries (`EDITOR_CANVAS_HIDES_APP_CHROME`). A
+          host who never answered the cookie card saw it over the RSVP stage. Canvas only: a guest's page is as it was. */}
+      {canvas ? <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style> : null}
+      {/* 🎨 The look the couple gave each line of this screen (`lib/rsvp-look.ts`): the thank-you and the pass after a
+          Yes, the note after a No — nothing at all when they gave none. */}
+      <RsvpLookStyle
+        config={event.rsvp_ask_config}
+        board={celebrationColours(boardSwatches((event as { role_palette?: unknown }).role_palette))}
+        parts={reply === 'no' ? RSVP_NO_PARTS : RSVP_YES_PARTS}
+        canvas={canvas}
+      />
       {/* 1b · INSIDE MESSENGER — a thin bar of ours at the very top, never over the page. */}
       <InAppBar handoff={inApp} />
       <DoorShell brand="foot" eyebrow={justIn ? REQUEST_WORDS.inTitle : undefined} title={title} sub={justIn ? REQUEST_WORDS.inSub(hosts, null) : (inviteLine ?? undefined)} skin={skin}>
@@ -645,6 +662,7 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
               <p
                 className="font-serif text-[34px] font-medium leading-tight text-ink"
                 data-landing-heading=""
+                data-rsvp-line="heading"
                 data-rsvp-word={canvas && wordKeys ? rsvpWordBridgeKey(wordKeys.heading) : undefined}
                 data-rsvp-default={canvas ? ownHeadline : undefined}
                 data-rsvp-name={canvas ? firstName : undefined}
@@ -654,6 +672,7 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
               <p
                 className="mt-2 text-sm text-ink/60"
                 data-thank-you-message=""
+                data-rsvp-line="message"
                 data-rsvp-word={canvas && wordKeys ? rsvpWordBridgeKey(wordKeys.message) : undefined}
                 data-rsvp-name={canvas ? firstName : undefined}
               >
@@ -666,6 +685,7 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
                 <span
                   className="inline-flex items-center gap-1.5 rounded-full bg-[#E7F1EA] px-3.5 py-1.5 text-xs font-medium text-[#2F6B4F]"
                   data-landing-done=""
+                  data-rsvp-line="heading"
                 >
                   ✓{' '}
                   <span
@@ -682,6 +702,7 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
                 <p
                   className="text-center text-base leading-relaxed text-ink/80"
                   data-thank-you-message=""
+                  data-rsvp-line="message"
                   data-rsvp-word={canvas && wordKeys ? rsvpWordBridgeKey(wordKeys.message) : undefined}
                   data-rsvp-word-optional={canvas ? '' : undefined}
                   data-rsvp-name={canvas ? firstName : undefined}
@@ -725,6 +746,11 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
             <div className="mx-auto w-[min(260px,100%)] overflow-hidden rounded-2xl shadow-[0_24px_48px_-26px_rgba(30,34,41,0.45)]">
               <TicketPicture src={PASS_CARD_ROUTE} alt={ticketLabel} fallback={ticketFallback} />
             </div>
+            {/* 🧩 The Save button is a LINE of the pass (`data-rsvp-line`, `rsvp-canvas-parts.ts`). The name is on a
+                box around it, not on the button: on the Maker's canvas a button is inert, so a tap on it lands on
+                what it sits in — which must be this line, not the whole pass. A plain block: it draws nothing, takes
+                the section's rhythm where the button did, and HAS a box (the frame is drawn on it). */}
+            <div data-rsvp-line="save">
             {safariSave ? (
               <a href={safariSave} className="button-primary w-full" data-landing-save="safari">
                 {LANDING_WORDS.saveInSafari}
@@ -736,6 +762,7 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
                 variant="primary"
               />
             )}
+            </div>
             {justIn ? <p className="text-xs text-ink/60">{REQUEST_WORDS.saveUpdatedWhy}</p> : null}
           </section>
         ) : ticket === 'faded' ? (

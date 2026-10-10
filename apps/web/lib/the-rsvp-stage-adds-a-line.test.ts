@@ -68,6 +68,9 @@ test('2 · the sheet offers only Heading · Message — the shipped sheet, the s
   assert.doesNotMatch(SHEET, /makerPartOffers|SceneTemplatePicker|AddPartSheet|MAKER_PARTS/);
   const { RSVP_ADDED_NAME } = await import('../app/[slug]/_components/rsvp-lines');
   assert.deepEqual(RSVP_ADD_KINDS.map((k) => RSVP_ADDED_NAME[k]), ['Heading', 'Message']);
+  /* 🚪 It is drawn on the page's BODY (the door every sheet of a part uses): drawn inside the toolbar it opened UNDER
+     the stage's own panel — the dark was there and "Heading · Message" were not (the first picture of this step). */
+  assert.match(src(`${L}/rsvp-list-stage.tsx`), /\? createPortal\(\s*<RsvpAddLineSheet[\s\S]{0,420}\/>,\s*document\.body,\s*\)/, 'the ＋ sheet is drawn inside the toolbar again — under the panel');
 });
 
 test('3 · every change is the panel’s one save: asked on an event, sized, saved through the one door, answered', () => {

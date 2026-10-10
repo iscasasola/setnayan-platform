@@ -68,5 +68,33 @@ Message), a held line drags to a new place, and several lines can share one back
   record too. With a look stored the page gains the list inside the reply's fieldset and one `<style>`.
 - The dev lab can show the sheet as a guest sees it: `/dev/maker-lab/guest?rsvp=form&sheet=1#your-details`.
 
+**5c · ＋ is back on a line's frame — and it adds a Heading or a Message, never a scene**
+
+- A picked line of a reply screen wears the same ＋ on its frame's top and bottom edge that every stage's part wears
+  (`usePartEdits` `lineAdd`); the Hint takes ＋ above only (it stays at the card's foot); the card, the pass and the
+  masthead take none. ＋ opens the shipped sheet (`MakerSheet`, the shipped row) with two rows — Heading · Message.
+  The picked line steps apart from its neighbours so ＋ never lies over another line's words.
+- The new line arrives EMPTY, picked, with its words box open; on the Maker's sample an empty one reads its kind in
+  quiet italic, and a guest is never drawn an empty line. Typed, it is on the page as it is typed.
+- Edit's LAST row on every line of a card: ↑ Earlier · ↓ Later · Group · Remove (`RsvpLinePlaceRow`, four shipped
+  `ActionButton`s). A step that cannot be taken stays a button, grey, and a tap says why — the prototype's sentences
+  and the controller's four (`RSVP_LIST_WORDS`; the caps' number is read from the rule). Only a line the couple
+  added can be removed.
+- MEASURED (the lab, touch): the four fit with icon and word at 375 × 812, 375 × 667 and 390 × 844 — no word cut,
+  nothing overflowing; at 360 the whole row goes words-only together (Button Rule 3a, `useFitRow`), no word cut.
+  Four equal shares cut "Remove" by 6 px at 375, so each button is never narrower than its word.
+- ONE DOOR: the toolbar, the sheet and the last row only ASK (`RSVP_LIST_EDIT_EVENT`); the RSVP panel makes the
+  edit (`lib/rsvp-layout-edit.ts`, pure), asks the size limit and saves through its one save, then answers what to
+  pick and what to say. Every edit writes the screen's WHOLE order and is read back before it is saved: a line of
+  the page's own can be moved but never lost (3,000 random edits, `the-rsvp-list-is-edited-whole`).
+- The Maker's sample is re-arranged at the tap on the page the frame already drew (`rsvp-canvas-arrange.ts` — the
+  page's own elements are moved, never rebuilt). Measured in a browser: the sample arranged live is the page the
+  server draws for the same list (1,486 = 1,486 characters, identical).
+- FOUND BY LOOKING, fixed before this commit: the ＋ sheet was drawn inside the toolbar and opened UNDER the stage's
+  own panel (the dark was there, the two rows were not). It is drawn on the page's body now, as every part's sheet is.
+- NOT FIXED, the app's one toast (`PeekToast`) is one line and cuts a sentence past about 40 characters at 375: "A
+  screen takes up to 4 added lines. Remov…". Six of this stage's sentences are longer (the prototype's toast took two
+  lines). The toast is every screen's; it is not changed here.
+
 SPEC IMPACT: None beyond the locked record already in the corpus (`Maker_RSVP_Per_Element_Add_Drag_Group_LOCKED_2026-10-09.md`
 §4–§5 names the cap and the migration). The measured numbers confirm §5's (24,576 / 19,000).

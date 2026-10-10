@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useLayoutEffect, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { RSVP_LIST_DONE_EVENT, RSVP_LIST_SAY_EVENT, RSVP_LIST_WORDS, rsvpGroupId, type RsvpListDone } from '@/lib/rsvp-layout-edit';
 import { RSVP_ADDED_MAX, RSVP_GROUP_ATTR, RSVP_SCREEN_LINES, rsvpAddedId, rsvpLookCard, type RsvpAddedLine, type RsvpLookCard } from '@/lib/rsvp-look';
 import { RSVP_ADDED_NAME } from '@/app/[slug]/_components/rsvp-lines';
@@ -153,17 +154,24 @@ export function useRsvpListStage({
     [frameSel, listPart, onSay],
   );
   const anchorName = line ? (meta.name ?? RSVP_LINE_NAME[line] ?? line) : '';
+  /* 🚪 THE SHEET IS DRAWN ON THE PAGE'S BODY, never inside the toolbar: the stage's own panel (Edit's rows) lies over
+     the toolbar, and a sheet drawn in it opened UNDER those rows — seen in the first picture of this step (2026-10-11:
+     the dark was there, "Heading · Message" were not). The same door every sheet of a part uses (`usePartEdits`).
+     `adding` is only ever set by a press, so it is null in both first renders and the body is there whenever it is not. */
   const node =
-    adding && listPart && line ? (
-      <RsvpAddLineSheet
-        where={adding}
-        anchorName={anchorName}
-        onClose={() => setAdding(null)}
-        onAdd={(kind) => {
-          setAdding(null);
-          askRsvpListEdit({ do: 'add', part: listPart, kind, anchor: line, where: adding });
-        }}
-      />
-    ) : null;
+    adding && listPart && line
+      ? createPortal(
+          <RsvpAddLineSheet
+            where={adding}
+            anchorName={anchorName}
+            onClose={() => setAdding(null)}
+            onAdd={(kind) => {
+              setAdding(null);
+              askRsvpListEdit({ do: 'add', part: listPart, kind, anchor: line, where: adding });
+            }}
+          />,
+          document.body,
+        )
+      : null;
   return { name: meta.name, inGroup: meta.inGroup, own: meta.own, add: meta.add ? { ...meta.add, onAdd } : null, node };
 }

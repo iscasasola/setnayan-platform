@@ -11,9 +11,23 @@
  * this module decides only WHICH days to ask about and WHO leaves the list.
  *
  *   • A day-precise date      → ask about that one day.
+ *   • Several candidate dates → ask about each of them; a supplier leaves only
+ *                               when EVERY candidate is refused (see below).
  *   • A month-precise date    → ask about every day of that month; a supplier
  *                               leaves only when EVERY day is refused.
  *   • A year, or no date      → ask nothing, hide nobody.
+ *
+ * CANDIDATE DATES (2026-10-10). The owner's words are "not available to that
+ * date/s". An event that has not settled its day keeps `event_date` NULL and
+ * holds its shortlist in `events.date_candidates` (lib/create-event-capture),
+ * so reading `event_date` alone asked nothing and hid nobody for those events.
+ * ⚠ THE RULE FOR SEVERAL DATES IS THE CONTROLLER'S READING, NOT THE OWNER'S
+ * WORDS: a card leaves only when it can be booked on NONE of the candidates —
+ * the same shape as his month ruling ("Hide only if full all month"). The
+ * order of precedence is copied from `resolveProbeWindow`
+ * (lib/build-date-window), which the bench already reads its free days from:
+ * a settled day wins, then the candidates, then a month. A flexible WINDOW
+ * (`date_window_start/end`) is not read here — nobody has ruled on it.
  *
  * A supplier leaves only when EVERY one of their in-scope cards is refused on
  * EVERY day in scope — one open card on one open day keeps them. A supplier the
@@ -36,11 +50,23 @@ const ISO_DAY = /^(\d{4})-(\d{2})-(\d{2})$/;
 export function unbookableDateScope(
   eventDate: string | null | undefined,
   precision: string | null | undefined,
+  /** `events.date_candidates` — the days the couple is still choosing between. */
+  candidates?: readonly unknown[] | null,
 ): string[] | null {
-  if (!eventDate) return null;
-  const m = ISO_DAY.exec(eventDate);
-  if (!m) return null;
-  if (precision === 'day') return [eventDate];
+  const m = eventDate ? ISO_DAY.exec(eventDate) : null;
+  // A settled day is the answer, whatever else the row still carries.
+  if (eventDate && m && precision === 'day') return [eventDate];
+
+  const picked = [
+    ...new Set((candidates ?? []).filter((c): c is string => typeof c === 'string' && ISO_DAY.test(c))),
+  ].sort();
+  if (picked.length > 0) {
+    // More than the function accepts in one ask → too loose to judge. Hide
+    // nobody rather than judge a supplier on some of the days.
+    return picked.length <= UNBOOKABLE_MAX_DAYS ? picked : null;
+  }
+
+  if (!eventDate || !m) return null;
   if (precision !== 'month') return null;
   const year = Number(m[1]);
   const month = Number(m[2]);

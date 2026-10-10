@@ -33,6 +33,22 @@ any error in the read hides nobody.
 Callers left alone: the Build fallback (`build-3state-fallback-actions.ts`), the
 unlock (`unlock-category.ts`) and the free-venue shortlist. They are not Find.
 
+### 2 · "date/s" — an event still choosing between days
+
+An event that has not settled its day keeps `events.event_date` NULL and holds
+its shortlist in `events.date_candidates`. The hide read `event_date` alone, so
+for those events it asked about no day and hid nobody. `unbookableDateScope`
+now takes the candidates: a settled day wins, then the candidates, then a month
+— the order `resolveProbeWindow` already uses for the bench's free days. A
+supplier leaves only when every card is refused on EVERY candidate.
+
+⚠ That rule for several dates is the controller's reading, not the owner's
+words (the same shape as his "Hide only if full all month"); the code comment
+says so. It applies to every caller that hides — Find and the bench search read
+one scope. No migration and no RPC change: `service_cards_unbookable_on` already
+takes any set of up to 31 days. A flexible window (`date_window_start/end`) is
+NOT read — nobody has ruled on it.
+
 SPEC IMPACT: None beyond the row already filed — `DECISION_LOG.md` 2026-10-10
 "SEARCH SHOWS ONLY WHAT CAN BE BOOKED FOR THIS EVENT; ONE INQUIRY COVERS EVERY
 CATEGORY THE COUPLE TICKS" (the controller filed it; this change implements it).

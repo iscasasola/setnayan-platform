@@ -82,3 +82,20 @@ test('the hide stays what it was: only strangers leave, a supplier with no card 
   assert.ok(emptyReturns.length >= 5, `expected the fail-open returns, found ${emptyReturns.length}`);
   assert.match(server, /\} catch \{\s*return new Set\(\);\s*\}/);
 });
+
+test('"date/s": the search hands the event\'s candidate dates to the hide, read with the event itself', () => {
+  const search = read('app/dashboard/[eventId]/vendors/_actions/category-search.ts');
+  // Read on the membership-gated events row — not a second, unguarded read.
+  const select = search.match(/\.from\('events'\)\s*\.select\(\s*'([^']+)'/);
+  assert.ok(select, 'the events read moved');
+  const columns = select![1]!.split(',').map((c) => c.trim());
+  for (const c of ['event_date', 'event_date_precision', 'date_candidates']) {
+    assert.ok(columns.includes(c), `the search no longer reads events.${c}`);
+  }
+  // …and handed to the ONE place that decides the days in scope.
+  const call = search.match(/await findSuppliersWithNoBookingLeft\(\{[\s\S]*?\}\)/);
+  assert.ok(call, 'the hide call moved');
+  assert.match(call![0], /dateCandidates:\s*Array\.isArray\(ev\.date_candidates\)/);
+  const server = read('lib/bench-bookable-days.server.ts');
+  assert.match(server, /unbookableDateScope\(args\.eventDate, args\.eventDatePrecision, args\.dateCandidates\)/);
+});

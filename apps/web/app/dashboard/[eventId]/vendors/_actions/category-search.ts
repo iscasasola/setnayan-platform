@@ -428,7 +428,7 @@ export async function searchCategoryVendors(input: {
   const { data: ev } = await supabase
     .from('events')
     .select(
-      'venue_latitude, venue_longitude, ceremony_type, secondary_ceremony_type, venue_setting, event_type, estimated_pax, planning_mode, setnayan_ai_active, event_date, event_date_precision',
+      'venue_latitude, venue_longitude, ceremony_type, secondary_ceremony_type, venue_setting, event_type, estimated_pax, planning_mode, setnayan_ai_active, event_date, event_date_precision, date_candidates',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -775,6 +775,9 @@ export async function searchCategoryVendors(input: {
           canonicals,
           eventDate: eventDateStr,
           eventDatePrecision: (ev.event_date_precision as string | null) ?? null,
+          // "date/s": an event still choosing between days keeps them here and
+          // leaves event_date NULL. A card leaves only when refused on every one.
+          dateCandidates: Array.isArray(ev.date_candidates) ? (ev.date_candidates as unknown[]) : null,
         })
       : new Set<string>();
 

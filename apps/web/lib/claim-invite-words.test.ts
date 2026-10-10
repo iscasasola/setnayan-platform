@@ -57,15 +57,25 @@ test('the couple’s own link says who invited them and the date — and no long
   const end = page.indexOf("if (invite.source === 'admin') {");
   assert.ok(start > -1 && end > start, 're-anchor: the couple’s-own-link branch moved');
   const branch = page.slice(start, end);
-  assert.match(branch, /\{inviterName\}<\/strong> invited you to claim your\s+free Setnayan profile\./);
-  assert.match(branch, /\{datePhrase\.preposition\} <strong className="text-ink">\{datePhrase\.label\}<\/strong>/);
-  assert.doesNotMatch(branch, /locked you in/, 'a record that is "not a booking" must not tell the supplier they are locked in');
-  assert.match(branch, /label="Who they talk to"/);
-  // 🔒 Still private until they join: the price, what's included, the plan.
-  assert.match(branch, /label="What they wrote"/);
-  assert.match(branch, /after you join/);
-  assert.match(branch, /Package &amp; payment details stay private until you finish\s+signup\./);
-  assert.doesNotMatch(branch, /total_cost|host_inclusions|payment_plan/, 'a price or a plan reached the page before the supplier joined');
+  assert.match(branch, /<CoupleLinkDoor\b/, 'the couple’s own link no longer draws its door');
+  assert.match(branch, /inviterName=\{inviterName\}/);
+  assert.match(branch, /datePhrase=\{datePhrase\}/);
+  assert.match(branch, /contactPerson=\{parentVendor\?\.contact_person \?\? null\}/);
+  assert.match(page, /const datePhrase = claimDatePhrase\(event\?\.event_date, event\?\.event_date_precision\);/);
+  assert.doesNotMatch(page, /locked you in/, 'a record that is "not a booking" must not tell the supplier they are locked in');
+
+  const door = code('app/vendor/claim/[token]/_components/claim-parts.tsx');
+  const body = door.slice(door.indexOf('export function CoupleLinkDoor('), door.indexOf('export function SnapshotField('));
+  assert.ok(body.length > 0, 're-anchor: CoupleLinkDoor moved');
+  assert.match(body, /\{inviterName\}<\/strong> invited you to claim your\s+free Setnayan profile\./);
+  assert.match(body, /\{datePhrase\.preposition\} <strong className="text-ink">\{datePhrase\.label\}<\/strong>/);
+  assert.match(body, /label="Who they talk to"/);
+  // 🔒 Still private until they join: the price, what's included, the plan —
+  // named, never shown, and the door is not even handed them.
+  assert.match(body, /label="What they wrote"/);
+  assert.match(body, /after you join/);
+  assert.match(body, /Package &amp; payment details stay private until you finish signup\./);
+  assert.doesNotMatch(body, /total_cost|host_inclusions|payment_plan|price=|inclusions=/, 'a price or a plan reached the door before the supplier joined');
 });
 
 test('the claimed couple is seated as a customer, on the supplier’s own session', () => {

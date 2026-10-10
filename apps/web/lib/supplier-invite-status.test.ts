@@ -10,6 +10,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   INVITE_STATUS_UNREAD_LINE,
+  joinedLine,
   ownRecordLine,
   supplierInviteStatus,
 } from './supplier-invite-status';
@@ -55,10 +56,13 @@ test('a link nobody used is EXPIRED even while the row still says pending', () =
 
 test('a claimed link reads as joined; a revoked one says nothing', () => {
   assert.equal(supplierInviteStatus({ status: 'claimed', sentAt: iso(-2), expiresAt: iso(88) }, NOW)?.key, 'joined');
+  // The link knows they joined; it cannot know their card is up — the row does.
   assert.equal(
     supplierInviteStatus({ status: 'claimed', sentAt: iso(-2), expiresAt: iso(88) }, NOW)?.line,
-    'Now on Setnayan — their own card',
+    'Joined through your link · their card is not up yet',
   );
+  assert.equal(joinedLine(true), 'Now on Setnayan — their own card');
+  assert.equal(joinedLine(false), 'Joined through your link · their card is not up yet');
   assert.equal(supplierInviteStatus({ status: 'revoked', sentAt: iso(-2), expiresAt: iso(88) }, NOW), null);
 });
 

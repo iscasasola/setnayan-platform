@@ -98,7 +98,7 @@ import {
 } from '@/lib/setnayan-ai-free-assist';
 import { NewManualVendorModal } from '@/app/dashboard/[eventId]/_components/new-manual-vendor-modal';
 import { AddYourOwnWalk } from '@/app/dashboard/[eventId]/_components/add-your-own-walk';
-import { INVITE_STATUS_UNREAD_LINE, ownRecordLine, type InviteStatusByVendorId } from '@/lib/supplier-invite-status';
+import { INVITE_STATUS_UNREAD_LINE, joinedLine, ownRecordLine, type InviteStatusByVendorId } from '@/lib/supplier-invite-status';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { InspectorTrigger } from '@/app/_components/inspector/inspector-column';
 import {
@@ -1544,7 +1544,7 @@ function VendorCard({
               className={`sc-link t-${inviteStatuses[v.vendorId]!.tone}`}
               data-invite-status={inviteStatuses[v.vendorId]!.key}
             >
-              {inviteStatuses[v.vendorId]!.line}
+              {inviteStatuses[v.vendorId]!.key === 'joined' ? joinedLine(svc != null) : inviteStatuses[v.vendorId]!.line}
             </span>
           ) : null
         ) : null}

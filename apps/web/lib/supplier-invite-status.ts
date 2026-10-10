@@ -78,8 +78,9 @@ export function supplierInviteStatus(
   if (!invite) return null;
   switch (invite.status) {
     case 'claimed':
-      // The prototype's words for the couple's card once the shop is real (E5).
-      return { key: 'joined', line: 'Now on Setnayan — their own card', tone: 'ok' };
+      // Joined — that much the link records. Whether their own card is up yet
+      // is the row's to say (`joinedLine`), because the link cannot know it.
+      return { key: 'joined', line: joinedLine(false), tone: 'ok' };
     case 'declined':
       return {
         key: 'declined',
@@ -120,4 +121,15 @@ export const INVITE_STATUS_UNREAD_LINE = 'Could not check their link just now';
  */
 export function ownRecordLine(booked: boolean): string {
   return booked ? 'Added by you · booked by hand' : 'Added by you · your record, not a booking';
+}
+
+/**
+ * A supplier who joined through the couple's link. `vendor_invites` says they
+ * joined; only the row knows whether they have put their own card up
+ * (`event_vendors.service_id`, drawn as the row's service card). The second
+ * sentence is the approved prototype's (case E5) and is only true once that
+ * card exists — said before then, it would describe a card nobody can open.
+ */
+export function joinedLine(hasOwnCard: boolean): string {
+  return hasOwnCard ? 'Now on Setnayan — their own card' : 'Joined through your link · their card is not up yet';
 }

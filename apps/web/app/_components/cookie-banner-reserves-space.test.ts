@@ -58,8 +58,13 @@ test('the banner MEASURES the route\'s own bottom chrome before positioning itse
   );
   // The measurement only counts something genuinely ANCHORED to the bottom
   // edge (never a modal/backdrop) — the two guard clauses that make that so.
-  assert.match(SRC, /r\.bottom < vh - 4/, 'lost the "touching the bottom edge" check');
-  assert.match(SRC, /r\.top < vh \* 0\.5/, 'lost the "not a modal/sheet" check');
+  // 🔁 RE-AIMED 2026-10-11: the geometry moved to `lib/bottom-chrome.ts` so a
+  // test can RUN it (`the-first-screen-keeps-its-action.test.ts`); the banner
+  // hands it the boxes it found. Both halves are held here.
+  assert.match(SRC, /return bottomChromeLift\(boxes, window\.innerHeight\)/, 'the banner no longer asks lib/bottom-chrome for the lift');
+  const GEOMETRY = stripComments(read('../../lib/bottom-chrome.ts'));
+  assert.match(GEOMETRY, /r\.bottom < vh - 4/, 'lost the "touching the bottom edge" check');
+  assert.match(GEOMETRY, /r\.top < vh \* 0\.5/, 'lost the "not a modal/sheet" check');
 });
 
 test('the measured lift is actually APPLIED to the banner\'s own position', () => {

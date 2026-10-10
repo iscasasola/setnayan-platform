@@ -430,14 +430,18 @@ export default function SupplierSheet({
                     couple ticks, the ONE ask button below sends them all.
                     FRAMES ONLY ON WHAT YOU PRESS (owner 2026-10-11: "only have
                     frames if something needs to be clicked like a button"): each
-                    tick is framed; the heading and the one helper line are read,
-                    so they sit on the sheet with no box. */}
+                    tick is framed; the heading is read, so it sits on the sheet
+                    with no box.
+                    NO HELPER LINE, ON PURPOSE. Each row used to say "can be in
+                    the same quote" — a lowercase fragment that only made sense
+                    beside one category. Said once it is not a sentence, and the
+                    composer has none for this: its only sentences here are the
+                    bundle nudge's ("…ask for one bundle price — often cheaper
+                    than booking separately."), which promise a bundle price this
+                    sheet does not ask for. The words are the owner's to give. */}
                 {tickable.length > 0 ? (
                   <fieldset className="mt-2 space-y-2" data-sheet-also="">
                     <legend className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/50">Also ask about</legend>
-                    <p className="text-[12px] text-ink/55" data-sheet-also-help="">
-                      can be in the same quote
-                    </p>
                     <ul className="space-y-1.5">
                       {tickable.map((o) => {
                         const on = ticked.has(o.tile);

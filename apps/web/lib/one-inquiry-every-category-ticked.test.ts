@@ -196,12 +196,12 @@ test('the tick list is the shipped "Also ask about" block — its words and its 
   assert.match(SHEET, /type="checkbox"\s*checked=\{on\}\s*onChange=\{\(\) => toggleTick\(o\.tile\)\}/);
   // Every checkbox has a name a screen reader can say, in words that already ship.
   assert.match(SHEET, /aria-label=\{askAboutLabel\(o\.label\)\}/);
-  // No pill row, and no new sentence: the row keeps the sheet's own words.
-  assert.match(SHEET, /can be in the same quote/);
+  // No pill row, and no sentence of the sheet's own making: the legend and the
+  // category names are all the words the list has (see the frames test below).
   assert.doesNotMatch(SHEET, /rounded-full[^"]*"[^>]*onClick=\{\(\) => toggleTick/);
 });
 
-test('frames only on what you press: each tick is framed; the heading and the helper line are not; the topic starts at a divider', () => {
+test('frames only on what you press: each tick is framed; the heading is not; the topic starts at a divider', () => {
   // Owner, 2026-10-11: "only have frames if something needs to be clicked like
   // a button, separate topics with divider."
   const also = SHEET.slice(SHEET.indexOf('data-sheet-also=""'), SHEET.indexOf('</fieldset>'));
@@ -214,9 +214,10 @@ test('frames only on what you press: each tick is framed; the heading and the he
   const label = also.slice(also.indexOf('<label'), also.indexOf('</label>'));
   assert.doesNotMatch(label, /can be in the same quote/, 'the helper line is inside the frame');
   assert.equal(count(label, /<span /g), 1, 'the framed row carries more than the name');
-  // The helper line is said once, on the sheet, before the ticks.
-  assert.equal(count(SHEET, /can be in the same quote/g), 1);
-  assert.ok(also.indexOf('data-sheet-also-help') > 0 && also.indexOf('data-sheet-also-help') < also.indexOf('<ul'));
+  // No helper line at all: the per-row fragment is not a sentence once said once,
+  // and the composer's only sentences here promise a bundle price this sheet does not ask for.
+  assert.doesNotMatch(SHEET, /can be in the same quote|data-sheet-also-help|bundle price/);
+  assert.equal(count(also, /<p\b/g), 0, 'the tick list grew a line of its own words');
   // The topic starts at a divider.
   assert.match(SHEET, /<section className="border-t border-ink\/10 pt-4" data-sheet-section="others">/);
 });

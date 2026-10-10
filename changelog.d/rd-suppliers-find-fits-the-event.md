@@ -76,9 +76,17 @@ every ticked one together:
 
 Frames only on what is pressed (owner 2026-10-11: *"only have frames if
 something needs to be clicked like a button, separate topics with divider."*):
-each tick and the ask button are framed; the list's heading and its one helper
-line ("can be in the same quote", said once instead of inside every row) sit on
-the sheet with no box, and the topic starts at a divider.
+each tick and the ask button are framed; the list's heading sits on the sheet
+with no box, and the topic starts at a divider. The per-row fragment "can be in
+the same quote" is gone: said once it is not a sentence, and the composer's own
+sentences here are the bundle nudge's, which promise a bundle price this sheet
+does not ask for — the words are the owner's to give.
+
+The ticks are the app's accent (`accent-terracotta`, the RSVP's token). The
+class copied from the composer is a forms-plugin idiom with no plugin behind
+it, so it painted nothing and the boxes ticked browser blue. The sheet's ask is
+its row's MAIN verb — filled, by the button rule; it was outlined like Follow
+and Share beside it.
 
 Also fixed in the sheet, found measuring this at 375 px: its button row was
 never fitted (`useFitRow` ran in the component that returns null until `<body>`

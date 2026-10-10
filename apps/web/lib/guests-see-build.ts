@@ -67,7 +67,9 @@ const GROUPS: ReadonlyArray<{ title: string; rows: readonly RowSpec[] }> = [
     ],
   },
   { title: 'People', rows: [{ fixed: 'entourage' }, { fixed: 'reply' }] },
-  { title: 'On the day', rows: [{ fixed: 'seat' }, { fixed: 'pass' }, { fixed: 'announce' }, { fixed: 'live' }, { fixed: 'camera' }, { fixed: 'photosofyou' }] },
+  /* The prototype's head here is "On the day"; the owner's standing rule (d25, `the-day-is-the-day.test.ts`) is that a
+     label naming that stage reads "The Day" — so it does. */
+  { title: 'The Day', rows: [{ fixed: 'seat' }, { fixed: 'pass' }, { fixed: 'announce' }, { fixed: 'live' }, { fixed: 'camera' }, { fixed: 'photosofyou' }] },
   { title: 'The opening', rows: [{ fixed: 'reveal' }] },
 ];
 

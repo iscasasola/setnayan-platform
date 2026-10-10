@@ -61,7 +61,8 @@ test('1 · the prototype’s table: six groups, its rows, five columns — and o
       ['The story', ['Message', 'Love Story', 'Our photos']],
       ['The details', ['Schedule', 'Map', 'Dress code', 'What to bring', 'E-Gifts']],
       ['People', ['Entourage', 'Reply card']],
-      ['On the day', ['Your seat', 'Digital pass', 'Announcements', 'Live', 'Camera', 'Photos of you']],
+      // (The prototype's head is "On the day"; the owner's rule d25 names that stage "The Day" on every label.)
+      ['The Day', ['Your seat', 'Digital pass', 'Announcements', 'Live', 'Camera', 'Photos of you']],
       ['The opening', ['Reveal']],
       [GUESTS_SEE_WORDS.ownScenes, [STAGE_WORDS.ownSceneTitle]],
     ],

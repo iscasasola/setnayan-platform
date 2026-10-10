@@ -56,7 +56,7 @@ import {
 } from './element-preview';
 import { CANVAS_REFRESH_MESSAGE, HUB_DRAFT_BAR_FIELD, MAKER_CANVAS_REDRAW_EVENT, makerNeedsRender, makerSave, makerUnheldSavesInFlight, requestMakerRefresh, MAKER_UNHELD_WRITE_EVENT } from '@/lib/maker-refresh';
 import { draftedCanvasOr, noteDraftedCanvas } from '@/lib/maker-draft-store';
-import { stageEyeValue } from '@/lib/guests-see-table';
+import { stageEyeValue } from '@/lib/stage-eye';
 import { announceMakerSave } from '@/lib/maker-save-status';
 import { movedOrder, optimisticStageList, sameOrder, stageOrderPatch } from '@/lib/maker-reorder';
 

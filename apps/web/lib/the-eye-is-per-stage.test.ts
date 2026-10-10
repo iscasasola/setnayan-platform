@@ -18,7 +18,7 @@
  *      (`sceneDrawEffect`).
  *
  * SABOTAGES RUN (each seen red, then put back and re-checked by hash):
- *   A · `stageEyeValue` made to store the wanted state always          → 1 red;
+ *   A · `stageEyeValue` made to store the wanted state always          → 1, 2, 5 red;
  *   B · `buildStageEyes` made to ask "drawn" instead of the list       → 3 red;
  *   C · the eye made to post `is_visible` again                        → 4 red;
  *   D · the listed tile made to read the event-wide eye again          → 5 red;
@@ -32,7 +32,7 @@ import { join } from 'node:path';
 import { STAGE_SHOW_KEY } from './stage-scenes';
 import { WIDGET_CATALOG_BY_TYPE, type InvitationWidgetRow, type LifecyclePhase, type WidgetType } from './invitation-widgets';
 import { buildStageEyes } from './guests-see-build';
-import { stageEyeValue } from './guests-see-table';
+import { stageEyeValue } from './stage-eye';
 import { makerStageList } from './maker-scene-list';
 import { sceneOnStage } from './what-guests-see';
 import { emptyHubDraft, mergeHubDraft, overlayHubDraftWidgets } from './hub-draft';

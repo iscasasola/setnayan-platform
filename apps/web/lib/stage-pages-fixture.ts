@@ -147,6 +147,26 @@ export function stageProps(c: StageCase, rows?: InvitationWidgetRow[], more: Par
   };
 }
 
+/**
+ * 👗 A GUEST WITH A LOOK OF HER OWN. The fixture's guest has no role, and the guest's look (the dress code's "you"
+ * half, which the Welcome draws) says only what is this reader's own — so for her it draws nothing. These props make
+ * her a bridesmaid the couple dressed: the look then prints `data-dress-code="you"` and `LOOK_NOTE`.
+ */
+export const LOOK_NOTE = 'Olive, floor length';
+export function withALook(c: StageCase): Partial<SiteBodyFixtureProps> {
+  const f = base();
+  const props = stageProps(c);
+  const identity = f.siteBodyFixtureProps().identity;
+  if (identity.kind !== 'guest') throw new Error('the fixture reader is not a guest');
+  return {
+    event: {
+      ...props.event!,
+      dress_code_config: { ...(props.event!.dress_code_config as Record<string, unknown>), roles: { bridesmaid: { style: 'long_gown', note: LOOK_NOTE } } },
+    },
+    identity: { ...identity, guest: { ...identity.guest, role: 'bridesmaid' } },
+  };
+}
+
 export type StagePage = { html: string; complaints: string[] };
 
 /** The REAL guest page for one case. */

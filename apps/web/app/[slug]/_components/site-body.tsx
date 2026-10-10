@@ -115,6 +115,7 @@ import { venueNowMs } from '@/lib/schedule';
 import { dayVenuesNow } from '@/lib/day-venue-now';
 import { widgetByType, widgetShouldRender } from '@/lib/invitation-widgets';
 import { welcomePartsOnTheDay } from '@/lib/invitation-welcome';
+import { hiddenOnStage, stageChoiceOr } from '@/lib/what-guests-see';
 import { PUBLIC_WIDGET_ALLOWLIST } from '@/lib/public-widget-allowlist';
 
 /* The dayOfPhase → NavPhase mapping moved into `_lib/site-nav.ts` as
@@ -1205,15 +1206,22 @@ export async function SiteBody({
      says (`welcomePartsOnTheDay`): the dress code and the reminders are made on
      the Invitation, and a guest on the day still dresses by one and reads the
      other. Switched off by the couple → not shown. */
+  /* 👁 …AND THE COUPLE'S CHOICE FOR THE DAY DECIDES FIRST (owner 2026-10-10, "WHAT
+     GUESTS SEE" — `lib/what-guests-see.ts`). These places draw a scene without
+     asking the day's list, so each asks for The Day's choice itself: hidden on
+     The Day → not drawn; shown on The Day → drawn over the event-wide eye; no
+     choice → exactly what it did before (`dayOn`'s second argument). */
+  const dayOn = (type: 'dress_code' | 'what_to_bring' | 'schedule' | 'venue_map', today: boolean) =>
+    stageChoiceOr(widgets, type, 'event', phasesEnabled, today);
   const dayWelcomeFacts = {
     bodyNormal: plan.body === 'normal' && pageStage === 'event',
-    dressCodeOn: widgetShouldRender(widgetByType(widgets, 'dress_code')),
-    remindersOn: widgetShouldRender(widgetByType(widgets, 'what_to_bring')),
+    dressCodeOn: dayOn('dress_code', widgetShouldRender(widgetByType(widgets, 'dress_code'))),
+    remindersOn: dayOn('what_to_bring', widgetShouldRender(widgetByType(widgets, 'what_to_bring'))),
     reminders: event.what_to_bring,
     giftHref: doorways.pabuya,
     maker: isMakerCanvas,
   };
-  const dayRemindersRow = widgetShouldRender(widgetByType(widgets, 'what_to_bring'))
+  const dayRemindersRow = dayOn('what_to_bring', widgetShouldRender(widgetByType(widgets, 'what_to_bring')))
     ? widgetByType(widgets, 'what_to_bring')
     : null;
   /* 🗺 THE DAY'S LIVE LEADS WITH DIRECTIONS until the programme begins
@@ -1224,7 +1232,10 @@ export async function SiteBody({
      where things are happening is only 1 of 2"*). The ceremony venue until the
      ceremony is over, then the reception — `lib/day-venue-now.ts`, the one rule
      the Live directions, the Welcome venue and the day's venue scene ask. */
-  const dayVenues = dayVenuesNow({ venues: event.venues, blocks: scheduleBlocks, nowMs: venueNowMs(eventTzForDay) });
+  // 👁 The map hidden on The Day: no directions on top, no venue on the Day's Welcome (they read this list).
+  const dayVenues = dayOn('venue_map', true)
+    ? dayVenuesNow({ venues: event.venues, blocks: scheduleBlocks, nowMs: venueNowMs(eventTzForDay) })
+    : [];
   const directionsOnTop =
     pageStage === 'event' &&
     dayOfPhase === 'live' &&
@@ -3025,7 +3036,7 @@ export async function SiteBody({
                   The emphasis now lives inside the programme rail — the live
                   row carries an accent left rule + veil wash + "Happening now"
                   tag. Same promotion, same gating, no green on a wedding page. */}
-              {group('live', isLive && scheduleBlocks.length > 0 ? (
+              {group('live', isLive && scheduleBlocks.length > 0 && dayOn('schedule', true) ? (
                 <section aria-label="Day-of schedule">
                   <ScheduleWidget
                     blocks={scheduleBlocks}

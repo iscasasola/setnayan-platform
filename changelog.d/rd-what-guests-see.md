@@ -97,6 +97,13 @@ the event-wide eye.
 the reminders were "Not part of this stage" while a guest reads both on the
 Day's Welcome; it now says where.
 
+**After the controller's look at the pictures:** Apply is a full-width pill on
+its own line (it ran past the sheet at 375); a ticked box wears the app's picked
+colour (the accent); the key says "Cannot be changed here yet"; the Countdown on
+The Day is a dash (it has retired by then — `SCENES_RETIRED_ON_THE_DAY`), and
+every remaining box is flipped on the real page of its stage to prove it changes
+what a guest sees; the group head reads "The Day" (owner's naming rule).
+
 SPEC IMPACT: None beyond the row this implements (DECISION_LOG 2026-10-10 "WHAT
 GUESTS SEE"). New couple-facing lines are listed in `GUESTS_SEE_WORDS`
 (`lib/guests-see-table.ts`) for the owner to read in one place.

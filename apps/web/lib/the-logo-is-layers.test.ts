@@ -34,14 +34,16 @@ import {
   defaultMotion,
   isLayeredLogo,
   sanitizeLogoLayers,
-  writeMaskMarkup,
-  writeRevealCells,
-  writeRevealPlan,
-  revealLayersAt,
   logoInSeconds,
   LOGO_WRITE_MAX_PTS,
   type LogoLayer,
 } from './logo-layers';
+import {
+  writeMaskMarkup,
+  writeRevealCells,
+  writeRevealPlan,
+  revealLayersAt,
+} from './logo-layers-player';
 import {
   clampToFrame,
   composeLogoSvg,

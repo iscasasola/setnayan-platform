@@ -20,4 +20,10 @@ that only the lazy files import, so the Maker's first download no longer carries
   maths (`hexToRgb`, `luminance`, `contrast`, `blend`, …) stays in `site-palette.ts`, now exported.
   Source gz: `site-palette.ts` 10,689 B -> 7,726 B; new file 4,313 B.
 
+- **Move 3 — the player half → `lib/logo-layers-player.ts`** (22 declarations: the Out timings, the
+  pen's progress, the writing path's cells and reveal plan, the soft tip, the playable-element
+  allowlist, plus the pen geometry the editor's `writePartPassages` shares — `resampleWrite`,
+  `penAlong`, `LOGO_WRITE_CELLS`). Imported by `layered-logo-player.tsx` and the editor half only.
+  Source gz: `logo-layers.ts` 13,468 B -> 8,672 B; new file 5,863 B.
+
 SPEC IMPACT: None

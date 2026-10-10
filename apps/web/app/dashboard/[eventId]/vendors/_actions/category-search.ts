@@ -38,7 +38,7 @@ import { isTrueNameTier, tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 import type { LadderTier } from '@/lib/inline-more-order';
 import { fetchWizardVendorRecommendations } from '@/lib/wizard-recommendations';
 import { findSuppliersWithNoBookingLeft } from '@/lib/bench-bookable-days.server';
-import { leavesBenchSearch } from '@/lib/bench-bookable-days';
+import { describeUnbookableScope, leavesBenchSearch, type UnbookableScope } from '@/lib/bench-bookable-days';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import {
   buildCoupleFaithSet,
@@ -239,6 +239,9 @@ export type CategorySearchResult = {
    * the hide's own count — the rows it removed — never a second query.
    */
   hiddenForDate?: number;
+  /** WHICH date(s) they could not be booked on — present with `hiddenForDate`,
+   *  so the page can name the date the way the couple gave it. */
+  hiddenForDateScope?: UnbookableScope;
   total: number;
   /** Null when the event has no stored coords (distance tier falls back to
    *  review order + the overlay hides distance chips). */
@@ -1454,8 +1457,21 @@ export async function searchCategoryVendors(input: {
     // Only present when the tally actually failed → the happy-path shape is
     // byte-identical to before MB10.
     ...(savedPhotosByVendor === null ? { savedPhotoTallyFailed: true } : {}),
-    // Only present when the hide really took somebody off the list.
-    ...(hiddenForDate > 0 ? { hiddenForDate } : {}),
+    // Only present when the hide really took somebody off the list — with the
+    // date(s) it judged them on, read by the SAME pure function, from the same
+    // event row, as the hide itself.
+    ...(hiddenForDate > 0
+      ? {
+          hiddenForDate,
+          hiddenForDateScope:
+            describeUnbookableScope(
+              eventDateStr,
+              (ev.event_date_precision as string | null) ?? null,
+              Array.isArray(ev.date_candidates) ? (ev.date_candidates as unknown[]) : null,
+              { start: ev.date_window_start, end: ev.date_window_end },
+            ) ?? undefined,
+        }
+      : {}),
     // Only present when the flag is on → off-path result shape is unchanged.
     ...(smartSort ? { budgetPressure: budgetRaisePressure } : {}),
     // NOT flag-gated: the band-derived budget is not either, so a couple ranked

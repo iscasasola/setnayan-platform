@@ -29,7 +29,8 @@ import { InspectorLayout } from '@/app/_components/inspector/inspector-column';
 import { ServicesTakeover } from '@/app/dashboard/[eventId]/vendors/_components/services-takeover';
 import { DatePlaceLine } from '@/app/dashboard/[eventId]/vendors/_components/date-place-line';
 import { buildShortlistFolders } from '@/lib/shortlist-taxonomy';
-import { FIND_EMPTY_WORDS, findEmptyState, popularTilesFor } from '@/lib/supplier-find';
+import { popularTilesFor } from '@/lib/supplier-find';
+import { findEmptyState, findEmptyWords } from '@/lib/supplier-find-empty';
 import { SuppliersLabStage } from './lab-stage';
 import { LabBench } from './lab-bench';
 import { FindFartherAway, FindSupplierList } from '@/app/dashboard/[eventId]/vendors/categories/_components/find-supplier-list';
@@ -65,12 +66,15 @@ export default async function SuppliersLabPage({
             <p className="text-[12px] font-medium uppercase tracking-wide text-ink/50">Find a supplier</p>
             <h2 className="mt-1 font-serif text-3xl text-ink">{WEDDING_TILE_LABEL[find as WeddingTile] ?? find}</h2>
           </header>
-          <p className="mt-3 text-[13px] text-ink/55">
-            {rows.length === 1 ? '1 supplier' : `${formatCount(rows.length)} suppliers`} · nearest first
-          </p>
+          {empty === 'nobody_free' ? null : (
+            <p className="mt-3 text-[13px] text-ink/55">
+              {rows.length === 1 ? '1 supplier' : `${formatCount(rows.length)} suppliers`} · nearest first
+            </p>
+          )}
           {empty ? (
             <p className="mt-6 text-[15px] text-ink/65" data-find-empty={empty}>
-              {FIND_EMPTY_WORDS[empty]}
+              {/* The lab's date line reads Sat, Dec 12, 2026. */}
+              {findEmptyWords(empty, { kind: 'day', days: ['2026-12-12'] })}
             </p>
           ) : (
             <FindSupplierList eventId={LAB_EVENT} tile={find} rows={rows} />

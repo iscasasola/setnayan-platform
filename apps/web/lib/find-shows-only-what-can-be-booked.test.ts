@@ -16,17 +16,19 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
 import {
-  FIND_ALL_BOOKED,
-  FIND_EMPTY_WORDS,
   FIND_NONE_LISTED,
   FIND_NO_FILTER_MATCH,
   findEmptyState,
-} from './supplier-find';
+  findEmptyWords,
+  findNobodyFreeWords,
+} from './supplier-find-empty';
+import { describeUnbookableScope } from './bench-bookable-days';
+import { suppliersDateFact } from './suppliers-shell';
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
@@ -144,7 +146,7 @@ test('the farther-away search runs only once it is asked for, and only when the 
   // Offered below the list whether or not anyone is in reach — an empty first
   // list is exactly when the couple needs to search more.
   const offered = page.indexOf('<FindFartherAway ');
-  const emptyBranch = page.indexOf('{FIND_EMPTY_WORDS[empty]}');
+  const emptyBranch = page.indexOf('{findEmptyWords(empty, res.hiddenForDateScope)}');
   assert.ok(emptyBranch > 0 && offered > emptyBranch);
   assert.doesNotMatch(page.slice(emptyBranch, offered), /rows\.length > 0 &&/, 'hidden when nobody is in reach');
 });
@@ -172,38 +174,82 @@ test('the control and its words are the bench search overlay\'s — nothing new'
 
 // ── AN EMPTY LIST SAYS WHY (2026-10-11) ───────────────────────────────────
 // Once Find hides who cannot be booked, "nobody lists this category" and
-// "everybody here is full on your date" both arrive as no rows. The page said
+// "nobody here is free on your date" both arrive as no rows. The page said
 // "No supplier lists this yet. Check back soon." for both.
-test('🔑 nobody lists the category · every supplier is booked on the date — two cases, two sentences', () => {
+test('🔑 nobody lists the category · nobody is free on the date — two cases, two sentences', () => {
+  const day = { kind: 'day' as const, days: ['2026-12-12'] };
   // Nobody lists it: nothing found, nobody hidden.
   assert.equal(findEmptyState({ found: 0, shown: 0, hiddenForDate: 0, filtering: false }), 'none_listed');
-  assert.equal(FIND_EMPTY_WORDS.none_listed, 'No supplier lists this yet. Check back soon.');
+  assert.equal(findEmptyWords('none_listed', day), 'No supplier lists this yet. Check back soon.');
   // Suppliers exist, none can be booked on the date: nothing found, somebody hidden.
-  assert.equal(findEmptyState({ found: 0, shown: 0, hiddenForDate: 5, filtering: false }), 'all_booked');
-  assert.equal(findEmptyState({ found: 0, shown: 0, hiddenForDate: 1, filtering: false }), 'all_booked');
-  assert.equal(FIND_EMPTY_WORDS.all_booked, 'Every supplier here is booked on your date.');
-  assert.notEqual(FIND_ALL_BOOKED, FIND_NONE_LISTED);
-  // The booked case wins over the Filter — the Filter is not why it is empty…
-  assert.equal(findEmptyState({ found: 0, shown: 0, hiddenForDate: 3, filtering: true }), 'all_booked');
+  assert.equal(findEmptyState({ found: 0, shown: 0, hiddenForDate: 5, filtering: false }), 'nobody_free');
+  assert.equal(findEmptyState({ found: 0, shown: 0, hiddenForDate: 1, filtering: false }), 'nobody_free');
+  assert.equal(findEmptyWords('nobody_free', day), 'Nobody is free on Sat, Dec 12, 2026.');
+  assert.notEqual(findEmptyWords('nobody_free', day), FIND_NONE_LISTED);
+  // "Nobody is free" wins over the Filter — the Filter is not why it is empty…
+  assert.equal(findEmptyState({ found: 0, shown: 0, hiddenForDate: 3, filtering: true }), 'nobody_free');
   // …but a Filter that emptied a list the search DID fill is the Filter's doing,
   // whoever else was hidden.
   assert.equal(findEmptyState({ found: 4, shown: 0, hiddenForDate: 2, filtering: true }), 'no_filter_match');
   assert.equal(findEmptyState({ found: 0, shown: 0, hiddenForDate: 0, filtering: true }), 'no_filter_match');
-  assert.equal(FIND_EMPTY_WORDS.no_filter_match, FIND_NO_FILTER_MATCH);
+  assert.equal(findEmptyWords('no_filter_match', day), FIND_NO_FILTER_MATCH);
   // Rows on screen → no empty sentence at all, whatever was hidden.
   assert.equal(findEmptyState({ found: 3, shown: 3, hiddenForDate: 9, filtering: false }), null);
   assert.equal(findEmptyState({ found: 3, shown: 1, hiddenForDate: 0, filtering: true }), null);
 });
 
-test('🔑 the count is the hide\'s own — the rows it removed — and it reaches the page', () => {
+test('🔑 the words are the approved prototype\'s, and the date is written as the page\'s date line writes it', () => {
+  // The approved sentence, read from the prototype itself (when the corpus is on this machine).
+  const proto = join(WEB, '../../../wt-corpus-push/prototypes/suppliers_page_2026-10-07_fable.html');
+  if (existsSync(proto)) {
+    const src = readFileSync(proto, 'utf8');
+    assert.ok(
+      src.includes("`Nobody is free ${S.dateKnown==='day'?'on '+shortDate(S.date)+' — try another day in Help me choose':'in '+monthOf(S.date)}.`"),
+      'the prototype no longer says this — re-read it before changing the words',
+    );
+  }
+  // One day, and a month — the two forms the prototype has.
+  const line = suppliersDateFact('2026-12-12', 'day').text;
+  assert.equal(line, 'Sat, Dec 12, 2026');
+  assert.equal(findNobodyFreeWords({ kind: 'day', days: ['2026-12-12'] }), `Nobody is free on ${line}.`);
+  const month = describeUnbookableScope('2026-12-01', 'month')!;
+  assert.equal(month.kind, 'month');
+  assert.equal(findNobodyFreeWords(month), `Nobody is free in ${suppliersDateFact('2026-12-01', 'month').text}.`);
+  assert.equal(findNobodyFreeWords(month), 'Nobody is free in December 2026.');
+  // 🧵 The second half names a control that is not on this screen yet.
+  for (const scope of [{ kind: 'day' as const, days: ['2026-12-12'] }, month]) {
+    assert.doesNotMatch(findNobodyFreeWords(scope), /Help me choose|try another day/);
+  }
+  assert.match(readFileSync(join(WEB, 'lib/supplier-find-empty.ts'), 'utf8'), /SEAM — "Help me choose"/, 'the seam for the second half is gone');
+  // Several days and a window: the prototype's words, and nothing added but the dates.
+  const several = describeUnbookableScope(null, null, ['2027-11-20', '2027-10-02'])!;
+  assert.equal(several.kind, 'days');
+  assert.equal(findNobodyFreeWords(several), 'Nobody is free on Sat, Oct 2, 2027 · Sat, Nov 20, 2027.');
+  const window = describeUnbookableScope(null, null, null, { start: '2027-10-10', end: '2027-10-12' })!;
+  assert.equal(window.kind, 'window');
+  assert.equal(findNobodyFreeWords(window), 'Nobody is free on Sun, Oct 10, 2027 – Tue, Oct 12, 2027.');
+  // One candidate, or a one-day window, is simply a day.
+  assert.equal(describeUnbookableScope(null, null, ['2027-10-02'])!.kind, 'day');
+  assert.equal(describeUnbookableScope(null, null, null, { start: '2027-10-02', end: '2027-10-02' })!.kind, 'day');
+  // Never the old sentence, never the retired wording, whatever arrives.
+  for (const s of [null, undefined, { kind: 'day' as const, days: [] }]) {
+    const said = findNobodyFreeWords(s);
+    assert.match(said, /^Nobody is free/);
+    assert.doesNotMatch(said, /booked on your date|No supplier lists/);
+  }
+});
+
+test('🔑 the count and the date are the hide\'s own, and they reach the page', () => {
   const search = read('app/dashboard/[eventId]/vendors/_actions/category-search.ts');
   // Counted around the ONE filter the hide applies; no second query.
   assert.match(
     search,
     /let hiddenForDate = 0;\s*if \(noBookingLeft\.size > 0\) \{\s*const before = ordered\.length;\s*ordered = ordered\.filter\(\(s\) => !leavesBenchSearch\(s, noBookingLeft\)\);\s*hiddenForDate = before - ordered\.length;\s*\}/,
   );
-  // Absent unless somebody was hidden — every other result keeps its shape.
-  assert.match(search, /\.\.\.\(hiddenForDate > 0 \? \{ hiddenForDate \} : \{\}\),/);
+  // Absent unless somebody was hidden — every other result keeps its shape —
+  // and the date comes from the same pure function the hide's days come from.
+  assert.match(search, /\.\.\.\(hiddenForDate > 0\s*\? \{\s*hiddenForDate,\s*hiddenForDateScope:\s*describeUnbookableScope\(/);
+  assert.match(read('lib/bench-bookable-days.ts'), /return describeUnbookableScope\(eventDate, precision, candidates, window\)\?\.days \?\? null;/);
   assert.equal((search.match(/findSuppliersWithNoBookingLeft\(/g) ?? []).length, 1, 'a second read of who is full');
   // The page asks the one decider, with the search's own numbers…
   const page = read(FIND);
@@ -211,11 +257,17 @@ test('🔑 the count is the hide\'s own — the rows it removed — and it reach
     page,
     /const empty = findEmptyState\(\{\s*found: res\.results\.length,\s*shown: rows\.length,\s*hiddenForDate: res\.hiddenForDate \?\? 0,\s*filtering: picked\.length > 0,\s*\}\);/,
   );
-  assert.match(page, /\{empty \? \(\s*<p [^>]*data-find-empty=\{empty\}>\s*\{FIND_EMPTY_WORDS\[empty\]\}\s*<\/p>\s*\) : \(\s*<FindSupplierList /);
-  // …and carries no sentence of its own for an empty list any more.
-  assert.doesNotMatch(page, /No supplier lists this yet|No supplier matches this filter|booked on your date/);
+  assert.match(page, /\{empty \? \(\s*<p [^>]*data-find-empty=\{empty\}>\s*\{findEmptyWords\(empty, res\.hiddenForDateScope\)\}\s*<\/p>\s*\) : \(\s*<FindSupplierList /);
+  // …and carries no sentence of its own for an empty list.
+  assert.doesNotMatch(page, /No supplier lists this yet|No supplier matches this filter|Nobody is free|booked on your date/);
+  // "0 suppliers" is not drawn over "Nobody is free on …".
+  assert.match(page, /\{empty === 'nobody_free' \? null : \(\s*<p className="mt-3 text-\[13px\] text-ink\/55">\s*\{rows\.length === 1 \? '1 supplier'/);
   // After the sentence: the farther-away control, and nothing else.
-  const after = page.slice(page.indexOf('{FIND_EMPTY_WORDS[empty]}'));
+  const after = page.slice(page.indexOf('{findEmptyWords(empty, res.hiddenForDateScope)}'));
   const tail = after.slice(after.indexOf('<FindSupplierList '), after.indexOf('</div>\n    );'));
   assert.equal((tail.match(/<(?!\/)[A-Za-z]/g) ?? []).length, 3, 'something besides the list and the farther-away control follows the sentence');
+  // The retired wording is gone from the code, marker and all.
+  for (const f of ['lib/supplier-find.ts', 'lib/supplier-find-empty.ts', FIND]) {
+    assert.doesNotMatch(readFileSync(join(WEB, f), 'utf8'), /Every supplier here is booked|CONTROLLER'S WORDING/i, f);
+  }
 });

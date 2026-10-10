@@ -139,15 +139,23 @@ yet. Check back soon.", the sentence for a category nobody has joined.
 
 The search now returns `hiddenForDate`: the number of rows its own hide removed
 (counted around the one filter; no second query; absent when zero). Nothing
-found and somebody hidden is the booked case; `findEmptyState`
-(`lib/supplier-find.ts`) picks the sentence, and the page carries none of its
-own. The booked case reads **"Every supplier here is booked on your date."**,
-followed by the farther-away control and nothing else.
+found and somebody hidden is the "nobody is free" case; `findEmptyState`
+(`lib/supplier-find-empty.ts`) picks the sentence, and the page carries none of
+its own.
 
-⚠ That sentence is the controller's wording, pending the owner's look (built
-from the shipped badge "Booked your date"); the code says so. The approved
-prototype's words for the same case are "Nobody is free on <date> — try another
-day in Help me choose."
+The words are the approved prototype's — **"Nobody is free on Sat, Dec 12,
+2026."** / "Nobody is free in December 2026." — with the date written as the
+page's date line writes it (`suppliersDateFact`). Under it: the farther-away
+control and nothing else. In that state the count line is not drawn ("0
+suppliers" would deny the suppliers the sentence is about; the prototype has no
+words for "N, none free").
+
+- 🧵 The prototype's day sentence goes on "— try another day in Help me
+  choose." That control is not on this screen yet; the seam is marked in
+  `findNobodyFreeWords`.
+- The prototype only knows a day and a month. An event choosing between days,
+  or holding a window, reads "Nobody is free on <day> · <day>." / "Nobody is
+  free on <start> – <end>." — its words, nothing added but the dates.
 
 SPEC IMPACT: None beyond the row already filed — `DECISION_LOG.md` 2026-10-10
 "SEARCH SHOWS ONLY WHAT CAN BE BOOKED FOR THIS EVENT; ONE INQUIRY COVERS EVERY

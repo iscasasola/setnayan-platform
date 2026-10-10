@@ -70,9 +70,29 @@ export function unbookableDateScope(
   /** `events.date_window_start` / `date_window_end` — a flexible range. */
   window?: { start: unknown; end: unknown } | null,
 ): string[] | null {
+  return describeUnbookableScope(eventDate, precision, candidates, window)?.days ?? null;
+}
+
+/**
+ * The same answer, with WHAT KIND of date it was — so a screen that has to say
+ * "nobody is free on …" can name the date the way the couple gave it: one day,
+ * the days they are choosing between, a window from one day to another, or a
+ * month. `days` is exactly what `unbookableDateScope` returns.
+ */
+export type UnbookableScope = {
+  kind: 'day' | 'days' | 'window' | 'month';
+  days: string[];
+};
+
+export function describeUnbookableScope(
+  eventDate: string | null | undefined,
+  precision: string | null | undefined,
+  candidates?: readonly unknown[] | null,
+  window?: { start: unknown; end: unknown } | null,
+): UnbookableScope | null {
   const m = eventDate ? ISO_DAY.exec(eventDate) : null;
   // A settled day is the answer, whatever else the row still carries.
-  if (eventDate && m && precision === 'day') return [eventDate];
+  if (eventDate && m && precision === 'day') return { kind: 'day', days: [eventDate] };
 
   const picked = [
     ...new Set((candidates ?? []).filter((c): c is string => typeof c === 'string' && ISO_DAY.test(c))),
@@ -80,13 +100,14 @@ export function unbookableDateScope(
   if (picked.length > 0) {
     // More than the function accepts in one ask → too loose to judge. Hide
     // nobody rather than judge a supplier on some of the days.
-    return picked.length <= UNBOOKABLE_MAX_DAYS ? picked : null;
+    if (picked.length > UNBOOKABLE_MAX_DAYS) return null;
+    return { kind: picked.length === 1 ? 'day' : 'days', days: picked };
   }
 
   const span = windowDays(window);
   // `null` = no usable window (fall through to the month); `[]` = a real window
   // longer than one ask accepts (too loose to judge — hide nobody).
-  if (span) return span.length > 0 ? span : null;
+  if (span) return span.length > 0 ? { kind: span.length === 1 ? 'day' : 'window', days: span } : null;
 
   if (!eventDate || !m) return null;
   if (precision !== 'month') return null;
@@ -96,7 +117,7 @@ export function unbookableDateScope(
   // Day 0 of the next month is the last day of this one.
   const length = new Date(Date.UTC(year, month, 0)).getUTCDate();
   const mm = String(month).padStart(2, '0');
-  return Array.from({ length }, (_, i) => `${m[1]}-${mm}-${String(i + 1).padStart(2, '0')}`);
+  return { kind: 'month', days: Array.from({ length }, (_, i) => `${m[1]}-${mm}-${String(i + 1).padStart(2, '0')}`) };
 }
 
 /**

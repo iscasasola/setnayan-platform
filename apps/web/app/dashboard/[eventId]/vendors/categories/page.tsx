@@ -49,15 +49,14 @@ import { benchSearchScopeForTile } from '@/lib/bench-category-search';
 import { formatCount } from '@/lib/format-number';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import {
-  FIND_EMPTY_WORDS,
   applyFindFilter,
   buildFindList,
-  findEmptyState,
   parseFindFilter,
   popularHeading,
   supplierCountLabel,
   type FindCategory,
 } from '@/lib/supplier-find';
+import { findEmptyState, findEmptyWords } from '@/lib/supplier-find-empty';
 import { searchCategoryVendors } from '../_actions/category-search';
 import { FindFilterMenu } from './_components/find-supplier-controls';
 import { FindFartherAway, FindSupplierList } from './_components/find-supplier-list';
@@ -269,14 +268,19 @@ export default async function FindSupplierPage({ params, searchParams }: Props) 
           </Suspense>
         </form>
 
-        <p className="mt-3 text-[13px] text-ink/55">
-          {rows.length === 1 ? '1 supplier' : `${formatCount(rows.length)} suppliers`}
-          {res.hasReceptionCoords ? ' · nearest first' : ''}
-        </p>
+        {/* "0 suppliers" over "Nobody is free on …" would count the hidden
+            suppliers as not existing. The prototype has no words for "N, none
+            free", so in that one state the line is not drawn. */}
+        {empty === 'nobody_free' ? null : (
+          <p className="mt-3 text-[13px] text-ink/55">
+            {rows.length === 1 ? '1 supplier' : `${formatCount(rows.length)} suppliers`}
+            {res.hasReceptionCoords ? ' · nearest first' : ''}
+          </p>
+        )}
 
         {empty ? (
           <p className="mt-6 text-[15px] text-ink/65" data-find-empty={empty}>
-            {FIND_EMPTY_WORDS[empty]}
+            {findEmptyWords(empty, res.hiddenForDateScope)}
           </p>
         ) : (
           <FindSupplierList eventId={eventId} tile={openTile.tile} rows={rows} />

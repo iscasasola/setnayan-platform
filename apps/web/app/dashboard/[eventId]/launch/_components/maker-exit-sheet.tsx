@@ -57,7 +57,7 @@ export function MakerExitSheet({ eventId, changes, onClose }: { eventId: string;
           </p>
         ) : null}
         {makerExitDoors(eventId).map((d) => (
-          <ActionButton key={d.key} tone="neutral" icon={d.key === 'event' ? ArrowLeft : LayoutGrid} label={d.label} href={d.href} className="w-full justify-start" data-testid={`maker-exit-${d.key}`} />
+          <ActionButton key={d.key} tone="neutral" icon={d.key === 'event' ? ArrowLeft : LayoutGrid} label={d.label} href={d.href} className="!h-11 w-full justify-start" data-testid={`maker-exit-${d.key}`} />
         ))}
       </div>
     </MakerSheet>

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "4e9250ddc",
+  "generatedFromRef": "96f082bea",
   "routeCount": 431,
   "destinations": 955,
   "actions": 673,
-  "blocks": 5990,
+  "blocks": 5998,
   "routes": {
     "/": {
       "files": [
@@ -6580,6 +6580,7 @@
         "dashboard/[eventId]/launch/_components/details-your-event-load.tsx",
         "dashboard/[eventId]/launch/_components/details-your-event-parts.tsx",
         "dashboard/[eventId]/launch/_components/details-your-event.tsx",
+        "dashboard/[eventId]/launch/_components/guests-see-sheet.tsx",
         "dashboard/[eventId]/launch/_components/hub-pro-offer.tsx",
         "dashboard/[eventId]/launch/_components/hub-stage.tsx",
         "dashboard/[eventId]/launch/_components/icon-pill.tsx",
@@ -6627,6 +6628,7 @@
         "dashboard/[eventId]/launch/_components/special-message-field.tsx",
         "dashboard/[eventId]/launch/_components/stage-item-menu.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/block-animate.tsx",
+        "dashboard/[eventId]/launch/_components/stage-panel/block-background.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/camera-face.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/camera-look.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/camera-page.tsx",
@@ -6699,6 +6701,8 @@
         "Bar",
         "BeforeWeStartScreen",
         "BlockAnimateRows",
+        "BlockGround",
+        "BlockGroundRows",
         "Box",
         "BufferedCanvasFrame",
         "CameraLook",
@@ -6769,6 +6773,9 @@
         "GuestConfirmActions",
         "GuestPopup",
         "GuestsGetIn",
+        "GuestsSeeSheet",
+        "GuestsSeeTable",
+        "GuestsSeeWrites",
         "GuideFoot",
         "GuideHead",
         "GuideLinkScreen",
@@ -6869,6 +6876,7 @@
         "MarchMakerBody",
         "MarchResult",
         "MarchTray",
+        "Mark",
         "MenuHeading",
         "MenuItem",
         "MessageEventSource",
@@ -10116,6 +10124,7 @@
     "/dev/maker-lab/guest": {
       "files": [
         "dev/maker-lab/guest/lab-day.tsx",
+        "dev/maker-lab/guest/lab-sample.ts",
         "dev/maker-lab/guest/page.tsx",
         "dev/maker-lab/guest/scrub-badge.tsx"
       ],
@@ -10123,7 +10132,9 @@
       "actions": [],
       "blocks": [
         "CountdownWidget",
+        "DressCodeWidget",
         "EditorBridge",
+        "EntourageSection",
         "Fragment",
         "HTMLElement",
         "HubCanvasFrame",

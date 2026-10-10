@@ -223,7 +223,11 @@ test('b · WIRING: in the canvas every marker is inside a group filed by its own
   }
   assert.match(anon, /stagesPages\s*\? \{ greeting: false, pass: false, rsvp: false \}/, 'the ungrouped mount draws none of them in Stages');
   // The day's stand-ins, each filed by its own key.
-  assert.match(anon, /\{group\(at\(`f:\$\{part\}`, scenesTab\), <>\s*\{makerMark\(`f:\$\{part\}`\)\}/);
+  /* 🔁 RE-AIMED 2026-10-10 (a sample made real — `lib/block-looks.ts`): a day's part whose REAL block takes a look
+     (Your seat) has that block's hidden mark before its sample, and it stands FIRST in the group — before the Maker's
+     own marker, which must stay right next to the sample (`sectionAfter` frames the element after it). The claim is
+     the same: each stand-in's marker is inside the group filed by the part's own key. */
+  assert.match(anon, /\{group\(at\(`f:\$\{part\}`, scenesTab\), <>\s*\{sampleBlockMark\(`f:\$\{part\}`\)\}\s*\{makerMark\(`f:\$\{part\}`\)\}/);
   // The Welcome's places (the guest's look, E-Gifts), one group per part.
   assert.match(anon, /group\(stagesPages \? at\(WELCOME_PART_CANVAS\[parts\[0\]!\], 'home'\) : 'home', \(/);
   // The scenes: one group per page, each scene asked for its own page; the Love Story and the entourage by key.

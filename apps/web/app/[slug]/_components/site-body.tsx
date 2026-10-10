@@ -1,5 +1,5 @@
 import { Fragment, isValidElement } from 'react';
-import { BLOCK_LOOKS_STYLE_ATTR, BLOCK_MARK_ATTR, blockLooksCss, readBlockLooks, type BlockLookBlock } from '@/lib/block-looks';
+import { BLOCK_LOOKS_STYLE_ATTR, BLOCK_MARK_ATTR, blockLooksCss, blockOfCanvas, readBlockLooks, type BlockLookBlock } from '@/lib/block-looks';
 import Link from 'next/link';
 import { watchLiveOccasion } from '@/lib/watch-live-occasion';
 import { daysToGo } from '@/lib/countdown-target';
@@ -759,6 +759,12 @@ export async function SiteBody({
   const blockCss = blockLooksCss(blockLooks);
   /** E-Gifts is drawn by the welcome block, which takes its marker as a prop: the gifts' own mark rides there. */
   const giftsBlockMark = (key: string) => (key === 'f:gifts' ? blockMark('gifts') : null);
+  /** 🪑 A day's part whose REAL block takes a look (Your seat): the canvas's SAMPLE of it stands behind the same mark,
+   *  so the look picked in the Maker is drawn there by the very rules that draw it for a guest. */
+  const sampleBlockMark = (key: string) => {
+    const block = blockOfCanvas(key);
+    return block ? blockMark(block) : null;
+  };
   // 🔤 The hero's parts in the couple's own font · colour · size · animation
   // (`lib/element-style.ts`, on the hero row's canvas), and — in the Maker's
   // canvas only — the `data-el` keys that tell the Maker which part was tapped.
@@ -1594,6 +1600,7 @@ export async function SiteBody({
         ? makerDayPartsOn(pageStage, place).map((part) => (
             <Fragment key={part}>
               {group(at(`f:${part}`, scenesTab), <>
+              {sampleBlockMark(`f:${part}`)}
               {makerMark(`f:${part}`)}
               <MakerDayPartStandIn
                 part={part as Exclude<FixedStyleScene, 'entourage'>}
@@ -2658,7 +2665,11 @@ export async function SiteBody({
     const welcomeHere = welcome.filter((part) => !welcomeOnMe.includes(part));
     /** The walking order's tab — the day's Welcome (prototype), the Invitation's Details. */
     const marchTab = readerAt('f:entourage', scenesTab);
+    /* 🧱 Its own look (`lib/block-looks.ts`): the mark rides WITH the block into whichever slot draws it, right
+       before its root — and with no table there is no block and no mark (nothing stray for a rule to land on). */
     const seatBlock = seatMap ? (
+          <>
+            {blockMark('find_your_seat')}
             <YourSeatBlock
               tableLabel={guestHubData.tableLabel ?? 'your table'}
               venueName={receptionPlace ? receptionPlace.name : event.venue_name}
@@ -2671,6 +2682,7 @@ export async function SiteBody({
               formalName={placeCardName(guest, eventNameStyle)}
               nameStyle={hubElementInlineStyle(heroCanvas.elements?.names)}
             />
+          </>
     ) : null;
     /** 🎒 What to bring follows the entourage on the Invitation (`splitAroundEntourage`). */
     const guestAround = splitAroundEntourage(pageStage, hereScenes);

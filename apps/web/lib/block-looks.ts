@@ -27,10 +27,17 @@
  *     the hub's paper (the plate's own) or the glass.
  * Absent = today's look, exactly. The tile that equals today's look stores nothing.
  *
- * WHICH BLOCKS. Only the ones a guest's page draws from ONE real root (controller 2026-10-10). The other six the
- * canvas frames — Your seat · Photos of you · Announcements · Live hub · Digital pass · What to wear — are SAMPLES
+ * WHICH BLOCKS. Only the ones a guest's page draws from ONE real root (controller 2026-10-10). The others the
+ * canvas frames — Photos of you · Announcements · Live hub · Digital pass · What to wear — are SAMPLES
  * there; each guest sees their own, drawn elsewhere. A look kept for a sample would show in the Maker and never
  * reach a guest, so those stay grey and say why (`BLOCK_SAMPLE_WHY`).
+ *
+ * 🪑 A SAMPLE MADE REAL (2026-10-10) — Your seat. The canvas still draws a SAMPLE of it (no guest, no table), but
+ * each guest's own is ONE root in one place in the page (`site-body.tsx` `seatBlock` → `YourSeatBlock`, on Welcome
+ * or inside Me — never both), so the look is kept against THAT: the mark stands before the real block, and before
+ * the canvas's sample too, and the same rules address both. So the sample wears what the real one wears — its
+ * plate where the real one is a plate (Map), a card where it has one (Place card), bare where it is bare (Table
+ * number) — and what the couple picks in the Maker is what the guest gets.
  */
 import { hubElementMotionDeclarations, sanitizeHubElementMotion, type HubElementMotion } from './element-style';
 
@@ -38,7 +45,7 @@ import { hubElementMotionDeclarations, sanitizeHubElementMotion, type HubElement
 export const BLOCK_LOOKS_PREF_KEY = 'block_looks';
 
 /** The blocks that take a look — each is its canvas key without the `f:` (`lib/maker-parts.ts`). */
-export const BLOCK_LOOK_BLOCKS = ['entourage', 'details', 'gifts', 'spotlight'] as const;
+export const BLOCK_LOOK_BLOCKS = ['entourage', 'details', 'gifts', 'spotlight', 'find_your_seat'] as const;
 export type BlockLookBlock = (typeof BLOCK_LOOK_BLOCKS)[number];
 /** A block's background — the RSVP card's three (`RSVP_CARD_TILES`), in its order and words. */
 export const BLOCK_GROUNDS = ['none', 'plain', 'frost'] as const;
@@ -60,7 +67,6 @@ export function blockOfCanvas(canvas: string | null | undefined): BlockLookBlock
  * (the couple's words; each names the thing).
  */
 export const BLOCK_SAMPLE_WHY: Readonly<Record<string, string>> = {
-  'f:find_your_seat': 'This is a sample. Each guest sees their own seat here.',
   'f:photos_of_you': 'This is a sample. Each guest sees their own photos here.',
   'f:announcements': 'This is a sample. Guests see your announcements here as you send them.',
   'f:live_hub': 'This is a sample. Guests see the live hub here on the day.',
@@ -71,17 +77,35 @@ export const BLOCK_SAMPLE_WHY: Readonly<Record<string, string>> = {
 /**
  * WHAT EACH BLOCK WEARS TODAY, with nothing stored — the tile shown picked, and the value that is never kept (it
  * would serve a guest a mark for no change). The details has no one answer: its plate is a card, its other two
- * drawings are bare — asked of the block itself (`blockGroundToday`).
+ * drawings are bare — asked of the block itself (`blockGroundToday`). Nor has Your seat: the Map is a plate, the
+ * Place card holds a card, the Table number is bare.
  */
-export const BLOCK_GROUND_TODAY: Readonly<Record<BlockLookBlock, BlockGround | null>> = { entourage: 'none', details: null, gifts: 'plain', spotlight: 'plain' };
-/** The block's own card, from its root ('' = the root is the card; null = it has none in any drawing). */
-const GROUND_CARD: Readonly<Record<BlockLookBlock, string | null>> = { entourage: null, details: ' > .pahina-plate', gifts: ' > a', spotlight: '' };
+export const BLOCK_GROUND_TODAY: Readonly<Record<BlockLookBlock, BlockGround | null>> = { entourage: 'none', details: null, gifts: 'plain', spotlight: 'plain', find_your_seat: null };
+/**
+ * The block's own card, from its root ('' = the root is the card; null = it has none in any drawing). A list where
+ * its drawings keep it in different places — Your seat: the root when it is a plate (Map), the place card inside
+ * (Place card), and that card as the canvas's sample holds it (one level down, in the sample's own box).
+ */
+const SEAT_CARDS = ['.pahina-plate', ' > .bg-paper-deep', ' > [data-maker-sample] > .bg-paper-deep'] as const;
+const GROUND_CARD: Readonly<Record<BlockLookBlock, string | readonly string[] | null>> = { entourage: null, details: ' > .pahina-plate', gifts: ' > a', spotlight: '', find_your_seat: SEAT_CARDS };
 /** The root where it stands bare ('' = always; null = never) — there the root itself takes the paper or the glass. */
-const GROUND_BARE: Readonly<Record<BlockLookBlock, string | null>> = { entourage: '', details: ':not(:has(> .pahina-plate))', gifts: null, spotlight: null };
+const GROUND_BARE: Readonly<Record<BlockLookBlock, string | null>> = {
+  entourage: '',
+  details: ':not(:has(> .pahina-plate))',
+  gifts: null,
+  spotlight: null,
+  find_your_seat: ':not(.pahina-plate):not(:has(> .bg-paper-deep, > [data-maker-sample] > .bg-paper-deep))',
+};
+const cardsOf = (block: BlockLookBlock): readonly string[] => {
+  const card = GROUND_CARD[block];
+  return card === null ? [] : typeof card === 'string' ? [card] : card;
+};
 
 /** Today's background of a block as it is DRAWN (`root`: the element after its mark, or null when it cannot be asked). */
 export function blockGroundToday(block: BlockLookBlock, root: Element | null): BlockGround {
-  return BLOCK_GROUND_TODAY[block] ?? (root && !root.querySelector(':scope > .pahina-plate') ? 'none' : 'plain');
+  /* Asked with the block's own card selectors: on the root itself, or from it (`:scope`). */
+  const hasCard = (el: Element) => cardsOf(block).some((card) => (card.startsWith(' ') ? el.querySelector(`:scope${card}`) !== null : el.matches(card || '*')));
+  return BLOCK_GROUND_TODAY[block] ?? (root && !hasCard(root) ? 'none' : 'plain');
 }
 
 /** E-Gifts with no gift details yet: the canvas draws a Maker-only empty card, and a guest sees nothing to move. */
@@ -160,6 +184,16 @@ export function blockSelector(block: BlockLookBlock): string {
 export const BLOCK_GATE_OPEN = '@supports (animation-timeline: view()){@media (prefers-reduced-motion: no-preference){';
 /** One id's worth of specificity from an id nothing carries — the block's own choice beats the page's arrival. */
 const OWN = ':not(#el-own)';
+/**
+ * 👤 BLOCKS A GUEST'S PAGE CAN DRAW OUTSIDE ITS CHAPTERS. Me is not a chapter (`site-body.tsx`: a sibling of the
+ * chapters article, so nothing in it sits under the reveal's transform), and the page's one observer marks only
+ * chapters and scenes `.pahina-in` — so a timed Build in on a block drawn in Me would wait for a mark that never
+ * comes: seen in the Maker, never by a guest. For these blocks the timed rule is ALSO bound wherever the block has
+ * no chapter round it: it plays as the block is first drawn (Me is hidden until its tab is opened, and an animation
+ * starts when its element is first rendered). Inside a chapter it waits for the observer, like every other block.
+ */
+const OFF_CHAPTERS: readonly BlockLookBlock[] = ['find_your_seat'];
+const NO_CHAPTER = ':not([data-pahina-chapters] *)';
 const decl = (d: Array<[string, string]>) => d.map(([p, v]) => `${p}:${v}`).join(';');
 const sideways = (m: HubElementMotion) => [m.in?.move, m.out?.move].some((d) => Boolean(d) && d !== 'above' && d !== 'below');
 
@@ -199,8 +233,8 @@ function blockGroundRules(looks: BlockLooks): string[] {
     const g = looks[block]?.g;
     if (!g) continue;
     const root = blockSelector(block);
-    const card = GROUND_CARD[block];
-    if (card !== null && g !== 'plain') rules.push(`${root}${card}{${g === 'none' ? `${GROUND_NONE}${PAGE_INK}` : `${GROUND_FROST}${CARD_EDGE}`}${NO_INNER_FRAME}}`);
+    const cards = cardsOf(block);
+    if (cards.length > 0 && g !== 'plain') rules.push(`${cards.map((card) => `${root}${card}`).join(',')}{${g === 'none' ? `${GROUND_NONE}${PAGE_INK}` : `${GROUND_FROST}${CARD_EDGE}`}${NO_INNER_FRAME}}`);
     const bare = GROUND_BARE[block];
     if (bare !== null && g !== 'none') rules.push(`${root}${bare}{${g === 'plain' ? ROOT_PLAIN : ROOT_FROST}}`);
     if (bare !== null && g === 'plain') rules.push(`${root}${bare} > *{${ROOT_PLAIN_INSIDE}}`);
@@ -212,7 +246,8 @@ function blockGroundRules(looks: BlockLooks): string[] {
  * THE RULES THE PAGE DRAWS — the background of each block that has one (`blockGroundRules`), then the motion of
  * each block that has one, written exactly as a scene's own part is
  * (`hubElementSceneCss`): inside both gates; a timed Build in waits for the page's one observer to mark the chapter
- * the block sits in (`.pahina-in`), so it plays when the guest GETS there; one that follows the scroll follows the
+ * the block sits in (`.pahina-in`), so it plays when the guest GETS there (a block Me draws has no chapter: it plays
+ * as Me is opened — `OFF_CHAPTERS`); one that follows the scroll follows the
  * block's own trip across the screen. Every value comes from the Event Hub's closed sets. '' when no block has a look.
  */
 export function blockLooksCss(looks: BlockLooks): string {
@@ -224,7 +259,7 @@ export function blockLooksCss(looks: BlockLooks): string {
     /* ↔ A block that travels sideways must not widen the page. */
     if (sideways(motion)) rules.push(`:has(> [${BLOCK_MARK_ATTR}="${block}"]){overflow-x:clip}`);
     rules.push(`${sel}{${decl(hubElementMotionDeclarations(motion, 'page', false))}}`);
-    rules.push(`.pahina-in ${sel},.pahina-in${sel}{${decl(hubElementMotionDeclarations(motion, 'page', true))}}`);
+    rules.push(`.pahina-in ${sel},.pahina-in${sel}${OFF_CHAPTERS.includes(block) ? `,${sel}${NO_CHAPTER}` : ''}{${decl(hubElementMotionDeclarations(motion, 'page', true))}}`);
   }
   return [...blockGroundRules(looks), ...(rules.length > 0 ? [`${BLOCK_GATE_OPEN}\n${rules.join('\n')}\n}}`] : [])].join('\n');
 }

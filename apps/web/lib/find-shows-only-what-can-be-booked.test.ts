@@ -97,7 +97,7 @@ test('"date/s": the search hands the event\'s candidate dates to the hide, read 
   const select = search.match(/\.from\('events'\)\s*\.select\(\s*'([^']+)'/);
   assert.ok(select, 'the events read moved');
   const columns = select![1]!.split(',').map((c) => c.trim());
-  for (const c of ['event_date', 'event_date_precision', 'date_candidates']) {
+  for (const c of ['event_date', 'event_date_precision', 'date_candidates', 'date_window_start', 'date_window_end']) {
     assert.ok(columns.includes(c), `the search no longer reads events.${c}`);
   }
   // …and handed to the ONE place that decides the days in scope.
@@ -105,7 +105,8 @@ test('"date/s": the search hands the event\'s candidate dates to the hide, read 
   assert.ok(call, 'the hide call moved');
   assert.match(call![0], /dateCandidates:\s*Array\.isArray\(ev\.date_candidates\)/);
   const server = read('lib/bench-bookable-days.server.ts');
-  assert.match(server, /unbookableDateScope\(args\.eventDate, args\.eventDatePrecision, args\.dateCandidates\)/);
+  assert.match(call![0], /dateWindow:\s*\{ start: ev\.date_window_start, end: ev\.date_window_end \}/);
+  assert.match(server, /unbookableDateScope\(args\.eventDate, args\.eventDatePrecision, args\.dateCandidates, args\.dateWindow\)/);
 });
 
 // ── FARTHER AWAY (owner 2026-10-10) ───────────────────────────────────────

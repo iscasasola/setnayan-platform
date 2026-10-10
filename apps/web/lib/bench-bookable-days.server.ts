@@ -33,8 +33,10 @@ export async function findSuppliersWithNoBookingLeft(args: {
   eventDatePrecision: string | null;
   /** `events.date_candidates`, as read — the scope drops anything not a day. */
   dateCandidates?: readonly unknown[] | null;
+  /** `events.date_window_start` / `date_window_end`, as read. */
+  dateWindow?: { start: unknown; end: unknown } | null;
 }): Promise<Set<string>> {
-  const days = unbookableDateScope(args.eventDate, args.eventDatePrecision, args.dateCandidates);
+  const days = unbookableDateScope(args.eventDate, args.eventDatePrecision, args.dateCandidates, args.dateWindow);
   if (!days || args.supplierIds.length === 0 || args.canonicals.length === 0) return new Set();
 
   try {

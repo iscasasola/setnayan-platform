@@ -13,6 +13,9 @@
  *   • A day-precise date      → ask about that one day.
  *   • Several candidate dates → ask about each of them; a supplier leaves only
  *                               when EVERY candidate is refused (see below).
+ *   • A flexible date window  → ask about every day from its start to its
+ *                               end; a supplier leaves only when EVERY day of
+ *                               the window is refused (see below).
  *   • A month-precise date    → ask about every day of that month; a supplier
  *                               leaves only when EVERY day is refused.
  *   • A year, or no date      → ask nothing, hide nobody.
@@ -26,8 +29,20 @@
  * the same shape as his month ruling ("Hide only if full all month"). The
  * order of precedence is copied from `resolveProbeWindow`
  * (lib/build-date-window), which the bench already reads its free days from:
- * a settled day wins, then the candidates, then a month. A flexible WINDOW
- * (`date_window_start/end`) is not read here — nobody has ruled on it.
+ * a settled day wins, then the candidates, then a month.
+ *
+ * A FLEXIBLE WINDOW (2026-10-11). The other way an event holds "date/s":
+ * `events.date_window_start` … `date_window_end` (`date_mode = 'window'`), with
+ * `event_date` NULL. ⚠ THIS READING IS THE CONTROLLER'S, NOT THE OWNER'S WORDS:
+ * the same rule as his month ruling — "Hide only if full all month" — so a card
+ * leaves only when it cannot be booked on ANY day of the window. It sits in the
+ * order after the candidates and before a month (`resolveProbeWindow` itself
+ * does not read a window; an explicit start-to-end range is finer than a month).
+ * THE CAP IS THE MONTH'S: `UNBOOKABLE_MAX_DAYS` — 31 days in one ask, the limit
+ * `service_cards_unbookable_on` itself enforces. The create flow caps a window
+ * at 30 days, so a real one fits; a longer one (nothing in the database stops
+ * it) is too loose to judge and hides nobody, exactly like too many candidates.
+ * A window that is malformed or ends before it starts is ignored.
  *
  * A supplier leaves only when EVERY one of their in-scope cards is refused on
  * EVERY day in scope — one open card on one open day keeps them. A supplier the
@@ -52,6 +67,8 @@ export function unbookableDateScope(
   precision: string | null | undefined,
   /** `events.date_candidates` — the days the couple is still choosing between. */
   candidates?: readonly unknown[] | null,
+  /** `events.date_window_start` / `date_window_end` — a flexible range. */
+  window?: { start: unknown; end: unknown } | null,
 ): string[] | null {
   const m = eventDate ? ISO_DAY.exec(eventDate) : null;
   // A settled day is the answer, whatever else the row still carries.
@@ -66,6 +83,11 @@ export function unbookableDateScope(
     return picked.length <= UNBOOKABLE_MAX_DAYS ? picked : null;
   }
 
+  const span = windowDays(window);
+  // `null` = no usable window (fall through to the month); `[]` = a real window
+  // longer than one ask accepts (too loose to judge — hide nobody).
+  if (span) return span.length > 0 ? span : null;
+
   if (!eventDate || !m) return null;
   if (precision !== 'month') return null;
   const year = Number(m[1]);
@@ -75,6 +97,25 @@ export function unbookableDateScope(
   const length = new Date(Date.UTC(year, month, 0)).getUTCDate();
   const mm = String(month).padStart(2, '0');
   return Array.from({ length }, (_, i) => `${m[1]}-${mm}-${String(i + 1).padStart(2, '0')}`);
+}
+
+/**
+ * Every day of a flexible window, start and end included. `null` when there is
+ * no usable window; `[]` when it is real but longer than `UNBOOKABLE_MAX_DAYS`.
+ * UTC arithmetic on calendar days — no clock, no time zone.
+ */
+function windowDays(window: { start: unknown; end: unknown } | null | undefined): string[] | null {
+  const start = typeof window?.start === 'string' ? ISO_DAY.exec(window.start) : null;
+  const end = typeof window?.end === 'string' ? ISO_DAY.exec(window.end) : null;
+  if (!start || !end) return null;
+  const from = Date.UTC(Number(start[1]), Number(start[2]) - 1, Number(start[3]));
+  const to = Date.UTC(Number(end[1]), Number(end[2]) - 1, Number(end[3]));
+  // A date the calendar does not have (2027-02-31) is not a window.
+  if (new Date(from).toISOString().slice(0, 10) !== start[0] || new Date(to).toISOString().slice(0, 10) !== end[0]) return null;
+  if (to < from) return null;
+  const count = Math.round((to - from) / 86_400_000) + 1;
+  if (count > UNBOOKABLE_MAX_DAYS) return [];
+  return Array.from({ length: count }, (_, i) => new Date(from + i * 86_400_000).toISOString().slice(0, 10));
 }
 
 /** The key the refusal set is stored under. */

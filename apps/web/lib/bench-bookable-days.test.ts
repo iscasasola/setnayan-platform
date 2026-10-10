@@ -88,6 +88,67 @@ test('🔑 with candidate dates a supplier leaves only when refused on EVERY one
   assert.deepEqual([...suppliersWithNoBookingLeft(cards, refused, scope)], ['full-both-days']);
 });
 
+// ── a flexible date window (2026-10-11) ───────────────────────────────────
+test('a flexible window asks about every day of it, start and end included', () => {
+  assert.deepEqual(unbookableDateScope(null, null, null, { start: '2027-10-30', end: '2027-11-02' }), [
+    '2027-10-30',
+    '2027-10-31',
+    '2027-11-01',
+    '2027-11-02',
+  ]);
+  assert.deepEqual(unbookableDateScope(null, 'year', [], { start: '2027-10-02', end: '2027-10-02' }), ['2027-10-02']);
+  // Across a leap day, and across a year end.
+  assert.equal(unbookableDateScope(null, null, null, { start: '2028-02-27', end: '2028-03-01' })!.length, 4);
+  assert.deepEqual(unbookableDateScope(null, null, null, { start: '2027-12-31', end: '2028-01-01' }), ['2027-12-31', '2028-01-01']);
+});
+
+test('the window is capped as the month is — 31 days in one ask; a longer one hides nobody', () => {
+  // The create flow's own limit (30 days) fits, and so does the function's (31).
+  assert.equal(unbookableDateScope(null, null, null, { start: '2027-10-01', end: '2027-10-30' })!.length, 30);
+  assert.equal(unbookableDateScope(null, null, null, { start: '2027-10-01', end: '2027-10-31' })!.length, UNBOOKABLE_MAX_DAYS);
+  // One day more → too loose to judge. NOT "judge the first 31 days", and NOT
+  // "fall back to the month": the couple said a window, and it cannot be asked.
+  assert.equal(unbookableDateScope(null, null, null, { start: '2027-10-01', end: '2027-11-01' }), null);
+  assert.equal(unbookableDateScope('2027-10-01', 'month', null, { start: '2027-10-01', end: '2027-12-31' }), null);
+});
+
+test('order: a settled day, then the candidates, then the window, then a month', () => {
+  const window = { start: '2027-10-10', end: '2027-10-12' };
+  assert.deepEqual(unbookableDateScope('2027-10-09', 'day', ['2027-10-02'], window), ['2027-10-09']);
+  assert.deepEqual(unbookableDateScope(null, null, ['2027-10-02'], window), ['2027-10-02']);
+  assert.deepEqual(unbookableDateScope('2027-10-01', 'month', [], window), ['2027-10-10', '2027-10-11', '2027-10-12']);
+  assert.equal(unbookableDateScope('2027-10-01', 'month', [], null)!.length, 31);
+});
+
+test('a window that is not one is ignored, never guessed at', () => {
+  const month = unbookableDateScope('2027-10-01', 'month');
+  for (const bad of [
+    { start: '2027-10-12', end: '2027-10-10' }, // ends before it starts
+    { start: '2027-10-10', end: null },
+    { start: null, end: '2027-10-10' },
+    { start: 'soon', end: '2027-10-10' },
+    { start: '2027-02-31', end: '2027-03-02' }, // a day the calendar does not have
+    { start: 20271010, end: 20271012 },
+  ]) {
+    assert.equal(unbookableDateScope(null, null, null, bad), null, JSON.stringify(bad));
+    assert.deepEqual(unbookableDateScope('2027-10-01', 'month', null, bad), month, JSON.stringify(bad));
+  }
+});
+
+test('🔑 with a window a supplier leaves only when refused on EVERY day of it', () => {
+  const scope = unbookableDateScope(null, null, null, { start: '2027-10-10', end: '2027-10-12' })!;
+  const cards = new Map([
+    ['full-all-three', ['a']],
+    ['open-on-the-last', ['b']],
+  ]);
+  const refused = new Set([
+    ...scope.map((d) => refusalKey('a', d)),
+    refusalKey('b', '2027-10-10'),
+    refusalKey('b', '2027-10-11'),
+  ]);
+  assert.deepEqual([...suppliersWithNoBookingLeft(cards, refused, scope)], ['full-all-three']);
+});
+
 const days = ['2027-10-01', '2027-10-02'];
 const refusedAll = (cards: string[]) => new Set(cards.flatMap((c) => days.map((d) => refusalKey(c, d))));
 

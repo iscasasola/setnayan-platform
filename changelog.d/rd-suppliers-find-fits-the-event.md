@@ -46,8 +46,15 @@ supplier leaves only when every card is refused on EVERY candidate.
 words (the same shape as his "Hide only if full all month"); the code comment
 says so. It applies to every caller that hides — Find and the bench search read
 one scope. No migration and no RPC change: `service_cards_unbookable_on` already
-takes any set of up to 31 days. A flexible window (`date_window_start/end`) is
-NOT read — nobody has ruled on it.
+takes any set of up to 31 days.
+
+A flexible date window (`date_window_start` … `date_window_end`) is read the
+same way: every day of it is asked about, and a card leaves only when refused
+on all of them. Order: a settled day, the candidates, the window, a month. The
+cap is the month's — 31 days in one ask (`UNBOOKABLE_MAX_DAYS`, the RPC's own
+limit); the create flow caps a window at 30, so a real one fits, and a longer
+one hides nobody. ⚠ Also the controller's reading (the owner's words are "Hide
+only if full all month").
 
 ### 3 · One inquiry, every category ticked
 

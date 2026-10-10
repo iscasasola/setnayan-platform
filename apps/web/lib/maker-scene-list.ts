@@ -685,6 +685,7 @@ export function makerStageList(input: MakerStageInput): MakerStageList {
        this stage" (which sent a couple looking for a scene their guests were already reading). */
     else if (stage === 'event' && DAY_WELCOME_SCENES.includes(t)) reason = ON_THE_DAYS_WELCOME;
     else if (refused === 'resolveWidgetTerminalState') reason = 'Retired after the day.';
+    else if (refused === 'SCENES_RETIRED_ON_THE_DAY') reason = 'Retired — the day has arrived.';
     else if (choice !== true && !openBrowse && !widgetInPhase(t, stage)) reason = `Not part of this stage. ${showsOn(t)}`;
     else if (!PUBLIC_WIDGET_ALLOWLIST.includes(t)) reason = "Only on each guest's own link.";
     else if (openBrowse && !isTerminalRenderable(resolveWidgetTerminalState(t, stage))) reason = 'Retired after the day.';

@@ -18,6 +18,7 @@ import { GUESTS_SEE_COLUMNS, GUESTS_SEE_WORDS, type GuestsSeeCell, type GuestsSe
 
 /** A dash's one line, where the prototype words it; otherwise the rule's own line (`sceneOnStage().notPossible.why`). */
 const SCENE_DASH: Partial<Record<string, string>> = {
+  'countdown:event': 'The countdown ends on the day.',
   'countdown:editorial': 'The countdown ends on the day.',
   'what_to_bring:editorial': 'The day has passed.',
 };

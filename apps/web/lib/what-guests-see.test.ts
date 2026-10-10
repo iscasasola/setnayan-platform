@@ -315,7 +315,7 @@ test('5 · SCENE × STAGE: where a "shown" is honoured and where it is refused �
   assert.deepEqual(got, {
     //                 Save the Date                 Invitation   The Day          Post Event
     event_details:   ['added',                      'ours',      'added',         'added'],
-    countdown:       ['ours',                       'ours',      'added',         'no:resolveWidgetTerminalState'],
+    countdown:       ['ours',                       'ours',      'no:SCENES_RETIRED_ON_THE_DAY', 'no:resolveWidgetTerminalState'],
     special_message: ['added',                      'ours',      'added',         'ours'],
     our_love_story:  ['ours',                       'ours',      'ours:prose',    'ours'],
     our_photos:      ['ours',                       'added',     'added',         'ours'],

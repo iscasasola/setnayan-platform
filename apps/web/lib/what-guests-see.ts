@@ -20,7 +20,7 @@
  *   3. `true` → on that stage, over the event-wide eye, and on a stage whose own
  *      list would leave it out — drawn by its ordinary component, at its saved
  *      place (`stage_order[stage]`) or, with none, after the stage's own scenes.
- *      EXCEPT where the scene cannot be on that stage at all (`whyNotPossible`):
+ *      EXCEPT where the scene cannot be on that stage at all (`whyNotInStageList`):
  *      then `true` is refused and the scene stays out.
  *
  * WHERE A CHOICE DOES NOT APPLY (`stageChoice` answers "none"):
@@ -137,6 +137,14 @@ export function sceneMeetsGuestsOn(row: { widget_type: string; config_json?: unk
  */
 export const DAY_WELCOME_SCENES: readonly WidgetType[] = ['dress_code', 'what_to_bring'];
 
+/**
+ * ⏳ THE SCENES THAT HAVE ALREADY RETIRED WHEN THE DAY ARRIVES. The Countdown counts to the START of the event's day
+ * (`countdownTargetMs`: midnight at the venue) and draws nothing once that has passed (`CountdownWidget`:
+ * `countdownReading(…).isPast → null`). The Day IS that day, so a Countdown "shown on The Day" would be a tick that
+ * draws nothing — it is refused there, as it is after the day (`resolveWidgetTerminalState`).
+ */
+export const SCENES_RETIRED_ON_THE_DAY: readonly WidgetType[] = ['countdown'];
+
 /** The scenes a guest's page draws on The Day off the list and off the eye: the schedule block, the directions. */
 export const DAY_OWN_BLOCKS: readonly WidgetType[] = ['schedule', 'venue_map'];
 
@@ -164,6 +172,7 @@ export function whyNotInStageList(row: ChoiceRow, facts: Pick<StageFacts, 'stage
   if (!stageChoiceApplies(t)) return 'STAGE_SCENES';
   if (!sceneMeetsGuestsOn(row, facts.stage)) return 'sceneMeetsGuestsOn';
   if (!isTerminalRenderable(resolveWidgetTerminalState(t, facts.stage))) return 'resolveWidgetTerminalState';
+  if (facts.stage === 'event' && SCENES_RETIRED_ON_THE_DAY.includes(t)) return 'SCENES_RETIRED_ON_THE_DAY';
   if (facts.stage === 'event' && DAY_WELCOME_SCENES.includes(t)) return 'DAY_WELCOME_SCENES';
   if (facts.film && t === 'our_photos') return 'stdShows';
   if (facts.reader === 'anonymous' && !PUBLIC_WIDGET_ALLOWLIST.includes(t)) return 'PUBLIC_WIDGET_ALLOWLIST';
@@ -299,6 +308,7 @@ const NOT_POSSIBLE_WHY: Record<string, string> = {
   STAGE_SCENES: 'Not shown on any stage.',
   sceneMeetsGuestsOn: 'A Post Event scene — it can only be on Post Event.',
   resolveWidgetTerminalState: 'Retired after the day.',
+  SCENES_RETIRED_ON_THE_DAY: 'The countdown ends on the day.',
   PUBLIC_WIDGET_ALLOWLIST: "Only on each guest's own link.",
   'weddingOnlyParts.love_story': 'Not part of this kind of event.',
   solemn: 'Not shown for this kind of event.',

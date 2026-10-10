@@ -116,6 +116,8 @@ test('4 · where a scene cannot be, true is refused — and the rule that refuse
     ['countdown', 'editorial', 'resolveWidgetTerminalState'],
     ['what_to_bring', 'editorial', 'resolveWidgetTerminalState'],
     ['photo_moments', 'editorial', 'resolveWidgetTerminalState'],
+    // On The Day the Countdown has already retired (it counts to the START of the day, `CountdownWidget`).
+    ['countdown', 'event', 'SCENES_RETIRED_ON_THE_DAY'],
     // On The Day the dress code and the reminders have ONE home, the Welcome — never a second copy in the list.
     ['dress_code', 'event', 'DAY_WELCOME_SCENES'],
     ['what_to_bring', 'event', 'DAY_WELCOME_SCENES'],

@@ -14,13 +14,21 @@
  *   6. a row switched off for the whole event: empty boxes with our marks, and one tick shows it on THAT stage only;
  *   7. Apply's patch, taken through the real draft (sanitizer → merge → preview), draws the table the couple ticked;
  *   8. THE TABLE AND THE GUEST PAGE CANNOT DISAGREE: for stored values, each box says what the real page draws.
+ *   9. ONLY BOXES THAT WORK ARE BOXES: every box of the table is flipped — through the draft, as Apply sends it — and
+ *      the REAL page of its stage, read on a day that stage is really read on, must show a guest something different
+ *      (its words or its pictures). 33 boxes, 11 of them empty ones ticked; none may change nothing.
+ *      ⚠ WHAT THIS CANNOT SEE: the page is the server's HTML. A scene that hides itself in the BROWSER is invisible to
+ *      it — that is the Countdown on The Day (it retires once the clock is read: `CountdownWidget`, `isPast`), found
+ *      by reading the code, and made a dash by its own rule (`SCENES_RETIRED_ON_THE_DAY`). No other scene of the
+ *      table reads the clock in the browser to decide whether to draw.
  *
  * SABOTAGES RUN (each seen red, then put back and re-checked by hash):
  *   A · a tick made to store the wanted state always (never `null`)          → 3, 7 red;
  *   B · "Back to our picks" made to clear nothing                            → 3 red;
  *   C · a locked cell treated as a box by the handler                        → 4 red;
  *   D · a dash treated as a box by the builder (`notPossible` ignored)       → 1, 4 red;
- *   E · the builder made to read the box from a list of its own (`ourPick`)  → 2, 3, 5, 6, 7, 8 red.
+ *   E · the builder made to read the box from a list of its own (`ourPick`)  → 2, 3, 5, 6, 7, 8 red;
+ *   F · the page's plan made deaf to the stage's choice                      → 8, 9 red (every list box is then dead).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -78,9 +86,11 @@ test('1 · the prototype’s table: six groups, its rows, five columns — and o
   }
   console.log(`  cells: ${JSON.stringify(count)}`);
   // 21 rows × 5 columns = 105 cells, for this invitation (every scene filled, one scene of the couple's own).
-  assert.deepEqual(count, { box: 34, dash: 10, lockedOn: 34, lockedOff: 18, replyScreens: 9 });
+  assert.deepEqual(count, { box: 33, dash: 11, lockedOn: 34, lockedOff: 18, replyScreens: 9 });
   // The two scene dashes, in the prototype's words; a fixed row's, in its own.
   assert.deepEqual(rowOf(t, 'countdown').cells[COL.editorial], { kind: 'dash', why: 'The countdown ends on the day.' });
+  // …and ON the day too: the Countdown has retired by then (`SCENES_RETIRED_ON_THE_DAY`) — a box there would be a tick that draws nothing.
+  assert.deepEqual(rowOf(t, 'countdown').cells[COL.event], { kind: 'dash', why: 'The countdown ends on the day.' });
   assert.deepEqual(rowOf(t, 'what_to_bring').cells[COL.editorial], { kind: 'dash', why: 'The day has passed.' });
   assert.deepEqual(rowOf(t, 'live').cells[COL.save_the_date], { kind: 'dash', why: 'Live opens on the day.' });
   // The fixed rows the page's own gates answer for.
@@ -145,7 +155,8 @@ test('3 · a tick writes exactly its entry; unticking our pick writes false; tic
   assert.deepEqual(guestsSeeToggle(stored, NONE, 'our_love_story', COL.rsvp).writes, { 'our_love_story:rsvp': null });
   assert.deepEqual(guestsSeeToggle(stored, NONE, 'special_message', COL.event).writes, { 'special_message:event': null });
   // Back to our picks: all four stored entries cleared, and a pending tick elsewhere dropped.
-  const pending = guestsSeeToggle(stored, NONE, 'countdown', COL.event).writes;
+  const pending = guestsSeeToggle(stored, NONE, 'special_message', COL.save_the_date).writes;
+  assert.equal(guestsSeeChanges(pending), 1, 'anti-vacuity: a tick is waiting');
   const picks = guestsSeeBackToPicks(stored, pending);
   assert.deepEqual(picks.writes, { 'our_love_story:rsvp': null, 'our_love_story:event': null, 'special_message:event': null, 'schedule:rsvp': null });
   assert.equal(picks.line, 'Back to our picks. 5 boxes changed — Apply to keep it.');
@@ -258,5 +269,54 @@ test('8 · the table and the guest page cannot disagree: each box says what the 
       if (cell.on) on += 1;
     }
   }
-  assert.ok(asked >= 30 && on >= 10 && asked - on >= 10, `anti-vacuity: ${asked} cells asked, ${on} ticked`);
+  assert.ok(asked >= 28 && on >= 10 && asked - on >= 10, `anti-vacuity: ${asked} cells asked, ${on} ticked`);
 });
+
+/** What a guest can SEE of a page: its words and its pictures — not its markup. */
+function visible(html: string): string {
+  const pictures = [...html.matchAll(/<(?:img|video|source)[^>]*\ssrc="([^"]+)"/g)].map((m) => m[1]).join(' ');
+  const words = html.replace(/<(script|style)[\s\S]*?<\/\1>/g, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  return `${words} ¦ ${pictures}`;
+}
+
+/** The day each stage is really read on (the fixture's clock is pinned to 10 October 2026). */
+const STAGE_DATE: Record<LifecyclePhase, string> = {
+  save_the_date: '2027-06-12', // far off
+  rsvp: '2026-12-12', // 63 days to go
+  event: '2026-10-10', // today
+  editorial: '2026-10-01', // behind us
+};
+
+test('9 · ONLY BOXES THAT WORK ARE BOXES: flipping every box changes what a guest sees on the real page of its stage', async () => {
+  const rows = stageWidgets();
+  const t = table(rows);
+  const dead: string[] = [];
+  let boxes = 0;
+  let empty = 0;
+  for (const col of GUESTS_SEE_COLUMNS) {
+    if (col.stage === null) continue;
+    const stage = col.stage;
+    const c: StageCase = { stage, reader: 'guest', arrangement: stage === 'save_the_date' ? 'film' : 'plain' };
+    const look = withALook(c);
+    const more = { ...look, event: { ...look.event!, event_date: STAGE_DATE[stage] } };
+    const before = visible((await renderStagePage(c, rows, more)).html);
+    for (const row of t.groups.flatMap((g) => g.rows)) {
+      const cell = row.cells[COL[col.key]]!;
+      if (cell.kind !== 'box' || !row.scene) continue;
+      boxes += 1;
+      if (!cell.on) empty += 1;
+      // The entry a tap would store, taken through the draft exactly as Apply sends it.
+      const patch = guestsSeePatch(guestsSeeToggle(t, NONE, row.key, COL[col.key]).writes);
+      assert.ok(patch, `${row.label} × ${col.label}: a box whose tap writes nothing`);
+      const draft = mergeHubDraft(emptyHubDraft(), JSON.parse(JSON.stringify(patch)));
+      const page = await renderStagePage(c, overlayHubDraftWidgets(rows, draft), more);
+      assert.deepEqual(page.complaints, []);
+      if (visible(page.html) === before) dead.push(`${row.label} × ${col.label} (${cell.on ? 'untick' : 'tick'})`);
+    }
+  }
+  console.log(`  ${boxes} boxes flipped on the real page (${empty} of them empty boxes ticked) · ${dead.length} changed nothing${dead.length ? `: ${dead.join(' · ')}` : ''}`);
+  assert.equal(boxes, 33);
+  assert.ok(empty >= 10, `anti-vacuity: ${empty} empty boxes`);
+  assert.deepEqual(dead, [], 'a box that changes nothing a guest sees must be a dash');
+});
+

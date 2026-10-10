@@ -572,8 +572,9 @@ test('only the bench and Find ask to hide — every other caller is unchanged', 
     'app/dashboard/[eventId]/vendors/_actions/inline-more-row.ts': ['hides'],
     'app/dashboard/[eventId]/vendors/_actions/unlock-category.ts': ['unchanged'],
     // Find a supplier — owner 2026-10-10: "service card will not show if they
-    // are not available to that date/s or that location."
-    'app/dashboard/[eventId]/vendors/categories/page.tsx': ['hides'],
+    // are not available to that date/s or that location." Both of its
+    // searches: the suppliers in reach, and "farther away" (distance only).
+    'app/dashboard/[eventId]/vendors/categories/page.tsx': ['hides', 'hides'],
     'app/dashboard/[eventId]/vendors/_components/category-search-overlay.tsx': ['hides', 'hides'],
     'app/dashboard/[eventId]/vendors/build-3state-fallback-actions.ts': ['unchanged'],
   });

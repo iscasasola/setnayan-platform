@@ -10,6 +10,10 @@
  *    re-renders the list.
  *  - `SaveToBenchButton` — the same `saveVendorToPicks` the bench's search
  *    sheet calls, with the event on screen and the category being browsed.
+ *  - `ShowFartherButton` — the bench search's "Show suppliers farther away"
+ *    (`category-search-overlay.tsx`), its words and its look. Here a press
+ *    adds `far=1` to the address and the server re-renders with the second
+ *    list; while that is out the button says so in the overlay's own words.
  */
 import { useState, useTransition } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
@@ -101,5 +105,29 @@ export function SaveToBenchButton({
         </span>
       ) : null}
     </span>
+  );
+}
+
+/**
+ * "Show suppliers farther away" — owner, 2026-10-10: "yes offer the farther
+ * away option. in case the need to search more". The control and both of its
+ * sentences are the bench search overlay's (`.csov .farther-btn`): a full-width
+ * dashed row in small capitals. DISTANCE ONLY — the list it opens is still
+ * searched with `hideUnbookable`, so a supplier who cannot be booked on the
+ * event's date stays hidden.
+ */
+export function ShowFartherButton({ href }: { href: string }) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  return (
+    <button
+      type="button"
+      disabled={pending}
+      onClick={() => startTransition(() => router.replace(href, { scroll: false }))}
+      data-find-farther=""
+      className="mb-3.5 mt-0.5 block w-full rounded-md border border-dashed border-ink/15 bg-transparent p-[11px] font-mono text-[9px] uppercase tracking-[0.12em] text-ink/55 transition-colors active:border-terracotta active:text-terracotta-700 disabled:opacity-70"
+    >
+      {pending ? 'Finding suppliers farther away…' : 'Show suppliers farther away'}
+    </button>
   );
 }

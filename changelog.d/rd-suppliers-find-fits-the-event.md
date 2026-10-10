@@ -85,6 +85,31 @@ Not changed: the supplier's side. The thread header names every category
 asked (`ThreadInterestChips`); the Today card, the messages list and the
 new-inquiry notice do not — reported, not built.
 
+### 4 · Find offers "farther away"
+
+Owner, same day: *"yes offer the farther away option. in case the need to
+search more"*. Find a supplier listed only the suppliers who reach the event's
+place and had no way to look past them; the expander shipped only in the bench's
+search overlay. Find now carries the same control with the same four sentences
+("Show suppliers farther away" · "Finding suppliers farther away…" · "Farther
+away · outside their service area" · "No suppliers farther away — everyone
+covering your area is listed above.").
+
+- A press adds `far=1`; the page then asks the SAME search with
+  `includeFarther` (only the out-of-reach suppliers, nearest first). It runs
+  only once asked for, and is offered only when the event has a place.
+- **Distance only.** The farther search passes `hideUnbookable` too — a
+  supplier who cannot be booked on the date stays hidden with it open.
+- Reach itself is untouched: per supplier, read as it was; no radius number
+  changed. `/explore` is untouched.
+- The rows moved, unchanged, into `find-supplier-list.tsx` so both lists draw
+  the same row and `/dev/suppliers-lab?find=<category>` can show them at 375 px.
+
+One difference from the overlay: it shows its expander only under a non-empty
+list. Find offers it under an empty list as well — that is when a couple most
+needs to search more, and "No supplier lists this yet" would otherwise be said
+while suppliers farther away exist.
+
 SPEC IMPACT: None beyond the row already filed — `DECISION_LOG.md` 2026-10-10
 "SEARCH SHOWS ONLY WHAT CAN BE BOOKED FOR THIS EVENT; ONE INQUIRY COVERS EVERY
 CATEGORY THE COUPLE TICKS" (the controller filed it; this change implements it).

@@ -46,6 +46,12 @@ type Props = {
   // (the full story lives on the RSVP + Event paths). Absent → nothing renders.
   loveStory?: unknown;
   /**
+   * 👁 The plain (non-film) view draws a countdown of its own, whatever the
+   * Countdown scene's row says. `false` when the couple hid the Countdown on the
+   * Save the Date (`lib/what-guests-see.ts`); absent = drawn, as it always was.
+   */
+  countdown?: boolean;
+  /**
    * When true, render the couple's name + date here. The anonymous path has
    * no hero for text-only events, so it asks the STD view to carry it. The
    * signed-in path always renders the monogram hero above, so it passes false.
@@ -105,6 +111,7 @@ export function SaveTheDateView({
   receptionCity,
   publicId,
   loveStory,
+  countdown = true,
   showTextHero,
   film = false,
   monogramText,
@@ -218,7 +225,7 @@ export function SaveTheDateView({
         </p>
       )}
 
-      {dateIso ? <CountdownWidget targetIso={dateIso} /> : null}
+      {dateIso && countdown ? <CountdownWidget targetIso={dateIso} /> : null}
 
       {gcalUrl || ics ? (
         <div className="flex flex-wrap items-center justify-center gap-3">

@@ -61,6 +61,11 @@
  *           (owner 2026-09-27, every scene drags within its stage) — and the
  *           GALLERY row alone `std_lead`, the Save the Date's Film · Photos pick;
  *           both live in `config_json` and both are free (`lib/stage-scenes.ts`).
+ *           And (2026-10-10, "WHAT GUESTS SEE") `stage_show` — shown or hidden on
+ *           EACH stage, beside `stage_order` and shaped like it: merged stage by
+ *           stage, `null` = back to our pick. Refused on an always-on section,
+ *           as the eye is. Free — except that putting a scene of their own in
+ *           front of guests is Pro at Apply, on one stage as on all of them.
  * march   — (2026-10-06, "Wait for apply") the Wedding March's moves, each the
  *           list of shipped march steps one drop makes (`lib/march-draft.ts`).
  *           Not a column: Apply REPLAYS them through the shipped march actions,
@@ -91,9 +96,12 @@ import {
 } from '@/lib/custom-sections';
 import {
   STAGE_ORDER_KEY,
+  STAGE_SHOW_KEY,
   configWithStageOrder,
+  configWithStageShow,
   configWithStdLead,
   sanitizeStageOrder,
+  sanitizeStageShow,
   sanitizeStdLead,
   storedStdLead,
   type StdLead,
@@ -669,6 +677,14 @@ export type HubDraftWidget = {
    */
   stage_order?: Partial<Record<LifecyclePhase, number | null>>;
   /**
+   * 👁 Shown or hidden on EACH stage (owner 2026-10-10, "WHAT GUESTS SEE"), kept
+   * at `config_json.stage_show` (`lib/stage-scenes.ts`): `false` hides the
+   * section on that stage, `true` shows it there — over the event-wide eye, and
+   * on a stage that would not draw it by default. Merged stage by stage; `null`
+   * for a stage = back to our pick. What it decides: `lib/what-guests-see.ts`.
+   */
+  stage_show?: Partial<Record<LifecyclePhase, boolean | null>>;
+  /**
    * 🎞 `our_photos` ROW ONLY — what leads the Save the Date, Film or Photos
    * (same ruling), kept at `config_json.std_lead`; `null` = back to the
    * default. Dropped on any other section: one home for one choice. Never Pro.
@@ -1030,6 +1046,8 @@ function sanitizeWidget(raw: unknown, type: WidgetType): HubDraftWidget | null {
   }
   const places = sanitizeStageOrder(src.stage_order);
   if (places) out.stage_order = places;
+  const shows = sanitizeStageShow(src.stage_show);
+  if (shows) out.stage_show = shows;
   if (isCustomSectionType(type) && 'custom' in src) {
     if (src.custom === null) out.custom = null;
     else if (isPlainObject(src.custom)) {
@@ -1167,6 +1185,8 @@ export function mergeHubDraft(current: HubDraft, patch: HubDraftPatch): HubDraft
       ...w,
       // ↕ Places merge STAGE BY STAGE — a drag on one stage never forgets another's.
       ...(w.stage_order ? { stage_order: { ...(prev.stage_order ?? {}), ...w.stage_order } } : {}),
+      // 👁 …and so do the per-stage shown / hidden choices.
+      ...(w.stage_show ? { stage_show: { ...(prev.stage_show ?? {}), ...w.stage_show } } : {}),
       // 🏛 …and venue cards card by card.
       ...(w.venue ? { venue: { ...(prev.venue ?? {}), ...w.venue } } : {}),
     };
@@ -1294,6 +1314,20 @@ export function configWithVenue(config: unknown, venue: HubDraftVenueChoices): R
   return base;
 }
 
+/**
+ * ↕👁 A drafted section's stage places and per-stage choices laid over a live
+ * row's `config_json` — and nothing else of the draft. What a stage move builds
+ * on in draft mode (`draftedStageConfigs`, `lib/hub-draft-store.ts`): the list
+ * the couple is looking at, in its order, with the scenes they added to the
+ * stage. Returns `config` itself when the draft holds neither.
+ */
+export function configWithDraftedStage(config: unknown, w: Pick<HubDraftWidget, 'stage_order' | 'stage_show'> | undefined): unknown {
+  let next = config;
+  if (w?.stage_order !== undefined) next = configWithStageOrder(next, w.stage_order);
+  if (w?.stage_show !== undefined) next = configWithStageShow(next, w.stage_show);
+  return next;
+}
+
 /** The live widget rows with the draft's mode / order / canvas on top (new objects). */
 /** 🗑 Is this scene of their own deleted in the draft (`HubDraftWidget.removed`)? */
 export function draftRemoves(draft: HubDraftState | null, type: string): boolean {
@@ -1312,6 +1346,8 @@ export function overlayHubDraftWidgets(
     if (w.canvas !== undefined) config = configWithCanvas(config, w.canvas);
     if (w.main !== undefined && row.widget_type === 'hero') config = configWithMainGround(config, w.main);
     if (w.stage_order !== undefined) config = configWithStageOrder(config, w.stage_order);
+    // 👁 Refused on an always-on section, exactly as the eye is below.
+    if (w.stage_show !== undefined && !row.is_always_on) config = configWithStageShow(config, w.stage_show);
     if (w.std_lead !== undefined && row.widget_type === 'our_photos') config = configWithStdLead(config, w.std_lead);
     if (w.music !== undefined && row.widget_type === 'hero') config = configWithMusic(config, w.music);
     if (w.custom !== undefined && isCustomSectionType(row.widget_type)) config = configWithCustom(config, w.custom);
@@ -1368,7 +1404,7 @@ export type HubDraftItem =
       kind: 'widget';
       widgetType: WidgetType;
       widgetId: string;
-      field: 'mode' | 'is_visible' | 'display_order' | 'canvas' | 'main' | 'music' | 'stage_order' | 'std_lead' | 'custom' | 'venue' | 'removed';
+      field: 'mode' | 'is_visible' | 'display_order' | 'canvas' | 'main' | 'music' | 'stage_order' | 'stage_show' | 'std_lead' | 'custom' | 'venue' | 'removed';
       value: unknown;
       change: LookChange;
       pro: boolean;
@@ -1954,14 +1990,20 @@ export function mainGroundChange(live: HubMainGround | null, next: HubMainGround
  * (`widgetShouldRender` reads the eye; `openBrowseSectionVisible` lets a
  * `shown` mode win over it), so "on" is on under EITHER — fail-closed: a state
  * one reader would draw counts as shown.
+ *
+ * 👁 …and a per-stage `true` (`config_json.stage_show`) shows it on that stage
+ * over both, so ONE stage set to shown counts as on too. Without this a scene
+ * of their own could be put in front of guests stage by stage, around the gate.
  */
 function ownSceneOn(
   row: HubLiveState['widgets'][number],
-  w: Pick<HubDraftWidget, 'mode' | 'is_visible'>,
+  w: Pick<HubDraftWidget, 'mode' | 'is_visible' | 'stage_show'>,
 ): boolean {
   const visible = (w.is_visible ?? row.is_visible ?? true) !== false;
   const mode = w.mode ?? row.mode ?? 'auto';
-  return visible || mode === 'shown';
+  const stages = configWithStageShow(row.config_json, w.stage_show ?? {})[STAGE_SHOW_KEY];
+  const onAStage = isPlainObject(stages) && Object.values(stages).some((v) => v === true);
+  return visible || mode === 'shown' || onAStage;
 }
 
 /**
@@ -2050,6 +2092,25 @@ export function classifyHubDraft(
       const nextKey = configWithStageOrder(row.config_json, w.stage_order)[STAGE_ORDER_KEY] ?? null;
       if (JSON.stringify(liveKey) !== JSON.stringify(nextKey)) {
         items.push({ kind: 'widget', widgetType: type, widgetId: row.widget_id, field: 'stage_order', value: nextKey, change: 'change', pro: false });
+      }
+    }
+    /* 👁 Shown or hidden per stage — refused on an always-on section, as the eye
+       is; compared as the page reads it (the merged key), and the value written
+       is the WHOLE merged key. Free, except for a scene of their own that no
+       guest sees today: showing it on a stage is the same 'add' the eye makes. */
+    if (w.stage_show !== undefined && !row.is_always_on) {
+      const liveKey = configWithStageShow(row.config_json, {})[STAGE_SHOW_KEY] ?? null;
+      const nextKey = configWithStageShow(row.config_json, w.stage_show)[STAGE_SHOW_KEY] ?? null;
+      if (canonicalJson(liveKey) !== canonicalJson(nextKey)) {
+        items.push({
+          kind: 'widget',
+          widgetType: type,
+          widgetId: row.widget_id,
+          field: 'stage_show',
+          value: nextKey,
+          change: showsOwnScene ? 'add' : 'change',
+          pro: showsOwnScene,
+        });
       }
     }
     /* 🎵 The music button's design — free; compared as the page reads it (absent ≡ the default). */
@@ -2298,10 +2359,24 @@ export function planHubDraftApply(
       // A held scene of their own stays SHOWN in the draft, so the couple still sees it.
       else if (item.field === 'mode') w.mode = item.value as HubSectionMode;
       else if (item.field === 'is_visible') w.is_visible = item.value as boolean;
+      // 👁 …and so does a held per-stage choice (the whole merged key the classifier compared).
+      else if (item.field === 'stage_show') w.stage_show = heldStageShow(item.value);
       else if (item.field === 'custom') w.custom = item.value as CustomSectionContent | null;
     }
   }
   return { apply, refused, remaining, orphans };
+}
+
+/**
+ * A held `stage_show` item's value (the whole merged key, or `null` = no stage
+ * keeps a choice) back as a draft patch: every stage named, the ones the key
+ * does not hold as `null`, so the kept draft says exactly what was held.
+ */
+export function heldStageShow(value: unknown): Partial<Record<LifecyclePhase, boolean | null>> {
+  const key = sanitizeStageShow(value) ?? {};
+  const out: Partial<Record<LifecyclePhase, boolean | null>> = {};
+  for (const st of ['save_the_date', 'rsvp', 'event', 'editorial'] as const) out[st] = key[st] ?? null;
+  return out;
 }
 
 /**
@@ -2694,7 +2769,7 @@ export function hubDraftItemLabel(item: HubDraftItem, sectionLabel: (t: WidgetTy
   if (item.field === 'venue') return 'Your venues';
   if (item.field === 'removed') return `${sectionLabel(item.widgetType)} · deleted for good`;
   const what =
-    item.field === 'mode' || item.field === 'is_visible'
+    item.field === 'mode' || item.field === 'is_visible' || item.field === 'stage_show'
       ? 'shown or hidden'
       : item.field === 'display_order' || item.field === 'stage_order'
         ? 'its place'

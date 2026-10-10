@@ -52,10 +52,10 @@ import {
   type PostEventSectionSwitch,
 } from './post-event-scenes';
 import { postEventRunKey } from './post-event-draft';
-import { sanitizeHubCanvas } from './hub-canvas';
 import type { SceneTemplateId } from './scene-templates';
 import { splitAroundEntourage, stageShowsEntourage } from './stage-scenes';
 import { welcomeParts } from './invitation-welcome';
+import { DAY_WELCOME_SCENES, hiddenOnStage, sceneMeetsGuestsOn, stageChoice, whyNotInStageList } from './what-guests-see';
 
 /** The sections that are always in their place on a stage — never dragged. */
 export type MakerFixedKey =
@@ -150,7 +150,19 @@ export type MakerFolded = {
   reason: string;
   /** The couple hid it — the eye can bring it back from here. */
   hiddenByCouple: boolean;
+  /**
+   * 👁 The couple hid it ON THIS STAGE (`config_json.stage_show`, owner 2026-10-10
+   * "WHAT GUESTS SEE") — also `hiddenByCouple`: since the eye writes the stage's
+   * own value, it brings this one back on this stage.
+   */
+  hiddenHere?: true;
 };
+
+/** The fold's line for the two scenes the Day's Welcome draws itself (the guest's look, the reminders). */
+export const ON_THE_DAYS_WELCOME = 'On the day, each guest meets it on their Welcome.';
+
+/** The fold's line for a scene the couple hid on this stage alone — the table's own phrase ("Hidden on The Day."). */
+export const hiddenOnStageLine = (stage: LifecyclePhase): string => `Hidden on ${PUBLIC_STAGE_LABELS[stage]}.`;
 
 export type MakerStageList = {
   stage: LifecyclePhase;
@@ -533,11 +545,9 @@ export function widgetsGuestsMeet<T extends { widget_type: string; config_json?:
   // 🎞 A scene seeded from one of Post Event's presets can only be written
   // AFTER something happened (strategy §5) — it is on Post Event and nowhere
   // else, though it is one of the six the couple's own scenes share.
-  return widgets.filter(
-    (w) =>
-      w.widget_type !== 'tier_comparison' &&
-      (stage === 'editorial' || !isCustomSectionType(w.widget_type) || !sanitizeHubCanvas(w.config_json).postEventPreset),
-  );
+  // The rule itself is `sceneMeetsGuestsOn` (`lib/what-guests-see.ts`) — the same
+  // one that refuses to ADD such a scene to another stage.
+  return widgets.filter((w) => sceneMeetsGuestsOn(w, stage));
 }
 
 export function makerStageList(input: MakerStageInput): MakerStageList {
@@ -642,10 +652,12 @@ export function makerStageList(input: MakerStageInput): MakerStageList {
   dayParts('last');
   // 📖 The page draws the love story ONCE (site-body `storySceneShown`): with the
   // "Our love story" scene on the page, the prose section is not drawn.
+  // 👁 …and not at all on a stage the couple hid the love story on (`storyOffHere`, site-body).
   if (
     input.storyRenders &&
     input.weddingOnlyParts?.love_story !== false &&
-    !drawable.some((w) => w.widget_type === 'our_love_story')
+    !drawable.some((w) => w.widget_type === 'our_love_story') &&
+    !hiddenOnStage(widgets, 'our_love_story', stage, true)
   )
     shown.push(fixed('story'));
 
@@ -657,18 +669,39 @@ export function makerStageList(input: MakerStageInput): MakerStageList {
   for (const w of hideable) {
     if (drawn.has(w.widget_id)) continue;
     const t = w.widget_type;
-    const visible = openBrowse ? openBrowseSectionVisible(w) : w.is_visible;
+    /* 👁 The couple's choice for THIS stage decides first, as it does on the page
+       (`sceneInStageList`): hidden here says so; shown here is past the eye and
+       past "not part of this stage", and is folded only if it cannot be here. */
+    const choice = stageChoice(w, stage, true);
+    const eyeOn = openBrowse ? openBrowseSectionVisible(w) : w.is_visible;
+    const visible = choice === true || eyeOn;
+    const refused = choice === true ? whyNotInStageList(w, { stage, reader: 'anonymous', film: plan.body === 'save_the_date' }) : null;
     let reason: string;
-    if (!visible) reason = 'Hidden from guests — tap the eye to show it.';
+    if (choice === false) reason = hiddenOnStageLine(stage);
+    else if (!visible) reason = 'Hidden from guests — tap the eye to show it.';
     else if (GUEST_ONLY.has(t)) reason = "Only on each guest's own link.";
-    else if (!openBrowse && !widgetInPhase(t, stage)) reason = `Not part of this stage. ${showsOn(t)}`;
+    /* 🧭 ON THE DAY THE WELCOME DRAWS IT (`welcomePartsOnTheDay`): the dress code (the guest's look) and the reminders
+       are not in the day's list of scenes, and a guest still meets them — so the fold says where, never "Not part of
+       this stage" (which sent a couple looking for a scene their guests were already reading). */
+    else if (stage === 'event' && DAY_WELCOME_SCENES.includes(t)) reason = ON_THE_DAYS_WELCOME;
+    else if (refused === 'resolveWidgetTerminalState') reason = 'Retired after the day.';
+    else if (refused === 'SCENES_RETIRED_ON_THE_DAY') reason = 'Retired — the day has arrived.';
+    else if (choice !== true && !openBrowse && !widgetInPhase(t, stage)) reason = `Not part of this stage. ${showsOn(t)}`;
     else if (!PUBLIC_WIDGET_ALLOWLIST.includes(t)) reason = "Only on each guest's own link.";
     else if (openBrowse && !isTerminalRenderable(resolveWidgetTerminalState(t, stage))) reason = 'Retired after the day.';
     else if (openBrowse && w.audience === 'guests_only') reason = 'Only for invited guests (set to guests only).';
     else reason = whyNotDrawn(w, input) ?? 'Not drawn on this stage.';
     // A scene this event type never has is not "folded" — it is not there.
     if (reason === NOT_THIS_TYPE) continue;
-    folded.push({ key: `w:${t}`, widgetId: w.widget_id, type: t, label: makerSceneLabel(t), reason, hiddenByCouple: !visible });
+    folded.push({
+      key: `w:${t}`,
+      widgetId: w.widget_id,
+      type: t,
+      label: makerSceneLabel(t),
+      reason,
+      hiddenByCouple: choice === false || !visible,
+      ...(choice === false ? { hiddenHere: true as const } : {}),
+    });
   }
   const listedGuestScene: Partial<Record<WidgetType, boolean>> = {
     greeting: plan.greetingShouldRender,

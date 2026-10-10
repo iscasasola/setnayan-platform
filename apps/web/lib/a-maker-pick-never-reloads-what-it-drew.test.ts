@@ -241,8 +241,13 @@ test('the shell holds every kind the bridge draws, and compares the scene order 
   const post = SHELL.slice(SHELL.indexOf('const drawHow = '), SHELL.indexOf('const eyeWrite = '));
   assert.match(post, /sceneDrawEffect\([\s\S]*sceneFormat\?\.openBrowse/, 'the decision reads open browsing, as the page does');
   assert.match(post, /if \(how\.hide\) hideOnCanvas\(how\.hide\);\s*else if \(how\.still\) \{[\s\S]*?\} else releaseCanvas\(\);/);
-  const eye = SHELL.slice(SHELL.indexOf('const eyeWrite = '), SHELL.indexOf('const move = '));
-  assert.equal((eye.match(/drawHow\(scene, /g) ?? []).length, 4, 'the eye (three branches) and Hidden all ask drawHow');
+  /* 🔁 RE-AIMED 2026-10-11 ("WHAT GUESTS SEE", step 2): the Maker's eye writes the STAGE's value and draws it itself
+     (hide = held, show = reload — `the-eye-is-per-stage.test.ts`). What still asks `drawHow` is the EVENT-WIDE write:
+     the eye outside the Maker (`eyeWriteEverywhere`, its three branches) and Hidden. Same count, the right owner. */
+  const eye = SHELL.slice(SHELL.indexOf('const eyeWriteEverywhere = '), SHELL.indexOf('const move = '));
+  assert.equal((eye.match(/drawHow\(scene, /g) ?? []).length, 4, 'the event-wide eye (three branches) and Hidden all ask drawHow');
+  const stageEye = SHELL.slice(SHELL.indexOf('const eyeWrite = '), SHELL.indexOf('const eyeWriteEverywhere = '));
+  assert.match(stageEye, /if \(want\) releaseCanvas\(\);\s*else hideOnCanvas\(scene\);/, 'the per-stage eye: a hide is drawn and held, a show reloads');
   const chainStep = SHELL.slice(SHELL.indexOf('const runChain = '), SHELL.indexOf("} else if (op === 'up' || op === 'down')"));
   assert.match(chainStep, /drawHow\(scene, \{ isVisible: want \}\)/);
   // A write the bridge did not draw releases the hold — forms and unheld saves alike.

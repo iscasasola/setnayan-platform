@@ -396,6 +396,11 @@ test('the host preview shows the drafted hero, reveal and logo (the overlay is b
 });
 
 /* ── the eye (is_visible) — the navigator's visibility, drafted ─────────────── */
+/* 🔁 RE-AIMED 2026-10-11 ("WHAT GUESTS SEE", step 2): in the Maker the eye no longer writes this value — it writes the
+   stage's own (`config_json.stage_show[stage]`, held by `the-eye-is-per-stage.test.ts`). `is_visible` is still the
+   event-wide switch and still drafted exactly as below: Auto · Shown · Hidden falls back to it, the editor outside the
+   Maker flips it, and a row hidden before the change keeps meaning "hidden everywhere". So every line here stands;
+   what it no longer describes is the Maker's eye. */
 
 test('the eye is drafted: sanitised, overlaid on the host preview only, and never Pro at Apply', () => {
   // Sanitise: only a real boolean survives.

@@ -648,9 +648,12 @@ export function makerRevealEdges(isReveal: boolean): { grip: boolean; addAbove: 
 
 /**
  * 🗳 THE RSVP STAGE'S THREE SCREENS ARE FIXED PAGES: the form and the two after-screens are the guest's own reply
- * pages — nothing can be added to one, moved on it or taken off it. So a part picked there has its frame, its name
- * and ↑ ↓ ✕, and NO ＋, grip or 🗑. (The ＋ sheet would also ask the work area mounted under that stage, and offer
- * the INVITATION's hidden scenes — a write to another stage.)
+ * pages — no SCENE can be added to one, moved on it or taken off it. So a part picked there has its frame and its
+ * name, and none of the scenes' ＋, grip or 🗑. (The scenes' ＋ sheet would also ask the work area mounted under that
+ * stage, and offer the INVITATION's hidden scenes — a write to another stage.)
+ * ＋ A LINE of a reply screen's card is another matter (owner's ruling 2026-10-09: "we already had the +" → "you
+ * removed it"): the picked line's frame wears the same ＋, which adds a LINE — a Heading or a Message — through the
+ * stage's own sheet (`usePartEdits`' `lineAdd`, `rsvp-list-stage.tsx`). Never a scene.
  */
 export function makerStageIsFixedPages(stage: MakerStageKey): boolean {
   return stage === RSVP_STAGE_KEY;

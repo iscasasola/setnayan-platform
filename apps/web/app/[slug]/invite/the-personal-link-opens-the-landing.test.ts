@@ -50,6 +50,8 @@ import { ticketShowsTable } from '@/lib/guests-may-see-seats';
 const APP = join(__dirname, '..', '..');
 const read = (rel: string) => stripComments(readFileSync(join(APP, rel), 'utf8'));
 const ENTER = read('[slug]/invite/enter/page.tsx');
+/** The note after a reply — the page's two blocks, in their own component since 2026-10-10 (`rsvp-note-lines.tsx`). */
+const NOTE_LINES = read('[slug]/_components/rsvp-note-lines.tsx');
 const REDEEM = read('[slug]/redeem/route.ts');
 const ACTIONS = read('[slug]/actions.ts');
 const PAGE = read('[slug]/page.tsx');
@@ -239,8 +241,12 @@ test('I · the Fable frames: the couple as the brand line, the ✓ pill, "We’l
   assert.equal(landingHeadline('attending'), 'You replied — see you there');
   assert.equal(landingHeadline('declined'), 'We’ll miss you.');
   assert.match(ENTER, /const ownHeadline = landingHeadline\(status, words\.solemn\);/);
-  assert.match(ENTER, /data-landing-done=""/, 'the "✓ You replied" pill is gone');
-  assert.match(ENTER, /\{ownMessage \?\? LANDING_WORDS\.missedSub\}/, 'the No card lost "Thank you for letting us know."');
+  /* 🔁 RE-AIMED 2026-10-10: the note after a reply is drawn from a list of its lines now (the Maker's RSVP stage
+     adds, orders and groups them), so its two blocks moved from the page into the note's own component — unchanged,
+     and held to the byte by `invite/enter/the-note-after-a-reply-is-todays-page.test.ts`. The page draws THAT. */
+  assert.match(ENTER, /<RsvpNoteLines\b/, 'the page no longer draws the note after a reply');
+  assert.match(NOTE_LINES, /data-landing-done=""/, 'the "✓ You replied" pill is gone');
+  assert.match(NOTE_LINES, /\{ownMessage \?\? LANDING_WORDS\.missedSub\}/, 'the No card lost "Thank you for letting us know."');
   // Frame 1 — "Please reply by …", the same date the reply page shows: only a
   // host-set date still ahead (guestReplyBy, controller 2026-09-30).
   assert.match(ENTER, /guestReplyBy\(\{/);

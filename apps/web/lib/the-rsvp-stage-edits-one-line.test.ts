@@ -166,7 +166,10 @@ test('3 · nothing else grew: the desktop’s stage lists the words it did, and 
 
 test('4 · WIRING: the toolbar hands Edit to the stage’s panel only for a line with words', () => {
   const TOOLS = src(`${L}/stage-tools.tsx`);
-  assert.match(TOOLS, /const rsvpLineTypes = rsvpLineWord\(picked, rsvpLine\) !== null;/);
+  /* 🔁 RE-AIMED 2026-10-10 (5c): …and for a line the couple ADDED, or a group (`rsvpList.own`) — their Edit rows
+     (its words; its place) are the panel's too. A line with no rows of the panel's (the pass's Save button) still
+     gets the toolbar's own Edit, as before. */
+  assert.match(TOOLS, /const rsvpLineTypes = rsvpLineWord\(picked, rsvpLine\) !== null \|\| rsvpList\.own;/);
   /* Its own Edit rows stand aside… */
   assert.match(TOOLS, /\{editOn && !rsvpLineTypes \? \(\s*<StageEdit /);
   /* …and the stage's panel — hidden under Edit for every other part — stays in sight. */

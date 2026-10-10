@@ -36,7 +36,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import React from 'react';
 
@@ -50,7 +50,10 @@ import { makerPartOfTap } from './maker-parts';
 import { RSVP_STAGE_KEY, rsvpPreviewMessages, type RsvpStageScene } from './rsvp-stage';
 import {
   RSVP_CONFIG_FULL,
+  RSVP_CONFIG_CHECK,
   RSVP_CONFIG_ROOM,
+  RSVP_CONFIG_STORED_OVER,
+  RSVP_CONFIG_STORED_RATIO,
   RSVP_LOOK_BUTTON_LINES,
   RSVP_LOOK_LINES,
   RSVP_LOOK_MESSAGE,
@@ -182,7 +185,17 @@ test('2 · the rules a page draws: its own parts only, the event’s colours onl
 });
 
 test('3 · no save drops it: the sanitiser and every writer built on it carry `look`, unknown keys and all', () => {
-  const look = { lines: { 'rsvp.question': { c: 2, s: 120 } }, groups: [['question', 'hint']], order: { form: ['hint', 'question'] } };
+  /* `later`: a key this build does not know (a later one's) — carried as it is. `added` · `order` · `groups` WERE that
+     example until the ＋, drag and Group gave them a shape (2026-10-10): they are read strictly now, so here they are
+     in their real shape — and kept, like the lines, by every writer. (What a wrong shape of them reads as:
+     `the-reply-is-never-lost.test.ts`.) */
+  const look = {
+    lines: { 'rsvp.question': { c: 2, s: 120 } },
+    later: [['question', 'hint']],
+    added: { rsvp: [{ id: 'n1', k: 'm', t: 'Kindly reply' }] },
+    order: { rsvp: ['question', 'eyebrow', 'a:n1'] },
+    groups: { rsvp: [{ id: 'g1', of: ['question', 'a:n1'], g: 'frost' }] },
+  };
   const stored = { words: { attending: 'Count me in' }, meal: false, oneAtATime: true, look };
   /* The first-load sanitiser (the draft's save and its publish run every config through it). */
   assert.deepEqual(sanitizeRsvpAskConfig(stored).look, look);
@@ -199,7 +212,7 @@ test('3 · no save drops it: the sanitiser and every writer built on it carry `l
   /* The panel's own change keeps what it does not know, and an event back to its own look stores no `look`. */
   assert.deepEqual(rsvpLookWith(stored, 'rsvp.hint', { s: 85 }), { ...look, lines: { 'rsvp.question': { c: 2, s: 120 }, 'rsvp.hint': { s: 85 } } });
   assert.deepEqual(rsvpLookWith(stored, 'rsvp.question', { c: null }), { ...look, lines: { 'rsvp.question': { s: 120 } } });
-  assert.deepEqual(rsvpLookWith(stored, 'rsvp.question', { c: null, s: 100 }), { groups: look.groups, order: look.order });
+  assert.deepEqual(rsvpLookWith(stored, 'rsvp.question', { c: null, s: 100 }), { later: look.later, added: look.added, order: look.order, groups: look.groups });
   assert.equal(rsvpLookWith({ look: { lines: { 'rsvp.question': { s: 120 } } } }, 'rsvp.question', { s: null }), undefined);
   assert.equal(rsvpLookWith({}, 'rsvp.question', { c: null }), undefined);
   /* 2026-10-10 · the picker's colour is stored as the app's gate hands it back — a "colour" it refuses is not stored
@@ -290,15 +303,25 @@ test('4 · the panel: Style on a text line is Font ▾, then ONE colour circle a
 });
 
 test('5 · the ceiling: a save that would not fit is refused in a sentence — and what is already kept can still shrink', () => {
-  assert.ok(RSVP_CONFIG_ROOM < 2048, 'the app’s limit is not under the database’s');
+  /* 📏 The app counts JSON bytes; the database counts the value AS STORED, which is the bigger one (measured —
+     `tests/db/rsvp-ask-config-has-room.db.test.ts`: at most `RSVP_CONFIG_STORED_OVER` bytes over for the app's own
+     shape, at most ×`RSVP_CONFIG_STORED_RATIO` when it is all structure). The room must stay under the check both
+     ways: the pair this replaced (1,900 / 2,048) did not, and a look-heavy config was refused by the database at Apply. */
+  assert.ok(RSVP_CONFIG_ROOM + RSVP_CONFIG_STORED_OVER <= RSVP_CONFIG_CHECK, 'the app’s limit does not keep a config under the database’s once it is stored');
+  assert.ok(RSVP_CONFIG_ROOM * RSVP_CONFIG_STORED_RATIO < RSVP_CONFIG_CHECK, 'the app’s limit does not keep an all-structure config under the database’s');
+  /* …and the check is the one the NEWEST migration naming the constraint carries — a number changed here alone lies. */
+  const MIGRATIONS = join(WEB, '..', '..', 'supabase', 'migrations');
+  const carriers = readdirSync(MIGRATIONS).filter((f) => f.endsWith('.sql') && /ADD CONSTRAINT events_rsvp_ask_config_shape/.test(readFileSync(join(MIGRATIONS, f), 'utf8'))).sort();
+  const newest = readFileSync(join(MIGRATIONS, carriers[carriers.length - 1]!), 'utf8');
+  assert.equal(Number(/pg_column_size\(rsvp_ask_config\) <= (\d+)\)/.exec(newest)?.[1]), RSVP_CONFIG_CHECK, `the database’s limit (${carriers[carriers.length - 1]}) is not RSVP_CONFIG_CHECK`);
   const small = { words: { question: 'Coming?' } };
-  const big = { words: { thanksMessage: '🎉'.repeat(240), declineMessage: '🎉'.repeat(240) } };
+  const big = { words: { thanksMessage: '🎉'.repeat(240), declineMessage: '🎉'.repeat(240) }, look: { later: '🎉'.repeat(4400) } };
   assert.ok(rsvpConfigBytes(big) > RSVP_CONFIG_ROOM, 'the fixture does not pass the limit');
   assert.equal(rsvpConfigFits(small), true);
   assert.equal(rsvpConfigFits(big), false);
   assert.equal(rsvpConfigFits(big, small), false, 'a save that grows past the limit is taken');
   /* Already over (kept before the limit was asked): shorter or equal is always taken, longer is not. */
-  const shorter = { words: { thanksMessage: '🎉'.repeat(240), declineMessage: '🎉'.repeat(239) } };
+  const shorter = { ...big, words: { thanksMessage: '🎉'.repeat(240), declineMessage: '🎉'.repeat(239) } };
   assert.equal(rsvpConfigFits(shorter, big), true);
   assert.equal(rsvpConfigFits(big, big), true);
   assert.equal(rsvpConfigFits({ ...big, meal: false }, big), false);
@@ -413,7 +436,7 @@ test('6 · the card is the group: its own paper picks the screen’s group; the 
   const EDGES = src(`${L}/add-part-sheet.tsx`);
   assert.match(
     EDGES,
-    /if \(node && el\) node = node\.querySelector\([\s\S]{0,120}?\) \?\? node;\s*else if \(node && \(RSVP_CARD_GROUPS as readonly string\[\]\)\.includes\(canvas\)\) node = node\.closest\(`\[\$\{RSVP_CARD_ATTR\}\]`\) \?\? node;/,
+    /if \(node && el\) node = node\.querySelector\([\s\S]{0,260}?\) \?\? node;\s*else if \(node && \(RSVP_CARD_GROUPS as readonly string\[\]\)\.includes\(canvas\)\) node = node\.closest\(`\[\$\{RSVP_CARD_ATTR\}\]`\) \?\? node;/,
   );
 });
 
@@ -547,14 +570,17 @@ test('10 · WIRING: Background and Animate are live on a reply card and its line
   const TOOLS = src(`${L}/stage-tools.tsx`);
   assert.equal(RSVP_CARD_NAME, 'Card');
   assert.match(TOOLS, /const rsvpCard = rsvpOpen \? rsvpLookCard\(picked\) : null;/);
-  assert.match(TOOLS, /const rsvpLineName = rsvpLine \? \(RSVP_LINE_NAME\[rsvpLine\] \?\? rsvpLine\) : rsvpCard \? RSVP_CARD_NAME : null;/);
+  /* 🔁 RE-AIMED 2026-10-10 (5c): a line the couple ADDED, and a group, are named from the page (`rsvpList.name` —
+     "Heading" · "Message" · "Group"); one of the page's own lines by its own name, and the screen's group "Card", as before. */
+  assert.match(TOOLS, /const rsvpLineName = rsvpLine \? \(rsvpList\.name \?\? RSVP_LINE_NAME\[rsvpLine\] \?\? rsvpLine\) : rsvpCard \? RSVP_CARD_NAME : null;/);
   /* "RSVP › Form › Card" — in place of the part's name — and the frame's tab says the same. */
   assert.match(TOOLS, /if \(rsvpLineName && picked\) \{\s*if \(linePieces\[linePieces\.length - 1\] === makerPartLabelOn\(stageKey, picked\)\) linePieces\.pop\(\);\s*linePieces\.push\(rsvpLineName\);/);
   assert.match(TOOLS, /name: rsvpCard \? RSVP_CARD_NAME : undefined,/);
   assert.match(src(`${L}/add-part-sheet.tsx`), /\{line\?\.name \?\? name \?\? label\}/);
   /* The two tools that were grey on every reply part are live on a card and on a line — and only there. */
   assert.match(TOOLS, /const rsvpLooks = rsvpCard !== null \|\| \(rsvpOpen && rsvpLookLine\(picked, rsvpLine\) !== null\);/);
-  assert.match(TOOLS, /const ownTool = \(t: MakerPartTool\) => \(rsvpLooks && \(t === 'bg' \|\| t === 'animate'\)\) \|\| /);
+  /* (Re-aimed 2026-10-11, step 7: a GROUP of lines has Background but no Animate — a card and a line keep both.) */
+  assert.match(TOOLS, /const ownTool = \(t: MakerPartTool\) => \(rsvpLooks && \(t === 'bg' \|\| \(t === 'animate' && !rsvpList\.groupWhy\)\)\) \|\| /);
   assert.match(TOOLS, /const toolWorks = \(t: MakerPartTool\) => !picked \|\| ownTool\(t\) \|\| /);
   /* "Open the card": the line is let go; the pass's Save button sits on the When-yes card. */
   assert.equal(RSVP_OPEN_CARD_EVENT, 'setnayan:rsvp-open-card');
@@ -645,6 +671,10 @@ test('11 · When no shows ONE card: with a ground chosen for the door’s card, 
   assert.deepEqual(inner({ look: { card: { rsvp: { g: 'none' }, yesnote: { g: 'frost' } } } }, ['yesnote', 'pass']), []);
   assert.match(rsvpLookCss(readRsvpLook({ look: { card: { nonote: { g: 'frost' } } } }), ['nonote'], BOARD), SAFE_CSS);
   /* The real note card is the one addressed (and the lab's stand-in draws the same one). */
-  assert.match(src('app/[slug]/invite/enter/page.tsx'), /<div className="sn-glass-bare rounded-2xl bg-cream\/95 px-5 py-7 text-center shadow-sm" data-landing-missed="">/);
-  assert.match(src('app/dev/maker-lab/guest/page.tsx'), /<div className="sn-glass-bare mt-6 rounded-2xl bg-cream\/95 px-5 py-7 text-center shadow-sm" data-landing-missed="">/);
+  /* (Its home since 2026-10-10 is the note's own component — the page draws the note through it; arranged, the same
+     card spaces its lines itself.) */
+  assert.match(src('app/[slug]/invite/enter/page.tsx'), /<RsvpNoteLines\b/);
+  assert.match(src('app/[slug]/_components/rsvp-note-lines.tsx'), /<div className=\{lines \? 'sn-glass-bare space-y-2 rounded-2xl bg-cream\/95 px-5 py-7 text-center shadow-sm' : 'sn-glass-bare rounded-2xl bg-cream\/95 px-5 py-7 text-center shadow-sm'\} data-landing-missed="">/);
+  /* …and the lab draws that same component for its When no (it was a stand-in with a copy of the card's classes). */
+  assert.match(src('app/dev/maker-lab/guest/page.tsx'), /<RsvpNoteLines\s+reply="no"/);
 });

@@ -96,7 +96,14 @@ export function StageAnimate({
   error = null,
   only,
   onlyWhy,
+  note = null,
 }: {
+  /**
+   * One quiet line about WHERE this Build in plays, in row 3 while that row is free (no refusal to say, and neither
+   * Move nor Size is on — they need the row for their side and their way). The reply form's card says the Event
+   * Hub's sheet opens its own way (`rsvpSheetKeepsLine`, `lib/rsvp-look.ts`).
+   */
+  note?: string | null;
   /**
    * 🧩 ONE PHASE ONLY — a part of a page that is one screen with no scroll to follow and no exit (a line of a reply
    * page: it arrives, and a guest leaves by answering). THE SAME FOUR ROWS as everywhere (owner 2026-10-10: *"please
@@ -201,6 +208,10 @@ export function StageAnimate({
             </span>
           ) : null}
         </div>
+      ) : note ? (
+        <p className={`${SP_ROWS_ROW} row-start-3 px-1 text-[12.5px] leading-snug text-[var(--sp-ink)]/70`} data-stage-animate-note="">
+          {note}
+        </p>
       ) : null}
       {/* ══ ROW 4 — this phase's own feel, and what drives it (Action has neither) ══ */}
       {end ? (

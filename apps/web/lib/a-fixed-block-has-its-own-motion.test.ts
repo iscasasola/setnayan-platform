@@ -356,7 +356,10 @@ test('5 · the toolbar: Animate is live on the real blocks; the samples stay gre
      block but one that only moves). The claim is the same: a tool is live on a block only when the block has a save
      for it and is really drawn. */
   assert.match(TOOLS, /const groundBlock = block && blockTakesGround\(block\) \? block : null;/);
-  assert.match(TOOLS, /const ownTool = \(t: MakerPartTool\) => \(rsvpLooks && \(t === 'bg' \|\| t === 'animate'\)\) \|\| \(block !== null && t === 'animate'\) \|\| \(groundBlock !== null && t === 'bg'\);/);
+  /* (Re-aimed 2026-10-11, the RSVP stage's step 7: a GROUP of a reply screen's lines has Background but no Animate —
+     the block's half of the rule, which is this test's claim, is word for word what it was.) */
+  /* (Merged in the review copy 2026-10-11: both re-aims hold at once — the line below is the two joined.) */
+  assert.match(TOOLS, /const ownTool = \(t: MakerPartTool\) => \(rsvpLooks && \(t === 'bg' \|\| \(t === 'animate' && !rsvpList\.groupWhy\)\)\) \|\| \(block !== null && t === 'animate'\) \|\| \(groundBlock !== null && t === 'bg'\);/);
   /* 🔁 RE-AIMED 2026-10-10 (toolbar consistency — owner: "please make Edit | Style | Background | Animate Consistent in
      design"): the part rule is as it was, and one clause is added to it — a tool whose rows would be EMPTY on the
      picked thing is grey too (`emptyHere`: on the reply pages Style has a row only for a line with a look and for the

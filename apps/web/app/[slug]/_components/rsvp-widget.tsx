@@ -25,6 +25,8 @@ import type { RsvpAnswer } from '@/lib/guest-one-path';
 import { RsvpOneAtATime } from './rsvp-one-at-a-time';
 import { RsvpOneAtATimeLive } from './rsvp-canvas-bridge';
 import { RsvpQuestionHeader, RsvpStyledAnswers, RsvpTicketHeader } from './rsvp-styles';
+import { RSVP_FORM_LINE_ID as FORM_LINE_ID, RSVP_FORM_QUESTION_CLASS, RsvpLines } from './rsvp-lines';
+import { RSVP_SCREEN_LINES, rsvpLayoutIsGroup, type RsvpLayoutItem } from '@/lib/rsvp-look';
 import Link from 'next/link';
 import { formatCount } from '@/lib/format-number';
 
@@ -36,6 +38,9 @@ import { formatCount } from '@/lib/format-number';
  * script absent (a client-side navigation does not run inline scripts) the
  * server-side refusal in `submitRsvp` is the backstop.
  */
+/** The reply card's own lines in the page's own order — what the card draws when the couple arranged nothing. */
+const FORM_OWN_LINES: readonly RsvpLayoutItem[] = RSVP_SCREEN_LINES.rsvp.map((line) => ({ line, added: null }));
+
 const MOBILE_REQUIRED_JS =
   "(function(){var s=document.currentScript,f=s&&s.closest('form'),m=f&&f.querySelector('#contact_mobile');if(!m)return;function y(){var r=f.querySelector('input[name=\"rsvp_status\"][value=\"attending\"]');m.required=!!(r&&r.checked)}f.addEventListener('change',y);y()})()";
 
@@ -58,7 +63,16 @@ export function RsvpWidget({
   previewEveryQuestion = false,
   answerWords = null,
   sceneStyle = null,
+  lines = null,
 }: {
+  /**
+   * 🧱 THE CARD'S LINES IN THE COUPLE'S ORDER, with the lines they added and their groups (the Maker's RSVP stage —
+   * ＋, drag, Group; `rsvpScreenLayout(readRsvpLook(config), 'rsvp')`, `lib/rsvp-look.ts`). `null` — a couple who
+   * arranged nothing, and every card that is not the invitation's reply page — draws the card exactly as it was
+   * before this prop existed, byte for byte (`the-reply-card-is-todays-page.test.ts`). The reply card's own style
+   * only: The question and The ticket do not name their lines.
+   */
+  lines?: readonly RsvpLayoutItem[] | null;
   /**
    * 📝 The couple's own YES / NO wording (the RSVP stage, owner 2026-09-30 —
    * `rsvp_ask_config.words`, `readRsvpWords`). DISPLAY ONLY: the radios still
@@ -367,6 +381,15 @@ export function RsvpWidget({
   const answerShown = answerOptions.map((o) => ({ ...o, label: answerWords?.[o.key] ?? o.label }));
   /** One of the card's own three lines, named for the Maker's canvas: its key, and the card's words for it. */
   const formWordAttrs = (key: RsvpFormWordKey) => ({ 'data-rsvp-word': rsvpWordBridgeKey(key), 'data-rsvp-default': rsvpFormWord(null, key, words.solemn) });
+  /* 🧱 THE CARD'S LINES ARE A LIST (owner's ruling 2026-10-09 — ＋, drag, Group). Untouched, the list is the page's
+     own: Eyebrow · Question · Yes · No.
+     ♿ THE QUESTION NAMES THE GROUP OF ANSWERS, WHEREVER IT STANDS. While Eyebrow then Question LEAD the card they
+     are its `<legend>`, exactly as before. Once the couple put anything else first (or grouped one of them), a
+     legend could no longer hold them — a legend must be the fieldset's first child — so the fieldset is named by
+     the same two lines through `aria-labelledby` instead: a screen reader hears the same name either way. */
+  const formItems = lines ?? FORM_OWN_LINES;
+  const [first, second] = formItems;
+  const led = Boolean(first && second && !rsvpLayoutIsGroup(first) && !rsvpLayoutIsGroup(second) && first.line === 'eyebrow' && second.line === 'question');
 
   return (
     <form action={action} className="rsvp-form space-y-6">
@@ -482,43 +505,65 @@ export function RsvpWidget({
             legendShown={onDoor}
           />
         ) : (
-        <fieldset data-rsvp-step className="space-y-2">
-          {/* 2a · THE FABLE WORDS (owner 2026-09-30, "APPROVED — THE FABLE DESIGNS…"):
-              "Your reply" over "Will you celebrate with us?". */}
-          <legend className="mb-3">
-            {/* 🧩 Each line carries its NAME (`data-rsvp-line`, `rsvp-canvas-parts.ts`): on the Maker's RSVP stage
-                every line is its own part. For a guest it is only a name — it draws nothing. */}
-            {/* 📝 …and its WORDS: the couple's own (`answerWords`), else the card's — the same two lines as before
-                (`lib/rsvp-form-words.ts`). `data-rsvp-word` / `-default` let the Maker's canvas show them as typed. */}
-            <span data-rsvp-line="eyebrow" {...formWordAttrs('eyebrow')} className="block text-xs font-semibold uppercase tracking-[0.26em] text-mulberry">
-              {rsvpFormWord(answerWords, 'eyebrow', words.solemn)}
-            </span>
-            <span data-rsvp-line="question" {...formWordAttrs('question')} className="mt-2 block font-serif text-[32px] font-medium leading-[1.1] tracking-tight text-ink">
-              {rsvpFormWord(answerWords, 'question', words.solemn)}
-            </span>
-          </legend>
-          {answerOptions.map((option) => (
-            <label
-              key={option.key}
-              /* 🔘 Look › Buttons reaches the answers through this hook (globals.css). */
-              data-rsvp-line={option.key === 'attending' ? 'yes' : option.key === 'declined' ? 'no' : undefined}
-              data-rsvp-answer=""
-              className="flex min-h-12 cursor-pointer items-center justify-center rounded-full bg-white px-5 text-sm font-medium leading-tight text-ink ring-[1.5px] ring-ink transition-colors has-[:checked]:bg-ink has-[:checked]:text-cream"
-            >
-              <input
-                type="radio"
-                name="rsvp_status"
-                value={option.key}
-                defaultChecked={guest.rsvp_status === option.key}
-                required={termsOnSend || guest.rsvp_status === 'maybe' || undefined}
-                className="sr-only"
-              />
-              {/* 📝 The couple's words for YES / NO (the value posted is unchanged). */}
-              <span data-rsvp-word={rsvpWordBridgeKey(option.key)}>
-                {answerWords?.[option.key] ?? option.label}
+        <fieldset data-rsvp-step className="space-y-2" aria-labelledby={led ? undefined : `${FORM_LINE_ID.eyebrow} ${FORM_LINE_ID.question}`}>
+          {(() => {
+            /* 2a · THE FABLE WORDS (owner 2026-09-30, "APPROVED — THE FABLE DESIGNS…"):
+               "Your reply" over "Will you celebrate with us?". */
+            /* 🧩 Each line carries its NAME (`data-rsvp-line`, `rsvp-canvas-parts.ts`): on the Maker's RSVP stage
+               every line is its own part. For a guest it is only a name — it draws nothing. */
+            /* 📝 …and its WORDS: the couple's own (`answerWords`), else the card's — the same two lines as before
+               (`lib/rsvp-form-words.ts`). `data-rsvp-word` / `-default` let the Maker's canvas show them as typed. */
+            const eyebrow = (
+              <span data-rsvp-line="eyebrow" {...formWordAttrs('eyebrow')} id={led ? undefined : FORM_LINE_ID.eyebrow} className="block text-xs font-semibold uppercase tracking-[0.26em] text-mulberry">
+                {rsvpFormWord(answerWords, 'eyebrow', words.solemn)}
               </span>
-            </label>
-          ))}
+            );
+            /* Out of the legend the question keeps the room the legend gave it below (`pb-3`), and no longer steps
+               down from an eyebrow that may not be above it. */
+            const question = (
+              <span data-rsvp-line="question" {...formWordAttrs('question')} id={led ? undefined : FORM_LINE_ID.question} className={led ? RSVP_FORM_QUESTION_CLASS.led : RSVP_FORM_QUESTION_CLASS.out}>
+                {rsvpFormWord(answerWords, 'question', words.solemn)}
+              </span>
+            );
+            /* 🔒 THE TWO ANSWERS ARE DRAWN FROM `answerOptions` — the list of answers, never the couple's order: an
+               order names WHERE each stands and cannot name one away (`rsvpScreenOrder` puts back a line it left out). */
+            const answer = (option: (typeof answerOptions)[number]) => (
+              <label
+                /* 🔘 Look › Buttons reaches the answers through this hook (globals.css). */
+                data-rsvp-line={option.key === 'attending' ? 'yes' : option.key === 'declined' ? 'no' : undefined}
+                data-rsvp-answer=""
+                className="flex min-h-12 cursor-pointer items-center justify-center rounded-full bg-white px-5 text-sm font-medium leading-tight text-ink ring-[1.5px] ring-ink transition-colors has-[:checked]:bg-ink has-[:checked]:text-cream"
+              >
+                <input
+                  type="radio"
+                  name="rsvp_status"
+                  value={option.key}
+                  defaultChecked={guest.rsvp_status === option.key}
+                  required={termsOnSend || guest.rsvp_status === 'maybe' || undefined}
+                  className="sr-only"
+                />
+                {/* 📝 The couple's words for YES / NO (the value posted is unchanged). */}
+                <span data-rsvp-word={rsvpWordBridgeKey(option.key)}>
+                  {answerWords?.[option.key] ?? option.label}
+                </span>
+              </label>
+            );
+            return (
+              <>
+                {led ? (
+                  <legend className="mb-3">
+                    {eyebrow}
+                    {question}
+                  </legend>
+                ) : null}
+                <RsvpLines
+                  items={led ? formItems.slice(2) : formItems}
+                  own={{ eyebrow, question, yes: answer(answerOptions[0]), no: answer(answerOptions[1]) }}
+                  canvas={previewEveryQuestion}
+                />
+              </>
+            );
+          })()}
         </fieldset>
         )
       )}

@@ -364,7 +364,10 @@ test('7 · the toolbar: Background is live on the four (E-Gifts only when real),
      tool stays grey by the part rule and no tiles are drawn). The claim is the same for the blocks this guard is
      about: Background is live on a block with one real root that is really drawn. */
   assert.match(TOOLS, /const groundBlock = block && blockTakesGround\(block\) \? block : null;/);
-  assert.match(TOOLS, /const ownTool = \(t: MakerPartTool\) => \(rsvpLooks && \(t === 'bg' \|\| t === 'animate'\)\) \|\| \(block !== null && t === 'animate'\) \|\| \(groundBlock !== null && t === 'bg'\);/);
+  /* (Re-aimed 2026-10-11, the RSVP stage's step 7: a GROUP of a reply screen's lines has Background but no Animate —
+     the block's half of the rule, which is this test's claim, is word for word what it was.) */
+  /* (Merged in the review copy 2026-10-11: both re-aims hold at once — the line below is the two joined.) */
+  assert.match(TOOLS, /const ownTool = \(t: MakerPartTool\) => \(rsvpLooks && \(t === 'bg' \|\| \(t === 'animate' && !rsvpList\.groupWhy\)\)\) \|\| \(block !== null && t === 'animate'\) \|\| \(groundBlock !== null && t === 'bg'\);/);
   /* `block` is null for a sample, for a scene with its own canvas, and for E-Gifts with nothing drawn for a guest. */
   assert.match(TOOLS, /const block = blockAt && blockIsReal \? blockAt : null;/);
   assert.match(TOOLS, /const empty = blockAt && !blockIsReal && \(t === 'bg' \|\| t === 'animate'\) \? BLOCK_EMPTY_WHY : undefined;/);

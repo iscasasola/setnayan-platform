@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "bb213aced",
+  "generatedFromRef": "3b2d9a54b",
   "routeCount": 430,
   "destinations": 956,
   "actions": 673,
-  "blocks": 5948,
+  "blocks": 5949,
   "routes": {
     "/": {
       "files": [
@@ -1207,6 +1207,7 @@
         "HostDraftLook",
         "HubAutoRun",
         "HubCanvasFrame",
+        "HubCoverHold",
         "HubDraft",
         "HubLook",
         "HubMenuButton",

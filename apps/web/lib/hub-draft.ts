@@ -1314,6 +1314,20 @@ export function configWithVenue(config: unknown, venue: HubDraftVenueChoices): R
   return base;
 }
 
+/**
+ * ↕👁 A drafted section's stage places and per-stage choices laid over a live
+ * row's `config_json` — and nothing else of the draft. What a stage move builds
+ * on in draft mode (`draftedStageConfigs`, `lib/hub-draft-store.ts`): the list
+ * the couple is looking at, in its order, with the scenes they added to the
+ * stage. Returns `config` itself when the draft holds neither.
+ */
+export function configWithDraftedStage(config: unknown, w: Pick<HubDraftWidget, 'stage_order' | 'stage_show'> | undefined): unknown {
+  let next = config;
+  if (w?.stage_order !== undefined) next = configWithStageOrder(next, w.stage_order);
+  if (w?.stage_show !== undefined) next = configWithStageShow(next, w.stage_show);
+  return next;
+}
+
 /** The live widget rows with the draft's mode / order / canvas on top (new objects). */
 /** 🗑 Is this scene of their own deleted in the draft (`HubDraftWidget.removed`)? */
 export function draftRemoves(draft: HubDraftState | null, type: string): boolean {

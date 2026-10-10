@@ -72,7 +72,7 @@ import type { HubDraftPatch, HubDraftWidget } from '@/lib/hub-draft';
 import {
   draftedCustomWords,
   draftedDisplayOrders,
-  draftedStageOrders,
+  draftedStageConfigs,
   draftedWidgetConfig,
   isHubDraftWrite,
   saveHubDraftPatch,
@@ -524,13 +524,14 @@ async function moveWithinStage(
     .eq('is_always_on', false);
   if (error) throw new Error(`Failed to load widgets: ${error.message}`);
   const drafting = isHubDraftWrite(formData);
-  // In the draft the order is the drafted one — swap as the couple sees it.
-  const drafted = drafting ? await draftedStageOrders(eventId) : {};
+  // In the draft the list is the drafted one — its order, and the scenes the
+  // couple added to this stage there (`stage_show`) — swap as the couple sees it.
+  const drafted = drafting ? await draftedStageConfigs(eventId) : null;
   const rows = (
     (data ?? []) as Array<{ widget_id: string; widget_type: string; display_order: number; is_always_on: boolean; config_json: unknown }>
   ).map((r) => {
-    const d = drafted[r.widget_type];
-    return d ? { ...r, config_json: configWithStageOrder(r.config_json, d) } : r;
+    const config = drafted ? drafted(r.widget_type, r.config_json) : r.config_json;
+    return config !== r.config_json ? { ...r, config_json: config } : r;
   });
   const ordered = stageRowOrder(rows, stage, (t, s) => isWidgetType(t) && widgetInPhase(t, s));
   const places = stagePlacesAfterMove(ordered, widgetId, direction);

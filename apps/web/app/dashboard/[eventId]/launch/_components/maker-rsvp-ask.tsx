@@ -18,10 +18,12 @@ import {
 } from '@/lib/rsvp-stage';
 import { RSVP_WORD_TYPED_EVENT } from '@/app/[slug]/_components/rsvp-canvas-parts';
 import { rsvpFormWord, rsvpLineWord } from '@/lib/rsvp-form-words';
-import { RSVP_CONFIG_FULL, readRsvpLook, rsvpConfigFits, rsvpLookCard, rsvpLookLine, rsvpLookWith, rsvpSheetKeepsLine } from '@/lib/rsvp-look';
+import { RSVP_CONFIG_FULL, readRsvpLook, rsvpAddedId, rsvpConfigFits, rsvpLookCard, rsvpLookLine, rsvpLookWith, rsvpSheetKeepsLine } from '@/lib/rsvp-look';
 import { RSVP_OPEN_CARD_EVENT } from '@/lib/rsvp-stage-shared';
 import { RsvpBuildInRows, RsvpCardEditRows, RsvpCardGroundRows, RsvpLineGroundRow, RsvpLineLookRows } from './rsvp-line-look';
 import type { MakerPartTool } from '@/lib/maker-parts';
+import { RSVP_GROUP_PICK_EVENT, RSVP_LIST_DONE_EVENT, RSVP_LIST_EDIT_EVENT, RSVP_LIST_SAY_EVENT, rsvpLayoutEdit, rsvpPlaceOf, type RsvpLayoutEdit, type RsvpListDone } from '@/lib/rsvp-layout-edit';
+import { RsvpAddedEditRows, RsvpLinePlaceRow, rsvpListEdited, rsvpPlaceSteps } from './rsvp-line-list';
 import { hubDraftAction } from '../../website/hub-draft-actions';
 import { updatePaxSettings } from '../../actions';
 import { DetailsPieceOnly } from './details-piece';
@@ -399,6 +401,33 @@ export function MakerRsvpSettings({
     return () => window.removeEventListener(RSVP_WORD_TYPED_EVENT, onTyped);
   }, [stage]);
 
+  /* ＋ ↕ 🫧 ONE EDIT OF A SCREEN'S LIST (a line added or taken off, a move, a group — `lib/rsvp-layout-edit.ts`) IS
+     THIS PANEL'S OWN SAVE, like every other change here: the toolbar, the page's ＋ and a drop all ASK (a window
+     event), and the answer says what to pick now and what to say. So the size check, the draft door and "the page
+     is told first" are the same one path — nothing else writes the config. */
+  const saveRef = useRef(save);
+  saveRef.current = save;
+  /** The line that was added a moment ago: its words box opens. */
+  const [justAdded, setJustAdded] = useState<string | null>(null);
+  useEffect(() => {
+    if (!stage) return;
+    const answer = (done: RsvpListDone) => window.dispatchEvent(new CustomEvent(RSVP_LIST_DONE_EVENT, { detail: done }));
+    const onEdit = (e: Event) => {
+      const edit = (e as CustomEvent<RsvpLayoutEdit>).detail;
+      if (!edit || typeof edit !== 'object') return;
+      const made = rsvpListEdited(latest.current, edit);
+      if (!made.done.ok) return answer(made.done);
+      const next = { ...latest.current, look: made.look };
+      if (!rsvpConfigFits(next, latest.current)) return answer({ edit, ok: false, said: RSVP_CONFIG_FULL });
+      void saveRef.current({ look: made.look }, '“RSVP”', true);
+      setJustAdded(edit.do === 'add' ? made.done.pick : null);
+      answer(made.done);
+    };
+    window.addEventListener(RSVP_LIST_EDIT_EVENT, onEdit);
+    return () => window.removeEventListener(RSVP_LIST_EDIT_EVENT, onEdit);
+  }, [stage]);
+  const sayOnToolbar = (words: string) => window.dispatchEvent(new CustomEvent(RSVP_LIST_SAY_EVENT, { detail: words }));
+
   const oneAtATime = readOneAtATime(local);
   const words = local.words ?? {};
   const status = error ? (
@@ -532,6 +561,16 @@ export function MakerRsvpSettings({
   if (scene !== undefined && picked) {
     /* 🧩 THE NEW MAKER'S RSVP STAGE: the picked thing's controls. */
     const lineWord = rsvpLineWord(picked.part, picked.line);
+    /* ↕ EDIT'S LAST ROW for a line of a screen's card: ↑ Earlier · ↓ Later · Group · Remove (`RsvpLinePlaceRow`) — where
+       the line stands in the couple's list (`rsvpPlaceOf`; the Hint has no place: it stays at the card's foot). */
+    const listPart = picked.line ? rsvpLookCard(picked.part) : null;
+    const placeRow =
+      listPart && picked.line ? (
+        <RsvpLinePlaceRow
+          steps={rsvpPlaceSteps(listPart, picked.line, rsvpPlaceOf(local, listPart, picked.line), () => window.dispatchEvent(new CustomEvent(RSVP_GROUP_PICK_EVENT, { detail: { part: listPart, line: picked.line } })))}
+          onWhy={sayOnToolbar}
+        />
+      ) : null;
     if (picked.tool === 'edit' && lineWord) {
       return (
         <div className={RSVP_ROWS} data-rsvp-stage-controls={scene} data-rsvp-stage-rows="" data-rsvp-stage-line-edit={picked.line ?? ''}>
@@ -544,6 +583,37 @@ export function MakerRsvpSettings({
             ))}
           </FormRows>
           {status ? <div data-rsvp-row="3" className={`${RSVP_ROW[3]} ${RSVP_ROW_ERROR}`}>{status}</div> : null}
+          {placeRow}
+        </div>
+      );
+    }
+    /* ＋ EDIT, a line the couple ADDED: its words (it has no automatic ones — it shows only what they write), then
+       the same last row. Typed in its row the page shows it at once; kept, it is one edit of the list. */
+    const addedLine = listPart && picked.line && rsvpAddedId(picked.line) ? (rsvpPlaceOf(local, listPart, picked.line)?.added ?? null) : null;
+    if (picked.tool === 'edit' && listPart && picked.line && addedLine) {
+      const line = picked.line;
+      const wordsEdit = (text: string): RsvpLayoutEdit => ({ do: 'words', part: listPart, line, text });
+      return (
+        <div className={RSVP_ROWS} data-rsvp-stage-controls={scene} data-rsvp-stage-rows="" data-rsvp-stage-line-edit={line}>
+          <FormRows data="rsvp-line" className="!contents">
+            <RsvpAddedEditRows
+              key={line}
+              line={line}
+              added={addedLine}
+              openNow={justAdded === line}
+              onType={(text) => {
+                const typed = rsvpLayoutEdit(latest.current, wordsEdit(text));
+                if (typed.ok) announceRsvpPreview({ ...latest.current, look: typed.look });
+              }}
+              onKeep={(text) => {
+                const kept = rsvpLayoutEdit(latest.current, wordsEdit(text));
+                if (!kept.ok) return Promise.resolve({ ok: false as const, error: 'Please try again.' });
+                return save({ look: kept.look }, `“${addedLine.k === 'h' ? 'Heading' : 'Message'}”`, true);
+              }}
+            />
+          </FormRows>
+          {status ? <div data-rsvp-row="3" className={`${RSVP_ROW[3]} ${RSVP_ROW_ERROR}`}>{status}</div> : null}
+          {placeRow}
         </div>
       );
     }

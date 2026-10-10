@@ -147,7 +147,13 @@ export function rsvpLookCard(part: string | null | undefined): RsvpLookCard | nu
   return (RSVP_LOOK_CARDS as readonly unknown[]).includes(part) ? (part as RsvpLookCard) : null;
 }
 
-export function rsvpLookLine(part: string | null | undefined, line: string | null | undefined): RsvpLookLine | null {
+/**
+ * The line a look is kept for, by the Maker part it is on and its name on the page: one of the page's own
+ * (`rsvp.question`) — or a line the couple ADDED to a screen (`a:<id>`, the same four things: Font · Colour · Size ·
+ * Build in). Null: nothing with a look of its own (a group, a stray name, a part that is not a reply screen).
+ */
+export function rsvpLookLine(part: string | null | undefined, line: string | null | undefined): RsvpLookLine | RsvpAddedName | null {
+  if (rsvpLookCard(part) && rsvpAddedId(line)) return line as RsvpAddedName;
   const id = `${part}.${line}`;
   return (RSVP_LOOK_LINES as readonly string[]).includes(id) ? (id as RsvpLookLine) : null;
 }
@@ -359,6 +365,9 @@ export function rsvpLookWith(
     } else one[key] = value;
   }
   if (!one.i) delete one.v; /* a feel times an effect: with none there is nothing to keep */
+  /* 🃏 A ground the couple PICKS for a card is theirs: what the card wore before a group stood it aside (`w`) is
+     forgotten, so a later Ungroup has nothing to put back over their choice (`rsvp-layout-edit.ts` `cardFor`). */
+  if (typeof target !== 'string' && 'g' in patch && patch.g !== undefined) delete one.w;
   const all: Record<string, unknown> = { ...(typeof target === 'string' ? read.lines : read.card) };
   const id = typeof target === 'string' ? target : target.card;
   if (Object.keys(one).length > 0) all[id] = one;
@@ -372,7 +381,7 @@ export function rsvpLookWith(
  * is not kept inside one), an empty home is not kept at all, and a key it does not know (a later build's) is
  * carried. `undefined` when nothing is left, so an event back to the page's own stores no `look`.
  */
-function rsvpLookStored(rest: Record<string, unknown>, read: RsvpLook): Record<string, unknown> | undefined {
+export function rsvpLookStored(rest: Record<string, unknown>, read: RsvpLook): Record<string, unknown> | undefined {
   for (const key of ['lines', 'card', 'added', 'order', 'groups'] as const) {
     const v = read[key];
     if (v && Object.keys(v).length > 0) rest[key] = v;

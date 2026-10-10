@@ -599,15 +599,25 @@ test('6 · a reply page is a FIXED page: its parts have the frame — never ＋,
      answers (`canMove` / `canRemove`), so a reply page's three are grey. The gate's end is the frame's own end. */
   assert.deepEqual(MAKER_STAGE_KEYS.filter(makerStageIsFixedPages), [RSVP_STAGE_KEY]);
   assert.match(EDGES, /const fixedPages = makerStageIsFixedPages\(stage\);/);
-  /* Both ＋ sit inside the one gate. */
-  const gate = EDGES.indexOf('{fixedPages ? null : (');
+  /* 🔁 RE-AIMED 2026-10-10 (5c, owner's ruling 2026-10-09: "we already had the +" → "you removed it"): ＋ is back
+     on a LINE of a reply page, where it adds a line — Heading · Message — through the stage's own sheet (`lineAdd`).
+     What this test has always held is unchanged: the SCENES' ＋ (the one that opens the scenes' sheet, which would
+     offer the Invitation's hidden scenes) is never drawn on a fixed page. The gate now has two arms. */
+  const gate = EDGES.indexOf('{fixedPages ? (');
+  const scenesArm = EDGES.indexOf('{edgesOf.addAbove ? (', gate);
   const gateEnd = EDGES.indexOf('{toast && !error ? (');
-  assert.ok(gate > 0 && gateEnd > gate, '＋ is offered on a reply page');
-  for (const add of ['data-part-add="above"', 'data-part-add="below"']) {
-    const at = EDGES.indexOf(add);
-    assert.ok(at > gate && at < gateEnd, `${add} is outside the fixed-page gate`);
-  }
-  assert.equal((EDGES.match(/data-part-add=/g) ?? []).length, 2, 'a third ＋ is drawn, outside the gate');
+  assert.ok(gate > 0 && scenesArm > gate && gateEnd > scenesArm, 'the fixed-page gate is gone');
+  const scenesAdd = [...EDGES.matchAll(/onClick=\{\(\) => setAdding\('(?:above|below)'\)\}/g)];
+  assert.equal(scenesAdd.length, 2, 'anti-vacuity: the scenes’ two ＋ were not found');
+  for (const m of scenesAdd) assert.ok(m.index! > scenesArm && m.index! < gateEnd, 'the scenes’ ＋ is offered on a reply page');
+  /* …and on a fixed page the only ＋ is a line's, which never opens the scenes' sheet. */
+  const fixedArm = EDGES.slice(gate, scenesArm);
+  assert.match(fixedArm, /^\{fixedPages \? \(\s*lineAdd \? \(/);
+  assert.doesNotMatch(fixedArm, /setAdding|AddPartSheet/, 'a line’s ＋ opens the scenes’ sheet');
+  /* Four ＋ in the file — the line's two in the fixed arm, the scenes' two in the other — and none outside the gate. */
+  assert.equal((EDGES.match(/data-part-add=/g) ?? []).length, 4, 'a ＋ is drawn outside the gate');
+  assert.equal((fixedArm.match(/data-part-add=/g) ?? []).length, 2);
+  assert.equal((EDGES.slice(scenesArm, gateEnd).match(/data-part-add=/g) ?? []).length, 2);
   assert.match(EDGES, /const canRemove = edgesOf\.remove && [^;]* && !fixedPages;/);
   assert.match(EDGES, /const canMove = edgesOf\.grip && [^;]* && !fixedPages;/);
   /* …and those two answers are all Edit's last row is offered. */
@@ -716,7 +726,8 @@ test('8 · WIRING: the frame, its name, the caption and the panel follow the LIN
   /* A line is picked only WITH its part: another part, a tab, the ground let it go with nothing to reset. */
   assert.match(TOOLS, /const rsvpLine = rsvpOpen && picked && lineAtPart\?\.part === picked \? lineAtPart\.line : null;/);
   /* The frame is drawn ON the line and wears its name… */
-  assert.match(TOOLS, /const rsvpLineName = rsvpLine \? \(RSVP_LINE_NAME\[rsvpLine\] \?\? rsvpLine\) : rsvpCard \? RSVP_CARD_NAME : null;/);
+  /* 🔁 RE-AIMED 2026-10-10 (5c): an added line and a group take their name from the page (`rsvpList.name`). */
+  assert.match(TOOLS, /const rsvpLineName = rsvpLine \? \(rsvpList\.name \?\? RSVP_LINE_NAME\[rsvpLine\] \?\? rsvpLine\) : rsvpCard \? RSVP_CARD_NAME : null;/);
   assert.match(TOOLS, /line: rsvpLine && rsvpLineName \? \{ key: rsvpLine, name: rsvpLineName \} : null,/);
   assert.match(EDGES, /const el = picked \? \(line\?\.key \?\? MAKER_PARTS\[picked\]\.el \?\? null\) : null;/);
   assert.match(EDGES, /\[data-el="\$\{CSS\.escape\(el\)\}"\], \[data-rsvp-line="\$\{CSS\.escape\(el\)\}"\]/);

@@ -436,7 +436,7 @@ test('6 · the card is the group: its own paper picks the screen’s group; the 
   const EDGES = src(`${L}/add-part-sheet.tsx`);
   assert.match(
     EDGES,
-    /if \(node && el\) node = node\.querySelector\([\s\S]{0,120}?\) \?\? node;\s*else if \(node && \(RSVP_CARD_GROUPS as readonly string\[\]\)\.includes\(canvas\)\) node = node\.closest\(`\[\$\{RSVP_CARD_ATTR\}\]`\) \?\? node;/,
+    /if \(node && el\) node = node\.querySelector\([\s\S]{0,260}?\) \?\? node;\s*else if \(node && \(RSVP_CARD_GROUPS as readonly string\[\]\)\.includes\(canvas\)\) node = node\.closest\(`\[\$\{RSVP_CARD_ATTR\}\]`\) \?\? node;/,
   );
 });
 
@@ -570,7 +570,9 @@ test('10 · WIRING: Background and Animate are live on a reply card and its line
   const TOOLS = src(`${L}/stage-tools.tsx`);
   assert.equal(RSVP_CARD_NAME, 'Card');
   assert.match(TOOLS, /const rsvpCard = rsvpOpen \? rsvpLookCard\(picked\) : null;/);
-  assert.match(TOOLS, /const rsvpLineName = rsvpLine \? \(RSVP_LINE_NAME\[rsvpLine\] \?\? rsvpLine\) : rsvpCard \? RSVP_CARD_NAME : null;/);
+  /* 🔁 RE-AIMED 2026-10-10 (5c): a line the couple ADDED, and a group, are named from the page (`rsvpList.name` —
+     "Heading" · "Message" · "Group"); one of the page's own lines by its own name, and the screen's group "Card", as before. */
+  assert.match(TOOLS, /const rsvpLineName = rsvpLine \? \(rsvpList\.name \?\? RSVP_LINE_NAME\[rsvpLine\] \?\? rsvpLine\) : rsvpCard \? RSVP_CARD_NAME : null;/);
   /* "RSVP › Form › Card" — in place of the part's name — and the frame's tab says the same. */
   assert.match(TOOLS, /if \(rsvpLineName && picked\) \{\s*if \(linePieces\[linePieces\.length - 1\] === makerPartLabelOn\(stageKey, picked\)\) linePieces\.pop\(\);\s*linePieces\.push\(rsvpLineName\);/);
   assert.match(TOOLS, /name: rsvpCard \? RSVP_CARD_NAME : undefined,/);

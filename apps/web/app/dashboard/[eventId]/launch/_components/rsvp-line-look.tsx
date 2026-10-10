@@ -15,6 +15,7 @@ import {
   type RsvpCardGround,
   type RsvpLineLook,
   type RsvpLookFeel,
+  type RsvpAddedName,
   type RsvpLookLine,
   type RsvpLookSize,
   type RsvpMotion,
@@ -69,14 +70,15 @@ export function RsvpLineLookRows({
   onPick,
 }: {
   eventId: string;
-  line: RsvpLookLine;
+  /** One of the page's own lines — or a line the couple added (the same rows: it is a text line). */
+  line: RsvpLookLine | RsvpAddedName;
   now: RsvpLineLook;
   /** The event's five colours, in slot order. */
   board: readonly string[];
   onPick: (patch: { c?: string | null; f?: HubFontKey | null; s?: RsvpLookSize | null }) => void;
 }) {
   const [picking, setPicking] = useState(false);
-  const button = RSVP_LOOK_BUTTON_LINES.includes(line);
+  const button = (RSVP_LOOK_BUTTON_LINES as readonly string[]).includes(line);
   const size = now.s ?? 100;
   const at = Math.max(0, RSVP_LOOK_SIZES.indexOf(size));
   /* The colour worn: its own, or an older slot's — the event's colour in that place. */

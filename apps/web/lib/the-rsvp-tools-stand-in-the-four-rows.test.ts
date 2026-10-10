@@ -85,7 +85,9 @@ function frameOf(html: string) {
 
 /** Every picked thing whose tool is the stage's own rows (Animate is `StageAnimate`'s own grid — its own test, below). */
 const OWN: ReadonlyArray<{ what: string; scene: RsvpStageScene; picked: Picked; rows: number[] }> = [
-  { what: 'Edit on a line with premade words', scene: 'form', picked: { tool: 'edit', part: 'rsvp', line: 'yes' }, rows: [1, 2] },
+  /* 🔁 RE-AIMED 2026-10-10 (5c): a line of a screen's card has Edit's LAST row now — ↑ Earlier · ↓ Later · Group ·
+     Remove, row 4 (owner 2026-10-09: "always set this as the last row"; it was missing on a line). */
+  { what: 'Edit on a line with premade words', scene: 'form', picked: { tool: 'edit', part: 'rsvp', line: 'yes' }, rows: [1, 2, 4] },
   { what: 'Style on a text line', scene: 'form', picked: { tool: 'style', part: 'rsvp', line: 'question' }, rows: [1, 4] },
   { what: 'Style on a button', scene: 'form', picked: { tool: 'style', part: 'rsvp', line: 'yes' }, rows: [1, 3, 4] },
   { what: 'Style on the pass’s Save', scene: 'thanks', picked: { tool: 'style', part: 'pass', line: 'save' }, rows: [1, 3, 4] },

@@ -37,6 +37,8 @@ import {
   RSVP_WORD_TYPED_EVENT,
 } from '@/app/[slug]/_components/rsvp-canvas-parts';
 import { SP_KEY_BAR, SP_KEY_DONE } from '@/lib/maker-stage-room';
+import { readRsvpLook, type RsvpLookCard } from '@/lib/rsvp-look';
+import { arrangeRsvpScreen } from './rsvp-canvas-arrange';
 import { Check } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { useStagePanelNow, useStageTool } from './stage-panel/store';
@@ -58,6 +60,9 @@ function rsvpToolPart(picked: string | null, line: string | null = null): boolea
   /* …and a LINE of the pass (its Save button): its size, its Build in and whose background it sits on are here too. */
   return picked === null || picked === 'rsvp' || picked === 'yesnote' || picked === 'nonote' || (picked === 'pass' && line !== null);
 }
+
+/** The screen's card each of the stage's three screens draws — whose list of lines it lays out. */
+const RSVP_SCENE_PART: Record<RsvpStageScene, RsvpLookCard> = { form: 'rsvp', thanks: 'yesnote', decline: 'nonote' };
 
 const RSVP_STAGE_TILE: Record<RsvpStageScene, { label: string; caption: string }> = {
   /* 📑 The titles the owner approved (2026-10-05): RSVP form · When yes · When
@@ -173,7 +178,14 @@ export function MakerRsvpStage({
       const win = frame?.contentWindow;
       if (!win) return;
       const origin = window.location.origin;
-      if (latest.current) for (const m of rsvpPreviewMessages(latest.current, solemn)) win.postMessage(m, origin);
+      if (latest.current) {
+        for (const m of rsvpPreviewMessages(latest.current, solemn)) win.postMessage(m, origin);
+        /* 🧱 …and the LIST of the screen's lines (a line added, an order, a group) is laid on the page it drew, here and
+           now (`rsvp-canvas-arrange.ts` — the same list and the same elements the server draws for a guest). */
+        const scene = RSVP_STAGE_SCENES.find((s) => frames.current[s.key] === frame)?.key;
+        const doc = frame?.contentDocument;
+        if (scene && doc) arrangeRsvpScreen(doc, RSVP_SCENE_PART[scene], readRsvpLook(latest.current));
+      }
       if (replyLine.current !== null) {
         win.postMessage({ source: RSVP_BRIDGE_SOURCE, t: 'words', key: rsvpWordBridgeKey('reply-by'), text: replyLine.current }, origin);
       }

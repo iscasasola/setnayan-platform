@@ -33,6 +33,18 @@ export const RSVP_ADDED_CLASS: Readonly<Record<RsvpAddedLine['k'], string>> = {
 };
 /** An added line with no words yet, on the Maker's sample only. */
 export const RSVP_ADDED_EMPTY_CLASS = 'italic !text-ink/45';
+/** In a note (centred), an added line is centred with it. */
+export const RSVP_NOTE_ADDED_CLASS = 'text-center';
+/**
+ * ♿ THE FORM'S TWO LEADING LINES, IN AND OUT OF ITS LEGEND (`rsvp-widget.tsx` says why): out of it they carry the ids
+ * the fieldset is named by, and the question keeps the room the legend gave it below. ONE spelling, read by the card
+ * (the server, for every guest) and by the Maker's live re-arranging of its sample (`rsvp-canvas-arrange.ts`).
+ */
+export const RSVP_FORM_LINE_ID = { eyebrow: 'rsvp-line-eyebrow', question: 'rsvp-line-question' } as const;
+export const RSVP_FORM_QUESTION_CLASS = {
+  led: 'mt-2 block font-serif text-[32px] font-medium leading-[1.1] tracking-tight text-ink',
+  out: 'block pb-3 font-serif text-[32px] font-medium leading-[1.1] tracking-tight text-ink',
+} as const;
 /** A group's wrapper: the note's own paper (`data-landing-missed`'s recipe), its lines spaced as the card spaces them. */
 export const RSVP_GROUP_CLASS = 'sn-glass-bare space-y-2 rounded-2xl bg-cream/95 p-3.5 shadow-sm';
 

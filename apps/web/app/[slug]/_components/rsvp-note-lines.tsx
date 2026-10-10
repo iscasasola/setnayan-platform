@@ -1,7 +1,7 @@
 import { LANDING_WORDS } from '@/lib/guest-landing';
 import { RSVP_SCREEN_LINES, type RsvpLayoutItem } from '@/lib/rsvp-look';
 import { rsvpWordBridgeKey } from '@/lib/rsvp-stage-shared';
-import { RsvpLines } from './rsvp-lines';
+import { RSVP_NOTE_ADDED_CLASS, RsvpLines } from './rsvp-lines';
 
 /**
  * 💌 THE NOTE A GUEST SEES AFTER THEIR REPLY — after a Yes (the "✓ You replied" pill and the couple's message) and
@@ -80,7 +80,7 @@ export function RsvpNoteLines({
     <RsvpLines
       items={items}
       canvas={canvas}
-      addedClass="text-center"
+      addedClass={RSVP_NOTE_ADDED_CLASS}
       own={{
         heading: (
           <p className="text-center">

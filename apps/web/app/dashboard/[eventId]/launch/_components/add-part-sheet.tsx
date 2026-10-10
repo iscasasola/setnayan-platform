@@ -154,7 +154,8 @@ function partBox(canvas: string, el?: string | null, frameSel: string = SHOWN_FR
   /* 🎭 The Reveal is drawn at the top of the page in Stages (`stage-tools.tsx` `drawRevealPart`). */
   let node: Element | null = canvas === REVEAL_STUB ? doc.querySelector('[data-maker-reveal-part]') : findMakerSection(doc, canvas);
   /* A part inside the section: the cover's (`data-el`), or a LINE of an RSVP section (`data-rsvp-line`). */
-  if (node && el) node = node.querySelector(`[data-el="${CSS.escape(el)}"], [data-rsvp-line="${CSS.escape(el)}"]`) ?? node;
+  /* …or a GROUP of an RSVP section's lines (`g:<id>` — its wrapper names itself, `data-rsvp-group`). */
+  if (node && el) node = node.querySelector(el.startsWith('g:') ? `[data-rsvp-group="${CSS.escape(el.slice(2))}"]` : `[data-el="${CSS.escape(el)}"], [data-rsvp-line="${CSS.escape(el)}"]`) ?? node;
   /* 🃏 A reply screen's GROUP of lines is its card (`RSVP_CARD_GROUPS`): the frame goes round the card it sits in. */
   else if (node && (RSVP_CARD_GROUPS as readonly string[]).includes(canvas)) node = node.closest(`[${RSVP_CARD_ATTR}]`) ?? node;
   if (!node) return null;
@@ -260,6 +261,13 @@ type PartEditsProps = {
   line?: { key: string; name: string } | null;
   /** 🃏 The frame's own word where the part's name is not it — "Card" for a reply screen's group of lines. */
   name?: string;
+  /**
+   * ＋ ON A FIXED PAGE'S LINE (the RSVP stage, owner's ruling 2026-10-09: "we already had the +" → "you removed it").
+   * A reply page takes no SCENE — that is why ＋ is off on its parts — but a line of its card takes a line above or
+   * below it. Given, the SAME ＋ is drawn on the picked line's frame, and a tap asks the stage (`onAdd`) instead of
+   * opening the scenes' sheet. Absent: no ＋ on a fixed page, as before.
+   */
+  lineAdd?: { above: boolean; below: boolean; onAdd: (where: 'above' | 'below') => void } | null;
 };
 
 /**
@@ -285,7 +293,7 @@ export function PartEdits(props: PartEditsProps) {
   return usePartEdits(props).node;
 }
 
-export function usePartEdits({ stage, picked, frame, line = null, name }: PartEditsProps): PartEditsNow {
+export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd = null }: PartEditsProps): PartEditsNow {
   const isReveal = picked === 'reveal';
   const canvas = isReveal ? REVEAL_STUB : picked ? makerPartCanvasOn(stage, picked) : null;
   const el = picked ? (line?.key ?? MAKER_PARTS[picked].el ?? null) : null;
@@ -514,7 +522,23 @@ export function usePartEdits({ stage, picked, frame, line = null, name }: PartEd
               ＋ STAYS FOR NOW: where a part is added is an OPEN owner question (`TOOLBAR-SPEC-2026-10-09.md` "Things
               with no home yet") — and it is the only way a removed part comes back. Never on a fixed page (the RSVP
               stage's screens, `makerStageIsFixedPages`). */}
-          {fixedPages ? null : (
+          {fixedPages ? (
+            lineAdd ? (
+              /* The same ＋, on a LINE of a reply page: it adds a line (the stage's own sheet), never a scene. */
+              <>
+                {lineAdd.above ? (
+                  <button type="button" aria-label={`Add above ${line?.name ?? name ?? label}`} data-part-add="above" onClick={() => lineAdd.onAdd('above')} className={EDGE_BTN} style={{ ...tapAt(box.left + box.width / 2, fr!.top, fe!.tapAbove), visibility: onEdge(fr!.top) ? undefined : 'hidden' }}>
+                    <span className={ADD_FACE}>+</span>
+                  </button>
+                ) : null}
+                {lineAdd.below && onEdge(fr!.top + fr!.height) ? (
+                  <button type="button" aria-label={`Add below ${line?.name ?? name ?? label}`} data-part-add="below" onClick={() => lineAdd.onAdd('below')} className={EDGE_BTN} style={tapAt(box.left + box.width / 2, fr!.top + fr!.height, fe!.tapBelow)}>
+                    <span className={ADD_FACE}>+</span>
+                  </button>
+                ) : null}
+              </>
+            ) : null
+          ) : (
             <>
               {edgesOf.addAbove ? (
                 <button type="button" aria-label={`Add above ${label}`} data-part-add="above" onClick={() => setAdding('above')} className={EDGE_BTN} style={{ ...tapAt(box.left + box.width / 2, fr!.top, fe!.tapAbove), visibility: onEdge(fr!.top) ? undefined : 'hidden' }}>

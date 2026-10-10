@@ -25,7 +25,7 @@ import type { RsvpAnswer } from '@/lib/guest-one-path';
 import { RsvpOneAtATime } from './rsvp-one-at-a-time';
 import { RsvpOneAtATimeLive } from './rsvp-canvas-bridge';
 import { RsvpQuestionHeader, RsvpStyledAnswers, RsvpTicketHeader } from './rsvp-styles';
-import { RsvpLines } from './rsvp-lines';
+import { RSVP_FORM_LINE_ID as FORM_LINE_ID, RSVP_FORM_QUESTION_CLASS, RsvpLines } from './rsvp-lines';
 import { RSVP_SCREEN_LINES, rsvpLayoutIsGroup, type RsvpLayoutItem } from '@/lib/rsvp-look';
 import Link from 'next/link';
 import { formatCount } from '@/lib/format-number';
@@ -40,8 +40,6 @@ import { formatCount } from '@/lib/format-number';
  */
 /** The reply card's own lines in the page's own order — what the card draws when the couple arranged nothing. */
 const FORM_OWN_LINES: readonly RsvpLayoutItem[] = RSVP_SCREEN_LINES.rsvp.map((line) => ({ line, added: null }));
-/** What names the reply's fieldset once its two leading lines no longer lead it (`aria-labelledby`): the same two. */
-const FORM_LINE_ID = { eyebrow: 'rsvp-line-eyebrow', question: 'rsvp-line-question' } as const;
 
 const MOBILE_REQUIRED_JS =
   "(function(){var s=document.currentScript,f=s&&s.closest('form'),m=f&&f.querySelector('#contact_mobile');if(!m)return;function y(){var r=f.querySelector('input[name=\"rsvp_status\"][value=\"attending\"]');m.required=!!(r&&r.checked)}f.addEventListener('change',y);y()})()";
@@ -523,7 +521,7 @@ export function RsvpWidget({
             /* Out of the legend the question keeps the room the legend gave it below (`pb-3`), and no longer steps
                down from an eyebrow that may not be above it. */
             const question = (
-              <span data-rsvp-line="question" {...formWordAttrs('question')} id={led ? undefined : FORM_LINE_ID.question} className={led ? 'mt-2 block font-serif text-[32px] font-medium leading-[1.1] tracking-tight text-ink' : 'block pb-3 font-serif text-[32px] font-medium leading-[1.1] tracking-tight text-ink'}>
+              <span data-rsvp-line="question" {...formWordAttrs('question')} id={led ? undefined : FORM_LINE_ID.question} className={led ? RSVP_FORM_QUESTION_CLASS.led : RSVP_FORM_QUESTION_CLASS.out}>
                 {rsvpFormWord(answerWords, 'question', words.solemn)}
               </span>
             );

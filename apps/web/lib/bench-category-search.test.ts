@@ -154,13 +154,21 @@ test('the rail-end card answers IN PLACE, it does NOT navigate away', () => {
   // neither Find affordance may leave the page. What is asserted below is that
   // both go through ONE in-place doorway and that the sheet is still reachable —
   // opt-in, never deleted, because it owns filters and facets the row does not.
-  const calls = src.match(/openMore\(t\.tile, t\.label\)/g) ?? [];
-  assert.equal(
-    calls.length,
-    2,
-    'the rail-end card AND the empty-category card must both call openMore(t.tile, t.label) — ' +
-      'reverting either to <Link href={t.exploreHref}> is the owner-reported bug (2026-07-29).',
+  //
+  // ── AND AGAIN (owner 2026-10-07 · Suppliers PR2) ──────────────────────────
+  // "More to compare" is ALWAYS under the couple's cards in an open category.
+  // There is no doorway left to tap, so there is none to revert to a <Link>:
+  // the list is mounted by the row itself, for every open row that holds no
+  // booking, and the two pre-replan doorways are not drawn on this page at all.
+  // The invariant is the same one, at its strongest: finding more never leaves.
+  assert.equal((src.match(/<MoreToCompare\b/g) ?? []).length, 1, 'the list must be mounted by the row, once');
+  assert.match(
+    src,
+    /\{replan && tileOpen && !rowBooked && !coveredGroup \? \(\s*<MoreToCompare/,
+    'the marketplace list must sit under every OPEN category with no booking — without a tap. ' +
+      'Putting it back behind a button, or a <Link href={t.exploreHref}>, is the owner-reported bug (2026-07-29).',
   );
+  assert.ok(!/openMore\(/.test(src), 'a tap-to-open doorway is back — the list is always on');
   // The sheet is opt-in, not gone: exactly one "See all" doorway still opens it.
   const seeAll = src.match(/openSearch\(t\.tile, t\.label\)/g) ?? [];
   assert.equal(
@@ -172,7 +180,8 @@ test('the rail-end card answers IN PLACE, it does NOT navigate away', () => {
   assert.match(src, /<CategorySearchOverlay/, 'the bench must mount the shipped overlay');
   assert.match(src, /setSearch\(\{ \.\.\.benchSearchScopeForTile\(tile\), label \}\)/);
   // The row scopes itself the same way the sheet does — one resolver, two callers.
-  assert.match(src, /setMoreOpen\(next \? \{ \.\.\.benchSearchScopeForTile\(tile\), label \} : null\)/);
+  assert.match(src, /const \{ groupId: moreGroupId \} = benchSearchScopeForTile\(tile\);/);
+  assert.match(src, /fetchInlineMoreRow\(\{ eventId, groupId: moreGroupId, tile: moreTile, query: moreQ \}\)/);
 });
 
 test('the inline row inherits the shared-date sink, it does not invent one', () => {
@@ -194,12 +203,13 @@ test('the inline row inherits the shared-date sink, it does not invent one', () 
 
 test('flag OFF keeps the shipped /explore navigation, byte for byte', () => {
   const src = code(BENCH);
-  // Two `replan ? <button…> : <Link href={t.exploreHref}…>` forks.
+  // Two `replan ? null : <Link href={t.exploreHref}…>` forks — on the
+  // one-screen page neither doorway is drawn (the list is always open).
   const links = src.match(/<Link href=\{t\.exploreHref\}/g) ?? [];
   assert.equal(links.length, 2, 'both doorways must keep their pre-replan <Link> fallback');
   // …and each one is the ELSE arm of a `replan` fork, never the only arm.
-  const forks = src.match(/\{replan \? \([\s\S]{0,900}?<Link href=\{t\.exploreHref\}/g) ?? [];
-  assert.equal(forks.length, 2, 'each <Link> must sit behind `replan ? <button…> : <Link…>`');
+  const forks = src.match(/replan \? null : \([\s\S]{0,900}?<Link href=\{t\.exploreHref\}/g) ?? [];
+  assert.equal(forks.length, 2, 'each <Link> must sit behind `replan ? null : <Link…>` — never drawn on the one-screen page');
 });
 
 test('exploreHref stays on the tile type (other callers / the flag-OFF path)', () => {

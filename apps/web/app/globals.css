@@ -3371,13 +3371,17 @@ html.dark {
    of its own, so the door is a child of the first screen itself — a sticky box
    moves only inside its parent, and the row alone is no taller than the door.
    Its two margins are the `space-y-6` / `space-y-4` the row had, written at the
-   same weight (a `space-y` rule outranks a child's own `mt-*`, and so do these).
+   same weight (a `space-y` rule outranks a child's own `mt-*`, and so do these):
+   1.5rem above the row only where something stands before it, 1rem inside it.
+   ⚠ The dock needs the cover in the SAME box as the door. A cover with a hero
+   photo or film is drawn in a box of its own, so there the door has no room to
+   move and stays where it is — not measured, not fixed here.
    `app/_components/the-first-screen-keeps-its-action.test.ts` holds all of it. */
 @layer components {
   .sn-door-row {
     display: contents;
   }
-  .sn-door-row > :first-child {
+  :not([hidden]) ~ .sn-door-row > :first-child {
     margin-top: 1.5rem;
   }
   .sn-door-row > :not([hidden]) ~ :not([hidden]) {

@@ -179,9 +179,12 @@ test('the tick list is the shipped "Also ask about" block — its words and its 
   const legend = /<legend className="font-mono text-\[10px\] uppercase tracking-\[0\.18em\] text-ink\/50">\s*Also ask about\s*<\/legend>/;
   assert.match(COMPOSER, legend, 'the composer no longer says "Also ask about" — re-copy the block');
   assert.match(SHEET, legend);
+  // The same checkbox, one shade apart: inside the dashboard a bare gold `text-`
+  // class is refused (gold-is-not-text.test.ts — its bill only gets shorter).
   const box = 'className="h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"';
   assert.ok(COMPOSER.includes(box), 'the composer changed its checkbox — re-copy the block');
-  assert.ok(SHEET.includes(box), 'the sheet drew its own checkbox');
+  assert.ok(SHEET.includes(box.replace('text-terracotta ', 'text-terracotta-700 ')), 'the sheet drew its own checkbox');
+  assert.doesNotMatch(SHEET, /text-terracotta(?!-)/, 'bare gold as a text class is back on the sheet');
   for (const state of ["'border-terracotta/50 bg-terracotta/5 text-ink'", "'border-ink/10 bg-cream/80 text-ink/80 hover:border-terracotta/40'"]) {
     assert.ok(COMPOSER.includes(state) && SHEET.includes(state), `the ticked / unticked look drifted: ${state}`);
   }
@@ -202,7 +205,7 @@ test('frames only on what you press: each tick is framed; the heading and the he
   assert.match(SHEET, /const TICK_ROW = '[^']*\brounded-lg border\b[^']*';/);
   assert.equal(count(also, /\$\{TICK_ROW\}/g), 1, 'the frame is not on the tick row');
   // (The checkbox is itself pressed; take its own class out before looking.)
-  const readOnly = also.replace('className="h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"', '');
+  const readOnly = also.replace('className="h-4 w-4 rounded border-ink/30 text-terracotta-700 focus:ring-terracotta"', '');
   assert.notEqual(readOnly, also, 'the checkbox class moved — this check would look at nothing');
   assert.equal(count(readOnly, /\brounded\b|\brounded-/g), 0, 'something that is only read got a box');
   // Inside the frame: the checkbox and the category's name. Nothing that is only read.

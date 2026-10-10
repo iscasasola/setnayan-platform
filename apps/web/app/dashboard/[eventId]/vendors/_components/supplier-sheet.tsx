@@ -454,7 +454,10 @@ export default function SupplierSheet({
                                 onChange={() => toggleTick(o.tile)}
                                 disabled={busy}
                                 aria-label={askAboutLabel(o.label)}
-                                className="h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
+                                // The composer's checkbox, one shade apart: gold as a
+                                // bare `text-` class is below AA and its bill "only ever
+                                // gets shorter" (gold-is-not-text.test.ts), so -700 here.
+                                className="h-4 w-4 rounded border-ink/30 text-terracotta-700 focus:ring-terracotta"
                               />
                               <span className="min-w-0 flex-1 truncate">{o.label}</span>
                             </label>

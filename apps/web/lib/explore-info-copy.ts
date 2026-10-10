@@ -468,7 +468,8 @@ export const INLINE_MORE_NOT_YOUR_EVENT =
   "That is not one of your events, so nothing was added. Open the event you are planning and try again.";
 export const INLINE_MORE_UNDO_FAILED = "We couldn't undo that. Check the row above.";
 export const INLINE_MORE_INQUIRE_FAILED = "We couldn't open the conversation. They're saved to your shortlist.";
-export const INLINE_MORE_SIGNED_OUT = 'Sign in again to save suppliers.';
+/** Said under a card or a Find row whose one verb is "Ask for a quote" (Save is retired — it said "…to save suppliers"). */
+export const INLINE_MORE_SIGNED_OUT = 'Sign in again to ask for a quote.';
 
 
 /* ── A CARD'S DATES (owner 2026-09-06) ──────────────────────────────────────
@@ -531,5 +532,3 @@ export function moreToCompareEmpty(label: string, query: string): string {
     : `Nobody else to compare in ${label} yet.`;
 }
 
-/** The quiet second verb on a card in the list: keep them, ask later. */
-export const MORE_TO_COMPARE_SAVE = 'Save';

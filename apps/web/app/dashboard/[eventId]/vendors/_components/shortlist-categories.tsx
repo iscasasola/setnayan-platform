@@ -60,7 +60,6 @@ import {
   Gift,
   AlertCircle,
   MessageCircle,
-  Bookmark,
   Undo2,
   ListFilter,
 } from 'lucide-react';
@@ -165,7 +164,6 @@ import {
   inlineMoreSavedNote,
   inlineMoreSeeAllLabel,
   inlineMoreSunkNote,
-  MORE_TO_COMPARE_SAVE,
   moreToCompareEmpty,
   moreToCompareHeading,
 } from '@/lib/explore-info-copy';
@@ -332,11 +330,15 @@ html.dark .slcat .fold.flat .cat.open>.cat-head-row{background:#17160F}
    came back with is said on its own line under the row. */
 .slcat .verbs{position:relative;display:flex;flex-wrap:nowrap;align-items:center;gap:6px;min-width:0;margin-top:3px}
 .slcat .verbs .verb-slot{display:contents}
-/* ONE HEIGHT. 'globals.css' gives every <button> a 44 px floor, and a link has
-   none — so in one row "Pay" (a link) drew 40 px tall beside "Your record" (a
-   button) at 44 (controller's walk at 375, 2026-10-08). The button rule is a
-   40 px pill, whatever the element. */
-.slcat .ab{min-height:40px}
+/* ONE HEIGHT — AND IT IS THE FINGER'S. 'globals.css' gives every <button> a 44 px
+   floor, and a link has none — so in one row "Pay" (a link) drew 40 px tall
+   beside "Your record" (a button) at 44 (controller's walk at 375, 2026-10-08).
+   That was settled DOWN, to 40 for both; the merged copy's walk (2026-10-11,
+   M25) then measured every one of them under the 44 px a tap needs. Settled
+   UP: the link gets the button's own floor, so the row is one height and that
+   height is 44. An icon-only button is as wide as it is tall. */
+.slcat .ab{min-height:44px}
+.slcat .ab.icon-only{width:44px}
 /* A PRESS ANSWERS AT ONCE (owner 2026-10-08): the card that was pressed looks
    pressed the moment the finger lands — before the sheet's chunk has arrived. */
 .slcat .fold.flat .vcw:has(>.vc:active){transform:scale(.985);border-color:var(--gold)}
@@ -1754,7 +1756,6 @@ function InlineMoreCard({
   clashWith,
   saved,
   busy,
-  onSave,
   onUndo,
   onInquire,
   onOpen,
@@ -1779,7 +1780,6 @@ function InlineMoreCard({
   clashWith: string | null;
   saved: { eventVendorId: string; undoable: boolean } | undefined;
   busy: boolean;
-  onSave: () => void;
   onUndo: () => void;
   onInquire: () => void;
 }) {
@@ -1891,9 +1891,9 @@ function InlineMoreCard({
           {svc?.givesSetnayanGift ? <SetnayanGiftLine className="sc-gift" /> : null}
         </span>
       </span>
-      {/* ONE row of verbs (the button rule): the main verb asks for a quote —
-          which also keeps them — and the quiet one only keeps them. Once kept,
-          the card says where it went and offers the way back. */}
+      {/* ONE verb (the button rule; Save is retired — see `CompareVerbs`): it asks
+          for a quote, which also keeps them. Once kept, the card says where it
+          went and offers the way back. */}
       {saved ? (
         <div className="mra">
           <span className="mrsaved">{inlineMoreSavedNote(label)}</span>
@@ -1902,7 +1902,7 @@ function InlineMoreCard({
           ) : null}
         </div>
       ) : (
-        <CompareVerbs busy={busy} onSave={onSave} onInquire={onInquire} />
+        <CompareVerbs busy={busy} onInquire={onInquire} />
       )}
     </div>
   );
@@ -1915,22 +1915,20 @@ function InlineMoreCard({
  * dead ref after an Undo and the row would never be fitted again — the fault
  * the Find thumb row shipped with ("S" for a search box).
  */
-function CompareVerbs({
-  busy,
-  onSave,
-  onInquire,
-}: {
-  busy: boolean;
-  onSave: () => void;
-  onInquire: () => void;
-}) {
+/**
+ * 🚫 ONE VERB — "Ask for a quote" (owner 2026-10-07, SUPPLIERS_PAGE_CHECK: *"Save is retired because the marketplace
+ * now sits on the page"*). The Find rows lost their Save on 2026-10-11 (`find-supplier-controls.tsx`); the SAME
+ * marketplace cards under an open category still carried it (the merged copy's walk, M17: two buttons on a card
+ * where the list beside it has one). Asking keeps them — `inquireFromMore` saves, then opens the conversation — so
+ * nothing is lost with the button; a supplier kept that way still shows where it went, and the way back.
+ */
+function CompareVerbs({ busy, onInquire }: { busy: boolean; onInquire: () => void }) {
   const rowRef = useRef<HTMLDivElement>(null);
   useFitRow(rowRef);
   const ask = cardVerbWords('ask');
   return (
     <div ref={rowRef} className="verbs" data-compare-verbs="">
       <ActionButton tone={ask.tone} main icon={MessageCircle} label={ask.label} disabled={busy} onClick={onInquire} />
-      <ActionButton tone="neutral" icon={Bookmark} label={MORE_TO_COMPARE_SAVE} disabled={busy} onClick={onSave} />
     </div>
   );
 }
@@ -2220,7 +2218,6 @@ function MoreToCompare({
       clashWith={clashWith}
       saved={moreSaved[row.vendorProfileId]}
       busy={moreBusy === row.vendorProfileId}
-      onSave={() => void saveFromMore(row)}
       onUndo={() => void undoFromMore(row)}
       onInquire={() => void inquireFromMore(row)}
       onOpen={

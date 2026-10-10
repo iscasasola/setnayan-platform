@@ -27,7 +27,6 @@ import {
   INLINE_MORE_LOADING,
   INLINE_MORE_SAVE_FAILED,
   INLINE_MORE_SIGNED_OUT,
-  MORE_TO_COMPARE_SAVE,
   moreToCompareEmpty,
   moreToCompareHeading,
 } from '@/lib/explore-info-copy';
@@ -69,7 +68,7 @@ test('a search that matched nobody and an empty category are different sentences
 });
 
 test('the list says supplier, never vendor', () => {
-  for (const s of [INLINE_MORE_FAILED, INLINE_MORE_LOADING, INLINE_MORE_SAVE_FAILED, INLINE_MORE_SIGNED_OUT, MORE_TO_COMPARE_SAVE]) {
+  for (const s of [INLINE_MORE_FAILED, INLINE_MORE_LOADING, INLINE_MORE_SAVE_FAILED, INLINE_MORE_SIGNED_OUT]) {
     assert.ok(!/vendor/i.test(s), `"${s}" says vendor`);
   }
 });
@@ -155,11 +154,18 @@ test('🔑 the cards are the suppliers’ service cards, and say nothing about p
   assert.match(CARD, /<span className="vn">\{v\.name\}<\/span>/);
 });
 
-test('the verbs follow the button rule: one row, Ask for a quote is the main verb, no hand-made button', () => {
+test('the verbs follow the button rule: ONE verb — Ask for a quote, the main one — and no hand-made button', () => {
   assert.equal(cardVerbWords('ask').label, 'Ask for a quote');
   assert.match(VERBS, /const ask = cardVerbWords\('ask'\);/);
   assert.match(VERBS, /<ActionButton tone=\{ask\.tone\} main icon=\{MessageCircle\} label=\{ask\.label\} disabled=\{busy\} onClick=\{onInquire\} \/>/);
-  assert.match(VERBS, /<ActionButton tone="neutral" icon=\{Bookmark\} label=\{MORE_TO_COMPARE_SAVE\} disabled=\{busy\} onClick=\{onSave\} \/>/);
+  /* 🚫 "SAVE" IS RETIRED HERE TOO (owner 2026-10-07: "Save is retired because the marketplace now sits on the page").
+     This test used to PIN the second button — so the Find rows lost theirs and these cards, the same marketplace
+     under an open category, kept it (the merged copy's walk, 2026-10-11, M17). Exactly one control in the row. */
+  assert.equal((VERBS.match(/<ActionButton\b/g) ?? []).length, 1, 'a "More to compare" card offers something besides the one ask');
+  assert.doesNotMatch(VERBS, /Bookmark|onSave|MORE_TO_COMPARE_SAVE/, 'Save is back on a "More to compare" card');
+  assert.doesNotMatch(BENCH, /MORE_TO_COMPARE_SAVE|\bBookmark\b/, 'the bench still carries the Save word or its icon');
+  /* Asking still KEEPS them — the save is inside the ask, not a button. */
+  assert.match(BENCH, /const inquireFromMore = async \(v: CategoryVendorResult\) => \{\s*const vendorId = await saveFromMore\(v\);/);
   assert.equal((VERBS.match(/\bmain\b/g) ?? []).length, 1, 'two main verbs on one card');
   for (const [name, body] of [['the card', CARD], ['its verb row', VERBS], ['the list', LIST]] as const) {
     assert.ok(!/<button\b/.test(body), `a hand-made button in ${name}`);
@@ -169,7 +175,7 @@ test('the verbs follow the button rule: one row, Ask for a quote is the main ver
   assert.match(VERBS, /const rowRef = useRef<HTMLDivElement>\(null\);\s*useFitRow\(rowRef\);/);
   assert.match(VERBS, /<div ref=\{rowRef\} className="verbs" data-compare-verbs="">/);
   assert.ok(!/useFitRow/.test(CARD), 'the card fits a row it only sometimes draws');
-  assert.match(CARD, /<CompareVerbs busy=\{busy\} onSave=\{onSave\} onInquire=\{onInquire\} \/>/);
+  assert.match(CARD, /<CompareVerbs busy=\{busy\} onInquire=\{onInquire\} \/>/);
 });
 
 test('the sort is the bench’s ONE dropdown, and the full sheet is still one tap away', () => {

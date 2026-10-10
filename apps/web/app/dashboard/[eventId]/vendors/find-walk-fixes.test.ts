@@ -59,9 +59,11 @@ test('1 · every button in the bench is ONE height — 40 px, link or button', (
   assert.match(GLOBALS, /\n\.ab \{[^}]*\bheight: 40px;/, 'ActionButton is no longer a 40 px pill');
   assert.match(
     BENCH,
-    /\n\.slcat \.ab\{min-height:40px\}/,
-    'a <button> ActionButton in the bench is 44 px tall again beside a 40 px link',
+    /\n\.slcat \.ab\{min-height:44px\}\n\.slcat \.ab\.icon-only\{width:44px\}/,
+    'a link ActionButton in the bench is 40 px tall again beside a 44 px <button> — or both are back under the 44 px a tap needs',
   );
+  /* …and never settled DOWN again (the merged copy's walk, 2026-10-11, M18 · M25: every one measured 40). */
+  assert.doesNotMatch(BENCH, /\.ab\{min-height:40px\}/);
 });
 
 test('2 · the pinned block and the pinned category head travel WITH the top bar', () => {

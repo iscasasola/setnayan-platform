@@ -12,8 +12,7 @@ import { ChevronRight, Star } from 'lucide-react';
 import { formatPhpRounded } from '@/lib/php';
 import { formatCount } from '@/lib/format-number';
 import type { CategoryVendorResult } from '../../_actions/category-search';
-import { ContactShortlistVendorButton } from '../../_components/contact-shortlist-vendor-button';
-import { SaveToBenchButton, ShowFartherButton } from './find-supplier-controls';
+import { FindAskButton, SaveToBenchButton, ShowFartherButton } from './find-supplier-controls';
 
 export type FindSupplierRow = Pick<
   CategoryVendorResult,
@@ -94,13 +93,7 @@ export function FindSupplierList({
                     tile={tile}
                     initiallySaved={r.alreadyAdded}
                   />
-                  <ContactShortlistVendorButton
-                    eventId={eventId}
-                    vendorProfileId={r.vendorProfileId}
-                    label="Ask for a quote"
-                    wrapperClassName=""
-                    className="inline-flex items-center justify-center gap-1.5 rounded-md border border-mulberry/30 bg-mulberry/5 px-3 py-2 text-[12.5px] font-semibold text-mulberry transition-colors hover:bg-mulberry/10 disabled:opacity-60"
-                  />
+                  <FindAskButton eventId={eventId} vendorProfileId={r.vendorProfileId} tile={tile} />
                 </>
               )}
             </div>

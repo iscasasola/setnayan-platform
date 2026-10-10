@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "64746f064",
+  "generatedFromRef": "ecd395d5c",
   "routeCount": 431,
   "destinations": 955,
   "actions": 673,
-  "blocks": 5984,
+  "blocks": 5991,
   "routes": {
     "/": {
       "files": [
@@ -9102,6 +9102,7 @@
         "ServicesTakeover",
         "SetnayanGiftLine",
         "Sheet",
+        "SheetCtaRow",
         "SheetDoor",
         "SheetDoorCtx.Provider",
         "ShortlistCategories",
@@ -9283,6 +9284,7 @@
     "/dashboard/[eventId]/vendors/categories": {
       "files": [
         "dashboard/[eventId]/vendors/categories/_components/find-supplier-controls.tsx",
+        "dashboard/[eventId]/vendors/categories/_components/find-supplier-list.tsx",
         "dashboard/[eventId]/vendors/categories/loading.tsx",
         "dashboard/[eventId]/vendors/categories/page.tsx"
       ],
@@ -9294,13 +9296,17 @@
         "base"
       ],
       "blocks": [
-        "ContactShortlistVendorButton",
+        "ActionButton",
+        "FindAskButton",
+        "FindFartherAway",
         "FindFilterMenu",
+        "FindSupplierList",
         "Link",
         "ListPageSkeleton",
         "PageMasthead",
         "PickMenu",
         "SaveToBenchButton",
+        "ShowFartherButton",
         "Suspense"
       ]
     },
@@ -10186,6 +10192,8 @@
         "CategoryVendorResult",
         "DatePlaceLine",
         "EventVendorRowInput",
+        "FindFartherAway",
+        "FindSupplierList",
         "InspectorLayout",
         "LabBench",
         "MoreRowStandInCtx.Provider",

@@ -271,3 +271,44 @@ test('🔑 the count and the date are the hide\'s own, and they reach the page',
     assert.doesNotMatch(readFileSync(join(WEB, f), 'utf8'), /Every supplier here is booked|CONTROLLER'S WORDING/i, f);
   }
 });
+
+// ── ONE VERB, ONE BUTTON (2026-10-11) ─────────────────────────────────────
+// "Ask for a quote" on a Find row was an older hand-styled pill; on the
+// supplier sheet it is the button rule's ActionButton, main. The prototype
+// draws the row's button by the same rule: ib('chat','Ask for a quote',…,'main').
+const SHEET_SRC = read('app/dashboard/[eventId]/vendors/_components/supplier-sheet.tsx');
+const fnSlice = (src: string, name: string) => {
+  const start = src.indexOf(`export function ${name}(`);
+  assert.ok(start >= 0, `${name} moved`);
+  const next = src.indexOf('\nexport function ', start + 1);
+  return src.slice(start, next < 0 ? undefined : next);
+};
+
+test('🔑 "Ask for a quote" on a Find row is the same button the sheet uses — the rule\'s main ActionButton', () => {
+  const ask = fnSlice(CONTROLS, 'FindAskButton');
+  // Same component, same tone source, same icon, main — on both.
+  const button = /<ActionButton\s*tone=\{quote\.tone\}\s*main\s*icon=\{MessageCircle\}\s*label=\{(?:busy|pending) \? 'Asking…' : quote\.label\}\s*disabled=\{(?:busy|pending)\}/;
+  assert.match(ask, button, 'the Find row\'s ask is not the rule\'s main button');
+  assert.match(SHEET_SRC, button, 'the sheet\'s ask changed — the two are no longer one button');
+  for (const src of [ask, SHEET_SRC]) assert.match(src, /const quote = cardVerbWords\('ask'\);/);
+  // The row draws it once, for near and farther rows alike (one list component).
+  assert.equal((LIST.match(/<FindAskButton /g) ?? []).length, 1);
+  // No hand-styled pill is left for that verb on this page.
+  for (const src of [LIST, CONTROLS, read(FIND)]) {
+    assert.doesNotMatch(src, /ContactShortlistVendorButton/, 'the older pill is still drawn on Find');
+    assert.doesNotMatch(src, /label="Ask for a quote"/, 'a second, hand-worded "Ask for a quote"');
+    assert.doesNotMatch(src, /border-mulberry\/30 bg-mulberry\/5/, 'the hand-styled pill\'s classes are still here');
+  }
+});
+
+test('🔑 asking saves: the press files the supplier under the category on screen, then opens the one inquiry', () => {
+  const ask = fnSlice(CONTROLS, 'FindAskButton');
+  assert.match(ask, /fd\.set\('event_id', eventId\);/, 'the save can land in another event');
+  assert.match(ask, /fd\.set\('tile', tile\);/, 'the supplier is filed under their first card, not the category being browsed');
+  const save = ask.indexOf('await saveVendorToPicks(fd)');
+  const contact = ask.indexOf('await contactShortlistVendor({ eventId, vendorId: saved.eventVendorId })');
+  assert.ok(save > 0 && contact > save, 'the inquiry is opened before the supplier is on the list');
+  // A refused save sends nothing, and says which refusal it was.
+  assert.match(ask.slice(save, contact), /if \(saved\.status !== 'ok' && saved\.status !== 'already_saved'\) \{[\s\S]*?return;\s*\}/);
+  assert.equal((ask.match(/contactShortlistVendor\(/g) ?? []).length, 1);
+});

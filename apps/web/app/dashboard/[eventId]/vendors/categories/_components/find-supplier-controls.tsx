@@ -17,7 +17,16 @@
  */
 import { useState, useTransition } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Bookmark, Check } from 'lucide-react';
+import { Bookmark, Check, MessageCircle } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { cardVerbWords } from '@/lib/supplier-card-verbs';
+import { haptic } from '@/lib/haptics';
+import {
+  INLINE_MORE_NOT_YOUR_EVENT,
+  INLINE_MORE_SAVE_FAILED,
+  INLINE_MORE_SIGNED_OUT,
+} from '@/lib/explore-info-copy';
+import { contactShortlistVendor } from '../../_actions/contact-shortlist-vendor';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { saveVendorToPicks } from '@/app/(shell)/explore/actions';
 import { FIND_FILTERS, parseFindFilter } from '@/lib/supplier-find';
@@ -129,5 +138,96 @@ export function ShowFartherButton({ href }: { href: string }) {
     >
       {pending ? 'Finding suppliers farther away…' : 'Show suppliers farther away'}
     </button>
+  );
+}
+
+/**
+ * "Ask for a quote" on a Find row — ONE VERB, ONE BUTTON (2026-10-11). It is
+ * the button rule's `ActionButton`, `main`, the same icon and tone the supplier
+ * sheet's ask wears (`cardVerbWords('ask')`) and the prototype draws on this row
+ * (`ib('chat','Ask for a quote',…,'main')`). The row used to carry an older
+ * hand-styled pill for the same verb.
+ *
+ * ASKING SAVES. The press first files the supplier on the couple's list under
+ * the category being browsed (`saveVendorToPicks` with the event and the
+ * `tile` — the card of theirs IN this category, not their first card), then
+ * opens the one inquiry on that row (`contactShortlistVendor`). The same two
+ * steps, in the same order, as "More to compare" on the Suppliers page and the
+ * supplier sheet — so nothing here needs a supplier to have been saved first.
+ */
+export function FindAskButton({
+  eventId,
+  vendorProfileId,
+  tile,
+}: {
+  eventId: string;
+  vendorProfileId: string;
+  tile: string;
+}) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const quote = cardVerbWords('ask');
+
+  const ask = () => {
+    haptic('confirm');
+    setError(null);
+    const fd = new FormData();
+    fd.set('vendor_profile_id', vendorProfileId);
+    fd.set('event_id', eventId);
+    fd.set('tile', tile);
+    startTransition(async () => {
+      try {
+        const saved = await saveVendorToPicks(fd);
+        if (saved.status !== 'ok' && saved.status !== 'already_saved') {
+          setError(
+            saved.status === 'not_signed_in'
+              ? INLINE_MORE_SIGNED_OUT
+              : saved.status === 'not_your_event'
+                ? INLINE_MORE_NOT_YOUR_EVENT
+                : INLINE_MORE_SAVE_FAILED,
+          );
+          return;
+        }
+        const res = await contactShortlistVendor({ eventId, vendorId: saved.eventVendorId });
+        if (res.status === 'ok') {
+          router.push(`/dashboard/${res.eventId}/messages/${res.threadId}`);
+          return;
+        }
+        if (res.status === 'not_signed_in') {
+          router.push('/login');
+          return;
+        }
+        if (res.status === 'not_marketplace' || res.status === 'no_event') {
+          setError("This supplier can't be messaged here.");
+          return;
+        }
+        if (res.status === 'not_secured') {
+          setError('Save your account first to message this supplier.');
+          return;
+        }
+        setError(res.status === 'error' ? res.message : 'Could not open the conversation.');
+      } catch {
+        setError('Could not open the conversation.');
+      }
+    });
+  };
+
+  return (
+    <span className="inline-flex flex-col" data-find-ask="">
+      <ActionButton
+        tone={quote.tone}
+        main
+        icon={MessageCircle}
+        label={pending ? 'Asking…' : quote.label}
+        disabled={pending}
+        onClick={ask}
+      />
+      {error ? (
+        <span role="alert" className="mt-1 text-[11px] text-danger-700">
+          {error}
+        </span>
+      ) : null}
+    </span>
   );
 }

@@ -29,7 +29,8 @@ import {
   pinLogoFaceWeight,
   type OtFace,
 } from './logo-fonts';
-import { LOGO_FRAME, LOGO_SLIDER_SNAP, sanitizeLogoLayers, snapSliderToCentre } from './logo-layers';
+import { LOGO_FRAME, sanitizeLogoLayers } from './logo-layers';
+import { LOGO_SLIDER_SNAP, snapSliderToCentre } from './logo-layers-edit';
 
 const ROOT = join(__dirname, '..');
 const EDITOR = 'app/dashboard/[eventId]/launch/_components/maker-logo.tsx';

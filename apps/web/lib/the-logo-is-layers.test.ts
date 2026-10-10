@@ -31,30 +31,32 @@ import { sanitizeStudioConfig, sanitizeStudioSvg } from './monogram-studio-share
 import { HUB_DRAFT_LOGO_MAX_BYTES } from './hub-draft';
 import {
   LOGO_FRAME,
+  defaultMotion,
+  isLayeredLogo,
+  sanitizeLogoLayers,
+  writeMaskMarkup,
+  writeRevealCells,
+  writeRevealPlan,
+  revealLayersAt,
+  logoInSeconds,
+  LOGO_WRITE_MAX_PTS,
+  type LogoLayer,
+} from './logo-layers';
+import {
   clampToFrame,
   composeLogoSvg,
-  defaultMotion,
   effectiveIn,
   frameBody,
-  isLayeredLogo,
   layersFromSaved,
   metaOf,
   moveLayer,
   parseLogoSvg,
   retimeLayers,
-  sanitizeLogoLayers,
   snapInFrame,
   svgAsLayerBody,
-  writeMaskMarkup,
-  writeRevealCells,
-  writeRevealPlan,
-  revealLayersAt,
   writePartPassages,
   reversedWrite,
-  logoInSeconds,
-  LOGO_WRITE_MAX_PTS,
-  type LogoLayer,
-} from './logo-layers';
+} from './logo-layers-edit';
 
 const ROOT = join(__dirname, '..');
 const read = (rel: string) => readFileSync(join(ROOT, rel), 'utf8');

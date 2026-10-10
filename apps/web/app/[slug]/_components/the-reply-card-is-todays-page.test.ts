@@ -29,7 +29,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { renderReplyCard, replyCardCases } from './reply-card-fixture';
+import { renderReplyCard, replyCardCases } from '@/lib/reply-card.fixture';
 
 const GOLDEN = join(__dirname, 'the-reply-card-is-todays-page.golden.json');
 const sha = (s: string) => createHash('sha256').update(s).digest('hex');

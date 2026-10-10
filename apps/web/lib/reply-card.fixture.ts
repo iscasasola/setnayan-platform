@@ -1,6 +1,8 @@
 /**
  * 🧾 THE REPLY CARD, RENDERED FOR A TEST — the fixtures and the harness the reply card's render tests share
- * (`the-reply-card-is-todays-page.test.ts` and the tests of the card's lines). Not a test, not app code.
+ * (`app/[slug]/_components/the-reply-card-is-todays-page.test.ts` and the tests of the card's lines). Not a test, not
+ * app code — and so it lives HERE, with the other fixtures, not in the guest tree: every file under `app/[slug]` that
+ * is not a test is read as a page a guest is served (`s13-is-finished.test.ts` found this file's sample wedding there).
  *
  * 🪤 Importing this file sets up the harness (as `every-scene-style-draws.test.ts` does it): `globalThis.React`
  * before the DYNAMIC import of the widget (`"jsx": "preserve"`), `server-only` stubbed so the real server-action
@@ -82,6 +84,6 @@ export function replyCardCases(): Array<[string, Case]> {
 }
 
 export async function renderReplyCard(props: Case): Promise<string> {
-  const { RsvpWidget } = await import('./rsvp-widget');
+  const { RsvpWidget } = await import('../app/[slug]/_components/rsvp-widget');
   return renderToStaticMarkup(h(RsvpWidget as never, props as never));
 }

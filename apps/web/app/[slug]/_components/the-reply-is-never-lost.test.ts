@@ -28,7 +28,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { BASE, doorAction, renderReplyCard } from './reply-card-fixture';
+import { BASE, doorAction, renderReplyCard } from '@/lib/reply-card.fixture';
 import {
   RSVP_ADDED_MAX,
   RSVP_GROUPS_MAX,

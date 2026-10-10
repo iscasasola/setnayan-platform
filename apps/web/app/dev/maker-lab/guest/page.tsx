@@ -27,6 +27,7 @@ import { RsvpCanvasBridge } from '@/app/[slug]/_components/rsvp-canvas-bridge';
 import { BLOCK_LOOKS_STYLE_ATTR, BLOCK_MARK_ATTR, blockLooksCss, readBlockLooks } from '@/lib/block-looks';
 import { RsvpLookStyle } from '@/app/[slug]/_components/rsvp-look-style';
 import { RsvpWidget } from '@/app/[slug]/_components/rsvp-widget';
+import { submitInviteReply } from '@/app/[slug]/invite/actions';
 import { RsvpSheet } from '@/app/[slug]/_components/rsvp-sheet';
 import { RsvpNoteLines } from '@/app/[slug]/_components/rsvp-note-lines';
 import type { GuestRow } from '@/app/[slug]/_lib/types';
@@ -99,10 +100,13 @@ const LAB_GUEST = {
   photo_url: null,
 } as unknown as GuestRow;
 
-/** The lab's reply goes nowhere (and the canvas's bridge stops every send before it is one). */
-async function labReply(): Promise<void> {
-  'use server';
-}
+/**
+ * The Reply door's own save, as `invite/reply` hands it to the card — for nobody's event and nobody's guest. On the
+ * Maker's canvas the bridge stops every send before it is one; this is here so the card is drawn as the DOOR draws it
+ * (a card inside a door: no letterpress head of its own). A save of the lab's own that read nothing was a real
+ * finding of the Root map ("sends rsvp_status, but labReply never reads it") — so it is the real one, not a stand-in.
+ */
+const labReply = submitInviteReply.bind(null, 'lab', 'lab-guest');
 
 /**
  * `?look=<json>` — a stored `rsvp_ask_config.look` to draw the lab's reply screens with, as the SERVER draws a guest's

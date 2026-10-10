@@ -245,12 +245,13 @@ export function CookieConsentBanner() {
           <p>
             We use essential cookies to run Setnayan, and optional analytics to
             improve it.{' '}
-            {/* ≥40px tap height via padding + a matching negative margin, so
+            {/* A full 44px tap height via padding + a matching negative margin, so
                 the hit area grows without the inline text visually shifting
-                (mobile audit item 1). Same trick as the footer links below. */}
+                (mobile audit item 1; 40px until 2026-10-11, when the guest walk
+                measured it under the 44px rule). Same trick as the links below. */}
             <Link
               href="/cookies"
-              className="inline-flex min-h-[40px] items-center py-2.5 -my-2.5 text-terracotta hover:underline"
+              className="inline-flex min-h-[44px] items-center py-3 -my-3 text-terracotta hover:underline"
             >
               Cookie policy
             </Link>
@@ -274,7 +275,7 @@ export function CookieConsentBanner() {
             <button
               type="button"
               onClick={() => setManage(true)}
-              className="min-h-[40px] px-2 py-1.5 text-xs text-ink/55 hover:text-ink"
+              className="min-h-[44px] px-2 py-1.5 text-xs text-ink/55 hover:text-ink"
             >
               Manage
             </button>
@@ -303,7 +304,7 @@ export function CookieConsentBanner() {
           <div className="mt-3 flex items-center justify-end gap-2">
             <Link
               href="/cookies"
-              className="inline-flex min-h-[40px] items-center px-2 py-1.5 text-xs text-ink/55 hover:text-ink"
+              className="inline-flex min-h-[44px] items-center px-2 py-1.5 text-xs text-ink/55 hover:text-ink"
             >
               Learn more
             </Link>

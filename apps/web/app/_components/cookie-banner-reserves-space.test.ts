@@ -95,7 +95,7 @@ test('the OLD floating-card position is gone — it must not silently come back'
   assert.match(SRC, /\binset-x-0\b/, 'the mobile banner is no longer edge-to-edge');
 });
 
-test('the Cookie policy link and the Manage / Learn more controls clear 40px', () => {
+test('the Cookie policy link and the Manage / Learn more controls are full 44px tap targets', () => {
   // Matched at the TAG BOUNDARY (opening `<Link …>` or `<button …>` directly
   // followed by the label text) rather than a bare substring — `RAW.indexOf`
   // on "Manage" finds `setManage` first, which is not the control at all.
@@ -108,10 +108,12 @@ test('the Cookie policy link and the Manage / Learn more controls clear 40px', (
   for (const label of ['Cookie policy', 'Manage', 'Learn more']) {
     const m = new RegExp(`<(Link|button)((?:[^>]|=>)*)>\\s*${label}`).exec(RAW);
     assert.ok(m, `could not find the "${label}" control at its tag boundary`);
+    // 44, not 40 (2026-10-11): the guest walk measured "Manage" at 58 × 40 and
+    // "Cookie policy" at 86 × 40 — under the owner's 44 × 44 rule.
     assert.match(
       m![2]!,
-      /min-h-\[40px\]/,
-      `"${label}"'s opening tag has no min-h-[40px] — it is a sub-40px tap ` +
+      /min-h-\[44px\]/,
+      `"${label}"'s opening tag has no min-h-[44px] — it is a sub-44px tap ` +
         'target again',
     );
   }

@@ -89,6 +89,7 @@ import {
   isHubDraftIntent,
   isHubResetScope,
   mergeHubDraft,
+  heldStageShow,
   planHubDraftApply,
   presetSceneOf,
   undoHubDraft,
@@ -107,7 +108,7 @@ import { writePaletteFill, type PaletteFillClient } from '@/lib/palette-fill-wri
 import { HUB_DRAFT_BAR_FIELD } from '@/lib/maker-refresh';
 import { hubDraftProEffects } from '@/lib/hub-pro-effects';
 import { HUB_MAIN_GROUND_KEY, isHubMainOwn, sanitizeHubCanvas, type HubMainGround, type HubMainOwn, type HubSectionCanvas } from '@/lib/hub-canvas';
-import { STAGE_ORDER_KEY, STD_LEAD_KEY } from '@/lib/stage-scenes';
+import { STAGE_ORDER_KEY, STAGE_SHOW_KEY, STD_LEAD_KEY } from '@/lib/stage-scenes';
 import { HUB_MUSIC_KEY } from '@/lib/hub-music-button';
 import { SCENE_BACKGROUND_FOLDER, stdBackgroundUploadRef } from '@/lib/scene-media-choices';
 import { isStdLibrarySrc } from '@/lib/std-backgrounds';
@@ -859,6 +860,8 @@ export async function hubDraftAction(
                 ? HUB_MUSIC_KEY
               : item.field === 'stage_order'
                 ? STAGE_ORDER_KEY
+                : item.field === 'stage_show'
+                  ? STAGE_SHOW_KEY
                 : item.field === 'std_lead'
                   ? STD_LEAD_KEY
                   : item.field === 'custom'
@@ -977,6 +980,9 @@ export async function hubDraftAction(
       } else if (item.field === 'is_visible') {
         // 🎬 A scene of their own, held for Pro, stays SHOWN in the draft.
         (remaining.widgets[item.widgetType] ??= {}).is_visible = item.value as boolean;
+      } else if (item.field === 'stage_show') {
+        // 👁 …and on the stages it was set to show on.
+        (remaining.widgets[item.widgetType] ??= {}).stage_show = heldStageShow(item.value);
       } else if (item.field === 'custom') {
         // ✍ Its words, held for Pro, stay in the draft too.
         (remaining.widgets[item.widgetType] ??= {}).custom = item.value as CustomSectionContent | null;

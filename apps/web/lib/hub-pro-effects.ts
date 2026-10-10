@@ -32,6 +32,7 @@
 import { WIDGET_PHASES, type LifecyclePhase, type WidgetType } from '@/lib/invitation-widgets';
 import { MAKER_TOOL_EDITOR_NAME, makerSceneLabel, type MakerFixedKey } from '@/lib/maker-scene-list';
 import { PUBLIC_STAGE_ORDER } from '@/lib/public-site-stage-labels';
+import { STAGE_SHOW_KEY, configWithStageShow } from '@/lib/stage-scenes';
 import { SCENE_TEMPLATES } from '@/lib/scene-templates';
 import { sanitizeCustomSection } from '@/lib/custom-sections';
 import { HUB_ELEMENT_LABEL, type HubElementKey } from '@/lib/element-style';
@@ -41,6 +42,7 @@ import {
   canvasFacetGrows,
   canvasLookFacets,
   canvasWithoutFacet,
+  heldStageShow,
   planHubDraftApply,
   rsvpAskFreePart,
   rsvpAskFreePartMoves,
@@ -265,7 +267,7 @@ export function hubDraftProEffects(draft: HubDraftState, live: HubLiveState, own
       });
       continue;
     }
-    if (item.field === 'mode' || item.field === 'is_visible') {
+    if (item.field === 'mode' || item.field === 'is_visible' || item.field === 'stage_show') {
       /* 🎬 Owner 2026-09-28 (via the controller): *"they can Add. only pay when
          apply is tirggered"* — named "Added scene · <its template>", the name
          the couple picked it by in the 25-template sheet. */
@@ -284,7 +286,15 @@ export function hubDraftProEffects(draft: HubDraftState, live: HubLiveState, own
         jump: { kind: 'scene', widgetId: item.widgetId, widgetType: item.widgetType, tab: 'content', stages: preset ? ['editorial'] : stages, ...fixedOf(item.widgetType) },
         remove: {
           widgets: {
-            [item.widgetType]: { mode: row?.mode ?? 'auto', is_visible: row?.is_visible ?? true },
+            [item.widgetType]: {
+              mode: row?.mode ?? 'auto',
+              is_visible: row?.is_visible ?? true,
+              /* 👁 A scene shown stage by stage goes back stage by stage: each to
+                 what is live. Only when the draft holds such a choice. */
+              ...(draft.widgets[item.widgetType]?.stage_show
+                ? { stage_show: heldStageShow(configWithStageShow(row?.config_json, {})[STAGE_SHOW_KEY]) }
+                : {}),
+            },
           } as HubDraftPatch['widgets'],
         },
       });

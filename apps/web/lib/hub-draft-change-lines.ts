@@ -20,7 +20,8 @@
 import { CAMERA_LOOK_LABEL } from '@/lib/camera-look';
 import { WIDGET_CATALOG_BY_TYPE, WIDGET_PHASES, type WidgetType } from '@/lib/invitation-widgets';
 import { makerSceneLabel } from '@/lib/maker-scene-list';
-import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
+import { PUBLIC_STAGE_LABELS, PUBLIC_STAGE_ORDER } from '@/lib/public-site-stage-labels';
+import { STAGE_SHOW_KEY, sanitizeStageShow } from '@/lib/stage-scenes';
 import { LOOK_PART_LABEL, LOOK_SECTION_LABEL } from '@/lib/maker-look-sections';
 import { sanitizeHubCanvas, type HubSectionCanvas } from '@/lib/hub-canvas';
 import {
@@ -151,6 +152,24 @@ function canvasWhat(liveConfig: unknown, next: unknown): string {
   return words.length === 0 ? 'Look' : words.slice(0, 2).join(', ');
 }
 
+/**
+ * 👁 What a per-stage choice changed, stage by stage, in the stages' own order:
+ * "Shown on Save the Date", "Hidden on The Day", and "Our pick on Post Event"
+ * for a choice taken back. `next` is the whole merged key Apply writes.
+ */
+export function stageShowWhat(liveConfig: unknown, next: unknown): string {
+  const was = sanitizeStageShow(isPlainObjectValue(liveConfig) ? liveConfig[STAGE_SHOW_KEY] : null) ?? {};
+  const now = sanitizeStageShow(next) ?? {};
+  const words: string[] = [];
+  for (const st of PUBLIC_STAGE_ORDER) {
+    const a = was[st] ?? null;
+    const b = now[st] ?? null;
+    if (a === b) continue;
+    words.push(`${b === true ? 'Shown' : b === false ? 'Hidden' : 'Our pick'} on ${PUBLIC_STAGE_LABELS[st]}`);
+  }
+  return words.length > 0 ? words.join(', ') : 'Shown or hidden';
+}
+
 /** One draft item → where · what. Exhaustive over the item kinds and widget fields. */
 export function hubDraftChangePlace(item: HubDraftItem, live: HubLiveState): { place: string; what: string } {
   switch (item.kind) {
@@ -217,6 +236,12 @@ export function hubDraftChangePlace(item: HubDraftItem, live: HubLiveState): { p
         case 'mode':
         case 'is_visible':
           return { place, what: 'Shown or hidden' };
+        case 'stage_show': {
+          /* 👁 Per stage (owner 2026-10-10, "WHAT GUESTS SEE"): the line names each
+             stage that moved and which way — "Hidden on The Day". */
+          const row = live.widgets.find((r) => r.widget_id === item.widgetId);
+          return { place, what: stageShowWhat(row?.config_json, item.value) };
+        }
         case 'display_order':
         case 'stage_order':
           return { place, what: 'Order' };

@@ -49,6 +49,16 @@
  * reads this table's order; a scene with no saved place (one added later) goes
  * after the placed ones.
  *
+ * 👁 SHOWN OR HIDDEN, PER STAGE (owner 2026-10-10, DECISION_LOG "WHAT GUESTS SEE":
+ * *"give them freedom to pick what they want to add. but have our recommendation
+ * as the checked one"*). Beside its place, a section's row may carry
+ * `config_json.stage_show[stage]`: `false` = the couple hid it on that stage,
+ * `true` = the couple shows it on that stage — over the event-wide eye, and on a
+ * stage this table would leave it out of. No entry for a stage = this table and
+ * the event-wide eye decide, exactly as before. The table is now OUR PICK, not a
+ * limit. Stored and read here; WHAT it decides is one function,
+ * `sceneOnStage` in `lib/what-guests-see.ts`.
+ *
  * 🎞 SAVE THE DATE: FILM OR PHOTOS (same ruling). The couple picks which one
  * leads: `config_json.std_lead` on the gallery's own row (`our_photos`),
  * 'film' | 'photos'. Unset → the film where this kind of event has one,
@@ -106,6 +116,49 @@ export function configWithStageOrder(
   }
   if (Object.keys(merged).length > 0) base[STAGE_ORDER_KEY] = merged;
   else delete base[STAGE_ORDER_KEY];
+  return base;
+}
+
+/** The `config_json` key holding the couple's per-stage shown / hidden choice. */
+export const STAGE_SHOW_KEY = 'stage_show';
+
+/**
+ * A section's per-stage choices — only well-formed ones (`true` / `false`).
+ * `null` for a stage is kept (it means "back to our pick for this stage") so a
+ * draft can carry it to Apply; `stageShown` reads it as "no choice".
+ */
+export function sanitizeStageShow(raw: unknown): Partial<Record<LifecyclePhase, boolean | null>> | null {
+  if (!isPlain(raw)) return null;
+  const out: Partial<Record<LifecyclePhase, boolean | null>> = {};
+  for (const st of STAGES) {
+    if (!(st in raw)) continue;
+    const v = raw[st];
+    if (v === null || typeof v === 'boolean') out[st] = v;
+  }
+  return Object.keys(out).length > 0 ? out : null;
+}
+
+/** The couple's choice for this row on `stage`: `true` shown, `false` hidden, `null` none (our pick decides). */
+export function stageShown(config: unknown, stage: LifecyclePhase): boolean | null {
+  if (!isPlain(config)) return null;
+  const v = sanitizeStageShow(config[STAGE_SHOW_KEY])?.[stage];
+  return typeof v === 'boolean' ? v : null;
+}
+
+/** `config_json` with these per-stage choices merged in (null removes one); every sibling key kept. */
+export function configWithStageShow(
+  config: unknown,
+  shows: Partial<Record<LifecyclePhase, boolean | null>>,
+): Record<string, unknown> {
+  const base = isPlain(config) ? { ...config } : {};
+  const now = sanitizeStageShow(base[STAGE_SHOW_KEY]) ?? {};
+  const merged: Record<string, boolean> = {};
+  for (const st of STAGES) {
+    const v = st in shows ? shows[st] : now[st];
+    if (typeof v === 'boolean') merged[st] = v;
+  }
+  if (Object.keys(merged).length > 0) base[STAGE_SHOW_KEY] = merged;
+  else delete base[STAGE_SHOW_KEY];
   return base;
 }
 

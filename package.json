@@ -23,6 +23,7 @@
     "migration:doctor": "node scripts/migration-doctor.mjs",
     "deploy:drift-doctor": "node scripts/deploy-drift-doctor.mjs",
     "db:push": "node scripts/db-push-guard.mjs",
+    "preflight": "node scripts/preflight.mjs",
     "prepare": "node scripts/setup-git-hooks.mjs"
   },
   "devDependencies": {

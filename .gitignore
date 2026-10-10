@@ -134,6 +134,11 @@ apps/web/test-results/
 apps/web/playwright-report/
 apps/web/playwright/.cache/
 
+# `pnpm preflight` writes a throwaway one-project tsconfig beside the real one
+# for its targeted compile, and removes it. If the run is killed -9 the file is
+# left behind — it must never be committed, and must never count as a change.
+apps/web/tsconfig.preflight-*.json
+
 # Supabase
 supabase/.branches/
 supabase/.temp/

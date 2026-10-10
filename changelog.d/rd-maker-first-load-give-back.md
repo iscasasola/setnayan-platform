@@ -12,4 +12,12 @@ that only the lazy files import, so the Maker's first download no longer carries
   (now exported) because the player half needs them too. Source gz: `logo-layers.ts` 18,830 B →
   13,468 B; new file 6,957 B.
 
+- **Move 2 — the page-colour builders → `lib/site-palette-vars.ts`** (`buildSitePaletteVars`,
+  `moodBoardSiteColours` and the helpers only they use: `hubPool`, `gildFromPool`, the gild/veil
+  fallbacks). `lib/site-palette.ts` is first-load only for `readableTextOn` (`hub-legibility`); the
+  builders are used by `theme-colours` (lazy/server), `icon-source` and tests. A new file rather than
+  `theme-colours.ts` because that file already imports a different `channels`. The shared colour
+  maths (`hexToRgb`, `luminance`, `contrast`, `blend`, …) stays in `site-palette.ts`, now exported.
+  Source gz: `site-palette.ts` 10,689 B -> 7,726 B; new file 4,313 B.
+
 SPEC IMPACT: None

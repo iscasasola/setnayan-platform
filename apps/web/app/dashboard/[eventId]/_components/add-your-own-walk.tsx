@@ -101,7 +101,7 @@ export type AddOwnStandIn = {
 export const AddOwnStandInCtx = createContext<AddOwnStandIn | null>(null);
 
 const FIELD =
-  'w-full rounded-xl border border-ink/15 bg-cream px-3.5 py-3 text-[15px] text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none disabled:opacity-60';
+  'w-full rounded-xl border border-ink/15 bg-cream px-3.5 py-3 text-[15px] text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none disabled:opacity-60'; // no-card-ok: a text field's own shape — this class is only ever put on an <input>
 const LABEL = 'block text-[13px] font-medium text-ink';
 
 export function AddYourOwnWalk({

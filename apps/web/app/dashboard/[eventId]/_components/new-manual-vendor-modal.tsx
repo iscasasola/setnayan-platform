@@ -812,7 +812,7 @@ function RecordLinkBlock({
   }, [eventId, vendorId]);
   if (invite === undefined) {
     return (
-      <p className="rounded-xl border border-ink/10 bg-paper p-3 text-xs text-ink/55">
+      <p className="py-2 text-xs text-ink/55" aria-live="polite">
         Checking for their link…
       </p>
     );

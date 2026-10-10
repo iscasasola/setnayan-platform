@@ -4,18 +4,19 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 /**
- * 🔤 A TITLE LOOK PICKED IN THE MAKER IS DRAWN ON THE PAGE.
+ * 🔤 A TITLE LOOK PICKED IN THE MAKER IS DRAWN ON THE PAGE — ON THE PLAIN MASTHEAD TOO.
  *
- * Measured 2026-10-11 on the page's own scope (375 px): with `data-part-look="eyebrow.serif"` on the Title its
- * computed face was dmMono, 10.56 px, uppercase, 2.96 px tracking — the shipped look, unchanged. The pill kept the
- * eyebrow's dark ink on its dark ground; Flanked's right rule was the eyebrow's own hairline
- * (`hub-walk/maker-fixes/shots/_sheet-title-looks.png`, left four).
+ * Measured 2026-10-11 on the REAL guest page (`renderSiteBodyFixture`, the compiled stylesheet before and after;
+ * `hub-walk/maker-fixes/PART-LOOKS.md`): with a cover photo the Title is the plain masthead's eyebrow, and with
+ * `data-part-look="eyebrow.serif"` its computed face was the mono, 10.56 px, uppercase, 2.96 px tracking — the shipped
+ * look, unchanged. The pill kept the eyebrow's dark ink on its orange ground; Flanked's right rule was the eyebrow's
+ * own hairline. Of 70 part-look rows measured (two covers × Invitation and The Day), these four were the only ones
+ * out-ranked; on The Card (no cover photo) the Title is written as utilities and lost nothing.
  *
- * Why: the Title is the page's eyebrow (`pahina-masthead.tsx`: `<p {...el('eyebrow')} className="pahina-eyebrow …">`),
- * and every guest page stands inside `.sn-editorial` (`guest-look-scope.tsx`). `.sn-editorial .pahina-eyebrow` is
- * (0,2,0); each look was written `html [data-part-look="eyebrow.x"]` — (0,1,1) — and lost every property the two
- * share. (Tailwind's `@layer components` is not a cascade layer in the built sheet: specificity decides.) The Maker
- * lab had drawn its cover outside `.sn-editorial`, so the looks were only ever seen working there.
+ * Why: that Title is `<p {...el('eyebrow')} className="pahina-eyebrow …">` (`pahina-masthead.tsx`), and every guest
+ * page stands inside `.sn-editorial` (`guest-look-scope.tsx`). `.sn-editorial .pahina-eyebrow` is (0,2,0); each look
+ * was written `html [data-part-look="eyebrow.x"]` — (0,1,1) — and lost every property the two share. (Tailwind's
+ * `@layer components` is not a cascade layer in the built sheet: specificity decides.)
  *
  * This holds the ARITHMETIC, on the stylesheet itself: every rule of every Title look out-ranks the eyebrow rule it
  * shares an element with.
@@ -63,6 +64,9 @@ test('the arithmetic is right: the worked examples from the docblock', () => {
 
 test('the Title is the page’s eyebrow, so the eyebrow’s rules are the ones a look must out-rank', () => {
   assert.match(MASTHEAD, /<p \{\.\.\.el\('eyebrow'\)\} className="pahina-eyebrow[^"]*">/);
+  /* …and it is the ONLY Title written as the eyebrow: The Card and designs 2 · 3 · 4 write theirs as utilities. */
+  assert.equal((MASTHEAD.match(/\{\.\.\.el\('eyebrow'\)\} className="pahina-eyebrow/g) ?? []).length, 1);
+  assert.ok((MASTHEAD.match(/\{\.\.\.el\('eyebrow'\)\} className="text-xs uppercase/g) ?? []).length >= 4);
   assert.match(CSS, /\.sn-editorial \.pahina-eyebrow \{[^}]*font-family:[^}]*text-transform: uppercase;/);
   assert.match(CSS, /\.sn-editorial \.pahina-eyebrow::after \{[^}]*content: '';/);
 });

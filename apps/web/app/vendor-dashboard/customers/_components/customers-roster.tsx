@@ -244,10 +244,11 @@ export function CustomersRoster({
     <div id="customers" className="scroll-mt-24" data-customers-people="">
       {/* "Waiting first" — the order of the list, and the one dropdown that narrows it. */}
       {total > 0 ? (
-        <p className="home-k2 flex items-center gap-2">
+        /* A <div>, not a <p>: the dropdown's own markup sits inside it. */
+        <div className="home-k2 flex items-center gap-2" data-people-order="">
           Waiting first
           <span className="font-medium normal-case tracking-normal text-ink">{filter}</span>
-        </p>
+        </div>
       ) : null}
 
       {closedLinesUnread ? (

@@ -71,22 +71,27 @@ import { keepParamsFrom } from '../_components/list-pager';
 export const metadata = { title: 'Customers' };
 
 /**
- * /vendor-dashboard/customers — "My Customers".
+ * /vendor-dashboard/customers — Customers: People · Dates · Money.
  *
- * The pipeline home of the 6-menu vendor shell: the vendor's calendar, book of
- * business, and the money coming in — all wired to LIVE, vendor-scoped sources
- * (no hard-coded figures). Sections top→bottom:
- *   1. Filter row (types / services / agents + Heat map toggle + info).
- *   2. Month calendar — the 6-state day taxonomy from vendor_calendar_day_states
- *      + bookings + blocks + the couple waitlist queue.
- *   3. Three summary cards — Ongoing payments (this month), Messages, Service
- *      coverage.
- *   4. Customers list — one row per booked / in-conversation event with a status
- *      pill + a money note.
+ * One page, three views of the same bookings (supplier redesign S-PR2,
+ * 2026-10-10; corpus `SUPPLIER_DASHBOARD_REDESIGN_2026-10-08_fable.md` § 2
+ * "Customers" + § 3; prototype frame 03). The segment is `?seg=`, decided once
+ * by the hub at the bottom of this file (`customersSegment`, `./anchors.ts`).
  *
- * Every number resolves from a real query/RPC. Where a value has no source yet
- * (e.g. the couple's venue when they haven't set one) the row degrades to a
- * clearly-empty state rather than inventing a value.
+ *   PEOPLE (default) — the roster: one hairline row per customer, the ones
+ *     waiting on an answer first; Filter ▾; search + Add in the frosted thumb
+ *     row. Outside clients and kept notes are rows of this same list. REDRAWN.
+ *   DATES — the month calendar (the 6-state day taxonomy + bookings + blocks +
+ *     the waitlist), days-full per service, the QR codes, and the Availability
+ *     fold. The shipped blocks, unchanged, until S-PR3 redraws the segment.
+ *   MONEY — this month's payments, the bookings list, the payday timeline, and
+ *     the Quotes / Contracts folds. The shipped blocks, unchanged, until S-PR4.
+ *
+ * Every number resolves from a real query/RPC — all wired to LIVE,
+ * vendor-scoped sources, no hard-coded figures. Where a value has no source yet
+ * (a couple's venue before they set one) the row leaves it out rather than
+ * inventing one; where a read FAILED the page says so rather than drawing the
+ * empty answer.
  */
 
 type Props = {
@@ -871,7 +876,7 @@ async function CustomersPipeline({ searchParams, seg }: Props) {
     // Glass PR-7: the opaque `--m-paper` body wrapper is dropped — the Atelier
     // wash (`.sn-ambient`, inherited from the shell) shows through the glass tiles.
     <section className="min-h-full">
-      <div className={`mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-6 px-4 sm:px-6 lg:px-8 ${onPeople ? 'pb-36 pt-3 sm:pt-8' : 'py-8 sm:py-10'}`}>
+      <div className={`mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 sm:px-6 lg:px-8 ${onPeople ? 'space-y-1 pb-36 pt-3 sm:pt-8' : 'space-y-6 py-8 sm:py-10'}`}>
         {/*
           PEOPLE · DATES · MONEY — one page, three views of the same bookings
           (S-PR2). The segment is `?seg=`; `customers/anchors.ts` says which

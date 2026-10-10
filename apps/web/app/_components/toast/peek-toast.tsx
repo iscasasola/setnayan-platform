@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Check, Info, TriangleAlert } from 'lucide-react';
 
 /**
@@ -11,7 +11,14 @@ import { Check, Info, TriangleAlert } from 'lucide-react';
  * peek on the bottom of the screen saying deleted is not centered properly"* · on the ink-black "Saved":
  * *"teracota"*.
  *
- *   · WHERE: the top centre of the screen, under the safe area — its words centred, one line, cut with "…";
+ *   · WHERE: the top centre of the screen, under the safe area — its words centred, and READ IN FULL: one line, or
+ *     two when one does not hold them (owner's approved prototype `maker_rsvp_add_drag_group_2026-10-09.html`, `#say`:
+ *     a pill of up to 86 % of the screen whose sentence wraps). Never taller than two lines: a third is cut with "…".
+ *     It was one line, cut — and the half that says what to DO was the half that was lost ("A screen takes up to 4
+ *     added lines. Remov…", the walk of 2026-10-11, M13 · M14);
+ *   · NEVER OVER THE TOP BAR'S BUTTONS: where the screen has a bar of its own at the very top (the Maker's
+ *     ✕ · stage · Studio · ↺ · ✓ — `PEEK_TOAST_UNDER`), the toast peeks out from UNDER that bar (it sat over
+ *     ↺ and ✓ for its three seconds). A screen with no such bar keeps the place it had;
  *   · A GOOD RESULT is the app's accent with a ✓ (`bg-sn-accent` / `text-sn-on-accent` — never a colour written here);
  *   · A FAILURE never looks like success: the house danger token darkened (the app's red sits close to the
  *     terracotta, so colour alone is never the sign), a warning mark, the words that say what failed, and — where the
@@ -52,9 +59,31 @@ export const PEEK_TOAST_SLIDE = 'transform calc(var(--sn-pill-dur) * 0.52) var(-
 
 /** Where it sits: top centre, under the safe area, over everything (it is a notification), taking no tap. */
 export const PEEK_TOAST_PLACE = 'pointer-events-none fixed inset-x-0 top-[calc(12px+env(safe-area-inset-top))] z-[100] flex justify-center px-3';
-/** The pill: 48 px, its words centred on one line. */
+/** The pill: 48 px with one line of words — and as tall as two lines need, never more. Its words are centred. */
 export const PEEK_TOAST_PILL =
-  'flex h-12 max-w-full items-center justify-center gap-3 rounded-full px-[22px] text-center text-[14px] font-medium shadow-[0_14px_30px_-12px_rgba(0,0,0,.5)] motion-reduce:!transition-none';
+  'flex min-h-12 max-w-full items-center justify-center gap-3 rounded-full px-[22px] py-1.5 text-center text-[14px] font-medium leading-[1.25] shadow-[0_14px_30px_-12px_rgba(0,0,0,.5)] motion-reduce:!transition-none';
+/** The words: the whole sentence on one line or two (balanced, so two lines are two halves); a third line is cut. */
+export const PEEK_TOAST_WORDS = 'min-w-0 line-clamp-2 [text-wrap:balance]';
+/**
+ * A screen's OWN top bar — the toast sits under it, never over its buttons. Today: the Maker's toolbar. A screen that
+ * grows a bar of its own at the very top marks it `data-peek-toast-under` and the toast follows.
+ */
+export const PEEK_TOAST_UNDER = '[data-maker-toolbar], [data-peek-toast-under]';
+/** The gap between that bar and the toast. */
+export const PEEK_TOAST_UNDER_GAP = 8;
+
+/**
+ * Where the screen's own top bar ends (0 = it has none): the lowest bottom edge of a marked bar that is DRAWN, starts
+ * at the top of the screen and is a bar (not a sheet that happens to start there). Read once, as the toast is drawn.
+ */
+export function peekToastUnder(doc: Pick<Document, 'querySelectorAll'>): number {
+  let bottom = 0;
+  doc.querySelectorAll(PEEK_TOAST_UNDER).forEach((el) => {
+    const r = (el as Element).getBoundingClientRect();
+    if (r.height > 0 && r.top <= 8 && r.bottom <= 160) bottom = Math.max(bottom, r.bottom);
+  });
+  return Math.round(bottom);
+}
 /** The two looks — the accent for a good result; the danger token, darkened, for a failure. */
 export const PEEK_TOAST_TONE: Readonly<Record<PeekToastTone, string>> = {
   ok: 'bg-sn-accent text-sn-on-accent',
@@ -86,6 +115,9 @@ export function PeekToast({
 }) {
   /* Mounted above the screen, then let down a frame later — so the slide is seen. */
   const [down, setDown] = useState(false);
+  /* Where this screen's own top bar ends — read before the first paint in the browser, so the toast never lands on it. */
+  const [under, setUnder] = useState(0);
+  useLayoutEffect(() => setUnder(peekToastUnder(document)), []);
   /* The caller's latest `onGone`, without restarting the toast's life when its parent re-renders. */
   const gone = useRef(onGone);
   gone.current = onGone;
@@ -104,16 +136,17 @@ export function PeekToast({
   }, [tone, hasAction]);
   const Mark = tone === 'bad' ? TriangleAlert : tone === 'note' ? Info : Check;
   return (
-    <div data-peek-toast={data ?? ''} data-tone={tone} className={PEEK_TOAST_PLACE}>
+    <div data-peek-toast={data ?? ''} data-tone={tone} className={PEEK_TOAST_PLACE} style={under > 0 ? { top: under + PEEK_TOAST_UNDER_GAP } : undefined}>
       <div
         role={tone === 'bad' ? 'alert' : 'status'}
         aria-live={action ? 'polite' : undefined}
         data-down={down}
-        style={{ transform: down ? 'translateY(0)' : 'translateY(calc(-100% - 12px - env(safe-area-inset-top) - 24px))', transition: PEEK_TOAST_SLIDE }}
+        /* Up, it is wholly above the screen — from under a top bar too (`under` is 0 where there is none). */
+        style={{ transform: down ? 'translateY(0)' : `translateY(calc(-100% - ${under > 0 ? `${under + PEEK_TOAST_UNDER_GAP}px` : '12px - env(safe-area-inset-top)'} - 24px))`, transition: PEEK_TOAST_SLIDE }}
         className={`${PEEK_TOAST_PILL} ${PEEK_TOAST_TONE[tone]}${action ? ' !pl-[18px] !pr-2' : ''}`}
       >
         <Mark aria-hidden className="h-[18px] w-[18px] flex-none" strokeWidth={2.4} />
-        <span className="min-w-0 truncate">{children}</span>
+        <span className={PEEK_TOAST_WORDS}>{children}</span>
         {action ? (
           <button type="button" onClick={action.onPress} data-peek-toast-action="" className="sn-press pointer-events-auto inline-flex !h-[34px] !min-h-0 flex-none items-center rounded-full bg-white px-3.5 text-[13px] font-bold text-ink">
             {action.label}

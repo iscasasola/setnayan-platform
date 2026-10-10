@@ -76,7 +76,10 @@ test('1a · each landing resolves to an open fold + a fragment the hub really re
   assert.equal(customerLandingHref('messages'), '/vendor-dashboard/customers?open=messages#customer-tools');
   assert.equal(customerLandingHref('proposals'), '/vendor-dashboard/customers?open=proposals#customer-tools');
   assert.equal(customerLandingHref('contracts'), '/vendor-dashboard/customers?open=contracts#customer-tools');
-  assert.equal(customerLandingHref('payday'), '/vendor-dashboard/customers#payday');
+  // RE-AIMED 2026-10-10 (S-PR2): Customers is three segments now and payday lives on Money. A bare `#payday`
+  // reaches the server as People, where that id does not exist — a fragment to a missing id scrolls nowhere and
+  // throws nothing — so the link carries its segment. (The three folds need none: `?open=` names theirs.)
+  assert.equal(customerLandingHref('payday'), '/vendor-dashboard/customers?seg=money#payday');
 });
 
 test('1b · every More row lands on its section — none is a bare stub', async () => {
@@ -179,9 +182,19 @@ test('3 · a booking ask says "Agree to this booking" with the button "Agree"', 
   assert.equal(n.action, 'Agree');
   assert.match(n.body, /Mendoza/, 'the card must still say whose booking');
   assert.deepEqual(n.target, { to: 'card', eventId: 'e1', tab: 'details' }, 'where it leads is unchanged');
+  // RE-AIMED 2026-10-10 (S-PR2). This pinned the roster row's own dark "Agree" pill. The People row has no button
+  // of its own any more (plan § 2 "Customers": the right column is the stage pill and ONE line; the row is the
+  // tap) — so the same ask is held on what the row now says, EXECUTED rather than matched: the "Booking" pill and
+  // "asked to book". "Agree" stays the Next card's word (above) and the customer card's button.
+  const { peopleRowView, NO_FACTS } = await import('./customers/people-row');
+  const row = peopleRowView(
+    { eventId: 'e1', lane: 'waiting', waitingKind: 'booking_ask', waitingSince: null, expiresAt: null, quietDays: null, title: 'Mendoza', identityRevealed: true, eventDate: '2026-11-21', place: null, threadId: null, eventVendorId: 'ev1' },
+    NO_FACTS,
+    Date.now(),
+  );
+  assert.deepEqual([row.pill.label, row.line, row.opens], ['Booking', 'asked to book', 'card'], 'the roster row no longer says a couple asked to book');
   const roster = read('app/vendor-dashboard/customers/_components/customers-roster.tsx');
-  assert.match(roster, /booking_ask'\) return 'Agree'/, 'the roster row button is not "Agree"');
-  assert.doesNotMatch(roster, /Wants to book you/);
+  assert.doesNotMatch(roster + read('app/vendor-dashboard/customers/people-row.ts'), /Wants to book you/);
 });
 
 // ── 4 · "VENDOR" IN VISIBLE COPY ───────────────────────────────────────────

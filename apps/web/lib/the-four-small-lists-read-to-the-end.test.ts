@@ -339,9 +339,18 @@ test('screens: blocks, unread and booked each say so when their read comes up sh
   assert.match(bookings, /if \(!roomEvents\.complete\) factsIncomplete = true;/);
   assert.match(bookings, /\{factsIncomplete \? \(\s*<p\s+role="status"/);
 
-  const clients = read('app/vendor-dashboard/clients/surface.tsx');
-  assert.match(clients, /incomplete=\{!threadsRead\.complete \|\| !roomRead\.complete\}/);
-  assert.match(clients, /incomplete=\{!blocksRead\.complete\}/);
+  // RE-AIMED 2026-10-10 (supplier redesign S-PR2). These two lines pinned the "Clients" fold's Booked and Outside
+  // pagers (`clients/surface.tsx`), each saying so when its read came up short. That second customer list is
+  // retired: its booked, in-conversation and OUTSIDE rows are Customers › People now, one list on one pager. The
+  // property is unchanged — a short read of threads, bookings or blocks is SAID under the list — so it is held on
+  // the one flag that pager is handed. `!blocksRead.complete` is the half that came over with the outside clients.
+  // SABOTAGE: `|| !blocksRead.complete` removed → RED.
+  assert.match(
+    customers,
+    /const rosterIncomplete =\s*!threadsRead\.complete \|\| !evRead\.complete \|\| Boolean\(evRead\.error\) \|\| eventRowsErrorSeen \|\| !blocksRead\.complete;/,
+  );
+  assert.match(customers, /<CustomersRoster[\s\S]{0,400}?incomplete=\{rosterIncomplete\}/);
+  assert.match(read('app/vendor-dashboard/customers/_components/customers-roster.tsx'), /<ListPager[\s\S]{0,200}?incomplete=\{incomplete\}/);
 });
 
 test('screens: the Earned tile and the payouts totals never print a short or unread total', () => {
@@ -559,11 +568,23 @@ test('screens: the Overview desk reads through the paged helpers and reports a s
     'the short-read flag no longer reaches the feed — a partial read would render as an empty desk',
   );
   assert.match(feedMount, /cards=\{needsAnswer\}/, 'the ask feed is no longer fed the answer half');
+  /*
+    RE-AIMED 2026-10-10 (S-PR2, owner answer 3). Property 2 above read "BOTH halves of the split are mounted" and
+    pinned `<NothingToAnswerFeed cards={nothingToAnswer}>` on Today. The owner's answer moved the news half off
+    Today in the same change that put its facts on the customer's own row in Customers › People — so "computed and
+    quietly dropped" is now guarded where the facts ARE: the Customers page reads them, hands them to the row, and
+    says so when the read was refused. (`app/vendor-dashboard/customers/people-says-the-closed-lines.test.ts`
+    test 7 holds both halves of that move together.)
+    SABOTAGE: the `readVendorClosedLines(` call removed from the Customers page → RED.
+  */
+  assert.doesNotMatch(page, /NothingToAnswerFeed/, 'Today mounts the closed-lines list again — it is on People now');
+  const customersPage = read('app/vendor-dashboard/customers/page.tsx');
   assert.match(
-    page,
-    /<NothingToAnswerFeed[\s\S]*?cards=\{nothingToAnswer\}/,
-    'the news half is computed and never rendered — those cards would vanish from the page',
+    customersPage,
+    /readVendorClosedLines\(supabase, vendorProfileId, rosterNowMs\)/,
+    'the news half is shown nowhere — the closed lines left Today and People does not read them',
   );
+  assert.match(customersPage, /closedLinesUnread=\{!closedLines\.complete\}/, 'a refused read of the closed lines would read as "nothing flagged"');
   assert.equal(
     (page.match(/splitDesk\(whatsNew\)/g) ?? []).length,
     1,

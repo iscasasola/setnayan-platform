@@ -23,19 +23,25 @@ import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const SURFACE = stripComments(readFileSync(resolve(HERE, 'surface.tsx'), 'utf8'));
+/*
+  RE-AIMED 2026-10-10 (supplier redesign S-PR2). This file lived beside
+  `clients/surface.tsx` and read it: the "Clients" fold was where the kept notes
+  were shown. That second customer list is retired — outside clients and kept
+  notes are part of Customers › People now ("one list, not two") — so the reader
+  is the Customers page and the renderer is the roster. The three properties are
+  the same three; the file moved with the code it guards.
+  SABOTAGE: `.is('event_id', null)` dropped from the page's read → RED ·
+  the roster's `keptNotes.length > 0 ?` made `false ?` → RED ·
+  `keptRead.error ? []` made `false ? []` → RED.
+*/
+const PAGE = stripComments(readFileSync(resolve(HERE, 'page.tsx'), 'utf8'));
+const ROSTER = stripComments(readFileSync(resolve(HERE, '_components', 'customers-roster.tsx'), 'utf8'));
 
 test('the clients hub actually asks for the unfiled notes', () => {
-  assert.match(
-    SURFACE,
-    /from\('vendor_client_notes'\)[\s\S]{0,240}\.is\('event_id',\s*null\)/,
-    'nothing reads the kept notes — they would be preserved and permanently invisible',
-  );
-  assert.match(
-    SURFACE,
-    /\.eq\('vendor_profile_id',\s*profile\.vendor_profile_id\)/,
-    'and it must be scoped to this supplier',
-  );
+  assert.ok(PAGE.length > 5_000 && ROSTER.length > 2_000, 'a source read came back short');
+  const read = /from\('vendor_client_notes'\)[\s\S]{0,240}\.is\('event_id',\s*null\)/.exec(PAGE)?.[0] ?? '';
+  assert.ok(read, 'nothing reads the kept notes — they would be preserved and permanently invisible');
+  assert.match(read, /\.eq\('vendor_profile_id',\s*vendorProfileId\)/, 'and it must be scoped to this supplier');
 });
 
 test('it renders them, and from a LIVE branch', () => {
@@ -47,21 +53,22 @@ test('it renders them, and from a LIVE branch', () => {
     the "file-level count" trap this repo keeps paying for.
   */
   assert.match(
-    SURFACE,
-    /keptNotesMeasured && keptNotes\.length > 0 \?[\s\S]{0,900}keptNotes\.map\(/,
-    'the list must be rendered FROM the measured-and-non-empty branch, not merely present',
+    ROSTER,
+    /\{keptNotes\.length > 0 \? \([\s\S]{0,2200}keptNotes\.map\(/,
+    'the list must be rendered FROM the non-empty branch, not merely present',
   );
-  assert.match(SURFACE, /Kept notes/, 'and the section must be named for a person reading it');
+  assert.match(ROSTER, /Kept notes/, 'and the row must be named for a person reading it');
+  assert.match(PAGE, /keptNotes=\{keptNotes\}/, 'the page read the notes and never handed them to the list');
 });
 
 test('a REFUSED read is not rendered as "you wrote none"', () => {
   // Supabase resolves with an error rather than throwing, so an unchecked read
   // degrades to an empty array and the section would silently claim the supplier
   // has no history. The section is hidden on failure instead.
-  assert.match(SURFACE, /keptNotesError/, 'the error must be checked');
+  assert.match(PAGE, /if \(keptRead\.error\) \{\s*logQueryError\(/, 'the error must be checked');
   assert.match(
-    SURFACE,
-    /keptNotesMeasured && keptNotes\.length > 0/,
-    'and the section must require a MEASURED read, not just a non-empty array',
+    PAGE,
+    /const keptNotes: KeptNote\[\] = keptRead\.error\s*\? \[\]/,
+    'a refused read must hand the list NOTHING — an empty list draws no row at all, never "you wrote none"',
   );
 });

@@ -94,9 +94,11 @@ test('3 · the supplier gets a desk card with exactly two buttons — Move to <d
   // 💸 Said BEFORE the press: the deposit follows the booking's own terms.
   assert.match(body, /settled by the cancellation terms on the booking/);
   assert.doesNotMatch(body, /\bvendor\b/i, 'a supplier page says "supplier", never "vendor"');
-  // Both seams (the feed AND the closed list) carry the action — counted, not matched.
+  // RE-AIMED 2026-10-10 (S-PR2): this counted TWO seams — the feed and the "Nothing to answer" list, which mounted
+  // the same card. That list left Today (owner answer 3: its facts are on Customers › People now), so the feed is
+  // the one seam that hands the action down. Still counted, not matched: a second binding would be a second way in.
   const page = code('app/vendor-dashboard/page.tsx');
-  assert.equal((page.match(/answerDateChange=\{vendorAnswerDateChange\}/g) ?? []).length, 2);
+  assert.equal((page.match(/answerDateChange=\{vendorAnswerDateChange\}/g) ?? []).length, 1);
   assert.equal((sections.match(/answerDateChange=\{answerDateChange\}/g) ?? []).length, 2);
   // The action exists, reads the answer from the form, and asks the database.
   const actions = code('app/vendor-dashboard/clients/[eventId]/actions.ts');

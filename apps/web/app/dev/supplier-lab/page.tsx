@@ -15,6 +15,12 @@
  *                     (lock_request · lock · meeting · date_change · delete_request · inquiry ·
  *                     review · mark_complete) — S-PR1b, the button rule inside the folds
  *   &toast=1          the outcome toast (&toast=refused for a refusal)
+ *   ?s=people         Customers › People — the prototype's six customers        (frame 03)
+ *   ?s=people&v=more  …and every state the prototype does not draw: holding, a
+ *                     booking window that closed, a flagged delay, a missed
+ *                     meeting time, an outside client, kept notes, a date clash,
+ *                     a read that failed (&v=unread), nobody yet (&v=empty)
+ *                     (&lane= and &q= narrow it, exactly as on the page)
  *   ?thumb=people     the frosted thumb row: a search field (≥ 60 %) + Add     (frame 03)
  *   ?thumb=customer   Chat (main) · Quote · Payment · Call                     (frame 06)
  *   ?thumb=money      Log a payment — a form's submit through the button rule  (frame 05)
@@ -30,7 +36,15 @@ import { SupplierThumbRow } from '@/app/vendor-dashboard/_components/supplier-th
 import { SupplierSubmit } from '@/app/vendor-dashboard/_components/supplier-submit';
 import { SupplierTodayFirstScreen } from '@/app/vendor-dashboard/_components/supplier-today-first-screen';
 import { SupplierToast } from '@/app/vendor-dashboard/_components/supplier-toast';
-import { WhatsNewFeed, NothingToAnswerFeed } from '@/app/vendor-dashboard/_components/overview-sections';
+import { WhatsNewFeed } from '@/app/vendor-dashboard/_components/overview-sections';
+import { CustomersRoster, type RosterRow } from '@/app/vendor-dashboard/customers/_components/customers-roster';
+import { CustomersPick } from '@/app/vendor-dashboard/customers/_components/customers-pick';
+import { CustomersSegments } from '@/app/vendor-dashboard/customers/_components/customers-segments';
+import { PeopleThumb } from '@/app/vendor-dashboard/customers/_components/people-thumb';
+import { NO_FACTS, peopleRowView, type PeopleFacts } from '@/app/vendor-dashboard/customers/people-row';
+import { rosterView } from '@/app/vendor-dashboard/customers/roster-view';
+import { CUSTOMER_LANES, groupByLane, holdingByDate, type PipelineCustomer } from '@/lib/vendor-customer-pipeline';
+import { formatCount } from '@/lib/format-number';
 import { acceptInquiry, declineInquiry } from '@/lib/chat-actions';
 import {
   vendorAcknowledgeDeposit,
@@ -212,7 +226,7 @@ const TODAY: Record<string, TodayState> = {
 };
 
 function TodayLab({ state, toast, open }: { state: TodayState; toast: string | undefined; open?: string }) {
-  const { answer: needsAnswer, news: nothingToAnswer } = splitDesk(state.whatsNew);
+  const { answer: needsAnswer } = splitDesk(state.whatsNew);
   const nextAnswer = nextAnswerOf(needsAnswer);
   const fee = state.extras
     ? {
@@ -299,8 +313,109 @@ function TodayLab({ state, toast, open }: { state: TodayState; toast: string | u
               incomplete={state.deskIncomplete}
               {...actions}
             />
-            <NothingToAnswerFeed cards={nothingToAnswer} {...actions} />
           </>
+        }
+      />
+    </div>
+  );
+}
+
+/* ── S-PR2 · Customers › People — the prototype's six (frame 03), then the rest. ── */
+const person = (o: Partial<PipelineCustomer> & Pick<PipelineCustomer, 'eventId' | 'lane' | 'title'>): PipelineCustomer => ({
+  waitingKind: null,
+  waitingSince: null,
+  expiresAt: null,
+  quietDays: null,
+  identityRevealed: true,
+  eventDate: null,
+  place: null,
+  threadId: null,
+  eventVendorId: null,
+  ...o,
+});
+type LabPerson = { c: PipelineCustomer; type: string | null; asked?: string[]; facts?: Partial<PeopleFacts>; outside?: RosterRow['outside'] };
+const paid = (expectedPhp: number, collectedPhp: number) => ({
+  expectedPhp,
+  collectedPhp,
+  balancePhp: Math.max(0, expectedPhp - collectedPhp),
+  fullyPaid: expectedPhp > 0 && collectedPhp >= expectedPhp,
+  allUnresolved: false,
+  installmentCount: 2,
+});
+const SIX: LabPerson[] = [
+  { c: person({ eventId: 'ana', lane: 'waiting', waitingKind: 'inquiry', waitingSince: ago(2), title: 'Ana & Miguel', eventDate: '2027-03-13', place: 'Tagaytay', threadId: 't-ana' }), type: 'Wedding', asked: ['Photography', 'Videography'] },
+  { c: person({ eventId: 'rolando', lane: 'waiting', waitingKind: 'booking_ask', waitingSince: ago(20), expiresAt: new Date(NOW + 28 * 3_600_000).toISOString(), title: 'Rolando & Carmen', eventDate: '2026-11-21', place: 'Makati', threadId: 't-rc', eventVendorId: 'ev-rc' }), type: 'Wedding' },
+  { c: person({ eventId: 'katrina', lane: 'talking', title: 'Katrina Ocampo', eventDate: '2026-10-03', place: 'Tagaytay', threadId: 't-ko' }), type: 'Debut', facts: { quoted: true } },
+  { c: person({ eventId: 'cruz', lane: 'booked', title: 'Jun & Liza Cruz', eventDate: '2026-10-04', place: 'Makati', threadId: 't-jc' }), type: 'Wedding', facts: { money: paid(85_000, 43_000), nextDue: { amountPhp: 42_000, dueDate: '2026-10-03' } } },
+  { c: person({ eventId: 'bautista', lane: 'booked', title: 'Lourdes Bautista', eventDate: '2026-10-10', place: 'QC', threadId: 't-lb' }), type: 'Christening', facts: { money: paid(30_000, 30_000) } },
+  { c: person({ eventId: 'paolo', lane: 'finished', title: 'Paolo & Nina', eventDate: '2026-08-15', place: 'Cebu', threadId: 't-pv' }), type: 'Wedding', facts: { money: paid(60_000, 60_000) } },
+];
+const MORE: LabPerson[] = [
+  { c: person({ eventId: 'jo', lane: 'waiting', waitingKind: 'booking_ask', waitingSince: ago(200), expiresAt: ago(30), title: 'Jo & Sam', eventDate: '2026-12-05', place: 'Pasig', eventVendorId: 'ev-old' }), type: 'Wedding' },
+  { c: person({ eventId: 'mara', lane: 'holding', quietDays: 9, title: 'Mara & Dan', eventDate: '2027-02-14', place: 'Taguig', threadId: 't-md' }), type: 'Wedding', asked: ['Photography'] },
+  { c: person({ eventId: 'ivy', lane: 'holding', quietDays: 12, title: 'Ivy Santos', eventDate: '2027-02-14', place: 'Antipolo', threadId: 't-iv' }), type: 'Debut' },
+  { c: person({ eventId: 'ben', lane: 'talking', title: 'Ben & Tala', eventDate: null, place: null, threadId: 't-bt' }), type: 'Wedding', facts: { quoted: false } },
+  { c: person({ eventId: 'reyes', lane: 'booked', title: 'Reyes debut', eventDate: '2026-10-03', place: 'Tagaytay', threadId: 't-ry' }), type: 'Debut', facts: { delayFlagged: true, money: paid(45_000, 45_000) } },
+  { c: person({ eventId: 'gina', lane: 'booked', title: 'Gina & Rob', eventDate: '2026-11-07', place: 'Batangas', threadId: 't-gr' }), type: 'Wedding', facts: { meetingPassed: true } },
+  { c: person({ eventId: 'outside:b1', lane: 'booked', title: 'Dela Cruz reunion', eventDate: '2026-10-18' }), type: null, outside: { blockId: 'b1', schedule: 'Main team', contact: '0917 555 0100', note: 'Paid in cash, half-day.' } },
+];
+
+function PeopleLab({ v, lane, q }: { v: string | undefined; lane: string | undefined; q: string | undefined }) {
+  const people = v === 'empty' ? [] : v === 'more' || v === 'unread' ? [...SIX, ...MORE] : SIX;
+  const by = new Map(people.map((p) => [p.c.eventId, p]));
+  const derived = people.map((p) => p.c);
+  const lanes = groupByLane(derived);
+  const picked = rosterView(lanes, { lane, q, page: undefined, decorate: (r) => r });
+  const rows: RosterRow[] = picked.paged.items.map((r) => {
+    const p = by.get(r.eventId)!;
+    const facts: PeopleFacts = { ...NO_FACTS, quoted: v === 'unread' ? null : false, moneyRead: v !== 'unread', ...(v === 'unread' ? {} : p.facts) };
+    return {
+      ...r,
+      outside: p.outside ?? null,
+      eventType: p.type,
+      askedAbout: p.asked ?? [],
+      view: p.outside
+        ? { pill: { label: 'Outside', tone: 'quiet' }, line: null, lineTone: null, opens: 'card', closed: null }
+        : peopleRowView(r, facts, NOW),
+    };
+  });
+  const href = (l: string | null) => `/dev/supplier-lab?s=people${v ? `&v=${v}` : ''}${l ? `&lane=${l}` : ''}`;
+  const words: Record<string, string> = { waiting: 'Waiting', holding: 'Holding', talking: 'Talking', booked: 'Booked', finished: 'Done' };
+  return (
+    <div className="min-h-screen bg-cream px-4 pb-36 pt-3" data-supplier-lab="people">
+      <CustomersSegments active="people" waiting={picked.laneCounts.waiting} />
+      <CustomersRoster
+        rows={rows}
+        paged={{ ...picked.paged, items: rows }}
+        query={q ?? ''}
+        incomplete={v === 'unread'}
+        closedLinesUnread={v === 'unread'}
+        pagerKeepParams={`s=people${v ? `&v=${v}` : ''}`}
+        clearSearchHref={href(lane ?? null)}
+        counts={picked.laneCounts}
+        holdingPerDate={holdingByDate(derived)}
+        keptNotes={v === 'more' ? [{ noteId: 'n1', body: 'Prefers candid shots. Call the planner, not the bride.', createdAt: ago(900) }, { noteId: 'n2', body: 'Venue load-in is at the back gate.', createdAt: ago(1400) }] : []}
+        filter={
+          <CustomersPick
+            label="Filter"
+            value={picked.activeLane ?? 'all'}
+            dataAttr="data-customers-filter"
+            options={[
+              { key: 'all', label: `Everyone · ${formatCount(CUSTOMER_LANES.reduce((n, l) => n + picked.laneCounts[l], 0))}`, href: href(null) },
+              ...CUSTOMER_LANES.map((l) => ({ key: l, label: `${words[l]} · ${formatCount(picked.laneCounts[l])}`, href: href(l) })),
+            ]}
+          />
+        }
+      />
+      <PeopleThumb
+        query={q ?? ''}
+        addForm={
+          <div className="grid gap-2">
+            <h2 id="people-add-title" className="pr-10 text-lg font-semibold text-ink">
+              Add an outside client · free
+            </h2>
+            <p className="text-[13px] text-ink/60">The lab draws the sheet; the page puts the shipped form in it.</p>
+          </div>
         }
       />
     </div>
@@ -310,10 +425,11 @@ function TodayLab({ state, toast, open }: { state: TodayState; toast: string | u
 export default async function SupplierLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ thumb?: string; s?: string; toast?: string; open?: string }>;
+  searchParams: Promise<{ thumb?: string; s?: string; toast?: string; open?: string; v?: string; lane?: string; q?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
+  if (q.s === 'people') return <PeopleLab v={q.v} lane={q.lane} q={q.q} />;
   const today = q.s ? TODAY[q.s] : undefined;
   if (today) return <TodayLab state={today} toast={q.toast} open={q.open} />;
   const thumb = q.thumb ?? 'people';

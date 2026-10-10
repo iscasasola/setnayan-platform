@@ -210,9 +210,10 @@ const ROOM_SITES: ReadonlyArray<readonly [string, number]> = [
   // ("which events is this shop booked on?"), and it was the one leave-behind
   // named as a real gap rather than a deliberate choice.
   ['lib/vendor-overview.ts', 1],
-  // S43 · My Customers → Clients, "Booked via Setnayan" — the same question
-  // again, and the same gap: an agreed or Locked-QR booking was not listed.
-  ['app/vendor-dashboard/clients/surface.tsx', 1],
+  // (S43 · My Customers → Clients, "Booked via Setnayan" was the twelfth site. That second customer list
+  //  is RETIRED — supplier redesign S-PR2, 2026-10-10 — and its rows are Customers › People's. See the test
+  //  "the People roster lists an agreed or Locked-QR booking without the room read" below for what replaced
+  //  this line: the property, executed, instead of a call count on a file that no longer exists.)
 ];
 
 test('every day-of screen asks the room read, and none of them still asks the pool', () => {
@@ -230,7 +231,41 @@ test('every day-of screen asks the room read, and none of them still asks the po
     );
     total += calls;
   }
-  assert.equal(total, 12, 'ten day-of call sites in six files, plus the Overview’s Upcoming and the Clients list');
+  // 12 → 11 on 2026-10-10: the Clients list is retired (above). The other eleven are untouched.
+  assert.equal(total, 11, 'ten day-of call sites in six files, plus the Overview’s Upcoming');
+});
+
+test('the People roster lists an agreed or Locked-QR booking without the room read', async () => {
+  /*
+    WHY THE CLIENTS LIST NEEDED THE ROOM READ AND THE PEOPLE ROSTER DOES NOT. The Clients list was built from the
+    schedule POOL, so a booking the shop agreed to (arm 2) or a Locked QR a couple claimed (arm 3) — neither of
+    which writes a pool row — was missing until S43 moved it to the room read. The People roster was never built
+    from the pool: it reads the shop's own `event_vendors` rows, which is the very table arms 2 and 3 are made of,
+    and floors the result with the pool (`poolBooked`) so nothing the pool knew is lost either.
+
+    So the property "an agreed or Locked-QR booking is on the supplier's customer list" is asserted here by
+    RUNNING the roster's one lane rule on the two rows those arms write — with no thread and no pool row.
+    SABOTAGE: `'deposit_paid'` removed from CONFIRMED in lib/lock-request-state.ts → RED.
+  */
+  const { customerLaneOf } = await import('./vendor-customer-pipeline');
+  const base = { eventId: 'e1', thread: null, eventName: 'Cruz wedding', descriptor: 'Customer', eventDate: '2026-10-04', place: null, poolBooked: false };
+  for (const [arm, status, lock_request_state] of [
+    ['arm 2 — vendor_agree_to_lock', 'contracted', 'agreed'],
+    ['arm 3 — vendor_claim_locked_qr', 'deposit_paid', null],
+  ] as const) {
+    for (const handshake of [true, false]) {
+      const row = customerLaneOf(
+        { ...base, booking: { eventVendorId: 'ev1', status, lock_request_state, requestedAt: null, expiresAt: null } },
+        handshake,
+        Date.UTC(2026, 9, 2),
+      );
+      assert.equal(row?.lane, 'booked', `${arm} (handshake flag ${handshake}): the booking is not on the roster`);
+    }
+  }
+  // …and the page does read that table for this shop, to the server's count, and says so when it could not.
+  const page = code('app/vendor-dashboard/customers/page.tsx');
+  assert.match(page, /\.from\('event_vendors'\)[\s\S]{0,400}?\.eq\('marketplace_vendor_id', vendorProfileId\)/);
+  assert.match(page, /poolBooked: bookedByEvent\.has\(eventId\)/, 'the pool floor is gone — a booking only the pool knew would leave the list');
 });
 
 test('the Upcoming row id does not depend on a pool row (SUP-8)', () => {
@@ -272,7 +307,7 @@ test('every reader left on the pool read carries a stated reason', () => {
     'lib/interconnect/probes.ts',
   ];
   // 12 → 11: lib/vendor-overview.ts moved to the room read (SUP-8).
-  // 11 → 10: clients/surface.tsx moved to the room read (S43).
+  // 11 → 10: clients/surface.tsx moved to the room read (S43) — and was retired outright on 2026-10-10 (S-PR2).
   assert.equal(LEFT.length, 10, 'ten readers stay on the pool read — measured, not remembered');
   for (const file of LEFT) {
     const raw = readFileSync(join(ROOT, file), 'utf8');

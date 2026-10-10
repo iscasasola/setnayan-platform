@@ -147,7 +147,8 @@ function join(parts: Array<string | null | undefined>): string {
 /**
  * One desk card → the Next card. Every kind the desk calls an ANSWER has a line
  * here; the closed kinds (lapsed ask · passed meeting · dispute) never reach it
- * because `splitDesk` files them under "Nothing to answer".
+ * because `splitDesk` files them as news — shown on the customer's own row in
+ * Customers › People since S-PR2 (2026-10-10), no longer in a list on Today.
  *
  * 🔒 The button OPENS the place the answer is given — the thread, the customer
  * card, the review — it never answers by itself. The desk's own answer-in-place
@@ -258,9 +259,11 @@ export function answerNext(card: WhatsNewCard, since: Date | null, now: number):
       return {
         kind: 'answer',
         title: card.kind === 'dispute' ? 'A delivery delay was flagged' : 'A booking window closed',
-        body: 'Nothing to answer — it is listed below.',
+        // There is no list below any more (S-PR2): the fact is on the
+        // customer's row, so that is where the button goes.
+        body: 'Nothing to answer — it is on their row in Customers.',
         action: 'See it',
-        target: { to: 'today' },
+        target: { to: 'customers' },
       };
   }
 }

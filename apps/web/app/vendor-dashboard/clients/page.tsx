@@ -1,12 +1,17 @@
 import { redirect } from 'next/navigation';
 
 /**
- * /vendor-dashboard/clients — folded into the My Customers hub (owner 5-page IA,
- * 2026-07-12: "overview, my shop, my customers, my performance, BEO are all
- * 1-page each with the different features integrated"). The surface lives on
- * in ./surface.tsx, rendered by the hub's ?tab=clients. This stub keeps every
- * old deep-link working and forwards its params (pattern: /vendor-dashboard/
- * services → My Shop, owner 2026-07-02).
+ * /vendor-dashboard/clients — the old "Clients" list. Its three buckets (Booked
+ * via Setnayan · In conversation · Outside clients) and the kept notes under
+ * them ARE Customers › People now — one list, not two (supplier redesign S-PR2,
+ * 2026-10-10; `./surface.tsx` is retired). This stub keeps every old deep-link
+ * working and forwards its params: `?tab=clients` is the word the hub's
+ * `customersSegment` reads to land on People, and `?notice=` (the outcome of
+ * adding or removing an outside client — `calendar/actions.ts` still returns
+ * here) is said there as a toast.
+ *
+ * `/vendor-dashboard/clients/[eventId]` — a customer's card — is a different
+ * route and is untouched.
  */
 export default async function RedirectClients({
   searchParams,

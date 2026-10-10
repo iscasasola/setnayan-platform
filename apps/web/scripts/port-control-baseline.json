@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "452b9bb02",
+  "generatedFromRef": "a8fefb916",
   "routeCount": 431,
-  "destinations": 958,
+  "destinations": 954,
   "actions": 672,
-  "blocks": 5966,
+  "blocks": 5977,
   "routes": {
     "/": {
       "files": [
@@ -10164,7 +10164,13 @@
       "actions": [],
       "blocks": [
         "ActionButton",
-        "NothingToAnswerFeed",
+        "CustomersPick",
+        "CustomersRoster",
+        "CustomersSegments",
+        "PeopleFacts",
+        "PeopleLab",
+        "PeopleThumb",
+        "PipelineCustomer",
         "SupplierSubmit",
         "SupplierThumbRow",
         "SupplierToast",
@@ -11734,6 +11740,7 @@
         "FeedCard",
         "FieldSaveResult",
         "Figure",
+        "FoldToggle",
         "GuidedTour",
         "HTMLDivElement",
         "I",
@@ -11756,7 +11763,6 @@
         "MoreServicesSheet",
         "NextCard",
         "NotConnected",
-        "NothingToAnswerFeed",
         "PageMasthead",
         "PaidMark",
         "PaymentsPausedNote",
@@ -11973,27 +11979,12 @@
     "/vendor-dashboard/clients": {
       "files": [
         "vendor-dashboard/clients/loading.tsx",
-        "vendor-dashboard/clients/page.tsx",
-        "vendor-dashboard/clients/surface.tsx"
+        "vendor-dashboard/clients/page.tsx"
       ],
-      "destinations": [
-        "/vendor-dashboard/bookings",
-        "/vendor-dashboard/calendar",
-        "/vendor-dashboard/clients/[seg]?tab=details",
-        "/vendor-dashboard/customers?open=availability",
-        "/vendor-dashboard/messages/[seg]"
-      ],
-      "actions": [
-        "importExternalClient",
-        "removeBlock"
-      ],
+      "destinations": [],
+      "actions": [],
       "blocks": [
-        "ConfirmForm",
-        "Link",
-        "ListPageSkeleton",
-        "ListPager",
-        "StageChip",
-        "SubmitButton"
+        "ListPageSkeleton"
       ]
     },
     "/vendor-dashboard/clients/[eventId]": {
@@ -12296,22 +12287,30 @@
         "vendor-dashboard/customers/_components/customers-filter-bar.tsx",
         "vendor-dashboard/customers/_components/customers-pick.tsx",
         "vendor-dashboard/customers/_components/customers-roster.tsx",
+        "vendor-dashboard/customers/_components/customers-segments.tsx",
+        "vendor-dashboard/customers/_components/people-thumb.tsx",
         "vendor-dashboard/customers/actions.ts",
         "vendor-dashboard/customers/anchors.ts",
         "vendor-dashboard/customers/page.tsx",
+        "vendor-dashboard/customers/people-row.ts",
         "vendor-dashboard/customers/roster-view.ts"
       ],
       "destinations": [
         "/vendor-dashboard/clients/[seg]?tab=details",
+        "/vendor-dashboard/customers?seg=dates&open=availability",
         "/vendor-dashboard/messages/[seg]",
         "/vendor-dashboard/services"
       ],
-      "actions": [],
+      "actions": [
+        "importExternalClient",
+        "removeOutside"
+      ],
       "blocks": [
         "AccordionSkeleton",
+        "ActionButton",
         "BookingsSurface",
         "CalendarSurface",
-        "ClientsSurface",
+        "ConfirmForm",
         "ContractsSurface",
         "CustomerCalendarMonth",
         "CustomerSectionBody",
@@ -12320,6 +12319,7 @@
         "CustomersPick",
         "CustomersPipeline",
         "CustomersRoster",
+        "CustomersSegments",
         "FeatureAccordion",
         "FilterSelect",
         "Link",
@@ -12327,12 +12327,20 @@
         "MessagesSurface",
         "MiniTour",
         "PaydaySurface",
+        "PeopleThumb",
         "PickMenu",
+        "PillSelector",
         "ProposalsSurface",
         "R",
         "RosterRow",
-        "ShopEmpty",
+        "RowBody",
+        "SegmentHashLander",
+        "Sheet",
+        "SupplierSubmit",
+        "SupplierThumbRow",
+        "SupplierToast",
         "Suspense",
+        "TodayPill",
         "VendorQrSection"
       ]
     },

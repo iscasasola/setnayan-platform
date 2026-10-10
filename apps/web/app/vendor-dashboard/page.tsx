@@ -34,7 +34,7 @@ import {
 // `respondAppointment` still refuses an answer from the side that proposed.
 import { postVendorReply } from './reviews/actions';
 import { respondAppointment } from '@/app/_components/appointments-actions';
-import { WhatsNewFeed, NothingToAnswerFeed } from './_components/overview-sections';
+import { WhatsNewFeed } from './_components/overview-sections';
 import {
   splitDesk,
   oldestAskWaitDays,
@@ -328,7 +328,7 @@ export default async function VendorOverviewPage({
     nothing waiting there is no oldest wait, so the heading carries no number
     rather than a "0 days" measured over an empty set.
   */
-  const { answer: needsAnswer, news: nothingToAnswer } = splitDesk(whatsNew);
+  const { answer: needsAnswer } = splitDesk(whatsNew);
   const askStatus = deskStatusLine(
     needsAnswer.length,
     oldestAskWaitDays(needsAnswer, cardTimestamp, new Date()),
@@ -603,22 +603,16 @@ export default async function VendorOverviewPage({
               payoutReadiness={payoutReadiness}
               feeForecasts={feeForecasts}
             />
-            {/* The closed lines. Renders nothing when empty. */}
-            <NothingToAnswerFeed
-              cards={nothingToAnswer}
-              acceptInquiry={acceptInquiry}
-              declineInquiry={declineInquiry}
-              confirmLock={vendorAcknowledgeDeposit}
-              rejectLock={vendorRejectDeposit}
-              agreeLock={vendorAgreeToLock}
-              declineLock={vendorDeclineLock}
-              agreeDeletion={vendorAgreeToDeletion}
-              declineDeletion={vendorDeclineDeletion}
-              answerDateChange={vendorAnswerDateChange}
-              postReviewReply={postVendorReply}
-              respondMeeting={respondAppointment}
-              markServiceComplete={vendorMarkServiceComplete}
-            />
+            {/*
+              🗑 "NOTHING TO ANSWER" IS GONE FROM TODAY (owner answer 3,
+              2026-10-10; supplier redesign S-PR2). It held the closed lines — a
+              booking ask whose window shut, a flagged delay, a meeting time
+              that passed — because no other page showed them. Each is on the
+              customer's own row in Customers › People now
+              (`customers/people-row.ts`), so Today ends at the Shop row, as
+              drawn. `splitDesk` still cuts the desk in two: its `news` half is
+              simply not listed here.
+            */}
             {/* WHAT YOU OWE SETNAYAN — every unpaid booking fee, each with its
                 own Pay (owner 2026-09-20: "i never saw the payment screen to
                 pay us"). The Next card shows ONE bill, and only when nothing

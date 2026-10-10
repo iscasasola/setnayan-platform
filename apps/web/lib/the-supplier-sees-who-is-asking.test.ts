@@ -177,9 +177,10 @@ test('🔑 every admin-scoped customer read is gated by a vendor-scoped fetch', 
   const callers = [
     'app/vendor-dashboard/messages/surface.tsx',
     'app/vendor-dashboard/bookings/surface.tsx',
-    // Joined 2026-09-19: the Clients tab's "In conversation" list read the
-    // RLS-nulled `t.event` embed and said "A Setnayan event" for every couple.
-    'app/vendor-dashboard/clients/surface.tsx',
+    // (Joined 2026-09-19 and LEFT 2026-10-10: `clients/surface.tsx`, the Clients tab's "In conversation" list.
+    //  That list is retired — supplier redesign S-PR2 — and its rows are Customers › People's. The People roster
+    //  does not call `fetchInquiryCustomerFacts`: it names every row from its own admin-scoped `events` read,
+    //  and THAT pairing is held below — "the People roster names its rows from ids it proved for this shop".)
   ];
   for (const p of callers) {
     const src = read(p);
@@ -211,6 +212,29 @@ test('🔑 every admin-scoped customer read is gated by a vendor-scoped fetch', 
       `${p} no longer scopes its threads to one vendor`,
     );
   }
+});
+
+test('the People roster names its rows from ids it proved for this shop', () => {
+  /*
+    The same property as the test above, for the surface that replaced the Clients list (S-PR2, 2026-10-10).
+    The roster's names, dates, venues and event types come from ONE admin-scoped read of `events` — which bypasses
+    RLS by construction — so its safety is the ids it is handed. Every one of them must trace back to a read that
+    was scoped to THIS shop: its pool bookings, its own `event_vendors` rows, its threads.
+    SABOTAGE: an id from `search` (a route param) added to `rosterEventIds` → RED.
+  */
+  const src = read('app/vendor-dashboard/customers/page.tsx');
+  const ids = /const rosterEventIds = \[\s*\.\.\.new Set\(\[([^\]]*)\]\),?\s*\];/.exec(src)?.[1] ?? '';
+  assert.ok(ids, 'the roster no longer builds its event ids in one place');
+  const sources = ids.split(',').map((x) => x.trim()).filter(Boolean);
+  assert.deepEqual(sources, ['...bookedByEvent.keys()', '...bookingByEvent.keys()', '...threadByEvent.keys()'], `the roster asks about events from somewhere else: ${sources.join(' · ')}`);
+  // …and each of those three maps is filled from a read scoped to this shop.
+  assert.match(src, /fetchVendorPoolBookings\(supabase, vendorProfileId\)/);
+  assert.match(src, /\.from\('event_vendors'\)[\s\S]{0,400}?\.eq\('marketplace_vendor_id', vendorProfileId\)/);
+  assert.match(src, /fetchVendorThreadsDetailed\(supabase, vendorProfileId\)/);
+  // The one admin read of `events` is fed only that list.
+  assert.match(src, /readInChunks\(\s*rosterEventIds,/);
+  // The RLS-nulled embed is not read here either: a vendor holds no `events` RLS, so it is always null.
+  assert.doesNotMatch(src, /t\.event\?\.display_name/);
 });
 
 /**

@@ -36,7 +36,8 @@ import {
 const WEB = join(import.meta.dirname, '..');
 const MIGRATIONS = join(WEB, '../../supabase/migrations');
 const THREAD_PAGE = 'app/vendor-dashboard/messages/[threadId]/page.tsx';
-const CLIENTS = 'app/vendor-dashboard/clients/surface.tsx';
+// RE-AIMED 2026-10-10 (S-PR2): was `clients/surface.tsx`, the retired second customer list — see test 3.
+const CUSTOMERS = 'app/vendor-dashboard/customers/page.tsx';
 const STAGE = 'lib/vendor-thread-stage.ts';
 
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
@@ -45,7 +46,7 @@ const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8')
 const LIVE_INQUIRY_STATUSES = ['pending', 'accepted'];
 
 test('the scan read real files (an empty read is a green lie)', () => {
-  for (const rel of [THREAD_PAGE, CLIENTS, STAGE]) {
+  for (const rel of [THREAD_PAGE, CUSTOMERS, STAGE]) {
     assert.ok(read(rel).length > 500, `${rel} came back empty — the scan is not reading it`);
   }
 });
@@ -106,9 +107,9 @@ test('🔑 2 · "finished" reads the writers that exist, not the value nothing w
   }
 });
 
-test('🔑 3 · both surfaces use the shared resolver and keep no private ranking', () => {
+test('🔑 3 · both surfaces use the shared resolver and keep no private ranking', async () => {
   const page = read(THREAD_PAGE);
-  const clients = read(CLIENTS);
+  const customers = read(CUSTOMERS);
 
   // The thread page hands the resolver the one fact it alone holds.
   assert.equal(
@@ -116,22 +117,51 @@ test('🔑 3 · both surfaces use the shared resolver and keep no private rankin
     1,
     'the thread page stopped passing inquiry_status — a declined thread reads as a live inquiry',
   );
-  // The list ranks through the same function, once per bucket.
+  /*
+    RE-AIMED 2026-10-10 (supplier redesign S-PR2). The second surface here was `clients/surface.tsx`: the "Clients"
+    list ranked its two buckets through `resolveThreadStage` (×2) and asked "is it finished?" with
+    `rowReadsCompleted` (×1). That list is RETIRED — its rows are Customers › People's — so the two counts on it
+    have nothing to count.
+
+    What they were FOR has not gone anywhere: a customer LIST and the thread it opens must not disagree about
+    whether a booking is finished. The People roster ranks by its own one rule (`customerLaneOf`, held by
+    `customers/the-roster-opens-on-who-is-waiting.test.ts`), and until this change that rule looked at `status`
+    alone — so a booking the couple had confirmed receiving read "Completed" on its thread and "Booked" on the
+    list. The roster now ASKS the shared predicate and feeds the answer in. Pinned as a call, and executed.
+    SABOTAGE: `completed: rowReadsCompleted(b)` removed from the Customers page → RED ·
+    `booking?.completed ||` removed from `customerLaneOf` → RED.
+  */
   assert.equal(
-    (clients.match(/resolveThreadStage\(/g) ?? []).length,
-    2,
-    'the clients list stopped ranking through the shared resolver',
-  );
-  // …and asks "is it finished?" with the shared predicate, not its own copy.
-  assert.equal(
-    (clients.match(/rowReadsCompleted\(/g) ?? []).length,
+    (customers.match(/completed: rowReadsCompleted\(b\)/g) ?? []).length,
     1,
-    'the clients list grew its own definition of a finished booking',
+    'the customers list stopped asking "is it finished?" with the shared predicate',
   );
+  assert.match(customers, /completion_status, customer_confirmed_received_at/, 'the roster no longer reads the completion handshake at all');
+  const { customerLaneOf } = await import('./vendor-customer-pipeline');
+  const lane = (booking: { status: string | null; lock_request_state: string | null; completed?: boolean }) =>
+    customerLaneOf(
+      { eventId: 'e1', thread: null, eventName: 'Cruz wedding', descriptor: 'Customer', eventDate: '2026-10-04', place: null,
+        booking: { eventVendorId: 'ev1', requestedAt: null, expiresAt: null, ...booking } },
+      true,
+      Date.UTC(2026, 9, 2),
+    )?.lane;
+  // Every row the shared predicate calls finished lands in the finished lane…
+  for (const row of [
+    { status: 'contracted', completion_status: 'confirmed' },
+    { status: 'contracted', completion_status: 'auto_confirmed' },
+    { status: 'deposit_paid', customer_confirmed_received_at: '2026-10-01T00:00:00Z' },
+    { status: 'delivered' },
+    { status: 'complete' },
+  ]) {
+    assert.equal(rowReadsCompleted(row), true, `${JSON.stringify(row)} is not finished by the shared predicate`);
+    assert.equal(lane({ status: row.status, lock_request_state: null, completed: rowReadsCompleted(row) }), 'finished', `${JSON.stringify(row)} reads finished on its thread and not on the list`);
+  }
+  // …and a live booking does not.
+  assert.equal(lane({ status: 'contracted', lock_request_state: 'agreed', completed: rowReadsCompleted({ status: 'contracted' }) }), 'booked');
   // No surface may re-derive the finish line inline.
   for (const [rel, src] of [
     [THREAD_PAGE, page],
-    [CLIENTS, clients],
+    [CUSTOMERS, customers],
   ] as const) {
     assert.ok(
       !/completion_status\s*===\s*'(confirmed|auto_confirmed)'/.test(src),

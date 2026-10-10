@@ -385,79 +385,18 @@ export function WhatsNewFeed({
   );
 }
 
-/**
- * NOTHING TO ANSWER — the closed lines, under their own heading.
- *
- * Owner, on the shipped desk (2026-08-26 drawing, approved): it "mixes five
- * things waiting on you with a 5-star review that needs nothing". These are the
- * kinds `deskDisposition` calls `news`: a booking window that shut, a proposed
- * time that passed, and an open dispute — every one of which renders no control.
- *
- * ⚠ IT RENDERS THE SAME `<FeedCard>`, not a lighter copy of it. A second card
- * component would be a second place for a card kind to be drawn wrong, and the
- * dispatch guard in `answers-desk.test.ts` only watches one of them.
- *
- * ⚠ AND IT RENDERS NOTHING WHEN EMPTY — no "nothing here" tile. An empty second
- * list on a page whose first list is the point is furniture, not information.
- */
-export function NothingToAnswerFeed({
-  cards,
-  ...actions
-}: {
-  cards: WhatsNewCard[];
-  acceptInquiry: (formData: FormData) => void | Promise<void>;
-  declineInquiry: (formData: FormData) => void | Promise<void>;
-  confirmLock: (formData: FormData) => void | Promise<void>;
-  rejectLock: (formData: FormData) => void | Promise<void>;
-  agreeLock: (formData: FormData) => void | Promise<void>;
-  declineLock: (formData: FormData) => void | Promise<void>;
-  agreeDeletion: (formData: FormData) => void | Promise<void>;
-  declineDeletion: (formData: FormData) => void | Promise<void>;
-  /** 🗓 Move to <date> · Unlock my service — `vendorAnswerDateChange` (owner 2026-10-01). */
-  answerDateChange: (formData: FormData) => void | Promise<void>;
-  postReviewReply: (formData: FormData) => void | Promise<void>;
-  respondMeeting: (formData: FormData) => void | Promise<void>;
-  /**
-   * Forwarded because this list renders the SAME `<FeedCard>` — see the docblock
-   * above. A `mark_complete` card is an ASK and so never reaches this list, but
-   * the component's props are shared, and leaving it out here would mean the
-   * day somebody changes that disposition the card renders with no button and
-   * no error. `vendor-desk-disposition.ts` is what decides; this just cannot be
-   * the reason it breaks.
-   */
-  markServiceComplete: (formData: FormData) => void | Promise<void>;
-}) {
-  if (cards.length === 0) return null;
-  return (
-    /* The same hairline rows as "Also waiting" above, with no number: nothing
-       here is waiting on the shop. Each opens the note it carries. */
-    <section id="nothing-to-answer" data-nothing-to-answer="" className="scroll-mt-24" aria-label="Nothing to answer">
-      <p className="home-k2">Nothing to answer</p>
-      <div className="[&>details:first-child]:border-t-0">
-        {cards.map((card) => (
-          <details key={card.id} name="today-ask" data-today-news={card.kind} className="group border-t border-ink/10">
-            <summary className="home-row cursor-pointer list-none !border-t-0 [&::-webkit-details-marker]:hidden">
-              <span className="min-w-0">
-                <span className="home-t block truncate text-[15px] leading-tight text-ink">{cardTone(card).eyebrow}</span>
-              </span>
-              <span className="flex items-center gap-2 text-ink/45">
-                <ChevronDown aria-hidden className="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" strokeWidth={1.75} />
-              </span>
-            </summary>
-            <div className="pb-3 pl-3">
-              <FeedCard
-                card={card}
-                {...actions}
-                payoutReadiness="unreadable"
-                feeForecasts={{}}
-              />
-            </div>
-          </details>
-        ))}
-      </div>
-    </section>
-  );
-}
+/*
+  🗑 `NothingToAnswerFeed` LIVED HERE AND IS GONE (owner answer 3, 2026-10-10;
+  supplier redesign S-PR2). It listed the desk's closed lines — the kinds
+  `deskDisposition` calls `news` — under their own heading on Today, because no
+  other page showed them. Customers › People shows each one on the customer's
+  own row now, so Today ends at the Shop row.
+
+  ⚠ `FeedCard` BELOW STILL DRAWS EVERY KIND, the closed ones included. Its
+  dispatch is total over `WhatsNewCard` on purpose (a new kind with no body is a
+  typecheck failure, and `answers-desk.test.ts` holds the dispatch); which kinds
+  REACH it is `splitDesk`'s decision, made on the page.
+*/
 
 function FeedCard({
   card,

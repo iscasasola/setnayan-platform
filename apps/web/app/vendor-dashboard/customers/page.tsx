@@ -1,12 +1,13 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ChevronRight, MessageSquare, PhilippinePeso, Sparkles } from 'lucide-react';
+import { CalendarDays, ChevronRight, MessageSquare, PhilippinePeso, Plus, Sparkles } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
 import { formatPhp } from '@/lib/orders';
-import { countUnreadMessages, fetchVendorThreadsDetailed } from '@/lib/chat';
+import { fetchVendorThreadsDetailed } from '@/lib/chat';
 import { readAllPages, readInChunks } from '@/lib/read-all-pages';
 import { pendingInquiryDates } from '@/lib/vendor-inquiry-dates';
 import {
@@ -30,7 +31,6 @@ import {
   buildCustomerCalendarMonth,
   summarizeMonthlyPayments,
   computeEventMoneyPositions,
-  type EventMoneyPosition,
 } from '@/lib/vendor-customers';
 import {
   customerLaneOf,
@@ -43,14 +43,26 @@ import {
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import {
   CustomersRoster,
-  ROSTER_SHOW,
-  ROSTER_SHOW_LABEL,
+  type KeptNote,
+  type OutsideClient,
   type RosterRow,
-  type RosterShow,
 } from './_components/customers-roster';
 import { CustomersPick } from './_components/customers-pick';
+import { CustomersSegments, SegmentHashLander } from './_components/customers-segments';
+import { PeopleThumb } from './_components/people-thumb';
 import { MiniTour } from '@/app/_components/mini-tour';
 import { rosterView } from './roster-view';
+import { customersSegment, SECTION_SEGMENT, type CustomerSegment } from './anchors';
+import { NO_FACTS, nextDueByEvent, peopleRowView, type PeopleFacts } from './people-row';
+import { readVendorClosedLines } from '@/lib/vendor-closed-lines';
+import { lockAskPhase } from '@/lib/answers-desk';
+import { rowReadsCompleted } from '@/lib/vendor-thread-stage';
+import { interestLabeller } from '@/lib/thread-interest-labels.server';
+import { formatEventTypeLabel } from '@/lib/reviews';
+import { importExternalClient, removeBlock } from '../calendar/actions';
+import { SupplierSubmit } from '../_components/supplier-submit';
+import { SupplierToast } from '../_components/supplier-toast';
+import { shopInputClass } from '../_components/kit';
 import { CustomersCalendar } from './_components/customers-calendar';
 import type { FilterOption } from './_components/customers-filter-bar';
 import { VendorQrSection } from '../_components/qr-section';
@@ -87,14 +99,29 @@ type Props = {
     page?: string;
     /** Name search over the roster, applied before paging. */
     q?: string;
-    /** Which column a phone row shows on its right — Show ▾ (`next` · `money` · `date`). */
-    show?: string;
+    /** `?add=outside` opens the Add sheet on People (the old round +'s link). */
+    add?: string;
+    /** The outcome of adding / removing an outside client, said once as a toast. */
+    notice?: string;
   }>;
+  /** People · Dates · Money — decided once by the hub (`customersSegment`). */
+  seg: CustomerSegment;
+};
+
+/** What happened to an outside client — the words the retired Clients fold said. */
+const OUTSIDE_NOTICES: Record<string, { refused: boolean; text: string }> = {
+  client_imported: { refused: false, text: 'Client added — free. They now hold a slot on that schedule.' },
+  block_removed: { refused: false, text: 'Outside client removed — the date is open again.' },
+  bad_dates: { refused: true, text: 'Those dates don’t work — check the start and end date.' },
+  bad_name: { refused: true, text: 'The client needs a name.' },
+  bad_pool: { refused: true, text: 'Pick which schedule this client belongs to.' },
+  save_failed: { refused: true, text: 'That didn’t save — try again.' },
 };
 
 /** Filter ▾'s words — the stage, as the row's pill says it. */
 const LANE_FILTER_LABEL: Record<CustomerLane, string> = {
-  waiting: 'Waiting on you',
+  // "Waiting" — the prototype's one word (frame 03); it was "Waiting on you".
+  waiting: 'Waiting',
   holding: 'Holding',
   talking: 'Talking',
   booked: 'Booked',
@@ -122,7 +149,7 @@ function categoryLabel(key: string): string {
   return (VENDOR_CATEGORY_LABEL as Record<string, string>)[key] ?? key.replace(/_/g, ' ');
 }
 
-async function CustomersPipeline({ searchParams }: Props) {
+async function CustomersPipeline({ searchParams, seg }: Props) {
   const search = await searchParams;
   const supabase = await createClient();
   const {
@@ -147,7 +174,6 @@ async function CustomersPipeline({ searchParams }: Props) {
     dayStates,
     waitlist,
     threadsRead,
-    unreadCount,
     services,
     teamRows,
     paydayRes,
@@ -166,7 +192,6 @@ async function CustomersPipeline({ searchParams }: Props) {
     // Detailed: the roster says so on screen when the read could not prove it
     // reached every thread (`fetchVendorThreadsDetailed`).
     fetchVendorThreadsDetailed(supabase, vendorProfileId),
-    countUnreadMessages(supabase, user.id),
     fetchVendorServices(supabase, vendorProfileId),
     fetchVendorTeam(supabase, vendorProfileId),
     // Frozen installment plan across all booked events (ownership-gated RPC),
@@ -253,9 +278,6 @@ async function CustomersPipeline({ searchParams }: Props) {
     payments.expectedPhp > 0
       ? Math.min(100, Math.round((payments.collectedPhp / payments.expectedPhp) * 100))
       : 0;
-
-  // ── Section 3b: messages ─────────────────────────────────────────────────
-  const conversationCount = threads.length;
 
   // ── Section 3c: service coverage ─────────────────────────────────────────
   // Per active service: is it live, and how many dates in the visible month is
@@ -345,7 +367,7 @@ async function CustomersPipeline({ searchParams }: Props) {
       const { data, error, count } = await rosterAdmin
         .from('event_vendors')
         .select(
-          'vendor_id, event_id, status, lock_request_state, lock_requested_at, lock_request_expires_at',
+          'vendor_id, event_id, status, lock_request_state, lock_requested_at, lock_request_expires_at, completion_status, customer_confirmed_received_at',
           { count: 'exact' },
         )
         .eq('marketplace_vendor_id', vendorProfileId)
@@ -376,6 +398,8 @@ async function CustomersPipeline({ searchParams }: Props) {
     lock_request_state: string | null;
     lock_requested_at: string | null;
     lock_request_expires_at: string | null;
+    completion_status: string | null;
+    customer_confirmed_received_at: string | null;
   }[];
   const bookingByEvent = new Map(bookingRows.map((r) => [r.event_id, r]));
 
@@ -496,6 +520,8 @@ async function CustomersPipeline({ searchParams }: Props) {
               lock_request_state: b.lock_request_state,
               requestedAt: b.lock_requested_at,
               expiresAt: b.lock_request_expires_at,
+              // "Is it finished?" — the ONE predicate the thread pill uses too.
+              completed: rowReadsCompleted(b),
             }
           : null,
         // The name is supplied for every event and used on every lane.
@@ -519,6 +545,49 @@ async function CustomersPipeline({ searchParams }: Props) {
   }
 
   const lanes = groupByLane(derived);
+
+  /*
+    ── ONE LIST, NOT TWO (S-PR2) ────────────────────────────────────────────
+    An outside client — a date this shop sold outside Setnayan and wrote down so
+    the app would not double-book it — used to live in a second list, in the
+    "Clients" fold. It is a row of THIS list now, wearing an "Outside" pill.
+
+    It holds a date, so it sits with the booked while that date is ahead and
+    with the done once it has passed. It is not a Setnayan customer: no event,
+    no thread, no card — `outsideById` carries what the row can show, and the
+    row opens in place.
+
+    ⚠ `blocks` is the same paged read the calendar uses; when it did not reach
+    the server's count the roster says so (`rosterIncomplete`, below).
+  */
+  const poolLabelById = new Map(pools.map((p) => [p.poolId, p.label]));
+  const outsideById = new Map<string, OutsideClient>();
+  for (const k of blocks) {
+    if (k.source !== 'external_client') continue;
+    const id = `outside:${k.blockId}`;
+    const lane: CustomerLane = k.endDate >= todayIso ? 'booked' : 'finished';
+    const name = (k.clientName ?? k.label)?.trim() || null;
+    lanes[lane].push({
+      eventId: id,
+      lane,
+      waitingKind: null,
+      waitingSince: null,
+      expiresAt: null,
+      quietDays: null,
+      title: name ?? 'Outside client',
+      identityRevealed: name !== null,
+      eventDate: k.startDate,
+      place: null,
+      threadId: null,
+      eventVendorId: null,
+    });
+    outsideById.set(id, {
+      blockId: k.blockId,
+      schedule: (k.poolId ? poolLabelById.get(k.poolId) : null) ?? 'Schedule',
+      contact: k.clientContact,
+      note: k.clientNote,
+    });
+  }
   /*
     Computed over EVERY derived customer, never over the page on screen —
     filtering to a lane must not make a date clash disappear. That is the
@@ -535,22 +604,164 @@ async function CustomersPipeline({ searchParams }: Props) {
     render (owner 2026-09-19: "if they have 1000 inquiries, they can still
     manage all and still be able to see the lower parts of the page").
   */
-  const roster = rosterView(lanes, {
+  const picked = rosterView(lanes, {
     lane: search.lane,
     q: search.q,
     page: search.page,
-    decorate: (r): RosterRow => ({
-      ...r,
-      note: moneyNote(r, moneyByEvent.get(r.eventId) ?? null),
-    }),
+    decorate: (r) => r,
   });
+
+  /*
+    ── WHAT EACH ROW ON THIS PAGE SAYS (S-PR2) ──────────────────────────────
+    Read for the ROWS ON THE PAGE only — twenty ids, never one `in.()` of every
+    customer — and only when People is the segment on screen.
+
+    🔴 EVERY ONE OF THESE CAN FAIL, AND NONE MAY FAIL AS A FACT:
+      · the quote read refused → `quoted: null` → the row says "Talking" and no
+        more (never "send a quote" to a shop whose quote is already out);
+      · payday not read to the end → `moneyRead: false` → no money line;
+      · the flagged-delay / missed-meeting reads refused → said above the list;
+      · what they asked about is a decoration: unread, the line is simply absent.
+  */
+  const pageRows = picked.paged.items;
+  const onPeople = seg === 'people';
+  const customerRows = pageRows.filter((r) => !outsideById.has(r.eventId));
+  const talkingIds = customerRows.filter((r) => r.lane === 'talking').map((r) => r.eventId);
+  const pageThreadIds = customerRows.map((r) => r.threadId).filter((id): id is string => Boolean(id));
+
+  const [quotedRead, interestRead, closedLines, keptRead] = await Promise.all([
+    onPeople && talkingIds.length > 0
+      ? supabase
+          .from('vendor_proposals')
+          .select('event_id')
+          .eq('vendor_profile_id', vendorProfileId)
+          .in('event_id', talkingIds)
+          .in('status', ['sent', 'viewed'])
+      : Promise.resolve({ data: [] as { event_id: string }[], error: null }),
+    onPeople && pageThreadIds.length > 0
+      ? supabase
+          .from('thread_service_interests')
+          .select('thread_id, category_key, vendor_service_id, created_at')
+          .in('thread_id', pageThreadIds)
+          .order('created_at', { ascending: true })
+      : Promise.resolve({ data: [] as { thread_id: string; category_key: string | null; vendor_service_id: string | null }[], error: null }),
+    onPeople
+      ? readVendorClosedLines(supabase, vendorProfileId, rosterNowMs)
+      : Promise.resolve({ delayFlagged: new Set<string>(), meetingPassed: new Set<string>(), complete: true }),
+    /*
+      KEPT NOTES — the supplier's own notes whose event was deleted (owner
+      2026-08-24: "the supplier keeps the note, but it stops being filed under
+      that person's name"). ⚠ WITHOUT THIS READ THE KEEPING IS A FICTION: the
+      only other reader filters `.eq('event_id', …)`, so a severed note would be
+      preserved and permanently invisible.
+    */
+    onPeople
+      ? supabase
+          .from('vendor_client_notes')
+          .select('note_id, body, created_at')
+          .eq('vendor_profile_id', vendorProfileId)
+          .is('event_id', null)
+          .order('created_at', { ascending: false })
+          .limit(50)
+      : Promise.resolve({ data: [] as { note_id: string; body: string; created_at: string }[], error: null }),
+  ]);
+
+  // ⚠ WHICH CUSTOMERS THEY HAVE ALREADY QUOTED. Refused, the set would be empty
+  // and every quoted customer would read "send a quote" — so a refusal is kept
+  // as `null`, and the row then claims nothing about a quote.
+  if (quotedRead.error) {
+    logQueryError('VendorCustomersPage.quoted', quotedRead.error, { vendorProfileId }, 'graceful_degrade');
+  }
+  const quotedIds = quotedRead.error
+    ? null
+    : new Set(((quotedRead.data ?? []) as { event_id: string }[]).map((r) => r.event_id));
+
+  // WHAT THEY ASKED ABOUT — every category on the one thread (a couple can ask
+  // about several in one inquiry; it is still one inquiry and one row).
+  if (interestRead.error) {
+    logQueryError('VendorCustomersPage.interests', interestRead.error, { vendorProfileId }, 'graceful_degrade');
+  }
+  const interests = (interestRead.error ? [] : (interestRead.data ?? [])) as Array<{
+    thread_id: string;
+    category_key: string | null;
+    vendor_service_id: string | null;
+  }>;
+  const labelInterest = interests.length > 0 ? await interestLabeller(rosterAdmin, interests) : null;
+  const askedByThread = new Map<string, string[]>();
+  for (const i of interests) {
+    if (!labelInterest || (!i.category_key && !i.vendor_service_id)) continue;
+    const label = labelInterest(i);
+    const list = askedByThread.get(i.thread_id) ?? [];
+    if (label && !list.includes(label)) list.push(label);
+    askedByThread.set(i.thread_id, list);
+  }
+
+  // 🔑 A FAILED READ IS NOT AN EMPTY ONE: on a refusal the kept-notes row is not
+  // drawn at all — never "you wrote none".
+  if (keptRead.error) {
+    logQueryError('VendorCustomersPage.keptNotes', keptRead.error, { vendorProfileId }, 'graceful_degrade');
+  }
+  const keptNotes: KeptNote[] = keptRead.error
+    ? []
+    : ((keptRead.data ?? []) as { note_id: string; body: string; created_at: string }[]).map((n) => ({
+        noteId: n.note_id,
+        body: n.body,
+        createdAt: n.created_at,
+      }));
+
+  const nextDue = nextDueByEvent(paydayRows);
+  /*
+    A booking ask the sweep has ALREADY flipped to `expired`, still inside the
+    week the desk keeps a closed line. The row is no longer a `booking_ask` by
+    then — it falls back to its thread's lane — so its deadline is read off the
+    shop's own booking row and handed in. (An ask still `pending` past its
+    deadline is caught by the row itself.)
+  */
+  const askClosedAt = (eventId: string): string | null => {
+    const b = bookingByEvent.get(eventId);
+    return b && b.lock_request_state === 'expired' && lockAskPhase(b.lock_request_expires_at, rosterNowMs) === 'lapsed'
+      ? b.lock_request_expires_at
+      : null;
+  };
+  const factsFor = (r: PipelineCustomer): PeopleFacts => ({
+    ...NO_FACTS,
+    quoted: quotedIds ? quotedIds.has(r.eventId) : null,
+    money: moneyByEvent.get(r.eventId) ?? null,
+    moneyRead: !paydayIncomplete,
+    nextDue: nextDue.get(r.eventId) ?? null,
+    delayFlagged: closedLines.delayFlagged.has(r.eventId),
+    meetingPassed: closedLines.meetingPassed.has(r.eventId),
+    askClosedAt: askClosedAt(r.eventId),
+  });
+  const toRow = (r: PipelineCustomer): RosterRow => {
+    const outside = outsideById.get(r.eventId) ?? null;
+    if (outside) {
+      return {
+        ...r,
+        outside,
+        eventType: null,
+        askedAbout: [],
+        view: { pill: { label: 'Outside', tone: 'quiet' }, line: null, lineTone: null, opens: 'card', closed: null },
+      };
+    }
+    const type = eventTypeByEvent.get(r.eventId) ?? null;
+    return {
+      ...r,
+      outside: null,
+      eventType: type ? formatEventTypeLabel(type) : null,
+      askedAbout: (r.threadId ? askedByThread.get(r.threadId) : null) ?? [],
+      // ONE "now" for the lanes and for what each row says.
+      view: peopleRowView(r, factsFor(r), rosterNowMs),
+    };
+  };
+  const roster = { ...picked, paged: { ...picked.paged, items: pageRows.map(toRow) } };
   const laneCounts = roster.laneCounts;
   const activeLane = roster.activeLane;
   const rosterPage = roster.paged;
   // A read that could not prove it reached every row — said on screen, never
-  // shown as a shorter list.
+  // shown as a shorter list. `blocksRead` joined with the outside clients.
   const rosterIncomplete =
-    !threadsRead.complete || !evRead.complete || Boolean(evRead.error) || eventRowsErrorSeen;
+    !threadsRead.complete || !evRead.complete || Boolean(evRead.error) || eventRowsErrorSeen || !blocksRead.complete;
 
   // Filter option sets (real data · presentational for now).
   const serviceOptions: FilterOption[] = [
@@ -587,84 +798,141 @@ async function CustomersPipeline({ searchParams }: Props) {
   const dayHrefBase = '/vendor-dashboard/calendar';
 
   /*
-    Filter ▾ / Show ▾ — each option is a LINK the server builds (a filter you
-    can share, Back works). Picking resets to page 1 and keeps everything else
-    on the page (month, search, open section).
+    Filter ▾ — each option is a LINK the server builds (a filter you can share,
+    Back works). Picking resets to page 1 and keeps everything else on the page.
   */
-  const rosterShow: RosterShow = (ROSTER_SHOW as readonly string[]).includes(search.show ?? '')
-    ? (search.show as RosterShow)
-    : 'next';
-  const pickHref = (key: 'lane' | 'show', value: string | null): string => {
-    const q = new URLSearchParams(keepParamsFrom(search as Record<string, string | undefined>, ['page', key]));
-    if (value) q.set(key, value);
+  const pickHref = (value: string | null): string => {
+    const q = new URLSearchParams(keepParamsFrom(search as Record<string, string | undefined>, ['page', 'lane', 'add', 'notice']));
+    if (value) q.set('lane', value);
     const qs = q.toString();
     return qs ? `?${qs}#customers` : '?#customers';
   };
+  const outsideNotice = search.notice ? OUTSIDE_NOTICES[search.notice] : undefined;
+
+  /*
+    ➕ THE SHIPPED OUTSIDE-CLIENT FORM, in the Add sheet (owner 2026-10-01,
+    answer 3: "+ on Customers adds an outside client"). Same action, same
+    fields, same free — it lived in the retired Clients fold; nothing new takes
+    the client. An outside client holds a date on one of the shop's schedules,
+    so with none set up there is nowhere to hold it: said, with the way in.
+  */
+  const addForm =
+    pools.length > 0 ? (
+      <form action={importExternalClient} className="grid gap-2" data-people-add-form="">
+        <h2 id="people-add-title" className="pr-10 text-lg font-semibold text-ink">
+          Add an outside client · free
+        </h2>
+        <p className="text-[13px] text-ink/60">
+          A date you sold outside Setnayan. They hold it on your schedule, so that day is never double-booked.
+        </p>
+        <input type="hidden" name="return_to" value="clients" />
+        <label className="sr-only" htmlFor="people-add-pool">
+          Schedule
+        </label>
+        <select id="people-add-pool" name="pool_id" required defaultValue={pools[0]?.poolId} className={shopInputClass}>
+          {pools.map((p) => (
+            <option key={p.poolId} value={p.poolId}>
+              {p.label}
+            </option>
+          ))}
+        </select>
+        <input type="text" name="client_name" required placeholder="Client name" aria-label="Client name" maxLength={120} className={shopInputClass} />
+        <input type="text" name="client_contact" placeholder="Contact (optional)" aria-label="Contact" maxLength={160} className={shopInputClass} />
+        <input type="text" name="client_note" placeholder="Note (optional)" aria-label="Note" maxLength={500} className={shopInputClass} />
+        <div className="flex flex-wrap items-center gap-2">
+          <input type="date" name="start_date" required aria-label="First day" className={shopInputClass} />
+          <span className="text-sm text-ink/50">to</span>
+          <input type="date" name="end_date" aria-label="Last day" className={shopInputClass} />
+        </div>
+        <div className="mt-1 flex justify-end">
+          <SupplierSubmit tone="brand" main icon={<Plus aria-hidden="true" strokeWidth={1.9} />} label="Add · free" pendingLabel="Adding…" />
+        </div>
+      </form>
+    ) : (
+      <div className="grid gap-3" data-people-add-form="no-schedule">
+        <h2 id="people-add-title" className="pr-10 text-lg font-semibold text-ink">
+          Add an outside client · free
+        </h2>
+        <p className="text-sm text-ink/65">
+          To add an outside client, set up a schedule first — it holds the date for them.
+        </p>
+        <div>
+          <ActionButton
+            tone="neutral"
+            icon={<CalendarDays aria-hidden="true" strokeWidth={1.9} />}
+            label="Set up a schedule"
+            href="/vendor-dashboard/customers?seg=dates&open=availability#customer-tools"
+          />
+        </div>
+      </div>
+    );
 
   return (
     // Glass PR-7: the opaque `--m-paper` body wrapper is dropped — the Atelier
     // wash (`.sn-ambient`, inherited from the shell) shows through the glass tiles.
     <section className="min-h-full">
-      <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-6 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+      <div className={`mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-6 px-4 sm:px-6 lg:px-8 ${onPeople ? 'pb-36 pt-3 sm:pt-8' : 'py-8 sm:py-10'}`}>
         {/*
-          THE ROSTER IS THE PAGE'S FIRST BLOCK NOW.
-
-          It used to sit at the bottom, under the month calendar, three summary
-          tiles and the QR panel — so a shop opening "Customers" met a grid of
-          dates before it met a person, and the one thing it could actually be
-          late on was the last thing on the screen. The brief is one sentence:
-          Customers opens on who is waiting.
-
-          ⛔ Nothing was DELETED to make room. The calendar, the tiles and the
-          QR panel all still render, in the same order, immediately below.
+          PEOPLE · DATES · MONEY — one page, three views of the same bookings
+          (S-PR2). The segment is `?seg=`; `customers/anchors.ts` says which
+          segment every id and fold lives on.
         */}
+        <CustomersSegments active={seg} waiting={laneCounts.waiting} />
+        <SegmentHashLander active={seg} />
+
         {/*
-          🔑 "Book of business" (`?open=clients`) now sits behind the roster's ⋯
-          with the other customer tools (owner-APPROVED 2026-10-01, "THE
-          SUPPLIER PHONE APP", frame 2) — moved one tap away, not removed.
+          PEOPLE — the list, and nothing under it. Customers opens on who is
+          waiting.
         */}
-        <CustomersRoster
-          rows={rosterPage.items}
-          paged={rosterPage}
-          query={search.q ?? ''}
-          incomplete={rosterIncomplete}
-          pagerKeepParams={keepParamsFrom(search as Record<string, string | undefined>, ['page'])}
-          searchKeepParams={keepParamsFrom(search as Record<string, string | undefined>, ['page', 'q'])}
-          counts={laneCounts}
-          nowMs={rosterNowMs}
-          holdingPerDate={holdingPerDate}
-          show={rosterShow}
-          filter={
-            <CustomersPick
-              label="Filter"
-              value={activeLane ?? 'all'}
-              dataAttr="data-customers-filter"
-              compact
-              options={[
-                { key: 'all', label: `Everyone · ${formatCount(CUSTOMER_LANES.reduce((n, l) => n + laneCounts[l], 0))}`, href: pickHref('lane', null) },
-                ...CUSTOMER_LANES.map((l) => ({
-                  key: l,
-                  label: `${LANE_FILTER_LABEL[l]} · ${formatCount(laneCounts[l])}`,
-                  href: pickHref('lane', l),
-                })),
-              ]}
+        {onPeople ? (
+          <>
+            {outsideNotice ? <SupplierToast text={outsideNotice.text} refused={outsideNotice.refused} /> : null}
+            <CustomersRoster
+              rows={rosterPage.items}
+              paged={rosterPage}
+              query={search.q ?? ''}
+              incomplete={rosterIncomplete}
+              closedLinesUnread={!closedLines.complete}
+              pagerKeepParams={keepParamsFrom(search as Record<string, string | undefined>, ['page', 'add', 'notice'])}
+              clearSearchHref={(() => {
+                const keep = keepParamsFrom(search as Record<string, string | undefined>, ['page', 'q', 'add', 'notice']);
+                return keep ? `?${keep}#customers` : '?#customers';
+              })()}
+              counts={laneCounts}
+              holdingPerDate={holdingPerDate}
+              keptNotes={keptNotes}
+              removeOutside={removeBlock}
+              filter={
+                <CustomersPick
+                  label="Filter"
+                  value={activeLane ?? 'all'}
+                  dataAttr="data-customers-filter"
+                  options={[
+                    { key: 'all', label: `Everyone · ${formatCount(CUSTOMER_LANES.reduce((n, l) => n + laneCounts[l], 0))}`, href: pickHref(null) },
+                    ...CUSTOMER_LANES.map((l) => ({
+                      key: l,
+                      label: `${LANE_FILTER_LABEL[l]} · ${formatCount(laneCounts[l])}`,
+                      href: pickHref(l),
+                    })),
+                  ]}
+                />
+              }
             />
-          }
-          showPick={
-            <CustomersPick
-              label="Show"
-              value={rosterShow}
-              dataAttr="data-customers-show"
-              compact
-              options={ROSTER_SHOW.map((k) => ({
-                key: k,
-                label: ROSTER_SHOW_LABEL[k],
-                href: pickHref('show', k === 'next' ? null : k),
-              }))}
+            <PeopleThumb
+              query={search.q ?? ''}
+              addForm={addForm}
+              // `?add=outside` is the old round +'s link; a refused save reopens the form.
+              addOpen={search.add === 'outside' || Boolean(outsideNotice?.refused)}
             />
-          }
-        />
+          </>
+        ) : null}
 
+        {/*
+          DATES — the shipped month calendar, the day-full note per service and
+          the QR codes, as they were. S-PR3 redraws this segment.
+        */}
+        {seg === 'dates' ? (
+          <>
         {/* Sections 1 + 2 — filter row + month calendar (centrepiece).
             `id="calendar"` is where every bare /vendor-dashboard/calendar link
             lands (`customers/anchors.ts`). */}
@@ -707,102 +975,10 @@ async function CustomersPipeline({ searchParams }: Props) {
         />
         </div>
 
-        {/* Section 3 — three summary cards (glass `.sn-tile` bento). */}
+        {/* How many dates each service is full on this month — a fact about
+            DATES (it was one of three summary tiles under the roster). Kept as it
+            was until S-PR3 redraws the segment. */}
         <div className="grid gap-4 md:grid-cols-3">
-          {/* Ongoing payments */}
-          <article className="sn-tile">
-            <p className="sn-eye">
-              <span
-                aria-hidden
-                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
-                style={{ background: 'rgba(79,107,74,0.12)', color: 'var(--m-sage-deep)' }}
-              >
-                <PhilippinePeso className="h-4 w-4" strokeWidth={1.75} />
-              </span>
-              Ongoing payments
-            </p>
-            {paydayIncomplete ? (
-              <p role="status" className="mt-3 text-sm" style={{ color: 'var(--sn-warning-deep)' }}>
-                Some payments couldn&rsquo;t load, so this month&rsquo;s totals and
-                your customers&rsquo; payment notes aren&rsquo;t shown. Reload the
-                page to try again.
-              </p>
-            ) : payments.isEmpty ? (
-              <p className="mt-3 text-sm" style={{ color: 'var(--m-slate-2)' }}>
-                No payments due this month. Amounts appear here once a couple
-                books you on a service with a payment schedule.
-              </p>
-            ) : (
-              <>
-                <p className="mt-3 font-mono text-2xl font-bold tracking-tight" style={{ color: 'var(--m-ink)' }}>
-                  {formatPhp(payments.collectedPhp)}{' '}
-                  <span className="text-base font-normal" style={{ color: 'var(--m-slate-2)' }}>
-                    / {formatPhp(payments.expectedPhp)}
-                  </span>
-                </p>
-                <p className="mt-1 text-xs" style={{ color: 'var(--m-slate-2)' }}>
-                  collected of expected this month
-                </p>
-                <div
-                  className="mt-3 h-2 w-full overflow-hidden rounded-full"
-                  style={{ background: 'var(--m-paper-2)' }}
-                  role="progressbar"
-                  aria-valuenow={collectPct}
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                >
-                  <div
-                    className="h-full rounded-full"
-                    style={{ width: `${collectPct}%`, background: 'var(--m-sage-deep)' }}
-                  />
-                </div>
-                {/* The "N installments have no set amount yet" caveat lives once,
-                    on the Payday timeline this card links down to — not repeated
-                    here. */}
-              </>
-            )}
-            <Link
-              href="#payday"
-              scroll
-              className="mt-3 inline-flex items-center gap-1 text-sm font-medium"
-              style={{ color: 'var(--m-orange-2)' }}
-            >
-              Money in timeline <ChevronRight className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-            </Link>
-          </article>
-
-          {/* Messages */}
-          <article className="sn-tile">
-            <p className="sn-eye">
-              <span
-                aria-hidden
-                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
-                style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-800)' }}
-              >
-                <MessageSquare className="h-4 w-4" strokeWidth={1.75} />
-              </span>
-              Messages
-            </p>
-            <p className="mt-3 font-mono text-2xl font-bold tracking-tight" style={{ color: 'var(--m-ink)' }}>
-              {formatCount(unreadCount)}{' '}
-              <span className="text-base font-normal" style={{ color: 'var(--m-slate-2)' }}>
-                new
-              </span>
-            </p>
-            <p className="mt-1 text-xs" style={{ color: 'var(--m-slate-2)' }}>
-              {formatCount(conversationCount)} conversation{conversationCount === 1 ? '' : 's'}
-            </p>
-            <Link
-              href="?open=messages"
-              scroll={false}
-              className="mt-3 inline-flex items-center gap-1 text-sm font-medium"
-              style={{ color: 'var(--m-orange-2)' }}
-            >
-              Open messages{' '}
-              <ChevronRight className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-            </Link>
-          </article>
-
           {/* Service coverage */}
           <article className="sn-tile">
             <p className="sn-eye">
@@ -867,62 +1043,104 @@ async function CustomersPipeline({ searchParams }: Props) {
           rawCat={search.cat}
           month={month}
         />
+          </>
+        ) : null}
 
+        {/*
+          MONEY — this month's payments, as they were. The payday timeline and
+          the bookings list render under this, from the hub. S-PR4 redraws this
+          segment.
+
+          🗑 The "Messages" tile that sat between these two is gone: the unread
+          count and the door to the inbox are the envelope in the top bar now.
+        */}
+        {seg === 'money' ? (
+          <div className="grid gap-4 md:grid-cols-3">
+          {/* Ongoing payments */}
+          <article className="sn-tile">
+            <p className="sn-eye">
+              <span
+                aria-hidden
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
+                style={{ background: 'rgba(79,107,74,0.12)', color: 'var(--m-sage-deep)' }}
+              >
+                <PhilippinePeso className="h-4 w-4" strokeWidth={1.75} />
+              </span>
+              Ongoing payments
+            </p>
+            {paydayIncomplete ? (
+              <p role="status" className="mt-3 text-sm" style={{ color: 'var(--sn-warning-deep)' }}>
+                Some payments couldn&rsquo;t load, so this month&rsquo;s totals and
+                your customers&rsquo; payment notes aren&rsquo;t shown. Reload the
+                page to try again.
+              </p>
+            ) : payments.isEmpty ? (
+              <p className="mt-3 text-sm" style={{ color: 'var(--m-slate-2)' }}>
+                No payments due this month. Amounts appear here once a couple
+                books you on a service with a payment schedule.
+              </p>
+            ) : (
+              <>
+                <p className="mt-3 font-mono text-2xl font-bold tracking-tight" style={{ color: 'var(--m-ink)' }}>
+                  {formatPhp(payments.collectedPhp)}{' '}
+                  <span className="text-base font-normal" style={{ color: 'var(--m-slate-2)' }}>
+                    / {formatPhp(payments.expectedPhp)}
+                  </span>
+                </p>
+                <p className="mt-1 text-xs" style={{ color: 'var(--m-slate-2)' }}>
+                  collected of expected this month
+                </p>
+                <div
+                  className="mt-3 h-2 w-full overflow-hidden rounded-full"
+                  style={{ background: 'var(--m-paper-2)' }}
+                  role="progressbar"
+                  aria-valuenow={collectPct}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                >
+                  <div
+                    className="h-full rounded-full"
+                    style={{ width: `${collectPct}%`, background: 'var(--m-sage-deep)' }}
+                  />
+                </div>
+                {/* The "N installments have no set amount yet" caveat lives once,
+                    on the Payday timeline this card links down to — not repeated
+                    here. */}
+              </>
+            )}
+            <Link
+              href="#payday"
+              scroll
+              className="mt-3 inline-flex items-center gap-1 text-sm font-medium"
+              style={{ color: 'var(--m-orange-2)' }}
+            >
+              Money in timeline <ChevronRight className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+            </Link>
+          </article>
+          </div>
+        ) : null}
       </div>
     </section>
   );
 }
-
-/**
- * The right-aligned money note on a roster row.
- *
- * ⚠ IT SAYS NOTHING ON A MASKED ROW, and that is not tidiness. A balance is a
- * fact about a specific couple's booking; printing one beside "A couple planning
- * a wedding in Metro Manila" would narrow an anonymous row to a person by the
- * money attached to it. `waiting` therefore carries no figure at all.
- *
- * ⚠ AND "Downpayment in" IS NOT SAID WHEN NOTHING IS KNOWN. The old version
- * printed it for any booked row with no resolvable plan — including one where
- * the money read had simply come back empty — so a shop that had received
- * nothing was told a downpayment was in. A booking with no plan now says
- * "No plan yet", which is what is true.
- */
-function moneyNote(
-  r: PipelineCustomer,
-  m: EventMoneyPosition | null,
-): { text: string; tone: string } | null {
-  if (r.lane === 'waiting') return null;
-  if (r.lane === 'talking') return { text: 'Quote pending', tone: 'var(--m-slate-2)' };
-  if (!m || m.allUnresolved || m.installmentCount === 0) {
-    return { text: 'No plan yet', tone: 'var(--m-slate-2)' };
-  }
-  if (m.fullyPaid) return { text: 'Fully paid', tone: 'var(--m-sage-deep)' };
-  if (m.balancePhp > 0) {
-    return { text: `Balance ${formatPhp(m.balancePhp)}`, tone: 'var(--m-ink)' };
-  }
-  return { text: 'Settled', tone: 'var(--m-sage-deep)' };
-}
-
 
 /* ── My Customers hub (owner 5-page IA, 2026-07-12) ─────────────────────────
  * One menu item, every people-facing feature integrated as a tab: the
  * pipeline (this file's original body), Bookings, Clients, Calendar, Payday,
  * Messages. The old routes redirect in with their params preserved. */
 import { Suspense } from 'react';
-import { Users as UsersIcon, SlidersHorizontal, FileSignature, FileText } from 'lucide-react';
+import { SlidersHorizontal, FileSignature, FileText } from 'lucide-react';
 import {
   FeatureAccordion,
   AccordionSkeleton,
   type AccordionSection,
 } from '../_components/feature-accordion';
 import BookingsSurface from '../bookings/surface';
-import ClientsSurface from '../clients/surface';
 import CalendarSurface from '../calendar/surface';
 import PaydaySurface from '../payday/surface';
 import MessagesSurface from '../messages/surface';
 import ContractsSurface from '../contracts/surface';
 import ProposalsSurface from '../proposals/surface';
-import { ShopEmpty } from '../_components/kit';
 import { formatCount } from '@/lib/format-number';
 
 // Folded sections below the pipeline (which already shows the ONE month
@@ -951,12 +1169,12 @@ const CUSTOMER_SECTIONS: AccordionSection[] = [
     sub: 'Your conversations — reply, reveal, and log outcomes',
     icon: <MessageSquare className="h-4 w-4" strokeWidth={1.75} />,
   },
-  {
-    key: 'clients',
-    label: 'Clients',
-    sub: 'Booked · in conversation · outside clients',
-    icon: <UsersIcon className="h-4 w-4" strokeWidth={1.75} />,
-  },
+  /*
+    🗑 `clients` ("Booked · in conversation · outside clients") IS GONE — S-PR2.
+    Those three lists, and the kept notes under them, are the People list now:
+    one list, not two. `?open=clients` (and the `/vendor-dashboard/clients`
+    stub's `?tab=clients`) land on People (`SECTION_SEGMENT`).
+  */
   {
     key: 'availability',
     label: 'Availability & capacity',
@@ -997,8 +1215,6 @@ async function CustomerSectionBody({
   switch (open) {
     case 'messages':
       return <MessagesSurface searchParams={pass as never} />;
-    case 'clients':
-      return <ClientsSurface searchParams={pass as never} />;
     case 'availability':
       // Management tools only — the month grid stays in the pipeline above.
       return <CalendarSurface searchParams={pass as never} variant="manage" />;
@@ -1011,45 +1227,65 @@ async function CustomerSectionBody({
   }
 }
 
-export default async function VendorCustomersHub({ searchParams }: Props) {
+export default async function VendorCustomersHub({
+  searchParams,
+}: {
+  searchParams: Props['searchParams'];
+}) {
   const sp = (await searchParams) as Record<string, string | string[] | undefined>;
+  const seg = customersSegment(sp);
   const openRaw =
     (typeof sp.open === 'string' && sp.open) ||
     // Legacy alias: old /calendar deep-links redirect with ?tab=calendar →
     // land on Availability. Everything else maps 1:1.
     (typeof sp.tab === 'string' && (sp.tab === 'calendar' ? 'availability' : sp.tab)) ||
     null;
-  const open =
-    openRaw && CUSTOMER_SECTIONS.some((s) => s.key === openRaw) ? openRaw : null;
+  /*
+    EACH SEGMENT KEEPS THE FOLDS THAT ARE ITS OWN (`SECTION_SEGMENT`):
+      · Dates  — Availability & capacity;
+      · Money  — Quotes · Contracts (papers about a deal; the plan moves them
+                 onto the customer's card in S-PR5);
+      · People — Messages, and ONLY when a link asked for it (`?open=messages`,
+                 which is where the envelope in the top bar lands). People is
+                 the list and nothing under it; the inbox is one tap away on
+                 every page, so it has no closed fold sitting below the roster.
+  */
+  const segSections = CUSTOMER_SECTIONS.filter(
+    (s) => SECTION_SEGMENT[s.key] === seg && (seg !== 'people' || s.key === openRaw),
+  );
+  const open = openRaw && segSections.some((s) => s.key === openRaw) ? openRaw : null;
 
   return (
     <>
-      {/* The pipeline is the home: month calendar + summary cards + QR + list. */}
-      <CustomersPipeline searchParams={Promise.resolve(sp) as never} />
+      {/* The segment's own blocks: People's list · Dates' calendar · Money's month. */}
+      <CustomersPipeline searchParams={Promise.resolve(sp) as never} seg={seg} />
 
-      {/* ALWAYS-ON (owner pick 2026-07-12): Bookings = the daily heartbeat
-          (new inquiries), Payday = the cash-flow timeline (1 query, shown
-          nowhere else). Rendered eagerly, not behind an accordion. */}
-      <div id="bookings" className="scroll-mt-24">
-        <BookingsSurface searchParams={Promise.resolve(sp) as never} />
-      </div>
-      <div id="payday" className="scroll-mt-24">
-        <PaydaySurface />
-      </div>
+      {/* MONEY (until S-PR4 redraws it): the bookings list and the cash-flow
+          timeline, as shipped. `#bookings` and `#payday` are where the old
+          links land (`ANCHOR_SEGMENT`). */}
+      {seg === 'money' ? (
+        <>
+          <div id="bookings" className="scroll-mt-24">
+            <BookingsSurface searchParams={Promise.resolve(sp) as never} />
+          </div>
+          <div id="payday" className="scroll-mt-24">
+            <PaydaySurface />
+          </div>
+        </>
+      ) : null}
 
-      {/* The rest folds in — glance-covered or configure-once. Messages folds
-          here too (its thread set is already the always-on Bookings queue
-          above; opening this section shows the chat/reply view). */}
-      {/* `#customer-tools` is where the roster's ⋯ doors land. */}
-      <div id="customer-tools" className="scroll-mt-24">
-        <FeatureAccordion sections={CUSTOMER_SECTIONS} openKey={open}>
-          {open ? (
-            <Suspense fallback={<AccordionSkeleton />}>
-              <CustomerSectionBody open={open} sp={sp} />
-            </Suspense>
-          ) : null}
-        </FeatureAccordion>
-      </div>
+      {/* `#customer-tools` is where a fold's link lands. */}
+      {segSections.length > 0 ? (
+        <div id="customer-tools" className="scroll-mt-24">
+          <FeatureAccordion sections={segSections} openKey={open}>
+            {open ? (
+              <Suspense fallback={<AccordionSkeleton />}>
+                <CustomerSectionBody open={open} sp={sp} />
+              </Suspense>
+            ) : null}
+          </FeatureAccordion>
+        </div>
+      ) : null}
 
       {/* First visit only — the shipped MiniTour (every feature gets one). */}
       <MiniTour tourKey="vendor_customers_v1" after="vendor_welcome_v1" />

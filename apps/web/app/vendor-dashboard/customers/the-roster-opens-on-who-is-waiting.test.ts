@@ -206,7 +206,12 @@ test('the roster is handed the clash map and one shared "now"', () => {
   assert.ok(/holdingPerDate=\{holdingPerDate\}/.test(pageSrc), 'the clash map is not passed');
   // One clock for the derivation AND the render, so a customer cannot sit one
   // side of the quiet boundary in the lane count and the other on the row.
-  assert.ok(/nowMs=\{rosterNowMs\}/.test(pageSrc), 'the render uses a second clock');
+  // RE-AIMED 2026-10-10 (S-PR2): the roster took `nowMs` and worded ages itself. Each row's words are decided on
+  // the page now (`peopleRowView`), so the ONE shared instant is held where it is used — the lanes, the row's
+  // words, and the closed lines all read `rosterNowMs`.
+  assert.ok(/view: peopleRowView\(r, factsFor\(r\), rosterNowMs\)/.test(pageSrc), 'the render uses a second clock');
+  assert.ok(/readVendorClosedLines\(supabase, vendorProfileId, rosterNowMs\)/.test(pageSrc), 'the closed lines are timed on a second clock');
+  assert.ok(!/Date\.now\(\)/.test(rosterSrc), 'the roster reads the clock itself');
   assert.ok(
     !/customerLaneOf\([\s\S]{0,400}?Date\.now\(\)/.test(pageSrc),
     'the derivation reads the clock itself instead of the shared instant',
@@ -242,40 +247,58 @@ test('no waitlist lane, and no unreachable status pill map', () => {
   );
 });
 
-test('the money note stays off a masked row', () => {
-  // A balance beside "A couple planning a wedding in Metro Manila" narrows an
-  // anonymous row to a person by the figure attached to it.
-  assert.ok(
-    /r\.lane\s*===\s*'waiting'\s*\)\s*return null/.test(pageSrc.replace(/\s+/g, ' ')) ||
-      /if\s*\(\s*r\.lane\s*===\s*'waiting'\s*\)\s*return\s+null/.test(pageSrc),
-    'moneyNote no longer returns null for a waiting row',
-  );
+test('the money note stays off a waiting row', async () => {
+  /*
+    RE-AIMED 2026-10-10 (S-PR2). This matched the text of `moneyNote` in the page (`if (r.lane === 'waiting')
+    return null`). The money line is decided by `peopleRowView` now (`customers/people-row.ts`), so the rule is
+    EXECUTED instead of matched: hand a waiting row a full payment plan and it still says nothing about money.
+    A balance beside somebody who has only asked would put a figure on a booking that does not exist.
+  */
+  const { peopleRowView, NO_FACTS } = await import('./people-row');
+  const plan = { expectedPhp: 85_000, collectedPhp: 0, balancePhp: 85_000, fullyPaid: false, allUnresolved: false, installmentCount: 2 };
+  const base = { eventId: 'e1', title: 'Ana & Miguel', identityRevealed: true, eventDate: '2027-03-13', place: null, threadId: 't1', eventVendorId: null, quietDays: null, expiresAt: null };
+  for (const row of [
+    { ...base, lane: 'waiting' as const, waitingKind: 'inquiry' as const, waitingSince: '2026-10-01T00:00:00Z' },
+    { ...base, lane: 'waiting' as const, waitingKind: 'booking_ask' as const, waitingSince: '2026-10-01T00:00:00Z' },
+  ]) {
+    const v = peopleRowView(row, { ...NO_FACTS, moneyRead: true, money: plan, nextDue: { amountPhp: 85_000, dueDate: '2026-10-03' } }, Date.UTC(2026, 9, 2));
+    assert.ok(!/₱|paid|plan/.test(v.line ?? ''), `a waiting row says "${v.line}"`);
+  }
+  assert.ok(!/function moneyNote\b/.test(pageSrc), 'a second money rule is back on the page');
 });
 
-test('"Book of business" is still reachable from this page', () => {
-  // It lived in the header of the block this redesign replaced. A redesign is
-  // exactly when a control goes missing. Since 2026-10-01 it sits behind the
-  // roster's ⋯ with the other customer tools (DECISION_LOG "THE SUPPLIER PHONE
-  // APP — APPROVED, WITH THE THREE RECOMMENDED ANSWERS", frame 2).
-  assert.ok(
-    /href="\?open=clients[#"&]/.test(rosterSrc) && /Book of business/.test(rosterSrc),
-    'the Book of business link was lost in the redesign',
-  );
+test('"Book of business" is this list now — its old door still lands here', async () => {
+  /*
+    RE-AIMED 2026-10-10 (S-PR2). This pinned a "Book of business" link in the roster's ⋯ menu, to the "Clients"
+    fold (`?open=clients`). The plan removes the menu and folds that second list INTO this one (prototype frame
+    03: "one list, not two"), so there is no door to keep — but every saved link to it must still arrive.
+  */
+  const { customersSegment } = await import('./anchors');
+  assert.equal(customersSegment({ open: 'clients' }), 'people', '?open=clients no longer lands on the list');
+  assert.equal(customersSegment({ tab: 'clients' }), 'people', 'the /vendor-dashboard/clients stub no longer lands on the list');
+  const stub = readFileSync(join(dirname(PAGE), '..', 'clients', 'page.tsx'), 'utf8');
+  assert.ok(/qs\.set\('tab', 'clients'\);[\s\S]*redirect\(`\/vendor-dashboard\/customers\?\$\{qs\.toString\(\)\}`\)/.test(stub), 'the old Clients address stopped forwarding');
+  assert.ok(!/data-customers-more|Book of business/.test(rosterSrc), 'the ⋯ menu is back');
 });
 
-test('the round + on Customers opens the SHIPPED outside-client form (owner answer 3)', () => {
-  // "+ on Customers adds an outside client" — and the shipped way to take one
-  // is Clients' "Import an outside client · free". The + must land on that
-  // form, open; a second add-client form would be a second mechanism.
-  assert.ok(
-    /href="\?open=clients&add=outside#import-outside"/.test(rosterSrc),
-    'the + no longer lands on the shipped outside-client form',
-  );
-  const clients = readFileSync(join(dirname(PAGE), '..', 'clients', 'surface.tsx'), 'utf8');
-  assert.ok(/id="import-outside"/.test(clients), 'the outside-client form lost its #import-outside anchor');
-  assert.ok(/open=\{search\.add === 'outside'\}/.test(clients), '?add=outside no longer opens the form');
+test('Add opens the SHIPPED outside-client form (owner answer 3)', () => {
+  /*
+    RE-AIMED 2026-10-10 (S-PR2). The round + in the roster header linked to the form inside the "Clients" fold
+    (`?open=clients&add=outside#import-outside`). Add is in the frosted thumb row now and opens the SAME form in
+    a sheet; `?add=outside` — the old + link — still opens it. Nothing new takes the client: same action.
+  */
+  assert.ok(/<form action=\{importExternalClient\}/.test(pageSrc), 'the Add sheet no longer posts the shipped action');
+  assert.ok(/import \{ importExternalClient, removeBlock \} from '\.\.\/calendar\/actions';/.test(pageSrc), 'the action is not the shipped one');
+  for (const field of ['pool_id', 'client_name', 'client_contact', 'client_note', 'start_date', 'end_date', 'return_to']) {
+    assert.ok(new RegExp(`name="${field}"`).test(pageSrc), `the form lost its ${field} field`);
+  }
+  assert.ok(/addOpen=\{search\.add === 'outside' \|\|/.test(pageSrc), '?add=outside no longer opens the form');
+  const thumb = readFileSync(join(dirname(PAGE), '_components', 'people-thumb.tsx'), 'utf8');
+  assert.ok(/tone="brand"[\s\S]{0,120}label="Add"/.test(thumb), 'Add is not the brand button in the thumb row');
+  assert.ok(/<Sheet open=\{adding\}/.test(thumb), 'Add no longer opens the sheet');
 });
 
+// (The ⋯ menu itself is gone — S-PR2 — but its two anchors are still where old links land.)
 test('every ⋯ door lands somewhere on this page', () => {
   // The ⋯ doors carry `#customer-tools` / `#calendar`; both ids must exist, or
   // the tap opens a section the reader is never scrolled to.

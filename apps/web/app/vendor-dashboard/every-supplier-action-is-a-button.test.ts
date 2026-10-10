@@ -63,6 +63,10 @@ export const SWEPT: ReadonlyArray<readonly [file: string, components: readonly s
       'QuoteDraftBody', 'ContractDraftBody',
     ],
   ],
+  // S-PR2 · Customers › People (2026-10-10): the list, its thumb row, the segments.
+  ['app/vendor-dashboard/customers/_components/customers-roster.tsx', ['RowBody', 'CustomersRoster']],
+  ['app/vendor-dashboard/customers/_components/people-thumb.tsx', ['PeopleThumb']],
+  ['app/vendor-dashboard/customers/_components/customers-segments.tsx', ['CustomersSegments', 'SegmentHashLander']],
 ];
 
 export type ComponentCount = { component: string; bare: number; ruled: number; handClassed: number };

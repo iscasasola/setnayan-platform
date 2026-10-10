@@ -46,14 +46,15 @@ const SECTIONS = 'app/vendor-dashboard/_components/overview-sections.tsx';
 const BUILDER = 'lib/vendor-overview.ts';
 const DOOR = 'lib/upcoming-schedule-door.ts';
 const CLIENT_PAGE = 'app/vendor-dashboard/clients/[eventId]/page.tsx';
-const CLIENTS_ROSTER = 'app/vendor-dashboard/clients/surface.tsx';
+// RE-AIMED 2026-10-10 (S-PR2): `clients/surface.tsx` — the second customer list, with its own two
+// "Customer card" doors — is retired; its rows are Customers › People's. The roster below is the
+// one list left to hold to "no bare client link", and its one card door is counted there.
 const CUSTOMERS_ROSTER = 'app/vendor-dashboard/customers/_components/customers-roster.tsx';
 
 const sections = read(SECTIONS);
 const builder = read(BUILDER);
 const door = read(DOOR);
 const clientPage = read(CLIENT_PAGE);
-const clientsRoster = read(CLIENTS_ROSTER);
 const customersRoster = read(CUSTOMERS_ROSTER);
 
 const EVENT = '2d4f1144-7816-4367-9c99-6ff0f9a6de10';
@@ -65,7 +66,6 @@ test('0 · the scan reads every file (an empty read is a green lie)', () => {
     [BUILDER, builder],
     [DOOR, door],
     [CLIENT_PAGE, clientPage],
-    [CLIENTS_ROSTER, clientsRoster],
     [CUSTOMERS_ROSTER, customersRoster],
   ] as const) {
     assert.ok(src.length > 800, `${rel} read as ${src.length} chars`);
@@ -190,7 +190,6 @@ test('6 · no supplier-side door onto a customer card is left bare', () => {
   const bare = /href=\{?`\/vendor-dashboard\/clients\/\$\{[^}]+\}`/g;
   for (const [rel, src] of [
     [SECTIONS, sections],
-    [CLIENTS_ROSTER, clientsRoster],
     [CUSTOMERS_ROSTER, customersRoster],
   ] as const) {
     assert.equal(count(src, bare), 0, `${rel} still has a bare client link, which opens the chat`);
@@ -208,7 +207,9 @@ test('6 · no supplier-side door onto a customer card is left bare', () => {
   // Each fixed door names the section its own words promise.
   assert.equal(count(sections, /clients\/\$\{card\.eventId\}\?tab=quote/g), 1, 'the deposit card lost its money section');
   assert.equal(count(sections, /clients\/\$\{card\.eventId\}\?tab=schedule/g), 2, 'the meeting / handover doors lost their calendar');
-  assert.equal(count(clientsRoster, /clients\/\$\{(?:eventId|t\.event_id)\}\?tab=details/g), 2);
+  // (Was: the retired Clients list's two `?tab=details` doors. The People roster's one card door
+  //  is the `const href = …?tab=details` counted above — every row that has a card goes through it.)
+  assert.equal(count(customersRoster, /\/vendor-dashboard\/clients\//g), 1, 'the roster grew a second door onto a customer card');
 });
 
 /*

@@ -158,6 +158,17 @@ export type PipelineThread = {
 /** An `event_vendors` row, reduced to the facts this derivation needs. */
 export type PipelineBooking = LockRequestRow & {
   eventVendorId: string;
+  /**
+   * The booking reads as FINISHED by the shared predicate
+   * (`rowReadsCompleted`, `lib/vendor-thread-stage.ts`) — the completion
+   * handshake, not only `status`. The caller asks it; this module stays free of
+   * the columns. Added with S-PR2 (2026-10-10), when the retired Clients list —
+   * the other surface that asked "is it finished?" of many rows — folded into
+   * this roster: without it a booking the couple had confirmed receiving read
+   * "Completed" on its thread and "Booked" here. Optional: absent, `status`
+   * alone decides, exactly as before.
+   */
+  completed?: boolean;
   /** `lock_requested_at` — when the couple pressed Lock. */
   requestedAt: string | null;
   /** The MATERIALIZED deadline, never one recomputed here. */
@@ -273,7 +284,9 @@ export function customerLaneOf(
 
   if (lockState === 'locked') {
     lane =
-      booking?.status && FINISHED_STATUSES.has(booking.status) ? 'finished' : 'booked';
+      booking?.completed || (booking?.status && FINISHED_STATUSES.has(booking.status))
+        ? 'finished'
+        : 'booked';
   } else if (lockState === 'requested') {
     // The bigger of the two unanswered questions wins the row. A couple with an
     // un-accepted enquiry AND a live booking ask is one person waiting, not two

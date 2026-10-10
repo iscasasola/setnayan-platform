@@ -28,7 +28,11 @@ const code = (rel: string) => stripComments(readFileSync(join(HERE, rel), 'utf8'
 
 const SECTIONS = code('_components/overview-sections.tsx');
 const OVERVIEW = code('../../lib/vendor-overview.ts');
-const CLIENTS = code('clients/surface.tsx');
+// RE-AIMED 2026-10-10 (supplier redesign S-PR2): was `clients/surface.tsx`, the "Clients" fold's "In
+// conversation" list. That second customer list is retired — its rows are Customers › People's — so the
+// same promise is held on the page that names the People rows.
+const CUSTOMERS = code('customers/page.tsx');
+const ROSTER = code('customers/_components/customers-roster.tsx');
 
 test('both booking-ask cards on Today name the couple, not "A couple"', () => {
   const named = SECTIONS.match(/\{card\.coupleName\} (wants|asked) to book you/g) ?? [];
@@ -45,14 +49,19 @@ test('the booking-ask cards carry the admin-read name, with "A couple" only for 
   assert.equal(builds.length, 2, `expected both lock_request builders to set coupleName, found ${builds.length}`);
 });
 
-test('the Clients "In conversation" list does not read the RLS-nulled event embed', () => {
+test('the People list does not read the RLS-nulled event embed', () => {
+  assert.ok(CUSTOMERS.length > 5_000 && ROSTER.length > 2_000, 'a source read came back short');
   assert.ok(
-    !/t\.event\?\.display_name/.test(CLIENTS),
-    'the Clients list reads t.event?.display_name — a vendor holds no events RLS, so it is always null',
+    !/t\.event\?\.display_name/.test(CUSTOMERS + ROSTER),
+    'the People list reads t.event?.display_name — a vendor holds no events RLS, so it is always null',
   );
+  // The name comes from the admin-scoped `events` read, for every lane…
   assert.match(
-    CLIENTS,
-    /\{who\.displayName \?\? 'A Setnayan event'\}/,
-    'the Clients list no longer names the couple from the admin-scoped read',
+    CUSTOMERS,
+    /eventName:\s*eventNameByEvent\.get\(eventId\) \?\? bookedByEvent\.get\(eventId\)\?\.eventName \?\? null,/,
+    'the People list no longer names the couple from the admin-scoped read',
   );
+  // …and the row prints THAT title. The retired list's stand-in ("A Setnayan event") did not come over.
+  assert.match(ROSTER, /data-people-name="">\s*\{r\.title\}/);
+  assert.doesNotMatch(CUSTOMERS + ROSTER, /A Setnayan event/);
 });

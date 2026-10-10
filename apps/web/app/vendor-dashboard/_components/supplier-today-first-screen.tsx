@@ -120,15 +120,25 @@ function icon(name: SupplierIcon): ReactElement {
   return <I aria-hidden="true" strokeWidth={1.9} />;
 }
 
-/** A small word on a tinted pill — "2 of 3" (waiting), "Live" (good). */
-export function TodayPill({ tone, children }: { tone: 'warn' | 'ok' | 'quiet'; children: ReactNode }) {
-  const token = tone === 'warn' ? '--color-warn' : tone === 'ok' ? '--color-ok' : '--color-ink';
+/**
+ * A small word on a tinted pill — "2 of 3" (waiting), "Live" (good). `ask` is
+ * the brand tint: somebody asked this shop something (Customers › People's
+ * "Asked", S-PR2) — the word reads mulberry-700 on the 12 % wash, the same pair
+ * the brand button's outlined word uses.
+ */
+export function TodayPill({ tone, children }: { tone: 'warn' | 'ok' | 'quiet' | 'ask'; children: ReactNode }) {
+  const token = tone === 'warn' ? '--color-warn' : tone === 'ok' ? '--color-ok' : tone === 'ask' ? '--color-mulberry' : '--color-ink';
   return (
     <span
       data-today-pill={tone}
       className="shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[12px]"
       style={{
-        color: tone === 'quiet' ? 'color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent)' : `rgb(var(${token}))`,
+        color:
+          tone === 'quiet'
+            ? 'color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent)'
+            : tone === 'ask'
+              ? 'rgb(var(--color-mulberry-700))'
+              : `rgb(var(${token}))`,
         background: `color-mix(in srgb, rgb(var(${token})) ${tone === 'quiet' ? 7 : 12}%, transparent)`,
       }}
     >

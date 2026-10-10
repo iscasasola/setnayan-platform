@@ -45,7 +45,9 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const RENDER_FILES = [
   'activities/page.tsx',
   'calendar/surface.tsx',
-  'clients/surface.tsx',
+  // (`clients/surface.tsx` stood here. Retired 2026-10-10 — supplier redesign S-PR2: its three lists and the
+  //  kept notes are Customers › People. Its two reads — the quoted probe and the kept notes — moved into
+  //  `customers/page.tsx`, which is on this list below, so both are still held to "bind the error".)
   'clients/[eventId]/page.tsx',
   'clients/[eventId]/production-sheet/page.tsx',
   'contracts/surface.tsx',

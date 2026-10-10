@@ -32,7 +32,12 @@
  *   (5) the two stylesheet tables the rule reads are the stylesheet's;
  *   (6) the page paints with the tokens measured here;
  *   (7) a DARK SHADE on the main background flips the paper the same way
- *       (`shadeWordVars`) — the same words follow it, over the veiled footage.
+ *       (`shadeWordVars`) — the same words follow it, over the veiled footage;
+ *   (8) NO WORD TOKEN IS LEFT BEHIND: every colour the Mood Board sizes against
+ *       its own paper is accounted for when the paper moves. Measured live on
+ *       2026-10-11: `--color-gild-text` (the "and" between the names, the
+ *       programme's times, "Our colours") had become a word token on 2026-10-05
+ *       and was never added to the followers — 1.4 : 1 on the dark sample event.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -101,8 +106,14 @@ function cssVars(selector: string): Record<string, string> {
 }
 const ROOT = cssVars(':root');
 
-/** One token, through any `var(--other)` it points at. */
+/**
+ * One token, through any `var(--other)` it points at — and, for the WORDS' gild,
+ * through the fallback `text-gild` itself carries: `var(--color-gild-text,
+ * var(--color-gild))` (`tailwind.config.ts`, asserted in (8)). House and the
+ * themes' stylesheet blocks name only the ornament; their words are it.
+ */
 function resolved(v: Record<string, string>, key: string, depth = 0): string | undefined {
+  if (v[key] === undefined && key === '--color-gild-text') return resolved(v, '--color-gild', depth);
   const x = v[key];
   const m = x ? /^var\((--[\w-]+)\)$/.exec(x) : null;
   return m && depth < 4 ? resolved(v, m[1]!, depth + 1) : x;
@@ -223,13 +234,18 @@ test('(2) the measured page: unreadable without the fix, readable with it', () =
   assert.ok(isLight(board['--color-cream']!), 'the board it was laid over is light');
   assert.ok(contrastOf(paper, shipped[MULBERRY]!) < 1.5, `the label should reproduce at ~1.4 : 1 (got ${contrastOf(paper, shipped[MULBERRY]!).toFixed(2)})`);
   assert.ok(contrastOf(shipped['--color-terracotta-700']!, paper) < 1.5, 'the sign-off should reproduce at ~1.1 : 1');
+  // 2026-10-11: the "and" between the names, the programme's times, "Our colours" — `text-gild`.
+  assert.ok(isLight(board['--color-cream']!) && contrastOf(board['--color-gild-text']!, board['--color-cream']!) >= AA, 'the board sized its gild words for its own light paper');
+  assert.equal(ombre['--color-gild-text'], undefined, 'the ombré names the ornament’s gild, never its words');
+  const gildWords = contrastOf(shipped['--color-gild-text']!, paper);
+  assert.ok(gildWords < 1.5, `the gild words should reproduce at ~1.4 : 1 (got ${gildWords.toFixed(2)})`);
 
   // As the guest page composes it now.
   const p = page(themeId, event);
   const ramp = rampOf(themeId, event);
   assert.equal(ramp.length, 9, 'the whole ramp is measured');
   assert.ok(contrastOf(p.get('--color-cream'), p.get(MULBERRY)) >= AA, 'the label still cannot be read on its fill');
-  for (const token of [MULBERRY, HOVER, '--color-terracotta-600', '--color-terracotta-700']) {
+  for (const token of [MULBERRY, HOVER, '--color-terracotta-600', '--color-terracotta-700', '--color-gild-text']) {
     for (const ground of [p.get('--color-cream'), ...ramp]) {
       const c = contrastOf(p.get(token), ground);
       assert.ok(c >= AA, `${token} reads ${c.toFixed(2)} : 1 on ${ground}`);
@@ -444,4 +460,54 @@ test('(7) a dark shade on the main background: the label reads on its fill and t
   );
   assert.match(layer, /return shadeWordInks\(\s*shadeWordVars\(shade, page\),/);
   assert.match(layer, /\.map\(\(sample\) => compositeOver\(shade\.veil, shade\.opacity, sample\)\)/);
+});
+
+test('(8) no word token is left behind: every colour the Mood Board sizes against its paper has a follower when the paper moves', () => {
+  /** What keeps each of the board's tokens readable once a background replaces the paper under it. */
+  const FOLLOWER: Record<string, string> = {
+    '--color-cream': 'the paper itself — the background replaces it',
+    '--color-ink': 'the background names its own ink (`proSiteVarsFor` · `ombreLook`)',
+    '--color-ink-on-plate': '`pinPlateInk` — measured on the plate that paints',
+    '--color-paper-deep': 'the plate keeps its own paper; its words are `--color-ink-on-plate`',
+    '--color-veil': 'a wash behind the masthead, never a word',
+    '--color-gild': 'ORNAMENT ONLY (rules, rings, seals) — no contrast pull by design; its words are `--color-gild-text`',
+    '--hub-heading': 'the theme’s own hex set; the ombré measures its heading over the ramp',
+  };
+  const board = paletteColourVars(ROSE_BOARD, 'house')!;
+  const unaccounted = Object.keys(board).filter(
+    (k) => k.startsWith('--color-') && !(k in FOLLOWER) && !WORD_INK_TOKENS.includes(k),
+  );
+  assert.deepEqual(
+    unaccounted,
+    [],
+    `the Mood Board sizes ${unaccounted.join(', ')} against its own paper and nothing moves it when a background replaces that paper — add it to WORD_INK_TOKENS (a word) or name its follower here`,
+  );
+  // …and a token cannot be both an ornament and a word.
+  for (const k of Object.keys(FOLLOWER)) assert.ok(!WORD_INK_TOKENS.includes(k), `${k} is listed as followed AND as a word token`);
+
+  // `text-gild` is the WORDS' token first, the ornament's only where no layer names one — the fallback `resolved` models.
+  assert.match(
+    read('tailwind.config.ts'),
+    /textColor: \{\s*gild: 'rgb\(var\(--color-gild-text, var\(--color-gild\)\) \/ <alpha-value>\)',/,
+  );
+  // The three places measured live on 2026-10-11 set their words in it.
+  assert.match(stripComments(read('app/[slug]/_components/pahina-masthead.tsx')), /\{\.\.\.el\('joiner'\)\} className="block font-pahina text-\[0\.5em\] italic text-gild"/);
+  assert.match(stripComments(read('app/[slug]/_components/schedule-widget.tsx')), /data-schedule-time[\s\S]{0,400}text-gild|text-gild[\s\S]{0,400}data-schedule-time/);
+  assert.match(stripComments(read('app/[slug]/_components/dress-code-widget.tsx')), /text-gild/);
+
+  // On EVERY look whose page changed sides, the gild words read at AA on the paper the page ends with.
+  const failures: string[] = [];
+  let flipped = 0;
+  everyLook((where, themeId, board2, background) => {
+    if (Object.keys(background).length === 0) return;
+    const before = page(themeId, board2);
+    const after = page(themeId, { ...board2, ...background });
+    if (isLight(after.get('--color-cream')) === isLight(before.get('--color-cream'))) return;
+    flipped++;
+    const target = Math.min(AA, contrastOf(before.get('--color-gild-text'), before.get('--color-cream')));
+    const c = contrastOf(after.get('--color-gild-text'), after.get('--color-cream'));
+    if (c < target - 1e-9) failures.push(`${where}: ${c.toFixed(2)} : 1 (it read ${target.toFixed(2)} before the background)`);
+  });
+  assert.ok(flipped >= 40, `only ${flipped} looks changed sides — the sweep went thin`);
+  assert.deepEqual(failures, [], `gild words a background left unreadable:\n  ${failures.join('\n  ')}`);
 });

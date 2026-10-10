@@ -265,7 +265,20 @@ export function pinPlateInk(
  *     label is the paper, so the FILL is what must read against it; `-600` is
  *     its hover) and every `text-mulberry` word — one pair, read both ways;
  *   · `--color-terracotta*` — eyebrows, links and the footer's sign-off;
- *   · `--color-link*`       — `.button-secondary` (`bg-cream text-link`) and inline links.
+ *   · `--color-link*`       — `.button-secondary` (`bg-cream text-link`) and inline links;
+ *   · `--color-gild-text`   — every `text-gild` word: the "and" between the names,
+ *     the programme's times, "Our colours" (`tailwind.config.ts` textColor.gild
+ *     reads it before the ornament's `--color-gild`).
+ *
+ * 🔴 THE LAST ONE WAS MISSING UNTIL 2026-10-11. `--color-gild-text` became a WORD
+ * token on 2026-10-05 (`buildSitePaletteVars`: the ornament's hue "moved until it
+ * reads on the paper and the cards") and was never added here. So when a
+ * background took the page to the other side, every other word followed and
+ * this one stayed where the Mood Board had sized it for a LIGHT paper. Measured
+ * on the live sample event (a rose board under a dark ombré): the "and" between
+ * the names, the programme's times and "Our colours" all painted rgb(63 58 52)
+ * on rgb(30 34 41) — 1.4 : 1. The ombré names the ORNAMENT (`--color-gild`) and
+ * says nothing about its words; that is this list's job.
  */
 export const WORD_INK_TOKENS: readonly string[] = [
   '--color-mulberry',
@@ -276,6 +289,7 @@ export const WORD_INK_TOKENS: readonly string[] = [
   '--color-terracotta-700',
   '--color-link',
   '--color-link-600',
+  '--color-gild-text',
 ];
 
 /**
@@ -295,9 +309,13 @@ export const HOUSE_WORD_TOKENS: Readonly<Record<string, string>> = {
   '--color-terracotta-700': '140 105 50',
   '--color-link': '59 78 103',
   '--color-link-600': '48 64 85',
+  // House names only the ornament's gild; its words fall back to it (`pageWordBase`).
+  '--color-gild': '169 131 75',
 };
 export const CANDLELIGHT_WORD_TOKENS: Readonly<Record<string, string>> = {
   '--color-cream': '24 22 20',
+  '--color-gild': '201 163 106',
+  '--color-gild-text': '201 163 106',
   '--color-mulberry': '201 163 106',
   '--color-mulberry-600': '201 163 106',
   '--color-mulberry-700': '201 163 106',
@@ -316,12 +334,16 @@ export function pageWordBase(
   art: 'candlelight' | null = null,
 ): Record<string, string> {
   const theme = INVITE_THEMES[themeId] ?? INVITE_THEMES.house;
-  return {
+  const base: Record<string, string> = {
     ...HOUSE_WORD_TOKENS,
     ...(art === 'candlelight' ? CANDLELIGHT_WORD_TOKENS : {}),
     ...(theme.id === 'house' ? {} : themeBlockVars(theme)),
     ...(palette ?? {}),
   };
+  /* `text-gild` is `var(--color-gild-text, var(--color-gild))` (`tailwind.config.ts`):
+     where no layer names the WORDS' gild — House's `:root` — it is the ornament's. */
+  if (!base['--color-gild-text'] && base['--color-gild']) base['--color-gild-text'] = base['--color-gild'];
+  return base;
 }
 
 /** The worst contrast of `colour` over every ground it is read on. */

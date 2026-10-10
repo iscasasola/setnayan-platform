@@ -70,7 +70,7 @@ import {
 import { resolveSectionOrder, shippedSections } from './editorial/editorial-order';
 import { openUpHash } from '@/lib/post-event-scenes';
 import { siteMenuEnabled, browsableBodyRenders, SITE_MENU_ANCHORS } from '../_lib/site-menu';
-import { invitationCard, mastheadEyebrow } from '../_lib/invitation-card';
+import { hubLinkWords, invitationCard, mastheadEyebrow } from '../_lib/invitation-card';
 import { belongsToThisEvent } from '../_lib/belongs-to-this-event';
 import { redactStoryLayers } from '@/lib/the-guests-layer-is-theirs-until-you-publish';
 import { VendorDoorway } from './vendor-doorway';
@@ -1850,6 +1850,8 @@ export async function SiteBody({
                   displayName={event.display_name}
                   {...heroElements}
                   card={inviteCard ?? undefined}
+                  /* 🔗 The link down names only what this viewer's page holds (`hubLinkWords`). */
+                  linkWords={hubLinkWords({ place: openBrowseContent.venue_map && detailsSceneList.some((w) => w.widget_type === 'venue_map'), story: menuSections.story || storySceneShown })}
                   twoPeople={clientWords.twoPeople}
                   eventDate={event.event_date}
                   venueName={venueLine}
@@ -2869,6 +2871,8 @@ export async function SiteBody({
               displayName={event.display_name}
               {...heroElements}
               card={inviteCard ?? undefined}
+              /* 🔗 The link down names only what this viewer's page holds (`hubLinkWords`). */
+              linkWords={hubLinkWords({ place: openBrowseContent.venue_map && detailsSceneList.some((w) => w.widget_type === 'venue_map'), story: menuSections.story || storySceneShown })}
               twoPeople={clientWords.twoPeople}
               eventDate={event.event_date}
               venueName={venueLine}

@@ -101,6 +101,7 @@ export async function runLockRequestExpirySweep(): Promise<{ nudged: number; exp
             title: `${who} is still waiting`,
             body: `${who} asked you to take their booking and has not heard back. You have about a day left to agree or decline before the request closes.`,
             relatedUrl: '/vendor-dashboard',
+            eventId: r.event_id,
           });
         } catch (e) {
           console.error('[lock-request-expiry] nudge notify failed:', e);

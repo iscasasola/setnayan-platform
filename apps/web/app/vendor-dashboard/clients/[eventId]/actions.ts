@@ -8,6 +8,7 @@ import { runDepositAcknowledgedEffects } from '@/lib/deposit-acknowledged-effect
 import { emitNotification } from '@/lib/notification-emit';
 import { narrowEventDateAfterAgreement } from '@/lib/date-narrowing.server';
 import { formatCandidateDate } from '@/lib/candidate-dates';
+import { formatPhp } from '@/lib/php';
 import { lockAnswerReturnTo } from '@/lib/lock-answer-notice';
 import { depositAnswerReturnTo, vendorClientSurfaceHref } from '@/lib/vendor-client-return';
 import { isRelationshipWorkspaceEnabled } from '@/lib/relationship-workspace-flag';
@@ -86,15 +87,25 @@ export async function vendorMarkServiceComplete(formData: FormData) {
       .eq('marketplace_vendor_id', profile.vendor_profile_id)
       .is('service_marked_complete_at', null);
 
-    const { data: couple } = await admin
+    // EVERY couple member, not `.maybeSingle()`. That call ERRORS on two rows —
+    // and an event with both partners on it has two — so `data` came back null
+    // and the request to confirm delivery was sent to nobody, in silence, for
+    // exactly the events with two hosts. Same fan-out as the notices below.
+    const { data: members, error: membersError } = await admin
       .from('event_members')
       .select('user_id')
       .eq('event_id', eventId)
-      .eq('member_type', 'couple')
-      .maybeSingle();
-    if (couple?.user_id) {
+      .eq('member_type', 'couple');
+    if (membersError) {
+      console.error(
+        `[vendorMarkServiceComplete] could not read who to tell for event_id=${eventId}:`,
+        membersError.message,
+      );
+    }
+    for (const m of members ?? []) {
+      if (!m.user_id) continue;
       await emitNotification({
-        userId: couple.user_id,
+        userId: m.user_id,
         type: 'review_request',
         title: `${ev.vendor_name ?? 'Your supplier'} marked their service complete`,
         body: 'Confirm you received everything to unlock your review and galleries.',
@@ -1281,6 +1292,8 @@ async function answerDeletionRequest(formData: FormData, agree: boolean) {
             ? 'You can remove this celebration now.'
             : reason ?? 'They did not give a reason.',
           relatedUrl: '/dashboard',
+          // Which event: the link is account-level, so the email is told here.
+          eventId,
         });
       }
     } catch (err) {
@@ -1475,9 +1488,7 @@ export async function vendorAskForPayment(formData: FormData) {
           // "they asked for something" makes the reader open the page to find
           // out what, which is the shape this repo already fixed once on the
           // Papic studio banner that named no figure.
-          body: note
-            ? `₱${amount.toLocaleString('en-PH')} — ${note}`
-            : `₱${amount.toLocaleString('en-PH')}`,
+          body: note ? `${formatPhp(amount)} — ${note}` : formatPhp(amount),
           relatedUrl: `/dashboard/${eventId}/vendors/${eventVendorId}/workspace`,
         });
       }

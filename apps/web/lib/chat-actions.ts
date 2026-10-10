@@ -185,10 +185,19 @@ export async function notifyOtherParty(args: {
       // over the returning-client copy when both apply.
       const founderSeat = await eventHostHoldsFounderSeat(admin, args.eventId);
       // Anonymization-until-accept (Glass PR-6b · spec 2026-07-15): a first
-      // couple→vendor message is a PRE-accept inquiry, so the notification (and
-      // the email it triggers via emitNotification's allowlist) must NOT carry
-      // the couple's identity — the title drops `eventName` (the event title,
-      // which contains the couple's names). The couple's message TEXT is NOT
+      // couple→vendor message is a PRE-accept inquiry, so the notification and
+      // its email must NOT carry the couple's identity — the title drops
+      // `eventName` (the event title, which contains the couple's names).
+      //
+      // ⚠ THIS COMMENT SAID "the email it triggers via emitNotification's
+      // allowlist" FOR MONTHS WHILE `vendor_inquiry_received` WAS NOT ON THAT
+      // ALLOWLIST — push only, so a shop with no push subscription that did not
+      // sign in never learned a couple wrote. It is on the allowlist since
+      // 2026-10-10, and lib/couple-supplier-notices.ts declares its email as
+      // `date_only`: the event's DATE is printed under the sentence (so the
+      // shop can tell whether it is free), the event's NAME never is.
+      // `eventId` is passed because the link below is a supplier-side path the
+      // emitter cannot read an event out of. The couple's message TEXT is NOT
       // scrubbed (edge rule: they may sign their own message — that's their
       // choice). NOTE: the "returning client" enrichment (which names a PRIOR
       // event) is an owner-locked feature (2026-06-12) that deliberately tells
@@ -208,6 +217,7 @@ export async function notifyOtherParty(args: {
             ? `This couple previously booked you for ${priorLocked}. ${args.body.slice(0, 200)}`
             : args.body.slice(0, 200),
         relatedUrl: `/vendor-dashboard/messages/${args.threadId}`,
+        eventId: args.eventId,
       });
       return;
     }

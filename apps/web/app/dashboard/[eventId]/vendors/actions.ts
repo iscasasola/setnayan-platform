@@ -440,9 +440,12 @@ async function updateVendorStatus(formData: FormData) {
 
   // Phase-2 review-request emit: the moment a vendor's service is marked
   // delivered (and wasn't already delivered/complete), drop a notification
-  // on the couple's tray + send a Resend email asking them to leave a
-  // review. Failure to emit must never roll back the status change itself,
-  // so emitNotification swallows errors internally.
+  // on the couple's tray + send an email asking them to leave a review.
+  // ⚠ "+ a Resend email" was written here for months while `review_request`
+  // was NOT on the email allowlist, so only the tray half ever happened. It is
+  // on the allowlist since 2026-10-10 (lib/couple-supplier-notices.ts).
+  // Failure to emit must never roll back the status change itself, so
+  // emitNotification swallows errors internally.
   if (
     status === 'delivered'
     && prev?.status !== 'delivered'
@@ -2012,6 +2015,7 @@ export async function finalizeVendor(
           title: `${who} wants to book you`,
           body: `${who} has asked you to take their booking. You have 48 hours to agree or decline — if nobody answers, the request closes and they will look elsewhere.`,
           relatedUrl: '/vendor-dashboard',
+          eventId,
         });
       }
     } catch (e) {
@@ -2132,6 +2136,7 @@ export async function finalizeVendor(
           relatedUrl: threadId
             ? `/vendor-dashboard/messages/${threadId}`
             : '/vendor-dashboard/bookings',
+          eventId,
         });
       }
     } catch (e) {
@@ -2819,6 +2824,7 @@ export async function finalizeVendor(
               title: 'First payment submitted — please confirm',
               body: `A couple submitted their first payment via ${methodLabel} and the date is held. Open the client to confirm you received it.`,
               relatedUrl: `/vendor-dashboard/clients/${eventId}`,
+              eventId,
             });
           }
         }
@@ -3029,6 +3035,7 @@ export async function withdrawVendorLockRequest(
           title: `${who} took their booking request back`,
           body: `${who} has withdrawn the booking request you were asked to answer. Nothing is owed either way, and the date is free on your calendar again.`,
           relatedUrl: '/vendor-dashboard',
+          eventId,
         });
       }
     }
@@ -4411,6 +4418,14 @@ export async function cancelBookingAsHost(
   // the cancellation also lands in the vendor's notification tray, not just
   // their inbox. emitNotification resolves the recipient email + prefixes
   // the app URL internally, so the manual users-table lookup is gone.
+  //
+  // ⚠ THAT PARAGRAPH WAS FALSE FROM THE DAY IT WAS WRITTEN UNTIL 2026-10-10.
+  // `booking_cancelled` was never added to the email allowlist, so the
+  // "consolidation" REMOVED the supplier's email and kept only the tray row —
+  // a supplier who was not in the app lost a booking and was told nothing. It
+  // is on the allowlist now, and `couple-supplier-notices-reach-email.test.ts`
+  // fails if it drops off again. `eventId` is passed because the link is a
+  // supplier-side path the emitter cannot read an event out of.
   if (vendorPrimaryUserId) {
     const formattedDate = (() => {
       if (!eventDateIso) return null;
@@ -4436,6 +4451,7 @@ export async function cancelBookingAsHost(
         title: `${hostDisplay} cancelled their booking with you`,
         body: `${hostDisplay} cancelled their booking with you for ${eventDisplay}${dateClause}. This happened before any payment was made — your soft hold has been released and the date is open on your calendar again.`,
         relatedUrl: deepLinkPath,
+        eventId: eventIdRaw,
       });
     } catch (e) {
       // Silent — the cancel itself succeeded. Log for ops visibility.
@@ -4833,6 +4849,7 @@ export async function recordDeposit(
         title: 'Payment recorded — please confirm',
         body: 'A couple recorded a payment for your booking and the date is held. Open the client to confirm you received it.',
         relatedUrl: `/vendor-dashboard/clients/${eventId}`,
+        eventId,
       });
     }
   }

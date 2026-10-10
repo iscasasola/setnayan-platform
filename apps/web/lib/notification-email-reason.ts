@@ -83,6 +83,16 @@ export const NOTIFICATION_EMAIL_REASONS: Partial<Record<NotificationType, string
   date_change_closed: R('a request to move a booking date was closed'),
   date_moved: R('the date of a booking you are part of moved'),
   schedule_change_requested: R('a booked supplier asked for a change to a schedule you can approve'),
+  // The couple ↔ supplier round trips that became emails on 2026-10-10
+  // (lib/couple-supplier-notices.ts says why each one has to reach a person).
+  vendor_inquiry_received: R('your shop has a new inquiry to answer'),
+  inquiry_declined: R('a supplier declined your inquiry'),
+  booking_cancelled: R('a booking with your shop was cancelled'),
+  payment_logged: R('a payment to your shop is waiting for you to confirm it'),
+  vendor_payment_asked: R('a supplier you booked asked for a payment'),
+  pax_surcharge_changed: R('the total of a booking changed with your guest count'),
+  vendor_joined: R('a supplier you added joined Setnayan'),
+  review_request: R('a service you booked was marked delivered'),
 };
 
 /** Said when a type has no line of its own yet — true of every account mail. */

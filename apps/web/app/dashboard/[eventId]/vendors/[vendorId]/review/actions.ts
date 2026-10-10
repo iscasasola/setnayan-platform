@@ -274,6 +274,7 @@ export async function submitCoupleReview(formData: FormData) {
         title: `New ${ratings.overall}-star review`,
         body: `${eventDisplay} left you a ${ratings.overall}-star review. Open your Reviews page to read it and post a one-time public reply.`,
         relatedUrl: '/vendor-dashboard/reviews',
+        eventId,
       });
     }
   } catch (e) {
@@ -485,6 +486,7 @@ export async function coupleConfirmReceived(formData: FormData) {
           title: `${coupleName} confirmed your service`,
           body: `${coupleName} confirmed they received everything — add a moment to their story.`,
           relatedUrl: `/vendor-dashboard/clients/${eventId}/editorial-media`,
+          eventId,
         });
       }
     } catch (e) {
@@ -640,6 +642,7 @@ export async function recommendVendor(formData: FormData) {
         title: 'A couple recommended you',
         body: `${eventDisplay} added you to their recommended suppliers. It now shows on your marketplace profile and their event page.`,
         relatedUrl: '/vendor-dashboard/reviews',
+        eventId,
       });
     }
   } catch (e) {

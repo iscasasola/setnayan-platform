@@ -1,6 +1,7 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { isEmailConfigured, sendEmail } from '@/lib/email';
+import { sendEmail } from '@/lib/email';
+import { recordDelivery } from '@/lib/email-delivery.server';
 import {
   ADMIN_EMAIL_FOOTER,
   renderBrandedEmail,
@@ -11,6 +12,8 @@ import { isPlaceholderEmail } from '@/lib/anon-onboarding';
 import type { NotificationType } from '@/lib/notifications';
 import { notificationEmailReason } from '@/lib/notification-email-reason';
 import { eventIdFromRelatedUrl } from '@/lib/notification-event-id';
+import { coupleSupplierEventSections } from '@/lib/couple-supplier-notices';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 // Web Push is wired at the same funnel as email but kept deliberately MINIMAL:
 // only the highest-signal, time-sensitive types fire a push on top of the
@@ -132,10 +135,10 @@ const EMAIL_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
   // Payment lifecycle (Phase 2 PR-B, 2026-06-20). The transactional money
   // signals the couple should get an email for: their payment plan is ready
   // (info_sent), a payment was confirmed by the vendor, and the plan cleared.
-  // payment_logged is deliberately EXCLUDED — it's the vendor-facing
-  // "couple logged a payment" nudge (in-app/push register), not a transactional
-  // email to the couple. PR-B emits payment_info_sent now; the other two are
-  // wired by PR-C/D, but belong on the allowlist up front.
+  // payment_logged was EXCLUDED here from 2026-06-20 until 2026-10-10, on the
+  // reasoning that it is "the vendor-facing nudge (in-app/push register)". It
+  // was never on the push list either, so it reached nobody away from the app.
+  // It is on this list now — see the couple ↔ supplier block at the end.
   'payment_info_sent',
   'payment_confirmed',
   'payment_cleared',
@@ -344,6 +347,46 @@ const EMAIL_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
     fails if it drops off this set or lands in the gated one.
   */
   'schedule_change_requested',
+  /*
+    🤝 THE COUPLE ↔ SUPPLIER ROUND TRIPS THAT WERE A TRAY BADGE ONLY (2026-10-10,
+    owner: "what we are building is the connection of the supplier and user on
+    their events"). Each of these opens or moves a booking, and each reached
+    nobody who was not already looking at the app:
+
+      · vendor_inquiry_received → the SUPPLIER's first ask. Push only, so a shop
+        with no push subscription that did not sign in never learned a couple
+        wrote. A comment in lib/chat-actions.ts said it emailed; it did not.
+      · inquiry_declined        → the COUPLE, waiting on a supplier who said no.
+      · booking_cancelled       → the SUPPLIER. This one WAS a direct email, and
+        lost it when it was moved onto this function with no line here.
+      · payment_logged          → the SUPPLIER: money was sent and waits for
+        their confirmation.
+      · vendor_payment_asked    → the COUPLE: the one notice that says an amount
+        is owed.
+      · pax_surcharge_changed   → the COUPLE: the total they owe changed.
+      · vendor_joined           → the COUPLE: the supplier they added by hand is
+        now on Setnayan.
+      · review_request          → the COUPLE: the service was marked delivered
+        and they must confirm it.
+
+    🔑 THE NOTIFICATION AND THIS LINE ARE TWO HALVES OF ONE MECHANISM. Which
+    couple ↔ supplier types must have both is declared ONCE, with a reason each,
+    in lib/couple-supplier-notices.ts; `couple-supplier-notices-reach-email.test.ts`
+    fails if a type declared there as emailed drops off this set, lands in the
+    marketing-gated set below, or loses its reason line.
+
+    ⚠ Deliberately NOT in the marketing-gated set: every one is about the
+    reader's own booking or their own money. That set suppresses unless
+    users.marketing_opt_in = TRUE, which is NOT NULL DEFAULT FALSE.
+  */
+  'vendor_inquiry_received',
+  'inquiry_declined',
+  'booking_cancelled',
+  'payment_logged',
+  'vendor_payment_asked',
+  'pax_surcharge_changed',
+  'vendor_joined',
+  'review_request',
 ]);
 
 // Consent gate for the ENGAGEMENT (non-transactional) subset of the email
@@ -486,19 +529,45 @@ export async function emitNotification(args: EmitNotificationArgs): Promise<void
     console.error('[notifications] emit threw:', e);
   }
 
-  // Send email ONLY for allowlisted transactional types when Resend is
-  // configured — fire-and-forget; failures here never affect the in-app
-  // notification that already landed. The allowlist is the critical fix: it
-  // stops the prior behavior of emailing the recipient on EVERY type.
-  // (isEmailConfigured is async now — Integration Console DB-first resolver.)
-  if ((await isEmailConfigured()) && EMAIL_ENABLED_TYPES.has(type)) {
+  // Send email ONLY for allowlisted transactional types — fire-and-forget;
+  // failures here never affect the in-app notification that already landed. The
+  // allowlist is the critical fix: it stops the prior behavior of emailing the
+  // recipient on EVERY type.
+  //
+  // 🔑 AN EMAIL THAT WAS NOT SENT MUST NOT LOOK LIKE ONE THAT WAS (2026-10-10).
+  // This used to be `(await isEmailConfigured()) && …has(type)`: with no Resend
+  // key the whole block was skipped, nothing was written anywhere, and a
+  // supplier who was never emailed about a booking looked exactly like one who
+  // was. `sendEmail` already records `not_configured` in `email_deliveries`
+  // (the log /admin reads) — the pre-check was the only thing stopping it from
+  // being reached. So the type alone decides, and every way this block can end
+  // without a send now writes a row saying why.
+  if (EMAIL_ENABLED_TYPES.has(type)) {
     try {
       const admin = createAdminClient();
-      const { data: recipient } = await admin
+      const { data: recipient, error: recipientError } = await admin
         .from('users')
         .select('email, marketing_opt_in')
         .eq('user_id', userId)
         .maybeSingle();
+      if (recipientError) {
+        // A refused read is NOT "this person has no email". Said in the log.
+        await recordDelivery({
+          to: '',
+          subject: title,
+          kind: type,
+          outcome: 'send_failed',
+          error: `not sent — the recipient could not be read: ${recipientError.message}`,
+        });
+      } else if (!recipient?.email) {
+        await recordDelivery({
+          to: '',
+          subject: title,
+          kind: type,
+          outcome: 'send_failed',
+          error: 'not sent — the recipient has no email address on their account',
+        });
+      }
       // Engagement (non-transactional) types additionally require marketing
       // consent. Transactional types are unaffected (they're not in the gated
       // set). The in-app notification already landed above regardless; this only
@@ -520,7 +589,12 @@ export async function emitNotification(args: EmitNotificationArgs): Promise<void
           process.env.NEXT_PUBLIC_APP_URL ??
           'https://setnayan-platform-web.vercel.app';
         const link = relatedUrl ? `${appUrl}${relatedUrl}` : appUrl;
-        const mail = args.email;
+        // A couple ↔ supplier notice says WHICH event and WHEN under its
+        // sentence (lib/couple-supplier-notices.ts decides per type — a first
+        // inquiry gets the date and never the name). A caller that built its
+        // own email parts keeps them untouched.
+        const mail =
+          args.email ?? (await coupleSupplierEventParts(admin, type, eventId));
         const isAdminMail = mail?.audience === 'admin';
         const ctaLabel = mail?.ctaLabel ?? 'Open Setnayan';
         const paragraphs = mail?.paragraphs ?? (body ? [body] : []);
@@ -584,6 +658,15 @@ export async function emitNotification(args: EmitNotificationArgs): Promise<void
       }
     } catch (e) {
       console.error('[notifications] email-on-emit failed:', e);
+      // Not a silent catch: the action this follows still completes, and the
+      // delivery log says an email was owed and did not go.
+      await recordDelivery({
+        to: '',
+        subject: title,
+        kind: type,
+        outcome: 'send_failed',
+        error: `not sent — building the email threw: ${String(e)}`,
+      });
     }
   }
 
@@ -602,4 +685,46 @@ export async function emitNotification(args: EmitNotificationArgs): Promise<void
       console.error('[notifications] push-on-emit failed:', e);
     }
   }
+}
+
+
+/**
+ * The "Event · Date" rows of a couple ↔ supplier email, read from the event the
+ * notice is about. `undefined` (the mail goes out exactly as before) when the
+ * type declares no rows or no event is known.
+ *
+ * A refused read does NOT print a blank or a guessed date: the rows are left
+ * out, the sentence and the button still go, and the refusal is logged.
+ */
+async function coupleSupplierEventParts(
+  admin: ReturnType<typeof createAdminClient>,
+  type: NotificationType,
+  eventId: string | null,
+): Promise<NotificationEmailParts | undefined> {
+  if (!eventId) return undefined;
+  // Asked of a blank row first: a type with no event rows costs no query.
+  if (
+    coupleSupplierEventSections(type, {
+      display_name: null,
+      event_date: null,
+      event_date_precision: null,
+    }).length === 0
+  ) {
+    return undefined;
+  }
+  const { data, error } = await admin
+    .from('events')
+    .select('display_name, event_date, event_date_precision')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (error || !data) {
+    logQueryError(
+      'emitNotification.coupleSupplierEvent',
+      error ?? { message: 'event not found' },
+      { eventId, type },
+      'graceful_degrade',
+    );
+    return undefined;
+  }
+  return { sections: coupleSupplierEventSections(type, data) };
 }

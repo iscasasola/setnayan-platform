@@ -389,3 +389,67 @@ test('3 · the tester’s own steps (M01 · M02 · M04 · M05 · M06 · M07) on 
   assert.ok(sceneKeys(now, 'save_the_date').includes('countdown'));
   assert.equal(summarizeHubDraft(draft, liveState, true).changeCount, 1);
 });
+
+test('4 · the ORDER at the junction: scenes added to a stage can be re-ordered (counted, written); a tick alone is no move; a stage put back is not written at all', () => {
+  const facts: Facts = { openBrowse: true, content: {} };
+  const live = liveRows();
+  const liveState = { events: {}, widgets: live };
+  const lines = (d: HubDraft) => hubDraftChangeLines(d, liveState, true).map((l) => `${l.place} · ${l.what}`);
+  const moveOn = (r: Rendered, stage: LifecyclePhase, type: WidgetType, delta: number) =>
+    stageOrderPatch(movedOrder(r.nav.fullOrders[stage], `id-${type}`, delta)!, (id) => id.slice(3), stage);
+  const cellOf = (r: Rendered, type: WidgetType, stage: LifecyclePhase) => boxes(r.nav.guestsSee).find((b) => b.type === type && b.stage === stage)!;
+  const tickOn = (d: HubDraft, r: Rendered, type: WidgetType, stage: LifecyclePhase) => save(d, guestsSeePatch(guestsSeeToggle(r.nav.guestsSee, {}, type, cellOf(r, type, stage).col).writes));
+
+  // (R4) two scenes ADDED to Save the Date, then one moved before the other.
+  let draft = emptyHubDraft();
+  let now = render(live, draft, facts);
+  draft = tickOn(draft, now, 'schedule', 'save_the_date');
+  now = render(live, draft, facts);
+  draft = tickOn(draft, now, 'venue_map', 'save_the_date');
+  now = render(live, draft, facts);
+  const added = sceneKeys(now, 'save_the_date');
+  assert.deepEqual(added.slice(-2), ['schedule', 'venue_map'], 'anti-vacuity: the two added scenes close Save the Date, in the default order');
+  assert.ok(!lines(draft).some((l) => /Order/.test(l)), `adding a scene was counted as a move: ${lines(draft).join(' | ')}`);
+  draft = save(draft, moveOn(now, 'save_the_date', 'venue_map', -1));
+  now = render(live, draft, facts);
+  assert.deepEqual(sceneKeys(now, 'save_the_date').slice(-2), ['venue_map', 'schedule']);
+  assert.ok(lines(draft).includes('Save the Date · Order'), `the order of two added scenes is not counted: ${lines(draft).join(' | ')}`);
+  let rows = applied(live, draft);
+  assert.deepEqual(sceneKeys(render(rows, null, facts), 'save_the_date'), sceneKeys(now, 'save_the_date'), 'the order the Maker drew was not written at ✓ Apply');
+
+  // (no over-reading) a stage moved and put BACK, then a scene ticked onto it: still no "Order".
+  draft = emptyHubDraft();
+  now = render(live, draft, facts);
+  draft = save(draft, moveOn(now, 'rsvp', 'countdown', 1));
+  now = render(live, draft, facts);
+  draft = save(draft, moveOn(now, 'rsvp', 'countdown', -1));
+  now = render(live, draft, facts);
+  assert.deepEqual(lines(draft), [], 'a move put back is still a change');
+  draft = tickOn(draft, now, 'our_photos', 'rsvp');
+  now = render(live, draft, facts);
+  assert.deepEqual(lines(draft).filter((l) => /Order/.test(l)), [], `a tick on a stage whose order was put back reads as a move: ${lines(draft).join(' | ')}`);
+  assert.equal(lines(draft).length, 1);
+
+  // (R3) Save the Date moved and put back; the Invitation really moved → ✓ Apply leaves Save the Date's places alone.
+  draft = emptyHubDraft();
+  now = render(live, draft, facts);
+  const stdBefore = planList(live, 'save_the_date', facts);
+  draft = save(draft, moveOn(now, 'save_the_date', 'countdown', 1));
+  now = render(live, draft, facts);
+  draft = save(draft, moveOn(now, 'save_the_date', 'countdown', -1));
+  now = render(live, draft, facts);
+  draft = save(draft, moveOn(now, 'rsvp', 'countdown', 1));
+  now = render(live, draft, facts);
+  assert.deepEqual(lines(draft), ['Invitation · Order']);
+  rows = applied(live, draft);
+  for (const r of rows) {
+    const places = ((r.config_json as Record<string, unknown>)[STAGE_ORDER_KEY] ?? {}) as Record<string, number>;
+    assert.equal('save_the_date' in places, false, `${r.widget_type} was written a place on Save the Date, whose order did not move`);
+  }
+  assert.ok(rows.some((r) => 'rsvp' in (((r.config_json as Record<string, unknown>)[STAGE_ORDER_KEY] ?? {}) as Record<string, number>)), 'anti-vacuity: the Invitation’s order was written');
+  /* With the photos leading Save the Date the gallery is its first scene — and stays first. */
+  const photos = (rs: readonly InvitationWidgetRow[]) => rs.map((r) => (r.widget_type === 'our_photos' ? { ...r, config_json: { ...(r.config_json as Record<string, unknown>), std_lead: 'photos' } as InvitationWidgetRow['config_json'] } : r));
+  assert.deepEqual(planList(photos(rows), 'save_the_date', facts), planList(photos(live), 'save_the_date', facts), 'a stage nobody changed went live in another order');
+  assert.deepEqual(planList(rows, 'save_the_date', facts), stdBefore);
+  assert.equal(summarizeHubDraft(draft, { events: {}, widgets: rows }, true).changeCount, 0, '✓ still reads a change straight after Apply');
+});

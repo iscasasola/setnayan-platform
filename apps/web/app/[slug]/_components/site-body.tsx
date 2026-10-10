@@ -188,7 +188,7 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { HideableWidgetRender } from './hideable-widget-render';
 import { InvitationShell } from './invitation-shell';
 import { PublicHideableWidget } from './public-hideable-widget';
-import { HubPageHold, HubScenes, hubScrubHoldsAtMost } from './hub-scenes';
+import { HubCoverHold, HubPageHold, HubScenes, hubCoverLeaves, hubScrubHoldsAtMost, type HubCoverHoldBoxes } from './hub-scenes';
 import { RsvpWidget } from './rsvp-widget';
 import { sceneStyleOfRow, paletteLookOfRow, dosLookOfRow } from '@/lib/scene-style-of-row';
 import type { FixedStyleScene, StyledScene } from '@/lib/fixed-scene-styles';
@@ -298,6 +298,26 @@ function stdLockupFor(event: EventRow): StdLockup {
 }
 
 
+
+/**
+ * 🎬 WHAT THE GUEST TREE SAYS ON THE COVER'S THREE BOXES when its cover hands over (`hub-scenes.tsx` `HubCoverHold`
+ * `boxes`) — so the wrapped page, before the engine arms and for every guest it never arms for (no script, "reduce
+ * motion"), is still the page it was. Drawn only WITH the boxes: a cover that does not leave draws none of this.
+ *   · THE REVEAL'S CHAPTERS. The group the cover is drawn in is a chapters box (`data-pahina-chapters`): the scroll
+ *     reveal watches its CHILDREN, and hides one until it is reached unless it is the first screen. Wrapped, that
+ *     child is the cover's cell — so the cell is marked the first screen (never hidden: it holds the cover), and the
+ *     two boxes inside it are chapters boxes themselves, so the masthead and the reply row are watched exactly as
+ *     they were (both are the first screen too; neither is ever hidden).
+ *   · THE RHYTHM. `space-y-12` on the group reaches its own children only: the 3rem between the cover and the reply
+ *     row is said on the rest-of-the-group box (`mt-12`), and between that box's children (`space-y-12`); a box with
+ *     nothing in it draws nothing (`empty:hidden`, as a group does).
+ * Measured in a browser on the fixture page, wrapped against today's (`scripts/scrub-browser-check.mjs` 16).
+ */
+const GUEST_COVER_BOXES: HubCoverHoldBoxes = {
+  cell: { 'data-pahina-first-screen': '' },
+  cover: { 'data-pahina-chapters': '' },
+  rest: { 'data-pahina-chapters': '', className: 'mt-12 space-y-12 empty:hidden' },
+};
 
 type SiteBodyProps = {
   event: EventRow;
@@ -714,6 +734,11 @@ export async function SiteBody({
   const heroRow = widgets.find((w) => w.widget_type === 'hero');
   /* 🧍 How many pairs the page's own hold needs — at most one a scene that Leaves by Scrub (`HubPageHold`). 0 today. */
   const pageHolds = hubScrubHoldsAtMost(widgets, proWatermarkHidden);
+  /* 🎬 THE COVER AS HAND-OVER ZERO (`hub-scenes.tsx` `HubCoverHold`): is the hero row STORED to leave by Scrub, with a
+     Build out to play? The same question a scene is asked, through the same door — while "Scrub out" is not offered
+     (`lib/scrub-out-offered.ts`) the answer is no, on every page. 🔢 NO PAIR IS ADDED FOR IT: the hero row is a row,
+     so `pageHolds` above already counts it — one pair for the cover, never two. */
+  const coverStoredToLeave = hubCoverLeaves(widgets, proWatermarkHidden);
   const mainGroundLayer = await mainGroundLayerFor({
     theme: sceneTheme,
     heroConfig: heroRow?.config_json,
@@ -2821,7 +2846,21 @@ export async function SiteBody({
               exhibitions / private weddings drop the hero entirely if needed.
               (plan.body === 'normal' ≡ the old !showEditorialPlaceholder &&
               !showSaveTheDate pair.) */}
-          {plan.body === 'normal' && plan.heroShouldRender && hasHeroMedia ? (
+          {/* 🎬 THE COVER HANDS OVER (hand-over zero — owner: *"maria jose must build out and until we say i do
+              should be where maria jose build out"*). When this page's cover is stored to leave by Scrub, AND is
+              drawn (`leaves`, below), the masthead goes in one plain box and the rest of THIS GROUP — the reply
+              card or the one action — in another: the reply card arrives where the cover leaves, and the page's
+              later groups are held under it by the engine (`hub-scrub-engine.ts` `followers`). On a page a tab the
+              cover is on the first tab alone, so its hand-over is too.
+              🔒 A COVER THAT DOES NOT LEAVE — every page today — IS NOT WRAPPED: `HubCoverHold` returns the masthead
+              and the row AS GIVEN, the same bytes as before it was here, and mounts nothing (held byte for byte
+              by the real page's fixture render — its guards (2) and (6); the file may not be named in the app).
+              `GUEST_COVER_BOXES`: what the three boxes must say so the wrapped page is still the page. */}
+          <HubCoverHold
+            leaves={coverStoredToLeave && plan.body === 'normal' && plan.heroShouldRender}
+            boxes={GUEST_COVER_BOXES}
+            cover={
+          plan.body === 'normal' && plan.heroShouldRender && hasHeroMedia ? (
             /* Pahina masthead (wave A PR-2) — typographic hero + cover plate
                (STRUCTURAL: was text-over-scrim). HeroMonogram mount unchanged. */
             <PahinaMasthead
@@ -2861,7 +2900,9 @@ export async function SiteBody({
                 />
               }
             />
-          ) : null}
+          ) : null
+            }
+          >
 
           {replyCard ? (
             <ReplyCardRow card={replyCard} landed={Boolean(rsvpFlash && rsvpFlash.tone !== 'error')} />
@@ -2871,6 +2912,7 @@ export async function SiteBody({
             landed={Boolean(rsvpFlash && rsvpFlash.tone !== 'error')}
           />
           )}
+          </HubCoverHold>
           </>, { chapters: true, className: 'space-y-12' })}
 
           {group('home', <>

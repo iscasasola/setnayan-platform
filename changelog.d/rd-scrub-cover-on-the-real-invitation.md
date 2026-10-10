@@ -21,6 +21,26 @@ guest's page until that constant is turned on, which is the owner's go. LOCAL br
   hidden group, a pinned pill, a greeting, the scenes, the foot — at four sizes, and the tab case. `SCRUB_ONLY=15`
   plays one numbered block alone.
 
+- **The invitation's GUEST tree hands its cover over** (`site-body.tsx`, the two `PahinaMasthead` branches of
+  `plan.body === 'normal' && plan.heroShouldRender`, through `HubCoverHold`). The masthead goes in the cover's box and
+  the rest of its group — the reply card, or the one action — in the rest box, so the reply card is what arrives where
+  the cover leaves; the page's later groups are held under it. On a page a tab the hand-over is on the first tab only.
+  No page pair is added: the hero row was already counted. A cover that does not leave is returned as given — the
+  committed golden of the fixture page is untouched. The stranger's tree and Save the Date are not wired.
+- `HubCoverHold` takes `boxes`: what the PAGE needs said on the three boxes so the wrapped page is still the page —
+  here the cell marked the first screen (never hidden by the scroll reveal), the two inner boxes chapters boxes (the
+  masthead and the reply row are watched as before), and the 3rem rhythm on the rest box (`mt-12 space-y-12`).
+- Stylesheet: an arrival that is one of the page's chapters keeps the hand-over's one fade (the scroll reveal's
+  "shown" rule would otherwise draw it at opacity 1 the moment it appeared).
+- Engine: once a cover's hold is over, what follows it stands where the page laid it out to the pixel (at some
+  window heights it stopped a rounding short: 1.5 px on the real page at 1280 × 770).
+- Island: a page whose cover is its only Scrub says why it is off ("the opening is still up", "editing…") on its own
+  hold — it has no scenes block to say it on.
+- **Proof on the real page's markup** (`scripts/scrub-fixture-page.tsx` + block 16 of the browser check): the fixture
+  invitation drawn by the real `SiteBody`, with the app's stylesheet compiled for it. Wrapped and with no script,
+  every one of today's 310 boxes stands where it stood (cover → reply row 48 px → 48 px; reply row → next group
+  48 px → 48 px), and the scroll reveal's chapters in the first group are the same three plus the cell.
+
 ⚠ Chromium only. Nothing here has run on iOS Safari (WebKit).
 
 SPEC IMPACT: None (the owner's rulings in `Maker_Animate_Preview_Scrub_LOCKED_2026-10-09.md` are unchanged; no

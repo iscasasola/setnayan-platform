@@ -331,7 +331,11 @@ export function armHubScrub(root: HTMLElement): () => void {
          the same moment an arrival's rows may begin). */
       const lower = h.lift ? 1 - m.rows : m.below;
       if (h.below) put(h.below, '--hub-rise', px(h.pair.rise * lower));
-      if (h.lift) put(h.lift, '--hub-zrise', px(h.pair.rise * lower));
+      /* …AND ONCE THE HOLD IS OVER IT STANDS WHERE THE PAGE LAID IT OUT, TO THE PIXEL. The rows' gate is whole
+         pixels of a rounded screen: at some heights it ends a rounding short of 1 (770 px: 0.994), and what follows
+         the cover then stood that share of its rise too low for the rest of the page — measured on the real
+         invitation, 1.5 px under a reply row it should have been 48 px from. */
+      if (h.lift) put(h.lift, '--hub-zrise', px(t >= h.pair.len + h.rest ? 0 : h.pair.rise * lower));
     }
     for (const scene of scenes) {
       const s = of(scene);

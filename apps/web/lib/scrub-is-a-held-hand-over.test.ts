@@ -439,6 +439,12 @@ test('(10) the cover is hand-over zero: held where it stands when the page opens
      and the rest of the page. */
   assert.equal(draw(true), '<div class="hub-cover-cell"><div class="hub-cover" data-hub-fx=""><header>the cover</header></div><div class="hub-cover-after"><section>the door</section><section>a scene</section></div></div>');
   for (const c of HUB_COVER_CLASSES) assert.ok(draw(true).includes(`class="${c}"`), `${c} is not emitted`);
+  /* 🧱 THE PAGE'S OWN WORDS ON THE THREE BOXES (`boxes`, the real invitation): a class and a mark the page needs said
+     there — after the box's own class, the box's own mark kept — and NOTHING of it on a cover that does not leave. */
+  const said = { cell: { 'data-pahina-first-screen': '' }, cover: { 'data-pahina-chapters': '' }, rest: { 'data-pahina-chapters': '', className: 'mt-12 space-y-12' } } as const;
+  const drawSaid = (leaves: boolean) => renderToStaticMarkup(React.createElement(HubCoverHold, { leaves, boxes: said, cover: React.createElement('header', null, 'the cover') }, React.createElement('section', null, 'the door')));
+  assert.equal(drawSaid(true), '<div data-pahina-first-screen="" class="hub-cover-cell"><div data-pahina-chapters="" class="hub-cover" data-hub-fx=""><header>the cover</header></div><div data-pahina-chapters="" class="hub-cover-after mt-12 space-y-12"><section>the door</section></div></div>');
+  assert.equal(drawSaid(false), '<header>the cover</header><section>the door</section>', 'a cover that does not leave draws something of the page’s words for its boxes');
   /* NO SCRIPT FOR A COVER THAT DOES NOT LEAVE: the island is mounted in the leaving branch alone (it draws nothing,
      so the markup above cannot show it — the source is read). */
   const scenes = read(`${B}/hub-scenes.tsx`);
@@ -458,6 +464,14 @@ test('(10) the cover is hand-over zero: held where it stands when the page opens
   }
   assert.match(CSS, /\.hub-page-cell\[data-hub-page-on\] \.hub-cover-after \{ display: flow-root; margin-top: var\(--hub-up, 0px\); \}/);
   assert.match(CSS, /\.hub-page-cell\[data-hub-page-on\] \.hub-cover,\s*\.hub-page-cell\[data-hub-page-on\] \[data-hub-zero\] \{ opacity: var\(--hub-o, 1\); \}/);
+  /* …and an arrival that is one of the page's CHAPTERS keeps the hand-over's one fade: the scroll reveal's own
+     "shown" rule (opacity 1, four classes and marks strong) must not un-fade it — said again above that weight. */
+  assert.match(CSS, /\.hub-page-cell\[data-hub-page-on\] \.hub-page-stage \[data-pahina-chapters\] > \[data-hub-zero\] \{ opacity: var\(--hub-o, 1\); transition: none; \}/);
+  /* (Five classes and marks against the reveal's four — counted here, so a stronger reveal rule is seen.) */
+  const weight = (sel: string) => (sel.match(/\.[\w-]+|\[[^\]]+\]/g) ?? []).length;
+  const revealShown = [...CSS.matchAll(/([^{}]+)\{[^{}]*\}/g)].flatMap((m) => m[1]!.split(',')).map((x) => x.trim()).filter((x) => /\[data-pahina-chapters\] > \*/.test(x));
+  assert.ok(revealShown.length >= 2 && revealShown.includes('.pahina-js .sn-editorial [data-pahina-chapters] > *.pahina-in'), `the reveal’s own rules were not found (${revealShown.join(' | ')})`);
+  for (const sel of revealShown) assert.ok(weight('.hub-page-cell[data-hub-page-on] .hub-page-stage [data-pahina-chapters] > [data-hub-zero]') > weight(sel), `the scroll reveal’s rule is as strong as the hand-over’s fade: ${sel}`);
   /* (RE-AIMED 2026-10-10 — the claim changed: this rule read `.hub-cover-after [data-hub-zlift]`, a box inside the
      cover's own rest. On the real invitation what follows the arrival is in the page's LATER GROUPS, outside that
      box, so the engine marks up to the page's own stage and says the rise there — see `followers`, below.) */

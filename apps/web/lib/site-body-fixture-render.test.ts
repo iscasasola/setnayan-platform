@@ -31,6 +31,16 @@
  *       hand-over is wired inside. Written BEFORE the wiring (2026-10-10), so it was green on the unwired page.
  *       Sabotage, before the wiring: the page's own count asked through the lab's door
  *       (`hubScrubHoldsAtMost(widgets, proWatermarkHidden, true)`) → (6) red, naming the first changed character.
+ *       WIRED 2026-10-10 (`site-body.tsx`, the guest tree's two mastheads through `HubCoverHold`): (2) stayed green
+ *       with the golden untouched, and (6) took its second arm — switched on, the cover's cell exactly once in the
+ *       page's first group, one page pair, the island mounted, and the page with those boxes taken off is today's
+ *       page byte for byte. Sabotages after the wiring, each seen red and put back: the cover asked through the
+ *       lab's door (`hubCoverLeaves(widgets, proWatermarkHidden, true)`) → (6) dark arm red; and, with the constant
+ *       turned on by hand, `leaves={false}` → "the cover's cell, exactly once" red · `holds={pageHolds + 1}` → "one
+ *       pair — not two" red (and (2) (3) (4): every page) · the rest box's `mt-12` dropped → "the reply row is not
+ *       what follows" red · the cell's first-screen mark dropped → "the masthead is not in the cover's box" red.
+ *       What the wrapped page LOOKS like — its boxes, its rhythm, its chapters, the hand-over itself — is not
+ *       proven here: `scripts/scrub-browser-check.mjs` (16) plays this same render in a browser.
  *
  * 📌 MEASURED WITH THE SWITCH TURNED ON BY HAND (2026-10-10), for whoever turns it on for good: on this tabbed
  * Invitation the Countdown and the note are each drawn in a scenes block of their OWN on Welcome, so a Countdown
@@ -224,26 +234,53 @@ test('(6) a COVER stored to leave by Scrub, on a real page: while Scrub ships da
   assert.equal(hubCoverLeaves(widgets, true, true), true, 'the variant page’s cover stores no hand-over');
   assert.equal(hubScrubHoldsAtMost(widgets, true, true), 1, 'the hero row is not counted by the page’s own hold');
   assert.equal(hubScrubHoldsAtMost(fixtureWidgets(), true, true), 0, 'anti-vacuity: the plain fixture page stores a Scrub');
-  /* On a Pro event (where Scrub is allowed at all) and on a free one. */
-  for (const pro of [true, false]) {
-    const today = await renderSiteBodyFixture({ proWatermarkHidden: pro });
-    const stored = await renderSiteBodyFixtureFull({ proWatermarkHidden: pro, widgets });
+  /* BOTH MASTHEADS of the guest tree — the monogram cover, and the one with a photo under the type (the page's other
+     `PahinaMasthead` branch, `hasHeroMedia`) — each on a Pro event (where Scrub is allowed at all) and on a free one. */
+  const monogram = await renderSiteBodyFixture({ proWatermarkHidden: true });
+  const photo = { heroPhotoUrl: 'https://cdn.test/fixture-hero.jpg' };
+  assert.ok((await renderSiteBodyFixture({ proWatermarkHidden: true, ...photo })) !== monogram, 'anti-vacuity: the photo did not reach the cover — one masthead is being tested twice');
+  for (const [cover, pro] of [[{}, true], [{}, false], [photo, true], [photo, false]] as const) {
+    const today = await renderSiteBodyFixture({ proWatermarkHidden: pro, ...cover });
+    const stored = await renderSiteBodyFixtureFull({ proWatermarkHidden: pro, ...cover, widgets });
     assert.deepEqual(stored.complaints, []);
     assert.ok(stored.html.length > 20_000, 'an empty shell');
     if (SCRUB_OUT_OFFERED && pro) {
-      /* ☀ OFFERED. The cover of the real page is not handed over yet — this arm is written with the wiring
-         (`HubCoverHold` in `site-body.tsx`). Until then switching Scrub on must not pass here by saying nothing. */
-      assert.fail('"Scrub out" is offered, and the cover’s hand-over on the real page has no guard yet');
+      /* ☀ OFFERED (a Pro event): the GUEST tree hands its cover over — three plain boxes, once; ONE page pair, the
+         cover's (the hero row is counted once, by the page's own count: never a pair too many); the island mounted. */
+      assert.equal(count(stored.html, 'class="hub-cover-cell"'), 1, 'the cover’s cell, exactly once');
+      assert.ok(stored.mounts.HubScrub! > 0, 'the island that arms the engine is mounted');
+      assert.equal(count(stored.html, 'class="hub-page-cell"'), 1, 'the page wraps one pair for its cover — not two');
+      assert.equal(count(stored.html, 'class="hub-page-stage"'), 1);
+      /* The cover is IN the cover's box and the reply row in the rest of ITS GROUP — the page's first group, on the
+         first tab alone; and each box says what keeps the wrapped page the page (`GUEST_COVER_BOXES`). */
+      const CELL = '<div data-pahina-first-screen="" class="hub-cover-cell"><div data-pahina-chapters="" class="hub-cover" data-hub-fx="">';
+      const REST = '<div data-pahina-chapters="" class="hub-cover-after mt-12 space-y-12 empty:hidden">';
+      assert.ok(stored.html.includes(`${CELL}<header data-pahina-first-screen=""`), 'the masthead is not in the cover’s box');
+      assert.ok(stored.html.includes(`</header></div>${REST}<div data-arrival-action="ask"`), 'the reply row is not what follows the cover in its box');
+      const lead = stored.html.slice(stored.html.indexOf('<div data-hub-tab="home"'), stored.html.indexOf('<div data-hub-tab="home"', stored.html.indexOf('<div data-hub-tab="home"') + 1));
+      assert.ok(lead.includes(CELL) && lead.includes(REST), 'the cover’s hand-over is not in the page’s first group');
+      assert.equal(count(stored.html, 'data-hub-fx'), 1, 'something else on this page is marked for the engine');
+      /* …AND NOTHING ELSE CHANGED: take the page pair and the three boxes off, and it is today's page, byte for byte. */
+      const unwrapped = stored.html
+        .replace('<div class="hub-page-cell"><div class="hub-page-stage"><article', '<article')
+        .replace('</article></div></div>', '</article>')
+        .replace(CELL, '')
+        .replace(new RegExp(`</header></div>${REST}(<div data-arrival-action="ask"[\\s\\S]*?</div>)</div></div>`), '</header>$1');
+      assert.ok(unwrapped === today, `with its boxes taken off the page is not today’s page — ${firstDifference(unwrapped, today)}`);
+      continue;
     }
     /* 🌑 DARK (and a free event, always): today's page — not a box, not a class, not a mark, not a script. */
-    assert.ok(stored.html === today, `a cover stored to leave by Scrub changed the page (${pro ? 'Pro' : 'free'} event) — ${firstDifference(stored.html, today)}`);
-    assert.equal(stored.mounts.HubScrub, 0, `a page whose cover does not leave mounts the Scrub island (${pro ? 'Pro' : 'free'} event)`);
+    const which = `${'heroPhotoUrl' in cover ? 'a photo cover' : 'the monogram cover'}, ${pro ? 'Pro' : 'free'} event`;
+    assert.ok(stored.html === today, `a cover stored to leave by Scrub changed the page (${which}) — ${firstDifference(stored.html, today)}`);
+    assert.equal(stored.mounts.HubScrub, 0, `a page whose cover does not leave mounts the Scrub island (${which})`);
   }
 });
 
 test('(5) it is tooling: no file of the app imports the fixture, the helper or the golden', () => {
   const WEB = join(__dirname, '..');
-  const OURS = new Set(['lib/site-body-fixture.ts', 'lib/site-body-fixture-render.ts', 'lib/site-body-fixture-render.test.ts']);
+  /* (2026-10-10: and the script that writes the fixture page out for a real browser — `scripts/scrub-browser-check.mjs`
+     (16). A script is run by hand and bundled into nothing; the claim is unchanged: no file of the APP imports these.) */
+  const OURS = new Set(['lib/site-body-fixture.ts', 'lib/site-body-fixture-render.ts', 'lib/site-body-fixture-render.test.ts', 'scripts/scrub-fixture-page.tsx']);
   const walk = (dir: string): string[] =>
     readdirSync(join(WEB, dir)).flatMap((name) => {
       const rel = `${dir}/${name}`;

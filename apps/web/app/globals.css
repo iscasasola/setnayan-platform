@@ -8443,6 +8443,14 @@ body:not(:has([data-maker-section])) [data-maker-sample] { display: none !import
   .hub-page-cell[data-hub-page-on] [data-hub-zero] { opacity: var(--hub-o, 1); }
   .hub-page-cell[data-hub-page-on] .hub-cover[data-hub-away],
   .hub-page-cell[data-hub-page-on] [data-hub-zero][data-hub-away] { visibility: hidden; }
+  /* …AND WHEN WHAT ARRIVES IS ONE OF THE PAGE'S CHAPTERS (the real invitation: the reply row is the child of a
+     chapters box — `site-body.tsx` `GUEST_COVER_BOXES`). The scroll reveal marks a chapter it has shown `.pahina-in`
+     — opacity 1, by a rule four classes and marks strong (`.pahina-js .sn-editorial [data-pahina-chapters] > *`) —
+     which un-fades the arrival under the engine's number: it would not fade in, it would appear. So the one fade is
+     said again one mark stronger (the page's stage is named too; the rule still begins with the engine's mark, as
+     every rule here must), with none of the reveal's transition: a fade under the thumb is the thumb's, never 0.7 s
+     behind it. */
+  .hub-page-cell[data-hub-page-on] .hub-page-stage [data-pahina-chapters] > [data-hub-zero] { opacity: var(--hub-o, 1); transition: none; }
   .hub-page-cell[data-hub-page-on] [data-hub-zlift] { position: relative; top: var(--hub-zrise, 0px); }
   /* THE SAME PLACE — the rest of the page begins OVER the leaving scene (how far: the engine's measure). */
   .hub-scenes[data-hub-scrub-on] .hub-scene + .hub-after { margin-top: var(--hub-up, 1rem); }

@@ -13,6 +13,7 @@ import {
   type HubDraft,
   type HubDraftActionResult,
   type HubDraftBarLive,
+  type HubDraftWidget,
   type HubDraftPatch,
   type HubDraftState,
   type HubDraftSummary,
@@ -168,12 +169,17 @@ export function labDraftFrom(stored: string | null | undefined): HubDraft {
 
 /* ── the draft's state, handed to the lab's two server-drawn pages ─────────────────────────────────────────────── */
 
-/** A scene's place, eye and Auto · Hidden — the part of the draft the lab kept nowhere before (P02). */
+/** A scene's place, eye, Auto · Hidden and per-stage shown / hidden — every key of its draft but its canvas and the Main background. */
 export const LAB_ROWS_COOKIE = 'lab_rows';
 /** The draft's summary as the lab's "server" reports it on a render (P05: it reported 0, always). */
 export const LAB_BAR_COOKIE = 'lab_bar';
 
 const json = (v: unknown) => encodeURIComponent(JSON.stringify(v));
+/**
+ * The keys of a scene's draft that have a cookie of their OWN (a scene's whole canvas is too big to share one with
+ * the rows; the Main background is the hero's alone). Every other key rides `LAB_ROWS_COOKIE`, whatever it is.
+ */
+export const LAB_OWN_COOKIE_KEYS = ['canvas', 'main'] as const satisfies ReadonlyArray<keyof HubDraftWidget>;
 const some = (o: Record<string, unknown>) => Object.keys(o).length > 0;
 
 /**
@@ -186,12 +192,12 @@ export function labDraftCookies(draft: HubDraft, scrub: boolean): Record<string,
   for (const [type, w] of Object.entries(draft.widgets)) {
     if (!w) continue;
     if (w.canvas !== undefined) canvases[type] = w.canvas ?? {};
-    const row = {
-      ...(w.mode !== undefined ? { mode: w.mode } : {}),
-      ...(w.is_visible !== undefined ? { is_visible: w.is_visible } : {}),
-      ...(w.display_order !== undefined ? { display_order: w.display_order } : {}),
-      ...(w.stage_order !== undefined ? { stage_order: w.stage_order } : {}),
-    };
+    /* 🧾 EVERY OTHER KEY OF THE SCENE'S DRAFT GOES TO THE PAGES — never a hand-kept list of them. The list was
+       `mode · is_visible · display_order · stage_order`; "What guests see" and the Maker's Remove then began writing
+       `stage_show`, the list was not told, and the lab's pages never drew a tick or a Remove again (the walk of
+       2026-10-11, M01–M07). What is left out is NAMED (`LAB_OWN_COOKIE_KEYS`): the two keys with a cookie of their
+       own. Anything the real draft learns to carry tomorrow is carried here the same day. */
+    const row = Object.fromEntries(Object.entries(w).filter(([key, v]) => v !== undefined && !(LAB_OWN_COOKIE_KEYS as readonly string[]).includes(key)));
     if (some(row)) rows[type] = row;
   }
   const hero = draft.widgets.hero;

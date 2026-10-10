@@ -124,8 +124,31 @@ function withoutChoice(widgets: readonly InvitationWidgetRow[], type: WidgetType
   return widgets.map((w) => (w.widget_type === type ? { ...w, config_json: configWithStageShow(w.config_json, { [stage]: null }) } : w));
 }
 
-function sceneRow(type: WidgetType, label: string, input: GuestsSeeTableInput): GuestsSeeRow | null {
-  if (!input.widgets.some((w) => w.widget_type === type && !w.is_always_on)) return null;
+/**
+ * 🧩 A SCENE WITH NOTHING IN IT YET IS ASKED ABOUT AS IF IT WERE WRITTEN — for its own boxes and its own eye.
+ *
+ * With open browsing on (`events.website_open_browse`, the default for a new event) the page draws no EMPTY scene, so
+ * `sceneOnStage` answers "not drawn" for it on every stage. Read straight into the table that made every box of an
+ * empty row an empty box: a new couple's Love Story read "Hidden" on all five stages; a tick on one of them was
+ * stored and the box came back unticked on the next render (the choice is `true`, the page still draws nothing), and
+ * a second tap wrote nothing. And the eye's `base` said "not on this stage" for a scene the Maker's canvas was
+ * drawing (the canvas fails OPEN on content, `makerStageList`: an empty scene keeps its place as a prompt), so
+ * Remove stored "back to our pick" — nothing — and the scene was back at the next render. Measured 2026-10-11 on the
+ * sample's rows through `buildMakerNavigatorData`.
+ *
+ * The approved prototype (`maker_what_guests_see_2026-10-10.html`, "What to bring is empty in this sample") draws an
+ * empty row with ITS TICKS, dimmed, and says so under the name: *"Nothing written yet — guests will not see it."*
+ * So: the boxes and the eye say where the scene STANDS (what a stage shows once it is written — the list the Maker
+ * draws), and the row's `empty` says guests do not see it yet. Only the scene's OWN emptiness is lifted; every
+ * other scene's facts are as the page has them.
+ */
+function asIfWritten<T extends Pick<GuestsSeeTableInput, 'content'>>(input: T, type: WidgetType): T {
+  return input.content?.[type] === false ? { ...input, content: { ...input.content, [type]: true } } : input;
+}
+
+function sceneRow(type: WidgetType, label: string, given: GuestsSeeTableInput): GuestsSeeRow | null {
+  if (!given.widgets.some((w) => w.widget_type === type && !w.is_always_on)) return null;
+  const input = asIfWritten(given, type);
   const cells = GUESTS_SEE_COLUMNS.map((col): GuestsSeeCell => {
     if (col.stage === null) return { kind: 'locked', on: false, why: GUESTS_SEE_WORDS.replyScreens };
     const v = sceneOnStage({ ...input, stage: col.stage, reader: 'guest' }, type)!;
@@ -133,7 +156,7 @@ function sceneRow(type: WidgetType, label: string, input: GuestsSeeTableInput): 
     const base = sceneOnStage({ ...input, widgets: withoutChoice(input.widgets, type, col.stage), stage: col.stage, reader: 'guest' }, type)!.drawn;
     return { kind: 'box', on: v.drawn, ourPick: v.ourPick, base, choice: v.choice };
   });
-  return { key: type, scene: type, label, note: null, empty: input.content?.[type] === false, cells };
+  return { key: type, scene: type, label, note: null, empty: given.content?.[type] === false, cells };
 }
 
 /** THE TABLE for one event — every cell read from `sceneOnStage`, or from the page's own gates for a fixed row. */
@@ -170,8 +193,10 @@ export function buildStageEyes(input: GuestsSeeTableInput): Record<LifecyclePhas
   for (const stage of Object.keys(out) as LifecyclePhase[]) {
     for (const w of input.widgets) {
       if (w.is_always_on) continue;
-      const now = sceneOnStage({ ...input, stage, reader: 'guest' }, w.widget_type);
-      const bare = sceneOnStage({ ...input, widgets: withoutChoice(input.widgets, w.widget_type, stage), stage, reader: 'guest' }, w.widget_type);
+      /* The list the Maker DRAWS keeps an empty scene's place (`asIfWritten`) — so does the eye's `base`. */
+      const written = asIfWritten(input, w.widget_type);
+      const now = sceneOnStage({ ...written, stage, reader: 'guest' }, w.widget_type);
+      const bare = sceneOnStage({ ...written, widgets: withoutChoice(input.widgets, w.widget_type, stage), stage, reader: 'guest' }, w.widget_type);
       if (now && bare) out[stage][w.widget_type] = { base: bare.inList, choice: now.choice };
     }
   }

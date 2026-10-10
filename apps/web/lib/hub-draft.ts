@@ -78,6 +78,7 @@ import {
   WIDGET_PHASES,
   WIDGET_TYPES,
   isWidgetType,
+  widgetInPhase,
   type InvitationWidgetRow,
   type LifecyclePhase,
   type WidgetType,
@@ -91,10 +92,12 @@ import {
 } from '@/lib/custom-sections';
 import {
   STAGE_ORDER_KEY,
+  STAGE_SCENES,
   configWithStageOrder,
   configWithStdLead,
   sanitizeStageOrder,
   sanitizeStdLead,
+  stageRowOrder,
   storedStdLead,
   type StdLead,
 } from '@/lib/stage-scenes';
@@ -1373,6 +1376,12 @@ export type HubDraftItem =
       change: LookChange;
       pro: boolean;
       /**
+       * ↕ `stage_order` only: the stages whose ORDER this scene's new place takes part in moving
+       * (`hubDraftMovedStages`). A stage's order is ONE change however many scenes shifted — the count and the Apply
+       * sheet read this (`hubDraftCountedChanges`); Apply still writes every scene's own place.
+       */
+      stages?: LifecyclePhase[];
+      /**
        * Set only on the FREE PART of a held scene (`canvasFreePart`) — the same
        * scene is also in `refused`, holding the whole drafted canvas. Apply
        * never reports or re-drafts this one: if it cannot be written, the
@@ -1973,6 +1982,34 @@ function ownSceneOn(
  * A drafted section with no live row (a custom section that was deleted) is
  * returned in `orphans`, never silently dropped.
  */
+/**
+ * ↕ THE STAGES WHOSE ORDER THE DRAFT REALLY MOVES — each named once.
+ *
+ * Measured 2026-10-11 at 375 px, on the Maker's own toolbar: ONE tap on Earlier and ✓ read **8**; a tap on Later, back
+ * to the order guests have, and it still read 8 — and the Apply sheet would have listed eight "Order" lines. A move
+ * saves the stage's WHOLE order, every scene its place (`lib/maker-reorder.ts` `stageOrderPatch`), and each scene's
+ * place was classified on its own, against a live page that had stored no places at all.
+ *
+ * A couple reads that number as "what I changed". The order of a stage is ONE fact: what matters is the SEQUENCE its
+ * scenes come out in (`stageRowOrder` — the very order the page and the Maker draw), with the draft's places laid on,
+ * against the live sequence. Places that restate the live sequence are no difference; a different sequence is one
+ * change for that stage, however many scenes shifted.
+ */
+export function hubDraftMovedStages(draft: HubDraftState, live: HubLiveState): LifecyclePhase[] {
+  const placed = new Set<string>();
+  for (const w of Object.values(draft.widgets)) for (const stage of Object.keys(w?.stage_order ?? {})) placed.add(stage);
+  if (placed.size === 0) return [];
+  const drafted = live.widgets.map((row) => {
+    const places = draft.widgets[row.widget_type as WidgetType]?.stage_order;
+    return places === undefined ? row : { ...row, config_json: configWithStageOrder(row.config_json, places) as typeof row.config_json };
+  });
+  const sequence = (rows: HubLiveState['widgets'], stage: LifecyclePhase) =>
+    stageRowOrder(rows, stage, (type, s) => widgetInPhase(type as WidgetType, s))
+      .map((r) => r.widget_id)
+      .join(' ');
+  return (Object.keys(STAGE_SCENES) as LifecyclePhase[]).filter((stage) => placed.has(stage) && sequence(live.widgets, stage) !== sequence(drafted, stage));
+}
+
 export function classifyHubDraft(
   draft: HubDraftState,
   live: HubLiveState,
@@ -1994,6 +2031,7 @@ export function classifyHubDraft(
     });
   }
   const orphans: WidgetType[] = [];
+  const movedStages = hubDraftMovedStages(draft, live);
   for (const type of WIDGET_TYPES) {
     const w = draft.widgets[type];
     if (!w) continue;
@@ -2048,8 +2086,12 @@ export function classifyHubDraft(
     if (w.stage_order !== undefined) {
       const liveKey = configWithStageOrder(row.config_json, {})[STAGE_ORDER_KEY] ?? null;
       const nextKey = configWithStageOrder(row.config_json, w.stage_order)[STAGE_ORDER_KEY] ?? null;
-      if (JSON.stringify(liveKey) !== JSON.stringify(nextKey)) {
-        items.push({ kind: 'widget', widgetType: type, widgetId: row.widget_id, field: 'stage_order', value: nextKey, change: 'change', pro: false });
+      /* ↕ …AND ONLY WHERE A STAGE'S ORDER REALLY COMES OUT DIFFERENT (`hubDraftMovedStages`). A move saves every
+         scene's place on the stage (0, 1, 2 …), so the keys differ from a live page that never stored places even
+         when the scenes are back in the order guests have — that is not a change, and nothing is written for it. */
+      const stages = movedStages.filter((stage) => stage in w.stage_order!);
+      if (JSON.stringify(liveKey) !== JSON.stringify(nextKey) && stages.length > 0) {
+        items.push({ kind: 'widget', widgetType: type, widgetId: row.widget_id, field: 'stage_order', value: nextKey, change: 'change', pro: false, stages });
       }
     }
     /* 🎵 The music button's design — free; compared as the page reads it (absent ≡ the default). */
@@ -2440,17 +2482,26 @@ export type HubDraftChangeLine = {
  *
  * Each is a plan item; `held` = refused (it needs Event Hub Pro, or the web).
  */
-export function hubDraftCountedChanges(plan: HubDraftApplyPlan): Array<{ item: HubDraftItem; held: boolean }> {
+export function hubDraftCountedChanges(plan: HubDraftApplyPlan): Array<{ item: HubDraftItem; held: boolean; stage?: LifecyclePhase }> {
   // A held scene's free part is the same scene as its refused twin — one change.
   // ✍ …and the names (three columns) or the date (two) are ONE change each.
+  // ↕ …and a stage's ORDER is ONE change, named for the stage (`stage`), however many scenes took a new place.
   const facts = new Set<string>();
-  const out: Array<{ item: HubDraftItem; held: boolean }> = [];
+  const out: Array<{ item: HubDraftItem; held: boolean; stage?: LifecyclePhase }> = [];
   const walk = [
     ...plan.apply.filter((i) => !i.freePart).map((item) => ({ item, held: false })),
     ...plan.refused.map((item) => ({ item, held: true })),
   ];
   for (const c of walk) {
     const i = c.item;
+    if (i.kind === 'widget' && i.field === 'stage_order' && i.stages) {
+      for (const stage of i.stages) {
+        if (facts.has(`order:${stage}`)) continue;
+        facts.add(`order:${stage}`);
+        out.push({ ...c, stage });
+      }
+      continue;
+    }
     const fact = i.kind === 'event' ? hubDraftFactOf(i.column) : i.kind === 'widget' && i.field === 'venue' ? 'venues' : null;
     if (fact && facts.has(fact)) continue;
     if (fact) facts.add(fact);

@@ -55,11 +55,14 @@ const { renderSiteBodyFixtureFull } = require('../lib/site-body-fixture-render')
 const { fixtureWidgets } = require('../lib/site-body-fixture') as typeof import('../lib/site-body-fixture');
 const { LAB_SCRUB_COVER, LAB_SCRUB_SAMPLE } = require('../app/dev/maker-lab/lab-scrub') as typeof import('../app/dev/maker-lab/lab-scrub');
 
-const [, , outDir, island] = process.argv;
-if (!outDir || !island) {
-  console.error('usage: tsx scripts/scrub-fixture-page.tsx <out-dir> <island.js>');
-  process.exit(2);
-}
+const [outDir, island] = (() => {
+  const [, , dir, js] = process.argv;
+  if (!dir || !js) {
+    console.error('usage: tsx scripts/scrub-fixture-page.tsx <out-dir> <island.js>');
+    process.exit(2);
+  }
+  return [dir, js] as const;
+})();
 
 const count = (html: string, needle: string) => html.split(needle).length - 1;
 

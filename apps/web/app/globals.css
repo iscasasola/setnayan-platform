@@ -3218,7 +3218,16 @@ html.dark {
        ordinary page value when nothing pins it, exactly today's behaviour)
        fixes every such utility class inside a plate, current and future,
        without editing each widget. */
-    --color-ink: var(--color-ink-on-plate, var(--color-ink));
+    /* 🔴 THE FALLBACK IS `--color-ink-page`, NEVER `--color-ink` ITSELF (measured 2026-10-10, Chromium). This line
+       read `var(--color-ink-on-plate, var(--color-ink))`. A property that names itself is a cycle, and wherever
+       the browser REACHES that fallback the property becomes INVALID on the plate: the plate's border and its
+       printed inner frame compute to `none`, `text-ink/80` draws at full strength and `border-ink/15` draws a
+       full-ink line (words still read — they inherit the plate's `color`). WHERE IT SHOWED: only where nothing
+       pins `--color-ink-on-plate` — the Maker lab's guest pages, measured. A real guest page pins it (the look's
+       composed variables always carry it), so the fallback was never reached there: the live sample event's
+       plate measured ink `0 0 0`, edge and frame `solid` the same day. A latent fault, not a live one — but one
+       unpinned surface away from every plate. `.sn-editorial` carries the page's ink under the second name. */
+    --color-ink: var(--color-ink-on-plate, var(--color-ink-page));
     color: rgb(var(--color-ink-on-plate, var(--color-ink)));
     background: rgb(var(--color-paper-deep));
     border: 1px solid rgb(var(--color-ink) / 0.1);
@@ -3313,7 +3322,7 @@ html.dark {
        the reply card's own content paints with the `text-ink` utility, which
        reads the page ink directly and skips this rule's inherited `color:`. */
     position: relative;
-    --color-ink: var(--color-ink-on-plate, var(--color-ink));
+    --color-ink: var(--color-ink-on-plate, var(--color-ink-page));
     color: rgb(var(--color-ink-on-plate, var(--color-ink)));
     background: rgb(var(--color-paper-deep));
     border: 1px solid rgb(var(--color-ink) / 0.1);
@@ -3725,6 +3734,13 @@ html.dark {
   --font-display: var(--font-editorial-display);
   --font-sans: var(--font-editorial-sans);
   --font-mono: var(--font-editorial-mono);
+  /* 🖋 THE PAGE'S OWN INK UNDER A SECOND NAME — what a plate falls back to when no look pins
+     `--color-ink-on-plate`. The plate rules shadow `--color-ink` for their subtree, and a custom property
+     cannot name ITSELF in its own value, not even as a fallback: the browser calls it a cycle and the
+     property becomes invalid on that element (see `.pahina-plate`). This element is where the page's ink is
+     set — the theme's `[data-hub-theme]` mapping and the look's inline variables sit on it
+     (`guest-look-scope.tsx`) — so the name resolves here, once, to the ink the page really wears. */
+  --color-ink-page: var(--color-ink);
 }
 
 /* ── Event Hub theme MATERIALS (owner 2026-09-22) ────────────────────────────

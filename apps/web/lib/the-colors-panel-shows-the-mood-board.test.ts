@@ -21,7 +21,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { buildSitePaletteVars, moodBoardSiteColours } from './site-palette';
+import { buildSitePaletteVars, moodBoardSiteColours } from './site-palette-vars';
 import { INVITE_THEMES } from './invite-themes';
 import { ombreCss } from './ombre';
 import type { RolePalette } from './mood-board';

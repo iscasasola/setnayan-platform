@@ -26,6 +26,10 @@
  *   · the cutter told to return one slice per file       → the fixture test fails
  *   · (S-PR1) a bare `<button>` added to `TodayRow`       → names `TodayRow`,
  *     not the five other components in the same file
+ *   · (S-PR1b) `LockRequestBody`'s Agree put back as a hand-classed
+ *     `<SubmitButton className="… rounded-full …">`        → names `LockRequestBody`
+ *   · (S-PR1b) `MessageBody`'s door put back as `<Link className="… rounded-full …">`
+ *                                                          → names `MessageBody`
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -45,17 +49,23 @@ const WEB = join(HERE, '..', '..');
 export const SWEPT: ReadonlyArray<readonly [file: string, components: readonly string[]]> = [
   ['app/vendor-dashboard/_components/supplier-thumb-row.tsx', ['SupplierThumbRow', 'ThumbFit']],
   ['app/vendor-dashboard/_components/supplier-submit.tsx', ['SupplierSubmit']],
-  // S-PR1 · Today. `overview-sections.tsx` is NOT here yet, on purpose: the
-  // answers inside the Also-waiting folds keep their shipped buttons (one bare
-  // `<button>` in `MarkCompleteBody`, the rest hand-classed `SubmitButton`s),
-  // and nine guard files pin those forms by their exact text. They are swept
-  // in their own PR, with their own side-by-side.
+  // S-PR1 · Today.
   ['app/vendor-dashboard/page.tsx', ['AgentHome', 'VendorOverviewPage']],
   ['app/vendor-dashboard/_components/supplier-today-first-screen.tsx', ['TodayPill', 'TodayEyebrow', 'TodayRow', 'SupplierTodayFirstScreen', 'Figure', 'Unread']],
   ['app/vendor-dashboard/_components/supplier-toast.tsx', ['SupplierToast']],
+  // S-PR1b · the answers inside Today's folds (2026-10-10). Every body is named,
+  // so one that is renamed or moved out fails here instead of leaving the sweep.
+  [
+    'app/vendor-dashboard/_components/overview-sections.tsx',
+    [
+      'FoldToggle', 'WhatsNewFeed', 'FeedCard', 'MarkCompleteBody', 'InquiryBody', 'LockRequestBody', 'DateChangeBody',
+      'DeleteRequestBody', 'LockBody', 'ReviewBody', 'DisputeBody', 'LockRequestLapsedBody', 'MessageBody', 'MeetingBody',
+      'QuoteDraftBody', 'ContractDraftBody',
+    ],
+  ],
 ];
 
-export type ComponentCount = { component: string; bare: number; ruled: number };
+export type ComponentCount = { component: string; bare: number; ruled: number; handClassed: number };
 
 /**
  * Cut a source file into its top-level components and count, in each, the bare
@@ -77,6 +87,13 @@ export function countByComponent(source: string): ComponentCount[] {
     component: name,
     bare: (body.match(/<button(?=[\s>/])/g) ?? []).length,
     ruled: (body.match(/<(?:ActionButton|SupplierSubmit)(?=[\s>/])/g) ?? []).length,
+    // S-PR1b: the two OTHER shapes a control took in the fold answers — the shipped `SubmitButton` with a class
+    // list typed by hand, and a `<Link>`/`<a>` dressed as a pill (`rounded-full` on the tag itself). Neither is a
+    // bare `<button`, so the count above could not see them. `SupplierSubmit` is the one place `SubmitButton` is
+    // allowed (it IS the wrapper) and is exempted by name where the totals are read.
+    handClassed:
+      (body.match(/<SubmitButton(?=[\s>/])/g) ?? []).length +
+      (body.match(/<(?:Link|a)\b[^>]*className="[^"]*\brounded-full\b/g) ?? []).length,
   }));
 }
 
@@ -102,8 +119,8 @@ test('the cutter names the component that holds the bare button (fixtures)', () 
   assert.deepEqual(
     got.filter((c) => c.component !== '(module)'),
     [
-      { component: 'Swept', bare: 0, ruled: 1 },
-      { component: 'StillBare', bare: 1, ruled: 0 },
+      { component: 'Swept', bare: 0, ruled: 1, handClassed: 0 },
+      { component: 'StillBare', bare: 1, ruled: 0, handClassed: 0 },
     ],
     'a file-level count would say "1 bare button" and not whose it is',
   );
@@ -120,6 +137,23 @@ test('the cutter names the component that holds the bare button (fixtures)', () 
       `read as a bare button: ${ok}`,
     );
   }
+  // S-PR1b — a submit or a link that types its own pill is not through the rule either.
+  for (const hand of [
+    'export function A() { return <SubmitButton pendingLabel="Saving…" className="inline-flex h-9 rounded-full px-4">Agree</SubmitButton>; }',
+    'export function B() { return <Link href="/x" className="inline-flex h-9 items-center rounded-full border px-4">Open</Link>; }',
+    'export function C() { return <a href={url} className="rounded-full border px-3">See</a>; }',
+  ]) {
+    assert.equal(
+      countByComponent(hand).reduce((n, c) => n + c.handClassed, 0),
+      1,
+      `missed a hand-classed control: ${hand}`,
+    );
+  }
+  assert.equal(
+    countByComponent('export function Row() { return <Link href="/x" className="home-row">A row is a link, not a pill</Link>; }')[0]!.handClassed,
+    0,
+    'a plain row link read as a hand-classed button',
+  );
   // The shapes that must.
   for (const bad of [
     'export function A() { return <button onClick={go}>Add</button>; }',
@@ -150,8 +184,11 @@ test('every swept supplier component has no bare <button> — counted per compon
       assert.ok(names.includes(want), `${rel}: component "${want}" is not in the file any more (found: ${names.join(', ')})`);
     }
     for (const c of counts) {
-      table.push(`${rel} › ${c.component}: ${c.bare} bare <button>, ${c.ruled} through the rule`);
+      // `SupplierSubmit` IS the wrapper around the shipped `SubmitButton` — the one component allowed to hold it.
+      const hand = c.component === 'SupplierSubmit' ? 0 : c.handClassed;
+      table.push(`${rel} › ${c.component}: ${c.bare} bare <button>, ${hand} hand-classed, ${c.ruled} through the rule`);
       if (c.bare > 0) failures.push(`${rel} › ${c.component} holds ${c.bare} bare <button> — use ActionButton (or SupplierSubmit in a form)`);
+      if (hand > 0) failures.push(`${rel} › ${c.component} holds ${hand} hand-classed SubmitButton / pill link — use SupplierSubmit (a form) or ActionButton href (a door)`);
     }
   }
   // eslint-disable-next-line no-console

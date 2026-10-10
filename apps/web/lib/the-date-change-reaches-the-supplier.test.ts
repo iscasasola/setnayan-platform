@@ -83,8 +83,14 @@ test('3 · the supplier gets a desk card with exactly two buttons — Move to <d
   assert.match(sections, /card\.kind === 'date_change' \? \(\s*<DateChangeBody card=\{card\} answerDateChange=\{answerDateChange\} \/>/);
   const body = sections.slice(sections.indexOf('function DateChangeBody('), sections.indexOf('function DeleteRequestBody('));
   assert.equal((body.match(/<form action=\{answerDateChange\}>/g) ?? []).length, 2, 'not exactly two answers');
-  assert.match(body, /name="answer" value="moved"[\s\S]*?Move to \{to\}/);
-  assert.match(body, /name="answer" value="unlocked"[\s\S]*?Unlock my service/);
+  // RE-AIMED 2026-10-10 (supplier redesign S-PR1b): the two answers went from hand-classed `SubmitButton`s with the
+  // words as children to `SupplierSubmit` (the button rule), where the word is the `label`. Same words, same fields,
+  // same order; the pin now also holds the TONE — Move commits (ok, the main verb), Unlock frees a hold and destroys
+  // nothing (grey; BUTTON_RULE "Unlock my service = Grey, not Red").
+  // SABOTAGE: `tone="danger"` on Unlock → RED · the word changed to "Move" → RED.
+  assert.match(body, /name="answer" value="moved" \/>\s*<SupplierSubmit tone="ok" main icon=\{<Check \{\.\.\.ICON\} \/>\} label=\{`Move to \$\{to\}`\}/);
+  assert.match(body, /name="answer" value="unlocked" \/>\s*<SupplierSubmit tone="neutral" icon=\{<LogOut \{\.\.\.ICON\} \/>\} label="Unlock my service"/);
+  assert.equal((body.match(/<SupplierSubmit\b/g) ?? []).length, 2, 'not exactly two buttons');
   // 💸 Said BEFORE the press: the deposit follows the booking's own terms.
   assert.match(body, /settled by the cancellation terms on the booking/);
   assert.doesNotMatch(body, /\bvendor\b/i, 'a supplier page says "supplier", never "vendor"');

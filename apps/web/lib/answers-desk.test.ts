@@ -315,7 +315,11 @@ test('a closed window carries no control at all', () => {
       /<form/,
       `${fn} grew a form — a lapsed ask cannot be agreed and a quote must never be sent from a feed card`,
     );
-    assert.doesNotMatch(body, /SubmitButton/, `${fn} grew a submit control`);
+    // RE-AIMED 2026-10-10 (S-PR1b): every submit in this file is a `SupplierSubmit` now (the button rule), and
+    // "SubmitButton" does not occur inside that word — left alone, this line could no longer see the control it
+    // was written to refuse. It names all three shapes a submit can take here.
+    // SABOTAGE: a `<SupplierSubmit …/>` pasted into LockRequestLapsedBody → RED.
+    assert.doesNotMatch(body, /SubmitButton|SupplierSubmit|<button\b|type="submit"/, `${fn} grew a submit control`);
   }
 });
 

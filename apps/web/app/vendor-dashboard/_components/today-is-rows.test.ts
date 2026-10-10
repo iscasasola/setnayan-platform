@@ -238,6 +238,129 @@ test('2b · a row OPENS ITS ANSWER IN PLACE — the form is inside the row, one 
   assert.doesNotMatch(ask.slice(0, ask.indexOf('</summary>')), /<a\b/, 'the row became a door to another page — two answers have no other page');
 });
 
+/*
+  ═══ S-PR1b · THE ANSWERS INSIDE THE FOLDS WEAR THE BUTTON RULE (2026-10-10) ═══
+  Owner answer 9 ("Built now, S-PR1b next"): the forms that open inside Today's
+  rows used the older pills — a hand-classed `SubmitButton` per answer, one bare
+  `<button>`, pill-shaped links — and the whole redesign stands on one button
+  look: colour by what the button DOES, every button with its icon.
+
+  Asserted on the RENDERED fold of every kind the desk can hold, as a property:
+  every control inside an answer is an `.ab` button with an icon and its word.
+  The words are the shipped words; this pins that none changed.
+
+  SABOTAGE, each seen red:
+    · `tone="ok"` on "Turn it down"                    → the tone table fails
+    · Agree put back as a hand-classed SubmitButton     → "is not an .ab button"
+    · the icon dropped from "Yes, it arrived"           → "has no icon"
+    · "Agree to this booking" reworded "Agree"          → the tone table (the word is the key)
+*/
+const FOLD_KINDS: WhatsNewCard[] = [
+  { kind: 'inquiry', id: 'i1', threadId: 't-i', eventId: 'e-i', descriptor: 'Cale & Ice', eventDate: '2027-03-13', category: 'Photo & video', paxAtInquiry: 150, messageExcerpt: 'Are you free?', createdAt: ago(3) } as unknown as WhatsNewCard,
+  BOOKING,
+  { kind: 'lock', id: 'l1', eventId: 'e-l', eventVendorId: 'ev-l', coupleName: 'Jun & Liza', eventDate: '2026-10-04', proofUrl: 'https://example.com/receipt.jpg', recordedAt: ago(5) },
+  {
+    kind: 'meeting', id: 'mt1', appointmentId: 'ap1', eventId: 'e-m', vendorProfileId: 'vp', coupleName: 'Lourdes', label: 'Tasting',
+    meetingKind: 'in_person' as never, location: 'Makati', scheduledAt: new Date(NOW + 72 * 3_600_000).toISOString(), durationMin: 60, proposedAt: ago(6), passed: false,
+  },
+  MOVE,
+  REMOVE,
+  { kind: 'review', id: 'r1', reviewId: 'rv1', coupleName: 'Paolo & Nina', quote: 'Lovely work.', rating: 5, createdAt: ago(30) },
+  { kind: 'mark_complete', id: 'mc1', eventVendorId: 'ev-mc', eventId: 'e-mc', eventName: 'Reyes debut', eventDate: '2026-09-20', createdAt: ago(50) },
+  REPLY,
+  QUOTE,
+  { kind: 'contract_draft', id: 'c1', contractId: 'ct1', eventId: 'e-c', title: 'Cruz wedding contract', createdAt: ago(60) },
+  { kind: 'dispute', id: 'dp1', eventId: 'e-d', eventName: 'Cruz wedding', label: 'Photos', createdAt: ago(70), threadHref: '/vendor-dashboard/messages/t-d' },
+];
+
+/** The word on each control → the classes it must wear. `main` = the fold's filled verb. */
+const FOLD_TONES: ReadonlyArray<readonly [word: string, tone: string, main: boolean]> = [
+  ['Accept', 'ok', true],
+  ['Decline', 'danger', false],
+  ['Agree to this booking', 'ok', true],
+  ['Turn it down', 'danger', false],
+  ['See what they sent', 'neutral', false],
+  ['Yes, it arrived', 'ok', true],
+  ['View the payment', 'neutral', false],
+  ['It never arrived', 'danger', false],
+  ['Confirm this time', 'ok', true],
+  ['Offer another time', 'info', false],
+  ['Turn down this meeting', 'danger', false],
+  ['Move to {to}', 'ok', true], // {to} = the shipped `dateChangeWhen` of the fixture's new date
+  ['Unlock my service', 'neutral', false],
+  ['Agree to remove it', 'danger', true],
+  ['Keep it for now', 'neutral', false],
+  ['Open the review', 'neutral', false],
+  ['Post reply', 'info', true],
+  ['I delivered this service', 'ok', true],
+  ['Open the conversation', 'info', true],
+  ['Open the quote', 'neutral', false],
+  ['Open the contract', 'neutral', false],
+  ['Answer them', 'info', true],
+];
+
+async function folds(): Promise<string> {
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { WhatsNewFeed } = await import('./overview-sections');
+  const actions = {
+    acceptInquiry: noop, declineInquiry: noop, confirmLock: noop, rejectLock: noop, agreeLock: noop, declineLock: noop,
+    agreeDeletion: noop, declineDeletion: noop, answerDateChange: noop, postReviewReply: noop, respondMeeting: noop, markServiceComplete: noop,
+  };
+  return renderToStaticMarkup(React.createElement(WhatsNewFeed, { cards: FOLD_KINDS, ...actions }));
+}
+
+test('2e · S-PR1b — every control inside a fold is a button-rule button: an .ab pill, an icon, its word', async () => {
+  const html = await folds();
+  const cards = html.match(/<div data-feed-card="[^"]+">[\s\S]*?(?=<\/div><\/details>)/g) ?? [];
+  assert.equal(cards.length, FOLD_KINDS.length, `cut ${cards.length} answers out of ${FOLD_KINDS.length} folds — the cutter is pointed at nothing`);
+  let seen = 0;
+  for (const card of cards) {
+    const kind = /data-feed-card="([^"]+)"/.exec(card)![1];
+    const controls = card.match(/<(button|a)\b[^>]*>[\s\S]*?<\/\1>/g) ?? [];
+    for (const c of controls) {
+      seen += 1;
+      const open = c.slice(0, c.indexOf('>') + 1);
+      assert.match(open, /class="ab ab-(?:brand|ok|info|warn|danger|neutral)\b/, `${kind}: a control is not an .ab button — ${open}`);
+      assert.match(c, /<svg\b/, `${kind}: a button has no icon — ${text(c)}`);
+      assert.match(c, /<span class="lbl">[^<]+<\/span>/, `${kind}: a button has no word — ${open}`);
+      assert.match(open, /aria-label="[^"]+"/, `${kind}: an icon-only state would not read — ${open}`);
+    }
+    // The four "no" folds open from a button too (a <summary>, so no script is needed).
+    for (const sum of card.match(/<summary\b[^>]*>[\s\S]*?<\/summary>/g) ?? []) {
+      assert.match(sum, /^<summary[^>]*class="ab ab-neutral quiet\b[^"]*"[^>]*data-fold-toggle=""/, `${kind}: a fold toggle is not a button — ${sum.slice(0, 120)}`);
+      assert.match(sum, /<svg\b[\s\S]*<span class="lbl">/, `${kind}: a fold toggle has no icon + word`);
+    }
+  }
+  // 22 controls across the 12 kinds, counted — a cutter that sees none passes every loop above.
+  assert.equal(seen, FOLD_TONES.length, `expected ${FOLD_TONES.length} controls in the folds, found ${seen}`);
+  assert.equal((html.match(/data-fold-toggle=""/g) ?? []).length, 4, 'the four "no" folds (booking · payment · removal · meeting)');
+});
+
+test('2f · S-PR1b — one colour per meaning, and not one word changed', async () => {
+  const html = await folds();
+  const { dateChangeWhen } = await import('@/lib/date-change');
+  const to = dateChangeWhen('2026-10-11', 'day');
+  assert.ok(to.length > 4, 'the date wording read as nothing');
+  for (const [raw, tone, main] of FOLD_TONES) {
+    const word = raw.replace('{to}', to);
+    const esc = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const m = new RegExp(`<(?:button|a)\\b[^>]*class="([^"]*)"[^>]*>(?:(?!</button>|</a>)[\\s\\S])*?<span class="lbl">${esc}</span>`).exec(html);
+    assert.ok(m, `the button "${word}" is gone, or its word changed`);
+    const cls = m![1]!.split(/\s+/);
+    assert.ok(cls.includes(`ab-${tone}`), `"${word}" should be ${tone} — it wears "${m![1]}"`);
+    assert.equal(cls.includes('ab-main'), main, `"${word}" ${main ? 'is the fold’s main verb and must be filled' : 'is not the main verb and must not be filled'}`);
+  }
+  // A commit never sits beside a second filled button: one main per answer.
+  for (const card of html.match(/<div data-feed-card="[^"]+">[\s\S]*?(?=<\/div><\/details>)/g) ?? []) {
+    assert.ok((card.match(/\bab-main\b/g) ?? []).length <= 1, `two filled buttons in one answer: ${/data-feed-card="([^"]+)"/.exec(card)![1]}`);
+  }
+  // The submits keep the ONE pending mechanism (the word while it runs, the no-touch veil).
+  const src = code('app/vendor-dashboard/_components/overview-sections.tsx');
+  assert.equal((src.match(/<SupplierSubmit\b/g) ?? []).length, 14, 'a form in the folds lost (or gained) its submit');
+  assert.equal((src.match(/\bpendingLabel="[^"]+…"/g) ?? []).length, 14, 'a submit has nothing to say while it runs');
+  assert.doesNotMatch(src, /<SubmitButton\b|<button\b|sn-btn\b/, 'an old pill is back in the folds');
+});
+
 test('2c · a delete request that IS the Next card keeps its row, open — the card’s button has somewhere to land', async () => {
   const { next, waiting } = await queue({ needsAnswer: [REMOVE, REPLY] });
   assert.equal(next.kind, 'answer');

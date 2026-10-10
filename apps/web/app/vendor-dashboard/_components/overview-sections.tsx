@@ -1,6 +1,22 @@
-import Link from 'next/link';
-import { ChevronDown, FileText } from 'lucide-react';
-import { SubmitButton } from '@/app/_components/submit-button';
+import {
+  CalendarDays,
+  Check,
+  ChevronDown,
+  Clock,
+  Eye,
+  FileSignature,
+  FileText,
+  LogOut,
+  MessageSquare,
+  Send,
+  Trash2,
+  User,
+  Wallet,
+  X,
+} from 'lucide-react';
+import type { ReactNode } from 'react';
+import { ActionButton, actionButtonClass } from '@/components/action-button';
+import { SupplierSubmit } from './supplier-submit';
 import { waitingAge } from '@/lib/waiting-age';
 import { formatLongDate, monthDay } from '@/lib/format-date';
 import { dateChangeWhen } from '@/lib/date-change';
@@ -171,6 +187,34 @@ function cardTone(card: WhatsNewCard): CardTone {
     eye: 'var(--sn-warning-deep)',
     eyebrow: 'A review needs your answer',
   };
+}
+
+/** Every icon in a button here: decorative, the rule's stroke. An ELEMENT is
+ *  handed to the client button — a component (a function) does not cross. */
+const ICON = { 'aria-hidden': true, strokeWidth: 1.9 } as const;
+
+/**
+ * THE "NO" BEHIND A FOLD — its toggle is a button too (button rule 1: every
+ * control is a pill with a border; rule 2: icon + word). A `<summary>`, so it
+ * opens with no script, wearing the rule's own class list. The tone rules in
+ * globals.css are written for `button` and `a` only, so the quiet grey of a
+ * control that commits nothing (it only shows the form) is set here.
+ */
+function FoldToggle({ children }: { children: ReactNode }) {
+  return (
+    <summary
+      className={`${actionButtonClass('neutral', { quiet: true })} w-fit cursor-pointer list-none [&::-webkit-details-marker]:hidden`}
+      style={{
+        background: 'transparent',
+        borderColor: 'color-mix(in srgb, rgb(var(--color-ink)) 18%, transparent)',
+        color: 'color-mix(in srgb, rgb(var(--color-ink)) 72%, transparent)',
+      }}
+      data-fold-toggle=""
+    >
+      <ChevronDown {...ICON} />
+      <span className="lbl">{children}</span>
+    </summary>
+  );
 }
 
 /** Meta line joined with " · ", dropping empties. */
@@ -555,9 +599,7 @@ function MarkCompleteBody({
           — passing one would look like it scoped the write when it did not. */}
       <form action={markServiceComplete}>
         <input type="hidden" name="event_id" value={card.eventId} />
-        <button type="submit" className="sn-btn sn-btn-primary text-sm">
-          I delivered this service
-        </button>
+        <SupplierSubmit tone="ok" main icon={<Check {...ICON} />} label="I delivered this service" pendingLabel="Saving…" />
       </form>
     </div>
   );
@@ -610,24 +652,12 @@ function InquiryBody({
         <form action={acceptInquiry}>
           <input type="hidden" name="thread_id" value={card.threadId} />
           <input type="hidden" name="return_to" value="/vendor-dashboard" />
-          <SubmitButton
-            pendingLabel="Accepting…"
-            className="inline-flex h-9 items-center gap-1.5 rounded-full px-4 text-sm font-semibold text-white"
-            style={{ background: 'var(--sn-ink-900)' }}
-          >
-            Accept
-          </SubmitButton>
+          <SupplierSubmit tone="ok" main icon={<Check {...ICON} />} label="Accept" pendingLabel="Accepting…" />
         </form>
         <form action={declineInquiry}>
           <input type="hidden" name="thread_id" value={card.threadId} />
           <input type="hidden" name="return_to" value="/vendor-dashboard" />
-          <SubmitButton
-            pendingLabel="Declining…"
-            className="inline-flex h-9 items-center rounded-full border px-4 text-sm font-semibold text-ink"
-            style={{ borderColor: 'var(--sn-line)' }}
-          >
-            Decline
-          </SubmitButton>
+          <SupplierSubmit tone="danger" icon={<X {...ICON} />} label="Decline" pendingLabel="Declining…" />
         </form>
       </div>
     </>
@@ -681,19 +711,11 @@ function LockRequestBody({
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <form action={agreeLock}>
           <input type="hidden" name="vendor_id" value={card.eventVendorId} />
-          <SubmitButton
-            pendingLabel="Agreeing…"
-            className="inline-flex h-9 items-center rounded-full px-4 text-sm font-semibold text-white"
-            style={{ background: 'var(--sn-success)' }}
-          >
-            Agree to this booking
-          </SubmitButton>
+          <SupplierSubmit tone="ok" main icon={<Check {...ICON} />} label="Agree to this booking" pendingLabel="Agreeing…" />
         </form>
       </div>
       <details className="mt-3">
-        <summary className="cursor-pointer text-sm text-ink/60">
-          Can&rsquo;t take this booking?
-        </summary>
+        <FoldToggle>Can&rsquo;t take this booking?</FoldToggle>
         <form action={declineLock} className="mt-2 flex flex-wrap items-center gap-2">
           <input type="hidden" name="vendor_id" value={card.eventVendorId} />
           <input
@@ -701,16 +723,10 @@ function LockRequestBody({
             name="reason"
             maxLength={240}
             placeholder="Why? (optional — the couple sees this)"
-            className="h-9 min-w-0 flex-1 rounded-full border px-3 text-sm"
+            className="h-10 min-w-0 flex-1 rounded-full border px-3 text-sm"
             style={{ borderColor: 'var(--sn-line)' }}
           />
-          <SubmitButton
-            pendingLabel="Sending…"
-            className="inline-flex h-9 items-center rounded-full border px-4 text-sm font-semibold text-ink"
-            style={{ borderColor: 'var(--sn-line)' }}
-          >
-            Turn it down
-          </SubmitButton>
+          <SupplierSubmit tone="danger" icon={<X {...ICON} />} label="Turn it down" pendingLabel="Sending…" />
         </form>
       </details>
     </>
@@ -758,24 +774,12 @@ function DateChangeBody({
         <form action={answerDateChange}>
           <input type="hidden" name="vendor_id" value={card.eventVendorId} />
           <input type="hidden" name="answer" value="moved" />
-          <SubmitButton
-            pendingLabel="Saving…"
-            className="inline-flex h-11 items-center rounded-full px-4 text-sm font-semibold text-white"
-            style={{ background: 'var(--sn-ink-900)' }}
-          >
-            Move to {to}
-          </SubmitButton>
+          <SupplierSubmit tone="ok" main icon={<Check {...ICON} />} label={`Move to ${to}`} pendingLabel="Saving…" />
         </form>
         <form action={answerDateChange}>
           <input type="hidden" name="vendor_id" value={card.eventVendorId} />
           <input type="hidden" name="answer" value="unlocked" />
-          <SubmitButton
-            pendingLabel="Releasing…"
-            className="inline-flex h-11 items-center rounded-full border px-4 text-sm font-semibold text-ink"
-            style={{ borderColor: 'var(--sn-line)' }}
-          >
-            Unlock my service
-          </SubmitButton>
+          <SupplierSubmit tone="neutral" icon={<LogOut {...ICON} />} label="Unlock my service" pendingLabel="Releasing…" />
         </form>
       </div>
       <p className="mt-2 max-w-prose text-xs text-ink/60">
@@ -837,19 +841,11 @@ function DeleteRequestBody({
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <form action={agreeDeletion}>
           <input type="hidden" name="vendor_id" value={card.eventVendorId} />
-          <SubmitButton
-            pendingLabel="Agreeing…"
-            className="inline-flex h-9 items-center rounded-full px-4 text-sm font-semibold text-white"
-            style={{ background: 'var(--sn-danger)' }}
-          >
-            Agree to remove it
-          </SubmitButton>
+          <SupplierSubmit tone="danger" main icon={<Trash2 {...ICON} />} label="Agree to remove it" pendingLabel="Agreeing…" />
         </form>
       </div>
       <details className="mt-3">
-        <summary className="cursor-pointer text-sm text-ink/60">
-          Not yet &mdash; say why
-        </summary>
+        <FoldToggle>Not yet &mdash; say why</FoldToggle>
         <form action={declineDeletion} className="mt-2 flex flex-wrap items-center gap-2">
           <input type="hidden" name="vendor_id" value={card.eventVendorId} />
           <input
@@ -857,16 +853,10 @@ function DeleteRequestBody({
             name="reason"
             maxLength={240}
             placeholder="Why? (optional — the couple sees this)"
-            className="h-9 min-w-0 flex-1 rounded-full border px-3 text-sm"
+            className="h-10 min-w-0 flex-1 rounded-full border px-3 text-sm"
             style={{ borderColor: 'var(--sn-line)' }}
           />
-          <SubmitButton
-            pendingLabel="Sending…"
-            className="inline-flex h-9 items-center rounded-full border px-4 text-sm font-semibold text-ink"
-            style={{ borderColor: 'var(--sn-line)' }}
-          >
-            Keep it for now
-          </SubmitButton>
+          <SupplierSubmit tone="neutral" icon={<Clock {...ICON} />} label="Keep it for now" pendingLabel="Sending…" />
         </form>
       </details>
     </>
@@ -926,16 +916,9 @@ function LockBody({
         <AgeLine since={card.recordedAt} />
       </p>
       {receiptUrl ? (
-        <a
-          href={receiptUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold underline-offset-2 hover:underline"
-          style={{ color: 'var(--sn-gold-700)' }}
-        >
-          <FileText aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          See what they sent
-        </a>
+        <div className="mt-2">
+          <ActionButton tone="neutral" icon={<FileText {...ICON} />} label="See what they sent" href={receiptUrl} target="_blank" />
+        </div>
       ) : (
         <p className="mt-2 text-sm text-ink/55">They attached no receipt.</p>
       )}
@@ -943,28 +926,19 @@ function LockBody({
         <form action={confirmLock}>
           <input type="hidden" name="event_id" value={card.eventId} />
           <input type="hidden" name="vendor_id" value={card.eventVendorId} />
-          <SubmitButton
-            pendingLabel="Confirming…"
-            className="inline-flex h-9 items-center rounded-full px-4 text-sm font-semibold text-white"
-            style={{ background: 'var(--sn-success)' }}
-          >
-            Yes, it arrived
-          </SubmitButton>
+          <SupplierSubmit tone="ok" main icon={<Check {...ICON} />} label="Yes, it arrived" pendingLabel="Confirming…" />
         </form>
         {/* Money → the Quote & Payments section, the one money tab BOTH
             shells render. A bare client route lands on the chat (#5614). */}
-        <Link
+        <ActionButton
+          tone="neutral"
+          icon={<Wallet {...ICON} />}
+          label="View the payment"
           href={`/vendor-dashboard/clients/${card.eventId}?tab=quote`}
-          className="inline-flex h-9 items-center rounded-full border px-4 text-sm font-semibold text-ink"
-          style={{ borderColor: 'var(--sn-line)' }}
-        >
-          View the payment
-        </Link>
+        />
       </div>
       <details className="mt-3">
-        <summary className="cursor-pointer text-sm text-ink/60">
-          It hasn&rsquo;t reached you?
-        </summary>
+        <FoldToggle>It hasn&rsquo;t reached you?</FoldToggle>
         <form action={rejectLock} className="mt-2 flex flex-wrap items-center gap-2">
           <input type="hidden" name="event_id" value={card.eventId} />
           <input type="hidden" name="vendor_id" value={card.eventVendorId} />
@@ -977,16 +951,10 @@ function LockBody({
             name="reason"
             maxLength={200}
             placeholder="Why? (optional — they see this)"
-            className="h-9 min-w-0 flex-1 rounded-full border px-3 text-sm"
+            className="h-10 min-w-0 flex-1 rounded-full border px-3 text-sm"
             style={{ borderColor: 'var(--sn-line)' }}
           />
-          <SubmitButton
-            pendingLabel="Sending…"
-            className="inline-flex h-9 items-center rounded-full border px-4 text-sm font-semibold"
-            style={{ borderColor: 'var(--sn-danger)', color: 'var(--sn-danger)' }}
-          >
-            It never arrived
-          </SubmitButton>
+          <SupplierSubmit tone="danger" icon={<X {...ICON} />} label="It never arrived" pendingLabel="Sending…" />
         </form>
         <p className="mt-2 max-w-prose text-[12px] text-ink/55">
           Their record of paying is cleared so they can send it again with the
@@ -1058,20 +1026,13 @@ function ReviewBody({
             One public reply, and it&rsquo;s final once posted.
           </p>
           <div className="flex items-center gap-2">
-            <Link
+            <ActionButton
+              tone="neutral"
+              icon={<Eye {...ICON} />}
+              label="Open the review"
               href={`/vendor-dashboard/reviews#reply_${card.reviewId}`}
-              className="inline-flex h-9 items-center rounded-full border px-4 text-sm font-semibold text-ink"
-              style={{ borderColor: 'var(--sn-line)' }}
-            >
-              Open the review
-            </Link>
-            <SubmitButton
-              pendingLabel="Posting…"
-              className="inline-flex h-9 items-center rounded-full px-4 text-sm font-semibold text-white"
-              style={{ background: 'var(--sn-ink-900)' }}
-            >
-              Post reply
-            </SubmitButton>
+            />
+            <SupplierSubmit tone="info" main icon={<Send {...ICON} />} label="Post reply" pendingLabel="Posting…" />
           </div>
         </div>
       </form>
@@ -1115,13 +1076,13 @@ function DisputeBody({ card }: { card: Extract<WhatsNewCard, { kind: 'dispute' }
           (the #5614 redirect) and landed on Overview whenever there was no
           thread or the shell flag was off. Named, not inferred.
         */}
-        <Link
+        <ActionButton
+          tone={card.threadHref ? 'info' : 'neutral'}
+          main
+          icon={card.threadHref ? <MessageSquare {...ICON} /> : <Eye {...ICON} />}
+          label={card.threadHref ? 'Answer them' : 'Open the handover'}
           href={card.threadHref ?? `/vendor-dashboard/clients/${card.eventId}?tab=schedule`}
-          className="inline-flex h-9 items-center rounded-full px-4 text-sm font-semibold text-white"
-          style={{ background: 'var(--sn-danger)' }}
-        >
-          {card.threadHref ? 'Answer them' : 'Open the handover'}
-        </Link>
+        />
       </div>
     </>
   );
@@ -1198,13 +1159,13 @@ function MessageBody({ card }: { card: Extract<WhatsNewCard, { kind: 'message' }
         </p>
       ) : null}
       <div className="mt-3">
-        <Link
+        <ActionButton
+          tone="info"
+          main
+          icon={<MessageSquare {...ICON} />}
+          label="Open the conversation"
           href={`/vendor-dashboard/messages/${card.threadId}`}
-          className="inline-flex h-9 items-center rounded-full px-4 text-sm font-semibold text-white"
-          style={{ background: 'var(--sn-ink-900)' }}
-        >
-          Open the conversation
-        </Link>
+        />
       </div>
     </>
   );
@@ -1282,41 +1243,26 @@ function MeetingBody({
           <form action={respondMeeting}>
             {hidden}
             <input type="hidden" name="decision" value="confirm" />
-            <SubmitButton
-              pendingLabel="Confirming…"
-              className="inline-flex h-9 items-center rounded-full px-4 text-sm font-semibold text-white"
-              style={{ background: 'var(--sn-success)' }}
-            >
-              Confirm this time
-            </SubmitButton>
+            <SupplierSubmit tone="ok" main icon={<Check {...ICON} />} label="Confirm this time" pendingLabel="Confirming…" />
           </form>
         ) : null}
         {/* "Offering a different time needs a calendar" — that calendar is
             AppointmentsSection, and it is mounted on `?tab=schedule`. A bare
             client route lands on the chat, which has no calendar in it. */}
-        <Link
+        <ActionButton
+          tone={card.passed || !card.scheduledAt ? 'neutral' : 'info'}
+          icon={card.passed || !card.scheduledAt ? <User {...ICON} /> : <CalendarDays {...ICON} />}
+          label={card.passed || !card.scheduledAt ? 'Open the customer' : 'Offer another time'}
           href={`/vendor-dashboard/clients/${card.eventId}?tab=schedule`}
-          className="inline-flex h-9 items-center rounded-full border px-4 text-sm font-semibold text-ink"
-          style={{ borderColor: 'var(--sn-line)' }}
-        >
-          {card.passed || !card.scheduledAt ? 'Open the customer' : 'Offer another time'}
-        </Link>
+        />
       </div>
       {!card.passed ? (
         <details className="mt-3">
-          <summary className="cursor-pointer text-sm text-ink/60">
-            Can&rsquo;t make it at all?
-          </summary>
+          <FoldToggle>Can&rsquo;t make it at all?</FoldToggle>
           <form action={respondMeeting} className="mt-2">
             {hidden}
             <input type="hidden" name="decision" value="decline" />
-            <SubmitButton
-              pendingLabel="Sending…"
-              className="inline-flex h-9 items-center rounded-full border px-4 text-sm font-semibold text-ink"
-              style={{ borderColor: 'var(--sn-line)' }}
-            >
-              Turn down this meeting
-            </SubmitButton>
+            <SupplierSubmit tone="danger" icon={<X {...ICON} />} label="Turn down this meeting" pendingLabel="Sending…" />
           </form>
         </details>
       ) : null}
@@ -1360,13 +1306,7 @@ function QuoteDraftBody({ card }: { card: Extract<WhatsNewCard, { kind: 'quote_d
         <AgeLine since={card.createdAt} />
       </p>
       <div className="mt-3">
-        <Link
-          href="/vendor-dashboard/proposals"
-          className="inline-flex h-9 items-center rounded-full border px-4 text-sm font-semibold text-ink"
-          style={{ borderColor: 'var(--sn-line)' }}
-        >
-          Open the quote
-        </Link>
+        <ActionButton tone="neutral" icon={<FileText {...ICON} />} label="Open the quote" href="/vendor-dashboard/proposals" />
       </div>
     </>
   );
@@ -1387,13 +1327,7 @@ function ContractDraftBody({
         <AgeLine since={card.createdAt} />
       </p>
       <div className="mt-3">
-        <Link
-          href="/vendor-dashboard/contracts"
-          className="inline-flex h-9 items-center rounded-full border px-4 text-sm font-semibold text-ink"
-          style={{ borderColor: 'var(--sn-line)' }}
-        >
-          Open the contract
-        </Link>
+        <ActionButton tone="neutral" icon={<FileSignature {...ICON} />} label="Open the contract" href="/vendor-dashboard/contracts" />
       </div>
     </>
   );

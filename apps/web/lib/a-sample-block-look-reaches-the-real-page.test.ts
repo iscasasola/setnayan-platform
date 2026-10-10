@@ -28,12 +28,10 @@ import { BLOCK_LOOKS_PREF_KEY, BLOCK_LOOKS_STYLE_ATTR, BLOCK_MARK_ATTR, blockLoo
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { renderSiteBodyFixture } from './site-body-fixture-render';
-import type { SiteBodyFixtureProps } from './site-body-fixture';
+import { siteBodyFixtureProps, FIXTURE_EVENT, type SiteBodyFixtureProps } from './site-body-fixture';
 
 /** The fixture guest, given a table (the page draws their own seat only then). */
 async function seated(looks: unknown): Promise<string> {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { siteBodyFixtureProps, FIXTURE_EVENT } = require('./site-body-fixture') as typeof import('./site-body-fixture');
   const base = siteBodyFixtureProps();
   const identity = base.identity as unknown as Record<string, unknown> & { guestHubData: Record<string, unknown> };
   return renderSiteBodyFixture({

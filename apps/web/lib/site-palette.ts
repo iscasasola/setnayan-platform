@@ -188,6 +188,11 @@ export function toHex(c: RGB): string {
   return `#${h(c.r)}${h(c.g)}${h(c.b)}`;
 }
 
+/* Shared with `lib/site-palette-vars.ts` (the builders moved out of the Maker's first load) under names of their own:
+   `lib/hub-legibility.ts` and `app/[slug]/_lib/pro-site-vars.ts` each keep a DIFFERENT local `toHex`/`channels` and
+   import from this module, so exporting the plain names trips the duplicated-rule guard (lint:dup-rule, GUARD 1). */
+export { channels as paletteChannels, toHex as paletteToHex };
+
 /** Lighten `c` toward white by `amount` (0 = unchanged, 1 = white). */
 export function lighten(c: RGB, amount: number): RGB {
   return {

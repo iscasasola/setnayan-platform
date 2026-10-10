@@ -7,6 +7,7 @@
  * maria-and-jose's couple (Maria Santos · Jose Dela Cruz), plus 16 people who stand up with them.
  */
 import { buildEntourage, type EntourageGuestRow } from '@/lib/entourage';
+import { DEFAULT_NAME_STYLE } from '@/lib/name-style';
 
 /** [id, prefix, first, last, role, walk, place] — a walk is a pair walking together. */
 type Row = [id: string, prefix: string | null, first: string, last: string, role: string, walk: number, place: number];
@@ -41,7 +42,10 @@ export function labEntourage() {
     extra_roles: [],
     march: { walk_no: walk, place_in_walk: place },
   }));
-  return buildEntourage(rows);
+  /* The lab has no event, so no chosen Name style: it is handed the default a NEW event has (`DEFAULT_NAME_STYLE`),
+     the way every real caller hands the event's own (the-name-style-reaches-every-formal-surface). Section order and
+     role names stay null = the built-in order and words, exactly what the omitted arguments meant. */
+  return buildEntourage(rows, null, null, DEFAULT_NAME_STYLE);
 }
 
 /** The couple's dress code, as `events.dress_code_config` stores it — the lab's five colours, named. */

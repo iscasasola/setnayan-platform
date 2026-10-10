@@ -11,21 +11,22 @@
  *   one search · "Popular for <type>" (a wake: "What families usually need") ·
  *   the host's groups (Venue & food · Look & style · Photos & video · Music &
  *   program · Paperwork) · "Booked ✓" on a category already booked ·
- *   a category (`?c=<tile>`) → its suppliers with ONE Filter ▾ + Save to bench /
- *   Ask for a quote.
+ *   a category (`?c=<tile>`) → its suppliers with ONE Filter ▾ + Ask for a
+ *   quote. (Frame 7's "Save to bench" is retired — owner 2026-10-07: "Save is
+ *   retired because the marketplace now sits on the page"; asking saves.)
  *
  * 🔑 WHICH categories show is NOT decided on this page. It is the bench's own
  * scope (`buildShortlistFolders` with no vendor rows — `applicable_event_types`
  * from Admin › Event type › Scope categories, `marketplace_hidden`, faith), so
  * Find a supplier and the bench can never disagree about what a birthday books.
  * `lib/supplier-find.ts` only regroups it. Server component: nothing here ships
- * to the shared bundle; the Filter ▾ and Save are one small client file.
+ * to the shared bundle; the Filter ▾ and the row's one button are one small client file.
  */
 
 import { Suspense } from 'react';
 import { redirect, notFound } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, ChevronRight, Search, Star } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Search } from 'lucide-react';
 
 import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
@@ -46,7 +47,6 @@ import {
   rollUpCountsToTile,
 } from '@/lib/vendor-counts';
 import { benchSearchScopeForTile } from '@/lib/bench-category-search';
-import { formatPhpRounded } from '@/lib/php';
 import { formatCount } from '@/lib/format-number';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import {
@@ -57,15 +57,16 @@ import {
   supplierCountLabel,
   type FindCategory,
 } from '@/lib/supplier-find';
+import { findEmptyState, findEmptyWords } from '@/lib/supplier-find-empty';
 import { searchCategoryVendors } from '../_actions/category-search';
-import { ContactShortlistVendorButton } from '../_components/contact-shortlist-vendor-button';
-import { FindFilterMenu, SaveToBenchButton } from './_components/find-supplier-controls';
+import { FindFilterMenu } from './_components/find-supplier-controls';
+import { FindFartherAway, FindSupplierList } from './_components/find-supplier-list';
 
 export const metadata = { title: 'Find a supplier' };
 
 type Props = {
   params: Promise<{ eventId: string }>;
-  searchParams: Promise<{ q?: string; c?: string; f?: string }>;
+  searchParams: Promise<{ q?: string; c?: string; f?: string; far?: string }>;
 };
 
 /** tile → the words of every service under it, so the one search finds
@@ -188,8 +189,52 @@ export default async function FindSupplierPage({ params, searchParams }: Props) 
       eventId,
       ...benchSearchScopeForTile(openTile.tile),
       query: q || undefined,
+      // Owner, 2026-10-10: "service card will not show if they are not
+      // available to that date/s or that location." Find is the bench search's
+      // successor, so it hides what the bench hides: a supplier the couple has
+      // never met whose every card here is refused on the event's date. A
+      // supplier with no calendar set is NOT refused — they stay.
+      hideUnbookable: true,
     });
     const rows = applyFindFilter(res.results, picked);
+    // An empty list says WHY. "Every supplier here is full on your date" and
+    // "nobody lists this" both arrive as no rows; the search's own count of
+    // who it hid tells them apart (lib/supplier-find · findEmptyState).
+    const empty = findEmptyState({
+      found: res.results.length,
+      shown: rows.length,
+      hiddenForDate: res.hiddenForDate ?? 0,
+      filtering: picked.length > 0,
+    });
+
+    // FARTHER AWAY (owner 2026-10-10: "yes offer the farther away option. in
+    // case the need to search more"). The list above is the suppliers who reach
+    // the event's place; `far=1` asks the SAME search for the ones who do not
+    // (`includeFarther` returns only those, nearest first). It is offered only
+    // when the event has a place to measure from, and it is about distance
+    // alone: this search hides what cannot be booked on the date exactly as the
+    // first one does. Searched only once asked for — never on a plain open.
+    const fartherOpen = res.hasReceptionCoords && sp.far === '1';
+    const fartherRows = fartherOpen
+      ? applyFindFilter(
+          (
+            await searchCategoryVendors({
+              eventId,
+              ...benchSearchScopeForTile(openTile.tile),
+              query: q || undefined,
+              includeFarther: true,
+              hideUnbookable: true,
+            })
+          ).results,
+          picked,
+        )
+      : null;
+    const fartherHref = `${base}?${new URLSearchParams({
+      c: openTile.tile,
+      ...(q ? { q } : {}),
+      ...(sp.f ? { f: sp.f } : {}),
+      far: '1',
+    }).toString()}`;
     return (
       <div className="mx-auto w-full max-w-2xl px-4 pb-24 pt-5">
         <PageMasthead title={openTile.label} />
@@ -224,96 +269,28 @@ export default async function FindSupplierPage({ params, searchParams }: Props) 
           </Suspense>
         </form>
 
-        <p className="mt-3 text-[13px] text-ink/55">
-          {rows.length === 1 ? '1 supplier' : `${formatCount(rows.length)} suppliers`}
-          {res.hasReceptionCoords ? ' · nearest first' : ''}
-        </p>
+        {/* "0 suppliers" over "Nobody is free on …" would count the hidden
+            suppliers as not existing. The prototype has no words for "N, none
+            free", so in that one state the line is not drawn. */}
+        {empty === 'nobody_free' ? null : (
+          <p className="mt-3 text-[13px] text-ink/55">
+            {rows.length === 1 ? '1 supplier' : `${formatCount(rows.length)} suppliers`}
+            {res.hasReceptionCoords ? ' · nearest first' : ''}
+          </p>
+        )}
 
-        {rows.length === 0 ? (
-          <p className="mt-6 text-[15px] text-ink/65">
-            {picked.length > 0
-              ? 'No supplier matches this filter. Try fewer.'
-              : 'No supplier lists this yet. Check back soon.'}
+        {empty ? (
+          <p className="mt-6 text-[15px] text-ink/65" data-find-empty={empty}>
+            {findEmptyWords(empty, res.hiddenForDateScope)}
           </p>
         ) : (
-          <ul className="mt-2">
-            {rows.map((r) => {
-              const isBooked = r.relationshipDepth === 3;
-              const initials = r.name
-                .split(/\s+/)
-                .map((w) => w[0] ?? '')
-                .join('')
-                .slice(0, 2)
-                .toUpperCase();
-              return (
-                <li key={r.vendorProfileId} className="border-t border-ink/10 py-3">
-                  <div className="flex items-start gap-3">
-                    {r.logoUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={r.logoUrl}
-                        alt=""
-                        className="h-11 w-11 shrink-0 rounded-full object-cover"
-                      />
-                    ) : (
-                      <span
-                        aria-hidden
-                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-ink/5 text-[13px] font-semibold text-ink/70"
-                      >
-                        {initials}
-                      </span>
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-[15px] font-semibold text-ink">{r.name}</p>
-                      <p className="text-[13px] text-ink/60">
-                        {[r.city, r.startsAtPhp != null ? `from ${formatPhpRounded(r.startsAtPhp)}` : null]
-                          .filter(Boolean)
-                          .join(' · ')}
-                      </p>
-                      {r.rating != null ? (
-                        <p className="mt-0.5 inline-flex items-center gap-1 text-[12.5px] text-ink/60">
-                          <Star className="h-3 w-3" aria-hidden />
-                          {r.rating.toFixed(1)}
-                          {r.reviewCount ? ` · ${formatCount(r.reviewCount)}` : ''}
-                        </p>
-                      ) : null}
-                    </div>
-                  </div>
-                  <div className="mt-2 flex flex-wrap items-center gap-2 pl-14">
-                    {isBooked ? (
-                      <>
-                        <span className="text-[12.5px] font-semibold text-ink/60">Booked</span>
-                        <Link
-                          href={`/dashboard/${eventId}/messages`}
-                          className="inline-flex items-center gap-0.5 text-[12.5px] font-semibold text-mulberry"
-                        >
-                          Open chat
-                          <ChevronRight className="h-3.5 w-3.5" aria-hidden />
-                        </Link>
-                      </>
-                    ) : (
-                      <>
-                        <SaveToBenchButton
-                          eventId={eventId}
-                          vendorProfileId={r.vendorProfileId}
-                          tile={openTile.tile}
-                          initiallySaved={r.alreadyAdded}
-                        />
-                        <ContactShortlistVendorButton
-                          eventId={eventId}
-                          vendorProfileId={r.vendorProfileId}
-                          label="Ask for a quote"
-                          wrapperClassName=""
-                          className="inline-flex items-center justify-center gap-1.5 rounded-md border border-mulberry/30 bg-mulberry/5 px-3 py-2 text-[12.5px] font-semibold text-mulberry transition-colors hover:bg-mulberry/10 disabled:opacity-60"
-                        />
-                      </>
-                    )}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+          <FindSupplierList eventId={eventId} tile={openTile.tile} rows={rows} />
         )}
+        {res.hasReceptionCoords ? (
+          <div className="mt-4">
+            <FindFartherAway eventId={eventId} tile={openTile.tile} openHref={fartherHref} rows={fartherRows} />
+          </div>
+        ) : null}
       </div>
     );
   }

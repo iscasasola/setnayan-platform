@@ -244,9 +244,12 @@ test('🔑 while the request is out one line says so; a refusal says so with Ret
 });
 
 test('🔑 Ask goes through the ONE inquiry path; Follow flips here and takes itself back when refused', () => {
-  assert.match(SHEET, /const res = await contactShortlistVendor\(\{ eventId, vendorId: id \}\);/);
+  // One call carries the category on screen AND every other one ticked (owner
+  // 2026-10-10: "it will be counted as 1 inquiry") — held per call and counted
+  // in lib/one-inquiry-every-category-ticked.test.ts.
+  assert.match(SHEET, /const res = await contactShortlistVendor\(\{ eventId, vendorId: id, alsoTiles \}\);/);
   assert.match(SHEET, /const saved = await saveVendorToPicks\(fd\);/, 'a supplier the couple never saved cannot be asked');
-  assert.match(SHEET, /fd\.set\('tile', tile\);/, '"Ask about Cake" files them under the wrong category');
+  assert.match(SHEET, /fd\.set\('tile', target\.tile\);/, 'a supplier asked from one category is filed under another');
   assert.match(SHEET, /setFollowing\(next\);[^\n]*\n\s*setSaid\(null\);/);
   assert.match(SHEET, /if \(!res\.ok\) \{\s*setFollowing\(!next\);/, 'a refused follow still reads as followed');
   assert.match(SHEET, /next \? await followVendor\(target\.vendorProfileId!\) : await unfollowVendor\(target\.vendorProfileId!\)/);

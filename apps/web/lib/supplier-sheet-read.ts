@@ -16,7 +16,7 @@ import { isFollowingVendor } from '@/lib/follow';
 import { isVendorNameRevealed } from '@/lib/vendors';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
 import { publicUrlForStoredAsset } from '@/lib/uploads';
-import { TAXONOMY_MAP, WEDDING_TILE_LABEL, type WeddingTile } from '@/lib/taxonomy';
+import { sheetOtherForCategory } from '@/lib/supplier-sheet-ask';
 
 /* ─── THE SHEET'S ONE REQUEST (owner 2026-10-08 · the minimum-request rules) ──
  * Opening a supplier's sheet used to re-render the whole Suppliers page on the
@@ -102,10 +102,8 @@ export async function readSupplierSheet(
       ? sheetOthers(
           services.map((s) => s.category),
           input.tile,
-          (category) => {
-            const tile = TAXONOMY_MAP[category]?.tile ?? (category in WEDDING_TILE_LABEL ? (category as WeddingTile) : null);
-            return tile ? { tile, label: WEDDING_TILE_LABEL[tile] } : null;
-          },
+          // The same reading the inquiry resolves a ticked category with.
+          sheetOtherForCategory,
         )
       : null,
     following,

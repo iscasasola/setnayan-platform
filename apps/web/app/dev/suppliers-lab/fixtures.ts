@@ -114,6 +114,16 @@ export const LAB_MARKET: Record<string, { rows: CategoryVendorResult[]; cards: R
   },
 };
 
+/** Find a supplier's "farther away" list, per category — suppliers the reach
+ *  gate keeps off the first list (`includeFarther`), nearest first. */
+export const LAB_FAR: Record<string, CategoryVendorResult[]> = {
+  catering: [
+    market({ vendorProfileId: 'p-dagat', name: 'Dagat Catering', city: 'Batangas City', rating: 4.7, reviewCount: 41, withinRadius: false, distanceKm: 92 }),
+    market({ vendorProfileId: 'p-bundok', name: 'Bundok Kitchen', city: 'Baguio', rating: 4.5, reviewCount: 9, withinRadius: false, distanceKm: 204 }),
+  ],
+  cake: [],
+};
+
 /** A flat tint as a picture — the lab has no stored photos to show. */
 const tint = (h: number) =>
   `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><rect width='200' height='200' fill='hsl(${h} 28% 78%)'/></svg>`)}`;

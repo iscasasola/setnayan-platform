@@ -38,7 +38,7 @@ import { isTrueNameTier, tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 import type { LadderTier } from '@/lib/inline-more-order';
 import { fetchWizardVendorRecommendations } from '@/lib/wizard-recommendations';
 import { findSuppliersWithNoBookingLeft } from '@/lib/bench-bookable-days.server';
-import { leavesBenchSearch } from '@/lib/bench-bookable-days';
+import { describeUnbookableScope, leavesBenchSearch, type UnbookableScope } from '@/lib/bench-bookable-days';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import {
   buildCoupleFaithSet,
@@ -227,6 +227,21 @@ export type CategorySearchResult = {
    * result shape is unchanged.
    */
   savedPhotoTallyFailed?: boolean;
+  /**
+   * How many suppliers the hide took OFF this list because they cannot be
+   * booked on the event's date (`hideUnbookable`). Present only when it is
+   * more than zero, so every other result is the shape it was.
+   *
+   * 🔑 WITHOUT IT AN EMPTY LIST CANNOT TELL THE TRUTH. "Nobody lists this
+   * category" and "suppliers list it, and every one is full on your date" both
+   * arrive as `results: []`, and the page then says "No supplier lists this
+   * yet" to a couple looking at a category with five suppliers in it. It is
+   * the hide's own count — the rows it removed — never a second query.
+   */
+  hiddenForDate?: number;
+  /** WHICH date(s) they could not be booked on — present with `hiddenForDate`,
+   *  so the page can name the date the way the couple gave it. */
+  hiddenForDateScope?: UnbookableScope;
   total: number;
   /** Null when the event has no stored coords (distance tier falls back to
    *  review order + the overlay hides distance chips). */
@@ -391,12 +406,13 @@ export async function searchCategoryVendors(input: {
   /** When TRUE, hard-drop vendors that carry facet tags but match ZERO selected
    *  facets. Vendors with no facet data are NEVER dropped (graceful degrade). */
   facetHardFilter?: boolean;
-  /** H6 (owner 2026-09-11) — BENCH ONLY: drop suppliers with no booking left on
-   *  the couple's date (every in-scope card refused by the booking path, on the
-   *  day, or on every day of a month-only date). Suppliers the couple already
-   *  knows are never dropped. Off by default, so every other caller — the
-   *  unlock, the 3-state fallback, the free-venue shortlist — is unchanged.
-   *  See lib/bench-bookable-days. */
+  /** H6 (owner 2026-09-11) — the BENCH search, and since 2026-10-10 FIND
+   *  ("service card will not show if they are not available to that date/s"):
+   *  drop suppliers with no booking left on the couple's date (every in-scope
+   *  card refused by the booking path, on the day, or on every day of a
+   *  month-only date). Suppliers the couple already knows are never dropped.
+   *  Off by default, so every other caller — the unlock, the 3-state fallback,
+   *  the free-venue shortlist — is unchanged. See lib/bench-bookable-days. */
   hideUnbookable?: boolean;
 }): Promise<CategorySearchResult> {
   const eventId = String(input.eventId ?? '').trim();
@@ -427,7 +443,7 @@ export async function searchCategoryVendors(input: {
   const { data: ev } = await supabase
     .from('events')
     .select(
-      'venue_latitude, venue_longitude, ceremony_type, secondary_ceremony_type, venue_setting, event_type, estimated_pax, planning_mode, setnayan_ai_active, event_date, event_date_precision',
+      'venue_latitude, venue_longitude, ceremony_type, secondary_ceremony_type, venue_setting, event_type, estimated_pax, planning_mode, setnayan_ai_active, event_date, event_date_precision, date_candidates, date_window_start, date_window_end',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -774,6 +790,11 @@ export async function searchCategoryVendors(input: {
           canonicals,
           eventDate: eventDateStr,
           eventDatePrecision: (ev.event_date_precision as string | null) ?? null,
+          // "date/s": an event still choosing between days keeps them here and
+          // leaves event_date NULL. A card leaves only when refused on every one.
+          dateCandidates: Array.isArray(ev.date_candidates) ? (ev.date_candidates as unknown[]) : null,
+          // …or a flexible window: refused on every day of it (≤ 31 days).
+          dateWindow: { start: ev.date_window_start, end: ev.date_window_end },
         })
       : new Set<string>();
 
@@ -1369,8 +1390,11 @@ export async function searchCategoryVendors(input: {
       (s) => s.facetMatchCount === null || s.facetMatchCount > 0,
     );
   }
+  let hiddenForDate = 0;
   if (noBookingLeft.size > 0) {
+    const before = ordered.length;
     ordered = ordered.filter((s) => !leavesBenchSearch(s, noBookingLeft));
+    hiddenForDate = before - ordered.length;
   }
   // Service-date availability DOWN-RANK (never remove): stable-partition busy
   // vendors to the bottom, preserving each group's tier order. No-op when the
@@ -1433,6 +1457,21 @@ export async function searchCategoryVendors(input: {
     // Only present when the tally actually failed → the happy-path shape is
     // byte-identical to before MB10.
     ...(savedPhotosByVendor === null ? { savedPhotoTallyFailed: true } : {}),
+    // Only present when the hide really took somebody off the list — with the
+    // date(s) it judged them on, read by the SAME pure function, from the same
+    // event row, as the hide itself.
+    ...(hiddenForDate > 0
+      ? {
+          hiddenForDate,
+          hiddenForDateScope:
+            describeUnbookableScope(
+              eventDateStr,
+              (ev.event_date_precision as string | null) ?? null,
+              Array.isArray(ev.date_candidates) ? (ev.date_candidates as unknown[]) : null,
+              { start: ev.date_window_start, end: ev.date_window_end },
+            ) ?? undefined,
+        }
+      : {}),
     // Only present when the flag is on → off-path result shape is unchanged.
     ...(smartSort ? { budgetPressure: budgetRaisePressure } : {}),
     // NOT flag-gated: the band-derived budget is not either, so a couple ranked

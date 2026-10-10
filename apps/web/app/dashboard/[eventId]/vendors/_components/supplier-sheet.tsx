@@ -19,11 +19,21 @@
  *     once;
  *   · never re-renders the page. Follow flips here; Ask goes to the chat.
  *
+ * ONE INQUIRY, EVERY CATEGORY TICKED (owner 2026-10-10: "when they inquire, we
+ * also show what other categories they offer. so when they inquire, they will
+ * inquire for all the categories they want to know. it will be counted as 1
+ * inquiry."). "The rest of their portfolio" was a row of separate "Ask about X"
+ * presses. It is now the shipped "Also ask about" tick list (the block from
+ * `app/v/[slug]/_components/inquiry-composer.tsx`, its words and its control):
+ * the couple ticks what they want to know about and presses the sheet's ONE ask
+ * button once. One `contactShortlistVendor` call, one conversation, one row per
+ * category on it — and when a conversation already exists the ticks join it.
+ *
  * A supplier the couple added themselves is not on Setnayan: there is nothing
  * to ask for, nobody to follow and no page to share, so none of the three is
  * drawn and no request is made.
  */
-import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
+import { useCallback, useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { Check, Heart, MapPin, MessageCircle, RotateCw, Share2, Star } from 'lucide-react';
@@ -98,6 +108,29 @@ function askOnce(key: string, run: () => Promise<SupplierSheetData | null>): Pro
 
 type Said = { tone: 'ok' | 'error'; text: string } | null;
 
+/** One row of the "Also ask about" tick list — the composer's own row
+ *  (`inquiry-composer.tsx`), floored at 44 px so a thumb can tick it. */
+const TICK_ROW = 'flex min-h-[44px] cursor-pointer items-center gap-2 rounded-lg border px-3 py-2.5 text-sm transition-colors'; // no-card-ok: a row you TICK (a label around a checkbox) — a control, not a container
+
+/**
+ * The sheet's one row of buttons, fitted by the component that DRAWS it.
+ * 🪤 `useFitRow` measures once, when its component mounts. The sheet returns
+ * null until <body> is known, so a fit pass called up there measured a row that
+ * did not exist yet and never ran again: at 375 px "Ask for a quote · Follow ·
+ * Share" spilled 10 px past the sheet's edge (measured 2026-10-10: scrollWidth
+ * 343 in a 333 row, `data-fit` never written). The same trap, and the same
+ * answer, as `find-thumb-row.tsx`.
+ */
+function SheetCtaRow({ children }: { children: ReactNode }) {
+  const rowRef = useRef<HTMLDivElement>(null);
+  useFitRow(rowRef);
+  return (
+    <div ref={rowRef} className="flex flex-nowrap items-center gap-2">
+      {children}
+    </div>
+  );
+}
+
 export default function SupplierSheet({
   eventId,
   target,
@@ -117,9 +150,16 @@ export default function SupplierSheet({
   const [following, setFollowing] = useState<boolean | null>(() => SEEN.get(seenKey(target))?.following ?? null);
   const [said, setSaid] = useState<Said>(null);
   const [busy, start] = useTransition();
+  /** The other categories the couple ticked — sent WITH the ask, never alone. */
+  const [ticked, setTicked] = useState<ReadonlySet<string>>(() => new Set());
+  const toggleTick = (tile: string) =>
+    setTicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(tile)) next.delete(tile);
+      else next.add(tile);
+      return next;
+    });
   const [portal, setPortal] = useState<HTMLElement | null>(null);
-  const ctaRef = useRef<HTMLDivElement>(null);
-  useFitRow(ctaRef);
   useEffect(() => setPortal(document.body), []);
 
   const ask = useCallback(() => {
@@ -148,20 +188,24 @@ export default function SupplierSheet({
     return ask();
   }, [ask, onSetnayan, target]);
 
-  /** Ask for a quote — here, or about another of their categories. A supplier
-   *  the couple has never saved is saved first: asking IS how they join the
+  /** Ask for a quote — about the category on screen AND every other one the
+   *  couple ticked, in ONE inquiry. A supplier the couple has never saved is
+   *  saved first, under the category on screen: asking IS how they join the
    *  list (the "More to compare" card does the same). */
-  const inquire = (tile: string, vendorId: string | null) => {
+  const inquire = () => {
     if (!target.vendorProfileId) return;
     setSaid(null);
+    // Only rows still offered: a category the couple already has them under
+    // is on the page, not in the tick list.
+    const alsoTiles = (data?.others ?? []).map((o) => o.tile).filter((t) => ticked.has(t) && !target.onPage[t]);
     start(async () => {
       try {
-        let id = vendorId;
+        let id = target.vendorId;
         if (!id) {
           const fd = new FormData();
           fd.set('vendor_profile_id', target.vendorProfileId!);
           fd.set('event_id', eventId);
-          fd.set('tile', tile);
+          fd.set('tile', target.tile);
           const saved = await saveVendorToPicks(fd);
           if (saved.status !== 'ok' && saved.status !== 'already_saved') {
             setSaid({ tone: 'error', text: 'That did not send. Nothing changed.' });
@@ -169,7 +213,7 @@ export default function SupplierSheet({
           }
           id = saved.eventVendorId;
         }
-        const res = await contactShortlistVendor({ eventId, vendorId: id });
+        const res = await contactShortlistVendor({ eventId, vendorId: id, alsoTiles });
         if (res.status === 'ok') {
           router.push(`/dashboard/${res.eventId}/messages/${res.threadId}`);
           return;
@@ -222,6 +266,9 @@ export default function SupplierSheet({
   const quote = cardVerbWords('ask');
   const photos = data?.photos ? sheetPhotoRow(data.photos) : null;
   const eyebrow = [target.categoryLabel, target.city].filter(Boolean).join(' · ');
+  /** The rows the couple can tick, and how many they have. */
+  const tickable = (data?.others ?? []).filter((o) => !target.onPage[o.tile]);
+  const tickedCount = tickable.filter((o) => ticked.has(o.tile)).length;
   const k2 = 'font-mono text-[10px] uppercase tracking-[0.12em] text-ink/45';
 
   return createPortal(
@@ -357,44 +404,103 @@ export default function SupplierSheet({
         ) : null}
 
         {data?.others ? (
-          <section data-sheet-section="others">
+          // A new topic ends the one above it with a divider (owner 2026-10-11:
+          // "separate topics with divider").
+          <section className="border-t border-ink/10 pt-4" data-sheet-section="others">
             <p className={k2}>The rest of their portfolio</p>
             {data.others.length === 0 ? (
               <p className="border-t border-ink/10 py-3 text-[14px] text-ink/55">{target.categoryLabel} is all they offer.</p>
             ) : (
-              data.others.map((o) => {
-                const there = target.onPage[o.tile];
-                return (
-                  <div key={o.tile} className="grid grid-cols-[1fr_auto] items-center gap-2.5 border-t border-ink/10 py-3 text-[14px]">
-                    <span>
-                      <b className="font-semibold">{o.label}</b>
-                      <br />
-                      <span className="text-ink/55">{there ?? 'can be in the same quote'}</span>
-                    </span>
-                    {there ? (
+              <>
+                {/* Already on the couple's page under that category — said, not asked again. */}
+                {data.others.map((o) => {
+                  const there = target.onPage[o.tile];
+                  return there ? (
+                    <div key={o.tile} className="grid grid-cols-[1fr_auto] items-center gap-2.5 border-t border-ink/10 py-3 text-[14px]">
+                      <span>
+                        <b className="font-semibold">{o.label}</b>
+                        <br />
+                        <span className="text-ink/55">{there}</span>
+                      </span>
                       <Check size={18} strokeWidth={2} className="text-[rgb(var(--color-ok))]" aria-label="On your page" />
-                    ) : (
-                      <ActionButton tone={quote.tone} icon={MessageCircle} label={askAboutLabel(o.label)} disabled={busy} onClick={() => inquire(o.tile, null)} />
-                    )}
-                  </div>
-                );
-              })
+                    </div>
+                  ) : null;
+                })}
+                {/* The shipped "Also ask about" block (inquiry-composer.tsx): the
+                    couple ticks, the ONE ask button below sends them all.
+                    FRAMES ONLY ON WHAT YOU PRESS (owner 2026-10-11: "only have
+                    frames if something needs to be clicked like a button"): each
+                    tick is framed; the heading is read, so it sits on the sheet
+                    with no box.
+                    NO HELPER LINE, ON PURPOSE. Each row used to say "can be in
+                    the same quote" — a lowercase fragment that only made sense
+                    beside one category. Said once it is not a sentence, and the
+                    composer has none for this: its only sentences here are the
+                    bundle nudge's ("…ask for one bundle price — often cheaper
+                    than booking separately."), which promise a bundle price this
+                    sheet does not ask for. The words are the owner's to give. */}
+                {tickable.length > 0 ? (
+                  <fieldset className="mt-2 space-y-2" data-sheet-also="">
+                    <legend className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/50">Also ask about</legend>
+                    <ul className="space-y-1.5">
+                      {tickable.map((o) => {
+                        const on = ticked.has(o.tile);
+                        return (
+                          <li key={o.tile}>
+                            <label
+                              className={`${TICK_ROW} ${
+                                on ? 'border-terracotta/50 bg-terracotta/5 text-ink' : 'border-ink/10 bg-cream/80 text-ink/80 hover:border-terracotta/40'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={on}
+                                onChange={() => toggleTick(o.tile)}
+                                disabled={busy}
+                                aria-label={askAboutLabel(o.label)}
+                                // A native checkbox takes its fill from `accent-color`,
+                                // never from a text colour: the composer's
+                                // `text-terracotta focus:ring-terracotta` is a forms-plugin
+                                // idiom and this app has no forms plugin, so its boxes tick
+                                // browser blue. This is the token the app's ticked boxes
+                                // really wear (the RSVP's, `rsvp-widget.tsx`).
+                                className="h-4 w-4 shrink-0 accent-terracotta"
+                              />
+                              <span className="min-w-0 flex-1 truncate">{o.label}</span>
+                            </label>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </fieldset>
+                ) : null}
+              </>
             )}
           </section>
         ) : null}
 
         {onSetnayan ? (
           <div className="sticky bottom-0 -mx-5 bg-cream px-5 pb-1 pt-2.5" data-sheet-cta="">
-            <div ref={ctaRef} className="flex flex-nowrap items-center gap-2">
-              {target.threadId ? (
+            <SheetCtaRow>
+              {/* ONE ask button. With a conversation already open it is "Open
+                  chat" — until the couple ticks another category: then it asks,
+                  and the ticks join that same conversation. */}
+              {tickedCount === 0 && target.threadId ? (
                 <ActionButton tone={chat.tone} icon={MessageCircle} label="Open chat" href={`/dashboard/${eventId}/messages/${target.threadId}`} prefetch={false} />
-              ) : target.booked ? null : (
+              ) : tickedCount === 0 && target.booked ? null : (
+                // THE SHEET'S ONE MAIN ACTION, by the button rule
+                // (BUTTON_RULE_2026-10-07: "Filled (main verb) / outlined (the
+                // rest)"; a message is blue). It was outlined like Follow and
+                // Share beside it, so nothing in the row read as the thing to
+                // press. The card's own "Ask for a quote" is `main` too
+                // (`verb('ask', { main: true })`).
                 <ActionButton
                   tone={quote.tone}
+                  main
                   icon={MessageCircle}
                   label={busy ? 'Asking…' : quote.label}
                   disabled={busy}
-                  onClick={() => inquire(target.tile, target.vendorId)}
+                  onClick={inquire}
                 />
               )}
               {following != null ? (
@@ -408,7 +514,7 @@ export default function SupplierSheet({
                 />
               ) : null}
               {data?.sharePath ? <ActionButton tone="neutral" icon={Share2} label="Share" onClick={() => void share()} /> : null}
-            </div>
+            </SheetCtaRow>
             {said ? (
               <p className={`mt-1.5 text-[12px] ${said.tone === 'error' ? 'text-[rgb(var(--color-danger))]' : 'text-ink/70'}`} role="status">
                 {said.text}

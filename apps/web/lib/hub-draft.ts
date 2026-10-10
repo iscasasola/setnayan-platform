@@ -2580,6 +2580,27 @@ export function hubDraftOutcome(result: HubDraftActionResult | null): HubDraftOu
   return result.held.length > 0 ? { kind: 'held', held: result.held } : { kind: 'live' };
 }
 
+/**
+ * 📵 AN ACTION THAT NEVER ANSWERED IS A REFUSAL, SAID — never a crash.
+ *
+ * Measured 2026-10-11 at 375 px, on the Maker's own bar: with the phone offline, one tap on ↺ Undo replaced the WHOLE
+ * Maker with the app's error screen ("Something on our end didn't work."). The bar awaited the server action inside a
+ * transition with nothing to catch it, so a request that could not leave (no signal, a tunnel, a lapsed connection)
+ * threw into React and took the page — the canvas, the tools and every unsaved field on screen — with it. ✓ Apply
+ * and Restore went the same way.
+ *
+ * `send` is the action call. An answer is returned as it came; a throw becomes the refusal every other failure of
+ * this action already is (`HUB_DRAFT_SAVE_FAILED_MESSAGE` — "your draft is kept": the draft is on the server, and a
+ * request that never left changed nothing there), which the bar says beside ✓ (`hubDraftOutcome`) and stays usable.
+ */
+export async function hubDraftAnswer(intent: HubDraftIntent | null, send: () => Promise<HubDraftActionResult>): Promise<HubDraftActionResult> {
+  try {
+    return await send();
+  } catch {
+    return { ok: false, intent, error: HUB_DRAFT_SAVE_FAILED_MESSAGE };
+  }
+}
+
 /** Which typed fact (the names, the date, the name style, the venues, the ceremony time) an `events` key carries — null for every other column. */
 export function hubDraftFactOf(column: HubDraftEventColumn): HubDraftFact | null {
   return (HUB_DRAFT_FACT_GROUP as Partial<Record<string, HubDraftFact>>)[column] ?? null;

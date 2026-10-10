@@ -15,7 +15,9 @@ import { ApplyProSheet } from './apply-pro-sheet';
 import { UNLOCK_AND_APPLY_PARAM, unlockAndApplyOnReturn, type HubProEffectView } from '@/lib/hub-pro-effect-view';
 import {
   HUB_RESET_NEVER_TOUCHES,
+  hubDraftAnswer,
   hubDraftOutcome,
+  isHubDraftIntent,
   type HubDraftActionResult,
   type HubDraftBarLive,
   type HubDraftRefusal,
@@ -93,7 +95,15 @@ export type HubDraftBarProps = {
   applyTour?: ReactNode;
   /** 👁 Owns Pro as this viewer is SHOWN (outside the store shell) — picks the half of a save's bar that is theirs. */
   ownsPro?: boolean;
+  /**
+   * 🧪 The door ↺ · ✓ · Restore · Reset go through. A real Maker hands none: it is `hubDraftAction`. The dev lab
+   * (`app/dev/maker-lab`) hands its own — its event is made up, and the real action sent its ↺ to the sign-in page.
+   */
+  draftAction?: HubDraftDoor;
 };
+
+/** The draft's one action, as the bar calls it (`hubDraftAction`'s own shape). */
+export type HubDraftDoor = (eventId: string, formData: FormData) => Promise<HubDraftActionResult>;
 
 /* The hidden field lives in `hub-draft-field.tsx` — a module with no server
    imports, so panels that render tests load can carry it. Re-exported here for
@@ -117,7 +127,7 @@ const HELD_REASON: Record<HubDraftRefusal, string> = {
   march_stopped: 'stopped partway — the moves before it are live; open it to see where everyone walks now',
 };
 
-function useDraftIntent(eventId: string) {
+function useDraftIntent(eventId: string, action: HubDraftDoor) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [result, setResult] = useState<HubDraftActionResult | null>(null);
@@ -129,7 +139,11 @@ function useDraftIntent(eventId: string) {
          canvas reloads (double-buffered) for the render they bring — ONE render,
          after the write, since the action no longer re-renders the Maker in its
          own response for a draft-only intent. */
-      const r = await makerSave(() => hubDraftAction(eventId, fd), () => router.refresh());
+      /* 📵 …and a request that never left (no signal) is ANSWERED, never thrown into this transition — a throw here
+         replaced the whole Maker with the app's error screen (`hubDraftAnswer`, measured 2026-10-11). */
+      const r = await hubDraftAnswer(isHubDraftIntent(fields.intent) ? fields.intent : null, () =>
+        makerSave(() => action(eventId, fd), () => router.refresh()),
+      );
       setResult(r);
     });
   return { pending, result, run };
@@ -203,6 +217,7 @@ export function HubDraftToolbar({
   proEffects: renderedProEffects = [],
   applyTour = null,
   ownsPro = false,
+  draftAction = hubDraftAction,
 }: HubDraftBarProps) {
   /* ⚡ THE COUNT FROM THE SAVE ITSELF (owner 2026-09-30, SPEED FIRST). A pick
      the bridge drew is followed by no render of the Maker (`lib/maker-refresh.ts`),
@@ -231,7 +246,7 @@ export function HubDraftToolbar({
   const [sheetOpen, setSheetOpen] = useState(false);
   const asksForPro = !storeShell && proHref !== null && proEffects.length > 0;
   const stage: HubResetScope = maker?.stage ?? 'rsvp';
-  const { pending, result, run } = useDraftIntent(eventId);
+  const { pending, result, run } = useDraftIntent(eventId, draftAction);
   const [open, setOpen] = useState(false);
   const [at, setAt] = useState<PanelPlace | null>(null);
   const [asking, setAsking] = useState(false);

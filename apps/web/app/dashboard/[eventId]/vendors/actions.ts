@@ -114,6 +114,7 @@ import { isCoordinatorProposeLockEnabled } from '@/lib/coordinator-propose-lock'
 import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
 import { isCoordinatorConsentGateEnabled } from '@/lib/coordinator-consent-gate';
 import { checkManualVenueAddress } from '@/lib/manual-venue-address';
+import { addOwnContactError } from '@/lib/add-your-own';
 import { saveSelfAddedServiceCard, updateHostServiceDetails } from './[vendorId]/workspace/actions';
 import { saveSelfAddedPaymentPlan } from './[vendorId]/workspace/payment-plan-actions';
 import {
@@ -3297,6 +3298,19 @@ function readStringField(
   return { ok: true, value: trimmed };
 }
 
+/** A contact field that may be left empty: '' → null; too long → refused. */
+function readOptionalContact(
+  formData: FormData,
+  key: string,
+  maxLen: number,
+): { ok: true; value: string | null } | { ok: false; message: string } {
+  const raw = formData.get(key);
+  const trimmed = typeof raw === 'string' ? raw.trim() : '';
+  if (trimmed.length === 0) return { ok: true, value: null };
+  if (trimmed.length > maxLen) return { ok: false, message: `${key} must be ${maxLen} chars or fewer` };
+  return { ok: true, value: trimmed };
+}
+
 /**
  * Creates a manual vendor row for an event with the 4 owner-directive
  * fields (business_name, contact_person, contact_number, optional photo).
@@ -3321,9 +3335,29 @@ async function createManualVendor(
 
   const businessName = readStringField(formData, 'business_name', 128);
   if (!businessName.ok) return { status: 'error', message: businessName.message };
-  const contactPerson = readStringField(formData, 'contact_person', 128);
+  // ── WHO THEY TALK TO, OR THEIR MOBILE — ONE IS ENOUGH IN THE WALK ──────────
+  // The four-step "Add your own" walk (owner-approved 2026-10-10, step 3) asks
+  // for either, and says so (`addOwnContactError`). The table has allowed either
+  // to be empty since 20271259075750 ("NULL = not given yet"); this form had
+  // not. The walk opts in with `contact_either`; the eight-field sheet sends no
+  // such field and still requires both, exactly as before. A missing one is
+  // stored as NULL — never a typed placeholder.
+  const contactEither = formData.get('contact_either') === '1';
+  const contactPersonRaw = readOptionalContact(formData, 'contact_person', 128);
+  const contactNumberRaw = readOptionalContact(formData, 'contact_number', 32);
+  if (contactEither) {
+    if (!contactPersonRaw.ok) return { status: 'error', message: contactPersonRaw.message };
+    if (!contactNumberRaw.ok) return { status: 'error', message: contactNumberRaw.message };
+    const refusal = addOwnContactError(contactPersonRaw.value ?? '', contactNumberRaw.value ?? '');
+    if (refusal) return { status: 'error', message: refusal };
+  }
+  const contactPerson = contactEither
+    ? { ok: true as const, value: contactPersonRaw.ok ? contactPersonRaw.value : null }
+    : readStringField(formData, 'contact_person', 128);
   if (!contactPerson.ok) return { status: 'error', message: contactPerson.message };
-  const contactNumber = readStringField(formData, 'contact_number', 32);
+  const contactNumber = contactEither
+    ? { ok: true as const, value: contactNumberRaw.ok ? contactNumberRaw.value : null }
+    : readStringField(formData, 'contact_number', 32);
   if (!contactNumber.ok) return { status: 'error', message: contactNumber.message };
 
   // 🔑 THE ADDRESS GATE RUNS SERVER-SIDE TOO, not only in the modal (owner

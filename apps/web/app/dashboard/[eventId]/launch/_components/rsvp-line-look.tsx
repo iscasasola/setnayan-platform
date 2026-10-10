@@ -231,6 +231,14 @@ export const RSVP_CARD_TILES: ReadonlyArray<{ key: 'none' | 'plain' | 'frost'; n
 ];
 export const RSVP_CARD_GROUND_LINE = 'Behind the card is the Look’s background — the same one every page wears.';
 export const RSVP_LINE_GROUND_LINE = 'This sits on the RSVP card’s background.';
+/**
+ * 🧾 SAID WHERE THE FORM'S CARD IS GIVEN A BACKGROUND OR AN ANIMATE (controller's ruling 2026-10-10, word for word).
+ * A guest replies in two places. On the invitation's reply page the card's Background and Build in are the card's.
+ * Inside the Event Hub the reply is a SHEET over the invitation — its own surface: it keeps its own paper (Frosted
+ * makes that paper glass; None is shown as Plain, a sheet with no ground cannot be read) and arrives its own way
+ * (`rsvpCardGroundOn`, `lib/rsvp-look.ts`). So the couple is told, where they set them, that the two differ there.
+ */
+export const RSVP_SHEET_KEEPS_LINE = 'Inside the Event Hub, the reply sheet keeps its own paper and its own way of opening.';
 
 /**
  * BACKGROUND FOR THE CARD — None · Plain · Frosted, as the toolbar's own picture tiles (`stage-background.tsx`'s
@@ -279,13 +287,25 @@ export function RsvpLineGroundRow({ onOpenCard }: { onOpenCard: () => void }) {
  * (`RSVP_ONE_SCREEN_WHY`), in the toolbar's own toast. Never a dead tap, never a row left out.
  */
 export const RSVP_ONE_SCREEN_WHY = 'A reply page is one screen — nothing to follow and no way out to build.';
-export function RsvpBuildInRows({ now, onPick, error = null }: { now: RsvpMotion; onPick: (patch: { i?: MotionFx | null; v?: RsvpLookFeel | null }) => void; error?: string | null }) {
+export function RsvpBuildInRows({
+  now,
+  onPick,
+  error = null,
+  note = null,
+}: {
+  now: RsvpMotion;
+  onPick: (patch: { i?: MotionFx | null; v?: RsvpLookFeel | null }) => void;
+  error?: string | null;
+  /** The form's card: the Event Hub's sheet opens its own way (`RSVP_SHEET_KEEPS_LINE`). */
+  note?: string | null;
+}) {
   const feel: AnimateFeel = now.v ?? 'calm';
   return (
     <StageAnimate
       only="in"
       onlyWhy={RSVP_ONE_SCREEN_WHY}
       error={error}
+      note={note}
       inFx={now.i ?? null}
       outFx={null}
       onIn={(fx) => onPick({ i: fx })}

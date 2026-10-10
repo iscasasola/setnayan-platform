@@ -43,5 +43,26 @@ Message), a held line drags to a new place, and several lines can share one back
 - The dev lab (`/dev/maker-lab/guest`) draws the real reply card and the real notes now, instead of hand-made
   copies of them, and takes `?look=<json>` to be drawn as a saved page is.
 
+**5b2 · a look set on the RSVP stage reaches the Event Hub's own reply sheet (a dead setting, live until now)**
+
+- FOUND: a guest replies in two places — the invitation's reply page (the first reply) and the Event Hub's own
+  reply sheet (`site-body.tsx`: changing a reply later, and every guest of a "no reply needed" event). Only the
+  first drew what the Maker's RSVP stage sets, so each line's Font · Colour · Size · Build in was live in the Maker
+  and never seen by a guest on the sheet.
+- `site-body.tsx` (four additive hunks, no existing line changed): the reply card on the sheet is handed the same
+  list (`lines`) and the sheet carries the same one `<style>` (`RsvpLookStyle`), from the config the page already
+  holds — no new read, and for an event that stored nothing, NOTHING (not an empty tag).
+- The card on the sheet, ruled by the controller 2026-10-10 and written in one place (`rsvpCardGroundOn`,
+  `lib/rsvp-look.ts`): Plain = the sheet's own paper; Frosted = that paper as the app's glass; None is shown as
+  Plain (a sheet with no ground over the invitation cannot be read); the card's Build in is not drawn there. A
+  group's background applies on the sheet as on the page.
+- The Maker says so where the couple sets them: one quiet line under the form card's Background and its Animate —
+  "Inside the Event Hub, the reply sheet keeps its own paper and its own way of opening."
+- PROOF: the real guest page's own record (`lib/site-body-fixture-render`, branch `rd/site-body-fixture-render`
+  `7ae4c46d8` — recorded at this base with no page file touched; it draws this sheet) laid over this change: 5/5,
+  byte for byte; and the same page with only another screen's look, or the card at None with a Build in, is that
+  record too. With a look stored the page gains the list inside the reply's fieldset and one `<style>`.
+- The dev lab can show the sheet as a guest sees it: `/dev/maker-lab/guest?rsvp=form&sheet=1#your-details`.
+
 SPEC IMPACT: None beyond the locked record already in the corpus (`Maker_RSVP_Per_Element_Add_Drag_Group_LOCKED_2026-10-09.md`
 §4–§5 names the cap and the migration). The measured numbers confirm §5's (24,576 / 19,000).

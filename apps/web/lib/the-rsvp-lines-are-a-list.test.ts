@@ -13,8 +13,8 @@
  *   3. the writers keep it: a line's look saved from the panel carries `added` · `order` · `groups`, and a line the
  *      couple added takes a look like any other;
  *   4. the Hint and the pass's Save button have no place in a list;
- *   5. REACH — who is handed a list: the invitation's reply page (the form) and the page after a reply (the two
- *      notes). Not the Event Hub's own reply sheet, and not The question or The ticket;
+ *   5. REACH — who is handed a list: the invitation's reply page and the Event Hub's own reply sheet (the form), and
+ *      the page after a reply (the two notes). Not The question or The ticket;
  *   6. a guest DOWNLOADS nothing for it, and the Maker's first load learns nothing of it.
  */
 import test from 'node:test';
@@ -132,18 +132,19 @@ test('4 · the Hint and the pass’s Save button have no place in a list', () =>
   assert.doesNotMatch(src('app/[slug]/_components/rsvp-widget.tsx'), /data-rsvp-line="hint"/);
 });
 
-test('5 · reach: the reply page hands the card its list, the page after a reply hands the note its list — nobody else', () => {
+test('5 · reach: both places a guest replies hand the card its list, the page after a reply hands the note its list — nobody else', () => {
   const REPLY = src('app/[slug]/invite/reply/page.tsx');
   const ENTER = src('app/[slug]/invite/enter/page.tsx');
   assert.match(REPLY, /lines=\{rsvpScreenLayout\(readRsvpLook\(event\.rsvp_ask_config\), 'rsvp'\)\}/);
   assert.match(ENTER, /lines=\{rsvpScreenLayout\(readRsvpLook\(event\.rsvp_ask_config\), reply === 'no' \? 'nonote' : 'yesnote'\)\}/);
   /* From the config the page already holds: neither page reads anything new for it. */
   for (const page of [REPLY, ENTER]) assert.equal((page.match(/rsvpScreenLayout\(/g) ?? []).length, 1);
-  /* The Event Hub's own reply sheet is handed none — as it wears none of a line's look (`RsvpLookStyle` is not mounted
-     there). Same reach as steps 1–4 (controller 2026-10-10); a list there would be a second, unstyled arrangement. */
+  /* The Event Hub's own reply sheet is handed the SAME list (and wears the look) since 5b2 — it was handed neither,
+     so a setting made on the stage never reached a guest who replied there
+     (`the-rsvp-look-reaches-the-event-hub-sheet.test.ts`). */
   const HUB = src('app/[slug]/_components/site-body.tsx');
-  assert.match(HUB, /<RsvpWidget\b/);
-  assert.doesNotMatch(HUB, /rsvpScreenLayout|RsvpLookStyle|\blines=\{/);
+  assert.match(HUB, /<RsvpWidget\b[\s\S]*?lines=\{rsvpScreenLayout\(readRsvpLook\(event\.rsvp_ask_config\), 'rsvp'\)\}/);
+  assert.equal((HUB.match(/rsvpScreenLayout\(/g) ?? []).length, 1);
   /* The question and The ticket do not name their lines, so they are handed no list either: the widget draws the
      list only in the reply card's own arm. */
   const WIDGET = src('app/[slug]/_components/rsvp-widget.tsx');

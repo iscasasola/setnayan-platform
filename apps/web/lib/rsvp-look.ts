@@ -419,17 +419,52 @@ const INNER_CARD_PLAIN = 'background:transparent!important;border-color:transpar
 type LookRule = { selector: string; rules: string; moves: boolean };
 
 /**
+ * 🧾 WHERE A REPLY IS DRAWN — AND WHAT THE CARD'S LOOK MEANS THERE (controller's ruling 2026-10-10). A guest replies
+ * in two places, and a look set on the Maker's RSVP stage must reach both (it reached only the first — a dead
+ * setting for every guest who changed a reply inside the Event Hub):
+ *
+ *   · `door`  — the invitation's reply page and the page after a reply. The reply sits in the door's CARD, on the
+ *               Look's background: the card's Background (None · Plain · Frosted) and its Build in are that card's.
+ *   · `sheet` — the Event Hub's own reply sheet (`rsvp-sheet.tsx`): a sheet that rises OVER the invitation. The sheet
+ *               is its own surface, so THE ONE MAPPING, HERE AND NOWHERE ELSE (`rsvpCardGroundOn`):
+ *                 Plain   → the sheet's own paper (as it always was);
+ *                 Frosted → the sheet's paper becomes the app's glass (a sheet over a page is where glass reads best);
+ *                 None    → shown as Plain: a sheet with no ground, over the invitation, cannot be read.
+ *               And the card's Build in is NOT drawn there — the sheet has its own way of arriving.
+ *
+ * Everything else is the same on both: each line's Font · Colour · Size · Build in, the lines the couple added, their
+ * order, and a group's own background (a group sits on the sheet's paper as it sits on the card).
+ */
+export type RsvpReplySurface = 'door' | 'sheet';
+export function rsvpCardGroundOn(surface: RsvpReplySurface, ground: RsvpCardGround | undefined): 'plain' | RsvpCardGround {
+  if (surface === 'sheet') return ground === 'frost' ? 'frost' : 'plain';
+  return ground ?? 'plain';
+}
+/** The Event Hub's reply sheet (`rsvp-sheet.tsx` names it for every guest) — and the band that holds its title. */
+export const RSVP_SHEET_SELECTOR = '[data-rsvp-sheet]';
+export const RSVP_SHEET_HEAD_SELECTOR = '[data-rsvp-sheet]>div:first-of-type';
+
+/**
  * EVERY RULE A PAGE DRAWS, AS DATA — for the parts it shows (`['rsvp']` the form · `['yesnote', 'pass']` ·
  * `['nonote']`). `selector` is ALWAYS a plain selector the page can be asked for (a named line, the card, the inner
  * note card) — never an at-rule: the keyframe and the reduced-motion block are `rsvpLookCss`'s own tail and are not
  * in this list. (The canvas once split the finished CSS text to find what to replay, and handed
  * `@media (prefers-reduced-motion:reduce)` to `querySelectorAll` — a thrown error on every Move.)
  */
-export function rsvpLookRules(look: RsvpLook, parts: readonly string[], board: readonly string[]): LookRule[] {
+export function rsvpLookRules(look: RsvpLook, parts: readonly string[], board: readonly string[], surface: RsvpReplySurface = 'door'): LookRule[] {
   const out: LookRule[] = [];
   for (const id of RSVP_LOOK_CARDS) {
     const v = look.card?.[id];
     if (!v || !parts.includes(id)) continue;
+    if (surface === 'sheet') {
+      /* The sheet is its own surface (`rsvpCardGroundOn`): Frosted is its paper as glass — and the band that holds
+         its title lets that glass show; None and Plain are its own paper; no Build in. */
+      if (rsvpCardGroundOn('sheet', v.g) === 'frost') {
+        out.push({ selector: RSVP_SHEET_SELECTOR, rules: CARD_GROUND.frost, moves: false });
+        out.push({ selector: RSVP_SHEET_HEAD_SELECTOR, rules: 'background:transparent!important;', moves: false });
+      }
+      continue;
+    }
     const rules = `${v.g ? CARD_GROUND[v.g] : ''}${motionRules(v)}`;
     if (rules) out.push({ selector: RSVP_CARD_SELECTOR, rules, moves: Boolean(v.i) });
     if (v.g && id === 'nonote') out.push({ selector: RSVP_INNER_CARD_SELECTOR, rules: INNER_CARD_PLAIN, moves: false });
@@ -474,8 +509,8 @@ export function rsvpLookRules(look: RsvpLook, parts: readonly string[], board: r
  * is written as the Event Hub writes a part's (`hubElementDeclarations`): the face's own variable, then its
  * fallback. `zoom` is how the Event Hub sizes a part (`lib/element-style.ts`): the line's own size ×.
  */
-export function rsvpLookCss(look: RsvpLook, parts: readonly string[], board: readonly string[]): string {
-  const all = rsvpLookRules(look, parts, board);
+export function rsvpLookCss(look: RsvpLook, parts: readonly string[], board: readonly string[], surface: RsvpReplySurface = 'door'): string {
+  const all = rsvpLookRules(look, parts, board, surface);
   const css = all.map((r) => `${r.selector}{${r.rules}}`).join('');
   return all.some((r) => r.moves) ? css + KEYFRAMES : css;
 }

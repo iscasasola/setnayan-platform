@@ -27,6 +27,7 @@ import { RsvpCanvasBridge } from '@/app/[slug]/_components/rsvp-canvas-bridge';
 import { BLOCK_LOOKS_STYLE_ATTR, BLOCK_MARK_ATTR, blockLooksCss, readBlockLooks } from '@/lib/block-looks';
 import { RsvpLookStyle } from '@/app/[slug]/_components/rsvp-look-style';
 import { RsvpWidget } from '@/app/[slug]/_components/rsvp-widget';
+import { RsvpSheet } from '@/app/[slug]/_components/rsvp-sheet';
 import { RsvpNoteLines } from '@/app/[slug]/_components/rsvp-note-lines';
 import type { GuestRow } from '@/app/[slug]/_lib/types';
 import { landingHeadline } from '@/lib/guest-landing';
@@ -377,6 +378,43 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   if (rsvp) {
     const labConfig = labRsvpConfig(sp.look);
     const labLook = readRsvpLook(labConfig);
+    if (rsvp === 'form' && sp.sheet === '1') {
+      /* 🧾 `?rsvp=form&sheet=1#your-details` — THE EVENT HUB'S OWN REPLY SHEET (`rsvp-sheet.tsx`), the second place a
+         guest replies: the real sheet, the real card inside it and the look's one `<style>` exactly as `site-body.tsx`
+         mounts them (`surface="sheet"`), over a page to judge its paper against. A guest's view: no canvas bridge. */
+      return (
+        <main className="min-h-dvh px-5 py-6 text-ink" style={{ background: `linear-gradient(160deg, ${LAB_BOARD[4]} 0%, ${LAB_BOARD[2]} 52%, ${LAB_BOARD[1]} 100%)` }} data-lab-reply-sheet="">
+          <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style>
+          <div className="space-y-3 text-center">
+            <p className="text-[10px] font-bold uppercase tracking-[0.24em]">You&rsquo;re invited</p>
+            <h1 className="font-serif text-4xl">Maria &amp; Jose</h1>
+            <p className="font-mono text-[11px] uppercase tracking-[0.14em]">Saturday, December 12, 2026 · Seda Vertis North</p>
+            {Array.from({ length: 8 }, (_, i) => (
+              <p key={i} className="text-base leading-relaxed">
+                Together with their families, Maria and Jose invite you to celebrate their wedding.
+              </p>
+            ))}
+            <a href="#your-details" className="button-primary inline-flex">
+              Reply
+            </a>
+          </div>
+          <RsvpSheet heading="Your reply" privacyLine="Only the couple sees your reply." flash={null}>
+            <div data-rsvp-form>
+              <RsvpWidget
+                words={await eventWordsFor('wedding')}
+                guest={LAB_GUEST}
+                eventId="lab"
+                eventPublicId="lab"
+                faceMode="mode_b"
+                oneAtATime={sp.one === '1'}
+                lines={rsvpScreenLayout(labLook, 'rsvp')}
+              />
+              <RsvpLookStyle config={labConfig} board={celebrationColours(LAB_BOARD)} parts={['rsvp']} surface="sheet" />
+            </div>
+          </RsvpSheet>
+        </main>
+      );
+    }
     return (
       /* 🖼 A GROUND TO JUDGE THE CARD AGAINST (controller 2026-10-10): on plain cream, Frosted and None looked the
          same as Plain. A stand-in for the Look's background, made of the lab's own colours — the lab only. */

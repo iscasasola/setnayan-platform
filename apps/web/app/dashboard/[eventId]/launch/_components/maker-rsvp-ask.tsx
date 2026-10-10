@@ -20,7 +20,7 @@ import { RSVP_WORD_TYPED_EVENT } from '@/app/[slug]/_components/rsvp-canvas-part
 import { rsvpFormWord, rsvpLineWord } from '@/lib/rsvp-form-words';
 import { RSVP_CONFIG_FULL, readRsvpLook, rsvpConfigFits, rsvpLookCard, rsvpLookLine, rsvpLookWith } from '@/lib/rsvp-look';
 import { RSVP_OPEN_CARD_EVENT } from '@/lib/rsvp-stage-shared';
-import { RsvpBuildInRows, RsvpCardEditRows, RsvpCardGroundRows, RsvpLineGroundRow, RsvpLineLookRows } from './rsvp-line-look';
+import { RSVP_SHEET_KEEPS_LINE, RsvpBuildInRows, RsvpCardEditRows, RsvpCardGroundRows, RsvpLineGroundRow, RsvpLineLookRows } from './rsvp-line-look';
 import type { MakerPartTool } from '@/lib/maker-parts';
 import { hubDraftAction } from '../../website/hub-draft-actions';
 import { updatePaxSettings } from '../../actions';
@@ -593,7 +593,15 @@ export function MakerRsvpSettings({
       return (
         <div className={RSVP_ROWS} data-rsvp-stage-controls={scene} data-rsvp-stage-rows="" data-rsvp-stage-card-ground={lookCard}>
           <RsvpCardGroundRows now={readRsvpLook(local).card?.[lookCard]?.g ?? null} onPick={(g) => void save({ look: rsvpLookWith(latest.current, { card: lookCard }, { g }) }, '“Background”')} />
-          {status ? <div data-rsvp-row="3" className={`${RSVP_ROW[3]} ${RSVP_ROW_ERROR}`}>{status}</div> : null}
+          {status ? (
+            <div data-rsvp-row="3" className={`${RSVP_ROW[3]} ${RSVP_ROW_ERROR}`}>{status}</div>
+          ) : lookCard === 'rsvp' ? (
+            /* 🧾 The form's card is drawn in two places; on the Event Hub's own sheet its ground means the sheet's
+               paper (`RSVP_SHEET_KEEPS_LINE`). The two notes are only ever on the page after a reply. */
+            <p data-rsvp-row="3" data-rsvp-sheet-note="" className={`${RSVP_ROW[3]} px-1 text-[12.5px] leading-snug text-[var(--sp-ink)]/70`}>
+              {RSVP_SHEET_KEEPS_LINE}
+            </p>
+          ) : null}
         </div>
       );
     }
@@ -612,7 +620,7 @@ export function MakerRsvpSettings({
         /* `StageAnimate` IS the four rows, and wears the toolbar's side inset itself — so this box gives its own back
            (it stood 20 px in, where every other stage's Animate stands 10). */
         <div className="-mx-[10px] flex h-full min-h-0 flex-col" data-rsvp-stage-controls={scene} data-rsvp-stage-animate={typeof moves === 'string' ? moves : `card.${moves.card}`}>
-          <RsvpBuildInRows now={(typeof moves === 'string' ? look.lines?.[moves] : look.card?.[moves.card]) ?? {}} error={error} onPick={(patch) => void save({ look: rsvpLookWith(latest.current, moves, patch) }, '“Animate”')} />
+          <RsvpBuildInRows now={(typeof moves === 'string' ? look.lines?.[moves] : look.card?.[moves.card]) ?? {}} error={error} note={typeof moves !== 'string' && moves.card === 'rsvp' ? RSVP_SHEET_KEEPS_LINE : null} onPick={(patch) => void save({ look: rsvpLookWith(latest.current, moves, patch) }, '“Animate”')} />
         </div>
       );
     }

@@ -22,6 +22,18 @@ REAL · LAB · BOTH (`hub-walk/maker-fixes/TRIAGE.md`).
   Stages toolbar's own grey envelope, "Opens once, over the cover". The preview's rule in `globals.css` now puts it
   away with the empty-scene placeholder.
 
+- **One move is one change — and none once the order is back.** One tap on Earlier read ✓ 8 (a move saves every
+  scene's place, and each was counted), stayed 8 when moved back, and the Apply sheet listed eight "Order" lines.
+  `hubDraftMovedStages` compares the sequence a stage's scenes come out in against live: places that restate the live
+  order are no change and are not written; a different order is ONE change, "Invitation · Order". Apply still writes
+  every scene's place.
+- **Remove, then ＋ straight away, offers the part back.** It said "Every part is already on this page." — the eye's
+  save is held (no render) and the ＋ sheet read the last render's list (`lib/maker-list-gates.ts`).
+- **A Title look is drawn on a cover-photo page.** On the plain masthead the Title is the page's eyebrow, and
+  `.sn-editorial .pahina-eyebrow` out-ranked all four Title looks (Serif drew the default; The pill was dark ink on its
+  ground). CSS only. GUEST-VISIBLE: an event with a cover photo and a Title look applied now draws that look
+  (`hub-walk/maker-fixes/PART-LOOKS.md` — measured on the real guest page, before and after).
+
 **The Maker lab (dev only; production 404s it):**
 
 - **Its draft is the real draft's reducers** (`app/dev/maker-lab/lab-draft.ts`): `mergeHubDraft`, `undoHubDraft`,

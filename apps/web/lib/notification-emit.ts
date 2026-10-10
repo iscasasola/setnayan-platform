@@ -387,6 +387,14 @@ const EMAIL_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
   'pax_surcharge_changed',
   'vendor_joined',
   'review_request',
+  /*
+    🤝 A COUPLE ANSWERED A QUOTE (2026-10-10) → the SUPPLIER. The answer decides
+    whether they keep a date in mind for this couple, and until now it reached
+    them only if they opened the customer card. Enum values: 20271267016300.
+    Transactional — their own quote — so NOT in the marketing-gated set.
+  */
+  'quote_accepted',
+  'quote_declined',
 ]);
 
 // Consent gate for the ENGAGEMENT (non-transactional) subset of the email

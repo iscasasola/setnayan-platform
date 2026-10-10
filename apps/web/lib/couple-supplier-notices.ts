@@ -75,6 +75,18 @@ export const COUPLE_SUPPLIER_NOTICES = {
     event: 'name_and_date',
     why: 'the couple is waiting on this supplier and must look elsewhere — a no they never read costs them days',
   },
+  quote_accepted: {
+    to: 'supplier',
+    reach: 'email',
+    event: 'name_and_date',
+    why: 'the couple chose this quote; the supplier should hold the date in mind and expect the ask to book',
+  },
+  quote_declined: {
+    to: 'supplier',
+    reach: 'email',
+    event: 'name_and_date',
+    why: 'the supplier is waiting on this answer and can send another quote',
+  },
   chat_message: {
     to: 'either',
     reach: 'email',

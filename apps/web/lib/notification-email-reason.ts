@@ -93,6 +93,8 @@ export const NOTIFICATION_EMAIL_REASONS: Partial<Record<NotificationType, string
   pax_surcharge_changed: R('the total of a booking changed with your guest count'),
   vendor_joined: R('a supplier you added joined Setnayan'),
   review_request: R('a service you booked was marked delivered'),
+  quote_accepted: R('a couple accepted a quote your shop sent'),
+  quote_declined: R('a couple declined a quote your shop sent'),
 };
 
 /** Said when a type has no line of its own yet — true of every account mail. */

@@ -246,7 +246,10 @@ function emitSites(): EmitSite[] {
       const typeExpr = propertyValue(block, 'type');
       assert.ok(typeExpr, `${file}: an emitNotification call with no type`);
       // `'x'` and `cond ? 'x' : 'y'` both name their types in the call itself.
-      const literals = [...typeExpr.matchAll(/'([a-z_0-9]+)'/g)].map((m) => m[1]!);
+      // A literal being COMPARED (`response === 'accepted' ? … : …`) is the
+      // condition, not a notice type — drop comparisons before reading the arms.
+      const arms = typeExpr.replace(/[!=]==?\s*'[^']*'/g, '');
+      const literals = [...arms.matchAll(/'([a-z_0-9]+)'/g)].map((m) => m[1]!);
       const types = literals.length > 0 ? literals : VARIABLE_TYPE_SITES[file]?.[typeExpr];
       assert.ok(
         types,

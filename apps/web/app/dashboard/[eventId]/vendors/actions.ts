@@ -2027,7 +2027,33 @@ export async function finalizeVendor(
   // a supplier answering on day 6 inherits a downpayment dated six days
   // before they said yes, frozen.
   //
-  // They belong to the agreement, and they run from vendorAgreeToLock.
+  // They belong to the agreement.
+  //
+  // ⚠ THIS BLOCK ENDED "…and they run from vendorAgreeToLock." THEY DO NOT.
+  // Read 2026-10-10, symbol by symbol: `vendorAgreeToLock`
+  // (app/vendor-dashboard/clients/[eventId]/actions.ts) calls the
+  // `vendor_agree_to_lock` RPC (status → contracted, slot capacity, the package
+  // cascade), then `stamp_setnayan_gift_at_lock`, then
+  // `narrowEventDateAfterAgreement`, then emits `lock_request_agreed` to the
+  // couple. That is all. It does NOT freeze the payment plan
+  // (`event_vendor_payment_plan` has no writer on that path — its writers are
+  // this function below the `return`, `saveSelfAddedPaymentPlan`, and the
+  // Locked-QR claim in SQL) and does NOT emit `payment_info_sent`. Its
+  // TypeScript also calls none of the rival sweep, the displacement, the
+  // category auto-complete or the lock-proposal auto-resolve listed above
+  // (whether a database trigger on the status change does any of those was
+  // not traced — only the plan and its notice were followed to the end).
+  //
+  // So with the handshake ON, a marketplace booking the supplier agrees to has
+  // NO frozen plan. The couple is told the yes ("They will send you their
+  // payment details next"), and what stands in for the plan is the supplier's
+  // own "ask for a payment" (`vendorAskForPayment` → `vendor_payment_asked`).
+  // Deliberately NOT fixed here: writing the plan at the agreement is a money
+  // path and an owner call (which date anchors the instalments). Measure with
+  //   select count(*) from event_vendors ev
+  //    where ev.lock_request_state = 'agreed'
+  //      and not exists (select 1 from event_vendor_payment_plan p
+  //                       where p.event_vendor_id = ev.vendor_id);
   // ══════════════════════════════════════════════════════════════════════
   if (handshakeAsk) {
     const requestedAt = new Date();

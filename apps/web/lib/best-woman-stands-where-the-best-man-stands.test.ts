@@ -171,6 +171,10 @@ const NAMES_BEST_MAN_ONLY_ON_PURPOSE: Record<string, string> = {
   'app/dashboard/[eventId]/wizard-actions.ts': 'onboarding VIP draft card — fixed fields',
   // A measured 2026-09-24 production reading in a docblock — evidence, frozen.
   'lib/role-group-dress-code.ts': 'frozen measurement in a comment',
+  // The Maker lab's ONE sample entourage (dev only, 404 in production): a fixed cast whose honour pair happens to be
+  // a maid of honour and a best man. It is a row of sample data fed to the real `buildEntourage`, not a place where
+  // the role vocabulary is decided — a best woman would be one more sample row, not a missing branch.
+  'app/dev/maker-lab/guest/lab-sample.ts': 'lab fixture — one sample cast, not a vocabulary',
 };
 
 test('every file that names best_man also names best_woman — or says why not', () => {

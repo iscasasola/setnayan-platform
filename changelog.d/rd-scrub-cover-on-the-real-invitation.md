@@ -55,6 +55,18 @@ guest's page until that constant is turned on, which is the owner's go. LOCAL br
 - Proof: block 17 of the browser check (generated pages: the pair, the long second block, nothing after the cover)
   and block 16 on the real guest page at 375×812, 375×667, 441×882 and 1280×770.
 
+- **The STRANGER'S tree hands its cover over too** (`site-body.tsx` `anonymousTree`, its two masthead call sites,
+  through `HubCoverHold`), with the same rule: there the DOOR ("Get inside") is the action row and the Countdown
+  arrives with it. The text-only cover sits in its first-screen wrapper with the door in the rest box; the photo
+  cover is the last thing in the page's first group, so the door's group is the box the engine pulls up to it.
+  A cover that does not leave is drawn as before: the stranger's page has its own golden now
+  (`lib/site-body-fixture-stranger.golden.html`, `fixtureStranger()`), untouched by the wiring.
+- Stylesheet: a chapter that HOLDS what arrives is shown at once (the scroll reveal would otherwise hide the
+  stranger's Countdown, or slide it 22 px under the hand-over's own fade); and a page whose cover is its only Scrub
+  can lengthen its end on the page's own hold (a tall photo cover on a short first tab ended 16 px before the
+  hand-over could).
+- Save the Date is NOT wired: its cover is the film, with a walker of its own — it needs its own design.
+
 ⚠ Chromium only. Nothing here has run on iOS Safari (WebKit).
 
 SPEC IMPACT: None (the owner's rulings in `Maker_Animate_Preview_Scrub_LOCKED_2026-10-09.md` are unchanged; no

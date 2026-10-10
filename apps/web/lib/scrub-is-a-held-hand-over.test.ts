@@ -240,7 +240,14 @@ test('(5) fail-visible: the island draws nothing and loads the engine late; ever
   /* THE SAME PLACE — a margin, in the flow. */
   assert.equal(of('.hub-scenes[data-hub-scrub-on] .hub-scene + .hub-after'), 'margin-top: var(--hub-up, 1rem);');
   /* NO TRANSFORM on anything that holds scenes (it would capture a scene's `position: fixed` sheets). */
-  for (const r of rules) if (!/hub-canvas-body/.test(r.sel)) assert.doesNotMatch(r.body, /transform|translate|will-change/, `${r.sel} is transformed`);
+  /* (RE-AIMED 2026-10-10: `transform: none` is allowed — it takes a transform OFF. One rule needs it: a chapter that
+     holds what arrives must not keep the scroll reveal's own 22 px offset. The claim is unchanged: nothing here PUTS
+     a transform on a box that holds scenes.) */
+  for (const r of rules) if (!/hub-canvas-body/.test(r.sel)) assert.doesNotMatch(r.body.replace(/\btransform: none;/g, ''), /transform|translate|will-change/, `${r.sel} is transformed`);
+  assert.match(CSS, /\.hub-page-cell\[data-hub-page-on\] \.hub-page-stage \[data-pahina-chapters\] > :has\(\[data-hub-zero\]\) \{ opacity: 1; transform: none; transition: none; \}/);
+  /* The page's end, on a page with no scenes block to lengthen: said and drawn on the page's own hold. */
+  assert.match(CSS, /\.hub-page-cell\[data-hub-page-on\] \{ padding-bottom: var\(--hub-end, 0px\); \}/);
+  assert.match(read(`${B}/hub-scrub-engine.ts`), /const tail = scopes\[scopes\.length - 1\] \?\? root;/);
   /* Not there until its turn, and gone after it. */
   assert.equal(of('.hub-scenes[data-hub-scrub-on] .hub-scene[data-hub-fx][data-hub-away]'), 'visibility: hidden;');
 });

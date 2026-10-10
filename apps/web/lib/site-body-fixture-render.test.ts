@@ -43,7 +43,11 @@
  *       its mastheads (text-only in its first-screen wrapper; the photo cover alone in the first group), held byte
  *       for byte by its own golden (`site-body-fixture-stranger.golden.html`), with no Scrub on it.
  *   (8) THE STRANGER'S COVER STORED TO LEAVE BY SCRUB — dark: today's page, byte for byte, no island (written before
- *       the stranger's tree was wired, so it was green on the unwired page).
+ *       the stranger's tree was wired, so it was green on the unwired page). WIRED 2026-10-10: (7) stayed green with
+ *       its golden untouched; switched on, each masthead's cell exactly once, one page pair, the island, and the
+ *       page with the boxes taken off is today's byte for byte. Sabotages, seen red and put back: the stranger's
+ *       `leaves` asked through the lab's door → dark arm red; with the constant on by hand, the text-only cover's
+ *       rest box given no `mt-6` → red, and the photo cover's `leaves={false}` → "the cover's cell, exactly once" red.
  *       What the wrapped page LOOKS like — its boxes, its rhythm, its chapters, the hand-over itself — is not
  *       proven here: `scripts/scrub-browser-check.mjs` (16) plays this same render in a browser.
  *
@@ -336,8 +340,37 @@ test('(8) the STRANGER’s cover stored to leave by Scrub: while Scrub ships dar
     assert.deepEqual(stored.complaints, []);
     assert.ok(stored.html.length > 15_000, 'an empty shell');
     if (SCRUB_OUT_OFFERED && pro) {
-      /* ☀ OFFERED. The stranger's cover is not handed over yet — this arm is written with the wiring. */
-      assert.fail('"Scrub out" is offered, and the stranger’s cover’s hand-over has no guard yet');
+      /* ☀ OFFERED (a Pro event): the STRANGER's tree hands its cover over — the three boxes once, ONE page pair, the
+         island mounted — and with the pair and the boxes taken off the page is today's page, byte for byte. */
+      assert.equal(count(stored.html, 'class="hub-cover-cell"'), 1, `the cover’s cell, exactly once (${which})`);
+      assert.ok(stored.mounts.HubScrub! > 0, `the island that arms the engine is mounted (${which})`);
+      assert.equal(count(stored.html, 'class="hub-page-cell"'), 1, `the page wraps one pair for its cover — not two (${which})`);
+      assert.equal(count(stored.html, 'data-hub-fx'), 1);
+      let unwrapped = stored.html.replace('<div class="hub-page-cell"><div class="hub-page-stage"><article', '<article').replace('</article></div></div>', '</article>');
+      if ('heroPhotoUrl' in cover) {
+        /* THE PHOTO COVER — the last thing in the page's first group: its rest box holds nothing (and draws nothing),
+           and the door is in the NEXT group, where the engine finds it. */
+        const CELL = '<div data-pahina-first-screen="" class="hub-cover-cell"><div data-pahina-chapters="" class="hub-cover" data-hub-fx="">';
+        const REST = '</header></div><div data-pahina-chapters="" class="hub-cover-after empty:hidden"></div></div>';
+        assert.ok(stored.html.includes(`<div id="site-home" aria-hidden="true" class="scroll-mt-6"></div>${CELL}<header data-pahina-first-screen=""`), 'the photo masthead is not in the cover’s box, in the first group');
+        assert.ok(stored.html.includes(`${REST}</div><div data-hub-tab="home" data-pahina-first-screen="" data-pahina-chapters="" class="empty:hidden"><div data-pahina-first-screen="" class="space-y-6 text-center"><div class="space-y-4">`), 'the rest box is not empty, or the door is not the next group’s');
+        unwrapped = unwrapped.replace(CELL, '').replace(REST, '</header>');
+      } else {
+        /* THE TEXT-ONLY COVER — inside its marked first-screen wrapper, the door in the rest box with the wrapper's
+           own 1.5rem said on it. */
+        const CELL = '<div class="hub-cover-cell"><div class="hub-cover" data-hub-fx="">';
+        const REST = '</header></div><div class="hub-cover-after mt-6 space-y-6 empty:hidden">';
+        assert.ok(stored.html.includes(`<div data-pahina-first-screen="" class="space-y-6 text-center">${CELL}<header data-pahina-first-screen=""`), 'the text-only masthead is not in the cover’s box, in its wrapper');
+        assert.ok(stored.html.includes(`${REST}<div class="space-y-4">`) && /hub-cover-after mt-6 space-y-6 empty:hidden"><div class="space-y-4">[\s\S]{0,400}data-get-inside="/.test(stored.html), 'the door is not what follows the cover in its box');
+        unwrapped = unwrapped.replace(CELL, '').replace(REST, '</header>');
+        /* (The rest box and the cell close right after the door, before the wrapper and the group do: two closing
+           tags out of a run of them, just before the next group.) */
+        const next = unwrapped.indexOf('<div data-hub-tab=', unwrapped.indexOf('data-get-inside='));
+        assert.ok(unwrapped.slice(next - 12, next) === '</div></div>', 'the page after the door is not shaped as expected');
+        unwrapped = unwrapped.slice(0, next - 12) + unwrapped.slice(next);
+      }
+      assert.ok(unwrapped === today, `with its boxes taken off the stranger’s page is not today’s page (${which}) — ${firstDifference(unwrapped, today)}`);
+      continue;
     }
     assert.ok(stored.html === today, `a cover stored to leave by Scrub changed the stranger’s page (${which}) — ${firstDifference(stored.html, today)}`);
     assert.equal(stored.mounts.HubScrub, 0, `a stranger’s page whose cover does not leave mounts the Scrub island (${which})`);

@@ -60,7 +60,8 @@
  *      the block after it arrives WITH it: one fade, one unit, centred as one, the page's own distance between the
  *      two kept. A long second block arrives with the row from the top of the room down and is scrolled through. A
  *      cover whose group holds nothing after it never fades to nothing: the next group's block arrives alone. (16
- *      plays the same on the real guest page: the RSVP button and "Until we say 'I do'".)
+ *      plays the same on the real guest page: the RSVP button and "Until we say 'I do'" — and on THE STRANGER'S
+ *      page, both of its covers: the door, "Get inside", and the Countdown.)
  *
  * Not part of the unit suite (it needs a browser): run it by hand, one job at a time.
  *   node scripts/scrub-browser-check.mjs <playwright-dir> <scratch-dir> [pictures-dir]
@@ -641,11 +642,11 @@ if (!ONLY || ONLY === '16') {
     return {
       s: Math.round(scrollY), max: document.documentElement.scrollHeight - innerHeight,
       cover: box(cover), names: box(document.querySelector('main header[data-pahina-first-screen] h1')), pout: Number(cover?.style.getPropertyValue('--hub-pout') || 0),
-      zero: box(document.querySelector('[data-hub-zero]')), zeroVar: Number(document.querySelector('[data-hub-zero]')?.style.getPropertyValue('--hub-o') || 1), zeroIs: document.querySelector('[data-hub-zero]')?.hasAttribute('data-arrival-action') ? 'the reply row' : (document.querySelector('[data-hub-zero]')?.tagName ?? null),
+      zero: box(document.querySelector('[data-hub-zero]')), zeroVar: Number(document.querySelector('[data-hub-zero]')?.style.getPropertyValue('--hub-o') || 1), zeroIs: document.querySelector('[data-hub-zero]')?.hasAttribute('data-arrival-action') ? 'the reply row' : document.querySelector('[data-hub-zero]')?.querySelector('[data-get-inside]') ? 'the door' : (document.querySelector('[data-hub-zero]')?.tagName ?? null),
       row: box(document.querySelector('[data-arrival-action]')), next: box(shown[1] ?? null), nextIs: shown[1]?.getAttribute('data-hub-tab') ?? null,
       /* 🤝 What arrives WITH the row (the second marked block), and the first group after what arrives. */
       zeros: document.querySelectorAll('[data-hub-zero]').length, mate: box(document.querySelectorAll('[data-hub-zero]')[1] ?? null) ?? { t: NaN, b: NaN, o: -1 }, mateSays: document.querySelectorAll('[data-hub-zero]')[1]?.textContent?.replace(/\s+/g, ' ').trim().slice(0, 22) ?? null,
-      after: box(shown.find((g) => g.hasAttribute('data-hub-zlift')) ?? null), zrest: [...document.querySelectorAll('[data-hub-zrest]')].map((e) => e.getAttribute('data-hub-tab') ?? e.tagName.toLowerCase()),
+      after: box([...document.querySelectorAll('[data-hub-zlift]')].find((e) => e.getClientRects().length) ?? null), zrest: [...document.querySelectorAll('[data-hub-zrest]')].map((e) => e.getAttribute('data-hub-tab') ?? e.tagName.toLowerCase()),
       lifted: [...document.querySelectorAll('[data-hub-zlift]')].map((e) => e.getAttribute('data-hub-tab') ?? e.tagName.toLowerCase()),
       hiddenMarked: [...document.querySelectorAll('[hidden]')].filter((e) => [...e.attributes].some((a) => /^data-hub-z/.test(a.name))).length,
       bar: { t: bar.getBoundingClientRect().top, marked: bar.hasAttribute('data-hub-zlift') },
@@ -782,6 +783,52 @@ if (!ONLY || ONLY === '16') {
       await tab(p, 'home');
       const welcome = await at(0); const half = await at(Math.round(H * 0.55 * 0.5));
       say(welcome.cover?.o === 1 && welcome.pout === 0 && welcome.holds[0] > 0 && half.pout > 0.2 && Math.abs(half.cover.t - welcome.cover.t) < 0.6 === (welcome.cover.b <= H - 24), `${W}x${H} …then Welcome is shown: the cover's hand-over is measured although the page was armed without it (out ${welcome.pout} → ${r(half.pout * 100)} %)`);
+      await ctx.close();
+    }
+  }
+  /* 🚶 THE STRANGER'S TREE (the link and no key — `fixtureStranger`), the same rule: the DOOR ("Get inside") is the
+     page's action row there, and the block after it — the Countdown — arrives WITH it. Its two mastheads: the
+     text-only cover (in its first-screen wrapper, the door after it in the same box) and the photo cover (the last
+     thing in the page's first group: the door is in the NEXT group, which the engine pulls up to the cover). */
+  const GAPS_S = () => {
+    const R = (e) => e.getBoundingClientRect();
+    const cover = document.querySelector('main header[data-pahina-first-screen]'); const door = document.querySelector('main [data-get-inside]').closest('.space-y-4');
+    const [m, n] = document.querySelector('article .sn-hub-cards').querySelectorAll(':scope > section');
+    document.documentElement.classList.add('pahina-js');
+    const hidden = [cover, door].filter((e) => { for (let x = e; x && x.tagName !== 'MAIN'; x = x.parentElement) if (Number(getComputedStyle(x).opacity) === 0) return true; return false; }).length;
+    const chapters = document.querySelectorAll('.sn-editorial [data-pahina-chapters] > *').length;
+    document.documentElement.classList.remove('pahina-js');
+    return { coverToDoor: R(door).top - R(cover).bottom, doorToMate: R(m).top - R(door).bottom, mateToAfter: R(n).top - R(m).bottom, coverH: R(cover).height, doorH: R(door).height, hidden, chapters };
+  };
+  for (const [kind, sizes] of [['text', [[375, 812], [375, 667], [441, 882], [1280, 770]]], ['photo', [[375, 812], [1280, 770]]]]) {
+    const file = (name) => `fixture-stranger-${kind === 'photo' ? 'photo-' : ''}${name}.html`;
+    for (const [W, H] of sizes) {
+      const size = `${W}x${H} the stranger's page, ${kind === 'photo' ? 'the photo cover' : 'the text-only cover'}`;
+      const t0 = await open(file('today'), W, H, { javaScriptEnabled: false }); const todayBoxes = await t0.p.evaluate(BOXES); const tg = await t0.p.evaluate(GAPS_S); await t0.ctx.close();
+      const p0 = await open(file('cover-plain'), W, H, { javaScriptEnabled: false }); const plainBoxes = await p0.p.evaluate(BOXES); const pg = await p0.p.evaluate(GAPS_S); await p0.ctx.close();
+      const moved = todayBoxes.findIndex((x, i) => x !== plainBoxes[i]);
+      say(todayBoxes.length > 100 && todayBoxes.length === plainBoxes.length && moved < 0 && Math.abs(pg.coverToDoor - tg.coverToDoor) < 0.01 && Math.abs(pg.doorToMate - tg.doorToMate) < 0.01, `${size}: wrapped and with no script, every one of today's ${todayBoxes.length} boxes stands exactly where it stood (the cover to the door ${r(tg.coverToDoor)}px → ${r(pg.coverToDoor)}px; the door to the Countdown ${r(tg.doorToMate)}px → ${r(pg.doorToMate)}px)${moved >= 0 ? ` — the first that moved: "${todayBoxes[moved]}" → "${plainBoxes[moved]}"` : ''}`);
+      say(tg.hidden === 0 && pg.hidden === 0 && pg.chapters === tg.chapters + (kind === 'photo' ? 1 : 0), `${size}: nothing of the first screen is hidden before a reveal (${pg.hidden}), and the scroll reveal watches ${tg.chapters} → ${pg.chapters} chapters${kind === 'photo' ? ' (the one more is the cover’s cell, marked the first screen)' : ' (the cover’s cell is inside the wrapper that is the chapter)'}`);
+      const t1 = await open(file('today'), W, H); const today = await t1.at(0); await t1.ctx.close();
+      const { ctx, p, errs, at } = await open(file('cover'), W, H);
+      const top = await at(0);
+      say(errs.length === 0 && top.on && top.off === null && top.sticky && top.cells === 1 && top.holds.length === 1 && top.holds[0] > 0 && top.zeroIs === 'the door' && top.zeros === 2 && /Until we say/.test(top.mateSays ?? '') && top.zero.o === 0 && top.mate.o === 0 && (kind === 'photo' ? top.zrest.length === 1 && top.zrest[0] === 'home' : top.zrest.length === 0) && Math.abs(top.cover.t - today.cover.t) < 0.01 && Math.abs(top.cover.b - today.cover.b) < 0.01 && top.cover.o === 1 && top.pout === 0, `${size}: armed, one page pair; the cover where today's page has it (${r(top.cover.t)}–${r(top.cover.b)}), whole; what arrives is ${top.zeroIs} TOGETHER with the block after it ("${top.mateSays}…"), neither there yet${kind === 'photo' ? ` — the door's group is the box pulled up to the cover (${top.zrest.join(',') || 'NONE'})` : ''}${errs.length ? ` — ${errs[0]}` : ''}${top.off ? ` — off: ${top.off}` : ''}`);
+      const fwd = []; for (let y = 0; y < top.max; y += 16) fwd.push(await at(y)); fwd.push(await at(top.max));
+      const back = [await at(top.max)]; for (let y = top.max - (top.max % 16); y >= 0; y -= 16) back.push(await at(y));
+      const hold = fwd.filter((f) => f.pout > 0 && f.pout < 1);
+      say(hold.length > 3 && hold.every((f) => Math.abs(f.cover.t - hold[0].cover.t) < 0.6 && Math.abs(f.bar.t) < 0.01) && fwd.some((f) => f.pout >= 1 && f.cover.o === 0), `${size}: the page (and its pinned bar) stands still while the cover builds out, and it completes (${hold.length} positions, the cover at ${r(hold[0]?.cover.t)}px)`);
+      const seen = fwd.filter((f) => (f.zero.o > 0.02 || f.mate.o > 0.02) && f.pout < 1);
+      say(seen.length > 0 && fwd.every((f) => Math.abs(f.zero.o - f.mate.o) < 0.011) && fwd.every((f) => !((f.zero.o > 0.02 || f.mate.o > 0.02) && f.pout < 0.79)), `${size}: the door and the Countdown arrive TOGETHER — one fade at every one of ${fwd.length} positions, not before the last 20 % (first seen with the cover ${seen[0] ? Math.round(seen[0].pout * 100) : '—'} % out; the unit ${seen[0] ? `${r(seen[0].zero.t)}–${r(seen[0].mate.b)}` : '—'}, the centre line ${H / 2})`);
+      const whole = fwd.find((f) => f.pout >= 1 && f.zero.o >= 0.99 && f.mate.o >= 0.99);
+      const foot = await p.evaluate(() => Math.min(innerHeight, ...[...document.querySelectorAll('body *')].filter((e) => { const cs = getComputedStyle(e); if (cs.position !== 'fixed' || cs.display === 'none') return false; const q = e.getBoundingClientRect(); return q.width > innerWidth * 0.8 && q.height > 20 && q.height < 200 && q.bottom >= innerHeight - 1; }).map((e) => e.getBoundingClientRect().top)));
+      const barEnd = await p.evaluate(() => document.querySelector('[data-sticky-top]').getBoundingClientRect().bottom);
+      say(Boolean(whole) && whole.zero.t >= barEnd - 0.5 && whole.mate.b <= foot + 0.5 && Math.abs(whole.mate.t - whole.zero.b - tg.doorToMate) < 0.1 && tg.doorToMate > 40 && seen.every((f) => f.zero.t >= barEnd - 0.5), `${size}: when the arrival completes the door and the Countdown are both whole on the screen (${whole ? `${r(whole.zero.t)}–${r(whole.mate.b)}` : '—'}; the top bar ends ${r(barEnd)}, the page's foot begins ${r(foot)}), as far apart as the page lays them out (${whole ? r(whole.mate.t - whole.zero.b) : '—'}px; today ${r(tg.doorToMate)}px)`);
+      const visible = fwd.filter((f) => f.cover.o > 0.02 && f.pout < 1 && f.pout > 0);
+      const done = fwd.find((f) => f.pout >= 1 && f.zero.o >= 0.99 && hold.length && f.s >= hold.at(-1).s + Math.round(H * 0.11) + 32);
+      say(visible.length > 3 && visible.every((f) => f.after.t >= Math.max(f.cover.b, f.mate.b) - 1) && Boolean(done) && Math.abs(done.after.t - done.mate.b - tg.mateToAfter) < 0.1, `${size}: what follows the two never lies over the cover or over them, and stands under the Countdown at the page's own distance once the cover has gone (${done ? r(done.after.t - done.mate.b) : '—'}px; today ${r(tg.mateToAfter)}px)`);
+      const sig = (f) => JSON.stringify([f.all, f.pout.toFixed(3)]);
+      say(fwd.every((f) => { const k = back.find((x) => x.s === f.s); return k && sig(k) === sig(f); }), `${size}: back == down at every one of ${fwd.length} positions`);
+      if (pics) { for (const [name, pick] of [['0-opens', () => 0], ['2-door-arrives', () => fwd.find((f) => f.pout >= 0.9)?.s], ['3-arrived', () => whole?.s]]) { const y = pick(); if (y !== undefined) { await at(y); await p.screenshot({ path: `${pics}/c16-stranger-${kind === 'photo' ? 'photo-' : ''}${W}x${H}-${name}-together.png` }); } } }
       await ctx.close();
     }
   }

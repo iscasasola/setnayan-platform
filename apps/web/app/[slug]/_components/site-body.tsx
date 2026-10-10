@@ -318,6 +318,19 @@ const GUEST_COVER_BOXES: HubCoverHoldBoxes = {
   cover: { 'data-pahina-chapters': '' },
   rest: { 'data-pahina-chapters': '', className: 'mt-12 space-y-12 empty:hidden' },
 };
+/**
+ * 🎬 …AND THE STRANGER'S TREE, whose two mastheads stand in two different places:
+ *   · THE PHOTO COVER is a child of the page's first group — a chapters box with no rhythm of its own. The same
+ *     chapter marks as the guest tree's; nothing after the cover in that group, so the rest box draws nothing.
+ *   · THE TEXT-ONLY COVER is inside the marked first-screen wrapper (`space-y-6`), which is itself the chapter: no
+ *     chapter mark is needed, only that wrapper's 1.5rem — on the rest box and between its children.
+ */
+const STRANGER_PHOTO_COVER_BOXES: HubCoverHoldBoxes = {
+  cell: { 'data-pahina-first-screen': '' },
+  cover: { 'data-pahina-chapters': '' },
+  rest: { 'data-pahina-chapters': '', className: 'empty:hidden' },
+};
+const STRANGER_TEXT_COVER_BOXES: HubCoverHoldBoxes = { rest: { className: 'mt-6 space-y-6 empty:hidden' } };
 
 type SiteBodyProps = {
   event: EventRow;
@@ -1819,6 +1832,16 @@ export async function SiteBody({
         {/* When a hero photo/video is uploaded, render a full-bleed banner
             (normal body only — plan.anonymousHeroBanner). Otherwise fall back
             to the centered text-only treatment inside the normal branch. */}
+        {/* 🎬 THE STRANGER'S PHOTO COVER HANDS OVER (hand-over zero, as the guest tree's does — `HubCoverHold`). It is
+            the LAST thing in this group, so its rest box holds nothing: what arrives is the next block on the page —
+            the door, in the next group — found by the engine, and because the door is the page's action row the
+            block after it arrives with it (owner 2026-10-10: *"Together."*). The cover's marker goes in WITH it, so
+            the Maker still finds the cover right after its marker.
+            🔒 A cover that does not leave — every page today — is not wrapped: the marker and the masthead AS GIVEN. */}
+        <HubCoverHold
+          leaves={coverStoredToLeave && plan.anonymousHeroBanner}
+          boxes={STRANGER_PHOTO_COVER_BOXES}
+          cover={<>
         {plan.anonymousHeroBanner ? makerMark('f:hero') : null}
         {plan.anonymousHeroBanner ? (
           /* Pahina masthead (wave A PR-2) — typographic hero; the photo/video is
@@ -1845,6 +1868,8 @@ export async function SiteBody({
             mediaCaption={venueLine}
           />
         ) : null}
+          </>}
+        />
         </>, { chapters: true })}
         {phasedBody(() => (
           <>
@@ -1852,6 +1877,14 @@ export async function SiteBody({
                 masthead), so the scroll reveal never hides it — see globals.css. */}
             {group(leadTab, (
             <div data-pahina-first-screen="" className="space-y-6 text-center">
+              {/* 🎬 THE STRANGER'S TEXT-ONLY COVER HANDS OVER (`HubCoverHold`): the masthead (its marker with it) in
+                  the cover's box, and the rest of THIS wrapper — "Get tickets", the one door — in the rest box. The
+                  door is the page's action row, so the block after it arrives with it (owner: *"Together."*).
+                  🔒 Not wrapped unless the cover leaves: every page today is drawn exactly as before. */}
+              <HubCoverHold
+                leaves={coverStoredToLeave && !hasHeroMedia}
+                boxes={STRANGER_TEXT_COVER_BOXES}
+                cover={<>
               {!hasHeroMedia ? makerMark('f:hero') : null}
               {!hasHeroMedia ? (
                 /* Pahina masthead, text-only variant (wave A PR-2). */
@@ -1874,6 +1907,8 @@ export async function SiteBody({
                   }
                 />
               ) : null}
+                </>}
+              >
               {/* 🎟 A PUBLIC event's "Get tickets" (owner 2026-09-29) — above the
                   door, for everyone who reads the general details, the host's
                   own view included, so they see what their visitors get. The
@@ -1926,6 +1961,7 @@ export async function SiteBody({
                   )}
                 </div>
               )}
+              </HubCoverHold>
             </div>
             ), { chapters: true })}
 

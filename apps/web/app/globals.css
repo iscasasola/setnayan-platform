@@ -8451,6 +8451,13 @@ body:not(:has([data-maker-section])) [data-maker-sample] { display: none !import
      every rule here must), with none of the reveal's transition: a fade under the thumb is the thumb's, never 0.7 s
      behind it. */
   .hub-page-cell[data-hub-page-on] .hub-page-stage [data-pahina-chapters] > [data-hub-zero] { opacity: var(--hub-o, 1); transition: none; }
+  /* …AND A CHAPTER THAT HOLDS WHAT ARRIVES IS SIMPLY THERE. On the stranger's page the block that arrives with the
+     door is inside a group the scroll reveal still hides until it is "reached" (opacity 0, 22 px lower, 0.7 s to come
+     up): under a hand-over that would hide the arrival altogether, or slide it up under the thumb's own fade the
+     first time and not the second (measured: the Countdown 22 px low, and going back was not going down). What
+     arrives arrives by ONE fade — so its chapter is shown, where it is laid out, at once. (`transform: none` takes
+     the reveal's own offset OFF; nothing here puts a transform on anything.) */
+  .hub-page-cell[data-hub-page-on] .hub-page-stage [data-pahina-chapters] > :has([data-hub-zero]) { opacity: 1; transform: none; transition: none; }
   /* 🚪 THE COVER NEVER FADES TO NOTHING. When the cover's own rest holds nothing a guest can see (a reply row that
      drew nothing; a cover that is the last thing in its group), what arrives is the next box on the page, and THAT
      box is the one the engine pulls up to the cover (`data-hub-zrest`): its own top margin — the page's rhythm — is
@@ -8468,6 +8475,10 @@ body:not(:has([data-maker-section])) [data-maker-sample] { display: none !import
   .hub-scenes[data-hub-scrub-on] .hub-scene + .hub-after { position: relative; top: var(--hub-rise, 0px); }
   /* THE PAGE'S END — long enough for the last row and the last hand-over, at any window height. */
   .hub-scenes[data-hub-scrub-on] { padding-bottom: var(--hub-end, 0px); }
+  /* (…and on a page whose cover is its ONLY Scrub there is no scenes block to lengthen: the engine says the length
+     on the page's own hold instead, and it is drawn there. Seen on the stranger's page with a photo cover — a tall
+     cover on a short first tab: the page ended 16 px before the hand-over could, and the arrival stopped at 91 %.) */
+  .hub-page-cell[data-hub-page-on] { padding-bottom: var(--hub-end, 0px); }
 
   /* ONE FADE — the hand-over's own, on the scene: the leaving one down to nothing, the arrival up from nothing. And
      a scene whose turn has not come, or that has gone, is not there at all (never tappable through another). */

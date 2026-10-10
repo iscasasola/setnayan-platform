@@ -213,7 +213,10 @@ test('(4) a scene stored to leave by Scrub, on a real page: while Scrub ships da
 
 test('(5) it is tooling: no file of the app imports the fixture, the helper or the golden', () => {
   const WEB = join(__dirname, '..');
-  const OURS = new Set(['lib/site-body-fixture.ts', 'lib/site-body-fixture-render.ts', 'lib/site-body-fixture-render.test.ts']);
+  /* 🔁 RE-AIMED 2026-10-10: one more guard draws the real page with the helper — `a-sample-block-look-reaches-the-real-
+     page.test.ts` (a look kept for Your seat lands on the guest's own block, and costs a guest nothing until then).
+     It is a test, shipped to nobody; the claim is the same — no file of the APP imports the fixture. */
+  const OURS = new Set(['lib/site-body-fixture.ts', 'lib/site-body-fixture-render.ts', 'lib/site-body-fixture-render.test.ts', 'lib/a-sample-block-look-reaches-the-real-page.test.ts']);
   const walk = (dir: string): string[] =>
     readdirSync(join(WEB, dir)).flatMap((name) => {
       const rel = `${dir}/${name}`;

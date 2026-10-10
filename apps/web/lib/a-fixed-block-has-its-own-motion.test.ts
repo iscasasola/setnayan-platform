@@ -20,6 +20,13 @@
  * dropping the key · a block look not counted as a change · a mark served to every guest · the gate left open · a
  * sample's Animate live.
  *
+ * 🪑 2026-10-10 — A SAMPLE MADE REAL: YOUR SEAT (controller: its real block is one root in one place in the page, so
+ * the look is kept against THAT and the canvas's sample is addressed by the same rule). Held in §1 (the list), §2
+ * (a block Me draws has no chapter, so its timed Build in is bound there too), §3 (counted), §4 (the mark rides with
+ * the real block into both of its slots, and stands before the canvas's sample) and §5 (five samples stay grey).
+ * Sabotages seen red: the mark left out of the real block · the mark dropped before the sample · the no-chapter arm
+ * removed · Your seat put back among the samples.
+ *
  * Lives in `lib/` because node's test glob does not descend into `[eventId]`.
  */
 import test from 'node:test';
@@ -51,10 +58,14 @@ const raw = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
 const src = (rel: string) => stripComments(raw(rel));
 const L = 'app/dashboard/[eventId]/launch/_components';
 
-test('1 · the reader is strict: the four real blocks, and only what the Event Hub’s motion reader keeps', () => {
+test('1 · the reader is strict: the real blocks, and only what the Event Hub’s motion reader keeps', () => {
   assert.equal(BLOCK_LOOKS_PREF_KEY, 'block_looks');
-  assert.deepEqual([...BLOCK_LOOK_BLOCKS], ['entourage', 'details', 'gifts', 'spotlight']);
-  /* Each is a block the Maker frames — and the six samples are not among them. */
+  /* 🔁 RE-AIMED 2026-10-10 (a sample made real): Your seat joined the four — each guest's own is ONE root in one
+     place in the page (`seatBlock`, §4), so a look kept for it reaches a guest. The claim is the same: only a block
+     with one real root is listed. */
+  assert.deepEqual([...BLOCK_LOOK_BLOCKS], ['entourage', 'details', 'gifts', 'spotlight', 'find_your_seat']);
+  assert.equal(blockOfCanvas('f:find_your_seat'), 'find_your_seat');
+  /* Each is a block the Maker frames — and the samples are not among them. */
   const canvases = new Set(Object.values(MAKER_PARTS).map((p) => p.canvas));
   for (const b of BLOCK_LOOK_BLOCKS) assert.ok(canvases.has(`f:${b}`), `${b} is no block of the Maker’s`);
   for (const sample of Object.keys(BLOCK_SAMPLE_WHY)) {
@@ -71,7 +82,7 @@ test('1 · the reader is strict: the four real blocks, and only what the Event H
       details: { motion: { in: { fade: 'yes', move: 'sideways' }, during: 'spin', out: { fade: true } } } /* nothing listed; an Out without the scroll is dropped */,
       gifts: { motion: { timeline: 'scroll', in: { blur: true }, out: { fade: true, size: 'grow' }, during: 'drift', animation: 'x 1s; } body{display:none' } },
       spotlight: { motion: 'fast' },
-      find_your_seat: { motion: { in: { fade: true } } } /* a sample: not kept */,
+      announcements: { motion: { in: { fade: true } } } /* a sample: not kept */,
       __proto__: { motion: { in: { fade: true } } },
     },
   });
@@ -100,6 +111,22 @@ test('2 · the rules are the Event Hub’s own: both gates, a timed Build in wai
   /* …and plays once the page's one observer marks the chapter it sits in. */
   assert.ok(lines[1]!.startsWith(`.pahina-in ${at}:not(#el-own),.pahina-in${at}:not(#el-own){animation:1.8s cubic-bezier(0.22, 0.61, 0.36, 1) 0s none el-in-rise,`), lines[1]);
 
+  /* 👤 A BLOCK ME DRAWS HAS NO CHAPTER (Your seat, where a guest's bar has Me): Me is a sibling of the chapters
+     article, and the page's one observer marks chapters and scenes only — so the timed rule is bound there as well,
+     or the Build in would be seen in the Maker and never by a guest. Inside a chapter it still waits for the mark. */
+  const seat = blockLooksCss(readBlockLooks({ block_looks: { find_your_seat: { motion: { in: { fade: true, move: 'below' }, speed: 'gentle' } } } })).split('\n').slice(1, -1);
+  const seatAt = `${blockSelector('find_your_seat')}:not(#el-own)`;
+  assert.equal(seat.length, 2);
+  assert.ok(seat[0]!.startsWith(`${seatAt}{animation:0s none none,`), seat[0]);
+  assert.ok(seat[1]!.startsWith(`.pahina-in ${seatAt},.pahina-in${seatAt},${seatAt}:not([data-pahina-chapters] *){animation:1.8s cubic-bezier(0.22, 0.61, 0.36, 1) 0s none el-in-rise,`), seat[1]);
+  /* The two facts that arm leans on: Me is filed with no chapters, and the observer marks nothing else. */
+  const PAGE = src('app/[slug]/_components/site-body.tsx');
+  const me = PAGE.slice(PAGE.indexOf("group('me', ("), PAGE.indexOf("group('me', (") + 200);
+  assert.match(me, /^group\('me', \(\s*<div data-me-stage=""/, 'Me is no longer filed where this test looks');
+  assert.match(PAGE, /<div data-me-stage=""[\s\S]*?\{tableOnMe \? seatBlock : null\}[\s\S]*?<\/div>\s*\)\) : null\}/, 'Me became a chapter (or the seat left it): re-walk the no-chapter arm');
+  const OBSERVER = raw('app/[slug]/_components/pahina-motion.tsx');
+  assert.ok(OBSERVER.includes("var sel='.sn-editorial [data-pahina-chapters] > *';") && OBSERVER.includes("var hsel='.hub-canvas, style[data-hub-els]';"), 'the observer marks something new — a block in Me may no longer need its own arm');
+
   /* Following the scroll: the block's own trip across the screen, in and out, and Drift between. */
   const scroll = blockLooksCss(readBlockLooks({ block_looks: { details: { motion: { timeline: 'scroll', in: { fade: true, move: 'left' }, out: { fade: true }, during: 'drift' } } } }));
   assert.match(scroll, /animation-timeline:view\(\), auto, view\(\);animation-range:entry 0% cover 30%, normal, exit 0% exit 100%/);
@@ -127,6 +154,10 @@ test('3 · the draft carries it, counts it and names it; an empty look is no loo
   const moved = counted(part!);
   assert.equal(moved.length, 1, 'a block’s look does not move the Apply count');
   assert.equal(moved[0]!.held, false, 'a block’s look is held as if it were Pro — it is free');
+  /* …and so is a look for a sample made real (Your seat): one change, free. */
+  const seated = counted(sanitizeHubDraft({ events: { style_preferences: { [BLOCK_LOOKS_PREF_KEY]: { find_your_seat: { motion: { in: { fade: true } } } } } } }));
+  assert.equal(seated.length, 1, 'Your seat’s look does not move the Apply count');
+  assert.equal(seated[0]!.held, false);
   /* …and a look put back to nothing (an empty object over none) is not. */
   const still = sanitizeHubDraft({ events: { style_preferences: { [BLOCK_LOOKS_PREF_KEY]: {} } } });
   assert.equal(still ? counted(still).length : 0, 0, 'an empty look counts as a change');
@@ -153,6 +184,16 @@ test('4 · a guest’s page: a mark only for a block that has a look, and the on
      (`sectionAfter` frames the element right after it). */
   assert.match(BODY, /\{blockMark\('details'\)\}\s*\{makerMark\('f:details'\)\}\s*<PublicEventDetails/);
   assert.match(BODY, /<>\{stageShowsEntourage\(pageStage\) \? blockMark\('entourage'\) : null\}\{stageShowsEntourage\(pageStage\) \? <EntourageSection groups=\{entourage\} id="site-entourage"/);
+  /* 🪑 YOUR SEAT — the mark rides WITH the real block (one const), so it is right before the block's root in both of
+     its slots (Welcome's group, or inside Me — never both), and absent when there is no table to draw. */
+  assert.match(BODY, /const seatBlock = seatMap \? \(\s*<>\s*\{blockMark\('find_your_seat'\)\}\s*<YourSeatBlock\s/);
+  assert.match(BODY, /\{seatOnMe \? null : group\(seatTab, seatBlock, \{ chapters: true, className: 'space-y-12' \}\)\}/);
+  assert.match(BODY, /\{tableOnMe \? seatBlock : null\}/);
+  assert.equal((BODY.match(/<YourSeatBlock\s/g) ?? []).length, 1, 'the seat is drawn from a second place: its look would not reach it');
+  /* …and the canvas's SAMPLE of it stands behind the same mark (before the Maker's own marker, which stays next to
+     the sample), so the look is drawn there by the rules that draw it for a guest. */
+  assert.match(BODY, /const sampleBlockMark = \(key: string\) => \{\s*const block = blockOfCanvas\(key\);\s*return block \? blockMark\(block\) : null;\s*\};/);
+  assert.match(BODY, /\{sampleBlockMark\(`f:\$\{part\}`\)\}\s*\{makerMark\(`f:\$\{part\}`\)\}\s*<MakerDayPartStandIn/);
   /* Happening now is drawn in TWO places (never both at once): the look reaches both. */
   assert.equal((BODY.match(/blockMark\('spotlight'\) : null\}\s*\{plan\.spotlight[^}]*makerMark\('f:spotlight'\) : null\}/g) ?? []).length, 2, 'Happening now is marked in one of its two places only');
   /* E-Gifts is drawn by the welcome block, which takes its marker as a prop — in every tree that can show a gift link. */
@@ -174,7 +215,7 @@ test('4 · a guest’s page: a mark only for a block that has a look, and the on
   assert.doesNotMatch(BRIDGE, /^import [^;]*from '@\/lib\/block-looks';/m, 'the blocks’ reader is in every guest’s bundle');
 });
 
-test('5 · the toolbar: Animate is live on the four; the six samples stay grey and each names the thing', () => {
+test('5 · the toolbar: Animate is live on the real blocks; the samples stay grey and each names the thing', () => {
   const TOOLS = src(`${L}/stage-tools.tsx`);
   assert.match(TOOLS, /const blockAt = !rsvpOpen && picked \? blockOfCanvas\(makerPartCanvasOn\(stageKey, picked\)\) : null;/);
   /* E-Gifts only while the canvas draws the REAL block (with no gift details a guest sees nothing there). */
@@ -206,14 +247,20 @@ test('5 · the toolbar: Animate is live on the four; the six samples stay grey a
      on the lab — the server action itself sent the lab to the sign-in page (seen 2026-10-10). */
   assert.match(ROWS, /return \(got as MakerPartRaw \| null\)\?\.elementEditing\?\.draftAction \?\? hubDraftAction;/);
 
-  /* THE SIX SAMPLES: no look, by the part rule AND by the block list — and each says why, naming the thing. */
-  assert.deepEqual(Object.keys(BLOCK_SAMPLE_WHY).sort(), ['f:announcements', 'f:find_your_seat', 'f:live_hub', 'f:look', 'f:pass', 'f:photos_of_you']);
+  /* THE SAMPLES: no look, by the part rule AND by the block list — and each says why, naming the thing.
+     🔁 RE-AIMED 2026-10-10 (a sample made real): Your seat left this list when its real block took the look — the
+     toolbar's `block` now names it (`blockOfCanvas`), so `ownTool` lights Background and Animate there through the
+     very lines pinned above, and no line of the toolbar changed. The claim is the same: a part still listed here
+     has no real root a look could reach, stays grey, and says so. */
+  assert.deepEqual(Object.keys(BLOCK_SAMPLE_WHY).sort(), ['f:announcements', 'f:live_hub', 'f:look', 'f:pass', 'f:photos_of_you']);
+  /* The part rule itself is as it was (a first-load file, not edited): Your seat's two tools are the BLOCK's. */
+  for (const tool of ['bg', 'animate'] as const) assert.equal(makerPartToolWorks((Object.keys(MAKER_PARTS) as MakerPartKey[]).find((k) => MAKER_PARTS[k].canvas === 'f:find_your_seat')!, tool), false);
   for (const [canvas, why] of Object.entries(BLOCK_SAMPLE_WHY)) {
     assert.match(why, /^This is a sample\. /, `${canvas}: ${why}`);
     const part = (Object.keys(MAKER_PARTS) as MakerPartKey[]).find((k) => MAKER_PARTS[k].canvas === canvas)!;
     for (const tool of ['bg', 'animate'] as const) assert.equal(makerPartToolWorks(part, tool), false, `${part} › ${tool} is live on a sample`);
   }
-  assert.equal(new Set(Object.values(BLOCK_SAMPLE_WHY)).size, 6, 'two samples say the same thing');
+  assert.equal(new Set(Object.values(BLOCK_SAMPLE_WHY)).size, 5, 'two samples say the same thing');
   assert.match(TOOLS, /const sample = picked && \(t === 'bg' \|\| t === 'animate'\) \? BLOCK_SAMPLE_WHY\[makerPartCanvasOn\(stageKey, picked\) \?\? ''\] : undefined;/);
   /* 🔁 RE-AIMED 2026-10-10 (same change): E-Gifts with nothing for a guest to see says so for Background too — it
      would otherwise answer "edit it in Studio", which is no longer where a block's background is. */

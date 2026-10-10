@@ -70,7 +70,7 @@ function Mark({ cell, on }: { cell: GuestsSeeCell; on: boolean }) {
       <span
         aria-hidden
         data-gs-mark={on ? 'on' : 'off'}
-        className={`flex h-[22px] w-[22px] items-center justify-center rounded-md border-[1.5px] ${on ? 'border-ink bg-ink text-white' : 'border-ink/30 bg-white text-transparent'}`}
+        className={`flex h-[22px] w-[22px] items-center justify-center rounded-md border-[1.5px] ${on ? 'border-ink bg-ink text-paper' : 'border-ink/30 text-transparent'}`}
       >
         <Check className="h-3.5 w-3.5" strokeWidth={3} />
       </span>
@@ -147,9 +147,13 @@ export function GuestsSeeSheet({ onClose }: { onClose: () => void }) {
 
   return (
     <MakerSheet label={W.title} onClose={close} everyWidth tall>
-      <div data-guests-see="" className="flex min-h-full flex-col">
-        <div role="table" aria-label={W.title} className="flex-1 px-1">
-          <div role="row" className="sticky top-0 z-10 flex items-end bg-white pb-1.5 pt-1">
+      {/* 🎨 Colour tokens only (ink · paper · the accent) and the sheet's own ground (`bg-inherit`) — nothing here names
+          a white or a black, so it inverts with the app. FRAMES ONLY ON WHAT IS PRESSED (owner 2026-10-11): a tick box
+          and the three buttons; the row names, the group heads, the key and the status line are bare, and the groups
+          are parted by one thin divider. */}
+      <div data-guests-see="" className="flex min-h-full flex-col bg-inherit">
+        <div role="table" aria-label={W.title} className="flex-1 bg-inherit px-1">
+          <div role="row" className="sticky top-0 z-10 flex items-end bg-inherit pb-1.5 pt-1">
             <span role="columnheader" className="min-w-0 flex-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-ink/45">
               {W.shownAt}
             </span>
@@ -159,11 +163,11 @@ export function GuestsSeeSheet({ onClose }: { onClose: () => void }) {
               </span>
             ))}
           </div>
-          {table.groups.map((g) => (
-            <div key={g.title} role="rowgroup" data-gs-group={g.title}>
+          {table.groups.map((g, gi) => (
+            <div key={g.title} role="rowgroup" data-gs-group={g.title} className={gi > 0 ? 'mt-2 border-t border-ink/10' : undefined}>
               <p className="pb-0.5 pt-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-ink/45">{g.title}</p>
               {g.rows.map((row) => (
-                <div key={row.key} role="row" data-gs-row={row.key} className="flex items-center border-t border-ink/10">
+                <div key={row.key} role="row" data-gs-row={row.key} className="flex items-center">
                   <span role="rowheader" className="min-w-0 flex-1 py-1 pr-1 text-[13.5px] font-medium leading-tight text-ink">
                     <span className="block break-words">{row.label}</span>
                     {row.note ? <span className="block text-[11px] font-normal leading-snug text-ink/55">{row.note}</span> : null}
@@ -208,7 +212,7 @@ export function GuestsSeeSheet({ onClose }: { onClose: () => void }) {
         </div>
 
         {/* THE LOWER THIRD — what the last tap did · the key · the three buttons. */}
-        <div data-gs-lower="" className="sticky bottom-0 z-10 border-t border-ink/10 bg-white px-1 pb-1 pt-2">
+        <div data-gs-lower="" className="sticky bottom-0 z-10 border-t border-ink/10 bg-inherit px-1 pb-1 pt-2">
           {asking ? (
             <div data-gs-leave="" className="flex flex-col gap-2">
               <p className="text-[13.5px] font-semibold text-ink">{W.leaveTitle}</p>

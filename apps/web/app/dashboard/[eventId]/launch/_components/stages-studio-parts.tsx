@@ -443,7 +443,7 @@ export function MakerSheet({
       >
         <span aria-hidden className="mx-auto mb-1.5 mt-1 h-1 w-10 shrink-0 rounded-full bg-ink/15" />
         <p className="shrink-0 px-3 pb-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-ink/55">{label}</p>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">{children}</div>
+        <div className={`min-h-0 flex-1 overflow-y-auto overscroll-contain${tall ? ' bg-inherit' : ''}`}>{children}</div>
       </div>
     </div>
   );

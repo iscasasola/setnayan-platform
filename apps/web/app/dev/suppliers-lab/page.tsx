@@ -16,18 +16,21 @@
  *   &sheetfail=1        the supplier sheet's one request fails (press a card)
  *   &slow=1             …or takes 2.5 s, to read the line it shows meanwhile
  *   &empty=1            a new event: no suppliers yet
+ *   ?tab=build          open on Build — the REAL Build body on fixtures
+ *   &build=garden       …with "Garden build" in use · &build=none (nothing yet)
+ *                       · &build=unread (the saved builds could not be read)
  *
  * Run with `NEXT_PUBLIC_EXPLORE_REPLAN_ENABLED=true` — the one-screen page is
  * behind that flag, and a client bundle reads it at build time.
  */
 import { notFound } from 'next/navigation';
 import { InspectorLayout } from '@/app/_components/inspector/inspector-column';
-import { ServicesTakeover } from '@/app/dashboard/[eventId]/vendors/_components/services-takeover';
 import { DatePlaceLine } from '@/app/dashboard/[eventId]/vendors/_components/date-place-line';
 import { buildShortlistFolders } from '@/lib/shortlist-taxonomy';
 import { popularTilesFor } from '@/lib/supplier-find';
 import { SuppliersLabStage } from './lab-stage';
 import { LabBench } from './lab-bench';
+import { LabSuppliersShell } from './lab-build';
 import { LAB_CARDS, LAB_ENRICHMENT, LAB_EVENT, LAB_ROWS, LAB_STANDINGS } from './fixtures';
 
 export default async function SuppliersLabPage({
@@ -71,19 +74,18 @@ export default async function SuppliersLabPage({
   return (
     <SuppliersLabStage>
       <section className="sn-col max-w-none" data-lab-suppliers="">
-        <ServicesTakeover
+        <LabSuppliersShell
+          start={one('build')}
           eventId={LAB_EVENT}
-          initialTab="shortlist"
+          initialTab={one('tab') === 'build' ? 'build' : one('tab') === 'budget' ? 'budget' : 'shortlist'}
           factsSlot={
             <DatePlaceLine
               eventId={LAB_EVENT}
               facts={{ date: { text: 'Sat, Dec 12, 2026', open: false }, place: { text: 'Pick the place', open: true } }}
             />
           }
-          tally={{ filled: booked, total: 5, knownPhp: 1_056_000, unpriced: 1 }}
           bookedCount={booked}
           shortlistSlot={<InspectorLayout paramKey="inspect" hasSelection={false} master={bench} inspector={null} />}
-          buildSlot={<p className="py-10 text-sm text-ink/55">Build — not drawn in this lab.</p>}
           teamSlot={<p className="py-10 text-sm text-ink/55">Booked — not drawn in this lab.</p>}
         />
       </section>

@@ -136,6 +136,7 @@ export function ServicesTakeover({
   bookedCount,
   shortlistSlot,
   buildSlot,
+  buildBody,
   budgetSlot,
   compareSlot,
   premium = false,
@@ -159,6 +160,13 @@ export function ServicesTakeover({
   teamSlot?: ReactNode;
   shortlistSlot?: ReactNode;
   buildSlot?: ReactNode;
+  /**
+   * THE BUILD BODY, WHOLE (Suppliers PR3 — `build-body.tsx`): "This build" and
+   * "All builds" under their own headings, carrying the `#svc-build` and
+   * `#svc-compare` anchors themselves. Given → it is the Build body, and
+   * `buildSlot` / `compareSlot` are not drawn.
+   */
+  buildBody?: ReactNode;
   budgetSlot?: ReactNode;
   compareSlot?: ReactNode;
   /** Setnayan AI active for this event → the crest strip saying smart matching
@@ -405,6 +413,9 @@ export function ServicesTakeover({
 
         {drawn('build') ? (
           <div data-suppliers-body="build" hidden={mode !== 'build'}>
+            {buildBody ? (
+              buildBody
+            ) : (
             <div className="space-y-8">
               <ServiceSection tab="build" heading={SECTION_HEADING.build}>
                 {buildSlot ?? <SectionStub tab="build" />}
@@ -415,6 +426,7 @@ export function ServicesTakeover({
                 {compareSlot ?? <SectionStub tab="compare" />}
               </ServiceSection>
             </div>
+            )}
           </div>
         ) : null}
 

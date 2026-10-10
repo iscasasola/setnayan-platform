@@ -3346,6 +3346,60 @@ html.dark {
   }
 } /* @layer components — Pahina foundation */
 
+/* ── 🚪 THE FIRST SCREEN KEEPS ITS ONE ACTION IN VIEW (2026-10-11) ───────────
+   Measured on the live sample event: a stranger's one button, "Get inside",
+   has its place under the date at y 715 — entirely below a 375 × 667 screen,
+   and under the bottom bar at 375 × 812 (32 of its 56 px showing). The cover
+   above it is the couple's own design and is as tall as it is.
+
+   So the button does not wait for the cover: while its own place is still below
+   the screen it DOCKS just above the bottom bar. `position: sticky`, never a
+   second copy: scroll to its place and it rests there, in flow.
+
+     · `--sn-door-rest` is the guest page's "float above the bar" offset
+       (`app/[slug]/_lib/bottom-edge.test.ts`: 4.75rem + the safe area — the
+       bar is 3.5rem + the safe area). From `xl` the bar is a side rail, so the
+       dock rests 1rem off the bottom edge.
+     · `--cookie-banner-top` is published by the cookie banner while it is the
+       full-width sheet (`app/_components/cookie-consent-banner.tsx`): the door
+       stands ABOVE the banner, so a first visit never has the banner on it.
+     · Opened, the door goes back to its place — its two choices need the room
+       and are not drawn over the cover's words — and `DoorOpensInView` scrolls
+       it into view, clear of the bar (`scroll-margin-bottom`).
+
+   `.sn-door-row` is the row the door sits in (`site-body.tsx`). It draws no box
+   of its own, so the door is a child of the first screen itself — a sticky box
+   moves only inside its parent, and the row alone is no taller than the door.
+   Its two margins are the `space-y-6` / `space-y-4` the row had, written at the
+   same weight (a `space-y` rule outranks a child's own `mt-*`, and so do these).
+   `app/_components/the-first-screen-keeps-its-action.test.ts` holds all of it. */
+@layer components {
+  .sn-door-row {
+    display: contents;
+  }
+  .sn-door-row > :first-child {
+    margin-top: 1.5rem;
+  }
+  .sn-door-row > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 1rem;
+  }
+  .sn-door-dock {
+    --sn-door-rest: calc(4.75rem + env(safe-area-inset-bottom, 0px));
+    position: sticky;
+    z-index: 20;
+    bottom: max(var(--sn-door-rest), calc(var(--cookie-banner-top, 0px) + 0.5rem));
+    scroll-margin-bottom: var(--sn-door-rest);
+  }
+  .sn-door-dock[open] {
+    position: static;
+  }
+  @media (min-width: 1280px) {
+    .sn-door-dock {
+      --sn-door-rest: 1rem;
+    }
+  }
+}
+
 /* ── Candlelight art direction (wave A PR-5b, design spec §4) ────────────────
    The deliberate variation axis: ONE switch, two genuinely different-feeling
    sites. Daylight is the default and is byte-identical to today — this block

@@ -1885,8 +1885,10 @@ export async function SiteBody({
                    General details above; ONE way in below — "Get inside: Scan
                    your QR, Tap NFC or Sign in", or, for a signed-in account not
                    on this list, "Ask to join". A stale or other-event key keeps
-                   its one explaining line above the same button. */
-                <div className="space-y-4">
+                   its one explaining line above the same button.
+                   🚪 `sn-door-row` (globals.css): the row draws no box of its own, so the
+                   door is the first screen's own child and can dock above the bar. */
+                <div className="sn-door-row">
                   {reason === 'invalid_invite' ? (
                     <p className="mx-auto max-w-prose rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700">
                       That invite link doesn&rsquo;t look right — it may have been replaced with a new
@@ -1906,6 +1908,7 @@ export async function SiteBody({
                     <GetInside
                       slug={event.slug}
                       eventId={event.event_id}
+                      dock={!isEditorCanvas}
                       signedInNotListed={anon.signedInNotListed}
                       theOrganizer={clientWords.theOrganizer}
                       mayAskToJoin={anyoneMayAskToJoin(event.rsvp_ask_config)}

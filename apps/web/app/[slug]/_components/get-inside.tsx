@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { UploadYourQr } from './upload-your-qr';
+import { DoorOpensInView } from './door-opens-in-view';
 import { INVITATION_ONLY_LINE } from '@/lib/invite-arrival';
 
 /**
@@ -27,6 +28,18 @@ import { INVITATION_ONLY_LINE } from '@/lib/invite-arrival';
  *     the host picks 'I approve each one'"). A press, not the render: a page
  *     render may not write the guest cookie (lib/guest-membership-session.ts).
  *
+ * 🚪 THE DOOR IS IN VIEW ON THE FIRST SCREEN (2026-10-11). Measured on the live
+ * sample event: the button's own place is under the date, at y 715 — on a
+ * 375 × 667 phone that is entirely below the screen (a cover with no action at
+ * all), and at 375 × 812 it ran under the bottom bar with 32 of its 56 px
+ * showing. The cover is the couple's own design and is as tall as it is, so the
+ * button does not wait for it: while its place is still below the screen it
+ * DOCKS just above the bar (`.sn-door-dock`, globals.css — `position: sticky`,
+ * so it settles into its own place the moment the page is scrolled to it and
+ * is never drawn twice). Opened, it returns to its place and is scrolled into
+ * view (`DoorOpensInView`). `dock={false}` on the Maker's canvas, which has no
+ * bar and is not a first screen.
+ *
  * 🔒 THIS IS THE DOOR, NOT THE GATE. What stays inside (camera, gallery,
  * announcements, seat, exact venue) is withheld by the SERVER before this page
  * renders — this button only says how to become someone it would render for.
@@ -38,7 +51,10 @@ export function GetInside({
   theOrganizer,
   mayAskToJoin = false,
   joinAction,
+  dock = true,
 }: {
+  /** Dock the signed-out door above the bottom bar while its place is below the screen (see above). */
+  dock?: boolean;
   /**
    * One QR for everyone, no approval (`oneQrLetsYouIn`, lib/rsvp-ask.ts): the
    * join door's own action, bound to this event by the page
@@ -97,7 +113,7 @@ export function GetInside({
   }
   const signIn = slug ? `/login?next=${encodeURIComponent(`/${slug}`)}` : '/login';
   const door = (
-    <details className="group mx-auto max-w-md" data-get-inside="door">
+    <details className={`group mx-auto max-w-md${dock ? ' sn-door-dock' : ''}`} data-get-inside="door">
       <summary className="button-primary flex min-h-[56px] w-full cursor-pointer list-none flex-col items-center justify-center gap-0.5 [&::-webkit-details-marker]:hidden">
         <span className="text-base">Get inside</span>
         {/* Names only what opens underneath (guest text audit 2026-09-30): the
@@ -107,6 +123,7 @@ export function GetInside({
       {/* The poster's door (owner 2026-09-27: "sign in to enter or upload your
           qr to login") — exactly two things: the guest's own QR, read on the
           phone, or their account. */}
+      {dock ? <DoorOpensInView /> : null}
       <div className="mt-4 space-y-4">
         {slug ? <UploadYourQr slug={slug} /> : null}
         <Link

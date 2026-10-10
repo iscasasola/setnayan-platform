@@ -56,6 +56,7 @@ import {
 } from './element-preview';
 import { CANVAS_REFRESH_MESSAGE, HUB_DRAFT_BAR_FIELD, MAKER_CANVAS_REDRAW_EVENT, makerNeedsRender, makerSave, makerUnheldSavesInFlight, requestMakerRefresh, MAKER_UNHELD_WRITE_EVENT } from '@/lib/maker-refresh';
 import { draftedCanvasOr, noteDraftedCanvas } from '@/lib/maker-draft-store';
+import { stageEyeValue } from '@/lib/guests-see-table';
 import { announceMakerSave } from '@/lib/maker-save-status';
 import { movedOrder, optimisticStageList, sameOrder, stageOrderPatch } from '@/lib/maker-reorder';
 
@@ -1689,8 +1690,7 @@ export function MakerWork({
     if (!elementEditing) return eyeWriteEverywhere(scene);
     const key = `${stage}:${scene.id}`;
     const want = !shownHere(scene);
-    const eye = navigator.stageEye?.[stage]?.[scene.type as WidgetType];
-    const value = eye && want === eye.base ? null : want;
+    const value = stageEyeValue(navigator.stageEye?.[stage]?.[scene.type as WidgetType], want);
     if (want) releaseCanvas();
     else hideOnCanvas(scene);
     const held = !want;

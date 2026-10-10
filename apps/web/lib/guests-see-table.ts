@@ -216,3 +216,13 @@ export function guestsSeeKept(table: GuestsSeeTable, writes: GuestsSeeWrites): G
     })),
   };
 }
+
+/**
+ * 👁 WHAT THE MAKER'S EYE STORES for the stage on screen — the same rule as a tick:
+ * the wanted state, or `null` (the choice taken back) when the stage's list has
+ * it that way with no choice stored (`base`, `buildStageEyes`). No facts for the
+ * scene → the wanted state itself.
+ */
+export function stageEyeValue(eye: { base: boolean } | null | undefined, want: boolean): boolean | null {
+  return eye && want === eye.base ? null : want;
+}

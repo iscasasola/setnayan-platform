@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * ✋ HOLD A LINE TO MOVE IT — the RSVP stage's drag (owner 2026-10-09: *"can we drag and drop the element. similar to
  * the concept of wedding march"*; approved prototype `prototypes/maker_rsvp_add_drag_group_2026-10-09.html` § 2).
@@ -53,6 +55,9 @@ const GHOST_PAPER = 'rgb(var(--color-cream))';
 const GHOST_SHADOW = 'var(--m-shadow-lg)';
 const LEFT_MARK = '1.5px dashed rgb(var(--color-ink) / 0.7)';
 const OPENING_INK = 'rgb(var(--sn-accent))';
+/** …and the app's own corners (the radius guard): the small card's, and the opening's line with round ends. */
+const GHOST_ROUND = 'var(--m-r-md)';
+const OPENING_ROUND = 'var(--m-r-full)';
 
 export type RsvpDragSubject = {
   /** The name of what moves: a line's (`eyebrow`, `a:1`) or a group's (`g:1`). */
@@ -189,7 +194,7 @@ export function attachRsvpDrag<S extends RsvpDragSubject>(doc: Document, host: R
       width: `${r.width + px * 2}px`,
       height: `${r.height + py * 2}px`,
       padding: bare ? `${py}px ${px}px` : '0',
-      borderRadius: bare ? '12px' : own.borderRadius,
+      borderRadius: bare ? GHOST_ROUND : own.borderRadius,
       background: bare ? GHOST_PAPER : 'transparent',
       boxShadow: GHOST_SHADOW,
       willChange: 'transform',
@@ -206,7 +211,7 @@ export function attachRsvpDrag<S extends RsvpDragSubject>(doc: Document, host: R
       left: `${r.left + win.scrollX + 24}px`,
       width: `${Math.max(0, r.width - 48)}px`,
       height: '2px',
-      borderRadius: '2px',
+      borderRadius: OPENING_ROUND,
       background: OPENING_INK,
       opacity: '0',
       transition: 'opacity 150ms',

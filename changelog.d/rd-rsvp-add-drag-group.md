@@ -150,5 +150,18 @@ Message), a held line drags to a new place, and several lines can share one back
   group just made on Background); the last row's count in the panel (three: a group's Edit draws it too). The
   toolbar's pinned `why={edits.why}` is word for word again: the Save button's reasons go through the frame's hook.
 
+**After 7 · what `pnpm preflight` and the pictures found**
+
+- `pnpm preflight` on steps 5c–7 was red twice and is clear now (49 checks; the full unit suite, the full DB replay,
+  the production build and the first-load budget are CI's). Both faults were in the drag: a corner typed in px
+  (`borderRadius: '2px'` — the app's radius tokens now, `--m-r-md` for the ghost's small card and `--m-r-full` for
+  the opening's line), and the file had no `'use client'` while reading two numbers from the March's client file.
+- Two pins broken by 5c were found only when the wider guards ran (`the-preview-only-selects`,
+  `the-toolbar-is-four-rows`); each is re-aimed or put back word for word, with its reason beside it.
+- SEEN, NOT CHANGED: (1) the app's one toast cuts a sentence past about 40 characters at 375; (2) a FINGER on a
+  group's own paper beside an answer button is taken by the button (the phone's own snapping of a tap to the nearest
+  control — measured: the point under the finger is the group, a pointer there picks the group, a touch picks the
+  answer); a group is reached surely from any line inside it › Background › Open the group.
+
 SPEC IMPACT: None beyond the locked record already in the corpus (`Maker_RSVP_Per_Element_Add_Drag_Group_LOCKED_2026-10-09.md`
 §4–§5 names the cap and the migration). The measured numbers confirm §5's (24,576 / 19,000).

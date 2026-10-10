@@ -203,9 +203,16 @@ test('6 · colour tokens only — what the drag draws wears the app’s own, so 
   assert.match(DRAG, /const GHOST_SHADOW = 'var\(--m-shadow-lg\)';/);
   assert.match(DRAG, /const LEFT_MARK = '1\.5px dashed rgb\(var\(--color-ink\) \/ 0\.7\)';/);
   assert.match(DRAG, /const OPENING_INK = 'rgb\(var\(--sn-accent\)\)';/);
+  /* …and the app's own corners, never a number of its own (`scripts/lint-radius.mjs` watches the tree). */
+  assert.match(DRAG, /const GHOST_ROUND = 'var\(--m-r-md\)';\s*const OPENING_ROUND = 'var\(--m-r-full\)';/);
+  assert.doesNotMatch(DRAG, /borderRadius: [^,\n]*'\d/, 'a corner is typed in px in the drag');
+  /* 🧷 It is a browser's file and says so: it reads two numbers from the March's own (`'use client'`) file, and a
+     file with no directive would be handed a reference there, not the number
+     (`a-server-file-never-takes-a-value-from-a-client-module`). */
+  assert.match(raw(`${L}/rsvp-canvas-drag.ts`), /^'use client';\n/);
   /* anti-vacuity: each token is defined by the app. */
   const CSS = raw('app/globals.css');
-  for (const token of ['--color-cream:', '--color-ink:', '--sn-accent:', '--m-shadow-lg:']) assert.ok(CSS.includes(token), `${token} is not one of the app’s tokens`);
+  for (const token of ['--color-cream:', '--color-ink:', '--sn-accent:', '--m-shadow-lg:', '--m-r-md:', '--m-r-full:']) assert.ok(CSS.includes(token), `${token} is not one of the app’s tokens`);
 });
 
 test('7 · the frame steps aside while a line is held — and neither the first load nor a guest’s page knows the drag', () => {

@@ -3,6 +3,7 @@ import { HUB_TAB_ATTR, activeHubTab } from '@/app/[slug]/_lib/hub-tabs';
 import { MakerDayPartStandIn, MakerPageStandIn } from '@/app/[slug]/_components/maker-fixed-parts';
 import { MakerEmptyScene } from '@/app/[slug]/_components/maker-empty-scene';
 import { MakerGuestScenes } from '@/app/[slug]/_components/maker-guest-scenes';
+import { BLOCK_MARK_ATTR, blockOfCanvas } from '@/lib/block-looks';
 import type { FixedStyleScene } from '@/lib/fixed-scene-styles';
 import { makerStagesPageOf, makerStagesPages } from '@/lib/maker-stage-filing';
 import { sceneStylesOn } from '@/lib/scene-styles';
@@ -49,8 +50,13 @@ export function LabDayPages({
   const active = activeHubTab(tab, keys);
   const dayPart = (part: Exclude<FixedStyleScene, 'entourage'>): ReactNode => {
     const id = styleOf(part);
+    /* 🧱 A day's part whose real block takes a look (`lib/block-looks.ts`): its mark right BEFORE the sample, inside
+       the lab's own wrapper — as the real canvas puts it (`site-body.tsx` `sampleBlockMark`), so a look picked here
+       lands on the block and not on the lab's padding. */
+    const block = blockOfCanvas(`f:${part}`);
     return (
       <div className="border-t border-ink/10 px-4 py-8">
+        {block ? <span hidden {...{ [BLOCK_MARK_ATTR]: block }} /> : null}
         <MakerDayPartStandIn part={part} styleId={id} styleName={sceneStylesOn(part, 'event', 'wedding').find((s) => s.id === id)?.name ?? null} />
       </div>
     );
@@ -84,7 +90,9 @@ export function LabDayPages({
     ['f:photos_of_you', dayPart('photos_of_you')],
     ['f:find_your_seat', dayPart('find_your_seat')],
     /* The guest's pass — the canvas's own stand-in, which draws its own marker. */
-    ['f:pass', <div key="pass" className="border-t border-ink/10 px-4 py-8"><MakerGuestScenes show={{ greeting: false, pass: true, rsvp: false }} eventDate="2026-12-12" solemn={false} mark={mark} /></div>],
+    /* 🧱 Its real block takes a look (`lib/block-looks.ts`): the block's mark first, then the Maker's marker, as the real
+       canvas hands them (`site-body.tsx` `guestSceneMark`). */
+    ['f:pass', <div key="pass" className="border-t border-ink/10 px-4 py-8"><MakerGuestScenes show={{ greeting: false, pass: true, rsvp: false }} eventDate="2026-12-12" solemn={false} mark={(key) => <>{blockOfCanvas(key) ? <span hidden {...{ [BLOCK_MARK_ATTR]: blockOfCanvas(key) }} /> : null}{mark(key)}</>} /></div>],
   ];
   const filled = new Set<string>();
   const byPage = new Map<string, ReactNode[]>();

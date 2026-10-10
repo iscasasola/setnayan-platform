@@ -9,8 +9,21 @@
  * 🔑 THE PROPERTY: there is ONE answer to "what stage is this event at" — the
  * one `app/[slug]/page.tsx` composes (a host's `?phase=` preview, the couple's
  * pin, the venue's clock) — and the hub page asks it the same way; while that
- * stage is before the day the hub draws NOTHING of its own and sends the
- * visitor to the page that speaks for the stage.
+ * stage is before the day the hub draws NOTHING of its own for a guest and
+ * sends them to the page that speaks for the stage.
+ *
+ * 🎬 …AND A HOST STILL REHEARSES. The couple checks the day's hub before their
+ * guests do. A signed-in host who opens `/hub` before the day gets it AS THE
+ * DAY — the preview `?phase=event` has always given a host, without the
+ * address to remember. (The first cut of this rule redirected hosts too, and
+ * the event page's own preview of The Day links to a bare `/hub`.)
+ *
+ * ❓ WAS THERE A PREP WINDOW FOR GUESTS? No. `lib/day-of-mode.ts` has a `pre`
+ * window (T−3d … T−12h), and the event's page files it under the INVITATION
+ * (`getLifecyclePhase`: `case 'pre': return 'rsvp'`); The Day begins at T−12h.
+ * The page links to `/hub` only while the day is live or just over. The three
+ * days before are the HOST's dashboard prep (`EventDayPrepCta`), not a guest
+ * stage — so for guests the redirect stands through them. (2) holds that.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -20,7 +33,8 @@ import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 import { getLifecyclePhase, type LifecyclePhase } from '@/lib/invitation-widgets';
 import { PUBLIC_STAGE_LABELS, PUBLIC_STAGE_ORDER } from '@/lib/public-site-stage-labels';
-import { dayHubOpens } from './day-hub';
+import { dayHubDoor, dayHubOpens } from './day-hub';
+import { getDayOfPhase } from '@/lib/day-of-mode';
 import { STAGE_BAR } from './stage-bar';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -39,6 +53,22 @@ test('the day’s hub opens on The Day and after it — never while the stage is
   }
 });
 
+test('a guest leaves before the day, a host rehearses — and nobody is turned away once it is the day', () => {
+  for (const stage of PUBLIC_STAGE_ORDER) {
+    const guest = dayHubDoor(stage, false);
+    const host = dayHubDoor(stage, true);
+    if (dayHubOpens(stage)) {
+      assert.equal(guest, 'open', `${stage}: a guest is turned away from the day’s hub on the day`);
+      assert.equal(host, 'open');
+    } else {
+      assert.equal(guest, 'leave', `${stage}: a guest is shown the day’s hub before the day`);
+      assert.equal(host, 'rehearsal', `${stage}: a host cannot rehearse the day’s hub before the day`);
+    }
+    assert.notEqual(host, 'leave', `${stage}: a host is redirected away from their own hub`);
+    assert.notEqual(guest, 'rehearsal', `${stage}: a guest is given the host’s preview`);
+  }
+});
+
 test('by the clock: the measured case (61 days out) is a stage the hub does not draw, and the day itself is one it does', () => {
   const day = '2026-12-12';
   const tz = 'Asia/Manila';
@@ -54,6 +84,30 @@ test('by the clock: the measured case (61 days out) is a stage the hub does not 
     assert.equal(dayHubOpens(at(iso)), open, `${what} (${iso}) → stage ${at(iso)}`);
   }
   assert.equal(PUBLIC_STAGE_LABELS[at('2026-10-11T02:30:00+08:00')], 'Invitation', 'the event’s own page said INVITATION that night');
+
+  // The three days before: `pre` is a day-of window, and the PAGE files it under the Invitation — so does the hub.
+  // Swept hour by hour from five days out to the day after: the hub opens for a guest exactly when the page's own
+  // stage is The Day or later, and never because of the `pre` window alone.
+  let pre = 0;
+  let opened = 0;
+  const T = Date.parse('2026-12-12T00:00:00+08:00');
+  for (let h = -120; h <= 48; h++) {
+    const now = T + h * 3600_000;
+    const window = getDayOfPhase(day, tz, now);
+    const stage = getLifecyclePhase(day, tz, null, now);
+    if (window === 'pre') {
+      pre++;
+      assert.equal(stage, 'rsvp', `${h}h: the page left the Invitation inside the prep window — re-read getLifecyclePhase`);
+      assert.equal(dayHubDoor(stage, false), 'leave', `${h}h: a guest is shown the day’s hub in the prep window`);
+      assert.equal(dayHubDoor(stage, true), 'rehearsal');
+    }
+    if (dayHubDoor(stage, false) === 'open') {
+      opened++;
+      assert.ok(stage === 'event' || stage === 'editorial');
+      assert.notEqual(window, 'pre');
+    }
+  }
+  assert.ok(pre >= 55 && opened >= 40, `the sweep went thin (${pre} prep hours, ${opened} open hours)`);
 });
 
 test('the hub page asks the stage exactly as the event’s page does — preview, then the pin, then the venue’s clock', () => {
@@ -76,8 +130,18 @@ test('the hub page asks the stage exactly as the event’s page does — preview
 });
 
 test('before the day the hub draws nothing: it leaves for the event’s page before a single panel is built', () => {
-  const leave = HUB.search(/if \(!dayHubOpens\(lifecyclePhase\)\) \{\s*redirect\(/);
+  const leave = HUB.search(/if \(door === 'leave'\) \{\s*redirect\(/);
   assert.ok(leave > 0, 'the hub no longer leaves while the stage is before the day');
+  // The door is decided from the PAGE's stage, and the host is the one shared definition — asked only when the
+  // stage is before the day and the viewer did not ask for a stage themselves.
+  assert.match(
+    HUB,
+    /const door = dayHubDoor\(\s*pageStage,\s*!dayHubOpens\(pageStage\) && !phaseOverride \? await isSignedInEventHost\(event\.event_id\) : false,\s*\);/,
+    'the hub decides its door some other way — a guest may be let in early, or a host turned away',
+  );
+  // A rehearsal is the host's own preview of The Day, nothing more.
+  assert.match(HUB, /const lifecyclePhase: LifecyclePhase = door === 'rehearsal' \? 'event' : pageStage;/);
+  assert.match(HUB, /const forcedPhase: LifecyclePhase \| null = door === 'rehearsal' \? 'event' : \(phaseOverride \?\? pinnedPhase\);/);
   for (const later of ['const dayOfPhase: DayOfPhase', 'const phaseLabel', 'const header = (', '<HubShell']) {
     const at = HUB.indexOf(later);
     assert.ok(at > leave, `${later} is built before the hub decides whether it is open`);

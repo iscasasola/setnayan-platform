@@ -24,3 +24,24 @@ import type { LifecyclePhase } from '@/lib/invitation-widgets';
 export function dayHubOpens(stage: LifecyclePhase): boolean {
   return stage === 'event' || stage === 'editorial';
 }
+
+/**
+ * 🎬 WHAT `/hub` DOES FOR THIS VIEWER.
+ *
+ *   · 'open'      — the stage is The Day or after it: the hub, for everyone who may see the event.
+ *   · 'rehearsal' — the stage is still before the day and the viewer is a signed-in HOST: the couple checks the
+ *                   day's hub before their guests do, so it opens for them AS THE DAY (the same preview
+ *                   `?phase=event` has always given a host — no new power, only no address to remember). Until
+ *                   2026-10-11's first cut of this rule a host was redirected like everyone else, and the event
+ *                   page's own preview of The Day linked to a hub that sent them straight back.
+ *   · 'leave'     — the stage is before the day and the viewer is a guest or a stranger: the event's own page.
+ *
+ * `isHost` is asked only when it can matter (the stage is before the day), so a guest's ordinary visit on the day
+ * costs no account lookup. A host who ASKED for an earlier stage (`?phase=rsvp`) is not rehearsing the day — the
+ * caller passes `isHost: false` for them and they leave for the page that shows that stage.
+ */
+export type DayHubDoor = 'open' | 'rehearsal' | 'leave';
+export function dayHubDoor(stage: LifecyclePhase, isHost: boolean): DayHubDoor {
+  if (dayHubOpens(stage)) return 'open';
+  return isHost ? 'rehearsal' : 'leave';
+}

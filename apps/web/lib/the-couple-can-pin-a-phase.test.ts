@@ -93,7 +93,8 @@ test('every site that picks the face composes the pin', () => {
   // that was not (`app/[slug]/_lib/the-day-hub-follows-the-stage.test.ts`).
   const hub = src('app/[slug]/hub/page.tsx');
   assert.match(hub, /manualLaunchPhase\(event\.launch_mode, event\.manual_phase\)/);
-  assert.match(hub, /forcedPhase: LifecyclePhase \| null = phaseOverride \?\? pinnedPhase/);
+  // (A host rehearsing the day before the day is forced to 'event'; everyone else takes the preview, then the pin.)
+  assert.match(hub, /forcedPhase: LifecyclePhase \| null = door === 'rehearsal' \? 'event' : \(phaseOverride \?\? pinnedPhase\)/);
   assert.match(hub, /const dayOfPhase: DayOfPhase = forcedPhase/);
 });
 

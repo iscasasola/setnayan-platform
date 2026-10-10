@@ -45,7 +45,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { eventWordsFromProfile, giftIsMoneyDance, solemnAdjustedPhase } from '../_lib/event-words';
-import { dayHubOpens } from '../_lib/day-hub';
+import { dayHubDoor, dayHubOpens } from '../_lib/day-hub';
 import { STAGE_BAR } from '../_lib/stage-bar';
 import { resolveAlbumDoor } from '../_lib/album-door.server';
 import { readGuestSession } from '@/lib/guest-session';
@@ -211,21 +211,30 @@ export default async function EventHubPage({ params, searchParams }: Props) {
   const phaseOverride: LifecyclePhase | null =
     isValidPhaseParam && phasePreviewAllowed ? (phaseParam as LifecyclePhase) : null;
   const pinnedPhase: LifecyclePhase | null = manualLaunchPhase(event.launch_mode, event.manual_phase);
-  const forcedPhase: LifecyclePhase | null = phaseOverride ?? pinnedPhase;
   const venueTz = eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude);
-  const lifecyclePhase: LifecyclePhase = solemnAdjustedPhase(
+  /** The stage the event's own page is at, for this viewer — the page's composition, to the letter. */
+  const pageStage: LifecyclePhase = solemnAdjustedPhase(
     phaseOverride ??
       pinnedPhase ??
       getLifecyclePhase(event.event_date, venueTz, event.event_end_date ?? null),
     eventTypeProfile.terminology.register === 'solemn',
   );
 
-  // Before the day there is no day to show: the page that speaks for this stage
-  // is the event's own (`dayHubOpens`, _lib/day-hub.ts). A host's preview keeps
-  // the stage it asked for.
-  if (!dayHubOpens(lifecyclePhase)) {
+  // Before the day there is no day to show a guest: the page that speaks for
+  // this stage is the event's own. A signed-in HOST rehearses the day instead —
+  // the couple checks the hub before their guests do (`dayHubDoor`,
+  // _lib/day-hub.ts). The host is looked up only here, where it can matter; a
+  // preview that asked for an earlier stage keeps that stage, on its page.
+  const door = dayHubDoor(
+    pageStage,
+    !dayHubOpens(pageStage) && !phaseOverride ? await isSignedInEventHost(event.event_id) : false,
+  );
+  if (door === 'leave') {
     redirect(phaseOverride ? `/${slug}?phase=${phaseOverride}` : `/${slug}`);
   }
+  // A rehearsal IS the host's preview of The Day — `?phase=event`, without the address.
+  const forcedPhase: LifecyclePhase | null = door === 'rehearsal' ? 'event' : (phaseOverride ?? pinnedPhase);
+  const lifecyclePhase: LifecyclePhase = door === 'rehearsal' ? 'event' : pageStage;
 
   const dayOfPhase: DayOfPhase = forcedPhase
     ? forcedPhase === 'event'

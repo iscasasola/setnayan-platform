@@ -38,7 +38,7 @@ export function LabDayPages({
    *  tabs are off whenever one scene is asked for (`site-body.tsx` `stagesCanvas`). */
   paged?: boolean;
   mark: (key: string) => ReactNode;
-  /** The lab's own nodes, by canvas key (`f:hero`, `w:schedule`, `w:venue_map`, `w:dress_code`). */
+  /** The lab's own nodes, by canvas key (`f:hero`, `w:schedule`, `w:venue_map`, `w:dress_code`, `f:entourage`). */
   given: Readonly<Record<string, ReactNode>>;
   /** The look a fixed part is drawn in (the lab's drafted `scene_styles`, a miniature's laid over). */
   styleOf: (part: FixedStyleScene) => string | null;
@@ -74,6 +74,7 @@ export function LabDayPages({
     ['w:schedule', given['w:schedule']],
     ['w:venue_map', given['w:venue_map']],
     ['w:dress_code', given['w:dress_code']],
+    ['f:entourage', given['f:entourage']],
     [
       'w:our_photos',
       <div key="gallery" className="border-t border-ink/10 px-4 py-8" data-lab-scene="our_photos">
@@ -94,7 +95,8 @@ export function LabDayPages({
     byPage.set(page, [
       ...(byPage.get(page) ?? []),
       <div key={key} className="contents">
-        {key === 'f:pass' ? null : mark(key)}
+        {/* The pass draws its own marker; the March has none — the real page names it by its `#site-entourage` id alone. */}
+        {key === 'f:pass' || key === 'f:entourage' ? null : mark(key)}
         {node}
       </div>,
     ]);

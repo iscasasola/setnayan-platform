@@ -34,6 +34,7 @@ import type { PickOption } from '../../website/editor/_components/pick-menu-type
 import { GuestsGetIn, RsvpAsks } from '../../_components/guest-setup/guest-setup-lazy';
 import type { GuestsGetInFrame } from '../../_components/guest-setup/guests-get-in';
 import type { RsvpAsksFrame } from '../../_components/guest-setup/rsvp-asks';
+import { formatCount } from '@/lib/format-number';
 import { StageAnimate } from './stage-panel/stage-animate';
 
 /**
@@ -133,7 +134,7 @@ export function RsvpLineLookRows({
 
 /** What the asks' dropdown reads while shut: how many of the six are on. */
 export function rsvpAsksFace(on: number, of: number): string {
-  return on === 0 ? 'None' : `${on} of ${of} on`;
+  return on === 0 ? 'None' : `${formatCount(on)} of ${formatCount(of)} on`;
 }
 /** 🎟 How guests get in → row 3: the toolbar's label-inside dropdown (`Dd` stacked), the part's own choices and writer. */
 export const rsvpGetInDd = (row: GuestsGetInFrame) => (

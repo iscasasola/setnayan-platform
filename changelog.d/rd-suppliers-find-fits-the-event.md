@@ -124,6 +124,24 @@ list. Find offers it under an empty list as well — that is when a couple most
 needs to search more, and "No supplier lists this yet" would otherwise be said
 while suppliers farther away exist.
 
+### 5 · An empty list says why
+
+With Find hiding who cannot be booked, a category whose every supplier is full
+on the date came back as no rows — and the page said "No supplier lists this
+yet. Check back soon.", the sentence for a category nobody has joined.
+
+The search now returns `hiddenForDate`: the number of rows its own hide removed
+(counted around the one filter; no second query; absent when zero). Nothing
+found and somebody hidden is the booked case; `findEmptyState`
+(`lib/supplier-find.ts`) picks the sentence, and the page carries none of its
+own. The booked case reads **"Every supplier here is booked on your date."**,
+followed by the farther-away control and nothing else.
+
+⚠ That sentence is the controller's wording, pending the owner's look (built
+from the shipped badge "Booked your date"); the code says so. The approved
+prototype's words for the same case are "Nobody is free on <date> — try another
+day in Help me choose."
+
 SPEC IMPACT: None beyond the row already filed — `DECISION_LOG.md` 2026-10-10
 "SEARCH SHOWS ONLY WHAT CAN BE BOOKED FOR THIS EVENT; ONE INQUIRY COVERS EVERY
 CATEGORY THE COUPLE TICKS" (the controller filed it; this change implements it).

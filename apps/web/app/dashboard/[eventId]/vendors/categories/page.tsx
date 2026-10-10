@@ -49,8 +49,10 @@ import { benchSearchScopeForTile } from '@/lib/bench-category-search';
 import { formatCount } from '@/lib/format-number';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import {
+  FIND_EMPTY_WORDS,
   applyFindFilter,
   buildFindList,
+  findEmptyState,
   parseFindFilter,
   popularHeading,
   supplierCountLabel,
@@ -195,6 +197,15 @@ export default async function FindSupplierPage({ params, searchParams }: Props) 
       hideUnbookable: true,
     });
     const rows = applyFindFilter(res.results, picked);
+    // An empty list says WHY. "Every supplier here is full on your date" and
+    // "nobody lists this" both arrive as no rows; the search's own count of
+    // who it hid tells them apart (lib/supplier-find · findEmptyState).
+    const empty = findEmptyState({
+      found: res.results.length,
+      shown: rows.length,
+      hiddenForDate: res.hiddenForDate ?? 0,
+      filtering: picked.length > 0,
+    });
 
     // FARTHER AWAY (owner 2026-10-10: "yes offer the farther away option. in
     // case the need to search more"). The list above is the suppliers who reach
@@ -263,11 +274,9 @@ export default async function FindSupplierPage({ params, searchParams }: Props) 
           {res.hasReceptionCoords ? ' · nearest first' : ''}
         </p>
 
-        {rows.length === 0 ? (
-          <p className="mt-6 text-[15px] text-ink/65">
-            {picked.length > 0
-              ? 'No supplier matches this filter. Try fewer.'
-              : 'No supplier lists this yet. Check back soon.'}
+        {empty ? (
+          <p className="mt-6 text-[15px] text-ink/65" data-find-empty={empty}>
+            {FIND_EMPTY_WORDS[empty]}
           </p>
         ) : (
           <FindSupplierList eventId={eventId} tile={openTile.tile} rows={rows} />

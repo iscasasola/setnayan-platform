@@ -19,6 +19,7 @@
  *   ?find=<tile>        Find a supplier's list for a category (the REAL rows of
  *                       `vendors/categories/page.tsx`, on fixtures)
  *   &far=1              …with "farther away" open (cake has nobody farther)
+ *   &booked=1           …with every supplier in the category full on the date
  *
  * Run with `NEXT_PUBLIC_EXPLORE_REPLAN_ENABLED=true` — the one-screen page is
  * behind that flag, and a client bundle reads it at build time.
@@ -28,7 +29,7 @@ import { InspectorLayout } from '@/app/_components/inspector/inspector-column';
 import { ServicesTakeover } from '@/app/dashboard/[eventId]/vendors/_components/services-takeover';
 import { DatePlaceLine } from '@/app/dashboard/[eventId]/vendors/_components/date-place-line';
 import { buildShortlistFolders } from '@/lib/shortlist-taxonomy';
-import { popularTilesFor } from '@/lib/supplier-find';
+import { FIND_EMPTY_WORDS, findEmptyState, popularTilesFor } from '@/lib/supplier-find';
 import { SuppliersLabStage } from './lab-stage';
 import { LabBench } from './lab-bench';
 import { FindFartherAway, FindSupplierList } from '@/app/dashboard/[eventId]/vendors/categories/_components/find-supplier-list';
@@ -47,7 +48,16 @@ export default async function SuppliersLabPage({
   const find = one('find');
   if (find) {
     // Find a supplier › a category: the page's own count line and rows.
-    const rows = LAB_MARKET[find]?.rows ?? [];
+    // `&booked=1` — every supplier in the category is full on the date: the
+    // search returns nobody and says how many it hid.
+    const allBooked = one('booked') === '1';
+    const rows = allBooked ? [] : (LAB_MARKET[find]?.rows ?? []);
+    const empty = findEmptyState({
+      found: rows.length,
+      shown: rows.length,
+      hiddenForDate: allBooked ? (LAB_MARKET[find]?.rows.length ?? 0) : 0,
+      filtering: false,
+    });
     return (
       <SuppliersLabStage>
         <div className="mx-auto w-full max-w-2xl pb-24 pt-5" data-lab-find="">
@@ -58,7 +68,13 @@ export default async function SuppliersLabPage({
           <p className="mt-3 text-[13px] text-ink/55">
             {rows.length === 1 ? '1 supplier' : `${formatCount(rows.length)} suppliers`} · nearest first
           </p>
-          <FindSupplierList eventId={LAB_EVENT} tile={find} rows={rows} />
+          {empty ? (
+            <p className="mt-6 text-[15px] text-ink/65" data-find-empty={empty}>
+              {FIND_EMPTY_WORDS[empty]}
+            </p>
+          ) : (
+            <FindSupplierList eventId={LAB_EVENT} tile={find} rows={rows} />
+          )}
           <div className="mt-4">
             <FindFartherAway
               eventId={LAB_EVENT}

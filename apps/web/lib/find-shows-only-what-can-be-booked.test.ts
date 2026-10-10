@@ -20,6 +20,13 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
+import {
+  FIND_ALL_BOOKED,
+  FIND_EMPTY_WORDS,
+  FIND_NONE_LISTED,
+  FIND_NO_FILTER_MATCH,
+  findEmptyState,
+} from './supplier-find';
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
@@ -136,7 +143,7 @@ test('the farther-away search runs only once it is asked for, and only when the 
   // Offered below the list whether or not anyone is in reach — an empty first
   // list is exactly when the couple needs to search more.
   const offered = page.indexOf('<FindFartherAway ');
-  const emptyBranch = page.indexOf("'No supplier lists this yet. Check back soon.'");
+  const emptyBranch = page.indexOf('{FIND_EMPTY_WORDS[empty]}');
   assert.ok(emptyBranch > 0 && offered > emptyBranch);
   assert.doesNotMatch(page.slice(emptyBranch, offered), /rows\.length > 0 &&/, 'hidden when nobody is in reach');
 });
@@ -160,4 +167,54 @@ test('the control and its words are the bench search overlay\'s — nothing new'
   // The same rows either side of the divider — one component draws both.
   assert.equal((read(FIND).match(/<FindSupplierList /g) ?? []).length, 1);
   assert.equal((LIST.match(/<FindSupplierList /g) ?? []).length, 1);
+});
+
+// ── AN EMPTY LIST SAYS WHY (2026-10-11) ───────────────────────────────────
+// Once Find hides who cannot be booked, "nobody lists this category" and
+// "everybody here is full on your date" both arrive as no rows. The page said
+// "No supplier lists this yet. Check back soon." for both.
+test('🔑 nobody lists the category · every supplier is booked on the date — two cases, two sentences', () => {
+  // Nobody lists it: nothing found, nobody hidden.
+  assert.equal(findEmptyState({ found: 0, shown: 0, hiddenForDate: 0, filtering: false }), 'none_listed');
+  assert.equal(FIND_EMPTY_WORDS.none_listed, 'No supplier lists this yet. Check back soon.');
+  // Suppliers exist, none can be booked on the date: nothing found, somebody hidden.
+  assert.equal(findEmptyState({ found: 0, shown: 0, hiddenForDate: 5, filtering: false }), 'all_booked');
+  assert.equal(findEmptyState({ found: 0, shown: 0, hiddenForDate: 1, filtering: false }), 'all_booked');
+  assert.equal(FIND_EMPTY_WORDS.all_booked, 'Every supplier here is booked on your date.');
+  assert.notEqual(FIND_ALL_BOOKED, FIND_NONE_LISTED);
+  // The booked case wins over the Filter — the Filter is not why it is empty…
+  assert.equal(findEmptyState({ found: 0, shown: 0, hiddenForDate: 3, filtering: true }), 'all_booked');
+  // …but a Filter that emptied a list the search DID fill is the Filter's doing,
+  // whoever else was hidden.
+  assert.equal(findEmptyState({ found: 4, shown: 0, hiddenForDate: 2, filtering: true }), 'no_filter_match');
+  assert.equal(findEmptyState({ found: 0, shown: 0, hiddenForDate: 0, filtering: true }), 'no_filter_match');
+  assert.equal(FIND_EMPTY_WORDS.no_filter_match, FIND_NO_FILTER_MATCH);
+  // Rows on screen → no empty sentence at all, whatever was hidden.
+  assert.equal(findEmptyState({ found: 3, shown: 3, hiddenForDate: 9, filtering: false }), null);
+  assert.equal(findEmptyState({ found: 3, shown: 1, hiddenForDate: 0, filtering: true }), null);
+});
+
+test('🔑 the count is the hide\'s own — the rows it removed — and it reaches the page', () => {
+  const search = read('app/dashboard/[eventId]/vendors/_actions/category-search.ts');
+  // Counted around the ONE filter the hide applies; no second query.
+  assert.match(
+    search,
+    /let hiddenForDate = 0;\s*if \(noBookingLeft\.size > 0\) \{\s*const before = ordered\.length;\s*ordered = ordered\.filter\(\(s\) => !leavesBenchSearch\(s, noBookingLeft\)\);\s*hiddenForDate = before - ordered\.length;\s*\}/,
+  );
+  // Absent unless somebody was hidden — every other result keeps its shape.
+  assert.match(search, /\.\.\.\(hiddenForDate > 0 \? \{ hiddenForDate \} : \{\}\),/);
+  assert.equal((search.match(/findSuppliersWithNoBookingLeft\(/g) ?? []).length, 1, 'a second read of who is full');
+  // The page asks the one decider, with the search's own numbers…
+  const page = read(FIND);
+  assert.match(
+    page,
+    /const empty = findEmptyState\(\{\s*found: res\.results\.length,\s*shown: rows\.length,\s*hiddenForDate: res\.hiddenForDate \?\? 0,\s*filtering: picked\.length > 0,\s*\}\);/,
+  );
+  assert.match(page, /\{empty \? \(\s*<p [^>]*data-find-empty=\{empty\}>\s*\{FIND_EMPTY_WORDS\[empty\]\}\s*<\/p>\s*\) : \(\s*<FindSupplierList /);
+  // …and carries no sentence of its own for an empty list any more.
+  assert.doesNotMatch(page, /No supplier lists this yet|No supplier matches this filter|booked on your date/);
+  // After the sentence: the farther-away control, and nothing else.
+  const after = page.slice(page.indexOf('{FIND_EMPTY_WORDS[empty]}'));
+  const tail = after.slice(after.indexOf('<FindSupplierList '), after.indexOf('</div>\n    );'));
+  assert.equal((tail.match(/<(?!\/)[A-Za-z]/g) ?? []).length, 3, 'something besides the list and the farther-away control follows the sentence');
 });

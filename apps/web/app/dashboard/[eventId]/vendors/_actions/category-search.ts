@@ -227,6 +227,18 @@ export type CategorySearchResult = {
    * result shape is unchanged.
    */
   savedPhotoTallyFailed?: boolean;
+  /**
+   * How many suppliers the hide took OFF this list because they cannot be
+   * booked on the event's date (`hideUnbookable`). Present only when it is
+   * more than zero, so every other result is the shape it was.
+   *
+   * 🔑 WITHOUT IT AN EMPTY LIST CANNOT TELL THE TRUTH. "Nobody lists this
+   * category" and "suppliers list it, and every one is full on your date" both
+   * arrive as `results: []`, and the page then says "No supplier lists this
+   * yet" to a couple looking at a category with five suppliers in it. It is
+   * the hide's own count — the rows it removed — never a second query.
+   */
+  hiddenForDate?: number;
   total: number;
   /** Null when the event has no stored coords (distance tier falls back to
    *  review order + the overlay hides distance chips). */
@@ -1373,8 +1385,11 @@ export async function searchCategoryVendors(input: {
       (s) => s.facetMatchCount === null || s.facetMatchCount > 0,
     );
   }
+  let hiddenForDate = 0;
   if (noBookingLeft.size > 0) {
+    const before = ordered.length;
     ordered = ordered.filter((s) => !leavesBenchSearch(s, noBookingLeft));
+    hiddenForDate = before - ordered.length;
   }
   // Service-date availability DOWN-RANK (never remove): stable-partition busy
   // vendors to the bottom, preserving each group's tier order. No-op when the
@@ -1437,6 +1452,8 @@ export async function searchCategoryVendors(input: {
     // Only present when the tally actually failed → the happy-path shape is
     // byte-identical to before MB10.
     ...(savedPhotosByVendor === null ? { savedPhotoTallyFailed: true } : {}),
+    // Only present when the hide really took somebody off the list.
+    ...(hiddenForDate > 0 ? { hiddenForDate } : {}),
     // Only present when the flag is on → off-path result shape is unchanged.
     ...(smartSort ? { budgetPressure: budgetRaisePressure } : {}),
     // NOT flag-gated: the band-derived budget is not either, so a couple ranked

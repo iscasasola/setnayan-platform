@@ -76,7 +76,7 @@ const SERVER_ONLY_STUB = path.join(process.cwd(), '__server_only_stub__.js');
  * …and, since 2026-10-10, the four more that lib/booking-payment-plan.server.ts
  * uses (the payment plan frozen at a booking):
  *   .from(t).select(cols).eq(...).order(col, { ascending })
- *   .from(t).select('a, alias:child!fk_name(x,y)')   — ONE embedded child list,
+ *   a select list of the form  a, alias:child!fk_name(x,y)  — ONE embedded child list,
  *       resolved through the NAMED foreign key exactly as PostgREST does: the
  *       constraint is looked up in pg_constraint, and a name that is not a
  *       foreign key is returned as an error, never guessed around

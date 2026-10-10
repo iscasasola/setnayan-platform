@@ -7,7 +7,7 @@ import { EditorBridge } from '@/app/[slug]/_components/editor-bridge';
 import { HUB_STAGES, type HubStage } from '@/lib/hub-canvas';
 import { sceneStyleOfRow, paletteLookOfRow, dosLookOfRow } from '@/lib/scene-style-of-row';
 import { SpecialMessageWidget } from '@/app/[slug]/_components/special-message-widget';
-import { MakerWelcomeGiftsEmpty, MakerWelcomeLook } from '@/app/[slug]/_components/maker-guest-scenes';
+import { MakerGuestScenes, MakerWelcomeGiftsEmpty, MakerWelcomeLook } from '@/app/[slug]/_components/maker-guest-scenes';
 import { WelcomeGifts } from '@/app/[slug]/_components/guest-doorway-strip';
 import { PahinaMasthead } from '@/app/[slug]/_components/pahina-masthead';
 import { ScheduleWidget } from '@/app/[slug]/_components/schedule-widget';
@@ -24,7 +24,7 @@ import { MakerEmptyScene } from '@/app/[slug]/_components/maker-empty-scene';
 import { WhenYesCelebration } from '@/app/[slug]/_components/when-yes-celebration';
 import { celebrationColours, isRsvpCelebration } from '@/lib/rsvp-celebration';
 import { RsvpCanvasBridge } from '@/app/[slug]/_components/rsvp-canvas-bridge';
-import { BLOCK_LOOKS_STYLE_ATTR, BLOCK_MARK_ATTR, blockLooksCss, readBlockLooks } from '@/lib/block-looks';
+import { BLOCK_LOOKS_STYLE_ATTR, BLOCK_MARK_ATTR, blockLooksCss, blockOfCanvas, readBlockLooks } from '@/lib/block-looks';
 import { RsvpLookStyle } from '@/app/[slug]/_components/rsvp-look-style';
 import { rsvpAnswerWord } from '@/lib/rsvp-ask';
 import { rsvpWordBridgeKey } from '@/lib/rsvp-stage-shared';
@@ -35,7 +35,12 @@ import { LAB_EDITORIAL_COOKIE, labEditorialDraft, labPostEventRead } from '../la
 import { LAB_SCRUB_CHAIN, LAB_SCRUB_NAME, labScrubCanvases, labScrubLabel, labWidgetsCookie, type LabScrubScene } from '../lab-scrub';
 import { LabScrubBadge } from './scrub-badge';
 import { LabDayPages } from './lab-day';
-import { labEntourage, labDressConfig, labRolePalette } from './lab-sample';
+import { LAB_SAMPLE, labEntourage, labDressConfig, labRolePalette } from './lab-sample';
+import { LabStagePages } from './lab-stage';
+import { LAB_ROWS_COOKIE, labDraftedRows } from '../lab-draft';
+import { labStageTiles } from '../lab-navigator';
+import { heroCanvasOf } from '@/app/[slug]/_lib/hero-design-of';
+import { heroDesignOf } from '@/lib/hero-design';
 import { DressCodeWidget } from '@/app/[slug]/_components/dress-code-widget';
 import { EntourageSection } from '@/app/[slug]/_components/entourage-section';
 
@@ -69,6 +74,9 @@ const LAB_VENUE_EVENT = {
     { role: 'reception', name: 'Seda Vertis North', address: '1 Astra Way, Vertis North, Quezon City', latitude: 14.6537, longitude: 121.0367 },
   ],
 };
+
+/** The canvas keys whose node draws its own marker (the guest stand-ins), or has none (the March — `#site-entourage`). */
+const STAGE_SELF_MARKED = ['f:greeting', 'f:pass', 'f:rsvp', 'f:entourage'] as const;
 
 /** The public ready-made scene photo the lab's scene backgrounds use, as its own URL (a legacy ref is served verbatim). */
 const LAB_MEDIA = { '/std/backgrounds/golden-hour.webp': '/std/backgrounds/golden-hour.webp' };
@@ -176,6 +184,36 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
      `makerMark`). The Scrub island reads them: a page that has one is being edited, and holds nothing until ▶ is
      held (`hub-scrub.tsx`); the same address opened plainly is a guest's page, and its hand-overs run. */
   const mark = (key: string) => (scrub && sp.editor !== '1' ? null : <span hidden data-maker-section={key} />);
+  /** The Maker's canvas (`?editor=1`) — the only reader the canvas's own stand-ins are drawn for. */
+  const makerCanvas = sp.editor === '1';
+  /* 🗂 THE STAGE'S OWN PARTS, IN THE MAKER'S ORDER (`../lab-navigator.ts` — the real `makerStageLists` on the sample's
+     rows with the lab's draft over them): a stage draws what the Maker lists for it and nothing else, a scene moved
+     Earlier · Later is drawn where it now stands, and one taken off is not drawn (P02 · P12). */
+  const stageNow: HubStage = stage ?? 'rsvp';
+  const labRowsNow = labDraftedRows((await cookies()).get(LAB_ROWS_COOKIE)?.value);
+  const stageTiles = labStageTiles(labRowsNow, stageNow, labStory);
+  /* 🧭 THE REAL HERO (`PahinaMasthead`, the guest page's own) — ONE mount for every page of the lab's canvas, wearing
+     the hero row's drafted canvas as the real page does (`site-body.tsx` `heroElements`): a typed Title, a part's
+     colour, size and motion, the design picked. The lab's masthead read none of it, so a typed Title was gone at the
+     next reload — and an Undo of it could not be seen (the walk of 2026-10-11, P01 · P05). */
+  const heroCanvas = heroCanvasOf([rowOf('hero')] as never);
+  const masthead = (
+    <PahinaMasthead
+      displayName={LAB_SAMPLE.names}
+      eventDate={LAB_SAMPLE.date}
+      venueName={LAB_SAMPLE.venueLine}
+      eyebrow={LAB_SAMPLE.openingLine}
+      elements={heroCanvas.elements ?? null}
+      design={heroDesignOf(heroCanvas)}
+      stampElements
+      looks={Object.keys(heroLooks).length > 0 ? heroLooks : null}
+      monogramSlot={
+        <span className="flex h-20 w-20 items-center justify-center rounded-full border border-gild font-serif text-2xl italic text-terracotta-700">
+          M &amp; J
+        </span>
+      }
+    />
+  );
   /* 👗 The REAL dress code, fed the sample (`./lab-sample.ts`) — the palette look it wears is the one picked in the Maker. */
   const dressCode = words ? (
     <DressCodeWidget
@@ -207,11 +245,14 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
         <CountdownWidget targetIso="2026-12-12" timeZone="Asia/Manila" sceneStyle={sceneStyleOfRow(rowOf('countdown'), stage, 'wedding')} />
       </section>
     ),
-    our_love_story: (
+    /* 🧩 AN EMPTY SCENE IS THE MAKER'S CANVAS ALONE (`makerCanvas`), as on the real page (`site-body.tsx`
+       `isMakerCanvas`; `maker-empty-scene.tsx`: "A guest never receives this markup"). The lab drew "Only you see this"
+       on its guest page whoever asked (the walk of 2026-10-11, P11). */
+    our_love_story: makerCanvas ? (
       <div data-lab-scene="our_love_story" className="border-t border-ink/10 px-4 py-8">
         <MakerEmptyScene type="our_love_story" />
       </div>
-    ),
+    ) : null,
     special_message: (
       /* 🌗 The REAL scene frame (`HubCanvasFrame`): its drafted background, Darker ↔ Lighter and Spacing, as guests see them. */
       <HubCanvasFrame widget={{ ...rowOf('special_message'), widget_id: 'lab-special-message' } as never} hubTheme="house" ownClipPlays mediaUrls={LAB_MEDIA}>
@@ -265,6 +306,46 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       <MakerWelcomeLook look={look('my_wear')} />
     </div>
   );
+  /* 👤 WHAT EACH GUEST GETS — the greeting, the pass, the reply — as the REAL canvas stands in for them
+     (`MakerGuestScenes`: "Each guest sees their own"), each behind its own marker so it can be picked. The Maker's
+     canvas only: a page opened plainly has no guest to draw them for. (They were two bare headings of the lab's own —
+     "Personal greeting", "Guest's ticket" — that no part could pick and the whole-page preview showed; P10.) */
+  const guestScene = (which: 'greeting' | 'pass' | 'rsvp') =>
+    makerCanvas ? (
+      <div className="border-t border-ink/10 px-4 pb-8 text-left">
+        <MakerGuestScenes
+          show={{ greeting: which === 'greeting', pass: which === 'pass', rsvp: which === 'rsvp' }}
+          eventDate={LAB_SAMPLE.date}
+          solemn={false}
+          mark={(key) => <>{blockOfCanvas(key) ? <span hidden {...{ [BLOCK_MARK_ATTR]: blockOfCanvas(key) }} /> : null}{mark(key)}</>}
+        />
+      </div>
+    ) : null;
+  /** A scene the sample has nothing in yet: its place on the Maker's canvas (`MakerEmptyScene`), nothing for a guest. */
+  const emptyScene = (type: 'what_to_bring' | 'our_photos') =>
+    makerCanvas ? (
+      <div data-lab-scene={type} className="border-t border-ink/10 px-4 py-8">
+        <MakerEmptyScene type={type} />
+      </div>
+    ) : null;
+  /* 🧩 THE LAB'S NODE FOR EACH CANVAS KEY — a stage draws the ones its own list names (`./lab-stage.tsx`). */
+  const stageGiven: Record<string, ReactNode> = {
+    'f:hero': <section className="px-4 pb-10 pt-6">{masthead}</section>,
+    'f:greeting': guestScene('greeting'),
+    'f:pass': guestScene('pass'),
+    'f:rsvp': guestScene('rsvp'),
+    'f:look': lookBlock,
+    'f:gifts': giftsBlock,
+    'w:countdown': scene.countdown,
+    'w:special_message': scene.special_message,
+    'w:our_love_story': scene.our_love_story,
+    'w:schedule': scene.schedule,
+    'w:venue_map': scene.venue_map,
+    'w:dress_code': scene.dress_code,
+    'w:what_to_bring': emptyScene('what_to_bring'),
+    'w:our_photos': emptyScene('our_photos'),
+    'f:entourage': marchBlock,
+  };
   /* 🎚 THE CHAIN'S CARDS (`?scrub=1`). Each scene of the chain is drawn as the prototype drew it, so a hold can be
      READ (2026-10-09 — a hold was "mostly a blank white screen with one faint element in the middle and nothing
      saying anything is happening"): a card (the hub's card look: paper, hairline, radius, shadow) in a phone-wide
@@ -321,19 +402,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
           given={{
             'f:hero': (
               <section className="px-4 pb-10 pt-6">
-                <PahinaMasthead
-                  displayName="Maria & Jose"
-                  eventDate="2026-12-12"
-                  venueName="Seda Vertis North, Quezon City"
-                  eyebrow="Together with their families"
-                  stampElements
-                  looks={Object.keys(heroLooks).length > 0 ? heroLooks : null}
-                  monogramSlot={
-                    <span className="flex h-20 w-20 items-center justify-center rounded-full border border-gild font-serif text-2xl italic text-terracotta-700">
-                      M &amp; J
-                    </span>
-                  }
-                />
+                {masthead}
               </section>
             ),
             'w:schedule': scene.schedule,
@@ -487,6 +556,8 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
           cover that does not leave (the ordinary lab; a chain whose cover was set back to "As it scrolls away") both
           are returned as given: nothing is wrapped. The cover's marker goes IN with it, so the Maker's bridge still
           finds the cover right after its marker. */}
+      {scrub ? (
+      <>
       {scrub && !only && !preview ? <LabScrubBadge /> : null}
       <HubCoverHold
         leaves={coverLeaves}
@@ -494,19 +565,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
           <>
       {mark('f:hero')}
       <section className="px-4 pb-10 pt-6">
-        <PahinaMasthead
-          displayName="Maria & Jose"
-          eventDate="2026-12-12"
-          venueName="Seda Vertis North, Quezon City"
-          eyebrow="Together with their families"
-          stampElements
-          looks={Object.keys(heroLooks).length > 0 ? heroLooks : null}
-          monogramSlot={
-            <span className="flex h-20 w-20 items-center justify-center rounded-full border border-gild font-serif text-2xl italic text-terracotta-700">
-              M &amp; J
-            </span>
-          }
-        />
+        {masthead}
       </section>
           </>
         }
@@ -518,11 +577,10 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       <section className="border-t border-ink/10 px-4 py-8">
         <p className="font-serif text-lg">Guest&rsquo;s ticket</p>
       </section>
-      {scrub ? (
-        /* 🎚 THE SCRUB CHAIN (`../lab-scrub.ts`) — the lab's scenes through the guest page's OWN renderer (`HubScenes`),
+        {/* 🎚 THE SCRUB CHAIN (`../lab-scrub.ts`) — the lab's scenes through the guest page's OWN renderer (`HubScenes`),
            one node a scene with its marker, exactly as `site-body.tsx` hands them over: the hand-overs, the holds and
            the engine are the real ones, and what the owner arranges on a scene in the Maker is what plays here. The
-           fixed blocks, and the one scene that is not in the chain, follow it as the ordinary lab draws them. */
+           fixed blocks, and the one scene that is not in the chain, follow it as the ordinary lab draws them. */}
         <>
           <div className="sn-editorial mx-auto max-w-[430px] px-4 pb-6" data-lab-scrub="">
             <HubScenes widgets={LAB_SCRUB_CHAIN.map((t) => ({ ...rowOf(t), widget_id: `lab-${t}` })) as never} scrubAllowed scrubOut>
@@ -543,31 +601,21 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
             {scene.our_love_story}
           </div>
         </>
+      </HubCoverHold>
+      </>
       ) : (
-        <>
-          {mark('w:countdown')}
-          {scene.countdown}
-          {/* 🔤 Three of the page's eyebrows, as the real scenes draw them — inside the
-              editorial scope the guest page wears (`.sn-editorial`). */}
-          <div className="sn-editorial">
-            {mark('f:gifts')}
-            {giftsBlock}
-            {mark('w:our_love_story')}
-            {scene.our_love_story}
-            {mark('w:special_message')}
-            {scene.special_message}
-            {mark('f:look')}
-            {lookBlock}
-            {mark('w:schedule')}
-            {scene.schedule}
-            {mark('w:venue_map')}
-            {scene.venue_map}
-            {mark('w:dress_code')}
-            {scene.dress_code}
-            {/* 🚶 No `data-maker-section` marker: the real page names the March by its `#site-entourage` id alone (`maker-section-find.ts`). */}
-            {marchBlock}
-          </div>
-        </>
+        /* 🗂 EVERY OTHER PAGE OF THE LAB'S CANVAS — the stage's own parts, in the Maker's order, each tab its own page
+           where the real canvas has tabs (`./lab-stage.tsx`). The cover is the stage's first part (`f:hero`), filed
+           on its page like any other, as on The Day. */
+        <LabStagePages
+          stage={stageNow}
+          tiles={stageTiles}
+          tab={typeof sp.tab === 'string' ? sp.tab : undefined}
+          paged={sp.tabs === '1' && !only}
+          mark={mark}
+          given={stageGiven}
+          selfMarked={STAGE_SELF_MARKED}
+        />
       )}
       {/* 🎞 POST EVENT'S OWN SCENES (the Post Event stage only) — a stand-in for each scene guests would meet, in the
           run's order, behind the marker the real story page puts before it (`p:<scene>`; the day's chapters share
@@ -596,7 +644,6 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
           ))}
         </div>
       ) : null}
-      </HubCoverHold>
       </HubPageHold>
       {/* The Maker's two-way bridge, as the real canvas mounts it — its `ready` swaps a buffered frame in. Never in a miniature. */}
       {sp.editor === '1' && !preview ? <EditorBridge /> : null}
